@@ -851,9 +851,8 @@ const SpirvType *LowerTypeVisitor::lowerVkTypeInVkNamespace(
   }
   if (name == "SampledTexture2D") {
     const auto sampledType = hlsl::GetHLSLResourceResultType(type);
-    auto loweredType =
-        lowerType(getElementType(astContext, sampledType), rule,
-                  /*isRowMajor*/ llvm::None, srcLoc);
+    auto loweredType = lowerType(getElementType(astContext, sampledType), rule,
+                                 /*isRowMajor*/ llvm::None, srcLoc);
 
     // Treat bool textures as uint for compatibility with OpTypeImage.
     if (loweredType == spvContext.getBoolType()) {

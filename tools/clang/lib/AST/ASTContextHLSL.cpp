@@ -1396,8 +1396,7 @@ CXXRecordDecl *hlsl::DeclareVkSampledTexture2DType(ASTContext &context,
       context.DeclarationNames.getIdentifier(&context.Idents.get("Sample")),
       /*isConst*/ true);
   sampleDecl->addAttr(HLSLIntrinsicAttr::CreateImplicit(
-      context, "op", "",
-      static_cast<int>(hlsl::IntrinsicOp::MOP_Sample)));
+      context, "op", "", static_cast<int>(hlsl::IntrinsicOp::MOP_Sample)));
   sampleDecl->addAttr(HLSLCXXOverloadAttr::CreateImplicit(context));
 
   // Sample(location, offset)
