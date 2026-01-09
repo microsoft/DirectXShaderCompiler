@@ -1269,8 +1269,8 @@ static const ArBasicKind g_LinAlgMatrixCT[] = {AR_OBJECT_LINALG_MATRIX,
 #ifdef ENABLE_SPIRV_CODEGEN
 static const ArBasicKind g_VKBufferPointerCT[] = {AR_OBJECT_VK_BUFFER_POINTER,
                                                   AR_BASIC_UNKNOWN};
-static const ArBasicKind g_VKSampledTexture2DCT[] = {AR_OBJECT_VK_SAMPLED_TEXTURE2D,
-                                                     AR_BASIC_UNKNOWN};
+static const ArBasicKind g_VKSampledTexture2DCT[] = {
+    AR_OBJECT_VK_SAMPLED_TEXTURE2D, AR_BASIC_UNKNOWN};
 #endif
 
 // Basic kinds, indexed by a LEGAL_INTRINSIC_COMPTYPES value.
@@ -1333,7 +1333,7 @@ const ArBasicKind *g_LegalIntrinsicCompTypes[] = {
     g_LinAlgCT,                   // LICOMPTYPE_LINALG
     g_BuiltInTrianglePositionsCT, // LICOMPTYPE_BUILTIN_TRIANGLE_POSITIONS
 #ifdef ENABLE_SPIRV_CODEGEN
-    g_VKBufferPointerCT, // LICOMPTYPE_VK_BUFFER_POINTER
+    g_VKBufferPointerCT,    // LICOMPTYPE_VK_BUFFER_POINTER
     g_VKSampledTexture2DCT, // LICOMPTYPE_VK_SAMPLED_TEXTURE2D
 #endif
 };
