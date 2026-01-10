@@ -1,4 +1,6 @@
-// RUN: %dxc -T lib_6_10 %s 2>&1 | FileCheck %s
+// REQUIRES: dxil-1-10
+
+// RUN: not %dxc -T lib_6_10 %s 2>&1 | FileCheck %s
 
 // CHECK-DAG: error: Function requires a visible group, but is called from a shader without one.
 

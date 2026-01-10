@@ -1,8 +1,10 @@
-// RUN: %dxc -T vs_6_10 -E mainVS %s 2>&1 | FileCheck %s -check-prefix=VS
-// RUN: %dxc -T ps_6_10 -E mainPS %s 2>&1 | FileCheck %s -check-prefix=PS
-// RUN: %dxc -T gs_6_10 -E mainGS %s 2>&1 | FileCheck %s -check-prefix=GS
-// RUN: %dxc -T hs_6_10 -E mainHS %s 2>&1 | FileCheck %s -check-prefix=HS
-// RUN: %dxc -T ds_6_10 -E mainDS %s 2>&1 | FileCheck %s -check-prefix=DS
+// REQUIRES: dxil-1-10
+
+// RUN: not %dxc -T vs_6_10 -E mainVS %s 2>&1 | FileCheck %s -check-prefix=VS
+// RUN: not %dxc -T ps_6_10 -E mainPS %s 2>&1 | FileCheck %s -check-prefix=PS
+// RUN: not %dxc -T gs_6_10 -E mainGS %s 2>&1 | FileCheck %s -check-prefix=GS
+// RUN: not %dxc -T hs_6_10 -E mainHS %s 2>&1 | FileCheck %s -check-prefix=HS
+// RUN: not %dxc -T ds_6_10 -E mainDS %s 2>&1 | FileCheck %s -check-prefix=DS
 
 // VS-DAG: error: Opcode GetGroupWaveCount not valid in shader model vs_6_10.
 // VS-DAG: error: Opcode GetGroupWaveIndex not valid in shader model vs_6_10.

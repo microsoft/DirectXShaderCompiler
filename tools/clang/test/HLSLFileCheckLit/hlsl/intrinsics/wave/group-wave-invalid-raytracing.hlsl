@@ -1,4 +1,6 @@
-// RUN: %dxc -T lib_6_10 %s 2>&1 | FileCheck %s
+// REQUIRES: dxil-1-10
+
+// RUN: not %dxc -T lib_6_10 %s 2>&1 | FileCheck %s
 
 // CHECK-DAG: error: Opcode GetGroupWaveCount not valid in shader model lib_6_10(callable).
 // CHECK-DAG: error: Opcode GetGroupWaveCount not valid in shader model lib_6_10(intersection).

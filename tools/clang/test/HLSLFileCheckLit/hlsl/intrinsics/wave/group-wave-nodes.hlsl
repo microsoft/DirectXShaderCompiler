@@ -1,3 +1,5 @@
+// REQUIRES: dxil-1-10
+
 // RUN: %dxc -T lib_6_10 %s 2>&1 | FileCheck %s
 
 // CHECK-DAG: define void @BroadcastingNode
