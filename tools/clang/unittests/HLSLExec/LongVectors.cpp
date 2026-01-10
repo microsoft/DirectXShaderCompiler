@@ -1614,10 +1614,6 @@ template <typename T> T waveMultiPrefixProduct(T A, UINT) {
 
 template <typename T> struct Op<OpType::WaveMatch, T, 1> : StrictValidation {};
 
-static constexpr std::bitset<128> ComputeWaveMask(UINT NumWaves) {
-  return (NumWaves < 64) ? (1ULL << NumWaves) - 1 : ~0UL;
-}
-
 struct WaveMatchExpectedResultWritter {
 private:
   std::bitset<128> LowWaveMask;
@@ -1625,19 +1621,19 @@ private:
 public:
   WaveMatchExpectedResultWritter(UINT WaveSize) {
     const UINT LowWaves = std::min(64U, WaveSize);
-    LowWaveMask = ComputeWaveMask(LowWaves);
+    LowWaveMask = (LowWaves < 64) ? (1ULL << LowWaves) - 1 : ~0ULL;
   }
 
   void WriteExpectedValueForLane(UINT *Dest, const UINT LaneID,
                                  const std::bitset<128> &ExpectedValue) {
-    const uint64_t LowActiveLanes = (ExpectedValue & LowWaveMask).to_ullong();
-    const uint64_t HighActiveLanes = (ExpectedValue >> 64).to_ullong();
+    const uint64_t Lo = (ExpectedValue & LowWaveMask).to_ullong();
+    const uint64_t Hi = (ExpectedValue >> 64).to_ullong();
 
     const UINT I = 4 * LaneID;
-    Dest[I + 0] = static_cast<UINT>(LowActiveLanes);
-    Dest[I + 1] = static_cast<UINT>(LowActiveLanes >> 32);
-    Dest[I + 2] = static_cast<UINT>(HighActiveLanes);
-    Dest[I + 3] = static_cast<UINT>(HighActiveLanes >> 32);
+    Dest[I + 0] = static_cast<UINT>(Lo);
+    Dest[I + 1] = static_cast<UINT>(Lo >> 32);
+    Dest[I + 2] = static_cast<UINT>(Hi);
+    Dest[I + 3] = static_cast<UINT>(Hi >> 32);
   }
 };
 
