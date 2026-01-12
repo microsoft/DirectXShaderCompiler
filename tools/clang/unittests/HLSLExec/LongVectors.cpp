@@ -1614,45 +1614,31 @@ template <typename T> T waveMultiPrefixProduct(T A, UINT) {
 
 template <typename T> struct Op<OpType::WaveMatch, T, 1> : StrictValidation {};
 
-struct WaveMatchExpectedResultWritter {
-private:
-  std::bitset<128> LowWaveMask;
-
-public:
-  WaveMatchExpectedResultWritter(UINT WaveSize) {
-    const UINT LowWaves = std::min(64U, WaveSize);
-    LowWaveMask = (LowWaves < 64) ? (1ULL << LowWaves) - 1 : ~0ULL;
+static void WriteExpectedValueForLane(UINT *Dest, const UINT LaneID,
+                                      const std::bitset<128> &ExpectedValue) {
+  const std::bitset<128> Lo32Mask = ~0UL;
+  UINT Offset = 4 * LaneID;
+  for (uint32_t I = 0; I < 4; I++) {
+    uint32_t V = ((ExpectedValue >> (I * 32)) & Lo32Mask).to_ulong();
+    Dest[Offset++] = V;
   }
-
-  void WriteExpectedValueForLane(UINT *Dest, const UINT LaneID,
-                                 const std::bitset<128> &ExpectedValue) {
-    const uint64_t Lo = (ExpectedValue & LowWaveMask).to_ullong();
-    const uint64_t Hi = (ExpectedValue >> 64).to_ullong();
-
-    const UINT I = 4 * LaneID;
-    Dest[I + 0] = static_cast<UINT>(Lo);
-    Dest[I + 1] = static_cast<UINT>(Lo >> 32);
-    Dest[I + 2] = static_cast<UINT>(Hi);
-    Dest[I + 3] = static_cast<UINT>(Hi >> 32);
-  }
-};
+}
 
 template <typename T> struct ExpectedBuilder<OpType::WaveMatch, T> {
   static std::vector<UINT> buildExpected(Op<OpType::WaveMatch, T, 1> &,
                                          const InputSets<T> &Inputs,
                                          const UINT WaveSize) {
-    // This test, sets lanes (0, WAVE_SIZE/2, and min(WAVE_SIZE-1,
-    // VECTOR_SIZE-1)) to unique values and has them modify the vector at their
-    // respective indices. Remaining lanes remain unchanged.
+    // This test, sets lanes (0, min(VectorSize/2, WaveSize/2), and
+    // min(VectorSize-1, WaveSize-1)) to unique values and has them modify the
+    // vector at their respective indices. Remaining lanes remain unchanged.
     DXASSERT_NOMSG(Inputs.size() == 1);
 
     const UINT VectorSize = static_cast<UINT>(Inputs[0].size());
     std::vector<UINT> Expected;
-    WaveMatchExpectedResultWritter ExpectedWritter(WaveSize);
     Expected.assign(WaveSize * 4, 0);
 
-    const UINT MidLaneID = WaveSize / 2;
-    const UINT LastLaneID = std::min(WaveSize - 1, VectorSize - 1);
+    const UINT MidLaneID = std::min(VectorSize / 2, WaveSize / 2);
+    const UINT LastLaneID = std::min(VectorSize - 1, WaveSize - 1);
 
     // Use a std::bitset<128> to represent the uint4 returned by WaveMatch as
     // its convenient this way in c++
@@ -1668,12 +1654,10 @@ template <typename T> struct ExpectedBuilder<OpType::WaveMatch, T> {
       if (LaneID == 0 || LaneID == MidLaneID || LaneID == LastLaneID) {
         std::bitset<128> ExpectedValue(0);
         ExpectedValue.set(LaneID);
-        ExpectedWritter.WriteExpectedValueForLane(Expected.data(), LaneID,
-                                                  ExpectedValue);
+        WriteExpectedValueForLane(Expected.data(), LaneID, ExpectedValue);
         continue;
       }
-      ExpectedWritter.WriteExpectedValueForLane(Expected.data(), LaneID,
-                                                DefaultExpectedValue);
+      WriteExpectedValueForLane(Expected.data(), LaneID, DefaultExpectedValue);
     }
 
     return Expected;
