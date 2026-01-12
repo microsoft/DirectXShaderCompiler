@@ -7515,9 +7515,9 @@ constexpr IntrinsicLower gLowerTable[] = {
 
     {IntrinsicOp::IOP_isnormal, TrivialIsSpecialFloat, DXIL::OpCode::IsNormal},
 
-    {IntrinsicOp::IOP_GetGroupWaveCount, EmptyLower,
+    {IntrinsicOp::IOP_GetGroupWaveCount, TranslateWaveToVal,
      DXIL::OpCode::GetGroupWaveCount},
-    {IntrinsicOp::IOP_GetGroupWaveIndex, EmptyLower,
+    {IntrinsicOp::IOP_GetGroupWaveIndex, TranslateWaveToVal,
      DXIL::OpCode::GetGroupWaveIndex},
 
     {IntrinsicOp::IOP_ClusterID, EmptyLower, DXIL::OpCode::ClusterID},
@@ -7616,6 +7616,8 @@ static void TranslateBuiltinIntrinsic(CallInst *CI,
                                       bool &Translated) {
   unsigned opcode = hlsl::GetHLOpcode(CI);
   const IntrinsicLower &lower = gLowerTable[opcode];
+  DXASSERT((unsigned)lower.IntriOpcode == opcode,
+           "Intrinsic lowering table index must match intrinsic opcode.");
   Value *Result = lower.LowerFunc(CI, lower.IntriOpcode, lower.DxilOpcode,
                                   helper, pObjHelper, Translated);
   if (Result)
