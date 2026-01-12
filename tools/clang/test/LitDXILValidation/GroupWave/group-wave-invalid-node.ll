@@ -1,3 +1,4 @@
+; REQUIRES: dxil-1-10
 ; RUN: not %dxv %s 2>&1 | FileCheck %s
 
 ; CHECK:  error: Function requires a visible group, but is called from a shader without one.

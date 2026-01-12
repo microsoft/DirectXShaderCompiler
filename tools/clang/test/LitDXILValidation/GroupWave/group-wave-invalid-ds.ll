@@ -1,3 +1,4 @@
+; REQUIRES: dxil-1-10
 ; RUN: not %dxv %s 2>&1 | FileCheck %s
 
 ; CHECK: error: Opcode GetGroupWaveCount not valid in shader model ds_6_10.
