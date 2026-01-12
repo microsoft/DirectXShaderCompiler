@@ -18,14 +18,18 @@ The included licenses apply to the following files:
 ## Changelog
 
 ### Upcoming Release
-- Implement GetGroupWaveIndex and GetGroupWaveCount in experimental Shader Model 6.10 
-  - [proposal](https://github.com/microsoft/hlsl-specs/blob/main/proposals/0048-group-wave-index.md)
-  - GetGroupWaveIndex: New intrinsic for Compute, Mesh, Amplification and Node shaders which returns the index of the wave within the thread group that the the thread is executing.
-  - GetGroupWaveCount: New intrinsic for Compute, Mesh, Amplification and Node shaders which returns the total number of waves executing within the thread group.
+
+- Implement GetGroupWaveIndex and GetGroupWaveCount in experimental Shader Model 6.10.
+- [proposal](https://github.com/microsoft/hlsl-specs/blob/main/proposals/0048-group-wave-index.md)
+- GetGroupWaveIndex: New intrinsic for Compute, Mesh, Amplification and Node shaders which returns the index of the wave within the thread group that the the thread is executing.
+- GetGroupWaveCount: New intrinsic for Compute, Mesh, Amplification and Node shaders which returns the total number of waves executing within the thread group.
 
 ### Version 1.9.2601
 
-- Shader Model 6.9 Release
+- Shader Model 6.9 is fully supported.
+  - See [the official blog
+  post](https://devblogs.microsoft.com/directx/shader-model-6-9-dxr-1-2-and-agilitysdk-1-619-release)
+  for more details.
 - Fixed regression: [#7510](https://github.com/microsoft/DirectXShaderCompiler/issues/7510) crash when calling `sizeof` on templated type.
 - Fixed regression: [#7508](https://github.com/microsoft/DirectXShaderCompiler/issues/7508) crash when calling `Load` with `status`.
 - Header file `dxcpix.h` was added to the release package.
