@@ -729,6 +729,10 @@ ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
           if (OP::BarrierRequiresGroup(CI))
             requiresGroup = true;
           break;
+        case DXIL::OpCode::GetGroupWaveIndex:
+        case DXIL::OpCode::GetGroupWaveCount:
+          requiresGroup = true;
+          break;
         default:
           // Normal opcodes.
           break;

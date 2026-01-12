@@ -612,7 +612,6 @@ class db_oload_gen:
             "i32c": "A(pI32C);",
             "i64": "A(pI64);",
             "i8": "A(pI8);",
-            "$u4": "A(pI4S);",
             "pf32": "A(pPF32);",
             "res": "A(pRes);",
             "splitdouble": "A(pSDT);",
@@ -631,20 +630,17 @@ class db_oload_gen:
             "u8": "A(pI8);",
             "v": "A(pV);",
             "$vec4": "VEC4(pETy);",
-            "w": "A(pWav);",
             "SamplePos": "A(pPos);",
-            "udt": "A(udt);",
-            "obj": "A(obj);",
+            "$udt": "A(udt);",
+            "$obj": "A(obj);",
             "resproperty": "A(resProperty);",
             "resbind": "A(resBind);",
-            "waveMat": "A(pWaveMatPtr);",
-            "waveMatProps": "A(pWaveMatProps);",
-            "$gsptr": "A(pGSEltPtrTy);",
             "nodehandle": "A(pNodeHandle);",
             "noderecordhandle": "A(pNodeRecordHandle);",
             "nodeproperty": "A(nodeProperty);",
             "noderecordproperty": "A(nodeRecordProperty);",
             "hit_object": "A(pHit);",
+            "matrixref": "A(pMatrixRef);",
             # Extended overload slots, extend as needed:
             "$x0": "EXT(0);",
             "$x1": "EXT(1);",
@@ -674,8 +670,8 @@ class db_oload_gen:
         elt_ty = "$o"
         res_ret_ty = "$r"
         cb_ret_ty = "$cb"
-        udt_ty = "udt"
-        obj_ty = "obj"
+        udt_ty = "$udt"
+        obj_ty = "$obj"
         vec_ty = "$vec"
         gsptr_ty = "$gsptr"
         extended_ty = "$x"
@@ -769,7 +765,7 @@ class db_oload_gen:
                 "v": "Type::getVoidTy(Ctx)",
                 # No other types should be referenced here.
             }
-            assert ty in type_code_texts, "llvm type %s is unknown" % (ty)
+            assert ty in type_code_texts, f"llvm type {ty} is unknown, '{instr.name}'"
             ty_code = type_code_texts[ty]
 
             if ty_code not in single_dict:

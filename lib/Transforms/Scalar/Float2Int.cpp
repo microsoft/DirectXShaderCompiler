@@ -129,19 +129,25 @@ static Instruction::BinaryOps mapBinOpcode(unsigned Opcode) {
 
 // Find the roots - instructions that convert from the FP domain to
 // integer domain.
+// findRoots updated from upstream to skip vectors
 void Float2Int::findRoots(Function &F, SmallPtrSet<Instruction*,8> &Roots) {
-  for (auto &I : inst_range(F)) {
-    switch (I.getOpcode()) {
-    default: break;
-    case Instruction::FPToUI:
-    case Instruction::FPToSI:
-      Roots.insert(&I);
-      break;
-    case Instruction::FCmp:
-      if (mapFCmpPred(cast<CmpInst>(&I)->getPredicate()) != 
-          CmpInst::BAD_ICMP_PREDICATE)
+  for (BasicBlock &BB : F) {
+    for (Instruction &I : BB) {
+      if (isa<VectorType>(I.getType()))
+        continue;
+      switch (I.getOpcode()) {
+      default:
+        break;
+      case Instruction::FPToUI:
+      case Instruction::FPToSI:
         Roots.insert(&I);
-      break;
+        break;
+      case Instruction::FCmp:
+        if (mapFCmpPred(cast<CmpInst>(&I)->getPredicate()) !=
+            CmpInst::BAD_ICMP_PREDICATE)
+          Roots.insert(&I);
+        break;
+      }
     }
   }
 }
@@ -400,7 +406,7 @@ bool Float2Int::validateAndTransform() {
         R.isFullSet() || R.isSignWrappedSet())
       continue;
     assert(ConvertedToTy && "Must have set the convertedtoty by this point!");
-    
+
     // The number of bits required is the maximum of the upper and
     // lower limits, plus one so it can be signed.
     unsigned MinBW = std::max(R.getLower().getMinSignedBits(),

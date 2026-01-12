@@ -2926,6 +2926,17 @@ void SpirvEmitter::doReturnStmt(const ReturnStmt *stmt) {
   bool returnsVoid = curFunction->getReturnType().getTypePtr()->isVoidType();
   if (!returnsVoid) {
     assert(retVal);
+    const Expr *srcExpr = retVal->IgnoreParenCasts();
+    if (isDescriptorHeap(srcExpr)) {
+      const Expr *base = nullptr;
+      getDescriptorHeapOperands(srcExpr, &base, /* index= */ nullptr);
+      const Expr *parentExpr = cast<CastExpr>(parentMap->getParent(srcExpr));
+      QualType resourceType = parentExpr->getType();
+      const auto *declRefExpr = dyn_cast<DeclRefExpr>(base->IgnoreCasts());
+      auto *decl = cast<VarDecl>(declRefExpr->getDecl());
+      declIdMapper.createResourceHeap(decl, resourceType);
+    }
+
     // Update counter variable associated with function returns
     tryToAssignCounterVar(curFunction, retVal);
 
@@ -8861,6 +8872,11 @@ const Expr *SpirvEmitter::collectArrayStructIndices(
         }
       } else if (castExpr->getCastKind() == CK_UncheckedDerivedToBase ||
                  castExpr->getCastKind() == CK_HLSLDerivedToBase) {
+        // First the indices for the sub expression.
+        const Expr *base =
+            collectArrayStructIndices(castExpr->getSubExpr(), rawIndex,
+                                      rawIndices, indices, isMSOutAttribute);
+
         llvm::SmallVector<uint32_t, 4> BaseIdx;
         getBaseClassIndices(castExpr, &BaseIdx);
         if (rawIndex) {
@@ -8871,8 +8887,7 @@ const Expr *SpirvEmitter::collectArrayStructIndices(
                                                          llvm::APInt(32, Idx)));
         }
 
-        return collectArrayStructIndices(castExpr->getSubExpr(), rawIndex,
-                                         rawIndices, indices, isMSOutAttribute);
+        return base;
       }
       return collectArrayStructIndices(castExpr->getSubExpr(), rawIndex,
                                        rawIndices, indices, isMSOutAttribute);
@@ -9454,6 +9469,22 @@ SpirvEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
   case hlsl::IntrinsicOp::IOP_WaveActiveCountBits:
     retVal = processWaveCountBits(callExpr, spv::GroupOperation::Reduce);
     break;
+  case hlsl::IntrinsicOp::IOP_GetGroupWaveIndex: {
+    featureManager.requestTargetEnv(SPV_ENV_VULKAN_1_1, "GetGroupWaveIndex",
+                                    srcLoc);
+    const QualType retType = callExpr->getCallReturnType(astContext);
+    auto *var =
+        declIdMapper.getBuiltinVar(spv::BuiltIn::SubgroupId, retType, srcLoc);
+    retVal = spvBuilder.createLoad(retType, var, srcLoc, srcRange);
+  } break;
+  case hlsl::IntrinsicOp::IOP_GetGroupWaveCount: {
+    featureManager.requestTargetEnv(SPV_ENV_VULKAN_1_1, "GetGroupWaveCount",
+                                    srcLoc);
+    const QualType retType = callExpr->getCallReturnType(astContext);
+    auto *var =
+        declIdMapper.getBuiltinVar(spv::BuiltIn::NumSubgroups, retType, srcLoc);
+    retVal = spvBuilder.createLoad(retType, var, srcLoc, srcRange);
+  } break;
   case hlsl::IntrinsicOp::IOP_WaveActiveUSum:
   case hlsl::IntrinsicOp::IOP_WaveActiveSum:
   case hlsl::IntrinsicOp::IOP_WaveActiveUProduct:
@@ -9748,7 +9779,10 @@ SpirvEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
     retVal = processReverseBitsIntrinsic(callExpr, srcLoc);
     break;
   }
-    INTRINSIC_SPIRV_OP_CASE(countbits, BitCount, false);
+  case hlsl::IntrinsicOp::IOP_countbits: {
+    retVal = processCountBitsIntrinsic(callExpr, srcLoc);
+    break;
+  }
     INTRINSIC_SPIRV_OP_CASE(fmod, FRem, true);
     INTRINSIC_SPIRV_OP_CASE(fwidth, Fwidth, true);
     INTRINSIC_SPIRV_OP_CASE(and, LogicalAnd, false);
@@ -9905,6 +9939,91 @@ SpirvInstruction *SpirvEmitter::processDerivativeIntrinsic(
       spvBuilder.createUnaryOp(opcode, B32Type, operand, loc, range);
   result = castToType(result, B32Type, returnType, loc, range);
   return result;
+}
+
+SpirvInstruction *
+SpirvEmitter::processCountBitsIntrinsic(const CallExpr *callExpr,
+                                        clang::SourceLocation srcLoc) {
+  const QualType argType = callExpr->getArg(0)->getType();
+  const uint32_t bitwidth = getElementSpirvBitwidth(
+      astContext, argType, spirvOptions.enable16BitTypes);
+
+  // The intrinsic should always return an uint or vector of uint.
+  QualType retType = {};
+  if (!isVectorType(callExpr->getCallReturnType(astContext), &retType))
+    retType = callExpr->getCallReturnType(astContext);
+  assert(retType == astContext.UnsignedIntTy);
+
+  // SPIRV only supports 32 bit integers for `OpBitCount` until maintenace9.
+  // We need to unfold and add extra instructions to support this on
+  // non-32bit integers.
+  if (bitwidth == 32) {
+    return processIntrinsicUsingSpirvInst(callExpr, spv::Op::OpBitCount,
+                                          /* actPerRowForMatrices= */ false);
+  } else if (bitwidth == 16) {
+    return generateCountBits16(callExpr, srcLoc);
+  } else if (bitwidth == 64) {
+    return generateCountBits64(callExpr, srcLoc);
+  }
+  emitError("countbits currently only supports 16, 32, and 64-bit "
+            "width components when targeting SPIR-V",
+            srcLoc);
+  return nullptr;
+}
+
+SpirvInstruction *
+SpirvEmitter::generateCountBits16(const CallExpr *callExpr,
+                                  clang::SourceLocation srcLoc) {
+  const QualType argType = callExpr->getArg(0)->getType();
+  // Load the 16-bit value
+  auto *loadInst = doExpr(callExpr->getArg(0));
+  bool isVector = isVectorType(argType);
+  uint32_t count = isVector ? hlsl::GetHLSLVecSize(argType) : 1;
+  QualType uintType =
+      isVector ? astContext.getExtVectorType(astContext.UnsignedIntTy, count)
+               : astContext.UnsignedIntTy;
+
+  auto *extended =
+      spvBuilder.createUnaryOp(spv::Op::OpUConvert, uintType, loadInst, srcLoc);
+  return spvBuilder.createUnaryOp(spv::Op::OpBitCount, uintType, extended,
+                                  srcLoc);
+}
+
+SpirvInstruction *
+SpirvEmitter::generateCountBits64(const CallExpr *callExpr,
+                                  clang::SourceLocation srcLoc) {
+  const QualType argType = callExpr->getArg(0)->getType();
+  // Load the 16-bit value
+  auto *loadInst = doExpr(callExpr->getArg(0));
+  bool isVector = isVectorType(argType);
+  uint32_t count = isVector ? hlsl::GetHLSLVecSize(argType) : 1;
+  QualType uintType =
+      isVector ? astContext.getExtVectorType(astContext.UnsignedIntTy, count)
+               : astContext.UnsignedIntTy;
+
+  auto *lhs =
+      spvBuilder.createUnaryOp(spv::Op::OpUConvert, uintType, loadInst, srcLoc);
+  auto *lhs_count =
+      spvBuilder.createUnaryOp(spv::Op::OpBitCount, uintType, lhs, srcLoc);
+
+  auto *shiftAmount =
+      spvBuilder.getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, 32));
+  if (isVector) {
+    SmallVector<SpirvConstant *, 4> Components;
+    for (unsigned I = 0; I < count; ++I)
+      Components.push_back(shiftAmount);
+    shiftAmount = spvBuilder.getConstantComposite(uintType, Components);
+  }
+
+  SpirvInstruction *rhs = spvBuilder.createBinaryOp(
+      spv::Op::OpShiftRightLogical, argType, loadInst, shiftAmount, srcLoc);
+  auto *rhs32 =
+      spvBuilder.createUnaryOp(spv::Op::OpUConvert, uintType, rhs, srcLoc);
+  auto *rhs_count =
+      spvBuilder.createUnaryOp(spv::Op::OpBitCount, uintType, rhs32, srcLoc);
+
+  return spvBuilder.createBinaryOp(spv::Op::OpIAdd, uintType, rhs_count,
+                                   lhs_count, srcLoc);
 }
 
 SpirvInstruction *
@@ -12371,7 +12490,9 @@ SpirvEmitter::processIntrinsicAsType(const CallExpr *callExpr) {
 
   // Method 4: double  asdouble(uint lowbits, uint highbits)
   // Method 5: double2 asdouble(uint2 lowbits, uint2 highbits)
-  // Method 6:
+  // Method 6: double3 asdouble(uint3 lowbits, uint3 highbits)
+  // Method 7: double4 asdouble(uint4 lowbits, uint4 highbits)
+  // Method 8:
   //           void asuint(
   //           in  double value,
   //           out uint lowbits,
@@ -12420,32 +12541,37 @@ SpirvEmitter::processIntrinsicAsType(const CallExpr *callExpr) {
     auto *highbits = doExpr(callExpr->getArg(1));
     const auto uintType = astContext.UnsignedIntTy;
     const auto doubleType = astContext.DoubleTy;
+    uint32_t vecSize;
     // Handling Method 4
-    if (argType->isUnsignedIntegerType()) {
+    if (!isVectorType(argType, nullptr, &vecSize)) {
       const auto uintVec2Type = astContext.getExtVectorType(uintType, 2);
       auto *operand = spvBuilder.createCompositeConstruct(
           uintVec2Type, {lowbits, highbits}, loc, range);
       return spvBuilder.createUnaryOp(spv::Op::OpBitcast, doubleType, operand,
                                       loc, range);
     }
-    // Handling Method 5
+    // Handling Method 5, 6, 7
     else {
-      const auto uintVec4Type = astContext.getExtVectorType(uintType, 4);
-      const auto doubleVec2Type = astContext.getExtVectorType(doubleType, 2);
-      auto *operand = spvBuilder.createVectorShuffle(
-          uintVec4Type, lowbits, highbits, {0, 2, 1, 3}, loc, range);
-      return spvBuilder.createUnaryOp(spv::Op::OpBitcast, doubleVec2Type,
-                                      operand, loc, range);
+      std::vector<SpirvInstruction *> doubles = {};
+      const auto uintVec2Type = astContext.getExtVectorType(uintType, 2);
+      // For each pair, convert them to double.
+      for (uint32_t i = 0; i < vecSize; ++i) {
+        auto *operand = spvBuilder.createVectorShuffle(
+            uintVec2Type, lowbits, highbits, {i, vecSize + i}, loc, range);
+        SpirvInstruction *doubleElem = spvBuilder.createUnaryOp(
+            spv::Op::OpBitcast, doubleType, operand, loc, range);
+        doubles.push_back(doubleElem);
+      }
+      return spvBuilder.createCompositeConstruct(returnType, doubles, loc,
+                                                 range);
     }
   }
   case 3: {
-    // Handling Method 6.
+    // Handling Method 8.
     const Expr *arg1 = callExpr->getArg(1);
     const Expr *arg2 = callExpr->getArg(2);
 
     SpirvInstruction *value = doExpr(arg0);
-    SpirvInstruction *lowbits = doExpr(arg1);
-    SpirvInstruction *highbits = doExpr(arg2);
 
     QualType elemType = QualType();
     uint32_t rowCount = 0;
@@ -12468,9 +12594,8 @@ SpirvEmitter::processIntrinsicAsType(const CallExpr *callExpr) {
       return nullptr;
     }
 
-    spvBuilder.createStore(lowbits, lowbitsResult, loc, range);
-    spvBuilder.createStore(highbits, highbitsResult, loc, range);
-
+    processAssignment(arg1, lowbitsResult, false, nullptr, range);
+    processAssignment(arg2, highbitsResult, false, nullptr, range);
     return nullptr;
   }
   default:
