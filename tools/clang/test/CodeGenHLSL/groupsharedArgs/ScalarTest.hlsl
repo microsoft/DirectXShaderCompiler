@@ -2,7 +2,8 @@
 
 groupshared uint16_t SharedData;
 
-// mangling changes added the first G
+// Make sure the mangling changes for groupshared parameter annotation is reflected in the function signature (the first G)
+// The mangled function signature for void fn(uint16_t Sh) should be @"\01?fn1@@YAXAAG@Z" (without the extra G)
 // CHECK-LABEL: @"\01?fn1@@YAXAGAG@Z"
 // CHECK: store i16 5, i16 addrspace(3)* %Sh, align 4
 void fn1(groupshared uint16_t Sh) {
