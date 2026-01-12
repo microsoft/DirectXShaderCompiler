@@ -17,13 +17,16 @@ The included licenses apply to the following files:
 
 ## Changelog
 
-### Upcoming Release
+### Version 1.9.2601
 
+- Shader Model 6.9 Release
 - Fixed regression: [#7510](https://github.com/microsoft/DirectXShaderCompiler/issues/7510) crash when calling `sizeof` on templated type.
 - Fixed regression: [#7508](https://github.com/microsoft/DirectXShaderCompiler/issues/7508) crash when calling `Load` with `status`.
 - Header file `dxcpix.h` was added to the release package.
 - Moved Linear Algebra (Cooperative Vector) DXIL Opcodes to experimental Shader Model 6.10
-- Added support for `long long` and `unsigned long long` compile-time constant evaluation, fixes [#7952](https://github.com/microsoft/DirectXShaderCompiler/issues/7952).
+- Added support for `long long` and `unsigned long long` compile-time constant
+  evaluation, fixes
+  [#7952](https://github.com/microsoft/DirectXShaderCompiler/issues/7952).
 
 ### Version 1.8.2505
 
