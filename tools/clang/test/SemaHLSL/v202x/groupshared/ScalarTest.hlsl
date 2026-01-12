@@ -3,7 +3,7 @@
 groupshared uint16_t SharedData;
 
 void fn1(groupshared half Sh) {
-// expected-note@-1{{candidate function not viable: no known conversion from '__attribute__((address_space(3))) uint16_t' to '__attribute__((address_space(3))) half &' for 1st argument}}
+// expected-note@-1{{candidate function not viable: no known conversion from '__attribute__((address_space(3))) uint16_t' to '__attribute__((address_space(3))) half' for 1st argument}}
   Sh = 5;
 }
 

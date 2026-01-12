@@ -4961,7 +4961,7 @@ InitCallParamConversions(Sema &S, const FunctionProtoType *Proto,
         Arg->getType().getQualifiers().getAddressSpace() !=
             hlsl::DXIL::kTGSMAddrSpace) {
       InConversion.setBad(BadConversionSequence::no_conversion, Arg->getType(),
-                          ParamType);
+                          ParamType.getNonReferenceType());
       InConversion.Bad.FromExpr = Arg;
       return;
     }

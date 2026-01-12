@@ -8,5 +8,5 @@ void fn1(inout uint Sh) {
 
 void fn2() {
   fn1(SharedData);
-// expected-warning@-1{{assing groupshared variable to a parameter annotated with inout. See'groupshared' parameter annotation added in 202x}}
+// expected-warning@-1{{Passing groupshared variable to a parameter annotated with inout. See'groupshared' parameter annotation added in 202x}}
 }

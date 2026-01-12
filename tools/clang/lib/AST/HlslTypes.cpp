@@ -939,12 +939,8 @@ unsigned GetHLSLOutputPatchCount(QualType type) {
 
 bool IsParamAttributedAsGroupShared(clang::AttributeList *pAttributes) {
   while (pAttributes != nullptr) {
-    switch (pAttributes->getKind()) {
-    case AttributeList::AT_HLSLGroupShared:
+    if (pAttributes->getKind() == AttributeList::AT_HLSLGroupShared)
       return true;
-    default:
-      break;
-    }
     pAttributes = pAttributes->getNext();
   }
   return false;

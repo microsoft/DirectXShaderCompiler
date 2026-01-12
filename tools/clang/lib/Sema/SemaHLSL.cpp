@@ -14479,23 +14479,16 @@ void Sema::DiagnoseHLSLDeclAttr(const Decl *D, const Attr *A) {
   if (IsExportAttr || IsNoInlineAttr) {
     if (const FunctionDecl *FD = dyn_cast<FunctionDecl>(D)) {
       for (ParmVarDecl *PVD : FD->parameters()) {
-        if (!PVD->hasAttrs())
-          continue;
-        for (Attr *A : PVD->getAttrs()) {
-          switch (A->getKind()) {
-          case clang::attr::HLSLGroupShared: {
+        if (PVD->hasAttr<HLSLGroupSharedAttr>()) {
             Diag(A->getLocation(), diag::err_hlsl_varmodifiersna)
                 << "groupshared"
                 << "export/noinline"
                 << "parameter";
-            return;
-            break;
-          }
-          }
-        }
+	return;
+	}
       }
-      return;
     }
+    return;
   }
   if (IsGCAttr || IsRCAttr) {
     const ValueDecl *TD = cast<ValueDecl>(D);
