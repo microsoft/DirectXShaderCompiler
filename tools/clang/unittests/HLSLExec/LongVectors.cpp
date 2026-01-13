@@ -1616,7 +1616,11 @@ template <typename T> struct Op<OpType::WaveMatch, T, 1> : StrictValidation {};
 
 static void WriteExpectedValueForLane(UINT *Dest, const UINT LaneID,
                                       const std::bitset<128> &ExpectedValue) {
-  const std::bitset<128> Lo32Mask = ~0UL;
+  // We need the mask to always be 32 bits, this calculation assurers that.
+  std::bitset<128> Lo32Mask;
+  Lo32Mask.set();
+  Lo32Mask >>= 128 - 32;
+
   UINT Offset = 4 * LaneID;
   for (uint32_t I = 0; I < 4; I++) {
     uint32_t V = ((ExpectedValue >> (I * 32)) & Lo32Mask).to_ulong();
@@ -1628,7 +1632,7 @@ template <typename T> struct ExpectedBuilder<OpType::WaveMatch, T> {
   static std::vector<UINT> buildExpected(Op<OpType::WaveMatch, T, 1> &,
                                          const InputSets<T> &Inputs,
                                          const UINT WaveSize) {
-    // This test, sets lanes (0, min(VectorSize/2, WaveSize/2), and
+    // This test sets lanes (0, min(VectorSize/2, WaveSize/2), and
     // min(VectorSize-1, WaveSize-1)) to unique values and has them modify the
     // vector at their respective indices. Remaining lanes remain unchanged.
     DXASSERT_NOMSG(Inputs.size() == 1);
@@ -1646,6 +1650,7 @@ template <typename T> struct ExpectedBuilder<OpType::WaveMatch, T> {
 
     for (UINT I = 0; I < WaveSize; ++I)
       DefaultExpectedValue.set(I);
+
     DefaultExpectedValue.reset(0);
     DefaultExpectedValue.reset(MidLaneID);
     DefaultExpectedValue.reset(LastLaneID);
