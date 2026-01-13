@@ -19,10 +19,6 @@ The included licenses apply to the following files:
 
 ### Upcoming Release
 
-- TBD.
-
-### Version 1.9.2601
-
 - Shader Model 6.9 is fully supported.
   - See [the official blog
   post](https://devblogs.microsoft.com/directx/shader-model-6-9-dxr-1-2-and-agilitysdk-1-619-release)
