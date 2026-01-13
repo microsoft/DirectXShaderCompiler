@@ -23,6 +23,9 @@ The included licenses apply to the following files:
   - See [the official blog
   post](https://devblogs.microsoft.com/directx/shader-model-6-9-dxr-1-2-and-agilitysdk-1-619-release)
   for more details.
+  - Execution tests for all intrinsics supporting DXIL vectors. See the [test
+    plan](https://github.com/microsoft/hlsl-specs/blob/main/proposals/infra/INF-0006-Long-Vector-ExecutionTest-Plan.md)
+    for more info.
 - Fixed regression: [#7510](https://github.com/microsoft/DirectXShaderCompiler/issues/7510) crash when calling `sizeof` on templated type.
 - Fixed regression: [#7508](https://github.com/microsoft/DirectXShaderCompiler/issues/7508) crash when calling `Load` with `status`.
 - Header file `dxcpix.h` was added to the release package.
