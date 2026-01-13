@@ -1616,7 +1616,6 @@ template <typename T> struct Op<OpType::WaveMatch, T, 1> : StrictValidation {};
 
 static void WriteExpectedValueForLane(UINT *Dest, const UINT LaneID,
                                       const std::bitset<128> &ExpectedValue) {
-  // We need the mask to always be 32 bits, this calculation assurers that.
   std::bitset<128> Lo32Mask;
   Lo32Mask.set();
   Lo32Mask >>= 128 - 32;

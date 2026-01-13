@@ -4423,9 +4423,6 @@ void MSMain(uint GID : SV_GroupIndex,
                 Vector[LaneIndex] = (TYPE) 1;
             }
 
-            // Making sure all lanes finish updating their vectors.
-            AllMemoryBarrierWithGroupSync();
-
             uint4 Result = WaveMatch(Vector);
             uint Index = WaveGetLaneIndex();
 
