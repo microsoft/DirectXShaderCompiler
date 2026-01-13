@@ -6,6 +6,7 @@
 // CHECK-NEXT: PSVRuntimeInfo:
 // CHECK-NEXT:  Amplification Shader
 // CHECK-NEXT:  NumThreads=(32,1,1)
+// CHECK-NEXT:  NumBytesGroupSharedMemory=0
 // CHECK-NEXT:  MinimumExpectedWaveLaneCount: 0
 // CHECK-NEXT:  MaximumExpectedWaveLaneCount: 4294967295
 // CHECK-NEXT:  UsesViewID: false

@@ -12971,6 +12971,22 @@ void DiagnoseEntryAttrAllowedOnStage(clang::Sema *self,
         }
         break;
       }
+      case clang::attr::HLSLGroupSharedLimit: {
+        switch (shaderKind) {
+        case DXIL::ShaderKind::Compute:
+        case DXIL::ShaderKind::Mesh:
+        case DXIL::ShaderKind::Amplification:
+        case DXIL::ShaderKind::Node:
+          break;
+        default:
+          self->Diag(pAttr->getRange().getBegin(),
+                    diag::err_hlsl_attribute_unsupported_stage)
+              << "GroupSharedLimit"
+              << "compute, mesh, node, or amplification";
+          break;
+        }
+        break;
+      }
       }
     }
   }

@@ -421,6 +421,19 @@ unsigned DxilModule::GetGroupSharedLimit() const {
   return props.groupSharedLimitBytes;
 }
 
+unsigned DxilModule::GetTGSMSizeInBytes() const {
+  const DataLayout &DL = m_pModule->getDataLayout();
+  unsigned TGSMSize = 0;
+  
+  for (GlobalVariable &GV : m_pModule->globals()) {
+    if (GV.getType()->getAddressSpace() == DXIL::kTGSMAddrSpace) {
+      TGSMSize += DL.getTypeAllocSize(GV.getType()->getElementType());
+    }
+  }
+
+  return TGSMSize;
+}
+
 DxilWaveSize &DxilModule::GetWaveSize() {
   return const_cast<DxilWaveSize &>(
       static_cast<const DxilModule *>(this)->GetWaveSize());

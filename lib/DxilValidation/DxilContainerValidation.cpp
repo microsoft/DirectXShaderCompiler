@@ -185,7 +185,8 @@ private:
                            unsigned PSVVersion);
   void VerifyViewIDDependence(PSVRuntimeInfo1 *PSV1, unsigned PSVVersion);
   void VerifyEntryProperties(const ShaderModel *SM, PSVRuntimeInfo0 *PSV0,
-                             PSVRuntimeInfo1 *PSV1, PSVRuntimeInfo2 *PSV2);
+                             PSVRuntimeInfo1 *PSV1, PSVRuntimeInfo2 *PSV2,
+                             PSVRuntimeInfo3 *PSV3, PSVRuntimeInfo4 *PSV4);
   void EmitMismatchError(StringRef Name, StringRef PartContent,
                          StringRef ModuleContent) {
     ValCtx.EmitFormatError(ValidationRule::ContainerContentMatches,
@@ -412,7 +413,9 @@ void PSVContentVerifier::VerifyResources(unsigned PSVVersion) {
 void PSVContentVerifier::VerifyEntryProperties(const ShaderModel *SM,
                                                PSVRuntimeInfo0 *PSV0,
                                                PSVRuntimeInfo1 *PSV1,
-                                               PSVRuntimeInfo2 *PSV2) {
+                                               PSVRuntimeInfo2 *PSV2,
+                                               PSVRuntimeInfo3 *PSV3,
+                                               PSVRuntimeInfo4 *PSV4) {
   PSVRuntimeInfo4 DMPSV;
   memset(&DMPSV, 0, sizeof(PSVRuntimeInfo4));
 
@@ -444,6 +447,9 @@ void PSVContentVerifier::VerifyEntryProperties(const ShaderModel *SM,
     Mismatched = memcmp(PSV1, &DMPSV, sizeof(PSVRuntimeInfo1)) != 0;
   else
     Mismatched = memcmp(PSV0, &DMPSV, sizeof(PSVRuntimeInfo0)) != 0;
+
+  if (PSV4 && PSV4->NumBytesGroupSharedMemory != DMPSV.NumBytesGroupSharedMemory)  
+    Mismatched = true;  
 
   if (Mismatched) {
     std::string Str;
@@ -477,9 +483,11 @@ void PSVContentVerifier::Verify(unsigned ValMajor, unsigned ValMinor,
   PSVRuntimeInfo0 *PSV0 = PSV.GetPSVRuntimeInfo0();
   PSVRuntimeInfo1 *PSV1 = PSV.GetPSVRuntimeInfo1();
   PSVRuntimeInfo2 *PSV2 = PSV.GetPSVRuntimeInfo2();
+  PSVRuntimeInfo3 *PSV3 = PSV.GetPSVRuntimeInfo3();
+  PSVRuntimeInfo4 *PSV4 = PSV.GetPSVRuntimeInfo4();
 
   const ShaderModel *SM = DM.GetShaderModel();
-  VerifyEntryProperties(SM, PSV0, PSV1, PSV2);
+  VerifyEntryProperties(SM, PSV0, PSV1, PSV2, PSV3, PSV4);
   if (PSVVersion > 0) {
     if (((PSV.GetSigInputElements() + PSV.GetSigOutputElements() +
           PSV.GetSigPatchConstOrPrimElements()) > 0) &&

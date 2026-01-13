@@ -1648,23 +1648,6 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
 
   if (const HLSLGroupSharedLimitAttr *Attr =
           FD->getAttr<HLSLGroupSharedLimitAttr>()) {
-    if (isEntry && !SM->IsCS() && !SM->IsMS() && !SM->IsAS()) {
-      unsigned DiagID = Diags.getCustomDiagID(
-          DiagnosticsEngine::Error,
-          "attribute GroupSharedLimit only valid for CS/MS/AS.");
-      Diags.Report(Attr->getLocation(), DiagID);
-      return;
-    }
-
-    // Only valid for SM6.10+
-    if (!SM->IsSM610Plus()) {
-      unsigned DiagID = Diags.getCustomDiagID(
-          DiagnosticsEngine::Error, "attribute GroupSharedLimit only valid for "
-                                    "Shader Model 6.10 and above.");
-      Diags.Report(Attr->getLocation(), DiagID);
-      return;
-    }
-
     funcProps->groupSharedLimitBytes = Attr->getLimit();
   } else {
     if (SM->IsMS()) { // Fallback to default limits
