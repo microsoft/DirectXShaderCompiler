@@ -410,12 +410,9 @@ void PSVContentVerifier::VerifyResources(unsigned PSVVersion) {
   VerifyResourceTable(DM.GetUAVs(), ResIndex, PSVVersion);
 }
 
-void PSVContentVerifier::VerifyEntryProperties(const ShaderModel *SM,
-                                               PSVRuntimeInfo0 *PSV0,
-                                               PSVRuntimeInfo1 *PSV1,
-                                               PSVRuntimeInfo2 *PSV2,
-                                               PSVRuntimeInfo3 *PSV3,
-                                               PSVRuntimeInfo4 *PSV4) {
+void PSVContentVerifier::VerifyEntryProperties(
+    const ShaderModel *SM, PSVRuntimeInfo0 *PSV0, PSVRuntimeInfo1 *PSV1,
+    PSVRuntimeInfo2 *PSV2, PSVRuntimeInfo3 *PSV3, PSVRuntimeInfo4 *PSV4) {
   PSVRuntimeInfo4 DMPSV;
   memset(&DMPSV, 0, sizeof(PSVRuntimeInfo4));
 
@@ -448,8 +445,9 @@ void PSVContentVerifier::VerifyEntryProperties(const ShaderModel *SM,
   else
     Mismatched = memcmp(PSV0, &DMPSV, sizeof(PSVRuntimeInfo0)) != 0;
 
-  if (PSV4 && PSV4->NumBytesGroupSharedMemory != DMPSV.NumBytesGroupSharedMemory)  
-    Mismatched = true;  
+  if (PSV4 &&
+      PSV4->NumBytesGroupSharedMemory != DMPSV.NumBytesGroupSharedMemory)
+    Mismatched = true;
 
   if (Mismatched) {
     std::string Str;

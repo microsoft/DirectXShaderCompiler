@@ -424,7 +424,7 @@ unsigned DxilModule::GetGroupSharedLimit() const {
 unsigned DxilModule::GetTGSMSizeInBytes() const {
   const DataLayout &DL = m_pModule->getDataLayout();
   unsigned TGSMSize = 0;
-  
+
   for (GlobalVariable &GV : m_pModule->globals()) {
     if (GV.getType()->getAddressSpace() == DXIL::kTGSMAddrSpace) {
       TGSMSize += DL.getTypeAllocSize(GV.getType()->getElementType());

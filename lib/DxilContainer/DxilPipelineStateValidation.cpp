@@ -824,7 +824,9 @@ void hlsl::PrintPSVRuntimeInfo(llvm::raw_ostream &OS, PSVRuntimeInfo0 *pInfo0,
          << pInfo2->NumThreadsY << "," << pInfo2->NumThreadsZ << ")\n";
     }
     if (pInfo4) {
-      OS << Comment << " NumBytesGroupSharedMemory=" << pInfo4->NumBytesGroupSharedMemory << "\n";
+      OS << Comment
+         << " NumBytesGroupSharedMemory=" << pInfo4->NumBytesGroupSharedMemory
+         << "\n";
     }
     break;
   case PSVShaderKind::Amplification:
@@ -834,7 +836,9 @@ void hlsl::PrintPSVRuntimeInfo(llvm::raw_ostream &OS, PSVRuntimeInfo0 *pInfo0,
          << pInfo2->NumThreadsY << "," << pInfo2->NumThreadsZ << ")\n";
     }
     if (pInfo4) {
-      OS << Comment << " NumBytesGroupSharedMemory=" << pInfo4->NumBytesGroupSharedMemory << "\n";
+      OS << Comment
+         << " NumBytesGroupSharedMemory=" << pInfo4->NumBytesGroupSharedMemory
+         << "\n";
     }
     break;
   case PSVShaderKind::Mesh:
@@ -863,7 +867,9 @@ void hlsl::PrintPSVRuntimeInfo(llvm::raw_ostream &OS, PSVRuntimeInfo0 *pInfo0,
          << pInfo2->NumThreadsY << "," << pInfo2->NumThreadsZ << ")\n";
     }
     if (pInfo4) {
-      OS << Comment << " NumBytesGroupSharedMemory=" << pInfo4->NumBytesGroupSharedMemory << "\n";
+      OS << Comment
+         << " NumBytesGroupSharedMemory=" << pInfo4->NumBytesGroupSharedMemory
+         << "\n";
     }
     break;
   case PSVShaderKind::Library:

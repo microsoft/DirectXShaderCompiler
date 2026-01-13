@@ -12980,7 +12980,7 @@ void DiagnoseEntryAttrAllowedOnStage(clang::Sema *self,
           break;
         default:
           self->Diag(pAttr->getRange().getBegin(),
-                    diag::err_hlsl_attribute_unsupported_stage)
+                     diag::err_hlsl_attribute_unsupported_stage)
               << "GroupSharedLimit"
               << "compute, mesh, node, or amplification";
           break;

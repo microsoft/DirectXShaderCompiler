@@ -5457,8 +5457,7 @@ SimplePSV::SimplePSV(const DxilPartHeader *pPSVPart) {
   PSVRuntimeInfo4 *PSVInfo4 =
       const_cast<PSVRuntimeInfo4 *>((const PSVRuntimeInfo4 *)PSVPtr);
   PSVInfo = PSVInfo4;
-  PSVRuntimeInfo3 *PSVInfo3 =
-      reinterpret_cast<PSVRuntimeInfo3 *>(PSVInfo4);
+  PSVRuntimeInfo3 *PSVInfo3 = reinterpret_cast<PSVRuntimeInfo3 *>(PSVInfo4);
 
   PSVPtr += PSVRuntimeInfoSize / 4;
   uint32_t ResourceCount = *(PSVPtr++);
