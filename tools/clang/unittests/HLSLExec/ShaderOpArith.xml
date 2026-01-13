@@ -4475,6 +4475,10 @@ void MSMain(uint GID : SV_GroupIndex,
 
           vector<OUT_TYPE, NUM> Result = DERIVATIVE_FUNC(Vector);
 
+          // Prevents the above derivative call from being sunk into the if
+          // condition below. DXC Bug: https://github.com/microsoft/DirectXShaderCompiler/issues/8001
+          Result = WaveReadLaneAt(Result, 3);
+
           // For coarse derivatives, all lanes in the quad get the same result.
           // But for fine derivatives, each lane gets a different result. To
           // keep things generic we only store in the third lane as thats the
