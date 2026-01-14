@@ -4408,19 +4408,25 @@ void MSMain(uint GID : SV_GroupIndex,
         #ifdef FUNC_WAVE_MATCH
         void TestWaveMatch(vector<TYPE, NUM> Vector)
         {
-            if(WaveGetLaneIndex() == 0)
-            {
-              if(Vector[0] == (TYPE)0)
-                Vector[0] = (TYPE) 1;
-              else if(Vector[0] == (TYPE)1)
-                Vector[0] = (TYPE) 0;
-              else
-                Vector[0] = (TYPE) 1;
-            }
-            uint4 result = WaveMatch(Vector);
-            uint index = WaveGetLaneIndex();
+            uint LaneIndex = WaveGetLaneIndex();
+            bool ShouldModify = ( LaneIndex == 0 ||
+                                  LaneIndex == min(NUM / 2, WAVE_SIZE / 2) ||
+                                  LaneIndex == min(NUM - 1, WAVE_SIZE - 1) );
 
-            g_OutputVector.Store<uint4>(index * sizeof(uint4), result);
+            if(ShouldModify)
+            {
+              if(Vector[LaneIndex] == (TYPE) 0)
+                Vector[LaneIndex] = (TYPE) 1;
+              else if(Vector[LaneIndex] == (TYPE) 1)
+                Vector[LaneIndex] = (TYPE) 0;
+              else
+                Vector[LaneIndex] = (TYPE) 1;
+            }
+
+            uint4 Result = WaveMatch(Vector);
+            uint Index = WaveGetLaneIndex();
+
+            g_OutputVector.Store<uint4>(Index * sizeof(uint4), Result);
         }   
         #endif
 

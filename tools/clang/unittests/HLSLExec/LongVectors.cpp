@@ -1614,41 +1614,54 @@ template <typename T> T waveMultiPrefixProduct(T A, UINT) {
 
 template <typename T> struct Op<OpType::WaveMatch, T, 1> : StrictValidation {};
 
+static void WriteExpectedValueForLane(UINT *Dest, const UINT LaneID,
+                                      const std::bitset<128> &ExpectedValue) {
+  std::bitset<128> Lo32Mask;
+  Lo32Mask.set();
+  Lo32Mask >>= 128 - 32;
+
+  UINT Offset = 4 * LaneID;
+  for (uint32_t I = 0; I < 4; I++) {
+    uint32_t V = ((ExpectedValue >> (I * 32)) & Lo32Mask).to_ulong();
+    Dest[Offset++] = V;
+  }
+}
+
 template <typename T> struct ExpectedBuilder<OpType::WaveMatch, T> {
   static std::vector<UINT> buildExpected(Op<OpType::WaveMatch, T, 1> &,
-                                         const InputSets<T> &,
+                                         const InputSets<T> &Inputs,
                                          const UINT WaveSize) {
-    // For this test, the shader arranges it so that lane 0 is different from
-    // all the other lanes. Besides that all other lines write their result of
-    // WaveMatch as well.
+    // This test sets lanes (0, min(VectorSize/2, WaveSize/2), and
+    // min(VectorSize-1, WaveSize-1)) to unique values and has them modify the
+    // vector at their respective indices. Remaining lanes remain unchanged.
+    DXASSERT_NOMSG(Inputs.size() == 1);
 
+    const UINT VectorSize = static_cast<UINT>(Inputs[0].size());
     std::vector<UINT> Expected;
     Expected.assign(WaveSize * 4, 0);
 
-    const UINT LowWaves = std::min(64U, WaveSize);
-    const UINT HighWaves = WaveSize - LowWaves;
+    const UINT MidLaneID = std::min(VectorSize / 2, WaveSize / 2);
+    const UINT LastLaneID = std::min(VectorSize - 1, WaveSize - 1);
 
-    const uint64_t LowWaveMask =
-        (LowWaves < 64) ? (1ULL << LowWaves) - 1 : ~0ULL;
+    // Use a std::bitset<128> to represent the uint4 returned by WaveMatch as
+    // its convenient this way in c++
+    std::bitset<128> DefaultExpectedValue;
 
-    const uint64_t HighWaveMask =
-        (HighWaves < 64) ? (1ULL << HighWaves) - 1 : ~0ULL;
+    for (UINT I = 0; I < WaveSize; ++I)
+      DefaultExpectedValue.set(I);
 
-    const uint64_t LowExpected = ~1ULL & LowWaveMask;
-    const uint64_t HighExpected = ~0ULL & HighWaveMask;
+    DefaultExpectedValue.reset(0);
+    DefaultExpectedValue.reset(MidLaneID);
+    DefaultExpectedValue.reset(LastLaneID);
 
-    Expected[0] = 1;
-    Expected[1] = 0;
-    Expected[2] = 0;
-    Expected[3] = 0;
-
-    // all lanes other than the first one have the same result
-    for (UINT I = 1; I < WaveSize; ++I) {
-      const UINT Index = I * 4;
-      Expected[Index] = static_cast<UINT>(LowExpected);
-      Expected[Index + 1] = static_cast<UINT>(LowExpected >> 32);
-      Expected[Index + 2] = static_cast<UINT>(HighExpected);
-      Expected[Index + 3] = static_cast<UINT>(HighExpected >> 32);
+    for (UINT LaneID = 0; LaneID < WaveSize; ++LaneID) {
+      if (LaneID == 0 || LaneID == MidLaneID || LaneID == LastLaneID) {
+        std::bitset<128> ExpectedValue(0);
+        ExpectedValue.set(LaneID);
+        WriteExpectedValueForLane(Expected.data(), LaneID, ExpectedValue);
+        continue;
+      }
+      WriteExpectedValueForLane(Expected.data(), LaneID, DefaultExpectedValue);
     }
 
     return Expected;
