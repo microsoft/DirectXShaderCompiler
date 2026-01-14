@@ -28,9 +28,8 @@ The included licenses apply to the following files:
   - Execution tests for all intrinsics supporting DXIL vectors. See the [test
     plan](https://github.com/microsoft/hlsl-specs/blob/main/proposals/infra/INF-0006-Long-Vector-ExecutionTest-Plan.md)
     for more info.
-- Header file `dxcpix.h` was added to the release package.
 
-Experimental Shader Model 6.10
+#### Experimental Shader Model 6.10
 
 - Moved Linear Algebra (Cooperative Vector) DXIL Opcodes to experimental Shader Model 6.10
 - Added support for `long long` and `unsigned long long` compile-time constant evaluation, fixes [#7952](https://github.com/microsoft/DirectXShaderCompiler/issues/7952).
@@ -41,10 +40,11 @@ Experimental Shader Model 6.10
   shaders which returns the total number of waves executing within the thread
   group.
 
-Other Bug Fixes
+#### Other Changes
 
 - Fixed regression: [#7510](https://github.com/microsoft/DirectXShaderCompiler/issues/7510) crash when calling `sizeof` on templated type.
 - Fixed regression: [#7508](https://github.com/microsoft/DirectXShaderCompiler/issues/7508) crash when calling `Load` with `status`.
+- Header file `dxcpix.h` was added to the release package.
 
 ### Version 1.8.2505
 
