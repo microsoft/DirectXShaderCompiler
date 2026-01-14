@@ -44,12 +44,13 @@ we are confident we can generate builds for the new branch
 
 ## Quality Sign Off
 
-- [ ] Microsoft Testing Sign-off (@pow2clk)
+- [ ] Microsoft Testing Sign-off (@damyanp)
 - [ ] Google Testing Sign-off (@s-perron / @Keenuts)
 
 ## Release
 
 - [ ] Tag final release and post binaries
+- [ ] Update DirectX cooperative vector blog post to point to latest release
 
 
 [^1]: [Ask Mode](https://devblogs.microsoft.com/oldnewthing/20140722-00/?p=433)
