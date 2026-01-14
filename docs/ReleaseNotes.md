@@ -25,9 +25,6 @@ The included licenses apply to the following files:
   - See [the official blog
   post](https://devblogs.microsoft.com/directx/shader-model-6-9-dxr-1-2-and-agilitysdk-1-619-release)
   for more details.
-  - Execution tests for all intrinsics supporting DXIL vectors. See the [test
-    plan](https://github.com/microsoft/hlsl-specs/blob/main/proposals/infra/INF-0006-Long-Vector-ExecutionTest-Plan.md)
-    for more info.
 
 #### Experimental Shader Model 6.10
 
