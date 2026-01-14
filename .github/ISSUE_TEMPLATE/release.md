@@ -50,7 +50,7 @@ we are confident we can generate builds for the new branch
 ## Release
 
 - [ ] Tag final release and post binaries
-- [ ] Update DirectX cooperative vector blog post to point to latest release
+- [ ] Add the new compiler to Compiler Explorer
 
 
 [^1]: [Ask Mode](https://devblogs.microsoft.com/oldnewthing/20140722-00/?p=433)
