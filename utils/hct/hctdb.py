@@ -113,7 +113,6 @@ class db_dxil_inst(object):
         self.oload_types = ""  # overload types if applicable
         # Always call process_oload_types() after setting oload_types.
         self.fn_attr = ""  # attribute shorthands: rn=does not access memory,ro=only reads from memory,
-        self.is_deriv = False  # whether this is some kind of derivative
         self.is_gradient = False  # whether this requires a gradient calculation
         self.is_feedback = False  # whether this is a sampler feedback op
         self.is_wave = False  # whether this requires in-wave, cross-lane functionality
@@ -6656,11 +6655,6 @@ class db_dxil(object):
             ","
         ):
             self.name_idx[i].is_gradient = True
-        for i in "DerivCoarseX,DerivCoarseY,DerivFineX,DerivFineY".split(","):
-            assert (
-                self.name_idx[i].is_gradient == True
-            ), "all derivatives are marked as requiring gradients"
-            self.name_idx[i].is_deriv = True
 
         # TODO - some arguments are required to be immediate constants in DXIL, eg resource kinds; add this information
         # consider - report instructions that are overloaded on a single type, then turn them into non-overloaded version of that type
