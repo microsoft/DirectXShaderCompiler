@@ -19,6 +19,8 @@ The included licenses apply to the following files:
 
 ### Upcoming Release
 
+Shader Model 6.9 Release
+
 - Shader Model 6.9 is fully supported.
   - See [the official blog
   post](https://devblogs.microsoft.com/directx/shader-model-6-9-dxr-1-2-and-agilitysdk-1-619-release)
@@ -26,15 +28,23 @@ The included licenses apply to the following files:
   - Execution tests for all intrinsics supporting DXIL vectors. See the [test
     plan](https://github.com/microsoft/hlsl-specs/blob/main/proposals/infra/INF-0006-Long-Vector-ExecutionTest-Plan.md)
     for more info.
-- Fixed regression: [#7510](https://github.com/microsoft/DirectXShaderCompiler/issues/7510) crash when calling `sizeof` on templated type.
-- Fixed regression: [#7508](https://github.com/microsoft/DirectXShaderCompiler/issues/7508) crash when calling `Load` with `status`.
 - Header file `dxcpix.h` was added to the release package.
+
+Experimental Shader Model 6.10
+
 - Moved Linear Algebra (Cooperative Vector) DXIL Opcodes to experimental Shader Model 6.10
 - Added support for `long long` and `unsigned long long` compile-time constant evaluation, fixes [#7952](https://github.com/microsoft/DirectXShaderCompiler/issues/7952).
 - Implement GetGroupWaveIndex and GetGroupWaveCount in experimental Shader Model 6.10.
 - [proposal](https://github.com/microsoft/hlsl-specs/blob/main/proposals/0048-group-wave-index.md)
 - GetGroupWaveIndex: New intrinsic for Compute, Mesh, Amplification and Node shaders which returns the index of the wave within the thread group that the the thread is executing.
-- GetGroupWaveCount: New intrinsic for Compute, Mesh, Amplification and Node shaders which returns the total number of waves executing within the thread group.
+- GetGroupWaveCount: New intrinsic for Compute, Mesh, Amplification and Node
+  shaders which returns the total number of waves executing within the thread
+  group.
+
+Other Bug Fixes
+
+- Fixed regression: [#7510](https://github.com/microsoft/DirectXShaderCompiler/issues/7510) crash when calling `sizeof` on templated type.
+- Fixed regression: [#7508](https://github.com/microsoft/DirectXShaderCompiler/issues/7508) crash when calling `Load` with `status`.
 
 ### Version 1.8.2505
 
