@@ -90,7 +90,6 @@ The included licenses apply to the following files:
 - Implement isnormal function.
   [#7720](https://github.com/microsoft/DirectXShaderCompiler/issues/7720)
 - Disallow 64bit msad, ibfe, and ubfe. [#7774](https://github.com/microsoft/DirectXShaderCompiler/issues/7774)
-- Various test fixes and project infrastructure improvements.
 
 ### Version 1.8.2505
 
