@@ -40,11 +40,60 @@ The included licenses apply to the following files:
   shaders which returns the total number of waves executing within the thread
   group.
 
+#### Noteble SPIR-V updates
+
+- Handle vector element assignment for asuint. [#8011](https://github.com/microsoft/DirectXShaderCompiler/issues/8011)
+- Support sizeof(vk::BufferPointer). [#8010](https://github.com/microsoft/DirectXShaderCompiler/issues/8010)
+- Scalar layout to follow C structure layout. [#7996](https://github.com/microsoft/DirectXShaderCompiler/issues/7996)
+- Support asdouble() for uint3 argument type. [#7965](https://github.com/microsoft/DirectXShaderCompiler/issues/7965)
+- Add const to many FeatureManager fns. [#7980](https://github.com/microsoft/DirectXShaderCompiler/issues/7980)
+- Handle vk::BufferPointer in initializer list. [#7946](https://github.com/microsoft/DirectXShaderCompiler/issues/7946)
+- Fix layout rule on ConstantBuffer alias. [#7960](https://github.com/microsoft/DirectXShaderCompiler/issues/7960)
+- Fix layout rule for BufferPointer pointee type. [#7956](https://github.com/microsoft/DirectXShaderCompiler/issues/7956)
+- Use desugared type when processing binary op. [#7948](https://github.com/microsoft/DirectXShaderCompiler/issues/7948)
+- Handle associated counters for RWStructuredBuffer in base classes. [#7880](https://github.com/microsoft/DirectXShaderCompiler/issues/7880)
+- Fix precision for dot2add. [#7861](https://github.com/microsoft/DirectXShaderCompiler/issues/7861)
+- Support sign() intrinsics for unsigned integers. [#7845](https://github.com/microsoft/DirectXShaderCompiler/issues/7845)
+- Fix resource heap & fvk-bind-register interactions. [#7858](https://github.com/microsoft/DirectXShaderCompiler/issues/7858)
+- Fix incorrect branch gen on return. [#7834](https://github.com/microsoft/DirectXShaderCompiler/issues/7834)
+- Add diagnostic for boolean bitfields. [#7722](https://github.com/microsoft/DirectXShaderCompiler/issues/7822)
+- Implement WaveOpsIncludeHelperLanes. [#7806](https://github.com/microsoft/DirectXShaderCompiler/issues/7806)
+- Fix spirv codegen for uabs intrinsic when argument is unsigned. [#7750](https://github.com/microsoft/DirectXShaderCompiler/issues/7750)
+- Fix invalid codegen for empty cbuffers. [#7717](https://github.com/microsoft/DirectXShaderCompiler/issues/7717)
+- Preserve NaN, Inf, and signed zeros w/ -Gis. [#7693](https://github.com/microsoft/DirectXShaderCompiler/issues/7693)
+- Fix pcf with rich debug info enabled. [#7663](https://github.com/microsoft/DirectXShaderCompiler/issues/7663)
+- Create only 1 DebugCompilationUnit per spirv module. [#7669](https://github.com/microsoft/DirectXShaderCompiler/issues/7669)
+- Handle member traversal with template type. [#7674](https://github.com/microsoft/DirectXShaderCompiler/issues/7674)
+- Handle partial template class specialization. [#7673](https://github.com/microsoft/DirectXShaderCompiler/issues/7673)
+- Fix declaration order of values in decorations. [#7672](https://github.com/microsoft/DirectXShaderCompiler/issues/7672)
+- Fix DebugSource for files which are not found. [#7662](https://github.com/microsoft/DirectXShaderCompiler/issues/7662)
+- Fixed a crash if encounter constant buffer fields with overlapping register
+  assignments. [#7636](https://github.com/microsoft/DirectXShaderCompiler/issues/7636)
+- Add option to use the Unknown image format. [#7632](https://github.com/microsoft/DirectXShaderCompiler/issues/7632)
+- Add the derivative group execution mode only on shader types that allow it. [#7628](https://github.com/microsoft/DirectXShaderCompiler/issues/7628)
+- Allow spirv type as template parameter. [#7626](https://github.com/microsoft/DirectXShaderCompiler/issues/7626)
+- Explicitly state which layout rules require scalar block layout. [#7539](https://github.com/microsoft/DirectXShaderCompiler/issues/7539)
+- Emit DebugScope in wrapper. [#77341](https://github.com/microsoft/DirectXShaderCompiler/issues/7341)
+- Use unknown image format in vk1.3 and later. [#7528](https://github.com/microsoft/DirectXShaderCompiler/issues/7528)
+- Use OpCopyLogical to reconstruct values. [#7530](https://github.com/microsoft/DirectXShaderCompiler/issues/7530)
+- AMD work graphs extension. [#7353](https://github.com/microsoft/DirectXShaderCompiler/issues/7353)
+- Get Alignment from pointee type for vk::BufferPointer store. [#7501](https://github.com/microsoft/DirectXShaderCompiler/issues/7501)
+- Fix bool cast on buffers with swizzle. [#7497](https://github.com/microsoft/DirectXShaderCompiler/issues/7497)
+- Add payload to OpEmitMeshTasksEXT. [#7485](https://github.com/microsoft/DirectXShaderCompiler/issues/7485)
+- Fix r-value being used in mul intrinsic. [#7489](https://github.com/microsoft/DirectXShaderCompiler/issues/7489)
+- Several small bug fixes.
+
 #### Other Changes
 
 - Fixed regression: [#7510](https://github.com/microsoft/DirectXShaderCompiler/issues/7510) crash when calling `sizeof` on templated type.
 - Fixed regression: [#7508](https://github.com/microsoft/DirectXShaderCompiler/issues/7508) crash when calling `Load` with `status`.
 - Header file `dxcpix.h` was added to the release package.
+- C4146 (unary minus operatore applied to unsigned type) enabled as a build
+  break for MSVC builds.
+- Implement isnormal function.
+  [#7720](https://github.com/microsoft/DirectXShaderCompiler/issues/7720)
+- Disallow 64bit msad, ibfe, and ubfe. [#7774](https://github.com/microsoft/DirectXShaderCompiler/issues/7774)
+- Various test fixes and project infrastructure improvements.
 
 ### Version 1.8.2505
 
