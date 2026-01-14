@@ -7,7 +7,7 @@
 // CHECK-NEXT:  Mesh Shader
 // CHECK-NEXT:  MeshOutputTopology=triangle
 // CHECK-NEXT:  NumThreads=(32,1,1)
-// CHECK-NEXT:  NumBytesGroupSharedMemory=64
+// CHECK-NEXT:  NumBytesGroupSharedMemory: 64
 // CHECK-NEXT:  MinimumExpectedWaveLaneCount: 0
 // CHECK-NEXT:  MaximumExpectedWaveLaneCount: 4294967295
 // CHECK-NEXT:  UsesViewID: true

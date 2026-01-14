@@ -825,7 +825,7 @@ void hlsl::PrintPSVRuntimeInfo(llvm::raw_ostream &OS, PSVRuntimeInfo0 *pInfo0,
     }
     if (pInfo4) {
       OS << Comment
-         << " NumBytesGroupSharedMemory=" << pInfo4->NumBytesGroupSharedMemory
+         << " NumBytesGroupSharedMemory: " << pInfo4->NumBytesGroupSharedMemory
          << "\n";
     }
     break;
@@ -837,7 +837,7 @@ void hlsl::PrintPSVRuntimeInfo(llvm::raw_ostream &OS, PSVRuntimeInfo0 *pInfo0,
     }
     if (pInfo4) {
       OS << Comment
-         << " NumBytesGroupSharedMemory=" << pInfo4->NumBytesGroupSharedMemory
+         << " NumBytesGroupSharedMemory: " << pInfo4->NumBytesGroupSharedMemory
          << "\n";
     }
     break;
@@ -868,7 +868,7 @@ void hlsl::PrintPSVRuntimeInfo(llvm::raw_ostream &OS, PSVRuntimeInfo0 *pInfo0,
     }
     if (pInfo4) {
       OS << Comment
-         << " NumBytesGroupSharedMemory=" << pInfo4->NumBytesGroupSharedMemory
+         << " NumBytesGroupSharedMemory: " << pInfo4->NumBytesGroupSharedMemory
          << "\n";
     }
     break;

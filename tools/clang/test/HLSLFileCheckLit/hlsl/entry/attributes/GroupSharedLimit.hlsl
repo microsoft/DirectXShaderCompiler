@@ -1,3 +1,4 @@
+// REQUIRES: dxil-1-10
 // RUN: %dxc -E MainPass -T cs_6_10 %s | FileCheck %s
 
 #define NUM_BYTES_OF_SHARED_MEM (32*1024)
@@ -82,4 +83,4 @@ void MainFail2( uint3 DTid : SV_DispatchThreadID )
         uint index = DTid.x + i * THREAD_GROUP_SIZE_X;
         g_output[index] = g_testBufferFAIL[index];
     }
-}   
+}
