@@ -1306,6 +1306,33 @@ CXXRecordDecl *hlsl::DeclareHitObjectType(NamespaceDecl &NSDecl) {
   return RecordDecl;
 }
 
+CXXRecordDecl *hlsl::DeclareMatrixRefType(ASTContext &Context) {
+  // MatrixRef { ... }
+  BuiltinTypeDeclBuilder TypeDeclBuilder(Context.getTranslationUnitDecl(),
+                                         "__builtin_LinAlg_MatrixRef");
+
+  TypeDeclBuilder.startDefinition();
+
+  // Add handle to mark as HLSL object.
+  TypeDeclBuilder.addField("h", GetHLSLObjectHandleType(Context));
+  CXXRecordDecl *RecordDecl = TypeDeclBuilder.getRecordDecl();
+
+  // Add AvailabilityAttribute for SM6.10+
+  VersionTuple VT610 = VersionTuple(6, 10);
+  AvailabilityAttr *AAttr = AvailabilityAttr::CreateImplicit(
+      Context, &Context.Idents.get(""), clang::VersionTuple(6, 10),
+      clang::VersionTuple(), clang::VersionTuple(), false, "");
+  RecordDecl->addAttr(AAttr);
+
+  // Add the implicit HLSLMatrixRefAttr attribute to unambiguously recognize the
+  // builtin MatrixRef type.
+  RecordDecl->addAttr(HLSLMatrixRefAttr::CreateImplicit(Context));
+  RecordDecl->setImplicit(true);
+
+  // Add to namespace
+  return RecordDecl;
+}
+
 CXXRecordDecl *hlsl::DeclareResourceType(ASTContext &context, bool bSampler) {
   // struct ResourceDescriptor { uint8 desc; }
   StringRef Name = bSampler ? ".Sampler" : ".Resource";
