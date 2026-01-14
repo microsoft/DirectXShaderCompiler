@@ -11,10 +11,10 @@ void fn2(int4 Local);
 [numthreads(4,1,1)]
 void main() {
   float4 Local[2] = {1.0.xxxx, 2.0.xxxx};
-// CHECK-DAG: call void @"\01?fn@@YAXY01$$CAV?$vector@M$03@@@Z"([2 x <4 x float>]* %Local)
+// CHECK: call void @"\01?fn@@YAXY01$$CAV?$vector@M$03@@@Z"([2 x <4 x float>]* %Local)
   fn(Local);
 
-// CHECK-DAG: call void @"\01?fn2@@YAXV?$vector@H$03@@@Z"(<4 x i32>
+// CHECK: call void @"\01?fn2@@YAXV?$vector@H$03@@@Z"(<4 x i32>
   fn2(11.xxxx);
 }
 
@@ -31,7 +31,7 @@ void fn2(groupshared int4 Shared) {
   Shared.x = 10;
 }
 
-// CHECK-DAG: define internal void @"\01?fn2@@YAXV?$vector@H$03@@@Z"(<4 x i32> %Local)
+// CHECK-LABEL: define internal void @"\01?fn2@@YAXV?$vector@H$03@@@Z"(<4 x i32> %Local)
 void fn2(int4 Local) {
   int X = Local.y;
 }
