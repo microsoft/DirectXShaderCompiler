@@ -26,7 +26,7 @@ all_stages = (
 # These counters aren't collected directly from instructions,
 # so they need to be added manually so they can be accessed
 # with custom code in DxilCounters.cpp.
-extra_counters = [
+extra_counters =          [
     "insts",
     "branches",
     "array_tgsm_bytes",
@@ -63,7 +63,7 @@ dxil_max_overload_dims = 2
 
 
 class db_dxil_enum_value(object):
-    "A representation for a value in an enumeration type"
+             "A representation for a value in an enumeration type"
 
     def __init__(self, value, name, doc):
         self.value = value  # Numeric value

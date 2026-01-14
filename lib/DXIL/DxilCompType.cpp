@@ -297,8 +297,8 @@ PointerType *CompType::GetLLVMPtrType(LLVMContext &Ctx,
   return nullptr;
 }
 
-Type *CompType::GetLLVMBaseType(llvm::LLVMContext &Ctx) const {
-  return GetBaseCompType().GetLLVMType(Ctx);
+Type *CompType::GetLLVMBaseType(llvm::LLVMContext &C) const {
+  return GetBaseCompType().GetLLVMType(C);
 }
 
 CompType CompType::GetCompType(Type *type) {
