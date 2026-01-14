@@ -9,6 +9,12 @@
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
+#ifdef _WIN32
+#define DXC_API_IMPORT __declspec(dllexport)
+#else
+#define DXC_API_IMPORT __attribute__((visibility("default")))
+#endif
+
 #include "clang/Basic/Diagnostic.h"
 #include "clang/Basic/FileManager.h"
 #include "clang/Basic/SourceManager.h"
