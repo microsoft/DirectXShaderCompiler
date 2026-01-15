@@ -83,6 +83,11 @@ static void createWarpDevice(
         CreateDeviceFn,
     ID3D12Device **D3DDevice, bool SkipUnsupported) {
 
+   if (*D3DDevice)
+    LogWarningFmt(L"createDevice called with non-null *D3DDevice - "
+                  L"this will likely leak the previous device");
+  *D3DDevice = nullptr;
+
   // The WARP_DLL runtime parameter can be used to specify a specific DLL to
   // load.  To force this to be used, we make sure that this DLL is loaded
   // before attempting to create the device.
@@ -112,18 +117,20 @@ static void createWarpDevice(
 
   // Create the WARP device
   CComPtr<IDXGIAdapter> WarpAdapter;
+  CComPtr<ID3D12Device> D3DDeviceCom;
   VERIFY_SUCCEEDED(DXGIFactory->EnumWarpAdapter(IID_PPV_ARGS(&WarpAdapter)));
   HRESULT CreateHR = CreateDeviceFn(WarpAdapter, D3D_FEATURE_LEVEL_11_0,
-                                    IID_PPV_ARGS(D3DDevice));
+                                    IID_PPV_ARGS(&D3DDeviceCom));
   if (FAILED(CreateHR)) {
     LogCommentFmt(L"Failed to create WARP device: 0x%08x", CreateHR);
 
     if (SkipUnsupported)
       WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
 
-    D3DDevice = nullptr;
     return;
   }
+
+  *D3DDevice = D3DDeviceCom.Detach();
 
   // Now that the WARP device is created we can release our reference to the
   // warp dll.
@@ -145,6 +152,11 @@ static void createHardwareDevice(
         CreateDeviceFn,
     ID3D12Device **D3DDevice) {
 
+   if (*D3DDevice)
+    LogWarningFmt(L"createDevice called with non-null *D3DDevice - "
+                  L"this will likely leak the previous device");
+  *D3DDevice = nullptr;
+
   CComPtr<IDXGIAdapter1> HardwareAdapter;
   WEX::Common::String AdapterValue;
   HRESULT HR = WEX::TestExecution::RuntimeParameters::TryGetValue(L"Adapter",
@@ -154,8 +166,10 @@ static void createHardwareDevice(
   else
     LogCommentFmt(L"Using default hardware adapter with D3D12 support.");
 
+  CComPtr<ID3D12Device> D3DDeviceCom;
   VERIFY_SUCCEEDED(CreateDeviceFn(HardwareAdapter, D3D_FEATURE_LEVEL_11_0,
-                                  IID_PPV_ARGS(D3DDevice)));
+                                  IID_PPV_ARGS(&D3DDeviceCom)));
+  *D3DDevice = D3DDeviceCom.Detach();
 }
 
 static void logAdapter(IDXGIFactory4 *DXGIFactory, ID3D12Device *D3DDevice) {
