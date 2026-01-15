@@ -83,7 +83,7 @@ static void createWarpDevice(
         CreateDeviceFn,
     ID3D12Device **D3DDevice, bool SkipUnsupported) {
 
-   if (*D3DDevice)
+  if (*D3DDevice)
     LogWarningFmt(L"createDevice called with non-null *D3DDevice - "
                   L"this will likely leak the previous device");
   *D3DDevice = nullptr;
@@ -152,7 +152,7 @@ static void createHardwareDevice(
         CreateDeviceFn,
     ID3D12Device **D3DDevice) {
 
-   if (*D3DDevice)
+  if (*D3DDevice)
     LogWarningFmt(L"createDevice called with non-null *D3DDevice - "
                   L"this will likely leak the previous device");
   *D3DDevice = nullptr;
