@@ -1454,6 +1454,19 @@ CXXRecordDecl *hlsl::DeclareVkSampledTextureType(
   AddSampleFunction(context, recordDecl, paramType, coordinateType, offsetType);
   AddCalculateLevelOfDetailFunction(context, recordDecl, coordinateType);
 
+  // CalculateLevelOfDetailUnclamped(location)
+  CXXMethodDecl *lodUnclampedDecl = CreateObjectFunctionDeclarationWithParams(
+      context, recordDecl, floatType, ArrayRef<QualType>(float2Type),
+      ArrayRef<StringRef>(StringRef("location")),
+      context.DeclarationNames.getIdentifier(
+          &context.Idents.get("CalculateLevelOfDetailUnclamped")),
+      /*isConst*/ true);
+  lodUnclampedDecl->addAttr(HLSLIntrinsicAttr::CreateImplicit(
+      context, "op", "",
+      static_cast<int>(
+          hlsl::IntrinsicOp::MOP_CalculateLevelOfDetailUnclamped)));
+  lodUnclampedDecl->addAttr(HLSLCXXOverloadAttr::CreateImplicit(context));
+
   Builder.completeDefinition();
   return recordDecl;
 }
