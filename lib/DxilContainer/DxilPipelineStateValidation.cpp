@@ -33,6 +33,8 @@ uint32_t hlsl::GetPSVVersion(uint32_t ValMajor, uint32_t ValMinor) {
     PSVVersion = 1;
   else if (DXIL::CompareVersions(ValMajor, ValMinor, 1, 8) < 0)
     PSVVersion = 2;
+  else if (DXIL::CompareVersions(ValMajor, ValMinor, 1, 10) < 0)
+    PSVVersion = 3;
   return PSVVersion;
 }
 
