@@ -1,3 +1,4 @@
+; REQUIRES: dxil-1-10
 ; RUN: %dxopt %s -hlsl-passes-resume -dxilgen -S | FileCheck %s
 
 ; CHECK: call i32 @dx.op.getGroupWaveIndex(i32 -2147483647)
