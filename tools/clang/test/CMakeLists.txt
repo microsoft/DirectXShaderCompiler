@@ -120,6 +120,7 @@ set_target_properties(clang-test PROPERTIES FOLDER "Clang tests")
 
 # Define DXC releases as (NAME VERSION) pairs
 set(DXC_RELEASES  
+  dxc_2025_07_14 v1.8.2505.1
   dxc_2025_02_20 v1.8.2502
   dxc_2023_08_14 v1.7.2308
   dxc_2021_12_08 v1.6.2112
