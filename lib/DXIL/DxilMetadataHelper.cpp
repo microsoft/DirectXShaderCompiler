@@ -1626,7 +1626,7 @@ MDTuple *DxilMDHelper::EmitDxilEntryProperties(uint64_t rawShaderFlag,
     }
 
     const hlsl::ShaderModel *SM = GetShaderModel();
-    if (SM->IsSM610Plus()) {
+    if (SM->IsSMAtLeast(6, 10)) {
       MDVals.emplace_back(
           Uint32ToConstMD(DxilMDHelper::kDxilGroupSharedLimitTag));
       MDVals.emplace_back(Uint32ToConstMD(props.groupSharedLimitBytes));
