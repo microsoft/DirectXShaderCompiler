@@ -185,7 +185,8 @@ private:
                            unsigned PSVVersion);
   void VerifyViewIDDependence(PSVRuntimeInfo1 *PSV1, unsigned PSVVersion);
   void VerifyEntryProperties(const ShaderModel *SM, PSVRuntimeInfo0 *PSV0,
-                             PSVRuntimeInfo1 *PSV1, PSVRuntimeInfo2 *PSV2);
+                             PSVRuntimeInfo1 *PSV1, PSVRuntimeInfo2 *PSV2,
+                             PSVRuntimeInfo3 *PSV3, PSVRuntimeInfo4 *PSV4);
   void EmitMismatchError(StringRef Name, StringRef PartContent,
                          StringRef ModuleContent) {
     ValCtx.EmitFormatError(ValidationRule::ContainerContentMatches,
@@ -409,16 +410,16 @@ void PSVContentVerifier::VerifyResources(unsigned PSVVersion) {
   VerifyResourceTable(DM.GetUAVs(), ResIndex, PSVVersion);
 }
 
-void PSVContentVerifier::VerifyEntryProperties(const ShaderModel *SM,
-                                               PSVRuntimeInfo0 *PSV0,
-                                               PSVRuntimeInfo1 *PSV1,
-                                               PSVRuntimeInfo2 *PSV2) {
-  PSVRuntimeInfo3 DMPSV;
-  memset(&DMPSV, 0, sizeof(PSVRuntimeInfo3));
+void PSVContentVerifier::VerifyEntryProperties(
+    const ShaderModel *SM, PSVRuntimeInfo0 *PSV0, PSVRuntimeInfo1 *PSV1,
+    PSVRuntimeInfo2 *PSV2, PSVRuntimeInfo3 *PSV3, PSVRuntimeInfo4 *PSV4) {
+  PSVRuntimeInfo4 DMPSV;
+  memset(&DMPSV, 0, sizeof(PSVRuntimeInfo4));
 
   hlsl::SetShaderProps((PSVRuntimeInfo0 *)&DMPSV, DM);
   hlsl::SetShaderProps((PSVRuntimeInfo1 *)&DMPSV, DM);
   hlsl::SetShaderProps((PSVRuntimeInfo2 *)&DMPSV, DM);
+  hlsl::SetShaderProps((PSVRuntimeInfo4 *)&DMPSV, DM);
   if (PSV1) {
     // Init things not set in InitPSVRuntimeInfo.
     DMPSV.ShaderStage = static_cast<uint8_t>(SM->GetKind());
@@ -444,10 +445,14 @@ void PSVContentVerifier::VerifyEntryProperties(const ShaderModel *SM,
   else
     Mismatched = memcmp(PSV0, &DMPSV, sizeof(PSVRuntimeInfo0)) != 0;
 
+  if (PSV4 &&
+      PSV4->NumBytesGroupSharedMemory != DMPSV.NumBytesGroupSharedMemory)
+    Mismatched = true;
+
   if (Mismatched) {
     std::string Str;
     raw_string_ostream OS(Str);
-    hlsl::PrintPSVRuntimeInfo(OS, &DMPSV, &DMPSV, &DMPSV, &DMPSV,
+    hlsl::PrintPSVRuntimeInfo(OS, &DMPSV, &DMPSV, &DMPSV, &DMPSV, &DMPSV,
                               static_cast<uint8_t>(SM->GetKind()),
                               DM.GetEntryFunctionName().c_str(), "");
     OS.flush();
@@ -476,9 +481,11 @@ void PSVContentVerifier::Verify(unsigned ValMajor, unsigned ValMinor,
   PSVRuntimeInfo0 *PSV0 = PSV.GetPSVRuntimeInfo0();
   PSVRuntimeInfo1 *PSV1 = PSV.GetPSVRuntimeInfo1();
   PSVRuntimeInfo2 *PSV2 = PSV.GetPSVRuntimeInfo2();
+  PSVRuntimeInfo3 *PSV3 = PSV.GetPSVRuntimeInfo3();
+  PSVRuntimeInfo4 *PSV4 = PSV.GetPSVRuntimeInfo4();
 
   const ShaderModel *SM = DM.GetShaderModel();
-  VerifyEntryProperties(SM, PSV0, PSV1, PSV2);
+  VerifyEntryProperties(SM, PSV0, PSV1, PSV2, PSV3, PSV4);
   if (PSVVersion > 0) {
     if (((PSV.GetSigInputElements() + PSV.GetSigOutputElements() +
           PSV.GetSigPatchConstOrPrimElements()) > 0) &&

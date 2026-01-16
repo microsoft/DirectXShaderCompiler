@@ -1,4 +1,4 @@
-// REQUIRES: dxil-1-8
+// REQUIRES: dxil-1-10
 // RUN: %dxc -E main -T cs_6_8 %s -Fo %t
 // RUN: %dxa %t -dumppsv | FileCheck %s
 
@@ -6,6 +6,7 @@
 // CHECK-NEXT: PSVRuntimeInfo:
 // CHECK-NEXT:  Compute Shader
 // CHECK-NEXT:  NumThreads=(128,1,1)
+// CHECK-NEXT:  NumBytesGroupSharedMemory: 2048
 // CHECK-NEXT:  MinimumExpectedWaveLaneCount: 0
 // CHECK-NEXT:  MaximumExpectedWaveLaneCount: 4294967295
 // CHECK-NEXT:  UsesViewID: false
