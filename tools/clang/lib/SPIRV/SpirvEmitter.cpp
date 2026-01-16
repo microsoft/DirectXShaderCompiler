@@ -5824,6 +5824,8 @@ SpirvEmitter::processTextureSampleGather(const CXXMemberCallExpr *expr,
   //                                float2|3|4 Location
   //                                [, uint Status]);
   //
+  // Other Texture types do not have a Gather method.
+  //
   // For SampledTexture2D:
   // DXGI_FORMAT Object.Sample(float Location
   //                           [, int Offset]
@@ -5831,6 +5833,7 @@ SpirvEmitter::processTextureSampleGather(const CXXMemberCallExpr *expr,
   //                           [, out uint Status]);
   //
   // Other Texture types do not have a Gather method.
+
   const auto numArgs = expr->getNumArgs();
   const auto loc = expr->getExprLoc();
   const auto range = expr->getSourceRange();
@@ -5877,7 +5880,7 @@ SpirvEmitter::processTextureSampleGather(const CXXMemberCallExpr *expr,
       numArgs - hasStatusArg - hasClampArg - offsetIndex > 0;
   if (hasOffsetArg)
     handleOffsetInMethodCall(expr, offsetIndex, &constOffset, &varOffset);
-
+  
   const auto retType = expr->getDirectCallee()->getReturnType();
   if (isSample) {
     addDerivativeGroupExecutionMode();
