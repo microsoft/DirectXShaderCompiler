@@ -1,3 +1,4 @@
+// REQUIRES: dxil-1-10
 // RUN: %dxc -T lib_6_10 %s | FileCheck %s
 
 // Test CLUSTER_ID_INVALID constant
