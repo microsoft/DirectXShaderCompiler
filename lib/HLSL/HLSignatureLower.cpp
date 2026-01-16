@@ -1253,6 +1253,8 @@ void HLSignatureLower::GenerateDxilComputeAndNodeCommonInputs() {
   DXASSERT(funcAnnotation, "must find annotation for entry function");
   auto &funcProps = HLM.GetDxilFunctionProps(Entry);
   IRBuilder<> Builder(Entry->getEntryBlock().getFirstInsertionPt());
+  Builder.SetCurrentDebugLocation(
+      Entry->getEntryBlock().getFirstNonPHIOrDbg()->getDebugLoc());
 
   for (Argument &arg : Entry->args()) {
     DxilParameterAnnotation &paramAnnotation =
