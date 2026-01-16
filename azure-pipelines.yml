@@ -48,28 +48,28 @@ stages:
       displayName: 'DXIL Execution Tests'        
     - script: |
         call utils\hct\hctstart.cmd %HLSL_SRC_DIR% %HLSL_BLD_DIR%
-        call utils\hct\hcttest.cmd -$(configuration) compat-suite 2021_12_08
+        call utils\hct\hcttest.cmd -$(configuration) compat-suite v1.6.2112
       displayName: 'DXIL Compat Suite Tests (1.6 release)'
       condition: succeededOrFailed()
     - script: |
         call utils\hct\hctstart.cmd %HLSL_SRC_DIR% %HLSL_BLD_DIR%
-        call utils\hct\hcttest.cmd -$(configuration) compat-suite 2023_08_14
+        call utils\hct\hcttest.cmd -$(configuration) compat-suite v1.7.2308
       displayName: 'DXIL Compat Suite Tests (1.7 release)'
       condition: succeededOrFailed()
     - script: |
         call utils\hct\hctstart.cmd %HLSL_SRC_DIR% %HLSL_BLD_DIR%
-        call utils\hct\hcttest.cmd -$(configuration) compat-suite 2025_02_20
+        call utils\hct\hcttest.cmd -$(configuration) compat-suite v1.8.2502
       displayName: 'DXIL Compat Suite Tests (1.8 release)'
       condition: succeededOrFailed()
     - script: |
         call utils\hct\hctstart.cmd %HLSL_SRC_DIR% %HLSL_BLD_DIR%
-        call utils\hct\hcttest.cmd -$(configuration) compat-suite 2025_07_14
+        call utils\hct\hcttest.cmd -$(configuration) compat-suite v1.8.2505.1
       displayName: 'DXIL Compat Suite Tests (1.8 point release)'
       condition: succeededOrFailed()
     
 
   - job: Nix
-    timeoutInMinutes: 180
+    timeoutInMinutes: 165
 
     variables:
       macOS: macOS-latest
