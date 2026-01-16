@@ -436,6 +436,15 @@ public:
     return true;
   }
 
+  bool VisitMemberExpr(MemberExpr *ME) {
+    // Diagnose availability for member function calls.
+    if (AvailabilityAttr *AAttr = GetAvailabilityAttrOnce(ME)) {
+      DiagnoseAvailability(AAttr, ME->getMemberDecl(), ME->getExprLoc());
+    }
+
+    return true;
+  }
+
   AvailabilityAttr *GetAvailabilityAttrOnce(TypeLoc TL) {
     QualType Ty = TL.getType();
     CXXRecordDecl *RD = Ty->getAsCXXRecordDecl();
@@ -458,6 +467,18 @@ public:
       return nullptr;
     // Skip redundant availability diagnostics for the same Decl.
     if (!DeclAvailabilityChecked.insert(DRE).second)
+      return nullptr;
+
+    return AAttr;
+  }
+
+  AvailabilityAttr *GetAvailabilityAttrOnce(MemberExpr *ME) {
+    AvailabilityAttr *AAttr = ME->getMemberDecl()->getAttr<AvailabilityAttr>();
+    if (!AAttr)
+      return nullptr;
+    // Skip redundant availability diagnostics for the same member.
+    // Use the member location to track if we've already diagnosed this.
+    if (!DiagnosedTypeLocs.insert(ME->getMemberLoc()).second)
       return nullptr;
 
     return AAttr;

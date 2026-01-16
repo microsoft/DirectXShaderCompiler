@@ -662,6 +662,9 @@ void hlsl::AddRaytracingConstants(ASTContext &context) {
   AddConstUInt(context, StringRef("HIT_KIND_TRIANGLE_BACK_FACE"),
                (unsigned)DXIL::HitKind::TriangleBackFace);
 
+  // static const uint CLUSTER_ID_INVALID = 0xffffffff;
+  AddConstUInt(context, StringRef("CLUSTER_ID_INVALID"), 0xffffffff);
+
   AddConstUInt(
       context,
       StringRef(
