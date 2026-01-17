@@ -1601,7 +1601,7 @@ def warn_hlsl_groupshared_202x: Warning<
   "Support for groupshared parameter annotation not added until HLSL 202x">,
   InGroup<HLSLParameterUsage>;
 def warn_hlsl_groupshared_inout: Warning<
-  "Passing groupshared variable to a parameter annotated with inout. See"
+  "Passing groupshared variable to a parameter annotated with inout. See "
   "'groupshared' parameter annotation added in 202x.">,
   InGroup<HLSLParameterUsage>;
 // HLSL Change End - Add warning for uninitialized out param

@@ -11,6 +11,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "dxc/DXIL/DxilConstants.h"
+
 #include "clang/AST/Mangle.h"
 #include "clang/AST/ASTContext.h"
 #include "clang/AST/Attr.h"
@@ -2033,7 +2035,7 @@ void MicrosoftCXXNameMangler::mangleType(const LValueReferenceType *T,
                                          Qualifiers Quals, SourceRange Range) {
   QualType PointeeType = T->getPointeeType();
   Out << (Quals.hasVolatile() ? 'B' : 'A');
-  if (PointeeType.getQualifiers().getAddressSpace() == 3)
+  if (PointeeType.getQualifiers().getAddressSpace() == hlsl::DXIL::kTGSMAddrSpace)
     Out << 'G';
   manglePointerExtQualifiers(Quals, PointeeType);
   mangleType(PointeeType, Range);

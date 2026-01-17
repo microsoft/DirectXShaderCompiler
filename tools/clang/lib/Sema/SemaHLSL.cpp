@@ -14488,7 +14488,6 @@ void Sema::DiagnoseHLSLDeclAttr(const Decl *D, const Attr *A) {
         }
       }
     }
-    return;
   }
   if (IsGCAttr || IsRCAttr) {
     const ValueDecl *TD = cast<ValueDecl>(D);
@@ -15772,7 +15771,8 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC, Expr *BitWidth,
         Diag(pAttr->getLoc(), diag::warn_hlsl_groupshared_202x);
       if (isParameter && (usageIn || usageOut)) {
         Diag(pAttr->getLoc(), diag::err_hlsl_varmodifiersna)
-            << pAttr->getName() << "in/out/inout modifiers" << declarationType;
+	  << (usageIn && usageOut ? "'inout'" : usageIn ? "'in'" : "'out'")
+            << pAttr->getName() << declarationType;
         result = false;
       }
       if (!(isGlobal || isParameter)) {
@@ -15814,7 +15814,7 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC, Expr *BitWidth,
         result = false;
       } else if (isGroupShared) {
         Diag(pAttr->getLoc(), diag::err_hlsl_varmodifiersna)
-            << pAttr->getName() << "groupshared" << declarationType;
+            << pAttr->getName() << "'groupshared'" << declarationType;
         result = false;
       }
       if (!IsUsageAttributeCompatible(pAttr->getKind(), usageIn, usageOut)) {
