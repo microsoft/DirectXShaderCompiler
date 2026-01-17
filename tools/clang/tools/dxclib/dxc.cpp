@@ -1292,7 +1292,8 @@ void WriteDxCompilerVersionInfo(llvm::raw_ostream &OS, const char *ExternalLib,
 }
 
 // Writes compiler version info to stream
-void WriteDXILVersionInfo(llvm::raw_ostream &OS, DllLoader &DxilSupport) {
+void WriteDXILVersionInfo(llvm::raw_ostream &OS, const char *DxilLib,
+                          DllLoader &DxilSupport) {
   if (!DxilSupport.IsEnabled())
     return;
 
@@ -1310,7 +1311,7 @@ void WriteDXILVersionInfo(llvm::raw_ostream &OS, DllLoader &DxilSupport) {
       VerInfo2->GetCommitInfo(&CommitCount, &CommitHash);
   }
 
-  OS << "; " << kDxilLib << ": " << VersionMajor << "." << VersionMinor;
+  OS << "; " << DxilLib << ": " << VersionMajor << "." << VersionMinor;
 
   if (CommitCount != 0 || CommitHash.m_pData) {
     OS << "(" << CommitCount << "-"
@@ -1319,7 +1320,7 @@ void WriteDXILVersionInfo(llvm::raw_ostream &OS, DllLoader &DxilSupport) {
   }
 
   std::string ProductVersion;
-  if (GetDLLProductVersionInfo(kDxilLib, ProductVersion))
+  if (GetDLLProductVersionInfo(DxilLib, ProductVersion))
     OS << " - " << ProductVersion;
 }
 
@@ -1332,10 +1333,12 @@ void DxcContext::GetCompilerVersionInfo(llvm::raw_string_ostream &OS) {
       m_Opts.ExternalFn.empty() ? nullptr : m_Opts.ExternalFn.data(),
       m_dxcSupport);
 
-  // Print validator if exists
-  SpecificDllLoader DxilSupport;
-  DxilSupport.InitializeForDll(kDxilLib, "DxcCreateInstance");
-  WriteDXILVersionInfo(OS, DxilSupport);
+  // Print validator version if external
+  if (m_dxcSupport.IsEnabled() && !m_dxcSupport.getDxilDllPath().empty()) {
+    SpecificDllLoader DxilSupport;
+    WriteDXILVersionInfo(OS, m_dxcSupport.getDxilDllPath().c_str(),
+                         m_dxcSupport);
+  }
 }
 
 #ifndef VERSION_STRING_SUFFIX
