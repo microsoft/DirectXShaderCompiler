@@ -1277,26 +1277,8 @@ void WriteDxCompilerVersionInfo(llvm::raw_ostream &OS, const char *ExternalLib,
     return;
   }
 
-  // TBD: remove IsOldDevBuild if we no longer need it
-  bool IsOldDevBuild = false;
-  {
-    unsigned int version[4];
-    if (GetDLLFileVersionInfo(dllName, version)) {
-      // back-compat - old dev builds had version 3.7.0.0
-      if (version[0] == 3 && version[1] == 7 && version[2] == 0 &&
-          version[3] == 0) {
-        IsOldDevBuild = true;
-      }
-    }
-  }
-
-  if (CommitCount != 0 || CommitHash.m_pData || IsOldDevBuild) {
-    OS << "(";
-
-    if (IsOldDevBuild)
-      OS << "dev-";
-
-    OS << CommitCount << "-"
+  if (CommitCount != 0 || CommitHash.m_pData) {
+    OS << "(" << CommitCount << "-"
        << (CommitHash.m_pData ? CommitHash.m_pData : "<unknown-git-hash>")
        << ")";
   }
