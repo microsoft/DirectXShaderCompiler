@@ -1369,6 +1369,227 @@ CXXRecordDecl *hlsl::DeclareNodeOrRecordType(
 }
 
 #ifdef ENABLE_SPIRV_CODEGEN
+CXXRecordDecl *hlsl::DeclareVkSampledTexture2DType(ASTContext &context,
+                                                   DeclContext *declContext,
+                                                   QualType float2Type,
+                                                   QualType int2Type,
+                                                   QualType float4Type) {
+  BuiltinTypeDeclBuilder Builder(declContext, "SampledTexture2D",
+                                 TagDecl::TagKind::TTK_Struct);
+
+  QualType defaultTextureType = float4Type;
+  TemplateTypeParmDecl *TyParamDecl =
+      Builder.addTypeTemplateParam("SampledTextureType", defaultTextureType);
+
+  Builder.startDefinition();
+
+  QualType paramType = QualType(TyParamDecl->getTypeForDecl(), 0);
+  CXXRecordDecl *recordDecl = Builder.getRecordDecl();
+
+  QualType floatType = context.FloatTy;
+  QualType uintType = context.UnsignedIntTy;
+  QualType intType = context.IntTy;
+
+  // Add Sample method
+  // Sample(location)
+  CXXMethodDecl *sampleDecl = CreateObjectFunctionDeclarationWithParams(
+      context, recordDecl, paramType, ArrayRef<QualType>(float2Type),
+      ArrayRef<StringRef>(StringRef("location")),
+      context.DeclarationNames.getIdentifier(&context.Idents.get("Sample")),
+      /*isConst*/ true);
+  sampleDecl->addAttr(HLSLIntrinsicAttr::CreateImplicit(
+      context, "op", "", static_cast<int>(hlsl::IntrinsicOp::MOP_Sample)));
+  sampleDecl->addAttr(HLSLCXXOverloadAttr::CreateImplicit(context));
+
+  // Sample(location, offset)
+  QualType params2[] = {float2Type, int2Type};
+  StringRef names2[] = {"location", "offset"};
+  CXXMethodDecl *sampleDecl2 = CreateObjectFunctionDeclarationWithParams(
+      context, recordDecl, paramType, params2, names2,
+      context.DeclarationNames.getIdentifier(&context.Idents.get("Sample")),
+      /*isConst*/ true);
+  sampleDecl2->addAttr(HLSLIntrinsicAttr::CreateImplicit(
+      context, "op", "", static_cast<int>(hlsl::IntrinsicOp::MOP_Sample)));
+  sampleDecl2->addAttr(HLSLCXXOverloadAttr::CreateImplicit(context));
+
+  // Sample(location, offset, clamp)
+  QualType params3[] = {float2Type, int2Type, floatType};
+  StringRef names3[] = {"location", "offset", "clamp"};
+  CXXMethodDecl *sampleDecl3 = CreateObjectFunctionDeclarationWithParams(
+      context, recordDecl, paramType, params3, names3,
+      context.DeclarationNames.getIdentifier(&context.Idents.get("Sample")),
+      /*isConst*/ true);
+  sampleDecl3->addAttr(HLSLIntrinsicAttr::CreateImplicit(
+      context, "op", "", static_cast<int>(hlsl::IntrinsicOp::MOP_Sample)));
+  sampleDecl3->addAttr(HLSLCXXOverloadAttr::CreateImplicit(context));
+
+  // Sample(location, offset, clamp, status)
+  QualType params4[] = {float2Type, int2Type, floatType,
+                        context.getLValueReferenceType(uintType)};
+  StringRef names4[] = {"location", "offset", "clamp", "status"};
+  CXXMethodDecl *sampleDecl4 = CreateObjectFunctionDeclarationWithParams(
+      context, recordDecl, paramType, params4, names4,
+      context.DeclarationNames.getIdentifier(&context.Idents.get("Sample")),
+      /*isConst*/ true);
+  sampleDecl4->addAttr(HLSLIntrinsicAttr::CreateImplicit(
+      context, "op", "", static_cast<int>(hlsl::IntrinsicOp::MOP_Sample)));
+  sampleDecl4->addAttr(HLSLCXXOverloadAttr::CreateImplicit(context));
+
+  // CalculateLevelOfDetail(location)
+  CXXMethodDecl *lodDecl = CreateObjectFunctionDeclarationWithParams(
+      context, recordDecl, floatType, ArrayRef<QualType>(float2Type),
+      ArrayRef<StringRef>(StringRef("location")),
+      context.DeclarationNames.getIdentifier(
+          &context.Idents.get("CalculateLevelOfDetail")),
+      /*isConst*/ true);
+  lodDecl->addAttr(HLSLIntrinsicAttr::CreateImplicit(
+      context, "op", "",
+      static_cast<int>(hlsl::IntrinsicOp::MOP_CalculateLevelOfDetail)));
+  lodDecl->addAttr(HLSLCXXOverloadAttr::CreateImplicit(context));
+
+  // CalculateLevelOfDetailUnclamped(location)
+  CXXMethodDecl *lodUnclampedDecl = CreateObjectFunctionDeclarationWithParams(
+      context, recordDecl, floatType, ArrayRef<QualType>(float2Type),
+      ArrayRef<StringRef>(StringRef("location")),
+      context.DeclarationNames.getIdentifier(
+          &context.Idents.get("CalculateLevelOfDetailUnclamped")),
+      /*isConst*/ true);
+  lodUnclampedDecl->addAttr(HLSLIntrinsicAttr::CreateImplicit(
+      context, "op", "",
+      static_cast<int>(
+          hlsl::IntrinsicOp::MOP_CalculateLevelOfDetailUnclamped)));
+  lodUnclampedDecl->addAttr(HLSLCXXOverloadAttr::CreateImplicit(context));
+
+  // Gather(location)
+  CXXMethodDecl *gatherDecl = CreateObjectFunctionDeclarationWithParams(
+      context, recordDecl, paramType, ArrayRef<QualType>(float2Type),
+      ArrayRef<StringRef>(StringRef("location")),
+      context.DeclarationNames.getIdentifier(&context.Idents.get("Gather")),
+      /*isConst*/ true);
+  gatherDecl->addAttr(HLSLIntrinsicAttr::CreateImplicit(
+      context, "op", "", static_cast<int>(hlsl::IntrinsicOp::MOP_Gather)));
+  gatherDecl->addAttr(HLSLCXXOverloadAttr::CreateImplicit(context));
+  // Gather(location, offset)
+  QualType gatherParams2[] = {float2Type, int2Type};
+  StringRef gatherNames2[] = {"location", "offset"};
+  CXXMethodDecl *gatherDecl2 = CreateObjectFunctionDeclarationWithParams(
+      context, recordDecl, paramType, gatherParams2, gatherNames2,
+      context.DeclarationNames.getIdentifier(&context.Idents.get("Gather")),
+      /*isConst*/ true);
+  gatherDecl2->addAttr(HLSLIntrinsicAttr::CreateImplicit(
+      context, "op", "", static_cast<int>(hlsl::IntrinsicOp::MOP_Gather)));
+  gatherDecl2->addAttr(HLSLCXXOverloadAttr::CreateImplicit(context));
+  // Gather(location, offset, status)
+  QualType gatherParams3[] = {float2Type, int2Type,
+                              context.getLValueReferenceType(uintType)};
+  StringRef gatherNames3[] = {"location", "offset", "status"};
+  CXXMethodDecl *gatherDecl3 = CreateObjectFunctionDeclarationWithParams(
+      context, recordDecl, paramType, gatherParams3, gatherNames3,
+      context.DeclarationNames.getIdentifier(&context.Idents.get("Gather")),
+      /*isConst*/ true);
+  gatherDecl3->addAttr(HLSLIntrinsicAttr::CreateImplicit(
+      context, "op", "", static_cast<int>(hlsl::IntrinsicOp::MOP_Gather)));
+  gatherDecl3->addAttr(HLSLCXXOverloadAttr::CreateImplicit(context));
+
+  // GetDimensions(width, height)
+  QualType getDimensionsParams2[] = {context.getLValueReferenceType(uintType),
+                                     context.getLValueReferenceType(uintType)};
+  StringRef getDimensionsNames2[] = {"width", "height"};
+  CXXMethodDecl *getDimensionsDecl2 = CreateObjectFunctionDeclarationWithParams(
+      context, recordDecl, context.VoidTy, getDimensionsParams2,
+      getDimensionsNames2,
+      context.DeclarationNames.getIdentifier(
+          &context.Idents.get("GetDimensions")),
+      /*isConst*/ true);
+  getDimensionsDecl2->addAttr(HLSLIntrinsicAttr::CreateImplicit(
+      context, "op", "",
+      static_cast<int>(hlsl::IntrinsicOp::MOP_GetDimensions)));
+  // GetDimensions(width, height) float version
+  QualType getDimensionsParams2Float[] = {
+      context.getLValueReferenceType(floatType),
+      context.getLValueReferenceType(floatType)};
+  StringRef getDimensionsNames2Float[] = {"width", "height"};
+  CXXMethodDecl *getDimensionsDecl2Float =
+      CreateObjectFunctionDeclarationWithParams(
+          context, recordDecl, context.VoidTy, getDimensionsParams2Float,
+          getDimensionsNames2Float,
+          context.DeclarationNames.getIdentifier(
+              &context.Idents.get("GetDimensions")),
+          /*isConst*/ true);
+  getDimensionsDecl2Float->addAttr(HLSLIntrinsicAttr::CreateImplicit(
+      context, "op", "",
+      static_cast<int>(hlsl::IntrinsicOp::MOP_GetDimensions)));
+  // GetDimensions(width, height) int version
+  QualType getDimensionsParams2Int[] = {
+      context.getLValueReferenceType(intType),
+      context.getLValueReferenceType(intType)};
+  StringRef getDimensionsNames2Int[] = {"width", "height"};
+  CXXMethodDecl *getDimensionsDecl2Int =
+      CreateObjectFunctionDeclarationWithParams(
+          context, recordDecl, context.VoidTy, getDimensionsParams2Int,
+          getDimensionsNames2Int,
+          context.DeclarationNames.getIdentifier(
+              &context.Idents.get("GetDimensions")),
+          /*isConst*/ true);
+  getDimensionsDecl2Int->addAttr(HLSLIntrinsicAttr::CreateImplicit(
+      context, "op", "",
+      static_cast<int>(hlsl::IntrinsicOp::MOP_GetDimensions)));
+
+  // GetDimensions(mipLevel, width, height, numLevels)
+  QualType getDimensionsParams4[] = {uintType,
+                                     context.getLValueReferenceType(uintType),
+                                     context.getLValueReferenceType(uintType),
+                                     context.getLValueReferenceType(uintType)};
+  StringRef getDimensionsNames4[] = {"mipLevel", "width", "height",
+                                     "numLevels"};
+  CXXMethodDecl *getDimensionsDecl4 = CreateObjectFunctionDeclarationWithParams(
+      context, recordDecl, context.VoidTy, getDimensionsParams4,
+      getDimensionsNames4,
+      context.DeclarationNames.getIdentifier(
+          &context.Idents.get("GetDimensions")),
+      /*isConst*/ true);
+  getDimensionsDecl4->addAttr(HLSLIntrinsicAttr::CreateImplicit(
+      context, "op", "",
+      static_cast<int>(hlsl::IntrinsicOp::MOP_GetDimensions)));
+  // GetDimensions(mipLevel, width, height, numLevels) float version
+  QualType getDimensionsParams4Float[] = {
+      uintType, context.getLValueReferenceType(floatType),
+      context.getLValueReferenceType(floatType),
+      context.getLValueReferenceType(floatType)};
+  StringRef getDimensionsNames4Float[] = {"mipLevel", "width", "height",
+                                          "numLevels"};
+  CXXMethodDecl *getDimensionsDecl4Float =
+      CreateObjectFunctionDeclarationWithParams(
+          context, recordDecl, context.VoidTy, getDimensionsParams4Float,
+          getDimensionsNames4Float,
+          context.DeclarationNames.getIdentifier(
+              &context.Idents.get("GetDimensions")),
+          /*isConst*/ true);
+  getDimensionsDecl4Float->addAttr(HLSLIntrinsicAttr::CreateImplicit(
+      context, "op", "",
+      static_cast<int>(hlsl::IntrinsicOp::MOP_GetDimensions)));
+  // GetDimensions(mipLevel, width, height, numLevels) int version
+  QualType getDimensionsParams4Int[] = {
+      uintType, context.getLValueReferenceType(intType),
+      context.getLValueReferenceType(intType),
+      context.getLValueReferenceType(intType)};
+  StringRef getDimensionsNames4Int[] = {"mipLevel", "width", "height",
+                                        "numLevels"};
+  CXXMethodDecl *getDimensionsDecl4Int =
+      CreateObjectFunctionDeclarationWithParams(
+          context, recordDecl, context.VoidTy, getDimensionsParams4Int,
+          getDimensionsNames4Int,
+          context.DeclarationNames.getIdentifier(
+              &context.Idents.get("GetDimensions")),
+          /*isConst*/ true);
+  getDimensionsDecl4Int->addAttr(HLSLIntrinsicAttr::CreateImplicit(
+      context, "op", "",
+      static_cast<int>(hlsl::IntrinsicOp::MOP_GetDimensions)));
+
+  Builder.completeDefinition();
+  return recordDecl;
+}
+
 CXXRecordDecl *hlsl::DeclareVkBufferPointerType(ASTContext &context,
                                                 DeclContext *declContext) {
   BuiltinTypeDeclBuilder Builder(declContext, "BufferPointer",
