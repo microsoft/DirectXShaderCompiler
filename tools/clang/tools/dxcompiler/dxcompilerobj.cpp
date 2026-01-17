@@ -1477,7 +1477,9 @@ public:
 
     // Pick additional arguments.
     clang::HeaderSearchOptions &HSOpts = compiler.getHeaderSearchOpts();
-    HSOpts.UseBuiltinIncludes = 0;
+    HSOpts.UseBuiltinIncludes = true;
+    HSOpts.ResourceDir =
+      clang::CompilerInvocation::GetResourcesPath("Hoping this is not needed on any of our platforms", nullptr);
     // Consider: should we force-include '.' if the source file is relative?
     for (const llvm::opt::Arg *A : Opts.Args.filtered(options::OPT_I)) {
       const bool IsFrameworkFalse = false;
