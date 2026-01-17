@@ -4451,15 +4451,25 @@ SpirvEmitter::processTextureLevelOfDetail(const CXXMemberCallExpr *expr,
   // Texture2D(Array).CalculateLevelOfDetail(SamplerState S, float2 xy);
   // TextureCube(Array).CalculateLevelOfDetail(SamplerState S, float3 xyz);
   // Texture3D.CalculateLevelOfDetail(SamplerState S, float3 xyz);
+  // SampledTexture2D.CalculateLevelOfDetail(float2 xy);
   // Return type is always a single float (LOD).
-  assert(expr->getNumArgs() == 2u);
-  const auto *object = expr->getImplicitObjectArgument();
-  auto *objectInfo = loadIfGLValue(object);
-  auto *samplerState = doExpr(expr->getArg(0));
-  auto *coordinate = doExpr(expr->getArg(1));
 
-  auto *sampledImage = spvBuilder.createSampledImage(
-      object->getType(), objectInfo, samplerState, expr->getExprLoc());
+  const auto *imageExpr = expr->getImplicitObjectArgument();
+  const QualType imageType = imageExpr->getType();
+  // numarg is 1 if isSampledTexture(imageType). otherwise 2.
+  assert(expr->getNumArgs() == (isSampledTexture(imageType) ? 1u : 2u));
+
+  auto *objectInfo = loadIfGLValue(imageExpr);
+  auto *samplerState =
+      isSampledTexture(imageType) ? nullptr : doExpr(expr->getArg(0));
+  auto *coordinate = isSampledTexture(imageType) ? doExpr(expr->getArg(0))
+                                                 : doExpr(expr->getArg(1));
+
+  auto *sampledImage =
+      isSampledTexture(imageType)
+          ? objectInfo
+          : spvBuilder.createSampledImage(imageExpr->getType(), objectInfo,
+                                          samplerState, expr->getExprLoc());
 
   // The result type of OpImageQueryLod must be a float2.
   const QualType queryResultType =
@@ -5813,10 +5823,70 @@ SpirvEmitter::processTextureSampleGather(const CXXMemberCallExpr *expr,
   //                                [, uint Status]);
   //
   // Other Texture types do not have a Gather method.
+  //
+  // For SampledTexture2D:
+  // DXGI_FORMAT Object.Sample(float Location
+  //                           [, int Offset]
+  //                           [, float Clamp]
+  //                           [, out uint Status]);
+  //
+  // For SampledTexture2D:
+  // <Template Type>4 Object.Gather(float2|3|4 Location,
+  //                                int2 Offset
+  //                                [, uint Status]);
 
   const auto numArgs = expr->getNumArgs();
   const auto loc = expr->getExprLoc();
   const auto range = expr->getSourceRange();
+
+  const auto *imageExpr = expr->getImplicitObjectArgument();
+  const QualType imageType = imageExpr->getType();
+  const auto retType = expr->getDirectCallee()->getReturnType();
+
+  if (isSampledTexture(imageType)) {
+    auto *sampledImage = loadIfGLValue(imageExpr);
+    auto *coordinate = doExpr(expr->getArg(0));
+    SpirvInstruction *constOffset = nullptr;
+    SpirvInstruction *varOffset = nullptr;
+    SpirvInstruction *clamp = nullptr;
+    SpirvInstruction *status = nullptr;
+
+    if (numArgs > 1) {
+      handleOffsetInMethodCall(expr, 1, &constOffset, &varOffset);
+    }
+    if (isSample) {
+      if (numArgs > 2) {
+        clamp = doExpr(expr->getArg(2));
+      }
+      if (numArgs > 3) {
+        status = doExpr(expr->getArg(3));
+      }
+      return createImageSample(
+          retType, imageType, sampledImage, /*sampler*/ nullptr, coordinate,
+          /*compareVal*/ nullptr, /*bias*/ nullptr,
+          /*lod*/ nullptr, {nullptr, nullptr}, constOffset, varOffset,
+          /*constOffsets*/ nullptr, /*sample*/ nullptr,
+          /*minLod*/ clamp, status, loc, range);
+    } else {
+      if (numArgs > 2) {
+        status = doExpr(expr->getArg(2));
+      }
+      return spvBuilder.createImageGather(
+          retType, imageType, sampledImage, /*sampler*/ nullptr, coordinate,
+          // .Gather() doc says we return four components of red data.
+          spvBuilder.getConstantInt(astContext.IntTy, llvm::APInt(32, 0)),
+          /*compareVal*/ nullptr, constOffset, varOffset,
+          /*constOffsets*/ nullptr, /*sampleNumber*/ nullptr, status, loc,
+          range);
+    }
+  }
+
+  auto *image = loadIfGLValue(imageExpr);
+  auto *sampler = doExpr(expr->getArg(0));
+  auto *coordinate = doExpr(expr->getArg(1));
+  // .Sample()/.Gather() may have a third optional paramter for offset.
+  SpirvInstruction *constOffset = nullptr, *varOffset = nullptr;
+
   const bool hasStatusArg =
       expr->getArg(numArgs - 1)->getType()->isUnsignedIntegerType();
 
@@ -5832,18 +5902,9 @@ SpirvEmitter::processTextureSampleGather(const CXXMemberCallExpr *expr,
   // Subtract 1 for status (if it exists), subtract 1 for clamp (if it exists),
   // and subtract 2 for sampler_state and location.
   const bool hasOffsetArg = numArgs - hasStatusArg - hasClampArg - 2 > 0;
-
-  const auto *imageExpr = expr->getImplicitObjectArgument();
-  const QualType imageType = imageExpr->getType();
-  auto *image = loadIfGLValue(imageExpr);
-  auto *sampler = doExpr(expr->getArg(0));
-  auto *coordinate = doExpr(expr->getArg(1));
-  // .Sample()/.Gather() may have a third optional paramter for offset.
-  SpirvInstruction *constOffset = nullptr, *varOffset = nullptr;
   if (hasOffsetArg)
     handleOffsetInMethodCall(expr, 2, &constOffset, &varOffset);
 
-  const auto retType = expr->getDirectCallee()->getReturnType();
   if (isSample) {
     addDerivativeGroupExecutionMode();
     return createImageSample(retType, imageType, image, sampler, coordinate,
