@@ -2035,7 +2035,8 @@ void MicrosoftCXXNameMangler::mangleType(const LValueReferenceType *T,
                                          Qualifiers Quals, SourceRange Range) {
   QualType PointeeType = T->getPointeeType();
   Out << (Quals.hasVolatile() ? 'B' : 'A');
-  if (PointeeType.getQualifiers().getAddressSpace() == hlsl::DXIL::kTGSMAddrSpace)
+  if (PointeeType.getQualifiers().getAddressSpace() ==
+      hlsl::DXIL::kTGSMAddrSpace)
     Out << 'G';
   manglePointerExtQualifiers(Quals, PointeeType);
   mangleType(PointeeType, Range);
