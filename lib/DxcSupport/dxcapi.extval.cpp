@@ -171,7 +171,10 @@ private:
 // '-Vd' and sets the default validator version with '-validator-version'.
 // After a successful compilation, it uses the provided IDxcValidator to
 // perform validation when it would normally be performed.
-class ExternalValidationCompiler : public IDxcCompiler2, public IDxcCompiler3 {
+class ExternalValidationCompiler : public IDxcCompiler2,
+                                   public IDxcCompiler3,
+                                   public IDxcVersionInfo2,
+                                   public IDxcVersionInfo3 {
 public:
   ExternalValidationCompiler(IMalloc *Malloc, IDxcValidator *OtherValidator,
                              IUnknown *OtherCompiler)
@@ -203,8 +206,10 @@ public:
       // calls.
       CComPtr<ExternalValidationCompiler> NewWrapper(
           Alloc(m_pMalloc, Validator, TempCompiler));
-      return DoBasicQueryInterface<IDxcCompiler, IDxcCompiler2, IDxcCompiler3>(
-          NewWrapper.p, Iid, ResultObject);
+      return DoBasicQueryInterface<IDxcCompiler, IDxcCompiler2, IDxcCompiler3,
+                                   IDxcVersionInfo, IDxcVersionInfo2,
+                                   IDxcVersionInfo3>(NewWrapper.p, Iid,
+                                                     ResultObject);
     } catch (...) {
       return E_FAIL;
     }
@@ -303,6 +308,28 @@ public:
   HRESULT STDMETHODCALLTYPE Disassemble(const DxcBuffer *Object, REFIID Riid,
                                         LPVOID *ResultObject) override {
     return cast<IDxcCompiler3>()->Disassemble(Object, Riid, ResultObject);
+  }
+
+  // IDxcVersionInfo implementation
+  HRESULT STDMETHODCALLTYPE GetVersion(_Out_ UINT32 *pMajor,
+                                       _Out_ UINT32 *pMinor) override {
+    return cast<IDxcVersionInfo>()->GetVersion(pMajor, pMinor);
+  }
+  HRESULT STDMETHODCALLTYPE GetFlags(_Out_ UINT32 *pFlags) override {
+    return cast<IDxcVersionInfo>()->GetFlags(pFlags);
+  }
+
+  // IDxcVersionInfo2 implementation
+  HRESULT STDMETHODCALLTYPE
+  GetCommitInfo(_Out_ UINT32 *pCommitCount,
+                _Outptr_result_z_ char **pCommitHash) override {
+    return cast<IDxcVersionInfo2>()->GetCommitInfo(pCommitCount, pCommitHash);
+  }
+
+  // IDxcVersionInfo3 implementation
+  HRESULT STDMETHODCALLTYPE
+  GetCustomVersionString(_Outptr_result_z_ char **pVersionString) override {
+    return cast<IDxcVersionInfo3>()->GetCustomVersionString(pVersionString);
   }
 
 private:
