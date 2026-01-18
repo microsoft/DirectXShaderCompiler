@@ -1369,6 +1369,86 @@ CXXRecordDecl *hlsl::DeclareNodeOrRecordType(
 }
 
 #ifdef ENABLE_SPIRV_CODEGEN
+CXXRecordDecl *hlsl::DeclareVkSampledTexture2DType(ASTContext &context,
+                                                   DeclContext *declContext,
+                                                   QualType float2Type,
+                                                   QualType int2Type,
+                                                   QualType float4Type) {
+  BuiltinTypeDeclBuilder Builder(declContext, "SampledTexture2D",
+                                 TagDecl::TagKind::TTK_Struct);
+
+  QualType defaultTextureType = float4Type;
+  TemplateTypeParmDecl *TyParamDecl =
+      Builder.addTypeTemplateParam("SampledTextureType", defaultTextureType);
+
+  Builder.startDefinition();
+
+  QualType paramType = QualType(TyParamDecl->getTypeForDecl(), 0);
+  CXXRecordDecl *recordDecl = Builder.getRecordDecl();
+
+  QualType floatType = context.FloatTy;
+  QualType uintType = context.UnsignedIntTy;
+  // Add Sample method
+  // Sample(location)
+  CXXMethodDecl *sampleDecl = CreateObjectFunctionDeclarationWithParams(
+      context, recordDecl, paramType, ArrayRef<QualType>(float2Type),
+      ArrayRef<StringRef>(StringRef("location")),
+      context.DeclarationNames.getIdentifier(&context.Idents.get("Sample")),
+      /*isConst*/ true);
+  sampleDecl->addAttr(HLSLIntrinsicAttr::CreateImplicit(
+      context, "op", "", static_cast<int>(hlsl::IntrinsicOp::MOP_Sample)));
+  sampleDecl->addAttr(HLSLCXXOverloadAttr::CreateImplicit(context));
+
+  // Sample(location, offset)
+  QualType params2[] = {float2Type, int2Type};
+  StringRef names2[] = {"location", "offset"};
+  CXXMethodDecl *sampleDecl2 = CreateObjectFunctionDeclarationWithParams(
+      context, recordDecl, paramType, params2, names2,
+      context.DeclarationNames.getIdentifier(&context.Idents.get("Sample")),
+      /*isConst*/ true);
+  sampleDecl2->addAttr(HLSLIntrinsicAttr::CreateImplicit(
+      context, "op", "", static_cast<int>(hlsl::IntrinsicOp::MOP_Sample)));
+  sampleDecl2->addAttr(HLSLCXXOverloadAttr::CreateImplicit(context));
+
+  // Sample(location, offset, clamp)
+  QualType params3[] = {float2Type, int2Type, floatType};
+  StringRef names3[] = {"location", "offset", "clamp"};
+  CXXMethodDecl *sampleDecl3 = CreateObjectFunctionDeclarationWithParams(
+      context, recordDecl, paramType, params3, names3,
+      context.DeclarationNames.getIdentifier(&context.Idents.get("Sample")),
+      /*isConst*/ true);
+  sampleDecl3->addAttr(HLSLIntrinsicAttr::CreateImplicit(
+      context, "op", "", static_cast<int>(hlsl::IntrinsicOp::MOP_Sample)));
+  sampleDecl3->addAttr(HLSLCXXOverloadAttr::CreateImplicit(context));
+
+  // Sample(location, offset, clamp, status)
+  QualType params4[] = {float2Type, int2Type, floatType,
+                        context.getLValueReferenceType(uintType)};
+  StringRef names4[] = {"location", "offset", "clamp", "status"};
+  CXXMethodDecl *sampleDecl4 = CreateObjectFunctionDeclarationWithParams(
+      context, recordDecl, paramType, params4, names4,
+      context.DeclarationNames.getIdentifier(&context.Idents.get("Sample")),
+      /*isConst*/ true);
+  sampleDecl4->addAttr(HLSLIntrinsicAttr::CreateImplicit(
+      context, "op", "", static_cast<int>(hlsl::IntrinsicOp::MOP_Sample)));
+  sampleDecl4->addAttr(HLSLCXXOverloadAttr::CreateImplicit(context));
+
+  // CalculateLevelOfDetail(location)
+  CXXMethodDecl *lodDecl = CreateObjectFunctionDeclarationWithParams(
+      context, recordDecl, floatType, ArrayRef<QualType>(float2Type),
+      ArrayRef<StringRef>(StringRef("location")),
+      context.DeclarationNames.getIdentifier(
+          &context.Idents.get("CalculateLevelOfDetail")),
+      /*isConst*/ true);
+  lodDecl->addAttr(HLSLIntrinsicAttr::CreateImplicit(
+      context, "op", "",
+      static_cast<int>(hlsl::IntrinsicOp::MOP_CalculateLevelOfDetail)));
+  lodDecl->addAttr(HLSLCXXOverloadAttr::CreateImplicit(context));
+
+  Builder.completeDefinition();
+  return recordDecl;
+}
+
 CXXRecordDecl *hlsl::DeclareVkBufferPointerType(ASTContext &context,
                                                 DeclContext *declContext) {
   BuiltinTypeDeclBuilder Builder(declContext, "BufferPointer",

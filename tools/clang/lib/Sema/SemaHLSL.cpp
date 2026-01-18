@@ -198,6 +198,7 @@ enum ArBasicKind {
   AR_OBJECT_VK_SPV_INTRINSIC_TYPE,
   AR_OBJECT_VK_SPV_INTRINSIC_RESULT_ID,
   AR_OBJECT_VK_BUFFER_POINTER,
+  AR_OBJECT_VK_SAMPLED_TEXTURE2D,
 #endif // ENABLE_SPIRV_CODEGEN
   // SPIRV change ends
 
@@ -554,6 +555,7 @@ const UINT g_uBasicKindProps[] = {
     BPROP_OBJECT, // AR_OBJECT_VK_SPV_INTRINSIC_TYPE use recordType
     BPROP_OBJECT, // AR_OBJECT_VK_SPV_INTRINSIC_RESULT_ID use recordType
     BPROP_OBJECT, // AR_OBJECT_VK_BUFFER_POINTER use recordType
+    BPROP_OBJECT | BPROP_RBUFFER, // AR_OBJECT_VK_SAMPLED_TEXTURE2D
 #endif            // ENABLE_SPIRV_CODEGEN
     // SPIRV change ends
 
@@ -1250,6 +1252,8 @@ static const ArBasicKind g_DxHitObjectCT[] = {AR_OBJECT_HIT_OBJECT,
 #ifdef ENABLE_SPIRV_CODEGEN
 static const ArBasicKind g_VKBufferPointerCT[] = {AR_OBJECT_VK_BUFFER_POINTER,
                                                   AR_BASIC_UNKNOWN};
+static const ArBasicKind g_VKSampledTexture2DCT[] = {
+    AR_OBJECT_VK_SAMPLED_TEXTURE2D, AR_BASIC_UNKNOWN};
 #endif
 
 // Basic kinds, indexed by a LEGAL_INTRINSIC_COMPTYPES value.
@@ -1310,7 +1314,8 @@ const ArBasicKind *g_LegalIntrinsicCompTypes[] = {
     g_RayQueryCT,                // LICOMPTYPE_RAY_QUERY
     g_LinAlgCT,                  // LICOMPTYPE_LINALG
 #ifdef ENABLE_SPIRV_CODEGEN
-    g_VKBufferPointerCT, // LICOMPTYPE_VK_BUFFER_POINTER
+    g_VKBufferPointerCT,    // LICOMPTYPE_VK_BUFFER_POINTER
+    g_VKSampledTexture2DCT, // LICOMPTYPE_VK_SAMPLED_TEXTURE2D
 #endif
 };
 static_assert(
@@ -1370,7 +1375,7 @@ static const ArBasicKind g_ArBasicKindsAsTypes[] = {
     AR_OBJECT_VK_SPIRV_TYPE, AR_OBJECT_VK_SPIRV_OPAQUE_TYPE,
     AR_OBJECT_VK_INTEGRAL_CONSTANT, AR_OBJECT_VK_LITERAL,
     AR_OBJECT_VK_SPV_INTRINSIC_TYPE, AR_OBJECT_VK_SPV_INTRINSIC_RESULT_ID,
-    AR_OBJECT_VK_BUFFER_POINTER,
+    AR_OBJECT_VK_BUFFER_POINTER, AR_OBJECT_VK_SAMPLED_TEXTURE2D,
 #endif // ENABLE_SPIRV_CODEGEN
     // SPIRV change ends
 
@@ -1478,6 +1483,7 @@ static const uint8_t g_ArBasicKindsTemplateCount[] = {
     1, // AR_OBJECT_VK_SPV_INTRINSIC_TYPE
     1, // AR_OBJECT_VK_SPV_INTRINSIC_RESULT_ID
     2, // AR_OBJECT_VK_BUFFER_POINTER
+    1, // AR_OBJECT_VK_SAMPLED_TEXTURE2D
 #endif // ENABLE_SPIRV_CODEGEN
     // SPIRV change ends
 
@@ -1627,6 +1633,7 @@ static const SubscriptOperatorRecord g_ArBasicKindsSubscripts[] = {
     {0, MipsFalse, SampleFalse}, // AR_OBJECT_VK_SPV_INTRINSIC_TYPE
     {0, MipsFalse, SampleFalse}, // AR_OBJECT_VK_SPV_INTRINSIC_RESULT_ID
     {0, MipsFalse, SampleFalse}, // AR_OBJECT_VK_BUFFER_POINTER
+    {0, MipsFalse, SampleFalse}, // AR_OBJECT_VK_SAMPLED_TEXTURE2D
 #endif                           // ENABLE_SPIRV_CODEGEN
     // SPIRV change ends
 
@@ -1792,6 +1799,7 @@ static const char *g_ArBasicTypeNames[] = {
     "ext_type",
     "ext_result_id",
     "BufferPointer",
+    "SampledTexture2D",
 #endif // ENABLE_SPIRV_CODEGEN
     // SPIRV change ends
 
@@ -3013,6 +3021,7 @@ private:
   ClassTemplateDecl *m_vkIntegralConstantTemplateDecl;
   ClassTemplateDecl *m_vkLiteralTemplateDecl;
   ClassTemplateDecl *m_vkBufferPointerTemplateDecl;
+  ClassTemplateDecl *m_vkSampledTexture2DTemplateDecl;
 
   // Declarations for Work Graph Output Record types
   ClassTemplateDecl *m_GroupNodeOutputRecordsTemplateDecl;
@@ -4004,6 +4013,17 @@ private:
         recordDecl = DeclareVkBufferPointerType(*m_context, m_vkNSDecl);
         recordDecl->setImplicit(true);
         m_vkBufferPointerTemplateDecl = recordDecl->getDescribedClassTemplate();
+      } else if (kind == AR_OBJECT_VK_SAMPLED_TEXTURE2D) {
+        if (!m_vkNSDecl)
+          continue;
+        recordDecl = DeclareVkSampledTexture2DType(
+            *m_context, m_vkNSDecl,
+            LookupVectorType(HLSLScalarType::HLSLScalarType_float, 2),
+            LookupVectorType(HLSLScalarType::HLSLScalarType_int, 2),
+            LookupVectorType(HLSLScalarType::HLSLScalarType_float, 4));
+        recordDecl->setImplicit(true);
+        m_vkSampledTexture2DTemplateDecl =
+            recordDecl->getDescribedClassTemplate();
       }
 #endif
       else if (templateArgCount == 0) {
@@ -4117,7 +4137,8 @@ public:
       : m_matrixTemplateDecl(nullptr), m_vectorTemplateDecl(nullptr),
         m_vkIntegralConstantTemplateDecl(nullptr),
         m_vkLiteralTemplateDecl(nullptr),
-        m_vkBufferPointerTemplateDecl(nullptr), m_hlslNSDecl(nullptr),
+        m_vkBufferPointerTemplateDecl(nullptr),
+        m_vkSampledTexture2DTemplateDecl(nullptr), m_hlslNSDecl(nullptr),
         m_vkNSDecl(nullptr), m_dxNSDecl(nullptr), m_context(nullptr),
         m_sema(nullptr), m_hlslStringTypedef(nullptr) {
     memset(m_matrixTypes, 0, sizeof(m_matrixTypes));
@@ -5442,6 +5463,14 @@ public:
               namespaceDecl && namespaceDecl->getName().equals("vk") &&
               (recordType->getDecl()->getName().equals("SpirvType") ||
                recordType->getDecl()->getName().equals("SpirvOpaqueType"))) {
+            return true;
+          }
+#endif
+#ifdef ENABLE_SPIRV_CODEGEN
+          if (const auto *namespaceDecl = dyn_cast<NamespaceDecl>(
+                  recordType->getDecl()->getDeclContext());
+              namespaceDecl && namespaceDecl->getName().equals("vk") &&
+              recordType->getDecl()->getName().equals("SampledTexture2D")) {
             return true;
           }
 #endif
