@@ -2034,6 +2034,26 @@ void SpirvEmitter::doVarDecl(const VarDecl *decl) {
     return;
   }
 
+  // Considering the following example:
+  //
+  // ```cpp
+  //  template<typename T> static const T MyClass<T>::myVar = 1;
+  //  [...]
+  //  int use = MyClass<int>::myVar;
+  // ```
+  //
+  // The AST will contain 2 variable declarations:
+  //  - VarDecl for the template declaration
+  //  - VarDecl for the tempalte instantiation
+  // The difference lies in the InitExpr:
+  //  - declaration will have the type `void` because the template is
+  //    not resolve yet.
+  //  - the second will have the proper type (`int` here).
+  // We must not create a variable for the template declaration but wait
+  // for the instantiation (if any).
+  if (decl->getInit() && decl->getInit()->getType()->isVoidType())
+    return;
+
   // We cannot handle external initialization of column-major matrices now.
   if (isExternalVar(decl) &&
       isOrContainsNonFpColMajorMatrix(astContext, spirvOptions, decl->getType(),
