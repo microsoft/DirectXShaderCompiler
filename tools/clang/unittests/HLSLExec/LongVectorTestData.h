@@ -261,7 +261,7 @@ template <typename T> const std::vector<T> &getInputSet(InputSet InputSet) {
   default:                                                                     \
     break;                                                                     \
     }                                                                          \
-    VERIFY_FAIL("Missing input set");                                          \
+    VERIFY_FAIL(L"Missing input set");                                          \
     std::abort();                                                              \
     }
 

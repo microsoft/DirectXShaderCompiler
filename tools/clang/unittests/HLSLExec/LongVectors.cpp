@@ -1809,8 +1809,8 @@ using namespace LongVector;
   TEST_METHOD(Op##_##DataType) {                                               \
     BEGIN_TEST_METHOD_PROPERTIES()                                             \
     TEST_METHOD_PROPERTY(                                                      \
-        "Kits.Specification",                                                  \
-        "Device.Graphics.D3D12.DXILCore.ShaderModel69.DoublePrecision")        \
+        L"Kits.Specification",                                                  \
+        L"Device.Graphics.D3D12.DXILCore.ShaderModel69.DoublePrecision")        \
     END_TEST_METHOD_PROPERTIES()                                               \
     runTest<DataType, OpType::Op>();                                           \
   }
@@ -1819,8 +1819,8 @@ using namespace LongVector;
   TEST_METHOD(Op##_##DataType) {                                               \
     BEGIN_TEST_METHOD_PROPERTIES()                                             \
     TEST_METHOD_PROPERTY(                                                      \
-        "Kits.Specification",                                                  \
-        "Device.Graphics.D3D12.DXILCore.ShaderModel69.CoreRequirement")        \
+        L"Kits.Specification",                                                  \
+        L"Device.Graphics.D3D12.DXILCore.ShaderModel69.CoreRequirement")        \
     END_TEST_METHOD_PROPERTIES()                                               \
     runWaveOpTest<DataType, OpType::Op>();                                     \
   }
@@ -1829,8 +1829,8 @@ using namespace LongVector;
   TEST_METHOD(Op##_##DataType) {                                               \
     BEGIN_TEST_METHOD_PROPERTIES()                                             \
     TEST_METHOD_PROPERTY(                                                      \
-        "Kits.Specification",                                                  \
-        "Device.Graphics.D3D12.DXILCore.ShaderModel69.DoublePrecision")        \
+        L"Kits.Specification",                                                  \
+        L"Device.Graphics.D3D12.DXILCore.ShaderModel69.DoublePrecision")        \
     END_TEST_METHOD_PROPERTIES()                                               \
     runWaveOpTest<DataType, OpType::Op>();                                     \
   }
@@ -1838,14 +1838,14 @@ using namespace LongVector;
 class DxilConf_SM69_Vectorized {
 public:
   BEGIN_TEST_CLASS(DxilConf_SM69_Vectorized)
-  TEST_CLASS_PROPERTY("Kits.TestName",
-                      "D3D12 - Shader Model 6.9 - Vectorized DXIL - Core Tests")
-  TEST_CLASS_PROPERTY("Kits.TestId", "81db1ff8-5bc5-48a1-8d7b-600fc600a677")
-  TEST_CLASS_PROPERTY("Kits.Description",
-                      "Validates required SM 6.9 vectorized DXIL operations")
+  TEST_CLASS_PROPERTY(L"Kits.TestName",
+                      L"D3D12 - Shader Model 6.9 - Vectorized DXIL - Core Tests")
+  TEST_CLASS_PROPERTY(L"Kits.TestId", L"81db1ff8-5bc5-48a1-8d7b-600fc600a677")
+  TEST_CLASS_PROPERTY(L"Kits.Description",
+                      L"Validates required SM 6.9 vectorized DXIL operations")
   TEST_CLASS_PROPERTY(
-      "Kits.Specification",
-      "Device.Graphics.D3D12.DXILCore.ShaderModel69.CoreRequirement")
+      L"Kits.Specification",
+      L"Device.Graphics.D3D12.DXILCore.ShaderModel69.CoreRequirement")
   TEST_METHOD_PROPERTY(L"Priority", L"0")
   END_TEST_CLASS()
 
