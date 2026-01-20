@@ -151,12 +151,10 @@ class db_docsref_gen:
 
     def __init__(self, db):
         self.db = db
-        instrs = [i for i in self.db.instr if i.is_dxil_op]
-        instrs = sorted(
-            instrs,
+        self.instrs = sorted(
+            self.db.get_dxil_ops(),
             key=lambda v: ("" if v.category == None else v.category) + "." + v.name,
         )
-        self.instrs = instrs
         val_rules = sorted(
             db.val_rules,
             key=lambda v: ("" if v.category == None else v.category) + "." + v.name,
@@ -328,7 +326,7 @@ class db_instrhelp_gen:
         )
 
     def print_body(self):
-        for i in self.db.instr:
+        for i in self.db.get_all_insts():
             if i.is_reserved:
                 continue
             if i.inst_helper_prefix:
@@ -423,8 +421,6 @@ class db_enumhelp_gen:
 
     def __init__(self, db):
         self.db = db
-        # Some enums should get a last enum marker.
-        self.lastEnumNames = {"OpCode": "NumOpCodes", "OpCodeClass": "NumOpClasses"}
 
     def print_enum(self, e, **kwargs):
         print("// %s" % e.doc)
@@ -451,12 +447,11 @@ class db_enumhelp_gen:
             if v.doc:
                 line_format += " // {doc}"
             print(line_format.format(name=v.name, value=v.value, doc=v.doc))
-        if e.name in self.lastEnumNames:
-            lastName = self.lastEnumNames[e.name]
+        if e.last_value_name:
+            lastName = e.last_value_name
             versioned = [
-                "%s_Dxil_%d_%d = %d," % (lastName, major, minor, info[lastName])
-                for (major, minor), info in sorted(self.db.dxil_version_info.items())
-                if lastName in info
+                "%s_Dxil_%d_%d = %d," % (lastName, major, minor, count)
+                for (major, minor), count in sorted(e.dxil_version_info.items())
             ]
             if versioned:
                 print("")
@@ -468,8 +463,11 @@ class db_enumhelp_gen:
                 + lastName
                 + " = "
                 + str(len(sorted_values))
-                + " // exclusive last value of enumeration"
+                + ", // exclusive last value of enumeration"
             )
+        if e.postfix_lines:
+            for line in e.postfix_lines:
+                print("  " + line)
         print("};")
 
     def print_rdat_enum(self, e, **kwargs):
@@ -484,6 +482,14 @@ class db_enumhelp_gen:
                 line_format += " // {doc}"
             print(line_format.format(name=v.name, value=v.value, doc=v.doc))
 
+    def print_extended_table_opcode_enums(self):
+        for table in self.db.op_tables[1:]:  # Skip Core table
+            print(f"namespace {table.name} {{")
+            print(f"static const OpCodeTableID TableID = OpCodeTableID::{table.name};")
+            self.print_enum(table.op_enum)
+            print(f"}} // namespace {table.name}")
+        print(f"static const unsigned NumOpCodeTables = {len(self.db.op_tables)};")
+
     def print_content(self):
         for e in sorted(self.db.enums, key=lambda e: e.name):
             self.print_enum(e)
@@ -494,13 +500,6 @@ class db_oload_gen:
 
     def __init__(self, db):
         self.db = db
-        instrs = [i for i in self.db.instr if i.is_dxil_op]
-        self.instrs = sorted(instrs, key=lambda i: i.dxil_opid)
-
-        # Allow these to be overridden by external scripts.
-        self.OP = "OP"
-        self.OC = "OC"
-        self.OCC = "OCC"
 
     def print_content(self):
         self.print_opfunc_props()
@@ -508,11 +507,23 @@ class db_oload_gen:
         self.print_opfunc_table()
 
     def print_opfunc_props(self):
-        print(
-            "const {OP}::OpCodeProperty {OP}::m_OpCodeProps[(unsigned){OP}::OpCode::NumOpCodes] = {{".format(
-                OP=self.OP
+        # Print all the tables for OP::m_OpCodeProps
+        for table in self.db.op_tables:
+            self.print_opfunc_props_for_table(table)
+        print()
+        # Print the overall table of tables
+        print("// Table of DXIL OpCode Property tables")
+        print(f"OP::OpCodeTable OP::g_OpCodeTables[DXIL::NumOpCodeTables] = {{")
+        for table in self.db.op_tables:
+            print(
+                f"  {{ OP::OpCodeTableID::{table.name}, "
+                + f"{table.name}_OpCodeProps, "
+                + f"(unsigned)DXIL::{table.name}::OpCode::NumOpCodes }},"
             )
-        )
+        print("};")
+
+    def print_opfunc_props_for_table(self, table):
+        print(f"static const OP::OpCodeProperty {table.name}_OpCodeProps[] = {{")
 
         last_category = None
         lower_exceptions = {
@@ -539,7 +550,7 @@ class db_oload_gen:
         oloads_fn = lambda oloads: (
             "{" + ",".join(["{0x%x}" % m for m in oloads]) + "}"
         )
-        for i in self.instrs:
+        for i in table:
             if last_category != i.category:
                 if last_category != None:
                     print("")
@@ -559,7 +570,7 @@ class db_oload_gen:
                         vector_masks.append(0)
             print(
                 (
-                    "  {{  {OC}::{name:24} {quotName:27} {OCC}::{className:25} "
+                    "  {{  OC::{name:24} {quotName:27} OCC::{className:25} "
                     + "{classNameQuot:28} {attr:20}, {num_oloads}, "
                     + "{scalar_masks:16}, {vector_masks:16} }}, "
                     + "// Overloads: {oloads}"
@@ -573,11 +584,14 @@ class db_oload_gen:
                     scalar_masks=oloads_fn(scalar_masks),
                     vector_masks=oloads_fn(vector_masks),
                     oloads=i.oload_types,
-                    OC=self.OC,
-                    OCC=self.OCC,
                 )
             )
         print("};")
+        print(
+            f"static_assert(_countof({table.name}_OpCodeProps) == "
+            + f"(size_t)DXIL::{table.name}::OpCode::NumOpCodes, "
+            + f'"mismatch in opcode count for {table.name} OpCodeProps");'
+        )
 
     def print_opfunc_table(self):
         # Print the table for OP::GetOpFunc
@@ -598,7 +612,6 @@ class db_oload_gen:
             "i32c": "A(pI32C);",
             "i64": "A(pI64);",
             "i8": "A(pI8);",
-            "$u4": "A(pI4S);",
             "pf32": "A(pPF32);",
             "res": "A(pRes);",
             "splitdouble": "A(pSDT);",
@@ -617,26 +630,24 @@ class db_oload_gen:
             "u8": "A(pI8);",
             "v": "A(pV);",
             "$vec4": "VEC4(pETy);",
-            "w": "A(pWav);",
+            "$vec9": "VEC9(pETy);",
             "SamplePos": "A(pPos);",
-            "udt": "A(udt);",
-            "obj": "A(obj);",
+            "$udt": "A(udt);",
+            "$obj": "A(obj);",
             "resproperty": "A(resProperty);",
             "resbind": "A(resBind);",
-            "waveMat": "A(pWaveMatPtr);",
-            "waveMatProps": "A(pWaveMatProps);",
-            "$gsptr": "A(pGSEltPtrTy);",
             "nodehandle": "A(pNodeHandle);",
             "noderecordhandle": "A(pNodeRecordHandle);",
             "nodeproperty": "A(nodeProperty);",
             "noderecordproperty": "A(nodeRecordProperty);",
             "hit_object": "A(pHit);",
+            "matrixref": "A(pMatrixRef);",
             # Extended overload slots, extend as needed:
             "$x0": "EXT(0);",
             "$x1": "EXT(1);",
         }
         last_category = None
-        for i in self.instrs:
+        for i in self.db.get_dxil_ops():
             if last_category != i.category:
                 if last_category != None:
                     print("")
@@ -660,8 +671,8 @@ class db_oload_gen:
         elt_ty = "$o"
         res_ret_ty = "$r"
         cb_ret_ty = "$cb"
-        udt_ty = "udt"
-        obj_ty = "obj"
+        udt_ty = "$udt"
+        obj_ty = "$obj"
         vec_ty = "$vec"
         gsptr_ty = "$gsptr"
         extended_ty = "$x"
@@ -674,9 +685,10 @@ class db_oload_gen:
         # grouped by the set of overload parameter indices.
         extended_dict = collections.OrderedDict()
         struct_list = []
+        vec9_list = []  # For $vec9 operations that return native vectors
         extended_list = []
 
-        for instr in self.instrs:
+        for instr in self.db.get_dxil_ops():
             if instr.num_oloads > 1:
                 # Process extended overloads separately.
                 extended_list.append(instr)
@@ -696,7 +708,11 @@ class db_oload_gen:
                 continue
 
             if ret_ty.startswith(vec_ty):
-                struct_list.append(instr.name)
+                # $vec9 returns native <9 x float> vectors, not struct wrappers
+                if ret_ty == "$vec9":
+                    vec9_list.append(instr.name)
+                else:
+                    struct_list.append(instr.name)
                 continue
 
             in_param_ty = False
@@ -755,7 +771,7 @@ class db_oload_gen:
                 "v": "Type::getVoidTy(Ctx)",
                 # No other types should be referenced here.
             }
-            assert ty in type_code_texts, "llvm type %s is unknown" % (ty)
+            assert ty in type_code_texts, f"llvm type {ty} is unknown, '{instr.name}'"
             ty_code = type_code_texts[ty]
 
             if ty_code not in single_dict:
@@ -812,6 +828,15 @@ class db_oload_gen:
         line = line + "  return ST->getElementType(0);\n"
         line = line + "}"
         print(line)
+
+        # Generate code for $vec9 operations (native <9 x float> vectors)
+        if vec9_list:
+            line = ""
+            for opcode in vec9_list:
+                line = line + "case OpCode::{name}".format(name=opcode + ":\n")
+            line = line + "  // These return <9 x float> vectors directly\n"
+            line = line + "  return cast<VectorType>(Ty)->getElementType();"
+            print(line)
 
         for instr in extended_list:
             # Collect indices for overloaded return and types, make a tuple of
@@ -910,7 +935,7 @@ class db_valfns_gen:
         )
 
     def print_body(self):
-        llvm_instrs = [i for i in self.db.instr if i.is_allowed and not i.is_dxil_op]
+        llvm_instrs = [i for i in self.db.get_llvm_insts() if i.is_allowed]
         print("static bool IsLLVMInstructionAllowed(llvm::Instruction &I) {")
         self.print_comment(
             "  // ",
@@ -1256,7 +1281,7 @@ def get_instrs_pred(varname, pred, attr_name="dxil_opid"):
         pred_fn = lambda i: getattr(i, pred)
     else:
         pred_fn = pred
-    llvm_instrs = [i for i in db.instr if pred_fn(i)]
+    llvm_instrs = [i for i in db.get_all_insts() if pred_fn(i)]
     result = format_comment(
         "// ",
         "Instructions: %s"
@@ -1299,7 +1324,7 @@ def get_dxil_op_counters():
 def get_instrs_rst():
     "Create an rst table of allowed LLVM instructions."
     db = get_db_dxil()
-    instrs = [i for i in db.instr if i.is_allowed and not i.is_dxil_op]
+    instrs = [i for i in db.get_llvm_insts() if i.is_allowed]
     instrs = sorted(instrs, key=lambda v: v.llvm_id)
     rows = []
     rows.append(["Instruction", "Action", "Operand overloads"])
@@ -1378,10 +1403,18 @@ def get_is_pass_option_name():
 
 
 def get_opcodes_rst():
-    "Create an rst table of opcodes"
+    "Create an rst table for each opcode table"
     db = get_db_dxil()
-    instrs = [i for i in db.instr if i.is_allowed and i.is_dxil_op]
-    instrs = sorted(instrs, key=lambda v: v.dxil_opid)
+    result = ""
+    for table in db.op_tables:
+        result += f"\n\nOpcode Table {table.name}, id={table.id}: {table.doc}"
+        result += get_opcodes_rst_for_table(table)
+    return result
+
+
+def get_opcodes_rst_for_table(table):
+    "Create an rst table of opcodes for given opcode table"
+    instrs = [i for i in table]
     rows = []
     rows.append(["ID", "Name", "Description"])
     for i in instrs:
@@ -1413,14 +1446,22 @@ def get_valrules_rst():
 
 
 def get_opsigs():
-    # Create a list of DXIL operation signatures, sorted by ID.
     db = get_db_dxil()
-    instrs = [i for i in db.instr if i.is_dxil_op]
-    instrs = sorted(instrs, key=lambda v: v.dxil_opid)
-    # db_dxil already asserts that the numbering is dense.
+    result = ""
+    for table in db.op_tables:
+        result += f"\n\n// Opcode Signatures for Table {table.name}, id={table.id}\n"
+        result += get_opsigs_for_table(table)
+    result += "static const char **OpCodeSignatures[] = {\n"
+    for table in db.op_tables:
+        result += "  OpCodeSignatures_%s,\n" % table.name
+    result += "};\n"
+    return result
+
+
+def get_opsigs_for_table(table):
     # Create the code to write out.
-    code = "static const char *OpCodeSignatures[] = {\n"
-    for inst_idx, i in enumerate(instrs):
+    code = f"static const char *OpCodeSignatures_{table.name}[] = {{\n"
+    for inst_idx, i in enumerate(table):
         code += '  "('
         for operand in i.ops:
             if operand.pos > 1:  # skip 0 (the return value) and 1 (the opcode itself)
@@ -1428,7 +1469,7 @@ def get_opsigs():
                 if operand.pos < len(i.ops) - 1:
                     code += ","
         code += ')"'
-        if inst_idx < len(instrs) - 1:
+        if inst_idx < len(table) - 1:
             code += ","
         code += "  // " + i.name
         code += "\n"
@@ -1458,9 +1499,8 @@ shader_stage_to_ShaderKind = {
 
 def get_min_sm_and_mask_text():
     db = get_db_dxil()
-    instrs = [i for i in db.instr if i.is_dxil_op]
     instrs = sorted(
-        instrs,
+        db.get_dxil_ops(),
         key=lambda v: (
             v.shader_model,
             v.shader_model_translated,
@@ -1549,9 +1589,8 @@ check_pSM_for_shader_stage = {
 
 def get_valopcode_sm_text():
     db = get_db_dxil()
-    instrs = [i for i in db.instr if i.is_dxil_op]
     instrs = sorted(
-        instrs, key=lambda v: (v.shader_model, v.shader_stages, v.dxil_opid)
+        db.get_dxil_ops(), key=lambda v: (v.shader_model, v.shader_stages, v.dxil_opid)
     )
     last_model = None
     last_stage = None
@@ -1642,6 +1681,12 @@ def get_interpretation_table():
     db = get_db_dxil()
     gen = db_sigpoint_gen(db)
     return run_with_stdout(lambda: gen.print_interpretation_table())
+
+
+def get_extended_table_opcode_enum_decls():
+    db = get_db_dxil()
+    gen = db_enumhelp_gen(db)
+    return run_with_stdout(lambda: gen.print_extended_table_opcode_enums())
 
 
 # highest minor is different than highest released minor,

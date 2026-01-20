@@ -39,7 +39,7 @@ import hctdb_instrhelp
 </py> */
 /* <py::lines('OPCODE-OLOADS')>hctdb_instrhelp.get_oloads_props()</py>*/
 // OPCODE-OLOADS:BEGIN
-const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
+static const OP::OpCodeProperty CoreOps_OpCodeProps[] = {
     // Temporary, indexable, input, output registers
     {OC::TempRegLoad,
      "TempRegLoad",
@@ -2715,6 +2715,304 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
      {{0x400}},
      {{0x3}}}, // Overloads: <hf
 };
+static_assert(_countof(CoreOps_OpCodeProps) ==
+                  (size_t)DXIL::CoreOps::OpCode::NumOpCodes,
+              "mismatch in opcode count for CoreOps OpCodeProps");
+static const OP::OpCodeProperty ExperimentalOps_OpCodeProps[] = {
+    // No-op
+    {OC::ExperimentalNop,
+     "ExperimentalNop",
+     OCC::Nop,
+     "nop",
+     Attribute::ReadNone,
+     0,
+     {},
+     {}}, // Overloads: v
+
+    // Group Wave Ops
+    {OC::GetGroupWaveIndex,
+     "GetGroupWaveIndex",
+     OCC::GetGroupWaveIndex,
+     "getGroupWaveIndex",
+     Attribute::ReadNone,
+     0,
+     {},
+     {}}, // Overloads: v
+    {OC::GetGroupWaveCount,
+     "GetGroupWaveCount",
+     OCC::GetGroupWaveCount,
+     "getGroupWaveCount",
+     Attribute::ReadNone,
+     0,
+     {},
+     {}}, // Overloads: v
+
+    // Raytracing uint System Values
+    {OC::ClusterID,
+     "ClusterID",
+     OCC::ClusterID,
+     "clusterID",
+     Attribute::ReadNone,
+     0,
+     {},
+     {}}, // Overloads: v
+
+    // Inline Ray Query
+    {OC::RayQuery_CandidateClusterID,
+     "RayQuery_CandidateClusterID",
+     OCC::RayQuery_StateScalar,
+     "rayQuery_StateScalar",
+     Attribute::ReadOnly,
+     1,
+     {{0x40}},
+     {{0x0}}}, // Overloads: i
+    {OC::RayQuery_CommittedClusterID,
+     "RayQuery_CommittedClusterID",
+     OCC::RayQuery_StateScalar,
+     "rayQuery_StateScalar",
+     Attribute::ReadOnly,
+     1,
+     {{0x40}},
+     {{0x0}}}, // Overloads: i
+
+    // Shader Execution Reordering
+    {OC::HitObject_ClusterID,
+     "HitObject_ClusterID",
+     OCC::HitObject_StateScalar,
+     "hitObject_StateScalar",
+     Attribute::ReadNone,
+     1,
+     {{0x40}},
+     {{0x0}}}, // Overloads: i
+
+    // Raytracing System Values
+    {OC::TriangleObjectPosition,
+     "TriangleObjectPosition",
+     OCC::TriangleObjectPosition,
+     "triangleObjectPosition",
+     Attribute::ReadNone,
+     1,
+     {{0x2}},
+     {{0x0}}}, // Overloads: f
+
+    // Inline Ray Query
+    {OC::RayQuery_CandidateTriangleObjectPosition,
+     "RayQuery_CandidateTriangleObjectPosition",
+     OCC::RayQuery_CandidateTriangleObjectPosition,
+     "rayQuery_CandidateTriangleObjectPosition",
+     Attribute::ReadOnly,
+     1,
+     {{0x2}},
+     {{0x0}}}, // Overloads: f
+    {OC::RayQuery_CommittedTriangleObjectPosition,
+     "RayQuery_CommittedTriangleObjectPosition",
+     OCC::RayQuery_CommittedTriangleObjectPosition,
+     "rayQuery_CommittedTriangleObjectPosition",
+     Attribute::ReadOnly,
+     1,
+     {{0x2}},
+     {{0x0}}}, // Overloads: f
+
+    // Shader Execution Reordering
+    {OC::HitObject_TriangleObjectPosition,
+     "HitObject_TriangleObjectPosition",
+     OCC::HitObject_TriangleObjectPosition,
+     "hitObject_TriangleObjectPosition",
+     Attribute::ReadNone,
+     1,
+     {{0x2}},
+     {{0x0}}}, // Overloads: f
+
+    // Linear Algebra Operations
+    {OC::CreateMatrix,
+     "CreateMatrix",
+     OCC::CreateMatrix,
+     "createMatrix",
+     Attribute::None,
+     0,
+     {},
+     {}}, // Overloads: v
+    {OC::FillMatrix,
+     "FillMatrix",
+     OCC::FillMatrix,
+     "fillMatrix",
+     Attribute::None,
+     1,
+     {{0x63}},
+     {{0x0}}}, // Overloads: hfwi
+    {OC::CopyConvertMatrix,
+     "CopyConvertMatrix",
+     OCC::CopyConvertMatrix,
+     "copyConvertMatrix",
+     Attribute::None,
+     0,
+     {},
+     {}}, // Overloads: v
+    {OC::MatrixLoadFromDescriptor,
+     "MatrixLoadFromDescriptor",
+     OCC::MatrixLoadFromDescriptor,
+     "matrixLoadFromDescriptor",
+     Attribute::None,
+     0,
+     {},
+     {}}, // Overloads: v
+    {OC::MatrixLoadFromMemory,
+     "MatrixLoadFromMemory",
+     OCC::MatrixLoadFromMemory,
+     "matrixLoadFromMemory",
+     Attribute::None,
+     0,
+     {},
+     {}}, // Overloads: v
+    {OC::MatrixLength,
+     "MatrixLength",
+     OCC::MatrixLength,
+     "matrixLength",
+     Attribute::None,
+     0,
+     {},
+     {}}, // Overloads: v
+    {OC::MatrixGetCoordinate,
+     "MatrixGetCoordinate",
+     OCC::MatrixGetCoordinate,
+     "matrixGetCoordinate",
+     Attribute::None,
+     0,
+     {},
+     {}}, // Overloads: v
+    {OC::MatrixGetElement,
+     "MatrixGetElement",
+     OCC::MatrixGetElement,
+     "matrixGetElement",
+     Attribute::None,
+     1,
+     {{0x63}},
+     {{0x0}}}, // Overloads: hfwi
+    {OC::MatrixSetElement,
+     "MatrixSetElement",
+     OCC::MatrixSetElement,
+     "matrixSetElement",
+     Attribute::None,
+     1,
+     {{0x63}},
+     {{0x0}}}, // Overloads: hfwi
+    {OC::MatrixStoreToDescriptor,
+     "MatrixStoreToDescriptor",
+     OCC::MatrixStoreToDescriptor,
+     "matrixStoreToDescriptor",
+     Attribute::None,
+     0,
+     {},
+     {}}, // Overloads: v
+    {OC::MatrixStoreToMemory,
+     "MatrixStoreToMemory",
+     OCC::MatrixStoreToMemory,
+     "matrixStoreToMemory",
+     Attribute::None,
+     0,
+     {},
+     {}}, // Overloads: v
+    {OC::MatrixQueryAccumulatorLayout,
+     "MatrixQueryAccumulatorLayout",
+     OCC::MatrixQueryAccumulatorLayout,
+     "matrixQueryAccumulatorLayout",
+     Attribute::None,
+     0,
+     {},
+     {}}, // Overloads: v
+    {OC::MatrixMulOp,
+     "MatrixMulOp",
+     OCC::MatrixMulOp,
+     "matrixMulOp",
+     Attribute::None,
+     0,
+     {},
+     {}}, // Overloads: v
+    {OC::MatrixAccumulate,
+     "MatrixAccumulate",
+     OCC::MatrixAccumulate,
+     "matrixAccumulate",
+     Attribute::None,
+     0,
+     {},
+     {}}, // Overloads: v
+    {OC::MatrixVecMul,
+     "MatrixVecMul",
+     OCC::MatrixVecMul,
+     "matrixVecMul",
+     Attribute::None,
+     2,
+     {{0x400}, {0x400}},
+     {{0x63}, {0x63}}}, // Overloads: <hfwi,<hfwi
+    {OC::MatrixVecMulAdd,
+     "MatrixVecMulAdd",
+     OCC::MatrixVecMulAdd,
+     "matrixVecMulAdd",
+     Attribute::None,
+     2,
+     {{0x400}, {0x400}},
+     {{0x63}, {0x63}}}, // Overloads: <hfwi,<hfwi
+    {OC::MatrixAccumulateToDescriptor,
+     "MatrixAccumulateToDescriptor",
+     OCC::MatrixAccumulateToDescriptor,
+     "matrixAccumulateToDescriptor",
+     Attribute::None,
+     0,
+     {},
+     {}}, // Overloads: v
+    {OC::MatrixAccumulateToMemory,
+     "MatrixAccumulateToMemory",
+     OCC::MatrixAccumulateToMemory,
+     "matrixAccumulateToMemory",
+     Attribute::None,
+     0,
+     {},
+     {}}, // Overloads: v
+    {OC::MatrixOuterProduct,
+     "MatrixOuterProduct",
+     OCC::MatrixOuterProduct,
+     "matrixOuterProduct",
+     Attribute::None,
+     2,
+     {{0x400}, {0x400}},
+     {{0x63}, {0x63}}}, // Overloads: <hfwi,<hfwi
+
+    {OC::LinAlgMatrixReserved0,
+     "LinAlgMatrixReserved0",
+     OCC::Reserved,
+     "reserved",
+     Attribute::None,
+     0,
+     {},
+     {}}, // Overloads: v
+    {OC::LinAlgMatrixReserved1,
+     "LinAlgMatrixReserved1",
+     OCC::Reserved,
+     "reserved",
+     Attribute::None,
+     0,
+     {},
+     {}}, // Overloads: v
+    {OC::LinAlgMatrixReserved2,
+     "LinAlgMatrixReserved2",
+     OCC::Reserved,
+     "reserved",
+     Attribute::None,
+     0,
+     {},
+     {}}, // Overloads: v
+};
+static_assert(_countof(ExperimentalOps_OpCodeProps) ==
+                  (size_t)DXIL::ExperimentalOps::OpCode::NumOpCodes,
+              "mismatch in opcode count for ExperimentalOps OpCodeProps");
+
+// Table of DXIL OpCode Property tables
+OP::OpCodeTable OP::g_OpCodeTables[DXIL::NumOpCodeTables] = {
+    {OP::OpCodeTableID::CoreOps, CoreOps_OpCodeProps,
+     (unsigned)DXIL::CoreOps::OpCode::NumOpCodes},
+    {OP::OpCodeTableID::ExperimentalOps, ExperimentalOps_OpCodeProps,
+     (unsigned)DXIL::ExperimentalOps::OpCode::NumOpCodes},
+};
 // OPCODE-OLOADS:END
 
 const char *OP::m_OverloadTypeName[TS_BasicCount] = {
@@ -2730,6 +3028,64 @@ static const char *AtomicBinOpCodeName[] = {
     "AtomicIMax",   "AtomicUMin", "AtomicUMax", "AtomicExchange",
     "AtomicInvalid" // Must be last.
 };
+
+static unsigned GetOpCodeTableIndex(OP::OpCodeTableID TableID) {
+  static_assert(DXIL::NumOpCodeTables == 2,
+                "Otherwise, update GetOpCodeTableIndex to be generated.");
+  switch (TableID) {
+  case OP::OpCodeTableID::CoreOps:
+    return 0;
+  case OP::OpCodeTableID::ExperimentalOps:
+    return 1;
+  default:
+    return UINT_MAX;
+  }
+}
+
+// Safe opcode decoder
+bool OP::DecodeOpCode(unsigned EncodedOpCode, OP::OpCodeTableID &TableID,
+                      unsigned &OpIndex, unsigned *OptTableIndex) {
+  if (EncodedOpCode == (unsigned)OP::OpCode::Invalid)
+    return false;
+  OP::OpCodeTableID TID = (OP::OpCodeTableID)(EncodedOpCode >> 16);
+  unsigned TableIndex = GetOpCodeTableIndex(TID);
+  if (TableIndex >= DXIL::NumOpCodeTables)
+    return false;
+  unsigned Op = (EncodedOpCode & 0xFFFF);
+  if (Op >= OP::g_OpCodeTables[TableIndex].Count)
+    return false;
+  TableID = (OP::OpCodeTableID)TID;
+  OpIndex = Op;
+  if (OptTableIndex)
+    *OptTableIndex = TableIndex;
+  return true;
+}
+bool OP::DecodeOpCode(OpCode EncodedOpCode, OP::OpCodeTableID &TableID,
+                      unsigned &OpIndex, unsigned *OptTableIndex) {
+  return DecodeOpCode((unsigned)EncodedOpCode, TableID, OpIndex, OptTableIndex);
+}
+bool OP::IsValidOpCode(unsigned EncodedOpCode) {
+  if (EncodedOpCode == (unsigned)OP::OpCode::Invalid)
+    return false;
+  OP::OpCodeTableID TID;
+  unsigned OpIndex;
+  return DecodeOpCode(EncodedOpCode, TID, OpIndex);
+}
+bool OP::IsValidOpCode(OP::OpCode EncodedOpCode) {
+  return IsValidOpCode((unsigned)EncodedOpCode);
+}
+const OP::OpCodeProperty &OP::GetOpCodeProps(unsigned OriginalOpCode) {
+  OP::OpCodeTableID TID = OP::OpCodeTableID::CoreOps;
+  unsigned Op = 0;
+  unsigned TableIndex = 0;
+  bool Success = DecodeOpCode(OriginalOpCode, TID, Op, &TableIndex);
+  DXASSERT_LOCALVAR(Success, Success, "otherwise invalid OpCode");
+  const OP::OpCodeTable &Table = OP::g_OpCodeTables[TableIndex];
+  return Table.Table[Op];
+}
+const OP::OpCodeProperty &OP::GetOpCodeProps(OP::OpCode OriginalOpCode) {
+  return GetOpCodeProps((unsigned)OriginalOpCode);
+}
 
 unsigned OP::GetTypeSlot(Type *pType) {
   Type::TypeID T = pType->getTypeID();
@@ -2842,7 +3198,7 @@ StringRef OP::ConstructOverloadName(Type *Ty, DXIL::OpCode opCode,
 }
 
 const char *OP::GetOpCodeName(OpCode opCode) {
-  return m_OpCodeProps[(unsigned)opCode].pOpCodeName;
+  return GetOpCodeProps(opCode).pOpCodeName;
 }
 
 const char *OP::GetAtomicOpName(DXIL::AtomicBinOpCode OpCode) {
@@ -2854,24 +3210,23 @@ const char *OP::GetAtomicOpName(DXIL::AtomicBinOpCode OpCode) {
 }
 
 OP::OpCodeClass OP::GetOpCodeClass(OpCode opCode) {
-  return m_OpCodeProps[(unsigned)opCode].opCodeClass;
+  return GetOpCodeProps(opCode).opCodeClass;
 }
 
 const char *OP::GetOpCodeClassName(OpCode opCode) {
-  return m_OpCodeProps[(unsigned)opCode].pOpCodeClassName;
+  return GetOpCodeProps(opCode).pOpCodeClassName;
 }
 
 llvm::Attribute::AttrKind OP::GetMemAccessAttr(OpCode opCode) {
-  return m_OpCodeProps[(unsigned)opCode].FuncAttr;
+  return GetOpCodeProps(opCode).FuncAttr;
 }
 
 bool OP::IsOverloadLegal(OpCode opCode, Type *pType) {
-  if (static_cast<unsigned>(opCode) >=
-      static_cast<unsigned>(OpCode::NumOpCodes))
-    return false;
   if (!pType)
     return false;
-  auto &OpProps = m_OpCodeProps[static_cast<unsigned>(opCode)];
+  if (!IsValidOpCode(opCode))
+    return false;
+  auto &OpProps = GetOpCodeProps(opCode);
 
   if (OpProps.NumOverloadDims == 0)
     return pType->isVoidTy();
@@ -2904,9 +3259,22 @@ bool OP::IsOverloadLegal(OpCode opCode, Type *pType) {
 }
 
 bool OP::CheckOpCodeTable() {
-  for (unsigned i = 0; i < (unsigned)OpCode::NumOpCodes; i++) {
-    if ((unsigned)m_OpCodeProps[i].opCode != i)
-      return false;
+  for (unsigned TableIndex = 0; TableIndex < DXIL::NumOpCodeTables;
+       TableIndex++) {
+    const OP::OpCodeTable &Table = OP::g_OpCodeTables[TableIndex];
+    for (unsigned OpIndex = 0; OpIndex < Table.Count; OpIndex++) {
+      const OP::OpCodeProperty &Prop = Table.Table[OpIndex];
+      OP::OpCodeTableID DecodedTID;
+      unsigned DecodedOpIndex;
+      unsigned DecodedTableIndex;
+      bool Success = OP::DecodeOpCode(Prop.opCode, DecodedTID, DecodedOpIndex,
+                                      &DecodedTableIndex);
+      if (!Success)
+        return false;
+      if (DecodedTID != Table.ID || DecodedOpIndex != OpIndex ||
+          DecodedTableIndex != TableIndex)
+        return false;
+    }
   }
 
   return true;
@@ -2937,14 +3305,19 @@ bool OP::IsDxilOpFuncCallInst(const llvm::Instruction *I, OpCode opcode) {
   return (unsigned)getOpCode(I) == (unsigned)opcode;
 }
 
+OP::OpCode OP::getOpCode(unsigned OpCode) {
+  if (!IsValidOpCode(OpCode))
+    return OP::OpCode::Invalid;
+  return static_cast<OP::OpCode>(OpCode);
+}
 OP::OpCode OP::getOpCode(const llvm::Instruction *I) {
   auto *OpConst = llvm::dyn_cast<llvm::ConstantInt>(I->getOperand(0));
   if (!OpConst)
-    return OpCode::NumOpCodes;
+    return OpCode::Invalid;
   uint64_t OpCodeVal = OpConst->getZExtValue();
-  if (OpCodeVal >= static_cast<uint64_t>(OP::OpCode::NumOpCodes))
-    return OP::OpCode::NumOpCodes;
-  return static_cast<OP::OpCode>(OpCodeVal);
+  if (OpCodeVal >= static_cast<uint64_t>(OP::OpCode::Invalid))
+    return OP::OpCode::Invalid;
+  return getOpCode(static_cast<unsigned>(OpCodeVal));
 }
 
 OP::OpCode OP::GetDxilOpFuncCallInst(const llvm::Instruction *I) {
@@ -2966,9 +3339,11 @@ bool OP::IsDxilOpWave(OpCode C) {
   // WaveReadLaneFirst=118, WaveActiveOp=119, WaveActiveBit=120,
   // WavePrefixOp=121, QuadReadLaneAt=122, QuadOp=123, WaveAllBitCount=135,
   // WavePrefixBitCount=136, WaveMatch=165, WaveMultiPrefixOp=166,
-  // WaveMultiPrefixBitCount=167, QuadVote=222
+  // WaveMultiPrefixBitCount=167, QuadVote=222, GetGroupWaveIndex=2147483649,
+  // GetGroupWaveCount=2147483650
   return (110 <= op && op <= 123) || (135 <= op && op <= 136) ||
-         (165 <= op && op <= 167) || op == 222;
+         (165 <= op && op <= 167) || op == 222 ||
+         (2147483649 <= op && op <= 2147483650);
   // OPCODE-WAVE:END
 }
 
@@ -3014,9 +3389,9 @@ bool OP::IsDxilOpBarrier(OpCode C) {
 }
 
 bool OP::IsDxilOpExtendedOverload(OpCode C) {
-  if (C >= OpCode::NumOpCodes)
+  if (!IsValidOpCode(C))
     return false;
-  return m_OpCodeProps[static_cast<unsigned>(C)].NumOverloadDims > 1;
+  return GetOpCodeProps(C).NumOverloadDims > 1;
 }
 
 static unsigned MaskMemoryTypeFlagsIfAllowed(unsigned memoryTypeFlags,
@@ -3536,10 +3911,50 @@ void OP::GetMinShaderModelAndMask(OpCode C, bool bWithTranslation,
     return;
   }
   // Instructions: MatVecMul=305, MatVecMulAdd=306, OuterProductAccumulate=307,
-  // VectorAccumulate=308
-  if ((305 <= op && op <= 308)) {
+  // VectorAccumulate=308, ExperimentalNop=2147483648,
+  // RayQuery_CandidateClusterID=2147483652,
+  // RayQuery_CommittedClusterID=2147483653,
+  // RayQuery_CandidateTriangleObjectPosition=2147483656,
+  // RayQuery_CommittedTriangleObjectPosition=2147483657,
+  // CreateMatrix=2147483659, FillMatrix=2147483660,
+  // CopyConvertMatrix=2147483661, MatrixLoadFromDescriptor=2147483662,
+  // MatrixLoadFromMemory=2147483663, MatrixLength=2147483664,
+  // MatrixGetCoordinate=2147483665, MatrixGetElement=2147483666,
+  // MatrixSetElement=2147483667, MatrixStoreToDescriptor=2147483668,
+  // MatrixStoreToMemory=2147483669, MatrixQueryAccumulatorLayout=2147483670,
+  // MatrixMulOp=2147483671, MatrixAccumulate=2147483672,
+  // MatrixVecMul=2147483673, MatrixVecMulAdd=2147483674,
+  // MatrixAccumulateToDescriptor=2147483675,
+  // MatrixAccumulateToMemory=2147483676, MatrixOuterProduct=2147483677
+  if ((305 <= op && op <= 308) || op == 2147483648 ||
+      (2147483652 <= op && op <= 2147483653) ||
+      (2147483656 <= op && op <= 2147483657) ||
+      (2147483659 <= op && op <= 2147483677)) {
     major = 6;
     minor = 10;
+    return;
+  }
+  // Instructions: GetGroupWaveIndex=2147483649, GetGroupWaveCount=2147483650
+  if ((2147483649 <= op && op <= 2147483650)) {
+    major = 6;
+    minor = 10;
+    mask = SFLAG(Compute) | SFLAG(Mesh) | SFLAG(Amplification) | SFLAG(Node);
+    return;
+  }
+  // Instructions: ClusterID=2147483651, TriangleObjectPosition=2147483655
+  if (op == 2147483651 || op == 2147483655) {
+    major = 6;
+    minor = 10;
+    mask = SFLAG(Library) | SFLAG(AnyHit) | SFLAG(ClosestHit);
+    return;
+  }
+  // Instructions: HitObject_ClusterID=2147483654,
+  // HitObject_TriangleObjectPosition=2147483658
+  if (op == 2147483654 || op == 2147483658) {
+    major = 6;
+    minor = 10;
+    mask =
+        SFLAG(Library) | SFLAG(RayGeneration) | SFLAG(ClosestHit) | SFLAG(Miss);
     return;
   }
   // OPCODE-SMMASK:END
@@ -3645,8 +4060,6 @@ OP::OP(LLVMContext &Ctx, Module *pModule)
   memset(m_pResRetType, 0, sizeof(m_pResRetType));
   memset(m_pCBufferRetType, 0, sizeof(m_pCBufferRetType));
   memset(m_OpCodeClassCache, 0, sizeof(m_OpCodeClassCache));
-  static_assert(_countof(OP::m_OpCodeProps) == (size_t)OP::OpCode::NumOpCodes,
-                "forgot to update OP::m_OpCodeProps");
 
   m_pHandleType = GetOrCreateStructType(m_Ctx, Type::getInt8PtrTy(m_Ctx),
                                         "dx.types.Handle", pModule);
@@ -3705,6 +4118,9 @@ OP::OP(LLVMContext &Ctx, Module *pModule)
                            Type::getInt16Ty(m_Ctx)}; // HiHi, HiLo, LoHi, LoLo
   m_pFourI16Type =
       GetOrCreateStructType(m_Ctx, FourI16Types, "dx.types.fouri16", pModule);
+
+  m_pMatrixRefType = GetOrCreateStructType(m_Ctx, Type::getInt8PtrTy(m_Ctx),
+                                           "dx.types.MatrixRef", pModule);
 }
 
 void OP::RefreshCache() {
@@ -3750,10 +4166,10 @@ void OP::UpdateCache(OpCodeClass opClass, Type *Ty, llvm::Function *F) {
 }
 
 bool OP::MayHaveNonCanonicalOverload(OpCode OC) {
-  if (OC >= OpCode::NumOpCodes)
+  if (!IsValidOpCode(OC))
     return false;
   const unsigned CheckMask = (1 << TS_UDT) | (1 << TS_Object);
-  auto &OpProps = m_OpCodeProps[static_cast<unsigned>(OC)];
+  auto &OpProps = GetOpCodeProps(OC);
   for (unsigned I = 0; I < OpProps.NumOverloadDims; ++I)
     if ((CheckMask & OpProps.AllowedOverloads[I].SlotMask) != 0)
       return true;
@@ -3761,10 +4177,9 @@ bool OP::MayHaveNonCanonicalOverload(OpCode OC) {
 }
 
 Function *OP::GetOpFunc(OpCode OC, ArrayRef<Type *> OverloadTypes) {
-  if (OC >= OpCode::NumOpCodes)
+  if (!IsValidOpCode(OC))
     return nullptr;
-  if (OverloadTypes.size() !=
-      m_OpCodeProps[static_cast<unsigned>(OC)].NumOverloadDims) {
+  if (OverloadTypes.size() != GetOpCodeProps(OC).NumOverloadDims) {
     llvm_unreachable("incorrect overload dimensions");
     return nullptr;
   }
@@ -3777,12 +4192,12 @@ Function *OP::GetOpFunc(OpCode OC, ArrayRef<Type *> OverloadTypes) {
 }
 
 Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
-  if (opCode >= OpCode::NumOpCodes)
+  if (!IsValidOpCode(opCode))
     return nullptr;
   if (!pOverloadType)
     return nullptr;
 
-  auto &OpProps = m_OpCodeProps[static_cast<unsigned>(opCode)];
+  auto &OpProps = GetOpCodeProps(opCode);
   if (IsDxilOpExtendedOverload(opCode)) {
     // Make sure pOverloadType is well formed for an extended overload.
     StructType *ST = dyn_cast<StructType>(pOverloadType);
@@ -3816,6 +4231,7 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
   Type *pETy = pOverloadType;
   Type *pRes = GetHandleType();
   Type *pNodeHandle = GetNodeHandleType();
+  Type *pMatrixRef = GetMatrixRefType();
   Type *pNodeRecordHandle = GetNodeRecordHandleType();
   Type *pDim = GetDimensionsType();
   Type *pPos = GetSamplePosType();
@@ -3859,6 +4275,7 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
 #define RRT(_y) A(GetResRetType(_y))
 #define CBRT(_y) A(GetCBufferRetType(_y))
 #define VEC4(_y) A(GetStructVectorType(4, _y))
+#define VEC9(_y) A(VectorType::get(_y, 9))
 
 // Extended Overload types are wrapped in an anonymous struct
 #define EXT(_y) A(cast<StructType>(pOverloadType)->getElementType(_y))
@@ -4415,7 +4832,7 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
   case OpCode::CheckAccessFullyMapped:
     A(pI1);
     A(pI32);
-    A(pI32);
+    A(pETy);
     break;
   case OpCode::GetDimensions:
     A(pDim);
@@ -4503,9 +4920,9 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
     A(pI32);
     A(pRes);
     A(pRes);
-    A(pF32);
-    A(pF32);
-    A(pF32);
+    A(pETy);
+    A(pETy);
+    A(pETy);
     A(pI1);
     break;
 
@@ -4564,36 +4981,36 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
     A(pI8);
     break;
   case OpCode::SampleIndex:
-    A(pI32);
+    A(pETy);
     A(pI32);
     break;
   case OpCode::Coverage:
-    A(pI32);
+    A(pETy);
     A(pI32);
     break;
   case OpCode::InnerCoverage:
-    A(pI32);
+    A(pETy);
     A(pI32);
     break;
 
     // Compute/Mesh/Amplification/Node shader
   case OpCode::ThreadId:
-    A(pI32);
+    A(pETy);
     A(pI32);
     A(pI32);
     break;
   case OpCode::GroupId:
-    A(pI32);
+    A(pETy);
     A(pI32);
     A(pI32);
     break;
   case OpCode::ThreadIdInGroup:
-    A(pI32);
+    A(pETy);
     A(pI32);
     A(pI32);
     break;
   case OpCode::FlattenedThreadIdInGroup:
-    A(pI32);
+    A(pETy);
     A(pI32);
     break;
 
@@ -4614,13 +5031,13 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
     A(pI8);
     break;
   case OpCode::GSInstanceID:
-    A(pI32);
+    A(pETy);
     A(pI32);
     break;
 
     // Double precision
   case OpCode::MakeDouble:
-    A(pF64);
+    A(pETy);
     A(pI32);
     A(pI32);
     A(pI32);
@@ -4628,7 +5045,7 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
   case OpCode::SplitDouble:
     A(pSDT);
     A(pI32);
-    A(pF64);
+    A(pETy);
     break;
 
     // Domain and hull shader
@@ -4650,7 +5067,7 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
 
     // Domain shader
   case OpCode::DomainLocation:
-    A(pF32);
+    A(pETy);
     A(pI32);
     A(pI8);
     break;
@@ -4665,13 +5082,13 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
     A(pETy);
     break;
   case OpCode::OutputControlPointID:
-    A(pI32);
+    A(pETy);
     A(pI32);
     break;
 
     // Hull, Domain and Geometry shaders
   case OpCode::PrimitiveID:
-    A(pI32);
+    A(pETy);
     A(pI32);
     break;
 
@@ -4845,7 +5262,7 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
 
     // Graphics shader
   case OpCode::ViewID:
-    A(pI32);
+    A(pETy);
     A(pI32);
     break;
 
@@ -4875,71 +5292,71 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
 
     // Raytracing object space uint System Values
   case OpCode::InstanceID:
-    A(pI32);
+    A(pETy);
     A(pI32);
     break;
   case OpCode::InstanceIndex:
-    A(pI32);
+    A(pETy);
     A(pI32);
     break;
 
     // Raytracing hit uint System Values
   case OpCode::HitKind:
-    A(pI32);
+    A(pETy);
     A(pI32);
     break;
 
     // Raytracing uint System Values
   case OpCode::RayFlags:
-    A(pI32);
+    A(pETy);
     A(pI32);
     break;
 
     // Ray Dispatch Arguments
   case OpCode::DispatchRaysIndex:
-    A(pI32);
+    A(pETy);
     A(pI32);
     A(pI8);
     break;
   case OpCode::DispatchRaysDimensions:
-    A(pI32);
+    A(pETy);
     A(pI32);
     A(pI8);
     break;
 
     // Ray Vectors
   case OpCode::WorldRayOrigin:
-    A(pF32);
+    A(pETy);
     A(pI32);
     A(pI8);
     break;
   case OpCode::WorldRayDirection:
-    A(pF32);
+    A(pETy);
     A(pI32);
     A(pI8);
     break;
 
     // Ray object space Vectors
   case OpCode::ObjectRayOrigin:
-    A(pF32);
+    A(pETy);
     A(pI32);
     A(pI8);
     break;
   case OpCode::ObjectRayDirection:
-    A(pF32);
+    A(pETy);
     A(pI32);
     A(pI8);
     break;
 
     // Ray Transforms
   case OpCode::ObjectToWorld:
-    A(pF32);
+    A(pETy);
     A(pI32);
     A(pI32);
     A(pI8);
     break;
   case OpCode::WorldToObject:
-    A(pF32);
+    A(pETy);
     A(pI32);
     A(pI32);
     A(pI8);
@@ -4947,11 +5364,11 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
 
     // RayT
   case OpCode::RayTMin:
-    A(pF32);
+    A(pETy);
     A(pI32);
     break;
   case OpCode::RayTCurrent:
-    A(pF32);
+    A(pETy);
     A(pI32);
     break;
 
@@ -5008,7 +5425,7 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
 
     // Raytracing object space uint System Values
   case OpCode::PrimitiveIndex:
-    A(pI32);
+    A(pETy);
     A(pI32);
     break;
 
@@ -5023,16 +5440,16 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
     A(pF16);
     break;
   case OpCode::Dot4AddI8Packed:
+    A(pETy);
     A(pI32);
-    A(pI32);
-    A(pI32);
+    A(pETy);
     A(pI32);
     A(pI32);
     break;
   case OpCode::Dot4AddU8Packed:
+    A(pETy);
     A(pI32);
-    A(pI32);
-    A(pI32);
+    A(pETy);
     A(pI32);
     A(pI32);
     break;
@@ -5192,7 +5609,7 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
     A(pF32);
     break;
   case OpCode::RayQuery_Proceed:
-    A(pI1);
+    A(pETy);
     A(pI32);
     A(pI32);
     break;
@@ -5213,162 +5630,162 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
     A(pF32);
     break;
   case OpCode::RayQuery_CommittedStatus:
-    A(pI32);
+    A(pETy);
     A(pI32);
     A(pI32);
     break;
   case OpCode::RayQuery_CandidateType:
-    A(pI32);
+    A(pETy);
     A(pI32);
     A(pI32);
     break;
   case OpCode::RayQuery_CandidateObjectToWorld3x4:
-    A(pF32);
+    A(pETy);
     A(pI32);
     A(pI32);
     A(pI32);
     A(pI8);
     break;
   case OpCode::RayQuery_CandidateWorldToObject3x4:
-    A(pF32);
+    A(pETy);
     A(pI32);
     A(pI32);
     A(pI32);
     A(pI8);
     break;
   case OpCode::RayQuery_CommittedObjectToWorld3x4:
-    A(pF32);
+    A(pETy);
     A(pI32);
     A(pI32);
     A(pI32);
     A(pI8);
     break;
   case OpCode::RayQuery_CommittedWorldToObject3x4:
-    A(pF32);
+    A(pETy);
     A(pI32);
     A(pI32);
     A(pI32);
     A(pI8);
     break;
   case OpCode::RayQuery_CandidateProceduralPrimitiveNonOpaque:
-    A(pI1);
+    A(pETy);
     A(pI32);
     A(pI32);
     break;
   case OpCode::RayQuery_CandidateTriangleFrontFace:
-    A(pI1);
+    A(pETy);
     A(pI32);
     A(pI32);
     break;
   case OpCode::RayQuery_CommittedTriangleFrontFace:
-    A(pI1);
+    A(pETy);
     A(pI32);
     A(pI32);
     break;
   case OpCode::RayQuery_CandidateTriangleBarycentrics:
-    A(pF32);
+    A(pETy);
     A(pI32);
     A(pI32);
     A(pI8);
     break;
   case OpCode::RayQuery_CommittedTriangleBarycentrics:
-    A(pF32);
+    A(pETy);
     A(pI32);
     A(pI32);
     A(pI8);
     break;
   case OpCode::RayQuery_RayFlags:
-    A(pI32);
+    A(pETy);
     A(pI32);
     A(pI32);
     break;
   case OpCode::RayQuery_WorldRayOrigin:
-    A(pF32);
+    A(pETy);
     A(pI32);
     A(pI32);
     A(pI8);
     break;
   case OpCode::RayQuery_WorldRayDirection:
-    A(pF32);
+    A(pETy);
     A(pI32);
     A(pI32);
     A(pI8);
     break;
   case OpCode::RayQuery_RayTMin:
-    A(pF32);
+    A(pETy);
     A(pI32);
     A(pI32);
     break;
   case OpCode::RayQuery_CandidateTriangleRayT:
-    A(pF32);
+    A(pETy);
     A(pI32);
     A(pI32);
     break;
   case OpCode::RayQuery_CommittedRayT:
-    A(pF32);
+    A(pETy);
     A(pI32);
     A(pI32);
     break;
   case OpCode::RayQuery_CandidateInstanceIndex:
-    A(pI32);
+    A(pETy);
     A(pI32);
     A(pI32);
     break;
   case OpCode::RayQuery_CandidateInstanceID:
-    A(pI32);
+    A(pETy);
     A(pI32);
     A(pI32);
     break;
   case OpCode::RayQuery_CandidateGeometryIndex:
-    A(pI32);
+    A(pETy);
     A(pI32);
     A(pI32);
     break;
   case OpCode::RayQuery_CandidatePrimitiveIndex:
-    A(pI32);
+    A(pETy);
     A(pI32);
     A(pI32);
     break;
   case OpCode::RayQuery_CandidateObjectRayOrigin:
-    A(pF32);
+    A(pETy);
     A(pI32);
     A(pI32);
     A(pI8);
     break;
   case OpCode::RayQuery_CandidateObjectRayDirection:
-    A(pF32);
+    A(pETy);
     A(pI32);
     A(pI32);
     A(pI8);
     break;
   case OpCode::RayQuery_CommittedInstanceIndex:
-    A(pI32);
+    A(pETy);
     A(pI32);
     A(pI32);
     break;
   case OpCode::RayQuery_CommittedInstanceID:
-    A(pI32);
+    A(pETy);
     A(pI32);
     A(pI32);
     break;
   case OpCode::RayQuery_CommittedGeometryIndex:
-    A(pI32);
+    A(pETy);
     A(pI32);
     A(pI32);
     break;
   case OpCode::RayQuery_CommittedPrimitiveIndex:
-    A(pI32);
+    A(pETy);
     A(pI32);
     A(pI32);
     break;
   case OpCode::RayQuery_CommittedObjectRayOrigin:
-    A(pF32);
+    A(pETy);
     A(pI32);
     A(pI32);
     A(pI8);
     break;
   case OpCode::RayQuery_CommittedObjectRayDirection:
-    A(pF32);
+    A(pETy);
     A(pI32);
     A(pI32);
     A(pI8);
@@ -5376,18 +5793,18 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
 
     // Raytracing object space uint System Values, raytracing tier 1.1
   case OpCode::GeometryIndex:
-    A(pI32);
+    A(pETy);
     A(pI32);
     break;
 
     // Inline Ray Query
   case OpCode::RayQuery_CandidateInstanceContributionToHitGroupIndex:
-    A(pI32);
+    A(pETy);
     A(pI32);
     A(pI32);
     break;
   case OpCode::RayQuery_CommittedInstanceContributionToHitGroupIndex:
-    A(pI32);
+    A(pETy);
     A(pI32);
     A(pI32);
     break;
@@ -5435,7 +5852,7 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
 
     // Helper Lanes
   case OpCode::IsHelperLane:
-    A(pI1);
+    A(pETy);
     A(pI32);
     break;
 
@@ -5687,11 +6104,11 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
 
     // Extended Command Information
   case OpCode::StartVertexLocation:
-    A(pI32);
+    A(pETy);
     A(pI32);
     break;
   case OpCode::StartInstanceLocation:
-    A(pI32);
+    A(pETy);
     A(pI32);
     break;
 
@@ -5781,100 +6198,100 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
     A(pI32);
     break;
   case OpCode::HitObject_IsMiss:
-    A(pI1);
+    A(pETy);
     A(pI32);
     A(pHit);
     break;
   case OpCode::HitObject_IsHit:
-    A(pI1);
+    A(pETy);
     A(pI32);
     A(pHit);
     break;
   case OpCode::HitObject_IsNop:
-    A(pI1);
+    A(pETy);
     A(pI32);
     A(pHit);
     break;
   case OpCode::HitObject_RayFlags:
-    A(pI32);
+    A(pETy);
     A(pI32);
     A(pHit);
     break;
   case OpCode::HitObject_RayTMin:
-    A(pF32);
+    A(pETy);
     A(pI32);
     A(pHit);
     break;
   case OpCode::HitObject_RayTCurrent:
-    A(pF32);
+    A(pETy);
     A(pI32);
     A(pHit);
     break;
   case OpCode::HitObject_WorldRayOrigin:
-    A(pF32);
+    A(pETy);
     A(pI32);
     A(pHit);
     A(pI32);
     break;
   case OpCode::HitObject_WorldRayDirection:
-    A(pF32);
+    A(pETy);
     A(pI32);
     A(pHit);
     A(pI32);
     break;
   case OpCode::HitObject_ObjectRayOrigin:
-    A(pF32);
+    A(pETy);
     A(pI32);
     A(pHit);
     A(pI32);
     break;
   case OpCode::HitObject_ObjectRayDirection:
-    A(pF32);
+    A(pETy);
     A(pI32);
     A(pHit);
     A(pI32);
     break;
   case OpCode::HitObject_ObjectToWorld3x4:
-    A(pF32);
+    A(pETy);
     A(pI32);
     A(pHit);
     A(pI32);
     A(pI32);
     break;
   case OpCode::HitObject_WorldToObject3x4:
-    A(pF32);
+    A(pETy);
     A(pI32);
     A(pHit);
     A(pI32);
     A(pI32);
     break;
   case OpCode::HitObject_GeometryIndex:
-    A(pI32);
+    A(pETy);
     A(pI32);
     A(pHit);
     break;
   case OpCode::HitObject_InstanceIndex:
-    A(pI32);
+    A(pETy);
     A(pI32);
     A(pHit);
     break;
   case OpCode::HitObject_InstanceID:
-    A(pI32);
+    A(pETy);
     A(pI32);
     A(pHit);
     break;
   case OpCode::HitObject_PrimitiveIndex:
-    A(pI32);
+    A(pETy);
     A(pI32);
     A(pHit);
     break;
   case OpCode::HitObject_HitKind:
-    A(pI32);
+    A(pETy);
     A(pI32);
     A(pHit);
     break;
   case OpCode::HitObject_ShaderTableIndex:
-    A(pI32);
+    A(pETy);
     A(pI32);
     A(pHit);
     break;
@@ -6044,6 +6461,223 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
     A(pETy);
     A(pETy);
     break;
+
+    // No-op
+  case OpCode::ExperimentalNop:
+    A(pV);
+    A(pI32);
+    break;
+
+    // Group Wave Ops
+  case OpCode::GetGroupWaveIndex:
+    A(pI32);
+    A(pI32);
+    break;
+  case OpCode::GetGroupWaveCount:
+    A(pI32);
+    A(pI32);
+    break;
+
+    // Raytracing uint System Values
+  case OpCode::ClusterID:
+    A(pI32);
+    A(pI32);
+    break;
+
+    // Inline Ray Query
+  case OpCode::RayQuery_CandidateClusterID:
+    A(pETy);
+    A(pI32);
+    A(pI32);
+    break;
+  case OpCode::RayQuery_CommittedClusterID:
+    A(pETy);
+    A(pI32);
+    A(pI32);
+    break;
+
+    // Shader Execution Reordering
+  case OpCode::HitObject_ClusterID:
+    A(pETy);
+    A(pI32);
+    A(pHit);
+    break;
+
+    // Raytracing System Values
+  case OpCode::TriangleObjectPosition:
+    VEC9(pETy);
+    A(pI32);
+    break;
+
+    // Inline Ray Query
+  case OpCode::RayQuery_CandidateTriangleObjectPosition:
+    VEC9(pETy);
+    A(pI32);
+    A(pI32);
+    break;
+  case OpCode::RayQuery_CommittedTriangleObjectPosition:
+    VEC9(pETy);
+    A(pI32);
+    A(pI32);
+    break;
+
+    // Shader Execution Reordering
+  case OpCode::HitObject_TriangleObjectPosition:
+    VEC9(pETy);
+    A(pI32);
+    A(pHit);
+    break;
+
+    // Linear Algebra Operations
+  case OpCode::CreateMatrix:
+    A(pMatrixRef);
+    A(pI32);
+    break;
+  case OpCode::FillMatrix:
+    A(pV);
+    A(pI32);
+    A(pMatrixRef);
+    A(pETy);
+    break;
+  case OpCode::CopyConvertMatrix:
+    A(pV);
+    A(pI32);
+    A(pMatrixRef);
+    A(pMatrixRef);
+    A(pI1);
+    break;
+  case OpCode::MatrixLoadFromDescriptor:
+    A(pV);
+    A(pI32);
+    A(pMatrixRef);
+    A(pRes);
+    A(pI32);
+    A(pI32);
+    A(pI32);
+    break;
+  case OpCode::MatrixLoadFromMemory:
+    A(pV);
+    A(pI32);
+    A(pMatrixRef);
+    A(pI32);
+    A(pI32);
+    A(pI32);
+    A(pI32);
+    break;
+  case OpCode::MatrixLength:
+    A(pI32);
+    A(pI32);
+    A(pMatrixRef);
+    break;
+  case OpCode::MatrixGetCoordinate:
+    A(pI32);
+    A(pI32);
+    A(pMatrixRef);
+    A(pI32);
+    break;
+  case OpCode::MatrixGetElement:
+    A(pETy);
+    A(pI32);
+    A(pMatrixRef);
+    A(pI32);
+    break;
+  case OpCode::MatrixSetElement:
+    A(pV);
+    A(pI32);
+    A(pMatrixRef);
+    A(pI32);
+    A(pETy);
+    break;
+  case OpCode::MatrixStoreToDescriptor:
+    A(pV);
+    A(pI32);
+    A(pMatrixRef);
+    A(pRes);
+    A(pI32);
+    A(pI32);
+    A(pI32);
+    break;
+  case OpCode::MatrixStoreToMemory:
+    A(pV);
+    A(pI32);
+    A(pMatrixRef);
+    A(pI32);
+    A(pI32);
+    A(pI32);
+    A(pI32);
+    break;
+  case OpCode::MatrixQueryAccumulatorLayout:
+    A(pI32);
+    A(pI32);
+    break;
+  case OpCode::MatrixMulOp:
+    A(pV);
+    A(pI32);
+    A(pMatrixRef);
+    A(pMatrixRef);
+    A(pMatrixRef);
+    break;
+  case OpCode::MatrixAccumulate:
+    A(pV);
+    A(pI32);
+    A(pMatrixRef);
+    A(pMatrixRef);
+    break;
+  case OpCode::MatrixVecMul:
+    EXT(0);
+    A(pI32);
+    A(pMatrixRef);
+    EXT(1);
+    A(pI32);
+    break;
+  case OpCode::MatrixVecMulAdd:
+    EXT(0);
+    A(pI32);
+    A(pMatrixRef);
+    EXT(1);
+    A(pI32);
+    A(pI32);
+    A(pI32);
+    break;
+  case OpCode::MatrixAccumulateToDescriptor:
+    A(pV);
+    A(pI32);
+    A(pMatrixRef);
+    A(pRes);
+    A(pI32);
+    A(pI32);
+    A(pI32);
+    break;
+  case OpCode::MatrixAccumulateToMemory:
+    A(pV);
+    A(pI32);
+    A(pMatrixRef);
+    A(pI32);
+    A(pI32);
+    A(pI32);
+    A(pI32);
+    break;
+  case OpCode::MatrixOuterProduct:
+    A(pV);
+    A(pI32);
+    A(pMatrixRef);
+    EXT(0);
+    EXT(1);
+    break;
+
+    //
+  case OpCode::LinAlgMatrixReserved0:
+    A(pV);
+    A(pI32);
+    break;
+  case OpCode::LinAlgMatrixReserved1:
+    A(pV);
+    A(pI32);
+    break;
+  case OpCode::LinAlgMatrixReserved2:
+    A(pV);
+    A(pI32);
+    break;
   // OPCODE-OLOAD-FUNCS:END
   default:
     DXASSERT(false, "otherwise unhandled case");
@@ -6086,8 +6720,7 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
 
 const SmallMapVector<llvm::Type *, llvm::Function *, 8> &
 OP::GetOpFuncList(OpCode opCode) const {
-  return m_OpCodeClassCache[(unsigned)m_OpCodeProps[(unsigned)opCode]
-                                .opCodeClass]
+  return m_OpCodeClassCache[(unsigned)GetOpCodeProps(opCode).opCodeClass]
       .pOverloads;
 }
 
@@ -6184,6 +6817,7 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
   case OpCode::Pack4x8:
   case OpCode::HitObject_Invoke:
   case OpCode::HitObject_Attributes:
+  case OpCode::FillMatrix:
     if (FT->getNumParams() <= 2)
       return nullptr;
     return FT->getParamType(2);
@@ -6212,6 +6846,8 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
   case OpCode::UDiv:
   case OpCode::UAddc:
   case OpCode::USubb:
+  case OpCode::CheckAccessFullyMapped:
+  case OpCode::SplitDouble:
   case OpCode::WaveActiveAllEqual:
   case OpCode::CreateHandleForLib:
   case OpCode::WaveMatch:
@@ -6227,16 +6863,18 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
     if (FT->getNumParams() <= 5)
       return nullptr;
     return FT->getParamType(5);
+  case OpCode::CalculateLOD:
+  case OpCode::ReportHit:
+  case OpCode::HitObject_FromRayQueryWithAttrs:
+  case OpCode::MatrixSetElement:
+    if (FT->getNumParams() <= 3)
+      return nullptr;
+    return FT->getParamType(3);
   case OpCode::TraceRay:
   case OpCode::HitObject_TraceRay:
     if (FT->getNumParams() <= 15)
       return nullptr;
     return FT->getParamType(15);
-  case OpCode::ReportHit:
-  case OpCode::HitObject_FromRayQueryWithAttrs:
-    if (FT->getNumParams() <= 3)
-      return nullptr;
-    return FT->getParamType(3);
   case OpCode::CreateHandle:
   case OpCode::BufferUpdateCounter:
   case OpCode::GetDimensions:
@@ -6335,98 +6973,28 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
   case OpCode::ReservedC7:
   case OpCode::ReservedC8:
   case OpCode::ReservedC9:
+  case OpCode::ExperimentalNop:
+  case OpCode::GetGroupWaveIndex:
+  case OpCode::GetGroupWaveCount:
+  case OpCode::ClusterID:
+  case OpCode::CreateMatrix:
+  case OpCode::CopyConvertMatrix:
+  case OpCode::MatrixLoadFromDescriptor:
+  case OpCode::MatrixLoadFromMemory:
+  case OpCode::MatrixLength:
+  case OpCode::MatrixGetCoordinate:
+  case OpCode::MatrixStoreToDescriptor:
+  case OpCode::MatrixStoreToMemory:
+  case OpCode::MatrixQueryAccumulatorLayout:
+  case OpCode::MatrixMulOp:
+  case OpCode::MatrixAccumulate:
+  case OpCode::MatrixAccumulateToDescriptor:
+  case OpCode::MatrixAccumulateToMemory:
+  case OpCode::LinAlgMatrixReserved0:
+  case OpCode::LinAlgMatrixReserved1:
+  case OpCode::LinAlgMatrixReserved2:
     return Type::getVoidTy(Ctx);
-  case OpCode::CheckAccessFullyMapped:
-  case OpCode::SampleIndex:
-  case OpCode::Coverage:
-  case OpCode::InnerCoverage:
-  case OpCode::ThreadId:
-  case OpCode::GroupId:
-  case OpCode::ThreadIdInGroup:
-  case OpCode::FlattenedThreadIdInGroup:
-  case OpCode::GSInstanceID:
-  case OpCode::OutputControlPointID:
-  case OpCode::PrimitiveID:
-  case OpCode::ViewID:
-  case OpCode::InstanceID:
-  case OpCode::InstanceIndex:
-  case OpCode::HitKind:
-  case OpCode::RayFlags:
-  case OpCode::DispatchRaysIndex:
-  case OpCode::DispatchRaysDimensions:
-  case OpCode::PrimitiveIndex:
-  case OpCode::Dot4AddI8Packed:
-  case OpCode::Dot4AddU8Packed:
-  case OpCode::RayQuery_CommittedStatus:
-  case OpCode::RayQuery_CandidateType:
-  case OpCode::RayQuery_RayFlags:
-  case OpCode::RayQuery_CandidateInstanceIndex:
-  case OpCode::RayQuery_CandidateInstanceID:
-  case OpCode::RayQuery_CandidateGeometryIndex:
-  case OpCode::RayQuery_CandidatePrimitiveIndex:
-  case OpCode::RayQuery_CommittedInstanceIndex:
-  case OpCode::RayQuery_CommittedInstanceID:
-  case OpCode::RayQuery_CommittedGeometryIndex:
-  case OpCode::RayQuery_CommittedPrimitiveIndex:
-  case OpCode::GeometryIndex:
-  case OpCode::RayQuery_CandidateInstanceContributionToHitGroupIndex:
-  case OpCode::RayQuery_CommittedInstanceContributionToHitGroupIndex:
-  case OpCode::StartVertexLocation:
-  case OpCode::StartInstanceLocation:
-  case OpCode::HitObject_RayFlags:
-  case OpCode::HitObject_GeometryIndex:
-  case OpCode::HitObject_InstanceIndex:
-  case OpCode::HitObject_InstanceID:
-  case OpCode::HitObject_PrimitiveIndex:
-  case OpCode::HitObject_HitKind:
-  case OpCode::HitObject_ShaderTableIndex:
-    return IntegerType::get(Ctx, 32);
-  case OpCode::CalculateLOD:
-  case OpCode::DomainLocation:
-  case OpCode::WorldRayOrigin:
-  case OpCode::WorldRayDirection:
-  case OpCode::ObjectRayOrigin:
-  case OpCode::ObjectRayDirection:
-  case OpCode::ObjectToWorld:
-  case OpCode::WorldToObject:
-  case OpCode::RayTMin:
-  case OpCode::RayTCurrent:
-  case OpCode::RayQuery_CandidateObjectToWorld3x4:
-  case OpCode::RayQuery_CandidateWorldToObject3x4:
-  case OpCode::RayQuery_CommittedObjectToWorld3x4:
-  case OpCode::RayQuery_CommittedWorldToObject3x4:
-  case OpCode::RayQuery_CandidateTriangleBarycentrics:
-  case OpCode::RayQuery_CommittedTriangleBarycentrics:
-  case OpCode::RayQuery_WorldRayOrigin:
-  case OpCode::RayQuery_WorldRayDirection:
-  case OpCode::RayQuery_RayTMin:
-  case OpCode::RayQuery_CandidateTriangleRayT:
-  case OpCode::RayQuery_CommittedRayT:
-  case OpCode::RayQuery_CandidateObjectRayOrigin:
-  case OpCode::RayQuery_CandidateObjectRayDirection:
-  case OpCode::RayQuery_CommittedObjectRayOrigin:
-  case OpCode::RayQuery_CommittedObjectRayDirection:
-  case OpCode::HitObject_RayTMin:
-  case OpCode::HitObject_RayTCurrent:
-  case OpCode::HitObject_WorldRayOrigin:
-  case OpCode::HitObject_WorldRayDirection:
-  case OpCode::HitObject_ObjectRayOrigin:
-  case OpCode::HitObject_ObjectRayDirection:
-  case OpCode::HitObject_ObjectToWorld3x4:
-  case OpCode::HitObject_WorldToObject3x4:
-    return Type::getFloatTy(Ctx);
-  case OpCode::MakeDouble:
-  case OpCode::SplitDouble:
-    return Type::getDoubleTy(Ctx);
-  case OpCode::RayQuery_Proceed:
-  case OpCode::RayQuery_CandidateProceduralPrimitiveNonOpaque:
-  case OpCode::RayQuery_CandidateTriangleFrontFace:
-  case OpCode::RayQuery_CommittedTriangleFrontFace:
-  case OpCode::IsHelperLane:
   case OpCode::QuadVote:
-  case OpCode::HitObject_IsMiss:
-  case OpCode::HitObject_IsHit:
-  case OpCode::HitObject_IsNop:
     return IntegerType::get(Ctx, 1);
   case OpCode::CBufferLoadLegacy:
   case OpCode::Sample:
@@ -6449,6 +7017,12 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
     StructType *ST = cast<StructType>(Ty);
     return ST->getElementType(0);
   }
+  case OpCode::TriangleObjectPosition:
+  case OpCode::RayQuery_CandidateTriangleObjectPosition:
+  case OpCode::RayQuery_CommittedTriangleObjectPosition:
+  case OpCode::HitObject_TriangleObjectPosition:
+    // These return <9 x float> vectors directly
+    return cast<VectorType>(Ty)->getElementType();
   case OpCode::MatVecMul:
   case OpCode::MatVecMulAdd:
     if (FT->getNumParams() < 2)
@@ -6462,6 +7036,19 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
     return llvm::StructType::get(Ctx,
                                  {FT->getParamType(1), FT->getParamType(2)});
 
+  case OpCode::MatrixVecMul:
+  case OpCode::MatrixVecMulAdd:
+    if (FT->getNumParams() < 3)
+      return nullptr;
+    return llvm::StructType::get(Ctx,
+                                 {FT->getReturnType(), FT->getParamType(2)});
+
+  case OpCode::MatrixOuterProduct:
+    if (FT->getNumParams() < 4)
+      return nullptr;
+    return llvm::StructType::get(Ctx,
+                                 {FT->getParamType(2), FT->getParamType(3)});
+
   // OPCODE-OLOAD-TYPES:END
   default:
     return Ty;
@@ -6471,6 +7058,8 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
 Type *OP::GetHandleType() const { return m_pHandleType; }
 
 Type *OP::GetNodeHandleType() const { return m_pNodeHandleType; }
+
+Type *OP::GetMatrixRefType() const { return m_pMatrixRefType; }
 
 Type *OP::GetHitObjectType() const { return m_pHitObjectType; }
 

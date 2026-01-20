@@ -303,6 +303,8 @@ $type1 [[]] QuadReadAcrossY(in numeric<> value);
 $type1 [[]] QuadReadAcrossDiagonal(in numeric<> value);
 bool [[]] QuadAny(in bool cond);
 bool [[]] QuadAll(in bool cond);
+uint   [[rn,min_sm=6.10]] GetGroupWaveIndex();
+uint   [[rn,min_sm=6.10]] GetGroupWaveCount();
 
 // Raytracing
 void [[]]  TraceRay(in acceleration_struct AccelerationStructure, in uint RayFlags, in uint InstanceInclusionMask, in uint RayContributionToHitGroupIndex, in uint MultiplierForGeometryContributionToHitGroupIndex, in uint MissShaderIndex, in ray_desc Ray, inout udt Payload);
@@ -335,6 +337,10 @@ float<3,4> [[rn]] ObjectToWorld3x4();
 float<3,4> [[rn]] WorldToObject3x4();
 float<4,3> [[rn]] ObjectToWorld4x3();
 float<4,3> [[rn]] WorldToObject4x3();
+
+uint [[ro,min_sm=6.10]] ClusterID();
+// TODO: Update return type for TriangleObjectPosition():
+void [[ro,min_sm=6.10]] TriangleObjectPosition();
 
 // Packed dot products with accumulate:
 uint [[rn]] dot4add_u8packed(in uint a, in $type1 b, in uint c);
@@ -388,6 +394,37 @@ void [[min_sm=6.10]] __builtin_MatVecMulAdd(out LinAlg<c> OutputVector, in bool 
 void [[min_sm=6.10]] __builtin_OuterProductAccumulate(in LinAlg<c> InputVector1, in LinAlg<c2> InputVector2, in RWByteAddressBuffer MatrixBuffer, in uint MatrixOffset, in uint MatrixInterpretation, in uint MatrixLayout, in uint MatrixStride);
 
 void [[min_sm=6.10]] __builtin_VectorAccumulate(in LinAlg<c> InputVector, in RWByteAddressBuffer MatrixBuffer, in uint MatrixOffset);
+
+// LinAlg intrinsics
+
+// TODO: Update return type for CreateMatrix to MatrixRef
+// TODO: Replace all int MatrixRef with MatrixRef type
+// TODO: Replace all int GroupSharedMem with groupshared memory
+void [[min_sm=6.10]] __builtin_LinAlg_CreateMatrix();
+void [[min_sm=6.10]] __builtin_LinAlg_FillMatrix(int MatrixRef, numeric value);
+void [[min_sm=6.10]] __builtin_LinAlg_CopyConvertMatrix(int MatrixRefDest, int MatrixRefSrc, bool transpose);
+void [[min_sm=6.10]] __builtin_LinAlg_MatrixLoadFromDescriptor(int MatrixRef, resource buf, int32_only offset, int32_only stride, int32_only layout);
+void [[min_sm=6.10]] __builtin_LinAlg_MatrixLoadFromMemory(int MatrixRef, int GroupSharedMem, int32_only offset, int32_only stride, int32_only layout);
+void [[min_sm=6.10]] __builtin_LinAlg_MatrixLength(int MatrixRef);
+void [[min_sm=6.10]] __builtin_LinAlg_MatrixGetCoordinate(int MatrixRef, int32_only threadLocalIndex);
+numeric [[min_sm=6.10]] __builtin_LinAlg_MatrixGetElement(int MatrixRef, int32_only threadLocalIndex);
+void [[min_sm=6.10]] __builtin_LinAlg_MatrixSetElement(int MatrixRef, int32_only threadLocalIndex, numeric value);
+void [[min_sm=6.10]] __builtin_LinAlg_MatrixStoreToDescriptor(int MatrixRef, resource buf, int32_only offset, int32_only stride, int32_only layout);
+void [[min_sm=6.10]] __builtin_LinAlg_MatrixStoreToMemory(int MatrixRef, int GroupSharedMem, int32_only offset, int32_only stride, int32_only layout);
+int32_only [[min_sm=6.10]] __builtin_LinAlg_MatrixQueryAccumulatorLayout();
+void [[min_sm=6.10]] __builtin_LinAlg_MatrixMatrixMultiply(int MatrixRefA, int MatrixRefB, int MatrixRefC);
+void [[min_sm=6.10]] __builtin_LinAlg_MatrixMatrixMultiplyAccumulate(int MatrixRefA, int MatrixRefB, int MatrixRefC);
+void [[min_sm=6.10]] __builtin_LinAlg_MatrixAccumulate(int MatrixRefRHS, int MatrixRefLHS);
+
+// TODO: Fix vector types
+void [[min_sm=6.10]] __builtin_LinAlg_MatrixVectorMultiply(int MatrixRef);
+void [[min_sm=6.10]] __builtin_LinAlg_MatrixVectorMultiplyAdd(int MatrixRef);
+
+void [[min_sm=6.10]] __builtin_LinAlg_MatrixAccumulateToDescriptor(int MatrixRef, resource buf, int32_only offset, int32_only stride, int32_only layout);
+void [[min_sm=6.10]] __builtin_LinAlg_MatrixAccumulateToMemory(int MatrixRef, int GroupSharedMem, int32_only offset, int32_only stride, int32_only layout);
+
+// TODO: Fix vector types
+void [[min_sm=6.10]] __builtin_LinAlg_MatrixOuterProduct(int MatrixRef);
 
 } namespace
 
@@ -1101,6 +1138,11 @@ float<3> [[ro]] CommittedObjectRayOrigin();
 float<3> [[ro]] CommittedObjectRayDirection();
 uint [[ro]] CandidateInstanceContributionToHitGroupIndex();
 uint [[ro]] CommittedInstanceContributionToHitGroupIndex();
+uint [[ro,min_sm=6.10]] CandidateClusterID();
+uint [[ro,min_sm=6.10]] CommittedClusterID();
+// TODO: Update return type for *TriangleObjectPosition():
+void [[ro,min_sm=6.10]] CandidateTriangleObjectPosition();
+void [[ro,min_sm=6.10]] CommittedTriangleObjectPosition();
 
 } namespace
 
@@ -1135,6 +1177,9 @@ namespace DxHitObjectMethods {
     void [[class_prefix,min_sm=6.9]] GetAttributes(out udt Attributes);
     void [[class_prefix,min_sm=6.9]] SetShaderTableIndex(in uint RecordIndex);
     uint [[ro,class_prefix,min_sm=6.9]] LoadLocalRootTableConstant(in uint RootConstantOffsetInBytes);
+    uint [[ro,class_prefix,min_sm=6.10]] ClusterID();
+    // TODO: Update return type for TriangleObjectPosition():
+    void [[ro,class_prefix,min_sm=6.10]] TriangleObjectPosition();
 } namespace
 
 namespace DxIntrinsics {

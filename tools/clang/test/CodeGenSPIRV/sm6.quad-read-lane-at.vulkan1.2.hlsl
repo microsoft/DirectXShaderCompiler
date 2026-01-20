@@ -10,7 +10,10 @@ struct S {
 
 RWStructuredBuffer<S> values;
 
-// CHECK: OpCapability GroupNonUniformQuad
+// CHECK-DAG: OpCapability GroupNonUniformQuad
+// CHECK-DAG: OpCapability ComputeDerivativeGroupQuadsKHR
+// CHECK-DAG: OpCapability ComputeDerivativeGroupLinearKHR
+// CHECK-DAG: OpExecutionMode %main DerivativeGroupLinearKHR
 
 [numthreads(32, 1, 1)]
 void main(uint3 id: SV_DispatchThreadID) {
@@ -30,4 +33,3 @@ void main(uint3 id: SV_DispatchThreadID) {
 // CHECK-NEXT:      {{%[0-9]+}} = OpGroupNonUniformQuadBroadcast %int %uint_3 [[val3]] %uint_2
     values[x].val3 = QuadReadLaneAt(val3, 2);
 }
-
