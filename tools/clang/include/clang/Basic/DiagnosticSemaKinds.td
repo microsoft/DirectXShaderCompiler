@@ -1597,6 +1597,13 @@ def warn_hlsl_sometimes_uninit_out_param : Warning<
   "its declaration is reached|"
   "%3 is called}2">,
   InGroup<HLSLParameterUsage>;
+def warn_hlsl_groupshared_202x: Warning<
+  "Support for groupshared parameter annotation not added until HLSL 202x">,
+  InGroup<HLSLParameterUsage>;
+def warn_hlsl_groupshared_inout: Warning<
+  "Passing groupshared variable to a parameter annotated with inout. See "
+  "'groupshared' parameter annotation added in 202x.">,
+  InGroup<HLSLParameterUsage>;
 // HLSL Change End - Add warning for uninitialized out param
 def warn_maybe_uninit_var : Warning<
   "variable %0 may be uninitialized when "

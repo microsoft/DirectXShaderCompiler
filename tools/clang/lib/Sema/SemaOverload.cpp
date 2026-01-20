@@ -4953,6 +4953,26 @@ InitCallParamConversions(Sema &S, const FunctionProtoType *Proto,
                          ImplicitConversionSequence &OutConversion) {
   hlsl::ParameterModifier paramMods = Proto->getParamMods()[ArgIdx];
   QualType ParamType = Proto->getParamType(ArgIdx);
+
+  // must be a Ref; don't allow any conversions
+  if (!(paramMods.isAnyIn() || paramMods.isAnyOut())) {
+    if (!S.getASTContext().hasSameUnqualifiedType(
+            ParamType.getNonReferenceType(), Arg->getType()) ||
+        Arg->getType().getQualifiers().getAddressSpace() !=
+            hlsl::DXIL::kTGSMAddrSpace) {
+      InConversion.setBad(BadConversionSequence::no_conversion, Arg->getType(),
+                          ParamType.getNonReferenceType());
+      InConversion.Bad.FromExpr = Arg;
+      return;
+    }
+  }
+
+  if (S.getLangOpts().HLSLVersion >= hlsl::LangStd::v202x &&
+      paramMods.isAnyIn() && paramMods.isAnyOut() &&
+      Arg->getType().getQualifiers().getAddressSpace() ==
+          hlsl::DXIL::kTGSMAddrSpace)
+    S.Diag(Arg->getLocStart(), diag::warn_hlsl_groupshared_inout);
+
   if (paramMods.isAnyIn()) {
     InConversion =
         TryCopyInitialization(S, Arg, ParamType, SuppressUserConversions,

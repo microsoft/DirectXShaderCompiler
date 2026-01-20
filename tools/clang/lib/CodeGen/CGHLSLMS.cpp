@@ -1245,6 +1245,9 @@ unsigned CGMSHLSLRuntime::AddTypeAnnotation(QualType Ty,
   if (const ReferenceType *RefType = dyn_cast<ReferenceType>(paramTy))
     paramTy = RefType->getPointeeType();
 
+  if (const ReferenceType *RefType = dyn_cast<ReferenceType>(Ty))
+    Ty = RefType->getPointeeType();
+
   // Get size.
   llvm::Type *Type = CGM.getTypes().ConvertType(paramTy);
   unsigned size = dataLayout.getTypeAllocSize(Type);
@@ -6245,7 +6248,8 @@ void CGMSHLSLRuntime::EmitHLSLOutParamConversionInit(
         }
       } else if (isAggregateType) {
         // aggregate in-only - emit RValue, unless LValueToRValue cast
-        EmitRValueAgg = true;
+        if (Param->isModifierIn())
+          EmitRValueAgg = true;
         if (const ImplicitCastExpr *cast = dyn_cast<ImplicitCastExpr>(Arg)) {
           if (cast->getCastKind() == CastKind::CK_LValueToRValue) {
             EmitRValueAgg = false;
