@@ -23,7 +23,7 @@ The included licenses apply to the following files:
 - Fixed regression: [#7508](https://github.com/microsoft/DirectXShaderCompiler/issues/7508) crash when calling `Load` with `status`.
 - Header file `dxcpix.h` was added to the release package.
 - Moved Linear Algebra (Cooperative Vector) DXIL Opcodes to experimental Shader Model 6.10
-- Added support for the groupshared attribute for parameters to Shader Model 6.10
+- Added support for the groupshared attribute for parameters to Shader Model 6.10 [#8013](https://github.com/microsoft/DirectXShaderCompiler/pull/8013)
 
 ### Version 1.8.2505
 
