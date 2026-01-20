@@ -1646,6 +1646,19 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
     }
   }
 
+  if (const HLSLGroupSharedLimitAttr *Attr =
+          FD->getAttr<HLSLGroupSharedLimitAttr>()) {
+    funcProps->groupSharedLimitBytes = Attr->getLimit();
+  } else {
+    if (SM->IsMS()) { // Fallback to default limits
+      funcProps->groupSharedLimitBytes = DXIL::kMaxMSSMSize; // 28k For MS
+    } else if (SM->IsAS() || SM->IsCS()) {
+      funcProps->groupSharedLimitBytes = DXIL::kMaxTGSMSize; // 32k For AS/CS
+    } else {
+      funcProps->groupSharedLimitBytes = 0;
+    }
+  }
+
   // Hull shader.
   if (const HLSLPatchConstantFuncAttr *Attr =
           FD->getAttr<HLSLPatchConstantFuncAttr>()) {

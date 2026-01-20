@@ -12971,6 +12971,22 @@ void DiagnoseEntryAttrAllowedOnStage(clang::Sema *self,
         }
         break;
       }
+      case clang::attr::HLSLGroupSharedLimit: {
+        switch (shaderKind) {
+        case DXIL::ShaderKind::Compute:
+        case DXIL::ShaderKind::Mesh:
+        case DXIL::ShaderKind::Amplification:
+        case DXIL::ShaderKind::Node:
+          break;
+        default:
+          self->Diag(pAttr->getRange().getBegin(),
+                     diag::err_hlsl_attribute_unsupported_stage)
+              << "GroupSharedLimit"
+              << "compute, mesh, node, or amplification";
+          break;
+        }
+        break;
+      }
       }
     }
   }
@@ -14655,6 +14671,11 @@ void hlsl::HandleDeclAttributeForHLSL(Sema &S, Decl *D, const AttributeList &A,
       VD->setType(
           S.Context.getAddrSpaceQualType(VD->getType(), DXIL::kTGSMAddrSpace));
     }
+    break;
+  case AttributeList::AT_HLSLGroupSharedLimit:
+    declAttr = ::new (S.Context) HLSLGroupSharedLimitAttr(
+        A.getRange(), S.Context, ValidateAttributeIntArg(S, A),
+        A.getAttributeSpellingListIndex());
     break;
   case AttributeList::AT_HLSLUniform:
     declAttr = ::new (S.Context) HLSLUniformAttr(

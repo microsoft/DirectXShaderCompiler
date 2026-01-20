@@ -3935,6 +3935,18 @@ static void ValidateGlobalVariables(ValidationContext &ValCtx) {
     Rule = ValidationRule::SmMaxMSSMSize;
     MaxSize = DXIL::kMaxMSSMSize;
   }
+
+  // Check if the entry function has attribute to override TGSM size.
+  if (M.HasDxilEntryProps(M.GetEntryFunction())) {
+    DxilEntryProps &EntryProps = M.GetDxilEntryProps(M.GetEntryFunction());
+    if (EntryProps.props.IsCS()) {
+      unsigned SpecifiedTGSMSize = EntryProps.props.groupSharedLimitBytes;
+      if (SpecifiedTGSMSize > 0) {
+        MaxSize = SpecifiedTGSMSize;
+      }
+    }
+  }
+
   if (TGSMSize > MaxSize) {
     Module::global_iterator GI = M.GetModule()->global_end();
     GlobalVariable *GV = &*GI;
