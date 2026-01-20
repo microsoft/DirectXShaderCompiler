@@ -29,7 +29,6 @@ The included licenses apply to the following files:
 #### Experimental Shader Model 6.10
 
 - Moved Linear Algebra (Cooperative Vector) DXIL Opcodes to experimental Shader Model 6.10
-- Added support for `long long` and `unsigned long long` compile-time constant evaluation, fixes [#7952](https://github.com/microsoft/DirectXShaderCompiler/issues/7952).
 - Implement GetGroupWaveIndex and GetGroupWaveCount in experimental Shader Model 6.10.
   - [proposal](https://github.com/microsoft/hlsl-specs/blob/main/proposals/0048-group-wave-index.md)
   - GetGroupWaveIndex: New intrinsic for Compute, Mesh, Amplification and Node shaders which returns the index of the wave within the thread group that the the thread is executing.
@@ -90,6 +89,7 @@ The included licenses apply to the following files:
 - Implement isnormal function.
   [#7720](https://github.com/microsoft/DirectXShaderCompiler/issues/7720)
 - Disallow 64bit msad, ibfe, and ubfe. [#7774](https://github.com/microsoft/DirectXShaderCompiler/issues/7774)
+- Added support for `long long` and `unsigned long long` compile-time constant evaluation, fixes [#7952](https://github.com/microsoft/DirectXShaderCompiler/issues/7952).
 - Added support for the groupshared attribute for parameters to Shader Model 6.10 [#8013](https://github.com/microsoft/DirectXShaderCompiler/pull/8013)
 
 ### Version 1.8.2505
