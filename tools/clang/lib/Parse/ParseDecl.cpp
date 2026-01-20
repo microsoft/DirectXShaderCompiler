@@ -843,6 +843,7 @@ void Parser::ParseGNUAttributeArgs(IdentifierInfo *AttrName,
     case AttributeList::AT_HLSLMaxVertexCount:
     case AttributeList::AT_HLSLUnroll:
     case AttributeList::AT_HLSLWaveSize:
+    case AttributeList::AT_HLSLGroupSharedLimit:
     case AttributeList::AT_NoInline:
       // The following are not accepted in [attribute(param)] syntax:
       // case AttributeList::AT_HLSLCentroid:

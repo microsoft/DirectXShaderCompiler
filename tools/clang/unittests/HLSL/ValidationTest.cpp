@@ -4916,9 +4916,9 @@ TEST_F(ValidationTest, PSVStringTableReorder) {
   const uint32_t *PSVPtr = (const uint32_t *)GetDxilPartData(pPSVPart);
 
   uint32_t PSVRuntimeInfo_size = *(PSVPtr++);
-  VERIFY_ARE_EQUAL(sizeof(PSVRuntimeInfo3), PSVRuntimeInfo_size);
-  PSVRuntimeInfo3 *PSVInfo =
-      const_cast<PSVRuntimeInfo3 *>((const PSVRuntimeInfo3 *)PSVPtr);
+  VERIFY_ARE_EQUAL(sizeof(PSVRuntimeInfo4), PSVRuntimeInfo_size);
+  PSVRuntimeInfo4 *PSVInfo =
+      const_cast<PSVRuntimeInfo4 *>((const PSVRuntimeInfo4 *)PSVPtr);
   VERIFY_ARE_EQUAL(2u, PSVInfo->SigInputElements);
   PSVPtr += PSVRuntimeInfo_size / 4;
   uint32_t ResourceCount = *(PSVPtr++);
@@ -5108,9 +5108,9 @@ TEST_F(ValidationTest, PSVSemanticIndexTableReorder) {
   const uint32_t *PSVPtr = (const uint32_t *)GetDxilPartData(pPSVPart);
 
   uint32_t PSVRuntimeInfo_size = *(PSVPtr++);
-  VERIFY_ARE_EQUAL(sizeof(PSVRuntimeInfo3), PSVRuntimeInfo_size);
-  PSVRuntimeInfo3 *PSVInfo =
-      const_cast<PSVRuntimeInfo3 *>((const PSVRuntimeInfo3 *)PSVPtr);
+  VERIFY_ARE_EQUAL(sizeof(PSVRuntimeInfo4), PSVRuntimeInfo_size);
+  PSVRuntimeInfo4 *PSVInfo =
+      const_cast<PSVRuntimeInfo4 *>((const PSVRuntimeInfo4 *)PSVPtr);
   VERIFY_ARE_EQUAL(PSVInfo->SigInputElements, 3u);
   VERIFY_ARE_EQUAL(PSVInfo->SigOutputElements, 3u);
   VERIFY_ARE_EQUAL(PSVInfo->SigPatchConstOrPrimElements, 2u);
@@ -5453,10 +5453,11 @@ SimplePSV::SimplePSV(const DxilPartHeader *pPSVPart) {
   const uint32_t *PSVPtrEnd = PSVPtr + PartSize / 4;
 
   uint32_t PSVRuntimeInfoSize = *(PSVPtr++);
-  VERIFY_ARE_EQUAL(sizeof(PSVRuntimeInfo3), PSVRuntimeInfoSize);
-  PSVRuntimeInfo3 *PSVInfo3 =
-      const_cast<PSVRuntimeInfo3 *>((const PSVRuntimeInfo3 *)PSVPtr);
-  PSVInfo = PSVInfo3;
+  VERIFY_ARE_EQUAL(sizeof(PSVRuntimeInfo4), PSVRuntimeInfoSize);
+  PSVRuntimeInfo4 *PSVInfo4 =
+      const_cast<PSVRuntimeInfo4 *>((const PSVRuntimeInfo4 *)PSVPtr);
+  PSVInfo = PSVInfo4;
+  PSVRuntimeInfo3 *PSVInfo3 = reinterpret_cast<PSVRuntimeInfo3 *>(PSVInfo4);
 
   PSVPtr += PSVRuntimeInfoSize / 4;
   uint32_t ResourceCount = *(PSVPtr++);
@@ -6559,9 +6560,9 @@ TEST_F(ValidationTest, WrongPSVSizeOnZeros) {
   const uint32_t *PSVPtr = (const uint32_t *)GetDxilPartData(pPSVPart);
 
   uint32_t PSVRuntimeInfo_size = *(PSVPtr++);
-  VERIFY_ARE_EQUAL(sizeof(PSVRuntimeInfo3), PSVRuntimeInfo_size);
-  PSVRuntimeInfo3 *PSVInfo =
-      const_cast<PSVRuntimeInfo3 *>((const PSVRuntimeInfo3 *)PSVPtr);
+  VERIFY_ARE_EQUAL(sizeof(PSVRuntimeInfo4), PSVRuntimeInfo_size);
+  PSVRuntimeInfo4 *PSVInfo =
+      const_cast<PSVRuntimeInfo4 *>((const PSVRuntimeInfo4 *)PSVPtr);
   VERIFY_ARE_EQUAL(2u, PSVInfo->SigInputElements);
   PSVPtr += PSVRuntimeInfo_size / 4;
   uint32_t *ResourceCountPtr = const_cast<uint32_t *>(PSVPtr++);
@@ -6793,7 +6794,7 @@ TEST_F(ValidationTest, WrongPSVVersion) {
   CheckOperationResultMsgs(
       p60WithPSV68Result,
       {"DXIL container mismatch for 'PSVRuntimeInfoSize' between 'PSV0' "
-       "part:('52') and DXIL module:('24')"},
+       "part:('56') and DXIL module:('24')"},
       /*maySucceedAnyway*/ false, /*bRegex*/ false);
 
   // Create a new Blob.
@@ -6811,6 +6812,6 @@ TEST_F(ValidationTest, WrongPSVVersion) {
   CheckOperationResultMsgs(
       p68WithPSV60Result,
       {"DXIL container mismatch for 'PSVRuntimeInfoSize' between 'PSV0' "
-       "part:('24') and DXIL module:('52')"},
+       "part:('24') and DXIL module:('56')"},
       /*maySucceedAnyway*/ false, /*bRegex*/ false);
 }

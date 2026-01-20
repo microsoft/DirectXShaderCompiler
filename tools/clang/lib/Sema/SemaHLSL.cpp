@@ -12971,6 +12971,22 @@ void DiagnoseEntryAttrAllowedOnStage(clang::Sema *self,
         }
         break;
       }
+      case clang::attr::HLSLGroupSharedLimit: {
+        switch (shaderKind) {
+        case DXIL::ShaderKind::Compute:
+        case DXIL::ShaderKind::Mesh:
+        case DXIL::ShaderKind::Amplification:
+        case DXIL::ShaderKind::Node:
+          break;
+        default:
+          self->Diag(pAttr->getRange().getBegin(),
+                     diag::err_hlsl_attribute_unsupported_stage)
+              << "GroupSharedLimit"
+              << "compute, mesh, node, or amplification";
+          break;
+        }
+        break;
+      }
       }
     }
   }
@@ -14474,6 +14490,21 @@ void Sema::DiagnoseHLSLDeclAttr(const Decl *D, const Attr *A) {
   HLSLExternalSource *ExtSource = HLSLExternalSource::FromSema(this);
   const bool IsGCAttr = isa<HLSLGloballyCoherentAttr>(A);
   const bool IsRCAttr = isa<HLSLReorderCoherentAttr>(A);
+  const bool IsExportAttr = isa<HLSLExportAttr>(A);
+  const bool IsNoInlineAttr = isa<NoInlineAttr>(A);
+  if (IsExportAttr || IsNoInlineAttr) {
+    if (const FunctionDecl *FD = dyn_cast<FunctionDecl>(D)) {
+      for (ParmVarDecl *PVD : FD->parameters()) {
+        if (PVD->hasAttr<HLSLGroupSharedAttr>()) {
+          Diag(A->getLocation(), diag::err_hlsl_varmodifiersna)
+              << "groupshared"
+              << "export/noinline"
+              << "parameter";
+          return;
+        }
+      }
+    }
+  }
   if (IsGCAttr || IsRCAttr) {
     const ValueDecl *TD = cast<ValueDecl>(D);
     if (TD->getType()->isDependentType())
@@ -14655,6 +14686,13 @@ void hlsl::HandleDeclAttributeForHLSL(Sema &S, Decl *D, const AttributeList &A,
       VD->setType(
           S.Context.getAddrSpaceQualType(VD->getType(), DXIL::kTGSMAddrSpace));
     }
+    if (ParmVarDecl *VD = dyn_cast<ParmVarDecl>(D))
+      VD->setType(S.Context.getLValueReferenceType(VD->getType()));
+    break;
+  case AttributeList::AT_HLSLGroupSharedLimit:
+    declAttr = ::new (S.Context) HLSLGroupSharedLimitAttr(
+        A.getRange(), S.Context, ValidateAttributeIntArg(S, A),
+        A.getAttributeSpellingListIndex());
     break;
   case AttributeList::AT_HLSLUniform:
     declAttr = ::new (S.Context) HLSLUniformAttr(
@@ -14996,6 +15034,7 @@ void hlsl::HandleDeclAttributeForHLSL(Sema &S, Decl *D, const AttributeList &A,
   }
 
   if (declAttr != nullptr) {
+    S.DiagnoseHLSLDeclAttr(D, declAttr);
     DXASSERT_NOMSG(Handled);
     D->addAttr(declAttr);
 
@@ -15749,7 +15788,17 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC, Expr *BitWidth,
       break;
     case AttributeList::AT_HLSLGroupShared:
       isGroupShared = true;
-      if (!isGlobal) {
+      if (isParameter && getLangOpts().HLSLVersion < hlsl::LangStd::v202x)
+        Diag(pAttr->getLoc(), diag::warn_hlsl_groupshared_202x);
+      if (isParameter && (usageIn || usageOut)) {
+        Diag(pAttr->getLoc(), diag::err_hlsl_varmodifiersna)
+            << (usageIn && usageOut ? "'inout'"
+                : usageIn           ? "'in'"
+                                    : "'out'")
+            << pAttr->getName() << declarationType;
+        result = false;
+      }
+      if (!(isGlobal || isParameter)) {
         Diag(pAttr->getLoc(), diag::err_hlsl_varmodifierna)
             << pAttr->getName() << declarationType << pAttr->getRange();
         result = false;
@@ -15785,6 +15834,10 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC, Expr *BitWidth,
       if (!isParameter) {
         Diag(pAttr->getLoc(), diag::err_hlsl_usage_not_on_parameter)
             << pAttr->getName() << pAttr->getRange();
+        result = false;
+      } else if (isGroupShared) {
+        Diag(pAttr->getLoc(), diag::err_hlsl_varmodifiersna)
+            << pAttr->getName() << "'groupshared'" << declarationType;
         result = false;
       }
       if (!IsUsageAttributeCompatible(pAttr->getKind(), usageIn, usageOut)) {
