@@ -36,7 +36,6 @@ The included licenses apply to the following files:
   - GetGroupWaveCount: New intrinsic for Compute, Mesh, Amplification and Node
   shaders which returns the total number of waves executing within the thread
   group.
-- Added support for the groupshared attribute for parameters to Shader Model 6.10 [#8013](https://github.com/microsoft/DirectXShaderCompiler/pull/8013)
 
 #### Noteble SPIR-V updates
 
@@ -91,6 +90,7 @@ The included licenses apply to the following files:
 - Implement isnormal function.
   [#7720](https://github.com/microsoft/DirectXShaderCompiler/issues/7720)
 - Disallow 64bit msad, ibfe, and ubfe. [#7774](https://github.com/microsoft/DirectXShaderCompiler/issues/7774)
+- Added support for the groupshared attribute for parameters to Shader Model 6.10 [#8013](https://github.com/microsoft/DirectXShaderCompiler/pull/8013)
 
 ### Version 1.8.2505
 
