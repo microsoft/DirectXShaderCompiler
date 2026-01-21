@@ -198,9 +198,6 @@ foreach(i RANGE 0 ${loop_end})
       DEPENDS ${CLANG_TEST_DEPS} ${name}
       ARGS ${CLANG_TEST_EXTRA_ARGS}
     )
-
-    # Add to global LLVM_LIT_DEPENDS for check-all
-    set_property(GLOBAL APPEND PROPERTY LLVM_LIT_DEPENDS check-dxilcompat-${name})
   endif()
 endforeach()
 # -------------------------------------------------------------------------
@@ -286,9 +283,6 @@ add_lit_target("check-extdxil"
   DEPENDS ${CLANG_TEST_DEPS}
   ARGS ${CLANG_TEST_EXTRA_ARGS}
 )
-
-# Add check-extdxil to global LLVM_LIT_DEPENDS to include in check-all
-set_property(GLOBAL APPEND PROPERTY LLVM_LIT_DEPENDS check-extdxil)
 # -------------------------------------------------------------------------
 
 # HLSL Change End
