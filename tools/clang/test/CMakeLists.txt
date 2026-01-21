@@ -266,8 +266,6 @@ else()
   if(APPLE)
     set(DXIL_PATH ${CMAKE_BINARY_DIR}/lib/libdxil.dylib)
   else()
-    # Breaking this path results in no test failures, so it doesn't seem to be
-    # working as intended. Needs investigation.
     set(DXIL_PATH ${CMAKE_BINARY_DIR}/lib/libdxil.so)
   endif()
 endif()
