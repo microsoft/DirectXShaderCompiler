@@ -645,6 +645,7 @@ class db_oload_gen:
             # Extended overload slots, extend as needed:
             "$x0": "EXT(0);",
             "$x1": "EXT(1);",
+            "$x2": "EXT(2);",
         }
         last_category = None
         for i in self.db.get_dxil_ops():

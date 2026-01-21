@@ -59,7 +59,7 @@ dxil_scalar_oload_chars = "hfd18wil"
 
 # Maximum number of overload dimensions supported through the extended overload
 # in DXIL instructions.
-dxil_max_overload_dims = 2
+dxil_max_overload_dims = 3
 
 
 class db_dxil_enum_value(object):
