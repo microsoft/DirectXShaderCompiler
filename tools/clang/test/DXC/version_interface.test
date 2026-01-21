@@ -5,5 +5,5 @@
 // that the dxcompiler.dll version is not 1.0.
 // The version is 1.0 only when the DxcVersionInfo interface
 // is unsupported. Otherwise, it should usually match the 
-// dxil version or at least be 1.1
+// dxil version or it will be at least 1.1
 // CHECK-NOT: dxcompiler.dll: 1.0
