@@ -1291,7 +1291,7 @@ void WriteDxCompilerVersionInfo(llvm::raw_ostream &OS, const char *ExternalLib,
     OS << " - " << ProductVersion;
 }
 
-// Writes compiler version info to stream
+// Writes external DXIL validator version info to stream
 void WriteDXILVersionInfo(llvm::raw_ostream &OS, const char *DxilLib,
                           DllLoader &DxilSupport) {
   if (!DxilSupport.IsEnabled())
