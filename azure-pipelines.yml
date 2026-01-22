@@ -170,6 +170,8 @@ stages:
       displayName: 'Smoke tests'
     - bash: $(CHECK_ALL_ENV) ninja -C build check-all
       displayName: 'DXC tests'
+    - bash: $(CHECK_ALL_ENV) ninja -C build check-extdxil
+      displayName: 'External DXIL Validator tests'
     - task: PublishTestResults@2
       inputs:
         testResultsFormat: 'JUnit'
