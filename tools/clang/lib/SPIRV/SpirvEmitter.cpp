@@ -2037,9 +2037,9 @@ void SpirvEmitter::doVarDecl(const VarDecl *decl) {
   // Considering the following example:
   //
   // ```cpp
-  //  template<typename T> static const T MyClass<T>::myVar = 1;
+  //  template<typename T> const static T MyClass<T>::myVar[2] = { 1, 2 };
   //  [...]
-  //  int use = MyClass<int>::myVar;
+  //  int use = MyClass<int>::myVar[0];
   // ```
   //
   // The AST will contain 2 variable declarations:
