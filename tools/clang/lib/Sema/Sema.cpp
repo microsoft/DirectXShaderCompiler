@@ -242,6 +242,10 @@ void Sema::Initialize() {
     }
   }
 
+  // HLSL Change - '__builtin_LinAlg_Matrix'
+  if (PP.getLangOpts().HLSL)
+    addImplicitTypedef("__builtin_LinAlg_Matrix", Context.LinAlgMatrixTy);
+
   DeclarationName BuiltinVaList = &Context.Idents.get("__builtin_va_list");
   if (IdResolver.begin(BuiltinVaList) == IdResolver.end())
     PushOnScopeChains(Context.getBuiltinVaListDecl(), TUScope);

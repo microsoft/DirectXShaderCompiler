@@ -2548,6 +2548,7 @@ StringRef BuiltinType::getName(const PrintingPolicy &Policy) const {
   case LitInt:            return "literal int";
   case Int8_4Packed:      return "int8_t4_packed";
   case UInt8_4Packed:     return "uint8_t4_packed";
+  case LinAlgMatrix:      return "__builtin_LinAlg Matrix";
   // HLSL Change Ends
   }
   
@@ -3504,6 +3505,7 @@ bool Type::canHaveNullability() const {
     case BuiltinType::OCLImage3d:
     case BuiltinType::OCLSampler:
     case BuiltinType::OCLEvent:
+    case BuiltinType::LinAlgMatrix:
     case BuiltinType::BuiltinFn:
     case BuiltinType::NullPtr:
       return false;

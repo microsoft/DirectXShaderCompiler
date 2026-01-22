@@ -520,6 +520,10 @@ llvm::DIType *CGDebugInfo::CreateType(const BuiltinType *BT) {
   case BuiltinType::LitFloat:
     Encoding = llvm::dwarf::DW_ATE_float;
     break;
+  // HLSL Change Starts
+  case BuiltinType::LinAlgMatrix:
+    llvm_unreachable("LinAlgMatrix debug info not yet supported.");
+  // HLSL Change Ends
   }
 
   switch (BT->getKind()) {

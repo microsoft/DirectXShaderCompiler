@@ -2050,6 +2050,7 @@ void CXXNameMangler::mangleType(const BuiltinType *T) {
   case BuiltinType::HalfFloat: Out << "half_float"; break;
   case BuiltinType::Int8_4Packed: Out << "int8_t4_packed"; break;
   case BuiltinType::UInt8_4Packed: Out << "uint8_t4_packed"; break;
+  case BuiltinType::LinAlgMatrix: Out << "23__builtin_LinAlg_Matrix"; break;
     // HLSL Change ends
   }
 }

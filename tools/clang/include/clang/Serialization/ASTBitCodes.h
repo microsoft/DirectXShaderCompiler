@@ -777,7 +777,9 @@ namespace clang {
       /// \brief OpenCL event type.
       PREDEF_TYPE_EVENT_ID      = 44,
       /// \brief OpenCL sampler type.
-      PREDEF_TYPE_SAMPLER_ID    = 45
+      PREDEF_TYPE_SAMPLER_ID    = 45,
+      /// \brief HLSL LinAlg Matrix type.
+      PREDEF_TYPE_LINALG_MATRIX_ID = 46
     };
 
     /// \brief The number of predefined type IDs that are reserved for
