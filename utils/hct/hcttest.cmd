@@ -98,6 +98,9 @@ if "%1"=="-clean" (
   echo Fallback to taef when use taef only options.
   set TEST_CLANG_FILTER=%2
   shift /1
+) else if "%1"=="extdxil" (
+  set TEST_ALL=0
+  set TEST_EXT_DXIL=1
 ) else if "%1"=="compat-suite" (
   set TEST_ALL=0
   set TEST_COMPAT_SUITE=%2
@@ -334,6 +337,10 @@ if "%TEST_USE_LIT%"=="1" (
       cmake --build %HLSL_BLD_DIR% --config %BUILD_CONFIG% --target check-clang
       set RES_CLANG=!ERRORLEVEL!
     )
+    if "!TEST_EXT_DXIL!"=="1" (
+        cmake --build %HLSL_BLD_DIR% --config %BUILD_CONFIG% --target check-extdxil
+        set RES_EXT_DXIL=!ERRORLEVEL!
+    )
     if "!TEST_COMPAT_SUITE!"=="v1.6.2112" (       
         cmake --build %HLSL_BLD_DIR% --config %BUILD_CONFIG% --target check-dxilcompat-dxc_2021_12_08
         set RES_COMPAT_1_6=!ERRORLEVEL!
@@ -516,6 +523,7 @@ if "%TEST_EXEC%"=="1" (
 call :check_result "hcttest-extras tests" %RES_EXTRAS%
 call :check_result "hcttest-after script" %RES_HCTTEST_AFTER%
 call :check_result "dxilconv tests" %RES_DXILCONV%
+call :check_result "external DXIL validator tests" %RES_EXT_DXIL%
 call :check_result "compat-suite v1.6.2112 tests" %RES_COMPAT_1_6%
 call :check_result "compat-suite v1.7.2308 tests" %RES_COMPAT_1_7%
 call :check_result "compat-suite v1.8.2502 tests" %RES_COMPAT_1_8%

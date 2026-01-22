@@ -8,6 +8,7 @@ else ()
 endif ()
 
 string(REPLACE ${CMAKE_CFG_INTDIR} ${LLVM_BUILD_MODE} CLANG_TOOLS_DIR ${LLVM_RUNTIME_OUTPUT_INTDIR})
+string(REPLACE ${CMAKE_CFG_INTDIR} ${LLVM_BUILD_MODE} LLVM_LIB_DIR ${LLVM_LIBRARY_OUTPUT_INTDIR})
 
 set(HLSL_HEADERS_DIR ${LLVM_SOURCE_DIR}/tools/clang/lib/Headers/hlsl) # HLSL Change
 
@@ -258,13 +259,9 @@ endif()
 
 # Set path to dxil.(dll|so|dylib) built as part of this build
 if(WIN32)
-  set(DXIL_PATH ${CMAKE_BINARY_DIR}/bin/dxil.dll)
+  set(DXIL_PATH "${CLANG_TOOLS_DIR}/dxil.dll")
 else()
-  if(APPLE)
-    set(DXIL_PATH ${CMAKE_BINARY_DIR}/lib/libdxil.dylib)
-  else()
-    set(DXIL_PATH ${CMAKE_BINARY_DIR}/lib/libdxil.so)
-  endif()
+  set(DXIL_PATH "${LLVM_LIB_DIR}/${CMAKE_SHARED_LIBRARY_PREFIX}dxil${CMAKE_SHARED_LIBRARY_SUFFIX}")
 endif()
 
 # The only sub-dirs that make sense to run with the external dxil validator
