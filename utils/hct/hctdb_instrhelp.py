@@ -646,6 +646,7 @@ class db_oload_gen:
             "$x0": "EXT(0);",
             "$x1": "EXT(1);",
             "$x2": "EXT(2);",
+            "$x3": "EXT(3);",
         }
         last_category = None
         for i in self.db.get_dxil_ops():
