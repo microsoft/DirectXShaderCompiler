@@ -17,17 +17,16 @@
 #ifndef _MSC_VER
 extern "C"
 #endif
-    DXC_API_IMPORT HRESULT __stdcall DxcCreateInstance(_In_ REFCLSID rclsid,
-                                                       _In_ REFIID riid,
-                                                       _Out_ LPVOID *ppv);
+    DXC_API_IMPORT HRESULT __stdcall
+    DxcCreateInstance(_In_ REFCLSID rclsid, _In_ REFIID riid,
+                      _COM_Outptr_ LPVOID *ppv);
 
 #ifndef _MSC_VER
 extern "C"
 #endif
-    DXC_API_IMPORT HRESULT __stdcall DxcCreateInstance2(_In_ IMalloc *pMalloc,
-                                                        _In_ REFCLSID rclsid,
-                                                        _In_ REFIID riid,
-                                                        _Out_ LPVOID *ppv);
+    DXC_API_IMPORT HRESULT __stdcall
+    DxcCreateInstance2(_In_ IMalloc *pMalloc, _In_ REFCLSID rclsid,
+                       _In_ REFIID riid, _COM_Outptr_ LPVOID *ppv);
 
 struct __declspec(uuid("5F956ED5-78D1-4B15-8247-F7187614A041")) IDxbcConverter
     : public IUnknown {
