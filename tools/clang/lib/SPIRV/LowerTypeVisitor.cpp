@@ -854,7 +854,8 @@ const SpirvType *LowerTypeVisitor::lowerVkTypeInVkNamespace(
     auto loweredType = lowerType(getElementType(astContext, sampledType), rule,
                                  /*isRowMajor*/ llvm::None, srcLoc);
 
-    // Treat bool textures as uint for compatibility with OpTypeImage.
+    // Bool does not have a defined size in SPIR-V, so it cannot be
+    // used in the external interface.
     if (loweredType == spvContext.getBoolType()) {
       loweredType = spvContext.getUIntType(32);
     }
@@ -908,7 +909,8 @@ LowerTypeVisitor::lowerResourceType(QualType type, SpirvLayoutRule rule,
       auto loweredType =
           lowerType(getElementType(astContext, sampledType), rule,
                     /*isRowMajor*/ llvm::None, srcLoc);
-      // Treat bool textures as uint for compatibility with OpTypeImage.
+      // Bool does not have a defined size in SPIR-V, so it cannot be
+      // used in the external interface.
       if (loweredType == spvContext.getBoolType()) {
         loweredType = spvContext.getUIntType(32);
       }

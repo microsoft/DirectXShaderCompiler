@@ -4090,11 +4090,11 @@ private:
       } else if (kind == AR_OBJECT_VK_SAMPLED_TEXTURE2D) {
         if (!m_vkNSDecl)
           continue;
-        recordDecl = DeclareVkSampledTexture2DType(
-            *m_context, m_vkNSDecl,
+        recordDecl = DeclareVkSampledTextureType(
+            *m_context, m_vkNSDecl, "SampledTexture2D",
+            LookupVectorType(HLSLScalarType::HLSLScalarType_float, 4),
             LookupVectorType(HLSLScalarType::HLSLScalarType_float, 2),
-            LookupVectorType(HLSLScalarType::HLSLScalarType_int, 2),
-            LookupVectorType(HLSLScalarType::HLSLScalarType_float, 4));
+            LookupVectorType(HLSLScalarType::HLSLScalarType_int, 2));
         recordDecl->setImplicit(true);
         m_vkSampledTexture2DTemplateDecl =
             recordDecl->getDescribedClassTemplate();
@@ -5718,6 +5718,42 @@ public:
         }
       }
 
+    } else if (Template->getQualifiedNameAsString() == "vk::SampledTexture2D") {
+      if (TemplateArgList.size() == 1) {
+        const TemplateArgumentLoc &ArgLoc = TemplateArgList[0];
+        const TemplateArgument &Arg = ArgLoc.getArgument();
+        if (Arg.getKind() == TemplateArgument::ArgKind::Type) {
+          QualType ArgType = Arg.getAsType();
+          if (!ArgType->isDependentType()) {
+            QualType EltTy = ArgType;
+            if (IsVectorType(m_sema, ArgType)) {
+              EltTy = hlsl::GetHLSLVecElementType(ArgType);
+            }
+
+            bool isAllowedType = false;
+            if (const BuiltinType *BT = EltTy->getAs<BuiltinType>()) {
+              switch (BT->getKind()) {
+              case BuiltinType::Float:
+              case BuiltinType::Int:
+              case BuiltinType::UInt:
+                isAllowedType = true;
+                break;
+              default:
+                break;
+              }
+            }
+
+            if (!isAllowedType) {
+              m_sema->Diag(
+                  ArgLoc.getLocation(),
+                  diag::
+                      err_hlsl_unsupported_vk_sampledtexture_template_parameter)
+                  << ArgType;
+              return true;
+            }
+          }
+        }
+      }
     } else if (Template->getTemplatedDecl()->hasAttr<HLSLNodeObjectAttr>()) {
 
       DXASSERT(TemplateArgList.size() == 1,
