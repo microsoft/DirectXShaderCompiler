@@ -2044,14 +2044,16 @@ void SpirvEmitter::doVarDecl(const VarDecl *decl) {
   //
   // The AST will contain 2 variable declarations:
   //  - VarDecl for the template declaration
-  //  - VarDecl for the tempalte instantiation
-  // The difference lies in the InitExpr:
-  //  - declaration will have the type `void` because the template is
-  //    not resolve yet.
-  //  - the second will have the proper type (`int` here).
+  //  - VarDecl for the template instantiation
+  // One of them is not yet defined (InitExpr will have the type void), the
+  // other is the actual instantiation, hence will have the proper type. They
+  // can be differentiated by looking at the declaration context:
+  //  - the undefined ones will be in the template declaration context.
   // We must not create a variable for the template declaration but wait
   // for the instantiation (if any).
-  if (decl->getInit() && decl->getInit()->getType()->isVoidType())
+  auto *RC = dyn_cast<clang::CXXRecordDecl>(decl->getDeclContext());
+  auto *TC = RC ? RC->getDescribedClassTemplate() : nullptr;
+  if (decl->getInit() && TC)
     return;
 
   // We cannot handle external initialization of column-major matrices now.
