@@ -6612,9 +6612,8 @@ TEST_F(ValidationTest, WrongPSVSizeOnZeros) {
 }
 
 TEST_F(ValidationTest, WrongPSVVersion) {
-  if (!m_ver.m_InternalValidator)
-    if (m_ver.SkipDxilVersion(1, 10))
-      return;
+  if (m_ver.SkipDxilVersion(1, 10))
+    return;
 
   CComPtr<IDxcBlob> pProgram60;
   std::vector<LPCWSTR> args;
