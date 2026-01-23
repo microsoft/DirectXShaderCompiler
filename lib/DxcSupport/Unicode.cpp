@@ -18,6 +18,7 @@
 #include "dxc/Support/Unicode.h"
 #include "dxc/Support/WinIncludes.h"
 #include <assert.h>
+#include <new>
 #include <string>
 
 #ifndef _WIN32
