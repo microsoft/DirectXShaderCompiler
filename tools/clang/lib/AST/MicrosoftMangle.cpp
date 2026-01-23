@@ -11,6 +11,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "dxc/DXIL/DxilConstants.h"
+
 #include "clang/AST/Mangle.h"
 #include "clang/AST/ASTContext.h"
 #include "clang/AST/Attr.h"
@@ -633,7 +635,7 @@ void MicrosoftCXXNameMangler::mangleNumber(int64_t Number) {
 
   uint64_t Value = static_cast<uint64_t>(Number);
   if (Number < 0) {
-    Value = -Value;
+    Value = ~Value + 1ULL;
     Out << '?';
   }
 
@@ -2033,6 +2035,9 @@ void MicrosoftCXXNameMangler::mangleType(const LValueReferenceType *T,
                                          Qualifiers Quals, SourceRange Range) {
   QualType PointeeType = T->getPointeeType();
   Out << (Quals.hasVolatile() ? 'B' : 'A');
+  if (PointeeType.getQualifiers().getAddressSpace() ==
+      hlsl::DXIL::kTGSMAddrSpace)
+    Out << 'G';
   manglePointerExtQualifiers(Quals, PointeeType);
   mangleType(PointeeType, Range);
 }
@@ -2308,7 +2313,7 @@ static void mangleThunkThisAdjustment(const CXXMethodDecl *MD,
       Out << AccessSpec;
       Mangler.mangleNumber(
           static_cast<uint32_t>(Adjustment.Virtual.Microsoft.VtordispOffset));
-      Mangler.mangleNumber(-static_cast<uint32_t>(Adjustment.NonVirtual));
+      Mangler.mangleNumber(~static_cast<uint32_t>(Adjustment.NonVirtual) + 1);
     }
   } else if (Adjustment.NonVirtual != 0) {
     switch (MD->getAccess()) {
@@ -2323,7 +2328,7 @@ static void mangleThunkThisAdjustment(const CXXMethodDecl *MD,
     case AS_public:
       Out << 'W';
     }
-    Mangler.mangleNumber(-static_cast<uint32_t>(Adjustment.NonVirtual));
+    Mangler.mangleNumber(~static_cast<uint32_t>(Adjustment.NonVirtual) + 1);
   } else {
     switch (MD->getAccess()) {
     case AS_none:

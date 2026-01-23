@@ -37,6 +37,7 @@ class OP {
 public:
   using OpCode = DXIL::OpCode;
   using OpCodeClass = DXIL::OpCodeClass;
+  using OpCodeTableID = DXIL::OpCodeTableID;
 
 public:
   OP() = delete;
@@ -83,6 +84,7 @@ public:
   llvm::LLVMContext &GetCtx() { return m_Ctx; }
   llvm::Module *GetModule() { return m_pModule; }
   llvm::Type *GetHandleType() const;
+  llvm::Type *GetMatrixRefType() const;
   llvm::Type *GetHitObjectType() const;
   llvm::Type *GetNodeHandleType() const;
   llvm::Type *GetNodeRecordHandleType() const;
@@ -131,6 +133,7 @@ public:
   llvm::Constant *GetFloatConst(float v);
   llvm::Constant *GetDoubleConst(double v);
 
+  static OP::OpCode getOpCode(unsigned OpCode);
   static OP::OpCode getOpCode(const llvm::Instruction *I);
   static llvm::Type *GetOverloadType(OpCode OpCode, llvm::Function *F);
   static OpCode GetDxilOpFuncCallInst(const llvm::Instruction *I);
@@ -188,6 +191,7 @@ private:
   llvm::Type *m_pSplitDoubleType;
   llvm::Type *m_pFourI32Type;
   llvm::Type *m_pFourI16Type;
+  llvm::Type *m_pMatrixRefType;
 
   DXIL::LowPrecisionMode m_LowPrecisionMode;
 
@@ -226,8 +230,7 @@ private:
   std::unordered_map<const llvm::Function *, OpCodeClass> m_FunctionToOpClass;
   void UpdateCache(OpCodeClass opClass, llvm::Type *Ty, llvm::Function *F);
 
-private:
-  // Static properties.
+public:
   struct OverloadMask {
     // mask of type slot bits as (1 << TypeSlot)
     uint16_t SlotMask;
@@ -255,7 +258,31 @@ private:
     // AllowedOverloads[n][TS_Vector] is true.
     OverloadMask AllowedVectorElements[DXIL::kDxilMaxOloadDims];
   };
-  static const OpCodeProperty m_OpCodeProps[(unsigned)OpCode::NumOpCodes];
+  struct OpCodeTable {
+    OpCodeTableID ID;
+    const OpCodeProperty *Table;
+    unsigned Count;
+  };
+
+  // Look up table using high 16-bits as table ID, low 16-bits as OpCode.
+  // Return true if valid.
+  // unsigned versions are for use with whatever value was in a DXIL Op
+  // instruction.
+  // OpIndex is the low 16-bits, for index lookup within the table.
+  static bool DecodeOpCode(unsigned EncodedOpCode, OpCodeTableID &TableID,
+                           unsigned &OpIndex,
+                           unsigned *OptTableIndex = nullptr);
+  static bool DecodeOpCode(OpCode EncodedOpCode, OpCodeTableID &TableID,
+                           unsigned &OpIndex,
+                           unsigned *OptTableIndex = nullptr);
+  static bool IsValidOpCode(unsigned EncodedOpCode);
+  static bool IsValidOpCode(OpCode EncodedOpCode);
+
+private:
+  // Static properties.
+  static OpCodeTable g_OpCodeTables[DXIL::NumOpCodeTables];
+  static const OpCodeProperty &GetOpCodeProps(unsigned opCode);
+  static const OpCodeProperty &GetOpCodeProps(OpCode opCode);
 
   static const char *m_OverloadTypeName[TS_BasicCount];
   static const char *m_NamePrefix;

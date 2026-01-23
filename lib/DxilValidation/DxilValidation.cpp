@@ -85,9 +85,9 @@ void PrintDiagnosticContext::Handle(const DiagnosticInfo &DI) {
   m_Printer << "\n";
 }
 
-void PrintDiagnosticContext::PrintDiagnosticHandler(const DiagnosticInfo &DI,
+void PrintDiagnosticContext::PrintDiagnosticHandler(const DiagnosticInfo *DI,
                                                     void *Context) {
-  reinterpret_cast<hlsl::PrintDiagnosticContext *>(Context)->Handle(DI);
+  reinterpret_cast<hlsl::PrintDiagnosticContext *>(Context)->Handle(*DI);
 }
 
 struct PSExecutionInfo {
@@ -1573,9 +1573,15 @@ static void ValidateResourceDxilOp(CallInst *CI, DXIL::OpCode Opcode,
       ValCtx.EmitInstrError(CI, ValidationRule::InstrCheckAccessFullyMapped);
     } else {
       Value *V = EVI->getOperand(0);
+      StructType *StrTy = dyn_cast<StructType>(V->getType());
+      unsigned ExtractIndex = EVI->getIndices()[0];
+      // Ensure parameter is a single value that is extracted from the correct
+      // ResRet struct location.
       bool IsLegal = EVI->getNumIndices() == 1 &&
-                     EVI->getIndices()[0] == DXIL::kResRetStatusIndex &&
-                     ValCtx.DxilMod.GetOP()->IsResRetType(V->getType());
+                     (ExtractIndex == DXIL::kResRetStatusIndex ||
+                      ExtractIndex == DXIL::kVecResRetStatusIndex) &&
+                     ValCtx.DxilMod.GetOP()->IsResRetType(StrTy) &&
+                     ExtractIndex == StrTy->getNumElements() - 1;
       if (!IsLegal) {
         ValCtx.EmitInstrError(CI, ValidationRule::InstrCheckAccessFullyMapped);
       }
@@ -2437,7 +2443,15 @@ static void ValidateDxilOperationCallInProfile(CallInst *CI,
   case DXIL::OpCode::VectorAccumulate:
 
     break;
-
+  case DXIL::OpCode::IsInf:
+  case DXIL::OpCode::IsNaN:
+  case DXIL::OpCode::IsFinite:
+  case DXIL::OpCode::IsNormal: {
+    if (!ValCtx.DxilMod.GetShaderModel()->IsSM69Plus() &&
+        CI->getOperand(1)->getType()->getScalarType()->isHalfTy())
+      ValCtx.EmitInstrFormatError(CI, ValidationRule::SmIsSpecialFloat, {});
+    break;
+  }
   default:
     // TODO: make sure every Opcode is checked.
     // Skip opcodes don't need special check.
@@ -2506,7 +2520,11 @@ static void ValidateExternalFunction(Function *F, ValidationContext &ValCtx) {
     }
 
     unsigned Opcode = ConstOpcode->getLimitedValue();
-    if (Opcode >= (unsigned)DXIL::OpCode::NumOpCodes) {
+    OP::OpCodeTableID TableID;
+    unsigned OpIndex;
+    if (!OP::DecodeOpCode(Opcode, TableID, OpIndex) ||
+        (TableID != OP::OpCodeTableID::CoreOps &&
+         !pSM->IsPreReleaseShaderModel())) {
       // invalid Opcode; function body will validate this error.
       continue;
     }
@@ -3191,6 +3209,8 @@ static void ValidateFunctionBody(Function *F, ValidationContext &ValCtx) {
       ValCtx.DxilMod.GetGlobalFlags() & DXIL::kEnableMinPrecision;
   bool SupportsLifetimeIntrinsics =
       ValCtx.DxilMod.GetShaderModel()->IsSM66Plus();
+  bool ExperimentalShaderModel =
+      ValCtx.DxilMod.GetShaderModel()->IsPreReleaseShaderModel();
   SmallVector<CallInst *, 16> GradientOps;
   SmallVector<CallInst *, 16> Barriers;
   CallInst *SetMeshOutputCounts = nullptr;
@@ -3248,11 +3268,19 @@ static void ValidateFunctionBody(Function *F, ValidationContext &ValCtx) {
           }
 
           unsigned Opcode = OpcodeConst->getLimitedValue();
-          if (Opcode >= static_cast<unsigned>(DXIL::OpCode::NumOpCodes)) {
+          OP::OpCodeTableID TableID;
+          unsigned OpIndex;
+          if (!OP::DecodeOpCode(Opcode, TableID, OpIndex)) {
             ValCtx.EmitInstrFormatError(
                 &I, ValidationRule::InstrIllegalDXILOpCode,
                 {std::to_string((unsigned)DXIL::OpCode::NumOpCodes),
                  std::to_string(Opcode)});
+            continue;
+          }
+          if (TableID != OP::OpCodeTableID::CoreOps &&
+              !ExperimentalShaderModel) {
+            ValCtx.EmitInstrError(
+                &I, ValidationRule::InstrExpDXILOpCodeRequiresExpSM);
             continue;
           }
           DXIL::OpCode DxilOpcode = (DXIL::OpCode)Opcode;
@@ -3907,6 +3935,18 @@ static void ValidateGlobalVariables(ValidationContext &ValCtx) {
     Rule = ValidationRule::SmMaxMSSMSize;
     MaxSize = DXIL::kMaxMSSMSize;
   }
+
+  // Check if the entry function has attribute to override TGSM size.
+  if (M.HasDxilEntryProps(M.GetEntryFunction())) {
+    DxilEntryProps &EntryProps = M.GetDxilEntryProps(M.GetEntryFunction());
+    if (EntryProps.props.IsCS()) {
+      unsigned SpecifiedTGSMSize = EntryProps.props.groupSharedLimitBytes;
+      if (SpecifiedTGSMSize > 0) {
+        MaxSize = SpecifiedTGSMSize;
+      }
+    }
+  }
+
   if (TGSMSize > MaxSize) {
     Module::global_iterator GI = M.GetModule()->global_end();
     GlobalVariable *GV = &*GI;
@@ -5435,12 +5475,11 @@ struct CompatibilityChecker {
       MaskForDeriv |=
           static_cast<uint32_t>(ConflictFlags::DerivInComputeShaderModel);
     } else if (ShaderKind == DXIL::ShaderKind::Node) {
-      // Only broadcasting launch supports derivatives.
-      if (Props.Node.LaunchType != DXIL::NodeLaunchType::Broadcasting)
-        MaskForDeriv |= static_cast<uint32_t>(ConflictFlags::DerivLaunch);
-      // Thread launch node has no group.
-      if (Props.Node.LaunchType == DXIL::NodeLaunchType::Thread)
+      // Thread launch node has no group and doesn't support derivatives.
+      if (Props.Node.LaunchType == DXIL::NodeLaunchType::Thread) {
         MaskForGroup |= static_cast<uint32_t>(ConflictFlags::RequiresGroup);
+        MaskForDeriv |= static_cast<uint32_t>(ConflictFlags::DerivLaunch);
+      }
     }
 
     if (ShaderKind == DXIL::ShaderKind::Mesh ||

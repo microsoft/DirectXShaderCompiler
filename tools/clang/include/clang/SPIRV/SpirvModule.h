@@ -139,6 +139,10 @@ public:
   // Adds a variable to the module.
   void addVariable(SpirvVariable *);
 
+  // Adds a variable to the module immediately before `pos`.
+  // If `pos` is not found, `var` is added at the end of the variable list.
+  void addVariable(SpirvVariable *var, SpirvInstruction *pos);
+
   // Adds a decoration to the module.
   void addDecoration(SpirvDecoration *);
 
@@ -160,6 +164,10 @@ public:
   llvm::SmallVector<SpirvDebugInstruction *, 32> &getDebugInfo() {
     return debugInstructions;
   }
+
+  // Access the one DebugCompilationUnit per module
+  SpirvDebugCompilationUnit *getDebugCompilationUnit();
+  void setDebugCompilationUnit(SpirvDebugCompilationUnit *unit);
 
   // Adds the given OpModuleProcessed to the module.
   void addModuleProcessed(SpirvModuleProcessed *);
@@ -220,6 +228,10 @@ private:
 
   // Keep all rich DebugInfo instructions.
   llvm::SmallVector<SpirvDebugInstruction *, 32> debugInstructions;
+
+  // There is one debugCompilationUnit per module
+  SpirvDebugCompilationUnit *debugCompilationUnit;
+
   // Whether current module is in pervertex interpolation mode.
   bool perVertexInterp;
 };

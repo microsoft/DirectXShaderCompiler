@@ -86,11 +86,11 @@ namespace format {
   TYPE(UnaryOperator) \
   TYPE(Unknown)
 
-enum TokenType {
+enum TokenType : unsigned int {
 #define TYPE(X) TT_##X,
-LIST_TOKEN_TYPES
+  LIST_TOKEN_TYPES
 #undef TYPE
-  NUM_TOKEN_TYPES
+      NUM_TOKEN_TYPES
 };
 
 /// \brief Determines the name of a token type.
@@ -110,7 +110,12 @@ class AnnotatedLine;
 /// \brief A wrapper around a \c Token storing information about the
 /// whitespace characters preceding it.
 struct FormatToken {
-  FormatToken() {}
+  // HLSL Change start: in C++23, TokenRole must be a complete type when
+  // ~unique_ptr<TokenRole> is instantiated. Explicitly defaulting the
+  // constructor allows the compiler to generate its code later, when TokenRule
+  // is complete.
+  FormatToken() = default;
+  // HLSL Change end
 
   /// \brief The \c Token.
   Token Tok;

@@ -81,7 +81,7 @@ public:
   bool HasWarnings() const;
   void Handle(const llvm::DiagnosticInfo &DI);
 
-  static void PrintDiagnosticHandler(const llvm::DiagnosticInfo &DI,
+  static void PrintDiagnosticHandler(const llvm::DiagnosticInfo *DI,
                                      void *Context);
 };
 

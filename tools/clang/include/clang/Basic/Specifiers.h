@@ -295,6 +295,7 @@ namespace hlsl {
 
     unsigned getAsUnsigned() const { return (unsigned)m_Kind; }
 
+    bool isRef() const { return m_Kind == Kind::Ref; }
     bool isIn() const { return m_Kind == Kind::In; }
     bool isOut() const { return m_Kind == Kind::Out; }
     bool isInOut() const { return m_Kind == Kind::InOut; }

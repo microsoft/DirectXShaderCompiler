@@ -671,6 +671,11 @@ def HLSLNumThreads: InheritableAttr {
   let Args = [IntArgument<"X">, IntArgument<"Y">, IntArgument<"Z">];
   let Documentation = [Undocumented];
 }
+def HLSLGroupSharedLimit: InheritableAttr {
+  let Spellings = [CXX11<"", "GroupSharedLimit", 2017>];
+  let Args = [IntArgument<"Limit">];
+  let Documentation = [Undocumented];
+}
 def HLSLRootSignature: InheritableAttr {
   let Spellings = [CXX11<"", "RootSignature", 2015>];
   let Args = [StringArgument<"SignatureName">];
@@ -942,6 +947,18 @@ def HLSLMaybeUnused : InheritableAttr {
 def HLSLCXXOverload : InheritableAttr {
   let Spellings = [];
   let Subjects = SubjectList<[CXXMethod]>;
+  let Documentation = [Undocumented];
+}
+
+// This attribute means something subtly different from the HLSLIntrinsic
+// attribute. Prior to this being introduced a subset of the HLSL intrinsics
+// were placed in the `hlsl` namespace, but not in a way that actually qualified
+// their name lookup. The presence of the namespace as the declcontext was then
+// sused in CGExpr to determine how to emit the call. This attribute replaces
+// the namespace in that context.
+def HLSLBuiltinCall : InheritableAttr {
+  let Spellings = [];
+  let Subjects = SubjectList<[Function]>;
   let Documentation = [Undocumented];
 }
 

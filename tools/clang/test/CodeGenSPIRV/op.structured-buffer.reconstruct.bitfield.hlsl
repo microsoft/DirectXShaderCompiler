@@ -19,9 +19,8 @@ void main(uint3 dispatchThreadId : SV_DispatchThreadID) {
 // CHECK:     [[p:%[a-zA-Z0-9_]+]] = OpVariable %_ptr_Function_Derived_0 Function
   Derived p;
 
-// CHECK:   [[tmp:%[0-9]+]] = OpAccessChain %_ptr_Function_Base_0 [[p]] %uint_0
-// CHECK:   [[tmp_0:%[0-9]+]] = OpAccessChain %_ptr_Function_uint [[tmp]] %int_0
-// CHECK:                  OpStore [[tmp_0]] %uint_5
+// CHECK:   [[tmp:%[0-9]+]] = OpAccessChain %_ptr_Function_uint [[p]] %int_0 %int_0
+// CHECK:                  OpStore [[tmp]] %uint_5
   p.base = 5;
 
 // CHECK:   [[tmp_1:%[0-9]+]] = OpAccessChain %_ptr_Function_uint [[p]] %int_1

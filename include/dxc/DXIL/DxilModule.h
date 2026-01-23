@@ -254,6 +254,10 @@ public:
   void SetNumThreads(unsigned x, unsigned y, unsigned z);
   unsigned GetNumThreads(unsigned idx) const;
 
+  unsigned GetGroupSharedLimit() const;
+  // The total amount of group shared memory (in bytes) used by the shader.
+  unsigned GetTGSMSizeInBytes() const;
+
   // Compute shader
   DxilWaveSize &GetWaveSize();
   const DxilWaveSize &GetWaveSize() const;

@@ -1,4 +1,4 @@
-// RUN: %dxc -T cs_6_9 %s | FileCheck %s
+// RUN: %dxc -T cs_6_10 %s | FileCheck %s
 
 RWByteAddressBuffer matrix_buffer;
 

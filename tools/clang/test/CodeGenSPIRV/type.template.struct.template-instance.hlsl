@@ -13,12 +13,8 @@ struct Foo {
 };
 
 void main() {
-// CHECK: [[bar_int:%[a-zA-Z0-9_]+]] = OpVariable %_ptr_Private_int Private
-// CHECK: [[bar_float:%[a-zA-Z0-9_]+]] = OpVariable %_ptr_Private_float Private
-
-// CHECK: OpStore [[bar_int]] %int_0
-// CHECK: OpStore [[bar_float]] %float_0
-
+// `Foo<int>::bar` is a global constant value,
+// it's folded at compile-time and no longer declare variable.
     Foo<int>::bar;
 
 // CHECK: %x = OpVariable %_ptr_Function_int Function

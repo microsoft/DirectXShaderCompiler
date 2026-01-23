@@ -12,9 +12,8 @@ struct Base {
 
 struct Child : Base {
   float load(in uint offset) {
-// CHECK:          %param_this = OpFunctionParameter %_ptr_Function_Child
-// CHECK:        [[base:%[a-zA-Z0-9_]+]] = OpAccessChain %_ptr_Function_Base %param_this %uint_0
-// CHECK: [[ptrToBuffer:%[a-zA-Z0-9_]+]] = OpAccessChain %_ptr_Function__ptr_Uniform_type_ByteAddressBuffer [[base]] %int_0
+// CHECK: %param_this = OpFunctionParameter %_ptr_Function_Child
+// CHECK: [[ptrToBuffer:%[a-zA-Z0-9_]+]] = OpAccessChain %_ptr_Function__ptr_Uniform_type_ByteAddressBuffer %param_this %int_0 %int_0
 
 // This test case is mainly intended to confirm that we emit the following instruction
 // CHECK: [[buffer:%[a-zA-Z0-9_]+]] = OpLoad %_ptr_Uniform_type_ByteAddressBuffer [[ptrToBuffer]]

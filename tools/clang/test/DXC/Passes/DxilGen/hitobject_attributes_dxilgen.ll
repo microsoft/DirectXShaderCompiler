@@ -30,30 +30,41 @@ target triple = "dxil-ms-dx"
 define void @"\01?main@@YAXXZ"() #0 {
 entry:
   %hit = alloca %dx.types.HitObject, align 4
-  %0 = bitcast %dx.types.HitObject* %hit to i8*, !dbg !21 ; line:22 col:3
-  call void @llvm.lifetime.start(i64 4, i8* %0) #0, !dbg !21 ; line:22 col:3
-  %1 = call %dx.types.HitObject* @"dx.hl.op..%dx.types.HitObject* (i32, %dx.types.HitObject*)"(i32 358, %dx.types.HitObject* %hit), !dbg !25 ; line:22 col:17
-  %2 = call %struct.CustomAttrs* @"dx.hl.op..%struct.CustomAttrs* (i32, %dx.types.HitObject*)"(i32 364, %dx.types.HitObject* %hit), !dbg !26 ; line:23 col:23
-  %3 = getelementptr inbounds %struct.CustomAttrs, %struct.CustomAttrs* %2, i32 0, i32 0, !dbg !26 ; line:23 col:23
-  %4 = load <4 x float>, <4 x float>* %3, !dbg !26 ; line:23 col:23
-  %5 = getelementptr inbounds %struct.CustomAttrs, %struct.CustomAttrs* %2, i32 0, i32 1, !dbg !26 ; line:23 col:23
-  %6 = load i32, i32* %5, !dbg !26 ; line:23 col:23
-  %7 = extractelement <4 x float> %4, i32 0, !dbg !27 ; line:24 col:15
-  %8 = extractelement <4 x float> %4, i32 1, !dbg !28 ; line:24 col:27
-  %add = fadd float %7, %8, !dbg !29 ; line:24 col:25
-  %9 = extractelement <4 x float> %4, i32 2, !dbg !30 ; line:24 col:39
-  %add4 = fadd float %add, %9, !dbg !31 ; line:24 col:37
-  %10 = extractelement <4 x float> %4, i32 3, !dbg !32 ; line:24 col:51
-  %add6 = fadd float %add4, %10, !dbg !33 ; line:24 col:49
-  %conv = sitofp i32 %6 to float, !dbg !34 ; line:24 col:63
-  %add7 = fadd float %add6, %conv, !dbg !35 ; line:24 col:61
-  %11 = load %struct.RWByteAddressBuffer, %struct.RWByteAddressBuffer* @"\01?outbuf@@3URWByteAddressBuffer@@A", !dbg !36 ; line:25 col:3
-  %12 = call %dx.types.Handle @"dx.hl.createhandle..%dx.types.Handle (i32, %struct.RWByteAddressBuffer)"(i32 0, %struct.RWByteAddressBuffer %11), !dbg !36 ; line:25 col:3
-  %13 = call %dx.types.Handle @"dx.hl.annotatehandle..%dx.types.Handle (i32, %dx.types.Handle, %dx.types.ResourceProperties, %struct.RWByteAddressBuffer)"(i32 14, %dx.types.Handle %12, %dx.types.ResourceProperties { i32 4107, i32 0 }, %struct.RWByteAddressBuffer zeroinitializer), !dbg !36 ; line:25 col:3
-  call void @"dx.hl.op..void (i32, %dx.types.Handle, i32, float)"(i32 277, %dx.types.Handle %13, i32 0, float %add7), !dbg !36 ; line:25 col:3
-  %14 = bitcast %dx.types.HitObject* %hit to i8*, !dbg !37 ; line:26 col:1
-  call void @llvm.lifetime.end(i64 4, i8* %14) #0, !dbg !37 ; line:26 col:1
-  ret void, !dbg !37 ; line:26 col:1
+  %attrs = alloca %struct.CustomAttrs, align 4
+  %0 = bitcast %dx.types.HitObject* %hit to i8*, !dbg !21 ; line:29 col:3
+  call void @llvm.lifetime.start(i64 4, i8* %0) #0, !dbg !21 ; line:29 col:3
+  %1 = call %dx.types.HitObject* @"dx.hl.op..%dx.types.HitObject* (i32, %dx.types.HitObject*)"(i32 358, %dx.types.HitObject* %hit), !dbg !25 ; line:29 col:17
+  %2 = bitcast %struct.CustomAttrs* %attrs to i8*, !dbg !26 ; line:30 col:3
+  call void @llvm.lifetime.start(i64 20, i8* %2) #0, !dbg !26 ; line:30 col:3
+  call void @"dx.hl.op..void (i32, %dx.types.HitObject*, %struct.CustomAttrs*)"(i32 364, %dx.types.HitObject* %hit, %struct.CustomAttrs* %attrs), !dbg !27 ; line:31 col:3
+  %v = getelementptr inbounds %struct.CustomAttrs, %struct.CustomAttrs* %attrs, i32 0, i32 0, !dbg !28 ; line:32 col:21
+  %3 = load <4 x float>, <4 x float>* %v, align 4, !dbg !29 ; line:32 col:15
+  %4 = extractelement <4 x float> %3, i32 0, !dbg !29 ; line:32 col:15
+  %v1 = getelementptr inbounds %struct.CustomAttrs, %struct.CustomAttrs* %attrs, i32 0, i32 0, !dbg !30 ; line:32 col:33
+  %5 = load <4 x float>, <4 x float>* %v1, align 4, !dbg !31 ; line:32 col:27
+  %6 = extractelement <4 x float> %5, i32 1, !dbg !31 ; line:32 col:27
+  %add = fadd float %4, %6, !dbg !32 ; line:32 col:25
+  %v2 = getelementptr inbounds %struct.CustomAttrs, %struct.CustomAttrs* %attrs, i32 0, i32 0, !dbg !33 ; line:32 col:45
+  %7 = load <4 x float>, <4 x float>* %v2, align 4, !dbg !34 ; line:32 col:39
+  %8 = extractelement <4 x float> %7, i32 2, !dbg !34 ; line:32 col:39
+  %add3 = fadd float %add, %8, !dbg !35 ; line:32 col:37
+  %v4 = getelementptr inbounds %struct.CustomAttrs, %struct.CustomAttrs* %attrs, i32 0, i32 0, !dbg !36 ; line:32 col:57
+  %9 = load <4 x float>, <4 x float>* %v4, align 4, !dbg !37 ; line:32 col:51
+  %10 = extractelement <4 x float> %9, i32 3, !dbg !37 ; line:32 col:51
+  %add5 = fadd float %add3, %10, !dbg !38 ; line:32 col:49
+  %y = getelementptr inbounds %struct.CustomAttrs, %struct.CustomAttrs* %attrs, i32 0, i32 1, !dbg !39 ; line:32 col:69
+  %11 = load i32, i32* %y, align 4, !dbg !39, !tbaa !40 ; line:32 col:69
+  %conv = sitofp i32 %11 to float, !dbg !44 ; line:32 col:63
+  %add6 = fadd float %add5, %conv, !dbg !45 ; line:32 col:61
+  %12 = load %struct.RWByteAddressBuffer, %struct.RWByteAddressBuffer* @"\01?outbuf@@3URWByteAddressBuffer@@A", !dbg !46 ; line:33 col:3
+  %13 = call %dx.types.Handle @"dx.hl.createhandle..%dx.types.Handle (i32, %struct.RWByteAddressBuffer)"(i32 0, %struct.RWByteAddressBuffer %12), !dbg !46 ; line:33 col:3
+  %14 = call %dx.types.Handle @"dx.hl.annotatehandle..%dx.types.Handle (i32, %dx.types.Handle, %dx.types.ResourceProperties, %struct.RWByteAddressBuffer)"(i32 14, %dx.types.Handle %13, %dx.types.ResourceProperties { i32 4107, i32 0 }, %struct.RWByteAddressBuffer zeroinitializer), !dbg !46 ; line:33 col:3
+  call void @"dx.hl.op..void (i32, %dx.types.Handle, i32, float)"(i32 277, %dx.types.Handle %14, i32 0, float %add6), !dbg !46 ; line:33 col:3
+  %15 = bitcast %struct.CustomAttrs* %attrs to i8*, !dbg !47 ; line:34 col:1
+  call void @llvm.lifetime.end(i64 20, i8* %15) #0, !dbg !47 ; line:34 col:1
+  %16 = bitcast %dx.types.HitObject* %hit to i8*, !dbg !47 ; line:34 col:1
+  call void @llvm.lifetime.end(i64 4, i8* %16) #0, !dbg !47 ; line:34 col:1
+  ret void, !dbg !47 ; line:34 col:1
 }
 
 ; Function Attrs: nounwind
@@ -66,7 +77,7 @@ declare void @llvm.lifetime.end(i64, i8* nocapture) #0
 declare %dx.types.HitObject* @"dx.hl.op..%dx.types.HitObject* (i32, %dx.types.HitObject*)"(i32, %dx.types.HitObject*) #0
 
 ; Function Attrs: nounwind
-declare %struct.CustomAttrs* @"dx.hl.op..%struct.CustomAttrs* (i32, %dx.types.HitObject*)"(i32, %dx.types.HitObject*) #0
+declare void @"dx.hl.op..void (i32, %dx.types.HitObject*, %struct.CustomAttrs*)"(i32, %dx.types.HitObject*, %struct.CustomAttrs*) #0
 
 ; Function Attrs: nounwind
 declare void @"dx.hl.op..void (i32, %dx.types.Handle, i32, float)"(i32, %dx.types.Handle, i32, float) #0
@@ -111,20 +122,30 @@ attributes #1 = { nounwind readnone }
 !18 = !{void ()* @"\01?main@@YAXXZ", i32 7}
 !19 = !{i32 -2147483584}
 !20 = !{i32 -1}
-!21 = !DILocation(line: 22, column: 3, scope: !22)
-!22 = !DISubprogram(name: "main", scope: !23, file: !23, line: 21, type: !24, isLocal: false, isDefinition: true, scopeLine: 21, flags: DIFlagPrototyped, isOptimized: false, function: void ()* @"\01?main@@YAXXZ")
-!23 = !DIFile(filename: "tools/clang/test/CodeGenDXIL/hlsl/objects/HitObject/hitobject_attributes.hlsl", directory: "")
+!21 = !DILocation(line: 29, column: 3, scope: !22)
+!22 = !DISubprogram(name: "main", scope: !23, file: !23, line: 28, type: !24, isLocal: false, isDefinition: true, scopeLine: 28, flags: DIFlagPrototyped, isOptimized: false, function: void ()* @"\01?main@@YAXXZ")
+!23 = !DIFile(filename: "tools/clang/test/SemaHLSL/hlsl/objects/HitObject/hitobject_attributes.hlsl", directory: "")
 !24 = !DISubroutineType(types: !13)
-!25 = !DILocation(line: 22, column: 17, scope: !22)
-!26 = !DILocation(line: 23, column: 23, scope: !22)
-!27 = !DILocation(line: 24, column: 15, scope: !22)
-!28 = !DILocation(line: 24, column: 27, scope: !22)
-!29 = !DILocation(line: 24, column: 25, scope: !22)
-!30 = !DILocation(line: 24, column: 39, scope: !22)
-!31 = !DILocation(line: 24, column: 37, scope: !22)
-!32 = !DILocation(line: 24, column: 51, scope: !22)
-!33 = !DILocation(line: 24, column: 49, scope: !22)
-!34 = !DILocation(line: 24, column: 63, scope: !22)
-!35 = !DILocation(line: 24, column: 61, scope: !22)
-!36 = !DILocation(line: 25, column: 3, scope: !22)
-!37 = !DILocation(line: 26, column: 1, scope: !22)
+!25 = !DILocation(line: 29, column: 17, scope: !22)
+!26 = !DILocation(line: 30, column: 3, scope: !22)
+!27 = !DILocation(line: 31, column: 3, scope: !22)
+!28 = !DILocation(line: 32, column: 21, scope: !22)
+!29 = !DILocation(line: 32, column: 15, scope: !22)
+!30 = !DILocation(line: 32, column: 33, scope: !22)
+!31 = !DILocation(line: 32, column: 27, scope: !22)
+!32 = !DILocation(line: 32, column: 25, scope: !22)
+!33 = !DILocation(line: 32, column: 45, scope: !22)
+!34 = !DILocation(line: 32, column: 39, scope: !22)
+!35 = !DILocation(line: 32, column: 37, scope: !22)
+!36 = !DILocation(line: 32, column: 57, scope: !22)
+!37 = !DILocation(line: 32, column: 51, scope: !22)
+!38 = !DILocation(line: 32, column: 49, scope: !22)
+!39 = !DILocation(line: 32, column: 69, scope: !22)
+!40 = !{!41, !41, i64 0}
+!41 = !{!"int", !42, i64 0}
+!42 = !{!"omnipotent char", !43, i64 0}
+!43 = !{!"Simple C/C++ TBAA"}
+!44 = !DILocation(line: 32, column: 63, scope: !22)
+!45 = !DILocation(line: 32, column: 61, scope: !22)
+!46 = !DILocation(line: 33, column: 3, scope: !22)
+!47 = !DILocation(line: 34, column: 1, scope: !22)

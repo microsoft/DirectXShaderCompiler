@@ -67,6 +67,7 @@ public:
     IK_ConstantInteger,
     IK_ConstantFloat,
     IK_ConstantComposite,
+    IK_ConstantString,
     IK_ConstantNull,
 
     // Pointer <-> uint conversions.
@@ -165,6 +166,13 @@ public:
     IK_DebugTypeMember,
     IK_DebugTypeTemplate,
     IK_DebugTypeTemplateParameter,
+
+    // For workgraph instructions
+    IK_IsNodePayloadValid,
+    IK_NodePayloadArrayLength,
+    IK_AllocateNodePayloads,
+    IK_EnqueueNodePayloads,
+    IK_FinishWritingNodePayload,
   };
 
   // All instruction classes should include a releaseMemory method.
@@ -440,9 +448,13 @@ public:
 
   bool invokeVisitor(Visitor *v) override;
 
+  SpirvFunction *getEntryPoint() const { return entryPoint; }
+  spv::ExecutionMode getExecutionMode() const { return execMode; }
   llvm::ArrayRef<uint32_t> getParams() const { return params; }
 
 private:
+  SpirvFunction *entryPoint;
+  spv::ExecutionMode execMode;
   llvm::SmallVector<uint32_t, 4> params;
 };
 
@@ -1056,6 +1068,119 @@ private:
   llvm::Optional<spv::Scope> executionScope;
 };
 
+/// \brief OpIsNodePayloadValidAMDX instruction
+class SpirvIsNodePayloadValid : public SpirvInstruction {
+public:
+  SpirvIsNodePayloadValid(QualType resultType, SourceLocation loc,
+                          SpirvInstruction *payloadArray,
+                          SpirvInstruction *nodeIndex);
+
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvIsNodePayloadValid)
+
+  // For LLVM-style RTTI
+  static bool classof(const SpirvInstruction *inst) {
+    return inst->getKind() == IK_IsNodePayloadValid;
+  }
+
+  bool invokeVisitor(Visitor *v) override;
+
+  SpirvInstruction *getPayloadArray() { return payloadArray; }
+  SpirvInstruction *getNodeIndex() { return nodeIndex; }
+
+private:
+  SpirvInstruction *payloadArray;
+  SpirvInstruction *nodeIndex;
+};
+
+/// \brief OpNodePayloadArrayLengthAMDX instruction
+class SpirvNodePayloadArrayLength : public SpirvInstruction {
+public:
+  SpirvNodePayloadArrayLength(QualType resultType, SourceLocation loc,
+                              SpirvInstruction *payloadArray);
+
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvNodePayloadArrayLength)
+
+  // For LLVM-style RTTI
+  static bool classof(const SpirvInstruction *inst) {
+    return inst->getKind() == IK_NodePayloadArrayLength;
+  }
+
+  bool invokeVisitor(Visitor *v) override;
+
+  SpirvInstruction *getPayloadArray() { return payloadArray; }
+
+private:
+  SpirvInstruction *payloadArray;
+};
+
+/// \brief OpAllocateNodePayloadsAMDX instruction
+class SpirvAllocateNodePayloads : public SpirvInstruction {
+public:
+  SpirvAllocateNodePayloads(QualType resultType, SourceLocation loc,
+                            spv::Scope allocationScope,
+                            SpirvInstruction *shaderIndex,
+                            SpirvInstruction *recordCount);
+
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvAllocateNodePayloads)
+
+  // For LLVM-style RTTI
+  static bool classof(const SpirvInstruction *inst) {
+    return inst->getKind() == IK_AllocateNodePayloads;
+  }
+
+  bool invokeVisitor(Visitor *v) override;
+
+  spv::Scope getAllocationScope() { return allocationScope; }
+  SpirvInstruction *getShaderIndex() { return shaderIndex; }
+  SpirvInstruction *getRecordCount() { return recordCount; }
+
+private:
+  spv::Scope allocationScope;
+  SpirvInstruction *shaderIndex;
+  SpirvInstruction *recordCount;
+};
+
+/// \brief OpReleaseOutputNodePayloadAMDX instruction
+class SpirvEnqueueNodePayloads : public SpirvInstruction {
+public:
+  SpirvEnqueueNodePayloads(SourceLocation loc, SpirvInstruction *payload);
+
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvEnqueueNodePayloads)
+
+  // For LLVM-style RTTI
+  static bool classof(const SpirvInstruction *inst) {
+    return inst->getKind() == IK_EnqueueNodePayloads;
+  }
+
+  bool invokeVisitor(Visitor *v) override;
+
+  SpirvInstruction *getPayload() { return payload; }
+
+private:
+  SpirvInstruction *payload;
+};
+
+/// \brief OpFinishWritingNodePayloadAMDX instruction
+class SpirvFinishWritingNodePayload : public SpirvInstruction {
+public:
+  SpirvFinishWritingNodePayload(QualType resultType, SourceLocation loc,
+                                SpirvInstruction *payload);
+
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvFinishWritingNodePayload)
+
+  // For LLVM-style RTTI
+  static bool classof(const SpirvInstruction *inst) {
+    return inst->getKind() == IK_FinishWritingNodePayload;
+  }
+
+  bool invokeVisitor(Visitor *v) override;
+
+  SpirvInstruction *getPayload() { return payload; }
+
+private:
+  SpirvInstruction *payload;
+};
+
 /// \brief Represents SPIR-V binary operation instructions.
 ///
 /// This class includes:
@@ -1350,6 +1475,27 @@ public:
   }
 
   bool operator==(const SpirvConstantNull &that) const;
+};
+
+class SpirvConstantString : public SpirvConstant {
+public:
+  SpirvConstantString(llvm::StringRef stringLiteral, bool isSpecConst = false);
+
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvConstantString)
+
+  // For LLVM-style RTTI
+  static bool classof(const SpirvInstruction *inst) {
+    return inst->getKind() == IK_ConstantString;
+  }
+
+  bool invokeVisitor(Visitor *v) override;
+
+  bool operator==(const SpirvConstantString &that) const;
+
+  llvm::StringRef getString() const { return str; }
+
+private:
+  std::string str;
 };
 
 class SpirvConvertPtrToU : public SpirvInstruction {

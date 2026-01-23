@@ -50,9 +50,10 @@ struct ilist_traits<Instruction>
 public:
   // Saves and takes ownership of the sentinel.
   // Must be called before the other accessors above.
-  void setSentinel(std::unique_ptr<Instruction> &&s) {
-    Sentinel = std::move(s);
-  }
+  // HLSL Change start: definition moved out-of-line because Instruction must be
+  // a complete type when ~unique_ptr<Instruction> is instantiated in C++23.
+  inline void setSentinel(std::unique_ptr<Instruction> &&s);
+  // HLSL Change Ends
 
 private:
   std::unique_ptr<Instruction> Sentinel;
@@ -525,6 +526,13 @@ private:
   /// Create a copy of this instruction.
   Instruction *cloneImpl() const;
 };
+
+// HLSL Change start: definition moved out-of-line because Instruction must be
+// a complete type when ~unique_ptr<Instruction> is instantiated in C++23.
+void ilist_traits<Instruction>::setSentinel(std::unique_ptr<Instruction> &&s) {
+  Sentinel = std::move(s);
+}
+// HLSL Change end
 
 // HLSL Change Starts
 // Temporarily disable "downcast of address" UBSAN runtime error

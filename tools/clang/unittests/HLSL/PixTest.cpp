@@ -156,7 +156,7 @@ public:
   TEST_METHOD(NonUniformResourceIndex_DescriptorHeap)
   TEST_METHOD(NonUniformResourceIndex_Raytracing)
 
-  dxc::DxcDllSupport m_dllSupport;
+  dxc::DxCompilerDllLoader m_dllSupport;
   VersionSupportInfo m_ver;
 
   HRESULT CreateContainerBuilder(IDxcContainerBuilder **ppResult) {
@@ -1220,7 +1220,6 @@ PixTest::TestableResults PixTest::TestStructAnnotationCase(
 
 #if 0 // handy for debugging
   auto disTextW = Disassemble(pAnnotatedContainer);
-  WEX::Logging::Log::Comment(disTextW.c_str());
 #endif
 
   ModuleAndHangersOn moduleEtc(pAnnotatedContainer);

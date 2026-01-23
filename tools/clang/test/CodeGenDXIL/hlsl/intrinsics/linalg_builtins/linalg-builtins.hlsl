@@ -1,4 +1,4 @@
-// RUN: %dxc -fcgl -T cs_6_9 -E cs_main %s | FileCheck %s
+// RUN: %dxc -fcgl -T cs_6_10 -E cs_main %s | FileCheck %s
 
 ByteAddressBuffer input_vector_buffer;
 ByteAddressBuffer opa_input_buffer;

@@ -17,6 +17,7 @@
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Type.h"
 #include "llvm/Support/Casting.h"
+#include <cassert>
 
 #include "DxbcUtil.h"
 #include "Support/DXIncludes.h"
@@ -46,7 +47,8 @@ CMask::CMask(BYTE StartComp, BYTE NumComp) {
                (StartComp + NumComp - 1) < DXBC::kAllCompMask,
            "otherwise the caller did not check");
   m_Mask = 0;
-  for (BYTE c = StartComp; c < StartComp + NumComp; c++) {
+  BYTE EndComp = StartComp + NumComp;
+  for (BYTE c = StartComp; c < EndComp; c++) {
     m_Mask |= (1 << c);
   }
 }

@@ -1,4 +1,4 @@
-// RUN: %dxc -T ps_6_0 -E main -fcgl  %s -spirv | FileCheck %s
+// RUN: %dxc -T ps_6_0 -E main -fcgl %s -spirv | FileCheck %s
 
 // CHECK-NOT: OpDecorate %buf3
 
@@ -15,21 +15,24 @@
 // CHECK: OpDecorate %w DescriptorSet 0
 // CHECK: OpDecorate %w Binding 5
 
-// CHECK: %type_buf0 = OpTypeStruct %v4float
+// CHECK:     %type_buf0 = OpTypeStruct %v4float
+// CHECK:     %type_buf1 = OpTypeStruct %v4float
+// CHECK:     %type_buf2 = OpTypeStruct %v4float
+// CHECK-NOT: %type_buf3 = OpTypeStruct
+
+// CHECK: %buf0 = OpVariable %_ptr_Uniform_type_buf0 Uniform
 cbuffer buf0 : register(b0) {
   float4 foo;
 };
 
-// CHECK: %type_buf1 = OpTypeStruct %v4float
+// CHECK: %buf1 = OpVariable %_ptr_Uniform_type_buf1 Uniform
 cbuffer buf1 : register(b4) {
   float4 bar;
 };
 
-// CHECK: %type_buf2 = OpTypeStruct %v4float
-// CHECK: %type_buf3 = OpTypeStruct
-
 // CHECK: %y = OpVariable %_ptr_UniformConstant_type_2d_image UniformConstant
 // CHECK: %z = OpVariable %_ptr_UniformConstant_type_sampler UniformConstant
+// CHECK: %buf2 = OpVariable %_ptr_Uniform_type_buf2 Uniform
 cbuffer buf2 {
   float4 x;
   Texture2D y;
@@ -37,6 +40,7 @@ cbuffer buf2 {
 };
 
 // CHECK: %w = OpVariable %_ptr_UniformConstant_type_sampler UniformConstant
+// CHECK-NOT: %buf3 = OpVariable %_ptr_Uniform_type_buf3 Uniform
 cbuffer buf3 : register(b2) {
   SamplerState w;
 }

@@ -813,6 +813,9 @@ protected:
     /// Whether the parameter is copied out.
     unsigned IsModifierOut : 1;
 
+    /// Whether the parameter should be treated as a reference.
+    unsigned IsModifierRef : 1;
+
     /// The number of parameters preceding this parameter in the
     /// function parameter scope in which it was declared.
     unsigned ParameterIndex : NumParameterIndexBits;
@@ -1377,6 +1380,7 @@ protected:
     assert(ParmVarDeclBits.IsObjCMethodParam == false);
     setDefaultArg(DefArg);
     // HLSL Change Start
+    setModifierRef(ParamMod.isRef());
     setModifierIn(ParamMod.isAnyIn());
     setModifierOut(ParamMod.isAnyOut());
     // change to reference type for out param
@@ -1456,8 +1460,12 @@ public:
   void setModifierIn(bool value) { ParmVarDeclBits.IsKNRPromoted = !value; }
   bool isModifierOut() const { return ParmVarDeclBits.IsModifierOut; }
   void setModifierOut(bool value) { ParmVarDeclBits.IsModifierOut = value; }
+  bool isModifierRef() const { return ParmVarDeclBits.IsModifierRef; }
+  void setModifierRef(bool value) { ParmVarDeclBits.IsModifierRef = value; }
   /// Synthesize a ParameterModifier value for this parameter.
   hlsl::ParameterModifier getParamModifiers() const {
+    if (isModifierRef())
+      return hlsl::ParameterModifier(hlsl::ParameterModifier::Kind::Ref);
     if (isModifierIn() && !isModifierOut())
       return hlsl::ParameterModifier(hlsl::ParameterModifier::Kind::In);
     if (isModifierIn() && isModifierOut())

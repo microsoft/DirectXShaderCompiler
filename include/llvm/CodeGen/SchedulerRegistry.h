@@ -32,16 +32,19 @@ class ScheduleDAGSDNodes;
 class SelectionDAG;
 class MachineBasicBlock;
 
-class RegisterScheduler : public MachinePassRegistryNode {
+class RegisterScheduler
+    : public MachinePassRegistryNode<
+          ScheduleDAGSDNodes *(*)(SelectionDAGISel *, CodeGenOpt::Level)> {
 public:
   typedef ScheduleDAGSDNodes *(*FunctionPassCtor)(SelectionDAGISel*,
                                                   CodeGenOpt::Level);
 
-  static MachinePassRegistry Registry;
+  static MachinePassRegistry<FunctionPassCtor> Registry;
 
   RegisterScheduler(const char *N, const char *D, FunctionPassCtor C)
-  : MachinePassRegistryNode(N, D, (MachinePassCtor)C)
-  { Registry.Add(this); }
+      : MachinePassRegistryNode(N, D, C) {
+    Registry.Add(this);
+  }
   ~RegisterScheduler() { Registry.Remove(this); }
 
 
@@ -53,13 +56,8 @@ public:
   static RegisterScheduler *getList() {
     return (RegisterScheduler *)Registry.getList();
   }
-  static FunctionPassCtor getDefault() {
-    return (FunctionPassCtor)Registry.getDefault();
-  }
-  static void setDefault(FunctionPassCtor C) {
-    Registry.setDefault((MachinePassCtor)C);
-  }
-  static void setListener(MachinePassRegistryListener *L) {
+
+  static void setListener(MachinePassRegistryListener<FunctionPassCtor> *L) {
     Registry.setListener(L);
   }
 };

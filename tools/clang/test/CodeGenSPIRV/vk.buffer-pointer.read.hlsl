@@ -36,7 +36,8 @@ struct TestPushConstant_t
 float4 MainPs(void) : SV_Target0
 {
       float4 vTest = g_PushConstants.m_nBufferDeviceAddress.Get().g_vTestFloat4;
-      return vTest;
+      float f = vk::BufferPointer<float,4>(0xdeadbeefull).Get();
+      return vTest+f;
 }
 
 // CHECK: [[FUN]] = OpFunction
@@ -44,5 +45,9 @@ float4 MainPs(void) : SV_Target0
 // CHECK: [[X2:%[_0-9A-Za-z]*]] = OpLoad [[PGLOBALS]] [[X1]]
 // CHECK: [[X3:%[_0-9A-Za-z]*]] = OpAccessChain [[PV4FLOAT2]] [[X2]] [[S1]]
 // CHECK: [[X4:%[_0-9A-Za-z]*]] = OpLoad [[V4FLOAT]] [[X3]] Aligned 16
-// CHECK: OpStore [[OUT]] [[X4]]
+// CHECK: [[TEMP_PTR:%[_0-9A-Za-z]*]] = OpConvertUToPtr %_ptr_PhysicalStorageBuffer_float %ulong_3735928559
+// CHECK: [[LD:%[_0-9A-Za-z]*]] = OpLoad %float [[TEMP_PTR]] Aligned 4
+// CHECK: [[CONSTRUCT:%[_0-9A-Za-z]*]] = OpCompositeConstruct [[V4FLOAT]] [[LD]] [[LD]] [[LD]] [[LD]]
+// CHECK: [[ADD:%[_0-9A-Za-z]*]] = OpFAdd [[V4FLOAT]] [[X4]] [[CONSTRUCT]]
+// CHECK: OpStore [[OUT]] [[ADD]]
 // CHECK: OpFunctionEnd
