@@ -214,6 +214,7 @@ Extension FeatureManager::getExtensionSymbol(llvm::StringRef name) {
       .Case("SPV_EXT_shader_image_int64", Extension::EXT_shader_image_int64)
       .Case("SPV_KHR_physical_storage_buffer",
             Extension::KHR_physical_storage_buffer)
+      .Case("SPV_AMDX_shader_enqueue", Extension::AMD_shader_enqueue)
       .Case("SPV_KHR_vulkan_memory_model", Extension::KHR_vulkan_memory_model)
       .Case("SPV_KHR_compute_shader_derivatives",
             Extension::KHR_compute_shader_derivatives)
@@ -284,6 +285,8 @@ const char *FeatureManager::getExtensionName(Extension symbol) {
     return "SPV_EXT_shader_image_int64";
   case Extension::KHR_physical_storage_buffer:
     return "SPV_KHR_physical_storage_buffer";
+  case Extension::AMD_shader_enqueue:
+    return "SPV_AMDX_shader_enqueue";
   case Extension::KHR_vulkan_memory_model:
     return "SPV_KHR_vulkan_memory_model";
   case Extension::KHR_compute_shader_derivatives:
@@ -306,7 +309,7 @@ const char *FeatureManager::getExtensionName(Extension symbol) {
   return "<unknown extension>";
 }
 
-bool FeatureManager::isKHRExtension(llvm::StringRef name) {
+bool FeatureManager::isKHRExtension(llvm::StringRef name) const {
   return name.startswith_lower("spv_khr_");
 }
 
@@ -329,7 +332,7 @@ std::string FeatureManager::getKnownExtensions(const char *delimiter,
   return oss.str();
 }
 
-bool FeatureManager::isExtensionRequiredForTargetEnv(Extension ext) {
+bool FeatureManager::isExtensionRequiredForTargetEnv(Extension ext) const {
   bool required = true;
   if (targetEnv >= SPV_ENV_VULKAN_1_3) {
     // The following extensions are incorporated into Vulkan 1.3 or above, and
@@ -364,7 +367,7 @@ bool FeatureManager::isExtensionRequiredForTargetEnv(Extension ext) {
   return required;
 }
 
-bool FeatureManager::isExtensionEnabled(Extension ext) {
+bool FeatureManager::isExtensionEnabled(Extension ext) const {
   bool allowed = false;
   if (ext != Extension::Unknown &&
       allowedExtensions.test(static_cast<unsigned>(ext)))
@@ -396,27 +399,27 @@ bool FeatureManager::enabledByDefault(Extension ext) {
   }
 }
 
-bool FeatureManager::isTargetEnvVulkan1p1OrAbove() {
+bool FeatureManager::isTargetEnvVulkan1p1OrAbove() const {
   return targetEnv >= SPV_ENV_VULKAN_1_1;
 }
 
-bool FeatureManager::isTargetEnvSpirv1p4OrAbove() {
+bool FeatureManager::isTargetEnvSpirv1p4OrAbove() const {
   return targetEnv >= SPV_ENV_UNIVERSAL_1_4;
 }
 
-bool FeatureManager::isTargetEnvVulkan1p1Spirv1p4OrAbove() {
+bool FeatureManager::isTargetEnvVulkan1p1Spirv1p4OrAbove() const {
   return targetEnv >= SPV_ENV_VULKAN_1_1_SPIRV_1_4;
 }
 
-bool FeatureManager::isTargetEnvVulkan1p2OrAbove() {
+bool FeatureManager::isTargetEnvVulkan1p2OrAbove() const {
   return targetEnv >= SPV_ENV_VULKAN_1_2;
 }
 
-bool FeatureManager::isTargetEnvVulkan1p3OrAbove() {
+bool FeatureManager::isTargetEnvVulkan1p3OrAbove() const {
   return targetEnv >= SPV_ENV_VULKAN_1_3;
 }
 
-bool FeatureManager::isTargetEnvVulkan() {
+bool FeatureManager::isTargetEnvVulkan() const {
   // This assert ensure that this list will be updated, if necessary, when
   // a new target environment is added.
   static_assert(SPV_ENV_VULKAN_1_4 + 1 == SPV_ENV_MAX);

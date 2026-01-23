@@ -1,3 +1,4 @@
+// REQUIRES: dxil-1-9
 // RUN: %dxc -T lib_6_9 -E main %s | FileCheck %s
 
 RWByteAddressBuffer BAB : register(u1, space0);

@@ -341,6 +341,12 @@ void SpirvModule::addVariable(SpirvVariable *var) {
   variables.push_back(var);
 }
 
+void SpirvModule::addVariable(SpirvVariable *var, SpirvInstruction *pos) {
+  assert(var && "cannot add null variable to the module");
+  auto location = std::find(variables.begin(), variables.end(), pos);
+  variables.insert(location, var);
+}
+
 void SpirvModule::addDecoration(SpirvDecoration *decor) {
   assert(decor && "cannot add null decoration to the module");
   decorations.insert(decor);
@@ -374,6 +380,17 @@ void SpirvModule::addDebugInfo(SpirvDebugInstruction *info) {
 void SpirvModule::addModuleProcessed(SpirvModuleProcessed *p) {
   assert(p);
   moduleProcesses.push_back(p);
+}
+
+SpirvDebugCompilationUnit *SpirvModule::getDebugCompilationUnit() {
+  SpirvDebugCompilationUnit *unit = debugCompilationUnit;
+  assert(unit && "null DebugCompilationUnit");
+  return unit;
+}
+
+void SpirvModule::setDebugCompilationUnit(SpirvDebugCompilationUnit *unit) {
+  assert(unit);
+  debugCompilationUnit = unit;
 }
 
 } // end namespace spirv

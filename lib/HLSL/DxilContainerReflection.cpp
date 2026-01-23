@@ -120,6 +120,114 @@ enum class PublicAPI { D3D12 = 0, D3D11_47 = 1, D3D11_43 = 2, Invalid };
   ((D3D_SHADER_VARIABLE_CLASS)(D3D_SVC_INTERFACE_POINTER + 1))
 #endif
 
+class CShaderReflectionType;
+class CShaderReflectionVariable;
+class CShaderReflectionConstantBuffer;
+class CShaderReflection;
+struct D3D11_INTERNALSHADER_RESOURCE_DEF;
+class CShaderReflectionType final : public ID3D12ShaderReflectionType {
+  friend class CShaderReflectionConstantBuffer;
+
+protected:
+  D3D12_SHADER_TYPE_DESC m_Desc;
+  UINT m_SizeInCBuffer;
+  std::string m_Name;
+  std::vector<StringRef> m_MemberNames;
+  std::vector<CShaderReflectionType *> m_MemberTypes;
+  CShaderReflectionType *m_pSubType;
+  CShaderReflectionType *m_pBaseClass;
+  std::vector<CShaderReflectionType *> m_Interfaces;
+  ULONG_PTR m_Identity;
+
+public:
+  // Internal
+  HRESULT InitializeEmpty();
+  HRESULT
+  Initialize(DxilModule &M, llvm::Type *type,
+             DxilFieldAnnotation &typeAnnotation, unsigned int baseOffset,
+             std::vector<std::unique_ptr<CShaderReflectionType>> &allTypes,
+             bool isCBuffer);
+
+  // ID3D12ShaderReflectionType
+  STDMETHOD(GetDesc)(D3D12_SHADER_TYPE_DESC *pDesc);
+
+  STDMETHOD_(ID3D12ShaderReflectionType *, GetMemberTypeByIndex)(UINT Index);
+  STDMETHOD_(ID3D12ShaderReflectionType *, GetMemberTypeByName)(LPCSTR Name);
+  STDMETHOD_(LPCSTR, GetMemberTypeName)(UINT Index);
+
+  STDMETHOD(IsEqual)(ID3D12ShaderReflectionType *pType);
+  STDMETHOD_(ID3D12ShaderReflectionType *, GetSubType)();
+  STDMETHOD_(ID3D12ShaderReflectionType *, GetBaseClass)();
+  STDMETHOD_(UINT, GetNumInterfaces)();
+  STDMETHOD_(ID3D12ShaderReflectionType *, GetInterfaceByIndex)(UINT uIndex);
+  STDMETHOD(IsOfType)(ID3D12ShaderReflectionType *pType);
+  STDMETHOD(ImplementsInterface)(ID3D12ShaderReflectionType *pBase);
+
+  bool CheckEqual(CShaderReflectionType *pOther) {
+    return m_Identity == pOther->m_Identity;
+  }
+
+  UINT GetCBufferSize() { return m_SizeInCBuffer; }
+};
+
+class CShaderReflectionVariable final : public ID3D12ShaderReflectionVariable {
+protected:
+  D3D12_SHADER_VARIABLE_DESC m_Desc;
+  CShaderReflectionType *m_pType;
+  CShaderReflectionConstantBuffer *m_pBuffer;
+  BYTE *m_pDefaultValue;
+
+public:
+  void Initialize(CShaderReflectionConstantBuffer *pBuffer,
+                  D3D12_SHADER_VARIABLE_DESC *pDesc,
+                  CShaderReflectionType *pType, BYTE *pDefaultValue);
+
+  LPCSTR GetName() { return m_Desc.Name; }
+
+  // ID3D12ShaderReflectionVariable
+  STDMETHOD(GetDesc)(D3D12_SHADER_VARIABLE_DESC *pDesc);
+
+  STDMETHOD_(ID3D12ShaderReflectionType *, GetType)();
+  STDMETHOD_(ID3D12ShaderReflectionConstantBuffer *, GetBuffer)();
+
+  STDMETHOD_(UINT, GetInterfaceSlot)(UINT uArrayIndex);
+};
+
+class CShaderReflectionConstantBuffer final
+    : public ID3D12ShaderReflectionConstantBuffer {
+protected:
+  D3D12_SHADER_BUFFER_DESC m_Desc;
+  std::vector<CShaderReflectionVariable> m_Variables;
+  // For StructuredBuffer arrays, Name will have [0] appended for each dimension
+  // to match fxc behavior.
+  std::string m_ReflectionName;
+
+public:
+  CShaderReflectionConstantBuffer() = default;
+  CShaderReflectionConstantBuffer(CShaderReflectionConstantBuffer &&other) {
+    m_Desc = other.m_Desc;
+    std::swap(m_Variables, other.m_Variables);
+  }
+
+  void Initialize(DxilModule &M, DxilCBuffer &CB,
+                  std::vector<std::unique_ptr<CShaderReflectionType>> &allTypes,
+                  bool bUsageInMetadata);
+  void InitializeStructuredBuffer(
+      DxilModule &M, DxilResource &R,
+      std::vector<std::unique_ptr<CShaderReflectionType>> &allTypes);
+  void InitializeTBuffer(
+      DxilModule &M, DxilResource &R,
+      std::vector<std::unique_ptr<CShaderReflectionType>> &allTypes,
+      bool bUsageInMetadata);
+  LPCSTR GetName() { return m_Desc.Name; }
+
+  // ID3D12ShaderReflectionConstantBuffer
+  STDMETHOD(GetDesc)(D3D12_SHADER_BUFFER_DESC *pDesc);
+
+  STDMETHOD_(ID3D12ShaderReflectionVariable *, GetVariableByIndex)(UINT Index);
+  STDMETHOD_(ID3D12ShaderReflectionVariable *, GetVariableByName)(LPCSTR Name);
+};
+
 class DxilModuleReflection {
 public:
   hlsl::RDAT::DxilRuntimeData m_RDAT;
@@ -540,114 +648,6 @@ void hlsl::CreateDxcContainerReflection(IDxcContainerReflection **ppResult) {
 
 ///////////////////////////////////////////////////////////////////////////////
 // DxilShaderReflection implementation - helper objects.                     //
-
-class CShaderReflectionType;
-class CShaderReflectionVariable;
-class CShaderReflectionConstantBuffer;
-class CShaderReflection;
-struct D3D11_INTERNALSHADER_RESOURCE_DEF;
-class CShaderReflectionType final : public ID3D12ShaderReflectionType {
-  friend class CShaderReflectionConstantBuffer;
-
-protected:
-  D3D12_SHADER_TYPE_DESC m_Desc;
-  UINT m_SizeInCBuffer;
-  std::string m_Name;
-  std::vector<StringRef> m_MemberNames;
-  std::vector<CShaderReflectionType *> m_MemberTypes;
-  CShaderReflectionType *m_pSubType;
-  CShaderReflectionType *m_pBaseClass;
-  std::vector<CShaderReflectionType *> m_Interfaces;
-  ULONG_PTR m_Identity;
-
-public:
-  // Internal
-  HRESULT InitializeEmpty();
-  HRESULT
-  Initialize(DxilModule &M, llvm::Type *type,
-             DxilFieldAnnotation &typeAnnotation, unsigned int baseOffset,
-             std::vector<std::unique_ptr<CShaderReflectionType>> &allTypes,
-             bool isCBuffer);
-
-  // ID3D12ShaderReflectionType
-  STDMETHOD(GetDesc)(D3D12_SHADER_TYPE_DESC *pDesc);
-
-  STDMETHOD_(ID3D12ShaderReflectionType *, GetMemberTypeByIndex)(UINT Index);
-  STDMETHOD_(ID3D12ShaderReflectionType *, GetMemberTypeByName)(LPCSTR Name);
-  STDMETHOD_(LPCSTR, GetMemberTypeName)(UINT Index);
-
-  STDMETHOD(IsEqual)(ID3D12ShaderReflectionType *pType);
-  STDMETHOD_(ID3D12ShaderReflectionType *, GetSubType)();
-  STDMETHOD_(ID3D12ShaderReflectionType *, GetBaseClass)();
-  STDMETHOD_(UINT, GetNumInterfaces)();
-  STDMETHOD_(ID3D12ShaderReflectionType *, GetInterfaceByIndex)(UINT uIndex);
-  STDMETHOD(IsOfType)(ID3D12ShaderReflectionType *pType);
-  STDMETHOD(ImplementsInterface)(ID3D12ShaderReflectionType *pBase);
-
-  bool CheckEqual(CShaderReflectionType *pOther) {
-    return m_Identity == pOther->m_Identity;
-  }
-
-  UINT GetCBufferSize() { return m_SizeInCBuffer; }
-};
-
-class CShaderReflectionVariable final : public ID3D12ShaderReflectionVariable {
-protected:
-  D3D12_SHADER_VARIABLE_DESC m_Desc;
-  CShaderReflectionType *m_pType;
-  CShaderReflectionConstantBuffer *m_pBuffer;
-  BYTE *m_pDefaultValue;
-
-public:
-  void Initialize(CShaderReflectionConstantBuffer *pBuffer,
-                  D3D12_SHADER_VARIABLE_DESC *pDesc,
-                  CShaderReflectionType *pType, BYTE *pDefaultValue);
-
-  LPCSTR GetName() { return m_Desc.Name; }
-
-  // ID3D12ShaderReflectionVariable
-  STDMETHOD(GetDesc)(D3D12_SHADER_VARIABLE_DESC *pDesc);
-
-  STDMETHOD_(ID3D12ShaderReflectionType *, GetType)();
-  STDMETHOD_(ID3D12ShaderReflectionConstantBuffer *, GetBuffer)();
-
-  STDMETHOD_(UINT, GetInterfaceSlot)(UINT uArrayIndex);
-};
-
-class CShaderReflectionConstantBuffer final
-    : public ID3D12ShaderReflectionConstantBuffer {
-protected:
-  D3D12_SHADER_BUFFER_DESC m_Desc;
-  std::vector<CShaderReflectionVariable> m_Variables;
-  // For StructuredBuffer arrays, Name will have [0] appended for each dimension
-  // to match fxc behavior.
-  std::string m_ReflectionName;
-
-public:
-  CShaderReflectionConstantBuffer() = default;
-  CShaderReflectionConstantBuffer(CShaderReflectionConstantBuffer &&other) {
-    m_Desc = other.m_Desc;
-    std::swap(m_Variables, other.m_Variables);
-  }
-
-  void Initialize(DxilModule &M, DxilCBuffer &CB,
-                  std::vector<std::unique_ptr<CShaderReflectionType>> &allTypes,
-                  bool bUsageInMetadata);
-  void InitializeStructuredBuffer(
-      DxilModule &M, DxilResource &R,
-      std::vector<std::unique_ptr<CShaderReflectionType>> &allTypes);
-  void InitializeTBuffer(
-      DxilModule &M, DxilResource &R,
-      std::vector<std::unique_ptr<CShaderReflectionType>> &allTypes,
-      bool bUsageInMetadata);
-  LPCSTR GetName() { return m_Desc.Name; }
-
-  // ID3D12ShaderReflectionConstantBuffer
-  STDMETHOD(GetDesc)(D3D12_SHADER_BUFFER_DESC *pDesc);
-
-  STDMETHOD_(ID3D12ShaderReflectionVariable *, GetVariableByIndex)(UINT Index);
-  STDMETHOD_(ID3D12ShaderReflectionVariable *, GetVariableByName)(LPCSTR Name);
-};
 
 // Invalid type sentinel definitions
 class CInvalidSRType;

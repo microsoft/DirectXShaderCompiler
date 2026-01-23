@@ -40,6 +40,7 @@ float4 MainPs(void) : SV_Target0
 {
       float4 vTest = float4(1.0,0.0,0.0,0.0);
       g_PushConstants.m_nBufferDeviceAddress.Get().g_vTestFloat4 = vTest;
+      vk::BufferPointer<float,4>(0xdeadbeefull).Get() = 4.5f;
       return vTest;
 }
 
@@ -48,5 +49,7 @@ float4 MainPs(void) : SV_Target0
 // CHECK: [[X2:%[_0-9A-Za-z]*]] = OpLoad [[PGLOBALS]] [[X1]]
 // CHECK: [[X3:%[_0-9A-Za-z]*]] = OpAccessChain [[PV4FLOAT2]] [[X2]] [[S1]]
 // CHECK: OpStore [[X3]] [[CV4FLOAT]] Aligned 16
+// CHECK: [[TEMP_PTR:%[_0-9A-Za-z]*]] = OpConvertUToPtr %_ptr_PhysicalStorageBuffer_float %ulong_3735928559
+// CHECK: OpStore [[TEMP_PTR]] %float_4_5 Aligned 4
 // CHECK: OpStore [[OUT]] [[CV4FLOAT]]
 // CHECK: OpFunctionEnd

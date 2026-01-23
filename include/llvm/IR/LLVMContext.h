@@ -83,7 +83,7 @@ public:
   /// Defines the type of a diagnostic handler.
   /// \see LLVMContext::setDiagnosticHandler.
   /// \see LLVMContext::diagnose.
-  typedef void (*DiagnosticHandlerTy)(const DiagnosticInfo &DI, void *Context);
+  typedef void (*DiagnosticHandlerTy)(const DiagnosticInfo *DI, void *Context);
 
   /// Defines the type of a yield callback.
   /// \see LLVMContext::setYieldCallback.

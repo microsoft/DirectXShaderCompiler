@@ -115,10 +115,10 @@ public:
 
 } // end anon namespace
 
-static void diagnosticHandler(const DiagnosticInfo &DI, void *Context) {
+static void diagnosticHandler(const DiagnosticInfo *DI, void *Context) {
   raw_ostream &OS = errs();
   OS << (char *)Context << ": ";
-  switch (DI.getSeverity()) {
+  switch (DI->getSeverity()) {
   case DS_Error: OS << "error: "; break;
   case DS_Warning: OS << "warning: "; break;
   case DS_Remark: OS << "remark: "; break;
@@ -126,10 +126,10 @@ static void diagnosticHandler(const DiagnosticInfo &DI, void *Context) {
   }
 
   DiagnosticPrinterRawOStream DP(OS);
-  DI.print(DP);
+  DI->print(DP);
   OS << '\n';
 
-  if (DI.getSeverity() == DS_Error)
+  if (DI->getSeverity() == DS_Error)
     exit(1);
 }
 

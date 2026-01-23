@@ -313,7 +313,8 @@ TEST(ProgramTest, TestWriteWithSystemEncoding) {
 #else
   char buf[10];
   ASSERT_EQ(::read(fd, buf, 10), 10);
-  ASSERT_EQ(strncmp(buf, utf8_text, 10), 0);
+  ASSERT_EQ(strncmp(buf, utf8_text, 10),
+            0); // CodeQL [SM01932] the file content is controlled by the test.
 #endif
   ::close(fd);
   ASSERT_NO_ERROR(fs::remove(file_pathname.str()));

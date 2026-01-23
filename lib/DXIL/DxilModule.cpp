@@ -412,6 +412,28 @@ unsigned DxilModule::GetNumThreads(unsigned idx) const {
   return props.numThreads[idx];
 }
 
+unsigned DxilModule::GetGroupSharedLimit() const {
+  DXASSERT(m_DxilEntryPropsMap.size() == 1 &&
+               (m_pSM->IsCS() || m_pSM->IsMS() || m_pSM->IsAS()),
+           "only works for CS/MS/AS profiles");
+  const DxilFunctionProps &props = m_DxilEntryPropsMap.begin()->second->props;
+  DXASSERT_NOMSG(m_pSM->GetKind() == props.shaderKind);
+  return props.groupSharedLimitBytes;
+}
+
+unsigned DxilModule::GetTGSMSizeInBytes() const {
+  const DataLayout &DL = m_pModule->getDataLayout();
+  unsigned TGSMSize = 0;
+
+  for (GlobalVariable &GV : m_pModule->globals()) {
+    if (GV.getType()->getAddressSpace() == DXIL::kTGSMAddrSpace) {
+      TGSMSize += DL.getTypeAllocSize(GV.getType()->getElementType());
+    }
+  }
+
+  return TGSMSize;
+}
+
 DxilWaveSize &DxilModule::GetWaveSize() {
   return const_cast<DxilWaveSize &>(
       static_cast<const DxilModule *>(this)->GetWaveSize());

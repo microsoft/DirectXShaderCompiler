@@ -181,11 +181,11 @@ void PrintUnescapedString(StringRef Name, raw_ostream &Out) {
     if (C == '\\') {
       C = Name[++i];
       unsigned value = hexDigitValue(C);
-      if (value != -1U) {
+      if (value != ~0U) {
         C = (unsigned char)value;
         unsigned value2 = hexDigitValue(Name[i + 1]);
-        assert(value2 != -1U && "otherwise, not a two digit hex escape");
-        if (value2 != -1U) {
+        assert(value2 != ~0U && "otherwise, not a two digit hex escape");
+        if (value2 != ~0U) {
           C = (C << 4) + (unsigned char)value2;
           ++i;
         }
@@ -577,6 +577,9 @@ bool IsHLSLObjectType(llvm::Type *Ty) {
 
     if (IsHLSLHitObjectType(Ty))
       return true;
+
+    if (IsHLSLMatrixRefType(Ty))
+      return true;
   }
   return false;
 }
@@ -610,6 +613,24 @@ bool IsHLSLHitObjectType(llvm::Type *Ty) {
   if (!ST->hasName())
     return false;
   return ST->getName() == "dx.types.HitObject";
+}
+
+llvm::Type *GetHLSLMatrixRefType(llvm::Module *M) {
+  using namespace llvm;
+  StructType *MatrixRefTy = M->getTypeByName("dx.types.MatrixRef");
+  if (!MatrixRefTy)
+    MatrixRefTy = StructType::create({Type::getInt8PtrTy(M->getContext(), 0)},
+                                     "dx.types.MatrixRef", false);
+  return MatrixRefTy;
+}
+
+bool IsHLSLMatrixRefType(llvm::Type *Ty) {
+  llvm::StructType *ST = dyn_cast<llvm::StructType>(Ty);
+  if (!ST)
+    return false;
+  if (!ST->hasName())
+    return false;
+  return ST->getName() == "dx.types.MatrixRef";
 }
 
 bool IsHLSLResourceDescType(llvm::Type *Ty) {

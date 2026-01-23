@@ -16,9 +16,8 @@ float main(PSInput input) : SV_TARGET
 // CHECK:  [[input:%[0-9]+]] = OpCompositeConstruct %PSInput [[parent]]
 
 
-// CHECK: [[access0:%[0-9]+]] = OpAccessChain %_ptr_Function_Parent %input %uint_0
-// CHECK: [[access1:%[0-9]+]] = OpAccessChain %_ptr_Function_float [[access0]] %int_0
-// CHECK:   [[load1:%[0-9]+]] = OpLoad %float [[access1]]
+// CHECK: [[access:%[0-9]+]] = OpAccessChain %_ptr_Function_float %input %int_0 %int_0
+// CHECK:   [[load1:%[0-9]+]] = OpLoad %float [[access]]
     return input.clipDistance;
 }
 

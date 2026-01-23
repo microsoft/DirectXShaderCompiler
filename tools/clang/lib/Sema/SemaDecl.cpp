@@ -5331,7 +5331,7 @@ bool Sema::inferObjCARCLifetime(ValueDecl *decl) {
   Qualifiers::ObjCLifetime lifetime = type.getObjCLifetime();
   if (lifetime == Qualifiers::OCL_Autoreleasing) {
     // Various kinds of declaration aren't allowed to be __autoreleasing.
-    unsigned kind = -1U;
+    unsigned kind = ~0U;
     if (VarDecl *var = dyn_cast<VarDecl>(decl)) {
       if (var->hasAttr<BlocksAttr>())
         kind = 0; // __block
@@ -5343,7 +5343,7 @@ bool Sema::inferObjCARCLifetime(ValueDecl *decl) {
       kind = 2; // field
     }
 
-    if (kind != -1U) {
+    if (kind != ~0U) {
       Diag(decl->getLocation(), diag::err_arc_autoreleasing_var)
         << kind;
     }

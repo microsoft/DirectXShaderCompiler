@@ -68,7 +68,7 @@ class DxcContext {
 
 private:
   DxcOpts &m_Opts;
-  DxcDllSupport &m_dxcSupport;
+  SpecificDllLoader &m_dxcSupport;
 
   int ActOnBlob(IDxcBlob *pBlob);
   int ActOnBlob(IDxcBlob *pBlob, IDxcBlob *pDebugBlob, LPCWSTR pDebugBlobName);
@@ -83,7 +83,7 @@ private:
   int VerifyRootSignature();
 
 public:
-  DxcContext(DxcOpts &Opts, DxcDllSupport &dxcSupport)
+  DxcContext(DxcOpts &Opts, SpecificDllLoader &dxcSupport)
       : m_Opts(Opts), m_dxcSupport(dxcSupport) {}
 
   int Compile(llvm::StringRef path, bool bLibLink);
@@ -124,7 +124,7 @@ static void PrintHlslException(const ::hlsl::Exception &hlslException,
   }
 }
 
-static int Compile(llvm::StringRef command, DxcDllSupport &dxcSupport,
+static int Compile(llvm::StringRef command, SpecificDllLoader &dxcSupport,
                    llvm::StringRef path, bool bLinkLib,
                    std::string &errorString) {
   // llvm::raw_string_ostream &errorStream) {
@@ -756,14 +756,14 @@ void DxcContext::WriteHeader(IDxcBlobEncoding *pDisassembly, IDxcBlob *pCode,
 
 class DxcBatchContext {
 public:
-  DxcBatchContext(DxcOpts &Opts, DxcDllSupport &dxcSupport)
+  DxcBatchContext(DxcOpts &Opts, SpecificDllLoader &dxcSupport)
       : m_Opts(Opts), m_dxcSupport(dxcSupport) {}
 
   int BatchCompile(bool bMultiThread, bool bLibLink);
 
 private:
   DxcOpts &m_Opts;
-  DxcDllSupport &m_dxcSupport;
+  SpecificDllLoader &m_dxcSupport;
 };
 
 int DxcBatchContext::BatchCompile(bool bMultiThread, bool bLibLink) {
@@ -880,7 +880,7 @@ int __cdecl wmain(int argc, const wchar_t **argv_) {
     MainArgs batchArgStrings(refArgs);
 
     DxcOpts dxcOpts;
-    DxcDllSupport dxcSupport;
+    DXCLibraryDllLoader dxcSupport;
 
     // Read options and check errors.
     {
@@ -913,7 +913,8 @@ int __cdecl wmain(int argc, const wchar_t **argv_) {
     {
       std::string dllErrorString;
       llvm::raw_string_ostream dllErrorStream(dllErrorString);
-      int dllResult = SetupDxcDllSupport(dxcOpts, dxcSupport, dllErrorStream);
+      int dllResult =
+          SetupSpecificDllLoader(dxcOpts, dxcSupport, dllErrorStream);
       dllErrorStream.flush();
       if (dllErrorString.size()) {
         fprintf(stderr, "%s", dllErrorString.data());

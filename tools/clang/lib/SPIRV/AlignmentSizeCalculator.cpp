@@ -170,6 +170,9 @@ std::pair<uint32_t, uint32_t> AlignmentSizeCalculator::getAlignmentAndSize(
   if (rule == SpirvLayoutRule::Scalar) {
     // A structure has a scalar alignment equal to the largest scalar
     // alignment of any of its members in VK_EXT_scalar_block_layout.
+    // Its size is rounded up to its final alignment for compatibility with
+    // C structure layout, even if not strictly necessary.
+    structSize = roundToPow2(structSize, maxAlignment);
     return {maxAlignment, structSize};
   }
 

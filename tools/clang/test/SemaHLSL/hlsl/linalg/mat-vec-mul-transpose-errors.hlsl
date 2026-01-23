@@ -1,5 +1,5 @@
 // XFAIL: *
-// RUN: %dxc -I %hlsl_headers -T lib_6_9 -enable-16bit-types %s -verify
+// RUN: %dxc -I %hlsl_headers -T lib_6_10 -enable-16bit-types %s -verify
 
 #include <dx/linalg.h>
 

@@ -5,6 +5,7 @@
 // CHECK: IsInf
 // CHECK: IsNaN
 // CHECK: IsFinite
+// CHECK: IsNormal
 // CHECK: dot4
 // CHECK: Fma
 // CHECK: dot4
@@ -45,6 +46,7 @@ float4 main(float4 arg : A) : SV_TARGET {
   bool4 inf = isinf(arg);
   bool4 nan = isnan(arg);
   bool4 isf = isfinite(arg);
+  bool4 isn = isnormal(arg);
 
   if (any(inf))
     return inf;
@@ -52,6 +54,8 @@ float4 main(float4 arg : A) : SV_TARGET {
     return nan;
   if (any(isf))
     return isf;
+  if (any(isn))
+    return isn;
 
   float4 ff = faceforward(n, i, ng);
   double ma = fma(a, b, c);

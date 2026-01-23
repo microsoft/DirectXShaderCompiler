@@ -124,7 +124,7 @@ public:
   TEST_METHOD_PROPERTY(L"Priority", L"1")
   END_TEST_METHOD()
 
-  dxc::DxcDllSupport m_dllSupport;
+  dxc::DxCompilerDllLoader m_dllSupport;
   VersionSupportInfo m_ver;
 
   void CreateBlobPinned(LPCVOID data, SIZE_T size, UINT32 codePage,

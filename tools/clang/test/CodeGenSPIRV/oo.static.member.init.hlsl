@@ -14,26 +14,24 @@ class T {
 
 const int T::SIX = 6;
 
+// CHECK-DAG: %int_5 = OpConstant %int 5
+// CHECK-DAG: %int_6 = OpConstant %int 6
+
 int foo(int val) { return val; }
 
-// CHECK:   %FIVE = OpVariable %_ptr_Private_int Private
-// CHECK:    %SIX = OpVariable %_ptr_Private_int Private
-// CHECK: %FIVE_0 = OpVariable %_ptr_Private_int Private
-// CHECK:  %SIX_0 = OpVariable %_ptr_Private_int Private
 int main() : A {
-// CHECK-LABEL: %main = OpFunction
-
-// CHECK: OpStore %FIVE %int_5
-// CHECK: OpStore %SIX %int_6
-// CHECK: OpStore %FIVE_0 %int_5
-// CHECK: OpStore %SIX_0 %int_6
-// CHECK: OpFunctionCall %int %src_main
-
 // CHECK-LABEL: %src_main = OpFunction
-
-// CHECK: OpLoad %int %FIVE
-// CHECK: OpLoad %int %SIX
-// CHECK: OpLoad %int %FIVE_0
-// CHECK: OpLoad %int %SIX_0
-    return foo(S::FIVE) + foo(S::SIX) + foo(T::FIVE) + foo(T::SIX);
+    return
+        // CHECK: OpStore [[FOO_PARAM_0:%.*]] %int_5
+        // CHECK-NEXT: [[FOO_RETURN_0:%.*]] = OpFunctionCall %int %foo [[FOO_PARAM_0]]
+        foo(S::FIVE) +
+        // CHECK: OpStore [[FOO_PARAM_1:%.*]] %int_6
+        // CHECK-NEXT: [[FOO_RETURN_1:%.*]] = OpFunctionCall %int %foo [[FOO_PARAM_1]]
+        foo(S::SIX) +
+        // CHECK: OpStore [[FOO_PARAM_2:%.*]] %int_5
+        // CHECK-NEXT: [[FOO_RETURN_2:%.*]] = OpFunctionCall %int %foo [[FOO_PARAM_2]]
+        foo(T::FIVE) +
+        // CHECK: OpStore [[FOO_PARAM_3:%.*]] %int_6
+        // CHECK-NEXT: [[FOO_RETURN_3:%.*]] = OpFunctionCall %int %foo [[FOO_PARAM_3]]
+        foo(T::SIX);
 }

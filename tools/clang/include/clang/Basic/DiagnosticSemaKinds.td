@@ -1303,6 +1303,10 @@ def err_not_integral_type_bitfield : Error<
   "bit-field %0 has non-integral type %1">;
 def err_not_integral_type_anon_bitfield : Error<
   "anonymous bit-field has non-integral type %0">;
+def err_spirv_boolean_bitfield_in_type
+    : Error<"type %0 contains a boolean bitfield which is not supported for "
+            "variables that are not externally visible when "
+            "targeting SPIR-V">;
 def err_member_function_initialization : Error<
   "initializer on function does not look like a pure-specifier">;
 def err_non_virtual_pure : Error<
@@ -1592,6 +1596,13 @@ def warn_hlsl_sometimes_uninit_out_param : Warning<
   "switch %3 is taken|"
   "its declaration is reached|"
   "%3 is called}2">,
+  InGroup<HLSLParameterUsage>;
+def warn_hlsl_groupshared_202x: Warning<
+  "Support for groupshared parameter annotation not added until HLSL 202x">,
+  InGroup<HLSLParameterUsage>;
+def warn_hlsl_groupshared_inout: Warning<
+  "Passing groupshared variable to a parameter annotated with inout. See "
+  "'groupshared' parameter annotation added in 202x.">,
   InGroup<HLSLParameterUsage>;
 // HLSL Change End - Add warning for uninitialized out param
 def warn_maybe_uninit_var : Warning<
@@ -8060,6 +8071,8 @@ def err_hlsl_vk_pointer_cast_alignment: Error<
   "Vulkan buffer pointer cannot be cast to greater alignment">;
 def err_hlsl_vk_static_pointer_cast_type: Error<
   "vk::static_pointer_cast() content type must be base class of argument's content type">;
+def warn_spirv_node_shaders_experimental : Warning<
+  "SPIR-V implementation of node shaders is experimental and subject to change">;
 // SPIRV Change Ends
 
 let CategoryName = "OpenMP Issue" in {

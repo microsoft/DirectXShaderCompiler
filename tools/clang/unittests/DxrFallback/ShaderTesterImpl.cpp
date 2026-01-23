@@ -32,7 +32,7 @@ using Microsoft::WRL::ComPtr;
 #include "dxc/dxcapi.h"
 #include <atlbase.h>
 
-static dxc::DxcDllSupport g_DxcDllHelper;
+static dxc::DxCompilerDllLoader g_DxcDllHelper;
 
 #define VERIFY_SUCCEEDED(expr)                                                 \
   {                                                                            \

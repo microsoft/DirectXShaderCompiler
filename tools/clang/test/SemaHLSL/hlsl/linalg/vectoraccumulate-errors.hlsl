@@ -1,5 +1,5 @@
 // XFAIL: *
-// RUN: %dxc -I %hlsl_headers -T lib_6_9 %s | FileCheck %s
+// RUN: %dxc -I %hlsl_headers -T lib_6_10 %s | FileCheck %s
 
 #include <dx/linalg.h>
 

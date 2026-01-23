@@ -76,9 +76,9 @@ float4 MainPs(void) : SV_Target0
 // CHECK: [[X1:%[_0-9A-Za-z]*]] = OpAccessChain [[PPBLOCK1]] [[GPC]] [[S0]]
 // CHECK: [[X2:%[_0-9A-Za-z]*]] = OpLoad [[PBLOCK]] [[X1]]
 // CHECK: OpStore [[GP]] [[X2]]
-// CHECK: [[X3:%[_0-9A-Za-z]*]] = OpLoad [[PBLOCK]] [[GP]] Aligned 32
+// CHECK: [[X3:%[_0-9A-Za-z]*]] = OpLoad [[PBLOCK]] [[GP]]
 // CHECK: [[X4:%[_0-9A-Za-z]*]] = OpAccessChain [[PPBLOCK2]] [[X3]] [[S1]]
-// CHECK: [[X5:%[_0-9A-Za-z]*]] = OpLoad [[PBLOCK]] [[X4]] Aligned 8
+// CHECK: [[X5:%[_0-9A-Za-z]*]] = OpLoad [[PBLOCK]] [[X4]] Aligned 32
 // CHECK: OpStore [[GP]] [[X5]]
 // CHECK: [[X6:%[_0-9A-Za-z]*]] = OpLoad [[PBLOCK]] [[GP]]
 // CHECK: [[X7:%[_0-9A-Za-z]*]] = OpConvertPtrToU [[ULONG]] [[X6]]
@@ -94,7 +94,7 @@ float4 MainPs(void) : SV_Target0
 // CHECK: [[IF_TRUE]] = OpLabel
 // CHECK: OpReturnValue [[CV4FLOAT]]
 // CHECK: [[IF_MERGE]] = OpLabel
-// CHECK: [[X13:%[_0-9A-Za-z]*]] = OpLoad [[PBLOCK]] [[GP]] Aligned 32
+// CHECK: [[X13:%[_0-9A-Za-z]*]] = OpLoad [[PBLOCK]] [[GP]]
 // CHECK: [[X14:%[_0-9A-Za-z]*]] = OpAccessChain [[PV4FLOAT2]] [[X13]] [[S0]]
 // CHECK: [[X15:%[_0-9A-Za-z]*]] = OpLoad [[V4FLOAT]] [[X14]] Aligned 16
 // CHECK: OpReturnValue [[X15]]

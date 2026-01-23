@@ -9,5 +9,9 @@ add_llvm_library(LLVMDxilCompression
   ADDITIONAL_HEADER_DIRS
 )
 
+# By default, miniz performs unaligned loads/stores in x86/x64 platforms. This
+# is undefined behavior in C, and so we explicitly disable it.
+target_compile_definitions(LLVMDxilCompression PRIVATE MINIZ_USE_UNALIGNED_LOADS_AND_STORES=0)
+
 add_dependencies(LLVMDxilCompression intrinsics_gen)
 

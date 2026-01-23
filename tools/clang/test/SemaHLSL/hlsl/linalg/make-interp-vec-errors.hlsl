@@ -1,4 +1,4 @@
-// RUN: %dxc -I %hlsl_headers -T lib_6_9 %s -verify
+// RUN: %dxc -I %hlsl_headers -T lib_6_10 %s -verify
 
 #include <dx/linalg.h>
 ByteAddressBuffer Buf;

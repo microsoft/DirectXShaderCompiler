@@ -1,20 +1,20 @@
-// RUN: %dxc -T cs_6_9 %s -enable-16bit-types -DOU=0 -DOTY=float16_t -DIU=0 -DITY=float16_t -DINUM=8 -DII=F16 -DMI=F16 -DML=RowMajor -DMT=0 -DMST=64 | FileCheck %s --check-prefixes COMMON,DXIL-0
-// RUN: %dxc -T cs_6_9 %s -enable-16bit-types -DOU=0 -DOTY=float16_t -DIU=0 -DITY=float16_t -DINUM=8 -DII=F8_E4M3 -DMI=F8_E4M3 -DML=MulOptimal -DMT=0 -DMST=0 | FileCheck %s --check-prefixes COMMON,DXIL-1
-// RUN: %dxc -T cs_6_9 %s -enable-16bit-types -DOU=0 -DOTY=float16_t -DIU=0 -DITY=float16_t -DINUM=8 -DII=F8_E5M2 -DMI=F8_E5M2 -DML=MulOptimal -DMT=1 -DMST=0| FileCheck %s --check-prefixes COMMON,DXIL-2
-// RUN: %dxc -T cs_6_9 %s -enable-16bit-types -DOU=0 -DOTY=int -DIU=1 -DITY=uint -DII=PackedS8x32 -DINUM=2 -DMI=I8 -DML=OuterProductOptimal -DMT=1 -DMST=0 | FileCheck %s --check-prefixes COMMON,DXIL-3
-// RUN: %dxc -T cs_6_9 %s -enable-16bit-types -DOU=0 -DOTY=int -DIU=0 -DITY=float -DINUM=8 -DII=I8 -DMI=I8 -DML=RowMajor -DMT=0 -DMST=64 | FileCheck %s --check-prefixes COMMON,DXIL-4
-// RUN: %dxc -T cs_6_9 %s -enable-16bit-types -DOU=1 -DOTY=uint -DIU=0 -DITY=float -DINUM=8 -DII=I8 -DMI=F16 -DINUM=8 -DML=RowMajor -DMT=0 -DMST=64 | FileCheck %s --check-prefixes COMMON,DXIL-5
-// RUN: %dxc -T cs_6_9 %s -enable-16bit-types -DOU=0 -DOTY=int -DIU=1 -DITY=uint -DINUM=8 -DII=U8 -DMI=I8 -DINUM=8 -DML=ColumnMajor -DMT=0 -DMST=64 | FileCheck %s --check-prefixes COMMON,DXIL-6
-// RUN: %dxc -T cs_6_9 %s -enable-16bit-types -DOU=0 -DOTY=int -DIU=0 -DITY=int -DINUM=8 -DII=U8 -DMI=U8 -DINUM=8 -DML=MulOptimal -DMT=1 -DMST=0 | FileCheck %s --check-prefixes COMMON,DXIL-7
+// RUN: %dxc -T cs_6_10 %s -enable-16bit-types -DOU=0 -DOTY=float16_t -DIU=0 -DITY=float16_t -DINUM=8 -DII=F16 -DMI=F16 -DML=RowMajor -DMT=0 -DMST=64 | FileCheck %s --check-prefixes COMMON,DXIL-0
+// RUN: %dxc -T cs_6_10 %s -enable-16bit-types -DOU=0 -DOTY=float16_t -DIU=0 -DITY=float16_t -DINUM=8 -DII=F8_E4M3 -DMI=F8_E4M3 -DML=MulOptimal -DMT=0 -DMST=0 | FileCheck %s --check-prefixes COMMON,DXIL-1
+// RUN: %dxc -T cs_6_10 %s -enable-16bit-types -DOU=0 -DOTY=float16_t -DIU=0 -DITY=float16_t -DINUM=8 -DII=F8_E5M2 -DMI=F8_E5M2 -DML=MulOptimal -DMT=1 -DMST=0| FileCheck %s --check-prefixes COMMON,DXIL-2
+// RUN: %dxc -T cs_6_10 %s -enable-16bit-types -DOU=0 -DOTY=int -DIU=1 -DITY=uint -DII=PackedS8x32 -DINUM=2 -DMI=I8 -DML=OuterProductOptimal -DMT=1 -DMST=0 | FileCheck %s --check-prefixes COMMON,DXIL-3
+// RUN: %dxc -T cs_6_10 %s -enable-16bit-types -DOU=0 -DOTY=int -DIU=0 -DITY=float -DINUM=8 -DII=I8 -DMI=I8 -DML=RowMajor -DMT=0 -DMST=64 | FileCheck %s --check-prefixes COMMON,DXIL-4
+// RUN: %dxc -T cs_6_10 %s -enable-16bit-types -DOU=1 -DOTY=uint -DIU=0 -DITY=float -DINUM=8 -DII=I8 -DMI=F16 -DINUM=8 -DML=RowMajor -DMT=0 -DMST=64 | FileCheck %s --check-prefixes COMMON,DXIL-5
+// RUN: %dxc -T cs_6_10 %s -enable-16bit-types -DOU=0 -DOTY=int -DIU=1 -DITY=uint -DINUM=8 -DII=U8 -DMI=I8 -DINUM=8 -DML=ColumnMajor -DMT=0 -DMST=64 | FileCheck %s --check-prefixes COMMON,DXIL-6
+// RUN: %dxc -T cs_6_10 %s -enable-16bit-types -DOU=0 -DOTY=int -DIU=0 -DITY=int -DINUM=8 -DII=U8 -DMI=U8 -DINUM=8 -DML=MulOptimal -DMT=1 -DMST=0 | FileCheck %s --check-prefixes COMMON,DXIL-7
 
-// RUN: %dxc -T cs_6_9 %s -enable-16bit-types -DOU=0 -DOTY=float16_t -DIU=0 -DITY=float16_t -DINUM=8 -DII=F16 -DMI=F16 -DML=RowMajor -DMT=0 -DMST=64 -fcgl | FileCheck %s --check-prefixes COMMON,HLOP-0
-// RUN: %dxc -T cs_6_9 %s -enable-16bit-types -DOU=0 -DOTY=float16_t -DIU=0 -DITY=float16_t -DINUM=8 -DII=F8_E4M3 -DMI=F8_E4M3 -DML=MulOptimal -DMT=0 -DMST=0 -fcgl | FileCheck %s --check-prefixes COMMON,HLOP-1
-// RUN: %dxc -T cs_6_9 %s -enable-16bit-types -DOU=0 -DOTY=float16_t -DIU=0 -DITY=float16_t -DINUM=8 -DII=F8_E5M2 -DMI=F8_E5M2 -DML=MulOptimal -DMT=1 -DMST=0 -fcgl | FileCheck %s --check-prefixes COMMON,HLOP-2
-// RUN: %dxc -T cs_6_9 %s -enable-16bit-types -DOU=0 -DOTY=int -DIU=1 -DITY=uint -DINUM=2 -DII=PackedS8x32 -DMI=I8 -DML=OuterProductOptimal -DMT=1 -DMST=0 -fcgl | FileCheck %s --check-prefixes COMMON,HLOP-3
-// RUN: %dxc -T cs_6_9 %s -enable-16bit-types -DOU=0 -DOTY=int -DIU=0 -DITY=float -DINUM=8 -DII=I8 -DMI=I8 -DML=RowMajor -DMT=0 -DMST=64 -fcgl | FileCheck %s --check-prefixes COMMON,HLOP-4
-// RUN: %dxc -T cs_6_9 %s -enable-16bit-types -DOU=1 -DOTY=uint -DIU=0 -DITY=float -DINUM=8 -DII=I8 -DMI=F16 -DML=RowMajor -DMT=0 -DMST=64 -fcgl | FileCheck %s --check-prefixes COMMON,HLOP-5
-// RUN: %dxc -T cs_6_9 %s -enable-16bit-types -DOU=0 -DOTY=int -DIU=1 -DITY=uint -DINUM=8 -DII=U8 -DMI=I8 -DML=ColumnMajor -DMT=0 -DMST=64 -fcgl | FileCheck %s --check-prefixes COMMON,HLOP-6
-// RUN: %dxc -T cs_6_9 %s -enable-16bit-types -DOU=0 -DOTY=int -DIU=0 -DITY=int -DINUM=8 -DII=U8 -DMI=U8 -DML=MulOptimal -DMT=1 -DMST=0 -fcgl | FileCheck %s --check-prefixes COMMON,HLOP-7
+// RUN: %dxc -T cs_6_10 %s -enable-16bit-types -DOU=0 -DOTY=float16_t -DIU=0 -DITY=float16_t -DINUM=8 -DII=F16 -DMI=F16 -DML=RowMajor -DMT=0 -DMST=64 -fcgl | FileCheck %s --check-prefixes COMMON,HLOP-0
+// RUN: %dxc -T cs_6_10 %s -enable-16bit-types -DOU=0 -DOTY=float16_t -DIU=0 -DITY=float16_t -DINUM=8 -DII=F8_E4M3 -DMI=F8_E4M3 -DML=MulOptimal -DMT=0 -DMST=0 -fcgl | FileCheck %s --check-prefixes COMMON,HLOP-1
+// RUN: %dxc -T cs_6_10 %s -enable-16bit-types -DOU=0 -DOTY=float16_t -DIU=0 -DITY=float16_t -DINUM=8 -DII=F8_E5M2 -DMI=F8_E5M2 -DML=MulOptimal -DMT=1 -DMST=0 -fcgl | FileCheck %s --check-prefixes COMMON,HLOP-2
+// RUN: %dxc -T cs_6_10 %s -enable-16bit-types -DOU=0 -DOTY=int -DIU=1 -DITY=uint -DINUM=2 -DII=PackedS8x32 -DMI=I8 -DML=OuterProductOptimal -DMT=1 -DMST=0 -fcgl | FileCheck %s --check-prefixes COMMON,HLOP-3
+// RUN: %dxc -T cs_6_10 %s -enable-16bit-types -DOU=0 -DOTY=int -DIU=0 -DITY=float -DINUM=8 -DII=I8 -DMI=I8 -DML=RowMajor -DMT=0 -DMST=64 -fcgl | FileCheck %s --check-prefixes COMMON,HLOP-4
+// RUN: %dxc -T cs_6_10 %s -enable-16bit-types -DOU=1 -DOTY=uint -DIU=0 -DITY=float -DINUM=8 -DII=I8 -DMI=F16 -DML=RowMajor -DMT=0 -DMST=64 -fcgl | FileCheck %s --check-prefixes COMMON,HLOP-5
+// RUN: %dxc -T cs_6_10 %s -enable-16bit-types -DOU=0 -DOTY=int -DIU=1 -DITY=uint -DINUM=8 -DII=U8 -DMI=I8 -DML=ColumnMajor -DMT=0 -DMST=64 -fcgl | FileCheck %s --check-prefixes COMMON,HLOP-6
+// RUN: %dxc -T cs_6_10 %s -enable-16bit-types -DOU=0 -DOTY=int -DIU=0 -DITY=int -DINUM=8 -DII=U8 -DMI=U8 -DML=MulOptimal -DMT=1 -DMST=0 -fcgl | FileCheck %s --check-prefixes COMMON,HLOP-7
 
 // COMMON: define void @main()
 

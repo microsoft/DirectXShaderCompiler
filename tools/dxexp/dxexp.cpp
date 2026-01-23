@@ -23,170 +23,13 @@
 #pragma comment(lib, "dxgi.lib")
 #pragma comment(lib, "dxguid.lib")
 
-// A more recent Windows SDK than currently required is needed for these.
-typedef HRESULT(WINAPI *D3D12EnableExperimentalFeaturesFn)(
-    UINT NumFeatures, __in_ecount(NumFeatures) const IID *pIIDs,
-    __in_ecount_opt(NumFeatures) void *pConfigurationStructs,
-    __in_ecount_opt(NumFeatures) UINT *pConfigurationStructSizes);
-
-static const GUID D3D12ExperimentalShaderModelsID =
-    {/* 76f5573e-f13a-40f5-b297-81ce9e18933f */
-     0x76f5573e,
-     0xf13a,
-     0x40f5,
-     {0xb2, 0x97, 0x81, 0xce, 0x9e, 0x18, 0x93, 0x3f}};
-
 static HRESULT AtlCheck(HRESULT hr) {
   if (FAILED(hr))
     AtlThrow(hr);
   return hr;
 }
 
-// Not defined in Creators Update version of d3d12.h:
-#if WDK_NTDDI_VERSION <= NTDDI_WIN10_RS2
-#define D3D12_FEATURE_D3D12_OPTIONS3 ((D3D12_FEATURE)21)
-typedef enum D3D12_COMMAND_LIST_SUPPORT_FLAGS {
-  D3D12_COMMAND_LIST_SUPPORT_FLAG_NONE = 0,
-  D3D12_COMMAND_LIST_SUPPORT_FLAG_DIRECT =
-      (1 << D3D12_COMMAND_LIST_TYPE_DIRECT),
-  D3D12_COMMAND_LIST_SUPPORT_FLAG_BUNDLE =
-      (1 << D3D12_COMMAND_LIST_TYPE_BUNDLE),
-  D3D12_COMMAND_LIST_SUPPORT_FLAG_COMPUTE =
-      (1 << D3D12_COMMAND_LIST_TYPE_COMPUTE),
-  D3D12_COMMAND_LIST_SUPPORT_FLAG_COPY = (1 << D3D12_COMMAND_LIST_TYPE_COPY),
-  D3D12_COMMAND_LIST_SUPPORT_FLAG_VIDEO_DECODE = (1 << 4),
-  D3D12_COMMAND_LIST_SUPPORT_FLAG_VIDEO_PROCESS = (1 << 5)
-} D3D12_COMMAND_LIST_SUPPORT_FLAGS;
-
-typedef enum D3D12_VIEW_INSTANCING_TIER {
-  D3D12_VIEW_INSTANCING_TIER_NOT_SUPPORTED = 0,
-  D3D12_VIEW_INSTANCING_TIER_1 = 1,
-  D3D12_VIEW_INSTANCING_TIER_2 = 2,
-  D3D12_VIEW_INSTANCING_TIER_3 = 3
-} D3D12_VIEW_INSTANCING_TIER;
-
-typedef struct D3D12_FEATURE_DATA_D3D12_OPTIONS3 {
-  BOOL CopyQueueTimestampQueriesSupported;
-  BOOL CastingFullyTypedFormatSupported;
-  DWORD WriteBufferImmediateSupportFlags;
-  D3D12_VIEW_INSTANCING_TIER ViewInstancingTier;
-  BOOL BarycentricsSupported;
-} D3D12_FEATURE_DATA_D3D12_OPTIONS3;
-#endif
-
-#ifndef NTDDI_WIN10_RS3
-#define NTDDI_WIN10_RS3 0x0A000004
-#endif
-
-#if WDK_NTDDI_VERSION <= NTDDI_WIN10_RS3
-#define D3D12_FEATURE_D3D12_OPTIONS4 ((D3D12_FEATURE)23)
-typedef enum D3D12_SHARED_RESOURCE_COMPATIBILITY_TIER {
-  D3D12_SHARED_RESOURCE_COMPATIBILITY_TIER_0,
-  D3D12_SHARED_RESOURCE_COMPATIBILITY_TIER_1,
-} D3D12_SHARED_RESOURCE_COMPATIBILITY_TIER;
-
-typedef struct D3D12_FEATURE_DATA_D3D12_OPTIONS4 {
-  BOOL ReservedBufferPlacementSupported;
-  D3D12_SHARED_RESOURCE_COMPATIBILITY_TIER SharedResourceCompatibilityTier;
-  BOOL Native16BitShaderOpsSupported;
-} D3D12_FEATURE_DATA_D3D12_OPTIONS4;
-#endif
-
-#ifndef NTDDI_WIN10_RS4
-#define NTDDI_WIN10_RS4 0x0A000005
-#endif
-
-#if WDK_NTDDI_VERSION <= NTDDI_WIN10_RS4
-#define D3D12_FEATURE_D3D12_OPTIONS5 ((D3D12_FEATURE)27)
-typedef enum D3D12_RENDER_PASS_TIER {
-  D3D12_RENDER_PASS_TIER_0 = 0,
-  D3D12_RENDER_PASS_TIER_1 = 1,
-  D3D12_RENDER_PASS_TIER_2 = 2
-} D3D12_RENDER_PASS_TIER;
-
-typedef enum D3D12_RAYTRACING_TIER {
-  D3D12_RAYTRACING_TIER_NOT_SUPPORTED = 0,
-  D3D12_RAYTRACING_TIER_1_0 = 10 D3D12_RAYTRACING_TIER_1_1 = 11
-} D3D12_RAYTRACING_TIER;
-
-typedef struct D3D12_FEATURE_DATA_D3D12_OPTIONS5 {
-  BOOL SRVOnlyTiledResourceTier3;
-  D3D12_RENDER_PASS_TIER RenderPassesTier;
-  D3D12_RAYTRACING_TIER RaytracingTier;
-} D3D12_FEATURE_DATA_D3D12_OPTIONS5;
-#endif
-
-#ifndef NTDDI_WIN10_VB
-#define NTDDI_WIN10_VB 0x0A000008
-#endif
-
-#if WDK_NTDDI_VERSION < NTDDI_WIN10_VB
-#define D3D12_FEATURE_D3D12_OPTIONS7 ((D3D12_FEATURE)32)
-
-typedef enum D3D12_MESH_SHADER_TIER {
-  D3D12_MESH_SHADER_TIER_NOT_SUPPORTED = 0,
-  D3D12_MESH_SHADER_TIER_1 = 10
-} D3D12_MESH_SHADER_TIER;
-
-typedef enum D3D12_SAMPLER_FEEDBACK_TIER {
-  D3D12_SAMPLER_FEEDBACK_TIER_NOT_SUPPORTED = 0,
-  D3D12_SAMPLER_FEEDBACK_TIER_0_9 = 90,
-  D3D12_SAMPLER_FEEDBACK_TIER_1_0 = 100
-} D3D12_SAMPLER_FEEDBACK_TIER;
-
-typedef struct D3D12_FEATURE_DATA_D3D12_OPTIONS7 {
-  D3D12_MESH_SHADER_TIER MeshShaderTier;
-  D3D12_SAMPLER_FEEDBACK_TIER SamplerFeedbackTier;
-} D3D12_FEATURE_DATA_D3D12_OPTIONS7;
-#endif
-
-#ifndef NTDDI_WIN10_FE
-#define NTDDI_WIN10_FE 0x0A00000A
-#endif
-
-#if WDK_NTDDI_VERSION < NTDDI_WIN10_FE
-#define D3D12_FEATURE_D3D12_OPTIONS9 ((D3D12_FEATURE)37)
-
-typedef enum D3D12_WAVE_MMA_TIER {
-  D3D12_WAVE_MMA_TIER_NOT_SUPPORTED = 0,
-  D3D12_WAVE_MMA_TIER_1_0 = 10
-} D3D12_WAVE_MMA_TIER;
-
-typedef struct D3D12_FEATURE_DATA_D3D12_OPTIONS9 {
-  BOOL MeshShaderPipelineStatsSupported;
-  BOOL MeshShaderSupportsFullRangeRenderTargetArrayIndex;
-  BOOL AtomicInt64OnTypedResourceSupported;
-  BOOL AtomicInt64OnGroupSharedSupported;
-  BOOL DerivativesInMeshAndAmplificationShadersSupported;
-  D3D12_WAVE_MMA_TIER WaveMMATier;
-} D3D12_FEATURE_DATA_D3D12_OPTIONS9;
-#endif
-
-#ifndef NTDDI_WIN10_NI
-#define NTDDI_WIN10_NI 0x0A00000C
-#endif
-
-#if WDK_NTDDI_VERSION <= NTDDI_WIN10_NI
-#define D3D12_FEATURE_D3D12_OPTIONS14 ((D3D12_FEATURE)43)
-typedef struct D3D12_FEATURE_DATA_D3D12_OPTIONS14 {
-  BOOL AdvancedTextureOpsSupported;
-  BOOL WriteableMSAATexturesSupported;
-  BOOL IndependentFrontAndBackStencilRefMaskSupported;
-} D3D12_FEATURE_DATA_D3D12_OPTIONS14;
-#endif
-
-#pragma warning(disable : 4063)
-#define D3D12_RAYTRACING_TIER_1_1 ((D3D12_RAYTRACING_TIER)11)
-#define D3D_SHADER_MODEL_6_1 ((D3D_SHADER_MODEL)0x61)
-#define D3D_SHADER_MODEL_6_2 ((D3D_SHADER_MODEL)0x62)
-#define D3D_SHADER_MODEL_6_3 ((D3D_SHADER_MODEL)0x63)
-#define D3D_SHADER_MODEL_6_4 ((D3D_SHADER_MODEL)0x64)
-#define D3D_SHADER_MODEL_6_5 ((D3D_SHADER_MODEL)0x65)
-#define D3D_SHADER_MODEL_6_6 ((D3D_SHADER_MODEL)0x66)
-#define D3D_SHADER_MODEL_6_7 ((D3D_SHADER_MODEL)0x67)
-#define D3D_SHADER_MODEL_6_8 ((D3D_SHADER_MODEL)0x68)
-
-#define DXEXP_HIGHEST_SHADER_MODEL D3D_SHADER_MODEL_6_8
+#define DXEXP_HIGHEST_SHADER_MODEL D3D_SHADER_MODEL_6_9
 
 static const char *BoolToStrJson(bool value) {
   return value ? "true" : "false";
@@ -228,6 +71,8 @@ static const char *ShaderModelToStr(D3D_SHADER_MODEL SM) {
     return "6.7";
   case D3D_SHADER_MODEL_6_8:
     return "6.8";
+  case D3D_SHADER_MODEL_6_9:
+    return "6.9";
   default:
     return "ERROR";
   }
@@ -445,26 +290,8 @@ int main(int argc, const char *argv[]) {
     return 1;
   }
 
-  D3D12EnableExperimentalFeaturesFn pD3D12EnableExperimentalFeatures =
-      (D3D12EnableExperimentalFeaturesFn)GetProcAddress(
-          hRuntime, "D3D12EnableExperimentalFeatures");
-  if (pD3D12EnableExperimentalFeatures == nullptr) {
-    err = GetLastError();
-    printf("Failed to find export 'D3D12EnableExperimentalFeatures' in "
-           "d3d12.dll - Win32 error %u%s\n",
-           (unsigned int)err,
-           err == ERROR_PROC_NOT_FOUND
-               ? " (The specified procedure could not be found.)"
-               : "");
-    printf("Consider verifying the operating system version - Creators Update "
-           "or newer "
-           "is currently required.\n");
-    PrintAdapters();
-    return 2;
-  }
-
-  HRESULT hr = pD3D12EnableExperimentalFeatures(
-      1, &D3D12ExperimentalShaderModelsID, nullptr, nullptr);
+  HRESULT hr = D3D12EnableExperimentalFeatures(
+      1, &D3D12ExperimentalShaderModels, nullptr, nullptr);
   if (SUCCEEDED(hr)) {
     text_printf("Experimental shader model feature succeeded.\n");
     hr = PrintAdapters();

@@ -1,3 +1,4 @@
+// REQUIRES: dxil-1-9
 // RUN: %dxc -Zi -Qembed_debug -T lib_6_9 %s -DNUM=8 | FileCheck %s  --check-prefix=CHECK-LONG
 // RUN: %dxc -Zi -Qembed_debug -T lib_6_9 %s -DNUM=4 | FileCheck %s  --check-prefix=CHECK-SHORT
 
@@ -21,7 +22,7 @@ export vector<float, NUM> lv_global_arr_ret() {
 // CHECK-LONG:  ![[C5]] = !DIDerivedType(tag: DW_TAG_member, name: "c5", scope: !{{[^ ]+}}, file: !{{[^ ]+}}, baseType: ![[BASETY]], size: 32, align: 32, offset: 160, flags: DIFlagPublic)
 // CHECK-LONG:  ![[C6]] = !DIDerivedType(tag: DW_TAG_member, name: "c6", scope: !{{[^ ]+}}, file: !{{[^ ]+}}, baseType: ![[BASETY]], size: 32, align: 32, offset: 192, flags: DIFlagPublic)
 // CHECK-LONG:  ![[C7]] = !DIDerivedType(tag: DW_TAG_member, name: "c7", scope: !{{[^ ]+}}, file: !{{[^ ]+}}, baseType: ![[BASETY]], size: 32, align: 32, offset: 224, flags: DIFlagPublic)
-// CHECK-LONG:  !{{[^ ]+}} = !DILocalVariable(tag: DW_TAG_auto_variable, name: "d", scope: !{{[^ ]+}}, file: !{{[^ ]+}}, line: 9, type: ![[TYDI]])
+// CHECK-LONG:  !{{[^ ]+}} = !DILocalVariable(tag: DW_TAG_auto_variable, name: "d", scope: !{{[^ ]+}}, file: !{{[^ ]+}}, line: {{[^ ]+}}, type: ![[TYDI]])
 
 // CHECK-SHORT:  ![[TYDI:[^ ]+]] = !DICompositeType(tag: DW_TAG_class_type, name: "vector<float, 4>", file: !{{[^ ]+}}, size: 128, align: 32, elements: ![[ELEMDI:[^ ]+]],
 // CHECK-SHORT:  ![[ELEMDI]] = !{![[X:[^ ]+]], ![[Y:[^ ]+]], ![[Z:[^ ]+]], ![[W:[^ ]+]]}
@@ -30,4 +31,4 @@ export vector<float, NUM> lv_global_arr_ret() {
 // CHECK-SHORT:  ![[Y]] = !DIDerivedType(tag: DW_TAG_member, name: "y", scope: !{{[^ ]+}}, file: !{{[^ ]+}}, baseType: ![[BASETY]], size: 32, align: 32, offset: 32, flags: DIFlagPublic)
 // CHECK-SHORT:  ![[Z]] = !DIDerivedType(tag: DW_TAG_member, name: "z", scope: !{{[^ ]+}}, file: !{{[^ ]+}}, baseType: ![[BASETY]], size: 32, align: 32, offset: 64, flags: DIFlagPublic)
 // CHECK-SHORT:  ![[W]] = !DIDerivedType(tag: DW_TAG_member, name: "w", scope: !{{[^ ]+}}, file: !{{[^ ]+}}, baseType: ![[BASETY]], size: 32, align: 32, offset: 96, flags: DIFlagPublic)
-// CHECK-SHORT:  !{{[^ ]+}} = !DILocalVariable(tag: DW_TAG_auto_variable, name: "d", scope: !{{[^ ]+}}, file: !{{[^ ]+}}, line: 9, type: ![[TYDI]])
+// CHECK-SHORT:  !{{[^ ]+}} = !DILocalVariable(tag: DW_TAG_auto_variable, name: "d", scope: !{{[^ ]+}}, file: !{{[^ ]+}}, line: {{[^ ]+}}, type: ![[TYDI]])
