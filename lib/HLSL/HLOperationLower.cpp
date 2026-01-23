@@ -1327,6 +1327,20 @@ Value *TrivialNoArgWithRetOperation(CallInst *CI, IntrinsicOp IOP,
   return dxilOp;
 }
 
+Value *TrivialNoArgWithRetNoOverloadOperation(
+    CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
+    HLOperationLowerHelper &helper, HLObjectOperationLowerHelper *pObjHelper,
+    bool &Translated) {
+  hlsl::OP *hlslOP = &helper.hlslOP;
+  Type *Ty = CI->getType();
+
+  Constant *opArg = hlslOP->GetU32Const((unsigned)opcode);
+  Value *args[] = {opArg};
+  IRBuilder<> Builder(CI);
+  return TrivialDxilOperation(opcode, args, Builder.getVoidTy(), Ty, hlslOP,
+                              Builder);
+}
+
 Value *TranslateGetRTSamplePos(CallInst *CI, IntrinsicOp IOP, OP::OpCode op,
                                HLOperationLowerHelper &helper,
                                HLObjectOperationLowerHelper *pObjHelper,
@@ -7520,12 +7534,13 @@ constexpr IntrinsicLower gLowerTable[] = {
     {IntrinsicOp::IOP_GetGroupWaveIndex, TranslateWaveToVal,
      DXIL::OpCode::GetGroupWaveIndex},
 
-    {IntrinsicOp::IOP_ClusterID, EmptyLower, DXIL::OpCode::ClusterID},
-    {IntrinsicOp::MOP_CandidateClusterID, EmptyLower,
+    {IntrinsicOp::IOP_ClusterID, TrivialNoArgWithRetNoOverloadOperation,
+     DXIL::OpCode::ClusterID},
+    {IntrinsicOp::MOP_CandidateClusterID, TranslateGenericRayQueryMethod,
      DXIL::OpCode::RayQuery_CandidateClusterID},
-    {IntrinsicOp::MOP_CommittedClusterID, EmptyLower,
+    {IntrinsicOp::MOP_CommittedClusterID, TranslateGenericRayQueryMethod,
      DXIL::OpCode::RayQuery_CommittedClusterID},
-    {IntrinsicOp::MOP_DxHitObject_ClusterID, EmptyLower,
+    {IntrinsicOp::MOP_DxHitObject_GetClusterID, TranslateHitObjectScalarGetter,
      DXIL::OpCode::HitObject_ClusterID},
 
     {IntrinsicOp::IOP_TriangleObjectPosition, EmptyLower,
