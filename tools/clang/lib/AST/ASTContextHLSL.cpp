@@ -1422,19 +1422,64 @@ static void AddSampleFunction(ASTContext &context, CXXRecordDecl *recordDecl,
 
 static void AddCalculateLevelOfDetailFunction(ASTContext &context,
                                               CXXRecordDecl *recordDecl,
-                                              QualType coordinateType) {
+                                              QualType coordinateType,
+                                              bool unclamped) {
   QualType floatType = context.FloatTy;
 
+  const char *functionName =
+      unclamped ? "CalculateLevelOfDetailUnclamped" : "CalculateLevelOfDetail";
+  const auto intrinsicOp =
+      unclamped ? hlsl::IntrinsicOp::MOP_CalculateLevelOfDetailUnclamped
+                : hlsl::IntrinsicOp::MOP_CalculateLevelOfDetail;
+
+  // // CalculateLevelOfDetail(location),
+  // CalculateLevelOfDetailUnclamped(location)
   CXXMethodDecl *lodDecl = CreateObjectFunctionDeclarationWithParams(
       context, recordDecl, floatType, ArrayRef<QualType>(coordinateType),
       ArrayRef<StringRef>(StringRef("location")),
-      context.DeclarationNames.getIdentifier(
-          &context.Idents.get("CalculateLevelOfDetail")),
+      context.DeclarationNames.getIdentifier(&context.Idents.get(functionName)),
       /*isConst*/ true);
   lodDecl->addAttr(HLSLIntrinsicAttr::CreateImplicit(
-      context, "op", "",
-      static_cast<int>(hlsl::IntrinsicOp::MOP_CalculateLevelOfDetail)));
+      context, "op", "", static_cast<int>(intrinsicOp)));
   lodDecl->addAttr(HLSLCXXOverloadAttr::CreateImplicit(context));
+}
+
+static void AddGatherFunction(ASTContext &context, CXXRecordDecl *recordDecl,
+                              QualType returnType, QualType coordinateType,
+                              QualType offsetType) {
+  // Gather(location)
+  CXXMethodDecl *gatherDecl = CreateObjectFunctionDeclarationWithParams(
+      context, recordDecl, returnType, ArrayRef<QualType>(coordinateType),
+      ArrayRef<StringRef>(StringRef("location")),
+      context.DeclarationNames.getIdentifier(&context.Idents.get("Gather")),
+      /*isConst*/ true);
+  gatherDecl->addAttr(HLSLIntrinsicAttr::CreateImplicit(
+      context, "op", "", static_cast<int>(hlsl::IntrinsicOp::MOP_Gather)));
+  gatherDecl->addAttr(HLSLCXXOverloadAttr::CreateImplicit(context));
+
+  // Gather(location, offset)
+  QualType gatherParams2[] = {coordinateType, offsetType};
+  StringRef gatherNames2[] = {"location", "offset"};
+  CXXMethodDecl *gatherDecl2 = CreateObjectFunctionDeclarationWithParams(
+      context, recordDecl, returnType, gatherParams2, gatherNames2,
+      context.DeclarationNames.getIdentifier(&context.Idents.get("Gather")),
+      /*isConst*/ true);
+  gatherDecl2->addAttr(HLSLIntrinsicAttr::CreateImplicit(
+      context, "op", "", static_cast<int>(hlsl::IntrinsicOp::MOP_Gather)));
+  gatherDecl2->addAttr(HLSLCXXOverloadAttr::CreateImplicit(context));
+
+  // Gather(location, offset, status)
+  QualType gatherParams3[] = {
+      coordinateType, offsetType,
+      context.getLValueReferenceType(context.UnsignedIntTy)};
+  StringRef gatherNames3[] = {"location", "offset", "status"};
+  CXXMethodDecl *gatherDecl3 = CreateObjectFunctionDeclarationWithParams(
+      context, recordDecl, returnType, gatherParams3, gatherNames3,
+      context.DeclarationNames.getIdentifier(&context.Idents.get("Gather")),
+      /*isConst*/ true);
+  gatherDecl3->addAttr(HLSLIntrinsicAttr::CreateImplicit(
+      context, "op", "", static_cast<int>(hlsl::IntrinsicOp::MOP_Gather)));
+  gatherDecl3->addAttr(HLSLCXXOverloadAttr::CreateImplicit(context));
 }
 
 CXXRecordDecl *hlsl::DeclareVkSampledTextureType(
@@ -1452,51 +1497,11 @@ CXXRecordDecl *hlsl::DeclareVkSampledTextureType(
   CXXRecordDecl *recordDecl = Builder.getRecordDecl();
 
   AddSampleFunction(context, recordDecl, paramType, coordinateType, offsetType);
-  AddCalculateLevelOfDetailFunction(context, recordDecl, coordinateType);
-
-  // CalculateLevelOfDetailUnclamped(location)
-  CXXMethodDecl *lodUnclampedDecl = CreateObjectFunctionDeclarationWithParams(
-      context, recordDecl, floatType, ArrayRef<QualType>(float2Type),
-      ArrayRef<StringRef>(StringRef("location")),
-      context.DeclarationNames.getIdentifier(
-          &context.Idents.get("CalculateLevelOfDetailUnclamped")),
-      /*isConst*/ true);
-  lodUnclampedDecl->addAttr(HLSLIntrinsicAttr::CreateImplicit(
-      context, "op", "",
-      static_cast<int>(
-          hlsl::IntrinsicOp::MOP_CalculateLevelOfDetailUnclamped)));
-  lodUnclampedDecl->addAttr(HLSLCXXOverloadAttr::CreateImplicit(context));
-
-  // Gather(location)
-  CXXMethodDecl *gatherDecl = CreateObjectFunctionDeclarationWithParams(
-      context, recordDecl, paramType, ArrayRef<QualType>(float2Type),
-      ArrayRef<StringRef>(StringRef("location")),
-      context.DeclarationNames.getIdentifier(&context.Idents.get("Gather")),
-      /*isConst*/ true);
-  gatherDecl->addAttr(HLSLIntrinsicAttr::CreateImplicit(
-      context, "op", "", static_cast<int>(hlsl::IntrinsicOp::MOP_Gather)));
-  gatherDecl->addAttr(HLSLCXXOverloadAttr::CreateImplicit(context));
-  // Gather(location, offset)
-  QualType gatherParams2[] = {float2Type, int2Type};
-  StringRef gatherNames2[] = {"location", "offset"};
-  CXXMethodDecl *gatherDecl2 = CreateObjectFunctionDeclarationWithParams(
-      context, recordDecl, paramType, gatherParams2, gatherNames2,
-      context.DeclarationNames.getIdentifier(&context.Idents.get("Gather")),
-      /*isConst*/ true);
-  gatherDecl2->addAttr(HLSLIntrinsicAttr::CreateImplicit(
-      context, "op", "", static_cast<int>(hlsl::IntrinsicOp::MOP_Gather)));
-  gatherDecl2->addAttr(HLSLCXXOverloadAttr::CreateImplicit(context));
-  // Gather(location, offset, status)
-  QualType gatherParams3[] = {float2Type, int2Type,
-                              context.getLValueReferenceType(uintType)};
-  StringRef gatherNames3[] = {"location", "offset", "status"};
-  CXXMethodDecl *gatherDecl3 = CreateObjectFunctionDeclarationWithParams(
-      context, recordDecl, paramType, gatherParams3, gatherNames3,
-      context.DeclarationNames.getIdentifier(&context.Idents.get("Gather")),
-      /*isConst*/ true);
-  gatherDecl3->addAttr(HLSLIntrinsicAttr::CreateImplicit(
-      context, "op", "", static_cast<int>(hlsl::IntrinsicOp::MOP_Gather)));
-  gatherDecl3->addAttr(HLSLCXXOverloadAttr::CreateImplicit(context));
+  AddCalculateLevelOfDetailFunction(context, recordDecl, coordinateType,
+                                    /*unclamped=*/false);
+  AddCalculateLevelOfDetailFunction(context, recordDecl, coordinateType,
+                                    /*unclamped=*/true);
+  AddGatherFunction(context, recordDecl, paramType, coordinateType, offsetType);
 
   Builder.completeDefinition();
   return recordDecl;
