@@ -4883,9 +4883,8 @@ TEST_F(ValidationTest, CacheInitWithLowPrec) {
 }
 
 TEST_F(ValidationTest, PSVStringTableReorder) {
-  if (!m_ver.m_InternalValidator)
-    if (m_ver.SkipDxilVersion(1, 8))
-      return;
+  if (m_ver.SkipDxilVersion(1, 10))
+    return;
 
   CComPtr<IDxcBlob> pProgram;
   CompileSource("float4 main(float a:A, float b:B) : SV_Target { return 1; }",
@@ -5076,9 +5075,8 @@ public:
 };
 
 TEST_F(ValidationTest, PSVSemanticIndexTableReorder) {
-  if (!m_ver.m_InternalValidator)
-    if (m_ver.SkipDxilVersion(1, 8))
-      return;
+  if (m_ver.SkipDxilVersion(1, 10))
+    return;
 
   CComPtr<IDxcBlob> pProgram;
   CompileFile(L"..\\DXILValidation\\hs_signatures.hlsl", "hs_6_0", &pProgram);
@@ -5552,9 +5550,8 @@ SimplePSV::SimplePSV(const DxilPartHeader *pPSVPart) {
 }
 
 TEST_F(ValidationTest, PSVContentValidationVS) {
-  if (!m_ver.m_InternalValidator)
-    if (m_ver.SkipDxilVersion(1, 10))
-      return;
+  if (m_ver.SkipDxilVersion(1, 10))
+    return;
 
   CComPtr<IDxcBlob> pProgram;
   CompileFile(L"..\\DXC\\dumpPSV_VS.hlsl", "vs_6_8", &pProgram);
@@ -5708,9 +5705,8 @@ TEST_F(ValidationTest, PSVContentValidationVS) {
 }
 
 TEST_F(ValidationTest, PSVContentValidationHS) {
-  if (!m_ver.m_InternalValidator)
-    if (m_ver.SkipDxilVersion(1, 10))
-      return;
+  if (m_ver.SkipDxilVersion(1, 10))
+    return;
 
   CComPtr<IDxcBlob> pProgram;
   CompileFile(L"..\\DXC\\dumpPSV_HS.hlsl", "hs_6_8", &pProgram);
@@ -5858,9 +5854,8 @@ TEST_F(ValidationTest, PSVContentValidationHS) {
 }
 
 TEST_F(ValidationTest, PSVContentValidationDS) {
-  if (!m_ver.m_InternalValidator)
-    if (m_ver.SkipDxilVersion(1, 10))
-      return;
+  if (m_ver.SkipDxilVersion(1, 10))
+    return;
 
   CComPtr<IDxcBlob> pProgram;
   CompileFile(L"..\\DXC\\dumpPSV_DS.hlsl", "ds_6_8", &pProgram);
@@ -6015,9 +6010,8 @@ TEST_F(ValidationTest, PSVContentValidationDS) {
 }
 
 TEST_F(ValidationTest, PSVContentValidationGS) {
-  if (!m_ver.m_InternalValidator)
-    if (m_ver.SkipDxilVersion(1, 10))
-      return;
+  if (m_ver.SkipDxilVersion(1, 10))
+    return;
 
   CComPtr<IDxcBlob> pProgram;
   CompileFile(L"..\\DXC\\dumpPSV_GS.hlsl", "gs_6_8", &pProgram);
@@ -6103,9 +6097,8 @@ TEST_F(ValidationTest, PSVContentValidationGS) {
 }
 
 TEST_F(ValidationTest, PSVContentValidationPS) {
-  if (!m_ver.m_InternalValidator)
-    if (m_ver.SkipDxilVersion(1, 10))
-      return;
+  if (m_ver.SkipDxilVersion(1, 10))
+    return;
 
   CComPtr<IDxcBlob> pProgram;
   CompileFile(L"..\\DXC\\dumpPSV_PS.hlsl", "ps_6_8", &pProgram);
@@ -6188,9 +6181,8 @@ TEST_F(ValidationTest, PSVContentValidationPS) {
 }
 
 TEST_F(ValidationTest, PSVContentValidationCS) {
-  if (!m_ver.m_InternalValidator)
-    if (m_ver.SkipDxilVersion(1, 10))
-      return;
+  if (m_ver.SkipDxilVersion(1, 10))
+    return;
 
   CComPtr<IDxcBlob> pProgram;
   CompileFile(L"..\\DXC\\dumpPSV_CS.hlsl", "cs_6_8", &pProgram);
@@ -6270,9 +6262,8 @@ TEST_F(ValidationTest, PSVContentValidationCS) {
 }
 
 TEST_F(ValidationTest, PSVContentValidationMS) {
-  if (!m_ver.m_InternalValidator)
-    if (m_ver.SkipDxilVersion(1, 10))
-      return;
+  if (m_ver.SkipDxilVersion(1, 10))
+    return;
 
   CComPtr<IDxcBlob> pProgram;
   CompileFile(L"..\\DXC\\dumpPSV_MS.hlsl", "ms_6_8", &pProgram);
@@ -6337,9 +6328,8 @@ TEST_F(ValidationTest, PSVContentValidationMS) {
 }
 
 TEST_F(ValidationTest, PSVContentValidationAS) {
-  if (!m_ver.m_InternalValidator)
-    if (m_ver.SkipDxilVersion(1, 10))
-      return;
+  if (m_ver.SkipDxilVersion(1, 10))
+    return;
 
   CComPtr<IDxcBlob> pProgram;
   CompileFile(L"..\\DXC\\dumpPSV_AS.hlsl", "as_6_8", &pProgram);
@@ -6439,9 +6429,8 @@ struct SimpleContainer {
 };
 
 TEST_F(ValidationTest, WrongPSVSize) {
-  if (!m_ver.m_InternalValidator)
-    if (m_ver.SkipDxilVersion(1, 10))
-      return;
+  if (m_ver.SkipDxilVersion(1, 10))
+    return;
 
   CComPtr<IDxcBlob> pProgram;
   CompileFile(L"..\\DXC\\dumpPSV_AS.hlsl", "as_6_8", &pProgram);
@@ -6528,9 +6517,8 @@ TEST_F(ValidationTest, WrongPSVSize) {
 }
 
 TEST_F(ValidationTest, WrongPSVSizeOnZeros) {
-  if (!m_ver.m_InternalValidator)
-    if (m_ver.SkipDxilVersion(1, 10))
-      return;
+  if (m_ver.SkipDxilVersion(1, 10))
+    return;
 
   CComPtr<IDxcBlob> pProgram;
   CompileFile(L"..\\DXC\\dumpPSV_PS.hlsl", "ps_6_8", &pProgram);
