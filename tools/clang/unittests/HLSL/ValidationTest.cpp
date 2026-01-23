@@ -5553,7 +5553,7 @@ SimplePSV::SimplePSV(const DxilPartHeader *pPSVPart) {
 
 TEST_F(ValidationTest, PSVContentValidationVS) {
   if (!m_ver.m_InternalValidator)
-    if (m_ver.SkipDxilVersion(1, 8))
+    if (m_ver.SkipDxilVersion(1, 10))
       return;
 
   CComPtr<IDxcBlob> pProgram;
@@ -5709,7 +5709,7 @@ TEST_F(ValidationTest, PSVContentValidationVS) {
 
 TEST_F(ValidationTest, PSVContentValidationHS) {
   if (!m_ver.m_InternalValidator)
-    if (m_ver.SkipDxilVersion(1, 8))
+    if (m_ver.SkipDxilVersion(1, 10))
       return;
 
   CComPtr<IDxcBlob> pProgram;
@@ -5859,7 +5859,7 @@ TEST_F(ValidationTest, PSVContentValidationHS) {
 
 TEST_F(ValidationTest, PSVContentValidationDS) {
   if (!m_ver.m_InternalValidator)
-    if (m_ver.SkipDxilVersion(1, 8))
+    if (m_ver.SkipDxilVersion(1, 10))
       return;
 
   CComPtr<IDxcBlob> pProgram;
@@ -6016,7 +6016,7 @@ TEST_F(ValidationTest, PSVContentValidationDS) {
 
 TEST_F(ValidationTest, PSVContentValidationGS) {
   if (!m_ver.m_InternalValidator)
-    if (m_ver.SkipDxilVersion(1, 8))
+    if (m_ver.SkipDxilVersion(1, 10))
       return;
 
   CComPtr<IDxcBlob> pProgram;
@@ -6104,7 +6104,7 @@ TEST_F(ValidationTest, PSVContentValidationGS) {
 
 TEST_F(ValidationTest, PSVContentValidationPS) {
   if (!m_ver.m_InternalValidator)
-    if (m_ver.SkipDxilVersion(1, 8))
+    if (m_ver.SkipDxilVersion(1, 10))
       return;
 
   CComPtr<IDxcBlob> pProgram;
@@ -6189,7 +6189,7 @@ TEST_F(ValidationTest, PSVContentValidationPS) {
 
 TEST_F(ValidationTest, PSVContentValidationCS) {
   if (!m_ver.m_InternalValidator)
-    if (m_ver.SkipDxilVersion(1, 8))
+    if (m_ver.SkipDxilVersion(1, 10))
       return;
 
   CComPtr<IDxcBlob> pProgram;
@@ -6271,7 +6271,7 @@ TEST_F(ValidationTest, PSVContentValidationCS) {
 
 TEST_F(ValidationTest, PSVContentValidationMS) {
   if (!m_ver.m_InternalValidator)
-    if (m_ver.SkipDxilVersion(1, 8))
+    if (m_ver.SkipDxilVersion(1, 10))
       return;
 
   CComPtr<IDxcBlob> pProgram;
@@ -6338,7 +6338,7 @@ TEST_F(ValidationTest, PSVContentValidationMS) {
 
 TEST_F(ValidationTest, PSVContentValidationAS) {
   if (!m_ver.m_InternalValidator)
-    if (m_ver.SkipDxilVersion(1, 8))
+    if (m_ver.SkipDxilVersion(1, 10))
       return;
 
   CComPtr<IDxcBlob> pProgram;
@@ -6440,7 +6440,7 @@ struct SimpleContainer {
 
 TEST_F(ValidationTest, WrongPSVSize) {
   if (!m_ver.m_InternalValidator)
-    if (m_ver.SkipDxilVersion(1, 8))
+    if (m_ver.SkipDxilVersion(1, 10))
       return;
 
   CComPtr<IDxcBlob> pProgram;
@@ -6529,7 +6529,7 @@ TEST_F(ValidationTest, WrongPSVSize) {
 
 TEST_F(ValidationTest, WrongPSVSizeOnZeros) {
   if (!m_ver.m_InternalValidator)
-    if (m_ver.SkipDxilVersion(1, 8))
+    if (m_ver.SkipDxilVersion(1, 10))
       return;
 
   CComPtr<IDxcBlob> pProgram;
@@ -6625,7 +6625,7 @@ TEST_F(ValidationTest, WrongPSVSizeOnZeros) {
 
 TEST_F(ValidationTest, WrongPSVVersion) {
   if (!m_ver.m_InternalValidator)
-    if (m_ver.SkipDxilVersion(1, 8))
+    if (m_ver.SkipDxilVersion(1, 10))
       return;
 
   CComPtr<IDxcBlob> pProgram60;
