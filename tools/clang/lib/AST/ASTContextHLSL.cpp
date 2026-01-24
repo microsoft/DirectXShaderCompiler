@@ -1584,9 +1584,49 @@ static void AddGetDimensionsFunction(ASTContext &context,
       static_cast<int>(hlsl::IntrinsicOp::MOP_GetDimensions)));
 }
 
+static void AddLoadFunction(ASTContext &context, CXXRecordDecl *recordDecl,
+                            QualType returnType, QualType locationType,
+                            QualType offsetType) {
+  QualType uintType = context.UnsignedIntTy;
+
+  // Load(location)
+  CXXMethodDecl *loadDecl = CreateObjectFunctionDeclarationWithParams(
+      context, recordDecl, returnType, ArrayRef<QualType>(locationType),
+      ArrayRef<StringRef>(StringRef("location")),
+      context.DeclarationNames.getIdentifier(&context.Idents.get("Load")),
+      /*isConst*/ true);
+  loadDecl->addAttr(HLSLIntrinsicAttr::CreateImplicit(
+      context, "op", "", static_cast<int>(hlsl::IntrinsicOp::MOP_Load)));
+  loadDecl->addAttr(HLSLCXXOverloadAttr::CreateImplicit(context));
+
+  // Load(location, offset)
+  QualType loadParams2[] = {locationType, offsetType};
+  StringRef loadNames2[] = {"location", "offset"};
+  CXXMethodDecl *loadDecl2 = CreateObjectFunctionDeclarationWithParams(
+      context, recordDecl, returnType, loadParams2, loadNames2,
+      context.DeclarationNames.getIdentifier(&context.Idents.get("Load")),
+      /*isConst*/ true);
+  loadDecl2->addAttr(HLSLIntrinsicAttr::CreateImplicit(
+      context, "op", "", static_cast<int>(hlsl::IntrinsicOp::MOP_Load)));
+  loadDecl2->addAttr(HLSLCXXOverloadAttr::CreateImplicit(context));
+
+  // Load(location, offset, status)
+  QualType loadParams3[] = {locationType, offsetType,
+                            context.getLValueReferenceType(uintType)};
+  StringRef loadNames3[] = {"location", "offset", "status"};
+  CXXMethodDecl *loadDecl3 = CreateObjectFunctionDeclarationWithParams(
+      context, recordDecl, returnType, loadParams3, loadNames3,
+      context.DeclarationNames.getIdentifier(&context.Idents.get("Load")),
+      /*isConst*/ true);
+  loadDecl3->addAttr(HLSLIntrinsicAttr::CreateImplicit(
+      context, "op", "", static_cast<int>(hlsl::IntrinsicOp::MOP_Load)));
+  loadDecl3->addAttr(HLSLCXXOverloadAttr::CreateImplicit(context));
+}
+
 CXXRecordDecl *hlsl::DeclareVkSampledTextureType(
     ASTContext &context, DeclContext *declContext, llvm::StringRef hlslTypeName,
-    QualType defaultParamType, QualType coordinateType, QualType offsetType) {
+    QualType defaultParamType, QualType coordinateType, QualType locationType,
+    QualType offsetType) {
   BuiltinTypeDeclBuilder Builder(declContext, hlslTypeName,
                                  TagDecl::TagKind::TTK_Struct);
 
@@ -1605,6 +1645,7 @@ CXXRecordDecl *hlsl::DeclareVkSampledTextureType(
                                     /*unclamped=*/true);
   AddGatherFunction(context, recordDecl, paramType, coordinateType, offsetType);
   AddGetDimensionsFunction(context, recordDecl, coordinateType);
+  AddLoadFunction(context, recordDecl, paramType, locationType, offsetType);
 
   Builder.completeDefinition();
   return recordDecl;

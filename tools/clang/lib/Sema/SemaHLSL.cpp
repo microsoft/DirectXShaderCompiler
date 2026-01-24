@@ -4020,6 +4020,7 @@ private:
             *m_context, m_vkNSDecl, "SampledTexture2D",
             LookupVectorType(HLSLScalarType::HLSLScalarType_float, 4),
             LookupVectorType(HLSLScalarType::HLSLScalarType_float, 2),
+            LookupVectorType(HLSLScalarType::HLSLScalarType_int, 3),
             LookupVectorType(HLSLScalarType::HLSLScalarType_int, 2));
         recordDecl->setImplicit(true);
         m_vkSampledTexture2DTemplateDecl =
