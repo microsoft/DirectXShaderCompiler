@@ -286,6 +286,10 @@ public:
   /// If compareVal is given a non-zero value, *Dref* variants of OpImageSample*
   /// will be generated.
   ///
+  /// If the of `image` is a sampled image, then that image will be sampled.
+  /// In this case, `sampler` must be `nullptr`. If `image` is not a sampled
+  /// image, a sampled image will be created by combining `image` and `sampler`.
+  ///
   /// If lod or grad is given a non-zero value, *ExplicitLod variants of
   /// OpImageSample* will be generated; otherwise, *ImplicitLod variant will
   /// be generated.
@@ -333,6 +337,10 @@ public:
                         SourceLocation loc, SourceRange range = {});
 
   /// \brief Creates SPIR-V instructions for gathering the given image.
+  ///
+  /// If the of `image` is a sampled image, then that image will be gathered.
+  /// In this case, `sampler` must be `nullptr`. If `image` is not a sampled
+  /// image, a sampled image will be created by combining `image` and `sampler`.
   ///
   /// If compareVal is given a non-null value, OpImageDrefGather or
   /// OpImageSparseDrefGather will be generated; otherwise, OpImageGather or
