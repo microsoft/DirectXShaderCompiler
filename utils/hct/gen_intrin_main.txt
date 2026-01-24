@@ -1247,4 +1247,7 @@ namespace VkSampledTexture2DMethods {
     void [[]] GetDimensions(in uint x, out float_like width, out $type2 height, out $type2 levels) : resinfo;
     void [[]] GetDimensions(out uint_only width, out $type1 height) : resinfo_uint_o;
     void [[]] GetDimensions(out float_like width, out $type1 height) : resinfo_o;
+    $classT [[ro]] Load(in int<3> x) : tex2d_t_load;
+    $classT [[ro]] Load(in int<3> x, in int<2> o) : tex2d_t_load_o;
+    $classT [[]] Load(in int<3> x, in int<2> o, out uint_only status) : tex2d_t_load_o_s;
 } namespace

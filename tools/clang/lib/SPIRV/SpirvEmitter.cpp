@@ -4693,9 +4693,11 @@ SpirvInstruction *SpirvEmitter::processBufferTextureLoad(
   // The result type of an OpImageFetch must be a vec4 of float or int.
   const auto type = object->getType();
   assert(isBuffer(type) || isRWBuffer(type) || isTexture(type) ||
-         isRWTexture(type) || isSubpassInput(type) || isSubpassInputMS(type));
+         isRWTexture(type) || isSubpassInput(type) || isSubpassInputMS(type) ||
+         isSampledTexture(type));
 
-  const bool doFetch = isBuffer(type) || isTexture(type);
+  const bool doFetch =
+      isBuffer(type) || isTexture(type) || isSampledTexture(type);
   const bool rasterizerOrdered = isRasterizerOrderedView(type);
 
   if (rasterizerOrdered) {
@@ -4759,6 +4761,18 @@ SpirvInstruction *SpirvEmitter::processBufferTextureLoad(
 
   // OpImageFetch and OpImageRead can only fetch a vector of 4 elements.
   const QualType texelType = astContext.getExtVectorType(elemType, 4u);
+
+  if (isSampledTexture(type)) {
+    LowerTypeVisitor lowerTypeVisitor(astContext, spvContext, spirvOptions,
+                                      spvBuilder);
+    const SpirvType *spvType = lowerTypeVisitor.lowerType(
+        type, SpirvLayoutRule::Void, llvm::None, loc);
+    // Get image type based on type, assuming type is a sampledimage type
+    const auto *sampledImageType = cast<SampledImageType>(spvType);
+    const SpirvType *imgType = sampledImageType->getImageType();
+    objectInfo =
+        spvBuilder.createUnaryOp(spv::Op::OpImage, imgType, objectInfo, loc);
+  }
   auto *texel = spvBuilder.createImageFetchOrRead(
       doFetch, texelType, type, objectInfo, location, lod, constOffset,
       /*constOffsets*/ nullptr, sampleNumber, residencyCode, loc, range);
@@ -6345,7 +6359,8 @@ SpirvEmitter::processTextureSampleCmpLevel(const CXXMemberCallExpr *expr) {
 SpirvInstruction *
 SpirvEmitter::processBufferTextureLoad(const CXXMemberCallExpr *expr) {
   // Signature:
-  // For Texture1D, Texture1DArray, Texture2D, Texture2DArray, Texture3D:
+  // For Texture1D, Texture1DArray, Texture2D, Texture2DArray, Texture3D
+  // and their SampledTexture variants:
   // ret Object.Load(int Location
   //                 [, int Offset]
   //                 [, uint status]);
@@ -6403,7 +6418,7 @@ SpirvEmitter::processBufferTextureLoad(const CXXMemberCallExpr *expr) {
   // and 1 for location.
   const bool hasOffsetArg = numArgs - hasStatusArg - textureMS - 1 > 0;
 
-  if (isTexture(objectType)) {
+  if (isTexture(objectType) || isSampledTexture(objectType)) {
     // .Load() has a second optional paramter for offset.
     SpirvInstruction *location = doExpr(locationArg);
     SpirvInstruction *constOffset = nullptr, *varOffset = nullptr;
