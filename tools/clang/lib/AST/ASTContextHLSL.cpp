@@ -1461,6 +1461,39 @@ static void AddSampleBiasFunction(ASTContext &context,
   sampleDecl5->addAttr(HLSLCXXOverloadAttr::CreateImplicit(context));
 }
 
+static void AddSampleLevelFunction(ASTContext &context,
+                                   CXXRecordDecl *recordDecl,
+                                   QualType returnType, QualType coordinateType,
+                                   QualType offsetType) {
+  QualType floatType = context.FloatTy;
+  QualType uintType = context.UnsignedIntTy;
+
+  // SampleLevel(location, offset, level)
+  QualType params3[] = {coordinateType, floatType, offsetType};
+  StringRef names3[] = {"location", "level", "offset"};
+  CXXMethodDecl *sampleDecl3 = CreateObjectFunctionDeclarationWithParams(
+      context, recordDecl, returnType, params3, names3,
+      context.DeclarationNames.getIdentifier(
+          &context.Idents.get("SampleLevel")),
+      /*isConst*/ true);
+  sampleDecl3->addAttr(HLSLIntrinsicAttr::CreateImplicit(
+      context, "op", "", static_cast<int>(hlsl::IntrinsicOp::MOP_SampleLevel)));
+  sampleDecl3->addAttr(HLSLCXXOverloadAttr::CreateImplicit(context));
+
+  // SampleLevel(location, offset, level, status)
+  QualType params4[] = {coordinateType, floatType, offsetType,
+                        context.getLValueReferenceType(uintType)};
+  StringRef names4[] = {"location", "level", "offset", "status"};
+  CXXMethodDecl *sampleDecl4 = CreateObjectFunctionDeclarationWithParams(
+      context, recordDecl, returnType, params4, names4,
+      context.DeclarationNames.getIdentifier(
+          &context.Idents.get("SampleLevel")),
+      /*isConst*/ true);
+  sampleDecl4->addAttr(HLSLIntrinsicAttr::CreateImplicit(
+      context, "op", "", static_cast<int>(hlsl::IntrinsicOp::MOP_SampleLevel)));
+  sampleDecl4->addAttr(HLSLCXXOverloadAttr::CreateImplicit(context));
+}
+
 static void AddCalculateLevelOfDetailFunction(ASTContext &context,
                                               CXXRecordDecl *recordDecl,
                                               QualType coordinateType,
@@ -1683,6 +1716,8 @@ CXXRecordDecl *hlsl::DeclareVkSampledTextureType(
   AddSampleFunction(context, recordDecl, paramType, coordinateType, offsetType);
   AddSampleBiasFunction(context, recordDecl, paramType, coordinateType,
                         offsetType);
+  AddSampleLevelFunction(context, recordDecl, paramType, coordinateType,
+                         offsetType);
   AddCalculateLevelOfDetailFunction(context, recordDecl, coordinateType,
                                     /*unclamped=*/false);
   AddCalculateLevelOfDetailFunction(context, recordDecl, coordinateType,
