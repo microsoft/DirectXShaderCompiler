@@ -1494,6 +1494,64 @@ static void AddSampleLevelFunction(ASTContext &context,
   sampleDecl4->addAttr(HLSLCXXOverloadAttr::CreateImplicit(context));
 }
 
+static void AddSampleGradFunction(ASTContext &context,
+                                  CXXRecordDecl *recordDecl,
+                                  QualType returnType, QualType coordinateType,
+                                  QualType offsetType,
+                                  QualType rateOfChangeType) {
+  QualType floatType = context.FloatTy;
+  QualType uintType = context.UnsignedIntTy;
+
+  // SampleGrad(location, ddx, ddy)
+  QualType params3[] = {coordinateType, rateOfChangeType, rateOfChangeType};
+  StringRef names3[] = {"location", "ddx", "ddy"};
+  CXXMethodDecl *sampleDecl3 = CreateObjectFunctionDeclarationWithParams(
+      context, recordDecl, returnType, params3, names3,
+      context.DeclarationNames.getIdentifier(&context.Idents.get("SampleGrad")),
+      /*isConst*/ true);
+  sampleDecl3->addAttr(HLSLIntrinsicAttr::CreateImplicit(
+      context, "op", "", static_cast<int>(hlsl::IntrinsicOp::MOP_SampleGrad)));
+  sampleDecl3->addAttr(HLSLCXXOverloadAttr::CreateImplicit(context));
+
+  // SampleGrad(location, ddx, ddy, offset)
+  QualType params4[] = {coordinateType, rateOfChangeType, rateOfChangeType,
+                        offsetType};
+  StringRef names4[] = {"location", "ddx", "ddy", "offset"};
+  CXXMethodDecl *sampleDecl4 = CreateObjectFunctionDeclarationWithParams(
+      context, recordDecl, returnType, params4, names4,
+      context.DeclarationNames.getIdentifier(&context.Idents.get("SampleGrad")),
+      /*isConst*/ true);
+  sampleDecl4->addAttr(HLSLIntrinsicAttr::CreateImplicit(
+      context, "op", "", static_cast<int>(hlsl::IntrinsicOp::MOP_SampleGrad)));
+  sampleDecl4->addAttr(HLSLCXXOverloadAttr::CreateImplicit(context));
+
+  // SampleGrad(location, ddx, ddy, offset, clamp)
+  QualType params5[] = {coordinateType, rateOfChangeType, rateOfChangeType,
+                        offsetType, floatType};
+  StringRef names5[] = {"location", "ddx", "ddy", "offset", "clamp"};
+  CXXMethodDecl *sampleDecl5 = CreateObjectFunctionDeclarationWithParams(
+      context, recordDecl, returnType, params5, names5,
+      context.DeclarationNames.getIdentifier(&context.Idents.get("SampleGrad")),
+      /*isConst*/ true);
+  sampleDecl5->addAttr(HLSLIntrinsicAttr::CreateImplicit(
+      context, "op", "", static_cast<int>(hlsl::IntrinsicOp::MOP_SampleGrad)));
+  sampleDecl5->addAttr(HLSLCXXOverloadAttr::CreateImplicit(context));
+
+  // SampleGrad(location, ddx, ddy, offset, clamp, status)
+  QualType params6[] = {
+      coordinateType,   rateOfChangeType,
+      rateOfChangeType, offsetType,
+      floatType,        context.getLValueReferenceType(uintType)};
+  StringRef names6[] = {"location", "ddx", "ddy", "offset", "clamp", "status"};
+  CXXMethodDecl *sampleDecl6 = CreateObjectFunctionDeclarationWithParams(
+      context, recordDecl, returnType, params6, names6,
+      context.DeclarationNames.getIdentifier(&context.Idents.get("SampleGrad")),
+      /*isConst*/ true);
+  sampleDecl6->addAttr(HLSLIntrinsicAttr::CreateImplicit(
+      context, "op", "", static_cast<int>(hlsl::IntrinsicOp::MOP_SampleGrad)));
+  sampleDecl6->addAttr(HLSLCXXOverloadAttr::CreateImplicit(context));
+}
+
 static void AddCalculateLevelOfDetailFunction(ASTContext &context,
                                               CXXRecordDecl *recordDecl,
                                               QualType coordinateType,
@@ -1701,7 +1759,7 @@ static void AddLoadFunction(ASTContext &context, CXXRecordDecl *recordDecl,
 CXXRecordDecl *hlsl::DeclareVkSampledTextureType(
     ASTContext &context, DeclContext *declContext, llvm::StringRef hlslTypeName,
     QualType defaultParamType, QualType coordinateType, QualType locationType,
-    QualType offsetType) {
+    QualType offsetType, QualType rateOfChangeType) {
   BuiltinTypeDeclBuilder Builder(declContext, hlslTypeName,
                                  TagDecl::TagKind::TTK_Struct);
 
@@ -1718,6 +1776,8 @@ CXXRecordDecl *hlsl::DeclareVkSampledTextureType(
                         offsetType);
   AddSampleLevelFunction(context, recordDecl, paramType, coordinateType,
                          offsetType);
+  AddSampleGradFunction(context, recordDecl, paramType, coordinateType,
+                        offsetType, rateOfChangeType);
   AddCalculateLevelOfDetailFunction(context, recordDecl, coordinateType,
                                     /*unclamped=*/false);
   AddCalculateLevelOfDetailFunction(context, recordDecl, coordinateType,
