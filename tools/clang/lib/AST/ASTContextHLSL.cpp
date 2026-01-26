@@ -1552,6 +1552,58 @@ static void AddSampleGradFunction(ASTContext &context,
   sampleDecl6->addAttr(HLSLCXXOverloadAttr::CreateImplicit(context));
 }
 
+static void AddSampleCmpFunction(ASTContext &context, CXXRecordDecl *recordDecl,
+                                 QualType coordinateType, QualType offsetType) {
+  QualType floatType = context.FloatTy;
+  QualType uintType = context.UnsignedIntTy;
+
+  // SampleCmp(location, compareValue)
+  QualType params2[] = {coordinateType, floatType};
+  StringRef names2[] = {"location", "compareValue"};
+  CXXMethodDecl *sampleDecl2 = CreateObjectFunctionDeclarationWithParams(
+      context, recordDecl, floatType, params2, names2,
+      context.DeclarationNames.getIdentifier(&context.Idents.get("SampleCmp")),
+      /*isConst*/ true);
+  sampleDecl2->addAttr(HLSLIntrinsicAttr::CreateImplicit(
+      context, "op", "", static_cast<int>(hlsl::IntrinsicOp::MOP_SampleCmp)));
+  sampleDecl2->addAttr(HLSLCXXOverloadAttr::CreateImplicit(context));
+
+  // SampleCmp(location, compareValue, offset)
+  QualType params3[] = {coordinateType, floatType, offsetType};
+  StringRef names3[] = {"location", "compareValue", "offset"};
+  CXXMethodDecl *sampleDecl3 = CreateObjectFunctionDeclarationWithParams(
+      context, recordDecl, floatType, params3, names3,
+      context.DeclarationNames.getIdentifier(&context.Idents.get("SampleCmp")),
+      /*isConst*/ true);
+  sampleDecl3->addAttr(HLSLIntrinsicAttr::CreateImplicit(
+      context, "op", "", static_cast<int>(hlsl::IntrinsicOp::MOP_SampleCmp)));
+  sampleDecl3->addAttr(HLSLCXXOverloadAttr::CreateImplicit(context));
+
+  // SampleCmp(location, compareValue, offset, clamp)
+  QualType params4[] = {coordinateType, floatType, offsetType, floatType};
+  StringRef names4[] = {"location", "compareValue", "offset", "clamp"};
+  CXXMethodDecl *sampleDecl4 = CreateObjectFunctionDeclarationWithParams(
+      context, recordDecl, floatType, params4, names4,
+      context.DeclarationNames.getIdentifier(&context.Idents.get("SampleCmp")),
+      /*isConst*/ true);
+  sampleDecl4->addAttr(HLSLIntrinsicAttr::CreateImplicit(
+      context, "op", "", static_cast<int>(hlsl::IntrinsicOp::MOP_SampleCmp)));
+  sampleDecl4->addAttr(HLSLCXXOverloadAttr::CreateImplicit(context));
+
+  // SampleCmp(location, compareValue, offset, clamp, status)
+  QualType params5[] = {coordinateType, floatType, offsetType, floatType,
+                        context.getLValueReferenceType(uintType)};
+  StringRef names5[] = {"location", "compareValue", "offset", "clamp",
+                        "status"};
+  CXXMethodDecl *sampleDecl5 = CreateObjectFunctionDeclarationWithParams(
+      context, recordDecl, floatType, params5, names5,
+      context.DeclarationNames.getIdentifier(&context.Idents.get("SampleCmp")),
+      /*isConst*/ true);
+  sampleDecl5->addAttr(HLSLIntrinsicAttr::CreateImplicit(
+      context, "op", "", static_cast<int>(hlsl::IntrinsicOp::MOP_SampleCmp)));
+  sampleDecl5->addAttr(HLSLCXXOverloadAttr::CreateImplicit(context));
+}
+
 static void AddCalculateLevelOfDetailFunction(ASTContext &context,
                                               CXXRecordDecl *recordDecl,
                                               QualType coordinateType,
@@ -1778,6 +1830,7 @@ CXXRecordDecl *hlsl::DeclareVkSampledTextureType(
                          offsetType);
   AddSampleGradFunction(context, recordDecl, paramType, coordinateType,
                         offsetType, rateOfChangeType);
+  AddSampleCmpFunction(context, recordDecl, coordinateType, offsetType);
   AddCalculateLevelOfDetailFunction(context, recordDecl, coordinateType,
                                     /*unclamped=*/false);
   AddCalculateLevelOfDetailFunction(context, recordDecl, coordinateType,

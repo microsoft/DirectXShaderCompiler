@@ -6128,6 +6128,8 @@ SpirvEmitter::processTextureSampleCmp(const CXXMemberCallExpr *expr) {
   //   [, float Clamp]
   //   [, out uint Status]
   // );
+  // SampledTexture variants have the same signature without the
+  // sampler_state parameter.
   //
   // For TextureCube and TextureCubeArray:
   // float Object.SampleCmp(
@@ -6142,30 +6144,49 @@ SpirvEmitter::processTextureSampleCmp(const CXXMemberCallExpr *expr) {
   const bool hasStatusArg =
       expr->getArg(numArgs - 1)->getType()->isUnsignedIntegerType();
   auto *status = hasStatusArg ? doExpr(expr->getArg(numArgs - 1)) : nullptr;
+  const auto *imageExpr = expr->getImplicitObjectArgument();
+  const QualType imageType = imageExpr->getType();
+  const bool isImageSampledTexture = isSampledTexture(imageType);
+
+  int samplerIndex, coordinateIndex, compareValIndex, offsetIndex, clampIndex;
+  if (isImageSampledTexture) {
+    samplerIndex = -1; // non-existant
+    coordinateIndex = 0;
+    compareValIndex = 1;
+    offsetIndex = 2;
+    clampIndex = 3;
+  } else {
+    samplerIndex = 0;
+    coordinateIndex = 1;
+    compareValIndex = 2;
+    offsetIndex = 3;
+    clampIndex = 4;
+  }
 
   SpirvInstruction *clamp = nullptr;
-  if (numArgs > 3 && expr->getArg(3)->getType()->isFloatingType())
-    clamp = doExpr(expr->getArg(3));
-  else if (numArgs > 4 && expr->getArg(4)->getType()->isFloatingType())
-    clamp = doExpr(expr->getArg(4));
+  if (numArgs > offsetIndex &&
+      expr->getArg(offsetIndex)->getType()->isFloatingType())
+    clamp = doExpr(expr->getArg(offsetIndex));
+  else if (numArgs > offsetIndex + 1 &&
+           expr->getArg(offsetIndex + 1)->getType()->isFloatingType())
+    clamp = doExpr(expr->getArg(offsetIndex + 1));
   const bool hasClampArg = clamp != nullptr;
 
-  const auto *imageExpr = expr->getImplicitObjectArgument();
   auto *image = loadIfGLValue(imageExpr);
-  auto *sampler = doExpr(expr->getArg(0));
-  auto *coordinate = doExpr(expr->getArg(1));
-  auto *compareVal = doExpr(expr->getArg(2));
+  auto *sampler = samplerIndex < 0 ? nullptr : doExpr(expr->getArg(0));
+  auto *coordinate = doExpr(expr->getArg(coordinateIndex));
+  auto *compareVal = doExpr(expr->getArg(compareValIndex));
   // If offset is present in .SampleCmp(), it will be the fourth argument.
   SpirvInstruction *constOffset = nullptr, *varOffset = nullptr;
 
   // Subtract 1 for clamp (if it exists), 1 for status (if it exists),
   // and 3 for sampler_state, location, and compare_value.
-  const bool hasOffsetArg = numArgs - hasStatusArg - hasClampArg - 3 > 0;
+  const bool hasOffsetArg =
+      numArgs - hasStatusArg - hasClampArg - offsetIndex > 0;
   if (hasOffsetArg)
-    handleOffsetInMethodCall(expr, 3, &constOffset, &varOffset);
+    handleOffsetInMethodCall(expr, offsetIndex, &constOffset, &varOffset);
 
   const auto retType = expr->getDirectCallee()->getReturnType();
-  const auto imageType = imageExpr->getType();
 
   addDerivativeGroupExecutionMode();
 
