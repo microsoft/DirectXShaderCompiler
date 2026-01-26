@@ -6212,6 +6212,8 @@ SpirvEmitter::processTextureSampleCmpBias(const CXXMemberCallExpr *expr) {
   //   [, float Clamp]
   //   [, out uint Status]
   // );
+  // SampledTexture variants have the same signature without the
+  // sampler_state parameter.
   //
   // For TextureCube and TextureCubeArray:
   // float Object.SampleCmpBias(
@@ -6225,21 +6227,41 @@ SpirvEmitter::processTextureSampleCmpBias(const CXXMemberCallExpr *expr) {
 
   const auto *imageExpr = expr->getImplicitObjectArgument();
   auto *image = loadIfGLValue(imageExpr);
+  const auto imageType = imageExpr->getType();
+  const bool isImageSampledTexture = isSampledTexture(imageType);
 
-  auto *sampler = doExpr(expr->getArg(0));
-  auto *coordinate = doExpr(expr->getArg(1));
-  auto *compareVal = doExpr(expr->getArg(2));
-  auto *bias = doExpr(expr->getArg(3));
+  int samplerIndex, coordinateIndex, compareValIndex, biasIndex, offsetIndex,
+      clampIndex;
+  if (isImageSampledTexture) {
+    samplerIndex = -1; // non-existant
+    coordinateIndex = 0;
+    compareValIndex = 1;
+    biasIndex = 2;
+    offsetIndex = 3;
+    clampIndex = 4;
+  } else {
+    samplerIndex = 0;
+    coordinateIndex = 1;
+    compareValIndex = 2;
+    biasIndex = 3;
+    offsetIndex = 4;
+    clampIndex = 5;
+  }
+
+  auto *sampler =
+      samplerIndex < 0 ? nullptr : doExpr(expr->getArg(samplerIndex));
+  auto *coordinate = doExpr(expr->getArg(coordinateIndex));
+  auto *compareVal = doExpr(expr->getArg(compareValIndex));
+  auto *bias = doExpr(expr->getArg(biasIndex));
 
   SpirvInstruction *constOffset = nullptr, *varOffset = nullptr;
   SpirvInstruction *clamp = nullptr;
   SpirvInstruction *status = nullptr;
 
-  handleOptionalTextureSampleArgs(expr, 4, &constOffset, &varOffset, &clamp,
-                                  &status);
+  handleOptionalTextureSampleArgs(expr, offsetIndex, &constOffset, &varOffset,
+                                  &clamp, &status);
 
   const auto retType = expr->getDirectCallee()->getReturnType();
-  const auto imageType = imageExpr->getType();
 
   addDerivativeGroupExecutionMode();
 

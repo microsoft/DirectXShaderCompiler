@@ -1461,6 +1461,70 @@ static void AddSampleBiasFunction(ASTContext &context,
   sampleDecl5->addAttr(HLSLCXXOverloadAttr::CreateImplicit(context));
 }
 
+static void AddSampleCmpBiasFunction(ASTContext &context,
+                                     CXXRecordDecl *recordDecl,
+                                     QualType coordinateType,
+                                     QualType offsetType) {
+  QualType floatType = context.FloatTy;
+  QualType uintType = context.UnsignedIntTy;
+
+  // SampleCmpBias(location, compareValue, bias)
+  QualType params3[] = {coordinateType, floatType, floatType};
+  StringRef names3[] = {"location", "compareValue", "bias"};
+  CXXMethodDecl *sampleDecl3 = CreateObjectFunctionDeclarationWithParams(
+      context, recordDecl, floatType, params3, names3,
+      context.DeclarationNames.getIdentifier(
+          &context.Idents.get("SampleCmpBias")),
+      /*isConst*/ true);
+  sampleDecl3->addAttr(HLSLIntrinsicAttr::CreateImplicit(
+      context, "op", "",
+      static_cast<int>(hlsl::IntrinsicOp::MOP_SampleCmpBias)));
+  sampleDecl3->addAttr(HLSLCXXOverloadAttr::CreateImplicit(context));
+
+  // SampleCmpBias(location, compareValue, bias, offset)
+  QualType params4[] = {coordinateType, floatType, floatType, offsetType};
+  StringRef names4[] = {"location", "compareValue", "bias", "offset"};
+  CXXMethodDecl *sampleDecl4 = CreateObjectFunctionDeclarationWithParams(
+      context, recordDecl, floatType, params4, names4,
+      context.DeclarationNames.getIdentifier(
+          &context.Idents.get("SampleCmpBias")),
+      /*isConst*/ true);
+  sampleDecl4->addAttr(HLSLIntrinsicAttr::CreateImplicit(
+      context, "op", "",
+      static_cast<int>(hlsl::IntrinsicOp::MOP_SampleCmpBias)));
+  sampleDecl4->addAttr(HLSLCXXOverloadAttr::CreateImplicit(context));
+
+  // SampleCmpBias(location, compareValue, bias, offset, clamp)
+  QualType params5[] = {coordinateType, floatType, floatType, offsetType,
+                        floatType};
+  StringRef names5[] = {"location", "compareValue", "bias", "offset", "clamp"};
+  CXXMethodDecl *sampleDecl5 = CreateObjectFunctionDeclarationWithParams(
+      context, recordDecl, floatType, params5, names5,
+      context.DeclarationNames.getIdentifier(
+          &context.Idents.get("SampleCmpBias")),
+      /*isConst*/ true);
+  sampleDecl5->addAttr(HLSLIntrinsicAttr::CreateImplicit(
+      context, "op", "",
+      static_cast<int>(hlsl::IntrinsicOp::MOP_SampleCmpBias)));
+  sampleDecl5->addAttr(HLSLCXXOverloadAttr::CreateImplicit(context));
+
+  // SampleCmpBias(location, offset, bias, clamp, status)
+  QualType params6[] = {
+      coordinateType, floatType, floatType,
+      offsetType,     floatType, context.getLValueReferenceType(uintType)};
+  StringRef names6[] = {"location", "compareValue", "bias",
+                        "offset",   "clamp",        "status"};
+  CXXMethodDecl *sampleDecl6 = CreateObjectFunctionDeclarationWithParams(
+      context, recordDecl, floatType, params6, names6,
+      context.DeclarationNames.getIdentifier(
+          &context.Idents.get("SampleCmpBias")),
+      /*isConst*/ true);
+  sampleDecl6->addAttr(HLSLIntrinsicAttr::CreateImplicit(
+      context, "op", "",
+      static_cast<int>(hlsl::IntrinsicOp::MOP_SampleCmpBias)));
+  sampleDecl6->addAttr(HLSLCXXOverloadAttr::CreateImplicit(context));
+}
+
 static void AddSampleLevelFunction(ASTContext &context,
                                    CXXRecordDecl *recordDecl,
                                    QualType returnType, QualType coordinateType,
@@ -2004,6 +2068,7 @@ CXXRecordDecl *hlsl::DeclareVkSampledTextureType(
   AddSampleCmpLevelFunction(context, recordDecl, coordinateType, offsetType);
   AddSampleCmpGradFunction(context, recordDecl, coordinateType, offsetType,
                            rateOfChangeType);
+  AddSampleCmpBiasFunction(context, recordDecl, coordinateType, offsetType);
   AddCalculateLevelOfDetailFunction(context, recordDecl, coordinateType,
                                     /*unclamped=*/false);
   AddCalculateLevelOfDetailFunction(context, recordDecl, coordinateType,
