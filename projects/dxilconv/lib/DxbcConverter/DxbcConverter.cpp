@@ -59,7 +59,7 @@ __override HRESULT STDMETHODCALLTYPE DxbcConverter::ConvertInDriver(
     UINT32 NumInputSignatureElements, LPCVOID pOutputSignature,
     UINT32 NumOutputSignatureElements, LPCVOID pPatchConstantSignature,
     UINT32 NumPatchConstantSignatureElements, LPCWSTR pExtraOptions,
-    IDxcBlob **ppDxilModule, LPWSTR *ppDiag) {
+    _COM_Outptr_ IDxcBlob **ppDxilModule, LPWSTR *ppDiag) {
   DxcThreadMalloc TM(m_pMalloc);
   LARGE_INTEGER start, end;
   QueryPerformanceCounter(&start);
@@ -339,7 +339,7 @@ void DxbcConverter::ConvertInDriverImpl(
     UINT32 NumOutputSignatureElements,
     const D3D12DDIARG_SIGNATURE_ENTRY_0012 *pPatchConstantSignature,
     UINT32 NumPatchConstantSignatureElements, LPCWSTR pExtraOptions,
-    IDxcBlob **ppDxcBlob, LPWSTR *ppDiag) {
+    _COM_Outptr_ IDxcBlob **ppDxcBlob, LPWSTR *ppDiag) {
   IFTARG(pByteCode);
   IFTARG(ppDxcBlob);
   UINT SizeInUINTs = pByteCode[1];

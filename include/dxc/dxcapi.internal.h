@@ -337,7 +337,7 @@ CROSS_PLATFORM_UUIDOF(IDxcContainerEventsHandler,
 struct IDxcContainerEventsHandler : public IUnknown {
 public:
   virtual HRESULT STDMETHODCALLTYPE
-  OnDxilContainerBuilt(IDxcBlob *pSource, IDxcBlob **ppTarget) = 0;
+  OnDxilContainerBuilt(IDxcBlob *pSource, _COM_Outptr_ IDxcBlob **ppTarget) = 0;
 };
 
 CROSS_PLATFORM_UUIDOF(IDxcContainerEvent,

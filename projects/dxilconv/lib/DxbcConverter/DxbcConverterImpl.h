@@ -309,7 +309,7 @@ public:
       UINT32 NumInputSignatureElements, LPCVOID pOutputSignature,
       UINT32 NumOutputSignatureElements, LPCVOID pPatchConstantSignature,
       UINT32 NumPatchConstantSignatureElements, LPCWSTR pExtraOptions,
-      IDxcBlob **ppDxilModule, LPWSTR *ppDiag) override;
+      _COM_Outptr_ IDxcBlob **ppDxilModule, LPWSTR *ppDiag) override;
 
 protected:
   LLVMContext m_Ctx;
@@ -534,7 +534,7 @@ protected:
       UINT32 NumOutputSignatureElements,
       const D3D12DDIARG_SIGNATURE_ENTRY_0012 *pPatchConstantSignature,
       UINT32 NumPatchConstantSignatureElements, LPCWSTR pExtraOptions,
-      IDxcBlob **ppDxcBlob, LPWSTR *ppDiag);
+      _COM_Outptr_ IDxcBlob **ppDxcBlob, LPWSTR *ppDiag);
 
   virtual void LogConvertResult(bool InDriver,
                                 const LARGE_INTEGER *pQPCConvertStart,

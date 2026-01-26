@@ -19,10 +19,10 @@
 #include "dxcetw.h"
 #include <memory>
 
-HRESULT CreateDxcDxrFallbackCompiler(REFIID riid, LPVOID *ppv);
+HRESULT CreateDxcDxrFallbackCompiler(REFIID riid, _COM_Outptr_ LPVOID *ppv);
 
 static HRESULT ThreadMallocDxcCreateInstance(REFCLSID rclsid, REFIID riid,
-                                             LPVOID *ppv) {
+                                             _COM_Outptr_ LPVOID *ppv) {
   HRESULT hr = S_OK;
   *ppv = nullptr;
 
@@ -34,9 +34,9 @@ static HRESULT ThreadMallocDxcCreateInstance(REFCLSID rclsid, REFIID riid,
   return hr;
 }
 
-DXC_API_IMPORT HRESULT __stdcall DxcCreateDxrFallbackCompiler(REFCLSID rclsid,
-                                                              REFIID riid,
-                                                              LPVOID *ppv) {
+DXC_API_IMPORT HRESULT __stdcall
+DxcCreateDxrFallbackCompiler(REFCLSID rclsid, REFIID riid,
+                             _COM_Outptr_ LPVOID *ppv) {
   if (ppv == nullptr) {
     return E_POINTER;
   }
