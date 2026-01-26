@@ -6388,6 +6388,8 @@ SpirvEmitter::processTextureSampleCmpLevel(const CXXMemberCallExpr *expr) {
   //   [, int Offset]
   //   [, out uint Status]
   // );
+  // SampledTexture variants have the same signature without the
+  // sampler_state parameter.
   //
   // For TextureCube and TextureCubeArray:
   // float Object.SampleCmpLevel(
@@ -6404,20 +6406,38 @@ SpirvEmitter::processTextureSampleCmpLevel(const CXXMemberCallExpr *expr) {
   auto *status = hasStatusArg ? doExpr(expr->getArg(numArgs - 1)) : nullptr;
 
   const auto *imageExpr = expr->getImplicitObjectArgument();
+  const auto imageType = imageExpr->getType();
+  const bool isImageSampledTexture = isSampledTexture(imageType);
+
+  int samplerIndex, coordIndex, compareValIndex, lodIndex, offsetIndex;
+  if (isImageSampledTexture) {
+    samplerIndex = -1; // non-existant
+    coordIndex = 0;
+    compareValIndex = 1;
+    lodIndex = 2;
+    offsetIndex = 3;
+  } else {
+    samplerIndex = 0;
+    coordIndex = 1;
+    compareValIndex = 2;
+    lodIndex = 3;
+    offsetIndex = 4;
+  }
+
   auto *image = loadIfGLValue(imageExpr);
-  auto *sampler = doExpr(expr->getArg(0));
-  auto *coordinate = doExpr(expr->getArg(1));
-  auto *compareVal = doExpr(expr->getArg(2));
-  auto *lod = doExpr(expr->getArg(3));
+  auto *sampler =
+      samplerIndex < 0 ? nullptr : doExpr(expr->getArg(samplerIndex));
+  auto *coordinate = doExpr(expr->getArg(coordIndex));
+  auto *compareVal = doExpr(expr->getArg(compareValIndex));
+  auto *lod = doExpr(expr->getArg(lodIndex));
 
   // If offset is present in .SampleCmp(), it will be the fourth argument.
   SpirvInstruction *constOffset = nullptr, *varOffset = nullptr;
-  const bool hasOffsetArg = numArgs - hasStatusArg - 4 > 0;
+  const bool hasOffsetArg = numArgs - hasStatusArg - offsetIndex > 0;
   if (hasOffsetArg)
-    handleOffsetInMethodCall(expr, 4, &constOffset, &varOffset);
+    handleOffsetInMethodCall(expr, offsetIndex, &constOffset, &varOffset);
 
   const auto retType = expr->getDirectCallee()->getReturnType();
-  const auto imageType = imageExpr->getType();
 
   return createImageSample(
       retType, imageType, image, sampler, coordinate, compareVal,
