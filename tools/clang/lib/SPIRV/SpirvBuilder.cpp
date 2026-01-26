@@ -1346,7 +1346,7 @@ SpirvInstruction *SpirvBuilder::createSpirvIntrInstExt(
   SpirvExtInstImport *set =
       (instSet.size() == 0) ? nullptr : getExtInstSet(instSet);
 
-  if (retType != QualType() && retType->isVoidType()) {
+  if (!set && retType != QualType() && retType->isVoidType()) {
     retType = QualType();
   }
 
