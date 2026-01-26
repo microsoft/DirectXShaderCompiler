@@ -1419,6 +1419,48 @@ static void AddSampleFunction(ASTContext &context, CXXRecordDecl *recordDecl,
   sampleDecl4->addAttr(HLSLCXXOverloadAttr::CreateImplicit(context));
 }
 
+static void AddSampleBiasFunction(ASTContext &context,
+                                  CXXRecordDecl *recordDecl,
+                                  QualType returnType, QualType coordinateType,
+                                  QualType offsetType) {
+  QualType floatType = context.FloatTy;
+  QualType uintType = context.UnsignedIntTy;
+
+  // SampleBias(location, offset, bias)
+  QualType params3[] = {coordinateType, floatType, offsetType};
+  StringRef names3[] = {"location", "bias", "offset"};
+  CXXMethodDecl *sampleDecl3 = CreateObjectFunctionDeclarationWithParams(
+      context, recordDecl, returnType, params3, names3,
+      context.DeclarationNames.getIdentifier(&context.Idents.get("SampleBias")),
+      /*isConst*/ true);
+  sampleDecl3->addAttr(HLSLIntrinsicAttr::CreateImplicit(
+      context, "op", "", static_cast<int>(hlsl::IntrinsicOp::MOP_SampleBias)));
+  sampleDecl3->addAttr(HLSLCXXOverloadAttr::CreateImplicit(context));
+
+  // SampleBias(location, offset, bias, clamp)
+  QualType params4[] = {coordinateType, floatType, offsetType, floatType};
+  StringRef names4[] = {"location", "bias", "offset", "clamp"};
+  CXXMethodDecl *sampleDecl4 = CreateObjectFunctionDeclarationWithParams(
+      context, recordDecl, returnType, params4, names4,
+      context.DeclarationNames.getIdentifier(&context.Idents.get("SampleBias")),
+      /*isConst*/ true);
+  sampleDecl4->addAttr(HLSLIntrinsicAttr::CreateImplicit(
+      context, "op", "", static_cast<int>(hlsl::IntrinsicOp::MOP_SampleBias)));
+  sampleDecl4->addAttr(HLSLCXXOverloadAttr::CreateImplicit(context));
+
+  // SampleBias(location, offset, bias, clamp, status)
+  QualType params5[] = {coordinateType, floatType, offsetType, floatType,
+                        context.getLValueReferenceType(uintType)};
+  StringRef names5[] = {"location", "bias", "offset", "clamp", "status"};
+  CXXMethodDecl *sampleDecl5 = CreateObjectFunctionDeclarationWithParams(
+      context, recordDecl, returnType, params5, names5,
+      context.DeclarationNames.getIdentifier(&context.Idents.get("SampleBias")),
+      /*isConst*/ true);
+  sampleDecl5->addAttr(HLSLIntrinsicAttr::CreateImplicit(
+      context, "op", "", static_cast<int>(hlsl::IntrinsicOp::MOP_SampleBias)));
+  sampleDecl5->addAttr(HLSLCXXOverloadAttr::CreateImplicit(context));
+}
+
 static void AddCalculateLevelOfDetailFunction(ASTContext &context,
                                               CXXRecordDecl *recordDecl,
                                               QualType coordinateType,
@@ -1639,6 +1681,8 @@ CXXRecordDecl *hlsl::DeclareVkSampledTextureType(
   CXXRecordDecl *recordDecl = Builder.getRecordDecl();
 
   AddSampleFunction(context, recordDecl, paramType, coordinateType, offsetType);
+  AddSampleBiasFunction(context, recordDecl, paramType, coordinateType,
+                        offsetType);
   AddCalculateLevelOfDetailFunction(context, recordDecl, coordinateType,
                                     /*unclamped=*/false);
   AddCalculateLevelOfDetailFunction(context, recordDecl, coordinateType,

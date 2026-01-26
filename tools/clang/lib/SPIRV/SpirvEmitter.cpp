@@ -5938,6 +5938,8 @@ SpirvEmitter::processTextureSampleBiasLevel(const CXXMemberCallExpr *expr,
   //                               [, int Offset]
   //                               [, float clamp]
   //                               [, out uint Status]);
+  // Their SampledTexture variants have the same signature without the
+  // sampler_state parameter.
   //
   // For TextureCube and TextureCubeArray:
   // DXGI_FORMAT Object.SampleBias(sampler_state S,
@@ -5963,37 +5965,57 @@ SpirvEmitter::processTextureSampleBiasLevel(const CXXMemberCallExpr *expr,
   const bool hasStatusArg =
       expr->getArg(numArgs - 1)->getType()->isUnsignedIntegerType();
   auto *status = hasStatusArg ? doExpr(expr->getArg(numArgs - 1)) : nullptr;
+  const auto *imageExpr = expr->getImplicitObjectArgument();
+  const QualType imageType = imageExpr->getType();
+  const bool isImageSampledTexture = isSampledTexture(imageType);
+
+  int samplerIndex, coordinateIndex, biasIndex, offsetIndex, clampIndex;
+  if (isImageSampledTexture) {
+    samplerIndex = -1; // non-existant
+    coordinateIndex = 0;
+    biasIndex = 1;
+    offsetIndex = 2;
+    clampIndex = 3;
+  } else {
+    samplerIndex = 0;
+    coordinateIndex = 1;
+    biasIndex = 2;
+    offsetIndex = 3;
+    clampIndex = 4;
+  }
 
   SpirvInstruction *clamp = nullptr;
   // The .SampleLevel() methods do not take the clamp argument.
   if (isBias) {
-    if (numArgs > 3 && expr->getArg(3)->getType()->isFloatingType())
-      clamp = doExpr(expr->getArg(3));
-    else if (numArgs > 4 && expr->getArg(4)->getType()->isFloatingType())
-      clamp = doExpr(expr->getArg(4));
+    if (numArgs > offsetIndex &&
+        expr->getArg(offsetIndex)->getType()->isFloatingType())
+      clamp = doExpr(expr->getArg(offsetIndex));
+    else if (numArgs > offsetIndex + 1 &&
+             expr->getArg(offsetIndex + 1)->getType()->isFloatingType())
+      clamp = doExpr(expr->getArg(offsetIndex + 1));
   }
   const bool hasClampArg = clamp != nullptr;
 
   // Subtract 1 for clamp (if it exists), 1 for status (if it exists),
   // and 3 for sampler_state, location, and Bias/LOD.
-  const bool hasOffsetArg = numArgs - hasClampArg - hasStatusArg - 3 > 0;
+  const bool hasOffsetArg =
+      numArgs - hasClampArg - hasStatusArg - offsetIndex > 0;
 
-  const auto *imageExpr = expr->getImplicitObjectArgument();
-  const QualType imageType = imageExpr->getType();
   auto *image = loadIfGLValue(imageExpr);
-  auto *sampler = doExpr(expr->getArg(0));
-  auto *coordinate = doExpr(expr->getArg(1));
+  auto *sampler =
+      samplerIndex < 0 ? nullptr : doExpr(expr->getArg(samplerIndex));
+  auto *coordinate = doExpr(expr->getArg(coordinateIndex));
   SpirvInstruction *lod = nullptr;
   SpirvInstruction *bias = nullptr;
   if (isBias) {
-    bias = doExpr(expr->getArg(2));
+    bias = doExpr(expr->getArg(biasIndex));
   } else {
-    lod = doExpr(expr->getArg(2));
+    lod = doExpr(expr->getArg(biasIndex));
   }
   // If offset is present in .Bias()/.SampleLevel(), it is the fourth argument.
   SpirvInstruction *constOffset = nullptr, *varOffset = nullptr;
   if (hasOffsetArg)
-    handleOffsetInMethodCall(expr, 3, &constOffset, &varOffset);
+    handleOffsetInMethodCall(expr, offsetIndex, &constOffset, &varOffset);
 
   const auto retType = expr->getDirectCallee()->getReturnType();
 
