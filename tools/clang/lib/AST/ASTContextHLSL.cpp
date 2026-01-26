@@ -1552,6 +1552,78 @@ static void AddSampleGradFunction(ASTContext &context,
   sampleDecl6->addAttr(HLSLCXXOverloadAttr::CreateImplicit(context));
 }
 
+static void AddSampleCmpGradFunction(ASTContext &context,
+                                     CXXRecordDecl *recordDecl,
+                                     QualType coordinateType,
+                                     QualType offsetType,
+                                     QualType rateOfChangeType) {
+  QualType floatType = context.FloatTy;
+  QualType uintType = context.UnsignedIntTy;
+
+  // SampleCmpGrad(location, compareValue, ddx, ddy)
+  QualType params4[] = {coordinateType, floatType, rateOfChangeType,
+                        rateOfChangeType};
+  StringRef names4[] = {"location", "compareValue", "ddx", "ddy"};
+  CXXMethodDecl *sampleDecl4 = CreateObjectFunctionDeclarationWithParams(
+      context, recordDecl, floatType, params4, names4,
+      context.DeclarationNames.getIdentifier(
+          &context.Idents.get("SampleCmpGrad")),
+      /*isConst*/ true);
+  sampleDecl4->addAttr(HLSLIntrinsicAttr::CreateImplicit(
+      context, "op", "",
+      static_cast<int>(hlsl::IntrinsicOp::MOP_SampleCmpGrad)));
+  sampleDecl4->addAttr(HLSLCXXOverloadAttr::CreateImplicit(context));
+
+  // SampleCmpGrad(location, compareValue, ddx, ddy, offset)
+  QualType params5[] = {coordinateType, floatType, rateOfChangeType,
+                        rateOfChangeType, offsetType};
+  StringRef names5[] = {"location", "compareValue", "ddx", "ddy", "offset"};
+  CXXMethodDecl *sampleDecl5 = CreateObjectFunctionDeclarationWithParams(
+      context, recordDecl, floatType, params5, names5,
+      context.DeclarationNames.getIdentifier(
+          &context.Idents.get("SampleCmpGrad")),
+      /*isConst*/ true);
+  sampleDecl5->addAttr(HLSLIntrinsicAttr::CreateImplicit(
+      context, "op", "",
+      static_cast<int>(hlsl::IntrinsicOp::MOP_SampleCmpGrad)));
+  sampleDecl5->addAttr(HLSLCXXOverloadAttr::CreateImplicit(context));
+
+  // SampleCmpGrad(location, compareValue, ddx, ddy, offset, clamp)
+  QualType params6[] = {coordinateType,   floatType,  rateOfChangeType,
+                        rateOfChangeType, offsetType, floatType};
+  StringRef names6[] = {"location", "compareValue", "ddx",
+                        "ddy",      "offset",       "clamp"};
+  CXXMethodDecl *sampleDecl6 = CreateObjectFunctionDeclarationWithParams(
+      context, recordDecl, floatType, params6, names6,
+      context.DeclarationNames.getIdentifier(
+          &context.Idents.get("SampleCmpGrad")),
+      /*isConst*/ true);
+  sampleDecl6->addAttr(HLSLIntrinsicAttr::CreateImplicit(
+      context, "op", "",
+      static_cast<int>(hlsl::IntrinsicOp::MOP_SampleCmpGrad)));
+  sampleDecl6->addAttr(HLSLCXXOverloadAttr::CreateImplicit(context));
+
+  // SampleCmpGrad(location, compareValue, ddx, ddy, offset, clamp, status)
+  QualType params7[] = {coordinateType,
+                        floatType,
+                        rateOfChangeType,
+                        rateOfChangeType,
+                        offsetType,
+                        floatType,
+                        context.getLValueReferenceType(uintType)};
+  StringRef names7[] = {"location", "compareValue", "ddx",   "ddy",
+                        "offset",   "clamp",        "status"};
+  CXXMethodDecl *sampleDecl7 = CreateObjectFunctionDeclarationWithParams(
+      context, recordDecl, floatType, params7, names7,
+      context.DeclarationNames.getIdentifier(
+          &context.Idents.get("SampleCmpGrad")),
+      /*isConst*/ true);
+  sampleDecl7->addAttr(HLSLIntrinsicAttr::CreateImplicit(
+      context, "op", "",
+      static_cast<int>(hlsl::IntrinsicOp::MOP_SampleCmpGrad)));
+  sampleDecl7->addAttr(HLSLCXXOverloadAttr::CreateImplicit(context));
+}
+
 static void AddSampleCmpFunction(ASTContext &context, CXXRecordDecl *recordDecl,
                                  QualType coordinateType, QualType offsetType) {
   QualType floatType = context.FloatTy;
@@ -1930,6 +2002,8 @@ CXXRecordDecl *hlsl::DeclareVkSampledTextureType(
   AddSampleCmpLevelZeroFunction(context, recordDecl, coordinateType,
                                 offsetType);
   AddSampleCmpLevelFunction(context, recordDecl, coordinateType, offsetType);
+  AddSampleCmpGradFunction(context, recordDecl, coordinateType, offsetType,
+                           rateOfChangeType);
   AddCalculateLevelOfDetailFunction(context, recordDecl, coordinateType,
                                     /*unclamped=*/false);
   AddCalculateLevelOfDetailFunction(context, recordDecl, coordinateType,

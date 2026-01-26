@@ -6262,6 +6262,8 @@ SpirvEmitter::processTextureSampleCmpGrad(const CXXMemberCallExpr *expr) {
   //                               [, int Offset]
   //                               [, float Clamp]
   //                               [, out uint Status]);
+  // Their SampledTexture variants have the same signature without the
+  // sampler_state parameter.
   //
   // For TextureCube and TextureCubeArray:
   // DXGI_FORMAT Object.SampleGrad(sampler_state S,
@@ -6275,19 +6277,41 @@ SpirvEmitter::processTextureSampleCmpGrad(const CXXMemberCallExpr *expr) {
   const auto *imageExpr = expr->getImplicitObjectArgument();
   const QualType imageType = imageExpr->getType();
   auto *image = loadIfGLValue(imageExpr);
+  const bool isImageSampledTexture = isSampledTexture(imageType);
 
-  auto *sampler = doExpr(expr->getArg(0));
-  auto *coordinate = doExpr(expr->getArg(1));
-  auto *compareVal = doExpr(expr->getArg(2));
-  auto *ddx = doExpr(expr->getArg(3));
-  auto *ddy = doExpr(expr->getArg(4));
+  int samplerIndex, coordinateIndex, compareValIndex, ddxIndex, ddyIndex,
+      offsetIndex, clampIndex;
+  if (isImageSampledTexture) {
+    samplerIndex = -1; // non-existant
+    coordinateIndex = 0;
+    compareValIndex = 1;
+    ddxIndex = 2;
+    ddyIndex = 3;
+    offsetIndex = 4;
+    clampIndex = 5;
+  } else {
+    samplerIndex = 0;
+    coordinateIndex = 1;
+    compareValIndex = 2;
+    ddxIndex = 3;
+    ddyIndex = 4;
+    offsetIndex = 5;
+    clampIndex = 6;
+  }
+
+  auto *sampler =
+      samplerIndex < 0 ? nullptr : doExpr(expr->getArg(samplerIndex));
+  auto *coordinate = doExpr(expr->getArg(coordinateIndex));
+  auto *compareVal = doExpr(expr->getArg(compareValIndex));
+  auto *ddx = doExpr(expr->getArg(ddxIndex));
+  auto *ddy = doExpr(expr->getArg(ddyIndex));
 
   SpirvInstruction *constOffset = nullptr, *varOffset = nullptr;
   SpirvInstruction *clamp = nullptr;
   SpirvInstruction *status = nullptr;
 
-  handleOptionalTextureSampleArgs(expr, 5, &constOffset, &varOffset, &clamp,
-                                  &status);
+  handleOptionalTextureSampleArgs(expr, offsetIndex, &constOffset, &varOffset,
+                                  &clamp, &status);
 
   const auto retType = expr->getDirectCallee()->getReturnType();
   return createImageSample(
