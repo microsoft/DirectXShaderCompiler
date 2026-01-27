@@ -4118,9 +4118,6 @@ OP::OP(LLVMContext &Ctx, Module *pModule)
                            Type::getInt16Ty(m_Ctx)}; // HiHi, HiLo, LoHi, LoLo
   m_pFourI16Type =
       GetOrCreateStructType(m_Ctx, FourI16Types, "dx.types.fouri16", pModule);
-
-  m_pMatrixRefType = GetOrCreateStructType(m_Ctx, Type::getInt8PtrTy(m_Ctx),
-                                           "dx.types.MatrixRef", pModule);
 }
 
 void OP::RefreshCache() {
@@ -4231,7 +4228,6 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
   Type *pETy = pOverloadType;
   Type *pRes = GetHandleType();
   Type *pNodeHandle = GetNodeHandleType();
-  Type *pMatrixRef = GetMatrixRefType();
   Type *pNodeRecordHandle = GetNodeRecordHandleType();
   Type *pDim = GetDimensionsType();
   Type *pPos = GetSamplePosType();
@@ -6530,26 +6526,26 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
 
     // Linear Algebra Operations
   case OpCode::CreateMatrix:
-    A(pMatrixRef);
+    A(pI32);
     A(pI32);
     break;
   case OpCode::FillMatrix:
     A(pV);
     A(pI32);
-    A(pMatrixRef);
+    A(pI32);
     A(pETy);
     break;
   case OpCode::CopyConvertMatrix:
     A(pV);
     A(pI32);
-    A(pMatrixRef);
-    A(pMatrixRef);
+    A(pI32);
+    A(pI32);
     A(pI1);
     break;
   case OpCode::MatrixLoadFromDescriptor:
     A(pV);
     A(pI32);
-    A(pMatrixRef);
+    A(pI32);
     A(pRes);
     A(pI32);
     A(pI32);
@@ -6558,7 +6554,7 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
   case OpCode::MatrixLoadFromMemory:
     A(pV);
     A(pI32);
-    A(pMatrixRef);
+    A(pI32);
     A(pI32);
     A(pI32);
     A(pI32);
@@ -6567,31 +6563,31 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
   case OpCode::MatrixLength:
     A(pI32);
     A(pI32);
-    A(pMatrixRef);
+    A(pI32);
     break;
   case OpCode::MatrixGetCoordinate:
     A(pI32);
     A(pI32);
-    A(pMatrixRef);
+    A(pI32);
     A(pI32);
     break;
   case OpCode::MatrixGetElement:
     A(pETy);
     A(pI32);
-    A(pMatrixRef);
+    A(pI32);
     A(pI32);
     break;
   case OpCode::MatrixSetElement:
     A(pV);
     A(pI32);
-    A(pMatrixRef);
+    A(pI32);
     A(pI32);
     A(pETy);
     break;
   case OpCode::MatrixStoreToDescriptor:
     A(pV);
     A(pI32);
-    A(pMatrixRef);
+    A(pI32);
     A(pRes);
     A(pI32);
     A(pI32);
@@ -6600,7 +6596,7 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
   case OpCode::MatrixStoreToMemory:
     A(pV);
     A(pI32);
-    A(pMatrixRef);
+    A(pI32);
     A(pI32);
     A(pI32);
     A(pI32);
@@ -6613,27 +6609,27 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
   case OpCode::MatrixMulOp:
     A(pV);
     A(pI32);
-    A(pMatrixRef);
-    A(pMatrixRef);
-    A(pMatrixRef);
+    A(pI32);
+    A(pI32);
+    A(pI32);
     break;
   case OpCode::MatrixAccumulate:
     A(pV);
     A(pI32);
-    A(pMatrixRef);
-    A(pMatrixRef);
+    A(pI32);
+    A(pI32);
     break;
   case OpCode::MatrixVecMul:
     EXT(0);
     A(pI32);
-    A(pMatrixRef);
+    A(pI32);
     EXT(1);
     A(pI32);
     break;
   case OpCode::MatrixVecMulAdd:
     EXT(0);
     A(pI32);
-    A(pMatrixRef);
+    A(pI32);
     EXT(1);
     A(pI32);
     A(pI32);
@@ -6642,7 +6638,7 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
   case OpCode::MatrixAccumulateToDescriptor:
     A(pV);
     A(pI32);
-    A(pMatrixRef);
+    A(pI32);
     A(pRes);
     A(pI32);
     A(pI32);
@@ -6651,7 +6647,7 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
   case OpCode::MatrixAccumulateToMemory:
     A(pV);
     A(pI32);
-    A(pMatrixRef);
+    A(pI32);
     A(pI32);
     A(pI32);
     A(pI32);
@@ -6660,7 +6656,7 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
   case OpCode::MatrixOuterProduct:
     A(pV);
     A(pI32);
-    A(pMatrixRef);
+    A(pI32);
     EXT(0);
     EXT(1);
     break;
@@ -7058,8 +7054,6 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
 Type *OP::GetHandleType() const { return m_pHandleType; }
 
 Type *OP::GetNodeHandleType() const { return m_pNodeHandleType; }
-
-Type *OP::GetMatrixRefType() const { return m_pMatrixRefType; }
 
 Type *OP::GetHitObjectType() const { return m_pHitObjectType; }
 
