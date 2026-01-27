@@ -1163,7 +1163,7 @@ class db_dxil(object):
         ):
             i.category = "Linear Algebra Operations"
             i.shader_model = experimental_sm
-        
+
         for i in insts("DebugBreak", "IsDebuggerPresent"):
             i.category = "Debugging"
             i.shader_model = experimental_sm
