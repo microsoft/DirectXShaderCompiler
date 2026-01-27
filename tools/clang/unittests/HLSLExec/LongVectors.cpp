@@ -1614,41 +1614,54 @@ template <typename T> T waveMultiPrefixProduct(T A, UINT) {
 
 template <typename T> struct Op<OpType::WaveMatch, T, 1> : StrictValidation {};
 
+static void WriteExpectedValueForLane(UINT *Dest, const UINT LaneID,
+                                      const std::bitset<128> &ExpectedValue) {
+  std::bitset<128> Lo32Mask;
+  Lo32Mask.set();
+  Lo32Mask >>= 128 - 32;
+
+  UINT Offset = 4 * LaneID;
+  for (uint32_t I = 0; I < 4; I++) {
+    uint32_t V = ((ExpectedValue >> (I * 32)) & Lo32Mask).to_ulong();
+    Dest[Offset++] = V;
+  }
+}
+
 template <typename T> struct ExpectedBuilder<OpType::WaveMatch, T> {
   static std::vector<UINT> buildExpected(Op<OpType::WaveMatch, T, 1> &,
-                                         const InputSets<T> &,
+                                         const InputSets<T> &Inputs,
                                          const UINT WaveSize) {
-    // For this test, the shader arranges it so that lane 0 is different from
-    // all the other lanes. Besides that all other lines write their result of
-    // WaveMatch as well.
+    // This test sets lanes (0, min(VectorSize/2, WaveSize/2), and
+    // min(VectorSize-1, WaveSize-1)) to unique values and has them modify the
+    // vector at their respective indices. Remaining lanes remain unchanged.
+    DXASSERT_NOMSG(Inputs.size() == 1);
 
+    const UINT VectorSize = static_cast<UINT>(Inputs[0].size());
     std::vector<UINT> Expected;
     Expected.assign(WaveSize * 4, 0);
 
-    const UINT LowWaves = std::min(64U, WaveSize);
-    const UINT HighWaves = WaveSize - LowWaves;
+    const UINT MidLaneID = std::min(VectorSize / 2, WaveSize / 2);
+    const UINT LastLaneID = std::min(VectorSize - 1, WaveSize - 1);
 
-    const uint64_t LowWaveMask =
-        (LowWaves < 64) ? (1ULL << LowWaves) - 1 : ~0ULL;
+    // Use a std::bitset<128> to represent the uint4 returned by WaveMatch as
+    // its convenient this way in c++
+    std::bitset<128> DefaultExpectedValue;
 
-    const uint64_t HighWaveMask =
-        (HighWaves < 64) ? (1ULL << HighWaves) - 1 : ~0ULL;
+    for (UINT I = 0; I < WaveSize; ++I)
+      DefaultExpectedValue.set(I);
 
-    const uint64_t LowExpected = ~1ULL & LowWaveMask;
-    const uint64_t HighExpected = ~0ULL & HighWaveMask;
+    DefaultExpectedValue.reset(0);
+    DefaultExpectedValue.reset(MidLaneID);
+    DefaultExpectedValue.reset(LastLaneID);
 
-    Expected[0] = 1;
-    Expected[1] = 0;
-    Expected[2] = 0;
-    Expected[3] = 0;
-
-    // all lanes other than the first one have the same result
-    for (UINT I = 1; I < WaveSize; ++I) {
-      const UINT Index = I * 4;
-      Expected[Index] = static_cast<UINT>(LowExpected);
-      Expected[Index + 1] = static_cast<UINT>(LowExpected >> 32);
-      Expected[Index + 2] = static_cast<UINT>(HighExpected);
-      Expected[Index + 3] = static_cast<UINT>(HighExpected >> 32);
+    for (UINT LaneID = 0; LaneID < WaveSize; ++LaneID) {
+      if (LaneID == 0 || LaneID == MidLaneID || LaneID == LastLaneID) {
+        std::bitset<128> ExpectedValue(0);
+        ExpectedValue.set(LaneID);
+        WriteExpectedValueForLane(Expected.data(), LaneID, ExpectedValue);
+        continue;
+      }
+      WriteExpectedValueForLane(Expected.data(), LaneID, DefaultExpectedValue);
     }
 
     return Expected;
@@ -1792,10 +1805,32 @@ using namespace LongVector;
 #define HLK_TEST(Op, DataType)                                                 \
   TEST_METHOD(Op##_##DataType) { runTest<DataType, OpType::Op>(); }
 
+#define HLK_TEST_DOUBLE(Op, DataType)                                          \
+  TEST_METHOD(Op##_##DataType) {                                               \
+    BEGIN_TEST_METHOD_PROPERTIES()                                             \
+    TEST_METHOD_PROPERTY(                                                      \
+        "Kits.Specification",                                                  \
+        "Device.Graphics.D3D12.DXILCore.ShaderModel69.DoublePrecision")        \
+    END_TEST_METHOD_PROPERTIES()                                               \
+    runTest<DataType, OpType::Op>();                                           \
+  }
+
 #define HLK_WAVEOP_TEST(Op, DataType)                                          \
   TEST_METHOD(Op##_##DataType) {                                               \
     BEGIN_TEST_METHOD_PROPERTIES()                                             \
-    TEST_METHOD_PROPERTY(L"Priority", L"2")                                    \
+    TEST_METHOD_PROPERTY(                                                      \
+        "Kits.Specification",                                                  \
+        "Device.Graphics.D3D12.DXILCore.ShaderModel69.CoreRequirement")        \
+    END_TEST_METHOD_PROPERTIES()                                               \
+    runWaveOpTest<DataType, OpType::Op>();                                     \
+  }
+
+#define HLK_WAVEOP_TEST_DOUBLE(Op, DataType)                                   \
+  TEST_METHOD(Op##_##DataType) {                                               \
+    BEGIN_TEST_METHOD_PROPERTIES()                                             \
+    TEST_METHOD_PROPERTY(                                                      \
+        "Kits.Specification",                                                  \
+        "Device.Graphics.D3D12.DXILCore.ShaderModel69.DoublePrecision")        \
     END_TEST_METHOD_PROPERTIES()                                               \
     runWaveOpTest<DataType, OpType::Op>();                                     \
   }
@@ -1940,8 +1975,8 @@ public:
   HLK_TEST(Mad, int64_t);
   HLK_TEST(Mad, HLSLHalf_t);
   HLK_TEST(Mad, float);
-  HLK_TEST(Fma, double);
-  HLK_TEST(Mad, double);
+  HLK_TEST_DOUBLE(Fma, double);
+  HLK_TEST_DOUBLE(Mad, double);
 
   // BinaryMath
 
@@ -2005,12 +2040,12 @@ public:
   HLK_TEST(Min, float);
   HLK_TEST(Max, float);
   HLK_TEST(Ldexp, float);
-  HLK_TEST(Add, double);
-  HLK_TEST(Subtract, double);
-  HLK_TEST(Multiply, double);
-  HLK_TEST(Divide, double);
-  HLK_TEST(Min, double);
-  HLK_TEST(Max, double);
+  HLK_TEST_DOUBLE(Add, double);
+  HLK_TEST_DOUBLE(Subtract, double);
+  HLK_TEST_DOUBLE(Multiply, double);
+  HLK_TEST_DOUBLE(Divide, double);
+  HLK_TEST_DOUBLE(Min, double);
+  HLK_TEST_DOUBLE(Max, double);
 
   // Bitwise
 
@@ -2070,7 +2105,7 @@ public:
   HLK_TEST(FirstBitLow, int64_t);
   HLK_TEST(Saturate, HLSLHalf_t);
   HLK_TEST(Saturate, float);
-  HLK_TEST(Saturate, double);
+  HLK_TEST_DOUBLE(Saturate, double);
 
   // Unary
 
@@ -2101,9 +2136,9 @@ public:
   HLK_TEST(Initialize, float);
   HLK_TEST(ArrayOperator_StaticAccess, float);
   HLK_TEST(ArrayOperator_DynamicAccess, float);
-  HLK_TEST(Initialize, double);
-  HLK_TEST(ArrayOperator_StaticAccess, double);
-  HLK_TEST(ArrayOperator_DynamicAccess, double);
+  HLK_TEST_DOUBLE(Initialize, double);
+  HLK_TEST_DOUBLE(ArrayOperator_StaticAccess, double);
+  HLK_TEST_DOUBLE(ArrayOperator_DynamicAccess, double);
 
   HLK_TEST(ShuffleVector, HLSLBool_t);
   HLK_TEST(ShuffleVector, int16_t);
@@ -2114,7 +2149,7 @@ public:
   HLK_TEST(ShuffleVector, uint64_t);
   HLK_TEST(ShuffleVector, HLSLHalf_t);
   HLK_TEST(ShuffleVector, float);
-  HLK_TEST(ShuffleVector, double);
+  HLK_TEST_DOUBLE(ShuffleVector, double);
 
   // Explicit Cast
 
@@ -2148,15 +2183,15 @@ public:
   HLK_TEST(CastToFloat16, float);
   HLK_TEST(CastToFloat64, float);
 
-  HLK_TEST(CastToBool, double);
-  HLK_TEST(CastToInt16, double);
-  HLK_TEST(CastToInt32, double);
-  HLK_TEST(CastToInt64, double);
-  HLK_TEST(CastToUint16_FromFP, double);
-  HLK_TEST(CastToUint32_FromFP, double);
-  HLK_TEST(CastToUint64_FromFP, double);
-  HLK_TEST(CastToFloat16, double);
-  HLK_TEST(CastToFloat32, double);
+  HLK_TEST_DOUBLE(CastToBool, double);
+  HLK_TEST_DOUBLE(CastToInt16, double);
+  HLK_TEST_DOUBLE(CastToInt32, double);
+  HLK_TEST_DOUBLE(CastToInt64, double);
+  HLK_TEST_DOUBLE(CastToUint16_FromFP, double);
+  HLK_TEST_DOUBLE(CastToUint32_FromFP, double);
+  HLK_TEST_DOUBLE(CastToUint64_FromFP, double);
+  HLK_TEST_DOUBLE(CastToFloat16, double);
+  HLK_TEST_DOUBLE(CastToFloat32, double);
 
   HLK_TEST(CastToBool, uint16_t);
   HLK_TEST(CastToInt16, uint16_t);
@@ -2304,8 +2339,8 @@ public:
   HLK_TEST(Log10, float);
   HLK_TEST(Log2, float);
   HLK_TEST(Frexp, float);
-  HLK_TEST(Abs, double);
-  HLK_TEST(Sign, double);
+  HLK_TEST_DOUBLE(Abs, double);
+  HLK_TEST_DOUBLE(Sign, double);
 
   // Float Special
 
@@ -2369,12 +2404,12 @@ public:
   HLK_TEST(GreaterEqual, float);
   HLK_TEST(Equal, float);
   HLK_TEST(NotEqual, float);
-  HLK_TEST(LessThan, double);
-  HLK_TEST(LessEqual, double);
-  HLK_TEST(GreaterThan, double);
-  HLK_TEST(GreaterEqual, double);
-  HLK_TEST(Equal, double);
-  HLK_TEST(NotEqual, double);
+  HLK_TEST_DOUBLE(LessThan, double);
+  HLK_TEST_DOUBLE(LessEqual, double);
+  HLK_TEST_DOUBLE(GreaterThan, double);
+  HLK_TEST_DOUBLE(GreaterEqual, double);
+  HLK_TEST_DOUBLE(Equal, double);
+  HLK_TEST_DOUBLE(NotEqual, double);
 
   // Binary Logical
 
@@ -2391,7 +2426,7 @@ public:
   HLK_TEST(Select, uint64_t);
   HLK_TEST(Select, HLSLHalf_t);
   HLK_TEST(Select, float);
-  HLK_TEST(Select, double);
+  HLK_TEST_DOUBLE(Select, double);
 
   // Reduction
   HLK_TEST(Any_Mixed, HLSLBool_t);
@@ -2550,18 +2585,18 @@ public:
   HLK_TEST(LoadAndStore_RD_SB_UAV, float);
   HLK_TEST(LoadAndStore_RD_SB_SRV, float);
 
-  HLK_TEST(LoadAndStore_RDH_BAB_SRV, double);
-  HLK_TEST(LoadAndStore_RDH_BAB_UAV, double);
-  HLK_TEST(LoadAndStore_DT_BAB_SRV, double);
-  HLK_TEST(LoadAndStore_DT_BAB_UAV, double);
-  HLK_TEST(LoadAndStore_RD_BAB_SRV, double);
-  HLK_TEST(LoadAndStore_RD_BAB_UAV, double);
-  HLK_TEST(LoadAndStore_RDH_SB_SRV, double);
-  HLK_TEST(LoadAndStore_RDH_SB_UAV, double);
-  HLK_TEST(LoadAndStore_DT_SB_SRV, double);
-  HLK_TEST(LoadAndStore_DT_SB_UAV, double);
-  HLK_TEST(LoadAndStore_RD_SB_SRV, double);
-  HLK_TEST(LoadAndStore_RD_SB_UAV, double);
+  HLK_TEST_DOUBLE(LoadAndStore_RDH_BAB_SRV, double);
+  HLK_TEST_DOUBLE(LoadAndStore_RDH_BAB_UAV, double);
+  HLK_TEST_DOUBLE(LoadAndStore_DT_BAB_SRV, double);
+  HLK_TEST_DOUBLE(LoadAndStore_DT_BAB_UAV, double);
+  HLK_TEST_DOUBLE(LoadAndStore_RD_BAB_SRV, double);
+  HLK_TEST_DOUBLE(LoadAndStore_RD_BAB_UAV, double);
+  HLK_TEST_DOUBLE(LoadAndStore_RDH_SB_SRV, double);
+  HLK_TEST_DOUBLE(LoadAndStore_RDH_SB_UAV, double);
+  HLK_TEST_DOUBLE(LoadAndStore_DT_SB_SRV, double);
+  HLK_TEST_DOUBLE(LoadAndStore_DT_SB_UAV, double);
+  HLK_TEST_DOUBLE(LoadAndStore_RD_SB_SRV, double);
+  HLK_TEST_DOUBLE(LoadAndStore_RD_SB_UAV, double);
 
   // Derivative
   HLK_TEST(DerivativeDdx, HLSLHalf_t);
@@ -2610,10 +2645,10 @@ public:
   HLK_TEST(QuadReadAcrossX, float);
   HLK_TEST(QuadReadAcrossY, float);
   HLK_TEST(QuadReadAcrossDiagonal, float);
-  HLK_TEST(QuadReadLaneAt, double);
-  HLK_TEST(QuadReadAcrossX, double);
-  HLK_TEST(QuadReadAcrossY, double);
-  HLK_TEST(QuadReadAcrossDiagonal, double);
+  HLK_TEST_DOUBLE(QuadReadLaneAt, double);
+  HLK_TEST_DOUBLE(QuadReadAcrossX, double);
+  HLK_TEST_DOUBLE(QuadReadAcrossY, double);
+  HLK_TEST_DOUBLE(QuadReadAcrossDiagonal, double);
 
   // Wave
 
@@ -2746,18 +2781,18 @@ public:
   HLK_WAVEOP_TEST(WaveMultiPrefixSum, float);
   HLK_WAVEOP_TEST(WaveMultiPrefixProduct, float);
   HLK_WAVEOP_TEST(WaveMatch, float);
-  HLK_WAVEOP_TEST(WaveActiveSum, double);
-  HLK_WAVEOP_TEST(WaveActiveMin, double);
-  HLK_WAVEOP_TEST(WaveActiveMax, double);
-  HLK_WAVEOP_TEST(WaveActiveProduct, double);
-  HLK_WAVEOP_TEST(WaveActiveAllEqual, double);
-  HLK_WAVEOP_TEST(WaveReadLaneAt, double);
-  HLK_WAVEOP_TEST(WaveReadLaneFirst, double);
-  HLK_WAVEOP_TEST(WavePrefixSum, double);
-  HLK_WAVEOP_TEST(WavePrefixProduct, double);
-  HLK_WAVEOP_TEST(WaveMultiPrefixSum, double);
-  HLK_WAVEOP_TEST(WaveMultiPrefixProduct, double);
-  HLK_WAVEOP_TEST(WaveMatch, double);
+  HLK_WAVEOP_TEST_DOUBLE(WaveActiveSum, double);
+  HLK_WAVEOP_TEST_DOUBLE(WaveActiveMin, double);
+  HLK_WAVEOP_TEST_DOUBLE(WaveActiveMax, double);
+  HLK_WAVEOP_TEST_DOUBLE(WaveActiveProduct, double);
+  HLK_WAVEOP_TEST_DOUBLE(WaveActiveAllEqual, double);
+  HLK_WAVEOP_TEST_DOUBLE(WaveReadLaneAt, double);
+  HLK_WAVEOP_TEST_DOUBLE(WaveReadLaneFirst, double);
+  HLK_WAVEOP_TEST_DOUBLE(WavePrefixSum, double);
+  HLK_WAVEOP_TEST_DOUBLE(WavePrefixProduct, double);
+  HLK_WAVEOP_TEST_DOUBLE(WaveMultiPrefixSum, double);
+  HLK_WAVEOP_TEST_DOUBLE(WaveMultiPrefixProduct, double);
+  HLK_WAVEOP_TEST_DOUBLE(WaveMatch, double);
 
 private:
   bool Initialized = false;

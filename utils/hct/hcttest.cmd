@@ -98,6 +98,9 @@ if "%1"=="-clean" (
   echo Fallback to taef when use taef only options.
   set TEST_CLANG_FILTER=%2
   shift /1
+) else if "%1"=="extdxil" (
+  set TEST_ALL=0
+  set TEST_EXT_DXIL=1
 ) else if "%1"=="compat-suite" (
   set TEST_ALL=0
   set TEST_COMPAT_SUITE=%2
@@ -334,17 +337,25 @@ if "%TEST_USE_LIT%"=="1" (
       cmake --build %HLSL_BLD_DIR% --config %BUILD_CONFIG% --target check-clang
       set RES_CLANG=!ERRORLEVEL!
     )
-    if "!TEST_COMPAT_SUITE!"=="1.6" (       
+    if "!TEST_EXT_DXIL!"=="1" (
+        cmake --build %HLSL_BLD_DIR% --config %BUILD_CONFIG% --target check-extdxil
+        set RES_EXT_DXIL=!ERRORLEVEL!
+    )
+    if "!TEST_COMPAT_SUITE!"=="v1.6.2112" (       
         cmake --build %HLSL_BLD_DIR% --config %BUILD_CONFIG% --target check-dxilcompat-dxc_2021_12_08
         set RES_COMPAT_1_6=!ERRORLEVEL!
     )
-    if "!TEST_COMPAT_SUITE!"=="1.7" (       
+    if "!TEST_COMPAT_SUITE!"=="v1.7.2308" (       
         cmake --build %HLSL_BLD_DIR% --config %BUILD_CONFIG% --target check-dxilcompat-dxc_2023_08_14
         set RES_COMPAT_1_7=!ERRORLEVEL!
     )
-    if "!TEST_COMPAT_SUITE!"=="1.8" (       
+    if "!TEST_COMPAT_SUITE!"=="v1.8.2502" (       
         cmake --build %HLSL_BLD_DIR% --config %BUILD_CONFIG% --target check-dxilcompat-dxc_2025_02_20
         set RES_COMPAT_1_8=!ERRORLEVEL!
+    )
+    if "!TEST_COMPAT_SUITE!"=="v1.8.2505.1" (       
+        cmake --build %HLSL_BLD_DIR% --config %BUILD_CONFIG% --target check-dxilcompat-dxc_2025_07_14
+        set RES_COMPAT_1_8_POINT=!ERRORLEVEL!
     )
     if "!TEST_EXEC!"=="1" (
       if defined EXEC_ADAPTER (
@@ -512,9 +523,11 @@ if "%TEST_EXEC%"=="1" (
 call :check_result "hcttest-extras tests" %RES_EXTRAS%
 call :check_result "hcttest-after script" %RES_HCTTEST_AFTER%
 call :check_result "dxilconv tests" %RES_DXILCONV%
-call :check_result "compat-suite 1.6 tests" %RES_COMPAT_1_6%
-call :check_result "compat-suite 1.7 tests" %RES_COMPAT_1_7%
-call :check_result "compat-suite 1.8 tests" %RES_COMPAT_1_8%
+call :check_result "external DXIL validator tests" %RES_EXT_DXIL%
+call :check_result "compat-suite v1.6.2112 tests" %RES_COMPAT_1_6%
+call :check_result "compat-suite v1.7.2308 tests" %RES_COMPAT_1_7%
+call :check_result "compat-suite v1.8.2502 tests" %RES_COMPAT_1_8%
+call :check_result "compat-suite v1.8.2505.1 tests" %RES_COMPAT_1_8_POINT%
 
 set EXIT_CODE=%TESTS_FAILED%
 if not "%TESTS_PASSED%"=="0" (
@@ -564,7 +577,7 @@ echo  clang         - run clang tests.
 echo  file-check    - run file-check test on single file.
 echo                - hcttest file-check "..\CodeGenHLSL\shader-compat-suite\lib_arg_flatten\lib_arg_flatten.hlsl"
 echo  compat-suite  - run compat-suite test.
-echo                - hcttest compat-suite ^(1.6 ^| 1.7 ^| 1.8^)
+echo                - hcttest compat-suite ^(v1.6.2112 ^| v1.7.2308 ^| v1.8.2505 ^| v1.8.2505.1^)
 echo  cmd           - run command line tool tests.
 echo  dxilconv      - run dxilconv tests
 echo  v             - run the subset of clang tests that are verified-based.

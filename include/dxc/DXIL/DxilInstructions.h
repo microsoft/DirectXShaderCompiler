@@ -10539,12 +10539,12 @@ struct DxilInst_FillMatrix {
   bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
-    arg_matrix = 1,
+    arg_matrixRef = 1,
     arg_value = 2,
   };
   // Accessors
-  llvm::Value *get_matrix() const { return Instr->getOperand(1); }
-  void set_matrix(llvm::Value *val) { Instr->setOperand(1, val); }
+  llvm::Value *get_matrixRef() const { return Instr->getOperand(1); }
+  void set_matrixRef(llvm::Value *val) { Instr->setOperand(1, val); }
   llvm::Value *get_value() const { return Instr->getOperand(2); }
   void set_value(llvm::Value *val) { Instr->setOperand(2, val); }
 };
@@ -10570,15 +10570,15 @@ struct DxilInst_CopyConvertMatrix {
   bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
-    arg_destination = 1,
-    arg_source = 2,
+    arg_destMatrixRef = 1,
+    arg_srcMatrixRef = 2,
     arg_transpose = 3,
   };
   // Accessors
-  llvm::Value *get_destination() const { return Instr->getOperand(1); }
-  void set_destination(llvm::Value *val) { Instr->setOperand(1, val); }
-  llvm::Value *get_source() const { return Instr->getOperand(2); }
-  void set_source(llvm::Value *val) { Instr->setOperand(2, val); }
+  llvm::Value *get_destMatrixRef() const { return Instr->getOperand(1); }
+  void set_destMatrixRef(llvm::Value *val) { Instr->setOperand(1, val); }
+  llvm::Value *get_srcMatrixRef() const { return Instr->getOperand(2); }
+  void set_srcMatrixRef(llvm::Value *val) { Instr->setOperand(2, val); }
   llvm::Value *get_transpose() const { return Instr->getOperand(3); }
   void set_transpose(llvm::Value *val) { Instr->setOperand(3, val); }
 };
@@ -10604,15 +10604,15 @@ struct DxilInst_MatrixLoadFromDescriptor {
   bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
-    arg_matrix = 1,
+    arg_matrixRef = 1,
     arg_handle = 2,
     arg_offset = 3,
     arg_stride = 4,
     arg_layout = 5,
   };
   // Accessors
-  llvm::Value *get_matrix() const { return Instr->getOperand(1); }
-  void set_matrix(llvm::Value *val) { Instr->setOperand(1, val); }
+  llvm::Value *get_matrixRef() const { return Instr->getOperand(1); }
+  void set_matrixRef(llvm::Value *val) { Instr->setOperand(1, val); }
   llvm::Value *get_handle() const { return Instr->getOperand(2); }
   void set_handle(llvm::Value *val) { Instr->setOperand(2, val); }
   llvm::Value *get_offset() const { return Instr->getOperand(3); }
@@ -10643,15 +10643,15 @@ struct DxilInst_MatrixLoadFromMemory {
   bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
-    arg_matrix = 1,
+    arg_matrixRef = 1,
     arg_groupsharedArr = 2,
     arg_offset = 3,
     arg_stride = 4,
     arg_layout = 5,
   };
   // Accessors
-  llvm::Value *get_matrix() const { return Instr->getOperand(1); }
-  void set_matrix(llvm::Value *val) { Instr->setOperand(1, val); }
+  llvm::Value *get_matrixRef() const { return Instr->getOperand(1); }
+  void set_matrixRef(llvm::Value *val) { Instr->setOperand(1, val); }
   llvm::Value *get_groupsharedArr() const { return Instr->getOperand(2); }
   void set_groupsharedArr(llvm::Value *val) { Instr->setOperand(2, val); }
   llvm::Value *get_offset() const { return Instr->getOperand(3); }
@@ -10683,11 +10683,11 @@ struct DxilInst_MatrixLength {
   bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
-    arg_matrix = 1,
+    arg_matrixRef = 1,
   };
   // Accessors
-  llvm::Value *get_matrix() const { return Instr->getOperand(1); }
-  void set_matrix(llvm::Value *val) { Instr->setOperand(1, val); }
+  llvm::Value *get_matrixRef() const { return Instr->getOperand(1); }
+  void set_matrixRef(llvm::Value *val) { Instr->setOperand(1, val); }
 };
 
 /// This instruction returns a two element vector containing the column and row
@@ -10711,12 +10711,12 @@ struct DxilInst_MatrixGetCoordinate {
   bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
-    arg_matrix = 1,
+    arg_matrixRef = 1,
     arg_threadLocalIndex = 2,
   };
   // Accessors
-  llvm::Value *get_matrix() const { return Instr->getOperand(1); }
-  void set_matrix(llvm::Value *val) { Instr->setOperand(1, val); }
+  llvm::Value *get_matrixRef() const { return Instr->getOperand(1); }
+  void set_matrixRef(llvm::Value *val) { Instr->setOperand(1, val); }
   llvm::Value *get_threadLocalIndex() const { return Instr->getOperand(2); }
   void set_threadLocalIndex(llvm::Value *val) { Instr->setOperand(2, val); }
 };
@@ -10742,12 +10742,12 @@ struct DxilInst_MatrixGetElement {
   bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
-    arg_matrix = 1,
+    arg_matrixRef = 1,
     arg_threadLocalIndex = 2,
   };
   // Accessors
-  llvm::Value *get_matrix() const { return Instr->getOperand(1); }
-  void set_matrix(llvm::Value *val) { Instr->setOperand(1, val); }
+  llvm::Value *get_matrixRef() const { return Instr->getOperand(1); }
+  void set_matrixRef(llvm::Value *val) { Instr->setOperand(1, val); }
   llvm::Value *get_threadLocalIndex() const { return Instr->getOperand(2); }
   void set_threadLocalIndex(llvm::Value *val) { Instr->setOperand(2, val); }
 };
@@ -10773,13 +10773,13 @@ struct DxilInst_MatrixSetElement {
   bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
-    arg_matrix = 1,
+    arg_matrixRef = 1,
     arg_threadLocalIndex = 2,
     arg_value = 3,
   };
   // Accessors
-  llvm::Value *get_matrix() const { return Instr->getOperand(1); }
-  void set_matrix(llvm::Value *val) { Instr->setOperand(1, val); }
+  llvm::Value *get_matrixRef() const { return Instr->getOperand(1); }
+  void set_matrixRef(llvm::Value *val) { Instr->setOperand(1, val); }
   llvm::Value *get_threadLocalIndex() const { return Instr->getOperand(2); }
   void set_threadLocalIndex(llvm::Value *val) { Instr->setOperand(2, val); }
   llvm::Value *get_value() const { return Instr->getOperand(3); }
@@ -10806,15 +10806,15 @@ struct DxilInst_MatrixStoreToDescriptor {
   bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
-    arg_matrix = 1,
+    arg_matrixRef = 1,
     arg_handle = 2,
     arg_offset = 3,
     arg_stride = 4,
     arg_layout = 5,
   };
   // Accessors
-  llvm::Value *get_matrix() const { return Instr->getOperand(1); }
-  void set_matrix(llvm::Value *val) { Instr->setOperand(1, val); }
+  llvm::Value *get_matrixRef() const { return Instr->getOperand(1); }
+  void set_matrixRef(llvm::Value *val) { Instr->setOperand(1, val); }
   llvm::Value *get_handle() const { return Instr->getOperand(2); }
   void set_handle(llvm::Value *val) { Instr->setOperand(2, val); }
   llvm::Value *get_offset() const { return Instr->getOperand(3); }
@@ -10845,15 +10845,15 @@ struct DxilInst_MatrixStoreToMemory {
   bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
-    arg_matrix = 1,
+    arg_matrixRef = 1,
     arg_groupsharedArr = 2,
     arg_offset = 3,
     arg_stride = 4,
     arg_layout = 5,
   };
   // Accessors
-  llvm::Value *get_matrix() const { return Instr->getOperand(1); }
-  void set_matrix(llvm::Value *val) { Instr->setOperand(1, val); }
+  llvm::Value *get_matrixRef() const { return Instr->getOperand(1); }
+  void set_matrixRef(llvm::Value *val) { Instr->setOperand(1, val); }
   llvm::Value *get_groupsharedArr() const { return Instr->getOperand(2); }
   void set_groupsharedArr(llvm::Value *val) { Instr->setOperand(2, val); }
   llvm::Value *get_offset() const { return Instr->getOperand(3); }
@@ -10906,17 +10906,17 @@ struct DxilInst_MatrixMulOp {
   bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
-    arg_matrixA = 1,
-    arg_matrixB = 2,
-    arg_matrixC = 3,
+    arg_matrixRefA = 1,
+    arg_matrixRefB = 2,
+    arg_matrixRefC = 3,
   };
   // Accessors
-  llvm::Value *get_matrixA() const { return Instr->getOperand(1); }
-  void set_matrixA(llvm::Value *val) { Instr->setOperand(1, val); }
-  llvm::Value *get_matrixB() const { return Instr->getOperand(2); }
-  void set_matrixB(llvm::Value *val) { Instr->setOperand(2, val); }
-  llvm::Value *get_matrixC() const { return Instr->getOperand(3); }
-  void set_matrixC(llvm::Value *val) { Instr->setOperand(3, val); }
+  llvm::Value *get_matrixRefA() const { return Instr->getOperand(1); }
+  void set_matrixRefA(llvm::Value *val) { Instr->setOperand(1, val); }
+  llvm::Value *get_matrixRefB() const { return Instr->getOperand(2); }
+  void set_matrixRefB(llvm::Value *val) { Instr->setOperand(2, val); }
+  llvm::Value *get_matrixRefC() const { return Instr->getOperand(3); }
+  void set_matrixRefC(llvm::Value *val) { Instr->setOperand(3, val); }
 };
 
 /// This instruction accumulate A or B matrix into Accumulator matrix following
@@ -10940,14 +10940,14 @@ struct DxilInst_MatrixAccumulate {
   bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
-    arg_matrixRHS = 1,
-    arg_matrixLHS = 2,
+    arg_matrixRefRHS = 1,
+    arg_matrixRefLHS = 2,
   };
   // Accessors
-  llvm::Value *get_matrixRHS() const { return Instr->getOperand(1); }
-  void set_matrixRHS(llvm::Value *val) { Instr->setOperand(1, val); }
-  llvm::Value *get_matrixLHS() const { return Instr->getOperand(2); }
-  void set_matrixLHS(llvm::Value *val) { Instr->setOperand(2, val); }
+  llvm::Value *get_matrixRefRHS() const { return Instr->getOperand(1); }
+  void set_matrixRefRHS(llvm::Value *val) { Instr->setOperand(1, val); }
+  llvm::Value *get_matrixRefLHS() const { return Instr->getOperand(2); }
+  void set_matrixRefLHS(llvm::Value *val) { Instr->setOperand(2, val); }
 };
 
 /// This instruction Multiplies a MxK dimension matrix and a K sized input
@@ -10971,13 +10971,13 @@ struct DxilInst_MatrixVecMul {
   bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
-    arg_matrix = 1,
+    arg_matrixRef = 1,
     arg_inputVector = 2,
     arg_interpretation = 3,
   };
   // Accessors
-  llvm::Value *get_matrix() const { return Instr->getOperand(1); }
-  void set_matrix(llvm::Value *val) { Instr->setOperand(1, val); }
+  llvm::Value *get_matrixRef() const { return Instr->getOperand(1); }
+  void set_matrixRef(llvm::Value *val) { Instr->setOperand(1, val); }
   llvm::Value *get_inputVector() const { return Instr->getOperand(2); }
   void set_inputVector(llvm::Value *val) { Instr->setOperand(2, val); }
   llvm::Value *get_interpretation() const { return Instr->getOperand(3); }
@@ -11005,15 +11005,15 @@ struct DxilInst_MatrixVecMulAdd {
   bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
-    arg_matrix = 1,
+    arg_matrixRef = 1,
     arg_inputVector = 2,
     arg_inputInterpretation = 3,
     arg_biasVector = 4,
     arg_biasInterpretation = 5,
   };
   // Accessors
-  llvm::Value *get_matrix() const { return Instr->getOperand(1); }
-  void set_matrix(llvm::Value *val) { Instr->setOperand(1, val); }
+  llvm::Value *get_matrixRef() const { return Instr->getOperand(1); }
+  void set_matrixRef(llvm::Value *val) { Instr->setOperand(1, val); }
   llvm::Value *get_inputVector() const { return Instr->getOperand(2); }
   void set_inputVector(llvm::Value *val) { Instr->setOperand(2, val); }
   llvm::Value *get_inputInterpretation() const { return Instr->getOperand(3); }
@@ -11045,15 +11045,15 @@ struct DxilInst_MatrixAccumulateToDescriptor {
   bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
-    arg_matrix = 1,
+    arg_matrixRef = 1,
     arg_handle = 2,
     arg_offset = 3,
     arg_stride = 4,
     arg_layout = 5,
   };
   // Accessors
-  llvm::Value *get_matrix() const { return Instr->getOperand(1); }
-  void set_matrix(llvm::Value *val) { Instr->setOperand(1, val); }
+  llvm::Value *get_matrixRef() const { return Instr->getOperand(1); }
+  void set_matrixRef(llvm::Value *val) { Instr->setOperand(1, val); }
   llvm::Value *get_handle() const { return Instr->getOperand(2); }
   void set_handle(llvm::Value *val) { Instr->setOperand(2, val); }
   llvm::Value *get_offset() const { return Instr->getOperand(3); }
@@ -11085,15 +11085,15 @@ struct DxilInst_MatrixAccumulateToMemory {
   bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
-    arg_matrix = 1,
+    arg_matrixRef = 1,
     arg_groupsharedArr = 2,
     arg_offset = 3,
     arg_stride = 4,
     arg_layout = 5,
   };
   // Accessors
-  llvm::Value *get_matrix() const { return Instr->getOperand(1); }
-  void set_matrix(llvm::Value *val) { Instr->setOperand(1, val); }
+  llvm::Value *get_matrixRef() const { return Instr->getOperand(1); }
+  void set_matrixRef(llvm::Value *val) { Instr->setOperand(1, val); }
   llvm::Value *get_groupsharedArr() const { return Instr->getOperand(2); }
   void set_groupsharedArr(llvm::Value *val) { Instr->setOperand(2, val); }
   llvm::Value *get_offset() const { return Instr->getOperand(3); }
@@ -11125,13 +11125,13 @@ struct DxilInst_MatrixOuterProduct {
   bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
-    arg_matrix = 1,
+    arg_matrixRef = 1,
     arg_vectorA = 2,
     arg_vectorB = 3,
   };
   // Accessors
-  llvm::Value *get_matrix() const { return Instr->getOperand(1); }
-  void set_matrix(llvm::Value *val) { Instr->setOperand(1, val); }
+  llvm::Value *get_matrixRef() const { return Instr->getOperand(1); }
+  void set_matrixRef(llvm::Value *val) { Instr->setOperand(1, val); }
   llvm::Value *get_vectorA() const { return Instr->getOperand(2); }
   void set_vectorA(llvm::Value *val) { Instr->setOperand(2, val); }
   llvm::Value *get_vectorB() const { return Instr->getOperand(3); }

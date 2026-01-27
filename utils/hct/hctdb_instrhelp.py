@@ -630,6 +630,7 @@ class db_oload_gen:
             "u8": "A(pI8);",
             "v": "A(pV);",
             "$vec4": "VEC4(pETy);",
+            "$vec9": "VEC9(pETy);",
             "SamplePos": "A(pPos);",
             "$udt": "A(udt);",
             "$obj": "A(obj);",
@@ -640,7 +641,6 @@ class db_oload_gen:
             "nodeproperty": "A(nodeProperty);",
             "noderecordproperty": "A(nodeRecordProperty);",
             "hit_object": "A(pHit);",
-            "matrixref": "A(pMatrixRef);",
             # Extended overload slots, extend as needed:
             "$x0": "EXT(0);",
             "$x1": "EXT(1);",
@@ -684,6 +684,7 @@ class db_oload_gen:
         # grouped by the set of overload parameter indices.
         extended_dict = collections.OrderedDict()
         struct_list = []
+        vec9_list = []  # For $vec9 operations that return native vectors
         extended_list = []
 
         for instr in self.db.get_dxil_ops():
@@ -706,7 +707,11 @@ class db_oload_gen:
                 continue
 
             if ret_ty.startswith(vec_ty):
-                struct_list.append(instr.name)
+                # $vec9 returns native <9 x float> vectors, not struct wrappers
+                if ret_ty == "$vec9":
+                    vec9_list.append(instr.name)
+                else:
+                    struct_list.append(instr.name)
                 continue
 
             in_param_ty = False
@@ -822,6 +827,15 @@ class db_oload_gen:
         line = line + "  return ST->getElementType(0);\n"
         line = line + "}"
         print(line)
+
+        # Generate code for $vec9 operations (native <9 x float> vectors)
+        if vec9_list:
+            line = ""
+            for opcode in vec9_list:
+                line = line + "case OpCode::{name}".format(name=opcode + ":\n")
+            line = line + "  // These return <9 x float> vectors directly\n"
+            line = line + "  return cast<VectorType>(Ty)->getElementType();"
+            print(line)
 
         for instr in extended_list:
             # Collect indices for overloaded return and types, make a tuple of

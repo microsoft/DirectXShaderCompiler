@@ -84,7 +84,6 @@ public:
   llvm::LLVMContext &GetCtx() { return m_Ctx; }
   llvm::Module *GetModule() { return m_pModule; }
   llvm::Type *GetHandleType() const;
-  llvm::Type *GetMatrixRefType() const;
   llvm::Type *GetHitObjectType() const;
   llvm::Type *GetNodeHandleType() const;
   llvm::Type *GetNodeRecordHandleType() const;
@@ -191,7 +190,6 @@ private:
   llvm::Type *m_pSplitDoubleType;
   llvm::Type *m_pFourI32Type;
   llvm::Type *m_pFourI16Type;
-  llvm::Type *m_pMatrixRefType;
 
   DXIL::LowPrecisionMode m_LowPrecisionMode;
 

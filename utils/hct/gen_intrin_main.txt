@@ -339,7 +339,7 @@ float<3,4> [[rn]] WorldToObject3x4();
 float<4,3> [[rn]] ObjectToWorld4x3();
 float<4,3> [[rn]] WorldToObject4x3();
 
-uint [[ro,min_sm=6.10]] ClusterID();
+uint [[rn,min_sm=6.10]] ClusterID();
 // TODO: Update return type for TriangleObjectPosition():
 void [[ro,min_sm=6.10]] TriangleObjectPosition();
 
@@ -1178,7 +1178,7 @@ namespace DxHitObjectMethods {
     void [[class_prefix,min_sm=6.9]] GetAttributes(out udt Attributes);
     void [[class_prefix,min_sm=6.9]] SetShaderTableIndex(in uint RecordIndex);
     uint [[ro,class_prefix,min_sm=6.9]] LoadLocalRootTableConstant(in uint RootConstantOffsetInBytes);
-    uint [[ro,class_prefix,min_sm=6.10]] ClusterID();
+    uint [[rn,class_prefix,min_sm=6.10]] GetClusterID();
     // TODO: Update return type for TriangleObjectPosition():
     void [[ro,class_prefix,min_sm=6.10]] TriangleObjectPosition();
 } namespace

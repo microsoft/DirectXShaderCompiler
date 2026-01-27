@@ -120,6 +120,7 @@ set_target_properties(clang-test PROPERTIES FOLDER "Clang tests")
 
 # Define DXC releases as (NAME VERSION) pairs
 set(DXC_RELEASES  
+  dxc_2025_07_14 v1.8.2505.1
   dxc_2025_02_20 v1.8.2502
   dxc_2023_08_14 v1.7.2308
   dxc_2021_12_08 v1.6.2112
@@ -178,21 +179,25 @@ foreach(i RANGE 0 ${loop_end})
     # Path to dxil.dll for this release
     set(DXC_PATH ${CMAKE_BINARY_DIR}/tools/clang/test/dxc_releases/${version}/${name}/bin/${TARGET_ARCH}/dxil.dll)
 
+    # The only sub-dirs that make sense to run with the released external dxil
+    # validator setting are CodeGenDXIL, DXC, and HLSLFileCheckLit.
+    # It would be much better to run Unit/TAEF tests too, but those tests don't
+    # currently respect the DXC_DXIL_DLL_PATH environment variable.
+    # LitDXILValidation is also skipped, since it is a regression test for the
+    # latest validator only.
+
     # Create a lit target for this release
-    add_lit_target("check-dxilcompat-${name}" "Running clang regression tests with dxil validator from ${name}\n"
-      ${CMAKE_CURRENT_SOURCE_DIR}
+    add_lit_target("check-dxilcompat-${name}"
+      "Running clang regression tests with dxil validator from ${name}"
+      ${CMAKE_CURRENT_SOURCE_DIR}/CodeGenDXIL
+      ${CMAKE_CURRENT_SOURCE_DIR}/DXC
+      ${CMAKE_CURRENT_SOURCE_DIR}/HLSLFileCheckLit
       PARAMS ${CLANG_TEST_PARAMS}
       DXC_DXIL_DLL_PATH=${DXC_PATH} 
       DXC_RELEASE_VERSION_TAG=${version}
-      skip_taef_exec=True
       DEPENDS ${CLANG_TEST_DEPS} ${name}
       ARGS ${CLANG_TEST_EXTRA_ARGS}
     )
-
-    # Hook into check-all
-    if (WIN32 AND TARGET check-all)
-      add_dependencies(check-all "check-dxilcompat-${name}")
-    endif()  
   endif()
 endforeach()
 # -------------------------------------------------------------------------
@@ -246,5 +251,28 @@ if(CMAKE_CONFIGURATION_TYPES)
             )
   endif()
 endif()
+
+# -------------------------------------------------------------------------
+# External Validator Testing
+# -------------------------------------------------------------------------
+
+# The only sub-dirs that make sense to run with the external dxil validator
+# setting are CodeGenDXIL, DXC, HLSLFileCheckLit, and LitDXILValidation.
+# It would be much better to run Unit/TAEF tests too, but those tests don't
+# currently respect the DXC_DXIL_DLL_PATH environment variable.
+
+add_lit_target("check-extdxil"
+  "Running clang regression tests with built external dxil validator"
+  ${CMAKE_CURRENT_SOURCE_DIR}/CodeGenDXIL
+  ${CMAKE_CURRENT_SOURCE_DIR}/DXC
+  ${CMAKE_CURRENT_SOURCE_DIR}/HLSLFileCheckLit
+  ${CMAKE_CURRENT_SOURCE_DIR}/LitDXILValidation
+  PARAMS ${CLANG_TEST_PARAMS}
+  # Set path to external validator build target
+  "DXC_DXIL_DLL_PATH=$<TARGET_FILE:dxildll>"
+  DEPENDS ${CLANG_TEST_DEPS}
+  ARGS ${CLANG_TEST_EXTRA_ARGS}
+)
+# -------------------------------------------------------------------------
 
 # HLSL Change End

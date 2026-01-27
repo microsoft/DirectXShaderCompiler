@@ -2349,6 +2349,25 @@ static void ValidateDxilOperationCallInProfile(CallInst *CI,
         ValCtx.EmitInstrError(CI, ValidationRule::InstrNoReadingUninitialized);
     DxilInst_HitObject_TraceRay HOTraceRay(CI);
   } break;
+
+  // Clustered Geometry intrinsics
+  case DXIL::OpCode::RayQuery_CandidateClusterID:
+  case DXIL::OpCode::RayQuery_CommittedClusterID: {
+    // Validate rayQueryHandle is not undef
+    Value *RayQueryHandle = CI->getArgOperand(1);
+    if (isa<UndefValue>(RayQueryHandle))
+      ValCtx.EmitInstrError(CI, ValidationRule::InstrNoReadingUninitialized);
+    break;
+  }
+
+  case DXIL::OpCode::HitObject_ClusterID: {
+    // Validate HitObject is not undef
+    Value *HitObject = CI->getArgOperand(1);
+    if (isa<UndefValue>(HitObject))
+      ValCtx.EmitInstrError(CI, ValidationRule::InstrUndefHitObject);
+    break;
+  }
+
   case DXIL::OpCode::AtomicBinOp:
   case DXIL::OpCode::AtomicCompareExchange: {
     Type *pOverloadType = OP::GetOverloadType(Opcode, CI->getCalledFunction());
@@ -3935,6 +3954,18 @@ static void ValidateGlobalVariables(ValidationContext &ValCtx) {
     Rule = ValidationRule::SmMaxMSSMSize;
     MaxSize = DXIL::kMaxMSSMSize;
   }
+
+  // Check if the entry function has attribute to override TGSM size.
+  if (M.HasDxilEntryProps(M.GetEntryFunction())) {
+    DxilEntryProps &EntryProps = M.GetDxilEntryProps(M.GetEntryFunction());
+    if (EntryProps.props.IsCS()) {
+      unsigned SpecifiedTGSMSize = EntryProps.props.groupSharedLimitBytes;
+      if (SpecifiedTGSMSize > 0) {
+        MaxSize = SpecifiedTGSMSize;
+      }
+    }
+  }
+
   if (TGSMSize > MaxSize) {
     Module::global_iterator GI = M.GetModule()->global_end();
     GlobalVariable *GV = &*GI;

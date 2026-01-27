@@ -13,7 +13,7 @@ stages:
 - stage: Build
   jobs:
   - job: Windows
-    timeoutInMinutes: 165
+    timeoutInMinutes: 180
 
     pool:
       vmImage: windows-2022
@@ -48,18 +48,28 @@ stages:
       displayName: 'DXIL Execution Tests'        
     - script: |
         call utils\hct\hctstart.cmd %HLSL_SRC_DIR% %HLSL_BLD_DIR%
-        call utils\hct\hcttest.cmd -$(configuration) compat-suite 1.6
+        call utils\hct\hcttest.cmd -$(configuration) extdxil
+      displayName: 'External DXIL Validator Tests'
+      condition: succeededOrFailed()
+    - script: |
+        call utils\hct\hctstart.cmd %HLSL_SRC_DIR% %HLSL_BLD_DIR%
+        call utils\hct\hcttest.cmd -$(configuration) compat-suite v1.6.2112
       displayName: 'DXIL Compat Suite Tests (1.6 release)'
       condition: succeededOrFailed()
     - script: |
         call utils\hct\hctstart.cmd %HLSL_SRC_DIR% %HLSL_BLD_DIR%
-        call utils\hct\hcttest.cmd -$(configuration) compat-suite 1.7
+        call utils\hct\hcttest.cmd -$(configuration) compat-suite v1.7.2308
       displayName: 'DXIL Compat Suite Tests (1.7 release)'
       condition: succeededOrFailed()
     - script: |
         call utils\hct\hctstart.cmd %HLSL_SRC_DIR% %HLSL_BLD_DIR%
-        call utils\hct\hcttest.cmd -$(configuration) compat-suite 1.8
+        call utils\hct\hcttest.cmd -$(configuration) compat-suite v1.8.2502
       displayName: 'DXIL Compat Suite Tests (1.8 release)'
+      condition: succeededOrFailed()
+    - script: |
+        call utils\hct\hctstart.cmd %HLSL_SRC_DIR% %HLSL_BLD_DIR%
+        call utils\hct\hcttest.cmd -$(configuration) compat-suite v1.8.2505.1
+      displayName: 'DXIL Compat Suite Tests (1.8 point release)'
       condition: succeededOrFailed()
     
 
@@ -160,6 +170,8 @@ stages:
       displayName: 'Smoke tests'
     - bash: $(CHECK_ALL_ENV) ninja -C build check-all
       displayName: 'DXC tests'
+    - bash: $(CHECK_ALL_ENV) ninja -C build check-extdxil
+      displayName: 'External DXIL Validator tests'
     - task: PublishTestResults@2
       inputs:
         testResultsFormat: 'JUnit'

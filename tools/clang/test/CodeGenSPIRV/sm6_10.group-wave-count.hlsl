@@ -1,3 +1,4 @@
+// REQUIRES: dxil-1-10
 // RUN: %dxc -T cs_6_10 -E main -fspv-target-env=vulkan1.1 -fcgl  %s -spirv | FileCheck %s
 
 // CHECK: ; Version: 1.3

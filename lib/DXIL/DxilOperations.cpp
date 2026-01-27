@@ -4138,9 +4138,6 @@ OP::OP(LLVMContext &Ctx, Module *pModule)
                            Type::getInt16Ty(m_Ctx)}; // HiHi, HiLo, LoHi, LoLo
   m_pFourI16Type =
       GetOrCreateStructType(m_Ctx, FourI16Types, "dx.types.fouri16", pModule);
-
-  m_pMatrixRefType = GetOrCreateStructType(m_Ctx, Type::getInt8PtrTy(m_Ctx),
-                                           "dx.types.MatrixRef", pModule);
 }
 
 void OP::RefreshCache() {
@@ -4251,7 +4248,6 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
   Type *pETy = pOverloadType;
   Type *pRes = GetHandleType();
   Type *pNodeHandle = GetNodeHandleType();
-  Type *pMatrixRef = GetMatrixRefType();
   Type *pNodeRecordHandle = GetNodeRecordHandleType();
   Type *pDim = GetDimensionsType();
   Type *pPos = GetSamplePosType();
@@ -4295,6 +4291,7 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
 #define RRT(_y) A(GetResRetType(_y))
 #define CBRT(_y) A(GetCBufferRetType(_y))
 #define VEC4(_y) A(GetStructVectorType(4, _y))
+#define VEC9(_y) A(VectorType::get(_y, 9))
 
 // Extended Overload types are wrapped in an anonymous struct
 #define EXT(_y) A(cast<StructType>(pOverloadType)->getElementType(_y))
@@ -6524,51 +6521,51 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
 
     // Raytracing System Values
   case OpCode::TriangleObjectPosition:
-    A(pETy);
+    VEC9(pETy);
     A(pI32);
     break;
 
     // Inline Ray Query
   case OpCode::RayQuery_CandidateTriangleObjectPosition:
-    A(pETy);
+    VEC9(pETy);
     A(pI32);
     A(pI32);
     break;
   case OpCode::RayQuery_CommittedTriangleObjectPosition:
-    A(pETy);
+    VEC9(pETy);
     A(pI32);
     A(pI32);
     break;
 
     // Shader Execution Reordering
   case OpCode::HitObject_TriangleObjectPosition:
-    A(pETy);
+    VEC9(pETy);
     A(pI32);
     A(pHit);
     break;
 
     // Linear Algebra Operations
   case OpCode::CreateMatrix:
-    A(pMatrixRef);
+    A(pI32);
     A(pI32);
     break;
   case OpCode::FillMatrix:
     A(pV);
     A(pI32);
-    A(pMatrixRef);
+    A(pI32);
     A(pETy);
     break;
   case OpCode::CopyConvertMatrix:
     A(pV);
     A(pI32);
-    A(pMatrixRef);
-    A(pMatrixRef);
+    A(pI32);
+    A(pI32);
     A(pI1);
     break;
   case OpCode::MatrixLoadFromDescriptor:
     A(pV);
     A(pI32);
-    A(pMatrixRef);
+    A(pI32);
     A(pRes);
     A(pI32);
     A(pI32);
@@ -6577,7 +6574,7 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
   case OpCode::MatrixLoadFromMemory:
     A(pV);
     A(pI32);
-    A(pMatrixRef);
+    A(pI32);
     A(pI32);
     A(pI32);
     A(pI32);
@@ -6586,31 +6583,31 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
   case OpCode::MatrixLength:
     A(pI32);
     A(pI32);
-    A(pMatrixRef);
+    A(pI32);
     break;
   case OpCode::MatrixGetCoordinate:
     A(pI32);
     A(pI32);
-    A(pMatrixRef);
+    A(pI32);
     A(pI32);
     break;
   case OpCode::MatrixGetElement:
     A(pETy);
     A(pI32);
-    A(pMatrixRef);
+    A(pI32);
     A(pI32);
     break;
   case OpCode::MatrixSetElement:
     A(pV);
     A(pI32);
-    A(pMatrixRef);
+    A(pI32);
     A(pI32);
     A(pETy);
     break;
   case OpCode::MatrixStoreToDescriptor:
     A(pV);
     A(pI32);
-    A(pMatrixRef);
+    A(pI32);
     A(pRes);
     A(pI32);
     A(pI32);
@@ -6619,7 +6616,7 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
   case OpCode::MatrixStoreToMemory:
     A(pV);
     A(pI32);
-    A(pMatrixRef);
+    A(pI32);
     A(pI32);
     A(pI32);
     A(pI32);
@@ -6632,27 +6629,27 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
   case OpCode::MatrixMulOp:
     A(pV);
     A(pI32);
-    A(pMatrixRef);
-    A(pMatrixRef);
-    A(pMatrixRef);
+    A(pI32);
+    A(pI32);
+    A(pI32);
     break;
   case OpCode::MatrixAccumulate:
     A(pV);
     A(pI32);
-    A(pMatrixRef);
-    A(pMatrixRef);
+    A(pI32);
+    A(pI32);
     break;
   case OpCode::MatrixVecMul:
     EXT(0);
     A(pI32);
-    A(pMatrixRef);
+    A(pI32);
     EXT(1);
     A(pI32);
     break;
   case OpCode::MatrixVecMulAdd:
     EXT(0);
     A(pI32);
-    A(pMatrixRef);
+    A(pI32);
     EXT(1);
     A(pI32);
     A(pI32);
@@ -6661,7 +6658,7 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
   case OpCode::MatrixAccumulateToDescriptor:
     A(pV);
     A(pI32);
-    A(pMatrixRef);
+    A(pI32);
     A(pRes);
     A(pI32);
     A(pI32);
@@ -6670,7 +6667,7 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
   case OpCode::MatrixAccumulateToMemory:
     A(pV);
     A(pI32);
-    A(pMatrixRef);
+    A(pI32);
     A(pI32);
     A(pI32);
     A(pI32);
@@ -6679,7 +6676,7 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
   case OpCode::MatrixOuterProduct:
     A(pV);
     A(pI32);
-    A(pMatrixRef);
+    A(pI32);
     EXT(0);
     EXT(1);
     break;
@@ -7048,6 +7045,12 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
     StructType *ST = cast<StructType>(Ty);
     return ST->getElementType(0);
   }
+  case OpCode::TriangleObjectPosition:
+  case OpCode::RayQuery_CandidateTriangleObjectPosition:
+  case OpCode::RayQuery_CommittedTriangleObjectPosition:
+  case OpCode::HitObject_TriangleObjectPosition:
+    // These return <9 x float> vectors directly
+    return cast<VectorType>(Ty)->getElementType();
   case OpCode::MatVecMul:
   case OpCode::MatVecMulAdd:
     if (FT->getNumParams() < 2)
@@ -7083,8 +7086,6 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
 Type *OP::GetHandleType() const { return m_pHandleType; }
 
 Type *OP::GetNodeHandleType() const { return m_pNodeHandleType; }
-
-Type *OP::GetMatrixRefType() const { return m_pMatrixRefType; }
 
 Type *OP::GetHitObjectType() const { return m_pHitObjectType; }
 
