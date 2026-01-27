@@ -3948,6 +3948,8 @@ RValue CGMSHLSLRuntime::EmitHLSLBuiltinCallExpr(CodeGenFunction &CGF,
             // Not support half Eval yet.
             allOperandImm = false;
             break;
+          } else if (operand->getType()->isVectorTy()) {
+            allOperandImm = false;
           }
         }
         if (allOperandImm) {
