@@ -1196,98 +1196,133 @@ enum class OpCode : unsigned {
 
   // OpCodeTableID = 32768
   // ExperimentalOps
+  // ExperimentalNop = 0x80000000, 2147483648U, -2147483648
   EXP_OPCODE(ExperimentalOps, ExperimentalNop), // nop does nothing
+  // GetGroupWaveIndex = 0x80000001, 2147483649U, -2147483647
   EXP_OPCODE(
       ExperimentalOps,
       GetGroupWaveIndex), // returns the index of the wave in the thread group
+  // GetGroupWaveCount = 0x80000002, 2147483650U, -2147483646
   EXP_OPCODE(
       ExperimentalOps,
       GetGroupWaveCount), // returns the number of waves in the thread group
+  // ClusterID = 0x80000003, 2147483651U, -2147483645
   EXP_OPCODE(
       ExperimentalOps,
       ClusterID), // returns the user-defined ClusterID of the intersected CLAS
+  // RayQuery_CandidateClusterID = 0x80000004, 2147483652U, -2147483644
   EXP_OPCODE(ExperimentalOps,
              RayQuery_CandidateClusterID), // returns candidate hit cluster ID
+  // RayQuery_CommittedClusterID = 0x80000005, 2147483653U, -2147483643
   EXP_OPCODE(ExperimentalOps,
              RayQuery_CommittedClusterID), // returns committed hit cluster ID
+  // HitObject_ClusterID = 0x80000006, 2147483654U, -2147483642
   EXP_OPCODE(
       ExperimentalOps,
       HitObject_ClusterID), // returns the cluster ID of this committed hit
+  // TriangleObjectPosition = 0x80000007, 2147483655U, -2147483641
   EXP_OPCODE(ExperimentalOps,
              TriangleObjectPosition), // returns triangle vertices in object
                                       // space as <9 x float>
+  // RayQuery_CandidateTriangleObjectPosition = 0x80000008, 2147483656U,
+  // -2147483640
   EXP_OPCODE(
       ExperimentalOps,
       RayQuery_CandidateTriangleObjectPosition), // returns candidate triangle
                                                  // vertices in object space as
                                                  // <9 x float>
+  // RayQuery_CommittedTriangleObjectPosition = 0x80000009, 2147483657U,
+  // -2147483639
   EXP_OPCODE(
       ExperimentalOps,
       RayQuery_CommittedTriangleObjectPosition), // returns committed triangle
                                                  // vertices in object space as
                                                  // <9 x float>
+  // HitObject_TriangleObjectPosition = 0x8000000A, 2147483658U, -2147483638
   EXP_OPCODE(ExperimentalOps,
              HitObject_TriangleObjectPosition), // returns triangle vertices in
                                                 // object space as <9 x float>
-  EXP_OPCODE(ExperimentalOps, CreateMatrix),    // creates a handle to a Matrix
+  // CreateMatrix = 0x8000000B, 2147483659U, -2147483637
+  EXP_OPCODE(ExperimentalOps, CreateMatrix), // creates a handle to a Matrix
+  // FillMatrix = 0x8000000C, 2147483660U, -2147483636
   EXP_OPCODE(ExperimentalOps, FillMatrix), // fills a matrix with a scalar value
+  // CopyConvertMatrix = 0x8000000D, 2147483661U, -2147483635
   EXP_OPCODE(ExperimentalOps,
              CopyConvertMatrix), // Converts and copies the element and use type
                                  // of the source matrix to the destination
                                  // matrix with optional transpose
+  // MatrixLoadFromDescriptor = 0x8000000E, 2147483662U, -2147483634
   EXP_OPCODE(ExperimentalOps,
              MatrixLoadFromDescriptor), // fills a matrix with data from a
                                         // [RW]ByteAddressBuffer
+  // MatrixLoadFromMemory = 0x8000000F, 2147483663U, -2147483633
   EXP_OPCODE(ExperimentalOps, MatrixLoadFromMemory), // fills a matrix with data
                                                      // from a groupshared array
+  // MatrixLength = 0x80000010, 2147483664U, -2147483632
   EXP_OPCODE(
       ExperimentalOps,
       MatrixLength), // returns the number of elements stored in thread-local
                      // storage on the active thread for the provided matrix
+  // MatrixGetCoordinate = 0x80000011, 2147483665U, -2147483631
   EXP_OPCODE(ExperimentalOps,
              MatrixGetCoordinate), // returns a two element vector containing
                                    // the column and row of the matrix that the
                                    // thread-local index corresponds to
+  // MatrixGetElement = 0x80000012, 2147483666U, -2147483630
   EXP_OPCODE(
       ExperimentalOps,
       MatrixGetElement), // returns the element of the matrix corresponding to
                          // the provided thread-local index
+  // MatrixSetElement = 0x80000013, 2147483667U, -2147483629
   EXP_OPCODE(ExperimentalOps,
              MatrixSetElement), // sets the element of the matrix corresponding
                                 // to the provided thread-local index
+  // MatrixStoreToDescriptor = 0x80000014, 2147483668U, -2147483628
   EXP_OPCODE(
       ExperimentalOps,
       MatrixStoreToDescriptor), // stores a matrix to a RWByteAddressBuffer
+  // MatrixStoreToMemory = 0x80000015, 2147483669U, -2147483627
   EXP_OPCODE(ExperimentalOps,
              MatrixStoreToMemory), // stores a matrix to groupshared memory
+  // MatrixQueryAccumulatorLayout = 0x80000016, 2147483670U, -2147483626
   EXP_OPCODE(
       ExperimentalOps,
       MatrixQueryAccumulatorLayout), // returns comptime 0 when accumulator
                                      // matrix are A layout, 1 when B layout
+  // MatrixMulOp = 0x80000017, 2147483671U, -2147483625
   EXP_OPCODE(ExperimentalOps,
              MatrixMulOp), // applies a multiplication op to matrix C using A
                            // and B as parameters
+  // MatrixAccumulate = 0x80000018, 2147483672U, -2147483624
   EXP_OPCODE(ExperimentalOps,
              MatrixAccumulate), // accumulate A or B matrix into Accumulator
                                 // matrix following LHS += RHS
+  // MatrixVecMul = 0x80000019, 2147483673U, -2147483623
   EXP_OPCODE(ExperimentalOps,
              MatrixVecMul), // Multiplies a MxK dimension matrix and a K sized
                             // input vector
+  // MatrixVecMulAdd = 0x8000001A, 2147483674U, -2147483622
   EXP_OPCODE(
       ExperimentalOps,
       MatrixVecMulAdd), // Multiplies a MxK dimension matrix and a K sized input
                         // vector then adds a M sized bias vector
+  // MatrixAccumulateToDescriptor = 0x8000001B, 2147483675U, -2147483621
   EXP_OPCODE(ExperimentalOps,
              MatrixAccumulateToDescriptor), // accumulates a matrix to a
                                             // RWByteAddressBuffer
+  // MatrixAccumulateToMemory = 0x8000001C, 2147483676U, -2147483620
   EXP_OPCODE(
       ExperimentalOps,
       MatrixAccumulateToMemory), // accumulates a matrix to groupshared memory
+  // MatrixOuterProduct = 0x8000001D, 2147483677U, -2147483619
   EXP_OPCODE(ExperimentalOps,
              MatrixOuterProduct), // Outer products an M sized vector and a K
                                   // sized vector producing an MxK matrix
+  // LinAlgMatrixReserved0 = 0x8000001E, 2147483678U, -2147483618
   EXP_OPCODE(ExperimentalOps, LinAlgMatrixReserved0), // reserved
+  // LinAlgMatrixReserved1 = 0x8000001F, 2147483679U, -2147483617
   EXP_OPCODE(ExperimentalOps, LinAlgMatrixReserved1), // reserved
+  // LinAlgMatrixReserved2 = 0x80000020, 2147483680U, -2147483616
   EXP_OPCODE(ExperimentalOps, LinAlgMatrixReserved2), // reserved
 };
 // OPCODE-ENUM:END

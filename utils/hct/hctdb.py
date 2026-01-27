@@ -598,6 +598,14 @@ class db_dxil(object):
                 v.category = i.category
                 class_dict[i.dxil_class] = i.category
                 if table != self.core_table:
+                    # // <op> = 0x<hex id>, <id>U, <signed i32 id>
+                    # Signed id is useful for comparing with IR opcodes, which
+                    # are printed as signed i32 values.
+                    signed_opid = ((i.dxil_opid + 0x80000000) & 0xFFFFFFFF) - 0x80000000
+                    postfix.append(
+                        f"// {i.dxil_op} = 0x{table.id:04X}{i.dxil_op_index():04X},"
+                        + f" {i.dxil_opid}U, {signed_opid}"
+                    )
                     postfix.append(f"EXP_OPCODE({table.name}, {i.dxil_op}), // {i.doc}")
 
         # Build OpCodeClass enum
