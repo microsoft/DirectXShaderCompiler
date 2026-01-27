@@ -897,9 +897,9 @@ SpirvInstruction *SpirvBuilder::createNonSemanticDebugPrintfExtInst(
 SpirvInstruction *
 SpirvBuilder::createNonSemanticDebugBreakExtInst(SourceLocation loc) {
   assert(insertPoint && "null insert point");
-  auto *extInst = new (context)
-      SpirvExtInst(astContext.VoidTy, loc, getExtInstSet("NonSemantic.DebugBreak"),
-                   NonSemanticDebugBreakDebugBreak, {});
+  auto *extInst = new (context) SpirvExtInst(
+      astContext.VoidTy, loc, getExtInstSet("NonSemantic.DebugBreak"),
+      NonSemanticDebugBreakDebugBreak, {});
   insertPoint->addInstruction(extInst);
   return extInst;
 }
