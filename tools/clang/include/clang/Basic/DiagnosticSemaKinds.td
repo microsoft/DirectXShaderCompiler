@@ -7615,9 +7615,8 @@ def err_hlsl_unsupported_buffer_slot_target_specific : Error<
   "user defined constant buffer slots cannot be target specific">;
 def err_hlsl_unsupported_typedbuffer_template_parameter : Error<
   "elements of typed buffers and textures must be scalars or vectors">;
-def err_hlsl_unsupported_typedbuffer_template_parameter_size
-    : Error<"elements of typed buffers and textures must fit in four 32-bit "
-            "quantities">;
+def err_hlsl_unsupported_typedbuffer_template_parameter_size : Error<
+  "elements of typed buffers and textures must fit in four 32-bit quantities">;
 def err_hlsl_unsupported_payload_access_qualifier : Error<
   "payload access qualifiers are only allowed for member variables of a payload structure">;
 def err_hlsl_unsupported_payload_access_qualifier_struct : Error<
