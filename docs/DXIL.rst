@@ -3098,6 +3098,8 @@ ID         Name                                     Description
 2147483678 LinAlgMatrixReserved0                    reserved
 2147483679 LinAlgMatrixReserved1                    reserved
 2147483680 LinAlgMatrixReserved2                    reserved
+2147483681 DebugBreak                               triggers a breakpoint if debugger is attached
+2147483682 IsDebuggerPresent                        returns true if debugger is attached
 ========== ======================================== ===================================================================================================================
 
 

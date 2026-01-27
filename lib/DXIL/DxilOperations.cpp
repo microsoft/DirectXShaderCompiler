@@ -3001,6 +3001,24 @@ static const OP::OpCodeProperty ExperimentalOps_OpCodeProps[] = {
      0,
      {},
      {}}, // Overloads: v
+
+    // Debugging
+    {OC::DebugBreak,
+     "DebugBreak",
+     OCC::DebugBreak,
+     "debugBreak",
+     Attribute::NoDuplicate,
+     0,
+     {},
+     {}}, // Overloads: v
+    {OC::IsDebuggerPresent,
+     "IsDebuggerPresent",
+     OCC::IsDebuggerPresent,
+     "isDebuggerPresent",
+     Attribute::ReadOnly,
+     0,
+     {},
+     {}}, // Overloads: v
 };
 static_assert(_countof(ExperimentalOps_OpCodeProps) ==
                   (size_t)DXIL::ExperimentalOps::OpCode::NumOpCodes,
@@ -3925,11 +3943,13 @@ void OP::GetMinShaderModelAndMask(OpCode C, bool bWithTranslation,
   // MatrixMulOp=2147483671, MatrixAccumulate=2147483672,
   // MatrixVecMul=2147483673, MatrixVecMulAdd=2147483674,
   // MatrixAccumulateToDescriptor=2147483675,
-  // MatrixAccumulateToMemory=2147483676, MatrixOuterProduct=2147483677
+  // MatrixAccumulateToMemory=2147483676, MatrixOuterProduct=2147483677,
+  // DebugBreak=2147483681, IsDebuggerPresent=2147483682
   if ((305 <= op && op <= 308) || op == 2147483648 ||
       (2147483652 <= op && op <= 2147483653) ||
       (2147483656 <= op && op <= 2147483657) ||
-      (2147483659 <= op && op <= 2147483677)) {
+      (2147483659 <= op && op <= 2147483677) ||
+      (2147483681 <= op && op <= 2147483682)) {
     major = 6;
     minor = 10;
     return;
@@ -6677,6 +6697,16 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
     A(pV);
     A(pI32);
     break;
+
+    // Debugging
+  case OpCode::DebugBreak:
+    A(pV);
+    A(pI32);
+    break;
+  case OpCode::IsDebuggerPresent:
+    A(pI1);
+    A(pI32);
+    break;
   // OPCODE-OLOAD-FUNCS:END
   default:
     DXASSERT(false, "otherwise unhandled case");
@@ -6992,6 +7022,8 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
   case OpCode::LinAlgMatrixReserved0:
   case OpCode::LinAlgMatrixReserved1:
   case OpCode::LinAlgMatrixReserved2:
+  case OpCode::DebugBreak:
+  case OpCode::IsDebuggerPresent:
     return Type::getVoidTy(Ctx);
   case OpCode::QuadVote:
     return IntegerType::get(Ctx, 1);

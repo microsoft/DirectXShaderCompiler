@@ -3599,6 +3599,9 @@ private:
       case LICOMPTYPE_UINT:
         paramTypes.push_back(context.UnsignedIntTy);
         break;
+      case LICOMPTYPE_BOOL:
+        paramTypes.push_back(context.BoolTy);
+        break;
       case LICOMPTYPE_VOID:
         paramTypes.push_back(context.VoidTy);
         break;
