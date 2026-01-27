@@ -621,7 +621,7 @@ SpirvInstruction *SpirvBuilder::createImageSample(
 
   // An OpSampledImage is required to do the image sampling.
   // Skip creating OpSampledImage if the imageType is a sampled texture.
-  SpirvInstruction *sampledImage = nullptr;
+  SpirvInstruction *sampledImage;
   if (isSampledTexture(imageType)) {
     assert(!sampler &&
            "sampler must be null when sampling from a sampled texture");
