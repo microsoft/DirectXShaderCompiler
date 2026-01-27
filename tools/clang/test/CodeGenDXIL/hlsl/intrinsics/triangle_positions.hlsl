@@ -6,7 +6,7 @@
 // AST: `-CXXMethodDecl {{.*}} <<invalid sloc>> <invalid sloc> used TriangleObjectPositions 'BuiltInTrianglePositions &()' extern
 // AST-NEXT:   |-TemplateArgument type 'BuiltInTrianglePositions'
 // AST-NEXT:   |-HLSLIntrinsicAttr {{.*}} <<invalid sloc>> Implicit "op" "" 404
-// AST-NEXT:   |-PureAttr {{.*}} <<invalid sloc>> Implicit
+// AST-NEXT:   |-ConstAttr {{.*}} <<invalid sloc>> Implicit
 // AST-NEXT:   `-AvailabilityAttr {{.*}} <<invalid sloc>> Implicit  6.10 0 0 ""
 
 // AST: `-CXXMethodDecl {{.*}} <<invalid sloc>> <invalid sloc> used CandidateTriangleObjectPositions 'BuiltInTrianglePositions &()' extern
@@ -23,7 +23,7 @@
 
 // AST: -FunctionDecl {{.*}} <<invalid sloc>> <invalid sloc> implicit used TriangleObjectPositions 'BuiltInTrianglePositions ()' extern
 // AST:  |-HLSLIntrinsicAttr {{.*}} <<invalid sloc>> Implicit "op" "" 401
-// AST:  |-PureAttr {{.*}} <<invalid sloc>> Implicit
+// AST:  |-ConstAttr {{.*}} <<invalid sloc>> Implicit
 // AST:  |-AvailabilityAttr {{.*}} <<invalid sloc>> Implicit  6.10 0 0 ""
 // AST:  `-HLSLBuiltinCallAttr {{.*}} <<invalid sloc>> Implicit
 
@@ -101,7 +101,7 @@ void RayQueryTest() {
 // CHECK: %{{.*}} = call <9 x float> @dx.op.hitObject_TriangleObjectPosition.f32(i32 -2147483638, %dx.types.HitObject %{{.*}})  ; HitObject_TriangleObjectPosition(hitObject)
 
 // FCGL-LABEL: define void {{.*}}HitObjectTest
-// FCGL: %{{.*}} = call %struct.BuiltInTrianglePositions* @"dx.hl.op.ro.%struct.BuiltInTrianglePositions* (i32, %dx.types.HitObject*)"(i32 404, %dx.types.HitObject* %{{.*}})
+// FCGL: %{{.*}} = call %struct.BuiltInTrianglePositions* @"dx.hl.op.rn.%struct.BuiltInTrianglePositions* (i32, %dx.types.HitObject*)"(i32 404, %dx.types.HitObject* %{{.*}})
 [shader("raygeneration")]
 void HitObjectTest() {
     RayDesc ray;
