@@ -577,6 +577,9 @@ bool IsHLSLObjectType(llvm::Type *Ty) {
 
     if (IsHLSLHitObjectType(Ty))
       return true;
+
+    if (IsHLSLLinAlgMatrixType(Ty))
+      return true;
   }
   return false;
 }
@@ -610,6 +613,15 @@ bool IsHLSLHitObjectType(llvm::Type *Ty) {
   if (!ST->hasName())
     return false;
   return ST->getName() == "dx.types.HitObject";
+}
+
+bool IsHLSLLinAlgMatrixType(llvm::Type *Ty) {
+  llvm::StructType *ST = dyn_cast<llvm::StructType>(Ty);
+  if (!ST)
+    return false;
+  if (!ST->hasName())
+    return false;
+  return ST->getName().startswith("dx.types.LinAlgMatrix");
 }
 
 bool IsHLSLResourceDescType(llvm::Type *Ty) {
