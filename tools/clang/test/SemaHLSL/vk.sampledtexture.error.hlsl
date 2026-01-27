@@ -6,10 +6,10 @@ struct MyStruct {
 };
 
 [[vk::binding(0, 0)]]
-vk::SampledTexture2D<MyStruct> tex1; // expected-error {{'MyStruct' cannot be used as a type parameter where it must be of type float, int, uint or their vector equivalents}}
+vk::SampledTexture2D<MyStruct> tex1; // expected-error {{elements of typed buffers and textures must be scalars or vectors}}
 
 [[vk::binding(1, 0)]]
-vk::SampledTexture2D<float[4]> tex2; // expected-error {{'float [4]' cannot be used as a type parameter where it must be of type float, int, uint or their vector equivalents}}
+vk::SampledTexture2D<float[4]> tex2; // expected-error {{elements of typed buffers and textures must be scalars or vectors}}
 
 [[vk::binding(2, 0)]]
 vk::SampledTexture2D<float> tex3;

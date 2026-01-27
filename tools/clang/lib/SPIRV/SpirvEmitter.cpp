@@ -4473,9 +4473,10 @@ SpirvEmitter::processTextureLevelOfDetail(const CXXMemberCallExpr *expr,
   // Texture2D(Array).CalculateLevelOfDetail(SamplerState S, float2 xy);
   // TextureCube(Array).CalculateLevelOfDetail(SamplerState S, float3 xyz);
   // Texture3D.CalculateLevelOfDetail(SamplerState S, float3 xyz);
-  // SampledTexture2D.CalculateLevelOfDetail(float2 xy);
   // Return type is always a single float (LOD).
-
+  //
+  // Their SampledTexture variants have the same signature without the
+  // sampler_state parameter.
   const auto *imageExpr = expr->getImplicitObjectArgument();
   const QualType imageType = imageExpr->getType();
   // numarg is 1 if isSampledTexture(imageType). otherwise 2.
@@ -4484,7 +4485,7 @@ SpirvEmitter::processTextureLevelOfDetail(const CXXMemberCallExpr *expr,
   auto *objectInfo = loadIfGLValue(imageExpr);
 
   SpirvInstruction *samplerState, *coordinate, *sampledImage;
-  if (isSampledTexture) {
+  if (isSampledTexture(imageType)) {
     samplerState = nullptr;
     coordinate = doExpr(expr->getArg(0));
     sampledImage = objectInfo;
@@ -5829,6 +5830,9 @@ SpirvEmitter::processTextureSampleGather(const CXXMemberCallExpr *expr,
   //                           [, float Clamp]
   //                           [, out uint Status]);
   //
+  // Their SampledTexture variants have the same signature without the
+  // sampler_state parameter.
+  //
   // For TextureCube and TextureCubeArray:
   // DXGI_FORMAT Object.Sample(sampler_state S,
   //                           float Location
@@ -5846,12 +5850,6 @@ SpirvEmitter::processTextureSampleGather(const CXXMemberCallExpr *expr,
   //                                float2|3|4 Location
   //                                [, uint Status]);
   //
-  // For SampledTexture2D:
-  // DXGI_FORMAT Object.Sample(float Location
-  //                           [, int Offset]
-  //                           [, float Clamp]
-  //                           [, out uint Status]);
-  //
   // Other Texture types do not have a Gather method.
   const auto numArgs = expr->getNumArgs();
   const auto loc = expr->getExprLoc();
@@ -5863,26 +5861,22 @@ SpirvEmitter::processTextureSampleGather(const CXXMemberCallExpr *expr,
   const QualType imageType = imageExpr->getType();
   const bool isImageSampledTexture = isSampledTexture(imageType);
 
-  int samplerIndex, clampIndex, coordIndex, offsetIndex;
+  int samplerIndex, coordIndex;
   if (isImageSampledTexture) {
     samplerIndex = -1; // non-existant
     coordIndex = 0;
-    offsetIndex = 1;
-    clampIndex = 2;
   } else {
     samplerIndex = 0;
     coordIndex = 1;
-    offsetIndex = 2;
-    clampIndex = 3;
   }
 
   SpirvInstruction *clamp = nullptr;
-  if (numArgs > offsetIndex &&
-      expr->getArg(offsetIndex)->getType()->isFloatingType())
-    clamp = doExpr(expr->getArg(offsetIndex));
-  else if (numArgs > offsetIndex + 1 &&
-           expr->getArg(offsetIndex + 1)->getType()->isFloatingType())
-    clamp = doExpr(expr->getArg(offsetIndex + 1));
+  if (numArgs > coordIndex + 1 &&
+      expr->getArg(coordIndex + 1)->getType()->isFloatingType())
+    clamp = doExpr(expr->getArg(coordIndex + 1));
+  else if (numArgs > coordIndex + 2 &&
+           expr->getArg(coordIndex + 2)->getType()->isFloatingType())
+    clamp = doExpr(expr->getArg(coordIndex + 2));
   const bool hasClampArg = (clamp != 0);
   const auto status =
       hasStatusArg ? doExpr(expr->getArg(numArgs - 1)) : nullptr;
@@ -5896,9 +5890,9 @@ SpirvEmitter::processTextureSampleGather(const CXXMemberCallExpr *expr,
   // Subtract 1 for status (if it exists), subtract 1 for clamp (if it exists),
   // and subtract offsetIndex for sampler_state (if exists) location.
   const bool hasOffsetArg =
-      numArgs - hasStatusArg - hasClampArg - offsetIndex > 0;
+      numArgs - hasStatusArg - hasClampArg - coordIndex > 1;
   if (hasOffsetArg)
-    handleOffsetInMethodCall(expr, offsetIndex, &constOffset, &varOffset);
+    handleOffsetInMethodCall(expr, coordIndex + 1, &constOffset, &varOffset);
 
   const auto retType = expr->getDirectCallee()->getReturnType();
   if (isSample) {

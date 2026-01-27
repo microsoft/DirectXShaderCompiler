@@ -3081,7 +3081,7 @@ private:
   ClassTemplateDecl *m_vkIntegralConstantTemplateDecl;
   ClassTemplateDecl *m_vkLiteralTemplateDecl;
   ClassTemplateDecl *m_vkBufferPointerTemplateDecl;
-  ClassTemplateDecl *m_vkSampledTexture2DTemplateDecl;
+  ClassTemplateDecl *m_vkSampledTextureTemplateDecl;
 
   // Declarations for Work Graph Output Record types
   ClassTemplateDecl *m_GroupNodeOutputRecordsTemplateDecl;
@@ -4096,7 +4096,11 @@ private:
             LookupVectorType(HLSLScalarType::HLSLScalarType_float, 2),
             LookupVectorType(HLSLScalarType::HLSLScalarType_int, 2));
         recordDecl->setImplicit(true);
-        m_vkSampledTexture2DTemplateDecl =
+        Attr = HLSLResourceAttr::CreateImplicit(
+            *m_context, (unsigned)DXIL::ResourceKind::Texture2D,
+            (unsigned)DXIL::ResourceClass::SRV);
+        recordDecl->addAttr(Attr);
+        m_vkSampledTextureTemplateDecl =
             recordDecl->getDescribedClassTemplate();
       }
 #endif
@@ -4212,7 +4216,7 @@ public:
         m_vkIntegralConstantTemplateDecl(nullptr),
         m_vkLiteralTemplateDecl(nullptr),
         m_vkBufferPointerTemplateDecl(nullptr),
-        m_vkSampledTexture2DTemplateDecl(nullptr), m_hlslNSDecl(nullptr),
+        m_vkSampledTextureTemplateDecl(nullptr), m_hlslNSDecl(nullptr),
         m_vkNSDecl(nullptr), m_dxNSDecl(nullptr), m_context(nullptr),
         m_sema(nullptr), m_hlslStringTypedef(nullptr) {
     memset(m_matrixTypes, 0, sizeof(m_matrixTypes));
@@ -5548,14 +5552,6 @@ public:
             return true;
           }
 #endif
-#ifdef ENABLE_SPIRV_CODEGEN
-          if (const auto *namespaceDecl = dyn_cast<NamespaceDecl>(
-                  recordType->getDecl()->getDeclContext());
-              namespaceDecl && namespaceDecl->getName().equals("vk") &&
-              recordType->getDecl()->getName().equals("SampledTexture2D")) {
-            return true;
-          }
-#endif
           m_sema->Diag(argLoc, diag::err_hlsl_unsupported_object_context)
               << type << static_cast<unsigned>(TypeDiagContext::TypeParameter);
           return false;
@@ -5718,42 +5714,6 @@ public:
         }
       }
 
-    } else if (Template->getQualifiedNameAsString() == "vk::SampledTexture2D") {
-      if (TemplateArgList.size() == 1) {
-        const TemplateArgumentLoc &ArgLoc = TemplateArgList[0];
-        const TemplateArgument &Arg = ArgLoc.getArgument();
-        if (Arg.getKind() == TemplateArgument::ArgKind::Type) {
-          QualType ArgType = Arg.getAsType();
-          if (!ArgType->isDependentType()) {
-            QualType EltTy = ArgType;
-            if (IsVectorType(m_sema, ArgType)) {
-              EltTy = hlsl::GetHLSLVecElementType(ArgType);
-            }
-
-            bool isAllowedType = false;
-            if (const BuiltinType *BT = EltTy->getAs<BuiltinType>()) {
-              switch (BT->getKind()) {
-              case BuiltinType::Float:
-              case BuiltinType::Int:
-              case BuiltinType::UInt:
-                isAllowedType = true;
-                break;
-              default:
-                break;
-              }
-            }
-
-            if (!isAllowedType) {
-              m_sema->Diag(
-                  ArgLoc.getLocation(),
-                  diag::
-                      err_hlsl_unsupported_vk_sampledtexture_template_parameter)
-                  << ArgType;
-              return true;
-            }
-          }
-        }
-      }
     } else if (Template->getTemplatedDecl()->hasAttr<HLSLNodeObjectAttr>()) {
 
       DXASSERT(TemplateArgList.size() == 1,
