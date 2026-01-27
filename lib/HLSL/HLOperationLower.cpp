@@ -6042,7 +6042,7 @@ Value *TranslateTriangleObjectPositions(
   hlsl::OP *hlslOP = &helper.hlslOP;
   IRBuilder<> Builder(CI);
 
-  Value *outputPtr = CI->getArgOperand(HLOperandIndex::kUnaryOpSrc0Idx);
+  Value *outputPtr = CI->getArgOperand(HLOperandIndex::kIOP_SRetOpIdx);
   StructType *hlslStructTy =
       cast<StructType>(outputPtr->getType()->getPointerElementType());
 
