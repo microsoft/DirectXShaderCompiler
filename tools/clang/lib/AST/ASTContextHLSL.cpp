@@ -1372,6 +1372,144 @@ CXXRecordDecl *hlsl::DeclareNodeOrRecordType(
 }
 
 #ifdef ENABLE_SPIRV_CODEGEN
+static void AddSampleFunction(ASTContext &context, CXXRecordDecl *recordDecl,
+                              QualType returnType, QualType coordinateType,
+                              QualType offsetType) {
+  QualType floatType = context.FloatTy;
+  QualType uintType = context.UnsignedIntTy;
+
+  // Sample(location)
+  CXXMethodDecl *sampleDecl = CreateObjectFunctionDeclarationWithParams(
+      context, recordDecl, returnType, ArrayRef<QualType>(coordinateType),
+      ArrayRef<StringRef>(StringRef("location")),
+      context.DeclarationNames.getIdentifier(&context.Idents.get("Sample")),
+      /*isConst*/ true);
+  sampleDecl->addAttr(HLSLIntrinsicAttr::CreateImplicit(
+      context, "op", "", static_cast<int>(hlsl::IntrinsicOp::MOP_Sample)));
+  sampleDecl->addAttr(HLSLCXXOverloadAttr::CreateImplicit(context));
+
+  // Sample(location, offset)
+  QualType params2[] = {coordinateType, offsetType};
+  StringRef names2[] = {"location", "offset"};
+  CXXMethodDecl *sampleDecl2 = CreateObjectFunctionDeclarationWithParams(
+      context, recordDecl, returnType, params2, names2,
+      context.DeclarationNames.getIdentifier(&context.Idents.get("Sample")),
+      /*isConst*/ true);
+  sampleDecl2->addAttr(HLSLIntrinsicAttr::CreateImplicit(
+      context, "op", "", static_cast<int>(hlsl::IntrinsicOp::MOP_Sample)));
+  sampleDecl2->addAttr(HLSLCXXOverloadAttr::CreateImplicit(context));
+
+  // Sample(location, offset, clamp)
+  QualType params3[] = {coordinateType, offsetType, floatType};
+  StringRef names3[] = {"location", "offset", "clamp"};
+  CXXMethodDecl *sampleDecl3 = CreateObjectFunctionDeclarationWithParams(
+      context, recordDecl, returnType, params3, names3,
+      context.DeclarationNames.getIdentifier(&context.Idents.get("Sample")),
+      /*isConst*/ true);
+  sampleDecl3->addAttr(HLSLIntrinsicAttr::CreateImplicit(
+      context, "op", "", static_cast<int>(hlsl::IntrinsicOp::MOP_Sample)));
+  sampleDecl3->addAttr(HLSLCXXOverloadAttr::CreateImplicit(context));
+
+  // Sample(location, offset, clamp, status)
+  QualType params4[] = {coordinateType, offsetType, floatType,
+                        context.getLValueReferenceType(uintType)};
+  StringRef names4[] = {"location", "offset", "clamp", "status"};
+  CXXMethodDecl *sampleDecl4 = CreateObjectFunctionDeclarationWithParams(
+      context, recordDecl, returnType, params4, names4,
+      context.DeclarationNames.getIdentifier(&context.Idents.get("Sample")),
+      /*isConst*/ true);
+  sampleDecl4->addAttr(HLSLIntrinsicAttr::CreateImplicit(
+      context, "op", "", static_cast<int>(hlsl::IntrinsicOp::MOP_Sample)));
+  sampleDecl4->addAttr(HLSLCXXOverloadAttr::CreateImplicit(context));
+}
+
+static void AddCalculateLevelOfDetailFunction(ASTContext &context,
+                                              CXXRecordDecl *recordDecl,
+                                              QualType coordinateType,
+                                              bool unclamped) {
+  QualType floatType = context.FloatTy;
+
+  const char *functionName =
+      unclamped ? "CalculateLevelOfDetailUnclamped" : "CalculateLevelOfDetail";
+  const auto intrinsicOp =
+      unclamped ? hlsl::IntrinsicOp::MOP_CalculateLevelOfDetailUnclamped
+                : hlsl::IntrinsicOp::MOP_CalculateLevelOfDetail;
+
+  // // CalculateLevelOfDetail(location),
+  // CalculateLevelOfDetailUnclamped(location)
+  CXXMethodDecl *lodDecl = CreateObjectFunctionDeclarationWithParams(
+      context, recordDecl, floatType, ArrayRef<QualType>(coordinateType),
+      ArrayRef<StringRef>(StringRef("location")),
+      context.DeclarationNames.getIdentifier(&context.Idents.get(functionName)),
+      /*isConst*/ true);
+  lodDecl->addAttr(HLSLIntrinsicAttr::CreateImplicit(
+      context, "op", "", static_cast<int>(intrinsicOp)));
+  lodDecl->addAttr(HLSLCXXOverloadAttr::CreateImplicit(context));
+}
+
+static void AddGatherFunction(ASTContext &context, CXXRecordDecl *recordDecl,
+                              QualType returnType, QualType coordinateType,
+                              QualType offsetType) {
+  // Gather(location)
+  CXXMethodDecl *gatherDecl = CreateObjectFunctionDeclarationWithParams(
+      context, recordDecl, returnType, ArrayRef<QualType>(coordinateType),
+      ArrayRef<StringRef>(StringRef("location")),
+      context.DeclarationNames.getIdentifier(&context.Idents.get("Gather")),
+      /*isConst*/ true);
+  gatherDecl->addAttr(HLSLIntrinsicAttr::CreateImplicit(
+      context, "op", "", static_cast<int>(hlsl::IntrinsicOp::MOP_Gather)));
+  gatherDecl->addAttr(HLSLCXXOverloadAttr::CreateImplicit(context));
+
+  // Gather(location, offset)
+  QualType gatherParams2[] = {coordinateType, offsetType};
+  StringRef gatherNames2[] = {"location", "offset"};
+  CXXMethodDecl *gatherDecl2 = CreateObjectFunctionDeclarationWithParams(
+      context, recordDecl, returnType, gatherParams2, gatherNames2,
+      context.DeclarationNames.getIdentifier(&context.Idents.get("Gather")),
+      /*isConst*/ true);
+  gatherDecl2->addAttr(HLSLIntrinsicAttr::CreateImplicit(
+      context, "op", "", static_cast<int>(hlsl::IntrinsicOp::MOP_Gather)));
+  gatherDecl2->addAttr(HLSLCXXOverloadAttr::CreateImplicit(context));
+
+  // Gather(location, offset, status)
+  QualType gatherParams3[] = {
+      coordinateType, offsetType,
+      context.getLValueReferenceType(context.UnsignedIntTy)};
+  StringRef gatherNames3[] = {"location", "offset", "status"};
+  CXXMethodDecl *gatherDecl3 = CreateObjectFunctionDeclarationWithParams(
+      context, recordDecl, returnType, gatherParams3, gatherNames3,
+      context.DeclarationNames.getIdentifier(&context.Idents.get("Gather")),
+      /*isConst*/ true);
+  gatherDecl3->addAttr(HLSLIntrinsicAttr::CreateImplicit(
+      context, "op", "", static_cast<int>(hlsl::IntrinsicOp::MOP_Gather)));
+  gatherDecl3->addAttr(HLSLCXXOverloadAttr::CreateImplicit(context));
+}
+
+CXXRecordDecl *hlsl::DeclareVkSampledTextureType(
+    ASTContext &context, DeclContext *declContext, llvm::StringRef hlslTypeName,
+    QualType defaultParamType, QualType coordinateType, QualType offsetType) {
+  BuiltinTypeDeclBuilder Builder(declContext, hlslTypeName,
+                                 TagDecl::TagKind::TTK_Struct);
+
+  TemplateTypeParmDecl *TyParamDecl =
+      Builder.addTypeTemplateParam("SampledTextureType", defaultParamType);
+
+  Builder.startDefinition();
+
+  QualType paramType = QualType(TyParamDecl->getTypeForDecl(), 0);
+  CXXRecordDecl *recordDecl = Builder.getRecordDecl();
+
+  AddSampleFunction(context, recordDecl, paramType, coordinateType, offsetType);
+  AddCalculateLevelOfDetailFunction(context, recordDecl, coordinateType,
+                                    /*unclamped=*/false);
+  AddCalculateLevelOfDetailFunction(context, recordDecl, coordinateType,
+                                    /*unclamped=*/true);
+  AddGatherFunction(context, recordDecl, paramType, coordinateType, offsetType);
+
+  Builder.completeDefinition();
+  return recordDecl;
+}
+
 CXXRecordDecl *hlsl::DeclareVkBufferPointerType(ASTContext &context,
                                                 DeclContext *declContext) {
   BuiltinTypeDeclBuilder Builder(declContext, "BufferPointer",
