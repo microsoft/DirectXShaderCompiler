@@ -926,6 +926,17 @@ bool isTexture(QualType type) {
   return false;
 }
 
+bool isSampledTexture(QualType type) {
+  if (const auto *rt = type->getAs<RecordType>()) {
+    const auto name = rt->getDecl()->getName();
+    // TODO(https://github.com/microsoft/DirectXShaderCompiler/issues/7979): Add
+    // other sampled texture types as needed.
+    if (name == "SampledTexture2D")
+      return true;
+  }
+  return false;
+}
+
 bool isTextureMS(QualType type) {
   if (const auto *rt = type->getAs<RecordType>()) {
     const auto name = rt->getDecl()->getName();
