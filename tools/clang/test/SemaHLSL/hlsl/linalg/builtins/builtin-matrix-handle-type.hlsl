@@ -23,7 +23,7 @@ void f1(__builtin_LinAlg_Matrix m);
 
 __builtin_LinAlg_Matrix f2();
 
-// expected-error@+1 {{typedef redefinition with different types ('int' vs '__builtin_LinAlg Matrix')}}
+// expected-error@+1 {{typedef redefinition with different types ('int' vs '__builtin_LinAlg_Matrix')}}
 typedef int __builtin_LinAlg_Matrix;
 
 [shader("compute")]
