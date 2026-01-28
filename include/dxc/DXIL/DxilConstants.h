@@ -1328,8 +1328,10 @@ enum class OpCode : unsigned {
   EXP_OPCODE(ExperimentalOps, LinAlgMatrixReserved1), // reserved
   // LinAlgMatrixReserved2 = 0x80000020, 2147483680U, -2147483616
   EXP_OPCODE(ExperimentalOps, LinAlgMatrixReserved2), // reserved
+  // DebugBreak = 0x80000021, 2147483681U, -2147483615
   EXP_OPCODE(ExperimentalOps,
              DebugBreak), // triggers a breakpoint if debugger is attached
+  // IsDebuggerPresent = 0x80000022, 2147483682U, -2147483614
   EXP_OPCODE(ExperimentalOps,
              IsDebuggerPresent), // returns true if debugger is attached
 };
