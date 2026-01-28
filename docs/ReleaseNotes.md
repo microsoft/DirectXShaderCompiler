@@ -17,6 +17,11 @@ The included licenses apply to the following files:
 
 ## Changelog
 
+### Upcoming Release 
+
+Place release notes for the upcoming release below this line and remove this
+line upon naming the release. Refer to previous for appropriate section names.
+
 ### Version 1.9.2602
 
 #### Shader Model 6.9 Release
