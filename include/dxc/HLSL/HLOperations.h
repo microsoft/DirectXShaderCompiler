@@ -160,6 +160,10 @@ const unsigned kOpcodeIdx = 0;
 // Used to initialize values that have no valid index in the HL overload.
 const unsigned kInvalidIdx = UINT32_MAX;
 
+// HL intrinsic operations place the SRet return pointer at operand index 1,
+// since the first argument is reserved for the HL OpCode.
+const unsigned kIOP_SRetOpIdx = 1;
+
 // Matrix store.
 const unsigned kMatStoreDstPtrOpIdx = 1;
 const unsigned kMatStoreValOpIdx = 2;

@@ -2350,9 +2350,11 @@ static void ValidateDxilOperationCallInProfile(CallInst *CI,
     DxilInst_HitObject_TraceRay HOTraceRay(CI);
   } break;
 
-  // Clustered Geometry intrinsics
+  // Clustered Geometry & Triangle Object Positions intrinsics
   case DXIL::OpCode::RayQuery_CandidateClusterID:
-  case DXIL::OpCode::RayQuery_CommittedClusterID: {
+  case DXIL::OpCode::RayQuery_CommittedClusterID:
+  case DXIL::OpCode::RayQuery_CandidateTriangleObjectPosition:
+  case DXIL::OpCode::RayQuery_CommittedTriangleObjectPosition: {
     // Validate rayQueryHandle is not undef
     Value *RayQueryHandle = CI->getArgOperand(1);
     if (isa<UndefValue>(RayQueryHandle))
@@ -2360,7 +2362,8 @@ static void ValidateDxilOperationCallInProfile(CallInst *CI,
     break;
   }
 
-  case DXIL::OpCode::HitObject_ClusterID: {
+  case DXIL::OpCode::HitObject_ClusterID:
+  case DXIL::OpCode::HitObject_TriangleObjectPosition: {
     // Validate HitObject is not undef
     Value *HitObject = CI->getArgOperand(1);
     if (isa<UndefValue>(HitObject))

@@ -12,6 +12,7 @@
 // expected-note@? {{'OutputPatch' declared here}}
 // expected-note@? {{'RayDesc' declared here}}
 // expected-note@? {{'BuiltInTriangleIntersectionAttributes' declared here}}
+// expected-note@? {{'BuiltInTrianglePositions' declared here}}
 // expected-note@? {{'RaytracingAccelerationStructure' declared here}}
 // expected-note@? {{'GlobalRootSignature' declared here}}
 
@@ -29,6 +30,7 @@ struct HSOP : OutputPatch<Vertex, 16> {}; // expected-error {{base 'OutputPatch'
 
 struct RD : RayDesc {}; // expected-error {{base 'RayDesc' is marked 'final'}} fxc-error {{X3000: syntax error: unexpected token 'RayDesc'}}
 struct BITIA : BuiltInTriangleIntersectionAttributes {}; // expected-error {{base 'BuiltInTriangleIntersectionAttributes' is marked 'final'}} fxc-error {{X3000: syntax error: unexpected token 'BuiltInTriangleIntersectionAttributes'}}
+struct BITP : BuiltInTrianglePositions {}; // expected-error {{base 'BuiltInTrianglePositions' is marked 'final'}} fxc-error {{X3000: syntax error: unexpected token 'BuiltInTrianglePositions'}}
 struct RTAS : RaytracingAccelerationStructure {}; // expected-error {{base 'RaytracingAccelerationStructure' is marked 'final'}} fxc-error {{X3000: syntax error: unexpected token 'RaytracingAccelerationStructure'}}
 struct GRS : GlobalRootSignature {}; // expected-error {{base 'GlobalRootSignature' is marked 'final'}} fxc-error {{X3000: syntax error: unexpected token 'GlobalRootSignature'}}
 

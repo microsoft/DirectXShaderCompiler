@@ -1500,6 +1500,11 @@ static bool isUDTIntrinsicArg(CallInst *CI, unsigned OpIdx) {
     if (OpIdx == HLOperandIndex::kCallShaderPayloadOpIdx)
       return true;
     break;
+  case IntrinsicOp::IOP_TriangleObjectPositions:
+    // Not UDT exactly, but sret parameter that needs the same treatment.
+    if (OpIdx == HLOperandIndex::kIOP_SRetOpIdx)
+      return true;
+    break;
   case IntrinsicOp::MOP_DxHitObject_FromRayQuery:
     if (NumOps == HLOperandIndex::kHitObjectFromRayQuery_WithAttrs_NumOp &&
         OpIdx ==
