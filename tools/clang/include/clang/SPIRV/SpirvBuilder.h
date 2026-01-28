@@ -16,6 +16,7 @@
 #include "clang/SPIRV/SpirvInstruction.h"
 #include "clang/SPIRV/SpirvModule.h"
 
+#include "spirv/unified1/NonSemanticDebugBreak.h"
 #include "spirv/unified1/NonSemanticDebugPrintf.h"
 
 namespace clang {
@@ -433,6 +434,10 @@ public:
   SpirvInstruction *createNonSemanticDebugPrintfExtInst(
       QualType resultType, NonSemanticDebugPrintfInstructions instId,
       llvm::ArrayRef<SpirvInstruction *> operands, SourceLocation);
+
+  /// \brief Creates an OpExtInst instruction for the NonSemantic.DebugBreak
+  /// extension set. Returns the resulting instruction pointer.
+  SpirvInstruction *createNonSemanticDebugBreakExtInst(SourceLocation);
 
   SpirvInstruction *createIsNodePayloadValid(SpirvInstruction *payloadArray,
                                              SpirvInstruction *nodeIndex,
