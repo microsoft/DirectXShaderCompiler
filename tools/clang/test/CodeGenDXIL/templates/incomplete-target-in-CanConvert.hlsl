@@ -7,6 +7,9 @@ template<typename T> struct Wrapper;
 float get(float x) { return x;}
 float get(Wrapper<float> o);
 
+template<typename T> struct Wrapper2;
+float get(Wrapper2<float> o);
+
 template<typename T>
 struct Wrapper {
     T value;
@@ -16,14 +19,21 @@ struct Wrapper {
       // get(Wrapper<float>)'.  CanConvert would check spat potential when
       // explicit and source is a basic numeric type.  This would cause crash in
       // IsHLSLCopyableAnnotatableRecord from the incomplete type.
+      // Here, we can complete the type: Wrapper<float>, but not Wrapper2<float>
       value = get(x);
     }
 };
 
 float get(Wrapper<float> o) { return o.value; }
 
+template<typename T>
+struct Wrapper2 : Wrapper<T> {
+};
+
+float get(Wrapper2<float> o) { return o.value; }
+
 float main(float x : IN) : OUT {
-    Wrapper<float> w;
+    Wrapper2<float> w;
     w.set(x);
     return get(w);
 }
