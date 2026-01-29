@@ -1242,83 +1242,86 @@ namespace dxc {
 // Writes compiler version info to stream
 void WriteDxCompilerVersionInfo(llvm::raw_ostream &OS, const char *ExternalLib,
                                 const char *ExternalFn, DllLoader &DxcSupport) {
-  if (DxcSupport.IsEnabled()) {
-    UINT32 compilerMajor = 1;
-    UINT32 compilerMinor = 0;
-    CComPtr<IDxcVersionInfo> VerInfo;
+  if (!DxcSupport.IsEnabled())
+    return;
 
-#ifdef SUPPORT_QUERY_GIT_COMMIT_INFO
-    UINT32 commitCount = 0;
-    CComHeapPtr<char> commitHash;
-    CComPtr<IDxcVersionInfo2> VerInfo2;
-#endif // SUPPORT_QUERY_GIT_COMMIT_INFO
+  UINT32 VersionMajor = 1;
+  UINT32 VersionMinor = 0;
+  CComPtr<IDxcVersionInfo> VerInfo;
 
-    const char *dllName = !ExternalLib ? kDxCompilerLib : ExternalLib;
-    std::string compilerName(dllName);
-    if (ExternalFn)
-      compilerName = compilerName + "!" + ExternalFn;
+  UINT32 CommitCount = 0;
+  CComHeapPtr<char> CommitHash;
+  CComPtr<IDxcVersionInfo2> VerInfo2;
 
-    if (SUCCEEDED(DxcSupport.CreateInstance(CLSID_DxcCompiler, &VerInfo))) {
-      VerInfo->GetVersion(&compilerMajor, &compilerMinor);
-#ifdef SUPPORT_QUERY_GIT_COMMIT_INFO
-      if (SUCCEEDED(VerInfo->QueryInterface(&VerInfo2)))
-        VerInfo2->GetCommitInfo(&commitCount, &commitHash);
-#endif // SUPPORT_QUERY_GIT_COMMIT_INFO
-      OS << compilerName << ": " << compilerMajor << "." << compilerMinor;
-    }
+  CComHeapPtr<char> CustomVersionString;
+  CComPtr<IDxcVersionInfo3> VerInfo3;
+
+  const char *dllName = !ExternalLib ? kDxCompilerLib : ExternalLib;
+  std::string CompilerName(dllName);
+  if (ExternalFn)
+    CompilerName = CompilerName + "!" + ExternalFn;
+
+  if (SUCCEEDED(DxcSupport.CreateInstance(CLSID_DxcCompiler, &VerInfo))) {
+    VerInfo->GetVersion(&VersionMajor, &VersionMinor);
+    if (SUCCEEDED(VerInfo->QueryInterface(&VerInfo2)))
+      VerInfo2->GetCommitInfo(&CommitCount, &CommitHash);
+    if (SUCCEEDED(VerInfo->QueryInterface(&VerInfo3)))
+      VerInfo3->GetCustomVersionString(&CustomVersionString);
+    OS << CompilerName << ": " << VersionMajor << "." << VersionMinor;
+  } else if (!ExternalLib) {
     // compiler.dll 1.0 did not support IdxcVersionInfo
-    else if (!ExternalLib) {
-      OS << compilerName << ": " << 1 << "." << 0;
-    } else {
-      // ExternalLib/ExternalFn, no version info:
-      OS << compilerName;
-    }
-
-#ifdef _WIN32
-    unsigned int version[4];
-    if (GetDLLFileVersionInfo(dllName, version)) {
-      // back-compat - old dev buidls had version 3.7.0.0
-      if (version[0] == 3 && version[1] == 7 && version[2] == 0 &&
-          version[3] == 0) {
-#endif
-        OS << "(dev"
-#ifdef SUPPORT_QUERY_GIT_COMMIT_INFO
-           << ";" << commitCount << "-"
-           << (commitHash.m_pData ? commitHash.m_pData : "<unknown-git-hash>")
-#endif // SUPPORT_QUERY_GIT_COMMIT_I#else
-           << ")";
-#ifdef _WIN32
-      } else {
-        std::string productVersion;
-        if (GetDLLProductVersionInfo(dllName, productVersion)) {
-          OS << " - " << productVersion;
-        }
-      }
-    }
-#endif
+    OS << CompilerName << ": " << 1 << "." << 0;
+  } else {
+    // ExternalLib/ExternalFn, no version info:
+    OS << CompilerName;
+    return;
   }
+
+  if (CommitCount != 0 || CommitHash.m_pData) {
+    OS << "(" << CommitCount << "-"
+       << (CommitHash.m_pData ? CommitHash.m_pData : "<unknown-git-hash>")
+       << ")";
+  }
+
+  if (CustomVersionString.m_pData)
+    OS << "(" << CustomVersionString.m_pData << ")";
+
+  std::string ProductVersion;
+  if (GetDLLProductVersionInfo(dllName, ProductVersion))
+    OS << " - " << ProductVersion;
 }
 
-// Writes compiler version info to stream
-void WriteDXILVersionInfo(llvm::raw_ostream &OS, DllLoader &DxilSupport) {
-  if (DxilSupport.IsEnabled()) {
-    CComPtr<IDxcVersionInfo> VerInfo;
-    if (SUCCEEDED(DxilSupport.CreateInstance(CLSID_DxcValidator, &VerInfo))) {
-      UINT32 validatorMajor, validatorMinor = 0;
-      VerInfo->GetVersion(&validatorMajor, &validatorMinor);
-      OS << "; " << kDxilLib << ": " << validatorMajor << "." << validatorMinor;
+// Writes external DXIL validator version info to stream
+void WriteDXILVersionInfo(llvm::raw_ostream &OS, const char *DxilLib,
+                          DllLoader &DxilSupport) {
+  if (!DxilSupport.IsEnabled())
+    return;
 
-    }
-    // dxil.dll 1.0 did not support IdxcVersionInfo
-    else {
-      OS << "; " << kDxilLib << ": " << 1 << "." << 0;
-    }
-    unsigned int version[4];
-    if (GetDLLFileVersionInfo(kDxilLib, version)) {
-      OS << "(" << version[0] << "." << version[1] << "." << version[2] << "."
-         << version[3] << ")";
-    }
+  UINT32 VersionMajor = 1;
+  UINT32 VersionMinor = 0;
+  CComPtr<IDxcVersionInfo> VerInfo;
+
+  UINT32 CommitCount = 0;
+  CComHeapPtr<char> CommitHash;
+  CComPtr<IDxcVersionInfo2> VerInfo2;
+
+  if (SUCCEEDED(DxilSupport.CreateInstance(CLSID_DxcValidator, &VerInfo))) {
+    VerInfo->GetVersion(&VersionMajor, &VersionMinor);
+    if (SUCCEEDED(VerInfo->QueryInterface(&VerInfo2)))
+      VerInfo2->GetCommitInfo(&CommitCount, &CommitHash);
   }
+
+  OS << "; " << DxilLib << ": " << VersionMajor << "." << VersionMinor;
+
+  if (CommitCount != 0 || CommitHash.m_pData) {
+    OS << "(" << CommitCount << "-"
+       << (CommitHash.m_pData ? CommitHash.m_pData : "<unknown-git-hash>")
+       << ")";
+  }
+
+  std::string ProductVersion;
+  if (GetDLLProductVersionInfo(DxilLib, ProductVersion))
+    OS << " - " << ProductVersion;
 }
 
 } // namespace dxc
@@ -1330,10 +1333,12 @@ void DxcContext::GetCompilerVersionInfo(llvm::raw_string_ostream &OS) {
       m_Opts.ExternalFn.empty() ? nullptr : m_Opts.ExternalFn.data(),
       m_dxcSupport);
 
-  // Print validator if exists
-  SpecificDllLoader DxilSupport;
-  DxilSupport.InitializeForDll(kDxilLib, "DxcCreateInstance");
-  WriteDXILVersionInfo(OS, DxilSupport);
+  // Print validator version if external
+  if (m_dxcSupport.IsEnabled() && !m_dxcSupport.getDxilDllPath().empty()) {
+    SpecificDllLoader DxilSupport;
+    WriteDXILVersionInfo(OS, m_dxcSupport.getDxilDllPath().c_str(),
+                         m_dxcSupport);
+  }
 }
 
 #ifndef VERSION_STRING_SUFFIX
