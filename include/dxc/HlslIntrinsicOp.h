@@ -16,6 +16,7 @@ enum class IntrinsicOp {
   IOP_ClusterID = 397,
   IOP_CreateResourceFromHeap = 8,
   IOP_D3DCOLORtoUBYTE4 = 9,
+  IOP_DebugBreak = 425,
   IOP_DeviceMemoryBarrier = 10,
   IOP_DeviceMemoryBarrierWithGroupSync = 11,
   IOP_DispatchMesh = 12,
@@ -399,6 +400,7 @@ enum class IntrinsicOp {
   MOP_DxHitObject_SetShaderTableIndex = 388,
   MOP_DxHitObject_TraceRay = 389,
   MOP_DxHitObject_TriangleObjectPosition = 404,
+  IOP_DxIsDebuggerPresent = 426,
   IOP_DxMaybeReorderThread = 359,
   MOP_Count = 328,
   MOP_FinishedCrossGroupSharing = 329,
@@ -431,7 +433,7 @@ enum class IntrinsicOp {
   IOP_usign = 355,
   MOP_InterlockedUMax = 356,
   MOP_InterlockedUMin = 357,
-  Num_Intrinsics = 425,
+  Num_Intrinsics = 427,
 };
 inline bool HasUnsignedIntrinsicOpcode(IntrinsicOp opcode) {
   switch (opcode) {
