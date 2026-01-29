@@ -42,4 +42,22 @@ public:
 void readHlslDataIntoNewStream(LPCWSTR RelativePath, IStream **Stream,
                                dxc::SpecificDllLoader &Support);
 
+bool isDeviceBasicAdapter(ID3D12Device *pDevice);
+bool doesDeviceSupportInt64(ID3D12Device *pDevice);
+bool doesDeviceSupportDouble(ID3D12Device *pDevice);
+bool doesDeviceSupportWaveOps(ID3D12Device *pDevice);
+bool doesDeviceSupportBarycentrics(ID3D12Device *pDevice);
+bool doesDeviceSupportNative16bitOps(ID3D12Device *pDevice);
+bool doesDeviceSupportMeshShaders(ID3D12Device *pDevice);
+bool doesDeviceSupportRayTracing(ID3D12Device *pDevice);
+bool doesDeviceSupportMeshAmpDerivatives(ID3D12Device *pDevice);
+bool doesDeviceSupportTyped64Atomics(ID3D12Device *pDevice);
+bool doesDeviceSupportHeap64Atomics(ID3D12Device *pDevice);
+bool doesDeviceSupportShared64Atomics(ID3D12Device *pDevice);
+bool doesDeviceSupportAdvancedTexOps(ID3D12Device *pDevice);
+bool doesDeviceSupportWritableMSAA(ID3D12Device *pDevice);
+bool doesDeviceSupportEnhancedBarriers(ID3D12Device *pDevice);
+bool doesDeviceSupportRelaxedFormatCasting(ID3D12Device *pDevice);
+bool isFallbackPathEnabled();
+
 #endif // HLSLEXECTESTUTILS_H

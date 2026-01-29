@@ -35,6 +35,10 @@ template <typename T> constexpr bool is16BitType() {
          std::is_same_v<T, HLSLHalf_t>;
 }
 
+template <typename T> constexpr bool isDoubleType() {
+  return std::is_same_v<T, double>;
+}
+
 struct DataType {
   const char *HLSLTypeString;
   bool Is16Bit;
@@ -1934,9 +1938,31 @@ public:
     return true;
   }
 
+  template <typename T> bool checkDataTypeSupport() {
+    // HLK gates via requirements.
+#ifndef _HLK_CONF
+    bool isSupported = true;
+    if (is16BitType<T>())
+      isSupported = doesDeviceSupportNative16bitOps(D3DDevice);
+    else if (isDoubleType<T>())
+      isSupported = doesDeviceSupportDouble(D3DDevice);
+
+    if (!isSupported) {
+      WEX::Logging::Log::Comment(
+          L"Skipping test as device does not support required data type.");
+      WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
+      return false;
+    }
+#endif
+    return true;
+  }
+
   template <typename T, OpType OP> void runWaveOpTest() {
     WEX::TestExecution::SetVerifyOutput VerifySettings(
         WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+
+    if (!checkDataTypeSupport<T>())
+      return;
 
     UINT WaveSize = 0;
 
@@ -1962,6 +1988,10 @@ public:
   template <typename T, OpType OP> void runTest() {
     WEX::TestExecution::SetVerifyOutput verifySettings(
         WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+
+    if (!checkDataTypeSupport<T>())
+      return;
+
     dispatchTest<T, OP>(D3DDevice, VerboseLogging, OverrideInputSize);
   }
 

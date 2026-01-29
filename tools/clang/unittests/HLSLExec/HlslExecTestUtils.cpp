@@ -465,3 +465,153 @@ bool D3D12SDKSelector::createDevice(ID3D12Device **D3DDevice,
   return ::createDevice(D3DDevice, TestModel, SkipUnsupported,
                         D3D12CreateDevice);
 }
+
+bool isDeviceBasicAdapter(ID3D12Device *pDevice) {
+  CComPtr<IDXGIFactory4> factory;
+  VERIFY_SUCCEEDED(CreateDXGIFactory1(IID_PPV_ARGS(&factory)));
+  LUID adapterID = pDevice->GetAdapterLuid();
+  CComPtr<IDXGIAdapter1> adapter;
+  factory->EnumAdapterByLuid(adapterID, IID_PPV_ARGS(&adapter));
+  DXGI_ADAPTER_DESC1 AdapterDesc;
+  VERIFY_SUCCEEDED(adapter->GetDesc1(&AdapterDesc));
+  return (AdapterDesc.Flags & DXGI_ADAPTER_FLAG_SOFTWARE) ||
+         (AdapterDesc.VendorId == 0x1414 &&
+          (AdapterDesc.DeviceId == 0x8c || AdapterDesc.DeviceId == 0x8d));
+}
+
+bool DoesDeviceSupportInt64(ID3D12Device *pDevice) {
+  D3D12_FEATURE_DATA_D3D12_OPTIONS1 O;
+  if (FAILED(pDevice->CheckFeatureSupport(
+          (D3D12_FEATURE)D3D12_FEATURE_D3D12_OPTIONS1, &O, sizeof(O))))
+    return false;
+  return O.Int64ShaderOps != FALSE;
+}
+
+bool DoesDeviceSupportDouble(ID3D12Device *pDevice) {
+  D3D12_FEATURE_DATA_D3D12_OPTIONS O;
+  if (FAILED(pDevice->CheckFeatureSupport(
+          (D3D12_FEATURE)D3D12_FEATURE_D3D12_OPTIONS, &O, sizeof(O))))
+    return false;
+  return false;
+  //return O.DoublePrecisionFloatShaderOps != FALSE;
+}
+
+bool DoesDeviceSupportWaveOps(ID3D12Device *pDevice) {
+  D3D12_FEATURE_DATA_D3D12_OPTIONS1 O;
+  if (FAILED(pDevice->CheckFeatureSupport(
+          (D3D12_FEATURE)D3D12_FEATURE_D3D12_OPTIONS1, &O, sizeof(O))))
+    return false;
+  return O.WaveOps != FALSE;
+}
+
+bool DoesDeviceSupportBarycentrics(ID3D12Device *pDevice) {
+  D3D12_FEATURE_DATA_D3D12_OPTIONS3 O;
+  if (FAILED(pDevice->CheckFeatureSupport(
+          (D3D12_FEATURE)D3D12_FEATURE_D3D12_OPTIONS3, &O, sizeof(O))))
+    return false;
+  return O.BarycentricsSupported != FALSE;
+}
+
+bool DoesDeviceSupportNative16bitOps(ID3D12Device *pDevice) {
+  D3D12_FEATURE_DATA_D3D12_OPTIONS4 O;
+  if (FAILED(pDevice->CheckFeatureSupport(
+          (D3D12_FEATURE)D3D12_FEATURE_D3D12_OPTIONS4, &O, sizeof(O))))
+    return false;
+  return false;
+  //return O.Native16BitShaderOpsSupported != FALSE;
+}
+
+bool DoesDeviceSupportMeshShaders(ID3D12Device *pDevice) {
+  D3D12_FEATURE_DATA_D3D12_OPTIONS7 O7;
+  if (FAILED(pDevice->CheckFeatureSupport(
+          (D3D12_FEATURE)D3D12_FEATURE_D3D12_OPTIONS7, &O7, sizeof(O7))))
+    return false;
+  return O7.MeshShaderTier != D3D12_MESH_SHADER_TIER_NOT_SUPPORTED;
+}
+
+bool DoesDeviceSupportRayTracing(ID3D12Device *pDevice) {
+  D3D12_FEATURE_DATA_D3D12_OPTIONS5 O5;
+  if (FAILED(pDevice->CheckFeatureSupport(
+          (D3D12_FEATURE)D3D12_FEATURE_D3D12_OPTIONS5, &O5, sizeof(O5))))
+    return false;
+  return O5.RaytracingTier != D3D12_RAYTRACING_TIER_NOT_SUPPORTED;
+}
+
+bool DoesDeviceSupportMeshAmpDerivatives(ID3D12Device *pDevice) {
+  D3D12_FEATURE_DATA_D3D12_OPTIONS7 O7;
+  D3D12_FEATURE_DATA_D3D12_OPTIONS9 O9;
+  if (FAILED(pDevice->CheckFeatureSupport(
+          (D3D12_FEATURE)D3D12_FEATURE_D3D12_OPTIONS7, &O7, sizeof(O7))) ||
+      FAILED(pDevice->CheckFeatureSupport(
+          (D3D12_FEATURE)D3D12_FEATURE_D3D12_OPTIONS9, &O9, sizeof(O9))))
+    return false;
+  return O7.MeshShaderTier != D3D12_MESH_SHADER_TIER_NOT_SUPPORTED &&
+         O9.DerivativesInMeshAndAmplificationShadersSupported != FALSE;
+}
+
+bool DoesDeviceSupportTyped64Atomics(ID3D12Device *pDevice) {
+  D3D12_FEATURE_DATA_D3D12_OPTIONS9 O9;
+  if (FAILED(pDevice->CheckFeatureSupport(
+          (D3D12_FEATURE)D3D12_FEATURE_D3D12_OPTIONS9, &O9, sizeof(O9))))
+    return false;
+  return O9.AtomicInt64OnTypedResourceSupported != FALSE;
+}
+
+bool DoesDeviceSupportHeap64Atomics(ID3D12Device *pDevice) {
+  D3D12_FEATURE_DATA_D3D12_OPTIONS11 O11;
+  if (FAILED(pDevice->CheckFeatureSupport(
+          (D3D12_FEATURE)D3D12_FEATURE_D3D12_OPTIONS11, &O11, sizeof(O11))))
+    return false;
+  return O11.AtomicInt64OnDescriptorHeapResourceSupported != FALSE;
+}
+
+bool DoesDeviceSupportShared64Atomics(ID3D12Device *pDevice) {
+  D3D12_FEATURE_DATA_D3D12_OPTIONS9 O9;
+  if (FAILED(pDevice->CheckFeatureSupport(
+          (D3D12_FEATURE)D3D12_FEATURE_D3D12_OPTIONS9, &O9, sizeof(O9))))
+    return false;
+  return O9.AtomicInt64OnGroupSharedSupported != FALSE;
+}
+
+bool DoesDeviceSupportAdvancedTexOps(ID3D12Device *pDevice) {
+  D3D12_FEATURE_DATA_D3D12_OPTIONS14 O14;
+  if (FAILED(pDevice->CheckFeatureSupport(
+          (D3D12_FEATURE)D3D12_FEATURE_D3D12_OPTIONS14, &O14, sizeof(O14))))
+    return false;
+  return O14.AdvancedTextureOpsSupported != FALSE;
+}
+
+bool DoesDeviceSupportWritableMSAA(ID3D12Device *pDevice) {
+  D3D12_FEATURE_DATA_D3D12_OPTIONS14 O14;
+  if (FAILED(pDevice->CheckFeatureSupport(
+          (D3D12_FEATURE)D3D12_FEATURE_D3D12_OPTIONS14, &O14, sizeof(O14))))
+    return false;
+  return O14.WriteableMSAATexturesSupported != FALSE;
+}
+
+bool DoesDeviceSupportEnhancedBarriers(ID3D12Device *pDevice) {
+  D3D12_FEATURE_DATA_D3D12_OPTIONS12 O12;
+  if (FAILED(pDevice->CheckFeatureSupport(
+          (D3D12_FEATURE)D3D12_FEATURE_D3D12_OPTIONS12, &O12, sizeof(O12))))
+    return false;
+  return O12.EnhancedBarriersSupported != FALSE;
+}
+
+bool DoesDeviceSupportRelaxedFormatCasting(ID3D12Device *pDevice) {
+  D3D12_FEATURE_DATA_D3D12_OPTIONS12 O12;
+  if (!DoesDeviceSupportEnhancedBarriers(pDevice))
+    return false;
+
+  if (FAILED(pDevice->CheckFeatureSupport(
+          (D3D12_FEATURE)D3D12_FEATURE_D3D12_OPTIONS12, &O12, sizeof(O12))))
+    return false;
+  return O12.RelaxedFormatCastingSupported != FALSE;
+}
+
+bool IsFallbackPathEnabled() {
+  // Enable fallback paths with: /p:"EnableFallback=1"
+  UINT EnableFallbackValue = 0;
+  WEX::TestExecution::RuntimeParameters::TryGetValue(L"EnableFallback",
+                                                     EnableFallbackValue);
+  return EnableFallbackValue != 0;
+}
