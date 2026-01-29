@@ -1938,31 +1938,18 @@ public:
     return true;
   }
 
-  template <typename T> bool checkDataTypeSupport() {
-    // HLK gates via requirements.
-#ifndef _HLK_CONF
-    bool isSupported = true;
-    if (is16BitType<T>())
-      isSupported = doesDeviceSupportNative16bitOps(D3DDevice);
-    else if (isDoubleType<T>())
-      isSupported = doesDeviceSupportDouble(D3DDevice);
-
-    if (!isSupported) {
-      WEX::Logging::Log::Comment(
-          L"Skipping test as device does not support required data type.");
-      WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
-      return false;
-    }
-#endif
-    return true;
-  }
-
   template <typename T, OpType OP> void runWaveOpTest() {
     WEX::TestExecution::SetVerifyOutput VerifySettings(
         WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
 
-    if (!checkDataTypeSupport<T>())
+#ifndef _HLK_CONF
+    if (isDoubleType<T>() && !doesDeviceSupportDouble(D3DDevice)) {
+      WEX::Logging::Log::Comment(
+          L"Skipping test as device does not support double precision.");
+      WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
       return;
+    }
+#endif
 
     UINT WaveSize = 0;
 
@@ -1989,8 +1976,14 @@ public:
     WEX::TestExecution::SetVerifyOutput verifySettings(
         WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
 
-    if (!checkDataTypeSupport<T>())
+#ifndef _HLK_CONF
+    if (isDoubleType<T>() && !doesDeviceSupportDouble(D3DDevice)) {
+      WEX::Logging::Log::Comment(
+          L"Skipping test as device does not support double precision.");
+      WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
       return;
+    }
+#endif
 
     dispatchTest<T, OP>(D3DDevice, VerboseLogging, OverrideInputSize);
   }
