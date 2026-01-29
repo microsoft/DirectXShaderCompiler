@@ -1143,7 +1143,6 @@ public:
     *ppVertexBuffer = pVertexBuffer.Detach();
   }
 
-
 #ifndef _HLK_CONF
   void DXBCFromText(LPCSTR pText, LPCWSTR pEntryPoint, LPCWSTR pTargetProfile,
                     ID3DBlob **ppBlob) {
