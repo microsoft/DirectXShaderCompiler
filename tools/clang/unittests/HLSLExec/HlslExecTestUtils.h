@@ -42,7 +42,6 @@ public:
 void readHlslDataIntoNewStream(LPCWSTR RelativePath, IStream **Stream,
                                dxc::SpecificDllLoader &Support);
 
-bool isDeviceBasicAdapter(ID3D12Device *pDevice);
 bool doesDeviceSupportInt64(ID3D12Device *pDevice);
 bool doesDeviceSupportDouble(ID3D12Device *pDevice);
 bool doesDeviceSupportWaveOps(ID3D12Device *pDevice);
