@@ -485,7 +485,7 @@ llvm::Type *CodeGenTypes::ConvertType(QualType T) {
     case BuiltinType::LinAlgMatrix:
       llvm_unreachable("LinAlgMatrix codegen is not supported yet");
       break;
-    // HLSL Change Ends
+      // HLSL Change Ends
 
     case BuiltinType::Dependent:
 #define BUILTIN_TYPE(Id, SingletonId)

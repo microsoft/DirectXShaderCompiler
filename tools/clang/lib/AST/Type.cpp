@@ -2548,8 +2548,9 @@ StringRef BuiltinType::getName(const PrintingPolicy &Policy) const {
   case LitInt:            return "literal int";
   case Int8_4Packed:      return "int8_t4_packed";
   case UInt8_4Packed:     return "uint8_t4_packed";
-  case LinAlgMatrix:      return "__builtin_LinAlg_Matrix";
-  // HLSL Change Ends
+  case LinAlgMatrix:
+    return "__builtin_LinAlg_Matrix";
+    // HLSL Change Ends
   }
   
   llvm_unreachable("Invalid builtin type.");
