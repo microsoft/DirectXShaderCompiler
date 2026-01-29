@@ -9571,6 +9571,7 @@ class db_hlsl(object):
             "resource": "LICOMPTYPE_RESOURCE",
             "ray_desc": "LICOMPTYPE_RAYDESC",
             "acceleration_struct": "LICOMPTYPE_ACCELERATION_STRUCT",
+            "triangle_positions": "LICOMPTYPE_BUILTIN_TRIANGLE_POSITIONS",
             "udt": "LICOMPTYPE_USER_DEFINED_TYPE",
             "void": "LICOMPTYPE_VOID",
             "string": "LICOMPTYPE_STRING",
@@ -9793,6 +9794,7 @@ class db_hlsl(object):
                             or base_type.startswith("wave")
                             or base_type.startswith("acceleration_struct")
                             or base_type.startswith("ray_desc")
+                            or base_type.startswith("triangle_positions")
                             or base_type.startswith("any_sampler")
                         ):
                             template_list = "LITEMPLATE_OBJECT"
