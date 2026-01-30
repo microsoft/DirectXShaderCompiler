@@ -12,6 +12,7 @@ add_clang_library(ExecHLSLTests SHARED
   LongVectors.cpp
   HlslExecTestUtils.cpp
   ExecHLSLTests.rc
+  TaefTest.cpp
   )
 
 add_dependencies(ClangUnitTests ExecHLSLTests)
