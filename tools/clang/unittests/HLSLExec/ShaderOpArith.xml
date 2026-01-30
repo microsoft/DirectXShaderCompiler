@@ -1632,7 +1632,7 @@
       <Descriptor Name='UAVBuffer2' Kind='UAV' ResName='UAVBuffer2' Flags='RAW' NumElements="60" Format="R32_TYPELESS" />
       <Descriptor Name='UAVBuffer3' Kind='UAV' ResName='UAVBuffer3' NumElements="1" StructureByteStride="240" />
     </DescriptorHeap>
-    <Shader Name="CS" Target="cs_6_2">
+    <Shader Name="CS" Target="cs_6_3">
       <![CDATA[// Shader source code will be set at runtime]]>
     </Shader>
   </ShaderOp>>
