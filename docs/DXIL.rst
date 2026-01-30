@@ -3076,7 +3076,7 @@ ID         Name                                     Description
 2147483656 RayQuery_CandidateTriangleObjectPosition returns candidate triangle vertices in object space as <9 x float>
 2147483657 RayQuery_CommittedTriangleObjectPosition returns committed triangle vertices in object space as <9 x float>
 2147483658 HitObject_TriangleObjectPosition         returns triangle vertices in object space as <9 x float>
-2147483659 CreateMatrix                             creates a handle to a Matrix
+2147483659 LinAlgMatrixReserved0                    reserved
 2147483660 FillMatrix                               fills a matrix with a scalar value
 2147483661 CopyConvertMatrix                        Converts and copies the element and use type of the source matrix to the destination matrix with optional transpose
 2147483662 MatrixLoadFromDescriptor                 fills a matrix with data from a [RW]ByteAddressBuffer
@@ -3094,10 +3094,10 @@ ID         Name                                     Description
 2147483674 MatrixVecMulAdd                          Multiplies a MxK dimension matrix and a K sized input vector then adds a M sized bias vector
 2147483675 MatrixAccumulateToDescriptor             accumulates a matrix to a RWByteAddressBuffer
 2147483676 MatrixAccumulateToMemory                 accumulates a matrix to groupshared memory
-2147483677 MatrixOuterProduct                       Outer products an M sized vector and a K sized vector producing an MxK matrix
-2147483678 LinAlgMatrixReserved0                    reserved
-2147483679 LinAlgMatrixReserved1                    reserved
-2147483680 LinAlgMatrixReserved2                    reserved
+2147483677 MatrixOuterProduct                       Outer products an M sized vector and a N sized vector producing an MxN matrix
+2147483678 LinAlgMatrixReserved1                    reserved
+2147483679 LinAlgMatrixReserved2                    reserved
+2147483680 LinAlgMatrixReserved3                    reserved
 ========== ======================================== ===================================================================================================================
 
 

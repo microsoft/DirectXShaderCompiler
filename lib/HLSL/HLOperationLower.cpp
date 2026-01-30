@@ -7659,8 +7659,6 @@ constexpr IntrinsicLower gLowerTable[] = {
 
     {IntrinsicOp::IOP___builtin_LinAlg_CopyConvertMatrix, EmptyLower,
      DXIL::OpCode::CopyConvertMatrix},
-    {IntrinsicOp::IOP___builtin_LinAlg_CreateMatrix, EmptyLower,
-     DXIL::OpCode::CreateMatrix},
     {IntrinsicOp::IOP___builtin_LinAlg_FillMatrix, EmptyLower,
      DXIL::OpCode::FillMatrix},
     {IntrinsicOp::IOP___builtin_LinAlg_MatrixGetCoordinate, EmptyLower,

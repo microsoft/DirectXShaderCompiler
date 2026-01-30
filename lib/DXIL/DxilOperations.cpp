@@ -2823,95 +2823,96 @@ static const OP::OpCodeProperty ExperimentalOps_OpCodeProps[] = {
      {{0x2}},
      {{0x0}}}, // Overloads: f
 
-    // Linear Algebra Operations
-    {OC::CreateMatrix,
-     "CreateMatrix",
-     OCC::CreateMatrix,
-     "createMatrix",
+    {OC::LinAlgMatrixReserved0,
+     "LinAlgMatrixReserved0",
+     OCC::Reserved,
+     "reserved",
      Attribute::None,
      0,
      {},
      {}}, // Overloads: v
+
+    // Linear Algebra Operations
     {OC::FillMatrix,
      "FillMatrix",
      OCC::FillMatrix,
      "fillMatrix",
      Attribute::None,
-     1,
-     {{0x63}},
-     {{0x0}}}, // Overloads: hfwi
+     2,
+     {{0x200}, {0x63}},
+     {{0x0}, {0x0}}}, // Overloads: o,hfwi
     {OC::CopyConvertMatrix,
      "CopyConvertMatrix",
      OCC::CopyConvertMatrix,
      "copyConvertMatrix",
      Attribute::None,
-     0,
-     {},
-     {}}, // Overloads: v
+     2,
+     {{0x200}, {0x200}},
+     {{0x0}, {0x0}}}, // Overloads: o,o
     {OC::MatrixLoadFromDescriptor,
      "MatrixLoadFromDescriptor",
      OCC::MatrixLoadFromDescriptor,
      "matrixLoadFromDescriptor",
      Attribute::None,
-     0,
-     {},
-     {}}, // Overloads: v
+     1,
+     {{0x200}},
+     {{0x0}}}, // Overloads: o
     {OC::MatrixLoadFromMemory,
      "MatrixLoadFromMemory",
      OCC::MatrixLoadFromMemory,
      "matrixLoadFromMemory",
      Attribute::None,
-     0,
-     {},
-     {}}, // Overloads: v
+     2,
+     {{0x200}, {0x63}},
+     {{0x0}, {0x0}}}, // Overloads: o,hfwi
     {OC::MatrixLength,
      "MatrixLength",
      OCC::MatrixLength,
      "matrixLength",
      Attribute::None,
-     0,
-     {},
-     {}}, // Overloads: v
+     1,
+     {{0x200}},
+     {{0x0}}}, // Overloads: o
     {OC::MatrixGetCoordinate,
      "MatrixGetCoordinate",
      OCC::MatrixGetCoordinate,
      "matrixGetCoordinate",
      Attribute::None,
-     0,
-     {},
-     {}}, // Overloads: v
+     1,
+     {{0x200}},
+     {{0x0}}}, // Overloads: o
     {OC::MatrixGetElement,
      "MatrixGetElement",
      OCC::MatrixGetElement,
      "matrixGetElement",
      Attribute::None,
-     1,
-     {{0x63}},
-     {{0x0}}}, // Overloads: hfwi
+     2,
+     {{0x63}, {0x200}},
+     {{0x0}, {0x0}}}, // Overloads: hfwi,o
     {OC::MatrixSetElement,
      "MatrixSetElement",
      OCC::MatrixSetElement,
      "matrixSetElement",
      Attribute::None,
-     1,
-     {{0x63}},
-     {{0x0}}}, // Overloads: hfwi
+     3,
+     {{0x200}, {0x200}, {0x63}},
+     {{0x0}, {0x0}, {0x0}}}, // Overloads: o,o,hfwi
     {OC::MatrixStoreToDescriptor,
      "MatrixStoreToDescriptor",
      OCC::MatrixStoreToDescriptor,
      "matrixStoreToDescriptor",
      Attribute::None,
-     0,
-     {},
-     {}}, // Overloads: v
+     1,
+     {{0x200}},
+     {{0x0}}}, // Overloads: o
     {OC::MatrixStoreToMemory,
      "MatrixStoreToMemory",
      OCC::MatrixStoreToMemory,
      "matrixStoreToMemory",
      Attribute::None,
-     0,
-     {},
-     {}}, // Overloads: v
+     2,
+     {{0x200}, {0x63}},
+     {{0x0}, {0x0}}}, // Overloads: o,hfwi
     {OC::MatrixQueryAccumulatorLayout,
      "MatrixQueryAccumulatorLayout",
      OCC::MatrixQueryAccumulatorLayout,
@@ -2925,66 +2926,58 @@ static const OP::OpCodeProperty ExperimentalOps_OpCodeProps[] = {
      OCC::MatrixMulOp,
      "matrixMulOp",
      Attribute::None,
-     0,
-     {},
-     {}}, // Overloads: v
+     3,
+     {{0x200}, {0x200}, {0x200}},
+     {{0x0}, {0x0}, {0x0}}}, // Overloads: o,o,o
     {OC::MatrixAccumulate,
      "MatrixAccumulate",
      OCC::MatrixAccumulate,
      "matrixAccumulate",
      Attribute::None,
-     0,
-     {},
-     {}}, // Overloads: v
+     3,
+     {{0x200}, {0x200}, {0x200}},
+     {{0x0}, {0x0}, {0x0}}}, // Overloads: o,o,o
     {OC::MatrixVecMul,
      "MatrixVecMul",
      OCC::MatrixVecMul,
      "matrixVecMul",
      Attribute::None,
-     2,
-     {{0x400}, {0x400}},
-     {{0x63}, {0x63}}}, // Overloads: <hfwi,<hfwi
+     3,
+     {{0x400}, {0x200}, {0x400}},
+     {{0x63}, {0x0}, {0x63}}}, // Overloads: <hfwi,o,<hfwi
     {OC::MatrixVecMulAdd,
      "MatrixVecMulAdd",
      OCC::MatrixVecMulAdd,
      "matrixVecMulAdd",
      Attribute::None,
-     2,
-     {{0x400}, {0x400}},
-     {{0x63}, {0x63}}}, // Overloads: <hfwi,<hfwi
+     4,
+     {{0x400}, {0x200}, {0x400}, {0x400}},
+     {{0x63}, {0x0}, {0x63}, {0x63}}}, // Overloads: <hfwi,o,<hfwi,<hfwi
     {OC::MatrixAccumulateToDescriptor,
      "MatrixAccumulateToDescriptor",
      OCC::MatrixAccumulateToDescriptor,
      "matrixAccumulateToDescriptor",
      Attribute::None,
-     0,
-     {},
-     {}}, // Overloads: v
+     1,
+     {{0x200}},
+     {{0x0}}}, // Overloads: o
     {OC::MatrixAccumulateToMemory,
      "MatrixAccumulateToMemory",
      OCC::MatrixAccumulateToMemory,
      "matrixAccumulateToMemory",
      Attribute::None,
-     0,
-     {},
-     {}}, // Overloads: v
+     2,
+     {{0x200}, {0x63}},
+     {{0x0}, {0x0}}}, // Overloads: o,hfwi
     {OC::MatrixOuterProduct,
      "MatrixOuterProduct",
      OCC::MatrixOuterProduct,
      "matrixOuterProduct",
      Attribute::None,
-     2,
-     {{0x400}, {0x400}},
-     {{0x63}, {0x63}}}, // Overloads: <hfwi,<hfwi
+     3,
+     {{0x200}, {0x400}, {0x400}},
+     {{0x0}, {0x63}, {0x63}}}, // Overloads: o,<hfwi,<hfwi
 
-    {OC::LinAlgMatrixReserved0,
-     "LinAlgMatrixReserved0",
-     OCC::Reserved,
-     "reserved",
-     Attribute::None,
-     0,
-     {},
-     {}}, // Overloads: v
     {OC::LinAlgMatrixReserved1,
      "LinAlgMatrixReserved1",
      OCC::Reserved,
@@ -2995,6 +2988,14 @@ static const OP::OpCodeProperty ExperimentalOps_OpCodeProps[] = {
      {}}, // Overloads: v
     {OC::LinAlgMatrixReserved2,
      "LinAlgMatrixReserved2",
+     OCC::Reserved,
+     "reserved",
+     Attribute::None,
+     0,
+     {},
+     {}}, // Overloads: v
+    {OC::LinAlgMatrixReserved3,
+     "LinAlgMatrixReserved3",
      OCC::Reserved,
      "reserved",
      Attribute::None,
@@ -3916,15 +3917,15 @@ void OP::GetMinShaderModelAndMask(OpCode C, bool bWithTranslation,
   // RayQuery_CommittedClusterID=2147483653,
   // RayQuery_CandidateTriangleObjectPosition=2147483656,
   // RayQuery_CommittedTriangleObjectPosition=2147483657,
-  // CreateMatrix=2147483659, MatrixLoadFromDescriptor=2147483662,
+  // MatrixLoadFromDescriptor=2147483662,
   // MatrixQueryAccumulatorLayout=2147483670, MatrixVecMul=2147483673,
   // MatrixVecMulAdd=2147483674, MatrixAccumulateToDescriptor=2147483675,
   // MatrixOuterProduct=2147483677
   if ((305 <= op && op <= 308) || op == 2147483648 ||
       (2147483652 <= op && op <= 2147483653) ||
-      (2147483656 <= op && op <= 2147483657) || op == 2147483659 ||
-      op == 2147483662 || op == 2147483670 ||
-      (2147483673 <= op && op <= 2147483675) || op == 2147483677) {
+      (2147483656 <= op && op <= 2147483657) || op == 2147483662 ||
+      op == 2147483670 || (2147483673 <= op && op <= 2147483675) ||
+      op == 2147483677) {
     major = 6;
     minor = 10;
     return;
@@ -6533,27 +6534,26 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
     A(pHit);
     break;
 
-    // Linear Algebra Operations
-  case OpCode::CreateMatrix:
-    A(pI32);
-    A(pI32);
-    break;
-  case OpCode::FillMatrix:
+    //
+  case OpCode::LinAlgMatrixReserved0:
     A(pV);
     A(pI32);
+    break;
+
+    // Linear Algebra Operations
+  case OpCode::FillMatrix:
+    EXT(0);
     A(pI32);
-    A(pETy);
+    EXT(1);
     break;
   case OpCode::CopyConvertMatrix:
-    A(pV);
+    EXT(0);
     A(pI32);
-    A(pI32);
-    A(pI32);
+    EXT(1);
     A(pI1);
     break;
   case OpCode::MatrixLoadFromDescriptor:
-    A(pV);
-    A(pI32);
+    A(pETy);
     A(pI32);
     A(pRes);
     A(pI32);
@@ -6561,10 +6561,9 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
     A(pI32);
     break;
   case OpCode::MatrixLoadFromMemory:
-    A(pV);
+    EXT(0);
     A(pI32);
-    A(pI32);
-    A(pI32);
+    EXT(1);
     A(pI32);
     A(pI32);
     A(pI32);
@@ -6572,31 +6571,31 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
   case OpCode::MatrixLength:
     A(pI32);
     A(pI32);
-    A(pI32);
+    A(pETy);
     break;
   case OpCode::MatrixGetCoordinate:
+    VEC4(pETy);
     A(pI32);
-    A(pI32);
-    A(pI32);
+    A(pETy);
     A(pI32);
     break;
   case OpCode::MatrixGetElement:
-    A(pETy);
+    EXT(0);
     A(pI32);
-    A(pI32);
+    EXT(1);
     A(pI32);
     break;
   case OpCode::MatrixSetElement:
-    A(pV);
+    EXT(0);
     A(pI32);
+    EXT(1);
     A(pI32);
-    A(pI32);
-    A(pETy);
+    EXT(2);
     break;
   case OpCode::MatrixStoreToDescriptor:
     A(pV);
     A(pI32);
-    A(pI32);
+    A(pETy);
     A(pRes);
     A(pI32);
     A(pI32);
@@ -6605,8 +6604,8 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
   case OpCode::MatrixStoreToMemory:
     A(pV);
     A(pI32);
-    A(pI32);
-    A(pI32);
+    EXT(0);
+    EXT(1);
     A(pI32);
     A(pI32);
     A(pI32);
@@ -6616,38 +6615,37 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
     A(pI32);
     break;
   case OpCode::MatrixMulOp:
-    A(pV);
+    EXT(0);
     A(pI32);
-    A(pI32);
-    A(pI32);
-    A(pI32);
+    EXT(1);
+    EXT(2);
     break;
   case OpCode::MatrixAccumulate:
-    A(pV);
+    EXT(0);
     A(pI32);
-    A(pI32);
-    A(pI32);
+    EXT(1);
+    EXT(2);
     break;
   case OpCode::MatrixVecMul:
     EXT(0);
     A(pI32);
-    A(pI32);
     EXT(1);
+    EXT(2);
     A(pI32);
     break;
   case OpCode::MatrixVecMulAdd:
     EXT(0);
     A(pI32);
-    A(pI32);
     EXT(1);
+    EXT(2);
     A(pI32);
-    A(pI32);
+    EXT(3);
     A(pI32);
     break;
   case OpCode::MatrixAccumulateToDescriptor:
     A(pV);
     A(pI32);
-    A(pI32);
+    A(pETy);
     A(pRes);
     A(pI32);
     A(pI32);
@@ -6656,30 +6654,29 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
   case OpCode::MatrixAccumulateToMemory:
     A(pV);
     A(pI32);
-    A(pI32);
-    A(pI32);
+    EXT(0);
+    EXT(1);
     A(pI32);
     A(pI32);
     A(pI32);
     break;
   case OpCode::MatrixOuterProduct:
-    A(pV);
-    A(pI32);
-    A(pI32);
     EXT(0);
+    A(pI32);
     EXT(1);
+    EXT(2);
     break;
 
     //
-  case OpCode::LinAlgMatrixReserved0:
-    A(pV);
-    A(pI32);
-    break;
   case OpCode::LinAlgMatrixReserved1:
     A(pV);
     A(pI32);
     break;
   case OpCode::LinAlgMatrixReserved2:
+    A(pV);
+    A(pI32);
+    break;
+  case OpCode::LinAlgMatrixReserved3:
     A(pV);
     A(pI32);
     break;
@@ -6822,7 +6819,6 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
   case OpCode::Pack4x8:
   case OpCode::HitObject_Invoke:
   case OpCode::HitObject_Attributes:
-  case OpCode::FillMatrix:
     if (FT->getNumParams() <= 2)
       return nullptr;
     return FT->getParamType(2);
@@ -6860,6 +6856,9 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
   case OpCode::VectorReduceAnd:
   case OpCode::VectorReduceOr:
   case OpCode::FDot:
+  case OpCode::MatrixLength:
+  case OpCode::MatrixStoreToDescriptor:
+  case OpCode::MatrixAccumulateToDescriptor:
     if (FT->getNumParams() <= 1)
       return nullptr;
     return FT->getParamType(1);
@@ -6871,7 +6870,6 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
   case OpCode::CalculateLOD:
   case OpCode::ReportHit:
   case OpCode::HitObject_FromRayQueryWithAttrs:
-  case OpCode::MatrixSetElement:
     if (FT->getNumParams() <= 3)
       return nullptr;
     return FT->getParamType(3);
@@ -6982,22 +6980,11 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
   case OpCode::GetGroupWaveIndex:
   case OpCode::GetGroupWaveCount:
   case OpCode::ClusterID:
-  case OpCode::CreateMatrix:
-  case OpCode::CopyConvertMatrix:
-  case OpCode::MatrixLoadFromDescriptor:
-  case OpCode::MatrixLoadFromMemory:
-  case OpCode::MatrixLength:
-  case OpCode::MatrixGetCoordinate:
-  case OpCode::MatrixStoreToDescriptor:
-  case OpCode::MatrixStoreToMemory:
-  case OpCode::MatrixQueryAccumulatorLayout:
-  case OpCode::MatrixMulOp:
-  case OpCode::MatrixAccumulate:
-  case OpCode::MatrixAccumulateToDescriptor:
-  case OpCode::MatrixAccumulateToMemory:
   case OpCode::LinAlgMatrixReserved0:
+  case OpCode::MatrixQueryAccumulatorLayout:
   case OpCode::LinAlgMatrixReserved1:
   case OpCode::LinAlgMatrixReserved2:
+  case OpCode::LinAlgMatrixReserved3:
     return Type::getVoidTy(Ctx);
   case OpCode::QuadVote:
     return IntegerType::get(Ctx, 1);
@@ -7018,7 +7005,8 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
   case OpCode::SampleCmpLevel:
   case OpCode::SampleCmpGrad:
   case OpCode::SampleCmpBias:
-  case OpCode::RawBufferVectorLoad: {
+  case OpCode::RawBufferVectorLoad:
+  case OpCode::MatrixGetCoordinate: {
     StructType *ST = cast<StructType>(Ty);
     return ST->getElementType(0);
   }
@@ -7030,29 +7018,44 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
     return cast<VectorType>(Ty)->getElementType();
   case OpCode::MatVecMul:
   case OpCode::MatVecMulAdd:
+  case OpCode::FillMatrix:
+  case OpCode::CopyConvertMatrix:
+  case OpCode::MatrixLoadFromMemory:
+  case OpCode::MatrixGetElement:
     if (FT->getNumParams() < 2)
       return nullptr;
     return llvm::StructType::get(Ctx,
                                  {FT->getReturnType(), FT->getParamType(1)});
 
   case OpCode::OuterProductAccumulate:
+  case OpCode::MatrixStoreToMemory:
+  case OpCode::MatrixAccumulateToMemory:
     if (FT->getNumParams() < 3)
       return nullptr;
     return llvm::StructType::get(Ctx,
                                  {FT->getParamType(1), FT->getParamType(2)});
 
-  case OpCode::MatrixVecMul:
-  case OpCode::MatrixVecMulAdd:
-    if (FT->getNumParams() < 3)
-      return nullptr;
-    return llvm::StructType::get(Ctx,
-                                 {FT->getReturnType(), FT->getParamType(2)});
-
-  case OpCode::MatrixOuterProduct:
+  case OpCode::MatrixSetElement:
     if (FT->getNumParams() < 4)
       return nullptr;
+    return llvm::StructType::get(
+        Ctx, {FT->getReturnType(), FT->getParamType(1), FT->getParamType(3)});
+
+  case OpCode::MatrixMulOp:
+  case OpCode::MatrixAccumulate:
+  case OpCode::MatrixVecMul:
+  case OpCode::MatrixOuterProduct:
+    if (FT->getNumParams() < 3)
+      return nullptr;
+    return llvm::StructType::get(
+        Ctx, {FT->getReturnType(), FT->getParamType(1), FT->getParamType(2)});
+
+  case OpCode::MatrixVecMulAdd:
+    if (FT->getNumParams() < 5)
+      return nullptr;
     return llvm::StructType::get(Ctx,
-                                 {FT->getParamType(2), FT->getParamType(3)});
+                                 {FT->getReturnType(), FT->getParamType(1),
+                                  FT->getParamType(2), FT->getParamType(4)});
 
   // OPCODE-OLOAD-TYPES:END
   default:
