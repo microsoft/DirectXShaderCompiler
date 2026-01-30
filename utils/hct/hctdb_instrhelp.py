@@ -1692,7 +1692,7 @@ def get_extended_table_opcode_enum_decls():
 # since there can be pre-release versions that are higher
 # than the last released version
 highest_major = 6
-highest_minor = 10
+highest_minor = 9
 highest_shader_models = {4: 1, 5: 1, 6: highest_minor}
 
 # fetch the last released version from latest-released.json
