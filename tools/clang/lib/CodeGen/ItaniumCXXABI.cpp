@@ -2378,6 +2378,7 @@ static bool TypeInfoIsInStandardLibrary(const BuiltinType *Ty) {
     case BuiltinType::LitFloat:
     case BuiltinType::Int8_4Packed:
     case BuiltinType::UInt8_4Packed:
+    case BuiltinType::LinAlgMatrix:
       llvm_unreachable("FIXME: HLSL types are unsupported!");
       break;
   }

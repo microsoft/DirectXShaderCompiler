@@ -70,6 +70,9 @@ serialization::TypeIdxFromBuiltin(const BuiltinType *BT) {
   case BuiltinType::OCLImage3d:       ID = PREDEF_TYPE_IMAGE3D_ID;      break;
   case BuiltinType::OCLSampler:       ID = PREDEF_TYPE_SAMPLER_ID;      break;
   case BuiltinType::OCLEvent:         ID = PREDEF_TYPE_EVENT_ID;        break;
+  case BuiltinType::LinAlgMatrix:
+    ID = PREDEF_TYPE_LINALG_MATRIX_ID;
+    break;
   case BuiltinType::BuiltinFn:
                                 ID = PREDEF_TYPE_BUILTIN_FN; break;
 

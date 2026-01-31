@@ -1106,6 +1106,7 @@ void ASTContext::InitBuiltinTypes(const TargetInfo &Target) {
     InitBuiltinType(LitFloatTy, BuiltinType::LitFloat);
     InitBuiltinType(Int8_4PackedTy, BuiltinType::Int8_4Packed);
     InitBuiltinType(UInt8_4PackedTy, BuiltinType::UInt8_4Packed);
+    InitBuiltinType(LinAlgMatrixTy, BuiltinType::LinAlgMatrix);
 
     HLSLStringTy = this->getPointerType(CharTy);
 
@@ -1696,6 +1697,11 @@ TypeInfo ASTContext::getTypeInfoImpl(const Type *T) const {
     case BuiltinType::LitInt:
       Width = 64;
       Align = 64;
+      break;
+    case BuiltinType::LinAlgMatrix:
+      // Model it as a pointer an to opaque type
+      Width = Target->getPointerWidth(0);
+      Align = Target->getPointerAlign(0);
       break;
     // HLSL Change Ends
     case BuiltinType::LongDouble:

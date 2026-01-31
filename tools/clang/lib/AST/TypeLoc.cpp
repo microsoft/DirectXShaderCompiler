@@ -353,6 +353,7 @@ TypeSpecifierType BuiltinTypeLoc::getWrittenTypeSpec() const {
   case BuiltinType::OCLImage3d:
   case BuiltinType::OCLSampler:
   case BuiltinType::OCLEvent:
+  case BuiltinType::LinAlgMatrix:
   case BuiltinType::BuiltinFn:
     return TST_unspecified;
   }

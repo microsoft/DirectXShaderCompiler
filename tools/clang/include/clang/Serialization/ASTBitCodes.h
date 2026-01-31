@@ -687,73 +687,73 @@ namespace clang {
     /// by the AST context when it is created.
     enum PredefinedTypeIDs {
       /// \brief The NULL type.
-      PREDEF_TYPE_NULL_ID       = 0,
+      PREDEF_TYPE_NULL_ID = 0,
       /// \brief The void type.
-      PREDEF_TYPE_VOID_ID       = 1,
+      PREDEF_TYPE_VOID_ID = 1,
       /// \brief The 'bool' or '_Bool' type.
-      PREDEF_TYPE_BOOL_ID       = 2,
+      PREDEF_TYPE_BOOL_ID = 2,
       /// \brief The 'char' type, when it is unsigned.
-      PREDEF_TYPE_CHAR_U_ID     = 3,
+      PREDEF_TYPE_CHAR_U_ID = 3,
       /// \brief The 'unsigned char' type.
-      PREDEF_TYPE_UCHAR_ID      = 4,
+      PREDEF_TYPE_UCHAR_ID = 4,
       /// \brief The 'unsigned short' type.
-      PREDEF_TYPE_USHORT_ID     = 5,
+      PREDEF_TYPE_USHORT_ID = 5,
       /// \brief The 'unsigned int' type.
-      PREDEF_TYPE_UINT_ID       = 6,
+      PREDEF_TYPE_UINT_ID = 6,
       /// \brief The 'unsigned long' type.
-      PREDEF_TYPE_ULONG_ID      = 7,
+      PREDEF_TYPE_ULONG_ID = 7,
       /// \brief The 'unsigned long long' type.
-      PREDEF_TYPE_ULONGLONG_ID  = 8,
+      PREDEF_TYPE_ULONGLONG_ID = 8,
       /// \brief The 'char' type, when it is signed.
-      PREDEF_TYPE_CHAR_S_ID     = 9,
+      PREDEF_TYPE_CHAR_S_ID = 9,
       /// \brief The 'signed char' type.
-      PREDEF_TYPE_SCHAR_ID      = 10,
+      PREDEF_TYPE_SCHAR_ID = 10,
       /// \brief The C++ 'wchar_t' type.
-      PREDEF_TYPE_WCHAR_ID      = 11,
+      PREDEF_TYPE_WCHAR_ID = 11,
       /// \brief The (signed) 'short' type.
-      PREDEF_TYPE_SHORT_ID      = 12,
+      PREDEF_TYPE_SHORT_ID = 12,
       /// \brief The (signed) 'int' type.
-      PREDEF_TYPE_INT_ID        = 13,
+      PREDEF_TYPE_INT_ID = 13,
       /// \brief The (signed) 'long' type.
-      PREDEF_TYPE_LONG_ID       = 14,
+      PREDEF_TYPE_LONG_ID = 14,
       /// \brief The (signed) 'long long' type.
-      PREDEF_TYPE_LONGLONG_ID   = 15,
+      PREDEF_TYPE_LONGLONG_ID = 15,
       /// \brief The 'float' type.
-      PREDEF_TYPE_FLOAT_ID      = 16,
+      PREDEF_TYPE_FLOAT_ID = 16,
       /// \brief The 'double' type.
-      PREDEF_TYPE_DOUBLE_ID     = 17,
+      PREDEF_TYPE_DOUBLE_ID = 17,
       /// \brief The 'long double' type.
       PREDEF_TYPE_LONGDOUBLE_ID = 18,
       /// \brief The placeholder type for overloaded function sets.
-      PREDEF_TYPE_OVERLOAD_ID   = 19,
+      PREDEF_TYPE_OVERLOAD_ID = 19,
       /// \brief The placeholder type for dependent types.
-      PREDEF_TYPE_DEPENDENT_ID  = 20,
+      PREDEF_TYPE_DEPENDENT_ID = 20,
       /// \brief The '__uint128_t' type.
-      PREDEF_TYPE_UINT128_ID    = 21,
+      PREDEF_TYPE_UINT128_ID = 21,
       /// \brief The '__int128_t' type.
-      PREDEF_TYPE_INT128_ID     = 22,
+      PREDEF_TYPE_INT128_ID = 22,
       /// \brief The type of 'nullptr'.
-      PREDEF_TYPE_NULLPTR_ID    = 23,
+      PREDEF_TYPE_NULLPTR_ID = 23,
       /// \brief The C++ 'char16_t' type.
-      PREDEF_TYPE_CHAR16_ID     = 24,
+      PREDEF_TYPE_CHAR16_ID = 24,
       /// \brief The C++ 'char32_t' type.
-      PREDEF_TYPE_CHAR32_ID     = 25,
+      PREDEF_TYPE_CHAR32_ID = 25,
       /// \brief The ObjC 'id' type.
-      PREDEF_TYPE_OBJC_ID       = 26,
+      PREDEF_TYPE_OBJC_ID = 26,
       /// \brief The ObjC 'Class' type.
-      PREDEF_TYPE_OBJC_CLASS    = 27,
+      PREDEF_TYPE_OBJC_CLASS = 27,
       /// \brief The ObjC 'SEL' type.
-      PREDEF_TYPE_OBJC_SEL      = 28,
+      PREDEF_TYPE_OBJC_SEL = 28,
       /// \brief The 'unknown any' placeholder type.
-      PREDEF_TYPE_UNKNOWN_ANY   = 29,
+      PREDEF_TYPE_UNKNOWN_ANY = 29,
       /// \brief The placeholder type for bound member functions.
-      PREDEF_TYPE_BOUND_MEMBER  = 30,
+      PREDEF_TYPE_BOUND_MEMBER = 30,
       /// \brief The "auto" deduction type.
-      PREDEF_TYPE_AUTO_DEDUCT   = 31,
+      PREDEF_TYPE_AUTO_DEDUCT = 31,
       /// \brief The "auto &&" deduction type.
       PREDEF_TYPE_AUTO_RREF_DEDUCT = 32,
       /// \brief The OpenCL 'half' / ARM NEON __fp16 type.
-      PREDEF_TYPE_HALF_ID       = 33,
+      PREDEF_TYPE_HALF_ID = 33,
       /// \brief ARC's unbridged-cast placeholder type.
       PREDEF_TYPE_ARC_UNBRIDGED_CAST = 34,
       /// \brief The pseudo-object placeholder type.
@@ -763,21 +763,23 @@ namespace clang {
       /// \brief The placeholder type for builtin functions.
       PREDEF_TYPE_BUILTIN_FN = 37,
       /// \brief OpenCL 1d image type.
-      PREDEF_TYPE_IMAGE1D_ID    = 38,
+      PREDEF_TYPE_IMAGE1D_ID = 38,
       /// \brief OpenCL 1d image array type.
       PREDEF_TYPE_IMAGE1D_ARR_ID = 39,
       /// \brief OpenCL 1d image buffer type.
       PREDEF_TYPE_IMAGE1D_BUFF_ID = 40,
       /// \brief OpenCL 2d image type.
-      PREDEF_TYPE_IMAGE2D_ID    = 41,
+      PREDEF_TYPE_IMAGE2D_ID = 41,
       /// \brief OpenCL 2d image array type.
       PREDEF_TYPE_IMAGE2D_ARR_ID = 42,
       /// \brief OpenCL 3d image type.
-      PREDEF_TYPE_IMAGE3D_ID    = 43,
+      PREDEF_TYPE_IMAGE3D_ID = 43,
       /// \brief OpenCL event type.
-      PREDEF_TYPE_EVENT_ID      = 44,
+      PREDEF_TYPE_EVENT_ID = 44,
       /// \brief OpenCL sampler type.
-      PREDEF_TYPE_SAMPLER_ID    = 45
+      PREDEF_TYPE_SAMPLER_ID = 45,
+      /// \brief HLSL LinAlg Matrix type.
+      PREDEF_TYPE_LINALG_MATRIX_ID = 46
     };
 
     /// \brief The number of predefined type IDs that are reserved for
