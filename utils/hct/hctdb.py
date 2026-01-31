@@ -59,7 +59,7 @@ dxil_scalar_oload_chars = "hfd18wil"
 
 # Maximum number of overload dimensions supported through the extended overload
 # in DXIL instructions.
-dxil_max_overload_dims = 2
+dxil_max_overload_dims = 4
 
 
 class db_dxil_enum_value(object):
@@ -1159,18 +1159,30 @@ class db_dxil(object):
                 "miss",
             )
 
+        # Thread/Wave/ThreadGroup scope operations
         for i in insts(
-            "CreateMatrix,FillMatrix,CopyConvertMatrix,"
-            + "MatrixLoadFromDescriptor,MatrixLoadFromMemory,"
-            + "MatrixLength,MatrixGetCoordinate,MatrixGetElement,MatrixSetElement,"
-            + "MatrixStoreToDescriptor,MatrixStoreToMemory,"
-            + "MatrixQueryAccumulatorLayout,MatrixMulOp,MatrixAccumulate,"
-            + "MatrixVecMul,MatrixVecMulAdd,"
-            + "MatrixAccumulateToDescriptor,MatrixAccumulateToMemory,"
-            + "MatrixOuterProduct"
+            "CreateMatrix,MatrixQueryAccumulatorLayout,"
+            + "MatrixLoadFromDescriptor,MatrixAccumulateToDescriptor,"
+            + "MatrixVecMul,MatrixVecMulAdd,MatrixOuterProduct"
         ):
             i.category = "Linear Algebra Operations"
             i.shader_model = experimental_sm
+
+        # Wave/ThreadGroup scope operations
+        for i in insts(
+            "FillMatrix,CopyConvertMatrix,"
+            + "MatrixLength,MatrixGetCoordinate,MatrixGetElement,MatrixSetElement,"
+            + "MatrixStoreToDescriptor,"
+            + "MatrixLoadFromMemory,MatrixStoreToMemory,MatrixAccumulateToMemory,"
+            + "MatrixMulOp,MatrixAccumulate"
+        ):
+            i.category = "Linear Algebra Operations"
+            i.shader_model = experimental_sm
+            i.shader_stages = (
+                "compute",
+                "mesh",
+                "amplification",
+            )
 
     def populate_llvm_instructions(self):
         # Add instructions that map to LLVM instructions.
