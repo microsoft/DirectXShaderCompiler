@@ -483,7 +483,9 @@ llvm::Type *CodeGenTypes::ConvertType(QualType T) {
 
     // HLSL Change Starts
     case BuiltinType::LinAlgMatrix:
-      llvm_unreachable("LinAlgMatrix codegen is not supported yet");
+      // __builtin_LinAlg_Matrix type without attributes is not a valid LinAlg
+      // Matrix handle
+      ResultType = llvm::Type::getVoidTy(getLLVMContext());
       break;
       // HLSL Change Ends
 
