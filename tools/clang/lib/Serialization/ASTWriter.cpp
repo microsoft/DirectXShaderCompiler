@@ -307,6 +307,25 @@ void ASTTypeWriter::VisitAttributedType(const AttributedType *T) {
   Code = TYPE_ATTRIBUTED;
 }
 
+// HLSL Change Start
+void ASTTypeWriter::VisitAttributedLinAlgMatrixType(
+    const AttributedLinAlgMatrixType *T) {
+  Writer.AddTypeRef(T->getWrappedType(), Record);
+  Record.push_back(static_cast<unsigned>(T->getComponentType()));
+  Record.push_back(T->getRows());
+  Record.push_back(T->getColumns());
+  Record.push_back(static_cast<unsigned>(T->getUse()));
+  Record.push_back(static_cast<unsigned>(T->getScope()));
+  Code = TYPE_HLSL_ATTRIBUTED_LINALG_MATRIX;
+}
+
+void ASTTypeWriter::VisitDependentAttributedLinAlgMatrixType(
+    const DependentAttributedLinAlgMatrixType *T) {
+  // FIXME: Serialize this type (C++ only)
+  llvm_unreachable(
+      "Cannot serialize dependent HLSL attributed linear algebra matrix types");
+}
+// HLSL Change End
 void
 ASTTypeWriter::VisitSubstTemplateTypeParmType(
                                         const SubstTemplateTypeParmType *T) {
@@ -594,6 +613,10 @@ void TypeLocWriter::VisitAttributedTypeLoc(AttributedTypeLoc TL) {
   } else if (TL.hasAttrEnumOperand()) {
     Writer.AddSourceLocation(TL.getAttrEnumOperandLoc(), Record);
   }
+}
+void TypeLocWriter::VisitAttributedLinAlgMatrixTypeLoc(
+    AttributedLinAlgMatrixTypeLoc TL) {
+  Writer.AddSourceLocation(TL.getSourceLocation(), Record);
 }
 void TypeLocWriter::VisitTemplateTypeParmTypeLoc(TemplateTypeParmTypeLoc TL) {
   Writer.AddSourceLocation(TL.getNameLoc(), Record);

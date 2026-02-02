@@ -797,87 +797,89 @@ namespace clang {
     /// AST.
     enum TypeCode {
       /// \brief An ExtQualType record.
-      TYPE_EXT_QUAL                 = 1,
+      TYPE_EXT_QUAL = 1,
       /// \brief A ComplexType record.
-      TYPE_COMPLEX                  = 3,
+      TYPE_COMPLEX = 3,
       /// \brief A PointerType record.
-      TYPE_POINTER                  = 4,
+      TYPE_POINTER = 4,
       /// \brief A BlockPointerType record.
-      TYPE_BLOCK_POINTER            = 5,
+      TYPE_BLOCK_POINTER = 5,
       /// \brief An LValueReferenceType record.
-      TYPE_LVALUE_REFERENCE         = 6,
+      TYPE_LVALUE_REFERENCE = 6,
       /// \brief An RValueReferenceType record.
-      TYPE_RVALUE_REFERENCE         = 7,
+      TYPE_RVALUE_REFERENCE = 7,
       /// \brief A MemberPointerType record.
-      TYPE_MEMBER_POINTER           = 8,
+      TYPE_MEMBER_POINTER = 8,
       /// \brief A ConstantArrayType record.
-      TYPE_CONSTANT_ARRAY           = 9,
+      TYPE_CONSTANT_ARRAY = 9,
       /// \brief An IncompleteArrayType record.
-      TYPE_INCOMPLETE_ARRAY         = 10,
+      TYPE_INCOMPLETE_ARRAY = 10,
       /// \brief A VariableArrayType record.
-      TYPE_VARIABLE_ARRAY           = 11,
+      TYPE_VARIABLE_ARRAY = 11,
       /// \brief A VectorType record.
-      TYPE_VECTOR                   = 12,
+      TYPE_VECTOR = 12,
       /// \brief An ExtVectorType record.
-      TYPE_EXT_VECTOR               = 13,
+      TYPE_EXT_VECTOR = 13,
       /// \brief A FunctionNoProtoType record.
-      TYPE_FUNCTION_NO_PROTO        = 14,
+      TYPE_FUNCTION_NO_PROTO = 14,
       /// \brief A FunctionProtoType record.
-      TYPE_FUNCTION_PROTO           = 15,
+      TYPE_FUNCTION_PROTO = 15,
       /// \brief A TypedefType record.
-      TYPE_TYPEDEF                  = 16,
+      TYPE_TYPEDEF = 16,
       /// \brief A TypeOfExprType record.
-      TYPE_TYPEOF_EXPR              = 17,
+      TYPE_TYPEOF_EXPR = 17,
       /// \brief A TypeOfType record.
-      TYPE_TYPEOF                   = 18,
+      TYPE_TYPEOF = 18,
       /// \brief A RecordType record.
-      TYPE_RECORD                   = 19,
+      TYPE_RECORD = 19,
       /// \brief An EnumType record.
-      TYPE_ENUM                     = 20,
+      TYPE_ENUM = 20,
       /// \brief An ObjCInterfaceType record.
-      TYPE_OBJC_INTERFACE           = 21,
+      TYPE_OBJC_INTERFACE = 21,
       /// \brief An ObjCObjectPointerType record.
-      TYPE_OBJC_OBJECT_POINTER      = 22,
+      TYPE_OBJC_OBJECT_POINTER = 22,
       /// \brief a DecltypeType record.
-      TYPE_DECLTYPE                 = 23,
+      TYPE_DECLTYPE = 23,
       /// \brief An ElaboratedType record.
-      TYPE_ELABORATED               = 24,
+      TYPE_ELABORATED = 24,
       /// \brief A SubstTemplateTypeParmType record.
       TYPE_SUBST_TEMPLATE_TYPE_PARM = 25,
       /// \brief An UnresolvedUsingType record.
-      TYPE_UNRESOLVED_USING         = 26,
+      TYPE_UNRESOLVED_USING = 26,
       /// \brief An InjectedClassNameType record.
-      TYPE_INJECTED_CLASS_NAME      = 27,
+      TYPE_INJECTED_CLASS_NAME = 27,
       /// \brief An ObjCObjectType record.
-      TYPE_OBJC_OBJECT              = 28,
+      TYPE_OBJC_OBJECT = 28,
       /// \brief An TemplateTypeParmType record.
-      TYPE_TEMPLATE_TYPE_PARM       = 29,
+      TYPE_TEMPLATE_TYPE_PARM = 29,
       /// \brief An TemplateSpecializationType record.
-      TYPE_TEMPLATE_SPECIALIZATION  = 30,
+      TYPE_TEMPLATE_SPECIALIZATION = 30,
       /// \brief A DependentNameType record.
-      TYPE_DEPENDENT_NAME           = 31,
+      TYPE_DEPENDENT_NAME = 31,
       /// \brief A DependentTemplateSpecializationType record.
       TYPE_DEPENDENT_TEMPLATE_SPECIALIZATION = 32,
       /// \brief A DependentSizedArrayType record.
-      TYPE_DEPENDENT_SIZED_ARRAY    = 33,
+      TYPE_DEPENDENT_SIZED_ARRAY = 33,
       /// \brief A ParenType record.
-      TYPE_PAREN                    = 34,
+      TYPE_PAREN = 34,
       /// \brief A PackExpansionType record.
-      TYPE_PACK_EXPANSION           = 35,
+      TYPE_PACK_EXPANSION = 35,
       /// \brief An AttributedType record.
-      TYPE_ATTRIBUTED               = 36,
+      TYPE_ATTRIBUTED = 36,
       /// \brief A SubstTemplateTypeParmPackType record.
       TYPE_SUBST_TEMPLATE_TYPE_PARM_PACK = 37,
       /// \brief A AutoType record.
-      TYPE_AUTO                  = 38,
+      TYPE_AUTO = 38,
       /// \brief A UnaryTransformType record.
-      TYPE_UNARY_TRANSFORM       = 39,
+      TYPE_UNARY_TRANSFORM = 39,
       /// \brief An AtomicType record.
-      TYPE_ATOMIC                = 40,
+      TYPE_ATOMIC = 40,
       /// \brief A DecayedType record.
-      TYPE_DECAYED               = 41,
+      TYPE_DECAYED = 41,
       /// \brief An AdjustedType record.
-      TYPE_ADJUSTED              = 42
+      TYPE_ADJUSTED = 42,
+      /// \brief An AttributedLinAlgMatrixType record.
+      TYPE_ATTRIBUTED_LINALG_MATRIX = 43
     };
 
     /// \brief The type IDs for special types constructed by semantic

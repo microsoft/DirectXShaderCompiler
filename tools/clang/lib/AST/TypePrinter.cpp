@@ -11,15 +11,16 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "clang/AST/PrettyPrinter.h"
 #include "clang/AST/ASTContext.h"
 #include "clang/AST/Decl.h"
 #include "clang/AST/DeclObjC.h"
 #include "clang/AST/DeclTemplate.h"
 #include "clang/AST/Expr.h"
+#include "clang/AST/PrettyPrinter.h"
 #include "clang/AST/Type.h"
 #include "clang/Basic/LangOptions.h"
 #include "clang/Basic/SourceManager.h"
+#include "clang/Sema/SemaHLSL.h"
 #include "llvm/ADT/SmallString.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/Support/SaveAndRestore.h"
@@ -244,6 +245,7 @@ bool TypePrinter::canPrefixQualifiers(const Type *T,
     case Type::FunctionNoProto:
     case Type::Paren:
     case Type::Attributed:
+    case Type::AttributedLinAlgMatrix: // HLSL Change
     case Type::PackExpansion:
     case Type::SubstTemplateTypeParm:
       CanPrefixQualifiers = false;
@@ -1362,6 +1364,44 @@ void TypePrinter::printAttributedAfter(const AttributedType *T,
   }
   OS << "))";
 }
+
+// HLSL Change Start
+void TypePrinter::printAttributedLinAlgMatrixAfter(
+    const AttributedLinAlgMatrixType *T, raw_ostream &OS) {
+  OS << " [[__LinAlg_Matrix_Attributes("
+     << hlsl::ConvertLinAlgMatrixComponentTypeToString(T->getComponentType())
+     << ", " << T->getRows() << ", " << T->getCols() << ", "
+     << hlsl::ConvertLinAlgMatrixUseToString(T->getUse()) << ", "
+     << hlsl::ConvertLinAlgMatrixScopeToString(T->getScope()) << ")]]";
+  printAfter(T->getWrappedType(), OS);
+}
+
+void TypePrinter::printAttributedLinAlgMatrixBefore(
+    const AttributedLinAlgMatrixType *T, raw_ostream &OS) {
+  printBefore(T->getWrappedType(), OS);
+}
+
+void TypePrinter::printDependentAttributedLinAlgMatrixBefore(
+    const DependentAttributedLinAlgMatrixType *T, raw_ostream &OS) {
+  printBefore(T->getWrappedType(), OS);
+}
+
+void TypePrinter::printDependentAttributedLinAlgMatrixAfter(
+    const DependentAttributedLinAlgMatrixType *T, raw_ostream &OS) {
+  OS << " [[__LinAlg_Matrix_Attributes(";
+  T->getComponentTyExpr()->printPretty(OS, nullptr, Policy);
+  OS << ", ";
+  T->getRowsExpr()->printPretty(OS, nullptr, Policy);
+  OS << ", ";
+  T->getColsExpr()->printPretty(OS, nullptr, Policy);
+  OS << ", ";
+  T->getUseExpr()->printPretty(OS, nullptr, Policy);
+  OS << ", ";
+  T->getScopeExpr()->printPretty(OS, nullptr, Policy);
+  OS << ")]]";
+  printAfter(T->getWrappedType(), OS);
+}
+// HLSL Change End
 
 void TypePrinter::printObjCInterfaceBefore(const ObjCInterfaceType *T, 
                                            raw_ostream &OS) { 

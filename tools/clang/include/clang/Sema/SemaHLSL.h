@@ -14,8 +14,10 @@
 #ifndef LLVM_CLANG_SEMA_SEMAHLSL_H
 #define LLVM_CLANG_SEMA_SEMAHLSL_H
 
+#include "dxc/DXIL/DxilConstants.h"
 #include "clang/AST/ASTContext.h"
 #include "clang/AST/Attr.h"
+#include "clang/AST/Type.h"
 #include "clang/Sema/Initialization.h"
 #include "clang/Sema/Lookup.h"
 #include "clang/Sema/Overload.h"
@@ -263,6 +265,20 @@ clang::QualType CheckVectorConditional(clang::Sema *self,
                                        clang::ExprResult &LHS,
                                        clang::ExprResult &RHS,
                                        clang::SourceLocation QuestionLoc);
+
+bool HandleLinAlgMatrixAttributes(clang::Sema &S, clang::AttributeList &Attr,
+                                  clang::QualType &Type);
+
+bool CreateAttributedLinAlgMatrixType(
+    clang::Sema &S, clang::QualType WrappedTy, clang::Expr *ComponentTyExpr,
+    clang::Expr *RowsExpr, clang::Expr *ColsExpr, clang::Expr *UseExpr,
+    clang::Expr *ScopeExpr, clang::QualType &OutType);
+
+std::string
+ConvertLinAlgMatrixComponentTypeToString(hlsl::DXIL::ComponentType CompType);
+std::string ConvertLinAlgMatrixUseToString(hlsl::DXIL::MatrixUse Use);
+std::string ConvertLinAlgMatrixScopeToString(hlsl::DXIL::MatrixScope Scope);
+
 } // namespace hlsl
 
 bool IsTypeNumeric(clang::Sema *self, clang::QualType &type);

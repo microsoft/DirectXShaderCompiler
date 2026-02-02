@@ -9602,6 +9602,7 @@ class db_hlsl(object):
             "GroupNodeOutputRecords": "LICOMPTYPE_GROUP_NODE_OUTPUT_RECORDS",
             "ThreadNodeOutputRecords": "LICOMPTYPE_THREAD_NODE_OUTPUT_RECORDS",
             "DxHitObject": "LICOMPTYPE_HIT_OBJECT",
+            "LinAlgMatrix": "LICOMPTYPE_LINALG_MATRIX",
             "VkBufferPointer": "LICOMPTYPE_VK_BUFFER_POINTER",
             "RayQuery": "LICOMPTYPE_RAY_QUERY",
             "LinAlg": "LICOMPTYPE_LINALG",
@@ -9667,7 +9668,7 @@ class db_hlsl(object):
             acceleration_struct | ray_desc | RayQuery | DxHitObject |
             Node\w* | RWNode\w* | EmptyNode\w* |
             AnyNodeOutput\w* | NodeOutputRecord\w* | GroupShared\w* |
-            VkBufferPointer
+            VkBufferPointer |  LinAlgMatrix
             $)""",
             flags=re.VERBOSE,
         )

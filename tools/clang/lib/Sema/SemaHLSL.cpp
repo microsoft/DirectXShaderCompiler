@@ -31,6 +31,7 @@
 #include "clang/AST/ExprCXX.h"
 #include "clang/AST/ExternalASTSource.h"
 #include "clang/AST/HlslTypes.h"
+#include "clang/AST/Type.h"
 #include "clang/AST/TypeLoc.h"
 #include "clang/Basic/Diagnostic.h"
 #include "clang/Basic/Specifiers.h"
@@ -253,6 +254,9 @@ enum ArBasicKind {
 
   // Shader Execution Reordering
   AR_OBJECT_HIT_OBJECT,
+
+  // Linear Algebra
+  AR_OBJECT_LINALG_MATRIX,
 
   AR_BASIC_MAXIMUM_COUNT
 };
@@ -609,6 +613,9 @@ const UINT g_uBasicKindProps[] = {
     // Shader Execution Reordering
     LICOMPTYPE_HIT_OBJECT, // AR_OBJECT_HIT_OBJECT,
 
+    // Linear Algebra
+    LICOMPTYPE_LINALG_MATRIX, // AR_OBJECT_LINALG_MATRIX,
+
     // AR_BASIC_MAXIMUM_COUNT
 };
 
@@ -671,18 +678,19 @@ enum ArTypeObjectKind {
   AR_TOBJ_INVALID, // Flag for an unassigned / unavailable object type.
   AR_TOBJ_VOID,  // Represents the type for functions with not returned valued.
   AR_TOBJ_BASIC, // Represents a primitive type.
-  AR_TOBJ_COMPOUND,  // Represents a struct or class.
-  AR_TOBJ_INTERFACE, // Represents an interface.
-  AR_TOBJ_POINTER,   // Represents a pointer to another type.
-  AR_TOBJ_OBJECT,    // Represents a built-in object.
-  AR_TOBJ_ARRAY,     // Represents an array of other types.
-  AR_TOBJ_MATRIX,    // Represents a matrix of basic types.
-  AR_TOBJ_VECTOR,    // Represents a vector of basic types.
-  AR_TOBJ_QUALIFIER, // Represents another type plus an ArTypeQualifier.
-  AR_TOBJ_INNER_OBJ, // Represents a built-in inner object, such as an
-                     // indexer object used to implement .mips[1].
-  AR_TOBJ_STRING,    // Represents a string
-  AR_TOBJ_DEPENDENT, // Dependent type for template.
+  AR_TOBJ_COMPOUND,     // Represents a struct or class.
+  AR_TOBJ_INTERFACE,    // Represents an interface.
+  AR_TOBJ_POINTER,      // Represents a pointer to another type.
+  AR_TOBJ_OBJECT,       // Represents a built-in object.
+  AR_TOBJ_ARRAY,        // Represents an array of other types.
+  AR_TOBJ_MATRIX,       // Represents a matrix of basic types.
+  AR_TOBJ_VECTOR,       // Represents a vector of basic types.
+  AR_TOBJ_QUALIFIER,    // Represents another type plus an ArTypeQualifier.
+  AR_TOBJ_INNER_OBJ,    // Represents a built-in inner object, such as an
+                        // indexer object used to implement .mips[1].
+  AR_TOBJ_STRING,       // Represents a string
+  AR_TOBJ_DEPENDENT,    // Dependent type for template.
+  AR_TOBJ_LINALG_MATRIX // LinAlg Matric type
 };
 
 enum TYPE_CONVERSION_FLAGS {
@@ -1252,6 +1260,10 @@ static const ArBasicKind g_AnyOutputRecordCT[] = {
 static const ArBasicKind g_DxHitObjectCT[] = {AR_OBJECT_HIT_OBJECT,
                                               AR_BASIC_UNKNOWN};
 
+// Linear Algebra
+static const ArBasicKind g_LinAlgMatrixCT[] = {AR_OBJECT_LINALG_MATRIX,
+                                               AR_BASIC_UNKNOWN};
+
 #ifdef ENABLE_SPIRV_CODEGEN
 static const ArBasicKind g_VKBufferPointerCT[] = {AR_OBJECT_VK_BUFFER_POINTER,
                                                   AR_BASIC_UNKNOWN};
@@ -1313,6 +1325,7 @@ const ArBasicKind *g_LegalIntrinsicCompTypes[] = {
     g_ThreadNodeOutputRecordsCT,  // LICOMPTYPE_THREAD_NODE_OUTPUT_RECORDS
     g_DxHitObjectCT,              // LICOMPTYPE_HIT_OBJECT
     g_RayQueryCT,                 // LICOMPTYPE_RAY_QUERY
+    g_LinAlgMatrixCT,             // LICOMPTYPE_LINALG_MATRIX
     g_LinAlgCT,                   // LICOMPTYPE_LINALG
     g_BuiltInTrianglePositionsCT, // LICOMPTYPE_BUILTIN_TRIANGLE_POSITIONS
 #ifdef ENABLE_SPIRV_CODEGEN
@@ -1411,7 +1424,10 @@ static const ArBasicKind g_ArBasicKindsAsTypes[] = {
     AR_OBJECT_THREAD_NODE_OUTPUT_RECORDS, AR_OBJECT_GROUP_NODE_OUTPUT_RECORDS,
 
     // Shader Execution Reordering
-    AR_OBJECT_HIT_OBJECT};
+    AR_OBJECT_HIT_OBJECT,
+
+    // LinAlg Matrix
+    AR_OBJECT_LINALG_MATRIX};
 
 // Count of template arguments for basic kind of objects that look like
 // templates (one or more type arguments).
@@ -1532,6 +1548,9 @@ static const uint8_t g_ArBasicKindsTemplateCount[] = {
 
     // Shader Execution Reordering
     0, // AR_OBJECT_HIT_OBJECT,
+
+    // LinAlg Matrix
+    0, // AR_OBJECT_LINALG_MATRIX,
 };
 
 C_ASSERT(_countof(g_ArBasicKindsAsTypes) ==
@@ -1683,6 +1702,9 @@ static const SubscriptOperatorRecord g_ArBasicKindsSubscripts[] = {
 
     // Shader Execution Reordering
     {0, MipsFalse, SampleFalse}, // AR_OBJECT_HIT_OBJECT,
+
+    // LinAlg Matrix
+    {0, MipsFalse, SampleFalse}, // AR_OBJECT_LINALG_MATRIX
 };
 
 C_ASSERT(_countof(g_ArBasicKindsAsTypes) == _countof(g_ArBasicKindsSubscripts));
@@ -1851,6 +1873,9 @@ static const char *g_ArBasicTypeNames[] = {
 
     // Shader Execution Reordering
     "HitObject",
+
+    // LinAlg Matrix
+    "__builtin_LinAlg_Matrix",
 };
 
 C_ASSERT(_countof(g_ArBasicTypeNames) == AR_BASIC_MAXIMUM_COUNT);
@@ -3640,6 +3665,9 @@ private:
       case LICOMPTYPE_HIT_OBJECT:
         paramTypes.push_back(GetBasicKindType(AR_OBJECT_HIT_OBJECT));
         break;
+      case LICOMPTYPE_LINALG_MATRIX:
+        paramTypes.push_back(GetBasicKindType(AR_OBJECT_LINALG_MATRIX));
+        break;
       case LICOMPTYPE_BUILTIN_TRIANGLE_POSITIONS:
         paramTypes.push_back(
             GetBasicKindType(AR_OBJECT_BUILTIN_TRIANGLE_POSITIONS));
@@ -4502,6 +4530,10 @@ public:
     if (type->isPointerType()) {
       return hlsl::IsPointerStringType(type) ? AR_TOBJ_STRING : AR_TOBJ_POINTER;
     }
+    if (type->isAttributedLinAlgMatrixType() ||
+        type->isDependentAttributedLinAlgMatrixType()) {
+      return AR_TOBJ_LINALG_MATRIX;
+    }
     if (type->isDependentType()) {
       return AR_TOBJ_DEPENDENT;
     }
@@ -4933,6 +4965,9 @@ public:
       size_t index = match - g_ArBasicKindsAsTypes;
       return m_context->getTagDeclType(this->m_objectTypeDecls[index]);
     }
+
+    case AR_OBJECT_LINALG_MATRIX:
+      return m_context->LinAlgMatrixTy;
 
     case AR_OBJECT_SAMPLER1D:
     case AR_OBJECT_SAMPLER2D:
@@ -6790,6 +6825,18 @@ bool HLSLExternalSource::MatchArguments(
         }
       }
       m_sema->Diag(pCallArg->getExprLoc(), diag::err_hlsl_ray_desc_required);
+      badArgIdx = iArg;
+      return false;
+    }
+
+    if (pIntrinsicArg->uLegalComponentTypes == LICOMPTYPE_LINALG_MATRIX) {
+      // check TypeInfoShapeKind == AR_TOBJ_COMPOUND
+      if (TypeInfoShapeKind == AR_TOBJ_LINALG_MATRIX) {
+        ++iArg;
+        continue;
+      }
+      m_sema->Diag(pCallArg->getExprLoc(),
+                   diag::err_hlsl_linalg_attributed_matrix_required);
       badArgIdx = iArg;
       return false;
     }
@@ -13663,7 +13710,8 @@ bool FlattenedTypeIterator::considerLeaf() {
     ArTypeObjectKind objectKind = m_source.GetTypeObjectKind(tracker.Type);
     if (objectKind != ArTypeObjectKind::AR_TOBJ_BASIC &&
         objectKind != ArTypeObjectKind::AR_TOBJ_OBJECT &&
-        objectKind != ArTypeObjectKind::AR_TOBJ_STRING) {
+        objectKind != ArTypeObjectKind::AR_TOBJ_STRING &&
+        objectKind != ArTypeObjectKind::AR_TOBJ_LINALG_MATRIX) {
       if (pushTrackerForType(tracker.Type, tracker.CurrentExpr)) {
         result = considerLeaf();
       }
@@ -13881,6 +13929,11 @@ bool FlattenedTypeIterator::pushTrackerForType(
   }
   case ArTypeObjectKind::AR_TOBJ_STRING: {
     // Strings have no sub-types.
+    m_typeTrackers.push_back(FlattenedTypeIterator::FlattenedTypeTracker(
+        type.getCanonicalType(), 1, expression));
+    return true;
+  }
+  case ArTypeObjectKind::AR_TOBJ_LINALG_MATRIX: {
     m_typeTrackers.push_back(FlattenedTypeIterator::FlattenedTypeTracker(
         type.getCanonicalType(), 1, expression));
     return true;
@@ -17775,4 +17828,256 @@ void DiagnoseEntry(Sema &S, FunctionDecl *FD) {
   }
   }
 }
+
+// Returns false on error
+static bool verifyLinAlgMatrixSizeArg(Sema &S, Expr *Arg, bool &IsDependent,
+                                      size_t &OutValue) {
+  QualType QT = Arg->getType();
+
+  // Check that the type is an integer type.
+  if (!QT->isIntegerType()) {
+    S.Diag(Arg->getExprLoc(),
+           diag::err_hlsl_linalg_matrix_attribute_arg_not_int_or_enum)
+        << 0 << Arg->getSourceRange();
+    return false;
+  }
+
+  // That's all we can do for dependent expressions.
+  if (Arg->isValueDependent()) {
+    IsDependent = true;
+    return true;
+  }
+
+  // Check that it is a constant value.
+  llvm::APSInt APVal;
+  if (!Arg->isIntegerConstantExpr(APVal, S.Context)) {
+    S.Diag(Arg->getExprLoc(),
+           diag::err_hlsl_linalg_matrix_attribute_arg_not_constant_value)
+        << Arg << Arg->getSourceRange();
+    return false;
+  }
+
+  // Check that the value is a valid range.
+  int64_t Value = APVal.getLimitedValue();
+  if (Value < 0) {
+    S.Diag(Arg->getExprLoc(),
+           diag::err_hlsl_linalg_matrix_dim_must_be_greater_than_zero)
+        << Arg->getSourceRange();
+    return false;
+  }
+
+  OutValue = (size_t)Value;
+  return true;
+}
+
+// Returns false on error
+template <typename EnumT>
+static bool verifyLinAlgMatrixEnumArg(Sema &S, Expr *Arg, const char *EnumName,
+                                      unsigned MinValue, unsigned MaxValue,
+                                      bool &IsDependent, EnumT &OutValue) {
+  QualType QT = Arg->getType();
+
+  // Check that the type is an integer or enumeration type.
+  if (!QT->isIntegralOrEnumerationType()) {
+    S.Diag(Arg->getExprLoc(),
+           diag::err_hlsl_linalg_matrix_attribute_arg_not_int_or_enum)
+        << 1 << Arg->getSourceRange();
+    return false;
+  }
+
+  // That's all we can do for dependent expressions.
+  if (Arg->isValueDependent()) {
+    IsDependent = true;
+    return true;
+  }
+
+  // Check that it is a constant value.
+  llvm::APSInt APVal;
+  if (!Arg->isIntegerConstantExpr(APVal, S.Context)) {
+    S.Diag(Arg->getExprLoc(),
+           diag::err_hlsl_linalg_matrix_attribute_arg_not_constant_value)
+        << Arg->getSourceRange();
+    return false;
+  }
+
+  // Check that the value is a valid range.
+  int64_t Value = APVal.getLimitedValue();
+  if (Value < (int64_t)MinValue || Value > (int64_t)MaxValue) {
+    S.Diags.Report(Arg->getExprLoc(),
+                   diag::err_hlsl_linalg_matrix_invalid_enum_attribute_value)
+        << EnumName << std::to_string(Value) << std::to_string(MinValue)
+        << std::to_string(MaxValue);
+    return false;
+  }
+
+  OutValue = (EnumT)Value;
+  return true;
+}
+
+// Returns false on error
+bool CreateAttributedLinAlgMatrixType(
+    clang::Sema &S, clang::QualType WrappedTy, clang::Expr *ComponentTyExpr,
+    clang::Expr *RowsExpr, clang::Expr *ColsExpr, clang::Expr *UseExpr,
+    clang::Expr *ScopeExpr, clang::QualType &OutType) {
+
+  bool IsDependent = false;
+
+  // Verify component type argument.
+  hlsl::DXIL::ComponentType CompTyValue = hlsl::DXIL::ComponentType::Invalid;
+  if (!verifyLinAlgMatrixEnumArg<hlsl::DXIL::ComponentType>(
+          S, ComponentTyExpr, "ComponentEnum",
+          static_cast<unsigned>(hlsl::DXIL::ComponentType::I1),
+          static_cast<unsigned>(hlsl::DXIL::ComponentType::LastEntry) - 1,
+          IsDependent, CompTyValue))
+    return false;
+
+  // Verify size arguments
+  size_t RowsValue = 0;
+  size_t ColsValue = 0;
+  if (!verifyLinAlgMatrixSizeArg(S, RowsExpr, IsDependent, RowsValue) ||
+      !verifyLinAlgMatrixSizeArg(S, ColsExpr, IsDependent, ColsValue))
+    return false;
+
+  // Verify matrix Use argument.
+  hlsl::DXIL::MatrixUse UseValue = hlsl::DXIL::MatrixUse::A;
+  if (!verifyLinAlgMatrixEnumArg<hlsl::DXIL::MatrixUse>(
+          S, UseExpr, "MatrixUseEnum",
+          static_cast<unsigned>(hlsl::DXIL::MatrixUse::A),
+          static_cast<unsigned>(hlsl::DXIL::MatrixUse::Accumulator),
+          IsDependent, UseValue))
+    return false;
+
+  // Verify matrix Scope argument.
+  hlsl::DXIL::MatrixScope ScopeValue = hlsl::DXIL::MatrixScope::Thread;
+  if (!verifyLinAlgMatrixEnumArg<hlsl::DXIL::MatrixScope>(
+          S, ScopeExpr, "MatrixScopeEnum",
+          static_cast<unsigned>(hlsl::DXIL::MatrixScope::Thread),
+          static_cast<unsigned>(hlsl::DXIL::MatrixScope::ThreadGroup),
+          IsDependent, ScopeValue))
+    return false;
+
+  // Create one of tyhe two LinAlg Matrix attributed types based on whether
+  // it has dependent attributes or not.
+  if (IsDependent)
+    OutType = S.Context.getDependentAttributedLinAlgMatrixType(
+        WrappedTy, ComponentTyExpr, RowsExpr, ColsExpr, UseExpr, ScopeExpr);
+  else
+    OutType = S.Context.getAttributedLinAlgMatrixType(
+        WrappedTy, CompTyValue, RowsValue, ColsValue, UseValue, ScopeValue);
+  return true;
+}
+
+// Returns true on error
+bool HandleLinAlgMatrixAttributes(clang::Sema &S, clang::AttributeList &Attr,
+                                  clang::QualType &Type) {
+
+  assert(Attr.getKind() == AttributeList::AT_HLSLLinAlgMatrixAttributes &&
+         "unexpected attribute");
+
+  QualType CanonTy = Type.getCanonicalType();
+  if (!CanonTy->isLinAlgMatrixType()) {
+    const auto *LinAlgMTy = cast<BuiltinType>(S.getASTContext().LinAlgMatrixTy);
+    PrintingPolicy PP(S.getLangOpts());
+    S.Diag(Attr.getLoc(),
+           diag::err_hlsl_linalg_matrix_attribute_on_invalid_type)
+        << LinAlgMTy->getName(PP) << Attr.getLoc();
+    return true;
+  }
+
+  if (Attr.getNumArgs() != 5) {
+    S.Diag(Attr.getLoc(), diag::err_attribute_wrong_number_arguments)
+        << Attr.getName() << 5;
+    Attr.setInvalid();
+    return true;
+  }
+
+  QualType ResultType;
+  if (!CreateAttributedLinAlgMatrixType(
+          S, CanonTy, Attr.getArgAsExpr(0), Attr.getArgAsExpr(1),
+          Attr.getArgAsExpr(2), Attr.getArgAsExpr(3), Attr.getArgAsExpr(4),
+          ResultType))
+    return true;
+
+  Type = ResultType;
+  return false;
+}
+
+std::string
+ConvertLinAlgMatrixComponentTypeToString(hlsl::DXIL::ComponentType CompType) {
+  switch (CompType) {
+  case DXIL::ComponentType::I1:
+    return "ComponentType::I1";
+  case DXIL::ComponentType::I16:
+    return "ComponentType::I16";
+  case DXIL::ComponentType::U16:
+    return "ComponentType::U16";
+  case DXIL::ComponentType::I32:
+    return "ComponentType::I32";
+  case DXIL::ComponentType::U32:
+    return "ComponentType::U32";
+  case DXIL::ComponentType::I64:
+    return "ComponentType::I64";
+  case DXIL::ComponentType::U64:
+    return "ComponentType::U64";
+  case DXIL::ComponentType::F16:
+    return "ComponentType::F16";
+  case DXIL::ComponentType::F32:
+    return "ComponentType::F32";
+  case DXIL::ComponentType::F64:
+    return "ComponentType::F64";
+  case DXIL::ComponentType::SNormF16:
+    return "ComponentType::SNormF16";
+  case DXIL::ComponentType::UNormF16:
+    return "ComponentType::UNormF16";
+  case DXIL::ComponentType::SNormF32:
+    return "ComponentType::SNormF32";
+  case DXIL::ComponentType::UNormF32:
+    return "ComponentType::UNormF32";
+  case DXIL::ComponentType::SNormF64:
+    return "ComponentType::SNormF64";
+  case DXIL::ComponentType::UNormF64:
+    return "ComponentType::UNormF64";
+  case DXIL::ComponentType::PackedS8x32:
+    return "ComponentType::PackedS8x32";
+  case DXIL::ComponentType::PackedU8x32:
+    return "ComponentType::PackedU8x32";
+  case DXIL::ComponentType::U8:
+    return "ComponentType::U8";
+  case DXIL::ComponentType::I8:
+    return "ComponentType::I8";
+  case DXIL::ComponentType::F8_E4M3:
+    return "ComponentType::F8_E4M3";
+  case DXIL::ComponentType::F8_E5M2:
+    return "ComponentType::F8_E5M2";
+  default:
+    llvm_unreachable("Unknown ComponentType");
+  }
+}
+
+std::string ConvertLinAlgMatrixUseToString(hlsl::DXIL::MatrixUse Use) {
+  switch (Use) {
+  case hlsl::DXIL::MatrixUse::A:
+    return "MatrixUse::A";
+  case hlsl::DXIL::MatrixUse::B:
+    return "MatrixUse::B";
+  case hlsl::DXIL::MatrixUse::Accumulator:
+    return "MatrixUse::Accumulator";
+  default:
+    llvm_unreachable("Unknown MatrixUse");
+  }
+}
+
+std::string ConvertLinAlgMatrixScopeToString(hlsl::DXIL::MatrixScope Scope) {
+  switch (Scope) {
+  case hlsl::DXIL::MatrixScope::Thread:
+    return "MatrixScope::Thread";
+  case hlsl::DXIL::MatrixScope::ThreadGroup:
+    return "MatrixScope::ThreadGroup";
+  case hlsl::DXIL::MatrixScope::Wave:
+    return "MatrixScope::Wave";
+  default:
+    llvm_unreachable("Unknown MatrixScope");
+  }
+}
+
 } // namespace hlsl
