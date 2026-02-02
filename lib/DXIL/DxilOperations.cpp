@@ -3937,12 +3937,14 @@ void OP::GetMinShaderModelAndMask(OpCode C, bool bWithTranslation,
   // CreateMatrix=2147483659, MatrixLoadFromDescriptor=2147483662,
   // MatrixQueryAccumulatorLayout=2147483670, MatrixVecMul=2147483673,
   // MatrixVecMulAdd=2147483674, MatrixAccumulateToDescriptor=2147483675,
-  // MatrixOuterProduct=2147483677
+  // MatrixOuterProduct=2147483677, DebugBreak=2147483681,
+  // IsDebuggerPresent=2147483682
   if ((305 <= op && op <= 308) || op == 2147483648 ||
       (2147483652 <= op && op <= 2147483653) ||
       (2147483656 <= op && op <= 2147483657) || op == 2147483659 ||
       op == 2147483662 || op == 2147483670 ||
-      (2147483673 <= op && op <= 2147483675) || op == 2147483677) {
+      (2147483673 <= op && op <= 2147483675) || op == 2147483677 ||
+      (2147483681 <= op && op <= 2147483682)) {
     major = 6;
     minor = 10;
     return;

@@ -1168,10 +1168,6 @@ class db_dxil(object):
             i.category = "Linear Algebra Operations"
             i.shader_model = experimental_sm
 
-        for i in insts("DebugBreak", "IsDebuggerPresent"):
-            i.category = "Debugging"
-            i.shader_model = experimental_sm
-
         # Wave/ThreadGroup scope operations
         for i in insts(
             "FillMatrix,CopyConvertMatrix,"
@@ -1187,6 +1183,10 @@ class db_dxil(object):
                 "mesh",
                 "amplification",
             )
+    
+        for i in insts("DebugBreak", "IsDebuggerPresent"):
+            i.category = "Debugging"
+            i.shader_model = experimental_sm
 
     def populate_llvm_instructions(self):
         # Add instructions that map to LLVM instructions.
