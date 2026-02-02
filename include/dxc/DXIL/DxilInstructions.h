@@ -11138,7 +11138,7 @@ struct DxilInst_MatrixOuterProduct {
   void set_vectorB(llvm::Value *val) { Instr->setOperand(3, val); }
 };
 
-/// This instruction triggers a breakpoint if debugger is attached
+/// This instruction triggers a breakpoint if a debugger is attached
 struct DxilInst_DebugBreak {
   llvm::Instruction *Instr;
   // Construction and identification
@@ -11157,7 +11157,7 @@ struct DxilInst_DebugBreak {
   bool requiresUniformInputs() const { return false; }
 };
 
-/// This instruction returns true if debugger is attached
+/// This instruction returns true if a debugger is attached
 struct DxilInst_IsDebuggerPresent {
   llvm::Instruction *Instr;
   // Construction and identification

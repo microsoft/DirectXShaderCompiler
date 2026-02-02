@@ -6712,7 +6712,7 @@ class db_dxil(object):
         add_dxil_op(
             "DebugBreak",
             "DebugBreak",
-            "triggers a breakpoint if debugger is attached",
+            "triggers a breakpoint if a debugger is attached",
             "v",
             "nd",
             [
@@ -6722,11 +6722,11 @@ class db_dxil(object):
         add_dxil_op(
             "IsDebuggerPresent",
             "IsDebuggerPresent",
-            "returns true if debugger is attached",
+            "returns true if a debugger is attached",
             "v",
             "ro",
             [
-                db_dxil_param(0, "i1", "", "true if debugger is attached"),
+                db_dxil_param(0, "i1", "", "true if a debugger is attached"),
             ],
         )
 
