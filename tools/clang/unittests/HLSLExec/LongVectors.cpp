@@ -35,6 +35,10 @@ template <typename T> constexpr bool is16BitType() {
          std::is_same_v<T, HLSLHalf_t>;
 }
 
+template <typename T> constexpr bool isDoubleType() {
+  return std::is_same_v<T, double>;
+}
+
 struct DataType {
   const char *HLSLTypeString;
   bool Is16Bit;
@@ -1938,6 +1942,15 @@ public:
     WEX::TestExecution::SetVerifyOutput VerifySettings(
         WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
 
+#ifndef _HLK_CONF
+    if (isDoubleType<T>() && !doesDeviceSupportDouble(D3DDevice)) {
+      WEX::Logging::Log::Comment(
+          L"Skipping test as device does not support double precision.");
+      WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
+      return;
+    }
+#endif
+
     UINT WaveSize = 0;
 
     if (OverrideWaveLaneCount > 0) {
@@ -1962,6 +1975,16 @@ public:
   template <typename T, OpType OP> void runTest() {
     WEX::TestExecution::SetVerifyOutput verifySettings(
         WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+
+#ifndef _HLK_CONF
+    if (isDoubleType<T>() && !doesDeviceSupportDouble(D3DDevice)) {
+      WEX::Logging::Log::Comment(
+          L"Skipping test as device does not support double precision.");
+      WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
+      return;
+    }
+#endif
+
     dispatchTest<T, OP>(D3DDevice, VerboseLogging, OverrideInputSize);
   }
 

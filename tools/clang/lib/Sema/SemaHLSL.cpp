@@ -211,6 +211,7 @@ enum ArBasicKind {
   AR_OBJECT_ACCELERATION_STRUCT,
   AR_OBJECT_USER_DEFINED_TYPE,
   AR_OBJECT_TRIANGLE_INTERSECTION_ATTRIBUTES,
+  AR_OBJECT_BUILTIN_TRIANGLE_POSITIONS,
 
   // subobjects
   AR_OBJECT_STATE_OBJECT_CONFIG,
@@ -567,6 +568,7 @@ const UINT g_uBasicKindProps[] = {
     LICOMPTYPE_ACCELERATION_STRUCT, // AR_OBJECT_ACCELERATION_STRUCT
     LICOMPTYPE_USER_DEFINED_TYPE,   // AR_OBJECT_USER_DEFINED_TYPE
     0, // AR_OBJECT_TRIANGLE_INTERSECTION_ATTRIBUTES
+    LICOMPTYPE_BUILTIN_TRIANGLE_POSITIONS, // AR_OBJECT_BUILTIN_TRIANGLE_POSITIONS
 
     // subobjects
     0, // AR_OBJECT_STATE_OBJECT_CONFIG,
@@ -1134,6 +1136,9 @@ static const ArBasicKind g_ResourceCT[] = {AR_OBJECT_HEAP_RESOURCE,
 
 static const ArBasicKind g_RayDescCT[] = {AR_OBJECT_RAY_DESC, AR_BASIC_UNKNOWN};
 
+static const ArBasicKind g_BuiltInTrianglePositionsCT[] = {
+    AR_OBJECT_BUILTIN_TRIANGLE_POSITIONS, AR_BASIC_UNKNOWN};
+
 static const ArBasicKind g_RayQueryCT[] = {AR_OBJECT_RAY_QUERY,
                                            AR_BASIC_UNKNOWN};
 
@@ -1300,15 +1305,16 @@ const ArBasicKind *g_LegalIntrinsicCompTypes[] = {
     g_SInt16Or32OnlyCT,     // LICOMPTYPE_SINT16_OR_32_ONLY
     g_AnySamplerCT,         // LICOMPTYPE_ANY_SAMPLER
 
-    g_ByteAddressBufferCT,       // LICOMPTYPE_BYTEADDRESSBUFFER
-    g_RWByteAddressBufferCT,     // LICOMPTYPE_RWBYTEADDRESSBUFFER
-    g_NodeRecordOrUAVCT,         // LICOMPTYPE_NODE_RECORD_OR_UAV
-    g_AnyOutputRecordCT,         // LICOMPTYPE_ANY_NODE_OUTPUT_RECORD
-    g_GroupNodeOutputRecordsCT,  // LICOMPTYPE_GROUP_NODE_OUTPUT_RECORDS
-    g_ThreadNodeOutputRecordsCT, // LICOMPTYPE_THREAD_NODE_OUTPUT_RECORDS
-    g_DxHitObjectCT,             // LICOMPTYPE_HIT_OBJECT
-    g_RayQueryCT,                // LICOMPTYPE_RAY_QUERY
-    g_LinAlgCT,                  // LICOMPTYPE_LINALG
+    g_ByteAddressBufferCT,        // LICOMPTYPE_BYTEADDRESSBUFFER
+    g_RWByteAddressBufferCT,      // LICOMPTYPE_RWBYTEADDRESSBUFFER
+    g_NodeRecordOrUAVCT,          // LICOMPTYPE_NODE_RECORD_OR_UAV
+    g_AnyOutputRecordCT,          // LICOMPTYPE_ANY_NODE_OUTPUT_RECORD
+    g_GroupNodeOutputRecordsCT,   // LICOMPTYPE_GROUP_NODE_OUTPUT_RECORDS
+    g_ThreadNodeOutputRecordsCT,  // LICOMPTYPE_THREAD_NODE_OUTPUT_RECORDS
+    g_DxHitObjectCT,              // LICOMPTYPE_HIT_OBJECT
+    g_RayQueryCT,                 // LICOMPTYPE_RAY_QUERY
+    g_LinAlgCT,                   // LICOMPTYPE_LINALG
+    g_BuiltInTrianglePositionsCT, // LICOMPTYPE_BUILTIN_TRIANGLE_POSITIONS
 #ifdef ENABLE_SPIRV_CODEGEN
     g_VKBufferPointerCT, // LICOMPTYPE_VK_BUFFER_POINTER
 #endif
@@ -1379,6 +1385,7 @@ static const ArBasicKind g_ArBasicKindsAsTypes[] = {
 
     AR_OBJECT_WAVE, AR_OBJECT_RAY_DESC, AR_OBJECT_ACCELERATION_STRUCT,
     AR_OBJECT_TRIANGLE_INTERSECTION_ATTRIBUTES,
+    AR_OBJECT_BUILTIN_TRIANGLE_POSITIONS,
 
     // subobjects
     AR_OBJECT_STATE_OBJECT_CONFIG, AR_OBJECT_GLOBAL_ROOT_SIGNATURE,
@@ -1487,6 +1494,7 @@ static const uint8_t g_ArBasicKindsTemplateCount[] = {
     0, // AR_OBJECT_RAY_DESC
     0, // AR_OBJECT_ACCELERATION_STRUCT
     0, // AR_OBJECT_TRIANGLE_INTERSECTION_ATTRIBUTES
+    0, // AR_OBJECT_BUILTIN_TRIANGLE_POSITIONS
 
     0, // AR_OBJECT_STATE_OBJECT_CONFIG,
     0, // AR_OBJECT_GLOBAL_ROOT_SIGNATURE,
@@ -1636,6 +1644,7 @@ static const SubscriptOperatorRecord g_ArBasicKindsSubscripts[] = {
     {0, MipsFalse, SampleFalse}, // AR_OBJECT_RAY_DESC
     {0, MipsFalse, SampleFalse}, // AR_OBJECT_ACCELERATION_STRUCT
     {0, MipsFalse, SampleFalse}, // AR_OBJECT_TRIANGLE_INTERSECTION_ATTRIBUTES
+    {0, MipsFalse, SampleFalse}, // AR_OBJECT_BUILTIN_TRIANGLE_POSITIONS
 
     {0, MipsFalse, SampleFalse}, // AR_OBJECT_STATE_OBJECT_CONFIG,
     {0, MipsFalse, SampleFalse}, // AR_OBJECT_GLOBAL_ROOT_SIGNATURE,
@@ -1803,6 +1812,7 @@ static const char *g_ArBasicTypeNames[] = {
     "RaytracingAccelerationStructure",
     "user defined type",
     "BuiltInTriangleIntersectionAttributes",
+    "BuiltInTrianglePositions",
 
     // subobjects
     "StateObjectConfig",
@@ -2813,6 +2823,31 @@ AddBuiltInTriangleIntersectionAttributes(ASTContext &context,
   return attributesDecl;
 }
 
+// struct BuiltInTrianglePositions
+// {
+//   float3 p0, p1, p2;
+// };
+static CXXRecordDecl *CreateBuiltInTrianglePositions(ASTContext &context,
+                                                     QualType float3Ty) {
+  DeclContext *curDC = context.getTranslationUnitDecl();
+  IdentifierInfo &positionsId = context.Idents.get(
+      StringRef("BuiltInTrianglePositions"), tok::TokenKind::identifier);
+  CXXRecordDecl *positionsDecl = CXXRecordDecl::Create(
+      context, TagTypeKind::TTK_Struct, curDC, NoLoc, NoLoc, &positionsId,
+      nullptr, DelayTypeCreationTrue);
+  positionsDecl->addAttr(
+      FinalAttr::CreateImplicit(context, FinalAttr::Keyword_final));
+  positionsDecl->startDefinition();
+  // float3 p0, p1, p2;
+  CreateSimpleField(context, positionsDecl, "p0", float3Ty);
+  CreateSimpleField(context, positionsDecl, "p1", float3Ty);
+  CreateSimpleField(context, positionsDecl, "p2", float3Ty);
+  positionsDecl->completeDefinition();
+  positionsDecl->setImplicit(true);
+  curDC->addDecl(positionsDecl);
+  return positionsDecl;
+}
+
 //
 // Subobjects
 
@@ -3608,6 +3643,10 @@ private:
       case LICOMPTYPE_HIT_OBJECT:
         paramTypes.push_back(GetBasicKindType(AR_OBJECT_HIT_OBJECT));
         break;
+      case LICOMPTYPE_BUILTIN_TRIANGLE_POSITIONS:
+        paramTypes.push_back(
+            GetBasicKindType(AR_OBJECT_BUILTIN_TRIANGLE_POSITIONS));
+        break;
 #ifdef ENABLE_SPIRV_CODEGEN
       case LICOMPTYPE_VK_BUFFER_POINTER: {
         const ArBasicKind *match =
@@ -3827,6 +3866,10 @@ private:
             LookupVectorType(HLSLScalarType::HLSLScalarType_float, 2);
         recordDecl =
             AddBuiltInTriangleIntersectionAttributes(*m_context, float2Type);
+      } else if (kind == AR_OBJECT_BUILTIN_TRIANGLE_POSITIONS) {
+        QualType float3Ty =
+            LookupVectorType(HLSLScalarType::HLSLScalarType_float, 3);
+        recordDecl = CreateBuiltInTrianglePositions(*m_context, float3Ty);
       } else if (IsSubobjectBasicKind(kind)) {
         switch (kind) {
         case AR_OBJECT_STATE_OBJECT_CONFIG:
@@ -4864,6 +4907,7 @@ public:
     case AR_OBJECT_RAY_DESC:
     case AR_OBJECT_HIT_OBJECT:
     case AR_OBJECT_TRIANGLE_INTERSECTION_ATTRIBUTES:
+    case AR_OBJECT_BUILTIN_TRIANGLE_POSITIONS:
     case AR_OBJECT_RWTEXTURE2DMS:
     case AR_OBJECT_RWTEXTURE2DMS_ARRAY:
 

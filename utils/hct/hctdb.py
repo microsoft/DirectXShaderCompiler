@@ -59,7 +59,7 @@ dxil_scalar_oload_chars = "hfd18wil"
 
 # Maximum number of overload dimensions supported through the extended overload
 # in DXIL instructions.
-dxil_max_overload_dims = 2
+dxil_max_overload_dims = 4
 
 
 class db_dxil_enum_value(object):
@@ -1159,15 +1159,11 @@ class db_dxil(object):
                 "miss",
             )
 
+        # Thread/Wave/ThreadGroup scope operations
         for i in insts(
-            "CreateMatrix,FillMatrix,CopyConvertMatrix,"
-            + "MatrixLoadFromDescriptor,MatrixLoadFromMemory,"
-            + "MatrixLength,MatrixGetCoordinate,MatrixGetElement,MatrixSetElement,"
-            + "MatrixStoreToDescriptor,MatrixStoreToMemory,"
-            + "MatrixQueryAccumulatorLayout,MatrixMulOp,MatrixAccumulate,"
-            + "MatrixVecMul,MatrixVecMulAdd,"
-            + "MatrixAccumulateToDescriptor,MatrixAccumulateToMemory,"
-            + "MatrixOuterProduct"
+            "CreateMatrix,MatrixQueryAccumulatorLayout,"
+            + "MatrixLoadFromDescriptor,MatrixAccumulateToDescriptor,"
+            + "MatrixVecMul,MatrixVecMulAdd,MatrixOuterProduct"
         ):
             i.category = "Linear Algebra Operations"
             i.shader_model = experimental_sm
@@ -1175,6 +1171,22 @@ class db_dxil(object):
         for i in insts("DebugBreak", "IsDebuggerPresent"):
             i.category = "Debugging"
             i.shader_model = experimental_sm
+
+        # Wave/ThreadGroup scope operations
+        for i in insts(
+            "FillMatrix,CopyConvertMatrix,"
+            + "MatrixLength,MatrixGetCoordinate,MatrixGetElement,MatrixSetElement,"
+            + "MatrixStoreToDescriptor,"
+            + "MatrixLoadFromMemory,MatrixStoreToMemory,MatrixAccumulateToMemory,"
+            + "MatrixMulOp,MatrixAccumulate"
+        ):
+            i.category = "Linear Algebra Operations"
+            i.shader_model = experimental_sm
+            i.shader_stages = (
+                "compute",
+                "mesh",
+                "amplification",
+            )
 
     def populate_llvm_instructions(self):
         # Add instructions that map to LLVM instructions.
@@ -9599,6 +9611,7 @@ class db_hlsl(object):
             "resource": "LICOMPTYPE_RESOURCE",
             "ray_desc": "LICOMPTYPE_RAYDESC",
             "acceleration_struct": "LICOMPTYPE_ACCELERATION_STRUCT",
+            "triangle_positions": "LICOMPTYPE_BUILTIN_TRIANGLE_POSITIONS",
             "udt": "LICOMPTYPE_USER_DEFINED_TYPE",
             "void": "LICOMPTYPE_VOID",
             "string": "LICOMPTYPE_STRING",
@@ -9821,6 +9834,7 @@ class db_hlsl(object):
                             or base_type.startswith("wave")
                             or base_type.startswith("acceleration_struct")
                             or base_type.startswith("ray_desc")
+                            or base_type.startswith("triangle_positions")
                             or base_type.startswith("any_sampler")
                         ):
                             template_list = "LITEMPLATE_OBJECT"
