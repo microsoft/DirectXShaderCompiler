@@ -2,7 +2,7 @@
 
 // RUN: %dxc -T cs_6_10 %s | FileCheck %s
 
-// CHECK: call i1 @dx.op.isDebuggerPresent(i32
+// CHECK: call i1 @dx.op.isDebuggerPresent(i32 -2147483614)  ; IsDebuggerPresent()
 
 RWStructuredBuffer<uint> Output : register(u0);
 
