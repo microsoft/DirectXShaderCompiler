@@ -384,8 +384,11 @@ namespace  {
         const DependentAttributedLinAlgMatrixType *T) {
       OS << " ";
       dumpTypeAsChild(T->getWrappedType());
+      dumpStmt(T->getComponentTyExpr());
       dumpStmt(T->getRowsExpr());
+      dumpStmt(T->getColsExpr());
       dumpStmt(T->getUseExpr());
+      dumpStmt(T->getScopeExpr());
     }
 
     void VisitTemplateTypeParmType(const TemplateTypeParmType *T) {

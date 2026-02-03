@@ -988,8 +988,11 @@ DEF_TRAVERSE_TYPE(AttributedLinAlgMatrixType,
 
 DEF_TRAVERSE_TYPE(DependentAttributedLinAlgMatrixType, {
   TRY_TO(TraverseType(T->getWrappedType()));
+  TRY_TO(TraverseStmt(T->getComponentTyExpr()));
   TRY_TO(TraverseStmt(T->getRowsExpr()));
+  TRY_TO(TraverseStmt(T->getColsExpr()));
   TRY_TO(TraverseStmt(T->getUseExpr()));
+  TRY_TO(TraverseStmt(T->getScopeExpr()));
 })
 // HLSL Change End
 

@@ -6830,7 +6830,6 @@ bool HLSLExternalSource::MatchArguments(
     }
 
     if (pIntrinsicArg->uLegalComponentTypes == LICOMPTYPE_LINALG_MATRIX) {
-      // check TypeInfoShapeKind == AR_TOBJ_COMPOUND
       if (TypeInfoShapeKind == AR_TOBJ_LINALG_MATRIX) {
         ++iArg;
         continue;

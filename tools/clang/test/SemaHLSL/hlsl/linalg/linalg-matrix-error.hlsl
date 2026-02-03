@@ -19,12 +19,10 @@ void f() {
     // expected-error@+1{{cannot convert from 'Matrix<ComponentType::F32, 4, 5, MatrixUse::A, MatrixScope::Wave>' to 'Matrix<ComponentType::I32, 4, 5, MatrixUse::A, MatrixScope::ThreadGroup>'}}
     mat3 = mat4;
 
-// TMP
     __builtin_LinAlgMatrix [[__LinAlgMatrix_Attributes(ComponentType::I32, 4, 5, MatrixUse::B, MatrixScope::ThreadGroup)]] mat8;
 
     // expected-error@+1 {{cannot initialize a variable of type '__builtin_LinAlgMatrix' with an lvalue of type '__builtin_LinAlgMatrix [[__LinAlgMatrix_Attributes(ComponentType::I32, 4, 5, MatrixUse::B, MatrixScope::ThreadGroup)]]'}}
     __builtin_LinAlgMatrix naked_mat = mat8;
-// TMP END
 
     // ok
     Matrix<ComponentType::F32, 4, 5, MatrixUse::A, MatrixScope::Wave> same_as_mat4 = mat4;
