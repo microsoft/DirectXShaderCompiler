@@ -483,7 +483,7 @@ llvm::Type *CodeGenTypes::ConvertType(QualType T) {
 
     // HLSL Change Starts
     case BuiltinType::LinAlgMatrix:
-      llvm_unreachable("__builtin_LinAlg_Matrix type without attributes is not "
+      llvm_unreachable("__builtin_LinAlgMatrix type without attributes is not "
                        "a valid LinAlMatrix handle");
       break;
       // HLSL Change Ends

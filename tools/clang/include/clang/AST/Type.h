@@ -1699,7 +1699,7 @@ public:
 
   bool isOpenCLSpecificType() const;            // Any OpenCL specific type
 
-  bool isLinAlgMatrixType() const; // HLSL __builtin_LinAlg_Matrix
+  bool isLinAlgMatrixType() const; // HLSL __builtin_LinAlgMatrix
 
   /// Determines if this type, which must satisfy
   /// isObjCLifetimeType(), is implicitly __unsafe_unretained rather
