@@ -3742,7 +3742,11 @@ static bool IsBuiltInOrStandardCXX11Attribute(IdentifierInfo *AttrName,
 }
 
 // HLSL Change Start
-static bool hasCXXAttributeInHLSL(IdentifierInfo *AttrName) {
+static bool hasCXXAttributeInHLSL(IdentifierInfo *ScopeName,
+                                  IdentifierInfo *AttrName) {
+  if (ScopeName && ScopeName->getName() != "")
+    return false;
+
   StringRef Name = AttrName->getName();
   return llvm::StringSwitch<int>(Name)
       .Case("__LinAlgMatrix_Attributes", true)
@@ -3773,24 +3777,16 @@ bool Parser::ParseCXX11AttributeArgs(IdentifierInfo *AttrName,
   assert(Tok.is(tok::l_paren) && "Not a C++11 attribute argument list");
   SourceLocation LParenLoc = Tok.getLocation();
 
-  // HLSL Change Start
-  if (!hasCXXAttributeInHLSL(AttrName)) {
+  // If the attribute isn't known, we will not attempt to parse any
+  // arguments.
+  if (!hasAttribute(AttrSyntax::CXX, ScopeName, AttrName,
+                    getTargetInfo().getTriple(), getLangOpts()) &&
+      !hasCXXAttributeInHLSL(ScopeName, AttrName)) { // HLSL Change
     // Eat the left paren, then skip to the ending right paren.
     ConsumeParen();
     SkipUntil(tok::r_paren);
     return false;
   }
-
-  // If the attribute isn't known, we will not attempt to parse any
-  // arguments.
-  // if (!hasAttribute(AttrSyntax::CXX, ScopeName, AttrName,
-  //                  getTargetInfo().getTriple(), getLangOpts())) {
-  //  // Eat the left paren, then skip to the ending right paren.
-  //  ConsumeParen();
-  //  SkipUntil(tok::r_paren);
-  //  return false;
-  //}
-  // HLSL Change End
 
   if (ScopeName && ScopeName->getName() == "gnu")
     // GNU-scoped attributes have some special cases to handle GNU-specific
