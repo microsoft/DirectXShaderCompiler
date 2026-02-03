@@ -1701,14 +1701,14 @@ public:
   bool isOpenCLSpecificType() const;            // Any OpenCL specific type
 
   // HLSL Change Start
-  bool isLinAlgMatrixType() const; // HLSL __builtin_LinAlg_Matrix
+  bool isLinAlgMatrixType() const; // HLSL __builtin_LinAlgMatrix
   bool isAttributedLinAlgMatrixType()
-      const; // HLSL attributed __builtin_LinAlg_Matrix
+      const; // HLSL attributed __builtin_LinAlgMatrix
   bool isDependentAttributedLinAlgMatrixType()
-      const; // HLSL attributed __builtin_LinAlg_Matrix with dependent
+      const; // HLSL attributed __builtin_LinAlgMatrix with dependent
              // parameters
-             // HLSL Change End
-
+  // HLSL Change End
+  
   /// Determines if this type, which must satisfy
   /// isObjCLifetimeType(), is implicitly __unsafe_unretained rather
   /// than implicitly __strong.
