@@ -373,7 +373,7 @@ namespace  {
     }
     void VisitAttributedLinAlgMatrixType(const AttributedLinAlgMatrixType *T) {
       dumpTypeAsChild(T->getWrappedType());
-      OS << " [[__LinAlg_Matrix_Attributes("
+      OS << " [[__LinAlgMatrix_Attributes("
          << hlsl::ConvertLinAlgMatrixComponentTypeToString(
                 T->getComponentType())
          << ", " << T->getRows() << ", " << T->getCols() << ", "

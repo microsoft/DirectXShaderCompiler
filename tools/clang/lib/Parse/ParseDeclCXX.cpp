@@ -3745,7 +3745,7 @@ static bool IsBuiltInOrStandardCXX11Attribute(IdentifierInfo *AttrName,
 static bool hasCXXAttributeInHLSL(IdentifierInfo *AttrName) {
   StringRef Name = AttrName->getName();
   return llvm::StringSwitch<int>(Name)
-      .Case("__LinAlg_Matrix_Attributes", true)
+      .Case("__LinAlgMatrix_Attributes", true)
       .Default(false);
 }
 // HLSL Change End

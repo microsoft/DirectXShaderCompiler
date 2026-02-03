@@ -262,8 +262,8 @@ template <ComponentEnum ComponentTy, SIZE_TYPE M, SIZE_TYPE N,
           MatrixUseEnum Use, MatrixScopeEnum Scope>
 class Matrix {
   int TestField;
-  using HandleT = __builtin_LinAlg_Matrix
-      [[__LinAlg_Matrix_Attributes(ComponentTy, M, N, Use, Scope)]];
+  using HandleT = __builtin_LinAlgMatrix
+      [[__LinAlgMatrix_Attributes(ComponentTy, M, N, Use, Scope)]];
   HandleT __handle;
 };
 

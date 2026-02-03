@@ -1230,7 +1230,7 @@ def HLSLUnboundedSparseNodes : InheritableParamAttr {
 }
 
 def HLSLLinAlgMatrixAttributes : TypeAttr {
-  let Spellings = [CXX11<"", "__LinAlg_Matrix_Attributes", 2015>];
+  let Spellings = [CXX11<"", "__LinAlgMatrix_Attributes", 2015>];
   let LangOpts = [HLSL];
   let Args = [ExprArgument<"ComponentTy">, ExprArgument<"M">, ExprArgument<"N">,
               ExprArgument<"Use">, ExprArgument<"Scope">];

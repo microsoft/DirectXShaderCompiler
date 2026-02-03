@@ -17,10 +17,10 @@ void f() {
 // CHECK-NEXT: NonTypeTemplateParmDecl {{.*}} 'MatrixScopeEnum':'dx::linalg::MatrixScope::MatrixScopeEnum' Scope
 // CHECK-NEXT: CXXRecordDecl {{.*}} class Matrix definition
 // CHECK-NEXT: CXXRecordDecl {{.*}} Matrix
-// CHECK-NEXT:TypeAliasDecl {{.*}} HandleT '__builtin_LinAlg_Matrix
-// CHECK-SAME{LITERAL}: [[__LinAlg_Matrix_Attributes(ComponentTy, M, N, Use, Scope)]]'
-// CHECK-NEXT: FieldDecl {{.*}} __handle 'HandleT':'__builtin_LinAlg_Matrix
-// CHECK-SAME{LITERAL}: [[__LinAlg_Matrix_Attributes(ComponentTy, M, N, Use, Scope)]]'
+// CHECK-NEXT:TypeAliasDecl {{.*}} HandleT '__builtin_LinAlgMatrix
+// CHECK-SAME{LITERAL}: [[__LinAlgMatrix_Attributes(ComponentTy, M, N, Use, Scope)]]'
+// CHECK-NEXT: FieldDecl {{.*}} __handle 'HandleT':'__builtin_LinAlgMatrix
+// CHECK-SAME{LITERAL}: [[__LinAlgMatrix_Attributes(ComponentTy, M, N, Use, Scope)]]'
 
 // CHECK-NEXT: ClassTemplateSpecializationDecl {{.*}} class Matrix definition
 // CHECK-NEXT: TemplateArgument integral 4
@@ -29,10 +29,10 @@ void f() {
 // CHECK-NEXT: TemplateArgument integral 1
 // CHECK-NEXT: TemplateArgument integral 2
 // CHECK-NEXT: CXXRecordDecl {{.*}} implicit class Matrix
-// CHECK-NEXT: TypeAliasDecl {{.*}} HandleT '__builtin_LinAlg_Matrix
-// CHECK-SAME{LITERAL}: [[__LinAlg_Matrix_Attributes(ComponentType::I32, 4, 5, MatrixUse::B, MatrixScope::ThreadGroup)]]'
-// CHECK-NEXT: FieldDecl {{.*}} __handle 'HandleT':'__builtin_LinAlg_Matrix
-// CHECK-SAME{LITERAL}: [[__LinAlg_Matrix_Attributes(ComponentType::I32, 4, 5, MatrixUse::B, MatrixScope::ThreadGroup)]]'
+// CHECK-NEXT: TypeAliasDecl {{.*}} HandleT '__builtin_LinAlgMatrix
+// CHECK-SAME{LITERAL}: [[__LinAlgMatrix_Attributes(ComponentType::I32, 4, 5, MatrixUse::B, MatrixScope::ThreadGroup)]]'
+// CHECK-NEXT: FieldDecl {{.*}} __handle 'HandleT':'__builtin_LinAlgMatrix
+// CHECK-SAME{LITERAL}: [[__LinAlgMatrix_Attributes(ComponentType::I32, 4, 5, MatrixUse::B, MatrixScope::ThreadGroup)]]'
 
 // CHECK-NEXT: ClassTemplateSpecializationDecl {{.*}} class Matrix definition
 // CHECK-NEXT: TemplateArgument integral 17
@@ -41,10 +41,10 @@ void f() {
 // CHECK-NEXT: TemplateArgument integral 0
 // CHECK-NEXT: TemplateArgument integral 1
 // CHECK-NEXT: CXXRecordDecl {{.*}} implicit class Matrix
-// CHECK-NEXT: TypeAliasDecl {{.*}} HandleT '__builtin_LinAlg_Matrix
-// CHECK-SAME{LITERAL}: [[__LinAlg_Matrix_Attributes(ComponentType::PackedS8x32,100, 100, MatrixUse::A, MatrixScope::Wave)]]'
-// CHECK-NEXT: FieldDecl {{.*}} __handle 'HandleT':'__builtin_LinAlg_Matrix
-// CHECK-SAME{LITERAL}: [[__LinAlg_Matrix_Attributes(ComponentType::PackedS8x32, 100, 100, MatrixUse::A, MatrixScope::Wave)]]'
+// CHECK-NEXT: TypeAliasDecl {{.*}} HandleT '__builtin_LinAlgMatrix
+// CHECK-SAME{LITERAL}: [[__LinAlgMatrix_Attributes(ComponentType::PackedS8x32,100, 100, MatrixUse::A, MatrixScope::Wave)]]'
+// CHECK-NEXT: FieldDecl {{.*}} __handle 'HandleT':'__builtin_LinAlgMatrix
+// CHECK-SAME{LITERAL}: [[__LinAlgMatrix_Attributes(ComponentType::PackedS8x32, 100, 100, MatrixUse::A, MatrixScope::Wave)]]'
 
 // CHECK: FunctionDecl {{.*}} f 'void ()'
 
