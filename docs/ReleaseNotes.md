@@ -17,14 +17,10 @@ The included licenses apply to the following files:
 
 ## Changelog
 
-### Version 1.9.2602
+### Upcoming Release
 
-#### Shader Model 6.9 Release
-
-- Shader Model 6.9 is fully supported.
-  - See [the official blog
-  post](https://devblogs.microsoft.com/directx/shader-model-6-9-dxr-1-2-and-agilitysdk-1-619-release)
-  for more details.
+Place release notes for the upcoming release below this line and remove this
+line upon naming the release. Refer to previous for appropriate section names.
 
 #### Experimental Shader Model 6.10
 
@@ -35,6 +31,15 @@ The included licenses apply to the following files:
   - GetGroupWaveCount: New intrinsic for Compute, Mesh, Amplification and Node
   shaders which returns the total number of waves executing within the thread
   group.
+
+### Version 1.9.2602
+
+#### Shader Model 6.9 Release
+
+- Shader Model 6.9 is fully supported.
+  - See [the official blog
+  post](https://devblogs.microsoft.com/directx/shader-model-6-9-dxr-1-2-and-agilitysdk-1-619-release)
+  for more details.
 
 #### Noteble SPIR-V updates
 
