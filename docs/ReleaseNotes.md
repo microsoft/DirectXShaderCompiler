@@ -26,16 +26,6 @@ The included licenses apply to the following files:
   post](https://devblogs.microsoft.com/directx/shader-model-6-9-dxr-1-2-and-agilitysdk-1-619-release)
   for more details.
 
-#### Experimental Shader Model 6.10
-
-- Moved Linear Algebra (Cooperative Vector) DXIL Opcodes to experimental Shader Model 6.10
-- Implement GetGroupWaveIndex and GetGroupWaveCount in experimental Shader Model 6.10.
-  - [proposal](https://github.com/microsoft/hlsl-specs/blob/main/proposals/0048-group-wave-index.md)
-  - GetGroupWaveIndex: New intrinsic for Compute, Mesh, Amplification and Node shaders which returns the index of the wave within the thread group that the the thread is executing.
-  - GetGroupWaveCount: New intrinsic for Compute, Mesh, Amplification and Node
-  shaders which returns the total number of waves executing within the thread
-  group.
-
 #### Noteble SPIR-V updates
 
 - Handle vector element assignment for asuint. [#8011](https://github.com/microsoft/DirectXShaderCompiler/issues/8011)
