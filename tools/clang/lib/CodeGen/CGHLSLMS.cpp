@@ -107,9 +107,6 @@ private:
   // For library, m_ExportMap maps from internal name to zero or more renames
   dxilutil::ExportMap m_ExportMap;
 
-  // LinAlg Matrix Target Types metadata nodes
-  SmallVector<MDNode *, 4> TargetTypesMetadataNodes;
-
   HLCBuffer &GetGlobalCBuffer() {
     return *static_cast<HLCBuffer *>(&(m_pHLModule->GetCBuffer(globalCBIndex)));
   }
