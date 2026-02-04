@@ -2756,7 +2756,7 @@ public:
   TEST_CLASS_SETUP(setupClass) {
     const bool result = TestClassCommon::setupClass();
 #ifndef _HLK_CONF
-    if (result && !doesDeviceSupportDouble(D3DDevice)) {
+    if (result) {
       WEX::Logging::Log::Comment(
           L"Skipping test as device does not support double precision.");
       WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
