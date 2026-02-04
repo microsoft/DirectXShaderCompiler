@@ -91,6 +91,7 @@ const char DxilMDHelper::kDxilNonUniformAttributeMDName[] = "dx.nonuniform";
 const char DxilMDHelper::kDxilValidatorVersionMDName[] = "dx.valver";
 const char DxilMDHelper::kDxilDxrPayloadAnnotationsMDName[] =
     "dx.dxrPayloadAnnotations";
+const char DxilMDHelper::kDxilTargetTypesMDName[] = "dx.targetTypes";
 
 // This named metadata is not valid in final module (should be moved to
 // DxilContainer)
@@ -117,7 +118,7 @@ const char DxilMDHelper::kDxilSourceArgsOldMDName[] = "llvm.dbg.args";
 // This is reflection-only metadata
 const char DxilMDHelper::kDxilCountersMDName[] = "dx.counters";
 
-static std::array<const char *, 8> DxilMDNames = {{
+static std::array<const char *, 9> DxilMDNames = {{
     DxilMDHelper::kDxilVersionMDName,
     DxilMDHelper::kDxilShaderModelMDName,
     DxilMDHelper::kDxilEntryPointsMDName,
@@ -126,6 +127,7 @@ static std::array<const char *, 8> DxilMDNames = {{
     DxilMDHelper::kDxilValidatorVersionMDName,
     DxilMDHelper::kDxilViewIdStateMDName,
     DxilMDHelper::kDxilDxrPayloadAnnotationsMDName,
+    DxilMDHelper::kDxilTargetTypesMDName,
 }};
 
 DxilMDHelper::DxilMDHelper(Module *pModule,
