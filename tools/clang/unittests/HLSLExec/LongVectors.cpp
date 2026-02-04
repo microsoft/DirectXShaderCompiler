@@ -1817,7 +1817,7 @@ using namespace LongVector;
 
 class TestClassCommon {
 public:
-  bool classSetup() {
+  bool setupClass() {
     WEX::TestExecution::SetVerifyOutput verifySettings(
         WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
 
@@ -1879,7 +1879,7 @@ public:
     return true;
   }
 
-  bool methodSetup() {
+  bool setupMethod() {
     // It's possible a previous test case caused a device removal. If it did we
     // need to try and create a new device.
     if (D3DDevice && D3DDevice->GetDeviceRemovedReason() != S_OK) {
@@ -1959,8 +1959,8 @@ public:
   TEST_METHOD_PROPERTY(L"Priority", L"0")
   END_TEST_CLASS()
 
-  TEST_CLASS_SETUP(classSetup) { return TestClassCommon::classSetup(); }
-  TEST_METHOD_SETUP(methodSetup) { return TestClassCommon::methodSetup(); }
+  TEST_CLASS_SETUP(setupClass) { return TestClassCommon::setupClass(); }
+  TEST_METHOD_SETUP(setupMethod) { return TestClassCommon::setupMethod(); }
 
   // TernaryMath
   HLK_TEST(Mad, uint16_t);
@@ -2753,8 +2753,8 @@ public:
   TEST_METHOD_PROPERTY(L"Priority", L"0")
   END_TEST_CLASS()
 
-  TEST_CLASS_SETUP(classSetup) {
-    const bool result = TestClassCommon::classSetup();
+  TEST_CLASS_SETUP(setupClass) {
+    const bool result = TestClassCommon::setupClass();
 #ifndef _HLK_CONF
     if (result && !doesDeviceSupportDouble(D3DDevice)) {
       WEX::Logging::Log::Comment(
@@ -2766,7 +2766,7 @@ public:
     return result;
   }
 
-  TEST_METHOD_SETUP(methodSetup) { return TestClassCommon::methodSetup(); }
+  TEST_METHOD_SETUP(setupMethod) { return TestClassCommon::setupMethod(); }
 
   // TernaryMath
   HLK_TEST_DOUBLE(Fma, double);
