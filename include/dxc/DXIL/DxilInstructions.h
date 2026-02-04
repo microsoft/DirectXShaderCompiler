@@ -10501,12 +10501,13 @@ struct DxilInst_HitObject_TriangleObjectPosition {
 };
 
 /// This instruction fills a matrix with a scalar value
-struct DxilInst_FillMatrix {
+struct DxilInst_LinAlgFillMatrix {
   llvm::Instruction *Instr;
   // Construction and identification
-  DxilInst_FillMatrix(llvm::Instruction *pInstr) : Instr(pInstr) {}
+  DxilInst_LinAlgFillMatrix(llvm::Instruction *pInstr) : Instr(pInstr) {}
   operator bool() const {
-    return hlsl::OP::IsDxilOpFuncCallInst(Instr, hlsl::OP::OpCode::FillMatrix);
+    return hlsl::OP::IsDxilOpFuncCallInst(Instr,
+                                          hlsl::OP::OpCode::LinAlgFillMatrix);
   }
   // Validation support
   bool isAllowed() const { return true; }
@@ -10528,13 +10529,13 @@ struct DxilInst_FillMatrix {
 
 /// This instruction Converts and copies the element and use type of the source
 /// matrix to the destination matrix with optional transpose
-struct DxilInst_CopyConvertMatrix {
+struct DxilInst_LinAlgCopyConvertMatrix {
   llvm::Instruction *Instr;
   // Construction and identification
-  DxilInst_CopyConvertMatrix(llvm::Instruction *pInstr) : Instr(pInstr) {}
+  DxilInst_LinAlgCopyConvertMatrix(llvm::Instruction *pInstr) : Instr(pInstr) {}
   operator bool() const {
-    return hlsl::OP::IsDxilOpFuncCallInst(Instr,
-                                          hlsl::OP::OpCode::CopyConvertMatrix);
+    return hlsl::OP::IsDxilOpFuncCallInst(
+        Instr, hlsl::OP::OpCode::LinAlgCopyConvertMatrix);
   }
   // Validation support
   bool isAllowed() const { return true; }
@@ -10558,14 +10559,14 @@ struct DxilInst_CopyConvertMatrix {
 };
 
 /// This instruction fills a matrix with data from a [RW]ByteAddressBuffer
-struct DxilInst_MatrixLoadFromDescriptor {
+struct DxilInst_LinAlgMatrixLoadFromDescriptor {
   llvm::Instruction *Instr;
   // Construction and identification
-  DxilInst_MatrixLoadFromDescriptor(llvm::Instruction *pInstr)
+  DxilInst_LinAlgMatrixLoadFromDescriptor(llvm::Instruction *pInstr)
       : Instr(pInstr) {}
   operator bool() const {
     return hlsl::OP::IsDxilOpFuncCallInst(
-        Instr, hlsl::OP::OpCode::MatrixLoadFromDescriptor);
+        Instr, hlsl::OP::OpCode::LinAlgMatrixLoadFromDescriptor);
   }
   // Validation support
   bool isAllowed() const { return true; }
@@ -10595,13 +10596,14 @@ struct DxilInst_MatrixLoadFromDescriptor {
 };
 
 /// This instruction fills a matrix with data from a groupshared array
-struct DxilInst_MatrixLoadFromMemory {
+struct DxilInst_LinAlgMatrixLoadFromMemory {
   llvm::Instruction *Instr;
   // Construction and identification
-  DxilInst_MatrixLoadFromMemory(llvm::Instruction *pInstr) : Instr(pInstr) {}
+  DxilInst_LinAlgMatrixLoadFromMemory(llvm::Instruction *pInstr)
+      : Instr(pInstr) {}
   operator bool() const {
     return hlsl::OP::IsDxilOpFuncCallInst(
-        Instr, hlsl::OP::OpCode::MatrixLoadFromMemory);
+        Instr, hlsl::OP::OpCode::LinAlgMatrixLoadFromMemory);
   }
   // Validation support
   bool isAllowed() const { return true; }
@@ -10632,13 +10634,13 @@ struct DxilInst_MatrixLoadFromMemory {
 
 /// This instruction returns the number of elements stored in thread-local
 /// storage on the active thread for the provided matrix
-struct DxilInst_MatrixLength {
+struct DxilInst_LinAlgMatrixLength {
   llvm::Instruction *Instr;
   // Construction and identification
-  DxilInst_MatrixLength(llvm::Instruction *pInstr) : Instr(pInstr) {}
+  DxilInst_LinAlgMatrixLength(llvm::Instruction *pInstr) : Instr(pInstr) {}
   operator bool() const {
     return hlsl::OP::IsDxilOpFuncCallInst(Instr,
-                                          hlsl::OP::OpCode::MatrixLength);
+                                          hlsl::OP::OpCode::LinAlgMatrixLength);
   }
   // Validation support
   bool isAllowed() const { return true; }
@@ -10660,13 +10662,14 @@ struct DxilInst_MatrixLength {
 
 /// This instruction returns a two element vector containing the column and row
 /// of the matrix that the thread-local index corresponds to
-struct DxilInst_MatrixGetCoordinate {
+struct DxilInst_LinAlgMatrixGetCoordinate {
   llvm::Instruction *Instr;
   // Construction and identification
-  DxilInst_MatrixGetCoordinate(llvm::Instruction *pInstr) : Instr(pInstr) {}
+  DxilInst_LinAlgMatrixGetCoordinate(llvm::Instruction *pInstr)
+      : Instr(pInstr) {}
   operator bool() const {
     return hlsl::OP::IsDxilOpFuncCallInst(
-        Instr, hlsl::OP::OpCode::MatrixGetCoordinate);
+        Instr, hlsl::OP::OpCode::LinAlgMatrixGetCoordinate);
   }
   // Validation support
   bool isAllowed() const { return true; }
@@ -10691,13 +10694,13 @@ struct DxilInst_MatrixGetCoordinate {
 
 /// This instruction returns the element of the matrix corresponding to the
 /// provided thread-local index
-struct DxilInst_MatrixGetElement {
+struct DxilInst_LinAlgMatrixGetElement {
   llvm::Instruction *Instr;
   // Construction and identification
-  DxilInst_MatrixGetElement(llvm::Instruction *pInstr) : Instr(pInstr) {}
+  DxilInst_LinAlgMatrixGetElement(llvm::Instruction *pInstr) : Instr(pInstr) {}
   operator bool() const {
-    return hlsl::OP::IsDxilOpFuncCallInst(Instr,
-                                          hlsl::OP::OpCode::MatrixGetElement);
+    return hlsl::OP::IsDxilOpFuncCallInst(
+        Instr, hlsl::OP::OpCode::LinAlgMatrixGetElement);
   }
   // Validation support
   bool isAllowed() const { return true; }
@@ -10722,13 +10725,13 @@ struct DxilInst_MatrixGetElement {
 
 /// This instruction sets the element of the matrix corresponding to the
 /// provided thread-local index
-struct DxilInst_MatrixSetElement {
+struct DxilInst_LinAlgMatrixSetElement {
   llvm::Instruction *Instr;
   // Construction and identification
-  DxilInst_MatrixSetElement(llvm::Instruction *pInstr) : Instr(pInstr) {}
+  DxilInst_LinAlgMatrixSetElement(llvm::Instruction *pInstr) : Instr(pInstr) {}
   operator bool() const {
-    return hlsl::OP::IsDxilOpFuncCallInst(Instr,
-                                          hlsl::OP::OpCode::MatrixSetElement);
+    return hlsl::OP::IsDxilOpFuncCallInst(
+        Instr, hlsl::OP::OpCode::LinAlgMatrixSetElement);
   }
   // Validation support
   bool isAllowed() const { return true; }
@@ -10755,13 +10758,14 @@ struct DxilInst_MatrixSetElement {
 };
 
 /// This instruction stores a matrix to a RWByteAddressBuffer
-struct DxilInst_MatrixStoreToDescriptor {
+struct DxilInst_LinAlgMatrixStoreToDescriptor {
   llvm::Instruction *Instr;
   // Construction and identification
-  DxilInst_MatrixStoreToDescriptor(llvm::Instruction *pInstr) : Instr(pInstr) {}
+  DxilInst_LinAlgMatrixStoreToDescriptor(llvm::Instruction *pInstr)
+      : Instr(pInstr) {}
   operator bool() const {
     return hlsl::OP::IsDxilOpFuncCallInst(
-        Instr, hlsl::OP::OpCode::MatrixStoreToDescriptor);
+        Instr, hlsl::OP::OpCode::LinAlgMatrixStoreToDescriptor);
   }
   // Validation support
   bool isAllowed() const { return true; }
@@ -10794,13 +10798,14 @@ struct DxilInst_MatrixStoreToDescriptor {
 };
 
 /// This instruction stores a matrix to groupshared memory
-struct DxilInst_MatrixStoreToMemory {
+struct DxilInst_LinAlgMatrixStoreToMemory {
   llvm::Instruction *Instr;
   // Construction and identification
-  DxilInst_MatrixStoreToMemory(llvm::Instruction *pInstr) : Instr(pInstr) {}
+  DxilInst_LinAlgMatrixStoreToMemory(llvm::Instruction *pInstr)
+      : Instr(pInstr) {}
   operator bool() const {
     return hlsl::OP::IsDxilOpFuncCallInst(
-        Instr, hlsl::OP::OpCode::MatrixStoreToMemory);
+        Instr, hlsl::OP::OpCode::LinAlgMatrixStoreToMemory);
   }
   // Validation support
   bool isAllowed() const { return true; }
@@ -10834,14 +10839,14 @@ struct DxilInst_MatrixStoreToMemory {
 
 /// This instruction returns comptime 0 when accumulator matrix are A layout, 1
 /// when B layout
-struct DxilInst_MatrixQueryAccumulatorLayout {
+struct DxilInst_LinAlgMatrixQueryAccumulatorLayout {
   llvm::Instruction *Instr;
   // Construction and identification
-  DxilInst_MatrixQueryAccumulatorLayout(llvm::Instruction *pInstr)
+  DxilInst_LinAlgMatrixQueryAccumulatorLayout(llvm::Instruction *pInstr)
       : Instr(pInstr) {}
   operator bool() const {
     return hlsl::OP::IsDxilOpFuncCallInst(
-        Instr, hlsl::OP::OpCode::MatrixQueryAccumulatorLayout);
+        Instr, hlsl::OP::OpCode::LinAlgMatrixQueryAccumulatorLayout);
   }
   // Validation support
   bool isAllowed() const { return true; }
@@ -10856,12 +10861,13 @@ struct DxilInst_MatrixQueryAccumulatorLayout {
 
 /// This instruction applies a multiplication op to matrix C using A and B as
 /// parameters
-struct DxilInst_MatrixMulOp {
+struct DxilInst_LinAlgMatrixMulOp {
   llvm::Instruction *Instr;
   // Construction and identification
-  DxilInst_MatrixMulOp(llvm::Instruction *pInstr) : Instr(pInstr) {}
+  DxilInst_LinAlgMatrixMulOp(llvm::Instruction *pInstr) : Instr(pInstr) {}
   operator bool() const {
-    return hlsl::OP::IsDxilOpFuncCallInst(Instr, hlsl::OP::OpCode::MatrixMulOp);
+    return hlsl::OP::IsDxilOpFuncCallInst(Instr,
+                                          hlsl::OP::OpCode::LinAlgMatrixMulOp);
   }
   // Validation support
   bool isAllowed() const { return true; }
@@ -10886,13 +10892,13 @@ struct DxilInst_MatrixMulOp {
 
 /// This instruction accumulate A or B matrix into Accumulator matrix following
 /// LHS += RHS
-struct DxilInst_MatrixAccumulate {
+struct DxilInst_LinAlgMatrixAccumulate {
   llvm::Instruction *Instr;
   // Construction and identification
-  DxilInst_MatrixAccumulate(llvm::Instruction *pInstr) : Instr(pInstr) {}
+  DxilInst_LinAlgMatrixAccumulate(llvm::Instruction *pInstr) : Instr(pInstr) {}
   operator bool() const {
-    return hlsl::OP::IsDxilOpFuncCallInst(Instr,
-                                          hlsl::OP::OpCode::MatrixAccumulate);
+    return hlsl::OP::IsDxilOpFuncCallInst(
+        Instr, hlsl::OP::OpCode::LinAlgMatrixAccumulate);
   }
   // Validation support
   bool isAllowed() const { return true; }
@@ -10917,13 +10923,13 @@ struct DxilInst_MatrixAccumulate {
 
 /// This instruction Multiplies a MxK dimension matrix and a K sized input
 /// vector
-struct DxilInst_MatrixVecMul {
+struct DxilInst_LinAlgMatVecMul {
   llvm::Instruction *Instr;
   // Construction and identification
-  DxilInst_MatrixVecMul(llvm::Instruction *pInstr) : Instr(pInstr) {}
+  DxilInst_LinAlgMatVecMul(llvm::Instruction *pInstr) : Instr(pInstr) {}
   operator bool() const {
     return hlsl::OP::IsDxilOpFuncCallInst(Instr,
-                                          hlsl::OP::OpCode::MatrixVecMul);
+                                          hlsl::OP::OpCode::LinAlgMatVecMul);
   }
   // Validation support
   bool isAllowed() const { return true; }
@@ -10951,13 +10957,13 @@ struct DxilInst_MatrixVecMul {
 
 /// This instruction Multiplies a MxK dimension matrix and a K sized input
 /// vector then adds a M sized bias vector
-struct DxilInst_MatrixVecMulAdd {
+struct DxilInst_LinAlgMatVecMulAdd {
   llvm::Instruction *Instr;
   // Construction and identification
-  DxilInst_MatrixVecMulAdd(llvm::Instruction *pInstr) : Instr(pInstr) {}
+  DxilInst_LinAlgMatVecMulAdd(llvm::Instruction *pInstr) : Instr(pInstr) {}
   operator bool() const {
     return hlsl::OP::IsDxilOpFuncCallInst(Instr,
-                                          hlsl::OP::OpCode::MatrixVecMulAdd);
+                                          hlsl::OP::OpCode::LinAlgMatVecMulAdd);
   }
   // Validation support
   bool isAllowed() const { return true; }
@@ -10990,14 +10996,14 @@ struct DxilInst_MatrixVecMulAdd {
 };
 
 /// This instruction accumulates a matrix to a RWByteAddressBuffer
-struct DxilInst_MatrixAccumulateToDescriptor {
+struct DxilInst_LinAlgMatrixAccumulateToDescriptor {
   llvm::Instruction *Instr;
   // Construction and identification
-  DxilInst_MatrixAccumulateToDescriptor(llvm::Instruction *pInstr)
+  DxilInst_LinAlgMatrixAccumulateToDescriptor(llvm::Instruction *pInstr)
       : Instr(pInstr) {}
   operator bool() const {
     return hlsl::OP::IsDxilOpFuncCallInst(
-        Instr, hlsl::OP::OpCode::MatrixAccumulateToDescriptor);
+        Instr, hlsl::OP::OpCode::LinAlgMatrixAccumulateToDescriptor);
   }
   // Validation support
   bool isAllowed() const { return true; }
@@ -11030,14 +11036,14 @@ struct DxilInst_MatrixAccumulateToDescriptor {
 };
 
 /// This instruction accumulates a matrix to groupshared memory
-struct DxilInst_MatrixAccumulateToMemory {
+struct DxilInst_LinAlgMatrixAccumulateToMemory {
   llvm::Instruction *Instr;
   // Construction and identification
-  DxilInst_MatrixAccumulateToMemory(llvm::Instruction *pInstr)
+  DxilInst_LinAlgMatrixAccumulateToMemory(llvm::Instruction *pInstr)
       : Instr(pInstr) {}
   operator bool() const {
     return hlsl::OP::IsDxilOpFuncCallInst(
-        Instr, hlsl::OP::OpCode::MatrixAccumulateToMemory);
+        Instr, hlsl::OP::OpCode::LinAlgMatrixAccumulateToMemory);
   }
   // Validation support
   bool isAllowed() const { return true; }
@@ -11071,13 +11077,14 @@ struct DxilInst_MatrixAccumulateToMemory {
 
 /// This instruction Outer products an M sized vector and a N sized vector
 /// producing an MxN matrix
-struct DxilInst_MatrixOuterProduct {
+struct DxilInst_LinAlgMatrixOuterProduct {
   llvm::Instruction *Instr;
   // Construction and identification
-  DxilInst_MatrixOuterProduct(llvm::Instruction *pInstr) : Instr(pInstr) {}
+  DxilInst_LinAlgMatrixOuterProduct(llvm::Instruction *pInstr)
+      : Instr(pInstr) {}
   operator bool() const {
-    return hlsl::OP::IsDxilOpFuncCallInst(Instr,
-                                          hlsl::OP::OpCode::MatrixOuterProduct);
+    return hlsl::OP::IsDxilOpFuncCallInst(
+        Instr, hlsl::OP::OpCode::LinAlgMatrixOuterProduct);
   }
   // Validation support
   bool isAllowed() const { return true; }

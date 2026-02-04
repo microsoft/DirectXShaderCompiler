@@ -1161,20 +1161,21 @@ class db_dxil(object):
 
         # Thread/Wave/ThreadGroup scope operations
         for i in insts(
-            "MatrixQueryAccumulatorLayout,"
-            + "MatrixLoadFromDescriptor,MatrixAccumulateToDescriptor,"
-            + "MatrixVecMul,MatrixVecMulAdd,MatrixOuterProduct"
+            "LinAlgMatrixQueryAccumulatorLayout,LinAlgMatrixLoadFromDescriptor,"
+            + "LinAlgMatrixAccumulateToDescriptor,LinAlgMatVecMul,"
+            + "LinAlgMatVecMulAdd,LinAlgMatrixOuterProduct"
         ):
             i.category = "Linear Algebra Operations"
             i.shader_model = experimental_sm
 
         # Wave/ThreadGroup scope operations
         for i in insts(
-            "FillMatrix,CopyConvertMatrix,"
-            + "MatrixLength,MatrixGetCoordinate,MatrixGetElement,MatrixSetElement,"
-            + "MatrixStoreToDescriptor,"
-            + "MatrixLoadFromMemory,MatrixStoreToMemory,MatrixAccumulateToMemory,"
-            + "MatrixMulOp,MatrixAccumulate"
+            "LinAlgFillMatrix,LinAlgCopyConvertMatrix,LinAlgMatrixLength,"
+            + "LinAlgMatrixGetCoordinate,LinAlgMatrixGetElement,"
+            + "LinAlgMatrixSetElement,LinAlgMatrixStoreToDescriptor,"
+            + "LinAlgMatrixLoadFromMemory,LinAlgMatrixStoreToMemory,"
+            + "LinAlgMatrixAccumulateToMemory,LinAlgMatrixMulOp,"
+            + "LinAlgMatrixAccumulate"
         ):
             i.category = "Linear Algebra Operations"
             i.shader_model = experimental_sm
@@ -6343,8 +6344,8 @@ class db_dxil(object):
         op_table.reserve_dxil_op_range("ReservedD", 1)
 
         add_dxil_op(
-            "FillMatrix",
-            "FillMatrix",
+            "LinAlgFillMatrix",
+            "LinAlgFillMatrix",
             "fills a matrix with a scalar value",
             "o,hfwi",
             "",
@@ -6355,8 +6356,8 @@ class db_dxil(object):
         )
 
         add_dxil_op(
-            "CopyConvertMatrix",
-            "CopyConvertMatrix",
+            "LinAlgCopyConvertMatrix",
+            "LinAlgCopyConvertMatrix",
             "Converts and copies the element and use type of the source matrix to the destination matrix with optional transpose",
             "o,o",
             "",
@@ -6368,8 +6369,8 @@ class db_dxil(object):
         )
 
         add_dxil_op(
-            "MatrixLoadFromDescriptor",
-            "MatrixLoadFromDescriptor",
+            "LinAlgMatrixLoadFromDescriptor",
+            "LinAlgMatrixLoadFromDescriptor",
             "fills a matrix with data from a [RW]ByteAddressBuffer",
             "o",
             "",
@@ -6390,8 +6391,8 @@ class db_dxil(object):
         )
 
         add_dxil_op(
-            "MatrixLoadFromMemory",
-            "MatrixLoadFromMemory",
+            "LinAlgMatrixLoadFromMemory",
+            "LinAlgMatrixLoadFromMemory",
             "fills a matrix with data from a groupshared array",
             "o,hfwi",  # TODO: needs to be updated for groupshared
             "",
@@ -6413,8 +6414,8 @@ class db_dxil(object):
         )
 
         add_dxil_op(
-            "MatrixLength",
-            "MatrixLength",
+            "LinAlgMatrixLength",
+            "LinAlgMatrixLength",
             "returns the number of elements stored in thread-local storage on the active thread for the provided matrix",
             "o",
             "",
@@ -6425,8 +6426,8 @@ class db_dxil(object):
         )
 
         add_dxil_op(
-            "MatrixGetCoordinate",
-            "MatrixGetCoordinate",
+            "LinAlgMatrixGetCoordinate",
+            "LinAlgMatrixGetCoordinate",
             "returns a two element vector containing the column and row of the matrix that the thread-local index corresponds to",
             "o",
             "",
@@ -6442,8 +6443,8 @@ class db_dxil(object):
         )
 
         add_dxil_op(
-            "MatrixGetElement",
-            "MatrixGetElement",
+            "LinAlgMatrixGetElement",
+            "LinAlgMatrixGetElement",
             "returns the element of the matrix corresponding to the provided thread-local index",
             "hfwi,o",
             "",
@@ -6457,8 +6458,8 @@ class db_dxil(object):
         )
 
         add_dxil_op(
-            "MatrixSetElement",
-            "MatrixSetElement",
+            "LinAlgMatrixSetElement",
+            "LinAlgMatrixSetElement",
             "sets the element of the matrix corresponding to the provided thread-local index",
             "o,o,hfwi",
             "",
@@ -6473,8 +6474,8 @@ class db_dxil(object):
         )
 
         add_dxil_op(
-            "MatrixStoreToDescriptor",
-            "MatrixStoreToDescriptor",
+            "LinAlgMatrixStoreToDescriptor",
+            "LinAlgMatrixStoreToDescriptor",
             "stores a matrix to a RWByteAddressBuffer",
             "o",
             "",
@@ -6494,8 +6495,8 @@ class db_dxil(object):
         )
 
         add_dxil_op(
-            "MatrixStoreToMemory",
-            "MatrixStoreToMemory",
+            "LinAlgMatrixStoreToMemory",
+            "LinAlgMatrixStoreToMemory",
             "stores a matrix to groupshared memory",
             "o,hfwi",  # TODO: needs to be updated for groupshared
             "",
@@ -6518,8 +6519,8 @@ class db_dxil(object):
         )
 
         add_dxil_op(
-            "MatrixQueryAccumulatorLayout",
-            "MatrixQueryAccumulatorLayout",
+            "LinAlgMatrixQueryAccumulatorLayout",
+            "LinAlgMatrixQueryAccumulatorLayout",
             "returns comptime 0 when accumulator matrix are A layout, 1 when B layout",
             "v",
             "",
@@ -6529,8 +6530,8 @@ class db_dxil(object):
         )
 
         add_dxil_op(
-            "MatrixMulOp",
-            "MatrixMulOp",
+            "LinAlgMatrixMulOp",
+            "LinAlgMatrixMulOp",
             "applies a multiplication op to matrix C using A and B as parameters",
             "o,o,o",
             "",
@@ -6542,8 +6543,8 @@ class db_dxil(object):
         )
 
         add_dxil_op(
-            "MatrixAccumulate",
-            "MatrixAccumulate",
+            "LinAlgMatrixAccumulate",
+            "LinAlgMatrixAccumulate",
             "accumulate A or B matrix into Accumulator matrix following LHS += RHS",
             "o,o,o",
             "",
@@ -6555,8 +6556,8 @@ class db_dxil(object):
         )
 
         add_dxil_op(
-            "MatrixVecMul",
-            "MatrixVecMul",
+            "LinAlgMatVecMul",
+            "LinAlgMatVecMul",
             "Multiplies a MxK dimension matrix and a K sized input vector",
             "<hfwi,o,<hfwi",
             "",
@@ -6569,8 +6570,8 @@ class db_dxil(object):
         )
 
         add_dxil_op(
-            "MatrixVecMulAdd",
-            "MatrixVecMulAdd",
+            "LinAlgMatVecMulAdd",
+            "LinAlgMatVecMulAdd",
             "Multiplies a MxK dimension matrix and a K sized input vector then adds a M sized bias vector",
             "<hfwi,o,<hfwi,<hfwi",
             "",
@@ -6589,8 +6590,8 @@ class db_dxil(object):
         )
 
         add_dxil_op(
-            "MatrixAccumulateToDescriptor",
-            "MatrixAccumulateToDescriptor",
+            "LinAlgMatrixAccumulateToDescriptor",
+            "LinAlgMatrixAccumulateToDescriptor",
             "accumulates a matrix to a RWByteAddressBuffer",
             "o",
             "",
@@ -6612,8 +6613,8 @@ class db_dxil(object):
         )
 
         add_dxil_op(
-            "MatrixAccumulateToMemory",
-            "MatrixAccumulateToMemory",
+            "LinAlgMatrixAccumulateToMemory",
+            "LinAlgMatrixAccumulateToMemory",
             "accumulates a matrix to groupshared memory",
             "o,hfwi",  # TODO: needs to be updated for groupshared
             "",
@@ -6636,8 +6637,8 @@ class db_dxil(object):
         )
 
         add_dxil_op(
-            "MatrixOuterProduct",
-            "MatrixOuterProduct",
+            "LinAlgMatrixOuterProduct",
+            "LinAlgMatrixOuterProduct",
             "Outer products an M sized vector and a N sized vector producing an MxN matrix",
             "o,<hfwi,<hfwi",
             "",
