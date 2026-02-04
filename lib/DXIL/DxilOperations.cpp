@@ -1996,96 +1996,96 @@ static const OP::OpCodeProperty CoreOps_OpCodeProps[] = {
      {{0x63}},
      {{0x0}}}, // Overloads: hfwi
 
-    {OC::Reserved0,
-     "Reserved0",
+    {OC::Reserved_0x000000E2,
+     "Reserved_0x000000E2",
      OCC::Reserved,
      "reserved",
      Attribute::None,
      0,
      {},
      {}}, // Overloads: v
-    {OC::Reserved1,
-     "Reserved1",
+    {OC::Reserved_0x000000E3,
+     "Reserved_0x000000E3",
      OCC::Reserved,
      "reserved",
      Attribute::None,
      0,
      {},
      {}}, // Overloads: v
-    {OC::Reserved2,
-     "Reserved2",
+    {OC::Reserved_0x000000E4,
+     "Reserved_0x000000E4",
      OCC::Reserved,
      "reserved",
      Attribute::None,
      0,
      {},
      {}}, // Overloads: v
-    {OC::Reserved3,
-     "Reserved3",
+    {OC::Reserved_0x000000E5,
+     "Reserved_0x000000E5",
      OCC::Reserved,
      "reserved",
      Attribute::None,
      0,
      {},
      {}}, // Overloads: v
-    {OC::Reserved4,
-     "Reserved4",
+    {OC::Reserved_0x000000E6,
+     "Reserved_0x000000E6",
      OCC::Reserved,
      "reserved",
      Attribute::None,
      0,
      {},
      {}}, // Overloads: v
-    {OC::Reserved5,
-     "Reserved5",
+    {OC::Reserved_0x000000E7,
+     "Reserved_0x000000E7",
      OCC::Reserved,
      "reserved",
      Attribute::None,
      0,
      {},
      {}}, // Overloads: v
-    {OC::Reserved6,
-     "Reserved6",
+    {OC::Reserved_0x000000E8,
+     "Reserved_0x000000E8",
      OCC::Reserved,
      "reserved",
      Attribute::None,
      0,
      {},
      {}}, // Overloads: v
-    {OC::Reserved7,
-     "Reserved7",
+    {OC::Reserved_0x000000E9,
+     "Reserved_0x000000E9",
      OCC::Reserved,
      "reserved",
      Attribute::None,
      0,
      {},
      {}}, // Overloads: v
-    {OC::Reserved8,
-     "Reserved8",
+    {OC::Reserved_0x000000EA,
+     "Reserved_0x000000EA",
      OCC::Reserved,
      "reserved",
      Attribute::None,
      0,
      {},
      {}}, // Overloads: v
-    {OC::Reserved9,
-     "Reserved9",
+    {OC::Reserved_0x000000EB,
+     "Reserved_0x000000EB",
      OCC::Reserved,
      "reserved",
      Attribute::None,
      0,
      {},
      {}}, // Overloads: v
-    {OC::Reserved10,
-     "Reserved10",
+    {OC::Reserved_0x000000EC,
+     "Reserved_0x000000EC",
      OCC::Reserved,
      "reserved",
      Attribute::None,
      0,
      {},
      {}}, // Overloads: v
-    {OC::Reserved11,
-     "Reserved11",
+    {OC::Reserved_0x000000ED,
+     "Reserved_0x000000ED",
      OCC::Reserved,
      "reserved",
      Attribute::None,
@@ -2279,24 +2279,24 @@ static const OP::OpCodeProperty CoreOps_OpCodeProps[] = {
      {},
      {}}, // Overloads: v
 
-    {OC::ReservedA0,
-     "ReservedA0",
+    {OC::Reserved_0x00000103,
+     "Reserved_0x00000103",
      OCC::Reserved,
      "reserved",
      Attribute::None,
      0,
      {},
      {}}, // Overloads: v
-    {OC::ReservedA1,
-     "ReservedA1",
+    {OC::Reserved_0x00000104,
+     "Reserved_0x00000104",
      OCC::Reserved,
      "reserved",
      Attribute::None,
      0,
      {},
      {}}, // Overloads: v
-    {OC::ReservedA2,
-     "ReservedA2",
+    {OC::Reserved_0x00000105,
+     "Reserved_0x00000105",
      OCC::Reserved,
      "reserved",
      Attribute::None,
@@ -2530,104 +2530,104 @@ static const OP::OpCodeProperty CoreOps_OpCodeProps[] = {
      {{0x100}},
      {{0x0}}}, // Overloads: u
 
-    {OC::ReservedB28,
-     "ReservedB28",
+    {OC::Reserved_0x00000122,
+     "Reserved_0x00000122",
      OCC::Reserved,
      "reserved",
      Attribute::None,
      0,
      {},
      {}}, // Overloads: v
-    {OC::ReservedB29,
-     "ReservedB29",
+    {OC::Reserved_0x00000123,
+     "Reserved_0x00000123",
      OCC::Reserved,
      "reserved",
      Attribute::None,
      0,
      {},
      {}}, // Overloads: v
-    {OC::ReservedB30,
-     "ReservedB30",
+    {OC::Reserved_0x00000124,
+     "Reserved_0x00000124",
      OCC::Reserved,
      "reserved",
      Attribute::None,
      0,
      {},
      {}}, // Overloads: v
-    {OC::ReservedC0,
-     "ReservedC0",
+    {OC::Reserved_0x00000125,
+     "Reserved_0x00000125",
      OCC::Reserved,
      "reserved",
      Attribute::None,
      0,
      {},
      {}}, // Overloads: v
-    {OC::ReservedC1,
-     "ReservedC1",
+    {OC::Reserved_0x00000126,
+     "Reserved_0x00000126",
      OCC::Reserved,
      "reserved",
      Attribute::None,
      0,
      {},
      {}}, // Overloads: v
-    {OC::ReservedC2,
-     "ReservedC2",
+    {OC::Reserved_0x00000127,
+     "Reserved_0x00000127",
      OCC::Reserved,
      "reserved",
      Attribute::None,
      0,
      {},
      {}}, // Overloads: v
-    {OC::ReservedC3,
-     "ReservedC3",
+    {OC::Reserved_0x00000128,
+     "Reserved_0x00000128",
      OCC::Reserved,
      "reserved",
      Attribute::None,
      0,
      {},
      {}}, // Overloads: v
-    {OC::ReservedC4,
-     "ReservedC4",
+    {OC::Reserved_0x00000129,
+     "Reserved_0x00000129",
      OCC::Reserved,
      "reserved",
      Attribute::None,
      0,
      {},
      {}}, // Overloads: v
-    {OC::ReservedC5,
-     "ReservedC5",
+    {OC::Reserved_0x0000012A,
+     "Reserved_0x0000012A",
      OCC::Reserved,
      "reserved",
      Attribute::None,
      0,
      {},
      {}}, // Overloads: v
-    {OC::ReservedC6,
-     "ReservedC6",
+    {OC::Reserved_0x0000012B,
+     "Reserved_0x0000012B",
      OCC::Reserved,
      "reserved",
      Attribute::None,
      0,
      {},
      {}}, // Overloads: v
-    {OC::ReservedC7,
-     "ReservedC7",
+    {OC::Reserved_0x0000012C,
+     "Reserved_0x0000012C",
      OCC::Reserved,
      "reserved",
      Attribute::None,
      0,
      {},
      {}}, // Overloads: v
-    {OC::ReservedC8,
-     "ReservedC8",
+    {OC::Reserved_0x0000012D,
+     "Reserved_0x0000012D",
      OCC::Reserved,
      "reserved",
      Attribute::None,
      0,
      {},
      {}}, // Overloads: v
-    {OC::ReservedC9,
-     "ReservedC9",
+    {OC::Reserved_0x0000012E,
+     "Reserved_0x0000012E",
      OCC::Reserved,
      "reserved",
      Attribute::None,
@@ -2977,24 +2977,24 @@ static const OP::OpCodeProperty ExperimentalOps_OpCodeProps[] = {
      {{0x400}, {0x400}},
      {{0x63}, {0x63}}}, // Overloads: <hfwi,<hfwi
 
-    {OC::LinAlgMatrixReserved0,
-     "LinAlgMatrixReserved0",
+    {OC::Reserved_0x8000001E,
+     "Reserved_0x8000001E",
      OCC::Reserved,
      "reserved",
      Attribute::None,
      0,
      {},
      {}}, // Overloads: v
-    {OC::LinAlgMatrixReserved1,
-     "LinAlgMatrixReserved1",
+    {OC::Reserved_0x8000001F,
+     "Reserved_0x8000001F",
      OCC::Reserved,
      "reserved",
      Attribute::None,
      0,
      {},
      {}}, // Overloads: v
-    {OC::LinAlgMatrixReserved2,
-     "LinAlgMatrixReserved2",
+    {OC::Reserved_0x80000020,
+     "Reserved_0x80000020",
      OCC::Reserved,
      "reserved",
      Attribute::None,
@@ -5937,51 +5937,51 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
     break;
 
     //
-  case OpCode::Reserved0:
+  case OpCode::Reserved_0x000000E2:
     A(pV);
     A(pI32);
     break;
-  case OpCode::Reserved1:
+  case OpCode::Reserved_0x000000E3:
     A(pV);
     A(pI32);
     break;
-  case OpCode::Reserved2:
+  case OpCode::Reserved_0x000000E4:
     A(pV);
     A(pI32);
     break;
-  case OpCode::Reserved3:
+  case OpCode::Reserved_0x000000E5:
     A(pV);
     A(pI32);
     break;
-  case OpCode::Reserved4:
+  case OpCode::Reserved_0x000000E6:
     A(pV);
     A(pI32);
     break;
-  case OpCode::Reserved5:
+  case OpCode::Reserved_0x000000E7:
     A(pV);
     A(pI32);
     break;
-  case OpCode::Reserved6:
+  case OpCode::Reserved_0x000000E8:
     A(pV);
     A(pI32);
     break;
-  case OpCode::Reserved7:
+  case OpCode::Reserved_0x000000E9:
     A(pV);
     A(pI32);
     break;
-  case OpCode::Reserved8:
+  case OpCode::Reserved_0x000000EA:
     A(pV);
     A(pI32);
     break;
-  case OpCode::Reserved9:
+  case OpCode::Reserved_0x000000EB:
     A(pV);
     A(pI32);
     break;
-  case OpCode::Reserved10:
+  case OpCode::Reserved_0x000000EC:
     A(pV);
     A(pI32);
     break;
-  case OpCode::Reserved11:
+  case OpCode::Reserved_0x000000ED:
     A(pV);
     A(pI32);
     break;
@@ -6146,15 +6146,15 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
     break;
 
     //
-  case OpCode::ReservedA0:
+  case OpCode::Reserved_0x00000103:
     A(pV);
     A(pI32);
     break;
-  case OpCode::ReservedA1:
+  case OpCode::Reserved_0x00000104:
     A(pV);
     A(pI32);
     break;
-  case OpCode::ReservedA2:
+  case OpCode::Reserved_0x00000105:
     A(pV);
     A(pI32);
     break;
@@ -6340,55 +6340,55 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
     break;
 
     //
-  case OpCode::ReservedB28:
+  case OpCode::Reserved_0x00000122:
     A(pV);
     A(pI32);
     break;
-  case OpCode::ReservedB29:
+  case OpCode::Reserved_0x00000123:
     A(pV);
     A(pI32);
     break;
-  case OpCode::ReservedB30:
+  case OpCode::Reserved_0x00000124:
     A(pV);
     A(pI32);
     break;
-  case OpCode::ReservedC0:
+  case OpCode::Reserved_0x00000125:
     A(pV);
     A(pI32);
     break;
-  case OpCode::ReservedC1:
+  case OpCode::Reserved_0x00000126:
     A(pV);
     A(pI32);
     break;
-  case OpCode::ReservedC2:
+  case OpCode::Reserved_0x00000127:
     A(pV);
     A(pI32);
     break;
-  case OpCode::ReservedC3:
+  case OpCode::Reserved_0x00000128:
     A(pV);
     A(pI32);
     break;
-  case OpCode::ReservedC4:
+  case OpCode::Reserved_0x00000129:
     A(pV);
     A(pI32);
     break;
-  case OpCode::ReservedC5:
+  case OpCode::Reserved_0x0000012A:
     A(pV);
     A(pI32);
     break;
-  case OpCode::ReservedC6:
+  case OpCode::Reserved_0x0000012B:
     A(pV);
     A(pI32);
     break;
-  case OpCode::ReservedC7:
+  case OpCode::Reserved_0x0000012C:
     A(pV);
     A(pI32);
     break;
-  case OpCode::ReservedC8:
+  case OpCode::Reserved_0x0000012D:
     A(pV);
     A(pI32);
     break;
-  case OpCode::ReservedC9:
+  case OpCode::Reserved_0x0000012E:
     A(pV);
     A(pI32);
     break;
@@ -6691,15 +6691,15 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
     break;
 
     //
-  case OpCode::LinAlgMatrixReserved0:
+  case OpCode::Reserved_0x8000001E:
     A(pV);
     A(pI32);
     break;
-  case OpCode::LinAlgMatrixReserved1:
+  case OpCode::Reserved_0x8000001F:
     A(pV);
     A(pI32);
     break;
-  case OpCode::LinAlgMatrixReserved2:
+  case OpCode::Reserved_0x80000020:
     A(pV);
     A(pI32);
     break;
@@ -6958,18 +6958,18 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
   case OpCode::AnnotateHandle:
   case OpCode::CreateHandleFromBinding:
   case OpCode::CreateHandleFromHeap:
-  case OpCode::Reserved0:
-  case OpCode::Reserved1:
-  case OpCode::Reserved2:
-  case OpCode::Reserved3:
-  case OpCode::Reserved4:
-  case OpCode::Reserved5:
-  case OpCode::Reserved6:
-  case OpCode::Reserved7:
-  case OpCode::Reserved8:
-  case OpCode::Reserved9:
-  case OpCode::Reserved10:
-  case OpCode::Reserved11:
+  case OpCode::Reserved_0x000000E2:
+  case OpCode::Reserved_0x000000E3:
+  case OpCode::Reserved_0x000000E4:
+  case OpCode::Reserved_0x000000E5:
+  case OpCode::Reserved_0x000000E6:
+  case OpCode::Reserved_0x000000E7:
+  case OpCode::Reserved_0x000000E8:
+  case OpCode::Reserved_0x000000E9:
+  case OpCode::Reserved_0x000000EA:
+  case OpCode::Reserved_0x000000EB:
+  case OpCode::Reserved_0x000000EC:
+  case OpCode::Reserved_0x000000ED:
   case OpCode::AllocateNodeOutputRecords:
   case OpCode::IncrementOutputCount:
   case OpCode::OutputComplete:
@@ -6986,28 +6986,28 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
   case OpCode::NodeOutputIsValid:
   case OpCode::GetRemainingRecursionLevels:
   case OpCode::AllocateRayQuery2:
-  case OpCode::ReservedA0:
-  case OpCode::ReservedA1:
-  case OpCode::ReservedA2:
+  case OpCode::Reserved_0x00000103:
+  case OpCode::Reserved_0x00000104:
+  case OpCode::Reserved_0x00000105:
   case OpCode::HitObject_FromRayQuery:
   case OpCode::HitObject_MakeMiss:
   case OpCode::HitObject_MakeNop:
   case OpCode::MaybeReorderThread:
   case OpCode::HitObject_SetShaderTableIndex:
   case OpCode::HitObject_LoadLocalRootTableConstant:
-  case OpCode::ReservedB28:
-  case OpCode::ReservedB29:
-  case OpCode::ReservedB30:
-  case OpCode::ReservedC0:
-  case OpCode::ReservedC1:
-  case OpCode::ReservedC2:
-  case OpCode::ReservedC3:
-  case OpCode::ReservedC4:
-  case OpCode::ReservedC5:
-  case OpCode::ReservedC6:
-  case OpCode::ReservedC7:
-  case OpCode::ReservedC8:
-  case OpCode::ReservedC9:
+  case OpCode::Reserved_0x00000122:
+  case OpCode::Reserved_0x00000123:
+  case OpCode::Reserved_0x00000124:
+  case OpCode::Reserved_0x00000125:
+  case OpCode::Reserved_0x00000126:
+  case OpCode::Reserved_0x00000127:
+  case OpCode::Reserved_0x00000128:
+  case OpCode::Reserved_0x00000129:
+  case OpCode::Reserved_0x0000012A:
+  case OpCode::Reserved_0x0000012B:
+  case OpCode::Reserved_0x0000012C:
+  case OpCode::Reserved_0x0000012D:
+  case OpCode::Reserved_0x0000012E:
   case OpCode::ExperimentalNop:
   case OpCode::GetGroupWaveIndex:
   case OpCode::GetGroupWaveCount:
@@ -7025,9 +7025,9 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
   case OpCode::MatrixAccumulate:
   case OpCode::MatrixAccumulateToDescriptor:
   case OpCode::MatrixAccumulateToMemory:
-  case OpCode::LinAlgMatrixReserved0:
-  case OpCode::LinAlgMatrixReserved1:
-  case OpCode::LinAlgMatrixReserved2:
+  case OpCode::Reserved_0x8000001E:
+  case OpCode::Reserved_0x8000001F:
+  case OpCode::Reserved_0x80000020:
   case OpCode::DebugBreak:
   case OpCode::IsDebuggerPresent:
     return Type::getVoidTy(Ctx);

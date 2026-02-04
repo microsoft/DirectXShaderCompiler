@@ -512,9 +512,9 @@ static const OpCodeTableID TableID = OpCodeTableID::ExperimentalOps;
 // Enumeration for ExperimentalOps DXIL operations
 enum class OpCode : unsigned {
   //
-  LinAlgMatrixReserved0 = 30, // reserved
-  LinAlgMatrixReserved1 = 31, // reserved
-  LinAlgMatrixReserved2 = 32, // reserved
+  Reserved_0x8000001E = 30, // reserved
+  Reserved_0x8000001F = 31, // reserved
+  Reserved_0x80000020 = 32, // reserved
 
   // Debugging
   DebugBreak = 33,        // triggers a breakpoint if a debugger is attached
@@ -600,34 +600,34 @@ static const unsigned NumOpCodeTables = 2;
 // Enumeration for CoreOps DXIL operations
 enum class OpCode : unsigned {
   //
-  Reserved0 = 226,   // reserved
-  Reserved1 = 227,   // reserved
-  Reserved10 = 236,  // reserved
-  Reserved11 = 237,  // reserved
-  Reserved2 = 228,   // reserved
-  Reserved3 = 229,   // reserved
-  Reserved4 = 230,   // reserved
-  Reserved5 = 231,   // reserved
-  Reserved6 = 232,   // reserved
-  Reserved7 = 233,   // reserved
-  Reserved8 = 234,   // reserved
-  Reserved9 = 235,   // reserved
-  ReservedA0 = 259,  // reserved
-  ReservedA1 = 260,  // reserved
-  ReservedA2 = 261,  // reserved
-  ReservedB28 = 290, // reserved
-  ReservedB29 = 291, // reserved
-  ReservedB30 = 292, // reserved
-  ReservedC0 = 293,  // reserved
-  ReservedC1 = 294,  // reserved
-  ReservedC2 = 295,  // reserved
-  ReservedC3 = 296,  // reserved
-  ReservedC4 = 297,  // reserved
-  ReservedC5 = 298,  // reserved
-  ReservedC6 = 299,  // reserved
-  ReservedC7 = 300,  // reserved
-  ReservedC8 = 301,  // reserved
-  ReservedC9 = 302,  // reserved
+  Reserved_0x000000E2 = 226, // reserved
+  Reserved_0x000000E3 = 227, // reserved
+  Reserved_0x000000E4 = 228, // reserved
+  Reserved_0x000000E5 = 229, // reserved
+  Reserved_0x000000E6 = 230, // reserved
+  Reserved_0x000000E7 = 231, // reserved
+  Reserved_0x000000E8 = 232, // reserved
+  Reserved_0x000000E9 = 233, // reserved
+  Reserved_0x000000EA = 234, // reserved
+  Reserved_0x000000EB = 235, // reserved
+  Reserved_0x000000EC = 236, // reserved
+  Reserved_0x000000ED = 237, // reserved
+  Reserved_0x00000103 = 259, // reserved
+  Reserved_0x00000104 = 260, // reserved
+  Reserved_0x00000105 = 261, // reserved
+  Reserved_0x00000122 = 290, // reserved
+  Reserved_0x00000123 = 291, // reserved
+  Reserved_0x00000124 = 292, // reserved
+  Reserved_0x00000125 = 293, // reserved
+  Reserved_0x00000126 = 294, // reserved
+  Reserved_0x00000127 = 295, // reserved
+  Reserved_0x00000128 = 296, // reserved
+  Reserved_0x00000129 = 297, // reserved
+  Reserved_0x0000012A = 298, // reserved
+  Reserved_0x0000012B = 299, // reserved
+  Reserved_0x0000012C = 300, // reserved
+  Reserved_0x0000012D = 301, // reserved
+  Reserved_0x0000012E = 302, // reserved
 
   // Amplification shader instructions
   DispatchMesh = 173, // Amplification shader intrinsic DispatchMesh
@@ -1322,12 +1322,12 @@ enum class OpCode : unsigned {
   EXP_OPCODE(ExperimentalOps,
              MatrixOuterProduct), // Outer products an M sized vector and a K
                                   // sized vector producing an MxK matrix
-  // LinAlgMatrixReserved0 = 0x8000001E, 2147483678U, -2147483618
-  EXP_OPCODE(ExperimentalOps, LinAlgMatrixReserved0), // reserved
-  // LinAlgMatrixReserved1 = 0x8000001F, 2147483679U, -2147483617
-  EXP_OPCODE(ExperimentalOps, LinAlgMatrixReserved1), // reserved
-  // LinAlgMatrixReserved2 = 0x80000020, 2147483680U, -2147483616
-  EXP_OPCODE(ExperimentalOps, LinAlgMatrixReserved2), // reserved
+  // Reserved_0x8000001E = 0x8000001E, 2147483678U, -2147483618
+  EXP_OPCODE(ExperimentalOps, Reserved_0x8000001E), // reserved
+  // Reserved_0x8000001F = 0x8000001F, 2147483679U, -2147483617
+  EXP_OPCODE(ExperimentalOps, Reserved_0x8000001F), // reserved
+  // Reserved_0x80000020 = 0x80000020, 2147483680U, -2147483616
+  EXP_OPCODE(ExperimentalOps, Reserved_0x80000020), // reserved
   // DebugBreak = 0x80000021, 2147483681U, -2147483615
   EXP_OPCODE(ExperimentalOps,
              DebugBreak), // triggers a breakpoint if a debugger is attached
