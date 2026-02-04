@@ -3962,7 +3962,7 @@ static void ValidateGlobalVariables(ValidationContext &ValCtx) {
   if (M.HasDxilEntryProps(M.GetEntryFunction())) {
     DxilEntryProps &EntryProps = M.GetDxilEntryProps(M.GetEntryFunction());
     if (EntryProps.props.IsCS() || EntryProps.props.IsMS() ||
-        EntryProps.props.IsAS()) {
+        EntryProps.props.IsAS() || EntryProps.props.IsNode()) {
       unsigned SpecifiedTGSMSize = EntryProps.props.groupSharedLimitBytes;
       if (SpecifiedTGSMSize > 0) {
         MaxSize = SpecifiedTGSMSize;

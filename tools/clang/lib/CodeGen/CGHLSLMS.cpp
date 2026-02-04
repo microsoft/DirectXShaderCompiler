@@ -1655,8 +1655,9 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
   } else {
     if (SM->IsMS()) { // Fallback to default limits
       funcProps->groupSharedLimitBytes = DXIL::kMaxMSSMSize; // 28k For MS
-    } else if (SM->IsAS() || SM->IsCS()) {
-      funcProps->groupSharedLimitBytes = DXIL::kMaxTGSMSize; // 32k For AS/CS
+    } else if (SM->IsAS() || SM->IsCS() || funcProps->IsNode()) {
+      funcProps->groupSharedLimitBytes =
+          DXIL::kMaxTGSMSize; // 32k For AS/CS/Node
     } else {
       funcProps->groupSharedLimitBytes = 0;
     }
