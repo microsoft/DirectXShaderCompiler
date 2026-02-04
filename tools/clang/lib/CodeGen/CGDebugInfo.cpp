@@ -2122,6 +2122,11 @@ static QualType UnwrapTypeForDebugInfo(QualType T, const ASTContext &C) {
     case Type::Attributed:
       T = cast<AttributedType>(T)->getEquivalentType();
       break;
+    // HLSL Change Start
+    case Type::AttributedLinAlgMatrix:
+      T = cast<AttributedLinAlgMatrixType>(T)->getWrappedType();
+      break;
+    // HLSL Change End
     case Type::Elaborated:
       T = cast<ElaboratedType>(T)->getNamedType();
       break;

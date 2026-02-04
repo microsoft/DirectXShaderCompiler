@@ -6220,6 +6220,10 @@ ABIArgInfo MSDXILABIInfo::classifyArgumentType(QualType Ty) const {
   if (isAggregateTypeForABI(Ty))
     return ABIArgInfo::getIndirect(0, /* byval */ false);
 
+  // Pass LinAlg Matrix types directly
+  if (Ty->isAttributedLinAlgMatrixType())
+    return ABIArgInfo::getDirect();
+
   return (Ty->isPromotableIntegerType() ? ABIArgInfo::getExtend()
                                         : ABIArgInfo::getDirect());
 }
@@ -6237,8 +6241,9 @@ void MSDXILABIInfo::computeInfo(CGFunctionInfo &FI) const {
   }
   for (auto &I : FI.arguments()) {
     I.info = classifyArgumentType(I.type);
-    // Do not flat matrix
-    if (hlsl::IsHLSLMatType(I.type))
+    // Do not flatten matrix types.
+    if (hlsl::IsHLSLMatType(I.type) ||
+        I.type.getTypePtr()->isAttributedLinAlgMatrixType())
       I.info.setCanBeFlattened(false);
   }
   // TODO: set calling convention
