@@ -923,6 +923,22 @@ public:
                                  equivalentType);
   }
 
+  // HLSL Change Start
+  QualType
+  VisitAttributedLinAlgMatrixType(const AttributedLinAlgMatrixType *T) {
+    QualType wrappedTy = recurse(T->getWrappedType());
+    if (wrappedTy.isNull())
+      return QualType();
+
+    if (wrappedTy.getAsOpaquePtr() == T->getWrappedType().getAsOpaquePtr())
+      return QualType(T, 0);
+
+    return Ctx.getAttributedLinAlgMatrixType(wrappedTy, T->getComponentType(),
+                                             T->getRows(), T->getCols(),
+                                             T->getUse(), T->getScope());
+  }
+  // HLSL Change End
+
   QualType VisitSubstTemplateTypeParmType(const SubstTemplateTypeParmType *T) {
     QualType replacementType = recurse(T->getReplacementType());
     if (replacementType.isNull())
