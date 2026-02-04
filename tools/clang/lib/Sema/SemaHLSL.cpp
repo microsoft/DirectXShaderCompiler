@@ -1875,7 +1875,7 @@ static const char *g_ArBasicTypeNames[] = {
     "HitObject",
 
     // LinAlg Matrix
-    "__builtin_LinAlg_Matrix",
+    "__builtin_LinAlgMatrix",
 };
 
 C_ASSERT(_countof(g_ArBasicTypeNames) == AR_BASIC_MAXIMUM_COUNT);
