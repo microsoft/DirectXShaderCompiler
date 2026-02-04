@@ -3961,7 +3961,8 @@ static void ValidateGlobalVariables(ValidationContext &ValCtx) {
   // Check if the entry function has attribute to override TGSM size.
   if (M.HasDxilEntryProps(M.GetEntryFunction())) {
     DxilEntryProps &EntryProps = M.GetDxilEntryProps(M.GetEntryFunction());
-    if (EntryProps.props.IsCS()) {
+    if (EntryProps.props.IsCS() || EntryProps.props.IsMS() ||
+        EntryProps.props.IsAS()) {
       unsigned SpecifiedTGSMSize = EntryProps.props.groupSharedLimitBytes;
       if (SpecifiedTGSMSize > 0) {
         MaxSize = SpecifiedTGSMSize;
