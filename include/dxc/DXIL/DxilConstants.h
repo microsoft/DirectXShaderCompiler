@@ -524,9 +524,10 @@ static const OpCodeTableID TableID = OpCodeTableID::ExperimentalOps;
 // Enumeration for ExperimentalOps DXIL operations
 enum class OpCode : unsigned {
   //
-  LinAlgMatrixReserved0 = 30, // reserved
-  LinAlgMatrixReserved1 = 31, // reserved
-  LinAlgMatrixReserved2 = 32, // reserved
+  ReservedD0 = 11, // reserved
+  ReservedD1 = 30, // reserved
+  ReservedD2 = 31, // reserved
+  ReservedD3 = 32, // reserved
 
   // Group Wave Ops
   GetGroupWaveCount = 2, // returns the number of waves in the thread group
@@ -544,7 +545,6 @@ enum class OpCode : unsigned {
   CopyConvertMatrix =
       13, // Converts and copies the element and use type of the source matrix
           // to the destination matrix with optional transpose
-  CreateMatrix = 11,     // creates a handle to a Matrix
   FillMatrix = 12,       // fills a matrix with a scalar value
   MatrixAccumulate = 24, // accumulate A or B matrix into Accumulator matrix
                          // following LHS += RHS
@@ -564,8 +564,8 @@ enum class OpCode : unsigned {
       15, // fills a matrix with data from a groupshared array
   MatrixMulOp =
       23, // applies a multiplication op to matrix C using A and B as parameters
-  MatrixOuterProduct = 29, // Outer products an M sized vector and a K sized
-                           // vector producing an MxK matrix
+  MatrixOuterProduct = 29, // Outer products an M sized vector and a N sized
+                           // vector producing an MxN matrix
   MatrixQueryAccumulatorLayout = 22, // returns comptime 0 when accumulator
                                      // matrix are A layout, 1 when B layout
   MatrixSetElement = 19, // sets the element of the matrix corresponding to the
@@ -1254,8 +1254,8 @@ enum class OpCode : unsigned {
   EXP_OPCODE(ExperimentalOps,
              HitObject_TriangleObjectPosition), // returns triangle vertices in
                                                 // object space as <9 x float>
-  // CreateMatrix = 0x8000000B, 2147483659U, -2147483637
-  EXP_OPCODE(ExperimentalOps, CreateMatrix), // creates a handle to a Matrix
+  // ReservedD0 = 0x8000000B, 2147483659U, -2147483637
+  EXP_OPCODE(ExperimentalOps, ReservedD0), // reserved
   // FillMatrix = 0x8000000C, 2147483660U, -2147483636
   EXP_OPCODE(ExperimentalOps, FillMatrix), // fills a matrix with a scalar value
   // CopyConvertMatrix = 0x8000000D, 2147483661U, -2147483635
@@ -1328,14 +1328,14 @@ enum class OpCode : unsigned {
       MatrixAccumulateToMemory), // accumulates a matrix to groupshared memory
   // MatrixOuterProduct = 0x8000001D, 2147483677U, -2147483619
   EXP_OPCODE(ExperimentalOps,
-             MatrixOuterProduct), // Outer products an M sized vector and a K
-                                  // sized vector producing an MxK matrix
-  // LinAlgMatrixReserved0 = 0x8000001E, 2147483678U, -2147483618
-  EXP_OPCODE(ExperimentalOps, LinAlgMatrixReserved0), // reserved
-  // LinAlgMatrixReserved1 = 0x8000001F, 2147483679U, -2147483617
-  EXP_OPCODE(ExperimentalOps, LinAlgMatrixReserved1), // reserved
-  // LinAlgMatrixReserved2 = 0x80000020, 2147483680U, -2147483616
-  EXP_OPCODE(ExperimentalOps, LinAlgMatrixReserved2), // reserved
+             MatrixOuterProduct), // Outer products an M sized vector and a N
+                                  // sized vector producing an MxN matrix
+  // ReservedD1 = 0x8000001E, 2147483678U, -2147483618
+  EXP_OPCODE(ExperimentalOps, ReservedD1), // reserved
+  // ReservedD2 = 0x8000001F, 2147483679U, -2147483617
+  EXP_OPCODE(ExperimentalOps, ReservedD2), // reserved
+  // ReservedD3 = 0x80000020, 2147483680U, -2147483616
+  EXP_OPCODE(ExperimentalOps, ReservedD3), // reserved
 };
 // OPCODE-ENUM:END
 #undef EXP_OPCODE
@@ -1492,7 +1492,6 @@ enum class OpCodeClass : unsigned {
 
   // Linear Algebra Operations
   CopyConvertMatrix,
-  CreateMatrix,
   FillMatrix,
   MatVecMul,
   MatVecMulAdd,
@@ -1700,7 +1699,7 @@ enum class OpCodeClass : unsigned {
   NodeOutputIsValid,
   OutputComplete,
 
-  NumOpClasses = 223, // exclusive last value of enumeration
+  NumOpClasses = 222, // exclusive last value of enumeration
 };
 // OPCODECLASS-ENUM:END
 
