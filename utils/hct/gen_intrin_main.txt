@@ -397,10 +397,8 @@ void [[min_sm=6.10]] __builtin_VectorAccumulate(in LinAlg<c> InputVector, in RWB
 
 // LinAlg intrinsics
 
-// TODO: Update return type for CreateMatrix to MatrixRef
 // TODO: Replace all int MatrixRef with MatrixRef type
 // TODO: Replace all int GroupSharedMem with groupshared memory
-void [[min_sm=6.10]] __builtin_LinAlg_CreateMatrix();
 void [[min_sm=6.10]] __builtin_LinAlg_FillMatrix(int MatrixRef, numeric value);
 void [[min_sm=6.10]] __builtin_LinAlg_CopyConvertMatrix(int MatrixRefDest, int MatrixRefSrc, bool transpose);
 void [[min_sm=6.10]] __builtin_LinAlg_MatrixLoadFromDescriptor(int MatrixRef, resource buf, int32_only offset, int32_only stride, int32_only layout);

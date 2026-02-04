@@ -18,7 +18,7 @@ entry:
   br i1 %cmp, label %if.then, label %if.end
 
 if.then:
-  call void @"dx.hl.op..void (i32)"(i32 425)
+  call void @"dx.hl.op..void (i32)"(i32 424)
   br label %if.end
 
 if.end:

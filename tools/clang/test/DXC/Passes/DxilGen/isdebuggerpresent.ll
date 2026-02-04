@@ -19,7 +19,7 @@ target triple = "dxil-ms-dx"
 ; Function Attrs: nounwind
 define void @main(<3 x i32> %threadId) #0 {
 entry:
-  %0 = call i1 @"dx.hl.op.ro.i1 (i32)"(i32 426)
+  %0 = call i1 @"dx.hl.op.ro.i1 (i32)"(i32 425)
   br i1 %0, label %if.then, label %if.else
 
 if.then:

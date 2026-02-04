@@ -5,7 +5,7 @@
 // RUN: %dxc -T cs_6_10 -ast-dump %s | FileCheck %s --check-prefix=AST
 
 // CHECK: call void @dx.op.debugBreak(i32 -2147483615)  ; DebugBreak()
-// FCGL: call void @"dx.hl.op..void (i32)"(i32 425)
+// FCGL: call void @"dx.hl.op..void (i32)"(i32 424)
 
 // AST: CallExpr {{.*}} 'void'
 // AST-NEXT: `-ImplicitCastExpr {{.*}} 'void (*)()' <FunctionToPointerDecay>
