@@ -2745,8 +2745,9 @@ public:
       "Kits.TestName",
       "D3D12 - Shader Model 6.9 - Vectorized DXIL - Double Precision Tests")
   TEST_CLASS_PROPERTY("Kits.TestId", "3a7a9687-6d99-469d-9951-795c2fcbe94d")
-  TEST_CLASS_PROPERTY("Kits.Description",
-                      "Validates required double precision SM 6.9 vectorized DXIL operations")
+  TEST_CLASS_PROPERTY(
+      "Kits.Description",
+      "Validates required double precision SM 6.9 vectorized DXIL operations")
   TEST_METHOD_PROPERTY(
       "Kits.Specification",
       "Device.Graphics.D3D12.DXILCore.ShaderModel69.DoublePrecision")
