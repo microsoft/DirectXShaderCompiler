@@ -2834,146 +2834,146 @@ static const OP::OpCodeProperty ExperimentalOps_OpCodeProps[] = {
      {}}, // Overloads: v
 
     // Linear Algebra Operations
-    {OC::FillMatrix,
-     "FillMatrix",
-     OCC::FillMatrix,
-     "fillMatrix",
+    {OC::LinAlgFillMatrix,
+     "LinAlgFillMatrix",
+     OCC::LinAlgFillMatrix,
+     "linAlgFillMatrix",
      Attribute::None,
      2,
      {{0x200}, {0x63}},
      {{0x0}, {0x0}}}, // Overloads: o,hfwi
-    {OC::CopyConvertMatrix,
-     "CopyConvertMatrix",
-     OCC::CopyConvertMatrix,
-     "copyConvertMatrix",
+    {OC::LinAlgCopyConvertMatrix,
+     "LinAlgCopyConvertMatrix",
+     OCC::LinAlgCopyConvertMatrix,
+     "linAlgCopyConvertMatrix",
      Attribute::None,
      2,
      {{0x200}, {0x200}},
      {{0x0}, {0x0}}}, // Overloads: o,o
-    {OC::MatrixLoadFromDescriptor,
-     "MatrixLoadFromDescriptor",
-     OCC::MatrixLoadFromDescriptor,
-     "matrixLoadFromDescriptor",
+    {OC::LinAlgMatrixLoadFromDescriptor,
+     "LinAlgMatrixLoadFromDescriptor",
+     OCC::LinAlgMatrixLoadFromDescriptor,
+     "linAlgMatrixLoadFromDescriptor",
      Attribute::None,
      1,
      {{0x200}},
      {{0x0}}}, // Overloads: o
-    {OC::MatrixLoadFromMemory,
-     "MatrixLoadFromMemory",
-     OCC::MatrixLoadFromMemory,
-     "matrixLoadFromMemory",
+    {OC::LinAlgMatrixLoadFromMemory,
+     "LinAlgMatrixLoadFromMemory",
+     OCC::LinAlgMatrixLoadFromMemory,
+     "linAlgMatrixLoadFromMemory",
      Attribute::None,
      2,
      {{0x200}, {0x63}},
      {{0x0}, {0x0}}}, // Overloads: o,hfwi
-    {OC::MatrixLength,
-     "MatrixLength",
-     OCC::MatrixLength,
-     "matrixLength",
+    {OC::LinAlgMatrixLength,
+     "LinAlgMatrixLength",
+     OCC::LinAlgMatrixLength,
+     "linAlgMatrixLength",
      Attribute::None,
      1,
      {{0x200}},
      {{0x0}}}, // Overloads: o
-    {OC::MatrixGetCoordinate,
-     "MatrixGetCoordinate",
-     OCC::MatrixGetCoordinate,
-     "matrixGetCoordinate",
+    {OC::LinAlgMatrixGetCoordinate,
+     "LinAlgMatrixGetCoordinate",
+     OCC::LinAlgMatrixGetCoordinate,
+     "linAlgMatrixGetCoordinate",
      Attribute::None,
      1,
      {{0x200}},
      {{0x0}}}, // Overloads: o
-    {OC::MatrixGetElement,
-     "MatrixGetElement",
-     OCC::MatrixGetElement,
-     "matrixGetElement",
+    {OC::LinAlgMatrixGetElement,
+     "LinAlgMatrixGetElement",
+     OCC::LinAlgMatrixGetElement,
+     "linAlgMatrixGetElement",
      Attribute::None,
      2,
      {{0x63}, {0x200}},
      {{0x0}, {0x0}}}, // Overloads: hfwi,o
-    {OC::MatrixSetElement,
-     "MatrixSetElement",
-     OCC::MatrixSetElement,
-     "matrixSetElement",
+    {OC::LinAlgMatrixSetElement,
+     "LinAlgMatrixSetElement",
+     OCC::LinAlgMatrixSetElement,
+     "linAlgMatrixSetElement",
      Attribute::None,
      3,
      {{0x200}, {0x200}, {0x63}},
      {{0x0}, {0x0}, {0x0}}}, // Overloads: o,o,hfwi
-    {OC::MatrixStoreToDescriptor,
-     "MatrixStoreToDescriptor",
-     OCC::MatrixStoreToDescriptor,
-     "matrixStoreToDescriptor",
+    {OC::LinAlgMatrixStoreToDescriptor,
+     "LinAlgMatrixStoreToDescriptor",
+     OCC::LinAlgMatrixStoreToDescriptor,
+     "linAlgMatrixStoreToDescriptor",
      Attribute::None,
      1,
      {{0x200}},
      {{0x0}}}, // Overloads: o
-    {OC::MatrixStoreToMemory,
-     "MatrixStoreToMemory",
-     OCC::MatrixStoreToMemory,
-     "matrixStoreToMemory",
+    {OC::LinAlgMatrixStoreToMemory,
+     "LinAlgMatrixStoreToMemory",
+     OCC::LinAlgMatrixStoreToMemory,
+     "linAlgMatrixStoreToMemory",
      Attribute::None,
      2,
      {{0x200}, {0x63}},
      {{0x0}, {0x0}}}, // Overloads: o,hfwi
-    {OC::MatrixQueryAccumulatorLayout,
-     "MatrixQueryAccumulatorLayout",
-     OCC::MatrixQueryAccumulatorLayout,
-     "matrixQueryAccumulatorLayout",
+    {OC::LinAlgMatrixQueryAccumulatorLayout,
+     "LinAlgMatrixQueryAccumulatorLayout",
+     OCC::LinAlgMatrixQueryAccumulatorLayout,
+     "linAlgMatrixQueryAccumulatorLayout",
      Attribute::None,
      0,
      {},
      {}}, // Overloads: v
-    {OC::MatrixMulOp,
-     "MatrixMulOp",
-     OCC::MatrixMulOp,
-     "matrixMulOp",
+    {OC::LinAlgMatrixMulOp,
+     "LinAlgMatrixMulOp",
+     OCC::LinAlgMatrixMulOp,
+     "linAlgMatrixMulOp",
      Attribute::None,
      3,
      {{0x200}, {0x200}, {0x200}},
      {{0x0}, {0x0}, {0x0}}}, // Overloads: o,o,o
-    {OC::MatrixAccumulate,
-     "MatrixAccumulate",
-     OCC::MatrixAccumulate,
-     "matrixAccumulate",
+    {OC::LinAlgMatrixAccumulate,
+     "LinAlgMatrixAccumulate",
+     OCC::LinAlgMatrixAccumulate,
+     "linAlgMatrixAccumulate",
      Attribute::None,
      3,
      {{0x200}, {0x200}, {0x200}},
      {{0x0}, {0x0}, {0x0}}}, // Overloads: o,o,o
-    {OC::MatrixVecMul,
-     "MatrixVecMul",
-     OCC::MatrixVecMul,
-     "matrixVecMul",
+    {OC::LinAlgMatVecMul,
+     "LinAlgMatVecMul",
+     OCC::LinAlgMatVecMul,
+     "linAlgMatVecMul",
      Attribute::None,
      3,
      {{0x400}, {0x200}, {0x400}},
      {{0x63}, {0x0}, {0x63}}}, // Overloads: <hfwi,o,<hfwi
-    {OC::MatrixVecMulAdd,
-     "MatrixVecMulAdd",
-     OCC::MatrixVecMulAdd,
-     "matrixVecMulAdd",
+    {OC::LinAlgMatVecMulAdd,
+     "LinAlgMatVecMulAdd",
+     OCC::LinAlgMatVecMulAdd,
+     "linAlgMatVecMulAdd",
      Attribute::None,
      4,
      {{0x400}, {0x200}, {0x400}, {0x400}},
      {{0x63}, {0x0}, {0x63}, {0x63}}}, // Overloads: <hfwi,o,<hfwi,<hfwi
-    {OC::MatrixAccumulateToDescriptor,
-     "MatrixAccumulateToDescriptor",
-     OCC::MatrixAccumulateToDescriptor,
-     "matrixAccumulateToDescriptor",
+    {OC::LinAlgMatrixAccumulateToDescriptor,
+     "LinAlgMatrixAccumulateToDescriptor",
+     OCC::LinAlgMatrixAccumulateToDescriptor,
+     "linAlgMatrixAccumulateToDescriptor",
      Attribute::None,
      1,
      {{0x200}},
      {{0x0}}}, // Overloads: o
-    {OC::MatrixAccumulateToMemory,
-     "MatrixAccumulateToMemory",
-     OCC::MatrixAccumulateToMemory,
-     "matrixAccumulateToMemory",
+    {OC::LinAlgMatrixAccumulateToMemory,
+     "LinAlgMatrixAccumulateToMemory",
+     OCC::LinAlgMatrixAccumulateToMemory,
+     "linAlgMatrixAccumulateToMemory",
      Attribute::None,
      2,
      {{0x200}, {0x63}},
      {{0x0}, {0x0}}}, // Overloads: o,hfwi
-    {OC::MatrixOuterProduct,
-     "MatrixOuterProduct",
-     OCC::MatrixOuterProduct,
-     "matrixOuterProduct",
+    {OC::LinAlgMatrixOuterProduct,
+     "LinAlgMatrixOuterProduct",
+     OCC::LinAlgMatrixOuterProduct,
+     "linAlgMatrixOuterProduct",
      Attribute::None,
      3,
      {{0x200}, {0x400}, {0x400}},
@@ -3921,10 +3921,11 @@ void OP::GetMinShaderModelAndMask(OpCode C, bool bWithTranslation,
   // RayQuery_CommittedClusterID=2147483653,
   // RayQuery_CandidateTriangleObjectPosition=2147483656,
   // RayQuery_CommittedTriangleObjectPosition=2147483657,
-  // MatrixLoadFromDescriptor=2147483662,
-  // MatrixQueryAccumulatorLayout=2147483670, MatrixVecMul=2147483673,
-  // MatrixVecMulAdd=2147483674, MatrixAccumulateToDescriptor=2147483675,
-  // MatrixOuterProduct=2147483677
+  // LinAlgMatrixLoadFromDescriptor=2147483662,
+  // LinAlgMatrixQueryAccumulatorLayout=2147483670, LinAlgMatVecMul=2147483673,
+  // LinAlgMatVecMulAdd=2147483674,
+  // LinAlgMatrixAccumulateToDescriptor=2147483675,
+  // LinAlgMatrixOuterProduct=2147483677
   if ((305 <= op && op <= 308) || op == 2147483648 ||
       (2147483652 <= op && op <= 2147483653) ||
       (2147483656 <= op && op <= 2147483657) || op == 2147483662 ||
@@ -3934,12 +3935,14 @@ void OP::GetMinShaderModelAndMask(OpCode C, bool bWithTranslation,
     minor = 10;
     return;
   }
-  // Instructions: FillMatrix=2147483660, CopyConvertMatrix=2147483661,
-  // MatrixLoadFromMemory=2147483663, MatrixLength=2147483664,
-  // MatrixGetCoordinate=2147483665, MatrixGetElement=2147483666,
-  // MatrixSetElement=2147483667, MatrixStoreToDescriptor=2147483668,
-  // MatrixStoreToMemory=2147483669, MatrixMulOp=2147483671,
-  // MatrixAccumulate=2147483672, MatrixAccumulateToMemory=2147483676
+  // Instructions: LinAlgFillMatrix=2147483660,
+  // LinAlgCopyConvertMatrix=2147483661, LinAlgMatrixLoadFromMemory=2147483663,
+  // LinAlgMatrixLength=2147483664, LinAlgMatrixGetCoordinate=2147483665,
+  // LinAlgMatrixGetElement=2147483666, LinAlgMatrixSetElement=2147483667,
+  // LinAlgMatrixStoreToDescriptor=2147483668,
+  // LinAlgMatrixStoreToMemory=2147483669, LinAlgMatrixMulOp=2147483671,
+  // LinAlgMatrixAccumulate=2147483672,
+  // LinAlgMatrixAccumulateToMemory=2147483676
   if ((2147483660 <= op && op <= 2147483661) ||
       (2147483663 <= op && op <= 2147483669) ||
       (2147483671 <= op && op <= 2147483672) || op == 2147483676) {
@@ -6545,18 +6548,18 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
     break;
 
     // Linear Algebra Operations
-  case OpCode::FillMatrix:
+  case OpCode::LinAlgFillMatrix:
     EXT(0);
     A(pI32);
     EXT(1);
     break;
-  case OpCode::CopyConvertMatrix:
+  case OpCode::LinAlgCopyConvertMatrix:
     EXT(0);
     A(pI32);
     EXT(1);
     A(pI1);
     break;
-  case OpCode::MatrixLoadFromDescriptor:
+  case OpCode::LinAlgMatrixLoadFromDescriptor:
     A(pETy);
     A(pI32);
     A(pRes);
@@ -6564,7 +6567,7 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
     A(pI32);
     A(pI32);
     break;
-  case OpCode::MatrixLoadFromMemory:
+  case OpCode::LinAlgMatrixLoadFromMemory:
     EXT(0);
     A(pI32);
     EXT(1);
@@ -6572,31 +6575,31 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
     A(pI32);
     A(pI32);
     break;
-  case OpCode::MatrixLength:
+  case OpCode::LinAlgMatrixLength:
     A(pI32);
     A(pI32);
     A(pETy);
     break;
-  case OpCode::MatrixGetCoordinate:
+  case OpCode::LinAlgMatrixGetCoordinate:
     VEC4(pETy);
     A(pI32);
     A(pETy);
     A(pI32);
     break;
-  case OpCode::MatrixGetElement:
+  case OpCode::LinAlgMatrixGetElement:
     EXT(0);
     A(pI32);
     EXT(1);
     A(pI32);
     break;
-  case OpCode::MatrixSetElement:
+  case OpCode::LinAlgMatrixSetElement:
     EXT(0);
     A(pI32);
     EXT(1);
     A(pI32);
     EXT(2);
     break;
-  case OpCode::MatrixStoreToDescriptor:
+  case OpCode::LinAlgMatrixStoreToDescriptor:
     A(pV);
     A(pI32);
     A(pETy);
@@ -6605,7 +6608,7 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
     A(pI32);
     A(pI32);
     break;
-  case OpCode::MatrixStoreToMemory:
+  case OpCode::LinAlgMatrixStoreToMemory:
     A(pV);
     A(pI32);
     EXT(0);
@@ -6614,30 +6617,30 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
     A(pI32);
     A(pI32);
     break;
-  case OpCode::MatrixQueryAccumulatorLayout:
+  case OpCode::LinAlgMatrixQueryAccumulatorLayout:
     A(pI32);
     A(pI32);
     break;
-  case OpCode::MatrixMulOp:
+  case OpCode::LinAlgMatrixMulOp:
     EXT(0);
     A(pI32);
     EXT(1);
     EXT(2);
     break;
-  case OpCode::MatrixAccumulate:
+  case OpCode::LinAlgMatrixAccumulate:
     EXT(0);
     A(pI32);
     EXT(1);
     EXT(2);
     break;
-  case OpCode::MatrixVecMul:
+  case OpCode::LinAlgMatVecMul:
     EXT(0);
     A(pI32);
     EXT(1);
     EXT(2);
     A(pI32);
     break;
-  case OpCode::MatrixVecMulAdd:
+  case OpCode::LinAlgMatVecMulAdd:
     EXT(0);
     A(pI32);
     EXT(1);
@@ -6646,7 +6649,7 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
     EXT(3);
     A(pI32);
     break;
-  case OpCode::MatrixAccumulateToDescriptor:
+  case OpCode::LinAlgMatrixAccumulateToDescriptor:
     A(pV);
     A(pI32);
     A(pETy);
@@ -6655,7 +6658,7 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
     A(pI32);
     A(pI32);
     break;
-  case OpCode::MatrixAccumulateToMemory:
+  case OpCode::LinAlgMatrixAccumulateToMemory:
     A(pV);
     A(pI32);
     EXT(0);
@@ -6664,7 +6667,7 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
     A(pI32);
     A(pI32);
     break;
-  case OpCode::MatrixOuterProduct:
+  case OpCode::LinAlgMatrixOuterProduct:
     EXT(0);
     A(pI32);
     EXT(1);
@@ -6860,9 +6863,9 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
   case OpCode::VectorReduceAnd:
   case OpCode::VectorReduceOr:
   case OpCode::FDot:
-  case OpCode::MatrixLength:
-  case OpCode::MatrixStoreToDescriptor:
-  case OpCode::MatrixAccumulateToDescriptor:
+  case OpCode::LinAlgMatrixLength:
+  case OpCode::LinAlgMatrixStoreToDescriptor:
+  case OpCode::LinAlgMatrixAccumulateToDescriptor:
     if (FT->getNumParams() <= 1)
       return nullptr;
     return FT->getParamType(1);
@@ -6985,7 +6988,7 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
   case OpCode::GetGroupWaveCount:
   case OpCode::ClusterID:
   case OpCode::ReservedD0:
-  case OpCode::MatrixQueryAccumulatorLayout:
+  case OpCode::LinAlgMatrixQueryAccumulatorLayout:
   case OpCode::ReservedD1:
   case OpCode::ReservedD2:
   case OpCode::ReservedD3:
@@ -7010,7 +7013,7 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
   case OpCode::SampleCmpGrad:
   case OpCode::SampleCmpBias:
   case OpCode::RawBufferVectorLoad:
-  case OpCode::MatrixGetCoordinate: {
+  case OpCode::LinAlgMatrixGetCoordinate: {
     StructType *ST = cast<StructType>(Ty);
     return ST->getElementType(0);
   }
@@ -7022,39 +7025,39 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
     return cast<VectorType>(Ty)->getElementType();
   case OpCode::MatVecMul:
   case OpCode::MatVecMulAdd:
-  case OpCode::FillMatrix:
-  case OpCode::CopyConvertMatrix:
-  case OpCode::MatrixLoadFromMemory:
-  case OpCode::MatrixGetElement:
+  case OpCode::LinAlgFillMatrix:
+  case OpCode::LinAlgCopyConvertMatrix:
+  case OpCode::LinAlgMatrixLoadFromMemory:
+  case OpCode::LinAlgMatrixGetElement:
     if (FT->getNumParams() < 2)
       return nullptr;
     return llvm::StructType::get(Ctx,
                                  {FT->getReturnType(), FT->getParamType(1)});
 
   case OpCode::OuterProductAccumulate:
-  case OpCode::MatrixStoreToMemory:
-  case OpCode::MatrixAccumulateToMemory:
+  case OpCode::LinAlgMatrixStoreToMemory:
+  case OpCode::LinAlgMatrixAccumulateToMemory:
     if (FT->getNumParams() < 3)
       return nullptr;
     return llvm::StructType::get(Ctx,
                                  {FT->getParamType(1), FT->getParamType(2)});
 
-  case OpCode::MatrixSetElement:
+  case OpCode::LinAlgMatrixSetElement:
     if (FT->getNumParams() < 4)
       return nullptr;
     return llvm::StructType::get(
         Ctx, {FT->getReturnType(), FT->getParamType(1), FT->getParamType(3)});
 
-  case OpCode::MatrixMulOp:
-  case OpCode::MatrixAccumulate:
-  case OpCode::MatrixVecMul:
-  case OpCode::MatrixOuterProduct:
+  case OpCode::LinAlgMatrixMulOp:
+  case OpCode::LinAlgMatrixAccumulate:
+  case OpCode::LinAlgMatVecMul:
+  case OpCode::LinAlgMatrixOuterProduct:
     if (FT->getNumParams() < 3)
       return nullptr;
     return llvm::StructType::get(
         Ctx, {FT->getReturnType(), FT->getParamType(1), FT->getParamType(2)});
 
-  case OpCode::MatrixVecMulAdd:
+  case OpCode::LinAlgMatVecMulAdd:
     if (FT->getNumParams() < 5)
       return nullptr;
     return llvm::StructType::get(Ctx,
