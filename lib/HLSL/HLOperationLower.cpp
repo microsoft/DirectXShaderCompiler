@@ -8405,7 +8405,7 @@ void TranslateCBAddressUserLegacy(Instruction *user, Value *handle,
           // row.z = c[2].[idx]
           // row.w = c[3].[idx]
           Value *Elts[4];
-          ArrayType *AT = ArrayType::get(EltTy, MatTy.getNumColumns());
+          ArrayType *AT = ArrayType::get(EltTy, MatTy.getNumRows());
 
           IRBuilder<> AllocaBuilder(user->getParent()
                                         ->getParent()
