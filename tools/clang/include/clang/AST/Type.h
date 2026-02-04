@@ -1708,7 +1708,7 @@ public:
       const; // HLSL attributed __builtin_LinAlgMatrix with dependent
              // parameters
   // HLSL Change End
-  
+
   /// Determines if this type, which must satisfy
   /// isObjCLifetimeType(), is implicitly __unsafe_unretained rather
   /// than implicitly __strong.
