@@ -1817,7 +1817,7 @@ using namespace LongVector;
 
 class TestClassCommon {
 public:
-  bool classSetup () {
+  bool classSetup() {
     WEX::TestExecution::SetVerifyOutput verifySettings(
         WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
 
@@ -1879,7 +1879,7 @@ public:
     return true;
   }
 
-  bool methodSetup () {
+  bool methodSetup() {
     // It's possible a previous test case caused a device removal. If it did we
     // need to try and create a new device.
     if (D3DDevice && D3DDevice->GetDeviceRemovedReason() != S_OK) {
@@ -2716,7 +2716,6 @@ public:
   HLK_WAVEOP_TEST(WaveMultiPrefixSum, float);
   HLK_WAVEOP_TEST(WaveMultiPrefixProduct, float);
   HLK_WAVEOP_TEST(WaveMatch, float);
-
 };
 
 #define HLK_TEST_DOUBLE(Op, DataType)                                          \
@@ -2739,17 +2738,18 @@ public:
     runWaveOpTest<DataType, OpType::Op>();                                     \
   }
 
-class DxilConf_SM69_Vectorized_Double: public TestClassCommon {
+class DxilConf_SM69_Vectorized_Double : public TestClassCommon {
 public:
   BEGIN_TEST_CLASS(DxilConf_SM69_Vectorized_Double)
-  TEST_CLASS_PROPERTY("Kits.TestName",
-                      "D3D12 - Shader Model 6.9 - Vectorized DXIL - Double Precision Tests")
+  TEST_CLASS_PROPERTY(
+      "Kits.TestName",
+      "D3D12 - Shader Model 6.9 - Vectorized DXIL - Double Precision Tests")
   TEST_CLASS_PROPERTY("Kits.TestId", "3a7a9687-6d99-469d-9951-795c2fcbe94d")
   TEST_CLASS_PROPERTY("Kits.Description",
                       "Validates required SM 6.9 vectorized DXIL operations")
-  TEST_METHOD_PROPERTY(                                                      \
-      "Kits.Specification",                                                  \
-      "Device.Graphics.D3D12.DXILCore.ShaderModel69.DoublePrecision")        \
+  TEST_METHOD_PROPERTY(
+      "Kits.Specification",
+      "Device.Graphics.D3D12.DXILCore.ShaderModel69.DoublePrecision")
   TEST_METHOD_PROPERTY(L"Priority", L"0")
   END_TEST_CLASS()
 
