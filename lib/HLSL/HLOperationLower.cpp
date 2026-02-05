@@ -6956,7 +6956,25 @@ Value *TranslateLinAlgMatVecMul(CallInst *CI, IntrinsicOp IOP,
                                 HLOperationLowerHelper &Helper,
                                 HLObjectOperationLowerHelper *ObjHelper,
                                 bool &Translated) {
-  DXASSERT(false, "Not implemented.");
+  hlsl::OP *HlslOp = &Helper.hlslOP;
+  IRBuilder<> Builder(CI);
+
+  Value *ReturnVecPtr = CI->getArgOperand(1);
+  DXASSERT_NOMSG(isa<PointerType>(ReturnVecPtr->getType()));
+  Type *ReturnVecType = ReturnVecPtr->getType()->getPointerElementType();
+
+  Value *Matrix = CI->getArgOperand(2);
+  Value *InputVector = CI->getArgOperand(3);
+  Value *InputVectorInterp = CI->getArgOperand(4);
+
+  Constant *OpArg = HlslOp->GetU32Const((unsigned)OpCode);
+  Function *DxilFunc = HlslOp->GetOpFunc(
+      OpCode, {ReturnVecType, Matrix->getType(), InputVector->getType()});
+
+  Value *ReturnVec = Builder.CreateCall(
+      DxilFunc, {OpArg, Matrix, InputVector, InputVectorInterp});
+  Builder.CreateStore(ReturnVec, ReturnVecPtr);
+
   return nullptr;
 }
 
@@ -6965,7 +6983,29 @@ Value *TranslateLinAlgMatVecMulAdd(CallInst *CI, IntrinsicOp IOP,
                                    HLOperationLowerHelper &Helper,
                                    HLObjectOperationLowerHelper *ObjHelper,
                                    bool &Translated) {
-  DXASSERT(false, "Not implemented.");
+  hlsl::OP *HlslOp = &Helper.hlslOP;
+  IRBuilder<> Builder(CI);
+
+  Value *ReturnVecPtr = CI->getArgOperand(1);
+  DXASSERT_NOMSG(isa<PointerType>(ReturnVecPtr->getType()));
+  Type *ReturnVecType = ReturnVecPtr->getType()->getPointerElementType();
+
+  Value *Matrix = CI->getArgOperand(2);
+  Value *InputVector = CI->getArgOperand(3);
+  Value *InputVectorInterp = CI->getArgOperand(4);
+  Value *BiasVector = CI->getArgOperand(5);
+  Value *BiasVectorInterp = CI->getArgOperand(6);
+
+  Constant *OpArg = HlslOp->GetU32Const((unsigned)OpCode);
+  Function *DxilFunc = HlslOp->GetOpFunc(
+      OpCode, {ReturnVecType, Matrix->getType(), InputVector->getType(),
+               BiasVector->getType()});
+
+  Value *ReturnVec = Builder.CreateCall(
+      DxilFunc, {OpArg, Matrix, InputVector, InputVectorInterp, BiasVector,
+                 BiasVectorInterp});
+  Builder.CreateStore(ReturnVec, ReturnVecPtr);
+
   return nullptr;
 }
 
