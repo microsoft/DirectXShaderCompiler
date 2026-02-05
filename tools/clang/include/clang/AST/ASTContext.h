@@ -15,6 +15,7 @@
 #ifndef LLVM_CLANG_AST_ASTCONTEXT_H
 #define LLVM_CLANG_AST_ASTCONTEXT_H
 
+#include "dxc/DXIL/DxilConstants.h"
 #include "clang/AST/ASTTypeTraits.h"
 #include "clang/AST/CanonicalType.h"
 #include "clang/AST/CommentCommandTraits.h"
@@ -129,6 +130,12 @@ class ASTContext : public RefCountedBase<ASTContext> {
   mutable llvm::FoldingSet<AutoType> AutoTypes;
   mutable llvm::FoldingSet<AtomicType> AtomicTypes;
   llvm::FoldingSet<AttributedType> AttributedTypes;
+
+  // HLSL Change Start
+  llvm::FoldingSet<AttributedLinAlgMatrixType> AttrLinAlgMatrixTypes;
+  llvm::FoldingSet<DependentAttributedLinAlgMatrixType>
+      DepAttrLinAlgMatrixTypes;
+  // HLSL Change End
 
   mutable llvm::FoldingSet<QualifiedTemplateName> QualifiedTemplateNames;
   mutable llvm::FoldingSet<DependentTemplateName> DependentTemplateNames;
@@ -1156,6 +1163,19 @@ public:
                              QualType modifiedType,
                              QualType equivalentType);
 
+  // HLSL Change Start
+  QualType getAttributedLinAlgMatrixType(QualType WrappedTy,
+                                         hlsl::DXIL::ComponentType ComponentTy,
+                                         size_t Rows, size_t Cols,
+                                         hlsl::DXIL::MatrixUse Use,
+                                         hlsl::DXIL::MatrixScope Scope);
+
+  QualType getDependentAttributedLinAlgMatrixType(QualType WrappedTy,
+                                                  Expr *ComponentTyExpr,
+                                                  Expr *RowsExpr,
+                                                  Expr *ColsExpr, Expr *UseExpr,
+                                                  Expr *ScopeExpr);
+  // HLSL Change End
   QualType getSubstTemplateTypeParmType(const TemplateTypeParmType *Replaced,
                                         QualType Replacement) const;
   QualType getSubstTemplateTypeParmPackType(

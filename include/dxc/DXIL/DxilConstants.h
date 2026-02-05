@@ -192,6 +192,18 @@ enum class ComponentType : uint32_t {
   LastEntry
 };
 
+enum class MatrixUse : uint32_t {
+  A = 0,
+  B = 1,
+  Accumulator = 2,
+};
+
+enum class MatrixScope : uint32_t {
+  Thread = 0,
+  Wave = 1,
+  ThreadGroup = 2,
+};
+
 // Must match D3D_INTERPOLATION_MODE
 enum class InterpolationMode : uint8_t {
   Undefined = 0,

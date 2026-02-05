@@ -5609,6 +5609,12 @@ void TypeLocReader::VisitAttributedTypeLoc(AttributedTypeLoc TL) {
   } else if (TL.hasAttrEnumOperand())
     TL.setAttrEnumOperandLoc(ReadSourceLocation(Record, Idx));
 }
+// HLSL Change Start
+void TypeLocReader::VisitAttributedLinAlgMatrixTypeLoc(
+    AttributedLinAlgMatrixTypeLoc TL) {
+  TL.setSourceLocation(ReadSourceLocation(Record, Idx));
+}
+// HLSL Change End
 void TypeLocReader::VisitTemplateTypeParmTypeLoc(TemplateTypeParmTypeLoc TL) {
   TL.setNameLoc(ReadSourceLocation(Record, Idx));
 }

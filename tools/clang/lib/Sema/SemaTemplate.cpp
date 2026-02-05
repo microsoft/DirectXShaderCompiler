@@ -4136,6 +4136,18 @@ bool UnnamedLocalNoLinkageFinder::VisitEnumType(const EnumType* T) {
   return VisitTagDecl(T->getDecl());
 }
 
+// HLSL Change Start
+bool UnnamedLocalNoLinkageFinder::VisitAttributedLinAlgMatrixType(
+    const AttributedLinAlgMatrixType *) {
+  return false;
+}
+
+bool UnnamedLocalNoLinkageFinder::VisitDependentAttributedLinAlgMatrixType(
+    const DependentAttributedLinAlgMatrixType *) {
+  return false;
+}
+// HLSL Change End
+
 bool UnnamedLocalNoLinkageFinder::VisitTemplateTypeParmType(
                                                  const TemplateTypeParmType*) {
   return false;

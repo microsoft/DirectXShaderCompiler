@@ -8042,6 +8042,19 @@ def err_hlsl_linalg_matrix_dim_must_be_greater_than_zero: Error<
 def err_hlsl_linalg_matrix_layout_invalid : Error<
   "matrix layout %0 is not valid, must be in the range [%1, %2]">;
 
+// SM 6.10 Linear Algebra Operations
+def err_hlsl_linalg_matrix_attribute_arg_not_int_or_enum
+    : Error<"argument is not an integer%select{| or enumeration}0">;
+def err_hlsl_linalg_matrix_attribute_arg_not_constant_value
+    : Error<"matrix attributes argument %1 is not a constant value">;
+def err_hlsl_linalg_matrix_invalid_enum_attribute_value
+    : Error<"matrix attribute %0 has invalid value %1, must be in the range "
+            "[%2, %3]">;
+def err_hlsl_linalg_matrix_attribute_on_invalid_type
+    : Error<"matrix attributes can only be applied to %0">;
+def err_hlsl_linalg_attributed_matrix_required
+    : Error<"argument must be linear algebra matrix type">;
+
 def err_hlsl_linalg_mul_muladd_output_vector_size_not_equal_to_matrix_M : Error<
   "output vector length must be equal to Matrix M dimension in a linalg Mul/MulAdd operation">;
 def err_hlsl_linalg_mul_muladd_unpacked_input_vector_size_not_equal_to_matrix_K : Error<

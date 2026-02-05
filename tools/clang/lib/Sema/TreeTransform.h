@@ -5501,6 +5501,81 @@ QualType TreeTransform<Derived>::TransformAttributedType(
   return result;
 }
 
+// HLSL Change Start
+template <typename Derived>
+QualType TreeTransform<Derived>::TransformAttributedLinAlgMatrixType(
+    TypeLocBuilder &TLB, AttributedLinAlgMatrixTypeLoc TL) {
+  const AttributedLinAlgMatrixType *OldTy = TL.getTypePtr();
+  QualType ModifiedTy = getDerived().TransformType(OldTy->getWrappedType());
+  if (ModifiedTy.isNull())
+    return QualType();
+
+  QualType Result = TL.getType();
+  if (getDerived().AlwaysRebuild() || ModifiedTy != OldTy->getWrappedType()) {
+    Result = SemaRef.Context.getAttributedLinAlgMatrixType(
+        ModifiedTy, OldTy->getComponentType(), OldTy->getRows(),
+        OldTy->getCols(), OldTy->getUse(), OldTy->getScope());
+  }
+
+  AttributedLinAlgMatrixTypeLoc NewTL =
+      TLB.push<AttributedLinAlgMatrixTypeLoc>(Result);
+  NewTL.setNameLoc(TL.getNameLoc());
+
+  return Result;
+}
+
+template <typename Derived>
+QualType TreeTransform<Derived>::TransformDependentAttributedLinAlgMatrixType(
+    TypeLocBuilder &TLB, DependentAttributedLinAlgMatrixTypeLoc TL) {
+  const DependentAttributedLinAlgMatrixType *T = TL.getTypePtr();
+
+  QualType NewWrappedType = getDerived().TransformType(T->getWrappedType());
+  if (NewWrappedType.isNull())
+    return QualType();
+
+  ExprResult CompTy = getDerived().TransformExpr(T->getComponentTyExpr());
+  ExprResult Rows = getDerived().TransformExpr(T->getRowsExpr());
+  ExprResult Cols = getDerived().TransformExpr(T->getColsExpr());
+  ExprResult Use = getDerived().TransformExpr(T->getUseExpr());
+  ExprResult Scope = getDerived().TransformExpr(T->getScopeExpr());
+
+  if (CompTy.isInvalid() || Rows.isInvalid() || Cols.isInvalid() ||
+      Use.isInvalid() || Scope.isInvalid())
+    return QualType();
+
+  Expr *NewCompTyExpr = CompTy.get();
+  Expr *NewRowsExpr = Rows.get();
+  Expr *NewColsExpr = Cols.get();
+  Expr *NewUseExpr = Use.get();
+  Expr *NewScopeExpr = Scope.get();
+
+  QualType Result = TL.getType();
+  if (getDerived().AlwaysRebuild() || NewWrappedType != T->getWrappedType() ||
+      NewCompTyExpr != T->getComponentTyExpr() ||
+      NewRowsExpr != T->getRowsExpr() || NewColsExpr != T->getColsExpr() ||
+      NewUseExpr != T->getUseExpr() || NewScopeExpr != T->getScopeExpr()) {
+    if (!hlsl::CreateAttributedLinAlgMatrixType(
+            SemaRef, NewWrappedType, NewCompTyExpr, NewRowsExpr, NewColsExpr,
+            NewUseExpr, NewScopeExpr, Result))
+      return QualType();
+  }
+
+  // Result might be dependent or not.
+  if (isa<DependentAttributedLinAlgMatrixType>(Result)) {
+    DependentAttributedLinAlgMatrixTypeLoc NewTL =
+        TLB.push<DependentAttributedLinAlgMatrixTypeLoc>(Result);
+    NewTL.setNameLoc(TL.getNameLoc());
+  } else {
+    AttributedLinAlgMatrixTypeLoc NewTL =
+        TLB.push<AttributedLinAlgMatrixTypeLoc>(Result);
+    NewTL.setNameLoc(TL.getNameLoc());
+  }
+
+  return Result;
+}
+
+// HLSL Change End
+
 template<typename Derived>
 QualType
 TreeTransform<Derived>::TransformParenType(TypeLocBuilder &TLB,

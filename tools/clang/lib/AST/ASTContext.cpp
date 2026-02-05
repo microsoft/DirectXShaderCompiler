@@ -13,6 +13,7 @@
 
 #include "clang/AST/ASTContext.h"
 #include "CXXABI.h"
+#include "dxc/DXIL/DxilConstants.h"
 #include "clang/AST/ASTMutationListener.h"
 #include "clang/AST/Attr.h"
 #include "clang/AST/CharUnits.h"
@@ -29,6 +30,7 @@
 #include "clang/AST/MangleNumberingContext.h"
 #include "clang/AST/RecordLayout.h"
 #include "clang/AST/RecursiveASTVisitor.h"
+#include "clang/AST/Type.h"
 #include "clang/AST/TypeLoc.h"
 #include "clang/AST/VTableBuilder.h"
 #include "clang/Basic/Builtins.h"
@@ -1867,6 +1869,10 @@ TypeInfo ASTContext::getTypeInfoImpl(const Type *T) const {
     return getTypeInfo(
                   cast<AttributedType>(T)->getEquivalentType().getTypePtr());
 
+  case Type::AttributedLinAlgMatrix:
+    return getTypeInfo(
+        cast<AttributedLinAlgMatrixType>(T)->getWrappedType().getTypePtr());
+
   case Type::Atomic: {
     // Start with the base type information.
     TypeInfo Info = getTypeInfo(cast<AtomicType>(T)->getValueType());
@@ -3288,6 +3294,50 @@ QualType ASTContext::getAttributedType(AttributedType::Kind attrKind,
   return QualType(type, 0);
 }
 
+// HLSL Change Start
+QualType ASTContext::getAttributedLinAlgMatrixType(
+    QualType WrappedTy, hlsl::DXIL::ComponentType ComponentTy, size_t Rows,
+    size_t Cols, hlsl::DXIL::MatrixUse Use, hlsl::DXIL::MatrixScope Scope) {
+
+  llvm::FoldingSetNodeID ID;
+  AttributedLinAlgMatrixType::Profile(ID, WrappedTy, ComponentTy, Rows, Cols,
+                                      Use, Scope);
+  void *InsertPos = nullptr;
+  AttributedLinAlgMatrixType *Ty =
+      AttrLinAlgMatrixTypes.FindNodeOrInsertPos(ID, InsertPos);
+  if (Ty)
+    return QualType(Ty, 0);
+
+  Ty = new (*this, TypeAlignment) AttributedLinAlgMatrixType(
+      WrappedTy, ComponentTy, Rows, Cols, Use, Scope);
+  Types.push_back(Ty);
+  AttrLinAlgMatrixTypes.InsertNode(Ty, InsertPos);
+  return QualType(Ty, 0);
+}
+
+QualType ASTContext::getDependentAttributedLinAlgMatrixType(
+    QualType WrappedTy, Expr *ComponentTyExpr, Expr *RowsExpr, Expr *ColsExpr,
+    Expr *UseExpr, Expr *ScopeExpr) {
+  llvm::FoldingSetNodeID ID;
+  DependentAttributedLinAlgMatrixType::Profile(ID, *this, WrappedTy,
+                                               ComponentTyExpr, RowsExpr,
+                                               ColsExpr, UseExpr, ScopeExpr);
+
+  void *InsertPos = nullptr;
+  DependentAttributedLinAlgMatrixType *Ty =
+      DepAttrLinAlgMatrixTypes.FindNodeOrInsertPos(ID, InsertPos);
+  if (Ty)
+    return QualType(Ty, 0);
+
+  Ty = new (*this, TypeAlignment) DependentAttributedLinAlgMatrixType(
+      *this, WrappedTy, ComponentTyExpr, RowsExpr, ColsExpr, UseExpr,
+      ScopeExpr);
+
+  Types.push_back(Ty);
+  DepAttrLinAlgMatrixTypes.InsertNode(Ty, InsertPos);
+  return QualType(Ty, 0);
+}
+// HLSL Change Start
 
 /// \brief Retrieve a substitution-result type.
 QualType

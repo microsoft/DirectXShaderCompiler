@@ -23,6 +23,7 @@
 #include "clang/AST/TypeVisitor.h"
 #include "clang/Basic/Module.h"
 #include "clang/Basic/SourceManager.h"
+#include "clang/Sema/SemaHLSL.h"
 #include "llvm/Support/raw_ostream.h"
 using namespace clang;
 using namespace clang::comments;
@@ -370,6 +371,26 @@ namespace  {
       // FIXME: AttrKind
       dumpTypeAsChild(T->getModifiedType());
     }
+    void VisitAttributedLinAlgMatrixType(const AttributedLinAlgMatrixType *T) {
+      dumpTypeAsChild(T->getWrappedType());
+      OS << " [[__LinAlgMatrix_Attributes("
+         << hlsl::ConvertLinAlgMatrixComponentTypeToString(
+                T->getComponentType())
+         << ", " << T->getRows() << ", " << T->getCols() << ", "
+         << hlsl::ConvertLinAlgMatrixUseToString(T->getUse()) << ", "
+         << hlsl::ConvertLinAlgMatrixScopeToString(T->getScope()) << ")]]";
+    }
+    void VisitDependentAttributedLinAlgMatrixType(
+        const DependentAttributedLinAlgMatrixType *T) {
+      OS << " ";
+      dumpTypeAsChild(T->getWrappedType());
+      dumpStmt(T->getComponentTyExpr());
+      dumpStmt(T->getRowsExpr());
+      dumpStmt(T->getColsExpr());
+      dumpStmt(T->getUseExpr());
+      dumpStmt(T->getScopeExpr());
+    }
+
     void VisitTemplateTypeParmType(const TemplateTypeParmType *T) {
       OS << " depth " << T->getDepth() << " index " << T->getIndex();
       if (T->isParameterPack()) OS << " pack";

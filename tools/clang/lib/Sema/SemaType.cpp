@@ -5774,6 +5774,7 @@ static bool isHLSLTypeAttr(AttributeList::Kind Kind) {
   case AttributeList::AT_HLSLUnorm:
   case AttributeList::AT_HLSLGloballyCoherent:
   case AttributeList::AT_HLSLReorderCoherent:
+  case AttributeList::AT_HLSLLinAlgMatrixAttributes:
     return true;
   default:
     // Only meant to catch attr handled by handleHLSLTypeAttr, ignore the rest
@@ -5781,13 +5782,16 @@ static bool isHLSLTypeAttr(AttributeList::Kind Kind) {
   }
 }
 
+// Return true on error
 static bool handleHLSLTypeAttr(TypeProcessingState &State,
                                AttributeList &Attr,
                                QualType &Type) {
-  // Return true on error
+  AttributeList::Kind Kind = Attr.getKind();
   Sema &S = State.getSema();
 
-  AttributeList::Kind Kind = Attr.getKind();
+  // Handle LinAlg Matrix type attribute separatelly.
+  if (Kind == AttributeList::AT_HLSLLinAlgMatrixAttributes)
+    return hlsl::HandleLinAlgMatrixAttributes(S, Attr, Type);
 
   // Check for attributes on incorrect types
   if ((Kind == AttributeList::AT_HLSLColumnMajor ||

@@ -14,6 +14,7 @@
 #ifndef LLVM_CLANG_AST_TYPE_H
 #define LLVM_CLANG_AST_TYPE_H
 
+#include "dxc/DXIL/DxilConstants.h"
 #include "clang/AST/NestedNameSpecifier.h"
 #include "clang/AST/TemplateName.h"
 #include "clang/Basic/AddressSpaces.h"
@@ -1699,7 +1700,14 @@ public:
 
   bool isOpenCLSpecificType() const;            // Any OpenCL specific type
 
+  // HLSL Change Start
   bool isLinAlgMatrixType() const; // HLSL __builtin_LinAlgMatrix
+  bool isAttributedLinAlgMatrixType()
+      const; // HLSL attributed __builtin_LinAlgMatrix
+  bool isDependentAttributedLinAlgMatrixType()
+      const; // HLSL attributed __builtin_LinAlgMatrix with dependent
+             // parameters
+  // HLSL Change End
 
   /// Determines if this type, which must satisfy
   /// isObjCLifetimeType(), is implicitly __unsafe_unretained rather
@@ -3736,6 +3744,108 @@ public:
   }
 };
 
+// HLSL Change Start
+
+class AttributedLinAlgMatrixType : public Type, public llvm::FoldingSetNode {
+  friend class ASTContext; // ASTContext creates these
+
+  QualType WrappedType; // should be __builtin_LinAlgMatrix
+  hlsl::DXIL::ComponentType ComponentTy;
+  size_t Rows, Cols;
+  hlsl::DXIL::MatrixUse Use;
+  hlsl::DXIL::MatrixScope Scope;
+
+  AttributedLinAlgMatrixType(QualType WrappedTy,
+                             hlsl::DXIL::ComponentType ComponentTy, size_t Rows,
+                             size_t Cols, hlsl::DXIL::MatrixUse Use,
+                             hlsl::DXIL::MatrixScope Scope)
+      : Type(AttributedLinAlgMatrix, QualType(), /*Dependent*/ false,
+             /*InstantiationDependent*/ false, /*VariablyModified*/ false,
+             /*ContainsUnexpandedParameterPack*/ false),
+        WrappedType(WrappedTy), ComponentTy(ComponentTy), Rows(Rows),
+        Cols(Cols), Use(Use), Scope(Scope) {}
+
+public:
+  QualType getWrappedType() const { return WrappedType; }
+
+  hlsl::DXIL::ComponentType getComponentType() const { return ComponentTy; }
+  size_t getRows() const { return Rows; }
+  size_t getCols() const { return Cols; }
+  hlsl::DXIL::MatrixUse getUse() const { return Use; }
+  hlsl::DXIL::MatrixScope getScope() const { return Scope; }
+
+  void appendMangledAttributes(llvm::raw_ostream &OS) const;
+
+  bool isSugared() const { return false; }
+  QualType desugar() const { return QualType(this, 0); }
+
+  void Profile(llvm::FoldingSetNodeID &ID) {
+    Profile(ID, WrappedType, ComponentTy, Rows, Cols, Use, Scope);
+  }
+
+  static void Profile(llvm::FoldingSetNodeID &ID, QualType WrappedTy,
+                      hlsl::DXIL::ComponentType ComponentTy, size_t Rows,
+                      size_t Cols, hlsl::DXIL::MatrixUse Use,
+                      hlsl::DXIL::MatrixScope Scope) {
+    ID.AddPointer(WrappedTy.getAsOpaquePtr());
+    ID.AddInteger(static_cast<uint32_t>(ComponentTy));
+    ID.AddInteger(static_cast<uint32_t>(Rows));
+    ID.AddInteger(static_cast<uint32_t>(Cols));
+    ID.AddInteger(static_cast<uint32_t>(Use));
+    ID.AddInteger(static_cast<uint32_t>(Scope));
+  }
+
+  static bool classof(const Type *T) {
+    return T->getTypeClass() == AttributedLinAlgMatrix;
+  }
+};
+
+class DependentAttributedLinAlgMatrixType : public Type,
+                                            public llvm::FoldingSetNode {
+  const ASTContext &Context;
+  QualType WrappedType; // should be __builtin_LinAlgMatrix
+  Expr *ComponentTyExpr;
+  Expr *RowsExpr;
+  Expr *ColsExpr;
+  Expr *UseExpr;
+  Expr *ScopeExpr;
+
+  DependentAttributedLinAlgMatrixType(const ASTContext &Context,
+                                      QualType WrappedType,
+                                      Expr *ComponentTyExpr, Expr *RowsExpr,
+                                      Expr *ColsExpr, Expr *UseExpr,
+                                      Expr *ScopeExpr);
+
+  friend class ASTContext;
+
+public:
+  QualType getWrappedType() const { return WrappedType; }
+  Expr *getComponentTyExpr() const { return ComponentTyExpr; }
+  Expr *getRowsExpr() const { return RowsExpr; }
+  Expr *getColsExpr() const { return ColsExpr; }
+  Expr *getUseExpr() const { return UseExpr; }
+  Expr *getScopeExpr() const { return ScopeExpr; }
+
+  bool isSugared() const { return false; }
+  QualType desugar() const { return QualType(this, 0); }
+
+  static bool classof(const Type *T) {
+    return T->getTypeClass() == DependentAttributedLinAlgMatrix;
+  }
+
+  void Profile(llvm::FoldingSetNodeID &ID) {
+    Profile(ID, Context, getWrappedType(), getComponentTyExpr(), getRowsExpr(),
+            getColsExpr(), getUseExpr(), getScopeExpr());
+  }
+
+  static void Profile(llvm::FoldingSetNodeID &ID, const ASTContext &Context,
+                      QualType WrappedType, Expr *ComponentTyExpr,
+                      Expr *RowsExpr, Expr *ColsExpr, Expr *UseExpr,
+                      Expr *ScopeExpr);
+};
+
+// HLSL Change End
+
 class TemplateTypeParmType : public Type, public llvm::FoldingSetNode {
   // Helper data collector for canonical types.
   struct CanonicalTTPTInfo {
@@ -5425,6 +5535,14 @@ inline bool Type::isEventT() const {
 // HLSL Change Starts
 inline bool Type::isLinAlgMatrixType() const {
   return isSpecificBuiltinType(BuiltinType::LinAlgMatrix);
+}
+
+inline bool Type::isAttributedLinAlgMatrixType() const {
+  return isa<AttributedLinAlgMatrixType>(this);
+}
+
+inline bool Type::isDependentAttributedLinAlgMatrixType() const {
+  return isa<DependentAttributedLinAlgMatrixType>(this);
 }
 // HLSL Change Ends
 
