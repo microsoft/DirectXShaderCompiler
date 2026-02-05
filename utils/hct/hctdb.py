@@ -70,7 +70,8 @@ class db_dxil_enum_value(object):
         self.name = name  # Name (identifier)
         self.doc = doc  # Documentation string
         self.category = None
-        self.reserved = False # whether value reserved and excluded from enum definition
+        # reserved: whether value reserved and excluded from enum definition
+        self.reserved = False
 
 
 class db_dxil_enum(object):
@@ -482,10 +483,7 @@ class db_dxil_op_table(object):
 
     def reserve_dxil_ops(self, count=1):
         "Reserve dxil opcodes for future use; returns list of reserved ops."
-        return [
-            self.add_dxil_op_reserved()
-            for i in range(0, count)
-        ]
+        return [self.add_dxil_op_reserved() for i in range(0, count)]
 
 
 class db_dxil(object):
