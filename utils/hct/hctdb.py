@@ -70,6 +70,7 @@ class db_dxil_enum_value(object):
         self.name = name  # Name (identifier)
         self.doc = doc  # Documentation string
         self.category = None
+        self.reserved = False # whether value reserved and excluded from enum definition
 
 
 class db_dxil_enum(object):
@@ -418,6 +419,15 @@ class db_dxil_op_table(object):
     def __iter__(self):
         return iter(self.ops)
 
+    def get_dxil_ops(self, include_reserved=False):
+        "Get all DXIL operations; optionally include_reserved."
+        if include_reserved:
+            return iter(self.ops)
+        for i in self.ops:
+            if i.is_reserved:
+                continue
+            yield i
+
     def set_op_count_for_version(self, major, minor):
         op_count = len(self.ops)
         self.op_enum.dxil_version_info[(major, minor)] = op_count
@@ -453,18 +463,14 @@ class db_dxil_op_table(object):
 
     def add_dxil_op_reserved(self):
         "Reserve a DXIL opcode for future use; returns the reserved op."
-        opcode = self._next_id()
-        # Give the reserved opcode a unique, stable name.  This allows ops to be
-        # replaced with reserved without changing any other reserved op names.
-        name = f"Reserved_0x{opcode:08X}"
         # The return value is parameter 0, insert the opcode as 1.
         op_params = [db_dxil_param(0, "v", "", "reserved"), self.opcode_param]
         i = db_dxil_inst(
-            name,
+            "Reserved",
             llvm_id=self.call_instr.llvm_id,
             llvm_name=self.call_instr.llvm_name,
-            dxil_op=name,
-            dxil_opid=opcode,
+            dxil_op="Reserved",
+            dxil_opid=self._next_id(),
             dxil_table=self.name,
             doc="reserved",
             ops=op_params,
@@ -528,18 +534,22 @@ class db_dxil(object):
         for i in self._llvm_insts:
             yield i
 
-    def get_dxil_ops(self):
-        "Get all DXIL operations."
+    def get_dxil_ops(self, include_reserved=False):
+        "Get all DXIL operations; optionally include_reserved."
         for table in self.op_tables:
             for i in table:
+                if not include_reserved and i.is_reserved:
+                    continue
                 yield i
 
-    def get_all_insts(self):
-        "Get all instructions, including LLVM and DXIL operations."
+    def get_all_insts(self, include_reserved=False):
+        "Get all LLVM instructions and DXIL operations; optionally include_reserved."
         for i in self._llvm_insts:
             yield i
         for table in self.op_tables:
             for i in table:
+                if not include_reserved and i.is_reserved:
+                    continue
                 yield i
 
     def get_insts_by_names(self, *names):
@@ -600,8 +610,9 @@ class db_dxil(object):
             for i in table:
                 v = table.op_enum.add_value(i.dxil_op_index(), i.dxil_op, i.doc)
                 v.category = i.category
+                v.reserved = i.is_reserved
                 class_dict[i.dxil_class] = i.category
-                if table != self.core_table:
+                if table != self.core_table and not i.is_reserved:
                     # // <op> = 0x<hex id>, <id>U, <signed i32 id>
                     # Signed id is useful for comparing with IR opcodes, which
                     # are printed as signed i32 values.
@@ -9394,6 +9405,8 @@ class db_dxil(object):
         )
 
     def add_inst(self, i):
+        if i.is_reserved:
+            return i
         if i.name != "UDiv":
             # These should not overlap, but UDiv is a known collision.
             assert i.name not in self.name_idx, f"Duplicate instruction name: {i.name}"

@@ -34,6 +34,10 @@ using OCC = OP::OpCodeClass;
 //
 //  OP class const-static data and related static methods.
 //
+static const OP::OpCodeProperty ReservedOpCodeProps = {
+    OC::Invalid, "Reserved", OCC::Reserved, "reserved", Attribute::None, 0,
+    {},          {}};
+
 /* <py>
 import hctdb_instrhelp
 </py> */
@@ -1994,104 +1998,19 @@ static const OP::OpCodeProperty CoreOps_OpCodeProps[] = {
      Attribute::None,
      1,
      {{0x63}},
-     {{0x0}}}, // Overloads: hfwi
-
-    {OC::Reserved_0x000000E2,
-     "Reserved_0x000000E2",
-     OCC::Reserved,
-     "reserved",
-     Attribute::None,
-     0,
-     {},
-     {}}, // Overloads: v
-    {OC::Reserved_0x000000E3,
-     "Reserved_0x000000E3",
-     OCC::Reserved,
-     "reserved",
-     Attribute::None,
-     0,
-     {},
-     {}}, // Overloads: v
-    {OC::Reserved_0x000000E4,
-     "Reserved_0x000000E4",
-     OCC::Reserved,
-     "reserved",
-     Attribute::None,
-     0,
-     {},
-     {}}, // Overloads: v
-    {OC::Reserved_0x000000E5,
-     "Reserved_0x000000E5",
-     OCC::Reserved,
-     "reserved",
-     Attribute::None,
-     0,
-     {},
-     {}}, // Overloads: v
-    {OC::Reserved_0x000000E6,
-     "Reserved_0x000000E6",
-     OCC::Reserved,
-     "reserved",
-     Attribute::None,
-     0,
-     {},
-     {}}, // Overloads: v
-    {OC::Reserved_0x000000E7,
-     "Reserved_0x000000E7",
-     OCC::Reserved,
-     "reserved",
-     Attribute::None,
-     0,
-     {},
-     {}}, // Overloads: v
-    {OC::Reserved_0x000000E8,
-     "Reserved_0x000000E8",
-     OCC::Reserved,
-     "reserved",
-     Attribute::None,
-     0,
-     {},
-     {}}, // Overloads: v
-    {OC::Reserved_0x000000E9,
-     "Reserved_0x000000E9",
-     OCC::Reserved,
-     "reserved",
-     Attribute::None,
-     0,
-     {},
-     {}}, // Overloads: v
-    {OC::Reserved_0x000000EA,
-     "Reserved_0x000000EA",
-     OCC::Reserved,
-     "reserved",
-     Attribute::None,
-     0,
-     {},
-     {}}, // Overloads: v
-    {OC::Reserved_0x000000EB,
-     "Reserved_0x000000EB",
-     OCC::Reserved,
-     "reserved",
-     Attribute::None,
-     0,
-     {},
-     {}}, // Overloads: v
-    {OC::Reserved_0x000000EC,
-     "Reserved_0x000000EC",
-     OCC::Reserved,
-     "reserved",
-     Attribute::None,
-     0,
-     {},
-     {}}, // Overloads: v
-    {OC::Reserved_0x000000ED,
-     "Reserved_0x000000ED",
-     OCC::Reserved,
-     "reserved",
-     Attribute::None,
-     0,
-     {},
-     {}}, // Overloads: v
+     {{0x0}}},           // Overloads: hfwi
+    ReservedOpCodeProps, // Reserved: 0x000000E2
+    ReservedOpCodeProps, // Reserved: 0x000000E3
+    ReservedOpCodeProps, // Reserved: 0x000000E4
+    ReservedOpCodeProps, // Reserved: 0x000000E5
+    ReservedOpCodeProps, // Reserved: 0x000000E6
+    ReservedOpCodeProps, // Reserved: 0x000000E7
+    ReservedOpCodeProps, // Reserved: 0x000000E8
+    ReservedOpCodeProps, // Reserved: 0x000000E9
+    ReservedOpCodeProps, // Reserved: 0x000000EA
+    ReservedOpCodeProps, // Reserved: 0x000000EB
+    ReservedOpCodeProps, // Reserved: 0x000000EC
+    ReservedOpCodeProps, // Reserved: 0x000000ED
 
     // Create/Annotate Node Handles
     {OC::AllocateNodeOutputRecords,
@@ -2277,32 +2196,10 @@ static const OP::OpCodeProperty CoreOps_OpCodeProps[] = {
      Attribute::None,
      0,
      {},
-     {}}, // Overloads: v
-
-    {OC::Reserved_0x00000103,
-     "Reserved_0x00000103",
-     OCC::Reserved,
-     "reserved",
-     Attribute::None,
-     0,
-     {},
-     {}}, // Overloads: v
-    {OC::Reserved_0x00000104,
-     "Reserved_0x00000104",
-     OCC::Reserved,
-     "reserved",
-     Attribute::None,
-     0,
-     {},
-     {}}, // Overloads: v
-    {OC::Reserved_0x00000105,
-     "Reserved_0x00000105",
-     OCC::Reserved,
-     "reserved",
-     Attribute::None,
-     0,
-     {},
-     {}}, // Overloads: v
+     {}},                // Overloads: v
+    ReservedOpCodeProps, // Reserved: 0x00000103
+    ReservedOpCodeProps, // Reserved: 0x00000104
+    ReservedOpCodeProps, // Reserved: 0x00000105
 
     // Shader Execution Reordering
     {OC::HitObject_TraceRay,
@@ -2528,112 +2425,20 @@ static const OP::OpCodeProperty CoreOps_OpCodeProps[] = {
      Attribute::ArgMemOnly,
      1,
      {{0x100}},
-     {{0x0}}}, // Overloads: u
-
-    {OC::Reserved_0x00000122,
-     "Reserved_0x00000122",
-     OCC::Reserved,
-     "reserved",
-     Attribute::None,
-     0,
-     {},
-     {}}, // Overloads: v
-    {OC::Reserved_0x00000123,
-     "Reserved_0x00000123",
-     OCC::Reserved,
-     "reserved",
-     Attribute::None,
-     0,
-     {},
-     {}}, // Overloads: v
-    {OC::Reserved_0x00000124,
-     "Reserved_0x00000124",
-     OCC::Reserved,
-     "reserved",
-     Attribute::None,
-     0,
-     {},
-     {}}, // Overloads: v
-    {OC::Reserved_0x00000125,
-     "Reserved_0x00000125",
-     OCC::Reserved,
-     "reserved",
-     Attribute::None,
-     0,
-     {},
-     {}}, // Overloads: v
-    {OC::Reserved_0x00000126,
-     "Reserved_0x00000126",
-     OCC::Reserved,
-     "reserved",
-     Attribute::None,
-     0,
-     {},
-     {}}, // Overloads: v
-    {OC::Reserved_0x00000127,
-     "Reserved_0x00000127",
-     OCC::Reserved,
-     "reserved",
-     Attribute::None,
-     0,
-     {},
-     {}}, // Overloads: v
-    {OC::Reserved_0x00000128,
-     "Reserved_0x00000128",
-     OCC::Reserved,
-     "reserved",
-     Attribute::None,
-     0,
-     {},
-     {}}, // Overloads: v
-    {OC::Reserved_0x00000129,
-     "Reserved_0x00000129",
-     OCC::Reserved,
-     "reserved",
-     Attribute::None,
-     0,
-     {},
-     {}}, // Overloads: v
-    {OC::Reserved_0x0000012A,
-     "Reserved_0x0000012A",
-     OCC::Reserved,
-     "reserved",
-     Attribute::None,
-     0,
-     {},
-     {}}, // Overloads: v
-    {OC::Reserved_0x0000012B,
-     "Reserved_0x0000012B",
-     OCC::Reserved,
-     "reserved",
-     Attribute::None,
-     0,
-     {},
-     {}}, // Overloads: v
-    {OC::Reserved_0x0000012C,
-     "Reserved_0x0000012C",
-     OCC::Reserved,
-     "reserved",
-     Attribute::None,
-     0,
-     {},
-     {}}, // Overloads: v
-    {OC::Reserved_0x0000012D,
-     "Reserved_0x0000012D",
-     OCC::Reserved,
-     "reserved",
-     Attribute::None,
-     0,
-     {},
-     {}}, // Overloads: v
-    {OC::Reserved_0x0000012E,
-     "Reserved_0x0000012E",
-     OCC::Reserved,
-     "reserved",
-     Attribute::None,
-     0,
-     {},
-     {}}, // Overloads: v
+     {{0x0}}},           // Overloads: u
+    ReservedOpCodeProps, // Reserved: 0x00000122
+    ReservedOpCodeProps, // Reserved: 0x00000123
+    ReservedOpCodeProps, // Reserved: 0x00000124
+    ReservedOpCodeProps, // Reserved: 0x00000125
+    ReservedOpCodeProps, // Reserved: 0x00000126
+    ReservedOpCodeProps, // Reserved: 0x00000127
+    ReservedOpCodeProps, // Reserved: 0x00000128
+    ReservedOpCodeProps, // Reserved: 0x00000129
+    ReservedOpCodeProps, // Reserved: 0x0000012A
+    ReservedOpCodeProps, // Reserved: 0x0000012B
+    ReservedOpCodeProps, // Reserved: 0x0000012C
+    ReservedOpCodeProps, // Reserved: 0x0000012D
+    ReservedOpCodeProps, // Reserved: 0x0000012E
 
     // Resources
     {OC::RawBufferVectorLoad,
@@ -2975,32 +2780,10 @@ static const OP::OpCodeProperty ExperimentalOps_OpCodeProps[] = {
      Attribute::None,
      2,
      {{0x400}, {0x400}},
-     {{0x63}, {0x63}}}, // Overloads: <hfwi,<hfwi
-
-    {OC::Reserved_0x8000001E,
-     "Reserved_0x8000001E",
-     OCC::Reserved,
-     "reserved",
-     Attribute::None,
-     0,
-     {},
-     {}}, // Overloads: v
-    {OC::Reserved_0x8000001F,
-     "Reserved_0x8000001F",
-     OCC::Reserved,
-     "reserved",
-     Attribute::None,
-     0,
-     {},
-     {}}, // Overloads: v
-    {OC::Reserved_0x80000020,
-     "Reserved_0x80000020",
-     OCC::Reserved,
-     "reserved",
-     Attribute::None,
-     0,
-     {},
-     {}}, // Overloads: v
+     {{0x63}, {0x63}}},  // Overloads: <hfwi,<hfwi
+    ReservedOpCodeProps, // Reserved: 0x8000001E
+    ReservedOpCodeProps, // Reserved: 0x8000001F
+    ReservedOpCodeProps, // Reserved: 0x80000020
 
     // Debugging
     {OC::DebugBreak,
@@ -3069,14 +2852,15 @@ bool OP::DecodeOpCode(unsigned EncodedOpCode, OP::OpCodeTableID &TableID,
   unsigned TableIndex = GetOpCodeTableIndex(TID);
   if (TableIndex >= DXIL::NumOpCodeTables)
     return false;
+  OP::OpCodeTable &Table = OP::g_OpCodeTables[TableIndex];
   unsigned Op = (EncodedOpCode & 0xFFFF);
-  if (Op >= OP::g_OpCodeTables[TableIndex].Count)
+  if (Op >= Table.Count)
     return false;
   TableID = (OP::OpCodeTableID)TID;
   OpIndex = Op;
   if (OptTableIndex)
     *OptTableIndex = TableIndex;
-  return true;
+  return Table.Table[Op].opCode != OP::OpCode::Invalid;
 }
 bool OP::DecodeOpCode(OpCode EncodedOpCode, OP::OpCodeTableID &TableID,
                       unsigned &OpIndex, unsigned *OptTableIndex) {
@@ -3091,6 +2875,19 @@ bool OP::IsValidOpCode(unsigned EncodedOpCode) {
 }
 bool OP::IsValidOpCode(OP::OpCode EncodedOpCode) {
   return IsValidOpCode((unsigned)EncodedOpCode);
+}
+bool OP::IsReservedOpCode(unsigned EncodedOpCode) {
+  if (EncodedOpCode == (unsigned)OP::OpCode::Invalid)
+    return false;
+  OP::OpCodeTableID TID = (OP::OpCodeTableID)(EncodedOpCode >> 16);
+  unsigned TableIndex = GetOpCodeTableIndex(TID);
+  if (TableIndex >= DXIL::NumOpCodeTables)
+    return false;
+  OP::OpCodeTable &Table = OP::g_OpCodeTables[TableIndex];
+  unsigned Op = (EncodedOpCode & 0xFFFF);
+  if (Op >= Table.Count)
+    return false;
+  return Table.Table[Op].opCodeClass == OP::OpCodeClass::Reserved;
 }
 const OP::OpCodeProperty &OP::GetOpCodeProps(unsigned OriginalOpCode) {
   OP::OpCodeTableID TID = OP::OpCodeTableID::CoreOps;
@@ -3282,6 +3079,9 @@ bool OP::CheckOpCodeTable() {
     const OP::OpCodeTable &Table = OP::g_OpCodeTables[TableIndex];
     for (unsigned OpIndex = 0; OpIndex < Table.Count; OpIndex++) {
       const OP::OpCodeProperty &Prop = Table.Table[OpIndex];
+      // Skip reserved opcodes, which must never be used.
+      if ((unsigned)Prop.opCode == (unsigned)OP::OpCode::Invalid)
+        continue;
       OP::OpCodeTableID DecodedTID;
       unsigned DecodedOpIndex;
       unsigned DecodedTableIndex;
@@ -5936,56 +5736,6 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
     A(pI32);
     break;
 
-    //
-  case OpCode::Reserved_0x000000E2:
-    A(pV);
-    A(pI32);
-    break;
-  case OpCode::Reserved_0x000000E3:
-    A(pV);
-    A(pI32);
-    break;
-  case OpCode::Reserved_0x000000E4:
-    A(pV);
-    A(pI32);
-    break;
-  case OpCode::Reserved_0x000000E5:
-    A(pV);
-    A(pI32);
-    break;
-  case OpCode::Reserved_0x000000E6:
-    A(pV);
-    A(pI32);
-    break;
-  case OpCode::Reserved_0x000000E7:
-    A(pV);
-    A(pI32);
-    break;
-  case OpCode::Reserved_0x000000E8:
-    A(pV);
-    A(pI32);
-    break;
-  case OpCode::Reserved_0x000000E9:
-    A(pV);
-    A(pI32);
-    break;
-  case OpCode::Reserved_0x000000EA:
-    A(pV);
-    A(pI32);
-    break;
-  case OpCode::Reserved_0x000000EB:
-    A(pV);
-    A(pI32);
-    break;
-  case OpCode::Reserved_0x000000EC:
-    A(pV);
-    A(pI32);
-    break;
-  case OpCode::Reserved_0x000000ED:
-    A(pV);
-    A(pI32);
-    break;
-
     // Create/Annotate Node Handles
   case OpCode::AllocateNodeOutputRecords:
     A(pNodeRecordHandle);
@@ -6142,20 +5892,6 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
     A(pI32);
     A(pI32);
     A(pI32);
-    A(pI32);
-    break;
-
-    //
-  case OpCode::Reserved_0x00000103:
-    A(pV);
-    A(pI32);
-    break;
-  case OpCode::Reserved_0x00000104:
-    A(pV);
-    A(pI32);
-    break;
-  case OpCode::Reserved_0x00000105:
-    A(pV);
     A(pI32);
     break;
 
@@ -6337,60 +6073,6 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
     A(pI32);
     A(pHit);
     A(udt);
-    break;
-
-    //
-  case OpCode::Reserved_0x00000122:
-    A(pV);
-    A(pI32);
-    break;
-  case OpCode::Reserved_0x00000123:
-    A(pV);
-    A(pI32);
-    break;
-  case OpCode::Reserved_0x00000124:
-    A(pV);
-    A(pI32);
-    break;
-  case OpCode::Reserved_0x00000125:
-    A(pV);
-    A(pI32);
-    break;
-  case OpCode::Reserved_0x00000126:
-    A(pV);
-    A(pI32);
-    break;
-  case OpCode::Reserved_0x00000127:
-    A(pV);
-    A(pI32);
-    break;
-  case OpCode::Reserved_0x00000128:
-    A(pV);
-    A(pI32);
-    break;
-  case OpCode::Reserved_0x00000129:
-    A(pV);
-    A(pI32);
-    break;
-  case OpCode::Reserved_0x0000012A:
-    A(pV);
-    A(pI32);
-    break;
-  case OpCode::Reserved_0x0000012B:
-    A(pV);
-    A(pI32);
-    break;
-  case OpCode::Reserved_0x0000012C:
-    A(pV);
-    A(pI32);
-    break;
-  case OpCode::Reserved_0x0000012D:
-    A(pV);
-    A(pI32);
-    break;
-  case OpCode::Reserved_0x0000012E:
-    A(pV);
-    A(pI32);
     break;
 
     // Resources
@@ -6690,20 +6372,6 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
     EXT(1);
     break;
 
-    //
-  case OpCode::Reserved_0x8000001E:
-    A(pV);
-    A(pI32);
-    break;
-  case OpCode::Reserved_0x8000001F:
-    A(pV);
-    A(pI32);
-    break;
-  case OpCode::Reserved_0x80000020:
-    A(pV);
-    A(pI32);
-    break;
-
     // Debugging
   case OpCode::DebugBreak:
     A(pV);
@@ -6958,18 +6626,6 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
   case OpCode::AnnotateHandle:
   case OpCode::CreateHandleFromBinding:
   case OpCode::CreateHandleFromHeap:
-  case OpCode::Reserved_0x000000E2:
-  case OpCode::Reserved_0x000000E3:
-  case OpCode::Reserved_0x000000E4:
-  case OpCode::Reserved_0x000000E5:
-  case OpCode::Reserved_0x000000E6:
-  case OpCode::Reserved_0x000000E7:
-  case OpCode::Reserved_0x000000E8:
-  case OpCode::Reserved_0x000000E9:
-  case OpCode::Reserved_0x000000EA:
-  case OpCode::Reserved_0x000000EB:
-  case OpCode::Reserved_0x000000EC:
-  case OpCode::Reserved_0x000000ED:
   case OpCode::AllocateNodeOutputRecords:
   case OpCode::IncrementOutputCount:
   case OpCode::OutputComplete:
@@ -6986,28 +6642,12 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
   case OpCode::NodeOutputIsValid:
   case OpCode::GetRemainingRecursionLevels:
   case OpCode::AllocateRayQuery2:
-  case OpCode::Reserved_0x00000103:
-  case OpCode::Reserved_0x00000104:
-  case OpCode::Reserved_0x00000105:
   case OpCode::HitObject_FromRayQuery:
   case OpCode::HitObject_MakeMiss:
   case OpCode::HitObject_MakeNop:
   case OpCode::MaybeReorderThread:
   case OpCode::HitObject_SetShaderTableIndex:
   case OpCode::HitObject_LoadLocalRootTableConstant:
-  case OpCode::Reserved_0x00000122:
-  case OpCode::Reserved_0x00000123:
-  case OpCode::Reserved_0x00000124:
-  case OpCode::Reserved_0x00000125:
-  case OpCode::Reserved_0x00000126:
-  case OpCode::Reserved_0x00000127:
-  case OpCode::Reserved_0x00000128:
-  case OpCode::Reserved_0x00000129:
-  case OpCode::Reserved_0x0000012A:
-  case OpCode::Reserved_0x0000012B:
-  case OpCode::Reserved_0x0000012C:
-  case OpCode::Reserved_0x0000012D:
-  case OpCode::Reserved_0x0000012E:
   case OpCode::ExperimentalNop:
   case OpCode::GetGroupWaveIndex:
   case OpCode::GetGroupWaveCount:
@@ -7025,9 +6665,6 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
   case OpCode::MatrixAccumulate:
   case OpCode::MatrixAccumulateToDescriptor:
   case OpCode::MatrixAccumulateToMemory:
-  case OpCode::Reserved_0x8000001E:
-  case OpCode::Reserved_0x8000001F:
-  case OpCode::Reserved_0x80000020:
   case OpCode::DebugBreak:
   case OpCode::IsDebuggerPresent:
     return Type::getVoidTy(Ctx);
