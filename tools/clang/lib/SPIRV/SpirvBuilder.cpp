@@ -895,6 +895,16 @@ SpirvInstruction *SpirvBuilder::createNonSemanticDebugPrintfExtInst(
 }
 
 SpirvInstruction *
+SpirvBuilder::createNonSemanticDebugBreakExtInst(SourceLocation loc) {
+  assert(insertPoint && "null insert point");
+  auto *extInst = new (context) SpirvExtInst(
+      astContext.VoidTy, loc, getExtInstSet("NonSemantic.DebugBreak"),
+      NonSemanticDebugBreakDebugBreak, {});
+  insertPoint->addInstruction(extInst);
+  return extInst;
+}
+
+SpirvInstruction *
 SpirvBuilder::createIsNodePayloadValid(SpirvInstruction *payloadArray,
                                        SpirvInstruction *nodeIndex,
                                        SourceLocation loc) {

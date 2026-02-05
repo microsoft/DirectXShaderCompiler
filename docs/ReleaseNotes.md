@@ -17,14 +17,10 @@ The included licenses apply to the following files:
 
 ## Changelog
 
-### Version 1.9.2602
+### Upcoming Release
 
-#### Shader Model 6.9 Release
-
-- Shader Model 6.9 is fully supported.
-  - See [the official blog
-  post](https://devblogs.microsoft.com/directx/shader-model-6-9-dxr-1-2-and-agilitysdk-1-619-release)
-  for more details.
+Place release notes for the upcoming release below this line and remove this
+line upon naming the release. Refer to previous for appropriate section names.
 
 #### Experimental Shader Model 6.10
 
@@ -35,6 +31,19 @@ The included licenses apply to the following files:
   - GetGroupWaveCount: New intrinsic for Compute, Mesh, Amplification and Node
   shaders which returns the total number of waves executing within the thread
   group.
+- Added `DebugBreak()` and `dx::IsDebuggerPresent()` intrinsics for shader debugging (experimental Shader Model 6.10).
+  - `DebugBreak()` triggers a breakpoint if a debugger is attached.
+  - `dx::IsDebuggerPresent()` returns true if a debugger is attached.
+  - SPIR-V: `DebugBreak()` emits `NonSemantic.DebugBreak` extended instruction; `IsDebuggerPresent()` is not supported.
+
+### Version 1.9.2602
+
+#### Shader Model 6.9 Release
+
+- Shader Model 6.9 is fully supported.
+  - See [the official blog
+  post](https://devblogs.microsoft.com/directx/shader-model-6-9-dxr-1-2-and-agilitysdk-1-619-release)
+  for more details.
 
 #### Noteble SPIR-V updates
 
@@ -80,7 +89,6 @@ The included licenses apply to the following files:
 - Several small bug fixes.
 
 #### Other Changes
-
 - Fixed regression: [#7510](https://github.com/microsoft/DirectXShaderCompiler/issues/7510) crash when calling `sizeof` on templated type.
 - Fixed regression: [#7508](https://github.com/microsoft/DirectXShaderCompiler/issues/7508) crash when calling `Load` with `status`.
 - Header file `dxcpix.h` was added to the release package.
