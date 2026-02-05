@@ -6951,6 +6951,64 @@ Value *TranslateLinAlgMatrixStoreToDescriptor(
                             {OpArg, Matrix, ResHandle, Offset, Stride, Layout});
 }
 
+Value *TranslateLinAlgMatVecMul(CallInst *CI, IntrinsicOp IOP,
+                                OP::OpCode OpCode,
+                                HLOperationLowerHelper &Helper,
+                                HLObjectOperationLowerHelper *ObjHelper,
+                                bool &Translated) {
+  hlsl::OP *HlslOp = &Helper.hlslOP;
+  IRBuilder<> Builder(CI);
+
+  Value *ReturnVecPtr = CI->getArgOperand(1);
+  DXASSERT_NOMSG(isa<PointerType>(ReturnVecPtr->getType()));
+  Type *ReturnVecType = ReturnVecPtr->getType()->getPointerElementType();
+
+  Value *Matrix = CI->getArgOperand(2);
+  Value *InputVector = CI->getArgOperand(3);
+  Value *InputVectorInterp = CI->getArgOperand(4);
+
+  Constant *OpArg = HlslOp->GetU32Const((unsigned)OpCode);
+  Function *DxilFunc = HlslOp->GetOpFunc(
+      OpCode, {ReturnVecType, Matrix->getType(), InputVector->getType()});
+
+  Value *ReturnVec = Builder.CreateCall(
+      DxilFunc, {OpArg, Matrix, InputVector, InputVectorInterp});
+  Builder.CreateStore(ReturnVec, ReturnVecPtr);
+
+  return nullptr;
+}
+
+Value *TranslateLinAlgMatVecMulAdd(CallInst *CI, IntrinsicOp IOP,
+                                   OP::OpCode OpCode,
+                                   HLOperationLowerHelper &Helper,
+                                   HLObjectOperationLowerHelper *ObjHelper,
+                                   bool &Translated) {
+  hlsl::OP *HlslOp = &Helper.hlslOP;
+  IRBuilder<> Builder(CI);
+
+  Value *ReturnVecPtr = CI->getArgOperand(1);
+  DXASSERT_NOMSG(isa<PointerType>(ReturnVecPtr->getType()));
+  Type *ReturnVecType = ReturnVecPtr->getType()->getPointerElementType();
+
+  Value *Matrix = CI->getArgOperand(2);
+  Value *InputVector = CI->getArgOperand(3);
+  Value *InputVectorInterp = CI->getArgOperand(4);
+  Value *BiasVector = CI->getArgOperand(5);
+  Value *BiasVectorInterp = CI->getArgOperand(6);
+
+  Constant *OpArg = HlslOp->GetU32Const((unsigned)OpCode);
+  Function *DxilFunc = HlslOp->GetOpFunc(
+      OpCode, {ReturnVecType, Matrix->getType(), InputVector->getType(),
+               BiasVector->getType()});
+
+  Value *ReturnVec = Builder.CreateCall(
+      DxilFunc, {OpArg, Matrix, InputVector, InputVectorInterp, BiasVector,
+                 BiasVectorInterp});
+  Builder.CreateStore(ReturnVec, ReturnVecPtr);
+
+  return nullptr;
+}
+
 Value *TranslateLinAlgMatrixLoadFromDescriptor(
     CallInst *CI, IntrinsicOp IOP, OP::OpCode OpCode,
     HLOperationLowerHelper &Helper, HLObjectOperationLowerHelper *ObjHelper,
@@ -7762,10 +7820,10 @@ constexpr IntrinsicLower gLowerTable[] = {
      DXIL::OpCode::LinAlgMatrixAccumulateToMemory},
     {IntrinsicOp::IOP___builtin_LinAlg_MatrixOuterProduct, EmptyLower,
      DXIL::OpCode::LinAlgMatrixOuterProduct},
-    {IntrinsicOp::IOP___builtin_LinAlg_MatrixVectorMultiply, EmptyLower,
-     DXIL::OpCode::LinAlgMatVecMul},
-    {IntrinsicOp::IOP___builtin_LinAlg_MatrixVectorMultiplyAdd, EmptyLower,
-     DXIL::OpCode::LinAlgMatVecMulAdd},
+    {IntrinsicOp::IOP___builtin_LinAlg_MatrixVectorMultiply,
+     TranslateLinAlgMatVecMul, DXIL::OpCode::LinAlgMatVecMul},
+    {IntrinsicOp::IOP___builtin_LinAlg_MatrixVectorMultiplyAdd,
+     TranslateLinAlgMatVecMulAdd, DXIL::OpCode::LinAlgMatVecMulAdd},
 };
 constexpr size_t NumLowerTableEntries =
     sizeof(gLowerTable) / sizeof(gLowerTable[0]);

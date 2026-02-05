@@ -21,4 +21,12 @@ void main() {
   // CHECK: %{{.*}} = call %dx.types.LinAlgMatrixC1M1N1U0S0 @dx.op.linAlgMatrixLoadFromDescriptor.mC1M1N1U0S0(i32 -2147483634, %dx.types.Handle %{{.*}}, i32 0, i32 0, i32 0)  ; LinAlgMatrixLoadFromDescriptor(handle,offset,stride,layout)
   __builtin_LinAlgMatrix [[__LinAlgMatrix_Attributes(1, 1, 1, 0, 0)]] mat3;
   __builtin_LinAlg_MatrixLoadFromDescriptor(mat3, inbuf, 0, 0, 0);
+
+  // CHECK: call <4 x float> @dx.op.linAlgMatVecMul.v4f32.mC4M5N4U1S2.v4f32(i32 -2147483623, %dx.types.LinAlgMatrixC4M5N4U1S2 %{{.*}}, <4 x float> <float 1.000000e+00, float 2.000000e+00, float 3.000000e+00, float 4.000000e+00>, i32 1)  ; LinAlgMatVecMul(matrix,inputVector,interpretation)
+  float4 vec = {1,2,3,4};
+  float4 result;
+  __builtin_LinAlg_MatrixVectorMultiply(result, mat1, vec, 1);
+
+  // CHECK: call <4 x float> @dx.op.linAlgMatVecMulAdd.v4f32.mC5M3N4U0S0.v4f32.v4f32(i32 -2147483622, %dx.types.LinAlgMatrixC5M3N4U0S0 %{{.*}}, <4 x float> <float 1.000000e+00, float 2.000000e+00, float 3.000000e+00, float 4.000000e+00>, i32 1, <4 x float> %{{.*}}, i32 0)  ; LinAlgMatVecMulAdd(matrix,inputVector,inputInterpretation,biasVector,biasInterpretation)
+  __builtin_LinAlg_MatrixVectorMultiplyAdd(result, mat2, vec, 1, result, 0);
 }

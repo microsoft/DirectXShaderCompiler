@@ -15,4 +15,13 @@ void main() {
 
   // expected-error@+1{{intrinsic __builtin_LinAlg_MatrixLoadFromDescriptor potentially used by ''main'' requires shader model 6.10 or greater}}
   __builtin_LinAlg_MatrixLoadFromDescriptor(mat, inbuf, 1, 1, 1);
+
+  float4 input = {1,2,3,4};
+  float4 bias = {4,3,2,1};
+  float4 result;
+
+  // expected-error@+1{{intrinsic __builtin_LinAlg_MatrixVectorMultiply potentially used by ''main'' requires shader model 6.10 or greater}}
+  __builtin_LinAlg_MatrixVectorMultiply(result, mat, input, 1);
+  // expected-error@+1{{intrinsic __builtin_LinAlg_MatrixVectorMultiplyAdd potentially used by ''main'' requires shader model 6.10 or greater}}
+  __builtin_LinAlg_MatrixVectorMultiplyAdd(result, mat, input, 1, bias, 0);
 }
