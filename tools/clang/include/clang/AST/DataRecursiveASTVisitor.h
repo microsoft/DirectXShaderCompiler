@@ -1135,8 +1135,17 @@ DEF_TRAVERSE_TYPELOC(AutoType, {
 DEF_TRAVERSE_TYPELOC(RecordType, {})
 DEF_TRAVERSE_TYPELOC(EnumType, {})
 // HLSL Change Start
-DEF_TRAVERSE_TYPELOC(AttributedLinAlgMatrixType, {})
-DEF_TRAVERSE_TYPELOC(DependentAttributedLinAlgMatrixType, {})
+DEF_TRAVERSE_TYPELOC(AttributedLinAlgMatrixType, {
+  TRY_TO(TraverseType(TL.getTypePtr()->getWrappedType()));
+})
+DEF_TRAVERSE_TYPELOC(DependentAttributedLinAlgMatrixType, {
+  TRY_TO(TraverseType(TL.getTypePtr()->getWrappedType()));
+  TRY_TO(TraverseStmt(TL.getTypePtr()->getComponentTyExpr()));
+  TRY_TO(TraverseStmt(TL.getTypePtr()->getRowsExpr()));
+  TRY_TO(TraverseStmt(TL.getTypePtr()->getColsExpr()));
+  TRY_TO(TraverseStmt(TL.getTypePtr()->getUseExpr()));
+  TRY_TO(TraverseStmt(TL.getTypePtr()->getScopeExpr()));
+})
 // HLSL Change End
 DEF_TRAVERSE_TYPELOC(TemplateTypeParmType, {})
 DEF_TRAVERSE_TYPELOC(SubstTemplateTypeParmType, {})

@@ -1366,6 +1366,11 @@ void TypePrinter::printAttributedAfter(const AttributedType *T,
 }
 
 // HLSL Change Start
+void TypePrinter::printAttributedLinAlgMatrixBefore(
+    const AttributedLinAlgMatrixType *T, raw_ostream &OS) {
+  printBefore(T->getWrappedType(), OS);
+}
+
 void TypePrinter::printAttributedLinAlgMatrixAfter(
     const AttributedLinAlgMatrixType *T, raw_ostream &OS) {
   OS << " [[__LinAlgMatrix_Attributes("
@@ -1374,11 +1379,6 @@ void TypePrinter::printAttributedLinAlgMatrixAfter(
      << hlsl::ConvertLinAlgMatrixUseToString(T->getUse()) << ", "
      << hlsl::ConvertLinAlgMatrixScopeToString(T->getScope()) << ")]]";
   printAfter(T->getWrappedType(), OS);
-}
-
-void TypePrinter::printAttributedLinAlgMatrixBefore(
-    const AttributedLinAlgMatrixType *T, raw_ostream &OS) {
-  printBefore(T->getWrappedType(), OS);
 }
 
 void TypePrinter::printDependentAttributedLinAlgMatrixBefore(
