@@ -203,11 +203,7 @@ void VectorAccumulate(vector<ElTy, ElCount> InputVector,
 
 namespace hlsl {
 
-#ifdef __hlsl_dx_compiler
 #define SIZE_TYPE int
-#else
-#define SIZE_TYPE uint
-#endif
 
 } // namespace hlsl
 

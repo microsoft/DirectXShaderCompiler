@@ -17904,8 +17904,7 @@ static bool verifyLinAlgMatrixEnumArg(Sema &S, Expr *Arg, const char *EnumName,
   if (Value < (int64_t)MinValue || Value > (int64_t)MaxValue) {
     S.Diags.Report(Arg->getExprLoc(),
                    diag::err_hlsl_linalg_matrix_invalid_enum_attribute_value)
-        << EnumName << std::to_string(Value) << std::to_string(MinValue)
-        << std::to_string(MaxValue);
+        << EnumName << Value << MinValue << MaxValue;
     return false;
   }
 
