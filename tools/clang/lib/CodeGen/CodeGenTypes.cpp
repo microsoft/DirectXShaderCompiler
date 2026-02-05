@@ -480,7 +480,14 @@ llvm::Type *CodeGenTypes::ConvertType(QualType T) {
     case BuiltinType::OCLEvent:
       ResultType = CGM.getOpenCLRuntime().convertOpenCLSpecificType(Ty);
       break;
-    
+
+    // HLSL Change Starts
+    case BuiltinType::LinAlgMatrix:
+      llvm_unreachable("__builtin_LinAlgMatrix type without attributes is not "
+                       "a valid LinAlMatrix handle");
+      break;
+      // HLSL Change Ends
+
     case BuiltinType::Dependent:
 #define BUILTIN_TYPE(Id, SingletonId)
 #define PLACEHOLDER_TYPE(Id, SingletonId) \

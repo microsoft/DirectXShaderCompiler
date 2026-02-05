@@ -198,6 +198,9 @@ BUILTIN_TYPE(OCLSampler, OCLSamplerTy)
 // OpenCL event_t.
 BUILTIN_TYPE(OCLEvent, OCLEventTy)
 
+// HLSL Change - __builtin_LinAlgMatrix type
+BUILTIN_TYPE(LinAlgMatrix, LinAlgMatrixTy)
+
 // This represents the type of an expression whose type is
 // totally unknown, e.g. 'T::foo'.  It is permitted for this to
 // appear in situations where the structure of the type is

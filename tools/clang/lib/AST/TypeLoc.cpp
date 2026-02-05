@@ -320,7 +320,7 @@ TypeSpecifierType BuiltinTypeLoc::getWrittenTypeSpec() const {
   case BuiltinType::Float:
   case BuiltinType::Double:
   case BuiltinType::LongDouble:
-  // HLSL Change Starts
+    // HLSL Change Starts
   case BuiltinType::HalfFloat:
   case BuiltinType::Min10Float:
   case BuiltinType::Min16Float:
@@ -331,7 +331,8 @@ TypeSpecifierType BuiltinTypeLoc::getWrittenTypeSpec() const {
   case BuiltinType::LitInt:
   case BuiltinType::Int8_4Packed:
   case BuiltinType::UInt8_4Packed:
-  // HLSL Change Ends
+  case BuiltinType::LinAlgMatrix:
+    // HLSL Change Ends
     llvm_unreachable("Builtin type needs extra local data!");
     // Fall through, if the impossible happens.
       

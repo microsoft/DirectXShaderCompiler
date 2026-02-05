@@ -1699,6 +1699,8 @@ public:
 
   bool isOpenCLSpecificType() const;            // Any OpenCL specific type
 
+  bool isLinAlgMatrixType() const; // HLSL __builtin_LinAlgMatrix
+
   /// Determines if this type, which must satisfy
   /// isObjCLifetimeType(), is implicitly __unsafe_unretained rather
   /// than implicitly __strong.
@@ -5419,6 +5421,12 @@ inline bool Type::isSamplerT() const {
 inline bool Type::isEventT() const {
   return isSpecificBuiltinType(BuiltinType::OCLEvent);
 }
+
+// HLSL Change Starts
+inline bool Type::isLinAlgMatrixType() const {
+  return isSpecificBuiltinType(BuiltinType::LinAlgMatrix);
+}
+// HLSL Change Ends
 
 inline bool Type::isImageType() const {
   return isImage3dT() ||

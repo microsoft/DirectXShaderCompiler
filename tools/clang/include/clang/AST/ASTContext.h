@@ -844,7 +844,7 @@ public:
   CanQualType HalfFloatTy, Min16FloatTy, Min16IntTy, Min16UIntTy;
   CanQualType HLSLStringTy;
   CanQualType Int8_4PackedTy, UInt8_4PackedTy;
-
+  CanQualType LinAlgMatrixTy;
   // HLSL Changes end
 
   // Types for deductions in C++0x [stmt.ranged]'s desugaring. Built on demand.

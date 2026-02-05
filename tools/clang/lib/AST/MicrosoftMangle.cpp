@@ -1623,6 +1623,9 @@ void MicrosoftCXXNameMangler::mangleType(const BuiltinType *T, Qualifiers,
   case BuiltinType::UInt8_4Packed:
     Out << "$ui8_4pk@";
     break;
+  case BuiltinType::LinAlgMatrix:
+    Out << "$linalg_matrix@";
+    break;
     // HLSL Change Ends
   }
 }
