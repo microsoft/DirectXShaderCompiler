@@ -9696,7 +9696,7 @@ class db_hlsl(object):
             acceleration_struct | ray_desc | RayQuery | DxHitObject |
             Node\w* | RWNode\w* | EmptyNode\w* |
             AnyNodeOutput\w* | NodeOutputRecord\w* | GroupShared\w* |
-            VkBufferPointer | LinAlgMatrix
+            VkBufferPointer | LinAlgMatrix | VkSampledTexture2D
             $)""",
             flags=re.VERBOSE,
         )

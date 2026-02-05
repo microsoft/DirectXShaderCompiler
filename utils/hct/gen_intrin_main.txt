@@ -1234,3 +1234,11 @@ $classT [[]] SubpassLoad(in int sample) : subpassinputms_load;
 } namespace
 
 // SPIRV Change Ends
+
+namespace VkSampledTexture2DMethods {
+    $classT [[ro]] Sample(in float<2> x) : tex2d_t;
+    $classT [[ro]] Sample(in float<2> x, in int<2> o) : tex2d_t_o;
+    $classT [[ro]] Sample(in float<2> x, in int<2> o, in float clamp) : tex2d_t_o_cl;
+    $classT [[]] Sample(in float<2> x, in int<2> o, in float clamp, out uint_only status) : tex2d_t_o_cl_s;
+    float [[ro]] CalculateLevelOfDetail(in float<2> x) : tex2d_t_calc_lod;
+} namespace

@@ -1372,77 +1372,12 @@ CXXRecordDecl *hlsl::DeclareNodeOrRecordType(
 }
 
 #ifdef ENABLE_SPIRV_CODEGEN
-static void AddSampleFunction(ASTContext &context, CXXRecordDecl *recordDecl,
-                              QualType returnType, QualType coordinateType,
-                              QualType offsetType) {
-  QualType floatType = context.FloatTy;
-  QualType uintType = context.UnsignedIntTy;
-
-  // Sample(location)
-  CXXMethodDecl *sampleDecl = CreateObjectFunctionDeclarationWithParams(
-      context, recordDecl, returnType, ArrayRef<QualType>(coordinateType),
-      ArrayRef<StringRef>(StringRef("location")),
-      context.DeclarationNames.getIdentifier(&context.Idents.get("Sample")),
-      /*isConst*/ true);
-  sampleDecl->addAttr(HLSLIntrinsicAttr::CreateImplicit(
-      context, "op", "", static_cast<int>(hlsl::IntrinsicOp::MOP_Sample)));
-  sampleDecl->addAttr(HLSLCXXOverloadAttr::CreateImplicit(context));
-
-  // Sample(location, offset)
-  QualType params2[] = {coordinateType, offsetType};
-  StringRef names2[] = {"location", "offset"};
-  CXXMethodDecl *sampleDecl2 = CreateObjectFunctionDeclarationWithParams(
-      context, recordDecl, returnType, params2, names2,
-      context.DeclarationNames.getIdentifier(&context.Idents.get("Sample")),
-      /*isConst*/ true);
-  sampleDecl2->addAttr(HLSLIntrinsicAttr::CreateImplicit(
-      context, "op", "", static_cast<int>(hlsl::IntrinsicOp::MOP_Sample)));
-  sampleDecl2->addAttr(HLSLCXXOverloadAttr::CreateImplicit(context));
-
-  // Sample(location, offset, clamp)
-  QualType params3[] = {coordinateType, offsetType, floatType};
-  StringRef names3[] = {"location", "offset", "clamp"};
-  CXXMethodDecl *sampleDecl3 = CreateObjectFunctionDeclarationWithParams(
-      context, recordDecl, returnType, params3, names3,
-      context.DeclarationNames.getIdentifier(&context.Idents.get("Sample")),
-      /*isConst*/ true);
-  sampleDecl3->addAttr(HLSLIntrinsicAttr::CreateImplicit(
-      context, "op", "", static_cast<int>(hlsl::IntrinsicOp::MOP_Sample)));
-  sampleDecl3->addAttr(HLSLCXXOverloadAttr::CreateImplicit(context));
-
-  // Sample(location, offset, clamp, status)
-  QualType params4[] = {coordinateType, offsetType, floatType,
-                        context.getLValueReferenceType(uintType)};
-  StringRef names4[] = {"location", "offset", "clamp", "status"};
-  CXXMethodDecl *sampleDecl4 = CreateObjectFunctionDeclarationWithParams(
-      context, recordDecl, returnType, params4, names4,
-      context.DeclarationNames.getIdentifier(&context.Idents.get("Sample")),
-      /*isConst*/ true);
-  sampleDecl4->addAttr(HLSLIntrinsicAttr::CreateImplicit(
-      context, "op", "", static_cast<int>(hlsl::IntrinsicOp::MOP_Sample)));
-  sampleDecl4->addAttr(HLSLCXXOverloadAttr::CreateImplicit(context));
-}
-
-static void AddCalculateLevelOfDetailFunction(ASTContext &context,
-                                              CXXRecordDecl *recordDecl,
-                                              QualType coordinateType) {
-  QualType floatType = context.FloatTy;
-
-  CXXMethodDecl *lodDecl = CreateObjectFunctionDeclarationWithParams(
-      context, recordDecl, floatType, ArrayRef<QualType>(coordinateType),
-      ArrayRef<StringRef>(StringRef("location")),
-      context.DeclarationNames.getIdentifier(
-          &context.Idents.get("CalculateLevelOfDetail")),
-      /*isConst*/ true);
-  lodDecl->addAttr(HLSLIntrinsicAttr::CreateImplicit(
-      context, "op", "",
-      static_cast<int>(hlsl::IntrinsicOp::MOP_CalculateLevelOfDetail)));
-  lodDecl->addAttr(HLSLCXXOverloadAttr::CreateImplicit(context));
-}
-
-CXXRecordDecl *hlsl::DeclareVkSampledTextureType(
-    ASTContext &context, DeclContext *declContext, llvm::StringRef hlslTypeName,
-    QualType defaultParamType, QualType coordinateType, QualType offsetType) {
+CXXRecordDecl *hlsl::DeclareVkSampledTextureType(ASTContext &context,
+                                                 DeclContext *declContext,
+                                                 llvm::StringRef hlslTypeName,
+                                                 QualType defaultParamType) {
+  // TODO(https://github.com/microsoft/DirectXShaderCompiler/issues/7979): Later
+  // generalize these to all SampledTexture types.
   BuiltinTypeDeclBuilder Builder(declContext, hlslTypeName,
                                  TagDecl::TagKind::TTK_Struct);
 
@@ -1454,10 +1389,10 @@ CXXRecordDecl *hlsl::DeclareVkSampledTextureType(
   QualType paramType = QualType(TyParamDecl->getTypeForDecl(), 0);
   CXXRecordDecl *recordDecl = Builder.getRecordDecl();
 
-  AddSampleFunction(context, recordDecl, paramType, coordinateType, offsetType);
-  AddCalculateLevelOfDetailFunction(context, recordDecl, coordinateType);
+  if (auto *tmpl = recordDecl->getDescribedClassTemplate()) {
+    tmpl->setImplicit(true);
+  }
 
-  Builder.completeDefinition();
   return recordDecl;
 }
 

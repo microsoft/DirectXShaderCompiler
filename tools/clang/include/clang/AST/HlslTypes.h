@@ -409,8 +409,7 @@ DeclareVkBufferPointerType(clang::ASTContext &context,
 
 clang::CXXRecordDecl *DeclareVkSampledTextureType(
     clang::ASTContext &context, clang::DeclContext *declContext,
-    llvm::StringRef hlslTypeName, clang::QualType defaultParamType,
-    clang::QualType coordinateType, clang::QualType offsetType);
+    llvm::StringRef hlslTypeName, clang::QualType defaultParamType);
 
 clang::CXXRecordDecl *DeclareInlineSpirvType(clang::ASTContext &context,
                                              clang::DeclContext *declContext,

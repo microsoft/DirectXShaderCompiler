@@ -2483,6 +2483,12 @@ static void GetIntrinsicMethods(ArBasicKind kind,
     *intrinsics = g_RayQueryMethods;
     *intrinsicCount = _countof(g_RayQueryMethods);
     break;
+#ifdef ENABLE_SPIRV_CODEGEN
+  case AR_OBJECT_VK_SAMPLED_TEXTURE2D:
+    *intrinsics = g_VkSampledTexture2DMethods;
+    *intrinsicCount = _countof(g_VkSampledTexture2DMethods);
+    break;
+#endif
   case AR_OBJECT_HIT_OBJECT:
     *intrinsics = g_DxHitObjectMethods;
     *intrinsicCount = _countof(g_DxHitObjectMethods);
@@ -4090,18 +4096,15 @@ private:
       } else if (kind == AR_OBJECT_VK_SAMPLED_TEXTURE2D) {
         if (!m_vkNSDecl)
           continue;
+        QualType float4Type =
+            LookupVectorType(HLSLScalarType::HLSLScalarType_float, 4);
         recordDecl = DeclareVkSampledTextureType(
-            *m_context, m_vkNSDecl, "SampledTexture2D",
-            LookupVectorType(HLSLScalarType::HLSLScalarType_float, 4),
-            LookupVectorType(HLSLScalarType::HLSLScalarType_float, 2),
-            LookupVectorType(HLSLScalarType::HLSLScalarType_int, 2));
+            *m_context, m_vkNSDecl, "SampledTexture2D", float4Type);
         recordDecl->setImplicit(true);
-        Attr = HLSLResourceAttr::CreateImplicit(
-            *m_context, (unsigned)DXIL::ResourceKind::Texture2D,
-            (unsigned)DXIL::ResourceClass::SRV);
-        recordDecl->addAttr(Attr);
         m_vkSampledTextureTemplateDecl =
             recordDecl->getDescribedClassTemplate();
+        if (m_vkSampledTextureTemplateDecl)
+          m_vkSampledTextureTemplateDecl->setImplicit(true);
       }
 #endif
       else if (templateArgCount == 0) {
