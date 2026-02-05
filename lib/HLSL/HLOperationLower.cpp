@@ -6916,17 +6916,17 @@ Value *TranslateLinAlgFillMatrix(CallInst *CI, IntrinsicOp IOP,
   hlsl::OP *HlslOp = &Helper.hlslOP;
   IRBuilder<> Builder(CI);
 
-  Value *MatrixRefPtr = CI->getArgOperand(1);
-  DXASSERT_NOMSG(isa<PointerType>(MatrixRefPtr->getType()));
-  Type *MatrixType = MatrixRefPtr->getType()->getPointerElementType();
+  Value *MatrixPtr = CI->getArgOperand(1);
+  DXASSERT_NOMSG(isa<PointerType>(MatrixPtr->getType()));
+  Type *MatrixType = MatrixPtr->getType()->getPointerElementType();
   Value *Scalar = CI->getArgOperand(2);
 
   Constant *OpArg = HlslOp->GetU32Const((unsigned)OpCode);
   Function *DxilFunc =
       HlslOp->GetOpFunc(OpCode, {MatrixType, Scalar->getType()});
 
-  Value *MatrixRef = Builder.CreateCall(DxilFunc, {OpArg, Scalar});
-  Builder.CreateStore(MatrixRef, MatrixRefPtr);
+  Value *Matrix = Builder.CreateCall(DxilFunc, {OpArg, Scalar});
+  Builder.CreateStore(Matrix, MatrixPtr);
 
   return nullptr;
 }
@@ -6949,6 +6949,32 @@ Value *TranslateLinAlgMatrixStoreToDescriptor(
 
   return Builder.CreateCall(DxilFunc,
                             {OpArg, Matrix, ResHandle, Offset, Stride, Layout});
+}
+
+Value *TranslateLinAlgMatrixLoadFromDescriptor(
+    CallInst *CI, IntrinsicOp IOP, OP::OpCode OpCode,
+    HLOperationLowerHelper &Helper, HLObjectOperationLowerHelper *ObjHelper,
+    bool &Translated) {
+  hlsl::OP *HlslOp = &Helper.hlslOP;
+  IRBuilder<> Builder(CI);
+
+  Value *MatrixPtr = CI->getArgOperand(1);
+  DXASSERT_NOMSG(isa<PointerType>(MatrixPtr->getType()));
+  Type *MatrixType = MatrixPtr->getType()->getPointerElementType();
+
+  Value *ResHandle = CI->getArgOperand(2);
+  Value *Offset = CI->getArgOperand(3);
+  Value *Stride = CI->getArgOperand(4);
+  Value *Layout = CI->getArgOperand(5);
+
+  Constant *OpArg = HlslOp->GetU32Const((unsigned)OpCode);
+  Function *DxilFunc = HlslOp->GetOpFunc(OpCode, MatrixType);
+
+  Value *Matrix =
+      Builder.CreateCall(DxilFunc, {OpArg, ResHandle, Offset, Stride, Layout});
+  Builder.CreateStore(Matrix, MatrixPtr);
+
+  return nullptr;
 }
 
 } // namespace
@@ -7710,7 +7736,8 @@ constexpr IntrinsicLower gLowerTable[] = {
      DXIL::OpCode::LinAlgMatrixGetElement},
     {IntrinsicOp::IOP___builtin_LinAlg_MatrixLength, EmptyLower,
      DXIL::OpCode::LinAlgMatrixLength},
-    {IntrinsicOp::IOP___builtin_LinAlg_MatrixLoadFromDescriptor, EmptyLower,
+    {IntrinsicOp::IOP___builtin_LinAlg_MatrixLoadFromDescriptor,
+     TranslateLinAlgMatrixLoadFromDescriptor,
      DXIL::OpCode::LinAlgMatrixLoadFromDescriptor},
     {IntrinsicOp::IOP___builtin_LinAlg_MatrixLoadFromMemory, EmptyLower,
      DXIL::OpCode::LinAlgMatrixLoadFromMemory},

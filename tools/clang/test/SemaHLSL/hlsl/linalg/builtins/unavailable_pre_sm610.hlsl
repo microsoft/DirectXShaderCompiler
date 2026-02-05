@@ -1,5 +1,6 @@
 // RUN: %dxc -I %hlsl_headers -T cs_6_9 -E main %s -verify
 
+RWByteAddressBuffer inbuf;
 RWByteAddressBuffer outbuf;
 
 [numthreads(4,1,1)]
@@ -11,4 +12,7 @@ void main() {
 
   // expected-error@+1{{intrinsic __builtin_LinAlg_MatrixStoreToDescriptor potentially used by ''main'' requires shader model 6.10 or greater}}
   __builtin_LinAlg_MatrixStoreToDescriptor(mat, outbuf, 1, 1, 1);
+
+  // expected-error@+1{{intrinsic __builtin_LinAlg_MatrixLoadFromDescriptor potentially used by ''main'' requires shader model 6.10 or greater}}
+  __builtin_LinAlg_MatrixLoadFromDescriptor(mat, inbuf, 1, 1, 1);
 }
