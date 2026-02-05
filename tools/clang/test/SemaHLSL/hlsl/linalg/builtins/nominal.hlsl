@@ -16,9 +16,12 @@ void main() {
   __builtin_LinAlg_MatrixLoadFromDescriptor(mat2, inbuf, 1, 2, 3);
 
   float4 input = {1,2,3,4};
-  float4 bias = {4, 3, 2, 1};
+  float4 bias = {4,3,2,1};
   float4 result;
 
   __builtin_LinAlg_MatrixVectorMultiplyAdd(result, mat1, input, 1, bias, 0);
   __builtin_LinAlg_MatrixVectorMultiply(result, mat2, result, 1);
+
+  __builtin_LinAlgMatrix [[__LinAlgMatrix_Attributes(4, 5, 4, 1, 2)]] mat3;
+  __builtin_LinAlg_MatrixOuterProduct(mat3, input, bias);
 }

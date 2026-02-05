@@ -29,4 +29,9 @@ void main() {
 
   // CHECK: call <4 x float> @dx.op.linAlgMatVecMulAdd.v4f32.mC5M3N4U0S0.v4f32.v4f32(i32 -2147483622, %dx.types.LinAlgMatrixC5M3N4U0S0 %{{.*}}, <4 x float> <float 1.000000e+00, float 2.000000e+00, float 3.000000e+00, float 4.000000e+00>, i32 1, <4 x float> %{{.*}}, i32 0)  ; LinAlgMatVecMulAdd(matrix,inputVector,inputInterpretation,biasVector,biasInterpretation)
   __builtin_LinAlg_MatrixVectorMultiplyAdd(result, mat2, vec, 1, result, 0);
+
+
+  // CHECK: call %dx.types.LinAlgMatrixC2M2N2U2S2 @dx.op.linAlgMatrixOuterProduct.mC2M2N2U2S2.v4f32.v4f32(i32 -2147483619, <4 x float> <float 1.000000e+00, float 2.000000e+00, float 3.000000e+00, float 4.000000e+00>, <4 x float> %{{.*}})  ; LinAlgMatrixOuterProduct(vectorA,vectorB)
+  __builtin_LinAlgMatrix [[__LinAlgMatrix_Attributes(2, 2, 2, 2, 2)]] mat4;
+  __builtin_LinAlg_MatrixOuterProduct(mat4, vec, result);
 }

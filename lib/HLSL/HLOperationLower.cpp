@@ -7035,6 +7035,29 @@ Value *TranslateLinAlgMatrixLoadFromDescriptor(
   return nullptr;
 }
 
+Value *TranslateLinAlgMatrixOuterProduct(
+    CallInst *CI, IntrinsicOp IOP, OP::OpCode OpCode,
+    HLOperationLowerHelper &Helper, HLObjectOperationLowerHelper *ObjHelper,
+    bool &Translated) {
+  hlsl::OP *HlslOp = &Helper.hlslOP;
+  IRBuilder<> Builder(CI);
+
+  Value *MatrixPtr = CI->getArgOperand(1);
+  DXASSERT_NOMSG(isa<PointerType>(MatrixPtr->getType()));
+  Type *MatrixType = MatrixPtr->getType()->getPointerElementType();
+  Value *VecA = CI->getArgOperand(2);
+  Value *VecB = CI->getArgOperand(3);
+
+  Constant *OpArg = HlslOp->GetU32Const((unsigned)OpCode);
+  Function *DxilFunc =
+      HlslOp->GetOpFunc(OpCode, {MatrixType, VecA->getType(), VecB->getType()});
+
+  Value *Matrix = Builder.CreateCall(DxilFunc, {OpArg, VecA, VecB});
+  Builder.CreateStore(Matrix, MatrixPtr);
+
+  return nullptr;
+}
+
 } // namespace
 
 // Lower table.
@@ -7818,8 +7841,8 @@ constexpr IntrinsicLower gLowerTable[] = {
      DXIL::OpCode::LinAlgMatrixAccumulateToDescriptor},
     {IntrinsicOp::IOP___builtin_LinAlg_MatrixAccumulateToMemory, EmptyLower,
      DXIL::OpCode::LinAlgMatrixAccumulateToMemory},
-    {IntrinsicOp::IOP___builtin_LinAlg_MatrixOuterProduct, EmptyLower,
-     DXIL::OpCode::LinAlgMatrixOuterProduct},
+    {IntrinsicOp::IOP___builtin_LinAlg_MatrixOuterProduct,
+     TranslateLinAlgMatrixOuterProduct, DXIL::OpCode::LinAlgMatrixOuterProduct},
     {IntrinsicOp::IOP___builtin_LinAlg_MatrixVectorMultiply,
      TranslateLinAlgMatVecMul, DXIL::OpCode::LinAlgMatVecMul},
     {IntrinsicOp::IOP___builtin_LinAlg_MatrixVectorMultiplyAdd,
