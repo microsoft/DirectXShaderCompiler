@@ -6913,7 +6913,21 @@ Value *TranslateLinAlgFillMatrix(CallInst *CI, IntrinsicOp IOP,
                                  HLOperationLowerHelper &Helper,
                                  HLObjectOperationLowerHelper *ObjHelper,
                                  bool &Translated) {
-  DXASSERT(false, "Not implemented.");
+  hlsl::OP *HlslOp = &Helper.hlslOP;
+  IRBuilder<> Builder(CI);
+
+  Value *MatrixPtr = CI->getArgOperand(1);
+  DXASSERT_NOMSG(isa<PointerType>(MatrixPtr->getType()));
+  Type *MatrixType = MatrixPtr->getType()->getPointerElementType();
+  Value *Scalar = CI->getArgOperand(2);
+
+  Constant *OpArg = HlslOp->GetU32Const((unsigned)OpCode);
+  Function *DxilFunc =
+      HlslOp->GetOpFunc(OpCode, {MatrixType, Scalar->getType()});
+
+  Value *Matrix = Builder.CreateCall(DxilFunc, {OpArg, Scalar});
+  Builder.CreateStore(Matrix, MatrixPtr);
+
   return nullptr;
 }
 
