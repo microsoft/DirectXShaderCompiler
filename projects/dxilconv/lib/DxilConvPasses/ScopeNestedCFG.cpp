@@ -657,7 +657,7 @@ bool HasConvergentCall(BasicBlock *BB) {
   return false;
 }
 
-bool ScopeNestedCFG::IsMergePoint(BasicBlock *pBB) {  
+bool ScopeNestedCFG::IsMergePoint(BasicBlock *pBB) {
   unordered_set<BasicBlock *> UniquePredecessors;
   for (auto itPred = pred_begin(pBB), endPred = pred_end(pBB);
        itPred != endPred; ++itPred) {
@@ -1271,7 +1271,7 @@ void ScopeNestedCFG::DetermineReachableMergePoints(
       DXASSERT_NOMSG(m_LE2LBMap.find(pBB) == m_LE2LBMap.cend());
       MPI.CandidateSet.insert(iBB);
     }
-    
+
     if (HasConvergentCall(pBB)) {
       // Force the merge point to be the block itself
       MPI.MP = BTO.GetBlockId(pBB);
