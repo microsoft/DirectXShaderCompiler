@@ -148,6 +148,7 @@ public:
   static bool IsDxilOpFuncCallInst(const llvm::Instruction *I);
   static bool IsDxilOpFuncCallInst(const llvm::Instruction *I, OpCode opcode);
   static bool IsDxilOpWave(OpCode C);
+  static bool IsConvergentOp(OpCode C);
   static bool IsDxilOpGradient(OpCode C);
   static bool IsDxilOpFeedback(OpCode C);
   static bool IsDxilOpBarrier(OpCode C);

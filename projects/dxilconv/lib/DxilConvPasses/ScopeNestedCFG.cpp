@@ -10,6 +10,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #include "DxilConvPasses/ScopeNestedCFG.h"
+#include "dxc/DXIL/DxilOperations.h"
 #include "dxc/Support/Global.h"
 #include "llvm/Analysis/ReducibilityAnalysis.h"
 
@@ -645,15 +646,31 @@ BasicBlock *ScopeNestedCFG::GetEffectiveNodeToFollowSuccessor(BasicBlock *pBB) {
 
   return pEffectiveSuccessor;
 }
-
+// Returns true if this basic block contains an instruction that
+// is *control-flow convergence sensitive*.
+//
+// In DXIL, this includes:
+//   - Wave operations (WaveActive*, WaveReadLane*, etc.)
+//   - Quad / derivative operations (ddx, ddy, fwidth)
+//
+// Such instructions must NEVER be cloned or executed along
+// structurally duplicated control-flow paths.
 bool HasConvergentCall(BasicBlock *BB) {
   for (Instruction &I : *BB) {
-    if (auto *CI = dyn_cast<CallInst>(&I)) {
-      Function *CF = CI->getCalledFunction();
-      if (CF && CF->hasFnAttribute(Attribute::AttrKind::Convergent))
-        return true;
+    auto *CI = dyn_cast<CallInst>(&I);
+    if (!CI)
+      continue;
+
+    if (!hlsl::OP::IsDxilOpFuncCallInst(&I))
+      continue;
+
+    hlsl::OP::OpCode OpCode = hlsl::OP::GetDxilOpFuncCallInst(&I);
+
+    if (hlsl::OP::IsConvergentOp(OpCode)) {
+      return true;
     }
   }
+
   return false;
 }
 
