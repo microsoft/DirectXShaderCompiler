@@ -11614,15 +11614,11 @@ SpirvEmitter::processIntrinsicIsValid(const CXXMemberCallExpr *callExpr) {
 
   const auto *declRefExpr = dyn_cast<DeclRefExpr>(baseExpr->IgnoreImpCasts());
   const auto *paramDecl = dyn_cast<ParmVarDecl>(declRefExpr->getDecl());
-  int nodeIndex = 0;
-  if (HLSLNodeIdAttr *nodeId = paramDecl->getAttr<HLSLNodeIdAttr>()) {
-    nodeIndex = nodeId->getArrayIndex();
-  }
 
   SpirvInstruction *payload = doExpr(baseExpr);
   if (!shaderIndex) {
-    shaderIndex = spvBuilder.getConstantInt(astContext.UnsignedIntTy,
-                                            llvm::APInt(32, nodeIndex));
+    shaderIndex =
+        spvBuilder.getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, 0));
   }
 
   return spvBuilder.createIsNodePayloadValid(payload, shaderIndex, loc);
@@ -14188,6 +14184,88 @@ void SpirvEmitter::processInlineSpirvAttributes(const FunctionDecl *decl) {
   }
 }
 
+SpirvInstruction *
+SpirvEmitter::evalIntConstAttrArg(const Expr *expr,
+                                  llvm::Optional<uint32_t> defaultVal) {
+  if (expr) {
+    QualType type = expr->getType();
+    assert(type->isIntegerType());
+    SpirvInstruction *ret = doExpr(expr);
+    assert(ret->getopcode() == spv::Op::OpConstant ||
+           ret->getopcode() == spv::Op::OpSpecConstant);
+    if (type->isSignedIntegerType())
+      ret->setAstResultType(astContext.UnsignedIntTy);
+    return ret;
+  }
+  if (defaultVal.hasValue())
+    return spvBuilder.getConstantInt(astContext.UnsignedIntTy,
+                                     llvm::APInt(32, defaultVal.getValue()));
+  return nullptr;
+}
+
+bool SpirvEmitter::processNumThreadsAttr(const FunctionDecl *decl) {
+  auto *numThreadsAttr = decl->getAttr<HLSLNumThreadsAttr>();
+  if (!numThreadsAttr)
+    return false;
+
+  bool localSizeId = false;
+  Expr *x = numThreadsAttr->getX(), *y = numThreadsAttr->getY(),
+       *z = numThreadsAttr->getZ();
+
+  // SPIR-V spec says LocalSizeId missing "before version 1.2" but SPIRV-Tools
+  // validation excludes 1.2 as well.
+  switch (featureManager.getTargetEnv()) {
+  case SPV_ENV_VULKAN_1_0:
+  case SPV_ENV_VULKAN_1_1:
+  case SPV_ENV_VULKAN_1_1_SPIRV_1_4:
+  case SPV_ENV_VULKAN_1_2:
+    break;
+  default:
+    if (x->isVulkanSpecConstantExpr(astContext) ||
+        y->isVulkanSpecConstantExpr(astContext) ||
+        z->isVulkanSpecConstantExpr(astContext)) {
+      auto f = [this](Expr *E) -> SpirvInstruction * {
+        if (E) {
+          llvm::APSInt apsInt;
+          APValue apValue;
+          if (E->isIntegerConstantExpr(apsInt, astContext))
+            return spvBuilder.getConstantInt(astContext.UnsignedIntTy, apsInt);
+          if (E->isVulkanSpecConstantExpr(astContext, &apValue) &&
+              apValue.isInt()) {
+            auto *declRefExpr = dyn_cast<DeclRefExpr>(E);
+            auto *varDecl = dyn_cast<const VarDecl>(declRefExpr->getDecl());
+            return declIdMapper.getDeclEvalInfo(varDecl,
+                                                declRefExpr->getExprLoc());
+          }
+        }
+        return spvBuilder.getConstantInt(astContext.UnsignedIntTy,
+                                         llvm::APInt(32, 1));
+      };
+      spvBuilder.addExecutionModeId(entryFunction,
+                                    spv::ExecutionMode::LocalSizeId,
+                                    {f(x), f(y), f(z)}, decl->getLocation());
+      return true;
+    }
+  }
+
+  auto f = [this](Expr *E) -> unsigned {
+    if (E) {
+      llvm::APSInt apsInt;
+      APValue apValue;
+      if (E->isIntegerConstantExpr(apsInt, astContext))
+        return (unsigned)apsInt.getZExtValue();
+      if (E->isVulkanSpecConstantExpr(astContext, &apValue) &&
+          apValue.isInt()) {
+        return apValue.getInt().getZExtValue();
+      }
+    }
+    return 1U;
+  };
+  spvBuilder.addExecutionMode(entryFunction, spv::ExecutionMode::LocalSize,
+                              {f(x), f(y), f(z)}, decl->getLocation());
+  return true;
+}
+
 bool SpirvEmitter::processGeometryShaderAttributes(const FunctionDecl *decl,
                                                    uint32_t *arraySize) {
   bool success = true;
@@ -14379,28 +14457,18 @@ void SpirvEmitter::checkForWaveSizeAttr(const FunctionDecl *decl) {
 }
 
 void SpirvEmitter::processComputeShaderAttributes(const FunctionDecl *decl) {
-  auto *numThreadsAttr = decl->getAttr<HLSLNumThreadsAttr>();
-  assert(numThreadsAttr && "thread group size missing from entry-point");
-
-  uint32_t x = static_cast<uint32_t>(numThreadsAttr->getX());
-  uint32_t y = static_cast<uint32_t>(numThreadsAttr->getY());
-  uint32_t z = static_cast<uint32_t>(numThreadsAttr->getZ());
-
-  spvBuilder.addExecutionMode(entryFunction, spv::ExecutionMode::LocalSize,
-                              {x, y, z}, decl->getLocation());
+  if (!processNumThreadsAttr(decl)) {
+    assert(false && "thread group size missing from entry-point");
+  }
 
   checkForWaveSizeAttr(decl);
 }
 
 void SpirvEmitter::processNodeShaderAttributes(const FunctionDecl *decl) {
-  uint32_t x = 1, y = 1, z = 1;
-  if (auto *numThreadsAttr = decl->getAttr<HLSLNumThreadsAttr>()) {
-    x = static_cast<uint32_t>(numThreadsAttr->getX());
-    y = static_cast<uint32_t>(numThreadsAttr->getY());
-    z = static_cast<uint32_t>(numThreadsAttr->getZ());
+  if (!processNumThreadsAttr(decl)) {
+    spvBuilder.addExecutionMode(entryFunction, spv::ExecutionMode::LocalSize,
+                                {1, 1, 1}, decl->getLocation());
   }
-  spvBuilder.addExecutionMode(entryFunction, spv::ExecutionMode::LocalSize,
-                              {x, y, z}, decl->getLocation());
 
   auto *nodeLaunchAttr = decl->getAttr<HLSLNodeLaunchAttr>();
   StringRef launchType = nodeLaunchAttr ? nodeLaunchAttr->getLaunchType() : "";
@@ -14410,20 +14478,20 @@ void SpirvEmitter::processNodeShaderAttributes(const FunctionDecl *decl) {
                                 decl->getLocation());
   }
 
-  uint64_t nodeId = 0;
-  if (const auto nodeIdAttr = decl->getAttr<HLSLNodeIdAttr>())
-    nodeId = static_cast<uint64_t>(nodeIdAttr->getArrayIndex());
-  spvBuilder.addExecutionModeId(
-      entryFunction, spv::ExecutionMode::ShaderIndexAMDX,
-      {spvBuilder.getConstantInt(astContext.UnsignedIntTy,
-                                 llvm::APInt(32, nodeId))},
-      decl->getLocation());
+  SpirvInstruction *nodeId = nullptr;
+  if (const auto *nodeIdAttr = decl->getAttr<HLSLNodeIdAttr>())
+    nodeId = evalIntConstAttrArg(nodeIdAttr->getArrayIndex(), 0);
+  else
+    nodeId =
+        spvBuilder.getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, 0));
+  spvBuilder.addExecutionModeId(entryFunction,
+                                spv::ExecutionMode::ShaderIndexAMDX, {nodeId},
+                                decl->getLocation());
 
   if (const auto *nodeMaxRecursionDepthAttr =
           decl->getAttr<HLSLNodeMaxRecursionDepthAttr>()) {
-    SpirvInstruction *count = spvBuilder.getConstantInt(
-        astContext.UnsignedIntTy,
-        llvm::APInt(32, nodeMaxRecursionDepthAttr->getCount()));
+    SpirvInstruction *count =
+        evalIntConstAttrArg(nodeMaxRecursionDepthAttr->getCount());
     spvBuilder.addExecutionModeId(entryFunction,
                                   spv::ExecutionMode::MaxNodeRecursionAMDX,
                                   {count}, decl->getLocation());
@@ -14433,32 +14501,25 @@ void SpirvEmitter::processNodeShaderAttributes(const FunctionDecl *decl) {
           decl->getAttr<HLSLNodeShareInputOfAttr>()) {
     SpirvInstruction *name =
         spvBuilder.getConstantString(nodeShareInputOfAttr->getName());
-    SpirvInstruction *index = spvBuilder.getConstantInt(
-        astContext.UnsignedIntTy,
-        llvm::APInt(32, nodeShareInputOfAttr->getArrayIndex()));
+    SpirvInstruction *index =
+        evalIntConstAttrArg(nodeShareInputOfAttr->getArrayIndex(), 0);
     spvBuilder.addExecutionModeId(entryFunction,
                                   spv::ExecutionMode::SharesInputWithAMDX,
                                   {name, index}, decl->getLocation());
   }
 
   if (const auto *dispatchGrid = decl->getAttr<HLSLNodeDispatchGridAttr>()) {
-    SpirvInstruction *gridX = spvBuilder.getConstantInt(
-        astContext.UnsignedIntTy, llvm::APInt(32, dispatchGrid->getX()));
-    SpirvInstruction *gridY = spvBuilder.getConstantInt(
-        astContext.UnsignedIntTy, llvm::APInt(32, dispatchGrid->getY()));
-    SpirvInstruction *gridZ = spvBuilder.getConstantInt(
-        astContext.UnsignedIntTy, llvm::APInt(32, dispatchGrid->getZ()));
+    SpirvInstruction *gridX = evalIntConstAttrArg(dispatchGrid->getX(), 1);
+    SpirvInstruction *gridY = evalIntConstAttrArg(dispatchGrid->getY(), 1);
+    SpirvInstruction *gridZ = evalIntConstAttrArg(dispatchGrid->getZ(), 1);
     spvBuilder.addExecutionModeId(entryFunction,
                                   spv::ExecutionMode::StaticNumWorkgroupsAMDX,
                                   {gridX, gridY, gridZ}, decl->getLocation());
   } else if (const auto *maxDispatchGrid =
                  decl->getAttr<HLSLNodeMaxDispatchGridAttr>()) {
-    SpirvInstruction *gridX = spvBuilder.getConstantInt(
-        astContext.UnsignedIntTy, llvm::APInt(32, maxDispatchGrid->getX()));
-    SpirvInstruction *gridY = spvBuilder.getConstantInt(
-        astContext.UnsignedIntTy, llvm::APInt(32, maxDispatchGrid->getY()));
-    SpirvInstruction *gridZ = spvBuilder.getConstantInt(
-        astContext.UnsignedIntTy, llvm::APInt(32, maxDispatchGrid->getZ()));
+    SpirvInstruction *gridX = evalIntConstAttrArg(maxDispatchGrid->getX(), 1);
+    SpirvInstruction *gridY = evalIntConstAttrArg(maxDispatchGrid->getY(), 1);
+    SpirvInstruction *gridZ = evalIntConstAttrArg(maxDispatchGrid->getZ(), 1);
     spvBuilder.addExecutionModeId(entryFunction,
                                   spv::ExecutionMode::MaxNumWorkgroupsAMDX,
                                   {gridX, gridY, gridZ}, decl->getLocation());
@@ -14675,14 +14736,7 @@ bool SpirvEmitter::emitEntryFunctionWrapperForRayTracing(
 
 bool SpirvEmitter::processMeshOrAmplificationShaderAttributes(
     const FunctionDecl *decl, uint32_t *outVerticesArraySize) {
-  if (auto *numThreadsAttr = decl->getAttr<HLSLNumThreadsAttr>()) {
-    uint32_t x, y, z;
-    x = static_cast<uint32_t>(numThreadsAttr->getX());
-    y = static_cast<uint32_t>(numThreadsAttr->getY());
-    z = static_cast<uint32_t>(numThreadsAttr->getZ());
-    spvBuilder.addExecutionMode(entryFunction, spv::ExecutionMode::LocalSize,
-                                {x, y, z}, decl->getLocation());
-  }
+  processNumThreadsAttr(decl);
 
   // Early return for amplification shaders as they only take the 'numthreads'
   // attribute.
@@ -16318,13 +16372,16 @@ void SpirvEmitter::addDerivativeGroupExecutionMode() {
   if (!canUseDerivativeGroupExecutionMode(sm, usingEXTMeshShader))
     return;
 
-  SpirvExecutionMode *numThreadsEm =
-      cast<SpirvExecutionMode>(spvBuilder.getModule()->findExecutionMode(
-          entryFunction, spv::ExecutionMode::LocalSize));
+  SpirvExecutionMode *numThreadsEm = dyn_cast_or_null<SpirvExecutionMode>(
+      spvBuilder.getModule()->findExecutionMode(entryFunction,
+                                                spv::ExecutionMode::LocalSize));
+  // If there is no LocalSize, there must be LocalSizeId.
+  if (!numThreadsEm)
+    return addDerivativeGroupExecutionModeId();
   auto numThreads = numThreadsEm->getParams();
 
   // The layout of the quad is determined by the numer of threads in each
-  // dimention. From the HLSL spec
+  // dimension. From the HLSL spec
   // (https://microsoft.github.io/DirectX-Specs/d3d/HLSL_SM_6_6_Derivatives.html):
   //
   // Where numthreads has an X value divisible by 4 and Y and Z are both 1, the
@@ -16344,6 +16401,61 @@ void SpirvEmitter::addDerivativeGroupExecutionMode() {
     assert(numThreads[0] % 2 == 0 && numThreads[1] % 2 == 0);
   }
 
+  spvBuilder.addExecutionMode(entryFunction, em, {}, SourceLocation());
+}
+
+void SpirvEmitter::addDerivativeGroupExecutionModeId() {
+  assert(spvContext.isCS());
+
+  SpirvExecutionModeId *numThreadsEm =
+      dyn_cast<SpirvExecutionModeId>(spvBuilder.getModule()->findExecutionMode(
+          entryFunction, spv::ExecutionMode::LocalSizeId));
+  auto numThreads = numThreadsEm->getParams();
+  bool numThreadsHasSpecConst = false;
+  auto f = [&numThreadsHasSpecConst](
+               SpirvInstruction *arg) -> llvm::Optional<unsigned> {
+    if (auto con = dyn_cast<SpirvConstantInteger>(arg)) {
+      if (con->isSpecConstant())
+        numThreadsHasSpecConst = true;
+      return (unsigned)con->getValue().getZExtValue();
+    }
+    return llvm::None;
+  };
+
+  // The layout of the quad is determined by the numer of threads in each
+  // dimension. From the HLSL spec
+  // (https://microsoft.github.io/DirectX-Specs/d3d/HLSL_SM_6_6_Derivatives.html):
+  //
+  // Where numthreads has an X value divisible by 4 and Y and Z are both 1, the
+  // quad layouts are determined according to 1D quad rules. Where numthreads X
+  // and Y values are divisible by 2, the quad layouts are determined according
+  // to 2D quad rules. Using derivative operations in any numthreads
+  // configuration not matching either of these is invalid and will produce an
+  // error.
+  static_assert(spv::ExecutionMode::DerivativeGroupQuadsNV ==
+                spv::ExecutionMode::DerivativeGroupQuadsKHR);
+  static_assert(spv::ExecutionMode::DerivativeGroupLinearNV ==
+                spv::ExecutionMode::DerivativeGroupLinearKHR);
+  spv::ExecutionMode em = spv::ExecutionMode::DerivativeGroupQuadsNV;
+  auto x = f(numThreads[0]), y = f(numThreads[1]), z = f(numThreads[2]);
+  if (x.hasValue() && x.getValue() % 4 == 0 && y.hasValue() &&
+      y.getValue() == 1 && z.hasValue() && z.getValue() == 1) {
+    em = spv::ExecutionMode::DerivativeGroupLinearNV;
+  } else {
+    assert((!x.hasValue() || x.getValue() % 2 == 0) &&
+           (!y.hasValue() || y.getValue() % 2 == 0));
+  }
+
+  if (numThreadsHasSpecConst) {
+    // This code probably belongs in DiagnoseNumThreadsForDerivativeOp() in
+    // SemaHLSL.cpp, but that function apparently isn't invoked in all
+    // applicable situations.
+    diags.Report(
+        numThreadsEm->getSourceLocation(),
+        diags.getCustomDiagID(DiagnosticsEngine::Level::Warning,
+                              "NumThreads spec constant default value used to "
+                              "determine derivative group mode"));
+  }
   spvBuilder.addExecutionMode(entryFunction, em, {}, SourceLocation());
 }
 
