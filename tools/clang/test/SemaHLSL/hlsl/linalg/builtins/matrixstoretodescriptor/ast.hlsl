@@ -1,8 +1,5 @@
 // REQUIRES: dxil-1-10
-// RUN: %dxc -I %hlsl_headers -T lib_6_10 -E main %s -ast-dump-implicit | FileCheck %s
-
-#include <dx/linalg.h>
-using namespace dx::linalg;
+// RUN: %dxc -T lib_6_10 -E main %s -ast-dump-implicit | FileCheck %s
 
 // CHECK: FunctionDecl {{.*}} implicit used __builtin_LinAlg_MatrixStoreToDescriptor 'void (__builtin_LinAlgMatrix {{.*}}, RWByteAddressBuffer, unsigned int, unsigned int, unsigned int)' extern
 // CHECK-NEXT: ParmVarDecl {{.*}} matrix '__builtin_LinAlgMatrix {{.*}}'
@@ -18,6 +15,6 @@ RWByteAddressBuffer outbuf;
 [shader("compute")]
 [numthreads(1,1,1)]
 void main() {
-  __builtin_LinAlgMatrix [[__LinAlgMatrix_Attributes(ComponentType::I32, 5, 4, MatrixUse::B, MatrixScope::ThreadGroup)]] mat;
+  __builtin_LinAlgMatrix [[__LinAlgMatrix_Attributes(1, 5, 4, 2, 2)]] mat;
   __builtin_LinAlg_MatrixStoreToDescriptor(mat, outbuf, 1, 2, 3);
 }
