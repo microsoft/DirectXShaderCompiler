@@ -3,8 +3,11 @@
 
 // expected-no-diagnostics
 
+RWByteAddressBuffer outbuf;
+
 [numthreads(1,1,1)]
 void main() {
   __builtin_LinAlgMatrix [[__LinAlgMatrix_Attributes(4, 5, 4, 1, 2)]] mat;
   __builtin_LinAlg_FillMatrix(mat, 5);
+  __builtin_LinAlg_MatrixStoreToDescriptor(mat, outbuf, 3, 2, 1);
 }
