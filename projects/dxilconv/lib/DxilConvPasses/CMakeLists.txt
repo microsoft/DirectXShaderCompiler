@@ -15,7 +15,6 @@ PUBLIC
   $<INSTALL_INTERFACE:include>
 )
 
-
 # Link against LLVMDXIL so that ScopeNestedCFG can use DxilUtil functions
 target_link_libraries(DxilConvPasses
   PRIVATE LLVMDXIL
@@ -23,6 +22,6 @@ target_link_libraries(DxilConvPasses
 
 target_include_directories(DxilConvPasses
   PRIVATE
-    ${DXC_SOURCE_DIR}/lib/DXIL  # adjust if DXIL is not in DXC_SOURCE_DIR/lib/DXIL
-    ${DXC_SOURCE_DIR}/lib/IR  # adjust if DXIL is not in DXC_SOURCE_DIR/lib/DXIL
+    ${DXC_SOURCE_DIR}/lib/DXIL
+    ${DXC_SOURCE_DIR}/lib/IR
 )
