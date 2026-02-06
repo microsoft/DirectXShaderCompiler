@@ -24,4 +24,6 @@ void main() {
 
   __builtin_LinAlgMatrix [[__LinAlgMatrix_Attributes(4, 5, 4, 1, 2)]] mat3;
   __builtin_LinAlg_MatrixOuterProduct(mat3, input, bias);
+
+  __builtin_LinAlg_MatrixAccumulate(mat3, mat3, mat2);
 }
