@@ -1766,11 +1766,6 @@ void ScopeNestedCFG::TransformAcyclicRegion(BasicBlock *pEntry) {
       BasicBlock *pClonedSucc =
           CloneNode(pSuccBB, BlockClones, RegionValueRemap);
 
-      if (bSwitchScope && IsSwitchFallthrough(Scope.pScopeBeginBB, pSuccBB)) {
-        AnnotateBranch(Scope.pClonedScopeBeginBB,
-                       BranchKind::SwitchFallthrough);
-      }
-
       if (bIfScope || bSwitchScope) {
         ScopeStackItem *pParentScope = GetScope();
         pParentScope->pPrevSuccBB = pSuccBB;
