@@ -34,4 +34,8 @@ void main() {
   // CHECK: call %dx.types.LinAlgMatrixC2M2N2U2S2 @dx.op.linAlgMatrixOuterProduct.mC2M2N2U2S2.v4f32.v4f32(i32 -2147483619, <4 x float> <float 1.000000e+00, float 2.000000e+00, float 3.000000e+00, float 4.000000e+00>, <4 x float> %{{.*}})  ; LinAlgMatrixOuterProduct(vectorA,vectorB)
   __builtin_LinAlgMatrix [[__LinAlgMatrix_Attributes(2, 2, 2, 2, 2)]] mat4;
   __builtin_LinAlg_MatrixOuterProduct(mat4, vec, result);
+
+
+  // CHECK: call %dx.types.LinAlgMatrixC2M2N2U2S2 @dx.op.linAlgMatrixAccumulate.mC2M2N2U2S2.mC1M1N1U0S0.mC5M3N4U0S0(i32 -2147483624, %dx.types.LinAlgMatrixC1M1N1U0S0 %{{.*}}, %dx.types.LinAlgMatrixC5M3N4U0S0 %{{.*}})  ; LinAlgMatrixAccumulate(matrixLHS,matrixRHS)
+  __builtin_LinAlg_MatrixAccumulate(mat4, mat3, mat2);
 }
