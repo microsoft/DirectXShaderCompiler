@@ -39,6 +39,7 @@ enum class BranchKind {
   SwitchEnd,
   SwitchNoEnd,
   SwitchBreak,
+  SwitchFallthrough,
 
   LoopBegin,
   LoopExit,

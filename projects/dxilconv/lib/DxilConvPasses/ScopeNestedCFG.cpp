@@ -162,6 +162,8 @@ private:
   bool IsAcyclicRegionTerminator(const BasicBlock *pBB);
 
   BasicBlock *GetEffectiveNodeToFollowSuccessor(BasicBlock *pBB);
+  bool IsSwitchCaseBlock(BasicBlock *BB);
+  bool IsSwitchFallthrough(BasicBlock *Pred, BasicBlock *BB);
   bool IsMergePoint(BasicBlock *pBB);
 
   BasicBlock *SplitEdge(BasicBlock *pBB, unsigned SuccIdx, const Twine &Name,
@@ -646,6 +648,44 @@ BasicBlock *ScopeNestedCFG::GetEffectiveNodeToFollowSuccessor(BasicBlock *pBB) {
 
   return pEffectiveSuccessor;
 }
+
+bool ScopeNestedCFG::IsSwitchCaseBlock(BasicBlock *BB) {
+  for (BasicBlock *Pred : predecessors(BB)) {
+    if (auto *SI = dyn_cast<SwitchInst>(Pred->getTerminator())) {
+      for (unsigned i = 0; i < SI->getNumSuccessors(); ++i) {
+        if (SI->getSuccessor(i) == BB)
+          return true;
+      }
+    }
+  }
+  return false;
+}
+
+bool ScopeNestedCFG::IsSwitchFallthrough(BasicBlock *Pred, BasicBlock *BB) {
+  // 1. Predecessor must NOT be the switch dispatch block
+  if (isa<SwitchInst>(Pred->getTerminator()))
+    return false;
+
+  // 2. Predecessor must end in unconditional branch
+  auto *Br = dyn_cast<BranchInst>(Pred->getTerminator());
+  if (!Br || !Br->isUnconditional())
+    return false;
+
+  // 3. BB must be reached by that unconditional branch
+  if (Br->getSuccessor(0) != BB)
+    return false;
+
+  // 4. Predecessor must be a switch case block
+  if (!IsSwitchCaseBlock(Pred))
+    return false;
+
+  // 5. Current block must be another switch case block
+  if (!IsSwitchCaseBlock(BB))
+    return false;
+
+  return true;
+}
+
 // Returns true if this basic block contains an instruction that
 // is *control-flow convergence sensitive*.
 //
@@ -1659,8 +1699,13 @@ void ScopeNestedCFG::TransformAcyclicRegion(BasicBlock *pEntry) {
     //
     BasicBlock *pSuccBB = pScopeBeginTI->getSuccessor(Scope.SuccIdx);
 
+    // Annotate all switch fallthrough branches
+    if (IsSwitchFallthrough(Scope.pScopeBeginBB, pSuccBB)) {
+      AnnotateBranch(Scope.pClonedScopeBeginBB, BranchKind::SwitchFallthrough);
+    }
+
+    // Only for convergent blocks, end the scope here
     if (HasConvergentCall(Scope.pScopeBeginBB)) {
-      // For convergent blocks, force the successor to end the scope here
       Scope.pScopeEndBB = Scope.pScopeBeginBB;
       Scope.pClonedScopeEndBB = nullptr;
       continue;
@@ -1720,6 +1765,11 @@ void ScopeNestedCFG::TransformAcyclicRegion(BasicBlock *pEntry) {
     if (!bEndOfScope) {
       BasicBlock *pClonedSucc =
           CloneNode(pSuccBB, BlockClones, RegionValueRemap);
+
+      if (bSwitchScope && IsSwitchFallthrough(Scope.pScopeBeginBB, pSuccBB)) {
+        AnnotateBranch(Scope.pClonedScopeBeginBB,
+                       BranchKind::SwitchFallthrough);
+      }
 
       if (bIfScope || bSwitchScope) {
         ScopeStackItem *pParentScope = GetScope();
