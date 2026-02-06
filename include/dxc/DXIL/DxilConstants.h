@@ -511,11 +511,6 @@ namespace ExperimentalOps {
 static const OpCodeTableID TableID = OpCodeTableID::ExperimentalOps;
 // Enumeration for ExperimentalOps DXIL operations
 enum class OpCode : unsigned {
-  //
-  LinAlgMatrixReserved0 = 30, // reserved
-  LinAlgMatrixReserved1 = 31, // reserved
-  LinAlgMatrixReserved2 = 32, // reserved
-
   // Debugging
   DebugBreak = 33,        // triggers a breakpoint if a debugger is attached
   IsDebuggerPresent = 34, // returns true if a debugger is attached
@@ -584,6 +579,9 @@ enum class OpCode : unsigned {
   HitObject_TriangleObjectPosition =
       10, // returns triangle vertices in object space as <9 x float>
 
+  // Reserved values:
+  // 30, 31, 32
+
   NumOpCodes = 35, // exclusive last value of enumeration
 };
 } // namespace ExperimentalOps
@@ -599,36 +597,6 @@ static const unsigned NumOpCodeTables = 2;
 // OPCODE-ENUM:BEGIN
 // Enumeration for CoreOps DXIL operations
 enum class OpCode : unsigned {
-  //
-  Reserved0 = 226,   // reserved
-  Reserved1 = 227,   // reserved
-  Reserved10 = 236,  // reserved
-  Reserved11 = 237,  // reserved
-  Reserved2 = 228,   // reserved
-  Reserved3 = 229,   // reserved
-  Reserved4 = 230,   // reserved
-  Reserved5 = 231,   // reserved
-  Reserved6 = 232,   // reserved
-  Reserved7 = 233,   // reserved
-  Reserved8 = 234,   // reserved
-  Reserved9 = 235,   // reserved
-  ReservedA0 = 259,  // reserved
-  ReservedA1 = 260,  // reserved
-  ReservedA2 = 261,  // reserved
-  ReservedB28 = 290, // reserved
-  ReservedB29 = 291, // reserved
-  ReservedB30 = 292, // reserved
-  ReservedC0 = 293,  // reserved
-  ReservedC1 = 294,  // reserved
-  ReservedC2 = 295,  // reserved
-  ReservedC3 = 296,  // reserved
-  ReservedC4 = 297,  // reserved
-  ReservedC5 = 298,  // reserved
-  ReservedC6 = 299,  // reserved
-  ReservedC7 = 300,  // reserved
-  ReservedC8 = 301,  // reserved
-  ReservedC9 = 302,  // reserved
-
   // Amplification shader instructions
   DispatchMesh = 173, // Amplification shader intrinsic DispatchMesh
 
@@ -1182,6 +1150,10 @@ enum class OpCode : unsigned {
   OutputComplete =
       241, // indicates all outputs for a given records are complete
 
+  // Reserved values:
+  // 226, 227, 228, 229, 230, 231, 232, 233, 234, 235, 236, 237, 259, 260, 261,
+  // 290, 291, 292, 293, 294, 295, 296, 297, 298, 299, 300, 301, 302
+
   NumOpCodes_Dxil_1_0 = 137,
   NumOpCodes_Dxil_1_1 = 139,
   NumOpCodes_Dxil_1_2 = 141,
@@ -1322,12 +1294,6 @@ enum class OpCode : unsigned {
   EXP_OPCODE(ExperimentalOps,
              MatrixOuterProduct), // Outer products an M sized vector and a K
                                   // sized vector producing an MxK matrix
-  // LinAlgMatrixReserved0 = 0x8000001E, 2147483678U, -2147483618
-  EXP_OPCODE(ExperimentalOps, LinAlgMatrixReserved0), // reserved
-  // LinAlgMatrixReserved1 = 0x8000001F, 2147483679U, -2147483617
-  EXP_OPCODE(ExperimentalOps, LinAlgMatrixReserved1), // reserved
-  // LinAlgMatrixReserved2 = 0x80000020, 2147483680U, -2147483616
-  EXP_OPCODE(ExperimentalOps, LinAlgMatrixReserved2), // reserved
   // DebugBreak = 0x80000021, 2147483681U, -2147483615
   EXP_OPCODE(ExperimentalOps,
              DebugBreak), // triggers a breakpoint if a debugger is attached

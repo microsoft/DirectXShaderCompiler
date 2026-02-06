@@ -426,10 +426,10 @@ class db_enumhelp_gen:
         print("// %s" % e.doc)
         print("enum class %s : unsigned {" % e.name)
         hide_val = kwargs.get("hide_val", False)
-        sorted_values = e.values
+        sorted_values = filter(lambda v: not v.reserved, e.values)
         if kwargs.get("sort_val", True):
             sorted_values = sorted(
-                e.values,
+                sorted_values,
                 key=lambda v: ("" if v.category == None else v.category) + "." + v.name,
             )
         last_category = None
@@ -447,6 +447,12 @@ class db_enumhelp_gen:
             if v.doc:
                 line_format += " // {doc}"
             print(line_format.format(name=v.name, value=v.value, doc=v.doc))
+        # Print unnamed reserved values separately.
+        reserved_values = list(filter(lambda v: v.reserved, e.values))
+        if len(reserved_values) > 0:
+            print("")
+            print("  // Reserved values:")
+            print("  // " + ", ".join([str(v.value) for v in reserved_values]))
         if e.last_value_name:
             lastName = e.last_value_name
             versioned = [
@@ -462,7 +468,7 @@ class db_enumhelp_gen:
                 "  "
                 + lastName
                 + " = "
-                + str(len(sorted_values))
+                + str(len(e.values))
                 + ", // exclusive last value of enumeration"
             )
         if e.postfix_lines:
@@ -551,11 +557,13 @@ class db_oload_gen:
             "{" + ",".join(["{0x%x}" % m for m in oloads]) + "}"
         )
         for i in table:
+            if i.is_reserved:
+                print(f"ReservedOpCodeProps, // Reserved: 0x{i.dxil_opid:08X}")
+                continue
             if last_category != i.category:
                 if last_category != None:
                     print("")
-                if not i.is_reserved:
-                    print(f"  // {i.category}")
+                print(f"  // {i.category}")
                 last_category = i.category
             scalar_masks = []
             vector_masks = []
@@ -1415,7 +1423,7 @@ def get_opcodes_rst():
 
 def get_opcodes_rst_for_table(table):
     "Create an rst table of opcodes for given opcode table"
-    instrs = [i for i in table]
+    instrs = [i for i in table.get_dxil_ops()]
     rows = []
     rows.append(["ID", "Name", "Description"])
     for i in instrs:

@@ -275,6 +275,7 @@ public:
                            unsigned *OptTableIndex = nullptr);
   static bool IsValidOpCode(unsigned EncodedOpCode);
   static bool IsValidOpCode(OpCode EncodedOpCode);
+  static bool IsReservedOpCode(unsigned EncodedOpCode);
 
 private:
   // Static properties.

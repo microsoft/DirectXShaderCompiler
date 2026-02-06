@@ -3293,10 +3293,13 @@ static void ValidateFunctionBody(Function *F, ValidationContext &ValCtx) {
           OP::OpCodeTableID TableID;
           unsigned OpIndex;
           if (!OP::DecodeOpCode(Opcode, TableID, OpIndex)) {
+            std::string OpCodeStr = std::to_string(Opcode);
+            if (OP::IsReservedOpCode(Opcode))
+              OpCodeStr += " (reserved opcode)";
             ValCtx.EmitInstrFormatError(
                 &I, ValidationRule::InstrIllegalDXILOpCode,
                 {std::to_string((unsigned)DXIL::OpCode::NumOpCodes),
-                 std::to_string(Opcode)});
+                 OpCodeStr});
             continue;
           }
           if (TableID != OP::OpCodeTableID::CoreOps &&
