@@ -10,6 +10,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #include "DxilConvPasses/ScopeNestedCFG.h"
+#include "dxc/DXIL/DxilOperations.h"
 #include "dxc/Support/Global.h"
 #include "llvm/Analysis/ReducibilityAnalysis.h"
 
@@ -161,6 +162,8 @@ private:
   bool IsAcyclicRegionTerminator(const BasicBlock *pBB);
 
   BasicBlock *GetEffectiveNodeToFollowSuccessor(BasicBlock *pBB);
+  bool IsSwitchCaseBlock(BasicBlock *BB);
+  bool IsSwitchFallthrough(BasicBlock *Pred, BasicBlock *BB);
   bool IsMergePoint(BasicBlock *pBB);
 
   BasicBlock *SplitEdge(BasicBlock *pBB, unsigned SuccIdx, const Twine &Name,
@@ -646,6 +649,71 @@ BasicBlock *ScopeNestedCFG::GetEffectiveNodeToFollowSuccessor(BasicBlock *pBB) {
   return pEffectiveSuccessor;
 }
 
+bool ScopeNestedCFG::IsSwitchCaseBlock(BasicBlock *BB) {
+  for (BasicBlock *Pred : predecessors(BB)) {
+    if (auto *SI = dyn_cast<SwitchInst>(Pred->getTerminator())) {
+      for (unsigned i = 0; i < SI->getNumSuccessors(); ++i) {
+        if (SI->getSuccessor(i) == BB)
+          return true;
+      }
+    }
+  }
+  return false;
+}
+
+bool ScopeNestedCFG::IsSwitchFallthrough(BasicBlock *Pred, BasicBlock *BB) {
+  // 1. Predecessor must NOT be the switch dispatch block
+  if (isa<SwitchInst>(Pred->getTerminator()))
+    return false;
+
+  // 2. Predecessor must end in unconditional branch
+  auto *Br = dyn_cast<BranchInst>(Pred->getTerminator());
+  if (!Br || !Br->isUnconditional())
+    return false;
+
+  // 3. BB must be reached by that unconditional branch
+  if (Br->getSuccessor(0) != BB)
+    return false;
+
+  // 4. Predecessor must be a switch case block
+  if (!IsSwitchCaseBlock(Pred))
+    return false;
+
+  // 5. Current block must be another switch case block
+  if (!IsSwitchCaseBlock(BB))
+    return false;
+
+  return true;
+}
+
+// Returns true if this basic block contains an instruction that
+// is *control-flow convergence sensitive*.
+//
+// In DXIL, this includes:
+//   - Wave operations (WaveActive*, WaveReadLane*, etc.)
+//   - Quad / derivative operations (ddx, ddy, fwidth)
+//
+// Such instructions must NEVER be cloned or executed along
+// structurally duplicated control-flow paths.
+bool HasConvergentCall(BasicBlock *BB) {
+  for (Instruction &I : *BB) {
+    auto *CI = dyn_cast<CallInst>(&I);
+    if (!CI)
+      continue;
+
+    if (!hlsl::OP::IsDxilOpFuncCallInst(&I))
+      continue;
+
+    hlsl::OP::OpCode OpCode = hlsl::OP::GetDxilOpFuncCallInst(&I);
+
+    if (hlsl::OP::IsConvergentOp(OpCode)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 bool ScopeNestedCFG::IsMergePoint(BasicBlock *pBB) {
   unordered_set<BasicBlock *> UniquePredecessors;
   for (auto itPred = pred_begin(pBB), endPred = pred_end(pBB);
@@ -1080,6 +1148,11 @@ void ScopeNestedCFG::DetermineScopeEndPoints(
       pEndBB = BTO.GetBlock(MPI.MP);
     }
 
+    if (HasConvergentCall(pBB)) {
+      // Force scope end point to be the block itself
+      pEndBB = pBB;
+    }
+
     auto itOldEndPointBB = ScopeEndPoints.find(pBB);
     if (itOldEndPointBB != ScopeEndPoints.end() &&
         itOldEndPointBB->second != pEndBB) {
@@ -1254,6 +1327,13 @@ void ScopeNestedCFG::DetermineReachableMergePoints(
       DXASSERT_NOMSG(m_LoopMap.find(pBB) == m_LoopMap.cend());
       DXASSERT_NOMSG(m_LE2LBMap.find(pBB) == m_LE2LBMap.cend());
       MPI.CandidateSet.insert(iBB);
+    }
+
+    if (HasConvergentCall(pBB)) {
+      // Force the merge point to be the block itself
+      MPI.MP = BTO.GetBlockId(pBB);
+      MPI.CandidateSet.clear();
+      MPI.CandidateSet.insert(MPI.MP);
     }
   }
 
@@ -1618,6 +1698,18 @@ void ScopeNestedCFG::TransformAcyclicRegion(BasicBlock *pEntry) {
     // II. Process successors.
     //
     BasicBlock *pSuccBB = pScopeBeginTI->getSuccessor(Scope.SuccIdx);
+
+    // Annotate all switch fallthrough branches
+    if (IsSwitchFallthrough(Scope.pScopeBeginBB, pSuccBB)) {
+      AnnotateBranch(Scope.pClonedScopeBeginBB, BranchKind::SwitchFallthrough);
+    }
+
+    // Only for convergent blocks, end the scope here
+    if (HasConvergentCall(Scope.pScopeBeginBB)) {
+      Scope.pScopeEndBB = Scope.pScopeBeginBB;
+      Scope.pClonedScopeEndBB = nullptr;
+      continue;
+    }
 
     // 7. Already processed successor.
     if (bIfScope || bSwitchScope) {

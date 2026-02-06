@@ -9,6 +9,10 @@
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
+// This file contains functions with generated code,
+// and must be clang-format compliant, unless
+// clang-format is turned off.
+
 #include "dxc/DXIL/DxilOperations.h"
 #include "dxc/DXIL/DxilConstants.h"
 #include "dxc/DXIL/DxilInstructions.h"
@@ -3363,6 +3367,18 @@ bool OP::IsDxilOpWave(OpCode C) {
          (165 <= op && op <= 167) || op == 222 ||
          (2147483649 <= op && op <= 2147483650);
   // OPCODE-WAVE:END
+}
+
+bool OP::IsConvergentOp(OpCode C) {
+  // This accounts for wave and quad ops
+  unsigned op = (unsigned)C;
+  if (OP::IsDxilOpWave(C))
+    return true;
+  // Account for derivative ops as well:
+  // DerivCoarseX = 83, DerivCoarseY = 84, DerivFineX = 85, DerivFineY = 86
+  if (83 <= op && op <= 86)
+    return true;
+  return false;
 }
 
 bool OP::IsDxilOpGradient(OpCode C) {

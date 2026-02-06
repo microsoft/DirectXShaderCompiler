@@ -205,6 +205,15 @@ private: // ScopeNestIterator Implementation
       }
     }
 
+    bool IsIntermediate() {
+      switch (Kind) {
+      case BranchKind::SwitchFallthrough:
+        return true;
+      default:
+        return false;
+      }
+    }
+
     // Translate a branch annoatation to the corresponding event type.
     ScopeNestEvent::Type TranslateToNestType() {
       switch (Kind) {
@@ -226,6 +235,8 @@ private: // ScopeNestIterator Implementation
         return ScopeNestEvent::Type::Switch_Begin;
       case BranchKind::SwitchBreak:
         return ScopeNestEvent::Type::Switch_Break;
+      case BranchKind::SwitchFallthrough:
+        return ScopeNestEvent::Type::Body;
 
       case BranchKind::LoopBegin:
         return ScopeNestEvent::Type::Loop_Begin;
@@ -868,6 +879,12 @@ private: // ScopeNestIterator Implementation
         MoveFromTopOfStack();
         break;
 
+      // Fallthrough just continues in the current scope
+      case BranchKind::SwitchFallthrough:
+        SetCurrent(ScopeNestEvent::Type::Body, m_current.Block);
+        MoveToFirstSuccessor(); // continue exploring successors
+        break;
+
       // Already exited an old scope.
       case BranchKind::IfEnd:
       case BranchKind::SwitchEnd:
@@ -914,6 +931,9 @@ private: // ScopeNestIterator Implementation
       if (BranchAnnotation annotation = BranchAnnotation::Read(B)) {
         if (annotation.IsEndScope()) {
           EnterEndOfScope(B, annotation.Get());
+        } else if (annotation.IsIntermediate()) {
+          // Just treat it as body but keep the annotation
+          SetCurrent(ScopeNestEvent::Type::Body, B);
         } else {
           DXASSERT_NOMSG(annotation.IsBeginScope());
           StartNewScope(B, annotation.Get());
