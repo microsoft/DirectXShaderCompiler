@@ -1389,10 +1389,6 @@ CXXRecordDecl *hlsl::DeclareVkSampledTextureType(ASTContext &context,
   QualType paramType = QualType(TyParamDecl->getTypeForDecl(), 0);
   CXXRecordDecl *recordDecl = Builder.getRecordDecl();
 
-  if (auto *tmpl = recordDecl->getDescribedClassTemplate()) {
-    tmpl->setImplicit(true);
-  }
-
   return recordDecl;
 }
 

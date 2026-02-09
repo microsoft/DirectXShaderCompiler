@@ -4100,11 +4100,8 @@ private:
             LookupVectorType(HLSLScalarType::HLSLScalarType_float, 4);
         recordDecl = DeclareVkSampledTextureType(
             *m_context, m_vkNSDecl, "SampledTexture2D", float4Type);
-        recordDecl->setImplicit(true);
         m_vkSampledTextureTemplateDecl =
             recordDecl->getDescribedClassTemplate();
-        if (m_vkSampledTextureTemplateDecl)
-          m_vkSampledTextureTemplateDecl->setImplicit(true);
       }
 #endif
       else if (templateArgCount == 0) {
