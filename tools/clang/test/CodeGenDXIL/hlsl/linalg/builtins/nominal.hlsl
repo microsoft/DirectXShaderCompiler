@@ -38,4 +38,7 @@ void main() {
 
   // CHECK: call %dx.types.LinAlgMatrixC2M2N2U2S2 @dx.op.linAlgMatrixAccumulate.mC2M2N2U2S2.mC1M1N1U0S0.mC5M3N4U0S0(i32 -2147483624, %dx.types.LinAlgMatrixC1M1N1U0S0 %{{.*}}, %dx.types.LinAlgMatrixC5M3N4U0S0 %{{.*}})  ; LinAlgMatrixAccumulate(matrixLHS,matrixRHS)
   __builtin_LinAlg_MatrixAccumulate(mat4, mat3, mat2);
+
+  // CHECK: call i32 @dx.op.linAlgMatrixQueryAccumulatorLayout(i32 -2147483626)  ; LinAlgMatrixQueryAccumulatorLayout()
+  uint layout = __builtin_LinAlg_MatrixQueryAccumulatorLayout();
 }

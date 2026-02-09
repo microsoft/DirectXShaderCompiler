@@ -31,4 +31,7 @@ void main() {
   __builtin_LinAlgMatrix [[__LinAlgMatrix_Attributes(1, 1, 1, 1, 1)]] mat2;
   // expected-error@+1{{intrinsic __builtin_LinAlg_MatrixAccumulate potentially used by ''main'' requires shader model 6.10 or greater}}
   __builtin_LinAlg_MatrixAccumulate(mat2, mat, mat);
+
+  // expected-error@+1{{intrinsic __builtin_LinAlg_MatrixQueryAccumulatorLayout potentially used by ''main'' requires shader model 6.10 or greater}}
+  uint layout = __builtin_LinAlg_MatrixQueryAccumulatorLayout();
 }
