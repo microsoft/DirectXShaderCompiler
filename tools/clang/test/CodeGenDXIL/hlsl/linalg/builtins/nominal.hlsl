@@ -45,4 +45,6 @@ void main() {
   // CHECK: call void @dx.op.linAlgMatrixAccumulateToDescriptor.mC4M5N4U1S2(i32 -2147483621, %dx.types.LinAlgMatrixC4M5N4U1S2 %{{.*}}, %dx.types.Handle %{{.*}}, i32 5, i32 5, i32 5)  ; LinAlgMatrixAccumulateToDescriptor(matrix,handle,offset,stride,layout)
   __builtin_LinAlg_MatrixAccumulateToDescriptor(mat1, outbuf, 5, 5, 5);
 
+  // CHECK: call i32 @dx.op.linAlgMatrixLength.mC4M5N4U1S2(i32 -2147483632, %dx.types.LinAlgMatrixC4M5N4U1S2 %{{.*}})  ; LinAlgMatrixLength(matrix)
+  uint len = __builtin_LinAlg_MatrixLength(mat1);
 }

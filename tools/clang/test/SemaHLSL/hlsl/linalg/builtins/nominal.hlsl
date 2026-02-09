@@ -30,4 +30,6 @@ void main() {
   uint layout = __builtin_LinAlg_MatrixQueryAccumulatorLayout();
 
   __builtin_LinAlg_MatrixAccumulateToDescriptor(mat1, outbuf, 2, 2, 2);
+
+  uint len = __builtin_LinAlg_MatrixLength(mat1);
 }

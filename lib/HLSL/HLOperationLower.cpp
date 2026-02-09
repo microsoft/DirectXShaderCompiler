@@ -7840,7 +7840,7 @@ constexpr IntrinsicLower gLowerTable[] = {
      DXIL::OpCode::LinAlgMatrixGetCoordinate},
     {IntrinsicOp::IOP___builtin_LinAlg_MatrixGetElement, EmptyLower,
      DXIL::OpCode::LinAlgMatrixGetElement},
-    {IntrinsicOp::IOP___builtin_LinAlg_MatrixLength, EmptyLower,
+    {IntrinsicOp::IOP___builtin_LinAlg_MatrixLength, TrivialUnaryOperation,
      DXIL::OpCode::LinAlgMatrixLength},
     {IntrinsicOp::IOP___builtin_LinAlg_MatrixLoadFromDescriptor,
      TranslateLinAlgMatrixLoadFromDescriptor,
