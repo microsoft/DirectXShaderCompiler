@@ -28,4 +28,6 @@ void main() {
   __builtin_LinAlg_MatrixAccumulate(mat3, mat3, mat2);
 
   uint layout = __builtin_LinAlg_MatrixQueryAccumulatorLayout();
+
+  __builtin_LinAlg_MatrixAccumulateToDescriptor(mat1, outbuf, 2, 2, 2);
 }

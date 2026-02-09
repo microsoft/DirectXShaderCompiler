@@ -6931,7 +6931,7 @@ Value *TranslateLinAlgFillMatrix(CallInst *CI, IntrinsicOp IOP,
   return nullptr;
 }
 
-Value *TranslateLinAlgMatrixStoreToDescriptor(
+Value *TranslateLinAlgMatrixAccumStoreToDescriptor(
     CallInst *CI, IntrinsicOp IOP, OP::OpCode OpCode,
     HLOperationLowerHelper &Helper, HLObjectOperationLowerHelper *ObjHelper,
     bool &Translated) {
@@ -7850,7 +7850,7 @@ constexpr IntrinsicLower gLowerTable[] = {
     {IntrinsicOp::IOP___builtin_LinAlg_MatrixSetElement, EmptyLower,
      DXIL::OpCode::LinAlgMatrixSetElement},
     {IntrinsicOp::IOP___builtin_LinAlg_MatrixStoreToDescriptor,
-     TranslateLinAlgMatrixStoreToDescriptor,
+     TranslateLinAlgMatrixAccumStoreToDescriptor,
      DXIL::OpCode::LinAlgMatrixStoreToDescriptor},
     {IntrinsicOp::IOP___builtin_LinAlg_MatrixStoreToMemory, EmptyLower,
      DXIL::OpCode::LinAlgMatrixStoreToMemory},
@@ -7862,7 +7862,8 @@ constexpr IntrinsicLower gLowerTable[] = {
      EmptyLower, DXIL::OpCode::LinAlgMatrixMulOp},
     {IntrinsicOp::IOP___builtin_LinAlg_MatrixQueryAccumulatorLayout,
      TrivialNoArgOperation, DXIL::OpCode::LinAlgMatrixQueryAccumulatorLayout},
-    {IntrinsicOp::IOP___builtin_LinAlg_MatrixAccumulateToDescriptor, EmptyLower,
+    {IntrinsicOp::IOP___builtin_LinAlg_MatrixAccumulateToDescriptor,
+     TranslateLinAlgMatrixAccumStoreToDescriptor,
      DXIL::OpCode::LinAlgMatrixAccumulateToDescriptor},
     {IntrinsicOp::IOP___builtin_LinAlg_MatrixAccumulateToMemory, EmptyLower,
      DXIL::OpCode::LinAlgMatrixAccumulateToMemory},

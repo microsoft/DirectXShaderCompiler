@@ -41,4 +41,8 @@ void main() {
 
   // CHECK: call i32 @dx.op.linAlgMatrixQueryAccumulatorLayout(i32 -2147483626)  ; LinAlgMatrixQueryAccumulatorLayout()
   uint layout = __builtin_LinAlg_MatrixQueryAccumulatorLayout();
+
+  // CHECK: call void @dx.op.linAlgMatrixAccumulateToDescriptor.mC4M5N4U1S2(i32 -2147483621, %dx.types.LinAlgMatrixC4M5N4U1S2 %{{.*}}, %dx.types.Handle %{{.*}}, i32 5, i32 5, i32 5)  ; LinAlgMatrixAccumulateToDescriptor(matrix,handle,offset,stride,layout)
+  __builtin_LinAlg_MatrixAccumulateToDescriptor(mat1, outbuf, 5, 5, 5);
+
 }
