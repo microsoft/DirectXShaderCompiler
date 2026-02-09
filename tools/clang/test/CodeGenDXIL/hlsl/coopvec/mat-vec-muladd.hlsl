@@ -1,12 +1,12 @@
 // REQUIRES: dxil-1-10
 // RUN: %dxc -I %hlsl_headers -T lib_6_10 %s | FileCheck %s
 
-#include <dx/linalg.h>
+#include <dx/coopvec.h>
 
 ByteAddressBuffer Buf;
 
 export float4 Test1(float4 input) {
-  using namespace dx::linalg;
+  using namespace dx::coopvec;
 
   MatrixRef<DATA_TYPE_FLOAT16, 4, 4, MATRIX_LAYOUT_MUL_OPTIMAL> matrix = {Buf,
                                                                           0, 0};
@@ -21,7 +21,7 @@ export float4 Test1(float4 input) {
 }
 
 export float4 Test2(float4 input) {
-  using namespace dx::linalg;
+  using namespace dx::coopvec;
 
   MatrixRef<DATA_TYPE_FLOAT16, 4, 4, MATRIX_LAYOUT_MUL_OPTIMAL, true> matrix = {
       Buf, 0, 0};
@@ -36,7 +36,7 @@ export float4 Test2(float4 input) {
 }
 
 export float4 Test3(float4 input) {
-  using namespace dx::linalg;
+  using namespace dx::coopvec;
 
   MatrixRef<DATA_TYPE_FLOAT16, 4, 4, MATRIX_LAYOUT_MUL_OPTIMAL, true> matrix = {
       Buf, 0, 0};
@@ -53,7 +53,7 @@ namespace ProposalExample {
 ByteAddressBuffer model;
 
 vector<float, 3> ApplyNeuralMaterial(vector<half, 8> inputVector) {
-  using namespace dx::linalg;
+  using namespace dx::coopvec;
 
   MatrixRef<DATA_TYPE_FLOAT8_E4M3, 32, 8, MATRIX_LAYOUT_MUL_OPTIMAL> matrix0 = {
       model, 0, 0};

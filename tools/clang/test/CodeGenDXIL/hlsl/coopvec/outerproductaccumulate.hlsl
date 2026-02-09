@@ -1,12 +1,12 @@
 // REQUIRES: dxil-1-10
 // RUN: %dxc -I %hlsl_headers -T lib_6_10 -enable-16bit-types %s | FileCheck %s
 
-#include <dx/linalg.h>
+#include <dx/coopvec.h>
 
 RWByteAddressBuffer RWBuf;
 
 export void Test4(vector<half, 128> Input1, vector<half, 64> Input2) {
-  using namespace dx::linalg;
+  using namespace dx::coopvec;
 
   RWMatrixRef<DATA_TYPE_FLOAT16, 128, 64, MATRIX_LAYOUT_OUTER_PRODUCT_OPTIMAL>
       matrix = {RWBuf, 0, 0};

@@ -1,12 +1,12 @@
 // REQUIRES: dxil-1-10
 // RUN: %dxc -I %hlsl_headers -T lib_6_10 %s | FileCheck %s
 
-#include <dx/linalg.h>
+#include <dx/coopvec.h>
 
 RWByteAddressBuffer RWBuf;
 
 export void Test5(vector<half, 128> Input) {
-  using namespace dx::linalg;
+  using namespace dx::coopvec;
 
   RWBuf.Store<vector<half, 128> >(0, Input);
 
