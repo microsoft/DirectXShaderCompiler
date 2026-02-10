@@ -6986,8 +6986,16 @@ Value *TranslateLinAlgMatrixGetCoordinate(
     CallInst *CI, IntrinsicOp IOP, OP::OpCode OpCode,
     HLOperationLowerHelper &Helper, HLObjectOperationLowerHelper *ObjHelper,
     bool &Translated) {
-  DXASSERT(false, "Not implemented.");
-  return nullptr;
+  hlsl::OP *HlslOp = &Helper.hlslOP;
+  IRBuilder<> Builder(CI);
+
+  Value *Matrix = CI->getArgOperand(1);
+  Value *Index = CI->getArgOperand(2);
+
+  Constant *OpArg = HlslOp->GetU32Const((unsigned)OpCode);
+  Function *DxilFunc = HlslOp->GetOpFunc(OpCode, Matrix->getType());
+
+  return Builder.CreateCall(DxilFunc, {OpArg, Matrix, Index});
 }
 
 Value *TranslateLinAlgMatrixGetElement(CallInst *CI, IntrinsicOp IOP,
