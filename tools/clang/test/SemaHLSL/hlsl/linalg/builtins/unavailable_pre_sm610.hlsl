@@ -40,4 +40,7 @@ void main() {
 
   // expected-error@+1{{intrinsic __builtin_LinAlg_MatrixLength potentially used by ''main'' requires shader model 6.10 or greater}}
   __builtin_LinAlg_MatrixLength(mat);
+
+  // expected-error@+1{{intrinsic __builtin_LinAlg_MatrixGetCoordinate potentially used by ''main'' requires shader model 6.10 or greater}}
+  uint2 coord = __builtin_LinAlg_MatrixGetCoordinate(mat, 0);
 }

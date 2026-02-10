@@ -32,4 +32,5 @@ void main() {
   __builtin_LinAlg_MatrixAccumulateToDescriptor(mat1, outbuf, 2, 2, 2);
 
   uint len = __builtin_LinAlg_MatrixLength(mat1);
+  uint2 coord = __builtin_LinAlg_MatrixGetCoordinate(mat1, 0);
 }

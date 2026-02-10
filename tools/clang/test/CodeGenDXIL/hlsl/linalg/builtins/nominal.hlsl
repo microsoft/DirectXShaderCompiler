@@ -47,4 +47,7 @@ void main() {
 
   // CHECK: call i32 @dx.op.linAlgMatrixLength.mC4M5N4U1S2(i32 -2147483632, %dx.types.LinAlgMatrixC4M5N4U1S2 %{{.*}})  ; LinAlgMatrixLength(matrix)
   uint len = __builtin_LinAlg_MatrixLength(mat1);
+
+  // CHECK: call <2 x i32> @dx.op.linAlgMatrixGetCoordinate.mC4M5N4U1S2(i32 -2147483631, %dx.types.LinAlgMatrixC4M5N4U1S2 %{{.*}}, i32 1) ; LinAlgMatrixGetCoordinate(matrix,threadLocalIndex)
+  uint2 coord = __builtin_LinAlg_MatrixGetCoordinate(mat1, 1);
 }
