@@ -6444,9 +6444,7 @@ class db_dxil(object):
             "o",
             "",
             [
-                db_dxil_param(
-                    0, "$vec4", "", "operation result"
-                ),  # TODO: this should be <2 x i32>
+                db_dxil_param(0, "int2", "", "operation result"),
                 db_dxil_param(2, "$o", "matrix", "matrix to be examined"),
                 db_dxil_param(
                     3, "i32", "threadLocalIndex", "thread-local index to be examined"
