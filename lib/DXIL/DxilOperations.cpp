@@ -6602,7 +6602,7 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
     A(pETy);
     break;
   case OpCode::LinAlgMatrixGetCoordinate:
-    VEC4(pETy);
+    VEC2(pI32);
     A(pI32);
     A(pETy);
     A(pI32);
@@ -6895,6 +6895,7 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
   case OpCode::VectorReduceOr:
   case OpCode::FDot:
   case OpCode::LinAlgMatrixLength:
+  case OpCode::LinAlgMatrixGetCoordinate:
   case OpCode::LinAlgMatrixStoreToDescriptor:
   case OpCode::LinAlgMatrixAccumulateToDescriptor:
     if (FT->getNumParams() <= 1)
@@ -7044,8 +7045,7 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
   case OpCode::SampleCmpLevel:
   case OpCode::SampleCmpGrad:
   case OpCode::SampleCmpBias:
-  case OpCode::RawBufferVectorLoad:
-  case OpCode::LinAlgMatrixGetCoordinate: {
+  case OpCode::RawBufferVectorLoad: {
     StructType *ST = cast<StructType>(Ty);
     return ST->getElementType(0);
   }
