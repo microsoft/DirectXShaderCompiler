@@ -50,4 +50,11 @@ void main() {
 
   // CHECK: call <2 x i32> @dx.op.linAlgMatrixGetCoordinate.mC4M5N4U1S2(i32 -2147483631, %dx.types.LinAlgMatrixC4M5N4U1S2 %{{.*}}, i32 1) ; LinAlgMatrixGetCoordinate(matrix,threadLocalIndex)
   uint2 coord = __builtin_LinAlg_MatrixGetCoordinate(mat1, 1);
+
+  // CHECK: call i32 @dx.op.linAlgMatrixGetElement.i32.mC4M5N4U1S2(i32 -2147483630, %dx.types.LinAlgMatrixC4M5N4U1S2 %{{.*}}, i32 0)  ; LinAlgMatrixGetElement(matrix,threadLocalIndex)
+  uint elem1;
+  __builtin_LinAlg_MatrixGetElement(elem1, mat1, 0);
+  // CHECK: call float @dx.op.linAlgMatrixGetElement.f32.mC4M5N4U1S2(i32 -2147483630, %dx.types.LinAlgMatrixC4M5N4U1S2 %{{.*}}, i32 1)  ; LinAlgMatrixGetElement(matrix,threadLocalIndex)
+  float elem2;
+  __builtin_LinAlg_MatrixGetElement(elem2, mat1, 1);
 }

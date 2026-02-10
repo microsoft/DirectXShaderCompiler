@@ -33,4 +33,10 @@ void main() {
 
   uint len = __builtin_LinAlg_MatrixLength(mat1);
   uint2 coord = __builtin_LinAlg_MatrixGetCoordinate(mat1, 0);
+
+  uint elem1;
+  __builtin_LinAlg_MatrixGetElement(elem1, mat1, 2);
+
+  float elem2;
+  __builtin_LinAlg_MatrixGetElement(elem2, mat1, 3);
 }
