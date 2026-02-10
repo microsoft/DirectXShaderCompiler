@@ -1,9 +1,9 @@
 // REQUIRES: dxil-1-10
 // RUN: %dxc -I %hlsl_headers -T lib_6_10 %s
 
-#include <dx/linalg.h>
+#include <dx/coopvec.h>
 
-using namespace dx::linalg;
+using namespace dx::coopvec;
 
 ByteAddressBuffer input_vector_buffer;
 ByteAddressBuffer matrix_buffer;

@@ -25,6 +25,7 @@ line upon naming the release. Refer to previous for appropriate section names.
 #### Experimental Shader Model 6.10
 
 - Moved Linear Algebra (Cooperative Vector) DXIL Opcodes to experimental Shader Model 6.10
+- The Cooperative Vectors API was moved to `coopvec.h` header and under the `dx::coopvec` namespace.
 - Implement GetGroupWaveIndex and GetGroupWaveCount in experimental Shader Model 6.10.
   - [proposal](https://github.com/microsoft/hlsl-specs/blob/main/proposals/0048-group-wave-index.md)
   - GetGroupWaveIndex: New intrinsic for Compute, Mesh, Amplification and Node shaders which returns the index of the wave within the thread group that the the thread is executing.

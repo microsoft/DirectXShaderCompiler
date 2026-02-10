@@ -1,12 +1,12 @@
 // REQUIRES: dxil-1-10
 // RUN: %dxc -I %hlsl_headers -T lib_6_10 -enable-16bit-types %s | FileCheck %s
 
-#include <dx/linalg.h>
+#include <dx/coopvec.h>
 
 ByteAddressBuffer Buf;
 
 export float4 Test1(vector<float, 4> Input) {
-  using namespace dx::linalg;
+  using namespace dx::coopvec;
 
   MatrixRef<DATA_TYPE_FLOAT16, 4, 4, MATRIX_LAYOUT_MUL_OPTIMAL, true> Matrix = {
       Buf, 0, 0};
@@ -17,7 +17,7 @@ export float4 Test1(vector<float, 4> Input) {
 }
 
 export vector<float, 8> Test2(vector<uint, 6> Input) {
-  using namespace dx::linalg;
+  using namespace dx::coopvec;
 
   MatrixRef<DATA_TYPE_UINT8, 8, 6 * 4, MATRIX_LAYOUT_MUL_OPTIMAL> Matrix = {
       Buf, 0, 0};
@@ -30,7 +30,7 @@ export vector<float, 8> Test2(vector<uint, 6> Input) {
 
 // test that "stride" isn't ignored in non-optimal layouts
 export vector<float, 8> Test3(vector<uint, 6> Input) {
-  using namespace dx::linalg;
+  using namespace dx::coopvec;
 
   MatrixRef<DATA_TYPE_UINT8, 8, 6 * 4, MATRIX_LAYOUT_ROW_MAJOR> Matrix = {
       Buf, 0, 6 * 4 * 8};
@@ -42,7 +42,7 @@ export vector<float, 8> Test3(vector<uint, 6> Input) {
 
 // test that isUnsigned is set correctly for uint16_t
 export vector<uint16_t, 8> Test4(vector<uint, 6> Input) {
-  using namespace dx::linalg;
+  using namespace dx::coopvec;
 
   MatrixRef<DATA_TYPE_UINT8, 8, 6 * 4, MATRIX_LAYOUT_ROW_MAJOR> Matrix = {
       Buf, 0, 6 * 4 * 8};
@@ -55,7 +55,7 @@ export vector<uint16_t, 8> Test4(vector<uint, 6> Input) {
 
 // test that isUnsigned is set correctly for uint32_t
 export vector<uint, 8> Test5(vector<uint, 6> Input) {
-  using namespace dx::linalg;
+  using namespace dx::coopvec;
 
   MatrixRef<DATA_TYPE_UINT8, 8, 6 * 4, MATRIX_LAYOUT_ROW_MAJOR> Matrix = {
       Buf, 0, 6 * 4 * 8};
@@ -68,7 +68,7 @@ export vector<uint, 8> Test5(vector<uint, 6> Input) {
 
 // test that isUnsigned is set correctly for uint8_t4_packed
 export vector<uint, 8> Test5(vector<uint8_t4_packed, 6> Input) {
-  using namespace dx::linalg;
+  using namespace dx::coopvec;
 
   MatrixRef<DATA_TYPE_UINT8, 8, 6 * 4, MATRIX_LAYOUT_ROW_MAJOR> Matrix = {
       Buf, 0, 6 * 4 * 8};
@@ -81,7 +81,7 @@ export vector<uint, 8> Test5(vector<uint8_t4_packed, 6> Input) {
 
 // test that isUnsigned is set correctly for int8_t4_packed
 export vector<uint, 8> Test5(vector<int8_t4_packed, 6> Input) {
-  using namespace dx::linalg;
+  using namespace dx::coopvec;
 
   MatrixRef<DATA_TYPE_UINT8, 8, 6 * 4, MATRIX_LAYOUT_ROW_MAJOR> Matrix = {
       Buf, 0, 6 * 4 * 8};

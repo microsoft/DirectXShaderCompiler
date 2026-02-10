@@ -1,4 +1,4 @@
-// Header for linear algebra APIs.
+// Header for cooperative vectors APIs.
 
 #if __spirv__
 #error "Cooperative vectors not (yet) supported for SPIRV"
@@ -9,10 +9,10 @@
     (__HLSL_VERSION >= 2021)
 
 namespace dx {
-namespace linalg {
+namespace coopvec {
 
 // NOTE: can't be an enum class because we get this error:
-//     error: non-type template argument of type 'dx::linalg::DataType' is not
+//     error: non-type template argument of type 'dx::coopvec::DataType' is not
 //     an integral constant expression
 //
 enum DataType {
@@ -192,7 +192,7 @@ void VectorAccumulate(vector<ElTy, ElCount> InputVector,
   __builtin_VectorAccumulate(InputVector, Buffer, Offset);
 }
 
-} // namespace linalg
+} // namespace coopvec
 } // namespace dx
 
 #endif // SM 6.9 check and HV version check
