@@ -1,26 +1,35 @@
 // REQUIRES: dxil-1-10
 
-// Pass: GSM fits within the GroupSharedLimit
-// RUN: %dxc -E main -T as_6_10 -DGSM_EXTRA=0 -DUSE_GROUP_SHARED_LIMIT %s | FileCheck %s
+// PASS: usage <= default (no limit)
+// RUN: %dxc -E main -T as_6_10 -DGSM_DWORDS=8192 %s | FileCheck %s
+
+// PASS: default < usage <= limit
+// RUN: %dxc -E main -T as_6_10 -DGSM_DWORDS=9216 -DUSE_GROUP_SHARED_LIMIT -DLIMIT_BYTES=36864 %s | FileCheck %s
+
+// PASS: no usage, limit=0 (edge case)
+// RUN: %dxc -E main -T as_6_10 -DNO_GSM -DUSE_GROUP_SHARED_LIMIT -DLIMIT_BYTES=0 %s | FileCheck %s
+
+// PASS: limit == usage < default
+// RUN: %dxc -E main -T as_6_10 -DGSM_DWORDS=4096 -DUSE_GROUP_SHARED_LIMIT -DLIMIT_BYTES=16384 %s | FileCheck %s
+
 // CHECK: @main
 
-// Fail: GSM exceeds GroupSharedLimit (32772 > 32768)
-// RUN: not %dxc -E main -T as_6_10 -DGSM_EXTRA=1 -DUSE_GROUP_SHARED_LIMIT %s 2>&1 | FileCheck %s --check-prefix=CHECK-ERROR
-// CHECK-ERROR: Total Thread Group Shared Memory storage is 32772, exceeded 32768.
+// FAIL: limit < usage < default
+// RUN: not %dxc -E main -T as_6_10 -DGSM_DWORDS=4096 -DUSE_GROUP_SHARED_LIMIT -DLIMIT_BYTES=8192 %s 2>&1 | FileCheck %s --check-prefix=CHECK-FAIL1
+// CHECK-FAIL1: Total Thread Group Shared Memory storage is 16384, exceeded 8192.
 
-// Fail: GSM exceeds default amplification shader limit (32772 > 32768)
-// RUN: not %dxc -E main -T as_6_10 -DGSM_EXTRA=1 %s 2>&1 | FileCheck %s --check-prefix=CHECK-ERROR2
-// CHECK-ERROR2: Total Thread Group Shared Memory storage is 32772, exceeded 32768.
+// FAIL: limit=0 < usage < default (edge case)
+// RUN: not %dxc -E main -T as_6_10 -DGSM_DWORDS=1 -DUSE_GROUP_SHARED_LIMIT -DLIMIT_BYTES=0 %s 2>&1 | FileCheck %s --check-prefix=CHECK-FAIL2
+// CHECK-FAIL2: Total Thread Group Shared Memory storage is 4, exceeded 0.
 
-#define NUM_BYTES_OF_SHARED_MEM (32*1024)
-#define NUM_DWORDS_SHARED_MEM (NUM_BYTES_OF_SHARED_MEM / 4)
 #define NUM_THREADS 32
 
-#ifndef GSM_EXTRA
-#define GSM_EXTRA 0
+#ifndef NO_GSM
+#ifndef GSM_DWORDS
+#define GSM_DWORDS 8192
 #endif
-
-groupshared uint g_testBuffer[NUM_DWORDS_SHARED_MEM + GSM_EXTRA];
+groupshared uint g_testBuffer[GSM_DWORDS];
+#endif
 
 struct Payload {
     float2 dummy;
@@ -29,12 +38,13 @@ struct Payload {
 };
 
 #ifdef USE_GROUP_SHARED_LIMIT
-[GroupSharedLimit(NUM_BYTES_OF_SHARED_MEM)]
+[GroupSharedLimit(LIMIT_BYTES)]
 #endif
 [numthreads(NUM_THREADS, 1, 1)]
 void main(in uint tig : SV_GroupIndex)
 {
-    uint iterations = NUM_DWORDS_SHARED_MEM / NUM_THREADS;
+#ifndef NO_GSM
+    uint iterations = GSM_DWORDS / NUM_THREADS;
     
     for (uint i = 0; i < iterations; i++)
     {
@@ -51,4 +61,12 @@ void main(in uint tig : SV_GroupIndex)
     pld.color[0] = 7.0;
     pld.color[1] = 8.0;
     DispatchMesh(NUM_THREADS, 1, 1, pld);
+#else
+    Payload pld;
+    pld.dummy = float2(1.0, 2.0);
+    pld.pos = float4(0, 0, 0, 1);
+    pld.color[0] = 7.0;
+    pld.color[1] = 8.0;
+    DispatchMesh(NUM_THREADS, 1, 1, pld);
+#endif
 }

@@ -3959,18 +3959,47 @@ static void ValidateGlobalVariables(ValidationContext &ValCtx) {
   }
 
   // Check if the entry function has attribute to override TGSM size.
-  if (M.HasDxilEntryProps(M.GetEntryFunction())) {
+  // For library profiles, iterate over all entry functions and validate
+  // TGSM against each entry's groupSharedLimitBytes since TGSM is global.
+  if (M.GetShaderModel()->IsLib()) {
+    for (Function &F : M.GetModule()->functions()) {
+      if (!M.HasDxilEntryProps(&F))
+        continue;
+      DxilEntryProps &EntryProps = M.GetDxilEntryProps(&F);
+      if (EntryProps.props.IsCS() || EntryProps.props.IsMS() ||
+          EntryProps.props.IsAS() || EntryProps.props.IsNode()) {
+        unsigned EntryMaxSize = MaxSize;
+        int SpecifiedTGSMSize = EntryProps.props.groupSharedLimitBytes;
+        if (SpecifiedTGSMSize >= 0) {
+          EntryMaxSize = static_cast<unsigned>(SpecifiedTGSMSize);
+        }
+        if (TGSMSize > EntryMaxSize) {
+          Module::global_iterator GI = M.GetModule()->global_end();
+          GlobalVariable *GV = &*GI;
+          do {
+            GI--;
+            GV = &*GI;
+            if (GV->getType()->getAddressSpace() == hlsl::DXIL::kTGSMAddrSpace)
+              break;
+          } while (GI != M.GetModule()->global_begin());
+          ValCtx.EmitGlobalVariableFormatError(
+              GV, Rule,
+              {std::to_string(TGSMSize), std::to_string(EntryMaxSize)});
+        }
+      }
+    }
+  } else if (M.HasDxilEntryProps(M.GetEntryFunction())) {
     DxilEntryProps &EntryProps = M.GetDxilEntryProps(M.GetEntryFunction());
     if (EntryProps.props.IsCS() || EntryProps.props.IsMS() ||
         EntryProps.props.IsAS() || EntryProps.props.IsNode()) {
-      unsigned SpecifiedTGSMSize = EntryProps.props.groupSharedLimitBytes;
-      if (SpecifiedTGSMSize > 0) {
-        MaxSize = SpecifiedTGSMSize;
+      int SpecifiedTGSMSize = EntryProps.props.groupSharedLimitBytes;
+      if (SpecifiedTGSMSize >= 0) {
+        MaxSize = static_cast<unsigned>(SpecifiedTGSMSize);
       }
     }
   }
 
-  if (TGSMSize > MaxSize) {
+  if (!M.GetShaderModel()->IsLib() && TGSMSize > MaxSize) {
     Module::global_iterator GI = M.GetModule()->global_end();
     GlobalVariable *GV = &*GI;
     do {
