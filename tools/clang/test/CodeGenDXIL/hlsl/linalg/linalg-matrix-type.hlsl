@@ -5,15 +5,15 @@
 #include <dx/linalg.h>
 using namespace dx::linalg;
 
-// CHECK_FCGL: %"class.dx::linalg::Matrix<dx::linalg::ComponentType::ComponentEnum::I32, 4, 5, dx::linalg::MatrixUse::MatrixUseEnum::B,
-// CHECK_FCGL-SAME: dx::linalg::MatrixScope::MatrixScopeEnum::ThreadGroup>" = type { i32, %dx.types.LinAlgMatrixC4M4N5U1S2 }
+// CHECK: %"class.dx::linalg::Matrix<dx::linalg::ComponentType::ComponentEnum::I32, 4, 5, dx::linalg::MatrixUse::MatrixUseEnum::B,
+// CHECK-SAME: dx::linalg::MatrixScope::MatrixScopeEnum::ThreadGroup>" = type { i32, %dx.types.LinAlgMatrixC4M4N5U1S2 }
 // CHECK: %dx.types.LinAlgMatrixC4M4N5U1S2 = type { i8* }
 
 // CHECK: %"class.dx::linalg::Matrix<dx::linalg::ComponentType::ComponentEnum::PackedS8x32, 100, 100, dx::linalg::MatrixUse::MatrixUseEnum::A,
 // CHECK-SAME: dx::linalg::MatrixScope::MatrixScopeEnum::Wave>" = type { i32, %dx.types.LinAlgMatrixC17M100N100U0S1 }
 // CHECK: %dx.types.LinAlgMatrixC17M100N100U0S1 = type { i8* }
 
-// CHECK_FCGL: define internal void @"\01?f@@YAXXZ"()
+// CHECK: define internal void @"\01?f@@YAXXZ"()
 void f() {
 // CHECK:  %mat1 = alloca %"class.dx::linalg::Matrix<dx::linalg::ComponentType::ComponentEnum::I32, 4, 5,
 // CHECK-SAME: dx::linalg::MatrixUse::MatrixUseEnum::B, dx::linalg::MatrixScope::MatrixScopeEnum::ThreadGroup>", align 4
