@@ -1,16 +1,16 @@
 // RUN: %dxc -I %hlsl_headers -T lib_6_10 %s -verify
 
-#include <dx/linalg.h>
+#include <dx/coopvec.h>
 ByteAddressBuffer Buf;
 
 export float4 Test1(vector<float, 4> Input) {
-  using namespace dx::linalg;
+  using namespace dx::coopvec;
 
   MatrixRef<DATA_TYPE_UINT16, 4, 4, MATRIX_LAYOUT_MUL_OPTIMAL, true> Matrix = {
       Buf, 0, 0};
 
   // expected-error@+3{{no matching function for call to 'MakeInterpretedVector'}}
-  // expected-note@dx/linalg.h:113{{candidate template ignored: invalid explicitly-specified argument for template parameter 'DT'}}
+  // expected-note@dx/coopvec.h:113{{candidate template ignored: invalid explicitly-specified argument for template parameter 'DT'}}
   return Mul<float>(    
       Matrix, MakeInterpretedVector<2>(Input));
 }
@@ -20,13 +20,13 @@ enum DataType {
 };
 
 export float4 Test2(vector<float, 4> Input) {
-  using namespace dx::linalg;
+  using namespace dx::coopvec;
 
   MatrixRef<DATA_TYPE_UINT16, 4, 4, MATRIX_LAYOUT_MUL_OPTIMAL, true> Matrix = {
       Buf, 0, 0};
 
   // expected-error@+3{{no matching function for call to 'MakeInterpretedVector'}}
-  // expected-note@dx/linalg.h:113{{candidate template ignored: invalid explicitly-specified argument for template parameter 'DT'}}
+  // expected-note@dx/coopvec.h:113{{candidate template ignored: invalid explicitly-specified argument for template parameter 'DT'}}
   return Mul<float>(    
       Matrix, MakeInterpretedVector<DATA_TYPE_InvalidType>(Input));
 }
