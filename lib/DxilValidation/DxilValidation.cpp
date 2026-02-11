@@ -3974,7 +3974,6 @@ static void ValidateGlobalVariables(ValidationContext &ValCtx) {
                               : ValidationRule::SmMaxTGSMSizeOnEntry;
 
     for (auto &GVAndUser : Overages->second) {
-      GlobalVariable *GV = GVAndUser.first;
       Instruction *UseInst = GVAndUser.second;
       if (!isTGSMEntry(Kind))
         ValCtx.EmitInstrFormatError(UseInst, ValidationRule::SmTGSMUnsupported,
@@ -3982,7 +3981,7 @@ static void ValidateGlobalVariables(ValidationContext &ValCtx) {
       else
         ValCtx.EmitInstrFormatError(UseInst, Rule,
                                     {EntryFunc->getName(), std::to_string(Size),
-                                     std::to_string(MaxSize), GV->getName()});
+                                     std::to_string(MaxSize)});
     }
   };
 

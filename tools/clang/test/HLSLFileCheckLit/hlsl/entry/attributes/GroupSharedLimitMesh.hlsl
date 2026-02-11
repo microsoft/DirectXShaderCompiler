@@ -16,11 +16,11 @@
 
 // FAIL: limit < usage < default
 // RUN: not %dxc -E main -T ms_6_10 -DGSM_DWORDS=4096 -DUSE_GROUP_SHARED_LIMIT -DLIMIT_BYTES=8192 %s 2>&1 | FileCheck %s --check-prefix=CHECK-FAIL1
-// CHECK-FAIL1: Total Thread Group Shared Memory storage is 16384, exceeded 8192.
+// CHECK-FAIL1: Total Thread Group Shared Memory used by 'main' is 16384, exceeding explicit limit: 8192.
 
 // FAIL: limit=0 < usage < default (edge case)
 // RUN: not %dxc -E main -T ms_6_10 -DGSM_DWORDS=1 -DUSE_GROUP_SHARED_LIMIT -DLIMIT_BYTES=0 %s 2>&1 | FileCheck %s --check-prefix=CHECK-FAIL2
-// CHECK-FAIL2: Total Thread Group Shared Memory storage is 4, exceeded 0.
+// CHECK-FAIL2: Total Thread Group Shared Memory used by 'main' is 4, exceeding explicit limit: 0.
 
 #define NUM_THREADS 32
 #define MAX_VERT 32
