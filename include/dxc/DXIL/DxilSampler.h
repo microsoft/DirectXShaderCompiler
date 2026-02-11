@@ -15,6 +15,7 @@
 
 namespace hlsl {
 
+// PoC test comment - safe to remove
 /// Use this class to represent HLSL sampler state.
 class DxilSampler : public DxilResourceBase {
 public:
