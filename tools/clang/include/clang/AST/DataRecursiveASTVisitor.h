@@ -900,6 +900,21 @@ DEF_TRAVERSE_TYPE(AutoType, { TRY_TO(TraverseType(T->getDeducedType())); })
 
 DEF_TRAVERSE_TYPE(RecordType, {})
 DEF_TRAVERSE_TYPE(EnumType, {})
+
+// HLSL Change Start
+DEF_TRAVERSE_TYPE(AttributedLinAlgMatrixType,
+                  { TRY_TO(TraverseType(T->getWrappedType())); })
+
+DEF_TRAVERSE_TYPE(DependentAttributedLinAlgMatrixType, {
+  TRY_TO(TraverseType(T->getWrappedType()));
+  TRY_TO(TraverseStmt(T->getComponentTyExpr()));
+  TRY_TO(TraverseStmt(T->getRowsExpr()));
+  TRY_TO(TraverseStmt(T->getColsExpr()));
+  TRY_TO(TraverseStmt(T->getUseExpr()));
+  TRY_TO(TraverseStmt(T->getScopeExpr()));
+})
+// HLSL Change End
+
 DEF_TRAVERSE_TYPE(TemplateTypeParmType, {})
 DEF_TRAVERSE_TYPE(SubstTemplateTypeParmType, {})
 DEF_TRAVERSE_TYPE(SubstTemplateTypeParmPackType, {})
@@ -1119,6 +1134,19 @@ DEF_TRAVERSE_TYPELOC(AutoType, {
 
 DEF_TRAVERSE_TYPELOC(RecordType, {})
 DEF_TRAVERSE_TYPELOC(EnumType, {})
+// HLSL Change Start
+DEF_TRAVERSE_TYPELOC(AttributedLinAlgMatrixType, {
+  TRY_TO(TraverseType(TL.getTypePtr()->getWrappedType()));
+})
+DEF_TRAVERSE_TYPELOC(DependentAttributedLinAlgMatrixType, {
+  TRY_TO(TraverseType(TL.getTypePtr()->getWrappedType()));
+  TRY_TO(TraverseStmt(TL.getTypePtr()->getComponentTyExpr()));
+  TRY_TO(TraverseStmt(TL.getTypePtr()->getRowsExpr()));
+  TRY_TO(TraverseStmt(TL.getTypePtr()->getColsExpr()));
+  TRY_TO(TraverseStmt(TL.getTypePtr()->getUseExpr()));
+  TRY_TO(TraverseStmt(TL.getTypePtr()->getScopeExpr()));
+})
+// HLSL Change End
 DEF_TRAVERSE_TYPELOC(TemplateTypeParmType, {})
 DEF_TRAVERSE_TYPELOC(SubstTemplateTypeParmType, {})
 DEF_TRAVERSE_TYPELOC(SubstTemplateTypeParmPackType, {})

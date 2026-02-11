@@ -70,6 +70,10 @@ namespace clang {
     QualType VisitRecordType(const RecordType *T);
     QualType VisitEnumType(const EnumType *T);
     QualType VisitAttributedType(const AttributedType *T);
+    // HLSL Change Start
+    QualType
+    VisitAttributedLinAlgMatrixType(const AttributedLinAlgMatrixType *T);
+    // HLSL Change End
     // FIXME: TemplateTypeParmType
     // FIXME: SubstTemplateTypeParmType
     QualType VisitTemplateSpecializationType(const TemplateSpecializationType *T);
@@ -644,7 +648,18 @@ static bool IsStructurallyEquivalent(StructuralEquivalenceContext &Context,
                                 cast<AttributedType>(T2)->getEquivalentType()))
       return false;
     break;
-      
+
+    // HLSL Change Start
+  case Type::AttributedLinAlgMatrix:
+    // FIXMME: Implement structural equivalence for matrix attributes.
+    llvm_unreachable("FIXME: Implement structural equivalence for HLSL "
+                     "attributed linear algebra matrix type");
+
+  case Type::DependentAttributedLinAlgMatrix:
+    // FIXMME: Implement structural equivalence for dependent matrix attributes.
+    llvm_unreachable("FIXME: Implement structural equivalence for dependent "
+                     "HLSL attributed linear algebra matrix type");
+    // HLSL Change End
   case Type::Paren:
     if (!IsStructurallyEquivalent(Context,
                                   cast<ParenType>(T1)->getInnerType(),
@@ -1791,6 +1806,24 @@ QualType ASTNodeImporter::VisitAttributedType(const AttributedType *T) {
   return Importer.getToContext().getAttributedType(T->getAttrKind(),
     ToModifiedType, ToEquivalentType);
 }
+
+// HLSL Change Start
+QualType ASTNodeImporter::VisitAttributedLinAlgMatrixType(
+    const AttributedLinAlgMatrixType *T) {
+  QualType FromWrappedTy = T->getWrappedType();
+  QualType ToWrappedTy;
+
+  if (!FromWrappedTy.isNull()) {
+    ToWrappedTy = Importer.Import(FromWrappedTy);
+    if (ToWrappedTy.isNull())
+      return QualType();
+  }
+
+  return Importer.getToContext().getAttributedLinAlgMatrixType(
+      ToWrappedTy, T->getComponentType(), T->getRows(), T->getCols(),
+      T->getUse(), T->getScope());
+}
+// HLSL Change End
 
 QualType ASTNodeImporter::VisitTemplateSpecializationType(
                                        const TemplateSpecializationType *T) {

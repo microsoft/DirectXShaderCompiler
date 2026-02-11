@@ -823,6 +823,17 @@ public:
   }
 };
 
+// HLSL Change Start
+class AttributedLinAlgMatrixTypeLoc
+    : public InheritingConcreteTypeLoc<TypeSpecTypeLoc,
+                                       AttributedLinAlgMatrixTypeLoc,
+                                       AttributedLinAlgMatrixType> {};
+
+class DependentAttributedLinAlgMatrixTypeLoc
+    : public InheritingConcreteTypeLoc<TypeSpecTypeLoc,
+                                       DependentAttributedLinAlgMatrixTypeLoc,
+                                       DependentAttributedLinAlgMatrixType> {};
+// HLSL Change End
 
 struct ObjCObjectTypeLocInfo {
   SourceLocation TypeArgsLAngleLoc;

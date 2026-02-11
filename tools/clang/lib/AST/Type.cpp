@@ -923,6 +923,22 @@ public:
                                  equivalentType);
   }
 
+  // HLSL Change Start
+  QualType
+  VisitAttributedLinAlgMatrixType(const AttributedLinAlgMatrixType *T) {
+    QualType wrappedTy = recurse(T->getWrappedType());
+    if (wrappedTy.isNull())
+      return QualType();
+
+    if (wrappedTy.getAsOpaquePtr() == T->getWrappedType().getAsOpaquePtr())
+      return QualType(T, 0);
+
+    return Ctx.getAttributedLinAlgMatrixType(wrappedTy, T->getComponentType(),
+                                             T->getRows(), T->getCols(),
+                                             T->getUse(), T->getScope());
+  }
+  // HLSL Change End
+
   QualType VisitSubstTemplateTypeParmType(const SubstTemplateTypeParmType *T) {
     QualType replacementType = recurse(T->getReplacementType());
     if (replacementType.isNull())
@@ -1563,6 +1579,10 @@ namespace {
     }
     AutoType *VisitAttributedType(const AttributedType *T) {
       return Visit(T->getModifiedType());
+    }
+    AutoType *
+    VisitAttributedLinAlgMatrixType(const AttributedLinAlgMatrixType *T) {
+      return Visit(T->getWrappedType());
     }
     AutoType *VisitAdjustedType(const AdjustedType *T) {
       return Visit(T->getOriginalType());
@@ -2998,6 +3018,39 @@ bool AttributedType::isCallingConv() const {
   llvm_unreachable("invalid attr kind");
 }
 
+// HLSL Change Start
+void AttributedLinAlgMatrixType::appendMangledAttributes(
+    llvm::raw_ostream &OS) const {
+  OS << "C" << static_cast<unsigned>(getComponentType()) << "M"
+     << static_cast<unsigned>(getRows()) << "N"
+     << static_cast<unsigned>(getCols()) << "U"
+     << static_cast<unsigned>(getUse()) << "S"
+     << static_cast<unsigned>(getScope());
+}
+
+DependentAttributedLinAlgMatrixType::DependentAttributedLinAlgMatrixType(
+    const ASTContext &Context, QualType WrappedType, Expr *ComponentTyExpr,
+    Expr *RowsExpr, Expr *ColsExpr, Expr *UseExpr, Expr *ScopeExpr)
+    : Type(DependentAttributedLinAlgMatrix, QualType(), /*Dependent=*/true,
+           /*InstantiationDependent=*/true, /*VariablyModified*/ false,
+           /*ContainsUnexpandedParameterPack=*/false),
+      Context(Context), WrappedType(WrappedType),
+      ComponentTyExpr(ComponentTyExpr), RowsExpr(RowsExpr), ColsExpr(ColsExpr),
+      UseExpr(UseExpr), ScopeExpr(ScopeExpr) {}
+
+void DependentAttributedLinAlgMatrixType::Profile(
+    llvm::FoldingSetNodeID &ID, const ASTContext &Context, QualType WrappedType,
+    Expr *ComponentTyExpr, Expr *RowsExpr, Expr *ColsExpr, Expr *UseExpr,
+    Expr *ScopeExpr) {
+  ID.AddPointer(WrappedType.getAsOpaquePtr());
+  ComponentTyExpr->Profile(ID, Context, true);
+  RowsExpr->Profile(ID, Context, true);
+  ColsExpr->Profile(ID, Context, true);
+  UseExpr->Profile(ID, Context, true);
+  ScopeExpr->Profile(ID, Context, true);
+}
+// HLSL Change End
+
 CXXRecordDecl *InjectedClassNameType::getDecl() const {
   return cast<CXXRecordDecl>(getInterestingTagDecl(Decl));
 }
@@ -3302,6 +3355,8 @@ static CachedProperties computeCachedProperties(const Type *T) {
     return Cache::get(cast<ObjCObjectPointerType>(T)->getPointeeType());
   case Type::Atomic:
     return Cache::get(cast<AtomicType>(T)->getValueType());
+  case Type::AttributedLinAlgMatrix:
+    return Cache::get(cast<AttributedLinAlgMatrixType>(T)->getWrappedType());
   }
 
   llvm_unreachable("unhandled type class");
@@ -3527,6 +3582,8 @@ bool Type::canHaveNullability() const {
   case Type::FunctionNoProto:
   case Type::Record:
   case Type::Enum:
+  case Type::AttributedLinAlgMatrix:
+  case Type::DependentAttributedLinAlgMatrix:
   case Type::InjectedClassName:
   case Type::PackExpansion:
   case Type::ObjCObject:
