@@ -6,7 +6,7 @@
 
 // FAIL: default < usage (no limit) (32768 < 36864)
 // RUN: not %dxc -T lib_6_10 -DGSM_DWORDS=9216 %s 2>&1 | FileCheck %s --check-prefix=CHECK-FAIL2
-// CHECK-FAIL2: Total Thread Group Shared Memory used by 'NodeMain' is 36864, exceeding explicit limit: 32768.
+// CHECK-FAIL2: Total Thread Group Shared Memory used by 'NodeMain' is 36864, exceeding maximum: 32768
 
 // FAIL: limit < usage < default (8192 < 16384 < 32768)
 // RUN: not %dxc -T lib_6_10 -DGSM_DWORDS=4096 -DUSE_GROUP_SHARED_LIMIT -DLIMIT_BYTES=8192 %s 2>&1 | FileCheck %s --check-prefix=CHECK-FAIL3

@@ -1626,7 +1626,7 @@ MDTuple *DxilMDHelper::EmitDxilEntryProperties(uint64_t rawShaderFlag,
     }
 
     const hlsl::ShaderModel *SM = GetShaderModel();
-    if (SM->IsSMAtLeast(6, 10)) {
+    if (SM->IsSMAtLeast(6, 10) && props.groupSharedLimitBytes != -1) {
       MDVals.emplace_back(
           Uint32ToConstMD(DxilMDHelper::kDxilGroupSharedLimitTag));
       MDVals.emplace_back(Uint32ToConstMD(props.groupSharedLimitBytes));
@@ -1697,7 +1697,7 @@ MDTuple *DxilMDHelper::EmitDxilEntryProperties(uint64_t rawShaderFlag,
     MDVals.emplace_back(pMDTuple);
 
     const hlsl::ShaderModel *SM = GetShaderModel();
-    if (SM->IsSMAtLeast(6, 10)) {
+    if (SM->IsSMAtLeast(6, 10) && props.groupSharedLimitBytes != -1) {
       MDVals.emplace_back(
           Uint32ToConstMD(DxilMDHelper::kDxilGroupSharedLimitTag));
       MDVals.emplace_back(Uint32ToConstMD(props.groupSharedLimitBytes));
@@ -1711,7 +1711,7 @@ MDTuple *DxilMDHelper::EmitDxilEntryProperties(uint64_t rawShaderFlag,
     MDVals.emplace_back(pMDTuple);
 
     const hlsl::ShaderModel *SM = GetShaderModel();
-    if (SM->IsSMAtLeast(6, 10)) {
+    if (SM->IsSMAtLeast(6, 10) && props.groupSharedLimitBytes != -1) {
       MDVals.emplace_back(
           Uint32ToConstMD(DxilMDHelper::kDxilGroupSharedLimitTag));
       MDVals.emplace_back(Uint32ToConstMD(props.groupSharedLimitBytes));
@@ -1730,7 +1730,7 @@ MDTuple *DxilMDHelper::EmitDxilEntryProperties(uint64_t rawShaderFlag,
     MDVals.emplace_back(MDNode::get(m_Ctx, NumThreadVals));
 
     const hlsl::ShaderModel *SM = GetShaderModel();
-    if (SM->IsSMAtLeast(6, 10)) {
+    if (SM->IsSMAtLeast(6, 10) && props.groupSharedLimitBytes != -1) {
       MDVals.emplace_back(
           Uint32ToConstMD(DxilMDHelper::kDxilGroupSharedLimitTag));
       MDVals.emplace_back(Uint32ToConstMD(props.groupSharedLimitBytes));
