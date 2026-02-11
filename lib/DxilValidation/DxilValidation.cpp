@@ -4023,7 +4023,8 @@ static void ValidateGlobalVariables(ValidationContext &ValCtx) {
           if (completeFuncs.insert(F).second) {
             // If function is new, process it and its users
             // Add users to the worklist
-            AddUsers(F, Info.FirstUser ? Info.FirstUser : I);
+            Instruction *FirstUser = Info.FirstUser ? Info.FirstUser : I;
+            AddUsers(F, FirstUser);
             // Add groupshared size to function's total
             unsigned &TotalSize = TGSMInFunc[F];
             TotalSize += GVSize;
@@ -4033,11 +4034,11 @@ static void ValidateGlobalVariables(ValidationContext &ValCtx) {
               const DxilFunctionProps &Props = M.GetDxilEntryProps(F).props;
               unsigned MaxSize = getMaxTGSM(Props);
               if (TotalSize > MaxSize && TGSMOverages[F].count(&GV) == 0)
-                TGSMOverages[F][&GV] = Info.FirstUser;
+                TGSMOverages[F][&GV] = FirstUser;
             } else if (M.IsPatchConstantShader(F)) {
               // Collect illegal usage for error reporting
               if (TGSMOverages[F].count(&GV) == 0)
-                TGSMOverages[F][&GV] = Info.FirstUser;
+                TGSMOverages[F][&GV] = FirstUser;
             }
           }
         }

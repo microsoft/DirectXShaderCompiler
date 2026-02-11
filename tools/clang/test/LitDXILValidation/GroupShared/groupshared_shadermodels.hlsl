@@ -1,3 +1,5 @@
+// REQUIRES: dxil-1-10
+
 // RUN: not %dxc -E PSMain -T ps_6_0 %s 2>&1 | FileCheck %s
 // RUN: not %dxc -E VSMain -T vs_6_0 %s 2>&1 | FileCheck %s
 // RUN: not %dxc -E GSMain -T gs_6_0 %s 2>&1 | FileCheck %s
@@ -12,21 +14,23 @@
 // and that everything is fine when we are
 
 
-// CSCHK: @[[gs:.*]] = addrspace(3) global float
+// CSCHK: @[[gsx:.*]] = addrspace(3) global float
+// CSCHK: @[[gsy:.*]] = addrspace(3) global float
 
 // CHECK: error: Thread Group Shared Memory not supported from non-compute entry points.
 // CHECK: note: at
 // CHECK: error: Entry function performs some operation that is incompatible with the shader stage or other entry properties.
 // CHECK: error: Function requires a visible group, but is called from a shader without one.
 
-groupshared float4 foo;
+groupshared float2 foo;
 
 RWStructuredBuffer<float4> output;
 
-int4 getit()
+float getit()
 {
-  // CSCHK: load float, float addrspace(3)* @[[gs]]
-  return foo;
+  // CSCHK: load float, float addrspace(3)* @[[gsx]]
+  // CSCHK: load float, float addrspace(3)* @[[gsy]]
+  return foo.x + foo.y;
 }
 
 // Original mangled DXR functions end up before rewritten shader entries, so
@@ -51,8 +55,9 @@ struct MyParam {
 RaytracingAccelerationStructure RTAS : register(t5);
 
 // LIBCHK: error: Thread Group Shared Memory not supported from non-compute entry points.
-// LIBCHK: note: at
-// LIBCHK-SAME: RGMain
+// LIBCHK-NEXT: RGMain
+// LIBCHK: error: Thread Group Shared Memory not supported from non-compute entry points.
+// LIBCHK-NEXT: RGMain
 [shader("raygeneration")]
 void RGMain()
 {
@@ -66,20 +71,22 @@ void RGMain()
 }
 
 // LIBCHK: error: Thread Group Shared Memory not supported from non-compute entry points.
-// LIBCHK: note: at
-// LIBCHK-SAME: ISMain
+// LIBCHK-NEXT: ISMain
+// LIBCHK: error: Thread Group Shared Memory not supported from non-compute entry points.
+// LIBCHK-NEXT: ISMain
 [shader("intersection")]
 void ISMain()
 {
   float hitT = RayTCurrent();
   MyAttributes attr = (MyAttributes)0;
-  attr.bary = getit().xy;
+  attr.bary = getit();
   bool bReported = ReportHit(hitT, 0, attr);
 }
 
 // LIBCHK: error: Thread Group Shared Memory not supported from non-compute entry points.
-// LIBCHK: note: at
-// LIBCHK-SAME: AHMain
+// LIBCHK-NEXT: AHMain
+// LIBCHK: error: Thread Group Shared Memory not supported from non-compute entry points.
+// LIBCHK-NEXT: AHMain
 [shader("anyhit")]
 void AHMain( inout MyPayload payload : SV_RayPayload,
              in MyAttributes attr : SV_IntersectionAttributes )
@@ -93,21 +100,23 @@ void AHMain( inout MyPayload payload : SV_RayPayload,
 }
 
 // LIBCHK: error: Thread Group Shared Memory not supported from non-compute entry points.
-// LIBCHK: note: at
-// LIBCHK-SAME: CHMain
+// LIBCHK-NEXT: CHMain
+// LIBCHK: error: Thread Group Shared Memory not supported from non-compute entry points.
+// LIBCHK-NEXT: CHMain
 [shader("closesthit")]
 void CHMain( inout MyPayload payload : SV_RayPayload,
              in BuiltInTriangleIntersectionAttributes attr : SV_IntersectionAttributes )
 {
-  MyParam param = {attr.barycentrics, getit()};
+  MyParam param = {attr.barycentrics, getit().xxxx};
   CallShader(7, param);
   payload.color += param.output;
 }
 
 
 // LIBCHK: error: Thread Group Shared Memory not supported from non-compute entry points.
-// LIBCHK: note: at
-// LIBCHK-SAME: MissMain
+// LIBCHK-NEXT: MissMain
+// LIBCHK: error: Thread Group Shared Memory not supported from non-compute entry points.
+// LIBCHK-NEXT: MissMain
 [shader("miss")]
 void MissMain(inout MyPayload payload : SV_RayPayload)
 {
@@ -115,8 +124,9 @@ void MissMain(inout MyPayload payload : SV_RayPayload)
 }
 
 // LIBCHK: error: Thread Group Shared Memory not supported from non-compute entry points.
-// LIBCHK: note: at
-// LIBCHK-SAME: VSMain
+// LIBCHK-NEXT: VSMain
+// LIBCHK: error: Thread Group Shared Memory not supported from non-compute entry points.
+// LIBCHK-NEXT: VSMain
 [shader("vertex")]
 float4 VSMain(uint ix : SV_VertexID) : OUT {
   output[ix] = getit();
@@ -124,8 +134,9 @@ float4 VSMain(uint ix : SV_VertexID) : OUT {
 }
 
 // LIBCHK: error: Thread Group Shared Memory not supported from non-compute entry points.
-// LIBCHK: note: at
-// LIBCHK-SAME: PSMain
+// LIBCHK-NEXT: PSMain
+// LIBCHK: error: Thread Group Shared Memory not supported from non-compute entry points.
+// LIBCHK-NEXT: PSMain
 [shader("pixel")]
 float4 PSMain(uint ix : SV_PrimitiveID) : SV_TARGET {
   output[ix] = getit();
@@ -163,8 +174,9 @@ struct PosStruct {
 float4 a;
 
 // LIBCHK: error: Thread Group Shared Memory not supported from non-compute entry points.
-// LIBCHK: note: at
-// LIBCHK-SAME: GSMain
+// LIBCHK-NEXT: GSMain
+// LIBCHK: error: Thread Group Shared Memory not supported from non-compute entry points.
+// LIBCHK-NEXT: GSMain
 [shader("geometry")]
 [maxvertexcount(1)]
 void GSMain(triangle float4 array[3] : SV_Position, uint ix : SV_GSInstanceID,
@@ -198,8 +210,9 @@ PCStruct HSPatch(InputPatch<PosStruct, 3> ip,
 }
 
 // LIBCHK: error: Thread Group Shared Memory not supported from non-compute entry points.
-// LIBCHK: note: at
-// LIBCHK-SAME: HSMain
+// LIBCHK-NEXT: HSMain
+// LIBCHK: error: Thread Group Shared Memory not supported from non-compute entry points.
+// LIBCHK-NEXT: HSMain
 [shader("hull")]
 [domain("tri")]
 [partitioning("fractional_odd")]
@@ -216,8 +229,9 @@ PosStruct HSMain(InputPatch<PosStruct, 3> p,
 }
 
 // LIBCHK: error: Thread Group Shared Memory not supported from non-compute entry points.
-// LIBCHK: note: at
-// LIBCHK-SAME: DSMain
+// LIBCHK-NEXT: DSMain
+// LIBCHK: error: Thread Group Shared Memory not supported from non-compute entry points.
+// LIBCHK-NEXT: DSMain
 [shader("domain")]
 [domain("tri")]
 PosStruct DSMain(const OutputPatch<PosStruct, 3> patch,
