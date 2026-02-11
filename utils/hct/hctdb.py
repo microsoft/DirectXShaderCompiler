@@ -1183,6 +1183,10 @@ class db_dxil(object):
                 "mesh",
                 "amplification",
             )
+    
+        for i in insts("DebugBreak", "IsDebuggerPresent"):
+            i.category = "Debugging"
+            i.shader_model = experimental_sm
 
     def populate_llvm_instructions(self):
         # Add instructions that map to LLVM instructions.
@@ -6215,6 +6219,8 @@ class db_dxil(object):
         )
         add_dxil_op = op_table.add_dxil_op
 
+        retvoid_param = db_dxil_param(0, "v", "", "no return value")
+
         # Add Nop to test experimental table infrastructure.
         add_dxil_op(
             "ExperimentalNop",
@@ -6701,6 +6707,28 @@ class db_dxil(object):
         )
 
         op_table.reserve_dxil_op_range("LinAlgMatrixReserved", 3)
+
+        # Debugging intrinsics
+        add_dxil_op(
+            "DebugBreak",
+            "DebugBreak",
+            "triggers a breakpoint if a debugger is attached",
+            "v",
+            "nd",
+            [
+                retvoid_param,
+            ],
+        )
+        add_dxil_op(
+            "IsDebuggerPresent",
+            "IsDebuggerPresent",
+            "returns true if a debugger is attached",
+            "v",
+            "ro",
+            [
+                db_dxil_param(0, "i1", "", "true if a debugger is attached"),
+            ],
+        )
 
     def finalize_dxil_operations(self):
         "Finalize DXIL operations by setting properties and verifying consistency."
@@ -9668,7 +9696,7 @@ class db_hlsl(object):
             acceleration_struct | ray_desc | RayQuery | DxHitObject |
             Node\w* | RWNode\w* | EmptyNode\w* |
             AnyNodeOutput\w* | NodeOutputRecord\w* | GroupShared\w* |
-            VkBufferPointer |  LinAlgMatrix
+            VkBufferPointer | LinAlgMatrix
             $)""",
             flags=re.VERBOSE,
         )

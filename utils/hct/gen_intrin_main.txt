@@ -119,6 +119,7 @@ $type1 [[rn]] ddx_fine(in float_like<> x);
 $type1 [[rn]] ddy(in float_like<> x);
 $type1 [[rn]] ddy_coarse(in float_like<> x);
 $type1 [[rn]] ddy_fine(in float_like<> x);
+void [[min_sm=6.10]] DebugBreak();
 $type1 [[rn]] degrees(in float_like<> x);
 $match<0, 1> float_like [[rn]] determinant(in float_like<r, r> x);
 void [[]] DeviceMemoryBarrier() : syncdevicememory_ug;
@@ -1180,6 +1181,7 @@ namespace DxHitObjectMethods {
 } namespace
 
 namespace DxIntrinsics {
+bool [[ro,min_sm=6.10]] IsDebuggerPresent();
 void [[min_sm=6.9]] MaybeReorderThread(in DxHitObject HitObject);
 void [[min_sm=6.9]] MaybeReorderThread(in uint CoherenceHint, in uint NumCoherenceHintBitsFromLSB);
 void [[min_sm=6.9]] MaybeReorderThread(in DxHitObject HitObject, in uint CoherenceHint, in uint NumCoherenceHintBitsFromLSB);

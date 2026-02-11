@@ -528,6 +528,10 @@ enum class OpCode : unsigned {
   LinAlgMatrixReserved1 = 31, // reserved
   LinAlgMatrixReserved2 = 32, // reserved
 
+  // Debugging
+  DebugBreak = 33,        // triggers a breakpoint if a debugger is attached
+  IsDebuggerPresent = 34, // returns true if a debugger is attached
+
   // Group Wave Ops
   GetGroupWaveCount = 2, // returns the number of waves in the thread group
   GetGroupWaveIndex = 1, // returns the index of the wave in the thread group
@@ -592,7 +596,7 @@ enum class OpCode : unsigned {
   HitObject_TriangleObjectPosition =
       10, // returns triangle vertices in object space as <9 x float>
 
-  NumOpCodes = 33, // exclusive last value of enumeration
+  NumOpCodes = 35, // exclusive last value of enumeration
 };
 } // namespace ExperimentalOps
 static const unsigned NumOpCodeTables = 2;
@@ -1336,6 +1340,12 @@ enum class OpCode : unsigned {
   EXP_OPCODE(ExperimentalOps, LinAlgMatrixReserved1), // reserved
   // LinAlgMatrixReserved2 = 0x80000020, 2147483680U, -2147483616
   EXP_OPCODE(ExperimentalOps, LinAlgMatrixReserved2), // reserved
+  // DebugBreak = 0x80000021, 2147483681U, -2147483615
+  EXP_OPCODE(ExperimentalOps,
+             DebugBreak), // triggers a breakpoint if a debugger is attached
+  // IsDebuggerPresent = 0x80000022, 2147483682U, -2147483614
+  EXP_OPCODE(ExperimentalOps,
+             IsDebuggerPresent), // returns true if a debugger is attached
 };
 // OPCODE-ENUM:END
 #undef EXP_OPCODE
@@ -1397,6 +1407,10 @@ enum class OpCodeClass : unsigned {
   CreateNodeInputRecordHandle,
   IndexNodeHandle,
   createNodeOutputHandle,
+
+  // Debugging
+  DebugBreak,
+  IsDebuggerPresent,
 
   // Derivatives
   CalculateLOD,
@@ -1700,7 +1714,7 @@ enum class OpCodeClass : unsigned {
   NodeOutputIsValid,
   OutputComplete,
 
-  NumOpClasses = 223, // exclusive last value of enumeration
+  NumOpClasses = 225, // exclusive last value of enumeration
 };
 // OPCODECLASS-ENUM:END
 

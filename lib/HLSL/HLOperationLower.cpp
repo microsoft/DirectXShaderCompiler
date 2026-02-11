@@ -7697,6 +7697,10 @@ constexpr IntrinsicLower gLowerTable[] = {
      DXIL::OpCode::MatrixVecMul},
     {IntrinsicOp::IOP___builtin_LinAlg_MatrixVectorMultiplyAdd, EmptyLower,
      DXIL::OpCode::MatrixVecMulAdd},
+    {IntrinsicOp::IOP_DebugBreak, TrivialNoArgOperation,
+     DXIL::OpCode::DebugBreak},
+    {IntrinsicOp::IOP_DxIsDebuggerPresent, TranslateWaveToVal,
+     DXIL::OpCode::IsDebuggerPresent},
 };
 constexpr size_t NumLowerTableEntries =
     sizeof(gLowerTable) / sizeof(gLowerTable[0]);
@@ -8401,7 +8405,7 @@ void TranslateCBAddressUserLegacy(Instruction *user, Value *handle,
           // row.z = c[2].[idx]
           // row.w = c[3].[idx]
           Value *Elts[4];
-          ArrayType *AT = ArrayType::get(EltTy, MatTy.getNumColumns());
+          ArrayType *AT = ArrayType::get(EltTy, MatTy.getNumRows());
 
           IRBuilder<> AllocaBuilder(user->getParent()
                                         ->getParent()

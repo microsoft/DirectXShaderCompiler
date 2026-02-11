@@ -8053,7 +8053,7 @@ def err_hlsl_linalg_matrix_invalid_enum_attribute_value
 def err_hlsl_linalg_matrix_attribute_on_invalid_type
     : Error<"matrix attributes can only be applied to %0">;
 def err_hlsl_linalg_attributed_matrix_required
-    : Error<"argument type must be linear algebra matrix with attributes">;
+    : Error<"argument must be linear algebra matrix type">;
 
 def err_hlsl_linalg_mul_muladd_output_vector_size_not_equal_to_matrix_M : Error<
   "output vector length must be equal to Matrix M dimension in a linalg Mul/MulAdd operation">;

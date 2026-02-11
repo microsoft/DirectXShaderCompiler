@@ -8,10 +8,10 @@ ByteAddressBuffer input_vector_buffer;
 ByteAddressBuffer input_vector_buffer2;
 RWByteAddressBuffer matrix_buffer;
 
-#include <dx/linalg.h>
+#include <dx/coopvec.h>
 
 // CHECK: call void @dx.op.outerProductAccumulate.v8f16.v8f16(i32 307, <8 x half> %{{[^ ]+}}, <8 x half> %{{[^ ]+}}, %dx.types.Handle %{{[^ ]+}}, i32 0, i32 8, i32 3, i32 0)
-using namespace dx::linalg;
+using namespace dx::coopvec;
 
 [Numthreads(1,1,1)]
 [shader("compute")]

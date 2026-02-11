@@ -3659,6 +3659,9 @@ private:
       case LICOMPTYPE_UINT:
         paramTypes.push_back(context.UnsignedIntTy);
         break;
+      case LICOMPTYPE_BOOL:
+        paramTypes.push_back(context.BoolTy);
+        break;
       case LICOMPTYPE_VOID:
         paramTypes.push_back(context.VoidTy);
         break;
@@ -17904,8 +17907,10 @@ static bool verifyLinAlgMatrixEnumArg(Sema &S, Expr *Arg, const char *EnumName,
   if (Value < (int64_t)MinValue || Value > (int64_t)MaxValue) {
     S.Diags.Report(Arg->getExprLoc(),
                    diag::err_hlsl_linalg_matrix_invalid_enum_attribute_value)
-        << EnumName << std::to_string(Value) << std::to_string(MinValue)
-        << std::to_string(MaxValue);
+        << EnumName
+        << std::to_string(Value) // DiagnosticBuilder does not support uint64_t
+                                 // so we convert to string first
+        << MinValue << MaxValue;
     return false;
   }
 

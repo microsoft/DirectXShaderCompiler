@@ -4,13 +4,13 @@
 // This is a copy of \tools\clang\test\CodeGenDXIL\hlsl\linalg\outerproductaccumulate.hlsl
 // except that spirv is targeted
 
-// expected-error@dx/linalg.h:4{{Cooperative vectors not (yet) supported for SPIRV}}
-#include <dx/linalg.h>
+// expected-error@dx/coopvec.h:4{{Cooperative vectors not (yet) supported for SPIRV}}
+#include <dx/coopvec.h>
 
 RWByteAddressBuffer RWBuf;
 
 export void Test4(vector<half, 128> Input1, vector<half, 64> Input2) {
-  using namespace dx::linalg;
+  using namespace dx::coopvec;
 
   RWMatrixRef<DATA_TYPE_FLOAT16, 128, 64, MATRIX_LAYOUT_OUTER_PRODUCT_OPTIMAL>
       matrix = {RWBuf, 0, 0};
