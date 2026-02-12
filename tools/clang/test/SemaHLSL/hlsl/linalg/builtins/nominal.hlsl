@@ -39,4 +39,7 @@ void main() {
 
   float elem2;
   __builtin_LinAlg_MatrixGetElement(elem2, mat1, 3);
+
+  __builtin_LinAlgMatrix [[__LinAlgMatrix_Attributes(1, 5, 4, 2, 2)]] mat4;
+  __builtin_LinAlg_MatrixSetElement(mat4, mat1, 1, 1);
 }

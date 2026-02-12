@@ -47,4 +47,7 @@ void main() {
   uint elem;
   // expected-error@+1{{intrinsic __builtin_LinAlg_MatrixGetElement potentially used by ''main'' requires shader model 6.10 or greater}}
   __builtin_LinAlg_MatrixGetElement(elem, mat, 0);
+
+  // expected-error@+1{{intrinsic __builtin_LinAlg_MatrixSetElement potentially used by ''main'' requires shader model 6.10 or greater}}
+  __builtin_LinAlg_MatrixSetElement(mat, mat, 1, 1);
 }

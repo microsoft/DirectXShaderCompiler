@@ -57,4 +57,9 @@ void main() {
   // CHECK: call float @dx.op.linAlgMatrixGetElement.f32.mC4M5N4U1S2(i32 -2147483630, %dx.types.LinAlgMatrixC4M5N4U1S2 %{{.*}}, i32 1)  ; LinAlgMatrixGetElement(matrix,threadLocalIndex)
   float elem2;
   __builtin_LinAlg_MatrixGetElement(elem2, mat1, 1);
+
+
+  // CHECK: call %dx.types.LinAlgMatrixC4M5N4U1S2 @dx.op.linAlgMatrixSetElement.mC4M5N4U1S2.mC4M5N4U1S2.i32(i32 -2147483629, %dx.types.LinAlgMatrixC4M5N4U1S2 %{{.*}}, i32 1, i32 5)  ; LinAlgMatrixSetElement(matrix,threadLocalIndex,value)
+  __builtin_LinAlgMatrix [[__LinAlgMatrix_Attributes(4, 5, 4, 1, 2)]] mat5;
+  __builtin_LinAlg_MatrixSetElement(mat5, mat1, 1, 5);
 }
