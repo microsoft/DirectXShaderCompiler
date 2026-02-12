@@ -11,18 +11,18 @@ using namespace dx::linalg;
 // CHECK: %dx.types.LinAlgMatrixC2M3N4U2S2 = type { i8* }
 
 // CHECK: define internal void @"\01?f1@@YAXXZ"()
-// CHECK: %mat1 = alloca %dx.types.LinAlgMatrixC4M4N5U1S2, align 4
+// CHECK: %{{.*}} = alloca %dx.types.LinAlgMatrixC4M4N5U1S2, align 4
 void f1() {
   __builtin_LinAlgMatrix [[__LinAlgMatrix_Attributes(ComponentType::I32, 4, 5, MatrixUse::B, MatrixScope::ThreadGroup)]] mat1;
 }
 
 // CHECK: define internal void @"\01?f2@@YAX$linalg_matrixC17M3N3U0S1@@Z"(%dx.types.LinAlgMatrixC17M3N3U0S1 %mat2.coerce)
-// CHECK: %mat2 = alloca %dx.types.LinAlgMatrixC17M3N3U0S1, align 4
+// CHECK: %{{.*}} = alloca %dx.types.LinAlgMatrixC17M3N3U0S1, align 4
 void f2(__builtin_LinAlgMatrix [[__LinAlgMatrix_Attributes(ComponentType::PackedS8x32, 3, 3, MatrixUse::A, MatrixScope::Wave)]] mat2) {
 }
 
 // CHECK: define internal %dx.types.LinAlgMatrixC9M10N20U0S0 @"\01?f3@@YA$linalg_matrixC9M10N20U0S0@XZ"()
-// CHECK: %mat3 = alloca %dx.types.LinAlgMatrixC9M10N20U0S0, align 4
+// CHECK: %{{.*}} = alloca %dx.types.LinAlgMatrixC9M10N20U0S0, align 4
 typedef __builtin_LinAlgMatrix [[__LinAlgMatrix_Attributes(ComponentType::F32, 10, 20, MatrixUse::A, MatrixScope::Thread)]] Mat10by20;
 
 Mat10by20 f3() {
