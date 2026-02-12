@@ -5861,7 +5861,8 @@ SpirvEmitter::processTextureSampleGather(const CXXMemberCallExpr *expr,
   const QualType imageType = imageExpr->getType();
   const bool isImageSampledTexture = isSampledTexture(imageType);
 
-  int samplerIndex, coordIndex;
+  int samplerIndex;
+  uint32_t coordIndex;
   if (isImageSampledTexture) {
     samplerIndex = -1; // non-existant
     coordIndex = 0;
