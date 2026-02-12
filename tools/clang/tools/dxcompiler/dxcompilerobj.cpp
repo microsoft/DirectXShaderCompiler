@@ -1173,6 +1173,16 @@ public:
                 std::unique_ptr<uint8_t[]>(new uint8_t[MetalLibSize]);
             IRMetalLibGetBytecode(MetalLib, MetalLibBytes.get());
 
+            if (!opts.OutputReflectionFile.empty()) {
+              IRShaderReflection *Reflection = IRShaderReflectionCreate();
+              IRObjectGetReflection(AIR, Stage, Reflection);
+              const char *RawJSON =
+                  IRShaderReflectionCopyJSONString(Reflection);
+              IFT(pResult->SetOutputString(DXC_OUT_REFLECTION, RawJSON,
+                                           strlen(RawJSON)));
+              IRShaderReflectionDestroy(Reflection);
+            }
+
             // Store the metallib to custom format or disk, or use to create a
             // MTLLibrary.
 
