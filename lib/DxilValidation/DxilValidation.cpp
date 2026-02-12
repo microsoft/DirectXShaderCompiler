@@ -3931,7 +3931,8 @@ static void ValidateGlobalVariables(ValidationContext &ValCtx) {
       MaxSize = DXIL::kMaxTGSMSize;
     else if (Props.IsMS())
       MaxSize = DXIL::kMaxMSSMSize;
-    if (Props.groupSharedLimitBytes >= 0)
+    if (Props.groupSharedLimitBytes !=
+        DxilFunctionProps::kGroupSharedLimitUnset)
       MaxSize = static_cast<unsigned>(Props.groupSharedLimitBytes);
     return MaxSize;
   };
@@ -3974,7 +3975,8 @@ static void ValidateGlobalVariables(ValidationContext &ValCtx) {
     if (!IsPatchConstant) {
       DxilFunctionProps &Props = M.GetDxilFunctionProps(EntryFunc);
       MaxSize = getMaxTGSM(Props);
-      Rule = Props.groupSharedLimitBytes >= 0
+      Rule = Props.groupSharedLimitBytes !=
+                     DxilFunctionProps::kGroupSharedLimitUnset
                  ? ValidationRule::SmExplicitTGSMSizeOnEntry
                  : ValidationRule::SmMaxTGSMSizeOnEntry;
     }

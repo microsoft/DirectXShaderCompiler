@@ -1653,7 +1653,8 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
           FD->getAttr<HLSLGroupSharedLimitAttr>()) {
     funcProps->groupSharedLimitBytes = Attr->getLimit();
   } else {
-    funcProps->groupSharedLimitBytes = -1; // not specified
+    funcProps->groupSharedLimitBytes =
+        DxilFunctionProps::kGroupSharedLimitUnset; // not specified
   }
 
   // Hull shader.
