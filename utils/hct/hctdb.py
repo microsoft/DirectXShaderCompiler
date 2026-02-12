@@ -1183,7 +1183,7 @@ class db_dxil(object):
                 "mesh",
                 "amplification",
             )
-    
+
         for i in insts("DebugBreak", "IsDebuggerPresent"):
             i.category = "Debugging"
             i.shader_model = experimental_sm
