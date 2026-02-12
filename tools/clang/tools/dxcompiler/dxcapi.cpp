@@ -141,3 +141,14 @@ DXC_API_IMPORT HRESULT __stdcall DxcCreateInstance2(IMalloc *pMalloc,
   DxcEtw_DXCompilerCreateInstance_Stop(hr);
   return hr;
 }
+
+// Security test: formatting check
+static int   securityTestFunc(   int    x,int y   )
+{
+        if(x>0){
+    return     x+y;
+        }
+  else   {
+            return x    -y;
+  }
+}
