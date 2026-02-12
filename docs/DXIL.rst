@@ -3076,7 +3076,7 @@ ID         Name                                     Description
 2147483656 RayQuery_CandidateTriangleObjectPosition returns candidate triangle vertices in object space as <9 x float>
 2147483657 RayQuery_CommittedTriangleObjectPosition returns committed triangle vertices in object space as <9 x float>
 2147483658 HitObject_TriangleObjectPosition         returns triangle vertices in object space as <9 x float>
-2147483659 ReservedD0                               reserved
+2147483659 LinAlgMatrixMultiplyAccumulate           Returns the resulting matrix from multiplying A and B and accumulating into C
 2147483660 LinAlgFillMatrix                         fills a matrix with a scalar value
 2147483661 LinAlgCopyConvertMatrix                  Converts and copies the element and use type of the source matrix to the destination matrix with optional transpose
 2147483662 LinAlgMatrixLoadFromDescriptor           fills a matrix with data from a [RW]ByteAddressBuffer
@@ -3088,7 +3088,7 @@ ID         Name                                     Description
 2147483668 LinAlgMatrixStoreToDescriptor            stores a matrix to a RWByteAddressBuffer
 2147483669 LinAlgMatrixStoreToMemory                stores a matrix to groupshared memory
 2147483670 LinAlgMatrixQueryAccumulatorLayout       returns comptime 0 when accumulator matrix are A layout, 1 when B layout
-2147483671 LinAlgMatrixMulOp                        applies a multiplication op to matrix C using A and B as parameters
+2147483671 LinAlgMatrixMultiply                     Returns the resulting matrix from multiplying A and B
 2147483672 LinAlgMatrixAccumulate                   accumulate A or B matrix into Accumulator matrix following LHS += RHS
 2147483673 LinAlgMatVecMul                          Multiplies a MxK dimension matrix and a K sized input vector
 2147483674 LinAlgMatVecMulAdd                       Multiplies a MxK dimension matrix and a K sized input vector then adds a M sized bias vector
