@@ -524,7 +524,6 @@ static const OpCodeTableID TableID = OpCodeTableID::ExperimentalOps;
 // Enumeration for ExperimentalOps DXIL operations
 enum class OpCode : unsigned {
   //
-  ReservedD0 = 11, // reserved
   ReservedD1 = 30, // reserved
   ReservedD2 = 31, // reserved
   ReservedD3 = 32, // reserved
@@ -569,8 +568,11 @@ enum class OpCode : unsigned {
       14, // fills a matrix with data from a [RW]ByteAddressBuffer
   LinAlgMatrixLoadFromMemory =
       15, // fills a matrix with data from a groupshared array
-  LinAlgMatrixMulOp =
-      23, // applies a multiplication op to matrix C using A and B as parameters
+  LinAlgMatrixMultiply =
+      23, // Returns the resulting matrix from multiplying A and B
+  LinAlgMatrixMultiplyAccumulate =
+      11, // Returns the resulting matrix from multiplying A and B and
+          // accumulating into C
   LinAlgMatrixOuterProduct = 29, // Outer products an M sized vector and a N
                                  // sized vector producing an MxN matrix
   LinAlgMatrixQueryAccumulatorLayout =
@@ -1259,8 +1261,11 @@ enum class OpCode : unsigned {
   EXP_OPCODE(ExperimentalOps,
              HitObject_TriangleObjectPosition), // returns triangle vertices in
                                                 // object space as <9 x float>
-  // ReservedD0 = 0x8000000B, 2147483659U, -2147483637
-  EXP_OPCODE(ExperimentalOps, ReservedD0), // reserved
+  // LinAlgMatrixMultiplyAccumulate = 0x8000000B, 2147483659U, -2147483637
+  EXP_OPCODE(ExperimentalOps,
+             LinAlgMatrixMultiplyAccumulate), // Returns the resulting matrix
+                                              // from multiplying A and B and
+                                              // accumulating into C
   // LinAlgFillMatrix = 0x8000000C, 2147483660U, -2147483636
   EXP_OPCODE(ExperimentalOps,
              LinAlgFillMatrix), // fills a matrix with a scalar value
@@ -1312,10 +1317,10 @@ enum class OpCode : unsigned {
              LinAlgMatrixQueryAccumulatorLayout), // returns comptime 0 when
                                                   // accumulator matrix are A
                                                   // layout, 1 when B layout
-  // LinAlgMatrixMulOp = 0x80000017, 2147483671U, -2147483625
+  // LinAlgMatrixMultiply = 0x80000017, 2147483671U, -2147483625
   EXP_OPCODE(ExperimentalOps,
-             LinAlgMatrixMulOp), // applies a multiplication op to matrix C
-                                 // using A and B as parameters
+             LinAlgMatrixMultiply), // Returns the resulting matrix from
+                                    // multiplying A and B
   // LinAlgMatrixAccumulate = 0x80000018, 2147483672U, -2147483624
   EXP_OPCODE(ExperimentalOps,
              LinAlgMatrixAccumulate), // accumulate A or B matrix into
@@ -1515,7 +1520,8 @@ enum class OpCodeClass : unsigned {
   LinAlgMatrixLength,
   LinAlgMatrixLoadFromDescriptor,
   LinAlgMatrixLoadFromMemory,
-  LinAlgMatrixMulOp,
+  LinAlgMatrixMultiply,
+  LinAlgMatrixMultiplyAccumulate,
   LinAlgMatrixOuterProduct,
   LinAlgMatrixQueryAccumulatorLayout,
   LinAlgMatrixSetElement,
@@ -1711,7 +1717,7 @@ enum class OpCodeClass : unsigned {
   NodeOutputIsValid,
   OutputComplete,
 
-  NumOpClasses = 222, // exclusive last value of enumeration
+  NumOpClasses = 223, // exclusive last value of enumeration
 };
 // OPCODECLASS-ENUM:END
 

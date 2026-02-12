@@ -1174,7 +1174,7 @@ class db_dxil(object):
             + "LinAlgMatrixLength,LinAlgMatrixGetCoordinate,LinAlgMatrixGetElement,LinAlgMatrixSetElement,"
             + "LinAlgMatrixStoreToDescriptor,"
             + "LinAlgMatrixLoadFromMemory,LinAlgMatrixStoreToMemory,LinAlgMatrixAccumulateToMemory,"
-            + "LinAlgMatrixMulOp,LinAlgMatrixAccumulate"
+            + "LinAlgMatrixMultiply,LinAlgMatrixMultiplyAccumulate,LinAlgMatrixAccumulate"
         ):
             i.category = "Linear Algebra Operations"
             i.shader_model = experimental_sm
@@ -6334,7 +6334,19 @@ class db_dxil(object):
         )
 
         # Linear Algebra Ops
-        op_table.reserve_dxil_op_range("ReservedD", 1)
+        add_dxil_op(
+            "LinAlgMatrixMultiplyAccumulate",
+            "LinAlgMatrixMultiplyAccumulate",
+            "Returns the resulting matrix from multiplying A and B and accumulating into C",
+            "o,o,o,o",
+            "",
+            [
+                db_dxil_param(0, "$x0", "", "resulting matrix"),
+                db_dxil_param(2, "$x1", "matrixA", "A matrix"),
+                db_dxil_param(3, "$x2", "matrixB", "B matrix"),
+                db_dxil_param(4, "$x3", "matrixC", "C matrix"),
+            ],
+        )
 
         add_dxil_op(
             "LinAlgFillMatrix",
@@ -6521,9 +6533,9 @@ class db_dxil(object):
         )
 
         add_dxil_op(
-            "LinAlgMatrixMulOp",
-            "LinAlgMatrixMulOp",
-            "applies a multiplication op to matrix C using A and B as parameters",
+            "LinAlgMatrixMultiply",
+            "LinAlgMatrixMultiply",
+            "Returns the resulting matrix from multiplying A and B",
             "o,o,o",
             "",
             [
