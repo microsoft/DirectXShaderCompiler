@@ -10500,6 +10500,41 @@ struct DxilInst_HitObject_TriangleObjectPosition {
   void set_hitObject(llvm::Value *val) { Instr->setOperand(1, val); }
 };
 
+/// This instruction Returns the resulting matrix from multiplying A and B and
+/// accumulating into C
+struct DxilInst_LinAlgMatrixMultiplyAccumulate {
+  llvm::Instruction *Instr;
+  // Construction and identification
+  DxilInst_LinAlgMatrixMultiplyAccumulate(llvm::Instruction *pInstr)
+      : Instr(pInstr) {}
+  operator bool() const {
+    return hlsl::OP::IsDxilOpFuncCallInst(
+        Instr, hlsl::OP::OpCode::LinAlgMatrixMultiplyAccumulate);
+  }
+  // Validation support
+  bool isAllowed() const { return true; }
+  bool isArgumentListValid() const {
+    if (4 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands())
+      return false;
+    return true;
+  }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
+  // Operand indexes
+  enum OperandIdx {
+    arg_matrixA = 1,
+    arg_matrixB = 2,
+    arg_matrixC = 3,
+  };
+  // Accessors
+  llvm::Value *get_matrixA() const { return Instr->getOperand(1); }
+  void set_matrixA(llvm::Value *val) { Instr->setOperand(1, val); }
+  llvm::Value *get_matrixB() const { return Instr->getOperand(2); }
+  void set_matrixB(llvm::Value *val) { Instr->setOperand(2, val); }
+  llvm::Value *get_matrixC() const { return Instr->getOperand(3); }
+  void set_matrixC(llvm::Value *val) { Instr->setOperand(3, val); }
+};
+
 /// This instruction fills a matrix with a scalar value
 struct DxilInst_LinAlgFillMatrix {
   llvm::Instruction *Instr;
@@ -10859,15 +10894,14 @@ struct DxilInst_LinAlgMatrixQueryAccumulatorLayout {
   bool requiresUniformInputs() const { return false; }
 };
 
-/// This instruction applies a multiplication op to matrix C using A and B as
-/// parameters
-struct DxilInst_LinAlgMatrixMulOp {
+/// This instruction Returns the resulting matrix from multiplying A and B
+struct DxilInst_LinAlgMatrixMultiply {
   llvm::Instruction *Instr;
   // Construction and identification
-  DxilInst_LinAlgMatrixMulOp(llvm::Instruction *pInstr) : Instr(pInstr) {}
+  DxilInst_LinAlgMatrixMultiply(llvm::Instruction *pInstr) : Instr(pInstr) {}
   operator bool() const {
-    return hlsl::OP::IsDxilOpFuncCallInst(Instr,
-                                          hlsl::OP::OpCode::LinAlgMatrixMulOp);
+    return hlsl::OP::IsDxilOpFuncCallInst(
+        Instr, hlsl::OP::OpCode::LinAlgMatrixMultiply);
   }
   // Validation support
   bool isAllowed() const { return true; }
