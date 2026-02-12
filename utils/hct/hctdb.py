@@ -8881,12 +8881,12 @@ class db_dxil(object):
         )
         self.add_valrule_msg(
             "Sm.MaxTGSMSizeOnEntry",
-            "Total Thread Group Shared Memory used by entry must not exceed maximum for shader model",
+            "Total Thread Group Shared Memory used by entry must not exceed maximum for shader model.",
             "Total Thread Group Shared Memory used by '%0' is %1, exceeding maximum: %2.",
         )
         self.add_valrule_msg(
             "Sm.ExplicitTGSMSizeOnEntry",
-            "Total Thread Group Shared Memory used by entry must not exceed limit specified by entry attribute",
+            "Total Thread Group Shared Memory used by entry must not exceed limit specified by entry attribute.",
             "Total Thread Group Shared Memory used by '%0' is %1, exceeding explicit limit: %2.",
         )
         self.add_valrule(
