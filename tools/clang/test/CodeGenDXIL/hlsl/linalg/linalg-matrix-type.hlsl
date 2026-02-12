@@ -6,11 +6,12 @@
 using namespace dx::linalg;
 
 // CHECK: %"class.dx::linalg::Matrix<dx::linalg::ComponentType::ComponentEnum::I32, 4, 5, dx::linalg::MatrixUse::MatrixUseEnum::B,
-// CHECK-SAME: dx::linalg::MatrixScope::MatrixScopeEnum::ThreadGroup>" = type { i32, %dx.types.LinAlgMatrixC4M4N5U1S2 }
+// CHECK-SAME: dx::linalg::MatrixScope::MatrixScopeEnum::ThreadGroup>" = type { %dx.types.LinAlgMatrixC4M4N5U1S2 }
 // CHECK: %dx.types.LinAlgMatrixC4M4N5U1S2 = type { i8* }
 
+
 // CHECK: %"class.dx::linalg::Matrix<dx::linalg::ComponentType::ComponentEnum::PackedS8x32, 100, 100, dx::linalg::MatrixUse::MatrixUseEnum::A,
-// CHECK-SAME: dx::linalg::MatrixScope::MatrixScopeEnum::Wave>" = type { i32, %dx.types.LinAlgMatrixC17M100N100U0S1 }
+// CHECK-SAME: dx::linalg::MatrixScope::MatrixScopeEnum::Wave>" = type { %dx.types.LinAlgMatrixC17M100N100U0S1 }
 // CHECK: %dx.types.LinAlgMatrixC17M100N100U0S1 = type { i8* }
 
 // CHECK: define internal void @"\01?f@@YAXXZ"()
