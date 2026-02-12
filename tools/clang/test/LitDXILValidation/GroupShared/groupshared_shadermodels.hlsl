@@ -196,6 +196,10 @@ struct PCStruct
   float4 test : TEST;
 };
 
+// LIBCHK: error: Thread Group Shared Memory not supported from non-compute entry points.
+// LIBCHK-NEXT: HSPatch
+// LIBCHK: error: Thread Group Shared Memory not supported from non-compute entry points.
+// LIBCHK-NEXT: HSPatch
 PCStruct HSPatch(InputPatch<PosStruct, 3> ip,
                  OutputPatch<PosStruct, 3> op,
                  uint ix : SV_PrimitiveID)

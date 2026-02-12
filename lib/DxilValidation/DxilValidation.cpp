@@ -3957,21 +3957,27 @@ static void ValidateGlobalVariables(ValidationContext &ValCtx) {
     // - Patch constant function without function properties, TGSM not allowed
     // - No-inline function without function properties, TGSM counted in entry
     DXIL::ShaderKind Kind = DXIL::ShaderKind::Invalid;
+    bool IsPatchConstant = M.IsPatchConstantShader(EntryFunc);
     if (M.HasDxilFunctionProps(EntryFunc))
       Kind = M.GetDxilEntryProps(EntryFunc).props.shaderKind;
-    else if (!M.IsPatchConstantShader(EntryFunc))
+    else if (!IsPatchConstant)
       return; // no-inline function, accounted for in entry
 
     auto Overages = TGSMOverages.find(EntryFunc);
     if (Overages == TGSMOverages.end())
       return;
 
-    // Must exist now:
-    DxilFunctionProps &Props = M.GetDxilFunctionProps(EntryFunc);
-    unsigned MaxSize = getMaxTGSM(Props);
-    ValidationRule Rule = Props.groupSharedLimitBytes >= 0
-                              ? ValidationRule::SmExplicitTGSMSizeOnEntry
-                              : ValidationRule::SmMaxTGSMSizeOnEntry;
+    unsigned MaxSize = 0;
+    ValidationRule Rule = ValidationRule::SmMaxTGSMSizeOnEntry;
+
+    // Props only exist if not a patch constant function.
+    if (!IsPatchConstant) {
+      DxilFunctionProps &Props = M.GetDxilFunctionProps(EntryFunc);
+      MaxSize = getMaxTGSM(Props);
+      Rule = Props.groupSharedLimitBytes >= 0
+                 ? ValidationRule::SmExplicitTGSMSizeOnEntry
+                 : ValidationRule::SmMaxTGSMSizeOnEntry;
+    }
 
     for (auto &GVAndUser : Overages->second) {
       Instruction *UseInst = GVAndUser.second;
@@ -3998,7 +4004,7 @@ static void ValidateGlobalVariables(ValidationContext &ValCtx) {
     if (GV.getType()->getAddressSpace() == DXIL::kTGSMAddrSpace) {
       SmallPtrSet<llvm::Function *, 8> completeFuncs;
       SmallVector<WorkListEntry, 16> WorkList;
-      auto AddUsers = [&WorkList](User *U, Instruction *FirstUser = nullptr) {
+      auto AddUsers = [&WorkList](User *U, Instruction *FirstUser) {
         for (User *U : U->users()) {
           if (!FirstUser && isa<Instruction>(U))
             WorkList.push_back({U, cast<Instruction>(U)});
@@ -4008,13 +4014,13 @@ static void ValidateGlobalVariables(ValidationContext &ValCtx) {
       };
       uint32_t GVSize = DL.getTypeAllocSize(GV.getType()->getElementType());
 
-      AddUsers(&GV);
+      AddUsers(&GV, nullptr);
 
       while (!WorkList.empty()) {
         WorkListEntry Info = WorkList.pop_back_val();
         // If const, keep going until we find something we can use
         if (isa<Constant>(Info.U)) {
-          AddUsers(Info.U);
+          AddUsers(Info.U, Info.FirstUser);
           continue;
         }
 
@@ -4049,12 +4055,17 @@ static void ValidateGlobalVariables(ValidationContext &ValCtx) {
 
   if (pSM->IsLib()) {
     for (auto &F : M.GetModule()->functions()) {
-      if (F.isDeclaration() || !M.HasDxilEntryProps(&F))
+      if (F.isDeclaration() ||
+          !(M.HasDxilEntryProps(&F) || M.IsPatchConstantShader(&F)))
         continue;
       ReportTGSMOverages(&F);
     }
   } else {
-    ReportTGSMOverages(M.GetEntryFunction());
+    Function *EntryFunc = M.GetEntryFunction();
+    if (EntryFunc)
+      ReportTGSMOverages(EntryFunc);
+    if (pSM->IsHS())
+      ReportTGSMOverages(M.GetPatchConstantFunction());
   }
 
   if (!FixAddrTGSMList.empty()) {
