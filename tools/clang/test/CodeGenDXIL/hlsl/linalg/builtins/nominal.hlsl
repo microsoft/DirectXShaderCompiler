@@ -72,4 +72,7 @@ void main() {
   __builtin_LinAlgMatrix [[__LinAlgMatrix_Attributes(4, 5, 4, 1, 2)]] mat7;
   __builtin_LinAlg_MatrixMatrixMultiplyAccumulate(mat7, mat6, mat6, mat6);
 
+  // CHECK: call %dx.types.LinAlgMatrixC4M5N4U1S2 @dx.op.linAlgCopyConvertMatrix.mC4M5N4U1S2.mC4M5N4U1S2(i32 -2147483635, %dx.types.LinAlgMatrixC4M5N4U1S2 %{{.*}}, i1 false)  ; LinAlgCopyConvertMatrix(srcMatrix,transpose)
+  __builtin_LinAlgMatrix [[__LinAlgMatrix_Attributes(4, 5, 4, 1, 2)]] mat8;
+  __builtin_LinAlg_CopyConvertMatrix(mat8, mat7, false);
 }

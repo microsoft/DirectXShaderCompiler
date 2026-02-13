@@ -56,4 +56,7 @@ void main() {
 
   // expected-error@+1{{intrinsic __builtin_LinAlg_MatrixMatrixMultiplyAccumulate potentially used by ''main'' requires shader model 6.10 or greater}}
   __builtin_LinAlg_MatrixMatrixMultiplyAccumulate(mat, mat2, mat2, mat);
+
+  // expected-error@+1{{intrinsic __builtin_LinAlg_CopyConvertMatrix potentially used by ''main'' requires shader model 6.10 or greater}}
+  __builtin_LinAlg_CopyConvertMatrix(mat, mat2, true);
 }

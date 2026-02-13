@@ -45,4 +45,7 @@ void main() {
 
   __builtin_LinAlg_MatrixMatrixMultiply(mat2, mat3, mat4);
   __builtin_LinAlg_MatrixMatrixMultiplyAccumulate(mat1, mat2, mat3, mat4);
+
+  __builtin_LinAlgMatrix [[__LinAlgMatrix_Attributes(1, 5, 4, 2, 2)]] mat5;
+  __builtin_LinAlg_CopyConvertMatrix(mat5, mat1, true);
 }
