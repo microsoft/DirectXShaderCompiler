@@ -45,6 +45,7 @@ class ReturnStmt;
 class Attr;
 class VarDecl;
 class HLSLRootSignatureAttr;
+class AttributedLinAlgMatrixType;
 
 namespace CodeGen {
 class CodeGenModule;
@@ -171,6 +172,9 @@ public:
   virtual void EmitHLSLMartrixCastForStoreOp(
       CodeGenFunction &CGF, llvm::SmallVector<llvm::Value *, 16> &IRCallArgs,
       llvm::SmallVector<clang::QualType, 16> &ArgTys) = 0;
+
+  virtual llvm::Type *ConvertAttributedLinAlgMatrixType(
+      const clang::AttributedLinAlgMatrixType *T) = 0;
 };
 
 /// Create an instance of a HLSL runtime class.
