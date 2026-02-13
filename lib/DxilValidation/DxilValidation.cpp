@@ -3926,15 +3926,14 @@ static void ValidateGlobalVariables(ValidationContext &ValCtx) {
   };
 
   auto getMaxTGSM = [](const DxilFunctionProps &Props) {
-    unsigned MaxSize = 0;
+  auto getMaxTGSM = [](const DxilFunctionProps &Props) {
+    if (Props.groupSharedLimitBytes >= 0)
+      return static_cast<unsigned>(Props.groupSharedLimitBytes);
     if (Props.IsCS() || Props.IsAS() || Props.IsNode())
-      MaxSize = DXIL::kMaxTGSMSize;
+      return DXIL::kMaxTGSMSize;
     else if (Props.IsMS())
-      MaxSize = DXIL::kMaxMSSMSize;
-    if (Props.groupSharedLimitBytes !=
-        DxilFunctionProps::kGroupSharedLimitUnset)
-      MaxSize = static_cast<unsigned>(Props.groupSharedLimitBytes);
-    return MaxSize;
+      return DXIL::kMaxMSSMSize;
+    return 0;
   };
 
   DenseMap<const Function *, uint32_t> TGSMInFunc;
