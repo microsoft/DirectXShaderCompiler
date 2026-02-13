@@ -1,6 +1,6 @@
 // RUN: %dxc -E main -T ms_6_5 %s | FileCheck %s
 
-// CHECK: Total Thread Group Shared Memory storage is 28676, exceeded 28672
+// CHECK: Total Thread Group Shared Memory used by 'main' is 28676, exceeding maximum: 28672.
 
 #define MAX_VERT 32
 #define MAX_PRIM 16

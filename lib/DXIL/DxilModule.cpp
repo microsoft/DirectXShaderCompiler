@@ -234,6 +234,12 @@ void DxilModule::SetEntryFunction(Function *pEntryFunc) {
   // Move entry props to new function in order to preserve them.
   std::unique_ptr<DxilEntryProps> Props =
       std::move(m_DxilEntryPropsMap.begin()->second);
+  // For HS, make sure we add the patch constant function to the set of patch
+  // constant functions.
+  m_PatchConstantFunctions.clear();
+  if (Props->props.IsHS() && Props->props.ShaderProps.HS.patchConstantFunc)
+    m_PatchConstantFunctions.insert(
+        Props->props.ShaderProps.HS.patchConstantFunc);
   m_DxilEntryPropsMap.clear();
   m_DxilEntryPropsMap[m_pEntryFunc] = std::move(Props);
 }
@@ -410,15 +416,6 @@ unsigned DxilModule::GetNumThreads(unsigned idx) const {
   const DxilFunctionProps &props = m_DxilEntryPropsMap.begin()->second->props;
   DXASSERT_NOMSG(m_pSM->GetKind() == props.shaderKind);
   return props.numThreads[idx];
-}
-
-unsigned DxilModule::GetGroupSharedLimit() const {
-  DXASSERT(m_DxilEntryPropsMap.size() == 1 &&
-               (m_pSM->IsCS() || m_pSM->IsMS() || m_pSM->IsAS()),
-           "only works for CS/MS/AS profiles");
-  const DxilFunctionProps &props = m_DxilEntryPropsMap.begin()->second->props;
-  DXASSERT_NOMSG(m_pSM->GetKind() == props.shaderKind);
-  return props.groupSharedLimitBytes;
 }
 
 unsigned DxilModule::GetTGSMSizeInBytes() const {

@@ -1665,13 +1665,8 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
           FD->getAttr<HLSLGroupSharedLimitAttr>()) {
     funcProps->groupSharedLimitBytes = Attr->getLimit();
   } else {
-    if (SM->IsMS()) { // Fallback to default limits
-      funcProps->groupSharedLimitBytes = DXIL::kMaxMSSMSize; // 28k For MS
-    } else if (SM->IsAS() || SM->IsCS()) {
-      funcProps->groupSharedLimitBytes = DXIL::kMaxTGSMSize; // 32k For AS/CS
-    } else {
-      funcProps->groupSharedLimitBytes = 0;
-    }
+    funcProps->groupSharedLimitBytes =
+        DxilFunctionProps::kGroupSharedLimitUnset; // not specified
   }
 
   // Hull shader.

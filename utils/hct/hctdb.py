@@ -8879,9 +8879,15 @@ class db_dxil(object):
             "Sm.MaxTheadGroup",
             "Declared Thread Group Count %0 (X*Y*Z) is beyond the valid maximum of %1.",
         )
-        self.add_valrule(
-            "Sm.MaxTGSMSize",
-            "Total Thread Group Shared Memory storage is %0, exceeded %1.",
+        self.add_valrule_msg(
+            "Sm.MaxTGSMSizeOnEntry",
+            "Total Thread Group Shared Memory used by entry must not exceed maximum for shader model.",
+            "Total Thread Group Shared Memory used by '%0' is %1, exceeding maximum: %2.",
+        )
+        self.add_valrule_msg(
+            "Sm.ExplicitTGSMSizeOnEntry",
+            "Total Thread Group Shared Memory used by entry must not exceed limit specified by entry attribute.",
+            "Total Thread Group Shared Memory used by '%0' is %1, exceeding explicit limit: %2.",
         )
         self.add_valrule(
             "Sm.TGSMUnsupported", "Thread Group Shared Memory not supported %0."
@@ -9159,10 +9165,6 @@ class db_dxil(object):
         self.add_valrule(
             "Sm.MeshTotalSigRowCount",
             "For shader '%0', vertex and primitive output signatures are taking up more than %1 rows.",
-        )
-        self.add_valrule(
-            "Sm.MaxMSSMSize",
-            "Total Thread Group Shared Memory storage is %0, exceeded %1.",
         )
         self.add_valrule(
             "Sm.AmplificationShaderPayloadSize",

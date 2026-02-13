@@ -3329,6 +3329,7 @@ SM.CSNOSIGNATURES                                             Compute shaders mu
 SM.DOMAINLOCATIONIDXOOB                                       DomainLocation component index out of bounds for the domain.
 SM.DSINPUTCONTROLPOINTCOUNTRANGE                              DS input control point count must be [0..%0].  %1 specified.
 SM.DXILVERSION                                                Target shader model requires specific Dxil Version
+SM.EXPLICITTGSMSIZEONENTRY                                    Total Thread Group Shared Memory used by entry must not exceed limit specified by entry attribute.
 SM.GSINSTANCECOUNTRANGE                                       GS instance count must be [1..%0].  %1 specified.
 SM.GSOUTPUTVERTEXCOUNTRANGE                                   GS output vertex count must be [0..%0].  %1 specified.
 SM.GSTOTALOUTPUTVERTEXDATARANGE                               Declared output vertex count (%0) multiplied by the total number of declared scalar components of output data (%1) equals %2.  This value cannot be greater than %3.
@@ -3351,8 +3352,7 @@ SM.INVALIDSAMPLERFEEDBACKTYPE                                 Invalid sampler fe
 SM.INVALIDTEXTUREKINDONUAV                                    TextureCube[Array] resources are not supported with UAVs.
 SM.ISOLINEOUTPUTPRIMITIVEMISMATCH                             Hull Shader declared with IsoLine Domain must specify output primitive point or line. Triangle_cw or triangle_ccw output are not compatible with the IsoLine Domain.
 SM.ISSPECIALFLOAT                                             16 bit IsSpecialFloat overloads require Shader Model 6.9 or higher.
-SM.MAXMSSMSIZE                                                Total Thread Group Shared Memory storage is %0, exceeded %1.
-SM.MAXTGSMSIZE                                                Total Thread Group Shared Memory storage is %0, exceeded %1.
+SM.MAXTGSMSIZEONENTRY                                         Total Thread Group Shared Memory used by entry must not exceed maximum for shader model.
 SM.MAXTHEADGROUP                                              Declared Thread Group Count %0 (X*Y*Z) is beyond the valid maximum of %1.
 SM.MESHPSIGROWCOUNT                                           For shader '%0', primitive output signatures are taking up more than %1 rows.
 SM.MESHSHADERINOUTSIZE                                        For shader '%0', payload plus output size is greater than %1.

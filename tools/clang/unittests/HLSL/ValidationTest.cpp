@@ -885,8 +885,8 @@ TEST_F(ValidationTest, CsThreadSizeFail) {
           "Declared Thread Group Z size 1025 outside valid range",
           "Declared Thread Group Count 1076890625 (X*Y*Z) is beyond the valid "
           "maximum",
-          "Total Thread Group Shared Memory storage is 256000000, exceeded "
-          "32768",
+          "Total Thread Group Shared Memory used by 'main' is 256000000, "
+          "exceeding maximum: 32768",
       });
 }
 TEST_F(ValidationTest, DeadLoopFail) {
