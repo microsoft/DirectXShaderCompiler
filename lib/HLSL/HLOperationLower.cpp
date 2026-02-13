@@ -7029,7 +7029,23 @@ Value *TranslateLinAlgCopyConvertMatrix(CallInst *CI, IntrinsicOp IOP,
                                         HLOperationLowerHelper &Helper,
                                         HLObjectOperationLowerHelper *ObjHelper,
                                         bool &Translated) {
-  DXASSERT(false, "Not implemented.");
+  hlsl::OP *HlslOp = &Helper.hlslOP;
+  IRBuilder<> Builder(CI);
+
+  Value *MatrixRPtr = CI->getArgOperand(1);
+  DXASSERT_NOMSG(isa<PointerType>(MatrixRPtr->getType()));
+  Type *MatrixRTy = MatrixRPtr->getType()->getPointerElementType();
+
+  Value *MatrixSrc = CI->getArgOperand(2);
+  Value *Transpose = CI->getArgOperand(3);
+
+  Constant *OpArg = HlslOp->GetU32Const((unsigned)OpCode);
+  Function *DxilFunc =
+      HlslOp->GetOpFunc(OpCode, {MatrixRTy, MatrixSrc->getType()});
+
+  Value *MatrixR = Builder.CreateCall(DxilFunc, {OpArg, MatrixSrc, Transpose});
+  Builder.CreateStore(MatrixR, MatrixRPtr);
+
   return nullptr;
 }
 
