@@ -3919,14 +3919,13 @@ static void ValidateGlobalVariables(ValidationContext &ValCtx) {
   const DataLayout &DL = M.GetModule()->getDataLayout();
   std::vector<StoreInst *> FixAddrTGSMList;
 
-  auto isTGSMEntry = [](DXIL::ShaderKind Kind) {
+  auto isTGSMEntry = [](DXIL::ShaderKind Kind) -> bool {
     return Kind == DXIL::ShaderKind::Compute ||
            Kind == DXIL::ShaderKind::Amplification ||
            Kind == DXIL::ShaderKind::Mesh || Kind == DXIL::ShaderKind::Node;
   };
 
-  auto getMaxTGSM = [](const DxilFunctionProps &Props) {
-  auto getMaxTGSM = [](const DxilFunctionProps &Props) {
+  auto getMaxTGSM = [](const DxilFunctionProps &Props) -> unsigned {
     if (Props.groupSharedLimitBytes >= 0)
       return static_cast<unsigned>(Props.groupSharedLimitBytes);
     if (Props.IsCS() || Props.IsAS() || Props.IsNode())
