@@ -50,4 +50,10 @@ void main() {
 
   // expected-error@+1{{intrinsic __builtin_LinAlg_MatrixSetElement potentially used by ''main'' requires shader model 6.10 or greater}}
   __builtin_LinAlg_MatrixSetElement(mat, mat, 1, 1);
+
+  // expected-error@+1{{intrinsic __builtin_LinAlg_MatrixMatrixMultiply potentially used by ''main'' requires shader model 6.10 or greater}}
+  __builtin_LinAlg_MatrixMatrixMultiply(mat2, mat, mat);
+
+  // expected-error@+1{{intrinsic __builtin_LinAlg_MatrixMatrixMultiplyAccumulate potentially used by ''main'' requires shader model 6.10 or greater}}
+  __builtin_LinAlg_MatrixMatrixMultiplyAccumulate(mat, mat2, mat2, mat);
 }

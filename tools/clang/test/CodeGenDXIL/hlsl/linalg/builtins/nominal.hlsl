@@ -62,4 +62,14 @@ void main() {
   // CHECK: call %dx.types.LinAlgMatrixC4M5N4U1S2 @dx.op.linAlgMatrixSetElement.mC4M5N4U1S2.mC4M5N4U1S2.i32(i32 -2147483629, %dx.types.LinAlgMatrixC4M5N4U1S2 %{{.*}}, i32 1, i32 5)  ; LinAlgMatrixSetElement(matrix,threadLocalIndex,value)
   __builtin_LinAlgMatrix [[__LinAlgMatrix_Attributes(4, 5, 4, 1, 2)]] mat5;
   __builtin_LinAlg_MatrixSetElement(mat5, mat1, 1, 5);
+
+
+  // CHECK: call %dx.types.LinAlgMatrixC4M5N4U1S2 @dx.op.linAlgMatrixMultiply.mC4M5N4U1S2.mC4M5N4U1S2.mC4M5N4U1S2(i32 -2147483625, %dx.types.LinAlgMatrixC4M5N4U1S2 %{{.*}}, %dx.types.LinAlgMatrixC4M5N4U1S2 %{{.*}})  ; LinAlgMatrixMultiply(matrixA,matrixB)
+  __builtin_LinAlgMatrix [[__LinAlgMatrix_Attributes(4, 5, 4, 1, 2)]] mat6;
+  __builtin_LinAlg_MatrixMatrixMultiply(mat6, mat5, mat5);
+
+  // CHECK: call %dx.types.LinAlgMatrixC4M5N4U1S2 @dx.op.linAlgMatrixMultiplyAccumulate.mC4M5N4U1S2.mC4M5N4U1S2.mC4M5N4U1S2.mC4M5N4U1S2(i32 -2147483637, %dx.types.LinAlgMatrixC4M5N4U1S2 %{{.*}}, %dx.types.LinAlgMatrixC4M5N4U1S2 %{{.*}}, %dx.types.LinAlgMatrixC4M5N4U1S2 %{{.*}})  ; LinAlgMatrixMultiplyAccumulate(matrixA,matrixB,matrixC)
+  __builtin_LinAlgMatrix [[__LinAlgMatrix_Attributes(4, 5, 4, 1, 2)]] mat7;
+  __builtin_LinAlg_MatrixMatrixMultiplyAccumulate(mat7, mat6, mat6, mat6);
+
 }

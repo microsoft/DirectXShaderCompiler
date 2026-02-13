@@ -42,4 +42,7 @@ void main() {
 
   __builtin_LinAlgMatrix [[__LinAlgMatrix_Attributes(1, 5, 4, 2, 2)]] mat4;
   __builtin_LinAlg_MatrixSetElement(mat4, mat1, 1, 1);
+
+  __builtin_LinAlg_MatrixMatrixMultiply(mat2, mat3, mat4);
+  __builtin_LinAlg_MatrixMatrixMultiplyAccumulate(mat1, mat2, mat3, mat4);
 }
