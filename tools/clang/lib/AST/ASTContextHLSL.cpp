@@ -1372,6 +1372,26 @@ CXXRecordDecl *hlsl::DeclareNodeOrRecordType(
 }
 
 #ifdef ENABLE_SPIRV_CODEGEN
+CXXRecordDecl *hlsl::DeclareVkSampledTextureType(ASTContext &context,
+                                                 DeclContext *declContext,
+                                                 llvm::StringRef hlslTypeName,
+                                                 QualType defaultParamType) {
+  // TODO(https://github.com/microsoft/DirectXShaderCompiler/issues/7979): Later
+  // generalize these to all SampledTexture types.
+  BuiltinTypeDeclBuilder Builder(declContext, hlslTypeName,
+                                 TagDecl::TagKind::TTK_Struct);
+
+  TemplateTypeParmDecl *TyParamDecl =
+      Builder.addTypeTemplateParam("SampledTextureType", defaultParamType);
+
+  Builder.startDefinition();
+
+  QualType paramType = QualType(TyParamDecl->getTypeForDecl(), 0);
+  CXXRecordDecl *recordDecl = Builder.getRecordDecl();
+
+  return recordDecl;
+}
+
 CXXRecordDecl *hlsl::DeclareVkBufferPointerType(ASTContext &context,
                                                 DeclContext *declContext) {
   BuiltinTypeDeclBuilder Builder(declContext, "BufferPointer",

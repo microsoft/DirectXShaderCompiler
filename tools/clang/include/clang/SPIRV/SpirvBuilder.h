@@ -287,6 +287,10 @@ public:
   /// If compareVal is given a non-zero value, *Dref* variants of OpImageSample*
   /// will be generated.
   ///
+  /// If sampler is set, it defines the sampler along *image* to create the
+  /// combined image sampler. Otherwise, the *image* parameter must point to a
+  /// sampled image.
+  ///
   /// If lod or grad is given a non-zero value, *ExplicitLod variants of
   /// OpImageSample* will be generated; otherwise, *ImplicitLod variant will
   /// be generated.
