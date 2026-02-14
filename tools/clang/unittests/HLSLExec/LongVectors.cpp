@@ -2140,7 +2140,6 @@ public:
   HLK_TEST(CastToUint64, HLSLBool_t);
   HLK_TEST(CastToFloat16, HLSLBool_t);
   HLK_TEST(CastToFloat32, HLSLBool_t);
-  HLK_TEST(CastToFloat64, HLSLBool_t);
 
   HLK_TEST(CastToBool, HLSLHalf_t);
   HLK_TEST(CastToInt16, HLSLHalf_t);
@@ -2150,7 +2149,6 @@ public:
   HLK_TEST(CastToUint32_FromFP, HLSLHalf_t);
   HLK_TEST(CastToUint64_FromFP, HLSLHalf_t);
   HLK_TEST(CastToFloat32, HLSLHalf_t);
-  HLK_TEST(CastToFloat64, HLSLHalf_t);
 
   HLK_TEST(CastToBool, float);
   HLK_TEST(CastToInt16, float);
@@ -2160,7 +2158,6 @@ public:
   HLK_TEST(CastToUint32_FromFP, float);
   HLK_TEST(CastToUint64_FromFP, float);
   HLK_TEST(CastToFloat16, float);
-  HLK_TEST(CastToFloat64, float);
 
   HLK_TEST(CastToBool, uint16_t);
   HLK_TEST(CastToInt16, uint16_t);
@@ -2170,7 +2167,6 @@ public:
   HLK_TEST(CastToUint64, uint16_t);
   HLK_TEST(CastToFloat16, uint16_t);
   HLK_TEST(CastToFloat32, uint16_t);
-  HLK_TEST(CastToFloat64, uint16_t);
 
   HLK_TEST(CastToBool, uint32_t);
   HLK_TEST(CastToInt16, uint32_t);
@@ -2180,7 +2176,6 @@ public:
   HLK_TEST(CastToUint64, uint32_t);
   HLK_TEST(CastToFloat16, uint32_t);
   HLK_TEST(CastToFloat32, uint32_t);
-  HLK_TEST(CastToFloat64, uint32_t);
 
   HLK_TEST(CastToBool, uint64_t);
   HLK_TEST(CastToInt16, uint64_t);
@@ -2190,7 +2185,6 @@ public:
   HLK_TEST(CastToUint32, uint64_t);
   HLK_TEST(CastToFloat16, uint64_t);
   HLK_TEST(CastToFloat32, uint64_t);
-  HLK_TEST(CastToFloat64, uint64_t);
 
   HLK_TEST(CastToBool, int16_t);
   HLK_TEST(CastToInt32, int16_t);
@@ -2200,7 +2194,6 @@ public:
   HLK_TEST(CastToUint64, int16_t);
   HLK_TEST(CastToFloat16, int16_t);
   HLK_TEST(CastToFloat32, int16_t);
-  HLK_TEST(CastToFloat64, int16_t);
 
   HLK_TEST(CastToBool, int32_t);
   HLK_TEST(CastToInt16, int32_t);
@@ -2210,7 +2203,6 @@ public:
   HLK_TEST(CastToUint64, int32_t);
   HLK_TEST(CastToFloat16, int32_t);
   HLK_TEST(CastToFloat32, int32_t);
-  HLK_TEST(CastToFloat64, int32_t);
 
   HLK_TEST(CastToBool, int64_t);
   HLK_TEST(CastToInt16, int64_t);
@@ -2220,7 +2212,6 @@ public:
   HLK_TEST(CastToUint64, int64_t);
   HLK_TEST(CastToFloat16, int64_t);
   HLK_TEST(CastToFloat32, int64_t);
-  HLK_TEST(CastToFloat64, int64_t);
 
   // Trigonometric
   HLK_TEST(Acos, HLSLHalf_t);
@@ -2255,11 +2246,9 @@ public:
   HLK_TEST(AsFloat, uint32_t);
   HLK_TEST(AsInt, uint32_t);
   HLK_TEST(AsUint, uint32_t);
-  HLK_TEST(AsDouble, uint32_t);
   HLK_TEST(AsFloat16, HLSLHalf_t);
   HLK_TEST(AsInt16, HLSLHalf_t);
   HLK_TEST(AsUint16, HLSLHalf_t);
-  HLK_TEST(AsUint_SplitDouble, double);
 
   // Unary Math
   HLK_TEST(Abs, int16_t);
@@ -2801,6 +2790,21 @@ public:
   HLK_TEST_DOUBLE(CastToUint64_FromFP, double);
   HLK_TEST_DOUBLE(CastToFloat16, double);
   HLK_TEST_DOUBLE(CastToFloat32, double);
+
+  // Explicit Cast to Double (from various types)
+  HLK_TEST_DOUBLE(CastToFloat64, HLSLBool_t);
+  HLK_TEST_DOUBLE(CastToFloat64, HLSLHalf_t);
+  HLK_TEST_DOUBLE(CastToFloat64, float);
+  HLK_TEST_DOUBLE(CastToFloat64, uint16_t);
+  HLK_TEST_DOUBLE(CastToFloat64, uint32_t);
+  HLK_TEST_DOUBLE(CastToFloat64, uint64_t);
+  HLK_TEST_DOUBLE(CastToFloat64, int16_t);
+  HLK_TEST_DOUBLE(CastToFloat64, int32_t);
+  HLK_TEST_DOUBLE(CastToFloat64, int64_t);
+
+  // AsType (double precision)
+  HLK_TEST_DOUBLE(AsDouble, uint32_t);
+  HLK_TEST_DOUBLE(AsUint_SplitDouble, double);
 
   // Unary Math
   HLK_TEST_DOUBLE(Abs, double);
