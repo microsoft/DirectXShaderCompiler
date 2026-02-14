@@ -2342,18 +2342,6 @@ ID  Name                                                  Description
 223 TextureGatherRaw                                      Gather raw elements from 4 texels with no type conversions (SRV type is constrained)
 224 SampleCmpLevel                                        samples a texture and compares a single component against the specified comparison value
 225 TextureStoreSample                                    stores texel data at specified sample index
-226 Reserved0                                             reserved
-227 Reserved1                                             reserved
-228 Reserved2                                             reserved
-229 Reserved3                                             reserved
-230 Reserved4                                             reserved
-231 Reserved5                                             reserved
-232 Reserved6                                             reserved
-233 Reserved7                                             reserved
-234 Reserved8                                             reserved
-235 Reserved9                                             reserved
-236 Reserved10                                            reserved
-237 Reserved11                                            reserved
 238 AllocateNodeOutputRecords                             returns a handle for the output records
 239 GetNodeRecordPtr                                      retrieve node input/output record pointer in address space 6
 240 IncrementOutputCount                                  Select the next logical output count for an EmptyNodeOutput for the whole group or per thread.
@@ -2375,9 +2363,6 @@ ID  Name                                                  Description
 256 StartVertexLocation                                   returns the BaseVertexLocation from DrawIndexedInstanced or StartVertexLocation from DrawInstanced
 257 StartInstanceLocation                                 returns the StartInstanceLocation from Draw*Instanced
 258 AllocateRayQuery2                                     allocates space for RayQuery and return handle
-259 ReservedA0                                            reserved
-260 ReservedA1                                            reserved
-261 ReservedA2                                            reserved
 262 HitObject_TraceRay                                    Analogous to TraceRay but without invoking CH/MS and returns the intermediate state as a HitObject
 263 HitObject_FromRayQuery                                Creates a new HitObject representing a committed hit from a RayQuery
 264 HitObject_FromRayQueryWithAttrs                       Creates a new HitObject representing a committed hit from a RayQuery and committed attributes
@@ -2406,19 +2391,6 @@ ID  Name                                                  Description
 287 HitObject_SetShaderTableIndex                         Returns a HitObject with updated shader table index
 288 HitObject_LoadLocalRootTableConstant                  Returns the root table constant for this HitObject and offset
 289 HitObject_Attributes                                  Returns the attributes set for this HitObject
-290 ReservedB28                                           reserved
-291 ReservedB29                                           reserved
-292 ReservedB30                                           reserved
-293 ReservedC0                                            reserved
-294 ReservedC1                                            reserved
-295 ReservedC2                                            reserved
-296 ReservedC3                                            reserved
-297 ReservedC4                                            reserved
-298 ReservedC5                                            reserved
-299 ReservedC6                                            reserved
-300 ReservedC7                                            reserved
-301 ReservedC8                                            reserved
-302 ReservedC9                                            reserved
 303 RawBufferVectorLoad                                   reads from a raw buffer and structured buffer
 304 RawBufferVectorStore                                  writes to a RWByteAddressBuffer or RWStructuredBuffer
 305 MatVecMul                                             Multiplies a MxK dimension matrix and a K sized input vector
@@ -3095,9 +3067,6 @@ ID         Name                                     Description
 2147483675 MatrixAccumulateToDescriptor             accumulates a matrix to a RWByteAddressBuffer
 2147483676 MatrixAccumulateToMemory                 accumulates a matrix to groupshared memory
 2147483677 MatrixOuterProduct                       Outer products an M sized vector and a K sized vector producing an MxK matrix
-2147483678 LinAlgMatrixReserved0                    reserved
-2147483679 LinAlgMatrixReserved1                    reserved
-2147483680 LinAlgMatrixReserved2                    reserved
 2147483681 DebugBreak                               triggers a breakpoint if a debugger is attached
 2147483682 IsDebuggerPresent                        returns true if a debugger is attached
 ========== ======================================== ===================================================================================================================
