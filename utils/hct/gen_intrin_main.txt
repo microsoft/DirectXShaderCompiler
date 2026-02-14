@@ -1239,4 +1239,8 @@ namespace VkSampledTexture2DMethods {
     $classT [[ro]] Sample(in float<2> x, in int<2> o, in float clamp) : tex2d_t_o_cl;
     $classT [[]] Sample(in float<2> x, in int<2> o, in float clamp, out uint_only status) : tex2d_t_o_cl_s;
     float [[ro]] CalculateLevelOfDetail(in float<2> x) : tex2d_t_calc_lod;
+    float [[ro]] CalculateLevelOfDetailUnclamped(in float<2> x) : tex2d_t_calc_lod_unclamped;
+    $match<0, -1> void<4> [[ro]] Gather(in float<2> x) : tex2d_t_gather;
+    $match<0, -1> void<4> [[ro]] Gather(in float<2> x, in int<2> o) : tex2d_t_gather_o;
+    $match<0, -1> void<4> [[]] Gather(in float<2> x, in int<2> o, out uint_only status) : tex2d_t_gather_o_s;
 } namespace
