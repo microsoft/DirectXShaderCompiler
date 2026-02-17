@@ -1,7 +1,7 @@
-; Regression test: dxc crashes on HLSL with embedded null bytes due to
-; out-of-bounds access in highlightRange() (TextDiagnostic.cpp).
+// Regression test: dxc crashes on HLSL with embedded null bytes due to
+// out-of-bounds access in highlightRange() (TextDiagnostic.cpp).
 
-; RUN: python -c "import sys; sys.stdout.buffer.write(b'f(){a b int4\x00(1}')" > %t.hlsl
-; RUN: not %dxc /T ps_6_0 %t.hlsl 2>&1 | FileCheck %s
+// RUN: python -c "import sys; sys.stdout.buffer.write(b'f(){a b int4\x00(1}')" > %t.hlsl
+// RUN: not %dxc /T ps_6_0 %t.hlsl 2>&1 | FileCheck %s
 
-; CHECK: error: HLSL requires a type specifier for all declarations
+// CHECK: error: HLSL requires a type specifier for all declarations
