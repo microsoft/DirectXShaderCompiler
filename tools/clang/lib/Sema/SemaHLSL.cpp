@@ -1660,7 +1660,7 @@ static const SubscriptOperatorRecord g_ArBasicKindsSubscripts[] = {
     {0, MipsFalse, SampleFalse}, // AR_OBJECT_VK_SPV_INTRINSIC_TYPE
     {0, MipsFalse, SampleFalse}, // AR_OBJECT_VK_SPV_INTRINSIC_RESULT_ID
     {0, MipsFalse, SampleFalse}, // AR_OBJECT_VK_BUFFER_POINTER
-    {0, MipsFalse, SampleFalse}, // AR_OBJECT_VK_SAMPLED_TEXTURE2D
+    {2, MipsTrue, SampleFalse},  // AR_OBJECT_VK_SAMPLED_TEXTURE2D
 #endif                           // ENABLE_SPIRV_CODEGEN
     // SPIRV change ends
 
@@ -4100,6 +4100,8 @@ private:
             LookupVectorType(HLSLScalarType::HLSLScalarType_float, 4);
         recordDecl = DeclareVkSampledTextureType(
             *m_context, m_vkNSDecl, "SampledTexture2D", float4Type);
+        if (Attr)
+          recordDecl->addAttr(Attr);
         m_vkSampledTextureTemplateDecl =
             recordDecl->getDescribedClassTemplate();
       }
@@ -5045,6 +5047,7 @@ public:
       ResClass = DXIL::ResourceClass::UAV;
       return true;
     case AR_OBJECT_TEXTURE2D:
+    case AR_OBJECT_VK_SAMPLED_TEXTURE2D:
       ResKind = DXIL::ResourceKind::Texture2D;
       ResClass = DXIL::ResourceClass::SRV;
       return true;
