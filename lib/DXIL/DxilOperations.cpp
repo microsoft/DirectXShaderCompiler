@@ -4299,6 +4299,7 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
 #define A(_x) ArgTypes.emplace_back(_x)
 #define RRT(_y) A(GetResRetType(_y))
 #define CBRT(_y) A(GetCBufferRetType(_y))
+#define VEC2(_y) A(VectorType::get(_y, 2))
 #define VEC4(_y) A(GetStructVectorType(4, _y))
 #define VEC9(_y) A(VectorType::get(_y, 9))
 
@@ -7058,7 +7059,7 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
   case OpCode::RayQuery_CandidateTriangleObjectPosition:
   case OpCode::RayQuery_CommittedTriangleObjectPosition:
   case OpCode::HitObject_TriangleObjectPosition:
-    // These return <9 x float> vectors directly
+    // These return native vectors directly
     return cast<VectorType>(Ty)->getElementType();
   case OpCode::MatVecMul:
   case OpCode::MatVecMulAdd:
