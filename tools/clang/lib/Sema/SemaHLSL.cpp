@@ -14,6 +14,7 @@
 #include "VkConstantsTables.h"
 #include "dxc/DXIL/DxilConstants.h"
 #include "dxc/DXIL/DxilFunctionProps.h"
+#include "dxc/DXIL/DxilSemantic.h"
 #include "dxc/DXIL/DxilShaderModel.h"
 #include "dxc/DXIL/DxilUtil.h"
 #include "dxc/HLSL/HLOperations.h"
@@ -11721,7 +11722,6 @@ void hlsl::DiagnoseRegisterType(clang::Sema *self, clang::SourceLocation loc,
 
 // FIXME: DiagnoseSVForLaunchType is wrong in multiple ways:
 // - It doesn't handle system values inside structs
-// - It doesn't account for the fact that semantics are case-insensitive
 // - It doesn't account for optional index at the end of semantic name
 // - It permits any `SV_*` for Broadcasting launch, not just the legal ones
 // - It doesn't prevent multiple system values with the same semantic
@@ -11731,15 +11731,19 @@ void hlsl::DiagnoseRegisterType(clang::Sema *self, clang::SourceLocation loc,
 static void DiagnoseSVForLaunchType(const FunctionDecl *FD,
                                     DXIL::NodeLaunchType LaunchTy,
                                     DiagnosticsEngine &Diags) {
+
   // Validate Compute Shader system value inputs per launch mode
   for (ParmVarDecl *param : FD->parameters()) {
     for (const hlsl::UnusualAnnotation *it : param->getUnusualAnnotations()) {
       if (it->getKind() == hlsl::UnusualAnnotation::UA_SemanticDecl) {
         const hlsl::SemanticDecl *sd = cast<hlsl::SemanticDecl>(it);
+        const auto *semantic = hlsl::Semantic::GetByName(sd->SemanticName);
+        assert(semantic->GetKind() != hlsl::Semantic::Kind::Invalid);
+
         // if the node launch type is Thread, then there are no system values
         // allowed
         if (LaunchTy == DXIL::NodeLaunchType::Thread) {
-          if (sd->SemanticName.startswith("SV_")) {
+          if (semantic->GetKind() != hlsl::Semantic::Kind::Arbitrary) {
             // emit diagnostic
             unsigned DiagID = Diags.getCustomDiagID(
                 DiagnosticsEngine::Error,
@@ -11752,8 +11756,8 @@ static void DiagnoseSVForLaunchType(const FunctionDecl *FD,
         // if the node launch type is Coalescing, then only
         // SV_GroupIndex and SV_GroupThreadID are allowed
         else if (LaunchTy == DXIL::NodeLaunchType::Coalescing) {
-          if (!(sd->SemanticName.equals("SV_GroupIndex") ||
-                sd->SemanticName.equals("SV_GroupThreadID"))) {
+          if (semantic->GetKind() != hlsl::Semantic::Kind::GroupIndex &&
+              semantic->GetKind() != hlsl::Semantic::Kind::GroupThreadID) {
             // emit diagnostic
             unsigned DiagID = Diags.getCustomDiagID(
                 DiagnosticsEngine::Error,

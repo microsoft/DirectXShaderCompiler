@@ -5988,19 +5988,17 @@ SpirvEmitter::processTextureSampleBiasLevel(const CXXMemberCallExpr *expr,
   const QualType imageType = imageExpr->getType();
   const bool isImageSampledTexture = isSampledTexture(imageType);
 
-  int samplerIndex, coordinateIndex, biasIndex, offsetIndex, clampIndex;
+  int samplerIndex, coordinateIndex, biasIndex, offsetIndex;
   if (isImageSampledTexture) {
     samplerIndex = -1; // non-existant
     coordinateIndex = 0;
     biasIndex = 1;
     offsetIndex = 2;
-    clampIndex = 3;
   } else {
     samplerIndex = 0;
     coordinateIndex = 1;
     biasIndex = 2;
     offsetIndex = 3;
-    clampIndex = 4;
   }
 
   SpirvInstruction *clamp = nullptr;
@@ -6080,22 +6078,19 @@ SpirvEmitter::processTextureSampleGrad(const CXXMemberCallExpr *expr) {
   const QualType imageType = imageExpr->getType();
   const bool isImageSampledTexture = isSampledTexture(imageType);
 
-  int samplerIndex, coordinateIndex, ddxIndex, ddyIndex, offsetIndex,
-      clampIndex;
+  int samplerIndex, coordinateIndex, ddxIndex, ddyIndex, offsetIndex;
   if (isImageSampledTexture) {
     samplerIndex = -1; // non-existant
     coordinateIndex = 0;
     ddxIndex = 1;
     ddyIndex = 2;
     offsetIndex = 3;
-    clampIndex = 4;
   } else {
     samplerIndex = 0;
     coordinateIndex = 1;
     ddxIndex = 2;
     ddyIndex = 3;
     offsetIndex = 4;
-    clampIndex = 5;
   }
 
   SpirvInstruction *clamp = nullptr;
@@ -6165,19 +6160,17 @@ SpirvEmitter::processTextureSampleCmp(const CXXMemberCallExpr *expr) {
   const QualType imageType = imageExpr->getType();
   const bool isImageSampledTexture = isSampledTexture(imageType);
 
-  int samplerIndex, coordinateIndex, compareValIndex, offsetIndex, clampIndex;
+  int samplerIndex, coordinateIndex, compareValIndex, offsetIndex;
   if (isImageSampledTexture) {
     samplerIndex = -1; // non-existant
     coordinateIndex = 0;
     compareValIndex = 1;
     offsetIndex = 2;
-    clampIndex = 3;
   } else {
     samplerIndex = 0;
     coordinateIndex = 1;
     compareValIndex = 2;
     offsetIndex = 3;
-    clampIndex = 4;
   }
 
   SpirvInstruction *clamp = nullptr;
@@ -6247,22 +6240,19 @@ SpirvEmitter::processTextureSampleCmpBias(const CXXMemberCallExpr *expr) {
   const auto imageType = imageExpr->getType();
   const bool isImageSampledTexture = isSampledTexture(imageType);
 
-  int samplerIndex, coordinateIndex, compareValIndex, biasIndex, offsetIndex,
-      clampIndex;
+  int samplerIndex, coordinateIndex, compareValIndex, biasIndex, offsetIndex;
   if (isImageSampledTexture) {
     samplerIndex = -1; // non-existant
     coordinateIndex = 0;
     compareValIndex = 1;
     biasIndex = 2;
     offsetIndex = 3;
-    clampIndex = 4;
   } else {
     samplerIndex = 0;
     coordinateIndex = 1;
     compareValIndex = 2;
     biasIndex = 3;
     offsetIndex = 4;
-    clampIndex = 5;
   }
 
   auto *sampler =
@@ -6319,7 +6309,7 @@ SpirvEmitter::processTextureSampleCmpGrad(const CXXMemberCallExpr *expr) {
   const bool isImageSampledTexture = isSampledTexture(imageType);
 
   int samplerIndex, coordinateIndex, compareValIndex, ddxIndex, ddyIndex,
-      offsetIndex, clampIndex;
+      offsetIndex;
   if (isImageSampledTexture) {
     samplerIndex = -1; // non-existant
     coordinateIndex = 0;
@@ -6327,7 +6317,6 @@ SpirvEmitter::processTextureSampleCmpGrad(const CXXMemberCallExpr *expr) {
     ddxIndex = 2;
     ddyIndex = 3;
     offsetIndex = 4;
-    clampIndex = 5;
   } else {
     samplerIndex = 0;
     coordinateIndex = 1;
@@ -6335,7 +6324,6 @@ SpirvEmitter::processTextureSampleCmpGrad(const CXXMemberCallExpr *expr) {
     ddxIndex = 3;
     ddyIndex = 4;
     offsetIndex = 5;
-    clampIndex = 6;
   }
 
   auto *sampler =
