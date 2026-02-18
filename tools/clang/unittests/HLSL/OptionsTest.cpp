@@ -418,13 +418,20 @@ static void VerifyPreprocessOption(llvm::StringRef command,
 }
 
 TEST_F(OptionsTest, TestPreprocessOption) {
+  // /P (cl.exe-compatible): preprocesses to <input>.i by default.
   VerifyPreprocessOption("/T ps_6_0 -P input.hlsl", "input.i", "");
-  VerifyPreprocessOption("/T ps_6_0 -Fi out.pp -P input.hlsl", "out.pp", "");
+  // /P with /Fi: preprocesses to specified file.
   VerifyPreprocessOption("/T ps_6_0 -P -Fi out.pp input.hlsl", "out.pp", "");
+  VerifyPreprocessOption("/T ps_6_0 -Fi out.pp -P input.hlsl", "out.pp", "");
+
+  // /Po: preprocess to specified file, with /Fi or fxc-style syntax.
+  VerifyPreprocessOption("/T ps_6_0 -Po input.hlsl", "input.i", "");
+  VerifyPreprocessOption("/T ps_6_0 -Fi out.pp -Po input.hlsl", "out.pp", "");
+  VerifyPreprocessOption("/T ps_6_0 -Po -Fi out.pp input.hlsl", "out.pp", "");
   const char *Warning =
-      "warning: -P out.pp is deprecated, please use -P -Fi out.pp instead.\n";
-  VerifyPreprocessOption("/T ps_6_0 -P out.pp input.hlsl", "out.pp", Warning);
-  VerifyPreprocessOption("/T ps_6_0 input.hlsl -P out.pp ", "out.pp", Warning);
+      "warning: -Po out.pp is deprecated, please use -P -Fi out.pp instead.\n";
+  VerifyPreprocessOption("/T ps_6_0 -Po out.pp input.hlsl", "out.pp", Warning);
+  VerifyPreprocessOption("/T ps_6_0 input.hlsl -Po out.pp ", "out.pp", Warning);
 }
 
 static void VerifySerializeDxilFlags(llvm::StringRef command,
