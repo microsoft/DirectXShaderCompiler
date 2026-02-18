@@ -37,6 +37,9 @@ line upon naming the release. Refer to previous for appropriate section names.
   - `dx::IsDebuggerPresent()` returns true if a debugger is attached.
   - SPIR-V: `DebugBreak()` emits `NonSemantic.DebugBreak` extended instruction; `IsDebuggerPresent()` is not supported.
 
+#### Other Changes
+- Fixed mesh shader semantics that were incorrectly case sensitive.
+
 ### Version 1.9.2602
 
 #### Shader Model 6.9 Release
