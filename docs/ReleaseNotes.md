@@ -29,7 +29,8 @@ line upon naming the release. Refer to previous for appropriate section names.
   [#4611](https://github.com/microsoft/DirectXShaderCompiler/issues/4611)
 - `/P` now matches `cl.exe` behavior: preprocesses to `<inputname>.i` by
   default, with `/Fi` to override the output filename. The old `/P <filename>`
-  positional syntax is no longer supported; use `/P /Fi <filename>` instead.
+  positional syntax is deprecated and has been moved to `/Po <filename>`. To use
+  `/P` with a custom output filename, use `/P /Fi <filename>` instead.
 
 #### Experimental Shader Model 6.10
 
