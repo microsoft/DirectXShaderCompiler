@@ -1,6 +1,18 @@
 
 
-// Preprocess
-// RUN: %dxc /T ps_6_0 %S/Inputs/smoke.hlsl /P %t.preprocessed.hlsl
+// Preprocess with /P (cl.exe-compatible, outputs to <input>.i)
+// RUN: %dxc /T ps_6_0 %S/Inputs/smoke.hlsl /P
+// RUN: FileCheck --input-file=%S/Inputs/smoke.i %s --check-prefix=PREPROCESSED
+// RUN: python -c "import os; os.remove(r'%S/Inputs/smoke.i')"
+
+// Preprocess with /P /Fi
+// RUN: %dxc /T ps_6_0 %S/Inputs/smoke.hlsl /P /Fi %t.preprocessed.hlsl
 // RUN: FileCheck --input-file=%t.preprocessed.hlsl %s --check-prefix=PREPROCESSED
+
+// Legacy FXC-style support
+// RUN: %dxc /T ps_6_0 %S/Inputs/smoke.hlsl /Po %t.po_positional.hlsl
+// RUN: FileCheck --input-file=%t.po_positional.hlsl %s --check-prefix=PREPROCESSED
+// RUN: %dxc /T ps_6_0 %S/Inputs/smoke.hlsl /Po /Fi %t.po_preprocessed.hlsl
+// RUN: FileCheck --input-file=%t.po_preprocessed.hlsl %s --check-prefix=PREPROCESSED
+
 // PREPROCESSED:float4 main
