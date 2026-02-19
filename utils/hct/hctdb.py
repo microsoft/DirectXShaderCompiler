@@ -9599,7 +9599,7 @@ class db_hlsl(object):
             "out": "AR_QUAL_OUT",
             "col_major": "AR_QUAL_COLMAJOR",
             "row_major": "AR_QUAL_ROWMAJOR",
-            "groupshared": "AR_QUAL_GROUPSHARED",
+            "groupshared": "AR_QUAL_IN | AR_QUAL_GROUPSHARED",
         }
         self.intrinsics = []
         self.load_intrinsics(intrinsic_defs)
