@@ -2206,8 +2206,30 @@ void DxilLowerCreateHandleForLib::TranslateDxilResourceUses(
     }
   }
 
-  for (auto U = GV->user_begin(), E = GV->user_end(); U != E;) {
-    User *user = *(U++);
+  // Collect GV users into a vector and sort them to ensure deterministic
+  // processing order. ConstantExpr GEP users of the GV may appear in
+  // non-deterministic order due to DenseMap-based uniquing of constants.
+  // Sort GEP users by their array index to produce stable output.
+  SmallVector<User *, 8> GVUsers(GV->user_begin(), GV->user_end());
+  std::sort(GVUsers.begin(), GVUsers.end(), [](User *A, User *B) {
+    GEPOperator *GEPA = dyn_cast<GEPOperator>(A);
+    GEPOperator *GEPB = dyn_cast<GEPOperator>(B);
+    if (GEPA && GEPB && GEPA->getNumIndices() >= 2 &&
+        GEPB->getNumIndices() >= 2) {
+      ConstantInt *CIA =
+          dyn_cast<ConstantInt>((GEPA->idx_begin() + 1)->get());
+      ConstantInt *CIB =
+          dyn_cast<ConstantInt>((GEPB->idx_begin() + 1)->get());
+      if (CIA && CIB)
+        return CIA->getZExtValue() < CIB->getZExtValue();
+    }
+    // Non-GEP users (loads, bitcasts) come after GEP users.
+    if (GEPA != GEPB)
+      return GEPA != nullptr;
+    return false;
+  });
+
+  for (User *user : GVUsers) {
     // Skip unused user.
     if (user->user_empty())
       continue;
