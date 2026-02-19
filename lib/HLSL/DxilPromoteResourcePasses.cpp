@@ -16,6 +16,7 @@
 #include "dxc/HLSL/DxilGenerationPass.h"
 #include "dxc/HLSL/HLModule.h"
 #include "llvm/ADT/DenseSet.h"
+#include "llvm/ADT/SetVector.h"
 #include "llvm/Analysis/AssumptionCache.h"
 #include "llvm/IR/Attributes.h"
 #include "llvm/IR/DebugInfo.h"
@@ -313,7 +314,7 @@ private:
   hlsl::OP *hlslOP = nullptr;
   Function *createHandleForLibOnHandle = nullptr;
   DxilTypeSystem *pTypeSys;
-  DenseSet<Value *> MutateValSet;
+  SetVector<Value *> MutateValSet;
   DenseMap<Type *, Type *> MutateTypeMap;
 };
 
@@ -613,7 +614,7 @@ void DxilMutateResourceToHandle::collectCandidates(Module &M) {
 
       for (Value *Val : newCandidates) {
         // New candidate find.
-        if (MutateValSet.insert(Val).second) {
+        if (MutateValSet.insert(Val)) {
           WorkList.emplace_back(Val);
         }
       }

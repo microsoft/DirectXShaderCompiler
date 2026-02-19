@@ -2250,7 +2250,7 @@ void DxilLowerCreateHandleForLib::TranslateDxilResourceUses(
           IRBuilder<> Builder = IRBuilder<>(ldInst);
           Args[resIdxOpIdx] = Builder.CreateAdd(idx, resLowerBound);
           Instruction *localHandle =
-              Builder.CreateCall(createHandle, Args);
+              Builder.CreateCall(createHandle, Args, handleName);
           ReplaceResourceUserWithHandle(static_cast<DxilResource &>(res),
                                         ldInst, localHandle);
         }
