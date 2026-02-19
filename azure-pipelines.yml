@@ -99,13 +99,13 @@ stages:
         Linux_Gcc_Release:
           image: ${{ variables.linux }}
           configuration: Release
-          CC: gcc-9
-          CXX: g++-9
+          CC: gcc
+          CXX: g++
         Linux_Gcc_Debug:
           image: ${{ variables.linux }}
           configuration: Debug
-          CC: gcc-9
-          CXX: g++-9
+          CC: gcc
+          CXX: g++
           CMAKE_OPTS: -DLLVM_USE_SPLIT_DWARF=On
         MacOS_Clang_Release:
           image: ${{ variables.macOS }}
@@ -143,11 +143,6 @@ stages:
         sudo apt-get install libc++-18-dev
       displayName: 'Installing dependencies'
       condition: eq(variables['image'], variables['linux'])
-
-    - bash: |
-        sudo apt-get install g++-9 -y
-      displayName: 'Installing g++-9'
-      condition: and(eq(variables['CXX'], 'g++-9'), eq(variables['image'], variables['linux']))
 
     - bash: |
         brew update
