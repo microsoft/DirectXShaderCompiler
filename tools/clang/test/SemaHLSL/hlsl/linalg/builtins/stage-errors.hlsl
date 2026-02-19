@@ -8,8 +8,12 @@
 // RUN: %dxc -T lib_6_10 -DMATRIX_STORE_TO_DESCRIPTOR %s -verify
 // RUN: %dxc -T lib_6_10 -DMATRIX_LENGTH %s -verify
 // RUN: %dxc -T lib_6_10 -DMATRIX_ACCUMULATE %s -verify
+// RUN: %dxc -T lib_6_10 -DMATRIX_LOAD_FROM_MEMORY %s -verify
+// RUN: %dxc -T lib_6_10 -DMATRIX_STORE_TO_MEMORY %s -verify
+// RUN: %dxc -T lib_6_10 -DMATRIX_ACCUMULATE_TO_MEMORY %s -verify
 
 RWByteAddressBuffer buf;
+groupshared float gs_arr[64];
 
 void CallFunction()
 {
@@ -60,6 +64,18 @@ void CallFunction()
 
 #ifdef MATRIX_ACCUMULATE
   #define DO_FUNC __builtin_LinAlg_MatrixAccumulate(mat1, mat2, mat3);
+#endif
+
+#ifdef MATRIX_LOAD_FROM_MEMORY
+  #define DO_FUNC __builtin_LinAlg_MatrixLoadFromMemory(mat1, gs_arr, 0, 0, 0);
+#endif
+
+#ifdef MATRIX_STORE_TO_MEMORY
+  #define DO_FUNC __builtin_LinAlg_MatrixStoreToMemory(mat1, gs_arr, 0, 0, 0);
+#endif
+
+#ifdef MATRIX_ACCUMULATE_TO_MEMORY
+  #define DO_FUNC __builtin_LinAlg_MatrixAccumulateToMemory(mat1, gs_arr, 0, 0, 0);
 #endif
 
   // The builtins below are allowed in all stages, if they raise an error
