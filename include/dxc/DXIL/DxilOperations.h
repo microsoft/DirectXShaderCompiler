@@ -211,6 +211,7 @@ private:
     TS_UDT = 8,      // Ex: %"struct.MyStruct" *
     TS_Object = 9,   // Ex: %"class.StructuredBuffer<Foo>"
     TS_Vector = 10,  // Ex: <8 x i16>
+    TS_Array = 11,   // Ex: [8 x float]
     TS_MaskBitCount, // Types used in Mask end here
     // TS_Extended is only used to identify the unnamed struct type used to wrap
     // multiple overloads when using GetTypeSlot.

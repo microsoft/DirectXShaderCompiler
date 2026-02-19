@@ -3151,6 +3151,8 @@ unsigned OP::GetTypeSlot(Type *pType) {
       return TS_Extended;
   case Type::VectorTyID:
     return TS_Vector;
+  case Type::ArrayTyID:
+    return TS_Array;
   default:
     break;
   }
@@ -3165,26 +3167,39 @@ const char *OP::GetOverloadTypeName(unsigned TypeSlot) {
 StringRef OP::GetTypeName(Type *Ty, SmallVectorImpl<char> &Storage) {
   DXASSERT(!Ty->isVoidTy(), "must not pass void type here");
   unsigned TypeSlot = OP::GetTypeSlot(Ty);
+
   if (TypeSlot < TS_BasicCount) {
     return GetOverloadTypeName(TypeSlot);
-  } else if (TypeSlot == TS_UDT) {
+  }
+
+  switch (TypeSlot) {
+  case TS_UDT: {
     if (Ty->isPointerTy())
       Ty = Ty->getPointerElementType();
     StructType *ST = cast<StructType>(Ty);
     return ST->getStructName();
-  } else if (TypeSlot == TS_Object) {
+  }
+  case TS_Object: {
     StructType *ST = cast<StructType>(Ty);
     if (dxilutil::IsHLSLLinAlgMatrixType(Ty))
       return (Twine("m") + Twine(dxilutil::GetHLSLLinAlgMatrixTypeMangling(ST)))
           .toStringRef(Storage);
     return ST->getStructName();
-  } else if (TypeSlot == TS_Vector) {
+  }
+  case TS_Vector: {
     VectorType *VecTy = cast<VectorType>(Ty);
     return (Twine("v") + Twine(VecTy->getNumElements()) +
             Twine(
                 GetOverloadTypeName(OP::GetTypeSlot(VecTy->getElementType()))))
         .toStringRef(Storage);
-  } else if (TypeSlot == TS_Extended) {
+  }
+  case TS_Array: {
+    if (Ty->isPointerTy())
+      Ty = Ty->getPointerElementType();
+    ArrayType *ArrTy = cast<ArrayType>(Ty);
+    return GetOverloadTypeName(OP::GetTypeSlot(ArrTy->getArrayElementType()));
+  }
+  case TS_Extended: {
     DXASSERT(isa<StructType>(Ty),
              "otherwise, extended overload type not wrapped in struct type.");
     StructType *ST = cast<StructType>(Ty);
@@ -3199,11 +3214,14 @@ StringRef OP::GetTypeName(Type *Ty, SmallVectorImpl<char> &Storage) {
       OS << GetTypeName(ST->getElementType(I), TempStr);
     }
     return OS.str();
-  } else {
-    raw_svector_ostream OS(Storage);
-    Ty->print(OS);
-    return OS.str();
   }
+  default:
+    break;
+  }
+
+  raw_svector_ostream OS(Storage);
+  Ty->print(OS);
+  return OS.str();
 }
 
 StringRef OP::ConstructOverloadName(Type *Ty, DXIL::OpCode opCode,
