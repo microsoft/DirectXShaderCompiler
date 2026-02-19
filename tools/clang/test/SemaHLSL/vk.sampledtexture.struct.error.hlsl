@@ -1,3 +1,4 @@
+// REQUIRES: spirv
 // RUN: %dxc -T ps_6_0 -E main %s -spirv -fcgl -verify
 
 struct Struct { float f; };
