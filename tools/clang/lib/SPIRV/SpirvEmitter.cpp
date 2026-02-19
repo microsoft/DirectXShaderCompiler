@@ -5838,9 +5838,11 @@ void SpirvEmitter::handleOptionalTextureSampleArgs(
 
   if (index >= numArgs)
     return;
-
-  *clamp = doExpr(expr->getArg(index));
-  index++;
+  bool hasClampArg = expr->getArg(index)->getType()->isFloatingType();
+  if (hasClampArg) {
+    *clamp = doExpr(expr->getArg(index));
+    index++;
+  }
 
   if (index >= numArgs)
     return;
@@ -5883,46 +5885,32 @@ SpirvEmitter::processTextureSampleGather(const CXXMemberCallExpr *expr,
   const auto numArgs = expr->getNumArgs();
   const auto loc = expr->getExprLoc();
   const auto range = expr->getSourceRange();
-  const bool hasStatusArg =
-      expr->getArg(numArgs - 1)->getType()->isUnsignedIntegerType();
 
   const auto *imageExpr = expr->getImplicitObjectArgument();
   const QualType imageType = imageExpr->getType();
   const bool isImageSampledTexture = isSampledTexture(imageType);
 
-  int samplerIndex;
-  uint32_t coordIndex;
+  int samplerIndex, coordIndex, offsetIndex;
   if (isImageSampledTexture) {
     samplerIndex = -1; // non-existant
     coordIndex = 0;
+    offsetIndex = 1;
   } else {
     samplerIndex = 0;
     coordIndex = 1;
+    offsetIndex = 2;
   }
-
-  SpirvInstruction *clamp = nullptr;
-  if (numArgs > coordIndex + 1 &&
-      expr->getArg(coordIndex + 1)->getType()->isFloatingType())
-    clamp = doExpr(expr->getArg(coordIndex + 1));
-  else if (numArgs > coordIndex + 2 &&
-           expr->getArg(coordIndex + 2)->getType()->isFloatingType())
-    clamp = doExpr(expr->getArg(coordIndex + 2));
-  const bool hasClampArg = (clamp != 0);
-  const auto status =
-      hasStatusArg ? doExpr(expr->getArg(numArgs - 1)) : nullptr;
 
   auto *image = loadIfGLValue(imageExpr);
   SpirvInstruction *sampler =
       samplerIndex >= 0 ? doExpr(expr->getArg(samplerIndex)) : nullptr;
   auto *coordinate = doExpr(expr->getArg(coordIndex));
-  // .Sample()/.Gather() may have a third optional paramter for offset.
+
   SpirvInstruction *constOffset = nullptr, *varOffset = nullptr;
-  // Subtract 1 for status (if it exists), subtract 1 for clamp (if it exists),
-  // and subtract offsetIndex for sampler_state (if exists) location.
-  const bool hasOffsetArg =
-      numArgs - hasStatusArg - hasClampArg - coordIndex > 1;
-  if (hasOffsetArg)
-    handleOffsetInMethodCall(expr, coordIndex + 1, &constOffset, &varOffset);
+  SpirvInstruction *clamp = nullptr;
+  SpirvInstruction *status = nullptr;
+  handleOptionalTextureSampleArgs(expr, offsetIndex, &constOffset, &varOffset,
+                                  &clamp, &status);
 
   const auto retType = expr->getDirectCallee()->getReturnType();
   if (isSample) {
@@ -5981,9 +5969,6 @@ SpirvEmitter::processTextureSampleBiasLevel(const CXXMemberCallExpr *expr,
   //                                [, out uint Status]);
 
   const auto numArgs = expr->getNumArgs();
-  const bool hasStatusArg =
-      expr->getArg(numArgs - 1)->getType()->isUnsignedIntegerType();
-  auto *status = hasStatusArg ? doExpr(expr->getArg(numArgs - 1)) : nullptr;
   const auto *imageExpr = expr->getImplicitObjectArgument();
   const QualType imageType = imageExpr->getType();
   const bool isImageSampledTexture = isSampledTexture(imageType);
@@ -6001,23 +5986,6 @@ SpirvEmitter::processTextureSampleBiasLevel(const CXXMemberCallExpr *expr,
     offsetIndex = 3;
   }
 
-  SpirvInstruction *clamp = nullptr;
-  // The .SampleLevel() methods do not take the clamp argument.
-  if (isBias) {
-    if (numArgs > offsetIndex &&
-        expr->getArg(offsetIndex)->getType()->isFloatingType())
-      clamp = doExpr(expr->getArg(offsetIndex));
-    else if (numArgs > offsetIndex + 1 &&
-             expr->getArg(offsetIndex + 1)->getType()->isFloatingType())
-      clamp = doExpr(expr->getArg(offsetIndex + 1));
-  }
-  const bool hasClampArg = clamp != nullptr;
-
-  // Subtract 1 for clamp (if it exists), 1 for status (if it exists),
-  // and 3 for sampler_state, location, and Bias/LOD.
-  const bool hasOffsetArg =
-      numArgs - hasClampArg - hasStatusArg - offsetIndex > 0;
-
   auto *image = loadIfGLValue(imageExpr);
   auto *sampler =
       samplerIndex < 0 ? nullptr : doExpr(expr->getArg(samplerIndex));
@@ -6029,10 +5997,12 @@ SpirvEmitter::processTextureSampleBiasLevel(const CXXMemberCallExpr *expr,
   } else {
     lod = doExpr(expr->getArg(biasIndex));
   }
-  // If offset is present in .Bias()/.SampleLevel(), it is the fourth argument.
+
   SpirvInstruction *constOffset = nullptr, *varOffset = nullptr;
-  if (hasOffsetArg)
-    handleOffsetInMethodCall(expr, offsetIndex, &constOffset, &varOffset);
+  SpirvInstruction *clamp = nullptr;
+  SpirvInstruction *status = nullptr;
+  handleOptionalTextureSampleArgs(expr, offsetIndex, &constOffset, &varOffset,
+                                  &clamp, &status);
 
   const auto retType = expr->getDirectCallee()->getReturnType();
 
@@ -6071,9 +6041,6 @@ SpirvEmitter::processTextureSampleGrad(const CXXMemberCallExpr *expr) {
   //                               [, out uint Status]);
 
   const auto numArgs = expr->getNumArgs();
-  const bool hasStatusArg =
-      expr->getArg(numArgs - 1)->getType()->isUnsignedIntegerType();
-  auto *status = hasStatusArg ? doExpr(expr->getArg(numArgs - 1)) : nullptr;
   const auto *imageExpr = expr->getImplicitObjectArgument();
   const QualType imageType = imageExpr->getType();
   const bool isImageSampledTexture = isSampledTexture(imageType);
@@ -6093,29 +6060,17 @@ SpirvEmitter::processTextureSampleGrad(const CXXMemberCallExpr *expr) {
     offsetIndex = 4;
   }
 
-  SpirvInstruction *clamp = nullptr;
-  if (numArgs > offsetIndex &&
-      expr->getArg(offsetIndex)->getType()->isFloatingType())
-    clamp = doExpr(expr->getArg(offsetIndex));
-  else if (numArgs > offsetIndex + 1 &&
-           expr->getArg(offsetIndex + 1)->getType()->isFloatingType())
-    clamp = doExpr(expr->getArg(offsetIndex + 1));
-  const bool hasClampArg = clamp != nullptr;
-
-  // Subtract 1 for clamp (if it exists), 1 for status (if it exists),
-  // and 4 for sampler_state, location, DDX, and DDY;
-  const bool hasOffsetArg =
-      numArgs - hasClampArg - hasStatusArg - offsetIndex > 0;
-
   auto *image = loadIfGLValue(imageExpr);
   auto *sampler = samplerIndex < 0 ? nullptr : doExpr(expr->getArg(0));
   auto *coordinate = doExpr(expr->getArg(coordinateIndex));
   auto *ddx = doExpr(expr->getArg(ddxIndex));
   auto *ddy = doExpr(expr->getArg(ddyIndex));
-  // If offset is present in .SampleGrad(), it is the fifth argument.
+
   SpirvInstruction *constOffset = nullptr, *varOffset = nullptr;
-  if (hasOffsetArg)
-    handleOffsetInMethodCall(expr, offsetIndex, &constOffset, &varOffset);
+  SpirvInstruction *clamp = nullptr;
+  SpirvInstruction *status = nullptr;
+  handleOptionalTextureSampleArgs(expr, offsetIndex, &constOffset, &varOffset,
+                                  &clamp, &status);
 
   const auto retType = expr->getDirectCallee()->getReturnType();
   return createImageSample(
@@ -6153,9 +6108,6 @@ SpirvEmitter::processTextureSampleCmp(const CXXMemberCallExpr *expr) {
   // );
 
   const auto numArgs = expr->getNumArgs();
-  const bool hasStatusArg =
-      expr->getArg(numArgs - 1)->getType()->isUnsignedIntegerType();
-  auto *status = hasStatusArg ? doExpr(expr->getArg(numArgs - 1)) : nullptr;
   const auto *imageExpr = expr->getImplicitObjectArgument();
   const QualType imageType = imageExpr->getType();
   const bool isImageSampledTexture = isSampledTexture(imageType);
@@ -6173,28 +6125,16 @@ SpirvEmitter::processTextureSampleCmp(const CXXMemberCallExpr *expr) {
     offsetIndex = 3;
   }
 
-  SpirvInstruction *clamp = nullptr;
-  if (numArgs > offsetIndex &&
-      expr->getArg(offsetIndex)->getType()->isFloatingType())
-    clamp = doExpr(expr->getArg(offsetIndex));
-  else if (numArgs > offsetIndex + 1 &&
-           expr->getArg(offsetIndex + 1)->getType()->isFloatingType())
-    clamp = doExpr(expr->getArg(offsetIndex + 1));
-  const bool hasClampArg = clamp != nullptr;
-
   auto *image = loadIfGLValue(imageExpr);
   auto *sampler = samplerIndex < 0 ? nullptr : doExpr(expr->getArg(0));
   auto *coordinate = doExpr(expr->getArg(coordinateIndex));
   auto *compareVal = doExpr(expr->getArg(compareValIndex));
-  // If offset is present in .SampleCmp(), it will be the fourth argument.
-  SpirvInstruction *constOffset = nullptr, *varOffset = nullptr;
 
-  // Subtract 1 for clamp (if it exists), 1 for status (if it exists),
-  // and 3 for sampler_state, location, and compare_value.
-  const bool hasOffsetArg =
-      numArgs - hasStatusArg - hasClampArg - offsetIndex > 0;
-  if (hasOffsetArg)
-    handleOffsetInMethodCall(expr, offsetIndex, &constOffset, &varOffset);
+  SpirvInstruction *constOffset = nullptr, *varOffset = nullptr;
+  SpirvInstruction *clamp = nullptr;
+  SpirvInstruction *status = nullptr;
+  handleOptionalTextureSampleArgs(expr, offsetIndex, &constOffset, &varOffset,
+                                  &clamp, &status);
 
   const auto retType = expr->getDirectCallee()->getReturnType();
 
@@ -6264,7 +6204,6 @@ SpirvEmitter::processTextureSampleCmpBias(const CXXMemberCallExpr *expr) {
   SpirvInstruction *constOffset = nullptr, *varOffset = nullptr;
   SpirvInstruction *clamp = nullptr;
   SpirvInstruction *status = nullptr;
-
   handleOptionalTextureSampleArgs(expr, offsetIndex, &constOffset, &varOffset,
                                   &clamp, &status);
 
@@ -6336,7 +6275,6 @@ SpirvEmitter::processTextureSampleCmpGrad(const CXXMemberCallExpr *expr) {
   SpirvInstruction *constOffset = nullptr, *varOffset = nullptr;
   SpirvInstruction *clamp = nullptr;
   SpirvInstruction *status = nullptr;
-
   handleOptionalTextureSampleArgs(expr, offsetIndex, &constOffset, &varOffset,
                                   &clamp, &status);
 
@@ -6380,10 +6318,6 @@ SpirvEmitter::processTextureSampleCmpLevelZero(const CXXMemberCallExpr *expr) {
   // );
 
   const auto numArgs = expr->getNumArgs();
-  const bool hasStatusArg =
-      expr->getArg(numArgs - 1)->getType()->isUnsignedIntegerType();
-  auto *status = hasStatusArg ? doExpr(expr->getArg(numArgs - 1)) : nullptr;
-
   const auto *imageExpr = expr->getImplicitObjectArgument();
   const auto imageType = imageExpr->getType();
   const bool isImageSampledTexture = isSampledTexture(imageType);
@@ -6409,11 +6343,11 @@ SpirvEmitter::processTextureSampleCmpLevelZero(const CXXMemberCallExpr *expr) {
   auto *lod =
       spvBuilder.getConstantFloat(astContext.FloatTy, llvm::APFloat(0.0f));
 
-  // If offset is present in .SampleCmp(), it will be the fourth argument.
   SpirvInstruction *constOffset = nullptr, *varOffset = nullptr;
-  const bool hasOffsetArg = numArgs - hasStatusArg - offsetIndex > 0;
-  if (hasOffsetArg)
-    handleOffsetInMethodCall(expr, offsetIndex, &constOffset, &varOffset);
+  SpirvInstruction *clamp = nullptr;
+  SpirvInstruction *status = nullptr;
+  handleOptionalTextureSampleArgs(expr, offsetIndex, &constOffset, &varOffset,
+                                  &clamp, &status);
 
   const auto retType = expr->getDirectCallee()->getReturnType();
 
