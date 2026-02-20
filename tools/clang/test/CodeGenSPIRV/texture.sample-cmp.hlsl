@@ -39,10 +39,10 @@ float4 main(int2 offset: A, float comparator: B) : SV_Target {
     float val4 = t4.SampleCmp(gSampler, float3(1, 2, 3), comparator);
 
     float clamp;
-// CHECK:           [[clamp:%[0-9]+]] = OpLoad %float %clamp
-// CHECK-NEXT:         [[t2_0:%[0-9]+]] = OpLoad %type_2d_image %t2
+// CHECK:         [[t2_0:%[0-9]+]] = OpLoad %type_2d_image %t2
 // CHECK-NEXT:   [[gSampler_2:%[0-9]+]] = OpLoad %type_sampler %gSampler
 // CHECK-NEXT: [[comparator_2:%[0-9]+]] = OpLoad %float %comparator
+// CHECK-NEXT:           [[clamp:%[0-9]+]] = OpLoad %float %clamp
 // CHECK-NEXT: [[sampledImg_2:%[0-9]+]] = OpSampledImage %type_sampled_image_0 [[t2_0]] [[gSampler_2]]
 // CHECK-NEXT:            {{%[0-9]+}} = OpImageSampleDrefImplicitLod %float [[sampledImg_2]] [[v2fc]] [[comparator_2]] ConstOffset|MinLod [[v2ic]] [[clamp]]
     float val5 = t2.SampleCmp(gSampler, float2(1, 2), comparator, 1, clamp);
@@ -55,10 +55,10 @@ float4 main(int2 offset: A, float comparator: B) : SV_Target {
     float val6 = t4.SampleCmp(gSampler, float3(1, 2, 3), comparator, /*clamp*/2.5);
 
     uint status;
-// CHECK:             [[clamp_0:%[0-9]+]] = OpLoad %float %clamp
-// CHECK-NEXT:           [[t2_1:%[0-9]+]] = OpLoad %type_2d_image %t2
+// CHECK:           [[t2_1:%[0-9]+]] = OpLoad %type_2d_image %t2
 // CHECK-NEXT:     [[gSampler_4:%[0-9]+]] = OpLoad %type_sampler %gSampler
 // CHECK-NEXT:   [[comparator_4:%[0-9]+]] = OpLoad %float %comparator
+// CHECK-NEXT:             [[clamp_0:%[0-9]+]] = OpLoad %float %clamp
 // CHECK-NEXT:   [[sampledImg_4:%[0-9]+]] = OpSampledImage %type_sampled_image_0 [[t2_1]] [[gSampler_4]]
 // CHECK-NEXT: [[structResult:%[0-9]+]] = OpImageSparseSampleDrefImplicitLod %SparseResidencyStruct [[sampledImg_4]] [[v2fc]] [[comparator_4]] ConstOffset|MinLod [[v2ic]] [[clamp_0]]
 // CHECK-NEXT:       [[status:%[0-9]+]] = OpCompositeExtract %uint [[structResult]] 0
