@@ -2823,16 +2823,15 @@ static const OP::OpCodeProperty ExperimentalOps_OpCodeProps[] = {
      {{0x2}},
      {{0x0}}}, // Overloads: f
 
-    {OC::ReservedD0,
-     "ReservedD0",
-     OCC::Reserved,
-     "reserved",
-     Attribute::None,
-     0,
-     {},
-     {}}, // Overloads: v
-
     // Linear Algebra Operations
+    {OC::LinAlgMatrixMultiplyAccumulate,
+     "LinAlgMatrixMultiplyAccumulate",
+     OCC::LinAlgMatrixMultiplyAccumulate,
+     "linAlgMatrixMultiplyAccumulate",
+     Attribute::None,
+     4,
+     {{0x200}, {0x200}, {0x200}, {0x200}},
+     {{0x0}, {0x0}, {0x0}, {0x0}}}, // Overloads: o,o,o,o
     {OC::LinAlgFillMatrix,
      "LinAlgFillMatrix",
      OCC::LinAlgFillMatrix,
@@ -2921,10 +2920,10 @@ static const OP::OpCodeProperty ExperimentalOps_OpCodeProps[] = {
      0,
      {},
      {}}, // Overloads: v
-    {OC::LinAlgMatrixMulOp,
-     "LinAlgMatrixMulOp",
-     OCC::LinAlgMatrixMulOp,
-     "linAlgMatrixMulOp",
+    {OC::LinAlgMatrixMultiply,
+     "LinAlgMatrixMultiply",
+     OCC::LinAlgMatrixMultiply,
+     "linAlgMatrixMultiply",
      Attribute::None,
      3,
      {{0x200}, {0x200}, {0x200}},
@@ -3950,15 +3949,16 @@ void OP::GetMinShaderModelAndMask(OpCode C, bool bWithTranslation,
     minor = 10;
     return;
   }
-  // Instructions: LinAlgFillMatrix=2147483660,
-  // LinAlgCopyConvertMatrix=2147483661, LinAlgMatrixLoadFromMemory=2147483663,
-  // LinAlgMatrixLength=2147483664, LinAlgMatrixGetCoordinate=2147483665,
-  // LinAlgMatrixGetElement=2147483666, LinAlgMatrixSetElement=2147483667,
+  // Instructions: LinAlgMatrixMultiplyAccumulate=2147483659,
+  // LinAlgFillMatrix=2147483660, LinAlgCopyConvertMatrix=2147483661,
+  // LinAlgMatrixLoadFromMemory=2147483663, LinAlgMatrixLength=2147483664,
+  // LinAlgMatrixGetCoordinate=2147483665, LinAlgMatrixGetElement=2147483666,
+  // LinAlgMatrixSetElement=2147483667,
   // LinAlgMatrixStoreToDescriptor=2147483668,
-  // LinAlgMatrixStoreToMemory=2147483669, LinAlgMatrixMulOp=2147483671,
+  // LinAlgMatrixStoreToMemory=2147483669, LinAlgMatrixMultiply=2147483671,
   // LinAlgMatrixAccumulate=2147483672,
   // LinAlgMatrixAccumulateToMemory=2147483676
-  if ((2147483660 <= op && op <= 2147483661) ||
+  if ((2147483659 <= op && op <= 2147483661) ||
       (2147483663 <= op && op <= 2147483669) ||
       (2147483671 <= op && op <= 2147483672) || op == 2147483676) {
     major = 6;
@@ -6557,13 +6557,14 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
     A(pHit);
     break;
 
-    //
-  case OpCode::ReservedD0:
-    A(pV);
-    A(pI32);
-    break;
-
     // Linear Algebra Operations
+  case OpCode::LinAlgMatrixMultiplyAccumulate:
+    EXT(0);
+    A(pI32);
+    EXT(1);
+    EXT(2);
+    EXT(3);
+    break;
   case OpCode::LinAlgFillMatrix:
     EXT(0);
     A(pI32);
@@ -6637,7 +6638,7 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
     A(pI32);
     A(pI32);
     break;
-  case OpCode::LinAlgMatrixMulOp:
+  case OpCode::LinAlgMatrixMultiply:
     EXT(0);
     A(pI32);
     EXT(1);
@@ -7013,7 +7014,6 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
   case OpCode::GetGroupWaveIndex:
   case OpCode::GetGroupWaveCount:
   case OpCode::ClusterID:
-  case OpCode::ReservedD0:
   case OpCode::LinAlgMatrixQueryAccumulatorLayout:
   case OpCode::ReservedD1:
   case OpCode::ReservedD2:
@@ -7070,13 +7070,20 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
     return llvm::StructType::get(Ctx,
                                  {FT->getParamType(1), FT->getParamType(2)});
 
+  case OpCode::LinAlgMatrixMultiplyAccumulate:
+    if (FT->getNumParams() < 4)
+      return nullptr;
+    return llvm::StructType::get(Ctx,
+                                 {FT->getReturnType(), FT->getParamType(1),
+                                  FT->getParamType(2), FT->getParamType(3)});
+
   case OpCode::LinAlgMatrixSetElement:
     if (FT->getNumParams() < 4)
       return nullptr;
     return llvm::StructType::get(
         Ctx, {FT->getReturnType(), FT->getParamType(1), FT->getParamType(3)});
 
-  case OpCode::LinAlgMatrixMulOp:
+  case OpCode::LinAlgMatrixMultiply:
   case OpCode::LinAlgMatrixAccumulate:
   case OpCode::LinAlgMatVecMul:
   case OpCode::LinAlgMatrixOuterProduct:
