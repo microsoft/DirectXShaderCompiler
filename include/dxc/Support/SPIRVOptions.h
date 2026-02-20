@@ -109,9 +109,11 @@ struct SpirvCodeGenOptions {
   std::optional<BindingInfo> samplerHeapBinding;
   std::optional<BindingInfo> counterHeapBinding;
 
-  bool signaturePacking = false; ///< Whether signature packing is enabled or not
+  bool signaturePacking =
+      false; ///< Whether signature packing is enabled or not
 
-  bool printAll = false; // Dump SPIR-V module before each pass and after the last one.
+  bool printAll =
+      false; // Dump SPIR-V module before each pass and after the last one.
 
   // String representation of all command line options and input file.
   std::string clOptions;
