@@ -18,9 +18,11 @@
 #include "dxc/Support/Global.h"
 
 #include "llvm/ADT/StringExtras.h"
+#include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/Twine.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DIBuilder.h"
+#include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/DiagnosticInfo.h"
 #include "llvm/IR/DiagnosticPrinter.h"
 #include "llvm/IR/GetElementPtrTypeIterator.h"
@@ -577,6 +579,9 @@ bool IsHLSLObjectType(llvm::Type *Ty) {
 
     if (IsHLSLHitObjectType(Ty))
       return true;
+
+    if (IsHLSLLinAlgMatrixType(Ty))
+      return true;
   }
   return false;
 }
@@ -610,6 +615,19 @@ bool IsHLSLHitObjectType(llvm::Type *Ty) {
   if (!ST->hasName())
     return false;
   return ST->getName() == "dx.types.HitObject";
+}
+
+bool IsHLSLLinAlgMatrixType(llvm::Type *Ty) {
+  llvm::StructType *ST = dyn_cast<llvm::StructType>(Ty);
+  if (!ST)
+    return false;
+  if (!ST->hasName())
+    return false;
+  return ST->getName().startswith("dx.types.LinAlgMatrix");
+}
+
+StringRef GetHLSLLinAlgMatrixTypeMangling(llvm::StructType *Ty) {
+  return Ty->getStructName().substr(sizeof("dx.types.LinAlgMatrix") - 1);
 }
 
 bool IsHLSLResourceDescType(llvm::Type *Ty) {

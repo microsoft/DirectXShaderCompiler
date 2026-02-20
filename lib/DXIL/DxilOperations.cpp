@@ -13,6 +13,7 @@
 #include "dxc/DXIL/DxilConstants.h"
 #include "dxc/DXIL/DxilInstructions.h"
 #include "dxc/DXIL/DxilModule.h"
+#include "dxc/DXIL/DxilUtil.h"
 #include "dxc/Support/Global.h"
 
 #include "llvm/ADT/ArrayRef.h"
@@ -3173,6 +3174,9 @@ StringRef OP::GetTypeName(Type *Ty, SmallVectorImpl<char> &Storage) {
     return ST->getStructName();
   } else if (TypeSlot == TS_Object) {
     StructType *ST = cast<StructType>(Ty);
+    if (dxilutil::IsHLSLLinAlgMatrixType(Ty))
+      return (Twine("m") + Twine(dxilutil::GetHLSLLinAlgMatrixTypeMangling(ST)))
+          .toStringRef(Storage);
     return ST->getStructName();
   } else if (TypeSlot == TS_Vector) {
     VectorType *VecTy = cast<VectorType>(Ty);
