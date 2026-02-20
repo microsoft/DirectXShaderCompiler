@@ -755,8 +755,17 @@ template <typename T> uint32_t FirstBitLow(T A) {
 DEFAULT_OP_2(OpType::And, (A & B));
 DEFAULT_OP_2(OpType::Or, (A | B));
 DEFAULT_OP_2(OpType::Xor, (A ^ B));
-DEFAULT_OP_2(OpType::LeftShift, (A << B));
-DEFAULT_OP_2(OpType::RightShift, (A >> B));
+
+// HLSL/DXIL masks shift amounts to the low bits (4 bits for 16-bit, 5 bits for
+// 32-bit, 6 bits for 64-bit). We must do the same in C++ to avoid undefined
+// behavior when shift amount >= bit width, and to match GPU results.
+template <typename T> T MaskShiftAmount(T ShiftAmount) {
+  constexpr T ShiftMask = static_cast<T>(sizeof(T) * 8 - 1);
+  return ShiftAmount & ShiftMask;
+}
+
+DEFAULT_OP_2(OpType::LeftShift, (A << MaskShiftAmount(B)));
+DEFAULT_OP_2(OpType::RightShift, (A >> MaskShiftAmount(B)));
 DEFAULT_OP_1(OpType::Saturate, (Saturate(A)));
 DEFAULT_OP_1(OpType::ReverseBits, (ReverseBits(A)));
 
