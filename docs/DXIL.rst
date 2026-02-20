@@ -3076,28 +3076,28 @@ ID         Name                                     Description
 2147483656 RayQuery_CandidateTriangleObjectPosition returns candidate triangle vertices in object space as <9 x float>
 2147483657 RayQuery_CommittedTriangleObjectPosition returns committed triangle vertices in object space as <9 x float>
 2147483658 HitObject_TriangleObjectPosition         returns triangle vertices in object space as <9 x float>
-2147483659 CreateMatrix                             creates a handle to a Matrix
-2147483660 FillMatrix                               fills a matrix with a scalar value
-2147483661 CopyConvertMatrix                        Converts and copies the element and use type of the source matrix to the destination matrix with optional transpose
-2147483662 MatrixLoadFromDescriptor                 fills a matrix with data from a [RW]ByteAddressBuffer
-2147483663 MatrixLoadFromMemory                     fills a matrix with data from a groupshared array
-2147483664 MatrixLength                             returns the number of elements stored in thread-local storage on the active thread for the provided matrix
-2147483665 MatrixGetCoordinate                      returns a two element vector containing the column and row of the matrix that the thread-local index corresponds to
-2147483666 MatrixGetElement                         returns the element of the matrix corresponding to the provided thread-local index
-2147483667 MatrixSetElement                         sets the element of the matrix corresponding to the provided thread-local index
-2147483668 MatrixStoreToDescriptor                  stores a matrix to a RWByteAddressBuffer
-2147483669 MatrixStoreToMemory                      stores a matrix to groupshared memory
-2147483670 MatrixQueryAccumulatorLayout             returns comptime 0 when accumulator matrix are A layout, 1 when B layout
-2147483671 MatrixMulOp                              applies a multiplication op to matrix C using A and B as parameters
-2147483672 MatrixAccumulate                         accumulate A or B matrix into Accumulator matrix following LHS += RHS
-2147483673 MatrixVecMul                             Multiplies a MxK dimension matrix and a K sized input vector
-2147483674 MatrixVecMulAdd                          Multiplies a MxK dimension matrix and a K sized input vector then adds a M sized bias vector
-2147483675 MatrixAccumulateToDescriptor             accumulates a matrix to a RWByteAddressBuffer
-2147483676 MatrixAccumulateToMemory                 accumulates a matrix to groupshared memory
-2147483677 MatrixOuterProduct                       Outer products an M sized vector and a K sized vector producing an MxK matrix
-2147483678 LinAlgMatrixReserved0                    reserved
-2147483679 LinAlgMatrixReserved1                    reserved
-2147483680 LinAlgMatrixReserved2                    reserved
+2147483659 ReservedD0                               reserved
+2147483660 LinAlgFillMatrix                         fills a matrix with a scalar value
+2147483661 LinAlgCopyConvertMatrix                  Converts and copies the element and use type of the source matrix to the destination matrix with optional transpose
+2147483662 LinAlgMatrixLoadFromDescriptor           fills a matrix with data from a [RW]ByteAddressBuffer
+2147483663 LinAlgMatrixLoadFromMemory               fills a matrix with data from a groupshared array
+2147483664 LinAlgMatrixLength                       returns the number of elements stored in thread-local storage on the active thread for the provided matrix
+2147483665 LinAlgMatrixGetCoordinate                returns a two element vector containing the column and row of the matrix that the thread-local index corresponds to
+2147483666 LinAlgMatrixGetElement                   returns the element of the matrix corresponding to the provided thread-local index
+2147483667 LinAlgMatrixSetElement                   sets the element of the matrix corresponding to the provided thread-local index
+2147483668 LinAlgMatrixStoreToDescriptor            stores a matrix to a RWByteAddressBuffer
+2147483669 LinAlgMatrixStoreToMemory                stores a matrix to groupshared memory
+2147483670 LinAlgMatrixQueryAccumulatorLayout       returns comptime 0 when accumulator matrix are A layout, 1 when B layout
+2147483671 LinAlgMatrixMulOp                        applies a multiplication op to matrix C using A and B as parameters
+2147483672 LinAlgMatrixAccumulate                   accumulate A or B matrix into Accumulator matrix following LHS += RHS
+2147483673 LinAlgMatVecMul                          Multiplies a MxK dimension matrix and a K sized input vector
+2147483674 LinAlgMatVecMulAdd                       Multiplies a MxK dimension matrix and a K sized input vector then adds a M sized bias vector
+2147483675 LinAlgMatrixAccumulateToDescriptor       accumulates a matrix to a RWByteAddressBuffer
+2147483676 LinAlgMatrixAccumulateToMemory           accumulates a matrix to groupshared memory
+2147483677 LinAlgMatrixOuterProduct                 Outer products an M sized vector and a N sized vector producing an MxN matrix
+2147483678 ReservedD1                               reserved
+2147483679 ReservedD2                               reserved
+2147483680 ReservedD3                               reserved
 2147483681 DebugBreak                               triggers a breakpoint if a debugger is attached
 2147483682 IsDebuggerPresent                        returns true if a debugger is attached
 ========== ======================================== ===================================================================================================================

@@ -40,7 +40,7 @@ line upon naming the release. Refer to previous for appropriate section names.
 #### Bug Fixes
 
 - Fixed non-deterministic DXIL/PDB output when compiling shaders with resource arrays, debug info, and SM 6.6+. [#8171](https://github.com/microsoft/DirectXShaderCompiler/issues/8171)
-
+- Fixed mesh shader semantics that were incorrectly case sensitive.
 
 ### Version 1.9.2602
 
