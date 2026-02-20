@@ -6566,24 +6566,21 @@ static bool CombineObjectTypes(ArBasicKind Target, ArBasicKind Source,
   }
 
   switch (Target) {
-  AR_BASIC_ROBJECT_CASES:
-    if (Source == AR_OBJECT_STATEBLOCK) {
+  AR_BASIC_TEXTURE_CASES:
+    if (Source == AR_OBJECT_HEAP_RESOURCE) {
       AssignOpt(Target, pCombined);
       return true;
     }
     break;
-
-  AR_BASIC_TEXTURE_CASES:
-
   AR_BASIC_NON_CMP_SAMPLER_CASES:
-    if (Source == AR_OBJECT_SAMPLER || Source == AR_OBJECT_STATEBLOCK) {
+    if (Source == AR_OBJECT_SAMPLER || Source == AR_OBJECT_HEAP_SAMPLER) {
       AssignOpt(Target, pCombined);
       return true;
     }
     break;
 
   case AR_OBJECT_SAMPLERCOMPARISON:
-    if (Source == AR_OBJECT_STATEBLOCK) {
+    if (Source == AR_OBJECT_HEAP_SAMPLER) {
       AssignOpt(Target, pCombined);
       return true;
     }
