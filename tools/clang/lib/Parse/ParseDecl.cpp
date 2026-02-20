@@ -397,9 +397,19 @@ bool Parser::MaybeParseHLSLAttributes(std::vector<hlsl::UnusualAnnotation *> &ta
           stage = hlsl::DXIL::PayloadAccessShaderStage::Miss;
         } else if (shaderStage == "anyhit") {
           stage = hlsl::DXIL::PayloadAccessShaderStage::Anyhit;
-        } 
+        }
 
-        mod.ShaderStages.push_back(stage);
+        // mod.ShaderStages can only take four elements before it starts to
+        // migrate. Make sure not to add redundant stages.
+        bool IsDuplicate = false;
+        for (auto s : mod.ShaderStages)
+          if (s == stage) {
+            IsDuplicate = true;
+            break;
+          }
+        if (!IsDuplicate)
+          mod.ShaderStages.push_back(stage);
+
         ConsumeToken(); // consume shader type
 
         if (Tok.is(tok::comma)) // check if we have a list of shader types
