@@ -552,8 +552,8 @@ bool APInt::ult(const APInt& RHS) const {
 bool APInt::slt(const APInt& RHS) const {
   assert(BitWidth == RHS.BitWidth && "Bit widths must be same for comparison");
   if (isSingleWord()) {
-    int64_t lhsSext = (int64_t(VAL) << (64-BitWidth)) >> (64-BitWidth);
-    int64_t rhsSext = (int64_t(RHS.VAL) << (64-BitWidth)) >> (64-BitWidth);
+    int64_t lhsSext = int64_t(uint64_t(VAL) << (64-BitWidth)) >> (64-BitWidth);
+    int64_t rhsSext = int64_t(uint64_t(RHS.VAL) << (64-BitWidth)) >> (64-BitWidth);
     return lhsSext < rhsSext;
   }
 
@@ -1062,7 +1062,7 @@ APInt APInt::ashr(unsigned shiftAmt) const {
     else {
       unsigned SignBit = APINT_BITS_PER_WORD - BitWidth;
       return APInt(BitWidth,
-        (((int64_t(VAL) << SignBit) >> SignBit) >> shiftAmt));
+        (((int64_t(uint64_t(VAL) << SignBit) >> SignBit) >> shiftAmt)));
     }
   }
 
