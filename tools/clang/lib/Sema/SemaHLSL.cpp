@@ -50,10 +50,18 @@
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/raw_ostream.h"
+
+#ifdef ENABLE_SPIRV_CODEGEN
+// Enables functions like spv::BuiltInToString()
+#define SPV_ENABLE_UTILITY_CODE
+#include "spirv/unified1/spirv.hpp11"
+#endif
+
 #include <algorithm>
 #include <array>
 #include <bitset>
 #include <float.h>
+#include <optional>
 
 enum ArBasicKind {
   AR_BASIC_BOOL,
@@ -14750,6 +14758,162 @@ void ValidateDispatchGridValues(DiagnosticsEngine &Diags,
   if (product > MaxProductValue)
     Diags.Report(A.getLoc(), diag::err_hlsl_dispatchgrid_product)
         << A.getName() << A.getRange();
+}
+
+void hlsl::NormalizeInlineSPIRVAttributes(Sema &S, Decl *D) {
+#ifdef ENABLE_SPIRV_CODEGEN
+  // Collecting the values that can be set across multiple attributes.
+  std::optional<std::pair<spv::StorageClass, SourceRange>> StorageClass;
+  std::optional<std::pair<unsigned, SourceRange>> Location;
+  std::optional<std::pair<spv::BuiltIn, SourceRange>> BuiltIn;
+
+  // Vector collecting all the other attributes.
+  clang::AttrVec NewAttrs;
+
+  for (auto *A : D->attrs()) {
+    if (auto *DA = dyn_cast<VKDecorateExtAttr>(A)) {
+      spv::Decoration Decoration = spv::Decoration(DA->getDecorate());
+      if (Decoration == spv::Decoration::Location) {
+        if (DA->literals_size() != 1) {
+          S.Diags.Report(
+              A->getLocation(),
+              diag::
+                  err_hlsl_spv_inline_invalid_decoration_single_operand_missing)
+              << "Location";
+          return;
+        }
+        unsigned Index = *DA->literals_begin();
+        if (Location.has_value() && Location->first != Index) {
+          S.Diags.Report(A->getLocation(),
+                         diag::err_hlsl_spv_inline_location_redefinition)
+              << DA << Location->first;
+          return;
+        }
+        Location = {Index, DA->getLocation()};
+      } else if (Decoration == spv::Decoration::BuiltIn) {
+        if (DA->literals_size() != 1) {
+          S.Diags.Report(
+              A->getLocation(),
+              diag::
+                  err_hlsl_spv_inline_invalid_decoration_single_operand_missing)
+              << "BuiltIn";
+          return;
+        }
+        spv::BuiltIn ID = spv::BuiltIn(*DA->literals_begin());
+        if (BuiltIn.has_value() && ID != BuiltIn->first) {
+          S.Diags.Report(A->getLocation(),
+                         diag::err_hlsl_spv_inline_builtin_redefinition)
+              << DA << spv::BuiltInToString(BuiltIn->first);
+          return;
+        }
+        BuiltIn = {ID, DA->getLocation()};
+      } else {
+        NewAttrs.push_back(A);
+      }
+    } else if (auto *SCA = dyn_cast<VKStorageClassExtAttr>(A)) {
+      spv::StorageClass SC = spv::StorageClass(SCA->getStclass());
+      if (StorageClass.has_value() && StorageClass->first != SC) {
+        S.Diags.Report(A->getLocation(),
+                       diag::err_hlsl_spv_inline_storage_class_redefinition)
+            << SCA << spv::StorageClassToString(StorageClass->first);
+        return;
+      }
+      StorageClass = {SC, SCA->getLocation()};
+    } else if (auto *LA = dyn_cast<VKLocationAttr>(A)) {
+      if (Location.has_value() &&
+          Location->first != static_cast<unsigned>(LA->getNumber())) {
+        S.Diags.Report(A->getLocation(),
+                       diag::err_hlsl_spv_inline_location_redefinition)
+            << LA << Location->first;
+        return;
+      }
+      Location = {LA->getNumber(), LA->getLocation()};
+    } else if (auto *BA = dyn_cast<VKExtBuiltinOutputAttr>(A)) {
+      if (StorageClass.has_value() &&
+          StorageClass->first != spv::StorageClass::Output) {
+        S.Diags.Report(A->getLocation(),
+                       diag::err_hlsl_spv_inline_storage_class_redefinition)
+            << BA << spv::StorageClassToString(StorageClass->first);
+        return;
+      }
+      StorageClass = {spv::StorageClass::Output, BA->getLocation()};
+
+      spv::BuiltIn ID = spv::BuiltIn(BA->getBuiltInID());
+      if (BuiltIn.has_value() && ID != BuiltIn->first) {
+        S.Diags.Report(A->getLocation(),
+                       diag::err_hlsl_spv_inline_builtin_redefinition)
+            << BA << spv::BuiltInToString(BuiltIn->first);
+        return;
+      }
+      BuiltIn = {ID, BA->getLocation()};
+
+    } else if (auto *BA = dyn_cast<VKExtBuiltinInputAttr>(A)) {
+      if (StorageClass.has_value() &&
+          StorageClass->first != spv::StorageClass::Input) {
+        S.Diags.Report(A->getLocation(),
+                       diag::err_hlsl_spv_inline_storage_class_redefinition)
+            << BA << spv::StorageClassToString(StorageClass->first);
+        return;
+      }
+      StorageClass = {spv::StorageClass::Input, BA->getLocation()};
+
+      spv::BuiltIn ID = spv::BuiltIn(BA->getBuiltInID());
+      if (BuiltIn.has_value() && ID != BuiltIn->first) {
+        S.Diags.Report(A->getLocation(),
+                       diag::err_hlsl_spv_inline_builtin_redefinition)
+            << BA << spv::BuiltInToString(BuiltIn->first);
+        return;
+      }
+      BuiltIn = {ID, BA->getLocation()};
+    } else {
+      NewAttrs.push_back(A);
+    }
+  }
+
+  if (BuiltIn.has_value()) {
+    // Location should not be set if a BuiltIn is requested.
+    if (Location.has_value()) {
+      S.Diags.Report(D->getLocation(),
+                     diag::err_hlsl_spv_inline_builtin_incompatible)
+          << "Location" << spv::BuiltInToString(BuiltIn->first);
+      return;
+    }
+
+    // BuiltIn requires either Input or Output storage class.
+    if (StorageClass.has_value() &&
+        StorageClass->first == spv::StorageClass::Input)
+      NewAttrs.push_back(new (S.Context) VKExtBuiltinInputAttr(
+          BuiltIn->second, S.Context, static_cast<unsigned>(BuiltIn->first),
+          0));
+    else if (StorageClass.has_value() &&
+             StorageClass->first == spv::StorageClass::Output)
+      NewAttrs.push_back(new (S.Context) VKExtBuiltinOutputAttr(
+          BuiltIn->second, S.Context, static_cast<unsigned>(BuiltIn->first),
+          0));
+    else if (isa<ParmVarDecl>(D) || isa<FunctionDecl>(D)) {
+      unsigned BuiltInID = static_cast<unsigned>(BuiltIn->first);
+      NewAttrs.push_back(new (S.Context) VKDecorateExtAttr(
+          BuiltIn->second, S.Context, /* BuiltIn */ 11, &BuiltInID, 1, 0));
+    } else
+      S.Diags.Report(D->getLocation(),
+                     diag::err_hlsl_spv_inline_builtin_incompatible)
+          << std::string("StorageClass ") +
+                 spv::StorageClassToString(StorageClass->first)
+          << spv::BuiltInToString(BuiltIn->first);
+  } else {
+    if (Location.has_value())
+      NewAttrs.push_back(new (S.Context) VKLocationAttr(
+          Location->second, S.Context, static_cast<unsigned>(Location->first),
+          0));
+    if (StorageClass.has_value())
+      NewAttrs.push_back(new (S.Context) VKStorageClassExtAttr(
+          StorageClass->second, S.Context,
+          static_cast<unsigned>(StorageClass->first), 0));
+  }
+
+  D->dropAttrs();
+  D->setAttrs(NewAttrs);
+#endif // ENABLE_SPIRV_CODEGEN
 }
 
 void hlsl::HandleDeclAttributeForHLSL(Sema &S, Decl *D, const AttributeList &A,
