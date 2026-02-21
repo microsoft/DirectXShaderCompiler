@@ -1061,9 +1061,10 @@ static const UINT32 DxcVersionInfoFlags_Internal =
     2; // Internal Validator (non-signing)
 
 CROSS_PLATFORM_UUIDOF(IDxcVersionInfo, "b04f5b50-2059-4f12-a8ff-a1e0cde1cc7e")
-/// \brief PDB Version information.
+/// \brief Version information.
 ///
-/// Use IDxcPdbUtils2::GetVersionInfo to obtain an instance of this.
+/// This interface provides version information for the object that implements
+/// it and can be obtained using QueryInterface.
 struct IDxcVersionInfo : public IUnknown {
   virtual HRESULT STDMETHODCALLTYPE GetVersion(_Out_ UINT32 *pMajor,
                                                _Out_ UINT32 *pMinor) = 0;
@@ -1071,10 +1072,10 @@ struct IDxcVersionInfo : public IUnknown {
 };
 
 CROSS_PLATFORM_UUIDOF(IDxcVersionInfo2, "fb6904c4-42f0-4b62-9c46-983af7da7c83")
-/// \brief PDB Version Information.
+/// \brief Version Information.
 ///
-/// Use IDxcPdbUtils2::GetVersionInfo to obtain a IDxcVersionInfo interface, and
-/// then use QueryInterface to obtain an instance of this interface from it.
+/// This interface provides version information for the object that implements
+/// it and can be obtained using QueryInterface.
 struct IDxcVersionInfo2 : public IDxcVersionInfo {
   virtual HRESULT STDMETHODCALLTYPE GetCommitInfo(
       _Out_ UINT32 *pCommitCount,          ///< The total number commits.
@@ -1084,10 +1085,10 @@ struct IDxcVersionInfo2 : public IDxcVersionInfo {
 };
 
 CROSS_PLATFORM_UUIDOF(IDxcVersionInfo3, "5e13e843-9d25-473c-9ad2-03b2d0b44b1e")
-/// \brief PDB Version Information.
+/// \brief Version Information.
 ///
-/// Use IDxcPdbUtils2::GetVersionInfo to obtain a IDxcVersionInfo interface, and
-/// then use QueryInterface to obtain an instance of this interface from it.
+/// This interface provides version information for the object that implements
+/// it and can be obtained using QueryInterface.
 struct IDxcVersionInfo3 : public IUnknown {
   virtual HRESULT STDMETHODCALLTYPE GetCustomVersionString(
       _Outptr_result_z_ char *
