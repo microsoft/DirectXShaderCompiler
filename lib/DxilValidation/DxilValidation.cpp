@@ -2659,6 +2659,19 @@ static bool IsDxilBuiltinStructType(StructType *ST, hlsl::OP *HlslOP) {
   }
 }
 
+static bool IsValidIntBitWidth(unsigned Width) {
+  switch (Width) {
+  case 1:
+  case 8:
+  case 16:
+  case 32:
+  case 64:
+    return true;
+  default:
+    return false;
+  }
+}
+
 // outer type may be: [ptr to][1 dim array of]( UDT struct | scalar )
 // inner type (UDT struct member) may be: [N dim array of]( UDT struct | scalar
 // ) scalar type may be: ( float(16|32|64) | int(16|32|64) )
@@ -2717,8 +2730,7 @@ static bool ValidateType(Type *Ty, ValidationContext &ValCtx,
     return true;
   }
   if (Ty->isIntegerTy()) {
-    unsigned Width = Ty->getIntegerBitWidth();
-    if (Width != 1 && Width != 8 && Width != 16 && Width != 32 && Width != 64) {
+    if (!IsValidIntBitWidth(Ty->getIntegerBitWidth())) {
       ValCtx.EmitTypeError(Ty, ValidationRule::TypesIntWidth);
       return false;
     }
@@ -3388,25 +3400,17 @@ static void ValidateFunctionBody(Function *F, ValidationContext &ValCtx) {
           }
         }
         if (IntegerType *IT = dyn_cast<IntegerType>(op->getType())) {
-          switch (IT->getBitWidth()) {
-          case 1:
-          case 16:
-          case 32:
-          case 64:
-            break;
-          case 8:
+          unsigned BW = IT->getBitWidth();
+          if (BW == 8) {
             // We always fail if we see i8 as operand type of a non-lifetime
             // instruction.
             ValCtx.EmitInstrError(&I, ValidationRule::TypesI8);
-            break;
-          default: {
+          } else if (!IsValidIntBitWidth(BW)) {
             std::string O;
             raw_string_ostream OSS(O);
             IT->print(OSS);
             ValCtx.EmitInstrFormatError(&I, ValidationRule::TypesIntWidth,
                                         {OSS.str()});
-            break;
-          }
           }
         }
       }
@@ -3417,27 +3421,19 @@ static void ValidateFunctionBody(Function *F, ValidationContext &ValCtx) {
       while (isa<ArrayType>(Ty))
         Ty = Ty->getArrayElementType();
       if (IntegerType *IT = dyn_cast<IntegerType>(Ty)) {
-        switch (IT->getBitWidth()) {
-        case 1:
-        case 16:
-        case 32:
-        case 64:
-          break;
-        case 8:
+        unsigned BW = IT->getBitWidth();
+        if (BW == 8) {
           // Allow i8* cast for llvm.lifetime.* intrinsics.
           if (!SupportsLifetimeIntrinsics || !isa<BitCastInst>(I) ||
               !onlyUsedByLifetimeMarkers(&I)) {
             ValCtx.EmitInstrError(&I, ValidationRule::TypesI8);
           }
-          break;
-        default: {
+        } else if (!IsValidIntBitWidth(BW)) {
           std::string O;
           raw_string_ostream OSS(O);
           IT->print(OSS);
           ValCtx.EmitInstrFormatError(&I, ValidationRule::TypesIntWidth,
                                       {OSS.str()});
-          break;
-        }
         }
       }
 
