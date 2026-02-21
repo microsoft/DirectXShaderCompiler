@@ -9,13 +9,18 @@ target triple = "dxil-ms-dx"
 %dx.types.ResourceProperties = type { i32, i32 }
 %struct.RWByteAddressBuffer = type { i32 }
 
-; CHECK: error: Constant values must be in-range for operation.
-; CHECK: note: at '%1 = call %dx.types.Handle @dx.op.createHandleFromBinding(i32 217, %dx.types.ResBind { i32 1, i32 1, i32 0, i8 1 }, i32 0, i1 false)' in block '#0' of function 'main'.
+; CHECK-DAG: error: Constant values must be in-range for operation.
+; CHECK-DAG: note: at '%1 = call %dx.types.Handle @dx.op.createHandleFromBinding(i32 217, %dx.types.ResBind { i32 1, i32 3, i32 0, i8 1 }, i32 0, i1 false)' in block '#0' of function 'main'.
+; CHECK-DAG: error: Constant values must be in-range for operation.
+; CHECK-DAG: note: at '%3 = call %dx.types.Handle @dx.op.createHandleFromBinding(i32 217, %dx.types.ResBind { i32 1, i32 3, i32 0, i8 1 }, i32 4, i1 false)' in block '#0' of function 'main'.
 
 define void @main() {
-  ; Binding has rangeLowerBound=1, rangeUpperBound=1, but index is 0 (below lower bound)
-  %1 = call %dx.types.Handle @dx.op.createHandleFromBinding(i32 217, %dx.types.ResBind { i32 1, i32 1, i32 0, i8 1 }, i32 0, i1 false)  ; CreateHandleFromBinding(bind,index,nonUniformIndex)
+  ; Binding has rangeLowerBound=1, rangeUpperBound=3, but index is 0 (below lower bound)
+  %1 = call %dx.types.Handle @dx.op.createHandleFromBinding(i32 217, %dx.types.ResBind { i32 1, i32 3, i32 0, i8 1 }, i32 0, i1 false)  ; CreateHandleFromBinding(bind,index,nonUniformIndex)
   %2 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %1, %dx.types.ResourceProperties { i32 4107, i32 0 })  ; AnnotateHandle(res,props)  resource: RWByteAddressBuffer
+  ; Binding has rangeLowerBound=1, rangeUpperBound=3, but index is 4 (above upper bound)
+  %3 = call %dx.types.Handle @dx.op.createHandleFromBinding(i32 217, %dx.types.ResBind { i32 1, i32 3, i32 0, i8 1 }, i32 4, i1 false)  ; CreateHandleFromBinding(bind,index,nonUniformIndex)
+  %4 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %3, %dx.types.ResourceProperties { i32 4107, i32 0 })  ; AnnotateHandle(res,props)  resource: RWByteAddressBuffer
   ret void
 }
 
@@ -39,7 +44,7 @@ attributes #0 = { nounwind readnone }
 !2 = !{!"cs", i32 6, i32 8}
 !3 = !{null, !4, null, null}
 !4 = !{!5}
-!5 = !{i32 0, %struct.RWByteAddressBuffer* undef, !"", i32 0, i32 1, i32 1, i32 11, i1 false, i1 false, i1 false, null}
+!5 = !{i32 0, %struct.RWByteAddressBuffer* undef, !"", i32 0, i32 1, i32 3, i32 11, i1 false, i1 false, i1 false, null}
 !6 = !{void ()* @main, !"main", null, !3, !7}
 !7 = !{i32 0, i64 8589934608, i32 4, !8}
 !8 = !{i32 4, i32 1, i32 1}
