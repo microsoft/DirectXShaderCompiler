@@ -7551,7 +7551,7 @@ def err_hlsl_matrix_member_zero_in_one_based: Error<
 def err_hlsl_overloading_operator_disallowed: Error<
   "overloading %select{|non-member }1%0 is not allowed">;
 def err_hlsl_unsupported_conversion_operator: Error<
-  "conversion operator is not supported in HLSL">;
+  "conversion operator overload is not allowed">;
 def err_hlsl_vector_member_bad_format: Error<
   "invalid format for vector swizzle '%0'">;
 def err_hlsl_vector_member_empty: Error<

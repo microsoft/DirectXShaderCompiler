@@ -6,7 +6,7 @@
 struct MyStruct {
   float4 f;
 
-  // expected-error@+1 {{conversion operator is not supported in HLSL}}
+  // expected-error@+1 {{conversion operator overload is not allowed}}
   operator float4() {
     return 42;
   }
@@ -15,12 +15,12 @@ struct MyStruct {
 struct AnotherStruct {
   int x;
 
-  // expected-error@+1 {{conversion operator is not supported in HLSL}}
+  // expected-error@+1 {{conversion operator overload is not allowed}}
   operator int() {
     return x;
   }
 
-  // expected-error@+1 {{conversion operator is not supported in HLSL}}
+  // expected-error@+1 {{conversion operator overload is not allowed}}
   operator bool() {
     return x != 0;
   }
