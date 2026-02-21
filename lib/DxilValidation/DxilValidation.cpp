@@ -3388,10 +3388,17 @@ static void ValidateFunctionBody(Function *F, ValidationContext &ValCtx) {
           }
         }
         if (IntegerType *IT = dyn_cast<IntegerType>(op->getType())) {
-          if (IT->getBitWidth() == 8) {
+          unsigned BW = IT->getBitWidth();
+          if (BW == 8) {
             // We always fail if we see i8 as operand type of a non-lifetime
             // instruction.
             ValCtx.EmitInstrError(&I, ValidationRule::TypesI8);
+          } else if (BW != 1 && BW != 16 && BW != 32 && BW != 64) {
+            std::string O;
+            raw_string_ostream OSS(O);
+            IT->print(OSS);
+            ValCtx.EmitInstrFormatError(&I, ValidationRule::TypesIntWidth,
+                                        {OSS.str()});
           }
         }
       }
@@ -3402,12 +3409,19 @@ static void ValidateFunctionBody(Function *F, ValidationContext &ValCtx) {
       while (isa<ArrayType>(Ty))
         Ty = Ty->getArrayElementType();
       if (IntegerType *IT = dyn_cast<IntegerType>(Ty)) {
-        if (IT->getBitWidth() == 8) {
+        unsigned BW = IT->getBitWidth();
+        if (BW == 8) {
           // Allow i8* cast for llvm.lifetime.* intrinsics.
           if (!SupportsLifetimeIntrinsics || !isa<BitCastInst>(I) ||
               !onlyUsedByLifetimeMarkers(&I)) {
             ValCtx.EmitInstrError(&I, ValidationRule::TypesI8);
           }
+        } else if (BW != 1 && BW != 16 && BW != 32 && BW != 64) {
+          std::string O;
+          raw_string_ostream OSS(O);
+          IT->print(OSS);
+          ValCtx.EmitInstrFormatError(&I, ValidationRule::TypesIntWidth,
+                                      {OSS.str()});
         }
       }
 
