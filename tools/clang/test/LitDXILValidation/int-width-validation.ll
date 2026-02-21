@@ -4,10 +4,14 @@ target datalayout = "e-m:e-p:32:32-i1:32-i8:32-i16:32-i32:32-i64:64-f16:32-f32:3
 target triple = "dxil-ms-dx"
 
 ; CHECK: Int type 'i25' has an invalid width.
+; CHECK: Int type 'i25' has an invalid width.
 ; CHECK: Validation failed.
 
 define void @main() {
+  ; Test invalid int width in operand and result types.
   %1 = add i25 0, 1
+  ; Test invalid int width inside array result type.
+  %2 = select i1 true, [2 x i25] zeroinitializer, [2 x i25] zeroinitializer
   call void @dx.op.storeOutput.f32(i32 5, i32 0, i32 0, i8 0, float 0.000000e+00)
   ret void
 }
