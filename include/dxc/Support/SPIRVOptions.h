@@ -39,40 +39,40 @@ enum class SpirvLayoutRule {
 
 struct SpirvCodeGenOptions {
   /// Disable legalization and optimization and emit raw SPIR-V
-  bool codeGenHighLevel;
-  bool debugInfoFile;
-  bool debugInfoLine;
-  bool debugInfoSource;
-  bool debugInfoTool;
-  bool debugInfoRich;
+  bool codeGenHighLevel = false;
+  bool debugInfoFile = false;
+  bool debugInfoLine = false;
+  bool debugInfoSource = false;
+  bool debugInfoTool = false;
+  bool debugInfoRich = false;
   /// Use NonSemantic.Vulkan.DebugInfo.100 debug info instead of
   /// OpenCL.DebugInfo.100
-  bool debugInfoVulkan;
-  bool defaultRowMajor;
-  bool disableValidation;
-  bool enable16BitTypes;
-  bool finiteMathOnly;
-  bool enableReflect;
-  bool invertY; // Additive inverse
-  bool invertW; // Multiplicative inverse
-  bool noWarnEmulatedFeatures;
-  bool noWarnIgnoredFeatures;
-  bool preserveBindings;
-  bool preserveInterface;
-  bool useDxLayout;
-  bool useGlLayout;
-  bool useLegacyBufferMatrixOrder;
-  bool useScalarLayout;
-  bool flattenResourceArrays;
-  bool reduceLoadSize;
-  bool autoShiftBindings;
-  bool supportNonzeroBaseInstance;
-  bool supportNonzeroBaseVertex;
-  bool fixFuncCallArguments;
-  bool enableMaximalReconvergence;
-  bool useVulkanMemoryModel;
-  bool useUnknownImageFormat;
-  bool IEEEStrict;
+  bool debugInfoVulkan = false;
+  bool defaultRowMajor = false;
+  bool disableValidation = false;
+  bool enable16BitTypes = false;
+  bool finiteMathOnly = false;
+  bool enableReflect = false;
+  bool invertY = false; // Additive inverse
+  bool invertW = false; // Multiplicative inverse
+  bool noWarnEmulatedFeatures = false;
+  bool noWarnIgnoredFeatures = false;
+  bool preserveBindings = false;
+  bool preserveInterface = false;
+  bool useDxLayout = false;
+  bool useGlLayout = false;
+  bool useLegacyBufferMatrixOrder = false;
+  bool useScalarLayout = false;
+  bool flattenResourceArrays = false;
+  bool reduceLoadSize = false;
+  bool autoShiftBindings = false;
+  bool supportNonzeroBaseInstance = false;
+  bool supportNonzeroBaseVertex = false;
+  bool fixFuncCallArguments = false;
+  bool enableMaximalReconvergence = false;
+  bool useVulkanMemoryModel = false;
+  bool useUnknownImageFormat = false;
+  bool IEEEStrict = false;
   /// Maximum length in words for the OpString literal containing the shader
   /// source for DebugSource and DebugSourceContinued. If the source code length
   /// is larger than this number, we will use DebugSourceContinued instructions
@@ -81,14 +81,14 @@ struct SpirvCodeGenOptions {
   /// limitation of a single SPIR-V instruction size (0xFFFF) - 2 operand words
   /// for OpString. Currently a smaller value is only used to test
   /// DebugSourceContinued generation.
-  uint32_t debugSourceLen;
-  SpirvLayoutRule cBufferLayoutRule;
-  SpirvLayoutRule sBufferLayoutRule;
-  SpirvLayoutRule tBufferLayoutRule;
-  SpirvLayoutRule ampPayloadLayoutRule;
+  uint32_t debugSourceLen = 0;
+  SpirvLayoutRule cBufferLayoutRule = SpirvLayoutRule::Void;
+  SpirvLayoutRule sBufferLayoutRule = SpirvLayoutRule::Void;
+  SpirvLayoutRule tBufferLayoutRule = SpirvLayoutRule::Void;
+  SpirvLayoutRule ampPayloadLayoutRule = SpirvLayoutRule::Void;
   llvm::StringRef stageIoOrder;
   llvm::StringRef targetEnv;
-  uint32_t maxId;
+  uint32_t maxId = 0;
   llvm::SmallVector<int32_t, 4> bShift;
   llvm::SmallVector<int32_t, 4> sShift;
   llvm::SmallVector<int32_t, 4> tShift;
@@ -109,9 +109,11 @@ struct SpirvCodeGenOptions {
   std::optional<BindingInfo> samplerHeapBinding;
   std::optional<BindingInfo> counterHeapBinding;
 
-  bool signaturePacking; ///< Whether signature packing is enabled or not
+  bool signaturePacking =
+      false; ///< Whether signature packing is enabled or not
 
-  bool printAll; // Dump SPIR-V module before each pass and after the last one.
+  bool printAll =
+      false; // Dump SPIR-V module before each pass and after the last one.
 
   // String representation of all command line options and input file.
   std::string clOptions;
