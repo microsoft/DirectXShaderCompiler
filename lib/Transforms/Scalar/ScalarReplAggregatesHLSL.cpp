@@ -6505,47 +6505,49 @@ ModulePass *llvm::createSROA_Parameter_HLSL() {
 namespace {
 
 struct GVDebugInfoPatchCache {
-  DenseMap<Function *, SetVector<DISubprogram *>> SubprogramsForFunction;
-  DenseSet<DILocation *> Seen;
+  DenseMap<DILocation *, DISubprogram *> LocToSubprogram;
+  DenseMap<Function *, DISubprogram *> FuncToSubprogram;
   DITypeIdentifierMap EmptyMap;
 
+  DISubprogram *GetSubprogramForLoc(DILocation *Loc) {
+    auto It = LocToSubprogram.find(Loc);
+    if (It != LocToSubprogram.end())
+      return It->second;
+    DISubprogram *Result = nullptr;
+    auto *Scope = dyn_cast<DIScope>(Loc->getScope());
+    while (Scope) {
+      if (auto SubP = dyn_cast<DISubprogram>(Scope)) {
+        Result = SubP;
+        break;
+      }
+      Scope = Scope->getScope().resolve(EmptyMap);
+    }
+    LocToSubprogram[Loc] = Result;
+    return Result;
+  }
+
+  // Collect DISubprograms from a DILocation's inlined-at chain.
   void CollectSubprograms(DILocation *Loc, SetVector<DISubprogram *> &Set) {
     while (Loc) {
-      // This is potentially very expensive. Avoid repeatedly looking for
-      // DISubprogram's
-      if (Seen.count(Loc))
-        return;
-      Seen.insert(Loc);
-      auto *Scope = dyn_cast<DIScope>(Loc->getScope());
-      while (Scope) {
-        if (auto SubP = dyn_cast<DISubprogram>(Scope)) {
-          Set.insert(SubP);
-          break;
-        }
-        Scope = Scope->getScope().resolve(EmptyMap);
-      }
+      if (DISubprogram *SP = GetSubprogramForLoc(Loc))
+        Set.insert(SP);
       Loc = Loc->getInlinedAt();
     }
   }
 
-  SetVector<DISubprogram *> &
-  GetSubprogramsForFunction(Function *F, DebugInfoFinder &DbgFinder) {
-    auto It = SubprogramsForFunction.find(F);
-    if (It != SubprogramsForFunction.end())
+  DISubprogram *GetFuncSubprogram(Function *F, DebugInfoFinder &DbgFinder) {
+    auto It = FuncToSubprogram.find(F);
+    if (It != FuncToSubprogram.end())
       return It->second;
-
-    SetVector<DISubprogram *> &Ret = SubprogramsForFunction[F];
+    DISubprogram *Result = nullptr;
     for (DISubprogram *SP : DbgFinder.subprograms()) {
       if (SP->getFunction() == F) {
-        Ret.insert(SP);
+        Result = SP;
         break;
       }
     }
-
-    for (BasicBlock &BB : *F)
-      for (Instruction &I : BB)
-        CollectSubprograms(I.getDebugLoc(), Ret);
-    return Ret;
+    FuncToSubprogram[F] = Result;
+    return Result;
   }
 };
 
@@ -6771,8 +6773,18 @@ static void PatchDebugInfo(GVDebugInfoPatchCache &Cache,
 
   DIBuilder DIB(*GV->getParent());
 
-  SetVector<DISubprogram *> &Subprograms =
-      Cache.GetSubprogramsForFunction(F, DbgFinder);
+  // Only collect subprograms relevant to this GV to avoid creating
+  // O(subprograms × globals) debug instructions.
+  SetVector<DISubprogram *> Subprograms;
+
+  if (DISubprogram *SP = Cache.GetFuncSubprogram(F, DbgFinder))
+    Subprograms.insert(SP);
+
+  for (User *U : AI->users()) {
+    if (Instruction *I = dyn_cast<Instruction>(U))
+      Cache.CollectSubprograms(I->getDebugLoc(), Subprograms);
+  }
+
   for (DISubprogram *Subprogram : Subprograms) {
     DIScope *Scope = Subprogram;
     DebugLoc Loc = DebugLoc::get(DGV->getLine(), 0, Scope);
