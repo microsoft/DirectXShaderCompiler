@@ -10020,6 +10020,7 @@ bool HLSLExternalSource::CanConvert(SourceLocation loc, Expr *sourceExpr,
       // We can only splat to target types that do not contain object/resource
       // types
       if (sourceSingleElementBuiltinType != nullptr &&
+          !m_sema->RequireCompleteType(loc, target, 0) &&
           hlsl::IsHLSLNumericOrAggregateOfNumericType(target)) {
         BuiltinType::Kind kind = sourceSingleElementBuiltinType->getKind();
         switch (kind) {
