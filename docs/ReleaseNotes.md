@@ -39,7 +39,7 @@ line upon naming the release. Refer to previous for appropriate section names.
 
 #### Other Changes
 - Fixed mesh shader semantics that were incorrectly case sensitive.
-- Added index range validation for `CreateHandleFromBinding` to match existing `CreateHandle` validation.
+- DXIL validation: added index range validation for `CreateHandleFromBinding` to match existing `CreateHandle` validation.
 
 ### Version 1.9.2602
 
