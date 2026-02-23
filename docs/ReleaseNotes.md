@@ -39,6 +39,7 @@ line upon naming the release. Refer to previous for appropriate section names.
 
 #### Other Changes
 - Fixed mesh shader semantics that were incorrectly case sensitive.
+- User-defined conversion operators (e.g., `operator float4()`) now produce an error instead of being silently ignored.
 
 ### Version 1.9.2602
 
