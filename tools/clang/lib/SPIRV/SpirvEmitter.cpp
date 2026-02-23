@@ -5882,7 +5882,6 @@ SpirvEmitter::processTextureSampleGather(const CXXMemberCallExpr *expr,
   //                                [, uint Status]);
   //
   // Other Texture types do not have a Gather method.
-  const auto numArgs = expr->getNumArgs();
   const auto loc = expr->getExprLoc();
   const auto range = expr->getSourceRange();
 
@@ -5968,7 +5967,6 @@ SpirvEmitter::processTextureSampleBiasLevel(const CXXMemberCallExpr *expr,
   //                                float LOD
   //                                [, out uint Status]);
 
-  const auto numArgs = expr->getNumArgs();
   const auto *imageExpr = expr->getImplicitObjectArgument();
   const QualType imageType = imageExpr->getType();
   const bool isImageSampledTexture = isSampledTexture(imageType);
@@ -6040,7 +6038,6 @@ SpirvEmitter::processTextureSampleGrad(const CXXMemberCallExpr *expr) {
   //                               [, float Clamp]
   //                               [, out uint Status]);
 
-  const auto numArgs = expr->getNumArgs();
   const auto *imageExpr = expr->getImplicitObjectArgument();
   const QualType imageType = imageExpr->getType();
   const bool isImageSampledTexture = isSampledTexture(imageType);
@@ -6107,7 +6104,6 @@ SpirvEmitter::processTextureSampleCmp(const CXXMemberCallExpr *expr) {
   //   [, out uint Status]
   // );
 
-  const auto numArgs = expr->getNumArgs();
   const auto *imageExpr = expr->getImplicitObjectArgument();
   const QualType imageType = imageExpr->getType();
   const bool isImageSampledTexture = isSampledTexture(imageType);
@@ -6317,7 +6313,6 @@ SpirvEmitter::processTextureSampleCmpLevelZero(const CXXMemberCallExpr *expr) {
   //   [, out uint Status]
   // );
 
-  const auto numArgs = expr->getNumArgs();
   const auto *imageExpr = expr->getImplicitObjectArgument();
   const auto imageType = imageExpr->getType();
   const bool isImageSampledTexture = isSampledTexture(imageType);
