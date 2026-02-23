@@ -39,6 +39,7 @@ line upon naming the release. Refer to previous for appropriate section names.
 
 #### Other Changes
 - Fixed mesh shader semantics that were incorrectly case sensitive.
+- DXIL validation now rejects non-standard integer bit widths (e.g. `i25`) in instructions.
 
 ### Version 1.9.2602
 
