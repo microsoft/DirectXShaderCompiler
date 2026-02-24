@@ -82,6 +82,7 @@ const char *kDxBreakFuncName = "dx.break";
 const char *kDxBreakCondName = "dx.break.cond";
 const char *kDxBreakMDName = "dx.break.br";
 const char *kDxIsHelperGlobalName = "dx.ishelper";
+const char *kDxLinAlgMatrixTypePrefix = "dx.types.LinAlgMatrix";
 
 const char *kHostLayoutTypePrefix = "hostlayout.";
 

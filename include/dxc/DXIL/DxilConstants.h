@@ -2500,6 +2500,7 @@ extern const char *kDxBreakFuncName;
 extern const char *kDxBreakCondName;
 extern const char *kDxBreakMDName;
 extern const char *kDxIsHelperGlobalName;
+extern const char *kDxLinAlgMatrixTypePrefix;
 
 extern const char *kHostLayoutTypePrefix;
 

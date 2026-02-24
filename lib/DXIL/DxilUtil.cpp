@@ -10,6 +10,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #include "dxc/DXIL/DxilUtil.h"
+#include "dxc/DXIL/DxilConstants.h"
 #include "dxc/DXIL/DxilInstructions.h"
 #include "dxc/DXIL/DxilModule.h"
 #include "dxc/DXIL/DxilOperations.h"
@@ -623,11 +624,11 @@ bool IsHLSLLinAlgMatrixType(llvm::Type *Ty) {
     return false;
   if (!ST->hasName())
     return false;
-  return ST->getName().startswith("dx.types.LinAlgMatrix");
+  return ST->getName().startswith(DXIL::kDxLinAlgMatrixTypePrefix);
 }
 
 StringRef GetHLSLLinAlgMatrixTypeMangling(llvm::StructType *Ty) {
-  return Ty->getStructName().substr(sizeof("dx.types.LinAlgMatrix") - 1);
+  return Ty->getStructName().substr(strlen(DXIL::kDxLinAlgMatrixTypePrefix));
 }
 
 bool IsHLSLResourceDescType(llvm::Type *Ty) {
