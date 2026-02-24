@@ -16,7 +16,7 @@ stages:
     timeoutInMinutes: 180
 
     pool:
-      vmImage: windows-2022
+      vmImage: windows-2026
 
     variables:
       HLSL_SRC_DIR: '$(Build.SourcesDirectory)'
@@ -25,9 +25,9 @@ stages:
 
     strategy:
       matrix:
-        VS2022_Release:
+        VS2026_Release:
          configuration: Release
-        VS2022_Debug:
+        VS2026_Debug:
          configuration: Debug
 
     steps:
