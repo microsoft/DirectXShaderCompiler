@@ -616,26 +616,26 @@ bool isFallbackPathEnabled() {
   return EnableFallbackValue != 0;
 }
 
-UINT getMaxGroupSharedMemoryCS(ID3D12Device *pDevice) {
+UINT getMaxGroupSharedMemoryCS(ID3D12Device *Device) {
   D3D12_FEATURE_DATA_D3D12_OPTIONS_PREVIEW O = {};
-  if (FAILED(pDevice->CheckFeatureSupport(D3D12_FEATURE_D3D12_OPTIONS_PREVIEW,
-                                          &O, sizeof(O))))
+  if (FAILED(Device->CheckFeatureSupport(D3D12_FEATURE_D3D12_OPTIONS_PREVIEW,
+                                         &O, sizeof(O))))
     return 32768; // Default minimum per spec
   return O.MaxGroupSharedMemoryPerGroupCS;
 }
 
-UINT getMaxGroupSharedMemoryAS(ID3D12Device *pDevice) {
+UINT getMaxGroupSharedMemoryAS(ID3D12Device *Device) {
   D3D12_FEATURE_DATA_D3D12_OPTIONS_PREVIEW O = {};
-  if (FAILED(pDevice->CheckFeatureSupport(D3D12_FEATURE_D3D12_OPTIONS_PREVIEW,
-                                          &O, sizeof(O))))
+  if (FAILED(Device->CheckFeatureSupport(D3D12_FEATURE_D3D12_OPTIONS_PREVIEW,
+                                         &O, sizeof(O))))
     return 32768; // Default minimum per spec
   return O.MaxGroupSharedMemoryPerGroupAS;
 }
 
-UINT getMaxGroupSharedMemoryMS(ID3D12Device *pDevice) {
+UINT getMaxGroupSharedMemoryMS(ID3D12Device *Device) {
   D3D12_FEATURE_DATA_D3D12_OPTIONS_PREVIEW O = {};
-  if (FAILED(pDevice->CheckFeatureSupport(D3D12_FEATURE_D3D12_OPTIONS_PREVIEW,
-                                          &O, sizeof(O))))
+  if (FAILED(Device->CheckFeatureSupport(D3D12_FEATURE_D3D12_OPTIONS_PREVIEW,
+                                         &O, sizeof(O))))
     return 28672; // Default minimum per spec (28 KB for mesh)
   return O.MaxGroupSharedMemoryPerGroupMS;
 }

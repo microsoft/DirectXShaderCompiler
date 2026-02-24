@@ -70,8 +70,8 @@ bool doesDeviceSupportEnhancedBarriers(ID3D12Device *pDevice);
 bool doesDeviceSupportRelaxedFormatCasting(ID3D12Device *pDevice);
 bool isFallbackPathEnabled();
 
-UINT getMaxGroupSharedMemoryCS(ID3D12Device *pDevice);
-UINT getMaxGroupSharedMemoryAS(ID3D12Device *pDevice);
-UINT getMaxGroupSharedMemoryMS(ID3D12Device *pDevice);
+UINT getMaxGroupSharedMemoryCS(ID3D12Device *Device);
+UINT getMaxGroupSharedMemoryAS(ID3D12Device *Device);
+UINT getMaxGroupSharedMemoryMS(ID3D12Device *Device);
 
 #endif // HLSLEXECTESTUTILS_H
