@@ -16,7 +16,7 @@ stages:
     timeoutInMinutes: 180
 
     pool:
-      vmImage: windows-2026
+      vmImage: windows-2025-vs2026
 
     variables:
       HLSL_SRC_DIR: '$(Build.SourcesDirectory)'
