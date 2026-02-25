@@ -1641,8 +1641,8 @@ INITIALIZE_PASS(DxilEmitMetadata, "hlsl-dxilemit", "HLSL DXIL Metadata Emit",
 
 namespace {
 
-// DxilTrimTargetTypes pass makes sure the !dx.targetTypes metadata only contains types
-// that are actually used by the shader.
+// DxilTrimTargetTypes pass makes sure the !dx.targetTypes metadata only
+// contains types that are actually used by the shader.
 
 class DxilTrimTargetTypes : public ModulePass {
 public:
@@ -1695,7 +1695,7 @@ public:
       // Currently only LinAlMatrix ops use target types.
       if (!OP::IsDxilOpLinAlgFuncName(F.getName()))
         continue;
-      
+
       llvm::Type *RetTy = F.getReturnType();
       if (dxilutil::IsHLSLKnownTargetType(RetTy))
         markTargetTypeAsUsed(TargetTypesMap, RetTy);
