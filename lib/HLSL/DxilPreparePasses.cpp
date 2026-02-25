@@ -1641,6 +1641,108 @@ INITIALIZE_PASS(DxilEmitMetadata, "hlsl-dxilemit", "HLSL DXIL Metadata Emit",
 
 namespace {
 
+// DxilTrimTargetTypes pass makes sure the !dx.targetTypes metadata only contains types
+// that are actually used by the shader.
+
+class DxilTrimTargetTypes : public ModulePass {
+public:
+  static char ID; // Pass identification, replacement for typeid
+  explicit DxilTrimTargetTypes() : ModulePass(ID) {}
+
+  StringRef getPassName() const override { return "HLSL DXIL Metadata Emit"; }
+
+  // Map of target type to its metadata node and usage flag.
+  using TargetTypesUsageMap =
+      SmallDenseMap<llvm::Type *, std::pair<MDTuple *, bool>, 16>;
+
+  void markTargetTypeAsUsed(TargetTypesUsageMap &Map, llvm::Type *Ty) {
+    auto It = Map.find(Ty);
+    assert(It != Map.end() &&
+           "used target type is not in dx.targetTypes metadata list");
+    (*It).second.second = true;
+  }
+
+  bool runOnModule(Module &M) override {
+    NamedMDNode *targetTypesMDNode =
+        M.getNamedMetadata(DxilMDHelper::kDxilTargetTypesMDName);
+    if (!targetTypesMDNode)
+      return false;
+
+    // Add all target types that from "dx.targetTypes" metadata to the map
+    // to track their usage.
+    TargetTypesUsageMap TargetTypesMap;
+    for (MDNode *Node : targetTypesMDNode->operands()) {
+      MDTuple *TypeMD = dyn_cast<MDTuple>(Node);
+      if (!TypeMD || TypeMD->getNumOperands() == 0)
+        continue;
+
+      ConstantAsMetadata *ConstMD =
+          dyn_cast<ConstantAsMetadata>(TypeMD->getOperand(0).get());
+      if (!ConstMD)
+        continue;
+
+      Constant *TypeUndefPtr = ConstMD->getValue();
+      llvm::Type *Ty = TypeUndefPtr->getType();
+      TargetTypesMap.try_emplace(Ty, std::make_pair(TypeMD, false));
+    }
+
+    // Scan all LinAlgMatrix functions and check the return type and argument
+    // types to find all used target types.
+    for (const llvm::Function &F : M.functions()) {
+      if (!F.isDeclaration())
+        continue;
+
+      // Currently only LinAlMatrix ops use target types.
+      if (!OP::IsDxilOpLinAlgFuncName(F.getName()))
+        continue;
+      
+      llvm::Type *RetTy = F.getReturnType();
+      if (dxilutil::IsHLSLKnownTargetType(RetTy))
+        markTargetTypeAsUsed(TargetTypesMap, RetTy);
+
+      for (const auto &Arg : F.args()) {
+        llvm::Type *Ty = Arg.getType();
+        if (dxilutil::IsHLSLKnownTargetType(Ty))
+          markTargetTypeAsUsed(TargetTypesMap, Ty);
+      }
+    }
+
+    // Remove old metadata node from the module.
+    targetTypesMDNode->eraseFromParent();
+
+    // Create a new one with the used target types.
+    NamedMDNode *newTargetTypesMDNode =
+        M.getOrInsertNamedMetadata(DxilMDHelper::kDxilTargetTypesMDName);
+    for (auto Entry : TargetTypesMap) {
+      MDTuple *Node = Entry.second.first;
+      bool IsUsed = Entry.second.second;
+      if (IsUsed)
+        newTargetTypesMDNode->addOperand(Node);
+    }
+
+    // If no target type is used, remove the new metadata node from module.
+    if (newTargetTypesMDNode->getNumOperands() == 0)
+      newTargetTypesMDNode->eraseFromParent();
+
+    return true;
+  }
+};
+
+} // namespace
+
+char DxilTrimTargetTypes::ID = 0;
+
+ModulePass *llvm::createDxilTrimTargetTypesPass() {
+  return new DxilTrimTargetTypes();
+}
+
+INITIALIZE_PASS(DxilTrimTargetTypes, "hlsl-trim-target-types",
+                "HLSL DXIL Trim Target Types", false, false)
+
+///////////////////////////////////////////////////////////////////////////////
+
+namespace {
+
 const StringRef UniNoWaveSensitiveGradientErrMsg =
     "Gradient operations are not affected by wave-sensitive data or control "
     "flow.";
