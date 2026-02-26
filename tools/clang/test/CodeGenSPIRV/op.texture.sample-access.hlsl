@@ -1,10 +1,12 @@
 // RUN: %dxc -T ps_6_0 -E main -fcgl  %s -spirv | FileCheck %s
+// RUN: not %dxc -T ps_6_0 -E main -fcgl  %s -spirv -DERROR 2>&1 | FileCheck %s --check-prefix=ERROR
 
 // CHECK:  [[cu12:%[0-9]+]] = OpConstantComposite %v2uint %uint_1 %uint_2
 // CHECK: [[cu123:%[0-9]+]] = OpConstantComposite %v3uint %uint_1 %uint_2 %uint_3
 
 Texture2DMS      <int3>   t1;
 Texture2DMSArray <float4> t2;
+Texture2D        <int2>   t3;
 
 void main() {
   uint  pos  = uint(1);
@@ -22,4 +24,9 @@ void main() {
 // CHECK-NEXT:  [[f2:%[0-9]+]] = OpImageFetch %v4float [[t2]] [[cu123]] Sample [[pos]]
 // CHECK-NEXT: OpStore %a2 [[f2]]
   float4 a2 = t2.sample[pos][uint3(1,2,3)];
+
+#ifdef ERROR
+// ERROR: error: no member named 'sample' in 'Texture2D<vector<int, 2> >'
+  int2 a3 = t3.sample[1][pos2];
+#endif
 }

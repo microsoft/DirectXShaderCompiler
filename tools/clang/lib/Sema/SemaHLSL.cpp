@@ -831,6 +831,9 @@ static const bool SuppressErrorsTrue = true; // suppress error diagnostics
 static const bool SuppressErrorsFalse =
     false;                           // do not suppress error diagnostics
 static const int OneRow = 1;         // a single row for a type
+static const bool SubscriptorFalse =
+    false;                                // a type does not support [] indexing
+static const bool SubscriptorTrue = true; // a type supports [] indexing
 static const bool MipsFalse = false; // a type does not support the .mips member
 static const bool MipsTrue = true;   // a type supports the .mips member
 static const bool SampleFalse =
@@ -1569,6 +1572,8 @@ struct SubscriptOperatorRecord {
   unsigned int
       SubscriptCardinality : 4; // Number of elements expected in subscript -
                                 // zero if operator not supported.
+  bool HasSubscript
+      : 1; // true if it supports subscriptor indexing; false otherwise
   bool HasMips : 1;   // true if the kind has a mips member; false otherwise
   bool HasSample : 1; // true if the kind has a sample member; false otherwise
 };
@@ -1576,143 +1581,197 @@ struct SubscriptOperatorRecord {
 // Subscript operators for objects that are represented as HLSL structures or
 // templates.
 static const SubscriptOperatorRecord g_ArBasicKindsSubscripts[] = {
-    {1, MipsFalse, SampleFalse}, // AR_OBJECT_BUFFER (Buffer)
-
+    {1, SubscriptorTrue, MipsFalse, SampleFalse}, // AR_OBJECT_BUFFER (Buffer)
     // AR_OBJECT_TEXTURE,
-    {1, MipsTrue, SampleFalse},  // AR_OBJECT_TEXTURE1D (Texture1D)
-    {2, MipsTrue, SampleFalse},  // AR_OBJECT_TEXTURE1D_ARRAY (Texture1DArray)
-    {2, MipsTrue, SampleFalse},  // AR_OBJECT_TEXTURE2D (Texture2D)
-    {3, MipsTrue, SampleFalse},  // AR_OBJECT_TEXTURE2D_ARRAY (Texture2DArray)
-    {3, MipsTrue, SampleFalse},  // AR_OBJECT_TEXTURE3D (Texture3D)
-    {0, MipsFalse, SampleFalse}, // AR_OBJECT_TEXTURECUBE (TextureCube)
-    {0, MipsFalse,
+    {1, SubscriptorTrue, MipsTrue,
+     SampleFalse}, // AR_OBJECT_TEXTURE1D (Texture1D)
+    {2, SubscriptorTrue, MipsTrue,
+     SampleFalse}, // AR_OBJECT_TEXTURE1D_ARRAY (Texture1DArray)
+    {2, SubscriptorTrue, MipsTrue,
+     SampleFalse}, // AR_OBJECT_TEXTURE2D (Texture2D)
+    {3, SubscriptorTrue, MipsTrue,
+     SampleFalse}, // AR_OBJECT_TEXTURE2D_ARRAY (Texture2DArray)
+    {3, SubscriptorTrue, MipsTrue,
+     SampleFalse}, // AR_OBJECT_TEXTURE3D (Texture3D)
+    {0, SubscriptorFalse, MipsFalse,
+     SampleFalse}, // AR_OBJECT_TEXTURECUBE (TextureCube)
+    {0, SubscriptorFalse, MipsFalse,
      SampleFalse}, // AR_OBJECT_TEXTURECUBE_ARRAY (TextureCubeArray)
-    {2, MipsFalse, SampleTrue}, // AR_OBJECT_TEXTURE2DMS (Texture2DMS)
-    {3, MipsFalse,
+    {2, SubscriptorTrue, MipsFalse,
+     SampleTrue}, // AR_OBJECT_TEXTURE2DMS (Texture2DMS)
+    {3, SubscriptorFalse, MipsFalse,
      SampleTrue}, // AR_OBJECT_TEXTURE2DMS_ARRAY (Texture2DMSArray)
 
-    {0, MipsFalse, SampleFalse}, // AR_OBJECT_SAMPLER (SamplerState)
+    {0, SubscriptorFalse, MipsFalse,
+     SampleFalse}, // AR_OBJECT_SAMPLER (SamplerState)
     // AR_OBJECT_SAMPLER1D,
     // AR_OBJECT_SAMPLER2D,
     // AR_OBJECT_SAMPLER3D,
     // AR_OBJECT_SAMPLERCUBE,
-    {0, MipsFalse,
+    {0, SubscriptorFalse, MipsFalse,
      SampleFalse}, // AR_OBJECT_SAMPLERCOMPARISON (SamplerComparison)
 
-    {0, MipsFalse, SampleFalse}, // AR_OBJECT_CONSTANT_BUFFER
-    {0, MipsFalse, SampleFalse}, // AR_OBJECT_TEXTURE_BUFFER
+    {0, SubscriptorFalse, MipsFalse, SampleFalse}, // AR_OBJECT_CONSTANT_BUFFER
+    {0, SubscriptorFalse, MipsFalse, SampleFalse}, // AR_OBJECT_TEXTURE_BUFFER
 
-    {0, MipsFalse, SampleFalse}, // AR_OBJECT_POINTSTREAM (PointStream)
-    {0, MipsFalse, SampleFalse}, // AR_OBJECT_LINESTREAM (LineStream)
-    {0, MipsFalse, SampleFalse}, // AR_OBJECT_TRIANGLESTREAM (TriangleStream)
+    {0, SubscriptorFalse, MipsFalse,
+     SampleFalse}, // AR_OBJECT_POINTSTREAM (PointStream)
+    {0, SubscriptorFalse, MipsFalse,
+     SampleFalse}, // AR_OBJECT_LINESTREAM (LineStream)
+    {0, SubscriptorFalse, MipsFalse,
+     SampleFalse}, // AR_OBJECT_TRIANGLESTREAM (TriangleStream)
 
-    {1, MipsFalse, SampleFalse}, // AR_OBJECT_INPUTPATCH (InputPatch)
-    {1, MipsFalse, SampleFalse}, // AR_OBJECT_OUTPUTPATCH (OutputPatch)
+    {1, SubscriptorTrue, MipsFalse,
+     SampleFalse}, // AR_OBJECT_INPUTPATCH (InputPatch)
+    {1, SubscriptorTrue, MipsFalse,
+     SampleFalse}, // AR_OBJECT_OUTPUTPATCH (OutputPatch)
 
-    {1, MipsFalse, SampleFalse}, // AR_OBJECT_RWTEXTURE1D (RWTexture1D)
-    {2, MipsFalse,
+    {1, SubscriptorTrue, MipsFalse,
+     SampleFalse}, // AR_OBJECT_RWTEXTURE1D (RWTexture1D)
+    {2, SubscriptorTrue, MipsFalse,
      SampleFalse}, // AR_OBJECT_RWTEXTURE1D_ARRAY (RWTexture1DArray)
-    {2, MipsFalse, SampleFalse}, // AR_OBJECT_RWTEXTURE2D (RWTexture2D)
-    {3, MipsFalse,
+    {2, SubscriptorTrue, MipsFalse,
+     SampleFalse}, // AR_OBJECT_RWTEXTURE2D (RWTexture2D)
+    {3, SubscriptorTrue, MipsFalse,
      SampleFalse}, // AR_OBJECT_RWTEXTURE2D_ARRAY (RWTexture2DArray)
-    {3, MipsFalse, SampleFalse}, // AR_OBJECT_RWTEXTURE3D (RWTexture3D)
-    {1, MipsFalse, SampleFalse}, // AR_OBJECT_RWBUFFER (RWBuffer)
+    {3, SubscriptorTrue, MipsFalse,
+     SampleFalse}, // AR_OBJECT_RWTEXTURE3D (RWTexture3D)
+    {1, SubscriptorTrue, MipsFalse,
+     SampleFalse}, // AR_OBJECT_RWBUFFER (RWBuffer)
 
-    {0, MipsFalse,
+    {0, SubscriptorFalse, MipsFalse,
      SampleFalse}, // AR_OBJECT_BYTEADDRESS_BUFFER (ByteAddressBuffer)
-    {0, MipsFalse,
+    {0, SubscriptorFalse, MipsFalse,
      SampleFalse}, // AR_OBJECT_RWBYTEADDRESS_BUFFER (RWByteAddressBuffer)
-    {1, MipsFalse,
+    {1, SubscriptorTrue, MipsFalse,
      SampleFalse}, // AR_OBJECT_STRUCTURED_BUFFER (StructuredBuffer)
-    {1, MipsFalse,
+    {1, SubscriptorTrue, MipsFalse,
      SampleFalse}, // AR_OBJECT_RWSTRUCTURED_BUFFER (RWStructuredBuffer)
     // AR_OBJECT_RWSTRUCTURED_BUFFER_ALLOC,
     // AR_OBJECT_RWSTRUCTURED_BUFFER_CONSUME,
-    {0, MipsFalse, SampleFalse}, // AR_OBJECT_APPEND_STRUCTURED_BUFFER
-                                 // (AppendStructuredBuffer)
-    {0, MipsFalse, SampleFalse}, // AR_OBJECT_CONSUME_STRUCTURED_BUFFER
-                                 // (ConsumeStructuredBuffer)
+    {0, SubscriptorFalse, MipsFalse,
+     SampleFalse}, // AR_OBJECT_APPEND_STRUCTURED_BUFFER
+                   // (AppendStructuredBuffer)
+    {0, SubscriptorFalse, MipsFalse,
+     SampleFalse}, // AR_OBJECT_CONSUME_STRUCTURED_BUFFER
+                   // (ConsumeStructuredBuffer)
 
-    {1, MipsFalse, SampleFalse}, // AR_OBJECT_ROVBUFFER (ROVBuffer)
-    {0, MipsFalse,
+    {1, SubscriptorTrue, MipsFalse,
+     SampleFalse}, // AR_OBJECT_ROVBUFFER (ROVBuffer)
+    {0, SubscriptorFalse, MipsFalse,
      SampleFalse}, // AR_OBJECT_ROVBYTEADDRESS_BUFFER (ROVByteAddressBuffer)
-    {1, MipsFalse,
+    {1, SubscriptorTrue, MipsFalse,
      SampleFalse}, // AR_OBJECT_ROVSTRUCTURED_BUFFER (ROVStructuredBuffer)
-    {1, MipsFalse, SampleFalse}, // AR_OBJECT_ROVTEXTURE1D (ROVTexture1D)
-    {2, MipsFalse,
+    {1, SubscriptorTrue, MipsFalse,
+     SampleFalse}, // AR_OBJECT_ROVTEXTURE1D (ROVTexture1D)
+    {2, SubscriptorTrue, MipsFalse,
      SampleFalse}, // AR_OBJECT_ROVTEXTURE1D_ARRAY (ROVTexture1DArray)
-    {2, MipsFalse, SampleFalse}, // AR_OBJECT_ROVTEXTURE2D (ROVTexture2D)
-    {3, MipsFalse,
+    {2, SubscriptorTrue, MipsFalse,
+     SampleFalse}, // AR_OBJECT_ROVTEXTURE2D (ROVTexture2D)
+    {3, SubscriptorTrue, MipsFalse,
      SampleFalse}, // AR_OBJECT_ROVTEXTURE2D_ARRAY (ROVTexture2DArray)
-    {3, MipsFalse, SampleFalse}, // AR_OBJECT_ROVTEXTURE3D (ROVTexture3D)
+    {3, SubscriptorTrue, MipsFalse,
+     SampleFalse}, // AR_OBJECT_ROVTEXTURE3D (ROVTexture3D)
 
-    {0, MipsFalse, SampleFalse}, // AR_OBJECT_FEEDBACKTEXTURE2D
-    {0, MipsFalse, SampleFalse}, // AR_OBJECT_FEEDBACKTEXTURE2D_ARRAY
+    {0, SubscriptorFalse, MipsFalse,
+     SampleFalse}, // AR_OBJECT_FEEDBACKTEXTURE2D
+    {0, SubscriptorFalse, MipsFalse,
+     SampleFalse}, // AR_OBJECT_FEEDBACKTEXTURE2D_ARRAY
 
 // SPIRV change starts
 #ifdef ENABLE_SPIRV_CODEGEN
-    {0, MipsFalse, SampleFalse}, // AR_OBJECT_VK_SUBPASS_INPUT (SubpassInput)
-    {0, MipsFalse,
+    {0, SubscriptorFalse, MipsFalse,
+     SampleFalse}, // AR_OBJECT_VK_SUBPASS_INPUT (SubpassInput)
+    {0, SubscriptorFalse, MipsFalse,
      SampleFalse}, // AR_OBJECT_VK_SUBPASS_INPUT_MS (SubpassInputMS)
-    {0, MipsFalse, SampleFalse}, // AR_OBJECT_VK_SPIRV_TYPE
-    {0, MipsFalse, SampleFalse}, // AR_OBJECT_VK_SPIRV_OPAQUE_TYPE
-    {0, MipsFalse, SampleFalse}, // AR_OBJECT_VK_INTEGRAL_CONSTANT,
-    {0, MipsFalse, SampleFalse}, // AR_OBJECT_VK_LITERAL,
-    {0, MipsFalse, SampleFalse}, // AR_OBJECT_VK_SPV_INTRINSIC_TYPE
-    {0, MipsFalse, SampleFalse}, // AR_OBJECT_VK_SPV_INTRINSIC_RESULT_ID
-    {0, MipsFalse, SampleFalse}, // AR_OBJECT_VK_BUFFER_POINTER
-    {0, MipsFalse, SampleFalse}, // AR_OBJECT_VK_SAMPLED_TEXTURE2D
+    {0, SubscriptorFalse, MipsFalse, SampleFalse}, // AR_OBJECT_VK_SPIRV_TYPE
+    {0, SubscriptorFalse, MipsFalse,
+     SampleFalse}, // AR_OBJECT_VK_SPIRV_OPAQUE_TYPE
+    {0, SubscriptorFalse, MipsFalse,
+     SampleFalse}, // AR_OBJECT_VK_INTEGRAL_CONSTANT,
+    {0, SubscriptorFalse, MipsFalse, SampleFalse}, // AR_OBJECT_VK_LITERAL,
+    {0, SubscriptorFalse, MipsFalse,
+     SampleFalse}, // AR_OBJECT_VK_SPV_INTRINSIC_TYPE
+    {0, SubscriptorFalse, MipsFalse,
+     SampleFalse}, // AR_OBJECT_VK_SPV_INTRINSIC_RESULT_ID
+    {0, SubscriptorFalse, MipsFalse,
+     SampleFalse}, // AR_OBJECT_VK_BUFFER_POINTER
+    {0, SubscriptorFalse, MipsFalse,
+     SampleFalse},               // AR_OBJECT_VK_SAMPLED_TEXTURE2D
 #endif                           // ENABLE_SPIRV_CODEGEN
     // SPIRV change ends
 
-    {0, MipsFalse,
+    {0, SubscriptorFalse, MipsFalse,
      SampleFalse}, // AR_OBJECT_LEGACY_EFFECT (legacy effect objects)
-    {0, MipsFalse, SampleFalse}, // AR_OBJECT_WAVE
-    {0, MipsFalse, SampleFalse}, // AR_OBJECT_RAY_DESC
-    {0, MipsFalse, SampleFalse}, // AR_OBJECT_ACCELERATION_STRUCT
-    {0, MipsFalse, SampleFalse}, // AR_OBJECT_TRIANGLE_INTERSECTION_ATTRIBUTES
-    {0, MipsFalse, SampleFalse}, // AR_OBJECT_BUILTIN_TRIANGLE_POSITIONS
+    {0, SubscriptorFalse, MipsFalse, SampleFalse}, // AR_OBJECT_WAVE
+    {0, SubscriptorFalse, MipsFalse, SampleFalse}, // AR_OBJECT_RAY_DESC
+    {0, SubscriptorFalse, MipsFalse,
+     SampleFalse}, // AR_OBJECT_ACCELERATION_STRUCT
+    {0, SubscriptorFalse, MipsFalse,
+     SampleFalse}, // AR_OBJECT_TRIANGLE_INTERSECTION_ATTRIBUTES
+    {0, SubscriptorFalse, MipsFalse,
+     SampleFalse}, // AR_OBJECT_BUILTIN_TRIANGLE_POSITIONS
 
-    {0, MipsFalse, SampleFalse}, // AR_OBJECT_STATE_OBJECT_CONFIG,
-    {0, MipsFalse, SampleFalse}, // AR_OBJECT_GLOBAL_ROOT_SIGNATURE,
-    {0, MipsFalse, SampleFalse}, // AR_OBJECT_LOCAL_ROOT_SIGNATURE,
-    {0, MipsFalse, SampleFalse}, // AR_OBJECT_SUBOBJECT_TO_EXPORTS_ASSOC,
-    {0, MipsFalse, SampleFalse}, // AR_OBJECT_RAYTRACING_SHADER_CONFIG,
-    {0, MipsFalse, SampleFalse}, // AR_OBJECT_RAYTRACING_PIPELINE_CONFIG,
-    {0, MipsFalse, SampleFalse}, // AR_OBJECT_TRIANGLE_HIT_GROUP,
-    {0, MipsFalse, SampleFalse}, // AR_OBJECT_PROCEDURAL_PRIMITIVE_HIT_GROUP,
-    {0, MipsFalse, SampleFalse}, // AR_OBJECT_RAYTRACING_PIPELINE_CONFIG1,
+    {0, SubscriptorFalse, MipsFalse,
+     SampleFalse}, // AR_OBJECT_STATE_OBJECT_CONFIG,
+    {0, SubscriptorFalse, MipsFalse,
+     SampleFalse}, // AR_OBJECT_GLOBAL_ROOT_SIGNATURE,
+    {0, SubscriptorFalse, MipsFalse,
+     SampleFalse}, // AR_OBJECT_LOCAL_ROOT_SIGNATURE,
+    {0, SubscriptorFalse, MipsFalse,
+     SampleFalse}, // AR_OBJECT_SUBOBJECT_TO_EXPORTS_ASSOC,
+    {0, SubscriptorFalse, MipsFalse,
+     SampleFalse}, // AR_OBJECT_RAYTRACING_SHADER_CONFIG,
+    {0, SubscriptorFalse, MipsFalse,
+     SampleFalse}, // AR_OBJECT_RAYTRACING_PIPELINE_CONFIG,
+    {0, SubscriptorFalse, MipsFalse,
+     SampleFalse}, // AR_OBJECT_TRIANGLE_HIT_GROUP,
+    {0, SubscriptorFalse, MipsFalse,
+     SampleFalse}, // AR_OBJECT_PROCEDURAL_PRIMITIVE_HIT_GROUP,
+    {0, SubscriptorFalse, MipsFalse,
+     SampleFalse}, // AR_OBJECT_RAYTRACING_PIPELINE_CONFIG1,
 
-    {0, MipsFalse, SampleFalse}, // AR_OBJECT_RAY_QUERY,
-    {0, MipsFalse, SampleFalse}, // AR_OBJECT_HEAP_RESOURCE,
-    {0, MipsFalse, SampleFalse}, // AR_OBJECT_HEAP_SAMPLER,
+    {0, SubscriptorFalse, MipsFalse, SampleFalse}, // AR_OBJECT_RAY_QUERY,
+    {0, SubscriptorFalse, MipsFalse, SampleFalse}, // AR_OBJECT_HEAP_RESOURCE,
+    {0, SubscriptorFalse, MipsFalse, SampleFalse}, // AR_OBJECT_HEAP_SAMPLER,
 
-    {2, MipsFalse, SampleTrue}, // AR_OBJECT_RWTEXTURE2DMS (RWTexture2DMS)
-    {3, MipsFalse,
+    {2, SubscriptorTrue, MipsFalse,
+     SampleTrue}, // AR_OBJECT_RWTEXTURE2DMS (RWTexture2DMS)
+    {3, SubscriptorTrue, MipsFalse,
      SampleTrue}, // AR_OBJECT_RWTEXTURE2DMS_ARRAY (RWTexture2DMSArray)
 
     // WorkGraphs
-    {0, MipsFalse, SampleFalse}, // AR_OBJECT_EMPTY_NODE_INPUT
-    {0, MipsFalse, SampleFalse}, // AR_OBJECT_DISPATCH_NODE_INPUT_RECORD
-    {0, MipsFalse, SampleFalse}, // AR_OBJECT_RWDISPATCH_NODE_INPUT_RECORD
-    {1, MipsFalse, SampleFalse}, // AR_OBJECT_GROUP_NODE_INPUT_RECORDS
-    {1, MipsFalse, SampleFalse}, // AR_OBJECT_RWGROUP_NODE_INPUT_RECORDS
-    {0, MipsFalse, SampleFalse}, // AR_OBJECT_GROUP_NODE_INPUT_RECORD
-    {0, MipsFalse, SampleFalse}, // AR_OBJECT_RWGROUP_NODE_INPUT_RECORD
+    {0, SubscriptorFalse, MipsFalse, SampleFalse}, // AR_OBJECT_EMPTY_NODE_INPUT
+    {0, SubscriptorFalse, MipsFalse,
+     SampleFalse}, // AR_OBJECT_DISPATCH_NODE_INPUT_RECORD
+    {0, SubscriptorFalse, MipsFalse,
+     SampleFalse}, // AR_OBJECT_RWDISPATCH_NODE_INPUT_RECORD
+    {1, SubscriptorTrue, MipsFalse,
+     SampleFalse}, // AR_OBJECT_GROUP_NODE_INPUT_RECORDS
+    {1, SubscriptorTrue, MipsFalse,
+     SampleFalse}, // AR_OBJECT_RWGROUP_NODE_INPUT_RECORDS
+    {0, SubscriptorFalse, MipsFalse,
+     SampleFalse}, // AR_OBJECT_GROUP_NODE_INPUT_RECORD
+    {0, SubscriptorFalse, MipsFalse,
+     SampleFalse}, // AR_OBJECT_RWGROUP_NODE_INPUT_RECORD
 
-    {0, MipsFalse, SampleFalse}, // AR_OBJECT_NODE_OUTPUT
-    {0, MipsFalse, SampleFalse}, // AR_OBJECT_EMPTY_NODE_OUTPUT
-    {1, MipsFalse, SampleFalse}, // AR_OBJECT_NODE_OUTPUT_ARRAY
-    {1, MipsFalse, SampleFalse}, // AR_OBJECT_EMPTY_NODE_OUTPUT_ARRAY
+    {0, SubscriptorFalse, MipsFalse, SampleFalse}, // AR_OBJECT_NODE_OUTPUT
+    {0, SubscriptorFalse, MipsFalse,
+     SampleFalse},                                // AR_OBJECT_EMPTY_NODE_OUTPUT
+    {1, SubscriptorTrue, MipsFalse, SampleFalse}, // AR_OBJECT_NODE_OUTPUT_ARRAY
+    {1, SubscriptorTrue, MipsFalse,
+     SampleFalse}, // AR_OBJECT_EMPTY_NODE_OUTPUT_ARRAY
 
-    {1, MipsFalse, SampleFalse}, // AR_OBJECT_THREAD_NODE_OUTPUT_RECORDS
-    {1, MipsFalse, SampleFalse}, // AR_OBJECT_GROUP_NODE_OUTPUT_RECORDS
+    {1, SubscriptorTrue, MipsFalse,
+     SampleFalse}, // AR_OBJECT_THREAD_NODE_OUTPUT_RECORDS
+    {1, SubscriptorTrue, MipsFalse,
+     SampleFalse}, // AR_OBJECT_GROUP_NODE_OUTPUT_RECORDS
 
     // Shader Execution Reordering
-    {0, MipsFalse, SampleFalse}, // AR_OBJECT_HIT_OBJECT,
+    {0, SubscriptorFalse, MipsFalse, SampleFalse}, // AR_OBJECT_HIT_OBJECT,
 
     // LinAlg Matrix
-    {0, MipsFalse, SampleFalse}, // AR_OBJECT_LINALG_MATRIX
+    {0, SubscriptorFalse, MipsFalse, SampleFalse}, // AR_OBJECT_LINALG_MATRIX
 };
 
 C_ASSERT(_countof(g_ArBasicKindsAsTypes) == _countof(g_ArBasicKindsSubscripts));
@@ -3509,7 +3568,6 @@ private:
 
     const unsigned int templateDepth = 1;
 
-    // Add an operator[].
     TemplateTypeParmDecl *templateTypeParmDecl = cast<TemplateTypeParmDecl>(
         typeDecl->getTemplateParameters()->getParam(0));
     QualType resultType = m_context->getTemplateTypeParmType(
@@ -3523,16 +3581,18 @@ private:
             ? m_context->UnsignedIntTy
             : NewSimpleAggregateType(AR_TOBJ_VECTOR, AR_BASIC_UINT32, 0, 1,
                                      op.SubscriptCardinality);
-
-    CXXMethodDecl *functionDecl = CreateObjectFunctionDeclarationWithParams(
-        *m_context, recordDecl, resultType, ArrayRef<QualType>(indexType),
-        ArrayRef<StringRef>(StringRef("index")),
-        m_context->DeclarationNames.getCXXOperatorName(OO_Subscript), true,
-        StorageClass::SC_None, true);
-    hlsl::CreateFunctionTemplateDecl(
-        *m_context, recordDecl, functionDecl,
-        reinterpret_cast<NamedDecl **>(&templateTypeParmDecl), 1);
-    functionDecl->addAttr(HLSLCXXOverloadAttr::CreateImplicit(*m_context));
+    // Add an operator[].
+    if (op.HasSubscript) {
+      CXXMethodDecl *functionDecl = CreateObjectFunctionDeclarationWithParams(
+          *m_context, recordDecl, resultType, ArrayRef<QualType>(indexType),
+          ArrayRef<StringRef>(StringRef("index")),
+          m_context->DeclarationNames.getCXXOperatorName(OO_Subscript), true,
+          StorageClass::SC_None, true);
+      hlsl::CreateFunctionTemplateDecl(
+          *m_context, recordDecl, functionDecl,
+          reinterpret_cast<NamedDecl **>(&templateTypeParmDecl), 1);
+      functionDecl->addAttr(HLSLCXXOverloadAttr::CreateImplicit(*m_context));
+    }
 
     // Add a .mips member if necessary.
     QualType uintType = m_context->UnsignedIntTy;
@@ -6466,10 +6526,6 @@ FunctionDecl *HLSLExternalSource::AddSubscriptSpecialization(
   DXASSERT_NOMSG(functionTemplate != nullptr);
   DXASSERT_NOMSG(!objectElement.isNull());
   DXASSERT_NOMSG(findResult.Found());
-  DXASSERT(g_ArBasicKindsSubscripts[findResult.BasicKindsAsTypeIndex]
-                   .SubscriptCardinality > 0,
-           "otherwise the template shouldn't have an operator[] that the "
-           "caller is trying to specialize");
 
   // Subscript is templated only on its return type.
 
@@ -6481,14 +6537,13 @@ FunctionDecl *HLSLExternalSource::AddSubscriptSpecialization(
   resultType = m_context->getLValueReferenceType(resultType);
 
   TemplateArgument templateArgument(resultType);
-  unsigned subscriptCardinality =
-      g_ArBasicKindsSubscripts[findResult.BasicKindsAsTypeIndex]
-          .SubscriptCardinality;
-  QualType subscriptIndexType =
-      subscriptCardinality == 1
-          ? m_context->UnsignedIntTy
-          : NewSimpleAggregateType(AR_TOBJ_VECTOR, AR_BASIC_UINT32, 0, 1,
-                                   subscriptCardinality);
+  const FunctionType *templateFnType =
+      functionTemplate->getTemplatedDecl()->getType()->getAs<FunctionType>();
+  const FunctionProtoType *protoType =
+      dyn_cast<FunctionProtoType>(templateFnType);
+  DXASSERT(protoType != nullptr && protoType->getNumParams() == 1,
+           "otherwise subscript template shape is unexpected");
+  QualType subscriptIndexType = protoType->getParamType(0);
 
   // Look for an existing specialization.
   void *InsertPos = nullptr;
@@ -6505,10 +6560,6 @@ FunctionDecl *HLSLExternalSource::AddSubscriptSpecialization(
   MultiLevelTemplateArgumentList mlTemplateArgumentList(templateArgumentList);
   TemplateDeclInstantiator declInstantiator(*this->m_sema, owner,
                                             mlTemplateArgumentList);
-  const FunctionType *templateFnType =
-      functionTemplate->getTemplatedDecl()->getType()->getAs<FunctionType>();
-  const FunctionProtoType *protoType =
-      dyn_cast<FunctionProtoType>(templateFnType);
   FunctionProtoType::ExtProtoInfo templateEPI = protoType->getExtProtoInfo();
   QualType functionType = m_context->getFunctionType(
       resultType, subscriptIndexType, templateEPI, None);

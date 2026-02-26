@@ -1,4 +1,5 @@
 // RUN: %dxc -T ps_6_0 -E main -fcgl  %s -spirv | FileCheck %s
+// RUN: not %dxc -T ps_6_0 -E main -fcgl  %s -spirv -DERROR 2>&1 | FileCheck %s --check-prefix=ERROR
 
 Texture1D        <float>  t1;
 Texture2D        <int2>   t2;
@@ -6,6 +7,7 @@ Texture3D        <uint3>  t3;
 Texture2DMS      <float4> t4;
 Texture1DArray   <float4> t5;
 Texture2DArray   <int3>   t6;
+Texture2DMSArray <int3>   t7;
 // There is no operator[] for TextureCube      in HLSL reference.
 // There is no operator[] for TextureCubeArray in HLSL reference.
 // There is no operator[] for Texture2DMSArray in HLSL reference.
@@ -55,4 +57,14 @@ void main() {
 // CHECK-NEXT: OpStore %a6 [[result6]]
   int3   a6 = t6[uint3(1,2,3)];
 
+// CHECK:           [[t1:%[0-9]+]] = OpLoad %type_1d_image %t1
+// CHECK-NEXT:      [[f1:%[0-9]+]] = OpImageFetch %v4float [[t1]] %uint_2 Lod %uint_0
+// CHECK-NEXT: [[result1:%[0-9]+]] = OpCompositeExtract %float [[f1]] 0
+// CHECK-NEXT:                    OpStore %a7 [[result1]]
+  float   a7 = t1[2.0];
+
+#ifdef ERROR
+// ERROR: error: type 'Texture2DMSArray<int3>' does not provide a subscript operator
+  int3   a8 = t7[uint3(1,2,3)];
+#endif
 }
