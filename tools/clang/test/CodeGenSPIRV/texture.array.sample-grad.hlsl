@@ -54,9 +54,9 @@ float4 main(int2 offset : A) : SV_Target {
     float4 val4 = t2.SampleGrad(gSampler, float3(1, 1, 1), float2(2, 2), float2(3, 3), 1, /*clamp*/2.5);
 
     float clamp;
-// CHECK:           [[clamp:%[0-9]+]] = OpLoad %float %clamp
-// CHECK-NEXT:         [[t3_0:%[0-9]+]] = OpLoad %type_cube_image_array %t3
+// CHECK:         [[t3_0:%[0-9]+]] = OpLoad %type_cube_image_array %t3
 // CHECK-NEXT:   [[gSampler_3:%[0-9]+]] = OpLoad %type_sampler %gSampler
+// CHECK-NEXT:           [[clamp:%[0-9]+]] = OpLoad %float %clamp
 // CHECK-NEXT: [[sampledImg_3:%[0-9]+]] = OpSampledImage %type_sampled_image_1 [[t3_0]] [[gSampler_3]]
 // CHECK-NEXT:            {{%[0-9]+}} = OpImageSampleExplicitLod %v4float [[sampledImg_3]] [[v4f_1]] Grad|MinLod [[v3f_2]] [[v3f_3]] [[clamp]]
     float4 val5 = t3.SampleGrad(gSampler, float4(1, 1, 1, 1), float3(2, 2, 2), float3(3, 3, 3), clamp);
@@ -72,9 +72,9 @@ float4 main(int2 offset : A) : SV_Target {
 // CHECK-NEXT:                         OpStore %val6 [[result]]
     float4 val6 = t2.SampleGrad(gSampler, float3(1, 1, 1), float2(2, 2), float2(3, 3), 1, /*clamp*/2.5, status);
 
-// CHECK:             [[clamp_0:%[0-9]+]] = OpLoad %float %clamp
-// CHECK-NEXT:           [[t3_1:%[0-9]+]] = OpLoad %type_cube_image_array %t3
+// CHECK:           [[t3_1:%[0-9]+]] = OpLoad %type_cube_image_array %t3
 // CHECK-NEXT:     [[gSampler_5:%[0-9]+]] = OpLoad %type_sampler %gSampler
+// CHECK-NEXT:             [[clamp_0:%[0-9]+]] = OpLoad %float %clamp
 // CHECK-NEXT:   [[sampledImg_5:%[0-9]+]] = OpSampledImage %type_sampled_image_1 [[t3_1]] [[gSampler_5]]
 // CHECK-NEXT: [[structResult_0:%[0-9]+]] = OpImageSparseSampleExplicitLod %SparseResidencyStruct [[sampledImg_5]] [[v4f_1]] Grad|MinLod [[v3f_2]] [[v3f_3]] [[clamp_0]]
 // CHECK-NEXT:       [[status_0:%[0-9]+]] = OpCompositeExtract %uint [[structResult_0]] 0

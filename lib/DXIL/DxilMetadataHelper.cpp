@@ -91,6 +91,7 @@ const char DxilMDHelper::kDxilNonUniformAttributeMDName[] = "dx.nonuniform";
 const char DxilMDHelper::kDxilValidatorVersionMDName[] = "dx.valver";
 const char DxilMDHelper::kDxilDxrPayloadAnnotationsMDName[] =
     "dx.dxrPayloadAnnotations";
+const char DxilMDHelper::kDxilTargetTypesMDName[] = "dx.targetTypes";
 
 // This named metadata is not valid in final module (should be moved to
 // DxilContainer)
@@ -117,7 +118,7 @@ const char DxilMDHelper::kDxilSourceArgsOldMDName[] = "llvm.dbg.args";
 // This is reflection-only metadata
 const char DxilMDHelper::kDxilCountersMDName[] = "dx.counters";
 
-static std::array<const char *, 8> DxilMDNames = {{
+static std::array<const char *, 9> DxilMDNames = {{
     DxilMDHelper::kDxilVersionMDName,
     DxilMDHelper::kDxilShaderModelMDName,
     DxilMDHelper::kDxilEntryPointsMDName,
@@ -126,6 +127,7 @@ static std::array<const char *, 8> DxilMDNames = {{
     DxilMDHelper::kDxilValidatorVersionMDName,
     DxilMDHelper::kDxilViewIdStateMDName,
     DxilMDHelper::kDxilDxrPayloadAnnotationsMDName,
+    DxilMDHelper::kDxilTargetTypesMDName,
 }};
 
 DxilMDHelper::DxilMDHelper(Module *pModule,
@@ -1626,7 +1628,9 @@ MDTuple *DxilMDHelper::EmitDxilEntryProperties(uint64_t rawShaderFlag,
     }
 
     const hlsl::ShaderModel *SM = GetShaderModel();
-    if (SM->IsSMAtLeast(6, 10)) {
+    if (SM->IsSMAtLeast(6, 10) &&
+        props.groupSharedLimitBytes !=
+            DxilFunctionProps::kGroupSharedLimitUnset) {
       MDVals.emplace_back(
           Uint32ToConstMD(DxilMDHelper::kDxilGroupSharedLimitTag));
       MDVals.emplace_back(Uint32ToConstMD(props.groupSharedLimitBytes));
@@ -1695,6 +1699,15 @@ MDTuple *DxilMDHelper::EmitDxilEntryProperties(uint64_t rawShaderFlag,
                                         MS.maxPrimitiveCount, MS.outputTopology,
                                         MS.payloadSizeInBytes);
     MDVals.emplace_back(pMDTuple);
+
+    const hlsl::ShaderModel *SM = GetShaderModel();
+    if (SM->IsSMAtLeast(6, 10) &&
+        props.groupSharedLimitBytes !=
+            DxilFunctionProps::kGroupSharedLimitUnset) {
+      MDVals.emplace_back(
+          Uint32ToConstMD(DxilMDHelper::kDxilGroupSharedLimitTag));
+      MDVals.emplace_back(Uint32ToConstMD(props.groupSharedLimitBytes));
+    }
   } break;
   case DXIL::ShaderKind::Amplification: {
     auto &AS = props.ShaderProps.AS;
@@ -1702,6 +1715,15 @@ MDTuple *DxilMDHelper::EmitDxilEntryProperties(uint64_t rawShaderFlag,
     MDTuple *pMDTuple =
         EmitDxilASState(props.numThreads, AS.payloadSizeInBytes);
     MDVals.emplace_back(pMDTuple);
+
+    const hlsl::ShaderModel *SM = GetShaderModel();
+    if (SM->IsSMAtLeast(6, 10) &&
+        props.groupSharedLimitBytes !=
+            DxilFunctionProps::kGroupSharedLimitUnset) {
+      MDVals.emplace_back(
+          Uint32ToConstMD(DxilMDHelper::kDxilGroupSharedLimitTag));
+      MDVals.emplace_back(Uint32ToConstMD(props.groupSharedLimitBytes));
+    }
   } break;
   case DXIL::ShaderKind::Node: {
     // The Node specific properties have already been handled by
@@ -1714,6 +1736,15 @@ MDTuple *DxilMDHelper::EmitDxilEntryProperties(uint64_t rawShaderFlag,
     NumThreadVals.emplace_back(Uint32ToConstMD(props.numThreads[1]));
     NumThreadVals.emplace_back(Uint32ToConstMD(props.numThreads[2]));
     MDVals.emplace_back(MDNode::get(m_Ctx, NumThreadVals));
+
+    const hlsl::ShaderModel *SM = GetShaderModel();
+    if (SM->IsSMAtLeast(6, 10) &&
+        props.groupSharedLimitBytes !=
+            DxilFunctionProps::kGroupSharedLimitUnset) {
+      MDVals.emplace_back(
+          Uint32ToConstMD(DxilMDHelper::kDxilGroupSharedLimitTag));
+      MDVals.emplace_back(Uint32ToConstMD(props.groupSharedLimitBytes));
+    }
   } break;
   default:
     break;
@@ -1781,7 +1812,8 @@ void DxilMDHelper::LoadDxilEntryProperties(const MDOperand &MDO,
     } break;
 
     case DxilMDHelper::kDxilGroupSharedLimitTag: {
-      DXASSERT(props.IsCS(), "else invalid shader kind");
+      DXASSERT(props.IsCS() || props.IsMS() || props.IsAS() || props.IsNode(),
+               "else invalid shader kind");
       props.groupSharedLimitBytes = ConstMDToUint32(MDO);
       if (!m_pSM->IsSMAtLeast(6, 10))
         m_bExtraMetadata = true;

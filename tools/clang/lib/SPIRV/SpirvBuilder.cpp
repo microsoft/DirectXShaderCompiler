@@ -620,8 +620,15 @@ SpirvInstruction *SpirvBuilder::createImageSample(
   assert(lod == nullptr || minLod == nullptr);
 
   // An OpSampledImage is required to do the image sampling.
-  auto *sampledImage =
-      createSampledImage(imageType, image, sampler, loc, range);
+  // Skip creating OpSampledImage if the imageType is a sampled texture.
+  SpirvInstruction *sampledImage;
+  if (isSampledTexture(imageType)) {
+    assert(!sampler &&
+           "sampler must be null when sampling from a sampled texture");
+    sampledImage = image;
+  } else {
+    sampledImage = createSampledImage(imageType, image, sampler, loc, range);
+  }
 
   const auto mask = composeImageOperandsMask(
       bias, lod, grad, constOffset, varOffset, constOffsets, sample, minLod);
@@ -707,8 +714,15 @@ SpirvInstruction *SpirvBuilder::createImageGather(
   assert(insertPoint && "null insert point");
 
   // An OpSampledImage is required to do the image sampling.
-  auto *sampledImage =
-      createSampledImage(imageType, image, sampler, loc, range);
+  // Skip creating OpSampledImage if the imageType is a sampled texture.
+  SpirvInstruction *sampledImage = nullptr;
+  if (isSampledTexture(imageType)) {
+    assert(!sampler &&
+           "sampler must be null when sampling from a sampled texture");
+    sampledImage = image;
+  } else {
+    sampledImage = createSampledImage(imageType, image, sampler, loc, range);
+  }
 
   // TODO: Update ImageGather to accept minLod if necessary.
   const auto mask = composeImageOperandsMask(

@@ -6,7 +6,7 @@
 
 // CHECK: call i1 @dx.op.isDebuggerPresent(i32 -2147483614)  ; IsDebuggerPresent()
 
-// FCGL: call i1 @"dx.hl.op.ro.i1 (i32)"(i32 426)
+// FCGL: call i1 @"dx.hl.op.ro.i1 (i32)"(i32 425)
 
 // AST: CallExpr {{.*}} 'bool'
 // AST-NEXT: `-ImplicitCastExpr {{.*}} 'bool (*)()' <FunctionToPointerDecay>

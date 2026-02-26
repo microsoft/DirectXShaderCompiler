@@ -292,6 +292,9 @@ public:
   // DXR Payload Annotations metadata.
   static const char kDxilDxrPayloadAnnotationsMDName[];
 
+  // LinAlg Matrix Target Types metadata.
+  static const char kDxilTargetTypesMDName[];
+
   // Extended shader property tags.
   static const unsigned kDxilShaderFlagsTag = 0;
   static const unsigned kDxilGSStateTag = 1;

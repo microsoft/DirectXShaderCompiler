@@ -629,6 +629,7 @@ class db_oload_gen:
             "u64": "A(pI64);",
             "u8": "A(pI8);",
             "v": "A(pV);",
+            "$vec2": "VEC2(pETy);",
             "$vec4": "VEC4(pETy);",
             "$vec9": "VEC9(pETy);",
             "SamplePos": "A(pPos);",
@@ -686,7 +687,7 @@ class db_oload_gen:
         # grouped by the set of overload parameter indices.
         extended_dict = collections.OrderedDict()
         struct_list = []
-        vec9_list = []  # For $vec9 operations that return native vectors
+        native_vec_list = []  # For vec operations that return native vectors
         extended_list = []
 
         for instr in self.db.get_dxil_ops():
@@ -709,9 +710,9 @@ class db_oload_gen:
                 continue
 
             if ret_ty.startswith(vec_ty):
-                # $vec9 returns native <9 x float> vectors, not struct wrappers
-                if ret_ty == "$vec9":
-                    vec9_list.append(instr.name)
+                # $vecX returns native vectors, not struct wrappers
+                if ret_ty in ["$vec2", "$vec9"]:
+                    native_vec_list.append(instr.name)
                 else:
                     struct_list.append(instr.name)
                 continue
@@ -831,11 +832,11 @@ class db_oload_gen:
         print(line)
 
         # Generate code for $vec9 operations (native <9 x float> vectors)
-        if vec9_list:
+        if native_vec_list:
             line = ""
-            for opcode in vec9_list:
+            for opcode in native_vec_list:
                 line = line + "case OpCode::{name}".format(name=opcode + ":\n")
-            line = line + "  // These return <9 x float> vectors directly\n"
+            line = line + "  // These return native vectors directly\n"
             line = line + "  return cast<VectorType>(Ty)->getElementType();"
             print(line)
 

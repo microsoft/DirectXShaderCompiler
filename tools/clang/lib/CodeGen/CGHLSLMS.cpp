@@ -14,6 +14,7 @@
 #include "CGRecordLayout.h"
 #include "CodeGenFunction.h"
 #include "CodeGenModule.h"
+#include "dxc/DXIL/DxilConstants.h"
 #include "dxc/DXIL/DxilOperations.h"
 #include "dxc/DXIL/DxilTypeSystem.h"
 #include "dxc/DXIL/DxilUtil.h"
@@ -29,12 +30,17 @@
 #include "clang/Sema/SemaDiagnostic.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SmallPtrSet.h"
+#include "llvm/ADT/SmallString.h"
+#include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringSet.h"
 #include "llvm/ADT/StringSwitch.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/GetElementPtrTypeIterator.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/InstIterator.h"
+#include "llvm/IR/LLVMContext.h"
+#include "llvm/IR/Metadata.h"
+#include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include <memory>
 #include <set>
@@ -323,6 +329,9 @@ public:
   void EmitHLSLMartrixCastForStoreOp(
       CodeGenFunction &CGF, SmallVector<llvm::Value *, 16> &IRCallArgs,
       llvm::SmallVector<clang::QualType, 16> &ArgTys) override;
+  llvm::Type *ConvertAttributedLinAlgMatrixType(
+      const clang::AttributedLinAlgMatrixType *T) override;
+
   /// Get or add constant to the program
   HLCBuffer &GetOrCreateCBuffer(HLSLBufferDecl *D);
 };
@@ -1298,6 +1307,10 @@ unsigned CGMSHLSLRuntime::AddTypeAnnotation(QualType Ty,
   } else if (IsStringType(Ty)) {
     // string won't be included in cbuffer
     return 0;
+  } else if (Ty->getUnqualifiedDesugaredType()
+                 ->isAttributedLinAlgMatrixType()) {
+    // LinAlg Matrix type does not count towards cbuffer size.
+    return 0;
   } else {
     unsigned arraySize = 0;
     QualType arrayElementTy = Ty;
@@ -1653,13 +1666,8 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
           FD->getAttr<HLSLGroupSharedLimitAttr>()) {
     funcProps->groupSharedLimitBytes = Attr->getLimit();
   } else {
-    if (SM->IsMS()) { // Fallback to default limits
-      funcProps->groupSharedLimitBytes = DXIL::kMaxMSSMSize; // 28k For MS
-    } else if (SM->IsAS() || SM->IsCS()) {
-      funcProps->groupSharedLimitBytes = DXIL::kMaxTGSMSize; // 32k For AS/CS
-    } else {
-      funcProps->groupSharedLimitBytes = 0;
-    }
+    funcProps->groupSharedLimitBytes =
+        DxilFunctionProps::kGroupSharedLimitUnset; // not specified
   }
 
   // Hull shader.
@@ -6586,6 +6594,54 @@ Scope *CGMSHLSLRuntime::MarkScopeEnd(CodeGenFunction &CGF) {
   }
 
   return nullptr;
+}
+
+static MDNode *
+createLinAlgMatrixTypeMetadata(LLVMContext &Ctx,
+                               const clang::AttributedLinAlgMatrixType *T,
+                               llvm::StructType *ST) {
+  auto Createi32MD = [&](int32_t Val) {
+    return ConstantAsMetadata::get(
+        ConstantInt::get(llvm::Type::getInt32Ty(Ctx), Val));
+  };
+
+  return MDTuple::get(
+      Ctx, {ConstantAsMetadata::get(UndefValue::get(ST)),
+            Createi32MD(static_cast<uint32_t>(T->getComponentType())),
+            Createi32MD(T->getRows()), Createi32MD(T->getCols()),
+            Createi32MD(static_cast<uint32_t>(T->getUse())),
+            Createi32MD(static_cast<uint32_t>(T->getScope()))});
+}
+
+llvm::Type *CGMSHLSLRuntime::ConvertAttributedLinAlgMatrixType(
+    const clang::AttributedLinAlgMatrixType *T) {
+
+  llvm::LLVMContext &Ctx = CGM.getLLVMContext();
+  llvm::Type *Int8Ptr = llvm::Type::getInt8PtrTy(Ctx);
+  llvm::Type *StructElemTypes[] = {Int8Ptr};
+
+  llvm::SmallString<64> Buf;
+  llvm::raw_svector_ostream OS(Buf);
+  OS << DXIL::kDxLinAlgMatrixTypePrefix;
+  T->appendMangledAttributes(OS);
+  StringRef TypeName = OS.str();
+
+  llvm::StructType *ST = CGM.getModule().getTypeByName(TypeName);
+  if (ST) {
+    assert(ST->getNumElements() == 1 && ST->getElementType(0) == Int8Ptr &&
+           "Unexpected existing dx.types.LinAlgMatrix type");
+    return ST;
+  }
+
+  ST = StructType::create(Ctx, StructElemTypes, TypeName);
+
+  // Add metadata node for the new target type.
+  NamedMDNode *DxTypesMD =
+      CGM.getModule().getOrInsertNamedMetadata("dx.targetTypes");
+  MDNode *NewTyNode = createLinAlgMatrixTypeMetadata(Ctx, T, ST);
+  DxTypesMD->addOperand(NewTyNode);
+
+  return ST;
 }
 
 CGHLSLRuntime *CodeGen::CreateMSHLSLRuntime(CodeGenModule &CGM) {

@@ -172,6 +172,9 @@ TypeEvaluationKind CodeGenFunction::getEvaluationKind(QualType type) {
     case Type::Atomic:
       type = cast<AtomicType>(type)->getValueType();
       continue;
+    case Type::AttributedLinAlgMatrix:
+      type = cast<AttributedLinAlgMatrixType>(type)->getWrappedType();
+      continue;
     }
     llvm_unreachable("unknown type kind!");
   }
@@ -1672,6 +1675,7 @@ void CodeGenFunction::EmitVariablyModifiedType(QualType type) {
     case Type::TypeOf:
     case Type::UnaryTransform:
     case Type::Attributed:
+    case Type::AttributedLinAlgMatrix: // HLSL Change
     case Type::SubstTemplateTypeParm:
     case Type::PackExpansion:
       // Keep walking after single level desugaring.
