@@ -8,6 +8,12 @@
 
 #include "dxc/Support/dxcapi.use.h"
 
+// D3D_SHADER_MODEL_6_10 is not yet in the released Windows SDK.
+// Use the real SDK name so we get a compile break when it is added.
+#ifndef D3D_SHADER_MODEL_6_10
+#define D3D_SHADER_MODEL_6_10 ((D3D_SHADER_MODEL)0x6a)
+#endif
+
 bool useDxbc();
 
 /// Manages D3D12 (Agility) SDK selection

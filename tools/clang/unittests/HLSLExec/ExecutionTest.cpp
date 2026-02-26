@@ -24,6 +24,7 @@
 #include <array>
 #include <string>
 #include <map>
+#include <set>
 #include <unordered_set>
 #include <sstream>
 #include <iomanip>
@@ -209,6 +210,7 @@ public:
   TEST_METHOD(WaveIntrinsicsInPSTest);
   TEST_METHOD(WaveSizeTest);
   TEST_METHOD(WaveSizeRangeTest);
+  TEST_METHOD(GroupWaveIndexTest);
   TEST_METHOD(PartialDerivTest);
   TEST_METHOD(DerivativesTest);
   TEST_METHOD(ComputeSampleTest);
@@ -10617,6 +10619,197 @@ void ExecutionTest::WaveSizeRangeTest() {
 
   RunWaveSizeRangeTest(minWaveSize, maxWaveSize, ShaderOpSet, pDevice,
                        m_support);
+}
+
+void ExecutionTest::GroupWaveIndexTest() {
+  WEX::TestExecution::SetVerifyOutput VerifySettings(
+      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+
+  CComPtr<ID3D12Device> Device;
+  if (!createDevice(&Device, D3D_SHADER_MODEL_6_10,
+                    /*skipUnsupported*/ false)) {
+    return;
+  }
+
+  if (!doesDeviceSupportWaveOps(Device)) {
+    WEX::Logging::Log::Comment(L"Device does not support wave operations.");
+    WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
+    return;
+  }
+
+  // Get supported wave sizes for WaveSize attribute tests.
+  D3D12_FEATURE_DATA_D3D12_OPTIONS1 WaveOpts;
+  VERIFY_SUCCEEDED(
+      Device->CheckFeatureSupport((D3D12_FEATURE)D3D12_FEATURE_D3D12_OPTIONS1,
+                                  &WaveOpts, sizeof(WaveOpts)));
+  UINT MinWaveSize = WaveOpts.WaveLaneCountMin;
+  UINT MaxWaveSize = WaveOpts.WaveLaneCountMax;
+
+  struct GroupWaveData {
+    uint32_t groupIndex;
+    uint32_t waveIndex;
+    uint32_t waveCount;
+    uint32_t laneIndex;
+    uint32_t laneCount;
+    uint32_t firstLaneGroupIndex;
+  };
+
+  // Shader source uses defines for thread group dimensions and optional
+  // WaveSize attribute, injected via compiler -D options.
+  const char Shader[] =
+      R"(struct GroupWaveData {
+        uint groupIndex;
+        uint waveIndex;
+        uint waveCount;
+        uint laneIndex;
+        uint laneCount;
+        uint firstLaneGroupIndex;
+      };
+      RWStructuredBuffer<GroupWaveData> data : register(u0);
+
+      WAVE_SIZE_ATTR
+      [numthreads(NUMTHREADS_X, NUMTHREADS_Y, NUMTHREADS_Z)]
+      void main(uint GI : SV_GroupIndex) {
+        GroupWaveData d;
+        d.groupIndex = GI;
+        d.waveIndex = GetGroupWaveIndex();
+        d.waveCount = GetGroupWaveCount();
+        d.laneIndex = WaveGetLaneIndex();
+        d.laneCount = WaveGetLaneCount();
+        d.firstLaneGroupIndex = WaveReadLaneFirst(GI);
+        data[GI] = d;
+      })";
+
+  CComPtr<IStream> Stream;
+  std::shared_ptr<st::ShaderOpSet> ShaderOpSet =
+      std::make_shared<st::ShaderOpSet>();
+  readHlslDataIntoNewStream(L"ShaderOpArith.xml", &Stream, m_support);
+  st::ParseShaderOpSetFromStream(Stream, ShaderOpSet.get());
+
+  // Test configurations: {numthreadsX, numthreadsY, numthreadsZ, WaveSize}
+  // WaveSize 0 means no [WaveSize] attribute.
+  struct TestConfig {
+    UINT X, Y, Z;
+    UINT WaveSize;
+  };
+
+  std::vector<TestConfig> Configs = {
+      {8, 1, 1, 0},   // 1D small (8 threads)
+      {8, 8, 1, 0},   // 2D medium (64 threads)
+      {16, 16, 1, 0}, // 2D large (256 threads)
+      {32, 32, 1, 0}, // 2D max (1024 threads)
+      {4, 4, 4, 0},   // 3D (64 threads)
+      {10, 1, 1, 0},  // 1D non-power-of-2
+  };
+
+  // Add WaveSize-attributed variants for each supported wave size.
+  for (UINT WS = MinWaveSize; WS <= MaxWaveSize; WS *= 2) {
+    Configs.push_back({8, 8, 1, WS});
+    // Single wave case: numthreads <= WaveSize.
+    if (WS >= 8)
+      Configs.push_back({8, 1, 1, WS});
+  }
+
+  for (const auto &Cfg : Configs) {
+    UINT NumThreads = Cfg.X * Cfg.Y * Cfg.Z;
+    if (Cfg.WaveSize > 0) {
+      LogCommentFmt(L"Testing [numthreads(%u,%u,%u)] [WaveSize(%u)] "
+                    L"(%u threads)",
+                    Cfg.X, Cfg.Y, Cfg.Z, Cfg.WaveSize, NumThreads);
+    } else {
+      LogCommentFmt(L"Testing [numthreads(%u,%u,%u)] (%u threads)", Cfg.X,
+                    Cfg.Y, Cfg.Z, NumThreads);
+    }
+
+    // Build compiler options with thread group defines.
+    char CompilerOptions[256];
+    if (Cfg.WaveSize > 0) {
+      VERIFY_IS_TRUE(
+          sprintf_s(CompilerOptions, sizeof(CompilerOptions),
+                    "-D NUMTHREADS_X=%u -D NUMTHREADS_Y=%u "
+                    "-D NUMTHREADS_Z=%u -D WAVE_SIZE_ATTR=[wavesize(%u)]",
+                    Cfg.X, Cfg.Y, Cfg.Z, Cfg.WaveSize) != -1);
+    } else {
+      VERIFY_IS_TRUE(sprintf_s(CompilerOptions, sizeof(CompilerOptions),
+                               "-D NUMTHREADS_X=%u -D NUMTHREADS_Y=%u "
+                               "-D NUMTHREADS_Z=%u -D WAVE_SIZE_ATTR=",
+                               Cfg.X, Cfg.Y, Cfg.Z) != -1);
+    }
+
+    std::shared_ptr<st::ShaderOpTestResult> Test =
+        st::RunShaderOpTestAfterParse(
+            Device, m_support, "GroupWaveIndexTest",
+            [&](LPCSTR Name, std::vector<BYTE> &Data, st::ShaderOp *ShaderOp) {
+              VERIFY_IS_TRUE((0 == strncmp(Name, "UAVBuffer0", 10)));
+              ShaderOp->Shaders.at(0).Text = Shader;
+              ShaderOp->Shaders.at(0).Arguments = CompilerOptions;
+
+              VERIFY_IS_TRUE(sizeof(GroupWaveData) * NumThreads <= Data.size());
+              GroupWaveData *InData = (GroupWaveData *)Data.data();
+              memset(InData, 0, sizeof(GroupWaveData) * NumThreads);
+            },
+            ShaderOpSet);
+
+    MappedData DataUav;
+    Test->Test->GetReadBackData("UAVBuffer0", &DataUav);
+    VERIFY_IS_TRUE(sizeof(GroupWaveData) * NumThreads <= DataUav.size());
+    GroupWaveData *Results = (GroupWaveData *)DataUav.data();
+
+    // Verify waveCount is uniform across all threads and >= 1.
+    uint32_t WaveCount = Results[0].waveCount;
+    VERIFY_IS_GREATER_THAN_OR_EQUAL(WaveCount, (uint32_t)1);
+    for (UINT I = 0; I < NumThreads; ++I) {
+      VERIFY_ARE_EQUAL(Results[I].waveCount, WaveCount);
+    }
+
+    // Verify waveCount >= ceil(threadGroupSize / laneCount) per spec.
+    uint32_t LaneCount = Results[0].laneCount;
+    uint32_t MinWaves = (NumThreads + LaneCount - 1) / LaneCount;
+    LogCommentFmt(L"  waveCount=%u, laneCount=%u, minWaves=%u", WaveCount,
+                  LaneCount, MinWaves);
+    VERIFY_IS_GREATER_THAN_OR_EQUAL(WaveCount, MinWaves);
+
+    // If a specific WaveSize was requested, verify laneCount matches.
+    if (Cfg.WaveSize > 0) {
+      VERIFY_ARE_EQUAL(LaneCount, Cfg.WaveSize);
+    }
+
+    // Verify waveIndex is in range [0, waveCount).
+    for (UINT I = 0; I < NumThreads; ++I) {
+      VERIFY_IS_LESS_THAN(Results[I].waveIndex, WaveCount);
+    }
+
+    // Group threads by wave using firstLaneGroupIndex.
+    std::map<uint32_t, std::vector<const GroupWaveData *>> Waves;
+    for (UINT I = 0; I < NumThreads; ++I) {
+      Waves[Results[I].firstLaneGroupIndex].push_back(&Results[I]);
+    }
+
+    // Verify number of distinct waves matches waveCount.
+    VERIFY_ARE_EQUAL((uint32_t)Waves.size(), WaveCount);
+
+    // Verify waveIndex is uniform within each wave and unique across waves.
+    std::set<uint32_t> SeenWaveIndices;
+    for (auto &WavePair : Waves) {
+      const std::vector<const GroupWaveData *> &Lanes = WavePair.second;
+      VERIFY_IS_GREATER_THAN_OR_EQUAL(Lanes.size(), (size_t)1);
+
+      uint32_t ExpectedWaveIndex = Lanes[0]->waveIndex;
+      for (size_t J = 1; J < Lanes.size(); ++J) {
+        VERIFY_ARE_EQUAL(Lanes[J]->waveIndex, ExpectedWaveIndex);
+      }
+
+      VERIFY_IS_TRUE(SeenWaveIndices.find(ExpectedWaveIndex) ==
+                     SeenWaveIndices.end());
+      SeenWaveIndices.insert(ExpectedWaveIndex);
+    }
+
+    // Verify all wave indices from 0 to waveCount-1 are present.
+    VERIFY_ARE_EQUAL((uint32_t)SeenWaveIndices.size(), WaveCount);
+    for (uint32_t I = 0; I < WaveCount; ++I) {
+      VERIFY_IS_TRUE(SeenWaveIndices.count(I) == 1);
+    }
+  }
 }
 
 // Atomic operation testing
