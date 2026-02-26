@@ -7,13 +7,19 @@
 // CHECK: [[type_2d_sampled_image:%[a-zA-Z0-9_]+]] = OpTypeSampledImage [[type_2d_image]]
 // CHECK: [[type_2d_image_array:%[a-zA-Z0-9_]+]] = OpTypeImage %float 2D 0 1 0 1 Unknown
 // CHECK: [[type_2d_sampled_image_array:%[a-zA-Z0-9_]+]] = OpTypeSampledImage [[type_2d_image_array]]
+// CHECK: [[type_2d_image_ms:%[a-zA-Z0-9_]+]] = OpTypeImage %float 2D 0 0 1 1 Unknown
+// CHECK: [[type_2d_sampled_image_ms:%[a-zA-Z0-9_]+]] = OpTypeSampledImage [[type_2d_image_ms]]
+// CHECK: [[type_2d_image_ms_array:%[a-zA-Z0-9_]+]] = OpTypeImage %float 2D 0 1 1 1 Unknown
+// CHECK: [[type_2d_sampled_image_ms_array:%[a-zA-Z0-9_]+]] = OpTypeSampledImage [[type_2d_image_ms_array]]
 
 vk::SampledTexture2D<float4> tex2d;
 vk::SampledTexture2DArray<float4> tex2dArray;
+vk::SampledTexture2DMS<float4> tex2dMS;
+vk::SampledTexture2DMSArray<float4> tex2dMSArray;
 
 void main() {
   uint mipLevel = 1;
-  uint width, height, numLevels, elements;
+  uint width, height, numLevels, elements, numSamples;
 
 // CHECK:             [[t1_load:%[0-9]+]] = OpLoad [[type_2d_sampled_image]] %tex2d
 // CHECK-NEXT:   [[image1:%[0-9]+]] = OpImage [[type_2d_image]] [[t1_load]]
@@ -60,6 +66,30 @@ void main() {
 // CHECK-NEXT:   [[query_level_4:%[0-9]+]] = OpImageQueryLevels %uint [[image4]]
 // CHECK-NEXT:                      OpStore %numLevels [[query_level_4]]
   tex2dArray.GetDimensions(mipLevel, width, height, elements, numLevels);
+
+// CHECK:          [[t3_load:%[0-9]+]] = OpLoad [[type_2d_sampled_image_ms]] %tex2dMS
+// CHECK-NEXT:     [[image5:%[0-9]+]] = OpImage [[type_2d_image_ms]] [[t3_load]]
+// CHECK-NEXT:     [[query5:%[0-9]+]] = OpImageQuerySize %v2uint [[image5]]
+// CHECK-NEXT:   [[query5_0:%[0-9]+]] = OpCompositeExtract %uint [[query5]] 0
+// CHECK-NEXT:                        OpStore %width [[query5_0]]
+// CHECK-NEXT:   [[query5_1:%[0-9]+]] = OpCompositeExtract %uint [[query5]] 1
+// CHECK-NEXT:                        OpStore %height [[query5_1]]
+// CHECK-NEXT: [[query5_samples:%[0-9]+]] = OpImageQuerySamples %uint [[image5]]
+// CHECK-NEXT:                        OpStore %numSamples [[query5_samples]]
+  tex2dMS.GetDimensions(width, height, numSamples);
+
+// CHECK:          [[t4_load:%[0-9]+]] = OpLoad [[type_2d_sampled_image_ms_array]] %tex2dMSArray
+// CHECK-NEXT:     [[image6:%[0-9]+]] = OpImage [[type_2d_image_ms_array]] [[t4_load]]
+// CHECK-NEXT:     [[query6:%[0-9]+]] = OpImageQuerySize %v3uint [[image6]]
+// CHECK-NEXT:   [[query6_0:%[0-9]+]] = OpCompositeExtract %uint [[query6]] 0
+// CHECK-NEXT:                        OpStore %width [[query6_0]]
+// CHECK-NEXT:   [[query6_1:%[0-9]+]] = OpCompositeExtract %uint [[query6]] 1
+// CHECK-NEXT:                        OpStore %height [[query6_1]]
+// CHECK-NEXT:   [[query6_2:%[0-9]+]] = OpCompositeExtract %uint [[query6]] 2
+// CHECK-NEXT:                        OpStore %elements [[query6_2]]
+// CHECK-NEXT: [[query6_samples:%[0-9]+]] = OpImageQuerySamples %uint [[image6]]
+// CHECK-NEXT:                        OpStore %numSamples [[query6_samples]]
+  tex2dMSArray.GetDimensions(width, height, elements, numSamples);
 
   float f_width, f_height, f_numLevels;
 // CHECK:             [[t1_load:%[0-9]+]] = OpLoad [[type_2d_sampled_image]] %tex2d
