@@ -1414,3 +1414,21 @@ namespace VkSampledTexture2DArrayMethods {
     $match<0, -1> void<4> [[]] GatherRaw(in float<3> x, in int<2> o, out uint_only status);
 } namespace
 
+namespace VkSampledTexture2DMSMethods {
+    void [[]] GetDimensions(out uint_only width, out $type1 height, out $type2 samples) : resinfo_uint_o;
+    void [[]] GetDimensions(out float_like width, out $type1 height, out $type2 samples) : resinfo_o;
+    float_like<2> [[ro]] GetSamplePosition(in int s) : samplepos;
+    $classT [[]] Load(in int<2> x, in int s) : texture2d_ms;
+    $classT [[]] Load(in int<2> x, in int s, in int<2> o) : texture2d_ms_o;
+    $classT [[]] Load(in int<2> x, in int s, in int<2> o, out uint_only status) : texture2d_ms_o_s;
+} namespace
+
+
+namespace VkSampledTexture2DMSArrayMethods {
+    void [[]] GetDimensions(out uint_only width, out $type1 height, out $type1 elements, out $type1 samples) : resinfo_uint_o;
+    void [[]] GetDimensions(out float_like width, out $type1 height, out $type1 elements, out $type1 samples) : resinfo_o;
+    float_like<2> [[ro]] GetSamplePosition(in int s) : samplepos;
+    $classT [[ro]] Load(in int<3> x, in int s) : texture2darray_ms;
+    $classT [[ro]] Load(in int<3> x, in int s, in int<2> o) : texture2darray_ms_o;
+    $classT [[]] Load(in int<3> x, in int s, in int<2> o, out uint_only status) : texture2darray_ms_o_s;
+} namespace
