@@ -44,13 +44,27 @@ public:
 
   bool runOnModule(Module &M) override {
     const ShaderModel *SM = M.GetOrCreateHLModule().GetShaderModel();
+
+    bool bUpdated = false;
+
+    // HLSL Change Begin - Mark wave-sensitive HL functions as convergent.
+    // This prevents optimizer passes (especially JumpThreading) from
+    // restructuring control flow around wave ops, which would change
+    // the set of active lanes at wave op call sites.
+    for (Function &F : M.functions()) {
+      if (F.isDeclaration() && IsHLWaveSensitive(&F) &&
+          !F.hasFnAttribute(Attribute::Convergent)) {
+        F.addFnAttr(Attribute::Convergent);
+        bUpdated = true;
+      }
+    }
+    // HLSL Change End
+
     // Can skip if in a shader and version that doesn't support derivatives.
     if (!SM->IsPS() && !SM->IsLib() &&
         (!SM->IsSM66Plus() || (!SM->IsCS() && !SM->IsMS() && !SM->IsAS())))
-      return false;
+      return bUpdated;
     SupportsVectors = SM->IsSM69Plus();
-
-    bool bUpdated = false;
 
     for (Function &F : M.functions()) {
       if (F.isDeclaration())
