@@ -1085,7 +1085,10 @@ public:
               }
             }
 
-            if (pReflectionStream && pReflectionStream->GetPtrSize()) {
+            // Skip reflection generation here when targeting metal, this is
+            // handled below.
+            if (!opts.GenMetal && pReflectionStream &&
+                pReflectionStream->GetPtrSize()) {
               CComPtr<IDxcBlob> pReflection;
               IFT(pReflectionStream->QueryInterface(&pReflection));
               IFT(pResult->SetOutputObject(DXC_OUT_REFLECTION, pReflection));
