@@ -16,7 +16,11 @@
 #include "dxc/Support/Global.h"
 #include "dxc/dxcdxrfallbackcompiler.h"
 #include "dxc/dxctools.h"
+#ifdef DXC_ENABLE_ETW
 #include "dxcetw.h"
+#else
+#include "dxc/WinEtwAdapter.h"
+#endif // DXC_ENABLE_ETW
 #include <memory>
 
 HRESULT CreateDxcDxrFallbackCompiler(REFIID riid, LPVOID *ppv);

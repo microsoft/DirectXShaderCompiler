@@ -17,7 +17,11 @@
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/ManagedStatic.h"
 #ifdef LLVM_ON_WIN32
+#ifdef DXC_ENABLE_ETW
 #include "dxcetw.h"
+#else
+#include "dxc/WinEtwAdapter.h"
+#endif // DXC_ENABLE_ETW
 #endif
 
 namespace hlsl {
