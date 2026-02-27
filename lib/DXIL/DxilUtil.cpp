@@ -632,7 +632,7 @@ StringRef GetHLSLLinAlgMatrixTypeMangling(llvm::StructType *Ty) {
 }
 
 bool IsHLSLKnownTargetType(llvm::Type *Ty) {
-  // Currently only LinAlMatrix types are target types.
+  // Currently only LinAlgMatrix types are target types.
   return IsHLSLLinAlgMatrixType(Ty);
 }
 

@@ -287,7 +287,7 @@ private:
   static const char *m_NamePrefix;
   static const char *m_TypePrefix;
   static const char *m_MatrixTypePrefix;
-  static const char *m_LingAlgNamePrefix;
+  static const char *m_LinAlgNamePrefix;
   static unsigned GetTypeSlot(llvm::Type *pType);
   static const char *GetOverloadTypeName(unsigned TypeSlot);
   static llvm::StringRef GetTypeName(llvm::Type *Ty,

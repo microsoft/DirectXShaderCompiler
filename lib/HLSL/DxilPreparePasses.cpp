@@ -1649,7 +1649,9 @@ public:
   static char ID; // Pass identification, replacement for typeid
   explicit DxilTrimTargetTypes() : ModulePass(ID) {}
 
-  StringRef getPassName() const override { return "HLSL DXIL Metadata Emit"; }
+  StringRef getPassName() const override {
+    return "HLSL DXIL Trim Target Types";
+  }
 
   // Map of target type to its metadata node and usage flag.
   using TargetTypesUsageMap =
@@ -1663,15 +1665,15 @@ public:
   }
 
   bool runOnModule(Module &M) override {
-    NamedMDNode *targetTypesMDNode =
+    NamedMDNode *TargetTypesMDNode =
         M.getNamedMetadata(DxilMDHelper::kDxilTargetTypesMDName);
-    if (!targetTypesMDNode)
+    if (!TargetTypesMDNode)
       return false;
 
     // Add all target types that from "dx.targetTypes" metadata to the map
     // to track their usage.
     TargetTypesUsageMap TargetTypesMap;
-    for (MDNode *Node : targetTypesMDNode->operands()) {
+    for (MDNode *Node : TargetTypesMDNode->operands()) {
       MDTuple *TypeMD = dyn_cast<MDTuple>(Node);
       if (!TypeMD || TypeMD->getNumOperands() == 0)
         continue;
@@ -1692,7 +1694,7 @@ public:
       if (!F.isDeclaration())
         continue;
 
-      // Currently only LinAlMatrix ops use target types.
+      // Currently only LinAlgMatrix ops use target types.
       if (!OP::IsDxilOpLinAlgFuncName(F.getName()))
         continue;
 
@@ -1708,21 +1710,21 @@ public:
     }
 
     // Remove old metadata node from the module.
-    targetTypesMDNode->eraseFromParent();
+    TargetTypesMDNode->eraseFromParent();
 
     // Create a new one with the used target types.
-    NamedMDNode *newTargetTypesMDNode =
+    NamedMDNode *NewTargetTypesMDNode =
         M.getOrInsertNamedMetadata(DxilMDHelper::kDxilTargetTypesMDName);
-    for (auto Entry : TargetTypesMap) {
+    for (auto &Entry : TargetTypesMap) {
       MDTuple *Node = Entry.second.first;
       bool IsUsed = Entry.second.second;
       if (IsUsed)
-        newTargetTypesMDNode->addOperand(Node);
+        NewTargetTypesMDNode->addOperand(Node);
     }
 
     // If no target type is used, remove the new metadata node from module.
-    if (newTargetTypesMDNode->getNumOperands() == 0)
-      newTargetTypesMDNode->eraseFromParent();
+    if (NewTargetTypesMDNode->getNumOperands() == 0)
+      NewTargetTypesMDNode->eraseFromParent();
 
     return true;
   }
