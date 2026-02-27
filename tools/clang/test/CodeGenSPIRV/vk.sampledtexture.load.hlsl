@@ -10,6 +10,8 @@
 // CHECK: [[type_2d_sampled_image:%[a-zA-Z0-9_]+]] = OpTypeSampledImage [[type_2d_image]]
 // CHECK: [[type_2d_image_array:%[a-zA-Z0-9_]+]] = OpTypeImage %float 2D 0 1 0 1 Unknown
 // CHECK: [[type_2d_sampled_image_array:%[a-zA-Z0-9_]+]] = OpTypeSampledImage [[type_2d_image_array]]
+// CHECK: [[type_3d_image:%[a-zA-Z0-9_]+]] = OpTypeImage %float 3D 0 0 0 1 Unknown
+// CHECK: [[type_3d_sampled_image:%[a-zA-Z0-9_]+]] = OpTypeSampledImage [[type_3d_image]]
 // CHECK: [[type_2d_image_ms:%[a-zA-Z0-9_]+]] = OpTypeImage %float 2D 0 0 1 1 Unknown
 // CHECK: [[type_2d_sampled_image_ms:%[a-zA-Z0-9_]+]] = OpTypeSampledImage [[type_2d_image_ms]]
 // CHECK: [[type_2d_image_ms_array:%[a-zA-Z0-9_]+]] = OpTypeImage %float 2D 0 1 1 1 Unknown
@@ -19,6 +21,7 @@ vk::SampledTexture1D<float4> tex1d;
 vk::SampledTexture1DArray<float4> tex1dArray;
 vk::SampledTexture2D<float4> tex2d;
 vk::SampledTexture2DArray<float4> tex2dArray;
+vk::SampledTexture3D<float4> tex3d;
 vk::SampledTexture2DMS<float4> tex2dMS;
 vk::SampledTexture2DMSArray<float4> tex2dMSArray;
 
@@ -100,6 +103,14 @@ float4 main(int3 location3: A, int4 location4: B) : SV_Target {
 // CHECK-NEXT: [[tex_1d_arr_img:%[0-9]+]] = OpImage %type_1d_image_array [[tex_1d_arr]]
 // CHECK-NEXT: {{[%0-9]+}} = OpImageFetch %v4float [[tex_1d_arr_img]] [[coord_1]] Lod [[lod_0]]
     float4 val8 = tex1dArray.Load(location4.xyz);
+
+// CHECK:        [[loc3d:%[0-9]+]] = OpLoad %v4int %location4
+// CHECK-NEXT: [[coord3d:%[0-9]+]] = OpVectorShuffle %v3int [[loc3d]] [[loc3d]] 0 1 2
+// CHECK-NEXT:   [[lod3d:%[0-9]+]] = OpCompositeExtract %int [[loc3d]] 3
+// CHECK-NEXT: [[tex3d_load:%[0-9]+]] = OpLoad [[type_3d_sampled_image]] %tex3d
+// CHECK-NEXT:  [[img3d:%[0-9]+]] = OpImage [[type_3d_image]] [[tex3d_load]]
+// CHECK-NEXT:          {{%[0-9]+}} = OpImageFetch %v4float [[img3d]] [[coord3d]] Lod [[lod3d]]
+    float4 val9 = tex3d.Load(location4);
 
     return 1.0;
 }

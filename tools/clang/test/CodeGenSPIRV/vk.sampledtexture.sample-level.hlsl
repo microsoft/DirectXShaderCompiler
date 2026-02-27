@@ -14,11 +14,14 @@
 // CHECK: [[type_2d_sampled_image:%[a-zA-Z0-9_]+]] = OpTypeSampledImage [[type_2d_image]]
 // CHECK: [[type_2d_image_array:%[a-zA-Z0-9_]+]] = OpTypeImage %float 2D 0 1 0 1 Unknown
 // CHECK: [[type_2d_sampled_image_array:%[a-zA-Z0-9_]+]] = OpTypeSampledImage [[type_2d_image_array]]
+// CHECK: [[type_3d_image:%[a-zA-Z0-9_]+]] = OpTypeImage %float 3D 0 0 0 1 Unknown
+// CHECK: [[type_3d_sampled_image:%[a-zA-Z0-9_]+]] = OpTypeSampledImage [[type_3d_image]]
 
 vk::SampledTexture1D<float4> tex1d;
 vk::SampledTexture1DArray<float4> tex1dArray;
 vk::SampledTexture2D<float4> tex2d;
 vk::SampledTexture2DArray<float4> tex2dArray;
+vk::SampledTexture3D<float4> tex3d;
 
 float4 main() : SV_Target {
 // CHECK: [[tex1_load:%[a-zA-Z0-9_]+]] = OpLoad [[type_2d_sampled_image]] %tex2d
@@ -47,6 +50,10 @@ float4 main() : SV_Target {
 // CHECK: [[tex1da_load:%[a-zA-Z0-9_]+]] = OpLoad [[type_1d_sampled_image_array]] %tex1dArray
 // CHECK: [[sampled_1da:%[a-zA-Z0-9_]+]] = OpImageSampleExplicitLod %v4float [[tex1da_load]] {{%[0-9]+}} Lod %float_0_5
     float4 val6 = tex1dArray.SampleLevel(float2(0.5, 0), 0.5f);
+
+// CHECK: [[tex3d_load:%[a-zA-Z0-9_]+]] = OpLoad [[type_3d_sampled_image]] %tex3d
+// CHECK: [[sampled_3d:%[a-zA-Z0-9_]+]] = OpImageSampleExplicitLod %v4float [[tex3d_load]] [[v3fc]] Lod %float_0_5
+    float4 val7 = tex3d.SampleLevel(float3(0.5, 0.25, 0), 0.5f);
 
     return 1.0;
 }

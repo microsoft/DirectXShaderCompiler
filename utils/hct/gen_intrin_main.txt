@@ -1522,4 +1522,33 @@ namespace VkSampledTexture2DMSArrayMethods {
     $classT [[]] Load(in int<3> x, in int s, in int<2> o, out uint_only status) : texture2darray_ms_o_s;
 } namespace
 
+namespace VkSampledTexture3DMethods {
+
+float [[ro]] CalculateLevelOfDetail(in float<3> x) : tex3d_t_calc_lod;
+float [[ro]] CalculateLevelOfDetailUnclamped(in float<3> x) : tex3d_t_calc_lod_unclamped;
+void [[]] GetDimensions(in uint x, out uint_only width, out $type2 height, out $type2 depth, out $type2 levels) : resinfo_uint;
+void [[]] GetDimensions(in uint x, out float_like width, out $type2 height, out $type2 depth, out $type2 levels) : resinfo;
+void [[]] GetDimensions(out uint_only width, out $type1 height, out $type1 depth) : resinfo_uint_o;
+void [[]] GetDimensions(out float_like width, out $type1 height, out $type1 depth) : resinfo_o;
+$classT [[ro]] Load(in int<4> x) : tex3d_t_load;
+$classT [[ro]] Load(in int<4> x, in int<3> o) : tex3d_t_load_o;
+$classT [[]] Load(in int<4> x, in int<3> o, out uint_only status) : tex3d_t_load_o_s;
+$classT [[ro]] Sample(in float<3> x) : tex3d_t;
+$classT [[ro]] Sample(in float<3> x, in int<3> o) : tex3d_t_o;
+$classT [[ro]] SampleBias(in float<3> x, in float bias) : tex3d_t_bias;
+$classT [[ro]] SampleBias(in float<3> x, in float bias, in int<3> o) : tex3d_t_bias_o;
+$classT [[ro]] SampleGrad(in float<3> x, in $type1 ddx, in $type1 ddy) : tex3d_t_dd;
+$classT [[ro]] SampleGrad(in float<3> x, in $type1 ddx, in $type1 ddy, in int<3> o) : tex3d_t_dd_o;
+$classT [[ro]] SampleLevel(in float<3> x, in float lod) : tex3d_t_lod;
+$classT [[ro]] SampleLevel(in float<3> x, in float lod, in int<3> o) : tex3d_t_lod_o;
+$classT [[ro]] Sample(in float<3> x, in int<3> o, in float clamp) : tex3d_t_o_cl;
+$classT [[]] Sample(in float<3> x, in int<3> o, in float clamp, out uint_only status) : tex3d_t_o_cl_s;
+$classT [[]] SampleLevel(in float<3> x, in float lod, in int<3> o, out uint_only status) : tex3d_t_lod_o_s;
+$classT [[ro]] SampleBias(in float<3> x, in float bias, in int<3> o, in float clamp) : tex3d_t_bias_o_cl;
+$classT [[]] SampleBias(in float<3> x, in float bias, in int<3> o, in float clamp, out uint_only status) : tex3d_t_bias_o_cl_s;
+$classT [[]] SampleGrad(in float<3> x, in $type1 ddx, in $type1 ddy, in int<3> o, in float clamp) : tex3d_t_dd_o_cl;
+$classT [[]] SampleGrad(in float<3> x, in $type1 ddx, in $type1 ddy, in int<3> o, in float clamp, out uint_only status) : tex3d_t_dd_o_cl_s;
+} namespace
+
+
 // SPIRV Change Ends

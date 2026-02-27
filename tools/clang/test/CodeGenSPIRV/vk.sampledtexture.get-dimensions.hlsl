@@ -11,6 +11,8 @@
 // CHECK: [[type_2d_sampled_image:%[a-zA-Z0-9_]+]] = OpTypeSampledImage [[type_2d_image]]
 // CHECK: [[type_2d_image_array:%[a-zA-Z0-9_]+]] = OpTypeImage %float 2D 0 1 0 1 Unknown
 // CHECK: [[type_2d_sampled_image_array:%[a-zA-Z0-9_]+]] = OpTypeSampledImage [[type_2d_image_array]]
+// CHECK: [[type_3d_image:%[a-zA-Z0-9_]+]] = OpTypeImage %float 3D 0 0 0 1 Unknown
+// CHECK: [[type_3d_sampled_image:%[a-zA-Z0-9_]+]] = OpTypeSampledImage [[type_3d_image]]
 // CHECK: [[type_2d_image_ms:%[a-zA-Z0-9_]+]] = OpTypeImage %float 2D 0 0 1 1 Unknown
 // CHECK: [[type_2d_sampled_image_ms:%[a-zA-Z0-9_]+]] = OpTypeSampledImage [[type_2d_image_ms]]
 // CHECK: [[type_2d_image_ms_array:%[a-zA-Z0-9_]+]] = OpTypeImage %float 2D 0 1 1 1 Unknown
@@ -20,6 +22,7 @@ vk::SampledTexture1D<float4> tex1d;
 vk::SampledTexture1DArray<float4> tex1dArray;
 vk::SampledTexture2D<float4> tex2d;
 vk::SampledTexture2DArray<float4> tex2dArray;
+vk::SampledTexture3D<float4> tex3d;
 vk::SampledTexture2DMS<float4> tex2dMS;
 vk::SampledTexture2DMSArray<float4> tex2dMSArray;
 
@@ -165,6 +168,13 @@ void main() {
 // CHECK-NEXT:  [[query_level_2_int:%[0-9]+]] = OpBitcast %int [[query_level_2]]
 // CHECK-NEXT:                      OpStore %i_numLevels [[query_level_2_int]]
   tex2d.GetDimensions(mipLevel, i_width, i_height, i_numLevels);
+
+// CHECK:           [[t3d_load:%[0-9]+]] = OpLoad [[type_3d_sampled_image]] %tex3d
+// CHECK-NEXT:      [[image3d:%[0-9]+]] = OpImage [[type_3d_image]] [[t3d_load]]
+// CHECK-NEXT:      [[query3d:%[0-9]+]] = OpImageQuerySizeLod %v3uint [[image3d]] %int_0
+// CHECK-NEXT:    [[query3d_0:%[0-9]+]] = OpCompositeExtract %uint [[query3d]] 0
+// CHECK-NEXT:                         OpStore %width [[query3d_0]]
+  tex3d.GetDimensions(width, height, elements);
 
 #ifdef ERROR
 // ERROR: error: Output argument must be an l-value

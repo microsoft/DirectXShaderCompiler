@@ -206,6 +206,7 @@ enum ArBasicKind {
   AR_OBJECT_VK_SAMPLED_TEXTURE2D_ARRAY,
   AR_OBJECT_VK_SAMPLED_TEXTURE2DMS,
   AR_OBJECT_VK_SAMPLED_TEXTURE2DMS_ARRAY,
+  AR_OBJECT_VK_SAMPLED_TEXTURE3D,
 #endif // ENABLE_SPIRV_CODEGEN
   // SPIRV change ends
 
@@ -572,6 +573,7 @@ const UINT g_uBasicKindProps[] = {
     BPROP_OBJECT | BPROP_RBUFFER, // AR_OBJECT_VK_SAMPLED_TEXTURE2D_ARRAY
     BPROP_OBJECT | BPROP_RBUFFER, // AR_OBJECT_VK_SAMPLED_TEXTURE2DMS
     BPROP_OBJECT | BPROP_RBUFFER, // AR_OBJECT_VK_SAMPLED_TEXTURE2DMS_ARRAY
+    BPROP_OBJECT | BPROP_RBUFFER, // AR_OBJECT_VK_SAMPLED_TEXTURE3D
 #endif            // ENABLE_SPIRV_CODEGEN
     // SPIRV change ends
 
@@ -1292,6 +1294,8 @@ static const ArBasicKind g_VKSampledTexture2DMSCT[] = {
     AR_OBJECT_VK_SAMPLED_TEXTURE2DMS, AR_BASIC_UNKNOWN};
 static const ArBasicKind g_VKSampledTexture2DMSArrayCT[] = {
     AR_OBJECT_VK_SAMPLED_TEXTURE2DMS_ARRAY, AR_BASIC_UNKNOWN};
+static const ArBasicKind g_VKSampledTexture3DCT[] = {
+    AR_OBJECT_VK_SAMPLED_TEXTURE3D, AR_BASIC_UNKNOWN};
 #endif
 
 // Basic kinds, indexed by a LEGAL_INTRINSIC_COMPTYPES value.
@@ -1361,6 +1365,7 @@ const ArBasicKind *g_LegalIntrinsicCompTypes[] = {
     g_VKSampledTexture2DArrayCT,   // LICOMPTYPE_VK_SAMPLED_TEXTURE2D_ARRAY
     g_VKSampledTexture2DMSCT,      // LICOMPTYPE_VK_SAMPLED_TEXTURE2DMS
     g_VKSampledTexture2DMSArrayCT, // LICOMPTYPE_VK_SAMPLED_TEXTURE2DMS_ARRAY
+    g_VKSampledTexture3DCT,        // LICOMPTYPE_VK_SAMPLED_TEXTURE3D
 #endif
 };
 static_assert(
@@ -1423,7 +1428,7 @@ static const ArBasicKind g_ArBasicKindsAsTypes[] = {
     AR_OBJECT_VK_BUFFER_POINTER, AR_OBJECT_VK_SAMPLED_TEXTURE1D,
     AR_OBJECT_VK_SAMPLED_TEXTURE1D_ARRAY, AR_OBJECT_VK_SAMPLED_TEXTURE2D,
     AR_OBJECT_VK_SAMPLED_TEXTURE2D_ARRAY, AR_OBJECT_VK_SAMPLED_TEXTURE2DMS,
-    AR_OBJECT_VK_SAMPLED_TEXTURE2DMS_ARRAY,
+    AR_OBJECT_VK_SAMPLED_TEXTURE2DMS_ARRAY, AR_OBJECT_VK_SAMPLED_TEXTURE3D,
 #endif // ENABLE_SPIRV_CODEGEN
     // SPIRV change ends
 
@@ -1541,6 +1546,7 @@ static const uint8_t g_ArBasicKindsTemplateCount[] = {
     1, // AR_OBJECT_VK_SAMPLED_TEXTURE2D_ARRAY
     1, // AR_OBJECT_VK_SAMPLED_TEXTURE2DMS
     1, // AR_OBJECT_VK_SAMPLED_TEXTURE2DMS_ARRAY
+    1, // AR_OBJECT_VK_SAMPLED_TEXTURE3D
 #endif // ENABLE_SPIRV_CODEGEN
     // SPIRV change ends
 
@@ -1700,6 +1706,7 @@ static const SubscriptOperatorRecord g_ArBasicKindsSubscripts[] = {
     {3, MipsTrue, SampleFalse},  // AR_OBJECT_VK_SAMPLED_TEXTURE2D_ARRAY
     {2, MipsFalse, SampleTrue},  // AR_OBJECT_VK_SAMPLED_TEXTURE2DMS
     {3, MipsFalse, SampleTrue},  // AR_OBJECT_VK_SAMPLED_TEXTURE2DMS_ARRAY
+    {3, MipsTrue, SampleFalse},  // AR_OBJECT_VK_SAMPLED_TEXTURE3D
 #endif                           // ENABLE_SPIRV_CODEGEN
     // SPIRV change ends
 
@@ -1875,6 +1882,7 @@ static const char *g_ArBasicTypeNames[] = {
     "SampledTexture2DArray",
     "SampledTexture2DMS",
     "SampledTexture2DMSArray",
+    "SampledTexture3D",
 #endif // ENABLE_SPIRV_CODEGEN
     // SPIRV change ends
 
@@ -2551,6 +2559,10 @@ static void GetIntrinsicMethods(ArBasicKind kind,
   case AR_OBJECT_VK_SAMPLED_TEXTURE2DMS_ARRAY:
     *intrinsics = g_VkSampledTexture2DMSArrayMethods;
     *intrinsicCount = _countof(g_VkSampledTexture2DMSArrayMethods);
+    break;
+  case AR_OBJECT_VK_SAMPLED_TEXTURE3D:
+    *intrinsics = g_VkSampledTexture3DMethods;
+    *intrinsicCount = _countof(g_VkSampledTexture3DMethods);
     break;
 #endif
   case AR_OBJECT_HIT_OBJECT:
@@ -4164,7 +4176,8 @@ private:
                  kind == AR_OBJECT_VK_SAMPLED_TEXTURE2D ||
                  kind == AR_OBJECT_VK_SAMPLED_TEXTURE2D_ARRAY ||
                  kind == AR_OBJECT_VK_SAMPLED_TEXTURE2DMS ||
-                 kind == AR_OBJECT_VK_SAMPLED_TEXTURE2DMS_ARRAY) {
+                 kind == AR_OBJECT_VK_SAMPLED_TEXTURE2DMS_ARRAY ||
+                 kind == AR_OBJECT_VK_SAMPLED_TEXTURE3D) {
         if (!m_vkNSDecl)
           continue;
         QualType float4Type =
@@ -5000,6 +5013,7 @@ public:
     case AR_OBJECT_VK_SAMPLED_TEXTURE1D_ARRAY:
     case AR_OBJECT_TEXTURE2D:
     case AR_OBJECT_TEXTURE2D_ARRAY:
+    case AR_OBJECT_VK_SAMPLED_TEXTURE3D:
     case AR_OBJECT_TEXTURE3D:
     case AR_OBJECT_TEXTURECUBE:
     case AR_OBJECT_TEXTURECUBE_ARRAY:
@@ -5142,6 +5156,7 @@ public:
       ResClass = DXIL::ResourceClass::UAV;
       return true;
     case AR_OBJECT_TEXTURE3D:
+    case AR_OBJECT_VK_SAMPLED_TEXTURE3D:
       ResKind = DXIL::ResourceKind::Texture3D;
       ResClass = DXIL::ResourceClass::SRV;
       return true;
@@ -11699,6 +11714,7 @@ void hlsl::DiagnoseRegisterType(clang::Sema *self, clang::SourceLocation loc,
   case AR_OBJECT_VK_SAMPLED_TEXTURE1D_ARRAY:
   case AR_OBJECT_TEXTURE2D:
   case AR_OBJECT_TEXTURE2D_ARRAY:
+  case AR_OBJECT_VK_SAMPLED_TEXTURE3D:
   case AR_OBJECT_TEXTURE3D:
   case AR_OBJECT_TEXTURECUBE:
   case AR_OBJECT_TEXTURECUBE_ARRAY:

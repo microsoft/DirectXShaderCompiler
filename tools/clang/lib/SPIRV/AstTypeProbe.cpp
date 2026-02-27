@@ -934,7 +934,8 @@ bool isSampledTexture(QualType type) {
 
     if (name == "SampledTexture1D" || name == "SampledTexture1DArray" ||
         name == "SampledTexture2D" || name == "SampledTexture2DArray" ||
-        name == "SampledTexture2DMS" || name == "SampledTexture2DMSArray")
+        name == "SampledTexture2DMS" || name == "SampledTexture2DMSArray" ||
+        name == "SampledTexture3D")
       return true;
   }
   return false;
