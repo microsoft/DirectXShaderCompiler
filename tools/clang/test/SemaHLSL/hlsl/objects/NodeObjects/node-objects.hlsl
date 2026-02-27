@@ -40,8 +40,14 @@ struct RECORD
 // AST: `-DeclRefExpr 0x{{.+}} <col:21> 'DispatchNodeInputRecord<RECORD>':'DispatchNodeInputRecord<RECORD>' lvalue ParmVar 0x[[Param]] 'input' 'DispatchNodeInputRecord<RECORD>':'DispatchNodeInputRecord<RECORD>'
 // attributes.
 // AST: |-HLSLNodeLaunchAttr 0x{{.+}} "broadcasting"
-// AST: |-HLSLNodeDispatchGridAttr 0x{{.+}} 64 1 1
-// AST: |-HLSLNumThreadsAttr 0x{{.+}} 1024 1 1
+// AST: |-HLSLNodeDispatchGridAttr 0x{{.+}}
+// AST: |-IntegerLiteral 0x{{.+}} 64
+// AST: |-IntegerLiteral 0x{{.+}} 1
+// AST: `-IntegerLiteral 0x{{.+}} 1
+// AST: |-HLSLNumThreadsAttr 0x{{.+}}
+// AST: |-IntegerLiteral 0x{{.+}} 1024
+// AST: |-IntegerLiteral 0x{{.+}} 1
+// AST: `-IntegerLiteral 0x{{.+}} 1
 // AST: `-HLSLShaderAttr 0x{{.+}} "node"
 
 
@@ -67,8 +73,14 @@ void node_DispatchNodeInputRecord(DispatchNodeInputRecord<RECORD> input)
 // AST: `-DeclRefExpr 0x{{.+}} <col:21> 'RWDispatchNodeInputRecord<RECORD>':'RWDispatchNodeInputRecord<RECORD>' lvalue ParmVar 0x[[Param]] 'input' 'RWDispatchNodeInputRecord<RECORD>':'RWDispatchNodeInputRecord<RECORD>'
 // attributes.
 // AST: |-HLSLNodeLaunchAttr 0x{{.+}} "broadcasting"
-// AST: |-HLSLNodeDispatchGridAttr 0x{{.+}} 16 1 1
-// AST: |-HLSLNumThreadsAttr 0x{{.+}} 1024 1 1
+// AST: |-HLSLNodeDispatchGridAttr 0x{{.+}}
+// AST: |-IntegerLiteral 0x{{.+}} 16
+// AST: |-IntegerLiteral 0x{{.+}} 1
+// AST: `-IntegerLiteral 0x{{.+}} 1
+// AST: |-HLSLNumThreadsAttr 0x{{.+}}
+// AST: |-IntegerLiteral 0x{{.+}} 1024
+// AST: |-IntegerLiteral 0x{{.+}} 1
+// AST: `-IntegerLiteral 0x{{.+}} 1
 // AST: `-HLSLShaderAttr 0x{{.+}} "node"
 
 [Shader("node")]
@@ -85,7 +97,8 @@ void node_RWDispatchNodeInputRecord(RWDispatchNodeInputRecord<RECORD> input)
 
 // AST: FunctionDecl 0x{{.+}} node_GroupNodeInputRecords 'void (GroupNodeInputRecords<RECORD>)'
 // AST: |-ParmVarDecl 0x[[Param:[0-9a-f]+]] <col:51, col:81> col:81 used inputs 'GroupNodeInputRecords<RECORD>':'GroupNodeInputRecords<RECORD>'
-// AST: | `-HLSLMaxRecordsAttr 0x{{.+}} <col:34, col:48> 256
+// AST: | `-HLSLMaxRecordsAttr 0x{{.+}} <col:34, col:48>
+// AST: `-IntegerLiteral 0x{{.+}} 256
 // call to wrapper
 // AST: `-CallExpr 0x{{.+}} <col:21, col:35> 'GroupNodeInputRecords<RECORD>':'GroupNodeInputRecords<RECORD>'
 // AST: |-ImplicitCastExpr 0x{{.+}} <col:21> 'GroupNodeInputRecords<RECORD> (*)(GroupNodeInputRecords<RECORD>)' <FunctionToPointerDecay>
@@ -94,7 +107,10 @@ void node_RWDispatchNodeInputRecord(RWDispatchNodeInputRecord<RECORD> input)
 // AST:  `-DeclRefExpr 0x{{.+}} <col:29> 'GroupNodeInputRecords<RECORD>':'GroupNodeInputRecords<RECORD>' lvalue ParmVar 0x[[Param]] 'inputs' 'GroupNodeInputRecords<RECORD>':'GroupNodeInputRecords<RECORD>'
 // attributes.
 // AST: |-HLSLNodeIsProgramEntryAttr 0x{{.+}}
-// AST: |-HLSLNumThreadsAttr 0x{{.+}} 1024 1 1
+// AST: |-HLSLNumThreadsAttr 0x{{.+}}
+// AST: |-IntegerLiteral 0x{{.+}} 1024
+// AST: |-IntegerLiteral 0x{{.+}} 1
+// AST: `-IntegerLiteral 0x{{.+}} 1
 // AST: |-HLSLNodeLaunchAttr 0x{{.+}} "coalescing"
 // AST: `-HLSLShaderAttr 0x{{.+}} "node"
 
@@ -112,7 +128,8 @@ void node_GroupNodeInputRecords([MaxRecords(256)] GroupNodeInputRecords<RECORD> 
 
 // AST: FunctionDecl 0x{{.+}} node_RWGroupNodeInputRecords 'void (RWGroupNodeInputRecords<RECORD2>)'
 // AST: |-ParmVarDecl 0x[[Param:[0-9a-f]+]] <col:51, col:84> col:84 used input2 'RWGroupNodeInputRecords<RECORD2>':'RWGroupNodeInputRecords<RECORD2>'
-// AST: | `-HLSLMaxRecordsAttr 0x{{.+}} <col:36, col:48> 4
+// AST: | `-HLSLMaxRecordsAttr 0x{{.+}} <col:36, col:48>
+// AST: |   `-IntegerLiteral 0x{{.+}} 4
 // call to wrapper
 // AST: CallExpr 0x{{.+}} <col:3, col:17> 'RWGroupNodeInputRecords<RECORD2>':'RWGroupNodeInputRecords<RECORD2>'
 // AST: |-ImplicitCastExpr 0x{{.+}} <col:3> 'RWGroupNodeInputRecords<RECORD2> (*)(RWGroupNodeInputRecords<RECORD2>)' <FunctionToPointerDecay>
@@ -121,7 +138,10 @@ void node_GroupNodeInputRecords([MaxRecords(256)] GroupNodeInputRecords<RECORD> 
 // AST: |   `-DeclRefExpr 0x{{.+}} <col:11> 'RWGroupNodeInputRecords<RECORD2>':'RWGroupNodeInputRecords<RECORD2>' lvalue ParmVar 0x[[Param]] 'input2' 'RWGroupNodeInputRecords<RECORD2>':'RWGroupNodeInputRecords<RECORD2>'
 // attributes.
 // AST: |-HLSLNodeLaunchAttr 0x{{.+}} "coalescing"
-// AST: |-HLSLNumThreadsAttr 0x{{.+}} 1 1 1
+// AST: |-HLSLNumThreadsAttr 0x{{.+}}
+// AST: |-IntegerLiteral 0x{{.+}} 1
+// AST: |-IntegerLiteral 0x{{.+}} 1
+// AST: `-IntegerLiteral 0x{{.+}} 1
 // AST: `-HLSLShaderAttr 0x{{.+}} "node"
 
 struct RECORD2
@@ -192,7 +212,10 @@ void node_RWThreadNodeInputRecord(RWThreadNodeInputRecord<RECORD> input)
 // AST: `-ImplicitCastExpr 0x{{.+}} <col:21> 'EmptyNodeInput' <LValueToRValue>
 // AST: `-DeclRefExpr 0x{{.+}} <col:21> 'EmptyNodeInput' lvalue ParmVar 0x[[Param]] 'input' 'EmptyNodeInput'
 // attributes.
-// AST: | |-HLSLNumThreadsAttr 0x{{.+}} 2 1 1
+// AST: | |-HLSLNumThreadsAttr 0x{{.+}}
+// AST: |-IntegerLiteral 0x{{.+}} 2
+// AST: |-IntegerLiteral 0x{{.+}} 1
+// AST: `-IntegerLiteral 0x{{.+}} 1
 // AST: | |-HLSLNodeIsProgramEntryAttr
 // AST: | |-HLSLNodeLaunchAttr 0x{{.+}} "coalescing"
 // AST: | `-HLSLShaderAttr 0x{{.+}}> "node"
@@ -219,8 +242,14 @@ void node_EmptyNodeInput(EmptyNodeInput input)
 // AST: `-DeclRefExpr 0x{{.+}} <col:51> 'NodeOutput<RECORD>':'NodeOutput<RECORD>' lvalue ParmVar 0x[[Param]] 'output3' 'NodeOutput<RECORD>':'NodeOutput<RECORD>'
 // attributes.
 // AST: | |-HLSLNodeLaunchAttr 0x{{.+}} "broadcasting"
-// AST: | |-HLSLNodeDispatchGridAttr 0x{{.+}} 32 1 1
-// AST: | |-HLSLNumThreadsAttr 0x{{.+}} 1024 1 1
+// AST: | |-HLSLNodeDispatchGridAttr 0x{{.+}}
+// AST: | | |-IntegerLiteral 0x{{.+}} 32
+// AST: | | |-IntegerLiteral 0x{{.+}} 1
+// AST: | | `-IntegerLiteral 0x{{.+}} 1
+// AST: | |-HLSLNumThreadsAttr 0x{{.+}}
+// AST: | | |-IntegerLiteral 0x{{.+}} 1024
+// AST: | | |-IntegerLiteral 0x{{.+}} 1
+// AST: | | `-IntegerLiteral 0x{{.+}} 1
 // AST: | `-HLSLShaderAttr 0x{{.+}} "node"
 
 [Shader("node")]
@@ -239,7 +268,8 @@ void node_NodeOutput(NodeOutput<RECORD> output3)
 //  EmptyNodeOutput
 // AST: FunctionDecl 0x{{.+}} node_EmptyNodeOutput 'void (EmptyNodeOutput)'
 // AST: | |-ParmVarDecl 0x[[Param:[0-9a-f]+]] {{.+}} col:35 used loadStressChild 'EmptyNodeOutput'
-// AST: | | `-HLSLMaxRecordsAttr 0x{{.+}} 12
+// AST: | | `-HLSLMaxRecordsAttr 0x{{.+}}
+// AST: | |   `-IntegerLiteral 0x{{.+}} 12
 // call to wrapper
 // AST: CallExpr 0x{{.+}} <col:27, col:50> 'EmptyNodeOutput':'EmptyNodeOutput'
 // AST: |-ImplicitCastExpr 0x{{.+}} <col:27> 'EmptyNodeOutput (*)(EmptyNodeOutput)' <FunctionToPointerDecay>
@@ -247,8 +277,14 @@ void node_NodeOutput(NodeOutput<RECORD> output3)
 // AST: `-ImplicitCastExpr 0x{{.+}} <col:35> 'EmptyNodeOutput' <LValueToRValue>
 // AST: `-DeclRefExpr 0x{{.+}} <col:35> 'EmptyNodeOutput' lvalue ParmVar 0x[[Param]] 'loadStressChild' 'EmptyNodeOutput'
 // attributes.
-// AST: | |-HLSLNumThreadsAttr 0x{{.+}} 1 1 1
-// AST: | |-HLSLNodeDispatchGridAttr 0x{{.+}} 1 1 1
+// AST: | |-HLSLNumThreadsAttr 0x{{.+}}
+// AST: | | |-IntegerLiteral 0x{{.+}} 1
+// AST: | | |-IntegerLiteral 0x{{.+}} 1
+// AST: | | `-IntegerLiteral 0x{{.+}} 1
+// AST: | |-HLSLNodeDispatchGridAttr 0x{{.+}}
+// AST: | | |-IntegerLiteral 0x{{.+}} 1
+// AST: | | |-IntegerLiteral 0x{{.+}} 1
+// AST: | | `-IntegerLiteral 0x{{.+}} 1
 // AST: | `-HLSLShaderAttr 0x{{.+}} "node"
 void loadStressEmptyRecWorker(
 EmptyNodeOutput outputNode)
@@ -269,7 +305,8 @@ void node_EmptyNodeOutput(
 //  NodeOutputArray
 // AST: FunctionDecl 0x{{.+}} node_NodeOutputArray 'void (NodeOutputArray<RECORD1>)'
 // AST: | |-ParmVarDecl 0x[[Param:[0-9a-f]+]] {{.+}} col:30 used OutputArray_1_0 'NodeOutputArray<RECORD1>':'NodeOutputArray<RECORD1>'
-// AST: | | |-HLSLMaxRecordsAttr 0x{{.+}} 31
+// AST: | | |-HLSLMaxRecordsAttr 0x{{.+}}
+// AST: | | | `-IntegerLiteral 0x{{.+}} 31
 // AST: | | |-HLSLNodeArraySizeAttr 0x{{.+}} 129
 // AST: | | `-HLSLAllowSparseNodesAttr 0x{{.+}} <col:6>
 // call to wrapper
@@ -279,8 +316,14 @@ void node_EmptyNodeOutput(
 // AST: `-ImplicitCastExpr 0x{{.+}} <col:53> 'NodeOutputArray<RECORD1>':'NodeOutputArray<RECORD1>' <LValueToRValue>
 // AST: `-DeclRefExpr 0x{{.+}} <col:53> 'NodeOutputArray<RECORD1>':'NodeOutputArray<RECORD1>' lvalue ParmVar 0x[[Param]] 'OutputArray_1_0' 'NodeOutputArray<RECORD1>':'NodeOutputArray<RECORD1>'
 // attributes.
-// AST: | |-HLSLNumThreadsAttr 0x{{.+}} 1 1 1
-// AST: | |-HLSLNodeDispatchGridAttr 0x{{.+}} 1 1 1
+// AST: | |-HLSLNumThreadsAttr 0x{{.+}}
+// AST: | | |-IntegerLiteral 0x{{.+}} 1
+// AST: | | |-IntegerLiteral 0x{{.+}} 1
+// AST: | | `-IntegerLiteral 0x{{.+}} 1
+// AST: | |-HLSLNodeDispatchGridAttr 0x{{.+}}
+// AST: | | |-IntegerLiteral 0x{{.+}} 1
+// AST: | | |-IntegerLiteral 0x{{.+}} 1
+// AST: | | `-IntegerLiteral 0x{{.+}} 1
 // AST: | |-HLSLNodeLaunchAttr 0x{{.+}} "broadcasting"
 // AST: | `-HLSLShaderAttr 0x{{.+}} "node"
 
@@ -304,7 +347,8 @@ void node_NodeOutputArray(
 //  EmptyNodeOutputArray
 // AST: FunctionDecl 0x{{.+}} node_EmptyNodeOutputArray 'void (EmptyNodeOutputArray)'
 // AST: | |-ParmVarDecl 0x[[Param:[0-9a-f]+]] {{.+}} col:64 used EmptyOutputArray 'EmptyNodeOutputArray'
-// AST: | | |-HLSLMaxRecordsAttr 0x{{.+}} <col:27, col:40> 64
+// AST: | | |-HLSLMaxRecordsAttr 0x{{.+}} <col:27, col:40>
+// AST: | | | `-IntegerLiteral 0x{{.+}} 64
 // AST: | | `-HLSLNodeArraySizeAttr 0x{{.+}} <col:6, col:23> 128
 // call to wrapper
 // AST: CallExpr 0x{{.+}} <col:11, col:35> 'EmptyNodeOutputArray':'EmptyNodeOutputArray'
@@ -313,8 +357,14 @@ void node_NodeOutputArray(
 // AST: `-ImplicitCastExpr 0x{{.+}} <col:19> 'EmptyNodeOutputArray' <LValueToRValue>
 // AST: `-DeclRefExpr 0x{{.+}} <col:19> 'EmptyNodeOutputArray' lvalue ParmVar 0x[[Param]] 'EmptyOutputArray' 'EmptyNodeOutputArray'
 // attributes.
-// AST: | |-HLSLNumThreadsAttr 0x{{.+}} 128 1 1
-// AST: | |-HLSLNodeDispatchGridAttr 0x{{.+}} 1 1 1
+// AST: | |-HLSLNumThreadsAttr 0x{{.+}}
+// AST: | | |-IntegerLiteral 0x{{.+}} 128
+// AST: | | |-IntegerLiteral 0x{{.+}} 1
+// AST: | | `-IntegerLiteral 0x{{.+}} 1
+// AST: | |-HLSLNodeDispatchGridAttr 0x{{.+}}
+// AST: | | |-IntegerLiteral 0x{{.+}} 1
+// AST: | | |-IntegerLiteral 0x{{.+}} 1
+// AST: | | `-IntegerLiteral 0x{{.+}} 1
 // AST: | |-HLSLNodeLaunchAttr 0x{{.+}} "broadcasting"
 // AST: | `-HLSLShaderAttr 0x{{.+}} "node"
 
@@ -335,7 +385,8 @@ void node_EmptyNodeOutputArray(
 //  GroupNodeOutputRecords
 // AST: FunctionDecl 0x{{.+}} node_GroupNodeOutputRecords 'void (NodeOutputArray<RECORD1>)'
 // AST: | |-ParmVarDecl 0x[[Param:[0-9a-f]+]] {{.+}} col:68 used OutputArray 'NodeOutputArray<RECORD1>':'NodeOutputArray<RECORD1>'
-// AST: | | |-HLSLMaxRecordsAttr 0x{{.+}} <col:27, col:40> 64
+// AST: | | |-HLSLMaxRecordsAttr 0x{{.+}} <col:27, col:40>
+// AST: | | | `-IntegerLiteral 0x{{.+}} 64
 // AST: | | `-HLSLNodeArraySizeAttr 0x{{.+}} <col:6, col:23> 128
 // call to wrapper
 // AST: CallExpr 0x{{.+}} <col:9, col:23> 'GroupNodeOutputRecords<RECORD1>':'GroupNodeOutputRecords<RECORD1>'
@@ -344,8 +395,14 @@ void node_EmptyNodeOutputArray(
 // AST: `-ImplicitCastExpr 0x{{.+}} <col:17> 'GroupNodeOutputRecords<RECORD1>':'GroupNodeOutputRecords<RECORD1>' <LValueToRValue>
 // AST: `-DeclRefExpr 0x{{.+}} <col:17> 'GroupNodeOutputRecords<RECORD1>':'GroupNodeOutputRecords<RECORD1>' lvalue Var 0x{{.+}} 'outRec' 'GroupNodeOutputRecords<RECORD1>':'GroupNodeOutputRecords<RECORD1>'
 // attributes.
-// AST: | |-HLSLNumThreadsAttr 0x{{.+}} 128 1 1
-// AST: | |-HLSLNodeDispatchGridAttr 0x{{.+}} 1 1 1
+// AST: | |-HLSLNumThreadsAttr 0x{{.+}}
+// AST: | | |-IntegerLiteral 0x{{.+}} 128
+// AST: | | |-IntegerLiteral 0x{{.+}} 1
+// AST: | | `-IntegerLiteral 0x{{.+}} 1
+// AST: | |-HLSLNodeDispatchGridAttr 0x{{.+}}
+// AST: | | |-IntegerLiteral 0x{{.+}} 1
+// AST: | | |-IntegerLiteral 0x{{.+}} 1
+// AST: | | `-IntegerLiteral 0x{{.+}} 1
 // AST: | |-HLSLNodeLaunchAttr 0x{{.+}} "broadcasting"
 // AST: | `-HLSLShaderAttr 0x{{.+}} "node"
 [Shader("node")]
@@ -366,7 +423,8 @@ void node_GroupNodeOutputRecords(
 //  ThreadNodeOutputRecords
 // AST: FunctionDecl 0x{{.+}} node_ThreadNodeOutputRecords 'void (NodeOutputArray<RECORD1>)'
 // AST:   |-ParmVarDecl 0x[[Param:[0-9a-f]+]] {{.+}} used OutputArray_1_0 'NodeOutputArray<RECORD1>':'NodeOutputArray<RECORD1>'
-// AST:   | |-HLSLMaxRecordsAttr 0x{{.+}} 31
+// AST:   | |-HLSLMaxRecordsAttr 0x{{.+}}
+// AST:   | | `-IntegerLiteral 0x{{.+}} 31
 // AST:   | |-HLSLNodeArraySizeAttr 0x{{.+}} <col:25, col:42> 129
 // AST:   | `-HLSLAllowSparseNodesAttr 0x{{.+}} <col:6>
 // call to wrapper
@@ -376,8 +434,14 @@ void node_GroupNodeOutputRecords(
 // AST: `-ImplicitCastExpr 0x{{.+}} <col:11> 'ThreadNodeOutputRecords<RECORD1>':'ThreadNodeOutputRecords<RECORD1>' <LValueToRValue>
 // AST: `-DeclRefExpr 0x{{.+}} <col:11> 'ThreadNodeOutputRecords<RECORD1>':'ThreadNodeOutputRecords<RECORD1>' lvalue Var 0x{{.+}} 'outRec' 'ThreadNodeOutputRecords<RECORD1>':'ThreadNodeOutputRecords<RECORD1>'
 // attributes.
-// AST:   |-HLSLNumThreadsAttr 0x{{.+}} 1 1 1
-// AST:   |-HLSLNodeDispatchGridAttr 0x{{.+}} 1 1 1
+// AST:   |-HLSLNumThreadsAttr 0x{{.+}}
+// AST:   |-IntegerLiteral 0x{{.+}} 1
+// AST:   |-IntegerLiteral 0x{{.+}} 1
+// AST:   `-IntegerLiteral 0x{{.+}} 1
+// AST:   |-HLSLNodeDispatchGridAttr 0x{{.+}}
+// AST:   |-IntegerLiteral 0x{{.+}} 1
+// AST:   |-IntegerLiteral 0x{{.+}} 1
+// AST:   `-IntegerLiteral 0x{{.+}} 1
 // AST:   |-HLSLNodeLaunchAttr 0x{{.+}} "broadcasting"
 // AST:   `-HLSLShaderAttr 0x{{.+}} "node"
 

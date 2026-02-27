@@ -7751,6 +7751,8 @@ def warn_hlsl_entry_attribute_without_shader_attribute : Warning<
   InGroup<HLSLEntryAttributeWithoutShaderAttrType>;
 def err_hlsl_attribute_expects_float_literal : Error<
   "attribute %0 must have a float literal argument">;
+def err_hlsl_attribute_expects_integer_const_expr : Error<
+  "attribute %0 argument %1 must be integer constant expression">;
 def warn_hlsl_comma_in_init : Warning<
   "comma expression used where a constructor list may have been intended">,
   InGroup<HLSLCommaInInit>;
