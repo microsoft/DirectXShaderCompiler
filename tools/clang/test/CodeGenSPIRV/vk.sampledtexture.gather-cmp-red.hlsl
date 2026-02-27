@@ -5,14 +5,21 @@
 // CHECK: [[v2fc:%[0-9]+]] = OpConstantComposite %v2float %float_0_5 %float_0_25
 // CHECK: [[v2ic:%[0-9]+]] = OpConstantComposite %v2int %int_2 %int_3
 // CHECK: [[v3fc:%[0-9]+]] = OpConstantComposite %v3float %float_0_5 %float_0_25 %float_0
+// CHECK: [[v4fc:%[0-9]+]] = OpConstantComposite %v4float %float_0_5 %float_0_25 %float_0 %float_0
 
 // CHECK: [[type_2d_image:%[a-zA-Z0-9_]+]] = OpTypeImage %float 2D 0 0 0 1 Unknown
 // CHECK: [[type_2d_sampled_image:%[a-zA-Z0-9_]+]] = OpTypeSampledImage [[type_2d_image]]
 // CHECK: [[type_2d_image_array:%[a-zA-Z0-9_]+]] = OpTypeImage %float 2D 0 1 0 1 Unknown
 // CHECK: [[type_2d_sampled_image_array:%[a-zA-Z0-9_]+]] = OpTypeSampledImage [[type_2d_image_array]]
+// CHECK: [[type_cube_image:%[a-zA-Z0-9_]+]] = OpTypeImage %float Cube 0 0 0 1 Unknown
+// CHECK: [[type_cube_sampled_image:%[a-zA-Z0-9_]+]] = OpTypeSampledImage [[type_cube_image]]
+// CHECK: [[type_cube_image_array:%[a-zA-Z0-9_]+]] = OpTypeImage %float Cube 0 1 0 1 Unknown
+// CHECK: [[type_cube_sampled_image_array:%[a-zA-Z0-9_]+]] = OpTypeSampledImage [[type_cube_image_array]]
 
 vk::SampledTexture2D<float4> tex2d;
 vk::SampledTexture2DArray<float4> tex2dArray;
+vk::SampledTextureCUBE<float4> texCube;
+vk::SampledTextureCUBEArray<float4> texCubeArray;
 
 float4 main() : SV_Target {
     uint status;
@@ -53,6 +60,16 @@ float4 main() : SV_Target {
 // CHECK: [[val_red_array:%[a-zA-Z0-9_]+]] = OpImageDrefGather %v4float [[tex2_load]] [[v3fc]] %float_0_5 None
 // CHECK: OpStore %val [[val_red_array]]
     val = tex2dArray.GatherCmpRed(float3(0.5, 0.25, 0), 0.5);
+
+// CHECK: [[cube_load:%[a-zA-Z0-9_]+]] = OpLoad [[type_cube_sampled_image]] %texCube
+// CHECK: [[val_red_cube:%[a-zA-Z0-9_]+]] = OpImageDrefGather %v4float [[cube_load]] [[v3fc]] %float_0_5 None
+// CHECK: OpStore %val [[val_red_cube]]
+    val = texCube.GatherCmpRed(float3(0.5, 0.25, 0), 0.5);
+
+// CHECK: [[cube_arr_load:%[a-zA-Z0-9_]+]] = OpLoad [[type_cube_sampled_image_array]] %texCubeArray
+// CHECK: [[val_red_cube_arr:%[a-zA-Z0-9_]+]] = OpImageDrefGather %v4float [[cube_arr_load]] [[v4fc]] %float_0_5 None
+// CHECK: OpStore %val [[val_red_cube_arr]]
+    val = texCubeArray.GatherCmpRed(float4(0.5, 0.25, 0, 0), 0.5);
 
     return val;
 }

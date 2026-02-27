@@ -851,7 +851,8 @@ const SpirvType *LowerTypeVisitor::lowerVkTypeInVkNamespace(
   }
   if (name == "SampledTexture1D" || name == "SampledTexture1DArray" ||
       name == "SampledTexture2D" || name == "SampledTexture2DArray" ||
-      name == "SampledTexture2DMS" || name == "SampledTexture2DMSArray") {
+      name == "SampledTexture2DMS" || name == "SampledTexture2DMSArray" ||
+      name == "SampledTextureCUBE" || name == "SampledTextureCUBEArray") {
     const auto sampledType = hlsl::GetHLSLResourceResultType(type);
     auto loweredType = lowerType(getElementType(astContext, sampledType), rule,
                                  /*isRowMajor*/ llvm::None, srcLoc);
@@ -863,7 +864,9 @@ const SpirvType *LowerTypeVisitor::lowerVkTypeInVkNamespace(
     }
 
     const spv::Dim dimension =
-        name.count("1D") > 0 ? spv::Dim::Dim1D : spv::Dim::Dim2D;
+        name.count("1D") > 0
+            ? spv::Dim::Dim1D
+            : (name.count("CUBE") > 0 ? spv::Dim::Cube : spv::Dim::Dim2D);
     const bool isArray = name.count("Array") > 0;
     const bool isMS = name.count("MS") > 0;
 
