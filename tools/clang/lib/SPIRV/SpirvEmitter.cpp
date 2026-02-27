@@ -4551,12 +4551,16 @@ SpirvInstruction *SpirvEmitter::processTextureGatherRGBACmpRGBA(
   // * SamplerState s, float2 location, float compare_value, out uint status
   //
   // Return type is always a 4-component vector.
+  //
+  // SampledTexture variants have the same signatures without the SamplerState
+  // parameter.
   const FunctionDecl *callee = expr->getDirectCallee();
   const auto numArgs = expr->getNumArgs();
   const auto *imageExpr = expr->getImplicitObjectArgument();
   const auto loc = expr->getCallee()->getExprLoc();
   const QualType imageType = imageExpr->getType();
   const QualType retType = callee->getReturnType();
+  const bool isImageSampledTexture = isSampledTexture(imageType);
 
   // If the last arg is an unsigned integer, it must be the status.
   const bool hasStatusArg =
@@ -4564,14 +4568,26 @@ SpirvInstruction *SpirvEmitter::processTextureGatherRGBACmpRGBA(
 
   // Subtract 1 for status arg (if it exists), subtract 1 for compare_value (if
   // it exists), and subtract 2 for SamplerState and location.
-  const auto numOffsetArgs = numArgs - hasStatusArg - isCmp - 2;
+  int offsetStartIndex = (isImageSampledTexture ? 1 : 2) + isCmp;
+  const auto numOffsetArgs = numArgs - hasStatusArg - offsetStartIndex;
   // No offset args for TextureCube, 1 or 4 offset args for the rest.
   assert(numOffsetArgs == 0 || numOffsetArgs == 1 || numOffsetArgs == 4);
 
+  int samplerIndex, coordIndex, compareValIndex;
+  if (isImageSampledTexture) {
+    samplerIndex = -1; // non-existant
+    coordIndex = 0;
+    compareValIndex = 1;
+  } else {
+    samplerIndex = 0;
+    coordIndex = 1;
+    compareValIndex = 2;
+  }
   auto *image = loadIfGLValue(imageExpr);
-  auto *sampler = doExpr(expr->getArg(0));
-  auto *coordinate = doExpr(expr->getArg(1));
-  auto *compareVal = isCmp ? doExpr(expr->getArg(2)) : nullptr;
+  auto *sampler =
+      samplerIndex >= 0 ? doExpr(expr->getArg(samplerIndex)) : nullptr;
+  auto *coordinate = doExpr(expr->getArg(coordIndex));
+  auto *compareVal = isCmp ? doExpr(expr->getArg(compareValIndex)) : nullptr;
 
   // Handle offsets (if any).
   bool needsEmulation = false;
@@ -4579,16 +4595,16 @@ SpirvInstruction *SpirvEmitter::processTextureGatherRGBACmpRGBA(
                    *constOffsets = nullptr;
   if (numOffsetArgs == 1) {
     // The offset arg is not optional.
-    handleOffsetInMethodCall(expr, 2 + isCmp, &constOffset, &varOffset);
+    handleOffsetInMethodCall(expr, offsetStartIndex, &constOffset, &varOffset);
   } else if (numOffsetArgs == 4) {
-    auto *offset0 = constEvaluator.tryToEvaluateAsConst(expr->getArg(2 + isCmp),
-                                                        isSpecConstantMode);
-    auto *offset1 = constEvaluator.tryToEvaluateAsConst(expr->getArg(3 + isCmp),
-                                                        isSpecConstantMode);
-    auto *offset2 = constEvaluator.tryToEvaluateAsConst(expr->getArg(4 + isCmp),
-                                                        isSpecConstantMode);
-    auto *offset3 = constEvaluator.tryToEvaluateAsConst(expr->getArg(5 + isCmp),
-                                                        isSpecConstantMode);
+    auto *offset0 = constEvaluator.tryToEvaluateAsConst(
+        expr->getArg(offsetStartIndex), isSpecConstantMode);
+    auto *offset1 = constEvaluator.tryToEvaluateAsConst(
+        expr->getArg(offsetStartIndex + 1), isSpecConstantMode);
+    auto *offset2 = constEvaluator.tryToEvaluateAsConst(
+        expr->getArg(offsetStartIndex + 2), isSpecConstantMode);
+    auto *offset3 = constEvaluator.tryToEvaluateAsConst(
+        expr->getArg(offsetStartIndex + 3), isSpecConstantMode);
 
     // If any of the offsets is not constant, we then need to emulate the call
     // using 4 OpImageGather instructions. Otherwise, we can leverage the
@@ -4611,7 +4627,7 @@ SpirvInstruction *SpirvEmitter::processTextureGatherRGBACmpRGBA(
 
     SpirvInstruction *texels[4];
     for (uint32_t i = 0; i < 4; ++i) {
-      varOffset = doExpr(expr->getArg(2 + isCmp + i));
+      varOffset = doExpr(expr->getArg(offsetStartIndex + i));
       auto *gatherRet = spvBuilder.createImageGather(
           retType, imageType, image, sampler, coordinate,
           spvBuilder.getConstantInt(astContext.IntTy,
@@ -4656,25 +4672,44 @@ SpirvEmitter::processTextureGatherCmp(const CXXMemberCallExpr *expr) {
   // );
   //
   // Other Texture types do not have the GatherCmp method.
+  //
+  // SampledTexture variants have the same signatures without the SamplerState
+  // parameter.
 
   const FunctionDecl *callee = expr->getDirectCallee();
   const auto numArgs = expr->getNumArgs();
   const auto loc = expr->getExprLoc();
   const bool hasStatusArg =
       expr->getArg(numArgs - 1)->getType()->isUnsignedIntegerType();
-  const bool hasOffsetArg = (numArgs == 5) || (numArgs == 4 && !hasStatusArg);
-
   const auto *imageExpr = expr->getImplicitObjectArgument();
+
+  const QualType imageType = imageExpr->getType();
+  const bool isImageSampledTexture = isSampledTexture(imageType);
+
+  int samplerIndex, coordIndex, compareValIndex;
+  if (isImageSampledTexture) {
+    samplerIndex = -1; // non-existant
+    coordIndex = 0;
+    compareValIndex = 1;
+  } else {
+    samplerIndex = 0;
+    coordIndex = 1;
+    compareValIndex = 2;
+  }
+
   auto *image = loadIfGLValue(imageExpr);
-  auto *sampler = doExpr(expr->getArg(0));
-  auto *coordinate = doExpr(expr->getArg(1));
-  auto *comparator = doExpr(expr->getArg(2));
+  auto *sampler =
+      samplerIndex >= 0 ? doExpr(expr->getArg(samplerIndex)) : nullptr;
+  auto *coordinate = doExpr(expr->getArg(coordIndex));
+  auto *comparator = doExpr(expr->getArg(compareValIndex));
+
+  const bool hasOffsetArg = numArgs - hasStatusArg - compareValIndex > 1;
   SpirvInstruction *constOffset = nullptr, *varOffset = nullptr;
   if (hasOffsetArg)
-    handleOffsetInMethodCall(expr, 3, &constOffset, &varOffset);
+    handleOffsetInMethodCall(expr, compareValIndex + 1, &constOffset,
+                             &varOffset);
 
   const auto retType = callee->getReturnType();
-  const auto imageType = imageExpr->getType();
   const auto status =
       hasStatusArg ? doExpr(expr->getArg(numArgs - 1)) : nullptr;
 
