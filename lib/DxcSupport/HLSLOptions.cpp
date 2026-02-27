@@ -584,22 +584,29 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   opts.UseInstructionByteOffsets = Args.hasFlag(OPT_No, OPT_INVALID, false);
   opts.UseHexLiterals = Args.hasFlag(OPT_Lx, OPT_INVALID, false);
   if (Args.hasFlag(OPT_P, OPT_INVALID, false)) {
+    // cl.exe-compatible /P: preprocess to <inputname>.i, or use /Fi to
+    // override.
+    llvm::SmallString<128> Path(Args.getLastArgValue(OPT_INPUT));
+    llvm::sys::path::replace_extension(Path, "i");
+    opts.Preprocess = Args.getLastArgValue(OPT_Fi, Path).str();
+  } else if (Args.hasFlag(OPT_Po, OPT_INVALID, false)) {
+    // /Po: backward-compatible preprocessing (deprecated, use /P /Fi instead).
     // Default preprocess filename is InputName.i.
     llvm::SmallString<128> Path(Args.getLastArgValue(OPT_INPUT));
     llvm::sys::path::replace_extension(Path, "i");
     // Try to get preprocess filename from Fi.
     opts.Preprocess = Args.getLastArgValue(OPT_Fi, Path).str();
-    // Hack to support fxc style /P preprocess_filename.
-    // When there're more than 1 Input file, use the input which is after /P as
-    // preprocess.
+    // Hack to support fxc style /Po preprocess_filename.
+    // When there're more than 1 Input file, use the input which is after /Po
+    // as preprocess.
     if (!Args.hasArg(OPT_Fi)) {
       std::vector<std::string> Inputs = Args.getAllArgValues(OPT_INPUT);
       if (Inputs.size() > 1) {
-        llvm::opt::Arg *PArg = Args.getLastArg(OPT_P);
+        llvm::opt::Arg *PArg = Args.getLastArg(OPT_Po);
         std::string LastInput = Inputs.back();
         llvm::opt::Arg *PrevInputArg = nullptr;
         for (llvm::opt::Arg *InputArg : Args.filtered(OPT_INPUT)) {
-          // Find Input after /P.
+          // Find Input after /Po.
           if ((PArg->getIndex() + 1) == InputArg->getIndex()) {
             opts.Preprocess = InputArg->getValue();
             if (LastInput == opts.Preprocess && PrevInputArg) {
@@ -607,7 +614,7 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
               // Args.getLastArgValue(OPT_INPUT) get expect Input.
               InputArg->getValues()[0] = PrevInputArg->getValues()[0];
             }
-            errors << "warning: -P " << opts.Preprocess
+            errors << "warning: -Po " << opts.Preprocess
                    << " is deprecated, please use -P -Fi " << opts.Preprocess
                    << " instead.\n";
             break;
