@@ -8,11 +8,17 @@
 // CHECK: [[v2f_2:%[0-9]+]] = OpConstantComposite %v2float %float_2 %float_2
 // CHECK: [[v2ic:%[0-9]+]] = OpConstantComposite %v2int %int_2 %int_3
 
+// CHECK: [[type_1d_image:%[a-zA-Z0-9_]+]] = OpTypeImage %float 1D 0 0 0 1 Unknown
+// CHECK: [[type_1d_sampled_image:%[a-zA-Z0-9_]+]] = OpTypeSampledImage [[type_1d_image]]
+// CHECK: [[type_1d_image_array:%[a-zA-Z0-9_]+]] = OpTypeImage %float 1D 0 1 0 1 Unknown
+// CHECK: [[type_1d_sampled_image_array:%[a-zA-Z0-9_]+]] = OpTypeSampledImage [[type_1d_image_array]]
 // CHECK: [[type_2d_image:%[a-zA-Z0-9_]+]] = OpTypeImage %float 2D 0 0 0 1 Unknown
 // CHECK: [[type_2d_sampled_image:%[a-zA-Z0-9_]+]] = OpTypeSampledImage [[type_2d_image]]
 // CHECK: [[type_2d_image_array:%[a-zA-Z0-9_]+]] = OpTypeImage %float 2D 0 1 0 1 Unknown
 // CHECK: [[type_2d_sampled_image_array:%[a-zA-Z0-9_]+]] = OpTypeSampledImage [[type_2d_image_array]]
 
+vk::SampledTexture1D<float4> tex1d;
+vk::SampledTexture1DArray<float4> tex1dArray;
 vk::SampledTexture2D<float4> tex2d;
 vk::SampledTexture2DArray<float4> tex2dArray;
 
@@ -35,6 +41,14 @@ float4 main() : SV_Target {
 // CHECK:                        OpStore %status [[status_0]]
     uint status;
     float val4 = tex2d.SampleCmpGrad(float2(0.5, 0.25), 1.0f, float2(1, 1), float2(2, 2), int2(2,3), 0.5, status);
+
+// CHECK: [[tex1d_load:%[a-zA-Z0-9_]+]] = OpLoad [[type_1d_sampled_image]] %tex1d
+// CHECK: [[sampled_1d:%[a-zA-Z0-9_]+]] = OpImageSampleDrefExplicitLod %float [[tex1d_load]] %float_0_5 %float_1 Grad %float_1 %float_2
+    float val5 = tex1d.SampleCmpGrad(0.5, 1.0f, 1.0f, 2.0f);
+
+// CHECK: [[tex1da_load:%[a-zA-Z0-9_]+]] = OpLoad [[type_1d_sampled_image_array]] %tex1dArray
+// CHECK: [[sampled_1da:%[a-zA-Z0-9_]+]] = OpImageSampleDrefExplicitLod %float [[tex1da_load]] {{%[0-9]+}} %float_1 Grad %float_1 %float_2
+    float val6 = tex1dArray.SampleCmpGrad(float2(0.5, 0), 1.0f, 1.0f, 2.0f);
 
     return 1.0;
 }
