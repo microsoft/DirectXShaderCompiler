@@ -3405,12 +3405,8 @@ static void ValidateFunctionBody(Function *F, ValidationContext &ValCtx) {
             // We always fail if we see i8 as operand type of a non-lifetime
             // instruction.
             ValCtx.EmitInstrError(&I, ValidationRule::TypesI8);
-          } else if (!IsValidIntBitWidth(BW)) {
-            std::string O;
-            raw_string_ostream OSS(O);
-            IT->print(OSS);
-            ValCtx.EmitInstrFormatError(&I, ValidationRule::TypesIntWidth,
-                                        {OSS.str()});
+          } else {
+            ValidateType(IT, ValCtx);
           }
         }
       }
@@ -3428,12 +3424,8 @@ static void ValidateFunctionBody(Function *F, ValidationContext &ValCtx) {
               !onlyUsedByLifetimeMarkers(&I)) {
             ValCtx.EmitInstrError(&I, ValidationRule::TypesI8);
           }
-        } else if (!IsValidIntBitWidth(BW)) {
-          std::string O;
-          raw_string_ostream OSS(O);
-          IT->print(OSS);
-          ValCtx.EmitInstrFormatError(&I, ValidationRule::TypesIntWidth,
-                                      {OSS.str()});
+        } else {
+          ValidateType(IT, ValCtx);
         }
       }
 
