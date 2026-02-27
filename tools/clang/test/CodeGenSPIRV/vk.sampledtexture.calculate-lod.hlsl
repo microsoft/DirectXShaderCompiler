@@ -10,11 +10,14 @@
 // CHECK: [[type_2d_sampled_image:%[a-zA-Z0-9_]+]] = OpTypeSampledImage [[type_2d_image]]
 // CHECK: [[type_2d_image_array:%[a-zA-Z0-9_]+]] = OpTypeImage %float 2D 0 1 0 1 Unknown
 // CHECK: [[type_2d_sampled_image_array:%[a-zA-Z0-9_]+]] = OpTypeSampledImage [[type_2d_image_array]]
+// CHECK: [[type_3d_image:%[a-zA-Z0-9_]+]] = OpTypeImage %float 3D 0 0 0 1 Unknown
+// CHECK: [[type_3d_sampled_image:%[a-zA-Z0-9_]+]] = OpTypeSampledImage [[type_3d_image]]
 
 vk::SampledTexture1D<float4> tex1d;
 vk::SampledTexture1DArray<float4> tex1dArray;
 vk::SampledTexture2D<float4> tex2d;
 vk::SampledTexture2DArray<float4> tex2dArray;
+vk::SampledTexture3D<float4> tex3d;
 
 void main() {
   float2 xy = float2(0.5, 0.5);
@@ -40,4 +43,9 @@ void main() {
 // CHECK-NEXT: [[query1da:%[a-zA-Z0-9_]+]] = OpImageQueryLod %v2float [[tex1da_load]] %float_0_5
 // CHECK-NEXT:        {{%[0-9]+}} = OpCompositeExtract %float [[query1da]] 0
   float lod4 = tex1dArray.CalculateLevelOfDetail(0.5);
+
+// CHECK:          [[tex3d_load:%[a-zA-Z0-9_]+]] = OpLoad [[type_3d_sampled_image]] %tex3d
+// CHECK-NEXT: [[query3d:%[a-zA-Z0-9_]+]] = OpImageQueryLod %v2float [[tex3d_load]] %{{[0-9]+}}
+// CHECK-NEXT:        {{%[0-9]+}} = OpCompositeExtract %float [[query3d]] 0
+  float lod5 = tex3d.CalculateLevelOfDetail(float3(0.5, 0.25, 0));
 }
