@@ -654,7 +654,7 @@ private:
 
   // Results.
   LookupResultKind ResultKind;
-  AmbiguityKind Ambiguity; // ill-defined unless ambiguous
+  AmbiguityKind Ambiguity = {}; // ill-defined unless ambiguous
   UnresolvedSet<8> Decls;
   CXXBasePaths *Paths;
   CXXRecordDecl *NamingClass;
