@@ -1522,4 +1522,111 @@ namespace VkSampledTexture2DMSArrayMethods {
     $classT [[]] Load(in int<3> x, in int s, in int<2> o, out uint_only status) : texture2darray_ms_o_s;
 } namespace
 
+
+namespace VkSampledTextureCUBEMethods {
+
+float [[ro]] CalculateLevelOfDetail(in float<3> x) : texcube_t_calc_lod;
+float [[ro]] CalculateLevelOfDetailUnclamped(in float<3> x) : texcube_t_calc_lod_unclamped;
+$match<0, -1> void<4> [[ro]] Gather(in float<3> x) : texcube_t_gather;
+$match<0, -1> void<4> [[ro]] GatherAlpha(in float<3> x) : texcube_t_gather_alpha;
+$match<0, -1> void<4> [[ro]] GatherBlue(in float<3> x) : texcube_t_gather_blue;
+$match<0, -1> void<4> [[ro]] GatherCmp(in float<3> x, in float compareValue) : texcube_t_gather_comp;
+$match<0, -1> void<4> [[ro]] GatherCmpAlpha(in float<3> x, in float compareValue) : texcube_t_gather_comp_alpha;
+$match<0, -1> void<4> [[ro]] GatherCmpBlue(in float<3> x, in float compareValue) : texcube_t_gather_comp_blue;
+$match<0, -1> void<4> [[ro]] GatherCmpGreen(in float<3> x, in float compareValue) : texcube_t_gather_comp_green;
+$match<0, -1> void<4> [[ro]] GatherCmpRed(in float<3> x, in float compareValue) : texcube_t_gather_comp_red;
+$match<0, -1> void<4> [[ro]] GatherGreen(in float<3> x) : texcube_t_gather_green;
+$match<0, -1> void<4> [[ro]] GatherRed(in float<3> x) : texcube_t_gather_red;
+void [[]] GetDimensions(in uint x, out uint_only width, out $type2 height, out $type2 levels) : resinfo_uint;
+void [[]] GetDimensions(in uint x, out float_like width, out $type2 height, out $type2 levels) : resinfo;
+void [[]] GetDimensions(out uint_only width, out $type1 height) : resinfo_uint_o;
+void [[]] GetDimensions(out float_like width, out $type1 height) : resinfo_o;
+$classT [[ro]] Sample(in float<3> x) : texcube_t;
+$classT [[ro]] SampleBias(in float<3> x, in float bias) : texcube_t_bias;
+float_like [[ro]] SampleCmp(in float<3> x, in float c) : texcube_t_comp;
+float_like [[ro]] SampleCmpBias(in float<3> x, in float compareValue, in float bias) : texcube_t_comp_bias;
+float_like [[ro]] SampleCmpGrad(in float<3> x, in float compareValue, in $match<1, 1> float<3> ddx, in $match<1, 1> float<3> ddy) : texcube_t_comp_dd;
+float_like [[ro]] SampleCmpLevel(in float<3> x, in float c, in float lod);
+float_like [[ro]] SampleCmpLevelZero(in float<3> x, in float c) : texcube_t_comp_lz;
+$classT [[ro]] SampleGrad(in float<3> x, in $match<1, 1> float<3> ddx, in $match<1, 1> float<3> ddy) : texcube_t_dd;
+$classT [[ro]] SampleLevel(in float<3> x, in float lod) : texcube_t_lod;
+$classT [[ro]] Sample(in float<3> x, in float clamp) : texcube_t_cl;
+$classT [[]] Sample(in float<3> x, in float clamp, out uint_only status) : texcube_t_cl_s;
+float_like [[ro]] SampleCmp(in float<3> x, in float compareValue, in float clamp) : texcube_t_comp_cl;
+float_like [[]] SampleCmp(in float<3> x, in float compareValue, in float clamp, out uint_only status) : texcube_t_comp_cl_s;
+float_like [[ro]] SampleCmpBias(in float<3> x, in float compareValue, in float bias, in float clamp) : texcube_t_comp_bias_cl;
+float_like [[]] SampleCmpBias(in float<3> x, in float compareValue, in float bias, in float clamp, out uint_only status) : texcube_t_comp_bias_cl_s;
+float_like [[ro]] SampleCmpGrad(in float<3> x, in float compareValue, in $match<1, 1> float<3> ddx, in $match<1, 1> float<3> ddy, in float clamp) : texcube_t_comp_dd_o_cl;
+float_like [[]] SampleCmpGrad(in float<3> x, in float compareValue, in $match<1, 1> float<3> ddx, in $match<1, 1> float<3> ddy, in float clamp, out uint_only status) : texcube_t_comp_dd_o_cl_s;
+float_like [[]] SampleCmpLevel(in float<3> x, in float compareValue, in float lod, out uint_only status);
+float_like [[]] SampleCmpLevelZero(in float<3> x, in float compareValue, out uint_only status) : texcube_t_comp_s;
+$classT [[]] SampleLevel(in float<3> x, in float lod, out uint_only status) : texcube_t_lod_s;
+$classT [[ro]] SampleBias(in float<3> x, in float bias, in float clamp) : texcube_t_bias_cl;
+$classT [[]] SampleBias(in float<3> x, in float bias, in float clamp, out uint_only status) : texcube_t_bias_cl_s;
+$classT [[ro]] SampleGrad(in float<3> x, in $match<1, 1> float<3> ddx, in $match<1, 1> float<3> ddy, in float clamp) : texcube_t_dd_cl;
+$classT [[]] SampleGrad(in float<3> x, in $match<1, 1> float<3> ddx, in $match<1, 1> float<3> ddy, in float clamp, out uint_only status) : texcube_t_dd_cl_s;
+$match<0, -1> void<4> [[]] Gather(in float<3> x, out uint_only status) : texcube_t_gather_s;
+$match<0, -1> void<4> [[]] GatherRed(in float<3> x, out uint_only status) : texcube_t_gather_red_s;
+$match<0, -1> void<4> [[]] GatherGreen(in float<3> x, out uint_only status) : texcube_t_gather_green_s;
+$match<0, -1> void<4> [[]] GatherBlue(in float<3> x, out uint_only status) : texcube_t_gather_blue_s;
+$match<0, -1> void<4> [[]] GatherAlpha(in float<3> x, out uint_only status) : texcube_t_gather_alpha_s;
+$match<0, -1> void<4> [[]] GatherCmp(in float<3> x, in float compareValue, out uint_only status) : texcube_t_gather_comp_s;
+$match<0, -1> void<4> [[]] GatherCmpRed(in float<3> x, in float compareValue, out uint_only status) : texcube_t_gather_comp_red_s;
+$match<0, -1> void<4> [[]] GatherCmpGreen(in float<3> x, in float compareValue, out uint_only status) : texcube_t_gather_comp_green_s;
+$match<0, -1> void<4> [[]] GatherCmpBlue(in float<3> x, in float compareValue, out uint_only status) : texcube_t_gather_comp_blue_s;
+$match<0, -1> void<4> [[]] GatherCmpAlpha(in float<3> x, in float compareValue, out uint_only status) : texcube_t_gather_comp_alpha_s;
+} namespace
+
+namespace VkSampledTextureCUBEArrayMethods {
+
+float [[ro]] CalculateLevelOfDetail(in float<3> x) : texcube_t_calc_lod_array;
+float [[ro]] CalculateLevelOfDetailUnclamped(in float<3> x) : texcube_t_calc_lod_unclamped_array;
+$match<0, -1> void<4> [[ro]] Gather(in float<4> x) : texcube_t_gather_array;
+$match<0, -1> void<4> [[ro]] GatherAlpha(in float<4> x) : texcube_t_gather_alpha_array;
+$match<0, -1> void<4> [[ro]] GatherBlue(in float<4> x) : texcube_t_gather_blue_array;
+$match<0, -1> void<4> [[ro]] GatherCmp(in float<4> x, in float compareValue) : texcube_t_gather_comp_array;
+$match<0, -1> void<4> [[ro]] GatherCmpAlpha(in float<4> x, in float compareValue) : texcube_t_gather_comp_alpha_array;
+$match<0, -1> void<4> [[ro]] GatherCmpBlue(in float<4> x, in float compareValue) : texcube_t_gather_comp_blue_array;
+$match<0, -1> void<4> [[ro]] GatherCmpGreen(in float<4> x, in float compareValue) : texcube_t_gather_comp_green_array;
+$match<0, -1> void<4> [[ro]] GatherCmpRed(in float<4> x, in float compareValue) : texcube_t_gather_comp_red_array;
+$match<0, -1> void<4> [[ro]] GatherGreen(in float<4> x) : texcube_t_gather_green_array;
+$match<0, -1> void<4> [[ro]] GatherRed(in float<4> x) : texcube_t_gather_red_array;
+void [[]] GetDimensions(in uint x, out uint_only width, out $type2 height, out $type2 elements, out $type2 levels) : resinfo_uint;
+void [[]] GetDimensions(in uint x, out float_like width, out $type2 height, out $type2 elements, out $type2 levels) : resinfo;
+void [[]] GetDimensions(out uint_only width, out $type1 height, out $type1 elements) : resinfo_uint_o;
+void [[]] GetDimensions(out float_like width, out $type1 height, out $type1 elements) : resinfo_o;
+$classT [[ro]] Sample(in float<4> x) : texcube_t_array;
+$classT [[ro]] SampleBias(in float<4> x, in float bias) : texcube_t_bias_array;
+float_like [[ro]] SampleCmp(in float<4> x, in float c) : texcube_t_comp_array;
+float_like [[ro]] SampleCmpBias(in float<4> x, in float compareValue, in float bias) : texcube_t_comp_bias_array;
+float_like [[ro]] SampleCmpLevel(in float<4> x, in float c, in float lod);
+float_like [[ro]] SampleCmpLevelZero(in float<4> x, in float c) : texcube_t_comp_lz_array;
+$classT [[ro]] SampleGrad(in float<4> x, in $match<2, 2> float<3> ddx, in $match<2, 2> float<3> ddy) : texcube_t_dd_array;
+$classT [[ro]] SampleLevel(in float<4> x, in float lod) : texcube_t_lod_array;
+$classT [[ro]] Sample(in float<4> x, in float clamp) : texcube_t_array_cl;
+$classT [[]] Sample(in float<4> x, in float clamp, out uint_only status) : texcube_t_array_cl_s;
+float_like [[ro]] SampleCmp(in float<4> x, in float compareValue, in float clamp) : texcube_t_comp_array_cl;
+float_like [[]] SampleCmp(in float<4> x, in float compareValue, in float clamp, out uint_only status) : texcube_t_comp_array_cl_s;
+float_like [[ro]] SampleCmpBias(in float<4> x, in float compareValue, in float bias, in float clamp) : texcube_t_comp_bias_array_cl;
+float_like [[]] SampleCmpBias(in float<4> x, in float compareValue, in float bias, in float clamp, out uint_only status) : texcube_t_comp_bias_array_cl_s;
+float_like [[]] SampleCmpLevel(in float<4> x, in float compareValue, in float lod, out uint_only status);
+float_like [[]] SampleCmpLevelZero(in float<4> x, in float compareValue, out uint_only status) : texcube_t_comp_array_s;
+$classT [[]] SampleLevel(in float<4> x, in float lod, out uint_only status) : texcube_t_lod_array_s;
+$classT [[ro]] SampleBias(in float<4> x, in float bias, in float clamp) : texcube_t_bias_array_cl;
+$classT [[]] SampleBias(in float<4> x, in float bias, in float clamp, out uint_only status) : texcube_t_bias_array_cl_s;
+$classT [[ro]] SampleGrad(in float<4> x, in $match<2, 2> float<3> ddx, in $match<2, 2> float<3> ddy, in float clamp) : texcube_t_dd_array_cl;
+$classT [[]] SampleGrad(in float<4> x, in $match<2, 2> float<3> ddx, in $match<2, 2> float<3> ddy, in float clamp, out uint_only status) : texcube_t_dd_array_cl_s;
+$match<0, -1> void<4> [[]] Gather(in float<4> x, out uint_only status) : texcube_t_gather_array_s;
+$match<0, -1> void<4> [[]] GatherRed(in float<4> x, out uint_only status) : texcube_t_gather_red_array_s;
+$match<0, -1> void<4> [[]] GatherGreen(in float<4> x, out uint_only status) : texcube_t_gather_green_array_s;
+$match<0, -1> void<4> [[]] GatherBlue(in float<4> x, out uint_only status) : texcube_t_gather_blue_array_s;
+$match<0, -1> void<4> [[]] GatherAlpha(in float<4> x, out uint_only status) : texcube_t_gather_alpha_array_s;
+$match<0, -1> void<4> [[]] GatherCmp(in float<4> x, in float compareValue, out uint_only status) : texcube_t_gather_comp_array_s;
+$match<0, -1> void<4> [[]] GatherCmpRed(in float<4> x, in float compareValue, out uint_only status) : texcube_t_gather_comp_red_array_s;
+$match<0, -1> void<4> [[]] GatherCmpGreen(in float<4> x, in float compareValue, out uint_only status) : texcube_t_gather_comp_green_array_s;
+$match<0, -1> void<4> [[]] GatherCmpBlue(in float<4> x, in float compareValue, out uint_only status) : texcube_t_gather_comp_blue_array_s;
+$match<0, -1> void<4> [[]] GatherCmpAlpha(in float<4> x, in float compareValue, out uint_only status) : texcube_t_gather_comp_alpha_array_s;
+} namespace
+
+
 // SPIRV Change Ends

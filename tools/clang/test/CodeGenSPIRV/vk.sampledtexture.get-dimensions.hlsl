@@ -15,6 +15,10 @@
 // CHECK: [[type_2d_sampled_image_ms:%[a-zA-Z0-9_]+]] = OpTypeSampledImage [[type_2d_image_ms]]
 // CHECK: [[type_2d_image_ms_array:%[a-zA-Z0-9_]+]] = OpTypeImage %float 2D 0 1 1 1 Unknown
 // CHECK: [[type_2d_sampled_image_ms_array:%[a-zA-Z0-9_]+]] = OpTypeSampledImage [[type_2d_image_ms_array]]
+// CHECK: [[type_cube_image:%[a-zA-Z0-9_]+]] = OpTypeImage %float Cube 0 0 0 1 Unknown
+// CHECK: [[type_cube_sampled_image:%[a-zA-Z0-9_]+]] = OpTypeSampledImage [[type_cube_image]]
+// CHECK: [[type_cube_image_array:%[a-zA-Z0-9_]+]] = OpTypeImage %float Cube 0 1 0 1 Unknown
+// CHECK: [[type_cube_sampled_image_array:%[a-zA-Z0-9_]+]] = OpTypeSampledImage [[type_cube_image_array]]
 
 vk::SampledTexture1D<float4> tex1d;
 vk::SampledTexture1DArray<float4> tex1dArray;
@@ -22,6 +26,8 @@ vk::SampledTexture2D<float4> tex2d;
 vk::SampledTexture2DArray<float4> tex2dArray;
 vk::SampledTexture2DMS<float4> tex2dMS;
 vk::SampledTexture2DMSArray<float4> tex2dMSArray;
+vk::SampledTextureCUBE<float4> texCube;
+vk::SampledTextureCUBEArray<float4> texCubeArray;
 
 void main() {
   uint mipLevel = 1;
@@ -150,6 +156,26 @@ void main() {
 // CHECK-NEXT:   [[query1da1:%[0-9]+]] = OpCompositeExtract %uint [[query1da]] 1
 // CHECK-NEXT:                        OpStore %elements [[query1da1]]
   tex1dArray.GetDimensions(width, elements);
+
+// CHECK:          [[tc_load:%[0-9]+]] = OpLoad [[type_cube_sampled_image]] %texCube
+// CHECK-NEXT:      [[tc_img:%[0-9]+]] = OpImage [[type_cube_image]] [[tc_load]]
+// CHECK-NEXT:    [[tc_size:%[0-9]+]] = OpImageQuerySizeLod %v2uint [[tc_img]] %int_0
+// CHECK-NEXT:  [[tc_size0:%[0-9]+]] = OpCompositeExtract %uint [[tc_size]] 0
+// CHECK-NEXT:                        OpStore %width [[tc_size0]]
+// CHECK-NEXT:  [[tc_size1:%[0-9]+]] = OpCompositeExtract %uint [[tc_size]] 1
+// CHECK-NEXT:                        OpStore %height [[tc_size1]]
+  texCube.GetDimensions(width, height);
+
+// CHECK:          [[tca_load:%[0-9]+]] = OpLoad [[type_cube_sampled_image_array]] %texCubeArray
+// CHECK-NEXT:      [[tca_img:%[0-9]+]] = OpImage [[type_cube_image_array]] [[tca_load]]
+// CHECK-NEXT:    [[tca_size:%[0-9]+]] = OpImageQuerySizeLod %v3uint [[tca_img]] %int_0
+// CHECK-NEXT: [[tca_size0:%[0-9]+]] = OpCompositeExtract %uint [[tca_size]] 0
+// CHECK-NEXT:                        OpStore %width [[tca_size0]]
+// CHECK-NEXT: [[tca_size1:%[0-9]+]] = OpCompositeExtract %uint [[tca_size]] 1
+// CHECK-NEXT:                        OpStore %height [[tca_size1]]
+// CHECK-NEXT: [[tca_size2:%[0-9]+]] = OpCompositeExtract %uint [[tca_size]] 2
+// CHECK-NEXT:                        OpStore %elements [[tca_size2]]
+  texCubeArray.GetDimensions(width, height, elements);
 
 // CHECK:             [[t1_load:%[0-9]+]] = OpLoad [[type_2d_sampled_image]] %tex2d
 // CHECK-NEXT:   [[image2:%[0-9]+]] = OpImage [[type_2d_image]] [[t1_load]]
