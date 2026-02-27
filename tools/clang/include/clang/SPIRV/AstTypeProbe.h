@@ -257,6 +257,10 @@ bool isTexture(QualType);
 /// Texture2DMSArray type.
 bool isTextureMS(QualType);
 
+/// \brief Returns true if the given type is an HLSL SampledTexture2DMS or
+/// SampledTexture2DMSArray type.
+bool isSampledTextureMS(QualType);
+
 /// \brief Returns true if the given type is an HLSL SampledTexture type.
 bool isSampledTexture(QualType);
 
