@@ -1376,8 +1376,6 @@ CXXRecordDecl *hlsl::DeclareVkSampledTextureType(ASTContext &context,
                                                  DeclContext *declContext,
                                                  llvm::StringRef hlslTypeName,
                                                  QualType defaultParamType) {
-  // TODO(https://github.com/microsoft/DirectXShaderCompiler/issues/7979): Later
-  // generalize these to all SampledTexture types.
   BuiltinTypeDeclBuilder Builder(declContext, hlslTypeName,
                                  TagDecl::TagKind::TTK_Struct);
 
