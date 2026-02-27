@@ -3,6 +3,10 @@
 
 // CHECK: OpCapability ImageQuery
 
+// CHECK: [[type_1d_image:%[a-zA-Z0-9_]+]] = OpTypeImage %float 1D 0 0 0 1 Unknown
+// CHECK: [[type_1d_sampled_image:%[a-zA-Z0-9_]+]] = OpTypeSampledImage [[type_1d_image]]
+// CHECK: [[type_1d_image_array:%[a-zA-Z0-9_]+]] = OpTypeImage %float 1D 0 1 0 1 Unknown
+// CHECK: [[type_1d_sampled_image_array:%[a-zA-Z0-9_]+]] = OpTypeSampledImage [[type_1d_image_array]]
 // CHECK: [[type_2d_image:%[a-zA-Z0-9_]+]] = OpTypeImage %float 2D 0 0 0 1 Unknown
 // CHECK: [[type_2d_sampled_image:%[a-zA-Z0-9_]+]] = OpTypeSampledImage [[type_2d_image]]
 // CHECK: [[type_2d_image_array:%[a-zA-Z0-9_]+]] = OpTypeImage %float 2D 0 1 0 1 Unknown
@@ -12,6 +16,8 @@
 // CHECK: [[type_2d_image_ms_array:%[a-zA-Z0-9_]+]] = OpTypeImage %float 2D 0 1 1 1 Unknown
 // CHECK: [[type_2d_sampled_image_ms_array:%[a-zA-Z0-9_]+]] = OpTypeSampledImage [[type_2d_image_ms_array]]
 
+vk::SampledTexture1D<float4> tex1d;
+vk::SampledTexture1DArray<float4> tex1dArray;
 vk::SampledTexture2D<float4> tex2d;
 vk::SampledTexture2DArray<float4> tex2dArray;
 vk::SampledTexture2DMS<float4> tex2dMS;
@@ -129,6 +135,21 @@ void main() {
 // CHECK-NEXT:  [[query_1_int:%[0-9]+]] = OpBitcast %int [[query1_1]]
 // CHECK-NEXT:                      OpStore %i_height [[query_1_int]]
   tex2d.GetDimensions(i_width, i_height);
+
+// CHECK:          [[t1d_load:%[0-9]+]] = OpLoad [[type_1d_sampled_image]] %tex1d
+// CHECK-NEXT:     [[image1d:%[0-9]+]] = OpImage [[type_1d_image]] [[t1d_load]]
+// CHECK-NEXT:     [[query1d:%[0-9]+]] = OpImageQuerySizeLod %uint [[image1d]] %int_0
+// CHECK-NEXT:                        OpStore %width [[query1d]]
+  tex1d.GetDimensions(width);
+
+// CHECK:           [[t1da_load:%[0-9]+]] = OpLoad [[type_1d_sampled_image_array]] %tex1dArray
+// CHECK-NEXT:     [[image1da:%[0-9]+]] = OpImage [[type_1d_image_array]] [[t1da_load]]
+// CHECK-NEXT:     [[query1da:%[0-9]+]] = OpImageQuerySizeLod %v2uint [[image1da]] %int_0
+// CHECK-NEXT:   [[query1da0:%[0-9]+]] = OpCompositeExtract %uint [[query1da]] 0
+// CHECK-NEXT:                        OpStore %width [[query1da0]]
+// CHECK-NEXT:   [[query1da1:%[0-9]+]] = OpCompositeExtract %uint [[query1da]] 1
+// CHECK-NEXT:                        OpStore %elements [[query1da1]]
+  tex1dArray.GetDimensions(width, elements);
 
 // CHECK:             [[t1_load:%[0-9]+]] = OpLoad [[type_2d_sampled_image]] %tex2d
 // CHECK-NEXT:   [[image2:%[0-9]+]] = OpImage [[type_2d_image]] [[t1_load]]
