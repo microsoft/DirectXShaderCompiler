@@ -631,6 +631,11 @@ StringRef GetHLSLLinAlgMatrixTypeMangling(llvm::StructType *Ty) {
   return Ty->getStructName().substr(strlen(DXIL::kDxLinAlgMatrixTypePrefix));
 }
 
+bool IsHLSLKnownTargetType(llvm::Type *Ty) {
+  // Currently only LinAlgMatrix types are target types.
+  return IsHLSLLinAlgMatrixType(Ty);
+}
+
 bool IsHLSLResourceDescType(llvm::Type *Ty) {
   if (llvm::StructType *ST = dyn_cast<llvm::StructType>(Ty)) {
     if (!ST->hasName())
