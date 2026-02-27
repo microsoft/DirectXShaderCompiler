@@ -2,20 +2,26 @@
 
 // CHECK: OpCapability ImageQuery
 
-vk::SampledTexture2D<float4> t1 : register(t0);
+// CHECK: [[type_2d_image:%[a-zA-Z0-9_]+]] = OpTypeImage %float 2D 0 0 0 1 Unknown
+// CHECK: [[type_2d_sampled_image:%[a-zA-Z0-9_]+]] = OpTypeSampledImage [[type_2d_image]]
+// CHECK: [[type_2d_image_array:%[a-zA-Z0-9_]+]] = OpTypeImage %float 2D 0 1 0 1 Unknown
+// CHECK: [[type_2d_sampled_image_array:%[a-zA-Z0-9_]+]] = OpTypeSampledImage [[type_2d_image_array]]
 
-// CHECK: %type_2d_image = OpTypeImage %float 2D 0 0 0 1 Unknown
-// CHECK: %type_sampled_image = OpTypeSampledImage %type_2d_image
-// CHECK: [[ptr:%[a-zA-Z0-9_]+]] = OpTypePointer UniformConstant %type_sampled_image
-
-// CHECK: %t1 = OpVariable [[ptr]] UniformConstant
+vk::SampledTexture2D<float4> tex2d;
+vk::SampledTexture2DArray<float4> tex2dArray;
 
 void main() {
   float2 xy = float2(0.5, 0.5);
 
-//CHECK:          [[tex1:%[a-zA-Z0-9_]+]] = OpLoad %type_sampled_image %t1
+//CHECK:          [[tex1_load:%[a-zA-Z0-9_]+]] = OpLoad [[type_2d_sampled_image]] %tex2d
 //CHECK-NEXT:    [[xy_load:%[a-zA-Z0-9_]+]] = OpLoad %v2float %xy
-//CHECK-NEXT: [[query:%[a-zA-Z0-9_]+]] = OpImageQueryLod %v2float [[tex1]] [[xy_load]]
+//CHECK-NEXT: [[query:%[a-zA-Z0-9_]+]] = OpImageQueryLod %v2float [[tex1_load]] [[xy_load]]
 //CHECK-NEXT:        {{%[0-9]+}} = OpCompositeExtract %float [[query]] 1
-  float lod1 = t1.CalculateLevelOfDetailUnclamped(xy);
+  float lod1 = tex2d.CalculateLevelOfDetailUnclamped(xy);
+
+//CHECK:          [[tex2_load:%[a-zA-Z0-9_]+]] = OpLoad [[type_2d_sampled_image_array]] %tex2dArray
+//CHECK-NEXT:    [[xy_load_2:%[a-zA-Z0-9_]+]] = OpLoad %v2float %xy
+//CHECK-NEXT: [[query2:%[a-zA-Z0-9_]+]] = OpImageQueryLod %v2float [[tex2_load]] [[xy_load_2]]
+//CHECK-NEXT:        {{%[0-9]+}} = OpCompositeExtract %float [[query2]] 1
+  float lod2 = tex2dArray.CalculateLevelOfDetailUnclamped(xy);
 }

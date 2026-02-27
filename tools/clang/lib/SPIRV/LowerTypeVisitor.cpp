@@ -849,7 +849,7 @@ const SpirvType *LowerTypeVisitor::lowerVkTypeInVkNamespace(
     assert(visitedTypeStack.size() == visitedTypeStackSize);
     return pointerType;
   }
-  if (name == "SampledTexture2D") {
+  if (name == "SampledTexture2D" || name == "SampledTexture2DArray") {
     const auto sampledType = hlsl::GetHLSLResourceResultType(type);
     auto loweredType = lowerType(getElementType(astContext, sampledType), rule,
                                  /*isRowMajor*/ llvm::None, srcLoc);
@@ -860,10 +860,11 @@ const SpirvType *LowerTypeVisitor::lowerVkTypeInVkNamespace(
       loweredType = spvContext.getUIntType(32);
     }
 
+    const bool isArray = (name == "SampledTexture2DArray");
+
     const auto *imageType = spvContext.getImageType(
-        loweredType, spv::Dim::Dim2D, ImageType::WithDepth::No,
-        false /* array */, false /* ms */, ImageType::WithSampler::Yes,
-        spv::ImageFormat::Unknown);
+        loweredType, spv::Dim::Dim2D, ImageType::WithDepth::No, isArray,
+        false /* ms */, ImageType::WithSampler::Yes, spv::ImageFormat::Unknown);
     return spvContext.getSampledImageType(imageType);
   }
   emitError("unknown type %0 in vk namespace", srcLoc) << type;
