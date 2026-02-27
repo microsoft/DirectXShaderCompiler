@@ -145,7 +145,7 @@ public:
   static bool CheckOpCodeTable();
   static bool IsDxilOpFuncName(llvm::StringRef name);
   static bool IsDxilOpFunc(const llvm::Function *F);
-  static bool IsDxilOpLinAlgFuncName(llvm::StringRef name);
+  static bool IsDxilOpLinAlgFuncName(llvm::StringRef Name);
   static bool IsDxilOpFuncCallInst(const llvm::Instruction *I);
   static bool IsDxilOpFuncCallInst(const llvm::Instruction *I, OpCode opcode);
   static bool IsDxilOpWave(OpCode C);
