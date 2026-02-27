@@ -15,6 +15,7 @@
 #include "dxc/DXIL/DxilInstructions.h"
 #include "dxc/DXIL/DxilModule.h"
 #include "dxc/DXIL/DxilOperations.h"
+#include "dxc/DXIL/DxilResourceBinding.h"
 #include "dxc/DXIL/DxilUtil.h"
 #include "dxc/Support/Global.h"
 
@@ -228,6 +229,30 @@ void ValidationContext::BuildResMap() {
     }
   }
   const ShaderModel &SM = *DxilMod.GetShaderModel();
+
+  // Scan all createHandleFromBinding for index validation.
+  for (auto &it :
+       hlslOP->GetOpFuncList(DXIL::OpCode::CreateHandleFromBinding)) {
+    Function *F = it.second;
+    if (!F)
+      continue;
+    for (User *U : F->users()) {
+      CallInst *CI = cast<CallInst>(U);
+      DxilInst_CreateHandleFromBinding hdl(CI);
+      ConstantInt *cIndex = dyn_cast<ConstantInt>(hdl.get_index());
+      if (cIndex) {
+        DxilResourceBinding B =
+            resource_helper::loadBindingFromCreateHandleFromBinding(
+                hdl, hlslOP->GetHandleType(), SM);
+        unsigned index = cIndex->getLimitedValue();
+        if (index < B.rangeLowerBound || index > B.rangeUpperBound) {
+          // index out of range.
+          EmitInstrError(CI, ValidationRule::InstrOpConstRange);
+          continue;
+        }
+      }
+    }
+  }
 
   for (auto &it : hlslOP->GetOpFuncList(DXIL::OpCode::AnnotateHandle)) {
     Function *F = it.second;
