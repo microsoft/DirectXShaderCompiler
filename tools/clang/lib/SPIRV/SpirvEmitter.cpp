@@ -8529,9 +8529,9 @@ SpirvInstruction *SpirvEmitter::tryToAssignToMSOutAttrsOrIndices(
   }
 
   if (isMSOutAttribute) {
-    assignToMSOutAttribute(varDecl, rhs, indices);
+    assignToMSOutAttribute(varDecl, rhs, indices, lhs->getLocStart());
   } else if (isMSOutIndices) {
-    assignToMSOutIndices(varDecl, rhs, indices);
+    assignToMSOutIndices(varDecl, rhs, indices, lhs->getLocStart());
   } else {
     assert(isMSOutAttributeBlock);
     QualType type = varDecl->getType();
@@ -8546,7 +8546,7 @@ SpirvInstruction *SpirvEmitter::tryToAssignToMSOutAttrsOrIndices(
       SpirvInstruction *subValue = spvBuilder.createCompositeExtract(
           fieldType, rhs, {getNumBaseClasses(type) + field->getFieldIndex()},
           lhs->getLocStart());
-      assignToMSOutAttribute(field, subValue, indices);
+      assignToMSOutAttribute(field, subValue, indices, lhs->getLocStart());
     }
   }
 
@@ -8558,7 +8558,8 @@ SpirvInstruction *SpirvEmitter::tryToAssignToMSOutAttrsOrIndices(
 
 void SpirvEmitter::assignToMSOutAttribute(
     const DeclaratorDecl *decl, SpirvInstruction *value,
-    const llvm::SmallVector<SpirvInstruction *, 4> &indices) {
+    const llvm::SmallVector<SpirvInstruction *, 4> &indices,
+    SourceLocation loc) {
   assert(spvContext.isMS() && !indices.empty());
 
   // Extract attribute index and vecComponent (if any).
@@ -8570,7 +8571,6 @@ void SpirvEmitter::assignToMSOutAttribute(
 
   auto semanticInfo = declIdMapper.getStageVarSemantic(decl);
   assert(semanticInfo.isValid());
-  const auto loc = decl->getLocation();
   // Special handle writes to clip/cull distance attributes.
   if (declIdMapper.glPerVertex.tryToAccess(
           hlsl::DXIL::SigPointKind::MSOut, semanticInfo.semantic->GetKind(),
@@ -8598,7 +8598,8 @@ void SpirvEmitter::assignToMSOutAttribute(
 
 void SpirvEmitter::assignToMSOutIndices(
     const DeclaratorDecl *decl, SpirvInstruction *value,
-    const llvm::SmallVector<SpirvInstruction *, 4> &indices) {
+    const llvm::SmallVector<SpirvInstruction *, 4> &indices,
+    SourceLocation loc) {
   assert(spvContext.isMS() && !indices.empty());
 
   bool extMesh = featureManager.isExtensionEnabled(Extension::EXT_mesh_shader);
@@ -8626,7 +8627,6 @@ void SpirvEmitter::assignToMSOutIndices(
     }
   }
 
-  const auto loc = decl->getLocation();
   if (numVertices == 1) {
     // for "point" output topology.
     assert(numValues == 1);
