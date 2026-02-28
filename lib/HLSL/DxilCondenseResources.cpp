@@ -434,7 +434,7 @@ static bool LegalizeResources(Module &M, DxilValueCache *DVC) {
   for (unsigned Attempt = 0, MaxAttempt = PHIs.size(); Attempt < MaxAttempt;
        Attempt++) {
     bool LocalChanged = false;
-    for (unsigned i = 0; i < PHIs.size(); i++) {
+    for (unsigned i = 0; i < PHIs.size();) {
       PHINode *PN = PHIs[i];
       if (Value *V = DVC->GetValue(PN)) {
         PN->replaceAllUsesWith(V);
