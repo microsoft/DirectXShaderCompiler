@@ -29,6 +29,9 @@ def ISenseOption : OptionFlag;
 // RewriteOption - This is considered a "rewriter" HLSL option.
 def RewriteOption : OptionFlag;
 
+// ReflectOption - This is considered a "reflector" HLSL option.
+def ReflectOption : OptionFlag;
+
 //////////////////////////////////////////////////////////////////////////////
 // Groups
 
@@ -70,6 +73,7 @@ def hlsloptz_Group : OptionGroup<"HLSL Optimization">, HelpText<"Optimization Op
 def hlslutil_Group : OptionGroup<"HLSL Utility">, HelpText<"Utility Options">;
 def hlslcore_Group : OptionGroup<"HLSL Core">, HelpText<"Common Options">;
 def hlslrewrite_Group : OptionGroup<"HLSL Rewriter">, HelpText<"Rewriter Options">;
+def hlslreflect_Group : OptionGroup<"HLSL Reflector">, HelpText<"Reflector Options">;
 
 def spirv_Group : OptionGroup<"SPIR-V CodeGen">, HelpText<"SPIR-V CodeGen Options">; // SPIRV Change
 
@@ -86,11 +90,11 @@ def spirv_Group : OptionGroup<"SPIR-V CodeGen">, HelpText<"SPIR-V CodeGen Option
 // The general approach is to include only things that are in use, in the
 // same order as in Options.td.
 
-def D : JoinedOrSeparate<["-", "/"], "D">, Group<hlslcomp_Group>, Flags<[CoreOption, RewriteOption]>,
+def D : JoinedOrSeparate<["-", "/"], "D">, Group<hlslcomp_Group>, Flags<[CoreOption, RewriteOption, ReflectOption]>,
     HelpText<"Define macro">;
 def H : Flag<["-"], "H">, Flags<[CoreOption]>, Group<hlslcomp_Group>,
     HelpText<"Show header includes and nesting depth">;
-def I : JoinedOrSeparate<["-", "/"], "I">, Group<hlslcomp_Group>, Flags<[CoreOption, RewriteOption]>,
+def I : JoinedOrSeparate<["-", "/"], "I">, Group<hlslcomp_Group>, Flags<[CoreOption, RewriteOption, ReflectOption]>,
     HelpText<"Add directory to include search path">;
 def O0 : Flag<["-", "/"], "O0">, Group<hlsloptz_Group>, Flags<[CoreOption]>,
     HelpText<"Optimization Level 0">;
@@ -302,13 +306,13 @@ def pack_optimized : Flag<["-", "/"], "pack-optimized">, Group<hlslcomp_Group>, 
   HelpText<"Optimize signature packing assuming identical signature provided for each connecting stage">;
 def pack_optimized_ : Flag<["-", "/"], "pack_optimized">, Group<hlslcomp_Group>, Flags<[CoreOption, HelpHidden]>,
   HelpText<"Optimize signature packing assuming identical signature provided for each connecting stage">;
-def hlsl_version : Separate<["-", "/"], "HV">, Group<hlslcomp_Group>, Flags<[CoreOption, RewriteOption]>,
+def hlsl_version : Separate<["-", "/"], "HV">, Group<hlslcomp_Group>, Flags<[CoreOption, RewriteOption, ReflectOption]>,
   HelpText<"HLSL version (2016, 2017, 2018, 2021). Default is 2021">;
-def no_warnings : Flag<["-", "/"], "no-warnings">, Group<hlslcomp_Group>, Flags<[CoreOption, RewriteOption]>,
+def no_warnings : Flag<["-", "/"], "no-warnings">, Group<hlslcomp_Group>, Flags<[CoreOption, RewriteOption, ReflectOption]>,
   HelpText<"Suppress warnings">;
 def rootsig_define : Separate<["-", "/"], "rootsig-define">, Group<hlslcomp_Group>, Flags<[CoreOption]>,
   HelpText<"Read root signature from a #define">;
-def enable_16bit_types: Flag<["-", "/"], "enable-16bit-types">, Flags<[CoreOption, RewriteOption, DriverOption]>, Group<hlslcomp_Group>,
+def enable_16bit_types: Flag<["-", "/"], "enable-16bit-types">, Flags<[CoreOption, RewriteOption, ReflectOption, DriverOption]>, Group<hlslcomp_Group>,
   HelpText<"Enable 16bit types and disable min precision types. Available in HLSL 2018 and shader model 6.2">;
 def ignore_line_directives : Flag<["-", "/"], "ignore-line-directives">, HelpText<"Ignore line directives">, Flags<[CoreOption]>, Group<hlslcomp_Group>;
 def auto_binding_space : Separate<["-", "/"], "auto-binding-space">, Group<hlslcomp_Group>, Flags<[CoreOption]>,
@@ -321,7 +325,7 @@ def default_linkage : Separate<["-", "/"], "default-linkage">, Group<hlslcomp_Gr
   HelpText<"Set default linkage for non-shader functions when compiling or linking to a library target (internal, external)">;
 def precise_output : Separate<["-", "/"], "precise-output">, Group<hlslcomp_Group>, Flags<[CoreOption, HelpHidden]>,
     HelpText<"Mark output semantic as precise">;
-def encoding : Separate<["-", "/"], "encoding">, Group<hlslcomp_Group>, Flags<[CoreOption, RewriteOption, DriverOption]>,
+def encoding : Separate<["-", "/"], "encoding">, Group<hlslcomp_Group>, Flags<[CoreOption, RewriteOption, ReflectOption, DriverOption]>,
   HelpText<"Set default encoding for source inputs and text outputs (utf8|utf16(win)|utf32(*nix)|wide) default=utf8">;
 def validator_version : Separate<["-", "/"], "validator-version">, Group<hlslcomp_Group>, Flags<[CoreOption, HelpHidden]>,
   HelpText<"Override validator version for module.  Format: <major.minor> ; Default: DXIL.dll version or current internal version.">;
@@ -345,9 +349,9 @@ def enable_lifetime_markers : Flag<["-", "/"], "enable-lifetime-markers">, Group
   HelpText<"Enable generation of lifetime markers">;
 def disable_lifetime_markers : Flag<["-", "/"], "disable-lifetime-markers">, Group<hlslcomp_Group>, Flags<[CoreOption, HelpHidden]>,
   HelpText<"Disable generation of lifetime markers where they would be otherwise (6.6+)">;
-def enable_payload_qualifiers : Flag<["-", "/"], "enable-payload-qualifiers">, Group<hlslcomp_Group>, Flags<[CoreOption, RewriteOption, DriverOption]>,
+def enable_payload_qualifiers : Flag<["-", "/"], "enable-payload-qualifiers">, Group<hlslcomp_Group>, Flags<[CoreOption, RewriteOption, ReflectOption, DriverOption]>,
   HelpText<"Enables support for payload access qualifiers for raytracing payloads in SM 6.6.">;
-def disable_payload_qualifiers : Flag<["-", "/"], "disable-payload-qualifiers">, Group<hlslcomp_Group>, Flags<[CoreOption, RewriteOption, DriverOption]>,
+def disable_payload_qualifiers : Flag<["-", "/"], "disable-payload-qualifiers">, Group<hlslcomp_Group>, Flags<[CoreOption, RewriteOption, ReflectOption, DriverOption]>,
   HelpText<"Disables support for payload access qualifiers for raytracing payloads in SM 6.7.">;
 def disable_exception_handling : Flag<["-", "/"], "disable-exception-handling">, Group<hlslcomp_Group>, Flags<[DriverOption, HelpHidden]>,
   HelpText<"Disable dxc handling of exceptions">;
@@ -448,12 +452,12 @@ def fvk_bind_counter_heap : MultiArg<["-"], "fvk-bind-counter-heap", 2>, MetaVar
 //////////////////////////////////////////////////////////////////////////////
 // fxc-based flags that don't match those previously defined.
 
-def target_profile : JoinedOrSeparate<["-", "/"], "T">, Flags<[CoreOption]>, Group<hlslcomp_Group>, MetaVarName<"<profile>">,
+def target_profile : JoinedOrSeparate<["-", "/"], "T">, Flags<[CoreOption, ReflectOption]>, Group<hlslcomp_Group>, MetaVarName<"<profile>">,
   /* <py::lines('VALRULE-TEXT')>hctdb_instrhelp.get_target_profiles()</py>*/
   // VALRULE-TEXT:BEGIN
   HelpText<"Set target profile. \n\t<profile>: ps_6_0, ps_6_1, ps_6_2, ps_6_3, ps_6_4, ps_6_5, ps_6_6, ps_6_7, ps_6_8, ps_6_9, ps_6_10, \n\t\t vs_6_0, vs_6_1, vs_6_2, vs_6_3, vs_6_4, vs_6_5, vs_6_6, vs_6_7, vs_6_8, vs_6_9, vs_6_10, \n\t\t gs_6_0, gs_6_1, gs_6_2, gs_6_3, gs_6_4, gs_6_5, gs_6_6, gs_6_7, gs_6_8, gs_6_9, gs_6_10, \n\t\t hs_6_0, hs_6_1, hs_6_2, hs_6_3, hs_6_4, hs_6_5, hs_6_6, hs_6_7, hs_6_8, hs_6_9, hs_6_10, \n\t\t ds_6_0, ds_6_1, ds_6_2, ds_6_3, ds_6_4, ds_6_5, ds_6_6, ds_6_7, ds_6_8, ds_6_9, ds_6_10, \n\t\t cs_6_0, cs_6_1, cs_6_2, cs_6_3, cs_6_4, cs_6_5, cs_6_6, cs_6_7, cs_6_8, cs_6_9, cs_6_10, \n\t\t lib_6_1, lib_6_2, lib_6_3, lib_6_4, lib_6_5, lib_6_6, lib_6_7, lib_6_8, lib_6_9, lib_6_10, \n\t\t ms_6_5, ms_6_6, ms_6_7, ms_6_8, ms_6_9, ms_6_10, \n\t\t as_6_5, as_6_6, as_6_7, as_6_8, as_6_9, as_6_10, \n\t\t ">;
   // VALRULE-TEXT:END
-def entrypoint :  JoinedOrSeparate<["-", "/"], "E">, Flags<[CoreOption, RewriteOption]>, Group<hlslcomp_Group>,
+def entrypoint :  JoinedOrSeparate<["-", "/"], "E">, Flags<[CoreOption, RewriteOption, ReflectOption]>, Group<hlslcomp_Group>,
   HelpText<"Entry point name">;
 // /I <include> - already defined above
 def _vi : Flag<["-", "/"], "Vi">, Alias<H>, Flags<[CoreOption]>, Group<hlslcomp_Group>,
@@ -489,7 +493,7 @@ def Gis : Flag<["-", "/"], "Gis">, HelpText<"Force IEEE strictness">, Flags<[Cor
 
 def denorm : JoinedOrSeparate<["-", "/"], "denorm">, HelpText<"select denormal value options (any, preserve, ftz). any is the default.">, Flags<[CoreOption]>, Group<hlslcomp_Group>;
 
-def Fo : JoinedOrSeparate<["-", "/"], "Fo">, MetaVarName<"<file>">, HelpText<"Output object file">, Flags<[CoreOption, RewriteOption, DriverOption]>, Group<hlslcomp_Group>;
+def Fo : JoinedOrSeparate<["-", "/"], "Fo">, MetaVarName<"<file>">, HelpText<"Output object file">, Flags<[CoreOption, RewriteOption, ReflectOption, DriverOption]>, Group<hlslcomp_Group>;
 // def Fl : JoinedOrSeparate<["-", "/"], "Fl">, MetaVarName<"<file>">, HelpText<"Output a library">;
 def Fc : JoinedOrSeparate<["-", "/"], "Fc">, MetaVarName<"<file>">, HelpText<"Output assembly code listing file">, Flags<[DriverOption]>, Group<hlslcomp_Group>;
 //def Fx : JoinedOrSeparate<["-", "/"], "Fx">, MetaVarName<"<file>">, HelpText<"Output assembly code and hex listing file">;
@@ -575,6 +579,28 @@ def getprivate : JoinedOrSeparate<["-", "/"], "getprivate">, Flags<[DriverOption
 
 def nologo : Flag<["-", "/"], "nologo">, Group<hlslcore_Group>, Flags<[DriverOption, HelpHidden]>,
   HelpText<"Suppress copyright message">;
+
+//////////////////////////////////////////////////////////////////////////////
+// Reflector Options
+
+def reflect_basics : Flag<["-", "/"], "reflect-basics">, Group<hlslreflect_Group>, Flags<[ReflectOption]>,
+  HelpText<"Reflect HLSL (registers, constants and annotations).">;
+def reflect_functions : Flag<["-", "/"], "reflect-functions">, Group<hlslreflect_Group>, Flags<[ReflectOption]>,
+  HelpText<"Reflect HLSL functions.">;
+def reflect_namespaces : Flag<["-", "/"], "reflect-namespaces">, Group<hlslreflect_Group>, Flags<[ReflectOption]>,
+  HelpText<"Reflect HLSL nodes in namespaces rather than only the global namespace.">;
+def reflect_user_types : Flag<["-", "/"], "reflect-user-types">, Group<hlslreflect_Group>, Flags<[ReflectOption]>,
+  HelpText<"Reflect HLSL user types (typedef, using, struct, enum).">;
+def reflect_scopes : Flag<["-", "/"], "reflect-scopes">, Group<hlslreflect_Group>, Flags<[ReflectOption]>,
+  HelpText<"Reflect HLSL scopes (variables and structs defined in functions).">;
+def reflect_disable_symbols : Flag<["-", "/"], "reflect-disable-symbols">, Group<hlslreflect_Group>, Flags<[ReflectOption]>,
+  HelpText<"Reflect HLSL disable symbols.">;
+
+def reflect_show_file_info : Flag<["-", "/"], "reflect-show-file-info">, Group<hlslreflect_Group>, Flags<[ReflectOption]>,
+  HelpText<"Show file symbol info in the reflection output json.">;
+
+def reflect_show_raw_data : Flag<["-", "/"], "reflect-show-raw-data">, Group<hlslreflect_Group>, Flags<[ReflectOption]>,
+  HelpText<"Show raw data without prettifying in the reflection output json.">;
 
 //////////////////////////////////////////////////////////////////////////////
 // Rewriter Options
