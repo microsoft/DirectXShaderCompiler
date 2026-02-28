@@ -77,6 +77,111 @@ static UINT getD3D12SDKVersion(std::wstring SDKPath) {
   return SDKVersion;
 }
 
+static void createWarpDevice(
+    IDXGIFactory4 *DXGIFactory,
+    std::function<HRESULT(IUnknown *, D3D_FEATURE_LEVEL, REFIID, void **)>
+        CreateDeviceFn,
+    ID3D12Device **D3DDevice, bool SkipUnsupported) {
+
+  if (*D3DDevice)
+    LogWarningFmt(L"createDevice called with non-null *D3DDevice - "
+                  L"this will likely leak the previous device");
+  *D3DDevice = nullptr;
+
+  // The WARP_DLL runtime parameter can be used to specify a specific DLL to
+  // load.  To force this to be used, we make sure that this DLL is loaded
+  // before attempting to create the device.
+
+  struct WarpDll {
+    HMODULE Module = NULL; // NOLINT
+
+    ~WarpDll() { Close(); }
+
+    void Close() {
+      if (Module) {
+        FreeLibrary(Module);
+        Module = NULL;
+      }
+    }
+  };
+
+  WarpDll ExplicitlyLoadedWarpDll;
+  WEX::Common::String WarpDllPath;
+  if (SUCCEEDED(WEX::TestExecution::RuntimeParameters::TryGetValue(
+          L"WARP_DLL", WarpDllPath))) {
+    WEX::Logging::Log::Comment(WEX::Common::String().Format(
+        L"WARP_DLL requested: %ls", (const wchar_t *)WarpDllPath));
+    ExplicitlyLoadedWarpDll.Module = LoadLibraryExW(WarpDllPath, NULL, 0);
+    VERIFY_WIN32_BOOL_SUCCEEDED(!!ExplicitlyLoadedWarpDll.Module);
+  }
+
+  // Create the WARP device
+  CComPtr<IDXGIAdapter> WarpAdapter;
+  CComPtr<ID3D12Device> D3DDeviceCom;
+  VERIFY_SUCCEEDED(DXGIFactory->EnumWarpAdapter(IID_PPV_ARGS(&WarpAdapter)));
+  HRESULT CreateHR = CreateDeviceFn(WarpAdapter, D3D_FEATURE_LEVEL_11_0,
+                                    IID_PPV_ARGS(&D3DDeviceCom));
+  if (FAILED(CreateHR)) {
+    LogCommentFmt(L"Failed to create WARP device: 0x%08x", CreateHR);
+
+    if (SkipUnsupported)
+      WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
+
+    return;
+  }
+
+  *D3DDevice = D3DDeviceCom.Detach();
+
+  // Now that the WARP device is created we can release our reference to the
+  // warp dll.
+  ExplicitlyLoadedWarpDll.Close();
+
+  // Log the actual version of WARP that's loaded so we can be sure that we're
+  // using the version that we think.
+  if (GetModuleHandleW(L"d3d10warp.dll") != NULL) {
+    WCHAR FullModuleFilePath[MAX_PATH] = L"";
+    GetModuleFileNameW(GetModuleHandleW(L"d3d10warp.dll"), FullModuleFilePath,
+                       sizeof(FullModuleFilePath));
+    LogCommentFmt(L"WARP driver loaded from: %ls", FullModuleFilePath);
+  }
+}
+
+static void createHardwareDevice(
+    IDXGIFactory4 *DXGIFactory,
+    std::function<HRESULT(IUnknown *, D3D_FEATURE_LEVEL, REFIID, void **)>
+        CreateDeviceFn,
+    ID3D12Device **D3DDevice) {
+
+  if (*D3DDevice)
+    LogWarningFmt(L"createDevice called with non-null *D3DDevice - "
+                  L"this will likely leak the previous device");
+  *D3DDevice = nullptr;
+
+  CComPtr<IDXGIAdapter1> HardwareAdapter;
+  WEX::Common::String AdapterValue;
+  HRESULT HR = WEX::TestExecution::RuntimeParameters::TryGetValue(L"Adapter",
+                                                                  AdapterValue);
+  if (SUCCEEDED(HR))
+    st::GetHardwareAdapter(DXGIFactory, AdapterValue, &HardwareAdapter);
+  else
+    LogCommentFmt(L"Using default hardware adapter with D3D12 support.");
+
+  CComPtr<ID3D12Device> D3DDeviceCom;
+  VERIFY_SUCCEEDED(CreateDeviceFn(HardwareAdapter, D3D_FEATURE_LEVEL_11_0,
+                                  IID_PPV_ARGS(&D3DDeviceCom)));
+  *D3DDevice = D3DDeviceCom.Detach();
+}
+
+static void logAdapter(IDXGIFactory4 *DXGIFactory, ID3D12Device *D3DDevice) {
+  CComPtr<IDXGIAdapter> DXGIAdapter;
+  const LUID AdapterID = D3DDevice->GetAdapterLuid();
+  VERIFY_SUCCEEDED(
+      DXGIFactory->EnumAdapterByLuid(AdapterID, IID_PPV_ARGS(&DXGIAdapter)));
+  DXGI_ADAPTER_DESC AdapterDesc;
+  VERIFY_SUCCEEDED(DXGIAdapter->GetDesc(&AdapterDesc));
+  LogCommentFmt(L"Using Adapter:%s", AdapterDesc.Description);
+}
+
 static bool createDevice(
     ID3D12Device **D3DDevice, D3D_SHADER_MODEL TestModel, bool SkipUnsupported,
     std::function<HRESULT(IUnknown *, D3D_FEATURE_LEVEL, REFIID, void **)>
@@ -103,83 +208,13 @@ static bool createDevice(
   *D3DDevice = nullptr;
 
   VERIFY_SUCCEEDED(CreateDXGIFactory1(IID_PPV_ARGS(&DXGIFactory)));
-  if (GetTestParamUseWARP(useWarpByDefault())) {
-    // The WARP_DLL runtime parameter can be used to specify a specific DLL to
-    // load.  To force this to be used, we make sure that this DLL is loaded
-    // before attempting to create the device.
+  if (GetTestParamUseWARP(useWarpByDefault()))
+    createWarpDevice(DXGIFactory, CreateDeviceFn, &D3DDeviceCom,
+                     SkipUnsupported);
+  else
+    createHardwareDevice(DXGIFactory, CreateDeviceFn, &D3DDeviceCom);
 
-    struct WarpDll {
-      HMODULE Module = NULL; // NOLINT
-
-      ~WarpDll() { Close(); }
-
-      void Close() {
-        if (Module) {
-          FreeLibrary(Module);
-          Module = NULL;
-        }
-      }
-    };
-
-    WarpDll ExplicitlyLoadedWarpDll;
-    WEX::Common::String WarpDllPath;
-    if (SUCCEEDED(WEX::TestExecution::RuntimeParameters::TryGetValue(
-            L"WARP_DLL", WarpDllPath))) {
-      WEX::Logging::Log::Comment(WEX::Common::String().Format(
-          L"WARP_DLL requested: %ls", (const wchar_t *)WarpDllPath));
-      ExplicitlyLoadedWarpDll.Module = LoadLibraryExW(WarpDllPath, NULL, 0);
-      VERIFY_WIN32_BOOL_SUCCEEDED(!!ExplicitlyLoadedWarpDll.Module);
-    }
-
-    // Create the WARP device
-    CComPtr<IDXGIAdapter> WarpAdapter;
-    VERIFY_SUCCEEDED(DXGIFactory->EnumWarpAdapter(IID_PPV_ARGS(&WarpAdapter)));
-    HRESULT CreateHR = CreateDeviceFn(WarpAdapter, D3D_FEATURE_LEVEL_11_0,
-                                      IID_PPV_ARGS(&D3DDeviceCom));
-    if (FAILED(CreateHR)) {
-      LogCommentFmt(L"Failed to create WARP device: 0x%08x", CreateHR);
-
-      if (SkipUnsupported)
-        WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
-
-      return false;
-    }
-
-    // Now that the WARP device is created we can release our reference to the
-    // warp dll.
-    ExplicitlyLoadedWarpDll.Close();
-
-    // Log the actual version of WARP that's loaded so we can be sure that
-    // we're using the version we think.
-    if (GetModuleHandleW(L"d3d10warp.dll") != NULL) {
-      WCHAR FullModuleFilePath[MAX_PATH] = L"";
-      GetModuleFileNameW(GetModuleHandleW(L"d3d10warp.dll"), FullModuleFilePath,
-                         sizeof(FullModuleFilePath));
-      WEX::Logging::Log::Comment(WEX::Common::String().Format(
-          L"WARP driver loaded from: %ls", FullModuleFilePath));
-    }
-
-  } else {
-    CComPtr<IDXGIAdapter1> HardwareAdapter;
-    WEX::Common::String AdapterValue;
-    HRESULT HR = WEX::TestExecution::RuntimeParameters::TryGetValue(
-        L"Adapter", AdapterValue);
-    if (SUCCEEDED(HR))
-      st::GetHardwareAdapter(DXGIFactory, AdapterValue, &HardwareAdapter);
-    else
-      WEX::Logging::Log::Comment(
-          L"Using default hardware adapter with D3D12 support.");
-
-    VERIFY_SUCCEEDED(CreateDeviceFn(HardwareAdapter, D3D_FEATURE_LEVEL_11_0,
-                                    IID_PPV_ARGS(&D3DDeviceCom)));
-  }
-  // retrieve adapter information
-  const LUID AdapterID = D3DDeviceCom->GetAdapterLuid();
-  CComPtr<IDXGIAdapter> DXGIAdapter;
-  DXGIFactory->EnumAdapterByLuid(AdapterID, IID_PPV_ARGS(&DXGIAdapter));
-  DXGI_ADAPTER_DESC AdapterDesc;
-  VERIFY_SUCCEEDED(DXGIAdapter->GetDesc(&AdapterDesc));
-  LogCommentFmt(L"Using Adapter:%s", AdapterDesc.Description);
+  logAdapter(DXGIFactory, D3DDeviceCom);
 
   if (D3DDeviceCom == nullptr)
     return false;
