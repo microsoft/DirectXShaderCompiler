@@ -1186,6 +1186,7 @@ SpirvVariable *DeclResultIdMapper::createExternVar(const VarDecl *var) {
 
 SpirvVariable *DeclResultIdMapper::createExternVar(const VarDecl *var,
                                                    QualType type) {
+  const auto name = var->getName();
   const bool isGroupShared = var->hasAttr<HLSLGroupSharedAttr>();
   const bool hasInlineSpirvSC = var->hasAttr<VKStorageClassExtAttr>();
   const bool isACSBuffer =
@@ -1217,7 +1218,12 @@ SpirvVariable *DeclResultIdMapper::createExternVar(const VarDecl *var,
       createGlobalsCBuffer(var);
 
     auto *varInstr = astDecls[var].instr;
-    return varInstr ? cast<SpirvVariable>(varInstr) : nullptr;
+    if (varInstr) {
+      createDebugGlobalVariable(cast<SpirvVariable>(varInstr), type, loc, name);
+      return cast<SpirvVariable>(varInstr);
+    }
+
+    return nullptr;
   }
 
   if (isResourceOnlyStructure(type)) {
@@ -1245,7 +1251,6 @@ SpirvVariable *DeclResultIdMapper::createExternVar(const VarDecl *var,
     needsFlatteningCompositeResources = true;
   }
 
-  const auto name = var->getName();
   SpirvVariable *varInstr = spvBuilder.addModuleVar(
       type, storageClass, var->hasAttr<HLSLPreciseAttr>(),
       var->hasAttr<HLSLNoInterpolationAttr>(), name, llvm::None, loc);
