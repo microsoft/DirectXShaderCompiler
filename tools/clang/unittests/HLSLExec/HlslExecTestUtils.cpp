@@ -12,6 +12,21 @@
 #include <filesystem>
 #include <optional>
 
+// D3D12_FEATURE_D3D12_OPTIONS_PREVIEW and its data struct are not yet in
+// the released Windows SDK. Define locally so the test can query variable
+// group shared memory capabilities from the Agility SDK runtime.
+// Once the public SDK ships with these, a compile break (redefinition error)
+// will signal that these local definitions should be removed.
+#ifndef D3D12_FEATURE_D3D12_OPTIONS_PREVIEW
+#define D3D12_FEATURE_D3D12_OPTIONS_PREVIEW ((D3D12_FEATURE)72)
+#endif
+
+typedef struct D3D12_FEATURE_DATA_D3D12_OPTIONS_PREVIEW {
+  UINT MaxGroupSharedMemoryPerGroupCS;
+  UINT MaxGroupSharedMemoryPerGroupAS;
+  UINT MaxGroupSharedMemoryPerGroupMS;
+} D3D12_FEATURE_DATA_D3D12_OPTIONS_PREVIEW;
+
 using namespace hlsl_test;
 
 static bool useDebugIfaces() { return true; }
@@ -86,7 +101,7 @@ static bool createDevice(
   if (*D3DDevice)
     LogErrorFmt(L"createDevice called with non-null *D3DDevice - "
                 L"this will likely leak the previous device");
-  if (TestModel > D3D_HIGHEST_SHADER_MODEL) {
+  if (TestModel > DXC_HIGHEST_SHADER_MODEL) {
     const UINT Minor = (UINT)TestModel & 0x0f;
     LogCommentFmt(L"Installed SDK does not support "
                   L"shader model 6.%1u",
@@ -599,4 +614,28 @@ bool isFallbackPathEnabled() {
   WEX::TestExecution::RuntimeParameters::TryGetValue(L"EnableFallback",
                                                      EnableFallbackValue);
   return EnableFallbackValue != 0;
+}
+
+UINT getMaxGroupSharedMemoryCS(ID3D12Device *Device) {
+  D3D12_FEATURE_DATA_D3D12_OPTIONS_PREVIEW O = {};
+  if (FAILED(Device->CheckFeatureSupport(D3D12_FEATURE_D3D12_OPTIONS_PREVIEW,
+                                         &O, sizeof(O))))
+    return 32768; // Default minimum per spec
+  return O.MaxGroupSharedMemoryPerGroupCS;
+}
+
+UINT getMaxGroupSharedMemoryAS(ID3D12Device *Device) {
+  D3D12_FEATURE_DATA_D3D12_OPTIONS_PREVIEW O = {};
+  if (FAILED(Device->CheckFeatureSupport(D3D12_FEATURE_D3D12_OPTIONS_PREVIEW,
+                                         &O, sizeof(O))))
+    return 32768; // Default minimum per spec
+  return O.MaxGroupSharedMemoryPerGroupAS;
+}
+
+UINT getMaxGroupSharedMemoryMS(ID3D12Device *Device) {
+  D3D12_FEATURE_DATA_D3D12_OPTIONS_PREVIEW O = {};
+  if (FAILED(Device->CheckFeatureSupport(D3D12_FEATURE_D3D12_OPTIONS_PREVIEW,
+                                         &O, sizeof(O))))
+    return 28672; // Default minimum per spec (28 KB for mesh)
+  return O.MaxGroupSharedMemoryPerGroupMS;
 }
