@@ -268,6 +268,17 @@ void Sema::InstantiateAttrs(const MultiLevelTemplateArgumentList &TemplateArgs,
       continue;
     }
 
+    if (isa<HLSLGroupSharedAttr>(TmplAttr)) {
+      // the type wasn't set properly before so we need to instantiate this type as
+      // a groupshared reference
+      ParmVarDecl *NewParm = cast<ParmVarDecl>(New);
+      NewParm->addAttr(TmplAttr->clone(getASTContext()));
+      NewParm->setType(Context.getAddrSpaceQualType(NewParm->getType(),
+						    hlsl::DXIL::kTGSMAddrSpace));
+      NewParm->setType(Context.getLValueReferenceType(NewParm->getType()));
+      continue;
+    }
+
     // HLSL Change Begin - Validate post-instantiation attributes
     DiagnoseHLSLDeclAttr(New, TmplAttr);
     // HLSL Change End

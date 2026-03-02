@@ -10459,7 +10459,11 @@ ParmVarDecl *Sema::CheckParameter(DeclContext *DC, SourceLocation StartLoc,
   if (T.getAddressSpace() != 0) {
     // OpenCL allows function arguments declared to be an array of a type
     // to be qualified with an address space.
-    if (!(getLangOpts().OpenCL && T->isArrayType())) {
+    if (!(getLangOpts().OpenCL && T->isArrayType()) &&
+	// HLSL allows parameters to be qualified with the groupshared
+	// address space.
+	!(getLangOpts().HLSL && T.getAddressSpace() ==
+	  hlsl::DXIL::kTGSMAddrSpace)) {
       Diag(NameLoc, diag::err_arg_with_address_space);
       New->setInvalidDecl();
     }
