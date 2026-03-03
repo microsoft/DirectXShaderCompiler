@@ -10622,18 +10622,53 @@ void ExecutionTest::WaveSizeRangeTest() {
                        m_support);
 }
 
+// Helper: run a GroupSharedLimit shader op test, read back UAV, and verify
+// that the output buffer contains sequential uint values [0, GsmDwords).
+static void RunGSMLimitShaderAndVerify(
+    ID3D12Device *Device, dxc::SpecificDllLoader &Support, LPCSTR OpName,
+    const char *ShaderText, UINT GsmDwords, UINT ShaderIndex,
+    std::shared_ptr<st::ShaderOpSet> ShaderOpSet) {
+  std::shared_ptr<st::ShaderOpTestResult> Test = st::RunShaderOpTestAfterParse(
+      Device, Support, OpName,
+      [&](LPCSTR Name, std::vector<BYTE> &Data, st::ShaderOp *Op) {
+        VERIFY_IS_TRUE((0 == strncmp(Name, "UAVBuffer0", 10)));
+        Op->Shaders.at(ShaderIndex).Text = ShaderText;
+        Data.resize(sizeof(uint32_t) * GsmDwords);
+        memset(Data.data(), 0, Data.size());
+      },
+      ShaderOpSet);
+
+  MappedData DataUav;
+  Test->Test->GetReadBackData("UAVBuffer0", &DataUav);
+  const uint32_t *OutData = (const uint32_t *)DataUav.data();
+
+  for (UINT I = 0; I < GsmDwords; I++) {
+    VERIFY_ARE_EQUAL(OutData[I], I);
+  }
+}
+
 void ExecutionTest::GroupSharedLimitTest() {
   WEX::TestExecution::SetVerifyOutput VerifySettings(
       WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
 
+  bool FailIfRequirementsNotMet = false;
+#ifdef _HLK_CONF
+  FailIfRequirementsNotMet = true;
+#endif
+  WEX::TestExecution::RuntimeParameters::TryGetValue(
+      L"FailIfRequirementsNotMet", FailIfRequirementsNotMet);
+
   CComPtr<ID3D12Device> Device;
   // GroupSharedLimit requires SM 6.10 (DXIL 1.10).
-  if (!createDevice(&Device, D3D_SHADER_MODEL_6_10,
-                    /*skipUnsupported*/ false)) {
+  const bool SkipUnsupported = !FailIfRequirementsNotMet;
+  if (!createDevice(&Device, D3D_SHADER_MODEL_6_10, SkipUnsupported)) {
+    if (FailIfRequirementsNotMet)
+      LogErrorFmt(L"Device creation failed, resulting in test failure, since "
+                  L"FailIfRequirementsNotMet is set.");
     return;
   }
 
-  UINT MaxGSMCS = getMaxGroupSharedMemoryCS(Device);
+  const UINT MaxGSMCS = getMaxGroupSharedMemoryCS(Device);
   LogCommentFmt(L"Device MaxGroupSharedMemoryPerGroupCS: %u bytes", MaxGSMCS);
 
   // Read shader config
@@ -10647,13 +10682,10 @@ void ExecutionTest::GroupSharedLimitTest() {
   // Use 4096 DWORDs (16384 bytes) of TGSM with a limit of 16384 bytes.
   {
     static const UINT GSM_DWORDS = 4096;
-    static const UINT NUM_THREADS = 64;
 
     LogCommentFmt(L"Test 1: GroupSharedLimit == usage (16384 bytes). "
                   L"Shader should compile and execute successfully.");
 
-    // All threads cooperatively fill g_shared, then thread 0 copies
-    // the entire contents to the output buffer for verification.
     static const char Shader[] =
         R"(
       #define GSM_DWORDS 4096
@@ -10664,35 +10696,17 @@ void ExecutionTest::GroupSharedLimitTest() {
       [GroupSharedLimit(16384)]
       [numthreads(NUM_THREADS, 1, 1)]
       void main(uint GI : SV_GroupIndex) {
-        // Each thread writes multiple elements to fill the array.
         for (uint i = GI; i < GSM_DWORDS; i += NUM_THREADS)
           g_shared[i] = i;
         GroupMemoryBarrierWithGroupSync();
-        // Thread 0 copies all of groupshared memory to the output.
         if (GI == 0) {
           for (uint j = 0; j < GSM_DWORDS; j++)
             g_output[j] = g_shared[j];
         }
       })";
 
-    std::shared_ptr<st::ShaderOpTestResult> Test =
-        st::RunShaderOpTestAfterParse(
-            Device, m_support, "GroupSharedLimitTest",
-            [&](LPCSTR Name, std::vector<BYTE> &Data, st::ShaderOp *Op) {
-              VERIFY_IS_TRUE((0 == strncmp(Name, "UAVBuffer0", 10)));
-              Op->Shaders.at(0).Text = Shader;
-              Data.resize(sizeof(uint32_t) * GSM_DWORDS);
-              memset(Data.data(), 0, Data.size());
-            },
-            ShaderOpSet);
-
-    MappedData DataUav;
-    Test->Test->GetReadBackData("UAVBuffer0", &DataUav);
-    uint32_t *OutData = (uint32_t *)DataUav.data();
-
-    for (UINT I = 0; I < GSM_DWORDS; I++) {
-      VERIFY_ARE_EQUAL(OutData[I], I);
-    }
+    RunGSMLimitShaderAndVerify(Device, m_support, "GroupSharedLimitTest",
+                               Shader, GSM_DWORDS, 0, ShaderOpSet);
     LogCommentFmt(L"Test 1 passed: GroupSharedLimit == usage succeeded.");
   }
 
@@ -10704,7 +10718,6 @@ void ExecutionTest::GroupSharedLimitTest() {
                   MaxGSMCS);
   } else {
     static const UINT GSM_DWORDS = 9216;
-    static const UINT NUM_THREADS = 64;
 
     LogCommentFmt(L"Test 2: GroupSharedLimit (36864) > usage (36864 bytes), "
                   L"both above default (32768). "
@@ -10729,24 +10742,8 @@ void ExecutionTest::GroupSharedLimitTest() {
         }
       })";
 
-    std::shared_ptr<st::ShaderOpTestResult> Test =
-        st::RunShaderOpTestAfterParse(
-            Device, m_support, "GroupSharedLimitTest",
-            [&](LPCSTR Name, std::vector<BYTE> &Data, st::ShaderOp *Op) {
-              VERIFY_IS_TRUE((0 == strncmp(Name, "UAVBuffer0", 10)));
-              Op->Shaders.at(0).Text = Shader;
-              Data.resize(sizeof(uint32_t) * GSM_DWORDS);
-              memset(Data.data(), 0, Data.size());
-            },
-            ShaderOpSet);
-
-    MappedData DataUav;
-    Test->Test->GetReadBackData("UAVBuffer0", &DataUav);
-    uint32_t *OutData = (uint32_t *)DataUav.data();
-
-    for (UINT I = 0; I < GSM_DWORDS; I++) {
-      VERIFY_ARE_EQUAL(OutData[I], I);
-    }
+    RunGSMLimitShaderAndVerify(Device, m_support, "GroupSharedLimitTest",
+                               Shader, GSM_DWORDS, 0, ShaderOpSet);
     LogCommentFmt(L"Test 2 passed: GroupSharedLimit > default succeeded.");
   }
 
@@ -10754,7 +10751,6 @@ void ExecutionTest::GroupSharedLimitTest() {
   // The shader should use default limit and succeed.
   {
     static const UINT GSM_DWORDS = 8192;
-    static const UINT NUM_THREADS = 64;
 
     LogCommentFmt(L"Test 3: No GroupSharedLimit, usage (32768 bytes) <= "
                   L"default limit. Shader should succeed.");
@@ -10777,24 +10773,8 @@ void ExecutionTest::GroupSharedLimitTest() {
         }
       })";
 
-    std::shared_ptr<st::ShaderOpTestResult> Test =
-        st::RunShaderOpTestAfterParse(
-            Device, m_support, "GroupSharedLimitTest",
-            [&](LPCSTR Name, std::vector<BYTE> &Data, st::ShaderOp *Op) {
-              VERIFY_IS_TRUE((0 == strncmp(Name, "UAVBuffer0", 10)));
-              Op->Shaders.at(0).Text = Shader;
-              Data.resize(sizeof(uint32_t) * GSM_DWORDS);
-              memset(Data.data(), 0, Data.size());
-            },
-            ShaderOpSet);
-
-    MappedData DataUav;
-    Test->Test->GetReadBackData("UAVBuffer0", &DataUav);
-    uint32_t *OutData = (uint32_t *)DataUav.data();
-
-    for (UINT I = 0; I < GSM_DWORDS; I++) {
-      VERIFY_ARE_EQUAL(OutData[I], I);
-    }
+    RunGSMLimitShaderAndVerify(Device, m_support, "GroupSharedLimitTest",
+                               Shader, GSM_DWORDS, 0, ShaderOpSet);
     LogCommentFmt(L"Test 3 passed: No attribute with default usage succeeded.");
   }
 }
@@ -10803,9 +10783,19 @@ void ExecutionTest::GroupSharedLimitASTest() {
   WEX::TestExecution::SetVerifyOutput VerifySettings(
       WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
 
+  bool FailIfRequirementsNotMet = false;
+#ifdef _HLK_CONF
+  FailIfRequirementsNotMet = true;
+#endif
+  WEX::TestExecution::RuntimeParameters::TryGetValue(
+      L"FailIfRequirementsNotMet", FailIfRequirementsNotMet);
+
   CComPtr<ID3D12Device> Device;
-  if (!createDevice(&Device, D3D_SHADER_MODEL_6_10,
-                    /*skipUnsupported*/ false)) {
+  const bool SkipUnsupported = !FailIfRequirementsNotMet;
+  if (!createDevice(&Device, D3D_SHADER_MODEL_6_10, SkipUnsupported)) {
+    if (FailIfRequirementsNotMet)
+      LogErrorFmt(L"Device creation failed, resulting in test failure, since "
+                  L"FailIfRequirementsNotMet is set.");
     return;
   }
 
@@ -10815,7 +10805,7 @@ void ExecutionTest::GroupSharedLimitASTest() {
     return;
   }
 
-  UINT MaxGSMAS = getMaxGroupSharedMemoryAS(Device);
+  const UINT MaxGSMAS = getMaxGroupSharedMemoryAS(Device);
   LogCommentFmt(L"Device MaxGroupSharedMemoryPerGroupAS: %u bytes", MaxGSMAS);
 
   CComPtr<IStream> Stream;
@@ -10869,24 +10859,8 @@ void ExecutionTest::GroupSharedLimitASTest() {
       float4 PSMain() : SV_Target { return float4(0,0,0,0); }
       )";
 
-    std::shared_ptr<st::ShaderOpTestResult> Test =
-        st::RunShaderOpTestAfterParse(
-            Device, m_support, "GroupSharedLimitASTest",
-            [&](LPCSTR Name, std::vector<BYTE> &Data, st::ShaderOp *Op) {
-              VERIFY_IS_TRUE((0 == strncmp(Name, "UAVBuffer0", 10)));
-              Op->Shaders.at(0).Text = Shader;
-              Data.resize(sizeof(uint32_t) * GSM_DWORDS);
-              memset(Data.data(), 0, Data.size());
-            },
-            ShaderOpSet);
-
-    MappedData DataUav;
-    Test->Test->GetReadBackData("UAVBuffer0", &DataUav);
-    uint32_t *OutData = (uint32_t *)DataUav.data();
-
-    for (UINT I = 0; I < GSM_DWORDS; I++) {
-      VERIFY_ARE_EQUAL(OutData[I], I);
-    }
+    RunGSMLimitShaderAndVerify(Device, m_support, "GroupSharedLimitASTest",
+                               Shader, GSM_DWORDS, 0, ShaderOpSet);
     LogCommentFmt(
         L"AS Test passed: GroupSharedLimit in amplification shader succeeded.");
   }
@@ -10896,9 +10870,19 @@ void ExecutionTest::GroupSharedLimitMSTest() {
   WEX::TestExecution::SetVerifyOutput VerifySettings(
       WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
 
+  bool FailIfRequirementsNotMet = false;
+#ifdef _HLK_CONF
+  FailIfRequirementsNotMet = true;
+#endif
+  WEX::TestExecution::RuntimeParameters::TryGetValue(
+      L"FailIfRequirementsNotMet", FailIfRequirementsNotMet);
+
   CComPtr<ID3D12Device> Device;
-  if (!createDevice(&Device, D3D_SHADER_MODEL_6_10,
-                    /*skipUnsupported*/ false)) {
+  const bool SkipUnsupported = !FailIfRequirementsNotMet;
+  if (!createDevice(&Device, D3D_SHADER_MODEL_6_10, SkipUnsupported)) {
+    if (FailIfRequirementsNotMet)
+      LogErrorFmt(L"Device creation failed, resulting in test failure, since "
+                  L"FailIfRequirementsNotMet is set.");
     return;
   }
 
@@ -10908,7 +10892,7 @@ void ExecutionTest::GroupSharedLimitMSTest() {
     return;
   }
 
-  UINT MaxGSMMS = getMaxGroupSharedMemoryMS(Device);
+  const UINT MaxGSMMS = getMaxGroupSharedMemoryMS(Device);
   LogCommentFmt(L"Device MaxGroupSharedMemoryPerGroupMS: %u bytes", MaxGSMMS);
 
   CComPtr<IStream> Stream;
@@ -10953,24 +10937,8 @@ void ExecutionTest::GroupSharedLimitMSTest() {
       float4 PSMain() : SV_Target { return float4(0,0,0,0); }
       )";
 
-    std::shared_ptr<st::ShaderOpTestResult> Test =
-        st::RunShaderOpTestAfterParse(
-            Device, m_support, "GroupSharedLimitMSTest",
-            [&](LPCSTR Name, std::vector<BYTE> &Data, st::ShaderOp *Op) {
-              VERIFY_IS_TRUE((0 == strncmp(Name, "UAVBuffer0", 10)));
-              Op->Shaders.at(0).Text = Shader;
-              Data.resize(sizeof(uint32_t) * GSM_DWORDS);
-              memset(Data.data(), 0, Data.size());
-            },
-            ShaderOpSet);
-
-    MappedData DataUav;
-    Test->Test->GetReadBackData("UAVBuffer0", &DataUav);
-    uint32_t *OutData = (uint32_t *)DataUav.data();
-
-    for (UINT I = 0; I < GSM_DWORDS; I++) {
-      VERIFY_ARE_EQUAL(OutData[I], I);
-    }
+    RunGSMLimitShaderAndVerify(Device, m_support, "GroupSharedLimitMSTest",
+                               Shader, GSM_DWORDS, 0, ShaderOpSet);
     LogCommentFmt(
         L"MS Test passed: GroupSharedLimit in mesh shader succeeded.");
   }
