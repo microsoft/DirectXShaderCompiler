@@ -5048,7 +5048,9 @@ public:
       ResClass = DXIL::ResourceClass::UAV;
       return true;
     case AR_OBJECT_TEXTURE2D:
+#ifdef ENABLE_SPIRV_CODEGEN
     case AR_OBJECT_VK_SAMPLED_TEXTURE2D:
+#endif
       ResKind = DXIL::ResourceKind::Texture2D;
       ResClass = DXIL::ResourceClass::SRV;
       return true;
