@@ -7039,7 +7039,22 @@ Value *TranslateLinAlgMatrixOuterProduct(
     CallInst *CI, IntrinsicOp IOP, OP::OpCode OpCode,
     HLOperationLowerHelper &Helper, HLObjectOperationLowerHelper *ObjHelper,
     bool &Translated) {
-  DXASSERT(false, "Not implemented.");
+  hlsl::OP *HlslOp = &Helper.hlslOP;
+  IRBuilder<> Builder(CI);
+
+  Value *MatrixPtr = CI->getArgOperand(1);
+  DXASSERT_NOMSG(isa<PointerType>(MatrixPtr->getType()));
+  Type *MatrixType = MatrixPtr->getType()->getPointerElementType();
+  Value *VecA = CI->getArgOperand(2);
+  Value *VecB = CI->getArgOperand(3);
+
+  Constant *OpArg = HlslOp->GetU32Const((unsigned)OpCode);
+  Function *DxilFunc =
+      HlslOp->GetOpFunc(OpCode, {MatrixType, VecA->getType(), VecB->getType()});
+
+  Value *Matrix = Builder.CreateCall(DxilFunc, {OpArg, VecA, VecB});
+  Builder.CreateStore(Matrix, MatrixPtr);
+
   return nullptr;
 }
 
