@@ -1,0 +1,26 @@
+//
+// LinearAlgebraOps.def - X-Macro definitions for linear algebra operations
+//
+// This file defines the operations tested by the LinearAlgebra execution tests.
+// Each OP entry maps an operation symbol to its preprocessor define, arity
+// (number of input matrices), the ShaderOp name, and which InputSets to use.
+//
+// OP(SYMBOL, ARITY, DEFINE, SHADER_NAME, INPUT_SET_1, INPUT_SET_2)
+//   SYMBOL      - C++ enum name for the operation
+//   ARITY       - Number of input matrices required (0 = scalar-only, 1, 2)
+//   DEFINE      - Preprocessor define passed to the shader to select the op
+//   SHADER_NAME - Name of the ShaderOp in ShaderOpArith.xml
+//   INPUT_SET_1 - InputSet for first matrix (or Fill for scalar ops)
+//   INPUT_SET_2 - InputSet for second matrix (or unused placeholder)
+//
+
+#ifndef OP
+#define OP(SYMBOL, ARITY, DEFINE, SHADER_NAME, INPUT_SET_1, INPUT_SET_2)
+#endif
+
+OP(FillMatrix,        0, "FUNC_FILL_MATRIX",        "LinAlgOp", Fill, Fill)
+OP(MatrixStore,       1, "FUNC_MATRIX_STORE",        "LinAlgOp", Seed, Seed)
+OP(MatrixAccumulate,  1, "FUNC_MATRIX_ACCUMULATE",   "LinAlgOp", Seed, Seed)
+OP(MatrixMul,         2, "FUNC_MATRIX_MUL",          "LinAlgOp", Seed, Identity)
+
+#undef OP
