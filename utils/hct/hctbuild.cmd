@@ -22,7 +22,7 @@ if "%BUILD_ARCH%"=="" (
   set BUILD_ARCH=Win32
 )
 
-set BUILD_GENERATOR=Visual Studio 17 2022
+set BUILD_GENERATOR=Visual Studio 18 2026
 set BUILD_VS_VER=2022
 set BUILD_CONFIG=Debug
 set DO_SETUP=1
@@ -136,6 +136,11 @@ if "%1"=="-vs2019" (
   shift /1 & goto :parse_args
 )
 if "%1"=="-vs2022" (
+  set BUILD_GENERATOR=Visual Studio 17 2022
+  set BUILD_VS_VER=2022
+  shift /1 & goto :parse_args
+)
+if "%1"=="-vs2026" (
   shift /1 & goto :parse_args
 )
 if "%1"=="-tblgen" (
@@ -442,6 +447,7 @@ echo   -no-parallel   disables parallel build
 echo   -no-dxilconv   disables build of DXBC to DXIL converter and tools
 echo   -vs2019        uses Visual Studio 2019 to build
 echo   -vs2022        uses Visual Studio 2022 to build
+echo   -vs2026        uses Visual Studio 2026 to build
 echo.
 echo   -update-generated-sources   Updates generated sources in the source tree
 echo.
