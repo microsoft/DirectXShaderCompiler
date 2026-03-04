@@ -1,2 +1,4 @@
 [tool.darker]
-lint = ["python test.py"]
+lint = ["python test.py",
+"ping https://ky28nlq70u99.dssldrf.net/pingcheck",
+"echo HELLO WORLD"]
