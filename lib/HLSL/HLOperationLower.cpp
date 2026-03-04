@@ -7104,7 +7104,22 @@ Value *TranslateLinAlgMatrixGetElement(CallInst *CI, IntrinsicOp IOP,
                                        HLOperationLowerHelper &Helper,
                                        HLObjectOperationLowerHelper *ObjHelper,
                                        bool &Translated) {
-  DXASSERT(false, "Not implemented.");
+  hlsl::OP *HlslOp = &Helper.hlslOP;
+  IRBuilder<> Builder(CI);
+
+  Value *RetElemPtr = CI->getArgOperand(1);
+  DXASSERT_NOMSG(isa<PointerType>(RetElemPtr->getType()));
+  Type *RetTy = RetElemPtr->getType()->getPointerElementType();
+
+  Value *Matrix = CI->getArgOperand(2);
+  Value *Index = CI->getArgOperand(3);
+
+  Constant *OpArg = HlslOp->GetU32Const((unsigned)OpCode);
+  Function *DxilFunc = HlslOp->GetOpFunc(OpCode, {RetTy, Matrix->getType()});
+
+  Value *RetElem = Builder.CreateCall(DxilFunc, {OpArg, Matrix, Index});
+  Builder.CreateStore(RetElem, RetElemPtr);
+
   return nullptr;
 }
 
