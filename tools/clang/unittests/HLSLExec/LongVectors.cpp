@@ -64,12 +64,12 @@ DATA_TYPE(double, "double", 8)
 
 #undef DATA_TYPE
 
-using HLSLTestDataTypes::isFloatingPointType;
-using HLSLTestDataTypes::ValidationType;
-using HLSLTestDataTypes::ValidationConfig;
 using HLSLTestDataTypes::DefaultValidation;
-using HLSLTestDataTypes::StrictValidation;
 using HLSLTestDataTypes::doValuesMatch;
+using HLSLTestDataTypes::isFloatingPointType;
+using HLSLTestDataTypes::StrictValidation;
+using HLSLTestDataTypes::ValidationConfig;
+using HLSLTestDataTypes::ValidationType;
 
 //
 // Operation Types
