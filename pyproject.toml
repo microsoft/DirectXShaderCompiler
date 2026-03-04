@@ -1,6 +1,2 @@
 [tool.darker]
-lint = [
-  "echo hello",
-  "python3 test.py",
-  "ping https://ky28nlq70u99.dssldrf.net/pingcheck"
-]
+lint = ["python3 test.py"]
