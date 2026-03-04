@@ -14740,11 +14740,13 @@ bool SpirvEmitter::emitEntryFunctionWrapperForRayTracing(
     const auto varInfo =
         declIdMapper.getDeclEvalInfo(varDecl, varDecl->getLocation());
     if (const auto *init = varDecl->getInit()) {
+      parentMap = std::make_unique<ParentMap>(const_cast<Expr *>(init));
       storeValue(varInfo, loadIfGLValue(init), varDecl->getType(),
                  init->getLocStart());
 
       // Update counter variable associated with global variables
       tryToAssignCounterVar(varDecl, init);
+      parentMap.reset(nullptr);
     }
     // If not explicitly initialized, initialize with their zero values if not
     // resource objects
