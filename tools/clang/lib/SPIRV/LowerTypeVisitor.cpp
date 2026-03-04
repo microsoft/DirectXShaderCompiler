@@ -849,7 +849,10 @@ const SpirvType *LowerTypeVisitor::lowerVkTypeInVkNamespace(
     assert(visitedTypeStack.size() == visitedTypeStackSize);
     return pointerType;
   }
-  if (name == "SampledTexture2D") {
+  if (name == "SampledTexture1D" || name == "SampledTexture1DArray" ||
+      name == "SampledTexture2D" || name == "SampledTexture2DArray" ||
+      name == "SampledTexture2DMS" || name == "SampledTexture2DMSArray" ||
+      name == "SampledTexture3D") {
     const auto sampledType = hlsl::GetHLSLResourceResultType(type);
     auto loweredType = lowerType(getElementType(astContext, sampledType), rule,
                                  /*isRowMajor*/ llvm::None, srcLoc);
@@ -860,10 +863,16 @@ const SpirvType *LowerTypeVisitor::lowerVkTypeInVkNamespace(
       loweredType = spvContext.getUIntType(32);
     }
 
+    const spv::Dim dimension =
+        name.count("1D") > 0
+            ? spv::Dim::Dim1D
+            : (name.count("3D") > 0 ? spv::Dim::Dim3D : spv::Dim::Dim2D);
+    const bool isArray = name.count("Array") > 0;
+    const bool isMS = name.count("MS") > 0;
+
     const auto *imageType = spvContext.getImageType(
-        loweredType, spv::Dim::Dim2D, ImageType::WithDepth::No,
-        false /* array */, false /* ms */, ImageType::WithSampler::Yes,
-        spv::ImageFormat::Unknown);
+        loweredType, dimension, ImageType::WithDepth::No, isArray, isMS,
+        ImageType::WithSampler::Yes, spv::ImageFormat::Unknown);
     return spvContext.getSampledImageType(imageType);
   }
   emitError("unknown type %0 in vk namespace", srcLoc) << type;
