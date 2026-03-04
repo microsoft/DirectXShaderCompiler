@@ -4615,4 +4615,149 @@ void MSMain(uint GID : SV_GroupIndex,
       ]]>
     </Shader>
   </ShaderOp>
+
+  <!-- ================================================================== -->
+  <!-- LinAlgOp: Generic ShaderOp for SM 6.10 linear algebra operations.  -->
+  <!-- Uses preprocessor defines to select the operation under test.      -->
+  <!--                                                                    -->
+  <!-- Defines passed as compiler arguments:                              -->
+  <!--   ELEM_TYPE  : Matrix element type (e.g. float, float16_t)         -->
+  <!--   OUT_TYPE   : Output element type                                 -->
+  <!--   ROWS       : Matrix row count (M dimension)                      -->
+  <!--   COLS       : Matrix column count (N dimension)                   -->
+  <!--   K_DIM      : Inner dimension for multiply (K dimension)          -->
+  <!--   MATRIX_LAYOUT : 0=RowMajor, 1=ColMajor                          -->
+  <!--   FUNC_*     : Operation selector define                           -->
+  <!-- ================================================================== -->
+  <ShaderOp Name="LinAlgOp" CS="CS">
+    <RootSignature>UAV(u0), UAV(u1), UAV(u2)</RootSignature>
+    <!-- Width="2048" bytes: enough for 16x16 matrix of 64-bit elements -->
+    <Resource Name="InputMatrix1" Dimension="BUFFER" Width="2048"
+      Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST"
+      TransitionTo="UNORDERED_ACCESS" Init="ByName" ReadBack="true" />
+    <Resource Name="InputMatrix2" Dimension="BUFFER" Width="2048"
+      Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST"
+      TransitionTo="UNORDERED_ACCESS" Init="ByName" ReadBack="true" />
+    <Resource Name="OutputMatrix" Dimension="BUFFER" Width="2048"
+      Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST"
+      TransitionTo="UNORDERED_ACCESS" Init="ByName" ReadBack="true" />
+    <RootValues>
+      <RootValue Index="0" ResName="InputMatrix1" />
+      <RootValue Index="1" ResName="InputMatrix2" />
+      <RootValue Index="2" ResName="OutputMatrix" />
+    </RootValues>
+    <Shader Name="CS" Target="cs_6_10" EntryPoint="main">
+      <![CDATA[
+        RWByteAddressBuffer g_InputMatrix1 : register(u0);
+        RWByteAddressBuffer g_InputMatrix2 : register(u1);
+        RWByteAddressBuffer g_OutputMatrix : register(u2);
+
+        // Matrix stride in bytes for row-major layout.
+        static const uint ByteStride = COLS * sizeof(ELEM_TYPE);
+
+        #ifdef FUNC_FILL_MATRIX
+        // Test FillMatrix (Splat): Create a matrix filled with a scalar value
+        // read from InputMatrix1[0], then store the result to OutputMatrix.
+        void TestFillMatrix() {
+          ELEM_TYPE FillVal = g_InputMatrix1.Load<ELEM_TYPE>(0);
+
+          dx::linalg::Matrix<COMP_TYPE, ROWS, COLS,
+                             dx::linalg::MatrixUse::Accumulator,
+                             dx::linalg::MatrixScope::Wave> Mat =
+              dx::linalg::Matrix<COMP_TYPE, ROWS, COLS,
+                                 dx::linalg::MatrixUse::Accumulator,
+                                 dx::linalg::MatrixScope::Wave>::Splat(FillVal);
+
+          Mat.Store(g_OutputMatrix, 0, ByteStride,
+                    dx::linalg::MatrixLayout::RowMajor);
+        }
+        #endif
+
+        #ifdef FUNC_MATRIX_STORE
+        // Test MatrixStore: Load a matrix from InputMatrix1 and store it
+        // to OutputMatrix. Verifies the load-store round trip.
+        void TestMatrixStore() {
+          dx::linalg::Matrix<COMP_TYPE, ROWS, COLS,
+                             dx::linalg::MatrixUse::Accumulator,
+                             dx::linalg::MatrixScope::Wave> Mat =
+              dx::linalg::Matrix<COMP_TYPE, ROWS, COLS,
+                                 dx::linalg::MatrixUse::Accumulator,
+                                 dx::linalg::MatrixScope::Wave>::Load(
+                  g_InputMatrix1, 0, ByteStride,
+                  dx::linalg::MatrixLayout::RowMajor);
+
+          Mat.Store(g_OutputMatrix, 0, ByteStride,
+                    dx::linalg::MatrixLayout::RowMajor);
+        }
+        #endif
+
+        #ifdef FUNC_MATRIX_ACCUMULATE
+        // Test MatrixAccumulate: Load a matrix from InputMatrix1, then
+        // InterlockedAccumulate it to OutputMatrix (which is pre-initialized).
+        void TestMatrixAccumulate() {
+          dx::linalg::Matrix<COMP_TYPE, ROWS, COLS,
+                             dx::linalg::MatrixUse::Accumulator,
+                             dx::linalg::MatrixScope::Wave> Mat =
+              dx::linalg::Matrix<COMP_TYPE, ROWS, COLS,
+                                 dx::linalg::MatrixUse::Accumulator,
+                                 dx::linalg::MatrixScope::Wave>::Load(
+                  g_InputMatrix1, 0, ByteStride,
+                  dx::linalg::MatrixLayout::RowMajor);
+
+          Mat.InterlockedAccumulate(g_OutputMatrix, 0, ByteStride,
+                                   dx::linalg::MatrixLayout::RowMajor);
+        }
+        #endif
+
+        #ifdef FUNC_MATRIX_MUL
+        // Test MatrixMul: Load two matrices and multiply them.
+        // MatA is ROWS x K_DIM (Use::A), MatB is K_DIM x COLS (Use::B).
+        // Result accumulator is ROWS x COLS.
+        void TestMatrixMul() {
+          static const uint StrideA = K_DIM * sizeof(ELEM_TYPE);
+          static const uint StrideB = COLS * sizeof(ELEM_TYPE);
+
+          dx::linalg::Matrix<COMP_TYPE, ROWS, K_DIM,
+                             dx::linalg::MatrixUse::A,
+                             dx::linalg::MatrixScope::Wave> MatA =
+              dx::linalg::Matrix<COMP_TYPE, ROWS, K_DIM,
+                                 dx::linalg::MatrixUse::A,
+                                 dx::linalg::MatrixScope::Wave>::Load(
+                  g_InputMatrix1, 0, StrideA,
+                  dx::linalg::MatrixLayout::RowMajor);
+
+          dx::linalg::Matrix<COMP_TYPE, K_DIM, COLS,
+                             dx::linalg::MatrixUse::B,
+                             dx::linalg::MatrixScope::Wave> MatB =
+              dx::linalg::Matrix<COMP_TYPE, K_DIM, COLS,
+                                 dx::linalg::MatrixUse::B,
+                                 dx::linalg::MatrixScope::Wave>::Load(
+                  g_InputMatrix2, 0, StrideB,
+                  dx::linalg::MatrixLayout::RowMajor);
+
+          dx::linalg::Matrix<COMP_TYPE, ROWS, COLS,
+                             dx::linalg::MatrixUse::Accumulator,
+                             dx::linalg::MatrixScope::Wave> Result =
+              dx::linalg::Multiply(MatA, MatB);
+
+          Result.Store(g_OutputMatrix, 0, ByteStride,
+                       dx::linalg::MatrixLayout::RowMajor);
+        }
+        #endif
+
+        [numthreads(1, 1, 1)]
+        void main(uint GI : SV_GroupIndex) {
+          #ifdef FUNC_FILL_MATRIX
+            TestFillMatrix();
+          #elif defined(FUNC_MATRIX_STORE)
+            TestMatrixStore();
+          #elif defined(FUNC_MATRIX_ACCUMULATE)
+            TestMatrixAccumulate();
+          #elif defined(FUNC_MATRIX_MUL)
+            TestMatrixMul();
+          #endif
+        };
+      ]]>
+    </Shader>
+  </ShaderOp>
 </ShaderOpSet>
