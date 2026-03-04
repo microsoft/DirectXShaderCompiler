@@ -29,39 +29,39 @@ vk::SampledTextureCUBEArray<float4> texCubeArray;
 
 float4 main() : SV_Target {
 // CHECK: [[tex1_load:%[a-zA-Z0-9_]+]] = OpLoad [[type_2d_sampled_image]] %tex2d
-// CHECK: [[sampled_result1:%[a-zA-Z0-9_]+]] = OpImageSampleDrefExplicitLod %float [[tex1_load]] [[v2fc]] %float_2 Lod %float_0
-    float val1 = tex2d.SampleCmpLevelZero(float2(0.5, 0.25), 2.0f);
+// CHECK: [[sampled_result1:%[a-zA-Z0-9_]+]] = OpImageSampleDrefExplicitLod %float [[tex1_load]] [[v2fc]] %float_2 Lod %float_1
+    float val1 = tex2d.SampleCmpLevel(float2(0.5, 0.25), 2.0f, 1.0f);
 
 // CHECK: [[tex2_load:%[a-zA-Z0-9_]+]] = OpLoad [[type_2d_sampled_image]] %tex2d
-// CHECK: [[sampled_result2:%[a-zA-Z0-9_]+]] = OpImageSampleDrefExplicitLod %float [[tex2_load]] [[v2fc]] %float_2 Lod|ConstOffset %float_0 [[v2ic]]
-    float val2 = tex2d.SampleCmpLevelZero(float2(0.5, 0.25), 2.0f, int2(2,3));
+// CHECK: [[sampled_result2:%[a-zA-Z0-9_]+]] = OpImageSampleDrefExplicitLod %float [[tex2_load]] [[v2fc]] %float_2 Lod|ConstOffset %float_1 [[v2ic]]
+    float val2 = tex2d.SampleCmpLevel(float2(0.5, 0.25), 2.0f, 1.0f, int2(2,3));
 
 // CHECK: [[tex3_load:%[a-zA-Z0-9_]+]] = OpLoad [[type_2d_sampled_image]] %tex2d
-// CHECK: [[sampled_result3:%[a-zA-Z0-9_]+]] = OpImageSparseSampleDrefExplicitLod %SparseResidencyStruct [[tex3_load]] [[v2fc]] %float_2 Lod|ConstOffset %float_0 [[v2ic]]
+// CHECK: [[sampled_result3:%[a-zA-Z0-9_]+]] = OpImageSparseSampleDrefExplicitLod %SparseResidencyStruct [[tex3_load]] [[v2fc]] %float_2 Lod|ConstOffset %float_1 [[v2ic]]
 // CHECK: [[status_0:%[a-zA-Z0-9_]+]] = OpCompositeExtract %uint [[sampled_result3]] 0
 // CHECK:                        OpStore %status [[status_0]]
     uint status;
-    float val3 = tex2d.SampleCmpLevelZero(float2(0.5, 0.25), 2.0f, int2(2,3), status);
+    float val3 = tex2d.SampleCmpLevel(float2(0.5, 0.25), 2.0f, 1.0f, int2(2,3), status);
 
 // CHECK: [[load_arr1:%[a-zA-Z0-9_]+]] = OpLoad [[type_2d_sampled_image_array]] %tex2dArray
-// CHECK: [[sampled_arr1:%[a-zA-Z0-9_]+]] = OpImageSampleDrefExplicitLod %float [[load_arr1]] [[v3fc]] %float_2 Lod %float_0
-    float val4 = tex2dArray.SampleCmpLevelZero(float3(0.5, 0.25, 0), 2.0f);
+// CHECK: [[sampled_arr1:%[a-zA-Z0-9_]+]] = OpImageSampleDrefExplicitLod %float [[load_arr1]] [[v3fc]] %float_2 Lod %float_1
+    float val4 = tex2dArray.SampleCmpLevel(float3(0.5, 0.25, 0), 2.0f, 1.0f);
 
 // CHECK: [[tex1d_load:%[a-zA-Z0-9_]+]] = OpLoad [[type_1d_sampled_image]] %tex1d
-// CHECK: [[sampled_1d:%[a-zA-Z0-9_]+]] = OpImageSampleDrefExplicitLod %float [[tex1d_load]] %float_0_5 %float_2 Lod %float_0
-    float val5 = tex1d.SampleCmpLevelZero(0.5, 2.0f);
+// CHECK: [[sampled_result_1d:%[a-zA-Z0-9_]+]] = OpImageSampleDrefExplicitLod %float [[tex1d_load]] %float_0_5 %float_2 Lod %float_1
+    float val5 = tex1d.SampleCmpLevel(0.5, 2.0f, 1.0f);
 
 // CHECK: [[tex1da_load:%[a-zA-Z0-9_]+]] = OpLoad [[type_1d_sampled_image_array]] %tex1dArray
-// CHECK: [[sampled_1da:%[a-zA-Z0-9_]+]] = OpImageSampleDrefExplicitLod %float [[tex1da_load]] {{%[0-9]+}} %float_2 Lod %float_0
-    float val6 = tex1dArray.SampleCmpLevelZero(float2(0.5, 0), 2.0f);
+// CHECK: [[sampled_result_1da:%[a-zA-Z0-9_]+]] = OpImageSampleDrefExplicitLod %float [[tex1da_load]] {{%[0-9]+}} %float_2 Lod %float_1
+    float val6 = tex1dArray.SampleCmpLevel(float2(0.5, 0), 2.0f, 1.0f);
 
 // CHECK: [[cube_load:%[a-zA-Z0-9_]+]] = OpLoad [[type_cube_sampled_image]] %texCube
-// CHECK: [[sampled_cube:%[a-zA-Z0-9_]+]] = OpImageSampleDrefExplicitLod %float [[cube_load]] [[v3fc]] %float_2 Lod %float_0
-    float val7 = texCube.SampleCmpLevelZero(float3(0.5, 0.25, 0), 2.0f);
+// CHECK: [[sampled_cube:%[a-zA-Z0-9_]+]] = OpImageSampleDrefExplicitLod %float [[cube_load]] [[v3fc]] %float_2 Lod %float_1
+    float val7 = texCube.SampleCmpLevel(float3(0.5, 0.25, 0), 2.0f, 1.0f);
 
 // CHECK: [[cube_arr_load:%[a-zA-Z0-9_]+]] = OpLoad [[type_cube_sampled_image_array]] %texCubeArray
-// CHECK: [[sampled_cube_arr:%[a-zA-Z0-9_]+]] = OpImageSampleDrefExplicitLod %float [[cube_arr_load]] [[v4fc]] %float_2 Lod %float_0
-    float val8 = texCubeArray.SampleCmpLevelZero(float4(0.5, 0.25, 0, 0), 2.0f);
+// CHECK: [[sampled_cube_arr:%[a-zA-Z0-9_]+]] = OpImageSampleDrefExplicitLod %float [[cube_arr_load]] [[v4fc]] %float_2 Lod %float_1
+    float val8 = texCubeArray.SampleCmpLevel(float4(0.5, 0.25, 0, 0), 2.0f, 1.0f);
 
     return 1.0;
 }
