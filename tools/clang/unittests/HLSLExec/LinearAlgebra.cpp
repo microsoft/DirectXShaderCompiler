@@ -31,8 +31,7 @@ namespace LinearAlgebra {
 //
 
 enum class OpType : unsigned {
-#define OP(SYMBOL, ARITY, DEFINE, SHADER_NAME, INPUT_SET_1, INPUT_SET_2)       \
-  SYMBOL,
+#define OP(SYMBOL, ARITY, DEFINE, SHADER_NAME, INPUT_SET_1, INPUT_SET_2) SYMBOL,
 #include "LinearAlgebraOps.def"
   NumOpTypes
 };
@@ -47,8 +46,11 @@ struct Operation {
 
 static constexpr Operation Operations[] = {
 #define OP(SYMBOL, ARITY, DEFINE, SHADER_NAME, INPUT_SET_1, INPUT_SET_2)       \
-  {ARITY, DEFINE, SHADER_NAME,                                                 \
-   {InputSet::INPUT_SET_1, InputSet::INPUT_SET_2}, OpType::SYMBOL},
+  {ARITY,                                                                      \
+   DEFINE,                                                                     \
+   SHADER_NAME,                                                                \
+   {InputSet::INPUT_SET_1, InputSet::INPUT_SET_2},                             \
+   OpType::SYMBOL},
 #include "LinearAlgebraOps.def"
 };
 
@@ -75,7 +77,7 @@ template <typename T> const DataType &getDataType() {
 
 #define DATA_TYPE(TYPE, HLSL_STRING, COMP_TYPE, HLSL_SIZE, IS_16BIT)           \
   template <> const DataType &getDataType<TYPE>() {                            \
-    static DataType DT{HLSL_STRING, COMP_TYPE, IS_16BIT, HLSL_SIZE};          \
+    static DataType DT{HLSL_STRING, COMP_TYPE, IS_16BIT, HLSL_SIZE};           \
     return DT;                                                                 \
   }
 
@@ -106,9 +108,7 @@ struct ValidationConfig {
     return {Tol, ValidationType::Epsilon};
   }
 
-  static ValidationConfig Ulp(double Tol) {
-    return {Tol, ValidationType::Ulp};
-  }
+  static ValidationConfig Ulp(double Tol) { return {Tol, ValidationType::Ulp}; }
 };
 
 // Default validation: ULP for floating point, exact for integers.
@@ -162,8 +162,7 @@ bool doValuesMatch(float A, float B, double Tolerance, ValidationType VType) {
   }
 }
 
-bool doValuesMatch(double A, double B, double Tolerance,
-                   ValidationType VType) {
+bool doValuesMatch(double A, double B, double Tolerance, ValidationType VType) {
   switch (VType) {
   case ValidationType::Epsilon:
     return CompareDoubleEpsilon(A, B, Tolerance);
@@ -222,9 +221,9 @@ std::vector<MatrixDims> getMatrixSizesToTest() {
 // Build compiler options.
 //
 
-std::string
-getCompilerOptionsString(const Operation &Op, const DataType &ElemType,
-                         size_t Rows, size_t Cols, size_t KDim = 0) {
+std::string getCompilerOptionsString(const Operation &Op,
+                                     const DataType &ElemType, size_t Rows,
+                                     size_t Cols, size_t KDim = 0) {
   std::stringstream Options;
 
   if (ElemType.Is16Bit)
@@ -317,7 +316,7 @@ std::vector<T> buildIdentityMatrix(size_t Rows, size_t Cols) {
 
 template <typename T>
 InputSets<T> buildTestInputs(const Operation &Op, size_t Rows, size_t Cols,
-                              size_t KDim) {
+                             size_t KDim) {
   InputSets<T> Inputs;
   const size_t NumElements = Rows * Cols;
 
@@ -341,9 +340,9 @@ InputSets<T> buildTestInputs(const Operation &Op, size_t Rows, size_t Cols,
 
 template <typename T>
 std::optional<std::vector<T>>
-runLinAlgTest(ID3D12Device *D3DDevice, bool VerboseLogging,
-              const Operation &Op, const InputSets<T> &Inputs, size_t Rows,
-              size_t Cols, size_t KDim, size_t ExpectedOutputSize) {
+runLinAlgTest(ID3D12Device *D3DDevice, bool VerboseLogging, const Operation &Op,
+              const InputSets<T> &Inputs, size_t Rows, size_t Cols, size_t KDim,
+              size_t ExpectedOutputSize) {
 
   const DataType &ElemType = getDataType<T>();
 
@@ -351,8 +350,7 @@ runLinAlgTest(ID3D12Device *D3DDevice, bool VerboseLogging,
       getCompilerOptionsString(Op, ElemType, Rows, Cols, KDim);
 
   if (VerboseLogging)
-    hlsl_test::LogCommentFmt(L"Compiler Options: %S",
-                             CompilerOptions.c_str());
+    hlsl_test::LogCommentFmt(L"Compiler Options: %S", CompilerOptions.c_str());
 
   dxc::SpecificDllLoader DxilDllLoader;
   CComPtr<IStream> TestXML;
@@ -473,8 +471,7 @@ template <typename T> struct ExpectedBuilder<OpType::MatrixAccumulate, T> {
 };
 
 // MatrixMul: multiply input matrix by identity.
-template <typename T>
-struct Op<OpType::MatrixMul, T> : DefaultValidation<T> {};
+template <typename T> struct Op<OpType::MatrixMul, T> : DefaultValidation<T> {};
 
 template <typename T> struct ExpectedBuilder<OpType::MatrixMul, T> {
   static std::vector<T> buildExpected(Op<OpType::MatrixMul, T> &,
@@ -546,11 +543,9 @@ public:
       WEX::TestExecution::RuntimeParameters::TryGetValue(L"VerboseLogging",
                                                          VerboseLogging);
       if (VerboseLogging)
-        hlsl_test::LogCommentFmt(
-            L"Verbose logging is enabled for this test.");
+        hlsl_test::LogCommentFmt(L"Verbose logging is enabled for this test.");
       else
-        hlsl_test::LogCommentFmt(
-            L"Verbose logging is disabled for this test.");
+        hlsl_test::LogCommentFmt(L"Verbose logging is disabled for this test.");
 
       bool FailIfRequirementsNotMet = false;
 #ifdef _HLK_CONF
@@ -614,22 +609,18 @@ private:
 class DxilConf_SM610_LinearAlgebra : public LinAlgTestClassCommon {
 public:
   BEGIN_TEST_CLASS(DxilConf_SM610_LinearAlgebra)
-  TEST_CLASS_PROPERTY(
-      "Kits.TestName",
-      "D3D12 - Shader Model 6.10 - Linear Algebra Tests")
+  TEST_CLASS_PROPERTY("Kits.TestName",
+                      "D3D12 - Shader Model 6.10 - Linear Algebra Tests")
   TEST_CLASS_PROPERTY("Kits.TestId", "a1b2c3d4-e5f6-7890-abcd-ef1234567890")
-  TEST_CLASS_PROPERTY(
-      "Kits.Description",
-      "Validates SM 6.10 linear algebra matrix operations")
+  TEST_CLASS_PROPERTY("Kits.Description",
+                      "Validates SM 6.10 linear algebra matrix operations")
   TEST_CLASS_PROPERTY(
       "Kits.Specification",
       "Device.Graphics.D3D12.DXILCore.ShaderModel610.CoreRequirement")
   TEST_METHOD_PROPERTY(L"Priority", L"0")
   END_TEST_CLASS()
 
-  TEST_CLASS_SETUP(setupClass) {
-    return LinAlgTestClassCommon::setupClass();
-  }
+  TEST_CLASS_SETUP(setupClass) { return LinAlgTestClassCommon::setupClass(); }
   TEST_METHOD_SETUP(setupMethod) {
     return LinAlgTestClassCommon::setupMethod();
   }
