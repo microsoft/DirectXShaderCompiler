@@ -96,14 +96,15 @@ using HLSLTestDataTypes::ValidationConfig;
 using HLSLTestDataTypes::ValidationType;
 
 template <typename T>
-bool doVectorsMatch(const std::vector<T> &Actual,
-                    const std::vector<T> &Expected,
-                    const ValidationConfig &Config, bool VerboseLogging) {
+bool doMatricesMatch(const std::vector<T> &Actual,
+                     const std::vector<T> &Expected, size_t M, size_t N,
+                     const ValidationConfig &Config, bool VerboseLogging) {
   DXASSERT(Actual.size() == Expected.size(),
            "Actual and Expected must be the same size");
 
   if (VerboseLogging)
-    hlsl_test::LogCommentFmt(L"Verifying %zu elements", Actual.size());
+    hlsl_test::LogCommentFmt(L"Verifying %zux%zu matrix (%zu elements)", M, N,
+                             Actual.size());
 
   std::vector<size_t> MismatchedIndexes;
   for (size_t I = 0; I < Actual.size(); I++) {
@@ -117,7 +118,7 @@ bool doVectorsMatch(const std::vector<T> &Actual,
   for (size_t Index : MismatchedIndexes) {
     std::wstringstream Wss(L"");
     Wss << std::setprecision(15);
-    Wss << L"Mismatch at Index: " << Index;
+    Wss << L"Mismatch at (" << Index / N << L"," << Index % N << L")";
     Wss << L" Actual:" << Actual[Index];
     Wss << L" Expected:" << Expected[Index];
     hlsl_test::LogErrorFmt(Wss.str().c_str());
@@ -338,7 +339,8 @@ void runAndVerify(ID3D12Device *D3DDevice, bool VerboseLogging,
     return;
   }
 
-  VERIFY_IS_TRUE(doVectorsMatch(*Actual, Expected, Config, VerboseLogging));
+  VERIFY_IS_TRUE(
+      doMatricesMatch(*Actual, Expected, Rows, Cols, Config, VerboseLogging));
 }
 
 //
