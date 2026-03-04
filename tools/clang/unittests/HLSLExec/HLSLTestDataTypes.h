@@ -10,8 +10,8 @@
 #include <DirectXMath.h>
 #include <DirectXPackedVector.h>
 
-#include "dxc/Support/Global.h"
 #include "HlslTestUtils.h"
+#include "dxc/Support/Global.h"
 
 // Shared HLSL type wrappers for use in execution tests.
 // These types bridge the gap between C++ and HLSL type representations.
@@ -547,8 +547,7 @@ inline bool doValuesMatch(T A, T B, double Tolerance, ValidationType) {
   return Diff <= Tolerance;
 }
 
-inline bool doValuesMatch(HLSLBool_t A, HLSLBool_t B, double,
-                          ValidationType) {
+inline bool doValuesMatch(HLSLBool_t A, HLSLBool_t B, double, ValidationType) {
   return A == B;
 }
 

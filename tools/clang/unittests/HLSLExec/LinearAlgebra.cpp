@@ -87,13 +87,13 @@ DATA_TYPE(uint32_t, "uint", "ComponentType::U32", 4, false)
 
 #undef DATA_TYPE
 
-using HLSLTestDataTypes::isFloatingPointType;
-using HLSLTestDataTypes::ValidationType;
-using HLSLTestDataTypes::ValidationConfig;
 using HLSLTestDataTypes::DefaultValidation;
-using HLSLTestDataTypes::StrictValidation;
 using HLSLTestDataTypes::doValuesMatch;
 using HLSLTestDataTypes::HLSLHalf_t;
+using HLSLTestDataTypes::isFloatingPointType;
+using HLSLTestDataTypes::StrictValidation;
+using HLSLTestDataTypes::ValidationConfig;
+using HLSLTestDataTypes::ValidationType;
 
 template <typename T>
 bool doVectorsMatch(const std::vector<T> &Actual,
