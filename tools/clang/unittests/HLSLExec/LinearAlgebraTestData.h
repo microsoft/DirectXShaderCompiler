@@ -86,7 +86,8 @@ INPUT_SET(InputSet::Fill, 42)
 INPUT_SET(InputSet::Identity, 1)
 END_INPUT_SETS()
 
-// --- Additional scalar types ---
+// --- Additional scalar types (pre-staged for upcoming SM 6.10 ComponentTypes)
+// ---
 
 BEGIN_INPUT_SETS(int8_t)
 INPUT_SET(InputSet::Seed, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14)
@@ -124,7 +125,7 @@ INPUT_SET(InputSet::Fill, 42)
 INPUT_SET(InputSet::Identity, 1)
 END_INPUT_SETS()
 
-// --- Normalized types (SNorm [-1,1], UNorm [0,1]) ---
+// --- Normalized types (pre-staged for SM 6.10 SNorm/UNorm ComponentTypes) ---
 
 BEGIN_INPUT_SETS(SNormF16_t)
 INPUT_SET(InputSet::Seed, SNormF16_t(HLSLHalf_t(-0.9f)),
@@ -190,7 +191,7 @@ INPUT_SET(InputSet::Fill, UNormF64_t(0.5))
 INPUT_SET(InputSet::Identity, UNormF64_t(1.0))
 END_INPUT_SETS()
 
-// --- FP8 types (packed 4 elements per scalar in HLSL) ---
+// --- FP8 types (pre-staged for SM 6.10 packed ComponentTypes) ---
 
 BEGIN_INPUT_SETS(F8E4M3_t)
 INPUT_SET(InputSet::Seed, F8E4M3_t(1.0f), F8E4M3_t(1.5f), F8E4M3_t(2.0f),
