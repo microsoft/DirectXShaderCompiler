@@ -17,7 +17,7 @@ float4 main(int3 location3: A, int4 location4: B) : SV_Target {
 // CHECK-NEXT: [[coord_0:%[0-9]+]] = OpVectorShuffle %v2int [[loc]] [[loc]] 0 1
 // CHECK-NEXT:   [[lod_0:%[0-9]+]] = OpCompositeExtract %int [[loc]] 2
 // CHECK-NEXT:    [[tex:%[0-9]+]] = OpLoad [[type_2d_sampled_image]] %tex2d
-// CHECK-NEXT:    [[tex_img:%[0-9]+]] = OpImage %type_2d_image [[tex]]
+// CHECK-NEXT:    [[tex_img:%[0-9]+]] = OpImage [[type_2d_image]] [[tex]]
 // CHECK-NEXT:       {{%[0-9]+}} = OpImageFetch %v4float [[tex_img]] [[coord_0]] Lod [[lod_0]]
     float4 val1 = tex2d.Load(location3);
 
@@ -25,7 +25,7 @@ float4 main(int3 location3: A, int4 location4: B) : SV_Target {
 // CHECK-NEXT: [[coord_0:%[0-9]+]] = OpVectorShuffle %v2int [[loc]] [[loc]] 0 1
 // CHECK-NEXT:   [[lod_0:%[0-9]+]] = OpCompositeExtract %int [[loc]] 2
 // CHECK-NEXT:    [[tex:%[0-9]+]] = OpLoad [[type_2d_sampled_image]] %tex2d
-// CHECK-NEXT:    [[tex_img:%[0-9]+]] = OpImage %type_2d_image [[tex]]
+// CHECK-NEXT:    [[tex_img:%[0-9]+]] = OpImage [[type_2d_image]] [[tex]]
 // CHECK-NEXT:       {{%[0-9]+}} = OpImageFetch %v4float [[tex_img]] [[coord_0]] Lod|ConstOffset [[lod_0]] [[v2ic]]
     float4 val2 = tex2d.Load(location3, int2(1, 2));
 
@@ -37,7 +37,7 @@ float4 main(int3 location3: A, int4 location4: B) : SV_Target {
 // CHECK-NEXT: [[coord_0:%[0-9]+]] = OpVectorShuffle %v2int [[loc]] [[loc]] 0 1
 // CHECK-NEXT:   [[lod_0:%[0-9]+]] = OpCompositeExtract %int [[loc]] 2
 // CHECK-NEXT:    [[tex:%[0-9]+]] = OpLoad [[type_2d_sampled_image]] %tex2d
-// CHECK-NEXT:    [[tex_img:%[0-9]+]] = OpImage %type_2d_image [[tex]]
+// CHECK-NEXT:    [[tex_img:%[0-9]+]] = OpImage [[type_2d_image]] [[tex]]
 // CHECK-NEXT:[[structResult:%[0-9]+]] = OpImageSparseFetch %SparseResidencyStruct [[tex_img]] [[coord_0]] Lod|ConstOffset [[lod_0]] [[v2ic]]
 // CHECK-NEXT:      [[status:%[0-9]+]] = OpCompositeExtract %uint [[structResult]] 0
 // CHECK-NEXT:                        OpStore %status [[status]]

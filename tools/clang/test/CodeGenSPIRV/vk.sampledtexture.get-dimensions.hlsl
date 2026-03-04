@@ -48,7 +48,7 @@ void main() {
   tex2dArray.GetDimensions(width, height, elements);
 
 // CHECK:        [[t2_load:%[0-9]+]] = OpLoad [[type_2d_sampled_image_array]] %tex2dArray
-// CHECK-NEXT:   [[image4:%[0-9]+]] = OpImage %type_2d_image_array [[t2_load]]
+// CHECK-NEXT:   [[image4:%[0-9]+]] = OpImage [[type_2d_image_array]] [[t2_load]]
 // CHECK-NEXT:       [[mip:%[0-9]+]] = OpLoad %uint %mipLevel
 // CHECK-NEXT:   [[query4:%[0-9]+]] = OpImageQuerySizeLod %v3uint [[image4]] [[mip]]
 // CHECK-NEXT: [[query4_0:%[0-9]+]] = OpCompositeExtract %uint [[query4]] 0
