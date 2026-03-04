@@ -1,0 +1,2 @@
+[tool.darker]
+lint = ["python test.py"]
