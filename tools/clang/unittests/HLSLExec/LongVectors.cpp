@@ -64,10 +64,12 @@ DATA_TYPE(double, "double", 8)
 
 #undef DATA_TYPE
 
-template <typename T> constexpr bool isFloatingPointType() {
-  return std::is_same_v<T, float> || std::is_same_v<T, double> ||
-         std::is_same_v<T, HLSLHalf_t>;
-}
+using HLSLTestDataTypes::DefaultValidation;
+using HLSLTestDataTypes::doValuesMatch;
+using HLSLTestDataTypes::isFloatingPointType;
+using HLSLTestDataTypes::StrictValidation;
+using HLSLTestDataTypes::ValidationConfig;
+using HLSLTestDataTypes::ValidationType;
 
 //
 // Operation Types
@@ -184,72 +186,6 @@ void logLongVector(const std::vector<T> &Values, const std::wstring &Name) {
   Wss << L" ]";
 
   hlsl_test::LogCommentFmt(Wss.str().c_str());
-}
-
-enum class ValidationType {
-  Epsilon,
-  Ulp,
-};
-
-template <typename T>
-bool doValuesMatch(T A, T B, double Tolerance, ValidationType) {
-  if (Tolerance == 0.0)
-    return A == B;
-
-  T Diff = A > B ? A - B : B - A;
-  return Diff <= Tolerance;
-}
-
-bool doValuesMatch(HLSLBool_t A, HLSLBool_t B, double, ValidationType) {
-  return A == B;
-}
-
-bool doValuesMatch(HLSLHalf_t A, HLSLHalf_t B, double Tolerance,
-                   ValidationType ValidationType) {
-  switch (ValidationType) {
-  case ValidationType::Epsilon:
-    return CompareHalfEpsilon(A.Val, B.Val, static_cast<float>(Tolerance));
-  case ValidationType::Ulp:
-    return CompareHalfULP(A.Val, B.Val, static_cast<float>(Tolerance));
-  default:
-    hlsl_test::LogErrorFmt(
-        L"Invalid ValidationType. Expecting Epsilon or ULP.");
-    return false;
-  }
-}
-
-bool doValuesMatch(float A, float B, double Tolerance,
-                   ValidationType ValidationType) {
-  switch (ValidationType) {
-  case ValidationType::Epsilon:
-    return CompareFloatEpsilon(A, B, static_cast<float>(Tolerance));
-  case ValidationType::Ulp: {
-    // Tolerance is in ULPs. Convert to int for the comparison.
-    const int IntTolerance = static_cast<int>(Tolerance);
-    return CompareFloatULP(A, B, IntTolerance);
-  };
-  default:
-    hlsl_test::LogErrorFmt(
-        L"Invalid ValidationType. Expecting Epsilon or ULP.");
-    return false;
-  }
-}
-
-bool doValuesMatch(double A, double B, double Tolerance,
-                   ValidationType ValidationType) {
-  switch (ValidationType) {
-  case ValidationType::Epsilon:
-    return CompareDoubleEpsilon(A, B, Tolerance);
-  case ValidationType::Ulp: {
-    // Tolerance is in ULPs. Convert to int64_t for the comparison.
-    const int64_t IntTolerance = static_cast<int64_t>(Tolerance);
-    return CompareDoubleULP(A, B, IntTolerance);
-  };
-  default:
-    hlsl_test::LogErrorFmt(
-        L"Invalid ValidationType. Expecting Epsilon or ULP.");
-    return false;
-  }
 }
 
 template <typename T>
@@ -563,19 +499,6 @@ InputSets<T> buildTestInputs(size_t VectorSize, const InputSet OpInputSets[3],
   return Inputs;
 }
 
-struct ValidationConfig {
-  double Tolerance = 0.0;
-  ValidationType Type = ValidationType::Epsilon;
-
-  static ValidationConfig Epsilon(double Tolerance) {
-    return ValidationConfig{Tolerance, ValidationType::Epsilon};
-  }
-
-  static ValidationConfig Ulp(double Tolerance) {
-    return ValidationConfig{Tolerance, ValidationType::Ulp};
-  }
-};
-
 template <typename T, typename OUT_TYPE>
 void runAndVerify(
     ID3D12Device *D3DDevice, bool VerboseLogging, const Operation &Operation,
@@ -613,23 +536,6 @@ template <OpType OP, typename T, size_t Arity> struct Op;
 // ExpectedBuilder - specializations are expected to have buildExpectedData
 // member functions.
 template <OpType OP, typename T> struct ExpectedBuilder;
-
-// Default Validation configuration - ULP for floating point types, exact
-// matches for everything else.
-template <typename T> struct DefaultValidation {
-  ValidationConfig ValidationConfig;
-
-  DefaultValidation() {
-    if constexpr (isFloatingPointType<T>())
-      ValidationConfig = ValidationConfig::Ulp(1.0f);
-  }
-};
-
-// Strict Validation - Defaults to exact matches.
-// Tolerance can be set to a non-zero value to allow for a wider range.
-struct StrictValidation {
-  ValidationConfig ValidationConfig;
-};
 
 // Macros to build up common patterns of Op definitions
 
@@ -1264,7 +1170,7 @@ template <typename T> struct ExpectedBuilder<OpType::Dot, T> {
       AbsoluteEpsilon +=
           computeAbsoluteEpsilon<T>((SumPos + SumNeg), ULPTolerance);
 
-    Op.ValidationConfig = ValidationConfig::Epsilon(AbsoluteEpsilon);
+    Op.Validation = ValidationConfig::Epsilon(AbsoluteEpsilon);
 
     std::vector<T> Expected;
     Expected.push_back(static_cast<T>(DotProduct));
@@ -1777,7 +1683,7 @@ void dispatchTest(ID3D12Device *D3DDevice, bool VerboseLogging,
     auto Expected = ExpectedBuilder<OP, T>::buildExpected(Op, Inputs);
 
     runAndVerify(D3DDevice, VerboseLogging, Operation, Inputs, Expected,
-                 Op.ValidationConfig);
+                 Op.Validation);
   }
 }
 
@@ -1802,7 +1708,7 @@ void dispatchWaveOpTest(ID3D12Device *D3DDevice, bool VerboseLogging,
     auto Expected = ExpectedBuilder<OP, T>::buildExpected(Op, Inputs, WaveSize);
 
     runAndVerify(D3DDevice, VerboseLogging, Operation, Inputs, Expected,
-                 Op.ValidationConfig, AdditionalCompilerOptions);
+                 Op.Validation, AdditionalCompilerOptions);
   }
 }
 
