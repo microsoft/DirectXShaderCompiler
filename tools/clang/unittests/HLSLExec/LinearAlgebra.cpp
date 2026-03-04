@@ -482,8 +482,8 @@ public:
           L"FailIfRequirementsNotMet", FailIfRequirementsNotMet);
 
       const bool SkipUnsupported = !FailIfRequirementsNotMet;
-      // Linear algebra requires at least SM 6.9 device support.
-      if (!D3D12SDK->createDevice(&D3DDevice, D3D_SHADER_MODEL_6_9,
+      // Linear algebra requires at least SM 6.10 device support.
+      if (!D3D12SDK->createDevice(&D3DDevice, D3D_SHADER_MODEL_6_10,
                                   SkipUnsupported)) {
         if (FailIfRequirementsNotMet)
           hlsl_test::LogErrorFmt(
@@ -507,7 +507,7 @@ public:
       hlsl_test::LogCommentFmt(L"Creating device");
 
       const bool SkipUnsupported = false;
-      VERIFY_IS_TRUE(D3D12SDK->createDevice(&D3DDevice, D3D_SHADER_MODEL_6_9,
+      VERIFY_IS_TRUE(D3D12SDK->createDevice(&D3DDevice, D3D_SHADER_MODEL_6_10,
                                             SkipUnsupported));
     }
 
