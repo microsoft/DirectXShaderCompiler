@@ -18,7 +18,7 @@
 namespace HLSLTestDataTypes {
 
 // A helper struct because C++ bools are 1 byte and HLSL bools are 4 bytes.
-// Take int32_t as a constuctor argument and convert it to bool when needed.
+// Take int32_t as a constructor argument and convert it to bool when needed.
 // Comparisons cast to a bool because we only care if the bool representation is
 // true or false.
 struct HLSLBool_t {
@@ -498,7 +498,11 @@ private:
 
 template <typename T> constexpr bool isFloatingPointType() {
   return std::is_same_v<T, float> || std::is_same_v<T, double> ||
-         std::is_same_v<T, HLSLHalf_t>;
+         std::is_same_v<T, HLSLHalf_t> || std::is_same_v<T, SNormF16_t> ||
+         std::is_same_v<T, UNormF16_t> || std::is_same_v<T, SNormF32_t> ||
+         std::is_same_v<T, UNormF32_t> || std::is_same_v<T, SNormF64_t> ||
+         std::is_same_v<T, UNormF64_t> || std::is_same_v<T, F8E4M3_t> ||
+         std::is_same_v<T, F8E5M2_t>;
 }
 
 enum class ValidationType {
@@ -521,17 +525,17 @@ struct ValidationConfig {
 
 // Default validation: ULP for floating point, exact for integers.
 template <typename T> struct DefaultValidation {
-  ValidationConfig ValidationConfig;
+  ValidationConfig Validation;
 
   DefaultValidation() {
     if constexpr (isFloatingPointType<T>())
-      ValidationConfig = ValidationConfig::Ulp(1.0f);
+      Validation = ValidationConfig::Ulp(1.0f);
   }
 };
 
 // Strict validation: exact match by default.
 struct StrictValidation {
-  ValidationConfig ValidationConfig;
+  ValidationConfig Validation;
 };
 
 //

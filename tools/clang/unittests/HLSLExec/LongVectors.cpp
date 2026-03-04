@@ -1170,7 +1170,7 @@ template <typename T> struct ExpectedBuilder<OpType::Dot, T> {
       AbsoluteEpsilon +=
           computeAbsoluteEpsilon<T>((SumPos + SumNeg), ULPTolerance);
 
-    Op.ValidationConfig = ValidationConfig::Epsilon(AbsoluteEpsilon);
+    Op.Validation = ValidationConfig::Epsilon(AbsoluteEpsilon);
 
     std::vector<T> Expected;
     Expected.push_back(static_cast<T>(DotProduct));
@@ -1683,7 +1683,7 @@ void dispatchTest(ID3D12Device *D3DDevice, bool VerboseLogging,
     auto Expected = ExpectedBuilder<OP, T>::buildExpected(Op, Inputs);
 
     runAndVerify(D3DDevice, VerboseLogging, Operation, Inputs, Expected,
-                 Op.ValidationConfig);
+                 Op.Validation);
   }
 }
 
@@ -1708,7 +1708,7 @@ void dispatchWaveOpTest(ID3D12Device *D3DDevice, bool VerboseLogging,
     auto Expected = ExpectedBuilder<OP, T>::buildExpected(Op, Inputs, WaveSize);
 
     runAndVerify(D3DDevice, VerboseLogging, Operation, Inputs, Expected,
-                 Op.ValidationConfig, AdditionalCompilerOptions);
+                 Op.Validation, AdditionalCompilerOptions);
   }
 }
 

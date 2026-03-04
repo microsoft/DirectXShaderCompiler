@@ -70,7 +70,7 @@ struct DataType {
 };
 
 template <typename T> const DataType &getDataType() {
-  static_assert(false && "Unknown data type");
+  static_assert(sizeof(T) == 0, "Unknown data type");
 }
 
 #define DATA_TYPE(TYPE, HLSL_STRING, COMP_TYPE, HLSL_SIZE, IS_16BIT)           \
@@ -118,6 +118,7 @@ bool doMatricesMatch(const std::vector<T> &Actual,
   for (size_t Index : MismatchedIndexes) {
     std::wstringstream Wss(L"");
     Wss << std::setprecision(15);
+    // Assumes row-major layout for (row,col) decomposition.
     Wss << L"Mismatch at (" << Index / N << L"," << Index % N << L")";
     Wss << L" Actual:" << Actual[Index];
     Wss << L" Expected:" << Expected[Index];
@@ -162,7 +163,7 @@ std::string getCompilerOptionsString(const Operation &Op,
   if (KDim > 0)
     Options << " -DK_DIM=" << KDim;
 
-  Options << " -DMATRIX_LAYOUT=0";
+  Options << " -DMATRIX_LAYOUT=0"; // 0 = RowMajor, 1 = ColMajor
 
   return Options.str();
 }
@@ -416,26 +417,28 @@ template <typename T, OpType OP>
 void dispatchTest(ID3D12Device *D3DDevice, bool VerboseLogging) {
 
   const std::vector<MatrixDims> Sizes = getMatrixSizesToTest();
-  constexpr const Operation &Operation = getOperation(OP);
-  Op<OP, T> Op;
+  constexpr const Operation &CurOp = getOperation(OP);
+  Op<OP, T> OpConfig;
 
   for (const MatrixDims &Dims : Sizes) {
     const size_t Rows = Dims.Rows;
     const size_t Cols = Dims.Cols;
-    const size_t KDim = (Operation.Arity >= 2) ? Cols : 0;
+    // TODO: K dimension currently equals Cols for simplicity (square inner
+    // dimension). Add non-square K sizes for better multiply coverage.
+    const size_t KDim = (CurOp.Arity >= 2) ? Cols : 0;
 
     // FillMatrix has special input handling (scalar, not a matrix).
     InputSets<T> Inputs;
     if constexpr (OP == OpType::FillMatrix)
-      Inputs = ExpectedBuilder<OP, T>::buildInputs(Operation, Rows, Cols, KDim);
+      Inputs = ExpectedBuilder<OP, T>::buildInputs(CurOp, Rows, Cols, KDim);
     else
-      Inputs = buildTestInputs<T>(Operation, Rows, Cols, KDim);
+      Inputs = buildTestInputs<T>(CurOp, Rows, Cols, KDim);
 
-    auto Expected =
-        ExpectedBuilder<OP, T>::buildExpected(Op, Inputs, Rows, Cols, KDim);
+    auto Expected = ExpectedBuilder<OP, T>::buildExpected(OpConfig, Inputs,
+                                                          Rows, Cols, KDim);
 
-    runAndVerify(D3DDevice, VerboseLogging, Operation, Inputs, Expected,
-                 Op.ValidationConfig, Rows, Cols, KDim);
+    runAndVerify(D3DDevice, VerboseLogging, CurOp, Inputs, Expected,
+                 OpConfig.Validation, Rows, Cols, KDim);
   }
 }
 
@@ -535,7 +538,7 @@ public:
   BEGIN_TEST_CLASS(DxilConf_SM610_LinearAlgebra)
   TEST_CLASS_PROPERTY("Kits.TestName",
                       "D3D12 - Shader Model 6.10 - Linear Algebra Tests")
-  TEST_CLASS_PROPERTY("Kits.TestId", "a1b2c3d4-e5f6-7890-abcd-ef1234567890")
+  TEST_CLASS_PROPERTY("Kits.TestId", "f00df946-9877-4453-8844-b1f4c8977953")
   TEST_CLASS_PROPERTY("Kits.Description",
                       "Validates SM 6.10 linear algebra matrix operations")
   TEST_CLASS_PROPERTY(
