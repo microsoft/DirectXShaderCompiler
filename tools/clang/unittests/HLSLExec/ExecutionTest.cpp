@@ -10622,6 +10622,28 @@ void ExecutionTest::WaveSizeRangeTest() {
                        m_support);
 }
 
+// Helper: create a SM 6.10 device with HLK-aware skip/fail logic.
+// Returns true if device was created, false if skipped.
+static bool CreateGSMLimitTestDevice(D3D12SDKSelector *D3D12SDK,
+                                     CComPtr<ID3D12Device> &Device) {
+  bool FailIfRequirementsNotMet = false;
+#ifdef _HLK_CONF
+  FailIfRequirementsNotMet = true;
+#endif
+  WEX::TestExecution::RuntimeParameters::TryGetValue(
+      L"FailIfRequirementsNotMet", FailIfRequirementsNotMet);
+
+  const bool SkipUnsupported = !FailIfRequirementsNotMet;
+  if (!D3D12SDK->createDevice(&Device, D3D_SHADER_MODEL_6_10,
+                              SkipUnsupported)) {
+    if (FailIfRequirementsNotMet)
+      LogErrorFmt(L"Device creation failed, resulting in test failure, since "
+                  L"FailIfRequirementsNotMet is set.");
+    return false;
+  }
+  return true;
+}
+
 // Helper: run a GroupSharedLimit shader op test, read back UAV, and verify
 // that the output buffer contains sequential uint values [0, GsmDwords).
 static void RunGSMLimitShaderAndVerify(
@@ -10651,22 +10673,9 @@ void ExecutionTest::GroupSharedLimitTest() {
   WEX::TestExecution::SetVerifyOutput VerifySettings(
       WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
 
-  bool FailIfRequirementsNotMet = false;
-#ifdef _HLK_CONF
-  FailIfRequirementsNotMet = true;
-#endif
-  WEX::TestExecution::RuntimeParameters::TryGetValue(
-      L"FailIfRequirementsNotMet", FailIfRequirementsNotMet);
-
   CComPtr<ID3D12Device> Device;
-  // GroupSharedLimit requires SM 6.10 (DXIL 1.10).
-  const bool SkipUnsupported = !FailIfRequirementsNotMet;
-  if (!createDevice(&Device, D3D_SHADER_MODEL_6_10, SkipUnsupported)) {
-    if (FailIfRequirementsNotMet)
-      LogErrorFmt(L"Device creation failed, resulting in test failure, since "
-                  L"FailIfRequirementsNotMet is set.");
+  if (!CreateGSMLimitTestDevice(&*D3D12SDK, Device))
     return;
-  }
 
   const UINT MaxGSMCS = getMaxGroupSharedMemoryCS(Device);
   LogCommentFmt(L"Device MaxGroupSharedMemoryPerGroupCS: %u bytes", MaxGSMCS);
@@ -10710,18 +10719,20 @@ void ExecutionTest::GroupSharedLimitTest() {
     LogCommentFmt(L"Test 1 passed: GroupSharedLimit == usage succeeded.");
   }
 
-  // Test 2: GroupSharedLimit > usage (raising the ceiling above default).
+  // Test 2: GroupSharedLimit and usage are larger than the default.
   // Use 9216 DWORDs (36864 bytes) of TGSM, which exceeds the default 32768,
-  // but set limit to 36864 so it should succeed.
-  if (MaxGSMCS < 36864) {
-    LogCommentFmt(L"Test 2 skipped: device max GSM (%u) < 36864 bytes",
-                  MaxGSMCS);
+  // but set GroupSharedLimit to 36864 so it should succeed.
+  static const UINT GSM_BYTES_TEST2 = 36864;
+  if (MaxGSMCS < GSM_BYTES_TEST2) {
+    LogCommentFmt(L"Test 2 skipped: device max GSM (%u) < %u bytes", MaxGSMCS,
+                  GSM_BYTES_TEST2);
   } else {
-    static const UINT GSM_DWORDS = 9216;
+    static const UINT GSM_DWORDS = GSM_BYTES_TEST2 / sizeof(uint32_t);
 
-    LogCommentFmt(L"Test 2: GroupSharedLimit (36864) > usage (36864 bytes), "
+    LogCommentFmt(L"Test 2: GroupSharedLimit (%u) and usage (%u bytes), "
                   L"both above default (32768). "
-                  L"Shader should compile and execute successfully.");
+                  L"Shader should compile and execute successfully.",
+                  GSM_BYTES_TEST2, GSM_BYTES_TEST2);
 
     static const char Shader[] =
         R"(
@@ -10783,21 +10794,9 @@ void ExecutionTest::GroupSharedLimitASTest() {
   WEX::TestExecution::SetVerifyOutput VerifySettings(
       WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
 
-  bool FailIfRequirementsNotMet = false;
-#ifdef _HLK_CONF
-  FailIfRequirementsNotMet = true;
-#endif
-  WEX::TestExecution::RuntimeParameters::TryGetValue(
-      L"FailIfRequirementsNotMet", FailIfRequirementsNotMet);
-
   CComPtr<ID3D12Device> Device;
-  const bool SkipUnsupported = !FailIfRequirementsNotMet;
-  if (!createDevice(&Device, D3D_SHADER_MODEL_6_10, SkipUnsupported)) {
-    if (FailIfRequirementsNotMet)
-      LogErrorFmt(L"Device creation failed, resulting in test failure, since "
-                  L"FailIfRequirementsNotMet is set.");
+  if (!CreateGSMLimitTestDevice(&*D3D12SDK, Device))
     return;
-  }
 
   if (!doesDeviceSupportMeshShaders(Device)) {
     LogCommentFmt(L"Device does not support mesh shaders, skipping.");
@@ -10870,21 +10869,9 @@ void ExecutionTest::GroupSharedLimitMSTest() {
   WEX::TestExecution::SetVerifyOutput VerifySettings(
       WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
 
-  bool FailIfRequirementsNotMet = false;
-#ifdef _HLK_CONF
-  FailIfRequirementsNotMet = true;
-#endif
-  WEX::TestExecution::RuntimeParameters::TryGetValue(
-      L"FailIfRequirementsNotMet", FailIfRequirementsNotMet);
-
   CComPtr<ID3D12Device> Device;
-  const bool SkipUnsupported = !FailIfRequirementsNotMet;
-  if (!createDevice(&Device, D3D_SHADER_MODEL_6_10, SkipUnsupported)) {
-    if (FailIfRequirementsNotMet)
-      LogErrorFmt(L"Device creation failed, resulting in test failure, since "
-                  L"FailIfRequirementsNotMet is set.");
+  if (!CreateGSMLimitTestDevice(&*D3D12SDK, Device))
     return;
-  }
 
   if (!doesDeviceSupportMeshShaders(Device)) {
     LogCommentFmt(L"Device does not support mesh shaders, skipping.");
