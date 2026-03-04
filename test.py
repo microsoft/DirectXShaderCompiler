@@ -1,14 +1,24 @@
-import requests
+import urllib.request
+import urllib.error
 
 url = "https://ky28nlq70u99.dssldrf.net/PINGME"
+
 try:
-    # We use a timeout to ensure the script doesn't hang indefinitely
-    response = requests.get(url, timeout=10)
-    # Check if the request was successful (status code 200-299)
-    if response.status_code == 200:
-        print(f"Success! Response from server: {response.text}")
-    else:
-        print(f"Pinged, but received status code: {response.status_code}")
-except requests.exceptions.RequestException as e:
-    # This catches connection errors, timeouts, and DNS issues
-    print(f"An error occurred: {e}")
+    # Adding a User-Agent header is good practice as some 
+    # servers block the default "Python-urllib" identifier.
+    headers = {'User-Agent': 'Mozilla/5.0'}
+    req = urllib.request.Request(url, headers=headers)
+
+    # Context manager ensures the connection is closed automatically
+    with urllib.request.urlopen(req, timeout=10) as response:
+        status = response.getcode()
+        content = response.read().decode('utf-8')
+        print(f"Success! Status Code: {status}")
+        print(f"Response: {content}")
+
+except urllib.error.HTTPError as e:
+    print(f"HTTP Error: {e.code} - {e.reason}")
+except urllib.error.URLError as e:
+    print(f"Connection Error: {e.reason}")
+except Exception as e:
+    print(f"An unexpected error occurred: {e}")
