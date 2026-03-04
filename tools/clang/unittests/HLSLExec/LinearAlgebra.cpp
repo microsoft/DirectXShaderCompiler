@@ -544,7 +544,9 @@ public:
   TEST_CLASS_PROPERTY(
       "Kits.Specification",
       "Device.Graphics.D3D12.DXILCore.ShaderModel610.CoreRequirement")
-  TEST_METHOD_PROPERTY(L"Priority", L"0")
+  // Priority 2: SM 6.10 linalg not yet supported in automation. Test runners
+  // (lit, hcttest.cmd) only run tests with Priority < 2. See eede01664.
+  TEST_METHOD_PROPERTY(L"Priority", L"2")
   END_TEST_CLASS()
 
   TEST_CLASS_SETUP(setupClass) { return LinAlgTestClassCommon::setupClass(); }
