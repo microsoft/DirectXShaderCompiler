@@ -5,11 +5,13 @@
 #include <cstdint>
 #include <limits>
 #include <ostream>
+#include <type_traits>
 
 #include <DirectXMath.h>
 #include <DirectXPackedVector.h>
 
 #include "dxc/Support/Global.h"
+#include "HlslTestUtils.h"
 
 // Shared HLSL type wrappers for use in execution tests.
 // These types bridge the gap between C++ and HLSL type representations.
@@ -489,6 +491,112 @@ private:
            static_cast<uint8_t>(Mant);
   }
 };
+
+//
+// Shared type traits and validation infrastructure.
+//
+
+template <typename T> constexpr bool isFloatingPointType() {
+  return std::is_same_v<T, float> || std::is_same_v<T, double> ||
+         std::is_same_v<T, HLSLHalf_t>;
+}
+
+enum class ValidationType {
+  Epsilon,
+  Ulp,
+};
+
+struct ValidationConfig {
+  double Tolerance = 0.0;
+  ValidationType Type = ValidationType::Epsilon;
+
+  static ValidationConfig Epsilon(double Tolerance) {
+    return ValidationConfig{Tolerance, ValidationType::Epsilon};
+  }
+
+  static ValidationConfig Ulp(double Tolerance) {
+    return ValidationConfig{Tolerance, ValidationType::Ulp};
+  }
+};
+
+// Default validation: ULP for floating point, exact for integers.
+template <typename T> struct DefaultValidation {
+  ValidationConfig ValidationConfig;
+
+  DefaultValidation() {
+    if constexpr (isFloatingPointType<T>())
+      ValidationConfig = ValidationConfig::Ulp(1.0f);
+  }
+};
+
+// Strict validation: exact match by default.
+struct StrictValidation {
+  ValidationConfig ValidationConfig;
+};
+
+//
+// Value comparison overloads used by both LongVector and LinearAlgebra tests.
+//
+
+template <typename T>
+inline bool doValuesMatch(T A, T B, double Tolerance, ValidationType) {
+  if (Tolerance == 0.0)
+    return A == B;
+
+  T Diff = A > B ? A - B : B - A;
+  return Diff <= Tolerance;
+}
+
+inline bool doValuesMatch(HLSLBool_t A, HLSLBool_t B, double,
+                          ValidationType) {
+  return A == B;
+}
+
+inline bool doValuesMatch(HLSLHalf_t A, HLSLHalf_t B, double Tolerance,
+                          ValidationType VType) {
+  switch (VType) {
+  case ValidationType::Epsilon:
+    return CompareHalfEpsilon(A.Val, B.Val, static_cast<float>(Tolerance));
+  case ValidationType::Ulp:
+    return CompareHalfULP(A.Val, B.Val, static_cast<float>(Tolerance));
+  default:
+    hlsl_test::LogErrorFmt(
+        L"Invalid ValidationType. Expecting Epsilon or ULP.");
+    return false;
+  }
+}
+
+inline bool doValuesMatch(float A, float B, double Tolerance,
+                          ValidationType VType) {
+  switch (VType) {
+  case ValidationType::Epsilon:
+    return CompareFloatEpsilon(A, B, static_cast<float>(Tolerance));
+  case ValidationType::Ulp: {
+    const int IntTolerance = static_cast<int>(Tolerance);
+    return CompareFloatULP(A, B, IntTolerance);
+  }
+  default:
+    hlsl_test::LogErrorFmt(
+        L"Invalid ValidationType. Expecting Epsilon or ULP.");
+    return false;
+  }
+}
+
+inline bool doValuesMatch(double A, double B, double Tolerance,
+                          ValidationType VType) {
+  switch (VType) {
+  case ValidationType::Epsilon:
+    return CompareDoubleEpsilon(A, B, Tolerance);
+  case ValidationType::Ulp: {
+    const int64_t IntTolerance = static_cast<int64_t>(Tolerance);
+    return CompareDoubleULP(A, B, IntTolerance);
+  }
+  default:
+    hlsl_test::LogErrorFmt(
+        L"Invalid ValidationType. Expecting Epsilon or ULP.");
+    return false;
+  }
+}
 
 } // namespace HLSLTestDataTypes
 
