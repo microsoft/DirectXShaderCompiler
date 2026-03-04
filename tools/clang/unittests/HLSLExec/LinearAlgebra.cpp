@@ -22,8 +22,6 @@
 #include <type_traits>
 #include <vector>
 
-using namespace HLSLTestDataTypes; // For HLSLHalf_t, HLSLBool_t
-
 namespace LinearAlgebra {
 
 //
@@ -89,89 +87,13 @@ DATA_TYPE(uint32_t, "uint", "ComponentType::U32", 4, false)
 
 #undef DATA_TYPE
 
-template <typename T> constexpr bool isFloatingPointType() {
-  return std::is_same_v<T, float> || std::is_same_v<T, double> ||
-         std::is_same_v<T, HLSLHalf_t>;
-}
-
-//
-// Validation
-//
-
-enum class ValidationType { Epsilon, Ulp };
-
-struct ValidationConfig {
-  double Tolerance = 0.0;
-  ValidationType Type = ValidationType::Epsilon;
-
-  static ValidationConfig Epsilon(double Tol) {
-    return {Tol, ValidationType::Epsilon};
-  }
-
-  static ValidationConfig Ulp(double Tol) { return {Tol, ValidationType::Ulp}; }
-};
-
-// Default validation: ULP for floating point, exact for integers.
-template <typename T> struct DefaultValidation {
-  ValidationConfig ValidationConfig;
-
-  DefaultValidation() {
-    if constexpr (isFloatingPointType<T>())
-      ValidationConfig = ValidationConfig::Ulp(1.0);
-  }
-};
-
-// Strict validation: exact match.
-struct StrictValidation {
-  ValidationConfig ValidationConfig;
-};
-
-//
-// Value comparison overloads following LongVector patterns.
-//
-
-template <typename T>
-bool doValuesMatch(T A, T B, double Tolerance, ValidationType) {
-  if (Tolerance == 0.0)
-    return A == B;
-
-  T Diff = A > B ? A - B : B - A;
-  return Diff <= Tolerance;
-}
-
-bool doValuesMatch(HLSLHalf_t A, HLSLHalf_t B, double Tolerance,
-                   ValidationType VType) {
-  switch (VType) {
-  case ValidationType::Epsilon:
-    return CompareHalfEpsilon(A.Val, B.Val, static_cast<float>(Tolerance));
-  case ValidationType::Ulp:
-    return CompareHalfULP(A.Val, B.Val, static_cast<float>(Tolerance));
-  default:
-    return false;
-  }
-}
-
-bool doValuesMatch(float A, float B, double Tolerance, ValidationType VType) {
-  switch (VType) {
-  case ValidationType::Epsilon:
-    return CompareFloatEpsilon(A, B, static_cast<float>(Tolerance));
-  case ValidationType::Ulp:
-    return CompareFloatULP(A, B, static_cast<int>(Tolerance));
-  default:
-    return false;
-  }
-}
-
-bool doValuesMatch(double A, double B, double Tolerance, ValidationType VType) {
-  switch (VType) {
-  case ValidationType::Epsilon:
-    return CompareDoubleEpsilon(A, B, Tolerance);
-  case ValidationType::Ulp:
-    return CompareDoubleULP(A, B, static_cast<int64_t>(Tolerance));
-  default:
-    return false;
-  }
-}
+using HLSLTestDataTypes::isFloatingPointType;
+using HLSLTestDataTypes::ValidationType;
+using HLSLTestDataTypes::ValidationConfig;
+using HLSLTestDataTypes::DefaultValidation;
+using HLSLTestDataTypes::StrictValidation;
+using HLSLTestDataTypes::doValuesMatch;
+using HLSLTestDataTypes::HLSLHalf_t;
 
 template <typename T>
 bool doVectorsMatch(const std::vector<T> &Actual,
