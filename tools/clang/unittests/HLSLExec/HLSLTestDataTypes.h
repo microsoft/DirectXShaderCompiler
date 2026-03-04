@@ -303,18 +303,10 @@ struct F8E4M3_t {
 
   bool operator==(const F8E4M3_t &O) const { return Val == O.Val; }
   bool operator!=(const F8E4M3_t &O) const { return Val != O.Val; }
-  bool operator<(const F8E4M3_t &O) const {
-    return float(*this) < float(O);
-  }
-  bool operator>(const F8E4M3_t &O) const {
-    return float(*this) > float(O);
-  }
-  bool operator<=(const F8E4M3_t &O) const {
-    return float(*this) <= float(O);
-  }
-  bool operator>=(const F8E4M3_t &O) const {
-    return float(*this) >= float(O);
-  }
+  bool operator<(const F8E4M3_t &O) const { return float(*this) < float(O); }
+  bool operator>(const F8E4M3_t &O) const { return float(*this) > float(O); }
+  bool operator<=(const F8E4M3_t &O) const { return float(*this) <= float(O); }
+  bool operator>=(const F8E4M3_t &O) const { return float(*this) >= float(O); }
 
   friend std::ostream &operator<<(std::ostream &Os, const F8E4M3_t &Obj) {
     Os << float(Obj);
@@ -413,18 +405,10 @@ struct F8E5M2_t {
 
   bool operator==(const F8E5M2_t &O) const { return Val == O.Val; }
   bool operator!=(const F8E5M2_t &O) const { return Val != O.Val; }
-  bool operator<(const F8E5M2_t &O) const {
-    return float(*this) < float(O);
-  }
-  bool operator>(const F8E5M2_t &O) const {
-    return float(*this) > float(O);
-  }
-  bool operator<=(const F8E5M2_t &O) const {
-    return float(*this) <= float(O);
-  }
-  bool operator>=(const F8E5M2_t &O) const {
-    return float(*this) >= float(O);
-  }
+  bool operator<(const F8E5M2_t &O) const { return float(*this) < float(O); }
+  bool operator>(const F8E5M2_t &O) const { return float(*this) > float(O); }
+  bool operator<=(const F8E5M2_t &O) const { return float(*this) <= float(O); }
+  bool operator>=(const F8E5M2_t &O) const { return float(*this) >= float(O); }
 
   friend std::ostream &operator<<(std::ostream &Os, const F8E5M2_t &Obj) {
     Os << float(Obj);
