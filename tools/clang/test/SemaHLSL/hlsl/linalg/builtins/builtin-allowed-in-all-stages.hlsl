@@ -1,12 +1,58 @@
 // REQUIRES: dxil-1-10
-// RUN: %dxc -T lib_6_10 %s -verify
+// RUN: %dxc -T lib_6_10 -DMATRIX_ACCUMULATE %s -verify
+// RUN: %dxc -T lib_6_10 -DMATRIX_ACCUMULATE_TO_DESCRIPTOR %s -verify
+// RUN: %dxc -T lib_6_10 -DMATRIX_LENGTH %s -verify
+// RUN: %dxc -T lib_6_10 -DMATRIX_LOAD_FROM_DESCRIPTOR %s -verify
+// RUN: %dxc -T lib_6_10 -DMATRIX_OUTER_PRODUCT %s -verify
+// RUN: %dxc -T lib_6_10 -DMATRIX_QUERY_ACCUMULATOR_LAYOUT %s -verify
+// RUN: %dxc -T lib_6_10 -DMATRIX_VECTOR_MULTIPLY %s -verify
+// RUN: %dxc -T lib_6_10 -DMATRIX_VECTOR_MULTIPLY_ADD %s -verify
 
 // expected-no-diagnostics
 
+RWByteAddressBuffer buf;
+
 void CallFunction()
 {
-  __builtin_LinAlgMatrix [[__LinAlgMatrix_Attributes(4, 5, 4, 1, 2)]] mat;
+__builtin_LinAlgMatrix [[__LinAlgMatrix_Attributes(4, 5, 4, 1, 2)]] mat;
+__builtin_LinAlgMatrix [[__LinAlgMatrix_Attributes(4, 5, 4, 1, 2)]] mat2;
+int4 vecA = {9,9,9,9};
+int4 vecB = {3,3,3,3};
+int4 bias = {7,7,7,7};
+int4 result;
+
+#ifdef MATRIX_ACCUMULATE
+  __builtin_LinAlg_MatrixAccumulate(mat, mat2, mat2);
+#endif
+
+#ifdef MATRIX_ACCUMULATE_TO_DESCRIPTOR
+  __builtin_LinAlg_MatrixAccumulateToDescriptor(mat, buf, 1, 2, 3);
+#endif
+
+#ifdef MATRIX_LENGTH
   __builtin_LinAlg_MatrixLength(mat);
+#endif
+
+#ifdef MATRIX_LOAD_FROM_DESCRIPTOR
+  __builtin_LinAlg_MatrixLoadFromDescriptor(mat, buf, 5, 5, 5);
+#endif
+
+#ifdef MATRIX_OUTER_PRODUCT
+  __builtin_LinAlg_MatrixOuterProduct(mat, vecA, vecB);
+#endif
+
+#ifdef MATRIX_QUERY_ACCUMULATOR_LAYOUT
+  uint layout = __builtin_LinAlg_MatrixQueryAccumulatorLayout();
+#endif
+
+#ifdef MATRIX_VECTOR_MULTIPLY
+  __builtin_LinAlg_MatrixVectorMultiply(result, mat, vecA, 1);
+#endif
+
+#ifdef MATRIX_VECTOR_MULTIPLY_ADD
+  __builtin_LinAlg_MatrixVectorMultiplyAdd(result, mat, vecA, 2, bias, 3);
+#endif
+
 }
 
 // --- Allowed Stages ---
