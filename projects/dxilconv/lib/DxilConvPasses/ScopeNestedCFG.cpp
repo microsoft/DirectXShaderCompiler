@@ -493,7 +493,7 @@ void ScopeNestedCFG::SanitizeBranches() {
         }
         // Remove unused case labels.
         for (unsigned NumCases = I->getNumCases(); CaseIdx < NumCases;
-             NumCases--)
+             --NumCases)
           I->removeCase(SwitchInst::CaseIt{I, NumCases - 1});
       }
     }
@@ -1075,7 +1075,7 @@ void ScopeNestedCFG::ComputeBlockTopologicalOrderAndReachability(
 
     // All successors processed.
     BasicBlock *pNode = Frame.pNode;
-    auto ReachableBBs = std::move(Frame.ReachableBBs);
+    unique_ptr<BitVector> ReachableBBs = std::move(Frame.ReachableBBs);
     Marks[pNode] = 2; // late watermark
     BTO.AppendBlock(pNode, std::move(ReachableBBs));
     Stack.pop_back();
