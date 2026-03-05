@@ -965,9 +965,10 @@ static void highlightRange(const CharSourceRange &R,
       EndColNo = map.startOfPreviousColumn(EndColNo);
 
     // If the start/end passed each other, then we are trying to highlight a
-    // range that just exists in whitespace, which must be some sort of other
-    // bug.
-    assert(StartColNo <= EndColNo && "Trying to highlight whitespace??");
+    // range that just exists in whitespace. This can happen with null bytes or
+    // other unusual characters in the source.
+    if (StartColNo > EndColNo)
+      return;
   }
 
   assert(StartColNo <= map.getSourceLine().size() && "Invalid range!");
