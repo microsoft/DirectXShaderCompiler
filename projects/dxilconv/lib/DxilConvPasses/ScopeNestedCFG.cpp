@@ -493,9 +493,8 @@ void ScopeNestedCFG::SanitizeBranches() {
         }
         // Remove unused case labels.
         for (unsigned NumCases = I->getNumCases(); CaseIdx < NumCases;
-             NumCases--) {
+             NumCases--)
           I->removeCase(SwitchInst::CaseIt{I, NumCases - 1});
-        }
       }
     }
 
@@ -541,15 +540,13 @@ void ScopeNestedCFG::CollectLoops(Loop *pLoop) {
   while (!Stack.empty()) {
     Loop *pCurrent = Stack.pop_back_val();
     ReversePostOrder.push_back(pCurrent);
-    for (auto it = pCurrent->begin(), end = pCurrent->end(); it != end; ++it) {
+    for (auto it = pCurrent->begin(), end = pCurrent->end(); it != end; ++it)
       Stack.push_back(*it);
-    }
   }
 
   for (auto it = ReversePostOrder.rbegin(), end = ReversePostOrder.rend();
-       it != end; ++it) {
+       it != end; ++it)
     m_Loops.emplace_back(*it);
-  }
 }
 
 void ScopeNestedCFG::AnnotateBranch(BasicBlock *pBB, BranchKind Kind) {
