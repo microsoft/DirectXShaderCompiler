@@ -6743,6 +6743,13 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
     if (existF->getFunctionType() != pFT)
       return nullptr;
     F = existF;
+    // Ensure attributes are set on existing functions.
+    if (OpProps.FuncAttr != Attribute::None &&
+        !F->hasFnAttribute(OpProps.FuncAttr))
+      F->addFnAttr(OpProps.FuncAttr);
+    // Mark wave ops as convergent since they depend on the active lane set.
+    if (IsDxilOpWave(opCode) && !F->hasFnAttribute(Attribute::Convergent))
+      F->addFnAttr(Attribute::Convergent);
     UpdateCache(opClass, pOverloadType, F);
     return F;
   }
@@ -6754,6 +6761,9 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
   F->addFnAttr(Attribute::NoUnwind);
   if (OpProps.FuncAttr != Attribute::None)
     F->addFnAttr(OpProps.FuncAttr);
+  // Mark wave ops as convergent since they depend on the active lane set.
+  if (IsDxilOpWave(opCode))
+    F->addFnAttr(Attribute::Convergent);
 
   return F;
 }
