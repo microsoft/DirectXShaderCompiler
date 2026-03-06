@@ -4283,9 +4283,21 @@ SpirvInstruction *SpirvEmitter::processRWByteAddressBufferAtomicMethods(
 SpirvInstruction *
 SpirvEmitter::processGetSamplePosition(const CXXMemberCallExpr *expr) {
   const auto *object = expr->getImplicitObjectArgument()->IgnoreParens();
+  auto *objectInstr = loadIfGLValue(object);
+  if (isSampledTexture(object->getType())) {
+    LowerTypeVisitor lowerTypeVisitor(astContext, spvContext, spirvOptions,
+                                      spvBuilder);
+    const SpirvType *spvType =
+        lowerTypeVisitor.lowerType(object->getType(), SpirvLayoutRule::Void,
+                                   llvm::None, expr->getExprLoc());
+    const auto *sampledType = cast<SampledImageType>(spvType);
+    const SpirvType *imgType = sampledType->getImageType();
+    objectInstr = spvBuilder.createUnaryOp(spv::Op::OpImage, imgType,
+                                           objectInstr, expr->getExprLoc());
+  }
   auto *sampleCount = spvBuilder.createImageQuery(
       spv::Op::OpImageQuerySamples, astContext.UnsignedIntTy,
-      expr->getExprLoc(), loadIfGLValue(object));
+      expr->getExprLoc(), objectInstr);
   if (!spirvOptions.noWarnEmulatedFeatures)
     emitWarning("GetSamplePosition is emulated using many SPIR-V instructions "
                 "due to lack of direct SPIR-V equivalent, so it only supports "
@@ -4403,7 +4415,8 @@ SpirvEmitter::processBufferTextureGetDimensions(const CXXMemberCallExpr *expr) {
     mipLevel = expr->getArg(0);
     numLevels = expr->getArg(numArgs - 1);
   }
-  if (isTextureMS(type)) {
+
+  if (isSampledTextureMS(type) || isTextureMS(type)) {
     numSamples = expr->getArg(numArgs - 1);
   }
 
@@ -4744,7 +4757,7 @@ SpirvInstruction *SpirvEmitter::processBufferTextureLoad(
 
   // For Texture2DMS and Texture2DMSArray, Sample must be used rather than Lod.
   SpirvInstruction *sampleNumber = nullptr;
-  if (isTextureMS(type) || isSubpassInputMS(type)) {
+  if (isSampledTextureMS(type) || isTextureMS(type) || isSubpassInputMS(type)) {
     sampleNumber = lod;
     lod = nullptr;
   }
@@ -6509,7 +6522,8 @@ SpirvEmitter::processBufferTextureLoad(const CXXMemberCallExpr *expr) {
 
   const auto numArgs = expr->getNumArgs();
   const auto *locationArg = expr->getArg(0);
-  const bool textureMS = isTextureMS(objectType);
+  const bool textureMS =
+      isTextureMS(objectType) || isSampledTextureMS(objectType);
   const bool hasStatusArg =
       expr->getArg(numArgs - 1)->getType()->isUnsignedIntegerType();
   auto *status = hasStatusArg ? doExpr(expr->getArg(numArgs - 1)) : nullptr;
