@@ -1,30 +1,37 @@
 // REQUIRES: dxil-1-10
-// RUN: not %dxc -T lib_6_10 %s 2>&1 | FileCheck %s
+// RUN: not %dxc -T lib_6_10 -DMATRIX_COPY_CONVERT %s 2>&1 | FileCheck %s
+// RUN: not %dxc -T lib_6_10 -DMATRIX_FILL %s 2>&1 | FileCheck %s
+// RUN: not %dxc -T lib_6_10 -DMATRIX_GET_COORDINATE %s 2>&1 | FileCheck %s
+// RUN: not %dxc -T lib_6_10 -DMATRIX_GET_ELEMENT %s 2>&1 | FileCheck %s
+// RUN: not %dxc -T lib_6_10 -DMATRIX_MULTIPLY %s 2>&1 | FileCheck %s
+// RUN: not %dxc -T lib_6_10 -DMATRIX_MULTIPLY_ACCUMULATE %s 2>&1 | FileCheck %s
+// RUN: not %dxc -T lib_6_10 -DMATRIX_SET_ELEMENT %s 2>&1 | FileCheck %s
+// RUN: not %dxc -T lib_6_10 -DMATRIX_STORE_TO_DESCRIPTOR %s 2>&1 | FileCheck %s
 
-// CHECK: Opcode LinAlgMatrixStoreToDescriptor not valid in shader model lib_6_10(gs).
-// CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixStoreToDescriptor{{.*}} of function 'mainGS'.
-// CHECK-NEXT: Opcode LinAlgMatrixStoreToDescriptor not valid in shader model lib_6_10(ds).
-// CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixStoreToDescriptor{{.*}} of function 'mainDS'.
-// CHECK-NEXT: Opcode LinAlgMatrixStoreToDescriptor not valid in shader model lib_6_10(hs).
-// CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixStoreToDescriptor{{.*}} of function 'mainHS'.
-// CHECK-NEXT: Opcode LinAlgMatrixStoreToDescriptor not valid in shader model lib_6_10(vs).
-// CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixStoreToDescriptor{{.*}} of function 'mainVS'.
-// CHECK-NEXT: Opcode LinAlgMatrixStoreToDescriptor not valid in shader model lib_6_10(ps).
-// CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixStoreToDescriptor{{.*}} of function 'mainPS'.
-// CHECK-NEXT: Opcode LinAlgMatrixStoreToDescriptor not valid in shader model lib_6_10(miss).
-// CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixStoreToDescriptor{{.*}} of function '{{.*}}mainMS@@YAXURayPayload@@@Z'.
-// CHECK-NEXT: Opcode LinAlgMatrixStoreToDescriptor not valid in shader model lib_6_10(closesthit).
-// CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixStoreToDescriptor{{.*}} of function '{{.*}}mainCH@@YAXURayPayload@@UAttribs@@@Z'.
-// CHECK-NEXT: Opcode LinAlgMatrixStoreToDescriptor not valid in shader model lib_6_10(anyhit).
-// CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixStoreToDescriptor{{.*}} of function '{{.*}}mainAH@@YAXURayPayload@@UAttribs@@@Z'.
-// CHECK-NEXT: Opcode LinAlgMatrixStoreToDescriptor not valid in shader model lib_6_10(callable).
-// CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixStoreToDescriptor{{.*}} of function '{{.*}}mainCALL@@YAXUAttribs@@@Z'.
-// CHECK-NEXT: Opcode LinAlgMatrixStoreToDescriptor not valid in shader model lib_6_10(intersection).
-// CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixStoreToDescriptor{{.*}} of function '{{.*}}mainIS@@YAXXZ'.
-// CHECK-NEXT: Opcode LinAlgMatrixStoreToDescriptor not valid in shader model lib_6_10(raygeneration).
-// CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixStoreToDescriptor{{.*}} of function '{{.*}}mainRG@@YAXXZ'.
-// CHECK-NEXT: Opcode LinAlgMatrixStoreToDescriptor not valid in shader model lib_6_10(node).
-// CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixStoreToDescriptor{{.*}} of function 'mainNS'.
+// CHECK: Opcode LinAlg{{.*}} not valid in shader model lib_6_10(gs).
+// CHECK-NEXT: note: at {{.*}} @dx.op.linAlg{{.*}} of function 'mainGS'.
+// CHECK-NEXT: Opcode LinAlg{{.*}} not valid in shader model lib_6_10(ds).
+// CHECK-NEXT: note: at {{.*}} @dx.op.linAlg{{.*}} of function 'mainDS'.
+// CHECK-NEXT: Opcode LinAlg{{.*}} not valid in shader model lib_6_10(hs).
+// CHECK-NEXT: note: at {{.*}} @dx.op.linAlg{{.*}} of function 'mainHS'.
+// CHECK-NEXT: Opcode LinAlg{{.*}} not valid in shader model lib_6_10(vs).
+// CHECK-NEXT: note: at {{.*}} @dx.op.linAlg{{.*}} of function 'mainVS'.
+// CHECK-NEXT: Opcode LinAlg{{.*}} not valid in shader model lib_6_10(ps).
+// CHECK-NEXT: note: at {{.*}} @dx.op.linAlg{{.*}} of function 'mainPS'.
+// CHECK-NEXT: Opcode LinAlg{{.*}} not valid in shader model lib_6_10(miss).
+// CHECK-NEXT: note: at {{.*}} @dx.op.linAlg{{.*}} of function '{{.*}}mainMS@@YAXURayPayload@@@Z'.
+// CHECK-NEXT: Opcode LinAlg{{.*}} not valid in shader model lib_6_10(closesthit).
+// CHECK-NEXT: note: at {{.*}} @dx.op.linAlg{{.*}} of function '{{.*}}mainCH@@YAXURayPayload@@UAttribs@@@Z'.
+// CHECK-NEXT: Opcode LinAlg{{.*}} not valid in shader model lib_6_10(anyhit).
+// CHECK-NEXT: note: at {{.*}} @dx.op.linAlg{{.*}} of function '{{.*}}mainAH@@YAXURayPayload@@UAttribs@@@Z'.
+// CHECK-NEXT: Opcode LinAlg{{.*}} not valid in shader model lib_6_10(callable).
+// CHECK-NEXT: note: at {{.*}} @dx.op.linAlg{{.*}} of function '{{.*}}mainCALL@@YAXUAttribs@@@Z'.
+// CHECK-NEXT: Opcode LinAlg{{.*}} not valid in shader model lib_6_10(intersection).
+// CHECK-NEXT: note: at {{.*}} @dx.op.linAlg{{.*}} of function '{{.*}}mainIS@@YAXXZ'.
+// CHECK-NEXT: Opcode LinAlg{{.*}} not valid in shader model lib_6_10(raygeneration).
+// CHECK-NEXT: note: at {{.*}} @dx.op.linAlg{{.*}} of function '{{.*}}mainRG@@YAXXZ'.
+// CHECK-NEXT: Opcode LinAlg{{.*}} not valid in shader model lib_6_10(node).
+// CHECK-NEXT: note: at {{.*}} @dx.op.linAlg{{.*}} of function 'mainNS'.
 // CHECK-NEXT: Entry function performs some operation that is incompatible with the shader stage or other entry properties.  See other errors for details.
 // CHECK-NEXT: Function uses features incompatible with the shader stage (node) of the entry function.
 // CHECK-NEXT: Entry function performs some operation that is incompatible with the shader stage or other entry properties.  See other errors for details.
@@ -51,11 +58,46 @@
 // CHECK-NEXT: Function uses features incompatible with the shader stage (gs) of the entry function.
 // CHECK-NEXT: Validation failed.
 
-RWByteAddressBuffer outbuf;
+RWByteAddressBuffer buf;
+
 void CallFunction()
 {
-  __builtin_LinAlgMatrix [[__LinAlgMatrix_Attributes(4, 5, 4, 1, 2)]] mat;
-  __builtin_LinAlg_MatrixStoreToDescriptor(mat, outbuf, 1, 2, 3);
+  __builtin_LinAlgMatrix [[__LinAlgMatrix_Attributes(1, 5, 4, 2, 2)]] mat1;
+  __builtin_LinAlgMatrix [[__LinAlgMatrix_Attributes(1, 5, 4, 2, 2)]] mat2;
+  __builtin_LinAlgMatrix [[__LinAlgMatrix_Attributes(1, 5, 4, 2, 2)]] mat3;
+
+#ifdef MATRIX_COPY_CONVERT
+  __builtin_LinAlg_CopyConvertMatrix(mat2, mat1, true);
+#endif
+
+#ifdef MATRIX_FILL
+  __builtin_LinAlg_FillMatrix(mat1, 15);
+#endif
+
+#ifdef MATRIX_GET_COORDINATE
+  uint2 coord = __builtin_LinAlg_MatrixGetCoordinate(mat1, 0);
+#endif
+
+#ifdef MATRIX_GET_ELEMENT
+  float elem;
+  __builtin_LinAlg_MatrixGetElement(elem, mat1, 0);
+#endif
+
+#ifdef MATRIX_MULTIPLY
+  __builtin_LinAlg_MatrixMatrixMultiply(mat1, mat2, mat3);
+#endif
+
+#ifdef MATRIX_MULTIPLY_ACCUMULATE
+  __builtin_LinAlg_MatrixMatrixMultiplyAccumulate(mat1, mat2, mat3, mat1);
+#endif
+
+#ifdef MATRIX_SET_ELEMENT
+  __builtin_LinAlg_MatrixSetElement(mat2, mat1, 1, 1);
+#endif
+
+#ifdef MATRIX_STORE_TO_DESCRIPTOR
+  __builtin_LinAlg_MatrixStoreToDescriptor(mat1, buf, 1, 2, 3);
+#endif
 }
 
 // --- Allowed Stages ---
