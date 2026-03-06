@@ -3040,6 +3040,7 @@ const char *OP::m_OverloadTypeName[TS_BasicCount] = {
 const char *OP::m_NamePrefix = "dx.op.";
 const char *OP::m_TypePrefix = "dx.types.";
 const char *OP::m_MatrixTypePrefix = "class.matrix."; // Allowed in library
+const char *OP::m_LinAlgNamePrefix = "dx.op.linAlg";
 
 // Keep sync with DXIL::AtomicBinOpCode
 static const char *AtomicBinOpCodeName[] = {
@@ -3304,6 +3305,10 @@ bool OP::CheckOpCodeTable() {
 
 bool OP::IsDxilOpFuncName(StringRef name) {
   return name.startswith(OP::m_NamePrefix);
+}
+
+bool OP::IsDxilOpLinAlgFuncName(StringRef Name) {
+  return Name.startswith(OP::m_LinAlgNamePrefix);
 }
 
 bool OP::IsDxilOpFunc(const llvm::Function *F) {
