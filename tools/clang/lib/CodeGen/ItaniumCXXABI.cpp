@@ -1090,7 +1090,7 @@ llvm::Value *ItaniumCXXABI::EmitTypeid(CodeGenFunction &CGF,
       CGF.GetVTablePtr(ThisPtr, StdTypeInfoPtrTy->getPointerTo());
 
   // Load the type info.
-  Value = CGF.Builder.CreateConstInBoundsGEP1_64(Value, -1ULL);
+  Value = CGF.Builder.CreateConstInBoundsGEP1_64(Value, -1LL);
   return CGF.Builder.CreateLoad(Value);
 }
 
