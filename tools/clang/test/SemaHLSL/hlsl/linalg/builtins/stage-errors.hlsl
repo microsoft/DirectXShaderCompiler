@@ -16,6 +16,9 @@ void CallFunction()
   __builtin_LinAlgMatrix [[__LinAlgMatrix_Attributes(1, 5, 4, 2, 2)]] mat1;
   __builtin_LinAlgMatrix [[__LinAlgMatrix_Attributes(1, 5, 4, 2, 2)]] mat2;
   __builtin_LinAlgMatrix [[__LinAlgMatrix_Attributes(1, 5, 4, 2, 2)]] mat3;
+  float4 vecA = {0.0, 1.0, 2.0, 3.0};
+  float4 vecB = {4.0, 5.0, 6.0, 7.0};
+  float4 vecC = {8.0, 9.0, 0.0, 1.0};
 
 #ifdef MATRIX_COPY_CONVERT
   #define DO_FUNC __builtin_LinAlg_CopyConvertMatrix(mat2, mat1, true);
@@ -57,6 +60,15 @@ void CallFunction()
 #ifdef MATRIX_ACCUMULATE
   #define DO_FUNC __builtin_LinAlg_MatrixAccumulate(mat1, mat2, mat3);
 #endif
+
+  // The builtins below are allowed in all stages, if they raise an error
+  // then the test will fall with "saw unexpected diagnostic"
+  uint layout = __builtin_LinAlg_MatrixQueryAccumulatorLayout();
+  __builtin_LinAlg_MatrixLoadFromDescriptor(mat1, buf, 5, 5, 5);
+  __builtin_LinAlg_MatrixOuterProduct(mat1, vecA, vecB);
+  __builtin_LinAlg_MatrixAccumulateToDescriptor(mat1, buf, 1, 2, 3);
+  __builtin_LinAlg_MatrixVectorMultiply(vecA, mat1, vecB, 1);
+  __builtin_LinAlg_MatrixVectorMultiplyAdd(vecA, mat1, vecB, 2, vecC, 3);
 
   // expected-error@+12{{builtin unavailable in shader stage 'pixel' (requires 'compute', 'mesh' or 'amplification')}}
   // expected-error@+11{{builtin unavailable in shader stage 'vertex' (requires 'compute', 'mesh' or 'amplification')}}

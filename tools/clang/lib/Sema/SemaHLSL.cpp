@@ -12901,18 +12901,9 @@ static void DiagnoseReachableSERCall(Sema &S, CallExpr *CE,
 static void DiagnoseReachableLimitedLinAlgCall(Sema &S, CallExpr *CE,
                                                DXIL::ShaderKind EntrySK,
                                                const FunctionDecl *EntryDecl) {
-  bool ValidEntry = false;
-  switch (EntrySK) {
-  default:
-    break;
-  case DXIL::ShaderKind::Compute:
-  case DXIL::ShaderKind::Mesh:
-  case DXIL::ShaderKind::Amplification:
-    ValidEntry = true;
-    break;
-  }
-
-  if (ValidEntry)
+  if (EntrySK == DXIL::ShaderKind::Compute ||
+      EntrySK == DXIL::ShaderKind::Mesh ||
+      EntrySK == DXIL::ShaderKind::Amplification)
     return;
 
   SourceLocation EntryLoc = EntryDecl->getLocation();
