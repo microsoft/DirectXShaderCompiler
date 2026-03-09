@@ -139,6 +139,7 @@ public:
 
       // Comparison function
       comparisonFunc,
+      COMPARISON_NONE,
       COMPARISON_NEVER,
       COMPARISON_LESS,
       COMPARISON_EQUAL,
