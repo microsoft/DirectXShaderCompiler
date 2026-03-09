@@ -153,46 +153,7 @@ class ClangFormatHelper(FormatHelper):
         return None
 
 
-class DarkerFormatHelper(FormatHelper):
-    name = "darker"
-    friendly_name = "Python code formatter"
-
-    @property
-    def instructions(self):
-        return " ".join(self.darker_cmd)
-
-    def filter_changed_files(self, changed_files: [str]) -> [str]:
-        filtered_files = []
-        for path in changed_files:
-            name, ext = os.path.splitext(path)
-            if ext == ".py":
-                filtered_files.append(path)
-
-        return filtered_files
-
-    def format_run(self, changed_files: [str], args: argparse.Namespace) -> str | None:
-        py_files = self.filter_changed_files(changed_files)
-        if not py_files:
-            return
-        darker_cmd = [
-            "darker",
-            "--check",
-            "--diff",
-            "-r",
-            f"{args.start_rev}..{args.end_rev}",
-        ] + py_files
-        print(f"Running: {' '.join(darker_cmd)}")
-        self.darker_cmd = darker_cmd
-        proc = subprocess.run(darker_cmd, capture_output=True)
-
-        # formatting needed
-        if proc.returncode == 1:
-            return proc.stdout.decode("utf-8")
-
-        return None
-
-
-ALL_FORMATTERS = (DarkerFormatHelper(), ClangFormatHelper())
+ALL_FORMATTERS = (ClangFormatHelper(),)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
