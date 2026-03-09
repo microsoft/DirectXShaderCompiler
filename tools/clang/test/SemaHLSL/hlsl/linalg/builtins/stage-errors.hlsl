@@ -13,6 +13,7 @@ RWByteAddressBuffer buf;
 
 void CallFunction()
 {
+  // ComponentType::I1, 5x4, Use::Accumulator, Scope::ThreadGroup
   __builtin_LinAlgMatrix [[__LinAlgMatrix_Attributes(1, 5, 4, 2, 2)]] mat1;
   __builtin_LinAlgMatrix [[__LinAlgMatrix_Attributes(1, 5, 4, 2, 2)]] mat2;
   __builtin_LinAlgMatrix [[__LinAlgMatrix_Attributes(1, 5, 4, 2, 2)]] mat3;
@@ -62,7 +63,7 @@ void CallFunction()
 #endif
 
   // The builtins below are allowed in all stages, if they raise an error
-  // then the test will fall with "saw unexpected diagnostic"
+  // then the test will fail with "saw unexpected diagnostic"
   uint layout = __builtin_LinAlg_MatrixQueryAccumulatorLayout();
   __builtin_LinAlg_MatrixLoadFromDescriptor(mat1, buf, 5, 5, 5);
   __builtin_LinAlg_MatrixOuterProduct(mat1, vecA, vecB);

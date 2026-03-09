@@ -12897,7 +12897,7 @@ static void DiagnoseReachableSERCall(Sema &S, CallExpr *CE,
 }
 
 // Some LinAlg builtins are not available in all shader stages
-// Detect those use cases and raise a Diagnositc
+// Detect those use cases and raise a Diagnostic
 static void DiagnoseReachableLimitedLinAlgCall(Sema &S, CallExpr *CE,
                                                DXIL::ShaderKind EntrySK,
                                                const FunctionDecl *EntryDecl) {
