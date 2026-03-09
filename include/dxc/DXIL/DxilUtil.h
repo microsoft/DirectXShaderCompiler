@@ -166,6 +166,7 @@ llvm::Type *GetHLSLHitObjectType(llvm::Module *M);
 bool IsHLSLHitObjectType(llvm::Type *Ty);
 bool IsHLSLLinAlgMatrixType(llvm::Type *Ty);
 llvm::StringRef GetHLSLLinAlgMatrixTypeMangling(llvm::StructType *Ty);
+bool IsHLSLKnownTargetType(llvm::Type *Ty);
 bool IsHLSLResourceDescType(llvm::Type *Ty);
 bool IsResourceSingleComponent(llvm::Type *Ty);
 uint8_t GetResourceComponentCount(llvm::Type *Ty);

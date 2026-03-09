@@ -3338,6 +3338,11 @@ bool DxilMDHelper::IsKnownNamedMetaData(const llvm::NamedMDNode &Node) {
   return false;
 }
 
+bool DxilMDHelper::IsKnownGeneratedMetaData(const llvm::NamedMDNode &Node) {
+  return IsKnownNamedMetaData(Node) &&
+         Node.getName() != DxilMDHelper::kDxilTargetTypesMDName;
+}
+
 bool DxilMDHelper::IsKnownMetadataID(LLVMContext &Ctx, unsigned ID) {
   SmallVector<unsigned, 2> IDs;
   GetKnownMetadataIDs(Ctx, &IDs);
