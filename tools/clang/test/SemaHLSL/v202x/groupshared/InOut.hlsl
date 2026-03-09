@@ -23,3 +23,19 @@ void fn8() {
   fn1(SharedData);
 // expected-warning@-1{{Passing groupshared variable to a parameter annotated with inout. See 'groupshared' parameter annotation added in 202x}}
 }
+
+template<typename T>
+T fn9(inout groupshared T A) {
+// expected-error@-1{{'inout' and 'groupshared' cannot be used together for a parameter}}
+  return A;
+}
+template<typename T>
+T fn10(in groupshared T A) {
+// expected-error@-1{{'in' and 'groupshared' cannot be used together for a parameter}}
+  return A;
+}
+template<typename T>
+T fn11(out groupshared T A) {
+// expected-error@-1{{'out' and 'groupshared' cannot be used together for a parameter}}
+  return A;
+}
