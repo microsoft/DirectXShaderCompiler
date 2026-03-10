@@ -16,6 +16,14 @@ if(NOT LLVM_FORCE_USE_OLD_TOOLCHAIN)
     if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS 4.7)
       message(FATAL_ERROR "Host GCC version must be at least 4.7!")
     endif()
+    # GCC 13 has a known miscompilation bug in -funswitch-loops
+    # (https://gcc.gnu.org/bugzilla/show_bug.cgi?id=109934) that causes
+    # widespread test failures at -O3. Disable -funswitch-loops for GCC 13.
+    if(CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL 13.0 AND
+       CMAKE_CXX_COMPILER_VERSION VERSION_LESS 14.0)
+      add_compile_options(-fno-unswitch-loops)
+      message(STATUS "Disabling -funswitch-loops due to GCC 13 miscompilation bug (PR109934)")
+    endif()
   elseif(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
     if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS 3.1)
       message(FATAL_ERROR "Host Clang version must be at least 3.1!")
