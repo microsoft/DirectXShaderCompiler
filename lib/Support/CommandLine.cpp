@@ -1547,7 +1547,8 @@ public:
     GlobalParser->MoreHelp.clear();
 
     // Halt the program since help information was printed
-    report_fatal_error("Help information was printed"); // HLSL Change - don't exit() in shared library
+    // HLSL Change - don't exit() in shared library; just return after printing
+    return;
   }
 };
 
@@ -1798,7 +1799,7 @@ public:
 
     if (OverrideVersionPrinter != nullptr) {
       (*OverrideVersionPrinter)();
-      report_fatal_error("Version information was printed"); // HLSL Change - don't exit() in shared library
+      return; // HLSL Change - don't exit() in shared library
     }
     print();
 
@@ -1812,7 +1813,7 @@ public:
         (*I)();
     }
 
-    report_fatal_error("Version information was printed"); // HLSL Change - don't exit() in shared library
+    // HLSL Change - don't exit() in shared library
   }
 };
 } // End anonymous namespace
