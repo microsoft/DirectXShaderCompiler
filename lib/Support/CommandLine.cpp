@@ -1111,7 +1111,7 @@ void CommandLineParser::ParseCommandLineOptions(int argc,
 
   // If we had an error processing our arguments, don't let the program execute
   if (ErrorParsing)
-    exit(1);
+    report_fatal_error("Error in command-line option processing"); // HLSL Change - don't exit() in shared library
 }
 
 //===----------------------------------------------------------------------===//
@@ -1547,7 +1547,7 @@ public:
     GlobalParser->MoreHelp.clear();
 
     // Halt the program since help information was printed
-    exit(0);
+    report_fatal_error("Help information was printed"); // HLSL Change - don't exit() in shared library
   }
 };
 
@@ -1798,7 +1798,7 @@ public:
 
     if (OverrideVersionPrinter != nullptr) {
       (*OverrideVersionPrinter)();
-      exit(0);
+      report_fatal_error("Version information was printed"); // HLSL Change - don't exit() in shared library
     }
     print();
 
@@ -1812,7 +1812,7 @@ public:
         (*I)();
     }
 
-    exit(0);
+    report_fatal_error("Version information was printed"); // HLSL Change - don't exit() in shared library
   }
 };
 } // End anonymous namespace
