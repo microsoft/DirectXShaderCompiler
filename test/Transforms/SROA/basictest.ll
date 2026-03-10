@@ -1270,7 +1270,7 @@ define void @PR15674(i8* %data, i8* %src, i32 %size) {
 ; Arrange (via control flow) to have unmerged stores of a particular width to
 ; an alloca where we incrementally store from the end of the array toward the
 ; beginning of the array. Ensure that the final integer store, despite being
-; convertable to the integer type that we end up promoting this alloca toward,
+; convertible to the integer type that we end up promoting this alloca toward,
 ; doesn't get widened to a full alloca store.
 ; CHECK-LABEL: @PR15674(
 
