@@ -193,7 +193,7 @@ private:
   ArchType Arch;
 
   /// The parsed subarchitecture type.
-  SubArchType SubArch;
+  SubArchType SubArch = NoSubArch;
 
   /// The parsed vendor type.
   VendorType Vendor;

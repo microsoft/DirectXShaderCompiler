@@ -931,7 +931,7 @@ bool isSampledTexture(QualType type) {
     const auto name = rt->getDecl()->getName();
     // TODO(https://github.com/microsoft/DirectXShaderCompiler/issues/7979): Add
     // other sampled texture types as needed.
-    if (name == "SampledTexture2D")
+    if (name == "SampledTexture2D" || name == "SampledTexture2DArray")
       return true;
   }
   return false;

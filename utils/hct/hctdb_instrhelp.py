@@ -629,6 +629,7 @@ class db_oload_gen:
             "u64": "A(pI64);",
             "u8": "A(pI8);",
             "v": "A(pV);",
+            "int2": "VEC2(pI32);",
             "$vec2": "VEC2(pETy);",
             "$vec4": "VEC4(pETy);",
             "$vec9": "VEC9(pETy);",

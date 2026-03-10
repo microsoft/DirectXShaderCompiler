@@ -8057,6 +8057,9 @@ def err_hlsl_linalg_matrix_attribute_on_invalid_type
 def err_hlsl_linalg_attributed_matrix_required
     : Error<"argument must be linear algebra matrix type">;
 
+def err_hlsl_linalg_unsupported_stage : Error<
+   "builtin unavailable in shader stage '%0' (requires 'compute', 'mesh' or 'amplification')">;
+
 def err_hlsl_linalg_mul_muladd_output_vector_size_not_equal_to_matrix_M : Error<
   "output vector length must be equal to Matrix M dimension in a linalg Mul/MulAdd operation">;
 def err_hlsl_linalg_mul_muladd_unpacked_input_vector_size_not_equal_to_matrix_K : Error<

@@ -126,8 +126,9 @@ MemoryBuffer::getMemBufferCopy(StringRef InputData, const Twine &BufferName) {
       getNewUninitMemBuffer(InputData.size(), BufferName);
   if (!Buf)
     return nullptr;
-  memcpy(const_cast<char*>(Buf->getBufferStart()), InputData.data(),
-         InputData.size());
+  if (InputData.size())
+    memcpy(const_cast<char *>(Buf->getBufferStart()), InputData.data(),
+           InputData.size());
   return Buf;
 }
 
