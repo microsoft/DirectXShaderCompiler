@@ -664,7 +664,7 @@ public:
   /// Returns the imported instruction set.
   SpirvExtInstImport *getDebugInfoExtInstSet(bool vulkanDebugInfo);
 
-  /// \brief Adds a stage input/output variable whose value is of the given type.
+  /// \brief Adds a stage input/ouput variable whose value is of the given type.
   ///
   /// Note: the corresponding pointer type of the given type will not be
   /// constructed in this method.

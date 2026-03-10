@@ -293,7 +293,7 @@ public:
   /// module before visiting its imports. The visitor can control how to
   /// continue the visitation through its return value.
   ///
-  /// \param PostorderVisitor A visitor function that will be invoked with each
+  /// \param PostorderVisitor A visitor function taht will be invoked with each
   /// module after visiting its imports. The visitor may return true at any time
   /// to abort the depth-first visitation.
   ///

@@ -815,7 +815,7 @@ bool TargetInstrInfo::hasLowDefLatency(const TargetSchedModel &SchedModel,
 }
 
 /// Both DefMI and UseMI must be valid.  By default, call directly to the
-/// itinerary. This may be overridden by the target.
+/// itinerary. This may be overriden by the target.
 int TargetInstrInfo::
 getOperandLatency(const InstrItineraryData *ItinData,
                   const MachineInstr *DefMI, unsigned DefIdx,

@@ -52,7 +52,7 @@ public:
   /// Calculates the layout for ClipDistance/CullDistance arrays.
   void calculateClipCullDistanceArraySize();
 
-  /// Emits SPIR-V code for the input and/or output ClipDistance/CullDistance
+  /// Emits SPIR-V code for the input and/or ouput ClipDistance/CullDistance
   /// builtin variables. If inputArrayLength is not zero, the input variable
   /// will have an additional arrayness of the given size. Similarly for
   /// outputArrayLength.

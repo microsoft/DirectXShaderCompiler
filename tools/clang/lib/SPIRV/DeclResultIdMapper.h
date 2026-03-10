@@ -232,7 +232,7 @@ public:
   /// by the other overload.
   bool createStageOutputVar(const DeclaratorDecl *decl,
                             SpirvInstruction *storedValue, bool forPCF);
-  /// \brief Overload for handling HS control point stage output variable.
+  /// \brief Overload for handling HS control point stage ouput variable.
   bool createStageOutputVar(const DeclaratorDecl *decl, uint32_t arraySize,
                             SpirvInstruction *invocationId,
                             SpirvInstruction *storedValue);
@@ -508,7 +508,7 @@ public:
   /// buffers. Returns nullptr if it does not.
   const CounterVarFields *getCounterVarFields(const DeclaratorDecl *decl);
 
-  /// \brief Returns all defined stage (builtin/input/output) variables for the
+  /// \brief Returns all defined stage (builtin/input/ouput) variables for the
   /// entry point function entryPoint in this mapper.
   std::vector<SpirvVariable *>
   collectStageVars(SpirvFunction *entryPoint) const;

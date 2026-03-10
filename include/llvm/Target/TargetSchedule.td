@@ -67,7 +67,7 @@ def instregex;
 // coarse grained instruction cost model. Default values for the
 // properties are defined in MCSchedModel. A value of "-1" in the
 // target description's SchedMachineModel indicates that the property
-// is not overridden by the target.
+// is not overriden by the target.
 //
 // Target hooks allow subtargets to associate LoadLatency and
 // HighLatency with groups of opcodes.

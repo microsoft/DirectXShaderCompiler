@@ -251,11 +251,11 @@ CXTranslationUnit getCursorTU(CXCursor Cursor);
 void getOverriddenCursors(CXCursor cursor,
                           SmallVectorImpl<CXCursor> &overridden);
   
-/// \brief Create an opaque  pool used for fast generation of overridden
+/// \brief Create an opaque  pool used for fast generation of overriden
 /// CXCursor arrays.
 void *createOverridenCXCursorsPool();
 
-/// \brief Dispose of the overridden CXCursors pool.
+/// \brief Dispose of the overriden CXCursors pool.
 void disposeOverridenCXCursorsPool(void *pool);
   
 /// \brief Returns a index/location pair for a selector identifier if the cursor

@@ -17,7 +17,7 @@
 
 # 3. **Fixed version build**
 # Build by using `hctbuild -fv`. Enables overriding of the version information. The fixed version is 
-# read from `utils\version\version.inc`. Location of the version file can be overridden by `-fvloc` option
+# read from `utils\version\version.inc`. Location of the version file can be overriden by `-fvloc` option
 # on `hctbuild`.
 
 # In addition to the numbered version the product version string on the binaries will also include branch

@@ -1439,7 +1439,7 @@ void CodeGenSchedModels::collectProcResources() {
     if (SCI->ItinClassDef)
       collectItinProcResources(SCI->ItinClassDef);
     else {
-      // This class may have a default ReadWrite list which can be overridden by
+      // This class may have a default ReadWrite list which can be overriden by
       // InstRW definitions.
       if (!SCI->InstRWs.empty()) {
         for (RecIter RWI = SCI->InstRWs.begin(), RWE = SCI->InstRWs.end();

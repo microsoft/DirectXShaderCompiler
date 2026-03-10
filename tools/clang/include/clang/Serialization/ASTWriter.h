@@ -405,7 +405,7 @@ private:
   SmallVector<Stmt *, 16> StmtsToEmit;
 
   /// \brief Statements collection to use for ASTWriter::AddStmt().
-  /// It will point to StmtsToEmit unless it is overridden.
+  /// It will point to StmtsToEmit unless it is overriden.
   SmallVector<Stmt *, 16> *CollectedStmts;
 
   /// \brief Mapping from SwitchCase statements to IDs.

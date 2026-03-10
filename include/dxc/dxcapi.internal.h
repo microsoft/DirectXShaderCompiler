@@ -276,7 +276,7 @@ CROSS_PLATFORM_UUIDOF(IDxcLangExtensions3,
                       "A1B19880-FB1F-4920-9BC5-50356483BAC1")
 struct IDxcLangExtensions3 : public IDxcLangExtensions2 {
 public:
-  /// Registers a semantic define which cannot be overridden using the flag
+  /// Registers a semantic define which cannot be overriden using the flag
   /// -override-opt-semdefs
   virtual HRESULT STDMETHODCALLTYPE
   RegisterNonOptSemanticDefine(LPCWSTR name) = 0;

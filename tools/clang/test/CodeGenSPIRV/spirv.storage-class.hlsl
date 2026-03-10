@@ -9,7 +9,7 @@ static float4 sgVar; // Privte
 
 // Note: The entry function in the source code is treated as a normal function.
 // Another wrapper function take care of handling stage input/output variables.
-// and calling the source code entry function. So there are no Input/Output
+// and calling the source code entry function. So there are no Input/Ouput
 // storage class involved in the following.
 
 VSOut main(float4 input: A /* Function */, uint index: B /* Function */) {

@@ -172,7 +172,7 @@ namespace llvm {
     /// Emit target-specific trap instruction for 'unreachable' IR instructions.
     unsigned TrapUnreachable : 1;
 
-    /// FloatABIType - This setting is set by -float-abi=xxx option is specified
+    /// FloatABIType - This setting is set by -float-abi=xxx option is specfied
     /// on the command line. This setting may either be Default, Soft, or Hard.
     /// Default selects the target's default behavior. Soft selects the ABI for
     /// software floating point, but does not indicate that FP hardware may not
