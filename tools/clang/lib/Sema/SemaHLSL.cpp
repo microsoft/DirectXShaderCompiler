@@ -7214,7 +7214,7 @@ bool HLSLExternalSource::MatchArguments(
       if (pArgument->uRows && pArgument->uCols) {
         UINT uRows, uCols = 0;
 
-        // if type is overriden, use new type size, for
+        // if type is overridden, use new type size, for
         // now it only supports scalars
         if (pArgument->uRows >= IA_SPECIAL_BASE) {
           UINT uSpecialId = pArgument->uRows - IA_SPECIAL_BASE;
@@ -9596,7 +9596,7 @@ void HLSLExternalSource::GetConversionForm(QualType type,
     }
     break;
   default:
-    // Only convertable shapekinds are relevant.
+    // Only convertible shapekinds are relevant.
     break;
   }
 }
@@ -9745,7 +9745,7 @@ static bool ConvertDimensions(ArTypeInfo TargetInfo, ArTypeInfo SourceInfo,
       //  - same number of components
       //  - one target component (truncate to scalar)
       //  - matrix has one row or one column, and fewer components (truncation)
-      // Other cases disallowed even if implicitly convertable in two steps
+      // Other cases disallowed even if implicitly convertible in two steps
       // (truncation+conversion).
       if (1 == SourceInfo.uCols && TargetComponents != 1) {
         // splat: vector<[..], 1> -> matrix<[..], M, N>
@@ -16256,7 +16256,7 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC, Expr *BitWidth,
     }
   }
 
-  // Validate that stream-ouput objects are marked as inout
+  // Validate that stream-output objects are marked as inout
   if (isParameter && !(usageIn && usageOut) &&
       (basicKind == ArBasicKind::AR_OBJECT_LINESTREAM ||
        basicKind == ArBasicKind::AR_OBJECT_POINTSTREAM ||

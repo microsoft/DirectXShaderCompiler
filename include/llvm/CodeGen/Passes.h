@@ -42,7 +42,7 @@ using legacy::PassManagerBase;
 ///
 /// The PassConfig API prefers dealing with IDs because they are safer and more
 /// efficient. IDs decouple configuration from instantiation. This way, when a
-/// pass is overriden, it isn't unnecessarily instantiated. It is also unsafe to
+/// pass is overridden, it isn't unnecessarily instantiated. It is also unsafe to
 /// refer to a Pass pointer after adding it to a pass manager, which deletes
 /// redundant pass instances.
 ///
@@ -194,7 +194,7 @@ public:
   bool getEnableShrinkWrap() const;
 
   /// Return true if the default global register allocator is in use and
-  /// has not be overriden on the command line with '-regalloc=...'
+  /// has not be overridden on the command line with '-regalloc=...'
   bool usingDefaultRegAlloc() const;
 
   /// Add common target configurable passes that perform LLVM IR to IR
@@ -251,7 +251,7 @@ protected:
   /// codegen pass pipeline where targets may insert passes. Methods with
   /// out-of-line standard implementations are major CodeGen stages called by
   /// addMachinePasses. Some targets may override major stages when inserting
-  /// passes is insufficient, but maintaining overriden stages is more work.
+  /// passes is insufficient, but maintaining overridden stages is more work.
   ///
 
   /// addPreISelPasses - This method should add any "last minute" LLVM->LLVM
@@ -346,7 +346,7 @@ protected:
   ///                  machine verification pass afterwards.
   void addPass(Pass *P, bool verifyAfter = true, bool printAfter = true);
 
-  /// addMachinePasses helper to create the target-selected or overriden
+  /// addMachinePasses helper to create the target-selected or overridden
   /// regalloc pass.
   FunctionPass *createRegAllocPass(bool Optimized);
 

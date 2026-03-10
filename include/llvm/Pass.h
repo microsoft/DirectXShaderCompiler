@@ -149,7 +149,7 @@ public:
   ///
   virtual bool doInitialization(Module &)  { return false; }
 
-  /// doFinalization - Virtual method overriden by subclasses to do any
+  /// doFinalization - Virtual method overridden by subclasses to do any
   /// necessary clean up after all passes have run.
   ///
   virtual bool doFinalization(Module &) { return false; }
@@ -183,7 +183,7 @@ public:
   void setResolver(AnalysisResolver *AR);
   AnalysisResolver *getResolver() const { return Resolver; }
 
-  /// getAnalysisUsage - This function should be overriden by passes that need
+  /// getAnalysisUsage - This function should be overridden by passes that need
   /// analysis information to do their job.  If a pass specifies that it uses a
   /// particular analysis result to this function, it can then use the
   /// getAnalysis<AnalysisType>() function, below.
@@ -278,7 +278,7 @@ public:
   Pass *createPrinterPass(raw_ostream &O,
                           const std::string &Banner) const override;
 
-  /// runOnModule - Virtual method overriden by subclasses to process the module
+  /// runOnModule - Virtual method overridden by subclasses to process the module
   /// being operated on.
   virtual bool runOnModule(Module &M) = 0;
 
@@ -300,7 +300,7 @@ public:
 ///
 class ImmutablePass : public ModulePass {
 public:
-  /// initializePass - This method may be overriden by immutable passes to allow
+  /// initializePass - This method may be overridden by immutable passes to allow
   /// them to perform various initialization actions they require.  This is
   /// primarily because an ImmutablePass can "require" another ImmutablePass,
   /// and if it does, the overloaded version of initializePass may get access to
@@ -338,7 +338,7 @@ public:
   Pass *createPrinterPass(raw_ostream &O,
                           const std::string &Banner) const override;
 
-  /// runOnFunction - Virtual method overriden by subclasses to do the
+  /// runOnFunction - Virtual method overridden by subclasses to do the
   /// per-function processing of the pass.
   ///
   virtual bool runOnFunction(Function &F) = 0;
@@ -380,12 +380,12 @@ public:
   ///
   virtual bool doInitialization(Function &);
 
-  /// runOnBasicBlock - Virtual method overriden by subclasses to do the
+  /// runOnBasicBlock - Virtual method overridden by subclasses to do the
   /// per-basicblock processing of the pass.
   ///
   virtual bool runOnBasicBlock(BasicBlock &BB) = 0;
 
-  /// doFinalization - Virtual method overriden by BasicBlockPass subclasses to
+  /// doFinalization - Virtual method overridden by BasicBlockPass subclasses to
   /// do any post processing needed after all passes have run.
   ///
   virtual bool doFinalization(Function &);

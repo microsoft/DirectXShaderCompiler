@@ -3089,7 +3089,7 @@ void DeclResultIdMapper::storeToShaderOutputVariable(
     ptr->setStorageClass(spv::StorageClass::Output);
     spvBuilder.createStore(ptr, value, stageVarData.decl->getLocation());
   }
-  // Special handling of HS ouput, for which we write to only one
+  // Special handling of HS output, for which we write to only one
   // element in the per-vertex data array: the one indexed by
   // SV_ControlPointID.
   else if (stageVarData.invocationId.hasValue() &&

@@ -2056,11 +2056,11 @@ Constant *ConstantExpr::getGetElementPtr(Type *Ty, Constant *C,
   ArgVec.push_back(C);
   for (unsigned i = 0, e = Idxs.size(); i != e; ++i) {
     assert(Idxs[i]->getType()->isVectorTy() == ReqTy->isVectorTy() &&
-           "getelementptr index type missmatch");
+           "getelementptr index type mismatch");
     assert((!Idxs[i]->getType()->isVectorTy() ||
             ReqTy->getVectorNumElements() ==
             Idxs[i]->getType()->getVectorNumElements()) &&
-           "getelementptr index type missmatch");
+           "getelementptr index type mismatch");
     ArgVec.push_back(cast<Constant>(Idxs[i]));
   }
   const ConstantExprKeyType Key(Instruction::GetElementPtr, ArgVec, 0,

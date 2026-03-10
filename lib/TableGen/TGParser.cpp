@@ -1296,7 +1296,7 @@ Init *TGParser::ParseSimpleValue(Record *CurRec, RecTy *ItemType,
       Init *Bit = Vals[i]->convertInitializerTo(BitRecTy::get());
       if (!Bit) {
         Error(BraceLoc, "Element #" + Twine(i) + " (" + Vals[i]->getAsString() +
-              ") is not convertable to a bit");
+              ") is not convertible to a bit");
         return nullptr;
       }
       NewBits.push_back(Bit);

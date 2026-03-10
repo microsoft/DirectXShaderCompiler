@@ -865,7 +865,7 @@ void SubtargetEmitter::GenSchedClassTables(const CodeGenProcModel &ProcModel,
     IdxVec Writes = SCI->Writes;
     IdxVec Reads = SCI->Reads;
     if (!SCI->InstRWs.empty()) {
-      // This class has a default ReadWrite list which can be overriden by
+      // This class has a default ReadWrite list which can be overridden by
       // InstRW definitions.
       Record *RWDef = nullptr;
       for (RecIter RWI = SCI->InstRWs.begin(), RWE = SCI->InstRWs.end();

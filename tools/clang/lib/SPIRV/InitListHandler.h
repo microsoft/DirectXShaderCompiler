@@ -6,7 +6,7 @@
 // License. See LICENSE.TXT for details.
 //===----------------------------------------------------------------------===//
 //
-//  This file defines an initalizer list handler that takes in an InitListExpr
+//  This file defines an initializer list handler that takes in an InitListExpr
 //  and emits the corresponding SPIR-V instructions for it.
 //
 //===----------------------------------------------------------------------===//
@@ -41,14 +41,14 @@ namespace spirv {
 /// The AST is designed to omit the composite extraction and construction. It
 /// also does not have casts to the expected types and from lvalues to rvalues.
 ///
-/// Resulting from the above reasons, the logic for handling initalizer lists
+/// Resulting from the above reasons, the logic for handling initializer lists
 /// are complicated. So we have this dedicated class for it. It is built on
 /// top of the SpirvEmitter class and calls into SPIRVEmitter for normal
 /// translation tasks. This gives better code structure.
 ///
-/// The logic for handling initalizer lists is largely the following:
+/// The logic for handling initializer lists is largely the following:
 ///
-/// First we flatten() the given initalizer list recursively and put all
+/// First we flatten() the given initializer list recursively and put all
 /// SPIR-V instructions for non-nitializer-list AST Exprs into the initializers
 /// queue. This handles curly braces of even wired forms like
 /// float2x2 mat = {{1.}, {2., {{3.}}}, 4.};

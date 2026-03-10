@@ -2599,7 +2599,7 @@ static void computeLiveInValues(DominatorTree &DT, Function &F,
   } // while( !worklist.empty() )
 
 #ifndef NDEBUG
-  // Sanity check our ouput against SSA properties.  This helps catch any
+  // Sanity check our output against SSA properties.  This helps catch any
   // missing kills during the above iteration.
   for (BasicBlock &BB : F) {
     checkBasicSSA(DT, Data, BB);

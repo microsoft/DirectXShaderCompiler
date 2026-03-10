@@ -502,7 +502,7 @@ void Verifier::visitGlobalVariable(const GlobalVariable &GV) {
       if (GV.hasInitializer()) {
         const Constant *Init = GV.getInitializer();
         const ConstantArray *InitArray = dyn_cast<ConstantArray>(Init);
-        Assert(InitArray, "wrong initalizer for intrinsic global variable",
+        Assert(InitArray, "wrong initializer for intrinsic global variable",
                Init);
         for (unsigned i = 0, e = InitArray->getNumOperands(); i != e; ++i) {
           Value *V = Init->getOperand(i)->stripPointerCastsNoFollowAliases();
@@ -1065,7 +1065,7 @@ void Verifier::visitDIGlobalVariable(const DIGlobalVariable &N) {
   if (auto *V = N.getRawVariable()) {
     Assert(isa<ConstantAsMetadata>(V) &&
                !isa<Function>(cast<ConstantAsMetadata>(V)->getValue()),
-           "invalid global varaible ref", &N, V);
+           "invalid global variable ref", &N, V);
   }
   if (auto *Member = N.getRawStaticDataMemberDeclaration()) {
     Assert(isa<DIDerivedType>(Member), "invalid static data member declaration",

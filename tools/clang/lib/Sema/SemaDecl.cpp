@@ -6634,7 +6634,7 @@ namespace {
   enum OverrideErrorKind { OEK_All, OEK_NonDeleted, OEK_Deleted };
 }
 /// \brief Report an error regarding overriding, along with any relevant
-/// overriden methods.
+/// overridden methods.
 ///
 /// \param DiagID the primary error to report.
 /// \param MD the overriding method.
@@ -9324,7 +9324,7 @@ void Sema::AddInitializerToDecl(Decl *RealDecl, Expr *Init,
     // C++11 [class.static.data]p3:
     //   If a non-volatile const static data member is of integral or
     //   enumeration type, its declaration in the class definition can
-    //   specify a brace-or-equal-initializer in which every initalizer-clause
+    //   specify a brace-or-equal-initializer in which every initializer-clause
     //   that is an assignment-expression is a constant expression. A static
     //   data member of literal type can be declared in the class definition
     //   with the constexpr specifier; if so, its declaration shall specify a

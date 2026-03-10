@@ -6,7 +6,7 @@
 // License. See LICENSE.TXT for details.
 //===----------------------------------------------------------------------===//
 //
-//  This file implements an initalizer list handler that takes in an
+//  This file implements an initializer list handler that takes in an
 //  InitListExpr and emits the corresponding SPIR-V instructions for it.
 //
 //===----------------------------------------------------------------------===//

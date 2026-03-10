@@ -2880,7 +2880,7 @@ bool LLParser::ParseValID(ValID &ID, PerFunctionState *PFS) {
         if (!ValTy->getScalarType()->isIntegerTy())
           return Error(ID.Loc, "getelementptr index must be an integer");
         if (ValTy->isVectorTy() != BaseType->isVectorTy())
-          return Error(ID.Loc, "getelementptr index type missmatch");
+          return Error(ID.Loc, "getelementptr index type mismatch");
         if (ValTy->isVectorTy()) {
           unsigned ValNumEl = ValTy->getVectorNumElements();
           unsigned PtrNumEl = BaseType->getVectorNumElements();

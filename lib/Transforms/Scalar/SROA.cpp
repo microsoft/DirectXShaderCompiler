@@ -1932,7 +1932,7 @@ static bool canConvertValue(const DataLayout &DL, Type *OldTy, Type *NewTy) {
 static Value *convertValue(const DataLayout &DL, IRBuilderTy &IRB, Value *V,
                            Type *NewTy) {
   Type *OldTy = V->getType();
-  assert(canConvertValue(DL, OldTy, NewTy) && "Value not convertable to type");
+  assert(canConvertValue(DL, OldTy, NewTy) && "Value not convertible to type");
 
   if (OldTy == NewTy)
     return V;

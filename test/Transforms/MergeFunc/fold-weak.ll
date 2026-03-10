@@ -17,7 +17,7 @@ define weak i32 @add(i32 %x, i32 %y) {
 ; Don't replace a weak function use by another equivalent function. We don't
 ; know whether the symbol that will ulitmately be linked is equivalent - we
 ; don't know that the weak definition is the definitive definition or whether it
-; will be overriden by a stronger definition).
+; will be overridden by a stronger definition).
 
 ; CHECK-LABEL: define private i32 @0
 ; CHECK: add i32

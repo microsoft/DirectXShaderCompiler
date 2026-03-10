@@ -79,13 +79,13 @@ void main() {
 // CHECK-NEXT: OpStore %s2 [[s2]]
     S s2 = {{1, 2}, 3, {{42}, {{1.}}}, {2., {3., 4.}}};
 
-    // Flat initalizer list for nested structs
+    // Flat initializer list for nested structs
 // CHECK:      [[y:%[0-9]+]] = OpCompositeConstruct %O %int_1
 // CHECK-NEXT: [[p:%[0-9]+]] = OpCompositeConstruct %P [[y]] %float_2
 // CHECK-NEXT: OpStore %p [[p]]
     P p = {1, 2.};
 
-    // Initalizer list for struct with inheritance.
+    // Initializer list for struct with inheritance.
 // CHECK:      [[y:%[0-9]+]] = OpCompositeConstruct %O %int_1
 // CHECK-NEXT: [[q:%[0-9]+]] = OpCompositeConstruct %Q [[y]] %float_2
 // CHECK-NEXT: OpStore %q [[q]]

@@ -166,7 +166,7 @@ struct MCSchedModel {
 
   // LoadLatency is the expected latency of load instructions.
   //
-  // If MinLatency >= 0, this may be overriden for individual load opcodes by
+  // If MinLatency >= 0, this may be overridden for individual load opcodes by
   // InstrItinerary OperandCycles.
   unsigned LoadLatency;
   static const unsigned DefaultLoadLatency = 4;
@@ -175,7 +175,7 @@ struct MCSchedModel {
   // See TargetInstrInfo::isHighLatencyDef().
   // By default, this is set to an arbitrarily high number of cycles
   // likely to have some impact on scheduling heuristics.
-  // If MinLatency >= 0, this may be overriden by InstrItinData OperandCycles.
+  // If MinLatency >= 0, this may be overridden by InstrItinData OperandCycles.
   unsigned HighLatency;
   static const unsigned DefaultHighLatency = 10;
 
