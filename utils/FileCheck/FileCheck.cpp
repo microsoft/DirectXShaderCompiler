@@ -70,7 +70,7 @@ static cl::list<std::string> ImplicitCheckNot(
     cl::value_desc("pattern"));
 
 static cl::list<std::string>
-    GlobalDefines("D", cl::Prefix,
+    GlobalDefines("D", cl::AlwaysPrefix,
                   cl::desc("Define a variable to be used in capture patterns."),
                   cl::value_desc("VAR=VALUE"));
 
@@ -1364,8 +1364,25 @@ int main(int argc, char **argv) {
   /// VariableTable - This holds all the current filecheck variables.
   StringMap<StringRef> VariableTable;
 
-  for (const auto &Def : GlobalDefines)
-    VariableTable.insert(StringRef(Def).split('='));
+  bool GlobalDefineError = false;
+  for (const auto &G : GlobalDefines) {
+    size_t EqIdx = G.find('=');
+    if (EqIdx == std::string::npos) {
+      errs() << "Missing equal sign in command-line definition '-D" << G
+             << "'\n";
+      GlobalDefineError = true;
+      continue;
+    }
+    if (EqIdx == 0) {
+      errs() << "Missing pattern variable name in command-line definition '-D"
+             << G << "'\n";
+      GlobalDefineError = true;
+      continue;
+    }
+    VariableTable.insert(StringRef(G).split('='));
+  }
+  if (GlobalDefineError)
+    return 2;
 
   bool hasError = false;
 
