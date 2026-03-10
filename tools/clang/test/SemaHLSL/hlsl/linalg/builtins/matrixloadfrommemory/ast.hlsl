@@ -12,13 +12,9 @@
 
 groupshared float SharedArr[64];
 
-void fn(groupshared float Arr[64]) {
-  __builtin_LinAlgMatrix [[__LinAlgMatrix_Attributes(4, 5, 4, 1, 2)]] mat;
-  __builtin_LinAlg_MatrixLoadFromMemory(mat, Arr, 0, 0, 0);
-}
-
 [shader("compute")]
 [numthreads(1,1,1)]
 void main() {
-  fn(SharedArr);
+  __builtin_LinAlgMatrix [[__LinAlgMatrix_Attributes(4, 5, 4, 1, 2)]] mat;
+  __builtin_LinAlg_MatrixLoadFromMemory(mat, SharedArr, 0, 0, 0);
 }
