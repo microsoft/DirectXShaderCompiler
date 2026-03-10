@@ -82,7 +82,7 @@ jobs:
             --end-rev $END_REV \
             --changed-files "$CHANGED_FILES"
   apply_diff:
-    if: ${{ github.event_name == 'issue_comment' && endsWith(github.event.comment.body, '- [x] Check this box to apply formatting changes to this branch.') }}
+    if: ${{ github.event_name == 'issue_comment' && github.event.comment.user.login == 'github-actions[bot]' && endsWith(github.event.comment.body, '- [x] Check this box to apply formatting changes to this branch.') }}
     runs-on: ubuntu-latest
     env:
       TMP_DIFF_FILE: /tmp/diff.patch
