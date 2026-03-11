@@ -655,7 +655,7 @@ INPUT_SET(InputSet::AllOnes, 1.0);
 END_INPUT_SETS()
 
 // Min precision input sets. Values are within the fp16 representable range.
-// No FP specials (INF/NaN/denorm) per issue #7780.
+// No FP specials (INF/NaN/denorm) as min precision types do not support them.
 BEGIN_INPUT_SETS(HLSLMin16Float_t)
 INPUT_SET(InputSet::Default1, -1.0f, -1.0f, 1.0f, -0.01f, 1.0f, -0.01f, 1.0f,
           -0.01f, 1.0f, -0.01f);
