@@ -797,7 +797,7 @@ DEFAULT_OP_2(OpType::Xor, (A ^ B));
 // 32-bit, 6 bits for 64-bit). We must do the same in C++ to avoid undefined
 // behavior when shift amount >= bit width, and to match GPU results.
 template <typename T> T MaskShiftAmount(T ShiftAmount) {
-  constexpr T ShiftMask = static_cast<T>(sizeof(T) * 8 - 1);
+  const T ShiftMask = static_cast<T>(sizeof(T) * 8 - 1);
   return ShiftAmount & ShiftMask;
 }
 
@@ -1128,7 +1128,7 @@ template <> struct ExpectedBuilder<OpType::AsUint_SplitDouble, double> {
 //
 
 template <typename T> T UnaryMathAbs(T A) {
-  if constexpr (std::is_unsigned_v<T>)
+  if constexpr (std::is_unsigned_v<T> || std::is_same_v<T, HLSLMin16Uint_t>)
     return A;
   else
     return static_cast<T>(std::abs(A));
