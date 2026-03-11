@@ -1,4 +1,4 @@
-// RUN: %dxc -I %hlsl_headers -T cs_6_9 -E main %s -verify
+// RUN: %dxc -T cs_6_9 -E main %s -verify
 
 RWByteAddressBuffer buf;
 
