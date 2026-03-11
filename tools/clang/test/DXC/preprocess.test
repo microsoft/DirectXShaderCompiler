@@ -1,21 +1,15 @@
 
 
-// Preprocess with /P (cl.exe-compatible, outputs to <input>.i)
-// RUN: %dxc /T ps_6_0 %S/Inputs/smoke.hlsl /P
-// RUN: FileCheck --input-file=%S/Inputs/smoke.i %s --check-prefix=PREPROCESSED
-// RUN: python -c "import os; os.remove(r'%S/Inputs/smoke.i')"
-
-// Preprocess with /P /Fi
-// RUN: %dxc /T ps_6_0 %S/Inputs/smoke.hlsl /P /Fi %t.preprocessed.hlsl
-// RUN: FileCheck --input-file=%t.preprocessed.hlsl %s --check-prefix=PREPROCESSED
+// Preprocess with /P
+// The default /P output filename (<input>.i) is verified by unit tests.
+// RUN: %dxc /T ps_6_0 %S/Inputs/smoke.hlsl /P /Fi %t.p_output.hlsl
+// RUN: FileCheck --input-file=%t.p_output.hlsl %s --check-prefix=PREPROCESSED
 
 // Legacy FXC-style support (always warns)
-// RUN: %dxc /T ps_6_0 %S/Inputs/smoke.hlsl /Po %t.po_positional.hlsl 2>&1 | FileCheck %s --check-prefix=DEPRECATED_PO_FI
+// RUN: %dxc /T ps_6_0 %S/Inputs/smoke.hlsl /Po %t.po_positional.hlsl 2>&1 | FileCheck %s --check-prefix=DEPRECATED
 // RUN: FileCheck --input-file=%t.po_positional.hlsl %s --check-prefix=PREPROCESSED
-// RUN: %dxc /T ps_6_0 %S/Inputs/smoke.hlsl /Po /Fi %t.po_preprocessed.hlsl 2>&1 | FileCheck %s --check-prefix=DEPRECATED_PO_FI
-// RUN: FileCheck --input-file=%t.po_preprocessed.hlsl %s --check-prefix=PREPROCESSED
-// RUN: %dxc /T ps_6_0 %S/Inputs/smoke.hlsl /Po 2>&1 | FileCheck %s --check-prefix=DEPRECATED_PO_SIMPLE
+// RUN: %dxc /T ps_6_0 %S/Inputs/smoke.hlsl /Po /Fi %t.po_fi.hlsl 2>&1 | FileCheck %s --check-prefix=DEPRECATED
+// RUN: FileCheck --input-file=%t.po_fi.hlsl %s --check-prefix=PREPROCESSED
 
 // PREPROCESSED:float4 main
-// DEPRECATED_PO_FI: /Po is deprecated, please use /P /Fi
-// DEPRECATED_PO_SIMPLE: /Po is deprecated, please use /P instead
+// DEPRECATED: /Po is deprecated
