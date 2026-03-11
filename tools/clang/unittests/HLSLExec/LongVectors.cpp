@@ -3180,9 +3180,8 @@ public:
   HLK_WAVEOP_TEST_MINP(WavePrefixProduct, HLSLMin16Int_t);
   HLK_WAVEOP_TEST_MINP(WaveMultiPrefixSum, HLSLMin16Int_t);
   HLK_WAVEOP_TEST_MINP(WaveMultiPrefixProduct, HLSLMin16Int_t);
-  HLK_WAVEOP_TEST_MINP(WaveMultiPrefixBitAnd, HLSLMin16Int_t);
-  HLK_WAVEOP_TEST_MINP(WaveMultiPrefixBitOr, HLSLMin16Int_t);
-  HLK_WAVEOP_TEST_MINP(WaveMultiPrefixBitXor, HLSLMin16Int_t);
+  // WaveMultiPrefixBitAnd/BitOr/BitXor excluded: these intrinsics use the
+  // any_int type set which does not include min precision integer types.
   HLK_WAVEOP_TEST_MINP(WaveMatch, HLSLMin16Int_t);
 
   // ---- HLSLMin16Uint_t (mirrors uint16_t) ----
@@ -3269,8 +3268,7 @@ public:
   HLK_WAVEOP_TEST_MINP(WavePrefixProduct, HLSLMin16Uint_t);
   HLK_WAVEOP_TEST_MINP(WaveMultiPrefixSum, HLSLMin16Uint_t);
   HLK_WAVEOP_TEST_MINP(WaveMultiPrefixProduct, HLSLMin16Uint_t);
-  HLK_WAVEOP_TEST_MINP(WaveMultiPrefixBitAnd, HLSLMin16Uint_t);
-  HLK_WAVEOP_TEST_MINP(WaveMultiPrefixBitOr, HLSLMin16Uint_t);
-  HLK_WAVEOP_TEST_MINP(WaveMultiPrefixBitXor, HLSLMin16Uint_t);
+  // WaveMultiPrefixBitAnd/BitOr/BitXor excluded: these intrinsics use the
+  // any_int type set which does not include min precision integer types.
   HLK_WAVEOP_TEST_MINP(WaveMatch, HLSLMin16Uint_t);
 };

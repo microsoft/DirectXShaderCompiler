@@ -342,8 +342,6 @@ struct HLSLMin16Int_t {
   HLSLMin16Int_t operator||(const HLSLMin16Int_t &O) const {
     return HLSLMin16Int_t(Val || O.Val);
   }
-  HLSLMin16Int_t operator~() const { return HLSLMin16Int_t(~Val); }
-
   friend std::wostream &operator<<(std::wostream &Os,
                                    const HLSLMin16Int_t &Obj) {
     Os << Obj.Val;
@@ -409,8 +407,6 @@ struct HLSLMin16Uint_t {
 
   bool operator&&(const HLSLMin16Uint_t &O) const { return Val && O.Val; }
   bool operator||(const HLSLMin16Uint_t &O) const { return Val || O.Val; }
-  HLSLMin16Uint_t operator~() const { return HLSLMin16Uint_t(~Val); }
-
   friend std::wostream &operator<<(std::wostream &Os,
                                    const HLSLMin16Uint_t &Obj) {
     Os << Obj.Val;
