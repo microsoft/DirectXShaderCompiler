@@ -428,14 +428,25 @@ TEST_F(OptionsTest, TestPreprocessOption) {
   VerifyPreprocessOption("/T ps_6_0 -P out.pp input.hlsl", "input.i", "");
   VerifyPreprocessOption("/T ps_6_0 input.hlsl -P out.pp", "out.i", "");
 
-  // /Po: preprocess to specified file, with /Fi or fxc-style syntax.
-  VerifyPreprocessOption("/T ps_6_0 -Po input.hlsl", "input.i", "");
-  VerifyPreprocessOption("/T ps_6_0 -Fi out.pp -Po input.hlsl", "out.pp", "");
-  VerifyPreprocessOption("/T ps_6_0 -Po -Fi out.pp input.hlsl", "out.pp", "");
-  const char *Warning =
-      "warning: -Po out.pp is deprecated, please use -P -Fi out.pp instead.\n";
-  VerifyPreprocessOption("/T ps_6_0 -Po out.pp input.hlsl", "out.pp", Warning);
-  VerifyPreprocessOption("/T ps_6_0 input.hlsl -Po out.pp ", "out.pp", Warning);
+  // /Po always emits a deprecation warning.
+  // Simple /Po (default output): suggests /P.
+  const char *SimpleWarning =
+      "warning: /Po is deprecated, please use /P instead.\n";
+  VerifyPreprocessOption("/T ps_6_0 -Po input.hlsl", "input.i", SimpleWarning);
+  // /Po with /Fi: suggests /P /Fi.
+  const char *FiWarning =
+      "warning: /Po is deprecated, please use /P /Fi out.pp instead.\n";
+  VerifyPreprocessOption("/T ps_6_0 -Fi out.pp -Po input.hlsl", "out.pp",
+                         FiWarning);
+  VerifyPreprocessOption("/T ps_6_0 -Po -Fi out.pp input.hlsl", "out.pp",
+                         FiWarning);
+  // /Po with positional filename: suggests /P /Fi.
+  const char *PositionalWarning =
+      "warning: /Po is deprecated, please use /P /Fi out.pp instead.\n";
+  VerifyPreprocessOption("/T ps_6_0 -Po out.pp input.hlsl", "out.pp",
+                         PositionalWarning);
+  VerifyPreprocessOption("/T ps_6_0 input.hlsl -Po out.pp ", "out.pp",
+                         PositionalWarning);
 }
 
 static void VerifySerializeDxilFlags(llvm::StringRef command,

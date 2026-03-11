@@ -590,7 +590,7 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
     llvm::sys::path::replace_extension(Path, "i");
     opts.Preprocess = Args.getLastArgValue(OPT_Fi, Path).str();
   } else if (Args.hasFlag(OPT_Po, OPT_INVALID, false)) {
-    // /Po: backward-compatible preprocessing (deprecated, use /P /Fi instead).
+    // /Po: backward-compatible preprocessing (deprecated, use /P instead).
     // Default preprocess filename is InputName.i.
     llvm::SmallString<128> Path(Args.getLastArgValue(OPT_INPUT));
     llvm::sys::path::replace_extension(Path, "i");
@@ -614,15 +614,16 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
               // Args.getLastArgValue(OPT_INPUT) get expect Input.
               InputArg->getValues()[0] = PrevInputArg->getValues()[0];
             }
-            errors << "warning: -Po " << opts.Preprocess
-                   << " is deprecated, please use -P -Fi " << opts.Preprocess
-                   << " instead.\n";
             break;
           }
           PrevInputArg = InputArg;
         }
       }
     }
+    errors << "warning: /Po is deprecated, please use /P";
+    if (!opts.Preprocess.empty() && opts.Preprocess != Path.str())
+      errors << " /Fi " << opts.Preprocess;
+    errors << " instead.\n";
   }
   opts.AstDumpImplicit =
       Args.hasFlag(OPT_ast_dump_implicit, OPT_INVALID, false);

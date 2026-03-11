@@ -9,11 +9,13 @@
 // RUN: %dxc /T ps_6_0 %S/Inputs/smoke.hlsl /P /Fi %t.preprocessed.hlsl
 // RUN: FileCheck --input-file=%t.preprocessed.hlsl %s --check-prefix=PREPROCESSED
 
-// Legacy FXC-style support
-// RUN: %dxc /T ps_6_0 %S/Inputs/smoke.hlsl /Po %t.po_positional.hlsl 2>&1 | FileCheck %s --check-prefix=DEPRECATED_PO
+// Legacy FXC-style support (always warns)
+// RUN: %dxc /T ps_6_0 %S/Inputs/smoke.hlsl /Po %t.po_positional.hlsl 2>&1 | FileCheck %s --check-prefix=DEPRECATED_PO_FI
 // RUN: FileCheck --input-file=%t.po_positional.hlsl %s --check-prefix=PREPROCESSED
-// RUN: %dxc /T ps_6_0 %S/Inputs/smoke.hlsl /Po /Fi %t.po_preprocessed.hlsl
+// RUN: %dxc /T ps_6_0 %S/Inputs/smoke.hlsl /Po /Fi %t.po_preprocessed.hlsl 2>&1 | FileCheck %s --check-prefix=DEPRECATED_PO_FI
 // RUN: FileCheck --input-file=%t.po_preprocessed.hlsl %s --check-prefix=PREPROCESSED
+// RUN: %dxc /T ps_6_0 %S/Inputs/smoke.hlsl /Po 2>&1 | FileCheck %s --check-prefix=DEPRECATED_PO_SIMPLE
 
 // PREPROCESSED:float4 main
-// DEPRECATED_PO: deprecated
+// DEPRECATED_PO_FI: /Po is deprecated, please use /P /Fi
+// DEPRECATED_PO_SIMPLE: /Po is deprecated, please use /P instead
