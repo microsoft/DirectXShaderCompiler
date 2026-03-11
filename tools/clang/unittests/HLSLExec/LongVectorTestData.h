@@ -244,8 +244,8 @@ struct HLSLMin16Float_t {
   HLSLMin16Float_t() : Val(0.0f) {}
   HLSLMin16Float_t(float F) : Val(F) {}
   HLSLMin16Float_t(double D) : Val(static_cast<float>(D)) {}
-  HLSLMin16Float_t(int I) : Val(static_cast<float>(I)) {}
-  HLSLMin16Float_t(uint32_t U) : Val(static_cast<float>(U)) {}
+  explicit HLSLMin16Float_t(int I) : Val(static_cast<float>(I)) {}
+  explicit HLSLMin16Float_t(uint32_t U) : Val(static_cast<float>(U)) {}
 
   operator float() const { return Val; }
   explicit operator double() const { return static_cast<double>(Val); }
