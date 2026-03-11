@@ -378,9 +378,8 @@ public:
   bool isSectionDefinition() const {
     // C++/CLI creates external ABS symbols for non-const appdomain globals.
     // These are also followed by an auxiliary section definition.
-    bool isAppdomainGlobal =
-        getStorageClass() == IMAGE_SYM_CLASS_EXTERNAL &&
-        getSectionNumber() == IMAGE_SYM_ABSOLUTE;
+    bool isAppdomainGlobal = getStorageClass() == IMAGE_SYM_CLASS_EXTERNAL &&
+                             getSectionNumber() == IMAGE_SYM_ABSOLUTE;
     bool isOrdinarySection = getStorageClass() == IMAGE_SYM_CLASS_STATIC;
     if (!getNumberOfAuxSymbols())
       return false;

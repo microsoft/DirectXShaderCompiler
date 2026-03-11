@@ -160,7 +160,7 @@ namespace COFF {
 #ifdef __MINGW32__
   enum SymbolComplexType {
     /// Type is formed as (base + (derived << SCT_COMPLEX_TYPE_SHIFT))
-    SCT_COMPLEX_TYPE_SHIFT   = 4
+    SCT_COMPLEX_TYPE_SHIFT = 4
   };
 #else
   enum SymbolSectionNumber : int32_t {

@@ -12,6 +12,7 @@
 
 #include <algorithm>
 #include <cassert>
+#include <cstdint>
 #include <cstring>
 #include <limits>
 #include <string>
@@ -569,25 +570,5 @@ namespace llvm {
   template <typename T> struct isPodLike;
   template <> struct isPodLike<StringRef> { static const bool value = true; };
 }
-
-// HLSL Change Starts
-// StringRef provides an operator string; that trips up the std::pair noexcept specification,
-// which (a) enables the moves constructor (because conversion is allowed), but (b)
-// misclassifies the the construction as nothrow.
-namespace std {
-  template<>
-  struct is_nothrow_constructible <std::string, llvm::StringRef>
-    : std::false_type {
-  };
-  template<>
-  struct is_nothrow_constructible <std::string, llvm::StringRef &>
-    : std::false_type {
-  };
-  template<>
-  struct is_nothrow_constructible <std::string, const llvm::StringRef &>
-    : std::false_type {
-  };
-}
-// HLSL Change Ends
 
 #endif
