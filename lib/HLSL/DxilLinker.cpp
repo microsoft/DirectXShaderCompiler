@@ -575,7 +575,7 @@ void DxilLinkJob::LinkNamedMDNodes(Module *pM, ValueToValueMapTy &vmap) {
       if (&NMD == pSrcModFlags)
         continue;
       // Skip dxil metadata which will be regenerated.
-      if (DxilMDHelper::IsKnownNamedMetaData(NMD))
+      if (DxilMDHelper::IsKnownGeneratedMetaData(NMD))
         continue;
       NamedMDNode *DestNMD = pM->getOrInsertNamedMetadata(NMD.getName());
       // Add Src elements into Dest node.
@@ -1293,6 +1293,7 @@ void DxilLinkJob::RunPreparePass(Module &M) {
   PM.add(createComputeViewIdStatePass());
   PM.add(createDxilDeadFunctionEliminationPass());
   PM.add(createNoPausePassesPass());
+  PM.add(createDxilTrimTargetTypesPass());
   PM.add(createDxilEmitMetadataPass());
   PM.add(createDxilFinalizePreservesPass());
 

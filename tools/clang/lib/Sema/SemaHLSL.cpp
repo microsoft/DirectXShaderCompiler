@@ -201,6 +201,7 @@ enum ArBasicKind {
   AR_OBJECT_VK_SPV_INTRINSIC_RESULT_ID,
   AR_OBJECT_VK_BUFFER_POINTER,
   AR_OBJECT_VK_SAMPLED_TEXTURE2D,
+  AR_OBJECT_VK_SAMPLED_TEXTURE2D_ARRAY,
 #endif // ENABLE_SPIRV_CODEGEN
   // SPIRV change ends
 
@@ -562,6 +563,7 @@ const UINT g_uBasicKindProps[] = {
     BPROP_OBJECT, // AR_OBJECT_VK_SPV_INTRINSIC_RESULT_ID use recordType
     BPROP_OBJECT, // AR_OBJECT_VK_BUFFER_POINTER use recordType
     BPROP_OBJECT | BPROP_RBUFFER, // AR_OBJECT_VK_SAMPLED_TEXTURE2D
+    BPROP_OBJECT | BPROP_RBUFFER, // AR_OBJECT_VK_SAMPLED_TEXTURE2D_ARRAY
 #endif            // ENABLE_SPIRV_CODEGEN
     // SPIRV change ends
 
@@ -1272,6 +1274,8 @@ static const ArBasicKind g_VKBufferPointerCT[] = {AR_OBJECT_VK_BUFFER_POINTER,
                                                   AR_BASIC_UNKNOWN};
 static const ArBasicKind g_VKSampledTexture2DCT[] = {
     AR_OBJECT_VK_SAMPLED_TEXTURE2D, AR_BASIC_UNKNOWN};
+static const ArBasicKind g_VKSampledTexture2DArrayCT[] = {
+    AR_OBJECT_VK_SAMPLED_TEXTURE2D_ARRAY, AR_BASIC_UNKNOWN};
 #endif
 
 // Basic kinds, indexed by a LEGAL_INTRINSIC_COMPTYPES value.
@@ -1334,8 +1338,9 @@ const ArBasicKind *g_LegalIntrinsicCompTypes[] = {
     g_LinAlgCT,                   // LICOMPTYPE_LINALG
     g_BuiltInTrianglePositionsCT, // LICOMPTYPE_BUILTIN_TRIANGLE_POSITIONS
 #ifdef ENABLE_SPIRV_CODEGEN
-    g_VKBufferPointerCT,    // LICOMPTYPE_VK_BUFFER_POINTER
-    g_VKSampledTexture2DCT, // LICOMPTYPE_VK_SAMPLED_TEXTURE2D
+    g_VKBufferPointerCT,         // LICOMPTYPE_VK_BUFFER_POINTER
+    g_VKSampledTexture2DCT,      // LICOMPTYPE_VK_SAMPLED_TEXTURE2D
+    g_VKSampledTexture2DArrayCT, // LICOMPTYPE_VK_SAMPLED_TEXTURE2D_ARRAY
 #endif
 };
 static_assert(
@@ -1396,6 +1401,7 @@ static const ArBasicKind g_ArBasicKindsAsTypes[] = {
     AR_OBJECT_VK_INTEGRAL_CONSTANT, AR_OBJECT_VK_LITERAL,
     AR_OBJECT_VK_SPV_INTRINSIC_TYPE, AR_OBJECT_VK_SPV_INTRINSIC_RESULT_ID,
     AR_OBJECT_VK_BUFFER_POINTER, AR_OBJECT_VK_SAMPLED_TEXTURE2D,
+    AR_OBJECT_VK_SAMPLED_TEXTURE2D_ARRAY,
 #endif // ENABLE_SPIRV_CODEGEN
     // SPIRV change ends
 
@@ -1508,6 +1514,7 @@ static const uint8_t g_ArBasicKindsTemplateCount[] = {
     1, // AR_OBJECT_VK_SPV_INTRINSIC_RESULT_ID
     2, // AR_OBJECT_VK_BUFFER_POINTER
     1, // AR_OBJECT_VK_SAMPLED_TEXTURE2D
+    1, // AR_OBJECT_VK_SAMPLED_TEXTURE2D_ARRAY
 #endif // ENABLE_SPIRV_CODEGEN
     // SPIRV change ends
 
@@ -1661,7 +1668,8 @@ static const SubscriptOperatorRecord g_ArBasicKindsSubscripts[] = {
     {0, MipsFalse, SampleFalse}, // AR_OBJECT_VK_SPV_INTRINSIC_TYPE
     {0, MipsFalse, SampleFalse}, // AR_OBJECT_VK_SPV_INTRINSIC_RESULT_ID
     {0, MipsFalse, SampleFalse}, // AR_OBJECT_VK_BUFFER_POINTER
-    {0, MipsFalse, SampleFalse}, // AR_OBJECT_VK_SAMPLED_TEXTURE2D
+    {2, MipsTrue, SampleFalse},  // AR_OBJECT_VK_SAMPLED_TEXTURE2D
+    {3, MipsTrue, SampleFalse},  // AR_OBJECT_VK_SAMPLED_TEXTURE2D_ARRAY
 #endif                           // ENABLE_SPIRV_CODEGEN
     // SPIRV change ends
 
@@ -1832,6 +1840,7 @@ static const char *g_ArBasicTypeNames[] = {
     "ext_result_id",
     "BufferPointer",
     "SampledTexture2D",
+    "SampledTexture2DArray",
 #endif // ENABLE_SPIRV_CODEGEN
     // SPIRV change ends
 
@@ -2488,6 +2497,10 @@ static void GetIntrinsicMethods(ArBasicKind kind,
   case AR_OBJECT_VK_SAMPLED_TEXTURE2D:
     *intrinsics = g_VkSampledTexture2DMethods;
     *intrinsicCount = _countof(g_VkSampledTexture2DMethods);
+    break;
+  case AR_OBJECT_VK_SAMPLED_TEXTURE2D_ARRAY:
+    *intrinsics = g_VkSampledTexture2DArrayMethods;
+    *intrinsicCount = _countof(g_VkSampledTexture2DArrayMethods);
     break;
 #endif
   case AR_OBJECT_HIT_OBJECT:
@@ -4094,13 +4107,16 @@ private:
         recordDecl = DeclareVkBufferPointerType(*m_context, m_vkNSDecl);
         recordDecl->setImplicit(true);
         m_vkBufferPointerTemplateDecl = recordDecl->getDescribedClassTemplate();
-      } else if (kind == AR_OBJECT_VK_SAMPLED_TEXTURE2D) {
+      } else if (kind == AR_OBJECT_VK_SAMPLED_TEXTURE2D ||
+                 kind == AR_OBJECT_VK_SAMPLED_TEXTURE2D_ARRAY) {
         if (!m_vkNSDecl)
           continue;
         QualType float4Type =
             LookupVectorType(HLSLScalarType::HLSLScalarType_float, 4);
         recordDecl = DeclareVkSampledTextureType(
-            *m_context, m_vkNSDecl, "SampledTexture2D", float4Type);
+            *m_context, m_vkNSDecl, g_ArBasicTypeNames[kind], float4Type);
+        if (Attr)
+          recordDecl->addAttr(Attr);
         m_vkSampledTextureTemplateDecl =
             recordDecl->getDescribedClassTemplate();
       }
@@ -5046,6 +5062,9 @@ public:
       ResClass = DXIL::ResourceClass::UAV;
       return true;
     case AR_OBJECT_TEXTURE2D:
+#ifdef ENABLE_SPIRV_CODEGEN
+    case AR_OBJECT_VK_SAMPLED_TEXTURE2D:
+#endif
       ResKind = DXIL::ResourceKind::Texture2D;
       ResClass = DXIL::ResourceClass::SRV;
       return true;
@@ -5055,6 +5074,9 @@ public:
       ResClass = DXIL::ResourceClass::UAV;
       return true;
     case AR_OBJECT_TEXTURE2D_ARRAY:
+#ifdef ENABLE_SPIRV_CODEGEN
+    case AR_OBJECT_VK_SAMPLED_TEXTURE2D_ARRAY:
+#endif
       ResKind = DXIL::ResourceKind::Texture2DArray;
       ResClass = DXIL::ResourceClass::SRV;
       return true;
@@ -12874,6 +12896,23 @@ static void DiagnoseReachableSERCall(Sema &S, CallExpr *CE,
   S.Diag(EntryLoc, diag::note_hlsl_entry_defined_here);
 }
 
+// Some LinAlg builtins are not available in all shader stages
+// Detect those use cases and raise a Diagnostic
+static void DiagnoseReachableLimitedLinAlgCall(Sema &S, CallExpr *CE,
+                                               DXIL::ShaderKind EntrySK,
+                                               const FunctionDecl *EntryDecl) {
+  if (EntrySK == DXIL::ShaderKind::Compute ||
+      EntrySK == DXIL::ShaderKind::Mesh ||
+      EntrySK == DXIL::ShaderKind::Amplification)
+    return;
+
+  SourceLocation EntryLoc = EntryDecl->getLocation();
+  SourceLocation Loc = CE->getExprLoc();
+  S.Diag(Loc, diag::err_hlsl_linalg_unsupported_stage)
+      << ShaderModel::FullNameFromKind(EntrySK);
+  S.Diag(EntryLoc, diag::note_hlsl_entry_defined_here);
+}
+
 // Check HLSL member call constraints for used functions.
 // locallyVisited is true if this call has been visited already from any other
 // entry function.  Used to avoid duplicate diagnostics when not dependent on
@@ -12923,6 +12962,21 @@ void Sema::DiagnoseReachableHLSLCall(CallExpr *CE, const hlsl::ShaderModel *SM,
     break;
   case hlsl::IntrinsicOp::IOP_DxMaybeReorderThread:
     DiagnoseReachableSERCall(*this, CE, EntrySK, EntryDecl, true);
+    break;
+  case hlsl::IntrinsicOp::IOP___builtin_LinAlg_FillMatrix:
+  case hlsl::IntrinsicOp::IOP___builtin_LinAlg_CopyConvertMatrix:
+  case hlsl::IntrinsicOp::IOP___builtin_LinAlg_MatrixLength:
+  case hlsl::IntrinsicOp::IOP___builtin_LinAlg_MatrixGetCoordinate:
+  case hlsl::IntrinsicOp::IOP___builtin_LinAlg_MatrixGetElement:
+  case hlsl::IntrinsicOp::IOP___builtin_LinAlg_MatrixSetElement:
+  case hlsl::IntrinsicOp::IOP___builtin_LinAlg_MatrixStoreToDescriptor:
+  case hlsl::IntrinsicOp::IOP___builtin_LinAlg_MatrixLoadFromMemory:
+  case hlsl::IntrinsicOp::IOP___builtin_LinAlg_MatrixStoreToMemory:
+  case hlsl::IntrinsicOp::IOP___builtin_LinAlg_MatrixAccumulateToMemory:
+  case hlsl::IntrinsicOp::IOP___builtin_LinAlg_MatrixMatrixMultiply:
+  case hlsl::IntrinsicOp::IOP___builtin_LinAlg_MatrixMatrixMultiplyAccumulate:
+  case hlsl::IntrinsicOp::IOP___builtin_LinAlg_MatrixAccumulate:
+    DiagnoseReachableLimitedLinAlgCall(*this, CE, EntrySK, EntryDecl);
     break;
   default:
     break;

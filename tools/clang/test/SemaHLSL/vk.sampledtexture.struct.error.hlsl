@@ -3,9 +3,9 @@
 
 struct Struct { float f; };
 
-vk::SampledTexture2D<Struct> t;
+vk::SampledTexture2D<Struct> t; // expected-error {{elements of typed buffers and textures must be scalars or vectors}}
 
 float4 main(float2 f2 : F2) : SV_TARGET
 {
-    return t.Sample(f2); // expected-error {{cannot Sample from resource containing}} expected-error {{cannot initialize return object}}
+    return t.Sample(f2);
 }

@@ -14,6 +14,7 @@
 #include "CGRecordLayout.h"
 #include "CodeGenFunction.h"
 #include "CodeGenModule.h"
+#include "dxc/DXIL/DxilConstants.h"
 #include "dxc/DXIL/DxilOperations.h"
 #include "dxc/DXIL/DxilTypeSystem.h"
 #include "dxc/DXIL/DxilUtil.h"
@@ -6621,7 +6622,7 @@ llvm::Type *CGMSHLSLRuntime::ConvertAttributedLinAlgMatrixType(
 
   llvm::SmallString<64> Buf;
   llvm::raw_svector_ostream OS(Buf);
-  OS << "dx.types.LinAlgMatrix";
+  OS << DXIL::kDxLinAlgMatrixTypePrefix;
   T->appendMangledAttributes(OS);
   StringRef TypeName = OS.str();
 

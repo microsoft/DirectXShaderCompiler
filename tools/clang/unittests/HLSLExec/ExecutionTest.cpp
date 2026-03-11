@@ -209,6 +209,9 @@ public:
   TEST_METHOD(WaveIntrinsicsInPSTest);
   TEST_METHOD(WaveSizeTest);
   TEST_METHOD(WaveSizeRangeTest);
+  TEST_METHOD(GroupSharedLimitTest);
+  TEST_METHOD(GroupSharedLimitASTest);
+  TEST_METHOD(GroupSharedLimitMSTest);
   TEST_METHOD(PartialDerivTest);
   TEST_METHOD(DerivativesTest);
   TEST_METHOD(ComputeSampleTest);
@@ -10617,6 +10620,315 @@ void ExecutionTest::WaveSizeRangeTest() {
 
   RunWaveSizeRangeTest(minWaveSize, maxWaveSize, ShaderOpSet, pDevice,
                        m_support);
+}
+
+// Helper: create a SM 6.10 device with HLK-aware skip/fail logic.
+// Returns true if device was created, false if skipped.
+static bool CreateGSMLimitTestDevice(D3D12SDKSelector *D3D12SDK,
+                                     CComPtr<ID3D12Device> &Device) {
+  bool FailIfRequirementsNotMet = false;
+#ifdef _HLK_CONF
+  FailIfRequirementsNotMet = true;
+#endif
+  WEX::TestExecution::RuntimeParameters::TryGetValue(
+      L"FailIfRequirementsNotMet", FailIfRequirementsNotMet);
+
+  const bool SkipUnsupported = !FailIfRequirementsNotMet;
+  if (!D3D12SDK->createDevice(&Device, D3D_SHADER_MODEL_6_10,
+                              SkipUnsupported)) {
+    if (FailIfRequirementsNotMet)
+      LogErrorFmt(L"Device creation failed, resulting in test failure, since "
+                  L"FailIfRequirementsNotMet is set.");
+    return false;
+  }
+  return true;
+}
+
+// Helper: run a GroupSharedLimit shader op test, read back UAV, and verify
+// that the output buffer contains sequential uint values [0, GsmDwords).
+static void RunGSMLimitShaderAndVerify(
+    ID3D12Device *Device, dxc::SpecificDllLoader &Support, LPCSTR OpName,
+    const char *ShaderText, UINT GsmDwords, UINT ShaderIndex,
+    std::shared_ptr<st::ShaderOpSet> ShaderOpSet) {
+  std::shared_ptr<st::ShaderOpTestResult> Test = st::RunShaderOpTestAfterParse(
+      Device, Support, OpName,
+      [&](LPCSTR Name, std::vector<BYTE> &Data, st::ShaderOp *Op) {
+        VERIFY_IS_TRUE((0 == strncmp(Name, "UAVBuffer0", 10)));
+        Op->Shaders.at(ShaderIndex).Text = ShaderText;
+        Data.resize(sizeof(uint32_t) * GsmDwords);
+        memset(Data.data(), 0, Data.size());
+      },
+      ShaderOpSet);
+
+  MappedData DataUav;
+  Test->Test->GetReadBackData("UAVBuffer0", &DataUav);
+  const uint32_t *OutData = (const uint32_t *)DataUav.data();
+
+  for (UINT I = 0; I < GsmDwords; I++) {
+    VERIFY_ARE_EQUAL(OutData[I], I);
+  }
+}
+
+void ExecutionTest::GroupSharedLimitTest() {
+  WEX::TestExecution::SetVerifyOutput VerifySettings(
+      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+
+  CComPtr<ID3D12Device> Device;
+  if (!CreateGSMLimitTestDevice(&*D3D12SDK, Device))
+    return;
+
+  const UINT MaxGSMCS = getMaxGroupSharedMemoryCS(Device);
+  LogCommentFmt(L"Device MaxGroupSharedMemoryPerGroupCS: %u bytes", MaxGSMCS);
+
+  // Read shader config
+  CComPtr<IStream> Stream;
+  std::shared_ptr<st::ShaderOpSet> ShaderOpSet =
+      std::make_shared<st::ShaderOpSet>();
+  readHlslDataIntoNewStream(L"ShaderOpArith.xml", &Stream, m_support);
+  st::ParseShaderOpSetFromStream(Stream, ShaderOpSet.get());
+
+  // Test 1: GroupSharedLimit that is >= usage should succeed.
+  // Use 4096 DWORDs (16384 bytes) of TGSM with a limit of 16384 bytes.
+  {
+    static const UINT GSM_DWORDS = 4096;
+
+    LogCommentFmt(L"Test 1: GroupSharedLimit == usage (16384 bytes). "
+                  L"Shader should compile and execute successfully.");
+
+    static const char Shader[] =
+        R"(
+      #define GSM_DWORDS 4096
+      #define NUM_THREADS 64
+      groupshared uint g_shared[GSM_DWORDS]; // 16384 bytes
+      RWStructuredBuffer<uint> g_output : register(u0);
+
+      [GroupSharedLimit(16384)]
+      [numthreads(NUM_THREADS, 1, 1)]
+      void main(uint GI : SV_GroupIndex) {
+        for (uint i = GI; i < GSM_DWORDS; i += NUM_THREADS)
+          g_shared[i] = i;
+        GroupMemoryBarrierWithGroupSync();
+        if (GI == 0) {
+          for (uint j = 0; j < GSM_DWORDS; j++)
+            g_output[j] = g_shared[j];
+        }
+      })";
+
+    RunGSMLimitShaderAndVerify(Device, m_support, "GroupSharedLimitTest",
+                               Shader, GSM_DWORDS, 0, ShaderOpSet);
+    LogCommentFmt(L"Test 1 passed: GroupSharedLimit == usage succeeded.");
+  }
+
+  // Test 2: GroupSharedLimit and usage are larger than the default.
+  // Use 9216 DWORDs (36864 bytes) of TGSM, which exceeds the default 32768,
+  // but set GroupSharedLimit to 36864 so it should succeed.
+  static const UINT GSM_BYTES_TEST2 = 36864;
+  if (MaxGSMCS < GSM_BYTES_TEST2) {
+    LogCommentFmt(L"Test 2 skipped: device max GSM (%u) < %u bytes", MaxGSMCS,
+                  GSM_BYTES_TEST2);
+  } else {
+    static const UINT GSM_DWORDS = GSM_BYTES_TEST2 / sizeof(uint32_t);
+
+    LogCommentFmt(L"Test 2: GroupSharedLimit (%u) and usage (%u bytes), "
+                  L"both above default (32768). "
+                  L"Shader should compile and execute successfully.",
+                  GSM_BYTES_TEST2, GSM_BYTES_TEST2);
+
+    static const char Shader[] =
+        R"(
+      #define GSM_DWORDS 9216
+      #define NUM_THREADS 64
+      groupshared uint g_shared[GSM_DWORDS]; // 36864 bytes
+      RWStructuredBuffer<uint> g_output : register(u0);
+
+      [GroupSharedLimit(36864)]
+      [numthreads(NUM_THREADS, 1, 1)]
+      void main(uint GI : SV_GroupIndex) {
+        for (uint i = GI; i < GSM_DWORDS; i += NUM_THREADS)
+          g_shared[i] = i;
+        GroupMemoryBarrierWithGroupSync();
+        if (GI == 0) {
+          for (uint j = 0; j < GSM_DWORDS; j++)
+            g_output[j] = g_shared[j];
+        }
+      })";
+
+    RunGSMLimitShaderAndVerify(Device, m_support, "GroupSharedLimitTest",
+                               Shader, GSM_DWORDS, 0, ShaderOpSet);
+    LogCommentFmt(L"Test 2 passed: GroupSharedLimit > default succeeded.");
+  }
+
+  // Test 3: No GroupSharedLimit attribute, usage within default (32768 bytes).
+  // The shader should use default limit and succeed.
+  {
+    static const UINT GSM_DWORDS = 8192;
+
+    LogCommentFmt(L"Test 3: No GroupSharedLimit, usage (32768 bytes) <= "
+                  L"default limit. Shader should succeed.");
+
+    static const char Shader[] =
+        R"(
+      #define GSM_DWORDS 8192
+      #define NUM_THREADS 64
+      groupshared uint g_shared[GSM_DWORDS]; // 32768 bytes (default max)
+      RWStructuredBuffer<uint> g_output : register(u0);
+
+      [numthreads(NUM_THREADS, 1, 1)]
+      void main(uint GI : SV_GroupIndex) {
+        for (uint i = GI; i < GSM_DWORDS; i += NUM_THREADS)
+          g_shared[i] = i;
+        GroupMemoryBarrierWithGroupSync();
+        if (GI == 0) {
+          for (uint j = 0; j < GSM_DWORDS; j++)
+            g_output[j] = g_shared[j];
+        }
+      })";
+
+    RunGSMLimitShaderAndVerify(Device, m_support, "GroupSharedLimitTest",
+                               Shader, GSM_DWORDS, 0, ShaderOpSet);
+    LogCommentFmt(L"Test 3 passed: No attribute with default usage succeeded.");
+  }
+}
+
+void ExecutionTest::GroupSharedLimitASTest() {
+  WEX::TestExecution::SetVerifyOutput VerifySettings(
+      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+
+  CComPtr<ID3D12Device> Device;
+  if (!CreateGSMLimitTestDevice(&*D3D12SDK, Device))
+    return;
+
+  if (!doesDeviceSupportMeshShaders(Device)) {
+    LogCommentFmt(L"Device does not support mesh shaders, skipping.");
+    WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
+    return;
+  }
+
+  const UINT MaxGSMAS = getMaxGroupSharedMemoryAS(Device);
+  LogCommentFmt(L"Device MaxGroupSharedMemoryPerGroupAS: %u bytes", MaxGSMAS);
+
+  CComPtr<IStream> Stream;
+  std::shared_ptr<st::ShaderOpSet> ShaderOpSet =
+      std::make_shared<st::ShaderOpSet>();
+  readHlslDataIntoNewStream(L"ShaderOpArith.xml", &Stream, m_support);
+  st::ParseShaderOpSetFromStream(Stream, ShaderOpSet.get());
+
+  // Test: AS shader fills groupshared memory and writes to UAV.
+  {
+    static const UINT GSM_DWORDS = 4096;
+
+    LogCommentFmt(L"AS Test: GroupSharedLimit == usage (16384 bytes). "
+                  L"Amplification shader should compile and execute.");
+
+    static const char Shader[] =
+        R"(
+      struct Payload { uint dummy; };
+
+      #define GSM_DWORDS 4096
+      groupshared uint g_shared[GSM_DWORDS]; // 16384 bytes
+      RWStructuredBuffer<uint> g_output : register(u0);
+
+      [GroupSharedLimit(16384)]
+      [numthreads(64, 1, 1)]
+      void ASMain(uint GI : SV_GroupIndex) {
+        for (uint i = GI; i < GSM_DWORDS; i += 64)
+          g_shared[i] = i;
+        GroupMemoryBarrierWithGroupSync();
+        if (GI == 0) {
+          for (uint j = 0; j < GSM_DWORDS; j++)
+            g_output[j] = g_shared[j];
+        }
+        Payload payload;
+        payload.dummy = 0;
+        DispatchMesh(1, 1, 1, payload);
+      }
+
+      struct MeshOutput {
+        float4 pos : SV_Position;
+      };
+
+      [OutputTopology("triangle")]
+      [numthreads(1, 1, 1)]
+      void MSMain(in payload Payload p,
+                  out vertices MeshOutput verts[3],
+                  out indices uint3 tris[1]) {
+        SetMeshOutputCounts(0, 0);
+      }
+
+      float4 PSMain() : SV_Target { return float4(0,0,0,0); }
+      )";
+
+    RunGSMLimitShaderAndVerify(Device, m_support, "GroupSharedLimitASTest",
+                               Shader, GSM_DWORDS, 0, ShaderOpSet);
+    LogCommentFmt(
+        L"AS Test passed: GroupSharedLimit in amplification shader succeeded.");
+  }
+}
+
+void ExecutionTest::GroupSharedLimitMSTest() {
+  WEX::TestExecution::SetVerifyOutput VerifySettings(
+      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+
+  CComPtr<ID3D12Device> Device;
+  if (!CreateGSMLimitTestDevice(&*D3D12SDK, Device))
+    return;
+
+  if (!doesDeviceSupportMeshShaders(Device)) {
+    LogCommentFmt(L"Device does not support mesh shaders, skipping.");
+    WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
+    return;
+  }
+
+  const UINT MaxGSMMS = getMaxGroupSharedMemoryMS(Device);
+  LogCommentFmt(L"Device MaxGroupSharedMemoryPerGroupMS: %u bytes", MaxGSMMS);
+
+  CComPtr<IStream> Stream;
+  std::shared_ptr<st::ShaderOpSet> ShaderOpSet =
+      std::make_shared<st::ShaderOpSet>();
+  readHlslDataIntoNewStream(L"ShaderOpArith.xml", &Stream, m_support);
+  st::ParseShaderOpSetFromStream(Stream, ShaderOpSet.get());
+
+  // Test: MS shader fills groupshared memory and writes to UAV.
+  {
+    static const UINT GSM_DWORDS = 4096;
+
+    LogCommentFmt(L"MS Test: GroupSharedLimit == usage (16384 bytes). "
+                  L"Mesh shader should compile and execute.");
+
+    static const char Shader[] =
+        R"(
+      #define GSM_DWORDS 4096
+      groupshared uint g_shared[GSM_DWORDS]; // 16384 bytes
+      RWStructuredBuffer<uint> g_output : register(u0);
+
+      struct MeshOutput {
+        float4 pos : SV_Position;
+      };
+
+      [GroupSharedLimit(16384)]
+      [OutputTopology("triangle")]
+      [numthreads(64, 1, 1)]
+      void MSMain(uint GI : SV_GroupIndex,
+                  out vertices MeshOutput verts[3],
+                  out indices uint3 tris[1]) {
+        SetMeshOutputCounts(0, 0);
+        for (uint i = GI; i < GSM_DWORDS; i += 64)
+          g_shared[i] = i;
+        GroupMemoryBarrierWithGroupSync();
+        if (GI == 0) {
+          for (uint j = 0; j < GSM_DWORDS; j++)
+            g_output[j] = g_shared[j];
+        }
+      }
+
+      float4 PSMain() : SV_Target { return float4(0,0,0,0); }
+      )";
+
+    RunGSMLimitShaderAndVerify(Device, m_support, "GroupSharedLimitMSTest",
+                               Shader, GSM_DWORDS, 0, ShaderOpSet);
+    LogCommentFmt(
+        L"MS Test passed: GroupSharedLimit in mesh shader succeeded.");
+  }
 }
 
 // Atomic operation testing
