@@ -13,7 +13,7 @@ target triple = "dxil-ms-dx"
 ; CHECK: note: at '%1 = call %dx.types.Handle @dx.op.createHandleFromBinding(i32 217, %dx.types.ResBind { i32 0, i32 0, i32 0, i8 5 }, i32 0, i1 false)' in block '#0' of function 'main'.
 
 define void @main() {
-  ; resourceClass=5 is invalid (valid range is 0-3: SRV, UAV, CBuffer, Sampler)
+  ; resourceClass=5 is invalid (valid values are 0=SRV, 1=UAV, 2=CBuffer, 3=Sampler)
   %1 = call %dx.types.Handle @dx.op.createHandleFromBinding(i32 217, %dx.types.ResBind { i32 0, i32 0, i32 0, i8 5 }, i32 0, i1 false)  ; CreateHandleFromBinding(bind,index,nonUniformIndex)
   %2 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %1, %dx.types.ResourceProperties { i32 4107, i32 0 })  ; AnnotateHandle(res,props)  resource: RWByteAddressBuffer
   ret void
