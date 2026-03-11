@@ -1676,7 +1676,7 @@ RootSignatureParser::ParseBorderColor(DxilStaticBorderColor &BorderColor) {
     break;
   default:
     IFC(Error(ERR_RS_UNEXPECTED_TOKEN,
-              "Unexpected texture address mode value: '%s'.", Token.GetStr()));
+              "Unexpected border color value: '%s'.", Token.GetStr()));
   }
 
 Cleanup:
