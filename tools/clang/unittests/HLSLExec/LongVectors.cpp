@@ -59,6 +59,9 @@ DATA_TYPE(uint16_t, "uint16_t", 2)
 DATA_TYPE(uint32_t, "uint32_t", 4)
 DATA_TYPE(uint64_t, "uint64_t", 8)
 DATA_TYPE(HLSLHalf_t, "half", 2)
+DATA_TYPE(HLSLMin16Float_t, "min16float", 4)
+DATA_TYPE(HLSLMin16Int_t, "min16int", 4)
+DATA_TYPE(HLSLMin16Uint_t, "min16uint", 4)
 DATA_TYPE(float, "float", 4)
 DATA_TYPE(double, "double", 8)
 
@@ -66,7 +69,13 @@ DATA_TYPE(double, "double", 8)
 
 template <typename T> constexpr bool isFloatingPointType() {
   return std::is_same_v<T, float> || std::is_same_v<T, double> ||
-         std::is_same_v<T, HLSLHalf_t>;
+         std::is_same_v<T, HLSLHalf_t> || std::is_same_v<T, HLSLMin16Float_t>;
+}
+
+template <typename T> constexpr bool isMinPrecisionType() {
+  return std::is_same_v<T, HLSLMin16Float_t> ||
+         std::is_same_v<T, HLSLMin16Int_t> ||
+         std::is_same_v<T, HLSLMin16Uint_t>;
 }
 
 //
@@ -216,6 +225,34 @@ bool doValuesMatch(HLSLHalf_t A, HLSLHalf_t B, double Tolerance,
         L"Invalid ValidationType. Expecting Epsilon or ULP.");
     return false;
   }
+}
+
+// Min precision float comparison: convert to half and compare in fp16 space.
+// This reuses the same tolerance values as HLSLHalf_t. Min precision is at
+// least 16-bit, so fp16 tolerances are an upper bound for all cases.
+bool doValuesMatch(HLSLMin16Float_t A, HLSLMin16Float_t B, double Tolerance,
+                   ValidationType ValidationType) {
+  auto HalfA = DirectX::PackedVector::XMConvertFloatToHalf(A.Val);
+  auto HalfB = DirectX::PackedVector::XMConvertFloatToHalf(B.Val);
+  switch (ValidationType) {
+  case ValidationType::Epsilon:
+    return CompareHalfEpsilon(HalfA, HalfB, static_cast<float>(Tolerance));
+  case ValidationType::Ulp:
+    return CompareHalfULP(HalfA, HalfB, static_cast<float>(Tolerance));
+  default:
+    hlsl_test::LogErrorFmt(
+        L"Invalid ValidationType. Expecting Epsilon or ULP.");
+    return false;
+  }
+}
+
+bool doValuesMatch(HLSLMin16Int_t A, HLSLMin16Int_t B, double, ValidationType) {
+  return A == B;
+}
+
+bool doValuesMatch(HLSLMin16Uint_t A, HLSLMin16Uint_t B, double,
+                   ValidationType) {
+  return A == B;
 }
 
 bool doValuesMatch(float A, float B, double Tolerance,
@@ -914,6 +951,24 @@ template <> struct TrigonometricValidation<HLSLHalf_t, OpType::Tan> {
 };
 
 template <> struct TrigonometricValidation<HLSLHalf_t, OpType::Sinh> {
+  ValidationConfig ValidationConfig = ValidationConfig::Ulp(2.0f);
+};
+
+// Min precision trig tolerances: same as half precision since min precision
+// is at least 16-bit and our doValuesMatch compares in half-precision space.
+template <OpType OP> struct TrigonometricValidation<HLSLMin16Float_t, OP> {
+  ValidationConfig ValidationConfig = ValidationConfig::Epsilon(0.003f);
+};
+
+template <> struct TrigonometricValidation<HLSLMin16Float_t, OpType::Cosh> {
+  ValidationConfig ValidationConfig = ValidationConfig::Ulp(2.0f);
+};
+
+template <> struct TrigonometricValidation<HLSLMin16Float_t, OpType::Tan> {
+  ValidationConfig ValidationConfig = ValidationConfig::Ulp(2.0f);
+};
+
+template <> struct TrigonometricValidation<HLSLMin16Float_t, OpType::Sinh> {
   ValidationConfig ValidationConfig = ValidationConfig::Ulp(2.0f);
 };
 
