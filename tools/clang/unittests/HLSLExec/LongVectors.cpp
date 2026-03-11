@@ -2919,3 +2919,327 @@ public:
   HLK_WAVEOP_TEST_DOUBLE(WaveMultiPrefixProduct, double);
   HLK_WAVEOP_TEST_DOUBLE(WaveMatch, double);
 };
+
+#define HLK_TEST_MINP(Op, DataType)                                            \
+  TEST_METHOD(Op##_##DataType) {                                               \
+    BEGIN_TEST_METHOD_PROPERTIES()                                             \
+    TEST_METHOD_PROPERTY(                                                      \
+        "Kits.Specification",                                                  \
+        "Device.Graphics.D3D12.DXILCore.ShaderModel69.MinPrecision")           \
+    END_TEST_METHOD_PROPERTIES()                                               \
+    runTest<DataType, OpType::Op>();                                           \
+  }
+
+#define HLK_WAVEOP_TEST_MINP(Op, DataType)                                     \
+  TEST_METHOD(Op##_##DataType) {                                               \
+    BEGIN_TEST_METHOD_PROPERTIES()                                             \
+    TEST_METHOD_PROPERTY(                                                      \
+        "Kits.Specification",                                                  \
+        "Device.Graphics.D3D12.DXILCore.ShaderModel69.MinPrecision")           \
+    END_TEST_METHOD_PROPERTIES()                                               \
+    runWaveOpTest<DataType, OpType::Op>();                                     \
+  }
+
+class DxilConf_SM69_Vectorized_MinPrecision : public TestClassCommon {
+public:
+  BEGIN_TEST_CLASS(DxilConf_SM69_Vectorized_MinPrecision)
+  TEST_CLASS_PROPERTY(
+      "Kits.TestName",
+      "D3D12 - Shader Model 6.9 - Vectorized DXIL - Min Precision Tests")
+  TEST_CLASS_PROPERTY("Kits.TestId", "b4e2c8a1-3f7d-4a9e-8b5c-1d6e0f2a3b4c")
+  TEST_CLASS_PROPERTY(
+      "Kits.Description",
+      "Validates required min precision SM 6.9 vectorized DXIL operations")
+  TEST_METHOD_PROPERTY(
+      "Kits.Specification",
+      "Device.Graphics.D3D12.DXILCore.ShaderModel69.MinPrecision")
+  TEST_METHOD_PROPERTY(L"Priority", L"0")
+  END_TEST_CLASS()
+
+  TEST_CLASS_SETUP(setupClass) {
+    const bool result = TestClassCommon::setupClass();
+#ifndef _HLK_CONF
+    if (result && !doesDeviceSupportMinPrecision(D3DDevice)) {
+      WEX::Logging::Log::Comment(
+          L"Skipping test as device does not support min precision.");
+      WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
+      return false;
+    }
+#endif
+    return result;
+  }
+
+  TEST_METHOD_SETUP(setupMethod) { return TestClassCommon::setupMethod(); }
+
+  // ---- HLSLMin16Float_t (mirrors HLSLHalf_t) ----
+
+  // TernaryMath
+  HLK_TEST_MINP(Mad, HLSLMin16Float_t);
+
+  // BinaryMath
+  HLK_TEST_MINP(Add, HLSLMin16Float_t);
+  HLK_TEST_MINP(Subtract, HLSLMin16Float_t);
+  HLK_TEST_MINP(Multiply, HLSLMin16Float_t);
+  HLK_TEST_MINP(Divide, HLSLMin16Float_t);
+  HLK_TEST_MINP(Modulus, HLSLMin16Float_t);
+  HLK_TEST_MINP(Min, HLSLMin16Float_t);
+  HLK_TEST_MINP(Max, HLSLMin16Float_t);
+  HLK_TEST_MINP(Ldexp, HLSLMin16Float_t);
+
+  // Saturate
+  HLK_TEST_MINP(Saturate, HLSLMin16Float_t);
+
+  // Unary
+  HLK_TEST_MINP(Initialize, HLSLMin16Float_t);
+  HLK_TEST_MINP(ArrayOperator_StaticAccess, HLSLMin16Float_t);
+  HLK_TEST_MINP(ArrayOperator_DynamicAccess, HLSLMin16Float_t);
+  HLK_TEST_MINP(ShuffleVector, HLSLMin16Float_t);
+
+  // Trigonometric
+  HLK_TEST_MINP(Acos, HLSLMin16Float_t);
+  HLK_TEST_MINP(Asin, HLSLMin16Float_t);
+  HLK_TEST_MINP(Atan, HLSLMin16Float_t);
+  HLK_TEST_MINP(Cos, HLSLMin16Float_t);
+  HLK_TEST_MINP(Cosh, HLSLMin16Float_t);
+  HLK_TEST_MINP(Sin, HLSLMin16Float_t);
+  HLK_TEST_MINP(Sinh, HLSLMin16Float_t);
+  HLK_TEST_MINP(Tan, HLSLMin16Float_t);
+  HLK_TEST_MINP(Tanh, HLSLMin16Float_t);
+
+  // UnaryMath
+  HLK_TEST_MINP(Abs, HLSLMin16Float_t);
+  HLK_TEST_MINP(Ceil, HLSLMin16Float_t);
+  HLK_TEST_MINP(Exp, HLSLMin16Float_t);
+  HLK_TEST_MINP(Floor, HLSLMin16Float_t);
+  HLK_TEST_MINP(Frac, HLSLMin16Float_t);
+  HLK_TEST_MINP(Log, HLSLMin16Float_t);
+  HLK_TEST_MINP(Rcp, HLSLMin16Float_t);
+  HLK_TEST_MINP(Round, HLSLMin16Float_t);
+  HLK_TEST_MINP(Rsqrt, HLSLMin16Float_t);
+  HLK_TEST_MINP(Sign, HLSLMin16Float_t);
+  HLK_TEST_MINP(Sqrt, HLSLMin16Float_t);
+  HLK_TEST_MINP(Trunc, HLSLMin16Float_t);
+  HLK_TEST_MINP(Exp2, HLSLMin16Float_t);
+  HLK_TEST_MINP(Log10, HLSLMin16Float_t);
+  HLK_TEST_MINP(Log2, HLSLMin16Float_t);
+
+  // BinaryComparison
+  HLK_TEST_MINP(LessThan, HLSLMin16Float_t);
+  HLK_TEST_MINP(LessEqual, HLSLMin16Float_t);
+  HLK_TEST_MINP(GreaterThan, HLSLMin16Float_t);
+  HLK_TEST_MINP(GreaterEqual, HLSLMin16Float_t);
+  HLK_TEST_MINP(Equal, HLSLMin16Float_t);
+  HLK_TEST_MINP(NotEqual, HLSLMin16Float_t);
+
+  // Select
+  HLK_TEST_MINP(Select, HLSLMin16Float_t);
+
+  // Dot
+  HLK_TEST_MINP(Dot, HLSLMin16Float_t);
+
+  // LoadAndStore
+  HLK_TEST_MINP(LoadAndStore_RDH_BAB_SRV, HLSLMin16Float_t);
+  HLK_TEST_MINP(LoadAndStore_RDH_BAB_UAV, HLSLMin16Float_t);
+  HLK_TEST_MINP(LoadAndStore_DT_BAB_SRV, HLSLMin16Float_t);
+  HLK_TEST_MINP(LoadAndStore_DT_BAB_UAV, HLSLMin16Float_t);
+  HLK_TEST_MINP(LoadAndStore_RD_BAB_SRV, HLSLMin16Float_t);
+  HLK_TEST_MINP(LoadAndStore_RD_BAB_UAV, HLSLMin16Float_t);
+  HLK_TEST_MINP(LoadAndStore_RDH_SB_SRV, HLSLMin16Float_t);
+  HLK_TEST_MINP(LoadAndStore_RDH_SB_UAV, HLSLMin16Float_t);
+  HLK_TEST_MINP(LoadAndStore_DT_SB_SRV, HLSLMin16Float_t);
+  HLK_TEST_MINP(LoadAndStore_DT_SB_UAV, HLSLMin16Float_t);
+  HLK_TEST_MINP(LoadAndStore_RD_SB_SRV, HLSLMin16Float_t);
+  HLK_TEST_MINP(LoadAndStore_RD_SB_UAV, HLSLMin16Float_t);
+
+  // Derivative
+  HLK_TEST_MINP(DerivativeDdx, HLSLMin16Float_t);
+  HLK_TEST_MINP(DerivativeDdy, HLSLMin16Float_t);
+  HLK_TEST_MINP(DerivativeDdxFine, HLSLMin16Float_t);
+  HLK_TEST_MINP(DerivativeDdyFine, HLSLMin16Float_t);
+
+  // Quad
+  HLK_TEST_MINP(QuadReadLaneAt, HLSLMin16Float_t);
+  HLK_TEST_MINP(QuadReadAcrossX, HLSLMin16Float_t);
+  HLK_TEST_MINP(QuadReadAcrossY, HLSLMin16Float_t);
+  HLK_TEST_MINP(QuadReadAcrossDiagonal, HLSLMin16Float_t);
+
+  // Wave
+  HLK_WAVEOP_TEST_MINP(WaveActiveSum, HLSLMin16Float_t);
+  HLK_WAVEOP_TEST_MINP(WaveActiveMin, HLSLMin16Float_t);
+  HLK_WAVEOP_TEST_MINP(WaveActiveMax, HLSLMin16Float_t);
+  HLK_WAVEOP_TEST_MINP(WaveActiveProduct, HLSLMin16Float_t);
+  HLK_WAVEOP_TEST_MINP(WaveActiveAllEqual, HLSLMin16Float_t);
+  HLK_WAVEOP_TEST_MINP(WaveReadLaneAt, HLSLMin16Float_t);
+  HLK_WAVEOP_TEST_MINP(WaveReadLaneFirst, HLSLMin16Float_t);
+  HLK_WAVEOP_TEST_MINP(WavePrefixSum, HLSLMin16Float_t);
+  HLK_WAVEOP_TEST_MINP(WavePrefixProduct, HLSLMin16Float_t);
+  HLK_WAVEOP_TEST_MINP(WaveMultiPrefixSum, HLSLMin16Float_t);
+  HLK_WAVEOP_TEST_MINP(WaveMultiPrefixProduct, HLSLMin16Float_t);
+  HLK_WAVEOP_TEST_MINP(WaveMatch, HLSLMin16Float_t);
+
+  // ---- HLSLMin16Int_t (mirrors int16_t) ----
+
+  // TernaryMath
+  HLK_TEST_MINP(Mad, HLSLMin16Int_t);
+
+  // BinaryMath
+  HLK_TEST_MINP(Add, HLSLMin16Int_t);
+  HLK_TEST_MINP(Subtract, HLSLMin16Int_t);
+  HLK_TEST_MINP(Multiply, HLSLMin16Int_t);
+  HLK_TEST_MINP(Divide, HLSLMin16Int_t);
+  HLK_TEST_MINP(Modulus, HLSLMin16Int_t);
+  HLK_TEST_MINP(Min, HLSLMin16Int_t);
+  HLK_TEST_MINP(Max, HLSLMin16Int_t);
+
+  // Bitwise (logical and shift — bit-manipulation excluded)
+  HLK_TEST_MINP(And, HLSLMin16Int_t);
+  HLK_TEST_MINP(Or, HLSLMin16Int_t);
+  HLK_TEST_MINP(Xor, HLSLMin16Int_t);
+  HLK_TEST_MINP(LeftShift, HLSLMin16Int_t);
+  HLK_TEST_MINP(RightShift, HLSLMin16Int_t);
+
+  // UnaryMath
+  HLK_TEST_MINP(Abs, HLSLMin16Int_t);
+  HLK_TEST_MINP(Sign, HLSLMin16Int_t);
+
+  // Unary
+  HLK_TEST_MINP(Initialize, HLSLMin16Int_t);
+  HLK_TEST_MINP(ArrayOperator_StaticAccess, HLSLMin16Int_t);
+  HLK_TEST_MINP(ArrayOperator_DynamicAccess, HLSLMin16Int_t);
+  HLK_TEST_MINP(ShuffleVector, HLSLMin16Int_t);
+
+  // BinaryComparison
+  HLK_TEST_MINP(LessThan, HLSLMin16Int_t);
+  HLK_TEST_MINP(LessEqual, HLSLMin16Int_t);
+  HLK_TEST_MINP(GreaterThan, HLSLMin16Int_t);
+  HLK_TEST_MINP(GreaterEqual, HLSLMin16Int_t);
+  HLK_TEST_MINP(Equal, HLSLMin16Int_t);
+  HLK_TEST_MINP(NotEqual, HLSLMin16Int_t);
+
+  // Select
+  HLK_TEST_MINP(Select, HLSLMin16Int_t);
+
+  // Reduction
+  HLK_TEST_MINP(Any_Mixed, HLSLMin16Int_t);
+  HLK_TEST_MINP(Any_Zero, HLSLMin16Int_t);
+  HLK_TEST_MINP(Any_NoZero, HLSLMin16Int_t);
+  HLK_TEST_MINP(All_Mixed, HLSLMin16Int_t);
+  HLK_TEST_MINP(All_Zero, HLSLMin16Int_t);
+  HLK_TEST_MINP(All_NoZero, HLSLMin16Int_t);
+
+  // LoadAndStore
+  HLK_TEST_MINP(LoadAndStore_RDH_BAB_SRV, HLSLMin16Int_t);
+  HLK_TEST_MINP(LoadAndStore_RDH_BAB_UAV, HLSLMin16Int_t);
+  HLK_TEST_MINP(LoadAndStore_DT_BAB_SRV, HLSLMin16Int_t);
+  HLK_TEST_MINP(LoadAndStore_DT_BAB_UAV, HLSLMin16Int_t);
+  HLK_TEST_MINP(LoadAndStore_RD_BAB_SRV, HLSLMin16Int_t);
+  HLK_TEST_MINP(LoadAndStore_RD_BAB_UAV, HLSLMin16Int_t);
+  HLK_TEST_MINP(LoadAndStore_RDH_SB_SRV, HLSLMin16Int_t);
+  HLK_TEST_MINP(LoadAndStore_RDH_SB_UAV, HLSLMin16Int_t);
+  HLK_TEST_MINP(LoadAndStore_DT_SB_SRV, HLSLMin16Int_t);
+  HLK_TEST_MINP(LoadAndStore_DT_SB_UAV, HLSLMin16Int_t);
+  HLK_TEST_MINP(LoadAndStore_RD_SB_SRV, HLSLMin16Int_t);
+  HLK_TEST_MINP(LoadAndStore_RD_SB_UAV, HLSLMin16Int_t);
+
+  // Quad
+  HLK_TEST_MINP(QuadReadLaneAt, HLSLMin16Int_t);
+  HLK_TEST_MINP(QuadReadAcrossX, HLSLMin16Int_t);
+  HLK_TEST_MINP(QuadReadAcrossY, HLSLMin16Int_t);
+  HLK_TEST_MINP(QuadReadAcrossDiagonal, HLSLMin16Int_t);
+
+  // Wave
+  HLK_WAVEOP_TEST_MINP(WaveActiveSum, HLSLMin16Int_t);
+  HLK_WAVEOP_TEST_MINP(WaveActiveMin, HLSLMin16Int_t);
+  HLK_WAVEOP_TEST_MINP(WaveActiveMax, HLSLMin16Int_t);
+  HLK_WAVEOP_TEST_MINP(WaveActiveProduct, HLSLMin16Int_t);
+  HLK_WAVEOP_TEST_MINP(WaveActiveAllEqual, HLSLMin16Int_t);
+  HLK_WAVEOP_TEST_MINP(WaveReadLaneAt, HLSLMin16Int_t);
+  HLK_WAVEOP_TEST_MINP(WaveReadLaneFirst, HLSLMin16Int_t);
+  HLK_WAVEOP_TEST_MINP(WavePrefixSum, HLSLMin16Int_t);
+  HLK_WAVEOP_TEST_MINP(WavePrefixProduct, HLSLMin16Int_t);
+  HLK_WAVEOP_TEST_MINP(WaveMultiPrefixSum, HLSLMin16Int_t);
+  HLK_WAVEOP_TEST_MINP(WaveMultiPrefixProduct, HLSLMin16Int_t);
+  HLK_WAVEOP_TEST_MINP(WaveMultiPrefixBitAnd, HLSLMin16Int_t);
+  HLK_WAVEOP_TEST_MINP(WaveMultiPrefixBitOr, HLSLMin16Int_t);
+  HLK_WAVEOP_TEST_MINP(WaveMultiPrefixBitXor, HLSLMin16Int_t);
+  HLK_WAVEOP_TEST_MINP(WaveMatch, HLSLMin16Int_t);
+
+  // ---- HLSLMin16Uint_t (mirrors uint16_t) ----
+
+  // TernaryMath
+  HLK_TEST_MINP(Mad, HLSLMin16Uint_t);
+
+  // BinaryMath
+  HLK_TEST_MINP(Add, HLSLMin16Uint_t);
+  HLK_TEST_MINP(Subtract, HLSLMin16Uint_t);
+  HLK_TEST_MINP(Multiply, HLSLMin16Uint_t);
+  HLK_TEST_MINP(Divide, HLSLMin16Uint_t);
+  HLK_TEST_MINP(Modulus, HLSLMin16Uint_t);
+  HLK_TEST_MINP(Min, HLSLMin16Uint_t);
+  HLK_TEST_MINP(Max, HLSLMin16Uint_t);
+
+  // Bitwise (logical and shift — bit-manipulation excluded)
+  HLK_TEST_MINP(And, HLSLMin16Uint_t);
+  HLK_TEST_MINP(Or, HLSLMin16Uint_t);
+  HLK_TEST_MINP(Xor, HLSLMin16Uint_t);
+  HLK_TEST_MINP(LeftShift, HLSLMin16Uint_t);
+  HLK_TEST_MINP(RightShift, HLSLMin16Uint_t);
+
+  // UnaryMath
+  HLK_TEST_MINP(Abs, HLSLMin16Uint_t);
+  HLK_TEST_MINP(Sign, HLSLMin16Uint_t);
+
+  // Unary
+  HLK_TEST_MINP(Initialize, HLSLMin16Uint_t);
+  HLK_TEST_MINP(ArrayOperator_StaticAccess, HLSLMin16Uint_t);
+  HLK_TEST_MINP(ArrayOperator_DynamicAccess, HLSLMin16Uint_t);
+  HLK_TEST_MINP(ShuffleVector, HLSLMin16Uint_t);
+
+  // BinaryComparison
+  HLK_TEST_MINP(LessThan, HLSLMin16Uint_t);
+  HLK_TEST_MINP(LessEqual, HLSLMin16Uint_t);
+  HLK_TEST_MINP(GreaterThan, HLSLMin16Uint_t);
+  HLK_TEST_MINP(GreaterEqual, HLSLMin16Uint_t);
+  HLK_TEST_MINP(Equal, HLSLMin16Uint_t);
+  HLK_TEST_MINP(NotEqual, HLSLMin16Uint_t);
+
+  // Select
+  HLK_TEST_MINP(Select, HLSLMin16Uint_t);
+
+  // LoadAndStore
+  HLK_TEST_MINP(LoadAndStore_RDH_BAB_SRV, HLSLMin16Uint_t);
+  HLK_TEST_MINP(LoadAndStore_RDH_BAB_UAV, HLSLMin16Uint_t);
+  HLK_TEST_MINP(LoadAndStore_DT_BAB_SRV, HLSLMin16Uint_t);
+  HLK_TEST_MINP(LoadAndStore_DT_BAB_UAV, HLSLMin16Uint_t);
+  HLK_TEST_MINP(LoadAndStore_RD_BAB_SRV, HLSLMin16Uint_t);
+  HLK_TEST_MINP(LoadAndStore_RD_BAB_UAV, HLSLMin16Uint_t);
+  HLK_TEST_MINP(LoadAndStore_RDH_SB_SRV, HLSLMin16Uint_t);
+  HLK_TEST_MINP(LoadAndStore_RDH_SB_UAV, HLSLMin16Uint_t);
+  HLK_TEST_MINP(LoadAndStore_DT_SB_SRV, HLSLMin16Uint_t);
+  HLK_TEST_MINP(LoadAndStore_DT_SB_UAV, HLSLMin16Uint_t);
+  HLK_TEST_MINP(LoadAndStore_RD_SB_SRV, HLSLMin16Uint_t);
+  HLK_TEST_MINP(LoadAndStore_RD_SB_UAV, HLSLMin16Uint_t);
+
+  // Quad
+  HLK_TEST_MINP(QuadReadLaneAt, HLSLMin16Uint_t);
+  HLK_TEST_MINP(QuadReadAcrossX, HLSLMin16Uint_t);
+  HLK_TEST_MINP(QuadReadAcrossY, HLSLMin16Uint_t);
+  HLK_TEST_MINP(QuadReadAcrossDiagonal, HLSLMin16Uint_t);
+
+  // Wave
+  HLK_WAVEOP_TEST_MINP(WaveActiveSum, HLSLMin16Uint_t);
+  HLK_WAVEOP_TEST_MINP(WaveActiveMin, HLSLMin16Uint_t);
+  HLK_WAVEOP_TEST_MINP(WaveActiveMax, HLSLMin16Uint_t);
+  HLK_WAVEOP_TEST_MINP(WaveActiveProduct, HLSLMin16Uint_t);
+  HLK_WAVEOP_TEST_MINP(WaveActiveAllEqual, HLSLMin16Uint_t);
+  HLK_WAVEOP_TEST_MINP(WaveReadLaneAt, HLSLMin16Uint_t);
+  HLK_WAVEOP_TEST_MINP(WaveReadLaneFirst, HLSLMin16Uint_t);
+  HLK_WAVEOP_TEST_MINP(WavePrefixSum, HLSLMin16Uint_t);
+  HLK_WAVEOP_TEST_MINP(WavePrefixProduct, HLSLMin16Uint_t);
+  HLK_WAVEOP_TEST_MINP(WaveMultiPrefixSum, HLSLMin16Uint_t);
+  HLK_WAVEOP_TEST_MINP(WaveMultiPrefixProduct, HLSLMin16Uint_t);
+  HLK_WAVEOP_TEST_MINP(WaveMultiPrefixBitAnd, HLSLMin16Uint_t);
+  HLK_WAVEOP_TEST_MINP(WaveMultiPrefixBitOr, HLSLMin16Uint_t);
+  HLK_WAVEOP_TEST_MINP(WaveMultiPrefixBitXor, HLSLMin16Uint_t);
+  HLK_WAVEOP_TEST_MINP(WaveMatch, HLSLMin16Uint_t);
+};
