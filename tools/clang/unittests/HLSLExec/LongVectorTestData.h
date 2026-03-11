@@ -296,6 +296,8 @@ struct HLSLMin16Int_t {
   HLSLMin16Int_t() : Val(0) {}
   HLSLMin16Int_t(int32_t I) : Val(I) {}
   HLSLMin16Int_t(int64_t I) : Val(static_cast<int32_t>(I)) {}
+  HLSLMin16Int_t(uint32_t U) : Val(static_cast<int32_t>(U)) {}
+  HLSLMin16Int_t(uint64_t U) : Val(static_cast<int32_t>(U)) {}
   HLSLMin16Int_t(float F) : Val(static_cast<int32_t>(F)) {}
   HLSLMin16Int_t(double D) : Val(static_cast<int32_t>(D)) {}
 
@@ -349,6 +351,7 @@ struct HLSLMin16Int_t {
   HLSLMin16Int_t operator||(const HLSLMin16Int_t &O) const {
     return HLSLMin16Int_t(Val || O.Val);
   }
+  HLSLMin16Int_t operator~() const { return HLSLMin16Int_t(~Val); }
 
   friend std::wostream &operator<<(std::wostream &Os,
                                    const HLSLMin16Int_t &Obj) {
@@ -420,6 +423,7 @@ struct HLSLMin16Uint_t {
 
   bool operator&&(const HLSLMin16Uint_t &O) const { return Val && O.Val; }
   bool operator||(const HLSLMin16Uint_t &O) const { return Val || O.Val; }
+  HLSLMin16Uint_t operator~() const { return HLSLMin16Uint_t(~Val); }
 
   friend std::wostream &operator<<(std::wostream &Os,
                                    const HLSLMin16Uint_t &Obj) {
