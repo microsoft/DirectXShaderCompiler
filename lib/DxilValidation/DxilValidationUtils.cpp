@@ -230,7 +230,7 @@ void ValidationContext::BuildResMap() {
   }
   const ShaderModel &SM = *DxilMod.GetShaderModel();
 
-  // Scan all createHandleFromBinding for index validation.
+  // Scan all createHandleFromBinding for validation.
   for (auto &it :
        hlslOP->GetOpFuncList(DXIL::OpCode::CreateHandleFromBinding)) {
     Function *F = it.second;
@@ -239,11 +239,33 @@ void ValidationContext::BuildResMap() {
     for (User *U : F->users()) {
       CallInst *CI = cast<CallInst>(U);
       DxilInst_CreateHandleFromBinding hdl(CI);
+
+      // Validate bind parameter is constant.
+      Value *bind = hdl.get_bind();
+      if (!isa<Constant>(bind)) {
+        EmitInstrError(CI, ValidationRule::InstrOpConstRange);
+        continue;
+      }
+
+      DxilResourceBinding B =
+          resource_helper::loadBindingFromCreateHandleFromBinding(
+              hdl, hlslOP->GetHandleType(), SM);
+
+      // Validate resourceClass is valid.
+      switch (static_cast<DXIL::ResourceClass>(B.resourceClass)) {
+      case DXIL::ResourceClass::CBuffer:
+      case DXIL::ResourceClass::Sampler:
+      case DXIL::ResourceClass::SRV:
+      case DXIL::ResourceClass::UAV:
+        break;
+      default:
+        EmitInstrError(CI, ValidationRule::InstrOpConstRange);
+        continue;
+      }
+
+      // Validate constant index is within binding range.
       ConstantInt *cIndex = dyn_cast<ConstantInt>(hdl.get_index());
       if (cIndex) {
-        DxilResourceBinding B =
-            resource_helper::loadBindingFromCreateHandleFromBinding(
-                hdl, hlslOP->GetHandleType(), SM);
         unsigned index = cIndex->getLimitedValue();
         if (index < B.rangeLowerBound || index > B.rangeUpperBound) {
           // index out of range.
