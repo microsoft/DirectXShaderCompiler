@@ -24,6 +24,9 @@ CRLF = '\r\n'
 CR = '\r'
 
 
+COMMENT_TAG = "<!--LLVM CODE FORMAT COMMENT:"
+
+
 def get_diff_from_comment(comment: IssueComment.IssueComment) -> str:
     diff_pat = re.compile(r"``````````diff(?P<DIFF>.+)``````````", re.DOTALL)
     m = re.search(diff_pat, comment.body)
@@ -49,6 +52,18 @@ def apply_patches(args: argparse.Namespace) -> None:
     comment = pr.get_issue_comment(args.comment_id)
     if comment is None:
         raise Exception(f"Comment {args.comment_id} does not exist")
+
+    if comment.user.login != "github-actions[bot]":
+        raise Exception(
+            f"Comment {args.comment_id} was not created by the expected bot "
+            f"(author: {comment.user.login})"
+        )
+
+    if COMMENT_TAG not in comment.body:
+        raise Exception(
+            f"Comment {args.comment_id} does not contain the expected "
+            f"format comment tag"
+        )
 
     # get the diff from the comment
     diff = get_diff_from_comment(comment)
