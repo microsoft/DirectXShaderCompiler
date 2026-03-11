@@ -47,7 +47,7 @@
 #include <string>
 #include <vector>
 
-#ifdef _WIN32
+#ifdef _MSC_VER
 #include "dxc/dxcpix.h"
 #include <dia2.h>
 #endif
@@ -273,7 +273,7 @@ public:
 };
 
 struct DxcPdbUtils : public IDxcPdbUtils2
-#ifdef _WIN32
+#ifdef _MSC_VER
     // Skip Pix debug info on linux for dia dependence.
     ,
                      public IDxcPixDxilDebugInfoFactory
@@ -843,7 +843,7 @@ public:
 
   HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid,
                                            void **ppvObject) override {
-#ifdef _WIN32
+#ifdef _MSC_VER
     HRESULT hr =
         DoBasicQueryInterface<IDxcPdbUtils2, IDxcPixDxilDebugInfoFactory>(
             this, iid, ppvObject);
@@ -1071,7 +1071,7 @@ public:
     return CopyBlobWide(m_Name, ppResult);
   }
 
-#ifdef _WIN32
+#ifdef _MSC_VER
   virtual STDMETHODIMP
   NewDxcPixDxilDebugInfo(IDxcPixDxilDebugInfo **ppDxilDebugInfo) override {
     if (!m_pDebugProgramBlob)
