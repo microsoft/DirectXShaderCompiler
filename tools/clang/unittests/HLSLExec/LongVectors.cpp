@@ -2946,7 +2946,7 @@ public:
   TEST_CLASS_PROPERTY(
       "Kits.TestName",
       "D3D12 - Shader Model 6.9 - Vectorized DXIL - Min Precision Tests")
-  TEST_CLASS_PROPERTY("Kits.TestId", "b4e2c8a1-3f7d-4a9e-8b5c-1d6e0f2a3b4c")
+  TEST_CLASS_PROPERTY("Kits.TestId", "ca1373a5-09c3-43f4-8455-7a752c6443c9")
   TEST_CLASS_PROPERTY(
       "Kits.Description",
       "Validates required min precision SM 6.9 vectorized DXIL operations")
