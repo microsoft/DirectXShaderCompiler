@@ -421,7 +421,7 @@ static std::string getPreprocessOutput(InputArgList &Args,
   llvm::sys::path::replace_extension(Path, "i");
   // Try to get preprocess filename from Fi.
   std::string Result = Args.getLastArgValue(OPT_Fi, Path).str();
-  
+
   // Hack to support fxc style /Po preprocess_filename.
   // When there're more than 1 Input file, use the input which is after /Po
   // as preprocess.
