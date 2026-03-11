@@ -423,6 +423,10 @@ TEST_F(OptionsTest, TestPreprocessOption) {
   // /P with /Fi: preprocesses to specified file.
   VerifyPreprocessOption("/T ps_6_0 -P -Fi out.pp input.hlsl", "out.pp", "");
   VerifyPreprocessOption("/T ps_6_0 -Fi out.pp -P input.hlsl", "out.pp", "");
+  // /P never emits the deprecation warning, even with positional args that
+  // would trigger it under /Po.
+  VerifyPreprocessOption("/T ps_6_0 -P out.pp input.hlsl", "input.i", "");
+  VerifyPreprocessOption("/T ps_6_0 input.hlsl -P out.pp", "out.i", "");
 
   // /Po: preprocess to specified file, with /Fi or fxc-style syntax.
   VerifyPreprocessOption("/T ps_6_0 -Po input.hlsl", "input.i", "");
