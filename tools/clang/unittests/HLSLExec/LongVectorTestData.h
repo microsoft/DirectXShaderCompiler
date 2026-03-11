@@ -248,10 +248,6 @@ struct HLSLMin16Float_t {
   explicit HLSLMin16Float_t(uint32_t U) : Val(static_cast<float>(U)) {}
 
   operator float() const { return Val; }
-  explicit operator double() const { return static_cast<double>(Val); }
-  explicit operator int32_t() const { return static_cast<int32_t>(Val); }
-  explicit operator uint32_t() const { return static_cast<uint32_t>(Val); }
-  explicit operator bool() const { return Val != 0.0f; }
 
   bool operator==(const HLSLMin16Float_t &O) const { return Val == O.Val; }
   bool operator!=(const HLSLMin16Float_t &O) const { return Val != O.Val; }
@@ -302,11 +298,6 @@ struct HLSLMin16Int_t {
   HLSLMin16Int_t(double D) : Val(static_cast<int32_t>(D)) {}
 
   operator int32_t() const { return Val; }
-  explicit operator int64_t() const { return static_cast<int64_t>(Val); }
-  explicit operator uint32_t() const { return static_cast<uint32_t>(Val); }
-  explicit operator float() const { return static_cast<float>(Val); }
-  explicit operator double() const { return static_cast<double>(Val); }
-  explicit operator bool() const { return Val != 0; }
 
   bool operator==(const HLSLMin16Int_t &O) const { return Val == O.Val; }
   bool operator!=(const HLSLMin16Int_t &O) const { return Val != O.Val; }
@@ -377,11 +368,6 @@ struct HLSLMin16Uint_t {
   HLSLMin16Uint_t(double D) : Val(static_cast<uint32_t>(D)) {}
 
   operator uint32_t() const { return Val; }
-  explicit operator uint64_t() const { return static_cast<uint64_t>(Val); }
-  explicit operator int32_t() const { return static_cast<int32_t>(Val); }
-  explicit operator float() const { return static_cast<float>(Val); }
-  explicit operator double() const { return static_cast<double>(Val); }
-  explicit operator bool() const { return Val != 0; }
 
   bool operator==(const HLSLMin16Uint_t &O) const { return Val == O.Val; }
   bool operator!=(const HLSLMin16Uint_t &O) const { return Val != O.Val; }

@@ -2995,6 +2995,17 @@ public:
   HLK_TEST_MINP(ArrayOperator_DynamicAccess, HLSLMin16Float_t);
   HLK_TEST_MINP(ShuffleVector, HLSLMin16Float_t);
 
+  // Cast
+  HLK_TEST_MINP(CastToBool, HLSLMin16Float_t);
+  HLK_TEST_MINP(CastToInt16, HLSLMin16Float_t);
+  HLK_TEST_MINP(CastToInt32, HLSLMin16Float_t);
+  HLK_TEST_MINP(CastToInt64, HLSLMin16Float_t);
+  HLK_TEST_MINP(CastToUint16_FromFP, HLSLMin16Float_t);
+  HLK_TEST_MINP(CastToUint32_FromFP, HLSLMin16Float_t);
+  HLK_TEST_MINP(CastToUint64_FromFP, HLSLMin16Float_t);
+  HLK_TEST_MINP(CastToFloat16, HLSLMin16Float_t);
+  HLK_TEST_MINP(CastToFloat32, HLSLMin16Float_t);
+
   // Trigonometric
   HLK_TEST_MINP(Acos, HLSLMin16Float_t);
   HLK_TEST_MINP(Asin, HLSLMin16Float_t);
@@ -3108,6 +3119,16 @@ public:
   HLK_TEST_MINP(ArrayOperator_DynamicAccess, HLSLMin16Int_t);
   HLK_TEST_MINP(ShuffleVector, HLSLMin16Int_t);
 
+  // Cast
+  HLK_TEST_MINP(CastToBool, HLSLMin16Int_t);
+  HLK_TEST_MINP(CastToInt32, HLSLMin16Int_t);
+  HLK_TEST_MINP(CastToInt64, HLSLMin16Int_t);
+  HLK_TEST_MINP(CastToUint16, HLSLMin16Int_t);
+  HLK_TEST_MINP(CastToUint32, HLSLMin16Int_t);
+  HLK_TEST_MINP(CastToUint64, HLSLMin16Int_t);
+  HLK_TEST_MINP(CastToFloat16, HLSLMin16Int_t);
+  HLK_TEST_MINP(CastToFloat32, HLSLMin16Int_t);
+
   // BinaryComparison
   HLK_TEST_MINP(LessThan, HLSLMin16Int_t);
   HLK_TEST_MINP(LessEqual, HLSLMin16Int_t);
@@ -3194,6 +3215,16 @@ public:
   HLK_TEST_MINP(ArrayOperator_StaticAccess, HLSLMin16Uint_t);
   HLK_TEST_MINP(ArrayOperator_DynamicAccess, HLSLMin16Uint_t);
   HLK_TEST_MINP(ShuffleVector, HLSLMin16Uint_t);
+
+  // Cast
+  HLK_TEST_MINP(CastToBool, HLSLMin16Uint_t);
+  HLK_TEST_MINP(CastToInt16, HLSLMin16Uint_t);
+  HLK_TEST_MINP(CastToInt32, HLSLMin16Uint_t);
+  HLK_TEST_MINP(CastToInt64, HLSLMin16Uint_t);
+  HLK_TEST_MINP(CastToUint32, HLSLMin16Uint_t);
+  HLK_TEST_MINP(CastToUint64, HLSLMin16Uint_t);
+  HLK_TEST_MINP(CastToFloat16, HLSLMin16Uint_t);
+  HLK_TEST_MINP(CastToFloat32, HLSLMin16Uint_t);
 
   // BinaryComparison
   HLK_TEST_MINP(LessThan, HLSLMin16Uint_t);
