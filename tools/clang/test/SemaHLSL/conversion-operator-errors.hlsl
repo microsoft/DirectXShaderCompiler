@@ -25,3 +25,13 @@ struct AnotherStruct {
     return x != 0;
   }
 };
+
+template<typename T>
+struct TemplateStruct {
+  T value;
+
+  // expected-error@+1 {{conversion operator overloading is not allowed}}
+  operator T() {
+    return value;
+  }
+};
