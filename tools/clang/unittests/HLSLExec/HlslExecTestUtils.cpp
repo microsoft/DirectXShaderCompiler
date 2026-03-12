@@ -497,15 +497,6 @@ bool doesDeviceSupportDouble(ID3D12Device *pDevice) {
   return O.DoublePrecisionFloatShaderOps != FALSE;
 }
 
-bool doesDeviceSupportMinPrecision(ID3D12Device *pDevice) {
-  D3D12_FEATURE_DATA_D3D12_OPTIONS O;
-  if (FAILED(pDevice->CheckFeatureSupport(
-          (D3D12_FEATURE)D3D12_FEATURE_D3D12_OPTIONS, &O, sizeof(O))))
-    return false;
-  return (O.MinPrecisionSupport & D3D12_SHADER_MIN_PRECISION_SUPPORT_16_BIT) !=
-         0;
-}
-
 bool doesDeviceSupportWaveOps(ID3D12Device *pDevice) {
   D3D12_FEATURE_DATA_D3D12_OPTIONS1 O;
   if (FAILED(pDevice->CheckFeatureSupport(

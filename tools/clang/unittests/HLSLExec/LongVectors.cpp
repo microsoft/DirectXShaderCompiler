@@ -2769,6 +2769,307 @@ public:
   HLK_WAVEOP_TEST(WaveMultiPrefixSum, float);
   HLK_WAVEOP_TEST(WaveMultiPrefixProduct, float);
   HLK_WAVEOP_TEST(WaveMatch, float);
+
+  // ---- HLSLMin16Float_t (mirrors HLSLHalf_t) ----
+
+  // TernaryMath
+  HLK_TEST(Mad, HLSLMin16Float_t);
+
+  // BinaryMath
+  HLK_TEST(Add, HLSLMin16Float_t);
+  HLK_TEST(Subtract, HLSLMin16Float_t);
+  HLK_TEST(Multiply, HLSLMin16Float_t);
+  HLK_TEST(Divide, HLSLMin16Float_t);
+  HLK_TEST(Modulus, HLSLMin16Float_t);
+  HLK_TEST(Min, HLSLMin16Float_t);
+  HLK_TEST(Max, HLSLMin16Float_t);
+  HLK_TEST(Ldexp, HLSLMin16Float_t);
+
+  // Saturate
+  HLK_TEST(Saturate, HLSLMin16Float_t);
+
+  // Unary
+  HLK_TEST(Initialize, HLSLMin16Float_t);
+  HLK_TEST(ArrayOperator_StaticAccess, HLSLMin16Float_t);
+  HLK_TEST(ArrayOperator_DynamicAccess, HLSLMin16Float_t);
+  HLK_TEST(ShuffleVector, HLSLMin16Float_t);
+
+  // Cast
+  HLK_TEST(CastToBool, HLSLMin16Float_t);
+  HLK_TEST(CastToInt16, HLSLMin16Float_t);
+  HLK_TEST(CastToInt32, HLSLMin16Float_t);
+  HLK_TEST(CastToInt64, HLSLMin16Float_t);
+  HLK_TEST(CastToUint16_FromFP, HLSLMin16Float_t);
+  HLK_TEST(CastToUint32_FromFP, HLSLMin16Float_t);
+  HLK_TEST(CastToUint64_FromFP, HLSLMin16Float_t);
+  HLK_TEST(CastToFloat16, HLSLMin16Float_t);
+  HLK_TEST(CastToFloat32, HLSLMin16Float_t);
+
+  // Trigonometric
+  HLK_TEST(Acos, HLSLMin16Float_t);
+  HLK_TEST(Asin, HLSLMin16Float_t);
+  HLK_TEST(Atan, HLSLMin16Float_t);
+  HLK_TEST(Cos, HLSLMin16Float_t);
+  HLK_TEST(Cosh, HLSLMin16Float_t);
+  HLK_TEST(Sin, HLSLMin16Float_t);
+  HLK_TEST(Sinh, HLSLMin16Float_t);
+  HLK_TEST(Tan, HLSLMin16Float_t);
+  HLK_TEST(Tanh, HLSLMin16Float_t);
+
+  // UnaryMath
+  HLK_TEST(Abs, HLSLMin16Float_t);
+  HLK_TEST(Ceil, HLSLMin16Float_t);
+  HLK_TEST(Exp, HLSLMin16Float_t);
+  HLK_TEST(Floor, HLSLMin16Float_t);
+  HLK_TEST(Frac, HLSLMin16Float_t);
+  HLK_TEST(Log, HLSLMin16Float_t);
+  HLK_TEST(Rcp, HLSLMin16Float_t);
+  HLK_TEST(Round, HLSLMin16Float_t);
+  HLK_TEST(Rsqrt, HLSLMin16Float_t);
+  HLK_TEST(Sign, HLSLMin16Float_t);
+  HLK_TEST(Sqrt, HLSLMin16Float_t);
+  HLK_TEST(Trunc, HLSLMin16Float_t);
+  HLK_TEST(Exp2, HLSLMin16Float_t);
+  HLK_TEST(Log10, HLSLMin16Float_t);
+  HLK_TEST(Log2, HLSLMin16Float_t);
+
+  // BinaryComparison
+  HLK_TEST(LessThan, HLSLMin16Float_t);
+  HLK_TEST(LessEqual, HLSLMin16Float_t);
+  HLK_TEST(GreaterThan, HLSLMin16Float_t);
+  HLK_TEST(GreaterEqual, HLSLMin16Float_t);
+  HLK_TEST(Equal, HLSLMin16Float_t);
+  HLK_TEST(NotEqual, HLSLMin16Float_t);
+
+  // Select
+  HLK_TEST(Select, HLSLMin16Float_t);
+
+  // Dot
+  HLK_TEST(Dot, HLSLMin16Float_t);
+
+  // LoadAndStore
+  HLK_TEST(LoadAndStore_RDH_BAB_SRV, HLSLMin16Float_t);
+  HLK_TEST(LoadAndStore_RDH_BAB_UAV, HLSLMin16Float_t);
+  HLK_TEST(LoadAndStore_DT_BAB_SRV, HLSLMin16Float_t);
+  HLK_TEST(LoadAndStore_DT_BAB_UAV, HLSLMin16Float_t);
+  HLK_TEST(LoadAndStore_RD_BAB_SRV, HLSLMin16Float_t);
+  HLK_TEST(LoadAndStore_RD_BAB_UAV, HLSLMin16Float_t);
+  HLK_TEST(LoadAndStore_RDH_SB_SRV, HLSLMin16Float_t);
+  HLK_TEST(LoadAndStore_RDH_SB_UAV, HLSLMin16Float_t);
+  HLK_TEST(LoadAndStore_DT_SB_SRV, HLSLMin16Float_t);
+  HLK_TEST(LoadAndStore_DT_SB_UAV, HLSLMin16Float_t);
+  HLK_TEST(LoadAndStore_RD_SB_SRV, HLSLMin16Float_t);
+  HLK_TEST(LoadAndStore_RD_SB_UAV, HLSLMin16Float_t);
+
+  // Derivative
+  HLK_TEST(DerivativeDdx, HLSLMin16Float_t);
+  HLK_TEST(DerivativeDdy, HLSLMin16Float_t);
+  HLK_TEST(DerivativeDdxFine, HLSLMin16Float_t);
+  HLK_TEST(DerivativeDdyFine, HLSLMin16Float_t);
+
+  // Quad
+  HLK_TEST(QuadReadLaneAt, HLSLMin16Float_t);
+  HLK_TEST(QuadReadAcrossX, HLSLMin16Float_t);
+  HLK_TEST(QuadReadAcrossY, HLSLMin16Float_t);
+  HLK_TEST(QuadReadAcrossDiagonal, HLSLMin16Float_t);
+
+  // Wave
+  HLK_WAVEOP_TEST(WaveActiveSum, HLSLMin16Float_t);
+  HLK_WAVEOP_TEST(WaveActiveMin, HLSLMin16Float_t);
+  HLK_WAVEOP_TEST(WaveActiveMax, HLSLMin16Float_t);
+  HLK_WAVEOP_TEST(WaveActiveProduct, HLSLMin16Float_t);
+  HLK_WAVEOP_TEST(WaveActiveAllEqual, HLSLMin16Float_t);
+  HLK_WAVEOP_TEST(WaveReadLaneAt, HLSLMin16Float_t);
+  HLK_WAVEOP_TEST(WaveReadLaneFirst, HLSLMin16Float_t);
+  HLK_WAVEOP_TEST(WavePrefixSum, HLSLMin16Float_t);
+  HLK_WAVEOP_TEST(WavePrefixProduct, HLSLMin16Float_t);
+  HLK_WAVEOP_TEST(WaveMultiPrefixSum, HLSLMin16Float_t);
+  HLK_WAVEOP_TEST(WaveMultiPrefixProduct, HLSLMin16Float_t);
+  HLK_WAVEOP_TEST(WaveMatch, HLSLMin16Float_t);
+
+  // ---- HLSLMin16Int_t (mirrors int16_t) ----
+
+  // TernaryMath
+  HLK_TEST(Mad, HLSLMin16Int_t);
+
+  // BinaryMath
+  HLK_TEST(Add, HLSLMin16Int_t);
+  HLK_TEST(Subtract, HLSLMin16Int_t);
+  HLK_TEST(Multiply, HLSLMin16Int_t);
+  HLK_TEST(Divide, HLSLMin16Int_t);
+  HLK_TEST(Modulus, HLSLMin16Int_t);
+  HLK_TEST(Min, HLSLMin16Int_t);
+  HLK_TEST(Max, HLSLMin16Int_t);
+
+  // Bitwise (logical and shift — bit-manipulation excluded)
+  HLK_TEST(And, HLSLMin16Int_t);
+  HLK_TEST(Or, HLSLMin16Int_t);
+  HLK_TEST(Xor, HLSLMin16Int_t);
+  HLK_TEST(LeftShift, HLSLMin16Int_t);
+  HLK_TEST(RightShift, HLSLMin16Int_t);
+
+  // UnaryMath
+  HLK_TEST(Abs, HLSLMin16Int_t);
+  HLK_TEST(Sign, HLSLMin16Int_t);
+
+  // Unary
+  HLK_TEST(Initialize, HLSLMin16Int_t);
+  HLK_TEST(ArrayOperator_StaticAccess, HLSLMin16Int_t);
+  HLK_TEST(ArrayOperator_DynamicAccess, HLSLMin16Int_t);
+  HLK_TEST(ShuffleVector, HLSLMin16Int_t);
+
+  // Cast
+  HLK_TEST(CastToBool, HLSLMin16Int_t);
+  HLK_TEST(CastToInt32, HLSLMin16Int_t);
+  HLK_TEST(CastToInt64, HLSLMin16Int_t);
+  HLK_TEST(CastToUint16, HLSLMin16Int_t);
+  HLK_TEST(CastToUint32, HLSLMin16Int_t);
+  HLK_TEST(CastToUint64, HLSLMin16Int_t);
+  HLK_TEST(CastToFloat16, HLSLMin16Int_t);
+  HLK_TEST(CastToFloat32, HLSLMin16Int_t);
+
+  // BinaryComparison
+  HLK_TEST(LessThan, HLSLMin16Int_t);
+  HLK_TEST(LessEqual, HLSLMin16Int_t);
+  HLK_TEST(GreaterThan, HLSLMin16Int_t);
+  HLK_TEST(GreaterEqual, HLSLMin16Int_t);
+  HLK_TEST(Equal, HLSLMin16Int_t);
+  HLK_TEST(NotEqual, HLSLMin16Int_t);
+
+  // Select
+  HLK_TEST(Select, HLSLMin16Int_t);
+
+  // Reduction
+  HLK_TEST(Any_Mixed, HLSLMin16Int_t);
+  HLK_TEST(Any_Zero, HLSLMin16Int_t);
+  HLK_TEST(Any_NoZero, HLSLMin16Int_t);
+  HLK_TEST(All_Mixed, HLSLMin16Int_t);
+  HLK_TEST(All_Zero, HLSLMin16Int_t);
+  HLK_TEST(All_NoZero, HLSLMin16Int_t);
+
+  // LoadAndStore
+  HLK_TEST(LoadAndStore_RDH_BAB_SRV, HLSLMin16Int_t);
+  HLK_TEST(LoadAndStore_RDH_BAB_UAV, HLSLMin16Int_t);
+  HLK_TEST(LoadAndStore_DT_BAB_SRV, HLSLMin16Int_t);
+  HLK_TEST(LoadAndStore_DT_BAB_UAV, HLSLMin16Int_t);
+  HLK_TEST(LoadAndStore_RD_BAB_SRV, HLSLMin16Int_t);
+  HLK_TEST(LoadAndStore_RD_BAB_UAV, HLSLMin16Int_t);
+  HLK_TEST(LoadAndStore_RDH_SB_SRV, HLSLMin16Int_t);
+  HLK_TEST(LoadAndStore_RDH_SB_UAV, HLSLMin16Int_t);
+  HLK_TEST(LoadAndStore_DT_SB_SRV, HLSLMin16Int_t);
+  HLK_TEST(LoadAndStore_DT_SB_UAV, HLSLMin16Int_t);
+  HLK_TEST(LoadAndStore_RD_SB_SRV, HLSLMin16Int_t);
+  HLK_TEST(LoadAndStore_RD_SB_UAV, HLSLMin16Int_t);
+
+  // Quad
+  HLK_TEST(QuadReadLaneAt, HLSLMin16Int_t);
+  HLK_TEST(QuadReadAcrossX, HLSLMin16Int_t);
+  HLK_TEST(QuadReadAcrossY, HLSLMin16Int_t);
+  HLK_TEST(QuadReadAcrossDiagonal, HLSLMin16Int_t);
+
+  // Wave
+  HLK_WAVEOP_TEST(WaveActiveSum, HLSLMin16Int_t);
+  HLK_WAVEOP_TEST(WaveActiveMin, HLSLMin16Int_t);
+  HLK_WAVEOP_TEST(WaveActiveMax, HLSLMin16Int_t);
+  HLK_WAVEOP_TEST(WaveActiveProduct, HLSLMin16Int_t);
+  HLK_WAVEOP_TEST(WaveActiveAllEqual, HLSLMin16Int_t);
+  HLK_WAVEOP_TEST(WaveReadLaneAt, HLSLMin16Int_t);
+  HLK_WAVEOP_TEST(WaveReadLaneFirst, HLSLMin16Int_t);
+  HLK_WAVEOP_TEST(WavePrefixSum, HLSLMin16Int_t);
+  HLK_WAVEOP_TEST(WavePrefixProduct, HLSLMin16Int_t);
+  HLK_WAVEOP_TEST(WaveMultiPrefixSum, HLSLMin16Int_t);
+  HLK_WAVEOP_TEST(WaveMultiPrefixProduct, HLSLMin16Int_t);
+  // WaveMultiPrefixBitAnd/BitOr/BitXor excluded: these intrinsics use the
+  // any_int type set which does not include min precision integer types.
+  HLK_WAVEOP_TEST(WaveMatch, HLSLMin16Int_t);
+
+  // ---- HLSLMin16Uint_t (mirrors uint16_t) ----
+
+  // TernaryMath
+  HLK_TEST(Mad, HLSLMin16Uint_t);
+
+  // BinaryMath
+  HLK_TEST(Add, HLSLMin16Uint_t);
+  HLK_TEST(Subtract, HLSLMin16Uint_t);
+  HLK_TEST(Multiply, HLSLMin16Uint_t);
+  HLK_TEST(Divide, HLSLMin16Uint_t);
+  HLK_TEST(Modulus, HLSLMin16Uint_t);
+  HLK_TEST(Min, HLSLMin16Uint_t);
+  HLK_TEST(Max, HLSLMin16Uint_t);
+
+  // Bitwise (logical and shift — bit-manipulation excluded)
+  HLK_TEST(And, HLSLMin16Uint_t);
+  HLK_TEST(Or, HLSLMin16Uint_t);
+  HLK_TEST(Xor, HLSLMin16Uint_t);
+  HLK_TEST(LeftShift, HLSLMin16Uint_t);
+  HLK_TEST(RightShift, HLSLMin16Uint_t);
+
+  // UnaryMath
+  HLK_TEST(Abs, HLSLMin16Uint_t);
+  HLK_TEST(Sign, HLSLMin16Uint_t);
+
+  // Unary
+  HLK_TEST(Initialize, HLSLMin16Uint_t);
+  HLK_TEST(ArrayOperator_StaticAccess, HLSLMin16Uint_t);
+  HLK_TEST(ArrayOperator_DynamicAccess, HLSLMin16Uint_t);
+  HLK_TEST(ShuffleVector, HLSLMin16Uint_t);
+
+  // Cast
+  HLK_TEST(CastToBool, HLSLMin16Uint_t);
+  HLK_TEST(CastToInt16, HLSLMin16Uint_t);
+  HLK_TEST(CastToInt32, HLSLMin16Uint_t);
+  HLK_TEST(CastToInt64, HLSLMin16Uint_t);
+  HLK_TEST(CastToUint32, HLSLMin16Uint_t);
+  HLK_TEST(CastToUint64, HLSLMin16Uint_t);
+  HLK_TEST(CastToFloat16, HLSLMin16Uint_t);
+  HLK_TEST(CastToFloat32, HLSLMin16Uint_t);
+
+  // BinaryComparison
+  HLK_TEST(LessThan, HLSLMin16Uint_t);
+  HLK_TEST(LessEqual, HLSLMin16Uint_t);
+  HLK_TEST(GreaterThan, HLSLMin16Uint_t);
+  HLK_TEST(GreaterEqual, HLSLMin16Uint_t);
+  HLK_TEST(Equal, HLSLMin16Uint_t);
+  HLK_TEST(NotEqual, HLSLMin16Uint_t);
+
+  // Select
+  HLK_TEST(Select, HLSLMin16Uint_t);
+
+  // LoadAndStore
+  HLK_TEST(LoadAndStore_RDH_BAB_SRV, HLSLMin16Uint_t);
+  HLK_TEST(LoadAndStore_RDH_BAB_UAV, HLSLMin16Uint_t);
+  HLK_TEST(LoadAndStore_DT_BAB_SRV, HLSLMin16Uint_t);
+  HLK_TEST(LoadAndStore_DT_BAB_UAV, HLSLMin16Uint_t);
+  HLK_TEST(LoadAndStore_RD_BAB_SRV, HLSLMin16Uint_t);
+  HLK_TEST(LoadAndStore_RD_BAB_UAV, HLSLMin16Uint_t);
+  HLK_TEST(LoadAndStore_RDH_SB_SRV, HLSLMin16Uint_t);
+  HLK_TEST(LoadAndStore_RDH_SB_UAV, HLSLMin16Uint_t);
+  HLK_TEST(LoadAndStore_DT_SB_SRV, HLSLMin16Uint_t);
+  HLK_TEST(LoadAndStore_DT_SB_UAV, HLSLMin16Uint_t);
+  HLK_TEST(LoadAndStore_RD_SB_SRV, HLSLMin16Uint_t);
+  HLK_TEST(LoadAndStore_RD_SB_UAV, HLSLMin16Uint_t);
+
+  // Quad
+  HLK_TEST(QuadReadLaneAt, HLSLMin16Uint_t);
+  HLK_TEST(QuadReadAcrossX, HLSLMin16Uint_t);
+  HLK_TEST(QuadReadAcrossY, HLSLMin16Uint_t);
+  HLK_TEST(QuadReadAcrossDiagonal, HLSLMin16Uint_t);
+
+  // Wave
+  HLK_WAVEOP_TEST(WaveActiveSum, HLSLMin16Uint_t);
+  HLK_WAVEOP_TEST(WaveActiveMin, HLSLMin16Uint_t);
+  HLK_WAVEOP_TEST(WaveActiveMax, HLSLMin16Uint_t);
+  HLK_WAVEOP_TEST(WaveActiveProduct, HLSLMin16Uint_t);
+  HLK_WAVEOP_TEST(WaveActiveAllEqual, HLSLMin16Uint_t);
+  HLK_WAVEOP_TEST(WaveReadLaneAt, HLSLMin16Uint_t);
+  HLK_WAVEOP_TEST(WaveReadLaneFirst, HLSLMin16Uint_t);
+  HLK_WAVEOP_TEST(WavePrefixSum, HLSLMin16Uint_t);
+  HLK_WAVEOP_TEST(WavePrefixProduct, HLSLMin16Uint_t);
+  HLK_WAVEOP_TEST(WaveMultiPrefixSum, HLSLMin16Uint_t);
+  HLK_WAVEOP_TEST(WaveMultiPrefixProduct, HLSLMin16Uint_t);
+  // WaveMultiPrefixBitAnd/BitOr/BitXor excluded: these intrinsics use the
+  // any_int type set which does not include min precision integer types.
+  HLK_WAVEOP_TEST(WaveMatch, HLSLMin16Uint_t);
 };
 
 #define HLK_TEST_DOUBLE(Op, DataType)                                          \
@@ -2918,357 +3219,4 @@ public:
   HLK_WAVEOP_TEST_DOUBLE(WaveMultiPrefixSum, double);
   HLK_WAVEOP_TEST_DOUBLE(WaveMultiPrefixProduct, double);
   HLK_WAVEOP_TEST_DOUBLE(WaveMatch, double);
-};
-
-#define HLK_TEST_MINP(Op, DataType)                                            \
-  TEST_METHOD(Op##_##DataType) {                                               \
-    BEGIN_TEST_METHOD_PROPERTIES()                                             \
-    TEST_METHOD_PROPERTY(                                                      \
-        "Kits.Specification",                                                  \
-        "Device.Graphics.D3D12.DXILCore.ShaderModel69.MinPrecision")           \
-    END_TEST_METHOD_PROPERTIES()                                               \
-    runTest<DataType, OpType::Op>();                                           \
-  }
-
-#define HLK_WAVEOP_TEST_MINP(Op, DataType)                                     \
-  TEST_METHOD(Op##_##DataType) {                                               \
-    BEGIN_TEST_METHOD_PROPERTIES()                                             \
-    TEST_METHOD_PROPERTY(                                                      \
-        "Kits.Specification",                                                  \
-        "Device.Graphics.D3D12.DXILCore.ShaderModel69.MinPrecision")           \
-    END_TEST_METHOD_PROPERTIES()                                               \
-    runWaveOpTest<DataType, OpType::Op>();                                     \
-  }
-
-class DxilConf_SM69_Vectorized_MinPrecision : public TestClassCommon {
-public:
-  BEGIN_TEST_CLASS(DxilConf_SM69_Vectorized_MinPrecision)
-  TEST_CLASS_PROPERTY(
-      "Kits.TestName",
-      "D3D12 - Shader Model 6.9 - Vectorized DXIL - Min Precision Tests")
-  TEST_CLASS_PROPERTY("Kits.TestId", "ca1373a5-09c3-43f4-8455-7a752c6443c9")
-  TEST_CLASS_PROPERTY(
-      "Kits.Description",
-      "Validates required min precision SM 6.9 vectorized DXIL operations")
-  TEST_METHOD_PROPERTY(
-      "Kits.Specification",
-      "Device.Graphics.D3D12.DXILCore.ShaderModel69.MinPrecision")
-  TEST_METHOD_PROPERTY(L"Priority", L"0")
-  END_TEST_CLASS()
-
-  TEST_CLASS_SETUP(setupClass) {
-    const bool result = TestClassCommon::setupClass();
-#ifndef _HLK_CONF
-    if (result && !doesDeviceSupportMinPrecision(D3DDevice)) {
-      WEX::Logging::Log::Comment(
-          L"Skipping test as device does not support min precision.");
-      WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
-      return false;
-    }
-#endif
-    return result;
-  }
-
-  TEST_METHOD_SETUP(setupMethod) { return TestClassCommon::setupMethod(); }
-
-  // ---- HLSLMin16Float_t (mirrors HLSLHalf_t) ----
-
-  // TernaryMath
-  HLK_TEST_MINP(Mad, HLSLMin16Float_t);
-
-  // BinaryMath
-  HLK_TEST_MINP(Add, HLSLMin16Float_t);
-  HLK_TEST_MINP(Subtract, HLSLMin16Float_t);
-  HLK_TEST_MINP(Multiply, HLSLMin16Float_t);
-  HLK_TEST_MINP(Divide, HLSLMin16Float_t);
-  HLK_TEST_MINP(Modulus, HLSLMin16Float_t);
-  HLK_TEST_MINP(Min, HLSLMin16Float_t);
-  HLK_TEST_MINP(Max, HLSLMin16Float_t);
-  HLK_TEST_MINP(Ldexp, HLSLMin16Float_t);
-
-  // Saturate
-  HLK_TEST_MINP(Saturate, HLSLMin16Float_t);
-
-  // Unary
-  HLK_TEST_MINP(Initialize, HLSLMin16Float_t);
-  HLK_TEST_MINP(ArrayOperator_StaticAccess, HLSLMin16Float_t);
-  HLK_TEST_MINP(ArrayOperator_DynamicAccess, HLSLMin16Float_t);
-  HLK_TEST_MINP(ShuffleVector, HLSLMin16Float_t);
-
-  // Cast
-  HLK_TEST_MINP(CastToBool, HLSLMin16Float_t);
-  HLK_TEST_MINP(CastToInt16, HLSLMin16Float_t);
-  HLK_TEST_MINP(CastToInt32, HLSLMin16Float_t);
-  HLK_TEST_MINP(CastToInt64, HLSLMin16Float_t);
-  HLK_TEST_MINP(CastToUint16_FromFP, HLSLMin16Float_t);
-  HLK_TEST_MINP(CastToUint32_FromFP, HLSLMin16Float_t);
-  HLK_TEST_MINP(CastToUint64_FromFP, HLSLMin16Float_t);
-  HLK_TEST_MINP(CastToFloat16, HLSLMin16Float_t);
-  HLK_TEST_MINP(CastToFloat32, HLSLMin16Float_t);
-
-  // Trigonometric
-  HLK_TEST_MINP(Acos, HLSLMin16Float_t);
-  HLK_TEST_MINP(Asin, HLSLMin16Float_t);
-  HLK_TEST_MINP(Atan, HLSLMin16Float_t);
-  HLK_TEST_MINP(Cos, HLSLMin16Float_t);
-  HLK_TEST_MINP(Cosh, HLSLMin16Float_t);
-  HLK_TEST_MINP(Sin, HLSLMin16Float_t);
-  HLK_TEST_MINP(Sinh, HLSLMin16Float_t);
-  HLK_TEST_MINP(Tan, HLSLMin16Float_t);
-  HLK_TEST_MINP(Tanh, HLSLMin16Float_t);
-
-  // UnaryMath
-  HLK_TEST_MINP(Abs, HLSLMin16Float_t);
-  HLK_TEST_MINP(Ceil, HLSLMin16Float_t);
-  HLK_TEST_MINP(Exp, HLSLMin16Float_t);
-  HLK_TEST_MINP(Floor, HLSLMin16Float_t);
-  HLK_TEST_MINP(Frac, HLSLMin16Float_t);
-  HLK_TEST_MINP(Log, HLSLMin16Float_t);
-  HLK_TEST_MINP(Rcp, HLSLMin16Float_t);
-  HLK_TEST_MINP(Round, HLSLMin16Float_t);
-  HLK_TEST_MINP(Rsqrt, HLSLMin16Float_t);
-  HLK_TEST_MINP(Sign, HLSLMin16Float_t);
-  HLK_TEST_MINP(Sqrt, HLSLMin16Float_t);
-  HLK_TEST_MINP(Trunc, HLSLMin16Float_t);
-  HLK_TEST_MINP(Exp2, HLSLMin16Float_t);
-  HLK_TEST_MINP(Log10, HLSLMin16Float_t);
-  HLK_TEST_MINP(Log2, HLSLMin16Float_t);
-
-  // BinaryComparison
-  HLK_TEST_MINP(LessThan, HLSLMin16Float_t);
-  HLK_TEST_MINP(LessEqual, HLSLMin16Float_t);
-  HLK_TEST_MINP(GreaterThan, HLSLMin16Float_t);
-  HLK_TEST_MINP(GreaterEqual, HLSLMin16Float_t);
-  HLK_TEST_MINP(Equal, HLSLMin16Float_t);
-  HLK_TEST_MINP(NotEqual, HLSLMin16Float_t);
-
-  // Select
-  HLK_TEST_MINP(Select, HLSLMin16Float_t);
-
-  // Dot
-  HLK_TEST_MINP(Dot, HLSLMin16Float_t);
-
-  // LoadAndStore
-  HLK_TEST_MINP(LoadAndStore_RDH_BAB_SRV, HLSLMin16Float_t);
-  HLK_TEST_MINP(LoadAndStore_RDH_BAB_UAV, HLSLMin16Float_t);
-  HLK_TEST_MINP(LoadAndStore_DT_BAB_SRV, HLSLMin16Float_t);
-  HLK_TEST_MINP(LoadAndStore_DT_BAB_UAV, HLSLMin16Float_t);
-  HLK_TEST_MINP(LoadAndStore_RD_BAB_SRV, HLSLMin16Float_t);
-  HLK_TEST_MINP(LoadAndStore_RD_BAB_UAV, HLSLMin16Float_t);
-  HLK_TEST_MINP(LoadAndStore_RDH_SB_SRV, HLSLMin16Float_t);
-  HLK_TEST_MINP(LoadAndStore_RDH_SB_UAV, HLSLMin16Float_t);
-  HLK_TEST_MINP(LoadAndStore_DT_SB_SRV, HLSLMin16Float_t);
-  HLK_TEST_MINP(LoadAndStore_DT_SB_UAV, HLSLMin16Float_t);
-  HLK_TEST_MINP(LoadAndStore_RD_SB_SRV, HLSLMin16Float_t);
-  HLK_TEST_MINP(LoadAndStore_RD_SB_UAV, HLSLMin16Float_t);
-
-  // Derivative
-  HLK_TEST_MINP(DerivativeDdx, HLSLMin16Float_t);
-  HLK_TEST_MINP(DerivativeDdy, HLSLMin16Float_t);
-  HLK_TEST_MINP(DerivativeDdxFine, HLSLMin16Float_t);
-  HLK_TEST_MINP(DerivativeDdyFine, HLSLMin16Float_t);
-
-  // Quad
-  HLK_TEST_MINP(QuadReadLaneAt, HLSLMin16Float_t);
-  HLK_TEST_MINP(QuadReadAcrossX, HLSLMin16Float_t);
-  HLK_TEST_MINP(QuadReadAcrossY, HLSLMin16Float_t);
-  HLK_TEST_MINP(QuadReadAcrossDiagonal, HLSLMin16Float_t);
-
-  // Wave
-  HLK_WAVEOP_TEST_MINP(WaveActiveSum, HLSLMin16Float_t);
-  HLK_WAVEOP_TEST_MINP(WaveActiveMin, HLSLMin16Float_t);
-  HLK_WAVEOP_TEST_MINP(WaveActiveMax, HLSLMin16Float_t);
-  HLK_WAVEOP_TEST_MINP(WaveActiveProduct, HLSLMin16Float_t);
-  HLK_WAVEOP_TEST_MINP(WaveActiveAllEqual, HLSLMin16Float_t);
-  HLK_WAVEOP_TEST_MINP(WaveReadLaneAt, HLSLMin16Float_t);
-  HLK_WAVEOP_TEST_MINP(WaveReadLaneFirst, HLSLMin16Float_t);
-  HLK_WAVEOP_TEST_MINP(WavePrefixSum, HLSLMin16Float_t);
-  HLK_WAVEOP_TEST_MINP(WavePrefixProduct, HLSLMin16Float_t);
-  HLK_WAVEOP_TEST_MINP(WaveMultiPrefixSum, HLSLMin16Float_t);
-  HLK_WAVEOP_TEST_MINP(WaveMultiPrefixProduct, HLSLMin16Float_t);
-  HLK_WAVEOP_TEST_MINP(WaveMatch, HLSLMin16Float_t);
-
-  // ---- HLSLMin16Int_t (mirrors int16_t) ----
-
-  // TernaryMath
-  HLK_TEST_MINP(Mad, HLSLMin16Int_t);
-
-  // BinaryMath
-  HLK_TEST_MINP(Add, HLSLMin16Int_t);
-  HLK_TEST_MINP(Subtract, HLSLMin16Int_t);
-  HLK_TEST_MINP(Multiply, HLSLMin16Int_t);
-  HLK_TEST_MINP(Divide, HLSLMin16Int_t);
-  HLK_TEST_MINP(Modulus, HLSLMin16Int_t);
-  HLK_TEST_MINP(Min, HLSLMin16Int_t);
-  HLK_TEST_MINP(Max, HLSLMin16Int_t);
-
-  // Bitwise (logical and shift — bit-manipulation excluded)
-  HLK_TEST_MINP(And, HLSLMin16Int_t);
-  HLK_TEST_MINP(Or, HLSLMin16Int_t);
-  HLK_TEST_MINP(Xor, HLSLMin16Int_t);
-  HLK_TEST_MINP(LeftShift, HLSLMin16Int_t);
-  HLK_TEST_MINP(RightShift, HLSLMin16Int_t);
-
-  // UnaryMath
-  HLK_TEST_MINP(Abs, HLSLMin16Int_t);
-  HLK_TEST_MINP(Sign, HLSLMin16Int_t);
-
-  // Unary
-  HLK_TEST_MINP(Initialize, HLSLMin16Int_t);
-  HLK_TEST_MINP(ArrayOperator_StaticAccess, HLSLMin16Int_t);
-  HLK_TEST_MINP(ArrayOperator_DynamicAccess, HLSLMin16Int_t);
-  HLK_TEST_MINP(ShuffleVector, HLSLMin16Int_t);
-
-  // Cast
-  HLK_TEST_MINP(CastToBool, HLSLMin16Int_t);
-  HLK_TEST_MINP(CastToInt32, HLSLMin16Int_t);
-  HLK_TEST_MINP(CastToInt64, HLSLMin16Int_t);
-  HLK_TEST_MINP(CastToUint16, HLSLMin16Int_t);
-  HLK_TEST_MINP(CastToUint32, HLSLMin16Int_t);
-  HLK_TEST_MINP(CastToUint64, HLSLMin16Int_t);
-  HLK_TEST_MINP(CastToFloat16, HLSLMin16Int_t);
-  HLK_TEST_MINP(CastToFloat32, HLSLMin16Int_t);
-
-  // BinaryComparison
-  HLK_TEST_MINP(LessThan, HLSLMin16Int_t);
-  HLK_TEST_MINP(LessEqual, HLSLMin16Int_t);
-  HLK_TEST_MINP(GreaterThan, HLSLMin16Int_t);
-  HLK_TEST_MINP(GreaterEqual, HLSLMin16Int_t);
-  HLK_TEST_MINP(Equal, HLSLMin16Int_t);
-  HLK_TEST_MINP(NotEqual, HLSLMin16Int_t);
-
-  // Select
-  HLK_TEST_MINP(Select, HLSLMin16Int_t);
-
-  // Reduction
-  HLK_TEST_MINP(Any_Mixed, HLSLMin16Int_t);
-  HLK_TEST_MINP(Any_Zero, HLSLMin16Int_t);
-  HLK_TEST_MINP(Any_NoZero, HLSLMin16Int_t);
-  HLK_TEST_MINP(All_Mixed, HLSLMin16Int_t);
-  HLK_TEST_MINP(All_Zero, HLSLMin16Int_t);
-  HLK_TEST_MINP(All_NoZero, HLSLMin16Int_t);
-
-  // LoadAndStore
-  HLK_TEST_MINP(LoadAndStore_RDH_BAB_SRV, HLSLMin16Int_t);
-  HLK_TEST_MINP(LoadAndStore_RDH_BAB_UAV, HLSLMin16Int_t);
-  HLK_TEST_MINP(LoadAndStore_DT_BAB_SRV, HLSLMin16Int_t);
-  HLK_TEST_MINP(LoadAndStore_DT_BAB_UAV, HLSLMin16Int_t);
-  HLK_TEST_MINP(LoadAndStore_RD_BAB_SRV, HLSLMin16Int_t);
-  HLK_TEST_MINP(LoadAndStore_RD_BAB_UAV, HLSLMin16Int_t);
-  HLK_TEST_MINP(LoadAndStore_RDH_SB_SRV, HLSLMin16Int_t);
-  HLK_TEST_MINP(LoadAndStore_RDH_SB_UAV, HLSLMin16Int_t);
-  HLK_TEST_MINP(LoadAndStore_DT_SB_SRV, HLSLMin16Int_t);
-  HLK_TEST_MINP(LoadAndStore_DT_SB_UAV, HLSLMin16Int_t);
-  HLK_TEST_MINP(LoadAndStore_RD_SB_SRV, HLSLMin16Int_t);
-  HLK_TEST_MINP(LoadAndStore_RD_SB_UAV, HLSLMin16Int_t);
-
-  // Quad
-  HLK_TEST_MINP(QuadReadLaneAt, HLSLMin16Int_t);
-  HLK_TEST_MINP(QuadReadAcrossX, HLSLMin16Int_t);
-  HLK_TEST_MINP(QuadReadAcrossY, HLSLMin16Int_t);
-  HLK_TEST_MINP(QuadReadAcrossDiagonal, HLSLMin16Int_t);
-
-  // Wave
-  HLK_WAVEOP_TEST_MINP(WaveActiveSum, HLSLMin16Int_t);
-  HLK_WAVEOP_TEST_MINP(WaveActiveMin, HLSLMin16Int_t);
-  HLK_WAVEOP_TEST_MINP(WaveActiveMax, HLSLMin16Int_t);
-  HLK_WAVEOP_TEST_MINP(WaveActiveProduct, HLSLMin16Int_t);
-  HLK_WAVEOP_TEST_MINP(WaveActiveAllEqual, HLSLMin16Int_t);
-  HLK_WAVEOP_TEST_MINP(WaveReadLaneAt, HLSLMin16Int_t);
-  HLK_WAVEOP_TEST_MINP(WaveReadLaneFirst, HLSLMin16Int_t);
-  HLK_WAVEOP_TEST_MINP(WavePrefixSum, HLSLMin16Int_t);
-  HLK_WAVEOP_TEST_MINP(WavePrefixProduct, HLSLMin16Int_t);
-  HLK_WAVEOP_TEST_MINP(WaveMultiPrefixSum, HLSLMin16Int_t);
-  HLK_WAVEOP_TEST_MINP(WaveMultiPrefixProduct, HLSLMin16Int_t);
-  // WaveMultiPrefixBitAnd/BitOr/BitXor excluded: these intrinsics use the
-  // any_int type set which does not include min precision integer types.
-  HLK_WAVEOP_TEST_MINP(WaveMatch, HLSLMin16Int_t);
-
-  // ---- HLSLMin16Uint_t (mirrors uint16_t) ----
-
-  // TernaryMath
-  HLK_TEST_MINP(Mad, HLSLMin16Uint_t);
-
-  // BinaryMath
-  HLK_TEST_MINP(Add, HLSLMin16Uint_t);
-  HLK_TEST_MINP(Subtract, HLSLMin16Uint_t);
-  HLK_TEST_MINP(Multiply, HLSLMin16Uint_t);
-  HLK_TEST_MINP(Divide, HLSLMin16Uint_t);
-  HLK_TEST_MINP(Modulus, HLSLMin16Uint_t);
-  HLK_TEST_MINP(Min, HLSLMin16Uint_t);
-  HLK_TEST_MINP(Max, HLSLMin16Uint_t);
-
-  // Bitwise (logical and shift — bit-manipulation excluded)
-  HLK_TEST_MINP(And, HLSLMin16Uint_t);
-  HLK_TEST_MINP(Or, HLSLMin16Uint_t);
-  HLK_TEST_MINP(Xor, HLSLMin16Uint_t);
-  HLK_TEST_MINP(LeftShift, HLSLMin16Uint_t);
-  HLK_TEST_MINP(RightShift, HLSLMin16Uint_t);
-
-  // UnaryMath
-  HLK_TEST_MINP(Abs, HLSLMin16Uint_t);
-  HLK_TEST_MINP(Sign, HLSLMin16Uint_t);
-
-  // Unary
-  HLK_TEST_MINP(Initialize, HLSLMin16Uint_t);
-  HLK_TEST_MINP(ArrayOperator_StaticAccess, HLSLMin16Uint_t);
-  HLK_TEST_MINP(ArrayOperator_DynamicAccess, HLSLMin16Uint_t);
-  HLK_TEST_MINP(ShuffleVector, HLSLMin16Uint_t);
-
-  // Cast
-  HLK_TEST_MINP(CastToBool, HLSLMin16Uint_t);
-  HLK_TEST_MINP(CastToInt16, HLSLMin16Uint_t);
-  HLK_TEST_MINP(CastToInt32, HLSLMin16Uint_t);
-  HLK_TEST_MINP(CastToInt64, HLSLMin16Uint_t);
-  HLK_TEST_MINP(CastToUint32, HLSLMin16Uint_t);
-  HLK_TEST_MINP(CastToUint64, HLSLMin16Uint_t);
-  HLK_TEST_MINP(CastToFloat16, HLSLMin16Uint_t);
-  HLK_TEST_MINP(CastToFloat32, HLSLMin16Uint_t);
-
-  // BinaryComparison
-  HLK_TEST_MINP(LessThan, HLSLMin16Uint_t);
-  HLK_TEST_MINP(LessEqual, HLSLMin16Uint_t);
-  HLK_TEST_MINP(GreaterThan, HLSLMin16Uint_t);
-  HLK_TEST_MINP(GreaterEqual, HLSLMin16Uint_t);
-  HLK_TEST_MINP(Equal, HLSLMin16Uint_t);
-  HLK_TEST_MINP(NotEqual, HLSLMin16Uint_t);
-
-  // Select
-  HLK_TEST_MINP(Select, HLSLMin16Uint_t);
-
-  // LoadAndStore
-  HLK_TEST_MINP(LoadAndStore_RDH_BAB_SRV, HLSLMin16Uint_t);
-  HLK_TEST_MINP(LoadAndStore_RDH_BAB_UAV, HLSLMin16Uint_t);
-  HLK_TEST_MINP(LoadAndStore_DT_BAB_SRV, HLSLMin16Uint_t);
-  HLK_TEST_MINP(LoadAndStore_DT_BAB_UAV, HLSLMin16Uint_t);
-  HLK_TEST_MINP(LoadAndStore_RD_BAB_SRV, HLSLMin16Uint_t);
-  HLK_TEST_MINP(LoadAndStore_RD_BAB_UAV, HLSLMin16Uint_t);
-  HLK_TEST_MINP(LoadAndStore_RDH_SB_SRV, HLSLMin16Uint_t);
-  HLK_TEST_MINP(LoadAndStore_RDH_SB_UAV, HLSLMin16Uint_t);
-  HLK_TEST_MINP(LoadAndStore_DT_SB_SRV, HLSLMin16Uint_t);
-  HLK_TEST_MINP(LoadAndStore_DT_SB_UAV, HLSLMin16Uint_t);
-  HLK_TEST_MINP(LoadAndStore_RD_SB_SRV, HLSLMin16Uint_t);
-  HLK_TEST_MINP(LoadAndStore_RD_SB_UAV, HLSLMin16Uint_t);
-
-  // Quad
-  HLK_TEST_MINP(QuadReadLaneAt, HLSLMin16Uint_t);
-  HLK_TEST_MINP(QuadReadAcrossX, HLSLMin16Uint_t);
-  HLK_TEST_MINP(QuadReadAcrossY, HLSLMin16Uint_t);
-  HLK_TEST_MINP(QuadReadAcrossDiagonal, HLSLMin16Uint_t);
-
-  // Wave
-  HLK_WAVEOP_TEST_MINP(WaveActiveSum, HLSLMin16Uint_t);
-  HLK_WAVEOP_TEST_MINP(WaveActiveMin, HLSLMin16Uint_t);
-  HLK_WAVEOP_TEST_MINP(WaveActiveMax, HLSLMin16Uint_t);
-  HLK_WAVEOP_TEST_MINP(WaveActiveProduct, HLSLMin16Uint_t);
-  HLK_WAVEOP_TEST_MINP(WaveActiveAllEqual, HLSLMin16Uint_t);
-  HLK_WAVEOP_TEST_MINP(WaveReadLaneAt, HLSLMin16Uint_t);
-  HLK_WAVEOP_TEST_MINP(WaveReadLaneFirst, HLSLMin16Uint_t);
-  HLK_WAVEOP_TEST_MINP(WavePrefixSum, HLSLMin16Uint_t);
-  HLK_WAVEOP_TEST_MINP(WavePrefixProduct, HLSLMin16Uint_t);
-  HLK_WAVEOP_TEST_MINP(WaveMultiPrefixSum, HLSLMin16Uint_t);
-  HLK_WAVEOP_TEST_MINP(WaveMultiPrefixProduct, HLSLMin16Uint_t);
-  // WaveMultiPrefixBitAnd/BitOr/BitXor excluded: these intrinsics use the
-  // any_int type set which does not include min precision integer types.
-  HLK_WAVEOP_TEST_MINP(WaveMatch, HLSLMin16Uint_t);
 };
