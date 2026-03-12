@@ -1,5 +1,10 @@
 ; REQUIRES: dxil-1-8
-; RUN: not %dxv %s 2>&1 | FileCheck %s
+; RUN: %dxv %s | FileCheck %s
+
+; CHECK: Validation succeeded.
+
+; Verify that valid createHandleFromBinding calls with in-range constant
+; indices and valid resource classes pass DXIL validation.
 
 target datalayout = "e-m:e-p:32:32-i1:32-i8:8-i16:16-i32:32-i64:64-f16:16-f32:32-f64:64-n8:16:32:64"
 target triple = "dxil-ms-dx"
@@ -9,20 +14,17 @@ target triple = "dxil-ms-dx"
 %dx.types.ResourceProperties = type { i32, i32 }
 %struct.RWByteAddressBuffer = type { i32 }
 
-; CHECK: error: Constant values must be in-range for operation.
-; CHECK: note: at '%1 = call %dx.types.Handle @dx.op.createHandleFromBinding(i32 217, %dx.types.ResBind { i32 0, i32 0, i32 0, i8 5 }, i32 0, i1 false)' in block '#0' of function 'main'.
-
 define void @main() {
-  ; resourceClass=5 is invalid (valid values are 0=SRV, 1=UAV, 2=CBuffer, 3=Sampler)
-  %1 = call %dx.types.Handle @dx.op.createHandleFromBinding(i32 217, %dx.types.ResBind { i32 0, i32 0, i32 0, i8 5 }, i32 0, i1 false)  ; CreateHandleFromBinding(bind,index,nonUniformIndex)
-  %2 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %1, %dx.types.ResourceProperties { i32 4107, i32 0 })  ; AnnotateHandle(res,props)  resource: RWByteAddressBuffer
+  ; Valid: index 1 is within [1, 3], resourceClass=1 (UAV)
+  %1 = call %dx.types.Handle @dx.op.createHandleFromBinding(i32 217, %dx.types.ResBind { i32 1, i32 3, i32 0, i8 1 }, i32 1, i1 false)
+  %2 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %1, %dx.types.ResourceProperties { i32 4107, i32 0 })
+  ; Valid: index 3 is within [1, 3] (upper bound)
+  %3 = call %dx.types.Handle @dx.op.createHandleFromBinding(i32 217, %dx.types.ResBind { i32 1, i32 3, i32 0, i8 1 }, i32 3, i1 false)
+  %4 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %3, %dx.types.ResourceProperties { i32 4107, i32 0 })
   ret void
 }
 
-; Function Attrs: nounwind readnone
 declare %dx.types.Handle @dx.op.annotateHandle(i32, %dx.types.Handle, %dx.types.ResourceProperties) #0
-
-; Function Attrs: nounwind readnone
 declare %dx.types.Handle @dx.op.createHandleFromBinding(i32, %dx.types.ResBind, i32, i1) #0
 
 attributes #0 = { nounwind readnone }
@@ -39,7 +41,7 @@ attributes #0 = { nounwind readnone }
 !2 = !{!"cs", i32 6, i32 8}
 !3 = !{null, !4, null, null}
 !4 = !{!5}
-!5 = !{i32 0, %struct.RWByteAddressBuffer* undef, !"", i32 0, i32 0, i32 1, i32 11, i1 false, i1 false, i1 false, null}
+!5 = !{i32 0, %struct.RWByteAddressBuffer* undef, !"", i32 0, i32 1, i32 3, i32 11, i1 false, i1 false, i1 false, null}
 !6 = !{void ()* @main, !"main", null, !3, !7}
 !7 = !{i32 0, i64 8589934608, i32 4, !8}
 !8 = !{i32 4, i32 1, i32 1}

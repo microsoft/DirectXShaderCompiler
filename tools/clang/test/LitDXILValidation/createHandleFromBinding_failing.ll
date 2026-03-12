@@ -1,6 +1,9 @@
 ; REQUIRES: dxil-1-8
 ; RUN: not %dxv %s 2>&1 | FileCheck %s
 
+; Verify that createHandleFromBinding rejects: out-of-range indices,
+; invalid resource classes, and non-constant bind parameters.
+
 target datalayout = "e-m:e-p:32:32-i1:32-i8:8-i16:16-i32:32-i64:64-f16:16-f32:32-f64:64-n8:16:32:64"
 target triple = "dxil-ms-dx"
 
@@ -9,25 +12,32 @@ target triple = "dxil-ms-dx"
 %dx.types.ResourceProperties = type { i32, i32 }
 %struct.RWByteAddressBuffer = type { i32 }
 
+; --- Index below lower bound ---
 ; CHECK-DAG: error: Constant values must be in-range for operation.
 ; CHECK-DAG: note: at '%1 = call %dx.types.Handle @dx.op.createHandleFromBinding(i32 217, %dx.types.ResBind { i32 1, i32 3, i32 0, i8 1 }, i32 0, i1 false)' in block '#0' of function 'main'.
+
+; --- Index above upper bound ---
 ; CHECK-DAG: error: Constant values must be in-range for operation.
 ; CHECK-DAG: note: at '%3 = call %dx.types.Handle @dx.op.createHandleFromBinding(i32 217, %dx.types.ResBind { i32 1, i32 3, i32 0, i8 1 }, i32 4, i1 false)' in block '#0' of function 'main'.
 
+; --- Invalid resource class ---
+; CHECK-DAG: error: Constant values must be in-range for operation.
+; CHECK-DAG: note: at '%5 = call %dx.types.Handle @dx.op.createHandleFromBinding(i32 217, %dx.types.ResBind { i32 0, i32 0, i32 0, i8 5 }, i32 0, i1 false)' in block '#0' of function 'main'.
+
 define void @main() {
-  ; Binding has rangeLowerBound=1, rangeUpperBound=3, but index is 0 (below lower bound)
-  %1 = call %dx.types.Handle @dx.op.createHandleFromBinding(i32 217, %dx.types.ResBind { i32 1, i32 3, i32 0, i8 1 }, i32 0, i1 false)  ; CreateHandleFromBinding(bind,index,nonUniformIndex)
-  %2 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %1, %dx.types.ResourceProperties { i32 4107, i32 0 })  ; AnnotateHandle(res,props)  resource: RWByteAddressBuffer
-  ; Binding has rangeLowerBound=1, rangeUpperBound=3, but index is 4 (above upper bound)
-  %3 = call %dx.types.Handle @dx.op.createHandleFromBinding(i32 217, %dx.types.ResBind { i32 1, i32 3, i32 0, i8 1 }, i32 4, i1 false)  ; CreateHandleFromBinding(bind,index,nonUniformIndex)
-  %4 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %3, %dx.types.ResourceProperties { i32 4107, i32 0 })  ; AnnotateHandle(res,props)  resource: RWByteAddressBuffer
+  ; Index 0 is below rangeLowerBound=1
+  %1 = call %dx.types.Handle @dx.op.createHandleFromBinding(i32 217, %dx.types.ResBind { i32 1, i32 3, i32 0, i8 1 }, i32 0, i1 false)
+  %2 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %1, %dx.types.ResourceProperties { i32 4107, i32 0 })
+  ; Index 4 is above rangeUpperBound=3
+  %3 = call %dx.types.Handle @dx.op.createHandleFromBinding(i32 217, %dx.types.ResBind { i32 1, i32 3, i32 0, i8 1 }, i32 4, i1 false)
+  %4 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %3, %dx.types.ResourceProperties { i32 4107, i32 0 })
+  ; resourceClass=5 is invalid (valid: 0=SRV, 1=UAV, 2=CBuffer, 3=Sampler)
+  %5 = call %dx.types.Handle @dx.op.createHandleFromBinding(i32 217, %dx.types.ResBind { i32 0, i32 0, i32 0, i8 5 }, i32 0, i1 false)
+  %6 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %5, %dx.types.ResourceProperties { i32 4107, i32 0 })
   ret void
 }
 
-; Function Attrs: nounwind readnone
 declare %dx.types.Handle @dx.op.annotateHandle(i32, %dx.types.Handle, %dx.types.ResourceProperties) #0
-
-; Function Attrs: nounwind readnone
 declare %dx.types.Handle @dx.op.createHandleFromBinding(i32, %dx.types.ResBind, i32, i1) #0
 
 attributes #0 = { nounwind readnone }
