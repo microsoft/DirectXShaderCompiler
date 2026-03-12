@@ -1675,8 +1675,8 @@ RootSignatureParser::ParseBorderColor(DxilStaticBorderColor &BorderColor) {
     BorderColor = DxilStaticBorderColor::OpaqueWhiteUint;
     break;
   default:
-    IFC(Error(ERR_RS_UNEXPECTED_TOKEN,
-              "Unexpected border color value: '%s'.", Token.GetStr()));
+    IFC(Error(ERR_RS_UNEXPECTED_TOKEN, "Unexpected border color value: '%s'.",
+              Token.GetStr()));
   }
 
 Cleanup:
