@@ -682,6 +682,8 @@ TEST_F(FunctionTest, ParseRootSignature) {
   TestHLSLRootSignatureCase("StaticSampler(s2, maxAnisotropy=2)", S_OK);
   // Comparison function
   TestHLSLRootSignatureCase(
+      "StaticSampler(ComparisonFunc = COMPARISON_NONE, s2)", S_OK);
+  TestHLSLRootSignatureCase(
       "StaticSampler(ComparisonFunc = COMPARISON_NEVER, s2)", S_OK);
   TestHLSLRootSignatureCase(
       "StaticSampler(s2, ComparisonFunc = COMPARISON_LESS)", S_OK);
