@@ -8,7 +8,7 @@ groupshared float SharedArr[64];
 void main() {
   // CHECK-LABEL: define void @main()
 
-  // CHECK: call void @dx.op.linAlgMatrixStoreToMemory.mC4M5N4U1S2.f32(i32 -2147483627, %dx.types.LinAlgMatrixC4M5N4U1S2 {{.*}}, [64 x float] addrspace(3)* nonnull @{{.*}}, i32 1, i32 2, i32 3)  ; LinAlgMatrixStoreToMemory(matrix,memory,offset,stride,layout)
+  // CHECK: call void @dx.op.linAlgMatrixStoreToMemory.mC4M5N4U1S2.f32(i32 -2147483627, %dx.types.LinAlgMatrixC4M5N4U1S2 {{.*}}, float addrspace(3)* getelementptr {{.*}}, i32 1, i32 2, i32 3)  ; LinAlgMatrixStoreToMemory(matrix,memory,offset,stride,layout)
   __builtin_LinAlgMatrix [[__LinAlgMatrix_Attributes(4, 5, 4, 1, 2)]] mat;
   __builtin_LinAlg_MatrixStoreToMemory(mat, SharedArr, 1, 2, 3);
 }

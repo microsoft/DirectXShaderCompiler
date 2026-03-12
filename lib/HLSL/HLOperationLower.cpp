@@ -7242,11 +7242,15 @@ Value *TranslateLinAlgMatrixLoadFromMemory(
   Value *Stride = CI->getArgOperand(4);
   Value *Layout = CI->getArgOperand(5);
 
+  Value *Zero = Builder.getInt32(0);
+  Value *ArrPtr = Builder.CreateGEP(Arr, {Zero, Zero});
+  Type *ArrEltTy = ArrPtr->getType()->getPointerElementType();
+
   Constant *OpArg = HlslOp->GetU32Const((unsigned)OpCode);
-  Function *DxilFunc = HlslOp->GetOpFunc(OpCode, {MatrixType, Arr->getType()});
+  Function *DxilFunc = HlslOp->GetOpFunc(OpCode, {MatrixType, ArrEltTy});
 
   Value *Matrix =
-      Builder.CreateCall(DxilFunc, {OpArg, Arr, Offset, Stride, Layout});
+      Builder.CreateCall(DxilFunc, {OpArg, ArrPtr, Offset, Stride, Layout});
   Builder.CreateStore(Matrix, MatrixPtr);
 
   return nullptr;
@@ -7265,12 +7269,15 @@ Value *TranslateLinAlgMatrixAccumStoreToMemory(
   Value *Stride = CI->getArgOperand(4);
   Value *Layout = CI->getArgOperand(5);
 
+  Value *Zero = Builder.getInt32(0);
+  Value *ArrPtr = Builder.CreateGEP(Arr, {Zero, Zero});
+  Type *ArrEltTy = ArrPtr->getType()->getPointerElementType();
+
   Constant *OpArg = HlslOp->GetU32Const((unsigned)OpCode);
-  Function *DxilFunc =
-      HlslOp->GetOpFunc(OpCode, {Matrix->getType(), Arr->getType()});
+  Function *DxilFunc = HlslOp->GetOpFunc(OpCode, {Matrix->getType(), ArrEltTy});
 
   return Builder.CreateCall(DxilFunc,
-                            {OpArg, Matrix, Arr, Offset, Stride, Layout});
+                            {OpArg, Matrix, ArrPtr, Offset, Stride, Layout});
 }
 
 } // namespace
