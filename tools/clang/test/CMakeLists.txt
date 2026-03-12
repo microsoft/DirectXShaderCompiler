@@ -135,6 +135,7 @@ function(add_released_dxc name version)
       CONFIGURE_COMMAND ""
       BUILD_COMMAND ""
       INSTALL_COMMAND ""
+      DOWNLOAD_EXTRACT_TIMESTAMP NEW
   )
 endfunction()
 
