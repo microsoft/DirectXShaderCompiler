@@ -531,6 +531,9 @@ public:
   bool isConstantInitializer(ASTContext &Ctx, bool ForRef,
                              const Expr **Culprit = nullptr) const;
 
+  bool isVulkanSpecConstantExpr(const ASTContext &Ctx,
+                                APValue *Result = nullptr) const;
+
   /// EvalStatus is a struct with detailed info about an evaluation in progress.
   struct EvalStatus {
     /// HasSideEffects - Whether the evaluated expression has side effects.
