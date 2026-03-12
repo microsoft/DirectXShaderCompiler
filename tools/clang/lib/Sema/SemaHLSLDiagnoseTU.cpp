@@ -759,6 +759,15 @@ void hlsl::DiagnoseTranslationUnit(clang::Sema *self) {
       }
     }
 
+    // lib_6_x is an offline linking target, which allows exported functions to
+    // perform actions that would otherwise be disallowed, as long as these
+    // actions are either inlined into entry points where they are allowed, or
+    // eliminated by the time the final library is linked to a runtime supported
+    // shader model. Therefore, skip reachable call diagnostics for non-entry
+    // points.
+    if (EntrySK == DXIL::ShaderKind::Library && IsTargetProfileLib6x(*self))
+      continue;
+
     // Visit all visited functions in call graph to collect illegal intrinsic
     // calls.
     HLSLReachableDiagnoseVisitor Visitor(
