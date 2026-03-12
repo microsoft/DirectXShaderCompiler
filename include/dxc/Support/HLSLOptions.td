@@ -277,7 +277,7 @@ def dump_dependencies : Flag<["-", "/"], "M">, Flags<[CoreOption, DriverOption]>
 def write_dependencies : Flag<["-", "/"], "MD">, Flags<[CoreOption, DriverOption]>,
   HelpText<"Write a file with .d extension that will contain the list of the compilation target dependencies.">;
 def write_dependencies_to : JoinedOrSeparate<["-", "/"], "MF">, MetaVarName<"<file>">, Flags<[CoreOption, DriverOption]>,
-  HelpText<"Write the specfied file that will contain the list of the compilation target dependencies.">;
+  HelpText<"Write the specified file that will contain the list of the compilation target dependencies.">;
 def external_lib : Separate<["-", "/"], "external">, Group<hlslcore_Group>, Flags<[DriverOption, RewriteOption, HelpHidden]>,
   HelpText<"External DLL name to load for compiler support">;
 def external_fn : Separate<["-", "/"], "external-fn">, Group<hlslcore_Group>, Flags<[DriverOption, RewriteOption, HelpHidden]>,
@@ -424,7 +424,7 @@ def fspv_use_unknown_image_format
 def fvk_auto_shift_bindings: Flag<["-"], "fvk-auto-shift-bindings">, Group<spirv_Group>, Flags<[CoreOption, DriverOption]>,
   HelpText<"Apply fvk-*-shift to resources without an explicit register assignment.">;
 def Wno_vk_ignored_features : Joined<["-"], "Wno-vk-ignored-features">, Group<spirv_Group>, Flags<[CoreOption, DriverOption, HelpHidden]>,
-  HelpText<"Do not emit warnings for ingored features resulting from no Vulkan support">;
+  HelpText<"Do not emit warnings for ignored features resulting from no Vulkan support">;
 def Wno_vk_emulated_features : Joined<["-"], "Wno-vk-emulated-features">, Group<spirv_Group>, Flags<[CoreOption, DriverOption, HelpHidden]>,
   HelpText<"Do not emit warnings for emulated features resulting from no direct mapping">;
 def fspv_print_all: Flag<["-"], "fspv-print-all">, Group<spirv_Group>, Flags<[CoreOption, DriverOption]>,
@@ -564,9 +564,9 @@ def res_may_alias : Flag<["-", "/"], "res-may-alias">, Flags<[CoreOption]>, Grou
 def res_may_alias_ : Flag<["-", "/"], "res_may_alias">, Flags<[CoreOption, HelpHidden]>, Group<hlslcomp_Group>,
   HelpText<"Assume that UAVs/SRVs may alias">;
 def all_resources_bound : Flag<["-", "/"], "all-resources-bound">, Flags<[CoreOption]>, Group<hlslcomp_Group>,
-  HelpText<"Enables agressive flattening">;
+  HelpText<"Enables aggressive flattening">;
 def all_resources_bound_ : Flag<["-", "/"], "all_resources_bound">, Flags<[CoreOption, HelpHidden]>, Group<hlslcomp_Group>,
-  HelpText<"Enables agressive flattening">;
+  HelpText<"Enables aggressive flattening">;
 
 def setprivate : JoinedOrSeparate<["-", "/"], "setprivate">, Flags<[CoreOption, DriverOption]>, MetaVarName<"<file>">, Group<hlslutil_Group>,
   HelpText<"Private data to add to compiled shader blob">;
