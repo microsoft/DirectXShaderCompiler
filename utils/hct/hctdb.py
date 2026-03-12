@@ -51,8 +51,8 @@ extra_counters = [
 #     processing.
 # - "," is used to separate multiple overload dimensions.
 #   - When used, only $x0, $x1, etc. are supported for overloaded parameter
-#     types.
-# - "a" is for any array ([n x Ty])
+#     types. $x_gs0, $x_gs1, etc work like $xN except the overload will be a
+#     pointer to groupshared memory.
 # dxil_all_user_oload_chars must be kept in sync with the indices in
 # hlsl::OP::TypeSlot in DxilOperations.h.
 dxil_all_user_oload_chars = "hfd18wiluo<"
