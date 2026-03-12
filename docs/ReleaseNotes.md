@@ -22,16 +22,6 @@ The included licenses apply to the following files:
 Place release notes for the upcoming release below this line and remove this
 line upon naming the release. Refer to previous for appropriate section names.
 
-#### DXC Command Line Changes
-
-- Added `/Po` option that preserves the old FXC-style `/P` behavior for
-  preprocessing to a named output file.
-  [#4611](https://github.com/microsoft/DirectXShaderCompiler/issues/4611)
-- `/P` now matches `cl.exe` behavior: preprocesses to `<inputname>.i` by
-  default, with `/Fi` to override the output filename. The old `/P <filename>`
-  positional syntax is deprecated and has been moved to `/Po <filename>`. To use
-  `/P` with a custom output filename, use `/P /Fi <filename>` instead.
-
 #### Experimental Shader Model 6.10
 
 - Moved Linear Algebra (Cooperative Vector) DXIL Opcodes to experimental Shader Model 6.10
@@ -52,6 +42,14 @@ line upon naming the release. Refer to previous for appropriate section names.
 - Fixed non-deterministic DXIL/PDB output when compiling shaders with resource arrays, debug info, and SM 6.6+. [#8171](https://github.com/microsoft/DirectXShaderCompiler/issues/8171)
 - Fixed mesh shader semantics that were incorrectly case sensitive.
 - DXIL validation now rejects non-standard integer bit widths (e.g. `i25`) in instructions.
+
+#### Other Changes
+
+- `/P` now matches `cl.exe` behavior: preprocesses to `<inputname>.i` by
+  default, with `/Fi` to override the output filename. The old FXC-style `/P
+   <filename>` positional syntax has been renamed to `/Po`.
+  [#4611](https://github.com/microsoft/DirectXShaderCompiler/issues/4611).
+
 
 ### Version 1.9.2602
 
