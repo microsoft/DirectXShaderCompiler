@@ -3,8 +3,9 @@
 
 ; CHECK: Validation succeeded.
 
-; Verify that valid createHandleFromBinding calls with in-range constant
-; indices and valid resource classes pass DXIL validation.
+; Verify that valid createHandleFromBinding calls pass DXIL validation:
+; in-range constant indices, valid resource classes, and non-constant
+; indices on array resources.
 
 target datalayout = "e-m:e-p:32:32-i1:32-i8:8-i16:16-i32:32-i64:64-f16:16-f32:32-f64:64-n8:16:32:64"
 target triple = "dxil-ms-dx"
@@ -21,9 +22,14 @@ define void @main() {
   ; Valid: index 3 is within [1, 3] (upper bound)
   %3 = call %dx.types.Handle @dx.op.createHandleFromBinding(i32 217, %dx.types.ResBind { i32 1, i32 3, i32 0, i8 1 }, i32 3, i1 false)
   %4 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %3, %dx.types.ResourceProperties { i32 4107, i32 0 })
+  ; Valid: non-constant index on array resource (range [1, 3])
+  %5 = call i32 @dx.op.flattenedThreadIdInGroup.i32(i32 96)
+  %6 = call %dx.types.Handle @dx.op.createHandleFromBinding(i32 217, %dx.types.ResBind { i32 1, i32 3, i32 0, i8 1 }, i32 %5, i1 false)
+  %7 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %6, %dx.types.ResourceProperties { i32 4107, i32 0 })
   ret void
 }
 
+declare i32 @dx.op.flattenedThreadIdInGroup.i32(i32) #0
 declare %dx.types.Handle @dx.op.annotateHandle(i32, %dx.types.Handle, %dx.types.ResourceProperties) #0
 declare %dx.types.Handle @dx.op.createHandleFromBinding(i32, %dx.types.ResBind, i32, i1) #0
 

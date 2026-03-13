@@ -265,6 +265,13 @@ void ValidationContext::BuildResMap() {
 
       // Validate constant index is within binding range.
       ConstantInt *cIndex = dyn_cast<ConstantInt>(hdl.get_index());
+      if (B.rangeLowerBound == B.rangeUpperBound) {
+        if (!cIndex) {
+          // index must be constant for non-array resource.
+          EmitInstrError(CI, ValidationRule::InstrOpConstRange);
+          continue;
+        }
+      }
       if (cIndex) {
         unsigned index = cIndex->getLimitedValue();
         if (index < B.rangeLowerBound || index > B.rangeUpperBound) {
