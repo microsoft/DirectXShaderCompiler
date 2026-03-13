@@ -238,18 +238,18 @@ void ValidationContext::BuildResMap() {
       continue;
     for (User *U : F->users()) {
       CallInst *CI = cast<CallInst>(U);
-      DxilInst_CreateHandleFromBinding hdl(CI);
+      DxilInst_CreateHandleFromBinding Hdl(CI);
 
       // Validate bind parameter is constant.
-      Value *bind = hdl.get_bind();
-      if (!isa<Constant>(bind)) {
+      Value *Bind = Hdl.get_bind();
+      if (!isa<Constant>(Bind)) {
         EmitInstrError(CI, ValidationRule::InstrOpConstRange);
         continue;
       }
 
       DxilResourceBinding B =
           resource_helper::loadBindingFromCreateHandleFromBinding(
-              hdl, hlslOP->GetHandleType(), SM);
+              Hdl, hlslOP->GetHandleType(), SM);
 
       // Validate resourceClass is valid.
       switch (static_cast<DXIL::ResourceClass>(B.resourceClass)) {
@@ -264,11 +264,11 @@ void ValidationContext::BuildResMap() {
       }
 
       // Validate constant index is within binding range.
-      ConstantInt *cIndex = dyn_cast<ConstantInt>(hdl.get_index());
-      if (cIndex) {
-        unsigned index = cIndex->getLimitedValue();
-        if (index < B.rangeLowerBound || index > B.rangeUpperBound) {
-          // index out of range.
+      ConstantInt *CIndex = dyn_cast<ConstantInt>(Hdl.get_index());
+      if (CIndex) {
+        unsigned Index = CIndex->getLimitedValue();
+        if (Index < B.rangeLowerBound || Index > B.rangeUpperBound) {
+          // Index out of range.
           EmitInstrError(CI, ValidationRule::InstrOpConstRange);
           continue;
         }
