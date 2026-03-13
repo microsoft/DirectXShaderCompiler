@@ -51,7 +51,8 @@ extra_counters = [
 #     processing.
 # - "," is used to separate multiple overload dimensions.
 #   - When used, only $x0, $x1, etc. are supported for overloaded parameter
-#     types.
+#     types. $x_gs0, $x_gs1, etc work like $xN except the overload will be a
+#     pointer to groupshared memory.
 # dxil_all_user_oload_chars must be kept in sync with the indices in
 # hlsl::OP::TypeSlot in DxilOperations.h.
 dxil_all_user_oload_chars = "hfd18wiluo<"
@@ -295,8 +296,12 @@ class db_dxil_inst(object):
             return
         next_oload_idx = 0
         for i in self.ops:
-            if i.llvm_type.startswith("$x"):
-                if i.llvm_type != "$x" + str(next_oload_idx):
+            # _gs is extra metadata info on the overload. It has no impact on
+            # the ordering rules so it can be erased for the check.
+            # $x_gs7 -> $x7
+            ty = i.llvm_type.replace("$x_gs", "$x")
+            if ty.startswith("$x"):
+                if ty != "$x" + str(next_oload_idx):
                     raise ValueError(
                         "Extended overloads are not sequentially referenced in "
                         f"DXIL op {self.name}: {i.llvm_type} != $x{next_oload_idx}"
@@ -6406,13 +6411,12 @@ class db_dxil(object):
             "LinAlgMatrixLoadFromMemory",
             "LinAlgMatrixLoadFromMemory",
             "fills a matrix with data from a groupshared array",
-            "o,hfwi",  # TODO: needs to be updated for groupshared
+            "o,hfwi",
             "",
             [
                 db_dxil_param(0, "$x0", "", "resulting matrix"),
-                # TODO: [Ty] * addrspace(4),   ; groupshared T[M * N]
                 db_dxil_param(
-                    2, "$x1", "groupsharedArr", "groupshared array to fill matrix with"
+                    2, "$x_gs1", "memory", "groupshared array to fill matrix with"
                 ),
                 db_dxil_param(3, "i32", "offset", "starting offset in the array"),
                 db_dxil_param(
@@ -6508,14 +6512,13 @@ class db_dxil(object):
             "LinAlgMatrixStoreToMemory",
             "LinAlgMatrixStoreToMemory",
             "stores a matrix to groupshared memory",
-            "o,hfwi",  # TODO: needs to be updated for groupshared
+            "o,hfwi",
             "",
             [
                 db_dxil_param(0, "v", "", ""),
                 db_dxil_param(2, "$x0", "matrix", "matrix to be stored"),
-                # TODO: [Ty] * addrspace(4),   ; groupshared T[M * N]
                 db_dxil_param(
-                    3, "$x1", "groupsharedArr", "groupshared array to store into"
+                    3, "$x_gs1", "memory", "groupshared array to store into"
                 ),
                 db_dxil_param(4, "i32", "offset", "starting offset in the array"),
                 db_dxil_param(
@@ -6626,14 +6629,13 @@ class db_dxil(object):
             "LinAlgMatrixAccumulateToMemory",
             "LinAlgMatrixAccumulateToMemory",
             "accumulates a matrix to groupshared memory",
-            "o,hfwi",  # TODO: needs to be updated for groupshared
+            "o,hfwi",
             "",
             [
                 db_dxil_param(0, "v", "", ""),
                 db_dxil_param(2, "$x0", "matrix", "Accumulator matrix"),
-                # TODO: [Ty] * addrspace(4),   ; groupshared T[M * N]
                 db_dxil_param(
-                    3, "$x1", "groupsharedArr", "groupshared array to accumulate into"
+                    3, "$x_gs1", "memory", "groupshared array to accumulate into"
                 ),
                 db_dxil_param(4, "i32", "offset", "starting offset in the array"),
                 db_dxil_param(
@@ -9599,7 +9601,7 @@ class db_hlsl(object):
             "out": "AR_QUAL_OUT",
             "col_major": "AR_QUAL_COLMAJOR",
             "row_major": "AR_QUAL_ROWMAJOR",
-            "groupshared": "AR_QUAL_GROUPSHARED",
+            "groupshared": "AR_QUAL_IN | AR_QUAL_GROUPSHARED",
         }
         self.intrinsics = []
         self.load_intrinsics(intrinsic_defs)
