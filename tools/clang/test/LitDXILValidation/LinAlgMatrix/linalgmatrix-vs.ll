@@ -11,6 +11,9 @@
 ; CHECK: Function:  mainVS: error: Opcode LinAlgMatrixGetElement not valid in shader model vs_6_10.
 ; CHECK: Function:  mainVS: error: Opcode LinAlgMatrixMultiplyAccumulate not valid in shader model vs_6_10.
 ; CHECK: Function:  mainVS: error: Opcode LinAlgMatrixSetElement not valid in shader model vs_6_10.
+; CHECK: Function:  mainVS: error: Opcode LinAlgMatrixStoreToMemory not valid in shader model vs_6_10.
+; CHECK: Function:  mainVS: error: Opcode LinAlgMatrixAccumulateToMemory not valid in shader model vs_6_10.
+; CHECK: Function:  mainVS: error: Opcode LinAlgMatrixLoadFromMemory not valid in shader model vs_6_10.
 ; CHECK: Function:  mainVS: error: Entry function performs some operation that is incompatible with the shader stage or other entry properties.  See other errors for details.
 ; CHECK: Function:  mainVS: error: Function uses features incompatible with the shader stage (vs) of the entry function.
 ; CHECK: Validation failed.
@@ -26,6 +29,8 @@ target triple = "dxil-ms-dx"
 %dx.types.LinAlgMatrixC4M4N5U1S2 = type { i8* }
 %dx.types.ResourceProperties = type { i32, i32 }
 %struct.RWByteAddressBuffer = type { i32 }
+
+@"\01?SharedArr@@3PAMA" = external addrspace(3) global [64 x float], align 4
 
 define void @mainVS() {
 
@@ -88,7 +93,14 @@ define void @mainVS() {
   ; dx.op.linAlgMatrixStoreToDescriptor
   call void @dx.op.linAlgMatrixStoreToDescriptor.mC4M5N4U0S2(i32 -2147483628, %dx.types.LinAlgMatrixC4M5N4U0S2 %v14, %dx.types.Handle %handle, i32 1, i32 2, i32 3)  ; LinAlgMatrixStoreToDescriptor(matrix,handle,offset,stride,layout)
   
-  ; FIXME: 3 more ops coming soon
+  ; dx.op.linAlgMatrixAccumulateToMemory
+  call void @dx.op.linAlgMatrixAccumulateToMemory.mC4M5N4U0S2.f32(i32 -2147483620, %dx.types.LinAlgMatrixC4M5N4U0S2 %v14, float addrspace(3)* getelementptr inbounds ([64 x float], [64 x float] addrspace(3)* @"\01?SharedArr@@3PAMA", i32 0, i32 0), i32 0, i32 0, i32 0)  ; LinAlgMatrixAccumulateToMemory(matrix,memory,offset,stride,layout)
+  
+  ; dx.op.linAlgMatrixLoadFromMemory
+  %v15 = call %dx.types.LinAlgMatrixC4M5N4U0S2 @dx.op.linAlgMatrixLoadFromMemory.mC4M5N4U0S2.f32(i32 -2147483633, float addrspace(3)* getelementptr inbounds ([64 x float], [64 x float] addrspace(3)* @"\01?SharedArr@@3PAMA", i32 0, i32 0), i32 0, i32 0, i32 0)  ; LinAlgMatrixLoadFromMemory(memory,offset,stride,layout)
+  
+  ; dx.op.linAlgMatrixStoreToMemory
+  call void @dx.op.linAlgMatrixStoreToMemory.mC4M5N4U0S2.f32(i32 -2147483627, %dx.types.LinAlgMatrixC4M5N4U0S2 %v15, float addrspace(3)* getelementptr inbounds ([64 x float], [64 x float] addrspace(3)* @"\01?SharedArr@@3PAMA", i32 0, i32 0), i32 0, i32 0, i32 0)  ; LinAlgMatrixStoreToMemory(matrix,memory,offset,stride,layout)
 
   call void @dx.op.storeOutput.f32(i32 5, i32 0, i32 0, i8 0, float 1.000000e+00)  ; StoreOutput(outputSigId,rowIndex,colIndex,value)
   call void @dx.op.storeOutput.f32(i32 5, i32 0, i32 0, i8 1, float 1.000000e+00)  ; StoreOutput(outputSigId,rowIndex,colIndex,value)
@@ -145,6 +157,15 @@ declare %dx.types.LinAlgMatrixC4M5N4U2S2 @dx.op.linAlgMatrixMultiplyAccumulate.m
 
 ; Function Attrs: nounwind
 declare %dx.types.LinAlgMatrixC4M5N4U0S2 @dx.op.linAlgMatrixSetElement.mC4M5N4U0S2.mC4M5N4U0S2.i32(i32, %dx.types.LinAlgMatrixC4M5N4U0S2, i32, i32) #0
+
+; Function Attrs: nounwind
+declare void @dx.op.linAlgMatrixStoreToMemory.mC4M5N4U0S2.f32(i32, %dx.types.LinAlgMatrixC4M5N4U0S2, float addrspace(3)*, i32, i32, i32) #0
+
+; Function Attrs: nounwind
+declare void @dx.op.linAlgMatrixAccumulateToMemory.mC4M5N4U0S2.f32(i32, %dx.types.LinAlgMatrixC4M5N4U0S2, float addrspace(3)*, i32, i32, i32) #0
+
+; Function Attrs: nounwind
+declare %dx.types.LinAlgMatrixC4M5N4U0S2 @dx.op.linAlgMatrixLoadFromMemory.mC4M5N4U0S2.f32(i32, float addrspace(3)*, i32, i32, i32) #0
 
 ; Function Attrs: nounwind readnone
 declare %dx.types.Handle @dx.op.annotateHandle(i32, %dx.types.Handle, %dx.types.ResourceProperties) #1

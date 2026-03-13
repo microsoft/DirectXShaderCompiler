@@ -14,6 +14,8 @@ target triple = "dxil-ms-dx"
 %dx.types.ResourceProperties = type { i32, i32 }
 %struct.RWByteAddressBuffer = type { i32 }
 
+@"\01?SharedArr@@3PAMA" = external addrspace(3) global [64 x float], align 4
+
 define void @mainMeS() {
 
   %1 = call %dx.types.Handle @dx.op.createHandleFromBinding(i32 217, %dx.types.ResBind { i32 0, i32 0, i32 0, i8 1 }, i32 0, i1 false)  ; CreateHandleFromBinding(bind,index,nonUniformIndex)
@@ -76,7 +78,14 @@ define void @mainMeS() {
   ; dx.op.linAlgMatrixStoreToDescriptor
   call void @dx.op.linAlgMatrixStoreToDescriptor.mC4M5N4U0S2(i32 -2147483628, %dx.types.LinAlgMatrixC4M5N4U0S2 %v14, %dx.types.Handle %handle, i32 1, i32 2, i32 3)  ; LinAlgMatrixStoreToDescriptor(matrix,handle,offset,stride,layout)
   
-  ; FIXME: 3 more ops coming soon
+  ; dx.op.linAlgMatrixAccumulateToMemory
+  call void @dx.op.linAlgMatrixAccumulateToMemory.mC4M5N4U0S2.f32(i32 -2147483620, %dx.types.LinAlgMatrixC4M5N4U0S2 %v14, float addrspace(3)* getelementptr inbounds ([64 x float], [64 x float] addrspace(3)* @"\01?SharedArr@@3PAMA", i32 0, i32 0), i32 0, i32 0, i32 0)  ; LinAlgMatrixAccumulateToMemory(matrix,memory,offset,stride,layout)
+  
+  ; dx.op.linAlgMatrixLoadFromMemory
+  %v15 = call %dx.types.LinAlgMatrixC4M5N4U0S2 @dx.op.linAlgMatrixLoadFromMemory.mC4M5N4U0S2.f32(i32 -2147483633, float addrspace(3)* getelementptr inbounds ([64 x float], [64 x float] addrspace(3)* @"\01?SharedArr@@3PAMA", i32 0, i32 0), i32 0, i32 0, i32 0)  ; LinAlgMatrixLoadFromMemory(memory,offset,stride,layout)
+  
+  ; dx.op.linAlgMatrixStoreToMemory
+  call void @dx.op.linAlgMatrixStoreToMemory.mC4M5N4U0S2.f32(i32 -2147483627, %dx.types.LinAlgMatrixC4M5N4U0S2 %v15, float addrspace(3)* getelementptr inbounds ([64 x float], [64 x float] addrspace(3)* @"\01?SharedArr@@3PAMA", i32 0, i32 0), i32 0, i32 0, i32 0)  ; LinAlgMatrixStoreToMemory(matrix,memory,offset,stride,layout)
 
   call void @dx.op.setMeshOutputCounts(i32 168, i32 32, i32 16)  ; SetMeshOutputCounts(numVertices,numPrimitives)
   call void @dx.op.storeVertexOutput.f32(i32 171, i32 0, i32 0, i8 0, float 0.000000e+00, i32 %thread_id_group)  ; StoreVertexOutput(outputSigId,rowIndex,colIndex,value,vertexIndex)
@@ -134,6 +143,15 @@ declare %dx.types.LinAlgMatrixC4M5N4U2S2 @dx.op.linAlgMatrixMultiplyAccumulate.m
 
 ; Function Attrs: nounwind
 declare %dx.types.LinAlgMatrixC4M5N4U0S2 @dx.op.linAlgMatrixSetElement.mC4M5N4U0S2.mC4M5N4U0S2.i32(i32, %dx.types.LinAlgMatrixC4M5N4U0S2, i32, i32) #0
+
+; Function Attrs: nounwind
+declare void @dx.op.linAlgMatrixStoreToMemory.mC4M5N4U0S2.f32(i32, %dx.types.LinAlgMatrixC4M5N4U0S2, float addrspace(3)*, i32, i32, i32) #0
+
+; Function Attrs: nounwind
+declare void @dx.op.linAlgMatrixAccumulateToMemory.mC4M5N4U0S2.f32(i32, %dx.types.LinAlgMatrixC4M5N4U0S2, float addrspace(3)*, i32, i32, i32) #0
+
+; Function Attrs: nounwind
+declare %dx.types.LinAlgMatrixC4M5N4U0S2 @dx.op.linAlgMatrixLoadFromMemory.mC4M5N4U0S2.f32(i32, float addrspace(3)*, i32, i32, i32) #0
 
 ; Function Attrs: nounwind readnone
 declare %dx.types.Handle @dx.op.annotateHandle(i32, %dx.types.Handle, %dx.types.ResourceProperties) #1
