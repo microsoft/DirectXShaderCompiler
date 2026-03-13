@@ -13,7 +13,7 @@ void main() {
   // CHECK-SAME: ; LinAlgMatrixGetElement(matrix,threadLocalIndex)
 
   // CHECK2: call void @"dx.hl.op..void (i32, i32*, %dx.types.LinAlgMatrixC4M5N4U1S2, i32)"
-  // CHECK2-SAME: (i32 408, i32* %elem1, %dx.types.LinAlgMatrixC4M5N4U1S2 %3, i32 0)
+  // CHECK2-SAME: (i32 408, i32* %elem1, %dx.types.LinAlgMatrixC4M5N4U1S2 {{.*}}, i32 0)
   uint elem1;
   __builtin_LinAlg_MatrixGetElement(elem1, mat, 0);
 

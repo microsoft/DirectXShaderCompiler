@@ -15,6 +15,6 @@ void main() {
   // CHECK-SAME: float 3.000000e+00, float 4.000000e+00>, i32 1)  ; LinAlgMatVecMul(matrix,inputVector,interpretation)
 
   // CHECK2: call void @"dx.hl.op..void (i32, <4 x float>*, %dx.types.LinAlgMatrixC4M5N4U1S2, <4 x float>, i32)
-  // CHECK2-SAME: "(i32 422, <4 x float>* %result, %dx.types.LinAlgMatrixC4M5N4U1S2 %5, <4 x float> %3, i32 1)
+  // CHECK2-SAME: "(i32 422, <4 x float>* %result, %dx.types.LinAlgMatrixC4M5N4U1S2 {{.*}}, <4 x float> {{.*}}, i32 1)
   __builtin_LinAlg_MatrixVectorMultiply(result, mat, vec, 1);
 }
