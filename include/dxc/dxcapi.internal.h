@@ -12,7 +12,7 @@
 #ifndef __DXC_API_INTERNAL__
 #define __DXC_API_INTERNAL__
 
-#include "dxcapi.h"
+#include "dxc/dxcapi.h"
 
 ///////////////////////////////////////////////////////////////////////////////
 // Forward declarations.

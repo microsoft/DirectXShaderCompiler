@@ -12,7 +12,7 @@
 #ifndef __DXC_ISENSE__
 #define __DXC_ISENSE__
 
-#include "dxcapi.h"
+#include "dxc/dxcapi.h"
 #ifndef _WIN32
 #include "WinAdapter.h"
 #endif

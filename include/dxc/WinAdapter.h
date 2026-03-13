@@ -15,7 +15,7 @@
 #ifndef LLVM_SUPPORT_WIN_ADAPTER_H
 #define LLVM_SUPPORT_WIN_ADAPTER_H
 
-#ifndef _WIN32
+#ifndef _MSC_VER
 
 #ifdef __cplusplus
 #include <atomic>
@@ -32,6 +32,148 @@
 #include <typeinfo>
 #include <vector>
 #endif // __cplusplus
+
+#ifdef __MINGW32__
+
+#undef _WIN32_WINNT
+#undef _WIN32_IE
+
+// Require at least Windows 7 (Updated from XP)
+#define _WIN32_WINNT 0x0601
+#define _WIN32_IE 0x0800
+
+#define WIN32_LEAN_AND_MEAN
+#define STRSAFE_NO_DEPRECATE
+
+#include <intsafe.h>
+#include <objidl.h>
+#include <sal.h>
+#include <strsafe.h>
+#include <unknwn.h>
+#include <windows.h>
+
+#undef EN
+#undef IN
+#undef OUT
+
+#ifdef MemoryFence
+#undef MemoryFence
+#endif
+
+#define EventRegisterMicrosoft_Windows_DXCompiler_API()
+#define EventRegisterMicrosoft_Windows_DxcRuntime_API()
+#define EventUnregisterMicrosoft_Windows_DXCompiler_API()
+#define EventUnregisterMicrosoft_Windows_DxcRuntime_API()
+
+#define DxcEtw_DXCompilerCompile_Start()
+#define DxcEtw_DXCompilerCompile_Stop(hr)
+#define DxcEtw_DXCompilerCreateInstance_Start()
+#define DxcEtw_DXCompilerCreateInstance_Stop(hr)
+#define DxcEtw_DXCompilerDisassemble_Start()
+#define DxcEtw_DXCompilerDisassemble_Stop(hr)
+#define DxcEtw_DXCompilerInitialization_Start()
+#define DxcEtw_DXCompilerInitialization_Stop(hr)
+#define DxcEtw_DXCompilerPreprocess_Start()
+#define DxcEtw_DXCompilerPreprocess_Stop(hr)
+#define DxcEtw_DXCompilerShutdown_Start()
+#define DxcEtw_DXCompilerShutdown_Stop(hr)
+#define DxcEtw_DxcValidation_Start()
+#define DxcEtw_DxcValidation_Stop(hr)
+#define DxcRuntimeEtw_DxcRuntimeInitialization_Start()
+#define DxcRuntimeEtw_DxcRuntimeInitialization_Stop(HR)
+#define DxcRuntimeEtw_DxcRuntimeShutdown_Start()
+#define DxcRuntimeEtw_DxcRuntimeShutdown_Stop(S_OK)
+
+#define ATLASSERT assert
+#define ATLASSUME(expr)                                                        \
+  do {                                                                         \
+    ATLASSERT(expr);                                                           \
+    __analysis_assume(!!(expr));                                               \
+  } while (0)
+#define ATLENSURE_THROW(expr, hr)                                              \
+  do {                                                                         \
+    int __atl_condVal = !!(expr);                                              \
+    ATLASSUME(__atl_condVal);                                                  \
+    if (!(__atl_condVal))                                                      \
+      throw(hr);                                                               \
+  } while (0)
+
+// Disable all calling conventions
+#define __cdecl
+#define __stdcall
+#define __vectorcall
+#define __thiscall
+#define __fastcall
+#define __clrcall
+
+// FIXME: missing from intsafe.h
+#define Int32ToUInt32 IntToUInt
+#define UInt32Add UIntAdd
+#define UInt32Mult UIntMult
+
+// FIXME: missing from sal.h
+#define _Maybenull_
+#define _Notnull_
+
+// FIXME: missing from d3d12shader.h
+#define D3D_SHADER_REQUIRES_EARLY_DEPTH_STENCIL 0x00000002
+#define D3D12_SHVER_GET_TYPE(_Version) (((_Version) >> 16) & 0xffff)
+#define D3D12_SHVER_GET_MAJOR(_Version) (((_Version) >> 4) & 0xf)
+#define D3D12_SHVER_GET_MINOR(_Version) (((_Version) >> 0) & 0xf)
+
+#ifdef __cplusplus
+
+constexpr uint8_t nybble_from_hex(char c) {
+  return ((c >= '0' && c <= '9')
+              ? (c - '0')
+              : ((c >= 'a' && c <= 'f')
+                     ? (c - 'a' + 10)
+                     : ((c >= 'A' && c <= 'F') ? (c - 'A' + 10)
+                                               : /* Should be an error */ -1)));
+}
+
+constexpr uint8_t byte_from_hex(char c1, char c2) {
+  return nybble_from_hex(c1) << 4 | nybble_from_hex(c2);
+}
+
+constexpr uint8_t byte_from_hexstr(const char str[2]) {
+  return nybble_from_hex(str[0]) << 4 | nybble_from_hex(str[1]);
+}
+
+constexpr GUID guid_from_string(const char str[37]) {
+  return GUID{static_cast<uint32_t>(byte_from_hexstr(str)) << 24 |
+                  static_cast<uint32_t>(byte_from_hexstr(str + 2)) << 16 |
+                  static_cast<uint32_t>(byte_from_hexstr(str + 4)) << 8 |
+                  byte_from_hexstr(str + 6),
+              static_cast<uint16_t>(
+                  static_cast<uint16_t>(byte_from_hexstr(str + 9)) << 8 |
+                  byte_from_hexstr(str + 11)),
+              static_cast<uint16_t>(
+                  static_cast<uint16_t>(byte_from_hexstr(str + 14)) << 8 |
+                  byte_from_hexstr(str + 16)),
+              {byte_from_hexstr(str + 19), byte_from_hexstr(str + 21),
+               byte_from_hexstr(str + 24), byte_from_hexstr(str + 26),
+               byte_from_hexstr(str + 28), byte_from_hexstr(str + 30),
+               byte_from_hexstr(str + 32), byte_from_hexstr(str + 34)}};
+}
+
+#define CROSS_PLATFORM_UUIDOF(name, spec)                                      \
+  struct __declspec(uuid(spec)) name;                                          \
+  extern "C++" {                                                               \
+  template <> struct __mingw_uuidof_s<name> {                                  \
+    static constexpr IID __uuid_inst = guid_from_string(spec);                 \
+  };                                                                           \
+  template <> constexpr const GUID &__mingw_uuidof<name>() {                   \
+    return __mingw_uuidof_s<name>::__uuid_inst;                                \
+  }                                                                            \
+  template <> constexpr const GUID &__mingw_uuidof<name *>() {                 \
+    return __mingw_uuidof_s<name>::__uuid_inst;                                \
+  }                                                                            \
+  }
+
+#endif // __cplusplus
+
+#else // !__MINGW32__
 
 #define COM_NO_WINDOWS_H // needed to inform d3d headers that this isn't windows
 
@@ -631,6 +773,12 @@ CROSS_PLATFORM_UUIDOF(ID3D12LibraryReflection,
 CROSS_PLATFORM_UUIDOF(ID3D12ShaderReflection,
                       "5A58797D-A72C-478D-8BA2-EFC6B0EFE88E")
 
+#endif // __cplusplus
+
+#endif // !__MINGW32__
+
+#ifdef __cplusplus
+
 //===--------------------- COM Pointer Types ------------------------------===//
 
 class CAllocator {
@@ -898,6 +1046,7 @@ public:
 
 #define CComHeapPtr CHeapPtr
 
+#ifndef __MINGW32__
 //===--------------------------- BSTR Allocation --------------------------===//
 
 void SysFreeString(BSTR bstrString);
@@ -999,6 +1148,145 @@ public:
 
 typedef CA2WEX<> CA2W;
 
+#else // __MINGW32__
+
+inline UINT WINAPI _AtlGetConversionACP() { return CP_THREAD_ACP; }
+
+template <class _CharType>
+inline void AtlConvAllocMemory(_CharType **ppBuff, int nLength,
+                               _CharType *pszFixedBuffer,
+                               int nFixedBufferLength) {
+  ATLENSURE_THROW(ppBuff != NULL, E_INVALIDARG);
+  ATLENSURE_THROW(nLength >= 0, E_INVALIDARG);
+  ATLENSURE_THROW(pszFixedBuffer != NULL, E_INVALIDARG);
+
+  if (*ppBuff != pszFixedBuffer) {
+    if (nLength > nFixedBufferLength) {
+#if __MSVCRT_VERSION__ >= 0x900
+      _CharType *ppReallocBuf = static_cast<_CharType *>(
+          _recalloc(*ppBuff, nLength, sizeof(_CharType)));
+      if (ppReallocBuf == NULL) {
+        E_OUTOFMEMORY;
+      }
+      *ppBuff = ppReallocBuf;
+    } else {
+#endif
+      free(*ppBuff);
+      *ppBuff = pszFixedBuffer;
+    }
+
+  } else {
+    if (nLength > nFixedBufferLength) {
+      *ppBuff = static_cast<_CharType *>(calloc(nLength, sizeof(_CharType)));
+    } else {
+      *ppBuff = pszFixedBuffer;
+    }
+  }
+
+  if (*ppBuff == NULL) {
+    E_OUTOFMEMORY;
+  }
+}
+
+template <class _CharType>
+inline void AtlConvFreeMemory(_CharType *pBuff, _CharType *pszFixedBuffer,
+                              int nFixedBufferLength) {
+  if (pBuff != pszFixedBuffer) {
+    free(pBuff);
+  }
+}
+
+template <int t_nBufferLength = 128> class CW2AEX {
+public:
+  CW2AEX(LPCWSTR psz) : m_psz(m_szBuffer) { Init(psz, _AtlGetConversionACP()); }
+  CW2AEX(LPCWSTR psz, UINT nCodePage) : m_psz(m_szBuffer) {
+    Init(psz, nCodePage);
+  }
+  ~CW2AEX() { AtlConvFreeMemory(m_psz, m_szBuffer, t_nBufferLength); }
+
+  operator LPSTR() const { return (m_psz); }
+
+private:
+  void Init(LPCWSTR psz, UINT nConvertCodePage) {
+    if (psz == NULL) {
+      m_psz = NULL;
+      return;
+    }
+    int nLengthW = lstrlenW(psz) + 1;
+    int nLengthA = nLengthW * 4;
+
+    AtlConvAllocMemory(&m_psz, nLengthA, m_szBuffer, t_nBufferLength);
+
+    BOOL bFailed =
+        (0 == ::WideCharToMultiByte(nConvertCodePage, 0, psz, nLengthW, m_psz,
+                                    nLengthA, NULL, NULL));
+    if (bFailed) {
+      if (GetLastError() == ERROR_INSUFFICIENT_BUFFER) {
+        nLengthA = ::WideCharToMultiByte(nConvertCodePage, 0, psz, nLengthW,
+                                         NULL, 0, NULL, NULL);
+        AtlConvAllocMemory(&m_psz, nLengthA, m_szBuffer, t_nBufferLength);
+        bFailed =
+            (0 == ::WideCharToMultiByte(nConvertCodePage, 0, psz, nLengthW,
+                                        m_psz, nLengthA, NULL, NULL));
+      }
+    }
+  }
+
+public:
+  LPSTR m_psz;
+  char m_szBuffer[t_nBufferLength];
+
+private:
+  CW2AEX(const CW2AEX &);
+  CW2AEX &operator=(const CW2AEX &);
+};
+typedef CW2AEX<> CW2A;
+
+template <int t_nBufferLength = 128> class CA2WEX {
+public:
+  CA2WEX(LPCSTR psz) : m_psz(m_szBuffer) { Init(psz, _AtlGetConversionACP()); }
+  CA2WEX(LPCSTR psz, UINT nCodePage) : m_psz(m_szBuffer) {
+    Init(psz, nCodePage);
+  }
+  ~CA2WEX() { AtlConvFreeMemory(m_psz, m_szBuffer, t_nBufferLength); }
+
+  operator LPWSTR() const { return (m_psz); }
+
+private:
+  void Init(LPCSTR psz, UINT nCodePage) {
+    if (psz == NULL) {
+      m_psz = NULL;
+      return;
+    }
+    int nLengthA = lstrlenA(psz) + 1;
+    int nLengthW = nLengthA;
+
+    AtlConvAllocMemory(&m_psz, nLengthW, m_szBuffer, t_nBufferLength);
+
+    BOOL bFailed = (0 == ::MultiByteToWideChar(nCodePage, 0, psz, nLengthA,
+                                               m_psz, nLengthW));
+    if (bFailed) {
+      if (GetLastError() == ERROR_INSUFFICIENT_BUFFER) {
+        nLengthW = ::MultiByteToWideChar(nCodePage, 0, psz, nLengthA, NULL, 0);
+        AtlConvAllocMemory(&m_psz, nLengthW, m_szBuffer, t_nBufferLength);
+        bFailed = (0 == ::MultiByteToWideChar(nCodePage, 0, psz, nLengthA,
+                                              m_psz, nLengthW));
+      }
+    }
+  }
+
+public:
+  LPWSTR m_psz;
+  wchar_t m_szBuffer[t_nBufferLength];
+
+private:
+  CA2WEX(const CA2WEX &);
+  CA2WEX &operator=(const CA2WEX &);
+};
+typedef CA2WEX<> CA2W;
+
+#endif // __MINGW32__
+
 //===--------- File IO Related Types ----------------===//
 
 class CHandle {
@@ -1051,6 +1339,6 @@ public:
 
 #endif // __cplusplus
 
-#endif // _WIN32
+#endif // _MSC_VER
 
 #endif // LLVM_SUPPORT_WIN_ADAPTER_H

@@ -11,7 +11,7 @@
 
 #include "dxc/Support/WinIncludes.h"
 
-#ifdef _WIN32
+#ifdef _MSC_VER
 #define DXC_API_IMPORT __declspec(dllexport)
 #else
 #define DXC_API_IMPORT __attribute__((visibility("default")))
@@ -21,7 +21,7 @@
 #include "dxc/config.h"
 #include "dxc/dxcisense.h"
 #include "dxc/dxctools.h"
-#ifdef _WIN32
+#ifdef _MSC_VER
 #include "dxcetw.h"
 #endif
 #include "dxc/DxilContainer/DxcContainerBuilder.h"
@@ -96,7 +96,7 @@ static HRESULT ThreadMallocDxcCreateInstance(REFCLSID rclsid, REFIID riid,
     hr = CreateDxcLinker(riid, ppv);
   }
 // Note: The following targets are not yet enabled for non-Windows platforms.
-#ifdef _WIN32
+#ifdef _MSC_VER
   else if (IsEqualCLSID(rclsid, CLSID_DxcDiaDataSource)) {
     hr = CreateDxcDiaDataSource(riid, ppv);
   }

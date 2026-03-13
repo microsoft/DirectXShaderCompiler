@@ -10,7 +10,7 @@
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
-#ifdef _WIN32
+#ifdef _MSC_VER
 #define DXC_API_IMPORT
 #else
 #define DXC_API_IMPORT __attribute__((visibility("default")))
@@ -22,7 +22,7 @@
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/ManagedStatic.h"
 #include <algorithm>
-#ifdef _WIN32
+#ifdef _MSC_VER
 #include "Tracing/DxcRuntimeEtw.h"
 #include "dxc/Tracing/dxcetw.h"
 #endif
