@@ -23,7 +23,7 @@ export vector<float, 8> Test2(vector<uint, 6> Input) {
       Buf, 0, 0};
 
   // note the stride argument is dropped.
-  // CHECK: %{{.+}} = call <8 x float> @dx.op.matVecMul.v8f32.v6i32(i32 305, <6 x i32> %{{.+}}, i1 true, i32 18, %dx.types.Handle %{{.+}}, i32 0, i32 19, i32 8, i32 24, i32 2, i1 false, i32 0, i1 false)
+  // CHECK: %{{.+}} = call <8 x float> @dx.op.matVecMul.v8f32.v6i32(i32 305, <6 x i32> %{{.+}}, i1 true, i32 18, %dx.types.Handle %{{.+}}, i32 0, i32 20, i32 8, i32 24, i32 2, i1 false, i32 0, i1 false)
   return Mul<float>(Matrix,
                     MakeInterpretedVector<DATA_TYPE_UINT8_T4_PACKED>(Input));
 }
@@ -35,7 +35,7 @@ export vector<float, 8> Test3(vector<uint, 6> Input) {
   MatrixRef<DATA_TYPE_UINT8, 8, 6 * 4, MATRIX_LAYOUT_ROW_MAJOR> Matrix = {
       Buf, 0, 6 * 4 * 8};
 
-  // CHECK: %{{.+}} = call <8 x float> @dx.op.matVecMul.v8f32.v6i32(i32 305, <6 x i32> %{{.+}}, i1 true, i32 18, %dx.types.Handle %{{.+}}, i32 0, i32 19, i32 8, i32 24, i32 0, i1 false, i32 192, i1 false)
+  // CHECK: %{{.+}} = call <8 x float> @dx.op.matVecMul.v8f32.v6i32(i32 305, <6 x i32> %{{.+}}, i1 true, i32 18, %dx.types.Handle %{{.+}}, i32 0, i32 20, i32 8, i32 24, i32 0, i1 false, i32 192, i1 false)
   return Mul<float>(Matrix,
                     MakeInterpretedVector<DATA_TYPE_UINT8_T4_PACKED>(Input));
 }
@@ -47,7 +47,7 @@ export vector<uint16_t, 8> Test4(vector<uint, 6> Input) {
   MatrixRef<DATA_TYPE_UINT8, 8, 6 * 4, MATRIX_LAYOUT_ROW_MAJOR> Matrix = {
       Buf, 0, 6 * 4 * 8};
 
-  // CHECK: %{{.+}} = call <8 x i16> @dx.op.matVecMul.v8i16.v6i32(i32 305, <6 x i32> %{{.+}}, i1 true, i32 18, %dx.types.Handle %{{.+}}, i32 0, i32 19, i32 8, i32 24, i32 0, i1 false, i32 192, i1 true)
+  // CHECK: %{{.+}} = call <8 x i16> @dx.op.matVecMul.v8i16.v6i32(i32 305, <6 x i32> %{{.+}}, i1 true, i32 18, %dx.types.Handle %{{.+}}, i32 0, i32 20, i32 8, i32 24, i32 0, i1 false, i32 192, i1 true)
   return Mul<uint16_t>(Matrix,
                     MakeInterpretedVector<DATA_TYPE_UINT8_T4_PACKED>(Input));  
 
@@ -60,7 +60,7 @@ export vector<uint, 8> Test5(vector<uint, 6> Input) {
   MatrixRef<DATA_TYPE_UINT8, 8, 6 * 4, MATRIX_LAYOUT_ROW_MAJOR> Matrix = {
       Buf, 0, 6 * 4 * 8};
 
-  // CHECK: %{{.+}} = call <8 x i32> @dx.op.matVecMul.v8i32.v6i32(i32 305, <6 x i32> %{{.+}}, i1 true, i32 18, %dx.types.Handle %{{.+}}, i32 0, i32 19, i32 8, i32 24, i32 0, i1 false, i32 192, i1 true)
+  // CHECK: %{{.+}} = call <8 x i32> @dx.op.matVecMul.v8i32.v6i32(i32 305, <6 x i32> %{{.+}}, i1 true, i32 18, %dx.types.Handle %{{.+}}, i32 0, i32 20, i32 8, i32 24, i32 0, i1 false, i32 192, i1 true)
   return Mul<uint>(Matrix,
                     MakeInterpretedVector<DATA_TYPE_UINT8_T4_PACKED>(Input));  
 
@@ -73,7 +73,7 @@ export vector<uint, 8> Test5(vector<uint8_t4_packed, 6> Input) {
   MatrixRef<DATA_TYPE_UINT8, 8, 6 * 4, MATRIX_LAYOUT_ROW_MAJOR> Matrix = {
       Buf, 0, 6 * 4 * 8};
 
-  // CHECK: %{{.+}} = call <8 x i32> @dx.op.matVecMul.v8i32.v6i32(i32 305, <6 x i32> %{{.+}}, i1 true, i32 18, %dx.types.Handle %{{.+}}, i32 0, i32 19, i32 8, i32 24, i32 0, i1 false, i32 192, i1 true)
+  // CHECK: %{{.+}} = call <8 x i32> @dx.op.matVecMul.v8i32.v6i32(i32 305, <6 x i32> %{{.+}}, i1 true, i32 18, %dx.types.Handle %{{.+}}, i32 0, i32 20, i32 8, i32 24, i32 0, i1 false, i32 192, i1 true)
   return Mul<uint>(Matrix,
                     MakeInterpretedVector<DATA_TYPE_UINT8_T4_PACKED>(Input));  
 
@@ -86,7 +86,7 @@ export vector<uint, 8> Test5(vector<int8_t4_packed, 6> Input) {
   MatrixRef<DATA_TYPE_UINT8, 8, 6 * 4, MATRIX_LAYOUT_ROW_MAJOR> Matrix = {
       Buf, 0, 6 * 4 * 8};
 
-  // CHECK: %{{.+}} = call <8 x i32> @dx.op.matVecMul.v8i32.v6i32(i32 305, <6 x i32> %{{.+}}, i1 true, i32 17, %dx.types.Handle %{{.+}}, i32 0, i32 19, i32 8, i32 24, i32 0, i1 false, i32 192, i1 true)
+  // CHECK: %{{.+}} = call <8 x i32> @dx.op.matVecMul.v8i32.v6i32(i32 305, <6 x i32> %{{.+}}, i1 true, i32 17, %dx.types.Handle %{{.+}}, i32 0, i32 20, i32 8, i32 24, i32 0, i1 false, i32 192, i1 true)
   return Mul<uint>(Matrix,
                     MakeInterpretedVector<DATA_TYPE_SINT8_T4_PACKED>(Input));  
 
