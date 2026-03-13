@@ -399,6 +399,60 @@ LangStd parseHLSLVersion(llvm::StringRef Ver) {
       .Case("202x", hlsl::LangStd::v202x)
       .Default(hlsl::LangStd::vError);
 }
+
+// Returns the preprocess output filename based on /P or /Po flags,
+// or empty string if neither is set.
+static std::string getPreprocessOutput(InputArgList &Args,
+                                       llvm::raw_ostream &Errors) {
+  if (Args.hasFlag(OPT_P, OPT_INVALID, false)) {
+    // cl.exe-compatible /P: preprocess to <inputname>.i, or use /Fi to
+    // override.
+    llvm::SmallString<128> Path(Args.getLastArgValue(OPT_INPUT));
+    llvm::sys::path::replace_extension(Path, "i");
+    return Args.getLastArgValue(OPT_Fi, Path).str();
+  }
+
+  if (!Args.hasFlag(OPT_Po, OPT_INVALID, false))
+    return "";
+
+  // /Po: backward-compatible preprocessing (deprecated, use /P instead).
+  // Default preprocess filename is InputName.i.
+  llvm::SmallString<128> Path(Args.getLastArgValue(OPT_INPUT));
+  llvm::sys::path::replace_extension(Path, "i");
+  // Try to get preprocess filename from Fi.
+  std::string Result = Args.getLastArgValue(OPT_Fi, Path).str();
+
+  // Hack to support fxc style /Po preprocess_filename.
+  // When there're more than 1 Input file, use the input which is after /Po
+  // as preprocess.
+  if (!Args.hasArg(OPT_Fi)) {
+    std::vector<std::string> Inputs = Args.getAllArgValues(OPT_INPUT);
+    if (Inputs.size() > 1) {
+      llvm::opt::Arg *PoArg = Args.getLastArg(OPT_Po);
+      std::string LastInput = Inputs.back();
+      llvm::opt::Arg *PrevInputArg = nullptr;
+      for (llvm::opt::Arg *InputArg : Args.filtered(OPT_INPUT)) {
+        // Find Input after /Po.
+        if ((PoArg->getIndex() + 1) == InputArg->getIndex()) {
+          Result = InputArg->getValue();
+          if (LastInput == Result && PrevInputArg) {
+            // When InputArg is last Input, update it to other Input so
+            // Args.getLastArgValue(OPT_INPUT) get expect Input.
+            InputArg->getValues()[0] = PrevInputArg->getValues()[0];
+          }
+          break;
+        }
+        PrevInputArg = InputArg;
+      }
+    }
+  }
+  Errors << "warning: /Po is deprecated, please use /P";
+  if (!Result.empty() && Result != Path.str())
+    Errors << " /Fi " << Result;
+  Errors << " instead.\n";
+  return Result;
+}
+
 namespace options {
 
 /// Reads all options from the given argument strings, populates opts, and
@@ -583,40 +637,7 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   opts.UseInstructionNumbers = Args.hasFlag(OPT_Ni, OPT_INVALID, false);
   opts.UseInstructionByteOffsets = Args.hasFlag(OPT_No, OPT_INVALID, false);
   opts.UseHexLiterals = Args.hasFlag(OPT_Lx, OPT_INVALID, false);
-  if (Args.hasFlag(OPT_P, OPT_INVALID, false)) {
-    // Default preprocess filename is InputName.i.
-    llvm::SmallString<128> Path(Args.getLastArgValue(OPT_INPUT));
-    llvm::sys::path::replace_extension(Path, "i");
-    // Try to get preprocess filename from Fi.
-    opts.Preprocess = Args.getLastArgValue(OPT_Fi, Path).str();
-    // Hack to support fxc style /P preprocess_filename.
-    // When there're more than 1 Input file, use the input which is after /P as
-    // preprocess.
-    if (!Args.hasArg(OPT_Fi)) {
-      std::vector<std::string> Inputs = Args.getAllArgValues(OPT_INPUT);
-      if (Inputs.size() > 1) {
-        llvm::opt::Arg *PArg = Args.getLastArg(OPT_P);
-        std::string LastInput = Inputs.back();
-        llvm::opt::Arg *PrevInputArg = nullptr;
-        for (llvm::opt::Arg *InputArg : Args.filtered(OPT_INPUT)) {
-          // Find Input after /P.
-          if ((PArg->getIndex() + 1) == InputArg->getIndex()) {
-            opts.Preprocess = InputArg->getValue();
-            if (LastInput == opts.Preprocess && PrevInputArg) {
-              // When InputArg is last Input, update it to other Input so
-              // Args.getLastArgValue(OPT_INPUT) get expect Input.
-              InputArg->getValues()[0] = PrevInputArg->getValues()[0];
-            }
-            errors << "warning: -P " << opts.Preprocess
-                   << " is deprecated, please use -P -Fi " << opts.Preprocess
-                   << " instead.\n";
-            break;
-          }
-          PrevInputArg = InputArg;
-        }
-      }
-    }
-  }
+  opts.Preprocess = getPreprocessOutput(Args, errors);
   opts.AstDumpImplicit =
       Args.hasFlag(OPT_ast_dump_implicit, OPT_INVALID, false);
   // -ast-dump-implicit should imply -ast-dump.
