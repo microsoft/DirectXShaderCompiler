@@ -103,6 +103,16 @@ if(NOT CMAKE_VERSION VERSION_LESS "3.13" AND MSVC AND NOT CMAKE_C_COMPILER_ARCHI
   add_link_options(/DEBUGTYPE:CV,FIXUP,PDATA /INCREMENTAL:NO)
 endif()
 
+if(MSVC)
+  # use new Standard Conforming Preprocessor
+  # https://learn.microsoft.com/en-us/cpp/preprocessor/preprocessor-experimental-overview?view=msvc-170
+  # TODO: update sources for all targets to compile (we checked "dxcompiler" only)
+  option(LLVM_BUILD_WITH_NEW_MSVC_PREPROCESSOR "Enable MSVC new Standard Conforming Preprocessor" OFF) 
+  if(LLVM_BUILD_WITH_NEW_MSVC_PREPROCESSOR)
+    add_compile_options(/Zc:preprocessor)
+  endif()
+endif()
+
 # enable control flow guard
 if(WIN32)
   if(MSVC)
