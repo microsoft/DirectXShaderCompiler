@@ -60,6 +60,11 @@ OPTIONS
   -verify``. With this option FileCheck will verify that input does not contain
   warnings not covered by any ``CHECK:`` patterns.
 
+.. option:: -D<VAR=VALUE>
+
+  Sets a filecheck variable ``VAR`` with value ``VALUE`` that can be used in
+  ``CHECK:`` lines.
+
 .. option:: -version
 
  Show the version number of this program.
