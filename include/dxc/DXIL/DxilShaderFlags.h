@@ -220,6 +220,13 @@ public:
   bool GetRequiresGroup() const { return m_bRequiresGroup; }
 
 private:
+  // Each of the shader flags are defined below within a bitfield to form the
+  // shader flag bitmask of a DXIL module.
+  // These shader flags are also used to set Shader Feature Info flags via the
+  // function ShaderFlags::GetFeatureInfo().
+  // For DXBC, these shader flags are also used to set Global Flags via the
+  // function ShaderFlags::GetGlobalFlags().
+
   // Bit: 0
   unsigned
       m_bDisableOptimizations : 1; // D3D11_1_SB_GLOBAL_FLAG_SKIP_OPTIMIZATION
@@ -227,6 +234,7 @@ private:
       m_bDisableMathRefactoring : 1; //~D3D10_SB_GLOBAL_FLAG_REFACTORING_ALLOWED
   unsigned
       m_bEnableDoublePrecision : 1; // D3D11_SB_GLOBAL_FLAG_ENABLE_DOUBLE_PRECISION_FLOAT_OPS
+                                    // SHADER_FEATURE_DOUBLES
   unsigned
       m_bForceEarlyDepthStencil : 1; // D3D11_SB_GLOBAL_FLAG_FORCE_EARLY_DEPTH_STENCIL
 
@@ -234,10 +242,14 @@ private:
   unsigned
       m_bEnableRawAndStructuredBuffers : 1; // D3D11_SB_GLOBAL_FLAG_ENABLE_RAW_AND_STRUCTURED_BUFFERS
   unsigned
-      m_bLowPrecisionPresent : 1; // D3D11_1_SB_GLOBAL_FLAG_ENABLE_MINIMUM_PRECISION
+      m_bLowPrecisionPresent : 1; // AND ~m_bUseNativeLowPrecision => D3D11_1_SB_GLOBAL_FLAG_ENABLE_MINIMUM_PRECISION
+                                  // AND ~m_bUseNativeLowPrecision => SHADER_FEATURE_MINIMUM_PRECISION
+                                  // AND m_bUseNativeLowPrecision => SHADER_FEATURE_NATIVE_LOW_PRECISION
   unsigned
       m_bEnableDoubleExtensions : 1; // D3D11_1_SB_GLOBAL_FLAG_ENABLE_DOUBLE_EXTENSIONS
+                                     // SHADER_FEATURE_11_1_DOUBLE_EXTENSIONS
   unsigned m_bEnableMSAD : 1; // D3D11_1_SB_GLOBAL_FLAG_ENABLE_SHADER_EXTENSIONS
+                              // SHADER_FEATURE_11_1_SHADER_EXTENSIONS
 
   // Bit: 8
   unsigned m_bAllResourcesBound : 1; // D3D12_SB_GLOBAL_FLAG_ALL_RESOURCES_BOUND
@@ -253,8 +265,6 @@ private:
       m_bUAVLoadAdditionalFormats : 1; // SHADER_FEATURE_TYPED_UAV_LOAD_ADDITIONAL_FORMATS
   unsigned
       m_bLevel9ComparisonFiltering : 1; // SHADER_FEATURE_LEVEL_9_COMPARISON_FILTERING
-                                        // SHADER_FEATURE_11_1_SHADER_EXTENSIONS
-                                        // shared with EnableMSAD
   unsigned m_b64UAVs : 1;          // SHADER_FEATURE_64_UAVS
 
   // Bit: 16
@@ -277,7 +287,7 @@ private:
   unsigned m_bBarycentrics : 1; // SHADER_FEATURE_BARYCENTRICS
 
   // SM 6.2+
-  unsigned m_bUseNativeLowPrecision : 1;
+  unsigned m_bUseNativeLowPrecision : 1; // see m_bLowPrecisionPresent for uses
 
   // SM 6.4+
   // Bit: 24
