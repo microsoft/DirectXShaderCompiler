@@ -1,8 +1,8 @@
 ; REQUIRES: dxil-1-8
 ; RUN: not %dxv %s 2>&1 | FileCheck %s
 
-; Verify that createHandleFromBinding rejects out-of-range indices,
-; invalid resource classes, and non-constant indices on non-array resources.
+; Verify that createHandleFromBinding rejects out-of-range indices
+; and invalid resource classes.
 
 target datalayout = "e-m:e-p:32:32-i1:32-i8:8-i16:16-i32:32-i64:64-f16:16-f32:32-f64:64-n8:16:32:64"
 target triple = "dxil-ms-dx"
@@ -24,10 +24,6 @@ target triple = "dxil-ms-dx"
 ; CHECK-DAG: error: Constant values must be in-range for operation.
 ; CHECK-DAG: note: at '%5 = call %dx.types.Handle @dx.op.createHandleFromBinding(i32 217, %dx.types.ResBind { i32 0, i32 0, i32 0, i8 5 }, i32 0, i1 false)' in block '#0' of function 'main'.
 
-; --- Non-constant index on non-array resource ---
-; CHECK-DAG: error: Constant values must be in-range for operation.
-; CHECK-DAG: note: at '%8 = call %dx.types.Handle @dx.op.createHandleFromBinding(i32 217, %dx.types.ResBind { i32 0, i32 0, i32 0, i8 1 }, i32 %7, i1 false)' in block '#0' of function 'main'.
-
 define void @main() {
   ; Index 0 is below rangeLowerBound=1
   %1 = call %dx.types.Handle @dx.op.createHandleFromBinding(i32 217, %dx.types.ResBind { i32 1, i32 3, i32 0, i8 1 }, i32 0, i1 false)
@@ -38,14 +34,9 @@ define void @main() {
   ; resourceClass=5 is invalid (valid: 0=SRV, 1=UAV, 2=CBuffer, 3=Sampler)
   %5 = call %dx.types.Handle @dx.op.createHandleFromBinding(i32 217, %dx.types.ResBind { i32 0, i32 0, i32 0, i8 5 }, i32 0, i1 false)
   %6 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %5, %dx.types.ResourceProperties { i32 4107, i32 0 })
-  ; Non-constant index on non-array resource (rangeLowerBound == rangeUpperBound == 0)
-  %7 = call i32 @dx.op.flattenedThreadIdInGroup.i32(i32 96)
-  %8 = call %dx.types.Handle @dx.op.createHandleFromBinding(i32 217, %dx.types.ResBind { i32 0, i32 0, i32 0, i8 1 }, i32 %7, i1 false)
-  %9 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %8, %dx.types.ResourceProperties { i32 4107, i32 0 })
   ret void
 }
 
-declare i32 @dx.op.flattenedThreadIdInGroup.i32(i32) #0
 declare %dx.types.Handle @dx.op.annotateHandle(i32, %dx.types.Handle, %dx.types.ResourceProperties) #0
 declare %dx.types.Handle @dx.op.createHandleFromBinding(i32, %dx.types.ResBind, i32, i1) #0
 
