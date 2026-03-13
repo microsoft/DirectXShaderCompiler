@@ -1,6 +1,7 @@
 // RUN: %dxc -T cs_6_9 -E main %s -verify
 
 RWByteAddressBuffer buf;
+groupshared float SharedArr[64];
 
 [numthreads(4,1,1)]
 void main() {
@@ -59,5 +60,12 @@ void main() {
   // expected-error@+1{{intrinsic __builtin_LinAlg_MatrixVectorMultiplyAdd potentially used by ''main'' requires shader model 6.10 or greater}}
   __builtin_LinAlg_MatrixVectorMultiplyAdd(result, mat, vec1, 1, vec2, 0);
 
-  // FIXME: add remaining 3 ops
+  // expected-error@+1{{intrinsic __builtin_LinAlg_MatrixAccumulateToMemory potentially used by ''main'' requires shader model 6.10 or greater}}
+  __builtin_LinAlg_MatrixAccumulateToMemory(mat, SharedArr, 0, 0, 0);
+
+  // expected-error@+1{{intrinsic __builtin_LinAlg_MatrixLoadFromMemory potentially used by ''main'' requires shader model 6.10 or greater}}
+  __builtin_LinAlg_MatrixLoadFromMemory(mat, SharedArr, 0, 0, 0);
+
+  // expected-error@+1{{intrinsic __builtin_LinAlg_MatrixStoreToMemory potentially used by ''main'' requires shader model 6.10 or greater}}
+  __builtin_LinAlg_MatrixStoreToMemory(mat, SharedArr, 0, 0, 0);
 }
