@@ -397,7 +397,6 @@ void [[min_sm=6.10]] __builtin_VectorAccumulate(in LinAlg<c> InputVector, in RWB
 
 // LinAlg intrinsics
 
-// TODO: Replace all int GroupSharedMem with groupshared memory
 void [[min_sm=6.10]] __builtin_LinAlg_FillMatrix(out LinAlgMatrix ret, in numeric value);
 void [[min_sm=6.10]] __builtin_LinAlg_CopyConvertMatrix(out LinAlgMatrix ret, in LinAlgMatrix source, in bool transpose);
 void [[min_sm=6.10]] __builtin_LinAlg_MatrixLoadFromDescriptor(out LinAlgMatrix ret, in ByteAddressBuffer buf, in uint offset, in uint stride, in uint layout);

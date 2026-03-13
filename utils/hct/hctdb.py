@@ -299,7 +299,7 @@ class db_dxil_inst(object):
             # _gs is extra metadata info on the overload. It has no impact on
             # the ordering rules so it can be erased for the check.
             # $x_gs7 -> $x7
-            ty = i.llvm_type.replace("_gs", "")
+            ty = i.llvm_type.replace("$x_gs", "$x")
             if ty.startswith("$x"):
                 if ty != "$x" + str(next_oload_idx):
                     raise ValueError(
