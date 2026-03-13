@@ -14,6 +14,19 @@ else()
   endif()
 endif()
 
+set(_CLANG_ENFORCED_POLICIES
+  CMP0051
+  CMP0056
+  CMP0063
+  CMP0077
+  )
+foreach(_policy IN LISTS _CLANG_ENFORCED_POLICIES)
+  if(POLICY ${_policy})
+    cmake_policy(SET ${_policy} NEW)
+  endif()
+endforeach()
+unset(_CLANG_ENFORCED_POLICIES)
+
 # If we are not building as a part of LLVM, build Clang as an
 # standalone project, using LLVM as an external library:
 if( CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR )
