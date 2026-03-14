@@ -1675,7 +1675,8 @@ static Value *getNaturalGEPRecursively(IRBuilderTy &IRB, const DataLayout &DL,
     // elements. DXC's data layout pads min precision types (i16:32, f16:32),
     // so getTypeAllocSize matches the GEP offset stride while
     // getTypeSizeInBits returns the unpadded primitive width.
-    unsigned ElementSizeInBits = DL.getTypeAllocSizeInBits(VecTy->getScalarType());
+    unsigned ElementSizeInBits =
+        DL.getTypeAllocSizeInBits(VecTy->getScalarType());
     if (ElementSizeInBits % 8 != 0) {
       // GEPs over non-multiple of 8 size vector elements are invalid.
       return nullptr;
@@ -2497,7 +2498,8 @@ public:
                   : nullptr),
         VecTy(PromotableVecTy),
         ElementTy(VecTy ? VecTy->getElementType() : nullptr),
-        // HLSL Change: Use alloc size to match GEP offset stride for padded types.
+        // HLSL Change: Use alloc size to match GEP offset stride for padded
+        // types.
         ElementSize(VecTy ? DL.getTypeAllocSizeInBits(ElementTy) / 8 : 0),
         BeginOffset(), EndOffset(), IsSplittable(), IsSplit(), OldUse(),
         OldPtr(), PHIUsers(PHIUsers), SelectUsers(SelectUsers),
