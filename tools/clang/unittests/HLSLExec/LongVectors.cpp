@@ -78,6 +78,20 @@ template <typename T> constexpr bool isMinPrecisionType() {
          std::is_same_v<T, HLSLMin16Uint_t>;
 }
 
+// Min precision types (min16float, min16int, min16uint) are hints that allow
+// hardware to use any precision >= the specified minimum, making buffer storage
+// width implementation-defined. We use full-precision types for buffer I/O to
+// ensure deterministic data layout regardless of the device's implementation.
+const char *getIOTypeString(const char *HLSLType) {
+  if (strcmp(HLSLType, "min16float") == 0)
+    return "float";
+  if (strcmp(HLSLType, "min16int") == 0)
+    return "int";
+  if (strcmp(HLSLType, "min16uint") == 0)
+    return "uint";
+  return HLSLType;
+}
+
 //
 // Operation Types
 //
@@ -373,6 +387,11 @@ std::string getCompilerOptionsString(
   CompilerOptions << " " << Operation.ExtraDefines;
 
   CompilerOptions << " -DOUT_TYPE=" << OutDataType.HLSLTypeString;
+
+  CompilerOptions << " -DIO_TYPE="
+                  << getIOTypeString(OpDataType.HLSLTypeString);
+  CompilerOptions << " -DIO_OUT_TYPE="
+                  << getIOTypeString(OutDataType.HLSLTypeString);
 
   CompilerOptions << " -DBASIC_OP_TYPE=0x" << std::hex << Operation.Arity;
 
