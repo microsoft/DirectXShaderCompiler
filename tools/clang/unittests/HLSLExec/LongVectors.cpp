@@ -1359,7 +1359,12 @@ static double computeAbsoluteEpsilon(double A, double ULPTolerance) {
 
   if constexpr (std::is_same_v<T, HLSLHalf_t>)
     ULP = HLSLHalf_t::GetULP(A);
-  else
+  else if constexpr (std::is_same_v<T, HLSLMin16Float_t>) {
+    // Min precision floats may be computed at float16 on the GPU, so use
+    // half-precision ULP for tolerance. Reuse HLSLHalf_t::GetULP which
+    // computes ULP by incrementing the float16 bit representation.
+    ULP = HLSLHalf_t::GetULP(HLSLHalf_t(static_cast<float>(A)));
+  } else
     ULP =
         std::nextafter(static_cast<T>(A), std::numeric_limits<T>::infinity()) -
         static_cast<T>(A);
