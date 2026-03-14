@@ -659,11 +659,12 @@ INPUT_SET(InputSet::AllOnes, 1.0f);
 END_INPUT_SETS()
 
 // Values constrained to int16 range. Kept small to avoid overflow ambiguity.
+// Shift amounts limited so results fit in int16 (-32768..32767).
 BEGIN_INPUT_SETS(HLSLMin16Int_t)
 INPUT_SET(InputSet::Default1, -6, 1, 7, 3, 8, 4, -3, 8, 8, -2);
 INPUT_SET(InputSet::Default2, 5, -6, -3, -2, 9, 3, 1, -3, -7, 2);
 INPUT_SET(InputSet::Default3, -5, 6, 3, 2, -9, -3, -1, 3, 7, -2);
-INPUT_SET(InputSet::BitShiftRhs, 1, 6, 3, 0, 9, 3, 12, 13, 14, 15);
+INPUT_SET(InputSet::BitShiftRhs, 1, 6, 3, 0, 9, 3, 12, 11, 11, 14);
 INPUT_SET(InputSet::Zero, 0);
 INPUT_SET(InputSet::NoZero, 1);
 INPUT_SET(InputSet::SelectCond, 0, 1);
@@ -672,13 +673,14 @@ INPUT_SET(InputSet::WaveMultiPrefixBitwise, 0x0, 0x1, 0x3, 0x4, 0x10, 0x12, 0xF,
           -1);
 END_INPUT_SETS()
 
-// Values constrained to uint16 range. Kept small to avoid overflow ambiguity.
+// Values constrained to uint16 range. Kept small so that multiply, mad,
+// subtract, shift, and wave prefix products do not overflow 16 bits.
 BEGIN_INPUT_SETS(HLSLMin16Uint_t)
-INPUT_SET(InputSet::Default1, 1, 699, 3, 1023, 5, 6, 0, 8, 9, 10);
+INPUT_SET(InputSet::Default1, 3, 199, 3, 200, 5, 10, 22, 8, 9, 10);
 INPUT_SET(InputSet::Default2, 2, 111, 3, 4, 5, 9, 21, 8, 9, 10);
 INPUT_SET(InputSet::Default3, 4, 112, 4, 5, 3, 7, 21, 1, 11, 9);
 INPUT_SET(InputSet::Zero, 0);
-INPUT_SET(InputSet::BitShiftRhs, 1, 6, 3, 0, 9, 3, 12, 13, 14, 15);
+INPUT_SET(InputSet::BitShiftRhs, 1, 6, 3, 0, 9, 3, 11, 12, 12, 12);
 INPUT_SET(InputSet::SelectCond, 0, 1);
 INPUT_SET(InputSet::AllOnes, 1);
 INPUT_SET(InputSet::WaveMultiPrefixBitwise, 0x0, 0x1, 0x3, 0x4, 0x10, 0x12, 0xF,
