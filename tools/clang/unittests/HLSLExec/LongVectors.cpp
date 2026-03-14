@@ -2912,11 +2912,11 @@ public:
   HLK_TEST(Mad, HLSLMin16Int_t);
 
   // BinaryMath
+  // Note: Divide and Modulus excluded — HLSL does not support signed integer
+  // division on minimum-precision types.
   HLK_TEST(Add, HLSLMin16Int_t);
   HLK_TEST(Subtract, HLSLMin16Int_t);
   HLK_TEST(Multiply, HLSLMin16Int_t);
-  HLK_TEST(Divide, HLSLMin16Int_t);
-  HLK_TEST(Modulus, HLSLMin16Int_t);
   HLK_TEST(Min, HLSLMin16Int_t);
   HLK_TEST(Max, HLSLMin16Int_t);
 
