@@ -636,22 +636,24 @@ INPUT_SET(InputSet::SelectCond, 0.0, 1.0);
 INPUT_SET(InputSet::AllOnes, 1.0);
 END_INPUT_SETS()
 
-// Min precision input sets. Values are within the fp16 representable range.
-// No FP specials (INF/NaN/denorm) as min precision types do not support them.
+// Min precision input sets. All values are exactly representable in float16
+// to avoid precision mismatch between CPU-side expected values and GPU-side
+// min precision computation. No FP specials (INF/NaN/denorm) as min precision
+// types do not support them.
 BEGIN_INPUT_SETS(HLSLMin16Float_t)
-INPUT_SET(InputSet::Default1, -1.0f, -1.0f, 1.0f, -0.01f, 1.0f, -0.01f, 1.0f,
-          -0.01f, 1.0f, -0.01f);
+INPUT_SET(InputSet::Default1, -1.0f, -1.0f, 1.0f, -0.03125f, 1.0f, -0.03125f,
+          1.0f, -0.03125f, 1.0f, -0.03125f);
 INPUT_SET(InputSet::Default2, 1.0f, -1.0f, 1.0f, -1.0f, 1.0f, -1.0f, 1.0f,
           -1.0f, 1.0f, -1.0f);
 INPUT_SET(InputSet::Default3, -1.0f, 1.0f, -1.0f, 1.0f, -1.0f, 1.0f, -1.0f,
           1.0f, -1.0f, 1.0f);
 INPUT_SET(InputSet::Zero, 0.0f);
-INPUT_SET(InputSet::RangeHalfPi, -1.073f, 0.044f, -1.047f, 0.313f, 1.447f,
-          -0.865f, 1.364f, -0.715f, -0.800f, 0.541f);
-INPUT_SET(InputSet::RangeOne, 0.331f, 0.727f, -0.957f, 0.677f, -0.025f, 0.495f,
-          0.855f, -0.673f, -0.678f, -0.905f);
-INPUT_SET(InputSet::Positive, 1.0f, 1.0f, 342.0f, 0.01f, 5531.0f, 0.01f, 1.0f,
-          0.01f, 331.233f, 3250.01f);
+INPUT_SET(InputSet::RangeHalfPi, -1.0625f, 0.046875f, -1.046875f, 0.3125f,
+          1.4375f, -0.875f, 1.375f, -0.71875f, -0.8125f, 0.5625f);
+INPUT_SET(InputSet::RangeOne, 0.328125f, 0.71875f, -0.953125f, 0.671875f,
+          -0.03125f, 0.5f, 0.84375f, -0.671875f, -0.6875f, -0.90625f);
+INPUT_SET(InputSet::Positive, 1.0f, 1.0f, 342.0f, 0.03125f, 5504.0f, 0.03125f,
+          1.0f, 0.03125f, 331.25f, 3250.0f);
 INPUT_SET(InputSet::SelectCond, 0.0f, 1.0f);
 INPUT_SET(InputSet::AllOnes, 1.0f);
 END_INPUT_SETS()
