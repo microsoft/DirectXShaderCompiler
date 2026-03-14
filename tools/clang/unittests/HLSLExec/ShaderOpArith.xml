@@ -3796,7 +3796,7 @@ void MSMain(uint GID : SV_GroupIndex,
       <![CDATA[
         #if USE_STRUCTURED_BUFFER
           struct SLongVec {
-            vector<TYPE, NUM> data;
+            vector<IO_TYPE, NUM> data;
           };
           RWStructuredBuffer<SLongVec> InputVector : register(u0);
           RWStructuredBuffer<SLongVec> OutputVector: register(u1);
@@ -3808,10 +3808,12 @@ void MSMain(uint GID : SV_GroupIndex,
         [numthreads(1,1,1)]
         void main(uint GI : SV_GroupIndex) {
           #if USE_STRUCTURED_BUFFER
-            OutputVector[0].data = InputVector[0].data;
+            vector<TYPE, NUM> temp = (vector<TYPE, NUM>)InputVector[0].data;
+            OutputVector[0].data = (vector<IO_TYPE, NUM>)temp;
           #else
-            vector<TYPE, NUM> Input = InputVector.Load< vector<TYPE, NUM> >(0);
-            OutputVector.Store< vector<TYPE, NUM> >(0, Input);
+            vector<IO_TYPE, NUM> RawInput = InputVector.Load< vector<IO_TYPE, NUM> >(0);
+            vector<TYPE, NUM> Input = (vector<TYPE, NUM>)RawInput;
+            OutputVector.Store< vector<IO_TYPE, NUM> >(0, (vector<IO_TYPE, NUM>)Input);
           #endif
         };
       ]]>
@@ -3835,7 +3837,7 @@ void MSMain(uint GID : SV_GroupIndex,
       <![CDATA[
         #if USE_STRUCTURED_BUFFER
           struct SLongVec {
-            vector<TYPE, NUM> data;
+            vector<IO_TYPE, NUM> data;
           };
           StructuredBuffer<SLongVec> InputVector : register(t0);
           RWStructuredBuffer<SLongVec> OutputVector : register(u1);
@@ -3847,10 +3849,12 @@ void MSMain(uint GID : SV_GroupIndex,
         [numthreads(1,1,1)]
         void main(uint GI : SV_GroupIndex) {
           #if USE_STRUCTURED_BUFFER
-            OutputVector[0].data = InputVector[0].data;
+            vector<TYPE, NUM> temp = (vector<TYPE, NUM>)InputVector[0].data;
+            OutputVector[0].data = (vector<IO_TYPE, NUM>)temp;
           #else
-            vector<TYPE, NUM> Input = InputVector.Load< vector<TYPE, NUM> >(0);
-            OutputVector.Store< vector<TYPE, NUM> >(0, Input);
+            vector<IO_TYPE, NUM> RawInput = InputVector.Load< vector<IO_TYPE, NUM> >(0);
+            vector<TYPE, NUM> Input = (vector<TYPE, NUM>)RawInput;
+            OutputVector.Store< vector<IO_TYPE, NUM> >(0, (vector<IO_TYPE, NUM>)Input);
           #endif
         };
       ]]>
@@ -3882,7 +3886,7 @@ void MSMain(uint GID : SV_GroupIndex,
 
         #if USE_STRUCTURED_BUFFER
           struct SLongVec {
-            vector<TYPE, NUM> data;
+            vector<IO_TYPE, NUM> data;
           };
           RWStructuredBuffer<SLongVec> InputVector : register(u0);
           RWStructuredBuffer<SLongVec> OutputVector: register(u1);
@@ -3896,10 +3900,12 @@ void MSMain(uint GID : SV_GroupIndex,
         void main(uint GI : SV_GroupIndex) {
 
           #if USE_STRUCTURED_BUFFER
-            OutputVector[0].data = InputVector[0].data;
+            vector<TYPE, NUM> temp = (vector<TYPE, NUM>)InputVector[0].data;
+            OutputVector[0].data = (vector<IO_TYPE, NUM>)temp;
           #else
-            vector<TYPE, NUM> Input = InputVector.Load< vector<TYPE, NUM> >(0);
-            OutputVector.Store< vector<TYPE, NUM> >(0, Input);
+            vector<IO_TYPE, NUM> RawInput = InputVector.Load< vector<IO_TYPE, NUM> >(0);
+            vector<TYPE, NUM> Input = (vector<TYPE, NUM>)RawInput;
+            OutputVector.Store< vector<IO_TYPE, NUM> >(0, (vector<IO_TYPE, NUM>)Input);
           #endif
 
         };
@@ -3930,7 +3936,7 @@ void MSMain(uint GID : SV_GroupIndex,
       <![CDATA[
         #if USE_STRUCTURED_BUFFER
           struct SLongVec {
-            vector<TYPE, NUM> data;
+            vector<IO_TYPE, NUM> data;
           };
           StructuredBuffer<SLongVec> InputVector : register(t0);
           RWStructuredBuffer<SLongVec> OutputVector: register(u0);
@@ -3942,10 +3948,12 @@ void MSMain(uint GID : SV_GroupIndex,
         [numthreads(1,1,1)]
         void main(uint GI : SV_GroupIndex) {
           #if USE_STRUCTURED_BUFFER
-            OutputVector[0].data = InputVector[0].data;
+            vector<TYPE, NUM> temp = (vector<TYPE, NUM>)InputVector[0].data;
+            OutputVector[0].data = (vector<IO_TYPE, NUM>)temp;
           #else
-            vector<TYPE, NUM> Input = InputVector.Load< vector<TYPE, NUM> >(0);
-            OutputVector.Store< vector<TYPE, NUM> >(0, Input);
+            vector<IO_TYPE, NUM> RawInput = InputVector.Load< vector<IO_TYPE, NUM> >(0);
+            vector<TYPE, NUM> Input = (vector<TYPE, NUM>)RawInput;
+            OutputVector.Store< vector<IO_TYPE, NUM> >(0, (vector<IO_TYPE, NUM>)Input);
           #endif
         };
       ]]>
@@ -3973,7 +3981,7 @@ void MSMain(uint GID : SV_GroupIndex,
       <![CDATA[
         #if USE_STRUCTURED_BUFFER
           struct SLongVec {
-            vector<TYPE, NUM> data;
+            vector<IO_TYPE, NUM> data;
           };
         #endif
 
@@ -3983,14 +3991,15 @@ void MSMain(uint GID : SV_GroupIndex,
           #if USE_STRUCTURED_BUFFER
             StructuredBuffer<SLongVec> InputVector = ResourceDescriptorHeap[0];
             RWStructuredBuffer<SLongVec> OutputVector = ResourceDescriptorHeap[1];
-            OutputVector[0].data = InputVector[0].data;
+            vector<TYPE, NUM> temp = (vector<TYPE, NUM>)InputVector[0].data;
+            OutputVector[0].data = (vector<IO_TYPE, NUM>)temp;
           #else
             ByteAddressBuffer InputVector = ResourceDescriptorHeap[0];
             RWByteAddressBuffer OutputVector = ResourceDescriptorHeap[1];
 
-            vector<TYPE, NUM> Input = InputVector.Load< vector<TYPE, NUM> >(0);
-
-            OutputVector.Store< vector<TYPE, NUM> >(0, Input);
+            vector<IO_TYPE, NUM> RawInput = InputVector.Load< vector<IO_TYPE, NUM> >(0);
+            vector<TYPE, NUM> Input = (vector<TYPE, NUM>)RawInput;
+            OutputVector.Store< vector<IO_TYPE, NUM> >(0, (vector<IO_TYPE, NUM>)Input);
           #endif
         };
       ]]>
@@ -4017,7 +4026,7 @@ void MSMain(uint GID : SV_GroupIndex,
       <![CDATA[
         #if USE_STRUCTURED_BUFFER
           struct SLongVec {
-            vector<TYPE, NUM> data;
+            vector<IO_TYPE, NUM> data;
           };
         #endif
         
@@ -4026,14 +4035,15 @@ void MSMain(uint GID : SV_GroupIndex,
           #if USE_STRUCTURED_BUFFER
             RWStructuredBuffer<SLongVec> InputVector = ResourceDescriptorHeap[0];
             RWStructuredBuffer<SLongVec> OutputVector = ResourceDescriptorHeap[1];
-            OutputVector[0].data = InputVector[0].data;
+            vector<TYPE, NUM> temp = (vector<TYPE, NUM>)InputVector[0].data;
+            OutputVector[0].data = (vector<IO_TYPE, NUM>)temp;
           #else
             RWByteAddressBuffer InputVector = ResourceDescriptorHeap[0];
             RWByteAddressBuffer OutputVector = ResourceDescriptorHeap[1];
 
-            vector<TYPE, NUM> Input = InputVector.Load< vector<TYPE, NUM> >(0);
-
-            OutputVector.Store< vector<TYPE, NUM> >(0, Input);
+            vector<IO_TYPE, NUM> RawInput = InputVector.Load< vector<IO_TYPE, NUM> >(0);
+            vector<TYPE, NUM> Input = (vector<TYPE, NUM>)RawInput;
+            OutputVector.Store< vector<IO_TYPE, NUM> >(0, (vector<IO_TYPE, NUM>)Input);
           #endif
         };
       ]]>
@@ -4060,6 +4070,17 @@ void MSMain(uint GID : SV_GroupIndex,
      TYPE : The type of the input vector, e.g. float, double, int, uint.
      OUT_TYPE : The type of the output vector, e.g. float, double, int, uint.
                 In most cases OUT_TYPE == TYPE.
+     
+     IO_TYPE : Full-precision type used for buffer Load operations. For min
+               precision types (min16float, min16int, min16uint), this maps to
+               their full-precision equivalent (float, int, uint) because min
+               precision is a hint that allows hardware to use any precision >=
+               the specified minimum, making buffer storage width
+               implementation-defined. Using full-precision types for buffer I/O
+               ensures deterministic data layout. For all other types, IO_TYPE
+               equals TYPE.
+     IO_OUT_TYPE : Same as IO_TYPE but for the output/store type. For all
+                   non-min-precision types, IO_OUT_TYPE equals OUT_TYPE.
      
      NUM : The number of elements in the vector, e.g. 2, 3, 4, 8, 16, 32,
      
@@ -4120,7 +4141,7 @@ void MSMain(uint GID : SV_GroupIndex,
           // Store the high bits in the second half of the output vector.
           // Because we know the outputs of asuint are always 32 bits, we can
           // use 4 bytes per element for our offset.
-          g_OutputVector.Store< vector<OUT_TYPE, NUM> >(4 * NUM, HighBits);
+          g_OutputVector.Store< vector<IO_OUT_TYPE, NUM> >(4 * NUM, HighBits);
 
           // Generic store logic in main handles storing LowBits in
           // g_OutputVector.
@@ -4139,7 +4160,7 @@ void MSMain(uint GID : SV_GroupIndex,
           // Store the exponent outputs in the second half of the output vector.
           // Exponent values are always floats, so we can use 4 bytes per
           // element for our offset.
-          g_OutputVector.Store< vector<OUT_TYPE, NUM> >(4 * NUM, Exponent);
+          g_OutputVector.Store< vector<IO_OUT_TYPE, NUM> >(4 * NUM, Exponent);
 
           return Mantissa;
         }
@@ -4218,6 +4239,10 @@ void MSMain(uint GID : SV_GroupIndex,
         float MakeDifferent(float A) { return A + 1.0f; }
         double MakeDifferent(double A) { return A + 1.0; }
 
+        min16float MakeDifferent(min16float A) { return A + (min16float)1.0f; }
+        min16int MakeDifferent(min16int A) { return A ^ 1; }
+        min16uint MakeDifferent(min16uint A) { return A ^ 1; }
+
         #if __HLSL_ENABLE_16_BIT
         uint16_t MakeDifferent(uint16_t A) { return A ^ 1; }
         int16_t MakeDifferent(int16_t A) { return A ^ 1; }
@@ -4276,7 +4301,7 @@ void MSMain(uint GID : SV_GroupIndex,
           Vector = WavePrefixSum(Vector);
           if(WaveGetLaneIndex() == MidLane)
           {
-            g_OutputVector.Store< vector<OUT_TYPE, NUM> >(0, Vector);
+            g_OutputVector.Store< vector<IO_OUT_TYPE, NUM> >(0, Vector);
           }
         }
         #endif
@@ -4287,7 +4312,7 @@ void MSMain(uint GID : SV_GroupIndex,
           Vector = WavePrefixProduct(Vector);
           if(WaveGetLaneIndex() == 2)
           {
-            g_OutputVector.Store< vector<OUT_TYPE, NUM> >(0, Vector);
+            g_OutputVector.Store< vector<IO_OUT_TYPE, NUM> >(0, Vector);
           }
         }
         #endif
@@ -4320,7 +4345,7 @@ void MSMain(uint GID : SV_GroupIndex,
           {
             // Lane 3 is the last lane in the mask that we care about. Store the
             // result from it.
-            g_OutputVector.Store< vector<OUT_TYPE, NUM> >(0, Vector);
+            g_OutputVector.Store< vector<IO_OUT_TYPE, NUM> >(0, Vector);
           }
         }
         #endif
@@ -4352,7 +4377,7 @@ void MSMain(uint GID : SV_GroupIndex,
           if(WaveGetLaneIndex() == 3)
           {
             // Lane 3 is the last lane in the mask. Store the result from it.
-            g_OutputVector.Store< vector<OUT_TYPE, NUM> >(0, Vector);
+            g_OutputVector.Store< vector<IO_OUT_TYPE, NUM> >(0, Vector);
           }
         }
         #endif
@@ -4383,7 +4408,7 @@ void MSMain(uint GID : SV_GroupIndex,
           if(WaveGetLaneIndex() == 3)
           {
             // Lane 3 is the last lane in the mask. Store the result from it.
-            g_OutputVector.Store< vector<OUT_TYPE, NUM> >(0, Vector);
+            g_OutputVector.Store< vector<IO_OUT_TYPE, NUM> >(0, Vector);
           }
         }
         #endif
@@ -4421,7 +4446,7 @@ void MSMain(uint GID : SV_GroupIndex,
           if(WaveGetLaneIndex() == 3)
           {
             // Lane 3 is the last lane in the mask. Store the result from it.
-            g_OutputVector.Store< vector<OUT_TYPE, NUM> >(0, Vector);
+            g_OutputVector.Store< vector<IO_OUT_TYPE, NUM> >(0, Vector);
           }
         }
         #endif
@@ -4462,7 +4487,7 @@ void MSMain(uint GID : SV_GroupIndex,
           if(WaveGetLaneIndex() == 3)
           {
             // Store result from lane 3 (last lane in mask)
-            g_OutputVector.Store< vector<OUT_TYPE, NUM> >(0, Vector);
+            g_OutputVector.Store< vector<IO_OUT_TYPE, NUM> >(0, Vector);
           }
         }
         #endif
@@ -4510,7 +4535,7 @@ void MSMain(uint GID : SV_GroupIndex,
 
           Mantissa = modf(Vector, Exponent);
 
-          g_OutputVector.Store< vector<OUT_TYPE, NUM> >(sizeof(OUT_TYPE) * NUM, Exponent);
+          g_OutputVector.Store< vector<IO_OUT_TYPE, NUM> >(sizeof(OUT_TYPE) * NUM, Exponent);
 
           return Mantissa;
         }
@@ -4553,7 +4578,7 @@ void MSMain(uint GID : SV_GroupIndex,
           // lane we arbitrarily chose for validation with fine derivatives.
           if(LaneIndex == 3)
           {
-            g_OutputVector.Store< vector<OUT_TYPE, NUM> >(0, Result);
+            g_OutputVector.Store< vector<IO_OUT_TYPE, NUM> >(0, Result);
           }
         }
         #endif
@@ -4582,7 +4607,7 @@ void MSMain(uint GID : SV_GroupIndex,
 
           if(LaneIndex == 3)
           {
-            g_OutputVector.Store< vector<OUT_TYPE, NUM> >(0, Result);
+            g_OutputVector.Store< vector<IO_OUT_TYPE, NUM> >(0, Result);
           }
         }
         #endif
@@ -4605,21 +4630,25 @@ void MSMain(uint GID : SV_GroupIndex,
 
           #ifdef FUNC_SHUFFLE_VECTOR
             // For shuffle vector, the input is a scalar, not a vector.
-            TYPE Input1 = g_InputVector1.Load<TYPE>(0);
+            IO_TYPE RawInput1 = g_InputVector1.Load<IO_TYPE>(0);
+            TYPE Input1 = (TYPE)RawInput1;
           #else
             // For all other basic op types the first input is always a vector.
-            vector<TYPE, NUM> Input1 = g_InputVector1.Load< vector<TYPE,
+            vector<IO_TYPE, NUM> RawInput1 = g_InputVector1.Load< vector<IO_TYPE,
             NUM> >(0);
+            vector<TYPE, NUM> Input1 = (vector<TYPE, NUM>)RawInput1;
           #endif
 
           #if (IS_BINARY_OP || IS_TERNARY_OP)
-            vector<TYPE, NUM> Input2 = g_InputVector2.Load< vector<TYPE,
+            vector<IO_TYPE, NUM> RawInput2 = g_InputVector2.Load< vector<IO_TYPE,
             NUM> >(0);
+            vector<TYPE, NUM> Input2 = (vector<TYPE, NUM>)RawInput2;
           #endif
 
           #if IS_TERNARY_OP
-            vector<TYPE, NUM> Input3 = g_InputVector3.Load< vector<TYPE,
+            vector<IO_TYPE, NUM> RawInput3 = g_InputVector3.Load< vector<IO_TYPE,
             NUM> >(0);
+            vector<TYPE, NUM> Input3 = (vector<TYPE, NUM>)RawInput3;
           #endif
 
           #ifdef IS_REDUCTION_OP
@@ -4672,7 +4701,7 @@ void MSMain(uint GID : SV_GroupIndex,
             OutputVector = FUNC(Input1, Input2, Input3);
           #endif
 
-          g_OutputVector.Store< vector<OUT_TYPE, OutNum> >(0, OutputVector);
+          g_OutputVector.Store< vector<IO_OUT_TYPE, OutNum> >(0, OutputVector);
         };
       ]]>
     </Shader>

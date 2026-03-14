@@ -59,6 +59,9 @@ DATA_TYPE(uint16_t, "uint16_t", 2)
 DATA_TYPE(uint32_t, "uint32_t", 4)
 DATA_TYPE(uint64_t, "uint64_t", 8)
 DATA_TYPE(HLSLHalf_t, "half", 2)
+DATA_TYPE(HLSLMin16Float_t, "min16float", 4)
+DATA_TYPE(HLSLMin16Int_t, "min16int", 4)
+DATA_TYPE(HLSLMin16Uint_t, "min16uint", 4)
 DATA_TYPE(float, "float", 4)
 DATA_TYPE(double, "double", 8)
 
@@ -66,7 +69,27 @@ DATA_TYPE(double, "double", 8)
 
 template <typename T> constexpr bool isFloatingPointType() {
   return std::is_same_v<T, float> || std::is_same_v<T, double> ||
-         std::is_same_v<T, HLSLHalf_t>;
+         std::is_same_v<T, HLSLHalf_t> || std::is_same_v<T, HLSLMin16Float_t>;
+}
+
+template <typename T> constexpr bool isMinPrecisionType() {
+  return std::is_same_v<T, HLSLMin16Float_t> ||
+         std::is_same_v<T, HLSLMin16Int_t> ||
+         std::is_same_v<T, HLSLMin16Uint_t>;
+}
+
+// Min precision types (min16float, min16int, min16uint) are hints that allow
+// hardware to use any precision >= the specified minimum, making buffer storage
+// width implementation-defined. We use full-precision types for buffer I/O to
+// ensure deterministic data layout regardless of the device's implementation.
+const char *getIOTypeString(const char *HLSLType) {
+  if (strcmp(HLSLType, "min16float") == 0)
+    return "float";
+  if (strcmp(HLSLType, "min16int") == 0)
+    return "int";
+  if (strcmp(HLSLType, "min16uint") == 0)
+    return "uint";
+  return HLSLType;
 }
 
 //
@@ -218,6 +241,34 @@ bool doValuesMatch(HLSLHalf_t A, HLSLHalf_t B, double Tolerance,
   }
 }
 
+// Min precision float comparison: convert to half and compare in fp16 space.
+// This reuses the same tolerance values as HLSLHalf_t. Min precision is at
+// least 16-bit, so fp16 tolerances are an upper bound for all cases.
+bool doValuesMatch(HLSLMin16Float_t A, HLSLMin16Float_t B, double Tolerance,
+                   ValidationType ValidationType) {
+  auto HalfA = DirectX::PackedVector::XMConvertFloatToHalf(A.Val);
+  auto HalfB = DirectX::PackedVector::XMConvertFloatToHalf(B.Val);
+  switch (ValidationType) {
+  case ValidationType::Epsilon:
+    return CompareHalfEpsilon(HalfA, HalfB, static_cast<float>(Tolerance));
+  case ValidationType::Ulp:
+    return CompareHalfULP(HalfA, HalfB, static_cast<float>(Tolerance));
+  default:
+    hlsl_test::LogErrorFmt(
+        L"Invalid ValidationType. Expecting Epsilon or ULP.");
+    return false;
+  }
+}
+
+bool doValuesMatch(HLSLMin16Int_t A, HLSLMin16Int_t B, double, ValidationType) {
+  return A == B;
+}
+
+bool doValuesMatch(HLSLMin16Uint_t A, HLSLMin16Uint_t B, double,
+                   ValidationType) {
+  return A == B;
+}
+
 bool doValuesMatch(float A, float B, double Tolerance,
                    ValidationType ValidationType) {
   switch (ValidationType) {
@@ -336,6 +387,11 @@ std::string getCompilerOptionsString(
   CompilerOptions << " " << Operation.ExtraDefines;
 
   CompilerOptions << " -DOUT_TYPE=" << OutDataType.HLSLTypeString;
+
+  CompilerOptions << " -DIO_TYPE="
+                  << getIOTypeString(OpDataType.HLSLTypeString);
+  CompilerOptions << " -DIO_OUT_TYPE="
+                  << getIOTypeString(OutDataType.HLSLTypeString);
 
   CompilerOptions << " -DBASIC_OP_TYPE=0x" << std::hex << Operation.Arity;
 
@@ -760,7 +816,7 @@ DEFAULT_OP_2(OpType::Xor, (A ^ B));
 // 32-bit, 6 bits for 64-bit). We must do the same in C++ to avoid undefined
 // behavior when shift amount >= bit width, and to match GPU results.
 template <typename T> T MaskShiftAmount(T ShiftAmount) {
-  constexpr T ShiftMask = static_cast<T>(sizeof(T) * 8 - 1);
+  const T ShiftMask = static_cast<T>(sizeof(T) * 8 - 1);
   return ShiftAmount & ShiftMask;
 }
 
@@ -914,6 +970,24 @@ template <> struct TrigonometricValidation<HLSLHalf_t, OpType::Tan> {
 };
 
 template <> struct TrigonometricValidation<HLSLHalf_t, OpType::Sinh> {
+  ValidationConfig ValidationConfig = ValidationConfig::Ulp(2.0f);
+};
+
+// Min precision trig tolerances: same as half precision since min precision
+// is at least 16-bit and our doValuesMatch compares in half-precision space.
+template <OpType OP> struct TrigonometricValidation<HLSLMin16Float_t, OP> {
+  ValidationConfig ValidationConfig = ValidationConfig::Epsilon(0.003f);
+};
+
+template <> struct TrigonometricValidation<HLSLMin16Float_t, OpType::Cosh> {
+  ValidationConfig ValidationConfig = ValidationConfig::Ulp(2.0f);
+};
+
+template <> struct TrigonometricValidation<HLSLMin16Float_t, OpType::Tan> {
+  ValidationConfig ValidationConfig = ValidationConfig::Ulp(2.0f);
+};
+
+template <> struct TrigonometricValidation<HLSLMin16Float_t, OpType::Sinh> {
   ValidationConfig ValidationConfig = ValidationConfig::Ulp(2.0f);
 };
 
@@ -1073,7 +1147,7 @@ template <> struct ExpectedBuilder<OpType::AsUint_SplitDouble, double> {
 //
 
 template <typename T> T UnaryMathAbs(T A) {
-  if constexpr (std::is_unsigned_v<T>)
+  if constexpr (std::is_unsigned_v<T> || std::is_same_v<T, HLSLMin16Uint_t>)
     return A;
   else
     return static_cast<T>(std::abs(A));
@@ -1285,7 +1359,12 @@ static double computeAbsoluteEpsilon(double A, double ULPTolerance) {
 
   if constexpr (std::is_same_v<T, HLSLHalf_t>)
     ULP = HLSLHalf_t::GetULP(A);
-  else
+  else if constexpr (std::is_same_v<T, HLSLMin16Float_t>) {
+    // Min precision floats may be computed at float16 on the GPU, so use
+    // half-precision ULP for tolerance. Reuse HLSLHalf_t::GetULP which
+    // computes ULP by incrementing the float16 bit representation.
+    ULP = HLSLHalf_t::GetULP(HLSLHalf_t(static_cast<float>(A)));
+  } else
     ULP =
         std::nextafter(static_cast<T>(A), std::numeric_limits<T>::infinity()) -
         static_cast<T>(A);
@@ -2714,6 +2793,255 @@ public:
   HLK_WAVEOP_TEST(WaveMultiPrefixSum, float);
   HLK_WAVEOP_TEST(WaveMultiPrefixProduct, float);
   HLK_WAVEOP_TEST(WaveMatch, float);
+
+  // ---- HLSLMin16Float_t (mirrors HLSLHalf_t) ----
+
+  // TernaryMath
+  HLK_TEST(Mad, HLSLMin16Float_t);
+
+  // BinaryMath
+  HLK_TEST(Add, HLSLMin16Float_t);
+  HLK_TEST(Subtract, HLSLMin16Float_t);
+  HLK_TEST(Multiply, HLSLMin16Float_t);
+  HLK_TEST(Divide, HLSLMin16Float_t);
+  HLK_TEST(Modulus, HLSLMin16Float_t);
+  HLK_TEST(Min, HLSLMin16Float_t);
+  HLK_TEST(Max, HLSLMin16Float_t);
+  HLK_TEST(Ldexp, HLSLMin16Float_t);
+
+  // Saturate
+  HLK_TEST(Saturate, HLSLMin16Float_t);
+
+  // Unary
+  HLK_TEST(Initialize, HLSLMin16Float_t);
+  HLK_TEST(ArrayOperator_StaticAccess, HLSLMin16Float_t);
+  HLK_TEST(ArrayOperator_DynamicAccess, HLSLMin16Float_t);
+  HLK_TEST(ShuffleVector, HLSLMin16Float_t);
+
+  // Cast
+  HLK_TEST(CastToBool, HLSLMin16Float_t);
+  HLK_TEST(CastToInt16, HLSLMin16Float_t);
+  HLK_TEST(CastToInt32, HLSLMin16Float_t);
+  HLK_TEST(CastToInt64, HLSLMin16Float_t);
+  HLK_TEST(CastToUint16_FromFP, HLSLMin16Float_t);
+  HLK_TEST(CastToUint32_FromFP, HLSLMin16Float_t);
+  HLK_TEST(CastToUint64_FromFP, HLSLMin16Float_t);
+  HLK_TEST(CastToFloat16, HLSLMin16Float_t);
+  HLK_TEST(CastToFloat32, HLSLMin16Float_t);
+
+  // Trigonometric
+  HLK_TEST(Acos, HLSLMin16Float_t);
+  HLK_TEST(Asin, HLSLMin16Float_t);
+  HLK_TEST(Atan, HLSLMin16Float_t);
+  HLK_TEST(Cos, HLSLMin16Float_t);
+  HLK_TEST(Cosh, HLSLMin16Float_t);
+  HLK_TEST(Sin, HLSLMin16Float_t);
+  HLK_TEST(Sinh, HLSLMin16Float_t);
+  HLK_TEST(Tan, HLSLMin16Float_t);
+  HLK_TEST(Tanh, HLSLMin16Float_t);
+
+  // UnaryMath
+  HLK_TEST(Abs, HLSLMin16Float_t);
+  HLK_TEST(Ceil, HLSLMin16Float_t);
+  HLK_TEST(Exp, HLSLMin16Float_t);
+  HLK_TEST(Floor, HLSLMin16Float_t);
+  HLK_TEST(Frac, HLSLMin16Float_t);
+  HLK_TEST(Log, HLSLMin16Float_t);
+  HLK_TEST(Rcp, HLSLMin16Float_t);
+  HLK_TEST(Round, HLSLMin16Float_t);
+  HLK_TEST(Rsqrt, HLSLMin16Float_t);
+  HLK_TEST(Sign, HLSLMin16Float_t);
+  HLK_TEST(Sqrt, HLSLMin16Float_t);
+  HLK_TEST(Trunc, HLSLMin16Float_t);
+  HLK_TEST(Exp2, HLSLMin16Float_t);
+  HLK_TEST(Log10, HLSLMin16Float_t);
+  HLK_TEST(Log2, HLSLMin16Float_t);
+
+  // BinaryComparison
+  HLK_TEST(LessThan, HLSLMin16Float_t);
+  HLK_TEST(LessEqual, HLSLMin16Float_t);
+  HLK_TEST(GreaterThan, HLSLMin16Float_t);
+  HLK_TEST(GreaterEqual, HLSLMin16Float_t);
+  HLK_TEST(Equal, HLSLMin16Float_t);
+  HLK_TEST(NotEqual, HLSLMin16Float_t);
+
+  // Select
+  HLK_TEST(Select, HLSLMin16Float_t);
+
+  // Dot
+  HLK_TEST(Dot, HLSLMin16Float_t);
+
+  // LoadAndStore
+  HLK_TEST(LoadAndStore_RDH_BAB_SRV, HLSLMin16Float_t);
+  HLK_TEST(LoadAndStore_RDH_BAB_UAV, HLSLMin16Float_t);
+  HLK_TEST(LoadAndStore_DT_BAB_SRV, HLSLMin16Float_t);
+  HLK_TEST(LoadAndStore_DT_BAB_UAV, HLSLMin16Float_t);
+  HLK_TEST(LoadAndStore_RD_BAB_SRV, HLSLMin16Float_t);
+  HLK_TEST(LoadAndStore_RD_BAB_UAV, HLSLMin16Float_t);
+  HLK_TEST(LoadAndStore_RDH_SB_SRV, HLSLMin16Float_t);
+  HLK_TEST(LoadAndStore_RDH_SB_UAV, HLSLMin16Float_t);
+  HLK_TEST(LoadAndStore_DT_SB_SRV, HLSLMin16Float_t);
+  HLK_TEST(LoadAndStore_DT_SB_UAV, HLSLMin16Float_t);
+  HLK_TEST(LoadAndStore_RD_SB_SRV, HLSLMin16Float_t);
+  HLK_TEST(LoadAndStore_RD_SB_UAV, HLSLMin16Float_t);
+
+  // Derivative
+  HLK_TEST(DerivativeDdx, HLSLMin16Float_t);
+  HLK_TEST(DerivativeDdy, HLSLMin16Float_t);
+  HLK_TEST(DerivativeDdxFine, HLSLMin16Float_t);
+  HLK_TEST(DerivativeDdyFine, HLSLMin16Float_t);
+
+  // Wave and Quad ops excluded: these intrinsics do not support min precision
+  // types. The DXIL wave/quad shuffle operations operate on 32-bit or 64-bit
+  // register slots and do not handle 16-bit min precision payloads.
+
+  // ---- HLSLMin16Int_t (mirrors int16_t) ----
+
+  // TernaryMath
+  HLK_TEST(Mad, HLSLMin16Int_t);
+
+  // BinaryMath
+  // Note: Divide and Modulus excluded — HLSL does not support signed integer
+  // division on minimum-precision types.
+  HLK_TEST(Add, HLSLMin16Int_t);
+  HLK_TEST(Subtract, HLSLMin16Int_t);
+  HLK_TEST(Multiply, HLSLMin16Int_t);
+  HLK_TEST(Min, HLSLMin16Int_t);
+  HLK_TEST(Max, HLSLMin16Int_t);
+
+  // Bitwise (logical and shift — bit-manipulation excluded)
+  HLK_TEST(And, HLSLMin16Int_t);
+  HLK_TEST(Or, HLSLMin16Int_t);
+  HLK_TEST(Xor, HLSLMin16Int_t);
+  HLK_TEST(LeftShift, HLSLMin16Int_t);
+  HLK_TEST(RightShift, HLSLMin16Int_t);
+
+  // UnaryMath
+  HLK_TEST(Abs, HLSLMin16Int_t);
+  HLK_TEST(Sign, HLSLMin16Int_t);
+
+  // Unary
+  HLK_TEST(Initialize, HLSLMin16Int_t);
+  HLK_TEST(ArrayOperator_StaticAccess, HLSLMin16Int_t);
+  HLK_TEST(ArrayOperator_DynamicAccess, HLSLMin16Int_t);
+  HLK_TEST(ShuffleVector, HLSLMin16Int_t);
+
+  // Cast
+  HLK_TEST(CastToBool, HLSLMin16Int_t);
+  HLK_TEST(CastToInt32, HLSLMin16Int_t);
+  HLK_TEST(CastToInt64, HLSLMin16Int_t);
+  HLK_TEST(CastToUint16, HLSLMin16Int_t);
+  HLK_TEST(CastToUint32, HLSLMin16Int_t);
+  HLK_TEST(CastToUint64, HLSLMin16Int_t);
+  HLK_TEST(CastToFloat16, HLSLMin16Int_t);
+  HLK_TEST(CastToFloat32, HLSLMin16Int_t);
+
+  // BinaryComparison
+  HLK_TEST(LessThan, HLSLMin16Int_t);
+  HLK_TEST(LessEqual, HLSLMin16Int_t);
+  HLK_TEST(GreaterThan, HLSLMin16Int_t);
+  HLK_TEST(GreaterEqual, HLSLMin16Int_t);
+  HLK_TEST(Equal, HLSLMin16Int_t);
+  HLK_TEST(NotEqual, HLSLMin16Int_t);
+
+  // Select
+  HLK_TEST(Select, HLSLMin16Int_t);
+
+  // Reduction
+  HLK_TEST(Any_Mixed, HLSLMin16Int_t);
+  HLK_TEST(Any_Zero, HLSLMin16Int_t);
+  HLK_TEST(Any_NoZero, HLSLMin16Int_t);
+  HLK_TEST(All_Mixed, HLSLMin16Int_t);
+  HLK_TEST(All_Zero, HLSLMin16Int_t);
+  HLK_TEST(All_NoZero, HLSLMin16Int_t);
+
+  // LoadAndStore
+  HLK_TEST(LoadAndStore_RDH_BAB_SRV, HLSLMin16Int_t);
+  HLK_TEST(LoadAndStore_RDH_BAB_UAV, HLSLMin16Int_t);
+  HLK_TEST(LoadAndStore_DT_BAB_SRV, HLSLMin16Int_t);
+  HLK_TEST(LoadAndStore_DT_BAB_UAV, HLSLMin16Int_t);
+  HLK_TEST(LoadAndStore_RD_BAB_SRV, HLSLMin16Int_t);
+  HLK_TEST(LoadAndStore_RD_BAB_UAV, HLSLMin16Int_t);
+  HLK_TEST(LoadAndStore_RDH_SB_SRV, HLSLMin16Int_t);
+  HLK_TEST(LoadAndStore_RDH_SB_UAV, HLSLMin16Int_t);
+  HLK_TEST(LoadAndStore_DT_SB_SRV, HLSLMin16Int_t);
+  HLK_TEST(LoadAndStore_DT_SB_UAV, HLSLMin16Int_t);
+  HLK_TEST(LoadAndStore_RD_SB_SRV, HLSLMin16Int_t);
+  HLK_TEST(LoadAndStore_RD_SB_UAV, HLSLMin16Int_t);
+
+  // Wave and Quad ops excluded: these intrinsics do not support min precision
+  // types. The DXIL wave/quad shuffle operations operate on 32-bit or 64-bit
+  // register slots and do not handle 16-bit min precision payloads.
+
+  // ---- HLSLMin16Uint_t (mirrors uint16_t) ----
+
+  // TernaryMath
+  HLK_TEST(Mad, HLSLMin16Uint_t);
+
+  // BinaryMath
+  HLK_TEST(Add, HLSLMin16Uint_t);
+  HLK_TEST(Subtract, HLSLMin16Uint_t);
+  HLK_TEST(Multiply, HLSLMin16Uint_t);
+  HLK_TEST(Divide, HLSLMin16Uint_t);
+  HLK_TEST(Modulus, HLSLMin16Uint_t);
+  HLK_TEST(Min, HLSLMin16Uint_t);
+  HLK_TEST(Max, HLSLMin16Uint_t);
+
+  // Bitwise (logical and shift — bit-manipulation excluded)
+  HLK_TEST(And, HLSLMin16Uint_t);
+  HLK_TEST(Or, HLSLMin16Uint_t);
+  HLK_TEST(Xor, HLSLMin16Uint_t);
+  HLK_TEST(LeftShift, HLSLMin16Uint_t);
+  HLK_TEST(RightShift, HLSLMin16Uint_t);
+
+  // UnaryMath
+  HLK_TEST(Abs, HLSLMin16Uint_t);
+  HLK_TEST(Sign, HLSLMin16Uint_t);
+
+  // Unary
+  HLK_TEST(Initialize, HLSLMin16Uint_t);
+  HLK_TEST(ArrayOperator_StaticAccess, HLSLMin16Uint_t);
+  HLK_TEST(ArrayOperator_DynamicAccess, HLSLMin16Uint_t);
+  HLK_TEST(ShuffleVector, HLSLMin16Uint_t);
+
+  // Cast
+  HLK_TEST(CastToBool, HLSLMin16Uint_t);
+  HLK_TEST(CastToInt16, HLSLMin16Uint_t);
+  HLK_TEST(CastToInt32, HLSLMin16Uint_t);
+  HLK_TEST(CastToInt64, HLSLMin16Uint_t);
+  HLK_TEST(CastToUint32, HLSLMin16Uint_t);
+  HLK_TEST(CastToUint64, HLSLMin16Uint_t);
+  HLK_TEST(CastToFloat16, HLSLMin16Uint_t);
+  HLK_TEST(CastToFloat32, HLSLMin16Uint_t);
+
+  // BinaryComparison
+  HLK_TEST(LessThan, HLSLMin16Uint_t);
+  HLK_TEST(LessEqual, HLSLMin16Uint_t);
+  HLK_TEST(GreaterThan, HLSLMin16Uint_t);
+  HLK_TEST(GreaterEqual, HLSLMin16Uint_t);
+  HLK_TEST(Equal, HLSLMin16Uint_t);
+  HLK_TEST(NotEqual, HLSLMin16Uint_t);
+
+  // Select
+  HLK_TEST(Select, HLSLMin16Uint_t);
+
+  // LoadAndStore
+  HLK_TEST(LoadAndStore_RDH_BAB_SRV, HLSLMin16Uint_t);
+  HLK_TEST(LoadAndStore_RDH_BAB_UAV, HLSLMin16Uint_t);
+  HLK_TEST(LoadAndStore_DT_BAB_SRV, HLSLMin16Uint_t);
+  HLK_TEST(LoadAndStore_DT_BAB_UAV, HLSLMin16Uint_t);
+  HLK_TEST(LoadAndStore_RD_BAB_SRV, HLSLMin16Uint_t);
+  HLK_TEST(LoadAndStore_RD_BAB_UAV, HLSLMin16Uint_t);
+  HLK_TEST(LoadAndStore_RDH_SB_SRV, HLSLMin16Uint_t);
+  HLK_TEST(LoadAndStore_RDH_SB_UAV, HLSLMin16Uint_t);
+  HLK_TEST(LoadAndStore_DT_SB_SRV, HLSLMin16Uint_t);
+  HLK_TEST(LoadAndStore_DT_SB_UAV, HLSLMin16Uint_t);
+  HLK_TEST(LoadAndStore_RD_SB_SRV, HLSLMin16Uint_t);
+  HLK_TEST(LoadAndStore_RD_SB_UAV, HLSLMin16Uint_t);
+
+  // Wave and Quad ops excluded: these intrinsics do not support min precision
+  // types. The DXIL wave/quad shuffle operations operate on 32-bit or 64-bit
+  // register slots and do not handle 16-bit min precision payloads.
 };
 
 #define HLK_TEST_DOUBLE(Op, DataType)                                          \
