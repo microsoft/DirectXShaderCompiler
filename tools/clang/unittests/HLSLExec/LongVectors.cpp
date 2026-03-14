@@ -2886,25 +2886,9 @@ public:
   HLK_TEST(DerivativeDdxFine, HLSLMin16Float_t);
   HLK_TEST(DerivativeDdyFine, HLSLMin16Float_t);
 
-  // Quad
-  HLK_TEST(QuadReadLaneAt, HLSLMin16Float_t);
-  HLK_TEST(QuadReadAcrossX, HLSLMin16Float_t);
-  HLK_TEST(QuadReadAcrossY, HLSLMin16Float_t);
-  HLK_TEST(QuadReadAcrossDiagonal, HLSLMin16Float_t);
-
-  // Wave
-  HLK_WAVEOP_TEST(WaveActiveSum, HLSLMin16Float_t);
-  HLK_WAVEOP_TEST(WaveActiveMin, HLSLMin16Float_t);
-  HLK_WAVEOP_TEST(WaveActiveMax, HLSLMin16Float_t);
-  HLK_WAVEOP_TEST(WaveActiveProduct, HLSLMin16Float_t);
-  HLK_WAVEOP_TEST(WaveActiveAllEqual, HLSLMin16Float_t);
-  HLK_WAVEOP_TEST(WaveReadLaneAt, HLSLMin16Float_t);
-  HLK_WAVEOP_TEST(WaveReadLaneFirst, HLSLMin16Float_t);
-  HLK_WAVEOP_TEST(WavePrefixSum, HLSLMin16Float_t);
-  HLK_WAVEOP_TEST(WavePrefixProduct, HLSLMin16Float_t);
-  HLK_WAVEOP_TEST(WaveMultiPrefixSum, HLSLMin16Float_t);
-  HLK_WAVEOP_TEST(WaveMultiPrefixProduct, HLSLMin16Float_t);
-  HLK_WAVEOP_TEST(WaveMatch, HLSLMin16Float_t);
+  // Wave and Quad ops excluded: these intrinsics do not support min precision
+  // types. The DXIL wave/quad shuffle operations operate on 32-bit or 64-bit
+  // register slots and do not handle 16-bit min precision payloads.
 
   // ---- HLSLMin16Int_t (mirrors int16_t) ----
 
@@ -2980,27 +2964,9 @@ public:
   HLK_TEST(LoadAndStore_RD_SB_SRV, HLSLMin16Int_t);
   HLK_TEST(LoadAndStore_RD_SB_UAV, HLSLMin16Int_t);
 
-  // Quad
-  HLK_TEST(QuadReadLaneAt, HLSLMin16Int_t);
-  HLK_TEST(QuadReadAcrossX, HLSLMin16Int_t);
-  HLK_TEST(QuadReadAcrossY, HLSLMin16Int_t);
-  HLK_TEST(QuadReadAcrossDiagonal, HLSLMin16Int_t);
-
-  // Wave
-  HLK_WAVEOP_TEST(WaveActiveSum, HLSLMin16Int_t);
-  HLK_WAVEOP_TEST(WaveActiveMin, HLSLMin16Int_t);
-  HLK_WAVEOP_TEST(WaveActiveMax, HLSLMin16Int_t);
-  HLK_WAVEOP_TEST(WaveActiveProduct, HLSLMin16Int_t);
-  HLK_WAVEOP_TEST(WaveActiveAllEqual, HLSLMin16Int_t);
-  HLK_WAVEOP_TEST(WaveReadLaneAt, HLSLMin16Int_t);
-  HLK_WAVEOP_TEST(WaveReadLaneFirst, HLSLMin16Int_t);
-  HLK_WAVEOP_TEST(WavePrefixSum, HLSLMin16Int_t);
-  HLK_WAVEOP_TEST(WavePrefixProduct, HLSLMin16Int_t);
-  HLK_WAVEOP_TEST(WaveMultiPrefixSum, HLSLMin16Int_t);
-  HLK_WAVEOP_TEST(WaveMultiPrefixProduct, HLSLMin16Int_t);
-  // WaveMultiPrefixBitAnd/BitOr/BitXor excluded: these intrinsics use the
-  // any_int type set which does not include min precision integer types.
-  HLK_WAVEOP_TEST(WaveMatch, HLSLMin16Int_t);
+  // Wave and Quad ops excluded: these intrinsics do not support min precision
+  // types. The DXIL wave/quad shuffle operations operate on 32-bit or 64-bit
+  // register slots and do not handle 16-bit min precision payloads.
 
   // ---- HLSLMin16Uint_t (mirrors uint16_t) ----
 
@@ -3068,27 +3034,9 @@ public:
   HLK_TEST(LoadAndStore_RD_SB_SRV, HLSLMin16Uint_t);
   HLK_TEST(LoadAndStore_RD_SB_UAV, HLSLMin16Uint_t);
 
-  // Quad
-  HLK_TEST(QuadReadLaneAt, HLSLMin16Uint_t);
-  HLK_TEST(QuadReadAcrossX, HLSLMin16Uint_t);
-  HLK_TEST(QuadReadAcrossY, HLSLMin16Uint_t);
-  HLK_TEST(QuadReadAcrossDiagonal, HLSLMin16Uint_t);
-
-  // Wave
-  HLK_WAVEOP_TEST(WaveActiveSum, HLSLMin16Uint_t);
-  HLK_WAVEOP_TEST(WaveActiveMin, HLSLMin16Uint_t);
-  HLK_WAVEOP_TEST(WaveActiveMax, HLSLMin16Uint_t);
-  HLK_WAVEOP_TEST(WaveActiveProduct, HLSLMin16Uint_t);
-  HLK_WAVEOP_TEST(WaveActiveAllEqual, HLSLMin16Uint_t);
-  HLK_WAVEOP_TEST(WaveReadLaneAt, HLSLMin16Uint_t);
-  HLK_WAVEOP_TEST(WaveReadLaneFirst, HLSLMin16Uint_t);
-  HLK_WAVEOP_TEST(WavePrefixSum, HLSLMin16Uint_t);
-  HLK_WAVEOP_TEST(WavePrefixProduct, HLSLMin16Uint_t);
-  HLK_WAVEOP_TEST(WaveMultiPrefixSum, HLSLMin16Uint_t);
-  HLK_WAVEOP_TEST(WaveMultiPrefixProduct, HLSLMin16Uint_t);
-  // WaveMultiPrefixBitAnd/BitOr/BitXor excluded: these intrinsics use the
-  // any_int type set which does not include min precision integer types.
-  HLK_WAVEOP_TEST(WaveMatch, HLSLMin16Uint_t);
+  // Wave and Quad ops excluded: these intrinsics do not support min precision
+  // types. The DXIL wave/quad shuffle operations operate on 32-bit or 64-bit
+  // register slots and do not handle 16-bit min precision payloads.
 };
 
 #define HLK_TEST_DOUBLE(Op, DataType)                                          \
