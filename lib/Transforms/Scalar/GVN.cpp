@@ -853,6 +853,20 @@ static bool CanCoerceMustAliasedValueToLoad(Value *StoredVal,
       StoredVal->getType()->isArrayTy())
     return false;
 
+  // HLSL Change Begin - Don't coerce types that have padding in the data
+  // layout (e.g., min precision types where f16:32 means half is stored in 32
+  // bits). The coercion creates bitcasts between the LLVM type (based on
+  // primitive bit width) and an integer type (based on padded store size),
+  // which will fail when they differ.
+  Type *StoredValTy = StoredVal->getType();
+  uint64_t StoredPrimBits = StoredValTy->getPrimitiveSizeInBits();
+  uint64_t LoadPrimBits = LoadTy->getPrimitiveSizeInBits();
+  if (StoredPrimBits && DL.getTypeSizeInBits(StoredValTy) != StoredPrimBits)
+    return false;
+  if (LoadPrimBits && DL.getTypeSizeInBits(LoadTy) != LoadPrimBits)
+    return false;
+  // HLSL Change End
+
   // The store has to be at least as big as the load.
   if (DL.getTypeSizeInBits(StoredVal->getType()) <
         DL.getTypeSizeInBits(LoadTy))
@@ -1941,6 +1955,17 @@ bool GVN::processLoad(LoadInst *L) {
   Instruction *DepInst = Dep.getInst();
   if (StoreInst *DepSI = dyn_cast<StoreInst>(DepInst)) {
     Value *StoredVal = DepSI->getValueOperand();
+
+    // HLSL Change Begin - Don't forward stores of types with data layout
+    // padding (e.g., min precision vectors where i16:32/f16:32 means elements
+    // are padded to 32 bits). MemoryDependence may incorrectly classify
+    // intermediate partial stores as non-clobbering when sizes include padding,
+    // leading to incorrect store-to-load forwarding.
+    Type *StoredTy = StoredVal->getType();
+    uint64_t StoredPrimBits = StoredTy->getPrimitiveSizeInBits();
+    if (StoredPrimBits && DL.getTypeSizeInBits(StoredTy) != StoredPrimBits)
+      return false;
+    // HLSL Change End
 
     // The store and load are to a must-aliased pointer, but they may not
     // actually have the same type.  See if we know how to reuse the stored
