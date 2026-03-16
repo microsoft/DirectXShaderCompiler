@@ -15,6 +15,7 @@
 #include "dxc/DXIL/DxilInstructions.h"
 #include "dxc/DXIL/DxilModule.h"
 #include "dxc/DXIL/DxilOperations.h"
+#include "dxc/DXIL/DxilResourceBinding.h"
 #include "dxc/DXIL/DxilUtil.h"
 #include "dxc/Support/Global.h"
 
@@ -228,6 +229,52 @@ void ValidationContext::BuildResMap() {
     }
   }
   const ShaderModel &SM = *DxilMod.GetShaderModel();
+
+  // Scan all createHandleFromBinding for validation.
+  for (auto &it :
+       hlslOP->GetOpFuncList(DXIL::OpCode::CreateHandleFromBinding)) {
+    Function *F = it.second;
+    if (!F)
+      continue;
+    for (User *U : F->users()) {
+      CallInst *CI = cast<CallInst>(U);
+      DxilInst_CreateHandleFromBinding Hdl(CI);
+
+      // Validate bind parameter is constant.
+      Value *Bind = Hdl.get_bind();
+      if (!isa<Constant>(Bind)) {
+        EmitInstrError(CI, ValidationRule::InstrOpConstRange);
+        continue;
+      }
+
+      DxilResourceBinding B =
+          resource_helper::loadBindingFromCreateHandleFromBinding(
+              Hdl, hlslOP->GetHandleType(), SM);
+
+      // Validate resourceClass is valid.
+      switch (static_cast<DXIL::ResourceClass>(B.resourceClass)) {
+      case DXIL::ResourceClass::CBuffer:
+      case DXIL::ResourceClass::Sampler:
+      case DXIL::ResourceClass::SRV:
+      case DXIL::ResourceClass::UAV:
+        break;
+      default:
+        EmitInstrError(CI, ValidationRule::InstrOpConstRange);
+        continue;
+      }
+
+      // Validate constant index is within binding range.
+      ConstantInt *CIndex = dyn_cast<ConstantInt>(Hdl.get_index());
+      if (CIndex) {
+        unsigned Index = CIndex->getLimitedValue();
+        if (Index < B.rangeLowerBound || Index > B.rangeUpperBound) {
+          // Index out of range.
+          EmitInstrError(CI, ValidationRule::InstrOpConstRange);
+          continue;
+        }
+      }
+    }
+  }
 
   for (auto &it : hlslOP->GetOpFuncList(DXIL::OpCode::AnnotateHandle)) {
     Function *F = it.second;
