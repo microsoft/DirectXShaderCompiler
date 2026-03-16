@@ -123,3 +123,31 @@ entry:
   %result = load <8 x half>, <8 x half>* %dst, align 4
   ret <8 x half> %result
 }
+
+; Test 7: Same-type store-to-load forwarding must still work for padded types.
+; GVN should forward %v directly — no intervening writes, same type.
+
+; CHECK-LABEL: @test_same_type_forward_i16_vec3
+; The load should be eliminated and %v returned directly.
+; CHECK-NOT: load
+; CHECK: ret <3 x i16> %v
+define <3 x i16> @test_same_type_forward_i16_vec3(<3 x i16> %v) {
+entry:
+  %ptr = alloca <3 x i16>, align 4
+  store <3 x i16> %v, <3 x i16>* %ptr, align 4
+  %result = load <3 x i16>, <3 x i16>* %ptr, align 4
+  ret <3 x i16> %result
+}
+
+; Test 8: Same-type forwarding for <3 x half>.
+
+; CHECK-LABEL: @test_same_type_forward_f16_vec3
+; CHECK-NOT: load
+; CHECK: ret <3 x half> %v
+define <3 x half> @test_same_type_forward_f16_vec3(<3 x half> %v) {
+entry:
+  %ptr = alloca <3 x half>, align 4
+  store <3 x half> %v, <3 x half>* %ptr, align 4
+  %result = load <3 x half>, <3 x half>* %ptr, align 4
+  ret <3 x half> %result
+}

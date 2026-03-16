@@ -1956,15 +1956,19 @@ bool GVN::processLoad(LoadInst *L) {
   if (StoreInst *DepSI = dyn_cast<StoreInst>(DepInst)) {
     Value *StoredVal = DepSI->getValueOperand();
 
-    // HLSL Change Begin - Don't forward stores of types with data layout
-    // padding (e.g., min precision vectors where i16:32/f16:32 means elements
-    // are padded to 32 bits). MemoryDependence may incorrectly classify
-    // intermediate partial stores as non-clobbering when sizes include padding,
-    // leading to incorrect store-to-load forwarding.
-    Type *StoredTy = StoredVal->getType();
-    uint64_t StoredPrimBits = StoredTy->getPrimitiveSizeInBits();
-    if (StoredPrimBits && DL.getTypeSizeInBits(StoredTy) != StoredPrimBits)
-      return false;
+    // HLSL Change Begin - Don't forward stores of padded types when the load
+    // type differs (e.g., min precision vectors where i16:32/f16:32 means
+    // elements are padded to 32 bits). BasicAA returns MustAlias at offset 0
+    // regardless of access sizes, so a partial element store can appear as a
+    // Def to MemoryDependence. CanCoerceMustAliasedValueToLoad catches this,
+    // but we add a defense-in-depth check here for cross-type forwarding of
+    // padded types. Same-type forwarding is always safe.
+    if (StoredVal->getType() != L->getType()) {
+      Type *StoredTy = StoredVal->getType();
+      uint64_t StoredPrimBits = StoredTy->getPrimitiveSizeInBits();
+      if (StoredPrimBits && DL.getTypeSizeInBits(StoredTy) != StoredPrimBits)
+        return false;
+    }
     // HLSL Change End
 
     // The store and load are to a must-aliased pointer, but they may not
