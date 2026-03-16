@@ -336,12 +336,12 @@ SpirvExtInstImport *SpirvModule::getExtInstSet(llvm::StringRef name) {
   return nullptr;
 }
 
-void SpirvModule::addVariable(SpirvVariable *var) {
+void SpirvModule::addVariable(SpirvInstruction *var) {
   assert(var && "cannot add null variable to the module");
   variables.push_back(var);
 }
 
-void SpirvModule::addVariable(SpirvVariable *var, SpirvInstruction *pos) {
+void SpirvModule::addVariable(SpirvInstruction *var, SpirvInstruction *pos) {
   assert(var && "cannot add null variable to the module");
   auto location = std::find(variables.begin(), variables.end(), pos);
   variables.insert(location, var);

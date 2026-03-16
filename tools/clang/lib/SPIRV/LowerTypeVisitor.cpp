@@ -333,7 +333,8 @@ const SpirvType *LowerTypeVisitor::lowerType(const SpirvType *type,
   else if (isa<VoidType>(type) || isa<ScalarType>(type) ||
            isa<MatrixType>(type) || isa<ImageType>(type) ||
            isa<SamplerType>(type) || isa<SampledImageType>(type) ||
-           isa<FunctionType>(type) || isa<StructType>(type)) {
+           isa<FunctionType>(type) || isa<StructType>(type) ||
+           isa<BufferEXTType>(type) || isa<UntypedPointerKHRType>(type)) {
     return type;
   }
   // Vectors could contain a hybrid type

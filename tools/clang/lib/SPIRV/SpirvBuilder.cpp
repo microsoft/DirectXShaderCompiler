@@ -531,6 +531,19 @@ SpirvImageTexelPointer *SpirvBuilder::createImageTexelPointer(
   return instruction;
 }
 
+SpirvUntypedImageTexelPointerEXT *
+SpirvBuilder::createUntypedImageTexelPointerEXT(QualType resultType,
+                                                SpirvInstruction *image,
+                                                SpirvInstruction *coordinate,
+                                                SpirvInstruction *sample,
+                                                SourceLocation loc) {
+  assert(insertPoint && "null insert point");
+  auto *instruction = new (context) SpirvUntypedImageTexelPointerEXT(
+      resultType, loc, image, coordinate, sample);
+  insertPoint->addInstruction(instruction);
+  return instruction;
+}
+
 SpirvConvertPtrToU *SpirvBuilder::createConvertPtrToU(SpirvInstruction *ptr,
                                                       QualType type) {
   auto *instruction = new (context) SpirvConvertPtrToU(ptr, type);
@@ -543,6 +556,16 @@ SpirvConvertUToPtr *SpirvBuilder::createConvertUToPtr(SpirvInstruction *val,
                                                       QualType type) {
   auto *instruction = new (context) SpirvConvertUToPtr(val, type);
   instruction->setRValue(false);
+  insertPoint->addInstruction(instruction);
+  return instruction;
+}
+
+SpirvBufferPointerEXT *SpirvBuilder::createBufferPointerEXT(
+    const SpirvType *resultType, SpirvInstruction *buffer, SourceLocation loc) {
+  assert(insertPoint && "null insert point");
+  auto *instruction =
+      new (context) SpirvBufferPointerEXT(resultType, loc, buffer);
+  instruction->setRValue(true);
   insertPoint->addInstruction(instruction);
   return instruction;
 }
@@ -1713,6 +1736,29 @@ SpirvVariable *SpirvBuilder::addModuleVar(
   var->setDebugName(name);
   mod->addVariable(var, pos);
   return var;
+}
+
+SpirvUntypedVariableKHR *SpirvBuilder::createUntypedVariableKHR(
+    const SpirvType *type, spv::StorageClass storageClass, SourceLocation loc,
+    llvm::StringRef name) {
+  assert(storageClass != spv::StorageClass::Function);
+  auto *var = new (context) SpirvUntypedVariableKHR(type, loc, storageClass);
+  mod->addVariable(var);
+  var->setDebugName(name);
+  return var;
+}
+
+SpirvUntypedAccessChainKHR *SpirvBuilder::createUntypedAccessChainKHR(
+    const SpirvType *resultType, const SpirvType *baseType,
+    SpirvInstruction *base, llvm::ArrayRef<SpirvInstruction *> indexes,
+    SourceLocation loc) {
+  assert(insertPoint && "null insert point");
+  auto *instruction = new (context)
+      SpirvUntypedAccessChainKHR(resultType, loc, baseType, base, indexes);
+  instruction->setStorageClass(base->getStorageClass());
+  instruction->setLayoutRule(base->getLayoutRule());
+  insertPoint->addInstruction(instruction);
+  return instruction;
 }
 
 void SpirvBuilder::decorateLocation(SpirvInstruction *target,

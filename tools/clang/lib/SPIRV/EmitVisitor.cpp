@@ -789,6 +789,58 @@ bool EmitVisitor::visit(SpirvVariable *inst) {
   return true;
 }
 
+bool EmitVisitor::visit(SpirvUntypedVariableKHR *inst) {
+  initInstruction(inst);
+  curInst.push_back(inst->getResultTypeId());
+  curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst));
+  curInst.push_back(static_cast<uint32_t>(inst->getStorageClass()));
+  finalizeInstruction(inst->getStorageClass() == spv::StorageClass::Function
+                          ? &mainBinary
+                          : &globalVarsBinary);
+  emitDebugNameForInstruction(getOrAssignResultId<SpirvInstruction>(inst),
+                              inst->getDebugName());
+  return true;
+}
+
+bool EmitVisitor::visit(SpirvUntypedAccessChainKHR *inst) {
+  initInstruction(inst);
+  curInst.push_back(inst->getResultTypeId());
+  curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst));
+  curInst.push_back(typeHandler.emitType(inst->getBaseType()));
+  curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst->getBase()));
+  for (const auto index : inst->getIndices())
+    curInst.push_back(getOrAssignResultId<SpirvInstruction>(index));
+  finalizeInstruction(&mainBinary);
+  emitDebugNameForInstruction(getOrAssignResultId<SpirvInstruction>(inst),
+                              inst->getDebugName());
+  return true;
+}
+
+bool EmitVisitor::visit(SpirvBufferPointerEXT *inst) {
+  initInstruction(inst);
+  curInst.push_back(inst->getResultTypeId());
+  curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst));
+  curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst->getBuffer()));
+  finalizeInstruction(&mainBinary);
+  emitDebugNameForInstruction(getOrAssignResultId<SpirvInstruction>(inst),
+                              inst->getDebugName());
+  return true;
+}
+
+bool EmitVisitor::visit(SpirvUntypedImageTexelPointerEXT *inst) {
+  initInstruction(inst);
+  curInst.push_back(inst->getResultTypeId());
+  curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst));
+  curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst->getImage()));
+  curInst.push_back(
+      getOrAssignResultId<SpirvInstruction>(inst->getCoordinate()));
+  curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst->getSample()));
+  finalizeInstruction(&mainBinary);
+  emitDebugNameForInstruction(getOrAssignResultId<SpirvInstruction>(inst),
+                              inst->getDebugName());
+  return true;
+}
+
 bool EmitVisitor::visit(SpirvFunctionParameter *inst) {
   initInstruction(inst);
   curInst.push_back(inst->getResultTypeId());
@@ -2593,6 +2645,22 @@ uint32_t EmitTypeHandler::emitType(const SpirvType *type) {
     curTypeInst.push_back(imageType->isMSImage() ? 1 : 0);
     curTypeInst.push_back(static_cast<uint32_t>(imageType->withSampler()));
     curTypeInst.push_back(static_cast<uint32_t>(imageType->getImageFormat()));
+    finalizeTypeInstruction();
+  }
+  // UntypedPointerKHR types
+  else if (const auto *untypedPtrType = dyn_cast<UntypedPointerKHRType>(type)) {
+    initTypeInstruction(spv::Op::OpTypeUntypedPointerKHR);
+    curTypeInst.push_back(id);
+    curTypeInst.push_back(
+        static_cast<uint32_t>(untypedPtrType->getStorageClass()));
+    finalizeTypeInstruction();
+  }
+  // BufferEXT types
+  else if (const auto *bufferExtType = dyn_cast<BufferEXTType>(type)) {
+    initTypeInstruction(spv::Op::OpTypeBufferEXT);
+    curTypeInst.push_back(id);
+    curTypeInst.push_back(
+        static_cast<uint32_t>(bufferExtType->getStorageClass()));
     finalizeTypeInstruction();
   }
   // Sampler types

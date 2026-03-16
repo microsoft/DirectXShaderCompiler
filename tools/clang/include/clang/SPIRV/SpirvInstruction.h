@@ -48,19 +48,20 @@ public:
     // "Metadata" kinds
     // In the order of logical layout
 
-    IK_Capability,      // OpCapability
-    IK_Extension,       // OpExtension
-    IK_ExtInstImport,   // OpExtInstImport
-    IK_MemoryModel,     // OpMemoryModel
-    IK_EntryPoint,      // OpEntryPoint
-    IK_ExecutionMode,   // OpExecutionMode
-    IK_ExecutionModeId, // OpExecutionModeId
-    IK_String,          // OpString (debug)
-    IK_Source,          // OpSource (debug)
-    IK_ModuleProcessed, // OpModuleProcessed (debug)
-    IK_Decoration,      // Op*Decorate
-    IK_Type,            // OpType*
-    IK_Variable,        // OpVariable
+    IK_Capability,         // OpCapability
+    IK_Extension,          // OpExtension
+    IK_ExtInstImport,      // OpExtInstImport
+    IK_MemoryModel,        // OpMemoryModel
+    IK_EntryPoint,         // OpEntryPoint
+    IK_ExecutionMode,      // OpExecutionMode
+    IK_ExecutionModeId,    // OpExecutionModeId
+    IK_String,             // OpString (debug)
+    IK_Source,             // OpSource (debug)
+    IK_ModuleProcessed,    // OpModuleProcessed (debug)
+    IK_Decoration,         // Op*Decorate
+    IK_Type,               // OpType*
+    IK_Variable,           // OpVariable
+    IK_UntypedVariableKHR, // OpUntypedVariableKHR
 
     // Different kind of constants. Order matters.
     IK_ConstantBoolean,
@@ -73,6 +74,7 @@ public:
     // Pointer <-> uint conversions.
     IK_ConvertPtrToU,
     IK_ConvertUToPtr,
+    IK_BufferPointerEXT, // OpBufferPointerEXT
 
     // OpUndef
     IK_Undef,
@@ -101,6 +103,7 @@ public:
     // In alphabetical order
 
     IK_AccessChain,              // OpAccessChain
+    IK_UntypedAccessChainKHR,    // OpUntypedAccessChainKHR
     IK_ArrayLength,              // OpArrayLength
     IK_Atomic,                   // OpAtomic*
     IK_Barrier,                  // Op*Barrier
@@ -123,23 +126,24 @@ public:
 
     IK_GroupNonUniformOp, // Group non-uniform operations
 
-    IK_ImageOp,                   // OpImage*
-    IK_ImageQuery,                // OpImageQuery*
-    IK_ImageSparseTexelsResident, // OpImageSparseTexelsResident
-    IK_ImageTexelPointer,         // OpImageTexelPointer
-    IK_Load,                      // OpLoad
-    IK_RayQueryOpKHR,             // KHR rayquery ops
-    IK_RayTracingOpNV,            // NV raytracing ops
-    IK_ReadClock,                 // OpReadClock
-    IK_SampledImage,              // OpSampledImage
-    IK_Select,                    // OpSelect
-    IK_SpecConstantBinaryOp,      // SpecConstant binary operations
-    IK_SpecConstantUnaryOp,       // SpecConstant unary operations
-    IK_Store,                     // OpStore
-    IK_UnaryOp,                   // Unary operations
-    IK_NullaryOp,                 // Nullary operations
-    IK_VectorShuffle,             // OpVectorShuffle
-    IK_SpirvIntrinsicInstruction, // Spirv Intrinsic Instructions
+    IK_ImageOp,                     // OpImage*
+    IK_ImageQuery,                  // OpImageQuery*
+    IK_ImageSparseTexelsResident,   // OpImageSparseTexelsResident
+    IK_ImageTexelPointer,           // OpImageTexelPointer
+    IK_UntypedImageTexelPointerEXT, // OpUntypedImageTexelPointerEXT
+    IK_Load,                        // OpLoad
+    IK_RayQueryOpKHR,               // KHR rayquery ops
+    IK_RayTracingOpNV,              // NV raytracing ops
+    IK_ReadClock,                   // OpReadClock
+    IK_SampledImage,                // OpSampledImage
+    IK_Select,                      // OpSelect
+    IK_SpecConstantBinaryOp,        // SpecConstant binary operations
+    IK_SpecConstantUnaryOp,         // SpecConstant unary operations
+    IK_Store,                       // OpStore
+    IK_UnaryOp,                     // Unary operations
+    IK_NullaryOp,                   // Nullary operations
+    IK_VectorShuffle,               // OpVectorShuffle
+    IK_SpirvIntrinsicInstruction,   // Spirv Intrinsic Instructions
 
     // For DebugInfo instructions defined in
     // OpenCL.DebugInfo.100 and NonSemantic.Shader.DebugInfo.100
@@ -387,7 +391,7 @@ class SpirvEntryPoint : public SpirvInstruction {
 public:
   SpirvEntryPoint(SourceLocation loc, spv::ExecutionModel executionModel,
                   SpirvFunction *entryPoint, llvm::StringRef nameStr,
-                  llvm::ArrayRef<SpirvVariable *> iface);
+                  llvm::ArrayRef<SpirvInstruction *> iface);
 
   DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvEntryPoint)
 
@@ -401,13 +405,15 @@ public:
   spv::ExecutionModel getExecModel() const { return execModel; }
   SpirvFunction *getEntryPoint() const { return entryPoint; }
   llvm::StringRef getEntryPointName() const { return name; }
-  llvm::ArrayRef<SpirvVariable *> getInterface() const { return interfaceVec; }
+  llvm::ArrayRef<SpirvInstruction *> getInterface() const {
+    return interfaceVec;
+  }
 
 private:
   spv::ExecutionModel execModel;
   SpirvFunction *entryPoint;
   std::string name;
-  llvm::SmallVector<SpirvVariable *, 8> interfaceVec;
+  llvm::SmallVector<SpirvInstruction *, 8> interfaceVec;
 };
 
 class SpirvExecutionModeBase : public SpirvInstruction {
@@ -638,6 +644,52 @@ private:
   int32_t descriptorSet;
   int32_t binding;
   std::string hlslUserType;
+};
+
+/// \brief OpUntypedVariableKHR instruction
+class SpirvUntypedVariableKHR : public SpirvInstruction {
+public:
+  SpirvUntypedVariableKHR(QualType resultType, SourceLocation loc,
+                          spv::StorageClass sc);
+
+  SpirvUntypedVariableKHR(const SpirvType *spvType, SourceLocation loc,
+                          spv::StorageClass sc);
+
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvUntypedVariableKHR)
+
+  // For LLVM-style RTTI
+  static bool classof(const SpirvInstruction *inst) {
+    return inst->getKind() == IK_UntypedVariableKHR;
+  }
+
+  bool invokeVisitor(Visitor *v) override;
+};
+
+/// \brief Untyped Access Chain instruction representation
+/// (OpUntypedAccessChainKHR)
+class SpirvUntypedAccessChainKHR : public SpirvInstruction {
+public:
+  SpirvUntypedAccessChainKHR(const SpirvType *resultType, SourceLocation loc,
+                             const SpirvType *baseType, SpirvInstruction *base,
+                             llvm::ArrayRef<SpirvInstruction *> indexVec);
+
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvUntypedAccessChainKHR)
+
+  // For LLVM-style RTTI
+  static bool classof(const SpirvInstruction *inst) {
+    return inst->getKind() == IK_UntypedAccessChainKHR;
+  }
+
+  bool invokeVisitor(Visitor *v) override;
+
+  SpirvInstruction *getBase() const { return base; }
+  const SpirvType *getBaseType() const { return baseType; };
+  llvm::ArrayRef<SpirvInstruction *> getIndices() const { return indices; }
+
+private:
+  const SpirvType *baseType;
+  SpirvInstruction *base;
+  llvm::SmallVector<SpirvInstruction *, 4> indices;
 };
 
 class SpirvFunctionParameter : public SpirvInstruction {
@@ -1542,6 +1594,26 @@ private:
   SpirvInstruction *val;
 };
 
+class SpirvBufferPointerEXT : public SpirvInstruction {
+public:
+  SpirvBufferPointerEXT(const SpirvType *resultType, SourceLocation loc,
+                        SpirvInstruction *buffer);
+
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvBufferPointerEXT)
+
+  // For LLVM-style RTTI
+  static bool classof(const SpirvInstruction *inst) {
+    return inst->getKind() == IK_BufferPointerEXT;
+  }
+
+  bool invokeVisitor(Visitor *v) override;
+
+  SpirvInstruction *getBuffer() const { return buffer; }
+
+private:
+  SpirvInstruction *buffer;
+};
+
 class SpirvUndef : public SpirvInstruction {
 public:
   SpirvUndef(QualType type);
@@ -1995,6 +2067,32 @@ public:
       bool inEntryFunctionWrapper) override {
     coordinate = remapOp(coordinate);
   }
+
+private:
+  SpirvInstruction *image;
+  SpirvInstruction *coordinate;
+  SpirvInstruction *sample;
+};
+
+class SpirvUntypedImageTexelPointerEXT : public SpirvInstruction {
+public:
+  SpirvUntypedImageTexelPointerEXT(QualType resultType, SourceLocation loc,
+                                   SpirvInstruction *image,
+                                   SpirvInstruction *coordinate,
+                                   SpirvInstruction *sample);
+
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvUntypedImageTexelPointerEXT)
+
+  // For LLVM-style RTTI
+  static bool classof(const SpirvInstruction *inst) {
+    return inst->getKind() == IK_UntypedImageTexelPointerEXT;
+  }
+
+  bool invokeVisitor(Visitor *v) override;
+
+  SpirvInstruction *getImage() const { return image; }
+  SpirvInstruction *getCoordinate() const { return coordinate; }
+  SpirvInstruction *getSample() const { return sample; }
 
 private:
   SpirvInstruction *image;

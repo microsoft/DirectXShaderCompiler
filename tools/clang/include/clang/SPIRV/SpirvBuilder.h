@@ -274,6 +274,12 @@ public:
                                                   SpirvInstruction *sample,
                                                   SourceLocation);
 
+  /// \brief Creates an OpUntypedImageTexelPointerEXT SPIR-V instruction with
+  /// the given parameters.
+  SpirvUntypedImageTexelPointerEXT *createUntypedImageTexelPointerEXT(
+      QualType resultType, SpirvInstruction *image,
+      SpirvInstruction *coordinate, SpirvInstruction *sample, SourceLocation);
+
   /// \brief Creates an OpConverPtrToU SPIR-V instruction with the given
   /// parameters.
   SpirvConvertPtrToU *createConvertPtrToU(SpirvInstruction *ptr, QualType type);
@@ -281,6 +287,12 @@ public:
   /// \brief Creates an OpConverUToPtr SPIR-V instruction with the given
   /// parameters.
   SpirvConvertUToPtr *createConvertUToPtr(SpirvInstruction *val, QualType type);
+
+  /// \brief Creates an OpBufferPointerEXT SPIR-V instruction with the given
+  /// parameters.
+  SpirvBufferPointerEXT *createBufferPointerEXT(const SpirvType *resultType,
+                                                SpirvInstruction *buffer,
+                                                SourceLocation);
 
   /// \brief Creates SPIR-V instructions for sampling the given image.
   ///
@@ -630,8 +642,7 @@ public:
   /// support a single entry point per module for now.
   inline void addEntryPoint(spv::ExecutionModel em, SpirvFunction *target,
                             llvm::StringRef targetName,
-                            llvm::ArrayRef<SpirvVariable *> interfaces);
-
+                            llvm::ArrayRef<SpirvInstruction *> interfaces);
   /// \brief Sets the shader model version, source file name, and source file
   /// content. Returns the SpirvString instruction of the file name.
   inline SpirvString *setDebugSource(uint32_t major, uint32_t minor,
@@ -707,6 +718,18 @@ public:
                llvm::StringRef name = "",
                llvm::Optional<SpirvInstruction *> init = llvm::None,
                SourceLocation loc = {});
+
+  /// \brief Adds an untyped module variable.
+  SpirvUntypedVariableKHR *createUntypedVariableKHR(
+      const SpirvType *valueType, spv::StorageClass storageClass,
+      SourceLocation loc = {}, llvm::StringRef name = "heap");
+
+  /// \brief Creates an OpUntypedAccessChainKHR instruction.
+  SpirvUntypedAccessChainKHR *
+  createUntypedAccessChainKHR(const SpirvType *resultType,
+                              const SpirvType *baseType, SpirvInstruction *base,
+                              llvm::ArrayRef<SpirvInstruction *> indexes,
+                              SourceLocation loc);
 
   /// \brief Decorates the given target with the given location.
   void decorateLocation(SpirvInstruction *target, uint32_t location);
@@ -974,13 +997,12 @@ void SpirvBuilder::setMemoryModel(spv::AddressingModel addrModel,
   mod->setMemoryModel(new (context) SpirvMemoryModel(addrModel, memModel));
 }
 
-void SpirvBuilder::addEntryPoint(spv::ExecutionModel em, SpirvFunction *target,
-                                 llvm::StringRef targetName,
-                                 llvm::ArrayRef<SpirvVariable *> interfaces) {
+void SpirvBuilder::addEntryPoint(
+    spv::ExecutionModel em, SpirvFunction *target, llvm::StringRef targetName,
+    llvm::ArrayRef<SpirvInstruction *> interfaces) {
   mod->addEntryPoint(new (context) SpirvEntryPoint(
       target->getSourceLocation(), em, target, targetName, interfaces));
 }
-
 SpirvString *
 SpirvBuilder::setDebugSource(uint32_t major, uint32_t minor,
                              const std::vector<llvm::StringRef> &fileNames,

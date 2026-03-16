@@ -419,6 +419,13 @@ SpirvDebugType *DebugTypeVisitor::lowerToDebugType(const SpirvType *spirvType) {
         spvContext.getDebugTypeFunction(spirvType, flags, returnType, params);
     break;
   }
+  case SpirvType::TK_BufferEXT:
+  case SpirvType::TK_UntypedPointerKHR: {
+    // There is no standard debug type for opaque buffer/pointers yet.
+    // For now, lower it as an empty composite type or ignore.
+    debugType = lowerToDebugTypeComposite(spirvType);
+    break;
+  }
   case SpirvType::TK_AccelerationStructureNV: {
     debugType = lowerToDebugTypeComposite(spirvType);
     break;

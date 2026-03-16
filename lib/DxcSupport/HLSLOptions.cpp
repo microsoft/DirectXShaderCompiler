@@ -1139,6 +1139,9 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   opts.SpirvOptions.useUnknownImageFormat =
       Args.hasFlag(OPT_fspv_use_unknown_image_format, OPT_INVALID, false);
 
+  opts.SpirvOptions.useDescriptorHeap = Args.hasFlag(
+      OPT_fspv_use_descriptor_heap, OPT_fspv_use_emulated_heap, false);
+
   if (!handleVkShiftArgs(Args, OPT_fvk_b_shift, "b", &opts.SpirvOptions.bShift,
                          errors) ||
       !handleVkShiftArgs(Args, OPT_fvk_t_shift, "t", &opts.SpirvOptions.tShift,
@@ -1295,6 +1298,8 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
       Args.hasFlag(OPT_fspv_reflect, OPT_INVALID, false) ||
       Args.hasFlag(OPT_fspv_fix_func_call_arguments, OPT_INVALID, false) ||
       Args.hasFlag(OPT_fspv_print_all, OPT_INVALID, false) ||
+      Args.hasFlag(OPT_fspv_use_emulated_heap, OPT_INVALID, false) ||
+      Args.hasFlag(OPT_fspv_use_descriptor_heap, OPT_INVALID, false) ||
       Args.hasFlag(OPT_Wno_vk_ignored_features, OPT_INVALID, false) ||
       Args.hasFlag(OPT_Wno_vk_emulated_features, OPT_INVALID, false) ||
       Args.hasFlag(OPT_fvk_auto_shift_bindings, OPT_INVALID, false) ||
