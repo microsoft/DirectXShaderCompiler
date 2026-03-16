@@ -7733,7 +7733,7 @@ def err_hlsl_norm_float_only : Error<
 def err_hlsl_unsupported_conditional_syntax : Error<
   "x ?: y conditional operator syntax not supported in HLSL">;
 def err_hlsl_conditional_cond_typecheck : Error<
-  "conditional operator only supports condition with scalar, vector, or matrix types convertable to bool.">;
+  "conditional operator only supports condition with scalar, vector, or matrix types convertible to bool.">;
 def err_hlsl_conditional_result_typecheck : Error<
   "conditional operator only supports results with numeric scalar, vector, or matrix types.">;
 def err_hlsl_conditional_dimensions : Error<
@@ -7952,7 +7952,7 @@ def err_hlsl_maxarraysize_template_arg : Error<
 def err_hlsl_maxrecord_attrs_on_same_arg : Error<
     "only one of MaxRecords or MaxRecordsSharedWith may be specified to the same parameter.">;
 def err_hlsl_maxrecordssharedwith_references_invalid_arg : Error<
-    "attribute MaxRecordsSharedWith must reference a valid ouput parameter name.">;
+    "attribute MaxRecordsSharedWith must reference a valid output parameter name.">;
 def err_hlsl_maxrecordssharedwith_references_itself : Error<
     "attribute MaxRecordsSharedWith must not reference the same parameter it is applied to.">;
 def err_hlsl_maxrecord_on_wrong_launch : Error<
