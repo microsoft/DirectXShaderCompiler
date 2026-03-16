@@ -38,6 +38,7 @@ DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvSource)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvModuleProcessed)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvDecoration)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvVariable)
+DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvUntypedVariableKHR)
 
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvFunctionParameter)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvLoopMerge)
@@ -50,6 +51,7 @@ DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvSwitch)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvUnreachable)
 
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvAccessChain)
+DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvUntypedAccessChainKHR)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvAtomic)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvBarrier)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvIsNodePayloadValid)
@@ -68,6 +70,7 @@ DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvConstantString)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvConstantNull)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvConvertPtrToU)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvConvertUToPtr)
+DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvBufferPointerEXT)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvUndef)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvCompositeConstruct)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvCompositeExtract)
@@ -81,6 +84,7 @@ DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvImageOp)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvImageQuery)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvImageSparseTexelsResident)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvImageTexelPointer)
+DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvUntypedImageTexelPointerEXT)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvLoad)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvCopyObject)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvSampledImage)
@@ -204,7 +208,7 @@ SpirvEntryPoint::SpirvEntryPoint(SourceLocation loc,
                                  spv::ExecutionModel executionModel,
                                  SpirvFunction *entryPointFn,
                                  llvm::StringRef nameStr,
-                                 llvm::ArrayRef<SpirvVariable *> iface)
+                                 llvm::ArrayRef<SpirvInstruction *> iface)
     : SpirvInstruction(IK_EntryPoint, spv::Op::OpEntryPoint, QualType(), loc),
       execModel(executionModel), entryPoint(entryPointFn), name(nameStr),
       interfaceVec(iface.begin(), iface.end()) {}
@@ -325,6 +329,33 @@ SpirvVariable::SpirvVariable(const SpirvType *spvType, SourceLocation loc,
   setStorageClass(sc);
   setPrecise(precise);
   setNoninterpolated(isNointerp);
+}
+
+SpirvUntypedVariableKHR::SpirvUntypedVariableKHR(QualType resultType,
+                                                 SourceLocation loc,
+                                                 spv::StorageClass sc)
+    : SpirvInstruction(IK_UntypedVariableKHR, spv::Op::OpUntypedVariableKHR,
+                       resultType, loc) {
+  setStorageClass(sc);
+}
+
+SpirvUntypedVariableKHR::SpirvUntypedVariableKHR(const SpirvType *spvType,
+                                                 SourceLocation loc,
+                                                 spv::StorageClass sc)
+    : SpirvInstruction(IK_UntypedVariableKHR, spv::Op::OpUntypedVariableKHR,
+                       QualType(), loc) {
+  setResultType(spvType);
+  setStorageClass(sc);
+}
+
+SpirvUntypedAccessChainKHR::SpirvUntypedAccessChainKHR(
+    const SpirvType *resultType, SourceLocation loc, const SpirvType *baseType,
+    SpirvInstruction *baseInst, llvm::ArrayRef<SpirvInstruction *> indexVec)
+    : SpirvInstruction(IK_UntypedAccessChainKHR,
+                       spv::Op::OpUntypedAccessChainKHR, QualType(), loc),
+      baseType(baseType), base(baseInst),
+      indices(indexVec.begin(), indexVec.end()) {
+  setResultType(resultType);
 }
 
 SpirvFunctionParameter::SpirvFunctionParameter(QualType resultType,
@@ -705,6 +736,15 @@ bool SpirvConvertUToPtr::operator==(const SpirvConvertUToPtr &that) const {
          astResultType == that.astResultType && val == that.val;
 }
 
+SpirvBufferPointerEXT::SpirvBufferPointerEXT(const SpirvType *resultType,
+                                             SourceLocation loc,
+                                             SpirvInstruction *bufferInst)
+    : SpirvInstruction(IK_BufferPointerEXT, spv::Op::OpBufferPointerEXT,
+                       QualType(), loc),
+      buffer(bufferInst) {
+  setResultType(resultType);
+}
+
 SpirvUndef::SpirvUndef(QualType type)
     : SpirvInstruction(IK_Undef, spv::Op::OpUndef, type,
                        /*SourceLocation*/ {}) {}
@@ -930,6 +970,13 @@ SpirvImageTexelPointer::SpirvImageTexelPointer(QualType resultType,
                                                SpirvInstruction *sampleInst)
     : SpirvInstruction(IK_ImageTexelPointer, spv::Op::OpImageTexelPointer,
                        resultType, loc),
+      image(imageInst), coordinate(coordinateInst), sample(sampleInst) {}
+
+SpirvUntypedImageTexelPointerEXT::SpirvUntypedImageTexelPointerEXT(
+    QualType resultType, SourceLocation loc, SpirvInstruction *imageInst,
+    SpirvInstruction *coordinateInst, SpirvInstruction *sampleInst)
+    : SpirvInstruction(IK_UntypedImageTexelPointerEXT,
+                       spv::Op::OpUntypedImageTexelPointerEXT, resultType, loc),
       image(imageInst), coordinate(coordinateInst), sample(sampleInst) {}
 
 SpirvLoad::SpirvLoad(QualType resultType, SourceLocation loc,

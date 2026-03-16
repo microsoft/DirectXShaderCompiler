@@ -67,6 +67,7 @@ public:
   DEFINE_VISIT_METHOD(SpirvModuleProcessed)
   DEFINE_VISIT_METHOD(SpirvDecoration)
   DEFINE_VISIT_METHOD(SpirvVariable)
+  DEFINE_VISIT_METHOD(SpirvUntypedVariableKHR)
 
   DEFINE_VISIT_METHOD(SpirvFunctionParameter)
   DEFINE_VISIT_METHOD(SpirvLoopMerge)
@@ -80,6 +81,7 @@ public:
   DEFINE_VISIT_METHOD(SpirvUnreachable)
 
   DEFINE_VISIT_METHOD(SpirvAccessChain)
+  DEFINE_VISIT_METHOD(SpirvUntypedAccessChainKHR)
   DEFINE_VISIT_METHOD(SpirvAtomic)
   DEFINE_VISIT_METHOD(SpirvBarrier)
   DEFINE_VISIT_METHOD(SpirvIsNodePayloadValid)
@@ -98,6 +100,7 @@ public:
   DEFINE_VISIT_METHOD(SpirvConstantNull)
   DEFINE_VISIT_METHOD(SpirvConvertPtrToU)
   DEFINE_VISIT_METHOD(SpirvConvertUToPtr)
+  DEFINE_VISIT_METHOD(SpirvBufferPointerEXT)
   DEFINE_VISIT_METHOD(SpirvUndef)
   DEFINE_VISIT_METHOD(SpirvCompositeConstruct)
   DEFINE_VISIT_METHOD(SpirvCompositeExtract)
@@ -111,6 +114,7 @@ public:
   DEFINE_VISIT_METHOD(SpirvImageQuery)
   DEFINE_VISIT_METHOD(SpirvImageSparseTexelsResident)
   DEFINE_VISIT_METHOD(SpirvImageTexelPointer)
+  DEFINE_VISIT_METHOD(SpirvUntypedImageTexelPointerEXT)
   DEFINE_VISIT_METHOD(SpirvLoad)
   DEFINE_VISIT_METHOD(SpirvCopyObject)
   DEFINE_VISIT_METHOD(SpirvSampledImage)
