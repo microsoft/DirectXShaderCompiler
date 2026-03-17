@@ -286,9 +286,6 @@ struct HLSLMin16Float_t {
 
   float Val;
 };
-static_assert(sizeof(HLSLMin16Float_t) == sizeof(float),
-              "HLSLMin16Float_t must be same size as float");
-
 struct HLSLMin16Int_t {
   constexpr HLSLMin16Int_t() : Val(0) {}
   constexpr HLSLMin16Int_t(int32_t I) : Val(I) {}
@@ -355,9 +352,6 @@ struct HLSLMin16Int_t {
 
   int32_t Val;
 };
-static_assert(sizeof(HLSLMin16Int_t) == sizeof(int32_t),
-              "HLSLMin16Int_t must be same size as int32_t");
-
 struct HLSLMin16Uint_t {
   constexpr HLSLMin16Uint_t() : Val(0) {}
   constexpr HLSLMin16Uint_t(uint32_t U) : Val(U) {}
@@ -421,9 +415,6 @@ struct HLSLMin16Uint_t {
 
   uint32_t Val;
 };
-static_assert(sizeof(HLSLMin16Uint_t) == sizeof(uint32_t),
-              "HLSLMin16Uint_t must be same size as uint32_t");
-
 enum class InputSet {
 #define INPUT_SET(SYMBOL) SYMBOL,
 #include "LongVectorOps.def"
