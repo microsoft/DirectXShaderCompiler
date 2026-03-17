@@ -39,6 +39,7 @@ struct DataType {
   const char *HLSLTypeString;
   bool Is16Bit;
   size_t HLSLSizeInBytes;
+  const char *IOTypeString; // Full-precision type for buffer I/O.
 };
 
 template <typename T> const DataType &getDataType() {
@@ -47,7 +48,15 @@ template <typename T> const DataType &getDataType() {
 
 #define DATA_TYPE(TYPE, HLSL_STRING, HLSL_SIZE)                                \
   template <> const DataType &getDataType<TYPE>() {                            \
-    static DataType DataType{HLSL_STRING, is16BitType<TYPE>(), HLSL_SIZE};     \
+    static DataType DataType{HLSL_STRING, is16BitType<TYPE>(), HLSL_SIZE,      \
+                             HLSL_STRING};                                     \
+    return DataType;                                                           \
+  }
+
+#define MIN_PRECISION_DATA_TYPE(TYPE, HLSL_STRING, HLSL_SIZE, IO_STRING)       \
+  template <> const DataType &getDataType<TYPE>() {                            \
+    static DataType DataType{HLSL_STRING, is16BitType<TYPE>(), HLSL_SIZE,      \
+                             IO_STRING};                                       \
     return DataType;                                                           \
   }
 
@@ -59,13 +68,14 @@ DATA_TYPE(uint16_t, "uint16_t", 2)
 DATA_TYPE(uint32_t, "uint32_t", 4)
 DATA_TYPE(uint64_t, "uint64_t", 8)
 DATA_TYPE(HLSLHalf_t, "half", 2)
-DATA_TYPE(HLSLMin16Float_t, "min16float", 4)
-DATA_TYPE(HLSLMin16Int_t, "min16int", 4)
-DATA_TYPE(HLSLMin16Uint_t, "min16uint", 4)
+MIN_PRECISION_DATA_TYPE(HLSLMin16Float_t, "min16float", 4, "float")
+MIN_PRECISION_DATA_TYPE(HLSLMin16Int_t, "min16int", 4, "int")
+MIN_PRECISION_DATA_TYPE(HLSLMin16Uint_t, "min16uint", 4, "uint")
 DATA_TYPE(float, "float", 4)
 DATA_TYPE(double, "double", 8)
 
 #undef DATA_TYPE
+#undef MIN_PRECISION_DATA_TYPE
 
 template <typename T> constexpr bool isFloatingPointType() {
   return std::is_same_v<T, float> || std::is_same_v<T, double> ||
@@ -76,21 +86,6 @@ template <typename T> constexpr bool isMinPrecisionType() {
   return std::is_same_v<T, HLSLMin16Float_t> ||
          std::is_same_v<T, HLSLMin16Int_t> ||
          std::is_same_v<T, HLSLMin16Uint_t>;
-}
-
-// Min precision types (min16float, min16int, min16uint) are hints that allow
-// hardware to use any precision >= the specified minimum, making buffer storage
-// width implementation-defined. We use full-precision types for buffer I/O to
-// ensure deterministic data layout regardless of the device's implementation.
-template <typename T> const char *getIOTypeString() {
-  if constexpr (std::is_same_v<T, HLSLMin16Float_t>)
-    return "float";
-  else if constexpr (std::is_same_v<T, HLSLMin16Int_t>)
-    return "int";
-  else if constexpr (std::is_same_v<T, HLSLMin16Uint_t>)
-    return "uint";
-  else
-    return getDataType<T>().HLSLTypeString;
 }
 
 //
@@ -1904,8 +1899,9 @@ void dispatchMinPrecisionTest(ID3D12Device *D3DDevice, bool VerboseLogging,
     using OutT = typename decltype(Expected)::value_type;
 
     const std::string AdditionalCompilerOptions =
-        std::string("-DMIN_PRECISION") + " -DIO_TYPE=" + getIOTypeString<T>() +
-        " -DIO_OUT_TYPE=" + getIOTypeString<OutT>();
+        std::string("-DMIN_PRECISION") +
+        " -DIO_TYPE=" + getDataType<T>().IOTypeString +
+        " -DIO_OUT_TYPE=" + getDataType<OutT>().IOTypeString;
 
     runAndVerify(D3DDevice, VerboseLogging, Operation, Inputs, Expected,
                  Op.ValidationConfig, AdditionalCompilerOptions);
