@@ -82,14 +82,15 @@ template <typename T> constexpr bool isMinPrecisionType() {
 // hardware to use any precision >= the specified minimum, making buffer storage
 // width implementation-defined. We use full-precision types for buffer I/O to
 // ensure deterministic data layout regardless of the device's implementation.
-const char *getIOTypeString(const char *HLSLType) {
-  if (strcmp(HLSLType, "min16float") == 0)
+template <typename T> const char *getIOTypeString() {
+  if constexpr (std::is_same_v<T, HLSLMin16Float_t>)
     return "float";
-  if (strcmp(HLSLType, "min16int") == 0)
+  else if constexpr (std::is_same_v<T, HLSLMin16Int_t>)
     return "int";
-  if (strcmp(HLSLType, "min16uint") == 0)
+  else if constexpr (std::is_same_v<T, HLSLMin16Uint_t>)
     return "uint";
-  return HLSLType;
+  else
+    return getDataType<T>().HLSLTypeString;
 }
 
 //
@@ -1894,8 +1895,6 @@ void dispatchMinPrecisionTest(ID3D12Device *D3DDevice, bool VerboseLogging,
 
   // Min precision buffer storage width is implementation-defined, so we use
   // full-precision types for Load/Store via IO_TYPE/IO_OUT_TYPE defines.
-  const DataType &OpDataType = getDataType<T>();
-
   for (size_t VectorSize : InputVectorSizes) {
     std::vector<std::vector<T>> Inputs =
         buildTestInputs<T>(VectorSize, Operation.InputSets, Operation.Arity);
@@ -1903,12 +1902,10 @@ void dispatchMinPrecisionTest(ID3D12Device *D3DDevice, bool VerboseLogging,
     auto Expected = ExpectedBuilder<OP, T>::buildExpected(Op, Inputs);
 
     using OutT = typename decltype(Expected)::value_type;
-    const DataType &OutDataType = getDataType<OutT>();
 
     const std::string AdditionalCompilerOptions =
-        std::string("-DMIN_PRECISION") +
-        " -DIO_TYPE=" + getIOTypeString(OpDataType.HLSLTypeString) +
-        " -DIO_OUT_TYPE=" + getIOTypeString(OutDataType.HLSLTypeString);
+        std::string("-DMIN_PRECISION") + " -DIO_TYPE=" + getIOTypeString<T>() +
+        " -DIO_OUT_TYPE=" + getIOTypeString<OutT>();
 
     runAndVerify(D3DDevice, VerboseLogging, Operation, Inputs, Expected,
                  Op.ValidationConfig, AdditionalCompilerOptions);
