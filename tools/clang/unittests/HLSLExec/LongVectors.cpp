@@ -68,11 +68,11 @@ DATA_TYPE(uint16_t, "uint16_t", 2)
 DATA_TYPE(uint32_t, "uint32_t", 4)
 DATA_TYPE(uint64_t, "uint64_t", 8)
 DATA_TYPE(HLSLHalf_t, "half", 2)
+DATA_TYPE(float, "float", 4)
+DATA_TYPE(double, "double", 8)
 MIN_PRECISION_DATA_TYPE(HLSLMin16Float_t, "min16float", 4, "float")
 MIN_PRECISION_DATA_TYPE(HLSLMin16Int_t, "min16int", 4, "int")
 MIN_PRECISION_DATA_TYPE(HLSLMin16Uint_t, "min16uint", 4, "uint")
-DATA_TYPE(float, "float", 4)
-DATA_TYPE(double, "double", 8)
 
 #undef DATA_TYPE
 #undef MIN_PRECISION_DATA_TYPE
@@ -1879,8 +1879,6 @@ void dispatchWaveOpTest(ID3D12Device *D3DDevice, bool VerboseLogging,
 template <typename T, OpType OP>
 void dispatchMinPrecisionTest(ID3D12Device *D3DDevice, bool VerboseLogging,
                               size_t OverrideInputSize) {
-  static_assert(isMinPrecisionType<T>(),
-                "dispatchMinPrecisionTest only for min precision types");
 
   const std::vector<size_t> InputVectorSizes =
       getInputSizesToTest<T, OP>(OverrideInputSize);
