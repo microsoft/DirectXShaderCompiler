@@ -39,7 +39,7 @@ struct DataType {
   const char *HLSLTypeString;
   bool Is16Bit;
   size_t HLSLSizeInBytes;
-  const char *IOTypeString; // Full-precision type for buffer I/O.
+  const char *BufferTypeString; // Full-precision type for buffer I/O.
 };
 
 template <typename T> const DataType &getDataType() {
@@ -1889,7 +1889,7 @@ void dispatchMinPrecisionTest(ID3D12Device *D3DDevice, bool VerboseLogging,
   Op<OP, T, Operation.Arity> Op;
 
   // Min precision buffer storage width is implementation-defined, so we use
-  // full-precision types for Load/Store via IO_TYPE/IO_OUT_TYPE defines.
+  // full-precision types for Load/Store via BUFFER_TYPE/BUFFER_OUT_TYPE defines.
   for (size_t VectorSize : InputVectorSizes) {
     std::vector<std::vector<T>> Inputs =
         buildTestInputs<T>(VectorSize, Operation.InputSets, Operation.Arity);
@@ -1900,8 +1900,8 @@ void dispatchMinPrecisionTest(ID3D12Device *D3DDevice, bool VerboseLogging,
 
     const std::string AdditionalCompilerOptions =
         std::string("-DMIN_PRECISION") +
-        " -DIO_TYPE=" + getDataType<T>().IOTypeString +
-        " -DIO_OUT_TYPE=" + getDataType<OutT>().IOTypeString;
+        " -DBUFFER_TYPE=" + getDataType<T>().BufferTypeString +
+        " -DBUFFER_OUT_TYPE=" + getDataType<OutT>().BufferTypeString;
 
     runAndVerify(D3DDevice, VerboseLogging, Operation, Inputs, Expected,
                  Op.ValidationConfig, AdditionalCompilerOptions);
@@ -1920,7 +1920,7 @@ void dispatchMinPrecisionWaveOpTest(ID3D12Device *D3DDevice,
   Op<OP, T, Operation.Arity> Op;
 
   // Min precision buffer storage width is implementation-defined, so we use
-  // full-precision types for Load/Store via IO_TYPE/IO_OUT_TYPE defines.
+  // full-precision types for Load/Store via BUFFER_TYPE/BUFFER_OUT_TYPE defines.
   for (size_t VectorSize : InputVectorSizes) {
     std::vector<std::vector<T>> Inputs =
         buildTestInputs<T>(VectorSize, Operation.InputSets, Operation.Arity);
@@ -1932,8 +1932,8 @@ void dispatchMinPrecisionWaveOpTest(ID3D12Device *D3DDevice,
 
     const std::string AdditionalCompilerOptions =
         std::string("-DMIN_PRECISION") +
-        " -DIO_TYPE=" + getDataType<T>().IOTypeString +
-        " -DIO_OUT_TYPE=" + getDataType<OutT>().IOTypeString +
+        " -DBUFFER_TYPE=" + getDataType<T>().BufferTypeString +
+        " -DBUFFER_OUT_TYPE=" + getDataType<OutT>().BufferTypeString +
         " -DWAVE_SIZE=" + std::to_string(WaveSize) +
         " -DNUMTHREADS_XYZ=" + std::to_string(WaveSize) + ",1,1 ";
 
