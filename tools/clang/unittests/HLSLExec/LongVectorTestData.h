@@ -241,13 +241,14 @@ struct HLSLHalf_t {
 // are 32-bit in DXIL storage. These thin wrappers provide distinct C++ types
 // that map to different HLSL type strings via DATA_TYPE.
 struct HLSLMin16Float_t {
-  HLSLMin16Float_t() : Val(0.0f) {}
-  HLSLMin16Float_t(float F) : Val(F) {}
-  HLSLMin16Float_t(double D) : Val(static_cast<float>(D)) {}
-  explicit HLSLMin16Float_t(int I) : Val(static_cast<float>(I)) {}
-  explicit HLSLMin16Float_t(uint32_t U) : Val(static_cast<float>(U)) {}
+  constexpr HLSLMin16Float_t() : Val(0.0f) {}
+  constexpr HLSLMin16Float_t(float F) : Val(F) {}
+  constexpr HLSLMin16Float_t(double D) : Val(static_cast<float>(D)) {}
+  explicit constexpr HLSLMin16Float_t(int I) : Val(static_cast<float>(I)) {}
+  explicit constexpr HLSLMin16Float_t(uint32_t U)
+      : Val(static_cast<float>(U)) {}
 
-  operator float() const { return Val; }
+  constexpr operator float() const { return Val; }
 
   bool operator==(const HLSLMin16Float_t &O) const { return Val == O.Val; }
   bool operator!=(const HLSLMin16Float_t &O) const { return Val != O.Val; }
@@ -289,15 +290,15 @@ static_assert(sizeof(HLSLMin16Float_t) == sizeof(float),
               "HLSLMin16Float_t must be same size as float");
 
 struct HLSLMin16Int_t {
-  HLSLMin16Int_t() : Val(0) {}
-  HLSLMin16Int_t(int32_t I) : Val(I) {}
-  HLSLMin16Int_t(int64_t I) : Val(static_cast<int32_t>(I)) {}
-  HLSLMin16Int_t(uint32_t U) : Val(static_cast<int32_t>(U)) {}
-  HLSLMin16Int_t(uint64_t U) : Val(static_cast<int32_t>(U)) {}
-  HLSLMin16Int_t(float F) : Val(static_cast<int32_t>(F)) {}
-  HLSLMin16Int_t(double D) : Val(static_cast<int32_t>(D)) {}
+  constexpr HLSLMin16Int_t() : Val(0) {}
+  constexpr HLSLMin16Int_t(int32_t I) : Val(I) {}
+  constexpr HLSLMin16Int_t(int64_t I) : Val(static_cast<int32_t>(I)) {}
+  constexpr HLSLMin16Int_t(uint32_t U) : Val(static_cast<int32_t>(U)) {}
+  constexpr HLSLMin16Int_t(uint64_t U) : Val(static_cast<int32_t>(U)) {}
+  constexpr HLSLMin16Int_t(float F) : Val(static_cast<int32_t>(F)) {}
+  constexpr HLSLMin16Int_t(double D) : Val(static_cast<int32_t>(D)) {}
 
-  operator int32_t() const { return Val; }
+  constexpr operator int32_t() const { return Val; }
 
   bool operator==(const HLSLMin16Int_t &O) const { return Val == O.Val; }
   bool operator!=(const HLSLMin16Int_t &O) const { return Val != O.Val; }
@@ -358,14 +359,14 @@ static_assert(sizeof(HLSLMin16Int_t) == sizeof(int32_t),
               "HLSLMin16Int_t must be same size as int32_t");
 
 struct HLSLMin16Uint_t {
-  HLSLMin16Uint_t() : Val(0) {}
-  HLSLMin16Uint_t(uint32_t U) : Val(U) {}
-  HLSLMin16Uint_t(uint64_t U) : Val(static_cast<uint32_t>(U)) {}
-  HLSLMin16Uint_t(int32_t I) : Val(static_cast<uint32_t>(I)) {}
-  HLSLMin16Uint_t(float F) : Val(static_cast<uint32_t>(F)) {}
-  HLSLMin16Uint_t(double D) : Val(static_cast<uint32_t>(D)) {}
+  constexpr HLSLMin16Uint_t() : Val(0) {}
+  constexpr HLSLMin16Uint_t(uint32_t U) : Val(U) {}
+  constexpr HLSLMin16Uint_t(uint64_t U) : Val(static_cast<uint32_t>(U)) {}
+  constexpr HLSLMin16Uint_t(int32_t I) : Val(static_cast<uint32_t>(I)) {}
+  constexpr HLSLMin16Uint_t(float F) : Val(static_cast<uint32_t>(F)) {}
+  constexpr HLSLMin16Uint_t(double D) : Val(static_cast<uint32_t>(D)) {}
 
-  operator uint32_t() const { return Val; }
+  constexpr operator uint32_t() const { return Val; }
 
   bool operator==(const HLSLMin16Uint_t &O) const { return Val == O.Val; }
   bool operator!=(const HLSLMin16Uint_t &O) const { return Val != O.Val; }

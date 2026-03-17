@@ -821,7 +821,7 @@ DEFAULT_OP_2(OpType::Xor, (A ^ B));
 // 32-bit, 6 bits for 64-bit). We must do the same in C++ to avoid undefined
 // behavior when shift amount >= bit width, and to match GPU results.
 template <typename T> T MaskShiftAmount(T ShiftAmount) {
-  const T ShiftMask = static_cast<T>(sizeof(T) * 8 - 1);
+  constexpr T ShiftMask = static_cast<T>(sizeof(T) * 8 - 1);
   return ShiftAmount & ShiftMask;
 }
 
