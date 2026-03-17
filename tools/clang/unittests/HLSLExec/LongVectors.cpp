@@ -388,15 +388,22 @@ std::string getCompilerOptionsString(
 
   CompilerOptions << " -DOUT_TYPE=" << OutDataType.HLSLTypeString;
 
-  // IO_TYPE / IO_OUT_TYPE: full-precision equivalents of TYPE / OUT_TYPE for
-  // buffer Load/Store. For non-min-precision types these equal TYPE / OUT_TYPE.
-  // Both are needed because cast operations can have different input and output
-  // types (e.g. TYPE=min16float → IO_TYPE=float, OUT_TYPE=int →
-  // IO_OUT_TYPE=int).
-  CompilerOptions << " -DIO_TYPE="
-                  << getIOTypeString(OpDataType.HLSLTypeString);
-  CompilerOptions << " -DIO_OUT_TYPE="
-                  << getIOTypeString(OutDataType.HLSLTypeString);
+  // For min precision types, buffer storage width is implementation-defined.
+  // We define IO_TYPE/IO_OUT_TYPE as full-precision equivalents and set
+  // MIN_PRECISION so shader templates use them for Load/Store operations.
+  // Both IO defines are needed because cast operations can have different input
+  // and output types (e.g. TYPE=min16float, IO_TYPE=float, OUT_TYPE=int,
+  // IO_OUT_TYPE=int). Non-min-precision tests are unaffected.
+  if (strcmp(getIOTypeString(OpDataType.HLSLTypeString),
+             OpDataType.HLSLTypeString) != 0 ||
+      strcmp(getIOTypeString(OutDataType.HLSLTypeString),
+             OutDataType.HLSLTypeString) != 0) {
+    CompilerOptions << " -DMIN_PRECISION";
+    CompilerOptions << " -DIO_TYPE="
+                    << getIOTypeString(OpDataType.HLSLTypeString);
+    CompilerOptions << " -DIO_OUT_TYPE="
+                    << getIOTypeString(OutDataType.HLSLTypeString);
+  }
 
   CompilerOptions << " -DBASIC_OP_TYPE=0x" << std::hex << Operation.Arity;
 
