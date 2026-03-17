@@ -661,8 +661,6 @@ INPUT_SET(InputSet::Zero, 0);
 INPUT_SET(InputSet::NoZero, 1);
 INPUT_SET(InputSet::SelectCond, 0, 1);
 INPUT_SET(InputSet::AllOnes, 1);
-INPUT_SET(InputSet::WaveMultiPrefixBitwise, 0x0, 0x1, 0x3, 0x4, 0x10, 0x12, 0xF,
-          -1);
 END_INPUT_SETS()
 
 // Values constrained to uint16 range. Kept small so that multiply, mad,
@@ -675,8 +673,6 @@ INPUT_SET(InputSet::Zero, 0);
 INPUT_SET(InputSet::BitShiftRhs, 1, 6, 3, 0, 9, 3, 11, 12, 12, 12);
 INPUT_SET(InputSet::SelectCond, 0, 1);
 INPUT_SET(InputSet::AllOnes, 1);
-INPUT_SET(InputSet::WaveMultiPrefixBitwise, 0x0, 0x1, 0x3, 0x4, 0x10, 0x12, 0xF,
-          std::numeric_limits<uint16_t>::max());
 END_INPUT_SETS()
 
 #undef BEGIN_INPUT_SETS
