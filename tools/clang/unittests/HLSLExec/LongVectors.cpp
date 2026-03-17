@@ -1566,6 +1566,8 @@ WAVE_OP(OpType::WaveMultiPrefixBitOr, waveMultiPrefixBitOr(A, WaveSize));
 
 template <typename T> T waveMultiPrefixBitOr(T A, UINT) {
   // All lanes in the group mask clear the second LSB.
+  // Extra static_cast around ~ needed because bitwise NOT promotes min
+  // precision wrapper types to int32/uint32, making operator& ambiguous.
   return static_cast<T>(A & static_cast<T>(~static_cast<T>(0x2)));
 }
 
