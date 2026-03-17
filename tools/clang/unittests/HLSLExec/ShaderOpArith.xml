@@ -4221,7 +4221,7 @@ void MSMain(uint GID : SV_GroupIndex,
           // Store the high bits in the second half of the output vector.
           // Because we know the outputs of asuint are always 32 bits, we can
           // use 4 bytes per element for our offset.
-          g_OutputVector.Store< vector<IO_OUT_TYPE, NUM> >(4 * NUM, HighBits);
+          g_OutputVector.Store< vector<OUT_TYPE, NUM> >(4 * NUM, HighBits);
 
           // Generic store logic in main handles storing LowBits in
           // g_OutputVector.
@@ -4240,7 +4240,7 @@ void MSMain(uint GID : SV_GroupIndex,
           // Store the exponent outputs in the second half of the output vector.
           // Exponent values are always floats, so we can use 4 bytes per
           // element for our offset.
-          g_OutputVector.Store< vector<IO_OUT_TYPE, NUM> >(4 * NUM, Exponent);
+          g_OutputVector.Store< vector<OUT_TYPE, NUM> >(4 * NUM, Exponent);
 
           return Mantissa;
         }
@@ -4381,7 +4381,7 @@ void MSMain(uint GID : SV_GroupIndex,
           Vector = WavePrefixSum(Vector);
           if(WaveGetLaneIndex() == MidLane)
           {
-            g_OutputVector.Store< vector<IO_OUT_TYPE, NUM> >(0, Vector);
+            g_OutputVector.Store< vector<OUT_TYPE, NUM> >(0, Vector);
           }
         }
         #endif
@@ -4392,7 +4392,7 @@ void MSMain(uint GID : SV_GroupIndex,
           Vector = WavePrefixProduct(Vector);
           if(WaveGetLaneIndex() == 2)
           {
-            g_OutputVector.Store< vector<IO_OUT_TYPE, NUM> >(0, Vector);
+            g_OutputVector.Store< vector<OUT_TYPE, NUM> >(0, Vector);
           }
         }
         #endif
@@ -4425,7 +4425,7 @@ void MSMain(uint GID : SV_GroupIndex,
           {
             // Lane 3 is the last lane in the mask that we care about. Store the
             // result from it.
-            g_OutputVector.Store< vector<IO_OUT_TYPE, NUM> >(0, Vector);
+            g_OutputVector.Store< vector<OUT_TYPE, NUM> >(0, Vector);
           }
         }
         #endif
@@ -4457,7 +4457,7 @@ void MSMain(uint GID : SV_GroupIndex,
           if(WaveGetLaneIndex() == 3)
           {
             // Lane 3 is the last lane in the mask. Store the result from it.
-            g_OutputVector.Store< vector<IO_OUT_TYPE, NUM> >(0, Vector);
+            g_OutputVector.Store< vector<OUT_TYPE, NUM> >(0, Vector);
           }
         }
         #endif
@@ -4488,7 +4488,7 @@ void MSMain(uint GID : SV_GroupIndex,
           if(WaveGetLaneIndex() == 3)
           {
             // Lane 3 is the last lane in the mask. Store the result from it.
-            g_OutputVector.Store< vector<IO_OUT_TYPE, NUM> >(0, Vector);
+            g_OutputVector.Store< vector<OUT_TYPE, NUM> >(0, Vector);
           }
         }
         #endif
@@ -4526,7 +4526,7 @@ void MSMain(uint GID : SV_GroupIndex,
           if(WaveGetLaneIndex() == 3)
           {
             // Lane 3 is the last lane in the mask. Store the result from it.
-            g_OutputVector.Store< vector<IO_OUT_TYPE, NUM> >(0, Vector);
+            g_OutputVector.Store< vector<OUT_TYPE, NUM> >(0, Vector);
           }
         }
         #endif
@@ -4567,7 +4567,7 @@ void MSMain(uint GID : SV_GroupIndex,
           if(WaveGetLaneIndex() == 3)
           {
             // Store result from lane 3 (last lane in mask)
-            g_OutputVector.Store< vector<IO_OUT_TYPE, NUM> >(0, Vector);
+            g_OutputVector.Store< vector<OUT_TYPE, NUM> >(0, Vector);
           }
         }
         #endif
@@ -4615,7 +4615,7 @@ void MSMain(uint GID : SV_GroupIndex,
 
           Mantissa = modf(Vector, Exponent);
 
-          g_OutputVector.Store< vector<IO_OUT_TYPE, NUM> >(sizeof(OUT_TYPE) * NUM, Exponent);
+          g_OutputVector.Store< vector<OUT_TYPE, NUM> >(sizeof(OUT_TYPE) * NUM, Exponent);
 
           return Mantissa;
         }
