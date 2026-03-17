@@ -4381,7 +4381,11 @@ void MSMain(uint GID : SV_GroupIndex,
           Vector = WavePrefixSum(Vector);
           if(WaveGetLaneIndex() == MidLane)
           {
+            #ifdef MIN_PRECISION
+            g_OutputVector.Store< vector<IO_OUT_TYPE, NUM> >(0, Vector);
+            #else
             g_OutputVector.Store< vector<OUT_TYPE, NUM> >(0, Vector);
+            #endif
           }
         }
         #endif
@@ -4392,7 +4396,11 @@ void MSMain(uint GID : SV_GroupIndex,
           Vector = WavePrefixProduct(Vector);
           if(WaveGetLaneIndex() == 2)
           {
+            #ifdef MIN_PRECISION
+            g_OutputVector.Store< vector<IO_OUT_TYPE, NUM> >(0, Vector);
+            #else
             g_OutputVector.Store< vector<OUT_TYPE, NUM> >(0, Vector);
+            #endif
           }
         }
         #endif
@@ -4425,7 +4433,11 @@ void MSMain(uint GID : SV_GroupIndex,
           {
             // Lane 3 is the last lane in the mask that we care about. Store the
             // result from it.
+            #ifdef MIN_PRECISION
+            g_OutputVector.Store< vector<IO_OUT_TYPE, NUM> >(0, Vector);
+            #else
             g_OutputVector.Store< vector<OUT_TYPE, NUM> >(0, Vector);
+            #endif
           }
         }
         #endif
@@ -4457,7 +4469,11 @@ void MSMain(uint GID : SV_GroupIndex,
           if(WaveGetLaneIndex() == 3)
           {
             // Lane 3 is the last lane in the mask. Store the result from it.
+            #ifdef MIN_PRECISION
+            g_OutputVector.Store< vector<IO_OUT_TYPE, NUM> >(0, Vector);
+            #else
             g_OutputVector.Store< vector<OUT_TYPE, NUM> >(0, Vector);
+            #endif
           }
         }
         #endif
@@ -4488,7 +4504,11 @@ void MSMain(uint GID : SV_GroupIndex,
           if(WaveGetLaneIndex() == 3)
           {
             // Lane 3 is the last lane in the mask. Store the result from it.
+            #ifdef MIN_PRECISION
+            g_OutputVector.Store< vector<IO_OUT_TYPE, NUM> >(0, Vector);
+            #else
             g_OutputVector.Store< vector<OUT_TYPE, NUM> >(0, Vector);
+            #endif
           }
         }
         #endif
@@ -4526,7 +4546,11 @@ void MSMain(uint GID : SV_GroupIndex,
           if(WaveGetLaneIndex() == 3)
           {
             // Lane 3 is the last lane in the mask. Store the result from it.
+            #ifdef MIN_PRECISION
+            g_OutputVector.Store< vector<IO_OUT_TYPE, NUM> >(0, Vector);
+            #else
             g_OutputVector.Store< vector<OUT_TYPE, NUM> >(0, Vector);
+            #endif
           }
         }
         #endif
@@ -4567,7 +4591,11 @@ void MSMain(uint GID : SV_GroupIndex,
           if(WaveGetLaneIndex() == 3)
           {
             // Store result from lane 3 (last lane in mask)
+            #ifdef MIN_PRECISION
+            g_OutputVector.Store< vector<IO_OUT_TYPE, NUM> >(0, Vector);
+            #else
             g_OutputVector.Store< vector<OUT_TYPE, NUM> >(0, Vector);
+            #endif
           }
         }
         #endif

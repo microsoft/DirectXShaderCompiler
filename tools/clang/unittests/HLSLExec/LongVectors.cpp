@@ -1566,7 +1566,7 @@ WAVE_OP(OpType::WaveMultiPrefixBitOr, waveMultiPrefixBitOr(A, WaveSize));
 
 template <typename T> T waveMultiPrefixBitOr(T A, UINT) {
   // All lanes in the group mask clear the second LSB.
-  return static_cast<T>(A & ~static_cast<T>(0x2));
+  return static_cast<T>(A & static_cast<T>(~static_cast<T>(0x2)));
 }
 
 template <typename T>
@@ -1906,6 +1906,40 @@ void dispatchMinPrecisionTest(ID3D12Device *D3DDevice, bool VerboseLogging,
   }
 }
 
+template <typename T, OpType OP>
+void dispatchMinPrecisionWaveOpTest(ID3D12Device *D3DDevice,
+                                    bool VerboseLogging,
+                                    size_t OverrideInputSize, UINT WaveSize) {
+
+  const std::vector<size_t> InputVectorSizes =
+      getInputSizesToTest<T, OP>(OverrideInputSize);
+
+  constexpr const Operation &Operation = getOperation(OP);
+  Op<OP, T, Operation.Arity> Op;
+
+  // Min precision buffer storage width is implementation-defined, so we use
+  // full-precision types for Load/Store via IO_TYPE/IO_OUT_TYPE defines.
+  for (size_t VectorSize : InputVectorSizes) {
+    std::vector<std::vector<T>> Inputs =
+        buildTestInputs<T>(VectorSize, Operation.InputSets, Operation.Arity);
+
+    auto Expected =
+        ExpectedBuilder<OP, T>::buildExpected(Op, Inputs, WaveSize);
+
+    using OutT = typename decltype(Expected)::value_type;
+
+    const std::string AdditionalCompilerOptions =
+        std::string("-DMIN_PRECISION") +
+        " -DIO_TYPE=" + getDataType<T>().IOTypeString +
+        " -DIO_OUT_TYPE=" + getDataType<OutT>().IOTypeString +
+        " -DWAVE_SIZE=" + std::to_string(WaveSize) +
+        " -DNUMTHREADS_XYZ=" + std::to_string(WaveSize) + ",1,1 ";
+
+    runAndVerify(D3DDevice, VerboseLogging, Operation, Inputs, Expected,
+                 Op.ValidationConfig, AdditionalCompilerOptions);
+  }
+}
+
 } // namespace LongVector
 
 using namespace LongVector;
@@ -1925,6 +1959,16 @@ using namespace LongVector;
         "Device.Graphics.D3D12.DXILCore.ShaderModel69.CoreRequirement")        \
     END_TEST_METHOD_PROPERTIES()                                               \
     runWaveOpTest<DataType, OpType::Op>();                                     \
+  }
+
+#define HLK_MIN_PRECISION_WAVEOP_TEST(Op, DataType)                            \
+  TEST_METHOD(Op##_##DataType) {                                               \
+    BEGIN_TEST_METHOD_PROPERTIES()                                             \
+    TEST_METHOD_PROPERTY(                                                      \
+        "Kits.Specification",                                                  \
+        "Device.Graphics.D3D12.DXILCore.ShaderModel69.CoreRequirement")        \
+    END_TEST_METHOD_PROPERTIES()                                               \
+    runMinPrecisionWaveOpTest<DataType, OpType::Op>();                         \
   }
 
 class TestClassCommon {
@@ -2052,6 +2096,31 @@ public:
 
     dispatchMinPrecisionTest<T, OP>(D3DDevice, VerboseLogging,
                                     OverrideInputSize);
+  }
+
+  template <typename T, OpType OP> void runMinPrecisionWaveOpTest() {
+    WEX::TestExecution::SetVerifyOutput VerifySettings(
+        WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+
+    UINT WaveSize = 0;
+
+    if (OverrideWaveLaneCount > 0) {
+      WaveSize = OverrideWaveLaneCount;
+      hlsl_test::LogCommentFmt(
+          L"Using overridden WaveLaneCount of %d for this test.", WaveSize);
+    } else {
+      D3D12_FEATURE_DATA_D3D12_OPTIONS1 WaveOpts;
+      VERIFY_SUCCEEDED(D3DDevice->CheckFeatureSupport(
+          D3D12_FEATURE_D3D12_OPTIONS1, &WaveOpts, sizeof(WaveOpts)));
+
+      WaveSize = WaveOpts.WaveLaneCountMin;
+    }
+
+    DXASSERT_NOMSG(WaveSize > 0);
+    DXASSERT((WaveSize & (WaveSize - 1)) == 0, "must be a power of 2");
+
+    dispatchMinPrecisionWaveOpTest<T, OP>(D3DDevice, VerboseLogging,
+                                          OverrideInputSize, WaveSize);
   }
 
 protected:
@@ -2923,9 +2992,25 @@ public:
   HLK_MIN_PRECISION_TEST(DerivativeDdxFine, HLSLMin16Float_t);
   HLK_MIN_PRECISION_TEST(DerivativeDdyFine, HLSLMin16Float_t);
 
-  // Wave and Quad ops excluded: these intrinsics do not support min precision
-  // types. The DXIL wave/quad shuffle operations operate on 32-bit or 64-bit
-  // register slots and do not handle 16-bit min precision payloads.
+  // Quad
+  HLK_MIN_PRECISION_TEST(QuadReadLaneAt, HLSLMin16Float_t);
+  HLK_MIN_PRECISION_TEST(QuadReadAcrossX, HLSLMin16Float_t);
+  HLK_MIN_PRECISION_TEST(QuadReadAcrossY, HLSLMin16Float_t);
+  HLK_MIN_PRECISION_TEST(QuadReadAcrossDiagonal, HLSLMin16Float_t);
+
+  // Wave
+  HLK_MIN_PRECISION_WAVEOP_TEST(WaveActiveSum, HLSLMin16Float_t);
+  HLK_MIN_PRECISION_WAVEOP_TEST(WaveActiveMin, HLSLMin16Float_t);
+  HLK_MIN_PRECISION_WAVEOP_TEST(WaveActiveMax, HLSLMin16Float_t);
+  HLK_MIN_PRECISION_WAVEOP_TEST(WaveActiveProduct, HLSLMin16Float_t);
+  HLK_MIN_PRECISION_WAVEOP_TEST(WaveActiveAllEqual, HLSLMin16Float_t);
+  HLK_MIN_PRECISION_WAVEOP_TEST(WaveReadLaneAt, HLSLMin16Float_t);
+  HLK_MIN_PRECISION_WAVEOP_TEST(WaveReadLaneFirst, HLSLMin16Float_t);
+  HLK_MIN_PRECISION_WAVEOP_TEST(WavePrefixSum, HLSLMin16Float_t);
+  HLK_MIN_PRECISION_WAVEOP_TEST(WavePrefixProduct, HLSLMin16Float_t);
+  HLK_MIN_PRECISION_WAVEOP_TEST(WaveMultiPrefixSum, HLSLMin16Float_t);
+  HLK_MIN_PRECISION_WAVEOP_TEST(WaveMultiPrefixProduct, HLSLMin16Float_t);
+  HLK_MIN_PRECISION_WAVEOP_TEST(WaveMatch, HLSLMin16Float_t);
 
   // ---- HLSLMin16Int_t (mirrors int16_t) ----
 
@@ -3000,9 +3085,28 @@ public:
   HLK_MIN_PRECISION_TEST(LoadAndStore_RD_SB_SRV, HLSLMin16Int_t);
   HLK_MIN_PRECISION_TEST(LoadAndStore_RD_SB_UAV, HLSLMin16Int_t);
 
-  // Wave and Quad ops excluded: these intrinsics do not support min precision
-  // types. The DXIL wave/quad shuffle operations operate on 32-bit or 64-bit
-  // register slots and do not handle 16-bit min precision payloads.
+  // Quad
+  HLK_MIN_PRECISION_TEST(QuadReadLaneAt, HLSLMin16Int_t);
+  HLK_MIN_PRECISION_TEST(QuadReadAcrossX, HLSLMin16Int_t);
+  HLK_MIN_PRECISION_TEST(QuadReadAcrossY, HLSLMin16Int_t);
+  HLK_MIN_PRECISION_TEST(QuadReadAcrossDiagonal, HLSLMin16Int_t);
+
+  // Wave
+  HLK_MIN_PRECISION_WAVEOP_TEST(WaveActiveSum, HLSLMin16Int_t);
+  HLK_MIN_PRECISION_WAVEOP_TEST(WaveActiveMin, HLSLMin16Int_t);
+  HLK_MIN_PRECISION_WAVEOP_TEST(WaveActiveMax, HLSLMin16Int_t);
+  HLK_MIN_PRECISION_WAVEOP_TEST(WaveActiveProduct, HLSLMin16Int_t);
+  HLK_MIN_PRECISION_WAVEOP_TEST(WaveActiveAllEqual, HLSLMin16Int_t);
+  HLK_MIN_PRECISION_WAVEOP_TEST(WaveReadLaneAt, HLSLMin16Int_t);
+  HLK_MIN_PRECISION_WAVEOP_TEST(WaveReadLaneFirst, HLSLMin16Int_t);
+  HLK_MIN_PRECISION_WAVEOP_TEST(WavePrefixSum, HLSLMin16Int_t);
+  HLK_MIN_PRECISION_WAVEOP_TEST(WavePrefixProduct, HLSLMin16Int_t);
+  HLK_MIN_PRECISION_WAVEOP_TEST(WaveMultiPrefixSum, HLSLMin16Int_t);
+  HLK_MIN_PRECISION_WAVEOP_TEST(WaveMultiPrefixProduct, HLSLMin16Int_t);
+  HLK_MIN_PRECISION_WAVEOP_TEST(WaveMultiPrefixBitAnd, HLSLMin16Int_t);
+  HLK_MIN_PRECISION_WAVEOP_TEST(WaveMultiPrefixBitOr, HLSLMin16Int_t);
+  HLK_MIN_PRECISION_WAVEOP_TEST(WaveMultiPrefixBitXor, HLSLMin16Int_t);
+  HLK_MIN_PRECISION_WAVEOP_TEST(WaveMatch, HLSLMin16Int_t);
 
   // ---- HLSLMin16Uint_t (mirrors uint16_t) ----
 
@@ -3069,9 +3173,28 @@ public:
   HLK_MIN_PRECISION_TEST(LoadAndStore_RD_SB_SRV, HLSLMin16Uint_t);
   HLK_MIN_PRECISION_TEST(LoadAndStore_RD_SB_UAV, HLSLMin16Uint_t);
 
-  // Wave and Quad ops excluded: these intrinsics do not support min precision
-  // types. The DXIL wave/quad shuffle operations operate on 32-bit or 64-bit
-  // register slots and do not handle 16-bit min precision payloads.
+  // Quad
+  HLK_MIN_PRECISION_TEST(QuadReadLaneAt, HLSLMin16Uint_t);
+  HLK_MIN_PRECISION_TEST(QuadReadAcrossX, HLSLMin16Uint_t);
+  HLK_MIN_PRECISION_TEST(QuadReadAcrossY, HLSLMin16Uint_t);
+  HLK_MIN_PRECISION_TEST(QuadReadAcrossDiagonal, HLSLMin16Uint_t);
+
+  // Wave
+  HLK_MIN_PRECISION_WAVEOP_TEST(WaveActiveSum, HLSLMin16Uint_t);
+  HLK_MIN_PRECISION_WAVEOP_TEST(WaveActiveMin, HLSLMin16Uint_t);
+  HLK_MIN_PRECISION_WAVEOP_TEST(WaveActiveMax, HLSLMin16Uint_t);
+  HLK_MIN_PRECISION_WAVEOP_TEST(WaveActiveProduct, HLSLMin16Uint_t);
+  HLK_MIN_PRECISION_WAVEOP_TEST(WaveActiveAllEqual, HLSLMin16Uint_t);
+  HLK_MIN_PRECISION_WAVEOP_TEST(WaveReadLaneAt, HLSLMin16Uint_t);
+  HLK_MIN_PRECISION_WAVEOP_TEST(WaveReadLaneFirst, HLSLMin16Uint_t);
+  HLK_MIN_PRECISION_WAVEOP_TEST(WavePrefixSum, HLSLMin16Uint_t);
+  HLK_MIN_PRECISION_WAVEOP_TEST(WavePrefixProduct, HLSLMin16Uint_t);
+  HLK_MIN_PRECISION_WAVEOP_TEST(WaveMultiPrefixSum, HLSLMin16Uint_t);
+  HLK_MIN_PRECISION_WAVEOP_TEST(WaveMultiPrefixProduct, HLSLMin16Uint_t);
+  HLK_MIN_PRECISION_WAVEOP_TEST(WaveMultiPrefixBitAnd, HLSLMin16Uint_t);
+  HLK_MIN_PRECISION_WAVEOP_TEST(WaveMultiPrefixBitOr, HLSLMin16Uint_t);
+  HLK_MIN_PRECISION_WAVEOP_TEST(WaveMultiPrefixBitXor, HLSLMin16Uint_t);
+  HLK_MIN_PRECISION_WAVEOP_TEST(WaveMatch, HLSLMin16Uint_t);
 };
 
 #define HLK_TEST_DOUBLE(Op, DataType)                                          \
