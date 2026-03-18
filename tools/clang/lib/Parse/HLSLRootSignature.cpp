@@ -232,8 +232,8 @@ void RootSignatureTokenizer::ReadNextToken(uint32_t BufferIdx) {
     break;
 
   case 'C':
-    bKW = KW(CBV) || KW(comparisonFunc) || KW(COMPARISON_NEVER) ||
-          KW(COMPARISON_LESS) || KW(COMPARISON_EQUAL) ||
+    bKW = KW(CBV) || KW(comparisonFunc) || KW(COMPARISON_NONE) ||
+          KW(COMPARISON_NEVER) || KW(COMPARISON_LESS) || KW(COMPARISON_EQUAL) ||
           KW(COMPARISON_LESS_EQUAL) || KW(COMPARISON_GREATER) ||
           KW(COMPARISON_NOT_EQUAL) || KW(COMPARISON_GREATER_EQUAL) ||
           KW(COMPARISON_ALWAYS) || KW(CBV_SRV_UAV_HEAP_DIRECTLY_INDEXED);
@@ -1613,6 +1613,9 @@ HRESULT RootSignatureParser::ParseComparisonFunction(
   Token = m_pTokenizer->GetToken();
 
   switch (Token.GetType()) {
+  case TokenType::COMPARISON_NONE:
+    ComparisonFunc = DxilComparisonFunc::None;
+    break;
   case TokenType::COMPARISON_NEVER:
     ComparisonFunc = DxilComparisonFunc::Never;
     break;
@@ -1639,7 +1642,7 @@ HRESULT RootSignatureParser::ParseComparisonFunction(
     break;
   default:
     IFC(Error(ERR_RS_UNEXPECTED_TOKEN,
-              "Unexpected texture address mode value: '%s'.", Token.GetStr()));
+              "Unexpected comparison function value: '%s'.", Token.GetStr()));
   }
 
 Cleanup:
@@ -1672,8 +1675,8 @@ RootSignatureParser::ParseBorderColor(DxilStaticBorderColor &BorderColor) {
     BorderColor = DxilStaticBorderColor::OpaqueWhiteUint;
     break;
   default:
-    IFC(Error(ERR_RS_UNEXPECTED_TOKEN,
-              "Unexpected texture address mode value: '%s'.", Token.GetStr()));
+    IFC(Error(ERR_RS_UNEXPECTED_TOKEN, "Unexpected border color value: '%s'.",
+              Token.GetStr()));
   }
 
 Cleanup:
