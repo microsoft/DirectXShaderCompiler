@@ -4338,9 +4338,20 @@ Value *TranslateBufLoad(ResLoadHelper &helper, HLResource::Kind RK,
   Type *EltTy = Ty->getScalarType();
   const bool is64 = (EltTy->isIntegerTy(64) || EltTy->isDoubleTy());
   const bool isBool = EltTy->isIntegerTy(1);
+  // Check for min precision types: their alloc size (from data layout padding
+  // like i16:32, f16:32) exceeds their primitive size. RawBufferVectorLoad
+  // should use the widened type (i32/f32) to match how pre-SM6.9
+  // RawBufferLoad handles min precision (load i32, then trunc to i16).
+  const bool isMinPrec = !isBool && DL.getTypeAllocSizeInBits(EltTy) >
+                                        EltTy->getPrimitiveSizeInBits();
+  Type *OrigEltTy = EltTy;
   // Values will be loaded in memory representations.
-  if (isBool || (is64 && isTyped))
-    EltTy = Builder.getInt32Ty();
+  if (isBool || (is64 && isTyped) || isMinPrec) {
+    if (isMinPrec && EltTy->isFloatingPointTy())
+      EltTy = Builder.getFloatTy();
+    else
+      EltTy = Builder.getInt32Ty();
+  }
 
   // Calculate load size with the scalar memory element type.
   unsigned LdSize = DL.getTypeAllocSize(EltTy);
@@ -4453,6 +4464,16 @@ Value *TranslateBufLoad(ResLoadHelper &helper, HLResource::Kind RK,
   if (isBool)
     retValNew = Builder.CreateICmpNE(
         retValNew, Constant::getNullValue(retValNew->getType()));
+
+  // Truncate widened min precision loads back to original type.
+  // e.g., <3 x i32> from rawBufferVectorLoad.v3i32 -> <3 x i16>
+  if (isMinPrec) {
+    Type *TargetTy = Ty;
+    if (OrigEltTy->isIntegerTy())
+      retValNew = Builder.CreateTrunc(retValNew, TargetTy);
+    else
+      retValNew = Builder.CreateFPTrunc(retValNew, TargetTy);
+  }
 
   helper.retVal->replaceAllUsesWith(retValNew);
   helper.retVal = retValNew;
@@ -4572,6 +4593,27 @@ void TranslateStore(DxilResource::Kind RK, Value *handle, Value *val,
     else
       Ty = EltTy;
     val = Builder.CreateZExt(val, Ty);
+  }
+
+  // Widen min precision types to i32/f32 for RawBufferVectorStore, matching
+  // how pre-SM6.9 RawBufferStore handles min precision (store as i32).
+  if (opcode == OP::OpCode::RawBufferVectorStore) {
+    const DataLayout &DL =
+        OP->GetModule()->GetHLModule().GetModule()->getDataLayout();
+    if (DL.getTypeAllocSizeInBits(EltTy) > EltTy->getPrimitiveSizeInBits()) {
+      Type *WideTy = EltTy->isFloatingPointTy() ? (Type *)Builder.getFloatTy()
+                                                : (Type *)i32Ty;
+      Type *WideVecTy =
+          Ty->isVectorTy()
+              ? (Type *)VectorType::get(WideTy, Ty->getVectorNumElements())
+              : WideTy;
+      if (EltTy->isFloatingPointTy())
+        val = Builder.CreateFPExt(val, WideVecTy);
+      else
+        val = Builder.CreateSExt(val, WideVecTy);
+      EltTy = WideTy;
+      Ty = WideVecTy;
+    }
   }
 
   // If RawBuffer store of 64-bit value, don't set alignment to 8,
