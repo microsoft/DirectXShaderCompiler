@@ -7,6 +7,8 @@
 #include <ostream>
 #include <type_traits>
 
+#include <windows.h>
+
 #include <DirectXMath.h>
 #include <DirectXPackedVector.h>
 
