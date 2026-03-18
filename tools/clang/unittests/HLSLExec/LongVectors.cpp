@@ -2060,10 +2060,7 @@ public:
     return true;
   }
 
-  template <typename T, OpType OP> void runWaveOpTest() {
-    WEX::TestExecution::SetVerifyOutput VerifySettings(
-        WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
-
+  UINT getWaveSize() {
     UINT WaveSize = 0;
 
     if (OverrideWaveLaneCount > 0) {
@@ -2081,8 +2078,15 @@ public:
     DXASSERT_NOMSG(WaveSize > 0);
     DXASSERT((WaveSize & (WaveSize - 1)) == 0, "must be a power of 2");
 
+    return WaveSize;
+  }
+
+  template <typename T, OpType OP> void runWaveOpTest() {
+    WEX::TestExecution::SetVerifyOutput VerifySettings(
+        WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+
     dispatchWaveOpTest<T, OP>(D3DDevice, VerboseLogging, OverrideInputSize,
-                              WaveSize);
+                              getWaveSize());
   }
 
   template <typename T, OpType OP> void runTest() {
@@ -2104,25 +2108,8 @@ public:
     WEX::TestExecution::SetVerifyOutput VerifySettings(
         WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
 
-    UINT WaveSize = 0;
-
-    if (OverrideWaveLaneCount > 0) {
-      WaveSize = OverrideWaveLaneCount;
-      hlsl_test::LogCommentFmt(
-          L"Using overridden WaveLaneCount of %d for this test.", WaveSize);
-    } else {
-      D3D12_FEATURE_DATA_D3D12_OPTIONS1 WaveOpts;
-      VERIFY_SUCCEEDED(D3DDevice->CheckFeatureSupport(
-          D3D12_FEATURE_D3D12_OPTIONS1, &WaveOpts, sizeof(WaveOpts)));
-
-      WaveSize = WaveOpts.WaveLaneCountMin;
-    }
-
-    DXASSERT_NOMSG(WaveSize > 0);
-    DXASSERT((WaveSize & (WaveSize - 1)) == 0, "must be a power of 2");
-
     dispatchMinPrecisionWaveOpTest<T, OP>(D3DDevice, VerboseLogging,
-                                          OverrideInputSize, WaveSize);
+                                          OverrideInputSize, getWaveSize());
   }
 
 protected:
@@ -2897,7 +2884,7 @@ public:
   HLK_WAVEOP_TEST(WaveMultiPrefixProduct, float);
   HLK_WAVEOP_TEST(WaveMatch, float);
 
-  // ---- HLSLMin16Float_t (mirrors HLSLHalf_t) ----
+  // ---- HLSLMin16Float_t (mirrors applicable HLSLHalf_t ops) ----
 
   // TernaryMath
   HLK_MIN_PRECISION_TEST(Mad, HLSLMin16Float_t);
@@ -3014,7 +3001,7 @@ public:
   HLK_MIN_PRECISION_WAVEOP_TEST(WaveMultiPrefixProduct, HLSLMin16Float_t);
   HLK_MIN_PRECISION_WAVEOP_TEST(WaveMatch, HLSLMin16Float_t);
 
-  // ---- HLSLMin16Int_t (mirrors int16_t) ----
+  // ---- HLSLMin16Int_t (mirrors applicable int16_t ops) ----
 
   // TernaryMath
   HLK_MIN_PRECISION_TEST(Mad, HLSLMin16Int_t);
@@ -3110,7 +3097,7 @@ public:
   HLK_MIN_PRECISION_WAVEOP_TEST(WaveMultiPrefixBitXor, HLSLMin16Int_t);
   HLK_MIN_PRECISION_WAVEOP_TEST(WaveMatch, HLSLMin16Int_t);
 
-  // ---- HLSLMin16Uint_t (mirrors uint16_t) ----
+  // ---- HLSLMin16Uint_t (mirrors applicable uint16_t ops) ----
 
   // TernaryMath
   HLK_MIN_PRECISION_TEST(Mad, HLSLMin16Uint_t);
