@@ -902,8 +902,10 @@ class db_oload_gen:
                 )
             line += (
                 "  return llvm::StructType::get(Ctx, {"
-                + ", ".join([get_type_at_index(index, unwrap_pointer) for index, unwrap_pointer in index_tuple])
-                + "});\n"
+                + ", ".join([
+                    get_type_at_index(index, unwrap_pointer)
+                    for index, unwrap_pointer in index_tuple
+                ]) + "});\n"
             )
             print(line)
 

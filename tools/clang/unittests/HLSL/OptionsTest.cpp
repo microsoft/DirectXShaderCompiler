@@ -418,13 +418,35 @@ static void VerifyPreprocessOption(llvm::StringRef command,
 }
 
 TEST_F(OptionsTest, TestPreprocessOption) {
+  // /P (cl.exe-compatible): preprocesses to <input>.i by default.
   VerifyPreprocessOption("/T ps_6_0 -P input.hlsl", "input.i", "");
-  VerifyPreprocessOption("/T ps_6_0 -Fi out.pp -P input.hlsl", "out.pp", "");
+  // /P with /Fi: preprocesses to specified file.
   VerifyPreprocessOption("/T ps_6_0 -P -Fi out.pp input.hlsl", "out.pp", "");
-  const char *Warning =
-      "warning: -P out.pp is deprecated, please use -P -Fi out.pp instead.\n";
-  VerifyPreprocessOption("/T ps_6_0 -P out.pp input.hlsl", "out.pp", Warning);
-  VerifyPreprocessOption("/T ps_6_0 input.hlsl -P out.pp ", "out.pp", Warning);
+  VerifyPreprocessOption("/T ps_6_0 -Fi out.pp -P input.hlsl", "out.pp", "");
+  // /P never emits the deprecation warning, even with positional args that
+  // would trigger it under /Po.
+  VerifyPreprocessOption("/T ps_6_0 -P out.pp input.hlsl", "input.i", "");
+  VerifyPreprocessOption("/T ps_6_0 input.hlsl -P out.pp", "out.i", "");
+
+  // /Po always emits a deprecation warning.
+  // Simple /Po (default output): suggests /P.
+  const char *SimpleWarning =
+      "warning: /Po is deprecated, please use /P instead.\n";
+  VerifyPreprocessOption("/T ps_6_0 -Po input.hlsl", "input.i", SimpleWarning);
+  // /Po with /Fi: suggests /P /Fi.
+  const char *FiWarning =
+      "warning: /Po is deprecated, please use /P /Fi out.pp instead.\n";
+  VerifyPreprocessOption("/T ps_6_0 -Fi out.pp -Po input.hlsl", "out.pp",
+                         FiWarning);
+  VerifyPreprocessOption("/T ps_6_0 -Po -Fi out.pp input.hlsl", "out.pp",
+                         FiWarning);
+  // /Po with positional filename: suggests /P /Fi.
+  const char *PositionalWarning =
+      "warning: /Po is deprecated, please use /P /Fi out.pp instead.\n";
+  VerifyPreprocessOption("/T ps_6_0 -Po out.pp input.hlsl", "out.pp",
+                         PositionalWarning);
+  VerifyPreprocessOption("/T ps_6_0 input.hlsl -Po out.pp ", "out.pp",
+                         PositionalWarning);
 }
 
 static void VerifySerializeDxilFlags(llvm::StringRef command,

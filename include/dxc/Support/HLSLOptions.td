@@ -514,6 +514,8 @@ def Lx : Flag<["-", "/"], "Lx">, HelpText<"Output hexadecimal literals">, Group<
 // In place of 'E' for clang; fxc uses 'E' for entry point.
 def P : Flag<["-", "/"], "P">, Flags<[CoreOption, DriverOption]>, Group<hlslutil_Group>,
   HelpText<"Preprocess to file">;
+def Po : Flag<["-", "/"], "Po">, Flags<[CoreOption, DriverOption]>, Group<hlslutil_Group>,
+  HelpText<"Preprocess to file (deprecated, use /P /Fi instead)">;
 
 // @<file> - options response file
 
