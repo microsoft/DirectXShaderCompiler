@@ -1,6 +1,6 @@
 // REQUIRES: dxil-1-10
 // RUN: %dxc -T cs_6_10 -HV 202x -E main %s | FileCheck %s
-// RUN: %dxc -T cs_6_10 -E main -fcgl %s | FileCheck %s --check-prefix=CHECK2
+// RUN: %dxc -T cs_6_10 -HV 202x -E main -fcgl %s | FileCheck %s --check-prefix=CHECK2
 
 // CHECK: @"\01?SharedArr@@3PAMA" = external addrspace(3) global [64 x float], align 4
 groupshared float SharedArr[64];
