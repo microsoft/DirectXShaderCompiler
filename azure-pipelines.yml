@@ -141,4 +141,3 @@ stages:
         testResultsFormat: 'JUnit'
         testResultsFiles: '**/testresults.xunit.xml'
       condition: succeededOrFailed()
-
