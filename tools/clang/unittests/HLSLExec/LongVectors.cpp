@@ -743,12 +743,12 @@ template <typename T> T Saturate(T A) {
 }
 
 template <typename T> T ReverseBits(T A) {
-  T Result = 0;
+  T Result = static_cast<T>(0);
   const size_t NumBits = sizeof(T) * 8;
   for (size_t I = 0; I < NumBits; I++) {
-    Result <<= 1;
-    Result |= (A & 1);
-    A >>= 1;
+    Result <<= static_cast<T>(1);
+    Result |= (A & static_cast<T>(1));
+    A >>= static_cast<T>(1);
   }
   return Result;
 }
@@ -760,12 +760,13 @@ template <typename T> uint32_t CountBits(T A) {
 // General purpose bit scan from the MSB. Based on the value of LookingForZero
 // returns the index of the first high/low bit found.
 template <typename T> uint32_t ScanFromMSB(T A, bool LookingForZero) {
-  if (A == 0)
+  if (A == static_cast<T>(0))
     return std::numeric_limits<uint32_t>::max();
 
   constexpr uint32_t NumBits = sizeof(T) * 8;
   for (int32_t I = NumBits - 1; I >= 0; --I) {
-    bool BitSet = (A & (static_cast<T>(1) << I)) != 0;
+    bool BitSet =
+        (A & (static_cast<T>(1) << static_cast<T>(I))) != static_cast<T>(0);
     if (BitSet != LookingForZero)
       return static_cast<uint32_t>(I);
   }
@@ -788,11 +789,11 @@ FirstBitHigh(T A) {
 template <typename T> uint32_t FirstBitLow(T A) {
   const uint32_t NumBits = sizeof(T) * 8;
 
-  if (A == 0)
+  if (A == static_cast<T>(0))
     return std::numeric_limits<uint32_t>::max();
 
   for (uint32_t I = 0; I < NumBits; ++I) {
-    if (A & (static_cast<T>(1) << I))
+    if (A & (static_cast<T>(1) << static_cast<T>(I)))
       return static_cast<T>(I);
   }
 
@@ -1888,8 +1889,8 @@ void dispatchMinPrecisionTest(ID3D12Device *D3DDevice, bool VerboseLogging,
   constexpr const Operation &Operation = getOperation(OP);
   Op<OP, T, Operation.Arity> Op;
 
-  // Min precision buffer storage width is implementation-defined, so we use
-  // full-precision types for Load/Store via BUFFER_TYPE/BUFFER_OUT_TYPE defines.
+  // Min precision buffer storage width is implementation-defined, so we
+  // use full-precision types for buffer I/O via BUFFER_TYPE/BUFFER_OUT_TYPE.
   for (size_t VectorSize : InputVectorSizes) {
     std::vector<std::vector<T>> Inputs =
         buildTestInputs<T>(VectorSize, Operation.InputSets, Operation.Arity);
@@ -1919,14 +1920,13 @@ void dispatchMinPrecisionWaveOpTest(ID3D12Device *D3DDevice,
   constexpr const Operation &Operation = getOperation(OP);
   Op<OP, T, Operation.Arity> Op;
 
-  // Min precision buffer storage width is implementation-defined, so we use
-  // full-precision types for Load/Store via BUFFER_TYPE/BUFFER_OUT_TYPE defines.
+  // Min precision buffer storage width is implementation-defined, so we
+  // use full-precision types for buffer I/O via BUFFER_TYPE/BUFFER_OUT_TYPE.
   for (size_t VectorSize : InputVectorSizes) {
     std::vector<std::vector<T>> Inputs =
         buildTestInputs<T>(VectorSize, Operation.InputSets, Operation.Arity);
 
-    auto Expected =
-        ExpectedBuilder<OP, T>::buildExpected(Op, Inputs, WaveSize);
+    auto Expected = ExpectedBuilder<OP, T>::buildExpected(Op, Inputs, WaveSize);
 
     using OutT = typename decltype(Expected)::value_type;
 
@@ -3015,11 +3015,15 @@ public:
   HLK_MIN_PRECISION_TEST(Min, HLSLMin16Int_t);
   HLK_MIN_PRECISION_TEST(Max, HLSLMin16Int_t);
 
-  // Bitwise (logical and shift — bit-manipulation excluded)
+  // Bitwise
   HLK_MIN_PRECISION_TEST(And, HLSLMin16Int_t);
   HLK_MIN_PRECISION_TEST(Or, HLSLMin16Int_t);
   HLK_MIN_PRECISION_TEST(Xor, HLSLMin16Int_t);
-
+  HLK_MIN_PRECISION_TEST(LeftShift, HLSLMin16Int_t);
+  HLK_MIN_PRECISION_TEST(RightShift, HLSLMin16Int_t);
+  // Note: ReverseBits, CountBits, FirstBitHigh, FirstBitLow excluded -
+  // DXC promotes min precision to i32 before these intrinsics, so they
+  // don't operate at min precision.
 
   // UnaryMath
   HLK_MIN_PRECISION_TEST(Abs, HLSLMin16Int_t);
@@ -3111,11 +3115,15 @@ public:
   HLK_MIN_PRECISION_TEST(Min, HLSLMin16Uint_t);
   HLK_MIN_PRECISION_TEST(Max, HLSLMin16Uint_t);
 
-  // Bitwise (logical and shift — bit-manipulation excluded)
+  // Bitwise
   HLK_MIN_PRECISION_TEST(And, HLSLMin16Uint_t);
   HLK_MIN_PRECISION_TEST(Or, HLSLMin16Uint_t);
   HLK_MIN_PRECISION_TEST(Xor, HLSLMin16Uint_t);
-
+  HLK_MIN_PRECISION_TEST(LeftShift, HLSLMin16Uint_t);
+  HLK_MIN_PRECISION_TEST(RightShift, HLSLMin16Uint_t);
+  // Note: ReverseBits, CountBits, FirstBitHigh, FirstBitLow excluded -
+  // DXC promotes min precision to i32 before these intrinsics, so they
+  // don't operate at min precision.
 
   // UnaryMath
   HLK_MIN_PRECISION_TEST(Abs, HLSLMin16Uint_t);

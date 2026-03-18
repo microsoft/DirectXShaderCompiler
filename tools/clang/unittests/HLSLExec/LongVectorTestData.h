@@ -334,6 +334,27 @@ struct HLSLMin16Int_t {
   HLSLMin16Int_t operator>>(const HLSLMin16Int_t &O) const {
     return HLSLMin16Int_t(Val >> O.Val);
   }
+  HLSLMin16Int_t operator~() const { return HLSLMin16Int_t(~Val); }
+  HLSLMin16Int_t &operator<<=(const HLSLMin16Int_t &O) {
+    Val <<= O.Val;
+    return *this;
+  }
+  HLSLMin16Int_t &operator>>=(const HLSLMin16Int_t &O) {
+    Val >>= O.Val;
+    return *this;
+  }
+  HLSLMin16Int_t &operator|=(const HLSLMin16Int_t &O) {
+    Val |= O.Val;
+    return *this;
+  }
+  HLSLMin16Int_t &operator&=(const HLSLMin16Int_t &O) {
+    Val &= O.Val;
+    return *this;
+  }
+  HLSLMin16Int_t &operator^=(const HLSLMin16Int_t &O) {
+    Val ^= O.Val;
+    return *this;
+  }
   HLSLMin16Int_t operator&&(const HLSLMin16Int_t &O) const {
     return HLSLMin16Int_t(Val && O.Val);
   }
@@ -399,6 +420,27 @@ struct HLSLMin16Uint_t {
   HLSLMin16Uint_t operator>>(const HLSLMin16Uint_t &O) const {
     return HLSLMin16Uint_t(Val >> O.Val);
   }
+  HLSLMin16Uint_t operator~() const { return HLSLMin16Uint_t(~Val); }
+  HLSLMin16Uint_t &operator<<=(const HLSLMin16Uint_t &O) {
+    Val <<= O.Val;
+    return *this;
+  }
+  HLSLMin16Uint_t &operator>>=(const HLSLMin16Uint_t &O) {
+    Val >>= O.Val;
+    return *this;
+  }
+  HLSLMin16Uint_t &operator|=(const HLSLMin16Uint_t &O) {
+    Val |= O.Val;
+    return *this;
+  }
+  HLSLMin16Uint_t &operator&=(const HLSLMin16Uint_t &O) {
+    Val &= O.Val;
+    return *this;
+  }
+  HLSLMin16Uint_t &operator^=(const HLSLMin16Uint_t &O) {
+    Val ^= O.Val;
+    return *this;
+  }
 
   bool operator&&(const HLSLMin16Uint_t &O) const { return Val && O.Val; }
   bool operator||(const HLSLMin16Uint_t &O) const { return Val || O.Val; }
@@ -415,6 +457,7 @@ struct HLSLMin16Uint_t {
 
   uint32_t Val;
 };
+
 enum class InputSet {
 #define INPUT_SET(SYMBOL) SYMBOL,
 #include "LongVectorOps.def"
@@ -656,6 +699,7 @@ BEGIN_INPUT_SETS(HLSLMin16Int_t)
 INPUT_SET(InputSet::Default1, -6, 1, 7, 3, 8, 4, -3, 8, 8, -2);
 INPUT_SET(InputSet::Default2, 5, -6, -3, -2, 9, 3, 1, -3, -7, 2);
 INPUT_SET(InputSet::Default3, -5, 6, 3, 2, -9, -3, -1, 3, 7, -2);
+INPUT_SET(InputSet::BitShiftRhs, 1, 6, 3, 0, 9, 3, 12, 11, 11, 14);
 INPUT_SET(InputSet::Zero, 0);
 INPUT_SET(InputSet::NoZero, 1);
 INPUT_SET(InputSet::SelectCond, 0, 1);
@@ -671,6 +715,7 @@ INPUT_SET(InputSet::Default1, 3, 199, 3, 200, 5, 10, 22, 8, 9, 10);
 INPUT_SET(InputSet::Default2, 2, 111, 3, 4, 5, 9, 21, 8, 9, 10);
 INPUT_SET(InputSet::Default3, 4, 112, 4, 5, 3, 7, 21, 1, 11, 9);
 INPUT_SET(InputSet::Zero, 0);
+INPUT_SET(InputSet::BitShiftRhs, 1, 6, 3, 0, 9, 3, 11, 12, 12, 12);
 INPUT_SET(InputSet::SelectCond, 0, 1);
 INPUT_SET(InputSet::AllOnes, 1);
 INPUT_SET(InputSet::WaveMultiPrefixBitwise, 0x0, 0x1, 0x3, 0x4, 0x10, 0x12, 0xF,
