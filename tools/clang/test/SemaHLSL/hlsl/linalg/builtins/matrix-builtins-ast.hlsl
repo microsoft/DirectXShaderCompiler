@@ -1,7 +1,7 @@
 ﻿// REQUIRES: dxil-1-10
 // RUN: %dxc -T lib_6_10 -E main %s -ast-dump-implicit | FileCheck %s
 
-RWByteAddressBuffer buf;
+RWByteAddressBuffer Buf;
 groupshared float SharedArr[64];
 
 [shader("compute")]
@@ -42,7 +42,7 @@ void main() {
 // CHECK-NEXT: ParmVarDecl {{.*}} layout 'unsigned int'
 // CHECK-NEXT: HLSLIntrinsicAttr {{.*}} Implicit "op" "" 419
 // CHECK-NEXT: AvailabilityAttr {{.*}} Implicit  6.10 0 0 ""
-  __builtin_LinAlg_MatrixAccumulateToDescriptor(mat1, buf, 1, 2, 3);
+  __builtin_LinAlg_MatrixAccumulateToDescriptor(mat1, Buf, 1, 2, 3);
 
 // CHECK: FunctionDecl {{.*}} implicit used __builtin_LinAlg_MatrixAccumulateToMemory 'void (__builtin_LinAlgMatrix {{.*}}, float const __attribute__((address_space(3))) (&)[64], unsigned int, unsigned int, unsigned int)' extern
 // CHECK-NEXT: ParmVarDecl {{.*}} matrix '__builtin_LinAlgMatrix {{.*}}'
@@ -93,7 +93,7 @@ void main() {
 // CHECK-NEXT: ParmVarDecl {{.*}} layout 'unsigned int'
 // CHECK-NEXT: HLSLIntrinsicAttr {{.*}} Implicit "op" "" 410
 // CHECK-NEXT: AvailabilityAttr {{.*}} Implicit  6.10 0 0 ""
-  __builtin_LinAlg_MatrixLoadFromDescriptor(mat1, buf, 0, 0, 0);
+  __builtin_LinAlg_MatrixLoadFromDescriptor(mat1, Buf, 0, 0, 0);
 
 // CHECK: FunctionDecl {{.*}} implicit used __builtin_LinAlg_MatrixLoadFromMemory 'void (__builtin_LinAlgMatrix {{.*}}, float const __attribute__((address_space(3))) (&)[64], unsigned int, unsigned int, unsigned int)' extern
 // CHECK-NEXT: ParmVarDecl {{.*}} ret '__builtin_LinAlgMatrix {{.*}}'
@@ -154,7 +154,7 @@ void main() {
 // CHECK-NEXT: ParmVarDecl {{.*}} layout 'unsigned int'
 // CHECK-NEXT: HLSLIntrinsicAttr {{.*}} Implicit "op" "" 413
 // CHECK-NEXT: AvailabilityAttr {{.*}} Implicit  6.10 0 0 ""
-  __builtin_LinAlg_MatrixStoreToDescriptor(mat1, buf, 1, 2, 3);
+  __builtin_LinAlg_MatrixStoreToDescriptor(mat1, Buf, 1, 2, 3);
 
 // CHECK: FunctionDecl {{.*}} implicit used __builtin_LinAlg_MatrixStoreToMemory 'void (__builtin_LinAlgMatrix {{.*}}, float const __attribute__((address_space(3))) (&)[64], unsigned int, unsigned int, unsigned int)' extern
 // CHECK-NEXT: ParmVarDecl {{.*}} matrix '__builtin_LinAlgMatrix {{.*}}'
