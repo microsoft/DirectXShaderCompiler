@@ -1,0 +1,50 @@
+name: Build DXC with ASan and UBSan
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  pull_request:
+    branches: [ "main", "master" ]
+  workflow_dispatch:
+
+jobs:
+  build-windows:
+    name: Windows Native Build
+    runs-on: windows-2022
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive 
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Install Ninja
+        run: choco install ninja -y
+
+      - name: Setup MSVC Developer Command Prompt
+        uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Configure CMake
+        run: |
+          cmake -B build `
+            -C cmake/caches/PredefinedParams.cmake `
+            -G Ninja `
+            -DCMAKE_BUILD_TYPE=Release `
+            -DCMAKE_C_COMPILER=clang-cl `
+            -DCMAKE_CXX_COMPILER=clang-cl `
+            -DLLVM_USE_SANITIZER="Address;Undefined"
+
+      - name: Build dxcompiler.dll
+        run: cmake --build build --config Release --target dxcompiler
+
+      - name: Upload DXC Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dxcompiler-sanitized
+          path: build/bin/dxcompiler.dll
+          if-no-files-found: error
