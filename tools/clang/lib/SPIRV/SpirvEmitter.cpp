@@ -8031,7 +8031,10 @@ SpirvInstruction *SpirvEmitter::createVectorSplat(const Expr *scalarExpr,
   // Should find a more meaningful one.
   if (auto *constVal = dyn_cast<SpirvConstant>(scalarVal)) {
     llvm::SmallVector<SpirvConstant *, 4> elements(size_t(size), constVal);
-    const bool isSpecConst = constVal->getopcode() == spv::Op::OpSpecConstant;
+    const bool isSpecConst =
+        constVal->getopcode() == spv::Op::OpSpecConstant ||
+        constVal->getopcode() == spv::Op::OpSpecConstantFalse ||
+        constVal->getopcode() == spv::Op::OpSpecConstantTrue;
     auto *value =
         spvBuilder.getConstantComposite(vecType, elements, isSpecConst);
     if (!value)
