@@ -23,11 +23,16 @@ jobs:
         with:
           python-version: '3.x'
 
-      - name: Install Ninja
-        run: choco install ninja -y
-
-      - name: Setup MSVC Developer Command Prompt
-        uses: ilammy/msvc-dev-cmd@v1
+      - name: Install Ninja and Latest LLVM
+        run: |
+          choco install ninja -y
+          # Install the latest LLVM which has the patched Windows ASan interceptors
+          choco install llvm -y
+          
+      # Add this step so CMake uses the newly installed LLVM instead of the older built-in one
+      - name: Add LLVM to PATH
+        shell: pwsh
+        run: echo "C:\Program Files\LLVM\bin" >> $env:GITHUB_PATH
 
       - name: Setup Sanitizer Environment
         shell: pwsh
