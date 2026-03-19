@@ -10651,14 +10651,14 @@ struct DxilInst_LinAlgMatrixLoadFromMemory {
   bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
-    arg_groupsharedArr = 1,
+    arg_memory = 1,
     arg_offset = 2,
     arg_stride = 3,
     arg_layout = 4,
   };
   // Accessors
-  llvm::Value *get_groupsharedArr() const { return Instr->getOperand(1); }
-  void set_groupsharedArr(llvm::Value *val) { Instr->setOperand(1, val); }
+  llvm::Value *get_memory() const { return Instr->getOperand(1); }
+  void set_memory(llvm::Value *val) { Instr->setOperand(1, val); }
   llvm::Value *get_offset() const { return Instr->getOperand(2); }
   void set_offset(llvm::Value *val) { Instr->setOperand(2, val); }
   llvm::Value *get_stride() const { return Instr->getOperand(3); }
@@ -10854,7 +10854,7 @@ struct DxilInst_LinAlgMatrixStoreToMemory {
   // Operand indexes
   enum OperandIdx {
     arg_matrix = 1,
-    arg_groupsharedArr = 2,
+    arg_memory = 2,
     arg_offset = 3,
     arg_stride = 4,
     arg_layout = 5,
@@ -10862,8 +10862,8 @@ struct DxilInst_LinAlgMatrixStoreToMemory {
   // Accessors
   llvm::Value *get_matrix() const { return Instr->getOperand(1); }
   void set_matrix(llvm::Value *val) { Instr->setOperand(1, val); }
-  llvm::Value *get_groupsharedArr() const { return Instr->getOperand(2); }
-  void set_groupsharedArr(llvm::Value *val) { Instr->setOperand(2, val); }
+  llvm::Value *get_memory() const { return Instr->getOperand(2); }
+  void set_memory(llvm::Value *val) { Instr->setOperand(2, val); }
   llvm::Value *get_offset() const { return Instr->getOperand(3); }
   void set_offset(llvm::Value *val) { Instr->setOperand(3, val); }
   llvm::Value *get_stride() const { return Instr->getOperand(4); }
@@ -11091,7 +11091,7 @@ struct DxilInst_LinAlgMatrixAccumulateToMemory {
   // Operand indexes
   enum OperandIdx {
     arg_matrix = 1,
-    arg_groupsharedArr = 2,
+    arg_memory = 2,
     arg_offset = 3,
     arg_stride = 4,
     arg_layout = 5,
@@ -11099,8 +11099,8 @@ struct DxilInst_LinAlgMatrixAccumulateToMemory {
   // Accessors
   llvm::Value *get_matrix() const { return Instr->getOperand(1); }
   void set_matrix(llvm::Value *val) { Instr->setOperand(1, val); }
-  llvm::Value *get_groupsharedArr() const { return Instr->getOperand(2); }
-  void set_groupsharedArr(llvm::Value *val) { Instr->setOperand(2, val); }
+  llvm::Value *get_memory() const { return Instr->getOperand(2); }
+  void set_memory(llvm::Value *val) { Instr->setOperand(2, val); }
   llvm::Value *get_offset() const { return Instr->getOperand(3); }
   void set_offset(llvm::Value *val) { Instr->setOperand(3, val); }
   llvm::Value *get_stride() const { return Instr->getOperand(4); }

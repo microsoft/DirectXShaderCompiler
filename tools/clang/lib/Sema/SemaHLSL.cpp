@@ -1991,6 +1991,9 @@ ParamModsFromIntrinsicArg(const HLSL_INTRINSIC_ARGUMENT *pArg) {
   }
   if (pArg->qwUsage == AR_QUAL_REF)
     return hlsl::ParameterModifier(hlsl::ParameterModifier::Kind::Ref);
+  // TODO: https://github.com/microsoft/DirectXShaderCompiler/issues/8270
+  if (pArg->qwUsage == AR_QUAL_GROUPSHARED)
+    return hlsl::ParameterModifier(hlsl::ParameterModifier::Kind::In);
   DXASSERT(qwUsage & AR_QUAL_IN, "else usage is incorrect");
   return hlsl::ParameterModifier(hlsl::ParameterModifier::Kind::In);
 }
@@ -12966,6 +12969,23 @@ static void DiagnoseReachableSERCall(Sema &S, CallExpr *CE,
   S.Diag(EntryLoc, diag::note_hlsl_entry_defined_here);
 }
 
+// Some LinAlg builtins are not available in all shader stages
+// Detect those use cases and raise a Diagnostic
+static void DiagnoseReachableLimitedLinAlgCall(Sema &S, CallExpr *CE,
+                                               DXIL::ShaderKind EntrySK,
+                                               const FunctionDecl *EntryDecl) {
+  if (EntrySK == DXIL::ShaderKind::Compute ||
+      EntrySK == DXIL::ShaderKind::Mesh ||
+      EntrySK == DXIL::ShaderKind::Amplification)
+    return;
+
+  SourceLocation EntryLoc = EntryDecl->getLocation();
+  SourceLocation Loc = CE->getExprLoc();
+  S.Diag(Loc, diag::err_hlsl_linalg_unsupported_stage)
+      << ShaderModel::FullNameFromKind(EntrySK);
+  S.Diag(EntryLoc, diag::note_hlsl_entry_defined_here);
+}
+
 // Check HLSL member call constraints for used functions.
 // locallyVisited is true if this call has been visited already from any other
 // entry function.  Used to avoid duplicate diagnostics when not dependent on
@@ -13015,6 +13035,21 @@ void Sema::DiagnoseReachableHLSLCall(CallExpr *CE, const hlsl::ShaderModel *SM,
     break;
   case hlsl::IntrinsicOp::IOP_DxMaybeReorderThread:
     DiagnoseReachableSERCall(*this, CE, EntrySK, EntryDecl, true);
+    break;
+  case hlsl::IntrinsicOp::IOP___builtin_LinAlg_FillMatrix:
+  case hlsl::IntrinsicOp::IOP___builtin_LinAlg_CopyConvertMatrix:
+  case hlsl::IntrinsicOp::IOP___builtin_LinAlg_MatrixLength:
+  case hlsl::IntrinsicOp::IOP___builtin_LinAlg_MatrixGetCoordinate:
+  case hlsl::IntrinsicOp::IOP___builtin_LinAlg_MatrixGetElement:
+  case hlsl::IntrinsicOp::IOP___builtin_LinAlg_MatrixSetElement:
+  case hlsl::IntrinsicOp::IOP___builtin_LinAlg_MatrixStoreToDescriptor:
+  case hlsl::IntrinsicOp::IOP___builtin_LinAlg_MatrixLoadFromMemory:
+  case hlsl::IntrinsicOp::IOP___builtin_LinAlg_MatrixStoreToMemory:
+  case hlsl::IntrinsicOp::IOP___builtin_LinAlg_MatrixAccumulateToMemory:
+  case hlsl::IntrinsicOp::IOP___builtin_LinAlg_MatrixMatrixMultiply:
+  case hlsl::IntrinsicOp::IOP___builtin_LinAlg_MatrixMatrixMultiplyAccumulate:
+  case hlsl::IntrinsicOp::IOP___builtin_LinAlg_MatrixAccumulate:
+    DiagnoseReachableLimitedLinAlgCall(*this, CE, EntrySK, EntryDecl);
     break;
   default:
     break;

@@ -26,7 +26,19 @@ void fn1(groupshared Shared<int> Sh) {
   Sh.Arr[1] = D;
 }
 
+// CHECK-LABEL: <4 x i32> @"\01??$tfoo@V?$vector@H$03@@@@YA?AV?$vector@H$03@@AGAV0@@Z"(<4 x i32> addrspace(3)* dereferenceable(16) %a)
+// CHECK: [[B:%.*]] = load <4 x i32>, <4 x i32> addrspace(3)* %a, align 4
+// CHECK: ret <4 x i32> [[B]]
+template<typename T>
+T tfoo(groupshared T a) {
+  return a;
+}
+
+groupshared int4 SharedData1;
+
 [numthreads(4, 1, 1)]
 void main(uint3 TID : SV_GroupThreadID) {
   fn1(SharedData);
+  tfoo<int4>(SharedData1);
+  tfoo(SharedData1);
 }
