@@ -29,25 +29,30 @@ jobs:
       - name: Setup MSVC Developer Command Prompt
         uses: ilammy/msvc-dev-cmd@v1
 
-      # Locate the Sanitizer runtimes provided by Visual Studio's Clang distribution
-      # and add them to the PATH so that instrumented build tools can run.
-      - name: Add Sanitizer Runtimes to PATH
+      - name: Setup Sanitizer Environment
         shell: pwsh
         run: |
           $vs_path = "C:\Program Files\Microsoft Visual Studio"
-          $asan_dll = Get-ChildItem -Path $vs_path -Filter "clang_rt.asan_dynamic-x86_64.dll" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
           
+          # 1. Add DLL location to PATH (so tools like llvm-tblgen can run during the build)
+          $asan_dll = Get-ChildItem -Path $vs_path -Filter "clang_rt.asan_dynamic-x86_64.dll" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
           if ($asan_dll) {
             $runtime_dir = $asan_dll.DirectoryName
-            Write-Host "Found Sanitizer Runtimes at: $runtime_dir"
-            
-            # Add to GITHUB_PATH for subsequent steps
+            Write-Host "Found Sanitizer DLLs at: $runtime_dir"
             echo "$runtime_dir" >> $env:GITHUB_PATH
-            
-            # Add to current session PATH so Configure can see it if it runs tests
-            $env:PATH = "$runtime_dir;$env:PATH"
           } else {
-            Write-Error "Could not find Clang Sanitizer runtime DLLs in $vs_path"
+            Write-Error "Could not find ASan DLL!"
+            exit 1
+          }
+          
+          # 2. Add LIB location to LIB env var (so lld-link can resolve the symbols)
+          $asan_lib = Get-ChildItem -Path $vs_path -Filter "clang_rt.asan_dynamic-x86_64.lib" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
+          if ($asan_lib) {
+            $lib_dir = $asan_lib.DirectoryName
+            Write-Host "Found Sanitizer LIBs at: $lib_dir"
+            echo "LIB=$lib_dir;$env:LIB" >> $env:GITHUB_ENV
+          } else {
+            Write-Error "Could not find ASan LIB!"
             exit 1
           }
 
