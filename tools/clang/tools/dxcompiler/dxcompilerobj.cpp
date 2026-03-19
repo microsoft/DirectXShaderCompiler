@@ -522,10 +522,9 @@ public:
                                            // #include directives (optional)
       REFIID riid, LPVOID *ppResult // IDxcResult: status, buffer, and errors
       ) override {
-    char *lol = new char[2];
-    delete[] lol;
-    delete[] lol;
-    char lol2 = lol[4];
+    volatile char* asan_test = new char[10];
+    delete[] asan_test;
+    asan_test[5] = 'X';
     llvm::TimeTraceScope TimeScope("Compile", StringRef(""));
     if (pSource == nullptr || ppResult == nullptr ||
         (argCount > 0 && pArguments == nullptr))
