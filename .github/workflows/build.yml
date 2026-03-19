@@ -68,12 +68,12 @@ jobs:
             -DCMAKE_SHARED_LINKER_FLAGS_RELEASE="clang_rt.asan_dynamic-x86_64.lib clang_rt.asan_dynamic_runtime_thunk-x86_64.lib /nodefaultlib:clang_rt.ubsan_standalone-x86_64.lib /nodefaultlib:clang_rt.ubsan_standalone_cxx-x86_64.lib" `
             -DLLVM_PARALLEL_LINK_JOBS=1
 
-      - name: Build DXCompiler and DXC
+      - name: Build DXC, DXCompiler, and DXIL Validator
         env:
           ASAN_OPTIONS: "detect_leaks=0"
           UBSAN_OPTIONS: "halt_on_error=0"
-        # We explicitly target both dxcompiler and dxc
-        run: cmake --build build --config Release --target dxcompiler --target dxc --parallel 2
+        # Added --target dxil
+        run: cmake --build build --config Release --target dxcompiler --target dxc --target dxil --parallel 2
 
       - name: Bundle ASan DLL
         shell: pwsh
@@ -85,9 +85,10 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: dxcompiler-sanitized
-          # Upload the DLL, the EXE, and the ASan dependency
+          # Added build/bin/dxil.dll to the upload path
           path: |
             build/bin/dxcompiler.dll
             build/bin/dxc.exe
+            build/bin/dxil.dll
             build/bin/clang_rt.asan_dynamic-x86_64.dll
           if-no-files-found: error
