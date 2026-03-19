@@ -37,10 +37,13 @@ jobs:
             -DCMAKE_BUILD_TYPE=Release `
             -DCMAKE_C_COMPILER=clang-cl `
             -DCMAKE_CXX_COMPILER=clang-cl `
-            -DLLVM_USE_SANITIZER="Address;Undefined"
+            -DLLVM_USE_SANITIZER=Address `
+            -DCMAKE_C_FLAGS="-fsanitize=undefined" `
+            -DCMAKE_CXX_FLAGS="-fsanitize=undefined" `
+            -DLLVM_PARALLEL_LINK_JOBS=1
 
       - name: Build dxcompiler.dll
-        run: cmake --build build --config Release --target dxcompiler
+        run: cmake --build build --config Release --target dxcompiler --parallel 4
 
       - name: Upload DXC Artifact
         uses: actions/upload-artifact@v4
