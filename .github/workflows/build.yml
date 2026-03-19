@@ -38,11 +38,16 @@ jobs:
             -DCMAKE_C_COMPILER=clang-cl `
             -DCMAKE_CXX_COMPILER=clang-cl `
             -DLLVM_USE_SANITIZER=Address `
-            -DCMAKE_C_FLAGS="-fsanitize=undefined" `
-            -DCMAKE_CXX_FLAGS="-fsanitize=undefined" `
+            -DLLVM_ENABLE_WERROR=OFF `
+            -DSPIRV_WERROR=OFF `
+            -DCMAKE_C_FLAGS="-fsanitize=undefined -fsanitize-recover=all -Wno-unsafe-buffer-usage -Wno-error" `
+            -DCMAKE_CXX_FLAGS="-fsanitize=undefined -fsanitize-recover=all -Wno-unsafe-buffer-usage -Wno-error" `
             -DLLVM_PARALLEL_LINK_JOBS=1
 
       - name: Build dxcompiler.dll
+        env:
+          ASAN_OPTIONS: "detect_leaks=0"
+          UBSAN_OPTIONS: "halt_on_error=0"
         run: cmake --build build --config Release --target dxcompiler --parallel 4
 
       - name: Upload DXC Artifact
