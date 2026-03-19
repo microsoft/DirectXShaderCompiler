@@ -32,20 +32,13 @@ jobs:
       - name: Setup Sanitizer Environment
         shell: pwsh
         run: |
-          # Query clang-cl directly for its resource directory
           $resource_dir = $(clang-cl --print-resource-dir).Trim()
           $sanitizer_lib_dir = Join-Path $resource_dir "lib\windows"
           
           if (Test-Path $sanitizer_lib_dir) {
             Write-Host "Found Clang Sanitizer libs at: $sanitizer_lib_dir"
-            
-            # 1. Add DLL location to PATH (so tools like llvm-tblgen can run during the build)
             echo "$sanitizer_lib_dir" >> $env:GITHUB_PATH
-            
-            # 2. Add LIB location to LIB env var (so lld-link can resolve the symbols)
             echo "LIB=$sanitizer_lib_dir;$env:LIB" >> $env:GITHUB_ENV
-
-            # 3. Save this directory so we can bundle the DLL with our artifact later
             echo "ASAN_DLL_DIR=$sanitizer_lib_dir" >> $env:GITHUB_ENV
           } else {
             Write-Error "Could not find Clang Sanitizer libs at $sanitizer_lib_dir!"
@@ -68,24 +61,48 @@ jobs:
             -DCMAKE_SHARED_LINKER_FLAGS_RELEASE="clang_rt.asan_dynamic-x86_64.lib clang_rt.asan_dynamic_runtime_thunk-x86_64.lib /nodefaultlib:clang_rt.ubsan_standalone-x86_64.lib /nodefaultlib:clang_rt.ubsan_standalone_cxx-x86_64.lib" `
             -DLLVM_PARALLEL_LINK_JOBS=1
 
-      - name: Build DXC, DXCompiler, and DXIL Validator
+      - name: Build DXCompiler and DXC
         env:
           ASAN_OPTIONS: "detect_leaks=0"
           UBSAN_OPTIONS: "halt_on_error=0"
-        # Added --target dxil
-        run: cmake --build build --config Release --target dxcompiler --target dxc --target dxil --parallel 2
+        # Removed the non-existent 'dxil' target
+        run: cmake --build build --config Release --target dxcompiler --target dxc --parallel 2
+
+      - name: Download Official DXIL.dll
+        shell: pwsh
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          Write-Host "Fetching latest DXC release from GitHub to extract dxil.dll..."
+          
+          # Using GITHUB_TOKEN to prevent API Rate-Limiting issues on the runners
+          $headers = @{ Authorization = "Bearer $env:GITHUB_TOKEN" }
+          $release = Invoke-RestMethod -Uri "https://api.github.com/repos/microsoft/DirectXShaderCompiler/releases/latest" -Headers $headers
+          $asset = $release.assets | Where-Object { $_.name -match "dxc_.*\.zip" } | Select-Object -First 1
+          
+          if ($asset) {
+            Write-Host "Downloading $($asset.name)..."
+            Invoke-WebRequest -Uri $asset.browser_download_url -OutFile "dxc_latest.zip"
+            
+            Write-Host "Extracting..."
+            Expand-Archive -Path "dxc_latest.zip" -DestinationPath "dxc_latest" -Force
+            
+            Write-Host "Copying dxil.dll to build/bin..."
+            Copy-Item -Path "dxc_latest\bin\x64\dxil.dll" -Destination "build\bin\" -Force
+          } else {
+            Write-Error "Could not find the DXC release zip!"
+            exit 1
+          }
 
       - name: Bundle ASan DLL
         shell: pwsh
         run: |
-          # Copy the ASan runtime DLL next to the compiled executables so they work on any PC
           Copy-Item -Path "$env:ASAN_DLL_DIR\clang_rt.asan_dynamic-x86_64.dll" -Destination "build\bin\"
 
       - name: Upload DXC Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: dxcompiler-sanitized
-          # Added build/bin/dxil.dll to the upload path
           path: |
             build/bin/dxcompiler.dll
             build/bin/dxc.exe
