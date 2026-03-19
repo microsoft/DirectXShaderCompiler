@@ -39,6 +39,7 @@ struct DataType {
   const char *HLSLTypeString;
   bool Is16Bit;
   size_t HLSLSizeInBytes;
+  const char *BufferTypeString; // Full-precision type for buffer I/O.
 };
 
 template <typename T> const DataType &getDataType() {
@@ -47,7 +48,15 @@ template <typename T> const DataType &getDataType() {
 
 #define DATA_TYPE(TYPE, HLSL_STRING, HLSL_SIZE)                                \
   template <> const DataType &getDataType<TYPE>() {                            \
-    static DataType DataType{HLSL_STRING, is16BitType<TYPE>(), HLSL_SIZE};     \
+    static DataType DataType{HLSL_STRING, is16BitType<TYPE>(), HLSL_SIZE,      \
+                             HLSL_STRING};                                     \
+    return DataType;                                                           \
+  }
+
+#define MIN_PRECISION_DATA_TYPE(TYPE, HLSL_STRING, HLSL_SIZE, IO_STRING)       \
+  template <> const DataType &getDataType<TYPE>() {                            \
+    static DataType DataType{HLSL_STRING, is16BitType<TYPE>(), HLSL_SIZE,      \
+                             IO_STRING};                                       \
     return DataType;                                                           \
   }
 
@@ -61,12 +70,22 @@ DATA_TYPE(uint64_t, "uint64_t", 8)
 DATA_TYPE(HLSLHalf_t, "half", 2)
 DATA_TYPE(float, "float", 4)
 DATA_TYPE(double, "double", 8)
+MIN_PRECISION_DATA_TYPE(HLSLMin16Float_t, "min16float", 4, "float")
+MIN_PRECISION_DATA_TYPE(HLSLMin16Int_t, "min16int", 4, "int")
+MIN_PRECISION_DATA_TYPE(HLSLMin16Uint_t, "min16uint", 4, "uint")
 
 #undef DATA_TYPE
+#undef MIN_PRECISION_DATA_TYPE
 
 template <typename T> constexpr bool isFloatingPointType() {
   return std::is_same_v<T, float> || std::is_same_v<T, double> ||
-         std::is_same_v<T, HLSLHalf_t>;
+         std::is_same_v<T, HLSLHalf_t> || std::is_same_v<T, HLSLMin16Float_t>;
+}
+
+template <typename T> constexpr bool isMinPrecisionType() {
+  return std::is_same_v<T, HLSLMin16Float_t> ||
+         std::is_same_v<T, HLSLMin16Int_t> ||
+         std::is_same_v<T, HLSLMin16Uint_t>;
 }
 
 //
@@ -216,6 +235,34 @@ bool doValuesMatch(HLSLHalf_t A, HLSLHalf_t B, double Tolerance,
         L"Invalid ValidationType. Expecting Epsilon or ULP.");
     return false;
   }
+}
+
+// Min precision float comparison: convert to half and compare in fp16 space.
+// This reuses the same tolerance values as HLSLHalf_t. Min precision is at
+// least 16-bit, so fp16 tolerances are an upper bound for all cases.
+bool doValuesMatch(HLSLMin16Float_t A, HLSLMin16Float_t B, double Tolerance,
+                   ValidationType ValidationType) {
+  auto HalfA = DirectX::PackedVector::XMConvertFloatToHalf(A.Val);
+  auto HalfB = DirectX::PackedVector::XMConvertFloatToHalf(B.Val);
+  switch (ValidationType) {
+  case ValidationType::Epsilon:
+    return CompareHalfEpsilon(HalfA, HalfB, static_cast<float>(Tolerance));
+  case ValidationType::Ulp:
+    return CompareHalfULP(HalfA, HalfB, static_cast<float>(Tolerance));
+  default:
+    hlsl_test::LogErrorFmt(
+        L"Invalid ValidationType. Expecting Epsilon or ULP.");
+    return false;
+  }
+}
+
+bool doValuesMatch(HLSLMin16Int_t A, HLSLMin16Int_t B, double, ValidationType) {
+  return A == B;
+}
+
+bool doValuesMatch(HLSLMin16Uint_t A, HLSLMin16Uint_t B, double,
+                   ValidationType) {
+  return A == B;
 }
 
 bool doValuesMatch(float A, float B, double Tolerance,
@@ -917,6 +964,24 @@ template <> struct TrigonometricValidation<HLSLHalf_t, OpType::Sinh> {
   ValidationConfig ValidationConfig = ValidationConfig::Ulp(2.0f);
 };
 
+// Min precision trig tolerances: same as half precision since min precision
+// is at least 16-bit and our doValuesMatch compares in half-precision space.
+template <OpType OP> struct TrigonometricValidation<HLSLMin16Float_t, OP> {
+  ValidationConfig ValidationConfig = ValidationConfig::Epsilon(0.003f);
+};
+
+template <> struct TrigonometricValidation<HLSLMin16Float_t, OpType::Cosh> {
+  ValidationConfig ValidationConfig = ValidationConfig::Ulp(2.0f);
+};
+
+template <> struct TrigonometricValidation<HLSLMin16Float_t, OpType::Tan> {
+  ValidationConfig ValidationConfig = ValidationConfig::Ulp(2.0f);
+};
+
+template <> struct TrigonometricValidation<HLSLMin16Float_t, OpType::Sinh> {
+  ValidationConfig ValidationConfig = ValidationConfig::Ulp(2.0f);
+};
+
 #define TRIG_OP(OP, IMPL)                                                      \
   template <typename T> struct Op<OP, T, 1> : TrigonometricValidation<T, OP> { \
     T operator()(T A) { return IMPL; }                                         \
@@ -1073,7 +1138,7 @@ template <> struct ExpectedBuilder<OpType::AsUint_SplitDouble, double> {
 //
 
 template <typename T> T UnaryMathAbs(T A) {
-  if constexpr (std::is_unsigned_v<T>)
+  if constexpr (std::is_unsigned_v<T> || std::is_same_v<T, HLSLMin16Uint_t>)
     return A;
   else
     return static_cast<T>(std::abs(A));
@@ -1285,7 +1350,12 @@ static double computeAbsoluteEpsilon(double A, double ULPTolerance) {
 
   if constexpr (std::is_same_v<T, HLSLHalf_t>)
     ULP = HLSLHalf_t::GetULP(A);
-  else
+  else if constexpr (std::is_same_v<T, HLSLMin16Float_t>) {
+    // Min precision floats may be computed at float16 on the GPU, so use
+    // half-precision ULP for tolerance. Reuse HLSLHalf_t::GetULP which
+    // computes ULP by incrementing the float16 bit representation.
+    ULP = HLSLHalf_t::GetULP(HLSLHalf_t(static_cast<float>(A)));
+  } else
     ULP =
         std::nextafter(static_cast<T>(A), std::numeric_limits<T>::infinity()) -
         static_cast<T>(A);
@@ -1496,7 +1566,9 @@ WAVE_OP(OpType::WaveMultiPrefixBitOr, waveMultiPrefixBitOr(A, WaveSize));
 
 template <typename T> T waveMultiPrefixBitOr(T A, UINT) {
   // All lanes in the group mask clear the second LSB.
-  return static_cast<T>(A & ~static_cast<T>(0x2));
+  // Extra static_cast around ~ needed because bitwise NOT promotes min
+  // precision wrapper types to int32/uint32, making operator& ambiguous.
+  return static_cast<T>(A & static_cast<T>(~static_cast<T>(0x2)));
 }
 
 template <typename T>
@@ -1806,6 +1878,70 @@ void dispatchWaveOpTest(ID3D12Device *D3DDevice, bool VerboseLogging,
   }
 }
 
+template <typename T, OpType OP>
+void dispatchMinPrecisionTest(ID3D12Device *D3DDevice, bool VerboseLogging,
+                              size_t OverrideInputSize) {
+
+  const std::vector<size_t> InputVectorSizes =
+      getInputSizesToTest<T, OP>(OverrideInputSize);
+
+  constexpr const Operation &Operation = getOperation(OP);
+  Op<OP, T, Operation.Arity> Op;
+
+  // Min precision buffer storage width is implementation-defined, so we use
+  // full-precision types for Load/Store via BUFFER_TYPE/BUFFER_OUT_TYPE defines.
+  for (size_t VectorSize : InputVectorSizes) {
+    std::vector<std::vector<T>> Inputs =
+        buildTestInputs<T>(VectorSize, Operation.InputSets, Operation.Arity);
+
+    auto Expected = ExpectedBuilder<OP, T>::buildExpected(Op, Inputs);
+
+    using OutT = typename decltype(Expected)::value_type;
+
+    const std::string AdditionalCompilerOptions =
+        std::string("-DMIN_PRECISION") +
+        " -DBUFFER_TYPE=" + getDataType<T>().BufferTypeString +
+        " -DBUFFER_OUT_TYPE=" + getDataType<OutT>().BufferTypeString;
+
+    runAndVerify(D3DDevice, VerboseLogging, Operation, Inputs, Expected,
+                 Op.ValidationConfig, AdditionalCompilerOptions);
+  }
+}
+
+template <typename T, OpType OP>
+void dispatchMinPrecisionWaveOpTest(ID3D12Device *D3DDevice,
+                                    bool VerboseLogging,
+                                    size_t OverrideInputSize, UINT WaveSize) {
+
+  const std::vector<size_t> InputVectorSizes =
+      getInputSizesToTest<T, OP>(OverrideInputSize);
+
+  constexpr const Operation &Operation = getOperation(OP);
+  Op<OP, T, Operation.Arity> Op;
+
+  // Min precision buffer storage width is implementation-defined, so we use
+  // full-precision types for Load/Store via BUFFER_TYPE/BUFFER_OUT_TYPE defines.
+  for (size_t VectorSize : InputVectorSizes) {
+    std::vector<std::vector<T>> Inputs =
+        buildTestInputs<T>(VectorSize, Operation.InputSets, Operation.Arity);
+
+    auto Expected =
+        ExpectedBuilder<OP, T>::buildExpected(Op, Inputs, WaveSize);
+
+    using OutT = typename decltype(Expected)::value_type;
+
+    const std::string AdditionalCompilerOptions =
+        std::string("-DMIN_PRECISION") +
+        " -DBUFFER_TYPE=" + getDataType<T>().BufferTypeString +
+        " -DBUFFER_OUT_TYPE=" + getDataType<OutT>().BufferTypeString +
+        " -DWAVE_SIZE=" + std::to_string(WaveSize) +
+        " -DNUMTHREADS_XYZ=" + std::to_string(WaveSize) + ",1,1 ";
+
+    runAndVerify(D3DDevice, VerboseLogging, Operation, Inputs, Expected,
+                 Op.ValidationConfig, AdditionalCompilerOptions);
+  }
+}
+
 } // namespace LongVector
 
 using namespace LongVector;
@@ -1813,6 +1949,9 @@ using namespace LongVector;
 // TAEF test entry points
 #define HLK_TEST(Op, DataType)                                                 \
   TEST_METHOD(Op##_##DataType) { runTest<DataType, OpType::Op>(); }
+
+#define HLK_MIN_PRECISION_TEST(Op, DataType)                                   \
+  TEST_METHOD(Op##_##DataType) { runMinPrecisionTest<DataType, OpType::Op>(); }
 
 #define HLK_WAVEOP_TEST(Op, DataType)                                          \
   TEST_METHOD(Op##_##DataType) {                                               \
@@ -1822,6 +1961,16 @@ using namespace LongVector;
         "Device.Graphics.D3D12.DXILCore.ShaderModel69.CoreRequirement")        \
     END_TEST_METHOD_PROPERTIES()                                               \
     runWaveOpTest<DataType, OpType::Op>();                                     \
+  }
+
+#define HLK_MIN_PRECISION_WAVEOP_TEST(Op, DataType)                            \
+  TEST_METHOD(Op##_##DataType) {                                               \
+    BEGIN_TEST_METHOD_PROPERTIES()                                             \
+    TEST_METHOD_PROPERTY(                                                      \
+        "Kits.Specification",                                                  \
+        "Device.Graphics.D3D12.DXILCore.ShaderModel69.CoreRequirement")        \
+    END_TEST_METHOD_PROPERTIES()                                               \
+    runMinPrecisionWaveOpTest<DataType, OpType::Op>();                         \
   }
 
 class TestClassCommon {
@@ -1911,10 +2060,7 @@ public:
     return true;
   }
 
-  template <typename T, OpType OP> void runWaveOpTest() {
-    WEX::TestExecution::SetVerifyOutput VerifySettings(
-        WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
-
+  UINT getWaveSize() {
     UINT WaveSize = 0;
 
     if (OverrideWaveLaneCount > 0) {
@@ -1932,8 +2078,15 @@ public:
     DXASSERT_NOMSG(WaveSize > 0);
     DXASSERT((WaveSize & (WaveSize - 1)) == 0, "must be a power of 2");
 
+    return WaveSize;
+  }
+
+  template <typename T, OpType OP> void runWaveOpTest() {
+    WEX::TestExecution::SetVerifyOutput VerifySettings(
+        WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+
     dispatchWaveOpTest<T, OP>(D3DDevice, VerboseLogging, OverrideInputSize,
-                              WaveSize);
+                              getWaveSize());
   }
 
   template <typename T, OpType OP> void runTest() {
@@ -1941,6 +2094,22 @@ public:
         WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
 
     dispatchTest<T, OP>(D3DDevice, VerboseLogging, OverrideInputSize);
+  }
+
+  template <typename T, OpType OP> void runMinPrecisionTest() {
+    WEX::TestExecution::SetVerifyOutput verifySettings(
+        WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+
+    dispatchMinPrecisionTest<T, OP>(D3DDevice, VerboseLogging,
+                                    OverrideInputSize);
+  }
+
+  template <typename T, OpType OP> void runMinPrecisionWaveOpTest() {
+    WEX::TestExecution::SetVerifyOutput VerifySettings(
+        WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+
+    dispatchMinPrecisionWaveOpTest<T, OP>(D3DDevice, VerboseLogging,
+                                          OverrideInputSize, getWaveSize());
   }
 
 protected:
@@ -2714,6 +2883,307 @@ public:
   HLK_WAVEOP_TEST(WaveMultiPrefixSum, float);
   HLK_WAVEOP_TEST(WaveMultiPrefixProduct, float);
   HLK_WAVEOP_TEST(WaveMatch, float);
+
+  // ---- HLSLMin16Float_t (mirrors applicable HLSLHalf_t ops) ----
+
+  // TernaryMath
+  HLK_MIN_PRECISION_TEST(Mad, HLSLMin16Float_t);
+
+  // BinaryMath
+  HLK_MIN_PRECISION_TEST(Add, HLSLMin16Float_t);
+  HLK_MIN_PRECISION_TEST(Subtract, HLSLMin16Float_t);
+  HLK_MIN_PRECISION_TEST(Multiply, HLSLMin16Float_t);
+  HLK_MIN_PRECISION_TEST(Divide, HLSLMin16Float_t);
+  HLK_MIN_PRECISION_TEST(Modulus, HLSLMin16Float_t);
+  HLK_MIN_PRECISION_TEST(Min, HLSLMin16Float_t);
+  HLK_MIN_PRECISION_TEST(Max, HLSLMin16Float_t);
+  HLK_MIN_PRECISION_TEST(Ldexp, HLSLMin16Float_t);
+
+  // Saturate
+  HLK_MIN_PRECISION_TEST(Saturate, HLSLMin16Float_t);
+
+  // Unary
+  HLK_MIN_PRECISION_TEST(Initialize, HLSLMin16Float_t);
+  HLK_MIN_PRECISION_TEST(ArrayOperator_StaticAccess, HLSLMin16Float_t);
+  HLK_MIN_PRECISION_TEST(ArrayOperator_DynamicAccess, HLSLMin16Float_t);
+  HLK_MIN_PRECISION_TEST(ShuffleVector, HLSLMin16Float_t);
+
+  // Cast
+  HLK_MIN_PRECISION_TEST(CastToBool, HLSLMin16Float_t);
+  HLK_MIN_PRECISION_TEST(CastToInt16, HLSLMin16Float_t);
+  HLK_MIN_PRECISION_TEST(CastToInt32, HLSLMin16Float_t);
+  HLK_MIN_PRECISION_TEST(CastToInt64, HLSLMin16Float_t);
+  HLK_MIN_PRECISION_TEST(CastToUint16_FromFP, HLSLMin16Float_t);
+  HLK_MIN_PRECISION_TEST(CastToUint32_FromFP, HLSLMin16Float_t);
+  HLK_MIN_PRECISION_TEST(CastToUint64_FromFP, HLSLMin16Float_t);
+  HLK_MIN_PRECISION_TEST(CastToFloat16, HLSLMin16Float_t);
+  HLK_MIN_PRECISION_TEST(CastToFloat32, HLSLMin16Float_t);
+
+  // Trigonometric
+  HLK_MIN_PRECISION_TEST(Acos, HLSLMin16Float_t);
+  HLK_MIN_PRECISION_TEST(Asin, HLSLMin16Float_t);
+  HLK_MIN_PRECISION_TEST(Atan, HLSLMin16Float_t);
+  HLK_MIN_PRECISION_TEST(Cos, HLSLMin16Float_t);
+  HLK_MIN_PRECISION_TEST(Cosh, HLSLMin16Float_t);
+  HLK_MIN_PRECISION_TEST(Sin, HLSLMin16Float_t);
+  HLK_MIN_PRECISION_TEST(Sinh, HLSLMin16Float_t);
+  HLK_MIN_PRECISION_TEST(Tan, HLSLMin16Float_t);
+  HLK_MIN_PRECISION_TEST(Tanh, HLSLMin16Float_t);
+
+  // UnaryMath
+  HLK_MIN_PRECISION_TEST(Abs, HLSLMin16Float_t);
+  HLK_MIN_PRECISION_TEST(Ceil, HLSLMin16Float_t);
+  HLK_MIN_PRECISION_TEST(Exp, HLSLMin16Float_t);
+  HLK_MIN_PRECISION_TEST(Floor, HLSLMin16Float_t);
+  HLK_MIN_PRECISION_TEST(Frac, HLSLMin16Float_t);
+  HLK_MIN_PRECISION_TEST(Log, HLSLMin16Float_t);
+  HLK_MIN_PRECISION_TEST(Rcp, HLSLMin16Float_t);
+  HLK_MIN_PRECISION_TEST(Round, HLSLMin16Float_t);
+  HLK_MIN_PRECISION_TEST(Rsqrt, HLSLMin16Float_t);
+  HLK_MIN_PRECISION_TEST(Sign, HLSLMin16Float_t);
+  HLK_MIN_PRECISION_TEST(Sqrt, HLSLMin16Float_t);
+  HLK_MIN_PRECISION_TEST(Trunc, HLSLMin16Float_t);
+  HLK_MIN_PRECISION_TEST(Exp2, HLSLMin16Float_t);
+  HLK_MIN_PRECISION_TEST(Log10, HLSLMin16Float_t);
+  HLK_MIN_PRECISION_TEST(Log2, HLSLMin16Float_t);
+
+  // BinaryComparison
+  HLK_MIN_PRECISION_TEST(LessThan, HLSLMin16Float_t);
+  HLK_MIN_PRECISION_TEST(LessEqual, HLSLMin16Float_t);
+  HLK_MIN_PRECISION_TEST(GreaterThan, HLSLMin16Float_t);
+  HLK_MIN_PRECISION_TEST(GreaterEqual, HLSLMin16Float_t);
+  HLK_MIN_PRECISION_TEST(Equal, HLSLMin16Float_t);
+  HLK_MIN_PRECISION_TEST(NotEqual, HLSLMin16Float_t);
+
+  // Select
+  HLK_MIN_PRECISION_TEST(Select, HLSLMin16Float_t);
+
+  // Dot
+  HLK_MIN_PRECISION_TEST(Dot, HLSLMin16Float_t);
+
+  // LoadAndStore
+  HLK_MIN_PRECISION_TEST(LoadAndStore_RDH_BAB_SRV, HLSLMin16Float_t);
+  HLK_MIN_PRECISION_TEST(LoadAndStore_RDH_BAB_UAV, HLSLMin16Float_t);
+  HLK_MIN_PRECISION_TEST(LoadAndStore_DT_BAB_SRV, HLSLMin16Float_t);
+  HLK_MIN_PRECISION_TEST(LoadAndStore_DT_BAB_UAV, HLSLMin16Float_t);
+  HLK_MIN_PRECISION_TEST(LoadAndStore_RD_BAB_SRV, HLSLMin16Float_t);
+  HLK_MIN_PRECISION_TEST(LoadAndStore_RD_BAB_UAV, HLSLMin16Float_t);
+  HLK_MIN_PRECISION_TEST(LoadAndStore_RDH_SB_SRV, HLSLMin16Float_t);
+  HLK_MIN_PRECISION_TEST(LoadAndStore_RDH_SB_UAV, HLSLMin16Float_t);
+  HLK_MIN_PRECISION_TEST(LoadAndStore_DT_SB_SRV, HLSLMin16Float_t);
+  HLK_MIN_PRECISION_TEST(LoadAndStore_DT_SB_UAV, HLSLMin16Float_t);
+  HLK_MIN_PRECISION_TEST(LoadAndStore_RD_SB_SRV, HLSLMin16Float_t);
+  HLK_MIN_PRECISION_TEST(LoadAndStore_RD_SB_UAV, HLSLMin16Float_t);
+
+  // Derivative
+  HLK_MIN_PRECISION_TEST(DerivativeDdx, HLSLMin16Float_t);
+  HLK_MIN_PRECISION_TEST(DerivativeDdy, HLSLMin16Float_t);
+  HLK_MIN_PRECISION_TEST(DerivativeDdxFine, HLSLMin16Float_t);
+  HLK_MIN_PRECISION_TEST(DerivativeDdyFine, HLSLMin16Float_t);
+
+  // Quad
+  HLK_MIN_PRECISION_TEST(QuadReadLaneAt, HLSLMin16Float_t);
+  HLK_MIN_PRECISION_TEST(QuadReadAcrossX, HLSLMin16Float_t);
+  HLK_MIN_PRECISION_TEST(QuadReadAcrossY, HLSLMin16Float_t);
+  HLK_MIN_PRECISION_TEST(QuadReadAcrossDiagonal, HLSLMin16Float_t);
+
+  // Wave
+  HLK_MIN_PRECISION_WAVEOP_TEST(WaveActiveSum, HLSLMin16Float_t);
+  HLK_MIN_PRECISION_WAVEOP_TEST(WaveActiveMin, HLSLMin16Float_t);
+  HLK_MIN_PRECISION_WAVEOP_TEST(WaveActiveMax, HLSLMin16Float_t);
+  HLK_MIN_PRECISION_WAVEOP_TEST(WaveActiveProduct, HLSLMin16Float_t);
+  HLK_MIN_PRECISION_WAVEOP_TEST(WaveActiveAllEqual, HLSLMin16Float_t);
+  HLK_MIN_PRECISION_WAVEOP_TEST(WaveReadLaneAt, HLSLMin16Float_t);
+  HLK_MIN_PRECISION_WAVEOP_TEST(WaveReadLaneFirst, HLSLMin16Float_t);
+  HLK_MIN_PRECISION_WAVEOP_TEST(WavePrefixSum, HLSLMin16Float_t);
+  HLK_MIN_PRECISION_WAVEOP_TEST(WavePrefixProduct, HLSLMin16Float_t);
+  HLK_MIN_PRECISION_WAVEOP_TEST(WaveMultiPrefixSum, HLSLMin16Float_t);
+  HLK_MIN_PRECISION_WAVEOP_TEST(WaveMultiPrefixProduct, HLSLMin16Float_t);
+  HLK_MIN_PRECISION_WAVEOP_TEST(WaveMatch, HLSLMin16Float_t);
+
+  // ---- HLSLMin16Int_t (mirrors applicable int16_t ops) ----
+
+  // TernaryMath
+  HLK_MIN_PRECISION_TEST(Mad, HLSLMin16Int_t);
+
+  // BinaryMath
+  // Note: Divide and Modulus excluded — HLSL does not support signed integer
+  // division on minimum-precision types.
+  HLK_MIN_PRECISION_TEST(Add, HLSLMin16Int_t);
+  HLK_MIN_PRECISION_TEST(Subtract, HLSLMin16Int_t);
+  HLK_MIN_PRECISION_TEST(Multiply, HLSLMin16Int_t);
+  HLK_MIN_PRECISION_TEST(Min, HLSLMin16Int_t);
+  HLK_MIN_PRECISION_TEST(Max, HLSLMin16Int_t);
+
+  // Bitwise (logical and shift — bit-manipulation excluded)
+  HLK_MIN_PRECISION_TEST(And, HLSLMin16Int_t);
+  HLK_MIN_PRECISION_TEST(Or, HLSLMin16Int_t);
+  HLK_MIN_PRECISION_TEST(Xor, HLSLMin16Int_t);
+
+
+  // UnaryMath
+  HLK_MIN_PRECISION_TEST(Abs, HLSLMin16Int_t);
+  HLK_MIN_PRECISION_TEST(Sign, HLSLMin16Int_t);
+
+  // Unary
+  HLK_MIN_PRECISION_TEST(Initialize, HLSLMin16Int_t);
+  HLK_MIN_PRECISION_TEST(ArrayOperator_StaticAccess, HLSLMin16Int_t);
+  HLK_MIN_PRECISION_TEST(ArrayOperator_DynamicAccess, HLSLMin16Int_t);
+  HLK_MIN_PRECISION_TEST(ShuffleVector, HLSLMin16Int_t);
+
+  // Cast
+  HLK_MIN_PRECISION_TEST(CastToBool, HLSLMin16Int_t);
+  HLK_MIN_PRECISION_TEST(CastToInt32, HLSLMin16Int_t);
+  HLK_MIN_PRECISION_TEST(CastToInt64, HLSLMin16Int_t);
+  HLK_MIN_PRECISION_TEST(CastToUint16, HLSLMin16Int_t);
+  HLK_MIN_PRECISION_TEST(CastToUint32, HLSLMin16Int_t);
+  HLK_MIN_PRECISION_TEST(CastToUint64, HLSLMin16Int_t);
+  HLK_MIN_PRECISION_TEST(CastToFloat16, HLSLMin16Int_t);
+  HLK_MIN_PRECISION_TEST(CastToFloat32, HLSLMin16Int_t);
+
+  // BinaryComparison
+  HLK_MIN_PRECISION_TEST(LessThan, HLSLMin16Int_t);
+  HLK_MIN_PRECISION_TEST(LessEqual, HLSLMin16Int_t);
+  HLK_MIN_PRECISION_TEST(GreaterThan, HLSLMin16Int_t);
+  HLK_MIN_PRECISION_TEST(GreaterEqual, HLSLMin16Int_t);
+  HLK_MIN_PRECISION_TEST(Equal, HLSLMin16Int_t);
+  HLK_MIN_PRECISION_TEST(NotEqual, HLSLMin16Int_t);
+
+  // Select
+  HLK_MIN_PRECISION_TEST(Select, HLSLMin16Int_t);
+
+  // Reduction
+  HLK_MIN_PRECISION_TEST(Any_Mixed, HLSLMin16Int_t);
+  HLK_MIN_PRECISION_TEST(Any_Zero, HLSLMin16Int_t);
+  HLK_MIN_PRECISION_TEST(Any_NoZero, HLSLMin16Int_t);
+  HLK_MIN_PRECISION_TEST(All_Mixed, HLSLMin16Int_t);
+  HLK_MIN_PRECISION_TEST(All_Zero, HLSLMin16Int_t);
+  HLK_MIN_PRECISION_TEST(All_NoZero, HLSLMin16Int_t);
+
+  // LoadAndStore
+  HLK_MIN_PRECISION_TEST(LoadAndStore_RDH_BAB_SRV, HLSLMin16Int_t);
+  HLK_MIN_PRECISION_TEST(LoadAndStore_RDH_BAB_UAV, HLSLMin16Int_t);
+  HLK_MIN_PRECISION_TEST(LoadAndStore_DT_BAB_SRV, HLSLMin16Int_t);
+  HLK_MIN_PRECISION_TEST(LoadAndStore_DT_BAB_UAV, HLSLMin16Int_t);
+  HLK_MIN_PRECISION_TEST(LoadAndStore_RD_BAB_SRV, HLSLMin16Int_t);
+  HLK_MIN_PRECISION_TEST(LoadAndStore_RD_BAB_UAV, HLSLMin16Int_t);
+  HLK_MIN_PRECISION_TEST(LoadAndStore_RDH_SB_SRV, HLSLMin16Int_t);
+  HLK_MIN_PRECISION_TEST(LoadAndStore_RDH_SB_UAV, HLSLMin16Int_t);
+  HLK_MIN_PRECISION_TEST(LoadAndStore_DT_SB_SRV, HLSLMin16Int_t);
+  HLK_MIN_PRECISION_TEST(LoadAndStore_DT_SB_UAV, HLSLMin16Int_t);
+  HLK_MIN_PRECISION_TEST(LoadAndStore_RD_SB_SRV, HLSLMin16Int_t);
+  HLK_MIN_PRECISION_TEST(LoadAndStore_RD_SB_UAV, HLSLMin16Int_t);
+
+  // Quad
+  HLK_MIN_PRECISION_TEST(QuadReadLaneAt, HLSLMin16Int_t);
+  HLK_MIN_PRECISION_TEST(QuadReadAcrossX, HLSLMin16Int_t);
+  HLK_MIN_PRECISION_TEST(QuadReadAcrossY, HLSLMin16Int_t);
+  HLK_MIN_PRECISION_TEST(QuadReadAcrossDiagonal, HLSLMin16Int_t);
+
+  // Wave
+  HLK_MIN_PRECISION_WAVEOP_TEST(WaveActiveSum, HLSLMin16Int_t);
+  HLK_MIN_PRECISION_WAVEOP_TEST(WaveActiveMin, HLSLMin16Int_t);
+  HLK_MIN_PRECISION_WAVEOP_TEST(WaveActiveMax, HLSLMin16Int_t);
+  HLK_MIN_PRECISION_WAVEOP_TEST(WaveActiveProduct, HLSLMin16Int_t);
+  HLK_MIN_PRECISION_WAVEOP_TEST(WaveActiveAllEqual, HLSLMin16Int_t);
+  HLK_MIN_PRECISION_WAVEOP_TEST(WaveReadLaneAt, HLSLMin16Int_t);
+  HLK_MIN_PRECISION_WAVEOP_TEST(WaveReadLaneFirst, HLSLMin16Int_t);
+  HLK_MIN_PRECISION_WAVEOP_TEST(WavePrefixSum, HLSLMin16Int_t);
+  HLK_MIN_PRECISION_WAVEOP_TEST(WavePrefixProduct, HLSLMin16Int_t);
+  HLK_MIN_PRECISION_WAVEOP_TEST(WaveMultiPrefixSum, HLSLMin16Int_t);
+  HLK_MIN_PRECISION_WAVEOP_TEST(WaveMultiPrefixProduct, HLSLMin16Int_t);
+  HLK_MIN_PRECISION_WAVEOP_TEST(WaveMultiPrefixBitAnd, HLSLMin16Int_t);
+  HLK_MIN_PRECISION_WAVEOP_TEST(WaveMultiPrefixBitOr, HLSLMin16Int_t);
+  HLK_MIN_PRECISION_WAVEOP_TEST(WaveMultiPrefixBitXor, HLSLMin16Int_t);
+  HLK_MIN_PRECISION_WAVEOP_TEST(WaveMatch, HLSLMin16Int_t);
+
+  // ---- HLSLMin16Uint_t (mirrors applicable uint16_t ops) ----
+
+  // TernaryMath
+  HLK_MIN_PRECISION_TEST(Mad, HLSLMin16Uint_t);
+
+  // BinaryMath
+  HLK_MIN_PRECISION_TEST(Add, HLSLMin16Uint_t);
+  HLK_MIN_PRECISION_TEST(Subtract, HLSLMin16Uint_t);
+  HLK_MIN_PRECISION_TEST(Multiply, HLSLMin16Uint_t);
+  HLK_MIN_PRECISION_TEST(Divide, HLSLMin16Uint_t);
+  HLK_MIN_PRECISION_TEST(Modulus, HLSLMin16Uint_t);
+  HLK_MIN_PRECISION_TEST(Min, HLSLMin16Uint_t);
+  HLK_MIN_PRECISION_TEST(Max, HLSLMin16Uint_t);
+
+  // Bitwise (logical and shift — bit-manipulation excluded)
+  HLK_MIN_PRECISION_TEST(And, HLSLMin16Uint_t);
+  HLK_MIN_PRECISION_TEST(Or, HLSLMin16Uint_t);
+  HLK_MIN_PRECISION_TEST(Xor, HLSLMin16Uint_t);
+
+
+  // UnaryMath
+  HLK_MIN_PRECISION_TEST(Abs, HLSLMin16Uint_t);
+  HLK_MIN_PRECISION_TEST(Sign, HLSLMin16Uint_t);
+
+  // Unary
+  HLK_MIN_PRECISION_TEST(Initialize, HLSLMin16Uint_t);
+  HLK_MIN_PRECISION_TEST(ArrayOperator_StaticAccess, HLSLMin16Uint_t);
+  HLK_MIN_PRECISION_TEST(ArrayOperator_DynamicAccess, HLSLMin16Uint_t);
+  HLK_MIN_PRECISION_TEST(ShuffleVector, HLSLMin16Uint_t);
+
+  // Cast
+  HLK_MIN_PRECISION_TEST(CastToBool, HLSLMin16Uint_t);
+  HLK_MIN_PRECISION_TEST(CastToInt16, HLSLMin16Uint_t);
+  HLK_MIN_PRECISION_TEST(CastToInt32, HLSLMin16Uint_t);
+  HLK_MIN_PRECISION_TEST(CastToInt64, HLSLMin16Uint_t);
+  HLK_MIN_PRECISION_TEST(CastToUint32, HLSLMin16Uint_t);
+  HLK_MIN_PRECISION_TEST(CastToUint64, HLSLMin16Uint_t);
+  HLK_MIN_PRECISION_TEST(CastToFloat16, HLSLMin16Uint_t);
+  HLK_MIN_PRECISION_TEST(CastToFloat32, HLSLMin16Uint_t);
+
+  // BinaryComparison
+  HLK_MIN_PRECISION_TEST(LessThan, HLSLMin16Uint_t);
+  HLK_MIN_PRECISION_TEST(LessEqual, HLSLMin16Uint_t);
+  HLK_MIN_PRECISION_TEST(GreaterThan, HLSLMin16Uint_t);
+  HLK_MIN_PRECISION_TEST(GreaterEqual, HLSLMin16Uint_t);
+  HLK_MIN_PRECISION_TEST(Equal, HLSLMin16Uint_t);
+  HLK_MIN_PRECISION_TEST(NotEqual, HLSLMin16Uint_t);
+
+  // Select
+  HLK_MIN_PRECISION_TEST(Select, HLSLMin16Uint_t);
+
+  // LoadAndStore
+  HLK_MIN_PRECISION_TEST(LoadAndStore_RDH_BAB_SRV, HLSLMin16Uint_t);
+  HLK_MIN_PRECISION_TEST(LoadAndStore_RDH_BAB_UAV, HLSLMin16Uint_t);
+  HLK_MIN_PRECISION_TEST(LoadAndStore_DT_BAB_SRV, HLSLMin16Uint_t);
+  HLK_MIN_PRECISION_TEST(LoadAndStore_DT_BAB_UAV, HLSLMin16Uint_t);
+  HLK_MIN_PRECISION_TEST(LoadAndStore_RD_BAB_SRV, HLSLMin16Uint_t);
+  HLK_MIN_PRECISION_TEST(LoadAndStore_RD_BAB_UAV, HLSLMin16Uint_t);
+  HLK_MIN_PRECISION_TEST(LoadAndStore_RDH_SB_SRV, HLSLMin16Uint_t);
+  HLK_MIN_PRECISION_TEST(LoadAndStore_RDH_SB_UAV, HLSLMin16Uint_t);
+  HLK_MIN_PRECISION_TEST(LoadAndStore_DT_SB_SRV, HLSLMin16Uint_t);
+  HLK_MIN_PRECISION_TEST(LoadAndStore_DT_SB_UAV, HLSLMin16Uint_t);
+  HLK_MIN_PRECISION_TEST(LoadAndStore_RD_SB_SRV, HLSLMin16Uint_t);
+  HLK_MIN_PRECISION_TEST(LoadAndStore_RD_SB_UAV, HLSLMin16Uint_t);
+
+  // Quad
+  HLK_MIN_PRECISION_TEST(QuadReadLaneAt, HLSLMin16Uint_t);
+  HLK_MIN_PRECISION_TEST(QuadReadAcrossX, HLSLMin16Uint_t);
+  HLK_MIN_PRECISION_TEST(QuadReadAcrossY, HLSLMin16Uint_t);
+  HLK_MIN_PRECISION_TEST(QuadReadAcrossDiagonal, HLSLMin16Uint_t);
+
+  // Wave
+  HLK_MIN_PRECISION_WAVEOP_TEST(WaveActiveSum, HLSLMin16Uint_t);
+  HLK_MIN_PRECISION_WAVEOP_TEST(WaveActiveMin, HLSLMin16Uint_t);
+  HLK_MIN_PRECISION_WAVEOP_TEST(WaveActiveMax, HLSLMin16Uint_t);
+  HLK_MIN_PRECISION_WAVEOP_TEST(WaveActiveProduct, HLSLMin16Uint_t);
+  HLK_MIN_PRECISION_WAVEOP_TEST(WaveActiveAllEqual, HLSLMin16Uint_t);
+  HLK_MIN_PRECISION_WAVEOP_TEST(WaveReadLaneAt, HLSLMin16Uint_t);
+  HLK_MIN_PRECISION_WAVEOP_TEST(WaveReadLaneFirst, HLSLMin16Uint_t);
+  HLK_MIN_PRECISION_WAVEOP_TEST(WavePrefixSum, HLSLMin16Uint_t);
+  HLK_MIN_PRECISION_WAVEOP_TEST(WavePrefixProduct, HLSLMin16Uint_t);
+  HLK_MIN_PRECISION_WAVEOP_TEST(WaveMultiPrefixSum, HLSLMin16Uint_t);
+  HLK_MIN_PRECISION_WAVEOP_TEST(WaveMultiPrefixProduct, HLSLMin16Uint_t);
+  HLK_MIN_PRECISION_WAVEOP_TEST(WaveMultiPrefixBitAnd, HLSLMin16Uint_t);
+  HLK_MIN_PRECISION_WAVEOP_TEST(WaveMultiPrefixBitOr, HLSLMin16Uint_t);
+  HLK_MIN_PRECISION_WAVEOP_TEST(WaveMultiPrefixBitXor, HLSLMin16Uint_t);
+  HLK_MIN_PRECISION_WAVEOP_TEST(WaveMatch, HLSLMin16Uint_t);
 };
 
 #define HLK_TEST_DOUBLE(Op, DataType)                                          \
