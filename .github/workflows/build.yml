@@ -44,6 +44,9 @@ jobs:
             
             # 2. Add LIB location to LIB env var (so lld-link can resolve the symbols)
             echo "LIB=$sanitizer_lib_dir;$env:LIB" >> $env:GITHUB_ENV
+
+            # 3. Save this directory so we can bundle the DLL with our artifact later
+            echo "ASAN_DLL_DIR=$sanitizer_lib_dir" >> $env:GITHUB_ENV
           } else {
             Write-Error "Could not find Clang Sanitizer libs at $sanitizer_lib_dir!"
             exit 1
@@ -64,17 +67,27 @@ jobs:
             -DCMAKE_EXE_LINKER_FLAGS_RELEASE="clang_rt.asan_dynamic-x86_64.lib clang_rt.asan_dynamic_runtime_thunk-x86_64.lib /nodefaultlib:clang_rt.ubsan_standalone-x86_64.lib /nodefaultlib:clang_rt.ubsan_standalone_cxx-x86_64.lib" `
             -DCMAKE_SHARED_LINKER_FLAGS_RELEASE="clang_rt.asan_dynamic-x86_64.lib clang_rt.asan_dynamic_runtime_thunk-x86_64.lib /nodefaultlib:clang_rt.ubsan_standalone-x86_64.lib /nodefaultlib:clang_rt.ubsan_standalone_cxx-x86_64.lib" `
             -DLLVM_PARALLEL_LINK_JOBS=1
-            
-      - name: Build dxcompiler.dll
+
+      - name: Build DXCompiler and DXC
         env:
           ASAN_OPTIONS: "detect_leaks=0"
           UBSAN_OPTIONS: "halt_on_error=0"
-        # Using parallel 2. ASan + UBSan linking is extremely memory intensive.
-        run: cmake --build build --config Release --target dxcompiler --parallel 2
+        # We explicitly target both dxcompiler and dxc
+        run: cmake --build build --config Release --target dxcompiler --target dxc --parallel 2
 
-      - name: Upload DXC Artifact
+      - name: Bundle ASan DLL
+        shell: pwsh
+        run: |
+          # Copy the ASan runtime DLL next to the compiled executables so they work on any PC
+          Copy-Item -Path "$env:ASAN_DLL_DIR\clang_rt.asan_dynamic-x86_64.dll" -Destination "build\bin\"
+
+      - name: Upload DXC Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: dxcompiler-sanitized
-          path: build/bin/dxcompiler.dll
+          # Upload the DLL, the EXE, and the ASan dependency
+          path: |
+            build/bin/dxcompiler.dll
+            build/bin/dxc.exe
+            build/bin/clang_rt.asan_dynamic-x86_64.dll
           if-no-files-found: error
