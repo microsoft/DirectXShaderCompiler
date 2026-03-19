@@ -62,8 +62,6 @@ jobs:
             -DSPIRV_WERROR=OFF `
             -DCMAKE_C_FLAGS="/w /MT -fsanitize=undefined -fsanitize-recover=undefined" `
             -DCMAKE_CXX_FLAGS="/w /MT -fsanitize=undefined -fsanitize-recover=undefined" `
-            -DCMAKE_EXE_LINKER_FLAGS="/wholearchive:clang_rt.asan-x86_64.lib clang_rt.asan_cxx-x86_64.lib /wholearchive:clang_rt.ubsan_standalone-x86_64.lib clang_rt.ubsan_standalone_cxx-x86_64.lib" `
-            -DCMAKE_SHARED_LINKER_FLAGS="/wholearchive:clang_rt.asan-x86_64.lib clang_rt.asan_cxx-x86_64.lib /wholearchive:clang_rt.ubsan_standalone-x86_64.lib clang_rt.ubsan_standalone_cxx-x86_64.lib" `
             -DLLVM_PARALLEL_LINK_JOBS=1
 
       - name: Build dxcompiler.dll
