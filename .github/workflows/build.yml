@@ -29,16 +29,25 @@ jobs:
       - name: Setup MSVC Developer Command Prompt
         uses: ilammy/msvc-dev-cmd@v1
 
-      # THIS IS THE CRITICAL FIX: Find the Clang ASan DLL and put it in the PATH
-      # Without this, intermediate tools like llvm-tblgen will silently crash.
-      - name: Add ASan Runtime to PATH
+      - name: Add Sanitizer Runtimes to PATH
         run: |
-          $asan_dll = Get-ChildItem -Path "C:\Program Files\Microsoft Visual Studio" -Filter "clang_rt.asan_dynamic-x86_64.dll" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
-          if ($asan_dll) {
-            Write-Host "Found ASan DLL at: $($asan_dll.DirectoryName)"
-            echo "$($asan_dll.DirectoryName)" >> $env:GITHUB_PATH
+          # Find the directory containing clang-cl
+          $clang_path = obj | where { $_.Name -eq "clang-cl.exe" } | Select-Object -First 1
+          
+          # Standard path for VS-bundled LLVM runtimes
+          # We search for the asan dll and add its parent directory to GITHUB_PATH
+          $runtime_dll = Get-ChildItem -Path "C:\Program Files\Microsoft Visual Studio" -Filter "clang_rt.asan_dynamic-x86_64.dll" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
+          
+          if ($runtime_dll) {
+            $runtime_dir = $runtime_dll.DirectoryName
+            Write-Host "Found Sanitizer Runtimes at: $runtime_dir"
+            echo "$runtime_dir" >> $env:GITHUB_PATH
+            
+            # Also set as environment variable for the current session just in case
+            echo "PATH=$runtime_dir;$env:PATH" >> $env:GITHUB_ENV
           } else {
-            Write-Error "Could not find ASan runtime DLL! Build will likely fail."
+            Write-Error "Could not find Sanitizer runtime DLLs!"
+            exit 1
           }
 
       - name: Configure CMake
@@ -49,13 +58,11 @@ jobs:
             -DCMAKE_BUILD_TYPE=Release `
             -DCMAKE_C_COMPILER=clang-cl `
             -DCMAKE_CXX_COMPILER=clang-cl `
-            -DLLVM_USE_SANITIZER=Address `
+            -DLLVM_USE_SANITIZER="Address;Undefined" `
             -DLLVM_ENABLE_WERROR=OFF `
             -DSPIRV_WERROR=OFF `
-            -DCMAKE_C_FLAGS="/w -fsanitize=undefined -fsanitize-recover=all" `
-            -DCMAKE_CXX_FLAGS="/w -fsanitize=undefined -fsanitize-recover=all" `
             -DLLVM_PARALLEL_LINK_JOBS=1
-
+ 
       - name: Build dxcompiler.dll
         env:
           ASAN_OPTIONS: "detect_leaks=0"
