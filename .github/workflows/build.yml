@@ -59,15 +59,18 @@ jobs:
             -DCMAKE_BUILD_TYPE=Release `
             -DCMAKE_C_COMPILER=clang-cl `
             -DCMAKE_CXX_COMPILER=clang-cl `
-            -DLLVM_USE_SANITIZER="Address;Undefined" `
+            -DLLVM_USE_SANITIZER=Address `
             -DLLVM_ENABLE_WERROR=OFF `
             -DSPIRV_WERROR=OFF `
+            -DCMAKE_C_FLAGS="/w -fsanitize=undefined -fsanitize-recover=all" `
+            -DCMAKE_CXX_FLAGS="/w -fsanitize=undefined -fsanitize-recover=all" `
             -DLLVM_PARALLEL_LINK_JOBS=1
 
       - name: Build dxcompiler.dll
         env:
           ASAN_OPTIONS: "detect_leaks=0"
           UBSAN_OPTIONS: "halt_on_error=0"
+        # Using parallel 2. ASan + UBSan linking is extremely memory intensive.
         run: cmake --build build --config Release --target dxcompiler --parallel 2
 
       - name: Upload DXC Artifact
