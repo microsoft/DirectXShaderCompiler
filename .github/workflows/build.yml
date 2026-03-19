@@ -62,6 +62,10 @@ jobs:
             -DSPIRV_WERROR=OFF `
             -DCMAKE_C_FLAGS="/w /MT -fsanitize=address -fsanitize=undefined -fsanitize-recover=undefined" `
             -DCMAKE_CXX_FLAGS="/w /MT -fsanitize=address -fsanitize=undefined -fsanitize-recover=undefined" `
+            -DCMAKE_C_FLAGS_DEBUG="/Zi /Od" `
+            -DCMAKE_CXX_FLAGS_DEBUG="/Zi /Od" `
+            -DCMAKE_C_FLAGS_RELEASE="/O2 /DNDEBUG" `
+            -DCMAKE_CXX_FLAGS_RELEASE="/O2 /DNDEBUG" `
             -DCMAKE_EXE_LINKER_FLAGS="/wholearchive:clang_rt.asan-x86_64.lib clang_rt.asan_cxx-x86_64.lib" `
             -DCMAKE_SHARED_LINKER_FLAGS="/wholearchive:clang_rt.asan-x86_64.lib clang_rt.asan_cxx-x86_64.lib" `
             -DLLVM_PARALLEL_LINK_JOBS=1
