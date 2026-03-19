@@ -29,6 +29,18 @@ jobs:
       - name: Setup MSVC Developer Command Prompt
         uses: ilammy/msvc-dev-cmd@v1
 
+      # THIS IS THE CRITICAL FIX: Find the Clang ASan DLL and put it in the PATH
+      # Without this, intermediate tools like llvm-tblgen will silently crash.
+      - name: Add ASan Runtime to PATH
+        run: |
+          $asan_dll = Get-ChildItem -Path "C:\Program Files\Microsoft Visual Studio" -Filter "clang_rt.asan_dynamic-x86_64.dll" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
+          if ($asan_dll) {
+            Write-Host "Found ASan DLL at: $($asan_dll.DirectoryName)"
+            echo "$($asan_dll.DirectoryName)" >> $env:GITHUB_PATH
+          } else {
+            Write-Error "Could not find ASan runtime DLL! Build will likely fail."
+          }
+
       - name: Configure CMake
         run: |
           cmake -B build `
@@ -40,15 +52,16 @@ jobs:
             -DLLVM_USE_SANITIZER=Address `
             -DLLVM_ENABLE_WERROR=OFF `
             -DSPIRV_WERROR=OFF `
-            -DCMAKE_C_FLAGS="-fsanitize=undefined -fsanitize-recover=all -Wno-unsafe-buffer-usage -Wno-error" `
-            -DCMAKE_CXX_FLAGS="-fsanitize=undefined -fsanitize-recover=all -Wno-unsafe-buffer-usage -Wno-error" `
+            -DCMAKE_C_FLAGS="/w -fsanitize=undefined -fsanitize-recover=all" `
+            -DCMAKE_CXX_FLAGS="/w -fsanitize=undefined -fsanitize-recover=all" `
             -DLLVM_PARALLEL_LINK_JOBS=1
 
       - name: Build dxcompiler.dll
         env:
           ASAN_OPTIONS: "detect_leaks=0"
           UBSAN_OPTIONS: "halt_on_error=0"
-        run: cmake --build build --config Release --target dxcompiler --parallel 4
+        # Reduced parallel to 2 to prevent RAM exhaustion. ASan links take ~3-4GB of RAM each.
+        run: cmake --build build --config Release --target dxcompiler --parallel 2
 
       - name: Upload DXC Artifact
         uses: actions/upload-artifact@v4
