@@ -32,27 +32,20 @@ jobs:
       - name: Setup Sanitizer Environment
         shell: pwsh
         run: |
-          $vs_path = "C:\Program Files\Microsoft Visual Studio"
+          # Query clang-cl directly for its resource directory
+          $resource_dir = $(clang-cl --print-resource-dir).Trim()
+          $sanitizer_lib_dir = Join-Path $resource_dir "lib\windows"
           
-          # 1. Add DLL location to PATH (so tools like llvm-tblgen can run during the build)
-          $asan_dll = Get-ChildItem -Path $vs_path -Filter "clang_rt.asan_dynamic-x86_64.dll" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
-          if ($asan_dll) {
-            $runtime_dir = $asan_dll.DirectoryName
-            Write-Host "Found Sanitizer DLLs at: $runtime_dir"
-            echo "$runtime_dir" >> $env:GITHUB_PATH
+          if (Test-Path $sanitizer_lib_dir) {
+            Write-Host "Found Clang Sanitizer libs at: $sanitizer_lib_dir"
+            
+            # 1. Add DLL location to PATH (so tools like llvm-tblgen can run during the build)
+            echo "$sanitizer_lib_dir" >> $env:GITHUB_PATH
+            
+            # 2. Add LIB location to LIB env var (so lld-link can resolve the symbols)
+            echo "LIB=$sanitizer_lib_dir;$env:LIB" >> $env:GITHUB_ENV
           } else {
-            Write-Error "Could not find ASan DLL!"
-            exit 1
-          }
-          
-          # 2. Add LIB location to LIB env var (so lld-link can resolve the symbols)
-          $asan_lib = Get-ChildItem -Path $vs_path -Filter "clang_rt.asan_dynamic-x86_64.lib" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
-          if ($asan_lib) {
-            $lib_dir = $asan_lib.DirectoryName
-            Write-Host "Found Sanitizer LIBs at: $lib_dir"
-            echo "LIB=$lib_dir;$env:LIB" >> $env:GITHUB_ENV
-          } else {
-            Write-Error "Could not find ASan LIB!"
+            Write-Error "Could not find Clang Sanitizer libs at $sanitizer_lib_dir!"
             exit 1
           }
 
