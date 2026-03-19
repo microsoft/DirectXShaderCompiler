@@ -29,24 +29,25 @@ jobs:
       - name: Setup MSVC Developer Command Prompt
         uses: ilammy/msvc-dev-cmd@v1
 
+      # Locate the Sanitizer runtimes provided by Visual Studio's Clang distribution
+      # and add them to the PATH so that instrumented build tools can run.
       - name: Add Sanitizer Runtimes to PATH
+        shell: pwsh
         run: |
-          # Find the directory containing clang-cl
-          $clang_path = obj | where { $_.Name -eq "clang-cl.exe" } | Select-Object -First 1
+          $vs_path = "C:\Program Files\Microsoft Visual Studio"
+          $asan_dll = Get-ChildItem -Path $vs_path -Filter "clang_rt.asan_dynamic-x86_64.dll" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
           
-          # Standard path for VS-bundled LLVM runtimes
-          # We search for the asan dll and add its parent directory to GITHUB_PATH
-          $runtime_dll = Get-ChildItem -Path "C:\Program Files\Microsoft Visual Studio" -Filter "clang_rt.asan_dynamic-x86_64.dll" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
-          
-          if ($runtime_dll) {
-            $runtime_dir = $runtime_dll.DirectoryName
+          if ($asan_dll) {
+            $runtime_dir = $asan_dll.DirectoryName
             Write-Host "Found Sanitizer Runtimes at: $runtime_dir"
+            
+            # Add to GITHUB_PATH for subsequent steps
             echo "$runtime_dir" >> $env:GITHUB_PATH
             
-            # Also set as environment variable for the current session just in case
-            echo "PATH=$runtime_dir;$env:PATH" >> $env:GITHUB_ENV
+            # Add to current session PATH so Configure can see it if it runs tests
+            $env:PATH = "$runtime_dir;$env:PATH"
           } else {
-            Write-Error "Could not find Sanitizer runtime DLLs!"
+            Write-Error "Could not find Clang Sanitizer runtime DLLs in $vs_path"
             exit 1
           }
 
@@ -62,12 +63,11 @@ jobs:
             -DLLVM_ENABLE_WERROR=OFF `
             -DSPIRV_WERROR=OFF `
             -DLLVM_PARALLEL_LINK_JOBS=1
- 
+
       - name: Build dxcompiler.dll
         env:
           ASAN_OPTIONS: "detect_leaks=0"
           UBSAN_OPTIONS: "halt_on_error=0"
-        # Reduced parallel to 2 to prevent RAM exhaustion. ASan links take ~3-4GB of RAM each.
         run: cmake --build build --config Release --target dxcompiler --parallel 2
 
       - name: Upload DXC Artifact
