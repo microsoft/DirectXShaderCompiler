@@ -1278,7 +1278,8 @@ HRESULT CShaderReflectionType::Initialize(
 
       // There is no annotation for empty structs
       unsigned int fieldCount = 0;
-      if (structAnnotation && !structAnnotation->IsEmptyBesidesResources())
+      if (structAnnotation &&
+          !structAnnotation->IsEmptyBesidesResourcesAndTargetTypes())
         fieldCount = type->getStructNumElements();
 
       // The DXBC reflection info computes `Columns` for a
