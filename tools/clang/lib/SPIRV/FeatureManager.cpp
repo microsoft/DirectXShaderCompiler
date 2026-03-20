@@ -228,6 +228,8 @@ Extension FeatureManager::getExtensionSymbol(llvm::StringRef name) {
       .Case("SPV_NV_shader_subgroup_partitioned",
             Extension::NV_shader_subgroup_partitioned)
       .Case("SPV_KHR_quad_control", Extension::KHR_quad_control)
+      .Case("SPV_EXT_descriptor_heap", Extension::EXT_descriptor_heap)
+      .Case("SPV_KHR_untyped_pointers", Extension::KHR_untyped_pointers)
       .Default(Extension::Unknown);
 }
 
@@ -303,6 +305,10 @@ const char *FeatureManager::getExtensionName(Extension symbol) {
     return "SPV_NV_shader_subgroup_partitioned";
   case Extension::KHR_quad_control:
     return "SPV_KHR_quad_control";
+  case Extension::EXT_descriptor_heap:
+    return "SPV_EXT_descriptor_heap";
+  case Extension::KHR_untyped_pointers:
+    return "SPV_KHR_untyped_pointers";
   default:
     break;
   }

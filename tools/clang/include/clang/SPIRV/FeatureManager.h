@@ -66,6 +66,8 @@ enum class Extension {
   KHR_float_controls,
   NV_shader_subgroup_partitioned,
   KHR_quad_control,
+  EXT_descriptor_heap,
+  KHR_untyped_pointers,
   Unknown,
 };
 

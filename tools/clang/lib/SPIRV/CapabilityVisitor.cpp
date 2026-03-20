@@ -954,6 +954,12 @@ bool CapabilityVisitor::visit(SpirvModule *, Visitor::Phase phase) {
   addExtensionAndCapabilitiesIfEnabled(Extension::KHR_quad_control,
                                        {spv::Capability::QuadControlKHR});
 
+  if (spvOptions.useDescriptorHeap) {
+    addExtension(Extension::EXT_descriptor_heap, "DescriptorHeap", {});
+    addExtension(Extension::KHR_untyped_pointers, "DescriptorHeap", {});
+    addCapability(spv::Capability::DescriptorHeapEXT);
+  }
+
   return true;
 }
 

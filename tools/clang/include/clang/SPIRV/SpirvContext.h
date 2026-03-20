@@ -297,6 +297,8 @@ public:
   const SpirvPointerType *getPointerType(const SpirvType *pointee,
                                          spv::StorageClass);
 
+  const UntypedPointerKHRType *getUntypedPointerKHRType(spv::StorageClass sc);
+
   FunctionType *getFunctionType(const SpirvType *ret,
                                 llvm::ArrayRef<const SpirvType *> param);
 
@@ -531,6 +533,9 @@ private:
   llvm::SmallVector<const HybridStructType *, 8> hybridStructTypes;
   llvm::DenseMap<const SpirvType *, SCToPtrTyMap> pointerTypes;
   llvm::SmallVector<const HybridPointerType *, 8> hybridPointerTypes;
+  llvm::DenseMap<spv::StorageClass, const UntypedPointerKHRType *,
+                 StorageClassDenseMapInfo>
+      untypedPointerKHRTypes;
   llvm::MapVector<QualType, const ForwardPointerType *> forwardPointerTypes;
   llvm::MapVector<QualType, const SpirvPointerType *> forwardReferences;
   llvm::DenseSet<FunctionType *, FunctionTypeMapInfo> functionTypes;

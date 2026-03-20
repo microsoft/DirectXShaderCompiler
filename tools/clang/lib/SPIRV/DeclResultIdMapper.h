@@ -291,7 +291,7 @@ public:
 
   /// Creates a global variable for resource heaps containing elements of type
   /// |type|.
-  SpirvVariable *createResourceHeap(const VarDecl *var, QualType type);
+  SpirvInstruction *createResourceHeap(const VarDecl *var, QualType type);
 
   /// \brief Creates an external-visible variable and returns its instruction.
   SpirvVariable *createExternVar(const VarDecl *var);
@@ -510,7 +510,7 @@ public:
 
   /// \brief Returns all defined stage (builtin/input/ouput) variables for the
   /// entry point function entryPoint in this mapper.
-  std::vector<SpirvVariable *>
+  std::vector<SpirvInstruction *>
   collectStageVars(SpirvFunction *entryPoint) const;
 
   /// \brief Writes out the contents in the function parameter for the GS
@@ -1050,6 +1050,10 @@ private:
 
   /// Vector of all defined resource variables.
   llvm::SmallVector<ResourceVar, 8> resourceVars;
+
+  SpirvUntypedVariableKHR *ResourceHeapVar = nullptr;
+  SpirvUntypedVariableKHR *SamplerHeapVar = nullptr;
+
   /// Mapping from {RW|Append|Consume}StructuredBuffers to their
   /// counter variables' (instr-ptr, is-alias-or-not) pairs
   ///

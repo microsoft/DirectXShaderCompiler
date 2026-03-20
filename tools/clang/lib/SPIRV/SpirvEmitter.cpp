@@ -696,11 +696,15 @@ SpirvEmitter::SpirvEmitter(CompilerInstance &ci)
   }
 }
 
-std::vector<SpirvVariable *>
+std::vector<SpirvInstruction *>
 SpirvEmitter::getInterfacesForEntryPoint(SpirvFunction *entryPoint) {
   auto stageVars = declIdMapper.collectStageVars(entryPoint);
-  if (!featureManager.isTargetEnvVulkan1p1Spirv1p4OrAbove())
-    return stageVars;
+  if (!featureManager.isTargetEnvVulkan1p1Spirv1p4OrAbove()) {
+    std::vector<SpirvInstruction *> ifaces;
+    for (auto *v : stageVars)
+      ifaces.push_back(v);
+    return ifaces;
+  }
 
   // In SPIR-V 1.4 or above, we must include global variables in the 'Interface'
   // operands of OpEntryPoint. SpirvModule keeps all global variables, but some
@@ -708,20 +712,28 @@ SpirvEmitter::getInterfacesForEntryPoint(SpirvFunction *entryPoint) {
   // declIdMapper keeps the mapping between variables with Input or Output
   // storage class and their storage class, we have to rely on
   // declIdMapper.collectStageVars() to collect them.
-  llvm::SetVector<SpirvVariable *> interfaces(stageVars.begin(),
-                                              stageVars.end());
+  llvm::SetVector<SpirvInstruction *> interfaces(stageVars.begin(),
+                                                 stageVars.end());
+
   for (auto *moduleVar : spvBuilder.getModule()->getVariables()) {
-    if (moduleVar->getStorageClass() != spv::StorageClass::Input &&
-        moduleVar->getStorageClass() != spv::StorageClass::Output) {
-      if (auto *varEntry =
-              declIdMapper.getRayTracingStageVarEntryFunction(moduleVar)) {
-        if (varEntry != entryPoint)
-          continue;
-      }
+    if (moduleVar->getStorageClass() == spv::StorageClass::Input ||
+        moduleVar->getStorageClass() == spv::StorageClass::Output)
+      continue;
+
+    auto *untypedVar = dyn_cast<SpirvUntypedVariableKHR>(moduleVar);
+    if (untypedVar) {
       interfaces.insert(moduleVar);
+      continue;
     }
+
+    if (auto *varEntry = declIdMapper.getRayTracingStageVarEntryFunction(
+            cast<SpirvVariable>(moduleVar))) {
+      if (varEntry != entryPoint)
+        continue;
+    }
+    interfaces.insert(moduleVar);
   }
-  std::vector<SpirvVariable *> interfacesInVector;
+  std::vector<SpirvInstruction *> interfacesInVector;
   interfacesInVector.reserve(interfaces.size());
   for (auto *interface : interfaces) {
     interfacesInVector.push_back(interface);
@@ -6646,6 +6658,33 @@ SpirvEmitter::doCXXOperatorCallExpr(const CXXOperatorCallExpr *expr,
       auto *var = declIdMapper.createResourceHeap(decl, resourceType);
 
       auto *index = doExpr(indexExpr);
+
+      if (spirvOptions.useDescriptorHeap) {
+        emitWarning("SPV_EXT_descriptor_heap support is incomplete.",
+                    baseExpr->getExprLoc());
+        needsLegalization = true;
+
+        if (isAKindOfStructuredOrByteBuffer(resourceType)) {
+          emitError("UAV support not implemented with non-emulated heaps.",
+                    expr->getExprLoc());
+          return nullptr;
+        }
+
+        const auto *untypedType = spvContext.getUntypedPointerKHRType(
+            spv::StorageClass::UniformConstant);
+        LowerTypeVisitor lowerTypeVisitor(astContext, spvContext, spirvOptions,
+                                          spvBuilder);
+        const SpirvType *handleType =
+            lowerTypeVisitor.lowerType(resourceType, SpirvLayoutRule::Void,
+                                       llvm::None, baseExpr->getExprLoc());
+        const auto *arrayType =
+            spvContext.getRuntimeArrayType(handleType, llvm::None);
+        auto *untypedAccessChainPtr = spvBuilder.createUntypedAccessChainKHR(
+            untypedType, arrayType, var, index, baseExpr->getExprLoc());
+        return spvBuilder.createLoad(resourceType, untypedAccessChainPtr,
+                                     baseExpr->getExprLoc(), range);
+      }
+
       auto *accessChainPtr = spvBuilder.createAccessChain(
           resourceType, var, index, baseExpr->getExprLoc(), range);
 

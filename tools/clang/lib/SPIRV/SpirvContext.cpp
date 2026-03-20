@@ -337,6 +337,15 @@ const SpirvPointerType *SpirvContext::getPointerType(const SpirvType *pointee,
   return pointerTypes[pointee][sc] = new (this) SpirvPointerType(pointee, sc);
 }
 
+const UntypedPointerKHRType *
+SpirvContext::getUntypedPointerKHRType(spv::StorageClass sc) {
+  auto found = untypedPointerKHRTypes.find(sc);
+  if (found != untypedPointerKHRTypes.end()) {
+    return found->second;
+  }
+  return untypedPointerKHRTypes[sc] = new (this) UntypedPointerKHRType(sc);
+}
+
 const HybridPointerType *SpirvContext::getPointerType(QualType pointee,
                                                       spv::StorageClass sc) {
   const HybridPointerType *result = new (this) HybridPointerType(pointee, sc);
