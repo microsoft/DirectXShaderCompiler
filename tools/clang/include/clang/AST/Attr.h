@@ -149,6 +149,11 @@ public:
   }
 };
 
+// MinGW defines interface as struct
+#ifdef interface
+#undef interface
+#endif
+
 #include "clang/AST/Attrs.inc"
 
 inline const DiagnosticBuilder &operator<<(const DiagnosticBuilder &DB,

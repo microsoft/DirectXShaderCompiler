@@ -37,4 +37,4 @@ endif (MSVC)
 target_compile_definitions(dxclib
     PRIVATE VERSION_STRING_SUFFIX=" for ${CMAKE_SYSTEM_NAME}")
 
-add_dependencies(dxclib TablegenHLSLOptions dxcompiler)
+add_dependencies(dxclib TablegenHLSLOptions)

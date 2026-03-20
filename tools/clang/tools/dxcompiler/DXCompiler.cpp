@@ -16,7 +16,7 @@
 #include "dxc/config.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/ManagedStatic.h"
-#ifdef LLVM_ON_WIN32
+#ifdef _MSC_VER
 #include "dxcetw.h"
 #endif
 
