@@ -1671,7 +1671,12 @@ static Value *getNaturalGEPRecursively(IRBuilderTy &IRB, const DataLayout &DL,
   // extremely poorly defined currently. The long-term goal is to remove GEPing
   // over a vector from the IR completely.
   if (VectorType *VecTy = dyn_cast<VectorType>(Ty)) {
-    unsigned ElementSizeInBits = DL.getTypeSizeInBits(VecTy->getScalarType());
+    // HLSL Change: Use alloc size instead of primitive type size for vector
+    // elements. DXC's data layout pads min precision types (i16:32, f16:32),
+    // so getTypeAllocSize matches the GEP offset stride while
+    // getTypeSizeInBits returns the unpadded primitive width.
+    unsigned ElementSizeInBits =
+        DL.getTypeAllocSizeInBits(VecTy->getScalarType());
     if (ElementSizeInBits % 8 != 0) {
       // GEPs over non-multiple of 8 size vector elements are invalid.
       return nullptr;
@@ -2134,7 +2139,8 @@ static VectorType *isVectorPromotionViable(AllocaSlices::Partition &P,
 
   // Try each vector type, and return the one which works.
   auto CheckVectorTypeForPromotion = [&](VectorType *VTy) {
-    uint64_t ElementSize = DL.getTypeSizeInBits(VTy->getElementType());
+    // HLSL Change: Use alloc size to match GEP offset stride for padded types.
+    uint64_t ElementSize = DL.getTypeAllocSizeInBits(VTy->getElementType());
 
     // While the definition of LLVM vectors is bitpacked, we don't support sizes
     // that aren't byte sized.
@@ -2492,12 +2498,14 @@ public:
                   : nullptr),
         VecTy(PromotableVecTy),
         ElementTy(VecTy ? VecTy->getElementType() : nullptr),
-        ElementSize(VecTy ? DL.getTypeSizeInBits(ElementTy) / 8 : 0),
+        // HLSL Change: Use alloc size to match GEP offset stride for padded
+        // types.
+        ElementSize(VecTy ? DL.getTypeAllocSizeInBits(ElementTy) / 8 : 0),
         BeginOffset(), EndOffset(), IsSplittable(), IsSplit(), OldUse(),
         OldPtr(), PHIUsers(PHIUsers), SelectUsers(SelectUsers),
         IRB(NewAI.getContext(), ConstantFolder()) {
     if (VecTy) {
-      assert((DL.getTypeSizeInBits(ElementTy) % 8) == 0 &&
+      assert((DL.getTypeAllocSizeInBits(ElementTy) % 8) == 0 &&
              "Only multiple-of-8 sized vector elements are viable");
       ++NumVectorized;
     }
