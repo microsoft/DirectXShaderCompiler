@@ -6603,6 +6603,7 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
     A(pI32);
     A(pI32);
     A(pI32);
+    A(pI32);
     break;
   case OpCode::LinAlgMatrixLoadFromMemory:
     A(EXT(0));
@@ -6641,6 +6642,7 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
     A(pI32);
     A(pETy);
     A(pRes);
+    A(pI32);
     A(pI32);
     A(pI32);
     A(pI32);
@@ -6691,6 +6693,7 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
     A(pI32);
     A(pETy);
     A(pRes);
+    A(pI32);
     A(pI32);
     A(pI32);
     A(pI32);

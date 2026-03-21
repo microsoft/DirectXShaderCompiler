@@ -55,7 +55,7 @@ void CallFunction()
 #endif
 
 #ifdef MATRIX_STORE_TO_DESCRIPTOR
-  #define DO_FUNC __builtin_LinAlg_MatrixStoreToDescriptor(mat1, buf, 1, 2, 3);
+  #define DO_FUNC __builtin_LinAlg_MatrixStoreToDescriptor(mat1, buf, 1, 2, 3, 4);
 #endif
 
 #ifdef MATRIX_LENGTH
@@ -81,9 +81,9 @@ void CallFunction()
   // The builtins below are allowed in all stages, if they raise an error
   // then the test will fail with "saw unexpected diagnostic"
   uint layout = __builtin_LinAlg_MatrixQueryAccumulatorLayout();
-  __builtin_LinAlg_MatrixLoadFromDescriptor(mat1, buf, 5, 5, 5);
+  __builtin_LinAlg_MatrixLoadFromDescriptor(mat1, buf, 5, 5, 5, 4);
   __builtin_LinAlg_MatrixOuterProduct(mat1, vecA, vecB);
-  __builtin_LinAlg_MatrixAccumulateToDescriptor(mat1, buf, 1, 2, 3);
+  __builtin_LinAlg_MatrixAccumulateToDescriptor(mat1, buf, 1, 2, 3, 4);
   __builtin_LinAlg_MatrixVectorMultiply(vecA, mat1, vecB, 1);
   __builtin_LinAlg_MatrixVectorMultiplyAdd(vecA, mat1, vecB, 2, vecC, 3);
 
