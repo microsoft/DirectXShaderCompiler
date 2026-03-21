@@ -191,6 +191,33 @@ static void compileShader(dxc::SpecificDllLoader &DxcSupport,
 }
 
 // ===========================================================================
+// Test parameters
+// ===========================================================================
+
+struct MatrixParams {
+  ComponentType CompType;
+  int M;
+  int N;
+  MatrixUse Use;
+  MatrixScope Scope;
+  LinalgMatrixLayout Layout;
+  int NumThreads;
+  bool Enable16Bit;
+
+  int strideBytes() const {
+    int ES = elemSize(CompType);
+    if (Layout == LinalgMatrixLayout::RowMajor)
+      return N * ES;
+    else
+      return M * ES;
+  }
+
+  size_t totalElements() const { return static_cast<size_t>(M) * N; }
+
+  size_t totalBytes() const { return totalElements() * elemSize(CompType); }
+};
+
+// ===========================================================================
 // Compiler arguments builder
 // ===========================================================================
 
@@ -258,33 +285,6 @@ static bool verifyIntBuffer(const void *Actual, const int32_t *Expected,
 }
 
 // ===========================================================================
-// Test parameters
-// ===========================================================================
-
-struct MatrixParams {
-  ComponentType CompType;
-  int M;
-  int N;
-  MatrixUse Use;
-  MatrixScope Scope;
-  LinalgMatrixLayout Layout;
-  int NumThreads;
-  bool Enable16Bit;
-
-  int strideBytes() const {
-    int ES = elemSize(CompType);
-    if (Layout == LinalgMatrixLayout::RowMajor)
-      return N * ES;
-    else
-      return M * ES;
-  }
-
-  size_t totalElements() const { return static_cast<size_t>(M) * N; }
-
-  size_t totalBytes() const { return totalElements() * elemSize(CompType); }
-};
-
-// ===========================================================================
 // Test class
 // ===========================================================================
 
@@ -345,15 +345,16 @@ bool DxilConf_SM610_LinAlg::setupClass() {
     WEX::TestExecution::RuntimeParameters::TryGetValue(
         L"FailIfRequirementsNotMet", FailIfRequirementsNotMet);
 
-    // Try to create a device. In HLK mode, fail if unavailable.
-    // In dev mode, D3DDevice stays null and tests will compile shaders
-    // then skip GPU execution.
+    const bool SkipUnsupported = !FailIfRequirementsNotMet;
     if (!D3D12SDK->createDevice(&D3DDevice, D3D_SHADER_MODEL_6_10,
-                                /*SkipUnsupported=*/false)) {
+                                SkipUnsupported)) {
       if (FailIfRequirementsNotMet) {
         hlsl_test::LogErrorFmt(
-            L"Device creation failed for SM 6.10, and "
-            L"FailIfRequirementsNotMet is set.");
+            L"Device creation failed, resulting in test failure, since "
+            L"FailIfRequirementsNotMet is set. The expectation is that this "
+            L"test will only be executed if something has previously "
+            L"determined that the system meets the requirements of this "
+            L"test.");
         return false;
       }
       // No device — tests will compile shaders and skip execution.
@@ -364,14 +365,18 @@ bool DxilConf_SM610_LinAlg::setupClass() {
 }
 
 bool DxilConf_SM610_LinAlg::setupMethod() {
-  // Re-create device if it was lost. If we never had one, that's fine —
-  // tests compile shaders and skip GPU execution.
+  // It's possible a previous test case caused a device removal. If it did we
+  // need to try and create a new device.
   if (D3DDevice && D3DDevice->GetDeviceRemovedReason() != S_OK) {
-    hlsl_test::LogCommentFmt(L"Device was lost!");
+    hlsl_test::LogCommentFmt(L"Device was lost! Recreating...");
     D3DDevice.Release();
-    D3D12SDK->createDevice(&D3DDevice, D3D_SHADER_MODEL_6_10,
-                           /*SkipUnsupported=*/false);
+
+    // We expect recreation to succeed since we had a working device before.
+    const bool SkipUnsupported = false;
+    VERIFY_IS_TRUE(D3D12SDK->createDevice(&D3DDevice, D3D_SHADER_MODEL_6_10,
+                                          SkipUnsupported));
   }
+
   return true;
 }
 
@@ -540,9 +545,18 @@ static void runSplatStore(ID3D12Device *Device,
     return;
   }
 
-  std::vector<float> ExpectedFloats(NumElements, FillValue);
-  std::vector<int32_t> ExpectedInts(NumElements,
-                                    static_cast<int32_t>(FillValue));
+  std::vector<float> ExpectedFloats;
+  std::vector<int32_t> ExpectedInts;
+  switch (Params.CompType) {
+  case ComponentType::F32:
+    ExpectedFloats.assign(NumElements, FillValue);
+    break;
+  case ComponentType::I32:
+    ExpectedInts.assign(NumElements, static_cast<int32_t>(FillValue));
+    break;
+  default:
+    break;
+  }
 
   auto Op =
       createComputeOp(SplatStoreShader, "cs_6_10", "UAV(u0)", Args.c_str());
