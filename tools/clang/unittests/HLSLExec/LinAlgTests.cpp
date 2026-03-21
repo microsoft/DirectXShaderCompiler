@@ -16,6 +16,7 @@
 #include <WexTestClass.h>
 
 #include "ShaderOpTest.h"
+#include "dxc/DXIL/DxilConstants.h"
 #include "dxc/Support/Global.h"
 #include "dxc/Support/dxcapi.use.h"
 
@@ -30,31 +31,26 @@
 
 namespace LinAlg {
 
-// ===========================================================================
-// DXIL component type constants
-// ===========================================================================
-enum ComponentType {
-  CT_I16 = 2,
-  CT_U16 = 3,
-  CT_I32 = 4,
-  CT_U32 = 5,
-  CT_I64 = 6,
-  CT_U64 = 7,
-  CT_F16 = 8,
-  CT_F32 = 9,
-  CT_F64 = 10,
-};
+using hlsl::DXIL::ComponentType;
+using hlsl::DXIL::LinalgMatrixLayout;
+using hlsl::DXIL::MatrixScope;
+using hlsl::DXIL::MatrixUse;
 
-enum MatrixUse { MU_A = 0, MU_B = 1, MU_Accumulator = 2 };
-
-enum MatrixScope { MS_Thread = 0, MS_Wave = 1, MS_ThreadGroup = 2 };
-
-enum MatrixLayout {
-  ML_RowMajor = 0,
-  ML_ColMajor = 1,
-  ML_MulOptimal = 2,
-  ML_OuterProductOptimal = 3,
-};
+/// Return the byte size of a single element for the given component type.
+static int elemSize(ComponentType CT) {
+  switch (CT) {
+  case ComponentType::F16:
+  case ComponentType::I16:
+  case ComponentType::U16:
+    return 2;
+  case ComponentType::F64:
+  case ComponentType::I64:
+  case ComponentType::U64:
+    return 8;
+  default:
+    return 4;
+  }
+}
 
 // ===========================================================================
 // ShaderOp construction helpers
@@ -198,21 +194,19 @@ static void compileShader(dxc::SpecificDllLoader &DxcSupport,
 // Compiler arguments builder
 // ===========================================================================
 
-static std::string
-buildCompilerArgs(int CompType, int M, int N, int Use, int Scope, int Stride,
-                  int Layout, int NumThreads, bool Enable16Bit = false,
-                  const char *ExtraDefines = nullptr) {
+static std::string buildCompilerArgs(const MatrixParams &Params, int Stride,
+                                     const char *ExtraDefines = nullptr) {
   std::stringstream SS;
   SS << "-HV 202x";
-  SS << " -DCOMP_TYPE=" << CompType;
-  SS << " -DM_DIM=" << M;
-  SS << " -DN_DIM=" << N;
-  SS << " -DUSE=" << Use;
-  SS << " -DSCOPE=" << Scope;
+  SS << " -DCOMP_TYPE=" << static_cast<int>(Params.CompType);
+  SS << " -DM_DIM=" << Params.M;
+  SS << " -DN_DIM=" << Params.N;
+  SS << " -DUSE=" << static_cast<int>(Params.Use);
+  SS << " -DSCOPE=" << static_cast<int>(Params.Scope);
   SS << " -DSTRIDE=" << Stride;
-  SS << " -DLAYOUT=" << Layout;
-  SS << " -DNUMTHREADS=" << NumThreads;
-  if (Enable16Bit)
+  SS << " -DLAYOUT=" << static_cast<int>(Params.Layout);
+  SS << " -DNUMTHREADS=" << Params.NumThreads;
+  if (Params.Enable16Bit)
     SS << " -enable-16bit-types";
   if (ExtraDefines)
     SS << " " << ExtraDefines;
@@ -268,37 +262,26 @@ static bool verifyIntBuffer(const void *Actual, const int32_t *Expected,
 // ===========================================================================
 
 struct MatrixParams {
-  int CompType;
+  ComponentType CompType;
   int M;
   int N;
-  int Use;
-  int Scope;
-  int Layout;
+  MatrixUse Use;
+  MatrixScope Scope;
+  LinalgMatrixLayout Layout;
   int NumThreads;
   bool Enable16Bit;
 
   int strideBytes() const {
-    int ElemSize = 4; // default F32/I32
-    if (CompType == CT_F16 || CompType == CT_I16 || CompType == CT_U16)
-      ElemSize = 2;
-    else if (CompType == CT_F64 || CompType == CT_I64 || CompType == CT_U64)
-      ElemSize = 8;
-    if (Layout == ML_RowMajor)
-      return N * ElemSize;
+    int ES = elemSize(CompType);
+    if (Layout == LinalgMatrixLayout::RowMajor)
+      return N * ES;
     else
-      return M * ElemSize;
+      return M * ES;
   }
 
   size_t totalElements() const { return static_cast<size_t>(M) * N; }
 
-  size_t totalBytes() const {
-    int ElemSize = 4;
-    if (CompType == CT_F16 || CompType == CT_I16 || CompType == CT_U16)
-      ElemSize = 2;
-    else if (CompType == CT_F64 || CompType == CT_I64 || CompType == CT_U64)
-      ElemSize = 8;
-    return totalElements() * ElemSize;
-  }
+  size_t totalBytes() const { return totalElements() * elemSize(CompType); }
 };
 
 // ===========================================================================
@@ -419,10 +402,7 @@ static void runLoadStoreRoundtrip(ID3D12Device *Device,
   const size_t BufferSize = Params.totalBytes();
   const int Stride = Params.strideBytes();
 
-  std::string Args =
-      buildCompilerArgs(Params.CompType, Params.M, Params.N, Params.Use,
-                        Params.Scope, Stride, Params.Layout,
-                        Params.NumThreads, Params.Enable16Bit);
+  std::string Args = buildCompilerArgs(Params, Stride);
 
   // Always verify the shader compiles.
   compileShader(DxcSupport, LoadStoreShader, "cs_6_10", Args);
@@ -456,37 +436,49 @@ static void runLoadStoreRoundtrip(ID3D12Device *Device,
       [&](LPCSTR Name, std::vector<BYTE> &Data, st::ShaderOp * /*pOp*/) {
         if (_stricmp(Name, "Input") != 0)
           return;
-        if (Params.CompType == CT_F32) {
+        switch (Params.CompType) {
+        case ComponentType::F32: {
           float *Ptr = reinterpret_cast<float *>(Data.data());
           for (size_t I = 0; I < NumElements; I++)
             Ptr[I] = static_cast<float>(I + 1);
-        } else if (Params.CompType == CT_I32) {
+          break;
+        }
+        case ComponentType::I32: {
           int32_t *Ptr = reinterpret_cast<int32_t *>(Data.data());
           for (size_t I = 0; I < NumElements; I++)
             Ptr[I] = static_cast<int32_t>(I + 1);
+          break;
+        }
+        default:
+          break;
         }
       });
 
   MappedData OutData;
   Result->Test->GetReadBackData("Output", &OutData);
 
-  if (Params.CompType == CT_F32) {
+  switch (Params.CompType) {
+  case ComponentType::F32:
     VERIFY_IS_TRUE(verifyFloatBuffer(OutData.data(), ExpectedFloats.data(),
                                      NumElements, Verbose));
-  } else if (Params.CompType == CT_I32) {
+    break;
+  case ComponentType::I32:
     VERIFY_IS_TRUE(verifyIntBuffer(OutData.data(), ExpectedInts.data(),
                                    NumElements, Verbose));
+    break;
+  default:
+    break;
   }
 }
 
 void DxilConf_SM610_LinAlg::LoadStoreRoundtrip_Wave_F32() {
   MatrixParams Params = {};
-  Params.CompType = CT_F32;
+  Params.CompType = ComponentType::F32;
   Params.M = 8;
   Params.N = 8;
-  Params.Use = MU_A;
-  Params.Scope = MS_Wave;
-  Params.Layout = ML_RowMajor;
+  Params.Use = MatrixUse::A;
+  Params.Scope = MatrixScope::Wave;
+  Params.Layout = LinalgMatrixLayout::RowMajor;
   Params.NumThreads = 64;
   Params.Enable16Bit = false;
   runLoadStoreRoundtrip(D3DDevice, DxcSupport, Params, VerboseLogging);
@@ -494,12 +486,12 @@ void DxilConf_SM610_LinAlg::LoadStoreRoundtrip_Wave_F32() {
 
 void DxilConf_SM610_LinAlg::LoadStoreRoundtrip_Wave_I32() {
   MatrixParams Params = {};
-  Params.CompType = CT_I32;
+  Params.CompType = ComponentType::I32;
   Params.M = 8;
   Params.N = 8;
-  Params.Use = MU_A;
-  Params.Scope = MS_Wave;
-  Params.Layout = ML_RowMajor;
+  Params.Use = MatrixUse::A;
+  Params.Scope = MatrixScope::Wave;
+  Params.Layout = LinalgMatrixLayout::RowMajor;
   Params.NumThreads = 64;
   Params.Enable16Bit = false;
   runLoadStoreRoundtrip(D3DDevice, DxcSupport, Params, VerboseLogging);
@@ -534,10 +526,8 @@ static void runSplatStore(ID3D12Device *Device,
   std::stringstream ExtraDefs;
   ExtraDefs << "-DFILL_VALUE=" << FillValue;
 
-  std::string Args = buildCompilerArgs(
-      Params.CompType, Params.M, Params.N, Params.Use, Params.Scope, Stride,
-      Params.Layout, Params.NumThreads, Params.Enable16Bit,
-      ExtraDefs.str().c_str());
+  std::string Args =
+      buildCompilerArgs(Params, Stride, ExtraDefs.str().c_str());
 
   // Always verify the shader compiles.
   compileShader(DxcSupport, SplatStoreShader, "cs_6_10", Args);
@@ -564,23 +554,28 @@ static void runSplatStore(ID3D12Device *Device,
   MappedData OutData;
   Result->Test->GetReadBackData("Output", &OutData);
 
-  if (Params.CompType == CT_F32) {
+  switch (Params.CompType) {
+  case ComponentType::F32:
     VERIFY_IS_TRUE(verifyFloatBuffer(OutData.data(), ExpectedFloats.data(),
                                      NumElements, Verbose));
-  } else if (Params.CompType == CT_I32) {
+    break;
+  case ComponentType::I32:
     VERIFY_IS_TRUE(verifyIntBuffer(OutData.data(), ExpectedInts.data(),
                                    NumElements, Verbose));
+    break;
+  default:
+    break;
   }
 }
 
 void DxilConf_SM610_LinAlg::SplatStore_Wave_F32() {
   MatrixParams Params = {};
-  Params.CompType = CT_F32;
+  Params.CompType = ComponentType::F32;
   Params.M = 8;
   Params.N = 8;
-  Params.Use = MU_Accumulator;
-  Params.Scope = MS_Wave;
-  Params.Layout = ML_RowMajor;
+  Params.Use = MatrixUse::Accumulator;
+  Params.Scope = MatrixScope::Wave;
+  Params.Layout = LinalgMatrixLayout::RowMajor;
   Params.NumThreads = 64;
   Params.Enable16Bit = false;
   runSplatStore(D3DDevice, DxcSupport, Params, 42.0f, VerboseLogging);
@@ -588,12 +583,12 @@ void DxilConf_SM610_LinAlg::SplatStore_Wave_F32() {
 
 void DxilConf_SM610_LinAlg::SplatStore_Wave_I32() {
   MatrixParams Params = {};
-  Params.CompType = CT_I32;
+  Params.CompType = ComponentType::I32;
   Params.M = 8;
   Params.N = 8;
-  Params.Use = MU_Accumulator;
-  Params.Scope = MS_Wave;
-  Params.Layout = ML_RowMajor;
+  Params.Use = MatrixUse::Accumulator;
+  Params.Scope = MatrixScope::Wave;
+  Params.Layout = LinalgMatrixLayout::RowMajor;
   Params.NumThreads = 64;
   Params.Enable16Bit = false;
   runSplatStore(D3DDevice, DxcSupport, Params, 7.0f, VerboseLogging);
