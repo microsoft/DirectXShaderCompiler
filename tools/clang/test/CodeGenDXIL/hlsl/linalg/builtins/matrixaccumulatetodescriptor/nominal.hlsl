@@ -9,11 +9,11 @@ void main() {
   // CHECK-LABEL: define void @main()
 
   // CHECK: call void @dx.op.linAlgMatrixAccumulateToDescriptor.mC4M5N4U1S2(i32 -2147483621,
-  // CHECK-SAME: %dx.types.LinAlgMatrixC4M5N4U1S2 {{.*}}, %dx.types.Handle %{{.*}}, i32 5, i32 5, i32 5)
-  // CHECK-SAME: ; LinAlgMatrixAccumulateToDescriptor(matrix,handle,offset,stride,layout)
+  // CHECK-SAME: %dx.types.LinAlgMatrixC4M5N4U1S2 {{.*}}, %dx.types.Handle %{{.*}}, i32 5, i32 5, i32 5, i32 4)
+  // CHECK-SAME: ; LinAlgMatrixAccumulateToDescriptor(matrix,handle,offset,stride,layout,align)
 
-  // CHECK2: call void @"dx.hl.op..void (i32, %dx.types.LinAlgMatrixC4M5N4U1S2, %dx.types.Handle, i32, i32, i32)"
-  // CHECK2-SAME: (i32 419, %dx.types.LinAlgMatrixC4M5N4U1S2 {{.*}}, %dx.types.Handle {{.*}}, i32 5, i32 5, i32 5)
+  // CHECK2: call void @"dx.hl.op..void (i32, %dx.types.LinAlgMatrixC4M5N4U1S2, %dx.types.Handle, i32, i32, i32, i32)"
+  // CHECK2-SAME: (i32 419, %dx.types.LinAlgMatrixC4M5N4U1S2 {{.*}}, %dx.types.Handle {{.*}}, i32 5, i32 5, i32 5, i32 4)
   __builtin_LinAlgMatrix [[__LinAlgMatrix_Attributes(4, 5, 4, 1, 2)]] mat;
-  __builtin_LinAlg_MatrixAccumulateToDescriptor(mat, outbuf, 5, 5, 5);
+  __builtin_LinAlg_MatrixAccumulateToDescriptor(mat, outbuf, 5, 5, 5, 4);
 }
