@@ -7,22 +7,10 @@
 //                                                                           //
 // Execution tests for dx::linalg builtins (Proposal 0035, SM 6.10).        //
 //                                                                           //
-// Unlike older execution tests, these tests define shader source and        //
-// resources entirely in C++ — no ShaderOpArith.xml entries required.        //
-// ShaderOp objects are constructed programmatically and passed to the       //
-// existing RunShaderOpTestAfterParse infrastructure.                        //
-//                                                                           //
-// Each test always compiles its shader via the DXC API to validate the      //
-// HLSL, then skips GPU dispatch if no SM 6.10 device is available.          //
-//                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
 // We need to keep & fix these warnings to integrate smoothly with HLK
 #pragma warning(error : 4100 4242 4244 4267 4701 4389 4018)
-
-#ifndef NOMINMAX
-#define NOMINMAX 1
-#endif
 
 #define INLINE_TEST_METHOD_MARKUP
 #include <WexTestClass.h>
@@ -70,12 +58,9 @@ enum MatrixLayout {
 
 // ===========================================================================
 // ShaderOp construction helpers
-//
-// These build st::ShaderOp objects programmatically so that tests are
-// fully self-contained in this file — no XML required.
 // ===========================================================================
 
-// Create a ShaderOp for a compute shader dispatch.
+/// Create a ShaderOp for a compute shader dispatch.
 static std::unique_ptr<st::ShaderOp>
 createComputeOp(const char *Source, const char *Target, const char *RootSig,
                 const char *Args = nullptr, UINT DispatchX = 1,
@@ -103,7 +88,7 @@ createComputeOp(const char *Source, const char *Target, const char *RootSig,
   return Op;
 }
 
-// Add a UAV buffer resource to a ShaderOp.
+/// Add a UAV buffer resource to a ShaderOp.
 static void addUAVBuffer(st::ShaderOp *Op, const char *Name, UINT64 Width,
                          bool ReadBack, const char *Init = "zero") {
   st::ShaderOpResource Res = {};
@@ -127,7 +112,7 @@ static void addUAVBuffer(st::ShaderOp *Op, const char *Name, UINT64 Width,
   Op->Resources.push_back(Res);
 }
 
-// Bind a resource to a root UAV parameter by index.
+/// Bind a resource to a root UAV parameter by index.
 static void addRootUAV(st::ShaderOp *Op, UINT Index, const char *ResName) {
   st::ShaderOpRootValue RV = {};
   RV.ResName = Op->Strings.insert(ResName);
@@ -136,7 +121,7 @@ static void addRootUAV(st::ShaderOp *Op, UINT Index, const char *ResName) {
   Op->RootValues.push_back(RV);
 }
 
-// Run a programmatically-built ShaderOp and return the result.
+/// Run a programmatically-built ShaderOp and return the result.
 static std::shared_ptr<st::ShaderOpTestResult>
 runShaderOp(ID3D12Device *Device, dxc::SpecificDllLoader &DxcSupport,
             std::unique_ptr<st::ShaderOp> Op,
@@ -144,18 +129,17 @@ runShaderOp(ID3D12Device *Device, dxc::SpecificDllLoader &DxcSupport,
   auto OpSet = std::make_shared<st::ShaderOpSet>();
   OpSet->ShaderOps.push_back(std::move(Op));
 
-  return st::RunShaderOpTestAfterParse(Device, DxcSupport, nullptr,
-                                       std::move(InitCallback),
-                                       std::move(OpSet));
+  return st::RunShaderOpTestAfterParse(
+      Device, DxcSupport, nullptr, std::move(InitCallback), std::move(OpSet));
 }
 
 // ===========================================================================
 // Shader compilation helper
-//
-// Compiles an HLSL shader using the DXC API to verify it is well-formed.
-// This runs without a D3D12 device, so it works even when no SM 6.10
-// hardware is available. Fails the test (via VERIFY) on compile error.
 // ===========================================================================
+
+/// Compiles an HLSL shader using the DXC API to verify it is well-formed.
+/// This runs without a D3D12 device, so it works even when no SM 6.10
+/// hardware is available. Fails the test (via VERIFY) on compile error.
 
 static void compileShader(dxc::SpecificDllLoader &DxcSupport,
                           const char *Source, const char *Target,
@@ -324,11 +308,9 @@ struct MatrixParams {
 class DxilConf_SM610_LinAlg {
 public:
   BEGIN_TEST_CLASS(DxilConf_SM610_LinAlg)
-  TEST_CLASS_PROPERTY(
-      "Kits.TestName",
-      "D3D12 - Shader Model 6.10 - LinAlg Matrix Operations")
-  TEST_CLASS_PROPERTY("Kits.TestId",
-                      "a1b2c3d4-e5f6-7890-abcd-ef1234567890")
+  TEST_CLASS_PROPERTY("Kits.TestName",
+                      "D3D12 - Shader Model 6.10 - LinAlg Matrix Operations")
+  TEST_CLASS_PROPERTY("Kits.TestId", "a1b2c3d4-e5f6-7890-abcd-ef1234567890")
   TEST_CLASS_PROPERTY(
       "Kits.Description",
       "Validates SM 6.10 linear algebra matrix operations execute correctly")
@@ -365,7 +347,6 @@ bool DxilConf_SM610_LinAlg::setupClass() {
   if (!Initialized) {
     Initialized = true;
 
-    // Always initialize DXC compiler — needed for shader compilation checks.
     VERIFY_SUCCEEDED(
         DxcSupport.InitializeForDll(dxc::kDxCompilerLib, "DxcCreateInstance"));
 
