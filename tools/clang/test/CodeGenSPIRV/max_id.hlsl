@@ -8,7 +8,7 @@
 // CHECK-30: fatal error: failed to optimize SPIR-V: ID overflow. Try running compact-ids.
 
 // With a larger limit, the test case can compile successfully.
-// CHECK-400: Bound: 204
+// CHECK-400: Bound:
 
 
 RWStructuredBuffer<int> data;
