@@ -5,6 +5,6 @@
 
 [shader("pixel")]
 float4 main(float4 position : SV_Position) : SV_Target0 {
-// CHECK: OpConstantComposite %v4bool %y %y %y %y
+// CHECK: OpSpecConstantComposite %v4bool %y %y %y %y
     return y ? position : 1.0;
 }

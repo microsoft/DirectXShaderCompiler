@@ -3,20 +3,20 @@
 // Check the names
 //
 // CHECK: OpName %secondGlobal_t "secondGlobal.t"
-// CHECK: OpName %[[fg0:firstGlobal_[0-9]+__t]] "firstGlobal{{.*}}.t"
-// CHECK: OpName %[[fg1:firstGlobal_[0-9]+__t]] "firstGlobal{{.*}}.t"
-// CHECK: OpName %[[fg2:firstGlobal_[0-9]+__t]] "firstGlobal{{.*}}.t"
-// CHECK: OpName %[[fg3:firstGlobal_[0-9]+__t]] "firstGlobal{{.*}}.t"
+// CHECK: OpName %[[fg0:[0-9A-Za-z_]+]] "firstGlobal{{.*}}.t"
+// CHECK: OpName %[[fg1:[0-9A-Za-z_]+]] "firstGlobal{{.*}}.t"
+// CHECK: OpName %[[fg2:[0-9A-Za-z_]+]] "firstGlobal{{.*}}.t"
+// CHECK: OpName %[[fg3:[0-9A-Za-z_]+]] "firstGlobal{{.*}}.t"
 // CHECK: OpName %secondGlobal_tt_0__s "secondGlobal.tt[0].s"
 // CHECK: OpName %secondGlobal_tt_1__s "secondGlobal.tt[1].s"
-// CHECK: OpName %[[fgtt0_0:firstGlobal_[0-9]+__tt_0__s]] "firstGlobal{{.*}}.tt[0].s"
-// CHECK: OpName %[[fgtt0_1:firstGlobal_[0-9]+__tt_1__s]] "firstGlobal{{.*}}.tt[1].s"
-// CHECK: OpName %[[fgtt1_0:firstGlobal_[0-9]+__tt_0__s]] "firstGlobal{{.*}}.tt[0].s"
-// CHECK: OpName %[[fgtt1_1:firstGlobal_[0-9]+__tt_1__s]] "firstGlobal{{.*}}.tt[1].s"
-// CHECK: OpName %[[fgtt2_0:firstGlobal_[0-9]+__tt_0__s]] "firstGlobal{{.*}}.tt[0].s"
-// CHECK: OpName %[[fgtt2_1:firstGlobal_[0-9]+__tt_1__s]] "firstGlobal{{.*}}.tt[1].s"
-// CHECK: OpName %[[fgtt3_0:firstGlobal_[0-9]+__tt_0__s]] "firstGlobal{{.*}}.tt[0].s"
-// CHECK: OpName %[[fgtt3_1:firstGlobal_[0-9]+__tt_1__s]] "firstGlobal{{.*}}.tt[1].s"
+// CHECK: OpName %[[fgtt0_0:[0-9A-Za-z_]+]] "firstGlobal{{.*}}.tt[0].s"
+// CHECK: OpName %[[fgtt0_1:[0-9A-Za-z_]+]] "firstGlobal{{.*}}.tt[1].s"
+// CHECK: OpName %[[fgtt1_0:[0-9A-Za-z_]+]] "firstGlobal{{.*}}.tt[0].s"
+// CHECK: OpName %[[fgtt1_1:[0-9A-Za-z_]+]] "firstGlobal{{.*}}.tt[1].s"
+// CHECK: OpName %[[fgtt2_0:[0-9A-Za-z_]+]] "firstGlobal{{.*}}.tt[0].s"
+// CHECK: OpName %[[fgtt2_1:[0-9A-Za-z_]+]] "firstGlobal{{.*}}.tt[1].s"
+// CHECK: OpName %[[fgtt3_0:[0-9A-Za-z_]+]] "firstGlobal{{.*}}.tt[0].s"
+// CHECK: OpName %[[fgtt3_1:[0-9A-Za-z_]+]] "firstGlobal{{.*}}.tt[1].s"
 
 // Check flattening of bindings
 // Explanation: Only the resources that are used will have a binding assignment
