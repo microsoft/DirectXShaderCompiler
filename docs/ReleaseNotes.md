@@ -24,7 +24,7 @@ line upon naming the release. Refer to previous for appropriate section names.
 
 #### Experimental Shader Model 6.10
 
-- Removed experimental Cooperative Vectors API (`coopvec.h` header and `dx::coopvec` namespace). CoopVec DXIL opcodes (MatVecMul, MatVecMulAdd, OuterProductAccumulate, VectorAccumulate) are now reserved.
+- Removed experimental Cooperative Vector, this has been replaced by LinAlg matrix
 - Implement GetGroupWaveIndex and GetGroupWaveCount in experimental Shader Model 6.10.
   - [proposal](https://github.com/microsoft/hlsl-specs/blob/main/proposals/0048-group-wave-index.md)
   - GetGroupWaveIndex: New intrinsic for Compute, Mesh, Amplification and Node shaders which returns the index of the wave within the thread group that the the thread is executing.
