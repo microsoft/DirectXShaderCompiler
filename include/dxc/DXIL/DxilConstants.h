@@ -1898,29 +1898,6 @@ const unsigned kHitObjectTraceRay_RayDescOpIdx = 7;
 const unsigned kHitObjectTraceRay_PayloadOpIdx = 15;
 const unsigned kHitObjectTraceRay_NumOp = 16;
 
-// MatVec Ops
-const unsigned kMatVecMulInputVectorIdx = 1;
-const unsigned kMatVecMulIsInputUnsignedIdx = 2;
-const unsigned kMatVecMulInputInterpretationIdx = 3;
-const unsigned kMatVecMulMatrixBufferIdx = 4;
-const unsigned kMatVecMulMatrixOffsetIdx = 5;
-const unsigned kMatVecMulMatrixInterpretationIdx = 6;
-const unsigned kMatVecMulMatrixMIdx = 7;
-const unsigned kMatVecMulMatrixKIdx = 8;
-const unsigned kMatVecMulMatrixLayoutIdx = 9;
-const unsigned kMatVecMulMatrixTransposeIdx = 10;
-const unsigned kMatVecMulMatrixStrideIdx = 11;
-const unsigned kMatVecMulIsOutputUnsignedIdx = 12;
-
-// MatVecAdd
-const unsigned kMatVecMulAddBiasInterpretation = 14;
-const unsigned kMatVecMulAddIsOutputUnsignedIdx = 15;
-
-// Outer Product Accumulate
-const unsigned kOuterProdAccMatrixInterpretation = 5;
-const unsigned kOuterProdAccMatrixLayout = 6;
-const unsigned kOuterProdAccMatrixStride = 7;
-
 // TODO: add operand index for all the OpCodeClass.
 } // namespace OperandIndex
 
