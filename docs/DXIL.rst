@@ -2421,10 +2421,10 @@ ID  Name                                                  Description
 302 ReservedC9                                            reserved
 303 RawBufferVectorLoad                                   reads from a raw buffer and structured buffer
 304 RawBufferVectorStore                                  writes to a RWByteAddressBuffer or RWStructuredBuffer
-305 MatVecMul                                             Multiplies a MxK dimension matrix and a K sized input vector
-306 MatVecMulAdd                                          multiplies a MxK dimension matrix and a K sized input vector and adds an M-sized bias vector
-307 OuterProductAccumulate                                Computes the outer product between column vectors and an MxN matrix is accumulated component-wise atomically (with device scope) in memory
-308 VectorAccumulate                                      Accumulates the components of a vector component-wise atomically (with device scope) to the corresponding elements of an array in memory
+305 ReservedCoopVec0                                      reserved
+306 ReservedCoopVec1                                      reserved
+307 ReservedCoopVec2                                      reserved
+308 ReservedCoopVec3                                      reserved
 309 VectorReduceAnd                                       Bitwise AND reduction of the vector returning a scalar
 310 VectorReduceOr                                        Bitwise OR reduction of the vector returning a scalar
 311 FDot                                                  computes the n-dimensional vector dot-product

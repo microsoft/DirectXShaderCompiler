@@ -619,34 +619,38 @@ static const unsigned NumOpCodeTables = 2;
 // Enumeration for CoreOps DXIL operations
 enum class OpCode : unsigned {
   //
-  Reserved0 = 226,   // reserved
-  Reserved1 = 227,   // reserved
-  Reserved10 = 236,  // reserved
-  Reserved11 = 237,  // reserved
-  Reserved2 = 228,   // reserved
-  Reserved3 = 229,   // reserved
-  Reserved4 = 230,   // reserved
-  Reserved5 = 231,   // reserved
-  Reserved6 = 232,   // reserved
-  Reserved7 = 233,   // reserved
-  Reserved8 = 234,   // reserved
-  Reserved9 = 235,   // reserved
-  ReservedA0 = 259,  // reserved
-  ReservedA1 = 260,  // reserved
-  ReservedA2 = 261,  // reserved
-  ReservedB28 = 290, // reserved
-  ReservedB29 = 291, // reserved
-  ReservedB30 = 292, // reserved
-  ReservedC0 = 293,  // reserved
-  ReservedC1 = 294,  // reserved
-  ReservedC2 = 295,  // reserved
-  ReservedC3 = 296,  // reserved
-  ReservedC4 = 297,  // reserved
-  ReservedC5 = 298,  // reserved
-  ReservedC6 = 299,  // reserved
-  ReservedC7 = 300,  // reserved
-  ReservedC8 = 301,  // reserved
-  ReservedC9 = 302,  // reserved
+  Reserved0 = 226,        // reserved
+  Reserved1 = 227,        // reserved
+  Reserved10 = 236,       // reserved
+  Reserved11 = 237,       // reserved
+  Reserved2 = 228,        // reserved
+  Reserved3 = 229,        // reserved
+  Reserved4 = 230,        // reserved
+  Reserved5 = 231,        // reserved
+  Reserved6 = 232,        // reserved
+  Reserved7 = 233,        // reserved
+  Reserved8 = 234,        // reserved
+  Reserved9 = 235,        // reserved
+  ReservedA0 = 259,       // reserved
+  ReservedA1 = 260,       // reserved
+  ReservedA2 = 261,       // reserved
+  ReservedB28 = 290,      // reserved
+  ReservedB29 = 291,      // reserved
+  ReservedB30 = 292,      // reserved
+  ReservedC0 = 293,       // reserved
+  ReservedC1 = 294,       // reserved
+  ReservedC2 = 295,       // reserved
+  ReservedC3 = 296,       // reserved
+  ReservedC4 = 297,       // reserved
+  ReservedC5 = 298,       // reserved
+  ReservedC6 = 299,       // reserved
+  ReservedC7 = 300,       // reserved
+  ReservedC8 = 301,       // reserved
+  ReservedC9 = 302,       // reserved
+  ReservedCoopVec0 = 305, // reserved
+  ReservedCoopVec1 = 306, // reserved
+  ReservedCoopVec2 = 307, // reserved
+  ReservedCoopVec3 = 308, // reserved
 
   // Amplification shader instructions
   DispatchMesh = 173, // Amplification shader intrinsic DispatchMesh
@@ -875,19 +879,6 @@ enum class OpCode : unsigned {
   // Library create handle from resource struct (like HL intrinsic)
   CreateHandleForLib =
       160, // create resource handle from resource struct for library
-
-  // Linear Algebra Operations
-  MatVecMul =
-      305, // Multiplies a MxK dimension matrix and a K sized input vector
-  MatVecMulAdd = 306, // multiplies a MxK dimension matrix and a K sized input
-                      // vector and adds an M-sized bias vector
-  OuterProductAccumulate =
-      307, // Computes the outer product between column vectors and an MxN
-           // matrix is accumulated component-wise atomically (with device
-           // scope) in memory
-  VectorAccumulate = 308, // Accumulates the components of a vector
-                          // component-wise atomically (with device scope) to
-                          // the corresponding elements of an array in memory
 
   // Mesh shader instructions
   EmitIndices = 169, // emit a primitive's vertex indices in a mesh shader
@@ -1541,10 +1532,6 @@ enum class OpCodeClass : unsigned {
   LinAlgMatrixSetElement,
   LinAlgMatrixStoreToDescriptor,
   LinAlgMatrixStoreToMemory,
-  MatVecMul,
-  MatVecMulAdd,
-  OuterProductAccumulate,
-  VectorAccumulate,
 
   // Mesh shader instructions
   EmitIndices,
@@ -1731,7 +1718,7 @@ enum class OpCodeClass : unsigned {
   NodeOutputIsValid,
   OutputComplete,
 
-  NumOpClasses = 225, // exclusive last value of enumeration
+  NumOpClasses = 221, // exclusive last value of enumeration
 };
 // OPCODECLASS-ENUM:END
 

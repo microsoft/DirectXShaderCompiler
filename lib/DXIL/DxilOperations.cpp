@@ -2654,39 +2654,38 @@ static const OP::OpCodeProperty CoreOps_OpCodeProps[] = {
      {{0x4e7}},
      {{0xe7}}}, // Overloads: hfwidl<hfwidl
 
-    // Linear Algebra Operations
-    {OC::MatVecMul,
-     "MatVecMul",
-     OCC::MatVecMul,
-     "matVecMul",
-     Attribute::ReadOnly,
-     2,
-     {{0x400}, {0x400}},
-     {{0x63}, {0x63}}}, // Overloads: <hfwi,<hfwi
-    {OC::MatVecMulAdd,
-     "MatVecMulAdd",
-     OCC::MatVecMulAdd,
-     "matVecMulAdd",
-     Attribute::ReadOnly,
-     2,
-     {{0x400}, {0x400}},
-     {{0x63}, {0x63}}}, // Overloads: <hfwi,<hfwi
-    {OC::OuterProductAccumulate,
-     "OuterProductAccumulate",
-     OCC::OuterProductAccumulate,
-     "outerProductAccumulate",
+    {OC::ReservedCoopVec0,
+     "ReservedCoopVec0",
+     OCC::Reserved,
+     "reserved",
      Attribute::None,
-     2,
-     {{0x400}, {0x400}},
-     {{0x63}, {0x63}}}, // Overloads: <hfwi,<hfwi
-    {OC::VectorAccumulate,
-     "VectorAccumulate",
-     OCC::VectorAccumulate,
-     "vectorAccumulate",
+     0,
+     {},
+     {}}, // Overloads: v
+    {OC::ReservedCoopVec1,
+     "ReservedCoopVec1",
+     OCC::Reserved,
+     "reserved",
      Attribute::None,
-     1,
-     {{0x400}},
-     {{0x63}}}, // Overloads: <hfwi
+     0,
+     {},
+     {}}, // Overloads: v
+    {OC::ReservedCoopVec2,
+     "ReservedCoopVec2",
+     OCC::Reserved,
+     "reserved",
+     Attribute::None,
+     0,
+     {},
+     {}}, // Overloads: v
+    {OC::ReservedCoopVec3,
+     "ReservedCoopVec3",
+     OCC::Reserved,
+     "reserved",
+     Attribute::None,
+     0,
+     {},
+     {}}, // Overloads: v
 
     // Vector reduce to scalar
     {OC::VectorReduceAnd,
@@ -3947,8 +3946,7 @@ void OP::GetMinShaderModelAndMask(OpCode C, bool bWithTranslation,
         SFLAG(Library) | SFLAG(RayGeneration) | SFLAG(ClosestHit) | SFLAG(Miss);
     return;
   }
-  // Instructions: MatVecMul=305, MatVecMulAdd=306, OuterProductAccumulate=307,
-  // VectorAccumulate=308, ExperimentalNop=2147483648,
+  // Instructions: ExperimentalNop=2147483648,
   // RayQuery_CandidateClusterID=2147483652,
   // RayQuery_CommittedClusterID=2147483653,
   // RayQuery_CandidateTriangleObjectPosition=2147483656,
@@ -3959,8 +3957,7 @@ void OP::GetMinShaderModelAndMask(OpCode C, bool bWithTranslation,
   // LinAlgMatrixAccumulateToDescriptor=2147483675,
   // LinAlgMatrixOuterProduct=2147483677, DebugBreak=2147483681,
   // IsDebuggerPresent=2147483682
-  if ((305 <= op && op <= 308) || op == 2147483648 ||
-      (2147483652 <= op && op <= 2147483653) ||
+  if (op == 2147483648 || (2147483652 <= op && op <= 2147483653) ||
       (2147483656 <= op && op <= 2147483657) || op == 2147483662 ||
       op == 2147483670 || (2147483673 <= op && op <= 2147483675) ||
       op == 2147483677 || (2147483681 <= op && op <= 2147483682)) {
@@ -6436,58 +6433,21 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
     A(pI32);
     break;
 
-    // Linear Algebra Operations
-  case OpCode::MatVecMul:
-    A(EXT(0));
-    A(pI32);
-    A(EXT(1));
-    A(pI1);
-    A(pI32);
-    A(pRes);
-    A(pI32);
-    A(pI32);
-    A(pI32);
-    A(pI32);
-    A(pI32);
-    A(pI1);
-    A(pI32);
-    A(pI1);
-    break;
-  case OpCode::MatVecMulAdd:
-    A(EXT(0));
-    A(pI32);
-    A(EXT(1));
-    A(pI1);
-    A(pI32);
-    A(pRes);
-    A(pI32);
-    A(pI32);
-    A(pI32);
-    A(pI32);
-    A(pI32);
-    A(pI1);
-    A(pI32);
-    A(pRes);
-    A(pI32);
-    A(pI32);
-    A(pI1);
-    break;
-  case OpCode::OuterProductAccumulate:
+    //
+  case OpCode::ReservedCoopVec0:
     A(pV);
     A(pI32);
-    A(EXT(0));
-    A(EXT(1));
-    A(pRes);
-    A(pI32);
-    A(pI32);
-    A(pI32);
-    A(pI32);
     break;
-  case OpCode::VectorAccumulate:
+  case OpCode::ReservedCoopVec1:
     A(pV);
     A(pI32);
-    A(pETy);
-    A(pRes);
+    break;
+  case OpCode::ReservedCoopVec2:
+    A(pV);
+    A(pI32);
+    break;
+  case OpCode::ReservedCoopVec3:
+    A(pV);
     A(pI32);
     break;
 
@@ -6906,7 +6866,6 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
   case OpCode::WaveActiveAllEqual:
   case OpCode::CreateHandleForLib:
   case OpCode::WaveMatch:
-  case OpCode::VectorAccumulate:
   case OpCode::VectorReduceAnd:
   case OpCode::VectorReduceOr:
   case OpCode::FDot:
@@ -7031,6 +6990,10 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
   case OpCode::ReservedC7:
   case OpCode::ReservedC8:
   case OpCode::ReservedC9:
+  case OpCode::ReservedCoopVec0:
+  case OpCode::ReservedCoopVec1:
+  case OpCode::ReservedCoopVec2:
+  case OpCode::ReservedCoopVec3:
   case OpCode::ExperimentalNop:
   case OpCode::GetGroupWaveIndex:
   case OpCode::GetGroupWaveCount:
@@ -7071,8 +7034,13 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
   case OpCode::HitObject_TriangleObjectPosition:
     // These return native vectors directly
     return cast<VectorType>(Ty)->getElementType();
-  case OpCode::MatVecMul:
-  case OpCode::MatVecMulAdd:
+  case OpCode::LinAlgMatrixMultiplyAccumulate:
+    if (FT->getNumParams() < 4)
+      return nullptr;
+    return llvm::StructType::get(Ctx,
+                                 {FT->getReturnType(), FT->getParamType(1),
+                                  FT->getParamType(2), FT->getParamType(3)});
+
   case OpCode::LinAlgFillMatrix:
   case OpCode::LinAlgCopyConvertMatrix:
   case OpCode::LinAlgMatrixGetElement:
@@ -7080,19 +7048,6 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
       return nullptr;
     return llvm::StructType::get(Ctx,
                                  {FT->getReturnType(), FT->getParamType(1)});
-
-  case OpCode::OuterProductAccumulate:
-    if (FT->getNumParams() < 3)
-      return nullptr;
-    return llvm::StructType::get(Ctx,
-                                 {FT->getParamType(1), FT->getParamType(2)});
-
-  case OpCode::LinAlgMatrixMultiplyAccumulate:
-    if (FT->getNumParams() < 4)
-      return nullptr;
-    return llvm::StructType::get(Ctx,
-                                 {FT->getReturnType(), FT->getParamType(1),
-                                  FT->getParamType(2), FT->getParamType(3)});
 
   case OpCode::LinAlgMatrixLoadFromMemory:
     if (FT->getNumParams() < 2)

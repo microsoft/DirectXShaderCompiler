@@ -1087,11 +1087,6 @@ class db_dxil(object):
                 "library",
                 "raygeneration",
             )
-        for i in (
-            "MatVecMul,MatVecMulAdd,OuterProductAccumulate,VectorAccumulate"
-        ).split(","):
-            self.name_idx[i].category = "Linear Algebra Operations"
-            self.name_idx[i].shader_model = 6, 10
         # End of core DXIL ops
         self.populate_categories_and_models_ExperimentalOps()
 
@@ -6075,94 +6070,7 @@ class db_dxil(object):
             counters=("tex_store",),
         )
 
-        add_dxil_op(
-            "MatVecMul",
-            "MatVecMul",
-            "Multiplies a MxK dimension matrix and a K sized input vector",
-            "<hfwi,<hfwi",
-            "ro",
-            [
-                db_dxil_param(0, "$x0", "outputVector", "output vector"),
-                db_dxil_param(2, "$x1", "inputVector", "input vector"),
-                db_dxil_param(3, "i1", "isInputUnsigned", "is input unsigned"),
-                db_dxil_param(4, "i32", "inputInterpretation", "input interpretation"),
-                db_dxil_param(5, "res", "matrixBuffer", "matrix resource"),
-                db_dxil_param(6, "i32", "matrixOffset", "matrix offset"),
-                db_dxil_param(7, "i32", "matrixIntepretation", "matrix intepretation"),
-                db_dxil_param(8, "i32", "matrixM", "matrix M dimension"),
-                db_dxil_param(9, "i32", "matrixK", "matrix K dimension"),
-                db_dxil_param(10, "i32", "matrixLayout", "matrix layout"),
-                db_dxil_param(11, "i1", "matrixTranspose", "matrix transpose"),
-                db_dxil_param(12, "i32", "matrixStride", "matrix stride"),
-                db_dxil_param(13, "i1", "isOutputUnsigned", "is output unsigned"),
-            ],
-        )
-
-        add_dxil_op(
-            "MatVecMulAdd",
-            "MatVecMulAdd",
-            "multiplies a MxK dimension matrix and a K sized input vector and adds an M-sized bias vector",
-            "<hfwi,<hfwi",
-            "ro",
-            [
-                db_dxil_param(0, "$x0", "outputVector", "output vector"),
-                db_dxil_param(2, "$x1", "inputVector", "input vector"),
-                db_dxil_param(3, "i1", "isInputUnsigned", "is input unsigned"),
-                db_dxil_param(4, "i32", "inputInterpretation", "input interpretation"),
-                db_dxil_param(5, "res", "matrixBuffer", "matrix resource"),
-                db_dxil_param(6, "i32", "matrixOffset", "matrix offset"),
-                db_dxil_param(7, "i32", "matrixIntepretation", "matrix intepretation"),
-                db_dxil_param(8, "i32", "matrixM", "matrix M dimension"),
-                db_dxil_param(9, "i32", "matrixK", "matrix K dimension"),
-                db_dxil_param(10, "i32", "matrixLayout", "matrix layout"),
-                db_dxil_param(11, "i1", "matrixTranspose", "matrix transpose"),
-                db_dxil_param(12, "i32", "matrixStride", "matrix stride"),
-                db_dxil_param(13, "res", "biasBuffer", "bias vector resource"),
-                db_dxil_param(14, "i32", "biasOffset", "bias vector offset"),
-                db_dxil_param(
-                    15, "i32", "biasIntepretation", "bias vector intepretation"
-                ),
-                db_dxil_param(16, "i1", "isOutputUnsigned", "is output unsigned"),
-            ],
-        )
-
-        add_dxil_op(
-            "OuterProductAccumulate",
-            "OuterProductAccumulate",
-            "Computes the outer product between column vectors and an MxN matrix is accumulated component-wise atomically (with device scope) in memory",
-            "<hfwi,<hfwi",
-            "",
-            [
-                db_dxil_param(0, "v", "", ""),
-                db_dxil_param(2, "$x0", "inputVector1", "input vector 1"),
-                db_dxil_param(3, "$x1", "inputVector2", "input vector 2"),
-                db_dxil_param(4, "res", "matrixBuffer", "matrix resource"),
-                db_dxil_param(5, "i32", "matrixOffset", "matrix offset"),
-                db_dxil_param(
-                    6,
-                    "i32",
-                    "matrixIntepretation",
-                    "matrix intepretation",
-                    is_const=True,
-                ),
-                db_dxil_param(7, "i32", "matrixLayout", "matrix layout", is_const=True),
-                db_dxil_param(8, "i32", "matrixStride", "matrix stride"),
-            ],
-        )
-
-        add_dxil_op(
-            "VectorAccumulate",
-            "VectorAccumulate",
-            "Accumulates the components of a vector component-wise atomically (with device scope) to the corresponding elements of an array in memory",
-            "<hfwi",
-            "",
-            [
-                db_dxil_param(0, "v", "", ""),
-                db_dxil_param(2, "$o", "inputVector", "input vector 1"),
-                db_dxil_param(3, "res", "arrayBuffer", "output array resource"),
-                db_dxil_param(4, "i32", "arrayOffset", "output array offset"),
-            ],
-        )
+        reserve_dxil_op_range("ReservedCoopVec", 4)
 
         # Long Vector Reduction
         add_dxil_op(
