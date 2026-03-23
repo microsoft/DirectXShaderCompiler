@@ -6208,7 +6208,23 @@ public:
     if (IsBuiltinTable(tableName) && intrinOp == IntrinsicOp::MOP_SampleBias) {
       // Remove this when update intrinsic table not affect other things.
       // Change vector<float,1> into float for bias.
-      const unsigned biasOperandID = 3; // return type, sampler, coord, bias.
+      // The bias operand is the 3rd operand for normal texture types, but 2nd
+      // operand for sampledtexture types.
+      const bool firstArgIsSampler =
+          intrinsic->uNumArgs > 1 && ([&]() {
+            switch (intrinsic->pArgs[1].uLegalComponentTypes) {
+            case LICOMPTYPE_SAMPLER1D:
+            case LICOMPTYPE_SAMPLER2D:
+            case LICOMPTYPE_SAMPLER3D:
+            case LICOMPTYPE_SAMPLERCUBE:
+            case LICOMPTYPE_SAMPLERCMP:
+            case LICOMPTYPE_SAMPLER:
+              return true;
+            default:
+              return false;
+            }
+          })();
+      const unsigned biasOperandID = firstArgIsSampler ? 3 : 2;
       DXASSERT(parameterTypeCount > biasOperandID,
                "else operation was misrecognized");
       if (const ExtVectorType *VecTy =

@@ -32,59 +32,65 @@ float4 main(int3 offset: A) : SV_Target {
 // CHECK-NEXT:            {{%[0-9]+}} = OpImageSampleImplicitLod %v4float [[sampledImg]] %float_1 Bias %float_0_5
     float4 val1 = t1.SampleBias(gSampler, 1, 0.5);
 
-// CHECK:              [[t2:%[0-9]+]] = OpLoad %type_2d_image %t2
+// CHECK:                [[t2:%[0-9]+]] = OpLoad %type_2d_image %t2
 // CHECK-NEXT:   [[gSampler_0:%[0-9]+]] = OpLoad %type_sampler %gSampler
 // CHECK-NEXT: [[sampledImg_0:%[0-9]+]] = OpSampledImage %type_sampled_image_0 [[t2]] [[gSampler_0]]
-// CHECK-NEXT:            {{%[0-9]+}} = OpImageSampleImplicitLod %v4float [[sampledImg_0]] [[v2fc]] Bias|ConstOffset %float_0_5 [[v2ic]]
-    float4 val2 = t2.SampleBias(gSampler, float2(1, 2), 0.5, 2);
+// CHECK-NEXT:              {{%[0-9]+}} = OpImageSampleImplicitLod %v4float [[sampledImg_0]] [[v2fc]] Bias %float_0_5
+    float4 val2 = t2.SampleBias(gSampler, float2(1, 2), 0.5);
+
+// CHECK:              [[t2:%[0-9]+]] = OpLoad %type_2d_image %t2
+// CHECK-NEXT: [[gSampler_1:%[0-9]+]] = OpLoad %type_sampler %gSampler
+// CHECK-NEXT: [[sampledImg_1:%[0-9]+]] = OpSampledImage %type_sampled_image_0 [[t2]] [[gSampler_1]]
+// CHECK-NEXT:            {{%[0-9]+}} = OpImageSampleImplicitLod %v4float [[sampledImg_1]] [[v2fc]] Bias|ConstOffset %float_0_5 [[v2ic]]
+    float4 val3 = t2.SampleBias(gSampler, float2(1, 2), 0.5, 2);
 
 // CHECK:              [[t3:%[0-9]+]] = OpLoad %type_3d_image %t3
-// CHECK-NEXT:   [[gSampler_1:%[0-9]+]] = OpLoad %type_sampler %gSampler
-// CHECK-NEXT: [[sampledImg_1:%[0-9]+]] = OpSampledImage %type_sampled_image_1 [[t3]] [[gSampler_1]]
-// CHECK-NEXT:            {{%[0-9]+}} = OpImageSampleImplicitLod %v4float [[sampledImg_1]] [[v3fc]] Bias|ConstOffset %float_0_5 [[v3ic]]
-    float4 val3 = t3.SampleBias(gSampler, float3(1, 2, 3), 0.5, 1);
+// CHECK-NEXT:   [[gSampler_2:%[0-9]+]] = OpLoad %type_sampler %gSampler
+// CHECK-NEXT: [[sampledImg_2:%[0-9]+]] = OpSampledImage %type_sampled_image_1 [[t3]] [[gSampler_2]]
+// CHECK-NEXT:            {{%[0-9]+}} = OpImageSampleImplicitLod %v4float [[sampledImg_2]] [[v3fc]] Bias|ConstOffset %float_0_5 [[v3ic]]
+    float4 val4 = t3.SampleBias(gSampler, float3(1, 2, 3), 0.5, 1);
 
 // CHECK:              [[t4:%[0-9]+]] = OpLoad %type_cube_image %t4
-// CHECK-NEXT:   [[gSampler_2:%[0-9]+]] = OpLoad %type_sampler %gSampler
-// CHECK-NEXT: [[sampledImg_2:%[0-9]+]] = OpSampledImage %type_sampled_image_2 [[t4]] [[gSampler_2]]
-// CHECK-NEXT:            {{%[0-9]+}} = OpImageSampleImplicitLod %v4float [[sampledImg_2]] [[v3fc]] Bias %float_0_5
-    float4 val4 = t4.SampleBias(gSampler, float3(1, 2, 3), 0.5);
+// CHECK-NEXT:   [[gSampler_3:%[0-9]+]] = OpLoad %type_sampler %gSampler
+// CHECK-NEXT: [[sampledImg_3:%[0-9]+]] = OpSampledImage %type_sampled_image_2 [[t4]] [[gSampler_3]]
+// CHECK-NEXT:            {{%[0-9]+}} = OpImageSampleImplicitLod %v4float [[sampledImg_3]] [[v3fc]] Bias %float_0_5
+    float4 val5 = t4.SampleBias(gSampler, float3(1, 2, 3), 0.5);
 
     float clamp;
 // CHECK:         [[t3_0:%[0-9]+]] = OpLoad %type_3d_image %t3
-// CHECK-NEXT:   [[gSampler_3:%[0-9]+]] = OpLoad %type_sampler %gSampler
+// CHECK-NEXT:   [[gSampler_4:%[0-9]+]] = OpLoad %type_sampler %gSampler
 // CHECK-NEXT:           [[clamp:%[0-9]+]] = OpLoad %float %clamp
-// CHECK-NEXT: [[sampledImg_3:%[0-9]+]] = OpSampledImage %type_sampled_image_1 [[t3_0]] [[gSampler_3]]
-// CHECK-NEXT:            {{%[0-9]+}} = OpImageSampleImplicitLod %v4float [[sampledImg_3]] [[v3fc]] Bias|ConstOffset|MinLod %float_0_5 [[v3ic]] [[clamp]]
-    float4 val5 = t3.SampleBias(gSampler, float3(1, 2, 3), 0.5, 1, clamp);
+// CHECK-NEXT: [[sampledImg_4:%[0-9]+]] = OpSampledImage %type_sampled_image_1 [[t3_0]] [[gSampler_4]]
+// CHECK-NEXT:            {{%[0-9]+}} = OpImageSampleImplicitLod %v4float [[sampledImg_4]] [[v3fc]] Bias|ConstOffset|MinLod %float_0_5 [[v3ic]] [[clamp]]
+    float4 val6 = t3.SampleBias(gSampler, float3(1, 2, 3), 0.5, 1, clamp);
 
 // CHECK:              [[t4_0:%[0-9]+]] = OpLoad %type_cube_image %t4
-// CHECK-NEXT:   [[gSampler_4:%[0-9]+]] = OpLoad %type_sampler %gSampler
-// CHECK-NEXT: [[sampledImg_4:%[0-9]+]] = OpSampledImage %type_sampled_image_2 [[t4_0]] [[gSampler_4]]
-// CHECK-NEXT:            {{%[0-9]+}} = OpImageSampleImplicitLod %v4float [[sampledImg_4]] [[v3fc]] Bias|MinLod %float_0_5 %float_2_5
-    float4 val6 = t4.SampleBias(gSampler, float3(1, 2, 3), 0.5, /*clamp*/ 2.5);
+// CHECK-NEXT:   [[gSampler_5:%[0-9]+]] = OpLoad %type_sampler %gSampler
+// CHECK-NEXT: [[sampledImg_5:%[0-9]+]] = OpSampledImage %type_sampled_image_2 [[t4_0]] [[gSampler_5]]
+// CHECK-NEXT:            {{%[0-9]+}} = OpImageSampleImplicitLod %v4float [[sampledImg_5]] [[v3fc]] Bias|MinLod %float_0_5 %float_2_5
+    float4 val7 = t4.SampleBias(gSampler, float3(1, 2, 3), 0.5, /*clamp*/ 2.5);
 
     uint status;
 // CHECK:           [[t3_1:%[0-9]+]] = OpLoad %type_3d_image %t3
-// CHECK-NEXT:     [[gSampler_5:%[0-9]+]] = OpLoad %type_sampler %gSampler
+// CHECK-NEXT:     [[gSampler_6:%[0-9]+]] = OpLoad %type_sampler %gSampler
 // CHECK-NEXT:             [[clamp_0:%[0-9]+]] = OpLoad %float %clamp
-// CHECK-NEXT:   [[sampledImg_5:%[0-9]+]] = OpSampledImage %type_sampled_image_1 [[t3_1]] [[gSampler_5]]
-// CHECK-NEXT: [[structResult:%[0-9]+]] = OpImageSparseSampleImplicitLod %SparseResidencyStruct [[sampledImg_5]] [[v3fc]] Bias|ConstOffset|MinLod %float_0_5 [[v3ic]] [[clamp_0]]
+// CHECK-NEXT:   [[sampledImg_6:%[0-9]+]] = OpSampledImage %type_sampled_image_1 [[t3_1]] [[gSampler_6]]
+// CHECK-NEXT: [[structResult:%[0-9]+]] = OpImageSparseSampleImplicitLod %SparseResidencyStruct [[sampledImg_6]] [[v3fc]] Bias|ConstOffset|MinLod %float_0_5 [[v3ic]] [[clamp_0]]
 // CHECK-NEXT:       [[status:%[0-9]+]] = OpCompositeExtract %uint [[structResult]] 0
 // CHECK-NEXT:                         OpStore %status [[status]]
 // CHECK-NEXT:       [[result:%[0-9]+]] = OpCompositeExtract %v4float [[structResult]] 1
-// CHECK-NEXT:                         OpStore %val7 [[result]]
-    float4 val7 = t3.SampleBias(gSampler, float3(1, 2, 3), 0.5, 1, clamp, status);
+// CHECK-NEXT:                         OpStore %val8 [[result]]
+    float4 val8 = t3.SampleBias(gSampler, float3(1, 2, 3), 0.5, 1, clamp, status);
 
 // CHECK:                [[t4_1:%[0-9]+]] = OpLoad %type_cube_image %t4
-// CHECK-NEXT:     [[gSampler_6:%[0-9]+]] = OpLoad %type_sampler %gSampler
-// CHECK-NEXT:   [[sampledImg_6:%[0-9]+]] = OpSampledImage %type_sampled_image_2 [[t4_1]] [[gSampler_6]]
-// CHECK-NEXT: [[structResult_0:%[0-9]+]] = OpImageSparseSampleImplicitLod %SparseResidencyStruct [[sampledImg_6]] [[v3fc]] Bias|MinLod %float_0_5 %float_2_5
+// CHECK-NEXT:     [[gSampler_7:%[0-9]+]] = OpLoad %type_sampler %gSampler
+// CHECK-NEXT:   [[sampledImg_7:%[0-9]+]] = OpSampledImage %type_sampled_image_2 [[t4_1]] [[gSampler_7]]
+// CHECK-NEXT: [[structResult_0:%[0-9]+]] = OpImageSparseSampleImplicitLod %SparseResidencyStruct [[sampledImg_7]] [[v3fc]] Bias|MinLod %float_0_5 %float_2_5
 // CHECK-NEXT:       [[status_0:%[0-9]+]] = OpCompositeExtract %uint [[structResult_0]] 0
 // CHECK-NEXT:                         OpStore %status [[status_0]]
 // CHECK-NEXT:       [[result_0:%[0-9]+]] = OpCompositeExtract %v4float [[structResult_0]] 1
-// CHECK-NEXT:                         OpStore %val8 [[result_0]]
-    float4 val8 = t4.SampleBias(gSampler, float3(1, 2, 3), 0.5, /*clamp*/ 2.5, status);
+// CHECK-NEXT:                         OpStore %val9 [[result_0]]
+    float4 val9 = t4.SampleBias(gSampler, float3(1, 2, 3), 0.5, /*clamp*/ 2.5, status);
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////
 // Make sure OpImageSampleImplicitLod returns a vec4.
@@ -93,12 +99,12 @@ float4 main(int3 offset: A) : SV_Target {
 
 // CHECK:  [[v4result:%[0-9]+]] = OpImageSampleImplicitLod %v4float {{%[0-9]+}} %float_1 Bias %float_0_5
 // CHECK:           {{%[0-9]+}} = OpCompositeExtract %float [[v4result]] 0
-    float val9 = t5.SampleBias(gSampler, 1, 0.5);
+    float val10 = t5.SampleBias(gSampler, 1, 0.5);
 
 // CHECK: [[structResult_1:%[0-9]+]] = OpImageSparseSampleImplicitLod %SparseResidencyStruct {{%[0-9]+}} {{%[0-9]+}} Bias|ConstOffset|MinLod %float_0_5 {{%[0-9]+}} {{%[0-9]+}}
 // CHECK:     [[v4result_0:%[0-9]+]] = OpCompositeExtract %v4float [[structResult_1]] 1
 // CHECK:              {{%[0-9]+}} = OpVectorShuffle %v2float [[v4result_0]] [[v4result_0]] 0 1
-    float2 val10 = t6.SampleBias(gSampler, float3(1, 2, 3), 0.5, 1, clamp, status);
+    float2 val11 = t6.SampleBias(gSampler, float3(1, 2, 3), 0.5, 1, clamp, status);
 
     return 1.0;
 }
