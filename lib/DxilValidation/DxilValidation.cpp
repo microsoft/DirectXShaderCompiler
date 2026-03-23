@@ -996,46 +996,6 @@ static bool CheckLinalgInterpretation(uint32_t Input, bool InRegister) {
   }
 }
 
-static bool CheckMatrixLayoutForMatVecMulOps(unsigned Layout) {
-  return Layout <=
-         static_cast<unsigned>(DXIL::LinalgMatrixLayout::OuterProductOptimal);
-}
-
-std::string GetMatrixLayoutStr(unsigned Layout) {
-  switch (static_cast<DXIL::LinalgMatrixLayout>(Layout)) {
-  case DXIL::LinalgMatrixLayout::RowMajor:
-    return "RowMajor";
-  case DXIL::LinalgMatrixLayout::ColumnMajor:
-    return "ColumnMajor";
-  case DXIL::LinalgMatrixLayout::MulOptimal:
-    return "MulOptimal";
-  case DXIL::LinalgMatrixLayout::OuterProductOptimal:
-    return "OuterProductOptimal";
-  default:
-    DXASSERT_NOMSG(false);
-    return "Invalid";
-  }
-}
-
-static bool CheckTransposeForMatrixLayout(unsigned Layout, bool Transposed) {
-  switch (static_cast<DXIL::LinalgMatrixLayout>(Layout)) {
-  case DXIL::LinalgMatrixLayout::RowMajor:
-  case DXIL::LinalgMatrixLayout::ColumnMajor:
-    return !Transposed;
-
-  default:
-    return true;
-  }
-}
-
-static bool CheckUnsignedFlag(Type *VecTy, bool IsUnsigned) {
-  Type *ElemTy = VecTy->getScalarType();
-  if (ElemTy->isFloatingPointTy())
-    return !IsUnsigned;
-
-  return true;
-}
-
 // Validate the type-defined mask compared to the store value mask which
 // Validate the type-defined mask compared to the store value mask which
 // indicates which parts were defined returns true if caller should continue

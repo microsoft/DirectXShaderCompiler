@@ -2470,13 +2470,6 @@ extern const char *kHostLayoutTypePrefix;
 
 extern const char *kWaveOpsIncludeHelperLanesString;
 
-enum class LinalgMatrixLayout : uint32_t {
-  RowMajor = 0,
-  ColumnMajor = 1,
-  MulOptimal = 2,
-  OuterProductOptimal = 3,
-};
-
 } // namespace DXIL
 
 } // namespace hlsl
