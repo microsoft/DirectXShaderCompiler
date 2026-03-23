@@ -524,9 +524,9 @@ static const OpCodeTableID TableID = OpCodeTableID::ExperimentalOps;
 // Enumeration for ExperimentalOps DXIL operations
 enum class OpCode : unsigned {
   //
-  ReservedD1 = 30, // reserved
-  ReservedD2 = 31, // reserved
-  ReservedD3 = 32, // reserved
+  ReservedE1 = 30, // reserved
+  ReservedE2 = 31, // reserved
+  ReservedE3 = 32, // reserved
 
   // Debugging
   DebugBreak = 33,        // triggers a breakpoint if a debugger is attached
@@ -619,38 +619,38 @@ static const unsigned NumOpCodeTables = 2;
 // Enumeration for CoreOps DXIL operations
 enum class OpCode : unsigned {
   //
-  Reserved0 = 226,        // reserved
-  Reserved1 = 227,        // reserved
-  Reserved10 = 236,       // reserved
-  Reserved11 = 237,       // reserved
-  Reserved2 = 228,        // reserved
-  Reserved3 = 229,        // reserved
-  Reserved4 = 230,        // reserved
-  Reserved5 = 231,        // reserved
-  Reserved6 = 232,        // reserved
-  Reserved7 = 233,        // reserved
-  Reserved8 = 234,        // reserved
-  Reserved9 = 235,        // reserved
-  ReservedA0 = 259,       // reserved
-  ReservedA1 = 260,       // reserved
-  ReservedA2 = 261,       // reserved
-  ReservedB28 = 290,      // reserved
-  ReservedB29 = 291,      // reserved
-  ReservedB30 = 292,      // reserved
-  ReservedC0 = 293,       // reserved
-  ReservedC1 = 294,       // reserved
-  ReservedC2 = 295,       // reserved
-  ReservedC3 = 296,       // reserved
-  ReservedC4 = 297,       // reserved
-  ReservedC5 = 298,       // reserved
-  ReservedC6 = 299,       // reserved
-  ReservedC7 = 300,       // reserved
-  ReservedC8 = 301,       // reserved
-  ReservedC9 = 302,       // reserved
-  ReservedCoopVec0 = 305, // reserved
-  ReservedCoopVec1 = 306, // reserved
-  ReservedCoopVec2 = 307, // reserved
-  ReservedCoopVec3 = 308, // reserved
+  Reserved0 = 226,   // reserved
+  Reserved1 = 227,   // reserved
+  Reserved10 = 236,  // reserved
+  Reserved11 = 237,  // reserved
+  Reserved2 = 228,   // reserved
+  Reserved3 = 229,   // reserved
+  Reserved4 = 230,   // reserved
+  Reserved5 = 231,   // reserved
+  Reserved6 = 232,   // reserved
+  Reserved7 = 233,   // reserved
+  Reserved8 = 234,   // reserved
+  Reserved9 = 235,   // reserved
+  ReservedA0 = 259,  // reserved
+  ReservedA1 = 260,  // reserved
+  ReservedA2 = 261,  // reserved
+  ReservedB28 = 290, // reserved
+  ReservedB29 = 291, // reserved
+  ReservedB30 = 292, // reserved
+  ReservedC0 = 293,  // reserved
+  ReservedC1 = 294,  // reserved
+  ReservedC2 = 295,  // reserved
+  ReservedC3 = 296,  // reserved
+  ReservedC4 = 297,  // reserved
+  ReservedC5 = 298,  // reserved
+  ReservedC6 = 299,  // reserved
+  ReservedC7 = 300,  // reserved
+  ReservedC8 = 301,  // reserved
+  ReservedC9 = 302,  // reserved
+  ReservedD0 = 305,  // reserved
+  ReservedD1 = 306,  // reserved
+  ReservedD2 = 307,  // reserved
+  ReservedD3 = 308,  // reserved
 
   // Amplification shader instructions
   DispatchMesh = 173, // Amplification shader intrinsic DispatchMesh
@@ -1342,12 +1342,12 @@ enum class OpCode : unsigned {
       ExperimentalOps,
       LinAlgMatrixOuterProduct), // Outer products an M sized vector and a N
                                  // sized vector producing an MxN matrix
-  // ReservedD1 = 0x8000001E, 2147483678U, -2147483618
-  EXP_OPCODE(ExperimentalOps, ReservedD1), // reserved
-  // ReservedD2 = 0x8000001F, 2147483679U, -2147483617
-  EXP_OPCODE(ExperimentalOps, ReservedD2), // reserved
-  // ReservedD3 = 0x80000020, 2147483680U, -2147483616
-  EXP_OPCODE(ExperimentalOps, ReservedD3), // reserved
+  // ReservedE1 = 0x8000001E, 2147483678U, -2147483618
+  EXP_OPCODE(ExperimentalOps, ReservedE1), // reserved
+  // ReservedE2 = 0x8000001F, 2147483679U, -2147483617
+  EXP_OPCODE(ExperimentalOps, ReservedE2), // reserved
+  // ReservedE3 = 0x80000020, 2147483680U, -2147483616
+  EXP_OPCODE(ExperimentalOps, ReservedE3), // reserved
   // DebugBreak = 0x80000021, 2147483681U, -2147483615
   EXP_OPCODE(ExperimentalOps,
              DebugBreak), // triggers a breakpoint if a debugger is attached

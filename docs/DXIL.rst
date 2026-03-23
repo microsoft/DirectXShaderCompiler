@@ -2421,10 +2421,10 @@ ID  Name                                                  Description
 302 ReservedC9                                            reserved
 303 RawBufferVectorLoad                                   reads from a raw buffer and structured buffer
 304 RawBufferVectorStore                                  writes to a RWByteAddressBuffer or RWStructuredBuffer
-305 ReservedCoopVec0                                      reserved
-306 ReservedCoopVec1                                      reserved
-307 ReservedCoopVec2                                      reserved
-308 ReservedCoopVec3                                      reserved
+305 ReservedD0                                            reserved
+306 ReservedD1                                            reserved
+307 ReservedD2                                            reserved
+308 ReservedD3                                            reserved
 309 VectorReduceAnd                                       Bitwise AND reduction of the vector returning a scalar
 310 VectorReduceOr                                        Bitwise OR reduction of the vector returning a scalar
 311 FDot                                                  computes the n-dimensional vector dot-product
@@ -3095,9 +3095,9 @@ ID         Name                                     Description
 2147483675 LinAlgMatrixAccumulateToDescriptor       accumulates a matrix to a RWByteAddressBuffer
 2147483676 LinAlgMatrixAccumulateToMemory           accumulates a matrix to groupshared memory
 2147483677 LinAlgMatrixOuterProduct                 Outer products an M sized vector and a N sized vector producing an MxN matrix
-2147483678 ReservedD1                               reserved
-2147483679 ReservedD2                               reserved
-2147483680 ReservedD3                               reserved
+2147483678 ReservedE1                               reserved
+2147483679 ReservedE2                               reserved
+2147483680 ReservedE3                               reserved
 2147483681 DebugBreak                               triggers a breakpoint if a debugger is attached
 2147483682 IsDebuggerPresent                        returns true if a debugger is attached
 ========== ======================================== ===================================================================================================================

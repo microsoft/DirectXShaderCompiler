@@ -6070,7 +6070,7 @@ class db_dxil(object):
             counters=("tex_store",),
         )
 
-        reserve_dxil_op_range("ReservedCoopVec", 4)
+        reserve_dxil_op_range("ReservedD", 4)
 
         # Long Vector Reduction
         add_dxil_op(
@@ -6569,7 +6569,7 @@ class db_dxil(object):
             ],
         )
 
-        op_table.reserve_dxil_op_range("ReservedD", 3, 1)
+        op_table.reserve_dxil_op_range("ReservedE", 3, 1)
 
         # Debugging intrinsics
         add_dxil_op(

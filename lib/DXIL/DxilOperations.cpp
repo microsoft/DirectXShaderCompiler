@@ -2654,32 +2654,32 @@ static const OP::OpCodeProperty CoreOps_OpCodeProps[] = {
      {{0x4e7}},
      {{0xe7}}}, // Overloads: hfwidl<hfwidl
 
-    {OC::ReservedCoopVec0,
-     "ReservedCoopVec0",
+    {OC::ReservedD0,
+     "ReservedD0",
      OCC::Reserved,
      "reserved",
      Attribute::None,
      0,
      {},
      {}}, // Overloads: v
-    {OC::ReservedCoopVec1,
-     "ReservedCoopVec1",
+    {OC::ReservedD1,
+     "ReservedD1",
      OCC::Reserved,
      "reserved",
      Attribute::None,
      0,
      {},
      {}}, // Overloads: v
-    {OC::ReservedCoopVec2,
-     "ReservedCoopVec2",
+    {OC::ReservedD2,
+     "ReservedD2",
      OCC::Reserved,
      "reserved",
      Attribute::None,
      0,
      {},
      {}}, // Overloads: v
-    {OC::ReservedCoopVec3,
-     "ReservedCoopVec3",
+    {OC::ReservedD3,
+     "ReservedD3",
      OCC::Reserved,
      "reserved",
      Attribute::None,
@@ -2977,24 +2977,24 @@ static const OP::OpCodeProperty ExperimentalOps_OpCodeProps[] = {
      {{0x200}, {0x400}, {0x400}},
      {{0x0}, {0x63}, {0x63}}}, // Overloads: o,<hfwi,<hfwi
 
-    {OC::ReservedD1,
-     "ReservedD1",
+    {OC::ReservedE1,
+     "ReservedE1",
      OCC::Reserved,
      "reserved",
      Attribute::None,
      0,
      {},
      {}}, // Overloads: v
-    {OC::ReservedD2,
-     "ReservedD2",
+    {OC::ReservedE2,
+     "ReservedE2",
      OCC::Reserved,
      "reserved",
      Attribute::None,
      0,
      {},
      {}}, // Overloads: v
-    {OC::ReservedD3,
-     "ReservedD3",
+    {OC::ReservedE3,
+     "ReservedE3",
      OCC::Reserved,
      "reserved",
      Attribute::None,
@@ -6434,19 +6434,19 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
     break;
 
     //
-  case OpCode::ReservedCoopVec0:
+  case OpCode::ReservedD0:
     A(pV);
     A(pI32);
     break;
-  case OpCode::ReservedCoopVec1:
+  case OpCode::ReservedD1:
     A(pV);
     A(pI32);
     break;
-  case OpCode::ReservedCoopVec2:
+  case OpCode::ReservedD2:
     A(pV);
     A(pI32);
     break;
-  case OpCode::ReservedCoopVec3:
+  case OpCode::ReservedD3:
     A(pV);
     A(pI32);
     break;
@@ -6672,15 +6672,15 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
     break;
 
     //
-  case OpCode::ReservedD1:
+  case OpCode::ReservedE1:
     A(pV);
     A(pI32);
     break;
-  case OpCode::ReservedD2:
+  case OpCode::ReservedE2:
     A(pV);
     A(pI32);
     break;
-  case OpCode::ReservedD3:
+  case OpCode::ReservedE3:
     A(pV);
     A(pI32);
     break;
@@ -6990,18 +6990,18 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
   case OpCode::ReservedC7:
   case OpCode::ReservedC8:
   case OpCode::ReservedC9:
-  case OpCode::ReservedCoopVec0:
-  case OpCode::ReservedCoopVec1:
-  case OpCode::ReservedCoopVec2:
-  case OpCode::ReservedCoopVec3:
+  case OpCode::ReservedD0:
+  case OpCode::ReservedD1:
+  case OpCode::ReservedD2:
+  case OpCode::ReservedD3:
   case OpCode::ExperimentalNop:
   case OpCode::GetGroupWaveIndex:
   case OpCode::GetGroupWaveCount:
   case OpCode::ClusterID:
   case OpCode::LinAlgMatrixQueryAccumulatorLayout:
-  case OpCode::ReservedD1:
-  case OpCode::ReservedD2:
-  case OpCode::ReservedD3:
+  case OpCode::ReservedE1:
+  case OpCode::ReservedE2:
+  case OpCode::ReservedE3:
   case OpCode::DebugBreak:
   case OpCode::IsDebuggerPresent:
     return Type::getVoidTy(Ctx);
