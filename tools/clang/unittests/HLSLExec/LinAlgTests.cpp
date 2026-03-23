@@ -5,7 +5,7 @@
 // This file is distributed under the University of Illinois Open Source     //
 // License. See LICENSE.TXT for details.                                     //
 //                                                                           //
-// Execution tests for dx::linalg builtins (Proposal 0035, SM 6.10).        //
+// Execution tests for dx::linalg builtins                                   //
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -51,10 +51,6 @@ static int elemSize(ComponentType CT) {
     return 4;
   }
 }
-
-// ===========================================================================
-// ShaderOp construction helpers
-// ===========================================================================
 
 /// Create a ShaderOp for a compute shader dispatch.
 static std::unique_ptr<st::ShaderOp>
@@ -129,14 +125,9 @@ runShaderOp(ID3D12Device *Device, dxc::SpecificDllLoader &DxcSupport,
       Device, DxcSupport, nullptr, std::move(InitCallback), std::move(OpSet));
 }
 
-// ===========================================================================
-// Shader compilation helper
-// ===========================================================================
-
 /// Compiles an HLSL shader using the DXC API to verify it is well-formed.
 /// This runs without a D3D12 device, so it works even when no SM 6.10
 /// hardware is available. Fails the test (via VERIFY) on compile error.
-
 static void compileShader(dxc::SpecificDllLoader &DxcSupport,
                           const char *Source, const char *Target,
                           const std::string &Args) {
@@ -190,10 +181,6 @@ static void compileShader(dxc::SpecificDllLoader &DxcSupport,
   }
 }
 
-// ===========================================================================
-// Test parameters
-// ===========================================================================
-
 struct MatrixParams {
   ComponentType CompType;
   int M;
@@ -217,10 +204,6 @@ struct MatrixParams {
   size_t totalBytes() const { return totalElements() * elemSize(CompType); }
 };
 
-// ===========================================================================
-// Compiler arguments builder
-// ===========================================================================
-
 static std::string buildCompilerArgs(const MatrixParams &Params, int Stride,
                                      const char *ExtraDefines = nullptr) {
   std::stringstream SS;
@@ -239,10 +222,6 @@ static std::string buildCompilerArgs(const MatrixParams &Params, int Stride,
     SS << " " << ExtraDefines;
   return SS.str();
 }
-
-// ===========================================================================
-// Verification helpers
-// ===========================================================================
 
 static bool verifyFloatBuffer(const void *Actual, const float *Expected,
                               size_t Count, bool Verbose,
@@ -284,10 +263,6 @@ static bool verifyIntBuffer(const void *Actual, const int32_t *Expected,
   return Success;
 }
 
-// ===========================================================================
-// Test class
-// ===========================================================================
-
 class DxilConf_SM610_LinAlg {
 public:
   BEGIN_TEST_CLASS(DxilConf_SM610_LinAlg)
@@ -318,10 +293,6 @@ private:
   bool Initialized = false;
   std::optional<D3D12SDKSelector> D3D12SDK;
 };
-
-// ===========================================================================
-// Class setup
-// ===========================================================================
 
 bool DxilConf_SM610_LinAlg::setupClass() {
   WEX::TestExecution::SetVerifyOutput VerifySettings(
@@ -357,7 +328,6 @@ bool DxilConf_SM610_LinAlg::setupClass() {
             L"test.");
         return false;
       }
-      // No device — tests will compile shaders and skip execution.
     }
   }
 
@@ -379,10 +349,6 @@ bool DxilConf_SM610_LinAlg::setupMethod() {
 
   return true;
 }
-
-// ===========================================================================
-// Load/Store roundtrip
-// ===========================================================================
 
 static const char LoadStoreShader[] = R"(
   RWByteAddressBuffer Input : register(u0);
@@ -501,10 +467,6 @@ void DxilConf_SM610_LinAlg::LoadStoreRoundtrip_Wave_I32() {
   Params.Enable16Bit = false;
   runLoadStoreRoundtrip(D3DDevice, DxcSupport, Params, VerboseLogging);
 }
-
-// ===========================================================================
-// Splat + Store
-// ===========================================================================
 
 static const char SplatStoreShader[] = R"(
   RWByteAddressBuffer Output : register(u0);
