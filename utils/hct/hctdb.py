@@ -8594,67 +8594,6 @@ class db_dxil(object):
             "reordercoherent requires SM 6.9 or later.",
         )
 
-        # Linalg ops
-        self.add_valrule_msg(
-            "Instr.MatVecOpIsUnsignedFlagsAreConst",
-            "In Linalg Mul/MulAdd functions, IsUnsigned flag is a constant.",
-            "%0 is not a constant value",
-        )
-
-        self.add_valrule_msg(
-            "Instr.LinalgInterpretationParamAreConst",
-            "In Linalg operations, Interpretation value is a constant.",
-            "%0 is not a constant value",
-        )
-
-        self.add_valrule_msg(
-            "Instr.LinalgInvalidRegisterInterpValue",
-            "From Register Interpretation value must be valid.",
-            "'%0' is not a valid %1 interpretation value",
-        )
-
-        self.add_valrule_msg(
-            "Instr.LinalgInvalidMemoryInterpValue",
-            "In Memory Interpolation value must be valid.",
-            "'%0' is not a valid %1 interpretation value",
-        )
-
-        self.add_valrule_msg(
-            "Instr.LinalgMatrixShapeParamsAreConst",
-            "Matrix Layout, Dimensions and isTranspose are constants",
-            "'%0' is not a constant value",
-        )
-
-        self.add_valrule_msg(
-            "Instr.LinalgInvalidMatrixLayoutValueForMatVecOps",
-            "Matrix Layout for Linalg Mul/MulAdd operation must be valid.",
-            "matrix layout value '%0' is not valid. Must be between [%1 - %2]",
-        )
-
-        self.add_valrule_msg(
-            "Instr.LinalgMatrixStrideZeroForOptimalLayouts",
-            "For optimal layouts, matrix stride must be zero.",
-            "matrix stride must be a constant zero for optimal layouts",
-        )
-
-        self.add_valrule_msg(
-            "Instr.LinalgMatrixLayoutNotTransposable",
-            "Row Major and Column Major matrix layouts are not transposable.",
-            "%0 matrix layout is not transposable",
-        )
-
-        self.add_valrule_msg(
-            "Instr.LinalgNotAnUnsignedType",
-            "Unsigned flag set for a float signed type",
-            "IsUnsigned flag set to true for a float type '%0' vector",
-        )
-
-        self.add_valrule_msg(
-            "Instr.LinalgInvalidMatrixLayoutValueForOuterProductAccumulate",
-            "Matrix Layout for Linalg Mul/MulAdd operation must be valid.",
-            "matrix layout value '%0' is not valid for outerproductaccumulate, must be '%1'",
-        )
-
         # Some legacy rules:
         # - space is only supported for shader targets 5.1 and higher
         # - multiple rules regarding derivatives, which isn't a supported feature for DXIL
