@@ -531,8 +531,7 @@ static void runSplatStore(ID3D12Device *Device,
   std::stringstream ExtraDefs;
   ExtraDefs << "-DFILL_VALUE=" << FillValue;
 
-  std::string Args =
-      buildCompilerArgs(Params, Stride, ExtraDefs.str().c_str());
+  std::string Args = buildCompilerArgs(Params, Stride, ExtraDefs.str().c_str());
 
   // Always verify the shader compiles.
   compileShader(DxcSupport, SplatStoreShader, "cs_6_10", Args);
