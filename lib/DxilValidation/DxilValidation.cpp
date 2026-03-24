@@ -997,7 +997,6 @@ static bool CheckLinalgInterpretation(uint32_t Input, bool InRegister) {
 }
 
 // Validate the type-defined mask compared to the store value mask which
-// Validate the type-defined mask compared to the store value mask which
 // indicates which parts were defined returns true if caller should continue
 // validation
 static bool ValidateStorageMasks(Instruction *I, DXIL::OpCode Opcode,
