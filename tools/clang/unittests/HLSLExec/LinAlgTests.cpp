@@ -204,7 +204,7 @@ struct MatrixParams {
   size_t totalBytes() const { return totalElements() * elemSize(CompType); }
 };
 
-static std::string buildCompilerArgs(const MatrixParams &Params, int Stride,
+static std::string buildCompilerArgs(const MatrixParams &Params,
                                      const char *ExtraDefines = nullptr) {
   std::stringstream SS;
   SS << "-HV 202x";
@@ -213,7 +213,7 @@ static std::string buildCompilerArgs(const MatrixParams &Params, int Stride,
   SS << " -DN_DIM=" << Params.N;
   SS << " -DUSE=" << static_cast<int>(Params.Use);
   SS << " -DSCOPE=" << static_cast<int>(Params.Scope);
-  SS << " -DSTRIDE=" << Stride;
+  SS << " -DSTRIDE=" << Params.strideBytes();
   SS << " -DLAYOUT=" << static_cast<int>(Params.Layout);
   SS << " -DNUMTHREADS=" << Params.NumThreads;
   if (Params.Enable16Bit)
@@ -313,8 +313,6 @@ bool DxilConf_SM610_LinAlg::setupClass() {
 #ifdef _HLK_CONF
     FailIfRequirementsNotMet = true;
 #endif
-    WEX::TestExecution::RuntimeParameters::TryGetValue(
-        L"FailIfRequirementsNotMet", FailIfRequirementsNotMet);
 
     const bool SkipUnsupported = !FailIfRequirementsNotMet;
     if (!D3D12SDK->createDevice(&D3DDevice, D3D_SHADER_MODEL_6_10,
@@ -338,16 +336,22 @@ bool DxilConf_SM610_LinAlg::setupMethod() {
   // It's possible a previous test case caused a device removal. If it did we
   // need to try and create a new device.
   if (D3DDevice && D3DDevice->GetDeviceRemovedReason() != S_OK) {
-    hlsl_test::LogCommentFmt(L"Device was lost! Recreating...");
+    hlsl_test::LogCommentFmt(L"Device was lost!");
     D3DDevice.Release();
+  }
 
-    // We expect recreation to succeed since we had a working device before.
+  if (!D3DDevice) {
+    hlsl_test::LogCommentFmt(L"Creating device");
+
+    // We expect this to succeed since we had a working device before.
+    // Fail if it doesn't.
     const bool SkipUnsupported = false;
     VERIFY_IS_TRUE(D3D12SDK->createDevice(&D3DDevice, D3D_SHADER_MODEL_6_10,
                                           SkipUnsupported));
   }
 
   return true;
+
 }
 
 static const char LoadStoreShader[] = R"(
@@ -371,9 +375,8 @@ static void runLoadStoreRoundtrip(ID3D12Device *Device,
                                   const MatrixParams &Params, bool Verbose) {
   const size_t NumElements = Params.totalElements();
   const size_t BufferSize = Params.totalBytes();
-  const int Stride = Params.strideBytes();
 
-  std::string Args = buildCompilerArgs(Params, Stride);
+  std::string Args = buildCompilerArgs(Params);
 
   // Always verify the shader compiles.
   compileShader(DxcSupport, LoadStoreShader, "cs_6_10", Args);
@@ -421,6 +424,7 @@ static void runLoadStoreRoundtrip(ID3D12Device *Device,
           break;
         }
         default:
+          DXASSERT(false, "Saw unsupported component type");
           break;
         }
       });
@@ -438,6 +442,7 @@ static void runLoadStoreRoundtrip(ID3D12Device *Device,
                                    NumElements, Verbose));
     break;
   default:
+    DXASSERT(false, "Saw unsupported component type");
     break;
   }
 }
@@ -488,12 +493,11 @@ static void runSplatStore(ID3D12Device *Device,
                           bool Verbose) {
   const size_t NumElements = Params.totalElements();
   const size_t BufferSize = Params.totalBytes();
-  const int Stride = Params.strideBytes();
 
   std::stringstream ExtraDefs;
   ExtraDefs << "-DFILL_VALUE=" << FillValue;
 
-  std::string Args = buildCompilerArgs(Params, Stride, ExtraDefs.str().c_str());
+  std::string Args = buildCompilerArgs(Params, ExtraDefs.str().c_str());
 
   // Always verify the shader compiles.
   compileShader(DxcSupport, SplatStoreShader, "cs_6_10", Args);
@@ -516,6 +520,7 @@ static void runSplatStore(ID3D12Device *Device,
     ExpectedInts.assign(NumElements, static_cast<int32_t>(FillValue));
     break;
   default:
+    DXASSERT(false, "Saw unsupported component type");
     break;
   }
 
@@ -539,6 +544,7 @@ static void runSplatStore(ID3D12Device *Device,
                                    NumElements, Verbose));
     break;
   default:
+    DXASSERT(false, "Saw unsupported component type");
     break;
   }
 }
