@@ -286,6 +286,8 @@ public:
   TEST_METHOD(SplatStore_Wave_I32);
 
 private:
+  bool createDevice();
+
   CComPtr<ID3D12Device> D3DDevice;
   dxc::SpecificDllLoader DxcSupport;
   bool VerboseLogging = false;
@@ -293,52 +295,11 @@ private:
   std::optional<D3D12SDKSelector> D3D12SDK;
 };
 
-bool DxilConf_SM610_LinAlg::setupClass() {
-  WEX::TestExecution::SetVerifyOutput VerifySettings(
-      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
-
-  if (!Initialized) {
-    Initialized = true;
-    VERIFY_SUCCEEDED(
-        DxcSupport.InitializeForDll(dxc::kDxCompilerLib, "DxcCreateInstance"));
-    D3D12SDK = D3D12SDKSelector();
-    WEX::TestExecution::RuntimeParameters::TryGetValue(L"VerboseLogging",
-                                                       VerboseLogging);
-
-    bool FailIfRequirementsNotMet = false;
-#ifdef _HLK_CONF
-    FailIfRequirementsNotMet = true;
-#endif
-
-    const bool SkipUnsupported = FailIfRequirementsNotMet;
-    if (!D3D12SDK->createDevice(&D3DDevice, D3D_SHADER_MODEL_6_10,
-                                SkipUnsupported)) {
-      if (FailIfRequirementsNotMet) {
-        hlsl_test::LogErrorFmt(
-            L"Device creation failed, resulting in test failure, since "
-            L"FailIfRequirementsNotMet is set. The expectation is that this "
-            L"test will only be executed if something has previously "
-            L"determined that the system meets the requirements of this "
-            L"test.");
-        return false;
-      }
-    }
-  }
-
-  return true;
-}
-
-bool DxilConf_SM610_LinAlg::setupMethod() {
-  // If the device is healthy, exit otherwise it's possible a previous test
-  // case caused a device removal. So we need to try and create a new device.
-  if (D3DDevice && D3DDevice->GetDeviceRemovedReason() == S_OK)
-    return true;
-
-  hlsl_test::LogCommentFmt(L"Device was lost!");
-  D3DDevice.Release();
-
-  hlsl_test::LogCommentFmt(L"Recreating device");
-
+/// Creates the device and setups the test scenario with the following variants
+/// HLK build: Require SM6.10 supported fail otherwise
+/// Non-HLK, no SM6.10 support: Compile shaders, then exit with skip
+/// Non-HLK, SM6.10 support: Compile shaders and run full test
+bool DxilConf_SM610_LinAlg::createDevice() {
   bool FailIfRequirementsNotMet = false;
 #ifdef _HLK_CONF
   FailIfRequirementsNotMet = true;
@@ -359,6 +320,36 @@ bool DxilConf_SM610_LinAlg::setupMethod() {
   }
 
   return true;
+}
+
+bool DxilConf_SM610_LinAlg::setupClass() {
+  WEX::TestExecution::SetVerifyOutput VerifySettings(
+      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+
+  if (!Initialized) {
+    Initialized = true;
+    VERIFY_SUCCEEDED(
+        DxcSupport.InitializeForDll(dxc::kDxCompilerLib, "DxcCreateInstance"));
+    D3D12SDK = D3D12SDKSelector();
+    WEX::TestExecution::RuntimeParameters::TryGetValue(L"VerboseLogging",
+                                                       VerboseLogging);
+    return createDevice();
+  }
+
+  return true;
+}
+
+bool DxilConf_SM610_LinAlg::setupMethod() {
+  // If the device is healthy, exit otherwise it's possible a previous test
+  // case caused a device removal. So we need to try and create a new device.
+  if (D3DDevice && D3DDevice->GetDeviceRemovedReason() == S_OK)
+    return true;
+
+  hlsl_test::LogCommentFmt(L"Device was lost!");
+  D3DDevice.Release();
+
+  hlsl_test::LogCommentFmt(L"Recreating device");
+  return createDevice();
 }
 
 static const char LoadStoreShader[] = R"(
