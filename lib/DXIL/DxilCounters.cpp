@@ -133,18 +133,17 @@ bool CountDxilOp_atomic(unsigned op) {
   return op == 70 || (78 <= op && op <= 79);
 }
 bool CountDxilOp_barrier(unsigned op) {
-  // Instructions: Barrier=80, BarrierByMemoryType=244,
-  // BarrierByMemoryHandle=245, BarrierByNodeRecordHandle=246
-  return op == 80 || (244 <= op && op <= 246);
+  // Instructions: Barrier=80
+  return op == 80;
 }
 bool CountDxilOp_floats(unsigned op) {
   // Instructions: FAbs=6, Saturate=7, IsNaN=8, IsInf=9, IsFinite=10,
   // IsNormal=11, Cos=12, Sin=13, Tan=14, Acos=15, Asin=16, Atan=17, Hcos=18,
   // Hsin=19, Htan=20, Exp=21, Frc=22, Log=23, Sqrt=24, Rsqrt=25, Round_ne=26,
   // Round_ni=27, Round_pi=28, Round_z=29, FMax=35, FMin=36, Fma=47, Dot2=54,
-  // Dot3=55, Dot4=56, Dot2AddHalf=162, FDot=311
+  // Dot3=55, Dot4=56, Dot2AddHalf=162
   return (6 <= op && op <= 29) || (35 <= op && op <= 36) || op == 47 ||
-         (54 <= op && op <= 56) || op == 162 || op == 311;
+         (54 <= op && op <= 56) || op == 162;
 }
 bool CountDxilOp_gs_cut(unsigned op) {
   // Instructions: CutStream=98, EmitThenCutStream=99
@@ -156,9 +155,9 @@ bool CountDxilOp_gs_emit(unsigned op) {
 }
 bool CountDxilOp_ints(unsigned op) {
   // Instructions: IMax=37, IMin=38, IMul=41, IMad=48, Ibfe=51,
-  // Dot4AddI8Packed=163, VectorReduceAnd=309, VectorReduceOr=310
+  // Dot4AddI8Packed=163
   return (37 <= op && op <= 38) || op == 41 || op == 48 || op == 51 ||
-         op == 163 || (309 <= op && op <= 310);
+         op == 163;
 }
 bool CountDxilOp_sig_ld(unsigned op) {
   // Instructions: LoadInput=4, LoadOutputControlPoint=103,
@@ -176,18 +175,16 @@ bool CountDxilOp_tex_bias(unsigned op) {
 }
 bool CountDxilOp_tex_cmp(unsigned op) {
   // Instructions: SampleCmp=64, SampleCmpLevelZero=65, TextureGatherCmp=74,
-  // SampleCmpLevel=224, SampleCmpGrad=254, SampleCmpBias=255
-  return (64 <= op && op <= 65) || op == 74 || op == 224 ||
-         (254 <= op && op <= 255);
+  // SampleCmpLevel=224
+  return (64 <= op && op <= 65) || op == 74 || op == 224;
 }
 bool CountDxilOp_tex_grad(unsigned op) {
   // Instructions: SampleGrad=63
   return op == 63;
 }
 bool CountDxilOp_tex_load(unsigned op) {
-  // Instructions: TextureLoad=66, BufferLoad=68, RawBufferLoad=139,
-  // RawBufferVectorLoad=303
-  return op == 66 || op == 68 || op == 139 || op == 303;
+  // Instructions: TextureLoad=66, BufferLoad=68, RawBufferLoad=139
+  return op == 66 || op == 68 || op == 139;
 }
 bool CountDxilOp_tex_norm(unsigned op) {
   // Instructions: Sample=60, SampleLevel=62, TextureGather=73,
@@ -198,18 +195,17 @@ bool CountDxilOp_tex_store(unsigned op) {
   // Instructions: TextureStore=67, BufferStore=69, RawBufferStore=140,
   // WriteSamplerFeedback=174, WriteSamplerFeedbackBias=175,
   // WriteSamplerFeedbackLevel=176, WriteSamplerFeedbackGrad=177,
-  // TextureStoreSample=225, RawBufferVectorStore=304
+  // TextureStoreSample=225
   return op == 67 || op == 69 || op == 140 || (174 <= op && op <= 177) ||
-         op == 225 || op == 304;
+         op == 225;
 }
 bool CountDxilOp_uints(unsigned op) {
   // Instructions: Bfrev=30, Countbits=31, FirstbitLo=32, FirstbitHi=33,
   // FirstbitSHi=34, UMax=39, UMin=40, UMul=42, UDiv=43, UAddc=44, USubb=45,
-  // UMad=49, Msad=50, Ubfe=52, Bfi=53, Dot4AddU8Packed=164,
-  // VectorReduceAnd=309, VectorReduceOr=310
+  // UMad=49, Msad=50, Ubfe=52, Bfi=53, Dot4AddU8Packed=164
   return (30 <= op && op <= 34) || (39 <= op && op <= 40) ||
          (42 <= op && op <= 45) || (49 <= op && op <= 50) ||
-         (52 <= op && op <= 53) || op == 164 || (309 <= op && op <= 310);
+         (52 <= op && op <= 53) || op == 164;
 }
 // Counter functions for llvm ops:
 bool CountLlvmOp_atomic(unsigned op) {
