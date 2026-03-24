@@ -10606,7 +10606,7 @@ struct DxilInst_LinAlgMatrixLoadFromDescriptor {
   // Validation support
   bool isAllowed() const { return true; }
   bool isArgumentListValid() const {
-    if (5 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands())
+    if (6 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands())
       return false;
     return true;
   }
@@ -10618,6 +10618,7 @@ struct DxilInst_LinAlgMatrixLoadFromDescriptor {
     arg_offset = 2,
     arg_stride = 3,
     arg_layout = 4,
+    arg_align = 5,
   };
   // Accessors
   llvm::Value *get_handle() const { return Instr->getOperand(1); }
@@ -10628,6 +10629,8 @@ struct DxilInst_LinAlgMatrixLoadFromDescriptor {
   void set_stride(llvm::Value *val) { Instr->setOperand(3, val); }
   llvm::Value *get_layout() const { return Instr->getOperand(4); }
   void set_layout(llvm::Value *val) { Instr->setOperand(4, val); }
+  llvm::Value *get_align() const { return Instr->getOperand(5); }
+  void set_align(llvm::Value *val) { Instr->setOperand(5, val); }
 };
 
 /// This instruction fills a matrix with data from a groupshared array
@@ -10805,7 +10808,7 @@ struct DxilInst_LinAlgMatrixStoreToDescriptor {
   // Validation support
   bool isAllowed() const { return true; }
   bool isArgumentListValid() const {
-    if (6 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands())
+    if (7 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands())
       return false;
     return true;
   }
@@ -10818,6 +10821,7 @@ struct DxilInst_LinAlgMatrixStoreToDescriptor {
     arg_offset = 3,
     arg_stride = 4,
     arg_layout = 5,
+    arg_align = 6,
   };
   // Accessors
   llvm::Value *get_matrix() const { return Instr->getOperand(1); }
@@ -10830,6 +10834,8 @@ struct DxilInst_LinAlgMatrixStoreToDescriptor {
   void set_stride(llvm::Value *val) { Instr->setOperand(4, val); }
   llvm::Value *get_layout() const { return Instr->getOperand(5); }
   void set_layout(llvm::Value *val) { Instr->setOperand(5, val); }
+  llvm::Value *get_align() const { return Instr->getOperand(6); }
+  void set_align(llvm::Value *val) { Instr->setOperand(6, val); }
 };
 
 /// This instruction stores a matrix to groupshared memory
@@ -11042,7 +11048,7 @@ struct DxilInst_LinAlgMatrixAccumulateToDescriptor {
   // Validation support
   bool isAllowed() const { return true; }
   bool isArgumentListValid() const {
-    if (6 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands())
+    if (7 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands())
       return false;
     return true;
   }
@@ -11055,6 +11061,7 @@ struct DxilInst_LinAlgMatrixAccumulateToDescriptor {
     arg_offset = 3,
     arg_stride = 4,
     arg_layout = 5,
+    arg_align = 6,
   };
   // Accessors
   llvm::Value *get_matrix() const { return Instr->getOperand(1); }
@@ -11067,6 +11074,8 @@ struct DxilInst_LinAlgMatrixAccumulateToDescriptor {
   void set_stride(llvm::Value *val) { Instr->setOperand(4, val); }
   llvm::Value *get_layout() const { return Instr->getOperand(5); }
   void set_layout(llvm::Value *val) { Instr->setOperand(5, val); }
+  llvm::Value *get_align() const { return Instr->getOperand(6); }
+  void set_align(llvm::Value *val) { Instr->setOperand(6, val); }
 };
 
 /// This instruction accumulates a matrix to groupshared memory
