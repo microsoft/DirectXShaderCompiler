@@ -207,7 +207,7 @@ SpirvEntryPoint::SpirvEntryPoint(SourceLocation loc,
                                  spv::ExecutionModel executionModel,
                                  SpirvFunction *entryPointFn,
                                  llvm::StringRef nameStr,
-                                 llvm::ArrayRef<SpirvInstruction *> iface)
+                                 llvm::ArrayRef<SpirvVariableLike *> iface)
     : SpirvInstruction(IK_EntryPoint, spv::Op::OpEntryPoint, QualType(), loc),
       execModel(executionModel), entryPoint(entryPointFn), name(nameStr),
       interfaceVec(iface.begin(), iface.end()) {}
@@ -310,7 +310,7 @@ bool SpirvDecoration::operator==(const SpirvDecoration &that) const {
 SpirvVariable::SpirvVariable(QualType resultType, SourceLocation loc,
                              spv::StorageClass sc, bool precise,
                              bool isNointerp, SpirvInstruction *initializerInst)
-    : SpirvInstruction(IK_Variable, spv::Op::OpVariable, resultType, loc),
+    : SpirvVariableLike(IK_Variable, spv::Op::OpVariable, resultType, loc),
       initializer(initializerInst), descriptorSet(-1), binding(-1),
       hlslUserType("") {
   setStorageClass(sc);
@@ -321,7 +321,7 @@ SpirvVariable::SpirvVariable(QualType resultType, SourceLocation loc,
 SpirvVariable::SpirvVariable(const SpirvType *spvType, SourceLocation loc,
                              spv::StorageClass sc, bool precise,
                              bool isNointerp, SpirvInstruction *initializerInst)
-    : SpirvInstruction(IK_Variable, spv::Op::OpVariable, QualType(), loc),
+    : SpirvVariableLike(IK_Variable, spv::Op::OpVariable, QualType(), loc),
       initializer(initializerInst), descriptorSet(-1), binding(-1),
       hlslUserType("") {
   setResultType(spvType);
@@ -333,19 +333,24 @@ SpirvVariable::SpirvVariable(const SpirvType *spvType, SourceLocation loc,
 SpirvUntypedVariableKHR::SpirvUntypedVariableKHR(QualType resultType,
                                                  SourceLocation loc,
                                                  spv::StorageClass sc)
-    : SpirvInstruction(IK_UntypedVariableKHR, spv::Op::OpUntypedVariableKHR,
-                       resultType, loc) {
+    : SpirvVariableLike(IK_UntypedVariableKHR, spv::Op::OpUntypedVariableKHR,
+                        resultType, loc) {
   setStorageClass(sc);
 }
 
 SpirvUntypedVariableKHR::SpirvUntypedVariableKHR(const SpirvType *spvType,
                                                  SourceLocation loc,
                                                  spv::StorageClass sc)
-    : SpirvInstruction(IK_UntypedVariableKHR, spv::Op::OpUntypedVariableKHR,
-                       QualType(), loc) {
+    : SpirvVariableLike(IK_UntypedVariableKHR, spv::Op::OpUntypedVariableKHR,
+                        QualType(), loc) {
   setResultType(spvType);
   setStorageClass(sc);
 }
+
+SpirvVariableLike::SpirvVariableLike(Kind kind, spv::Op opcode,
+                                     QualType astResultType, SourceLocation loc,
+                                     SourceRange range)
+    : SpirvInstruction(kind, opcode, astResultType, loc, range) {}
 
 SpirvUntypedAccessChainKHR::SpirvUntypedAccessChainKHR(
     const SpirvType *resultType, SourceLocation loc, const SpirvType *baseType,

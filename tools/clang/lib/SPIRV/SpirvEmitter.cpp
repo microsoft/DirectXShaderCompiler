@@ -696,15 +696,11 @@ SpirvEmitter::SpirvEmitter(CompilerInstance &ci)
   }
 }
 
-std::vector<SpirvInstruction *>
+std::vector<SpirvVariableLike *>
 SpirvEmitter::getInterfacesForEntryPoint(SpirvFunction *entryPoint) {
   auto stageVars = declIdMapper.collectStageVars(entryPoint);
-  if (!featureManager.isTargetEnvVulkan1p1Spirv1p4OrAbove()) {
-    std::vector<SpirvInstruction *> ifaces;
-    for (auto *v : stageVars)
-      ifaces.push_back(v);
-    return ifaces;
-  }
+  if (!featureManager.isTargetEnvVulkan1p1Spirv1p4OrAbove())
+    return stageVars;
 
   // In SPIR-V 1.4 or above, we must include global variables in the 'Interface'
   // operands of OpEntryPoint. SpirvModule keeps all global variables, but some
@@ -712,8 +708,8 @@ SpirvEmitter::getInterfacesForEntryPoint(SpirvFunction *entryPoint) {
   // declIdMapper keeps the mapping between variables with Input or Output
   // storage class and their storage class, we have to rely on
   // declIdMapper.collectStageVars() to collect them.
-  llvm::SetVector<SpirvInstruction *> interfaces(stageVars.begin(),
-                                                 stageVars.end());
+  llvm::SetVector<SpirvVariableLike *> interfaces(stageVars.begin(),
+                                                  stageVars.end());
 
   for (auto *moduleVar : spvBuilder.getModule()->getVariables()) {
     if (moduleVar->getStorageClass() == spv::StorageClass::Input ||
@@ -733,7 +729,7 @@ SpirvEmitter::getInterfacesForEntryPoint(SpirvFunction *entryPoint) {
     }
     interfaces.insert(moduleVar);
   }
-  std::vector<SpirvInstruction *> interfacesInVector;
+  std::vector<SpirvVariableLike *> interfacesInVector;
   interfacesInVector.reserve(interfaces.size());
   for (auto *interface : interfaces) {
     interfacesInVector.push_back(interface);

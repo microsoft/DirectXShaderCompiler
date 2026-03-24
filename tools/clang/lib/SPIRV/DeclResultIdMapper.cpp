@@ -1173,7 +1173,7 @@ DeclResultIdMapper::createFileVar(const VarDecl *var,
   return varInstr;
 }
 
-SpirvInstruction *
+SpirvVariableLike *
 DeclResultIdMapper::createResourceDescriptorHeap(const VarDecl *var) {
   SpirvUntypedVariableKHR *HeapVar = nullptr;
 
@@ -1209,7 +1209,7 @@ DeclResultIdMapper::createResourceDescriptorHeap(const VarDecl *var) {
   return HeapVar;
 }
 
-SpirvInstruction *
+SpirvVariableLike *
 DeclResultIdMapper::createEmulatedDescriptorHeap(const VarDecl *var,
                                                  QualType resourceType) {
   QualType ResourceArrayType = astContext.getIncompleteArrayType(
@@ -1217,7 +1217,7 @@ DeclResultIdMapper::createEmulatedDescriptorHeap(const VarDecl *var,
   return createExternVar(var, ResourceArrayType);
 }
 
-SpirvInstruction *
+SpirvVariableLike *
 DeclResultIdMapper::createResourceHeap(const VarDecl *var,
                                        QualType resourceType) {
   if (spirvOptions.useDescriptorHeap)
@@ -1999,9 +1999,9 @@ void DeclResultIdMapper::createFieldCounterVars(
   }
 }
 
-std::vector<SpirvInstruction *>
+std::vector<SpirvVariableLike *>
 DeclResultIdMapper::collectStageVars(SpirvFunction *entryPoint) const {
-  std::vector<SpirvInstruction *> vars;
+  std::vector<SpirvVariableLike *> vars;
 
   for (auto var : glPerVertex.getStageInVars())
     vars.push_back(var);

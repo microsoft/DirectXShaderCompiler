@@ -137,11 +137,11 @@ public:
   SpirvExtInstImport *getExtInstSet(llvm::StringRef name);
 
   // Adds a variable to the module.
-  void addVariable(SpirvInstruction *);
+  void addVariable(SpirvVariableLike *);
 
   // Adds a variable to the module immediately before `pos`.
   // If `pos` is not found, `var` is added at the end of the variable list.
-  void addVariable(SpirvInstruction *var, SpirvInstruction *pos);
+  void addVariable(SpirvVariableLike *var, SpirvInstruction *pos);
 
   // Adds a decoration to the module.
   void addDecoration(SpirvDecoration *);
@@ -172,7 +172,7 @@ public:
   // Adds the given OpModuleProcessed to the module.
   void addModuleProcessed(SpirvModuleProcessed *);
 
-  llvm::ArrayRef<SpirvInstruction *> getVariables() const { return variables; }
+  llvm::ArrayRef<SpirvVariableLike *> getVariables() const { return variables; }
 
   llvm::ArrayRef<SpirvEntryPoint *> getEntryPoints() const {
     return entryPoints;
@@ -217,7 +217,7 @@ private:
 
   std::vector<SpirvConstant *> constants;
   std::vector<SpirvUndef *> undefs;
-  std::vector<SpirvInstruction *> variables;
+  std::vector<SpirvVariableLike *> variables;
   // A vector of functions in the module in the order that they should be
   // emitted. The order starts with the entry-point function followed by a
   // depth-first discovery of functions reachable from the entry-point function.

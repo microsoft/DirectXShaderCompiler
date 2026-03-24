@@ -291,7 +291,7 @@ public:
 
   /// Creates a global variable for resource heaps containing elements of type
   /// |type|.
-  SpirvInstruction *createResourceHeap(const VarDecl *var, QualType type);
+  SpirvVariableLike *createResourceHeap(const VarDecl *var, QualType type);
 
   /// \brief Creates an external-visible variable and returns its instruction.
   SpirvVariable *createExternVar(const VarDecl *var);
@@ -510,7 +510,7 @@ public:
 
   /// \brief Returns all defined stage (builtin/input/ouput) variables for the
   /// entry point function entryPoint in this mapper.
-  std::vector<SpirvInstruction *>
+  std::vector<SpirvVariableLike *>
   collectStageVars(SpirvFunction *entryPoint) const;
 
   /// \brief Writes out the contents in the function parameter for the GS
@@ -1007,12 +1007,12 @@ private:
   void registerVariableForDecl(const VarDecl *var, DeclSpirvInfo spirvInfo);
 
   /// Creates a global variable for resource heaps using VK_EXT_descriptor_heap.
-  SpirvInstruction *createResourceDescriptorHeap(const VarDecl *var);
+  SpirvVariableLike *createResourceDescriptorHeap(const VarDecl *var);
 
   /// Creates a global variable for resource heaps containing elements of type
   /// |type| (emulated descriptor heaps).
-  SpirvInstruction *createEmulatedDescriptorHeap(const VarDecl *var,
-                                                 QualType resourceType);
+  SpirvVariableLike *createEmulatedDescriptorHeap(const VarDecl *var,
+                                                  QualType resourceType);
 
 private:
   SpirvBuilder &spvBuilder;

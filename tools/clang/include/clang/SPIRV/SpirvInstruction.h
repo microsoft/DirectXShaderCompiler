@@ -297,6 +297,14 @@ protected:
   bool isRasterizerOrdered_;
 };
 
+/// \brief class wrapping OpVariable and OpUntypedVariableKHR
+class SpirvVariableLike : public SpirvInstruction {
+
+protected:
+  SpirvVariableLike(Kind kind, spv::Op opcode, QualType astResultType,
+                    SourceLocation loc, SourceRange range = {});
+};
+
 /// \brief OpCapability instruction
 class SpirvCapability : public SpirvInstruction {
 public:
@@ -391,7 +399,7 @@ class SpirvEntryPoint : public SpirvInstruction {
 public:
   SpirvEntryPoint(SourceLocation loc, spv::ExecutionModel executionModel,
                   SpirvFunction *entryPoint, llvm::StringRef nameStr,
-                  llvm::ArrayRef<SpirvInstruction *> iface);
+                  llvm::ArrayRef<SpirvVariableLike *> iface);
 
   DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvEntryPoint)
 
@@ -405,7 +413,7 @@ public:
   spv::ExecutionModel getExecModel() const { return execModel; }
   SpirvFunction *getEntryPoint() const { return entryPoint; }
   llvm::StringRef getEntryPointName() const { return name; }
-  llvm::ArrayRef<SpirvInstruction *> getInterface() const {
+  llvm::ArrayRef<SpirvVariableLike *> getInterface() const {
     return interfaceVec;
   }
 
@@ -413,7 +421,7 @@ private:
   spv::ExecutionModel execModel;
   SpirvFunction *entryPoint;
   std::string name;
-  llvm::SmallVector<SpirvInstruction *, 8> interfaceVec;
+  llvm::SmallVector<SpirvVariableLike *, 8> interfaceVec;
 };
 
 class SpirvExecutionModeBase : public SpirvInstruction {
@@ -611,7 +619,7 @@ private:
 };
 
 /// \brief OpVariable instruction
-class SpirvVariable : public SpirvInstruction {
+class SpirvVariable : public SpirvVariableLike {
 public:
   SpirvVariable(QualType resultType, SourceLocation loc, spv::StorageClass sc,
                 bool isPrecise, bool isNointerp,
@@ -647,7 +655,7 @@ private:
 };
 
 /// \brief OpUntypedVariableKHR instruction
-class SpirvUntypedVariableKHR : public SpirvInstruction {
+class SpirvUntypedVariableKHR : public SpirvVariableLike {
 public:
   SpirvUntypedVariableKHR(QualType resultType, SourceLocation loc,
                           spv::StorageClass sc);
