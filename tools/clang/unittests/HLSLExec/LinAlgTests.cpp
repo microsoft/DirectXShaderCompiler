@@ -310,7 +310,7 @@ bool DxilConf_SM610_LinAlg::setupClass() {
     FailIfRequirementsNotMet = true;
 #endif
 
-    const bool SkipUnsupported = !FailIfRequirementsNotMet;
+    const bool SkipUnsupported = FailIfRequirementsNotMet;
     if (!D3D12SDK->createDevice(&D3DDevice, D3D_SHADER_MODEL_6_10,
                                 SkipUnsupported)) {
       if (FailIfRequirementsNotMet) {
@@ -329,21 +329,33 @@ bool DxilConf_SM610_LinAlg::setupClass() {
 }
 
 bool DxilConf_SM610_LinAlg::setupMethod() {
-  // It's possible a previous test case caused a device removal. If it did we
-  // need to try and create a new device.
-  if (D3DDevice && D3DDevice->GetDeviceRemovedReason() != S_OK) {
-    hlsl_test::LogCommentFmt(L"Device was lost!");
-    D3DDevice.Release();
-  }
+  // If the device is healthy, exit otherwise it's possible a previous test
+  // case caused a device removal. So we need to try and create a new device.
+  if (D3DDevice && D3DDevice->GetDeviceRemovedReason() == S_OK)
+    return true;
 
-  if (!D3DDevice) {
-    hlsl_test::LogCommentFmt(L"Creating device");
+  hlsl_test::LogCommentFmt(L"Device was lost!");
+  D3DDevice.Release();
 
-    // We expect this to succeed since we had a working device before.
-    // Fail if it doesn't.
-    const bool SkipUnsupported = false;
-    VERIFY_IS_TRUE(D3D12SDK->createDevice(&D3DDevice, D3D_SHADER_MODEL_6_10,
-                                          SkipUnsupported));
+  hlsl_test::LogCommentFmt(L"Recreating device");
+
+  bool FailIfRequirementsNotMet = false;
+#ifdef _HLK_CONF
+  FailIfRequirementsNotMet = true;
+#endif
+
+  const bool SkipUnsupported = FailIfRequirementsNotMet;
+  if (!D3D12SDK->createDevice(&D3DDevice, D3D_SHADER_MODEL_6_10,
+                              SkipUnsupported)) {
+    if (FailIfRequirementsNotMet) {
+      hlsl_test::LogErrorFmt(
+          L"Device creation failed, resulting in test failure, since "
+          L"FailIfRequirementsNotMet is set. The expectation is that this "
+          L"test will only be executed if something has previously "
+          L"determined that the system meets the requirements of this "
+          L"test.");
+      return false;
+    }
   }
 
   return true;
