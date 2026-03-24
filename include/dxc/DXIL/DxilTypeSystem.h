@@ -151,7 +151,7 @@ public:
   // Since resources and target types don't take real space,
   // IsEmptyBesidesResourcesAndTargetTypes() determines if the structure is
   // empty or contains only resources or target types.
-  bool IsEmptyBesidesResourcesAndTargetTypes();
+  bool IsEmptyBesidesResourcesAndTargetTypes() const;
   bool ContainsResources() const;
   bool ContainsTargetTypes() const;
 
@@ -352,10 +352,10 @@ public:
   void SetMinPrecision(bool bMinPrecision);
 
   // Determines whether type is a resource or contains a resource
-  bool IsResourceContained(llvm::Type *Ty);
+  bool IsResourceContained(llvm::Type *Ty) const;
 
   // Determines whether type is a target type or contains a target type
-  bool IsTargetTypeContained(llvm::Type *Ty);
+  bool IsTargetTypeContained(llvm::Type *Ty) const;
 
 private:
   llvm::Module *m_pModule;

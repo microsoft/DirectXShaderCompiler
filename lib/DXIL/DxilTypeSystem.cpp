@@ -244,7 +244,7 @@ void DxilStructAnnotation::MarkEmptyStruct() {
 bool DxilStructAnnotation::IsEmptyStruct() {
   return m_FieldAnnotations.empty();
 }
-bool DxilStructAnnotation::IsEmptyBesidesResourcesAndTargetTypes() {
+bool DxilStructAnnotation::IsEmptyBesidesResourcesAndTargetTypes() const {
   return m_ResourcesContained == HasResources::Only ||
          m_TargetTypesContained == HasTargetTypes::Only ||
          m_FieldAnnotations.empty();
@@ -872,17 +872,17 @@ void DxilTypeSystem::SetMinPrecision(bool bMinPrecision) {
   m_LowPrecisionMode = mode;
 }
 
-bool DxilTypeSystem::IsResourceContained(llvm::Type *Ty) {
+bool DxilTypeSystem::IsResourceContained(llvm::Type *Ty) const {
   // strip pointer/array
   if (Ty->isPointerTy())
     Ty = Ty->getPointerElementType();
   if (Ty->isArrayTy())
     Ty = Ty->getArrayElementType();
 
-  if (auto ST = dyn_cast<StructType>(Ty)) {
+  if (auto *ST = dyn_cast<StructType>(Ty)) {
     if (dxilutil::IsHLSLResourceType(Ty)) {
       return true;
-    } else if (auto SA = GetStructAnnotation(ST)) {
+    } else if (auto *SA = GetStructAnnotation(ST)) {
       if (SA->ContainsResources())
         return true;
     }
@@ -890,17 +890,17 @@ bool DxilTypeSystem::IsResourceContained(llvm::Type *Ty) {
   return false;
 }
 
-bool DxilTypeSystem::IsTargetTypeContained(llvm::Type *Ty) {
+bool DxilTypeSystem::IsTargetTypeContained(llvm::Type *Ty) const {
   // strip pointer/array
   if (Ty->isPointerTy())
     Ty = Ty->getPointerElementType();
   if (Ty->isArrayTy())
     Ty = Ty->getArrayElementType();
 
-  if (auto ST = dyn_cast<StructType>(Ty)) {
+  if (auto *ST = dyn_cast<StructType>(Ty)) {
     if (dxilutil::IsHLSLKnownTargetType(Ty)) {
       return true;
-    } else if (auto SA = GetStructAnnotation(ST)) {
+    } else if (auto *SA = GetStructAnnotation(ST)) {
       if (SA->ContainsTargetTypes())
         return true;
     }
