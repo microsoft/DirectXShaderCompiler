@@ -351,7 +351,6 @@ bool DxilConf_SM610_LinAlg::setupMethod() {
   }
 
   return true;
-
 }
 
 static const char LoadStoreShader[] = R"(
