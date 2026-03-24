@@ -300,12 +300,9 @@ bool DxilConf_SM610_LinAlg::setupClass() {
 
   if (!Initialized) {
     Initialized = true;
-
     VERIFY_SUCCEEDED(
         DxcSupport.InitializeForDll(dxc::kDxCompilerLib, "DxcCreateInstance"));
-
     D3D12SDK = D3D12SDKSelector();
-
     WEX::TestExecution::RuntimeParameters::TryGetValue(L"VerboseLogging",
                                                        VerboseLogging);
 
