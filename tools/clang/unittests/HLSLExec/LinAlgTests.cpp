@@ -195,8 +195,7 @@ struct MatrixParams {
     int ES = elemSize(CompType);
     if (Layout == LinalgMatrixLayout::RowMajor)
       return N * ES;
-    else
-      return M * ES;
+    return M * ES;
   }
 
   size_t totalElements() const { return static_cast<size_t>(M) * N; }
