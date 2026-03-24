@@ -3796,11 +3796,7 @@ void MSMain(uint GID : SV_GroupIndex,
       <![CDATA[
         #if USE_STRUCTURED_BUFFER
           struct SLongVec {
-          #ifdef MIN_PRECISION
-            vector<BUFFER_TYPE, NUM> data;
-          #else
             vector<TYPE, NUM> data;
-          #endif
           };
           RWStructuredBuffer<SLongVec> InputVector : register(u0);
           RWStructuredBuffer<SLongVec> OutputVector: register(u1);
@@ -3812,20 +3808,10 @@ void MSMain(uint GID : SV_GroupIndex,
         [numthreads(1,1,1)]
         void main(uint GI : SV_GroupIndex) {
           #if USE_STRUCTURED_BUFFER
-            #ifdef MIN_PRECISION
-            vector<TYPE, NUM> temp = (vector<TYPE, NUM>)InputVector[0].data;
-            OutputVector[0].data = (vector<BUFFER_TYPE, NUM>)temp;
-            #else
             OutputVector[0].data = InputVector[0].data;
-            #endif
           #else
-            #ifdef MIN_PRECISION
-            vector<TYPE, NUM> Input = (vector<TYPE, NUM>)InputVector.Load< vector<BUFFER_TYPE, NUM> >(0);
-            OutputVector.Store< vector<BUFFER_TYPE, NUM> >(0, (vector<BUFFER_TYPE, NUM>)Input);
-            #else
             vector<TYPE, NUM> Input = InputVector.Load< vector<TYPE, NUM> >(0);
             OutputVector.Store< vector<TYPE, NUM> >(0, Input);
-            #endif
           #endif
         };
       ]]>
@@ -3849,11 +3835,7 @@ void MSMain(uint GID : SV_GroupIndex,
       <![CDATA[
         #if USE_STRUCTURED_BUFFER
           struct SLongVec {
-          #ifdef MIN_PRECISION
-            vector<BUFFER_TYPE, NUM> data;
-          #else
             vector<TYPE, NUM> data;
-          #endif
           };
           StructuredBuffer<SLongVec> InputVector : register(t0);
           RWStructuredBuffer<SLongVec> OutputVector : register(u1);
@@ -3865,20 +3847,10 @@ void MSMain(uint GID : SV_GroupIndex,
         [numthreads(1,1,1)]
         void main(uint GI : SV_GroupIndex) {
           #if USE_STRUCTURED_BUFFER
-            #ifdef MIN_PRECISION
-            vector<TYPE, NUM> temp = (vector<TYPE, NUM>)InputVector[0].data;
-            OutputVector[0].data = (vector<BUFFER_TYPE, NUM>)temp;
-            #else
             OutputVector[0].data = InputVector[0].data;
-            #endif
           #else
-            #ifdef MIN_PRECISION
-            vector<TYPE, NUM> Input = (vector<TYPE, NUM>)InputVector.Load< vector<BUFFER_TYPE, NUM> >(0);
-            OutputVector.Store< vector<BUFFER_TYPE, NUM> >(0, (vector<BUFFER_TYPE, NUM>)Input);
-            #else
             vector<TYPE, NUM> Input = InputVector.Load< vector<TYPE, NUM> >(0);
             OutputVector.Store< vector<TYPE, NUM> >(0, Input);
-            #endif
           #endif
         };
       ]]>
@@ -3910,11 +3882,7 @@ void MSMain(uint GID : SV_GroupIndex,
 
         #if USE_STRUCTURED_BUFFER
           struct SLongVec {
-          #ifdef MIN_PRECISION
-            vector<BUFFER_TYPE, NUM> data;
-          #else
             vector<TYPE, NUM> data;
-          #endif
           };
           RWStructuredBuffer<SLongVec> InputVector : register(u0);
           RWStructuredBuffer<SLongVec> OutputVector: register(u1);
@@ -3928,20 +3896,10 @@ void MSMain(uint GID : SV_GroupIndex,
         void main(uint GI : SV_GroupIndex) {
 
           #if USE_STRUCTURED_BUFFER
-            #ifdef MIN_PRECISION
-            vector<TYPE, NUM> temp = (vector<TYPE, NUM>)InputVector[0].data;
-            OutputVector[0].data = (vector<BUFFER_TYPE, NUM>)temp;
-            #else
             OutputVector[0].data = InputVector[0].data;
-            #endif
           #else
-            #ifdef MIN_PRECISION
-            vector<TYPE, NUM> Input = (vector<TYPE, NUM>)InputVector.Load< vector<BUFFER_TYPE, NUM> >(0);
-            OutputVector.Store< vector<BUFFER_TYPE, NUM> >(0, (vector<BUFFER_TYPE, NUM>)Input);
-            #else
             vector<TYPE, NUM> Input = InputVector.Load< vector<TYPE, NUM> >(0);
             OutputVector.Store< vector<TYPE, NUM> >(0, Input);
-            #endif
           #endif
 
         };
@@ -3972,11 +3930,7 @@ void MSMain(uint GID : SV_GroupIndex,
       <![CDATA[
         #if USE_STRUCTURED_BUFFER
           struct SLongVec {
-          #ifdef MIN_PRECISION
-            vector<BUFFER_TYPE, NUM> data;
-          #else
             vector<TYPE, NUM> data;
-          #endif
           };
           StructuredBuffer<SLongVec> InputVector : register(t0);
           RWStructuredBuffer<SLongVec> OutputVector: register(u0);
@@ -3988,20 +3942,10 @@ void MSMain(uint GID : SV_GroupIndex,
         [numthreads(1,1,1)]
         void main(uint GI : SV_GroupIndex) {
           #if USE_STRUCTURED_BUFFER
-            #ifdef MIN_PRECISION
-            vector<TYPE, NUM> temp = (vector<TYPE, NUM>)InputVector[0].data;
-            OutputVector[0].data = (vector<BUFFER_TYPE, NUM>)temp;
-            #else
             OutputVector[0].data = InputVector[0].data;
-            #endif
           #else
-            #ifdef MIN_PRECISION
-            vector<TYPE, NUM> Input = (vector<TYPE, NUM>)InputVector.Load< vector<BUFFER_TYPE, NUM> >(0);
-            OutputVector.Store< vector<BUFFER_TYPE, NUM> >(0, (vector<BUFFER_TYPE, NUM>)Input);
-            #else
             vector<TYPE, NUM> Input = InputVector.Load< vector<TYPE, NUM> >(0);
             OutputVector.Store< vector<TYPE, NUM> >(0, Input);
-            #endif
           #endif
         };
       ]]>
@@ -4029,11 +3973,7 @@ void MSMain(uint GID : SV_GroupIndex,
       <![CDATA[
         #if USE_STRUCTURED_BUFFER
           struct SLongVec {
-          #ifdef MIN_PRECISION
-            vector<BUFFER_TYPE, NUM> data;
-          #else
             vector<TYPE, NUM> data;
-          #endif
           };
         #endif
 
@@ -4043,23 +3983,14 @@ void MSMain(uint GID : SV_GroupIndex,
           #if USE_STRUCTURED_BUFFER
             StructuredBuffer<SLongVec> InputVector = ResourceDescriptorHeap[0];
             RWStructuredBuffer<SLongVec> OutputVector = ResourceDescriptorHeap[1];
-            #ifdef MIN_PRECISION
-            vector<TYPE, NUM> temp = (vector<TYPE, NUM>)InputVector[0].data;
-            OutputVector[0].data = (vector<BUFFER_TYPE, NUM>)temp;
-            #else
             OutputVector[0].data = InputVector[0].data;
-            #endif
           #else
             ByteAddressBuffer InputVector = ResourceDescriptorHeap[0];
             RWByteAddressBuffer OutputVector = ResourceDescriptorHeap[1];
 
-            #ifdef MIN_PRECISION
-            vector<TYPE, NUM> Input = (vector<TYPE, NUM>)InputVector.Load< vector<BUFFER_TYPE, NUM> >(0);
-            OutputVector.Store< vector<BUFFER_TYPE, NUM> >(0, (vector<BUFFER_TYPE, NUM>)Input);
-            #else
             vector<TYPE, NUM> Input = InputVector.Load< vector<TYPE, NUM> >(0);
+
             OutputVector.Store< vector<TYPE, NUM> >(0, Input);
-            #endif
           #endif
         };
       ]]>
@@ -4086,11 +4017,7 @@ void MSMain(uint GID : SV_GroupIndex,
       <![CDATA[
         #if USE_STRUCTURED_BUFFER
           struct SLongVec {
-          #ifdef MIN_PRECISION
-            vector<BUFFER_TYPE, NUM> data;
-          #else
             vector<TYPE, NUM> data;
-          #endif
           };
         #endif
         
@@ -4099,23 +4026,14 @@ void MSMain(uint GID : SV_GroupIndex,
           #if USE_STRUCTURED_BUFFER
             RWStructuredBuffer<SLongVec> InputVector = ResourceDescriptorHeap[0];
             RWStructuredBuffer<SLongVec> OutputVector = ResourceDescriptorHeap[1];
-            #ifdef MIN_PRECISION
-            vector<TYPE, NUM> temp = (vector<TYPE, NUM>)InputVector[0].data;
-            OutputVector[0].data = (vector<BUFFER_TYPE, NUM>)temp;
-            #else
             OutputVector[0].data = InputVector[0].data;
-            #endif
           #else
             RWByteAddressBuffer InputVector = ResourceDescriptorHeap[0];
             RWByteAddressBuffer OutputVector = ResourceDescriptorHeap[1];
 
-            #ifdef MIN_PRECISION
-            vector<TYPE, NUM> Input = (vector<TYPE, NUM>)InputVector.Load< vector<BUFFER_TYPE, NUM> >(0);
-            OutputVector.Store< vector<BUFFER_TYPE, NUM> >(0, (vector<BUFFER_TYPE, NUM>)Input);
-            #else
             vector<TYPE, NUM> Input = InputVector.Load< vector<TYPE, NUM> >(0);
+
             OutputVector.Store< vector<TYPE, NUM> >(0, Input);
-            #endif
           #endif
         };
       ]]>
@@ -4143,15 +4061,6 @@ void MSMain(uint GID : SV_GroupIndex,
      OUT_TYPE : The type of the output vector, e.g. float, double, int, uint.
                 In most cases OUT_TYPE == TYPE.
      
-     BUFFER_TYPE : (Min precision only) Full-precision type used for buffer Load/Store.
-               Maps min16float/min16int/min16uint to float/int/uint for
-               deterministic buffer layout. Only defined when MIN_PRECISION is set;
-               otherwise falls back to TYPE via #ifndef in the shader.
-     BUFFER_OUT_TYPE : (Min precision only) Same as BUFFER_TYPE but derived from OUT_TYPE.
-                   Falls back to OUT_TYPE via #ifndef when not defined.
-     MIN_PRECISION : Defined when TYPE is a min precision type. Gates the
-                     BUFFER_TYPE/BUFFER_OUT_TYPE load/store paths in shader templates.
-     
      NUM : The number of elements in the vector, e.g. 2, 3, 4, 8, 16, 32,
      
      FUNC : Used to expand to the HLSL intrinsic being tested. e.g cos, cosh,
@@ -4173,16 +4082,6 @@ void MSMain(uint GID : SV_GroupIndex,
         RWByteAddressBuffer g_InputVector2 : register(u1);
         RWByteAddressBuffer g_InputVector3 : register(u2);
         RWByteAddressBuffer g_OutputVector : register(u3);
-
-        // For min precision types, BUFFER_TYPE/BUFFER_OUT_TYPE are defined as
-        // full-precision equivalents for deterministic buffer I/O layout.
-        // For all other types, fall back to TYPE/OUT_TYPE (no-op).
-        #ifndef BUFFER_TYPE
-        #define BUFFER_TYPE TYPE
-        #endif
-        #ifndef BUFFER_OUT_TYPE
-        #define BUFFER_OUT_TYPE OUT_TYPE
-        #endif
 
         #define IS_UNARY_OP (BASIC_OP_TYPE == 0x1)
         #define IS_BINARY_OP (BASIC_OP_TYPE == 0x2)
@@ -4381,11 +4280,7 @@ void MSMain(uint GID : SV_GroupIndex,
           Vector = WavePrefixSum(Vector);
           if(WaveGetLaneIndex() == MidLane)
           {
-            #ifdef MIN_PRECISION
-            g_OutputVector.Store< vector<BUFFER_OUT_TYPE, NUM> >(0, Vector);
-            #else
             g_OutputVector.Store< vector<OUT_TYPE, NUM> >(0, Vector);
-            #endif
           }
         }
         #endif
@@ -4396,11 +4291,7 @@ void MSMain(uint GID : SV_GroupIndex,
           Vector = WavePrefixProduct(Vector);
           if(WaveGetLaneIndex() == 2)
           {
-            #ifdef MIN_PRECISION
-            g_OutputVector.Store< vector<BUFFER_OUT_TYPE, NUM> >(0, Vector);
-            #else
             g_OutputVector.Store< vector<OUT_TYPE, NUM> >(0, Vector);
-            #endif
           }
         }
         #endif
@@ -4433,11 +4324,7 @@ void MSMain(uint GID : SV_GroupIndex,
           {
             // Lane 3 is the last lane in the mask that we care about. Store the
             // result from it.
-            #ifdef MIN_PRECISION
-            g_OutputVector.Store< vector<BUFFER_OUT_TYPE, NUM> >(0, Vector);
-            #else
             g_OutputVector.Store< vector<OUT_TYPE, NUM> >(0, Vector);
-            #endif
           }
         }
         #endif
@@ -4469,11 +4356,7 @@ void MSMain(uint GID : SV_GroupIndex,
           if(WaveGetLaneIndex() == 3)
           {
             // Lane 3 is the last lane in the mask. Store the result from it.
-            #ifdef MIN_PRECISION
-            g_OutputVector.Store< vector<BUFFER_OUT_TYPE, NUM> >(0, Vector);
-            #else
             g_OutputVector.Store< vector<OUT_TYPE, NUM> >(0, Vector);
-            #endif
           }
         }
         #endif
@@ -4504,11 +4387,7 @@ void MSMain(uint GID : SV_GroupIndex,
           if(WaveGetLaneIndex() == 3)
           {
             // Lane 3 is the last lane in the mask. Store the result from it.
-            #ifdef MIN_PRECISION
-            g_OutputVector.Store< vector<BUFFER_OUT_TYPE, NUM> >(0, Vector);
-            #else
             g_OutputVector.Store< vector<OUT_TYPE, NUM> >(0, Vector);
-            #endif
           }
         }
         #endif
@@ -4546,11 +4425,7 @@ void MSMain(uint GID : SV_GroupIndex,
           if(WaveGetLaneIndex() == 3)
           {
             // Lane 3 is the last lane in the mask. Store the result from it.
-            #ifdef MIN_PRECISION
-            g_OutputVector.Store< vector<BUFFER_OUT_TYPE, NUM> >(0, Vector);
-            #else
             g_OutputVector.Store< vector<OUT_TYPE, NUM> >(0, Vector);
-            #endif
           }
         }
         #endif
@@ -4591,11 +4466,7 @@ void MSMain(uint GID : SV_GroupIndex,
           if(WaveGetLaneIndex() == 3)
           {
             // Store result from lane 3 (last lane in mask)
-            #ifdef MIN_PRECISION
-            g_OutputVector.Store< vector<BUFFER_OUT_TYPE, NUM> >(0, Vector);
-            #else
             g_OutputVector.Store< vector<OUT_TYPE, NUM> >(0, Vector);
-            #endif
           }
         }
         #endif
@@ -4686,7 +4557,7 @@ void MSMain(uint GID : SV_GroupIndex,
           // lane we arbitrarily chose for validation with fine derivatives.
           if(LaneIndex == 3)
           {
-            g_OutputVector.Store< vector<BUFFER_OUT_TYPE, NUM> >(0, Result);
+            g_OutputVector.Store< vector<OUT_TYPE, NUM> >(0, Result);
           }
         }
         #endif
@@ -4715,7 +4586,7 @@ void MSMain(uint GID : SV_GroupIndex,
 
           if(LaneIndex == 3)
           {
-            g_OutputVector.Store< vector<BUFFER_OUT_TYPE, NUM> >(0, Result);
+            g_OutputVector.Store< vector<OUT_TYPE, NUM> >(0, Result);
           }
         }
         #endif
@@ -4738,34 +4609,21 @@ void MSMain(uint GID : SV_GroupIndex,
 
           #ifdef FUNC_SHUFFLE_VECTOR
             // For shuffle vector, the input is a scalar, not a vector.
-            #ifdef MIN_PRECISION
-            TYPE Input1 = (TYPE)g_InputVector1.Load<BUFFER_TYPE>(0);
-            #else
             TYPE Input1 = g_InputVector1.Load<TYPE>(0);
-            #endif
           #else
             // For all other basic op types the first input is always a vector.
-            #ifdef MIN_PRECISION
-            vector<TYPE, NUM> Input1 = (vector<TYPE, NUM>)g_InputVector1.Load< vector<BUFFER_TYPE, NUM> >(0);
-            #else
-            vector<TYPE, NUM> Input1 = g_InputVector1.Load< vector<TYPE, NUM> >(0);
-            #endif
+            vector<TYPE, NUM> Input1 = g_InputVector1.Load< vector<TYPE,
+            NUM> >(0);
           #endif
 
           #if (IS_BINARY_OP || IS_TERNARY_OP)
-            #ifdef MIN_PRECISION
-            vector<TYPE, NUM> Input2 = (vector<TYPE, NUM>)g_InputVector2.Load< vector<BUFFER_TYPE, NUM> >(0);
-            #else
-            vector<TYPE, NUM> Input2 = g_InputVector2.Load< vector<TYPE, NUM> >(0);
-            #endif
+            vector<TYPE, NUM> Input2 = g_InputVector2.Load< vector<TYPE,
+            NUM> >(0);
           #endif
 
           #if IS_TERNARY_OP
-            #ifdef MIN_PRECISION
-            vector<TYPE, NUM> Input3 = (vector<TYPE, NUM>)g_InputVector3.Load< vector<BUFFER_TYPE, NUM> >(0);
-            #else
-            vector<TYPE, NUM> Input3 = g_InputVector3.Load< vector<TYPE, NUM> >(0);
-            #endif
+            vector<TYPE, NUM> Input3 = g_InputVector3.Load< vector<TYPE,
+            NUM> >(0);
           #endif
 
           #ifdef IS_REDUCTION_OP
@@ -4818,7 +4676,7 @@ void MSMain(uint GID : SV_GroupIndex,
             OutputVector = FUNC(Input1, Input2, Input3);
           #endif
 
-          g_OutputVector.Store< vector<BUFFER_OUT_TYPE, OutNum> >(0, OutputVector);
+          g_OutputVector.Store< vector<OUT_TYPE, OutNum> >(0, OutputVector);
         };
       ]]>
     </Shader>
