@@ -70,7 +70,6 @@ DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvConstantString)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvConstantNull)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvConvertPtrToU)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvConvertUToPtr)
-DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvBufferPointerEXT)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvUndef)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvCompositeConstruct)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvCompositeExtract)
@@ -734,15 +733,6 @@ SpirvConvertUToPtr::SpirvConvertUToPtr(SpirvInstruction *val, QualType type,
 bool SpirvConvertUToPtr::operator==(const SpirvConvertUToPtr &that) const {
   return opcode == that.opcode && resultType == that.resultType &&
          astResultType == that.astResultType && val == that.val;
-}
-
-SpirvBufferPointerEXT::SpirvBufferPointerEXT(const SpirvType *resultType,
-                                             SourceLocation loc,
-                                             SpirvInstruction *bufferInst)
-    : SpirvInstruction(IK_BufferPointerEXT, spv::Op::OpBufferPointerEXT,
-                       QualType(), loc),
-      buffer(bufferInst) {
-  setResultType(resultType);
 }
 
 SpirvUndef::SpirvUndef(QualType type)

@@ -560,16 +560,6 @@ SpirvConvertUToPtr *SpirvBuilder::createConvertUToPtr(SpirvInstruction *val,
   return instruction;
 }
 
-SpirvBufferPointerEXT *SpirvBuilder::createBufferPointerEXT(
-    const SpirvType *resultType, SpirvInstruction *buffer, SourceLocation loc) {
-  assert(insertPoint && "null insert point");
-  auto *instruction =
-      new (context) SpirvBufferPointerEXT(resultType, loc, buffer);
-  instruction->setRValue(true);
-  insertPoint->addInstruction(instruction);
-  return instruction;
-}
-
 spv::ImageOperandsMask SpirvBuilder::composeImageOperandsMask(
     SpirvInstruction *bias, SpirvInstruction *lod,
     const std::pair<SpirvInstruction *, SpirvInstruction *> &grad,
@@ -1739,8 +1729,8 @@ SpirvVariable *SpirvBuilder::addModuleVar(
 }
 
 SpirvUntypedVariableKHR *SpirvBuilder::createUntypedVariableKHR(
-    const SpirvType *type, spv::StorageClass storageClass, SourceLocation loc,
-    llvm::StringRef name) {
+    const SpirvType *type, spv::StorageClass storageClass, llvm::StringRef name,
+    SourceLocation loc) {
   assert(storageClass != spv::StorageClass::Function);
   auto *var = new (context) SpirvUntypedVariableKHR(type, loc, storageClass);
   mod->addVariable(var);

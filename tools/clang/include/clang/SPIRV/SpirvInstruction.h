@@ -1594,26 +1594,6 @@ private:
   SpirvInstruction *val;
 };
 
-class SpirvBufferPointerEXT : public SpirvInstruction {
-public:
-  SpirvBufferPointerEXT(const SpirvType *resultType, SourceLocation loc,
-                        SpirvInstruction *buffer);
-
-  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvBufferPointerEXT)
-
-  // For LLVM-style RTTI
-  static bool classof(const SpirvInstruction *inst) {
-    return inst->getKind() == IK_BufferPointerEXT;
-  }
-
-  bool invokeVisitor(Visitor *v) override;
-
-  SpirvInstruction *getBuffer() const { return buffer; }
-
-private:
-  SpirvInstruction *buffer;
-};
-
 class SpirvUndef : public SpirvInstruction {
 public:
   SpirvUndef(QualType type);

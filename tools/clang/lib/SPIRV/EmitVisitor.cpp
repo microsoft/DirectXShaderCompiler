@@ -816,17 +816,6 @@ bool EmitVisitor::visit(SpirvUntypedAccessChainKHR *inst) {
   return true;
 }
 
-bool EmitVisitor::visit(SpirvBufferPointerEXT *inst) {
-  initInstruction(inst);
-  curInst.push_back(inst->getResultTypeId());
-  curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst));
-  curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst->getBuffer()));
-  finalizeInstruction(&mainBinary);
-  emitDebugNameForInstruction(getOrAssignResultId<SpirvInstruction>(inst),
-                              inst->getDebugName());
-  return true;
-}
-
 bool EmitVisitor::visit(SpirvUntypedImageTexelPointerEXT *inst) {
   initInstruction(inst);
   curInst.push_back(inst->getResultTypeId());

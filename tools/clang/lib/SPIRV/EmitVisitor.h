@@ -245,7 +245,6 @@ public:
   bool visit(SpirvVariable *) override;
   bool visit(SpirvUntypedVariableKHR *) override;
   bool visit(SpirvUntypedAccessChainKHR *) override;
-  bool visit(SpirvBufferPointerEXT *) override;
   bool visit(SpirvUntypedImageTexelPointerEXT *) override;
   bool visit(SpirvFunctionParameter *) override;
   bool visit(SpirvLoopMerge *) override;

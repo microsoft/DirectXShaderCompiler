@@ -100,7 +100,6 @@ public:
   DEFINE_VISIT_METHOD(SpirvConstantNull)
   DEFINE_VISIT_METHOD(SpirvConvertPtrToU)
   DEFINE_VISIT_METHOD(SpirvConvertUToPtr)
-  DEFINE_VISIT_METHOD(SpirvBufferPointerEXT)
   DEFINE_VISIT_METHOD(SpirvUndef)
   DEFINE_VISIT_METHOD(SpirvCompositeConstruct)
   DEFINE_VISIT_METHOD(SpirvCompositeExtract)

@@ -1174,46 +1174,55 @@ DeclResultIdMapper::createFileVar(const VarDecl *var,
 }
 
 SpirvInstruction *
-DeclResultIdMapper::createResourceHeap(const VarDecl *var,
-                                       QualType ResourceType) {
-  if (spirvOptions.useDescriptorHeap) {
-    SpirvUntypedVariableKHR *HeapVar = nullptr;
+DeclResultIdMapper::createResourceDescriptorHeap(const VarDecl *var) {
+  SpirvUntypedVariableKHR *HeapVar = nullptr;
 
-    if (isResourceDescriptorHeap(var)) {
-      if (!ResourceHeapVar) {
-        const auto loc = var->getLocation();
-        const auto *type = spvContext.getUntypedPointerKHRType(
-            spv::StorageClass::UniformConstant);
-        ResourceHeapVar = spvBuilder.createUntypedVariableKHR(
-            type, spv::StorageClass::UniformConstant, loc, "resource_heap");
-        spvBuilder.decorateWithLiterals(
-            ResourceHeapVar, static_cast<uint32_t>(spv::Decoration::BuiltIn),
-            {static_cast<uint32_t>(spv::BuiltIn::ResourceHeapEXT)}, loc);
-      }
-      HeapVar = ResourceHeapVar;
-    } else if (isSamplerDescriptorHeap(var)) {
-      if (!SamplerHeapVar) {
-        const auto loc = var->getLocation();
-        const auto *type = spvContext.getUntypedPointerKHRType(
-            spv::StorageClass::UniformConstant);
-        SamplerHeapVar = spvBuilder.createUntypedVariableKHR(
-            type, spv::StorageClass::UniformConstant, loc, "sampler_heap");
-        spvBuilder.decorateWithLiterals(
-            SamplerHeapVar, static_cast<uint32_t>(spv::Decoration::BuiltIn),
-            {static_cast<uint32_t>(spv::BuiltIn::SamplerHeapEXT)}, loc);
-      }
-      HeapVar = SamplerHeapVar;
-    } else
-      assert(0 && "Unsupported heap type");
+  if (isResourceDescriptorHeap(var)) {
+    if (!ResourceHeapVar) {
+      const auto loc = var->getLocation();
+      const auto *type = spvContext.getUntypedPointerKHRType(
+          spv::StorageClass::UniformConstant);
+      ResourceHeapVar = spvBuilder.createUntypedVariableKHR(
+          type, spv::StorageClass::UniformConstant, "resource_heap", loc);
+      spvBuilder.decorateWithLiterals(
+          ResourceHeapVar, static_cast<uint32_t>(spv::Decoration::BuiltIn),
+          {static_cast<uint32_t>(spv::BuiltIn::ResourceHeapEXT)}, loc);
+    }
+    HeapVar = ResourceHeapVar;
+  } else if (isSamplerDescriptorHeap(var)) {
+    if (!SamplerHeapVar) {
+      const auto loc = var->getLocation();
+      const auto *type = spvContext.getUntypedPointerKHRType(
+          spv::StorageClass::UniformConstant);
+      SamplerHeapVar = spvBuilder.createUntypedVariableKHR(
+          type, spv::StorageClass::UniformConstant, "sampler_heap", loc);
+      spvBuilder.decorateWithLiterals(
+          SamplerHeapVar, static_cast<uint32_t>(spv::Decoration::BuiltIn),
+          {static_cast<uint32_t>(spv::BuiltIn::SamplerHeapEXT)}, loc);
+    }
+    HeapVar = SamplerHeapVar;
+  } else
+    assert(0 && "Unsupported heap type");
 
-    // Decorate with BuiltIn
-    astDecls[var] = createDeclSpirvInfo(HeapVar);
-    return HeapVar;
-  }
+  // Decorate with BuiltIn
+  astDecls[var] = createDeclSpirvInfo(HeapVar);
+  return HeapVar;
+}
 
+SpirvInstruction *
+DeclResultIdMapper::createEmulatedDescriptorHeap(const VarDecl *var,
+                                                 QualType resourceType) {
   QualType ResourceArrayType = astContext.getIncompleteArrayType(
-      ResourceType, clang::ArrayType::Normal, 0);
+      resourceType, clang::ArrayType::Normal, 0);
   return createExternVar(var, ResourceArrayType);
+}
+
+SpirvInstruction *
+DeclResultIdMapper::createResourceHeap(const VarDecl *var,
+                                       QualType resourceType) {
+  if (spirvOptions.useDescriptorHeap)
+    return createResourceDescriptorHeap(var);
+  return createEmulatedDescriptorHeap(var, resourceType);
 }
 
 SpirvVariable *DeclResultIdMapper::createExternVar(const VarDecl *var) {
@@ -3933,13 +3942,15 @@ bool DeclResultIdMapper::createPayloadStageVars(
     if (featureManager.isExtensionEnabled(Extension::EXT_mesh_shader)) {
       for (SpirvInstruction *moduleInst :
            spvBuilder.getModule()->getVariables()) {
-        if (auto *moduleVar = dyn_cast<SpirvVariable>(moduleInst)) {
-          if (moduleVar->getAstResultType() == type) {
-            moduleVar->setStorageClass(
-                spv::StorageClass::TaskPayloadWorkgroupEXT);
-            varInstr = moduleVar;
-          }
-        }
+        auto *moduleVar = dyn_cast<SpirvVariable>(moduleInst);
+        if (!moduleVar)
+          continue;
+
+        if (moduleVar->getAstResultType() != type)
+          continue;
+
+        moduleVar->setStorageClass(spv::StorageClass::TaskPayloadWorkgroupEXT);
+        varInstr = moduleVar;
       }
     }
 

@@ -1006,6 +1006,14 @@ private:
   /// all of them should be associated with the same variable.
   void registerVariableForDecl(const VarDecl *var, DeclSpirvInfo spirvInfo);
 
+  /// Creates a global variable for resource heaps using VK_EXT_descriptor_heap.
+  SpirvInstruction *createResourceDescriptorHeap(const VarDecl *var);
+
+  /// Creates a global variable for resource heaps containing elements of type
+  /// |type| (emulated descriptor heaps).
+  SpirvInstruction *createEmulatedDescriptorHeap(const VarDecl *var,
+                                                 QualType resourceType);
+
 private:
   SpirvBuilder &spvBuilder;
   SpirvEmitter &theEmitter;

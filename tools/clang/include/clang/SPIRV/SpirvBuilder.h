@@ -288,12 +288,6 @@ public:
   /// parameters.
   SpirvConvertUToPtr *createConvertUToPtr(SpirvInstruction *val, QualType type);
 
-  /// \brief Creates an OpBufferPointerEXT SPIR-V instruction with the given
-  /// parameters.
-  SpirvBufferPointerEXT *createBufferPointerEXT(const SpirvType *resultType,
-                                                SpirvInstruction *buffer,
-                                                SourceLocation);
-
   /// \brief Creates SPIR-V instructions for sampling the given image.
   ///
   /// If compareVal is given a non-zero value, *Dref* variants of OpImageSample*
@@ -720,9 +714,10 @@ public:
                SourceLocation loc = {});
 
   /// \brief Adds an untyped module variable.
-  SpirvUntypedVariableKHR *createUntypedVariableKHR(
-      const SpirvType *valueType, spv::StorageClass storageClass,
-      SourceLocation loc = {}, llvm::StringRef name = "heap");
+  SpirvUntypedVariableKHR *
+  createUntypedVariableKHR(const SpirvType *valueType,
+                           spv::StorageClass storageClass, llvm::StringRef name,
+                           SourceLocation loc = {});
 
   /// \brief Creates an OpUntypedAccessChainKHR instruction.
   SpirvUntypedAccessChainKHR *
