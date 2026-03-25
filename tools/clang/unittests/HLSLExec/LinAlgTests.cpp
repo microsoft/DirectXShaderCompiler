@@ -24,6 +24,7 @@
 
 #include "HlslExecTestUtils.h"
 
+#include <climits>
 #include <optional>
 #include <sstream>
 #include <string>
@@ -154,13 +155,19 @@ static void compileShader(dxc::SpecificDllLoader &DxcSupport,
     WArgStorage.push_back(std::wstring(Tok.begin(), Tok.end()));
 
   std::vector<LPCWSTR> WArgPtrs;
-  for (const auto &A : WArgStorage)
+  std::wstringstream LogFlags;
+  LogFlags << L"Compiling with flags:";
+  for (const auto &A : WArgStorage) {
     WArgPtrs.push_back(A.c_str());
+    LogFlags << L" " << A;
+  }
 
   DxcBuffer Buf = {};
   Buf.Ptr = SourceBlob->GetBufferPointer();
   Buf.Size = SourceBlob->GetBufferSize();
   Buf.Encoding = DXC_CP_UTF8;
+
+  hlsl_test::LogCommentFmt(LogFlags.str().c_str());
 
   CComPtr<IDxcResult> Result;
   VERIFY_SUCCEEDED(Compiler->Compile(&Buf, WArgPtrs.data(),
@@ -292,6 +299,9 @@ private:
   bool VerboseLogging = false;
   bool Initialized = false;
   std::optional<D3D12SDKSelector> D3D12SDK;
+
+  WEX::TestExecution::SetVerifyOutput VerifyOutput{
+      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures};
 };
 
 /// Creates the device and setups the test scenario with the following variants
@@ -523,6 +533,7 @@ static void runSplatStore(ID3D12Device *Device,
     ExpectedFloats.assign(NumElements, FillValue);
     break;
   case ComponentType::I32:
+    VERIFY_IS_TRUE(FillValue < static_cast<float>(INT_MAX), "FillValue too large to cast to int32_t");
     ExpectedInts.assign(NumElements, static_cast<int32_t>(FillValue));
     break;
   default:
