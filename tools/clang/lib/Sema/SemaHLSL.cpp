@@ -202,6 +202,8 @@ enum ArBasicKind {
   AR_OBJECT_VK_BUFFER_POINTER,
   AR_OBJECT_VK_SAMPLED_TEXTURE2D,
   AR_OBJECT_VK_SAMPLED_TEXTURE2D_ARRAY,
+  AR_OBJECT_VK_SAMPLED_TEXTURE2DMS,
+  AR_OBJECT_VK_SAMPLED_TEXTURE2DMS_ARRAY,
 #endif // ENABLE_SPIRV_CODEGEN
   // SPIRV change ends
 
@@ -564,6 +566,8 @@ const UINT g_uBasicKindProps[] = {
     BPROP_OBJECT, // AR_OBJECT_VK_BUFFER_POINTER use recordType
     BPROP_OBJECT | BPROP_RBUFFER, // AR_OBJECT_VK_SAMPLED_TEXTURE2D
     BPROP_OBJECT | BPROP_RBUFFER, // AR_OBJECT_VK_SAMPLED_TEXTURE2D_ARRAY
+    BPROP_OBJECT | BPROP_RBUFFER, // AR_OBJECT_VK_SAMPLED_TEXTURE2DMS
+    BPROP_OBJECT | BPROP_RBUFFER, // AR_OBJECT_VK_SAMPLED_TEXTURE2DMS_ARRAY
 #endif            // ENABLE_SPIRV_CODEGEN
     // SPIRV change ends
 
@@ -1276,6 +1280,10 @@ static const ArBasicKind g_VKSampledTexture2DCT[] = {
     AR_OBJECT_VK_SAMPLED_TEXTURE2D, AR_BASIC_UNKNOWN};
 static const ArBasicKind g_VKSampledTexture2DArrayCT[] = {
     AR_OBJECT_VK_SAMPLED_TEXTURE2D_ARRAY, AR_BASIC_UNKNOWN};
+static const ArBasicKind g_VKSampledTexture2DMSCT[] = {
+    AR_OBJECT_VK_SAMPLED_TEXTURE2DMS, AR_BASIC_UNKNOWN};
+static const ArBasicKind g_VKSampledTexture2DMSArrayCT[] = {
+    AR_OBJECT_VK_SAMPLED_TEXTURE2DMS_ARRAY, AR_BASIC_UNKNOWN};
 #endif
 
 // Basic kinds, indexed by a LEGAL_INTRINSIC_COMPTYPES value.
@@ -1338,9 +1346,11 @@ const ArBasicKind *g_LegalIntrinsicCompTypes[] = {
     g_LinAlgCT,                   // LICOMPTYPE_LINALG
     g_BuiltInTrianglePositionsCT, // LICOMPTYPE_BUILTIN_TRIANGLE_POSITIONS
 #ifdef ENABLE_SPIRV_CODEGEN
-    g_VKBufferPointerCT,         // LICOMPTYPE_VK_BUFFER_POINTER
-    g_VKSampledTexture2DCT,      // LICOMPTYPE_VK_SAMPLED_TEXTURE2D
-    g_VKSampledTexture2DArrayCT, // LICOMPTYPE_VK_SAMPLED_TEXTURE2D_ARRAY
+    g_VKBufferPointerCT,           // LICOMPTYPE_VK_BUFFER_POINTER
+    g_VKSampledTexture2DCT,        // LICOMPTYPE_VK_SAMPLED_TEXTURE2D
+    g_VKSampledTexture2DArrayCT,   // LICOMPTYPE_VK_SAMPLED_TEXTURE2D_ARRAY
+    g_VKSampledTexture2DMSCT,      // LICOMPTYPE_VK_SAMPLED_TEXTURE2DMS
+    g_VKSampledTexture2DMSArrayCT, // LICOMPTYPE_VK_SAMPLED_TEXTURE2DMS_ARRAY
 #endif
 };
 static_assert(
@@ -1401,7 +1411,8 @@ static const ArBasicKind g_ArBasicKindsAsTypes[] = {
     AR_OBJECT_VK_INTEGRAL_CONSTANT, AR_OBJECT_VK_LITERAL,
     AR_OBJECT_VK_SPV_INTRINSIC_TYPE, AR_OBJECT_VK_SPV_INTRINSIC_RESULT_ID,
     AR_OBJECT_VK_BUFFER_POINTER, AR_OBJECT_VK_SAMPLED_TEXTURE2D,
-    AR_OBJECT_VK_SAMPLED_TEXTURE2D_ARRAY,
+    AR_OBJECT_VK_SAMPLED_TEXTURE2D_ARRAY, AR_OBJECT_VK_SAMPLED_TEXTURE2DMS,
+    AR_OBJECT_VK_SAMPLED_TEXTURE2DMS_ARRAY,
 #endif // ENABLE_SPIRV_CODEGEN
     // SPIRV change ends
 
@@ -1515,6 +1526,8 @@ static const uint8_t g_ArBasicKindsTemplateCount[] = {
     2, // AR_OBJECT_VK_BUFFER_POINTER
     1, // AR_OBJECT_VK_SAMPLED_TEXTURE2D
     1, // AR_OBJECT_VK_SAMPLED_TEXTURE2D_ARRAY
+    1, // AR_OBJECT_VK_SAMPLED_TEXTURE2DMS
+    1, // AR_OBJECT_VK_SAMPLED_TEXTURE2DMS_ARRAY
 #endif // ENABLE_SPIRV_CODEGEN
     // SPIRV change ends
 
@@ -1670,6 +1683,8 @@ static const SubscriptOperatorRecord g_ArBasicKindsSubscripts[] = {
     {0, MipsFalse, SampleFalse}, // AR_OBJECT_VK_BUFFER_POINTER
     {2, MipsTrue, SampleFalse},  // AR_OBJECT_VK_SAMPLED_TEXTURE2D
     {3, MipsTrue, SampleFalse},  // AR_OBJECT_VK_SAMPLED_TEXTURE2D_ARRAY
+    {2, MipsFalse, SampleTrue},  // AR_OBJECT_VK_SAMPLED_TEXTURE2DMS
+    {3, MipsFalse, SampleTrue},  // AR_OBJECT_VK_SAMPLED_TEXTURE2DMS_ARRAY
 #endif                           // ENABLE_SPIRV_CODEGEN
     // SPIRV change ends
 
@@ -1841,6 +1856,8 @@ static const char *g_ArBasicTypeNames[] = {
     "BufferPointer",
     "SampledTexture2D",
     "SampledTexture2DArray",
+    "SampledTexture2DMS",
+    "SampledTexture2DMSArray",
 #endif // ENABLE_SPIRV_CODEGEN
     // SPIRV change ends
 
@@ -1957,6 +1974,9 @@ ParamModsFromIntrinsicArg(const HLSL_INTRINSIC_ARGUMENT *pArg) {
   }
   if (pArg->qwUsage == AR_QUAL_REF)
     return hlsl::ParameterModifier(hlsl::ParameterModifier::Kind::Ref);
+  // TODO: https://github.com/microsoft/DirectXShaderCompiler/issues/8270
+  if (pArg->qwUsage == AR_QUAL_GROUPSHARED)
+    return hlsl::ParameterModifier(hlsl::ParameterModifier::Kind::In);
   DXASSERT(qwUsage & AR_QUAL_IN, "else usage is incorrect");
   return hlsl::ParameterModifier(hlsl::ParameterModifier::Kind::In);
 }
@@ -2501,6 +2521,14 @@ static void GetIntrinsicMethods(ArBasicKind kind,
   case AR_OBJECT_VK_SAMPLED_TEXTURE2D_ARRAY:
     *intrinsics = g_VkSampledTexture2DArrayMethods;
     *intrinsicCount = _countof(g_VkSampledTexture2DArrayMethods);
+    break;
+  case AR_OBJECT_VK_SAMPLED_TEXTURE2DMS:
+    *intrinsics = g_VkSampledTexture2DMSMethods;
+    *intrinsicCount = _countof(g_VkSampledTexture2DMSMethods);
+    break;
+  case AR_OBJECT_VK_SAMPLED_TEXTURE2DMS_ARRAY:
+    *intrinsics = g_VkSampledTexture2DMSArrayMethods;
+    *intrinsicCount = _countof(g_VkSampledTexture2DMSArrayMethods);
     break;
 #endif
   case AR_OBJECT_HIT_OBJECT:
@@ -4108,7 +4136,9 @@ private:
         recordDecl->setImplicit(true);
         m_vkBufferPointerTemplateDecl = recordDecl->getDescribedClassTemplate();
       } else if (kind == AR_OBJECT_VK_SAMPLED_TEXTURE2D ||
-                 kind == AR_OBJECT_VK_SAMPLED_TEXTURE2D_ARRAY) {
+                 kind == AR_OBJECT_VK_SAMPLED_TEXTURE2D_ARRAY ||
+                 kind == AR_OBJECT_VK_SAMPLED_TEXTURE2DMS ||
+                 kind == AR_OBJECT_VK_SAMPLED_TEXTURE2DMS_ARRAY) {
         if (!m_vkNSDecl)
           continue;
         QualType float4Type =
@@ -5103,6 +5133,9 @@ public:
       ResClass = DXIL::ResourceClass::SRV;
       return true;
     case AR_OBJECT_TEXTURE2DMS:
+#ifdef ENABLE_SPIRV_CODEGEN
+    case AR_OBJECT_VK_SAMPLED_TEXTURE2DMS:
+#endif
       ResKind = DXIL::ResourceKind::Texture2DMS;
       ResClass = DXIL::ResourceClass::SRV;
       return true;
@@ -5111,6 +5144,9 @@ public:
       ResClass = DXIL::ResourceClass::UAV;
       return true;
     case AR_OBJECT_TEXTURE2DMS_ARRAY:
+#ifdef ENABLE_SPIRV_CODEGEN
+    case AR_OBJECT_VK_SAMPLED_TEXTURE2DMS_ARRAY:
+#endif
       ResKind = DXIL::ResourceKind::Texture2DMSArray;
       ResClass = DXIL::ResourceClass::SRV;
       return true;
@@ -6172,7 +6208,23 @@ public:
     if (IsBuiltinTable(tableName) && intrinOp == IntrinsicOp::MOP_SampleBias) {
       // Remove this when update intrinsic table not affect other things.
       // Change vector<float,1> into float for bias.
-      const unsigned biasOperandID = 3; // return type, sampler, coord, bias.
+      // The bias operand is the 3rd operand for normal texture types, but 2nd
+      // operand for sampledtexture types.
+      const bool firstArgIsSampler =
+          intrinsic->uNumArgs > 1 && ([&]() {
+            switch (intrinsic->pArgs[1].uLegalComponentTypes) {
+            case LICOMPTYPE_SAMPLER1D:
+            case LICOMPTYPE_SAMPLER2D:
+            case LICOMPTYPE_SAMPLER3D:
+            case LICOMPTYPE_SAMPLERCUBE:
+            case LICOMPTYPE_SAMPLERCMP:
+            case LICOMPTYPE_SAMPLER:
+              return true;
+            default:
+              return false;
+            }
+          })();
+      const unsigned biasOperandID = firstArgIsSampler ? 3 : 2;
       DXASSERT(parameterTypeCount > biasOperandID,
                "else operation was misrecognized");
       if (const ExtVectorType *VecTy =
