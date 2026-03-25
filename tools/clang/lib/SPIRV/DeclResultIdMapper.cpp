@@ -1202,7 +1202,7 @@ DeclResultIdMapper::createResourceDescriptorHeap(const VarDecl *var) {
     }
     HeapVar = SamplerHeapVar;
   } else
-    assert(0 && "Unsupported heap type");
+    llvm_unreachable("Unsupported heap type. FIXME");
 
   // Decorate with BuiltIn
   astDecls[var] = createDeclSpirvInfo(HeapVar);
