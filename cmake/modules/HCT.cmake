@@ -38,9 +38,12 @@ endif()
 function(add_hlsl_hctgen mode)
   cmake_parse_arguments(ARG
     "BUILD_DIR;CODE_TAG"
-    "OUTPUT"
+    "OUTPUT;TARGET_NAME"
     ""
     ${ARGN})
+  if (NOT ARG_TARGET_NAME)
+    set(ARG_TARGET_NAME ${mode})
+  endif()
 
   if (NOT ARG_OUTPUT)
     message(FATAL_ERROR "add_hlsl_hctgen requires OUTPUT argument")
@@ -132,8 +135,8 @@ function(add_hlsl_hctgen mode)
                      DEPENDS ${output}
                      COMMENT "Verifying clang-format results...")
 
-  add_custom_target(${mode}
+  add_custom_target(${ARG_TARGET_NAME}
                     DEPENDS ${temp_output}.stamp)
 
-  add_dependencies(HCTGen ${mode})
+  add_dependencies(HCTGen ${ARG_TARGET_NAME})
 endfunction()

@@ -2,6 +2,7 @@
 # This file is distributed under the University of Illinois Open Source License.
 # See LICENSE.TXT for details.
 
+add_hlsl_hctgen(DxilCounters OUTPUT DxilCounters.cpp CODE_TAG TARGET_NAME DxilCountersCpp)
 add_hlsl_hctgen(DxilOperations OUTPUT DxilOperations.cpp CODE_TAG)
 add_hlsl_hctgen(DxilShaderModel OUTPUT DxilShaderModel.cpp CODE_TAG)
 add_hlsl_hctgen(DxilMetadata OUTPUT DxilMetadataHelper.cpp CODE_TAG)
