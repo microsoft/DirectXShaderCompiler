@@ -399,7 +399,8 @@ static void runSplatStore(ID3D12Device *Device,
     ExpectedFloats.assign(NumElements, FillValue);
     break;
   case ComponentType::I32:
-    VERIFY_IS_TRUE(FillValue < static_cast<float>(INT_MAX), "FillValue too large to cast to int32_t");
+    VERIFY_IS_TRUE(FillValue < static_cast<float>(INT_MAX),
+                   "FillValue too large to cast to int32_t");
     ExpectedInts.assign(NumElements, static_cast<int32_t>(FillValue));
     break;
   default:

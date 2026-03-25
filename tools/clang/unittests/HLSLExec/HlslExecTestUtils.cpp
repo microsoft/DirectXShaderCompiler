@@ -637,10 +637,11 @@ UINT getMaxGroupSharedMemoryMS(ID3D12Device *Device) {
   return O.MaxGroupSharedMemoryPerGroupMS;
 }
 
-std::unique_ptr<st::ShaderOp>
-createComputeOp(const char *Source, const char *Target, const char *RootSig,
-                const char *Args, UINT DispatchX,
-                UINT DispatchY, UINT DispatchZ) {
+std::unique_ptr<st::ShaderOp> createComputeOp(const char *Source,
+                                              const char *Target,
+                                              const char *RootSig,
+                                              const char *Args, UINT DispatchX,
+                                              UINT DispatchY, UINT DispatchZ) {
   auto Op = std::make_unique<st::ShaderOp>();
   LPCSTR CSName = Op->Strings.insert("CS");
   Op->Name = CSName;
@@ -665,7 +666,7 @@ createComputeOp(const char *Source, const char *Target, const char *RootSig,
 }
 
 void addUAVBuffer(st::ShaderOp *Op, const char *Name, UINT64 Width,
-                         bool ReadBack, const char *Init) {
+                  bool ReadBack, const char *Init) {
   st::ShaderOpResource Res = {};
   Res.Name = Op->Strings.insert(Name);
   Res.Init = Op->Strings.insert(Init);
@@ -706,9 +707,8 @@ runShaderOp(ID3D12Device *Device, dxc::SpecificDllLoader &DxcSupport,
       Device, DxcSupport, nullptr, std::move(InitCallback), std::move(OpSet));
 }
 
-void compileShader(dxc::SpecificDllLoader &DxcSupport,
-                          const char *Source, const char *Target,
-                          const std::string &Args) {
+void compileShader(dxc::SpecificDllLoader &DxcSupport, const char *Source,
+                   const char *Target, const std::string &Args) {
   CComPtr<IDxcCompiler3> Compiler;
   VERIFY_SUCCEEDED(DxcSupport.CreateInstance(CLSID_DxcCompiler, &Compiler));
 
