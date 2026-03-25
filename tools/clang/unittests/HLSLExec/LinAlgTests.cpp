@@ -361,9 +361,9 @@ static const char LoadStoreShader[] = R"(
       [[__LinAlgMatrix_Attributes(COMP_TYPE, M_DIM, N_DIM, USE, SCOPE)]]
       Mat;
     __builtin_LinAlg_MatrixLoadFromDescriptor(
-      Mat, Input, 0, STRIDE, LAYOUT);
+      Mat, Input, OFFSET, STRIDE, LAYOUT, ALIGN);
     __builtin_LinAlg_MatrixStoreToDescriptor(
-      Mat, Output, 0, STRIDE, LAYOUT);
+      Mat, Output, OFFSET, STRIDE, LAYOUT, ALIGN);
   }
 )";
 
@@ -373,7 +373,12 @@ static void runLoadStoreRoundtrip(ID3D12Device *Device,
   const size_t NumElements = Params.totalElements();
   const size_t BufferSize = Params.totalBytes();
 
-  std::string Args = buildCompilerArgs(Params);
+  // TODO: these should be varied by test to ensure full coverage
+  std::stringstream ExtraDefs;
+  ExtraDefs << " -DOFFSET=" << 0;
+  ExtraDefs << " -DALIGN=" << 0;
+
+  std::string Args = buildCompilerArgs(Params, ExtraDefs.str().c_str());
 
   // Always verify the shader compiles.
   compileShader(DxcSupport, LoadStoreShader, "cs_6_10", Args);
@@ -482,7 +487,7 @@ static const char SplatStoreShader[] = R"(
       Mat;
     __builtin_LinAlg_FillMatrix(Mat, FILL_VALUE);
     __builtin_LinAlg_MatrixStoreToDescriptor(
-      Mat, Output, 0, STRIDE, LAYOUT);
+      Mat, Output, 0, STRIDE, LAYOUT, 0);
   }
 )";
 
