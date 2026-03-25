@@ -378,13 +378,8 @@ static void runLoadStoreRoundtrip(ID3D12Device *Device,
   // Always verify the shader compiles.
   compileShader(DxcSupport, LoadStoreShader, "cs_6_10", Args);
 
-  // Skip GPU execution if no device.
-  if (!Device) {
-    hlsl_test::LogCommentFmt(
-        L"Shader compiled OK; skipping execution (no SM 6.10 device)");
-    WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
-    return;
 #ifndef _HLK_CONF
+  // Skip GPU execution if no device.
   if (!Device) {
     hlsl_test::LogCommentFmt(
         L"Shader compiled OK; skipping execution (no SM 6.10 device)");
@@ -506,8 +501,8 @@ static void runSplatStore(ID3D12Device *Device,
   // Always verify the shader compiles.
   compileShader(DxcSupport, SplatStoreShader, "cs_6_10", Args);
 
-  // Skip GPU execution if no device.
 #ifndef _HLK_CONF
+  // Skip GPU execution if no device.
   if (!Device) {
     hlsl_test::LogCommentFmt(
         L"Shader compiled OK; skipping execution (no SM 6.10 device)");
