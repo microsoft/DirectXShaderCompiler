@@ -733,12 +733,12 @@ template <typename T> T Saturate(T A) {
 }
 
 template <typename T> T ReverseBits(T A) {
-  T Result = static_cast<T>(0);
+  T Result = 0;
   const size_t NumBits = sizeof(T) * 8;
   for (size_t I = 0; I < NumBits; I++) {
-    Result <<= static_cast<T>(1);
-    Result |= (A & static_cast<T>(1));
-    A >>= static_cast<T>(1);
+    Result <<= 1;
+    Result |= (A & 1);
+    A >>= 1;
   }
   return Result;
 }
@@ -750,13 +750,12 @@ template <typename T> uint32_t CountBits(T A) {
 // General purpose bit scan from the MSB. Based on the value of LookingForZero
 // returns the index of the first high/low bit found.
 template <typename T> uint32_t ScanFromMSB(T A, bool LookingForZero) {
-  if (A == static_cast<T>(0))
+  if (A == 0)
     return std::numeric_limits<uint32_t>::max();
 
   constexpr uint32_t NumBits = sizeof(T) * 8;
   for (int32_t I = NumBits - 1; I >= 0; --I) {
-    bool BitSet =
-        (A & (static_cast<T>(1) << static_cast<T>(I))) != static_cast<T>(0);
+    bool BitSet = (A & (static_cast<T>(1) << I)) != 0;
     if (BitSet != LookingForZero)
       return static_cast<uint32_t>(I);
   }
@@ -779,12 +778,12 @@ FirstBitHigh(T A) {
 template <typename T> uint32_t FirstBitLow(T A) {
   const uint32_t NumBits = sizeof(T) * 8;
 
-  if (A == static_cast<T>(0))
+  if (A == 0)
     return std::numeric_limits<uint32_t>::max();
 
   for (uint32_t I = 0; I < NumBits; ++I) {
-    if (A & (static_cast<T>(1) << static_cast<T>(I)))
-      return static_cast<T>(I);
+    if (A & (static_cast<T>(1) << I))
+      return I;
   }
 
   return std::numeric_limits<uint32_t>::max();
@@ -1557,9 +1556,7 @@ WAVE_OP(OpType::WaveMultiPrefixBitOr, waveMultiPrefixBitOr(A, WaveSize));
 
 template <typename T> T waveMultiPrefixBitOr(T A, UINT) {
   // All lanes in the group mask clear the second LSB.
-  // Extra static_cast around ~ needed because bitwise NOT promotes min
-  // precision wrapper types to int32/uint32, making operator& ambiguous.
-  return static_cast<T>(A & static_cast<T>(~static_cast<T>(0x2)));
+  return static_cast<T>(A & ~static_cast<T>(0x2));
 }
 
 template <typename T>
@@ -1974,7 +1971,10 @@ public:
     return true;
   }
 
-  UINT getWaveSize() {
+  template <typename T, OpType OP> void runWaveOpTest() {
+    WEX::TestExecution::SetVerifyOutput VerifySettings(
+        WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+
     UINT WaveSize = 0;
 
     if (OverrideWaveLaneCount > 0) {
@@ -1992,15 +1992,8 @@ public:
     DXASSERT_NOMSG(WaveSize > 0);
     DXASSERT((WaveSize & (WaveSize - 1)) == 0, "must be a power of 2");
 
-    return WaveSize;
-  }
-
-  template <typename T, OpType OP> void runWaveOpTest() {
-    WEX::TestExecution::SetVerifyOutput VerifySettings(
-        WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
-
     dispatchWaveOpTest<T, OP>(D3DDevice, VerboseLogging, OverrideInputSize,
-                              getWaveSize());
+                              WaveSize);
   }
 
   template <typename T, OpType OP> void runTest() {
