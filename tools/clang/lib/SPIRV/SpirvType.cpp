@@ -93,9 +93,9 @@ bool SpirvType::isResourceType(const SpirvType *type) {
     return true;
 
   if (auto *UTP = dyn_cast<UntypedPointerKHRType>(type))
-    return UTP->getStorageClass() == spv::StorageClass::UniformConstant
-        || UTP->getStorageClass() == spv::StorageClass::Uniform
-        || UTP->getStorageClass() == spv::StorageClass::StorageBuffer;
+    return UTP->getStorageClass() == spv::StorageClass::UniformConstant ||
+           UTP->getStorageClass() == spv::StorageClass::Uniform ||
+           UTP->getStorageClass() == spv::StorageClass::StorageBuffer;
 
   if (const auto *structType = dyn_cast<StructType>(type))
     return structType->getInterfaceType() !=
