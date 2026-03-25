@@ -183,8 +183,8 @@ enum class ComponentType : uint32_t {
   PackedU8x32 = 18,
 
   // BEGIN NEW FOR SM 6.9
-  U8 = 19,
-  I8 = 20,
+  I8 = 19,
+  U8 = 20,
   F8_E4M3 = 21,
   F8_E5M2 = 22,
   // END

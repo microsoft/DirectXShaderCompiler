@@ -6943,12 +6943,13 @@ Value *TranslateLinAlgMatrixAccumStoreToDescriptor(
   Value *Offset = CI->getArgOperand(3);
   Value *Stride = CI->getArgOperand(4);
   Value *Layout = CI->getArgOperand(5);
+  Value *Align = CI->getArgOperand(6);
 
   Constant *OpArg = HlslOp->GetU32Const((unsigned)OpCode);
   Function *DxilFunc = HlslOp->GetOpFunc(OpCode, Matrix->getType());
 
-  return Builder.CreateCall(DxilFunc,
-                            {OpArg, Matrix, ResHandle, Offset, Stride, Layout});
+  return Builder.CreateCall(
+      DxilFunc, {OpArg, Matrix, ResHandle, Offset, Stride, Layout, Align});
 }
 
 Value *TranslateLinAlgMatVecMul(CallInst *CI, IntrinsicOp IOP,
@@ -7024,12 +7025,13 @@ Value *TranslateLinAlgMatrixLoadFromDescriptor(
   Value *Offset = CI->getArgOperand(3);
   Value *Stride = CI->getArgOperand(4);
   Value *Layout = CI->getArgOperand(5);
+  Value *Align = CI->getArgOperand(6);
 
   Constant *OpArg = HlslOp->GetU32Const((unsigned)OpCode);
   Function *DxilFunc = HlslOp->GetOpFunc(OpCode, MatrixType);
 
-  Value *Matrix =
-      Builder.CreateCall(DxilFunc, {OpArg, ResHandle, Offset, Stride, Layout});
+  Value *Matrix = Builder.CreateCall(
+      DxilFunc, {OpArg, ResHandle, Offset, Stride, Layout, Align});
   Builder.CreateStore(Matrix, MatrixPtr);
 
   return nullptr;
