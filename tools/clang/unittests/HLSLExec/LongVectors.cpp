@@ -2801,14 +2801,15 @@ public:
 
   // Cast
   HLK_TEST(CastToBool, HLSLMin16Float_t);
-  HLK_TEST(CastToInt16, HLSLMin16Float_t);
   HLK_TEST(CastToInt32, HLSLMin16Float_t);
   HLK_TEST(CastToInt64, HLSLMin16Float_t);
-  HLK_TEST(CastToUint16_FromFP, HLSLMin16Float_t);
   HLK_TEST(CastToUint32_FromFP, HLSLMin16Float_t);
   HLK_TEST(CastToUint64_FromFP, HLSLMin16Float_t);
-  HLK_TEST(CastToFloat16, HLSLMin16Float_t);
   HLK_TEST(CastToFloat32, HLSLMin16Float_t);
+  // Note: CastToInt16, CastToUint16_FromFP, CastToFloat16 excluded —
+  // 16-bit output types require -enable-16bit-types which changes min
+  // precision semantics (min16float becomes half), breaking the test
+  // infrastructure's 32-bit buffer I/O assumptions.
 
   // Trigonometric
   HLK_TEST(Acos, HLSLMin16Float_t);
@@ -2930,11 +2931,10 @@ public:
   HLK_TEST(CastToBool, HLSLMin16Int_t);
   HLK_TEST(CastToInt32, HLSLMin16Int_t);
   HLK_TEST(CastToInt64, HLSLMin16Int_t);
-  HLK_TEST(CastToUint16, HLSLMin16Int_t);
   HLK_TEST(CastToUint32, HLSLMin16Int_t);
   HLK_TEST(CastToUint64, HLSLMin16Int_t);
-  HLK_TEST(CastToFloat16, HLSLMin16Int_t);
   HLK_TEST(CastToFloat32, HLSLMin16Int_t);
+  // Note: CastToUint16, CastToFloat16 excluded — see min16float note.
 
   // BinaryComparison
   HLK_TEST(LessThan, HLSLMin16Int_t);
@@ -3028,13 +3028,12 @@ public:
 
   // Cast
   HLK_TEST(CastToBool, HLSLMin16Uint_t);
-  HLK_TEST(CastToInt16, HLSLMin16Uint_t);
   HLK_TEST(CastToInt32, HLSLMin16Uint_t);
   HLK_TEST(CastToInt64, HLSLMin16Uint_t);
   HLK_TEST(CastToUint32, HLSLMin16Uint_t);
   HLK_TEST(CastToUint64, HLSLMin16Uint_t);
-  HLK_TEST(CastToFloat16, HLSLMin16Uint_t);
   HLK_TEST(CastToFloat32, HLSLMin16Uint_t);
+  // Note: CastToInt16, CastToFloat16 excluded — see min16float note.
 
   // BinaryComparison
   HLK_TEST(LessThan, HLSLMin16Uint_t);

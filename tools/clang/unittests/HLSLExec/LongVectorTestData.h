@@ -708,18 +708,18 @@ INPUT_SET(InputSet::WaveMultiPrefixBitwise, 0x0, 0x1, 0x3, 0x4, 0x10, 0x12, 0xF,
           -1);
 END_INPUT_SETS()
 
-// Values constrained to uint16 range. Kept small so that multiply, mad,
-// subtract, shift, and wave prefix products do not overflow 16 bits.
+// Values constrained so results stay below 0x8000 (bit 15 clear). WARP may
+// compute min precision at 16-bit and sign-extend bit 15 on 32-bit store.
 BEGIN_INPUT_SETS(HLSLMin16Uint_t)
-INPUT_SET(InputSet::Default1, 3, 199, 3, 200, 5, 10, 22, 8, 9, 10);
-INPUT_SET(InputSet::Default2, 2, 111, 3, 4, 5, 9, 21, 8, 9, 10);
-INPUT_SET(InputSet::Default3, 4, 112, 4, 5, 3, 7, 21, 1, 11, 9);
+INPUT_SET(InputSet::Default1, 3, 7, 3, 5, 5, 10, 4, 8, 9, 10);
+INPUT_SET(InputSet::Default2, 2, 6, 3, 4, 5, 9, 3, 8, 9, 10);
+INPUT_SET(InputSet::Default3, 4, 5, 4, 5, 3, 7, 3, 1, 11, 9);
 INPUT_SET(InputSet::Zero, 0);
-INPUT_SET(InputSet::BitShiftRhs, 1, 6, 3, 0, 9, 3, 11, 12, 12, 12);
+INPUT_SET(InputSet::BitShiftRhs, 1, 6, 3, 0, 9, 3, 8, 8, 8, 8);
 INPUT_SET(InputSet::SelectCond, 0, 1);
 INPUT_SET(InputSet::AllOnes, 1);
-INPUT_SET(InputSet::WaveMultiPrefixBitwise, 0x0, 0x1, 0x3, 0x4, 0x10, 0x12, 0xF,
-          std::numeric_limits<uint16_t>::max());
+INPUT_SET(InputSet::WaveMultiPrefixBitwise, 0x0, 0x1, 0x3, 0x4, 0x10, 0x12,
+          0xF, 0x7FFF);
 END_INPUT_SETS()
 
 #undef BEGIN_INPUT_SETS
