@@ -718,8 +718,8 @@ INPUT_SET(InputSet::Zero, 0);
 INPUT_SET(InputSet::BitShiftRhs, 1, 6, 3, 0, 9, 3, 8, 8, 8, 8);
 INPUT_SET(InputSet::SelectCond, 0, 1);
 INPUT_SET(InputSet::AllOnes, 1);
-INPUT_SET(InputSet::WaveMultiPrefixBitwise, 0x0, 0x1, 0x3, 0x4, 0x10, 0x12,
-          0xF, 0x7FFF);
+INPUT_SET(InputSet::WaveMultiPrefixBitwise, 0x0, 0x1, 0x3, 0x4, 0x10, 0x12, 0xF,
+          0x7FFF);
 END_INPUT_SETS()
 
 #undef BEGIN_INPUT_SETS
