@@ -18,5 +18,5 @@ void main() {
   MyMatrix MatA = MyMatrix::Splat(1.0f);
 }
 
-// CHECK:  %1 = call %dx.types.LinAlgMatrixC9M4N4U0S1 @dx.op.linAlgFillMatrix.mC9M4N4U0S1.f32(i32 -2147483636, float 1.000000e+00)  ; LinAlgFillMatrix(value)
+// CHECK: call %dx.types.LinAlgMatrixC9M4N4U0S1 @dx.op.linAlgFillMatrix.mC9M4N4U0S1.f32(i32 -2147483636, float 1.000000e+00)  ; LinAlgFillMatrix(value)
 // CHECK-NOT: @llvm.trap()
