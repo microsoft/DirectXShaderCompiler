@@ -19,8 +19,8 @@
 // CHECK-DAG: %[[RA_RWBufferType:[a-zA-Z0-9_]+]] = OpTypeRuntimeArray %[[RWBufferType]]
 // CHECK-DAG: %[[RA_SamplerType:[a-zA-Z0-9_]+]] = OpTypeRuntimeArray %[[SamplerType]]
 
-// CHECK: %[[ResourceHeap]] = OpUntypedVariableKHR %[[UntypedPtrType]] Uniform
-// CHECK: %[[SamplerHeap]]  = OpUntypedVariableKHR %[[UntypedPtrType]] Uniform
+// CHECK: %[[ResourceHeap]] = OpUntypedVariableKHR %[[UntypedPtrType]] UniformConstant
+// CHECK: %[[SamplerHeap]]  = OpUntypedVariableKHR %[[UntypedPtrType]] UniformConstant
 
 [numthreads(1, 1, 1)]
 void main(uint3 tid : SV_DispatchThreadID) {
