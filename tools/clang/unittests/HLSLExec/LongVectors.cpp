@@ -783,7 +783,7 @@ template <typename T> uint32_t FirstBitLow(T A) {
 
   for (uint32_t I = 0; I < NumBits; ++I) {
     if (A & (static_cast<T>(1) << I))
-      return I;
+      return static_cast<T>(I);
   }
 
   return std::numeric_limits<uint32_t>::max();
