@@ -126,8 +126,7 @@ runShaderOp(ID3D12Device *Device, dxc::SpecificDllLoader &DxcSupport,
 }
 
 /// Compiles an HLSL shader using the DXC API to verify it is well-formed.
-/// This runs without a D3D12 device, so it works even when no SM 6.10
-/// hardware is available. Fails the test (via VERIFY) on compile error.
+/// Fails the test on compile error.
 static void compileShader(dxc::SpecificDllLoader &DxcSupport,
                           const char *Source, const char *Target,
                           const std::string &Args) {
@@ -385,7 +384,14 @@ static void runLoadStoreRoundtrip(ID3D12Device *Device,
         L"Shader compiled OK; skipping execution (no SM 6.10 device)");
     WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
     return;
+#ifndef _HLK_CONF
+  if (!Device) {
+    hlsl_test::LogCommentFmt(
+        L"Shader compiled OK; skipping execution (no SM 6.10 device)");
+    WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
+    return;
   }
+#endif
 
   // Build expected data.
   std::vector<float> ExpectedFloats(NumElements);
@@ -422,7 +428,7 @@ static void runLoadStoreRoundtrip(ID3D12Device *Device,
           break;
         }
         default:
-          DXASSERT(false, "Saw unsupported component type");
+          VERIFY_IS_TRUE(false, "Saw unsupported component type");
           break;
         }
       });
@@ -440,7 +446,7 @@ static void runLoadStoreRoundtrip(ID3D12Device *Device,
                                    NumElements, Verbose));
     break;
   default:
-    DXASSERT(false, "Saw unsupported component type");
+    VERIFY_IS_TRUE(false, "Saw unsupported component type");
     break;
   }
 }
@@ -501,12 +507,14 @@ static void runSplatStore(ID3D12Device *Device,
   compileShader(DxcSupport, SplatStoreShader, "cs_6_10", Args);
 
   // Skip GPU execution if no device.
+#ifndef _HLK_CONF
   if (!Device) {
     hlsl_test::LogCommentFmt(
         L"Shader compiled OK; skipping execution (no SM 6.10 device)");
     WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
     return;
   }
+#endif
 
   std::vector<float> ExpectedFloats;
   std::vector<int32_t> ExpectedInts;
@@ -518,7 +526,7 @@ static void runSplatStore(ID3D12Device *Device,
     ExpectedInts.assign(NumElements, static_cast<int32_t>(FillValue));
     break;
   default:
-    DXASSERT(false, "Saw unsupported component type");
+    VERIFY_IS_TRUE(false, "Saw unsupported component type");
     break;
   }
 
@@ -542,7 +550,7 @@ static void runSplatStore(ID3D12Device *Device,
                                    NumElements, Verbose));
     break;
   default:
-    DXASSERT(false, "Saw unsupported component type");
+    VERIFY_IS_TRUE(false, "Saw unsupported component type");
     break;
   }
 }
