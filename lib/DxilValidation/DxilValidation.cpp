@@ -974,28 +974,6 @@ static void ValidateImmOperandForMathDxilOp(CallInst *CI, DXIL::OpCode Opcode,
   }
 }
 
-static bool CheckLinalgInterpretation(uint32_t Input, bool InRegister) {
-  using CT = DXIL::ComponentType;
-  switch (static_cast<CT>(Input)) {
-  case CT::I16:
-  case CT::U16:
-  case CT::I32:
-  case CT::U32:
-  case CT::F16:
-  case CT::F32:
-  case CT::U8:
-  case CT::I8:
-  case CT::F8_E4M3:
-  case CT::F8_E5M2:
-    return true;
-  case CT::PackedS8x32:
-  case CT::PackedU8x32:
-    return InRegister;
-  default:
-    return false;
-  }
-}
-
 // Validate the type-defined mask compared to the store value mask which
 // indicates which parts were defined returns true if caller should continue
 // validation
