@@ -7801,15 +7801,6 @@ constexpr IntrinsicLower gLowerTable[] = {
     {IntrinsicOp::MOP_DxHitObject_TraceRay, TranslateHitObjectTraceRay,
      DXIL::OpCode::HitObject_TraceRay},
 
-    {IntrinsicOp::IOP___builtin_MatVecMul, EmptyLower,
-     DXIL::OpCode::NumOpCodes},
-    {IntrinsicOp::IOP___builtin_MatVecMulAdd, EmptyLower,
-     DXIL::OpCode::NumOpCodes},
-    {IntrinsicOp::IOP___builtin_OuterProductAccumulate, EmptyLower,
-     DXIL::OpCode::NumOpCodes},
-    {IntrinsicOp::IOP___builtin_VectorAccumulate, EmptyLower,
-     DXIL::OpCode::NumOpCodes},
-
     {IntrinsicOp::IOP_isnormal, TrivialIsSpecialFloat, DXIL::OpCode::IsNormal},
 
     {IntrinsicOp::IOP_GetGroupWaveCount, TranslateWaveToVal,

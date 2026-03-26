@@ -10,7 +10,7 @@ void main() {
   // CHECK-SAME: (i32 -2147483636, i32 {{.*}})  ; LinAlgFillMatrix(value)
 
   // CHECK2: call void @"dx.hl.op..void (i32, %dx.types.LinAlgMatrixC4M5N4U1S2*, i32)"
-  // CHECK2-SAME: (i32 406, %dx.types.LinAlgMatrixC4M5N4U1S2* {{.*}}, i32 5),
+  // CHECK2-SAME: (i32 402, %dx.types.LinAlgMatrixC4M5N4U1S2* {{.*}}, i32 5),
   __builtin_LinAlgMatrix [[__LinAlgMatrix_Attributes(4, 5, 4, 1, 2)]] mat1;
   __builtin_LinAlg_FillMatrix(mat1, 5);
   
@@ -18,7 +18,7 @@ void main() {
   // CHECK-SAME: (i32 -2147483636, float {{.*}})  ; LinAlgFillMatrix(value)
   
   // CHECK2: call void @"dx.hl.op..void (i32, %dx.types.LinAlgMatrixC5M3N4U0S0*, float)"
-  // CHECK2-SAME: (i32 406, %dx.types.LinAlgMatrixC5M3N4U0S0* {{.*}}, float 0x40091EB860000000)
+  // CHECK2-SAME: (i32 402, %dx.types.LinAlgMatrixC5M3N4U0S0* {{.*}}, float 0x40091EB860000000)
   __builtin_LinAlgMatrix [[__LinAlgMatrix_Attributes(5, 3, 4, 0, 0)]] mat2;
   __builtin_LinAlg_FillMatrix(mat2, 3.14);
 }

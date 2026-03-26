@@ -20,8 +20,8 @@ target triple = "dxil-ms-dx"
 ; Function Attrs: nounwind
 define void @main(<3 x i32> %id) #0 {
 entry:
-  %0 = call i32 @"dx.hl.op.rn.i32 (i32)"(i32 396)
-  %1 = call i32 @"dx.hl.op.rn.i32 (i32)"(i32 395)
+  %0 = call i32 @"dx.hl.op.rn.i32 (i32)"(i32 392)
+  %1 = call i32 @"dx.hl.op.rn.i32 (i32)"(i32 391)
   %2 = load %"class.RWStructuredBuffer<unsigned int>", %"class.RWStructuredBuffer<unsigned int>"* @"\01?output0@@3V?$RWStructuredBuffer@I@@A"
   %3 = call %dx.types.Handle @"dx.hl.createhandle..%dx.types.Handle (i32, %\22class.RWStructuredBuffer<unsigned int>\22)"(i32 0, %"class.RWStructuredBuffer<unsigned int>" %2)
   %4 = call %dx.types.Handle @"dx.hl.annotatehandle..%dx.types.Handle (i32, %dx.types.Handle, %dx.types.ResourceProperties, %\22class.RWStructuredBuffer<unsigned int>\22)"(i32 14, %dx.types.Handle %3, %dx.types.ResourceProperties { i32 4108, i32 4 }, %"class.RWStructuredBuffer<unsigned int>" zeroinitializer)

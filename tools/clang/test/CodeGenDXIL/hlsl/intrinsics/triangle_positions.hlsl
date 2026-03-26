@@ -5,24 +5,24 @@
 
 // AST: `-CXXMethodDecl {{.*}} <<invalid sloc>> <invalid sloc> used TriangleObjectPositions 'BuiltInTrianglePositions &()' extern
 // AST-NEXT:   |-TemplateArgument type 'BuiltInTrianglePositions'
-// AST-NEXT:   |-HLSLIntrinsicAttr {{.*}} <<invalid sloc>> Implicit "op" "" 404
+// AST-NEXT:   |-HLSLIntrinsicAttr {{.*}} <<invalid sloc>> Implicit "op" "" 400
 // AST-NEXT:   |-ConstAttr {{.*}} <<invalid sloc>> Implicit
 // AST-NEXT:   `-AvailabilityAttr {{.*}} <<invalid sloc>> Implicit  6.10 0 0 ""
 
 // AST: `-CXXMethodDecl {{.*}} <<invalid sloc>> <invalid sloc> used CandidateTriangleObjectPositions 'BuiltInTrianglePositions &()' extern
 // AST:   |-TemplateArgument type 'BuiltInTrianglePositions'
-// AST:   |-HLSLIntrinsicAttr {{.*}} <<invalid sloc>> Implicit "op" "" 402
+// AST:   |-HLSLIntrinsicAttr {{.*}} <<invalid sloc>> Implicit "op" "" 398
 // AST:   |-PureAttr {{.*}} <<invalid sloc>> Implicit
 // AST:   `-AvailabilityAttr {{.*}} <<invalid sloc>> Implicit  6.10 0 0 ""
 
 // AST `-CXXMethodDecl {{.*}} <<invalid sloc>> <invalid sloc> used CommittedTriangleObjectPositions 'BuiltInTrianglePositions &()' extern
 // AST   |-TemplateArgument type 'BuiltInTrianglePositions'
-// AST   |-HLSLIntrinsicAttr {{.*}} <<invalid sloc>> Implicit "op" "" 403
+// AST   |-HLSLIntrinsicAttr {{.*}} <<invalid sloc>> Implicit "op" "" 399
 // AST   |-PureAttr {{.*}} <<invalid sloc>> Implicit
 // AST   `-AvailabilityAttr {{.*}} <<invalid sloc>> Implicit  6.10 0 0 ""
 
 // AST: -FunctionDecl {{.*}} <<invalid sloc>> <invalid sloc> implicit used TriangleObjectPositions 'BuiltInTrianglePositions ()' extern
-// AST:  |-HLSLIntrinsicAttr {{.*}} <<invalid sloc>> Implicit "op" "" 401
+// AST:  |-HLSLIntrinsicAttr {{.*}} <<invalid sloc>> Implicit "op" "" 397
 // AST:  |-ConstAttr {{.*}} <<invalid sloc>> Implicit
 // AST:  |-AvailabilityAttr {{.*}} <<invalid sloc>> Implicit  6.10 0 0 ""
 // AST:  `-HLSLBuiltinCallAttr {{.*}} <<invalid sloc>> Implicit
@@ -42,7 +42,7 @@ struct [raypayload] Payload {
 // CHECK:   %{{.*}} = call <9 x float> @dx.op.triangleObjectPosition.f32(i32 -2147483641) ; TriangleObjectPosition()
   
 // FCGL-LABEL: define void {{.*}}ClosestHit
-// FCGL: call void @"dx.hl.op..void (i32, %struct.BuiltInTrianglePositions*)"(i32 401, %struct.BuiltInTrianglePositions* %{{.*}})
+// FCGL: call void @"dx.hl.op..void (i32, %struct.BuiltInTrianglePositions*)"(i32 397, %struct.BuiltInTrianglePositions* %{{.*}})
 [shader("closesthit")]
 void ClosestHit(inout Payload payload, in BuiltInTriangleIntersectionAttributes attr) {
     BuiltInTrianglePositions positions = TriangleObjectPositions();
@@ -54,7 +54,7 @@ void ClosestHit(inout Payload payload, in BuiltInTriangleIntersectionAttributes 
 // CHECK:   %{{.*}} = call <9 x float> @dx.op.triangleObjectPosition.f32(i32 -2147483641) ; TriangleObjectPosition()
 
 // FCGL-LABEL: define void {{.*}}AnyHit
-// FCGL: call void @"dx.hl.op..void (i32, %struct.BuiltInTrianglePositions*)"(i32 401, %struct.BuiltInTrianglePositions* %{{.*}})
+// FCGL: call void @"dx.hl.op..void (i32, %struct.BuiltInTrianglePositions*)"(i32 397, %struct.BuiltInTrianglePositions* %{{.*}})
 [shader("anyhit")]
 void AnyHit(inout Payload payload, in BuiltInTriangleIntersectionAttributes attr) {
     BuiltInTrianglePositions positions = TriangleObjectPositions();
@@ -68,8 +68,8 @@ void AnyHit(inout Payload payload, in BuiltInTriangleIntersectionAttributes attr
 // CHECK: %{{.*}} = call <9 x float> @dx.op.rayQuery_CommittedTriangleObjectPosition.f32(i32 -2147483639, i32 %{{.*}})  ; RayQuery_CommittedTriangleObjectPosition(rayQueryHandle)
 
 // FCGL-LABEL: define void {{.*}}RayQueryTest
-// FCGL: %{{.*}} = call %struct.BuiltInTrianglePositions* @"dx.hl.op.ro.%struct.BuiltInTrianglePositions* (i32, %{{.*}}"(i32 402,
-// FCGL: %{{.*}} = call %struct.BuiltInTrianglePositions* @"dx.hl.op.ro.%struct.BuiltInTrianglePositions* (i32, %{{.*}}"(i32 403,
+// FCGL: %{{.*}} = call %struct.BuiltInTrianglePositions* @"dx.hl.op.ro.%struct.BuiltInTrianglePositions* (i32, %{{.*}}"(i32 398,
+// FCGL: %{{.*}} = call %struct.BuiltInTrianglePositions* @"dx.hl.op.ro.%struct.BuiltInTrianglePositions* (i32, %{{.*}}"(i32 399,
 [shader("compute")]
 [numthreads(1, 1, 1)]
 void RayQueryTest() {
@@ -101,7 +101,7 @@ void RayQueryTest() {
 // CHECK: %{{.*}} = call <9 x float> @dx.op.hitObject_TriangleObjectPosition.f32(i32 -2147483638, %dx.types.HitObject %{{.*}})  ; HitObject_TriangleObjectPosition(hitObject)
 
 // FCGL-LABEL: define void {{.*}}HitObjectTest
-// FCGL: %{{.*}} = call %struct.BuiltInTrianglePositions* @"dx.hl.op.rn.%struct.BuiltInTrianglePositions* (i32, %dx.types.HitObject*)"(i32 404, %dx.types.HitObject* %{{.*}})
+// FCGL: %{{.*}} = call %struct.BuiltInTrianglePositions* @"dx.hl.op.rn.%struct.BuiltInTrianglePositions* (i32, %dx.types.HitObject*)"(i32 400, %dx.types.HitObject* %{{.*}})
 [shader("raygeneration")]
 void HitObjectTest() {
     RayDesc ray;

@@ -15,7 +15,7 @@ void main() {
   // CHECK-SAME: ; LinAlgMatrixLoadFromMemory(memory,offset,stride,layout)
 
   // CHECK2: call void @"dx.hl.op..void (i32, %dx.types.LinAlgMatrixC4M5N4U1S2*, [64 x float] addrspace(3)*,
-  // CHECK2-SAME: i32, i32, i32)"(i32 411, %dx.types.LinAlgMatrixC4M5N4U1S2* %mat, [64 x float] addrspace(3)*
+  // CHECK2-SAME: i32, i32, i32)"(i32 407, %dx.types.LinAlgMatrixC4M5N4U1S2* %mat, [64 x float] addrspace(3)*
   // CHECK2-SAME: @"\01?SharedArr@@3PAMA", i32 1, i32 2, i32 3)
   __builtin_LinAlgMatrix [[__LinAlgMatrix_Attributes(4, 5, 4, 1, 2)]] mat;
   __builtin_LinAlg_MatrixLoadFromMemory(mat, SharedArr, 1, 2, 3);
