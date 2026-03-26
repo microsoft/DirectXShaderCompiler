@@ -82,16 +82,20 @@ std::unique_ptr<st::ShaderOp>
 createComputeOp(const char *Source, const char *Target, const char *RootSig,
                 const char *Args = nullptr, UINT DispatchX = 1,
                 UINT DispatchY = 1, UINT DispatchZ = 1);
+
 /// Add a UAV buffer resource to a ShaderOp.
 void addUAVBuffer(st::ShaderOp *Op, const char *Name, UINT64 Width,
                   bool ReadBack, const char *Init = "zero");
+
 /// Bind a resource to a root UAV parameter by index.
 void addRootUAV(st::ShaderOp *Op, UINT Index, const char *ResName);
+
 /// Run a programmatically-built ShaderOp and return the result.
 std::shared_ptr<st::ShaderOpTestResult>
 runShaderOp(ID3D12Device *Device, dxc::SpecificDllLoader &DxcSupport,
             std::unique_ptr<st::ShaderOp> Op,
             st::ShaderOpTest::TInitCallbackFn InitCallback = nullptr);
+
 /// Compiles an HLSL shader using the DXC API to verify it is well-formed.
 /// Fails the test on compile error.
 void compileShader(dxc::SpecificDllLoader &DxcSupport, const char *Source,
