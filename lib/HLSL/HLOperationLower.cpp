@@ -4322,6 +4322,26 @@ static SmallVector<Value *, 10> GetBufLoadArgs(ResLoadHelper helper,
   return Args;
 }
 
+// Returns true if EltTy is a min precision type whose padded alloc size
+// exceeds its primitive size (e.g., i16:32, f16:32 in the data layout).
+static bool isMinPrecisionType(Type *EltTy, const DataLayout &DL) {
+  return !EltTy->isIntegerTy(1) &&
+         DL.getTypeAllocSizeInBits(EltTy) > EltTy->getPrimitiveSizeInBits();
+}
+
+// Widens a min precision element type to its 32-bit equivalent (i32 or f32).
+// Returns the original type if not min precision.
+static Type *widenMinPrecisionType(Type *EltTy, Type *VecOrScalarTy,
+                                   IRBuilder<> &Builder, const DataLayout &DL) {
+  if (!isMinPrecisionType(EltTy, DL))
+    return VecOrScalarTy;
+  Type *WideTy = EltTy->isFloatingPointTy() ? (Type *)Builder.getFloatTy()
+                                            : (Type *)Builder.getInt32Ty();
+  if (VecOrScalarTy->isVectorTy())
+    return VectorType::get(WideTy, VecOrScalarTy->getVectorNumElements());
+  return WideTy;
+}
+
 // Emits as many calls as needed to load the full vector
 // Performs any needed extractions and conversions of the results.
 Value *TranslateBufLoad(ResLoadHelper &helper, HLResource::Kind RK,
@@ -4338,12 +4358,8 @@ Value *TranslateBufLoad(ResLoadHelper &helper, HLResource::Kind RK,
   Type *EltTy = Ty->getScalarType();
   const bool is64 = (EltTy->isIntegerTy(64) || EltTy->isDoubleTy());
   const bool isBool = EltTy->isIntegerTy(1);
-  // Check for min precision types: their alloc size (from data layout padding
-  // like i16:32, f16:32) exceeds their primitive size. RawBufferVectorLoad
-  // should use the widened type (i32/f32) to match how pre-SM6.9
-  // RawBufferLoad handles min precision (load i32, then trunc to i16).
-  const bool isMinPrec = !isBool && DL.getTypeAllocSizeInBits(EltTy) >
-                                        EltTy->getPrimitiveSizeInBits();
+  // Min precision alloc size exceeds prim size. Use the widened type.
+  const bool isMinPrec = isMinPrecisionType(EltTy, DL);
   Type *OrigEltTy = EltTy;
   // Values will be loaded in memory representations.
   if (isBool || (is64 && isTyped) || isMinPrec) {
@@ -4466,13 +4482,11 @@ Value *TranslateBufLoad(ResLoadHelper &helper, HLResource::Kind RK,
         retValNew, Constant::getNullValue(retValNew->getType()));
 
   // Truncate widened min precision loads back to original type.
-  // e.g., <3 x i32> from rawBufferVectorLoad.v3i32 -> <3 x i16>
   if (isMinPrec) {
-    Type *TargetTy = Ty;
     if (OrigEltTy->isIntegerTy())
-      retValNew = Builder.CreateTrunc(retValNew, TargetTy);
+      retValNew = Builder.CreateTrunc(retValNew, Ty);
     else
-      retValNew = Builder.CreateFPTrunc(retValNew, TargetTy);
+      retValNew = Builder.CreateFPTrunc(retValNew, Ty);
   }
 
   helper.retVal->replaceAllUsesWith(retValNew);
@@ -4595,24 +4609,18 @@ void TranslateStore(DxilResource::Kind RK, Value *handle, Value *val,
     val = Builder.CreateZExt(val, Ty);
   }
 
-  // Widen min precision types to i32/f32 for RawBufferVectorStore, matching
-  // how pre-SM6.9 RawBufferStore handles min precision (store as i32).
+  // Widen min precision types to i32/f32 for RawBufferVectorStore.
   if (opcode == OP::OpCode::RawBufferVectorStore) {
     const DataLayout &DL =
         OP->GetModule()->GetHLModule().GetModule()->getDataLayout();
-    if (DL.getTypeAllocSizeInBits(EltTy) > EltTy->getPrimitiveSizeInBits()) {
-      Type *WideTy = EltTy->isFloatingPointTy() ? (Type *)Builder.getFloatTy()
-                                                : (Type *)i32Ty;
-      Type *WideVecTy =
-          Ty->isVectorTy()
-              ? (Type *)VectorType::get(WideTy, Ty->getVectorNumElements())
-              : WideTy;
+    Type *WideTy = widenMinPrecisionType(EltTy, Ty, Builder, DL);
+    if (WideTy != Ty) {
       if (EltTy->isFloatingPointTy())
-        val = Builder.CreateFPExt(val, WideVecTy);
+        val = Builder.CreateFPExt(val, WideTy);
       else
-        val = Builder.CreateSExt(val, WideVecTy);
-      EltTy = WideTy;
-      Ty = WideVecTy;
+        val = Builder.CreateSExt(val, WideTy);
+      EltTy = WideTy->getScalarType();
+      Ty = WideTy;
     }
   }
 
