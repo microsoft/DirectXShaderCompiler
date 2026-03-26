@@ -4322,8 +4322,6 @@ static SmallVector<Value *, 10> GetBufLoadArgs(ResLoadHelper helper,
   return Args;
 }
 
-// Returns true if EltTy is a min precision type whose padded alloc size
-// exceeds its primitive size (e.g., i16:32, f16:32 in the data layout).
 static bool isMinPrecisionType(Type *EltTy, const DataLayout &DL) {
   return !EltTy->isIntegerTy(1) &&
          DL.getTypeAllocSizeInBits(EltTy) > EltTy->getPrimitiveSizeInBits();
