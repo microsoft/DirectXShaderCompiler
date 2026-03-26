@@ -12,7 +12,7 @@ namespace hlsl {
 
 namespace dxil {
 
-// This enum is be _exactly_ the DXIL constants.
+// This enum must _exactly_ match the DXIL constants.
 enum class ComponentType : uint32_t {
   Invalid = 0,
   I1 = 1,
@@ -76,6 +76,9 @@ struct ComponentType {
     __COMPONENT_TYPE(F64),
   };
 };
+
+#undef __COMPONENT_TYPE
+
 using ComponentEnum = ComponentType::ComponentEnum;
 
 struct MatrixUse {
