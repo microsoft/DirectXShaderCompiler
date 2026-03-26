@@ -148,10 +148,12 @@ public:
   void SetCBufferSize(unsigned size);
   void MarkEmptyStruct();
   bool IsEmptyStruct();
-  // Since resources don't take real space, IsEmptyBesidesResources
-  // determines if the structure is empty or contains only resources.
-  bool IsEmptyBesidesResources();
+  // Since resources and target types don't take real space,
+  // IsEmptyBesidesResourcesAndTargetTypes() determines if the structure is
+  // empty or contains only resources or target types.
+  bool IsEmptyBesidesResourcesAndTargetTypes() const;
   bool ContainsResources() const;
+  bool ContainsTargetTypes() const;
 
   // For template args, GetNumTemplateArgs() will return 0 if not a template
   unsigned GetNumTemplateArgs() const;
@@ -174,6 +176,15 @@ private:
     False,
     Only
   } m_ResourcesContained = HasResources::False;
+
+  void SetContainsTargetTypes();
+  // HasTargetTypes::Only will be set on MarkEmptyStruct() when
+  // HasTargetTypes::True
+  enum class HasTargetTypes {
+    True,
+    False,
+    Only
+  } m_TargetTypesContained = HasTargetTypes::False;
 };
 
 /// Use this class to represent type annotation for DXR payload field.
@@ -341,7 +352,10 @@ public:
   void SetMinPrecision(bool bMinPrecision);
 
   // Determines whether type is a resource or contains a resource
-  bool IsResourceContained(llvm::Type *Ty);
+  bool IsResourceContained(llvm::Type *Ty) const;
+
+  // Determines whether type is a target type or contains a target type
+  bool IsTargetTypeContained(llvm::Type *Ty) const;
 
 private:
   llvm::Module *m_pModule;
