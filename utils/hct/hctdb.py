@@ -6312,6 +6312,7 @@ class db_dxil(object):
                     "number of bytes between the start of each row or column",
                 ),
                 db_dxil_param(5, "i32", "layout", "memory layout of matrix elements"),
+                db_dxil_param(6, "i32", "align", "alignment of matrix elements"),
             ],
         )
 
@@ -6413,6 +6414,7 @@ class db_dxil(object):
                     "number of bytes between the start of each row or column",
                 ),
                 db_dxil_param(6, "i32", "layout", "memory layout of matrix elements"),
+                db_dxil_param(7, "i32", "align", "alignment of matrix elements"),
             ],
         )
 
@@ -6530,6 +6532,7 @@ class db_dxil(object):
                     "number of bytes between the start of each row or column",
                 ),
                 db_dxil_param(6, "i32", "layout", "memory layout of matrix elements"),
+                db_dxil_param(7, "i32", "align", "alignment of matrix elements"),
             ],
         )
 
