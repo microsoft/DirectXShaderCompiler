@@ -708,7 +708,8 @@ runShaderOp(ID3D12Device *Device, dxc::SpecificDllLoader &DxcSupport,
 }
 
 void compileShader(dxc::SpecificDllLoader &DxcSupport, const char *Source,
-                   const char *Target, const std::string &Args) {
+                   const char *Target, const std::string &Args,
+                   bool VerboseLogging) {
   CComPtr<IDxcCompiler3> Compiler;
   VERIFY_SUCCEEDED(DxcSupport.CreateInstance(CLSID_DxcCompiler, &Compiler));
 
@@ -744,6 +745,11 @@ void compileShader(dxc::SpecificDllLoader &DxcSupport, const char *Source,
   Buf.Ptr = SourceBlob->GetBufferPointer();
   Buf.Size = SourceBlob->GetBufferSize();
   Buf.Encoding = DXC_CP_UTF8;
+
+  if (VerboseLogging) {
+      hlsl_test::LogCommentFmt(L"Shader Source:");
+      hlsl_test::LogCommentFmt(L"%c", Source);
+  }
 
   hlsl_test::LogCommentFmt(LogFlags.str().c_str());
 

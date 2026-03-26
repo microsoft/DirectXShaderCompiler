@@ -99,6 +99,7 @@ runShaderOp(ID3D12Device *Device, dxc::SpecificDllLoader &DxcSupport,
 /// Compiles an HLSL shader using the DXC API to verify it is well-formed.
 /// Fails the test on compile error.
 void compileShader(dxc::SpecificDllLoader &DxcSupport, const char *Source,
-                   const char *Target, const std::string &Args);
+                   const char *Target, const std::string &Args,
+                   bool VerboseLogging = false);
 
 #endif // HLSLEXECTESTUTILS_H

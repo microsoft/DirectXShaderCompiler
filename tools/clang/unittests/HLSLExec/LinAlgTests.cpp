@@ -198,9 +198,6 @@ bool DxilConf_SM610_LinAlg::createDevice() {
 }
 
 bool DxilConf_SM610_LinAlg::setupClass() {
-  WEX::TestExecution::SetVerifyOutput VerifySettings(
-      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
-
   if (!Initialized) {
     Initialized = true;
     VERIFY_SUCCEEDED(
@@ -257,7 +254,7 @@ static void runLoadStoreRoundtrip(ID3D12Device *Device,
   std::string Args = buildCompilerArgs(Params, ExtraDefs.str().c_str());
 
   // Always verify the shader compiles.
-  compileShader(DxcSupport, LoadStoreShader, "cs_6_10", Args);
+  compileShader(DxcSupport, LoadStoreShader, "cs_6_10", Args, Verbose);
 
 #ifndef _HLK_CONF
   // Skip GPU execution if no device.
@@ -380,7 +377,7 @@ static void runSplatStore(ID3D12Device *Device,
   std::string Args = buildCompilerArgs(Params, ExtraDefs.str().c_str());
 
   // Always verify the shader compiles.
-  compileShader(DxcSupport, SplatStoreShader, "cs_6_10", Args);
+  compileShader(DxcSupport, SplatStoreShader, "cs_6_10", Args, Verbose);
 
 #ifndef _HLK_CONF
   // Skip GPU execution if no device.
