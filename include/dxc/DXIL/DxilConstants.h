@@ -204,6 +204,13 @@ enum class MatrixScope : uint32_t {
   ThreadGroup = 2,
 };
 
+enum class LinalgMatrixLayout : uint32_t {
+  RowMajor = 0,
+  ColumnMajor = 1,
+  MulOptimal = 2,
+  OuterProductOptimal = 3,
+};
+
 // Must match D3D_INTERPOLATION_MODE
 enum class InterpolationMode : uint8_t {
   Undefined = 0,
