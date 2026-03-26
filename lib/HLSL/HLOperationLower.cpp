@@ -4360,8 +4360,13 @@ Value *TranslateBufLoad(ResLoadHelper &helper, HLResource::Kind RK,
   const bool isMinPrec = isMinPrecisionType(EltTy, DL);
   Type *OrigEltTy = EltTy;
   // Values will be loaded in memory representations.
-  if (isBool || (is64 && isTyped) || isMinPrec) {
-    if (isMinPrec && EltTy->isFloatingPointTy())
+  // If bool (i1), load from memory-representation (i32),
+  // or if 64-bits and typed, load i32 chunks, then reconstruct values.
+  if (isBool || (is64 && isTyped)) {
+    EltTy = Builder.getInt32Ty();
+  } else if (isMinPrec) {
+    // If min-precision, load raw value as 32-bit type.
+    if (EltTy->isFloatingPointTy())
       EltTy = Builder.getFloatTy();
     else
       EltTy = Builder.getInt32Ty();
