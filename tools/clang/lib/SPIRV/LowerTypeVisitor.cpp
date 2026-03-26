@@ -863,10 +863,12 @@ const SpirvType *LowerTypeVisitor::lowerVkTypeInVkNamespace(
       loweredType = spvContext.getUIntType(32);
     }
 
+    // Drop the "SampledTexture" prefix.
+    StringRef suffix = name.drop_front(14);
     const spv::Dim dimension =
-        name.count("1D") > 0 ? spv::Dim::Dim1D : spv::Dim::Dim2D;
-    const bool isArray = name.count("Array") > 0;
-    const bool isMS = name.count("MS") > 0;
+        suffix.startswith("1D") ? spv::Dim::Dim1D : spv::Dim::Dim2D;
+    const bool isArray = suffix.endswith("Array");
+    const bool isMS = suffix.find("MS") != StringRef::npos;
 
     const auto *imageType = spvContext.getImageType(
         loweredType, dimension, ImageType::WithDepth::No, isArray, isMS,
