@@ -1,5 +1,5 @@
 // REQUIRES: dxil-1-10
-// RUN: %dxc -I %hlsl_headers -T cs_6_10 -enable-16bit-types %s | FileCheck %s
+// RUN: %dxc -T cs_6_10 -enable-16bit-types %s | FileCheck %s
 
 using MyHandleT = __builtin_LinAlgMatrix [[__LinAlgMatrix_Attributes(9, 4, 4, 0, 1)]];
 
