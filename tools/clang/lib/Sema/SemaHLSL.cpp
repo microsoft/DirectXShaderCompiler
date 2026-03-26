@@ -7792,6 +7792,7 @@ unsigned HLSLExternalSource::GetNumElements(QualType anyType) {
   case AR_TOBJ_BASIC:
   case AR_TOBJ_OBJECT:
   case AR_TOBJ_STRING:
+  case AR_TOBJ_LINALG_MATRIX:
     return 1;
   case AR_TOBJ_COMPOUND: {
     // TODO: consider caching this value for perf
@@ -7927,6 +7928,7 @@ QualType HLSLExternalSource::GetNthElementType(QualType type, unsigned index) {
   case AR_TOBJ_BASIC:
   case AR_TOBJ_OBJECT:
   case AR_TOBJ_STRING:
+  case AR_TOBJ_LINALG_MATRIX:
     return (index == 0) ? type : QualType();
   case AR_TOBJ_COMPOUND: {
     // TODO: consider caching this value for perf
