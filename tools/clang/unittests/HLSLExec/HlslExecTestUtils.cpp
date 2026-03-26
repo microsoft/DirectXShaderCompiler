@@ -747,8 +747,8 @@ void compileShader(dxc::SpecificDllLoader &DxcSupport, const char *Source,
   Buf.Encoding = DXC_CP_UTF8;
 
   if (VerboseLogging) {
-      hlsl_test::LogCommentFmt(L"Shader Source:");
-      hlsl_test::LogCommentFmt(L"%c", Source);
+    hlsl_test::LogCommentFmt(L"Shader Source:");
+    hlsl_test::LogCommentFmt(L"%c", Source);
   }
 
   hlsl_test::LogCommentFmt(LogFlags.str().c_str());
