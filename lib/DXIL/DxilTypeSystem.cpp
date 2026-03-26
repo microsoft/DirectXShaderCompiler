@@ -882,10 +882,10 @@ bool DxilTypeSystem::IsResourceContained(llvm::Type *Ty) const {
   if (auto *ST = dyn_cast<StructType>(Ty)) {
     if (dxilutil::IsHLSLResourceType(Ty))
       return true;
-    else if (auto *SA = GetStructAnnotation(ST)) {
+    else if (auto *SA = GetStructAnnotation(ST))
       if (SA->ContainsResources())
         return true;
-    }
+  }
   return false;
 }
 
@@ -899,10 +899,10 @@ bool DxilTypeSystem::IsTargetTypeContained(llvm::Type *Ty) const {
   if (auto *ST = dyn_cast<StructType>(Ty)) {
     if (dxilutil::IsHLSLKnownTargetType(Ty))
       return true;
-    else if (auto *SA = GetStructAnnotation(ST)) {
+    else if (auto *SA = GetStructAnnotation(ST))
       if (SA->ContainsTargetTypes())
         return true;
-    }
+  }
   return false;
 }
 
