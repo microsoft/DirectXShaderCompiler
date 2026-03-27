@@ -13,7 +13,7 @@ void main() {
   // CHECK-SAME:  ; LinAlgMatrixStoreToDescriptor(matrix,handle,offset,stride,layout,align)
 
   // CHECK2: call void @"dx.hl.op..void (i32, %dx.types.LinAlgMatrixC4M5N4U1S2, %dx.types.Handle, i32, i32, i32, i32)
-  // CHECK2-SAME: "(i32 413, %dx.types.LinAlgMatrixC4M5N4U1S2 {{.*}}, %dx.types.Handle {{.*}}, i32 1, i32 1, i32 0, i32 4)
+  // CHECK2-SAME: "(i32 409, %dx.types.LinAlgMatrixC4M5N4U1S2 {{.*}}, %dx.types.Handle {{.*}}, i32 1, i32 1, i32 0, i32 4)
   __builtin_LinAlgMatrix [[__LinAlgMatrix_Attributes(4, 5, 4, 1, 2)]] mat1;
   __builtin_LinAlg_MatrixStoreToDescriptor(mat1, outbuf, 1, 1, 0, 4);
 }

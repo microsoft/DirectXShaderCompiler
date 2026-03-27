@@ -8,6 +8,6 @@ void main() {
 
   // CHECK: call i32 @dx.op.linAlgMatrixQueryAccumulatorLayout(i32 -2147483626)  ; LinAlgMatrixQueryAccumulatorLayout()
 
-  // CHECK2: call i32 @"dx.hl.op..i32 (i32)"(i32 418)
+  // CHECK2: call i32 @"dx.hl.op..i32 (i32)"(i32 414)
   uint layout = __builtin_LinAlg_MatrixQueryAccumulatorLayout();
 }

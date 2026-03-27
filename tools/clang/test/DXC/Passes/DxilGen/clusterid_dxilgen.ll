@@ -48,7 +48,7 @@ define void @"\01?test_cluster_id@@YAXUPayload@@UBuiltInTriangleIntersectionAttr
 entry:
   %0 = getelementptr inbounds %struct.Payload, %struct.Payload* %payload, i32 0, i32 0
   %1 = load float, float* %0
-  %2 = call i32 @"dx.hl.op.rn.i32 (i32)"(i32 397), !dbg !38 ; line:56 col:14
+  %2 = call i32 @"dx.hl.op.rn.i32 (i32)"(i32 393), !dbg !38 ; line:56 col:14
   %3 = load %struct.RWByteAddressBuffer, %struct.RWByteAddressBuffer* @"\01?outbuf@@3URWByteAddressBuffer@@A", !dbg !42 ; line:57 col:3
   %4 = call %dx.types.Handle @"dx.hl.createhandle..%dx.types.Handle (i32, %struct.RWByteAddressBuffer)"(i32 0, %struct.RWByteAddressBuffer %3), !dbg !42 ; line:57 col:3
   %5 = call %dx.types.Handle @"dx.hl.annotatehandle..%dx.types.Handle (i32, %dx.types.Handle, %dx.types.ResourceProperties, %struct.RWByteAddressBuffer)"(i32 14, %dx.types.Handle %4, %dx.types.ResourceProperties { i32 4107, i32 0 }, %struct.RWByteAddressBuffer zeroinitializer), !dbg !42 ; line:57 col:3
@@ -72,7 +72,7 @@ entry:
   %1 = call %dx.types.Handle @"dx.hl.annotatehandle..%dx.types.Handle (i32, %dx.types.Handle, %dx.types.ResourceProperties, %struct.RaytracingAccelerationStructure)"(i32 14, %dx.types.Handle %0, %dx.types.ResourceProperties { i32 16, i32 0 }, %struct.RaytracingAccelerationStructure zeroinitializer), !dbg !46 ; line:77 col:3
   call void @"dx.hl.op..void (i32, i32, %dx.types.Handle, i32, i32, <3 x float>, float, <3 x float>, float)"(i32 325, i32 %rq3, %dx.types.Handle %1, i32 0, i32 255, <3 x float> zeroinitializer, float 0.000000e+00, <3 x float> <float 0.000000e+00, float 0.000000e+00, float 1.000000e+00>, float 1.000000e+03), !dbg !46 ; line:77 col:3
   %2 = call i1 @"dx.hl.op..i1 (i32, i32)"(i32 322, i32 %rq3), !dbg !47 ; line:78 col:3
-  %3 = call i32 @"dx.hl.op.ro.i32 (i32, i32)"(i32 398, i32 %rq3), !dbg !48 ; line:79 col:14
+  %3 = call i32 @"dx.hl.op.ro.i32 (i32, i32)"(i32 394, i32 %rq3), !dbg !48 ; line:79 col:14
   %4 = load %struct.RWByteAddressBuffer, %struct.RWByteAddressBuffer* @"\01?outbuf@@3URWByteAddressBuffer@@A", !dbg !49 ; line:80 col:3
   %5 = call %dx.types.Handle @"dx.hl.createhandle..%dx.types.Handle (i32, %struct.RWByteAddressBuffer)"(i32 0, %struct.RWByteAddressBuffer %4), !dbg !49 ; line:80 col:3
   %6 = call %dx.types.Handle @"dx.hl.annotatehandle..%dx.types.Handle (i32, %dx.types.Handle, %dx.types.ResourceProperties, %struct.RWByteAddressBuffer)"(i32 14, %dx.types.Handle %5, %dx.types.ResourceProperties { i32 4107, i32 0 }, %struct.RWByteAddressBuffer zeroinitializer), !dbg !49 ; line:80 col:3
@@ -87,7 +87,7 @@ entry:
   %0 = call %dx.types.Handle @"dx.hl.createhandle..%dx.types.Handle (i32, %struct.RaytracingAccelerationStructure)"(i32 0, %struct.RaytracingAccelerationStructure zeroinitializer), !dbg !53 ; line:100 col:3
   %1 = call %dx.types.Handle @"dx.hl.annotatehandle..%dx.types.Handle (i32, %dx.types.Handle, %dx.types.ResourceProperties, %struct.RaytracingAccelerationStructure)"(i32 14, %dx.types.Handle %0, %dx.types.ResourceProperties { i32 16, i32 0 }, %struct.RaytracingAccelerationStructure zeroinitializer), !dbg !53 ; line:100 col:3
   call void @"dx.hl.op..void (i32, i32, %dx.types.Handle, i32, i32, <3 x float>, float, <3 x float>, float)"(i32 325, i32 %rq2, %dx.types.Handle %1, i32 0, i32 255, <3 x float> zeroinitializer, float 0.000000e+00, <3 x float> <float 0.000000e+00, float 0.000000e+00, float 1.000000e+00>, float 1.000000e+03), !dbg !53 ; line:100 col:3
-  %2 = call i32 @"dx.hl.op.ro.i32 (i32, i32)"(i32 399, i32 %rq2), !dbg !54 ; line:101 col:14
+  %2 = call i32 @"dx.hl.op.ro.i32 (i32, i32)"(i32 395, i32 %rq2), !dbg !54 ; line:101 col:14
   %3 = load %struct.RWByteAddressBuffer, %struct.RWByteAddressBuffer* @"\01?outbuf@@3URWByteAddressBuffer@@A", !dbg !55 ; line:102 col:3
   %4 = call %dx.types.Handle @"dx.hl.createhandle..%dx.types.Handle (i32, %struct.RWByteAddressBuffer)"(i32 0, %struct.RWByteAddressBuffer %3), !dbg !55 ; line:102 col:3
   %5 = call %dx.types.Handle @"dx.hl.annotatehandle..%dx.types.Handle (i32, %dx.types.Handle, %dx.types.ResourceProperties, %struct.RWByteAddressBuffer)"(i32 14, %dx.types.Handle %4, %dx.types.ResourceProperties { i32 4107, i32 0 }, %struct.RWByteAddressBuffer zeroinitializer), !dbg !55 ; line:102 col:3
@@ -102,7 +102,7 @@ entry:
   %0 = bitcast %dx.types.HitObject* %ho to i8*, !dbg !57 ; line:114 col:3
   call void @llvm.lifetime.start(i64 4, i8* %0) #0, !dbg !57 ; line:114 col:3
   call void @"dx.hl.op..void (i32, %dx.types.HitObject*)"(i32 358, %dx.types.HitObject* %ho), !dbg !59 ; line:114 col:22
-  %1 = call i32 @"dx.hl.op.rn.i32 (i32, %dx.types.HitObject*)"(i32 400, %dx.types.HitObject* %ho), !dbg !60 ; line:115 col:14
+  %1 = call i32 @"dx.hl.op.rn.i32 (i32, %dx.types.HitObject*)"(i32 396, %dx.types.HitObject* %ho), !dbg !60 ; line:115 col:14
   %2 = load %struct.RWByteAddressBuffer, %struct.RWByteAddressBuffer* @"\01?outbuf@@3URWByteAddressBuffer@@A", !dbg !61 ; line:116 col:3
   %3 = call %dx.types.Handle @"dx.hl.createhandle..%dx.types.Handle (i32, %struct.RWByteAddressBuffer)"(i32 0, %struct.RWByteAddressBuffer %2), !dbg !61 ; line:116 col:3
   %4 = call %dx.types.Handle @"dx.hl.annotatehandle..%dx.types.Handle (i32, %dx.types.Handle, %dx.types.ResourceProperties, %struct.RWByteAddressBuffer)"(i32 14, %dx.types.Handle %3, %dx.types.ResourceProperties { i32 4107, i32 0 }, %struct.RWByteAddressBuffer zeroinitializer), !dbg !61 ; line:116 col:3

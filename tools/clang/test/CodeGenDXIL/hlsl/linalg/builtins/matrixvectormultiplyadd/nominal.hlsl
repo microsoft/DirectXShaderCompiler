@@ -15,7 +15,7 @@ void main() {
   // CHECK-SAME: ; LinAlgMatVecMulAdd(matrix,inputVector,inputInterpretation,biasVector,biasInterpretation)
 
   // CHECK2: call void @"dx.hl.op..void (i32, <4 x float>*, %dx.types.LinAlgMatrixC5M3N4U0S0, <4 x float>,
-  // CHECK2-SAME: i32, <4 x float>, i32)"(i32 423, <4 x float>* %result, %dx.types.LinAlgMatrixC5M3N4U0S0 %{{[0-9]+}},
+  // CHECK2-SAME: i32, <4 x float>, i32)"(i32 419, <4 x float>* %result, %dx.types.LinAlgMatrixC5M3N4U0S0 %{{[0-9]+}},
   // CHECK2-SAME: <4 x float> %{{[0-9]+}}, i32 1, <4 x float> %{{[0-9]+}}, i32 0)
 
   __builtin_LinAlg_MatrixVectorMultiplyAdd(result, mat, vec, 1, result, 0);

@@ -10,7 +10,7 @@ void main() {
   // CHECK-SAME: %dx.types.LinAlgMatrixC4M5N4U1S2 {{.*}}, %dx.types.LinAlgMatrixC4M5N4U1S2 {{.*}}) ; LinAlgMatrixMultiply(matrixA,matrixB)
 
   // CHECK2: call void @"dx.hl.op..void (i32, %dx.types.LinAlgMatrixC4M5N4U1S2*, %dx.types.LinAlgMatrixC4M5N4U1S2,
-  // CHECK2-SAME: %dx.types.LinAlgMatrixC4M5N4U1S2)"(i32 416, %dx.types.LinAlgMatrixC4M5N4U1S2* %mat2,
+  // CHECK2-SAME: %dx.types.LinAlgMatrixC4M5N4U1S2)"(i32 412, %dx.types.LinAlgMatrixC4M5N4U1S2* %mat2,
   // CHECK2-SAME: %dx.types.LinAlgMatrixC4M5N4U1S2 %{{[0-9]+}}, %dx.types.LinAlgMatrixC4M5N4U1S2 %{{[0-9]+}})
   __builtin_LinAlgMatrix [[__LinAlgMatrix_Attributes(4, 5, 4, 1, 2)]] mat1;
   __builtin_LinAlgMatrix [[__LinAlgMatrix_Attributes(4, 5, 4, 1, 2)]] mat2;

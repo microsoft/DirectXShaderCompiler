@@ -13,7 +13,7 @@ void main() {
   // CHECK-SAME: (i32 -2147483619, <4 x float> {{.*}}, <4 x float> {{.*}})  ; LinAlgMatrixOuterProduct(vectorA,vectorB)
 
   // CHECK2: call void @"dx.hl.op..void (i32, %dx.types.LinAlgMatrixC2M2N2U2S2*, <4 x float>, <4 x float>)"
-  // CHECK2: (i32 421, %dx.types.LinAlgMatrixC2M2N2U2S2* {{.*}}, <4 x float> {{.*}}, <4 x float> {{.*}})
+  // CHECK2: (i32 417, %dx.types.LinAlgMatrixC2M2N2U2S2* {{.*}}, <4 x float> {{.*}}, <4 x float> {{.*}})
   __builtin_LinAlgMatrix [[__LinAlgMatrix_Attributes(2, 2, 2, 2, 2)]] mat;
   __builtin_LinAlg_MatrixOuterProduct(mat, lhs, rhs);
 }

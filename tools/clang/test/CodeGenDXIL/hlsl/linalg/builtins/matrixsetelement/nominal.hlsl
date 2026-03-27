@@ -14,7 +14,7 @@ void main() {
   // CHECK-SAME: ; LinAlgMatrixSetElement(matrix,threadLocalIndex,value)
 
   // CHECK2: call void @"dx.hl.op..void (i32, %dx.types.LinAlgMatrixC4M5N4U1S2*, %dx.types.LinAlgMatrixC4M5N4U1S2, i32, i32)
-  // CHECK2-SAME: "(i32 412, %dx.types.LinAlgMatrixC4M5N4U1S2* {{.*}}, %dx.types.LinAlgMatrixC4M5N4U1S2 {{.*}}, i32 1, i32 5)
+  // CHECK2-SAME: "(i32 408, %dx.types.LinAlgMatrixC4M5N4U1S2* {{.*}}, %dx.types.LinAlgMatrixC4M5N4U1S2 {{.*}}, i32 1, i32 5)
 
   __builtin_LinAlgMatrix [[__LinAlgMatrix_Attributes(4, 5, 4, 1, 2)]] mat1;
   __builtin_LinAlgMatrix [[__LinAlgMatrix_Attributes(4, 5, 4, 1, 2)]] mat2;
