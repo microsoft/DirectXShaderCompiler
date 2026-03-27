@@ -193,4 +193,14 @@ void main() {
   float4 input = {1,2,3,4};
   float4 bias = {5,6,7,8};
   __builtin_LinAlg_MatrixVectorMultiplyAdd(result, mat1, input, 1, bias, 2);
+
+// CHECK: FunctionDecl {{.*}} implicit used __builtin_LinAlg_Convert 'void (vector<int, 4> &, vector<float, 4>, unsigned int, unsigned int)' extern
+// CHECK-NEXT: ParmVarDecl {{.*}} ret 'vector<int, 4> &&__restrict'
+// CHECK-NEXT: ParmVarDecl {{.*}} vec 'vector<float, 4>':'vector<float, 4>'
+// CHECK-NEXT: ParmVarDecl {{.*}} input_interp 'unsigned int'
+// CHECK-NEXT: ParmVarDecl {{.*}} output_interp 'unsigned int'
+// CHECK-NEXT: HLSLIntrinsicAttr {{.*}} Implicit "op" "" 422
+// CHECK-NEXT: AvailabilityAttr {{.*}} Implicit  6.10 0 0 ""
+  int4 result2;
+  __builtin_LinAlg_Convert(result2, vec, 0, 1);
 }

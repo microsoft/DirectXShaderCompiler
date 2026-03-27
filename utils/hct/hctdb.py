@@ -1163,7 +1163,7 @@ class db_dxil(object):
         for i in insts(
             "LinAlgMatrixQueryAccumulatorLayout,LinAlgMatrixLoadFromDescriptor,"
             + "LinAlgMatrixAccumulateToDescriptor,LinAlgMatVecMul,"
-            + "LinAlgMatVecMulAdd,LinAlgMatrixOuterProduct"
+            + "LinAlgMatVecMulAdd,LinAlgMatrixOuterProduct,LinAlgConvert"
         ):
             i.category = "Linear Algebra Operations"
             i.shader_model = experimental_sm
@@ -6572,7 +6572,25 @@ class db_dxil(object):
             ],
         )
 
-        op_table.reserve_dxil_op_range("ReservedE", 3, 1)
+        add_dxil_op(
+            "LinAlgConvert",
+            "LinAlgConvert",
+            "Converts an input vec with data of input interp type to a vec with data of output interp type",
+            "<hfwi,<hfwi",
+            "",
+            [
+                db_dxil_param(0, "$x0", "", "operation result"),
+                db_dxil_param(2, "$x1", "inputVector", "vector to convert"),
+                db_dxil_param(
+                    3, "i32", "inputInterpretation", "input vector interpretation type"
+                ),
+                db_dxil_param(
+                    4, "i32", "outputInterpretation", "output vector interpretation type"
+                ),
+            ],
+        )
+
+        op_table.reserve_dxil_op_range("ReservedE", 2)
 
         # Debugging intrinsics
         add_dxil_op(

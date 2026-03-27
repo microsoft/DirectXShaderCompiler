@@ -10920,6 +10920,40 @@ struct DxilInst_LinAlgMatrixOuterProduct {
   void set_vectorB(llvm::Value *val) { Instr->setOperand(2, val); }
 };
 
+/// This instruction Converts an input vec with data of input interp type to a
+/// vec with data of output interp type
+struct DxilInst_LinAlgConvert {
+  llvm::Instruction *Instr;
+  // Construction and identification
+  DxilInst_LinAlgConvert(llvm::Instruction *pInstr) : Instr(pInstr) {}
+  operator bool() const {
+    return hlsl::OP::IsDxilOpFuncCallInst(Instr,
+                                          hlsl::OP::OpCode::LinAlgConvert);
+  }
+  // Validation support
+  bool isAllowed() const { return true; }
+  bool isArgumentListValid() const {
+    if (4 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands())
+      return false;
+    return true;
+  }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
+  // Operand indexes
+  enum OperandIdx {
+    arg_inputVector = 1,
+    arg_inputInterpretation = 2,
+    arg_outputInterpretation = 3,
+  };
+  // Accessors
+  llvm::Value *get_inputVector() const { return Instr->getOperand(1); }
+  void set_inputVector(llvm::Value *val) { Instr->setOperand(1, val); }
+  llvm::Value *get_inputInterpretation() const { return Instr->getOperand(2); }
+  void set_inputInterpretation(llvm::Value *val) { Instr->setOperand(2, val); }
+  llvm::Value *get_outputInterpretation() const { return Instr->getOperand(3); }
+  void set_outputInterpretation(llvm::Value *val) { Instr->setOperand(3, val); }
+};
+
 /// This instruction triggers a breakpoint if a debugger is attached
 struct DxilInst_DebugBreak {
   llvm::Instruction *Instr;
