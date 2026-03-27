@@ -4,9 +4,9 @@
 [[vk::image_format("rgba16f")]]
 RWBuffer<float4> RWBuf[2];
 
-// CHECK: OpTypeImage %float Buffer 2 0 0 1 Rgba16ui
+// CHECK: OpTypeImage %int Buffer 2 0 0 1 Rgba16ui
 [[vk::image_format("rgba16ui")]]
-Buffer<float4> Buf[2];
+Buffer<int4> Buf[2];
 
 //CHECK: OpTypeImage %float 2D 2 0 0 2 Rgba16f
 [[vk::image_format("rgba16f")]]
