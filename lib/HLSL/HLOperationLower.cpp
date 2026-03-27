@@ -7089,10 +7089,10 @@ Value *TranslateLinAlgMatrixAccumStoreToMemory(
                             {OpArg, Matrix, ArrPtr, Offset, Stride, Layout});
 }
 
-Value *TranslateLinAlgConvert(
-    CallInst *CI, IntrinsicOp IOP, OP::OpCode OpCode,
-    HLOperationLowerHelper &Helper, HLObjectOperationLowerHelper *ObjHelper,
-    bool &Translated) {
+Value *TranslateLinAlgConvert(CallInst *CI, IntrinsicOp IOP, OP::OpCode OpCode,
+                              HLOperationLowerHelper &Helper,
+                              HLObjectOperationLowerHelper *ObjHelper,
+                              bool &Translated) {
   hlsl::OP *HlslOp = &Helper.hlslOP;
   IRBuilder<> Builder(CI);
 
@@ -7104,10 +7104,10 @@ Value *TranslateLinAlgConvert(
   Value *OutInterp = CI->getArgOperand(4);
 
   Constant *OpArg = HlslOp->GetU32Const((unsigned)OpCode);
-  Function *DxilFunc =
-      HlslOp->GetOpFunc(OpCode, {OutVecTy, InVec->getType()});
+  Function *DxilFunc = HlslOp->GetOpFunc(OpCode, {OutVecTy, InVec->getType()});
 
-  Value *OutVec = Builder.CreateCall(DxilFunc, {OpArg, InVec, InInterp, OutInterp});
+  Value *OutVec =
+      Builder.CreateCall(DxilFunc, {OpArg, InVec, InInterp, OutInterp});
   Builder.CreateStore(OutVec, OutVecPtr);
 
   return nullptr;
@@ -7905,8 +7905,8 @@ constexpr IntrinsicLower gLowerTable[] = {
     {IntrinsicOp::IOP_DxIsDebuggerPresent, TranslateWaveToVal,
      DXIL::OpCode::IsDebuggerPresent},
 
-    {IntrinsicOp::IOP___builtin_LinAlg_Convert,
-     TranslateLinAlgConvert, DXIL::OpCode::LinAlgConvert},
+    {IntrinsicOp::IOP___builtin_LinAlg_Convert, TranslateLinAlgConvert,
+     DXIL::OpCode::LinAlgConvert},
 };
 constexpr size_t NumLowerTableEntries =
     sizeof(gLowerTable) / sizeof(gLowerTable[0]);
