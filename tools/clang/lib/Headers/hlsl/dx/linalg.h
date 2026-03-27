@@ -391,7 +391,9 @@ Matrix<CompTy, M, N, MatrixUse::Accumulator, MatrixScope::ThreadGroup> Multiply(
 
 template <typename OutputElTy, typename InputElTy, SIZE_TYPE M, SIZE_TYPE K,
           ComponentEnum MatrixDT>
-vector<OutputElTy, M>
+// clang-format off
+typename hlsl::enable_if<hlsl::is_arithmetic<InputElTy>::value, vector<OutputElTy, K> >::type
+// clang-format on
 Multiply(Matrix<MatrixDT, M, K, MatrixUse::B, MatrixScope::Thread> MatrixB,
          vector<InputElTy, K> Vec) {
   vector<OutputElTy, M> Result;
@@ -402,7 +404,9 @@ Multiply(Matrix<MatrixDT, M, K, MatrixUse::B, MatrixScope::Thread> MatrixB,
 
 template <typename OutputElTy, typename InputElTy, typename BiasElTy,
           SIZE_TYPE M, SIZE_TYPE K, ComponentEnum MatrixDT>
-vector<OutputElTy, K>
+// clang-format off
+typename hlsl::enable_if<hlsl::is_arithmetic<InputElTy>::value, vector<OutputElTy, K> >::type
+// clang-format on
 MultiplyAdd(Matrix<MatrixDT, M, K, MatrixUse::B, MatrixScope::Thread> MatrixB,
             vector<InputElTy, M> Vec, vector<BiasElTy, K> Bias) {
   vector<OutputElTy, K> Result;
@@ -431,7 +435,9 @@ MultiplyAdd(Matrix<MatrixDT, M, K, MatrixUse::B, MatrixScope::Thread> MatrixB,
 
 template <typename OutputElTy, typename InputElTy, ComponentEnum BiasElTy,
           SIZE_TYPE M, SIZE_TYPE K, ComponentEnum MatrixDT>
-vector<OutputElTy, K>
+// clang-format off
+typename hlsl::enable_if<hlsl::is_arithmetic<InputElTy>::value, vector<OutputElTy, K> >::type
+// clang-format on
 MultiplyAdd(Matrix<MatrixDT, M, K, MatrixUse::B, MatrixScope::Thread> MatrixB,
             vector<InputElTy, M> Vec, VectorRef<BiasElTy, K> BiasRef) {
   using BiasVecTy =
