@@ -636,3 +636,137 @@ UINT getMaxGroupSharedMemoryMS(ID3D12Device *Device) {
       D3D12_FEATURE_D3D12_OPTIONS_PREVIEW, &O, sizeof(O)));
   return O.MaxGroupSharedMemoryPerGroupMS;
 }
+
+std::unique_ptr<st::ShaderOp> createComputeOp(const char *Source,
+                                              const char *Target,
+                                              const char *RootSig,
+                                              const char *Args, UINT DispatchX,
+                                              UINT DispatchY, UINT DispatchZ) {
+  auto Op = std::make_unique<st::ShaderOp>();
+  LPCSTR CSName = Op->Strings.insert("CS");
+  Op->Name = CSName;
+  Op->CS = CSName;
+  Op->RootSignature = Op->Strings.insert(RootSig);
+  Op->DispatchX = DispatchX;
+  Op->DispatchY = DispatchY;
+  Op->DispatchZ = DispatchZ;
+  Op->UseWarpDevice = true;
+
+  st::ShaderOpShader Shader = {};
+  Shader.Name = CSName;
+  Shader.Target = Op->Strings.insert(Target);
+  Shader.EntryPoint = Op->Strings.insert("main");
+  Shader.Text = Op->Strings.insert(Source);
+  Shader.Arguments = Args ? Op->Strings.insert(Args) : nullptr;
+  Shader.Compiled = FALSE;
+  Shader.Callback = FALSE;
+  Op->Shaders.push_back(Shader);
+
+  return Op;
+}
+
+void addUAVBuffer(st::ShaderOp *Op, const char *Name, UINT64 Width,
+                  bool ReadBack, const char *Init) {
+  st::ShaderOpResource Res = {};
+  Res.Name = Op->Strings.insert(Name);
+  Res.Init = Op->Strings.insert(Init);
+  Res.ReadBack = ReadBack ? TRUE : FALSE;
+
+  Res.HeapProperties.Type = D3D12_HEAP_TYPE_DEFAULT;
+  Res.HeapFlags = D3D12_HEAP_FLAG_NONE;
+  Res.Desc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
+  Res.Desc.Width = Width;
+  Res.Desc.Height = 1;
+  Res.Desc.DepthOrArraySize = 1;
+  Res.Desc.MipLevels = 1;
+  Res.Desc.SampleDesc.Count = 1;
+  Res.Desc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
+  Res.Desc.Flags = D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
+  Res.InitialResourceState = D3D12_RESOURCE_STATE_COPY_DEST;
+  Res.TransitionTo = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
+
+  Op->Resources.push_back(Res);
+}
+
+void addRootUAV(st::ShaderOp *Op, UINT Index, const char *ResName) {
+  st::ShaderOpRootValue RV = {};
+  RV.ResName = Op->Strings.insert(ResName);
+  RV.HeapName = nullptr;
+  RV.Index = Index;
+  Op->RootValues.push_back(RV);
+}
+
+std::shared_ptr<st::ShaderOpTestResult>
+runShaderOp(ID3D12Device *Device, dxc::SpecificDllLoader &DxcSupport,
+            std::unique_ptr<st::ShaderOp> Op,
+            st::ShaderOpTest::TInitCallbackFn InitCallback) {
+  auto OpSet = std::make_shared<st::ShaderOpSet>();
+  OpSet->ShaderOps.push_back(std::move(Op));
+
+  return st::RunShaderOpTestAfterParse(
+      Device, DxcSupport, nullptr, std::move(InitCallback), std::move(OpSet));
+}
+
+void compileShader(dxc::SpecificDllLoader &DxcSupport, const char *Source,
+                   const char *Target, const std::string &Args,
+                   bool VerboseLogging) {
+  CComPtr<IDxcCompiler3> Compiler;
+  VERIFY_SUCCEEDED(DxcSupport.CreateInstance(CLSID_DxcCompiler, &Compiler));
+
+  CComPtr<IDxcUtils> Utils;
+  VERIFY_SUCCEEDED(DxcSupport.CreateInstance(CLSID_DxcUtils, &Utils));
+
+  CComPtr<IDxcBlobEncoding> SourceBlob;
+  VERIFY_SUCCEEDED(Utils->CreateBlobFromPinned(
+      Source, static_cast<UINT32>(strlen(Source)), DXC_CP_UTF8, &SourceBlob));
+
+  // Build wide-string argument list: -T <target> -E main <extra args>.
+  std::vector<std::wstring> WArgStorage;
+  WArgStorage.push_back(L"-T");
+  WArgStorage.push_back(std::wstring(Target, Target + strlen(Target)));
+  WArgStorage.push_back(L"-E");
+  WArgStorage.push_back(L"main");
+
+  // Tokenize the additional arguments string.
+  std::istringstream SS(Args);
+  std::string Tok;
+  while (SS >> Tok)
+    WArgStorage.push_back(std::wstring(Tok.begin(), Tok.end()));
+
+  std::vector<LPCWSTR> WArgPtrs;
+  std::wstringstream LogFlags;
+  LogFlags << L"Compiling with flags:";
+  for (const auto &A : WArgStorage) {
+    WArgPtrs.push_back(A.c_str());
+    LogFlags << L" " << A;
+  }
+
+  DxcBuffer Buf = {};
+  Buf.Ptr = SourceBlob->GetBufferPointer();
+  Buf.Size = SourceBlob->GetBufferSize();
+  Buf.Encoding = DXC_CP_UTF8;
+
+  if (VerboseLogging) {
+    hlsl_test::LogCommentFmt(L"Shader Source:");
+    hlsl_test::LogCommentFmt(L"%c", Source);
+  }
+
+  hlsl_test::LogCommentFmt(LogFlags.str().c_str());
+
+  CComPtr<IDxcResult> Result;
+  VERIFY_SUCCEEDED(Compiler->Compile(&Buf, WArgPtrs.data(),
+                                     static_cast<UINT32>(WArgPtrs.size()),
+                                     nullptr, IID_PPV_ARGS(&Result)));
+
+  HRESULT HR;
+  VERIFY_SUCCEEDED(Result->GetStatus(&HR));
+
+  if (FAILED(HR)) {
+    CComPtr<IDxcBlobUtf8> Errors;
+    Result->GetOutput(DXC_OUT_ERRORS, IID_PPV_ARGS(&Errors), nullptr);
+    if (Errors && Errors->GetStringLength() > 0)
+      hlsl_test::LogErrorFmt(L"Shader compilation failed:\n%S",
+                             Errors->GetStringPointer());
+    VERIFY_SUCCEEDED(HR);
+  }
+}

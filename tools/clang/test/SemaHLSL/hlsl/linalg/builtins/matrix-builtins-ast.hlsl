@@ -15,14 +15,14 @@ void main() {
 // CHECK-NEXT: ParmVarDecl {{.*}} ret '__builtin_LinAlgMatrix {{.*}}'
 // CHECK-NEXT: ParmVarDecl {{.*}} source '__builtin_LinAlgMatrix {{.*}}'
 // CHECK-NEXT: ParmVarDecl {{.*}} transpose 'bool'
-// CHECK-NEXT: HLSLIntrinsicAttr {{.*}} Implicit "op" "" 405
+// CHECK-NEXT: HLSLIntrinsicAttr {{.*}} Implicit "op" "" 401
 // CHECK-NEXT: AvailabilityAttr {{.*}} Implicit  6.10 0 0 ""
   __builtin_LinAlg_CopyConvertMatrix(mat2, mat1, true);
 
 // CHECK: FunctionDecl {{.*}} implicit used __builtin_LinAlg_FillMatrix 'void (__builtin_LinAlgMatrix & {{.*}}, unsigned int)' extern
 // CHECK-NEXT: ParmVarDecl {{.*}} ret '__builtin_LinAlgMatrix &&__restrict {{.*}}'
 // CHECK-NEXT: ParmVarDecl {{.*}} value 'unsigned int'
-// CHECK-NEXT: HLSLIntrinsicAttr {{.*}} Implicit "op" "" 406
+// CHECK-NEXT: HLSLIntrinsicAttr {{.*}} Implicit "op" "" 402
 // CHECK-NEXT: AvailabilityAttr {{.*}} Implicit  6.10 0 0 ""
   __builtin_LinAlg_FillMatrix(mat1, 15);
 
@@ -30,7 +30,7 @@ void main() {
 // CHECK-NEXT: ParmVarDecl {{.*}} matrixC '__builtin_LinAlgMatrix {{.*}}'
 // CHECK-NEXT: ParmVarDecl {{.*}} matrixLHS '__builtin_LinAlgMatrix {{.*}}'
 // CHECK-NEXT: ParmVarDecl {{.*}} matrixRHS '__builtin_LinAlgMatrix {{.*}}'
-// CHECK-NEXT: HLSLIntrinsicAttr {{.*}} Implicit "op" "" 415
+// CHECK-NEXT: HLSLIntrinsicAttr {{.*}} Implicit "op" "" 411
 // CHECK-NEXT: AvailabilityAttr {{.*}} Implicit  6.10 0 0 ""
   __builtin_LinAlg_MatrixAccumulate(mat1, mat2, mat3);
 
@@ -41,7 +41,7 @@ void main() {
 // CHECK-NEXT: ParmVarDecl {{.*}} stride 'unsigned int'
 // CHECK-NEXT: ParmVarDecl {{.*}} layout 'unsigned int'
 // CHECK-NEXT: ParmVarDecl {{.*}} align 'unsigned int'
-// CHECK-NEXT: HLSLIntrinsicAttr {{.*}} Implicit "op" "" 419
+// CHECK-NEXT: HLSLIntrinsicAttr {{.*}} Implicit "op" "" 415
 // CHECK-NEXT: AvailabilityAttr {{.*}} Implicit  6.10 0 0 ""
   __builtin_LinAlg_MatrixAccumulateToDescriptor(mat1, Buf, 1, 2, 3, 4);
 
@@ -51,14 +51,14 @@ void main() {
 // CHECK-NEXT: ParmVarDecl {{.*}} offset 'unsigned int'
 // CHECK-NEXT: ParmVarDecl {{.*}} stride 'unsigned int'
 // CHECK-NEXT: ParmVarDecl {{.*}} layout 'unsigned int'
-// CHECK-NEXT: HLSLIntrinsicAttr {{.*}} Implicit "op" "" 420
+// CHECK-NEXT: HLSLIntrinsicAttr {{.*}} Implicit "op" "" 416
 // CHECK-NEXT: AvailabilityAttr {{.*}} Implicit  6.10 0 0 ""
   __builtin_LinAlg_MatrixAccumulateToMemory(mat1, SharedArr, 0, 0, 0);
 
 // CHECK: FunctionDecl {{.*}} implicit used __builtin_LinAlg_MatrixGetCoordinate 'vector<uint, 2> (__builtin_LinAlgMatrix {{.*}}, unsigned int)' extern
 // CHECK-NEXT: ParmVarDecl {{.*}} matrix '__builtin_LinAlgMatrix {{.*}}'
 // CHECK-NEXT: ParmVarDecl {{.*}} threadLocalIndex 'unsigned int'
-// CHECK-NEXT: HLSLIntrinsicAttr {{.*}} Implicit "op" "" 407
+// CHECK-NEXT: HLSLIntrinsicAttr {{.*}} Implicit "op" "" 403
 // CHECK-NEXT: AvailabilityAttr {{.*}} Implicit  6.10 0 0 ""
   uint2 coord = __builtin_LinAlg_MatrixGetCoordinate(mat1, 0);
 
@@ -66,7 +66,7 @@ void main() {
 // CHECK-NEXT: ParmVarDecl {{.*}} ret 'unsigned int &&__restrict'
 // CHECK-NEXT: ParmVarDecl {{.*}} matrix '__builtin_LinAlgMatrix {{.*}}'
 // CHECK-NEXT: ParmVarDecl {{.*}} threadLocalIndex 'unsigned int'
-// CHECK-NEXT: HLSLIntrinsicAttr {{.*}} Implicit "op" "" 408
+// CHECK-NEXT: HLSLIntrinsicAttr {{.*}} Implicit "op" "" 404
 // CHECK-NEXT: AvailabilityAttr {{.*}} Implicit  6.10 0 0 ""
   uint elem1;
   __builtin_LinAlg_MatrixGetElement(elem1, mat1, 3);
@@ -75,14 +75,14 @@ void main() {
 // CHECK-NEXT: ParmVarDecl {{.*}} ret 'float &&__restrict'
 // CHECK-NEXT: ParmVarDecl {{.*}} matrix '__builtin_LinAlgMatrix {{.*}}'
 // CHECK-NEXT: ParmVarDecl {{.*}} threadLocalIndex 'unsigned int'
-// CHECK-NEXT: HLSLIntrinsicAttr {{.*}} Implicit "op" "" 408
+// CHECK-NEXT: HLSLIntrinsicAttr {{.*}} Implicit "op" "" 404
 // CHECK-NEXT: AvailabilityAttr {{.*}} Implicit  6.10 0 0 ""
   float elem2;
   __builtin_LinAlg_MatrixGetElement(elem2, mat1, 4);
 
 // CHECK: FunctionDecl {{.*}} implicit used __builtin_LinAlg_MatrixLength 'unsigned int (__builtin_LinAlgMatrix {{.*}})' extern
 // CHECK-NEXT: ParmVarDecl {{.*}} matrix '__builtin_LinAlgMatrix {{.*}}'
-// CHECK-NEXT: HLSLIntrinsicAttr {{.*}} Implicit "op" "" 409
+// CHECK-NEXT: HLSLIntrinsicAttr {{.*}} Implicit "op" "" 405
 // CHECK-NEXT: AvailabilityAttr {{.*}} Implicit  6.10 0 0 ""
   __builtin_LinAlg_MatrixLength(mat1);
 
@@ -93,7 +93,7 @@ void main() {
 // CHECK-NEXT: ParmVarDecl {{.*}} stride 'unsigned int'
 // CHECK-NEXT: ParmVarDecl {{.*}} layout 'unsigned int'
 // CHECK-NEXT: ParmVarDecl {{.*}} align 'unsigned int'
-// CHECK-NEXT: HLSLIntrinsicAttr {{.*}} Implicit "op" "" 410
+// CHECK-NEXT: HLSLIntrinsicAttr {{.*}} Implicit "op" "" 406
 // CHECK-NEXT: AvailabilityAttr {{.*}} Implicit  6.10 0 0 ""
   __builtin_LinAlg_MatrixLoadFromDescriptor(mat1, Buf, 0, 0, 0, 4);
 
@@ -103,7 +103,7 @@ void main() {
 // CHECK-NEXT: ParmVarDecl {{.*}} offset 'unsigned int'
 // CHECK-NEXT: ParmVarDecl {{.*}} stride 'unsigned int'
 // CHECK-NEXT: ParmVarDecl {{.*}} layout 'unsigned int'
-// CHECK-NEXT: HLSLIntrinsicAttr {{.*}} Implicit "op" "" 411
+// CHECK-NEXT: HLSLIntrinsicAttr {{.*}} Implicit "op" "" 407
 // CHECK-NEXT: AvailabilityAttr {{.*}} Implicit  6.10 0 0 ""
   __builtin_LinAlg_MatrixLoadFromMemory(mat1, SharedArr, 0, 0, 0);
 
@@ -111,7 +111,7 @@ void main() {
 // CHECK-NEXT: ParmVarDecl {{.*}} matrixC '__builtin_LinAlgMatrix {{.*}}'
 // CHECK-NEXT: ParmVarDecl {{.*}} matrixA '__builtin_LinAlgMatrix {{.*}}'
 // CHECK-NEXT: ParmVarDecl {{.*}} matrixB '__builtin_LinAlgMatrix {{.*}}'
-// CHECK-NEXT: HLSLIntrinsicAttr {{.*}} Implicit "op" "" 416
+// CHECK-NEXT: HLSLIntrinsicAttr {{.*}} Implicit "op" "" 412
 // CHECK-NEXT: AvailabilityAttr {{.*}} Implicit  6.10 0 0 ""
   __builtin_LinAlg_MatrixMatrixMultiply(mat1, mat2, mat3);
 
@@ -120,7 +120,7 @@ void main() {
 // CHECK-NEXT: ParmVarDecl {{.*}} matrixA '__builtin_LinAlgMatrix {{.*}}'
 // CHECK-NEXT: ParmVarDecl {{.*}} matrixB '__builtin_LinAlgMatrix {{.*}}'
 // CHECK-NEXT: ParmVarDecl {{.*}} matrixC '__builtin_LinAlgMatrix {{.*}}'
-// CHECK-NEXT: HLSLIntrinsicAttr {{.*}} Implicit "op" "" 417
+// CHECK-NEXT: HLSLIntrinsicAttr {{.*}} Implicit "op" "" 413
 // CHECK-NEXT: AvailabilityAttr {{.*}} Implicit  6.10 0 0 ""
   __builtin_LinAlg_MatrixMatrixMultiplyAccumulate(mat1, mat2, mat3, mat1);
 
@@ -128,14 +128,14 @@ void main() {
 // CHECK-NEXT: ParmVarDecl {{.*}} ret '__builtin_LinAlgMatrix {{.*}}'
 // CHECK-NEXT: ParmVarDecl {{.*}} vecA 'vector<int, 4>':'vector<int, 4>'
 // CHECK-NEXT: ParmVarDecl {{.*}} vecB 'vector<int, 4>':'vector<int, 4>'
-// CHECK-NEXT: HLSLIntrinsicAttr {{.*}} Implicit "op" "" 421
+// CHECK-NEXT: HLSLIntrinsicAttr {{.*}} Implicit "op" "" 417
 // CHECK-NEXT: AvailabilityAttr {{.*}} Implicit  6.10 0 0 ""
   int4 vecA = {1,2,3,4};
   int4 vecB = {1,2,3,4};
   __builtin_LinAlg_MatrixOuterProduct(mat1, vecA, vecB);
 
 // CHECK: FunctionDecl {{.*}} implicit used __builtin_LinAlg_MatrixQueryAccumulatorLayout 'unsigned int ()' extern
-// CHECK-NEXT: HLSLIntrinsicAttr {{.*}} Implicit "op" "" 418
+// CHECK-NEXT: HLSLIntrinsicAttr {{.*}} Implicit "op" "" 414
 // CHECK-NEXT: AvailabilityAttr {{.*}} Implicit  6.10 0 0 ""
   uint layout = __builtin_LinAlg_MatrixQueryAccumulatorLayout();
 
@@ -144,7 +144,7 @@ void main() {
 // CHECK-NEXT: ParmVarDecl {{.*}} matrix '__builtin_LinAlgMatrix {{.*}}'
 // CHECK-NEXT: ParmVarDecl {{.*}} threadLocalIndex 'unsigned int'
 // CHECK-NEXT: ParmVarDecl {{.*}} value 'unsigned int'
-// CHECK-NEXT: HLSLIntrinsicAttr {{.*}} Implicit "op" "" 412
+// CHECK-NEXT: HLSLIntrinsicAttr {{.*}} Implicit "op" "" 408
 // CHECK-NEXT: AvailabilityAttr {{.*}} Implicit  6.10 0 0 ""
   __builtin_LinAlg_MatrixSetElement(mat2, mat1, 1, 1);
 
@@ -155,7 +155,7 @@ void main() {
 // CHECK-NEXT: ParmVarDecl {{.*}} stride 'unsigned int'
 // CHECK-NEXT: ParmVarDecl {{.*}} layout 'unsigned int'
 // CHECK-NEXT: ParmVarDecl {{.*}} align 'unsigned int'
-// CHECK-NEXT: HLSLIntrinsicAttr {{.*}} Implicit "op" "" 413
+// CHECK-NEXT: HLSLIntrinsicAttr {{.*}} Implicit "op" "" 409
 // CHECK-NEXT: AvailabilityAttr {{.*}} Implicit  6.10 0 0 ""
   __builtin_LinAlg_MatrixStoreToDescriptor(mat1, Buf, 1, 2, 3, 4);
 
@@ -165,7 +165,7 @@ void main() {
 // CHECK-NEXT: ParmVarDecl {{.*}} offset 'unsigned int'
 // CHECK-NEXT: ParmVarDecl {{.*}} stride 'unsigned int'
 // CHECK-NEXT: ParmVarDecl {{.*}} layout 'unsigned int'
-// CHECK-NEXT: HLSLIntrinsicAttr {{.*}} Implicit "op" "" 414
+// CHECK-NEXT: HLSLIntrinsicAttr {{.*}} Implicit "op" "" 410
 // CHECK-NEXT: AvailabilityAttr {{.*}} Implicit  6.10 0 0 ""
 
   __builtin_LinAlg_MatrixStoreToMemory(mat1, SharedArr, 0, 0, 0);
@@ -175,7 +175,7 @@ void main() {
 // CHECK-NEXT: ParmVarDecl {{.*}} mat '__builtin_LinAlgMatrix {{.*}}'
 // CHECK-NEXT: ParmVarDecl {{.*}} input 'vector<float, 4>':'vector<float, 4>'
 // CHECK-NEXT: ParmVarDecl {{.*}} input_interp 'unsigned int'
-// CHECK-NEXT: HLSLIntrinsicAttr {{.*}} Implicit "op" "" 422
+// CHECK-NEXT: HLSLIntrinsicAttr {{.*}} Implicit "op" "" 418
 // CHECK-NEXT: AvailabilityAttr {{.*}} Implicit  6.10 0 0 ""
   float4 vec = {1,2,3,4};
   float4 result;
@@ -188,7 +188,7 @@ void main() {
 // CHECK-NEXT: ParmVarDecl {{.*}} input_interp 'unsigned int'
 // CHECK-NEXT: ParmVarDecl {{.*}} bias 'vector<float, 4>':'vector<float, 4>'
 // CHECK-NEXT: ParmVarDecl {{.*}} bias_interp 'unsigned int'
-// CHECK-NEXT: HLSLIntrinsicAttr {{.*}} Implicit "op" "" 423
+// CHECK-NEXT: HLSLIntrinsicAttr {{.*}} Implicit "op" "" 419
 // CHECK-NEXT: AvailabilityAttr {{.*}} Implicit  6.10 0 0 ""
   float4 input = {1,2,3,4};
   float4 bias = {5,6,7,8};
