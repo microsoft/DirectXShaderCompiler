@@ -25,9 +25,9 @@ contain substantial amounts of tool-generated content.** Our policy on labelling
 is intended to facilitate reviews, and not track which parts of the project are
 generated. Contributors should note tool usage in their pull request
 description, commit message, or wherever authorship is normally indicated for
-the work. For instance, use a commit message trailer like Assisted-by: .
-Th[AS3.1]is transparency helps the community develop best practices and
-understand the role of these new tools.
+the work. For instance, use a commit message trailer like Assisted-by: Copilot.
+This transparency helps the community develop best practices and understand the
+role of these new tools.
 
 ## Copilot Code Reviews
 
