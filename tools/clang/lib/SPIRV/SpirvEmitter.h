@@ -1339,6 +1339,7 @@ private:
   /// gets the info/warning/error messages via |messages|.
   /// Returns true on success and false otherwise.
   bool spirvToolsOptimize(std::vector<uint32_t> *mod, std::string *messages);
+  bool useSpirvFastCompileProfile() const;
 
   // \brief Runs the pass represented by the given pass token on the module.
   // Returns true if the pass was successfully run. Any messages from the
@@ -1580,6 +1581,7 @@ private:
   bool needsLegalization;
   bool needsLegalizationLoopUnroll;
   bool needsLegalizationSsaRewrite;
+  bool sawExplicitUnrollHint;
 
   /// Whether the translated SPIR-V binary passes --before-hlsl-legalization
   /// option to spirv-val because of illegal function parameter scope.

@@ -518,12 +518,22 @@ generate valid SPIR-V for Vulkan.
 Optimization
 ~~~~~~~~~~~~
 
-Optimization is also delegated to SPIRV-Tools. Right now there are no difference
-between optimization levels greater than zero; they will all invoke the same
-optimization recipe. That is, the recipe behind ``spirv-opt -O``.  If you want to
-run a custom optimization recipe, you can do so using the command line option
-``-Oconfig=`` and specifying a comma-separated list of your desired passes.
-The passes are invoked in the specified order.
+Optimization is also delegated to SPIRV-Tools. There are two built-in
+optimization recipes for SPIR-V code generation:
+
+* ``-O1experimental``: a development-oriented recipe that favors lower
+  optimizer wall time. This profile is opt-in, leaves the default ``-O0``,
+  ``-O1``, ``-O2``, ``-O3`` and ``-Oconfig`` behavior unchanged, and may emit
+  ``VariablePointers`` for modules that need the fast path. On Vulkan targets,
+  use at least ``-fspv-target-env=vulkan1.1`` and ensure the target device
+  supports the required variable-pointer features. Vulkan 1.4 guarantees that
+  support.
+* ``-O1``, ``-O2``, and ``-O3``: the performance-oriented recipe behind
+  ``spirv-opt -O``.
+
+If you want to run a custom optimization recipe, you can do so using the
+command line option ``-Oconfig=`` and specifying a comma-separated list of
+your desired passes. The passes are invoked in the specified order.
 
 For example, you can specify ``-Oconfig=--loop-unroll,--scalar-replacement=300,--eliminate-dead-code-aggressive``
 to firstly invoke loop unrolling, then invoke scalar replacement of aggregates,

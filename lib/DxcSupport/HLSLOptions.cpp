@@ -792,10 +792,14 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   }
 
   opts.DisableOptimizations = false;
-  if (Arg *A = Args.getLastArg(OPT_O0, OPT_O1, OPT_O2, OPT_O3, OPT_Od)) {
+  if (Arg *A =
+          Args.getLastArg(OPT_O0, OPT_O1, OPT_O1experimental, OPT_O2, OPT_O3,
+                          OPT_Od)) {
     if (A->getOption().matches(OPT_O0))
       opts.OptLevel = 0;
     if (A->getOption().matches(OPT_O1))
+      opts.OptLevel = 1;
+    if (A->getOption().matches(OPT_O1experimental))
       opts.OptLevel = 1;
     if (A->getOption().matches(OPT_O2))
       opts.OptLevel = 2;
@@ -1096,6 +1100,8 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   // SPIRV Change Starts
 #ifdef ENABLE_SPIRV_CODEGEN
   opts.GenSPIRV = Args.hasFlag(OPT_spirv, OPT_INVALID, false);
+  opts.SpirvOptions.o1ExperimentalFastCompile =
+      Args.hasFlag(OPT_O1experimental, OPT_INVALID, false);
   opts.SpirvOptions.invertY =
       Args.hasFlag(OPT_fvk_invert_y, OPT_INVALID, false);
   opts.SpirvOptions.invertW =
@@ -1261,7 +1267,8 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
       errors << "-Oconfig should not be specified more than once";
       return 1;
     }
-    if (Args.getLastArg(OPT_O0, OPT_O1, OPT_O2, OPT_O3)) {
+    if (Args.getLastArg(OPT_O0, OPT_O1, OPT_O1experimental, OPT_O2,
+                        OPT_O3)) {
       errors << "-Oconfig should not be used together with -O";
       return 1;
     }
@@ -1272,6 +1279,11 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
 
   opts.SpirvOptions.entrypointName =
       Args.getLastArgValue(OPT_fspv_entrypoint_name_EQ);
+
+  if (opts.SpirvOptions.o1ExperimentalFastCompile && !opts.GenSPIRV) {
+    errors << "-O1experimental requires -spirv";
+    return 1;
+  }
 
   // Check for use of options not implemented in the SPIR-V backend.
   if (Args.hasFlag(OPT_spirv, OPT_INVALID, false) &&
@@ -1295,6 +1307,7 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
       Args.hasFlag(OPT_fspv_reflect, OPT_INVALID, false) ||
       Args.hasFlag(OPT_fspv_fix_func_call_arguments, OPT_INVALID, false) ||
       Args.hasFlag(OPT_fspv_print_all, OPT_INVALID, false) ||
+      Args.hasFlag(OPT_O1experimental, OPT_INVALID, false) ||
       Args.hasFlag(OPT_Wno_vk_ignored_features, OPT_INVALID, false) ||
       Args.hasFlag(OPT_Wno_vk_emulated_features, OPT_INVALID, false) ||
       Args.hasFlag(OPT_fvk_auto_shift_bindings, OPT_INVALID, false) ||

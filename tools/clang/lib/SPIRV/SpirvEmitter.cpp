@@ -595,6 +595,7 @@ SpirvEmitter::SpirvEmitter(CompilerInstance &ci)
       isSpecConstantMode(false), needsLegalization(false),
       needsLegalizationLoopUnroll(false),
       needsLegalizationSsaRewrite(false),
+      sawExplicitUnrollHint(false),
       beforeHlslLegalization(false), mainSourceFile(nullptr) {
 
   // Get ShaderModel from command line hlsl profile option.
@@ -918,6 +919,20 @@ void SpirvEmitter::HandleTranslationUnit(ASTContext &context) {
     } else {
       assert(false && "unsupported denorm value");
     }
+  }
+
+  if (useSpirvFastCompileProfile() &&
+      (needsLegalizationLoopUnroll || sawExplicitUnrollHint)) {
+    if (featureManager.isTargetEnvVulkan() &&
+        !featureManager.isTargetEnvVulkan1p1OrAbove()) {
+      emitFatalError(
+          "-O1experimental requires -fspv-target-env=vulkan1.1 or above "
+          "when the generated module needs VariablePointers",
+          {});
+      return;
+    }
+
+    spvBuilder.requireCapability(spv::Capability::VariablePointers);
   }
 
   // Output the constructed module.
@@ -2289,6 +2304,7 @@ spv::LoopControlMask SpirvEmitter::translateLoopAttribute(const Stmt *stmt,
   case attr::HLSLFastOpt:
     return spv::LoopControlMask::DontUnroll;
   case attr::HLSLUnroll:
+    sawExplicitUnrollHint = true;
     return spv::LoopControlMask::Unroll;
   case attr::HLSLAllowUAVCondition:
     if (!spirvOptions.noWarnIgnoredFeatures) {
@@ -16627,8 +16643,12 @@ bool SpirvEmitter::spirvToolsOptimize(std::vector<uint32_t> *mod,
   options.set_max_id_bound(spirvOptions.maxId);
 
   if (spirvOptions.optConfig.empty()) {
-    // Add performance passes.
-    optimizer.RegisterPerformancePasses(spirvOptions.preserveInterface);
+    if (useSpirvFastCompileProfile()) {
+      optimizer.RegisterPerformancePassesFastCompile(
+          spirvOptions.preserveInterface);
+    } else {
+      optimizer.RegisterPerformancePasses(spirvOptions.preserveInterface);
+    }
 
     // Add propagation of volatile semantics passes.
     optimizer.RegisterPass(spvtools::CreateSpreadVolatileSemanticsPass());
@@ -16646,6 +16666,11 @@ bool SpirvEmitter::spirvToolsOptimize(std::vector<uint32_t> *mod,
   }
 
   return optimizer.Run(mod->data(), mod->size(), mod, options);
+}
+
+bool SpirvEmitter::useSpirvFastCompileProfile() const {
+  return spirvOptions.o1ExperimentalFastCompile &&
+         spirvOptions.optConfig.empty();
 }
 
 bool SpirvEmitter::spirvToolsLegalize(std::vector<uint32_t> *mod,
@@ -16673,15 +16698,19 @@ bool SpirvEmitter::spirvToolsLegalize(std::vector<uint32_t> *mod,
     optimizer.RegisterPass(
         spvtools::CreateInterfaceVariableScalarReplacementPass());
   }
-  auto legalizationSsaRewriteMode = spvtools::SSARewriteMode::None;
-  if (needsLegalizationLoopUnroll) {
-    legalizationSsaRewriteMode = spvtools::SSARewriteMode::All;
-  } else if (needsLegalizationSsaRewrite) {
-    legalizationSsaRewriteMode = spvtools::SSARewriteMode::OpaqueOnly;
+  if (useSpirvFastCompileProfile()) {
+    auto legalizationSsaRewriteMode = spvtools::SSARewriteMode::None;
+    if (needsLegalizationLoopUnroll) {
+      legalizationSsaRewriteMode = spvtools::SSARewriteMode::All;
+    } else if (needsLegalizationSsaRewrite) {
+      legalizationSsaRewriteMode = spvtools::SSARewriteMode::OpaqueOnly;
+    }
+    optimizer.RegisterLegalizationPasses(
+        spirvOptions.preserveInterface, needsLegalizationLoopUnroll,
+        legalizationSsaRewriteMode);
+  } else {
+    optimizer.RegisterLegalizationPasses(spirvOptions.preserveInterface);
   }
-  optimizer.RegisterLegalizationPasses(
-      spirvOptions.preserveInterface, needsLegalizationLoopUnroll,
-      legalizationSsaRewriteMode);
   // Add flattening of resources if needed.
   if (spirvOptions.flattenResourceArrays) {
     optimizer.RegisterPass(

@@ -96,6 +96,9 @@ def O0 : Flag<["-", "/"], "O0">, Group<hlsloptz_Group>, Flags<[CoreOption]>,
     HelpText<"Optimization Level 0">;
 def O1 : Flag<["-", "/"], "O1">, Group<hlsloptz_Group>, Flags<[CoreOption]>,
     HelpText<"Optimization Level 1">;
+def O1experimental : Flag<["-"], "O1experimental">, Group<spirv_Group>,
+    Flags<[CoreOption, DriverOption]>,
+    HelpText<"Enable the experimental SPIR-V fast-compile profile; may emit VariablePointers and requires target support for them when used">;
 def O2 : Flag<["-", "/"], "O2">, Group<hlsloptz_Group>, Flags<[CoreOption]>,
     HelpText<"Optimization Level 2">;
 def O3 : Flag<["-", "/"], "O3">, Group<hlsloptz_Group>, Flags<[CoreOption]>,
