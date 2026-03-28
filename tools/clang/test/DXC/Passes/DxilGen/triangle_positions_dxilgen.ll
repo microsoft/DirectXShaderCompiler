@@ -57,7 +57,7 @@ entry:
   %positions = alloca %struct.BuiltInTrianglePositions, align 4
   %0 = bitcast %struct.BuiltInTrianglePositions* %positions to i8*, !dbg !48 ; line:48 col:5
   call void @llvm.lifetime.start(i64 36, i8* %0) #0, !dbg !48 ; line:48 col:5
-  call void @"dx.hl.op..void (i32, %struct.BuiltInTrianglePositions*)"(i32 401, %struct.BuiltInTrianglePositions* %positions), !dbg !52 ; line:48 col:42
+  call void @"dx.hl.op..void (i32, %struct.BuiltInTrianglePositions*)"(i32 397, %struct.BuiltInTrianglePositions* %positions), !dbg !52 ; line:48 col:42
   %p0 = getelementptr inbounds %struct.BuiltInTrianglePositions, %struct.BuiltInTrianglePositions* %positions, i32 0, i32 0, !dbg !53 ; line:49 col:38
   %1 = load <3 x float>, <3 x float>* %p0, align 4, !dbg !54 ; line:49 col:28
   %2 = extractelement <3 x float> %1, i32 0, !dbg !54 ; line:49 col:28
@@ -92,7 +92,7 @@ entry:
   %1 = load <4 x float>, <4 x float>* %0
   %2 = bitcast %struct.BuiltInTrianglePositions* %positions to i8*, !dbg !61 ; line:60 col:5
   call void @llvm.lifetime.start(i64 36, i8* %2) #0, !dbg !61 ; line:60 col:5
-  call void @"dx.hl.op..void (i32, %struct.BuiltInTrianglePositions*)"(i32 401, %struct.BuiltInTrianglePositions* %positions), !dbg !63 ; line:60 col:42
+  call void @"dx.hl.op..void (i32, %struct.BuiltInTrianglePositions*)"(i32 397, %struct.BuiltInTrianglePositions* %positions), !dbg !63 ; line:60 col:42
   %p0 = getelementptr inbounds %struct.BuiltInTrianglePositions, %struct.BuiltInTrianglePositions* %positions, i32 0, i32 0, !dbg !64 ; line:61 col:19
   %3 = load <3 x float>, <3 x float>* %p0, align 4, !dbg !65 ; line:61 col:9
   %4 = extractelement <3 x float> %3, i32 0, !dbg !65 ; line:61 col:9
@@ -130,7 +130,7 @@ while.body:                                       ; preds = %entry, %while.cond.
   br i1 %cmp, label %if.then, label %while.cond.backedge, !dbg !74 ; line:87 col:13
 
 if.then:                                          ; preds = %while.body
-  %5 = call %struct.BuiltInTrianglePositions* @"dx.hl.op.ro.%struct.BuiltInTrianglePositions* (i32, i32)"(i32 402, i32 %q14), !dbg !76 ; line:88 col:53
+  %5 = call %struct.BuiltInTrianglePositions* @"dx.hl.op.ro.%struct.BuiltInTrianglePositions* (i32, i32)"(i32 398, i32 %q14), !dbg !76 ; line:88 col:53
   %6 = getelementptr inbounds %struct.BuiltInTrianglePositions, %struct.BuiltInTrianglePositions* %5, i32 0, i32 0, !dbg !76 ; line:88 col:53
   %7 = load <3 x float>, <3 x float>* %6, !dbg !76 ; line:88 col:53
   %8 = extractelement <3 x float> %7, i32 0, !dbg !77 ; line:89 col:36
@@ -151,7 +151,7 @@ while.end:                                        ; preds = %while.cond.backedge
   br i1 %cmp7, label %if.then.10, label %if.end.13, !dbg !81 ; line:93 col:9
 
 if.then.10:                                       ; preds = %while.end
-  %15 = call %struct.BuiltInTrianglePositions* @"dx.hl.op.ro.%struct.BuiltInTrianglePositions* (i32, i32)"(i32 403, i32 %q14), !dbg !83 ; line:94 col:49
+  %15 = call %struct.BuiltInTrianglePositions* @"dx.hl.op.ro.%struct.BuiltInTrianglePositions* (i32, i32)"(i32 399, i32 %q14), !dbg !83 ; line:94 col:49
   %16 = getelementptr inbounds %struct.BuiltInTrianglePositions, %struct.BuiltInTrianglePositions* %15, i32 0, i32 1, !dbg !83 ; line:94 col:49
   %17 = load <3 x float>, <3 x float>* %16, !dbg !83 ; line:94 col:49
   %18 = extractelement <3 x float> %17, i32 1, !dbg !84 ; line:95 col:32
@@ -185,7 +185,7 @@ entry:
   br i1 %8, label %if.then, label %if.end, !dbg !92 ; line:117 col:9
 
 if.then:                                          ; preds = %entry
-  %9 = call %struct.BuiltInTrianglePositions* @"dx.hl.op.ro.%struct.BuiltInTrianglePositions* (i32, %dx.types.HitObject*)"(i32 404, %dx.types.HitObject* %hit), !dbg !93 ; line:118 col:46
+  %9 = call %struct.BuiltInTrianglePositions* @"dx.hl.op.ro.%struct.BuiltInTrianglePositions* (i32, %dx.types.HitObject*)"(i32 400, %dx.types.HitObject* %hit), !dbg !93 ; line:118 col:46
   %10 = getelementptr inbounds %struct.BuiltInTrianglePositions, %struct.BuiltInTrianglePositions* %9, i32 0, i32 0, !dbg !93 ; line:118 col:46
   %11 = load <3 x float>, <3 x float>* %10, !dbg !93 ; line:118 col:46
   %12 = getelementptr inbounds %struct.BuiltInTrianglePositions, %struct.BuiltInTrianglePositions* %9, i32 0, i32 1, !dbg !93 ; line:118 col:46

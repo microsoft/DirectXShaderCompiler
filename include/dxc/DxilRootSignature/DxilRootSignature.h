@@ -55,6 +55,7 @@ static const uint32_t DxilMapAnisotropy = 16;
 
 // Enumerations and flags.
 enum class DxilComparisonFunc : unsigned {
+  None = 0,
   Never = 1,
   Less = 2,
   Equal = 3,

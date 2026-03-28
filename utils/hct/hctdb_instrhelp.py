@@ -644,10 +644,15 @@ class db_oload_gen:
             "noderecordproperty": "A(nodeRecordProperty);",
             "hit_object": "A(pHit);",
             # Extended overload slots, extend as needed:
-            "$x0": "EXT(0);",
-            "$x1": "EXT(1);",
-            "$x2": "EXT(2);",
-            "$x3": "EXT(3);",
+            "$x0": "A(EXT(0));",
+            "$x1": "A(EXT(1));",
+            "$x2": "A(EXT(2));",
+            "$x3": "A(EXT(3));",
+            # Groupshared pointers to extended overloads:
+            "$x_gs0": "TGSM(EXT(0));",
+            "$x_gs1": "TGSM(EXT(1));",
+            "$x_gs2": "TGSM(EXT(2));",
+            "$x_gs3": "TGSM(EXT(3));",
         }
         last_category = None
         for i in self.db.get_dxil_ops():
@@ -679,6 +684,7 @@ class db_oload_gen:
         vec_ty = "$vec"
         gsptr_ty = "$gsptr"
         extended_ty = "$x"
+        extended_gs_ty = "$x_gs"
         last_category = None
 
         index_dict = collections.OrderedDict()
@@ -846,7 +852,7 @@ class db_oload_gen:
             # indices the key, and add the opcode to a list of opcodes for that
             # key.  Indices start with 0 for return type, and 1 for the first
             # function parameter, which is the DXIL OpCode.
-            indices = []
+            indices = [] # (op.pos, unwrap_pointer) pairs
             for index, op in enumerate(instr.ops):
                 # Skip dxil opcode.
                 if op.pos == 1:
@@ -854,8 +860,10 @@ class db_oload_gen:
 
                 op_type = op.llvm_type
                 if op_type.startswith(extended_ty):
+                    gs_ptr = op_type.startswith(extended_gs_ty)
+                    prefix_len = len(extended_gs_ty) if gs_ptr else len(extended_ty)
                     try:
-                        extended_index = int(op_type[2:])
+                        extended_index = int(op_type[prefix_len:])
                     except:
                         raise ValueError(
                             "Error parsing extended operand type "
@@ -866,7 +874,7 @@ class db_oload_gen:
                             f"'$x{extended_index}' is not in sequential "
                             + f"order for DXIL op '{instr.name}'"
                         )
-                    indices.append(op.pos)
+                    indices.append((op.pos, gs_ptr))
 
             if len(indices) != instr.num_oloads:
                 raise ValueError(
@@ -875,24 +883,29 @@ class db_oload_gen:
                 )
             extended_dict.setdefault(tuple(indices), []).append(instr.name)
 
-        def get_type_at_index(index):
-            if index == 0:
-                return "FT->getReturnType()"
-            return f"FT->getParamType({index - 1})"
+        def get_type_at_index(index, unwrap_pointer):
+            result = "FT->getReturnType()"
+            if index > 0:
+                result = f"FT->getParamType({index - 1})"
+            if unwrap_pointer:
+                result = result + "->getPointerElementType()"
+            return result
 
         for index_tuple, opcodes in extended_dict.items():
             line = ""
             for opcode in opcodes:
                 line = line + f"case OpCode::{opcode}:\n"
-            if index_tuple[-1] > 0:
+            if index_tuple[-1][0] > 0:
                 line += (
-                    f"  if (FT->getNumParams() < {index_tuple[-1]})\n"
+                    f"  if (FT->getNumParams() < {index_tuple[-1][0]})\n"
                     + "    return nullptr;\n"
                 )
             line += (
                 "  return llvm::StructType::get(Ctx, {"
-                + ", ".join([get_type_at_index(index) for index in index_tuple])
-                + "});\n"
+                + ", ".join([
+                    get_type_at_index(index, unwrap_pointer)
+                    for index, unwrap_pointer in index_tuple
+                ]) + "});\n"
             )
             print(line)
 
