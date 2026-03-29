@@ -16705,7 +16705,7 @@ bool SpirvEmitter::spirvToolsLegalize(std::vector<uint32_t> *mod,
     } else if (needsLegalizationSsaRewrite) {
       legalizationSsaRewriteMode = spvtools::SSARewriteMode::OpaqueOnly;
     }
-    optimizer.RegisterLegalizationPasses(
+    optimizer.RegisterLegalizationPassesFastCompile(
         spirvOptions.preserveInterface, needsLegalizationLoopUnroll,
         legalizationSsaRewriteMode);
   } else {
