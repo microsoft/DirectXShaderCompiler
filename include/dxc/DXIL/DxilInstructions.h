@@ -10920,8 +10920,8 @@ struct DxilInst_LinAlgMatrixOuterProduct {
   void set_vectorB(llvm::Value *val) { Instr->setOperand(2, val); }
 };
 
-/// This instruction Converts an input vec with data of input interp type to a
-/// vec with data of output interp type
+/// This instruction Convert vector components from one interpretation to
+/// another
 struct DxilInst_LinAlgConvert {
   llvm::Instruction *Instr;
   // Construction and identification

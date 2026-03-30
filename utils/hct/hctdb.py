@@ -6575,7 +6575,7 @@ class db_dxil(object):
         add_dxil_op(
             "LinAlgConvert",
             "LinAlgConvert",
-            "Converts an input vec with data of input interp type to a vec with data of output interp type",
+            "Convert vector components from one interpretation to another",
             "<hfwi,<hfwi",
             "",
             [

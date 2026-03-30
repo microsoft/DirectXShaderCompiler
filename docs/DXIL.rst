@@ -3095,7 +3095,7 @@ ID         Name                                     Description
 2147483675 LinAlgMatrixAccumulateToDescriptor       accumulates a matrix to a RWByteAddressBuffer
 2147483676 LinAlgMatrixAccumulateToMemory           accumulates a matrix to groupshared memory
 2147483677 LinAlgMatrixOuterProduct                 Outer products an M sized vector and a N sized vector producing an MxN matrix
-2147483678 LinAlgConvert                            Converts an input vec with data of input interp type to a vec with data of output interp type
+2147483678 LinAlgConvert                            Convert vector components from one interpretation to another
 2147483679 ReservedE0                               reserved
 2147483680 ReservedE1                               reserved
 2147483681 DebugBreak                               triggers a breakpoint if a debugger is attached

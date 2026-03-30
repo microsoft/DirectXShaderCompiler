@@ -551,8 +551,8 @@ enum class OpCode : unsigned {
       9, // returns committed triangle vertices in object space as <9 x float>
 
   // Linear Algebra Operations
-  LinAlgConvert = 30, // Converts an input vec with data of input interp type to
-                      // a vec with data of output interp type
+  LinAlgConvert =
+      30, // Convert vector components from one interpretation to another
   LinAlgCopyConvertMatrix =
       13, // Converts and copies the element and use type of the source matrix
           // to the destination matrix with optional transpose
@@ -1351,9 +1351,8 @@ enum class OpCode : unsigned {
       LinAlgMatrixOuterProduct), // Outer products an M sized vector and a N
                                  // sized vector producing an MxN matrix
   // LinAlgConvert = 0x8000001E, 2147483678U, -2147483618
-  EXP_OPCODE(ExperimentalOps,
-             LinAlgConvert), // Converts an input vec with data of input interp
-                             // type to a vec with data of output interp type
+  EXP_OPCODE(ExperimentalOps, LinAlgConvert), // Convert vector components from
+                                              // one interpretation to another
   // ReservedE0 = 0x8000001F, 2147483679U, -2147483617
   EXP_OPCODE(ExperimentalOps, ReservedE0), // reserved
   // ReservedE1 = 0x80000020, 2147483680U, -2147483616
