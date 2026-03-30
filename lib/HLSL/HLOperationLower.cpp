@@ -4327,9 +4327,6 @@ static bool isMinPrecisionType(Type *EltTy, const DataLayout &DL) {
          DL.getTypeAllocSizeInBits(EltTy) > EltTy->getPrimitiveSizeInBits();
 }
 
-// Widens a min precision type to its 32-bit equivalent (i32 or f32).
-// Accepts vector or scalar types. Returns the original type if not min
-// precision.
 static Type *widenMinPrecisionType(Type *Ty, LLVMContext &Ctx,
                                    const DataLayout &DL) {
   Type *EltTy = Ty->getScalarType();
