@@ -274,9 +274,7 @@ class Matrix {
   typename hlsl::enable_if<LocalComp == ComponentTy && IsNativeScalar,
                            void>::type
   Set(uint Index, ElementType Value) {
-    HandleT Result;
-    __builtin_LinAlg_MatrixSetElement(Result, __handle, Index, Value);
-    __handle = Result;
+    __builtin_LinAlg_MatrixSetElement(__handle, __handle, Index, Value);
   }
 
   void Store(RWByteAddressBuffer Res, uint StartOffset, uint Stride,
@@ -321,18 +319,14 @@ class Matrix {
   typename hlsl::enable_if<Use == MatrixUse::Accumulator && UseLocal == Use,
                            void>::type
   Accumulate(const Matrix<CompTy, M, N, MatrixUse::A, Scope> MatrixA) {
-    HandleT Result;
-    __builtin_LinAlg_MatrixAccumulate(Result, __handle, MatrixA.__handle);
-    __handle = Result;
+    __builtin_LinAlg_MatrixAccumulate(__handle, __handle, MatrixA.__handle);
   }
 
   template <ComponentEnum CompTy, MatrixUseEnum UseLocal = Use>
   typename hlsl::enable_if<Use == MatrixUse::Accumulator && UseLocal == Use,
                            void>::type
   Accumulate(const Matrix<CompTy, M, N, MatrixUse::B, Scope> MatrixB) {
-    HandleT Result;
-    __builtin_LinAlg_MatrixAccumulate(Result, __handle, MatrixB.__handle);
-    __handle = Result;
+    __builtin_LinAlg_MatrixAccumulate(__handle, __handle, MatrixB.__handle);
   }
 
   template <ComponentEnum LHSTy, ComponentEnum RHSTy, SIZE_TYPE K,
@@ -341,10 +335,8 @@ class Matrix {
                            void>::type
   MultiplyAccumulate(const Matrix<LHSTy, M, K, MatrixUse::A, Scope> MatrixA,
                      const Matrix<RHSTy, K, N, MatrixUse::B, Scope> MatrixB) {
-    HandleT Result;
     __builtin_LinAlg_MatrixMatrixMultiplyAccumulate(
-        Result, __handle, MatrixA.__handle, MatrixB.__handle);
-    __handle = Result;
+        __handle, __handle, MatrixA.__handle, MatrixB.__handle);
   }
 };
 
