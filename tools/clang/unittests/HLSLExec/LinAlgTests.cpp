@@ -540,37 +540,37 @@ static void runElementAccess(ID3D12Device *Device,
     ExpectedInts[I] = static_cast<int32_t>(I + 1);
   }
 
-  auto Op = createComputeOp(ElementAccessShader, "cs_6_10",
-                            "UAV(u0), UAV(u1)", Args.c_str());
+  auto Op = createComputeOp(ElementAccessShader, "cs_6_10", "UAV(u0), UAV(u1)",
+                            Args.c_str());
   addUAVBuffer(Op.get(), "Input", InputBufSize, false, "byname");
   addUAVBuffer(Op.get(), "Output", OutputBufSize, true);
   addRootUAV(Op.get(), 0, "Input");
   addRootUAV(Op.get(), 1, "Output");
 
-  auto Result = runShaderOp(
-      Device, DxcSupport, std::move(Op),
-      [&](LPCSTR Name, std::vector<BYTE> &Data, st::ShaderOp *) {
-        if (_stricmp(Name, "Input") != 0)
-          return;
+  auto Result =
+      runShaderOp(Device, DxcSupport, std::move(Op),
+                  [&](LPCSTR Name, std::vector<BYTE> &Data, st::ShaderOp *) {
+                    if (_stricmp(Name, "Input") != 0)
+                      return;
 
-        switch (Params.CompType) {
-        case ComponentType::F32: {
-          float *Ptr = reinterpret_cast<float *>(Data.data());
-          for (size_t I = 0; I < NumElements; I++)
-            Ptr[I] = static_cast<float>(I + 1);
-          break;
-        }
-        case ComponentType::I32: {
-          int32_t *Ptr = reinterpret_cast<int32_t *>(Data.data());
-          for (size_t I = 0; I < NumElements; I++)
-            Ptr[I] = static_cast<int32_t>(I + 1);
-          break;
-        }
-        default:
-          VERIFY_IS_TRUE(false, "Saw unsupported component type");
-          break;
-        }
-      });
+                    switch (Params.CompType) {
+                    case ComponentType::F32: {
+                      float *Ptr = reinterpret_cast<float *>(Data.data());
+                      for (size_t I = 0; I < NumElements; I++)
+                        Ptr[I] = static_cast<float>(I + 1);
+                      break;
+                    }
+                    case ComponentType::I32: {
+                      int32_t *Ptr = reinterpret_cast<int32_t *>(Data.data());
+                      for (size_t I = 0; I < NumElements; I++)
+                        Ptr[I] = static_cast<int32_t>(I + 1);
+                      break;
+                    }
+                    default:
+                      VERIFY_IS_TRUE(false, "Saw unsupported component type");
+                      break;
+                    }
+                  });
 
   MappedData OutData;
   Result->Test->GetReadBackData("Output", &OutData);
@@ -584,11 +584,11 @@ static void runElementAccess(ID3D12Device *Device,
     case ComponentType::F32: {
       float Actual;
       memcpy(&Actual, &Out[I], sizeof(float));
-      ActualFloats[I/4] = Actual;
+      ActualFloats[I / 4] = Actual;
       break;
     }
     case ComponentType::I32: {
-      ActualInts[I/4] = Out[I];
+      ActualInts[I / 4] = Out[I];
       break;
     }
     default:
@@ -615,10 +615,12 @@ static void runElementAccess(ID3D12Device *Device,
   // The sum of the values returned by Length across all threads must be
   // greater than or equal to the total number of matrix elements
   size_t TotalLength = 0;
-  for (size_t I = NumElements * 4; I < (NumElements + NumThreads) * 4; I = I + 4) {
+  for (size_t I = NumElements * 4; I < (NumElements + NumThreads) * 4;
+       I = I + 4) {
       TotalLength += Out[I];
   }
-  VERIFY_IS_TRUE(TotalLength >= NumElements, "Sum of all lengths must be gte num elements");
+  VERIFY_IS_TRUE(TotalLength >= NumElements,
+                 "Sum of all lengths must be gte num elements");
 }
 
 void DxilConf_SM610_LinAlg::ElementAccess_Wave_F32() {
