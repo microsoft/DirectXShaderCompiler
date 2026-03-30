@@ -205,7 +205,7 @@ class Matrix {
             bool Transpose = false>
   Matrix<NewCompTy, M, N, NewUse, Scope> Cast() {
     Matrix<NewCompTy, M, N, NewUse, Scope> Result;
-    __builtin_LinAlg_CopyConvertMatrix(Result.__handle, __handle, false);
+    __builtin_LinAlg_CopyConvertMatrix(Result.__handle, __handle, Transpose);
     return Result;
   }
 

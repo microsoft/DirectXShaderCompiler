@@ -39,10 +39,10 @@ void main(uint ID : SV_GroupID)
   MatrixBTyInt MatBInt1 = MatA1.Cast<ComponentType::I32, MatrixUse::B>();
 
 // CHECK: call %dx.types.LinAlgMatrixC4M4N4U1S1 @dx.op.linAlgCopyConvertMatrix.mC4M4N4U1S1.mC9M4N4U1S1(
-// CHECK-SAME: i32 -2147483635, %dx.types.LinAlgMatrixC9M4N4U1S1 %[[MATB1]], i1 false)
+// CHECK-SAME: i32 -2147483635, %dx.types.LinAlgMatrixC9M4N4U1S1 %[[MATB1]], i1 true)
 // CHECK-SAME: ; LinAlgCopyConvertMatrix(srcMatrix,transpose)
   MatrixBTyInt MatBInt2;
-  MatBInt2 = MatB1.Cast<ComponentType::I32, MatrixUse::B>();
+  MatBInt2 = MatB1.Cast<ComponentType::I32, MatrixUse::B, true>();
 
 // Matrix::Load from ByteAddressBuffer
 //
