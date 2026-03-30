@@ -38,6 +38,7 @@ DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvSource)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvModuleProcessed)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvDecoration)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvVariable)
+DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvUntypedVariableKHR)
 
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvFunctionParameter)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvLoopMerge)
@@ -50,6 +51,7 @@ DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvSwitch)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvUnreachable)
 
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvAccessChain)
+DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvUntypedAccessChainKHR)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvAtomic)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvBarrier)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvIsNodePayloadValid)
@@ -81,6 +83,7 @@ DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvImageOp)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvImageQuery)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvImageSparseTexelsResident)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvImageTexelPointer)
+DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvUntypedImageTexelPointerEXT)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvLoad)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvCopyObject)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvSampledImage)
@@ -204,7 +207,7 @@ SpirvEntryPoint::SpirvEntryPoint(SourceLocation loc,
                                  spv::ExecutionModel executionModel,
                                  SpirvFunction *entryPointFn,
                                  llvm::StringRef nameStr,
-                                 llvm::ArrayRef<SpirvVariable *> iface)
+                                 llvm::ArrayRef<SpirvVariableLike *> iface)
     : SpirvInstruction(IK_EntryPoint, spv::Op::OpEntryPoint, QualType(), loc),
       execModel(executionModel), entryPoint(entryPointFn), name(nameStr),
       interfaceVec(iface.begin(), iface.end()) {}
@@ -307,7 +310,7 @@ bool SpirvDecoration::operator==(const SpirvDecoration &that) const {
 SpirvVariable::SpirvVariable(QualType resultType, SourceLocation loc,
                              spv::StorageClass sc, bool precise,
                              bool isNointerp, SpirvInstruction *initializerInst)
-    : SpirvInstruction(IK_Variable, spv::Op::OpVariable, resultType, loc),
+    : SpirvVariableLike(IK_Variable, spv::Op::OpVariable, resultType, loc),
       initializer(initializerInst), descriptorSet(-1), binding(-1),
       hlslUserType("") {
   setStorageClass(sc);
@@ -318,13 +321,45 @@ SpirvVariable::SpirvVariable(QualType resultType, SourceLocation loc,
 SpirvVariable::SpirvVariable(const SpirvType *spvType, SourceLocation loc,
                              spv::StorageClass sc, bool precise,
                              bool isNointerp, SpirvInstruction *initializerInst)
-    : SpirvInstruction(IK_Variable, spv::Op::OpVariable, QualType(), loc),
+    : SpirvVariableLike(IK_Variable, spv::Op::OpVariable, QualType(), loc),
       initializer(initializerInst), descriptorSet(-1), binding(-1),
       hlslUserType("") {
   setResultType(spvType);
   setStorageClass(sc);
   setPrecise(precise);
   setNoninterpolated(isNointerp);
+}
+
+SpirvUntypedVariableKHR::SpirvUntypedVariableKHR(QualType resultType,
+                                                 SourceLocation loc,
+                                                 spv::StorageClass sc)
+    : SpirvVariableLike(IK_UntypedVariableKHR, spv::Op::OpUntypedVariableKHR,
+                        resultType, loc) {
+  setStorageClass(sc);
+}
+
+SpirvUntypedVariableKHR::SpirvUntypedVariableKHR(const SpirvType *spvType,
+                                                 SourceLocation loc,
+                                                 spv::StorageClass sc)
+    : SpirvVariableLike(IK_UntypedVariableKHR, spv::Op::OpUntypedVariableKHR,
+                        QualType(), loc) {
+  setResultType(spvType);
+  setStorageClass(sc);
+}
+
+SpirvVariableLike::SpirvVariableLike(Kind kind, spv::Op opcode,
+                                     QualType astResultType, SourceLocation loc,
+                                     SourceRange range)
+    : SpirvInstruction(kind, opcode, astResultType, loc, range) {}
+
+SpirvUntypedAccessChainKHR::SpirvUntypedAccessChainKHR(
+    const SpirvType *resultType, SourceLocation loc, const SpirvType *baseType,
+    SpirvInstruction *baseInst, llvm::ArrayRef<SpirvInstruction *> indexVec)
+    : SpirvInstruction(IK_UntypedAccessChainKHR,
+                       spv::Op::OpUntypedAccessChainKHR, QualType(), loc),
+      baseType(baseType), base(baseInst),
+      indices(indexVec.begin(), indexVec.end()) {
+  setResultType(resultType);
 }
 
 SpirvFunctionParameter::SpirvFunctionParameter(QualType resultType,
@@ -930,6 +965,13 @@ SpirvImageTexelPointer::SpirvImageTexelPointer(QualType resultType,
                                                SpirvInstruction *sampleInst)
     : SpirvInstruction(IK_ImageTexelPointer, spv::Op::OpImageTexelPointer,
                        resultType, loc),
+      image(imageInst), coordinate(coordinateInst), sample(sampleInst) {}
+
+SpirvUntypedImageTexelPointerEXT::SpirvUntypedImageTexelPointerEXT(
+    QualType resultType, SourceLocation loc, SpirvInstruction *imageInst,
+    SpirvInstruction *coordinateInst, SpirvInstruction *sampleInst)
+    : SpirvInstruction(IK_UntypedImageTexelPointerEXT,
+                       spv::Op::OpUntypedImageTexelPointerEXT, resultType, loc),
       image(imageInst), coordinate(coordinateInst), sample(sampleInst) {}
 
 SpirvLoad::SpirvLoad(QualType resultType, SourceLocation loc,

@@ -1320,7 +1320,7 @@ private:
 
   /// \brief Returns OpVariable to be used as 'Interface' operands of
   /// OpEntryPoint. entryPoint is the SpirvFunction for the OpEntryPoint.
-  std::vector<SpirvVariable *>
+  std::vector<SpirvVariableLike *>
   getInterfacesForEntryPoint(SpirvFunction *entryPoint);
 
   /// \brief Emits OpBeginInvocationInterlockEXT and add the appropriate
