@@ -617,7 +617,7 @@ static void runElementAccess(ID3D12Device *Device,
   size_t TotalLength = 0;
   for (size_t I = NumElements * 4; I < (NumElements + NumThreads) * 4;
        I = I + 4) {
-      TotalLength += Out[I];
+    TotalLength += Out[I];
   }
   VERIFY_IS_TRUE(TotalLength >= NumElements,
                  "Sum of all lengths must be gte num elements");
