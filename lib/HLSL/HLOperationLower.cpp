@@ -4327,16 +4327,18 @@ static bool isMinPrecisionType(Type *EltTy, const DataLayout &DL) {
          DL.getTypeAllocSizeInBits(EltTy) > EltTy->getPrimitiveSizeInBits();
 }
 
-// Widens a min precision element type to its 32-bit equivalent (i32 or f32).
-// Returns the original type if not min precision.
-static Type *widenMinPrecisionType(Type *EltTy, Type *VecOrScalarTy,
-                                   IRBuilder<> &Builder, const DataLayout &DL) {
+// Widens a min precision type to its 32-bit equivalent (i32 or f32).
+// Accepts vector or scalar types. Returns the original type if not min
+// precision.
+static Type *widenMinPrecisionType(Type *Ty, LLVMContext &Ctx,
+                                   const DataLayout &DL) {
+  Type *EltTy = Ty->getScalarType();
   if (!isMinPrecisionType(EltTy, DL))
-    return VecOrScalarTy;
-  Type *WideTy = EltTy->isFloatingPointTy() ? (Type *)Builder.getFloatTy()
-                                            : (Type *)Builder.getInt32Ty();
-  if (VecOrScalarTy->isVectorTy())
-    return VectorType::get(WideTy, VecOrScalarTy->getVectorNumElements());
+    return Ty;
+  Type *WideTy = EltTy->isFloatingPointTy() ? Type::getFloatTy(Ctx)
+                                            : Type::getInt32Ty(Ctx);
+  if (Ty->isVectorTy())
+    return VectorType::get(WideTy, Ty->getVectorNumElements());
   return WideTy;
 }
 
@@ -4353,24 +4355,16 @@ Value *TranslateBufLoad(ResLoadHelper &helper, HLResource::Kind RK,
     NumComponents = Ty->getVectorNumElements();
 
   const bool isTyped = DXIL::IsTyped(RK);
-  Type *EltTy = Ty->getScalarType();
+  Type *OrigEltTy = Ty->getScalarType();
+  Type *WidenedTy = widenMinPrecisionType(Ty, Builder.getContext(), DL);
+  Type *EltTy = WidenedTy->getScalarType();
+  const bool isMinPrec = (WidenedTy != Ty);
   const bool is64 = (EltTy->isIntegerTy(64) || EltTy->isDoubleTy());
   const bool isBool = EltTy->isIntegerTy(1);
-  // Min precision alloc size exceeds prim size. Use the widened type.
-  const bool isMinPrec = isMinPrecisionType(EltTy, DL);
-  Type *OrigEltTy = EltTy;
-  // Values will be loaded in memory representations.
   // If bool (i1), load from memory-representation (i32),
   // or if 64-bits and typed, load i32 chunks, then reconstruct values.
-  if (isBool || (is64 && isTyped)) {
+  if (isBool || (is64 && isTyped))
     EltTy = Builder.getInt32Ty();
-  } else if (isMinPrec) {
-    // If min-precision, load raw value as 32-bit type.
-    if (EltTy->isFloatingPointTy())
-      EltTy = Builder.getFloatTy();
-    else
-      EltTy = Builder.getInt32Ty();
-  }
 
   // Calculate load size with the scalar memory element type.
   unsigned LdSize = DL.getTypeAllocSize(EltTy);
@@ -4612,15 +4606,20 @@ void TranslateStore(DxilResource::Kind RK, Value *handle, Value *val,
     val = Builder.CreateZExt(val, Ty);
   }
 
-  // Widen min precision types to i32/f32 for RawBufferVectorStore.
-  if (opcode == OP::OpCode::RawBufferVectorStore) {
+  // Widen min precision types to i32/f32 for raw buffer stores.
+  // Min precision types have 32-bit alloc size, so the address math and
+  // store intrinsic must use 32-bit values to match.
+  if (opcode == OP::OpCode::RawBufferStore ||
+      opcode == OP::OpCode::RawBufferVectorStore) {
     const DataLayout &DL =
         OP->GetModule()->GetHLModule().GetModule()->getDataLayout();
-    Type *WideTy = widenMinPrecisionType(EltTy, Ty, Builder, DL);
+    Type *WideTy = widenMinPrecisionType(Ty, Builder.getContext(), DL);
     if (WideTy != Ty) {
       if (EltTy->isFloatingPointTy())
         val = Builder.CreateFPExt(val, WideTy);
       else
+        // TODO(#8314): Signedness info is lost by this point; SExt is wrong
+        // for min16uint. Front-end should widen during Clang CodeGen instead.
         val = Builder.CreateSExt(val, WideTy);
       EltTy = WideTy->getScalarType();
       Ty = WideTy;

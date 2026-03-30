@@ -1,13 +1,15 @@
 // RUN: %dxc -E main -T cs_6_9 %s | FileCheck %s
 
-// Regression test for min precision rawBufferVectorLoad/Store.
-// Min precision types should use i32/f32 vector operations (not i16/f16)
+// Regression test for min precision rawBufferLoad/Store.
+// Min precision types should use i32/f32 operations (not i16/f16)
 // to match how pre-SM6.9 RawBufferLoad handles min precision.
 
 RWByteAddressBuffer g_buf : register(u0);
 
 [numthreads(1,1,1)]
 void main() {
+  // === Vector loads/stores (RawBufferVectorLoad/Store) ===
+
   // min16int: should load as v3i32, not v3i16
   // CHECK: call %dx.types.ResRet.v3i32 @dx.op.rawBufferVectorLoad.v3i32
   min16int3 vi = g_buf.Load< min16int3 >(0);
@@ -28,9 +30,33 @@ void main() {
   // CHECK: call void @dx.op.rawBufferVectorStore.v3f32
   g_buf.Store< min16float3 >(60, vf);
 
-  // Verify i16/f16 vector ops are NOT used.
+  // === Scalar loads/stores (RawBufferLoad/Store) ===
+
+  // min16int scalar: should use i32 rawBufferStore
+  // CHECK: call %dx.types.ResRet.i32 @dx.op.rawBufferLoad.i32
+  min16int si = g_buf.Load< min16int >(72);
+  // CHECK: call void @dx.op.rawBufferStore.i32
+  g_buf.Store< min16int >(76, si);
+
+  // min16uint scalar: should use i32 rawBufferStore
+  // CHECK: call %dx.types.ResRet.i32 @dx.op.rawBufferLoad.i32
+  min16uint su = g_buf.Load< min16uint >(80);
+  // CHECK: call void @dx.op.rawBufferStore.i32
+  g_buf.Store< min16uint >(84, su);
+
+  // min16float scalar: should use f32 rawBufferStore
+  // CHECK: call %dx.types.ResRet.f32 @dx.op.rawBufferLoad.f32
+  min16float sf = g_buf.Load< min16float >(88);
+  // CHECK: call void @dx.op.rawBufferStore.f32
+  g_buf.Store< min16float >(92, sf);
+
+  // Verify i16/f16 ops are NOT used.
   // CHECK-NOT: rawBufferVectorLoad.v{{[0-9]+}}i16
   // CHECK-NOT: rawBufferVectorStore.v{{[0-9]+}}i16
   // CHECK-NOT: rawBufferVectorLoad.v{{[0-9]+}}f16
   // CHECK-NOT: rawBufferVectorStore.v{{[0-9]+}}f16
+  // CHECK-NOT: rawBufferLoad.i16
+  // CHECK-NOT: rawBufferStore.i16
+  // CHECK-NOT: rawBufferLoad.f16
+  // CHECK-NOT: rawBufferStore.f16
 }
