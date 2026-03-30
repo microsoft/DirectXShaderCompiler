@@ -11,7 +11,7 @@ void main() {
   // CHECK-SAME: ; LinAlgConvert(inputVector,inputInterpretation,outputInterpretation)
 
   // CHECK2: call void @"dx.hl.op..void (i32, <4 x i32>*, <4 x float>, i32, i32)"
-  // CHECK2-SAME: (i32 422, <4 x i32>* %result, <4 x float> %2, i32 1, i32 2)
+  // CHECK2-SAME: (i32 422, <4 x i32>* %result, <4 x float> %{{.*}}, i32 1, i32 2)
   float4 vec = {9.0, 8.0, 7.0, 6.0};
   int4 result;
   __builtin_LinAlg_Convert(result, vec, 1, 2);
