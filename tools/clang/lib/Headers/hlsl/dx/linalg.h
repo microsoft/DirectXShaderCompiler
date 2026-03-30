@@ -394,10 +394,10 @@ template <typename OutputElTy, typename InputElTy, SIZE_TYPE M, SIZE_TYPE K,
 // clang-format off
 typename hlsl::enable_if<hlsl::is_arithmetic<InputElTy>::value, vector<OutputElTy, K> >::type
 // clang-format on
-Multiply(Matrix<MatrixDT, M, K, MatrixUse::B, MatrixScope::Thread> MatrixB,
+Multiply(Matrix<MatrixDT, M, K, MatrixUse::A, MatrixScope::Thread> MatrixA,
          vector<InputElTy, K> Vec) {
   vector<OutputElTy, M> Result;
-  __builtin_LinAlg_MatrixVectorMultiply(Result, MatrixB.__handle, Vec,
+  __builtin_LinAlg_MatrixVectorMultiply(Result, MatrixA.__handle, Vec,
                                         MatrixDT);
   return Result;
 }
