@@ -67,6 +67,8 @@ function(add_hlsl_hctgen mode)
                        ${opcodes_json})
 
   get_filename_component(output_extension ${full_output} LAST_EXT)
+  string(SUBSTRING ${output_extension} 1 -1 output_extension_no_dot)
+  set(target_name "${mode}_${output_extension_no_dot}")
 
   if (CLANG_FORMAT_EXE AND output_extension MATCHES "\.h|\.cpp|\.inl")
     set(format_cmd COMMAND ${CLANG_FORMAT_EXE} -i ${temp_output})
@@ -132,8 +134,8 @@ function(add_hlsl_hctgen mode)
                      DEPENDS ${output}
                      COMMENT "Verifying clang-format results...")
 
-  add_custom_target(${mode}
+  add_custom_target(${target_name}
                     DEPENDS ${temp_output}.stamp)
 
-  add_dependencies(HCTGen ${mode})
+  add_dependencies(HCTGen ${target_name})
 endfunction()

@@ -6,7 +6,7 @@ using namespace dx::linalg;
 
 void f() {
   Matrix<ComponentType::I32, 4, 5, MatrixUse::B, MatrixScope::ThreadGroup> mat1;
-  Matrix<ComponentType::PackedS8x32, 100, 100, MatrixUse::A, MatrixScope::Wave> mat2;
+  Matrix<ComponentType::F32, 100, 100, MatrixUse::A, MatrixScope::Wave> mat2;
 }
 
 // CHECK: ClassTemplateDecl {{.*}} Matrix{{$}}
@@ -42,9 +42,9 @@ void f() {
 // CHECK-NEXT: TemplateArgument integral 1
 // CHECK-NEXT: CXXRecordDecl {{.*}} implicit class Matrix
 // CHECK-NEXT: TypeAliasDecl {{.*}} HandleT '__builtin_LinAlgMatrix
-// CHECK-SAME{LITERAL}: [[__LinAlgMatrix_Attributes(ComponentType::PackedS8x32,100, 100, MatrixUse::A, MatrixScope::Wave)]]'
+// CHECK-SAME{LITERAL}: [[__LinAlgMatrix_Attributes(ComponentType::F32,100, 100, MatrixUse::A, MatrixScope::Wave)]]'
 // CHECK-NEXT: FieldDecl {{.*}} __handle 'HandleT':'__builtin_LinAlgMatrix
-// CHECK-SAME{LITERAL}: [[__LinAlgMatrix_Attributes(ComponentType::PackedS8x32, 100, 100, MatrixUse::A, MatrixScope::Wave)]]'
+// CHECK-SAME{LITERAL}: [[__LinAlgMatrix_Attributes(ComponentType::F32, 100, 100, MatrixUse::A, MatrixScope::Wave)]]'
 
 // CHECK: FunctionDecl {{.*}} f 'void ()'
 
@@ -52,6 +52,6 @@ void f() {
 // CHECK-SAME: 'dx::linalg::Matrix<dx::linalg::ComponentType::ComponentEnum::I32, 4, 5, dx::linalg::MatrixUse::MatrixUseEnum::B,
 // CHECK-SAME: dx::linalg::MatrixScope::MatrixScopeEnum::ThreadGroup>'
 
-// CHECK: VarDecl {{.*}} mat2 'Matrix<ComponentType::PackedS8x32, 100, 100, MatrixUse::A, MatrixScope::Wave>':
-// CHECK-SAME: 'dx::linalg::Matrix<dx::linalg::ComponentType::ComponentEnum::PackedS8x32, 100, 100, 
+// CHECK: VarDecl {{.*}} mat2 'Matrix<ComponentType::F32, 100, 100, MatrixUse::A, MatrixScope::Wave>':
+// CHECK-SAME: 'dx::linalg::Matrix<dx::linalg::ComponentType::ComponentEnum::F32, 100, 100, 
 // CHECK-SAME: dx::linalg::MatrixUse::MatrixUseEnum::A, dx::linalg::MatrixScope::MatrixScopeEnum::Wave>'

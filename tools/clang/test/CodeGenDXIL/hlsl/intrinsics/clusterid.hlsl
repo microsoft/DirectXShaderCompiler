@@ -7,24 +7,24 @@
 
 // AST: `-CXXMethodDecl {{.*}} used GetClusterID 'unsigned int ()' extern
 // AST-NEXT: {{.*}}|-TemplateArgument type 'unsigned int'
-// AST-NEXT: {{.*}}|-HLSLIntrinsicAttr {{.*}} Implicit "op" "" 400
+// AST-NEXT: {{.*}}|-HLSLIntrinsicAttr {{.*}} Implicit "op" "" 396
 // AST-NEXT: {{.*}}|-ConstAttr {{.*}} Implicit
 // AST-NEXT: {{.*}}`-AvailabilityAttr {{.*}} Implicit  6.10 0 0 ""
 
 // AST: `-CXXMethodDecl {{.*}} used CandidateClusterID 'unsigned int ()' extern
 // AST-NEXT: {{.*}}|-TemplateArgument type 'unsigned int'
-// AST-NEXT: {{.*}}|-HLSLIntrinsicAttr {{.*}} Implicit "op" "" 398
+// AST-NEXT: {{.*}}|-HLSLIntrinsicAttr {{.*}} Implicit "op" "" 394
 // AST-NEXT: {{.*}}|-PureAttr {{.*}} Implicit
 // AST-NEXT: {{.*}}`-AvailabilityAttr {{.*}} Implicit  6.10 0 0 ""
 
 // AST: `-CXXMethodDecl {{.*}} used CommittedClusterID 'unsigned int ()' extern
 // AST-NEXT: {{.*}}|-TemplateArgument type 'unsigned int'
-// AST-NEXT: {{.*}}|-HLSLIntrinsicAttr {{.*}} Implicit "op" "" 399
+// AST-NEXT: {{.*}}|-HLSLIntrinsicAttr {{.*}} Implicit "op" "" 395
 // AST-NEXT: {{.*}}|-PureAttr {{.*}} Implicit
 // AST-NEXT: {{.*}}`-AvailabilityAttr {{.*}} Implicit  6.10 0 0 ""
 
 // AST: -FunctionDecl {{.*}} implicit used ClusterID 'unsigned int ()' extern
-// AST-NEXT: {{.*}}|-HLSLIntrinsicAttr {{.*}} Implicit "op" "" 397
+// AST-NEXT: {{.*}}|-HLSLIntrinsicAttr {{.*}} Implicit "op" "" 393
 // AST-NEXT: {{.*}}|-ConstAttr {{.*}} Implicit
 // AST-NEXT: {{.*}}|-AvailabilityAttr {{.*}} Implicit  6.10 0 0 ""
 // AST-NEXT: {{.*}}`-HLSLBuiltinCallAttr {{.*}} Implicit
@@ -41,7 +41,7 @@ struct [raypayload] Payload {
 // CHECK: call void @dx.op.rawBufferStore.i32
 
 // FCGL-LABEL: define void @{{.*}}test_cluster_id{{.*}}(
-// FCGL: call i32 @"dx.hl.op.rn.i32 (i32)"(i32 397)
+// FCGL: call i32 @"dx.hl.op.rn.i32 (i32)"(i32 393)
 [shader("closesthit")]
 void test_cluster_id(inout Payload payload, in BuiltInTriangleIntersectionAttributes attr) {
   uint cid = ClusterID();
@@ -54,7 +54,7 @@ void test_cluster_id(inout Payload payload, in BuiltInTriangleIntersectionAttrib
 // CHECK: call void @dx.op.rawBufferStore.i32
 
 // FCGL-LABEL: define void @{{.*}}test_rayquery_candidate_cluster_id{{.*}}(
-// FCGL: call i32 @"dx.hl.op.ro.i32 (i32, %{{.*}}"(i32 398
+// FCGL: call i32 @"dx.hl.op.ro.i32 (i32, %{{.*}}"(i32 394
 [shader("raygeneration")]
 void test_rayquery_candidate_cluster_id() {
   RayQuery<RAY_FLAG_NONE> rq;
@@ -77,7 +77,7 @@ void test_rayquery_candidate_cluster_id() {
 // CHECK: call void @dx.op.rawBufferStore.i32
 
 // FCGL-LABEL: define void @{{.*}}test_rayquery_committed_cluster_id{{.*}}(
-// FCGL: call i32 @"dx.hl.op.ro.i32 (i32, %{{.*}}"(i32 399
+// FCGL: call i32 @"dx.hl.op.ro.i32 (i32, %{{.*}}"(i32 395
 [shader("raygeneration")]
 void test_rayquery_committed_cluster_id() {
   RayQuery<RAY_FLAG_NONE> rq;
@@ -99,7 +99,7 @@ void test_rayquery_committed_cluster_id() {
 // CHECK: call void @dx.op.rawBufferStore.i32
 
 // FCGL-LABEL: define void @{{.*}}test_hitobject_cluster_id{{.*}}(
-// FCGL: call i32 @"dx.hl.op.rn.i32 (i32, %dx.types.HitObject{{.*}}"(i32 400
+// FCGL: call i32 @"dx.hl.op.rn.i32 (i32, %dx.types.HitObject{{.*}}"(i32 396
 [shader("raygeneration")]
 void test_hitobject_cluster_id() {
   dx::HitObject ho = dx::HitObject::MakeNop();

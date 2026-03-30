@@ -7,7 +7,7 @@
 // CHECK-NEXT: ParmVarDecl {{.*}} offset 'unsigned int'
 // CHECK-NEXT: ParmVarDecl {{.*}} stride 'unsigned int'
 // CHECK-NEXT: ParmVarDecl {{.*}} layout 'unsigned int'
-// CHECK-NEXT: HLSLIntrinsicAttr {{.*}} Implicit "op" "" 420
+// CHECK-NEXT: HLSLIntrinsicAttr {{.*}} Implicit "op" "" 416
 // CHECK-NEXT: AvailabilityAttr {{.*}} Implicit  6.10 0 0 ""
 
 groupshared float SharedArr[64];

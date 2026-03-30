@@ -59,6 +59,8 @@ public:
     TK_AccelerationStructureNV,
     TK_RayQueryKHR,
     TK_SpirvIntrinsicType,
+    TK_BufferEXT,
+    TK_UntypedPointerKHR,
     // Order matters: all the following are hybrid types
     TK_HybridStruct,
     TK_HybridPointer,
@@ -387,6 +389,45 @@ private:
   // If this structure is a uniform buffer shader-interface, it will be
   // decorated with 'Block'.
   StructInterfaceType interfaceType;
+};
+
+class BufferEXTType : public SpirvType {
+public:
+  BufferEXTType(spv::StorageClass sc)
+      : SpirvType(TK_BufferEXT, "type.buffer.ext"), storageClass(sc) {}
+
+  static bool classof(const SpirvType *t) {
+    return t->getKind() == TK_BufferEXT;
+  }
+
+  bool operator==(const BufferEXTType &that) const {
+    return storageClass == that.storageClass;
+  }
+
+  spv::StorageClass getStorageClass() const { return storageClass; }
+
+private:
+  spv::StorageClass storageClass;
+};
+
+class UntypedPointerKHRType : public SpirvType {
+public:
+  UntypedPointerKHRType(spv::StorageClass sc)
+      : SpirvType(TK_UntypedPointerKHR, "type.untyped.pointer"),
+        storageClass(sc) {}
+
+  static bool classof(const SpirvType *t) {
+    return t->getKind() == TK_UntypedPointerKHR;
+  }
+
+  bool operator==(const UntypedPointerKHRType &that) const {
+    return storageClass == that.storageClass;
+  }
+
+  spv::StorageClass getStorageClass() const { return storageClass; }
+
+private:
+  spv::StorageClass storageClass;
 };
 
 /// Represents a SPIR-V pointer type.

@@ -11,7 +11,7 @@ void main() {
   // CHECK-SAME: ; LinAlgMatrixGetCoordinate(matrix,threadLocalIndex)
 
   // CHECK2: call <2 x i32> @"dx.hl.op..<2 x i32> (i32, %dx.types.LinAlgMatrixC4M5N4U1S2, i32)"
-  // CHECK2-SAME: (i32 407, %dx.types.LinAlgMatrixC4M5N4U1S2 {{.*}}, i32 1)
+  // CHECK2-SAME: (i32 403, %dx.types.LinAlgMatrixC4M5N4U1S2 {{.*}}, i32 1)
   __builtin_LinAlgMatrix [[__LinAlgMatrix_Attributes(4, 5, 4, 1, 2)]] mat;
   uint2 coord = __builtin_LinAlg_MatrixGetCoordinate(mat, 1);
 }

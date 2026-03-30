@@ -11,7 +11,7 @@ void main() {
   // CHECK-SAME: ; LinAlgCopyConvertMatrix(srcMatrix,transpose)
 
   // CHECK2: call void @"dx.hl.op..void (i32, %dx.types.LinAlgMatrixC4M5N4U1S2*, %dx.types.LinAlgMatrixC2M5N4U1S2, i1)"
-  // CHECK2-SAME: (i32 405, %dx.types.LinAlgMatrixC4M5N4U1S2* {{.*}}, %dx.types.LinAlgMatrixC2M5N4U1S2 {{.*}}, i1 false)
+  // CHECK2-SAME: (i32 401, %dx.types.LinAlgMatrixC4M5N4U1S2* {{.*}}, %dx.types.LinAlgMatrixC2M5N4U1S2 {{.*}}, i1 false)
   __builtin_LinAlgMatrix [[__LinAlgMatrix_Attributes(2, 5, 4, 1, 2)]] mat1;
   __builtin_LinAlgMatrix [[__LinAlgMatrix_Attributes(4, 5, 4, 1, 2)]] mat2;
   __builtin_LinAlg_CopyConvertMatrix(mat2, mat1, false);
