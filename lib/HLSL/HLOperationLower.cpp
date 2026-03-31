@@ -7089,6 +7089,30 @@ Value *TranslateLinAlgMatrixAccumStoreToMemory(
                             {OpArg, Matrix, ArrPtr, Offset, Stride, Layout});
 }
 
+Value *TranslateLinAlgConvert(CallInst *CI, IntrinsicOp IOP, OP::OpCode OpCode,
+                              HLOperationLowerHelper &Helper,
+                              HLObjectOperationLowerHelper *ObjHelper,
+                              bool &Translated) {
+  hlsl::OP *HlslOp = &Helper.hlslOP;
+  IRBuilder<> Builder(CI);
+
+  Value *OutVecPtr = CI->getArgOperand(1);
+  DXASSERT_NOMSG(isa<PointerType>(OutVecPtr->getType()));
+  Type *OutVecTy = OutVecPtr->getType()->getPointerElementType();
+  Value *InVec = CI->getArgOperand(2);
+  Value *InInterp = CI->getArgOperand(3);
+  Value *OutInterp = CI->getArgOperand(4);
+
+  Constant *OpArg = HlslOp->GetU32Const((unsigned)OpCode);
+  Function *DxilFunc = HlslOp->GetOpFunc(OpCode, {OutVecTy, InVec->getType()});
+
+  Value *OutVec =
+      Builder.CreateCall(DxilFunc, {OpArg, InVec, InInterp, OutInterp});
+  Builder.CreateStore(OutVec, OutVecPtr);
+
+  return nullptr;
+}
+
 } // namespace
 
 // Lower table.
@@ -7880,6 +7904,9 @@ constexpr IntrinsicLower gLowerTable[] = {
      DXIL::OpCode::DebugBreak},
     {IntrinsicOp::IOP_DxIsDebuggerPresent, TranslateWaveToVal,
      DXIL::OpCode::IsDebuggerPresent},
+
+    {IntrinsicOp::IOP___builtin_LinAlg_Convert, TranslateLinAlgConvert,
+     DXIL::OpCode::LinAlgConvert},
 };
 constexpr size_t NumLowerTableEntries =
     sizeof(gLowerTable) / sizeof(gLowerTable[0]);

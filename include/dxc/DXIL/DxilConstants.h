@@ -531,9 +531,8 @@ static const OpCodeTableID TableID = OpCodeTableID::ExperimentalOps;
 // Enumeration for ExperimentalOps DXIL operations
 enum class OpCode : unsigned {
   //
-  ReservedE1 = 30, // reserved
-  ReservedE2 = 31, // reserved
-  ReservedE3 = 32, // reserved
+  ReservedE0 = 31, // reserved
+  ReservedE1 = 32, // reserved
 
   // Debugging
   DebugBreak = 33,        // triggers a breakpoint if a debugger is attached
@@ -552,6 +551,8 @@ enum class OpCode : unsigned {
       9, // returns committed triangle vertices in object space as <9 x float>
 
   // Linear Algebra Operations
+  LinAlgConvert =
+      30, // Convert vector components from one interpretation to another
   LinAlgCopyConvertMatrix =
       13, // Converts and copies the element and use type of the source matrix
           // to the destination matrix with optional transpose
@@ -1349,12 +1350,13 @@ enum class OpCode : unsigned {
       ExperimentalOps,
       LinAlgMatrixOuterProduct), // Outer products an M sized vector and a N
                                  // sized vector producing an MxN matrix
-  // ReservedE1 = 0x8000001E, 2147483678U, -2147483618
+  // LinAlgConvert = 0x8000001E, 2147483678U, -2147483618
+  EXP_OPCODE(ExperimentalOps, LinAlgConvert), // Convert vector components from
+                                              // one interpretation to another
+  // ReservedE0 = 0x8000001F, 2147483679U, -2147483617
+  EXP_OPCODE(ExperimentalOps, ReservedE0), // reserved
+  // ReservedE1 = 0x80000020, 2147483680U, -2147483616
   EXP_OPCODE(ExperimentalOps, ReservedE1), // reserved
-  // ReservedE2 = 0x8000001F, 2147483679U, -2147483617
-  EXP_OPCODE(ExperimentalOps, ReservedE2), // reserved
-  // ReservedE3 = 0x80000020, 2147483680U, -2147483616
-  EXP_OPCODE(ExperimentalOps, ReservedE3), // reserved
   // DebugBreak = 0x80000021, 2147483681U, -2147483615
   EXP_OPCODE(ExperimentalOps,
              DebugBreak), // triggers a breakpoint if a debugger is attached
@@ -1520,6 +1522,7 @@ enum class OpCodeClass : unsigned {
   CreateHandleForLib,
 
   // Linear Algebra Operations
+  LinAlgConvert,
   LinAlgCopyConvertMatrix,
   LinAlgFillMatrix,
   LinAlgMatVecMul,
@@ -1725,7 +1728,7 @@ enum class OpCodeClass : unsigned {
   NodeOutputIsValid,
   OutputComplete,
 
-  NumOpClasses = 221, // exclusive last value of enumeration
+  NumOpClasses = 222, // exclusive last value of enumeration
 };
 // OPCODECLASS-ENUM:END
 

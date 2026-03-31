@@ -50,6 +50,9 @@ define void @mainAS() {
   ; dx.op.linAlgMatVecMulAdd
   %v7 = call <4 x i32> @dx.op.linAlgMatVecMulAdd.v4i32.mC4M5N4U0S2.v4i32.v4i32(i32 -2147483622, %dx.types.LinAlgMatrixC4M5N4U0S2 %v4, <4 x i32> <i32 9, i32 9, i32 9, i32 9>, i32 2, <4 x i32> <i32 7, i32 7, i32 7, i32 7>, i32 3)  ; LinAlgMatVecMulAdd(matrix,inputVector,inputInterpretation,biasVector,biasInterpretation)
   
+  ; dx.op.linAlgConvert
+  %v16 = call <4 x float> @dx.op.linAlgConvert.v4f32.v4i32(i32 -2147483618, <4 x i32> zeroinitializer, i32 1, i32 2)  ; LinAlgConvert(inputVector,inputInterpretation,outputInterpretation)
+
   ;
   ; Built-ins restricted to compute, mesh and amplification shaders
   ;
@@ -122,6 +125,9 @@ declare <4 x i32> @dx.op.linAlgMatVecMul.v4i32.mC4M5N4U0S2.v4i32(i32, %dx.types.
 
 ; Function Attrs: nounwind
 declare <4 x i32> @dx.op.linAlgMatVecMulAdd.v4i32.mC4M5N4U0S2.v4i32.v4i32(i32, %dx.types.LinAlgMatrixC4M5N4U0S2, <4 x i32>, i32, <4 x i32>, i32) #0
+
+; Function Attrs: nounwind
+declare <4 x float> @dx.op.linAlgConvert.v4f32.v4i32(i32, <4 x i32>, i32, i32) #0
 
 ; Function Attrs: nounwind
 declare %dx.types.LinAlgMatrixC4M4N5U1S2 @dx.op.linAlgCopyConvertMatrix.mC4M4N5U1S2.mC4M5N4U0S2(i32, %dx.types.LinAlgMatrixC4M5N4U0S2, i1) #0
