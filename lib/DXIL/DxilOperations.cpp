@@ -2976,25 +2976,25 @@ static const OP::OpCodeProperty ExperimentalOps_OpCodeProps[] = {
      3,
      {{0x200}, {0x400}, {0x400}},
      {{0x0}, {0x63}, {0x63}}}, // Overloads: o,<hfwi,<hfwi
+    {OC::LinAlgConvert,
+     "LinAlgConvert",
+     OCC::LinAlgConvert,
+     "linAlgConvert",
+     Attribute::None,
+     2,
+     {{0x400}, {0x400}},
+     {{0x63}, {0x63}}}, // Overloads: <hfwi,<hfwi
 
+    {OC::ReservedE0,
+     "ReservedE0",
+     OCC::Reserved,
+     "reserved",
+     Attribute::None,
+     0,
+     {},
+     {}}, // Overloads: v
     {OC::ReservedE1,
      "ReservedE1",
-     OCC::Reserved,
-     "reserved",
-     Attribute::None,
-     0,
-     {},
-     {}}, // Overloads: v
-    {OC::ReservedE2,
-     "ReservedE2",
-     OCC::Reserved,
-     "reserved",
-     Attribute::None,
-     0,
-     {},
-     {}}, // Overloads: v
-    {OC::ReservedE3,
-     "ReservedE3",
      OCC::Reserved,
      "reserved",
      Attribute::None,
@@ -3955,12 +3955,13 @@ void OP::GetMinShaderModelAndMask(OpCode C, bool bWithTranslation,
   // LinAlgMatrixQueryAccumulatorLayout=2147483670, LinAlgMatVecMul=2147483673,
   // LinAlgMatVecMulAdd=2147483674,
   // LinAlgMatrixAccumulateToDescriptor=2147483675,
-  // LinAlgMatrixOuterProduct=2147483677, DebugBreak=2147483681,
-  // IsDebuggerPresent=2147483682
+  // LinAlgMatrixOuterProduct=2147483677, LinAlgConvert=2147483678,
+  // DebugBreak=2147483681, IsDebuggerPresent=2147483682
   if (op == 2147483648 || (2147483652 <= op && op <= 2147483653) ||
       (2147483656 <= op && op <= 2147483657) || op == 2147483662 ||
       op == 2147483670 || (2147483673 <= op && op <= 2147483675) ||
-      op == 2147483677 || (2147483681 <= op && op <= 2147483682)) {
+      (2147483677 <= op && op <= 2147483678) ||
+      (2147483681 <= op && op <= 2147483682)) {
     major = 6;
     minor = 10;
     return;
@@ -6636,6 +6637,7 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
     A(EXT(0));
     A(pI32);
     A(EXT(1));
+    A(pI1);
     A(EXT(2));
     A(pI32);
     break;
@@ -6643,6 +6645,7 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
     A(EXT(0));
     A(pI32);
     A(EXT(1));
+    A(pI1);
     A(EXT(2));
     A(pI32);
     A(EXT(3));
@@ -6673,17 +6676,20 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
     A(EXT(1));
     A(EXT(2));
     break;
+  case OpCode::LinAlgConvert:
+    A(EXT(0));
+    A(pI32);
+    A(EXT(1));
+    A(pI32);
+    A(pI32);
+    break;
 
     //
+  case OpCode::ReservedE0:
+    A(pV);
+    A(pI32);
+    break;
   case OpCode::ReservedE1:
-    A(pV);
-    A(pI32);
-    break;
-  case OpCode::ReservedE2:
-    A(pV);
-    A(pI32);
-    break;
-  case OpCode::ReservedE3:
     A(pV);
     A(pI32);
     break;
@@ -7002,9 +7008,8 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
   case OpCode::GetGroupWaveCount:
   case OpCode::ClusterID:
   case OpCode::LinAlgMatrixQueryAccumulatorLayout:
+  case OpCode::ReservedE0:
   case OpCode::ReservedE1:
-  case OpCode::ReservedE2:
-  case OpCode::ReservedE3:
   case OpCode::DebugBreak:
   case OpCode::IsDebuggerPresent:
     return Type::getVoidTy(Ctx);
@@ -7047,6 +7052,7 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
   case OpCode::LinAlgFillMatrix:
   case OpCode::LinAlgCopyConvertMatrix:
   case OpCode::LinAlgMatrixGetElement:
+  case OpCode::LinAlgConvert:
     if (FT->getNumParams() < 2)
       return nullptr;
     return llvm::StructType::get(Ctx,
@@ -7060,6 +7066,7 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
         {FT->getReturnType(), FT->getParamType(1)->getPointerElementType()});
 
   case OpCode::LinAlgMatrixSetElement:
+  case OpCode::LinAlgMatVecMul:
     if (FT->getNumParams() < 4)
       return nullptr;
     return llvm::StructType::get(
@@ -7075,7 +7082,6 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
 
   case OpCode::LinAlgMatrixMultiply:
   case OpCode::LinAlgMatrixAccumulate:
-  case OpCode::LinAlgMatVecMul:
   case OpCode::LinAlgMatrixOuterProduct:
     if (FT->getNumParams() < 3)
       return nullptr;
@@ -7083,11 +7089,11 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
         Ctx, {FT->getReturnType(), FT->getParamType(1), FT->getParamType(2)});
 
   case OpCode::LinAlgMatVecMulAdd:
-    if (FT->getNumParams() < 5)
+    if (FT->getNumParams() < 6)
       return nullptr;
     return llvm::StructType::get(Ctx,
                                  {FT->getReturnType(), FT->getParamType(1),
-                                  FT->getParamType(2), FT->getParamType(4)});
+                                  FT->getParamType(3), FT->getParamType(5)});
 
   // OPCODE-OLOAD-TYPES:END
   default:

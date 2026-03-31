@@ -1163,7 +1163,7 @@ class db_dxil(object):
         for i in insts(
             "LinAlgMatrixQueryAccumulatorLayout,LinAlgMatrixLoadFromDescriptor,"
             + "LinAlgMatrixAccumulateToDescriptor,LinAlgMatVecMul,"
-            + "LinAlgMatVecMulAdd,LinAlgMatrixOuterProduct"
+            + "LinAlgMatVecMulAdd,LinAlgMatrixOuterProduct,LinAlgConvert"
         ):
             i.category = "Linear Algebra Operations"
             i.shader_model = experimental_sm
@@ -6487,8 +6487,9 @@ class db_dxil(object):
             [
                 db_dxil_param(0, "$x0", "", "operation result"),
                 db_dxil_param(2, "$x1", "matrix", "A matrix to multiply"),
-                db_dxil_param(3, "$x2", "inputVector", "K dim vector to multiply"),
-                db_dxil_param(4, "i32", "interpretation", "vector interpretation type"),
+                db_dxil_param(3, "i1", "isOutputSigned", "true if output is signed"),
+                db_dxil_param(4, "$x2", "inputVector", "K dim vector to multiply"),
+                db_dxil_param(5, "i32", "interpretation", "vector interpretation type"),
             ],
         )
 
@@ -6501,13 +6502,14 @@ class db_dxil(object):
             [
                 db_dxil_param(0, "$x0", "", "operation result"),
                 db_dxil_param(2, "$x1", "matrix", "A matrix to multiply"),
-                db_dxil_param(3, "$x2", "inputVector", "K dim vector to multiply"),
+                db_dxil_param(3, "i1", "isOutputSigned", "true if output is signed"),
+                db_dxil_param(4, "$x2", "inputVector", "K dim vector to multiply"),
                 db_dxil_param(
-                    4, "i32", "inputInterpretation", "input vector interpretation type"
+                    5, "i32", "inputInterpretation", "input vector interpretation type"
                 ),
-                db_dxil_param(5, "$x3", "biasVector", "M dim vector to add"),
+                db_dxil_param(6, "$x3", "biasVector", "M dim vector to add"),
                 db_dxil_param(
-                    6, "i32", "biasInterpretation", "bias vector interpretation type"
+                    7, "i32", "biasInterpretation", "bias vector interpretation type"
                 ),
             ],
         )
@@ -6572,7 +6574,25 @@ class db_dxil(object):
             ],
         )
 
-        op_table.reserve_dxil_op_range("ReservedE", 3, 1)
+        add_dxil_op(
+            "LinAlgConvert",
+            "LinAlgConvert",
+            "Convert vector components from one interpretation to another",
+            "<hfwi,<hfwi",
+            "",
+            [
+                db_dxil_param(0, "$x0", "", "operation result"),
+                db_dxil_param(2, "$x1", "inputVector", "vector to convert"),
+                db_dxil_param(
+                    3, "i32", "inputInterpretation", "input vector interpretation type"
+                ),
+                db_dxil_param(
+                    4, "i32", "outputInterpretation", "output vector interpretation type"
+                ),
+            ],
+        )
+
+        op_table.reserve_dxil_op_range("ReservedE", 2)
 
         # Debugging intrinsics
         add_dxil_op(
