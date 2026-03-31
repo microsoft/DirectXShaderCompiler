@@ -38,7 +38,7 @@ using hlsl::DXIL::MatrixScope;
 using hlsl::DXIL::MatrixUse;
 
 /// Return the byte size of a single element for the given component type.
-static int elemSize(ComponentType CT) {
+static int elementSize(ComponentType CT) {
   switch (CT) {
   case ComponentType::F16:
   case ComponentType::I16:
@@ -64,7 +64,7 @@ struct MatrixParams {
   bool Enable16Bit;
 
   int strideBytes() const {
-    int ES = elemSize(CompType);
+    int ES = elementSize(CompType);
     if (Layout == LinalgMatrixLayout::RowMajor)
       return N * ES;
     return M * ES;
@@ -72,7 +72,7 @@ struct MatrixParams {
 
   size_t totalElements() const { return static_cast<size_t>(M) * N; }
 
-  size_t totalBytes() const { return totalElements() * elemSize(CompType); }
+  size_t totalBytes() const { return totalElements() * elementSize(CompType); }
 };
 
 static std::string buildCompilerArgs(const MatrixParams &Params,
@@ -80,6 +80,7 @@ static std::string buildCompilerArgs(const MatrixParams &Params,
   std::stringstream SS;
   SS << "-HV 202x";
   SS << " -DCOMP_TYPE=" << static_cast<int>(Params.CompType);
+  SS << " -DCOMP_TYPE_F32=" << 9;
   SS << " -DM_DIM=" << Params.M;
   SS << " -DN_DIM=" << Params.N;
   SS << " -DUSE=" << static_cast<int>(Params.Use);
@@ -273,7 +274,6 @@ static void runLoadStoreRoundtrip(ID3D12Device *Device,
   }
 #endif
 
-  // Build expected data.
   std::vector<float> ExpectedFloats(NumElements);
   std::vector<int32_t> ExpectedInts(NumElements);
   for (size_t I = 0; I < NumElements; I++) {
@@ -396,7 +396,6 @@ static void runSplatStore(ID3D12Device *Device,
   }
 #endif
 
-  // Build expected data.
   std::vector<float> ExpectedFloats;
   std::vector<int32_t> ExpectedInts;
   switch (Params.CompType) {
@@ -468,8 +467,8 @@ static const char ElementAccessShader[] = R"(
   RWByteAddressBuffer Input : register(u0);
   RWByteAddressBuffer Output : register(u1);
 
-  // flatten the 2D index into a 1d index then scale by element size
-  uint cordToByteOffset(uint2 coord) {
+  // flatten the 2D index into a 1D index then scale by element size
+  uint coordToByteOffset(uint2 coord) {
     return (coord.x * MAJOR_DIM + coord.y) * ELEM_SIZE;
   }
 
@@ -484,8 +483,8 @@ static const char ElementAccessShader[] = R"(
     // Copy Matrix values from input to output without assuming order
     for (uint I = 0; I < __builtin_LinAlg_MatrixLength(Mat); ++I) {
       uint2 Coord = __builtin_LinAlg_MatrixGetCoordinate(Mat, I);
-      uint Offset = cordToByteOffset(Coord);
-#if COMP_TYPE == 9
+      uint Offset = coordToByteOffset(Coord);
+#if COMP_TYPE == COMP_TYPE_F32
         float Elem;
         __builtin_LinAlg_MatrixGetElement(Elem, Mat, I);
         Output.Store(Offset, asuint(Elem));
@@ -496,7 +495,7 @@ static const char ElementAccessShader[] = R"(
 #endif
     }
 
-    // Store each threads Length in the output after the copied matrix
+    // Store each threads length in the output after the copied matrix
     uint finalIdx = (M_DIM * N_DIM + threadIndex) * ELEM_SIZE;
     uint Len = __builtin_LinAlg_MatrixLength(Mat);
     Output.Store(finalIdx, Len);
@@ -505,12 +504,12 @@ static const char ElementAccessShader[] = R"(
 
 static void runElementAccess(ID3D12Device *Device,
                              dxc::SpecificDllLoader &DxcSupport,
-                             const MatrixParams &Params, int MajorDim,
-                             bool Verbose) {
+                             const MatrixParams &Params, bool Verbose) {
   const size_t NumElements = Params.totalElements();
   const size_t NumThreads = Params.NumThreads;
   const size_t InputBufSize = Params.totalBytes();
-  const size_t ElementSize = elemSize(Params.CompType);
+  const size_t ElementSize = elementSize(Params.CompType);
+  const size_t MajorDim = Params.Layout == LinalgMatrixLayout::RowMajor ? Params.M : Params.N;
   // Output: ElementSize bytes per element
   //   1 element for each mat idx
   //   1 element for each thread's length
@@ -533,7 +532,6 @@ static void runElementAccess(ID3D12Device *Device,
   }
 #endif
 
-  // Build expected data.
   std::vector<float> ExpectedFloats(NumElements);
   std::vector<int32_t> ExpectedInts(NumElements);
   for (size_t I = 0; I < NumElements; I++) {
@@ -577,7 +575,6 @@ static void runElementAccess(ID3D12Device *Device,
   Result->Test->GetReadBackData("Output", &OutData);
   const uint32_t *Out = static_cast<const uint32_t *>(OutData.data());
 
-  // Build actual data.
   std::vector<float> ActualFloats(NumElements);
   std::vector<int32_t> ActualInts(NumElements);
   for (size_t I = 0; I < NumElements * ElementSize; I = I + ElementSize) {
@@ -585,11 +582,11 @@ static void runElementAccess(ID3D12Device *Device,
     case ComponentType::F32: {
       float Actual;
       memcpy(&Actual, &Out[I], sizeof(float));
-      ActualFloats[I / 4] = Actual;
+      ActualFloats[I / ElementSize] = Actual;
       break;
     }
     case ComponentType::I32: {
-      ActualInts[I / 4] = Out[I];
+      ActualInts[I / ElementSize] = Out[I];
       break;
     }
     default:
@@ -629,27 +626,27 @@ static void runElementAccess(ID3D12Device *Device,
 void DxilConf_SM610_LinAlg::ElementAccess_Wave_F32() {
   MatrixParams Params = {};
   Params.CompType = ComponentType::F32;
-  Params.M = 4;
-  Params.N = 4;
+  Params.M = 16;
+  Params.N = 16;
   Params.Use = MatrixUse::Accumulator;
   Params.Scope = MatrixScope::Wave;
   Params.Layout = LinalgMatrixLayout::RowMajor;
   Params.NumThreads = 4;
   Params.Enable16Bit = false;
-  runElementAccess(D3DDevice, DxcSupport, Params, Params.M, VerboseLogging);
+  runElementAccess(D3DDevice, DxcSupport, Params, VerboseLogging);
 }
 
 void DxilConf_SM610_LinAlg::ElementAccess_Wave_I32() {
   MatrixParams Params = {};
   Params.CompType = ComponentType::I32;
-  Params.M = 4;
-  Params.N = 4;
+  Params.M = 16;
+  Params.N = 16;
   Params.Use = MatrixUse::Accumulator;
   Params.Scope = MatrixScope::Wave;
   Params.Layout = LinalgMatrixLayout::RowMajor;
   Params.NumThreads = 4;
   Params.Enable16Bit = false;
-  runElementAccess(D3DDevice, DxcSupport, Params, Params.M, VerboseLogging);
+  runElementAccess(D3DDevice, DxcSupport, Params, VerboseLogging);
 }
 
 } // namespace LinAlg
