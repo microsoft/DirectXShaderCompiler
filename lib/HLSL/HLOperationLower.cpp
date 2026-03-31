@@ -4358,8 +4358,7 @@ Value *TranslateBufLoad(ResLoadHelper &helper, HLResource::Kind RK,
   const bool isMinPrec = (WidenedTy != Ty);
   const bool is64 = (EltTy->isIntegerTy(64) || EltTy->isDoubleTy());
   const bool isBool = EltTy->isIntegerTy(1);
-  // If bool (i1), load from memory-representation (i32),
-  // or if 64-bits and typed, load i32 chunks, then reconstruct values.
+  // DXIL buffer loads require i32; narrow types are reconverted after load.
   if (isBool || (is64 && isTyped))
     EltTy = Builder.getInt32Ty();
 
@@ -4475,7 +4474,7 @@ Value *TranslateBufLoad(ResLoadHelper &helper, HLResource::Kind RK,
     retValNew = Builder.CreateICmpNE(
         retValNew, Constant::getNullValue(retValNew->getType()));
 
-  // Truncate widened min precision loads back to original type.
+  // DXIL loads min precision as 32-bit; narrow back to original IR type.
   if (isMinPrec) {
     if (OrigEltTy->isIntegerTy())
       retValNew = Builder.CreateTrunc(retValNew, Ty);
@@ -4603,9 +4602,7 @@ void TranslateStore(DxilResource::Kind RK, Value *handle, Value *val,
     val = Builder.CreateZExt(val, Ty);
   }
 
-  // Widen min precision types to i32/f32 for raw buffer stores.
-  // Min precision types have 32-bit alloc size, so the address math and
-  // store intrinsic must use 32-bit values to match.
+  // Min precision alloc size is 32-bit; widen to match store intrinsic.
   if (opcode == OP::OpCode::RawBufferStore ||
       opcode == OP::OpCode::RawBufferVectorStore) {
     const DataLayout &DL =
