@@ -1,14 +1,9 @@
 ; RUN: opt < %s -sroa -S | FileCheck %s
 
 ; Regression test for SROA miscompilation of min precision vector element access.
-; DXC's data layout pads i16 to 32 bits (i16:32) and f16 to 32 bits (f16:32).
-; SROA must use getTypeAllocSizeInBits (not getTypeSizeInBits) for vector element
-; stride so that GEP byte offsets map to correct element indices.
-;
-; Without the fix, SROA used getTypeSizeInBits(i16)=16 bits (2 bytes) for the
-; element stride, but GEP offsets use getTypeAllocSize(i16)=4 bytes. So byte
-; offset 4 (element 1) was mapped to index 4/2=2 instead of 4/4=1, causing
-; element stores to be misplaced or eliminated.
+; DXC's data layout pads i16/f16 to 32 bits (i16:32, f16:32), so GEP offsets
+; between vector elements are 4 bytes apart. SROA must use alloc size (not
+; primitive size) for element stride, otherwise element stores get misplaced.
 
 target datalayout = "e-m:e-p:32:32-i1:32-i8:32-i16:32-i32:32-i64:64-f16:32-f32:32-f64:64-n8:16:32:64"
 target triple = "dxil-ms-dx"

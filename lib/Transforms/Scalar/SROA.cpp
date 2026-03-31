@@ -2505,7 +2505,7 @@ public:
         OldPtr(), PHIUsers(PHIUsers), SelectUsers(SelectUsers),
         IRB(NewAI.getContext(), ConstantFolder()) {
     if (VecTy) {
-      assert((DL.getTypeAllocSizeInBits(ElementTy) % 8) == 0 &&
+      assert((DL.getTypeAllocSizeInBits(ElementTy) % 8) == 0 && // HLSL Change
              "Only multiple-of-8 sized vector elements are viable");
       ++NumVectorized;
     }

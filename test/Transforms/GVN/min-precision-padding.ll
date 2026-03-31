@@ -75,11 +75,12 @@ entry:
 
 ; Test 4: Coercion rejection — store a <3 x i16> vector, load as different type.
 ; GVN must not attempt bitcast coercion on padded types.
+; If coercion happened, the load would be eliminated and replaced with a bitcast.
 
 ; CHECK-LABEL: @test_no_coerce_i16_vec3
 ; CHECK: store <3 x i16>
-; The load of a different type from the same pointer must not be coerced.
-; CHECK: load
+; CHECK: load i96
+; CHECK-NOT: bitcast
 ; CHECK: ret
 define i96 @test_no_coerce_i16_vec3(<3 x i16> %v) {
 entry:
