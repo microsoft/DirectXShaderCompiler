@@ -575,20 +575,22 @@ static void runElementAccess(ID3D12Device *Device,
 
   MappedData OutData;
   Result->Test->GetReadBackData("Output", &OutData);
-  const uint32_t *Out = static_cast<const uint32_t *>(OutData.data());
+  const BYTE *Out = static_cast<const BYTE *>(OutData.data());
 
   std::vector<float> ActualFloats(NumElements);
   std::vector<int32_t> ActualInts(NumElements);
-  for (size_t I = 0; I < NumElements * ElementSize; I = I + ElementSize) {
+  for (size_t I = 0; I < NumElements; ++I) {
     switch (Params.CompType) {
     case ComponentType::F32: {
       float Actual;
-      memcpy(&Actual, &Out[I], sizeof(float));
-      ActualFloats[I / ElementSize] = Actual;
+      memcpy(&Actual, &Out[I * ElementSize], ElementSize);
+      ActualFloats[I] = Actual;
       break;
     }
     case ComponentType::I32: {
-      ActualInts[I / ElementSize] = Out[I];
+      int32_t Actual;
+      memcpy(&Actual, &Out[I * ElementSize], ElementSize);
+      ActualInts[I] = Actual;
       break;
     }
     default:
