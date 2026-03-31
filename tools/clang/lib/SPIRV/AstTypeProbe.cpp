@@ -929,6 +929,8 @@ bool isTexture(QualType type) {
 bool isSampledTexture(QualType type) {
   if (const auto *rt = type->getAs<RecordType>()) {
     const auto name = rt->getDecl()->getName();
+    if (!name.starts_with("SampledTexture"))
+      return false;
     // TODO(https://github.com/microsoft/DirectXShaderCompiler/issues/7979): Add
     // other sampled texture types as needed.
 
@@ -952,6 +954,9 @@ bool isTextureMS(QualType type) {
 bool isSampledTextureMS(QualType type) {
   if (const auto *rt = type->getAs<RecordType>()) {
     const auto name = rt->getDecl()->getName();
+    if (!name.starts_with("SampledTexture"))
+      return false;
+
     if (name == "SampledTexture2DMS" || name == "SampledTexture2DMSArray")
       return true;
   }

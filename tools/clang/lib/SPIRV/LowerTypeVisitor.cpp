@@ -850,9 +850,7 @@ const SpirvType *LowerTypeVisitor::lowerVkTypeInVkNamespace(
     assert(visitedTypeStack.size() == visitedTypeStackSize);
     return pointerType;
   }
-  if (name == "SampledTexture1D" || name == "SampledTexture1DArray" ||
-      name == "SampledTexture2D" || name == "SampledTexture2DArray" ||
-      name == "SampledTexture2DMS" || name == "SampledTexture2DMSArray") {
+  if (name.startswith("SampledTexture")) {
     const auto sampledType = hlsl::GetHLSLResourceResultType(type);
     auto loweredType = lowerType(getElementType(astContext, sampledType), rule,
                                  /*isRowMajor*/ llvm::None, srcLoc);
