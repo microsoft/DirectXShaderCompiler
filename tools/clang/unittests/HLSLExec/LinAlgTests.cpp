@@ -468,13 +468,9 @@ static const char ElementAccessShader[] = R"(
   RWByteAddressBuffer Input : register(u0);
   RWByteAddressBuffer Output : register(u1);
 
-  // 0,0 = 0
-  // 0,1 = 4
-  // 1,0 = 16
-  // 3,3 = 60
-  // TODO: this assumes M=4,N=4
+  // flatten the 2D index into a 1d index then scale by element size
   uint cordToByteOffset(uint2 coord) {
-    return (coord.x * 4 + coord.y) * 4;
+    return (coord.x * MAJOR_DIM + coord.y) * ELEM_SIZE;
   }
 
   [numthreads(NUMTHREADS, 1, 1)]
@@ -501,7 +497,7 @@ static const char ElementAccessShader[] = R"(
     }
 
     // Store each threads Length in the output after the copied matrix
-    uint finalIdx = (M_DIM * N_DIM + threadIndex) * 4;
+    uint finalIdx = (M_DIM * N_DIM + threadIndex) * ELEM_SIZE;
     uint Len = __builtin_LinAlg_MatrixLength(Mat);
     Output.Store(finalIdx, Len);
   }
@@ -509,16 +505,20 @@ static const char ElementAccessShader[] = R"(
 
 static void runElementAccess(ID3D12Device *Device,
                              dxc::SpecificDllLoader &DxcSupport,
-                             const MatrixParams &Params, bool Verbose) {
+                             const MatrixParams &Params, int MajorDim, bool Verbose) {
   const size_t NumElements = Params.totalElements();
   const size_t NumThreads = Params.NumThreads;
   const size_t InputBufSize = Params.totalBytes();
-  // Output: 4 bytes per element
+  const size_t ElementSize = elemSize(Params.CompType);
+  // Output: ElementSize bytes per element
   //   1 element for each mat idx
   //   1 element for each thread's length
-  const size_t OutputBufSize = (NumElements + NumThreads) * 4;
+  const size_t OutputBufSize = (NumElements + NumThreads) * ElementSize;
 
-  std::string Args = buildCompilerArgs(Params);
+  std::stringstream ExtraDefs;
+  ExtraDefs << " -DMAJOR_DIM=" << MajorDim;
+  ExtraDefs << " -DELEM_SIZE=" << ElementSize;
+  std::string Args = buildCompilerArgs(Params, ExtraDefs.str().c_str());
 
   compileShader(DxcSupport, ElementAccessShader, "cs_6_10", Args, Verbose);
 
@@ -633,7 +633,7 @@ void DxilConf_SM610_LinAlg::ElementAccess_Wave_F32() {
   Params.Layout = LinalgMatrixLayout::RowMajor;
   Params.NumThreads = 4;
   Params.Enable16Bit = false;
-  runElementAccess(D3DDevice, DxcSupport, Params, VerboseLogging);
+  runElementAccess(D3DDevice, DxcSupport, Params, Params.M, VerboseLogging);
 }
 
 void DxilConf_SM610_LinAlg::ElementAccess_Wave_I32() {
@@ -646,7 +646,7 @@ void DxilConf_SM610_LinAlg::ElementAccess_Wave_I32() {
   Params.Layout = LinalgMatrixLayout::RowMajor;
   Params.NumThreads = 4;
   Params.Enable16Bit = false;
-  runElementAccess(D3DDevice, DxcSupport, Params, VerboseLogging);
+  runElementAccess(D3DDevice, DxcSupport, Params, Params.M, VerboseLogging);
 }
 
 } // namespace LinAlg
