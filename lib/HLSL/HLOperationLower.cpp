@@ -4322,6 +4322,23 @@ static SmallVector<Value *, 10> GetBufLoadArgs(ResLoadHelper helper,
   return Args;
 }
 
+static bool isMinPrecisionType(Type *EltTy, const DataLayout &DL) {
+  return !EltTy->isIntegerTy(1) &&
+         DL.getTypeAllocSizeInBits(EltTy) > EltTy->getPrimitiveSizeInBits();
+}
+
+static Type *widenMinPrecisionType(Type *Ty, LLVMContext &Ctx,
+                                   const DataLayout &DL) {
+  Type *EltTy = Ty->getScalarType();
+  if (!isMinPrecisionType(EltTy, DL))
+    return Ty;
+  Type *WideTy = EltTy->isFloatingPointTy() ? Type::getFloatTy(Ctx)
+                                            : Type::getInt32Ty(Ctx);
+  if (Ty->isVectorTy())
+    return VectorType::get(WideTy, Ty->getVectorNumElements());
+  return WideTy;
+}
+
 // Emits as many calls as needed to load the full vector
 // Performs any needed extractions and conversions of the results.
 Value *TranslateBufLoad(ResLoadHelper &helper, HLResource::Kind RK,
@@ -4335,10 +4352,13 @@ Value *TranslateBufLoad(ResLoadHelper &helper, HLResource::Kind RK,
     NumComponents = Ty->getVectorNumElements();
 
   const bool isTyped = DXIL::IsTyped(RK);
-  Type *EltTy = Ty->getScalarType();
+  Type *OrigEltTy = Ty->getScalarType();
+  Type *WidenedTy = widenMinPrecisionType(Ty, Builder.getContext(), DL);
+  Type *EltTy = WidenedTy->getScalarType();
+  const bool isMinPrec = (WidenedTy != Ty);
   const bool is64 = (EltTy->isIntegerTy(64) || EltTy->isDoubleTy());
   const bool isBool = EltTy->isIntegerTy(1);
-  // Values will be loaded in memory representations.
+  // DXIL buffer loads require i32; narrow types are reconverted after load.
   if (isBool || (is64 && isTyped))
     EltTy = Builder.getInt32Ty();
 
@@ -4453,6 +4473,14 @@ Value *TranslateBufLoad(ResLoadHelper &helper, HLResource::Kind RK,
   if (isBool)
     retValNew = Builder.CreateICmpNE(
         retValNew, Constant::getNullValue(retValNew->getType()));
+
+  // DXIL loads min precision as 32-bit; narrow back to original IR type.
+  if (isMinPrec) {
+    if (OrigEltTy->isIntegerTy())
+      retValNew = Builder.CreateTrunc(retValNew, Ty);
+    else
+      retValNew = Builder.CreateFPTrunc(retValNew, Ty);
+  }
 
   helper.retVal->replaceAllUsesWith(retValNew);
   helper.retVal = retValNew;
@@ -4572,6 +4600,25 @@ void TranslateStore(DxilResource::Kind RK, Value *handle, Value *val,
     else
       Ty = EltTy;
     val = Builder.CreateZExt(val, Ty);
+  }
+
+  // Min precision alloc size is 32-bit; widen to match store intrinsic.
+  // Scalar RawBufferStore widening is handled by TranslateMinPrecisionRawBuffer
+  // in DxilGenerationPass, which has signedness info from struct annotations.
+  if (opcode == OP::OpCode::RawBufferVectorStore) {
+    const DataLayout &DL =
+        OP->GetModule()->GetHLModule().GetModule()->getDataLayout();
+    Type *WideTy = widenMinPrecisionType(Ty, Builder.getContext(), DL);
+    if (WideTy != Ty) {
+      if (EltTy->isFloatingPointTy())
+        val = Builder.CreateFPExt(val, WideTy);
+      else
+        // TODO(#8314): Signedness info is lost by this point; SExt is wrong
+        // for min16uint. Front-end should widen during Clang CodeGen instead.
+        val = Builder.CreateSExt(val, WideTy);
+      EltTy = WideTy->getScalarType();
+      Ty = WideTy;
+    }
   }
 
   // If RawBuffer store of 64-bit value, don't set alignment to 8,

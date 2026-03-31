@@ -16,20 +16,20 @@ void main()
 {
     Foo foo = buf[0];
     // foo.m_B.x
-    // CHECK-DAG: call void @llvm.dbg.value(metadata i16 %{{[0-9]+}}, i64 0, metadata !{{[0-9]+}}, metadata !{{[0-9]+}}), !dbg !{{[0-9]+}} ; var:"foo" !DIExpression(DW_OP_bit_piece, 96, 16)
-    // CHECK16-DAG: call void @llvm.dbg.value(metadata i16 %{{[0-9]+}}, i64 0, metadata !{{[0-9]+}}, metadata !{{[0-9]+}}), !dbg !{{[0-9]+}} ; var:"foo" !DIExpression(DW_OP_bit_piece, 48, 16)
+    // CHECK-DAG: call void @llvm.dbg.value(metadata i16 %{{[^ ,]+}}, i64 0, metadata !{{[0-9]+}}, metadata !{{[0-9]+}}), !dbg !{{[0-9]+}} ; var:"foo" !DIExpression(DW_OP_bit_piece, 96, 16)
+    // CHECK16-DAG: call void @llvm.dbg.value(metadata i16 %{{[^ ,]+}}, i64 0, metadata !{{[0-9]+}}, metadata !{{[0-9]+}}), !dbg !{{[0-9]+}} ; var:"foo" !DIExpression(DW_OP_bit_piece, 48, 16)
 
     // foo.m_B.y
-    // CHECK-DAG: call void @llvm.dbg.value(metadata i16 %{{[0-9]+}}, i64 0, metadata !{{[0-9]+}}, metadata !{{[0-9]+}}), !dbg !{{[0-9]+}} ; var:"foo" !DIExpression(DW_OP_bit_piece, 128, 16)
-    // CHECK16-DAG: call void @llvm.dbg.value(metadata i16 %{{[0-9]+}}, i64 0, metadata !{{[0-9]+}}, metadata !{{[0-9]+}}), !dbg !{{[0-9]+}} ; var:"foo" !DIExpression(DW_OP_bit_piece, 64, 16)
+    // CHECK-DAG: call void @llvm.dbg.value(metadata i16 %{{[^ ,]+}}, i64 0, metadata !{{[0-9]+}}, metadata !{{[0-9]+}}), !dbg !{{[0-9]+}} ; var:"foo" !DIExpression(DW_OP_bit_piece, 128, 16)
+    // CHECK16-DAG: call void @llvm.dbg.value(metadata i16 %{{[^ ,]+}}, i64 0, metadata !{{[0-9]+}}, metadata !{{[0-9]+}}), !dbg !{{[0-9]+}} ; var:"foo" !DIExpression(DW_OP_bit_piece, 64, 16)
 
     // foo.m_B.z
-    // CHECK-DAG: call void @llvm.dbg.value(metadata i16 %{{[0-9]+}}, i64 0, metadata !{{[0-9]+}}, metadata !{{[0-9]+}}), !dbg !{{[0-9]+}} ; var:"foo" !DIExpression(DW_OP_bit_piece, 160, 16)
-    // CHECK16-DAG: call void @llvm.dbg.value(metadata i16 %{{[0-9]+}}, i64 0, metadata !{{[0-9]+}}, metadata !{{[0-9]+}}), !dbg !{{[0-9]+}} ; var:"foo" !DIExpression(DW_OP_bit_piece, 80, 16)
+    // CHECK-DAG: call void @llvm.dbg.value(metadata i16 %{{[^ ,]+}}, i64 0, metadata !{{[0-9]+}}, metadata !{{[0-9]+}}), !dbg !{{[0-9]+}} ; var:"foo" !DIExpression(DW_OP_bit_piece, 160, 16)
+    // CHECK16-DAG: call void @llvm.dbg.value(metadata i16 %{{[^ ,]+}}, i64 0, metadata !{{[0-9]+}}, metadata !{{[0-9]+}}), !dbg !{{[0-9]+}} ; var:"foo" !DIExpression(DW_OP_bit_piece, 80, 16)
 
     // foo.m_A.x
-    // CHECK-DAG: call void @llvm.dbg.value(metadata i16 %{{[0-9]+}}, i64 0, metadata !{{[0-9]+}}, metadata !{{[0-9]+}}), !dbg !{{[0-9]+}} ; var:"foo" !DIExpression(DW_OP_bit_piece, 0, 16)
-    // CHECK16-DAG: call void @llvm.dbg.value(metadata i16 %{{[0-9]+}}, i64 0, metadata !{{[0-9]+}}, metadata !{{[0-9]+}}), !dbg !{{[0-9]+}} ; var:"foo" !DIExpression(DW_OP_bit_piece, 0, 16)
+    // CHECK-DAG: call void @llvm.dbg.value(metadata i16 %{{[^ ,]+}}, i64 0, metadata !{{[0-9]+}}, metadata !{{[0-9]+}}), !dbg !{{[0-9]+}} ; var:"foo" !DIExpression(DW_OP_bit_piece, 0, 16)
+    // CHECK16-DAG: call void @llvm.dbg.value(metadata i16 %{{[^ ,]+}}, i64 0, metadata !{{[0-9]+}}, metadata !{{[0-9]+}}), !dbg !{{[0-9]+}} ; var:"foo" !DIExpression(DW_OP_bit_piece, 0, 16)
 
     min16int value1 = foo.m_B.x;
     min16int value2 = foo.m_B.y;
