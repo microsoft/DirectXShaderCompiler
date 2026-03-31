@@ -580,7 +580,7 @@ static void runElementAccess(ID3D12Device *Device,
   // Build actual data.
   std::vector<float> ActualFloats(NumElements);
   std::vector<int32_t> ActualInts(NumElements);
-  for (size_t I = 0; I < NumElements * 4; I = I + 4) {
+  for (size_t I = 0; I < NumElements * ElementSize; I = I + ElementSize) {
     switch (Params.CompType) {
     case ComponentType::F32: {
       float Actual;
@@ -615,9 +615,11 @@ static void runElementAccess(ID3D12Device *Device,
 
   // The sum of the values returned by Length across all threads must be
   // greater than or equal to the total number of matrix elements
+  size_t MatrixEndOffset = NumElements * ElementSize;
+  size_t LengthValuesEnd = MatrixEndOffset + (NumThreads * sizeof(uint32_t));
   size_t TotalLength = 0;
-  for (size_t I = NumElements * 4; I < (NumElements + NumThreads) * 4;
-       I = I + 4) {
+  for (size_t I = MatrixEndOffset; I < LengthValuesEnd;
+       I = I + sizeof(uint32_t)) {
     TotalLength += Out[I];
   }
   VERIFY_IS_TRUE(TotalLength >= NumElements,
