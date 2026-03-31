@@ -173,26 +173,28 @@ void main() {
 // CHECK: FunctionDecl {{.*}} implicit used __builtin_LinAlg_MatrixVectorMultiply 'void (vector<float, 4> &, __builtin_LinAlgMatrix {{.*}}, vector<float, 4>, unsigned int)' extern
 // CHECK-NEXT: ParmVarDecl {{.*}} ret 'vector<float, 4> &&__restrict'
 // CHECK-NEXT: ParmVarDecl {{.*}} mat '__builtin_LinAlgMatrix {{.*}}'
+// CHECK-NEXT: ParmVarDecl {{.*}} isOutputSigned 'bool'
 // CHECK-NEXT: ParmVarDecl {{.*}} input 'vector<float, 4>':'vector<float, 4>'
-// CHECK-NEXT: ParmVarDecl {{.*}} input_interp 'unsigned int'
+// CHECK-NEXT: ParmVarDecl {{.*}} inputInterp 'unsigned int'
 // CHECK-NEXT: HLSLIntrinsicAttr {{.*}} Implicit "op" "" 418
 // CHECK-NEXT: AvailabilityAttr {{.*}} Implicit  6.10 0 0 ""
   float4 vec = {1,2,3,4};
   float4 result;
-  __builtin_LinAlg_MatrixVectorMultiply(result, mat1, vec, 1);
+  __builtin_LinAlg_MatrixVectorMultiply(result, mat1, true, vec, 1);
 
 // CHECK: FunctionDecl {{.*}} implicit used __builtin_LinAlg_MatrixVectorMultiplyAdd 'void (vector<float, 4> &, __builtin_LinAlgMatrix {{.*}}, vector<float, 4>, unsigned int, vector<float, 4>, unsigned int)' extern
 // CHECK-NEXT: ParmVarDecl {{.*}} ret 'vector<float, 4> &&__restrict'
 // CHECK-NEXT: ParmVarDecl {{.*}} mat '__builtin_LinAlgMatrix {{.*}}'
+// CHECK-NEXT: ParmVarDecl {{.*}} isOutputSigned 'bool'
 // CHECK-NEXT: ParmVarDecl {{.*}} input 'vector<float, 4>':'vector<float, 4>'
-// CHECK-NEXT: ParmVarDecl {{.*}} input_interp 'unsigned int'
+// CHECK-NEXT: ParmVarDecl {{.*}} inputInterp 'unsigned int'
 // CHECK-NEXT: ParmVarDecl {{.*}} bias 'vector<float, 4>':'vector<float, 4>'
-// CHECK-NEXT: ParmVarDecl {{.*}} bias_interp 'unsigned int'
+// CHECK-NEXT: ParmVarDecl {{.*}} biasInterp 'unsigned int'
 // CHECK-NEXT: HLSLIntrinsicAttr {{.*}} Implicit "op" "" 419
 // CHECK-NEXT: AvailabilityAttr {{.*}} Implicit  6.10 0 0 ""
   float4 input = {1,2,3,4};
   float4 bias = {5,6,7,8};
-  __builtin_LinAlg_MatrixVectorMultiplyAdd(result, mat1, input, 1, bias, 2);
+  __builtin_LinAlg_MatrixVectorMultiplyAdd(result, mat1, true, input, 1, bias, 2);
 
 // CHECK: FunctionDecl {{.*}} implicit used __builtin_LinAlg_Convert 'void (vector<int, 4> &, vector<float, 4>, unsigned int, unsigned int)' extern
 // CHECK-NEXT: ParmVarDecl {{.*}} ret 'vector<int, 4> &&__restrict'

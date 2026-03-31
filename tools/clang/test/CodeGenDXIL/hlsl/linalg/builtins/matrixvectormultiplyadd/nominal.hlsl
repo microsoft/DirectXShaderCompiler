@@ -10,13 +10,13 @@ void main() {
   float4 result;
 
   // CHECK: call <4 x float> @dx.op.linAlgMatVecMulAdd.v4f32.mC5M3N4U0S0.v4f32.v4f32(i32 -2147483622,
-  // CHECK-SAME: %dx.types.LinAlgMatrixC5M3N4U0S0 {{.*}}, <4 x float> <float 1.000000e+00, 
+  // CHECK-SAME: %dx.types.LinAlgMatrixC5M3N4U0S0 {{.*}}, i1 true, <4 x float> <float 1.000000e+00,
   // CHECK-SAME: float 2.000000e+00, float 3.000000e+00, float 4.000000e+00>, i32 1, <4 x float> {{.*}}, i32 0)
-  // CHECK-SAME: ; LinAlgMatVecMulAdd(matrix,inputVector,inputInterpretation,biasVector,biasInterpretation)
+  // CHECK-SAME: ; LinAlgMatVecMulAdd(matrix,isOutputSigned,inputVector,inputInterpretation,biasVector,biasInterpretation)
 
-  // CHECK2: call void @"dx.hl.op..void (i32, <4 x float>*, %dx.types.LinAlgMatrixC5M3N4U0S0, <4 x float>,
+  // CHECK2: call void @"dx.hl.op..void (i32, <4 x float>*, %dx.types.LinAlgMatrixC5M3N4U0S0, i1, <4 x float>,
   // CHECK2-SAME: i32, <4 x float>, i32)"(i32 419, <4 x float>* %result, %dx.types.LinAlgMatrixC5M3N4U0S0 %{{[0-9]+}},
-  // CHECK2-SAME: <4 x float> %{{[0-9]+}}, i32 1, <4 x float> %{{[0-9]+}}, i32 0)
+  // CHECK2-SAME: i1 true, <4 x float> %{{[0-9]+}}, i32 1, <4 x float> %{{[0-9]+}}, i32 0)
 
-  __builtin_LinAlg_MatrixVectorMultiplyAdd(result, mat, vec, 1, result, 0);
+  __builtin_LinAlg_MatrixVectorMultiplyAdd(result, mat, true, vec, 1, result, 0);
 }
