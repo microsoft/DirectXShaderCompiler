@@ -6772,15 +6772,17 @@ Value *TranslateLinAlgMatVecMul(CallInst *CI, IntrinsicOp IOP,
   Type *ReturnVecType = ReturnVecPtr->getType()->getPointerElementType();
 
   Value *Matrix = CI->getArgOperand(2);
-  Value *InputVector = CI->getArgOperand(3);
-  Value *InputVectorInterp = CI->getArgOperand(4);
+  Value *IsOutputSigned = CI->getArgOperand(3);
+  Value *InputVector = CI->getArgOperand(4);
+  Value *InputVectorInterp = CI->getArgOperand(5);
 
   Constant *OpArg = HlslOp->GetU32Const((unsigned)OpCode);
   Function *DxilFunc = HlslOp->GetOpFunc(
       OpCode, {ReturnVecType, Matrix->getType(), InputVector->getType()});
 
-  Value *ReturnVec = Builder.CreateCall(
-      DxilFunc, {OpArg, Matrix, InputVector, InputVectorInterp});
+  Value *ReturnVec =
+      Builder.CreateCall(DxilFunc, {OpArg, Matrix, IsOutputSigned, InputVector,
+                                    InputVectorInterp});
   Builder.CreateStore(ReturnVec, ReturnVecPtr);
 
   return nullptr;
@@ -6799,10 +6801,11 @@ Value *TranslateLinAlgMatVecMulAdd(CallInst *CI, IntrinsicOp IOP,
   Type *ReturnVecType = ReturnVecPtr->getType()->getPointerElementType();
 
   Value *Matrix = CI->getArgOperand(2);
-  Value *InputVector = CI->getArgOperand(3);
-  Value *InputVectorInterp = CI->getArgOperand(4);
-  Value *BiasVector = CI->getArgOperand(5);
-  Value *BiasVectorInterp = CI->getArgOperand(6);
+  Value *IsOutputSigned = CI->getArgOperand(3);
+  Value *InputVector = CI->getArgOperand(4);
+  Value *InputVectorInterp = CI->getArgOperand(5);
+  Value *BiasVector = CI->getArgOperand(6);
+  Value *BiasVectorInterp = CI->getArgOperand(7);
 
   Constant *OpArg = HlslOp->GetU32Const((unsigned)OpCode);
   Function *DxilFunc = HlslOp->GetOpFunc(
@@ -6810,8 +6813,8 @@ Value *TranslateLinAlgMatVecMulAdd(CallInst *CI, IntrinsicOp IOP,
                BiasVector->getType()});
 
   Value *ReturnVec = Builder.CreateCall(
-      DxilFunc, {OpArg, Matrix, InputVector, InputVectorInterp, BiasVector,
-                 BiasVectorInterp});
+      DxilFunc, {OpArg, Matrix, IsOutputSigned, InputVector, InputVectorInterp,
+                 BiasVector, BiasVectorInterp});
   Builder.CreateStore(ReturnVec, ReturnVecPtr);
 
   return nullptr;
