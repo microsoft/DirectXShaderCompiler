@@ -4603,8 +4603,14 @@ void TranslateStore(DxilResource::Kind RK, Value *handle, Value *val,
   }
 
   // Min precision alloc size is 32-bit; widen to match store intrinsic.
-  if (opcode == OP::OpCode::RawBufferStore ||
-      opcode == OP::OpCode::RawBufferVectorStore) {
+  // StructuredBuffer scalar stores are handled by
+  // TranslateMinPrecisionRawBuffer in DxilGenerationPass, which has signedness
+  // info from struct annotations. ByteAddressBuffer (RawBuffer) scalar stores
+  // must be widened here because that later pass crashes on non-struct resource
+  // types (cast<StructType> fail).
+  if (opcode == OP::OpCode::RawBufferVectorStore ||
+      (opcode == OP::OpCode::RawBufferStore &&
+       RK == DxilResource::Kind::RawBuffer)) {
     const DataLayout &DL =
         OP->GetModule()->GetHLModule().GetModule()->getDataLayout();
     Type *WideTy = widenMinPrecisionType(Ty, Builder.getContext(), DL);
