@@ -444,8 +444,9 @@ typename hlsl::enable_if<hlsl::is_arithmetic<InputElTy>::value, vector<OutputElT
 Multiply(Matrix<MatrixDT, M, K, MatrixUse::A, MatrixScope::Thread> MatrixA,
          vector<InputElTy, K> Vec) {
   vector<OutputElTy, M> Result;
-  __builtin_LinAlg_MatrixVectorMultiply(
-      Result, MatrixA.__handle, hlsl::is_signed<OutputElTy>::value, Vec, MatrixDT);
+  __builtin_LinAlg_MatrixVectorMultiply(Result, MatrixA.__handle,
+                                        hlsl::is_signed<OutputElTy>::value, Vec,
+                                        MatrixDT);
   return Result;
 }
 
@@ -458,8 +459,8 @@ MultiplyAdd(Matrix<MatrixDT, M, K, MatrixUse::A, MatrixScope::Thread> MatrixA,
             vector<InputElTy, M> Vec, vector<BiasElTy, K> Bias) {
   vector<OutputElTy, K> Result;
   __builtin_LinAlg_MatrixVectorMultiplyAdd(Result, MatrixA.__handle,
-                                           hlsl::is_signed<OutputElTy>::value, Vec,
-                                           MatrixDT, Bias, MatrixDT);
+                                           hlsl::is_signed<OutputElTy>::value,
+                                           Vec, MatrixDT, Bias, MatrixDT);
   return Result;
 }
 
@@ -476,8 +477,8 @@ MultiplyAdd(Matrix<MatrixDT, M, K, MatrixUse::A, MatrixScope::Thread> MatrixA,
             vector<BiasElTy, K> Bias) {
   vector<OutputElTy, K> Result;
   __builtin_LinAlg_MatrixVectorMultiplyAdd(
-      Result, MatrixA.__handle, hlsl::is_signed<OutputElTy>::value, InterpVec.Data,
-      InterpVec.Interpretation, Bias, MatrixDT);
+      Result, MatrixA.__handle, hlsl::is_signed<OutputElTy>::value,
+      InterpVec.Data, InterpVec.Interpretation, Bias, MatrixDT);
   return Result;
 }
 
@@ -494,8 +495,8 @@ MultiplyAdd(Matrix<MatrixDT, M, K, MatrixUse::A, MatrixScope::Thread> MatrixA,
   BiasVecTy BiasVec = BiasRef.Buf.template Load<BiasVecTy>(BiasRef.Offset);
   vector<OutputElTy, K> Result;
   __builtin_LinAlg_MatrixVectorMultiplyAdd(Result, MatrixA.__handle,
-                                           hlsl::is_signed<OutputElTy>::value, Vec,
-                                           MatrixDT, BiasVec, BiasElTy);
+                                           hlsl::is_signed<OutputElTy>::value,
+                                           Vec, MatrixDT, BiasVec, BiasElTy);
   return Result;
 }
 
@@ -515,8 +516,8 @@ MultiplyAdd(Matrix<MatrixDT, M, K, MatrixUse::A, MatrixScope::Thread> MatrixA,
   BiasVecTy BiasVec = BiasRef.Buf.template Load<BiasVecTy>(BiasRef.Offset);
   vector<OutputElTy, K> Result;
   __builtin_LinAlg_MatrixVectorMultiplyAdd(
-      Result, MatrixA.__handle, hlsl::is_signed<OutputElTy>::value, InterpVec.Data,
-      InterpVec.Interpretation, BiasVec, BiasElTy);
+      Result, MatrixA.__handle, hlsl::is_signed<OutputElTy>::value,
+      InterpVec.Data, InterpVec.Interpretation, BiasVec, BiasElTy);
   return Result;
 }
 
