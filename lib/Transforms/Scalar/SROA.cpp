@@ -1671,10 +1671,8 @@ static Value *getNaturalGEPRecursively(IRBuilderTy &IRB, const DataLayout &DL,
   // extremely poorly defined currently. The long-term goal is to remove GEPing
   // over a vector from the IR completely.
   if (VectorType *VecTy = dyn_cast<VectorType>(Ty)) {
-    // HLSL Change: Use alloc size instead of primitive type size for vector
-    // elements. DXC's data layout pads min precision types (i16:32, f16:32),
-    // so getTypeAllocSize matches the GEP offset stride while
-    // getTypeSizeInBits returns the unpadded primitive width.
+    // HLSL Change: Use alloc size for element stride to account for padded
+    // types.
     unsigned ElementSizeInBits =
         DL.getTypeAllocSizeInBits(VecTy->getScalarType());
     if (ElementSizeInBits % 8 != 0) {

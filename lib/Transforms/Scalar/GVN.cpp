@@ -853,10 +853,8 @@ static bool CanCoerceMustAliasedValueToLoad(Value *StoredVal,
       StoredVal->getType()->isArrayTy())
     return false;
 
-  // HLSL Change Begin - Don't coerce min precision vector types where
-  // getTypeSizeInBits uses padded element sizes (e.g., <3 x half> = 96 bits)
-  // but getPrimitiveSizeInBits returns the unpadded width (48 bits).
-  // The coercion would create a bitcast between these mismatched sizes.
+  // HLSL Change Begin - Reject types where padded and primitive sizes differ.
+  // Coercion would create bitcasts between mismatched sizes.
   Type *StoredValTy = StoredVal->getType();
   uint64_t StoredPrimBits = StoredValTy->getPrimitiveSizeInBits();
   uint64_t LoadPrimBits = LoadTy->getPrimitiveSizeInBits();
@@ -1955,13 +1953,8 @@ bool GVN::processLoad(LoadInst *L) {
   if (StoreInst *DepSI = dyn_cast<StoreInst>(DepInst)) {
     Value *StoredVal = DepSI->getValueOperand();
 
-    // HLSL Change Begin - Don't forward stores of padded types when the load
-    // type differs (e.g., min precision vectors where i16:32/f16:32 means
-    // elements are padded to 32 bits). BasicAA returns MustAlias at offset 0
-    // regardless of access sizes, so a partial element store can appear as a
-    // Def to MemoryDependence. CanCoerceMustAliasedValueToLoad catches this,
-    // but we add a defense-in-depth check here for cross-type forwarding of
-    // padded types. Same-type forwarding is always safe.
+    // HLSL Change Begin - Defense-in-depth: skip cross-type forwarding for
+    // padded types (e.g., min precision vectors).
     if (StoredVal->getType() != L->getType()) {
       Type *StoredTy = StoredVal->getType();
       uint64_t StoredPrimBits = StoredTy->getPrimitiveSizeInBits();
