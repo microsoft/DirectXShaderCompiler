@@ -208,7 +208,9 @@ enum class LinalgMatrixLayout : uint32_t {
   RowMajor = 0,
   ColumnMajor = 1,
   MulOptimal = 2,
-  OuterProductOptimal = 3,
+  MulOptimalTranspose = 3,
+  OuterProductOptimal = 4,
+  OuterProductOptimalTranspose = 5,
 };
 
 // Must match D3D_INTERPOLATION_MODE
