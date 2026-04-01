@@ -9,12 +9,17 @@ struct CBS
     float entry[2];
 };
 
-float foo(TextureBuffer<CBS> param)
+TextureBuffer<CBS> input;
+
+float foo()
 {
-    CBS alias = param;
-// CHECK: %param = OpFunctionParameter %_ptr_Function_type_TextureBuffer_CBS
-// CHECK: [[copy:%[0-9]+]] = OpLoad %type_TextureBuffer_CBS %param
-// CHECK:   [[e1:%[0-9]+]] = OpCompositeExtract %_arr_float_uint_2 [[copy]]
+    TextureBuffer<CBS> local = input;
+    CBS alias = local;
+// CHECK: %local = OpVariable %_ptr_Function_type_TextureBuffer_CBS Function
+// CHECK: [[loadedInput:%[0-9]+]] = OpLoad %type_TextureBuffer_CBS %input
+// CHECK: OpStore %local [[loadedInput]]
+// CHECK: [[loadedLocal:%[0-9]+]] = OpLoad %type_TextureBuffer_CBS %local
+// CHECK:   [[e1:%[0-9]+]] = OpCompositeExtract %_arr_float_uint_2 [[loadedLocal]]
 // CHECK:   [[e2:%[0-9]+]] = OpCompositeExtract %float [[e1]] 0
 // CHECK:   [[e3:%[0-9]+]] = OpCompositeExtract %float [[e1]] 1
 // CHECK:   [[c1:%[0-9]+]] = OpCompositeConstruct %_arr_float_uint_2_0 [[e2]] [[e3]]
@@ -23,10 +28,7 @@ float foo(TextureBuffer<CBS> param)
     return alias.entry[1];
 }
 
-TextureBuffer<CBS> input;
-
 float main() : A
 {
-    return foo(input);
+    return foo();
 }
-

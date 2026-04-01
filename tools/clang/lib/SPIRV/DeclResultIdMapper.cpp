@@ -1068,8 +1068,10 @@ DeclResultIdMapper::createFnParam(const ParmVarDecl *param,
   (void)getTypeAndCreateCounterForPotentialAliasVar(param, &isAlias);
   fnParamInstr->setContainsAliasComponent(isAlias);
 
-  if (isConstantTextureBuffer(type))
+  if (isConstantBuffer(type))
     fnParamInstr->setLayoutRule(spirvOptions.cBufferLayoutRule);
+  if (isTextureBuffer(type))
+    fnParamInstr->setLayoutRule(spirvOptions.tBufferLayoutRule);
 
   assert(astDecls[param].instr == nullptr);
   registerVariableForDecl(param, fnParamInstr);
@@ -1117,6 +1119,11 @@ DeclResultIdMapper::createFnVar(const VarDecl *var,
   SpirvVariable *varInstr =
       spvBuilder.addFnVar(type, loc, name, isPrecise, isNointerp,
                           init.hasValue() ? init.getValue() : nullptr);
+
+  if (isConstantBuffer(type))
+    varInstr->setLayoutRule(spirvOptions.cBufferLayoutRule);
+  if (isTextureBuffer(type))
+    varInstr->setLayoutRule(spirvOptions.tBufferLayoutRule);
 
   bool isAlias = false;
   (void)getTypeAndCreateCounterForPotentialAliasVar(var, &isAlias);
