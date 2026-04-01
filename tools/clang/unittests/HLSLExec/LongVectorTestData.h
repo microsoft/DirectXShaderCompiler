@@ -237,6 +237,227 @@ struct HLSLHalf_t {
   DirectX::PackedVector::HALF Val = 0;
 };
 
+// Min precision wrapper types. Without -enable-16bit-types, min precision types
+// are 32-bit in DXIL storage. These thin wrappers provide distinct C++ types
+// that map to different HLSL type strings via DATA_TYPE.
+struct HLSLMin16Float_t {
+  constexpr HLSLMin16Float_t() : Val(0.0f) {}
+  constexpr HLSLMin16Float_t(float F) : Val(F) {}
+  constexpr HLSLMin16Float_t(double D) : Val(static_cast<float>(D)) {}
+  explicit constexpr HLSLMin16Float_t(int I) : Val(static_cast<float>(I)) {}
+  explicit constexpr HLSLMin16Float_t(uint32_t U)
+      : Val(static_cast<float>(U)) {}
+
+  constexpr operator float() const { return Val; }
+
+  bool operator==(const HLSLMin16Float_t &O) const { return Val == O.Val; }
+  bool operator!=(const HLSLMin16Float_t &O) const { return Val != O.Val; }
+  bool operator<(const HLSLMin16Float_t &O) const { return Val < O.Val; }
+  bool operator>(const HLSLMin16Float_t &O) const { return Val > O.Val; }
+  bool operator<=(const HLSLMin16Float_t &O) const { return Val <= O.Val; }
+  bool operator>=(const HLSLMin16Float_t &O) const { return Val >= O.Val; }
+
+  HLSLMin16Float_t operator+(const HLSLMin16Float_t &O) const {
+    return HLSLMin16Float_t(Val + O.Val);
+  }
+  HLSLMin16Float_t operator-(const HLSLMin16Float_t &O) const {
+    return HLSLMin16Float_t(Val - O.Val);
+  }
+  HLSLMin16Float_t operator*(const HLSLMin16Float_t &O) const {
+    return HLSLMin16Float_t(Val * O.Val);
+  }
+  HLSLMin16Float_t operator/(const HLSLMin16Float_t &O) const {
+    return HLSLMin16Float_t(Val / O.Val);
+  }
+  HLSLMin16Float_t operator%(const HLSLMin16Float_t &O) const {
+    return HLSLMin16Float_t(std::fmod(Val, O.Val));
+  }
+
+  friend std::wostream &operator<<(std::wostream &Os,
+                                   const HLSLMin16Float_t &Obj) {
+    Os << Obj.Val;
+    return Os;
+  }
+  friend std::ostream &operator<<(std::ostream &Os,
+                                  const HLSLMin16Float_t &Obj) {
+    Os << Obj.Val;
+    return Os;
+  }
+
+  float Val;
+};
+struct HLSLMin16Int_t {
+  constexpr HLSLMin16Int_t() : Val(0) {}
+  constexpr HLSLMin16Int_t(int32_t I) : Val(I) {}
+  constexpr HLSLMin16Int_t(int64_t I) : Val(static_cast<int32_t>(I)) {}
+  constexpr HLSLMin16Int_t(uint32_t U) : Val(static_cast<int32_t>(U)) {}
+  constexpr HLSLMin16Int_t(uint64_t U) : Val(static_cast<int32_t>(U)) {}
+  constexpr HLSLMin16Int_t(float F) : Val(static_cast<int32_t>(F)) {}
+  constexpr HLSLMin16Int_t(double D) : Val(static_cast<int32_t>(D)) {}
+
+  constexpr operator int32_t() const { return Val; }
+
+  bool operator==(const HLSLMin16Int_t &O) const { return Val == O.Val; }
+  bool operator!=(const HLSLMin16Int_t &O) const { return Val != O.Val; }
+  bool operator<(const HLSLMin16Int_t &O) const { return Val < O.Val; }
+  bool operator>(const HLSLMin16Int_t &O) const { return Val > O.Val; }
+  bool operator<=(const HLSLMin16Int_t &O) const { return Val <= O.Val; }
+  bool operator>=(const HLSLMin16Int_t &O) const { return Val >= O.Val; }
+
+  HLSLMin16Int_t operator+(const HLSLMin16Int_t &O) const {
+    return HLSLMin16Int_t(Val + O.Val);
+  }
+  HLSLMin16Int_t operator-(const HLSLMin16Int_t &O) const {
+    return HLSLMin16Int_t(Val - O.Val);
+  }
+  HLSLMin16Int_t operator*(const HLSLMin16Int_t &O) const {
+    return HLSLMin16Int_t(Val * O.Val);
+  }
+  HLSLMin16Int_t operator/(const HLSLMin16Int_t &O) const {
+    return HLSLMin16Int_t(Val / O.Val);
+  }
+  HLSLMin16Int_t operator%(const HLSLMin16Int_t &O) const {
+    return HLSLMin16Int_t(Val % O.Val);
+  }
+  HLSLMin16Int_t operator&(const HLSLMin16Int_t &O) const {
+    return HLSLMin16Int_t(Val & O.Val);
+  }
+  HLSLMin16Int_t operator|(const HLSLMin16Int_t &O) const {
+    return HLSLMin16Int_t(Val | O.Val);
+  }
+  HLSLMin16Int_t operator^(const HLSLMin16Int_t &O) const {
+    return HLSLMin16Int_t(Val ^ O.Val);
+  }
+  HLSLMin16Int_t operator<<(const HLSLMin16Int_t &O) const {
+    return HLSLMin16Int_t(Val << O.Val);
+  }
+  HLSLMin16Int_t operator>>(const HLSLMin16Int_t &O) const {
+    return HLSLMin16Int_t(Val >> O.Val);
+  }
+  HLSLMin16Int_t operator~() const { return HLSLMin16Int_t(~Val); }
+  HLSLMin16Int_t &operator<<=(const HLSLMin16Int_t &O) {
+    Val <<= O.Val;
+    return *this;
+  }
+  HLSLMin16Int_t &operator>>=(const HLSLMin16Int_t &O) {
+    Val >>= O.Val;
+    return *this;
+  }
+  HLSLMin16Int_t &operator|=(const HLSLMin16Int_t &O) {
+    Val |= O.Val;
+    return *this;
+  }
+  HLSLMin16Int_t &operator&=(const HLSLMin16Int_t &O) {
+    Val &= O.Val;
+    return *this;
+  }
+  HLSLMin16Int_t &operator^=(const HLSLMin16Int_t &O) {
+    Val ^= O.Val;
+    return *this;
+  }
+  HLSLMin16Int_t operator&&(const HLSLMin16Int_t &O) const {
+    return HLSLMin16Int_t(Val && O.Val);
+  }
+  HLSLMin16Int_t operator||(const HLSLMin16Int_t &O) const {
+    return HLSLMin16Int_t(Val || O.Val);
+  }
+  friend std::wostream &operator<<(std::wostream &Os,
+                                   const HLSLMin16Int_t &Obj) {
+    Os << Obj.Val;
+    return Os;
+  }
+  friend std::ostream &operator<<(std::ostream &Os, const HLSLMin16Int_t &Obj) {
+    Os << Obj.Val;
+    return Os;
+  }
+
+  int32_t Val;
+};
+struct HLSLMin16Uint_t {
+  constexpr HLSLMin16Uint_t() : Val(0) {}
+  constexpr HLSLMin16Uint_t(uint32_t U) : Val(U) {}
+  constexpr HLSLMin16Uint_t(uint64_t U) : Val(static_cast<uint32_t>(U)) {}
+  constexpr HLSLMin16Uint_t(int32_t I) : Val(static_cast<uint32_t>(I)) {}
+  constexpr HLSLMin16Uint_t(float F) : Val(static_cast<uint32_t>(F)) {}
+  constexpr HLSLMin16Uint_t(double D) : Val(static_cast<uint32_t>(D)) {}
+
+  constexpr operator uint32_t() const { return Val; }
+
+  bool operator==(const HLSLMin16Uint_t &O) const { return Val == O.Val; }
+  bool operator!=(const HLSLMin16Uint_t &O) const { return Val != O.Val; }
+  bool operator<(const HLSLMin16Uint_t &O) const { return Val < O.Val; }
+  bool operator>(const HLSLMin16Uint_t &O) const { return Val > O.Val; }
+  bool operator<=(const HLSLMin16Uint_t &O) const { return Val <= O.Val; }
+  bool operator>=(const HLSLMin16Uint_t &O) const { return Val >= O.Val; }
+
+  HLSLMin16Uint_t operator+(const HLSLMin16Uint_t &O) const {
+    return HLSLMin16Uint_t(Val + O.Val);
+  }
+  HLSLMin16Uint_t operator-(const HLSLMin16Uint_t &O) const {
+    return HLSLMin16Uint_t(Val - O.Val);
+  }
+  HLSLMin16Uint_t operator*(const HLSLMin16Uint_t &O) const {
+    return HLSLMin16Uint_t(Val * O.Val);
+  }
+  HLSLMin16Uint_t operator/(const HLSLMin16Uint_t &O) const {
+    return HLSLMin16Uint_t(Val / O.Val);
+  }
+  HLSLMin16Uint_t operator%(const HLSLMin16Uint_t &O) const {
+    return HLSLMin16Uint_t(Val % O.Val);
+  }
+  HLSLMin16Uint_t operator&(const HLSLMin16Uint_t &O) const {
+    return HLSLMin16Uint_t(Val & O.Val);
+  }
+  HLSLMin16Uint_t operator|(const HLSLMin16Uint_t &O) const {
+    return HLSLMin16Uint_t(Val | O.Val);
+  }
+  HLSLMin16Uint_t operator^(const HLSLMin16Uint_t &O) const {
+    return HLSLMin16Uint_t(Val ^ O.Val);
+  }
+  HLSLMin16Uint_t operator<<(const HLSLMin16Uint_t &O) const {
+    return HLSLMin16Uint_t(Val << O.Val);
+  }
+  HLSLMin16Uint_t operator>>(const HLSLMin16Uint_t &O) const {
+    return HLSLMin16Uint_t(Val >> O.Val);
+  }
+  HLSLMin16Uint_t operator~() const { return HLSLMin16Uint_t(~Val); }
+  HLSLMin16Uint_t &operator<<=(const HLSLMin16Uint_t &O) {
+    Val <<= O.Val;
+    return *this;
+  }
+  HLSLMin16Uint_t &operator>>=(const HLSLMin16Uint_t &O) {
+    Val >>= O.Val;
+    return *this;
+  }
+  HLSLMin16Uint_t &operator|=(const HLSLMin16Uint_t &O) {
+    Val |= O.Val;
+    return *this;
+  }
+  HLSLMin16Uint_t &operator&=(const HLSLMin16Uint_t &O) {
+    Val &= O.Val;
+    return *this;
+  }
+  HLSLMin16Uint_t &operator^=(const HLSLMin16Uint_t &O) {
+    Val ^= O.Val;
+    return *this;
+  }
+
+  bool operator&&(const HLSLMin16Uint_t &O) const { return Val && O.Val; }
+  bool operator||(const HLSLMin16Uint_t &O) const { return Val || O.Val; }
+  friend std::wostream &operator<<(std::wostream &Os,
+                                   const HLSLMin16Uint_t &Obj) {
+    Os << Obj.Val;
+    return Os;
+  }
+  friend std::ostream &operator<<(std::ostream &Os,
+                                  const HLSLMin16Uint_t &Obj) {
+    Os << Obj.Val;
+    return Os;
+  }
+
+  uint32_t Val;
+};
+
 enum class InputSet {
 #define INPUT_SET(SYMBOL) SYMBOL,
 #include "LongVectorOps.def"
@@ -448,6 +669,57 @@ INPUT_SET(InputSet::Positive, 1.0, 1.0, 65535.0, 0.01, 5531.0, 0.01, 1.0, 0.01,
           331.2330, 3250.01);
 INPUT_SET(InputSet::SelectCond, 0.0, 1.0);
 INPUT_SET(InputSet::AllOnes, 1.0);
+END_INPUT_SETS()
+
+// Min precision input sets. All values are exactly representable in float16
+// to avoid precision mismatch between CPU-side expected values and GPU-side
+// min precision computation. No FP specials (INF/NaN/denorm) as min precision
+// types do not support them.
+BEGIN_INPUT_SETS(HLSLMin16Float_t)
+INPUT_SET(InputSet::Default1, -1.0f, -1.0f, 1.0f, -0.03125f, 1.0f, -0.03125f,
+          1.0f, -0.03125f, 1.0f, -0.03125f);
+INPUT_SET(InputSet::Default2, 1.0f, -1.0f, 1.0f, -1.0f, 1.0f, -1.0f, 1.0f,
+          -1.0f, 1.0f, -1.0f);
+INPUT_SET(InputSet::Default3, -1.0f, 1.0f, -1.0f, 1.0f, -1.0f, 1.0f, -1.0f,
+          1.0f, -1.0f, 1.0f);
+INPUT_SET(InputSet::Zero, 0.0f);
+INPUT_SET(InputSet::RangeHalfPi, -1.0625f, 0.046875f, -1.046875f, 0.3125f,
+          1.4375f, -0.875f, 1.375f, -0.71875f, -0.8125f, 0.5625f);
+INPUT_SET(InputSet::RangeOne, 0.328125f, 0.71875f, -0.953125f, 0.671875f,
+          -0.03125f, 0.5f, 0.84375f, -0.671875f, -0.6875f, -0.90625f);
+INPUT_SET(InputSet::Positive, 1.0f, 1.0f, 342.0f, 0.03125f, 5504.0f, 0.03125f,
+          1.0f, 0.03125f, 331.25f, 3250.0f);
+INPUT_SET(InputSet::SelectCond, 0.0f, 1.0f);
+INPUT_SET(InputSet::AllOnes, 1.0f);
+END_INPUT_SETS()
+
+// Values constrained to int16 range. Kept small to avoid overflow ambiguity.
+// Shift amounts limited so results fit in int16 (-32768..32767).
+BEGIN_INPUT_SETS(HLSLMin16Int_t)
+INPUT_SET(InputSet::Default1, -6, 1, 7, 3, 8, 4, -3, 8, 8, -2);
+INPUT_SET(InputSet::Default2, 5, -6, -3, -2, 9, 3, 1, -3, -7, 2);
+INPUT_SET(InputSet::Default3, -5, 6, 3, 2, -9, -3, -1, 3, 7, -2);
+INPUT_SET(InputSet::BitShiftRhs, 1, 6, 3, 0, 9, 3, 12, 11, 11, 14);
+INPUT_SET(InputSet::Zero, 0);
+INPUT_SET(InputSet::NoZero, 1);
+INPUT_SET(InputSet::SelectCond, 0, 1);
+INPUT_SET(InputSet::AllOnes, 1);
+INPUT_SET(InputSet::WaveMultiPrefixBitwise, 0x0, 0x1, 0x3, 0x4, 0x10, 0x12, 0xF,
+          -1);
+END_INPUT_SETS()
+
+// Values constrained so results stay below 0x8000 (bit 15 clear). WARP may
+// compute min precision at 16-bit and sign-extend bit 15 on 32-bit store.
+BEGIN_INPUT_SETS(HLSLMin16Uint_t)
+INPUT_SET(InputSet::Default1, 3, 7, 3, 5, 5, 10, 4, 8, 9, 10);
+INPUT_SET(InputSet::Default2, 2, 6, 3, 4, 5, 9, 3, 8, 9, 10);
+INPUT_SET(InputSet::Default3, 4, 5, 4, 5, 3, 7, 3, 1, 11, 9);
+INPUT_SET(InputSet::Zero, 0);
+INPUT_SET(InputSet::BitShiftRhs, 1, 6, 3, 0, 9, 3, 8, 8, 8, 8);
+INPUT_SET(InputSet::SelectCond, 0, 1);
+INPUT_SET(InputSet::AllOnes, 1);
+INPUT_SET(InputSet::WaveMultiPrefixBitwise, 0x0, 0x1, 0x3, 0x4, 0x10, 0x12, 0xF,
+          0x7FFF);
 END_INPUT_SETS()
 
 #undef BEGIN_INPUT_SETS
