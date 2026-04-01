@@ -514,8 +514,8 @@ static void runElementAccess(ID3D12Device *Device,
       Params.Layout == LinalgMatrixLayout::RowMajor ? Params.M : Params.N;
   // Output: ElementSize bytes per element
   //   1 element for each mat idx
-  //   1 element for each thread's length
-  const size_t OutputBufSize = (NumElements + NumThreads) * ElementSize;
+  //   1 uint for each thread's length
+  const size_t OutputBufSize = NumElements * ElementSize + NumThreads * sizeof(uint32_t);
 
   std::stringstream ExtraDefs;
   ExtraDefs << " -DMAJOR_DIM=" << MajorDim;
@@ -621,7 +621,9 @@ static void runElementAccess(ID3D12Device *Device,
   size_t TotalLength = 0;
   for (size_t I = MatrixEndOffset; I < LengthValuesEnd;
        I = I + sizeof(uint32_t)) {
-    TotalLength += Out[I];
+    uint32_t Length;
+    memcpy(&Length, &Out[I], sizeof(uint32_t));
+    TotalLength += Length;
   }
   VERIFY_IS_TRUE(TotalLength >= NumElements,
                  "Sum of all lengths must be gte num elements");
