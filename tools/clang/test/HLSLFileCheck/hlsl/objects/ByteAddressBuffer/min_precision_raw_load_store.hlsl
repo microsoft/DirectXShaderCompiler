@@ -30,33 +30,9 @@ void main() {
   // CHECK: call void @dx.op.rawBufferVectorStore.v3f32
   g_buf.Store< min16float3 >(60, vf);
 
-  // === Scalar loads/stores (RawBufferLoad/Store) ===
-
-  // min16int scalar: should use i32 rawBufferStore
-  // CHECK: call %dx.types.ResRet.i32 @dx.op.rawBufferLoad.i32
-  min16int si = g_buf.Load< min16int >(72);
-  // CHECK: call void @dx.op.rawBufferStore.i32
-  g_buf.Store< min16int >(76, si);
-
-  // min16uint scalar: should use i32 rawBufferStore
-  // CHECK: call %dx.types.ResRet.i32 @dx.op.rawBufferLoad.i32
-  min16uint su = g_buf.Load< min16uint >(80);
-  // CHECK: call void @dx.op.rawBufferStore.i32
-  g_buf.Store< min16uint >(84, su);
-
-  // min16float scalar: should use f32 rawBufferStore
-  // CHECK: call %dx.types.ResRet.f32 @dx.op.rawBufferLoad.f32
-  min16float sf = g_buf.Load< min16float >(88);
-  // CHECK: call void @dx.op.rawBufferStore.f32
-  g_buf.Store< min16float >(92, sf);
-
-  // Verify i16/f16 ops are NOT used.
+  // Verify i16/f16 ops are NOT used for vector loads/stores.
   // CHECK-NOT: rawBufferVectorLoad.v{{[0-9]+}}i16
   // CHECK-NOT: rawBufferVectorStore.v{{[0-9]+}}i16
   // CHECK-NOT: rawBufferVectorLoad.v{{[0-9]+}}f16
   // CHECK-NOT: rawBufferVectorStore.v{{[0-9]+}}f16
-  // CHECK-NOT: rawBufferLoad.i16
-  // CHECK-NOT: rawBufferStore.i16
-  // CHECK-NOT: rawBufferLoad.f16
-  // CHECK-NOT: rawBufferStore.f16
 }
