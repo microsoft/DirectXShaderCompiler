@@ -321,10 +321,12 @@ class Matrix {
                                                   Stride, Layout, Align);
   }
 
-  template <typename T, MatrixUseEnum UseLocal = Use, SIZE_TYPE Size>
+  template <typename T, MatrixUseEnum UseLocal = Use,
+            MatrixScopeEnum ScopeLocal = Scope, SIZE_TYPE Size>
   typename hlsl::enable_if<
       hlsl::is_arithmetic<T>::value && Use == MatrixUse::Accumulator &&
-          UseLocal == Use && (M * N / ElementsPerScalar <= Size),
+          UseLocal == Use && (M * N / ElementsPerScalar <= Size) &&
+          Scope == MatrixScope::Wave && ScopeLocal == Scope,
       void>::type
   InterlockedAccumulate(groupshared T Arr[Size], uint StartIdx, uint Stride,
                         MatrixLayoutEnum Layout) {
@@ -368,8 +370,10 @@ class Matrix<ComponentTy, M, N, Use, MatrixScope::Thread> {
       ComponentTy, M, N, Use, MatrixScope::Thread)]];
   HandleT __handle;
 
-  template <MatrixLayoutEnum Layout>
-  static Matrix Load(ByteAddressBuffer Res, uint StartOffset, uint Stride,
+  template <MatrixLayoutEnum Layout, MatrixUseEnum UseLocal = Use>
+  static typename hlsl::enable_if<Use == MatrixUse::A && UseLocal == Use,
+                                  Matrix>::type
+  Load(ByteAddressBuffer Res, uint StartOffset, uint Stride,
                      uint Align = sizeof(ElementType)) {
     Matrix Result;
     __builtin_LinAlg_MatrixLoadFromDescriptor(Result.__handle, Res, StartOffset,
@@ -377,7 +381,10 @@ class Matrix<ComponentTy, M, N, Use, MatrixScope::Thread> {
     return Result;
   }
 
-  void InterlockedAccumulate(RWByteAddressBuffer Res, uint StartOffset,
+  template <MatrixUseEnum UseLocal = Use>
+  typename hlsl::enable_if<Use == MatrixUse::Accumulator && UseLocal == Use,
+                           void>::type
+  InterlockedAccumulate(RWByteAddressBuffer Res, uint StartOffset,
                              uint Stride, MatrixLayoutEnum Layout,
                              uint Align = sizeof(ElementType)) {
     __builtin_LinAlg_MatrixAccumulateToDescriptor(__handle, Res, StartOffset,
