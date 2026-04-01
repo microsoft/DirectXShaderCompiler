@@ -497,9 +497,9 @@ static const char ElementAccessShader[] = R"(
 
     // Save the matrix length that this thread saw. The length is written
     // to the output right after the matrix, offset by the thread index
-    uint lenIdx = (M_DIM * N_DIM * ELEM_SIZE) + (threadIndex * sizeof(uint));
+    uint LenIdx = (M_DIM * N_DIM * ELEM_SIZE) + (threadIndex * sizeof(uint));
     uint Len = __builtin_LinAlg_MatrixLength(Mat);
-    Output.Store(lenIdx, Len);
+    Output.Store(LenIdx, Len);
   }
 )";
 
@@ -515,7 +515,8 @@ static void runElementAccess(ID3D12Device *Device,
   // Output: ElementSize bytes per element
   //   1 element for each mat idx
   //   1 uint for each thread's length
-  const size_t OutputBufSize = NumElements * ElementSize + NumThreads * sizeof(uint32_t);
+  const size_t OutputBufSize =
+      NumElements * ElementSize + NumThreads * sizeof(uint32_t);
 
   std::stringstream ExtraDefs;
   ExtraDefs << " -DMAJOR_DIM=" << MajorDim;
