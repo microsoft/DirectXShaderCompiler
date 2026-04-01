@@ -9,6 +9,7 @@ using MatrixBTy = Matrix<ComponentType::F32, 4, 4, MatrixUse::B, MatrixScope::Wa
 using MatrixBTyInt = Matrix<ComponentType::I32, 4, 4, MatrixUse::B, MatrixScope::Wave>;
 using MatrixAccumTy = Matrix<ComponentType::F32, 4, 4, MatrixUse::Accumulator, MatrixScope::Wave>;
 using TSMatrixATy = Matrix<ComponentType::F32, 4, 4, MatrixUse::A, MatrixScope::Thread>;
+using TSMatrixAccumTy = Matrix<ComponentType::F32, 4, 4, MatrixUse::Accumulator, MatrixScope::Thread>;
 
 ByteAddressBuffer BAB : register(t0);
 RWByteAddressBuffer RWBAB : register(u0);
@@ -128,7 +129,7 @@ void main(uint ID : SV_GroupID)
 // Matrix::InterlockedAccumulate to groupshared memory
 //
 // CHECK: call void @dx.op.linAlgMatrixAccumulateToMemory.mC9M4N4U2S1.f32(i32 -2147483620,
-// CHECK-SAME: %dx.types.LinAlgMatrixC9M4N4U2S1 %18,
+// CHECK-SAME: %dx.types.LinAlgMatrixC9M4N4U2S1 %[[ACCUM0]],
 // CHECK-SAME: float addrspace(3)* getelementptr inbounds ([256 x float],
 // CHECK-SAME: [256 x float] addrspace(3)* @"\01?SharedArr@@3PAMA", i32 0, i32 0), i32 0, i32 16, i32 1)
 // CHECK-SAME: ; LinAlgMatrixAccumulateToMemory(matrix,memory,offset,stride,layout)
@@ -166,16 +167,20 @@ void main(uint ID : SV_GroupID)
 // Matrix::Load for thread-scope matrix
 //
 // CHECK: %[[TSMATA:.*]] = call %dx.types.LinAlgMatrixC9M4N4U0S0 @dx.op.linAlgMatrixLoadFromDescriptor.mC9M4N4U0S0(
-// CHECK-SAME: i32 -2147483634, %dx.types.Handle %24, i32 0, i32 16, i32 1, i32 4) 
+// CHECK-SAME: i32 -2147483634, %dx.types.Handle %{{[0-9]+}}, i32 0, i32 16, i32 1, i32 4) 
 // CHECK-SAME: ; LinAlgMatrixLoadFromDescriptor(handle,offset,stride,layout,align)
   TSMatrixATy TSMatA = TSMatrixATy::Load<MatrixLayoutEnum::ColMajor>(BAB, 0, 16);
 
 // Matrix::InterlockedAccumulate for thread-scope matrix
 //
-// CHECK: call void @dx.op.linAlgMatrixAccumulateToDescriptor.mC9M4N4U0S0(i32 -2147483621,
-// CHECK-SAME: %dx.types.LinAlgMatrixC9M4N4U0S0 %25, %dx.types.Handle %26, i32 0, i32 16, i32 1, i32 4)
+// CHECK: %[[TSACCUM:.*]] = call %dx.types.LinAlgMatrixC9M4N4U2S0 @dx.op.linAlgMatrixOuterProduct.mC9M4N4U2S0.v4f32.v4f32
+// CHECK: call void @dx.op.linAlgMatrixAccumulateToDescriptor.mC9M4N4U2S0(i32 -2147483621,
+// CHECK-SAME: %dx.types.LinAlgMatrixC9M4N4U2S0 %[[TSACCUM]], %dx.types.Handle %{{[0-9]+}}, i32 0, i32 16, i32 1, i32 4)
 // CHECK-SAME: ; LinAlgMatrixAccumulateToDescriptor(matrix,handle,offset,stride,layout,align)
-  TSMatA.InterlockedAccumulate(RWBAB, 0, 16, MatrixLayoutEnum::ColMajor);
+  vector<float, 4> vec1 = 1.0f;
+  vector<float, 4> vec2 = 2.0f;
+  TSMatrixAccumTy TSMatAccum = OuterProduct<ComponentType::F32>(vec1, vec2);
+  TSMatAccum.InterlockedAccumulate(RWBAB, 0, 16, MatrixLayoutEnum::ColMajor);
 
 // CHECK: call i32 @dx.op.linAlgMatrixQueryAccumulatorLayout(i32 -2147483626)  ; LinAlgMatrixQueryAccumulatorLayout()
   MatrixUseEnum layout = AccumulatorLayout();
