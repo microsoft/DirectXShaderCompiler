@@ -993,10 +993,11 @@ void ReplaceMinPrecisionRawBufferStoreByType(
         Args.emplace_back(NewV);
       }
     } else if (FromTy->isIntegerTy()) {
-      // Since we are extending integer, we have to know if we should sign ext
-      // or zero ext. For StructuredBuffers we get signedness from the struct
-      // type annotation. For ByteAddressBuffer (raw buffers) there is no struct
-      // annotation, so we fall back to sext as a conservative default.
+      // This case only applies to typed buffer since Store operation of byte
+      // address buffer for min precision is handled by implicit conversion on
+      // intrinsic call. Since we are extending integer, we have to know if we
+      // should sign ext or zero ext. We can do this by iterating checking the
+      // size of the element at struct type and comp type at type annotation
       CallInst *handleCI = dyn_cast<CallInst>(
           CI->getArgOperand(DxilInst_RawBufferStore::arg_uav));
       DXASSERT(handleCI,
@@ -1006,49 +1007,33 @@ void ReplaceMinPrecisionRawBufferStoreByType(
                "otherwise fail to handle for buffer store lost its retTy");
       StructType *STy = dyn_cast<StructType>(resTyIt->second);
 
-      StructType *InnerSTy =
-          STy ? dyn_cast<StructType>(STy->getElementType(0)) : nullptr;
-      DxilStructAnnotation *SAnnot =
-          InnerSTy ? typeSys.GetStructAnnotation(InnerSTy) : nullptr;
-
-      if (SAnnot) {
-        // StructuredBuffer path: use struct annotation to determine signedness.
-        ConstantInt *offsetInt = dyn_cast<ConstantInt>(
-            CI->getArgOperand(DxilInst_RawBufferStore::arg_elementOffset));
-        unsigned offset = offsetInt->getSExtValue();
-        unsigned currentOffset = 0;
-        for (DxilStructTypeIterator iter = begin(InnerSTy, SAnnot),
-                                    ItEnd = end(InnerSTy, SAnnot);
-             iter != ItEnd; ++iter) {
-          std::pair<Type *, DxilFieldAnnotation *> pair = *iter;
-          currentOffset += DL.getTypeAllocSize(pair.first);
-          if (currentOffset > offset) {
-            if (pair.second->GetCompType().IsUIntTy()) {
-              for (unsigned i = 4; i < 8; ++i) {
-                Value *NewV = CIBuilder.CreateZExt(CI->getArgOperand(i), ToTy);
-                Args.emplace_back(NewV);
-              }
-              break;
-            } else if (pair.second->GetCompType().IsIntTy()) {
-              for (unsigned i = 4; i < 8; ++i) {
-                Value *NewV = CIBuilder.CreateSExt(CI->getArgOperand(i), ToTy);
-                Args.emplace_back(NewV);
-              }
-              break;
-            } else {
-              DXASSERT(false, "Invalid comp type");
+      STy = cast<StructType>(STy->getElementType(0));
+      DxilStructAnnotation *SAnnot = typeSys.GetStructAnnotation(STy);
+      ConstantInt *offsetInt = dyn_cast<ConstantInt>(
+          CI->getArgOperand(DxilInst_RawBufferStore::arg_elementOffset));
+      unsigned offset = offsetInt->getSExtValue();
+      unsigned currentOffset = 0;
+      for (DxilStructTypeIterator iter = begin(STy, SAnnot),
+                                  ItEnd = end(STy, SAnnot);
+           iter != ItEnd; ++iter) {
+        std::pair<Type *, DxilFieldAnnotation *> pair = *iter;
+        currentOffset += DL.getTypeAllocSize(pair.first);
+        if (currentOffset > offset) {
+          if (pair.second->GetCompType().IsUIntTy()) {
+            for (unsigned i = 4; i < 8; ++i) {
+              Value *NewV = CIBuilder.CreateZExt(CI->getArgOperand(i), ToTy);
+              Args.emplace_back(NewV);
             }
+            break;
+          } else if (pair.second->GetCompType().IsIntTy()) {
+            for (unsigned i = 4; i < 8; ++i) {
+              Value *NewV = CIBuilder.CreateSExt(CI->getArgOperand(i), ToTy);
+              Args.emplace_back(NewV);
+            }
+            break;
+          } else {
+            DXASSERT(false, "Invalid comp type");
           }
-        }
-      } else {
-        // ByteAddressBuffer path: no struct annotation available, so
-        // signedness is unknown. Default to sext.
-        for (unsigned i = 4; i < 8; ++i) {
-          Value *Arg = CI->getArgOperand(i);
-          if (isa<UndefValue>(Arg))
-            Args.emplace_back(UndefValue::get(ToTy));
-          else
-            Args.emplace_back(CIBuilder.CreateSExt(Arg, ToTy));
         }
       }
     }
