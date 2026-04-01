@@ -63,4 +63,9 @@ void main(uint ID : SV_GroupID) {
   // CHECK-SAME: @dx.op.linAlgMatrixOuterProduct.mC8M8N8U2S0.v8f16.v8f16(i32 -2147483619,
   // CHECK-SAME: <8 x half> %[[VEC5]], <8 x half> %[[VEC6]])  ; LinAlgMatrixOuterProduct(vectorA,vectorB)
   MatrixAccumTy AccumMatrix = OuterProduct<ComponentType::F16>(vec5, vec6);
+
+  // CHECK: %[[CONV_VEC:.*]] = call <8 x float> @dx.op.linAlgConvert.v8f32.v8f16(i32 -2147483618,
+  // CHECK-SAME: <8 x half> %[[VEC6]], i32 8, i32 9)  ; LinAlgConvert(inputVector,inputInterpretation,outputInterpretation)
+  InterpretedVector<float, 8, ComponentType::F32> convertedVec;
+  convertedVec = Convert<ComponentType::F32, ComponentType::F16>(vec6);
 }

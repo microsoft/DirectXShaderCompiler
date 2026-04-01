@@ -183,6 +183,12 @@ __MATRIX_SCALAR_COMPONENT_MAPPING(ComponentType::I64, int64_t)
 __MATRIX_SCALAR_COMPONENT_MAPPING(ComponentType::U64, uint64_t)
 __MATRIX_SCALAR_COMPONENT_MAPPING(ComponentType::F64, double)
 
+template <ComponentEnum DstTy, ComponentEnum SrcTy, int SrcN> struct DstN {
+  static const int Value =
+      (SrcN * ComponentTypeTraits<SrcTy>::ElementsPerScalar) /
+      ComponentTypeTraits<DstTy>::ElementsPerScalar;
+};
+
 } // namespace __detail
 
 template <ComponentEnum ElementType, uint DimA> struct VectorRef {
@@ -201,6 +207,17 @@ template <ComponentEnum DT, typename T, int N>
 InterpretedVector<T, N, DT> MakeInterpretedVector(vector<T, N> Vec) {
   InterpretedVector<T, N, DT> IV = {Vec};
   return IV;
+}
+
+template <ComponentEnum DestTy, ComponentEnum OriginTy, typename T, int N>
+InterpretedVector<typename __detail::ComponentTypeTraits<DestTy>::Type,
+                  __detail::DstN<DestTy, OriginTy, N>::Value, DestTy>
+Convert(vector<T, N> Vec) {
+  vector<typename __detail::ComponentTypeTraits<DestTy>::Type,
+         __detail::DstN<DestTy, OriginTy, N>::Value>
+      Result;
+  __builtin_LinAlg_Convert(Result, Vec, OriginTy, DestTy);
+  return MakeInterpretedVector<DestTy>(Result);
 }
 
 template <ComponentEnum ComponentTy, SIZE_TYPE M, SIZE_TYPE N,
