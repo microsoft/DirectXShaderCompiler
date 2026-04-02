@@ -1,6 +1,13 @@
 #ifndef HLSLTESTDATATYPES_H
 #define HLSLTESTDATATYPES_H
 
+#ifdef min
+#undef min
+#endif
+#ifdef max
+#undef max
+#endif
+
 #include <ostream>
 
 #include <DirectXMath.h>
