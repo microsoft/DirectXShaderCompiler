@@ -643,70 +643,19 @@ static void runElementAccess(ID3D12Device *Device,
 
   MappedData OutData;
   Result->Test->GetReadBackData("Output", &OutData);
+
+  // Verify the front of the buffer is a list of elements of the expected type
+  VERIFY_IS_TRUE(verifyComponentBuffer(Params.CompType, OutData.data(),
+                                       Expected, NumElements, Verbose));
+
+  // Verify the end of the buffer is NumThreads number of lengths, whose
+  // sum is greater than or equal to NumElements
   const BYTE *Out = static_cast<const BYTE *>(OutData.data());
-
-  std::vector<float> ActualFloats(NumElements);
-  std::vector<int32_t> ActualInts(NumElements);
-  std::vector<HLSLHalf_t> ActualHalfs(NumElements);
-  for (size_t I = 0; I < NumElements; ++I) {
-    switch (Params.CompType) {
-    case ComponentType::F32: {
-      float Actual;
-      memcpy(&Actual, &Out[I * ElementSize], ElementSize);
-      ActualFloats[I] = Actual;
-      break;
-    }
-    case ComponentType::I32: {
-      int32_t Actual;
-      memcpy(&Actual, &Out[I * ElementSize], ElementSize);
-      ActualInts[I] = Actual;
-      break;
-    }
-    case ComponentType::F16: {
-      HLSLHalf_t Actual;
-      memcpy(&Actual, &Out[I * ElementSize], ElementSize);
-      ActualHalfs[I] = Actual;
-      break;
-    }
-    default:
-      VERIFY_IS_TRUE(false, "Saw unsupported component type");
-      break;
-    }
-  }
-
-  // Verify element values match input data.
-  switch (Params.CompType) {
-  case ComponentType::F32:
-    VERIFY_IS_TRUE(verifyFloatBuffer(
-        ActualFloats.data(), std::get<std::vector<float>>(Expected).data(),
-        NumElements, Verbose));
-    break;
-  case ComponentType::I32:
-    VERIFY_IS_TRUE(verifyIntBuffer(
-        ActualInts.data(), std::get<std::vector<int32_t>>(Expected).data(),
-        NumElements, Verbose));
-    break;
-  case ComponentType::F16:
-    VERIFY_IS_TRUE(verifyHalfBuffer(
-        ActualHalfs.data(), std::get<std::vector<HLSLHalf_t>>(Expected).data(),
-        NumElements, Verbose));
-    break;
-  default:
-    VERIFY_IS_TRUE(false, "Saw unsupported component type");
-    break;
-  }
-
-  // The sum of the values returned by Length across all threads must be
-  // greater than or equal to the total number of matrix elements
   size_t MatrixEndOffset = NumElements * ElementSize;
-  size_t LengthValuesEnd = MatrixEndOffset + (NumThreads * sizeof(uint32_t));
-  size_t TotalLength = 0;
-  for (size_t I = MatrixEndOffset; I < LengthValuesEnd;
-       I = I + sizeof(uint32_t)) {
-    uint32_t Length;
-    memcpy(&Length, &Out[I], sizeof(uint32_t));
-    TotalLength += Length;
-  }
+  const uint32_t *Lengths = reinterpret_cast<const uint32_t *>(Out + MatrixEndOffset);
+  uint32_t TotalLength = 0;
+  for (size_t I = 0; I < NumThreads; ++I)
+    TotalLength += Lengths[I];
   VERIFY_IS_GREATER_THAN_OR_EQUAL(
       TotalLength, NumElements, "Sum of all lengths must be gte num elements");
 }
