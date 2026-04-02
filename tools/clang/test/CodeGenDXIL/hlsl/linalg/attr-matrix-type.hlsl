@@ -18,7 +18,7 @@ void f1() {
 
 // CHECK: define internal void @"\01?f2@@YAX$linalg_matrixC21M3N3U0S1@@Z"(%dx.types.LinAlgMatrixC21M3N3U0S1 %mat2.coerce)
 // CHECK: %{{.*}} = alloca %dx.types.LinAlgMatrixC21M3N3U0S1, align 4
-void f2(__builtin_LinAlgMatrix [[__LinAlgMatrix_Attributes(ComponentType::F8_E4M3, 3, 3, MatrixUse::A, MatrixScope::Wave)]] mat2) {
+void f2(__builtin_LinAlgMatrix [[__LinAlgMatrix_Attributes(ComponentType::F8_E4M3FN, 3, 3, MatrixUse::A, MatrixScope::Wave)]] mat2) {
 }
 
 // CHECK: define internal %dx.types.LinAlgMatrixC9M10N20U0S0 @"\01?f3@@YA$linalg_matrixC9M10N20U0S0@XZ"()

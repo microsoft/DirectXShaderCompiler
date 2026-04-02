@@ -185,7 +185,7 @@ enum class ComponentType : uint32_t {
   // BEGIN NEW FOR SM 6.9
   I8 = 19,
   U8 = 20,
-  F8_E4M3 = 21,
+  F8_E4M3FN = 21,
   F8_E5M2 = 22,
   // END
 

@@ -84,7 +84,7 @@ enum class ComponentType : uint32_t {
   // BEGIN NEW FOR SM 6.10
   I8 = 19,
   U8 = 20,
-  F8_E4M3 = 21,
+  F8_E4M3FN = 21,
   F8_E5M2 = 22,
   // END
 
@@ -116,7 +116,7 @@ struct ComponentType {
     __COMPONENT_TYPE(U64),
 
     // Floating point types.
-    __COMPONENT_TYPE(F8_E4M3),
+    __COMPONENT_TYPE(F8_E4M3FN),
     __COMPONENT_TYPE(F8_E5M2),
     __COMPONENT_TYPE(F16),
     __COMPONENT_TYPE(F32),
