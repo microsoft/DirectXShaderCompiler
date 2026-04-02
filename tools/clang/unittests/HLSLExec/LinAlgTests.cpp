@@ -652,7 +652,8 @@ static void runElementAccess(ID3D12Device *Device,
   // sum is greater than or equal to NumElements
   const BYTE *Out = static_cast<const BYTE *>(OutData.data());
   size_t MatrixEndOffset = NumElements * ElementSize;
-  const uint32_t *Lengths = reinterpret_cast<const uint32_t *>(Out + MatrixEndOffset);
+  const uint32_t *Lengths =
+      reinterpret_cast<const uint32_t *>(Out + MatrixEndOffset);
   uint32_t TotalLength = 0;
   for (size_t I = 0; I < NumThreads; ++I)
     TotalLength += Lengths[I];
