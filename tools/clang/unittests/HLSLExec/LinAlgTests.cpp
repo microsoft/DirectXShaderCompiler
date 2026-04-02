@@ -383,9 +383,9 @@ static const char LoadStoreShader[] = R"(
       [[__LinAlgMatrix_Attributes(COMP_TYPE, M_DIM, N_DIM, USE, SCOPE)]]
       Mat;
     __builtin_LinAlg_MatrixLoadFromDescriptor(
-      Mat, Input, OFFSET, STRIDE, LAYOUT, ELEM_SIZE);
+      Mat, Input, OFFSET, STRIDE, LAYOUT, 128);
     __builtin_LinAlg_MatrixStoreToDescriptor(
-      Mat, Output, OFFSET, STRIDE, LAYOUT, ELEM_SIZE);
+      Mat, Output, OFFSET, STRIDE, LAYOUT, 128);
   }
 #else
   [numthreads(NUMTHREADS, 1, 1)]
@@ -470,7 +470,7 @@ static const char SplatStoreShader[] = R"(
       Mat;
     __builtin_LinAlg_FillMatrix(Mat, FILL_VALUE);
     __builtin_LinAlg_MatrixStoreToDescriptor(
-      Mat, Output, 0, STRIDE, LAYOUT, ELEM_SIZE);
+      Mat, Output, 0, STRIDE, LAYOUT, 128);
   }
 #else
   [numthreads(NUMTHREADS, 1, 1)]
@@ -556,7 +556,7 @@ static const char ElementAccessShader[] = R"(
       [[__LinAlgMatrix_Attributes(COMP_TYPE, M_DIM, N_DIM, USE, SCOPE)]]
       Mat;
     __builtin_LinAlg_MatrixLoadFromDescriptor(
-      Mat, Input, 0, STRIDE, LAYOUT, ELEM_SIZE);
+      Mat, Input, 0, STRIDE, LAYOUT, 128);
 
     // Copy Matrix values from input to output without assuming order
     for (uint I = 0; I < __builtin_LinAlg_MatrixLength(Mat); ++I) {
