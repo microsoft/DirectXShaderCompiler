@@ -235,7 +235,8 @@ static VariantCompType makeExpected(ComponentType CompType, size_t NumElements,
              "Value too large to cast to int32_t");
     std::vector<int32_t> Ints(NumElements);
     for (size_t I = 0; I < NumElements; I++)
-      Ints[I] = static_cast<int32_t>(StartingVal) + static_cast<int32_t>(Increment ? I : 0);
+      Ints[I] = static_cast<int32_t>(StartingVal) +
+                static_cast<int32_t>(Increment ? I : 0);
     return Ints;
   }
   case ComponentType::F16: {
