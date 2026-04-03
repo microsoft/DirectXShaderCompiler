@@ -3980,7 +3980,7 @@ void OP::GetMinShaderModelAndMask(OpCode C, bool bWithTranslation,
       (2147483671 <= op && op <= 2147483672) || op == 2147483676) {
     major = 6;
     minor = 10;
-    mask = SFLAG(Compute) | SFLAG(Mesh) | SFLAG(Amplification);
+    mask = SFLAG(Compute);
     return;
   }
   // Instructions: GetGroupWaveIndex=2147483649, GetGroupWaveCount=2147483650

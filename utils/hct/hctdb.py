@@ -1181,8 +1181,6 @@ class db_dxil(object):
             i.shader_model = experimental_sm
             i.shader_stages = (
                 "compute",
-                "mesh",
-                "amplification",
             )
 
         for i in insts("DebugBreak", "IsDebuggerPresent"):

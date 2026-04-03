@@ -1,7 +1,22 @@
 ; REQUIRES: dxil-1-10
-; RUN: %dxv %s 2>&1 | FileCheck %s
+; RUN: not %dxv %s 2>&1 | FileCheck %s
 
-; CHECK: Validation succeeded.
+; CHECK: Function:  mainAS: error: Opcode LinAlgMatrixMultiply not valid in shader model as_6_10.
+; CHECK: Function:  mainAS: error: Opcode LinAlgMatrixAccumulate not valid in shader model as_6_10.
+; CHECK: Function:  mainAS: error: Opcode LinAlgMatrixStoreToDescriptor not valid in shader model as_6_10.
+; CHECK: Function:  mainAS: error: Opcode LinAlgMatrixLength not valid in shader model as_6_10.
+; CHECK: Function:  mainAS: error: Opcode LinAlgCopyConvertMatrix not valid in shader model as_6_10.
+; CHECK: Function:  mainAS: error: Opcode LinAlgFillMatrix not valid in shader model as_6_10.
+; CHECK: Function:  mainAS: error: Opcode LinAlgMatrixGetCoordinate not valid in shader model as_6_10.
+; CHECK: Function:  mainAS: error: Opcode LinAlgMatrixGetElement not valid in shader model as_6_10.
+; CHECK: Function:  mainAS: error: Opcode LinAlgMatrixMultiplyAccumulate not valid in shader model as_6_10.
+; CHECK: Function:  mainAS: error: Opcode LinAlgMatrixSetElement not valid in shader model as_6_10.
+; CHECK: Function:  mainAS: error: Opcode LinAlgMatrixStoreToMemory not valid in shader model as_6_10.
+; CHECK: Function:  mainAS: error: Opcode LinAlgMatrixAccumulateToMemory not valid in shader model as_6_10.
+; CHECK: Function:  mainAS: error: Opcode LinAlgMatrixLoadFromMemory not valid in shader model as_6_10.
+; CHECK: Function:  mainAS: error: Entry function performs some operation that is incompatible with the shader stage or other entry properties.  See other errors for details.
+; CHECK: Function:  mainAS: error: Function uses features incompatible with the shader stage (as) of the entry function.
+; CHECK: Validation failed.
 
 target datalayout = "e-m:e-p:32:32-i1:32-i8:32-i16:32-i32:32-i64:64-f16:32-f32:32-f64:64-n8:16:32:64"
 target triple = "dxil-ms-dx"
