@@ -17646,8 +17646,8 @@ ConvertLinAlgMatrixComponentTypeToString(hlsl::DXIL::ComponentType CompType) {
     return "ComponentType::U8";
   case DXIL::ComponentType::I8:
     return "ComponentType::I8";
-  case DXIL::ComponentType::F8_E4M3:
-    return "ComponentType::F8_E4M3";
+  case DXIL::ComponentType::F8_E4M3FN:
+    return "ComponentType::F8_E4M3FN";
   case DXIL::ComponentType::F8_E5M2:
     return "ComponentType::F8_E5M2";
   default:
