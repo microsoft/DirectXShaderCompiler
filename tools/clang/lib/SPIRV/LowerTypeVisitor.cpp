@@ -861,8 +861,8 @@ const SpirvType *LowerTypeVisitor::lowerVkTypeInVkNamespace(
       loweredType = spvContext.getUIntType(32);
     }
 
-    // Drop the "SampledTexture" prefix.
-    StringRef suffix = name.drop_front(14);
+    constexpr size_t sampledTexturePrefixLength = sizeof("SampledTexture") - 1;
+    StringRef suffix = name.drop_front(sampledTexturePrefixLength);
     const spv::Dim dimension =
         suffix.startswith("1D") ? spv::Dim::Dim1D : spv::Dim::Dim2D;
     const bool isArray = suffix.endswith("Array");
