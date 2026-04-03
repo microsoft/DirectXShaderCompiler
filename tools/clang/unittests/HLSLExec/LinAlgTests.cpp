@@ -20,14 +20,15 @@
 #include "dxc/Support/Global.h"
 #include "dxc/Support/dxcapi.use.h"
 
-#include "HlslTestUtils.h"
-
 #include "HlslExecTestUtils.h"
+#include "HlslTestDataTypes.h"
+#include "HlslTestUtils.h"
 
 #include <climits>
 #include <optional>
 #include <sstream>
 #include <string>
+#include <variant>
 #include <vector>
 
 namespace LinAlg {
@@ -36,6 +37,11 @@ using hlsl::DXIL::ComponentType;
 using hlsl::DXIL::LinalgMatrixLayout;
 using hlsl::DXIL::MatrixScope;
 using hlsl::DXIL::MatrixUse;
+
+using HLSLTestDataTypes::HLSLHalf_t;
+
+using VariantCompType = std::variant<std::vector<float>, std::vector<int32_t>,
+                                     std::vector<HLSLHalf_t>>;
 
 /// Return the byte size of a single element for the given component type.
 static int elementSize(ComponentType CT) {
@@ -62,6 +68,7 @@ struct MatrixParams {
   LinalgMatrixLayout Layout;
   int NumThreads;
   bool Enable16Bit;
+  bool EmulateTest;
 
   int strideBytes() const {
     int ES = elementSize(CompType);
@@ -80,6 +87,7 @@ static std::string buildCompilerArgs(const MatrixParams &Params,
   std::stringstream SS;
   SS << "-HV 202x";
   SS << " -DCOMP_TYPE=" << static_cast<int>(Params.CompType);
+  SS << " -DCOMP_TYPE_F16=" << 8;
   SS << " -DCOMP_TYPE_F32=" << 9;
   SS << " -DM_DIM=" << Params.M;
   SS << " -DN_DIM=" << Params.N;
@@ -87,7 +95,10 @@ static std::string buildCompilerArgs(const MatrixParams &Params,
   SS << " -DSCOPE=" << static_cast<int>(Params.Scope);
   SS << " -DSTRIDE=" << Params.strideBytes();
   SS << " -DLAYOUT=" << static_cast<int>(Params.Layout);
+  SS << " -DELEM_SIZE=" << elementSize(Params.CompType);
   SS << " -DNUMTHREADS=" << Params.NumThreads;
+  if (Params.EmulateTest)
+    SS << " -DEMULATE_TEST";
   if (Params.Enable16Bit)
     SS << " -enable-16bit-types";
   if (ExtraDefines)
@@ -95,44 +106,168 @@ static std::string buildCompilerArgs(const MatrixParams &Params,
   return SS.str();
 }
 
-static bool verifyFloatBuffer(const void *Actual, const float *Expected,
+static bool verifyFloatBuffer(const float *Actual, const float *Expected,
                               size_t Count, bool Verbose,
                               float Tolerance = 0.0f) {
-  const float *ActualFloats = static_cast<const float *>(Actual);
   bool Success = true;
   for (size_t I = 0; I < Count; I++) {
-    float Diff = ActualFloats[I] - Expected[I];
+    float Diff = Actual[I] - Expected[I];
     if (Diff < 0)
       Diff = -Diff;
     if (Diff > Tolerance) {
       hlsl_test::LogErrorFmt(L"Mismatch at index %zu: actual=%f, expected=%f",
-                             I, static_cast<double>(ActualFloats[I]),
+                             I, static_cast<double>(Actual[I]),
                              static_cast<double>(Expected[I]));
       Success = false;
     } else if (Verbose) {
       hlsl_test::LogCommentFmt(L"  [%zu] actual=%f, expected=%f (OK)", I,
-                               static_cast<double>(ActualFloats[I]),
+                               static_cast<double>(Actual[I]),
                                static_cast<double>(Expected[I]));
     }
   }
   return Success;
 }
 
-static bool verifyIntBuffer(const void *Actual, const int32_t *Expected,
+static bool verifyIntBuffer(const int32_t *Actual, const int32_t *Expected,
                             size_t Count, bool Verbose) {
-  const int32_t *ActualInts = static_cast<const int32_t *>(Actual);
   bool Success = true;
   for (size_t I = 0; I < Count; I++) {
-    if (ActualInts[I] != Expected[I]) {
+    if (Actual[I] != Expected[I]) {
       hlsl_test::LogErrorFmt(L"Mismatch at index %zu: actual=%d, expected=%d",
-                             I, ActualInts[I], Expected[I]);
+                             I, Actual[I], Expected[I]);
       Success = false;
     } else if (Verbose) {
       hlsl_test::LogCommentFmt(L"  [%zu] actual=%d, expected=%d (OK)", I,
-                               ActualInts[I], Expected[I]);
+                               Actual[I], Expected[I]);
     }
   }
   return Success;
+}
+
+static bool verifyHalfBuffer(const HLSLHalf_t *Actual,
+                             const HLSLHalf_t *Expected, size_t Count,
+                             bool Verbose, HLSLHalf_t Tolerance = 0.0f) {
+  bool Success = true;
+  for (size_t I = 0; I < Count; I++) {
+    HLSLHalf_t Diff = Actual[I] - Expected[I];
+    if (Diff < 0.0f)
+      Diff = -Diff;
+    if (Diff > Tolerance) {
+      hlsl_test::LogErrorFmt(L"Mismatch at index %zu: actual=%f, expected=%f",
+                             I, static_cast<float>(Actual[I]),
+                             static_cast<float>(Expected[I]));
+      Success = false;
+    } else if (Verbose) {
+      hlsl_test::LogCommentFmt(L"  [%zu] actual=%f, expected=%f (OK)", I,
+                               static_cast<float>(Actual[I]),
+                               static_cast<float>(Expected[I]));
+    }
+  }
+  return Success;
+}
+
+static bool verifyComponentBuffer(ComponentType CompType, const void *Actual,
+                                  VariantCompType Expected, size_t NumElements,
+                                  bool Verbose) {
+  switch (CompType) {
+  case ComponentType::F32: {
+    const float *ActualFloats = static_cast<const float *>(Actual);
+    return verifyFloatBuffer(ActualFloats,
+                             std::get<std::vector<float>>(Expected).data(),
+                             NumElements, Verbose);
+  }
+  case ComponentType::I32: {
+    const int32_t *ActualInts = static_cast<const int32_t *>(Actual);
+    return verifyIntBuffer(ActualInts,
+                           std::get<std::vector<int32_t>>(Expected).data(),
+                           NumElements, Verbose);
+  }
+  case ComponentType::F16: {
+    const HLSLHalf_t *ActualHalfs = static_cast<const HLSLHalf_t *>(Actual);
+    return verifyHalfBuffer(ActualHalfs,
+                            std::get<std::vector<HLSLHalf_t>>(Expected).data(),
+                            NumElements, Verbose);
+  }
+  }
+  return false;
+}
+
+static bool fillInputBuffer(LPCSTR Name, std::vector<BYTE> &Data,
+                            ComponentType CompType, size_t NumElements) {
+  if (_stricmp(Name, "Input") != 0)
+    return true;
+
+  switch (CompType) {
+  case ComponentType::F32: {
+    float *Ptr = reinterpret_cast<float *>(Data.data());
+    for (size_t I = 0; I < NumElements; I++)
+      Ptr[I] = static_cast<float>(I + 1);
+    return true;
+  }
+  case ComponentType::I32: {
+    int32_t *Ptr = reinterpret_cast<int32_t *>(Data.data());
+    for (size_t I = 0; I < NumElements; I++)
+      Ptr[I] = static_cast<int32_t>(I + 1);
+    return true;
+  }
+  case ComponentType::F16: {
+    HLSLHalf_t *Ptr = reinterpret_cast<HLSLHalf_t *>(Data.data());
+    for (size_t I = 0; I < NumElements; I++)
+      Ptr[I] = HLSLHalf_t(static_cast<float>(I + 1));
+    return true;
+  }
+  }
+
+  return false;
+}
+
+static VariantCompType makeExpected(ComponentType CompType, size_t NumElements,
+                                    float StartingVal, bool Increment) {
+  switch (CompType) {
+  case ComponentType::F32: {
+    std::vector<float> Floats(NumElements);
+    for (int32_t I = 0; I < NumElements; I++)
+      Floats[I] = StartingVal + static_cast<float>(Increment ? I : 0);
+    return Floats;
+  }
+  case ComponentType::I32: {
+    DXASSERT(StartingVal < static_cast<float>(INT_MAX),
+             "Value too large to cast to int32_t");
+    std::vector<int32_t> Ints(NumElements);
+    for (int32_t I = 0; I < NumElements; I++)
+      Ints[I] = static_cast<int32_t>(StartingVal) + (Increment ? I : 0);
+    return Ints;
+  }
+  case ComponentType::F16: {
+    std::vector<HLSLHalf_t> Halfs(NumElements);
+    for (int32_t I = 0; I < NumElements; I++) {
+      // Downcasting is safe here since HLSLHalf_t will clamp if F is too large.
+      float F = StartingVal + static_cast<float>(Increment ? I : 0);
+      Halfs[I] = HLSLHalf_t(F);
+    }
+    return Halfs;
+  }
+  }
+
+  DXASSERT(false, "Unable to fill unexpected ComponentType");
+  return std::vector<float>();
+}
+
+static bool shouldSkipBecauseSM610Unsupported(ID3D12Device *Device) {
+  // Never skip in an HLK environment
+#ifdef _HLK_CONF
+  return false;
+#endif
+
+  // Don't skip if a device is available
+  if (Device)
+    return false;
+
+  // Skip GPU execution
+  hlsl_test::LogCommentFmt(
+      L"Shader compiled OK; skipping execution (no SM 6.10 device)");
+  WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
+  return true;
 }
 
 class DxilConf_SM610_LinAlg {
@@ -154,16 +289,13 @@ public:
   TEST_METHOD_SETUP(setupMethod);
 
   // Load/Store
-  TEST_METHOD(LoadStoreRoundtrip_Wave_F32);
-  TEST_METHOD(LoadStoreRoundtrip_Wave_I32);
+  TEST_METHOD(LoadStoreRoundtrip_Wave_16x16_F16);
 
   // Splat Store
-  TEST_METHOD(SplatStore_Wave_F32);
-  TEST_METHOD(SplatStore_Wave_I32);
+  TEST_METHOD(SplatStore_Wave_16x16_F16);
 
   // Element access
-  TEST_METHOD(ElementAccess_Wave_F32);
-  TEST_METHOD(ElementAccess_Wave_I32);
+  TEST_METHOD(ElementAccess_Wave_16x16_F16);
 
 private:
   bool createDevice();
@@ -171,6 +303,7 @@ private:
   CComPtr<ID3D12Device> D3DDevice;
   dxc::SpecificDllLoader DxcSupport;
   bool VerboseLogging = false;
+  bool EmulateTest = false;
   bool Initialized = false;
   std::optional<D3D12SDKSelector> D3D12SDK;
 
@@ -202,6 +335,11 @@ bool DxilConf_SM610_LinAlg::createDevice() {
     }
   }
 
+  if (EmulateTest) {
+    hlsl_test::LogWarningFmt(L"EmulateTest flag set. Tests are NOT REAL");
+    return D3D12SDK->createDevice(&D3DDevice, D3D_SHADER_MODEL_6_8, false);
+  }
+
   return true;
 }
 
@@ -213,6 +351,8 @@ bool DxilConf_SM610_LinAlg::setupClass() {
     D3D12SDK = D3D12SDKSelector();
     WEX::TestExecution::RuntimeParameters::TryGetValue(L"VerboseLogging",
                                                        VerboseLogging);
+    WEX::TestExecution::RuntimeParameters::TryGetValue(L"EmulateTest",
+                                                       EmulateTest);
     return createDevice();
   }
 
@@ -236,16 +376,25 @@ static const char LoadStoreShader[] = R"(
   RWByteAddressBuffer Input : register(u0);
   RWByteAddressBuffer Output : register(u1);
 
+#ifndef EMULATE_TEST
   [numthreads(NUMTHREADS, 1, 1)]
   void main() {
     __builtin_LinAlgMatrix
       [[__LinAlgMatrix_Attributes(COMP_TYPE, M_DIM, N_DIM, USE, SCOPE)]]
       Mat;
     __builtin_LinAlg_MatrixLoadFromDescriptor(
-      Mat, Input, OFFSET, STRIDE, LAYOUT, ALIGN);
+      Mat, Input, OFFSET, STRIDE, LAYOUT, 128);
     __builtin_LinAlg_MatrixStoreToDescriptor(
-      Mat, Output, OFFSET, STRIDE, LAYOUT, ALIGN);
+      Mat, Output, OFFSET, STRIDE, LAYOUT, 128);
   }
+#else
+  [numthreads(NUMTHREADS, 1, 1)]
+  void main() {
+    for (uint I = 0; I < M_DIM*N_DIM; ++I) {
+      Output.Store(I*ELEM_SIZE, Input.Load(I*ELEM_SIZE));
+    }
+  }
+#endif
 )";
 
 static void runLoadStoreRoundtrip(ID3D12Device *Device,
@@ -254,112 +403,66 @@ static void runLoadStoreRoundtrip(ID3D12Device *Device,
   const size_t NumElements = Params.totalElements();
   const size_t BufferSize = Params.totalBytes();
 
+  std::string Target = "cs_6_10";
+  if (Params.EmulateTest)
+    Target = "cs_6_8";
+
   // TODO: these should be varied by test to ensure full coverage
   std::stringstream ExtraDefs;
   ExtraDefs << " -DOFFSET=" << 0;
-  ExtraDefs << " -DALIGN=" << 0;
 
   std::string Args = buildCompilerArgs(Params, ExtraDefs.str().c_str());
 
   // Always verify the shader compiles.
-  compileShader(DxcSupport, LoadStoreShader, "cs_6_10", Args, Verbose);
+  compileShader(DxcSupport, LoadStoreShader, Target.c_str(), Args, Verbose);
 
-#ifndef _HLK_CONF
-  // Skip GPU execution if no device.
-  if (!Device) {
-    hlsl_test::LogCommentFmt(
-        L"Shader compiled OK; skipping execution (no SM 6.10 device)");
-    WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
+  if (shouldSkipBecauseSM610Unsupported(Device))
     return;
-  }
-#endif
 
-  std::vector<float> ExpectedFloats(NumElements);
-  std::vector<int32_t> ExpectedInts(NumElements);
-  for (size_t I = 0; I < NumElements; I++) {
-    ExpectedFloats[I] = static_cast<float>(I + 1);
-    ExpectedInts[I] = static_cast<int32_t>(I + 1);
-  }
+  auto Expected = makeExpected(Params.CompType, NumElements, 1, true);
 
   // Construct the ShaderOp: two UAV buffers, load from one, store to other.
-  auto Op = createComputeOp(LoadStoreShader, "cs_6_10", "UAV(u0), UAV(u1)",
+  auto Op = createComputeOp(LoadStoreShader, Target.c_str(), "UAV(u0), UAV(u1)",
                             Args.c_str());
   addUAVBuffer(Op.get(), "Input", BufferSize, false, "byname");
   addUAVBuffer(Op.get(), "Output", BufferSize, true);
   addRootUAV(Op.get(), 0, "Input");
   addRootUAV(Op.get(), 1, "Output");
 
-  auto Result = runShaderOp(
-      Device, DxcSupport, std::move(Op),
-      [&](LPCSTR Name, std::vector<BYTE> &Data, st::ShaderOp * /*pOp*/) {
-        if (_stricmp(Name, "Input") != 0)
-          return;
-        switch (Params.CompType) {
-        case ComponentType::F32: {
-          float *Ptr = reinterpret_cast<float *>(Data.data());
-          for (size_t I = 0; I < NumElements; I++)
-            Ptr[I] = static_cast<float>(I + 1);
-          break;
-        }
-        case ComponentType::I32: {
-          int32_t *Ptr = reinterpret_cast<int32_t *>(Data.data());
-          for (size_t I = 0; I < NumElements; I++)
-            Ptr[I] = static_cast<int32_t>(I + 1);
-          break;
-        }
-        default:
-          VERIFY_IS_TRUE(false, "Saw unsupported component type");
-          break;
-        }
-      });
+  auto Result =
+      runShaderOp(Device, DxcSupport, std::move(Op),
+                  [NumElements, Params](LPCSTR Name, std::vector<BYTE> &Data,
+                                        st::ShaderOp *) {
+                    VERIFY_IS_TRUE(fillInputBuffer(Name, Data, Params.CompType,
+                                                   NumElements),
+                                   "Saw unsupported component type");
+                  });
 
   MappedData OutData;
   Result->Test->GetReadBackData("Output", &OutData);
 
-  switch (Params.CompType) {
-  case ComponentType::F32:
-    VERIFY_IS_TRUE(verifyFloatBuffer(OutData.data(), ExpectedFloats.data(),
-                                     NumElements, Verbose));
-    break;
-  case ComponentType::I32:
-    VERIFY_IS_TRUE(verifyIntBuffer(OutData.data(), ExpectedInts.data(),
-                                   NumElements, Verbose));
-    break;
-  default:
-    VERIFY_IS_TRUE(false, "Saw unsupported component type");
-    break;
-  }
+  VERIFY_IS_TRUE(verifyComponentBuffer(Params.CompType, OutData.data(),
+                                       Expected, NumElements, Verbose));
 }
 
-void DxilConf_SM610_LinAlg::LoadStoreRoundtrip_Wave_F32() {
+void DxilConf_SM610_LinAlg::LoadStoreRoundtrip_Wave_16x16_F16() {
   MatrixParams Params = {};
-  Params.CompType = ComponentType::F32;
-  Params.M = 8;
-  Params.N = 8;
+  Params.CompType = ComponentType::F16;
+  Params.M = 16;
+  Params.N = 16;
   Params.Use = MatrixUse::A;
   Params.Scope = MatrixScope::Wave;
   Params.Layout = LinalgMatrixLayout::RowMajor;
-  Params.NumThreads = 64;
-  Params.Enable16Bit = false;
-  runLoadStoreRoundtrip(D3DDevice, DxcSupport, Params, VerboseLogging);
-}
-
-void DxilConf_SM610_LinAlg::LoadStoreRoundtrip_Wave_I32() {
-  MatrixParams Params = {};
-  Params.CompType = ComponentType::I32;
-  Params.M = 8;
-  Params.N = 8;
-  Params.Use = MatrixUse::A;
-  Params.Scope = MatrixScope::Wave;
-  Params.Layout = LinalgMatrixLayout::RowMajor;
-  Params.NumThreads = 64;
-  Params.Enable16Bit = false;
+  Params.NumThreads = 4;
+  Params.Enable16Bit = true;
+  Params.EmulateTest = EmulateTest;
   runLoadStoreRoundtrip(D3DDevice, DxcSupport, Params, VerboseLogging);
 }
 
 static const char SplatStoreShader[] = R"(
   RWByteAddressBuffer Output : register(u0);
 
+#ifndef EMULATE_TEST
   [numthreads(NUMTHREADS, 1, 1)]
   void main() {
     __builtin_LinAlgMatrix
@@ -367,8 +470,23 @@ static const char SplatStoreShader[] = R"(
       Mat;
     __builtin_LinAlg_FillMatrix(Mat, FILL_VALUE);
     __builtin_LinAlg_MatrixStoreToDescriptor(
-      Mat, Output, 0, STRIDE, LAYOUT, 0);
+      Mat, Output, 0, STRIDE, LAYOUT, 128);
   }
+#else
+  [numthreads(NUMTHREADS, 1, 1)]
+  void main() {
+#if COMP_TYPE == COMP_TYPE_F32
+      float fill = FILL_VALUE;
+#elif COMP_TYPE == COMP_TYPE_F16
+      half fill = FILL_VALUE;
+#else
+      uint fill = FILL_VALUE;
+#endif
+    for (uint I = 0; I < M_DIM*N_DIM; ++I) {
+      Output.Store(I*ELEM_SIZE, fill);
+    }
+  }
+#endif
 )";
 
 static void runSplatStore(ID3D12Device *Device,
@@ -377,6 +495,9 @@ static void runSplatStore(ID3D12Device *Device,
                           bool Verbose) {
   const size_t NumElements = Params.totalElements();
   const size_t BufferSize = Params.totalBytes();
+  std::string Target = "cs_6_10";
+  if (Params.EmulateTest)
+    Target = "cs_6_8";
 
   std::stringstream ExtraDefs;
   ExtraDefs << "-DFILL_VALUE=" << FillValue;
@@ -384,36 +505,15 @@ static void runSplatStore(ID3D12Device *Device,
   std::string Args = buildCompilerArgs(Params, ExtraDefs.str().c_str());
 
   // Always verify the shader compiles.
-  compileShader(DxcSupport, SplatStoreShader, "cs_6_10", Args, Verbose);
+  compileShader(DxcSupport, SplatStoreShader, Target.c_str(), Args, Verbose);
 
-#ifndef _HLK_CONF
-  // Skip GPU execution if no device.
-  if (!Device) {
-    hlsl_test::LogCommentFmt(
-        L"Shader compiled OK; skipping execution (no SM 6.10 device)");
-    WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
+  if (shouldSkipBecauseSM610Unsupported(Device))
     return;
-  }
-#endif
 
-  std::vector<float> ExpectedFloats;
-  std::vector<int32_t> ExpectedInts;
-  switch (Params.CompType) {
-  case ComponentType::F32:
-    ExpectedFloats.assign(NumElements, FillValue);
-    break;
-  case ComponentType::I32:
-    VERIFY_IS_TRUE(FillValue < static_cast<float>(INT_MAX),
-                   "FillValue too large to cast to int32_t");
-    ExpectedInts.assign(NumElements, static_cast<int32_t>(FillValue));
-    break;
-  default:
-    VERIFY_IS_TRUE(false, "Saw unsupported component type");
-    break;
-  }
+  auto Expected = makeExpected(Params.CompType, NumElements, FillValue, false);
 
-  auto Op =
-      createComputeOp(SplatStoreShader, "cs_6_10", "UAV(u0)", Args.c_str());
+  auto Op = createComputeOp(SplatStoreShader, Target.c_str(), "UAV(u0)",
+                            Args.c_str());
   addUAVBuffer(Op.get(), "Output", BufferSize, true);
   addRootUAV(Op.get(), 0, "Output");
 
@@ -422,45 +522,22 @@ static void runSplatStore(ID3D12Device *Device,
   MappedData OutData;
   Result->Test->GetReadBackData("Output", &OutData);
 
-  switch (Params.CompType) {
-  case ComponentType::F32:
-    VERIFY_IS_TRUE(verifyFloatBuffer(OutData.data(), ExpectedFloats.data(),
-                                     NumElements, Verbose));
-    break;
-  case ComponentType::I32:
-    VERIFY_IS_TRUE(verifyIntBuffer(OutData.data(), ExpectedInts.data(),
-                                   NumElements, Verbose));
-    break;
-  default:
-    VERIFY_IS_TRUE(false, "Saw unsupported component type");
-    break;
-  }
+  VERIFY_IS_TRUE(verifyComponentBuffer(Params.CompType, OutData.data(),
+                                       Expected, NumElements, Verbose));
 }
 
-void DxilConf_SM610_LinAlg::SplatStore_Wave_F32() {
+void DxilConf_SM610_LinAlg::SplatStore_Wave_16x16_F16() {
   MatrixParams Params = {};
-  Params.CompType = ComponentType::F32;
-  Params.M = 8;
-  Params.N = 8;
+  Params.CompType = ComponentType::F16;
+  Params.M = 16;
+  Params.N = 16;
   Params.Use = MatrixUse::Accumulator;
   Params.Scope = MatrixScope::Wave;
   Params.Layout = LinalgMatrixLayout::RowMajor;
-  Params.NumThreads = 64;
-  Params.Enable16Bit = false;
+  Params.NumThreads = 4;
+  Params.Enable16Bit = true;
+  Params.EmulateTest = EmulateTest;
   runSplatStore(D3DDevice, DxcSupport, Params, 42.0f, VerboseLogging);
-}
-
-void DxilConf_SM610_LinAlg::SplatStore_Wave_I32() {
-  MatrixParams Params = {};
-  Params.CompType = ComponentType::I32;
-  Params.M = 8;
-  Params.N = 8;
-  Params.Use = MatrixUse::Accumulator;
-  Params.Scope = MatrixScope::Wave;
-  Params.Layout = LinalgMatrixLayout::RowMajor;
-  Params.NumThreads = 64;
-  Params.Enable16Bit = false;
-  runSplatStore(D3DDevice, DxcSupport, Params, 7.0f, VerboseLogging);
 }
 
 static const char ElementAccessShader[] = R"(
@@ -472,13 +549,14 @@ static const char ElementAccessShader[] = R"(
     return (coord.x * MAJOR_DIM + coord.y) * ELEM_SIZE;
   }
 
+#ifndef EMULATE_TEST
   [numthreads(NUMTHREADS, 1, 1)]
   void main(uint threadIndex : SV_GroupIndex) {
     __builtin_LinAlgMatrix
       [[__LinAlgMatrix_Attributes(COMP_TYPE, M_DIM, N_DIM, USE, SCOPE)]]
       Mat;
     __builtin_LinAlg_MatrixLoadFromDescriptor(
-      Mat, Input, 0, STRIDE, LAYOUT, 0);
+      Mat, Input, 0, STRIDE, LAYOUT, 128);
 
     // Copy Matrix values from input to output without assuming order
     for (uint I = 0; I < __builtin_LinAlg_MatrixLength(Mat); ++I) {
@@ -501,6 +579,20 @@ static const char ElementAccessShader[] = R"(
     uint Len = __builtin_LinAlg_MatrixLength(Mat);
     Output.Store(LenIdx, Len);
   }
+#else
+  [numthreads(NUMTHREADS, 1, 1)]
+  void main(uint threadIndex : SV_GroupIndex) {
+    uint LenIdx = (M_DIM * N_DIM * ELEM_SIZE) + (threadIndex * sizeof(uint));
+    Output.Store(LenIdx, M_DIM * N_DIM / NUMTHREADS);
+
+    if (threadIndex != 0)
+      return;
+
+    for (uint I = 0; I < M_DIM*N_DIM; ++I) {
+      Output.Store(I*ELEM_SIZE, Input.Load(I*ELEM_SIZE));
+    }
+  }
+#endif
 )";
 
 static void runElementAccess(ID3D12Device *Device,
@@ -518,32 +610,23 @@ static void runElementAccess(ID3D12Device *Device,
   const size_t OutputBufSize =
       NumElements * ElementSize + NumThreads * sizeof(uint32_t);
 
+  std::string Target = "cs_6_10";
+  if (Params.EmulateTest)
+    Target = "cs_6_8";
+
   std::stringstream ExtraDefs;
   ExtraDefs << " -DMAJOR_DIM=" << MajorDim;
-  ExtraDefs << " -DELEM_SIZE=" << ElementSize;
   std::string Args = buildCompilerArgs(Params, ExtraDefs.str().c_str());
 
-  compileShader(DxcSupport, ElementAccessShader, "cs_6_10", Args, Verbose);
+  compileShader(DxcSupport, ElementAccessShader, Target.c_str(), Args, Verbose);
 
-#ifndef _HLK_CONF
-  // Skip GPU execution if no device.
-  if (!Device) {
-    hlsl_test::LogCommentFmt(
-        L"Shader compiled OK; skipping execution (no SM 6.10 device)");
-    WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
+  if (shouldSkipBecauseSM610Unsupported(Device))
     return;
-  }
-#endif
 
-  std::vector<float> ExpectedFloats(NumElements);
-  std::vector<int32_t> ExpectedInts(NumElements);
-  for (size_t I = 0; I < NumElements; I++) {
-    ExpectedFloats[I] = static_cast<float>(I + 1);
-    ExpectedInts[I] = static_cast<int32_t>(I + 1);
-  }
+  auto Expected = makeExpected(Params.CompType, NumElements, 1, true);
 
-  auto Op = createComputeOp(ElementAccessShader, "cs_6_10", "UAV(u0), UAV(u1)",
-                            Args.c_str());
+  auto Op = createComputeOp(ElementAccessShader, Target.c_str(),
+                            "UAV(u0), UAV(u1)", Args.c_str());
   addUAVBuffer(Op.get(), "Input", InputBufSize, false, "byname");
   addUAVBuffer(Op.get(), "Output", OutputBufSize, true);
   addRootUAV(Op.get(), 0, "Input");
@@ -551,108 +634,44 @@ static void runElementAccess(ID3D12Device *Device,
 
   auto Result =
       runShaderOp(Device, DxcSupport, std::move(Op),
-                  [&](LPCSTR Name, std::vector<BYTE> &Data, st::ShaderOp *) {
-                    if (_stricmp(Name, "Input") != 0)
-                      return;
-
-                    switch (Params.CompType) {
-                    case ComponentType::F32: {
-                      float *Ptr = reinterpret_cast<float *>(Data.data());
-                      for (size_t I = 0; I < NumElements; I++)
-                        Ptr[I] = static_cast<float>(I + 1);
-                      break;
-                    }
-                    case ComponentType::I32: {
-                      int32_t *Ptr = reinterpret_cast<int32_t *>(Data.data());
-                      for (size_t I = 0; I < NumElements; I++)
-                        Ptr[I] = static_cast<int32_t>(I + 1);
-                      break;
-                    }
-                    default:
-                      VERIFY_IS_TRUE(false, "Saw unsupported component type");
-                      break;
-                    }
+                  [NumElements, Params](LPCSTR Name, std::vector<BYTE> &Data,
+                                        st::ShaderOp *) {
+                    VERIFY_IS_TRUE(fillInputBuffer(Name, Data, Params.CompType,
+                                                   NumElements),
+                                   "Saw unsupported component type");
                   });
 
   MappedData OutData;
   Result->Test->GetReadBackData("Output", &OutData);
+
+  // Verify the front of the buffer is a list of elements of the expected type
+  VERIFY_IS_TRUE(verifyComponentBuffer(Params.CompType, OutData.data(),
+                                       Expected, NumElements, Verbose));
+
+  // Verify the end of the buffer is NumThreads number of lengths, whose
+  // sum is greater than or equal to NumElements
   const BYTE *Out = static_cast<const BYTE *>(OutData.data());
-
-  std::vector<float> ActualFloats(NumElements);
-  std::vector<int32_t> ActualInts(NumElements);
-  for (size_t I = 0; I < NumElements; ++I) {
-    switch (Params.CompType) {
-    case ComponentType::F32: {
-      float Actual;
-      memcpy(&Actual, &Out[I * ElementSize], ElementSize);
-      ActualFloats[I] = Actual;
-      break;
-    }
-    case ComponentType::I32: {
-      int32_t Actual;
-      memcpy(&Actual, &Out[I * ElementSize], ElementSize);
-      ActualInts[I] = Actual;
-      break;
-    }
-    default:
-      VERIFY_IS_TRUE(false, "Saw unsupported component type");
-      break;
-    }
-  }
-
-  // Verify element values match input data.
-  switch (Params.CompType) {
-  case ComponentType::F32:
-    VERIFY_IS_TRUE(verifyFloatBuffer(ActualFloats.data(), ExpectedFloats.data(),
-                                     NumElements, Verbose));
-    break;
-  case ComponentType::I32:
-    VERIFY_IS_TRUE(verifyIntBuffer(ActualInts.data(), ExpectedInts.data(),
-                                   NumElements, Verbose));
-    break;
-  default:
-    VERIFY_IS_TRUE(false, "Saw unsupported component type");
-    break;
-  }
-
-  // The sum of the values returned by Length across all threads must be
-  // greater than or equal to the total number of matrix elements
   size_t MatrixEndOffset = NumElements * ElementSize;
-  size_t LengthValuesEnd = MatrixEndOffset + (NumThreads * sizeof(uint32_t));
-  size_t TotalLength = 0;
-  for (size_t I = MatrixEndOffset; I < LengthValuesEnd;
-       I = I + sizeof(uint32_t)) {
-    uint32_t Length;
-    memcpy(&Length, &Out[I], sizeof(uint32_t));
-    TotalLength += Length;
-  }
-  VERIFY_IS_TRUE(TotalLength >= NumElements,
-                 "Sum of all lengths must be gte num elements");
+  const uint32_t *Lengths =
+      reinterpret_cast<const uint32_t *>(Out + MatrixEndOffset);
+  uint32_t TotalLength = 0;
+  for (size_t I = 0; I < NumThreads; ++I)
+    TotalLength += Lengths[I];
+  VERIFY_IS_GREATER_THAN_OR_EQUAL(
+      TotalLength, NumElements, "Sum of all lengths must be gte num elements");
 }
 
-void DxilConf_SM610_LinAlg::ElementAccess_Wave_F32() {
+void DxilConf_SM610_LinAlg::ElementAccess_Wave_16x16_F16() {
   MatrixParams Params = {};
-  Params.CompType = ComponentType::F32;
+  Params.CompType = ComponentType::F16;
   Params.M = 16;
   Params.N = 16;
   Params.Use = MatrixUse::Accumulator;
   Params.Scope = MatrixScope::Wave;
   Params.Layout = LinalgMatrixLayout::RowMajor;
   Params.NumThreads = 4;
-  Params.Enable16Bit = false;
-  runElementAccess(D3DDevice, DxcSupport, Params, VerboseLogging);
-}
-
-void DxilConf_SM610_LinAlg::ElementAccess_Wave_I32() {
-  MatrixParams Params = {};
-  Params.CompType = ComponentType::I32;
-  Params.M = 16;
-  Params.N = 16;
-  Params.Use = MatrixUse::Accumulator;
-  Params.Scope = MatrixScope::Wave;
-  Params.Layout = LinalgMatrixLayout::RowMajor;
-  Params.NumThreads = 4;
-  Params.Enable16Bit = false;
+  Params.Enable16Bit = true;
+  Params.EmulateTest = EmulateTest;
   runElementAccess(D3DDevice, DxcSupport, Params, VerboseLogging);
 }
 
