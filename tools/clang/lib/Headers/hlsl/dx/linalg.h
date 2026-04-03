@@ -373,8 +373,8 @@ class Matrix {
                            void>::type
   MultiplyAccumulate(const Matrix<LHSTy, M, K, MatrixUse::A, Scope> MatrixA,
                      const Matrix<RHSTy, K, N, MatrixUse::B, Scope> MatrixB) {
-    __builtin_LinAlg_MatrixMatrixMultiplyAccumulate(
-        __handle, __handle, MatrixA.__handle, MatrixB.__handle);
+    __builtin_LinAlg_MatrixMatrixMultiplyAccumulate(__handle, MatrixA.__handle,
+                                                    MatrixB.__handle, __handle);
   }
 };
 
