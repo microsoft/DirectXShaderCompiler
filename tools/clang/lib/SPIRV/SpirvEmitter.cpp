@@ -1704,8 +1704,8 @@ void SpirvEmitter::doFunctionDecl(const FunctionDecl *decl) {
   for (uint32_t i = 0; i < decl->getNumParams(); ++i) {
     const ParmVarDecl *paramDecl = decl->getParamDecl(i);
     QualType paramType = paramDecl->getType();
-    auto *param =
-        declIdMapper.createFnParam(paramDecl, i + 1 + isNonStaticMemberFn);
+    auto *param = declIdMapper.createFnParam(
+        paramDecl, i + 1 + isNonStaticMemberFn, !isEntry);
     if (isEntry) {
       handleNodePayloadArrayType(paramDecl, param);
     }

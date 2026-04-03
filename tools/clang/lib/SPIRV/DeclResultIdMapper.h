@@ -271,7 +271,8 @@ public:
   /// parameter must have "1", not "0", which is what Clang generates for
   /// LLVM debug metadata.
   SpirvFunctionParameter *createFnParam(const ParmVarDecl *param,
-                                        uint32_t dbgArgNumber = 0);
+                                        uint32_t dbgArgNumber = 0,
+                                        bool decorateIntrinsicAttrs = true);
 
   /// \brief Creates the counter variable associated with the given param.
   /// This is meant to be used for forward-declared functions and this objects
@@ -577,7 +578,7 @@ public:
   /// Decorate with spirv intrinsic attributes with lamda function variable
   /// check
   void decorateWithIntrinsicAttrs(
-      const NamedDecl *decl, SpirvVariable *varInst,
+      const NamedDecl *decl, SpirvInstruction *targetInst,
       llvm::function_ref<void(VKDecorateExtAttr *)> extraFunctionForDecoAttr =
           [](VKDecorateExtAttr *) {});
 
