@@ -226,7 +226,7 @@ static VariantCompType makeExpected(ComponentType CompType, size_t NumElements,
   switch (CompType) {
   case ComponentType::F32: {
     std::vector<float> Floats(NumElements);
-    for (int32_t I = 0; I < NumElements; I++)
+    for (size_t I = 0; I < NumElements; I++)
       Floats[I] = StartingVal + static_cast<float>(Increment ? I : 0);
     return Floats;
   }
@@ -234,13 +234,13 @@ static VariantCompType makeExpected(ComponentType CompType, size_t NumElements,
     DXASSERT(StartingVal < static_cast<float>(INT_MAX),
              "Value too large to cast to int32_t");
     std::vector<int32_t> Ints(NumElements);
-    for (int32_t I = 0; I < NumElements; I++)
-      Ints[I] = static_cast<int32_t>(StartingVal) + (Increment ? I : 0);
+    for (size_t I = 0; I < NumElements; I++)
+      Ints[I] = static_cast<int32_t>(StartingVal) + static_cast<int32_t>(Increment ? I : 0);
     return Ints;
   }
   case ComponentType::F16: {
     std::vector<HLSLHalf_t> Halfs(NumElements);
-    for (int32_t I = 0; I < NumElements; I++) {
+    for (size_t I = 0; I < NumElements; I++) {
       // Downcasting is safe here since HLSLHalf_t will clamp if F is too large.
       float F = StartingVal + static_cast<float>(Increment ? I : 0);
       Halfs[I] = HLSLHalf_t(F);
