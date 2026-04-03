@@ -157,10 +157,10 @@ void main(uint ID : SV_GroupID)
 // Matrix::MultiplyAccumulate
 //
 // CHECK: %[[ACCUM4:.*]] = call %dx.types.LinAlgMatrixC9M4N4U2S1
-// CHECK-SAME: @dx.op.linAlgMatrixMultiplyAccumulate.mC9M4N4U2S1.mC9M4N4U2S1.mC9M4N4U0S1.mC9M4N4U1S1(i32 -2147483637,
-// CHECK-SAME: %dx.types.LinAlgMatrixC9M4N4U2S1 %[[ACCUM3]],
+// CHECK-SAME: @dx.op.linAlgMatrixMultiplyAccumulate.mC9M4N4U2S1.mC9M4N4U0S1.mC9M4N4U1S1.mC9M4N4U2S1(i32 -2147483637,
 // CHECK-SAME: %dx.types.LinAlgMatrixC9M4N4U0S1 %[[MATA1]],
-// CHECK-SAME: %dx.types.LinAlgMatrixC9M4N4U1S1 %[[MATB1_2]])
+// CHECK-SAME: %dx.types.LinAlgMatrixC9M4N4U1S1 %[[MATB1_2]],
+// CHECK-SAME: %dx.types.LinAlgMatrixC9M4N4U2S1 %[[ACCUM3]])
 // CHECK-SAME: ; LinAlgMatrixMultiplyAccumulate(matrixA,matrixB,matrixC)
   AccMat2.MultiplyAccumulate(MatA1, MatB1);
 
