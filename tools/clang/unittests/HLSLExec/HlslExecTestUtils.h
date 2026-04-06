@@ -11,11 +11,11 @@
 #include "ShaderOpTest.h"
 #include "dxc/Support/dxcapi.use.h"
 
-// D3D_SHADER_MODEL_6_10 is not yet in the released Windows SDK.
-// Define locally so the tests can target SM 6.10.
-// Once the public SDK ships with this, a compile break (redefinition error)
-// will signal that this local definition should be removed.
+// Define SM6.10 only in the SDK versions where it is not present. This should
+// be removed once widely supported.
+#if defined(D3D12_PREVIEW_SDK_VERSION) && D3D12_PREVIEW_SDK_VERSION < 720
 static const D3D_SHADER_MODEL D3D_SHADER_MODEL_6_10 = (D3D_SHADER_MODEL)0x6a;
+#endif
 
 // Local highest shader model known to DXC. Update this when adding support
 // for new shader models. Unlike D3D_HIGHEST_SHADER_MODEL from the SDK,
