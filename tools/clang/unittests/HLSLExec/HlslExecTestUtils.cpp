@@ -15,8 +15,9 @@
 // D3D12_FEATURE_D3D12_OPTIONS_PREVIEW and its data struct are not yet in
 // the released Windows SDK. Define locally so the test can query variable
 // group shared memory capabilities from the Agility SDK runtime.
-// Once the public SDK ships with these, a compile break (redefinition error)
-// will signal that these local definitions should be removed.
+// This should be removed once widely supported.
+#if defined(D3D12_PREVIEW_SDK_VERSION) && D3D12_PREVIEW_SDK_VERSION < 720
+
 #ifndef D3D12_FEATURE_D3D12_OPTIONS_PREVIEW
 #define D3D12_FEATURE_D3D12_OPTIONS_PREVIEW ((D3D12_FEATURE)72)
 #endif
@@ -26,6 +27,8 @@ typedef struct D3D12_FEATURE_DATA_D3D12_OPTIONS_PREVIEW {
   UINT MaxGroupSharedMemoryPerGroupAS;
   UINT MaxGroupSharedMemoryPerGroupMS;
 } D3D12_FEATURE_DATA_D3D12_OPTIONS_PREVIEW;
+
+#endif
 
 using namespace hlsl_test;
 

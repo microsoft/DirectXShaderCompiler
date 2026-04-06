@@ -11,8 +11,9 @@
 #include "ShaderOpTest.h"
 #include "dxc/Support/dxcapi.use.h"
 
-// Define SM6.10 only in the SDK versions where it is not present. This should
-// be removed once widely supported.
+// D3D_SHADER_MODEL_6_10 is not yet in the released Windows SDK. Define locally
+// so the test can query 6.10 driver support. This should be removed once
+// widely supported.
 #if defined(D3D12_PREVIEW_SDK_VERSION) && D3D12_PREVIEW_SDK_VERSION < 720
 static const D3D_SHADER_MODEL D3D_SHADER_MODEL_6_10 = (D3D_SHADER_MODEL)0x6a;
 #endif
