@@ -39,6 +39,8 @@ using hlsl::DXIL::MatrixScope;
 using hlsl::DXIL::MatrixUse;
 
 using HLSLTestDataTypes::HLSLHalf_t;
+using HLSLTestDataTypes::doValuesMatch;
+using HLSLTestDataTypes::ValidationType;
 
 using VariantCompType = std::variant<std::vector<float>, std::vector<int32_t>,
                                      std::vector<HLSLHalf_t>>;
@@ -111,10 +113,7 @@ static bool verifyFloatBuffer(const float *Actual, const float *Expected,
                               float Tolerance = 0.0f) {
   bool Success = true;
   for (size_t I = 0; I < Count; I++) {
-    float Diff = Actual[I] - Expected[I];
-    if (Diff < 0)
-      Diff = -Diff;
-    if (Diff > Tolerance) {
+    if (!doValuesMatch(Actual[I], Expected[I], Tolerance, ValidationType::Epsilon)) {
       hlsl_test::LogErrorFmt(L"Mismatch at index %zu: actual=%f, expected=%f",
                              I, static_cast<double>(Actual[I]),
                              static_cast<double>(Expected[I]));
@@ -132,7 +131,7 @@ static bool verifyIntBuffer(const int32_t *Actual, const int32_t *Expected,
                             size_t Count, bool Verbose) {
   bool Success = true;
   for (size_t I = 0; I < Count; I++) {
-    if (Actual[I] != Expected[I]) {
+    if (!doValuesMatch(Actual[I], Expected[I], 0.0, ValidationType::Epsilon)) {
       hlsl_test::LogErrorFmt(L"Mismatch at index %zu: actual=%d, expected=%d",
                              I, Actual[I], Expected[I]);
       Success = false;
@@ -149,10 +148,7 @@ static bool verifyHalfBuffer(const HLSLHalf_t *Actual,
                              bool Verbose, HLSLHalf_t Tolerance = 0.0f) {
   bool Success = true;
   for (size_t I = 0; I < Count; I++) {
-    HLSLHalf_t Diff = Actual[I] - Expected[I];
-    if (Diff < 0.0f)
-      Diff = -Diff;
-    if (Diff > Tolerance) {
+    if (!doValuesMatch(Actual[I], Expected[I], Tolerance, ValidationType::Epsilon)) {
       hlsl_test::LogErrorFmt(L"Mismatch at index %zu: actual=%f, expected=%f",
                              I, static_cast<float>(Actual[I]),
                              static_cast<float>(Expected[I]));
