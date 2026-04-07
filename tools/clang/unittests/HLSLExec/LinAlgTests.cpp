@@ -300,8 +300,8 @@ private:
       WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures};
 };
 
-/// Attempts to create a device. If tests are being emulated this an SM6.8
-/// device is attempted. Durning normal execution SM6.10 is required.
+/// Attempts to create a device. If shaders are being emulated then a SM6.8
+/// device is attempted. Otherwise a SM6.10 device is attempted
 D3D_SHADER_MODEL DxilConf_SM610_LinAlg::createDevice() {
   if (EmulateTest) {
     if (D3D12SDK->createDevice(&D3DDevice, D3D_SHADER_MODEL_6_8, false))
