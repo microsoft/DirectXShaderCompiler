@@ -38,8 +38,8 @@ using hlsl::DXIL::LinalgMatrixLayout;
 using hlsl::DXIL::MatrixScope;
 using hlsl::DXIL::MatrixUse;
 
-using HLSLTestDataTypes::HLSLHalf_t;
 using HLSLTestDataTypes::doValuesMatch;
+using HLSLTestDataTypes::HLSLHalf_t;
 using HLSLTestDataTypes::ValidationType;
 
 using VariantCompType = std::variant<std::vector<float>, std::vector<int32_t>,
@@ -113,7 +113,8 @@ static bool verifyFloatBuffer(const float *Actual, const float *Expected,
                               float Tolerance = 0.0f) {
   bool Success = true;
   for (size_t I = 0; I < Count; I++) {
-    if (!doValuesMatch(Actual[I], Expected[I], Tolerance, ValidationType::Epsilon)) {
+    if (!doValuesMatch(Actual[I], Expected[I], Tolerance,
+                       ValidationType::Epsilon)) {
       hlsl_test::LogErrorFmt(L"Mismatch at index %zu: actual=%f, expected=%f",
                              I, static_cast<double>(Actual[I]),
                              static_cast<double>(Expected[I]));
@@ -148,7 +149,8 @@ static bool verifyHalfBuffer(const HLSLHalf_t *Actual,
                              bool Verbose, HLSLHalf_t Tolerance = 0.0f) {
   bool Success = true;
   for (size_t I = 0; I < Count; I++) {
-    if (!doValuesMatch(Actual[I], Expected[I], Tolerance, ValidationType::Epsilon)) {
+    if (!doValuesMatch(Actual[I], Expected[I], Tolerance,
+                       ValidationType::Epsilon)) {
       hlsl_test::LogErrorFmt(L"Mismatch at index %zu: actual=%f, expected=%f",
                              I, static_cast<float>(Actual[I]),
                              static_cast<float>(Expected[I]));
@@ -302,7 +304,7 @@ private:
 /// device is attempted. Durning normal execution SM6.10 is required.
 D3D_SHADER_MODEL DxilConf_SM610_LinAlg::createDevice() {
   if (EmulateTest) {
-    if(D3D12SDK->createDevice(&D3DDevice, D3D_SHADER_MODEL_6_8, false))
+    if (D3D12SDK->createDevice(&D3DDevice, D3D_SHADER_MODEL_6_8, false))
       return D3D_SHADER_MODEL_6_8;
 
     return D3D_SHADER_MODEL_NONE;
@@ -395,7 +397,8 @@ static const char LoadStoreShader[] = R"(
 
 static void runLoadStoreRoundtrip(ID3D12Device *Device,
                                   dxc::SpecificDllLoader &DxcSupport,
-                                  const MatrixParams &Params, bool Verbose, bool CompileOnly) {
+                                  const MatrixParams &Params, bool Verbose,
+                                  bool CompileOnly) {
   const size_t NumElements = Params.totalElements();
   const size_t BufferSize = Params.totalBytes();
 
@@ -454,7 +457,8 @@ void DxilConf_SM610_LinAlg::LoadStoreRoundtrip_Wave_16x16_F16() {
   Params.NumThreads = 4;
   Params.Enable16Bit = true;
   Params.EmulateTest = EmulateTest;
-  runLoadStoreRoundtrip(D3DDevice, DxcSupport, Params, VerboseLogging, CompileOnly);
+  runLoadStoreRoundtrip(D3DDevice, DxcSupport, Params, VerboseLogging,
+                        CompileOnly);
 }
 
 static const char SplatStoreShader[] = R"(
@@ -537,7 +541,8 @@ void DxilConf_SM610_LinAlg::SplatStore_Wave_16x16_F16() {
   Params.NumThreads = 4;
   Params.Enable16Bit = true;
   Params.EmulateTest = EmulateTest;
-  runSplatStore(D3DDevice, DxcSupport, Params, 42.0f, VerboseLogging, CompileOnly);
+  runSplatStore(D3DDevice, DxcSupport, Params, 42.0f, VerboseLogging,
+                CompileOnly);
 }
 
 static const char ElementAccessShader[] = R"(
@@ -597,7 +602,8 @@ static const char ElementAccessShader[] = R"(
 
 static void runElementAccess(ID3D12Device *Device,
                              dxc::SpecificDllLoader &DxcSupport,
-                             const MatrixParams &Params, bool Verbose, bool CompileOnly) {
+                             const MatrixParams &Params, bool Verbose,
+                             bool CompileOnly) {
   const size_t NumElements = Params.totalElements();
   const size_t NumThreads = Params.NumThreads;
   const size_t InputBufSize = Params.totalBytes();

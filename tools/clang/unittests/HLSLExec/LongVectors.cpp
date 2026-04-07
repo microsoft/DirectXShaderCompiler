@@ -10,9 +10,9 @@
 #include "ShaderOpTest.h"
 #include "dxc/Support/Global.h"
 
+#include "HlslExecTestUtils.h"
 #include "HlslTestDataTypes.h"
 #include "HlslTestUtils.h"
-#include "HlslExecTestUtils.h"
 
 #include <algorithm>
 #include <array>
@@ -66,7 +66,6 @@ DATA_TYPE(float, "float", 4)
 DATA_TYPE(double, "double", 8)
 
 #undef DATA_TYPE
-
 
 using HLSLTestDataTypes::doValuesMatch;
 using HLSLTestDataTypes::ValidationType;

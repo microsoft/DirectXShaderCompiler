@@ -482,7 +482,7 @@ inline bool doValuesMatch(HLSLBool_t A, HLSLBool_t B, double, ValidationType) {
 }
 
 inline bool doValuesMatch(HLSLHalf_t A, HLSLHalf_t B, double Tolerance,
-                   ValidationType ValidationType) {
+                          ValidationType ValidationType) {
   switch (ValidationType) {
   case ValidationType::Epsilon:
     return CompareHalfEpsilon(A.Val, B.Val, static_cast<float>(Tolerance));
@@ -498,8 +498,8 @@ inline bool doValuesMatch(HLSLHalf_t A, HLSLHalf_t B, double Tolerance,
 // Min precision float comparison: convert to half and compare in fp16 space.
 // This reuses the same tolerance values as HLSLHalf_t. Min precision is at
 // least 16-bit, so fp16 tolerances are an upper bound for all cases.
-inline bool doValuesMatch(HLSLMin16Float_t A, HLSLMin16Float_t B, double Tolerance,
-                   ValidationType ValidationType) {
+inline bool doValuesMatch(HLSLMin16Float_t A, HLSLMin16Float_t B,
+                          double Tolerance, ValidationType ValidationType) {
   auto HalfA = DirectX::PackedVector::XMConvertFloatToHalf(A.Val);
   auto HalfB = DirectX::PackedVector::XMConvertFloatToHalf(B.Val);
   switch (ValidationType) {
@@ -514,17 +514,18 @@ inline bool doValuesMatch(HLSLMin16Float_t A, HLSLMin16Float_t B, double Toleran
   }
 }
 
-inline bool doValuesMatch(HLSLMin16Int_t A, HLSLMin16Int_t B, double, ValidationType) {
+inline bool doValuesMatch(HLSLMin16Int_t A, HLSLMin16Int_t B, double,
+                          ValidationType) {
   return A == B;
 }
 
 inline bool doValuesMatch(HLSLMin16Uint_t A, HLSLMin16Uint_t B, double,
-                   ValidationType) {
+                          ValidationType) {
   return A == B;
 }
 
 inline bool doValuesMatch(float A, float B, double Tolerance,
-                   ValidationType ValidationType) {
+                          ValidationType ValidationType) {
   switch (ValidationType) {
   case ValidationType::Epsilon:
     return CompareFloatEpsilon(A, B, static_cast<float>(Tolerance));
@@ -541,7 +542,7 @@ inline bool doValuesMatch(float A, float B, double Tolerance,
 }
 
 inline bool doValuesMatch(double A, double B, double Tolerance,
-                   ValidationType ValidationType) {
+                          ValidationType ValidationType) {
   switch (ValidationType) {
   case ValidationType::Epsilon:
     return CompareDoubleEpsilon(A, B, Tolerance);
@@ -556,7 +557,6 @@ inline bool doValuesMatch(double A, double B, double Tolerance,
     return false;
   }
 }
-
 
 } // namespace HLSLTestDataTypes
 
