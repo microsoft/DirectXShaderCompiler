@@ -10,9 +10,12 @@
 
 #include <ostream>
 
+#include <windows.h>
+
 #include <DirectXMath.h>
 #include <DirectXPackedVector.h>
 
+#include "HlslTestUtils.h"
 #include "dxc/Support/Global.h"
 
 // These types bridge the gap between C++ and HLSL type representations.
@@ -459,6 +462,101 @@ struct HLSLMin16Uint_t {
 
   uint32_t Val;
 };
+
+enum class ValidationType {
+  Epsilon,
+  Ulp,
+};
+
+template <typename T>
+inline bool doValuesMatch(T A, T B, double Tolerance, ValidationType) {
+  if (Tolerance == 0.0)
+    return A == B;
+
+  T Diff = A > B ? A - B : B - A;
+  return Diff <= Tolerance;
+}
+
+inline bool doValuesMatch(HLSLBool_t A, HLSLBool_t B, double, ValidationType) {
+  return A == B;
+}
+
+inline bool doValuesMatch(HLSLHalf_t A, HLSLHalf_t B, double Tolerance,
+                   ValidationType ValidationType) {
+  switch (ValidationType) {
+  case ValidationType::Epsilon:
+    return CompareHalfEpsilon(A.Val, B.Val, static_cast<float>(Tolerance));
+  case ValidationType::Ulp:
+    return CompareHalfULP(A.Val, B.Val, static_cast<float>(Tolerance));
+  default:
+    hlsl_test::LogErrorFmt(
+        L"Invalid ValidationType. Expecting Epsilon or ULP.");
+    return false;
+  }
+}
+
+// Min precision float comparison: convert to half and compare in fp16 space.
+// This reuses the same tolerance values as HLSLHalf_t. Min precision is at
+// least 16-bit, so fp16 tolerances are an upper bound for all cases.
+inline bool doValuesMatch(HLSLMin16Float_t A, HLSLMin16Float_t B, double Tolerance,
+                   ValidationType ValidationType) {
+  auto HalfA = DirectX::PackedVector::XMConvertFloatToHalf(A.Val);
+  auto HalfB = DirectX::PackedVector::XMConvertFloatToHalf(B.Val);
+  switch (ValidationType) {
+  case ValidationType::Epsilon:
+    return CompareHalfEpsilon(HalfA, HalfB, static_cast<float>(Tolerance));
+  case ValidationType::Ulp:
+    return CompareHalfULP(HalfA, HalfB, static_cast<float>(Tolerance));
+  default:
+    hlsl_test::LogErrorFmt(
+        L"Invalid ValidationType. Expecting Epsilon or ULP.");
+    return false;
+  }
+}
+
+inline bool doValuesMatch(HLSLMin16Int_t A, HLSLMin16Int_t B, double, ValidationType) {
+  return A == B;
+}
+
+inline bool doValuesMatch(HLSLMin16Uint_t A, HLSLMin16Uint_t B, double,
+                   ValidationType) {
+  return A == B;
+}
+
+inline bool doValuesMatch(float A, float B, double Tolerance,
+                   ValidationType ValidationType) {
+  switch (ValidationType) {
+  case ValidationType::Epsilon:
+    return CompareFloatEpsilon(A, B, static_cast<float>(Tolerance));
+  case ValidationType::Ulp: {
+    // Tolerance is in ULPs. Convert to int for the comparison.
+    const int IntTolerance = static_cast<int>(Tolerance);
+    return CompareFloatULP(A, B, IntTolerance);
+  };
+  default:
+    hlsl_test::LogErrorFmt(
+        L"Invalid ValidationType. Expecting Epsilon or ULP.");
+    return false;
+  }
+}
+
+inline bool doValuesMatch(double A, double B, double Tolerance,
+                   ValidationType ValidationType) {
+  switch (ValidationType) {
+  case ValidationType::Epsilon:
+    return CompareDoubleEpsilon(A, B, Tolerance);
+  case ValidationType::Ulp: {
+    // Tolerance is in ULPs. Convert to int64_t for the comparison.
+    const int64_t IntTolerance = static_cast<int64_t>(Tolerance);
+    return CompareDoubleULP(A, B, IntTolerance);
+  };
+  default:
+    hlsl_test::LogErrorFmt(
+        L"Invalid ValidationType. Expecting Epsilon or ULP.");
+    return false;
+  }
+}
+
 
 } // namespace HLSLTestDataTypes
 
