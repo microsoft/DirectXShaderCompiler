@@ -1684,8 +1684,10 @@ static int __cdecl OptNameCompare(const std::pair<const char *, Option *> *LHS,
   return strcmp(LHS->first, RHS->first);
 }
 
-static int SubNameCompare(const std::pair<const char *, SubCommand *> *LHS,
-                          const std::pair<const char *, SubCommand *> *RHS) {
+// HLSL Change - __cdecl
+static int __cdecl SubNameCompare(
+    const std::pair<const char *, SubCommand *> *LHS,
+    const std::pair<const char *, SubCommand *> *RHS) {
   return strcmp(LHS->first, RHS->first);
 }
 
