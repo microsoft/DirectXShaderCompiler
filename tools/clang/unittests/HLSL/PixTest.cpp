@@ -152,6 +152,10 @@ public:
 
   TEST_METHOD(DebugInstrumentation_VectorAllocaWrite_Structs)
 
+  TEST_METHOD(DebugBreakInstrumentation_Basic)
+  TEST_METHOD(DebugBreakInstrumentation_NoDebugBreak)
+  TEST_METHOD(DebugBreakInstrumentation_Multiple)
+
   TEST_METHOD(NonUniformResourceIndex_Resource)
   TEST_METHOD(NonUniformResourceIndex_DescriptorHeap)
   TEST_METHOD(NonUniformResourceIndex_Raytracing)
@@ -225,6 +229,27 @@ public:
         L"-hlsl-dxil-debug-instrumentation,UAVSize=" + std::to_wstring(UAVSize);
     Options.push_back(debugArg.c_str());
     Options.push_back(L"-viewid-state");
+    Options.push_back(L"-hlsl-dxilemit");
+
+    CComPtr<IDxcBlob> pOptimizedModule;
+    CComPtr<IDxcBlobEncoding> pText;
+    VERIFY_SUCCEEDED(pOptimizer->RunOptimizer(
+        dxil, Options.data(), Options.size(), &pOptimizedModule, &pText));
+
+    std::string outputText = BlobToUtf8(pText);
+
+    return {
+        std::move(pOptimizedModule), {}, Tokenize(outputText.c_str(), "\n")};
+  }
+
+  PassOutput RunDebugBreakPass(IDxcBlob *dxil) {
+    CComPtr<IDxcOptimizer> pOptimizer;
+    VERIFY_SUCCEEDED(
+        m_dllSupport.CreateInstance(CLSID_DxcOptimizer, &pOptimizer));
+    std::vector<LPCWSTR> Options;
+    Options.push_back(L"-opt-mod-passes");
+    Options.push_back(L"-dxil-annotate-with-virtual-regs");
+    Options.push_back(L"-hlsl-dxil-debugbreak-instrumentation");
     Options.push_back(L"-hlsl-dxilemit");
 
     CComPtr<IDxcBlob> pOptimizedModule;
@@ -3361,4 +3386,80 @@ void RaygenInternalName()
   // Check that coverage for every element was emitted:
   for (auto const &b : RayPayloadElementCoverage)
     VERIFY_IS_TRUE(b);
+}
+
+TEST_F(PixTest, DebugBreakInstrumentation_Basic) {
+
+  const char *source = R"x(
+[numthreads(1, 1, 1)]
+void main() {
+    DebugBreak();
+})x";
+
+  auto compiled = Compile(m_dllSupport, source, L"cs_6_10", {});
+  auto output = RunDebugBreakPass(compiled);
+  bool foundDebugBreak = false;
+  for (auto const &line : output.lines) {
+    if (line.find("FoundDebugBreak") != std::string::npos)
+      foundDebugBreak = true;
+  }
+  VERIFY_IS_TRUE(foundDebugBreak);
+}
+
+TEST_F(PixTest, DebugBreakInstrumentation_NoDebugBreak) {
+
+  const char *source = R"x(
+RWByteAddressBuffer buf : register(u0);
+[numthreads(1, 1, 1)]
+void main() {
+    buf.Store(0, 1);
+})x";
+
+  auto compiled = Compile(m_dllSupport, source, L"cs_6_0", {});
+  auto output = RunDebugBreakPass(compiled);
+  bool foundDebugBreak = false;
+  for (auto const &line : output.lines) {
+    if (line.find("FoundDebugBreak") != std::string::npos)
+      foundDebugBreak = true;
+  }
+  VERIFY_IS_FALSE(foundDebugBreak);
+}
+
+TEST_F(PixTest, DebugBreakInstrumentation_Multiple) {
+
+  const char *source = R"x(
+RWByteAddressBuffer buf : register(u0);
+[numthreads(1, 1, 1)]
+void main(uint3 tid : SV_DispatchThreadID) {
+    if (tid.x == 0)
+        DebugBreak();
+    buf.Store(0, tid.x);
+    if (tid.x == 1)
+        DebugBreak();
+})x";
+
+  auto compiled = Compile(m_dllSupport, source, L"cs_6_10", {});
+  auto output = RunDebugBreakPass(compiled);
+  bool foundDebugBreak = false;
+  for (auto const &line : output.lines) {
+    if (line.find("FoundDebugBreak") != std::string::npos)
+      foundDebugBreak = true;
+  }
+  VERIFY_IS_TRUE(foundDebugBreak);
+
+  // Verify the disassembly contains the expected AtomicBinOp calls
+  // and no remaining DebugBreak calls
+  auto disassembly = Disassemble(output.blob);
+  VERIFY_IS_TRUE(disassembly.find("dx.op.debugBreak") == std::string::npos);
+
+  // Count the number of DebugBreakBitSet calls to verify both
+  // DebugBreak() calls were instrumented
+  int debugBreakBitSetCount = 0;
+  std::string::size_type pos = 0;
+  while ((pos = disassembly.find("DebugBreakBitSet", pos)) !=
+         std::string::npos) {
+    debugBreakBitSetCount++;
+    pos += strlen("DebugBreakBitSet");
+  }
+  VERIFY_ARE_EQUAL(debugBreakBitSetCount, 2);
 }
