@@ -1,5 +1,8 @@
 // RUN: %dxc -T ps_6_0 -E MainPs -fspv-debug=vulkan-with-source-test -fcgl  %s -spirv | FileCheck %s
 
+// Issue: https://github.com/microsoft/DirectXShaderCompiler/issues/8345
+// XFAIL: * 
+
 // CHECK:             DebugSource {{%[0-9]+}} {{%[0-9]+}}
 // CHECK:             DebugSourceContinued {{%[0-9]+}}
 
