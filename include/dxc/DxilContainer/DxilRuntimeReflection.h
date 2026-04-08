@@ -83,6 +83,7 @@ enum class RuntimeDataPartType : uint32_t {
 
   LastPlus1,
   LastExperimental = LastPlus1 - 1,
+  LastRelease = Last_1_8,
 
   DxilPdbInfoTable = RDAT_PART_ID_WITH_GROUP(RuntimeDataGroup::PdbInfo, 1),
   DxilPdbInfoSourceTable =
@@ -99,8 +100,8 @@ inline RuntimeDataPartType MaxPartTypeForValVer(unsigned Major,
              ? RuntimeDataPartType::Last_1_3
          : DXIL::CompareVersions(Major, Minor, 1, 8) < 0
              ? RuntimeDataPartType::Last_1_4
-         : DXIL::CompareVersions(Major, Minor, 1, 8) == 0
-             ? RuntimeDataPartType::Last_1_8
+         : DXIL::CompareVersions(Major, Minor, 1, 9) <= 0
+             ? RuntimeDataPartType::LastRelease
              : RuntimeDataPartType::LastExperimental;
 }
 
