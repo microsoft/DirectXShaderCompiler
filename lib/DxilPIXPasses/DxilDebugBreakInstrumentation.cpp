@@ -47,8 +47,7 @@ bool DxilDebugBreakInstrumentation::runOnModule(Module &M) {
       HlslOP->GetOpFunc(OP::OpCode::AtomicBinOp, Type::getInt32Ty(Ctx));
   Constant *AtomicBinOpcode =
       HlslOP->GetU32Const((uint32_t)OP::OpCode::AtomicBinOp);
-  Constant *AtomicOr =
-      HlslOP->GetU32Const((uint32_t)DXIL::AtomicBinOpCode::Or);
+  Constant *AtomicOr = HlslOP->GetU32Const((uint32_t)DXIL::AtomicBinOpCode::Or);
 
   std::map<Function *, CallInst *> FunctionToUAVHandle;
 
@@ -101,8 +100,7 @@ bool DxilDebugBreakInstrumentation::runOnModule(Module &M) {
     const uint32_t InstructionNumBitPosition = (InstructionNumber % 32u);
     const uint32_t InstructionNumBitMask = 1u << InstructionNumBitPosition;
 
-    Constant *UAVByteOffsetArg =
-        HlslOP->GetU32Const(InstructionNumByteOffset);
+    Constant *UAVByteOffsetArg = HlslOP->GetU32Const(InstructionNumByteOffset);
     Constant *BitMaskArg = HlslOP->GetU32Const(InstructionNumBitMask);
 
     // Write a 1 bit at the position corresponding to this DebugBreak's
