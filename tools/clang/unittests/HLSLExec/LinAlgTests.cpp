@@ -98,15 +98,15 @@ static std::string buildCompilerArgs(const MatrixParams &Params,
   SS << " -DELEM_SIZE=" << elementSize(Params.CompType);
   SS << " -DNUMTHREADS=" << Params.NumThreads;
   switch (Params.CompType) {
-    case ComponentType::F16:
-      SS << " -DELEM_TYPE=half";
-      break;
-    case ComponentType::F32:
-      SS << " -DELEM_TYPE=float";
-      break;
-    default:
-      SS << " -DELEM_TYPE=uint";
-      break;
+  case ComponentType::F16:
+    SS << " -DELEM_TYPE=half";
+    break;
+  case ComponentType::F32:
+    SS << " -DELEM_TYPE=float";
+    break;
+  default:
+    SS << " -DELEM_TYPE=uint";
+    break;
   }
   if (Params.EmulateTest)
     SS << " -DEMULATE_TEST";
