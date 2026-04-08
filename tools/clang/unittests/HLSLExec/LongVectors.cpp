@@ -2758,7 +2758,7 @@ public:
       "Validates required double precision SM 6.9 vectorized DXIL operations")
   TEST_METHOD_PROPERTY(
       "Kits.Specification",
-      "Device.Graphics.D3D12.DXILCore.ShaderModel69.DoublePrecision.Optinal")
+      "Device.Graphics.D3D12.DXILCore.ShaderModel69.DoublePrecision.Optional")
   TEST_METHOD_PROPERTY(L"Priority", L"0")
   END_TEST_CLASS()
 
