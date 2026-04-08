@@ -10855,6 +10855,7 @@ void ExecutionTest::GroupSharedLimitASTest() {
                   out vertices MeshOutput verts[3],
                   out indices uint3 tris[1]) {
         SetMeshOutputCounts(0, 0);
+        verts[0].pos = float4(0, 0, 0, 0);
       }
 
       float4 PSMain() : SV_Target { return float4(0,0,0,0); }
@@ -10914,6 +10915,7 @@ void ExecutionTest::GroupSharedLimitMSTest() {
                   out vertices MeshOutput verts[3],
                   out indices uint3 tris[1]) {
         SetMeshOutputCounts(0, 0);
+        verts[0].pos = float4(0, 0, 0, 0);
         for (uint i = GI; i < GSM_DWORDS; i += 64)
           g_shared[i] = i;
         GroupMemoryBarrierWithGroupSync();
