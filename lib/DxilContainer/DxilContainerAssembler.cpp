@@ -1006,6 +1006,12 @@ private:
 
   unsigned m_ValMajor, m_ValMinor;
 
+  // Prerelease data is guarded behind this flag. Only supported when targeting
+  // a prerelease shader model. When transitioning data to release, look for
+  // uses of this flag to update code to check the validator version for the new
+  // release version instead.
+  bool m_AllowPrereleaseData = false;
+
   void
   FindUsingFunctions(const llvm::Value *User,
                      llvm::SmallVectorImpl<const llvm::Function *> &functions) {
@@ -1547,8 +1553,7 @@ private:
             if (entryProps.props.IsNode()) {
               shaderInfo = AddShaderNodeInfo(DM, function, entryProps, *pInfo2,
                                              TGSMInFunc[&function]);
-            } else if (DXIL::CompareVersions(m_ValMajor, m_ValMinor, 1, 8) >
-                       0) {
+            } else if (m_AllowPrereleaseData) {
               shaderInfo =
                   AddShaderInfo(function, entryProps, *pInfo2,
                                 compatInfo.shaderFlags, TGSMInFunc[&function]);
@@ -1658,6 +1663,14 @@ public:
     mod.GetValidatorVersion(m_ValMajor, m_ValMinor);
     RDAT::RuntimeDataPartType maxAllowedType =
         RDAT::MaxPartTypeForValVer(m_ValMajor, m_ValMinor);
+
+    // Only write prerelease tables if the shader model is prerelease, to avoid
+    // writing prerelease data into release shader models, which might not be
+    // comatible with newer runtimes.
+    m_AllowPrereleaseData = mod.GetShaderModel()->IsPreReleaseShaderModel();
+    if (!m_AllowPrereleaseData)
+      maxAllowedType =
+          std::min(maxAllowedType, RDAT::RuntimeDataPartType::LastRelease);
 
     mod.ComputeShaderCompatInfo();
 
