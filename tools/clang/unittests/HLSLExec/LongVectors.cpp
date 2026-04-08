@@ -2731,7 +2731,7 @@ public:
     BEGIN_TEST_METHOD_PROPERTIES()                                             \
     TEST_METHOD_PROPERTY(                                                      \
         "Kits.Specification",                                                  \
-        "Device.Graphics.D3D12.DXILCore.ShaderModel69.DoublePrecision")        \
+        "Device.Graphics.D3D12.DXILCore.ShaderModel69.DoublePrecision.Optional")                                                             \
     END_TEST_METHOD_PROPERTIES()                                               \
     runTest<DataType, OpType::Op>();                                           \
   }
@@ -2741,7 +2741,7 @@ public:
     BEGIN_TEST_METHOD_PROPERTIES()                                             \
     TEST_METHOD_PROPERTY(                                                      \
         "Kits.Specification",                                                  \
-        "Device.Graphics.D3D12.DXILCore.ShaderModel69.DoublePrecision")        \
+        "Device.Graphics.D3D12.DXILCore.ShaderModel69.DoublePrecision.Optional")                                                             \
     END_TEST_METHOD_PROPERTIES()                                               \
     runWaveOpTest<DataType, OpType::Op>();                                     \
   }
@@ -2758,7 +2758,7 @@ public:
       "Validates required double precision SM 6.9 vectorized DXIL operations")
   TEST_METHOD_PROPERTY(
       "Kits.Specification",
-      "Device.Graphics.D3D12.DXILCore.ShaderModel69.DoublePrecision")
+      "Device.Graphics.D3D12.DXILCore.ShaderModel69.DoublePrecision.Optinal")
   TEST_METHOD_PROPERTY(L"Priority", L"0")
   END_TEST_CLASS()
 
