@@ -2729,9 +2729,9 @@ public:
 #define HLK_TEST_DOUBLE(Op, DataType)                                          \
   TEST_METHOD(Op##_##DataType) {                                               \
     BEGIN_TEST_METHOD_PROPERTIES()                                             \
-    TEST_METHOD_PROPERTY(                                                      \
-        "Kits.Specification",                                                  \
-        "Device.Graphics.D3D12.DXILCore.ShaderModel69.DoublePrecision.Optional")                                                             \
+    TEST_METHOD_PROPERTY("Kits.Specification",                                 \
+                         "Device.Graphics.D3D12.DXILCore.ShaderModel69."       \
+                         "DoublePrecision.Optional")                           \
     END_TEST_METHOD_PROPERTIES()                                               \
     runTest<DataType, OpType::Op>();                                           \
   }
@@ -2739,9 +2739,9 @@ public:
 #define HLK_WAVEOP_TEST_DOUBLE(Op, DataType)                                   \
   TEST_METHOD(Op##_##DataType) {                                               \
     BEGIN_TEST_METHOD_PROPERTIES()                                             \
-    TEST_METHOD_PROPERTY(                                                      \
-        "Kits.Specification",                                                  \
-        "Device.Graphics.D3D12.DXILCore.ShaderModel69.DoublePrecision.Optional")                                                             \
+    TEST_METHOD_PROPERTY("Kits.Specification",                                 \
+                         "Device.Graphics.D3D12.DXILCore.ShaderModel69."       \
+                         "DoublePrecision.Optional")                           \
     END_TEST_METHOD_PROPERTIES()                                               \
     runWaveOpTest<DataType, OpType::Op>();                                     \
   }
