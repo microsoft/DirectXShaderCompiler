@@ -47,8 +47,8 @@
 #include "dxc/Test/TestConfig.h"
 #endif
 
-using std::min;
 using std::max;
+using std::min;
 
 #ifndef HLSLDATAFILEPARAM
 #define HLSLDATAFILEPARAM L"HlslDataDir"
