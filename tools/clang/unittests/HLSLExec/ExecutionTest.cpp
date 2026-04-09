@@ -9739,8 +9739,8 @@ TEST_F(ExecutionTest, PackUnpackTest) {
     return;
   }
 #else
-  string args = "-enable-16bit-types";
-  string target = "cs_6_6";
+  std::string args = "-enable-16bit-types";
+  std::string target = "cs_6_6";
 
   if (!createDevice(&pDevice, D3D_SHADER_MODEL_6_6)) {
     return;
@@ -10211,7 +10211,7 @@ TEST_F(ExecutionTest, DynamicResourcesDynamicIndexingTest) {
   st::ParseShaderOpSetFromStream(pStream, ShaderOpSet.get());
   st::ShaderOp *pShaderOp =
       ShaderOpSet->GetShaderOp("DynamicResourcesDynamicIndexing");
-  vector<st::ShaderOpRootValue> fallbackRootValues = pShaderOp->RootValues;
+  std::vector<st::ShaderOpRootValue> fallbackRootValues = pShaderOp->RootValues;
 
   bool Skipped = true;
 
