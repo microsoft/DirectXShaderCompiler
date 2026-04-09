@@ -25,4 +25,23 @@ void main() {
   // CHECK2-SAME: (i32 404, float* %elem2, %dx.types.LinAlgMatrixC4M5N4U1S2 {{.*}}, i32 1)
   float elem2;
   __builtin_LinAlg_MatrixGetElement(elem2, mat, 1);
+
+  // CHECK: call double @dx.op.linAlgMatrixGetElement.f64.mC4M5N4U1S2(i32 -2147483630,
+  // CHECK-SAME: %dx.types.LinAlgMatrixC4M5N4U1S2 {{.*}}, i32 1)  
+  // CHECK-SAME: ; LinAlgMatrixGetElement(matrix,threadLocalIndex)
+
+  // CHECK2: call void @"dx.hl.op..void (i32, double*, %dx.types.LinAlgMatrixC4M5N4U1S2, i32)"
+  // CHECK2-SAME: (i32 404, double* %elem3, %dx.types.LinAlgMatrixC4M5N4U1S2 {{.*}}, i32 1)
+  double elem3;
+  __builtin_LinAlg_MatrixGetElement(elem3, mat, 1);
+
+
+  // CHECK: call i64 @dx.op.linAlgMatrixGetElement.i64.mC4M5N4U1S2(i32 -2147483630,
+  // CHECK-SAME: %dx.types.LinAlgMatrixC4M5N4U1S2 {{.*}}, i32 1)  
+  // CHECK-SAME: ; LinAlgMatrixGetElement(matrix,threadLocalIndex)
+
+  // CHECK2: call void @"dx.hl.op..void (i32, i64*, %dx.types.LinAlgMatrixC4M5N4U1S2, i32)"
+  // CHECK2-SAME: (i32 404, i64* %elem4, %dx.types.LinAlgMatrixC4M5N4U1S2 {{.*}}, i32 1)
+  int64_t elem4;
+  __builtin_LinAlg_MatrixGetElement(elem4, mat, 1);
 }
