@@ -246,11 +246,14 @@ static VariantCompType makeExpected(ComponentType CompType, int32_t M,
         Floats[Idx] = StartingVal + static_cast<float>(Increment ? Value : 0);
         break;
       case ComponentType::I32:
-        VERIFY_IS_TRUE(StartingVal < static_cast<float>(std::numeric_limits<int32_t>::max()),
-                 "Value too large to cast to int32_t");
-        VERIFY_IS_TRUE(StartingVal > static_cast<float>(std::numeric_limits<int32_t>::min()),
-                 "Value too small to cast to int32_t");
-        Ints[Idx] = static_cast<int32_t>(StartingVal) + static_cast<int32_t>(Increment ? Value : 0);
+        VERIFY_IS_TRUE(StartingVal < static_cast<float>(
+                                         std::numeric_limits<int32_t>::max()),
+                       "Value too large to cast to int32_t");
+        VERIFY_IS_TRUE(StartingVal > static_cast<float>(
+                                         std::numeric_limits<int32_t>::min()),
+                       "Value too small to cast to int32_t");
+        Ints[Idx] = static_cast<int32_t>(StartingVal) +
+                    static_cast<int32_t>(Increment ? Value : 0);
         break;
       case ComponentType::F16: {
         // Downcasting is safe here since HLSLHalf_t will clamp if F is too
