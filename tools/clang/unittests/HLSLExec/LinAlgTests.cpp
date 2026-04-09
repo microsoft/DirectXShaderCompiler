@@ -238,7 +238,7 @@ static VariantCompType makeExpected(ComponentType CompType, int32_t M,
   std::vector<HLSLHalf_t> Halfs(NumElements);
 
   for (int32_t I = 0; I < M; ++I) {
-    for (int32_t J = 0; J < M; ++J) {
+    for (int32_t J = 0; J < N; ++J) {
       int32_t Value = I * M + J;
       int32_t Idx = Transpose ? J * N + I : Value;
       switch (CompType) {
@@ -397,6 +397,7 @@ static const char LoadStoreShader[] = R"(
   RWByteAddressBuffer Output : register(u1);
 
 #ifndef EMULATE_TEST
+  [WaveSize(4, 64)]
   [numthreads(NUMTHREADS, 1, 1)]
   void main() {
     __builtin_LinAlgMatrix
@@ -476,7 +477,7 @@ void DxilConf_SM610_LinAlg::LoadStoreRoundtrip_Wave_16x16_F16() {
   Params.Use = MatrixUse::A;
   Params.Scope = MatrixScope::Wave;
   Params.Layout = LinalgMatrixLayout::RowMajor;
-  Params.NumThreads = 4;
+  Params.NumThreads = 64;
   Params.Enable16Bit = true;
   Params.EmulateTest = EmulateTest;
   runLoadStoreRoundtrip(D3DDevice, DxcSupport, Params, VerboseLogging,
@@ -487,6 +488,7 @@ static const char SplatStoreShader[] = R"(
   RWByteAddressBuffer Output : register(u0);
 
 #ifndef EMULATE_TEST
+  [WaveSize(4, 64)]
   [numthreads(NUMTHREADS, 1, 1)]
   void main() {
     __builtin_LinAlgMatrix
@@ -555,7 +557,7 @@ void DxilConf_SM610_LinAlg::SplatStore_Wave_16x16_F16() {
   Params.Use = MatrixUse::Accumulator;
   Params.Scope = MatrixScope::Wave;
   Params.Layout = LinalgMatrixLayout::RowMajor;
-  Params.NumThreads = 4;
+  Params.NumThreads = 64;
   Params.Enable16Bit = true;
   Params.EmulateTest = EmulateTest;
   runSplatStore(D3DDevice, DxcSupport, Params, 42.0f, VerboseLogging,
