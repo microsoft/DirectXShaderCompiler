@@ -228,8 +228,10 @@ static bool fillInputBuffer(LPCSTR Name, std::vector<BYTE> &Data,
   return false;
 }
 
-static VariantCompType makeExpected(ComponentType CompType, int32_t M, int32_t N,
-                                    float StartingVal, bool Increment = true, bool Transpose = false) {
+static VariantCompType makeExpected(ComponentType CompType, int32_t M,
+                                    int32_t N, float StartingVal,
+                                    bool Increment = true,
+                                    bool Transpose = false) {
   int32_t NumElements = M * N;
   std::vector<float> Floats(NumElements);
   std::vector<int32_t> Ints(NumElements);
@@ -249,7 +251,8 @@ static VariantCompType makeExpected(ComponentType CompType, int32_t M, int32_t N
         Ints[Idx] = static_cast<int32_t>(StartingVal) + (Increment ? Value : 0);
         break;
       case ComponentType::F16: {
-        // Downcasting is safe here since HLSLHalf_t will clamp if F is too large.
+        // Downcasting is safe here since HLSLHalf_t will clamp if F is too
+        // large.
         float F = StartingVal + static_cast<float>(Increment ? Value : 0);
         Halfs[Idx] = HLSLHalf_t(F);
         break;
@@ -259,15 +262,15 @@ static VariantCompType makeExpected(ComponentType CompType, int32_t M, int32_t N
   }
 
   switch (CompType) {
-    case ComponentType::F32:
-      return Floats;
-    case ComponentType::I32:
-      return Ints;
-    case ComponentType::F16:
-      return Halfs;
-    default:
-      DXASSERT(false, "Unable to fill unexpected ComponentType");
-      return Floats;
+  case ComponentType::F32:
+    return Floats;
+  case ComponentType::I32:
+    return Ints;
+  case ComponentType::F16:
+    return Halfs;
+  default:
+    DXASSERT(false, "Unable to fill unexpected ComponentType");
+    return Floats;
   }
 }
 
@@ -527,7 +530,8 @@ static void runSplatStore(ID3D12Device *Device,
     return;
   }
 
-  auto Expected = makeExpected(Params.CompType, Params.M, Params.N, FillValue, false);
+  auto Expected =
+      makeExpected(Params.CompType, Params.M, Params.N, FillValue, false);
 
   auto Op = createComputeOp(SplatStoreShader, Target.c_str(), "UAV(u0)",
                             Args.c_str());
