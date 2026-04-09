@@ -232,23 +232,25 @@ static VariantCompType makeExpected(ComponentType CompType, int32_t M,
                                     int32_t N, float StartingVal,
                                     bool Increment = true,
                                     bool Transpose = false) {
-  int32_t NumElements = M * N;
+  const size_t NumElements = M * N;
   std::vector<float> Floats(NumElements);
   std::vector<int32_t> Ints(NumElements);
   std::vector<HLSLHalf_t> Halfs(NumElements);
 
-  for (int32_t I = 0; I < M; ++I) {
-    for (int32_t J = 0; J < N; ++J) {
-      int32_t Value = I * M + J;
-      int32_t Idx = Transpose ? J * N + I : Value;
+  for (size_t I = 0; I < M; ++I) {
+    for (size_t J = 0; J < N; ++J) {
+      size_t Value = I * M + J;
+      size_t Idx = Transpose ? J * N + I : Value;
       switch (CompType) {
       case ComponentType::F32:
         Floats[Idx] = StartingVal + static_cast<float>(Increment ? Value : 0);
         break;
       case ComponentType::I32:
-        DXASSERT(StartingVal < static_cast<float>(INT_MAX),
+        VERIFY_IS_TRUE(StartingVal < static_cast<float>(std::numeric_limits<int32_t>::max()),
                  "Value too large to cast to int32_t");
-        Ints[Idx] = static_cast<int32_t>(StartingVal) + (Increment ? Value : 0);
+        VERIFY_IS_TRUE(StartingVal > static_cast<float>(std::numeric_limits<int32_t>::min()),
+                 "Value too small to cast to int32_t");
+        Ints[Idx] = static_cast<int32_t>(StartingVal) + static_cast<int32_t>(Increment ? Value : 0);
         break;
       case ComponentType::F16: {
         // Downcasting is safe here since HLSLHalf_t will clamp if F is too
@@ -257,6 +259,8 @@ static VariantCompType makeExpected(ComponentType CompType, int32_t M,
         Halfs[Idx] = HLSLHalf_t(F);
         break;
       }
+      default:
+        VERIFY_IS_TRUE(false, "Unable to fill unexpected ComponentType");
       }
     }
   }
@@ -269,7 +273,7 @@ static VariantCompType makeExpected(ComponentType CompType, int32_t M,
   case ComponentType::F16:
     return Halfs;
   default:
-    DXASSERT(false, "Unable to fill unexpected ComponentType");
+    VERIFY_IS_TRUE(false, "Unable to fill unexpected ComponentType");
     return Floats;
   }
 }
