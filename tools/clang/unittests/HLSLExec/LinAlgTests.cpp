@@ -261,6 +261,7 @@ static VariantCompType makeExpected(ComponentType CompType, int32_t M,
       }
       default:
         VERIFY_IS_TRUE(false, "Unable to fill unexpected ComponentType");
+        break;
       }
     }
   }
