@@ -82,4 +82,9 @@ void main(uint ID : SV_GroupID) {
   half16 srcF16 = BAB.Load<half16>(128);
   InterpretedVector<uint, 4, ComponentEnum::F8_E4M3FN> convertedPacked = Convert<ComponentEnum::F8_E4M3FN, ComponentEnum::F16>(srcF16);
 
+  // CHECK: call <1 x i32> @dx.op.linAlgConvert.v1i32.v3f16(i32 -2147483618, <3 x half> %25, i32 8, i32 21)
+  // CHECK-SAME: ; LinAlgConvert(inputVector,inputInterpretation,outputInterpretation)
+  half3 ThreeF16 = BAB.Load<half3>(256);
+  InterpretedVector<uint, 1, ComponentEnum::F8_E4M3FN> convertedPacked2 =
+      Convert<ComponentEnum::F8_E4M3FN, ComponentEnum::F16>(ThreeF16);
 }

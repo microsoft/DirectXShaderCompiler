@@ -186,8 +186,11 @@ __MATRIX_SCALAR_COMPONENT_MAPPING(ComponentType::U64, uint64_t)
 __MATRIX_SCALAR_COMPONENT_MAPPING(ComponentType::F64, double)
 
 template <ComponentEnum DstTy, ComponentEnum SrcTy, int SrcN> struct DstN {
+  // Make sure to round up in case SrcN isn't an even multiple of the number of
+  // elements per scalar
   static const int Value =
-      (SrcN * ComponentTypeTraits<SrcTy>::ElementsPerScalar) /
+      (SrcN * ComponentTypeTraits<SrcTy>::ElementsPerScalar +
+       ComponentTypeTraits<DstTy>::ElementsPerScalar - 1) /
       ComponentTypeTraits<DstTy>::ElementsPerScalar;
 };
 
