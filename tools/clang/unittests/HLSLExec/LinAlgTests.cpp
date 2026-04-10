@@ -44,6 +44,7 @@ using HLSLTestDataTypes::ValidationType;
 
 using VariantCompType = std::variant<std::vector<float>, std::vector<int32_t>,
                                      std::vector<HLSLHalf_t>>;
+using MatrixDim = uint32_t;
 
 /// Return the byte size of a single element for the given component type.
 static uint8_t elementSize(ComponentType CT) {
@@ -63,9 +64,8 @@ static uint8_t elementSize(ComponentType CT) {
 
 struct MatrixParams {
   ComponentType CompType;
-  // 4 - 1024
-  uint16_t M;
-  uint16_t N;
+  MatrixDim M;
+  MatrixDim N;
   MatrixUse Use;
   MatrixScope Scope;
   LinalgMatrixLayout Layout;
@@ -229,7 +229,7 @@ static bool fillInputBuffer(LPCSTR Name, std::vector<BYTE> &Data,
   return false;
 }
 
-static VariantCompType makeExpected(ComponentType CompType, size_t M, size_t N,
+static VariantCompType makeExpected(ComponentType CompType, MatrixDim M, MatrixDim N,
                                     float StartingVal, bool Increment = true,
                                     bool Transpose = false) {
   const size_t NumElements = M * N;
