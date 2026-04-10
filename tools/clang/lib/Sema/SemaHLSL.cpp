@@ -7385,16 +7385,16 @@ bool HLSLExternalSource::MatchArguments(
         if (!Spec) {
           Spec = ClassTemplateSpecializationDecl::Create(
               *m_context, TagDecl::TagKind::TTK_Struct,
-              m_vkBufferPointerTemplateDecl->getDeclContext(),
-              SourceLocation(), SourceLocation(),
-              m_vkBufferPointerTemplateDecl, TemplateArgs, 2, nullptr);
+              m_vkBufferPointerTemplateDecl->getDeclContext(), SourceLocation(),
+              SourceLocation(), m_vkBufferPointerTemplateDecl, TemplateArgs, 2,
+              nullptr);
           m_vkBufferPointerTemplateDecl->AddSpecialization(Spec, InsertPos);
           Spec->setImplicit(true);
           DXVERIFY_NOMSG(
-              false == getSema()->InstantiateClassTemplateSpecialization(
-                           SourceLocation(), Spec,
-                           TemplateSpecializationKind::TSK_ImplicitInstantiation,
-                           true));
+              false ==
+              getSema()->InstantiateClassTemplateSpecialization(
+                  SourceLocation(), Spec,
+                  TemplateSpecializationKind::TSK_ImplicitInstantiation, true));
         }
 
         pNewType = m_context->getTemplateSpecializationType(
@@ -11997,8 +11997,7 @@ static bool CheckBarrierCall(Sema &S, FunctionDecl *FD, CallExpr *CE,
 
 #ifdef ENABLE_SPIRV_CODEGEN
 static bool CheckVKBufferPointerCast(Sema &S, CallExpr *CE, bool isStatic) {
-  const auto *callee =
-      dyn_cast<DeclRefExpr>(CE->getCallee()->IgnoreImpCasts());
+  const auto *callee = dyn_cast<DeclRefExpr>(CE->getCallee()->IgnoreImpCasts());
   if (callee && callee->hasExplicitTemplateArgs() &&
       callee->getNumTemplateArgs() > 2) {
     StringRef castName =
