@@ -229,8 +229,9 @@ static bool fillInputBuffer(LPCSTR Name, std::vector<BYTE> &Data,
   return false;
 }
 
-static VariantCompType makeExpected(ComponentType CompType, MatrixDim M, MatrixDim N,
-                                    float StartingVal, bool Increment = true,
+static VariantCompType makeExpected(ComponentType CompType, MatrixDim M,
+                                    MatrixDim N, float StartingVal,
+                                    bool Increment = true,
                                     bool Transpose = false) {
   const size_t NumElements = M * N;
   std::vector<float> Floats(NumElements);
