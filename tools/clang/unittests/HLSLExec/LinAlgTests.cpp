@@ -459,8 +459,8 @@ static void runSplatStore(ID3D12Device *Device,
   auto Expected =
       makeExpected(Params.CompType, Params.M, Params.N, FillValue, false);
 
-  auto Op = createComputeOp(SplatStoreShader, "cs_6_10", "UAV(u0)",
-                            Args.c_str());
+  auto Op =
+      createComputeOp(SplatStoreShader, "cs_6_10", "UAV(u0)", Args.c_str());
   addUAVBuffer(Op.get(), "Output", BufferSize, true);
   addRootUAV(Op.get(), 0, "Output");
 
@@ -546,8 +546,8 @@ static void runElementAccess(ID3D12Device *Device,
 
   auto Expected = makeExpected(Params.CompType, Params.M, Params.N, 1);
 
-  auto Op = createComputeOp(ElementAccessShader, "cs_6_10",
-                            "UAV(u0), UAV(u1)", Args.c_str());
+  auto Op = createComputeOp(ElementAccessShader, "cs_6_10", "UAV(u0), UAV(u1)",
+                            Args.c_str());
   addUAVBuffer(Op.get(), "Input", InputBufSize, false, "byname");
   addUAVBuffer(Op.get(), "Output", OutputBufSize, true);
   addRootUAV(Op.get(), 0, "Input");
