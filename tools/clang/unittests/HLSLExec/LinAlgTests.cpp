@@ -634,8 +634,8 @@ static const char ElementSetShader[] = R"(
 )";
 
 static void runElementSet(ID3D12Device *Device,
-                             dxc::SpecificDllLoader &DxcSupport,
-                             const MatrixParams &Params, bool Verbose) {
+                          dxc::SpecificDllLoader &DxcSupport,
+                          const MatrixParams &Params, bool Verbose) {
   const size_t NumElements = Params.totalElements();
   const size_t MatrixSize = Params.totalBytes();
 
@@ -669,7 +669,6 @@ static void runElementSet(ID3D12Device *Device,
   // Verify the front of the buffer is a list of elements of the expected type
   VERIFY_IS_TRUE(verifyComponentBuffer(Params.CompType, OutData.data(),
                                        Expected, NumElements, Verbose));
-
 }
 
 void DxilConf_SM610_LinAlg::ElementSet_Wave_16x16_F16() {
@@ -711,8 +710,9 @@ static const char CopyConvertShader[] = R"(
 )";
 
 static void runCopyConvert(ID3D12Device *Device,
-                                  dxc::SpecificDllLoader &DxcSupport,
-                                  const MatrixParams &Params, bool Verbose, bool Transpose) {
+                           dxc::SpecificDllLoader &DxcSupport,
+                           const MatrixParams &Params, bool Verbose,
+                           bool Transpose) {
   const size_t NumElements = Params.totalElements();
   const size_t BufferSize = Params.totalBytes();
 
@@ -723,7 +723,8 @@ static void runCopyConvert(ID3D12Device *Device,
 
   compileShader(DxcSupport, CopyConvertShader, "cs_6_10", Args, Verbose);
 
-  auto Expected = makeExpected(Params.CompType, Params.M, Params.N, 1, /*Increment=*/true, Transpose);
+  auto Expected = makeExpected(Params.CompType, Params.M, Params.N, 1,
+                               /*Increment=*/true, Transpose);
 
   // Construct the ShaderOp: two UAV buffers, load from one, store to other.
   auto Op = createComputeOp(CopyConvertShader, "cs_6_10", "UAV(u0), UAV(u1)",
@@ -759,7 +760,8 @@ void DxilConf_SM610_LinAlg::CopyConvert_Wave_16x16_F16() {
   Params.Layout = LinalgMatrixLayout::RowMajor;
   Params.NumThreads = 64;
   Params.Enable16Bit = true;
-  runCopyConvert(D3DDevice, DxcSupport, Params, VerboseLogging, /*Transpose=*/false);
+  runCopyConvert(D3DDevice, DxcSupport, Params, VerboseLogging,
+                 /*Transpose=*/false);
 }
 
 void DxilConf_SM610_LinAlg::CopyConvert_Wave_16x16_F16_Transpose() {
@@ -772,7 +774,8 @@ void DxilConf_SM610_LinAlg::CopyConvert_Wave_16x16_F16_Transpose() {
   Params.Layout = LinalgMatrixLayout::RowMajor;
   Params.NumThreads = 64;
   Params.Enable16Bit = true;
-  runCopyConvert(D3DDevice, DxcSupport, Params, VerboseLogging, /*Transpose=*/true);
+  runCopyConvert(D3DDevice, DxcSupport, Params, VerboseLogging,
+                 /*Transpose=*/true);
 }
 
 static const char MatMatMulShader[] = R"(
@@ -809,8 +812,9 @@ static const char MatMatMulShader[] = R"(
 )";
 
 static void runMatMatMul(ID3D12Device *Device,
-                                  dxc::SpecificDllLoader &DxcSupport,
-                                  const MatrixParams &Params, bool Verbose, MatrixDim K, float AFill, float BFill) {
+                         dxc::SpecificDllLoader &DxcSupport,
+                         const MatrixParams &Params, bool Verbose, MatrixDim K,
+                         float AFill, float BFill) {
   const size_t NumElements = Params.totalElements();
   const size_t BufferSize = Params.totalBytes();
 
@@ -823,7 +827,8 @@ static void runMatMatMul(ID3D12Device *Device,
 
   compileShader(DxcSupport, MatMatMulShader, "cs_6_10", Args, Verbose);
 
-  auto Expected = makeExpected(Params.CompType, Params.M, Params.N, AFill * BFill * K, /*Increment=*/false);
+  auto Expected = makeExpected(Params.CompType, Params.M, Params.N,
+                               AFill * BFill * K, /*Increment=*/false);
 
   auto Op =
       createComputeOp(MatMatMulShader, "cs_6_10", "UAV(u0)", Args.c_str());
@@ -848,7 +853,8 @@ void DxilConf_SM610_LinAlg::MatMatMul_Wave_16x16x16_F16() {
   Params.Layout = LinalgMatrixLayout::RowMajor;
   Params.NumThreads = 64;
   Params.Enable16Bit = true;
-  runMatMatMul(D3DDevice, DxcSupport, Params, VerboseLogging, /*K=*/16, /*AFill=*/2.0f, /*BFill=*/3.0f);
+  runMatMatMul(D3DDevice, DxcSupport, Params, VerboseLogging, /*K=*/16,
+               /*AFill=*/2.0f, /*BFill=*/3.0f);
 }
 
 } // namespace LinAlg
