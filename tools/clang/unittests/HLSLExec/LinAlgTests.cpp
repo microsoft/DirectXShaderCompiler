@@ -74,7 +74,7 @@ struct MatrixParams {
   bool EmulateTest;
 
   size_t strideBytes() const {
-    uint8_t ES = elementSize(CompType);
+    uint32_t ES = elementSize(CompType);
     if (Layout == LinalgMatrixLayout::RowMajor)
       return N * ES;
     return M * ES;
