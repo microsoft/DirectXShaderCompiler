@@ -1056,7 +1056,8 @@ SpirvInstruction *DeclResultIdMapper::getDeclEvalInfo(const ValueDecl *decl,
 
 SpirvFunctionParameter *
 DeclResultIdMapper::createFnParam(const ParmVarDecl *param,
-                                  uint32_t dbgArgNumber) {
+                                  uint32_t dbgArgNumber,
+                                  bool decorateIntrinsicAttrs) {
   const auto type = getTypeOrFnRetType(param);
   const auto loc = param->getLocation();
   const auto range = param->getSourceRange();
@@ -1072,6 +1073,9 @@ DeclResultIdMapper::createFnParam(const ParmVarDecl *param,
     fnParamInstr->setLayoutRule(spirvOptions.cBufferLayoutRule);
   if (isTextureBuffer(type))
     fnParamInstr->setLayoutRule(spirvOptions.tBufferLayoutRule);
+
+  if (decorateIntrinsicAttrs && param->hasAttrs())
+    decorateWithIntrinsicAttrs(param, fnParamInstr);
 
   assert(astDecls[param].instr == nullptr);
   registerVariableForDecl(param, fnParamInstr);
@@ -5028,18 +5032,17 @@ bool DeclResultIdMapper::tryToCreateConstantVar(const ValueDecl *decl) {
 }
 
 void DeclResultIdMapper::decorateWithIntrinsicAttrs(
-    const NamedDecl *decl, SpirvVariable *varInst,
+    const NamedDecl *decl, SpirvInstruction *targetInst,
     llvm::function_ref<void(VKDecorateExtAttr *)> extraFunctionForDecoAttr) {
   if (!decl->hasAttrs())
     return;
 
-  // TODO: Handle member field in a struct and function parameter.
   for (auto &attr : decl->getAttrs()) {
     if (auto decoAttr = dyn_cast<VKDecorateExtAttr>(attr)) {
       spvBuilder.decorateWithLiterals(
-          varInst, decoAttr->getDecorate(),
+          targetInst, decoAttr->getDecorate(),
           {decoAttr->literals_begin(), decoAttr->literals_end()},
-          varInst->getSourceLocation());
+          targetInst->getSourceLocation());
       extraFunctionForDecoAttr(decoAttr);
       continue;
     }
@@ -5048,15 +5051,15 @@ void DeclResultIdMapper::decorateWithIntrinsicAttrs(
       for (Expr *arg : decoAttr->arguments()) {
         args.push_back(theEmitter.doExpr(arg));
       }
-      spvBuilder.decorateWithIds(varInst, decoAttr->getDecorate(), args,
-                                 varInst->getSourceLocation());
+      spvBuilder.decorateWithIds(targetInst, decoAttr->getDecorate(), args,
+                                 targetInst->getSourceLocation());
       continue;
     }
     if (auto decoAttr = dyn_cast<VKDecorateStringExtAttr>(attr)) {
       llvm::SmallVector<llvm::StringRef, 2> args(decoAttr->arguments_begin(),
                                                  decoAttr->arguments_end());
-      spvBuilder.decorateWithStrings(varInst, decoAttr->getDecorate(), args,
-                                     varInst->getSourceLocation());
+      spvBuilder.decorateWithStrings(targetInst, decoAttr->getDecorate(), args,
+                                     targetInst->getSourceLocation());
       continue;
     }
   }
