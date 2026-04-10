@@ -44,9 +44,10 @@ using HLSLTestDataTypes::ValidationType;
 
 using VariantCompType = std::variant<std::vector<float>, std::vector<int32_t>,
                                      std::vector<HLSLHalf_t>>;
+using MatrixDim = uint32_t;
 
 /// Return the byte size of a single element for the given component type.
-static int elementSize(ComponentType CT) {
+static uint8_t elementSize(ComponentType CT) {
   switch (CT) {
   case ComponentType::F16:
   case ComponentType::I16:
@@ -63,8 +64,8 @@ static int elementSize(ComponentType CT) {
 
 struct MatrixParams {
   ComponentType CompType;
-  int M;
-  int N;
+  MatrixDim M;
+  MatrixDim N;
   MatrixUse Use;
   MatrixScope Scope;
   LinalgMatrixLayout Layout;
@@ -72,14 +73,14 @@ struct MatrixParams {
   bool Enable16Bit;
   bool EmulateTest;
 
-  int strideBytes() const {
-    int ES = elementSize(CompType);
+  size_t strideBytes() const {
+    uint32_t ES = elementSize(CompType);
     if (Layout == LinalgMatrixLayout::RowMajor)
       return N * ES;
     return M * ES;
   }
 
-  size_t totalElements() const { return static_cast<size_t>(M) * N; }
+  size_t totalElements() const { return M * N; }
 
   size_t totalBytes() const { return totalElements() * elementSize(CompType); }
 };
@@ -95,7 +96,7 @@ static std::string buildCompilerArgs(const MatrixParams &Params,
   SS << " -DSCOPE=" << static_cast<int>(Params.Scope);
   SS << " -DSTRIDE=" << Params.strideBytes();
   SS << " -DLAYOUT=" << static_cast<int>(Params.Layout);
-  SS << " -DELEM_SIZE=" << elementSize(Params.CompType);
+  SS << " -DELEM_SIZE=" << static_cast<int>(elementSize(Params.CompType));
   SS << " -DNUMTHREADS=" << Params.NumThreads;
   switch (Params.CompType) {
   case ComponentType::F16:
@@ -228,8 +229,8 @@ static bool fillInputBuffer(LPCSTR Name, std::vector<BYTE> &Data,
   return false;
 }
 
-static VariantCompType makeExpected(ComponentType CompType, int32_t M,
-                                    int32_t N, float StartingVal,
+static VariantCompType makeExpected(ComponentType CompType, MatrixDim M,
+                                    MatrixDim N, float StartingVal,
                                     bool Increment = true,
                                     bool Transpose = false) {
   const size_t NumElements = M * N;
