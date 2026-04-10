@@ -328,8 +328,14 @@ bool DxilConf_SM610_LinAlg::setupClass() {
                                                        VerboseLogging);
 
     if (!D3D12SDK->createDevice(&D3DDevice, D3D_SHADER_MODEL_6_10, false)) {
+#ifdef _HLK_CONF
       hlsl_test::LogErrorFmt(
           L"Device creation failed. Expected a driver supporting SM6.10");
+#else
+      hlsl_test::LogWarningFmt(
+          L"Device creation failed. Expected a driver supporting SM6.10");
+      WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
+#endif
       return false;
     }
   }
