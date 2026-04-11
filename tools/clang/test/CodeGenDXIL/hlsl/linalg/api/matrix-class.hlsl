@@ -6,10 +6,14 @@ using namespace dx::linalg;
 
 using MatrixATy = Matrix<ComponentType::F32, 4, 4, MatrixUse::A, MatrixScope::Wave>;
 using MatrixBTy = Matrix<ComponentType::F32, 4, 4, MatrixUse::B, MatrixScope::Wave>;
-using MatrixBTyInt = Matrix<ComponentType::I32, 4, 4, MatrixUse::B, MatrixScope::Wave>;
 using MatrixAccumTy = Matrix<ComponentType::F32, 4, 4, MatrixUse::Accumulator, MatrixScope::Wave>;
 using TSMatrixATy = Matrix<ComponentType::F32, 4, 4, MatrixUse::A, MatrixScope::Thread>;
 using TSMatrixAccumTy = Matrix<ComponentType::F32, 4, 4, MatrixUse::Accumulator, MatrixScope::Thread>;
+
+using Matrix48TyFloat = Matrix<ComponentType::F32, 4, 8, MatrixUse::A, MatrixScope::Wave>;
+using Matrix48TyInt = Matrix<ComponentType::I32, 4, 8, MatrixUse::A, MatrixScope::Wave>;
+using Matrix84TyInt = Matrix<ComponentType::I32, 8, 4, MatrixUse::A, MatrixScope::Wave>;
+
 
 ByteAddressBuffer BAB : register(t0);
 RWByteAddressBuffer RWBAB : register(u0);
@@ -34,16 +38,19 @@ void main(uint ID : SV_GroupID)
 
 // Matrix::Cast
 //
-// CHECK: call %dx.types.LinAlgMatrixC4M4N4U1S1 @dx.op.linAlgCopyConvertMatrix.mC4M4N4U1S1.mC9M4N4U0S1(
-// CHECK-SAME: i32 -2147483635, %dx.types.LinAlgMatrixC9M4N4U0S1 %[[MATA1]], i1 false)
-// CHECK-SAME: ; LinAlgCopyConvertMatrix(srcMatrix,transpose)
-  MatrixBTyInt MatBInt1 = MatA1.Cast<ComponentType::I32, MatrixUse::B>();
+// CHECK: %[[MAT48F:.*]] = call %dx.types.LinAlgMatrixC9M4N8U0S1 @dx.op.linAlgFillMatrix.mC9M4N8U0S1.f32(
+// CHECK-SAME: i32 -2147483636, float 3.000000e+00)  ; LinAlgFillMatrix(value)
 
-// CHECK: call %dx.types.LinAlgMatrixC4M4N4U1S1 @dx.op.linAlgCopyConvertMatrix.mC4M4N4U1S1.mC9M4N4U1S1(
-// CHECK-SAME: i32 -2147483635, %dx.types.LinAlgMatrixC9M4N4U1S1 %[[MATB1]], i1 true)
+// CHECK: call %dx.types.LinAlgMatrixC4M4N8U0S1 @dx.op.linAlgCopyConvertMatrix.mC4M4N8U0S1.mC9M4N8U0S1(
+// CHECK-SAME: i32 -2147483635, %dx.types.LinAlgMatrixC9M4N8U0S1 %[[MAT48F]], i1 false)
 // CHECK-SAME: ; LinAlgCopyConvertMatrix(srcMatrix,transpose)
-  MatrixBTyInt MatBInt2;
-  MatBInt2 = MatB1.Cast<ComponentType::I32, MatrixUse::B, true>();
+  Matrix48TyFloat Mat48F = Matrix48TyFloat::Splat(3.0f);
+  Matrix48TyInt Mat48I = Mat48F.Cast<ComponentType::I32>();
+
+// CHECK: call %dx.types.LinAlgMatrixC4M8N4U0S1 @dx.op.linAlgCopyConvertMatrix.mC4M8N4U0S1.mC9M4N8U0S1(
+// CHECK-SAME: i32 -2147483635, %dx.types.LinAlgMatrixC9M4N8U0S1 %[[MAT48F]], i1 true)
+// CHECK-SAME: ; LinAlgCopyConvertMatrix(srcMatrix,transpose)
+  Matrix84TyInt Mat84I = Mat48F.Cast<ComponentType::I32, MatrixUse::A, true>();
 
 // Matrix::Load from ByteAddressBuffer
 //

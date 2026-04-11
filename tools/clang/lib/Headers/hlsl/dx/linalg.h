@@ -194,6 +194,16 @@ template <ComponentEnum DstTy, ComponentEnum SrcTy, int SrcN> struct DstN {
       ComponentTypeTraits<DstTy>::ElementsPerScalar;
 };
 
+template <SIZE_TYPE MVal, SIZE_TYPE NVal, bool Transposed> struct DimMN {
+  static const SIZE_TYPE M = MVal;
+  static const SIZE_TYPE N = NVal;
+};
+
+template <SIZE_TYPE MVal, SIZE_TYPE NVal> struct DimMN<MVal, NVal, true> {
+  static const SIZE_TYPE M = NVal;
+  static const SIZE_TYPE N = MVal;
+};
+
 } // namespace __detail
 
 template <ComponentEnum ElementType, uint DimA> struct VectorRef {
@@ -242,8 +252,11 @@ class Matrix {
 
   template <ComponentEnum NewCompTy, MatrixUseEnum NewUse = Use,
             bool Transpose = false>
-  Matrix<NewCompTy, M, N, NewUse, Scope> Cast() {
-    Matrix<NewCompTy, M, N, NewUse, Scope> Result;
+  Matrix<NewCompTy, __detail::DimMN<M, N, Transpose>::M,
+         __detail::DimMN<M, N, Transpose>::N, NewUse, Scope>
+  Cast() {
+    Matrix<NewCompTy, __detail::DimMN<M, N, Transpose>::M,
+           __detail::DimMN<M, N, Transpose>::N, NewUse, Scope> Result;
     __builtin_LinAlg_CopyConvertMatrix(Result.__handle, __handle, Transpose);
     return Result;
   }
