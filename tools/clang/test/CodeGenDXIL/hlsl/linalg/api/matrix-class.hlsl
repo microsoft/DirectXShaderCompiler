@@ -175,12 +175,12 @@ void main(uint ID : SV_GroupID)
 //
 // CHECK: %[[TSACCUM:.*]] = call %dx.types.LinAlgMatrixC9M4N4U2S0 @dx.op.linAlgMatrixOuterProduct.mC9M4N4U2S0.v4f32.v4f32
 // CHECK: call void @dx.op.linAlgMatrixAccumulateToDescriptor.mC9M4N4U2S0(i32 -2147483621,
-// CHECK-SAME: %dx.types.LinAlgMatrixC9M4N4U2S0 %[[TSACCUM]], %dx.types.Handle %{{[0-9]+}}, i32 0, i32 16, i32 1, i32 4)
+// CHECK-SAME: %dx.types.LinAlgMatrixC9M4N4U2S0 %[[TSACCUM]], %dx.types.Handle %{{[0-9]+}}, i32 0, i32 0, i32 4, i32 0)
 // CHECK-SAME: ; LinAlgMatrixAccumulateToDescriptor(matrix,handle,offset,stride,layout,align)
   vector<float, 4> vec1 = 1.0f;
   vector<float, 4> vec2 = 2.0f;
   TSMatrixAccumTy TSMatAccum = OuterProduct<ComponentType::F32>(vec1, vec2);
-  TSMatAccum.InterlockedAccumulate(RWBAB, 0, 16, MatrixLayoutEnum::ColMajor);
+  TSMatAccum.InterlockedAccumulate(RWBAB, 0);
 
 // CHECK: call i32 @dx.op.linAlgMatrixQueryAccumulatorLayout(i32 -2147483626)  ; LinAlgMatrixQueryAccumulatorLayout()
   MatrixUseEnum layout = AccumulatorLayout();
