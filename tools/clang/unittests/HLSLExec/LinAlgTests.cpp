@@ -315,6 +315,8 @@ public:
 
   // Matrix Arithmetic
   TEST_METHOD(MatMatMul_Wave_16x16x16_F16);
+  TEST_METHOD(MatMatMulAccum_Wave_16x16x16_F16);
+  TEST_METHOD(MatAccum_Wave_16x16_F16);
 
 private:
   CComPtr<ID3D12Device> D3DDevice;
@@ -855,6 +857,162 @@ void DxilConf_SM610_LinAlg::MatMatMul_Wave_16x16x16_F16() {
   Params.Enable16Bit = true;
   runMatMatMul(D3DDevice, DxcSupport, Params, VerboseLogging, /*K=*/16,
                /*AFill=*/2.0f, /*BFill=*/3.0f);
+}
+
+static const char MatMatMulAccumShader[] = R"(
+  #define USE_A 0
+  #define USE_B 1
+  #define USE_ACC 2
+
+  RWByteAddressBuffer Output : register(u0);
+
+  [WaveSize(4, 64)]
+  [numthreads(NUMTHREADS, 1, 1)]
+  void main(uint threadID : SV_GroupIndex) {
+    if (WaveReadLaneFirst(threadID) != 0)
+      return;
+
+    __builtin_LinAlgMatrix
+      [[__LinAlgMatrix_Attributes(COMP_TYPE, M_DIM, K_DIM, USE_A, SCOPE)]]
+      MatA;
+    __builtin_LinAlg_FillMatrix(MatA, A_FILL);
+
+    __builtin_LinAlgMatrix
+      [[__LinAlgMatrix_Attributes(COMP_TYPE, K_DIM, N_DIM, USE_B, SCOPE)]]
+      MatB;
+    __builtin_LinAlg_FillMatrix(MatB, B_FILL);
+
+    __builtin_LinAlgMatrix
+      [[__LinAlgMatrix_Attributes(COMP_TYPE, M_DIM, N_DIM, USE_ACC, SCOPE)]]
+      MatC;
+    __builtin_LinAlg_FillMatrix(MatC, C_FILL);
+
+    __builtin_LinAlg_MatrixMatrixMultiplyAccumulate(MatC, MatA, MatB, MatC);
+
+    __builtin_LinAlg_MatrixStoreToDescriptor(
+      MatC, Output, 0, STRIDE, LAYOUT, 128);
+  }
+)";
+
+static void runMatMatMulAccum(ID3D12Device *Device,
+                              dxc::SpecificDllLoader &DxcSupport,
+                              const MatrixParams &Params, bool Verbose, MatrixDim K,
+                              float AFill, float BFill, float CFill) {
+  const size_t NumElements = Params.totalElements();
+  const size_t BufferSize = Params.totalBytes();
+
+  std::stringstream ExtraDefs;
+  ExtraDefs << " -DK_DIM=" << K;
+  ExtraDefs << " -DA_FILL=" << AFill;
+  ExtraDefs << " -DB_FILL=" << BFill;
+  ExtraDefs << " -DC_FILL=" << CFill;
+
+  std::string Args = buildCompilerArgs(Params, ExtraDefs.str().c_str());
+
+  compileShader(DxcSupport, MatMatMulAccumShader, "cs_6_10", Args, Verbose);
+
+  auto Expected = makeExpected(Params.CompType, Params.M, Params.N,
+                               AFill * BFill * K + CFill, /*Increment=*/false);
+
+  auto Op =
+      createComputeOp(MatMatMulAccumShader, "cs_6_10", "UAV(u0)", Args.c_str());
+  addUAVBuffer(Op.get(), "Output", BufferSize, true);
+  addRootUAV(Op.get(), 0, "Output");
+
+  auto Result = runShaderOp(Device, DxcSupport, std::move(Op));
+
+  MappedData OutData;
+  Result->Test->GetReadBackData("Output", &OutData);
+
+  VERIFY_IS_TRUE(verifyComponentBuffer(Params.CompType, OutData.data(),
+                                       Expected, NumElements, Verbose));
+}
+
+void DxilConf_SM610_LinAlg::MatMatMulAccum_Wave_16x16x16_F16() {
+  MatrixParams Params = {};
+  Params.CompType = ComponentType::F16;
+  Params.M = 16;
+  Params.N = 16;
+  Params.Scope = MatrixScope::Wave;
+  Params.Layout = LinalgMatrixLayout::RowMajor;
+  Params.NumThreads = 64;
+  Params.Enable16Bit = true;
+  runMatMatMulAccum(D3DDevice, DxcSupport, Params, VerboseLogging, /*K=*/16,
+                    /*AFill=*/2.0f, /*BFill=*/3.0f, /*CFill=*/4.0f);
+}
+
+static const char MatAccumShader[] = R"(
+  #define USE_A 0
+  #define USE_ACC 2
+
+  RWByteAddressBuffer Output : register(u0);
+
+  [WaveSize(4, 64)]
+  [numthreads(NUMTHREADS, 1, 1)]
+  void main(uint threadID : SV_GroupIndex) {
+    if (WaveReadLaneFirst(threadID) != 0)
+      return;
+
+    __builtin_LinAlgMatrix
+      [[__LinAlgMatrix_Attributes(COMP_TYPE, M_DIM, N_DIM, USE_ACC, SCOPE)]]
+      MatLHS;
+    __builtin_LinAlg_FillMatrix(MatLHS, LHS_FILL);
+
+    __builtin_LinAlgMatrix
+      [[__LinAlgMatrix_Attributes(COMP_TYPE, M_DIM, N_DIM, USE_A, SCOPE)]]
+      MatRHS;
+    __builtin_LinAlg_FillMatrix(MatRHS, RHS_FILL);
+
+    __builtin_LinAlg_MatrixAccumulate(MatLHS, MatLHS, MatRHS);
+
+    __builtin_LinAlg_MatrixStoreToDescriptor(
+      MatLHS, Output, 0, STRIDE, LAYOUT, 128);
+  }
+)";
+
+static void runMatAccum(ID3D12Device *Device,
+                        dxc::SpecificDllLoader &DxcSupport,
+                        const MatrixParams &Params, bool Verbose,
+                        float LHSFill, float RHSFill) {
+  const size_t NumElements = Params.totalElements();
+  const size_t BufferSize = Params.totalBytes();
+
+  std::stringstream ExtraDefs;
+  ExtraDefs << " -DLHS_FILL=" << LHSFill;
+  ExtraDefs << " -DRHS_FILL=" << RHSFill;
+
+  std::string Args = buildCompilerArgs(Params, ExtraDefs.str().c_str());
+
+  compileShader(DxcSupport, MatAccumShader, "cs_6_10", Args, Verbose);
+
+  auto Expected = makeExpected(Params.CompType, Params.M, Params.N,
+                               LHSFill + RHSFill, /*Increment=*/false);
+
+  auto Op =
+      createComputeOp(MatAccumShader, "cs_6_10", "UAV(u0)", Args.c_str());
+  addUAVBuffer(Op.get(), "Output", BufferSize, true);
+  addRootUAV(Op.get(), 0, "Output");
+
+  auto Result = runShaderOp(Device, DxcSupport, std::move(Op));
+
+  MappedData OutData;
+  Result->Test->GetReadBackData("Output", &OutData);
+
+  VERIFY_IS_TRUE(verifyComponentBuffer(Params.CompType, OutData.data(),
+                                       Expected, NumElements, Verbose));
+}
+
+void DxilConf_SM610_LinAlg::MatAccum_Wave_16x16_F16() {
+  MatrixParams Params = {};
+  Params.CompType = ComponentType::F16;
+  Params.M = 16;
+  Params.N = 16;
+  Params.Scope = MatrixScope::Wave;
+  Params.Layout = LinalgMatrixLayout::RowMajor;
+  Params.NumThreads = 64;
+  Params.Enable16Bit = true;
+  runMatAccum(D3DDevice, DxcSupport, Params, VerboseLogging,
+              /*LHSFill=*/2.0f, /*RHSFill=*/3.0f);
 }
 
 } // namespace LinAlg
