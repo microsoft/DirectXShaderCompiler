@@ -403,8 +403,8 @@ static const char LoadStoreDescriptorShader[] = R"(
 )";
 
 static void runLoadStoreDescriptor(ID3D12Device *Device,
-                                  dxc::SpecificDllLoader &DxcSupport,
-                                  const MatrixParams &Params, bool Verbose) {
+                                   dxc::SpecificDllLoader &DxcSupport,
+                                   const MatrixParams &Params, bool Verbose) {
   const size_t NumElements = Params.totalElements();
   const size_t BufferSize = Params.totalBytes();
 
@@ -414,13 +414,14 @@ static void runLoadStoreDescriptor(ID3D12Device *Device,
 
   std::string Args = buildCompilerArgs(Params, ExtraDefs.str().c_str());
 
-  compileShader(DxcSupport, LoadStoreDescriptorShader, "cs_6_10", Args, Verbose);
+  compileShader(DxcSupport, LoadStoreDescriptorShader, "cs_6_10", Args,
+                Verbose);
 
   auto Expected = makeExpected(Params.CompType, Params.M, Params.N, 1);
 
   // Construct the ShaderOp: two UAV buffers, load from one, store to other.
-  auto Op = createComputeOp(LoadStoreDescriptorShader, "cs_6_10", "UAV(u0), UAV(u1)",
-                            Args.c_str());
+  auto Op = createComputeOp(LoadStoreDescriptorShader, "cs_6_10",
+                            "UAV(u0), UAV(u1)", Args.c_str());
   addUAVBuffer(Op.get(), "Input", BufferSize, false, "byname");
   addUAVBuffer(Op.get(), "Output", BufferSize, true);
   addRootUAV(Op.get(), 0, "Input");
@@ -869,8 +870,8 @@ void DxilConf_SM610_LinAlg::MatMatMul_Wave_16x16x16_F16() {
   Params.Layout = LinalgMatrixLayout::RowMajor;
   Params.NumThreads = 64;
   Params.Enable16Bit = true;
-//  runMatMatMul(D3DDevice, DxcSupport, Params, VerboseLogging, /*K=*/16,
-//               /*AFill=*/2.0f, /*BFill=*/3.0f);
+  //  runMatMatMul(D3DDevice, DxcSupport, Params, VerboseLogging, /*K=*/16,
+  //               /*AFill=*/2.0f, /*BFill=*/3.0f);
 }
 
 static const char MatMatMulAccumShader[] = R"(
@@ -910,8 +911,9 @@ static const char MatMatMulAccumShader[] = R"(
 
 static void runMatMatMulAccum(ID3D12Device *Device,
                               dxc::SpecificDllLoader &DxcSupport,
-                              const MatrixParams &Params, bool Verbose, MatrixDim K,
-                              float AFill, float BFill, float CFill) {
+                              const MatrixParams &Params, bool Verbose,
+                              MatrixDim K, float AFill, float BFill,
+                              float CFill) {
   const size_t NumElements = Params.totalElements();
   const size_t BufferSize = Params.totalBytes();
 
@@ -986,8 +988,8 @@ static const char MatAccumShader[] = R"(
 
 static void runMatAccum(ID3D12Device *Device,
                         dxc::SpecificDllLoader &DxcSupport,
-                        const MatrixParams &Params, bool Verbose,
-                        float LHSFill, float RHSFill) {
+                        const MatrixParams &Params, bool Verbose, float LHSFill,
+                        float RHSFill) {
   const size_t NumElements = Params.totalElements();
   const size_t BufferSize = Params.totalBytes();
 
@@ -1002,8 +1004,7 @@ static void runMatAccum(ID3D12Device *Device,
   auto Expected = makeExpected(Params.CompType, Params.M, Params.N,
                                LHSFill + RHSFill, /*Increment=*/false);
 
-  auto Op =
-      createComputeOp(MatAccumShader, "cs_6_10", "UAV(u0)", Args.c_str());
+  auto Op = createComputeOp(MatAccumShader, "cs_6_10", "UAV(u0)", Args.c_str());
   addUAVBuffer(Op.get(), "Output", BufferSize, true);
   addRootUAV(Op.get(), 0, "Output");
 
@@ -1061,7 +1062,8 @@ static const char MatVecMulShader[] = R"(
 static void runMatVecMul(ID3D12Device *Device,
                          dxc::SpecificDllLoader &DxcSupport,
                          const MatrixParams &Params, bool Verbose,
-                         float MatFill, bool OutputSigned, ComponentType InputInterp) {
+                         float MatFill, bool OutputSigned,
+                         ComponentType InputInterp) {
   const size_t NumElements = Params.M;
   const size_t BufferSize = elementSize(Params.CompType) * NumElements;
 
@@ -1074,8 +1076,8 @@ static void runMatVecMul(ID3D12Device *Device,
 
   compileShader(DxcSupport, MatVecMulShader, "cs_6_10", Args, Verbose);
 
-  auto Expected = makeExpected(Params.CompType, Params.M, 1,
-                               MatFill * Params.N, /*Increment=*/false);
+  auto Expected = makeExpected(Params.CompType, Params.M, 1, MatFill * Params.N,
+                               /*Increment=*/false);
 
   auto Op = createComputeOp(MatVecMulShader, "cs_6_10", "UAV(u0), UAV(u1)",
                             Args.c_str());
@@ -1084,15 +1086,14 @@ static void runMatVecMul(ID3D12Device *Device,
   addRootUAV(Op.get(), 0, "Input");
   addRootUAV(Op.get(), 1, "Output");
 
-  auto Result =
-      runShaderOp(Device, DxcSupport, std::move(Op),
-                  [NumElements, Params](LPCSTR Name, std::vector<BYTE> &Data,
-                                        st::ShaderOp *) {
-                    VERIFY_IS_TRUE(fillInputBuffer(Name, Data, Params.CompType,
-                                                   NumElements, /*StartingVal=*/1, /*Increment=*/false),
-                                   "Saw unsupported component type");
-                  });
-
+  auto Result = runShaderOp(
+      Device, DxcSupport, std::move(Op),
+      [NumElements, Params](LPCSTR Name, std::vector<BYTE> &Data,
+                            st::ShaderOp *) {
+        VERIFY_IS_TRUE(fillInputBuffer(Name, Data, Params.CompType, NumElements,
+                                       /*StartingVal=*/1, /*Increment=*/false),
+                       "Saw unsupported component type");
+      });
 
   MappedData OutData;
   Result->Test->GetReadBackData("Output", &OutData);
@@ -1111,7 +1112,7 @@ void DxilConf_SM610_LinAlg::MatVecMul_Thread_16x16_F16() {
   Params.NumThreads = 1;
   Params.Enable16Bit = true;
   runMatVecMul(D3DDevice, DxcSupport, Params, VerboseLogging,
-              /*MatFill=*/2.0f, /*OutputSigned=*/true, ComponentType::F16);
+               /*MatFill=*/2.0f, /*OutputSigned=*/true, ComponentType::F16);
 }
 
 static const char MatVecMulAddShader[] = R"(
@@ -1150,10 +1151,11 @@ static const char MatVecMulAddShader[] = R"(
 )";
 
 static void runMatVecMulAdd(ID3D12Device *Device,
-                         dxc::SpecificDllLoader &DxcSupport,
-                         const MatrixParams &Params, bool Verbose,
-                         float MatFill, bool OutputSigned, ComponentType InputInterp,
-                         ComponentType BiasInterp) {
+                            dxc::SpecificDllLoader &DxcSupport,
+                            const MatrixParams &Params, bool Verbose,
+                            float MatFill, bool OutputSigned,
+                            ComponentType InputInterp,
+                            ComponentType BiasInterp) {
   const size_t NumElements = Params.M;
   const size_t BufferSize = elementSize(Params.CompType) * NumElements;
 
@@ -1177,15 +1179,14 @@ static void runMatVecMulAdd(ID3D12Device *Device,
   addRootUAV(Op.get(), 0, "Input");
   addRootUAV(Op.get(), 1, "Output");
 
-  auto Result =
-      runShaderOp(Device, DxcSupport, std::move(Op),
-                  [NumElements, Params](LPCSTR Name, std::vector<BYTE> &Data,
-                                        st::ShaderOp *) {
-                    VERIFY_IS_TRUE(fillInputBuffer(Name, Data, Params.CompType,
-                                                   NumElements, /*StartingVal=*/1, /*Increment=*/false),
-                                   "Saw unsupported component type");
-                  });
-
+  auto Result = runShaderOp(
+      Device, DxcSupport, std::move(Op),
+      [NumElements, Params](LPCSTR Name, std::vector<BYTE> &Data,
+                            st::ShaderOp *) {
+        VERIFY_IS_TRUE(fillInputBuffer(Name, Data, Params.CompType, NumElements,
+                                       /*StartingVal=*/1, /*Increment=*/false),
+                       "Saw unsupported component type");
+      });
 
   MappedData OutData;
   Result->Test->GetReadBackData("Output", &OutData);
@@ -1204,7 +1205,8 @@ void DxilConf_SM610_LinAlg::MatVecMulAdd_Thread_16x16_F16() {
   Params.NumThreads = 1;
   Params.Enable16Bit = true;
   runMatVecMulAdd(D3DDevice, DxcSupport, Params, VerboseLogging,
-              /*MatFill=*/2.0f, /*OutputSigned=*/true, ComponentType::F16, ComponentType::F16);
+                  /*MatFill=*/2.0f, /*OutputSigned=*/true, ComponentType::F16,
+                  ComponentType::F16);
 }
 
 } // namespace LinAlg
