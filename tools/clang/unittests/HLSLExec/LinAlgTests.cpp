@@ -331,6 +331,7 @@ public:
   // Matrix Vector Arithmetic
   TEST_METHOD(MatVecMul_Thread_16x16_F16);
   TEST_METHOD(MatVecMulAdd_Thread_16x16_F16);
+  TEST_METHOD(OuterProduct_Thread_16x16_F16);
 
 private:
   CComPtr<ID3D12Device> D3DDevice;
@@ -870,8 +871,8 @@ void DxilConf_SM610_LinAlg::MatMatMul_Wave_16x16x16_F16() {
   Params.Layout = LinalgMatrixLayout::RowMajor;
   Params.NumThreads = 64;
   Params.Enable16Bit = true;
-  //  runMatMatMul(D3DDevice, DxcSupport, Params, VerboseLogging, /*K=*/16,
-  //               /*AFill=*/2.0f, /*BFill=*/3.0f);
+  runMatMatMul(D3DDevice, DxcSupport, Params, VerboseLogging, /*K=*/16,
+               /*AFill=*/2.0f, /*BFill=*/3.0f);
 }
 
 static const char MatMatMulAccumShader[] = R"(
@@ -1207,6 +1208,87 @@ void DxilConf_SM610_LinAlg::MatVecMulAdd_Thread_16x16_F16() {
   runMatVecMulAdd(D3DDevice, DxcSupport, Params, VerboseLogging,
                   /*MatFill=*/2.0f, /*OutputSigned=*/true, ComponentType::F16,
                   ComponentType::F16);
+}
+
+static const char OuterProductShader[] = R"(
+  #define USE_A 0
+  #define SCOPE_THREAD 0
+
+  RWByteAddressBuffer Input : register(u0);
+  RWByteAddressBuffer Output : register(u1);
+
+  [numthreads(NUMTHREADS, 1, 1)]
+  void main() {
+    vector<ELEM_TYPE, M_DIM> VecA;
+    for (uint I = 0; I < M_DIM; ++I) {
+      VecA[I] = Input.Load<ELEM_TYPE>(I * ELEM_SIZE);
+    }
+
+    uint EndVecA = M_DIM * ELEM_SIZE;
+
+    vector<ELEM_TYPE, N_DIM> VecB;
+    for (uint I = 0; I < N_DIM; ++I) {
+      VecB[I] = Input.Load<ELEM_TYPE>(EndVecA + I * ELEM_SIZE);
+    }
+
+    __builtin_LinAlgMatrix
+      [[__LinAlgMatrix_Attributes(COMP_TYPE, M_DIM, N_DIM, USE_A, SCOPE_THREAD)]]
+      Mat;
+    __builtin_LinAlg_MatrixOuterProduct(Mat, VecA, VecB);
+
+    __builtin_LinAlg_MatrixStoreToDescriptor(
+      Mat, Output, 0, STRIDE, LAYOUT, 128);
+  }
+)";
+
+static void runOuterProduct(ID3D12Device *Device,
+                            dxc::SpecificDllLoader &DxcSupport,
+                            const MatrixParams &Params, bool Verbose) {
+  const size_t NumVecElements = Params.M + Params.N;
+  const size_t InBuffSize = NumVecElements * elementSize(Params.CompType);
+  const size_t NumMatElements = Params.totalElements();
+  const size_t OutBufferSize = Params.totalBytes();
+
+  std::string Args = buildCompilerArgs(Params);
+
+  compileShader(DxcSupport, OuterProductShader, "cs_6_10", Args, Verbose);
+
+  auto Expected = makeExpected(Params.CompType, Params.M, Params.N,
+                               4, /*Increment=*/false);
+
+  auto Op = createComputeOp(OuterProductShader, "cs_6_10", "UAV(u0), UAV(u1)",
+                            Args.c_str());
+  addUAVBuffer(Op.get(), "Input", InBuffSize, false, "byname");
+  addUAVBuffer(Op.get(), "Output", OutBufferSize, true);
+  addRootUAV(Op.get(), 0, "Input");
+  addRootUAV(Op.get(), 1, "Output");
+
+  auto Result = runShaderOp(
+      Device, DxcSupport, std::move(Op),
+      [NumVecElements, Params](LPCSTR Name, std::vector<BYTE> &Data,
+                            st::ShaderOp *) {
+        VERIFY_IS_TRUE(fillInputBuffer(Name, Data, Params.CompType, NumVecElements,
+                                       /*StartingVal=*/2, /*Increment=*/false),
+                       "Saw unsupported component type");
+      });
+
+  MappedData OutData;
+  Result->Test->GetReadBackData("Output", &OutData);
+
+  VERIFY_IS_TRUE(verifyComponentBuffer(Params.CompType, OutData.data(),
+                                       Expected, NumMatElements, Verbose));
+}
+
+void DxilConf_SM610_LinAlg::OuterProduct_Thread_16x16_F16() {
+  MatrixParams Params = {};
+  Params.CompType = ComponentType::F16;
+  Params.M = 16;
+  Params.N = 16;
+  Params.Scope = MatrixScope::Thread;
+  Params.Layout = LinalgMatrixLayout::RowMajor;
+  Params.NumThreads = 1;
+  Params.Enable16Bit = true;
+  runOuterProduct(D3DDevice, DxcSupport, Params, VerboseLogging);
 }
 
 } // namespace LinAlg
