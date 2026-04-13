@@ -8,8 +8,7 @@
 vk::SampledTexture2D<float4> tex2d;
 
 void main() {
-// CHECK:                    OpStore %pos1 [[cu12]]
-// CHECK-NEXT:    [[pos1:%[0-9]+]] = OpLoad %v2uint %pos1
+// CHECK:      [[pos1:%[0-9]+]] = OpLoad %v2uint %pos1
 // CHECK-NEXT: [[tex1_load:%[a-zA-Z0-9_]+]] = OpLoad [[type_2d_sampled_image]] %tex2d
 // CHECK-NEXT:    [[tex_img:%[0-9]+]] = OpImage [[type_2d_image]] [[tex1_load]]
 // CHECK-NEXT:      [[result1:%[0-9]+]] = OpImageFetch %v4float [[tex_img]] [[pos1]] Lod %uint_2
