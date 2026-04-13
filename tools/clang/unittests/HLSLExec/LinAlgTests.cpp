@@ -310,7 +310,7 @@ public:
   TEST_METHOD_SETUP(setupMethod);
 
   // Load/Store
-  TEST_METHOD(LoadStoreRoundtrip_Wave_16x16_F16);
+  TEST_METHOD(LoadStoreDescriptor_Wave_16x16_F16);
 
   // Splat Store
   TEST_METHOD(SplatStore_Wave_16x16_F16);
@@ -382,7 +382,7 @@ bool DxilConf_SM610_LinAlg::setupMethod() {
   return D3D12SDK->createDevice(&D3DDevice, D3D_SHADER_MODEL_6_10, false);
 }
 
-static const char LoadStoreShader[] = R"(
+static const char LoadStoreDescriptorShader[] = R"(
   RWByteAddressBuffer Input : register(u0);
   RWByteAddressBuffer Output : register(u1);
 
@@ -402,7 +402,7 @@ static const char LoadStoreShader[] = R"(
   }
 )";
 
-static void runLoadStoreRoundtrip(ID3D12Device *Device,
+static void runLoadStoreDescriptor(ID3D12Device *Device,
                                   dxc::SpecificDllLoader &DxcSupport,
                                   const MatrixParams &Params, bool Verbose) {
   const size_t NumElements = Params.totalElements();
@@ -414,12 +414,12 @@ static void runLoadStoreRoundtrip(ID3D12Device *Device,
 
   std::string Args = buildCompilerArgs(Params, ExtraDefs.str().c_str());
 
-  compileShader(DxcSupport, LoadStoreShader, "cs_6_10", Args, Verbose);
+  compileShader(DxcSupport, LoadStoreDescriptorShader, "cs_6_10", Args, Verbose);
 
   auto Expected = makeExpected(Params.CompType, Params.M, Params.N, 1);
 
   // Construct the ShaderOp: two UAV buffers, load from one, store to other.
-  auto Op = createComputeOp(LoadStoreShader, "cs_6_10", "UAV(u0), UAV(u1)",
+  auto Op = createComputeOp(LoadStoreDescriptorShader, "cs_6_10", "UAV(u0), UAV(u1)",
                             Args.c_str());
   addUAVBuffer(Op.get(), "Input", BufferSize, false, "byname");
   addUAVBuffer(Op.get(), "Output", BufferSize, true);
@@ -442,7 +442,7 @@ static void runLoadStoreRoundtrip(ID3D12Device *Device,
                                        Expected, NumElements, Verbose));
 }
 
-void DxilConf_SM610_LinAlg::LoadStoreRoundtrip_Wave_16x16_F16() {
+void DxilConf_SM610_LinAlg::LoadStoreDescriptor_Wave_16x16_F16() {
   MatrixParams Params = {};
   Params.CompType = ComponentType::F16;
   Params.M = 16;
@@ -452,7 +452,7 @@ void DxilConf_SM610_LinAlg::LoadStoreRoundtrip_Wave_16x16_F16() {
   Params.Layout = LinalgMatrixLayout::RowMajor;
   Params.NumThreads = 64;
   Params.Enable16Bit = true;
-  runLoadStoreRoundtrip(D3DDevice, DxcSupport, Params, VerboseLogging);
+  runLoadStoreDescriptor(D3DDevice, DxcSupport, Params, VerboseLogging);
 }
 
 static const char SplatStoreShader[] = R"(
