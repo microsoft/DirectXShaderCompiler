@@ -1245,7 +1245,7 @@ static const char OuterProductShader[] = R"(
       Mat;
     __builtin_LinAlg_MatrixOuterProduct(Mat, VecA, VecB);
 
-    __builtin_LinAlg_MatrixStoreToDescriptor(
+    __builtin_LinAlg_MatrixAccumulateToDescriptor(
       Mat, Output, 0, STRIDE, LAYOUT, 128);
   }
 )";
