@@ -256,7 +256,8 @@ class Matrix {
          __detail::DimMN<M, N, Transpose>::N, NewUse, Scope>
   Cast() {
     Matrix<NewCompTy, __detail::DimMN<M, N, Transpose>::M,
-           __detail::DimMN<M, N, Transpose>::N, NewUse, Scope> Result;
+           __detail::DimMN<M, N, Transpose>::N, NewUse, Scope>
+        Result;
     __builtin_LinAlg_CopyConvertMatrix(Result.__handle, __handle, Transpose);
     return Result;
   }
