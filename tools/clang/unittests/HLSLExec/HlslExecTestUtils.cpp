@@ -751,7 +751,7 @@ void compileShader(dxc::SpecificDllLoader &DxcSupport, const char *Source,
 
   if (VerboseLogging) {
     hlsl_test::LogCommentFmt(L"Shader Source:");
-    hlsl_test::LogCommentFmt(L"%c", Source);
+    hlsl_test::LogCommentFmt(std::wstring(Source, Source + strlen(Source)).c_str());
   }
 
   hlsl_test::LogCommentFmt(LogFlags.str().c_str());

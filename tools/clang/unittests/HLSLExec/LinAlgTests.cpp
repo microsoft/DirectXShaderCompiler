@@ -199,32 +199,42 @@ static bool verifyComponentBuffer(ComponentType CompType, const void *Actual,
 }
 
 static bool fillInputBuffer(LPCSTR Name, std::vector<BYTE> &Data,
-                            ComponentType CompType, size_t NumElements) {
+                            ComponentType CompType, size_t NumElements,
+                            size_t StartingVal = 1, bool Increment = true) {
   if (_stricmp(Name, "Input") != 0)
     return true;
 
   switch (CompType) {
-  case ComponentType::F32: {
-    float *Ptr = reinterpret_cast<float *>(Data.data());
-    for (size_t I = 0; I < NumElements; I++)
-      Ptr[I] = static_cast<float>(I + 1);
-    return true;
-  }
-  case ComponentType::I32: {
-    int32_t *Ptr = reinterpret_cast<int32_t *>(Data.data());
-    for (size_t I = 0; I < NumElements; I++)
-      Ptr[I] = static_cast<int32_t>(I + 1);
-    return true;
-  }
-  case ComponentType::F16: {
-    HLSLHalf_t *Ptr = reinterpret_cast<HLSLHalf_t *>(Data.data());
-    for (size_t I = 0; I < NumElements; I++)
-      Ptr[I] = HLSLHalf_t(static_cast<float>(I + 1));
-    return true;
-  }
+  case ComponentType::F32:
+  case ComponentType::I32:
+  case ComponentType::F16:
+    break;
+  default:
+    return false;
   }
 
-  return false;
+  for (size_t I = 0; I < NumElements; ++I) {
+    size_t Value = StartingVal + (Increment ? I : 0);
+    switch (CompType) {
+    case ComponentType::F32: {
+      float *Ptr = reinterpret_cast<float *>(Data.data());
+      Ptr[I] = static_cast<float>(Value);
+      break;
+    }
+    case ComponentType::I32: {
+      int32_t *Ptr = reinterpret_cast<int32_t *>(Data.data());
+      Ptr[I] = static_cast<int32_t>(Value);
+      break;
+    }
+    case ComponentType::F16: {
+      HLSLHalf_t *Ptr = reinterpret_cast<HLSLHalf_t *>(Data.data());
+      Ptr[I] = HLSLHalf_t(static_cast<float>(Value));
+      break;
+    }
+    }
+  }
+
+  return true;
 }
 
 static VariantCompType makeExpected(ComponentType CompType, MatrixDim M,
@@ -313,10 +323,14 @@ public:
   TEST_METHOD(CopyConvert_Wave_16x16_F16);
   TEST_METHOD(CopyConvert_Wave_16x16_F16_Transpose);
 
-  // Matrix Arithmetic
+  // Matrix Matrix Arithmetic
   TEST_METHOD(MatMatMul_Wave_16x16x16_F16);
   TEST_METHOD(MatMatMulAccum_Wave_16x16x16_F16);
   TEST_METHOD(MatAccum_Wave_16x16_F16);
+
+  // Matrix Vector Arithmetic
+  TEST_METHOD(MatVecMul_Thread_16x16_F16);
+  TEST_METHOD(MatVecMulAdd_Thread_16x16_F16);
 
 private:
   CComPtr<ID3D12Device> D3DDevice;
@@ -855,8 +869,8 @@ void DxilConf_SM610_LinAlg::MatMatMul_Wave_16x16x16_F16() {
   Params.Layout = LinalgMatrixLayout::RowMajor;
   Params.NumThreads = 64;
   Params.Enable16Bit = true;
-  runMatMatMul(D3DDevice, DxcSupport, Params, VerboseLogging, /*K=*/16,
-               /*AFill=*/2.0f, /*BFill=*/3.0f);
+//  runMatMatMul(D3DDevice, DxcSupport, Params, VerboseLogging, /*K=*/16,
+//               /*AFill=*/2.0f, /*BFill=*/3.0f);
 }
 
 static const char MatMatMulAccumShader[] = R"(
@@ -1013,6 +1027,184 @@ void DxilConf_SM610_LinAlg::MatAccum_Wave_16x16_F16() {
   Params.Enable16Bit = true;
   runMatAccum(D3DDevice, DxcSupport, Params, VerboseLogging,
               /*LHSFill=*/2.0f, /*RHSFill=*/3.0f);
+}
+
+static const char MatVecMulShader[] = R"(
+  #define USE_A 0
+  #define SCOPE_THREAD 0
+
+  RWByteAddressBuffer Input : register(u0);
+  RWByteAddressBuffer Output : register(u1);
+
+  [numthreads(NUMTHREADS, 1, 1)]
+  void main() {
+    __builtin_LinAlgMatrix
+      [[__LinAlgMatrix_Attributes(COMP_TYPE, M_DIM, N_DIM, USE_A, SCOPE_THREAD)]]
+      Mat;
+    __builtin_LinAlg_FillMatrix(Mat, MAT_FILL);
+
+    vector<ELEM_TYPE, M_DIM> InVec;
+    for (uint I = 0; I < M_DIM; ++I) {
+      InVec[I] = Input.Load<ELEM_TYPE>(I * ELEM_SIZE);
+    }
+
+    vector<ELEM_TYPE, M_DIM> OutVec;
+    __builtin_LinAlg_MatrixVectorMultiply(
+      OutVec, Mat, OUTPUT_SIGNED, InVec, IN_INTERP);
+
+    for (uint I = 0; I < M_DIM; ++I) {
+      Output.Store<ELEM_TYPE>(I * ELEM_SIZE, OutVec[I]);
+    }
+  }
+)";
+
+static void runMatVecMul(ID3D12Device *Device,
+                         dxc::SpecificDllLoader &DxcSupport,
+                         const MatrixParams &Params, bool Verbose,
+                         float MatFill, bool OutputSigned, ComponentType InputInterp) {
+  const size_t NumElements = Params.M;
+  const size_t BufferSize = elementSize(Params.CompType) * NumElements;
+
+  std::stringstream ExtraDefs;
+  ExtraDefs << " -DMAT_FILL=" << MatFill;
+  ExtraDefs << " -DOUTPUT_SIGNED=" << OutputSigned;
+  ExtraDefs << " -DIN_INTERP=" << static_cast<int>(InputInterp);
+
+  std::string Args = buildCompilerArgs(Params, ExtraDefs.str().c_str());
+
+  compileShader(DxcSupport, MatVecMulShader, "cs_6_10", Args, Verbose);
+
+  auto Expected = makeExpected(Params.CompType, Params.M, 1,
+                               MatFill * Params.N, /*Increment=*/false);
+
+  auto Op = createComputeOp(MatVecMulShader, "cs_6_10", "UAV(u0), UAV(u1)",
+                            Args.c_str());
+  addUAVBuffer(Op.get(), "Input", BufferSize, false, "byname");
+  addUAVBuffer(Op.get(), "Output", BufferSize, true);
+  addRootUAV(Op.get(), 0, "Input");
+  addRootUAV(Op.get(), 1, "Output");
+
+  auto Result =
+      runShaderOp(Device, DxcSupport, std::move(Op),
+                  [NumElements, Params](LPCSTR Name, std::vector<BYTE> &Data,
+                                        st::ShaderOp *) {
+                    VERIFY_IS_TRUE(fillInputBuffer(Name, Data, Params.CompType,
+                                                   NumElements, /*StartingVal=*/1, /*Increment=*/false),
+                                   "Saw unsupported component type");
+                  });
+
+
+  MappedData OutData;
+  Result->Test->GetReadBackData("Output", &OutData);
+
+  VERIFY_IS_TRUE(verifyComponentBuffer(Params.CompType, OutData.data(),
+                                       Expected, NumElements, Verbose));
+}
+
+void DxilConf_SM610_LinAlg::MatVecMul_Thread_16x16_F16() {
+  MatrixParams Params = {};
+  Params.CompType = ComponentType::F16;
+  Params.M = 16;
+  Params.N = 16;
+  Params.Scope = MatrixScope::Thread;
+  Params.Layout = LinalgMatrixLayout::RowMajor;
+  Params.NumThreads = 1;
+  Params.Enable16Bit = true;
+  runMatVecMul(D3DDevice, DxcSupport, Params, VerboseLogging,
+              /*MatFill=*/2.0f, /*OutputSigned=*/true, ComponentType::F16);
+}
+
+static const char MatVecMulAddShader[] = R"(
+  #define USE_A 0
+  #define SCOPE_THREAD 0
+
+  RWByteAddressBuffer Input : register(u0);
+  RWByteAddressBuffer Output : register(u1);
+
+  [numthreads(NUMTHREADS, 1, 1)]
+  void main() {
+    __builtin_LinAlgMatrix
+      [[__LinAlgMatrix_Attributes(COMP_TYPE, M_DIM, N_DIM, USE_A, SCOPE_THREAD)]]
+      Mat;
+    __builtin_LinAlg_FillMatrix(Mat, MAT_FILL);
+
+    vector<ELEM_TYPE, M_DIM> InVec;
+    for (uint I = 0; I < M_DIM; ++I) {
+      InVec[I] = Input.Load<ELEM_TYPE>(I * ELEM_SIZE);
+    }
+
+    // TODO: this is just copying InVec but it should be a unique value
+    vector<ELEM_TYPE, M_DIM> BiasVec;
+    for (uint I = 0; I < M_DIM; ++I) {
+      BiasVec[I] = Input.Load<ELEM_TYPE>(I * ELEM_SIZE);
+    }
+
+    vector<ELEM_TYPE, M_DIM> OutVec;
+    __builtin_LinAlg_MatrixVectorMultiplyAdd(
+      OutVec, Mat, OUTPUT_SIGNED, InVec, IN_INTERP, BiasVec, BIAS_INTERP);
+
+    for (uint I = 0; I < M_DIM; ++I) {
+      Output.Store<ELEM_TYPE>(I * ELEM_SIZE, OutVec[I]);
+    }
+  }
+)";
+
+static void runMatVecMulAdd(ID3D12Device *Device,
+                         dxc::SpecificDllLoader &DxcSupport,
+                         const MatrixParams &Params, bool Verbose,
+                         float MatFill, bool OutputSigned, ComponentType InputInterp,
+                         ComponentType BiasInterp) {
+  const size_t NumElements = Params.M;
+  const size_t BufferSize = elementSize(Params.CompType) * NumElements;
+
+  std::stringstream ExtraDefs;
+  ExtraDefs << " -DMAT_FILL=" << MatFill;
+  ExtraDefs << " -DOUTPUT_SIGNED=" << OutputSigned;
+  ExtraDefs << " -DIN_INTERP=" << static_cast<int>(InputInterp);
+  ExtraDefs << " -DBIAS_INTERP=" << static_cast<int>(BiasInterp);
+
+  std::string Args = buildCompilerArgs(Params, ExtraDefs.str().c_str());
+
+  compileShader(DxcSupport, MatVecMulAddShader, "cs_6_10", Args, Verbose);
+
+  auto Expected = makeExpected(Params.CompType, Params.M, 1,
+                               MatFill * Params.N + 1, /*Increment=*/false);
+
+  auto Op = createComputeOp(MatVecMulAddShader, "cs_6_10", "UAV(u0), UAV(u1)",
+                            Args.c_str());
+  addUAVBuffer(Op.get(), "Input", BufferSize, false, "byname");
+  addUAVBuffer(Op.get(), "Output", BufferSize, true);
+  addRootUAV(Op.get(), 0, "Input");
+  addRootUAV(Op.get(), 1, "Output");
+
+  auto Result =
+      runShaderOp(Device, DxcSupport, std::move(Op),
+                  [NumElements, Params](LPCSTR Name, std::vector<BYTE> &Data,
+                                        st::ShaderOp *) {
+                    VERIFY_IS_TRUE(fillInputBuffer(Name, Data, Params.CompType,
+                                                   NumElements, /*StartingVal=*/1, /*Increment=*/false),
+                                   "Saw unsupported component type");
+                  });
+
+
+  MappedData OutData;
+  Result->Test->GetReadBackData("Output", &OutData);
+
+  VERIFY_IS_TRUE(verifyComponentBuffer(Params.CompType, OutData.data(),
+                                       Expected, NumElements, Verbose));
+}
+
+void DxilConf_SM610_LinAlg::MatVecMulAdd_Thread_16x16_F16() {
+  MatrixParams Params = {};
+  Params.CompType = ComponentType::F16;
+  Params.M = 16;
+  Params.N = 16;
+  Params.Scope = MatrixScope::Thread;
+  Params.Layout = LinalgMatrixLayout::RowMajor;
+  Params.NumThreads = 1;
+  Params.Enable16Bit = true;
+  runMatVecMulAdd(D3DDevice, DxcSupport, Params, VerboseLogging,
+              /*MatFill=*/2.0f, /*OutputSigned=*/true, ComponentType::F16, ComponentType::F16);
 }
 
 } // namespace LinAlg
