@@ -333,6 +333,9 @@ public:
   TEST_METHOD(MatVecMulAdd_Thread_16x16_F16);
   TEST_METHOD(OuterProduct_Thread_16x16_F16);
 
+  // Query Accumulator Layout
+  TEST_METHOD(QueryAccumLayout);
+
 private:
   CComPtr<ID3D12Device> D3DDevice;
   dxc::SpecificDllLoader DxcSupport;
@@ -1289,6 +1292,45 @@ void DxilConf_SM610_LinAlg::OuterProduct_Thread_16x16_F16() {
   Params.NumThreads = 1;
   Params.Enable16Bit = true;
   runOuterProduct(D3DDevice, DxcSupport, Params, VerboseLogging);
+}
+
+static const char QueryAccumLayoutShader[] = R"(
+  RWByteAddressBuffer Output : register(u0);
+
+  [numthreads(1, 1, 1)]
+  void main() {
+    uint Layout = __builtin_LinAlg_MatrixQueryAccumulatorLayout();
+    Output.Store<uint>(0, Layout);
+  }
+)";
+
+static void runQueryAccumLayout(ID3D12Device *Device,
+                            dxc::SpecificDllLoader &DxcSupport,
+                            bool Verbose) {
+  std::string Args = "-HV 202x";
+  size_t BufferSize = elementSize(ComponentType::I32);
+
+  compileShader(DxcSupport, QueryAccumLayoutShader, "cs_6_10", Args, Verbose);
+
+  auto Op =
+      createComputeOp(QueryAccumLayoutShader, "cs_6_10", "UAV(u0)", Args.c_str());
+  addUAVBuffer(Op.get(), "Output", BufferSize, true);
+  addRootUAV(Op.get(), 0, "Output");
+
+  auto Result = runShaderOp(Device, DxcSupport, std::move(Op));
+
+  MappedData OutData;
+  Result->Test->GetReadBackData("Output", &OutData);
+  const uint32_t *Out = static_cast<const uint32_t *>(OutData.data());
+
+  // Accum Layout must be A or B
+  VERIFY_IS_TRUE(Out[0] == static_cast<uint32_t>(MatrixUse::A) || Out[0] == static_cast<uint32_t>(MatrixUse::B));
+  if (Verbose)
+    hlsl_test::LogCommentFmt(L"AccumulatorLayout = %u", Out[0]);
+}
+
+void DxilConf_SM610_LinAlg::QueryAccumLayout() {
+  runQueryAccumLayout(D3DDevice, DxcSupport, VerboseLogging);
 }
 
 } // namespace LinAlg
