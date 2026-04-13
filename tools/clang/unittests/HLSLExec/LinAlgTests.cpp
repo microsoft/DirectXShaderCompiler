@@ -237,7 +237,7 @@ static bool fillInputBuffer(LPCSTR Name, std::vector<BYTE> &Data,
   return true;
 }
 
-static VariantCompType makeExpected(ComponentType CompType, MatrixDim M,
+static VariantCompType makeExpectedMat(ComponentType CompType, MatrixDim M,
                                     MatrixDim N, float StartingVal,
                                     bool Increment = true,
                                     bool Transpose = false) {
@@ -289,6 +289,12 @@ static VariantCompType makeExpected(ComponentType CompType, MatrixDim M,
     VERIFY_IS_TRUE(false, "Unable to fill unexpected ComponentType");
     return Floats;
   }
+}
+
+static VariantCompType makeExpectedVec(ComponentType CompType, MatrixDim NumElements,
+                                    float StartingVal,
+                                    bool Increment = true) {
+  return makeExpectedMat(CompType, 1, NumElements, StartingVal, Increment, false);
 }
 
 class DxilConf_SM610_LinAlg {
@@ -421,7 +427,7 @@ static void runLoadStoreDescriptor(ID3D12Device *Device,
   compileShader(DxcSupport, LoadStoreDescriptorShader, "cs_6_10", Args,
                 Verbose);
 
-  auto Expected = makeExpected(Params.CompType, Params.M, Params.N, 1);
+  auto Expected = makeExpectedMat(Params.CompType, Params.M, Params.N, 1);
 
   // Construct the ShaderOp: two UAV buffers, load from one, store to other.
   auto Op = createComputeOp(LoadStoreDescriptorShader, "cs_6_10",
@@ -493,7 +499,7 @@ static void runSplatStore(ID3D12Device *Device,
   compileShader(DxcSupport, SplatStoreShader, "cs_6_10", Args, Verbose);
 
   auto Expected =
-      makeExpected(Params.CompType, Params.M, Params.N, FillValue, false);
+      makeExpectedMat(Params.CompType, Params.M, Params.N, FillValue, false);
 
   auto Op =
       createComputeOp(SplatStoreShader, "cs_6_10", "UAV(u0)", Args.c_str());
@@ -575,7 +581,7 @@ static void runElementAccess(ID3D12Device *Device,
 
   compileShader(DxcSupport, ElementAccessShader, "cs_6_10", Args, Verbose);
 
-  auto Expected = makeExpected(Params.CompType, Params.M, Params.N, 1);
+  auto Expected = makeExpectedMat(Params.CompType, Params.M, Params.N, 1);
 
   auto Op = createComputeOp(ElementAccessShader, "cs_6_10", "UAV(u0), UAV(u1)",
                             Args.c_str());
@@ -666,7 +672,7 @@ static void runElementSet(ID3D12Device *Device,
   compileShader(DxcSupport, ElementSetShader, "cs_6_10", Args, Verbose);
 
   // Start counting from 6 since each element was increased by 5
-  auto Expected = makeExpected(Params.CompType, Params.M, Params.N, 6);
+  auto Expected = makeExpectedMat(Params.CompType, Params.M, Params.N, 6);
 
   auto Op = createComputeOp(ElementSetShader, "cs_6_10", "UAV(u0), UAV(u1)",
                             Args.c_str());
@@ -744,7 +750,7 @@ static void runCopyConvert(ID3D12Device *Device,
 
   compileShader(DxcSupport, CopyConvertShader, "cs_6_10", Args, Verbose);
 
-  auto Expected = makeExpected(Params.CompType, Params.M, Params.N, 1,
+  auto Expected = makeExpectedMat(Params.CompType, Params.M, Params.N, 1,
                                /*Increment=*/true, Transpose);
 
   // Construct the ShaderOp: two UAV buffers, load from one, store to other.
@@ -848,7 +854,7 @@ static void runMatMatMul(ID3D12Device *Device,
 
   compileShader(DxcSupport, MatMatMulShader, "cs_6_10", Args, Verbose);
 
-  auto Expected = makeExpected(Params.CompType, Params.M, Params.N,
+  auto Expected = makeExpectedMat(Params.CompType, Params.M, Params.N,
                                AFill * BFill * K, /*Increment=*/false);
 
   auto Op =
@@ -931,7 +937,7 @@ static void runMatMatMulAccum(ID3D12Device *Device,
 
   compileShader(DxcSupport, MatMatMulAccumShader, "cs_6_10", Args, Verbose);
 
-  auto Expected = makeExpected(Params.CompType, Params.M, Params.N,
+  auto Expected = makeExpectedMat(Params.CompType, Params.M, Params.N,
                                AFill * BFill * K + CFill, /*Increment=*/false);
 
   auto Op =
@@ -1005,7 +1011,7 @@ static void runMatAccum(ID3D12Device *Device,
 
   compileShader(DxcSupport, MatAccumShader, "cs_6_10", Args, Verbose);
 
-  auto Expected = makeExpected(Params.CompType, Params.M, Params.N,
+  auto Expected = makeExpectedMat(Params.CompType, Params.M, Params.N,
                                LHSFill + RHSFill, /*Increment=*/false);
 
   auto Op = createComputeOp(MatAccumShader, "cs_6_10", "UAV(u0)", Args.c_str());
@@ -1080,7 +1086,7 @@ static void runMatVecMul(ID3D12Device *Device,
 
   compileShader(DxcSupport, MatVecMulShader, "cs_6_10", Args, Verbose);
 
-  auto Expected = makeExpected(Params.CompType, Params.M, 1, MatFill * Params.N,
+  auto Expected = makeExpectedVec(Params.CompType, Params.M, MatFill * Params.N,
                                /*Increment=*/false);
 
   auto Op = createComputeOp(MatVecMulShader, "cs_6_10", "UAV(u0), UAV(u1)",
@@ -1173,7 +1179,7 @@ static void runMatVecMulAdd(ID3D12Device *Device,
 
   compileShader(DxcSupport, MatVecMulAddShader, "cs_6_10", Args, Verbose);
 
-  auto Expected = makeExpected(Params.CompType, Params.M, 1,
+  auto Expected = makeExpectedVec(Params.CompType, Params.M,
                                MatFill * Params.N + 1, /*Increment=*/false);
 
   auto Op = createComputeOp(MatVecMulAddShader, "cs_6_10", "UAV(u0), UAV(u1)",
@@ -1256,7 +1262,7 @@ static void runOuterProduct(ID3D12Device *Device,
 
   compileShader(DxcSupport, OuterProductShader, "cs_6_10", Args, Verbose);
 
-  auto Expected = makeExpected(Params.CompType, Params.M, Params.N,
+  auto Expected = makeExpectedMat(Params.CompType, Params.M, Params.N,
                                4, /*Increment=*/false);
 
   auto Op = createComputeOp(OuterProductShader, "cs_6_10", "UAV(u0), UAV(u1)",
