@@ -4996,9 +4996,7 @@ public:
     case AR_OBJECT_LEGACY_EFFECT: // used for all legacy effect object types
 
     case AR_OBJECT_TEXTURE1D:
-    case AR_OBJECT_VK_SAMPLED_TEXTURE1D:
     case AR_OBJECT_TEXTURE1D_ARRAY:
-    case AR_OBJECT_VK_SAMPLED_TEXTURE1D_ARRAY:
     case AR_OBJECT_TEXTURE2D:
     case AR_OBJECT_TEXTURE2D_ARRAY:
     case AR_OBJECT_TEXTURE3D:
