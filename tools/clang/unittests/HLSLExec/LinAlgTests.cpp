@@ -315,11 +315,11 @@ public:
   TEST_CLASS_SETUP(setupClass);
   TEST_METHOD_SETUP(setupMethod);
 
-  // Load/Store
+  // Load/Store/Accumulate Descriptor
   TEST_METHOD(LoadStoreDescriptor_Wave_16x16_F16);
-
-  // Splat Store
   TEST_METHOD(SplatStore_Wave_16x16_F16);
+  TEST_METHOD(AccumulateDescriptor_Wave_16x16_F16);
+  TEST_METHOD(AccumulateDescriptor_Thread_16x16_F16);
 
   // Element access
   TEST_METHOD(ElementAccess_Wave_16x16_F16);
@@ -526,6 +526,82 @@ void DxilConf_SM610_LinAlg::SplatStore_Wave_16x16_F16() {
   Params.NumThreads = 64;
   Params.Enable16Bit = true;
   runSplatStore(D3DDevice, DxcSupport, Params, 42.0f, VerboseLogging);
+}
+
+static const char AccumulateDescriptorShader[] = R"(
+  #define USE_ACC 2
+  RWByteAddressBuffer Output : register(u0);
+
+  [WaveSize(4, 64)]
+  [numthreads(NUMTHREADS, 1, 1)]
+  void main(uint threadID : SV_GroupIndex) {
+    if (WaveReadLaneFirst(threadID) != 0)
+      return;
+
+    __builtin_LinAlgMatrix
+      [[__LinAlgMatrix_Attributes(COMP_TYPE, M_DIM, N_DIM, USE_ACC, SCOPE)]]
+      Mat;
+    __builtin_LinAlg_FillMatrix(Mat, FILL_VALUE);
+    __builtin_LinAlg_MatrixAccumulateToDescriptor(
+      Mat, Output, 0, STRIDE, LAYOUT, 128);
+  }
+)";
+
+static void runAccumulateDescriptor(ID3D12Device *Device,
+                          dxc::SpecificDllLoader &DxcSupport,
+                          const MatrixParams &Params, float FillValue,
+                          bool Verbose) {
+  const size_t NumElements = Params.totalElements();
+  const size_t BufferSize = Params.totalBytes();
+
+  std::stringstream ExtraDefs;
+  ExtraDefs << "-DFILL_VALUE=" << FillValue;
+
+  std::string Args = buildCompilerArgs(Params, ExtraDefs.str().c_str());
+
+  compileShader(DxcSupport, AccumulateDescriptorShader, "cs_6_10", Args, Verbose);
+
+  auto Expected =
+      makeExpectedMat(Params.CompType, Params.M, Params.N, FillValue, false);
+
+  auto Op =
+      createComputeOp(AccumulateDescriptorShader, "cs_6_10", "UAV(u0)", Args.c_str());
+  addUAVBuffer(Op.get(), "Output", BufferSize, true);
+  addRootUAV(Op.get(), 0, "Output");
+
+  auto Result = runShaderOp(Device, DxcSupport, std::move(Op));
+
+  MappedData OutData;
+  Result->Test->GetReadBackData("Output", &OutData);
+
+  VERIFY_IS_TRUE(verifyComponentBuffer(Params.CompType, OutData.data(),
+                                       Expected, NumElements, Verbose));
+}
+
+void DxilConf_SM610_LinAlg::AccumulateDescriptor_Wave_16x16_F16() {
+  MatrixParams Params = {};
+  Params.CompType = ComponentType::F16;
+  Params.M = 16;
+  Params.N = 16;
+  Params.Use = MatrixUse::Accumulator;
+  Params.Scope = MatrixScope::Wave;
+  Params.Layout = LinalgMatrixLayout::RowMajor;
+  Params.NumThreads = 64;
+  Params.Enable16Bit = true;
+  runAccumulateDescriptor(D3DDevice, DxcSupport, Params, 42.0f, VerboseLogging);
+}
+
+void DxilConf_SM610_LinAlg::AccumulateDescriptor_Thread_16x16_F16() {
+  MatrixParams Params = {};
+  Params.CompType = ComponentType::F16;
+  Params.M = 16;
+  Params.N = 16;
+  Params.Use = MatrixUse::Accumulator;
+  Params.Scope = MatrixScope::Thread;
+  Params.Layout = LinalgMatrixLayout::RowMajor;
+  Params.NumThreads = 1;
+  Params.Enable16Bit = true;
+  runAccumulateDescriptor(D3DDevice, DxcSupport, Params, 42.0f, VerboseLogging);
 }
 
 static const char ElementAccessShader[] = R"(
