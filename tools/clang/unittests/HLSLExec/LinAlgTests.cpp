@@ -324,6 +324,7 @@ public:
 
   // Load/Store/Accumulate Memory
   TEST_METHOD(LoadMemory_Wave_16x16_F16);
+  TEST_METHOD(StoreMemory_Wave_16x16_F16);
 
   // Element access
   TEST_METHOD(ElementAccess_Wave_16x16_F16);
@@ -1523,5 +1524,73 @@ void DxilConf_SM610_LinAlg::LoadMemory_Wave_16x16_F16() {
   runLoadMemory(D3DDevice, DxcSupport, Params, VerboseLogging);
 }
 
+static const char StoreMemoryShader[] = R"(
+  RWByteAddressBuffer Output : register(u0);
+  groupshared ELEM_TYPE GsData[M_DIM * N_DIM];
+
+  [WaveSize(4, 64)]
+  [numthreads(NUMTHREADS, 1, 1)]
+  void main(uint threadID : SV_GroupIndex) {
+    if (WaveReadLaneFirst(threadID) != 0)
+      return;
+
+    __builtin_LinAlgMatrix
+      [[__LinAlgMatrix_Attributes(COMP_TYPE, M_DIM, N_DIM, USE, SCOPE)]]
+      Mat;
+    __builtin_LinAlg_FillMatrix(Mat, FILL_VALUE);
+
+    __builtin_LinAlg_MatrixStoreToMemory(
+      Mat, GsData, OFFSET, STRIDE, LAYOUT);
+
+    for (uint I = 0; I < M_DIM*N_DIM; ++I) {
+      Output.Store<ELEM_TYPE>(I*ELEM_SIZE, GsData[I]);
+    }
+  }
+)";
+
+static void runStoreMemory(ID3D12Device *Device,
+                                   dxc::SpecificDllLoader &DxcSupport,
+                                   const MatrixParams &Params, bool Verbose,
+                                   float FillValue) {
+  const size_t NumElements = Params.totalElements();
+  const size_t BufferSize = Params.totalBytes();
+
+  std::stringstream ExtraDefs;
+  ExtraDefs << " -DOFFSET=" << 0;
+  ExtraDefs << " -DFILL_VALUE=" << FillValue;
+
+  std::string Args = buildCompilerArgs(Params, ExtraDefs.str().c_str());
+
+  compileShader(DxcSupport, StoreMemoryShader, "cs_6_10", Args,
+                Verbose);
+
+  auto Expected = makeExpectedMat(Params.CompType, Params.M, Params.N, FillValue, /*Increment=*/false);
+
+  auto Op = createComputeOp(StoreMemoryShader, "cs_6_10", "UAV(u0)",
+                            Args.c_str());
+  addUAVBuffer(Op.get(), "Output", BufferSize, true);
+  addRootUAV(Op.get(), 0, "Output");
+
+  auto Result = runShaderOp(Device, DxcSupport, std::move(Op));
+
+  MappedData OutData;
+  Result->Test->GetReadBackData("Output", &OutData);
+
+  VERIFY_IS_TRUE(verifyComponentBuffer(Params.CompType, OutData.data(),
+                                       Expected, NumElements, Verbose));
+}
+
+void DxilConf_SM610_LinAlg::StoreMemory_Wave_16x16_F16() {
+  MatrixParams Params = {};
+  Params.CompType = ComponentType::F16;
+  Params.M = 16;
+  Params.N = 16;
+  Params.Use = MatrixUse::A;
+  Params.Scope = MatrixScope::Wave;
+  Params.Layout = LinalgMatrixLayout::RowMajor;
+  Params.NumThreads = 64;
+  Params.Enable16Bit = true;
+  runStoreMemory(D3DDevice, DxcSupport, Params, VerboseLogging, /*FillValue=*/7.0f);
+}
 
 } // namespace LinAlg
