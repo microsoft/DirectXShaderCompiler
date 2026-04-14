@@ -322,6 +322,9 @@ public:
   TEST_METHOD(AccumulateDescriptor_Wave_16x16_F16);
   TEST_METHOD(AccumulateDescriptor_Thread_16x16_F16);
 
+  // Load/Store/Accumulate Memory
+  TEST_METHOD(LoadMemory_Wave_16x16_F16);
+
   // Element access
   TEST_METHOD(ElementAccess_Wave_16x16_F16);
   TEST_METHOD(ElementSet_Wave_16x16_F16);
@@ -1436,5 +1439,89 @@ static void runQueryAccumLayout(ID3D12Device *Device,
 void DxilConf_SM610_LinAlg::QueryAccumLayout() {
   runQueryAccumLayout(D3DDevice, DxcSupport, VerboseLogging);
 }
+
+static const char LoadMemoryShader[] = R"(
+  RWByteAddressBuffer Input : register(u0);
+  RWByteAddressBuffer Output : register(u1);
+
+  groupshared ELEM_TYPE GsData[M_DIM * N_DIM];
+
+  #define ELEM_PER_THREAD (M_DIM * N_DIM / NUMTHREADS)
+
+  [WaveSize(4, 64)]
+  [numthreads(NUMTHREADS, 1, 1)]
+  void main(uint threadID : SV_GroupIndex) {
+    for (uint I = 0; I < ELEM_PER_THREAD; ++I) {
+      uint Index = threadID * ELEM_PER_THREAD + I;
+      GsData[Index] = Input.Load<ELEM_TYPE>(Index * ELEM_SIZE);
+    }
+
+    GroupMemoryBarrierWithGroupSync();
+
+    if (WaveReadLaneFirst(threadID) != 0)
+      return;
+
+    __builtin_LinAlgMatrix
+      [[__LinAlgMatrix_Attributes(COMP_TYPE, M_DIM, N_DIM, USE, SCOPE)]]
+      Mat;
+    __builtin_LinAlg_MatrixLoadFromMemory(
+      Mat, GsData, OFFSET, STRIDE, LAYOUT);
+    __builtin_LinAlg_MatrixStoreToDescriptor(
+      Mat, Output, OFFSET, STRIDE, LAYOUT, 128);
+  }
+)";
+
+static void runLoadMemory(ID3D12Device *Device,
+                                   dxc::SpecificDllLoader &DxcSupport,
+                                   const MatrixParams &Params, bool Verbose) {
+  const size_t NumElements = Params.totalElements();
+  const size_t BufferSize = Params.totalBytes();
+
+  std::stringstream ExtraDefs;
+  ExtraDefs << " -DOFFSET=" << 0;
+
+  std::string Args = buildCompilerArgs(Params, ExtraDefs.str().c_str());
+
+  compileShader(DxcSupport, LoadMemoryShader, "cs_6_10", Args,
+                Verbose);
+
+  auto Expected = makeExpectedMat(Params.CompType, Params.M, Params.N, 1);
+
+  auto Op = createComputeOp(LoadMemoryShader, "cs_6_10", "UAV(u0), UAV(u1)",
+                            Args.c_str());
+  addUAVBuffer(Op.get(), "Input", BufferSize, false, "byname");
+  addUAVBuffer(Op.get(), "Output", BufferSize, true);
+  addRootUAV(Op.get(), 0, "Input");
+  addRootUAV(Op.get(), 1, "Output");
+
+  auto Result = runShaderOp(
+      Device, DxcSupport, std::move(Op),
+      [NumElements, Params](LPCSTR Name, std::vector<BYTE> &Data,
+                               st::ShaderOp *) {
+        VERIFY_IS_TRUE(fillInputBuffer(Name, Data, Params.CompType,
+                                       NumElements),
+                       "Saw unsupported component type");
+      });
+
+  MappedData OutData;
+  Result->Test->GetReadBackData("Output", &OutData);
+
+  VERIFY_IS_TRUE(verifyComponentBuffer(Params.CompType, OutData.data(),
+                                       Expected, NumElements, Verbose));
+}
+
+void DxilConf_SM610_LinAlg::LoadMemory_Wave_16x16_F16() {
+  MatrixParams Params = {};
+  Params.CompType = ComponentType::F16;
+  Params.M = 16;
+  Params.N = 16;
+  Params.Use = MatrixUse::A;
+  Params.Scope = MatrixScope::Wave;
+  Params.Layout = LinalgMatrixLayout::RowMajor;
+  Params.NumThreads = 64;
+  Params.Enable16Bit = true;
+  runLoadMemory(D3DDevice, DxcSupport, Params, VerboseLogging);
+}
+
 
 } // namespace LinAlg
