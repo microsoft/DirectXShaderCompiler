@@ -238,9 +238,9 @@ static bool fillInputBuffer(LPCSTR Name, std::vector<BYTE> &Data,
 }
 
 static VariantCompType makeExpectedMat(ComponentType CompType, MatrixDim M,
-                                    MatrixDim N, float StartingVal,
-                                    bool Increment = true,
-                                    bool Transpose = false) {
+                                       MatrixDim N, float StartingVal,
+                                       bool Increment = true,
+                                       bool Transpose = false) {
   const size_t NumElements = M * N;
   std::vector<float> Floats(NumElements);
   std::vector<int32_t> Ints(NumElements);
@@ -291,10 +291,11 @@ static VariantCompType makeExpectedMat(ComponentType CompType, MatrixDim M,
   }
 }
 
-static VariantCompType makeExpectedVec(ComponentType CompType, MatrixDim NumElements,
-                                    float StartingVal,
-                                    bool Increment = true) {
-  return makeExpectedMat(CompType, 1, NumElements, StartingVal, Increment, false);
+static VariantCompType makeExpectedVec(ComponentType CompType,
+                                       MatrixDim NumElements, float StartingVal,
+                                       bool Increment = true) {
+  return makeExpectedMat(CompType, 1, NumElements, StartingVal, Increment,
+                         false);
 }
 
 class DxilConf_SM610_LinAlg {
@@ -553,18 +554,19 @@ static const char AccumulateDescriptorShader[] = R"(
 )";
 
 static void runAccumulateDescriptor(ID3D12Device *Device,
-                          dxc::SpecificDllLoader &DxcSupport,
-                          const MatrixParams &Params, int FillValue,
-                          bool Verbose) {
+                                    dxc::SpecificDllLoader &DxcSupport,
+                                    const MatrixParams &Params, int FillValue,
+                                    bool Verbose) {
   const size_t NumElements = Params.totalElements();
   const size_t BufferSize = Params.totalBytes();
 
   std::string Args = buildCompilerArgs(Params);
 
-  compileShader(DxcSupport, AccumulateDescriptorShader, "cs_6_10", Args, Verbose);
+  compileShader(DxcSupport, AccumulateDescriptorShader, "cs_6_10", Args,
+                Verbose);
 
-  auto Expected =
-      makeExpectedMat(Params.CompType, Params.M, Params.N, static_cast<float>(FillValue) * 2, false);
+  auto Expected = makeExpectedMat(Params.CompType, Params.M, Params.N,
+                                  static_cast<float>(FillValue) * 2, false);
 
   auto Op = createComputeOp(AccumulateDescriptorShader, "cs_6_10",
                             "SRV(t0), UAV(u1)", Args.c_str());
@@ -573,14 +575,15 @@ static void runAccumulateDescriptor(ID3D12Device *Device,
   addRootUAV(Op.get(), 0, "Input");
   addRootUAV(Op.get(), 1, "Output");
 
-  auto Result =
-      runShaderOp(Device, DxcSupport, std::move(Op),
-                  [NumElements, Params, FillValue](LPCSTR Name, std::vector<BYTE> &Data,
-                                        st::ShaderOp *) {
-                    VERIFY_IS_TRUE(fillInputBuffer(Name, Data, Params.CompType,
-                                                   NumElements, /*StartingVal=*/ FillValue, /*Increment=*/false),
-                                   "Saw unsupported component type");
-                  });
+  auto Result = runShaderOp(
+      Device, DxcSupport, std::move(Op),
+      [NumElements, Params, FillValue](LPCSTR Name, std::vector<BYTE> &Data,
+                                       st::ShaderOp *) {
+        VERIFY_IS_TRUE(fillInputBuffer(Name, Data, Params.CompType, NumElements,
+                                       /*StartingVal=*/FillValue,
+                                       /*Increment=*/false),
+                       "Saw unsupported component type");
+      });
 
   MappedData OutData;
   Result->Test->GetReadBackData("Output", &OutData);
@@ -838,7 +841,7 @@ static void runCopyConvert(ID3D12Device *Device,
   compileShader(DxcSupport, CopyConvertShader, "cs_6_10", Args, Verbose);
 
   auto Expected = makeExpectedMat(Params.CompType, Params.M, Params.N, 1,
-                               /*Increment=*/true, Transpose);
+                                  /*Increment=*/true, Transpose);
 
   // Construct the ShaderOp: two UAV buffers, load from one, store to other.
   auto Op = createComputeOp(CopyConvertShader, "cs_6_10", "UAV(u0), UAV(u1)",
@@ -942,7 +945,7 @@ static void runMatMatMul(ID3D12Device *Device,
   compileShader(DxcSupport, MatMatMulShader, "cs_6_10", Args, Verbose);
 
   auto Expected = makeExpectedMat(Params.CompType, Params.M, Params.N,
-                               AFill * BFill * K, /*Increment=*/false);
+                                  AFill * BFill * K, /*Increment=*/false);
 
   auto Op =
       createComputeOp(MatMatMulShader, "cs_6_10", "UAV(u0)", Args.c_str());
@@ -1024,8 +1027,9 @@ static void runMatMatMulAccum(ID3D12Device *Device,
 
   compileShader(DxcSupport, MatMatMulAccumShader, "cs_6_10", Args, Verbose);
 
-  auto Expected = makeExpectedMat(Params.CompType, Params.M, Params.N,
-                               AFill * BFill * K + CFill, /*Increment=*/false);
+  auto Expected =
+      makeExpectedMat(Params.CompType, Params.M, Params.N,
+                      AFill * BFill * K + CFill, /*Increment=*/false);
 
   auto Op =
       createComputeOp(MatMatMulAccumShader, "cs_6_10", "UAV(u0)", Args.c_str());
@@ -1099,7 +1103,7 @@ static void runMatAccum(ID3D12Device *Device,
   compileShader(DxcSupport, MatAccumShader, "cs_6_10", Args, Verbose);
 
   auto Expected = makeExpectedMat(Params.CompType, Params.M, Params.N,
-                               LHSFill + RHSFill, /*Increment=*/false);
+                                  LHSFill + RHSFill, /*Increment=*/false);
 
   auto Op = createComputeOp(MatAccumShader, "cs_6_10", "UAV(u0)", Args.c_str());
   addUAVBuffer(Op.get(), "Output", BufferSize, true);
@@ -1173,24 +1177,27 @@ static void runMatVecMul(ID3D12Device *Device,
 
   compileShader(DxcSupport, MatVecMulShader, "cs_6_10", Args, Verbose);
 
-  auto Expected = makeExpectedVec(Params.CompType, Params.M,
-                               static_cast<float>(FillValue * FillValue * Params.N), /*Increment=*/false);
+  auto Expected =
+      makeExpectedVec(Params.CompType, Params.M,
+                      static_cast<float>(FillValue * FillValue * Params.N),
+                      /*Increment=*/false);
 
-  auto Op = createComputeOp(MatVecMulShader, "cs_6_10",
-                            "SRV(t0), UAV(u1)", Args.c_str());
+  auto Op = createComputeOp(MatVecMulShader, "cs_6_10", "SRV(t0), UAV(u1)",
+                            Args.c_str());
   addUAVBuffer(Op.get(), "Input", BufferSize, false, "byname");
   addUAVBuffer(Op.get(), "Output", BufferSize, true);
   addRootUAV(Op.get(), 0, "Input");
   addRootUAV(Op.get(), 1, "Output");
 
-  auto Result =
-      runShaderOp(Device, DxcSupport, std::move(Op),
-                  [NumElements, Params, FillValue](LPCSTR Name, std::vector<BYTE> &Data,
-                                        st::ShaderOp *) {
-                    VERIFY_IS_TRUE(fillInputBuffer(Name, Data, Params.CompType,
-                                                   NumElements, /*StartingVal=*/ FillValue, /*Increment=*/false),
-                                   "Saw unsupported component type");
-                  });
+  auto Result = runShaderOp(
+      Device, DxcSupport, std::move(Op),
+      [NumElements, Params, FillValue](LPCSTR Name, std::vector<BYTE> &Data,
+                                       st::ShaderOp *) {
+        VERIFY_IS_TRUE(fillInputBuffer(Name, Data, Params.CompType, NumElements,
+                                       /*StartingVal=*/FillValue,
+                                       /*Increment=*/false),
+                       "Saw unsupported component type");
+      });
 
   MappedData OutData;
   Result->Test->GetReadBackData("Output", &OutData);
@@ -1265,24 +1272,27 @@ static void runMatVecMulAdd(ID3D12Device *Device,
 
   compileShader(DxcSupport, MatVecMulAddShader, "cs_6_10", Args, Verbose);
 
-  auto Expected = makeExpectedVec(Params.CompType, Params.M,
-                               static_cast<float>(FillValue * FillValue * Params.N + FillValue), /*Increment=*/false);
+  auto Expected = makeExpectedVec(
+      Params.CompType, Params.M,
+      static_cast<float>(FillValue * FillValue * Params.N + FillValue),
+      /*Increment=*/false);
 
-  auto Op = createComputeOp(MatVecMulAddShader, "cs_6_10",
-                            "SRV(t0), UAV(u1)", Args.c_str());
+  auto Op = createComputeOp(MatVecMulAddShader, "cs_6_10", "SRV(t0), UAV(u1)",
+                            Args.c_str());
   addUAVBuffer(Op.get(), "Input", BufferSize, false, "byname");
   addUAVBuffer(Op.get(), "Output", BufferSize, true);
   addRootUAV(Op.get(), 0, "Input");
   addRootUAV(Op.get(), 1, "Output");
 
-  auto Result =
-      runShaderOp(Device, DxcSupport, std::move(Op),
-                  [NumElements, Params, FillValue](LPCSTR Name, std::vector<BYTE> &Data,
-                                        st::ShaderOp *) {
-                    VERIFY_IS_TRUE(fillInputBuffer(Name, Data, Params.CompType,
-                                                   NumElements, /*StartingVal=*/ FillValue, /*Increment=*/false),
-                                   "Saw unsupported component type");
-                  });
+  auto Result = runShaderOp(
+      Device, DxcSupport, std::move(Op),
+      [NumElements, Params, FillValue](LPCSTR Name, std::vector<BYTE> &Data,
+                                       st::ShaderOp *) {
+        VERIFY_IS_TRUE(fillInputBuffer(Name, Data, Params.CompType, NumElements,
+                                       /*StartingVal=*/FillValue,
+                                       /*Increment=*/false),
+                       "Saw unsupported component type");
+      });
 
   MappedData OutData;
   Result->Test->GetReadBackData("Output", &OutData);
@@ -1348,8 +1358,8 @@ static void runOuterProduct(ID3D12Device *Device,
 
   compileShader(DxcSupport, OuterProductShader, "cs_6_10", Args, Verbose);
 
-  auto Expected = makeExpectedMat(Params.CompType, Params.M, Params.N,
-                               4, /*Increment=*/false);
+  auto Expected = makeExpectedMat(Params.CompType, Params.M, Params.N, 4,
+                                  /*Increment=*/false);
 
   auto Op = createComputeOp(OuterProductShader, "cs_6_10", "UAV(u0), UAV(u1)",
                             Args.c_str());
@@ -1361,8 +1371,9 @@ static void runOuterProduct(ID3D12Device *Device,
   auto Result = runShaderOp(
       Device, DxcSupport, std::move(Op),
       [NumVecElements, Params](LPCSTR Name, std::vector<BYTE> &Data,
-                            st::ShaderOp *) {
-        VERIFY_IS_TRUE(fillInputBuffer(Name, Data, Params.CompType, NumVecElements,
+                               st::ShaderOp *) {
+        VERIFY_IS_TRUE(fillInputBuffer(Name, Data, Params.CompType,
+                                       NumVecElements,
                                        /*StartingVal=*/2, /*Increment=*/false),
                        "Saw unsupported component type");
       });
@@ -1397,15 +1408,15 @@ static const char QueryAccumLayoutShader[] = R"(
 )";
 
 static void runQueryAccumLayout(ID3D12Device *Device,
-                            dxc::SpecificDllLoader &DxcSupport,
-                            bool Verbose) {
+                                dxc::SpecificDllLoader &DxcSupport,
+                                bool Verbose) {
   std::string Args = "-HV 202x";
   size_t BufferSize = elementSize(ComponentType::I32);
 
   compileShader(DxcSupport, QueryAccumLayoutShader, "cs_6_10", Args, Verbose);
 
-  auto Op =
-      createComputeOp(QueryAccumLayoutShader, "cs_6_10", "UAV(u0)", Args.c_str());
+  auto Op = createComputeOp(QueryAccumLayoutShader, "cs_6_10", "UAV(u0)",
+                            Args.c_str());
   addUAVBuffer(Op.get(), "Output", BufferSize, true);
   addRootUAV(Op.get(), 0, "Output");
 
@@ -1416,7 +1427,8 @@ static void runQueryAccumLayout(ID3D12Device *Device,
   const uint32_t *Out = static_cast<const uint32_t *>(OutData.data());
 
   // Accum Layout must be A or B
-  VERIFY_IS_TRUE(Out[0] == static_cast<uint32_t>(MatrixUse::A) || Out[0] == static_cast<uint32_t>(MatrixUse::B));
+  VERIFY_IS_TRUE(Out[0] == static_cast<uint32_t>(MatrixUse::A) ||
+                 Out[0] == static_cast<uint32_t>(MatrixUse::B));
   if (Verbose)
     hlsl_test::LogCommentFmt(L"AccumulatorLayout = %u", Out[0]);
 }
