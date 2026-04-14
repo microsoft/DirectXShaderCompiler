@@ -1131,7 +1131,7 @@ static const char MatVecMulShader[] = R"(
   #define USE_A 0
   #define SCOPE_THREAD 0
 
-  RWByteAddressBuffer Input : register(u0);
+  ByteAddressBuffer Input : register(t0);
   RWByteAddressBuffer Output : register(u1);
 
   [numthreads(NUMTHREADS, 1, 1)]
@@ -1139,7 +1139,8 @@ static const char MatVecMulShader[] = R"(
     __builtin_LinAlgMatrix
       [[__LinAlgMatrix_Attributes(COMP_TYPE, M_DIM, N_DIM, USE_A, SCOPE_THREAD)]]
       Mat;
-    __builtin_LinAlg_FillMatrix(Mat, MAT_FILL);
+    __builtin_LinAlg_MatrixLoadFromDescriptor(
+      Mat, Input, 0, STRIDE, LAYOUT, 128);
 
     vector<ELEM_TYPE, M_DIM> InVec;
     for (uint I = 0; I < M_DIM; ++I) {
@@ -1159,13 +1160,12 @@ static const char MatVecMulShader[] = R"(
 static void runMatVecMul(ID3D12Device *Device,
                          dxc::SpecificDllLoader &DxcSupport,
                          const MatrixParams &Params, bool Verbose,
-                         float MatFill, bool OutputSigned,
+                         int FillValue, bool OutputSigned,
                          ComponentType InputInterp) {
-  const size_t NumElements = Params.M;
-  const size_t BufferSize = elementSize(Params.CompType) * NumElements;
+  const size_t NumElements = Params.totalElements();
+  const size_t BufferSize = Params.totalBytes();
 
   std::stringstream ExtraDefs;
-  ExtraDefs << " -DMAT_FILL=" << MatFill;
   ExtraDefs << " -DOUTPUT_SIGNED=" << OutputSigned;
   ExtraDefs << " -DIN_INTERP=" << static_cast<int>(InputInterp);
 
@@ -1173,30 +1173,30 @@ static void runMatVecMul(ID3D12Device *Device,
 
   compileShader(DxcSupport, MatVecMulShader, "cs_6_10", Args, Verbose);
 
-  auto Expected = makeExpectedVec(Params.CompType, Params.M, MatFill * Params.N,
-                               /*Increment=*/false);
+  auto Expected = makeExpectedVec(Params.CompType, Params.M,
+                               static_cast<float>(FillValue * FillValue * Params.N), /*Increment=*/false);
 
-  auto Op = createComputeOp(MatVecMulShader, "cs_6_10", "UAV(u0), UAV(u1)",
-                            Args.c_str());
+  auto Op = createComputeOp(MatVecMulShader, "cs_6_10",
+                            "SRV(t0), UAV(u1)", Args.c_str());
   addUAVBuffer(Op.get(), "Input", BufferSize, false, "byname");
   addUAVBuffer(Op.get(), "Output", BufferSize, true);
   addRootUAV(Op.get(), 0, "Input");
   addRootUAV(Op.get(), 1, "Output");
 
-  auto Result = runShaderOp(
-      Device, DxcSupport, std::move(Op),
-      [NumElements, Params](LPCSTR Name, std::vector<BYTE> &Data,
-                            st::ShaderOp *) {
-        VERIFY_IS_TRUE(fillInputBuffer(Name, Data, Params.CompType, NumElements,
-                                       /*StartingVal=*/1, /*Increment=*/false),
-                       "Saw unsupported component type");
-      });
+  auto Result =
+      runShaderOp(Device, DxcSupport, std::move(Op),
+                  [NumElements, Params, FillValue](LPCSTR Name, std::vector<BYTE> &Data,
+                                        st::ShaderOp *) {
+                    VERIFY_IS_TRUE(fillInputBuffer(Name, Data, Params.CompType,
+                                                   NumElements, /*StartingVal=*/ FillValue, /*Increment=*/false),
+                                   "Saw unsupported component type");
+                  });
 
   MappedData OutData;
   Result->Test->GetReadBackData("Output", &OutData);
 
   VERIFY_IS_TRUE(verifyComponentBuffer(Params.CompType, OutData.data(),
-                                       Expected, NumElements, Verbose));
+                                       Expected, Params.M, Verbose));
 }
 
 void DxilConf_SM610_LinAlg::MatVecMul_Thread_16x16_F16() {
@@ -1209,14 +1209,14 @@ void DxilConf_SM610_LinAlg::MatVecMul_Thread_16x16_F16() {
   Params.NumThreads = 1;
   Params.Enable16Bit = true;
   runMatVecMul(D3DDevice, DxcSupport, Params, VerboseLogging,
-               /*MatFill=*/2.0f, /*OutputSigned=*/true, ComponentType::F16);
+               /*FillValue=*/2, /*OutputSigned=*/true, ComponentType::F16);
 }
 
 static const char MatVecMulAddShader[] = R"(
   #define USE_A 0
   #define SCOPE_THREAD 0
 
-  RWByteAddressBuffer Input : register(u0);
+  ByteAddressBuffer Input : register(t0);
   RWByteAddressBuffer Output : register(u1);
 
   [numthreads(NUMTHREADS, 1, 1)]
@@ -1224,14 +1224,14 @@ static const char MatVecMulAddShader[] = R"(
     __builtin_LinAlgMatrix
       [[__LinAlgMatrix_Attributes(COMP_TYPE, M_DIM, N_DIM, USE_A, SCOPE_THREAD)]]
       Mat;
-    __builtin_LinAlg_FillMatrix(Mat, MAT_FILL);
+    __builtin_LinAlg_MatrixLoadFromDescriptor(
+      Mat, Input, 0, STRIDE, LAYOUT, 128);
 
     vector<ELEM_TYPE, M_DIM> InVec;
     for (uint I = 0; I < M_DIM; ++I) {
       InVec[I] = Input.Load<ELEM_TYPE>(I * ELEM_SIZE);
     }
 
-    // TODO: this is just copying InVec but it should be a unique value
     vector<ELEM_TYPE, M_DIM> BiasVec;
     for (uint I = 0; I < M_DIM; ++I) {
       BiasVec[I] = Input.Load<ELEM_TYPE>(I * ELEM_SIZE);
@@ -1250,14 +1250,13 @@ static const char MatVecMulAddShader[] = R"(
 static void runMatVecMulAdd(ID3D12Device *Device,
                             dxc::SpecificDllLoader &DxcSupport,
                             const MatrixParams &Params, bool Verbose,
-                            float MatFill, bool OutputSigned,
+                            int FillValue, bool OutputSigned,
                             ComponentType InputInterp,
                             ComponentType BiasInterp) {
-  const size_t NumElements = Params.M;
-  const size_t BufferSize = elementSize(Params.CompType) * NumElements;
+  const size_t NumElements = Params.totalElements();
+  const size_t BufferSize = Params.totalBytes();
 
   std::stringstream ExtraDefs;
-  ExtraDefs << " -DMAT_FILL=" << MatFill;
   ExtraDefs << " -DOUTPUT_SIGNED=" << OutputSigned;
   ExtraDefs << " -DIN_INTERP=" << static_cast<int>(InputInterp);
   ExtraDefs << " -DBIAS_INTERP=" << static_cast<int>(BiasInterp);
@@ -1267,29 +1266,29 @@ static void runMatVecMulAdd(ID3D12Device *Device,
   compileShader(DxcSupport, MatVecMulAddShader, "cs_6_10", Args, Verbose);
 
   auto Expected = makeExpectedVec(Params.CompType, Params.M,
-                               MatFill * Params.N + 1, /*Increment=*/false);
+                               static_cast<float>(FillValue * FillValue * Params.N + FillValue), /*Increment=*/false);
 
-  auto Op = createComputeOp(MatVecMulAddShader, "cs_6_10", "UAV(u0), UAV(u1)",
-                            Args.c_str());
+  auto Op = createComputeOp(MatVecMulAddShader, "cs_6_10",
+                            "SRV(t0), UAV(u1)", Args.c_str());
   addUAVBuffer(Op.get(), "Input", BufferSize, false, "byname");
   addUAVBuffer(Op.get(), "Output", BufferSize, true);
   addRootUAV(Op.get(), 0, "Input");
   addRootUAV(Op.get(), 1, "Output");
 
-  auto Result = runShaderOp(
-      Device, DxcSupport, std::move(Op),
-      [NumElements, Params](LPCSTR Name, std::vector<BYTE> &Data,
-                            st::ShaderOp *) {
-        VERIFY_IS_TRUE(fillInputBuffer(Name, Data, Params.CompType, NumElements,
-                                       /*StartingVal=*/1, /*Increment=*/false),
-                       "Saw unsupported component type");
-      });
+  auto Result =
+      runShaderOp(Device, DxcSupport, std::move(Op),
+                  [NumElements, Params, FillValue](LPCSTR Name, std::vector<BYTE> &Data,
+                                        st::ShaderOp *) {
+                    VERIFY_IS_TRUE(fillInputBuffer(Name, Data, Params.CompType,
+                                                   NumElements, /*StartingVal=*/ FillValue, /*Increment=*/false),
+                                   "Saw unsupported component type");
+                  });
 
   MappedData OutData;
   Result->Test->GetReadBackData("Output", &OutData);
 
   VERIFY_IS_TRUE(verifyComponentBuffer(Params.CompType, OutData.data(),
-                                       Expected, NumElements, Verbose));
+                                       Expected, Params.M, Verbose));
 }
 
 void DxilConf_SM610_LinAlg::MatVecMulAdd_Thread_16x16_F16() {
@@ -1302,7 +1301,7 @@ void DxilConf_SM610_LinAlg::MatVecMulAdd_Thread_16x16_F16() {
   Params.NumThreads = 1;
   Params.Enable16Bit = true;
   runMatVecMulAdd(D3DDevice, DxcSupport, Params, VerboseLogging,
-                  /*MatFill=*/2.0f, /*OutputSigned=*/true, ComponentType::F16,
+                  /*FillValue=*/2, /*OutputSigned=*/true, ComponentType::F16,
                   ComponentType::F16);
 }
 
