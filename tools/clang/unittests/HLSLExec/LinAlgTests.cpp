@@ -1476,8 +1476,8 @@ static const char LoadMemoryShader[] = R"(
 )";
 
 static void runLoadMemory(ID3D12Device *Device,
-                                   dxc::SpecificDllLoader &DxcSupport,
-                                   const MatrixParams &Params, bool Verbose) {
+                          dxc::SpecificDllLoader &DxcSupport,
+                          const MatrixParams &Params, bool Verbose) {
   const size_t NumElements = Params.totalElements();
   const size_t BufferSize = Params.totalBytes();
 
@@ -1486,8 +1486,7 @@ static void runLoadMemory(ID3D12Device *Device,
 
   std::string Args = buildCompilerArgs(Params, ExtraDefs.str().c_str());
 
-  compileShader(DxcSupport, LoadMemoryShader, "cs_6_10", Args,
-                Verbose);
+  compileShader(DxcSupport, LoadMemoryShader, "cs_6_10", Args, Verbose);
 
   auto Expected = makeExpectedMat(Params.CompType, Params.M, Params.N, 1);
 
@@ -1498,14 +1497,14 @@ static void runLoadMemory(ID3D12Device *Device,
   addRootUAV(Op.get(), 0, "Input");
   addRootUAV(Op.get(), 1, "Output");
 
-  auto Result = runShaderOp(
-      Device, DxcSupport, std::move(Op),
-      [NumElements, Params](LPCSTR Name, std::vector<BYTE> &Data,
-                               st::ShaderOp *) {
-        VERIFY_IS_TRUE(fillInputBuffer(Name, Data, Params.CompType,
-                                       NumElements),
-                       "Saw unsupported component type");
-      });
+  auto Result =
+      runShaderOp(Device, DxcSupport, std::move(Op),
+                  [NumElements, Params](LPCSTR Name, std::vector<BYTE> &Data,
+                                        st::ShaderOp *) {
+                    VERIFY_IS_TRUE(fillInputBuffer(Name, Data, Params.CompType,
+                                                   NumElements),
+                                   "Saw unsupported component type");
+                  });
 
   MappedData OutData;
   Result->Test->GetReadBackData("Output", &OutData);
@@ -1552,9 +1551,9 @@ static const char StoreMemoryShader[] = R"(
 )";
 
 static void runStoreMemory(ID3D12Device *Device,
-                                   dxc::SpecificDllLoader &DxcSupport,
-                                   const MatrixParams &Params, bool Verbose,
-                                   float FillValue) {
+                           dxc::SpecificDllLoader &DxcSupport,
+                           const MatrixParams &Params, bool Verbose,
+                           float FillValue) {
   const size_t NumElements = Params.totalElements();
   const size_t BufferSize = Params.totalBytes();
 
@@ -1564,13 +1563,13 @@ static void runStoreMemory(ID3D12Device *Device,
 
   std::string Args = buildCompilerArgs(Params, ExtraDefs.str().c_str());
 
-  compileShader(DxcSupport, StoreMemoryShader, "cs_6_10", Args,
-                Verbose);
+  compileShader(DxcSupport, StoreMemoryShader, "cs_6_10", Args, Verbose);
 
-  auto Expected = makeExpectedMat(Params.CompType, Params.M, Params.N, FillValue, /*Increment=*/false);
+  auto Expected = makeExpectedMat(Params.CompType, Params.M, Params.N,
+                                  FillValue, /*Increment=*/false);
 
-  auto Op = createComputeOp(StoreMemoryShader, "cs_6_10", "UAV(u0)",
-                            Args.c_str());
+  auto Op =
+      createComputeOp(StoreMemoryShader, "cs_6_10", "UAV(u0)", Args.c_str());
   addUAVBuffer(Op.get(), "Output", BufferSize, true);
   addRootUAV(Op.get(), 0, "Output");
 
@@ -1593,7 +1592,8 @@ void DxilConf_SM610_LinAlg::StoreMemory_Wave_16x16_F16() {
   Params.Layout = LinalgMatrixLayout::RowMajor;
   Params.NumThreads = 64;
   Params.Enable16Bit = true;
-  runStoreMemory(D3DDevice, DxcSupport, Params, VerboseLogging, /*FillValue=*/7.0f);
+  runStoreMemory(D3DDevice, DxcSupport, Params, VerboseLogging,
+                 /*FillValue=*/7.0f);
 }
 
 static const char AccumulateMemoryShader[] = R"(
@@ -1631,9 +1631,9 @@ static const char AccumulateMemoryShader[] = R"(
 )";
 
 static void runAccumulateMemory(ID3D12Device *Device,
-                                   dxc::SpecificDllLoader &DxcSupport,
-                                   const MatrixParams &Params, bool Verbose,
-                                   float FillValue) {
+                                dxc::SpecificDllLoader &DxcSupport,
+                                const MatrixParams &Params, bool Verbose,
+                                float FillValue) {
   const size_t NumElements = Params.totalElements();
   const size_t BufferSize = Params.totalBytes();
 
@@ -1643,10 +1643,10 @@ static void runAccumulateMemory(ID3D12Device *Device,
 
   std::string Args = buildCompilerArgs(Params, ExtraDefs.str().c_str());
 
-  compileShader(DxcSupport, AccumulateMemoryShader, "cs_6_10", Args,
-                Verbose);
+  compileShader(DxcSupport, AccumulateMemoryShader, "cs_6_10", Args, Verbose);
 
-  auto Expected = makeExpectedMat(Params.CompType, Params.M, Params.N, FillValue * 2, /*Increment=*/false);
+  auto Expected = makeExpectedMat(Params.CompType, Params.M, Params.N,
+                                  FillValue * 2, /*Increment=*/false);
 
   auto Op = createComputeOp(AccumulateMemoryShader, "cs_6_10", "UAV(u0)",
                             Args.c_str());
@@ -1672,7 +1672,8 @@ void DxilConf_SM610_LinAlg::AccumulateMemory_Wave_16x16_F16() {
   Params.Layout = LinalgMatrixLayout::RowMajor;
   Params.NumThreads = 64;
   Params.Enable16Bit = true;
-  runAccumulateMemory(D3DDevice, DxcSupport, Params, VerboseLogging, /*FillValue=*/7.0f);
+  runAccumulateMemory(D3DDevice, DxcSupport, Params, VerboseLogging,
+                      /*FillValue=*/7.0f);
 }
 
 static const char ConvertShader[] = R"(
@@ -1693,9 +1694,8 @@ static const char ConvertShader[] = R"(
   }
 )";
 
-static void runConvert(ID3D12Device *Device,
-                                dxc::SpecificDllLoader &DxcSupport,
-                                bool Verbose) {
+static void runConvert(ID3D12Device *Device, dxc::SpecificDllLoader &DxcSupport,
+                       bool Verbose) {
   std::string Args = "-HV 202x";
   MatrixDim NumElements = 4;
   size_t BufferSize = elementSize(ComponentType::F32) * NumElements;
@@ -1704,8 +1704,7 @@ static void runConvert(ID3D12Device *Device,
 
   auto Expected = makeExpectedVec(ComponentType::F32, NumElements, 1.0);
 
-  auto Op = createComputeOp(ConvertShader, "cs_6_10", "UAV(u0)",
-                            Args.c_str());
+  auto Op = createComputeOp(ConvertShader, "cs_6_10", "UAV(u0)", Args.c_str());
   addUAVBuffer(Op.get(), "Output", BufferSize, true);
   addRootUAV(Op.get(), 0, "Output");
 
