@@ -864,7 +864,9 @@ const SpirvType *LowerTypeVisitor::lowerVkTypeInVkNamespace(
     constexpr size_t sampledTexturePrefixLength = sizeof("SampledTexture") - 1;
     StringRef suffix = name.drop_front(sampledTexturePrefixLength);
     const spv::Dim dimension =
-        suffix.startswith("1D") ? spv::Dim::Dim1D : spv::Dim::Dim2D;
+        suffix.startswith("1D")
+            ? spv::Dim::Dim1D
+            : (suffix.startswith("2D") ? spv::Dim::Dim2D : spv::Dim::Dim3D);
     const bool isArray = suffix.endswith("Array");
     const bool isMS = suffix.find("MS") != StringRef::npos;
 
