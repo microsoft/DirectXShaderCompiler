@@ -272,7 +272,7 @@ class Matrix {
 
   static Matrix Load(ByteAddressBuffer Res, uint StartOffset, uint Stride,
                      MatrixLayoutEnum Layout,
-                     uint Align = sizeof(ElementType)) {
+                     uint Align = 128) {
     Matrix Result;
     __builtin_LinAlg_MatrixLoadFromDescriptor(Result.__handle, Res, StartOffset,
                                               Stride, Layout, Align);
@@ -281,7 +281,7 @@ class Matrix {
 
   static Matrix Load(RWByteAddressBuffer Res, uint StartOffset, uint Stride,
                      MatrixLayoutEnum Layout,
-                     uint Align = sizeof(ElementType)) {
+                     uint Align = 128) {
     Matrix Result;
     __builtin_LinAlg_MatrixLoadFromDescriptor(Result.__handle, Res, StartOffset,
                                               Stride, Layout, Align);
@@ -331,7 +331,7 @@ class Matrix {
   }
 
   void Store(RWByteAddressBuffer Res, uint StartOffset, uint Stride,
-             MatrixLayoutEnum Layout, uint Align = sizeof(ElementType)) {
+             MatrixLayoutEnum Layout, uint Align = 128) {
     __builtin_LinAlg_MatrixStoreToDescriptor(__handle, Res, StartOffset, Stride,
                                              Layout, Align);
   }
@@ -352,7 +352,7 @@ class Matrix {
                            void>::type
   InterlockedAccumulate(RWByteAddressBuffer Res, uint StartOffset, uint Stride,
                         MatrixLayoutEnum Layout,
-                        uint Align = sizeof(ElementType)) {
+                        uint Align = 128) {
     __builtin_LinAlg_MatrixAccumulateToDescriptor(__handle, Res, StartOffset,
                                                   Stride, Layout, Align);
   }
@@ -410,7 +410,7 @@ class Matrix<ComponentTy, M, N, Use, MatrixScope::Thread> {
   static typename hlsl::enable_if<Use == MatrixUse::A && UseLocal == Use,
                                   Matrix>::type
   Load(ByteAddressBuffer Res, uint StartOffset, uint Stride,
-       uint Align = sizeof(ElementType)) {
+       uint Align = 128) {
     Matrix Result;
     __builtin_LinAlg_MatrixLoadFromDescriptor(Result.__handle, Res, StartOffset,
                                               Stride, Layout, Align);
