@@ -348,6 +348,9 @@ public:
   // Query Accumulator Layout
   TEST_METHOD(QueryAccumLayout);
 
+  // Convert
+  TEST_METHOD(Convert);
+
 private:
   CComPtr<ID3D12Device> D3DDevice;
   dxc::SpecificDllLoader DxcSupport;
@@ -1670,6 +1673,53 @@ void DxilConf_SM610_LinAlg::AccumulateMemory_Wave_16x16_F16() {
   Params.NumThreads = 64;
   Params.Enable16Bit = true;
   runAccumulateMemory(D3DDevice, DxcSupport, Params, VerboseLogging, /*FillValue=*/7.0f);
+}
+
+static const char ConvertShader[] = R"(
+  #define CT_F16 8
+  #define CT_F32 9
+
+  RWByteAddressBuffer Output : register(u0);
+
+  [numthreads(1, 1, 1)]
+  void main() {
+    vector<half, 4> InVec = {1.0, 2.0, 3.0, 4.0};
+    vector<float, 4> OutVec;
+    __builtin_LinAlg_Convert(OutVec, InVec, CT_F16, CT_F32);
+    Output.Store<float>(0, OutVec.x);
+    Output.Store<float>(4, OutVec.y);
+    Output.Store<float>(8, OutVec.z);
+    Output.Store<float>(12, OutVec.w);
+  }
+)";
+
+static void runConvert(ID3D12Device *Device,
+                                dxc::SpecificDllLoader &DxcSupport,
+                                bool Verbose) {
+  std::string Args = "-HV 202x";
+  MatrixDim NumElements = 4;
+  size_t BufferSize = elementSize(ComponentType::F32) * NumElements;
+
+  compileShader(DxcSupport, ConvertShader, "cs_6_10", Args, Verbose);
+
+  auto Expected = makeExpectedVec(ComponentType::F32, NumElements, 1.0);
+
+  auto Op = createComputeOp(ConvertShader, "cs_6_10", "UAV(u0)",
+                            Args.c_str());
+  addUAVBuffer(Op.get(), "Output", BufferSize, true);
+  addRootUAV(Op.get(), 0, "Output");
+
+  auto Result = runShaderOp(Device, DxcSupport, std::move(Op));
+
+  MappedData OutData;
+  Result->Test->GetReadBackData("Output", &OutData);
+
+  VERIFY_IS_TRUE(verifyComponentBuffer(ComponentType::F32, OutData.data(),
+                                       Expected, NumElements, Verbose));
+}
+
+void DxilConf_SM610_LinAlg::Convert() {
+  runConvert(D3DDevice, DxcSupport, VerboseLogging);
 }
 
 } // namespace LinAlg
