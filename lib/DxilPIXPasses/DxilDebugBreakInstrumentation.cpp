@@ -87,7 +87,8 @@ bool DxilDebugBreakInstrumentation::runOnModule(Module &M) {
 
     uint32_t InstructionNumber = 0;
     if (!pix_dxil::PixDxilInstNum::FromInst(CI, &InstructionNumber)) {
-      DXASSERT(false, "Failed to extract PIX instruction number metadata from DebugBreak call");
+      DXASSERT(false, "Failed to extract PIX instruction number metadata from "
+                      "DebugBreak call");
     }
 
     // The output UAV is treated as a bit array where each bit corresponds
