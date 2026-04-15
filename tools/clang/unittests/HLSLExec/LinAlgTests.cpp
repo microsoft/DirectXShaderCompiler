@@ -407,8 +407,8 @@ static const char LoadStoreDescriptorShader[] = R"(
 
   [WaveSize(4, 64)]
   [numthreads(NUMTHREADS, 1, 1)]
-  void main(uint threadID : SV_GroupIndex) {
-    if (WaveReadLaneFirst(threadID) != 0)
+  void main() {
+    if (GetGroupWaveIndex() != 0)
       return;
 
     __builtin_LinAlgMatrix
@@ -480,8 +480,8 @@ static const char SplatStoreShader[] = R"(
 
   [WaveSize(4, 64)]
   [numthreads(NUMTHREADS, 1, 1)]
-  void main(uint threadID : SV_GroupIndex) {
-    if (WaveReadLaneFirst(threadID) != 0)
+  void main() {
+    if (GetGroupWaveIndex() != 0)
       return;
 
     __builtin_LinAlgMatrix
@@ -545,8 +545,8 @@ static const char AccumulateDescriptorShader[] = R"(
 
   [WaveSize(4, 64)]
   [numthreads(NUMTHREADS, 1, 1)]
-  void main(uint threadID : SV_GroupIndex) {
-    if (WaveReadLaneFirst(threadID) != 0)
+  void main() {
+    if (GetGroupWaveIndex() != 0)
       return;
 
     __builtin_LinAlgMatrix
@@ -639,7 +639,7 @@ static const char ElementAccessShader[] = R"(
   [WaveSize(4, 64)]
   [numthreads(NUMTHREADS, 1, 1)]
   void main(uint threadID : SV_GroupIndex) {
-    if (WaveReadLaneFirst(threadID) != 0)
+    if (GetGroupWaveIndex() != 0)
       return;
 
     __builtin_LinAlgMatrix
@@ -735,8 +735,8 @@ static const char ElementSetShader[] = R"(
 
   [WaveSize(4, 64)]
   [numthreads(NUMTHREADS, 1, 1)]
-  void main(uint threadID : SV_GroupIndex) {
-    if (WaveReadLaneFirst(threadID) != 0)
+  void main() {
+    if (GetGroupWaveIndex() != 0)
       return;
 
     __builtin_LinAlgMatrix
@@ -815,8 +815,8 @@ static const char CopyConvertShader[] = R"(
 
   [WaveSize(4, 64)]
   [numthreads(NUMTHREADS, 1, 1)]
-  void main(uint threadID : SV_GroupIndex) {
-    if (WaveReadLaneFirst(threadID) != 0)
+  void main() {
+    if (GetGroupWaveIndex() != 0)
       return;
 
     __builtin_LinAlgMatrix
@@ -912,8 +912,8 @@ static const char MatMatMulShader[] = R"(
 
   [WaveSize(4, 64)]
   [numthreads(NUMTHREADS, 1, 1)]
-  void main(uint threadID : SV_GroupIndex) {
-    if (WaveReadLaneFirst(threadID) != 0)
+  void main() {
+    if (GetGroupWaveIndex() != 0)
       return;
 
     __builtin_LinAlgMatrix
@@ -991,8 +991,8 @@ static const char MatMatMulAccumShader[] = R"(
 
   [WaveSize(4, 64)]
   [numthreads(NUMTHREADS, 1, 1)]
-  void main(uint threadID : SV_GroupIndex) {
-    if (WaveReadLaneFirst(threadID) != 0)
+  void main() {
+    if (GetGroupWaveIndex() != 0)
       return;
 
     __builtin_LinAlgMatrix
@@ -1074,8 +1074,8 @@ static const char MatAccumShader[] = R"(
 
   [WaveSize(4, 64)]
   [numthreads(NUMTHREADS, 1, 1)]
-  void main(uint threadID : SV_GroupIndex) {
-    if (WaveReadLaneFirst(threadID) != 0)
+  void main() {
+    if (GetGroupWaveIndex() != 0)
       return;
 
     __builtin_LinAlgMatrix
@@ -1462,7 +1462,7 @@ static const char LoadMemoryShader[] = R"(
 
     GroupMemoryBarrierWithGroupSync();
 
-    if (WaveReadLaneFirst(threadID) != 0)
+    if (GetGroupWaveIndex() != 0)
       return;
 
     __builtin_LinAlgMatrix
@@ -1532,8 +1532,8 @@ static const char StoreMemoryShader[] = R"(
 
   [WaveSize(4, 64)]
   [numthreads(NUMTHREADS, 1, 1)]
-  void main(uint threadID : SV_GroupIndex) {
-    if (WaveReadLaneFirst(threadID) != 0)
+  void main() {
+    if (GetGroupWaveIndex() != 0)
       return;
 
     __builtin_LinAlgMatrix
@@ -1613,7 +1613,7 @@ static const char AccumulateMemoryShader[] = R"(
 
     GroupMemoryBarrierWithGroupSync();
 
-    if (WaveReadLaneFirst(threadID) != 0)
+    if (GetGroupWaveIndex() != 0)
       return;
 
     __builtin_LinAlgMatrix
