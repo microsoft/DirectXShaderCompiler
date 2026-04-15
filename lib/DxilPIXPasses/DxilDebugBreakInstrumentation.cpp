@@ -57,17 +57,14 @@ bool DxilDebugBreakInstrumentation::runOnModule(Module &M) {
 
   Function *DebugBreakFunc =
       HlslOP->GetOpFunc(OP::OpCode::DebugBreak, Type::getVoidTy(Ctx));
-  for (auto UI = DebugBreakFunc->use_begin();
-       UI != DebugBreakFunc->use_end();) {
-    auto &Use = *UI++;
-    DebugBreakCalls.push_back(cast<CallInst>(Use.getUser()));
+  for (const Use &U : DebugBreakFunc->uses()) {
+    DebugBreakCalls.push_back(cast<CallInst>(U.getUser()));
   }
 
   for (CallInst *CI : DebugBreakCalls) {
-    if (!PixUAVResource) {
+    if (!PixUAVResource)
       PixUAVResource =
           PIXPassHelpers::CreateGlobalUAVResource(DM, 0, "PixUAVResource");
-    }
 
     Function *F = CI->getParent()->getParent();
 
@@ -90,7 +87,7 @@ bool DxilDebugBreakInstrumentation::runOnModule(Module &M) {
 
     uint32_t InstructionNumber = 0;
     if (!pix_dxil::PixDxilInstNum::FromInst(CI, &InstructionNumber)) {
-      DXASSERT_NOMSG(false);
+      DXASSERT(false, "Failed to extract PIX instruction number metadata from DebugBreak call");
     }
 
     // The output UAV is treated as a bit array where each bit corresponds
@@ -122,8 +119,8 @@ bool DxilDebugBreakInstrumentation::runOnModule(Module &M) {
     CI->eraseFromParent();
   }
 
-  // Remove the now-unused dx.op.debugBreak function declaration so the
-  // DebugBreak operation is fully eliminated from the module.
+  // Clean up the now-unused declaration. Not strictly required for
+  // correctness, but keeps the module free of dead references.
   if (DebugBreakFunc->use_empty())
     DebugBreakFunc->eraseFromParent();
 
