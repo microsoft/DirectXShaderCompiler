@@ -7134,6 +7134,12 @@ class db_dxil(object):
             "HLSL DXIL NonUniformResourceIndex instrumentation for PIX",
             [],
         )
+        add_pass(
+            "hlsl-dxil-debugbreak-instrumentation",
+            "DxilDebugBreakInstrumentation",
+            "HLSL DXIL DebugBreak instrumentation for PIX",
+            [],
+        )
 
         category_lib = "dxil_gen"
 

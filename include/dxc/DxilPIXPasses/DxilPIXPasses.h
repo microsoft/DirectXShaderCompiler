@@ -28,6 +28,7 @@ ModulePass *createDxilShaderAccessTrackingPass();
 ModulePass *createDxilPIXAddTidToAmplificationShaderPayloadPass();
 ModulePass *createDxilPIXDXRInvocationsLogPass();
 ModulePass *createDxilNonUniformResourceIndexInstrumentationPass();
+ModulePass *createDxilDebugBreakInstrumentationPass();
 
 void initializeDxilAddPixelHitInstrumentationPass(llvm::PassRegistry &);
 void initializeDxilDbgValueToDbgDeclarePass(llvm::PassRegistry &);
@@ -44,5 +45,6 @@ void initializeDxilPIXAddTidToAmplificationShaderPayloadPass(
 void initializeDxilPIXDXRInvocationsLogPass(llvm::PassRegistry &);
 void initializeDxilNonUniformResourceIndexInstrumentationPass(
     llvm::PassRegistry &);
+void initializeDxilDebugBreakInstrumentationPass(llvm::PassRegistry &);
 
 } // namespace llvm
