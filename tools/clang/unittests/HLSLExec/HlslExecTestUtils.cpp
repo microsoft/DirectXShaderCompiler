@@ -691,7 +691,30 @@ void addUAVBuffer(st::ShaderOp *Op, const char *Name, UINT64 Width,
   Op->Resources.push_back(Res);
 }
 
-void addRootUAV(st::ShaderOp *Op, UINT Index, const char *ResName) {
+void addSRVBuffer(st::ShaderOp *Op, const char *Name, UINT64 Width,
+                  const char *Init) {
+  st::ShaderOpResource Res = {};
+  Res.Name = Op->Strings.insert(Name);
+  Res.Init = Op->Strings.insert(Init);
+  Res.ReadBack = FALSE;
+
+  Res.HeapProperties.Type = D3D12_HEAP_TYPE_DEFAULT;
+  Res.HeapFlags = D3D12_HEAP_FLAG_NONE;
+  Res.Desc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
+  Res.Desc.Width = Width;
+  Res.Desc.Height = 1;
+  Res.Desc.DepthOrArraySize = 1;
+  Res.Desc.MipLevels = 1;
+  Res.Desc.SampleDesc.Count = 1;
+  Res.Desc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
+  Res.Desc.Flags = D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
+  Res.InitialResourceState = D3D12_RESOURCE_STATE_COPY_DEST;
+  Res.TransitionTo = D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
+
+  Op->Resources.push_back(Res);
+}
+
+void addRootView(st::ShaderOp *Op, UINT Index, const char *ResName) {
   st::ShaderOpRootValue RV = {};
   RV.ResName = Op->Strings.insert(ResName);
   RV.HeapName = nullptr;

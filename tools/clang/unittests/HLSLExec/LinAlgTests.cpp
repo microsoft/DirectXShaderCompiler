@@ -443,8 +443,8 @@ static void runLoadStoreDescriptor(ID3D12Device *Device,
                             "UAV(u0), UAV(u1)", Args.c_str());
   addUAVBuffer(Op.get(), "Input", BufferSize, false, "byname");
   addUAVBuffer(Op.get(), "Output", BufferSize, true);
-  addRootUAV(Op.get(), 0, "Input");
-  addRootUAV(Op.get(), 1, "Output");
+  addRootView(Op.get(), 0, "Input");
+  addRootView(Op.get(), 1, "Output");
 
   auto Result =
       runShaderOp(Device, DxcSupport, std::move(Op),
@@ -513,7 +513,7 @@ static void runSplatStore(ID3D12Device *Device,
   auto Op =
       createComputeOp(SplatStoreShader, "cs_6_10", "UAV(u0)", Args.c_str());
   addUAVBuffer(Op.get(), "Output", BufferSize, true);
-  addRootUAV(Op.get(), 0, "Output");
+  addRootView(Op.get(), 0, "Output");
 
   auto Result = runShaderOp(Device, DxcSupport, std::move(Op));
 
@@ -578,10 +578,10 @@ static void runAccumulateDescriptor(ID3D12Device *Device,
 
   auto Op = createComputeOp(AccumulateDescriptorShader, "cs_6_10",
                             "SRV(t0), UAV(u1)", Args.c_str());
-  addUAVBuffer(Op.get(), "Input", BufferSize, false, "byname");
+  addSRVBuffer(Op.get(), "Input", BufferSize, "byname");
   addUAVBuffer(Op.get(), "Output", BufferSize, true);
-  addRootUAV(Op.get(), 0, "Input");
-  addRootUAV(Op.get(), 1, "Output");
+  addRootView(Op.get(), 0, "Input");
+  addRootView(Op.get(), 1, "Output");
 
   auto Result = runShaderOp(
       Device, DxcSupport, std::move(Op),
@@ -685,8 +685,8 @@ static void runElementAccess(ID3D12Device *Device,
                             Args.c_str());
   addUAVBuffer(Op.get(), "Input", MatrixSize, false, "byname");
   addUAVBuffer(Op.get(), "Output", OutputBufSize, true);
-  addRootUAV(Op.get(), 0, "Input");
-  addRootUAV(Op.get(), 1, "Output");
+  addRootView(Op.get(), 0, "Input");
+  addRootView(Op.get(), 1, "Output");
 
   auto Result =
       runShaderOp(Device, DxcSupport, std::move(Op),
@@ -776,8 +776,8 @@ static void runElementSet(ID3D12Device *Device,
                             Args.c_str());
   addUAVBuffer(Op.get(), "Input", MatrixSize, false, "byname");
   addUAVBuffer(Op.get(), "Output", MatrixSize, true);
-  addRootUAV(Op.get(), 0, "Input");
-  addRootUAV(Op.get(), 1, "Output");
+  addRootView(Op.get(), 0, "Input");
+  addRootView(Op.get(), 1, "Output");
 
   auto Result =
       runShaderOp(Device, DxcSupport, std::move(Op),
@@ -856,8 +856,8 @@ static void runCopyConvert(ID3D12Device *Device,
                             Args.c_str());
   addUAVBuffer(Op.get(), "Input", BufferSize, false, "byname");
   addUAVBuffer(Op.get(), "Output", BufferSize, true);
-  addRootUAV(Op.get(), 0, "Input");
-  addRootUAV(Op.get(), 1, "Output");
+  addRootView(Op.get(), 0, "Input");
+  addRootView(Op.get(), 1, "Output");
 
   auto Result =
       runShaderOp(Device, DxcSupport, std::move(Op),
@@ -958,7 +958,7 @@ static void runMatMatMul(ID3D12Device *Device,
   auto Op =
       createComputeOp(MatMatMulShader, "cs_6_10", "UAV(u0)", Args.c_str());
   addUAVBuffer(Op.get(), "Output", BufferSize, true);
-  addRootUAV(Op.get(), 0, "Output");
+  addRootView(Op.get(), 0, "Output");
 
   auto Result = runShaderOp(Device, DxcSupport, std::move(Op));
 
@@ -1042,7 +1042,7 @@ static void runMatMatMulAccum(ID3D12Device *Device,
   auto Op =
       createComputeOp(MatMatMulAccumShader, "cs_6_10", "UAV(u0)", Args.c_str());
   addUAVBuffer(Op.get(), "Output", BufferSize, true);
-  addRootUAV(Op.get(), 0, "Output");
+  addRootView(Op.get(), 0, "Output");
 
   auto Result = runShaderOp(Device, DxcSupport, std::move(Op));
 
@@ -1115,7 +1115,7 @@ static void runMatAccum(ID3D12Device *Device,
 
   auto Op = createComputeOp(MatAccumShader, "cs_6_10", "UAV(u0)", Args.c_str());
   addUAVBuffer(Op.get(), "Output", BufferSize, true);
-  addRootUAV(Op.get(), 0, "Output");
+  addRootView(Op.get(), 0, "Output");
 
   auto Result = runShaderOp(Device, DxcSupport, std::move(Op));
 
@@ -1154,7 +1154,7 @@ static const char MatVecMulShader[] = R"(
     __builtin_LinAlg_MatrixLoadFromDescriptor(
       Mat, Input, 0, STRIDE, LAYOUT, 128);
 
-    vector<ELEM_TYPE, M_DIM> InVec;
+    vector<ELEM_TYPE, N_DIM> InVec;
     for (uint I = 0; I < M_DIM; ++I) {
       InVec[I] = Input.Load<ELEM_TYPE>(I * ELEM_SIZE);
     }
@@ -1192,10 +1192,10 @@ static void runMatVecMul(ID3D12Device *Device,
 
   auto Op = createComputeOp(MatVecMulShader, "cs_6_10", "SRV(t0), UAV(u1)",
                             Args.c_str());
-  addUAVBuffer(Op.get(), "Input", BufferSize, false, "byname");
+  addSRVBuffer(Op.get(), "Input", BufferSize, "byname");
   addUAVBuffer(Op.get(), "Output", BufferSize, true);
-  addRootUAV(Op.get(), 0, "Input");
-  addRootUAV(Op.get(), 1, "Output");
+  addRootView(Op.get(), 0, "Input");
+  addRootView(Op.get(), 1, "Output");
 
   auto Result = runShaderOp(
       Device, DxcSupport, std::move(Op),
@@ -1242,7 +1242,7 @@ static const char MatVecMulAddShader[] = R"(
     __builtin_LinAlg_MatrixLoadFromDescriptor(
       Mat, Input, 0, STRIDE, LAYOUT, 128);
 
-    vector<ELEM_TYPE, M_DIM> InVec;
+    vector<ELEM_TYPE, N_DIM> InVec;
     for (uint I = 0; I < M_DIM; ++I) {
       InVec[I] = Input.Load<ELEM_TYPE>(I * ELEM_SIZE);
     }
@@ -1287,10 +1287,10 @@ static void runMatVecMulAdd(ID3D12Device *Device,
 
   auto Op = createComputeOp(MatVecMulAddShader, "cs_6_10", "SRV(t0), UAV(u1)",
                             Args.c_str());
-  addUAVBuffer(Op.get(), "Input", BufferSize, false, "byname");
+  addSRVBuffer(Op.get(), "Input", BufferSize, "byname");
   addUAVBuffer(Op.get(), "Output", BufferSize, true);
-  addRootUAV(Op.get(), 0, "Input");
-  addRootUAV(Op.get(), 1, "Output");
+  addRootView(Op.get(), 0, "Input");
+  addRootView(Op.get(), 1, "Output");
 
   auto Result = runShaderOp(
       Device, DxcSupport, std::move(Op),
@@ -1373,8 +1373,8 @@ static void runOuterProduct(ID3D12Device *Device,
                             Args.c_str());
   addUAVBuffer(Op.get(), "Input", InBuffSize, false, "byname");
   addUAVBuffer(Op.get(), "Output", OutBufferSize, true);
-  addRootUAV(Op.get(), 0, "Input");
-  addRootUAV(Op.get(), 1, "Output");
+  addRootView(Op.get(), 0, "Input");
+  addRootView(Op.get(), 1, "Output");
 
   auto Result = runShaderOp(
       Device, DxcSupport, std::move(Op),
@@ -1426,7 +1426,7 @@ static void runQueryAccumLayout(ID3D12Device *Device,
   auto Op = createComputeOp(QueryAccumLayoutShader, "cs_6_10", "UAV(u0)",
                             Args.c_str());
   addUAVBuffer(Op.get(), "Output", BufferSize, true);
-  addRootUAV(Op.get(), 0, "Output");
+  addRootView(Op.get(), 0, "Output");
 
   auto Result = runShaderOp(Device, DxcSupport, std::move(Op));
 
@@ -1494,8 +1494,8 @@ static void runLoadMemory(ID3D12Device *Device,
                             Args.c_str());
   addUAVBuffer(Op.get(), "Input", BufferSize, false, "byname");
   addUAVBuffer(Op.get(), "Output", BufferSize, true);
-  addRootUAV(Op.get(), 0, "Input");
-  addRootUAV(Op.get(), 1, "Output");
+  addRootView(Op.get(), 0, "Input");
+  addRootView(Op.get(), 1, "Output");
 
   auto Result =
       runShaderOp(Device, DxcSupport, std::move(Op),
@@ -1571,7 +1571,7 @@ static void runStoreMemory(ID3D12Device *Device,
   auto Op =
       createComputeOp(StoreMemoryShader, "cs_6_10", "UAV(u0)", Args.c_str());
   addUAVBuffer(Op.get(), "Output", BufferSize, true);
-  addRootUAV(Op.get(), 0, "Output");
+  addRootView(Op.get(), 0, "Output");
 
   auto Result = runShaderOp(Device, DxcSupport, std::move(Op));
 
@@ -1651,7 +1651,7 @@ static void runAccumulateMemory(ID3D12Device *Device,
   auto Op = createComputeOp(AccumulateMemoryShader, "cs_6_10", "UAV(u0)",
                             Args.c_str());
   addUAVBuffer(Op.get(), "Output", BufferSize, true);
-  addRootUAV(Op.get(), 0, "Output");
+  addRootView(Op.get(), 0, "Output");
 
   auto Result = runShaderOp(Device, DxcSupport, std::move(Op));
 
@@ -1706,7 +1706,7 @@ static void runConvert(ID3D12Device *Device, dxc::SpecificDllLoader &DxcSupport,
 
   auto Op = createComputeOp(ConvertShader, "cs_6_10", "UAV(u0)", Args.c_str());
   addUAVBuffer(Op.get(), "Output", BufferSize, true);
-  addRootUAV(Op.get(), 0, "Output");
+  addRootView(Op.get(), 0, "Output");
 
   auto Result = runShaderOp(Device, DxcSupport, std::move(Op));
 
