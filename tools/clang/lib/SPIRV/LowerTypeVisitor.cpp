@@ -866,7 +866,10 @@ const SpirvType *LowerTypeVisitor::lowerVkTypeInVkNamespace(
     const spv::Dim dimension =
         suffix.startswith("1D")
             ? spv::Dim::Dim1D
-            : (suffix.startswith("2D") ? spv::Dim::Dim2D : spv::Dim::Dim3D);
+            : (suffix.startswith("2D")
+                   ? spv::Dim::Dim2D
+                   : (suffix.startswith("3D") ? spv::Dim::Dim3D
+                                              : spv::Dim::Cube));
     const bool isArray = suffix.endswith("Array");
     const bool isMS = suffix.find("MS") != StringRef::npos;
 

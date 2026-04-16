@@ -4417,6 +4417,8 @@ SpirvEmitter::processBufferTextureGetDimensions(const CXXMemberCallExpr *expr) {
       (typeName == "SampledTexture1DArray" && numArgs > 2) ||
       (typeName == "SampledTexture2D" && numArgs > 2) ||
       (typeName == "SampledTexture2DArray" && numArgs > 3) ||
+      (typeName == "SampledTextureCUBE" && numArgs > 2) ||
+      (typeName == "SampledTextureCUBEArray" && numArgs > 3) ||
       (typeName == "SampledTexture3D" && numArgs > 3) ||
       (typeName == "TextureCube" && numArgs > 2) ||
       (typeName == "Texture3D" && numArgs > 3) ||
