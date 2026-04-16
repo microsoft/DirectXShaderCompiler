@@ -56,7 +56,7 @@ void main(uint ID : SV_GroupID)
 //
 // CHECK: %[[MATA2:.*]] = call %dx.types.LinAlgMatrixC9M4N4U0S1
 // CHECK-SAME: @dx.op.linAlgMatrixLoadFromDescriptor.mC9M4N4U0S1(i32 -2147483634,
-// CHECK-SAME: %dx.types.Handle %{{[0-9]+}}, i32 0, i32 16, i32 1, i32 4)
+// CHECK-SAME: %dx.types.Handle %{{[0-9]+}}, i32 0, i32 16, i32 1, i32 128)
 // CHECK-SAME: ; LinAlgMatrixLoadFromDescriptor(handle,offset,stride,layout,align)
   MatrixATy MatA2 = MatrixATy::Load(BAB, 0, 16, MatrixLayoutEnum::ColMajor);
 
@@ -64,8 +64,8 @@ void main(uint ID : SV_GroupID)
 //
 // CHECK: %[[MATB2:.*]] = call %dx.types.LinAlgMatrixC9M4N4U1S1
 // CHECK-SAME: @dx.op.linAlgMatrixLoadFromDescriptor.mC9M4N4U1S1(i32 -2147483634,
-// CHECK-SAME: %dx.types.Handle %{{[0-9]+}}, i32 256, i32 16, i32 1, i32 4)
-// CHECK-SAME: ; LinAlgMatrixLoadFromDescriptor(handle,offset,stride,layout,align)  
+// CHECK-SAME: %dx.types.Handle %{{[0-9]+}}, i32 256, i32 16, i32 1, i32 128)
+// CHECK-SAME: ; LinAlgMatrixLoadFromDescriptor(handle,offset,stride,layout,align)
   MatrixBTy MatB2;
   MatB2 = MatrixBTy::Load(RWBAB, 256, 16, MatrixLayoutEnum::ColMajor);
 
@@ -87,7 +87,7 @@ void main(uint ID : SV_GroupID)
 // Matrix::GetCoordinate
 //
 // CHECK: call <2 x i32> @dx.op.linAlgMatrixGetCoordinate.mC9M4N4U1S1(i32 -2147483631,
-// CHECK-SAME: %dx.types.LinAlgMatrixC9M4N4U1S1 %[[MATB1]], i32 %[[GROUP_ID]]) 
+// CHECK-SAME: %dx.types.LinAlgMatrixC9M4N4U1S1 %[[MATB1]], i32 %[[GROUP_ID]])
 // CHECK-SAME:; LinAlgMatrixGetCoordinate(matrix,threadLocalIndex)
   uint2 coord = MatB1.GetCoordinate(ID);
 
@@ -110,7 +110,7 @@ void main(uint ID : SV_GroupID)
 //
 // CHECK: call void @dx.op.linAlgMatrixStoreToDescriptor.mC9M4N4U1S1(i32 -2147483628,
 // CHECK-SAME: %dx.types.LinAlgMatrixC9M4N4U1S1 %[[MATB1_2]], %dx.types.Handle %{{[0-9]+}},
-// CHECK-SAME: i32 256, i32 16, i32 1, i32 4)  ;
+// CHECK-SAME: i32 256, i32 16, i32 1, i32 128)  ;
 // CHECK-SAME: LinAlgMatrixStoreToDescriptor(matrix,handle,offset,stride,layout,align)
   MatB1.Store(RWBAB, 256, 16, MatrixLayoutEnum::ColMajor);
 
@@ -129,7 +129,7 @@ void main(uint ID : SV_GroupID)
 // Matrix::InterlockedAccumulate to resource descriptor
 //
 // CHECK: call void @dx.op.linAlgMatrixAccumulateToDescriptor.mC9M4N4U2S1(i32 -2147483621,
-// CHECK-SAME: %dx.types.LinAlgMatrixC9M4N4U2S1 %[[ACCUM0]], %dx.types.Handle %{{[0-9]+}}, i32 0, i32 16, i32 1, i32 4)
+// CHECK-SAME: %dx.types.LinAlgMatrixC9M4N4U2S1 %[[ACCUM0]], %dx.types.Handle %{{[0-9]+}}, i32 0, i32 16, i32 1, i32 128)
 // CHECK-SAME: ; LinAlgMatrixAccumulateToDescriptor(matrix,handle,offset,stride,layout,align)
   AccMat1.InterlockedAccumulate(RWBAB, 0, 16, MatrixLayoutEnum::ColMajor);
 
@@ -160,7 +160,7 @@ void main(uint ID : SV_GroupID)
 // CHECK-SAME: %dx.types.LinAlgMatrixC9M4N4U1S1 %[[MATB2]])
 // CHECK-SAME: ; LinAlgMatrixAccumulate(matrixLHS,matrixRHS)
   AccMat2.Accumulate(MatB2);
- 
+
 // Matrix::MultiplyAccumulate
 //
 // CHECK: %[[ACCUM4:.*]] = call %dx.types.LinAlgMatrixC9M4N4U2S1
@@ -174,7 +174,7 @@ void main(uint ID : SV_GroupID)
 // Matrix::Load for thread-scope matrix
 //
 // CHECK: %[[TSMATA:.*]] = call %dx.types.LinAlgMatrixC9M4N4U0S0 @dx.op.linAlgMatrixLoadFromDescriptor.mC9M4N4U0S0(
-// CHECK-SAME: i32 -2147483634, %dx.types.Handle %{{[0-9]+}}, i32 0, i32 16, i32 1, i32 4) 
+// CHECK-SAME: i32 -2147483634, %dx.types.Handle %{{[0-9]+}}, i32 0, i32 16, i32 1, i32 128)
 // CHECK-SAME: ; LinAlgMatrixLoadFromDescriptor(handle,offset,stride,layout,align)
   TSMatrixATy TSMatA = TSMatrixATy::Load<MatrixLayoutEnum::ColMajor>(BAB, 0, 16);
 
