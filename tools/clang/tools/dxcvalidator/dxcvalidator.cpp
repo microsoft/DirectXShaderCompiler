@@ -26,7 +26,7 @@
 #include "dxc/Support/Global.h"
 #include "dxc/Support/dxcapi.impl.h"
 
-#ifdef _WIN32
+#ifdef _MSC_VER
 #include "dxcetw.h"
 #endif
 

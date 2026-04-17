@@ -50,7 +50,7 @@
 #include "dxc/Support/dxcapi.use.h"
 #include "dxc/Support/microcom.h"
 
-#ifdef _WIN32
+#ifdef _MSC_VER
 #include "dxcetw.h"
 #endif
 #include "dxcompileradapter.h"

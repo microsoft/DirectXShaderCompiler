@@ -238,6 +238,10 @@ endif( CMAKE_SIZEOF_VOID_P EQUAL 8 AND NOT WIN32 )
 
 if (LLVM_BUILD_STATIC)
   set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -static")
+  if(MINGW)
+    # We want to mimic MSVC standalone build here
+    set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -static")
+  endif()
 endif()
 
 if( XCODE )
@@ -425,12 +429,18 @@ elseif( LLVM_COMPILER_IS_GCC_COMPATIBLE )
     append("-Wno-unknown-pragmas" CMAKE_C_FLAGS CMAKE_CXX_FLAGS)
 
     if (MINGW)
+      append("-Wno-cast-function-type-mismatch" CMAKE_C_FLAGS CMAKE_CXX_FLAGS)
       append("-Wno-implicit-fallthrough" CMAKE_C_FLAGS CMAKE_CXX_FLAGS)
       append("-Wno-missing-exception-spec" CMAKE_C_FLAGS CMAKE_CXX_FLAGS)
       append("-Wno-reorder-ctor" CMAKE_C_FLAGS CMAKE_CXX_FLAGS)
       append("-Wno-sign-compare" CMAKE_C_FLAGS CMAKE_CXX_FLAGS)
       append("-Wno-unused-const-variable" CMAKE_C_FLAGS CMAKE_CXX_FLAGS)
       append("-Wno-unused-function" CMAKE_C_FLAGS CMAKE_CXX_FLAGS)
+      append("-Wno-unused-private-field" CMAKE_C_FLAGS CMAKE_CXX_FLAGS)
+
+      if (CMAKE_BUILD_TYPE STREQUAL "Debug")
+        append("-Wno-gnu-zero-variadic-macro-arguments" CMAKE_C_FLAGS CMAKE_CXX_FLAGS)
+      endif()
     endif()
 
     add_flag_if_supported("-Wno-unused-but-set-variable" UNUSED_BUT_SET_VARIABLE)
