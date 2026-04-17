@@ -160,7 +160,9 @@ static const BYTE IA_R = 0xf0;
 static const BYTE IA_C = 0xf1;
 static const BYTE IA_R2 = 0xf2;
 static const BYTE IA_C2 = 0xf3;
-static const BYTE IA_SPECIAL_SLOTS = 4;
+static const BYTE IA_R3 = 0xf4;
+static const BYTE IA_C3 = 0xf5;
+static const BYTE IA_SPECIAL_SLOTS = 6;
 
 struct HLSL_INTRINSIC_ARGUMENT {
   LPCSTR
@@ -180,10 +182,12 @@ struct HLSL_INTRINSIC_ARGUMENT {
   BYTE uLegalComponentTypes; // A LEGAL_INTRINSIC_COMPTYPES value for allowed
                              // components.
 
-  BYTE uRows; // Required number of rows, or one of IA_R/IA_C/IA_R2/IA_C2 for
-              // matching input constraints.
-  BYTE uCols; // Required number of cols, or one of IA_R/IA_C/IA_R2/IA_C2 for
-              // matching input constraints.
+  BYTE uRows; // Required number of rows, or one of
+              // IA_R/IA_C/IA_R2/IA_C2/IA_R3/IA_C3 for matching input
+              // constraints.
+  BYTE uCols; // Required number of cols, or one of
+              // IA_R/IA_C/IA_R2/IA_C2/IA_R3/IA_C3 for matching input
+              // constraints.
 };
 
 // HLSL_INTRINSIC flags

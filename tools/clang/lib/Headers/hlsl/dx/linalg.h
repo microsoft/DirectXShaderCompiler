@@ -519,26 +519,29 @@ MultiplyAdd(Matrix<MatrixDT, M, K, MatrixUse::A, MatrixScope::Thread> MatrixA,
   return Result;
 }
 
-template <typename OutputElTy, typename InputElTy, ComponentEnum BiasElTy,
+template <typename OutputElTy, typename InputElTy, ComponentEnum BiasInterp,
           SIZE_TYPE M, SIZE_TYPE K, ComponentEnum MatrixDT>
 // clang-format off
 typename hlsl::enable_if<hlsl::is_arithmetic<InputElTy>::value,
                          vector<OutputElTy, M> >::type
 // clang-format on
 MultiplyAdd(Matrix<MatrixDT, M, K, MatrixUse::A, MatrixScope::Thread> MatrixA,
-            vector<InputElTy, K> Vec, VectorRef<BiasElTy, M> BiasRef) {
+            vector<InputElTy, K> Vec, VectorRef<BiasInterp, M> BiasRef) {
   using BiasVecTy =
-      vector<typename __detail::ComponentTypeTraits<BiasElTy>::Type, M>;
+      vector<typename __detail::ComponentTypeTraits<BiasInterp>::Type,
+             (M + __detail::ComponentTypeTraits<BiasInterp>::ElementsPerScalar -
+              1) /
+                 __detail::ComponentTypeTraits<BiasInterp>::ElementsPerScalar>;
   BiasVecTy BiasVec = BiasRef.Buf.template Load<BiasVecTy>(BiasRef.Offset);
   vector<OutputElTy, M> Result;
   __builtin_LinAlg_MatrixVectorMultiplyAdd(Result, MatrixA.__handle,
                                            hlsl::is_signed<OutputElTy>::value,
-                                           Vec, MatrixDT, BiasVec, BiasElTy);
+                                           Vec, MatrixDT, BiasVec, BiasInterp);
   return Result;
 }
 
 template <typename OutputElTy, typename InputElTy, ComponentEnum InputInterp,
-          ComponentEnum BiasElTy, SIZE_TYPE M, SIZE_TYPE VecK, SIZE_TYPE K,
+          ComponentEnum BiasInterp, SIZE_TYPE M, SIZE_TYPE VecK, SIZE_TYPE K,
           ComponentEnum MatrixDT>
 // clang-format off
 typename hlsl::enable_if<
@@ -547,14 +550,18 @@ typename hlsl::enable_if<
 // clang-format on
 MultiplyAdd(Matrix<MatrixDT, M, K, MatrixUse::A, MatrixScope::Thread> MatrixA,
             InterpretedVector<InputElTy, VecK, InputInterp> InterpVec,
-            VectorRef<BiasElTy, M> BiasRef) {
+            VectorRef<BiasInterp, M> BiasRef) {
   using BiasVecTy =
-      vector<typename __detail::ComponentTypeTraits<BiasElTy>::Type, M>;
+      vector<typename __detail::ComponentTypeTraits<BiasInterp>::Type,
+             (M + __detail::ComponentTypeTraits<BiasInterp>::ElementsPerScalar -
+              1) /
+                 __detail::ComponentTypeTraits<BiasInterp>::ElementsPerScalar>;
+
   BiasVecTy BiasVec = BiasRef.Buf.template Load<BiasVecTy>(BiasRef.Offset);
   vector<OutputElTy, M> Result;
   __builtin_LinAlg_MatrixVectorMultiplyAdd(
       Result, MatrixA.__handle, hlsl::is_signed<OutputElTy>::value,
-      InterpVec.Data, InterpVec.Interpretation, BiasVec, BiasElTy);
+      InterpVec.Data, InterpVec.Interpretation, BiasVec, BiasInterp);
   return Result;
 }
 

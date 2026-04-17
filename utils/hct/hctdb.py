@@ -9467,7 +9467,7 @@ class db_hlsl(object):
             "LinAlg": "LICOMPTYPE_LINALG",
         }
 
-        self.trans_rowcol = {"r": "IA_R", "c": "IA_C", "r2": "IA_R2", "c2": "IA_C2"}
+        self.trans_rowcol = {"r": "IA_R", "c": "IA_C", "r2": "IA_R2", "c2": "IA_C2", "r3": "IA_R3", "c3": "IA_C3"}
         self.param_qual = {
             "in": "AR_QUAL_IN",
             "inout": "AR_QUAL_IN | AR_QUAL_OUT",
