@@ -73,11 +73,13 @@ struct MatrixParams {
   bool Enable16Bit;
   bool EmulateTest;
 
-  size_t strideBytes() const {
+  size_t rowStride() const {
     uint32_t ES = elementSize(CompType);
     if (Layout == LinalgMatrixLayout::RowMajor)
       return N * ES;
-    return M * ES;
+    if (Layout == LinalgMatrixLayout::ColumnMajor)
+      return M * ES;
+    return 0;
   }
 
   size_t totalElements() const { return M * N; }
@@ -94,7 +96,7 @@ static std::string buildCompilerArgs(const MatrixParams &Params,
   SS << " -DN_DIM=" << Params.N;
   SS << " -DUSE=" << static_cast<int>(Params.Use);
   SS << " -DSCOPE=" << static_cast<int>(Params.Scope);
-  SS << " -DSTRIDE=" << Params.strideBytes();
+  SS << " -DSTRIDE=" << Params.rowStride();
   SS << " -DLAYOUT=" << static_cast<int>(Params.Layout);
   SS << " -DELEM_SIZE=" << static_cast<int>(elementSize(Params.CompType));
   SS << " -DNUMTHREADS=" << Params.NumThreads;
@@ -620,7 +622,7 @@ void DxilConf_SM610_LinAlg::AccumulateDescriptor_Thread_16x16_F16() {
   Params.N = 16;
   Params.Use = MatrixUse::Accumulator;
   Params.Scope = MatrixScope::Thread;
-  Params.Layout = LinalgMatrixLayout::RowMajor;
+  Params.Layout = LinalgMatrixLayout::OuterProductOptimal;
   Params.NumThreads = 1;
   Params.Enable16Bit = true;
   runAccumulateDescriptor(D3DDevice, DxcSupport, Params, 19, VerboseLogging);
@@ -1220,7 +1222,7 @@ void DxilConf_SM610_LinAlg::MatVecMul_Thread_16x16_F16() {
   Params.M = 16;
   Params.N = 16;
   Params.Scope = MatrixScope::Thread;
-  Params.Layout = LinalgMatrixLayout::RowMajor;
+  Params.Layout = LinalgMatrixLayout::OuterProductOptimal;
   Params.NumThreads = 1;
   Params.Enable16Bit = true;
   runMatVecMul(D3DDevice, DxcSupport, Params, VerboseLogging,
@@ -1315,7 +1317,7 @@ void DxilConf_SM610_LinAlg::MatVecMulAdd_Thread_16x16_F16() {
   Params.M = 16;
   Params.N = 16;
   Params.Scope = MatrixScope::Thread;
-  Params.Layout = LinalgMatrixLayout::RowMajor;
+  Params.Layout = LinalgMatrixLayout::OuterProductOptimal;
   Params.NumThreads = 1;
   Params.Enable16Bit = true;
   runMatVecMulAdd(D3DDevice, DxcSupport, Params, VerboseLogging,
@@ -1399,7 +1401,7 @@ void DxilConf_SM610_LinAlg::OuterProduct_Thread_16x16_F16() {
   Params.M = 16;
   Params.N = 16;
   Params.Scope = MatrixScope::Thread;
-  Params.Layout = LinalgMatrixLayout::RowMajor;
+  Params.Layout = LinalgMatrixLayout::OuterProductOptimal;
   Params.NumThreads = 1;
   Params.Enable16Bit = true;
   runOuterProduct(D3DDevice, DxcSupport, Params, VerboseLogging);
