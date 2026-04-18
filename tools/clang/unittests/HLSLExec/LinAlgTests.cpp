@@ -322,7 +322,6 @@ public:
   TEST_METHOD(LoadStoreDescriptor_Wave_16x16_F16);
   TEST_METHOD(SplatStore_Wave_16x16_F16);
   TEST_METHOD(AccumulateDescriptor_Wave_16x16_F16);
-  TEST_METHOD(AccumulateDescriptor_Thread_16x16_F16);
 
   // Load/Store/Accumulate Memory
   TEST_METHOD(LoadMemory_Wave_16x16_F16);
@@ -539,6 +538,9 @@ void DxilConf_SM610_LinAlg::SplatStore_Wave_16x16_F16() {
   runSplatStore(D3DDevice, DxcSupport, Params, 42.0f, VerboseLogging);
 }
 
+// Since MatrixAccumulateToDescriptor requires an accumulator matrix and
+// MatrixLoadFromDescriptor always returns an A matrix when loading a Thread
+// matrix this shader only makes sense for Wave/ThreadGroup
 static const char AccumulateDescriptorShader[] = R"(
   #define USE_ACC 2
 
@@ -613,19 +615,6 @@ void DxilConf_SM610_LinAlg::AccumulateDescriptor_Wave_16x16_F16() {
   Params.NumThreads = 64;
   Params.Enable16Bit = true;
   runAccumulateDescriptor(D3DDevice, DxcSupport, Params, 12, VerboseLogging);
-}
-
-void DxilConf_SM610_LinAlg::AccumulateDescriptor_Thread_16x16_F16() {
-  MatrixParams Params = {};
-  Params.CompType = ComponentType::F16;
-  Params.M = 16;
-  Params.N = 16;
-  Params.Use = MatrixUse::Accumulator;
-  Params.Scope = MatrixScope::Thread;
-  Params.Layout = LinalgMatrixLayout::OuterProductOptimal;
-  Params.NumThreads = 1;
-  Params.Enable16Bit = true;
-  runAccumulateDescriptor(D3DDevice, DxcSupport, Params, 19, VerboseLogging);
 }
 
 static const char ElementAccessShader[] = R"(
@@ -1222,7 +1211,7 @@ void DxilConf_SM610_LinAlg::MatVecMul_Thread_16x16_F16() {
   Params.M = 16;
   Params.N = 16;
   Params.Scope = MatrixScope::Thread;
-  Params.Layout = LinalgMatrixLayout::OuterProductOptimal;
+  Params.Layout = LinalgMatrixLayout::RowMajor;
   Params.NumThreads = 1;
   Params.Enable16Bit = true;
   runMatVecMul(D3DDevice, DxcSupport, Params, VerboseLogging,
@@ -1317,7 +1306,7 @@ void DxilConf_SM610_LinAlg::MatVecMulAdd_Thread_16x16_F16() {
   Params.M = 16;
   Params.N = 16;
   Params.Scope = MatrixScope::Thread;
-  Params.Layout = LinalgMatrixLayout::OuterProductOptimal;
+  Params.Layout = LinalgMatrixLayout::RowMajor;
   Params.NumThreads = 1;
   Params.Enable16Bit = true;
   runMatVecMulAdd(D3DDevice, DxcSupport, Params, VerboseLogging,
@@ -1326,8 +1315,14 @@ void DxilConf_SM610_LinAlg::MatVecMulAdd_Thread_16x16_F16() {
 }
 
 static const char OuterProductShader[] = R"(
-  #define USE_A 0
+  // OuterProduct Matrix must be Thread scope
   #define SCOPE_THREAD 0
+  // OuterProduct/Accumulate must be Accumulator use
+  #define USE_ACC 2
+  // Accumulate Layout must be OuterProductOptimal
+  #define LAYOUT_OUTER_PROD_OPT 4
+  // Accumulate Stride msut be 0 for non Row/Col Major
+  #define STRIDE 0
 
   RWByteAddressBuffer Input : register(u0);
   RWByteAddressBuffer Output : register(u1);
@@ -1347,12 +1342,12 @@ static const char OuterProductShader[] = R"(
     }
 
     __builtin_LinAlgMatrix
-      [[__LinAlgMatrix_Attributes(COMP_TYPE, M_DIM, N_DIM, USE_A, SCOPE_THREAD)]]
+      [[__LinAlgMatrix_Attributes(COMP_TYPE, M_DIM, N_DIM, USE_ACC, SCOPE_THREAD)]]
       Mat;
     __builtin_LinAlg_MatrixOuterProduct(Mat, VecA, VecB);
 
     __builtin_LinAlg_MatrixAccumulateToDescriptor(
-      Mat, Output, 0, STRIDE, LAYOUT, 128);
+      Mat, Output, 0, STRIDE, LAYOUT_OUTER_PROD_OPT, 128);
   }
 )";
 
@@ -1400,6 +1395,7 @@ void DxilConf_SM610_LinAlg::OuterProduct_Thread_16x16_F16() {
   Params.CompType = ComponentType::F16;
   Params.M = 16;
   Params.N = 16;
+  Params.Use = MatrixUse::Accumulator;
   Params.Scope = MatrixScope::Thread;
   Params.Layout = LinalgMatrixLayout::OuterProductOptimal;
   Params.NumThreads = 1;
