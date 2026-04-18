@@ -506,7 +506,7 @@ template <typename OutputElTy, typename InputElTy, ComponentEnum InputInterp,
           ComponentEnum MatrixDT>
 // clang-format off
 typename hlsl::enable_if<
-    InterpretedVector<InputElTy, VecK, InputInterp>::Size == K,
+    InterpretedVector<InputElTy, VecK, InputInterp>::Size >= K,
     vector<OutputElTy, M> >::type
 // clang-format on
 MultiplyAdd(Matrix<MatrixDT, M, K, MatrixUse::A, MatrixScope::Thread> MatrixA,
@@ -542,7 +542,7 @@ template <typename OutputElTy, typename InputElTy, ComponentEnum InputInterp,
           ComponentEnum MatrixDT>
 // clang-format off
 typename hlsl::enable_if<
-    InterpretedVector<InputElTy, VecK, InputInterp>::Size == K,
+    InterpretedVector<InputElTy, VecK, InputInterp>::Size >= K,
     vector<OutputElTy, M> >::type
 // clang-format on
 MultiplyAdd(Matrix<MatrixDT, M, K, MatrixUse::A, MatrixScope::Thread> MatrixA,
