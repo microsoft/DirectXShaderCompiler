@@ -204,6 +204,14 @@ template <SIZE_TYPE MVal, SIZE_TYPE NVal> struct DimMN<MVal, NVal, true> {
   static const SIZE_TYPE N = MVal;
 };
 
+template <ComponentEnum CompTy, SIZE_TYPE PackedComponentCount>
+struct ScalarCountFromPackedComponents {
+  static const SIZE_TYPE ElementsPerScalar =
+      ComponentTypeTraits<CompTy>::ElementsPerScalar;
+  static const SIZE_TYPE Value =
+      (PackedComponentCount + ElementsPerScalar - 1) / ElementsPerScalar;
+};
+
 } // namespace __detail
 
 template <ComponentEnum ElementType, uint DimA> struct VectorRef {
@@ -506,7 +514,7 @@ template <typename OutputElTy, typename InputElTy, ComponentEnum InputInterp,
           ComponentEnum MatrixDT>
 // clang-format off
 typename hlsl::enable_if<
-    InterpretedVector<InputElTy, VecK, InputInterp>::Size >= K,
+    VecK == __detail::ScalarCountFromPackedComponents<InputInterp, K>::Value,
     vector<OutputElTy, M> >::type
 // clang-format on
 MultiplyAdd(Matrix<MatrixDT, M, K, MatrixUse::A, MatrixScope::Thread> MatrixA,
@@ -542,7 +550,7 @@ template <typename OutputElTy, typename InputElTy, ComponentEnum InputInterp,
           ComponentEnum MatrixDT>
 // clang-format off
 typename hlsl::enable_if<
-    InterpretedVector<InputElTy, VecK, InputInterp>::Size >= K,
+    VecK == __detail::ScalarCountFromPackedComponents<InputInterp, K>::Value,
     vector<OutputElTy, M> >::type
 // clang-format on
 MultiplyAdd(Matrix<MatrixDT, M, K, MatrixUse::A, MatrixScope::Thread> MatrixA,
