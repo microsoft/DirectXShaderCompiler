@@ -351,7 +351,9 @@ public:
   // Matrix Vector Arithmetic
   TEST_METHOD(MatVecMul_Thread_16x16_F16);
   TEST_METHOD(MatVecMulAdd_Thread_16x16_F16);
+#if 0
   TEST_METHOD(OuterProduct_Thread_16x16_F16);
+#endif
 
   // Query Accumulator Layout
   TEST_METHOD(QueryAccumLayout);
@@ -1318,6 +1320,7 @@ void DxilConf_SM610_LinAlg::MatVecMulAdd_Thread_16x16_F16() {
                   ComponentType::F16);
 }
 
+#if 0
 static const char OuterProductShader[] = R"(
   #define USE_A 0
   #define SCOPE_THREAD 0
@@ -1389,7 +1392,6 @@ static void runOuterProduct(ID3D12Device *Device,
 }
 
 void DxilConf_SM610_LinAlg::OuterProduct_Thread_16x16_F16() {
-  /*
   MatrixParams Params = {};
   Params.CompType = ComponentType::F16;
   Params.M = 16;
@@ -1399,10 +1401,8 @@ void DxilConf_SM610_LinAlg::OuterProduct_Thread_16x16_F16() {
   Params.NumThreads = 1;
   Params.Enable16Bit = true;
   runOuterProduct(D3DDevice, DxcSupport, Params, VerboseLogging);
-  */
-  hlsl_test::LogCommentFmt(L"Skipping test as not implemented");
-  WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
 }
+#endif
 
 static const char QueryAccumLayoutShader[] = R"(
   RWByteAddressBuffer Output : register(u0);
