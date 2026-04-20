@@ -32,11 +32,11 @@ role of these new tools.
 ## Copilot Code Reviews
 
 Copilot code reviews are allowed.  It's TBD whether we will enable these by
-default for all PRs - but feel free to request a review from copilot.
+default for all PRs - but feel free to request a review from Copilot.
 
 ## Cloud Agents
 
-The cloud-based version of github copilot is a great way to have multiple agents
+The cloud-based version of GitHub Copilot is a great way to have multiple agents
 work simultaneously and autonomously on issues.  However, we require that these
 run in a fork of the repo rather than in the main repo itself.  Then, once the
 change has been crafted such that it is ready for others to review, a PR can be
@@ -45,8 +45,8 @@ opened to merge it into upstream. Rationale:
 * Everyone should be working in a fork rather than creating branches in the main
   repo, agents are no different. 
 * We shouldn't be spamming people watching the main repo with the agent's work.
-* As you're responsible for the work copilot is doing, the PR into upstream
-  should come from you, not from copilot. 
+* As you're responsible for the work Copilot is doing, the PR into upstream
+  should come from you, not from Copilot. 
 
 Note that cloud agents are only able to build and test on Linux, and this
 affects the sort of work an agent can do.
