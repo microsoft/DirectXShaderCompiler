@@ -1400,8 +1400,7 @@ void DxilConf_SM610_LinAlg::OuterProduct_Thread_16x16_F16() {
   Params.Enable16Bit = true;
   runOuterProduct(D3DDevice, DxcSupport, Params, VerboseLogging);
   */
-  hlsl_test::LogCommentFmt(
-          L"Skipping test as not implemented");
+  hlsl_test::LogCommentFmt(L"Skipping test as not implemented");
   WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
 }
 
