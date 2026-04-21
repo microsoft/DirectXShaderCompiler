@@ -516,7 +516,8 @@ MultiplyAdd(Matrix<MatrixDT, M, K, MatrixUse::A, MatrixScope::Thread> MatrixA,
   vector<OutputElTy, M> Result;
   __builtin_LinAlg_MatrixVectorMultiplyAdd(
       Result, MatrixA.__handle, hlsl::is_signed<OutputElTy>::value, Vec,
-      __detail::TypeTraits<InputElTy>::CompType, Bias, __detail::TypeTraits<OutputElTy>::CompType);
+      __detail::TypeTraits<InputElTy>::CompType, Bias,
+      __detail::TypeTraits<OutputElTy>::CompType);
   return Result;
 }
 
