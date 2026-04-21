@@ -17,7 +17,10 @@ The included licenses apply to the following files:
 
 ## Changelog
 
-### Version 1.10.2605 Preview
+### Upcoming Release
+
+Place release notes for the upcoming release below this line and remove this
+line upon naming the release. Refer to previous for appropriate section names.
 
 #### Experimental Shader Model 6.10
 
