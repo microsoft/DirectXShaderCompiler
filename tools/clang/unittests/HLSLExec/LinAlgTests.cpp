@@ -72,21 +72,15 @@ struct MatrixParams {
   int NumThreads;
   bool Enable16Bit;
   bool EmulateTest;
-  bool GroupSharedMemory = false;
 
-  size_t rowStride() const {
-    // If not Row/Col major, spec says to list 0.
-    size_t RowElementCount = 0;
+  size_t strideBytes() const {
+    uint32_t ES = elementSize(CompType);
     if (Layout == LinalgMatrixLayout::RowMajor)
-      RowElementCount = N;
+      return N * ES;
     if (Layout == LinalgMatrixLayout::ColumnMajor)
-      RowElementCount = M;
-
-    if (GroupSharedMemory)
-      return RowElementCount;
-
-    uint32_t ElementSize = elementSize(CompType);
-    return RowElementCount * ElementSize;
+      return M * ES;
+    // If not Row/Col major, spec says to use 0
+    return 0;
   }
 
   size_t totalElements() const { return M * N; }
@@ -103,7 +97,7 @@ static std::string buildCompilerArgs(const MatrixParams &Params,
   SS << " -DN_DIM=" << Params.N;
   SS << " -DUSE=" << static_cast<int>(Params.Use);
   SS << " -DSCOPE=" << static_cast<int>(Params.Scope);
-  SS << " -DSTRIDE=" << Params.rowStride();
+  SS << " -DSTRIDE=" << Params.strideBytes();
   SS << " -DLAYOUT=" << static_cast<int>(Params.Layout);
   SS << " -DELEM_SIZE=" << static_cast<int>(elementSize(Params.CompType));
   SS << " -DNUMTHREADS=" << Params.NumThreads;
@@ -1468,9 +1462,9 @@ static const char LoadMemoryShader[] = R"(
       [[__LinAlgMatrix_Attributes(COMP_TYPE, M_DIM, N_DIM, USE, SCOPE)]]
       Mat;
     __builtin_LinAlg_MatrixLoadFromMemory(
-      Mat, GsData, OFFSET, STRIDE, LAYOUT);
+      Mat, GsData, OFFSET / ELEM_SIZE, STRIDE / ELEM_SIZE, LAYOUT);
     __builtin_LinAlg_MatrixStoreToDescriptor(
-      Mat, Output, OFFSET, STRIDE * ELEM_SIZE, LAYOUT, 128);
+      Mat, Output, OFFSET, STRIDE, LAYOUT, 128);
   }
 )";
 
@@ -1522,7 +1516,6 @@ void DxilConf_SM610_LinAlg::LoadMemory_Wave_16x16_F16() {
   Params.Layout = LinalgMatrixLayout::RowMajor;
   Params.NumThreads = 64;
   Params.Enable16Bit = true;
-  Params.GroupSharedMemory = true;
   runLoadMemory(D3DDevice, DxcSupport, Params, VerboseLogging);
 }
 
@@ -1542,7 +1535,7 @@ static const char StoreMemoryShader[] = R"(
     __builtin_LinAlg_FillMatrix(Mat, FILL_VALUE);
 
     __builtin_LinAlg_MatrixStoreToMemory(
-      Mat, GsData, OFFSET, STRIDE, LAYOUT);
+      Mat, GsData, OFFSET / ELEM_SIZE, STRIDE / ELEM_SIZE, LAYOUT);
 
     for (uint I = 0; I < M_DIM*N_DIM; ++I) {
       Output.Store<ELEM_TYPE>(I*ELEM_SIZE, GsData[I]);
@@ -1592,7 +1585,6 @@ void DxilConf_SM610_LinAlg::StoreMemory_Wave_16x16_F16() {
   Params.Layout = LinalgMatrixLayout::RowMajor;
   Params.NumThreads = 64;
   Params.Enable16Bit = true;
-  Params.GroupSharedMemory = true;
   runStoreMemory(D3DDevice, DxcSupport, Params, VerboseLogging,
                  /*FillValue=*/7.0f);
 }
@@ -1623,7 +1615,7 @@ static const char AccumulateMemoryShader[] = R"(
     __builtin_LinAlg_FillMatrix(Mat, FILL_VALUE);
 
     __builtin_LinAlg_MatrixAccumulateToMemory(
-      Mat, GsData, OFFSET, STRIDE, LAYOUT);
+      Mat, GsData, OFFSET / ELEM_SIZE, STRIDE / ELEM_SIZE, LAYOUT);
 
     for (uint I = 0; I < M_DIM*N_DIM; ++I) {
       Output.Store<ELEM_TYPE>(I*ELEM_SIZE, GsData[I]);
@@ -1673,7 +1665,6 @@ void DxilConf_SM610_LinAlg::AccumulateMemory_Wave_16x16_F16() {
   Params.Layout = LinalgMatrixLayout::RowMajor;
   Params.NumThreads = 64;
   Params.Enable16Bit = true;
-  Params.GroupSharedMemory = true;
   runAccumulateMemory(D3DDevice, DxcSupport, Params, VerboseLogging,
                       /*FillValue=*/7.0f);
 }
