@@ -172,7 +172,7 @@ void main(uint ID : SV_GroupID) {
   // CHECK-NEXT: %[[MEM_BIAS_CONV1:.*]] = call <7 x half> @dx.op.linAlgConvert.v7f16.v2i32(i32 -2147483618,
   // CHECK-SAME: <2 x i32> %[[MEM_BIAS_PACKED1]], i32 21, i32 8)  ; LinAlgConvert(inputVector,inputInterpretation,outputInterpretation)
   // CHECK-NEXT: call <7 x half> @dx.op.linAlgMatVecMulAdd.v7f16.mC21M7N15U0S0.v15f16.v7f16(i32 -2147483622,
-  // CHECK-SAME: %dx.types.LinAlgMatrixC21M7N15U0S0 %[[MAT_7_15_PACKED]], i1 true, <15 x half> %{{[0-9]+}}, i32 21, <7 x half> %[[MEM_BIAS_CONV1]], i32 8)
+  // CHECK-SAME: %dx.types.LinAlgMatrixC21M7N15U0S0 %[[MAT_7_15_PACKED]], i1 true, <15 x half> %{{[0-9]+}}, i32 8, <7 x half> %[[MEM_BIAS_CONV1]], i32 8)
   // CHECK-SAME: ; LinAlgMatVecMulAdd(matrix,isOutputSigned,inputVector,inputInterpretation,biasVector,biasInterpretation)
   VectorRef<ComponentType::F8_E4M3FN, 7> memBias7Packed = {BAB, 512};
   vector<half, 7> vec23 = MultiplyAdd<half>(Mat_7_15_Packed, vecH15, memBias7Packed);
