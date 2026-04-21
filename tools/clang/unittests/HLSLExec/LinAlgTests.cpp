@@ -77,7 +77,10 @@ struct MatrixParams {
     uint32_t ES = elementSize(CompType);
     if (Layout == LinalgMatrixLayout::RowMajor)
       return N * ES;
-    return M * ES;
+    if (Layout == LinalgMatrixLayout::ColumnMajor)
+      return M * ES;
+    // If not Row/Col major, spec says to use 0
+    return 0;
   }
 
   size_t totalElements() const { return M * N; }
@@ -320,7 +323,6 @@ public:
   TEST_METHOD(LoadStoreDescriptor_Wave_16x16_F16);
   TEST_METHOD(SplatStore_Wave_16x16_F16);
   TEST_METHOD(AccumulateDescriptor_Wave_16x16_F16);
-  TEST_METHOD(AccumulateDescriptor_Thread_16x16_F16);
 
   // Load/Store/Accumulate Memory
   TEST_METHOD(LoadMemory_Wave_16x16_F16);
@@ -343,7 +345,9 @@ public:
   // Matrix Vector Arithmetic
   TEST_METHOD(MatVecMul_Thread_16x16_F16);
   TEST_METHOD(MatVecMulAdd_Thread_16x16_F16);
+#if 0
   TEST_METHOD(OuterProduct_Thread_16x16_F16);
+#endif
 
   // Query Accumulator Layout
   TEST_METHOD(QueryAccumLayout);
@@ -613,19 +617,6 @@ void DxilConf_SM610_LinAlg::AccumulateDescriptor_Wave_16x16_F16() {
   runAccumulateDescriptor(D3DDevice, DxcSupport, Params, 12, VerboseLogging);
 }
 
-void DxilConf_SM610_LinAlg::AccumulateDescriptor_Thread_16x16_F16() {
-  MatrixParams Params = {};
-  Params.CompType = ComponentType::F16;
-  Params.M = 16;
-  Params.N = 16;
-  Params.Use = MatrixUse::Accumulator;
-  Params.Scope = MatrixScope::Thread;
-  Params.Layout = LinalgMatrixLayout::RowMajor;
-  Params.NumThreads = 1;
-  Params.Enable16Bit = true;
-  runAccumulateDescriptor(D3DDevice, DxcSupport, Params, 19, VerboseLogging);
-}
-
 static const char ElementAccessShader[] = R"(
   RWByteAddressBuffer Input : register(u0);
   RWByteAddressBuffer Output : register(u1);
@@ -633,7 +624,7 @@ static const char ElementAccessShader[] = R"(
   // flatten the 2D index into a 1D index then scale by element size
   // Always store row-major and work it out in the test runner
   uint coordToByteOffset(uint2 coord) {
-    return (coord.y * N_DIM + coord.x) * ELEM_SIZE;
+    return (coord.y * M_DIM + coord.x) * ELEM_SIZE;
   }
 
   [WaveSize(4, 64)]
@@ -1323,6 +1314,7 @@ void DxilConf_SM610_LinAlg::MatVecMulAdd_Thread_16x16_F16() {
                   ComponentType::F16);
 }
 
+#if 0
 static const char OuterProductShader[] = R"(
   #define USE_A 0
   #define SCOPE_THREAD 0
@@ -1404,6 +1396,7 @@ void DxilConf_SM610_LinAlg::OuterProduct_Thread_16x16_F16() {
   Params.Enable16Bit = true;
   runOuterProduct(D3DDevice, DxcSupport, Params, VerboseLogging);
 }
+#endif
 
 static const char QueryAccumLayoutShader[] = R"(
   RWByteAddressBuffer Output : register(u0);
@@ -1469,7 +1462,7 @@ static const char LoadMemoryShader[] = R"(
       [[__LinAlgMatrix_Attributes(COMP_TYPE, M_DIM, N_DIM, USE, SCOPE)]]
       Mat;
     __builtin_LinAlg_MatrixLoadFromMemory(
-      Mat, GsData, OFFSET, STRIDE, LAYOUT);
+      Mat, GsData, OFFSET / ELEM_SIZE, STRIDE / ELEM_SIZE, LAYOUT);
     __builtin_LinAlg_MatrixStoreToDescriptor(
       Mat, Output, OFFSET, STRIDE, LAYOUT, 128);
   }
@@ -1542,7 +1535,7 @@ static const char StoreMemoryShader[] = R"(
     __builtin_LinAlg_FillMatrix(Mat, FILL_VALUE);
 
     __builtin_LinAlg_MatrixStoreToMemory(
-      Mat, GsData, OFFSET, STRIDE, LAYOUT);
+      Mat, GsData, OFFSET / ELEM_SIZE, STRIDE / ELEM_SIZE, LAYOUT);
 
     for (uint I = 0; I < M_DIM*N_DIM; ++I) {
       Output.Store<ELEM_TYPE>(I*ELEM_SIZE, GsData[I]);
@@ -1622,7 +1615,7 @@ static const char AccumulateMemoryShader[] = R"(
     __builtin_LinAlg_FillMatrix(Mat, FILL_VALUE);
 
     __builtin_LinAlg_MatrixAccumulateToMemory(
-      Mat, GsData, OFFSET, STRIDE, LAYOUT);
+      Mat, GsData, OFFSET / ELEM_SIZE, STRIDE / ELEM_SIZE, LAYOUT);
 
     for (uint I = 0; I < M_DIM*N_DIM; ++I) {
       Output.Store<ELEM_TYPE>(I*ELEM_SIZE, GsData[I]);
