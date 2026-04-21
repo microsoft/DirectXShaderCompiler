@@ -17,7 +17,7 @@ The included licenses apply to the following files:
 
 ## Changelog
 
-### Version 1.10.2605
+### Version 1.10.2605 (preview)
 
 #### Experimental Shader Model 6.10
 
