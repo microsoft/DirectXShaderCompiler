@@ -21,11 +21,11 @@ The included licenses apply to the following files:
 
 #### Experimental Shader Model 6.10
 
-- Removed experimental Cooperative Vector, this has been replaced by LinAlg Matrix.
 - Added DirectX LinAlg Matrix API in experimental Shader Model 6.10.
   - [proposal](https://github.com/microsoft/hlsl-specs/blob/main/proposals/0035-linalg-matrix.md)
   - New `Matrix` type that operates under three "scopes". ThreadScope, WaveScope, ThreadGroupScope
   - Supports a comprehensive set of Matrix operations including matrix-vector and matrix-matrix multiply
+- Removed experimental Cooperative Vector, this has been replaced by LinAlg Matrix.
 - Added GetGroupWaveIndex and GetGroupWaveCount in experimental Shader Model 6.10.
   - [proposal](https://github.com/microsoft/hlsl-specs/blob/main/proposals/0048-group-wave-index.md)
   - GetGroupWaveIndex: New intrinsic for Compute, Mesh, Amplification and Node shaders which returns the index of the wave within the thread group that the the thread is executing.
