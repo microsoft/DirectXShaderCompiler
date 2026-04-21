@@ -186,9 +186,30 @@ __MATRIX_SCALAR_COMPONENT_MAPPING(ComponentType::U64, uint64_t)
 __MATRIX_SCALAR_COMPONENT_MAPPING(ComponentType::F64, double)
 
 template <ComponentEnum DstTy, ComponentEnum SrcTy, int SrcN> struct DstN {
+  // Make sure to round up in case SrcN isn't an even multiple of the number of
+  // elements per scalar
   static const int Value =
-      (SrcN * ComponentTypeTraits<SrcTy>::ElementsPerScalar) /
+      (SrcN * ComponentTypeTraits<SrcTy>::ElementsPerScalar +
+       ComponentTypeTraits<DstTy>::ElementsPerScalar - 1) /
       ComponentTypeTraits<DstTy>::ElementsPerScalar;
+};
+
+template <SIZE_TYPE MVal, SIZE_TYPE NVal, bool Transposed> struct DimMN {
+  static const SIZE_TYPE M = MVal;
+  static const SIZE_TYPE N = NVal;
+};
+
+template <SIZE_TYPE MVal, SIZE_TYPE NVal> struct DimMN<MVal, NVal, true> {
+  static const SIZE_TYPE M = NVal;
+  static const SIZE_TYPE N = MVal;
+};
+
+template <ComponentEnum CompTy, SIZE_TYPE PackedComponentCount>
+struct ScalarCountFromPackedComponents {
+  static const SIZE_TYPE ElementsPerScalar =
+      ComponentTypeTraits<CompTy>::ElementsPerScalar;
+  static const SIZE_TYPE Value =
+      (PackedComponentCount + ElementsPerScalar - 1) / ElementsPerScalar;
 };
 
 } // namespace __detail
@@ -239,8 +260,12 @@ class Matrix {
 
   template <ComponentEnum NewCompTy, MatrixUseEnum NewUse = Use,
             bool Transpose = false>
-  Matrix<NewCompTy, M, N, NewUse, Scope> Cast() {
-    Matrix<NewCompTy, M, N, NewUse, Scope> Result;
+  Matrix<NewCompTy, __detail::DimMN<M, N, Transpose>::M,
+         __detail::DimMN<M, N, Transpose>::N, NewUse, Scope>
+  Cast() {
+    Matrix<NewCompTy, __detail::DimMN<M, N, Transpose>::M,
+           __detail::DimMN<M, N, Transpose>::N, NewUse, Scope>
+        Result;
     __builtin_LinAlg_CopyConvertMatrix(Result.__handle, __handle, Transpose);
     return Result;
   }
@@ -254,8 +279,7 @@ class Matrix {
   }
 
   static Matrix Load(ByteAddressBuffer Res, uint StartOffset, uint Stride,
-                     MatrixLayoutEnum Layout,
-                     uint Align = sizeof(ElementType)) {
+                     MatrixLayoutEnum Layout, uint Align = 128) {
     Matrix Result;
     __builtin_LinAlg_MatrixLoadFromDescriptor(Result.__handle, Res, StartOffset,
                                               Stride, Layout, Align);
@@ -263,8 +287,7 @@ class Matrix {
   }
 
   static Matrix Load(RWByteAddressBuffer Res, uint StartOffset, uint Stride,
-                     MatrixLayoutEnum Layout,
-                     uint Align = sizeof(ElementType)) {
+                     MatrixLayoutEnum Layout, uint Align = 128) {
     Matrix Result;
     __builtin_LinAlg_MatrixLoadFromDescriptor(Result.__handle, Res, StartOffset,
                                               Stride, Layout, Align);
@@ -314,7 +337,7 @@ class Matrix {
   }
 
   void Store(RWByteAddressBuffer Res, uint StartOffset, uint Stride,
-             MatrixLayoutEnum Layout, uint Align = sizeof(ElementType)) {
+             MatrixLayoutEnum Layout, uint Align = 128) {
     __builtin_LinAlg_MatrixStoreToDescriptor(__handle, Res, StartOffset, Stride,
                                              Layout, Align);
   }
@@ -334,8 +357,7 @@ class Matrix {
   typename hlsl::enable_if<Use == MatrixUse::Accumulator && UseLocal == Use,
                            void>::type
   InterlockedAccumulate(RWByteAddressBuffer Res, uint StartOffset, uint Stride,
-                        MatrixLayoutEnum Layout,
-                        uint Align = sizeof(ElementType)) {
+                        MatrixLayoutEnum Layout, uint Align = 128) {
     __builtin_LinAlg_MatrixAccumulateToDescriptor(__handle, Res, StartOffset,
                                                   Stride, Layout, Align);
   }
@@ -392,8 +414,7 @@ class Matrix<ComponentTy, M, N, Use, MatrixScope::Thread> {
   template <MatrixLayoutEnum Layout, MatrixUseEnum UseLocal = Use>
   static typename hlsl::enable_if<Use == MatrixUse::A && UseLocal == Use,
                                   Matrix>::type
-  Load(ByteAddressBuffer Res, uint StartOffset, uint Stride,
-       uint Align = sizeof(ElementType)) {
+  Load(ByteAddressBuffer Res, uint StartOffset, uint Stride, uint Align = 128) {
     Matrix Result;
     __builtin_LinAlg_MatrixLoadFromDescriptor(Result.__handle, Res, StartOffset,
                                               Stride, Layout, Align);
@@ -403,11 +424,9 @@ class Matrix<ComponentTy, M, N, Use, MatrixScope::Thread> {
   template <MatrixUseEnum UseLocal = Use>
   typename hlsl::enable_if<Use == MatrixUse::Accumulator && UseLocal == Use,
                            void>::type
-  InterlockedAccumulate(RWByteAddressBuffer Res, uint StartOffset, uint Stride,
-                        MatrixLayoutEnum Layout,
-                        uint Align = sizeof(ElementType)) {
-    __builtin_LinAlg_MatrixAccumulateToDescriptor(__handle, Res, StartOffset,
-                                                  Stride, Layout, Align);
+  InterlockedAccumulate(RWByteAddressBuffer Res, uint StartOffset) {
+    __builtin_LinAlg_MatrixAccumulateToDescriptor(
+        __handle, Res, StartOffset, 0, MatrixLayout::OuterProductOptimal, 0);
   }
 };
 
@@ -495,7 +514,7 @@ template <typename OutputElTy, typename InputElTy, ComponentEnum InputInterp,
           ComponentEnum MatrixDT>
 // clang-format off
 typename hlsl::enable_if<
-    InterpretedVector<InputElTy, VecK, InputInterp>::Size == K,
+    VecK == __detail::ScalarCountFromPackedComponents<InputInterp, K>::Value,
     vector<OutputElTy, M> >::type
 // clang-format on
 MultiplyAdd(Matrix<MatrixDT, M, K, MatrixUse::A, MatrixScope::Thread> MatrixA,
@@ -531,7 +550,7 @@ template <typename OutputElTy, typename InputElTy, ComponentEnum InputInterp,
           ComponentEnum MatrixDT>
 // clang-format off
 typename hlsl::enable_if<
-    InterpretedVector<InputElTy, VecK, InputInterp>::Size == K,
+    VecK == __detail::ScalarCountFromPackedComponents<InputInterp, K>::Value,
     vector<OutputElTy, M> >::type
 // clang-format on
 MultiplyAdd(Matrix<MatrixDT, M, K, MatrixUse::A, MatrixScope::Thread> MatrixA,

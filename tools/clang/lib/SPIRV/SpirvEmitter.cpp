@@ -1704,8 +1704,8 @@ void SpirvEmitter::doFunctionDecl(const FunctionDecl *decl) {
   for (uint32_t i = 0; i < decl->getNumParams(); ++i) {
     const ParmVarDecl *paramDecl = decl->getParamDecl(i);
     QualType paramType = paramDecl->getType();
-    auto *param =
-        declIdMapper.createFnParam(paramDecl, i + 1 + isNonStaticMemberFn);
+    auto *param = declIdMapper.createFnParam(
+        paramDecl, i + 1 + isNonStaticMemberFn, !isEntry);
     if (isEntry) {
       handleNodePayloadArrayType(paramDecl, param);
     }
@@ -4413,8 +4413,13 @@ SpirvEmitter::processBufferTextureGetDimensions(const CXXMemberCallExpr *expr) {
 
   if ((typeName == "Texture1D" && numArgs > 1) ||
       (typeName == "Texture2D" && numArgs > 2) ||
+      (typeName == "SampledTexture1D" && numArgs > 1) ||
+      (typeName == "SampledTexture1DArray" && numArgs > 2) ||
       (typeName == "SampledTexture2D" && numArgs > 2) ||
       (typeName == "SampledTexture2DArray" && numArgs > 3) ||
+      (typeName == "SampledTextureCUBE" && numArgs > 2) ||
+      (typeName == "SampledTextureCUBEArray" && numArgs > 3) ||
+      (typeName == "SampledTexture3D" && numArgs > 3) ||
       (typeName == "TextureCube" && numArgs > 2) ||
       (typeName == "Texture3D" && numArgs > 3) ||
       (typeName == "Texture1DArray" && numArgs > 2) ||

@@ -9739,8 +9739,8 @@ TEST_F(ExecutionTest, PackUnpackTest) {
     return;
   }
 #else
-  string args = "-enable-16bit-types";
-  string target = "cs_6_6";
+  std::string args = "-enable-16bit-types";
+  std::string target = "cs_6_6";
 
   if (!createDevice(&pDevice, D3D_SHADER_MODEL_6_6)) {
     return;
@@ -10211,7 +10211,7 @@ TEST_F(ExecutionTest, DynamicResourcesDynamicIndexingTest) {
   st::ParseShaderOpSetFromStream(pStream, ShaderOpSet.get());
   st::ShaderOp *pShaderOp =
       ShaderOpSet->GetShaderOp("DynamicResourcesDynamicIndexing");
-  vector<st::ShaderOpRootValue> fallbackRootValues = pShaderOp->RootValues;
+  std::vector<st::ShaderOpRootValue> fallbackRootValues = pShaderOp->RootValues;
 
   bool Skipped = true;
 
@@ -10855,6 +10855,7 @@ void ExecutionTest::GroupSharedLimitASTest() {
                   out vertices MeshOutput verts[3],
                   out indices uint3 tris[1]) {
         SetMeshOutputCounts(0, 0);
+        verts[0].pos = float4(0, 0, 0, 0);
       }
 
       float4 PSMain() : SV_Target { return float4(0,0,0,0); }
@@ -10914,6 +10915,7 @@ void ExecutionTest::GroupSharedLimitMSTest() {
                   out vertices MeshOutput verts[3],
                   out indices uint3 tris[1]) {
         SetMeshOutputCounts(0, 0);
+        verts[0].pos = float4(0, 0, 0, 0);
         for (uint i = GI; i < GSM_DWORDS; i += 64)
           g_shared[i] = i;
         GroupMemoryBarrierWithGroupSync();

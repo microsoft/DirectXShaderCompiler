@@ -88,8 +88,12 @@ createComputeOp(const char *Source, const char *Target, const char *RootSig,
 void addUAVBuffer(st::ShaderOp *Op, const char *Name, UINT64 Width,
                   bool ReadBack, const char *Init = "zero");
 
-/// Bind a resource to a root UAV parameter by index.
-void addRootUAV(st::ShaderOp *Op, UINT Index, const char *ResName);
+/// Add a SRV buffer resource to a ShaderOp.
+void addSRVBuffer(st::ShaderOp *Op, const char *Name, UINT64 Width,
+                  const char *Init = "zero");
+
+/// Bind a resource to a root view parameter by index.
+void addRootView(st::ShaderOp *Op, UINT Index, const char *ResName);
 
 /// Run a programmatically-built ShaderOp and return the result.
 std::shared_ptr<st::ShaderOpTestResult>

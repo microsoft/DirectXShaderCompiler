@@ -6270,7 +6270,7 @@ class db_dxil(object):
             "LinAlgFillMatrix",
             "LinAlgFillMatrix",
             "fills a matrix with a scalar value",
-            "o,hfwi",
+            "o,hfdwil",
             "",
             [
                 db_dxil_param(0, "$x0", "", "resulting matrix"),
@@ -6318,7 +6318,7 @@ class db_dxil(object):
             "LinAlgMatrixLoadFromMemory",
             "LinAlgMatrixLoadFromMemory",
             "fills a matrix with data from a groupshared array",
-            "o,hfwi",
+            "o,hfdwil",
             "",
             [
                 db_dxil_param(0, "$x0", "", "resulting matrix"),
@@ -6367,7 +6367,7 @@ class db_dxil(object):
             "LinAlgMatrixGetElement",
             "LinAlgMatrixGetElement",
             "returns the element of the matrix corresponding to the provided thread-local index",
-            "hfwi,o",
+            "hfdwil,o",
             "",
             [
                 db_dxil_param(0, "$x0", "", "operation result"),
@@ -6382,7 +6382,7 @@ class db_dxil(object):
             "LinAlgMatrixSetElement",
             "LinAlgMatrixSetElement",
             "sets the element of the matrix corresponding to the provided thread-local index",
-            "o,o,hfwi",
+            "o,o,hfdwil",
             "",
             [
                 db_dxil_param(0, "$x0", "", "resulting matrix"),
@@ -6420,7 +6420,7 @@ class db_dxil(object):
             "LinAlgMatrixStoreToMemory",
             "LinAlgMatrixStoreToMemory",
             "stores a matrix to groupshared memory",
-            "o,hfwi",
+            "o,hfdwil",
             "",
             [
                 db_dxil_param(0, "v", "", ""),
@@ -6480,7 +6480,7 @@ class db_dxil(object):
             "LinAlgMatVecMul",
             "LinAlgMatVecMul",
             "Multiplies a MxK dimension matrix and a K sized input vector",
-            "<hfwi,o,<hfwi",
+            "<hfdwil,o,<hfdwil",
             "",
             [
                 db_dxil_param(0, "$x0", "", "operation result"),
@@ -6495,7 +6495,7 @@ class db_dxil(object):
             "LinAlgMatVecMulAdd",
             "LinAlgMatVecMulAdd",
             "Multiplies a MxK dimension matrix and a K sized input vector then adds a M sized bias vector",
-            "<hfwi,o,<hfwi,<hfwi",
+            "<hfdwil,o,<hfdwil,<hfdwil",
             "",
             [
                 db_dxil_param(0, "$x0", "", "operation result"),
@@ -6540,7 +6540,7 @@ class db_dxil(object):
             "LinAlgMatrixAccumulateToMemory",
             "LinAlgMatrixAccumulateToMemory",
             "accumulates a matrix to groupshared memory",
-            "o,hfwi",
+            "o,hfdwil",
             "",
             [
                 db_dxil_param(0, "v", "", ""),
@@ -6563,7 +6563,7 @@ class db_dxil(object):
             "LinAlgMatrixOuterProduct",
             "LinAlgMatrixOuterProduct",
             "Outer products an M sized vector and a N sized vector producing an MxN matrix",
-            "o,<hfwi,<hfwi",
+            "o,<hfdwil,<hfdwil",
             "",
             [
                 db_dxil_param(0, "$x0", "", "resulting matrix"),
@@ -6576,7 +6576,7 @@ class db_dxil(object):
             "LinAlgConvert",
             "LinAlgConvert",
             "Convert vector components from one interpretation to another",
-            "<hfwi,<hfwi",
+            "<hfdwil,<hfdwil",
             "",
             [
                 db_dxil_param(0, "$x0", "", "operation result"),
@@ -7132,6 +7132,12 @@ class db_dxil(object):
             "hlsl-dxil-non-uniform-resource-index-instrumentation",
             "DxilNonUniformResourceIndexInstrumentation",
             "HLSL DXIL NonUniformResourceIndex instrumentation for PIX",
+            [],
+        )
+        add_pass(
+            "hlsl-dxil-debugbreak-instrumentation",
+            "DxilDebugBreakInstrumentation",
+            "HLSL DXIL DebugBreak instrumentation for PIX",
             [],
         )
 
@@ -9521,7 +9527,7 @@ class db_hlsl(object):
             acceleration_struct | ray_desc | RayQuery | DxHitObject |
             Node\w* | RWNode\w* | EmptyNode\w* |
             AnyNodeOutput\w* | NodeOutputRecord\w* | GroupShared\w* |
-            VkBufferPointer | LinAlgMatrix | VkSampledTexture2D | VkSampledTexture2DArray
+            VkBufferPointer | LinAlgMatrix | VkSampledTexture1D | VkSampledTexture1DArray | VkSampledTexture2D | VkSampledTexture2DArray
             $)""",
             flags=re.VERBOSE,
         )

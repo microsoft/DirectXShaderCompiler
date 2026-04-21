@@ -38,10 +38,16 @@ line upon naming the release. Refer to previous for appropriate section names.
 
 #### Bug Fixes
 
-- Fixed non-deterministic DXIL/PDB output when compiling shaders with resource arrays, debug info, and SM 6.6+. [#8171](https://github.com/microsoft/DirectXShaderCompiler/issues/8171)
+- Fixed non-deterministic DXIL/PDB output when compiling shaders with resource
+  arrays, debug info, and SM 6.6+.
+  [#8171](https://github.com/microsoft/DirectXShaderCompiler/issues/8171)
 - Fixed mesh shader semantics that were incorrectly case sensitive.
+- User-defined conversion operators (e.g., `operator float4()`) now produce an
+  error instead of being silently ignored.
+  [#5103](https://github.com/microsoft/DirectXShaderCompiler/pull/8206)
 - DXIL validation: added validation for `CreateHandleFromBinding`.
-- DXIL validation now rejects non-standard integer bit widths (e.g. `i25`) in instructions.
+- DXIL validation now rejects non-standard integer bit widths (e.g. `i25`) in
+  instructions.
 
 #### Other Changes
 

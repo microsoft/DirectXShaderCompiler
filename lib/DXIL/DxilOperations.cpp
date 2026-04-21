@@ -2838,8 +2838,8 @@ static const OP::OpCodeProperty ExperimentalOps_OpCodeProps[] = {
      "linAlgFillMatrix",
      Attribute::None,
      2,
-     {{0x200}, {0x63}},
-     {{0x0}, {0x0}}}, // Overloads: o,hfwi
+     {{0x200}, {0xe7}},
+     {{0x0}, {0x0}}}, // Overloads: o,hfdwil
     {OC::LinAlgCopyConvertMatrix,
      "LinAlgCopyConvertMatrix",
      OCC::LinAlgCopyConvertMatrix,
@@ -2862,8 +2862,8 @@ static const OP::OpCodeProperty ExperimentalOps_OpCodeProps[] = {
      "linAlgMatrixLoadFromMemory",
      Attribute::None,
      2,
-     {{0x200}, {0x63}},
-     {{0x0}, {0x0}}}, // Overloads: o,hfwi
+     {{0x200}, {0xe7}},
+     {{0x0}, {0x0}}}, // Overloads: o,hfdwil
     {OC::LinAlgMatrixLength,
      "LinAlgMatrixLength",
      OCC::LinAlgMatrixLength,
@@ -2886,16 +2886,16 @@ static const OP::OpCodeProperty ExperimentalOps_OpCodeProps[] = {
      "linAlgMatrixGetElement",
      Attribute::None,
      2,
-     {{0x63}, {0x200}},
-     {{0x0}, {0x0}}}, // Overloads: hfwi,o
+     {{0xe7}, {0x200}},
+     {{0x0}, {0x0}}}, // Overloads: hfdwil,o
     {OC::LinAlgMatrixSetElement,
      "LinAlgMatrixSetElement",
      OCC::LinAlgMatrixSetElement,
      "linAlgMatrixSetElement",
      Attribute::None,
      3,
-     {{0x200}, {0x200}, {0x63}},
-     {{0x0}, {0x0}, {0x0}}}, // Overloads: o,o,hfwi
+     {{0x200}, {0x200}, {0xe7}},
+     {{0x0}, {0x0}, {0x0}}}, // Overloads: o,o,hfdwil
     {OC::LinAlgMatrixStoreToDescriptor,
      "LinAlgMatrixStoreToDescriptor",
      OCC::LinAlgMatrixStoreToDescriptor,
@@ -2910,8 +2910,8 @@ static const OP::OpCodeProperty ExperimentalOps_OpCodeProps[] = {
      "linAlgMatrixStoreToMemory",
      Attribute::None,
      2,
-     {{0x200}, {0x63}},
-     {{0x0}, {0x0}}}, // Overloads: o,hfwi
+     {{0x200}, {0xe7}},
+     {{0x0}, {0x0}}}, // Overloads: o,hfdwil
     {OC::LinAlgMatrixQueryAccumulatorLayout,
      "LinAlgMatrixQueryAccumulatorLayout",
      OCC::LinAlgMatrixQueryAccumulatorLayout,
@@ -2943,7 +2943,7 @@ static const OP::OpCodeProperty ExperimentalOps_OpCodeProps[] = {
      Attribute::None,
      3,
      {{0x400}, {0x200}, {0x400}},
-     {{0x63}, {0x0}, {0x63}}}, // Overloads: <hfwi,o,<hfwi
+     {{0xe7}, {0x0}, {0xe7}}}, // Overloads: <hfdwil,o,<hfdwil
     {OC::LinAlgMatVecMulAdd,
      "LinAlgMatVecMulAdd",
      OCC::LinAlgMatVecMulAdd,
@@ -2951,7 +2951,7 @@ static const OP::OpCodeProperty ExperimentalOps_OpCodeProps[] = {
      Attribute::None,
      4,
      {{0x400}, {0x200}, {0x400}, {0x400}},
-     {{0x63}, {0x0}, {0x63}, {0x63}}}, // Overloads: <hfwi,o,<hfwi,<hfwi
+     {{0xe7}, {0x0}, {0xe7}, {0xe7}}}, // Overloads: <hfdwil,o,<hfdwil,<hfdwil
     {OC::LinAlgMatrixAccumulateToDescriptor,
      "LinAlgMatrixAccumulateToDescriptor",
      OCC::LinAlgMatrixAccumulateToDescriptor,
@@ -2966,8 +2966,8 @@ static const OP::OpCodeProperty ExperimentalOps_OpCodeProps[] = {
      "linAlgMatrixAccumulateToMemory",
      Attribute::None,
      2,
-     {{0x200}, {0x63}},
-     {{0x0}, {0x0}}}, // Overloads: o,hfwi
+     {{0x200}, {0xe7}},
+     {{0x0}, {0x0}}}, // Overloads: o,hfdwil
     {OC::LinAlgMatrixOuterProduct,
      "LinAlgMatrixOuterProduct",
      OCC::LinAlgMatrixOuterProduct,
@@ -2975,7 +2975,7 @@ static const OP::OpCodeProperty ExperimentalOps_OpCodeProps[] = {
      Attribute::None,
      3,
      {{0x200}, {0x400}, {0x400}},
-     {{0x0}, {0x63}, {0x63}}}, // Overloads: o,<hfwi,<hfwi
+     {{0x0}, {0xe7}, {0xe7}}}, // Overloads: o,<hfdwil,<hfdwil
     {OC::LinAlgConvert,
      "LinAlgConvert",
      OCC::LinAlgConvert,
@@ -2983,7 +2983,7 @@ static const OP::OpCodeProperty ExperimentalOps_OpCodeProps[] = {
      Attribute::None,
      2,
      {{0x400}, {0x400}},
-     {{0x63}, {0x63}}}, // Overloads: <hfwi,<hfwi
+     {{0xe7}, {0xe7}}}, // Overloads: <hfdwil,<hfdwil
 
     {OC::ReservedE0,
      "ReservedE0",
