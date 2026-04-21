@@ -63,6 +63,8 @@ The included licenses apply to the following files:
   [#7866](https://github.com/microsoft/DirectXShaderCompiler/pull/7866)
 - Allow groupshared args in templates
   [#8217](https://github.com/microsoft/DirectXShaderCompiler/pull/8217)
+- Fixed RawBufferVectorLoad/Store to use 32-bit element types for min precision types instead of 16-bit
+  [#8274](https://github.com/microsoft/DirectXShaderCompiler/pull/8274)
 - DXIL validation: added validation for `CreateHandleFromBinding`.
 - DXIL validation now rejects non-standard integer bit widths (e.g. `i25`) in
   instructions.
