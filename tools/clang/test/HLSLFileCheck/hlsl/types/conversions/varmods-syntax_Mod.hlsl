@@ -127,11 +127,11 @@ const float g_con_init = 1.0f;                              /* fxc-warning {{X32
 // <py::lines('GENERATED_CODE')>modify(lines, gen_code('typedef %(mods)s float2 t_%(id)s;', storage_combos))</py>
 // GENERATED_CODE:BEGIN
 typedef precise float2 t_pre;
-typedef precise volatile float2 t_pre_vol;
-typedef precise volatile const float2 t_pre_vol_con;
+//typedef precise volatile float2 t_pre_vol;
+//typedef precise volatile const float2 t_pre_vol_con;
 typedef precise const float2 t_pre_con;
-typedef volatile float2 t_vol;
-typedef volatile const float2 t_vol_con;
+//typedef volatile float2 t_vol;
+//typedef volatile const float2 t_vol_con;
 typedef const float2 t_con;
 // GENERATED_CODE:END
 
@@ -294,26 +294,26 @@ void main() {
     // GENERATED_CODE:BEGIN
     precise float l_pre;
     precise static float l_pre_sta;
-    precise static volatile float l_pre_sta_vol;
-    precise static volatile const float l_pre_sta_vol_con;
+    //precise static volatile float l_pre_sta_vol;
+    //precise static volatile const float l_pre_sta_vol_con;
     precise static const float l_pre_sta_con;
-    precise volatile float l_pre_vol;
+    //precise volatile float l_pre_vol;
     static float l_sta;
-    static volatile float l_sta_vol;
-    static volatile const float l_sta_vol_con;
+    //static volatile float l_sta_vol;
+    //static volatile const float l_sta_vol_con;
     static const float l_sta_con;
-    volatile float l_vol;
+    //volatile float l_vol;
     // GENERATED_CODE:END
     // Now with const vars initialized:
     // <py::lines('GENERATED_CODE')>modify(lines, gen_code('%(mods)s float l_%(id)s_init = 0.0;', filter(lambda combo: 'const' in combo, storage_combos)))</py>
     // GENERATED_CODE:BEGIN
-    precise static volatile const float l_pre_sta_vol_con_init = 0.0;
+    //precise static volatile const float l_pre_sta_vol_con_init = 0.0;
     precise static const float l_pre_sta_con_init = 0.0;
-    precise volatile const float l_pre_vol_con_init = 0.0;
+    //precise volatile const float l_pre_vol_con_init = 0.0;
     precise const float l_pre_con_init = 0.0;
-    static volatile const float l_sta_vol_con_init = 0.0;
+    //static volatile const float l_sta_vol_con_init = 0.0;
     static const float l_sta_con_init = 0.0;
-    volatile const float l_vol_con_init = 0.0;
+    //volatile const float l_vol_con_init = 0.0;
     const float l_con_init = 0.0;
     // GENERATED_CODE:END
 

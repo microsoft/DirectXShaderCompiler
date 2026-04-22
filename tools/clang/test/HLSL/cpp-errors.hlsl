@@ -33,6 +33,7 @@ _Bool g_Bool; // expected-error {{unknown type name '_Bool'}}
 _vector int altivec_vector; // expected-error {{expected unqualified-id}} expected-error {{unknown type name '_vector'}}
 
 restrict int g_restrict; // expected-error {{expected unqualified-id}} expected-error {{unknown type name 'restrict'}}
+volatile int g_volatile; // expected-error {{'volatile' is a reserved keyword in HLSL}}
 
 __underlying_type(int) g_underlying_type; // expected-error {{__underlying_type is unsupported in HLSL}}
 _Atomic(something) g_Atomic; // expected-error {{'_Atomic' is a reserved keyword in HLSL}} expected-error {{HLSL requires a type specifier for all declarations}}
@@ -56,7 +57,7 @@ struct s_with_friend {
 };
 
 typedef int (*fn_int_const)(int) const; // expected-error {{expected ';' after top level declarator}} expected-error {{pointers are unsupported in HLSL}} expected-warning {{declaration does not declare anything}}
-typedef int (*fn_int_volatile)(int) volatile; // expected-error {{expected ';' after top level declarator}} expected-error {{pointers are unsupported in HLSL}} expected-warning {{declaration does not declare anything}}
+typedef int (*fn_int_volatile)(int) volatile; // expected-error {{'volatile' is a reserved keyword in HLSL}} expected-error {{expected ';' after top level declarator}} expected-error {{pointers are unsupported in HLSL}} expected-warning {{declaration does not declare anything}}
 
 void fn_throw() throw() { } // expected-error {{exception specification is unsupported in HLSL}}
 

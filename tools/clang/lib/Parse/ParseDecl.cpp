@@ -4193,6 +4193,7 @@ HLSLReservedKeyword:
                                  getLangOpts());
       break;
     case tok::kw_volatile:
+      if (getLangOpts().HLSL) { goto HLSLReservedKeyword; } // HLSL Change - volatile is reserved for HLSL
       isInvalid = DS.SetTypeQual(DeclSpec::TQ_volatile, Loc, PrevSpec, DiagID,
                                  getLangOpts());
       break;
