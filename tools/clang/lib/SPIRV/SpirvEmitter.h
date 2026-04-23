@@ -1648,6 +1648,10 @@ private:
 
   /// ParentMap of the current function.
   std::unique_ptr<ParentMap> parentMap = nullptr;
+
+  /// AST FunctionDecl currently being lowered. Used by the descriptor-heap
+  /// access path to detect globallycoherent returning helpers.
+  const FunctionDecl *curFunctionDecl = nullptr;
 };
 
 void SpirvEmitter::doDeclStmt(const DeclStmt *declStmt) {
