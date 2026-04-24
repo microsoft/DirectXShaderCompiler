@@ -26,7 +26,7 @@ pyjwt[crypto]==2.8.0
     # via pygithub
 pynacl==1.5.0
     # via pygithub
-requests==2.32.4
+requests==2.33.0
     # via pygithub
 urllib3==2.6.0
     # via requests
