@@ -53,8 +53,7 @@ struct TestPushConstant_t
 float4 MainPs(void) : SV_Target0
 {
   if (__has_feature(hlsl_vk_buffer_pointer)) {
-      [[vk::aliased_pointer]] block_p g_p =
-          vk::static_pointer_cast<block_t, 16>(g_PushConstants.root);
+      [[vk::aliased_pointer]] block_p g_p = g_PushConstants.root;
       g_p = g_p.Get().next;
       uint64_t addr = (uint64_t)g_p;
       block_p copy1 = block_p(addr);

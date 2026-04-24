@@ -5368,8 +5368,8 @@ public:
   /// use for the signature, with the first being the return type.</remarks>
   bool MatchArguments(const IntrinsicDefIter &cursor, QualType objectType,
                       QualType objectElement, QualType functionTemplateTypeArg,
-                      ArrayRef<Expr *> Args, std::vector<QualType> *,
-                      size_t &badArgIdx);
+                      unsigned functionTemplateIntArg, ArrayRef<Expr *> Args,
+                      std::vector<QualType> *, size_t &badArgIdx);
 
   /// <summary>Validate object element on intrinsic to catch case like integer
   /// on Sample.</summary> <param name="tableName">Intrinsic function to
@@ -5416,6 +5416,19 @@ public:
         table, tableSize, table + tableSize,
         IntrinsicTableDefIter::CreateStart(m_intrinsicTables, typeName,
                                            nameIdentifier, argumentCount));
+  }
+
+  static unsigned GetIntegralTemplateArg(ASTContext &context,
+                                         const TemplateArgument &arg) {
+    if (arg.getKind() == TemplateArgument::Integral)
+      return arg.getAsIntegral().getZExtValue();
+    if (arg.getKind() == TemplateArgument::Expression) {
+      llvm::APSInt result;
+      Expr *expr = arg.getAsExpr();
+      if (expr != nullptr && expr->isIntegerConstantExpr(result, context))
+        return result.getZExtValue();
+    }
+    return 0;
   }
 
   bool AddOverloadedCallCandidates(UnresolvedLookupExpr *ULE,
@@ -5512,11 +5525,22 @@ public:
                  "otherwise g_MaxIntrinsicParamCount needs to be updated for "
                  "wider signatures");
 
+        QualType templateTypeArg;
+        unsigned templateIntArg = 0;
         std::vector<QualType> functionArgTypes;
         size_t badArgIdx;
+        if (ULE->hasExplicitTemplateArgs() && ULE->getNumTemplateArgs() >= 1) {
+          const TemplateArgumentLoc &TypeArgLoc = ULE->getTemplateArgs()[0];
+          if (TypeArgLoc.getArgument().getKind() == TemplateArgument::Type)
+            templateTypeArg = TypeArgLoc.getArgument().getAsType();
+          if (ULE->getNumTemplateArgs() >= 2)
+            templateIntArg = GetIntegralTemplateArg(
+                *m_context, ULE->getTemplateArgs()[1].getArgument());
+        }
+
         bool argsMatch =
-            MatchArguments(cursor, QualType(), QualType(), QualType(), Args,
-                           &functionArgTypes, badArgIdx);
+            MatchArguments(cursor, QualType(), QualType(), templateTypeArg,
+                           templateIntArg, Args, &functionArgTypes, badArgIdx);
         if (!functionArgTypes.size())
           return false;
 
@@ -6925,8 +6949,9 @@ bool HLSLExternalSource::IsValidObjectElement(LPCSTR tableName,
 
 bool HLSLExternalSource::MatchArguments(
     const IntrinsicDefIter &cursor, QualType objectType, QualType objectElement,
-    QualType functionTemplateTypeArg, ArrayRef<Expr *> Args,
-    std::vector<QualType> *argTypesVector, size_t &badArgIdx) {
+    QualType functionTemplateTypeArg, unsigned functionTemplateIntArg,
+    ArrayRef<Expr *> Args, std::vector<QualType> *argTypesVector,
+    size_t &badArgIdx) {
   const HLSL_INTRINSIC *pIntrinsic = *cursor;
   LPCSTR tableName = cursor.GetTableName();
   IntrinsicOp builtinOp = IntrinsicOp::Num_Intrinsics;
@@ -7418,7 +7443,45 @@ bool HLSLExternalSource::MatchArguments(
       if (i == 0 &&
           (builtinOp == hlsl::IntrinsicOp::IOP_Vkreinterpret_pointer_cast ||
            builtinOp == hlsl::IntrinsicOp::IOP_Vkstatic_pointer_cast)) {
-        pNewType = Args[0]->getType();
+        if (functionTemplateTypeArg.isNull()) {
+          badArgIdx = std::min(badArgIdx, i);
+          continue;
+        }
+
+        // Build BufferPointer<T, A> where T is the template type argument and
+        // A is the template alignment argument (or the alignment of the
+        // source pointer if none is given).
+        unsigned srcAlignment =
+            functionTemplateIntArg
+                ? functionTemplateIntArg
+                : hlsl::GetVKBufferPointerAlignment(Args[0]->getType());
+        TemplateArgument TemplateArgs[] = {
+            TemplateArgument(functionTemplateTypeArg),
+            TemplateArgument(*m_context,
+                             llvm::APSInt(llvm::APInt(32, srcAlignment)),
+                             m_context->UnsignedIntTy)};
+        void *InsertPos = nullptr;
+        ClassTemplateSpecializationDecl *Spec =
+            m_vkBufferPointerTemplateDecl->findSpecialization(
+                llvm::ArrayRef<TemplateArgument>(TemplateArgs, 2), InsertPos);
+        if (!Spec) {
+          Spec = ClassTemplateSpecializationDecl::Create(
+              *m_context, TagDecl::TagKind::TTK_Struct,
+              m_vkBufferPointerTemplateDecl->getDeclContext(), SourceLocation(),
+              SourceLocation(), m_vkBufferPointerTemplateDecl, TemplateArgs, 2,
+              nullptr);
+          m_vkBufferPointerTemplateDecl->AddSpecialization(Spec, InsertPos);
+          Spec->setImplicit(true);
+          DXVERIFY_NOMSG(
+              false ==
+              getSema()->InstantiateClassTemplateSpecialization(
+                  SourceLocation(), Spec,
+                  TemplateSpecializationKind::TSK_ImplicitInstantiation, true));
+        }
+
+        pNewType = m_context->getTemplateSpecializationType(
+            TemplateName(m_vkBufferPointerTemplateDecl), TemplateArgs, 2,
+            m_context->getTypeDeclType(Spec));
       } else {
         badArgIdx = std::min(badArgIdx, i);
       }
@@ -11155,11 +11218,18 @@ HLSLExternalSource::DeduceTemplateArgumentsForHLSL(
   QualType objectType = m_context->getTagDeclType(functionParentRecord);
 
   QualType functionTemplateTypeArg{};
-  if (ExplicitTemplateArgs != nullptr && ExplicitTemplateArgs->size() == 1) {
+  unsigned functionTemplateIntArg = 0;
+  if (ExplicitTemplateArgs != nullptr && ExplicitTemplateArgs->size() >= 1) {
     const TemplateArgument &firstTemplateArg =
         (*ExplicitTemplateArgs)[0].getArgument();
     if (firstTemplateArg.getKind() == TemplateArgument::ArgKind::Type)
       functionTemplateTypeArg = firstTemplateArg.getAsType();
+    if (ExplicitTemplateArgs->size() > 1) {
+      const TemplateArgument &secondTemplateArg =
+          (*ExplicitTemplateArgs)[1].getArgument();
+      functionTemplateIntArg =
+          GetIntegralTemplateArg(*m_context, secondTemplateArg);
+    }
   }
 
   // Handle subscript overloads.
@@ -11233,7 +11303,8 @@ HLSLExternalSource::DeduceTemplateArgumentsForHLSL(
   while (cursor != end) {
     size_t badArgIdx;
     if (!MatchArguments(cursor, objectType, objectElement,
-                        functionTemplateTypeArg, Args, &argTypes, badArgIdx)) {
+                        functionTemplateTypeArg, functionTemplateIntArg, Args,
+                        &argTypes, badArgIdx)) {
       ++cursor;
       continue;
     }
@@ -11276,8 +11347,9 @@ HLSLExternalSource::DeduceTemplateArgumentsForHLSL(
         if (!IsNull &&
             getSema()->RequireCompleteType(Loc, functionTemplateTypeArg, 0))
           return Sema::TemplateDeductionResult::TDK_Invalid;
-        if (IsNull || !hlsl::IsHLSLNumericOrAggregateOfNumericType(
-                          functionTemplateTypeArg)) {
+        if (IsNull || ExplicitTemplateArgs->size() > 1 ||
+            !hlsl::IsHLSLNumericOrAggregateOfNumericType(
+                functionTemplateTypeArg)) {
           getSema()->Diag(Loc, diag::err_hlsl_intrinsic_template_arg_numeric)
               << intrinsicName;
           DiagnoseTypeElements(
@@ -12007,8 +12079,18 @@ static bool CheckBarrierCall(Sema &S, FunctionDecl *FD, CallExpr *CE,
 }
 
 #ifdef ENABLE_SPIRV_CODEGEN
-static bool CheckVKBufferPointerCast(Sema &S, FunctionDecl *FD, CallExpr *CE,
-                                     bool isStatic) {
+static bool CheckVKBufferPointerCast(Sema &S, CallExpr *CE, bool isStatic) {
+  const auto *callee = dyn_cast<DeclRefExpr>(CE->getCallee()->IgnoreImpCasts());
+  if (callee && callee->hasExplicitTemplateArgs() &&
+      callee->getNumTemplateArgs() > 2) {
+    StringRef castName =
+        isStatic ? "static_pointer_cast" : "reinterpret_pointer_cast";
+    S.Diags.Report(CE->getExprLoc(),
+                   diag::err_template_arg_list_different_arity)
+        << /*too many*/ 1 << /*function template*/ 1 << castName;
+    return true;
+  }
+
   const Expr *argExpr = CE->getArg(0);
   QualType srcType = argExpr->getType();
   QualType destType = CE->getType();
@@ -12146,10 +12228,10 @@ void Sema::CheckHLSLFunctionCall(FunctionDecl *FDecl, CallExpr *TheCall) {
     break;
 #ifdef ENABLE_SPIRV_CODEGEN
   case hlsl::IntrinsicOp::IOP_Vkreinterpret_pointer_cast:
-    CheckVKBufferPointerCast(*this, FDecl, TheCall, false);
+    CheckVKBufferPointerCast(*this, TheCall, false);
     break;
   case hlsl::IntrinsicOp::IOP_Vkstatic_pointer_cast:
-    CheckVKBufferPointerCast(*this, FDecl, TheCall, true);
+    CheckVKBufferPointerCast(*this, TheCall, true);
     break;
 #endif
   default:
