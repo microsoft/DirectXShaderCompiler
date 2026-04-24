@@ -55,7 +55,10 @@ line upon naming the release. Refer to previous for appropriate section names.
   default, with `/Fi` to override the output filename. The old FXC-style `/P
    <filename>` positional syntax has been renamed to `/Po`.
   [#4611](https://github.com/microsoft/DirectXShaderCompiler/issues/4611).
-
+- SPIR-V: Support `vk::SampledTexture` types (GLSL's `samplerND` equivalent)
+  [#7979](https://github.com/microsoft/DirectXShaderCompiler/issues/7979). With
+  this type, users no longer need to define both Sampler and Texture resources
+  with the same binding number.
 
 ### Version 1.9.2602
 
