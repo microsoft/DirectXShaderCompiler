@@ -60,7 +60,7 @@ struct s_with_friend {
 };
 
 typedef int (*fn_int_const)(int) const; // expected-error {{expected ';' after top level declarator}} expected-error {{pointers are unsupported in HLSL}} expected-warning {{declaration does not declare anything}}
-typedef int (*fn_int_volatile)(int) volatile; // expected-error {{expected ';' after top level declarator}} expected-error {{pointers are unsupported in HLSL}} expected-warning {{declaration does not declare anything}}
+typedef int (*fn_int_volatile)(int) volatile; // expected-error {{'volatile' is a reserved keyword in HLSL}} expected-error {{expected ';' after top level declarator}} expected-error {{pointers are unsupported in HLSL}} expected-warning {{declaration does not declare anything}}
 
 void fn_throw() throw() { } // expected-error {{exception specification is unsupported in HLSL}}
 
