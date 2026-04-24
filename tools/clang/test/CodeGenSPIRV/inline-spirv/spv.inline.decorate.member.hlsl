@@ -40,9 +40,9 @@ PixelOutput main()
   PointerType ptr = Bitcast<PointerType>(address);
 
 PixelOutput output;
-// CHECK: [[LD:%[0-9]+]] = OpLoad %S [[BC]] Aligned 32
-// CHECK: [[RET:%[0-9]+]] = OpCompositeExtract %v4float [[LD]] 0
-// CHECK: OpStore %out_var_SV_TARGET [[RET]]
+// CHECK: [[AC:%[0-9]+]] = OpAccessChain %_ptr_PhysicalStorageBuffer_v4float [[BC]] %uint_0
+// CHECK: [[LD:%[0-9]+]] = OpLoad %v4float [[AC]] Aligned 32
+// CHECK: OpStore %out_var_SV_TARGET [[LD]]
 output.rt0 = Load(ptr).f1;
   return output;
 }
