@@ -7443,6 +7443,7 @@ bool HLSLExternalSource::MatchArguments(
       if (i == 0 &&
           (builtinOp == hlsl::IntrinsicOp::IOP_Vkreinterpret_pointer_cast ||
            builtinOp == hlsl::IntrinsicOp::IOP_Vkstatic_pointer_cast)) {
+#ifdef ENABLE_SPIRV_CODEGEN
         if (functionTemplateTypeArg.isNull()) {
           badArgIdx = std::min(badArgIdx, i);
           continue;
@@ -7482,6 +7483,10 @@ bool HLSLExternalSource::MatchArguments(
         pNewType = m_context->getTemplateSpecializationType(
             TemplateName(m_vkBufferPointerTemplateDecl), TemplateArgs, 2,
             m_context->getTypeDeclType(Spec));
+#else
+        // The IOP_Vk* opcodes are only reachable when ENABLE_SPIRV_CODEGEN is defined.
+        llvm_unreachable("vk:: pointer cast intrinsics require SPIR-V codegen");
+#endif // ENABLE_SPIRV_CODEGEN
       } else {
         badArgIdx = std::min(badArgIdx, i);
       }
