@@ -7484,7 +7484,8 @@ bool HLSLExternalSource::MatchArguments(
             TemplateName(m_vkBufferPointerTemplateDecl), TemplateArgs, 2,
             m_context->getTypeDeclType(Spec));
 #else
-        // The IOP_Vk* opcodes are only reachable when ENABLE_SPIRV_CODEGEN is defined.
+        // The IOP_Vk* opcodes are only reachable when ENABLE_SPIRV_CODEGEN is
+        // defined.
         llvm_unreachable("vk:: pointer cast intrinsics require SPIR-V codegen");
 #endif // ENABLE_SPIRV_CODEGEN
       } else {
