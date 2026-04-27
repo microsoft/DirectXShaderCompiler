@@ -162,8 +162,6 @@ unsigned CaculateInitListArraySizeForHLSL(clang::Sema *sema,
                                           const clang::InitListExpr *InitList,
                                           const clang::QualType EltTy);
 
-bool ContainsLongVector(clang::QualType);
-
 bool IsConversionToLessOrEqualElements(clang::Sema *self,
                                        const clang::ExprResult &sourceExpr,
                                        const clang::QualType &targetType,

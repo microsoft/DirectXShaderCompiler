@@ -10,34 +10,40 @@
 
 // AST: FunctionDecl {{.*}} node_1_0 'void (NodeOutputArray<RECORD1>)'
 // AST-NEXT: ParmVarDecl {{.*}} used OutputArray_1_0 'NodeOutputArray<RECORD1>':'NodeOutputArray<RECORD1>'
-// AST-NEXT: HLSLMaxRecordsAttr {{.*}} 31
+// AST-NEXT: HLSLMaxRecordsAttr {{.*}}
+// AST-NEXT: IntegerLiteral {{.*}} 31
 // AST-NEXT: HLSLNodeArraySizeAttr {{.*}} 129
 // AST-NEXT: HLSLAllowSparseNodesAttr
 
 // AST: FunctionDecl {{.*}} node_1_1 'void (NodeOutputArray<RECORD1>)'
 // AST-NEXT: ParmVarDecl {{.*}} used OutputArray_1_1 'NodeOutputArray<RECORD1>':'NodeOutputArray<RECORD1>'
-// AST-NEXT: HLSLMaxRecordsAttr {{.*}} 37
+// AST-NEXT: HLSLMaxRecordsAttr {{.*}}
+// AST-NEXT: IntegerLiteral {{.*}} 37
 // AST-NEXT: HLSLUnboundedSparseNodesAttr
 
 // AST: FunctionDecl {{.*}} node_1_2 'void (NodeOutput<RECORD1>)'
 // AST-NEXT: ParmVarDecl {{.*}} used Output_1_2 'NodeOutput<RECORD1>':'NodeOutput<RECORD1>'
-// AST-NEXT: HLSLMaxRecordsAttr {{.*}} 47
+// AST-NEXT: HLSLMaxRecordsAttr {{.*}}
+// AST-NEXT: IntegerLiteral {{.*}} 47
 // AST-NEXT: HLSLAllowSparseNodesAttr
 
 // AST: FunctionDecl {{.*}} node_2_0 'void (EmptyNodeOutputArray)'
 // AST-NEXT: ParmVarDecl {{.*}} used OutputArray_2_0 'EmptyNodeOutputArray'
-// AST-NEXT: HLSLMaxRecordsAttr {{.*}} 41
+// AST-NEXT: HLSLMaxRecordsAttr {{.*}}
+// AST-NEXT: IntegerLiteral {{.*}} 41
 // AST-NEXT: HLSLNodeArraySizeAttr {{.*}} 131
 // AST-NEXT: HLSLAllowSparseNodesAttr
 
 // AST: FunctionDecl {{.*}} node_2_1 'void (EmptyNodeOutputArray)'
 // AST-NEXT: ParmVarDecl {{.*}} used OutputArray_2_1 'EmptyNodeOutputArray'
-// AST-NEXT: HLSLMaxRecordsAttr {{.*}} 43
+// AST-NEXT: HLSLMaxRecordsAttr {{.*}}
+// AST-NEXT: IntegerLiteral {{.*}} 43
 // AST-NEXT: HLSLUnboundedSparseNodesAttr
 
 // AST: FunctionDecl {{.*}} node_2_2 'void (EmptyNodeOutput)'
 // AST-NEXT: ParmVarDecl {{.*}} used Output_2_2 'EmptyNodeOutput'
-// AST-NEXT: HLSLMaxRecordsAttr {{.*}} 53
+// AST-NEXT: HLSLMaxRecordsAttr {{.*}}
+// AST-NEXT: IntegerLiteral {{.*}} 53
 // AST-NEXT: HLSLAllowSparseNodesAttr
 
 // ==== -fcgl Metadata Checks ====
