@@ -492,17 +492,11 @@ public:
   /// \brief Returns the associated counter's (instr-ptr, is-alias-or-not)
   /// pair for the given {RW|Append|Consume}StructuredBuffer variable.
   /// If indices is not nullptr, walks trhough the fields of the decl, expected
-  /// to be of struct type, using the indices to find the field. Returns nullptr
-  /// if the given decl has no associated counter variable created.
-  const CounterIdAliasPair *getCounterIdAliasPair(
+  /// to be of struct type, using the indices to find the field.
+  /// Creates counter for RW buffer if not already created.
+  const CounterIdAliasPair *getOrCreateCounterIdAliasPair(
       const DeclaratorDecl *decl,
       const llvm::SmallVector<uint32_t, 4> *indices = nullptr);
-
-  /// \brief Returns the associated counter's (instr-ptr, is-alias-or-not)
-  /// pair for the given {RW|Append|Consume}StructuredBuffer variable. Creates
-  /// counter for RW buffer if not already created.
-  const CounterIdAliasPair *
-  createOrGetCounterIdAliasPair(const DeclaratorDecl *decl);
 
   /// \brief Returns all the associated counters for the given decl. The decl is
   /// expected to be a struct containing alias RW/Append/Consume structured

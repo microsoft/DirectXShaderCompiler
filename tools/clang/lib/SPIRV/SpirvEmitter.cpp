@@ -5105,7 +5105,7 @@ bool SpirvEmitter::tryToAssignCounterVar(const DeclaratorDecl *dstDecl,
 
   // Handle AssocCounter#1 (see CounterVarFields comment)
   if (const auto *dstPair =
-          declIdMapper.createOrGetCounterIdAliasPair(dstDecl)) {
+          declIdMapper.getOrCreateCounterIdAliasPair(dstDecl)) {
     auto *srcCounter = getFinalACSBufferCounterInstruction(srcExpr);
     if (!srcCounter) {
       emitFatalError("cannot find the associated counter variable",
@@ -5213,13 +5213,13 @@ const CounterIdAliasPair *
 SpirvEmitter::getFinalACSBufferCounter(const Expr *expr) {
   // AssocCounter#1: referencing some stand-alone variable
   if (const auto *decl = getReferencedDef(expr))
-    return declIdMapper.createOrGetCounterIdAliasPair(decl);
+    return declIdMapper.getOrCreateCounterIdAliasPair(decl);
 
   const Expr *expr_withoutcasts = expr->IgnoreParenCasts();
   if (isResourceDescriptorHeap(expr_withoutcasts->getType())) {
     const Expr *base = nullptr;
     getDescriptorHeapOperands(expr_withoutcasts, &base, /* index= */ nullptr);
-    return declIdMapper.createOrGetCounterIdAliasPair(getReferencedDef(base));
+    return declIdMapper.getOrCreateCounterIdAliasPair(getReferencedDef(base));
   }
 
   // AssocCounter#2: referencing some non-struct field
@@ -5230,7 +5230,7 @@ SpirvEmitter::getFinalACSBufferCounter(const Expr *expr) {
       (base && isa<CXXThisExpr>(base))
           ? getOrCreateDeclForMethodObject(cast<CXXMethodDecl>(curFunction))
           : getReferencedDef(base);
-  return declIdMapper.getCounterIdAliasPair(decl, &rawIndices);
+  return declIdMapper.getOrCreateCounterIdAliasPair(decl, &rawIndices);
 }
 
 const CounterVarFields *SpirvEmitter::getIntermediateACSBufferCounter(
