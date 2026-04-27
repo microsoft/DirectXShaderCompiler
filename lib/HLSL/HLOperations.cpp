@@ -531,6 +531,8 @@ static AttributeSet GetHLFunctionAttributes(LLVMContext &C,
     case IntrinsicOp::IOP_GroupMemoryBarrier:
     case IntrinsicOp::IOP_AllMemoryBarrierWithGroupSync:
     case IntrinsicOp::IOP_AllMemoryBarrier:
+    case IntrinsicOp::IOP_SetMeshOutputCounts:
+    case IntrinsicOp::IOP_DispatchMesh:
       addAttr(Attribute::NoDuplicate);
       break;
     }
