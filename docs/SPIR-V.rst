@@ -1420,11 +1420,11 @@ placed in the ``Uniform`` or ``UniformConstant`` storage class.
 
 - ``shared``
 
-  - This is a hint to the compiler. It will be ingored.
+  - This is a hint to the compiler. It will be ignored.
 
 - ``volatile``
 
-  - This is a hint to the compiler. It will be ingored.
+  - This is a hint to the compiler. It will be ignored.
 
 HLSL semantic and Vulkan ``Location``
 -------------------------------------
