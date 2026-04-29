@@ -212,7 +212,7 @@ float4 main(float4 v0 : TEXCOORD) : SV_Target
   acc += T.Sample(S, v0.xy);
 
   // Texture object as condition
-  acc += T ? v0 : (v0 + 1.0F);                              /* expected-error {{conditional operator only supports condition with scalar, vector, or matrix types convertable to bool.}} fxc-error {{X3020: conditional must be numeric}} */
+  acc += T ? v0 : (v0 + 1.0F);                              /* expected-error {{conditional operator only supports condition with scalar, vector, or matrix types convertible to bool.}} fxc-error {{X3020: conditional must be numeric}} */
 
   Texture2D TOut1 = T1;
   Texture2D TOut2 = T2;
