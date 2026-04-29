@@ -527,14 +527,16 @@ static bool TryCreateEmptyBlobUtf(UINT32 codePage, IMalloc *pMalloc,
                                   IDxcBlobEncoding **ppBlobEncoding) {
   if (codePage == CP_UTF8) {
     InternalDxcBlobUtf8 *internalUtf8;
-    IFR(InternalDxcBlobUtf8::CreateFromMalloc(nullptr, pMalloc, 0, true,
-                                              codePage, &internalUtf8));
+    if (DXC_FAILED((InternalDxcBlobUtf8::CreateFromMalloc(
+            nullptr, pMalloc, 0, true, codePage, &internalUtf8))))
+      return false;
     *ppBlobEncoding = internalUtf8;
     return true;
   } else if (codePage == DXC_CP_WIDE) {
     InternalDxcBlobWide *internalWide;
-    IFR(InternalDxcBlobWide::CreateFromMalloc(nullptr, pMalloc, 0, true,
-                                              codePage, &internalWide));
+    if (DXC_FAILED(InternalDxcBlobWide::CreateFromMalloc(
+            nullptr, pMalloc, 0, true, codePage, &internalWide)))
+      return false;
     *ppBlobEncoding = internalWide;
     return true;
   }
@@ -551,14 +553,16 @@ static bool TryCreateBlobUtfFromBlob(IDxcBlob *pFromBlob, UINT32 codePage,
                                     pFromBlob->GetBufferSize(), codePage)) {
     if (codePage == CP_UTF8) {
       InternalDxcBlobUtf8 *internalUtf8;
-      IFR(InternalDxcBlobUtf8::CreateFromBlob(pFromBlob, pMalloc, true,
-                                              codePage, &internalUtf8));
+      if (DXC_FAILED(InternalDxcBlobUtf8::CreateFromBlob(
+              pFromBlob, pMalloc, true, codePage, &internalUtf8)))
+        return false;
       *ppBlobEncoding = internalUtf8;
       return true;
     } else if (codePage == DXC_CP_WIDE) {
       InternalDxcBlobWide *internalWide;
-      IFR(InternalDxcBlobWide::CreateFromBlob(pFromBlob, pMalloc, true,
-                                              codePage, &internalWide));
+      if (DXC_FAILED(InternalDxcBlobWide::CreateFromBlob(
+              pFromBlob, pMalloc, true, codePage, &internalWide)))
+        return false;
       *ppBlobEncoding = internalWide;
       return true;
     }
