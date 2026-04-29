@@ -87,6 +87,6 @@ float4 useAsStaticRWSBuffer() {
 // CHECK:  %paramRWSBuffer = OpFunctionParameter %_ptr_Function__ptr_Uniform_type_RWStructuredBuffer_S
 RWStructuredBuffer<S> returnRWSBuffer(RWStructuredBuffer<S> paramRWSBuffer) {
 // CHECK:     [[ptr_1:%[0-9]+]] = OpLoad %_ptr_Uniform_type_RWStructuredBuffer_S %paramRWSBuffer
-// CHECK-NEXT:               OpReturnValue [[ptr_1]]
+// CHECK:                         OpReturnValue [[ptr_1]]
     return paramRWSBuffer;
 }
