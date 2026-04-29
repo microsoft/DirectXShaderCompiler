@@ -2967,12 +2967,12 @@ void SpirvEmitter::doReturnStmt(const ReturnStmt *stmt) {
       declIdMapper.createResourceHeap(decl, resourceType);
     }
 
-    // Update counter variable associated with function returns
-    tryToAssignCounterVar(curFunction, retVal);
-
     auto *retInfo = loadIfGLValue(retVal);
     if (!retInfo)
       return;
+
+    // Update counter variable associated with function returns
+    tryToAssignCounterVar(curFunction, retVal);
 
     auto retType = retVal->getType();
     if (retInfo->getLayoutRule() != SpirvLayoutRule::Void &&
