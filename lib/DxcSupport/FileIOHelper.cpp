@@ -527,8 +527,8 @@ static bool TryCreateEmptyBlobUtf(UINT32 codePage, IMalloc *pMalloc,
                                   IDxcBlobEncoding **ppBlobEncoding) {
   if (codePage == CP_UTF8) {
     InternalDxcBlobUtf8 *internalUtf8;
-    if (DXC_FAILED((InternalDxcBlobUtf8::CreateFromMalloc(
-            nullptr, pMalloc, 0, true, codePage, &internalUtf8))))
+    if (DXC_FAILED(InternalDxcBlobUtf8::CreateFromMalloc(
+            nullptr, pMalloc, 0, true, codePage, &internalUtf8)))
       return false;
     *ppBlobEncoding = internalUtf8;
     return true;
