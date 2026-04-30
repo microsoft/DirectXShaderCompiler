@@ -1510,7 +1510,7 @@ static const OP::OpCodeProperty CoreOps_OpCodeProps[] = {
      "SetMeshOutputCounts",
      OCC::SetMeshOutputCounts,
      "setMeshOutputCounts",
-     Attribute::None,
+     Attribute::NoDuplicate,
      0,
      {},
      {}}, // Overloads: v
@@ -1552,7 +1552,7 @@ static const OP::OpCodeProperty CoreOps_OpCodeProps[] = {
      "DispatchMesh",
      OCC::DispatchMesh,
      "dispatchMesh",
-     Attribute::None,
+     Attribute::NoDuplicate,
      1,
      {{0x100}},
      {{0x0}}}, // Overloads: u
