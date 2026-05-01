@@ -491,9 +491,8 @@ Matrix<CompTy, M, N, MatrixUse::Accumulator, MatrixScope::ThreadGroup> Multiply(
 
 template <typename OutputElTy, typename InputElTy, SIZE_TYPE M, SIZE_TYPE K,
           ComponentEnum MatrixDT>
-// clang-format off
-typename hlsl::enable_if<hlsl::is_arithmetic<InputElTy>::value, vector<OutputElTy, M> >::type
-// clang-format on
+typename hlsl::enable_if<hlsl::is_arithmetic<InputElTy>::value,
+                         vector<OutputElTy, M> >::type
 Multiply(Matrix<MatrixDT, M, K, MatrixUse::A, MatrixScope::Thread> MatrixA,
          vector<InputElTy, K> Vec) {
   vector<OutputElTy, M> Result;
@@ -505,12 +504,10 @@ Multiply(Matrix<MatrixDT, M, K, MatrixUse::A, MatrixScope::Thread> MatrixA,
 
 template <typename OutputElTy, typename InputElTy, typename BiasElTy,
           SIZE_TYPE M, SIZE_TYPE K, ComponentEnum MatrixDT>
-// clang-format off
 typename hlsl::enable_if<hlsl::is_arithmetic<InputElTy>::value &&
                              __detail::TypeTraits<BiasElTy>::CompType ==
                                  __detail::TypeTraits<OutputElTy>::CompType,
                          vector<OutputElTy, M> >::type
-// clang-format on
 MultiplyAdd(Matrix<MatrixDT, M, K, MatrixUse::A, MatrixScope::Thread> MatrixA,
             vector<InputElTy, K> Vec, vector<BiasElTy, M> Bias) {
   vector<OutputElTy, M> Result;
@@ -523,12 +520,10 @@ MultiplyAdd(Matrix<MatrixDT, M, K, MatrixUse::A, MatrixScope::Thread> MatrixA,
 
 template <typename OutputElTy, typename InputElTy, typename BiasElTy,
           SIZE_TYPE M, SIZE_TYPE K, ComponentEnum MatrixDT>
-// clang-format off
 typename hlsl::enable_if<hlsl::is_arithmetic<InputElTy>::value &&
                              __detail::TypeTraits<BiasElTy>::CompType !=
                                  __detail::TypeTraits<OutputElTy>::CompType,
                          vector<OutputElTy, M> >::type
-// clang-format on
 MultiplyAdd(Matrix<MatrixDT, M, K, MatrixUse::A, MatrixScope::Thread> MatrixA,
             vector<InputElTy, K> Vec, vector<BiasElTy, M> Bias) {
   vector<OutputElTy, M> BiasVecConv;
@@ -546,13 +541,11 @@ MultiplyAdd(Matrix<MatrixDT, M, K, MatrixUse::A, MatrixScope::Thread> MatrixA,
 template <typename OutputElTy, typename InputElTy, ComponentEnum InputInterp,
           typename BiasElTy, SIZE_TYPE M, SIZE_TYPE VecK, SIZE_TYPE K,
           ComponentEnum MatrixDT>
-// clang-format off
 typename hlsl::enable_if<
     VecK == __detail::ScalarCountFromPackedComponents<InputInterp, K>::Value &&
         __detail::TypeTraits<BiasElTy>::CompType ==
             __detail::TypeTraits<OutputElTy>::CompType,
     vector<OutputElTy, M> >::type
-// clang-format on
 MultiplyAdd(Matrix<MatrixDT, M, K, MatrixUse::A, MatrixScope::Thread> MatrixA,
             InterpretedVector<InputElTy, VecK, InputInterp> InterpVec,
             vector<BiasElTy, M> Bias) {
@@ -567,13 +560,11 @@ MultiplyAdd(Matrix<MatrixDT, M, K, MatrixUse::A, MatrixScope::Thread> MatrixA,
 template <typename OutputElTy, typename InputElTy, ComponentEnum InputInterp,
           typename BiasElTy, SIZE_TYPE M, SIZE_TYPE VecK, SIZE_TYPE K,
           ComponentEnum MatrixDT>
-// clang-format off
 typename hlsl::enable_if<
     VecK == __detail::ScalarCountFromPackedComponents<InputInterp, K>::Value &&
         __detail::TypeTraits<BiasElTy>::CompType !=
             __detail::TypeTraits<OutputElTy>::CompType,
     vector<OutputElTy, M> >::type
-// clang-format on
 MultiplyAdd(Matrix<MatrixDT, M, K, MatrixUse::A, MatrixScope::Thread> MatrixA,
             InterpretedVector<InputElTy, VecK, InputInterp> InterpVec,
             vector<BiasElTy, M> Bias) {
@@ -593,11 +584,10 @@ MultiplyAdd(Matrix<MatrixDT, M, K, MatrixUse::A, MatrixScope::Thread> MatrixA,
 
 template <typename OutputElTy, typename InputElTy, ComponentEnum BiasInterp,
           SIZE_TYPE M, SIZE_TYPE K, ComponentEnum MatrixDT>
-// clang-format off
 typename hlsl::enable_if<hlsl::is_arithmetic<InputElTy>::value &&
-                      __detail::TypeTraits<OutputElTy>::CompType == BiasInterp,
+                             __detail::TypeTraits<OutputElTy>::CompType ==
+                                 BiasInterp,
                          vector<OutputElTy, M> >::type
-// clang-format on
 MultiplyAdd(Matrix<MatrixDT, M, K, MatrixUse::A, MatrixScope::Thread> MatrixA,
             vector<InputElTy, K> Vec, VectorRef<BiasInterp, M> BiasRef) {
   using BiasOutputVecTy = vector<OutputElTy, M>;
@@ -613,11 +603,10 @@ MultiplyAdd(Matrix<MatrixDT, M, K, MatrixUse::A, MatrixScope::Thread> MatrixA,
 
 template <typename OutputElTy, typename InputElTy, ComponentEnum BiasInterp,
           SIZE_TYPE M, SIZE_TYPE K, ComponentEnum MatrixDT>
-// clang-format off
 typename hlsl::enable_if<hlsl::is_arithmetic<InputElTy>::value &&
-                      __detail::TypeTraits<OutputElTy>::CompType != BiasInterp,
+                             __detail::TypeTraits<OutputElTy>::CompType !=
+                                 BiasInterp,
                          vector<OutputElTy, M> >::type
-// clang-format on
 MultiplyAdd(Matrix<MatrixDT, M, K, MatrixUse::A, MatrixScope::Thread> MatrixA,
             vector<InputElTy, K> Vec, VectorRef<BiasInterp, M> BiasRef) {
   using BiasVecTy =
@@ -639,12 +628,10 @@ MultiplyAdd(Matrix<MatrixDT, M, K, MatrixUse::A, MatrixScope::Thread> MatrixA,
 template <typename OutputElTy, typename InputElTy, ComponentEnum InputInterp,
           ComponentEnum BiasInterp, SIZE_TYPE M, SIZE_TYPE VecK, SIZE_TYPE K,
           ComponentEnum MatrixDT>
-// clang-format off
 typename hlsl::enable_if<
     VecK == __detail::ScalarCountFromPackedComponents<InputInterp, K>::Value &&
-    __detail::TypeTraits<OutputElTy>::CompType == BiasInterp,
-    vector<OutputElTy, M> >::type
-// clang-format on
+        __detail::TypeTraits<OutputElTy>::CompType == BiasInterp,
+    vector<OutputElTy, M>>::type
 MultiplyAdd(Matrix<MatrixDT, M, K, MatrixUse::A, MatrixScope::Thread> MatrixA,
             InterpretedVector<InputElTy, VecK, InputInterp> InterpVec,
             VectorRef<BiasInterp, M> BiasRef) {
@@ -662,12 +649,10 @@ MultiplyAdd(Matrix<MatrixDT, M, K, MatrixUse::A, MatrixScope::Thread> MatrixA,
 template <typename OutputElTy, typename InputElTy, ComponentEnum InputInterp,
           ComponentEnum BiasInterp, SIZE_TYPE M, SIZE_TYPE VecK, SIZE_TYPE K,
           ComponentEnum MatrixDT>
-// clang-format off
 typename hlsl::enable_if<
     VecK == __detail::ScalarCountFromPackedComponents<InputInterp, K>::Value &&
-    __detail::TypeTraits<OutputElTy>::CompType != BiasInterp,
+        __detail::TypeTraits<OutputElTy>::CompType != BiasInterp,
     vector<OutputElTy, M> >::type
-// clang-format on
 MultiplyAdd(Matrix<MatrixDT, M, K, MatrixUse::A, MatrixScope::Thread> MatrixA,
             InterpretedVector<InputElTy, VecK, InputInterp> InterpVec,
             VectorRef<BiasInterp, M> BiasRef) {
