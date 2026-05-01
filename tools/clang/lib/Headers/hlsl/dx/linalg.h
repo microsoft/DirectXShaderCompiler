@@ -241,14 +241,24 @@ InterpretedVector<T, N, DT> MakeInterpretedVector(vector<T, N> Vec) {
 }
 
 template <ComponentEnum DestTy, ComponentEnum OriginTy, typename T, int N>
-InterpretedVector<typename __detail::ComponentTypeTraits<DestTy>::Type,
-                  __detail::DstN<DestTy, OriginTy, N>::Value, DestTy>
+typename hlsl::enable_if<
+    DestTy != OriginTy,
+    InterpretedVector<typename __detail::ComponentTypeTraits<DestTy>::Type,
+                      __detail::DstN<DestTy, OriginTy, N>::Value,
+                      DestTy> >::type
 Convert(vector<T, N> Vec) {
   vector<typename __detail::ComponentTypeTraits<DestTy>::Type,
          __detail::DstN<DestTy, OriginTy, N>::Value>
       Result;
   __builtin_LinAlg_Convert(Result, Vec, OriginTy, DestTy);
   return MakeInterpretedVector<DestTy>(Result);
+}
+
+template <ComponentEnum DestTy, ComponentEnum OriginTy, typename T, int N>
+typename hlsl::enable_if<DestTy == OriginTy,
+                         InterpretedVector<T, N, DestTy> >::type
+Convert(vector<T, N> Vec) {
+  return MakeInterpretedVector<DestTy>(Vec);
 }
 
 template <ComponentEnum ComponentTy, SIZE_TYPE M, SIZE_TYPE N,
@@ -504,37 +514,20 @@ Multiply(Matrix<MatrixDT, M, K, MatrixUse::A, MatrixScope::Thread> MatrixA,
 
 template <typename OutputElTy, typename InputElTy, typename BiasElTy,
           SIZE_TYPE M, SIZE_TYPE K, ComponentEnum MatrixDT>
-typename hlsl::enable_if<hlsl::is_arithmetic<InputElTy>::value &&
-                             __detail::TypeTraits<BiasElTy>::CompType ==
-                                 __detail::TypeTraits<OutputElTy>::CompType,
+typename hlsl::enable_if<hlsl::is_arithmetic<InputElTy>::value,
                          vector<OutputElTy, M> >::type
 MultiplyAdd(Matrix<MatrixDT, M, K, MatrixUse::A, MatrixScope::Thread> MatrixA,
             vector<InputElTy, K> Vec, vector<BiasElTy, M> Bias) {
-  vector<OutputElTy, M> Result;
-  __builtin_LinAlg_MatrixVectorMultiplyAdd(
-      Result, MatrixA.__handle, hlsl::is_signed<OutputElTy>::value, Vec,
-      __detail::TypeTraits<InputElTy>::CompType, Bias,
-      __detail::TypeTraits<OutputElTy>::CompType);
-  return Result;
-}
 
-template <typename OutputElTy, typename InputElTy, typename BiasElTy,
-          SIZE_TYPE M, SIZE_TYPE K, ComponentEnum MatrixDT>
-typename hlsl::enable_if<hlsl::is_arithmetic<InputElTy>::value &&
-                             __detail::TypeTraits<BiasElTy>::CompType !=
-                                 __detail::TypeTraits<OutputElTy>::CompType,
-                         vector<OutputElTy, M> >::type
-MultiplyAdd(Matrix<MatrixDT, M, K, MatrixUse::A, MatrixScope::Thread> MatrixA,
-            vector<InputElTy, K> Vec, vector<BiasElTy, M> Bias) {
-  vector<OutputElTy, M> BiasVecConv;
-  __builtin_LinAlg_Convert(BiasVecConv, Bias,
-                           __detail::TypeTraits<BiasElTy>::CompType,
-                           __detail::TypeTraits<OutputElTy>::CompType);
+  InterpretedVector<OutputElTy, M, __detail::TypeTraits<OutputElTy>::CompType>
+      BiasConvInterp = Convert<__detail::TypeTraits<OutputElTy>::CompType,
+                               __detail::TypeTraits<BiasElTy>::CompType>(Bias);
+
   vector<OutputElTy, M> Result;
   __builtin_LinAlg_MatrixVectorMultiplyAdd(
       Result, MatrixA.__handle, hlsl::is_signed<OutputElTy>::value, Vec,
-      __detail::TypeTraits<InputElTy>::CompType, BiasVecConv,
-      __detail::TypeTraits<OutputElTy>::CompType);
+      __detail::TypeTraits<InputElTy>::CompType, BiasConvInterp.Data,
+      BiasConvInterp.Interpretation);
   return Result;
 }
 
@@ -542,86 +535,64 @@ template <typename OutputElTy, typename InputElTy, ComponentEnum InputInterp,
           typename BiasElTy, SIZE_TYPE M, SIZE_TYPE VecK, SIZE_TYPE K,
           ComponentEnum MatrixDT>
 typename hlsl::enable_if<
-    VecK == __detail::ScalarCountFromPackedComponents<InputInterp, K>::Value &&
-        __detail::TypeTraits<BiasElTy>::CompType ==
-            __detail::TypeTraits<OutputElTy>::CompType,
-    vector<OutputElTy, M> >::type
-MultiplyAdd(Matrix<MatrixDT, M, K, MatrixUse::A, MatrixScope::Thread> MatrixA,
-            InterpretedVector<InputElTy, VecK, InputInterp> InterpVec,
-            vector<BiasElTy, M> Bias) {
-  vector<OutputElTy, M> Result;
-  __builtin_LinAlg_MatrixVectorMultiplyAdd(
-      Result, MatrixA.__handle, hlsl::is_signed<OutputElTy>::value,
-      InterpVec.Data, InterpVec.Interpretation, Bias,
-      __detail::TypeTraits<OutputElTy>::CompType);
-  return Result;
-}
-
-template <typename OutputElTy, typename InputElTy, ComponentEnum InputInterp,
-          typename BiasElTy, SIZE_TYPE M, SIZE_TYPE VecK, SIZE_TYPE K,
-          ComponentEnum MatrixDT>
-typename hlsl::enable_if<
-    VecK == __detail::ScalarCountFromPackedComponents<InputInterp, K>::Value &&
-        __detail::TypeTraits<BiasElTy>::CompType !=
-            __detail::TypeTraits<OutputElTy>::CompType,
+    VecK == __detail::ScalarCountFromPackedComponents<InputInterp, K>::Value,
     vector<OutputElTy, M> >::type
 MultiplyAdd(Matrix<MatrixDT, M, K, MatrixUse::A, MatrixScope::Thread> MatrixA,
             InterpretedVector<InputElTy, VecK, InputInterp> InterpVec,
             vector<BiasElTy, M> Bias) {
 
-  vector<OutputElTy, M> BiasVecConv;
-  __builtin_LinAlg_Convert(BiasVecConv, Bias,
-                           __detail::TypeTraits<BiasElTy>::CompType,
-                           __detail::TypeTraits<OutputElTy>::CompType);
+  InterpretedVector<OutputElTy, M, __detail::TypeTraits<OutputElTy>::CompType>
+      BiasConvInterp = Convert<__detail::TypeTraits<OutputElTy>::CompType,
+                               __detail::TypeTraits<BiasElTy>::CompType>(Bias);
 
   vector<OutputElTy, M> Result;
   __builtin_LinAlg_MatrixVectorMultiplyAdd(
       Result, MatrixA.__handle, hlsl::is_signed<OutputElTy>::value,
-      InterpVec.Data, InterpVec.Interpretation, BiasVecConv,
-      __detail::TypeTraits<OutputElTy>::CompType);
+      InterpVec.Data, InterpVec.Interpretation, BiasConvInterp.Data,
+      BiasConvInterp.Interpretation);
   return Result;
 }
 
 template <typename OutputElTy, typename InputElTy, ComponentEnum BiasInterp,
           SIZE_TYPE M, SIZE_TYPE K, ComponentEnum MatrixDT>
-typename hlsl::enable_if<hlsl::is_arithmetic<InputElTy>::value &&
-                             __detail::TypeTraits<OutputElTy>::CompType ==
-                                 BiasInterp,
+typename hlsl::enable_if<hlsl::is_arithmetic<InputElTy>::value,
                          vector<OutputElTy, M> >::type
 MultiplyAdd(Matrix<MatrixDT, M, K, MatrixUse::A, MatrixScope::Thread> MatrixA,
             vector<InputElTy, K> Vec, VectorRef<BiasInterp, M> BiasRef) {
-  using BiasOutputVecTy = vector<OutputElTy, M>;
-  BiasOutputVecTy BiasVec =
-      BiasRef.Buf.template Load<BiasOutputVecTy>(BiasRef.Offset);
 
-  BiasOutputVecTy Result;
-  __builtin_LinAlg_MatrixVectorMultiplyAdd(Result, MatrixA.__handle,
-                                           hlsl::is_signed<OutputElTy>::value,
-                                           Vec, MatrixDT, BiasVec, BiasInterp);
-  return Result;
-}
-
-template <typename OutputElTy, typename InputElTy, ComponentEnum BiasInterp,
-          SIZE_TYPE M, SIZE_TYPE K, ComponentEnum MatrixDT>
-typename hlsl::enable_if<hlsl::is_arithmetic<InputElTy>::value &&
-                             __detail::TypeTraits<OutputElTy>::CompType !=
-                                 BiasInterp,
-                         vector<OutputElTy, M> >::type
-MultiplyAdd(Matrix<MatrixDT, M, K, MatrixUse::A, MatrixScope::Thread> MatrixA,
-            vector<InputElTy, K> Vec, VectorRef<BiasInterp, M> BiasRef) {
   using BiasVecTy =
       vector<typename __detail::ComponentTypeTraits<BiasInterp>::Type,
              __detail::ScalarCountFromPackedComponents<BiasInterp, M>::Value>;
-  BiasVecTy BiasVec = BiasRef.Buf.template Load<BiasVecTy>(BiasRef.Offset);
+  BiasVecTy Bias = BiasRef.Buf.template Load<BiasVecTy>(BiasRef.Offset);
 
-  vector<OutputElTy, M> BiasVecConv;
-  ComponentEnum OutputCompType = __detail::TypeTraits<OutputElTy>::CompType;
-  __builtin_LinAlg_Convert(BiasVecConv, BiasVec, BiasInterp, OutputCompType);
+  // FIXME: Convert currently does not support packed type vector sizes that
+  // are not a multiple of the number of elements per scalar, so we
+  // need to do an extra conversion here to get it into the right shape.
+  // For example if BiasRef is F8_E4M3FN and M is 7, it gets loaded to into
+  // vector<uint, 2>, and if OutputElTy is half, Convert will return
+  // vector<half, 8> instead of vector<half, 7>.
+  // https://github.com/microsoft/DirectXShaderCompiler/issues/8418
+
+  // Convert to OutputElTy vector with padding
+  using BiasConvInterpPaddedTy = InterpretedVector<
+      OutputElTy,
+      __detail::DstN<__detail::TypeTraits<OutputElTy>::CompType, BiasInterp,
+                     __detail::ScalarCountFromPackedComponents<
+                         BiasInterp, M>::Value>::Value,
+      __detail::TypeTraits<OutputElTy>::CompType>;
+
+  BiasConvInterpPaddedTy BiasConvInterpPadded =
+      Convert<__detail::TypeTraits<OutputElTy>::CompType, BiasInterp>(Bias);
+
+  // Truncate the vector to the correct size M
+  vector<OutputElTy, M> BiasConv =
+      (vector<OutputElTy, M>)BiasConvInterpPadded.Data;
 
   vector<OutputElTy, M> Result;
   __builtin_LinAlg_MatrixVectorMultiplyAdd(
       Result, MatrixA.__handle, hlsl::is_signed<OutputElTy>::value, Vec,
-      __detail::TypeTraits<InputElTy>::CompType, BiasVecConv, OutputCompType);
+      __detail::TypeTraits<InputElTy>::CompType, BiasConv,
+      __detail::TypeTraits<OutputElTy>::CompType);
   return Result;
 }
 
@@ -629,29 +600,7 @@ template <typename OutputElTy, typename InputElTy, ComponentEnum InputInterp,
           ComponentEnum BiasInterp, SIZE_TYPE M, SIZE_TYPE VecK, SIZE_TYPE K,
           ComponentEnum MatrixDT>
 typename hlsl::enable_if<
-    VecK == __detail::ScalarCountFromPackedComponents<InputInterp, K>::Value &&
-        __detail::TypeTraits<OutputElTy>::CompType == BiasInterp,
-    vector<OutputElTy, M>>::type
-MultiplyAdd(Matrix<MatrixDT, M, K, MatrixUse::A, MatrixScope::Thread> MatrixA,
-            InterpretedVector<InputElTy, VecK, InputInterp> InterpVec,
-            VectorRef<BiasInterp, M> BiasRef) {
-  using BiasOutputVecTy = vector<OutputElTy, M>;
-  BiasOutputVecTy BiasVec =
-      BiasRef.Buf.template Load<BiasOutputVecTy>(BiasRef.Offset);
-
-  vector<OutputElTy, M> Result;
-  __builtin_LinAlg_MatrixVectorMultiplyAdd(
-      Result, MatrixA.__handle, hlsl::is_signed<OutputElTy>::value,
-      InterpVec.Data, InterpVec.Interpretation, BiasVec, BiasInterp);
-  return Result;
-}
-
-template <typename OutputElTy, typename InputElTy, ComponentEnum InputInterp,
-          ComponentEnum BiasInterp, SIZE_TYPE M, SIZE_TYPE VecK, SIZE_TYPE K,
-          ComponentEnum MatrixDT>
-typename hlsl::enable_if<
-    VecK == __detail::ScalarCountFromPackedComponents<InputInterp, K>::Value &&
-        __detail::TypeTraits<OutputElTy>::CompType != BiasInterp,
+    VecK == __detail::ScalarCountFromPackedComponents<InputInterp, K>::Value,
     vector<OutputElTy, M> >::type
 MultiplyAdd(Matrix<MatrixDT, M, K, MatrixUse::A, MatrixScope::Thread> MatrixA,
             InterpretedVector<InputElTy, VecK, InputInterp> InterpVec,
@@ -659,16 +608,36 @@ MultiplyAdd(Matrix<MatrixDT, M, K, MatrixUse::A, MatrixScope::Thread> MatrixA,
   using BiasVecTy =
       vector<typename __detail::ComponentTypeTraits<BiasInterp>::Type,
              __detail::ScalarCountFromPackedComponents<BiasInterp, M>::Value>;
-  BiasVecTy BiasVec = BiasRef.Buf.template Load<BiasVecTy>(BiasRef.Offset);
+  BiasVecTy Bias = BiasRef.Buf.template Load<BiasVecTy>(BiasRef.Offset);
 
-  ComponentEnum OutputCompType = __detail::TypeTraits<OutputElTy>::CompType;
-  vector<OutputElTy, M> BiasVecConv;
-  __builtin_LinAlg_Convert(BiasVecConv, BiasVec, BiasInterp, OutputCompType);
+  // FIXME: Convert currently does not support packed type vector sizes that
+  // are not a multiple of the number of elements per scalar, so we
+  // need to do an extra conversion here to get it into the right shape.
+  // For example if BiasRef is F8_E4M3FN and M is 7, it gets loaded to into
+  // vector<uint, 2>, and if OutputElTy is half, Convert will return
+  // vector<half, 8> instead of vector<half, 7>.
+  // https://github.com/microsoft/DirectXShaderCompiler/issues/8418
+
+  // Convert to OutputElTy vector with padding
+  using BiasConvInterpPaddedTy = InterpretedVector<
+      OutputElTy,
+      __detail::DstN<__detail::TypeTraits<OutputElTy>::CompType, BiasInterp,
+                     __detail::ScalarCountFromPackedComponents<
+                         BiasInterp, M>::Value>::Value,
+      __detail::TypeTraits<OutputElTy>::CompType>;
+
+  BiasConvInterpPaddedTy BiasConvInterpPadded =
+      Convert<__detail::TypeTraits<OutputElTy>::CompType, BiasInterp>(Bias);
+
+  // Truncate the vector to the correct size M
+  vector<OutputElTy, M> BiasConv =
+      (vector<OutputElTy, M>)BiasConvInterpPadded.Data;
 
   vector<OutputElTy, M> Result;
   __builtin_LinAlg_MatrixVectorMultiplyAdd(
       Result, MatrixA.__handle, hlsl::is_signed<OutputElTy>::value,
-      InterpVec.Data, InterpVec.Interpretation, BiasVecConv, OutputCompType);
+      InterpVec.Data, InterpVec.Interpretation, BiasConv,
+      __detail::TypeTraits<OutputElTy>::CompType);
   return Result;
 }
 

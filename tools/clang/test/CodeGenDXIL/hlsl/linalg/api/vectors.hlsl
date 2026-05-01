@@ -169,8 +169,9 @@ void main(uint ID : SV_GroupID) {
   // CHECK: %[[LOAD4:.*]] = call %dx.types.ResRet.v2i32 @dx.op.rawBufferVectorLoad.v2i32(i32 303, %dx.types.Handle %{{[0-9]+}}, i32 512, i32 undef, i32 4)
   // CHECK-SAME: ; RawBufferVectorLoad(buf,index,elementOffset,alignment)
   // CHECK-NEXT: %[[MEM_BIAS_PACKED1:.*]] = extractvalue %dx.types.ResRet.v2i32 %[[LOAD4]], 0
-  // CHECK-NEXT: %[[MEM_BIAS_CONV1:.*]] = call <7 x half> @dx.op.linAlgConvert.v7f16.v2i32(i32 -2147483618,
+  // CHECK-NEXT: %[[MEM_BIAS_CONV_PADDED:.*]] = call <8 x half> @dx.op.linAlgConvert.v8f16.v2i32(i32 -2147483618,
   // CHECK-SAME: <2 x i32> %[[MEM_BIAS_PACKED1]], i32 21, i32 8)  ; LinAlgConvert(inputVector,inputInterpretation,outputInterpretation)
+  // CHECK-NEXT: %[[MEM_BIAS_CONV1:.*]] = shufflevector <8 x half> %[[MEM_BIAS_CONV_PADDED]], <8 x half> undef, <7 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6>
   // CHECK-NEXT: call <7 x half> @dx.op.linAlgMatVecMulAdd.v7f16.mC21M7N15U0S0.v15f16.v7f16(i32 -2147483622,
   // CHECK-SAME: %dx.types.LinAlgMatrixC21M7N15U0S0 %[[MAT_7_15_PACKED]], i1 true, <15 x half> %{{[0-9]+}}, i32 8, <7 x half> %[[MEM_BIAS_CONV1]], i32 8)
   // CHECK-SAME: ; LinAlgMatVecMulAdd(matrix,isOutputSigned,inputVector,inputInterpretation,biasVector,biasInterpretation)
@@ -180,7 +181,9 @@ void main(uint ID : SV_GroupID) {
   // CHECK: %[[LOAD5:.*]] = call %dx.types.ResRet.v2i32 @dx.op.rawBufferVectorLoad.v2i32(i32 303, %dx.types.Handle %{{[0-9]+}}, i32 512, i32 undef, i32 4)
   // CHECK-SAME: ; RawBufferVectorLoad(buf,index,elementOffset,alignment)
   // CHECK-NEXT: %[[MEM_BIAS_PACKED2:.*]] = extractvalue %dx.types.ResRet.v2i32 %[[LOAD5]], 0
-  // CHECK-NEXT: %[[MEM_BIAS_CONV2:.*]] = call <7 x half> @dx.op.linAlgConvert.v7f16.v2i32(i32 -2147483618, <2 x i32> %[[MEM_BIAS_PACKED2]], i32 21, i32 8)  ; LinAlgConvert(inputVector,inputInterpretation,outputInterpretation)
+  // CHECK-NEXT: %[[MEM_BIAS_CONV_PADDED2:.*]] = call <8 x half> @dx.op.linAlgConvert.v8f16.v2i32(i32 -2147483618,
+  // CHECK-SAME: <2 x i32> %[[MEM_BIAS_PACKED2]], i32 21, i32 8)  ; LinAlgConvert(inputVector,inputInterpretation,outputInterpretation)
+  // CHECK-NEXT: %[[MEM_BIAS_CONV2:.*]] = shufflevector <8 x half> %[[MEM_BIAS_CONV_PADDED2]], <8 x half> undef, <7 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6>
   // CHECK-NEXT: call <7 x half> @dx.op.linAlgMatVecMulAdd.v7f16.mC21M7N15U0S0.v4i32.v7f16(i32 -2147483622,
   // CHECK-SAME: %dx.types.LinAlgMatrixC21M7N15U0S0 %[[MAT_7_15_PACKED]], i1 true, <4 x i32> %[[INTERP_VEC_H15_PACKED]], i32 21, <7 x half> %[[MEM_BIAS_CONV2]], i32 8)
   // CHECK-SAME: ; LinAlgMatVecMulAdd(matrix,isOutputSigned,inputVector,inputInterpretation,biasVector,biasInterpretation)
