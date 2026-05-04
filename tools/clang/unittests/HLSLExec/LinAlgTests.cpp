@@ -505,7 +505,7 @@ static void runSplatStore(ID3D12Device *Device,
   const size_t BufferSize = Params.totalBytes();
 
   std::stringstream ExtraDefs;
-  ExtraDefs << "-DFILL_VALUE=" << FillValue;
+  ExtraDefs << std::showpoint << "-DFILL_VALUE=" << FillValue;
 
   std::string Args = buildCompilerArgs(Params, ExtraDefs.str().c_str());
 
@@ -624,7 +624,7 @@ static const char ElementAccessShader[] = R"(
   // flatten the 2D index into a 1D index then scale by element size
   // Always store row-major and work it out in the test runner
   uint coordToByteOffset(uint2 coord) {
-    return (coord.y * M_DIM + coord.x) * ELEM_SIZE;
+    return (coord.x * N_DIM + coord.y) * ELEM_SIZE;
   }
 
   [WaveSize(4, 64)]
@@ -935,6 +935,7 @@ static void runMatMatMul(ID3D12Device *Device,
   const size_t BufferSize = Params.totalBytes();
 
   std::stringstream ExtraDefs;
+  ExtraDefs << std::showpoint;
   ExtraDefs << " -DK_DIM=" << K;
   ExtraDefs << " -DA_FILL=" << AFill;
   ExtraDefs << " -DB_FILL=" << BFill;
@@ -1017,6 +1018,7 @@ static void runMatMatMulAccum(ID3D12Device *Device,
   const size_t BufferSize = Params.totalBytes();
 
   std::stringstream ExtraDefs;
+  ExtraDefs << std::showpoint;
   ExtraDefs << " -DK_DIM=" << K;
   ExtraDefs << " -DA_FILL=" << AFill;
   ExtraDefs << " -DB_FILL=" << BFill;
@@ -1094,6 +1096,7 @@ static void runMatAccum(ID3D12Device *Device,
   const size_t BufferSize = Params.totalBytes();
 
   std::stringstream ExtraDefs;
+  ExtraDefs << std::showpoint;
   ExtraDefs << " -DLHS_FILL=" << LHSFill;
   ExtraDefs << " -DRHS_FILL=" << RHSFill;
 
@@ -1551,6 +1554,7 @@ static void runStoreMemory(ID3D12Device *Device,
   const size_t BufferSize = Params.totalBytes();
 
   std::stringstream ExtraDefs;
+  ExtraDefs << std::showpoint;
   ExtraDefs << " -DOFFSET=" << 0;
   ExtraDefs << " -DFILL_VALUE=" << FillValue;
 
@@ -1631,6 +1635,7 @@ static void runAccumulateMemory(ID3D12Device *Device,
   const size_t BufferSize = Params.totalBytes();
 
   std::stringstream ExtraDefs;
+  ExtraDefs << std::showpoint;
   ExtraDefs << " -DOFFSET=" << 0;
   ExtraDefs << " -DFILL_VALUE=" << FillValue;
 
