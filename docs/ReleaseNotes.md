@@ -86,6 +86,9 @@ line upon naming the release. Refer to previous for appropriate section names.
 - Fixed members following a merged bitfield reading the wrong value when a
   struct is flat-converted
   [#8526](https://github.com/microsoft/DirectXShaderCompiler/issues/8526).
+- Fixed allowing 16 bit writes to RWByteAddressBuffers in SPIRV. A new
+  diagnostic is provided when the 16 bit write is attempted.
+  [#8172](https://github.com/microsoft/DirectXShaderCompiler/issues/8172)
 
 ### Upcoming Preview Release
 

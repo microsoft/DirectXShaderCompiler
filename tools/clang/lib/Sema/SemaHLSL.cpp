@@ -6962,6 +6962,38 @@ ConcreteLiteralType(Expr *litExpr, ArBasicKind kind,
   }
 }
 
+static bool IsOrContains16BitType(QualType Ty) {
+  if (Ty.isNull() || Ty->isIncompleteType())
+    return false;
+
+  Ty = Ty.getCanonicalType().getUnqualifiedType();
+
+  if (const BuiltinType *BT = Ty->getAs<BuiltinType>()) {
+    switch (BT->getKind()) {
+    case BuiltinType::Short:
+    case BuiltinType::UShort:
+    case BuiltinType::Half:
+      return true;
+    default:
+      return false;
+    }
+  }
+
+  if (hlsl::IsHLSLVecType(Ty))
+    return IsOrContains16BitType(hlsl::GetHLSLVecElementType(Ty));
+  if (hlsl::IsHLSLMatType(Ty))
+    return IsOrContains16BitType(hlsl::GetHLSLMatElementType(Ty));
+
+  if (const ArrayType *AT = Ty->getAsArrayTypeUnsafe())
+    return IsOrContains16BitType(AT->getElementType());
+  if (const RecordType *RT = Ty->getAs<RecordType>()) {
+    for (const FieldDecl *FD : RT->getDecl()->fields())
+      if (IsOrContains16BitType(FD->getType()))
+        return true;
+  }
+  return false;
+}
+
 bool HLSLExternalSource::IsValidObjectElement(LPCSTR tableName,
                                               const IntrinsicOp op,
                                               QualType objectElement) {
@@ -11536,6 +11568,18 @@ HLSLExternalSource::DeduceTemplateArgumentsForHLSL(
             32, /*signed*/ false);
       }
     }
+#ifdef ENABLE_SPIRV_CODEGEN
+    // We don't support 16 bit stores in SPIRV for RWByteAddressBuffer due to
+    // representing the buffer as a series of 32 bit values.
+    // See https://github.com/microsoft/DirectXShaderCompiler/issues/8172
+    if (IsBABStore && getSema()->getLangOpts().SPIRV) {
+      if (IsOrContains16BitType(argTypes[2])) {
+        getSema()->Diag(Args[1]->getLocStart(),
+                        diag::err_hlsl_vk_rwbyteaddressbuffer_16bit_store);
+        return Sema::TemplateDeductionResult::TDK_Invalid;
+      }
+    }
+#endif
     Specialization = AddHLSLIntrinsicMethod(
         tableName, cursor.GetLoweringStrategy(), *cursor, FunctionTemplate,
         Args, argTypes.data(), argTypes.size());

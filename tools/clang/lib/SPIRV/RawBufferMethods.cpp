@@ -548,7 +548,7 @@ void RawBufferHandler::processTemplatedStoreToBuffer(SpirvInstruction *value,
         astContext, valueType, theEmitter.getSpirvOptions().enable16BitTypes);
     switch (storeWidth) {
     case 16:
-      store16Bits(value, buffer, address, valueType, range);
+      theEmitter.emitError("RWByteAddressBuffer does not support storing 16-bit types in Vulkan", loc);
       return;
     case 32:
       store32Bits(value, buffer, address, valueType, range);
