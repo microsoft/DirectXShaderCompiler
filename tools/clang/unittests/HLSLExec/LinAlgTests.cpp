@@ -505,7 +505,7 @@ static void runSplatStore(ID3D12Device *Device,
   const size_t BufferSize = Params.totalBytes();
 
   std::stringstream ExtraDefs;
-  ExtraDefs << std::showpoint << "-DFILL_VALUE=" << FillValue;
+  ExtraDefs << std::showpoint << "-DFILL_VALUE=" << FillValue << "F";
 
   std::string Args = buildCompilerArgs(Params, ExtraDefs.str().c_str());
 
