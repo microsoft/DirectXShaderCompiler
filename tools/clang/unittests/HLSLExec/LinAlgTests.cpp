@@ -937,8 +937,8 @@ static void runMatMatMul(ID3D12Device *Device,
   std::stringstream ExtraDefs;
   ExtraDefs << std::showpoint;
   ExtraDefs << " -DK_DIM=" << K;
-  ExtraDefs << " -DA_FILL=" << AFill;
-  ExtraDefs << " -DB_FILL=" << BFill;
+  ExtraDefs << " -DA_FILL=" << AFill << "F";
+  ExtraDefs << " -DB_FILL=" << BFill << "F";
 
   std::string Args = buildCompilerArgs(Params, ExtraDefs.str().c_str());
 
@@ -1020,9 +1020,9 @@ static void runMatMatMulAccum(ID3D12Device *Device,
   std::stringstream ExtraDefs;
   ExtraDefs << std::showpoint;
   ExtraDefs << " -DK_DIM=" << K;
-  ExtraDefs << " -DA_FILL=" << AFill;
-  ExtraDefs << " -DB_FILL=" << BFill;
-  ExtraDefs << " -DC_FILL=" << CFill;
+  ExtraDefs << " -DA_FILL=" << AFill << "F";
+  ExtraDefs << " -DB_FILL=" << BFill << "F";
+  ExtraDefs << " -DC_FILL=" << CFill << "F";
 
   std::string Args = buildCompilerArgs(Params, ExtraDefs.str().c_str());
 
@@ -1097,8 +1097,8 @@ static void runMatAccum(ID3D12Device *Device,
 
   std::stringstream ExtraDefs;
   ExtraDefs << std::showpoint;
-  ExtraDefs << " -DLHS_FILL=" << LHSFill;
-  ExtraDefs << " -DRHS_FILL=" << RHSFill;
+  ExtraDefs << " -DLHS_FILL=" << LHSFill << "F";
+  ExtraDefs << " -DRHS_FILL=" << RHSFill << "F";
 
   std::string Args = buildCompilerArgs(Params, ExtraDefs.str().c_str());
 
@@ -1556,7 +1556,7 @@ static void runStoreMemory(ID3D12Device *Device,
   std::stringstream ExtraDefs;
   ExtraDefs << std::showpoint;
   ExtraDefs << " -DOFFSET=" << 0;
-  ExtraDefs << " -DFILL_VALUE=" << FillValue;
+  ExtraDefs << " -DFILL_VALUE=" << FillValue << "F";
 
   std::string Args = buildCompilerArgs(Params, ExtraDefs.str().c_str());
 
@@ -1637,7 +1637,7 @@ static void runAccumulateMemory(ID3D12Device *Device,
   std::stringstream ExtraDefs;
   ExtraDefs << std::showpoint;
   ExtraDefs << " -DOFFSET=" << 0;
-  ExtraDefs << " -DFILL_VALUE=" << FillValue;
+  ExtraDefs << " -DFILL_VALUE=" << FillValue << "F";
 
   std::string Args = buildCompilerArgs(Params, ExtraDefs.str().c_str());
 
