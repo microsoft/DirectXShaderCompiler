@@ -28,6 +28,10 @@
 #include <optional>
 #include <sstream>
 #include <string>
+
+#define STREAM_FLOAT(stream, name, value) \
+  stream << std::showpoint << " -D" << name << "=" << value << "F" \
+         << std::noshowpoint
 #include <variant>
 #include <vector>
 
@@ -505,7 +509,7 @@ static void runSplatStore(ID3D12Device *Device,
   const size_t BufferSize = Params.totalBytes();
 
   std::stringstream ExtraDefs;
-  ExtraDefs << std::showpoint << "-DFILL_VALUE=" << FillValue << "F";
+  STREAM_FLOAT(ExtraDefs, "FILL_VALUE", FillValue);
 
   std::string Args = buildCompilerArgs(Params, ExtraDefs.str().c_str());
 
@@ -935,10 +939,9 @@ static void runMatMatMul(ID3D12Device *Device,
   const size_t BufferSize = Params.totalBytes();
 
   std::stringstream ExtraDefs;
-  ExtraDefs << std::showpoint;
   ExtraDefs << " -DK_DIM=" << K;
-  ExtraDefs << " -DA_FILL=" << AFill << "F";
-  ExtraDefs << " -DB_FILL=" << BFill << "F";
+  STREAM_FLOAT(ExtraDefs, "A_FILL", AFill);
+  STREAM_FLOAT(ExtraDefs, "B_FILL", BFill);
 
   std::string Args = buildCompilerArgs(Params, ExtraDefs.str().c_str());
 
@@ -1018,11 +1021,10 @@ static void runMatMatMulAccum(ID3D12Device *Device,
   const size_t BufferSize = Params.totalBytes();
 
   std::stringstream ExtraDefs;
-  ExtraDefs << std::showpoint;
   ExtraDefs << " -DK_DIM=" << K;
-  ExtraDefs << " -DA_FILL=" << AFill << "F";
-  ExtraDefs << " -DB_FILL=" << BFill << "F";
-  ExtraDefs << " -DC_FILL=" << CFill << "F";
+  STREAM_FLOAT(ExtraDefs, "A_FILL", AFill);
+  STREAM_FLOAT(ExtraDefs, "B_FILL", BFill);
+  STREAM_FLOAT(ExtraDefs, "C_FILL", CFill);
 
   std::string Args = buildCompilerArgs(Params, ExtraDefs.str().c_str());
 
@@ -1096,9 +1098,8 @@ static void runMatAccum(ID3D12Device *Device,
   const size_t BufferSize = Params.totalBytes();
 
   std::stringstream ExtraDefs;
-  ExtraDefs << std::showpoint;
-  ExtraDefs << " -DLHS_FILL=" << LHSFill << "F";
-  ExtraDefs << " -DRHS_FILL=" << RHSFill << "F";
+  STREAM_FLOAT(ExtraDefs, "LHS_FILL", LHSFill);
+  STREAM_FLOAT(ExtraDefs, "RHS_FILL", RHSFill);
 
   std::string Args = buildCompilerArgs(Params, ExtraDefs.str().c_str());
 
@@ -1554,9 +1555,8 @@ static void runStoreMemory(ID3D12Device *Device,
   const size_t BufferSize = Params.totalBytes();
 
   std::stringstream ExtraDefs;
-  ExtraDefs << std::showpoint;
   ExtraDefs << " -DOFFSET=" << 0;
-  ExtraDefs << " -DFILL_VALUE=" << FillValue << "F";
+  STREAM_FLOAT(ExtraDefs, "FILL_VALUE", FillValue);
 
   std::string Args = buildCompilerArgs(Params, ExtraDefs.str().c_str());
 
@@ -1635,9 +1635,8 @@ static void runAccumulateMemory(ID3D12Device *Device,
   const size_t BufferSize = Params.totalBytes();
 
   std::stringstream ExtraDefs;
-  ExtraDefs << std::showpoint;
   ExtraDefs << " -DOFFSET=" << 0;
-  ExtraDefs << " -DFILL_VALUE=" << FillValue << "F";
+  STREAM_FLOAT(ExtraDefs, "FILL_VALUE", FillValue);
 
   std::string Args = buildCompilerArgs(Params, ExtraDefs.str().c_str());
 
