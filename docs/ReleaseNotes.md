@@ -63,8 +63,8 @@ line upon naming the release. Refer to previous for appropriate section names.
 - Starting with HLSL 202x, `cbuffer` and `tbuffer` declarations and their
   members belong to their enclosing namespace.
 - HLSL 202x supports `const`-qualified instance methods and rejects calls
-  to non-`const` methods on `const` objects, including objects in constant 
-  buffers 
+  to non-`const` methods on `const` objects, including objects in constant
+  buffers
   [#8964](https://github.com/microsoft/DirectXShaderCompiler/issues/8964).
 - HLSL 202x supports `mutable` member variables in structs, allowing them to be
   modified even in `const`-qualified instance methods
@@ -104,6 +104,9 @@ line upon naming the release. Refer to previous for appropriate section names.
   after bit-tracking dead code elimination.
 - Fixed an optimizer miscompile where selects of bitwise-not values guarded by
   signed less-than or unsigned compares were treated as a signed minimum.
+- Disabled 16 bit writes to RWByteAddressBuffers in SPIRV, now emitting a
+  diagnostic instead
+  [#8172](https://github.com/microsoft/DirectXShaderCompiler/issues/8172).
 
 ### Upcoming Preview Release
 
