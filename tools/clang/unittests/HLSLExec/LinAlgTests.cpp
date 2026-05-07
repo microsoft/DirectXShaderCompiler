@@ -29,8 +29,8 @@
 #include <sstream>
 #include <string>
 
-#define STREAM_FLOAT(stream, name, value) \
-  stream << std::showpoint << " -D" << name << "=" << value << "F" \
+#define STREAM_FLOAT(stream, name, value)                                      \
+  stream << std::showpoint << " -D" << name << "=" << value << "F"             \
          << std::noshowpoint
 #include <variant>
 #include <vector>
