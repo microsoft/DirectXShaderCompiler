@@ -91,10 +91,10 @@ typename typedef float4 TFloat4; // expected-error {{'typename' is a reserved ke
 class C {
   int fn_eq_default() = default; // expected-error {{function deletion and defaulting is unsupported in HLSL}}
 
-  // Errors are a bit misleading here, but ultimate we don't support these.
-  void* operator new(); // expected-error {{'operator' is a reserved keyword in HLSL}} expected-error {{pointers are unsupported in HLSL}}
-  void* operator new(int); // expected-error {{'operator' is a reserved keyword in HLSL}} expected-error {{pointers are unsupported in HLSL}}
-  void* operator new(size_t); // expected-error {{'operator' is a reserved keyword in HLSL}} expected-error {{pointers are unsupported in HLSL}}
+  // Pointer return type is no longer caught at parse time; operator keyword error is still reported.
+  void* operator new(); // expected-error {{'operator' is a reserved keyword in HLSL}}
+  void* operator new(int); // expected-error {{'operator' is a reserved keyword in HLSL}}
+  void* operator new(size_t); // expected-error {{'operator' is a reserved keyword in HLSL}}
 
   C() = delete; // expected-error {{HLSL requires a type specifier for all declarations}} expected-error {{constructor cannot have a return type}}
 };

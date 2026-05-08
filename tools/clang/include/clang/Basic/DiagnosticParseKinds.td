@@ -994,8 +994,6 @@ def err_hlsl_unsupported_member_default : Error<
   "struct/class members cannot have default values">;
 def err_hlsl_unsupported_packoffset_component : Error<
   "packoffset component should indicate offset with one of x, y, z, w, r, g, b, or a">;
-def err_hlsl_unsupported_pointer : Error<
-  "pointers are unsupported in HLSL">;
 def err_hlsl_unsupported_register_number : Error<
   "register number should be an integral numeric string">;
 def err_hlsl_unsupported_register_noninteger : Error<
