@@ -628,7 +628,7 @@ include_directories( ${LLVM_INCLUDE_DIR}/dxc/Tracing) # HLSL Change
 if(EXISTS "${LLVM_MAIN_SRC_DIR}/external")
   add_subdirectory(external) # SPIRV change
 endif()
-include_directories(AFTER ${DIRECTX_HEADER_INCLUDE_DIR}/directx ${DIRECTX_HEADER_INCLUDE_DIR}/wsl/stubs)
+include_directories(AFTER ${DIRECTX_HEADER_INCLUDE_DIR} ${DIRECTX_HEADER_INCLUDE_DIR}/directx ${DIRECTX_HEADER_INCLUDE_DIR}/wsl/stubs)
 # HLSL Change Ends
 
 # when crosscompiling import the executable targets from a file

@@ -33,15 +33,15 @@
 #include <vector>
 #endif // __cplusplus
 
-// Include DirectX-Headers winadapter headers
+// Include DirectX-Headers winadapter header. This is a required dependency on
+// non-Windows.
 #ifdef __clang__
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wnewline-eof"
 #pragma clang diagnostic ignored "-Wcast-qual"
 #endif
 
-#include "basetsd.h"
-#include "unknwn.h"
+#include "wsl/winadapter.h"
 
 #ifdef __clang__
 #pragma clang diagnostic pop
