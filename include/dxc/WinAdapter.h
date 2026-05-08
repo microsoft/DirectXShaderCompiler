@@ -443,8 +443,6 @@ template <typename T> inline void **IID_PPV_ARGS_Helper(T **pp) {
 
 //===--------------------- COM Interfaces ---------------------------------===//
 
-// Note: IUknown UUID is defined in DirectX-Headers
-
 CROSS_PLATFORM_UUIDOF(INoMarshal, "ECC8691B-C1DB-4DC0-855E-65F6C551AF49")
 struct INoMarshal : public IUnknown {};
 
