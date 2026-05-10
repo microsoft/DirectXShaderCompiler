@@ -4156,7 +4156,7 @@ class db_dxil(object):
             "SetMeshOutputCounts",
             "Mesh shader intrinsic SetMeshOutputCounts",
             "v",
-            "",
+            "nd",
             [
                 retvoid_param,
                 db_dxil_param(2, "i32", "numVertices", "number of output vertices"),
