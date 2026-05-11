@@ -18,13 +18,11 @@ float4 main(PSInput input) : SV_TARGET
 {
     RWStructuredBuffer<uint> l_rwbuffer[5] = g_rwbuffer;
 
-// CHECK: [[ac1:%[0-9]+]] = OpAccessChain %_ptr_Uniform_type_ACSBuffer_counter %counter_var_g_rwbuffer %int_0
-// CHECK: [[ac2:%[0-9]+]] = OpAccessChain %_ptr_Uniform_int [[ac1]] %uint_0
+// CHECK: [[ac2:%[0-9]+]] = OpAccessChain %_ptr_Uniform_int %counter_var_g_rwbuffer %int_0 %uint_0
 // CHECK: OpAtomicIAdd %int [[ac2]] %uint_1 %uint_0 %int_1
     l_rwbuffer[0].IncrementCounter();
 
-// CHECK: [[ac1_0:%[0-9]+]] = OpAccessChain %_ptr_Uniform_type_RWStructuredBuffer_uint %g_rwbuffer {{%[0-9]+}}
-// CHECK: [[ac2_0:%[0-9]+]] = OpAccessChain %_ptr_Uniform_uint [[ac1_0]] %int_0 %uint_0
+// CHECK: [[ac2_0:%[0-9]+]] = OpAccessChain %_ptr_Uniform_uint %g_rwbuffer {{%[0-9]+}} %int_0 %uint_0
 // CHECK: OpLoad %uint [[ac2_0]]
     return l_rwbuffer[input.idx][0];
 }
