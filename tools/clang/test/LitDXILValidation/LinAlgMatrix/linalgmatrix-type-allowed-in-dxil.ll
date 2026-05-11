@@ -2,14 +2,12 @@
 
 ; CHECK-NOT: uses a reserved prefix.
 ; CHECK-NOT: Validation failed.
+; CHECK: Validation succeeded.
 
 target datalayout = "e-m:e-p:32:32-i1:32-i8:8-i16:16-i32:32-i64:64-f16:16-f32:32-f64:64-n8:16:32:64"
 target triple = "dxil-ms-dx"
 
-%dx.types.Handle = type { i8* }
-%dx.types.ResBind = type { i32, i32, i32, i8 }
 %dx.types.LinAlgMatrixC8M16N16U0S0 = type { i8* }
-%dx.types.ResourceProperties = type { i32, i32 }
 %struct.ByteAddressBuffer = type { i32 }
 
 define void @main() {
