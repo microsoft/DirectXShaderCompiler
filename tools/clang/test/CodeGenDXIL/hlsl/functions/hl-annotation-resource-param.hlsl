@@ -1,3 +1,4 @@
+// REQUIRES: dxil-1-8
 // RUN: %dxc -T cs_6_8 -fcgl %s | FileCheck %s
 
 // CHECK: %dx.types.ResourceProperties = type { i32, i32 }
