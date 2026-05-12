@@ -1163,7 +1163,8 @@ class db_dxil(object):
         for i in insts(
             "LinAlgMatrixQueryAccumulatorLayout,LinAlgMatrixLoadFromDescriptor,"
             + "LinAlgMatrixAccumulateToDescriptor,LinAlgMatVecMul,"
-            + "LinAlgMatVecMulAdd,LinAlgMatrixOuterProduct,LinAlgConvert"
+            + "LinAlgMatVecMulAdd,LinAlgMatrixOuterProduct,LinAlgConvert,"
+            + "VectorAccumulateToDescriptor"
         ):
             i.category = "Linear Algebra Operations"
             i.shader_model = experimental_sm
@@ -6590,7 +6591,21 @@ class db_dxil(object):
             ],
         )
 
-        op_table.reserve_dxil_op_range("ReservedE", 2)
+        add_dxil_op(
+            "VectorAccumulateToDescriptor",
+            "VectorAccumulateToDescriptor",
+            "Accumulates given vector to the buffer at the given offset",
+            "<hfdwil",
+            "",
+            [
+                db_dxil_param(0, "v", "", ""),
+                db_dxil_param(2, "$o", "vector", "vector to accumulate"),
+                db_dxil_param(3, "res", "handle", "buffer to accumulate into"),
+                db_dxil_param(4, "i32", "offset", "starting offset in the buffer"),
+            ],
+        )
+
+        op_table.reserve_dxil_op_range("ReservedE", 1)
 
         # Debugging intrinsics
         add_dxil_op(

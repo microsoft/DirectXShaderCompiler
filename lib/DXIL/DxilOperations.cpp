@@ -2984,17 +2984,17 @@ static const OP::OpCodeProperty ExperimentalOps_OpCodeProps[] = {
      2,
      {{0x400}, {0x400}},
      {{0xe7}, {0xe7}}}, // Overloads: <hfdwil,<hfdwil
+    {OC::VectorAccumulateToDescriptor,
+     "VectorAccumulateToDescriptor",
+     OCC::VectorAccumulateToDescriptor,
+     "vectorAccumulateToDescriptor",
+     Attribute::None,
+     1,
+     {{0x400}},
+     {{0xe7}}}, // Overloads: <hfdwil
 
     {OC::ReservedE0,
      "ReservedE0",
-     OCC::Reserved,
-     "reserved",
-     Attribute::None,
-     0,
-     {},
-     {}}, // Overloads: v
-    {OC::ReservedE1,
-     "ReservedE1",
      OCC::Reserved,
      "reserved",
      Attribute::None,
@@ -3956,11 +3956,12 @@ void OP::GetMinShaderModelAndMask(OpCode C, bool bWithTranslation,
   // LinAlgMatVecMulAdd=2147483674,
   // LinAlgMatrixAccumulateToDescriptor=2147483675,
   // LinAlgMatrixOuterProduct=2147483677, LinAlgConvert=2147483678,
-  // DebugBreak=2147483681, IsDebuggerPresent=2147483682
+  // VectorAccumulateToDescriptor=2147483679, DebugBreak=2147483681,
+  // IsDebuggerPresent=2147483682
   if (op == 2147483648 || (2147483652 <= op && op <= 2147483653) ||
       (2147483656 <= op && op <= 2147483657) || op == 2147483662 ||
       op == 2147483670 || (2147483673 <= op && op <= 2147483675) ||
-      (2147483677 <= op && op <= 2147483678) ||
+      (2147483677 <= op && op <= 2147483679) ||
       (2147483681 <= op && op <= 2147483682)) {
     major = 6;
     minor = 10;
@@ -6683,13 +6684,16 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
     A(pI32);
     A(pI32);
     break;
+  case OpCode::VectorAccumulateToDescriptor:
+    A(pV);
+    A(pI32);
+    A(pETy);
+    A(pRes);
+    A(pI32);
+    break;
 
     //
   case OpCode::ReservedE0:
-    A(pV);
-    A(pI32);
-    break;
-  case OpCode::ReservedE1:
     A(pV);
     A(pI32);
     break;
@@ -6882,6 +6886,7 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
   case OpCode::LinAlgMatrixGetCoordinate:
   case OpCode::LinAlgMatrixStoreToDescriptor:
   case OpCode::LinAlgMatrixAccumulateToDescriptor:
+  case OpCode::VectorAccumulateToDescriptor:
     if (FT->getNumParams() <= 1)
       return nullptr;
     return FT->getParamType(1);
@@ -7009,7 +7014,6 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
   case OpCode::ClusterID:
   case OpCode::LinAlgMatrixQueryAccumulatorLayout:
   case OpCode::ReservedE0:
-  case OpCode::ReservedE1:
   case OpCode::DebugBreak:
   case OpCode::IsDebuggerPresent:
     return Type::getVoidTy(Ctx);

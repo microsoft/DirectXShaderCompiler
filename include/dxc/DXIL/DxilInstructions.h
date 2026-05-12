@@ -10960,6 +10960,40 @@ struct DxilInst_LinAlgConvert {
   void set_outputInterpretation(llvm::Value *val) { Instr->setOperand(3, val); }
 };
 
+/// This instruction Accumulates given vector to the buffer at the given offset
+struct DxilInst_VectorAccumulateToDescriptor {
+  llvm::Instruction *Instr;
+  // Construction and identification
+  DxilInst_VectorAccumulateToDescriptor(llvm::Instruction *pInstr)
+      : Instr(pInstr) {}
+  operator bool() const {
+    return hlsl::OP::IsDxilOpFuncCallInst(
+        Instr, hlsl::OP::OpCode::VectorAccumulateToDescriptor);
+  }
+  // Validation support
+  bool isAllowed() const { return true; }
+  bool isArgumentListValid() const {
+    if (4 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands())
+      return false;
+    return true;
+  }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
+  // Operand indexes
+  enum OperandIdx {
+    arg_vector = 1,
+    arg_handle = 2,
+    arg_offset = 3,
+  };
+  // Accessors
+  llvm::Value *get_vector() const { return Instr->getOperand(1); }
+  void set_vector(llvm::Value *val) { Instr->setOperand(1, val); }
+  llvm::Value *get_handle() const { return Instr->getOperand(2); }
+  void set_handle(llvm::Value *val) { Instr->setOperand(2, val); }
+  llvm::Value *get_offset() const { return Instr->getOperand(3); }
+  void set_offset(llvm::Value *val) { Instr->setOperand(3, val); }
+};
+
 /// This instruction triggers a breakpoint if a debugger is attached
 struct DxilInst_DebugBreak {
   llvm::Instruction *Instr;

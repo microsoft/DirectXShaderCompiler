@@ -88,6 +88,7 @@ void CallFunction()
   __builtin_LinAlg_MatrixVectorMultiplyAdd(vecA, mat1, true, vecB, 2, vecC, 3);
   int4 outVec;
   __builtin_LinAlg_Convert(outVec, vecA, 1, 2);
+  __builtin_VectorAccumulateToDescriptor(vecA, buf, 0);
 
   // expected-error@+12{{builtin unavailable in shader stage 'pixel' (requires 'compute', 'mesh' or 'amplification')}}
   // expected-error@+11{{builtin unavailable in shader stage 'vertex' (requires 'compute', 'mesh' or 'amplification')}}

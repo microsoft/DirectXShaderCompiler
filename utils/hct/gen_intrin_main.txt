@@ -411,6 +411,8 @@ void [[min_sm=6.10]] __builtin_LinAlg_MatrixAccumulateToMemory(in LinAlgMatrix m
 void [[min_sm=6.10]] __builtin_LinAlg_MatrixOuterProduct(out LinAlgMatrix ret, in numeric<c> vecA, in numeric<c2> vecB);
 void [[min_sm=6.10]] __builtin_LinAlg_Convert(out numeric<c> ret, in numeric<c2> vec, in uint input_interp, in uint output_interp);
 
+void [[min_sm=6.10]] __builtin_VectorAccumulateToDescriptor(in numeric<> vec, in RWByteAddressBuffer buf, in uint offset);
+
 } namespace
 
 
