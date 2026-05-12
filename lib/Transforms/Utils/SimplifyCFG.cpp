@@ -3855,14 +3855,10 @@ SwitchLookupTable::SwitchLookupTable(
   // If the type is integer and the table fits in a register, build a bitmap.
   if (WouldFitInRegister(DL, TableSize, ValueType)) {
     IntegerType *IT = cast<IntegerType>(ValueType);
-    // HLSL Change Begin: Round the bitmap width up to a legal integer width
-    // (i8/i16/i32) so we never produce non-standard widths like i26 that
-    // DXIL validation rejects. WouldFitInRegister already caps the width
-    // at 32 bits to avoid promoting to i64 (which would set the Int64Ops
-    // shader feature flag the source shader did not necessarily require).
+    // HLSL Change Begin: Round bitmap width up to size supported by DXIL (i16 or i32)
     uint64_t RawBitMapWidth = TableSize * IT->getBitWidth();
     uint64_t BitMapWidth =
-        NextPowerOf2(std::max(UINT64_C(7), RawBitMapWidth - 1));
+        NextPowerOf2(std::max(UINT64_C(15), RawBitMapWidth - 1));
     APInt TableInt(BitMapWidth, 0);
     // HLSL Change End
     for (uint64_t I = TableSize; I > 0; --I) {
@@ -3959,13 +3955,8 @@ bool SwitchLookupTable::WouldFitInRegister(const DataLayout &DL,
   // Avoid overflow, fitsInLegalInteger uses unsigned int for the width.
   if (TableSize >= UINT_MAX/IT->getBitWidth())
     return false;
-  // HLSL Change Begin: Cap bitmap width at 32 bits. A wider bitmap would be
-  // rounded up to i64 by the constructor, which emits i64 lshr/trunc ops and
-  // sets the Int64Ops shader feature flag, silently imposing a 64-bit-integer
-  // capability requirement the source shader did not have. When the bitmap
-  // would need more than 32 bits, fall back to keeping the original switch
-  // (the array path is unsuitable here because i1 array globals do not
-  // survive DXIL lowering). (#8421)
+  // HLSL Change Begin: Cap at 32 bits so the bitmap stays in a DXIL-supported
+  // integer width and never promotes to i64 (which would set Int64Ops).
   if (TableSize * IT->getBitWidth() > 32)
     return false;
   // HLSL Change End
