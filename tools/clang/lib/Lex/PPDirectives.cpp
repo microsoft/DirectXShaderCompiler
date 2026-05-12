@@ -727,31 +727,21 @@ const FileEntry *Preprocessor::LookupFile(
     }
   }
 
-  // HLSL Change Begin - fall back to compiled-in HLSL header data when the
-  // angled #include's filename matches the relative path of one of the
-  // headers shipped under tools/clang/lib/Headers/hlsl.  This lets the
-  // compiler resolve those headers without consulting the filesystem,
-  // while still allowing user-provided -I paths (or the source tree
-  // itself) to take precedence when present.
+  // HLSL Change Begin - Resolve #include's from compiled-in HLSL headers.
+   
+  // Doing this after the normal file lookup allows this to only trigger as a
+  // fallback so the user may override it.
   if (isAngled && !FromDir && !FromFile) {
     const llvm::StringMap<llvm::StringRef> &EmbeddedHeaders =
         hlsl::getEmbeddedHeaders();
-    // The embedded-header map is keyed on POSIX-style relative paths
-    // (e.g. "dx/linalg.h"), but a user may write the include using
-    // Windows-style separators (e.g. <dx\linalg.h>).  Normalise any
-    // backslashes to forward slashes so either spelling resolves to
-    // the same compiled-in header.
+    // Normalize the filename to POSIX-style separators so that the lookup is
+    // consistent regardless of how the user spelled the include.
     SmallString<128> NormalizedFilename(Filename);
     std::replace(NormalizedFilename.begin(), NormalizedFilename.end(),
                  '\\', '/');
     auto It = EmbeddedHeaders.find(NormalizedFilename);
     if (It != EmbeddedHeaders.end()) {
       llvm::StringRef Data = It->second;
-      // Use a recognisable virtual filename so the bundled header is
-      // easy to identify in diagnostics and source listings.  The
-      // virtual name uses the normalised (POSIX-style) relative path
-      // so the displayed filename is canonical regardless of how the
-      // user spelled the include.
       SmallString<128> VirtualName("<built-in:hlsl>/");
       VirtualName.append(NormalizedFilename.begin(),
                          NormalizedFilename.end());
