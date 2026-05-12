@@ -3855,7 +3855,8 @@ SwitchLookupTable::SwitchLookupTable(
   // If the type is integer and the table fits in a register, build a bitmap.
   if (WouldFitInRegister(DL, TableSize, ValueType)) {
     IntegerType *IT = cast<IntegerType>(ValueType);
-    // HLSL Change Begin: Round bitmap width up to size supported by DXIL (i16 or i32)
+    // HLSL Change Begin: Round bitmap width up to size supported by DXIL (i16
+    // or i32)
     uint64_t RawBitMapWidth = TableSize * IT->getBitWidth();
     uint64_t BitMapWidth =
         NextPowerOf2(std::max(UINT64_C(15), RawBitMapWidth - 1));
