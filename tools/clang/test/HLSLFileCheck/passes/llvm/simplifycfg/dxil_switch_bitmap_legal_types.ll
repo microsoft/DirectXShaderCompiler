@@ -169,7 +169,8 @@ default: br label %end
 
 end:
   ; Non-linear values prevent the LinearMap fast path so the bitmap path is
-  ; the one that would have been chosen.
+  ; the one that would have been chosen, but since this would want to use an i48
+  ; (which isn't valid in DXIL) the switch is preserved.
   %result = phi i16 [ 73, %c0 ], [ 42, %c1 ], [ 88, %c2 ], [ 0, %default ]
   ret i16 %result
 }
