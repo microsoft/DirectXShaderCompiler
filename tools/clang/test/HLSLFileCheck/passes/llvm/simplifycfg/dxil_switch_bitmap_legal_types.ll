@@ -4,7 +4,8 @@
 ;
 ; SimplifyCFG's switch-to-lookup-table built bitmaps of width
 ; "TableSize * ValueBitWidth", producing illegal widths like i9, i17, i26 or
-; i40. The fix rounds the bitmap up to i16 or i32.
+; i48. The fix rounds the bitmap up to i16 or i32, and skips the lookup table
+; entirely if the bitmap would exceed 32 bits.
 
 target datalayout = "e-m:e-p:32:32-i1:32-i8:32-i16:32-i32:32-i64:64-f16:32-f32:32-f64:64-n8:16:32:64"
 target triple = "dxil-ms-dx"
@@ -143,33 +144,32 @@ end:
   ret i1 %result
 }
 
-; Non-i1 result: 5 i8 cases would naively build an i40 bitmap. The fix makes
-; bitmaps wider than 32 bits fall back to an array (or preserve the switch).
+; Non-i1 result: 3 i16 cases would naively build an i48 bitmap. The fix makes
+; bitmaps wider than 32 bits skip the lookup table; the original switch is
+; preserved.
 ;
-; CHECK-LABEL: @switch_i8_5_cases
-; CHECK-NOT: i40
-; CHECK: ret i8
+; CHECK-LABEL: @switch_i16_3_cases
+; CHECK: switch i32
+; CHECK-NOT: switch.lookup
+; CHECK-NOT: i48
+; CHECK: ret i16
 
-define i8 @switch_i8_5_cases(i32 %x) {
+define i16 @switch_i16_3_cases(i32 %x) {
 entry:
   switch i32 %x, label %default [
     i32 0, label %c0
     i32 1, label %c1
     i32 2, label %c2
-    i32 3, label %c3
-    i32 4, label %c4
   ]
 
 c0: br label %end
 c1: br label %end
 c2: br label %end
-c3: br label %end
-c4: br label %end
 default: br label %end
 
 end:
   ; Non-linear values prevent the LinearMap fast path so the bitmap path is
   ; the one that would have been chosen.
-  %result = phi i8 [73, %c0], [42, %c1], [19, %c2], [88, %c3], [31, %c4], [0, %default]
-  ret i8 %result
+  %result = phi i16 [ 73, %c0 ], [ 42, %c1 ], [ 88, %c2 ], [ 0, %default ]
+  ret i16 %result
 }
