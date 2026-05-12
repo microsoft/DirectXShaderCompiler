@@ -18,6 +18,7 @@
 #include "clang/Lex/CodeCompletionHandler.h"
 #include "clang/Lex/HeaderSearch.h"
 #include "clang/Lex/HeaderSearchOptions.h"
+#include "clang/Lex/HLSLEmbeddedHeaders.h"
 #include "clang/Lex/LexDiagnostic.h"
 #include "clang/Lex/LiteralSupport.h"
 #include "clang/Lex/MacroInfo.h"
@@ -25,9 +26,11 @@
 #include "clang/Lex/Pragma.h"
 #include "llvm/ADT/APInt.h"
 #include "llvm/Support/ErrorHandling.h"
+#include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/Path.h"
 #include "llvm/Support/SaveAndRestore.h"
 #include "clang/Lex/PreprocessorOptions.h" // HLSL Change - ignore line directives.
+#include <algorithm> // HLSL Change - std::replace for path separator normalisation.
 using namespace clang;
 
 //===----------------------------------------------------------------------===//
@@ -723,6 +726,60 @@ const FileEntry *Preprocessor::LookupFile(
       }
     }
   }
+
+  // HLSL Change Begin - fall back to compiled-in HLSL header data when the
+  // angled #include's filename matches the relative path of one of the
+  // headers shipped under tools/clang/lib/Headers/hlsl.  This lets the
+  // compiler resolve those headers without consulting the filesystem,
+  // while still allowing user-provided -I paths (or the source tree
+  // itself) to take precedence when present.
+  if (isAngled && !FromDir && !FromFile) {
+    const llvm::StringMap<llvm::StringRef> &EmbeddedHeaders =
+        hlsl::getEmbeddedHeaders();
+    // The embedded-header map is keyed on POSIX-style relative paths
+    // (e.g. "dx/linalg.h"), but a user may write the include using
+    // Windows-style separators (e.g. <dx\linalg.h>).  Normalise any
+    // backslashes to forward slashes so either spelling resolves to
+    // the same compiled-in header.
+    SmallString<128> NormalizedFilename(Filename);
+    std::replace(NormalizedFilename.begin(), NormalizedFilename.end(),
+                 '\\', '/');
+    auto It = EmbeddedHeaders.find(NormalizedFilename);
+    if (It != EmbeddedHeaders.end()) {
+      llvm::StringRef Data = It->second;
+      // Use a recognisable virtual filename so the bundled header is
+      // easy to identify in diagnostics and source listings.  The
+      // virtual name uses the normalised (POSIX-style) relative path
+      // so the displayed filename is canonical regardless of how the
+      // user spelled the include.
+      SmallString<128> VirtualName("<built-in:hlsl>/");
+      VirtualName.append(NormalizedFilename.begin(),
+                         NormalizedFilename.end());
+      const FileEntry *EmbeddedFE =
+          FileMgr.getVirtualFile(VirtualName, Data.size(), /*ModTime=*/0);
+      if (EmbeddedFE) {
+        if (!SourceMgr.isFileOverridden(EmbeddedFE)) {
+          SourceMgr.overrideFileContents(
+              EmbeddedFE,
+              llvm::MemoryBuffer::getMemBuffer(Data, VirtualName,
+                                               /*RequiresNullTerminator=*/
+                                               false));
+        }
+        if (SearchPath)
+          SearchPath->clear();
+        if (RelativePath) {
+          RelativePath->clear();
+          RelativePath->append(NormalizedFilename.begin(),
+                               NormalizedFilename.end());
+        }
+        CurDir = nullptr;
+        if (SuggestedModule)
+          *SuggestedModule = ModuleMap::KnownHeader();
+        return EmbeddedFE;
+      }
+    }
+  }
+  // HLSL Change End
 
   // Otherwise, we really couldn't find the file.
   return nullptr;
