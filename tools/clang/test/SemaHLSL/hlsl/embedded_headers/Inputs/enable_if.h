@@ -7,9 +7,11 @@
 
 namespace hlsl {
 
-template <bool B, typename T> struct enable_if {};
+template <bool B, typename T>
+struct enable_if {};
 
-template <typename T> struct enable_if<true, T> {
+template <typename T>
+struct enable_if<true, T> {
   using type = T;
 };
 
