@@ -24,7 +24,6 @@
 #include "llvm/ADT/StringMap.h"
 #include "llvm/ADT/StringRef.h"
 
-namespace clang {
 namespace hlsl {
 
 /// Returns a map from each HLSL header's relative path under
@@ -33,6 +32,5 @@ namespace hlsl {
 const llvm::StringMap<llvm::StringRef> &getEmbeddedHeaders();
 
 } // namespace hlsl
-} // namespace clang
 
 #endif // LLVM_CLANG_LEX_HLSLEMBEDDEDHEADERS_H

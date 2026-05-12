@@ -27,7 +27,6 @@
 // ``llvm::StringRef Data`` at namespace scope.
 #include "HLSLEmbeddedHeadersDecls.inc"
 
-namespace clang {
 namespace hlsl {
 
 const llvm::StringMap<llvm::StringRef> &getEmbeddedHeaders() {
@@ -43,4 +42,3 @@ const llvm::StringMap<llvm::StringRef> &getEmbeddedHeaders() {
 }
 
 } // namespace hlsl
-} // namespace clang
