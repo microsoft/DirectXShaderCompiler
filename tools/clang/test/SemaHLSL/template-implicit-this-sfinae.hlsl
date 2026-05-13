@@ -1,4 +1,4 @@
-// RUN: %dxc -T cs_6_0 %s 2>&1 | FileCheck %s --check-prefix=COMPILE
+// RUN: %dxc -T cs_6_0 %s 2>&1 | FileCheck %s --check-prefix=CHECK_COMPILE
 // RUN: %dxc -T cs_6_0 -ast-dump %s 2>&1 | FileCheck %s
 
 // Test that template instantiation of member functions with SFINAE patterns
@@ -52,7 +52,7 @@ struct Wrapper {
 // Verify no CXXThisExpr carries a pointer type for 'this'.
 // CHECK-NOT: CXXThisExpr {{.*}} '{{[^']*}} \*' lvalue this
 
-// COMPILE: define void @main
+// CHECK_COMPILE: define void @main
 [numthreads(1, 1, 1)]
 void main() {
   Wrapper<float> wf;
