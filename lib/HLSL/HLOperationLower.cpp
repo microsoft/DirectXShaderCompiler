@@ -7163,29 +7163,24 @@ Value *TranslateLinAlgConvert(CallInst *CI, IntrinsicOp IOP, OP::OpCode OpCode,
   return nullptr;
 }
 
-Value *TranslateLinAlgVectorAccumulate(CallInst *CI, IntrinsicOp IOP,
-                                       OP::OpCode OpCode,
-                                       HLOperationLowerHelper &Helper,
-                                       HLObjectOperationLowerHelper *ObjHelper,
-                                       bool &Translated) {
+Value *TranslateLinAlgVectorAccumulateToDescriptor(
+    CallInst *CI, IntrinsicOp IOP, OP::OpCode OpCode,
+    HLOperationLowerHelper &Helper, HLObjectOperationLowerHelper *ObjHelper,
+    bool &Translated) {
 
   hlsl::OP *HlslOp = &Helper.hlslOP;
   IRBuilder<> Builder(CI);
 
   Constant *OpArg = HlslOp->GetU32Const(static_cast<unsigned>(OpCode));
 
-  // Input vector parameter
-  Value *InputVector = CI->getArgOperand(1);
-
-  // Matrix parameters
-  Value *MatrixBuffer = CI->getArgOperand(2);
-  Value *MatrixOffset = CI->getArgOperand(3);
+  Value *Vector = CI->getArgOperand(1);
+  Value *ResHandle = CI->getArgOperand(2);
+  Value *Offset = CI->getArgOperand(3);
 
   // Get the DXIL function for the operation
-  Function *DxilFunc = HlslOp->GetOpFunc(OpCode, InputVector->getType());
+  Function *DxilFunc = HlslOp->GetOpFunc(OpCode, Vector->getType());
 
-  return Builder.CreateCall(DxilFunc,
-                            {OpArg, InputVector, MatrixBuffer, MatrixOffset});
+  return Builder.CreateCall(DxilFunc, {OpArg, Vector, ResHandle, Offset});
 }
 
 } // namespace
@@ -7983,7 +7978,7 @@ constexpr IntrinsicLower gLowerTable[] = {
     {IntrinsicOp::IOP___builtin_LinAlg_Convert, TranslateLinAlgConvert,
      DXIL::OpCode::LinAlgConvert},
     {IntrinsicOp::IOP___builtin_LinAlg_VectorAccumulateToDescriptor,
-     TranslateLinAlgVectorAccumulate,
+     TranslateLinAlgVectorAccumulateToDescriptor,
      DXIL::OpCode::LinAlgVectorAccumulateToDescriptor},
 };
 constexpr size_t NumLowerTableEntries =
