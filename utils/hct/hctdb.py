@@ -1164,7 +1164,7 @@ class db_dxil(object):
             "LinAlgMatrixQueryAccumulatorLayout,LinAlgMatrixLoadFromDescriptor,"
             + "LinAlgMatrixAccumulateToDescriptor,LinAlgMatVecMul,"
             + "LinAlgMatVecMulAdd,LinAlgMatrixOuterProduct,LinAlgConvert,"
-            + "VectorAccumulateToDescriptor"
+            + "LinAlgVectorAccumulateToDescriptor"
         ):
             i.category = "Linear Algebra Operations"
             i.shader_model = experimental_sm
@@ -6592,8 +6592,8 @@ class db_dxil(object):
         )
 
         add_dxil_op(
-            "VectorAccumulateToDescriptor",
-            "VectorAccumulateToDescriptor",
+            "LinAlgVectorAccumulateToDescriptor",
+            "LinAlgVectorAccumulateToDescriptor",
             "Accumulates given vector to the buffer at the given offset",
             "<hfdwil",
             "",

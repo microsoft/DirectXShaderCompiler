@@ -596,7 +596,7 @@ enum class OpCode : unsigned {
   LinAlgMatrixStoreToDescriptor =
       20,                         // stores a matrix to a RWByteAddressBuffer
   LinAlgMatrixStoreToMemory = 21, // stores a matrix to groupshared memory
-  VectorAccumulateToDescriptor =
+  LinAlgVectorAccumulateToDescriptor =
       31, // Accumulates given vector to the buffer at the given offset
 
   // No-op
@@ -1356,10 +1356,11 @@ enum class OpCode : unsigned {
   // LinAlgConvert = 0x8000001E, 2147483678U, -2147483618
   EXP_OPCODE(ExperimentalOps, LinAlgConvert), // Convert vector components from
                                               // one interpretation to another
-  // VectorAccumulateToDescriptor = 0x8000001F, 2147483679U, -2147483617
-  EXP_OPCODE(ExperimentalOps,
-             VectorAccumulateToDescriptor), // Accumulates given vector to the
-                                            // buffer at the given offset
+  // LinAlgVectorAccumulateToDescriptor = 0x8000001F, 2147483679U, -2147483617
+  EXP_OPCODE(
+      ExperimentalOps,
+      LinAlgVectorAccumulateToDescriptor), // Accumulates given vector to the
+                                           // buffer at the given offset
   // ReservedE0 = 0x80000020, 2147483680U, -2147483616
   EXP_OPCODE(ExperimentalOps, ReservedE0), // reserved
   // DebugBreak = 0x80000021, 2147483681U, -2147483615
@@ -1547,7 +1548,7 @@ enum class OpCodeClass : unsigned {
   LinAlgMatrixSetElement,
   LinAlgMatrixStoreToDescriptor,
   LinAlgMatrixStoreToMemory,
-  VectorAccumulateToDescriptor,
+  LinAlgVectorAccumulateToDescriptor,
 
   // Mesh shader instructions
   EmitIndices,

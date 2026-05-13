@@ -68,8 +68,8 @@ define void @MainGS() {
   ; dx.op.linAlgConvert
   %v16 = call <4 x float> @dx.op.linAlgConvert.v4f32.v4i32(i32 -2147483618, <4 x i32> zeroinitializer, i32 1, i32 2)  ; LinAlgConvert(inputVector,inputInterpretation,outputInterpretation)
 
-  ; dx.op.vectorAccumulateToDescriptor
-  call void @dx.op.vectorAccumulateToDescriptor.v4f32(i32 -2147483617, <4 x float> zeroinitializer, %dx.types.Handle %handle, i32 0)  ; VectorAccumulateToDescriptor(vector,handle,offset)
+  ; dx.op.linAlgVectorAccumulateToDescriptor
+  call void @dx.op.linAlgVectorAccumulateToDescriptor.v4f32(i32 -2147483617, <4 x float> zeroinitializer, %dx.types.Handle %handle, i32 0)  ; LinAlgVectorAccumulateToDescriptor(vector,handle,offset)
 
   ;
   ; Built-ins restricted to compute, mesh and amplification shaders
@@ -152,7 +152,7 @@ declare <4 x i32> @dx.op.linAlgMatVecMulAdd.v4i32.mC4M5N4U0S2.v4i32.v4i32(i32, %
 declare <4 x float> @dx.op.linAlgConvert.v4f32.v4i32(i32, <4 x i32>, i32, i32) #0
 
 ; Function Attrs: nounwind
-declare void @dx.op.vectorAccumulateToDescriptor.v4f32(i32, <4 x float>, %dx.types.Handle, i32) #0
+declare void @dx.op.linAlgVectorAccumulateToDescriptor.v4f32(i32, <4 x float>, %dx.types.Handle, i32) #0
 
 ; Function Attrs: nounwind
 declare %dx.types.LinAlgMatrixC4M4N5U1S2 @dx.op.linAlgCopyConvertMatrix.mC4M4N5U1S2.mC4M5N4U0S2(i32, %dx.types.LinAlgMatrixC4M5N4U0S2, i1) #0

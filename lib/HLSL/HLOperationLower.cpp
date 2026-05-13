@@ -7982,9 +7982,9 @@ constexpr IntrinsicLower gLowerTable[] = {
 
     {IntrinsicOp::IOP___builtin_LinAlg_Convert, TranslateLinAlgConvert,
      DXIL::OpCode::LinAlgConvert},
-    {IntrinsicOp::IOP___builtin_VectorAccumulateToDescriptor,
+    {IntrinsicOp::IOP___builtin_LinAlg_VectorAccumulateToDescriptor,
      TranslateLinAlgVectorAccumulate,
-     DXIL::OpCode::VectorAccumulateToDescriptor},
+     DXIL::OpCode::LinAlgVectorAccumulateToDescriptor},
 };
 constexpr size_t NumLowerTableEntries =
     sizeof(gLowerTable) / sizeof(gLowerTable[0]);

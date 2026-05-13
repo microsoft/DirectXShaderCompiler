@@ -10961,14 +10961,14 @@ struct DxilInst_LinAlgConvert {
 };
 
 /// This instruction Accumulates given vector to the buffer at the given offset
-struct DxilInst_VectorAccumulateToDescriptor {
+struct DxilInst_LinAlgVectorAccumulateToDescriptor {
   llvm::Instruction *Instr;
   // Construction and identification
-  DxilInst_VectorAccumulateToDescriptor(llvm::Instruction *pInstr)
+  DxilInst_LinAlgVectorAccumulateToDescriptor(llvm::Instruction *pInstr)
       : Instr(pInstr) {}
   operator bool() const {
     return hlsl::OP::IsDxilOpFuncCallInst(
-        Instr, hlsl::OP::OpCode::VectorAccumulateToDescriptor);
+        Instr, hlsl::OP::OpCode::LinAlgVectorAccumulateToDescriptor);
   }
   // Validation support
   bool isAllowed() const { return true; }

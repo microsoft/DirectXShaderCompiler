@@ -424,6 +424,6 @@
     "IOP_DebugBreak": 420,
     "IOP_DxIsDebuggerPresent": 421,
     "IOP___builtin_LinAlg_Convert": 422,
-    "IOP___builtin_VectorAccumulateToDescriptor": 423
+    "IOP___builtin_LinAlg_VectorAccumulateToDescriptor": 423
   }
 }

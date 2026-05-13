@@ -132,7 +132,7 @@ enum class IntrinsicOp {
   IOP___builtin_LinAlg_MatrixStoreToMemory = 410,
   IOP___builtin_LinAlg_MatrixVectorMultiply = 418,
   IOP___builtin_LinAlg_MatrixVectorMultiplyAdd = 419,
-  IOP___builtin_VectorAccumulateToDescriptor = 423,
+  IOP___builtin_LinAlg_VectorAccumulateToDescriptor = 423,
   IOP_abort = 102,
   IOP_abs = 103,
   IOP_acos = 104,
