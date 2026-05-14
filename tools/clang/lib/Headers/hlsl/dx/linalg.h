@@ -652,7 +652,7 @@ OuterProduct(vector<InputElTy, M> VecA, vector<InputElTy, N> VecB) {
 
 template <typename InputElTy, SIZE_TYPE M>
 typename hlsl::enable_if<hlsl::is_arithmetic<InputElTy>::value, void>::type
-InterlockedAccumulate(vector<InputElTy, M> Vec, RWByteAddressBuffer Res,
+InterlockedAccumulate(RWByteAddressBuffer Res, vector<InputElTy, M> Vec,
                       uint StartOffset) {
   __builtin_LinAlg_VectorAccumulateToDescriptor(Vec, Res, StartOffset);
 }
