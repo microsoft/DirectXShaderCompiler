@@ -6602,6 +6602,7 @@ class db_dxil(object):
                 db_dxil_param(2, "$o", "vector", "vector to accumulate"),
                 db_dxil_param(3, "res", "handle", "buffer to accumulate into"),
                 db_dxil_param(4, "i32", "offset", "starting offset in the buffer"),
+                db_dxil_param(5, "i32", "align", "alignment of vector elements"),
             ],
         )
 

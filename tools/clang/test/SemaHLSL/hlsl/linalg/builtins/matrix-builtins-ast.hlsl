@@ -206,11 +206,12 @@ void main() {
   int4 result2;
   __builtin_LinAlg_Convert(result2, vec, 0, 1);
 
-// CHECK: FunctionDecl {{.*}} implicit used __builtin_LinAlg_VectorAccumulateToDescriptor 'void (vector<float, 4>, RWByteAddressBuffer, unsigned int)' extern
+// CHECK: FunctionDecl {{.*}} implicit used __builtin_LinAlg_VectorAccumulateToDescriptor 'void (vector<float, 4>, RWByteAddressBuffer, unsigned int, unsigned int)' extern
 // CHECK-NEXT: ParmVarDecl {{.*}} vec 'vector<float, 4>':'vector<float, 4>'
 // CHECK-NEXT: ParmVarDecl {{.*}} buf 'RWByteAddressBuffer'
 // CHECK-NEXT: ParmVarDecl {{.*}} offset 'unsigned int'
+// CHECK-NEXT: ParmVarDecl {{.*}} align 'unsigned int'
 // CHECK-NEXT: HLSLIntrinsicAttr {{.*}} Implicit "op" "" 423
 // CHECK-NEXT: AvailabilityAttr {{.*}} Implicit  6.10 0 0 ""
-  __builtin_LinAlg_VectorAccumulateToDescriptor(input, Buf, 10);
+  __builtin_LinAlg_VectorAccumulateToDescriptor(input, Buf, 10, 64);
 }

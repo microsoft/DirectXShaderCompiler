@@ -10973,7 +10973,7 @@ struct DxilInst_LinAlgVectorAccumulateToDescriptor {
   // Validation support
   bool isAllowed() const { return true; }
   bool isArgumentListValid() const {
-    if (4 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands())
+    if (5 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands())
       return false;
     return true;
   }
@@ -10984,6 +10984,7 @@ struct DxilInst_LinAlgVectorAccumulateToDescriptor {
     arg_vector = 1,
     arg_handle = 2,
     arg_offset = 3,
+    arg_align = 4,
   };
   // Accessors
   llvm::Value *get_vector() const { return Instr->getOperand(1); }
@@ -10992,6 +10993,8 @@ struct DxilInst_LinAlgVectorAccumulateToDescriptor {
   void set_handle(llvm::Value *val) { Instr->setOperand(2, val); }
   llvm::Value *get_offset() const { return Instr->getOperand(3); }
   void set_offset(llvm::Value *val) { Instr->setOperand(3, val); }
+  llvm::Value *get_align() const { return Instr->getOperand(4); }
+  void set_align(llvm::Value *val) { Instr->setOperand(4, val); }
 };
 
 /// This instruction triggers a breakpoint if a debugger is attached

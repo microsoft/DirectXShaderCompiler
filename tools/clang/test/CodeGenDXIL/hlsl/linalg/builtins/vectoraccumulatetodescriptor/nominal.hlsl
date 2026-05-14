@@ -9,11 +9,11 @@ void main() {
   // CHECK-LABEL: define void @main()
 
   // CHECK: call void @dx.op.linAlgVectorAccumulateToDescriptor.v4f32(i32 -2147483617, <4 x float>
-  // CHECK-SAME: <float 9.000000e+00, float 8.000000e+00, float 7.000000e+00, float 6.000000e+00>, %dx.types.Handle %{{.*}}, i32 16)
-  // CHECK-SAME: ; LinAlgVectorAccumulateToDescriptor(vector,handle,offset)
+  // CHECK-SAME: <float 9.000000e+00, float 8.000000e+00, float 7.000000e+00, float 6.000000e+00>, %dx.types.Handle %{{.*}}, i32 16, i32 64)
+  // CHECK-SAME: ; LinAlgVectorAccumulateToDescriptor(vector,handle,offset,align)
 
-  // CHECK2: call void @"dx.hl.op..void (i32, <4 x float>, %dx.types.Handle, i32)"
-  // CHECK2-SAME: (i32 423, <4 x float> %{{.*}}, %dx.types.Handle %{{.*}}, i32 16)
+  // CHECK2: call void @"dx.hl.op..void (i32, <4 x float>, %dx.types.Handle, i32, i32)"
+  // CHECK2-SAME: (i32 423, <4 x float> %{{.*}}, %dx.types.Handle %{{.*}}, i32 16, i32 64)
   float4 vec = {9.0, 8.0, 7.0, 6.0};
-  __builtin_LinAlg_VectorAccumulateToDescriptor(vec, outbuf, 16);
+  __builtin_LinAlg_VectorAccumulateToDescriptor(vec, outbuf, 16, 64);
 }

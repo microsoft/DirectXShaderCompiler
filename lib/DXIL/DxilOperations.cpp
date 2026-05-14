@@ -6690,6 +6690,7 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
     A(pETy);
     A(pRes);
     A(pI32);
+    A(pI32);
     break;
 
     //

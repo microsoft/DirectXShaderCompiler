@@ -191,11 +191,11 @@ void main(uint ID : SV_GroupID) {
   vector<half, 7> vec24 = MultiplyAdd<half>(Mat_7_15_Packed, interpVecH15Packed, memBias7Packed);
 
   // CHECK: call void @dx.op.linAlgVectorAccumulateToDescriptor.v4f16(i32 -2147483617, <4 x half>
-  // CHECK-SAME: <half 0xH4926, half 0xH4926, half 0xH4926, half 0xH4926>, %dx.types.Handle %{{[0-9]+}}, i32 0)
-  // CHECK-SAME: ; LinAlgVectorAccumulateToDescriptor(vector,handle,offset)
+  // CHECK-SAME: <half 0xH4926, half 0xH4926, half 0xH4926, half 0xH4926>, %dx.types.Handle %{{[0-9]+}}, i32 0, i32 64)
+  // CHECK-SAME: ; LinAlgVectorAccumulateToDescriptor(vector,handle,offset,align)
   InterlockedAccumulate(RWBAB, vec1, 0);
 
   // CHECK: call void @dx.op.linAlgVectorAccumulateToDescriptor.v8f16(i32 -2147483617, <8 x half> %{{[0-9]+}},
-  // CHECK-SAME: %dx.types.Handle %{{[0-9]+}}, i32 8) ; LinAlgVectorAccumulateToDescriptor(vector,handle,offset)
+  // CHECK-SAME: %dx.types.Handle %{{[0-9]+}}, i32 8, i32 64) ; LinAlgVectorAccumulateToDescriptor(vector,handle,offset,align)
   InterlockedAccumulate(RWBAB, vec2, 8);
 }
