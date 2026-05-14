@@ -4118,9 +4118,8 @@ OP::OP(LLVMContext &Ctx, Module *pModule)
                                             "dx.types.NodeHandle", pModule);
   m_pNodeRecordHandleType = GetOrCreateStructType(
       m_Ctx, Type::getInt8PtrTy(m_Ctx), "dx.types.NodeRecordHandle", pModule);
-  m_pResourcePropertiesType = GetOrCreateStructType(
-      m_Ctx, {Type::getInt32Ty(m_Ctx), Type::getInt32Ty(m_Ctx)},
-      "dx.types.ResourceProperties", pModule);
+  m_pResourcePropertiesType =
+      hlsl::resource_helper::GetResourcePropertiesType(*pModule);
   m_pNodePropertiesType = GetOrCreateStructType(
       m_Ctx, {Type::getInt32Ty(m_Ctx), Type::getInt32Ty(m_Ctx)},
       "dx.types.NodeInfo", pModule);

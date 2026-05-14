@@ -1345,8 +1345,7 @@ Metadata *DxilMDHelper::EmitDxilFieldAnnotation(const DxilFieldAnnotation &FA) {
     MDVals.emplace_back(Uint32ToConstMD(kDxilFieldAnnotationResPropTag));
     MDVals.emplace_back(ValueAsMetadata::get(resource_helper::getAsConstant(
         FA.GetResourceProperties(),
-        m_pModule->GetDxilModule().GetOP()->GetResourcePropertiesType(),
-        *m_pSM)));
+        resource_helper::GetResourcePropertiesType(*m_pModule), *m_pSM)));
   }
   if (DXIL::CompareVersions(m_MinValMajor, m_MinValMinor, 1, 7) >= 0) {
     if (FA.HasBitFields()) {
