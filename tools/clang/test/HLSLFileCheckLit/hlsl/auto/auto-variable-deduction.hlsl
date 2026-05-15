@@ -1,20 +1,20 @@
-// RUN: %dxc -T cs_6_0 -E main - %s | FileCheck %s
+// RUN: %dxc -T cs_6_0 -E main - %s -verify
 // RUN: %dxc -T cs_6_0 -E main -HV 202x -fcgl %s | FileCheck %s
-// RUN: %dxc -T cs_6_0 -E main -HV 202x %s | FileCheck %s --check-prefix=DXIL
+// RUN: %dxc -T cs_6_0 -E main -HV 202x %s | FileCheck %s --check-prefix=CHECK_DXIL
 
 // Test that the 'auto' keyword can be used to declare variables with inferred
 // types from initialization expressions in HLSL.
 
 // CHECK-LABEL: define void @main()
-// CHECK: %a = alloca i32
-// CHECK: %b = alloca float
-// CHECK: %c = alloca i32
-// CHECK: %d = alloca <4 x float>
-// CHECK: store i32 1, i32* %a
-// CHECK: store float 2.000000e+00, float* %b
-// CHECK: store i32 1, i32* %c
+// CHECK: [[A:%[a-zA-Z0-9_]+]] = alloca i32
+// CHECK: [[B:%[a-zA-Z0-9_]+]] = alloca float
+// CHECK: [[C:%[a-zA-Z0-9_]+]] = alloca i32
+// CHECK: [[D:%[a-zA-Z0-9_]+]] = alloca <4 x float>
+// CHECK: store i32 1, i32* [[A]]
+// CHECK: store float 2.000000e+00, float* [[B]]
+// CHECK: store i32 1, i32* [[C]]
 
-// DXIL: define void @main()
+// CHECK_DXIL: define void @main()
 
 RWBuffer<float> output : register(u0);
 
