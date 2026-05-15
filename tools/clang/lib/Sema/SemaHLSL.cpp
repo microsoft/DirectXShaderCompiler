@@ -15474,6 +15474,24 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC, Expr *BitWidth,
   if (!isFunction)
     hlslSource->WarnMinPrecision(qt, D.getLocStart());
 
+  // HLSL Change Starts - disallow pointers through __decltype.
+  if (!D.isInvalidType() && pType && !qt->isDependentType()) {
+    if (const auto *DTT = dyn_cast<DecltypeType>(pType)) {
+      QualType Underlying = DTT->getUnderlyingType();
+      if (Underlying->isPointerType()) {
+        Diag(D.getLocStart(), diag::err_hlsl_pointers_unsupported) << 0;
+        D.setInvalidType();
+        return false;
+      }
+      if (Underlying->isReferenceType()) {
+        Diag(D.getLocStart(), diag::err_hlsl_pointers_unsupported) << 1;
+        D.setInvalidType();
+        return false;
+      }
+    }
+  }
+  // HLSL Change Ends
+
   // Early checks - these are not simple attribution errors, but constructs that
   // are fundamentally unsupported,
   // and so we avoid errors that might indicate they can be repaired.

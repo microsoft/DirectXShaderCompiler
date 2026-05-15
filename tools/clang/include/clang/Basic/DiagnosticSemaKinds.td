@@ -8061,6 +8061,9 @@ def err_hlsl_linalg_attributed_matrix_required
 def err_hlsl_linalg_unsupported_stage : Error<
    "builtin unavailable in shader stage '%0' (requires 'compute', 'mesh' or 'amplification')">;
 
+def err_hlsl_pointers_unsupported : Error<
+  "%select{pointers|references}0 are unsupported in HLSL">;
+
 // HLSL Change Ends
 
 // SPIRV Change Starts
