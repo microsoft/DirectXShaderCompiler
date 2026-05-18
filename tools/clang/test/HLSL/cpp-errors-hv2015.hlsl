@@ -68,7 +68,6 @@ void fn_throw() throw() { } // expected-error {{exception specification is unsup
 void fn_noexcept() noexcept { }; // expected-error {{expected function body after function declarator}}
 
 // This would be a failure because of unsupported trailer return types, but we mis-parse it differently.
-// auto is now type-deduced so no reserved keyword error; only the trailing return type syntax causes an error.
 auto fn_trailing() -> int { return 1; } ; // expected-error {{'auto' is a reserved keyword in HLSL}} expected-error {{expected function body after function declarator}}
 
 void fn_param_with_default(int val = 1) { }
