@@ -122,11 +122,15 @@ def main(args):
     dxc_path = "dxc"
     dxopt_path = "dxopt"
     if args.tool_path:
+        if not os.path.isdir(args.tool_path):
+            raise NotADirectoryError(
+                f"Specified tool path is not a directory: '{args.tool_path}'"
+            )
         dxc_path = os.path.join(args.tool_path, dxc_path)
         dxopt_path = os.path.join(args.tool_path, dxopt_path)
         if not os.path.isfile(dxc_path) or not os.path.isfile(dxopt_path):
             raise FileNotFoundError(
-                f"dxc not found at {dxc_path}.  Use -t to specify path to dxc and dxopt."
+                f"dxc or dxopt not found in specified tool path: '{args.tool_path}'"
             )
     else:
         # If no tool path is specified, check if dxc and dxopt are in PATH
