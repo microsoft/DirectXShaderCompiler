@@ -80,7 +80,13 @@ class VersionGen():
         return self.latest_release_info["version"]["major"]
 
     def rc_version_field_2(self):
-        return self.latest_release_info["version"]["minor"]
+        minor = self.latest_release_info["version"]["minor"]
+        # If this is a preview branch, we use the preview_minor field as the
+        # minor version in the RC file. This allows us to have a different
+        # minor version for preview releases, without changing the highest
+        # released minor version.
+        minor = self.latest_release_info["version"].get("preview_minor", minor)
+        return minor
 
     def rc_version_field_3(self):
         return self.latest_release_info["version"]["rev"] if self.options.official else "0"

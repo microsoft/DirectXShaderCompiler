@@ -17,15 +17,33 @@ The included licenses apply to the following files:
 
 ## Changelog
 
-### Upcoming Release
+### Version 1.10.2605.1 (preview)
 
-Place release notes for the upcoming release below this line and remove this
-line upon naming the release. Refer to previous for appropriate section names.
+#### Experimental Shader Model 6.10
+- Added VectorAccumlate operaton to LinAlg Matrix API [#8448](https://github.com/microsoft/DirectXShaderCompiler/pull/8448)
+
+#### Experimental Shader Model 6.10 Bug Fixes
+- Fixed validator rejecting LinAlgMatrix type in DXIL [#8441](https://github.com/microsoft/DirectXShaderCompiler/pull/8441)
+- Fixed float trunc and coord calc errors in ExecTests [#8420](https://github.com/microsoft/DirectXShaderCompiler/pull/8420)
+- Convert Bias Vector to match the output type [#8394](https://github.com/microsoft/DirectXShaderCompiler/pull/8394)
+
+#### Bug Fixes
+- Fixed build break on certain platforms [#8307](https://github.com/microsoft/DirectXShaderCompiler/pull/8307)
+- SPIR-V: Fix compiler error for certain pointer casts [#7891](https://github.com/microsoft/DirectXShaderCompiler/issues/7891)
+- Raise a compliation error when invalid `volatile` keyword is used [8397](https://github.com/microsoft/DirectXShaderCompiler/pull/8397)
+- Fixed codegen that emitted illigal-width integerse [#8444](https://github.com/microsoft/DirectXShaderCompiler/pull/8444)
+- Fixed crash when using `-fcgl` when container has a resource arg function [#8442](https://github.com/microsoft/DirectXShaderCompiler/pull/8442)
+
+### Version 1.10.2605 (preview)
 
 #### Experimental Shader Model 6.10
 
-- Removed experimental Cooperative Vector, this has been replaced by LinAlg matrix.
-- Implement GetGroupWaveIndex and GetGroupWaveCount in experimental Shader Model 6.10.
+- Added DirectX LinAlg Matrix API in experimental Shader Model 6.10.
+  - [proposal](https://github.com/microsoft/hlsl-specs/blob/main/proposals/0035-linalg-matrix.md)
+  - New `Matrix` type that operates under three "scopes". ThreadScope, WaveScope, ThreadGroupScope
+  - Supports a comprehensive set of Matrix operations including matrix-vector and matrix-matrix multiply
+- Removed experimental Cooperative Vector, this has been replaced by LinAlg Matrix.
+- Added GetGroupWaveIndex and GetGroupWaveCount in experimental Shader Model 6.10.
   - [proposal](https://github.com/microsoft/hlsl-specs/blob/main/proposals/0048-group-wave-index.md)
   - GetGroupWaveIndex: New intrinsic for Compute, Mesh, Amplification and Node shaders which returns the index of the wave within the thread group that the the thread is executing.
   - GetGroupWaveCount: New intrinsic for Compute, Mesh, Amplification and Node
@@ -35,6 +53,13 @@ line upon naming the release. Refer to previous for appropriate section names.
   - `DebugBreak()` triggers a breakpoint if a debugger is attached.
   - `dx::IsDebuggerPresent()` returns true if a debugger is attached.
   - SPIR-V: `DebugBreak()` emits `NonSemantic.DebugBreak` extended instruction; `IsDebuggerPresent()` is not supported.
+- Added TriangleObjectPositions in experimental Shader Model 6.10.
+  - [proposal](https://github.com/microsoft/hlsl-specs/blob/main/proposals/0041-triangle-object-positions.md)
+- Added CluterID in experimental Shader Model 6.10.
+  - [proposal](https://github.com/microsoft/hlsl-specs/blob/main/proposals/0045-clustered-geometry.md)
+- Added Variable GroupShared Limits in experimental Shader Model 6.10.
+  - [proposal](https://github.com/microsoft/hlsl-specs/blob/main/proposals/0049-variable-groupshared-memory.md)
+
 
 #### Bug Fixes
 
@@ -45,6 +70,18 @@ line upon naming the release. Refer to previous for appropriate section names.
 - User-defined conversion operators (e.g., `operator float4()`) now produce an
   error instead of being silently ignored.
   [#5103](https://github.com/microsoft/DirectXShaderCompiler/pull/8206)
+- Fixed SPIRV crash with out-of-line template decl
+  [#8079](https://github.com/microsoft/DirectXShaderCompiler/pull/8079)
+- Fixed crash in CanConvert from incomplete type
+  [#8110](https://github.com/microsoft/DirectXShaderCompiler/pull/8110)
+- Fixed crash in diagnostics when source contains embedded nulls
+  [#8164](https://github.com/microsoft/DirectXShaderCompiler/pull/8164)
+- Fixed OOB in subscript indexing of col-major matrix in cbuffer
+  [#7866](https://github.com/microsoft/DirectXShaderCompiler/pull/7866)
+- Allow groupshared args in templates
+  [#8217](https://github.com/microsoft/DirectXShaderCompiler/pull/8217)
+- Fixed RawBufferVectorLoad/Store to use 32-bit element types for min precision types instead of 16-bit
+  [#8274](https://github.com/microsoft/DirectXShaderCompiler/pull/8274)
 - DXIL validation: added validation for `CreateHandleFromBinding`.
 - DXIL validation now rejects non-standard integer bit widths (e.g. `i25`) in
   instructions.
@@ -59,6 +96,8 @@ line upon naming the release. Refer to previous for appropriate section names.
   [#7979](https://github.com/microsoft/DirectXShaderCompiler/issues/7979). With
   this type, users no longer need to define both Sampler and Texture resources
   with the same binding number.
+- Added support for -Fre for Metal
+  [#8159](https://github.com/microsoft/DirectXShaderCompiler/pull/8159)
 
 ### Version 1.9.2602
 
