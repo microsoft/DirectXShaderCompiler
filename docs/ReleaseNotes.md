@@ -17,6 +17,23 @@ The included licenses apply to the following files:
 
 ## Changelog
 
+### Version 1.10.2605.1 (preview)
+
+#### Experimental Shader Model 6.10
+- Added VectorAccumlate operaton to LinAlg Matrix API [#8448](https://github.com/microsoft/DirectXShaderCompiler/pull/8448)
+
+#### Experimental Shader Model 6.10 Bug Fixes
+- Fixed validator rejecting LinAlgMatrix type in DXIL [#8441](https://github.com/microsoft/DirectXShaderCompiler/pull/8441)
+- Fixed float trunc and coord calc errors in ExecTests [#8420](https://github.com/microsoft/DirectXShaderCompiler/pull/8420)
+- Convert Bias Vector to match the output type [#8394](https://github.com/microsoft/DirectXShaderCompiler/pull/8394)
+
+#### Bug Fixes
+- Fixed build break on certain platforms [#8307](https://github.com/microsoft/DirectXShaderCompiler/pull/8307)
+- SPIR-V: Fix compiler error for certain pointer casts [#7891](https://github.com/microsoft/DirectXShaderCompiler/issues/7891)
+- Raise a compliation error when invalid `volatile` keyword is used [8397](https://github.com/microsoft/DirectXShaderCompiler/pull/8397)
+- Fixed codegen that emitted illigal-width integerse [#8444](https://github.com/microsoft/DirectXShaderCompiler/pull/8444)
+- Fixed crash when using `-fcgl` when container has a resource arg function [#8442](https://github.com/microsoft/DirectXShaderCompiler/pull/8442)
+
 ### Version 1.10.2605 (preview)
 
 #### Experimental Shader Model 6.10
@@ -75,9 +92,12 @@ The included licenses apply to the following files:
   default, with `/Fi` to override the output filename. The old FXC-style `/P
    <filename>` positional syntax has been renamed to `/Po`.
   [#4611](https://github.com/microsoft/DirectXShaderCompiler/issues/4611).
+- SPIR-V: Support `vk::SampledTexture` types (GLSL's `samplerND` equivalent)
+  [#7979](https://github.com/microsoft/DirectXShaderCompiler/issues/7979). With
+  this type, users no longer need to define both Sampler and Texture resources
+  with the same binding number.
 - Added support for -Fre for Metal
   [#8159](https://github.com/microsoft/DirectXShaderCompiler/pull/8159)
-
 
 ### Version 1.9.2602
 

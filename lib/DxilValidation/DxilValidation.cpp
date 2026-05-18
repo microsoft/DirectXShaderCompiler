@@ -2414,6 +2414,9 @@ static bool ValidateType(Type *Ty, ValidationContext &ValCtx,
       // Allow HitObject type.
       if (ST == HlslOP->GetHitObjectType())
         return true;
+      // Allow LinAlgMatrix type.
+      if (dxilutil::IsHLSLLinAlgMatrixType(ST))
+        return true;
       if (IsDxilBuiltinStructType(ST, HlslOP)) {
         ValCtx.EmitTypeError(Ty, ValidationRule::InstrDxilStructUser);
         Result = false;

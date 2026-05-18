@@ -1,6 +1,6 @@
 {
   "IntrinsicOpCodes": {
-    "Num_Intrinsics": 423,
+    "Num_Intrinsics": 424,
     "IOP_AcceptHitAndEndSearch": 0,
     "IOP_AddUint64": 1,
     "IOP_AllMemoryBarrier": 2,
@@ -423,6 +423,7 @@
     "IOP___builtin_LinAlg_MatrixVectorMultiplyAdd": 419,
     "IOP_DebugBreak": 420,
     "IOP_DxIsDebuggerPresent": 421,
-    "IOP___builtin_LinAlg_Convert": 422
+    "IOP___builtin_LinAlg_Convert": 422,
+    "IOP___builtin_LinAlg_VectorAccumulateToDescriptor": 423
   }
 }

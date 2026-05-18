@@ -571,9 +571,12 @@ namespace llvm {
 }
 
 // HLSL Change Starts
-// StringRef provides an operator string; that trips up the std::pair noexcept specification,
-// which (a) enables the moves constructor (because conversion is allowed), but (b)
-// misclassifies the the construction as nothrow.
+// StringRef provides an operator string; that trips up the std::pair noexcept
+// specification, which (a) enables the moves constructor (because conversion is
+// allowed), but (b) misclassifies the the construction as nothrow. Newer libc++
+// releases reject user specializations of this trait outright, and also compute
+// the trait correctly without help.
+#if !defined(_LIBCPP_VERSION)
 namespace std {
   template<>
   struct is_nothrow_constructible <std::string, llvm::StringRef>
@@ -588,6 +591,7 @@ namespace std {
     : std::false_type {
   };
 }
+#endif
 // HLSL Change Ends
 
 #endif

@@ -27,8 +27,13 @@ stages:
       matrix:
         VS2022_Release:
          configuration: Release
+         spirvBuildFlag: -spirvtest
         VS2022_Debug:
          configuration: Debug
+         spirvBuildFlag: -spirvtest
+        VS2022_Release_NoSPIRV:
+         configuration: Release
+         spirvBuildFlag: ''
 
     steps:
     - checkout: self
@@ -36,7 +41,7 @@ stages:
       submodules: true
     - script: |
         call utils\hct\hctstart.cmd %HLSL_SRC_DIR% %HLSL_BLD_DIR%
-        call utils\hct\hctbuild.cmd -vs2022 -$(platform) -$(configuration) -show-cmake-log -spirvtest -warp-nuget-version 1.0.16.1
+        call utils\hct\hctbuild.cmd -vs2022 -$(platform) -$(configuration) -show-cmake-log $(spirvBuildFlag) -warp-nuget-version 1.0.16.1
       displayName: 'Building'
     - script: |
         call utils\hct\hctstart.cmd %HLSL_SRC_DIR% %HLSL_BLD_DIR%

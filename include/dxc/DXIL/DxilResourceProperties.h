@@ -16,6 +16,7 @@
 namespace llvm {
 class Constant;
 class Type;
+class Module;
 } // namespace llvm
 
 namespace hlsl {
@@ -89,6 +90,7 @@ struct DxilInst_AnnotateHandle;
 namespace resource_helper {
 llvm::Constant *getAsConstant(const DxilResourceProperties &, llvm::Type *Ty,
                               const ShaderModel &);
+llvm::Type *GetResourcePropertiesType(llvm::Module &M);
 DxilResourceProperties loadPropsFromConstant(const llvm::Constant &C);
 DxilResourceProperties
 loadPropsFromAnnotateHandle(DxilInst_AnnotateHandle &annotateHandle,

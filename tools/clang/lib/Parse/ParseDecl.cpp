@@ -4193,6 +4193,10 @@ HLSLReservedKeyword:
                                  getLangOpts());
       break;
     case tok::kw_volatile:
+      // HLSL Change - volatile is reserved for HLSL
+      if (getLangOpts().HLSL)
+        goto HLSLReservedKeyword;
+      // HLSL Change Ends
       isInvalid = DS.SetTypeQual(DeclSpec::TQ_volatile, Loc, PrevSpec, DiagID,
                                  getLangOpts());
       break;
@@ -5883,15 +5887,6 @@ void Parser::ParseDeclaratorInternal(Declarator &D,
         return;
       }
 
-      // HLSL Change Starts - No pointer support in HLSL.
-      if (getLangOpts().HLSL) {
-        Diag(Tok, diag::err_hlsl_unsupported_pointer);
-        D.SetIdentifier(0, Tok.getLocation());
-        D.setInvalidType();
-        return;
-      }
-      // HLSL Change Ends
-
       SourceLocation Loc = ConsumeToken();
       D.SetRangeEnd(Loc);
       DeclSpec DS(AttrFactory);
@@ -5912,12 +5907,6 @@ void Parser::ParseDeclaratorInternal(Declarator &D,
   }
 
   tok::TokenKind Kind = Tok.getKind();
-
-  // HLSL Change Starts - HLSL doesn't support pointers, references or blocks
-  if (getLangOpts().HLSL && isPtrOperatorToken(Kind, getLangOpts(), D.getContext())) {
-    Diag(Tok, diag::err_hlsl_unsupported_pointer);
-  }
-  // HLSL Change Ends
 
   // Not a pointer, C++ reference, or block.
   if (!isPtrOperatorToken(Kind, getLangOpts(), D.getContext())) {

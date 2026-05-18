@@ -7163,6 +7163,28 @@ Value *TranslateLinAlgConvert(CallInst *CI, IntrinsicOp IOP, OP::OpCode OpCode,
   return nullptr;
 }
 
+Value *TranslateLinAlgVectorAccumulateToDescriptor(
+    CallInst *CI, IntrinsicOp IOP, OP::OpCode OpCode,
+    HLOperationLowerHelper &Helper, HLObjectOperationLowerHelper *ObjHelper,
+    bool &Translated) {
+
+  hlsl::OP *HlslOp = &Helper.hlslOP;
+  IRBuilder<> Builder(CI);
+
+  Constant *OpArg = HlslOp->GetU32Const(static_cast<unsigned>(OpCode));
+
+  Value *Vector = CI->getArgOperand(1);
+  Value *ResHandle = CI->getArgOperand(2);
+  Value *Offset = CI->getArgOperand(3);
+  Value *Align = CI->getArgOperand(4);
+
+  // Get the DXIL function for the operation
+  Function *DxilFunc = HlslOp->GetOpFunc(OpCode, Vector->getType());
+
+  return Builder.CreateCall(DxilFunc,
+                            {OpArg, Vector, ResHandle, Offset, Align});
+}
+
 } // namespace
 
 // Lower table.
@@ -7957,6 +7979,9 @@ constexpr IntrinsicLower gLowerTable[] = {
 
     {IntrinsicOp::IOP___builtin_LinAlg_Convert, TranslateLinAlgConvert,
      DXIL::OpCode::LinAlgConvert},
+    {IntrinsicOp::IOP___builtin_LinAlg_VectorAccumulateToDescriptor,
+     TranslateLinAlgVectorAccumulateToDescriptor,
+     DXIL::OpCode::LinAlgVectorAccumulateToDescriptor},
 };
 constexpr size_t NumLowerTableEntries =
     sizeof(gLowerTable) / sizeof(gLowerTable[0]);

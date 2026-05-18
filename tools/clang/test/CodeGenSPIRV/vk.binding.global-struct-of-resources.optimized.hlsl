@@ -135,9 +135,10 @@ S secondGlobal;
 
 float4 main() : SV_Target {
   return
-// CHECK:      [[fg_0_0_t:%[0-9]+]] = OpLoad %_arr_type_2d_image_uint_2 %[[fg0]]
-// CHECK:      [[fg_1_t_0:%[0-9]+]] = OpCompositeExtract %type_2d_image [[fg_0_0_t]] 0
-// CHECK:      [[fg_1_t_1:%[0-9]+]] = OpCompositeExtract %type_2d_image [[fg_0_0_t]] 1
+// CHECK:      [[ac_0_0_t0:%[0-9]+]] = OpAccessChain %_ptr_UniformConstant_type_2d_image %[[fg0]] %uint_0
+// CHECK:      [[fg_1_t_0:%[0-9]+]] = OpLoad %type_2d_image [[ac_0_0_t0]]
+// CHECK:      [[ac_0_0_t1:%[0-9]+]] = OpAccessChain %_ptr_UniformConstant_type_2d_image %[[fg0]] %uint_1
+// CHECK:      [[fg_1_t_1:%[0-9]+]] = OpLoad %type_2d_image [[ac_0_0_t1]]
 // CHECK:           [[tmp:%[0-9]+]] = OpAccessChain %_ptr_UniformConstant_type_sampler %[[fgtt0_0]] %uint_1
 // CHECK: [[fg_1_tt_0_s_1:%[0-9]+]] = OpLoad %type_sampler [[tmp]]
 // CHECK:           [[tmp:%[0-9]+]] = OpAccessChain %_ptr_UniformConstant_type_sampler %[[fgtt0_1]] %uint_2
@@ -149,9 +150,10 @@ float4 main() : SV_Target {
 // CHECK:                             OpFAdd
     tex2D(firstGlobal[0][0], float2(0,0)) +
 
-// CHECK:        [[fg_0_1_t:%[0-9]+]] = OpLoad %_arr_type_2d_image_uint_2 %[[fg1]]
-// CHECK:      [[fg_0_1_t_0:%[0-9]+]] = OpCompositeExtract %type_2d_image [[fg_0_1_t]] 0
-// CHECK:      [[fg_0_1_t_1:%[0-9]+]] = OpCompositeExtract %type_2d_image [[fg_0_1_t]] 1
+// CHECK:      [[ac_0_1_t0:%[0-9]+]] = OpAccessChain %_ptr_UniformConstant_type_2d_image %[[fg1]] %uint_0
+// CHECK:     [[fg_0_1_t_0:%[0-9]+]] = OpLoad %type_2d_image [[ac_0_1_t0]]
+// CHECK:      [[ac_0_1_t1:%[0-9]+]] = OpAccessChain %_ptr_UniformConstant_type_2d_image %[[fg1]] %uint_1
+// CHECK:     [[fg_0_1_t_1:%[0-9]+]] = OpLoad %type_2d_image [[ac_0_1_t1]]
 // CHECK:             [[tmp:%[0-9]+]] = OpAccessChain %_ptr_UniformConstant_type_sampler %[[fgtt1_0]] %uint_1
 // CHECK: [[fg_0_1_tt_0_s_1:%[0-9]+]] = OpLoad %type_sampler [[tmp]]
 // CHECK:             [[tmp:%[0-9]+]] = OpAccessChain %_ptr_UniformConstant_type_sampler %[[fgtt1_1]] %uint_2
@@ -162,9 +164,10 @@ float4 main() : SV_Target {
 // CHECK:                 {{%[0-9]+}} = OpImageSampleImplicitLod %v4float [[sampled_img_4]]
 // CHECK:                            OpFAdd
     tex2D(firstGlobal[0][1], float2(0,0)) +
-// CHECK:        [[fg_1_0_t:%[0-9]+]] = OpLoad %_arr_type_2d_image_uint_2 %[[fg2]]
-// CHECK:      [[fg_1_0_t_0:%[0-9]+]] = OpCompositeExtract %type_2d_image [[fg_1_0_t]] 0
-// CHECK:      [[fg_1_0_t_1:%[0-9]+]] = OpCompositeExtract %type_2d_image [[fg_1_0_t]] 1
+// CHECK:      [[ac_1_0_t0:%[0-9]+]] = OpAccessChain %_ptr_UniformConstant_type_2d_image %[[fg2]] %uint_0
+// CHECK:     [[fg_1_0_t_0:%[0-9]+]] = OpLoad %type_2d_image [[ac_1_0_t0]]
+// CHECK:      [[ac_1_0_t1:%[0-9]+]] = OpAccessChain %_ptr_UniformConstant_type_2d_image %[[fg2]] %uint_1
+// CHECK:     [[fg_1_0_t_1:%[0-9]+]] = OpLoad %type_2d_image [[ac_1_0_t1]]
 // CHECK:             [[tmp:%[0-9]+]] = OpAccessChain %_ptr_UniformConstant_type_sampler %[[fgtt2_0]] %uint_1
 // CHECK: [[fg_1_0_tt_0_s_1:%[0-9]+]] = OpLoad %type_sampler [[tmp]]
 // CHECK:             [[tmp:%[0-9]+]] = OpAccessChain %_ptr_UniformConstant_type_sampler %[[fgtt2_1]] %uint_2
@@ -175,9 +178,10 @@ float4 main() : SV_Target {
 // CHECK:                 {{%[0-9]+}} = OpImageSampleImplicitLod %v4float [[sampled_img_6]]
 // CHECK:                            OpFAdd
     tex2D(firstGlobal[1][0], float2(0,0)) +
-// CHECK:        [[fg_1_1_t:%[0-9]+]] = OpLoad %_arr_type_2d_image_uint_2 %[[fg3]]
-// CHECK:      [[fg_1_1_t_0:%[0-9]+]] = OpCompositeExtract %type_2d_image [[fg_1_1_t]] 0
-// CHECK:      [[fg_1_1_t_1:%[0-9]+]] = OpCompositeExtract %type_2d_image [[fg_1_1_t]] 1
+// CHECK:      [[ac_1_1_t0:%[0-9]+]] = OpAccessChain %_ptr_UniformConstant_type_2d_image %[[fg3]] %uint_0
+// CHECK:     [[fg_1_1_t_0:%[0-9]+]] = OpLoad %type_2d_image [[ac_1_1_t0]]
+// CHECK:      [[ac_1_1_t1:%[0-9]+]] = OpAccessChain %_ptr_UniformConstant_type_2d_image %[[fg3]] %uint_1
+// CHECK:     [[fg_1_1_t_1:%[0-9]+]] = OpLoad %type_2d_image [[ac_1_1_t1]]
 // CHECK:             [[tmp:%[0-9]+]] = OpAccessChain %_ptr_UniformConstant_type_sampler %[[fgtt3_0]] %uint_1
 // CHECK: [[fg_1_1_tt_0_s_1:%[0-9]+]] = OpLoad %type_sampler [[tmp]]
 // CHECK:             [[tmp:%[0-9]+]] = OpAccessChain %_ptr_UniformConstant_type_sampler %[[fgtt3_1]] %uint_2
