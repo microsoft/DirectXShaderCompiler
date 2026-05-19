@@ -11,7 +11,7 @@ Reads the input file as bytes and produces a C++ snippet of the form:
       "<escaped line 2>"
       ...;
 
-The generated file declares a single variable named ``Data`` at namespace
+The generated file declares a single variable named ``Data`` at file
 scope. The intent is for the file to be ``#include``-ed inside a wrapping
 namespace by the consumer.
 """
