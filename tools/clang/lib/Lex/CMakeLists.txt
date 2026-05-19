@@ -87,9 +87,9 @@ set_source_files_properties("${hlsl_embedded_decls}"
 # Make the generated .inc files visible to HLSLEmbeddedHeaders.cpp.
 include_directories("${hlsl_embedded_dir}")
 
-# Carry the generated .inc files as an explicit dependency of the
-# library target so they're produced before HLSLEmbeddedHeaders.cpp is
-# compiled.
+# Add the generated .inc files as inputs to the target so that they're treated
+# as dependencies of the target and get built before the .cpp file that includes
+# them.
 set(hlsl_embedded_generated_files
     "${hlsl_embedded_decls}"
     "${hlsl_embedded_entries_inc}")
