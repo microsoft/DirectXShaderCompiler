@@ -1696,7 +1696,7 @@ static const char ConvertShader[] = R"(
 
 static void runConvert(ID3D12Device *Device, dxc::SpecificDllLoader &DxcSupport,
                        bool Verbose) {
-  std::string Args = "-HV 202x";
+  std::string Args = "-HV 202x -enable-16bit-types";
   MatrixDim NumElements = 4;
   size_t BufferSize = elementSize(ComponentType::F32) * NumElements;
 
@@ -1734,7 +1734,7 @@ static const char VectorAccumulateDescriptorShader[] = R"(
 static void runVectorAccumulateDescriptor(ID3D12Device *Device,
                                           dxc::SpecificDllLoader &DxcSupport,
                                           bool Verbose) {
-  std::string Args = "-HV 202x";
+  std::string Args = "-HV 202x -enable-16bit-types";
   MatrixDim NumElements = 4;
   size_t BufferSize = elementSize(ComponentType::F16) * NumElements;
 
