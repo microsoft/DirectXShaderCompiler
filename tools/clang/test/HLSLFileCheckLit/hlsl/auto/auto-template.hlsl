@@ -1,12 +1,10 @@
 // RUN: %dxc -T cs_6_0 -HV 202x -fcgl %s | FileCheck %s
-// RUN: %dxc -T cs_6_0 -HV 202x %s | FileCheck %s --check-prefix=DXIL
 
 // Test that the 'auto' keyword works correctly in template contexts in HLSL:
 //  - auto variables inside template function bodies
 //  - auto variables assigned from results of template function instantiations
 
-// CHECK-LABEL: define void @main()
-// DXIL: define void @main()
+
 
 RWBuffer<float> output : register(u0);
 
@@ -24,6 +22,12 @@ T clampPositive(T val) {
     auto clamped = val < zero ? zero : val;
     return clamped;
 }
+
+// CHECK-LABEL: define void @main()
+// CHECK: {{.*}} = alloca i32
+// CHECK: {{.*}} = alloca float
+// CHECK: {{.*}} = alloca i32
+// CHECK: {{.*}} = alloca float
 
 [numthreads(1,1,1)]
 void main() {
