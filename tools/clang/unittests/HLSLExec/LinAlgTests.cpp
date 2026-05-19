@@ -1731,17 +1731,20 @@ static const char VectorAccumulateDescriptorShader[] = R"(
   }
 )";
 
-static void runVectorAccumulateDescriptor(ID3D12Device *Device, dxc::SpecificDllLoader &DxcSupport,
-                       bool Verbose) {
+static void runVectorAccumulateDescriptor(ID3D12Device *Device,
+                                          dxc::SpecificDllLoader &DxcSupport,
+                                          bool Verbose) {
   std::string Args = "-HV 202x";
   MatrixDim NumElements = 4;
   size_t BufferSize = elementSize(ComponentType::F16) * NumElements;
 
-  compileShader(DxcSupport, VectorAccumulateDescriptorShader, "cs_6_10", Args, Verbose);
+  compileShader(DxcSupport, VectorAccumulateDescriptorShader, "cs_6_10", Args,
+                Verbose);
 
   auto Expected = makeExpectedVec(ComponentType::F16, NumElements, 1.0);
 
-  auto Op = createComputeOp(VectorAccumulateDescriptorShader, "cs_6_10", "UAV(u0)", Args.c_str());
+  auto Op = createComputeOp(VectorAccumulateDescriptorShader, "cs_6_10",
+                            "UAV(u0)", Args.c_str());
   addUAVBuffer(Op.get(), "Output", BufferSize, true);
   addRootView(Op.get(), 0, "Output");
 
