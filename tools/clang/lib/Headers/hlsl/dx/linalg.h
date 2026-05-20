@@ -289,8 +289,9 @@ class Matrix {
   }
 
   template <typename T>
-  static typename hlsl::enable_if<hlsl::is_arithmetic<T>::value, Matrix>::type
-  Splat(T Val) {
+  [[nodiscard]] static
+      typename hlsl::enable_if<hlsl::is_arithmetic<T>::value, Matrix>::type
+      Splat(T Val) {
     Matrix Result;
     __builtin_LinAlg_FillMatrix(Result.__handle, Val);
     return Result;
