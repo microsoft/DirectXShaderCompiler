@@ -6369,9 +6369,9 @@ def warn_side_effects_typeid : Warning<
   "expression with side effects will be evaluated despite being used as an "
   "operand to 'typeid'">, InGroup<PotentiallyEvaluatedExpression>;
 // HLSL Change Begin - allow attribute spelling to come in.
-def warn_unused_result : Warning<
-  "ignoring return value of function declared with %0 attribute">, 
-  InGroup<DiagGroup<"unused-result">>;
+def warn_unused_result
+    : Warning<"ignoring return value of function declared with %0 attribute">,
+      InGroup<DiagGroup<"unused-result">>;
 // HLSL Change End
 def warn_unused_volatile : Warning<
   "expression result unused; assign into a variable to force a volatile load">,

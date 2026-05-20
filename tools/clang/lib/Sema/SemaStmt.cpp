@@ -248,8 +248,7 @@ void Sema::DiagnoseUnusedExprResult(const Stmt *S) {
         // HLSL Change Begin - allow attribute spelling to come in.
         Attr *NoDiscardAttr = Func ? Func->getNoDiscardAttr()
                                    : FD->getAttr<WarnUnusedResultAttr>();
-        Diag(Loc, diag::warn_unused_result)
-            << NoDiscardAttr << R1 << R2;
+        Diag(Loc, diag::warn_unused_result) << NoDiscardAttr << R1 << R2;
         // HLSL Change End
         return;
       }

@@ -2472,8 +2472,7 @@ def WarnUnused : InheritableAttr {
 
 // HLSL Change Begin - add C++11 spelling.
 def WarnUnusedResult : InheritableAttr {
-  let Spellings = [CXX11<"", "nodiscard", 2017>,
-                   GCC<"warn_unused_result">,
+  let Spellings = [CXX11<"", "nodiscard", 2017>, GCC<"warn_unused_result">,
                    CXX11<"clang", "warn_unused_result">];
   let Subjects = SubjectList<[ObjCMethod, CXXRecord, FunctionLike], WarnDiag,
                              "ExpectedFunctionMethodOrClass">;
