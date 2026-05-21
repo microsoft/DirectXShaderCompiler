@@ -55,7 +55,7 @@
   namespace fs = std::experimental::filesystem;
 #endif
  
- using namespace fs;
+using namespace fs;
 
 #include "llvm/Support/Format.h"
 #include "llvm/Support/raw_ostream.h"
@@ -84,7 +84,6 @@
 using namespace std;
 using namespace hlsl_test;
 #ifdef _WIN32
-
 
 static uint8_t MaskCount(uint8_t V) {
   DXASSERT_NOMSG(0 <= V && V <= 0xF);
