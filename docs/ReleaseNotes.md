@@ -26,6 +26,12 @@ The included licenses apply to the following files:
 - Fixed validator rejecting LinAlgMatrix type in DXIL [#8441](https://github.com/microsoft/DirectXShaderCompiler/pull/8441)
 - Fixed float trunc and coord calc errors in ExecTests [#8420](https://github.com/microsoft/DirectXShaderCompiler/pull/8420)
 - Convert Bias Vector to match the output type [#8394](https://github.com/microsoft/DirectXShaderCompiler/pull/8394)
+- Fixed certain types being disallowed in LinAlg intrinsics [#8465](https://github.com/microsoft/DirectXShaderCompiler/pull/8465)
+
+#### Misc Features
+- Support templates with >> instead of > > in 202x [#8453](https://github.com/microsoft/DirectXShaderCompiler/pull/8453)
+- Implement `auto` for type deduction [#8452](https://github.com/microsoft/DirectXShaderCompiler/pull/8452)
+- Implement `[[nodiscard]]` attribute to warn on unused returns [#8462](https://github.com/microsoft/DirectXShaderCompiler/pull/8462)
 
 #### Bug Fixes
 - Fixed build break on certain platforms [#8307](https://github.com/microsoft/DirectXShaderCompiler/pull/8307)
