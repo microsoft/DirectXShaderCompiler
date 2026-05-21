@@ -245,7 +245,11 @@ void Sema::DiagnoseUnusedExprResult(const Stmt *S) {
       const FunctionDecl *Func = dyn_cast<FunctionDecl>(FD);
       if (Func ? Func->hasUnusedResultAttr()
                : FD->hasAttr<WarnUnusedResultAttr>()) {
-        Diag(Loc, diag::warn_unused_result) << R1 << R2;
+        // HLSL Change Begin - allow attribute spelling to come in.
+        Attr *NoDiscardAttr = Func ? Func->getNoDiscardAttr()
+                                   : FD->getAttr<WarnUnusedResultAttr>();
+        Diag(Loc, diag::warn_unused_result) << NoDiscardAttr << R1 << R2;
+        // HLSL Change End
         return;
       }
       if (ShouldSuppress)
@@ -270,7 +274,10 @@ void Sema::DiagnoseUnusedExprResult(const Stmt *S) {
     const ObjCMethodDecl *MD = ME->getMethodDecl();
     if (MD) {
       if (MD->hasAttr<WarnUnusedResultAttr>()) {
-        Diag(Loc, diag::warn_unused_result) << R1 << R2;
+        // HLSL Change Begin - allow attribute spelling to come in.
+        Diag(Loc, diag::warn_unused_result)
+            << MD->getAttr<WarnUnusedResultAttr>() << R1 << R2;
+        // HLSL Change End
         return;
       }
     }
