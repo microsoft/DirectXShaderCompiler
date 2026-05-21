@@ -36,13 +36,21 @@
 #include <atlfile.h>
 #include <d3dcompiler.h>
 #pragma comment(lib, "d3dcompiler.lib")
-#if _MSC_VER >= 1920
-#define _SILENCE_EXPERIMENTAL_FILESYSTEM_DEPRECATION_WARNING
+#if defined(_MSC_VER)
+// MSVC removed <experimental/filesystem> starting in VS 2019 16.3 (_MSC_VER >- 1922)
+#if _MSC_VER < 1922
 #include  <experimental/filesystem>
+namespace fs = std::experimental::filesystem;
 #else
 #include <filesystem>
+namespace fs = std::filesystem;
+#endif
+#else
+#include <filesystem>
+namespace fs = std::filesystem;
 #endif
 #endif
+using namespace fs;
 
 #include "llvm/Support/Format.h"
 #include "llvm/Support/raw_ostream.h"
@@ -72,7 +80,6 @@ using namespace std;
 using namespace hlsl_test;
 #ifdef _WIN32
 
-using namespace std::experimental::filesystem;
 
 static uint8_t MaskCount(uint8_t V) {
   DXASSERT_NOMSG(0 <= V && V <= 0xF);
