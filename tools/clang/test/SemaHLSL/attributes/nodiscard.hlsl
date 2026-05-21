@@ -13,6 +13,9 @@ struct [[nodiscard]] S {
 
   [[clang::warn_unused_result]] static S fn4() { return (S)42; }
   [[clang::warn_unused_result]] S fn5() { return (S)42; }
+
+  static S fn6() { return (S)42; }
+  S fn7() { return (S)42; }
 };
 
 S fn3() { return (S)42; }
@@ -28,4 +31,6 @@ void main(uint ID : SV_GroupID)
   S::fn4(); // expected-warning {{ignoring return value of function declared with 'warn_unused_result' attribute}}
   S s;
   s.fn5(); // expected-warning {{ignoring return value of function declared with 'warn_unused_result' attribute}}
+  S::fn6(); // expected-warning {{ignoring return value of function declared with 'nodiscard' attribute}}
+  s.fn7(); // expected-warning {{ignoring return value of function declared with 'nodiscard' attribute}}
 }
