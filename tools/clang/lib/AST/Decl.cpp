@@ -2876,10 +2876,11 @@ bool FunctionDecl::hasUnusedResultAttr() const {
   QualType RetType = getReturnType();
   if (RetType->isRecordType()) {
     const CXXRecordDecl *Ret = RetType->getAsCXXRecordDecl();
-    const CXXMethodDecl *MD = dyn_cast<CXXMethodDecl>(this);
-    if (Ret && Ret->hasAttr<WarnUnusedResultAttr>() &&
-        !(MD && MD->getCorrespondingMethodInClass(Ret, true)))
+    // HLSL Change Begin - nodiscard on a type should apply to all methods, even
+    // if they are not marked nodiscard themselves. This is the C++17 behavior.
+    if (Ret && Ret->hasAttr<WarnUnusedResultAttr>())
       return true;
+    // HLSL Change End
   }
   return hasAttr<WarnUnusedResultAttr>();
 }
@@ -2891,7 +2892,8 @@ Attr *FunctionDecl::getNoDiscardAttr() const {
     const CXXRecordDecl *Ret = RetType->getAsCXXRecordDecl();
     const CXXMethodDecl *MD = dyn_cast<CXXMethodDecl>(this);
     if (Ret && Ret->hasAttr<WarnUnusedResultAttr>() &&
-        !(MD && MD->getCorrespondingMethodInClass(Ret, true)))
+        (!hasAttr<WarnUnusedResultAttr>() ||
+         !(MD && (MD->getCorrespondingMethodInClass(Ret, true)))))
       return Ret->getAttr<WarnUnusedResultAttr>();
   }
   return getAttr<WarnUnusedResultAttr>();
