@@ -36,21 +36,26 @@
 #include <atlfile.h>
 #include <d3dcompiler.h>
 #pragma comment(lib, "d3dcompiler.lib")
+
 #if defined(_MSC_VER)
-// MSVC removed <experimental/filesystem> starting in VS 2019 16.3 (_MSC_VER >- 1922)
-#if _MSC_VER < 1922
-#include  <experimental/filesystem>
-namespace fs = std::experimental::filesystem;
+ // MSVC removed <experimental/filesystem> starting in VS 2019 16.3 (_MSC_VER >= 1922)
+  #if _MSC_VER < 1922
+    #include <experimental/filesystem>
+    namespace fs = std::experimental::filesystem;
+  #else
+    #include <filesystem>
+    namespace fs = std::filesystem;
+  #endif
+#elif defined(__has_include) && __has_include(<filesystem>) && \
+     (!defined(__GNUC__) || __GNUC__ >= 8)
+  #include <filesystem>
+  namespace fs = std::filesystem;
 #else
-#include <filesystem>
-namespace fs = std::filesystem;
+  #include <experimental/filesystem>
+  namespace fs = std::experimental::filesystem;
 #endif
-#else
-#include <filesystem>
-namespace fs = std::filesystem;
-#endif
-#endif
-using namespace fs;
+ 
+ using namespace fs;
 
 #include "llvm/Support/Format.h"
 #include "llvm/Support/raw_ostream.h"
