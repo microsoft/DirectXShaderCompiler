@@ -36,6 +36,7 @@
 #include <atlfile.h>
 #include <d3dcompiler.h>
 #pragma comment(lib, "d3dcompiler.lib")
+#endif
 
 #if defined(_MSC_VER)
  // MSVC removed <experimental/filesystem> starting in VS 2019 16.3 (_MSC_VER >= 1922)
