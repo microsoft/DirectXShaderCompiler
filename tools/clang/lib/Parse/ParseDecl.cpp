@@ -3918,8 +3918,12 @@ HLSLReservedKeyword:
       break;
       // HLSL Change Ends
     case tok::kw_auto:
-      if (getLangOpts().HLSL) { goto HLSLReservedKeyword; } // HLSL Change - auto is reserved for HLSL
-      if (getLangOpts().CPlusPlus11) {
+      // HLSL Change Begin - auto is reserved for HLSL 2015 and earlier.
+      if (getLangOpts().HLSL &&
+          getLangOpts().HLSLVersion <= hlsl::LangStd::v2015)
+        goto HLSLReservedKeyword;
+      // HLSL Change End
+      if (getLangOpts().CPlusPlus11 || getLangOpts().HLSL) { // HLSL Change
         if (isKnownToBeTypeSpecifier(GetLookAheadToken(1))) {
           isInvalid = DS.SetStorageClassSpec(Actions, DeclSpec::SCS_auto, Loc,
                                              PrevSpec, DiagID, Policy);

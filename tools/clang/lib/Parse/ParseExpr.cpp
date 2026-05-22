@@ -254,9 +254,11 @@ static bool isFoldOperator(tok::TokenKind Kind) {
 /// precedence of at least \p MinPrec.
 ExprResult
 Parser::ParseRHSOfBinaryExpression(ExprResult LHS, prec::Level MinPrec) {
-  prec::Level NextTokPrec = getBinOpPrecedence(Tok.getKind(),
-                                               GreaterThanIsOperator,
-                                               getLangOpts().CPlusPlus11);
+  prec::Level NextTokPrec =
+      getBinOpPrecedence(Tok.getKind(), GreaterThanIsOperator,
+                         getLangOpts().CPlusPlus11 ||
+                             (getLangOpts().HLSL && getLangOpts().HLSLVersion >=
+                                                        hlsl::LangStd::v202x));
   SourceLocation ColonLoc;
 
   while (1) {
@@ -390,8 +392,11 @@ Parser::ParseRHSOfBinaryExpression(ExprResult LHS, prec::Level MinPrec) {
     // Remember the precedence of this operator and get the precedence of the
     // operator immediately to the right of the RHS.
     prec::Level ThisPrec = NextTokPrec;
-    NextTokPrec = getBinOpPrecedence(Tok.getKind(), GreaterThanIsOperator,
-                                     getLangOpts().CPlusPlus11);
+    NextTokPrec = getBinOpPrecedence(
+        Tok.getKind(), GreaterThanIsOperator,
+        getLangOpts().CPlusPlus11 ||
+            (getLangOpts().HLSL &&
+             getLangOpts().HLSLVersion >= hlsl::LangStd::v202x));
 
     // Assignment and conditional expressions are right-associative.
     bool isRightAssoc = ThisPrec == prec::Conditional ||
@@ -424,8 +429,11 @@ Parser::ParseRHSOfBinaryExpression(ExprResult LHS, prec::Level MinPrec) {
         LHS = ExprError();
       }
 
-      NextTokPrec = getBinOpPrecedence(Tok.getKind(), GreaterThanIsOperator,
-                                       getLangOpts().CPlusPlus11);
+      NextTokPrec = getBinOpPrecedence(
+          Tok.getKind(), GreaterThanIsOperator,
+          getLangOpts().CPlusPlus11 ||
+              (getLangOpts().HLSL &&
+               getLangOpts().HLSLVersion >= hlsl::LangStd::v202x));
     }
 
     if (!RHS.isInvalid() && RHSIsInitList) {
