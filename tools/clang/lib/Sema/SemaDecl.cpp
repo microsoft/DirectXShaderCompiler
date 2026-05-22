@@ -13,6 +13,7 @@
 
 #include "TypeLocBuilder.h"
 #include "dxc/DXIL/DxilSemantic.h" // HLSL Change
+#include "dxc/HlslIntrinsicOp.h"   // HLSL Change
 #include "clang/AST/ASTConsumer.h"
 #include "clang/AST/ASTContext.h"
 #include "clang/AST/ASTLambda.h"
@@ -6418,28 +6419,24 @@ static bool checkForConflictWithNonVisibleExternC(Sema &S, const T *ND,
 }
 
 // HLSL Change Begin - detect initializers sourced from descriptor heap globals.
+// The descriptor-heap globals have implicit record types tagged ".Resource" /
+// ".Sampler" (see DeclareResourceType in ASTContextHLSL.cpp). Leading-dot tag
+// names cannot be authored by user code, so the type alone identifies the
+// source -- covering both bare references and subscripted heap accesses.
 static bool IsDescriptorHeapInitializer(const Expr *Init, bool &IsSampler) {
   if (!Init)
     return false;
-  Init = Init->IgnoreParenImpCasts();
-  // Peel one level of operator[] (the heap is indexed to produce a resource).
-  if (const auto *OpCall = dyn_cast<CXXOperatorCallExpr>(Init)) {
-    if (OpCall->getOperator() == OO_Subscript && OpCall->getNumArgs() >= 1)
-      Init = OpCall->getArg(0)->IgnoreParenImpCasts();
-  }
-  const auto *DRE = dyn_cast<DeclRefExpr>(Init);
-  if (!DRE)
+  const auto *RT =
+      Init->IgnoreParenImpCasts()->getType()->getAs<RecordType>();
+  if (!RT)
     return false;
-  const auto *VD = dyn_cast<VarDecl>(DRE->getDecl());
-  if (!VD || !VD->isImplicit())
-    return false;
-  StringRef Name = VD->getName();
-  if (Name == "ResourceDescriptorHeap") {
-    IsSampler = false;
+  StringRef N = RT->getDecl()->getName();
+  if (N == ".Sampler") {
+    IsSampler = true;
     return true;
   }
-  if (Name == "SamplerDescriptorHeap") {
-    IsSampler = true;
+  if (N == ".Resource") {
+    IsSampler = false;
     return true;
   }
   return false;
