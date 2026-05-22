@@ -48,7 +48,7 @@
     namespace fs = std::filesystem;
   #endif
 #elif defined(__has_include) && __has_include(<filesystem>) && \
-     (!defined(__GNUC__) || __GNUC__ >= 8)
+     (defined(__clang__) || !defined(__GNUC__) || __GNUC__ >= 8)
   #include <filesystem>
   namespace fs = std::filesystem;
 #else
@@ -80,17 +80,17 @@ using namespace fs;
 
 #include <codecvt>
 
-// clang-format on
+    // clang-format on
 
-using namespace std;
-using namespace hlsl_test;
+    using namespace std;
+    using namespace hlsl_test;
 #ifdef _WIN32
 
-static uint8_t MaskCount(uint8_t V) {
-  DXASSERT_NOMSG(0 <= V && V <= 0xF);
-  static const uint8_t Count[16] = {0, 1, 1, 2, 1, 2, 2, 3,
-                                    1, 2, 2, 3, 2, 3, 3, 4};
-  return Count[V];
+    static uint8_t MaskCount(uint8_t V) {
+      DXASSERT_NOMSG(0 <= V && V <= 0xF);
+      static const uint8_t Count[16] = {0, 1, 1, 2, 1, 2, 2, 3,
+                                        1, 2, 2, 3, 2, 3, 3, 4};
+      return Count[V];
 }
 #endif
 
