@@ -6417,6 +6417,35 @@ static bool checkForConflictWithNonVisibleExternC(Sema &S, const T *ND,
   return false;
 }
 
+// HLSL Change Begin - detect initializers sourced from descriptor heap globals.
+static bool IsDescriptorHeapInitializer(const Expr *Init, bool &IsSampler) {
+  if (!Init)
+    return false;
+  Init = Init->IgnoreParenImpCasts();
+  // Peel one level of operator[] (the heap is indexed to produce a resource).
+  if (const auto *OpCall = dyn_cast<CXXOperatorCallExpr>(Init)) {
+    if (OpCall->getOperator() == OO_Subscript && OpCall->getNumArgs() >= 1)
+      Init = OpCall->getArg(0)->IgnoreParenImpCasts();
+  }
+  const auto *DRE = dyn_cast<DeclRefExpr>(Init);
+  if (!DRE)
+    return false;
+  const auto *VD = dyn_cast<VarDecl>(DRE->getDecl());
+  if (!VD || !VD->isImplicit())
+    return false;
+  StringRef Name = VD->getName();
+  if (Name == "ResourceDescriptorHeap") {
+    IsSampler = false;
+    return true;
+  }
+  if (Name == "SamplerDescriptorHeap") {
+    IsSampler = true;
+    return true;
+  }
+  return false;
+}
+// HLSL Change End
+
 void Sema::CheckVariableDeclarationType(VarDecl *NewVD) {
   // If the decl is already known invalid, don't check it.
   if (NewVD->isInvalidDecl())
@@ -9026,6 +9055,19 @@ void Sema::AddInitializerToDecl(Decl *RealDecl, Expr *Init,
       RealDecl->setInvalidDecl();
       return;
     }
+
+    // HLSL Change Begin - disallow 'auto' deducing descriptor heap types.
+    if (getLangOpts().HLSL) {
+      bool IsSampler = false;
+      if (IsDescriptorHeapInitializer(DeduceInit, IsSampler)) {
+        Diag(VDecl->getLocation(), diag::err_hlsl_auto_descriptor_heap)
+            << IsSampler;
+        VDecl->setInvalidDecl();
+        return;
+      }
+    }
+    // HLSL Change End
+
     VDecl->setType(DeducedType);
     assert(VDecl->isLinkageValid());
 
