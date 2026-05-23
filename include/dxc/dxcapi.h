@@ -46,7 +46,7 @@ struct IDxcIncludeHandler;
 /// This can be used with GetProcAddress to get the DxcCreateInstance function.
 typedef HRESULT(__stdcall *DxcCreateInstanceProc)(_In_ REFCLSID rclsid,
                                                   _In_ REFIID riid,
-                                                  _Out_ LPVOID *ppv);
+                                                  _COM_Outptr_ LPVOID *ppv);
 
 /// \brief Typedef for DxcCreateInstance2 function pointer.
 ///
@@ -54,7 +54,7 @@ typedef HRESULT(__stdcall *DxcCreateInstanceProc)(_In_ REFCLSID rclsid,
 typedef HRESULT(__stdcall *DxcCreateInstance2Proc)(_In_ IMalloc *pMalloc,
                                                    _In_ REFCLSID rclsid,
                                                    _In_ REFIID riid,
-                                                   _Out_ LPVOID *ppv);
+                                                   _COM_Outptr_ LPVOID *ppv);
 
 /// \brief Creates a single uninitialized object of the class associated with a
 /// specified CLSID.
@@ -73,7 +73,7 @@ typedef HRESULT(__stdcall *DxcCreateInstance2Proc)(_In_ IMalloc *pMalloc,
 /// involvement.
 extern "C" DXC_API_IMPORT
     HRESULT __stdcall DxcCreateInstance(_In_ REFCLSID rclsid, _In_ REFIID riid,
-                                        _Out_ LPVOID *ppv);
+                                        _COM_Outptr_ LPVOID *ppv);
 
 /// \brief Version of DxcCreateInstance that takes an IMalloc interface.
 ///
@@ -82,7 +82,7 @@ extern "C" DXC_API_IMPORT
 extern "C" DXC_API_IMPORT
     HRESULT __stdcall DxcCreateInstance2(_In_ IMalloc *pMalloc,
                                          _In_ REFCLSID rclsid, _In_ REFIID riid,
-                                         _Out_ LPVOID *ppv);
+                                         _COM_Outptr_ LPVOID *ppv);
 
 // For convenience, equivalent definitions to CP_UTF8 and CP_UTF16.
 #define DXC_CP_UTF8 65001
@@ -684,8 +684,9 @@ struct IDxcUtils : public IUnknown {
   /// newly created reflection interface.
   ///
   /// Use this with interfaces such as ID3D12ShaderReflection.
-  virtual HRESULT STDMETHODCALLTYPE CreateReflection(
-      _In_ const DxcBuffer *pData, REFIID iid, void **ppvReflection) = 0;
+  virtual HRESULT STDMETHODCALLTYPE
+  CreateReflection(_In_ const DxcBuffer *pData, REFIID iid,
+                   _COM_Outptr_result_maybenull_ void **ppvReflection) = 0;
 
   /// \brief Build arguments that can be passed to the Compile method.
   virtual HRESULT STDMETHODCALLTYPE BuildArguments(
@@ -849,10 +850,10 @@ struct IDxcCompiler3 : public IUnknown {
           LPCWSTR *pArguments, ///< Array of pointers to arguments.
       _In_ UINT32 argCount,    ///< Number of arguments.
       _In_opt_ IDxcIncludeHandler
-          *pIncludeHandler,  ///< user-provided interface to handle include
-                             ///< directives (optional).
-      _In_ REFIID riid,      ///< Interface ID for the result.
-      _Out_ LPVOID *ppResult ///< IDxcResult: status, buffer, and errors.
+          *pIncludeHandler, ///< user-provided interface to handle include
+                            ///< directives (optional).
+      _In_ REFIID riid,     ///< Interface ID for the result.
+      _COM_Outptr_ LPVOID *ppResult ///< IDxcResult: status, buffer, and errors.
       ) = 0;
 
   /// \brief Disassemble a program.
@@ -860,7 +861,7 @@ struct IDxcCompiler3 : public IUnknown {
       _In_ const DxcBuffer
           *pObject,     ///< Program to disassemble: dxil container or bitcode.
       _In_ REFIID riid, ///< Interface ID for the result.
-      _Out_ LPVOID
+      _COM_Outptr_ LPVOID
           *ppResult ///< IDxcResult: status, disassembly text, and errors.
       ) = 0;
 };
@@ -933,7 +934,7 @@ struct IDxcContainerBuilder : public IUnknown {
   ///
   /// \param ppResult Pointer to variable to receive the result.
   virtual HRESULT STDMETHODCALLTYPE
-  SerializeContainer(_Out_ IDxcOperationResult **ppResult) = 0;
+  SerializeContainer(_COM_Outptr_ IDxcOperationResult **ppResult) = 0;
 };
 
 CROSS_PLATFORM_UUIDOF(IDxcAssembler, "091f7a26-1c1f-4948-904b-e6e3a8a771d5")
