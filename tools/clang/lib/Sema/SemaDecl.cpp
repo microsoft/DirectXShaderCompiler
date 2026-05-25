@@ -6418,7 +6418,7 @@ static bool checkForConflictWithNonVisibleExternC(Sema &S, const T *ND,
   return false;
 }
 
-static bool IsDescriptorHeapInitializer(const Expr *Init, bool &IsSampler) {
+static bool IsDynamicHeapInitializer(const Expr *Init, bool &IsSampler) {
   if (!Init)
     return false;
   const auto *RT =
@@ -9049,7 +9049,7 @@ void Sema::AddInitializerToDecl(Decl *RealDecl, Expr *Init,
 
     if (getLangOpts().HLSL) {
       bool IsSampler = false;
-      if (IsDescriptorHeapInitializer(DeduceInit, IsSampler)) {
+      if (IsDynamicHeapInitializer(DeduceInit, IsSampler)) {
         Diag(VDecl->getLocation(), diag::err_hlsl_auto_descriptor_heap)
             << IsSampler;
         VDecl->setInvalidDecl();
