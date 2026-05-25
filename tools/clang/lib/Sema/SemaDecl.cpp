@@ -6418,11 +6418,6 @@ static bool checkForConflictWithNonVisibleExternC(Sema &S, const T *ND,
   return false;
 }
 
-// HLSL Change Begin - detect initializers sourced from descriptor heap globals.
-// The descriptor-heap globals have implicit record types tagged ".Resource" /
-// ".Sampler" (see DeclareResourceType in ASTContextHLSL.cpp). Leading-dot tag
-// names cannot be authored by user code, so the type alone identifies the
-// source -- covering both bare references and subscripted heap accesses.
 static bool IsDescriptorHeapInitializer(const Expr *Init, bool &IsSampler) {
   if (!Init)
     return false;
@@ -6441,7 +6436,6 @@ static bool IsDescriptorHeapInitializer(const Expr *Init, bool &IsSampler) {
   }
   return false;
 }
-// HLSL Change End
 
 void Sema::CheckVariableDeclarationType(VarDecl *NewVD) {
   // If the decl is already known invalid, don't check it.
@@ -9053,7 +9047,6 @@ void Sema::AddInitializerToDecl(Decl *RealDecl, Expr *Init,
       return;
     }
 
-    // HLSL Change Begin - disallow 'auto' deducing descriptor heap types.
     if (getLangOpts().HLSL) {
       bool IsSampler = false;
       if (IsDescriptorHeapInitializer(DeduceInit, IsSampler)) {
@@ -9063,7 +9056,6 @@ void Sema::AddInitializerToDecl(Decl *RealDecl, Expr *Init,
         return;
       }
     }
-    // HLSL Change End
 
     VDecl->setType(DeducedType);
     assert(VDecl->isLinkageValid());
