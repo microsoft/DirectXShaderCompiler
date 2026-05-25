@@ -6421,8 +6421,7 @@ static bool checkForConflictWithNonVisibleExternC(Sema &S, const T *ND,
 static bool IsDynamicHeapInitializer(const Expr *Init, bool &IsSampler) {
   if (!Init)
     return false;
-  const auto *RT =
-      Init->IgnoreParenImpCasts()->getType()->getAs<RecordType>();
+  const auto *RT = Init->IgnoreParenImpCasts()->getType()->getAs<RecordType>();
   if (!RT)
     return false;
   StringRef N = RT->getDecl()->getName();
