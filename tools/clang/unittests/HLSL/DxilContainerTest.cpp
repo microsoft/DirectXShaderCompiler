@@ -39,21 +39,17 @@
 #endif
 
 #if defined(_MSC_VER)
- // MSVC removed <experimental/filesystem> starting in VS 2019 16.3 (_MSC_VER >= 1922)
-  #if _MSC_VER < 1922
+  // MSVC removed <experimental/filesystem> starting in VS 2019 16.3 (_MSC_VER >= 1922)
+  #if (_MSC_VER >= 1920) && (_MSC_VER < 1922)
     #include <experimental/filesystem>
     namespace fs = std::experimental::filesystem;
   #else
     #include <filesystem>
     namespace fs = std::filesystem;
   #endif
-#elif defined(__has_include) && __has_include(<filesystem>) && \
-     (defined(__clang__) || !defined(__GNUC__) || __GNUC__ >= 8)
+#else
   #include <filesystem>
   namespace fs = std::filesystem;
-#else
-  #include <experimental/filesystem>
-  namespace fs = std::experimental::filesystem;
 #endif
  
 using namespace fs;
