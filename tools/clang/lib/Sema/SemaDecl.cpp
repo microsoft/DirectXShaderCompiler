@@ -9047,6 +9047,7 @@ void Sema::AddInitializerToDecl(Decl *RealDecl, Expr *Init,
 
     // If this is a redeclaration, check that the type we just deduced matches
     // the previously declared type.
+    assert(!getLangOpts().HLSL && "auto types are not supported - merge type below is inconsequential"); // HLSL Change
     if (VarDecl *Old = VDecl->getPreviousDecl()) {
       // We never need to merge the type, because we cannot form an incomplete
       // array of auto, nor deduce such a type.

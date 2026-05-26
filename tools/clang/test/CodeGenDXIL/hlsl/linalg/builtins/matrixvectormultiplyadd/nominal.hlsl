@@ -49,18 +49,4 @@ void main() {
   // CHECK2-SAME: i1 true, <4 x i64> %{{[0-9]+}}, i32 1, <4 x i64> %{{[0-9]+}}, i32 0)
 
   __builtin_LinAlg_MatrixVectorMultiplyAdd(result3, mat3, true, vec3, 1, result3, 0);
-
-  // CHECK: call <8 x i32> @dx.op.linAlgMatVecMulAdd.v8i32.mC17M8N8U0S0.v8i32.v8i32(i32 -2147483622,
-  // CHECK-SAME: %dx.types.LinAlgMatrixC17M8N8U0S0 {{.*}}, i1 true, <8 x i32> zeroinitializer,
-  // CHECK-SAME: i32 1, <8 x i32> zeroinitializer, i32 0)
-  // CHECK-SAME: ; LinAlgMatVecMulAdd(matrix,isOutputSigned,inputVector,inputInterpretation,biasVector,biasInterpretation)
-
-  // CHECK2: call void @"dx.hl.op..void (i32, <8 x i32>*, %dx.types.LinAlgMatrixC17M8N8U0S0, i1, <8 x i32>,
-  // CHECK2-SAME: i32, <8 x i32>, i32)"(i32 419, <8 x i32>* %result4, %dx.types.LinAlgMatrixC17M8N8U0S0 %{{[0-9]+}},
-  // CHECK2-SAME: i1 true, <8 x i32> %{{[0-9]+}}, i32 1, <8 x i32> %{{[0-9]+}}, i32 0)
-
-  __builtin_LinAlgMatrix [[__LinAlgMatrix_Attributes(17, 8, 8, 0, 0)]] mat4;
-  vector<int8_t4_packed, 8> vec4 = 0;
-  vector<int8_t4_packed, 8> result4 = 0;
-  __builtin_LinAlg_MatrixVectorMultiplyAdd(result4, mat4, true, vec4, 1, result4, 0);
 }

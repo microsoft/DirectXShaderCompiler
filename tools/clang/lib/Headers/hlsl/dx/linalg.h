@@ -289,9 +289,8 @@ class Matrix {
   }
 
   template <typename T>
-  [[nodiscard]] static
-      typename hlsl::enable_if<hlsl::is_arithmetic<T>::value, Matrix>::type
-      Splat(T Val) {
+  static typename hlsl::enable_if<hlsl::is_arithmetic<T>::value, Matrix>::type
+  Splat(T Val) {
     Matrix Result;
     __builtin_LinAlg_FillMatrix(Result.__handle, Val);
     return Result;
@@ -653,7 +652,7 @@ OuterProduct(vector<InputElTy, M> VecA, vector<InputElTy, N> VecB) {
 
 template <typename InputElTy, SIZE_TYPE M>
 typename hlsl::enable_if<hlsl::is_arithmetic<InputElTy>::value, void>::type
-InterlockedAccumulate(vector<InputElTy, M> Vec, RWByteAddressBuffer Res,
+InterlockedAccumulate(RWByteAddressBuffer Res, vector<InputElTy, M> Vec,
                       uint StartOffset, uint Align = 64) {
   __builtin_LinAlg_VectorAccumulateToDescriptor(Vec, Res, StartOffset, Align);
 }

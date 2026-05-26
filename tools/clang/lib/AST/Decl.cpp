@@ -2876,29 +2876,13 @@ bool FunctionDecl::hasUnusedResultAttr() const {
   QualType RetType = getReturnType();
   if (RetType->isRecordType()) {
     const CXXRecordDecl *Ret = RetType->getAsCXXRecordDecl();
-    // HLSL Change Begin - nodiscard on a type should apply to all methods, even
-    // if they are not marked nodiscard themselves. This is the C++17 behavior.
-    if (Ret && Ret->hasAttr<WarnUnusedResultAttr>())
+    const CXXMethodDecl *MD = dyn_cast<CXXMethodDecl>(this);
+    if (Ret && Ret->hasAttr<WarnUnusedResultAttr>() &&
+        !(MD && MD->getCorrespondingMethodInClass(Ret, true)))
       return true;
-    // HLSL Change End
   }
   return hasAttr<WarnUnusedResultAttr>();
 }
-
-// HLSL Change Begin - support nodiscard attr.
-Attr *FunctionDecl::getNoDiscardAttr() const {
-  QualType RetType = getReturnType();
-  if (RetType->isRecordType()) {
-    const CXXRecordDecl *Ret = RetType->getAsCXXRecordDecl();
-    const CXXMethodDecl *MD = dyn_cast<CXXMethodDecl>(this);
-    if (Ret && Ret->hasAttr<WarnUnusedResultAttr>() &&
-        (!hasAttr<WarnUnusedResultAttr>() ||
-         !(MD && (MD->getCorrespondingMethodInClass(Ret, true)))))
-      return Ret->getAttr<WarnUnusedResultAttr>();
-  }
-  return getAttr<WarnUnusedResultAttr>();
-}
-// HLSL Change End
 
 /// \brief For an inline function definition in C, or for a gnu_inline function
 /// in C++, determine whether the definition will be externally visible.

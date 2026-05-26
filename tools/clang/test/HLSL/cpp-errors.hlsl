@@ -12,7 +12,7 @@ s_arr_i_f arr_struct_two[] = { 1, 2, 3, 4 };
 int g_int;
 typeof(g_int) g_typeof_int; // expected-error {{HLSL requires a type specifier for all declarations}} expected-error {{expected ';' after top level declarator}} expected-error {{unknown type name 'typeof'; did you mean 'typedef'?}}
 typedef int (*fn_int)(int); // expected-error {{pointers are unsupported in HLSL}}
-auto g_auto = 3; // auto is now supported in HLSL via type deduction; no error expected
+auto g_auto = 3; // expected-error {{'auto' is a reserved keyword in HLSL}} expected-error {{HLSL requires a type specifier for all declarations}}
 __is_signed g_is_signed; // expected-error {{'__is_signed' is a reserved keyword in HLSL}} expected-error {{HLSL requires a type specifier for all declarations}}
 register int g_register; // expected-error {{'register' is a reserved keyword in HLSL}}
 __thread int g_thread; // expected-error {{'__thread' is a reserved keyword in HLSL}}
@@ -65,8 +65,7 @@ void fn_throw() throw() { } // expected-error {{exception specification is unsup
 void fn_noexcept() noexcept { }; // expected-error {{expected function body after function declarator}}
 
 // This would be a failure because of unsupported trailer return types, but we mis-parse it differently.
-// auto is now type-deduced so no reserved keyword error; only the trailing return type syntax causes an error.
-auto fn_trailing() -> int { return 1; } ; // expected-error {{expected function body after function declarator}}
+auto fn_trailing() -> int { return 1; } ; // expected-error {{'auto' is a reserved keyword in HLSL}} expected-error {{expected function body after function declarator}}
 
 void fn_param_with_default(int val = 1) { }
 void fn_with_variadic(int a, ...) { } // expected-error {{variadic arguments is unsupported in HLSL}}

@@ -2079,10 +2079,6 @@ public:
   /// operators.
   bool hasUnusedResultAttr() const;
 
-  // HLSL Change Begin - Add support for nodiscard attribute.
-  Attr *getNoDiscardAttr() const;
-  // HLSL Change Ends
-
   /// \brief Returns the storage class as written in the source. For the
   /// computed linkage of symbol, see getLinkage.
   StorageClass getStorageClass() const { return StorageClass(SClass); }

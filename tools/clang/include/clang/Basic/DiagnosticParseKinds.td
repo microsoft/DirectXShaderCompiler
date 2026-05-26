@@ -285,8 +285,7 @@ def warn_cxx98_compat_trailing_return_type : Warning<
   "trailing return types are incompatible with C++98">,
   InGroup<CXX98Compat>, DefaultIgnore;
 def ext_auto_type_specifier : ExtWarn<
-  "'auto' type specifier is a %select{C++11|HLSL 202x}0 extension">,
-  InGroup<CXX11>;
+  "'auto' type specifier is a C++11 extension">, InGroup<CXX11>;
 def warn_auto_storage_class : Warning<
   "'auto' storage class specifier is redundant and incompatible with C++11">,
   InGroup<CXX11Compat>, DefaultIgnore;

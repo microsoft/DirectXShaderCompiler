@@ -295,7 +295,7 @@ public:
   // HLSL Change Starts
   bool isHLSLReserved() const {
     return is(tok::kw___is_signed) || is(tok::kw___declspec) ||
-           is(tok::kw___forceinline) || is(tok::kw_catch) ||
+           is(tok::kw___forceinline) || is(tok::kw_auto) || is(tok::kw_catch) ||
            is(tok::kw_const_cast) || is(tok::kw_delete) ||
            is(tok::kw_dynamic_cast) || is(tok::kw_enum) ||
            is(tok::kw_explicit) || is(tok::kw_friend) || is(tok::kw_goto) ||
