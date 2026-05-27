@@ -1,4 +1,4 @@
-// RUN: %dxc -auto-binding-space 13 -exports VSMain;VS_RENAMED=\01?VSMain@@YA?AV?$vector@M$03@@V?$vector@H$02@@@Z;RayGen1,RayGen2=RayGen -T lib_6_3 -Vd -validator-version 0.0 %s | %D3DReflect %s | FileCheck %s
+// RUN: %dxc -auto-binding-space 13 -exports VSMain;VS_RENAMED=\01?VSMain@@YA?AV?$vector@M$03@@V?$vector@H$02@@@Z;RayGen1,RayGen2=RayGen -T lib_6_10 -Vd -validator-version 0.0 %s | %D3DReflect %s | FileCheck %s
 
 Buffer<int> T0;
 
@@ -166,7 +166,7 @@ void RayGen() {
 // CHECK:     FunctionCount: 4
 // CHECK:   ID3D12FunctionReflection:
 // CHECK:     D3D12_FUNCTION_DESC: Name: \01?RayGen1{{[@$?.A-Za-z0-9_]+}}
-// CHECK:       Shader Version: RayGeneration 6.3
+// CHECK:       Shader Version: RayGeneration 6.10
 // CHECK:       BoundResources: 1
 // CHECK:     Bound Resources:
 // CHECK:       D3D12_SHADER_INPUT_BIND_DESC: Name: U0
@@ -181,7 +181,7 @@ void RayGen() {
 // CHECK:         uFlags: 0
 // CHECK:   ID3D12FunctionReflection:
 // CHECK:     D3D12_FUNCTION_DESC: Name: \01?RayGen2{{[@$?.A-Za-z0-9_]+}}
-// CHECK:       Shader Version: RayGeneration 6.3
+// CHECK:       Shader Version: RayGeneration 6.10
 // CHECK:       BoundResources: 1
 // CHECK:     Bound Resources:
 // CHECK:       D3D12_SHADER_INPUT_BIND_DESC: Name: U0
@@ -196,7 +196,7 @@ void RayGen() {
 // CHECK:         uFlags: 0
 // CHECK:   ID3D12FunctionReflection:
 // CHECK:     D3D12_FUNCTION_DESC: Name: \01?VS_RENAMED{{[@$?.A-Za-z0-9_]+}}
-// CHECK:       Shader Version: Library 6.3
+// CHECK:       Shader Version: Library 6.10
 // CHECK:       BoundResources: 1
 // CHECK:     Bound Resources:
 // CHECK:       D3D12_SHADER_INPUT_BIND_DESC: Name: T1
@@ -211,7 +211,7 @@ void RayGen() {
 // CHECK:         uFlags: (D3D_SIF_TEXTURE_COMPONENT_0 | D3D_SIF_TEXTURE_COMPONENT_1)
 // CHECK:   ID3D12FunctionReflection:
 // CHECK:     D3D12_FUNCTION_DESC: Name: VSMain
-// CHECK:       Shader Version: Vertex 6.3
+// CHECK:       Shader Version: Vertex 6.10
 // CHECK:       BoundResources: 1
 // CHECK:     Bound Resources:
 // CHECK:       D3D12_SHADER_INPUT_BIND_DESC: Name: T1

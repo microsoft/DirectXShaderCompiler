@@ -1,4 +1,4 @@
-// RUN: %dxc -auto-binding-space 13 -T lib_6_3 -exports HSMain1;HSMain3 -Vd -validator-version 0.0 %s | %D3DReflect %s | FileCheck %s
+// RUN: %dxc -auto-binding-space 13 -T lib_6_10 -exports HSMain1;HSMain3 -Vd -validator-version 0.0 %s | %D3DReflect %s | FileCheck %s
 
 Buffer<float> T_unused;
 
@@ -278,24 +278,24 @@ HSPerPatchData HSPerPatchFunc1()
 // CHECK:     FunctionCount: 5
 // CHECK:   ID3D12FunctionReflection:
 // CHECK:     D3D12_FUNCTION_DESC: Name: \01?HSMain1{{[@$?.A-Za-z0-9_]+}}
-// CHECK:       Shader Version: Library 6.3
+// CHECK:       Shader Version: Library 6.10
 // CHECK:       BoundResources: 0
 // CHECK:   ID3D12FunctionReflection:
 // CHECK-NOT:     D3D12_FUNCTION_DESC: Name: \01?HSMain2{{[@$?.A-Za-z0-9_]+}}
 // CHECK:     D3D12_FUNCTION_DESC: Name: \01?HSMain3{{[@$?.A-Za-z0-9_]+}}
-// CHECK:       Shader Version: Library 6.3
+// CHECK:       Shader Version: Library 6.10
 // CHECK:       BoundResources: 0
 // CHECK:   ID3D12FunctionReflection:
 // CHECK:     D3D12_FUNCTION_DESC: Name: \01?HSPerPatchFunc1{{[@$?.A-Za-z0-9_]+}}
-// CHECK:       Shader Version: Library 6.3
+// CHECK:       Shader Version: Library 6.10
 // CHECK:       BoundResources: 0
 // CHECK:   ID3D12FunctionReflection:
 // CHECK-NOT:     D3D12_FUNCTION_DESC: Name: \01?HSPerPatchFunc2{{[@$?.A-Za-z0-9_]+}}
 // CHECK:     D3D12_FUNCTION_DESC: Name: HSMain1
-// CHECK:       Shader Version: Hull 6.3
+// CHECK:       Shader Version: Hull 6.10
 // CHECK:       BoundResources: 0
 // CHECK:   ID3D12FunctionReflection:
 // CHECK-NOT:     D3D12_FUNCTION_DESC: Name: HSMain2
 // CHECK:     D3D12_FUNCTION_DESC: Name: HSMain3
-// CHECK:       Shader Version: Hull 6.3
+// CHECK:       Shader Version: Hull 6.10
 // CHECK:       BoundResources: 0
