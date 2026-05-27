@@ -13,6 +13,7 @@
 
 #include "TypeLocBuilder.h"
 #include "dxc/DXIL/DxilSemantic.h" // HLSL Change
+#include "dxc/HlslIntrinsicOp.h"   // HLSL Change
 #include "clang/AST/ASTConsumer.h"
 #include "clang/AST/ASTContext.h"
 #include "clang/AST/ASTLambda.h"
@@ -6417,6 +6418,21 @@ static bool checkForConflictWithNonVisibleExternC(Sema &S, const T *ND,
   return false;
 }
 
+static bool IsDynamicHeapInitializer(const Expr *Init, bool &IsSampler) {
+  if (!Init)
+    return false;
+  QualType T = Init->IgnoreParenImpCasts()->getType();
+  if (hlsl::IsHLSLDynamicSamplerType(T)) {
+    IsSampler = true;
+    return true;
+  }
+  if (hlsl::IsHLSLDynamicResourceType(T)) {
+    IsSampler = false;
+    return true;
+  }
+  return false;
+}
+
 void Sema::CheckVariableDeclarationType(VarDecl *NewVD) {
   // If the decl is already known invalid, don't check it.
   if (NewVD->isInvalidDecl())
@@ -9026,6 +9042,17 @@ void Sema::AddInitializerToDecl(Decl *RealDecl, Expr *Init,
       RealDecl->setInvalidDecl();
       return;
     }
+
+    if (getLangOpts().HLSL) {
+      bool IsSampler = false;
+      if (IsDynamicHeapInitializer(DeduceInit, IsSampler)) {
+        Diag(VDecl->getLocation(), diag::err_hlsl_auto_descriptor_heap)
+            << IsSampler;
+        VDecl->setInvalidDecl();
+        return;
+      }
+    }
+
     VDecl->setType(DeducedType);
     assert(VDecl->isLinkageValid());
 

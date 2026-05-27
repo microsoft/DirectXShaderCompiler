@@ -8066,6 +8066,10 @@ def err_hlsl_linalg_unsupported_stage : Error<
 def err_hlsl_pointers_unsupported : Error<
   "%select{pointers|references}0 are unsupported in HLSL">;
 
+def err_hlsl_auto_descriptor_heap : Error<
+  "'auto' cannot deduce the type of '%select{ResourceDescriptorHeap|SamplerDescriptorHeap}0'; "
+  "use a specific resource or sampler type instead">;
+
 // HLSL Change Ends
 
 // SPIRV Change Starts
