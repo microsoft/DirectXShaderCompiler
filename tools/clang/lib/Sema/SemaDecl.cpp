@@ -6421,15 +6421,12 @@ static bool checkForConflictWithNonVisibleExternC(Sema &S, const T *ND,
 static bool IsDynamicHeapInitializer(const Expr *Init, bool &IsSampler) {
   if (!Init)
     return false;
-  const auto *RT = Init->IgnoreParenImpCasts()->getType()->getAs<RecordType>();
-  if (!RT)
-    return false;
-  StringRef N = RT->getDecl()->getName();
-  if (N == ".Sampler") {
+  QualType T = Init->IgnoreParenImpCasts()->getType();
+  if (hlsl::IsHLSLDynamicSamplerType(T)) {
     IsSampler = true;
     return true;
   }
-  if (N == ".Resource") {
+  if (hlsl::IsHLSLDynamicResourceType(T)) {
     IsSampler = false;
     return true;
   }

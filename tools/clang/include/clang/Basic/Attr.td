@@ -1196,6 +1196,17 @@ def HLSLHitObject : InheritableAttr {
   let Documentation = [Undocumented];
 }
 
+// HLSL Dynamic Resource Attribute
+// Marks the builtin `.Resource` / `.Sampler` placeholder record types used
+// for descriptor heap indexing (ResourceDescriptorHeap[i] /
+// SamplerDescriptorHeap[i]).
+def HLSLDynamicResource : InheritableAttr {
+  let Spellings = []; // No spellings!
+  let Args = [BoolArgument<"IsSampler">];
+  let Subjects = SubjectList<[CXXRecord]>;
+  let Documentation = [Undocumented];
+}
+
 // HLSL Parameter Attributes
 
 def HLSLMaxRecords : InheritableAttr {
