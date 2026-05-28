@@ -1021,8 +1021,9 @@ bool isResourceDescriptorHeap(const Decl *D) {
 }
 
 bool isResourceDescriptorHeap(QualType T) {
-  const RecordType *RT = T->getAs<RecordType>();
-  return RT && RT->getDecl()->getName() == ".Resource";
+  const HLSLDynamicResourceAttr *Attr =
+          getAttr<HLSLDynamicResourceAttr>(T);
+  return Attr && !Attr->getIsSampler();
 }
 
 bool isSamplerDescriptorHeap(const Decl *D) {
@@ -1031,8 +1032,9 @@ bool isSamplerDescriptorHeap(const Decl *D) {
 }
 
 bool isSamplerDescriptorHeap(QualType T) {
-  const RecordType *RT = T->getAs<RecordType>();
-  return RT && RT->getDecl()->getName() == ".Sampler";
+  const HLSLDynamicResourceAttr *Attr =
+          getAttr<HLSLDynamicResourceAttr>(T);
+  return Attr && Attr->getIsSampler();
 }
 
 bool isAKindOfStructuredOrByteBuffer(QualType type) {
