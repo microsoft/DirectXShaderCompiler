@@ -1021,8 +1021,7 @@ bool isResourceDescriptorHeap(const Decl *D) {
 }
 
 bool isResourceDescriptorHeap(QualType T) {
-  const HLSLDynamicResourceAttr *Attr =
-          getAttr<HLSLDynamicResourceAttr>(T);
+  const HLSLDynamicResourceAttr *Attr = T->getAs<HLSLDynamicResourceAttr>();
   return Attr && !Attr->getIsSampler();
 }
 
@@ -1032,8 +1031,7 @@ bool isSamplerDescriptorHeap(const Decl *D) {
 }
 
 bool isSamplerDescriptorHeap(QualType T) {
-  const HLSLDynamicResourceAttr *Attr =
-          getAttr<HLSLDynamicResourceAttr>(T);
+  const HLSLDynamicResourceAttr *Attr = T->getAs<HLSLDynamicResourceAttr>();
   return Attr && Attr->getIsSampler();
 }
 
