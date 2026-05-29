@@ -23,6 +23,25 @@ clang::DiagnosticBuilder emitError(const clang::ASTContext &astContext,
       clang::DiagnosticsEngine::Error, message);
   return astContext.getDiagnostics().Report(srcLoc, diagId);
 }
+
+// Returns the attribute of the given type attached to the record declaration
+// behind \p type, or nullptr if there is none. Attributes live on the
+// declaration, so they cannot be retrieved with QualType::getAs (which only
+// navigates the clang::Type hierarchy).
+template <typename AttrType> AttrType *getAttr(clang::QualType type) {
+  type = type.getCanonicalType();
+  if (const clang::RecordType *RT = type->getAs<clang::RecordType>()) {
+    if (const auto *Spec =
+            clang::dyn_cast<clang::ClassTemplateSpecializationDecl>(
+                RT->getDecl()))
+      if (const auto *Template = clang::dyn_cast<clang::ClassTemplateDecl>(
+              Spec->getSpecializedTemplate()))
+        return Template->getTemplatedDecl()->getAttr<AttrType>();
+    if (const auto *Decl = clang::dyn_cast<clang::CXXRecordDecl>(RT->getDecl()))
+      return Decl->getAttr<AttrType>();
+  }
+  return nullptr;
+}
 } // namespace
 
 namespace clang {
@@ -1021,7 +1040,7 @@ bool isResourceDescriptorHeap(const Decl *D) {
 }
 
 bool isResourceDescriptorHeap(QualType T) {
-  const HLSLDynamicResourceAttr *Attr = T->getAs<HLSLDynamicResourceAttr>();
+  const HLSLDynamicResourceAttr *Attr = getAttr<HLSLDynamicResourceAttr>(T);
   return Attr && !Attr->getIsSampler();
 }
 
@@ -1031,7 +1050,7 @@ bool isSamplerDescriptorHeap(const Decl *D) {
 }
 
 bool isSamplerDescriptorHeap(QualType T) {
-  const HLSLDynamicResourceAttr *Attr = T->getAs<HLSLDynamicResourceAttr>();
+  const HLSLDynamicResourceAttr *Attr = getAttr<HLSLDynamicResourceAttr>(T);
   return Attr && Attr->getIsSampler();
 }
 
