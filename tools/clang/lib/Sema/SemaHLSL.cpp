@@ -4773,9 +4773,6 @@ public:
     return type;
   }
 
-  /// <summary>Determines whether 'auto' is allowed to deduce the given type.
-  /// Container types (arrays, vectors, matrices, pointers, qualified types) are
-  /// deducible only when the type they wrap is deducible.</summary>
   bool IsTypeDeducibleWithAuto(QualType type) {
     if (type.isNull())
       return false;

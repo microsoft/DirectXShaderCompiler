@@ -1,12 +1,5 @@
 // RUN: %dxc -T cs_6_0 -HV 202x -verify %s
 
-// Test that 'auto' rejects every type kind it cannot deduce:
-//   - void                  -> AR_TOBJ_VOID
-//   - built-in inner objects -> AR_TOBJ_INNER_OBJ (the indexer proxies behind
-//                               double-subscript members like .mips and .sample)
-//
-// The deduced inner-object type name is verbose and version-dependent, so only
-// the stable prefix of the diagnostic is matched for those cases.
 
 void voidFunc() {}
 

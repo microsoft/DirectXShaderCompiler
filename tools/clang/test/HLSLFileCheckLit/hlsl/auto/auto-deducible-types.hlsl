@@ -1,15 +1,6 @@
 // RUN: %dxc -T cs_6_0 -HV 202x -verify %s
 // expected-no-diagnostics
 
-// Test that 'auto' accepts every directly-deducible type kind, plus the
-// container kinds that resolve to a deducible element:
-//   - scalars / enums            -> AR_TOBJ_BASIC
-//   - vectors                    -> AR_TOBJ_VECTOR  (element AR_TOBJ_BASIC)
-//   - matrices                   -> AR_TOBJ_MATRIX  (element AR_TOBJ_BASIC)
-//   - user-defined structs       -> AR_TOBJ_COMPOUND
-//   - built-in object/resources  -> AR_TOBJ_OBJECT
-// None of these should produce a deduction error.
-
 struct MyStruct {
     float a;
     int b;

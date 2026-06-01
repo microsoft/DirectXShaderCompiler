@@ -9052,8 +9052,7 @@ void Sema::AddInitializerToDecl(Decl *RealDecl, Expr *Init,
         return;
       }
 
-      // A dependent deduced type (e.g. 'auto' bound to a template parameter
-      // inside a template body) cannot be classified yet; defer the check to
+      // A dependent deduced type cannot be classified yet; defer the check to
       // instantiation, when 'auto' is re-deduced to a concrete type.
       if (!DeducedType->isDependentType() &&
           !hlsl::IsTypeDeducibleWithAuto(*this, DeducedType)) {

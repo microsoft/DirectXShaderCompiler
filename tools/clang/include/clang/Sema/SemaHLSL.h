@@ -94,8 +94,7 @@ bool DiagnoseTypeElements(clang::Sema &S, clang::SourceLocation Loc,
                           const clang::FieldDecl *FD = nullptr);
 
 // Returns true if 'auto' is allowed to deduce the given type. Container types
-// (arrays, vectors, matrices, pointers) are deducible only when the type they
-// wrap is deducible.
+// are deducible only when the type they wrap is deducible.
 bool IsTypeDeducibleWithAuto(clang::Sema &S, clang::QualType Ty);
 
 void DiagnoseControlFlowConditionForHLSL(clang::Sema *self,
