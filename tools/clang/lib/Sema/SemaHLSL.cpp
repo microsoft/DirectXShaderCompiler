@@ -4773,6 +4773,48 @@ public:
     return type;
   }
 
+  /// <summary>Determines whether 'auto' is allowed to deduce the given type.
+  /// Container types (arrays, vectors, matrices, pointers, qualified types) are
+  /// deducible only when the type they wrap is deducible.</summary>
+  bool IsTypeDeducibleWithAuto(QualType type) {
+    if (type.isNull())
+      return false;
+
+    switch (GetTypeObjectKind(type)) {
+    // Types with no concrete, nameable form for 'auto' to bind to.
+    case AR_TOBJ_INVALID:
+    case AR_TOBJ_VOID:
+    case AR_TOBJ_INNER_OBJ:
+    case AR_TOBJ_DEPENDENT:
+      return false;
+
+    // Fully-formed types that 'auto' can deduce directly.
+    case AR_TOBJ_OBJECT:
+    case AR_TOBJ_BASIC:
+    case AR_TOBJ_COMPOUND:
+    case AR_TOBJ_INTERFACE:
+    case AR_TOBJ_STRING:
+    case AR_TOBJ_LINALG_MATRIX:
+      return true;
+
+    // Container types: deducible iff their wrapped type is deducible.
+    case AR_TOBJ_MATRIX:
+    case AR_TOBJ_VECTOR:
+      return IsTypeDeducibleWithAuto(GetMatrixOrVectorElementType(type));
+    case AR_TOBJ_ARRAY: {
+      const ArrayType *arrayType =
+          GetStructuralForm(type)->getAsArrayTypeUnsafe();
+      return IsTypeDeducibleWithAuto(arrayType->getElementType());
+    }
+    case AR_TOBJ_POINTER:
+      return IsTypeDeducibleWithAuto(GetStructuralForm(type)->getPointeeType());
+    case AR_TOBJ_QUALIFIER:
+      return IsTypeDeducibleWithAuto(
+          GetStructuralForm(type).getUnqualifiedType());
+    }
+    return false;
+  }
+
   /// <summary>Given a Clang type, return the ArBasicKind classification for its
   /// contents.</summary>
   ArBasicKind GetTypeElementKind(QualType type) {
@@ -12785,6 +12827,10 @@ bool hlsl::DiagnoseTypeElements(Sema &S, SourceLocation Loc, QualType Ty,
   llvm::SmallPtrSet<const RecordDecl *, 8> CheckedDecls;
   return DiagnoseElementTypes(S, Loc, Ty, Empty, ObjDiagContext,
                               LongVecDiagContext, CheckedDecls, FD);
+}
+
+bool hlsl::IsTypeDeducibleWithAuto(Sema &S, QualType Ty) {
+  return HLSLExternalSource::FromSema(&S)->IsTypeDeducibleWithAuto(Ty);
 }
 
 bool hlsl::DiagnoseNodeStructArgument(Sema *self, TemplateArgumentLoc ArgLoc,
