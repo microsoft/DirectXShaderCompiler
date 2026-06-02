@@ -12,24 +12,23 @@ RWBuffer<float> output : register(u0);
 
 [numthreads(1,1,1)]
 void main() {
-    // AR_TOBJ_BASIC
+    // Scalars.
     auto i = 5;
     auto f = 1.5f;
     auto b = true;
 
-    // AR_TOBJ_VECTOR: elements are always concrete scalars (a dependent vector
-    // is classified AR_TOBJ_DEPENDENT instead), so vectors are always deducible.
+    // Vectors.
     auto v = float4(1, 2, 3, 4);
 
-    // AR_TOBJ_MATRIX: likewise always deducible for the same reason.
+    // Matrices.
     float2x2 matInit = { 1, 2, 3, 4 };
     auto m = matInit;
 
-    // AR_TOBJ_COMPOUND
+    // User-defined structs.
     MyStruct s = { 1.0f, 2 };
     auto sCopy = s;
 
-    // AR_TOBJ_OBJECT: resource handles are copyable, so binding one is allowed.
+    // Resource objects (their handles are copyable, so binding one is allowed).
     auto t = tex;
 
     // Use every value to prevent dead-code elimination.

@@ -1,10 +1,5 @@
 // RUN: %dxc -T lib_6_3 -HV 202x -verify %s
 
-// Subobjects are builtin object types used only to configure the DXR state
-// object. They have no value semantics a deduced variable could meaningfully
-// bind to, so 'auto' must not infer a subobject type. Each deduction below is
-// expected to fail with err_hlsl_auto_undeducible_type.
-
 GlobalRootSignature grs = {"CBV(b0)"};
 LocalRootSignature lrs = {"UAV(u0)"};
 StateObjectConfig soc = { STATE_OBJECT_FLAGS_ALLOW_LOCAL_DEPENDENCIES_ON_EXTERNAL_DEFINITONS };
