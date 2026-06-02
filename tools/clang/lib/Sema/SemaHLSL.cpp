@@ -4777,39 +4777,49 @@ public:
     if (type.isNull())
       return false;
 
+    if (IsSubobjectType(type))
+      return false;
+
     switch (GetTypeObjectKind(type)) {
-    // Types with no concrete, nameable form for 'auto' to bind to.
+    // Types with no concrete, nameable form for 'auto' to bind to. 'string' is
+    // an internal type that only backs metadata (printf formats, subobject
+    // fields), so it is intentionally excluded here as well.
     case AR_TOBJ_INVALID:
     case AR_TOBJ_VOID:
     case AR_TOBJ_INNER_OBJ:
+    case AR_TOBJ_STRING:
     case AR_TOBJ_DEPENDENT:
       return false;
 
-    // Fully-formed types that 'auto' can deduce directly.
+    // Fully-formed types that 'auto' can deduce directly. Vector and matrix
+    // elements are always concrete scalars when classified here: a dependent
+    // vector/matrix is classified AR_TOBJ_DEPENDENT above, and elsewhere the
+    // element type is constrained to scalars. So they are always deducible.
     case AR_TOBJ_OBJECT:
     case AR_TOBJ_BASIC:
     case AR_TOBJ_COMPOUND:
     case AR_TOBJ_INTERFACE:
-    case AR_TOBJ_STRING:
     case AR_TOBJ_LINALG_MATRIX:
-      return true;
-
-    // Container types: deducible iff their wrapped type is deducible.
     case AR_TOBJ_MATRIX:
     case AR_TOBJ_VECTOR:
-      return IsTypeDeducibleWithAuto(GetMatrixOrVectorElementType(type));
+      return true;
+
+    // An array is deducible iff its element type is.
     case AR_TOBJ_ARRAY: {
       const ArrayType *arrayType =
           GetStructuralForm(type)->getAsArrayTypeUnsafe();
       return IsTypeDeducibleWithAuto(arrayType->getElementType());
     }
+
+    // Unreachable from 'auto' deduction: raw pointers are rejected earlier as
+    // unsupported in HLSL ('auto*' / '&x'), and GetTypeObjectKind never yields
+    // a bare qualifier node (GetStructuralForm strips qualifiers).
     case AR_TOBJ_POINTER:
-      return IsTypeDeducibleWithAuto(GetStructuralForm(type)->getPointeeType());
     case AR_TOBJ_QUALIFIER:
-      return IsTypeDeducibleWithAuto(
-          GetStructuralForm(type).getUnqualifiedType());
+      llvm_unreachable(
+          "pointer and qualifier types do not reach 'auto' deduction");
     }
-    return false;
+    llvm_unreachable("unhandled ArTypeObjectKind in IsTypeDeducibleWithAuto");
   }
 
   /// <summary>Given a Clang type, return the ArBasicKind classification for its

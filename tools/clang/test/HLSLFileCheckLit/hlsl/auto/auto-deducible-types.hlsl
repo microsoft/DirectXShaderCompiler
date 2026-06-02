@@ -17,10 +17,11 @@ void main() {
     auto f = 1.5f;
     auto b = true;
 
-    // AR_TOBJ_VECTOR -> element AR_TOBJ_BASIC
+    // AR_TOBJ_VECTOR: elements are always concrete scalars (a dependent vector
+    // is classified AR_TOBJ_DEPENDENT instead), so vectors are always deducible.
     auto v = float4(1, 2, 3, 4);
 
-    // AR_TOBJ_MATRIX -> element AR_TOBJ_BASIC
+    // AR_TOBJ_MATRIX: likewise always deducible for the same reason.
     float2x2 matInit = { 1, 2, 3, 4 };
     auto m = matInit;
 

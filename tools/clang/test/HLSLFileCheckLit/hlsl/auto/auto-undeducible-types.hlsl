@@ -6,9 +6,17 @@ void voidFunc() {}
 Texture2D<float4> tex : register(t0);
 Texture2DMS<float4> texMS : register(t1);
 
+// 'string' is an internal type (printf formats, subobject fields); it is only
+// declarable as a global, and is intentionally not deducible by 'auto'.
+string gStr = "abc";
+
 [numthreads(1,1,1)]
 void main() {
     int y = 1;
+
+    // AR_TOBJ_STRING: 'string' is excluded from 'auto' deduction.
+    // expected-error@+1 {{'auto' cannot deduce type}}
+    auto str = gStr;
 
     // AR_TOBJ_VOID: a void-returning call has no value type.
     // expected-error@+1 {{'auto' cannot deduce type 'void'}}
