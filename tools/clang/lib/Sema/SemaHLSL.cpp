@@ -4781,7 +4781,7 @@ public:
       return false;
 
     switch (GetTypeObjectKind(type)) {
-    // Types with no concrete, nameable form for 'auto' to bind to. 
+    // Types with no concrete, nameable form for 'auto' to bind to.
     case AR_TOBJ_INVALID:
     case AR_TOBJ_VOID:
     case AR_TOBJ_INNER_OBJ:
@@ -4789,7 +4789,7 @@ public:
     case AR_TOBJ_DEPENDENT:
       return false;
 
-    // Fully-formed types that 'auto' can deduce directly. 
+    // Fully-formed types that 'auto' can deduce directly.
     case AR_TOBJ_OBJECT:
     case AR_TOBJ_BASIC:
     case AR_TOBJ_COMPOUND:
