@@ -4781,9 +4781,7 @@ public:
       return false;
 
     switch (GetTypeObjectKind(type)) {
-    // Types with no concrete, nameable form for 'auto' to bind to. 'string' is
-    // an internal type that only backs metadata (printf formats, subobject
-    // fields), so it is intentionally excluded here as well.
+    // Types with no concrete, nameable form for 'auto' to bind to. 
     case AR_TOBJ_INVALID:
     case AR_TOBJ_VOID:
     case AR_TOBJ_INNER_OBJ:
@@ -4791,10 +4789,7 @@ public:
     case AR_TOBJ_DEPENDENT:
       return false;
 
-    // Fully-formed types that 'auto' can deduce directly. Vector and matrix
-    // elements are always concrete scalars when classified here: a dependent
-    // vector/matrix is classified AR_TOBJ_DEPENDENT above, and elsewhere the
-    // element type is constrained to scalars. So they are always deducible.
+    // Fully-formed types that 'auto' can deduce directly. 
     case AR_TOBJ_OBJECT:
     case AR_TOBJ_BASIC:
     case AR_TOBJ_COMPOUND:
