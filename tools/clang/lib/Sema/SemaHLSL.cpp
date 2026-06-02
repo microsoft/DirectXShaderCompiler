@@ -3007,6 +3007,7 @@ StartSubobjectDecl(ASTContext &context, const char *name,
       NoLoc, &id, nullptr, DelayTypeCreationTrue);
   decl->addAttr(HLSLSubObjectAttr::CreateImplicit(
       context, static_cast<unsigned>(Kind), static_cast<unsigned>(HGT)));
+  decl->addAttr(HLSLNonAutoDeducibleAttr::CreateImplicit(context));
   decl->addAttr(FinalAttr::CreateImplicit(context, FinalAttr::Keyword_final));
   decl->startDefinition();
   return decl;
@@ -3528,6 +3529,8 @@ private:
                               &m_context->Idents.get(StringRef(type1Name)));
     sampleSliceTypeDecl->setAccess(AS_public);
     sampleSliceTypeDecl->setImplicit();
+    sampleSliceTypeDecl->addAttr(
+        HLSLNonAutoDeducibleAttr::CreateImplicit(*m_context));
     recordDecl->addDecl(sampleSliceTypeDecl);
     sampleSliceTypeDecl->startDefinition();
     const bool MutableFalse = false;
@@ -3556,6 +3559,8 @@ private:
     recordDecl->addDecl(sampleTypeDecl);
     sampleTypeDecl->startDefinition();
     sampleTypeDecl->setImplicit();
+    sampleTypeDecl->addAttr(
+        HLSLNonAutoDeducibleAttr::CreateImplicit(*m_context));
 
     FieldDecl *sampleHandleDecl = FieldDecl::Create(
         *m_context, sampleTypeDecl, NoLoc, NoLoc,
@@ -4777,44 +4782,15 @@ public:
     if (type.isNull())
       return false;
 
-    if (IsSubobjectType(type))
+    if (GetTypeObjectKind(type) == AR_TOBJ_STRING)
       return false;
 
-    switch (GetTypeObjectKind(type)) {
-    // Types with no concrete, nameable form for 'auto' to bind to.
-    case AR_TOBJ_INVALID:
-    case AR_TOBJ_VOID:
-    case AR_TOBJ_INNER_OBJ:
-    case AR_TOBJ_STRING:
-    case AR_TOBJ_DEPENDENT:
-      return false;
+    if (const CXXRecordDecl *recordDecl =
+            GetStructuralForm(type)->getAsCXXRecordDecl())
+      if (recordDecl->hasAttr<HLSLNonAutoDeducibleAttr>())
+        return false;
 
-    // Fully-formed types that 'auto' can deduce directly.
-    case AR_TOBJ_OBJECT:
-    case AR_TOBJ_BASIC:
-    case AR_TOBJ_COMPOUND:
-    case AR_TOBJ_INTERFACE:
-    case AR_TOBJ_LINALG_MATRIX:
-    case AR_TOBJ_MATRIX:
-    case AR_TOBJ_VECTOR:
-      return true;
-
-    // An array is deducible iff its element type is.
-    case AR_TOBJ_ARRAY: {
-      const ArrayType *arrayType =
-          GetStructuralForm(type)->getAsArrayTypeUnsafe();
-      return IsTypeDeducibleWithAuto(arrayType->getElementType());
-    }
-
-    // Unreachable from 'auto' deduction: raw pointers are rejected earlier as
-    // unsupported in HLSL ('auto*' / '&x'), and GetTypeObjectKind never yields
-    // a bare qualifier node (GetStructuralForm strips qualifiers).
-    case AR_TOBJ_POINTER:
-    case AR_TOBJ_QUALIFIER:
-      llvm_unreachable(
-          "pointer and qualifier types do not reach 'auto' deduction");
-    }
-    llvm_unreachable("unhandled ArTypeObjectKind in IsTypeDeducibleWithAuto");
+    return true;
   }
 
   /// <summary>Given a Clang type, return the ArBasicKind classification for its

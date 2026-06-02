@@ -18,12 +18,14 @@ void main() {
     // expected-error@+1 {{'auto' cannot deduce type}}
     auto str = gStr;
 
-    // AR_TOBJ_VOID: a void-returning call has no value type.
-    // expected-error@+1 {{'auto' cannot deduce type 'void'}}
+    // void: a void-returning call has no value type. 'auto' deduces 'void',
+    // which is rejected as an incomplete variable type (not by the HLSL
+    // auto-deducibility check, which only special-cases string/inner/subobject).
+    // expected-error@+1 {{variable has incomplete type 'void'}}
     auto x = voidFunc();
 
-    // AR_TOBJ_VOID: an explicit cast to void is equally non-deducible.
-    // expected-error@+1 {{'auto' cannot deduce type 'void'}}
+    // void: an explicit cast to void is equally non-deducible.
+    // expected-error@+1 {{variable has incomplete type 'void'}}
     auto v = (void)y;
 
     // AR_TOBJ_INNER_OBJ: .mips is an inner indexer object (Texture2D::mips_type).
