@@ -21,7 +21,15 @@ void main() {
 
     // expected-error@+1 {{'auto' cannot deduce type}}
     auto m = tex.mips;
+    // expected-error@+1 {{'auto' cannot deduce type}}
+    auto m2 = tex.mips[0];
+    // legal: load float4 from mip 0
+    auto m3 = tex.mips[0][int2(1,2)];
 
     // expected-error@+1 {{'auto' cannot deduce type}}
     auto s = texMS.sample;
+    // expected-error@+1 {{'auto' cannot deduce type}}
+    auto s2 = texMS.sample[0];
+    // legal: load float4 from sample 0
+    auto s3 = texMS.sample[0][int2(1,2)];
 }
