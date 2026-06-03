@@ -4782,7 +4782,7 @@ public:
     if (type.isNull())
       return false;
 
-    if (hlsl::IsPointerStringType(type))
+    if (hlsl::IsStringType(type) || hlsl::IsStringLiteralType(type))
       return false;
 
     if (const CXXRecordDecl *recordDecl =

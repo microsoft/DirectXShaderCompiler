@@ -20,9 +20,12 @@ void main() {
     // Vectors.
     auto v = float4(1, 2, 3, 4);
 
+
     // Matrices.
     float2x2 matInit = { 1, 2, 3, 4 };
     auto m = matInit;
+    auto row = m[0];
+    auto elem = m[0][0];
 
     // User-defined structs.
     MyStruct s = { 1.0f, 2 };
@@ -32,6 +35,6 @@ void main() {
     auto t = tex;
 
     // Use every value to prevent dead-code elimination.
-    output[0] = (float)i + f + (float)b + v.x + m._11 + sCopy.a +
+    output[0] = (float)i + f + (float)b + v.x + m._11 + row.x + elem + sCopy.a +
                 (float)sCopy.b + t.SampleLevel(samp, float2(0, 0), 0).x;
 }
