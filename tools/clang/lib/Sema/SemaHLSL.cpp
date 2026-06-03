@@ -4786,9 +4786,14 @@ public:
       return false;
 
     if (const CXXRecordDecl *recordDecl =
-            GetStructuralForm(type)->getAsCXXRecordDecl())
+            GetStructuralForm(type)->getAsCXXRecordDecl()) {
+      if (!recordDecl->hasAttr<HLSLNonAutoDeducibleAttr>())
+        if (const CXXRecordDecl *pattern =
+                recordDecl->getTemplateInstantiationPattern())
+          recordDecl = pattern;
       if (recordDecl->hasAttr<HLSLNonAutoDeducibleAttr>())
         return false;
+    }
 
     return true;
   }
