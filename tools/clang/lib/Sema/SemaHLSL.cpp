@@ -4782,7 +4782,7 @@ public:
     if (type.isNull())
       return false;
 
-    if (GetTypeObjectKind(type) == AR_TOBJ_STRING)
+    if (hlsl::IsPointerStringType(type))
       return false;
 
     if (const CXXRecordDecl *recordDecl =
