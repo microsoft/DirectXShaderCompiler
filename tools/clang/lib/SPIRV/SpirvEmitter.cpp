@@ -1227,6 +1227,12 @@ SpirvInstruction *SpirvEmitter::doExpr(const Expr *expr,
     auto *decl = declRefExpr->getDecl();
     if (isImplicitVarDeclInVkNamespace(declRefExpr->getDecl())) {
       result = doExpr(cast<VarDecl>(decl)->getInit());
+    } else if (const auto *varDecl = dyn_cast<VarDecl>(decl)) {
+      if (auto *alias =
+              emitDescriptorHeapBufferPointer(varDecl, expr->getLocStart()))
+        result = alias;
+      else
+        result = declIdMapper.getDeclEvalInfo(decl, expr->getLocStart(), range);
     } else {
       result = declIdMapper.getDeclEvalInfo(decl, expr->getLocStart(), range);
     }
@@ -2020,6 +2026,22 @@ void SpirvEmitter::doEnumDecl(const EnumDecl *decl) {
     declIdMapper.createEnumConstant(*it);
 }
 
+bool SpirvEmitter::tryToCreateDescriptorHeapAlias(const VarDecl *decl,
+                                                  const Expr *init) {
+  if (!spirvOptions.useDescriptorHeap || !init ||
+      !isDescriptorHeap(init->IgnoreParenCasts()))
+    return false;
+
+  if (isConstantTextureBuffer(decl->getType()) ||
+      isAKindOfStructuredOrByteBuffer(decl->getType())) {
+    (void)doExpr(init->IgnoreParenCasts());
+    tryToAssignDescriptorHeapBufferAlias(decl, init);
+    return true;
+  }
+
+  return false;
+}
+
 void SpirvEmitter::doVarDecl(const VarDecl *decl) {
   if (!validateVKAttributes(decl))
     return;
@@ -2209,8 +2231,11 @@ void SpirvEmitter::doVarDecl(const VarDecl *decl) {
           declIdMapper.tryToCreateConstantVar(decl))
         return;
       var = declIdMapper.createFileVar(decl, llvm::None);
-    } else
+    } else {
+      if (tryToCreateDescriptorHeapAlias(decl, decl->getInit()))
+        return;
       var = declIdMapper.createFnVar(decl, llvm::None);
+    }
 
     // Emit OpStore to initialize the variable
     // TODO: revert back to use OpVariable initializer
@@ -2233,6 +2258,7 @@ void SpirvEmitter::doVarDecl(const VarDecl *decl) {
         spvBuilder.createStore(var, constInit, loc, range);
       } else {
         storeValue(var, loadIfGLValue(init), decl->getType(), loc, range);
+        tryToAssignDescriptorHeapImageAlias(decl, init);
       }
 
       // Update counter variable associated with local variables
@@ -3123,6 +3149,33 @@ SpirvEmitter::doArraySubscriptExpr(const ArraySubscriptExpr *expr,
   return loadVal;
 }
 
+llvm::Optional<SpirvInstruction *>
+SpirvEmitter::tryToAssignToDescriptorHeapBuffer(
+    const BinaryOperator *assignExpr) {
+  if (!spirvOptions.useDescriptorHeap)
+    return llvm::None;
+
+  const QualType lhsType = assignExpr->getLHS()->getType();
+  if (!isConstantTextureBuffer(lhsType) &&
+      !isAKindOfStructuredOrByteBuffer(lhsType))
+    return llvm::None;
+
+  const Expr *rhsValue = assignExpr->getRHS()->IgnoreParenCasts();
+  if (!isDescriptorHeap(rhsValue))
+    return llvm::None;
+
+  (void)doExpr(rhsValue);
+  if (!tryToAssignDescriptorHeapBufferAlias(assignExpr->getLHS(),
+                                            assignExpr->getRHS()))
+    return llvm::None;
+
+  const auto *decl =
+      dyn_cast_or_null<VarDecl>(getReferencedDef(assignExpr->getLHS()));
+  if (!decl)
+    return static_cast<SpirvInstruction *>(nullptr);
+  return emitDescriptorHeapBufferPointer(decl, assignExpr->getExprLoc());
+}
+
 SpirvInstruction *SpirvEmitter::doBinaryOperator(const BinaryOperator *expr) {
   const auto opcode = expr->getOpcode();
 
@@ -3132,7 +3185,14 @@ SpirvInstruction *SpirvEmitter::doBinaryOperator(const BinaryOperator *expr) {
     // Update counter variable associated with lhs of assignments
     tryToAssignCounterVar(expr->getLHS(), expr->getRHS());
 
-    return processAssignment(expr->getLHS(), loadIfGLValue(expr->getRHS()),
+    if (llvm::Optional<SpirvInstruction *> aliasResult =
+            tryToAssignToDescriptorHeapBuffer(expr))
+      return aliasResult.getValue();
+
+    auto *rhs = loadIfGLValue(expr->getRHS());
+    tryToAssignDescriptorHeapImageAlias(expr->getLHS(), expr->getRHS());
+
+    return processAssignment(expr->getLHS(), rhs,
                              /*isCompoundAssignment=*/false, nullptr,
                              expr->getSourceRange());
   }
@@ -5036,9 +5096,236 @@ SpirvEmitter::processStructuredBufferLoad(const CXXMemberCallExpr *expr) {
   auto *zero = spvBuilder.getConstantInt(astContext.IntTy, llvm::APInt(32, 0));
   auto *index = doExpr(expr->getArg(0));
 
-  return derefOrCreatePointerToValue(buffer->getType(), info, structType,
-                                     {zero, index}, buffer->getExprLoc(),
-                                     range);
+  auto *result = derefOrCreatePointerToValue(buffer->getType(), info, structType,
+                                             {zero, index}, buffer->getExprLoc(),
+                                             range);
+
+  // derefOrCreatePointerToValue returns an lvalue (AccessChain) when the base is
+  // an lvalue. This covers descriptor-heap buffers reached either directly
+  // (ResourceDescriptorHeap[i].Load()) or through a local alias var.
+  // StructuredBuffer::Load semantically returns a value, and the AST emits no
+  // LValueToRValue cast for the call expression, so emit the load explicitly.
+  // (Verified required: scoping this to alias vars only regresses the direct
+  // heap-access tests; non-heap callers are unaffected in the existing suite.)
+  if (result && !result->isRValue()) {
+    result = spvBuilder.createLoad(structType, result, buffer->getExprLoc(),
+                                   range);
+  }
+
+  return result;
+}
+
+void SpirvEmitter::markDescriptorHeapCounterUnsupported(
+    const DeclaratorDecl *decl) {
+  if (decl)
+    descriptorHeapUnsupportedCounters.insert(decl);
+}
+
+bool SpirvEmitter::isDescriptorHeapCounterUnsupported(const Expr *expr) const {
+  if (const auto *decl = getReferencedDef(expr))
+    return descriptorHeapUnsupportedCounters.count(decl) != 0;
+  return false;
+}
+
+SpirvInstruction *SpirvEmitter::emitDescriptorHeapAccessChain(
+    const SpirvType *arrayType, SpirvInstruction *heap, SpirvVariable *indexVar,
+    SourceLocation loc) {
+  const auto *untypedUniformConstantType =
+      spvContext.getUntypedPointerKHRType(spv::StorageClass::UniformConstant);
+  auto *index = spvBuilder.createLoad(astContext.UnsignedIntTy, indexVar, loc);
+  return spvBuilder.createUntypedAccessChainKHR(untypedUniformConstantType,
+                                                arrayType, heap, index, loc);
+}
+
+void SpirvEmitter::storeDescriptorHeapIndex(SpirvVariable *indexVar,
+                                            SpirvInstruction *index,
+                                            QualType indexType,
+                                            const Expr *srcExpr) {
+  if (!astContext.hasSameType(indexType, astContext.UnsignedIntTy))
+    index = castToType(index, indexType, astContext.UnsignedIntTy,
+                       srcExpr->getExprLoc(), srcExpr->getSourceRange());
+  spvBuilder.createStore(indexVar, index, srcExpr->getExprLoc(),
+                         srcExpr->getSourceRange());
+}
+
+SpirvVariable *
+SpirvEmitter::createDescriptorHeapIndexVar(const VarDecl *dstVar) {
+  const std::string name = dstVar->getName().str() + ".descriptor.index";
+  return spvBuilder.addFnVar(astContext.UnsignedIntTy, dstVar->getLocation(),
+                             name);
+}
+
+bool SpirvEmitter::tryToAssignDescriptorHeapImageAlias(
+    const DeclaratorDecl *dstDecl, const Expr *srcExpr) {
+  if (!spirvOptions.useDescriptorHeap || !dstDecl || !srcExpr)
+    return false;
+
+  const auto *dstVar = dyn_cast<VarDecl>(dstDecl);
+  if (!dstVar || (!isRWTexture(dstVar->getType()) &&
+                  !isRWBuffer(dstVar->getType())))
+    return false;
+
+  const auto *src = srcExpr->IgnoreParenCasts();
+  auto found = descriptorHeapImageAccesses.find(src);
+  if (found == descriptorHeapImageAccesses.end())
+    return false;
+
+  auto &alias = descriptorHeapImageAliasVars[dstVar];
+  if (!alias.indexVar)
+    alias.indexVar = createDescriptorHeapIndexVar(dstVar);
+  alias.imageType = found->second.imageType;
+  alias.arrayType = found->second.arrayType;
+  alias.heap = found->second.heap;
+  storeDescriptorHeapIndex(alias.indexVar, found->second.index,
+                           found->second.indexType, srcExpr);
+  return true;
+}
+
+bool SpirvEmitter::tryToAssignDescriptorHeapImageAlias(const Expr *dstExpr,
+                                                       const Expr *srcExpr) {
+  return tryToAssignDescriptorHeapImageAlias(getReferencedDef(dstExpr),
+                                             srcExpr);
+}
+
+bool SpirvEmitter::tryToAssignDescriptorHeapBufferAlias(
+    const DeclaratorDecl *dstDecl, const Expr *srcExpr) {
+  if (!spirvOptions.useDescriptorHeap || !dstDecl || !srcExpr)
+    return false;
+
+  const auto *dstVar = dyn_cast<VarDecl>(dstDecl);
+  if (!dstVar || !(isConstantTextureBuffer(dstVar->getType()) ||
+                   isAKindOfStructuredOrByteBuffer(dstVar->getType())))
+    return false;
+
+  const auto *src = srcExpr->IgnoreParenCasts();
+  auto found = descriptorHeapBufferAccesses.find(src);
+  if (found == descriptorHeapBufferAccesses.end())
+    return false;
+
+  if (isRWStructuredBuffer(dstVar->getType()))
+    markDescriptorHeapCounterUnsupported(dstVar);
+
+  auto &alias = descriptorHeapBufferAliasVars[dstVar];
+  if (!alias.indexVar)
+    alias.indexVar = createDescriptorHeapIndexVar(dstVar);
+  alias.bufferPointerType = found->second.bufferPointerType;
+  alias.arrayType = found->second.arrayType;
+  alias.heap = found->second.heap;
+  alias.layoutRule = found->second.layoutRule;
+  storeDescriptorHeapIndex(alias.indexVar, found->second.index,
+                           found->second.indexType, srcExpr);
+  return true;
+}
+
+bool SpirvEmitter::tryToAssignDescriptorHeapBufferAlias(const Expr *dstExpr,
+                                                        const Expr *srcExpr) {
+  return tryToAssignDescriptorHeapBufferAlias(getReferencedDef(dstExpr),
+                                              srcExpr);
+}
+
+SpirvInstruction *
+SpirvEmitter::emitDescriptorHeapBufferPointer(const VarDecl *decl,
+                                              SourceLocation loc) {
+  auto found = descriptorHeapBufferAliasVars.find(decl);
+  if (found == descriptorHeapBufferAliasVars.end())
+    return nullptr;
+
+  auto *descriptorPtr = emitDescriptorHeapAccessChain(
+      found->second.arrayType, found->second.heap, found->second.indexVar, loc);
+  auto *bufferDataPtr = spvBuilder.createUnaryOp(
+      spv::Op::OpBufferPointerEXT, found->second.bufferPointerType,
+      descriptorPtr, loc);
+  bufferDataPtr->setStorageClass(
+      found->second.bufferPointerType->getStorageClass());
+  bufferDataPtr->setLayoutRule(found->second.layoutRule);
+  bufferDataPtr->setRValue(false);
+  return bufferDataPtr;
+}
+
+SpirvInstruction *SpirvEmitter::emitDescriptorHeapImageTexelPointer(
+    const VarDecl *decl, SpirvInstruction *coordinate, SpirvInstruction *sample,
+    QualType resultType, SourceLocation loc) {
+  auto found = descriptorHeapImageAliasVars.find(decl);
+  if (found == descriptorHeapImageAliasVars.end())
+    return nullptr;
+
+  auto *descriptorPtr = emitDescriptorHeapAccessChain(
+      found->second.arrayType, found->second.heap, found->second.indexVar, loc);
+  auto *ptr = spvBuilder.createUntypedImageTexelPointerEXT(
+      resultType, found->second.imageType, descriptorPtr, coordinate, sample,
+      loc);
+  ptr->setStorageClass(spv::StorageClass::Image);
+  return ptr;
+}
+
+// Descriptor-heap buffers: ConstantBuffer is a UBO (Uniform); every other
+// buffer resource (Structured/RW/ByteAddress, TextureBuffer) is an SSBO
+// (StorageBuffer). Here because the opaque OpTypeBufferEXT descriptor 
+// carries no pointee interface type, so RemoveBufferBlockVisitor
+// cannot infer/correct its storage class post-lowering.
+static spv::StorageClass
+getDescriptorHeapBufferStorageClass(QualType resourceType) {
+  return isConstantBuffer(resourceType) ? spv::StorageClass::Uniform
+                                        : spv::StorageClass::StorageBuffer;
+}
+
+SpirvInstruction *SpirvEmitter::emitDescriptorHeapBufferAccess(
+    QualType resourceType, SpirvInstruction *heapVar, SpirvInstruction *index,
+    const Expr *expr, const Expr *baseExpr, const Expr *indexExpr) {
+  const auto *untypedUniformConstantType =
+      spvContext.getUntypedPointerKHRType(spv::StorageClass::UniformConstant);
+  LowerTypeVisitor lowerTypeVisitor(astContext, spvContext, spirvOptions,
+                                    spvBuilder);
+  const SpirvType *bufferDataType = lowerTypeVisitor.lowerType(
+      resourceType, SpirvLayoutRule::Void, llvm::None, baseExpr->getExprLoc());
+
+  const SpirvPointerType *bufferDataPointerType = nullptr;
+  SpirvLayoutRule layoutRule = spirvOptions.sBufferLayoutRule;
+  if (isConstantTextureBuffer(resourceType)) {
+    layoutRule = isConstantBuffer(resourceType) ? spirvOptions.cBufferLayoutRule
+                                                : spirvOptions.tBufferLayoutRule;
+    bufferDataPointerType = spvContext.getPointerType(
+        bufferDataType, getDescriptorHeapBufferStorageClass(resourceType));
+  } else {
+    bufferDataPointerType = dyn_cast<SpirvPointerType>(bufferDataType);
+  }
+
+  if (!bufferDataPointerType) {
+    emitError("descriptor heap buffer type lowering failed",
+              expr->getExprLoc());
+    return nullptr;
+  }
+
+  // ConstantBuffer -> Uniform (UBO); all others -> StorageBuffer (SSBO)
+  // TODO: Remove this manual override once LowerTypeVisitor returns the
+  // correct StorageClass for descriptor-heap alias pointer types
+  // (currently it returns Uniform for all of them).
+  const spv::StorageClass bufferExtSC = isConstantBuffer(resourceType)
+                                            ? spv::StorageClass::Uniform
+                                            : spv::StorageClass::StorageBuffer;
+  const auto *bufferDescriptorType = spvContext.getBufferEXTType(bufferExtSC);
+  // Buffer descriptors are always on the resource heap.
+  const auto *arrayType = getDescriptorHeapRuntimeArrayType(
+      bufferDescriptorType, /*onSamplerHeap=*/false);
+  auto *untypedAccessChainPtr = spvBuilder.createUntypedAccessChainKHR(
+      untypedUniformConstantType, arrayType, heapVar, index,
+      baseExpr->getExprLoc());
+  auto *bufferDataPtr = spvBuilder.createUnaryOp(
+      spv::Op::OpBufferPointerEXT, bufferDataPointerType, untypedAccessChainPtr,
+      baseExpr->getExprLoc());
+  bufferDataPtr->setStorageClass(bufferDataPointerType->getStorageClass());
+  bufferDataPtr->setLayoutRule(layoutRule);
+  bufferDataPtr->setRValue(false);
+  if (isRasterizerOrderedView(resourceType)) {
+    bufferDataPtr->setRasterizerOrdered(true);
+    spvBuilder.addExecutionMode(entryFunction,
+                                declIdMapper.getInterlockExecutionMode(), {},
+                                baseExpr->getExprLoc());
+  }
+  descriptorHeapBufferAccesses[expr] = {bufferDataPointerType, arrayType,
+                                        heapVar,               index,
+                                        indexExpr->getType(),  layoutRule};
+  return bufferDataPtr;
 }
 
 SpirvInstruction *
@@ -5060,6 +5347,21 @@ SpirvEmitter::incDecRWACSBufferCounter(const CXXMemberCallExpr *expr,
     // object, e.g., if the source code is foo(...).IncrementCounter(), we still
     // want to emit the code for foo(...).
     (void)doExpr(object);
+  }
+
+  if (isDescriptorHeapCounterUnsupported(object)) {
+    emitError("counter operations on heap-loaded RWStructuredBuffer are not "
+              "supported with SPV_EXT_descriptor_heap",
+              expr->getCallee()->getExprLoc());
+    return nullptr;
+  }
+
+  if (spirvOptions.useDescriptorHeap &&
+      (isAppendStructuredBuffer(object->getType()) ||
+       isConsumeStructuredBuffer(object->getType()))) {
+    emitError("append/consume structured buffers are not supported with "
+      "SPV_EXT_descriptor_heap", expr->getCallee()->getExprLoc());
+    return nullptr;
   }
 
   auto *counter = getFinalACSBufferCounterInstruction(object);
@@ -5108,6 +5410,11 @@ bool SpirvEmitter::tryToAssignCounterVar(const DeclaratorDecl *dstDecl,
           declIdMapper.getOrCreateCounterIdAliasPair(dstDecl)) {
     auto *srcCounter = getFinalACSBufferCounterInstruction(srcExpr);
     if (!srcCounter) {
+      if (spirvOptions.useDescriptorHeap &&
+          isDescriptorHeap(srcExpr->IgnoreParenCasts())) {
+        markDescriptorHeapCounterUnsupported(dstDecl);
+        return true;
+      }
       emitFatalError("cannot find the associated counter variable",
                      srcExpr->getExprLoc());
       return false;
@@ -5147,6 +5454,11 @@ bool SpirvEmitter::tryToAssignCounterVar(const Expr *dstExpr,
   auto *srcCounter = getFinalACSBufferCounterInstruction(srcExpr);
 
   if ((dstCounter == nullptr) != (srcCounter == nullptr)) {
+    if (spirvOptions.useDescriptorHeap && dstCounter &&
+        isDescriptorHeap(srcExpr->IgnoreParenCasts())) {
+      markDescriptorHeapCounterUnsupported(getReferencedDef(dstExpr));
+      return true;
+    }
     emitFatalError("cannot handle associated counter variable assignment",
                    srcExpr->getExprLoc());
     return false;
@@ -5278,6 +5590,8 @@ SpirvEmitter::processACSBufferAppendConsume(const CXXMemberCallExpr *expr) {
       expr, isAppend,
       // We have already translated the object in the above. Avoid duplication.
       /*loadObject=*/false);
+  if (!index)
+    return nullptr;
 
   auto bufferElemTy = hlsl::GetHLSLResourceResultType(object->getType());
 
@@ -5700,16 +6014,18 @@ SpirvEmitter::processIntrinsicMemberCall(const CXXMemberCallExpr *expr,
     retVal = processTextureLevelOfDetail(expr, /* unclamped */ true);
     break;
   case IntrinsicOp::MOP_IncrementCounter:
-    retVal = spvBuilder.createUnaryOp(
-        spv::Op::OpBitcast, astContext.UnsignedIntTy,
-        incDecRWACSBufferCounter(expr, /*isInc*/ true),
-        expr->getCallee()->getExprLoc(), expr->getCallee()->getSourceRange());
+    if (auto *counter = incDecRWACSBufferCounter(expr, /*isInc*/ true))
+      retVal = spvBuilder.createUnaryOp(spv::Op::OpBitcast,
+                                        astContext.UnsignedIntTy, counter,
+                                        expr->getCallee()->getExprLoc(),
+                                        expr->getCallee()->getSourceRange());
     break;
   case IntrinsicOp::MOP_DecrementCounter:
-    retVal = spvBuilder.createUnaryOp(
-        spv::Op::OpBitcast, astContext.UnsignedIntTy,
-        incDecRWACSBufferCounter(expr, /*isInc*/ false),
-        expr->getCallee()->getExprLoc(), expr->getCallee()->getSourceRange());
+    if (auto *counter = incDecRWACSBufferCounter(expr, /*isInc*/ false))
+      retVal = spvBuilder.createUnaryOp(spv::Op::OpBitcast,
+                                        astContext.UnsignedIntTy, counter,
+                                        expr->getCallee()->getExprLoc(),
+                                        expr->getCallee()->getSourceRange());
     break;
   case IntrinsicOp::MOP_Append:
     if (hlsl::IsHLSLStreamOutputType(
@@ -6652,36 +6968,73 @@ SpirvEmitter::doCXXOperatorCallExpr(const CXXOperatorCallExpr *expr,
       const Expr *indexExpr = nullptr;
       getDescriptorHeapOperands(expr, &baseExpr, &indexExpr);
 
-      const Expr *parentExpr = cast<CastExpr>(parentMap->getParent(expr));
+      // The heap index expression must be immediately converted to a concrete
+      // resource type (an implicit cast inserted by the front-end). If the
+      // parent is missing or is not a cast (e.g. the result is discarded as
+      // a statement, or used in a context with no target resource type) we
+      // cannot determine the resource type.
+      const auto *parentExpr =
+          dyn_cast_or_null<CastExpr>(parentMap->getParent(expr));
+      if (!parentExpr) {
+        emitError("ResourceDescriptorHeap/SamplerDescriptorHeap indexing must "
+                  "be used as a resource",
+                  expr->getExprLoc());
+        return nullptr;
+      }
       QualType resourceType = parentExpr->getType();
+      // The heap object must be a direct reference to the builtin heap variable.
+      // Anything else (e.g. a non-variable expression) has no backing VarDecl.
       const auto *declRefExpr = dyn_cast<DeclRefExpr>(baseExpr->IgnoreCasts());
-      auto *decl = cast<VarDecl>(declRefExpr->getDecl());
+      const auto *decl =
+          declRefExpr ? dyn_cast<VarDecl>(declRefExpr->getDecl()) : nullptr;
+      if (!decl) {
+        emitError("unsupported ResourceDescriptorHeap/SamplerDescriptorHeap "
+                  "expression",
+                  baseExpr->getExprLoc());
+        return nullptr;
+      }
       auto *var = declIdMapper.createResourceHeap(decl, resourceType);
 
       auto *index = doExpr(indexExpr);
 
       if (spirvOptions.useDescriptorHeap) {
-        emitWarning("SPV_EXT_descriptor_heap support is incomplete.",
-                    baseExpr->getExprLoc());
         needsLegalization = true;
 
-        if (isAKindOfStructuredOrByteBuffer(resourceType)) {
-          emitError("UAV support not implemented with non-emulated heaps.",
-                    expr->getExprLoc());
+        if (isAppendStructuredBuffer(resourceType) ||
+            isConsumeStructuredBuffer(resourceType)) {
+          emitError("append/consume structured buffers are not supported with "
+              "SPV_EXT_descriptor_heap", expr->getExprLoc());
           return nullptr;
         }
 
-        const auto *untypedType = spvContext.getUntypedPointerKHRType(
-            spv::StorageClass::UniformConstant);
+        if (isAKindOfStructuredOrByteBuffer(resourceType) ||
+            isConstantTextureBuffer(resourceType)) {
+          return emitDescriptorHeapBufferAccess(resourceType, var, index, expr,
+                                                baseExpr, indexExpr);
+        }
+
+        const auto *untypedUniformConstantType =
+            spvContext.getUntypedPointerKHRType(
+                spv::StorageClass::UniformConstant);
         LowerTypeVisitor lowerTypeVisitor(astContext, spvContext, spirvOptions,
                                           spvBuilder);
         const SpirvType *handleType =
             lowerTypeVisitor.lowerType(resourceType, SpirvLayoutRule::Void,
                                        llvm::None, baseExpr->getExprLoc());
-        const auto *arrayType =
-            spvContext.getRuntimeArrayType(handleType, llvm::None);
+        // Images/samplers may come from either heap; pick the right stride.
+        const auto *arrayType = getDescriptorHeapRuntimeArrayType(
+            handleType, isSamplerDescriptorHeap(decl));
         auto *untypedAccessChainPtr = spvBuilder.createUntypedAccessChainKHR(
-            untypedType, arrayType, var, index, baseExpr->getExprLoc());
+            untypedUniformConstantType, arrayType, var, index,
+            baseExpr->getExprLoc());
+        if (isRasterizerOrderedView(resourceType)) {
+          spvBuilder.addExecutionMode(
+              entryFunction, declIdMapper.getInterlockExecutionMode(), {},
+              baseExpr->getExprLoc());
+        }
+        descriptorHeapImageAccesses[expr] = {untypedAccessChainPtr, handleType,
+                                             arrayType, var, index,
+                                             indexExpr->getType()};
         return spvBuilder.createLoad(resourceType, untypedAccessChainPtr,
                                      baseExpr->getExprLoc(), range);
       }
@@ -8876,6 +9229,16 @@ void SpirvEmitter::createSpecConstant(const VarDecl *varDecl) {
   declIdMapper.registerSpecConstant(varDecl, specConstant);
 }
 
+const SpirvType *
+SpirvEmitter::getDescriptorHeapRuntimeArrayType(const SpirvType *elemType,
+                                                bool onSamplerHeap) {
+  constexpr uint32_t kDefaultResourceHeapStride = 64;
+  constexpr uint32_t kDefaultSamplerHeapStride = 32;
+  const uint32_t stride =
+      onSamplerHeap ? kDefaultSamplerHeapStride : kDefaultResourceHeapStride;
+  return spvContext.getRuntimeArrayType(elemType, stride);
+}
+
 SpirvInstruction *
 SpirvEmitter::processMatrixBinaryOp(const Expr *lhs, const Expr *rhs,
                                     const BinaryOperatorKind opcode,
@@ -10575,18 +10938,41 @@ SpirvEmitter::processIntrinsicInterlockedMethod(const CallExpr *expr,
           return nullptr;
         }
       }
-      auto *baseInstr = doExpr(base);
-      if (baseInstr->isRValue()) {
-        // OpImageTexelPointer's Image argument must have a type of
-        // OpTypePointer with Type OpTypeImage. Need to create a temporary
-        // variable if the baseId is an rvalue.
-        baseInstr =
-            createTemporaryVar(base->getType(), getAstTypeName(base->getType()),
-                               baseInstr, base->getExprLoc());
-      }
       auto *coordInstr = doExpr(index);
-      ptr = spvBuilder.createImageTexelPointer(baseType, baseInstr, coordInstr,
-                                               zero, srcLoc);
+
+      if (spirvOptions.useDescriptorHeap) {
+        const Expr *heapBase = base->IgnoreParenCasts();
+        auto access = descriptorHeapImageAccesses.find(heapBase);
+        if (access == descriptorHeapImageAccesses.end() &&
+            isDescriptorHeap(heapBase)) {
+          (void)doExpr(heapBase);
+          access = descriptorHeapImageAccesses.find(heapBase);
+        }
+        if (access != descriptorHeapImageAccesses.end()) {
+          ptr = spvBuilder.createUntypedImageTexelPointerEXT(
+              baseType, access->second.imageType, access->second.accessChain,
+              coordInstr, zero, srcLoc);
+          ptr->setStorageClass(spv::StorageClass::Image);
+        } else if (const auto *decl =
+                       dyn_cast_or_null<VarDecl>(getReferencedDef(base))) {
+          ptr = emitDescriptorHeapImageTexelPointer(decl, coordInstr, zero,
+                                                    baseType, srcLoc);
+        }
+      }
+
+      if (!ptr) {
+        auto *baseInstr = doExpr(base);
+        if (baseInstr->isRValue()) {
+          // OpImageTexelPointer's Image argument must have a type of
+          // OpTypePointer with Type OpTypeImage. Need to create a temporary
+          // variable if the baseId is an rvalue.
+          baseInstr = createTemporaryVar(base->getType(),
+                                         getAstTypeName(base->getType()),
+                                         baseInstr, base->getExprLoc());
+        }
+        ptr = spvBuilder.createImageTexelPointer(baseType, baseInstr,
+                                                 coordInstr, zero, srcLoc);
+      }
     }
   }
   if (!ptr) {

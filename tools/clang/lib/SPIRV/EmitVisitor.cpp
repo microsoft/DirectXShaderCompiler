@@ -820,6 +820,7 @@ bool EmitVisitor::visit(SpirvUntypedImageTexelPointerEXT *inst) {
   initInstruction(inst);
   curInst.push_back(inst->getResultTypeId());
   curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst));
+  curInst.push_back(typeHandler.emitType(inst->getImageType()));
   curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst->getImage()));
   curInst.push_back(
       getOrAssignResultId<SpirvInstruction>(inst->getCoordinate()));
