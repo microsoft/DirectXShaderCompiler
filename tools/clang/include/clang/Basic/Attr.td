@@ -1611,6 +1611,24 @@ def VKConstantId : InheritableAttr {
   let Documentation = [Undocumented];
 }
 
+def VKResourceHeapStrideConstantId : InheritableAttr {
+  let Spellings = [CXX11<"vk", "resource_heap_stride_constant_id">];
+  let Subjects =
+      SubjectList<[ScalarGlobalVar], ErrorDiag, "ExpectedScalarGlobalVar">;
+  let Args = [IntArgument<"SpecConstId">];
+  let LangOpts = [SPIRV];
+  let Documentation = [Undocumented];
+}
+
+def VKSamplerHeapStrideConstantId : InheritableAttr {
+  let Spellings = [CXX11<"vk", "sampler_heap_stride_constant_id">];
+  let Subjects =
+      SubjectList<[ScalarGlobalVar], ErrorDiag, "ExpectedScalarGlobalVar">;
+  let Args = [IntArgument<"SpecConstId">];
+  let LangOpts = [SPIRV];
+  let Documentation = [Undocumented];
+}
+
 def VKPostDepthCoverage : InheritableAttr {
   let Spellings = [CXX11<"vk", "post_depth_coverage">];
   let Subjects = SubjectList<[Function], ErrorDiag>;

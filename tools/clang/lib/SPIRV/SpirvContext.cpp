@@ -268,14 +268,15 @@ SpirvContext::getArrayType(const SpirvType *elemType, uint32_t elemCount,
 
 const RuntimeArrayType *
 SpirvContext::getRuntimeArrayType(const SpirvType *elemType,
-                                  llvm::Optional<uint32_t> arrayStride) {
-  RuntimeArrayType type(elemType, arrayStride);
+                                  llvm::Optional<uint32_t> arrayStride,
+                                  SpirvInstruction *strideSpecConst) {
+  RuntimeArrayType type(elemType, arrayStride, strideSpecConst);
   auto found = runtimeArrayTypes.find(&type);
   if (found != runtimeArrayTypes.end())
     return *found;
 
   auto inserted = runtimeArrayTypes.insert(
-      new (this) RuntimeArrayType(elemType, arrayStride));
+      new (this) RuntimeArrayType(elemType, arrayStride, strideSpecConst));
   return *(inserted.first);
 }
 

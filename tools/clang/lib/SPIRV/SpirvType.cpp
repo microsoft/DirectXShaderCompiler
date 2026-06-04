@@ -168,6 +168,7 @@ bool ArrayType::operator==(const ArrayType &that) const {
 
 bool RuntimeArrayType::operator==(const RuntimeArrayType &that) const {
   return elementType == that.elementType &&
+         strideSpecConst == that.strideSpecConst &&
          stride.hasValue() == that.stride.hasValue() &&
          (!stride.hasValue() || stride.getValue() == that.stride.getValue());
 }

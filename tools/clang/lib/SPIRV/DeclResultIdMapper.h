@@ -296,6 +296,29 @@ public:
   /// |type|.
   SpirvVariableLike *createResourceHeap(const VarDecl *var, QualType type);
 
+  /// Records the [[vk::*_heap_stride_constant_id]] spec constant for one heap.
+  /// Present iff such an attribute was declared in the translation unit.
+  struct HeapStrideSpecConst {
+    SpirvInstruction *specConst; // the OpSpecConstant
+    uint32_t specId;             // its SpecId
+    const VarDecl *decl;         // declaring var (diagnostics)
+  };
+
+  /// Returns the resource/sampler heap stride spec constant, or None if no
+  /// [[vk::*_heap_stride_constant_id]] was declared.
+  const llvm::Optional<HeapStrideSpecConst> &getResourceHeapStride() const {
+    return resourceHeapStride;
+  }
+  const llvm::Optional<HeapStrideSpecConst> &getSamplerHeapStride() const {
+    return samplerHeapStride;
+  }
+  /// Returns the user [[vk::constant_id]] VarDecl that owns \p specId, or
+  /// nullptr if no user spec-const has claimed that ID.
+  const VarDecl *getUserSpecConstForId(uint32_t specId) const {
+    auto it = userSpecConstIdMap.find(specId);
+    return it != userSpecConstIdMap.end() ? it->second : nullptr;
+  }
+
   /// \brief Creates an external-visible variable and returns its instruction.
   SpirvVariable *createExternVar(const VarDecl *var);
 
@@ -1058,6 +1081,11 @@ private:
 
   SpirvUntypedVariableKHR *ResourceHeapVar = nullptr;
   SpirvUntypedVariableKHR *SamplerHeapVar = nullptr;
+  llvm::Optional<HeapStrideSpecConst> resourceHeapStride;
+  llvm::Optional<HeapStrideSpecConst> samplerHeapStride;
+  /// Maps SpecId -> VarDecl for user [[vk::constant_id]] declarations, used to
+  /// detect SpecId collisions with heap-stride attributes.
+  llvm::DenseMap<uint32_t, const VarDecl *> userSpecConstIdMap;
 
   /// Mapping from {RW|Append|Consume}StructuredBuffers to their
   /// counter variables' (instr-ptr, is-alias-or-not) pairs

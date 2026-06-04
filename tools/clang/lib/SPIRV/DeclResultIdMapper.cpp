@@ -1889,6 +1889,22 @@ void DeclResultIdMapper::registerSpecConstant(const VarDecl *decl,
                                               SpirvInstruction *specConstant) {
   specConstant->setRValue();
   registerVariableForDecl(decl, createDeclSpirvInfo(specConstant));
+  if (decl->hasAttr<VKResourceHeapStrideConstantIdAttr>()) {
+    resourceHeapStride = HeapStrideSpecConst{
+        specConstant,
+        static_cast<uint32_t>(
+            decl->getAttr<VKResourceHeapStrideConstantIdAttr>()
+                ->getSpecConstId()),
+        decl};
+  } else if (decl->hasAttr<VKSamplerHeapStrideConstantIdAttr>()) {
+    samplerHeapStride = HeapStrideSpecConst{
+        specConstant,
+        static_cast<uint32_t>(decl->getAttr<VKSamplerHeapStrideConstantIdAttr>()
+                                  ->getSpecConstId()),
+        decl};
+  } else if (const auto *attr = decl->getAttr<VKConstantIdAttr>()) {
+    userSpecConstIdMap[attr->getSpecConstId()] = decl;
+  }
 }
 
 void DeclResultIdMapper::createCounterVar(

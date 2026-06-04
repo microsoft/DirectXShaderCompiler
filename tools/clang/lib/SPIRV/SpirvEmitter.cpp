@@ -2141,6 +2141,16 @@ void SpirvEmitter::doVarDecl(const VarDecl *decl) {
     return;
   }
 
+  if (decl->hasAttr<VKResourceHeapStrideConstantIdAttr>()) {
+    createResourceHeapStrideConstant(decl);
+    return;
+  }
+
+  if (decl->hasAttr<VKSamplerHeapStrideConstantIdAttr>()) {
+    createSamplerHeapStrideConstant(decl);
+    return;
+  }
+
   if (decl->hasAttr<VKPushConstantAttr>()) {
     // This is a VarDecl for PushConstant block.
     (void)declIdMapper.createPushConstant(decl);
@@ -9185,6 +9195,20 @@ void SpirvEmitter::createSpecConstant(const VarDecl *varDecl) {
     bool *modeSlot;
   };
 
+  if (varDecl->hasAttr<VKResourceHeapStrideConstantIdAttr>()) {
+    emitError(
+        "[[vk::resource_heap_stride_constant_id]] and [[vk::constant_id]] "
+        "are mutually exclusive; remove one",
+        varDecl->getLocation());
+    return;
+  }
+  if (varDecl->hasAttr<VKSamplerHeapStrideConstantIdAttr>()) {
+    emitError("[[vk::sampler_heap_stride_constant_id]] and [[vk::constant_id]] "
+              "are mutually exclusive; remove one",
+              varDecl->getLocation());
+    return;
+  }
+
   const QualType varType = varDecl->getType();
 
   bool hasError = false;
@@ -9260,6 +9284,15 @@ SpirvEmitter::getDescriptorHeapRuntimeArrayType(const SpirvType *elemType,
   if (cliStride.has_value())
     return spvContext.getRuntimeArrayType(elemType, *cliStride);
 
+  // 2. A [[vk::*_heap_stride_constant_id]] spec-constant attribute emits
+  // ArrayStrideIdEXT (an <id>) so the app can override the stride at pipeline
+  // creation.
+  const auto &heapStride = onSamplerHeap ? declIdMapper.getSamplerHeapStride()
+                                         : declIdMapper.getResourceHeapStride();
+  if (heapStride.hasValue())
+    return spvContext.getRuntimeArrayType(elemType, llvm::None,
+                                          heapStride->specConst);
+
   // 3. Default ArrayStride (in bytes) for the descriptor-heap runtime arrays
   // when no override (command line or attribute) is supplied.
   //
@@ -9270,6 +9303,173 @@ SpirvEmitter::getDescriptorHeapRuntimeArrayType(const SpirvType *elemType,
   const uint32_t defaultStride =
       onSamplerHeap ? kDefaultSamplerHeapStride : kDefaultResourceHeapStride;
   return spvContext.getRuntimeArrayType(elemType, defaultStride);
+}
+
+bool SpirvEmitter::checkHeapStrideSpecIdConflict(
+    const VarDecl *varDecl, uint32_t specConstId, llvm::StringRef attrName,
+    const llvm::Optional<DeclResultIdMapper::HeapStrideSpecConst>
+        &otherStride) {
+  if (otherStride.hasValue() && otherStride->specId == specConstId) {
+    emitError(
+        "SpecId %0 conflict: [[vk::resource_heap_stride_constant_id]] and "
+        "[[vk::sampler_heap_stride_constant_id]] must use different SpecIds",
+        varDecl->getLocation())
+        << specConstId;
+    return true;
+  }
+  if (const VarDecl *prev = declIdMapper.getUserSpecConstForId(specConstId)) {
+    emitError("SpecId %0 conflict: [[vk::constant_id]] on '%1' and "
+              "[[vk::%2]] share the same SpecId; each must be unique",
+              varDecl->getLocation())
+        << specConstId << prev->getName() << attrName;
+    emitNote("[[vk::constant_id]] declaration with SpecId %0",
+             prev->getLocation())
+        << specConstId;
+    return true;
+  }
+  return false;
+}
+
+void SpirvEmitter::createResourceHeapStrideConstant(const VarDecl *varDecl) {
+  // Coexistence with [[vk::constant_id]] is already rejected: doVarDecl
+  // dispatches VKConstantId to createSpecConstant first, which emits the
+  // mutual-exclusion error before we get here.
+  assert(!varDecl->hasAttr<VKConstantIdAttr>() &&
+         "VKConstantId must be handled by createSpecConstant");
+  // -fvk-resource-heap-stride has higher precedence (see
+  // getDescriptorHeapRuntimeArrayType). When set, this attribute is ignored:
+  // skip emitting the spec constant so the module carries no dead,
+  // SpecId-decorated constant.
+  if (spirvOptions.resourceHeapStride.has_value()) {
+    emitWarning("[[vk::resource_heap_stride_constant_id]] is ignored because "
+                "-fvk-resource-heap-stride overrides the resource heap stride",
+                varDecl->getLocation());
+    return;
+  }
+  if (const auto &prevStride = declIdMapper.getResourceHeapStride()) {
+    emitError("[[vk::resource_heap_stride_constant_id]] may only appear once "
+              "per translation unit; previous declaration here",
+              varDecl->getLocation());
+    emitNote("previous [[vk::resource_heap_stride_constant_id]] declaration",
+             prevStride->decl->getLocation());
+    return;
+  }
+  const uint32_t specConstId =
+      varDecl->getAttr<VKResourceHeapStrideConstantIdAttr>()->getSpecConstId();
+  if (checkHeapStrideSpecIdConflict(varDecl, specConstId,
+                                    "resource_heap_stride_constant_id",
+                                    declIdMapper.getSamplerHeapStride()))
+    return;
+  createDescriptorHeapStrideConstant(varDecl, specConstId,
+                                     "resource_heap_stride_constant_id");
+}
+
+void SpirvEmitter::createSamplerHeapStrideConstant(const VarDecl *varDecl) {
+  // Coexistence with [[vk::constant_id]] is already rejected: doVarDecl
+  // dispatches VKConstantId to createSpecConstant first, which emits the
+  // mutual-exclusion error before we get here.
+  assert(!varDecl->hasAttr<VKConstantIdAttr>() &&
+         "VKConstantId must be handled by createSpecConstant");
+  // -fvk-sampler-heap-stride has higher precedence (see
+  // getDescriptorHeapRuntimeArrayType). When set, this attribute is ignored:
+  // skip emitting the spec constant so the module carries no dead,
+  // SpecId-decorated constant.
+  if (spirvOptions.samplerHeapStride.has_value()) {
+    emitWarning("[[vk::sampler_heap_stride_constant_id]] is ignored because "
+                "-fvk-sampler-heap-stride overrides the sampler heap stride",
+                varDecl->getLocation());
+    return;
+  }
+  if (const auto &prevStride = declIdMapper.getSamplerHeapStride()) {
+    emitError("[[vk::sampler_heap_stride_constant_id]] may only appear once "
+              "per translation unit; previous declaration here",
+              varDecl->getLocation());
+    emitNote("previous [[vk::sampler_heap_stride_constant_id]] declaration",
+             prevStride->decl->getLocation());
+    return;
+  }
+  const uint32_t specConstId =
+      varDecl->getAttr<VKSamplerHeapStrideConstantIdAttr>()->getSpecConstId();
+  if (checkHeapStrideSpecIdConflict(varDecl, specConstId,
+                                    "sampler_heap_stride_constant_id",
+                                    declIdMapper.getResourceHeapStride()))
+    return;
+  createDescriptorHeapStrideConstant(varDecl, specConstId,
+                                     "sampler_heap_stride_constant_id");
+}
+
+void SpirvEmitter::createDescriptorHeapStrideConstant(
+    const VarDecl *varDecl, uint32_t specConstId, llvm::StringRef attrName) {
+  class SpecConstantEnvRAII {
+  public:
+    SpecConstantEnvRAII(bool *mode) : modeSlot(mode) { *modeSlot = true; }
+    ~SpecConstantEnvRAII() { *modeSlot = false; }
+
+  private:
+    bool *modeSlot;
+  };
+
+  bool hasError = false;
+
+  if (!spirvOptions.useDescriptorHeap) {
+    emitError("[[vk::%0]] requires -fspv-use-descriptor-heap; without it the "
+              "attribute has no effect",
+              varDecl->getLocation())
+        << attrName;
+    hasError = true;
+  }
+
+  // Global-scalar placement is already enforced by the ScalarGlobalVar
+  // attribute subject (Attr.td), identical to [[vk::constant_id]]; no re-check
+  // needed here. We only narrow scalar -> uint, which the subject does not
+  // constrain.
+  const auto *builtinType = varDecl->getType()->getAs<BuiltinType>();
+  if (!builtinType || builtinType->getKind() != BuiltinType::UInt) {
+    emitError("[[vk::%0]] variable must be 'uint'; got '%1'",
+              varDecl->getLocStart())
+        << attrName
+        << varDecl->getType().getUnqualifiedType().getAsString(
+               astContext.getPrintingPolicy());
+    hasError = true;
+  }
+
+  const auto *init = varDecl->getInit();
+  if (!init) {
+    emitError("[[vk::%0]] variable requires an initializer (pipeline "
+              "specialization constant default)",
+              varDecl->getLocation())
+        << attrName;
+    hasError = true;
+  } else if (!isAcceptedSpecConstantInit(init, astContext)) {
+    emitError("unsupported [[vk::%0]] initializer", init->getLocStart())
+        << attrName;
+    hasError = true;
+  } else {
+    llvm::APSInt val;
+    if (init->EvaluateAsInt(val, astContext)) {
+      const uint64_t stride = val.getZExtValue();
+      if ((stride & (stride - 1)) != 0 || stride < 8 || stride > 256) {
+        emitError("[[vk::%0]] default value %1 is invalid; must be a power of "
+                  "2 between 8 and 256 (inclusive)",
+                  init->getLocStart())
+            << attrName << static_cast<uint32_t>(stride);
+        hasError = true;
+      }
+    }
+  }
+
+  if (hasError)
+    return;
+
+  SpecConstantEnvRAII specConstantEnvRAII(&isSpecConstantMode);
+
+  auto *specConstant =
+      constEvaluator.tryToEvaluateAsConst(init, isSpecConstantMode);
+
+  spvBuilder.decorateSpecId(specConstant, specConstId, varDecl->getLocation());
+
+  specConstant->setDebugName(varDecl->getName());
+  declIdMapper.registerSpecConstant(varDecl, specConstant);
 }
 
 SpirvInstruction *

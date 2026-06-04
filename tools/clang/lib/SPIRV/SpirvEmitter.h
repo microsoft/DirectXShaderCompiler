@@ -399,9 +399,36 @@ private:
   /// Translates the given varDecl into a spec constant.
   void createSpecConstant(const VarDecl *varDecl);
 
-  /// Returns the OpTypeRuntimeArray for a descriptor-heap array of elemType
-  /// decorated with the default ArrayStride (64 bytes for the resource heap,
-  /// 32 bytes for the sampler heap).
+  /// Translates the given varDecl into a descriptor heap stride specialization
+  /// constant. The registered spec constant is later emitted as an
+  /// ArrayStrideIdEXT decoration on every resource/sampler heap runtime array.
+  void createResourceHeapStrideConstant(const VarDecl *varDecl);
+  void createSamplerHeapStrideConstant(const VarDecl *varDecl);
+
+  /// Shared implementation for createResourceHeapStrideConstant and
+  /// createSamplerHeapStrideConstant. Validates the varDecl, emits an
+  /// OpSpecConstant decorated with specConstId, and registers it.
+  /// attrName is used verbatim in diagnostics (e.g.
+  /// "resource_heap_stride_constant_id").
+  void createDescriptorHeapStrideConstant(const VarDecl *varDecl,
+                                          uint32_t specConstId,
+                                          llvm::StringRef attrName);
+
+  /// Emits a diagnostic and returns true if specConstId collides with the
+  /// other heap-stride attribute (otherStride) or a user [[vk::constant_id]].
+  /// attrName names the attribute being declared. Caller must return early
+  /// when this returns true. Shared by
+  /// create{Resource,Sampler}HeapStrideConstant.
+  bool checkHeapStrideSpecIdConflict(
+      const VarDecl *varDecl, uint32_t specConstId, llvm::StringRef attrName,
+      const llvm::Optional<DeclResultIdMapper::HeapStrideSpecConst>
+          &otherStride);
+
+  /// Returns the OpTypeRuntimeArray for a descriptor-heap array of elemType.
+  /// If a stride spec constant was declared for the relevant heap
+  /// (sampler heap when onSamplerHeap, otherwise resource heap), the array
+  /// carries an ArrayStrideIdEXT decoration; otherwise it uses the literals
+  /// kDefaultSamplerHeapStride / kDefaultResourceHeapStride.
   const SpirvType *getDescriptorHeapRuntimeArrayType(const SpirvType *elemType,
                                                      bool onSamplerHeap);
 

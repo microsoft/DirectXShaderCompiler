@@ -14989,6 +14989,16 @@ void hlsl::HandleDeclAttributeForHLSL(Sema &S, Decl *D, const AttributeList &A,
         VKConstantIdAttr(A.getRange(), S.Context, ValidateAttributeIntArg(S, A),
                          A.getAttributeSpellingListIndex());
     break;
+  case AttributeList::AT_VKResourceHeapStrideConstantId:
+    declAttr = ::new (S.Context) VKResourceHeapStrideConstantIdAttr(
+        A.getRange(), S.Context, ValidateAttributeIntArg(S, A),
+        A.getAttributeSpellingListIndex());
+    break;
+  case AttributeList::AT_VKSamplerHeapStrideConstantId:
+    declAttr = ::new (S.Context) VKSamplerHeapStrideConstantIdAttr(
+        A.getRange(), S.Context, ValidateAttributeIntArg(S, A),
+        A.getAttributeSpellingListIndex());
+    break;
   case AttributeList::AT_VKPostDepthCoverage:
     declAttr = ::new (S.Context) VKPostDepthCoverageAttr(
         A.getRange(), S.Context, A.getAttributeSpellingListIndex());
@@ -16769,6 +16779,8 @@ bool hlsl::IsHLSLAttr(clang::attr::Kind AttrKind) {
   case clang::attr::VKBinding:
   case clang::attr::VKBuiltIn:
   case clang::attr::VKConstantId:
+  case clang::attr::VKResourceHeapStrideConstantId:
+  case clang::attr::VKSamplerHeapStrideConstantId:
   case clang::attr::VKCounterBinding:
   case clang::attr::VKIndex:
   case clang::attr::VKInputAttachmentIndex:
