@@ -1349,14 +1349,14 @@ template <typename T> struct ExpectedBuilder<OpType::ModF, T> {
 // The value of A in each lane is computed by : A = A + LaneID*2
 //
 // Top right (lane 1) - Top Left (lane 0)
-DEFAULT_OP_1(OpType::DerivativeDdx, ((A + 2) - (A + 0)));
+DEFAULT_OP_1(OpType::DerivativeDdx, ((A + T(2.0f)) - (A + T(0.0f))));
 // Lower left (lane 2) -  Top Left (lane 0)
-DEFAULT_OP_1(OpType::DerivativeDdy, ((A + 4) - (A + 0)));
+DEFAULT_OP_1(OpType::DerivativeDdy, ((A + T(4.0f)) - (A + T(0.0f))));
 
 // Bottom right (lane 3) - Bottom left (lane 2)
-DEFAULT_OP_1(OpType::DerivativeDdxFine, ((A + 6) - (A + 4)));
+DEFAULT_OP_1(OpType::DerivativeDdxFine, ((A + T(6.0f)) - (A + T(4.0f))));
 // Bottom right (lane 3) - Top right (lane 1)
-DEFAULT_OP_1(OpType::DerivativeDdyFine, ((A + 6) - (A + 2)));
+DEFAULT_OP_1(OpType::DerivativeDdyFine, ((A + T(6.0f)) - (A + T(2.0f))));
 
 //
 // Quad Read Ops
