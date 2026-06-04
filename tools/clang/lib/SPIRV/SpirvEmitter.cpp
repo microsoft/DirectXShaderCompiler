@@ -2034,6 +2034,16 @@ bool SpirvEmitter::tryToCreateDescriptorHeapAlias(const VarDecl *decl,
     return tryToAssignDescriptorHeapBufferAlias(decl, init);
   }
 
+  if (isRaytracingAccelerationStructure(decl->getType())) {
+    if (auto *initVal = loadIfGLValue(init))
+      declIdMapper.registerFnVarAlias(decl, initVal);
+    else
+      emitError("cannot create descriptor heap acceleration structure alias "
+                "from initializer",
+                init->getExprLoc());
+    return true;
+  }
+
   return false;
 }
 
