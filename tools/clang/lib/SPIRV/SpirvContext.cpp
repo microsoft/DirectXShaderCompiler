@@ -65,6 +65,9 @@ SpirvContext::~SpirvContext() {
   for (auto *npaType : nodePayloadArrayTypes)
     npaType->~NodePayloadArrayType();
 
+  for (auto &pair : bufferEXTTypes)
+    pair.second->~BufferEXTType();
+
   for (auto *fnType : functionTypes)
     fnType->~FunctionType();
 
@@ -400,6 +403,14 @@ const StructType *SpirvContext::getByteAddressBufferType(bool isWritable) {
                        isWritable ? "type.RWByteAddressBuffer"
                                   : "type.ByteAddressBuffer",
                        !isWritable, StructInterfaceType::StorageBuffer);
+}
+
+const BufferEXTType *SpirvContext::getBufferEXTType(spv::StorageClass sc) {
+  auto found = bufferEXTTypes.find(sc);
+  if (found != bufferEXTTypes.end())
+    return found->second;
+
+  return bufferEXTTypes[sc] = new (this) BufferEXTType(sc);
 }
 
 const StructType *SpirvContext::getACSBufferCounterType() {

@@ -533,13 +533,14 @@ SpirvImageTexelPointer *SpirvBuilder::createImageTexelPointer(
 
 SpirvUntypedImageTexelPointerEXT *
 SpirvBuilder::createUntypedImageTexelPointerEXT(QualType resultType,
+                                                const SpirvType *imageType,
                                                 SpirvInstruction *image,
                                                 SpirvInstruction *coordinate,
                                                 SpirvInstruction *sample,
                                                 SourceLocation loc) {
   assert(insertPoint && "null insert point");
   auto *instruction = new (context) SpirvUntypedImageTexelPointerEXT(
-      resultType, loc, image, coordinate, sample);
+      resultType, loc, imageType, image, coordinate, sample);
   insertPoint->addInstruction(instruction);
   return instruction;
 }

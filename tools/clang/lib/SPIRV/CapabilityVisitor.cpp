@@ -955,8 +955,10 @@ bool CapabilityVisitor::visit(SpirvModule *, Visitor::Phase phase) {
                                        {spv::Capability::QuadControlKHR});
 
   if (spvOptions.useDescriptorHeap) {
-    addExtension(Extension::EXT_descriptor_heap, "DescriptorHeap", {});
-    addExtension(Extension::KHR_untyped_pointers, "DescriptorHeap", {});
+    const llvm::StringRef feature = "DescriptorHeap";
+    featureManager.requestTargetEnv(SPV_ENV_VULKAN_1_3, feature, {});
+    addExtension(Extension::EXT_descriptor_heap, feature, {});
+    addExtension(Extension::KHR_untyped_pointers, feature, {});
     addCapability(spv::Capability::DescriptorHeapEXT);
   }
 
