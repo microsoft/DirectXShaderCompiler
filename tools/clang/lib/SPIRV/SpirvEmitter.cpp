@@ -9244,11 +9244,32 @@ void SpirvEmitter::createSpecConstant(const VarDecl *varDecl) {
 const SpirvType *
 SpirvEmitter::getDescriptorHeapRuntimeArrayType(const SpirvType *elemType,
                                                 bool onSamplerHeap) {
+  // Precedence (highest first): command-line literal override >
+  // [[vk::*_heap_stride_constant_id]] spec-constant attribute > built-in
+  // default.
+
+  // 1. A -fvk-resource-heap-stride / -fvk-sampler-heap-stride command-line
+  // override is a fixed literal stride, validated (power of 2 in [8, 256]) at
+  // option-parsing time in HLSLOptions.cpp. It has the highest precedence: when
+  // set, the matching stride attribute is suppressed (with a warning) in
+  // create{Resource,Sampler}HeapStrideConstant, so getSamplerHeapStride() /
+  // getResourceHeapStride() is already empty here.
+  const std::optional<uint32_t> &cliStride =
+      onSamplerHeap ? spirvOptions.samplerHeapStride
+                    : spirvOptions.resourceHeapStride;
+  if (cliStride.has_value())
+    return spvContext.getRuntimeArrayType(elemType, *cliStride);
+
+  // 3. Default ArrayStride (in bytes) for the descriptor-heap runtime arrays
+  // when no override (command line or attribute) is supplied.
+  //
+  // These bound the largest descriptor a heap entry can hold on the target HW.
   constexpr uint32_t kDefaultResourceHeapStride = 64;
   constexpr uint32_t kDefaultSamplerHeapStride = 32;
-  const uint32_t stride =
+
+  const uint32_t defaultStride =
       onSamplerHeap ? kDefaultSamplerHeapStride : kDefaultResourceHeapStride;
-  return spvContext.getRuntimeArrayType(elemType, stride);
+  return spvContext.getRuntimeArrayType(elemType, defaultStride);
 }
 
 SpirvInstruction *
