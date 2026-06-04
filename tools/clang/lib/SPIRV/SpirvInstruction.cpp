@@ -968,11 +968,13 @@ SpirvImageTexelPointer::SpirvImageTexelPointer(QualType resultType,
       image(imageInst), coordinate(coordinateInst), sample(sampleInst) {}
 
 SpirvUntypedImageTexelPointerEXT::SpirvUntypedImageTexelPointerEXT(
-    QualType resultType, SourceLocation loc, SpirvInstruction *imageInst,
-    SpirvInstruction *coordinateInst, SpirvInstruction *sampleInst)
+    QualType resultType, SourceLocation loc, const SpirvType *spvImageType,
+    SpirvInstruction *imageInst, SpirvInstruction *coordinateInst,
+    SpirvInstruction *sampleInst)
     : SpirvInstruction(IK_UntypedImageTexelPointerEXT,
                        spv::Op::OpUntypedImageTexelPointerEXT, resultType, loc),
-      image(imageInst), coordinate(coordinateInst), sample(sampleInst) {}
+      imageType(spvImageType), image(imageInst), coordinate(coordinateInst),
+      sample(sampleInst) {}
 
 SpirvLoad::SpirvLoad(QualType resultType, SourceLocation loc,
                      SpirvInstruction *pointerInst, SourceRange range,
