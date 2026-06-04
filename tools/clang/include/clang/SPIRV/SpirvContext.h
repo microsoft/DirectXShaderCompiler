@@ -298,6 +298,7 @@ public:
                                          spv::StorageClass);
 
   const UntypedPointerKHRType *getUntypedPointerKHRType(spv::StorageClass sc);
+  const BufferEXTType *getBufferEXTType(spv::StorageClass sc);
 
   FunctionType *getFunctionType(const SpirvType *ret,
                                 llvm::ArrayRef<const SpirvType *> param);
@@ -536,6 +537,9 @@ private:
   llvm::DenseMap<spv::StorageClass, const UntypedPointerKHRType *,
                  StorageClassDenseMapInfo>
       untypedPointerKHRTypes;
+  llvm::DenseMap<spv::StorageClass, const BufferEXTType *,
+                 StorageClassDenseMapInfo>
+      bufferEXTTypes;
   llvm::MapVector<QualType, const ForwardPointerType *> forwardPointerTypes;
   llvm::MapVector<QualType, const SpirvPointerType *> forwardReferences;
   llvm::DenseSet<FunctionType *, FunctionTypeMapInfo> functionTypes;
