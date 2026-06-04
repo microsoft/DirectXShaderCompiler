@@ -5381,7 +5381,8 @@ SpirvInstruction *SpirvEmitter::emitDescriptorHeapBufferAccess(
   const BufferEXTType *bufferDescriptorType =
       spvContext.getBufferEXTType(bufferSC);
   const SpirvType *arrayType =
-      getDescriptorHeapRuntimeArrayType(bufferDescriptorType);
+      getDescriptorHeapRuntimeArrayType(bufferDescriptorType,
+                                        /*onSamplerHeap=*/false);
   SpirvUntypedAccessChainKHR *untypedAccessChainPtr =
       spvBuilder.createUntypedAccessChainKHR(untypedUniformConstantType,
                                              arrayType, heapVar, index,
@@ -7100,8 +7101,8 @@ SpirvEmitter::doCXXOperatorCallExpr(const CXXOperatorCallExpr *expr,
         const SpirvType *handleType =
             lowerTypeVisitor.lowerType(resourceType, SpirvLayoutRule::Void,
                                        llvm::None, baseExpr->getExprLoc());
-        const SpirvType *arrayType =
-            getDescriptorHeapRuntimeArrayType(handleType);
+        const SpirvType *arrayType = getDescriptorHeapRuntimeArrayType(
+            handleType, isSamplerDescriptorHeap(decl));
         SpirvUntypedAccessChainKHR *untypedAccessChainPtr =
             spvBuilder.createUntypedAccessChainKHR(untypedUniformConstantType,
                                                    arrayType, var, index,
@@ -9308,12 +9309,22 @@ void SpirvEmitter::createSpecConstant(const VarDecl *varDecl) {
 }
 
 const SpirvType *
-SpirvEmitter::getDescriptorHeapRuntimeArrayType(const SpirvType *elemType) {
-  // Apply a client-API-defined byte stride via an ArrayStrideIdEXT decoration.
-  // The sampler heap holds a single descriptor type, so its stride is the
-  // sampler descriptor size. The resource heap is a shared flat array in which
-  // any resource descriptor may sit at any slot, so every resource runtime
-  // array must use one common stride.
+SpirvEmitter::getDescriptorHeapRuntimeArrayType(const SpirvType *elemType,
+                                                bool onSamplerHeap) {
+  // CLI literal override (-fvk-resource-heap-stride / -fvk-sampler-heap-stride)
+  // has highest precedence: emits a literal ArrayStride decoration.
+  const std::optional<uint32_t> &cliStride =
+      onSamplerHeap ? spirvOptions.samplerHeapStride
+                    : spirvOptions.resourceHeapStride;
+  if (cliStride.has_value())
+    return spvContext.getRuntimeArrayType(elemType, *cliStride);
+
+  // Default behavior when there's no CLI override:
+  // Apply client-API-defined byte stride via ArrayStrideIdEXT decoration.
+  // The sampler heap holds a single descriptor type, so its stride
+  // is the sampler descriptor size. The resource heap is a shared flat array in
+  // which any resource descriptor may sit at any slot, so every resource
+  // runtime array must use one common stride.
   //
   // [non-RT shaders]:
   //   max(sizeof(image), sizeof(buffer))

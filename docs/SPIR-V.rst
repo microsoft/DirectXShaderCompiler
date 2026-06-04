@@ -2101,7 +2101,8 @@ objects as untyped variables in ``UniformConstant`` storage class:
 
 The concrete descriptor type is selected at each heap access. For image,
 sampler, and texel buffer resources, DXC forms a runtime array of that
-descriptor type and decorates the array with a byte ``ArrayStride``, then uses
+descriptor type, decorates the array with a byte ``ArrayStride`` (the stride is
+configurable; see `Descriptor heap array stride`_ below), and uses
 ``OpUntypedAccessChainKHR`` followed by ``OpLoad``:
 
 .. code:: spirv
@@ -2125,6 +2126,27 @@ example, ``ConstantBuffer<T>`` uses ``Uniform`` and ``TextureBuffer<T>`` uses
   OpDecorate %buffer_array ArrayStride 64
   %descriptor = OpUntypedAccessChainKHR %uptr_uc %buffer_array %resource_heap %index
   %buffer_ptr = OpBufferPointerEXT %_ptr_Uniform_type_BufferData %descriptor
+
+Descriptor heap array stride
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+By default, all resource heap runtime arrays share a single ``ArrayStrideIdEXT``
+decoration whose value is computed via specialization constants
+(``OpConstantSizeOfEXT`` and ``OpSpecConstantOp``) at pipeline-creation time.
+The base formula is ``max(sizeof(image_descriptor), sizeof(buffer_descriptor))``.
+When the module uses ``RaytracingAccelerationStructure`` heap loads, either
+through a ray-tracing stage or an explicitly enabled ``SPV_KHR_ray_query``
+extension, the formula expands to a three-way max:
+``max(max(sizeof(image_descriptor), sizeof(buffer_descriptor)), sizeof(acceleration_structure))``.
+The sampler heap uses a separate ``ArrayStrideIdEXT`` equal to
+``sizeof(sampler_descriptor)`` regardless of resource heap contents.
+
+The stride can be overridden with ``-fvk-resource-heap-stride <N>`` and
+``-fvk-sampler-heap-stride <N>``, which emit a fixed literal
+``OpDecorate <array> ArrayStride N`` on the resource and sampler heap arrays
+respectively. ``N`` must be a power of two in the inclusive range [8, 256].
+The command-line override has the **highest** precedence: when set,
+no ``ArrayStrideIdEXT`` is emitted for that heap and the literal stride is used.
 
 For ``RWTexture`` resources loaded from ``ResourceDescriptorHeap``, interlocked
 operations that need a texel pointer use ``OpUntypedImageTexelPointerEXT``.

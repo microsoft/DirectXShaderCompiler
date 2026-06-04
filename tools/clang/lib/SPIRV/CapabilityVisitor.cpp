@@ -956,7 +956,8 @@ bool CapabilityVisitor::visit(SpirvModule *, Visitor::Phase phase) {
 
   if (spvOptions.useDescriptorHeap) {
     const llvm::StringRef feature = "DescriptorHeap";
-    featureManager.requestTargetEnv(SPV_ENV_VULKAN_1_3, feature, {});
+    if (!featureManager.requestTargetEnv(SPV_ENV_VULKAN_1_3, feature, {}))
+      return true;
     addExtension(Extension::EXT_descriptor_heap, feature, {});
     addExtension(Extension::KHR_untyped_pointers, feature, {});
     addCapability(spv::Capability::DescriptorHeapEXT);
