@@ -250,6 +250,10 @@ bool isBuffer(QualType type);
 /// \brief Returns true if the given type is the HLSL RWBuffer type.
 bool isRWBuffer(QualType type);
 
+/// \brief Returns true if the given type is the HLSL
+/// RaytracingAccelerationStructure type.
+bool isRaytracingAccelerationStructure(QualType type);
+
 /// \brief Returns true if the given type is an HLSL Texture type.
 bool isTexture(QualType);
 
