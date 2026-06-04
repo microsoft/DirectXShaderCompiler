@@ -917,6 +917,13 @@ bool isBuffer(QualType type) {
   return false;
 }
 
+bool isRaytracingAccelerationStructure(QualType type) {
+  if (const auto *rt = type->getAs<RecordType>()) {
+    return rt->getDecl()->getName() == "RaytracingAccelerationStructure";
+  }
+  return false;
+}
+
 bool isRWTexture(QualType type) {
   if (const auto *rt = type->getAs<RecordType>()) {
     const auto name = rt->getDecl()->getName();
