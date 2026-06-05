@@ -8070,6 +8070,9 @@ def err_hlsl_auto_descriptor_heap : Error<
   "'auto' cannot deduce the type of '%select{ResourceDescriptorHeap|SamplerDescriptorHeap}0'; "
   "use a specific resource or sampler type instead">;
 
+def err_hlsl_auto_undeducible_type : Error<
+  "'auto' cannot deduce type %0">;
+
 // HLSL Change Ends
 
 // SPIRV Change Starts
