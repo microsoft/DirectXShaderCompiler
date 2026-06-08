@@ -1034,7 +1034,10 @@ void HLModule::MarkPreciseAttributeOnValWithFunctionCall(llvm::Value *V,
                                                          BuilderTy &Builder,
                                                          llvm::Module &M) {
   Type *Ty = V->getType();
-  Type *EltTy = Ty->getScalarType();
+  Type *EltTy = Ty;
+  bool SupportsVectors = M.GetHLModule().GetShaderModel()->IsSM69Plus();
+  if (!SupportsVectors)
+    EltTy = Ty->getScalarType();
 
   // TODO: Only do this on basic types.
 
@@ -1050,7 +1053,8 @@ void HLModule::MarkPreciseAttributeOnValWithFunctionCall(llvm::Value *V,
       cast<Function>(M.getOrInsertFunction(preciseFuncName, preciseFuncTy));
   if (!HLModule::HasPreciseAttribute(preciseFunc))
     MarkPreciseAttribute(preciseFunc);
-  if (FixedVectorType *VT = dyn_cast<FixedVectorType>(Ty)) {
+  if (!SupportsVectors && isa<FixedVectorType>(Ty)) {
+    FixedVectorType *VT = dyn_cast<FixedVectorType>(Ty);
     for (unsigned i = 0; i < VT->getNumElements(); i++) {
       Value *Elt = Builder.CreateExtractElement(V, i);
       Builder.CreateCall(preciseFunc, {Elt});
