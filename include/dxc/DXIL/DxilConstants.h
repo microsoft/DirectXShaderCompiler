@@ -76,7 +76,7 @@ inline bool UpdateToMaxOfVersions(unsigned &major, unsigned &minor,
   return false;
 }
 
-// Shader flags.
+// Global shader flags
 const unsigned kDisableOptimizations =
     0x00000001; // D3D11_1_SB_GLOBAL_FLAG_SKIP_OPTIMIZATION
 const unsigned kDisableMathRefactoring =
