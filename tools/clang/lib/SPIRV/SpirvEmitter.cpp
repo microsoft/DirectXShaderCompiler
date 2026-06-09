@@ -2719,6 +2719,28 @@ void SpirvEmitter::doForStmt(const ForStmt *forStmt,
       attrs.empty() ? spv::LoopControlMask::MaskNone
                     : translateLoopAttribute(forStmt, *attrs.front());
 
+  RichDebugInfo *info = nullptr;
+  if (spirvOptions.debugInfoRich) {
+    const auto &sm = astContext.getSourceManager();
+    const auto loc = forStmt->getForLoc();
+    const uint32_t line = sm.getPresumedLineNumber(loc);
+    const uint32_t column = sm.getPresumedColumnNumber(loc);
+    info = getOrCreateRichDebugInfo(loc);
+    auto *debugLexicalBlock = spvBuilder.createDebugLexicalBlock(
+        info->source, line, column, info->scopeStack.back());
+
+    // Add this lexical block to the stack of lexical scopes.
+    spvContext.pushDebugLexicalScope(info, debugLexicalBlock);
+
+    // Update or add DebugScope.
+    if (spvBuilder.getInsertPoint()->empty()) {
+      spvBuilder.getInsertPoint()->updateDebugScope(
+          new (spvContext) SpirvDebugScope(debugLexicalBlock));
+    } else if (!spvBuilder.isCurrentBasicBlockTerminated()) {
+      spvBuilder.createDebugScope(debugLexicalBlock);
+    }
+  }
+
   const Stmt *initStmt = forStmt->getInit();
   const Stmt *body = forStmt->getBody();
   const Expr *check = forStmt->getCond();
@@ -2842,6 +2864,15 @@ void SpirvEmitter::doForStmt(const ForStmt *forStmt,
   // Done with the current scope's continue block and merge block.
   continueStack.pop();
   breakStack.pop();
+
+  if (spirvOptions.debugInfoRich) {
+    // We are done with processing this for statement. Remove its lexical block
+    // from the stack of lexical scopes.
+    spvContext.popDebugLexicalScope(info);
+    if (!spvBuilder.isCurrentBasicBlockTerminated()) {
+      spvBuilder.createDebugScope(spvContext.getCurrentLexicalScope());
+    }
+  }
 }
 
 void SpirvEmitter::doIfStmt(const IfStmt *ifStmt,
