@@ -1022,11 +1022,7 @@ void HLModule::ClearPreciseAttributeWithMetadata(Instruction *I) {
 }
 
 static void MarkPreciseAttribute(Function *F) {
-  LLVMContext &Ctx = F->getContext();
-  MDNode *preciseNode = MDNode::get(
-      Ctx, {MDString::get(Ctx, DxilMDHelper::kDxilPreciseAttributeMDName)});
-
-  F->setMetadata(DxilMDHelper::kDxilPreciseAttributeMDName, preciseNode);
+  F->addFnAttr(DXIL::kPreciseString);
 }
 
 template <typename BuilderTy>
@@ -1107,9 +1103,9 @@ void HLModule::MarkPreciseAttributeOnPtrWithFunctionCall(llvm::Value *Ptr,
 }
 
 bool HLModule::HasPreciseAttribute(Function *F) {
-  MDNode *preciseNode =
-      F->getMetadata(DxilMDHelper::kDxilPreciseAttributeMDName);
-  return preciseNode != nullptr;
+  AttributeSet Attributeset = F->getAttributes();
+  return Attributeset.hasAttribute(AttributeSet::FunctionIndex,
+                                   DXIL::kPreciseString);
 }
 
 static void AddDIGlobalVariable(DIBuilder &Builder, DIGlobalVariable *LocDIGV,
