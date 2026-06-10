@@ -1006,12 +1006,6 @@ private:
 
   unsigned m_ValMajor, m_ValMinor;
 
-  // Prerelease data is guarded behind this flag. Only supported when targeting
-  // a prerelease shader model. When transitioning data to release, look for
-  // uses of this flag to update code to check the validator version for the new
-  // release version instead.
-  bool m_AllowPrereleaseData = false;
-
   void
   FindUsingFunctions(const llvm::Value *User,
                      llvm::SmallVectorImpl<const llvm::Function *> &functions) {
@@ -1553,7 +1547,7 @@ private:
             if (entryProps.props.IsNode()) {
               shaderInfo = AddShaderNodeInfo(DM, function, entryProps, *pInfo2,
                                              TGSMInFunc[&function]);
-            } else if (m_AllowPrereleaseData) {
+            } else if (Builder.GetTable<RDAT::SignatureElement>()) {
               shaderInfo =
                   AddShaderInfo(function, entryProps, *pInfo2,
                                 compatInfo.shaderFlags, TGSMInFunc[&function]);
@@ -1661,16 +1655,9 @@ public:
   DxilRDATWriter(DxilModule &mod) : Builder(GetRecordDuplicationAllowed(mod)) {
     // Keep track of validator version so we can make a compatible RDAT
     mod.GetValidatorVersion(m_ValMajor, m_ValMinor);
-    RDAT::RuntimeDataPartType maxAllowedType =
-        RDAT::MaxPartTypeForValVer(m_ValMajor, m_ValMinor);
-
-    // Only write prerelease tables if the shader model is prerelease, to avoid
-    // writing prerelease data into release shader models, which might not be
-    // comatible with newer runtimes.
-    m_AllowPrereleaseData = mod.GetShaderModel()->IsPreReleaseShaderModel();
-    if (!m_AllowPrereleaseData)
-      maxAllowedType =
-          std::min(maxAllowedType, RDAT::RuntimeDataPartType::LastRelease);
+    RDAT::RuntimeDataPartType maxAllowedType = RDAT::MaxPartTypeForValVer(
+        m_ValMajor, m_ValMinor,
+        mod.GetShaderModel()->IsPreReleaseShaderModel());
 
     mod.ComputeShaderCompatInfo();
 
@@ -1689,9 +1676,10 @@ public:
         maxAllowedType)
       m_pSubobjectTable = Builder.AddTable<RuntimeDataSubobjectInfo>();
 
-// Once per table.
+// Once per table, if not already added.
 #define RDAT_STRUCT_TABLE(type, table)                                         \
-  if (RDAT::RecordTraits<RDAT::type>::PartType() <= maxAllowedType)            \
+  if (RDAT::RecordTraits<RDAT::type>::PartType() <= maxAllowedType &&          \
+      !Builder.GetTable<RDAT::type>())                                         \
     (void)Builder.AddTable<RDAT::type>();
 
 #define DEF_RDAT_TYPES DEF_RDAT_DEFAULTS
