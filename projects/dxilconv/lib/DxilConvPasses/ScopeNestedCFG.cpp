@@ -14,6 +14,7 @@
 #include "llvm/Analysis/ReducibilityAnalysis.h"
 
 #include "llvm/ADT/BitVector.h"
+#include "llvm/ADT/SmallVector.h"
 #include "llvm/Analysis/CFG.h"
 #include "llvm/Analysis/LoopPass.h"
 #include "llvm/IR/CFG.h"
@@ -140,8 +141,6 @@ private:
   // Preliminary CFG transformations and related utilities.
   //
   void SanitizeBranches();
-  void SanitizeBranchesRec(BasicBlock *pBB,
-                           unordered_set<BasicBlock *> &VisitedBB);
   void CollectUniqueSuccessors(const BasicBlock *pBB,
                                const BasicBlock *pSuccessorToExclude,
                                vector<BasicBlock *> &Successors);
@@ -149,7 +148,7 @@ private:
   //
   // Loop region transformations.
   //
-  void CollectLoopsRec(Loop *pLoop);
+  void CollectLoops(Loop *pLoop);
 
   void AnnotateBranch(BasicBlock *pBB, BranchKind Kind);
   BranchKind GetBranchAnnotation(const BasicBlock *pBB);
@@ -203,9 +202,6 @@ private:
   };
   void ComputeBlockTopologicalOrderAndReachability(
       BasicBlock *pEntry, BlockTopologicalOrderAndReachability &BTO);
-  void ComputeBlockTopologicalOrderAndReachabilityRec(
-      BasicBlock *pNode, BlockTopologicalOrderAndReachability &BTO,
-      unordered_map<BasicBlock *, unsigned> &Marks);
 
   //
   // Recovery of scope end points.
@@ -337,7 +333,7 @@ bool ScopeNestedCFG::runOnFunction(Function &F) {
   for (auto itLoop = m_pLI->begin(), endLoop = m_pLI->end(); itLoop != endLoop;
        ++itLoop) {
     Loop *pLoop = *itLoop;
-    CollectLoopsRec(pLoop);
+    CollectLoops(pLoop);
   }
 
   //
@@ -428,91 +424,89 @@ void ScopeNestedCFG::Clear() {
 // Preliminary CFG transformations and related utilities.
 //-----------------------------------------------------------------------------
 void ScopeNestedCFG::SanitizeBranches() {
-  unordered_set<BasicBlock *> VisitedBB;
-  SanitizeBranchesRec(m_pFunc->begin(), VisitedBB);
-}
+  SmallPtrSet<BasicBlock *, 32> VisitedBB;
+  SmallVector<BasicBlock *, 32> Worklist;
+  Worklist.push_back(m_pFunc->begin());
 
-void ScopeNestedCFG::SanitizeBranchesRec(
-    BasicBlock *pBB, unordered_set<BasicBlock *> &VisitedBB) {
-  // Mark pBB as visited, and return if pBB already has been visited.
-  if (!VisitedBB.emplace(pBB).second)
-    return;
+  while (!Worklist.empty()) {
+    BasicBlock *pBB = Worklist.pop_back_val();
 
-  // Sanitize branch.
-  if (BranchInst *I = dyn_cast<BranchInst>(pBB->getTerminator())) {
-    // a. Convert a conditional branch to unconditional, if successors are the
-    // same.
-    if (I->isConditional()) {
-      BasicBlock *pSucc1 = I->getSuccessor(0);
-      BasicBlock *pSucc2 = I->getSuccessor(1);
-      if (pSucc1 == pSucc2) {
-        BranchInst::Create(pSucc1, I);
-        I->eraseFromParent();
-      }
-    }
-  } else if (SwitchInst *I = dyn_cast<SwitchInst>(pBB->getTerminator())) {
-    // b. Group switch successors.
-    struct SwitchCaseGroup {
-      BasicBlock *pSuccBB;
-      vector<ConstantInt *> CaseValue;
-    };
-    vector<SwitchCaseGroup> SwitchCaseGroups;
-    unordered_map<BasicBlock *, unsigned> BB2GroupIdMap;
-    BasicBlock *pDefaultBB = I->getDefaultDest();
+    // Mark pBB as visited, and skip if pBB already has been visited.
+    if (!VisitedBB.insert(pBB).second)
+      continue;
 
-    for (SwitchInst::CaseIt itCase = I->case_begin(), endCase = I->case_end();
-         itCase != endCase; ++itCase) {
-      BasicBlock *pSuccBB = itCase.getCaseSuccessor();
-      ConstantInt *pCaseValue = itCase.getCaseValue();
-
-      if (pSuccBB == pDefaultBB) {
-        // Assimilate this case label into default label.
-        continue;
-      }
-
-      auto itGroup = BB2GroupIdMap.insert({pSuccBB, SwitchCaseGroups.size()});
-      if (itGroup.second) {
-        SwitchCaseGroups.emplace_back(SwitchCaseGroup{});
-      }
-
-      SwitchCaseGroup &G = SwitchCaseGroups[itGroup.first->second];
-      G.pSuccBB = pSuccBB;
-      G.CaseValue.emplace_back(pCaseValue);
-    }
-
-    if (SwitchCaseGroups.size() == 0) {
-      // All case labels were assimilated into the default label.
-      // Replace switch with an unconditional branch.
-      BranchInst::Create(pDefaultBB, I);
-      I->eraseFromParent();
-    } else {
-      // Rewrite switch instruction such that case labels are grouped by the
-      // successor.
-      unsigned CaseIdx = 0;
-      for (const SwitchCaseGroup &G : SwitchCaseGroups) {
-        for (ConstantInt *pCaseValue : G.CaseValue) {
-          SwitchInst::CaseIt itCase(I, CaseIdx++);
-          itCase.setSuccessor(G.pSuccBB);
-          itCase.setValue(pCaseValue);
+    // Sanitize branch.
+    if (BranchInst *I = dyn_cast<BranchInst>(pBB->getTerminator())) {
+      // a. Convert a conditional branch to unconditional, if successors are the
+      // same.
+      if (I->isConditional()) {
+        BasicBlock *pSucc1 = I->getSuccessor(0);
+        BasicBlock *pSucc2 = I->getSuccessor(1);
+        if (pSucc1 == pSucc2) {
+          BranchInst::Create(pSucc1, I);
+          I->eraseFromParent();
         }
       }
-      // Remove unused case labels.
-      for (unsigned NumCases = I->getNumCases(); CaseIdx < NumCases;
-           NumCases--) {
-        I->removeCase(SwitchInst::CaseIt{I, NumCases - 1});
+    } else if (SwitchInst *I = dyn_cast<SwitchInst>(pBB->getTerminator())) {
+      // b. Group switch successors.
+      struct SwitchCaseGroup {
+        BasicBlock *pSuccBB;
+        SmallVector<ConstantInt *, 8> CaseValue;
+      };
+      SmallVector<SwitchCaseGroup, 8> SwitchCaseGroups;
+      DenseMap<BasicBlock *, unsigned> BB2GroupIdMap;
+      BasicBlock *pDefaultBB = I->getDefaultDest();
+
+      for (SwitchInst::CaseIt itCase = I->case_begin(), endCase = I->case_end();
+           itCase != endCase; ++itCase) {
+        BasicBlock *pSuccBB = itCase.getCaseSuccessor();
+        ConstantInt *pCaseValue = itCase.getCaseValue();
+
+        // Assimilate this case label into default label.
+        if (pSuccBB == pDefaultBB)
+          continue;
+
+        auto itGroup = BB2GroupIdMap.insert({pSuccBB, SwitchCaseGroups.size()});
+        if (itGroup.second)
+          SwitchCaseGroups.emplace_back(SwitchCaseGroup{});
+
+        SwitchCaseGroup &G = SwitchCaseGroups[itGroup.first->second];
+        G.pSuccBB = pSuccBB;
+        G.CaseValue.emplace_back(pCaseValue);
+      }
+
+      if (SwitchCaseGroups.size() == 0) {
+        // All case labels were assimilated into the default label.
+        // Replace switch with an unconditional branch.
+        BranchInst::Create(pDefaultBB, I);
+        I->eraseFromParent();
+      } else {
+        // Rewrite switch instruction such that case labels are grouped by the
+        // successor.
+        unsigned CaseIdx = 0;
+        for (const SwitchCaseGroup &G : SwitchCaseGroups) {
+          for (ConstantInt *pCaseValue : G.CaseValue) {
+            SwitchInst::CaseIt itCase(I, CaseIdx++);
+            itCase.setSuccessor(G.pSuccBB);
+            itCase.setValue(pCaseValue);
+          }
+        }
+        // Remove unused case labels.
+        for (unsigned NumCases = I->getNumCases(); CaseIdx < NumCases;
+             --NumCases)
+          I->removeCase(SwitchInst::CaseIt{I, NumCases - 1});
       }
     }
-  }
 
-  // Recurse, visiting each successor group once.
-  TerminatorInst *pTI = pBB->getTerminator();
-  BasicBlock *pPrevSuccBB = nullptr;
-  for (unsigned i = 0; i < pTI->getNumSuccessors(); i++) {
-    BasicBlock *pSuccBB = pTI->getSuccessor(i);
-    if (pSuccBB != pPrevSuccBB) {
-      SanitizeBranchesRec(pSuccBB, VisitedBB);
+    // Push successors onto worklist, visiting each successor group once.
+    TerminatorInst *pTI = pBB->getTerminator();
+    BasicBlock *pPrevSuccBB = nullptr;
+    for (unsigned i = 0; i < pTI->getNumSuccessors(); i++) {
+      BasicBlock *pSuccBB = pTI->getSuccessor(i);
+      if (pSuccBB != pPrevSuccBB)
+        Worklist.push_back(pSuccBB);
+      pPrevSuccBB = pSuccBB;
     }
-    pPrevSuccBB = pSuccBB;
   }
 }
 
@@ -537,14 +531,22 @@ void ScopeNestedCFG::CollectUniqueSuccessors(
 //-----------------------------------------------------------------------------
 // Loop region transformations.
 //-----------------------------------------------------------------------------
-void ScopeNestedCFG::CollectLoopsRec(Loop *pLoop) {
-  for (auto itLoop = pLoop->begin(), endLoop = pLoop->end(); itLoop != endLoop;
-       ++itLoop) {
-    Loop *pNestedLoop = *itLoop;
-    CollectLoopsRec(pNestedLoop);
+void ScopeNestedCFG::CollectLoops(Loop *pLoop) {
+  // Iterative post-order: collect in reverse pre-order, then reverse.
+  SmallVector<Loop *, 16> Stack;
+  SmallVector<Loop *, 16> ReversePostOrder;
+  Stack.push_back(pLoop);
+
+  while (!Stack.empty()) {
+    Loop *pCurrent = Stack.pop_back_val();
+    ReversePostOrder.push_back(pCurrent);
+    for (auto it = pCurrent->begin(), end = pCurrent->end(); it != end; ++it)
+      Stack.push_back(*it);
   }
 
-  m_Loops.emplace_back(pLoop);
+  for (auto it = ReversePostOrder.rbegin(), end = ReversePostOrder.rend();
+       it != end; ++it)
+    m_Loops.emplace_back(*it);
 }
 
 void ScopeNestedCFG::AnnotateBranch(BasicBlock *pBB, BranchKind Kind) {
@@ -988,60 +990,102 @@ void ScopeNestedCFG::BlockTopologicalOrderAndReachability::dump(
 
 void ScopeNestedCFG::ComputeBlockTopologicalOrderAndReachability(
     BasicBlock *pEntry, BlockTopologicalOrderAndReachability &BTO) {
-  unordered_map<BasicBlock *, unsigned> WaterMarks;
-  ComputeBlockTopologicalOrderAndReachabilityRec(pEntry, BTO, WaterMarks);
+  DenseMap<BasicBlock *, unsigned> Marks;
+  unsigned NumBBs = (unsigned)pEntry->getParent()->getBasicBlockList().size();
+
+  struct StackFrame {
+    BasicBlock *pNode;
+    BasicBlock *pEffective;
+    unique_ptr<BitVector> ReachableBBs;
+    succ_iterator CurrentSucc;
+    succ_iterator EndSucc;
+    bool Initialized;
+
+    StackFrame(BasicBlock *Node)
+        : pNode(Node), pEffective(nullptr), CurrentSucc(succ_begin(Node)),
+          EndSucc(succ_end(Node)), Initialized(false) {}
+  };
+
+  SmallVector<StackFrame, 32> Stack;
+  Stack.emplace_back(pEntry);
+
+  while (!Stack.empty()) {
+    StackFrame &Frame = Stack.back();
+
+    if (!Frame.Initialized) {
+      auto itMark = Marks.find(Frame.pNode);
+      if (itMark != Marks.end()) {
+        DXASSERT(itMark->second == 2, "acyclic component has a cycle");
+        Stack.pop_back();
+        continue;
+      }
+
+      // Region terminator.
+      if (IsAcyclicRegionTerminator(Frame.pNode)) {
+        Marks[Frame.pNode] = 2; // late watermark
+        BTO.AppendBlock(Frame.pNode,
+                        std::make_unique<BitVector>(NumBBs, false));
+        Stack.pop_back();
+        continue;
+      }
+
+      BasicBlock *pEffective = GetEffectiveNodeToFollowSuccessor(Frame.pNode);
+
+      // Loop with no exit.
+      if (pEffective == nullptr) {
+        Marks[Frame.pNode] = 2; // late watermark
+        BTO.AppendBlock(Frame.pNode,
+                        std::make_unique<BitVector>(NumBBs, false));
+        Stack.pop_back();
+        continue;
+      }
+
+      Frame.Initialized = true;
+      Frame.pEffective = pEffective;
+      Marks[Frame.pNode] = 1; // early watermark
+      Frame.ReachableBBs = std::make_unique<BitVector>(NumBBs, false);
+      Frame.CurrentSucc = succ_begin(pEffective);
+      Frame.EndSucc = succ_end(pEffective);
+    }
+
+    // Process successors one at a time. When an unvisited successor is found,
+    // push it and revisit this frame later (without advancing the iterator so
+    // the now-visited successor will be unioned on the next visit).
+    bool PushedChild = false;
+    while (Frame.CurrentSucc != Frame.EndSucc) {
+      BasicBlock *pSuccBB = *Frame.CurrentSucc;
+      auto itMark = Marks.find(pSuccBB);
+      if (itMark != Marks.end()) {
+        DXASSERT(itMark->second == 2, "acyclic component has a cycle");
+        // Already processed, union reachable BBs and advance.
+        (*Frame.ReachableBBs) |= (*BTO.GetReachableBBs(pSuccBB));
+        ++Frame.CurrentSucc;
+      } else {
+        // Successor not yet visited; push it for processing.
+        // Don't advance the iterator: when we return here the successor
+        // will be marked and we will union its reachability above.
+        Stack.emplace_back(pSuccBB);
+        PushedChild = true;
+        break;
+      }
+    }
+
+    if (PushedChild)
+      continue;
+
+    // All successors processed.
+    BasicBlock *pNode = Frame.pNode;
+    unique_ptr<BitVector> ReachableBBs = std::move(Frame.ReachableBBs);
+    Marks[pNode] = 2; // late watermark
+    BTO.AppendBlock(pNode, std::move(ReachableBBs));
+    Stack.pop_back();
+  }
 
 #if SNCFG_DBG
   dbgs() << "\nBB topological order and reachable BBs rooted at "
          << pEntry->getName() << ":\n";
   BTO.dump(dbgs());
 #endif
-}
-
-void ScopeNestedCFG::ComputeBlockTopologicalOrderAndReachabilityRec(
-    BasicBlock *pNode, BlockTopologicalOrderAndReachability &BTO,
-    unordered_map<BasicBlock *, unsigned> &Marks) {
-  auto itMarkBB = Marks.find(pNode);
-  if (Marks.find(pNode) != Marks.end()) {
-    DXASSERT(itMarkBB->second == 2, "acyclic component has a cycle");
-    return;
-  }
-
-  unsigned NumBBs = (unsigned)pNode->getParent()->getBasicBlockList().size();
-
-  // Region terminator.
-  if (IsAcyclicRegionTerminator(pNode)) {
-    Marks[pNode] = 2; // late watermark
-    BTO.AppendBlock(pNode, std::make_unique<BitVector>(NumBBs, false));
-    return;
-  }
-
-  BasicBlock *pNodeToFollowSuccessors =
-      GetEffectiveNodeToFollowSuccessor(pNode);
-
-  // Loop with no exit.
-  if (pNodeToFollowSuccessors == nullptr) {
-    Marks[pNode] = 2; // late watermark
-    BTO.AppendBlock(pNode, std::make_unique<BitVector>(NumBBs, false));
-    return;
-  }
-
-  Marks[pNode] = 1; // early watermark
-
-  auto ReachableBBs = std::make_unique<BitVector>(NumBBs, false);
-  for (auto itSucc = succ_begin(pNodeToFollowSuccessors),
-            endSucc = succ_end(pNodeToFollowSuccessors);
-       itSucc != endSucc; ++itSucc) {
-    BasicBlock *pSuccBB = *itSucc;
-
-    ComputeBlockTopologicalOrderAndReachabilityRec(pSuccBB, BTO, Marks);
-    // Union reachable BBs.
-    (*ReachableBBs) |= (*BTO.GetReachableBBs(pSuccBB));
-  }
-
-  Marks[pNode] = 2; // late watermark
-
-  BTO.AppendBlock(pNode, std::move(ReachableBBs));
 }
 
 //-----------------------------------------------------------------------------

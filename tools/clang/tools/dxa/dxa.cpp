@@ -79,14 +79,14 @@ static cl::opt<bool> DumpPSV("dumppsv",
 class DxaContext {
 
 private:
-  DxcDllSupport &m_dxcSupport;
+  SpecificDllLoader &m_dxcSupport;
   HRESULT FindModule(hlsl::DxilFourCC fourCC, IDxcBlob *pSource,
                      IDxcLibrary *pLibrary, IDxcBlob **ppTarget);
   bool ExtractPart(uint32_t Part, IDxcBlob **ppTargetBlob);
   bool ExtractPart(IDxcBlob *pSource, uint32_t Part, IDxcBlob **ppTargetBlob);
 
 public:
-  DxaContext(DxcDllSupport &dxcSupport) : m_dxcSupport(dxcSupport) {}
+  DxaContext(SpecificDllLoader &dxcSupport) : m_dxcSupport(dxcSupport) {}
 
   void Assemble();
   bool ExtractFile(const char *pName);
@@ -546,8 +546,8 @@ int main(int argc, const char **argv) {
       return 2;
     }
 
-    DxcDllSupport dxcSupport;
-    dxc::EnsureEnabled(dxcSupport);
+    DxCompilerDllLoader dxcSupport;
+    IFT(dxcSupport.Initialize());
     DxaContext context(dxcSupport);
     if (ListParts) {
       pStage = "Listing parts";

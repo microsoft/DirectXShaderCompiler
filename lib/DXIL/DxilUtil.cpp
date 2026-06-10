@@ -10,6 +10,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #include "dxc/DXIL/DxilUtil.h"
+#include "dxc/DXIL/DxilConstants.h"
 #include "dxc/DXIL/DxilInstructions.h"
 #include "dxc/DXIL/DxilModule.h"
 #include "dxc/DXIL/DxilOperations.h"
@@ -18,9 +19,11 @@
 #include "dxc/Support/Global.h"
 
 #include "llvm/ADT/StringExtras.h"
+#include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/Twine.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DIBuilder.h"
+#include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/DiagnosticInfo.h"
 #include "llvm/IR/DiagnosticPrinter.h"
 #include "llvm/IR/GetElementPtrTypeIterator.h"
@@ -181,11 +184,11 @@ void PrintUnescapedString(StringRef Name, raw_ostream &Out) {
     if (C == '\\') {
       C = Name[++i];
       unsigned value = hexDigitValue(C);
-      if (value != -1U) {
+      if (value != ~0U) {
         C = (unsigned char)value;
         unsigned value2 = hexDigitValue(Name[i + 1]);
-        assert(value2 != -1U && "otherwise, not a two digit hex escape");
-        if (value2 != -1U) {
+        assert(value2 != ~0U && "otherwise, not a two digit hex escape");
+        if (value2 != ~0U) {
           C = (C << 4) + (unsigned char)value2;
           ++i;
         }
@@ -577,6 +580,9 @@ bool IsHLSLObjectType(llvm::Type *Ty) {
 
     if (IsHLSLHitObjectType(Ty))
       return true;
+
+    if (IsHLSLLinAlgMatrixType(Ty))
+      return true;
   }
   return false;
 }
@@ -610,6 +616,24 @@ bool IsHLSLHitObjectType(llvm::Type *Ty) {
   if (!ST->hasName())
     return false;
   return ST->getName() == "dx.types.HitObject";
+}
+
+bool IsHLSLLinAlgMatrixType(llvm::Type *Ty) {
+  llvm::StructType *ST = dyn_cast<llvm::StructType>(Ty);
+  if (!ST)
+    return false;
+  if (!ST->hasName())
+    return false;
+  return ST->getName().startswith(DXIL::kDxLinAlgMatrixTypePrefix);
+}
+
+StringRef GetHLSLLinAlgMatrixTypeMangling(llvm::StructType *Ty) {
+  return Ty->getStructName().substr(strlen(DXIL::kDxLinAlgMatrixTypePrefix));
+}
+
+bool IsHLSLKnownTargetType(llvm::Type *Ty) {
+  // Currently only LinAlgMatrix types are target types.
+  return IsHLSLLinAlgMatrixType(Ty);
 }
 
 bool IsHLSLResourceDescType(llvm::Type *Ty) {

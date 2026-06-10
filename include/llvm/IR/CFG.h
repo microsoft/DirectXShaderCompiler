@@ -29,10 +29,13 @@ namespace llvm {
 template <class Ptr, class USE_iterator> // Predecessor Iterator
 class PredIterator {
 public:
+  // HLSL Change start: The iterator wasn't satisfying the std::forward_iterator
+  // concept, which caused std::vector::insert calls to fail in C++23.
   using iterator_category = std::forward_iterator_tag;
-  using value_type = Ptr;
+  using value_type = Ptr *;
   using difference_type = std::ptrdiff_t;
-  using pointer = Ptr *;
+  using pointer = Ptr **;
+  // HLSL Change end
   using reference = Ptr *;
 
 private:
@@ -119,8 +122,11 @@ class SuccIterator {
 
 public:
   using iterator_category = std::random_access_iterator_tag;
-  using value_type = BB_;
-  using difference_type = int;
+  // HLSL Change start: The iterator wasn't satisfying the std::forward_iterator
+  // concept, which caused std::vector::insert calls to fail in C++23.
+  using value_type = BB_ *;
+  using difference_type = std::ptrdiff_t;
+  // HLSL Change end
   using pointer = BB_ *;
   using reference = BB_ *;
 

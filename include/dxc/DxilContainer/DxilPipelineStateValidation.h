@@ -175,6 +175,10 @@ struct PSVRuntimeInfo3 : public PSVRuntimeInfo2 {
   uint32_t EntryFunctionName;
 };
 
+struct PSVRuntimeInfo4 : public PSVRuntimeInfo3 {
+  uint32_t NumBytesGroupSharedMemory;
+};
+
 enum class PSVResourceType {
   Invalid = 0,
 
@@ -474,7 +478,7 @@ public:
              const uint32_t *SemanticIndexes) const;
 };
 
-#define MAX_PSV_VERSION 3
+#define MAX_PSV_VERSION 4
 
 struct PSVInitInfo {
   PSVInitInfo(uint32_t psvVersion) : PSVVersion(psvVersion) {}
@@ -491,7 +495,7 @@ struct PSVInitInfo {
   uint8_t SigPatchConstOrPrimVectors = 0;
   uint8_t SigOutputVectors[PSV_GS_MAX_STREAMS] = {0, 0, 0, 0};
 
-  static_assert(MAX_PSV_VERSION == 3, "otherwise this needs updating.");
+  static_assert(MAX_PSV_VERSION == 4, "otherwise this needs updating.");
   uint32_t RuntimeInfoSize() const {
     switch (PSVVersion) {
     case 0:
@@ -500,10 +504,12 @@ struct PSVInitInfo {
       return sizeof(PSVRuntimeInfo1);
     case 2:
       return sizeof(PSVRuntimeInfo2);
+    case 3:
+      return sizeof(PSVRuntimeInfo3);
     default:
       break;
     }
-    return sizeof(PSVRuntimeInfo3);
+    return sizeof(PSVRuntimeInfo4);
   }
   uint32_t ResourceBindInfoSize() const {
     if (PSVVersion < 2)
@@ -519,6 +525,7 @@ class DxilPipelineStateValidation {
   PSVRuntimeInfo1 *m_pPSVRuntimeInfo1 = nullptr;
   PSVRuntimeInfo2 *m_pPSVRuntimeInfo2 = nullptr;
   PSVRuntimeInfo3 *m_pPSVRuntimeInfo3 = nullptr;
+  PSVRuntimeInfo4 *m_pPSVRuntimeInfo4 = nullptr;
   uint32_t m_uResourceCount = 0;
   uint32_t m_uPSVResourceBindInfoSize = 0;
   void *m_pPSVResourceBindInfo = nullptr;
@@ -633,6 +640,8 @@ public:
   PSVRuntimeInfo2 *GetPSVRuntimeInfo2() const { return m_pPSVRuntimeInfo2; }
 
   PSVRuntimeInfo3 *GetPSVRuntimeInfo3() const { return m_pPSVRuntimeInfo3; }
+
+  PSVRuntimeInfo4 *GetPSVRuntimeInfo4() const { return m_pPSVRuntimeInfo4; }
 
   uint32_t GetBindCount() const { return m_uResourceCount; }
 
@@ -949,6 +958,8 @@ DxilPipelineStateValidation::ReadOrWrite(const void *pBits, uint32_t *pSize,
                 m_uPSVRuntimeInfoSize); // failure ok
   AssignDerived(&m_pPSVRuntimeInfo3, m_pPSVRuntimeInfo0,
                 m_uPSVRuntimeInfoSize); // failure ok
+  AssignDerived(&m_pPSVRuntimeInfo4, m_pPSVRuntimeInfo0,
+                m_uPSVRuntimeInfoSize); // failure ok
 
   // In RWMode::CalcSize, use temp runtime info to hold needed values from
   // initInfo
@@ -1137,11 +1148,13 @@ void SetupPSVInitInfo(PSVInitInfo &InitInfo, const DxilModule &DM);
 void SetShaderProps(PSVRuntimeInfo0 *pInfo, const DxilModule &DM);
 void SetShaderProps(PSVRuntimeInfo1 *pInfo1, const DxilModule &DM);
 void SetShaderProps(PSVRuntimeInfo2 *pInfo2, const DxilModule &DM);
+void SetShaderProps(PSVRuntimeInfo4 *pInfo4, const DxilModule &DM);
 
 void PrintPSVRuntimeInfo(llvm::raw_ostream &OS, PSVRuntimeInfo0 *pInfo0,
                          PSVRuntimeInfo1 *pInfo1, PSVRuntimeInfo2 *pInfo2,
-                         PSVRuntimeInfo3 *pInfo3, uint8_t ShaderKind,
-                         const char *EntryName, const char *Comment);
+                         PSVRuntimeInfo3 *pInfo3, PSVRuntimeInfo4 *pInfo4,
+                         uint8_t ShaderKind, const char *EntryName,
+                         const char *Comment);
 
 } // namespace hlsl
 

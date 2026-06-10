@@ -1158,8 +1158,14 @@ void DeclSpec::Finish(DiagnosticsEngine &D, Preprocessor &PP, const PrintingPoli
   }
   // Diagnose if we've recovered from an ill-formed 'auto' storage class
   // specifier in a pre-C++11 dialect of C++.
-  if (!PP.getLangOpts().CPlusPlus11 && TypeSpecType == TST_auto)
-    Diag(D, TSTLoc, diag::ext_auto_type_specifier);
+  // HLSL Change Begin - HLSL supports 'auto' as a type specifier in 202x+.
+  if (!(PP.getLangOpts().CPlusPlus11 ||
+        (PP.getLangOpts().HLSL &&
+         PP.getLangOpts().HLSLVersion >= hlsl::LangStd::v202x)) &&
+      TypeSpecType == TST_auto)
+    Diag(D, TSTLoc, diag::ext_auto_type_specifier)
+        << /* HLSL */ PP.getLangOpts().HLSL;
+  // HLSL Change End
   if (PP.getLangOpts().CPlusPlus && !PP.getLangOpts().CPlusPlus11 &&
       StorageClassSpec == SCS_auto)
     Diag(D, StorageClassSpecLoc, diag::warn_auto_storage_class)

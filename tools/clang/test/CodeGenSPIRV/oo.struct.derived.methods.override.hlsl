@@ -28,8 +28,7 @@ struct C : B {
 
 float4 main() : SV_Target {
   B b;
-// CHECK:    [[A_ptr:%[0-9]+]] = OpAccessChain %_ptr_Function_A %b %uint_0
-// CHECK: [[base_ptr:%[0-9]+]] = OpAccessChain %_ptr_Function_v4float [[A_ptr]] %int_0
+// CHECK: [[base_ptr:%[0-9]+]] = OpAccessChain %_ptr_Function_v4float %b %int_0 %int_0
 // CHECK:                     OpStore [[base_ptr]] {{%[0-9]+}}
   b.base = float4(1, 1, 0, 1);
 // CHECK: [[derived_ptr:%[0-9]+]] = OpAccessChain %_ptr_Function_v4float %b %int_1
@@ -42,12 +41,10 @@ float4 main() : SV_Target {
   b.SetDerived(float4(1, 0, 1, 1));
 
   C c;
-// CHECK:       [[A_ptr_0:%[0-9]+]] = OpAccessChain %_ptr_Function_A %c %uint_0 %uint_0
-// CHECK:    [[base_ptr_0:%[0-9]+]] = OpAccessChain %_ptr_Function_v4float [[A_ptr_0]] %int_0
+// CHECK:    [[base_ptr_0:%[0-9]+]] = OpAccessChain %_ptr_Function_v4float %c %int_0 %int_0 %int_0
 // CHECK:                        OpStore [[base_ptr_0]] {{%[0-9]+}}
   c.base = float4(0,0,0,0);
-// CHECK:       [[B_ptr:%[0-9]+]] = OpAccessChain %_ptr_Function_B %c %uint_0
-// CHECK: [[derived_ptr_0:%[0-9]+]] = OpAccessChain %_ptr_Function_v4float [[B_ptr]] %int_1
+// CHECK: [[derived_ptr_0:%[0-9]+]] = OpAccessChain %_ptr_Function_v4float %c %int_0 %int_1
 // CHECK:                        OpStore [[derived_ptr_0]] {{%[0-9]+}}
   c.derived = float4(0,0,0,0);
 // CHECK: [[c_value_ptr:%[0-9]+]] = OpAccessChain %_ptr_Function_v4float %c %int_1
@@ -76,8 +73,7 @@ float4 main() : SV_Target {
 // CHECK-NEXT:                %v = OpFunctionParameter %_ptr_Function_v4float
 // CHECK-NEXT:       %bb_entry_0 = OpLabel
 // CHECK-NEXT:        [[v:%[0-9]+]] = OpLoad %v4float %v
-// CHECK-NEXT:    [[A_ptr_1:%[0-9]+]] = OpAccessChain %_ptr_Function_A %param_this %uint_0
-// CHECK-NEXT: [[base_ptr_1:%[0-9]+]] = OpAccessChain %_ptr_Function_v4float [[A_ptr_1]] %int_0
+// CHECK-NEXT: [[base_ptr_1:%[0-9]+]] = OpAccessChain %_ptr_Function_v4float %param_this %int_0 %int_0
 // CHECK-NEXT:                     OpStore [[base_ptr_1]] [[v]]
 // CHECK-NEXT:                     OpReturn
 // CHECK-NEXT:                     OpFunctionEnd
@@ -100,8 +96,7 @@ float4 main() : SV_Target {
 // CHECK-NEXT:              %v_1 = OpFunctionParameter %_ptr_Function_v4float
 // CHECK-NEXT:       %bb_entry_2 = OpLabel
 // CHECK-NEXT:        [[v_1:%[0-9]+]] = OpLoad %v4float %v_1
-// CHECK-NEXT:    [[A_ptr_2:%[0-9]+]] = OpAccessChain %_ptr_Function_A %param_this_1 %uint_0 %uint_0
-// CHECK-NEXT: [[base_ptr_2:%[0-9]+]] = OpAccessChain %_ptr_Function_v4float [[A_ptr_2]] %int_0
+// CHECK-NEXT: [[base_ptr_2:%[0-9]+]] = OpAccessChain %_ptr_Function_v4float %param_this_1 %int_0 %int_0 %int_0
 // CHECK-NEXT:                     OpStore [[base_ptr_2]] [[v_1]]
 // CHECK-NEXT:                     OpReturn
 // CHECK-NEXT:                     OpFunctionEnd
@@ -112,8 +107,7 @@ float4 main() : SV_Target {
 // CHECK-NEXT:                 %v_2 = OpFunctionParameter %_ptr_Function_v4float
 // CHECK-NEXT:          %bb_entry_3 = OpLabel
 // CHECK-NEXT:           [[v_2:%[0-9]+]] = OpLoad %v4float %v_2
-// CHECK-NEXT:       [[B_ptr_0:%[0-9]+]] = OpAccessChain %_ptr_Function_B %param_this_2 %uint_0
-// CHECK-NEXT: [[derived_ptr_2:%[0-9]+]] = OpAccessChain %_ptr_Function_v4float [[B_ptr_0]] %int_1
+// CHECK-NEXT: [[derived_ptr_2:%[0-9]+]] = OpAccessChain %_ptr_Function_v4float %param_this_2 %int_0 %int_1
 // CHECK-NEXT:                        OpStore [[derived_ptr_2]] [[v_2]]
 // CHECK-NEXT:                        OpReturn
 // CHECK-NEXT:                        OpFunctionEnd
@@ -133,8 +127,7 @@ float4 main() : SV_Target {
 // CHECK:             %B_GetBase = OpFunction
 // CHECK-NEXT:     %param_this_4 = OpFunctionParameter %_ptr_Function_B
 // CHECK-NEXT:       %bb_entry_5 = OpLabel
-// CHECK-NEXT:    [[A_ptr_3:%[0-9]+]] = OpAccessChain %_ptr_Function_A %param_this_4 %uint_0
-// CHECK-NEXT: [[base_ptr_3:%[0-9]+]] = OpAccessChain %_ptr_Function_v4float [[A_ptr_3]] %int_0
+// CHECK-NEXT: [[base_ptr_3:%[0-9]+]] = OpAccessChain %_ptr_Function_v4float %param_this_4 %int_0 %int_0
 // CHECK-NEXT:     [[base:%[0-9]+]] = OpLoad %v4float [[base_ptr_3]]
 // CHECK-NEXT:                     OpReturnValue [[base]]
 // CHECK-NEXT:                     OpFunctionEnd
@@ -152,8 +145,7 @@ float4 main() : SV_Target {
 // CHECK:             %C_GetBase = OpFunction
 // CHECK-NEXT:     %param_this_6 = OpFunctionParameter %_ptr_Function_C
 // CHECK-NEXT:       %bb_entry_7 = OpLabel
-// CHECK-NEXT:    [[A_ptr_4:%[0-9]+]] = OpAccessChain %_ptr_Function_A %param_this_6 %uint_0 %uint_0
-// CHECK-NEXT: [[base_ptr_4:%[0-9]+]] = OpAccessChain %_ptr_Function_v4float [[A_ptr_4]] %int_0
+// CHECK-NEXT: [[base_ptr_4:%[0-9]+]] = OpAccessChain %_ptr_Function_v4float %param_this_6 %int_0 %int_0 %int_0
 // CHECK-NEXT:     [[base_0:%[0-9]+]] = OpLoad %v4float [[base_ptr_4]]
 // CHECK-NEXT:                     OpReturnValue [[base_0]]
 // CHECK-NEXT:                     OpFunctionEnd
@@ -162,8 +154,7 @@ float4 main() : SV_Target {
 // CHECK:             %C_GetDerived = OpFunction
 // CHECK-NEXT:        %param_this_7 = OpFunctionParameter %_ptr_Function_C
 // CHECK-NEXT:          %bb_entry_8 = OpLabel
-// CHECK-NEXT:       [[B_ptr_1:%[0-9]+]] = OpAccessChain %_ptr_Function_B %param_this_7 %uint_0
-// CHECK-NEXT: [[derived_ptr_4:%[0-9]+]] = OpAccessChain %_ptr_Function_v4float [[B_ptr_1]] %int_1
+// CHECK-NEXT: [[derived_ptr_4:%[0-9]+]] = OpAccessChain %_ptr_Function_v4float %param_this_7 %int_0 %int_1
 // CHECK-NEXT:     [[derived_0:%[0-9]+]] = OpLoad %v4float [[derived_ptr_4]]
 // CHECK-NEXT:                        OpReturnValue [[derived_0]]
 // CHECK-NEXT:                        OpFunctionEnd

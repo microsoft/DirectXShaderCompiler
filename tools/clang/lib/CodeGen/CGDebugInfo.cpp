@@ -1047,8 +1047,17 @@ bool CGDebugInfo::TryCollectHLSLRecordElements(const RecordType *Ty,
     unsigned VecSize = hlsl::GetHLSLVecSize(QualTy);
     unsigned ElemSizeInBits = CGM.getContext().getTypeSize(ElemQualTy);
     unsigned CurrentAlignedOffset = 0;
+    SmallString<8> FieldNameBuf;
     for (unsigned ElemIdx = 0; ElemIdx < VecSize; ++ElemIdx) {
-      StringRef FieldName = StringRef(&"xyzw"[ElemIdx], 1);
+      StringRef FieldName;
+      if (VecSize <= 4) {
+        FieldName = StringRef(&"xyzw"[ElemIdx], 1);
+      } else {
+        FieldNameBuf.clear();
+        llvm::raw_svector_ostream OS(FieldNameBuf);
+        OS << 'c' << ElemIdx;
+        FieldName = OS.str();
+      }
       CurrentAlignedOffset =
           llvm::RoundUpToAlignment(CurrentAlignedOffset, AlignBits);
       llvm::DIType *FieldType =
@@ -2113,6 +2122,11 @@ static QualType UnwrapTypeForDebugInfo(QualType T, const ASTContext &C) {
     case Type::Attributed:
       T = cast<AttributedType>(T)->getEquivalentType();
       break;
+    // HLSL Change Start
+    case Type::AttributedLinAlgMatrix:
+      T = cast<AttributedLinAlgMatrixType>(T)->getWrappedType();
+      break;
+    // HLSL Change End
     case Type::Elaborated:
       T = cast<ElaboratedType>(T)->getNamedType();
       break;

@@ -671,6 +671,8 @@ static const char *FlagToString(DXIL::RaytracingPipelineFlags Flag) {
     return "RAYTRACING_PIPELINE_FLAG_SKIP_TRIANGLES";
   case DXIL::RaytracingPipelineFlags::SkipProceduralPrimitives:
     return "RAYTRACING_PIPELINE_FLAG_SKIP_PROCEDURAL_PRIMITIVES";
+  case DXIL::RaytracingPipelineFlags::AllowOpacityMicromaps:
+    return "RAYTRACING_PIPELINE_FLAG_ALLOW_OPACITY_MICROMAPS";
   }
   return "<invalid RaytracingPipelineFlags>";
 }
@@ -1218,6 +1220,7 @@ void PrintResourceProperties(DxilResourceProperties &RP,
   bool bUAV = RP.isUAV();
   LPCSTR RW = bUAV ? (RP.Basic.IsROV ? "ROV" : "RW") : "";
   LPCSTR GC = bUAV && RP.Basic.IsGloballyCoherent ? "globallycoherent " : "";
+  LPCSTR RC = bUAV && RP.Basic.IsReorderCoherent ? "reordercoherent " : "";
   LPCSTR COUNTER = bUAV && RP.Basic.SamplerCmpOrHasCounter ? ", counter" : "";
 
   switch (RP.getResourceKind()) {
@@ -1231,7 +1234,7 @@ void PrintResourceProperties(DxilResourceProperties &RP,
   case DXIL::ResourceKind::TypedBuffer:
   case DXIL::ResourceKind::Texture2DMS:
   case DXIL::ResourceKind::Texture2DMSArray:
-    OS << GC << RW << ResourceKindToString(RP.getResourceKind());
+    OS << GC << RC << RW << ResourceKindToString(RP.getResourceKind());
     OS << "<";
     if (RP.Typed.CompCount > 1)
       OS << std::to_string(RP.Typed.CompCount) << "x";
@@ -1239,11 +1242,11 @@ void PrintResourceProperties(DxilResourceProperties &RP,
     break;
 
   case DXIL::ResourceKind::RawBuffer:
-    OS << GC << RW << ResourceKindToString(RP.getResourceKind());
+    OS << GC << RC << RW << ResourceKindToString(RP.getResourceKind());
     break;
 
   case DXIL::ResourceKind::StructuredBuffer:
-    OS << GC << RW << ResourceKindToString(RP.getResourceKind());
+    OS << GC << RC << RW << ResourceKindToString(RP.getResourceKind());
     OS << "<stride=" << RP.StructStrideInBytes << COUNTER << ">";
     break;
 
@@ -1309,7 +1312,10 @@ public:
     }
 
     unsigned opcodeVal = CInt->getZExtValue();
-    if (opcodeVal >= (unsigned)DXIL::OpCode::NumOpCodes) {
+    OP::OpCodeTableID TableID;
+    unsigned OpIndex;
+    unsigned TableIndex;
+    if (!hlsl::OP::DecodeOpCode(opcodeVal, TableID, OpIndex, &TableIndex)) {
       OS << "  ; invalid DXIL opcode #" << opcodeVal;
       return;
     }
@@ -1318,7 +1324,7 @@ public:
     // name/binding
     DXIL::OpCode opcode = (DXIL::OpCode)opcodeVal;
     OS << "  ; " << hlsl::OP::GetOpCodeName(opcode)
-       << OpCodeSignatures[opcodeVal];
+       << OpCodeSignatures[TableIndex][OpIndex];
 
     // Add extra decoding for certain ops
     switch (opcode) {

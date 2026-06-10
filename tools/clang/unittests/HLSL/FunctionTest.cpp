@@ -36,7 +36,7 @@ public:
   TEST_METHOD(AllowedInParamUsesClass)
   TEST_METHOD(ParseRootSignature)
 
-  dxc::DxcDllSupport m_support;
+  dxc::DxCompilerDllLoader m_support;
   std::vector<char> rootSigText;
 
   std::string BuildSampleFunction(const char *StorageClassKeyword) {
@@ -681,6 +681,8 @@ TEST_F(FunctionTest, ParseRootSignature) {
   // MaxAnisotropy
   TestHLSLRootSignatureCase("StaticSampler(s2, maxAnisotropy=2)", S_OK);
   // Comparison function
+  TestHLSLRootSignatureCase(
+      "StaticSampler(ComparisonFunc = COMPARISON_NONE, s2)", S_OK);
   TestHLSLRootSignatureCase(
       "StaticSampler(ComparisonFunc = COMPARISON_NEVER, s2)", S_OK);
   TestHLSLRootSignatureCase(

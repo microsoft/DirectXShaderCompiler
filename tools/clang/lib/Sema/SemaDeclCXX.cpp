@@ -6956,6 +6956,14 @@ static void extendRight(SourceRange &R, const SourceRange &After) {
 /// well-formed type for the conversion operator.
 void Sema::CheckConversionDeclarator(Declarator &D, QualType &R,
                                      StorageClass& SC) {
+  // HLSL Change Starts
+  if (getLangOpts().HLSL) {
+    Diag(D.getIdentifierLoc(), diag::err_hlsl_unsupported_conversion_operator);
+    D.setInvalidType();
+    return;
+  }
+  // HLSL Change Ends
+
   // C++ [class.conv.fct]p1:
   //   Neither parameter types nor return type can be specified. The
   //   type of a conversion function (8.3.5) is "function taking no

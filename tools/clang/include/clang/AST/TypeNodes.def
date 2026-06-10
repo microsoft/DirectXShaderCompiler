@@ -92,6 +92,10 @@ TYPE(Record, TagType)
 TYPE(Enum, TagType)
 NON_CANONICAL_TYPE(Elaborated, Type)
 NON_CANONICAL_TYPE(Attributed, Type)
+// HLSL Change Start
+TYPE(AttributedLinAlgMatrix, Type)
+DEPENDENT_TYPE(DependentAttributedLinAlgMatrix, Type)
+// HLSL Change End
 DEPENDENT_TYPE(TemplateTypeParm, Type)
 NON_CANONICAL_TYPE(SubstTemplateTypeParm, Type)
 DEPENDENT_TYPE(SubstTemplateTypeParmPack, Type)

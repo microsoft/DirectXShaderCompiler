@@ -1,3 +1,4 @@
+// REQUIRES: dxil-1-9
 // RUN: %dxc -HV 2018 -T lib_6_9 -DTYPE=float -DNUM=2 %s | FileCheck %s --check-prefixes=CHECK,NODBL
 // RUN: %dxc -HV 2018 -T lib_6_9 -DTYPE=float -DNUM=3 %s | FileCheck %s --check-prefixes=CHECK,NODBL
 // RUN: %dxc -HV 2018 -T lib_6_9 -DTYPE=float -DNUM=4 %s | FileCheck %s --check-prefixes=CHECK,NODBL
@@ -47,24 +48,6 @@ struct Interface {
   vector<TYPE, NUM> indexed[10];
   TYPE scales[10];
 };
-
-#if 0
-// Requires vector loading support. Enable when available.
-RWStructuredBuffer<Interface> Input;
-RWStructuredBuffer<Interface> Output;
-
-TYPE g_val;
-
-[shader("compute")]
-[numthreads(8,1,1)]
-void main(uint GI : SV_GroupIndex) {
-  assignments(Output[GI].assigned, Input[GI].scales);
-  Output[GI].arithmeticked = arithmetic(Input[GI].arithmeticked);
-  Output[GI].scarithmeticked = scarithmetic(Input[GI].scarithmeticked, Input[GI].scales);
-  Output[GI].logicked = logic(Input[GI].logicked, Input[GI].assigned);
-  Output[GI].indexed = index(Input[GI].indexed, GI, g_val);
-}
-#endif
 
 // A mixed-type overload to test overload resolution and mingle different vector element types in ops
 // Test assignment operators.

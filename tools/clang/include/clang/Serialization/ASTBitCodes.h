@@ -687,73 +687,73 @@ namespace clang {
     /// by the AST context when it is created.
     enum PredefinedTypeIDs {
       /// \brief The NULL type.
-      PREDEF_TYPE_NULL_ID       = 0,
+      PREDEF_TYPE_NULL_ID = 0,
       /// \brief The void type.
-      PREDEF_TYPE_VOID_ID       = 1,
+      PREDEF_TYPE_VOID_ID = 1,
       /// \brief The 'bool' or '_Bool' type.
-      PREDEF_TYPE_BOOL_ID       = 2,
+      PREDEF_TYPE_BOOL_ID = 2,
       /// \brief The 'char' type, when it is unsigned.
-      PREDEF_TYPE_CHAR_U_ID     = 3,
+      PREDEF_TYPE_CHAR_U_ID = 3,
       /// \brief The 'unsigned char' type.
-      PREDEF_TYPE_UCHAR_ID      = 4,
+      PREDEF_TYPE_UCHAR_ID = 4,
       /// \brief The 'unsigned short' type.
-      PREDEF_TYPE_USHORT_ID     = 5,
+      PREDEF_TYPE_USHORT_ID = 5,
       /// \brief The 'unsigned int' type.
-      PREDEF_TYPE_UINT_ID       = 6,
+      PREDEF_TYPE_UINT_ID = 6,
       /// \brief The 'unsigned long' type.
-      PREDEF_TYPE_ULONG_ID      = 7,
+      PREDEF_TYPE_ULONG_ID = 7,
       /// \brief The 'unsigned long long' type.
-      PREDEF_TYPE_ULONGLONG_ID  = 8,
+      PREDEF_TYPE_ULONGLONG_ID = 8,
       /// \brief The 'char' type, when it is signed.
-      PREDEF_TYPE_CHAR_S_ID     = 9,
+      PREDEF_TYPE_CHAR_S_ID = 9,
       /// \brief The 'signed char' type.
-      PREDEF_TYPE_SCHAR_ID      = 10,
+      PREDEF_TYPE_SCHAR_ID = 10,
       /// \brief The C++ 'wchar_t' type.
-      PREDEF_TYPE_WCHAR_ID      = 11,
+      PREDEF_TYPE_WCHAR_ID = 11,
       /// \brief The (signed) 'short' type.
-      PREDEF_TYPE_SHORT_ID      = 12,
+      PREDEF_TYPE_SHORT_ID = 12,
       /// \brief The (signed) 'int' type.
-      PREDEF_TYPE_INT_ID        = 13,
+      PREDEF_TYPE_INT_ID = 13,
       /// \brief The (signed) 'long' type.
-      PREDEF_TYPE_LONG_ID       = 14,
+      PREDEF_TYPE_LONG_ID = 14,
       /// \brief The (signed) 'long long' type.
-      PREDEF_TYPE_LONGLONG_ID   = 15,
+      PREDEF_TYPE_LONGLONG_ID = 15,
       /// \brief The 'float' type.
-      PREDEF_TYPE_FLOAT_ID      = 16,
+      PREDEF_TYPE_FLOAT_ID = 16,
       /// \brief The 'double' type.
-      PREDEF_TYPE_DOUBLE_ID     = 17,
+      PREDEF_TYPE_DOUBLE_ID = 17,
       /// \brief The 'long double' type.
       PREDEF_TYPE_LONGDOUBLE_ID = 18,
       /// \brief The placeholder type for overloaded function sets.
-      PREDEF_TYPE_OVERLOAD_ID   = 19,
+      PREDEF_TYPE_OVERLOAD_ID = 19,
       /// \brief The placeholder type for dependent types.
-      PREDEF_TYPE_DEPENDENT_ID  = 20,
+      PREDEF_TYPE_DEPENDENT_ID = 20,
       /// \brief The '__uint128_t' type.
-      PREDEF_TYPE_UINT128_ID    = 21,
+      PREDEF_TYPE_UINT128_ID = 21,
       /// \brief The '__int128_t' type.
-      PREDEF_TYPE_INT128_ID     = 22,
+      PREDEF_TYPE_INT128_ID = 22,
       /// \brief The type of 'nullptr'.
-      PREDEF_TYPE_NULLPTR_ID    = 23,
+      PREDEF_TYPE_NULLPTR_ID = 23,
       /// \brief The C++ 'char16_t' type.
-      PREDEF_TYPE_CHAR16_ID     = 24,
+      PREDEF_TYPE_CHAR16_ID = 24,
       /// \brief The C++ 'char32_t' type.
-      PREDEF_TYPE_CHAR32_ID     = 25,
+      PREDEF_TYPE_CHAR32_ID = 25,
       /// \brief The ObjC 'id' type.
-      PREDEF_TYPE_OBJC_ID       = 26,
+      PREDEF_TYPE_OBJC_ID = 26,
       /// \brief The ObjC 'Class' type.
-      PREDEF_TYPE_OBJC_CLASS    = 27,
+      PREDEF_TYPE_OBJC_CLASS = 27,
       /// \brief The ObjC 'SEL' type.
-      PREDEF_TYPE_OBJC_SEL      = 28,
+      PREDEF_TYPE_OBJC_SEL = 28,
       /// \brief The 'unknown any' placeholder type.
-      PREDEF_TYPE_UNKNOWN_ANY   = 29,
+      PREDEF_TYPE_UNKNOWN_ANY = 29,
       /// \brief The placeholder type for bound member functions.
-      PREDEF_TYPE_BOUND_MEMBER  = 30,
+      PREDEF_TYPE_BOUND_MEMBER = 30,
       /// \brief The "auto" deduction type.
-      PREDEF_TYPE_AUTO_DEDUCT   = 31,
+      PREDEF_TYPE_AUTO_DEDUCT = 31,
       /// \brief The "auto &&" deduction type.
       PREDEF_TYPE_AUTO_RREF_DEDUCT = 32,
       /// \brief The OpenCL 'half' / ARM NEON __fp16 type.
-      PREDEF_TYPE_HALF_ID       = 33,
+      PREDEF_TYPE_HALF_ID = 33,
       /// \brief ARC's unbridged-cast placeholder type.
       PREDEF_TYPE_ARC_UNBRIDGED_CAST = 34,
       /// \brief The pseudo-object placeholder type.
@@ -763,21 +763,23 @@ namespace clang {
       /// \brief The placeholder type for builtin functions.
       PREDEF_TYPE_BUILTIN_FN = 37,
       /// \brief OpenCL 1d image type.
-      PREDEF_TYPE_IMAGE1D_ID    = 38,
+      PREDEF_TYPE_IMAGE1D_ID = 38,
       /// \brief OpenCL 1d image array type.
       PREDEF_TYPE_IMAGE1D_ARR_ID = 39,
       /// \brief OpenCL 1d image buffer type.
       PREDEF_TYPE_IMAGE1D_BUFF_ID = 40,
       /// \brief OpenCL 2d image type.
-      PREDEF_TYPE_IMAGE2D_ID    = 41,
+      PREDEF_TYPE_IMAGE2D_ID = 41,
       /// \brief OpenCL 2d image array type.
       PREDEF_TYPE_IMAGE2D_ARR_ID = 42,
       /// \brief OpenCL 3d image type.
-      PREDEF_TYPE_IMAGE3D_ID    = 43,
+      PREDEF_TYPE_IMAGE3D_ID = 43,
       /// \brief OpenCL event type.
-      PREDEF_TYPE_EVENT_ID      = 44,
+      PREDEF_TYPE_EVENT_ID = 44,
       /// \brief OpenCL sampler type.
-      PREDEF_TYPE_SAMPLER_ID    = 45
+      PREDEF_TYPE_SAMPLER_ID = 45,
+      /// \brief HLSL LinAlg Matrix type.
+      PREDEF_TYPE_LINALG_MATRIX_ID = 46
     };
 
     /// \brief The number of predefined type IDs that are reserved for
@@ -795,87 +797,89 @@ namespace clang {
     /// AST.
     enum TypeCode {
       /// \brief An ExtQualType record.
-      TYPE_EXT_QUAL                 = 1,
+      TYPE_EXT_QUAL = 1,
       /// \brief A ComplexType record.
-      TYPE_COMPLEX                  = 3,
+      TYPE_COMPLEX = 3,
       /// \brief A PointerType record.
-      TYPE_POINTER                  = 4,
+      TYPE_POINTER = 4,
       /// \brief A BlockPointerType record.
-      TYPE_BLOCK_POINTER            = 5,
+      TYPE_BLOCK_POINTER = 5,
       /// \brief An LValueReferenceType record.
-      TYPE_LVALUE_REFERENCE         = 6,
+      TYPE_LVALUE_REFERENCE = 6,
       /// \brief An RValueReferenceType record.
-      TYPE_RVALUE_REFERENCE         = 7,
+      TYPE_RVALUE_REFERENCE = 7,
       /// \brief A MemberPointerType record.
-      TYPE_MEMBER_POINTER           = 8,
+      TYPE_MEMBER_POINTER = 8,
       /// \brief A ConstantArrayType record.
-      TYPE_CONSTANT_ARRAY           = 9,
+      TYPE_CONSTANT_ARRAY = 9,
       /// \brief An IncompleteArrayType record.
-      TYPE_INCOMPLETE_ARRAY         = 10,
+      TYPE_INCOMPLETE_ARRAY = 10,
       /// \brief A VariableArrayType record.
-      TYPE_VARIABLE_ARRAY           = 11,
+      TYPE_VARIABLE_ARRAY = 11,
       /// \brief A VectorType record.
-      TYPE_VECTOR                   = 12,
+      TYPE_VECTOR = 12,
       /// \brief An ExtVectorType record.
-      TYPE_EXT_VECTOR               = 13,
+      TYPE_EXT_VECTOR = 13,
       /// \brief A FunctionNoProtoType record.
-      TYPE_FUNCTION_NO_PROTO        = 14,
+      TYPE_FUNCTION_NO_PROTO = 14,
       /// \brief A FunctionProtoType record.
-      TYPE_FUNCTION_PROTO           = 15,
+      TYPE_FUNCTION_PROTO = 15,
       /// \brief A TypedefType record.
-      TYPE_TYPEDEF                  = 16,
+      TYPE_TYPEDEF = 16,
       /// \brief A TypeOfExprType record.
-      TYPE_TYPEOF_EXPR              = 17,
+      TYPE_TYPEOF_EXPR = 17,
       /// \brief A TypeOfType record.
-      TYPE_TYPEOF                   = 18,
+      TYPE_TYPEOF = 18,
       /// \brief A RecordType record.
-      TYPE_RECORD                   = 19,
+      TYPE_RECORD = 19,
       /// \brief An EnumType record.
-      TYPE_ENUM                     = 20,
+      TYPE_ENUM = 20,
       /// \brief An ObjCInterfaceType record.
-      TYPE_OBJC_INTERFACE           = 21,
+      TYPE_OBJC_INTERFACE = 21,
       /// \brief An ObjCObjectPointerType record.
-      TYPE_OBJC_OBJECT_POINTER      = 22,
+      TYPE_OBJC_OBJECT_POINTER = 22,
       /// \brief a DecltypeType record.
-      TYPE_DECLTYPE                 = 23,
+      TYPE_DECLTYPE = 23,
       /// \brief An ElaboratedType record.
-      TYPE_ELABORATED               = 24,
+      TYPE_ELABORATED = 24,
       /// \brief A SubstTemplateTypeParmType record.
       TYPE_SUBST_TEMPLATE_TYPE_PARM = 25,
       /// \brief An UnresolvedUsingType record.
-      TYPE_UNRESOLVED_USING         = 26,
+      TYPE_UNRESOLVED_USING = 26,
       /// \brief An InjectedClassNameType record.
-      TYPE_INJECTED_CLASS_NAME      = 27,
+      TYPE_INJECTED_CLASS_NAME = 27,
       /// \brief An ObjCObjectType record.
-      TYPE_OBJC_OBJECT              = 28,
+      TYPE_OBJC_OBJECT = 28,
       /// \brief An TemplateTypeParmType record.
-      TYPE_TEMPLATE_TYPE_PARM       = 29,
+      TYPE_TEMPLATE_TYPE_PARM = 29,
       /// \brief An TemplateSpecializationType record.
-      TYPE_TEMPLATE_SPECIALIZATION  = 30,
+      TYPE_TEMPLATE_SPECIALIZATION = 30,
       /// \brief A DependentNameType record.
-      TYPE_DEPENDENT_NAME           = 31,
+      TYPE_DEPENDENT_NAME = 31,
       /// \brief A DependentTemplateSpecializationType record.
       TYPE_DEPENDENT_TEMPLATE_SPECIALIZATION = 32,
       /// \brief A DependentSizedArrayType record.
-      TYPE_DEPENDENT_SIZED_ARRAY    = 33,
+      TYPE_DEPENDENT_SIZED_ARRAY = 33,
       /// \brief A ParenType record.
-      TYPE_PAREN                    = 34,
+      TYPE_PAREN = 34,
       /// \brief A PackExpansionType record.
-      TYPE_PACK_EXPANSION           = 35,
+      TYPE_PACK_EXPANSION = 35,
       /// \brief An AttributedType record.
-      TYPE_ATTRIBUTED               = 36,
+      TYPE_ATTRIBUTED = 36,
       /// \brief A SubstTemplateTypeParmPackType record.
       TYPE_SUBST_TEMPLATE_TYPE_PARM_PACK = 37,
       /// \brief A AutoType record.
-      TYPE_AUTO                  = 38,
+      TYPE_AUTO = 38,
       /// \brief A UnaryTransformType record.
-      TYPE_UNARY_TRANSFORM       = 39,
+      TYPE_UNARY_TRANSFORM = 39,
       /// \brief An AtomicType record.
-      TYPE_ATOMIC                = 40,
+      TYPE_ATOMIC = 40,
       /// \brief A DecayedType record.
-      TYPE_DECAYED               = 41,
+      TYPE_DECAYED = 41,
       /// \brief An AdjustedType record.
-      TYPE_ADJUSTED              = 42
+      TYPE_ADJUSTED = 42,
+      /// \brief An AttributedLinAlgMatrixType record.
+      TYPE_ATTRIBUTED_LINALG_MATRIX = 43
     };
 
     /// \brief The type IDs for special types constructed by semantic

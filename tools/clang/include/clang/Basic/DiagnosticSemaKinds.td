@@ -1303,6 +1303,10 @@ def err_not_integral_type_bitfield : Error<
   "bit-field %0 has non-integral type %1">;
 def err_not_integral_type_anon_bitfield : Error<
   "anonymous bit-field has non-integral type %0">;
+def err_spirv_boolean_bitfield_in_type
+    : Error<"type %0 contains a boolean bitfield which is not supported for "
+            "variables that are not externally visible when "
+            "targeting SPIR-V">;
 def err_member_function_initialization : Error<
   "initializer on function does not look like a pure-specifier">;
 def err_non_virtual_pure : Error<
@@ -1592,6 +1596,14 @@ def warn_hlsl_sometimes_uninit_out_param : Warning<
   "switch %3 is taken|"
   "its declaration is reached|"
   "%3 is called}2">,
+  InGroup<HLSLParameterUsage>;
+def warn_hlsl_groupshared_202x
+    : Warning<"Support for groupshared parameter annotation not added until "
+              "HLSL 202x">,
+      InGroup<HLSLGroupshared202x>;
+def warn_hlsl_groupshared_inout: Warning<
+  "Passing groupshared variable to a parameter annotated with inout. See "
+  "'groupshared' parameter annotation added in 202x.">,
   InGroup<HLSLParameterUsage>;
 // HLSL Change End - Add warning for uninitialized out param
 def warn_maybe_uninit_var : Warning<
@@ -6356,9 +6368,11 @@ def warn_side_effects_unevaluated_context : Warning<
 def warn_side_effects_typeid : Warning<
   "expression with side effects will be evaluated despite being used as an "
   "operand to 'typeid'">, InGroup<PotentiallyEvaluatedExpression>;
-def warn_unused_result : Warning<
-  "ignoring return value of function declared with warn_unused_result "
-  "attribute">, InGroup<DiagGroup<"unused-result">>;
+// HLSL Change Begin - allow attribute spelling to come in.
+def warn_unused_result
+    : Warning<"ignoring return value of function declared with %0 attribute">,
+      InGroup<DiagGroup<"unused-result">>;
+// HLSL Change End
 def warn_unused_volatile : Warning<
   "expression result unused; assign into a variable to force a volatile load">,
   InGroup<DiagGroup<"unused-volatile-lvalue">>;
@@ -7539,6 +7553,8 @@ def err_hlsl_matrix_member_zero_in_one_based: Error<
   "the digit '0' is used in '%0', but the syntax is for one-based rows and columns">;
 def err_hlsl_overloading_operator_disallowed: Error<
   "overloading %select{|non-member }1%0 is not allowed">;
+def err_hlsl_unsupported_conversion_operator: Error<
+  "conversion operator overloading is not allowed">;
 def err_hlsl_vector_member_bad_format: Error<
   "invalid format for vector swizzle '%0'">;
 def err_hlsl_vector_member_empty: Error<
@@ -7555,8 +7571,6 @@ def err_hlsl_missing_type_specifier : Error< // Patterened after err_missing_typ
   "HLSL requires a type specifier for all declarations">;
 def err_hlsl_multiple_concrete_bases : Error<
   "multiple concrete base types specified">;
-def err_hlsl_objectintemplateargument : Error<
-  "%0 is an object and cannot be used as a type parameter">;
 def err_hlsl_packoffset_requires_cbuffer : Error<
   "packoffset is only allowed in a constant buffer">;
 def warn_hlsl_packoffset_mix : Warning<
@@ -7643,7 +7657,7 @@ def err_payload_requires_inout : Error<
 def err_attributes_requiers_in : Error<
   "intersection attributes parameter %0 must be 'in'">;
 def err_payload_attrs_must_be_udt : Error<
-  "%select{payload|attributes|callable}0 parameter %1 must be a user-defined type composed of only numeric types">;
+  "%select{payload|attributes|callable}0 %select{parameter %2|type}1 must be a user-defined type composed of only numeric types">;
 def err_shader_must_return_void : Error<
   "return type for '%0' shaders must be void">;
 def err_raytracing_entry_param_count : Error<
@@ -7703,8 +7717,10 @@ def err_hlsl_varmodifierna : Error<
   "%0 is not a valid modifier for a %1">;
 def err_hlsl_varmodifierna_decltype : Error<
   "%0 is not a valid modifier for a declaration of type %1">;
-def note_hlsl_globallycoherent_applies_to : Note<
-  "'globallycoherent' can only be applied to UAV or RWDispatchNodeInputRecord objects">;
+def note_hlsl_coherence_applies_to : Note<
+  "'%select{reordercoherent|globallycoherent}0' can only be applied to UAV%select{| or RWDispatchNodeInputRecord}0 objects">;
+def warn_hlsl_gc_implies_rc_attribute : Warning<
+  "attribute 'reordercoherent' implied by 'globallycoherent' in %0. 'reordercoherent' ignored.">;
 def err_hlsl_varmodifiersna : Error<
   "%0 and %1 cannot be used together for a %2">;
 def err_hlsl_vla : Error< // Patterened after err_opencl_vla
@@ -7753,9 +7769,17 @@ def warn_hlsl_semantic_attribute_position_misuse_hint: Warning<
 def warn_hlsl_unary_negate_unsigned : Warning<
   "unary negate of unsigned value is still unsigned">,
   InGroup<Conversion>, DefaultWarn;
-def warn_hlsl_impcast_glc_mismatch : Warning<
-  "implicit conversion from %0 to %1 %select{loses|adds}2 globallycoherent annotation">,
-  InGroup<Conversion>, DefaultWarn;
+def warn_hlsl_impcast_coherence_mismatch : Warning<
+  "implicit conversion from %0 to %1 %select{"
+  "demotes globallycoherent to reordercoherent|"
+  "promotes reordercoherent to globallycoherent|"
+  "loses reordercoherent|"
+  "loses globallycoherent|"
+  "adds reordercoherent|"
+  "adds globallycoherent}2 annotation">,
+  InGroup<Conversion>;
+def warn_hlsl_glc_implies_rdc : Warning<
+  "attribute 'globallycoherent' implies 'reordercoherent'">, InGroup<IgnoredAttributes>;
 def warn_hlsl_narrowing : Warning<
   "conversion from larger type %0 to smaller type %1, possible loss of data">,
   InGroup<Conversion>, DefaultWarn;
@@ -7838,7 +7862,7 @@ def warn_hlsl_intrinsic_in_wrong_shader_model : Warning<
    "intrinsic %0 potentially used by '%1' requires shader model %2 or greater">,
     DefaultError, InGroup<HLSLAvailability>;
 def warn_hlsl_intrinsic_overload_in_wrong_shader_model : Warning<
-   "overload of intrinsic %0 requires shader model %1 or greater">, 
+   "overload of intrinsic %0 requires shader model %1 or greater">,
     DefaultError, InGroup<HLSLAvailability>;
 def err_hlsl_intrinsic_template_arg_unsupported: Error<
    "Explicit template arguments on intrinsic %0 are not supported">;
@@ -7872,7 +7896,16 @@ def err_hlsl_unsupported_long_vector
     "cbuffers or tbuffers|user-defined struct parameter|"
     "entry function parameters|entry function return type|"
     "patch constant function parameters|patch constant function return type|"
-    "payload parameters}0 are not supported">;
+    "payload parameters|attributes}0 are not supported">;
+// First %select options must match err_hlsl_unsupported_long_vector (same index used)
+def err_hlsl_unsupported_object_context
+    : Error<"object %0 is not allowed in "
+    "%select{ConstantBuffers or TextureBuffers|"
+    "tessellation patches|geometry streams|node records|"
+    "cbuffers or tbuffers|user-defined struct parameter|"
+    "entry function parameters|entry function return type|"
+    "patch constant function parameters|patch constant function return type|"
+    "payload parameters|attributes|builtin template parameters|structured buffers|global variables|groupshared variables}1">;
 def err_hlsl_logical_binop_scalar : Error<
    "operands for short-circuiting logical binary operator must be scalar, for non-scalar types use '%select{and|or}0'">;
 def err_hlsl_ternary_scalar : Error<
@@ -7957,8 +7990,6 @@ def err_hlsl_too_many_node_inputs : Error<
    "Node shader '%0' may not have more than one input record">;
 def err_hlsl_node_record_type : Error<
    "%0 is not valid as a node record type - struct/class required">;
-def err_hlsl_node_record_object : Error<
-   "object %0 may not appear in a node record">;
 def err_hlsl_array_disallowed : Error<
    "%select{entry parameter|declaration}1 of type %0 may not be an array">;
 def err_hlsl_inputpatch_size: Error<
@@ -7973,7 +8004,7 @@ def err_hlsl_barrier_invalid_memory_flags: Error<
   "UAV_MEMORY, GROUP_SHARED_MEMORY, NODE_INPUT_MEMORY, NODE_OUTPUT_MEMORY flags">;
 def err_hlsl_barrier_invalid_semantic_flags: Error<
   "invalid SemanticFlags for Barrier operation; expected 0 or some combination of "
-  "GROUP_SYNC, GROUP_SCOPE, DEVICE_SCOPE flags">;
+  "GROUP_SYNC, GROUP_SCOPE, DEVICE_SCOPE%select{|, REORDER_SCOPE}0 flags">;
 def warn_hlsl_barrier_group_memory_requires_group: Warning<
   "GROUP_SHARED_MEMORY specified for Barrier operation when context has no visible group">,
   InGroup<HLSLBarrier>, DefaultError;
@@ -8000,10 +8031,58 @@ def err_hlsl_reorder_unsupported_stage : Error<
    "dx::MaybeReorderThread is unavailable in shader stage '%0' (requires 'raygeneration')">;
 def err_hlsl_hitobject_unsupported_stage : Error<
    "dx::HitObject is unavailable in shader stage '%0' (requires 'raygeneration', 'closesthit' or 'miss')">;
+
+// Linear Algebra Operations
+def err_hlsl_linalg_isunsigned_incorrect_for_given_type : Error<
+  "%0 must be %select{false|true}1 for vector of "
+  "%select{floating point|signed integer|unsigned integer}2 type">;
+def err_hlsl_linalg_interpretation_value_incorrect : Error<
+  "%0 is an invalid %select{memory|register}1 interpretation value">;
+def err_hlsl_linalg_matrix_layout_is_not_transposable : Error<
+  "RowMajor and ColumnMajor matrices are not transposable">;
+def err_hlsl_linalg_optimal_matrix_layout_matrix_stride_must_be_zero : Error<
+  "for optimal matrix layout, matrix stride must be 0">;
+def err_hlsl_linalg_matrix_dim_must_be_greater_than_zero: Error<
+  "matrix dimension must be greater than 0">;
+def err_hlsl_linalg_matrix_layout_invalid : Error<
+  "matrix layout %0 is not valid, must be in the range [%1, %2]">;
+
+// SM 6.10 Linear Algebra Operations
+def err_hlsl_linalg_matrix_attribute_arg_not_int_or_enum
+    : Error<"argument is not an integer%select{| or enumeration}0">;
+def err_hlsl_linalg_matrix_attribute_arg_not_constant_value
+    : Error<"matrix attributes argument %1 is not a constant value">;
+def err_hlsl_linalg_matrix_invalid_enum_attribute_value
+    : Error<"matrix attribute %0 has invalid value %1, must be in the range "
+            "[%2, %3]">;
+def err_hlsl_linalg_matrix_attribute_on_invalid_type
+    : Error<"matrix attributes can only be applied to %0">;
+def err_hlsl_linalg_attributed_matrix_required
+    : Error<"argument must be linear algebra matrix type">;
+
+def err_hlsl_linalg_unsupported_stage : Error<
+   "builtin unavailable in shader stage '%0' (requires 'compute', 'mesh' or 'amplification')">;
+
+def err_hlsl_pointers_unsupported : Error<
+  "%select{pointers|references}0 are unsupported in HLSL">;
+
+def err_hlsl_auto_descriptor_heap : Error<
+  "'auto' cannot deduce the type of '%select{ResourceDescriptorHeap|SamplerDescriptorHeap}0'; "
+  "use a specific resource or sampler type instead">;
+
+def err_hlsl_auto_undeducible_type : Error<
+  "'auto' cannot deduce type %0">;
+
 // HLSL Change Ends
 
 // SPIRV Change Starts
 def err_hlsl_vulkan_specific_feature: Error<"%0 is a Vulkan specific feature">;
+def err_hlsl_vk_pointer_cast_alignment: Error<
+  "Vulkan buffer pointer cannot be cast to greater alignment">;
+def err_hlsl_vk_static_pointer_cast_type: Error<
+  "vk::static_pointer_cast() content type must be base class of argument's content type">;
+def warn_spirv_node_shaders_experimental : Warning<
+  "SPIR-V implementation of node shaders is experimental and subject to change">;
 // SPIRV Change Ends
 
 let CategoryName = "OpenMP Issue" in {

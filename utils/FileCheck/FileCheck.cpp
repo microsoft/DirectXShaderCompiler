@@ -69,6 +69,11 @@ static cl::list<std::string> ImplicitCheckNot(
              "this pattern occur which are not matched by a positive pattern"),
     cl::value_desc("pattern"));
 
+static cl::list<std::string>
+    GlobalDefines("D", cl::AlwaysPrefix,
+                  cl::desc("Define a variable to be used in capture patterns."),
+                  cl::value_desc("VAR=VALUE"));
+
 static cl::opt<bool> AllowEmptyInput(
     "allow-empty", cl::init(false),
     cl::desc("Allow the input file to be empty. This is useful when making\n"
@@ -873,7 +878,7 @@ static bool ReadCheckFile(SourceMgr &SM,
   for (const auto &PatternString : ImplicitCheckNot) {
     // Create a buffer with fake command line content in order to display the
     // command line option responsible for the specific implicit CHECK-NOT.
-    std::string Prefix = std::string("-") + ImplicitCheckNot.ArgStr + "='";
+    std::string Prefix = (Twine("-") + ImplicitCheckNot.ArgStr + "='").str();
     std::string Suffix = "'";
     std::unique_ptr<MemoryBuffer> CmdLine = MemoryBuffer::getMemBufferCopy(
         Prefix + PatternString + Suffix, "command line");
@@ -1358,6 +1363,26 @@ int main(int argc, char **argv) {
 
   /// VariableTable - This holds all the current filecheck variables.
   StringMap<StringRef> VariableTable;
+
+  bool GlobalDefineError = false;
+  for (const auto &G : GlobalDefines) {
+    size_t EqIdx = G.find('=');
+    if (EqIdx == std::string::npos) {
+      errs() << "Missing equal sign in command-line definition '-D" << G
+             << "'\n";
+      GlobalDefineError = true;
+      continue;
+    }
+    if (EqIdx == 0) {
+      errs() << "Missing pattern variable name in command-line definition '-D"
+             << G << "'\n";
+      GlobalDefineError = true;
+      continue;
+    }
+    VariableTable.insert(StringRef(G).split('='));
+  }
+  if (GlobalDefineError)
+    return 2;
 
   bool hasError = false;
 

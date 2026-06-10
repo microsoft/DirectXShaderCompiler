@@ -16,6 +16,7 @@
 #include "clang/SPIRV/SpirvInstruction.h"
 #include "clang/SPIRV/SpirvModule.h"
 
+#include "spirv/unified1/NonSemanticDebugBreak.h"
 #include "spirv/unified1/NonSemanticDebugPrintf.h"
 
 namespace clang {
@@ -239,7 +240,7 @@ public:
   /// \brief Creates an operation with the given OpGroupNonUniform* SPIR-V
   /// opcode.
   SpirvGroupNonUniformOp *createGroupNonUniformOp(
-      spv::Op op, QualType resultType, spv::Scope execScope,
+      spv::Op op, QualType resultType, llvm::Optional<spv::Scope> execScope,
       llvm::ArrayRef<SpirvInstruction *> operands, SourceLocation,
       llvm::Optional<spv::GroupOperation> groupOp = llvm::None);
 
@@ -273,10 +274,28 @@ public:
                                                   SpirvInstruction *sample,
                                                   SourceLocation);
 
+  /// \brief Creates an OpUntypedImageTexelPointerEXT SPIR-V instruction with
+  /// the given parameters.
+  SpirvUntypedImageTexelPointerEXT *createUntypedImageTexelPointerEXT(
+      QualType resultType, SpirvInstruction *image,
+      SpirvInstruction *coordinate, SpirvInstruction *sample, SourceLocation);
+
+  /// \brief Creates an OpConverPtrToU SPIR-V instruction with the given
+  /// parameters.
+  SpirvConvertPtrToU *createConvertPtrToU(SpirvInstruction *ptr, QualType type);
+
+  /// \brief Creates an OpConverUToPtr SPIR-V instruction with the given
+  /// parameters.
+  SpirvConvertUToPtr *createConvertUToPtr(SpirvInstruction *val, QualType type);
+
   /// \brief Creates SPIR-V instructions for sampling the given image.
   ///
   /// If compareVal is given a non-zero value, *Dref* variants of OpImageSample*
   /// will be generated.
+  ///
+  /// If sampler is set, it defines the sampler along *image* to create the
+  /// combined image sampler. Otherwise, the *image* parameter must point to a
+  /// sampled image.
   ///
   /// If lod or grad is given a non-zero value, *ExplicitLod variants of
   /// OpImageSample* will be generated; otherwise, *ImplicitLod variant will
@@ -325,6 +344,10 @@ public:
                         SourceLocation loc, SourceRange range = {});
 
   /// \brief Creates SPIR-V instructions for gathering the given image.
+  ///
+  /// If the of `image` is a sampled image, then that image will be gathered.
+  /// In this case, `sampler` must be `nullptr`. If `image` is not a sampled
+  /// image, a sampled image will be created by combining `image` and `sampler`.
   ///
   /// If compareVal is given a non-null value, OpImageDrefGather or
   /// OpImageSparseDrefGather will be generated; otherwise, OpImageGather or
@@ -425,6 +448,29 @@ public:
   SpirvInstruction *createNonSemanticDebugPrintfExtInst(
       QualType resultType, NonSemanticDebugPrintfInstructions instId,
       llvm::ArrayRef<SpirvInstruction *> operands, SourceLocation);
+
+  /// \brief Creates an OpExtInst instruction for the NonSemantic.DebugBreak
+  /// extension set. Returns the resulting instruction pointer.
+  SpirvInstruction *createNonSemanticDebugBreakExtInst(SourceLocation);
+
+  SpirvInstruction *createIsNodePayloadValid(SpirvInstruction *payloadArray,
+                                             SpirvInstruction *nodeIndex,
+                                             SourceLocation);
+
+  SpirvInstruction *createNodePayloadArrayLength(SpirvInstruction *payloadArray,
+                                                 SourceLocation);
+
+  SpirvInstruction *createAllocateNodePayloads(QualType resultType,
+                                               spv::Scope allocationScope,
+                                               SpirvInstruction *shaderIndex,
+                                               SpirvInstruction *recordCount,
+                                               SourceLocation);
+
+  void createEnqueueOutputNodePayloads(SpirvInstruction *payload,
+                                       SourceLocation);
+
+  SpirvInstruction *createFinishWritingNodePayload(SpirvInstruction *payload,
+                                                   SourceLocation);
 
   /// \brief Creates an OpMemoryBarrier or OpControlBarrier instruction with the
   /// given flags. If execution scope (exec) is provided, an OpControlBarrier
@@ -590,8 +636,7 @@ public:
   /// support a single entry point per module for now.
   inline void addEntryPoint(spv::ExecutionModel em, SpirvFunction *target,
                             llvm::StringRef targetName,
-                            llvm::ArrayRef<SpirvVariable *> interfaces);
-
+                            llvm::ArrayRef<SpirvVariableLike *> interfaces);
   /// \brief Sets the shader model version, source file name, and source file
   /// content. Returns the SpirvString instruction of the file name.
   inline SpirvString *setDebugSource(uint32_t major, uint32_t minor,
@@ -604,8 +649,15 @@ public:
   inline SpirvInstruction *addExecutionMode(SpirvFunction *entryPoint,
                                             spv::ExecutionMode em,
                                             llvm::ArrayRef<uint32_t> params,
-                                            SourceLocation,
-                                            bool useIdParams = false);
+                                            SourceLocation);
+
+  /// \brief Adds an execution mode to the module under construction if it does
+  /// not already exist. Return the newly added instruction or the existing
+  /// instruction, if one already exists.
+  inline SpirvInstruction *
+  addExecutionModeId(SpirvFunction *entryPoint, spv::ExecutionMode em,
+                     llvm::ArrayRef<SpirvInstruction *> params,
+                     SourceLocation loc);
 
   /// \brief Adds an OpModuleProcessed instruction to the module under
   /// construction.
@@ -644,11 +696,35 @@ public:
                bool isPrecise, bool isNointerp, llvm::StringRef name = "",
                llvm::Optional<SpirvInstruction *> init = llvm::None,
                SourceLocation loc = {});
+
+  // Adds a variable to the module.
   SpirvVariable *
   addModuleVar(const SpirvType *valueType, spv::StorageClass storageClass,
                bool isPrecise, bool isNointerp, llvm::StringRef name = "",
                llvm::Optional<SpirvInstruction *> init = llvm::None,
                SourceLocation loc = {});
+
+  // Adds a variable to the module. It will be placed in the variable list
+  // before `pos`.
+  SpirvVariable *
+  addModuleVar(const SpirvType *valueType, spv::StorageClass storageClass,
+               bool isPrecise, bool isNointerp, SpirvInstruction *before,
+               llvm::StringRef name = "",
+               llvm::Optional<SpirvInstruction *> init = llvm::None,
+               SourceLocation loc = {});
+
+  /// \brief Adds an untyped module variable.
+  SpirvUntypedVariableKHR *
+  createUntypedVariableKHR(const SpirvType *valueType,
+                           spv::StorageClass storageClass, llvm::StringRef name,
+                           SourceLocation loc = {});
+
+  /// \brief Creates an OpUntypedAccessChainKHR instruction.
+  SpirvUntypedAccessChainKHR *
+  createUntypedAccessChainKHR(const SpirvType *resultType,
+                              const SpirvType *baseType, SpirvInstruction *base,
+                              llvm::ArrayRef<SpirvInstruction *> indexes,
+                              SourceLocation loc);
 
   /// \brief Decorates the given target with the given location.
   void decorateLocation(SpirvInstruction *target, uint32_t location);
@@ -748,6 +824,7 @@ public:
                        llvm::ArrayRef<SpirvConstant *> constituents,
                        bool specConst = false);
   SpirvConstant *getConstantNull(QualType);
+  SpirvConstant *getConstantString(llvm::StringRef str, bool specConst = false);
   SpirvUndef *getUndef(QualType);
 
   SpirvString *createString(llvm::StringRef str);
@@ -915,13 +992,12 @@ void SpirvBuilder::setMemoryModel(spv::AddressingModel addrModel,
   mod->setMemoryModel(new (context) SpirvMemoryModel(addrModel, memModel));
 }
 
-void SpirvBuilder::addEntryPoint(spv::ExecutionModel em, SpirvFunction *target,
-                                 llvm::StringRef targetName,
-                                 llvm::ArrayRef<SpirvVariable *> interfaces) {
+void SpirvBuilder::addEntryPoint(
+    spv::ExecutionModel em, SpirvFunction *target, llvm::StringRef targetName,
+    llvm::ArrayRef<SpirvVariableLike *> interfaces) {
   mod->addEntryPoint(new (context) SpirvEntryPoint(
       target->getSourceLocation(), em, target, targetName, interfaces));
 }
-
 SpirvString *
 SpirvBuilder::setDebugSource(uint32_t major, uint32_t minor,
                              const std::vector<llvm::StringRef> &fileNames,
@@ -952,17 +1028,44 @@ SpirvBuilder::setDebugSource(uint32_t major, uint32_t minor,
 SpirvInstruction *
 SpirvBuilder::addExecutionMode(SpirvFunction *entryPoint, spv::ExecutionMode em,
                                llvm::ArrayRef<uint32_t> params,
-                               SourceLocation loc, bool useIdParams) {
+                               SourceLocation loc) {
   SpirvExecutionMode *mode = nullptr;
-  SpirvExecutionMode *existingInstruction =
+  SpirvExecutionModeBase *existingInstruction =
       mod->findExecutionMode(entryPoint, em);
 
   if (!existingInstruction) {
-    mode = new (context)
-        SpirvExecutionMode(loc, entryPoint, em, params, useIdParams);
+    mode = new (context) SpirvExecutionMode(loc, entryPoint, em, params);
     mod->addExecutionMode(mode);
   } else {
-    mode = existingInstruction;
+    // No execution mode can be used with both OpExecutionMode and
+    // OpExecutionModeId. If this assert is triggered, then either this
+    // `addExecutionModeId` should have been called with `em` or the existing
+    // instruction is wrong.
+    assert(existingInstruction->getKind() ==
+           SpirvInstruction::IK_ExecutionMode);
+    mode = cast<SpirvExecutionMode>(existingInstruction);
+  }
+
+  return mode;
+}
+
+SpirvInstruction *SpirvBuilder::addExecutionModeId(
+    SpirvFunction *entryPoint, spv::ExecutionMode em,
+    llvm::ArrayRef<SpirvInstruction *> params, SourceLocation loc) {
+  SpirvExecutionModeId *mode = nullptr;
+  SpirvExecutionModeBase *existingInstruction =
+      mod->findExecutionMode(entryPoint, em);
+  if (!existingInstruction) {
+    mode = new (context) SpirvExecutionModeId(loc, entryPoint, em, params);
+    mod->addExecutionMode(mode);
+  } else {
+    // No execution mode can be used with both OpExecutionMode and
+    // OpExecutionModeId. If this assert is triggered, then either this
+    // `addExecutionMode` should have been called with `em` or the existing
+    // instruction is wrong.
+    assert(existingInstruction->getKind() ==
+           SpirvInstruction::IK_ExecutionModeId);
+    mode = cast<SpirvExecutionModeId>(existingInstruction);
   }
 
   return mode;

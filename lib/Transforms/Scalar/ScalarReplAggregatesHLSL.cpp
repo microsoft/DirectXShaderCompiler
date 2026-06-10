@@ -129,7 +129,6 @@ private:
   void RewriteMemIntrin(MemIntrinsic *MI, Value *OldV);
   void RewriteCall(CallInst *CI);
   void RewriteBitCast(BitCastInst *BCI);
-  void RewriteCallArg(CallInst *CI, unsigned ArgIdx, bool bIn, bool bOut);
 };
 
 } // namespace
@@ -1478,6 +1477,62 @@ void isSafePHISelectUseForScalarRepl(Instruction *I, uint64_t Offset,
   }
 }
 
+// Returns whether the `OpIdx` argument of HL intrinsic call `CI` is expected to
+// be a user-defined-type.
+static bool isUDTIntrinsicArg(CallInst *CI, unsigned OpIdx) {
+  if (HLOpcodeGroup::HLIntrinsic != GetHLOpcodeGroup(CI->getCalledFunction()))
+    return false;
+  const unsigned NumOps = CI->getNumArgOperands();
+  switch (static_cast<IntrinsicOp>(GetHLOpcode(CI))) {
+  case IntrinsicOp::IOP_TraceRay:
+    if (NumOps == HLOperandIndex::kTraceRay_PreNumOp &&
+        OpIdx == HLOperandIndex::kTraceRayPayloadPreOpIdx)
+      return true;
+    else if (NumOps == HLOperandIndex::kTraceRay_NumOp &&
+             OpIdx == HLOperandIndex::kTraceRayPayloadOpIdx)
+      return true;
+    break;
+  case IntrinsicOp::IOP_ReportHit:
+    if (OpIdx == HLOperandIndex::kReportIntersectionAttributeOpIdx)
+      return true;
+    break;
+  case IntrinsicOp::IOP_CallShader:
+    if (OpIdx == HLOperandIndex::kCallShaderPayloadOpIdx)
+      return true;
+    break;
+  case IntrinsicOp::IOP_TriangleObjectPositions:
+    // Not UDT exactly, but sret parameter that needs the same treatment.
+    if (OpIdx == HLOperandIndex::kIOP_SRetOpIdx)
+      return true;
+    break;
+  case IntrinsicOp::MOP_DxHitObject_FromRayQuery:
+    if (NumOps == HLOperandIndex::kHitObjectFromRayQuery_WithAttrs_NumOp &&
+        OpIdx ==
+            HLOperandIndex::kHitObjectFromRayQuery_WithAttrs_AttributeOpIdx)
+      return true;
+    break;
+  case IntrinsicOp::MOP_DxHitObject_TraceRay:
+    if (NumOps == HLOperandIndex::kHitObjectTraceRay_PreNumOp &&
+        OpIdx == HLOperandIndex::kHitObjectTraceRay_PayloadPreOpIdx)
+      return true;
+    else if (NumOps == HLOperandIndex::kHitObjectTraceRay_NumOp &&
+             OpIdx == HLOperandIndex::kHitObjectTraceRay_PayloadOpIdx)
+      return true;
+    break;
+  case IntrinsicOp::MOP_DxHitObject_Invoke:
+    if (OpIdx == HLOperandIndex::kHitObjectInvoke_PayloadOpIdx)
+      return true;
+    break;
+  case IntrinsicOp::MOP_DxHitObject_GetAttributes:
+    if (OpIdx == HLOperandIndex::kHitObjectGetAttributes_AttributeOpIdx)
+      return true;
+    break;
+  default:
+    break;
+  }
+  return false;
+}
+
 /// isSafeForScalarRepl - Check if instruction I is a safe use with regard to
 /// performing scalar replacement of alloca AI.  The results are flagged in
 /// the Info parameter.  Offset indicates the position within AI that is
@@ -1535,16 +1590,9 @@ void isSafeForScalarRepl(Instruction *I, uint64_t Offset, AllocaInfo &Info) {
       // Most HL functions are safe for scalar repl.
       if (HLOpcodeGroup::NotHL == group)
         return MarkUnsafe(Info, User);
-      else if (HLOpcodeGroup::HLIntrinsic == group) {
-        // TODO: should we check HL parameter type for UDT overload instead of
-        // basing on IOP?
-        IntrinsicOp opcode = static_cast<IntrinsicOp>(GetHLOpcode(CI));
-        if (IntrinsicOp::IOP_TraceRay == opcode ||
-            IntrinsicOp::IOP_ReportHit == opcode ||
-            IntrinsicOp::IOP_CallShader == opcode) {
-          return MarkUnsafe(Info, User);
-        }
-      }
+      else if (HLOpcodeGroup::HLIntrinsic == group &&
+               isUDTIntrinsicArg(CI, U.getOperandNo()))
+        return MarkUnsafe(Info, User);
     } else {
       return MarkUnsafe(Info, User);
     }
@@ -2660,12 +2708,11 @@ void SROA_Helper::RewriteBitCast(BitCastInst *BCI) {
   RewriteForGEP(cast<GEPOperator>(GEP), GEPBuilder);
 }
 
-/// RewriteCallArg - For Functions which don't flat,
-///                  replace OldVal with alloca and
-///                  copy in copy out data between alloca and flattened NewElts
-///                  in CallInst.
-void SROA_Helper::RewriteCallArg(CallInst *CI, unsigned ArgIdx, bool bIn,
-                                 bool bOut) {
+/// memcpyAggCallArg - For an aggregate call argument, this replaces the
+/// argument with an alloca and inserts a memcpy for input (if CopyIn) and
+/// output (if CopyOut).
+static void memcpyAggCallArg(CallInst *CI, unsigned ArgIdx, bool CopyIn,
+                             bool CopyOut) {
   Function *F = CI->getParent()->getParent();
   IRBuilder<> AllocaBuilder(dxilutil::FindAllocaInsertionPt(F));
   const DataLayout &DL = F->getParent()->getDataLayout();
@@ -2675,17 +2722,79 @@ void SROA_Helper::RewriteCallArg(CallInst *CI, unsigned ArgIdx, bool bIn,
   Type *userTyElt = userTy->getElementType();
   Value *Alloca = AllocaBuilder.CreateAlloca(userTyElt);
   IRBuilder<> Builder(CI);
-  if (bIn) {
-    MemCpyInst *cpy = cast<MemCpyInst>(Builder.CreateMemCpy(
-        Alloca, userTyV, DL.getTypeAllocSize(userTyElt), false));
-    RewriteMemIntrin(cpy, cpy->getRawSource());
-  }
+  if (CopyIn)
+    Builder.CreateMemCpy(Alloca, userTyV, DL.getTypeAllocSize(userTyElt),
+                         false);
   CI->setArgOperand(ArgIdx, Alloca);
-  if (bOut) {
+  if (CopyOut) {
     Builder.SetInsertPoint(CI->getNextNode());
-    MemCpyInst *cpy = cast<MemCpyInst>(Builder.CreateMemCpy(
-        userTyV, Alloca, DL.getTypeAllocSize(userTyElt), false));
-    RewriteMemIntrin(cpy, cpy->getRawSource());
+    Builder.CreateMemCpy(userTyV, Alloca, DL.getTypeAllocSize(userTyElt),
+                         false);
+  }
+}
+
+static void copyIntrinsicAggArgs(HLModule &HLM) {
+  // Iterate HLIntrinsic function users
+  // For specific intrinsics, use memcpyAggCallArg on aggregate args
+  // This ensures that the call does not directly use the pointer supplied,
+  // allowing certain arguments to be flattened, and UDT args to be correctly
+  // lowered.
+  for (Function &F : HLM.GetModule()->functions()) {
+    if (F.isIntrinsic() || !F.isDeclaration())
+      continue;
+    if (GetHLOpcodeGroup(&F) != HLOpcodeGroup::HLIntrinsic)
+      continue;
+    // Iterate users
+    for (User *U : F.users()) {
+      if (CallInst *CI = dyn_cast<CallInst>(U)) {
+        switch (static_cast<IntrinsicOp>(GetHLOpcode(CI))) {
+        case IntrinsicOp::IOP_TraceRay:
+          memcpyAggCallArg(CI, HLOperandIndex::kTraceRayRayDescOpIdx,
+                           /*CopyIn*/ true, /*CopyOut*/ false);
+          memcpyAggCallArg(CI, HLOperandIndex::kTraceRayPayloadPreOpIdx,
+                           /*CopyIn*/ true, /*CopyOut*/ true);
+          break;
+        case IntrinsicOp::IOP_ReportHit:
+          memcpyAggCallArg(CI,
+                           HLOperandIndex::kReportIntersectionAttributeOpIdx,
+                           /*CopyIn*/ true, /*CopyOut*/ false);
+          break;
+        case IntrinsicOp::IOP_CallShader:
+          memcpyAggCallArg(CI, HLOperandIndex::kCallShaderPayloadOpIdx,
+                           /*CopyIn*/ true, /*CopyOut*/ true);
+          break;
+        case IntrinsicOp::MOP_TraceRayInline:
+          memcpyAggCallArg(CI, HLOperandIndex::kTraceRayInlineRayDescOpIdx,
+                           /*CopyIn*/ true, /*CopyOut*/ false);
+          break;
+        case IntrinsicOp::MOP_DxHitObject_FromRayQuery:
+          if (CI->getNumArgOperands() ==
+              HLOperandIndex::kHitObjectFromRayQuery_WithAttrs_NumOp)
+            memcpyAggCallArg(
+                CI,
+                HLOperandIndex::kHitObjectFromRayQuery_WithAttrs_AttributeOpIdx,
+                /*CopyIn*/ true, /*CopyOut*/ false);
+          break;
+        case IntrinsicOp::MOP_DxHitObject_MakeMiss:
+          memcpyAggCallArg(CI, HLOperandIndex::kHitObjectMakeMiss_RayDescOpIdx,
+                           /*CopyIn*/ true, /*CopyOut*/ false);
+          break;
+        case IntrinsicOp::MOP_DxHitObject_TraceRay:
+          memcpyAggCallArg(CI, HLOperandIndex::kHitObjectTraceRay_RayDescOpIdx,
+                           /*CopyIn*/ true, /*CopyOut*/ false);
+          memcpyAggCallArg(CI,
+                           HLOperandIndex::kHitObjectTraceRay_PayloadPreOpIdx,
+                           /*CopyIn*/ true, /*CopyOut*/ true);
+          break;
+        case IntrinsicOp::MOP_DxHitObject_Invoke:
+          memcpyAggCallArg(CI, HLOperandIndex::kHitObjectInvoke_PayloadOpIdx,
+                           /*CopyIn*/ true, /*CopyOut*/ true);
+          break;
+        default:
+          break;
+        }
+      }
+    }
   }
 }
 
@@ -2739,13 +2848,26 @@ static CallInst *RewriteWithFlattenedHLIntrinsicCall(CallInst *CI,
 
 /// RewriteCall - Replace OldVal with flattened NewElts in CallInst.
 void SROA_Helper::RewriteCall(CallInst *CI) {
-  HLOpcodeGroup group = GetHLOpcodeGroupByName(CI->getCalledFunction());
-  if (group != HLOpcodeGroup::NotHL) {
+  HLOpcodeGroup Group = GetHLOpcodeGroupByName(CI->getCalledFunction());
+  if (Group != HLOpcodeGroup::NotHL) {
     unsigned opcode = GetHLOpcode(CI);
-    if (group == HLOpcodeGroup::HLIntrinsic) {
+    if (Group == HLOpcodeGroup::HLIntrinsic) {
+      // RayQuery this pointer replacement.
+      if (OldVal->getType()->isPointerTy() &&
+          dxilutil::IsHLSLRayQueryType(
+              OldVal->getType()->getPointerElementType())) {
+        // For RayQuery methods, we want to replace the RayQuery this pointer
+        // with a load and use of the underlying handle value.
+        // This will allow elimination of RayQuery types earlier.
+        RewriteWithFlattenedHLIntrinsicCall(CI, OldVal, NewElts,
+                                            /*loadElts*/ true);
+        DeadInsts.push_back(CI);
+        return;
+      }
+
       IntrinsicOp IOP = static_cast<IntrinsicOp>(opcode);
       switch (IOP) {
-      case IntrinsicOp::MOP_Append: {
+      case IntrinsicOp::MOP_Append:
         // Buffer Append already expand in code gen.
         // Must be OutputStream Append here.
         // Every Elt has a pointer type.
@@ -2753,55 +2875,47 @@ void SROA_Helper::RewriteCall(CallInst *CI) {
         RewriteWithFlattenedHLIntrinsicCall(CI, OldVal, NewElts,
                                             /*loadElts*/ false);
         DeadInsts.push_back(CI);
-      } break;
-      case IntrinsicOp::IOP_TraceRay: {
+        return;
+      case IntrinsicOp::IOP_TraceRay:
         if (OldVal ==
             CI->getArgOperand(HLOperandIndex::kTraceRayRayDescOpIdx)) {
-          RewriteCallArg(CI, HLOperandIndex::kTraceRayRayDescOpIdx,
-                         /*bIn*/ true, /*bOut*/ false);
-        } else {
-          DXASSERT(OldVal ==
-                       CI->getArgOperand(HLOperandIndex::kTraceRayPayLoadOpIdx),
-                   "else invalid TraceRay");
-          RewriteCallArg(CI, HLOperandIndex::kTraceRayPayLoadOpIdx,
-                         /*bIn*/ true, /*bOut*/ true);
+          RewriteWithFlattenedHLIntrinsicCall(CI, OldVal, NewElts,
+                                              /*loadElts*/ true);
+          DeadInsts.push_back(CI);
+          return;
         }
-      } break;
-      case IntrinsicOp::IOP_ReportHit: {
-        RewriteCallArg(CI, HLOperandIndex::kReportIntersectionAttributeOpIdx,
-                       /*bIn*/ true, /*bOut*/ false);
-      } break;
-      case IntrinsicOp::IOP_CallShader: {
-        RewriteCallArg(CI, HLOperandIndex::kCallShaderPayloadOpIdx,
-                       /*bIn*/ true, /*bOut*/ true);
-      } break;
-      case IntrinsicOp::MOP_TraceRayInline: {
+        break;
+      case IntrinsicOp::MOP_DxHitObject_TraceRay:
+        if (OldVal == CI->getArgOperand(
+                          HLOperandIndex::kHitObjectTraceRay_RayDescOpIdx)) {
+          RewriteWithFlattenedHLIntrinsicCall(CI, OldVal, NewElts,
+                                              /*loadElts*/ true);
+          DeadInsts.push_back(CI);
+          return;
+        }
+        break;
+      case IntrinsicOp::MOP_DxHitObject_MakeMiss:
+        if (OldVal == CI->getArgOperand(
+                          HLOperandIndex::kHitObjectMakeMiss_RayDescOpIdx)) {
+          RewriteWithFlattenedHLIntrinsicCall(CI, OldVal, NewElts,
+                                              /*loadElts*/ true);
+          DeadInsts.push_back(CI);
+          return;
+        }
+        break;
+      case IntrinsicOp::MOP_TraceRayInline:
         if (OldVal ==
             CI->getArgOperand(HLOperandIndex::kTraceRayInlineRayDescOpIdx)) {
           RewriteWithFlattenedHLIntrinsicCall(CI, OldVal, NewElts,
                                               /*loadElts*/ true);
           DeadInsts.push_back(CI);
-          break;
+          return;
         }
-      }
-        LLVM_FALLTHROUGH;
+        break;
       default:
-        // RayQuery this pointer replacement.
-        if (OldVal->getType()->isPointerTy() &&
-            CI->getNumArgOperands() >= HLOperandIndex::kHandleOpIdx &&
-            OldVal == CI->getArgOperand(HLOperandIndex::kHandleOpIdx) &&
-            dxilutil::IsHLSLRayQueryType(
-                OldVal->getType()->getPointerElementType())) {
-          // For RayQuery methods, we want to replace the RayQuery this pointer
-          // with a load and use of the underlying handle value.
-          // This will allow elimination of RayQuery types earlier.
-          RewriteWithFlattenedHLIntrinsicCall(CI, OldVal, NewElts,
-                                              /*loadElts*/ true);
-          DeadInsts.push_back(CI);
-          break;
-        }
-        DXASSERT(0, "cannot flatten hlsl intrinsic.");
+        break;
       }
+      DXASSERT(0, "cannot flatten hlsl intrinsic.");
     }
     // TODO: check other high level dx operations if need to.
   } else {
@@ -4381,6 +4495,9 @@ public:
       flatF->takeName(F);
       F->eraseFromParent();
     }
+
+    // Expand flattened copy-in/copy-out for intrinsic UDT args:
+    copyIntrinsicAggArgs(*m_pHLModule);
 
     // SROA globals and allocas.
     SROAGlobalAndAllocas(*m_pHLModule, m_HasDbgInfo);
@@ -6386,8 +6503,57 @@ ModulePass *llvm::createSROA_Parameter_HLSL() {
 //===----------------------------------------------------------------------===//
 
 namespace {
+
+struct GVDebugInfoPatchCache {
+  DenseMap<DILocation *, DISubprogram *> LocToSubprogram;
+  DenseMap<Function *, DISubprogram *> FuncToSubprogram;
+  DITypeIdentifierMap EmptyMap;
+
+  DISubprogram *GetSubprogramForLoc(DILocation *Loc) {
+    auto It = LocToSubprogram.find(Loc);
+    if (It != LocToSubprogram.end())
+      return It->second;
+    DISubprogram *Result = nullptr;
+    auto *Scope = dyn_cast<DIScope>(Loc->getScope());
+    while (Scope) {
+      if (auto SubP = dyn_cast<DISubprogram>(Scope)) {
+        Result = SubP;
+        break;
+      }
+      Scope = Scope->getScope().resolve(EmptyMap);
+    }
+    LocToSubprogram[Loc] = Result;
+    return Result;
+  }
+
+  // Collect DISubprograms from a DILocation's inlined-at chain.
+  void CollectSubprograms(DILocation *Loc, SetVector<DISubprogram *> &Set) {
+    while (Loc) {
+      if (DISubprogram *SP = GetSubprogramForLoc(Loc))
+        Set.insert(SP);
+      Loc = Loc->getInlinedAt();
+    }
+  }
+
+  DISubprogram *GetFuncSubprogram(Function *F, DebugInfoFinder &DbgFinder) {
+    auto It = FuncToSubprogram.find(F);
+    if (It != FuncToSubprogram.end())
+      return It->second;
+    DISubprogram *Result = nullptr;
+    for (DISubprogram *SP : DbgFinder.subprograms()) {
+      if (SP->getFunction() == F) {
+        Result = SP;
+        break;
+      }
+    }
+    FuncToSubprogram[F] = Result;
+    return Result;
+  }
+};
+
 class LowerStaticGlobalIntoAlloca : public ModulePass {
   DebugInfoFinder m_DbgFinder;
+  GVDebugInfoPatchCache m_GVDebugInfoCache;
 
 public:
   static char ID; // Pass identification, replacement for typeid
@@ -6575,28 +6741,15 @@ FindGlobalVariableFragment(const DebugInfoFinder &DbgFinder,
 // Create a fake local variable for the GlobalVariable GV that has just been
 // lowered to local Alloca.
 //
-static void PatchDebugInfo(DebugInfoFinder &DbgFinder, Function *F,
+static void PatchDebugInfo(GVDebugInfoPatchCache &Cache,
+                           DebugInfoFinder &DbgFinder, Function *F,
                            GlobalVariable *GV, AllocaInst *AI) {
-  if (!DbgFinder.compile_unit_count())
-    return;
-
-  // Find the subprogram for function
-  DISubprogram *Subprogram = nullptr;
-  for (DISubprogram *SP : DbgFinder.subprograms()) {
-    if (SP->getFunction() == F) {
-      Subprogram = SP;
-      break;
-    }
-  }
-
   DIGlobalVariable *DGV = dxilutil::FindGlobalVariableDebugInfo(GV, DbgFinder);
   if (!DGV)
     return;
 
-  DITypeIdentifierMap EmptyMap;
-  DIBuilder DIB(*GV->getParent());
-  DIScope *Scope = Subprogram;
-  DebugLoc Loc = DebugLoc::get(DGV->getLine(), 0, Scope);
+  if (!DbgFinder.compile_unit_count())
+    return;
 
   // If the variable is a member of another variable, find the offset and size
   bool IsFragment = false;
@@ -6613,20 +6766,40 @@ static void PatchDebugInfo(DebugInfoFinder &DbgFinder, Function *F,
   // Subprogram as its scope, so we don't have to make one up for it.
   llvm::dwarf::Tag Tag = llvm::dwarf::Tag::DW_TAG_arg_variable;
 
+  DITypeIdentifierMap EmptyMap;
   DIType *Ty = DGV->getType().resolve(EmptyMap);
   DXASSERT(Ty->getTag() != dwarf::DW_TAG_member,
            "Member type is not allowed for variables.");
-  DILocalVariable *ConvertedLocalVar = DIB.createLocalVariable(
-      Tag, Scope, Name, DGV->getFile(), DGV->getLine(), Ty);
 
-  DIExpression *Expr = nullptr;
-  if (IsFragment) {
-    Expr = DIB.createBitPieceExpression(OffsetInBits, SizeInBits);
-  } else {
-    Expr = DIB.createExpression(ArrayRef<int64_t>());
+  DIBuilder DIB(*GV->getParent());
+
+  // Only collect subprograms relevant to this GV to avoid creating
+  // O(subprograms × globals) debug instructions.
+  SetVector<DISubprogram *> Subprograms;
+
+  if (DISubprogram *SP = Cache.GetFuncSubprogram(F, DbgFinder))
+    Subprograms.insert(SP);
+
+  for (User *U : AI->users()) {
+    if (Instruction *I = dyn_cast<Instruction>(U))
+      Cache.CollectSubprograms(I->getDebugLoc(), Subprograms);
   }
 
-  DIB.insertDeclare(AI, ConvertedLocalVar, Expr, Loc, AI->getNextNode());
+  for (DISubprogram *Subprogram : Subprograms) {
+    DIScope *Scope = Subprogram;
+    DebugLoc Loc = DebugLoc::get(DGV->getLine(), 0, Scope);
+
+    DILocalVariable *ConvertedLocalVar = DIB.createLocalVariable(
+        Tag, Scope, Name, DGV->getFile(), DGV->getLine(), Ty);
+
+    DIExpression *Expr = nullptr;
+    if (IsFragment)
+      Expr = DIB.createBitPieceExpression(OffsetInBits, SizeInBits);
+    else
+      Expr = DIB.createExpression(ArrayRef<int64_t>());
+
+    DIB.insertDeclare(AI, ConvertedLocalVar, Expr, Loc, AI->getNextNode());
+  }
 }
 
 // Collect instructions using GV and the value used by the instruction.
@@ -6704,7 +6877,7 @@ bool LowerStaticGlobalIntoAlloca::lowerStaticGlobalIntoAlloca(
     if (AI->user_empty())
       AI->eraseFromParent();
     else
-      PatchDebugInfo(m_DbgFinder, F, GV, AI);
+      PatchDebugInfo(m_GVDebugInfoCache, m_DbgFinder, F, GV, AI);
   }
 
   GV->removeDeadConstantUsers();

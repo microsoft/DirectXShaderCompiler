@@ -33,6 +33,8 @@ uint32_t hlsl::GetPSVVersion(uint32_t ValMajor, uint32_t ValMinor) {
     PSVVersion = 1;
   else if (DXIL::CompareVersions(ValMajor, ValMinor, 1, 8) < 0)
     PSVVersion = 2;
+  else if (DXIL::CompareVersions(ValMajor, ValMinor, 1, 10) < 0)
+    PSVVersion = 3;
   return PSVVersion;
 }
 
@@ -299,6 +301,20 @@ void hlsl::SetShaderProps(PSVRuntimeInfo2 *pInfo2, const DxilModule &DM) {
     pInfo2->NumThreadsX = DM.GetNumThreads(0);
     pInfo2->NumThreadsY = DM.GetNumThreads(1);
     pInfo2->NumThreadsZ = DM.GetNumThreads(2);
+    break;
+  default:
+    break;
+  }
+}
+
+void hlsl::SetShaderProps(PSVRuntimeInfo4 *pInfo4, const DxilModule &DM) {
+  assert(pInfo4);
+  const ShaderModel *SM = DM.GetShaderModel();
+  switch (SM->GetKind()) {
+  case ShaderModel::Kind::Compute:
+  case ShaderModel::Kind::Mesh:
+  case ShaderModel::Kind::Amplification:
+    pInfo4->NumBytesGroupSharedMemory = DM.GetTGSMSizeInBytes();
     break;
   default:
     break;
@@ -584,8 +600,9 @@ void PSVDependencyTable::Print(raw_ostream &OS, const char *InputSetName,
 
 void hlsl::PrintPSVRuntimeInfo(llvm::raw_ostream &OS, PSVRuntimeInfo0 *pInfo0,
                                PSVRuntimeInfo1 *pInfo1, PSVRuntimeInfo2 *pInfo2,
-                               PSVRuntimeInfo3 *pInfo3, uint8_t ShaderKind,
-                               const char *EntryName, const char *Comment) {
+                               PSVRuntimeInfo3 *pInfo3, PSVRuntimeInfo4 *pInfo4,
+                               uint8_t ShaderKind, const char *EntryName,
+                               const char *Comment) {
   if (pInfo1 && pInfo1->ShaderStage != ShaderKind)
     ShaderKind = pInfo1->ShaderStage;
   OS << Comment << "PSVRuntimeInfo:\n";
@@ -808,12 +825,22 @@ void hlsl::PrintPSVRuntimeInfo(llvm::raw_ostream &OS, PSVRuntimeInfo0 *pInfo0,
       OS << Comment << " NumThreads=(" << pInfo2->NumThreadsX << ","
          << pInfo2->NumThreadsY << "," << pInfo2->NumThreadsZ << ")\n";
     }
+    if (pInfo4) {
+      OS << Comment
+         << " NumBytesGroupSharedMemory: " << pInfo4->NumBytesGroupSharedMemory
+         << "\n";
+    }
     break;
   case PSVShaderKind::Amplification:
     OS << Comment << " Amplification Shader\n";
     if (pInfo2) {
       OS << Comment << " NumThreads=(" << pInfo2->NumThreadsX << ","
          << pInfo2->NumThreadsY << "," << pInfo2->NumThreadsZ << ")\n";
+    }
+    if (pInfo4) {
+      OS << Comment
+         << " NumBytesGroupSharedMemory: " << pInfo4->NumBytesGroupSharedMemory
+         << "\n";
     }
     break;
   case PSVShaderKind::Mesh:
@@ -840,6 +867,11 @@ void hlsl::PrintPSVRuntimeInfo(llvm::raw_ostream &OS, PSVRuntimeInfo0 *pInfo0,
     if (pInfo2) {
       OS << Comment << " NumThreads=(" << pInfo2->NumThreadsX << ","
          << pInfo2->NumThreadsY << "," << pInfo2->NumThreadsZ << ")\n";
+    }
+    if (pInfo4) {
+      OS << Comment
+         << " NumBytesGroupSharedMemory: " << pInfo4->NumBytesGroupSharedMemory
+         << "\n";
     }
     break;
   case PSVShaderKind::Library:
@@ -887,9 +919,10 @@ void DxilPipelineStateValidation::PrintPSVRuntimeInfo(
   PSVRuntimeInfo1 *pInfo1 = m_pPSVRuntimeInfo1;
   PSVRuntimeInfo2 *pInfo2 = m_pPSVRuntimeInfo2;
   PSVRuntimeInfo3 *pInfo3 = m_pPSVRuntimeInfo3;
+  PSVRuntimeInfo4 *pInfo4 = m_pPSVRuntimeInfo4;
 
   hlsl::PrintPSVRuntimeInfo(
-      OS, pInfo0, pInfo1, pInfo2, pInfo3, ShaderKind,
+      OS, pInfo0, pInfo1, pInfo2, pInfo3, pInfo4, ShaderKind,
       m_pPSVRuntimeInfo3 ? m_StringTable.Get(pInfo3->EntryFunctionName) : "",
       Comment);
 }

@@ -1,6 +1,8 @@
 // RUN: %dxc -DSTAGE=1 -T cs_6_6 %s | FileCheck %s
 // RUN: %dxc -DSTAGE=2 -T as_6_6 %s | FileCheck %s -check-prefixes=CHECK,ASMSCHECK
 // RUN: %dxc -DSTAGE=3 -T ms_6_6 %s | FileCheck %s -check-prefixes=CHECK,ASMSCHECK
+// RUN: %dxc -DSTAGE=4 -T lib_6_8 %s | FileCheck %s
+// RUN: %dxc -DSTAGE=5 -T lib_6_8 %s | FileCheck %s
 // RUN: %dxilver 1.6 | %dxc -DSTAGE=1 -T cs_6_5 -Wno-hlsl-availability %s | FileCheck %s -check-prefix=ERRCHECK
 // RUN: %dxilver 1.6 | %dxc -DSTAGE=2 -T as_6_5 -Wno-hlsl-availability %s | FileCheck %s -check-prefix=ERRCHECK
 // RUN: %dxilver 1.6 | %dxc -DSTAGE=3 -T ms_6_5 -Wno-hlsl-availability %s | FileCheck %s -check-prefix=ERRCHECK
@@ -8,6 +10,8 @@
 #define CS 1
 #define AS 2
 #define MS 3
+#define BNS 4
+#define CNS 5
 
 // Test 6.6 feature allowing derivative operations in compute shaders
 
@@ -20,13 +24,26 @@ SamplerState samp : register(s5);
 SamplerComparisonState cmpSamp : register(s6);
 float cmpVal;
 
+
+struct NodeRecord {
+   uint w, h;
+};
+
+
 [numthreads( 8, 8, 1 )]
 #if STAGE==MS
 [outputtopology("triangle")]
+#elif STAGE==BNS
+[Shader("node")]
+[NodeLaunch("broadcasting")]
+[NodeDispatchGrid(1, 1, 1)]
+#elif STAGE==CNS
+[Shader("node")]
+[NodeLaunch("coalescing")]
 #endif
-void main( uint GI : SV_GroupIndex, uint3 DTid : SV_DispatchThreadID )
-{
-  float2 uv = DTid.xy/float2(8, 8);
+void main( uint GI : SV_GroupIndex, uint2 GTid : SV_GroupThreadID
+           ) {
+  float2 uv = GTid.xy/float2(8, 8);
   float4 res = 0;
   uint status = 0;
 
@@ -100,8 +117,8 @@ void main( uint GI : SV_GroupIndex, uint3 DTid : SV_DispatchThreadID )
   // ERRCHECK: error: opcode 'Derivatives in CS/MS/AS' should only be used in 'Shader Model 6.6+'
   res += input.SampleCmp(cmpSamp, uv, cmpVal);
   res += input.SampleCmp(cmpSamp, uv, cmpVal, uint2(-3, 4));
-  res += input.SampleCmp(cmpSamp, uv, cmpVal, uint2(-4, 6), DTid.z);
-  res += input.SampleCmp(cmpSamp, uv, cmpVal, uint2(-5, 7), DTid.z, status);
+  res += input.SampleCmp(cmpSamp, uv, cmpVal, uint2(-4, 6), GI);
+  res += input.SampleCmp(cmpSamp, uv, cmpVal, uint2(-5, 7), GI, status);
   res *= status;
 
 #if STAGE == AS

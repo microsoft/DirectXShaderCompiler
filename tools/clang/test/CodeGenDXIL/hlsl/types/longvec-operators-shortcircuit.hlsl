@@ -1,3 +1,4 @@
+// REQUIRES: dxil-1-9
 // RUN: %dxc -HV 2018 -T lib_6_9 %s | FileCheck %s
 // RUN: %dxc -HV 2018 -T lib_6_9 %s | FileCheck %s --check-prefix=NOBR
 

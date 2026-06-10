@@ -23,71 +23,59 @@
 
 namespace llvm {
 
-typedef void *(*MachinePassCtor)();
-
-
 //===----------------------------------------------------------------------===//
 ///
 /// MachinePassRegistryListener - Listener to adds and removals of nodes in
 /// registration list.
 ///
 //===----------------------------------------------------------------------===//
-class MachinePassRegistryListener {
-  virtual void anchor();
+template <class PassCtorTy> class MachinePassRegistryListener {
+  virtual void anchor() {}
+
 public:
   MachinePassRegistryListener() {}
   virtual ~MachinePassRegistryListener() {}
-  virtual void NotifyAdd(const char *N, MachinePassCtor C, const char *D) = 0;
+  virtual void NotifyAdd(const char *N, PassCtorTy C, const char *D) = 0;
   virtual void NotifyRemove(const char *N) = 0;
 };
-
 
 //===----------------------------------------------------------------------===//
 ///
 /// MachinePassRegistryNode - Machine pass node stored in registration list.
 ///
 //===----------------------------------------------------------------------===//
-class MachinePassRegistryNode {
-
+template <typename PassCtorTy> class MachinePassRegistryNode {
 private:
 
   MachinePassRegistryNode *Next;        // Next function pass in list.
   const char *Name;                     // Name of function pass.
   const char *Description;              // Description string.
-  MachinePassCtor Ctor;                 // Function pass creator.
+  PassCtorTy Ctor;                      // Pass creator.
 
 public:
-
-  MachinePassRegistryNode(const char *N, const char *D, MachinePassCtor C)
-  : Next(nullptr)
-  , Name(N)
-  , Description(D)
-  , Ctor(C)
-  {}
+  MachinePassRegistryNode(const char *N, const char *D, PassCtorTy C)
+      : Next(nullptr), Name(N), Description(D), Ctor(C) {}
 
   // Accessors
   MachinePassRegistryNode *getNext()      const { return Next; }
   MachinePassRegistryNode **getNextAddress()    { return &Next; }
   const char *getName()                   const { return Name; }
   const char *getDescription()            const { return Description; }
-  MachinePassCtor getCtor()               const { return Ctor; }
-  void setNext(MachinePassRegistryNode *N)      { Next = N; }
-
+  PassCtorTy getCtor() const { return Ctor; }
+  void setNext(MachinePassRegistryNode *N) { Next = N; }
 };
-
 
 //===----------------------------------------------------------------------===//
 ///
 /// MachinePassRegistry - Track the registration of machine passes.
 ///
 //===----------------------------------------------------------------------===//
-class MachinePassRegistry {
-
+template <typename PassCtorTy> class MachinePassRegistry {
 private:
-
-  MachinePassRegistryNode *List;        // List of registry nodes.
-  MachinePassCtor Default;              // Default function pass creator.
-  MachinePassRegistryListener* Listener;// Listener for list adds are removes.
+  MachinePassRegistryNode<PassCtorTy> *List; // List of registry nodes.
+  PassCtorTy Default;                        // Default function pass creator.
+  MachinePassRegistryListener<PassCtorTy>
+      *Listener; // Listener for list adds are removes.
 
 public:
 
@@ -96,32 +84,59 @@ public:
 
   // Accessors.
   //
-  MachinePassRegistryNode *getList()                    { return List; }
-  MachinePassCtor getDefault()                          { return Default; }
-  void setDefault(MachinePassCtor C)                    { Default = C; }
-  void setDefault(StringRef Name);
-  void setListener(MachinePassRegistryListener *L)      { Listener = L; }
+  MachinePassRegistryNode<PassCtorTy> *getList() { return List; }
+  PassCtorTy getDefault() { return Default; }
+  void setDefault(PassCtorTy C) { Default = C; }
+  /// setDefault - Set the default constructor by name.
+  void setDefault(StringRef Name) {
+    PassCtorTy Ctor = nullptr;
+    for (MachinePassRegistryNode<PassCtorTy> *R = getList(); R;
+         R = R->getNext()) {
+      if (R->getName() == Name) {
+        Ctor = R->getCtor();
+        break;
+      }
+    }
+    assert(Ctor && "Unregistered pass name");
+    setDefault(Ctor);
+  }
+  void setListener(MachinePassRegistryListener<PassCtorTy> *L) { Listener = L; }
 
   /// Add - Adds a function pass to the registration list.
   ///
-  void Add(MachinePassRegistryNode *Node);
+  void Add(MachinePassRegistryNode<PassCtorTy> *Node) {
+    Node->setNext(List);
+    List = Node;
+    if (Listener)
+      Listener->NotifyAdd(Node->getName(), Node->getCtor(),
+                          Node->getDescription());
+  }
 
   /// Remove - Removes a function pass from the registration list.
   ///
-  void Remove(MachinePassRegistryNode *Node);
-
+  void Remove(MachinePassRegistryNode<PassCtorTy> *Node) {
+    for (MachinePassRegistryNode<PassCtorTy> **I = &List; *I;
+         I = (*I)->getNextAddress()) {
+      if (*I == Node) {
+        if (Listener)
+          Listener->NotifyRemove(Node->getName());
+        *I = (*I)->getNext();
+        break;
+      }
+    }
+  }
 };
-
 
 //===----------------------------------------------------------------------===//
 ///
 /// RegisterPassParser class - Handle the addition of new machine passes.
 ///
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
-template<class RegistryClass>
-class RegisterPassParser : public MachinePassRegistryListener,
-                   public cl::parser<typename RegistryClass::FunctionPassCtor> {
+//===----------------------------------------------------------------------===//
+template <class RegistryClass>
+class RegisterPassParser
+    : public MachinePassRegistryListener<
+          typename RegistryClass::FunctionPassCtor>,
+      public cl::parser<typename RegistryClass::FunctionPassCtor> {
 public:
   RegisterPassParser(cl::Option &O)
       : cl::parser<typename RegistryClass::FunctionPassCtor>(O) {}
@@ -144,14 +159,14 @@ public:
 
   // Implement the MachinePassRegistryListener callbacks.
   //
-  void NotifyAdd(const char *N, MachinePassCtor C, const char *D) override {
-    this->addLiteralOption(N, (typename RegistryClass::FunctionPassCtor)C, D);
+  void NotifyAdd(const char *N, typename RegistryClass::FunctionPassCtor C,
+                 const char *D) override {
+    this->addLiteralOption(N, C, D);
   }
   void NotifyRemove(const char *N) override {
     this->removeLiteralOption(N);
   }
 };
-
 
 } // end namespace llvm
 

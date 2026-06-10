@@ -73,13 +73,13 @@ void IFT_Data(HRESULT hr, LPCWSTR data) {
   throw ::hlsl::Exception(hr, errMsg);
 }
 
-void EnsureEnabled(DxcDllSupport &dxcSupport) {
+void EnsureEnabled(DXCLibraryDllLoader &dxcSupport) {
   if (!dxcSupport.IsEnabled()) {
     IFT(dxcSupport.Initialize());
   }
 }
 
-void ReadFileIntoBlob(DxcDllSupport &dxcSupport, LPCWSTR pFileName,
+void ReadFileIntoBlob(DllLoader &dxcSupport, LPCWSTR pFileName,
                       IDxcBlobEncoding **ppBlobEncoding) {
   CComPtr<IDxcLibrary> library;
   IFT(dxcSupport.CreateInstance(CLSID_DxcLibrary, &library));

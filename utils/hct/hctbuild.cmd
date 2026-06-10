@@ -22,7 +22,7 @@ if "%BUILD_ARCH%"=="" (
   set BUILD_ARCH=Win32
 )
 
-set BUILD_GENERATOR=Visual Studio 17 2022
+set BUILD_GENERATOR=Visual Studio 18 2026
 set BUILD_VS_VER=2022
 set BUILD_CONFIG=Debug
 set DO_SETUP=1
@@ -42,11 +42,12 @@ set SPV_TEST=OFF
 set DXILCONV=ON
 set DXC_CMAKE_SYSTEM_VERSION=
 set SHOW_CMAKE_LOG=0
-set WINSDK_MIN_VERSION=10.0.17763.0
+set WINSDK_MIN_VERSION=10.0.26100.0
 set INSTALL_DIR=
 set DEFAULT_EXEC_ADAPTER=-DTAEF_EXEC_ADAPTER=
 set LIT_ARGS=
 set FRESH=
+set NUGET_WARP_EXTRA_ARGS=
 
 :parse_args
 if "%1"=="" (
@@ -135,6 +136,11 @@ if "%1"=="-vs2019" (
   shift /1 & goto :parse_args
 )
 if "%1"=="-vs2022" (
+  set BUILD_GENERATOR=Visual Studio 17 2022
+  set BUILD_VS_VER=2022
+  shift /1 & goto :parse_args
+)
+if "%1"=="-vs2026" (
   shift /1 & goto :parse_args
 )
 if "%1"=="-tblgen" (
@@ -213,7 +219,18 @@ if "%1"=="-fresh" (
   set FRESH="--fresh"
   shift /1 & goto :parse_args
 )
-
+if "%1"=="-nuget-config" (
+  set "NUGET_WARP_EXTRA_ARGS=-Config %~2 %NUGET_WARP_EXTRA_ARGS%"
+  shift /1
+  shift /1
+  goto :parse_args
+)
+if "%1"=="-warp-nuget-version" (
+  set "NUGET_WARP_EXTRA_ARGS=-Version %~2 %NUGET_WARP_EXTRA_ARGS%"
+  shift /1
+  shift /1    
+  goto :parse_args
+)
 
 rem Begin SPIRV change
 if "%1"=="-spirv" (
@@ -353,6 +370,8 @@ set CMAKE_OPTS=%CMAKE_OPTS% -DCLANG_BUILD_EXAMPLES:BOOL=OFF
 set CMAKE_OPTS=%CMAKE_OPTS% -DCLANG_CL:BOOL=OFF
 set CMAKE_OPTS=%CMAKE_OPTS% -DCMAKE_SYSTEM_VERSION=%DXC_CMAKE_SYSTEM_VERSION%
 set CMAKE_OPTS=%CMAKE_OPTS% -DCMAKE_INSTALL_PREFIX=%INSTALL_DIR%
+set "CMAKE_OPTS=%CMAKE_OPTS% -DNUGET_WARP_EXTRA_ARGS="%NUGET_WARP_EXTRA_ARGS%""
+
 
 if "%LIT_ARGS%" NEQ "" (
   set CMAKE_OPTS=%CMAKE_OPTS% -DLLVM_LIT_ARGS="%LIT_ARGS%"
@@ -428,6 +447,7 @@ echo   -no-parallel   disables parallel build
 echo   -no-dxilconv   disables build of DXBC to DXIL converter and tools
 echo   -vs2019        uses Visual Studio 2019 to build
 echo   -vs2022        uses Visual Studio 2022 to build
+echo   -vs2026        uses Visual Studio 2026 to build
 echo.
 echo   -update-generated-sources   Updates generated sources in the source tree
 echo.

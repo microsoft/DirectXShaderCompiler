@@ -16,6 +16,7 @@
 namespace llvm {
 class Constant;
 class Type;
+class Module;
 } // namespace llvm
 
 namespace hlsl {
@@ -47,7 +48,8 @@ struct DxilResourceProperties {
     uint8_t SamplerCmpOrHasCounter : 1;
 
     // BYTE 2
-    uint8_t Reserved2;
+    uint8_t IsReorderCoherent : 1;
+    uint8_t Reserved2 : 7;
 
     // BYTE 3
     uint8_t Reserved3;
@@ -88,6 +90,7 @@ struct DxilInst_AnnotateHandle;
 namespace resource_helper {
 llvm::Constant *getAsConstant(const DxilResourceProperties &, llvm::Type *Ty,
                               const ShaderModel &);
+llvm::Type *GetResourcePropertiesType(llvm::Module &M);
 DxilResourceProperties loadPropsFromConstant(const llvm::Constant &C);
 DxilResourceProperties
 loadPropsFromAnnotateHandle(DxilInst_AnnotateHandle &annotateHandle,

@@ -29,7 +29,7 @@ namespace DXIL {
 const unsigned kDxilMajor = 1;
 /* <py::lines('VALRULE-TEXT')>hctdb_instrhelp.get_dxil_version_minor()</py>*/
 // VALRULE-TEXT:BEGIN
-const unsigned kDxilMinor = 9;
+const unsigned kDxilMinor = 10;
 // VALRULE-TEXT:END
 
 inline unsigned MakeDxilVersion(unsigned DxilMajor, unsigned DxilMinor) {
@@ -154,28 +154,63 @@ const float kMaxMipLodBias = 15.99f;
 const float kMinMipLodBias = -16.0f;
 
 const unsigned kResRetStatusIndex = 4;
+const unsigned kVecResRetStatusIndex = 1;
+
+/* <py::lines('OLOAD_DIMS-TEXT')>hctdb_instrhelp.get_max_oload_dims()</py>*/
+// OLOAD_DIMS-TEXT:BEGIN
+const unsigned kDxilMaxOloadDims = 4;
+// OLOAD_DIMS-TEXT:END
 
 enum class ComponentType : uint32_t {
   Invalid = 0,
-  I1,
-  I16,
-  U16,
-  I32,
-  U32,
-  I64,
-  U64,
-  F16,
-  F32,
-  F64,
-  SNormF16,
-  UNormF16,
-  SNormF32,
-  UNormF32,
-  SNormF64,
-  UNormF64,
-  PackedS8x32,
-  PackedU8x32,
+  I1 = 1,
+  I16 = 2,
+  U16 = 3,
+  I32 = 4,
+  U32 = 5,
+  I64 = 6,
+  U64 = 7,
+  F16 = 8,
+  F32 = 9,
+  F64 = 10,
+  SNormF16 = 11,
+  UNormF16 = 12,
+  SNormF32 = 13,
+  UNormF32 = 14,
+  SNormF64 = 15,
+  UNormF64 = 16,
+  PackedS8x32 = 17,
+  PackedU8x32 = 18,
+
+  // BEGIN NEW FOR SM 6.9
+  I8 = 19,
+  U8 = 20,
+  F8_E4M3FN = 21,
+  F8_E5M2 = 22,
+  // END
+
   LastEntry
+};
+
+enum class MatrixUse : uint32_t {
+  A = 0,
+  B = 1,
+  Accumulator = 2,
+};
+
+enum class MatrixScope : uint32_t {
+  Thread = 0,
+  Wave = 1,
+  ThreadGroup = 2,
+};
+
+enum class LinalgMatrixLayout : uint32_t {
+  RowMajor = 0,
+  ColumnMajor = 1,
+  MulOptimal = 2,
+  MulOptimalTranspose = 3,
+  OuterProductOptimal = 4,
+  OuterProductOptimalTranspose = 5,
 };
 
 // Must match D3D_INTERPOLATION_MODE
@@ -476,56 +511,143 @@ inline bool IsFeedbackTexture(DXIL::ResourceKind ResourceKind) {
          ResourceKind == DXIL::ResourceKind::FeedbackTexture2DArray;
 }
 
+// clang-format off
+// Python lines need to be not formatted.
+/* <py::lines('OPCODETABLE-ENUM')>hctdb_instrhelp.get_enum_decl("OpCodeTableID")</py>*/
+// clang-format on
+// OPCODETABLE-ENUM:BEGIN
+// Enumeration for DXIL opcode tables
+enum class OpCodeTableID : unsigned {
+  CoreOps = 0,             // Core DXIL operations
+  ExperimentalOps = 32768, // Experimental DXIL operations
+};
+// OPCODETABLE-ENUM:END
+
+// clang-format off
+// Python lines need to be not formatted.
+/* <py::lines('EXTOPCODES-ENUM')>hctdb_instrhelp.get_extended_table_opcode_enum_decls()</py>*/
+// clang-format on
+// EXTOPCODES-ENUM:BEGIN
+namespace ExperimentalOps {
+static const OpCodeTableID TableID = OpCodeTableID::ExperimentalOps;
+// Enumeration for ExperimentalOps DXIL operations
+enum class OpCode : unsigned {
+  //
+  ReservedE0 = 32, // reserved
+
+  // Debugging
+  DebugBreak = 33,        // triggers a breakpoint if a debugger is attached
+  IsDebuggerPresent = 34, // returns true if a debugger is attached
+
+  // Group Wave Ops
+  GetGroupWaveCount = 2, // returns the number of waves in the thread group
+  GetGroupWaveIndex = 1, // returns the index of the wave in the thread group
+
+  // Inline Ray Query
+  RayQuery_CandidateClusterID = 4, // returns candidate hit cluster ID
+  RayQuery_CandidateTriangleObjectPosition =
+      8, // returns candidate triangle vertices in object space as <9 x float>
+  RayQuery_CommittedClusterID = 5, // returns committed hit cluster ID
+  RayQuery_CommittedTriangleObjectPosition =
+      9, // returns committed triangle vertices in object space as <9 x float>
+
+  // Linear Algebra Operations
+  LinAlgConvert =
+      30, // Convert vector components from one interpretation to another
+  LinAlgCopyConvertMatrix =
+      13, // Converts and copies the element and use type of the source matrix
+          // to the destination matrix with optional transpose
+  LinAlgFillMatrix = 12, // fills a matrix with a scalar value
+  LinAlgMatVecMul =
+      25, // Multiplies a MxK dimension matrix and a K sized input vector
+  LinAlgMatVecMulAdd = 26, // Multiplies a MxK dimension matrix and a K sized
+                           // input vector then adds a M sized bias vector
+  LinAlgMatrixAccumulate = 24, // accumulate A or B matrix into Accumulator
+                               // matrix following LHS += RHS
+  LinAlgMatrixAccumulateToDescriptor =
+      27, // accumulates a matrix to a RWByteAddressBuffer
+  LinAlgMatrixAccumulateToMemory =
+      28, // accumulates a matrix to groupshared memory
+  LinAlgMatrixGetCoordinate =
+      17, // returns a two element vector containing the column and row of the
+          // matrix that the thread-local index corresponds to
+  LinAlgMatrixGetElement =
+      18, // returns the element of the matrix corresponding to the provided
+          // thread-local index
+  LinAlgMatrixLength =
+      16, // returns the number of elements stored in thread-local storage on
+          // the active thread for the provided matrix
+  LinAlgMatrixLoadFromDescriptor =
+      14, // fills a matrix with data from a [RW]ByteAddressBuffer
+  LinAlgMatrixLoadFromMemory =
+      15, // fills a matrix with data from a groupshared array
+  LinAlgMatrixMultiply =
+      23, // Returns the resulting matrix from multiplying A and B
+  LinAlgMatrixMultiplyAccumulate =
+      11, // Returns the resulting matrix from multiplying A and B and
+          // accumulating into C
+  LinAlgMatrixOuterProduct = 29, // Outer products an M sized vector and a N
+                                 // sized vector producing an MxN matrix
+  LinAlgMatrixQueryAccumulatorLayout =
+      22, // returns comptime 0 when accumulator matrix are A layout, 1 when B
+          // layout
+  LinAlgMatrixSetElement = 19, // sets the element of the matrix corresponding
+                               // to the provided thread-local index
+  LinAlgMatrixStoreToDescriptor =
+      20,                         // stores a matrix to a RWByteAddressBuffer
+  LinAlgMatrixStoreToMemory = 21, // stores a matrix to groupshared memory
+  LinAlgVectorAccumulateToDescriptor =
+      31, // Accumulates given vector to the buffer at the given offset
+
+  // No-op
+  ExperimentalNop = 0, // nop does nothing
+
+  // Raytracing System Values
+  TriangleObjectPosition =
+      7, // returns triangle vertices in object space as <9 x float>
+
+  // Raytracing uint System Values
+  ClusterID = 3, // returns the user-defined ClusterID of the intersected CLAS
+
+  // Shader Execution Reordering
+  HitObject_ClusterID = 6, // returns the cluster ID of this committed hit
+  HitObject_TriangleObjectPosition =
+      10, // returns triangle vertices in object space as <9 x float>
+
+  NumOpCodes = 35, // exclusive last value of enumeration
+};
+} // namespace ExperimentalOps
+static const unsigned NumOpCodeTables = 2;
+// EXTOPCODES-ENUM:END
+
+#define EXP_OPCODE(feature, opcode)                                            \
+  opcode =                                                                     \
+      (((unsigned)feature::TableID << 16) | (unsigned)feature::OpCode::opcode)
+
 // TODO: change opcodes.
 /* <py::lines('OPCODE-ENUM')>hctdb_instrhelp.get_enum_decl("OpCode")</py>*/
 // OPCODE-ENUM:BEGIN
-// Enumeration for operations specified by DXIL
+// Enumeration for CoreOps DXIL operations
 enum class OpCode : unsigned {
   //
-  Reserved0 = 226,   // Reserved
-  Reserved1 = 227,   // Reserved
-  Reserved10 = 236,  // Reserved
-  Reserved11 = 237,  // Reserved
-  Reserved2 = 228,   // Reserved
-  Reserved3 = 229,   // Reserved
-  Reserved4 = 230,   // Reserved
-  Reserved5 = 231,   // Reserved
-  Reserved6 = 232,   // Reserved
-  Reserved7 = 233,   // Reserved
-  Reserved8 = 234,   // Reserved
-  Reserved9 = 235,   // Reserved
+  Reserved0 = 226,   // reserved
+  Reserved1 = 227,   // reserved
+  Reserved10 = 236,  // reserved
+  Reserved11 = 237,  // reserved
+  Reserved2 = 228,   // reserved
+  Reserved3 = 229,   // reserved
+  Reserved4 = 230,   // reserved
+  Reserved5 = 231,   // reserved
+  Reserved6 = 232,   // reserved
+  Reserved7 = 233,   // reserved
+  Reserved8 = 234,   // reserved
+  Reserved9 = 235,   // reserved
   ReservedA0 = 259,  // reserved
   ReservedA1 = 260,  // reserved
   ReservedA2 = 261,  // reserved
-  ReservedB0 = 262,  // reserved
-  ReservedB1 = 263,  // reserved
-  ReservedB10 = 272, // reserved
-  ReservedB11 = 273, // reserved
-  ReservedB12 = 274, // reserved
-  ReservedB13 = 275, // reserved
-  ReservedB14 = 276, // reserved
-  ReservedB15 = 277, // reserved
-  ReservedB16 = 278, // reserved
-  ReservedB17 = 279, // reserved
-  ReservedB18 = 280, // reserved
-  ReservedB19 = 281, // reserved
-  ReservedB2 = 264,  // reserved
-  ReservedB20 = 282, // reserved
-  ReservedB21 = 283, // reserved
-  ReservedB22 = 284, // reserved
-  ReservedB23 = 285, // reserved
-  ReservedB24 = 286, // reserved
-  ReservedB25 = 287, // reserved
-  ReservedB26 = 288, // reserved
-  ReservedB27 = 289, // reserved
   ReservedB28 = 290, // reserved
   ReservedB29 = 291, // reserved
   ReservedB30 = 292, // reserved
-  ReservedB5 = 267,  // reserved
-  ReservedB6 = 268,  // reserved
-  ReservedB7 = 269,  // reserved
-  ReservedB8 = 270,  // reserved
-  ReservedB9 = 271,  // reserved
   ReservedC0 = 293,  // reserved
   ReservedC1 = 294,  // reserved
   ReservedC2 = 295,  // reserved
@@ -536,6 +658,10 @@ enum class OpCode : unsigned {
   ReservedC7 = 300,  // reserved
   ReservedC8 = 301,  // reserved
   ReservedC9 = 302,  // reserved
+  ReservedD0 = 305,  // reserved
+  ReservedD1 = 306,  // reserved
+  ReservedD2 = 307,  // reserved
+  ReservedD3 = 308,  // reserved
 
   // Amplification shader instructions
   DispatchMesh = 173, // Amplification shader intrinsic DispatchMesh
@@ -630,9 +756,10 @@ enum class OpCode : unsigned {
                          // i32, with accumulate to i32
 
   // Dot
-  Dot2 = 54, // Two-dimensional vector dot-product
-  Dot3 = 55, // Three-dimensional vector dot-product
-  Dot4 = 56, // Four-dimensional vector dot-product
+  Dot2 = 54,  // Two-dimensional vector dot-product
+  Dot3 = 55,  // Three-dimensional vector dot-product
+  Dot4 = 56,  // Four-dimensional vector dot-product
+  FDot = 311, // computes the n-dimensional vector dot-product
 
   // Double precision
   LegacyDoubleToFloat = 132,  // legacy fuction to convert double to float
@@ -893,8 +1020,11 @@ enum class OpCode : unsigned {
   GetDimensions = 72,   // gets texture size information
   RawBufferLoad = 139,  // reads from a raw buffer and structured buffer
   RawBufferStore = 140, // writes to a RWByteAddressBuffer or RWStructuredBuffer
-  TextureLoad = 66,     // reads texel data without any filtering or sampling
-  TextureStore = 67,    // reads texel data without any filtering or sampling
+  RawBufferVectorLoad = 303, // reads from a raw buffer and structured buffer
+  RawBufferVectorStore =
+      304,           // writes to a RWByteAddressBuffer or RWStructuredBuffer
+  TextureLoad = 66,  // reads texel data without any filtering or sampling
+  TextureStore = 67, // reads texel data without any filtering or sampling
   TextureStoreSample = 225, // stores texel data at specified sample index
 
   // Sampler Feedback
@@ -908,8 +1038,47 @@ enum class OpCode : unsigned {
                                    // operation with a mipmap-level offset
 
   // Shader Execution Reordering
+  HitObject_Attributes = 289,   // Returns the attributes set for this HitObject
+  HitObject_FromRayQuery = 263, // Creates a new HitObject representing a
+                                // committed hit from a RayQuery
+  HitObject_FromRayQueryWithAttrs =
+      264, // Creates a new HitObject representing a committed hit from a
+           // RayQuery and committed attributes
+  HitObject_GeometryIndex = 281, // Returns the geometry index committed on hit
+  HitObject_HitKind = 285,       // Returns the HitKind of the hit
+  HitObject_InstanceID = 283,    // Returns the instance id committed on hit
+  HitObject_InstanceIndex = 282, // Returns the instance index committed on hit
+  HitObject_Invoke = 267, // Represents the invocation of the CH/MS shader
+                          // represented by the HitObject
+  HitObject_IsHit = 270,  // Returns `true` if the HitObject is a NOP-HitObject
+  HitObject_IsMiss = 269, // Returns `true` if the HitObject represents a miss
+  HitObject_IsNop = 271,  // Returns `true` if the HitObject represents a nop
+  HitObject_LoadLocalRootTableConstant =
+      288, // Returns the root table constant for this HitObject and offset
   HitObject_MakeMiss = 265, // Creates a new HitObject representing a miss
   HitObject_MakeNop = 266,  // Creates an empty nop HitObject
+  HitObject_ObjectRayDirection =
+      278,                          // Returns the ray direction in object space
+  HitObject_ObjectRayOrigin = 277,  // Returns the ray origin in object space
+  HitObject_ObjectToWorld3x4 = 279, // Returns the object to world space
+                                    // transformation matrix in 3x4 form
+  HitObject_PrimitiveIndex =
+      284,                  // Returns the primitive index committed on hit
+  HitObject_RayFlags = 272, // Returns the ray flags set in the HitObject
+  HitObject_RayTCurrent =
+      274,                 // Returns the current T value set in the HitObject
+  HitObject_RayTMin = 273, // Returns the TMin value set in the HitObject
+  HitObject_SetShaderTableIndex =
+      287, // Returns a HitObject with updated shader table index
+  HitObject_ShaderTableIndex =
+      286, // Returns the shader table index set for this HitObject
+  HitObject_TraceRay = 262, // Analogous to TraceRay but without invoking CH/MS
+                            // and returns the intermediate state as a HitObject
+  HitObject_WorldRayDirection = 276, // Returns the ray direction in world space
+  HitObject_WorldRayOrigin = 275,    // Returns the ray origin in world space
+  HitObject_WorldToObject3x4 = 280,  // Returns the world to object space
+                                     // transformation matrix in 3x4 form
+  MaybeReorderThread = 268,          // Reorders the current thread
 
   // Synchronization
   AtomicBinOp = 78,           // performs an atomic operation on two operands
@@ -991,6 +1160,11 @@ enum class OpCode : unsigned {
   Unpack4x8 = 219, // unpacks 4 8-bit signed or unsigned values into int32 or
                    // int16 vector
 
+  // Vector reduce to scalar
+  VectorReduceAnd =
+      309, // Bitwise AND reduction of the vector returning a scalar
+  VectorReduceOr = 310, // Bitwise OR reduction of the vector returning a scalar
+
   // Wave
   WaveActiveAllEqual = 115, // returns 1 if all the lanes have the same value
   WaveActiveBallot = 116, // returns a struct with a bit set for each lane where
@@ -1038,10 +1212,172 @@ enum class OpCode : unsigned {
   NumOpCodes_Dxil_1_6 = 222,
   NumOpCodes_Dxil_1_7 = 226,
   NumOpCodes_Dxil_1_8 = 258,
+  NumOpCodes_Dxil_1_9 = 312,
 
-  NumOpCodes = 303 // exclusive last value of enumeration
+  NumOpCodes = 312,     // exclusive last value of enumeration
+  Invalid = 0xFFFFFFFF, // stable invalid OpCode value
+
+  // OpCodes for extended tables follow.
+
+  // OpCodeTableID = 32768
+  // ExperimentalOps
+  // ExperimentalNop = 0x80000000, 2147483648U, -2147483648
+  EXP_OPCODE(ExperimentalOps, ExperimentalNop), // nop does nothing
+  // GetGroupWaveIndex = 0x80000001, 2147483649U, -2147483647
+  EXP_OPCODE(
+      ExperimentalOps,
+      GetGroupWaveIndex), // returns the index of the wave in the thread group
+  // GetGroupWaveCount = 0x80000002, 2147483650U, -2147483646
+  EXP_OPCODE(
+      ExperimentalOps,
+      GetGroupWaveCount), // returns the number of waves in the thread group
+  // ClusterID = 0x80000003, 2147483651U, -2147483645
+  EXP_OPCODE(
+      ExperimentalOps,
+      ClusterID), // returns the user-defined ClusterID of the intersected CLAS
+  // RayQuery_CandidateClusterID = 0x80000004, 2147483652U, -2147483644
+  EXP_OPCODE(ExperimentalOps,
+             RayQuery_CandidateClusterID), // returns candidate hit cluster ID
+  // RayQuery_CommittedClusterID = 0x80000005, 2147483653U, -2147483643
+  EXP_OPCODE(ExperimentalOps,
+             RayQuery_CommittedClusterID), // returns committed hit cluster ID
+  // HitObject_ClusterID = 0x80000006, 2147483654U, -2147483642
+  EXP_OPCODE(
+      ExperimentalOps,
+      HitObject_ClusterID), // returns the cluster ID of this committed hit
+  // TriangleObjectPosition = 0x80000007, 2147483655U, -2147483641
+  EXP_OPCODE(ExperimentalOps,
+             TriangleObjectPosition), // returns triangle vertices in object
+                                      // space as <9 x float>
+  // RayQuery_CandidateTriangleObjectPosition = 0x80000008, 2147483656U,
+  // -2147483640
+  EXP_OPCODE(
+      ExperimentalOps,
+      RayQuery_CandidateTriangleObjectPosition), // returns candidate triangle
+                                                 // vertices in object space as
+                                                 // <9 x float>
+  // RayQuery_CommittedTriangleObjectPosition = 0x80000009, 2147483657U,
+  // -2147483639
+  EXP_OPCODE(
+      ExperimentalOps,
+      RayQuery_CommittedTriangleObjectPosition), // returns committed triangle
+                                                 // vertices in object space as
+                                                 // <9 x float>
+  // HitObject_TriangleObjectPosition = 0x8000000A, 2147483658U, -2147483638
+  EXP_OPCODE(ExperimentalOps,
+             HitObject_TriangleObjectPosition), // returns triangle vertices in
+                                                // object space as <9 x float>
+  // LinAlgMatrixMultiplyAccumulate = 0x8000000B, 2147483659U, -2147483637
+  EXP_OPCODE(ExperimentalOps,
+             LinAlgMatrixMultiplyAccumulate), // Returns the resulting matrix
+                                              // from multiplying A and B and
+                                              // accumulating into C
+  // LinAlgFillMatrix = 0x8000000C, 2147483660U, -2147483636
+  EXP_OPCODE(ExperimentalOps,
+             LinAlgFillMatrix), // fills a matrix with a scalar value
+  // LinAlgCopyConvertMatrix = 0x8000000D, 2147483661U, -2147483635
+  EXP_OPCODE(
+      ExperimentalOps,
+      LinAlgCopyConvertMatrix), // Converts and copies the element and use type
+                                // of the source matrix to the destination
+                                // matrix with optional transpose
+  // LinAlgMatrixLoadFromDescriptor = 0x8000000E, 2147483662U, -2147483634
+  EXP_OPCODE(ExperimentalOps,
+             LinAlgMatrixLoadFromDescriptor), // fills a matrix with data from a
+                                              // [RW]ByteAddressBuffer
+  // LinAlgMatrixLoadFromMemory = 0x8000000F, 2147483663U, -2147483633
+  EXP_OPCODE(ExperimentalOps,
+             LinAlgMatrixLoadFromMemory), // fills a matrix with data from a
+                                          // groupshared array
+  // LinAlgMatrixLength = 0x80000010, 2147483664U, -2147483632
+  EXP_OPCODE(ExperimentalOps,
+             LinAlgMatrixLength), // returns the number of elements stored in
+                                  // thread-local storage on the active thread
+                                  // for the provided matrix
+  // LinAlgMatrixGetCoordinate = 0x80000011, 2147483665U, -2147483631
+  EXP_OPCODE(
+      ExperimentalOps,
+      LinAlgMatrixGetCoordinate), // returns a two element vector containing the
+                                  // column and row of the matrix that the
+                                  // thread-local index corresponds to
+  // LinAlgMatrixGetElement = 0x80000012, 2147483666U, -2147483630
+  EXP_OPCODE(ExperimentalOps,
+             LinAlgMatrixGetElement), // returns the element of the matrix
+                                      // corresponding to the provided
+                                      // thread-local index
+  // LinAlgMatrixSetElement = 0x80000013, 2147483667U, -2147483629
+  EXP_OPCODE(
+      ExperimentalOps,
+      LinAlgMatrixSetElement), // sets the element of the matrix corresponding
+                               // to the provided thread-local index
+  // LinAlgMatrixStoreToDescriptor = 0x80000014, 2147483668U, -2147483628
+  EXP_OPCODE(ExperimentalOps,
+             LinAlgMatrixStoreToDescriptor), // stores a matrix to a
+                                             // RWByteAddressBuffer
+  // LinAlgMatrixStoreToMemory = 0x80000015, 2147483669U, -2147483627
+  EXP_OPCODE(
+      ExperimentalOps,
+      LinAlgMatrixStoreToMemory), // stores a matrix to groupshared memory
+  // LinAlgMatrixQueryAccumulatorLayout = 0x80000016, 2147483670U, -2147483626
+  EXP_OPCODE(ExperimentalOps,
+             LinAlgMatrixQueryAccumulatorLayout), // returns comptime 0 when
+                                                  // accumulator matrix are A
+                                                  // layout, 1 when B layout
+  // LinAlgMatrixMultiply = 0x80000017, 2147483671U, -2147483625
+  EXP_OPCODE(ExperimentalOps,
+             LinAlgMatrixMultiply), // Returns the resulting matrix from
+                                    // multiplying A and B
+  // LinAlgMatrixAccumulate = 0x80000018, 2147483672U, -2147483624
+  EXP_OPCODE(ExperimentalOps,
+             LinAlgMatrixAccumulate), // accumulate A or B matrix into
+                                      // Accumulator matrix following LHS += RHS
+  // LinAlgMatVecMul = 0x80000019, 2147483673U, -2147483623
+  EXP_OPCODE(ExperimentalOps,
+             LinAlgMatVecMul), // Multiplies a MxK dimension matrix and a K
+                               // sized input vector
+  // LinAlgMatVecMulAdd = 0x8000001A, 2147483674U, -2147483622
+  EXP_OPCODE(
+      ExperimentalOps,
+      LinAlgMatVecMulAdd), // Multiplies a MxK dimension matrix and a K sized
+                           // input vector then adds a M sized bias vector
+  // LinAlgMatrixAccumulateToDescriptor = 0x8000001B, 2147483675U, -2147483621
+  EXP_OPCODE(ExperimentalOps,
+             LinAlgMatrixAccumulateToDescriptor), // accumulates a matrix to a
+                                                  // RWByteAddressBuffer
+  // LinAlgMatrixAccumulateToMemory = 0x8000001C, 2147483676U, -2147483620
+  EXP_OPCODE(ExperimentalOps,
+             LinAlgMatrixAccumulateToMemory), // accumulates a matrix to
+                                              // groupshared memory
+  // LinAlgMatrixOuterProduct = 0x8000001D, 2147483677U, -2147483619
+  EXP_OPCODE(
+      ExperimentalOps,
+      LinAlgMatrixOuterProduct), // Outer products an M sized vector and a N
+                                 // sized vector producing an MxN matrix
+  // LinAlgConvert = 0x8000001E, 2147483678U, -2147483618
+  EXP_OPCODE(ExperimentalOps, LinAlgConvert), // Convert vector components from
+                                              // one interpretation to another
+  // LinAlgVectorAccumulateToDescriptor = 0x8000001F, 2147483679U, -2147483617
+  EXP_OPCODE(
+      ExperimentalOps,
+      LinAlgVectorAccumulateToDescriptor), // Accumulates given vector to the
+                                           // buffer at the given offset
+  // ReservedE0 = 0x80000020, 2147483680U, -2147483616
+  EXP_OPCODE(ExperimentalOps, ReservedE0), // reserved
+  // DebugBreak = 0x80000021, 2147483681U, -2147483615
+  EXP_OPCODE(ExperimentalOps,
+             DebugBreak), // triggers a breakpoint if a debugger is attached
+  // IsDebuggerPresent = 0x80000022, 2147483682U, -2147483614
+  EXP_OPCODE(ExperimentalOps,
+             IsDebuggerPresent), // returns true if a debugger is attached
 };
 // OPCODE-ENUM:END
+#undef EXP_OPCODE
+
+// Create Core namespace for consistency with other opcode groups
+namespace CoreOps {
+static const OpCodeTableID TableID = OpCodeTableID::CoreOps;
+using OpCode = hlsl::DXIL::OpCode;
+} // namespace CoreOps
 
 // clang-format off
   // Python lines need to be not formatted.
@@ -1095,6 +1431,10 @@ enum class OpCodeClass : unsigned {
   IndexNodeHandle,
   createNodeOutputHandle,
 
+  // Debugging
+  DebugBreak,
+  IsDebuggerPresent,
+
   // Derivatives
   CalculateLOD,
   Unary,
@@ -1111,6 +1451,7 @@ enum class OpCodeClass : unsigned {
   Dot4AddPacked,
 
   // Dot
+  Dot,
   Dot2,
   Dot3,
   Dot4,
@@ -1143,6 +1484,10 @@ enum class OpCodeClass : unsigned {
   // Graphics shader
   ViewID,
 
+  // Group Wave Ops
+  GetGroupWaveCount,
+  GetGroupWaveIndex,
+
   // Helper Lanes
   IsHelperLane,
 
@@ -1162,8 +1507,10 @@ enum class OpCodeClass : unsigned {
   AllocateRayQuery,
   AllocateRayQuery2,
   RayQuery_Abort,
+  RayQuery_CandidateTriangleObjectPosition,
   RayQuery_CommitNonOpaqueTriangleHit,
   RayQuery_CommitProceduralPrimitiveHit,
+  RayQuery_CommittedTriangleObjectPosition,
   RayQuery_Proceed,
   RayQuery_StateMatrix,
   RayQuery_StateScalar,
@@ -1180,12 +1527,38 @@ enum class OpCodeClass : unsigned {
   // Library create handle from resource struct (like HL intrinsic)
   CreateHandleForLib,
 
+  // Linear Algebra Operations
+  LinAlgConvert,
+  LinAlgCopyConvertMatrix,
+  LinAlgFillMatrix,
+  LinAlgMatVecMul,
+  LinAlgMatVecMulAdd,
+  LinAlgMatrixAccumulate,
+  LinAlgMatrixAccumulateToDescriptor,
+  LinAlgMatrixAccumulateToMemory,
+  LinAlgMatrixGetCoordinate,
+  LinAlgMatrixGetElement,
+  LinAlgMatrixLength,
+  LinAlgMatrixLoadFromDescriptor,
+  LinAlgMatrixLoadFromMemory,
+  LinAlgMatrixMultiply,
+  LinAlgMatrixMultiplyAccumulate,
+  LinAlgMatrixOuterProduct,
+  LinAlgMatrixQueryAccumulatorLayout,
+  LinAlgMatrixSetElement,
+  LinAlgMatrixStoreToDescriptor,
+  LinAlgMatrixStoreToMemory,
+  LinAlgVectorAccumulateToDescriptor,
+
   // Mesh shader instructions
   EmitIndices,
   GetMeshPayload,
   SetMeshOutputCounts,
   StorePrimitiveOutput,
   StoreVertexOutput,
+
+  // No-op
+  Nop,
 
   // Other
   CycleCounterLegacy,
@@ -1231,6 +1604,9 @@ enum class OpCodeClass : unsigned {
   RayTCurrent,
   RayTMin,
 
+  // Raytracing System Values
+  TriangleObjectPosition,
+
   // Raytracing hit uint System Values
   HitKind,
 
@@ -1243,6 +1619,7 @@ enum class OpCodeClass : unsigned {
   PrimitiveIndex,
 
   // Raytracing uint System Values
+  ClusterID,
   RayFlags,
 
   // Resources - gather
@@ -1273,6 +1650,8 @@ enum class OpCodeClass : unsigned {
   GetDimensions,
   RawBufferLoad,
   RawBufferStore,
+  RawBufferVectorLoad,
+  RawBufferVectorStore,
   TextureLoad,
   TextureStore,
   TextureStoreSample,
@@ -1284,8 +1663,20 @@ enum class OpCodeClass : unsigned {
   WriteSamplerFeedbackLevel,
 
   // Shader Execution Reordering
+  HitObject_Attributes,
+  HitObject_FromRayQuery,
+  HitObject_FromRayQueryWithAttrs,
+  HitObject_Invoke,
+  HitObject_LoadLocalRootTableConstant,
   HitObject_MakeMiss,
   HitObject_MakeNop,
+  HitObject_SetShaderTableIndex,
+  HitObject_StateMatrix,
+  HitObject_StateScalar,
+  HitObject_StateVector,
+  HitObject_TraceRay,
+  HitObject_TriangleObjectPosition,
+  MaybeReorderThread,
 
   // Synchronization
   AtomicBinOp,
@@ -1315,6 +1706,9 @@ enum class OpCodeClass : unsigned {
   // Unpacking intrinsics
   Unpack4x8,
 
+  // Vector reduce to scalar
+  VectorReduce,
+
   // Wave
   WaveActiveAllEqual,
   WaveActiveBallot,
@@ -1341,17 +1735,7 @@ enum class OpCodeClass : unsigned {
   NodeOutputIsValid,
   OutputComplete,
 
-  NumOpClasses_Dxil_1_0 = 93,
-  NumOpClasses_Dxil_1_1 = 95,
-  NumOpClasses_Dxil_1_2 = 97,
-  NumOpClasses_Dxil_1_3 = 118,
-  NumOpClasses_Dxil_1_4 = 120,
-  NumOpClasses_Dxil_1_5 = 143,
-  NumOpClasses_Dxil_1_6 = 149,
-  NumOpClasses_Dxil_1_7 = 153,
-  NumOpClasses_Dxil_1_8 = 174,
-
-  NumOpClasses = 177 // exclusive last value of enumeration
+  NumOpClasses = 223, // exclusive last value of enumeration
 };
 // OPCODECLASS-ENUM:END
 
@@ -1410,6 +1794,12 @@ const unsigned kRawBufferLoadElementOffsetOpIdx = 3;
 const unsigned kRawBufferLoadMaskOpIdx = 4;
 const unsigned kRawBufferLoadAlignmentOpIdx = 5;
 
+// RawBufferVectorLoad.
+const unsigned kRawBufferVectorLoadHandleOpIdx = 1;
+const unsigned kRawBufferVectorLoadIndexOpIdx = 2;
+const unsigned kRawBufferVectorLoadElementOffsetOpIdx = 3;
+const unsigned kRawBufferVectorLoadAlignmentOpIdx = 4;
+
 // RawBufferStore
 const unsigned kRawBufferStoreHandleOpIdx = 1;
 const unsigned kRawBufferStoreIndexOpIdx = 2;
@@ -1419,7 +1809,14 @@ const unsigned kRawBufferStoreVal1OpIdx = 5;
 const unsigned kRawBufferStoreVal2OpIdx = 6;
 const unsigned kRawBufferStoreVal3OpIdx = 7;
 const unsigned kRawBufferStoreMaskOpIdx = 8;
-const unsigned kRawBufferStoreAlignmentOpIdx = 8;
+const unsigned kRawBufferStoreAlignmentOpIdx = 9;
+
+// RawBufferVectorStore
+const unsigned kRawBufferVectorStoreHandleOpIdx = 1;
+const unsigned kRawBufferVectorStoreIndexOpIdx = 2;
+const unsigned kRawBufferVectorStoreElementOffsetOpIdx = 3;
+const unsigned kRawBufferVectorStoreValOpIdx = 4;
+const unsigned kRawBufferVectorStoreAlignmentOpIdx = 5;
 
 // TextureStore.
 const unsigned kTextureStoreHandleOpIdx = 1;
@@ -1508,6 +1905,15 @@ const unsigned kMSStoreOutputRowOpIdx = 2;
 const unsigned kMSStoreOutputColOpIdx = 3;
 const unsigned kMSStoreOutputVIdxOpIdx = 4;
 const unsigned kMSStoreOutputValOpIdx = 5;
+
+// HitObject::MakeMiss
+const unsigned kHitObjectMakeMiss_RayDescOpIdx = 3;
+const unsigned kHitObjectMakeMiss_NumOp = 11;
+
+// HitObject::TraceRay
+const unsigned kHitObjectTraceRay_RayDescOpIdx = 7;
+const unsigned kHitObjectTraceRay_PayloadOpIdx = 15;
+const unsigned kHitObjectTraceRay_NumOp = 16;
 
 // TODO: add operand index for all the OpCodeClass.
 } // namespace OperandIndex
@@ -1882,7 +2288,9 @@ enum class BarrierSemanticFlag : uint32_t {
   GroupSync = 0x00000001,   // GROUP_SYNC
   GroupScope = 0x00000002,  // GROUP_SCOPE
   DeviceScope = 0x00000004, // DEVICE_SCOPE
-  ValidMask = 0x00000007,
+  LegacyFlags = 0x00000007,
+  ReorderScope = 0x00000008, // REORDER_SCOPE
+  ValidMask = 0x0000000F,
   GroupFlags = GroupSync | GroupScope,
 };
 
@@ -2073,6 +2481,7 @@ extern const char *kDxBreakFuncName;
 extern const char *kDxBreakCondName;
 extern const char *kDxBreakMDName;
 extern const char *kDxIsHelperGlobalName;
+extern const char *kDxLinAlgMatrixTypePrefix;
 
 extern const char *kHostLayoutTypePrefix;
 

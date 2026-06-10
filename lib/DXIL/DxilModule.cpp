@@ -82,6 +82,7 @@ const char *kDxBreakFuncName = "dx.break";
 const char *kDxBreakCondName = "dx.break.cond";
 const char *kDxBreakMDName = "dx.break.br";
 const char *kDxIsHelperGlobalName = "dx.ishelper";
+const char *kDxLinAlgMatrixTypePrefix = "dx.types.LinAlgMatrix";
 
 const char *kHostLayoutTypePrefix = "hostlayout.";
 
@@ -234,6 +235,12 @@ void DxilModule::SetEntryFunction(Function *pEntryFunc) {
   // Move entry props to new function in order to preserve them.
   std::unique_ptr<DxilEntryProps> Props =
       std::move(m_DxilEntryPropsMap.begin()->second);
+  // For HS, make sure we add the patch constant function to the set of patch
+  // constant functions.
+  m_PatchConstantFunctions.clear();
+  if (Props->props.IsHS() && Props->props.ShaderProps.HS.patchConstantFunc)
+    m_PatchConstantFunctions.insert(
+        Props->props.ShaderProps.HS.patchConstantFunc);
   m_DxilEntryPropsMap.clear();
   m_DxilEntryPropsMap[m_pEntryFunc] = std::move(Props);
 }
@@ -410,6 +417,19 @@ unsigned DxilModule::GetNumThreads(unsigned idx) const {
   const DxilFunctionProps &props = m_DxilEntryPropsMap.begin()->second->props;
   DXASSERT_NOMSG(m_pSM->GetKind() == props.shaderKind);
   return props.numThreads[idx];
+}
+
+unsigned DxilModule::GetTGSMSizeInBytes() const {
+  const DataLayout &DL = m_pModule->getDataLayout();
+  unsigned TGSMSize = 0;
+
+  for (GlobalVariable &GV : m_pModule->globals()) {
+    if (GV.getType()->getAddressSpace() == DXIL::kTGSMAddrSpace) {
+      TGSMSize += DL.getTypeAllocSize(GV.getType()->getElementType());
+    }
+  }
+
+  return TGSMSize;
 }
 
 DxilWaveSize &DxilModule::GetWaveSize() {

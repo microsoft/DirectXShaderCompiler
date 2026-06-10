@@ -237,14 +237,15 @@ extern "C" __declspec(dllimport) void __stdcall OutputDebugStringA(
 inline void OutputDebugBytes(const void *ptr, size_t len) {
   const char digits[] = "0123456789abcdef";
   const unsigned char *pBytes = (const unsigned char *)ptr;
-  const int bytesPerLine = 16;
-  char buffer[bytesPerLine * 3 + 2 + 1];
-  buffer[_countof(buffer) - 3] = '\r';
-  buffer[_countof(buffer) - 2] = '\n';
-  buffer[_countof(buffer) - 1] = '\0';
+  constexpr size_t bytesPerLine = 16;
+  constexpr size_t bufferSize = bytesPerLine * 3 + 2 + 1;
+  char buffer[bufferSize];
+  buffer[bufferSize - 3] = '\r';
+  buffer[bufferSize - 2] = '\n';
+  buffer[bufferSize - 1] = '\0';
 
   char *pWrite = buffer;
-  char *pEnd = buffer + _countof(buffer) - 3;
+  char *pEnd = buffer + bufferSize - 3;
   while (len) {
     *pWrite++ = digits[(*pBytes & 0xF0) >> 4];
     *pWrite++ = digits[*pBytes & 0x0f];
@@ -264,11 +265,12 @@ inline void OutputDebugBytes(const void *ptr, size_t len) {
 }
 
 inline void OutputDebugFormatA(const char *pszFormat, ...) {
-  char buffer[1024];
+  constexpr size_t bufferSize = 1024;
+  char buffer[bufferSize];
 
   va_list argList;
   va_start(argList, pszFormat);
-  int count = vsnprintf_s(buffer, _countof(buffer), pszFormat, argList);
+  int count = vsnprintf_s(buffer, bufferSize, pszFormat, argList);
   va_end(argList);
 
   OutputDebugStringA(buffer);

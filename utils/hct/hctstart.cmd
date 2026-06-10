@@ -167,8 +167,7 @@ if exist "%HLSL_SRC_DIR%\external\taef\build\Binaries\amd64\TE.exe" set path=%pa
 where te.exe 1>nul 2>nul
 if errorlevel 1 (
   echo Unable to find TAEF te.exe on path - you will have to add this before running tests.
-  echo WDK includes TAEF and is available from https://msdn.microsoft.com/en-us/windows/hardware/dn913721.aspx
-  echo Alternatively, consider a project-local install by running %HLSL_SRC_DIR%\utils\hct\hctgettaef.py
+  echo WDK includes TAEF and is available from https://learn.microsoft.com/en-us/windows-hardware/drivers/download-the-wdk
   echo Please see the README.md instructions in the project root.
   exit /b 1
 )
@@ -197,7 +196,7 @@ goto :eof
 
 :checksdk 
 setlocal
-set min_sdk_ver=17763
+set min_sdk_ver=26100
 
 set REG_QUERY=REG QUERY "HKEY_LOCAL_MACHINE\SOFTWARE\WOW6432Node\Microsoft\Microsoft SDKs\Windows\v10.0"
 set kit_root=

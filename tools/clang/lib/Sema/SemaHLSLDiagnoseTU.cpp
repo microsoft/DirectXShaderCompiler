@@ -301,7 +301,8 @@ std::vector<FunctionDecl *> GetAllExportedFDecls(clang::Sema *self) {
 }
 
 void GatherGlobalsWithInitializers(
-    DeclContext *DC, llvm::SmallVectorImpl<VarDecl *> &GlobalsWithInit) {
+    DeclContext *DC, llvm::SmallVectorImpl<VarDecl *> &GlobalsWithInit,
+    llvm::SmallVectorImpl<VarDecl *> &SubObjects) {
   for (auto *D : DC->decls()) {
     // Skip built-ins and function decls.
     if (D->isImplicit() || isa<FunctionDecl>(D))
@@ -310,11 +311,19 @@ void GatherGlobalsWithInitializers(
       // Add if user-defined static or groupshared global with initializer.
       if (VD->hasInit() && VD->hasGlobalStorage() &&
           (VD->getStorageClass() == SC_Static ||
-           VD->hasAttr<HLSLGroupSharedAttr>()))
+           VD->hasAttr<HLSLGroupSharedAttr>())) {
+        // Place subobjects in a separate collection.
+        if (const RecordType *RT = VD->getType()->getAs<RecordType>()) {
+          if (RT->getDecl()->hasAttr<HLSLSubObjectAttr>()) {
+            SubObjects.push_back(VD);
+            continue;
+          }
+        }
         GlobalsWithInit.push_back(VD);
+      }
     } else if (auto *DC = dyn_cast<DeclContext>(D)) {
       // Recurse into DeclContexts like namespace, cbuffer, class/struct, etc.
-      GatherGlobalsWithInitializers(DC, GlobalsWithInit);
+      GatherGlobalsWithInitializers(DC, GlobalsWithInit, SubObjects);
     }
   }
 }
@@ -427,6 +436,15 @@ public:
     return true;
   }
 
+  bool VisitMemberExpr(MemberExpr *ME) {
+    // Diagnose availability for member function calls.
+    if (AvailabilityAttr *AAttr = GetAvailabilityAttrOnce(ME)) {
+      DiagnoseAvailability(AAttr, ME->getMemberDecl(), ME->getExprLoc());
+    }
+
+    return true;
+  }
+
   AvailabilityAttr *GetAvailabilityAttrOnce(TypeLoc TL) {
     QualType Ty = TL.getType();
     CXXRecordDecl *RD = Ty->getAsCXXRecordDecl();
@@ -449,6 +467,18 @@ public:
       return nullptr;
     // Skip redundant availability diagnostics for the same Decl.
     if (!DeclAvailabilityChecked.insert(DRE).second)
+      return nullptr;
+
+    return AAttr;
+  }
+
+  AvailabilityAttr *GetAvailabilityAttrOnce(MemberExpr *ME) {
+    AvailabilityAttr *AAttr = ME->getMemberDecl()->getAttr<AvailabilityAttr>();
+    if (!AAttr)
+      return nullptr;
+    // Skip redundant availability diagnostics for the same member.
+    // Use the member location to track if we've already diagnosed this.
+    if (!DiagnosedTypeLocs.insert(ME->getMemberLoc()).second)
       return nullptr;
 
     return AAttr;
@@ -592,13 +622,23 @@ void hlsl::DiagnoseTranslationUnit(clang::Sema *self) {
       hlsl::ShaderModel::GetByName(self->getLangOpts().HLSLProfile.c_str());
 
   llvm::SmallVector<VarDecl *, 16> GlobalsWithInit;
-  GatherGlobalsWithInitializers(self->getASTContext().getTranslationUnitDecl(),
-                                GlobalsWithInit);
-
+  llvm::SmallVector<VarDecl *, 16> SubObjects;
   std::set<FunctionDecl *> DiagnosedRecursiveDecls;
   llvm::SmallPtrSet<CallExpr *, 16> DiagnosedCalls;
   llvm::SmallPtrSet<DeclRefExpr *, 16> DeclAvailabilityChecked;
   llvm::SmallSet<SourceLocation, 16> DiagnosedTypeLocs;
+
+  GatherGlobalsWithInitializers(self->getASTContext().getTranslationUnitDecl(),
+                                GlobalsWithInit, SubObjects);
+
+  if (shaderModel->GetKind() == DXIL::ShaderKind::Library) {
+    DXIL::NodeLaunchType NodeLaunchTy = DXIL::NodeLaunchType::Invalid;
+    HLSLReachableDiagnoseVisitor Visitor(
+        self, shaderModel, shaderModel->GetKind(), NodeLaunchTy, nullptr,
+        DiagnosedCalls, DeclAvailabilityChecked, DiagnosedTypeLocs);
+    for (VarDecl *VD : SubObjects)
+      Visitor.TraverseDecl(VD);
+  }
 
   // for each FDecl, check for recursion
   for (FunctionDecl *FDecl : FDeclsToCheck) {
@@ -690,22 +730,19 @@ void hlsl::DiagnoseTranslationUnit(clang::Sema *self) {
               << hullPatchCount.value();
         }
       }
-      for (const auto *param : pPatchFnDecl->params())
-        if (containsLongVector(param->getType())) {
-          const unsigned PatchConstantFunctionParametersIdx = 8;
-          self->Diag(param->getLocation(),
-                     diag::err_hlsl_unsupported_long_vector)
-              << PatchConstantFunctionParametersIdx;
-        }
-
-      if (containsLongVector(pPatchFnDecl->getReturnType())) {
-        const unsigned PatchConstantFunctionReturnIdx = 9;
-        self->Diag(pPatchFnDecl->getLocation(),
-                   diag::err_hlsl_unsupported_long_vector)
-            << PatchConstantFunctionReturnIdx;
+      for (const auto *param : pPatchFnDecl->params()) {
+        const TypeDiagContext ParamDiagContext =
+            TypeDiagContext::PatchConstantFunctionParameters;
+        DiagnoseTypeElements(*self, param->getLocation(), param->getType(),
+                             ParamDiagContext, ParamDiagContext);
       }
-    }
 
+      const TypeDiagContext ReturnDiagContext =
+          TypeDiagContext::PatchConstantFunctionReturnType;
+      DiagnoseTypeElements(*self, pPatchFnDecl->getLocation(),
+                           pPatchFnDecl->getReturnType(), ReturnDiagContext,
+                           ReturnDiagContext);
+    }
     DXIL::ShaderKind EntrySK = shaderModel->GetKind();
     DXIL::NodeLaunchType NodeLaunchTy = DXIL::NodeLaunchType::Invalid;
     if (EntrySK == DXIL::ShaderKind::Library) {
@@ -721,6 +758,15 @@ void hlsl::DiagnoseTranslationUnit(clang::Sema *self) {
           NodeLaunchTy = DXIL::NodeLaunchType::Broadcasting;
       }
     }
+
+    // lib_6_x is an offline linking target, which allows exported functions to
+    // perform actions that would otherwise be disallowed, as long as these
+    // actions are either inlined into entry points where they are allowed, or
+    // eliminated by the time the final library is linked to a runtime supported
+    // shader model. Therefore, skip reachable call diagnostics for non-entry
+    // points.
+    if (EntrySK == DXIL::ShaderKind::Library && IsTargetProfileLib6x(*self))
+      continue;
 
     // Visit all visited functions in call graph to collect illegal intrinsic
     // calls.

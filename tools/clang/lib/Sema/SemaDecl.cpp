@@ -13,6 +13,7 @@
 
 #include "TypeLocBuilder.h"
 #include "dxc/DXIL/DxilSemantic.h" // HLSL Change
+#include "dxc/HlslIntrinsicOp.h"   // HLSL Change
 #include "clang/AST/ASTConsumer.h"
 #include "clang/AST/ASTContext.h"
 #include "clang/AST/ASTLambda.h"
@@ -5331,7 +5332,7 @@ bool Sema::inferObjCARCLifetime(ValueDecl *decl) {
   Qualifiers::ObjCLifetime lifetime = type.getObjCLifetime();
   if (lifetime == Qualifiers::OCL_Autoreleasing) {
     // Various kinds of declaration aren't allowed to be __autoreleasing.
-    unsigned kind = -1U;
+    unsigned kind = ~0U;
     if (VarDecl *var = dyn_cast<VarDecl>(decl)) {
       if (var->hasAttr<BlocksAttr>())
         kind = 0; // __block
@@ -5343,7 +5344,7 @@ bool Sema::inferObjCARCLifetime(ValueDecl *decl) {
       kind = 2; // field
     }
 
-    if (kind != -1U) {
+    if (kind != ~0U) {
       Diag(decl->getLocation(), diag::err_arc_autoreleasing_var)
         << kind;
     }
@@ -6414,6 +6415,21 @@ static bool checkForConflictWithNonVisibleExternC(Sema &S, const T *ND,
     return checkGlobalOrExternCConflict(S, ND, /*IsGlobal*/false, Previous);
 
   // Neither global nor extern "C": nothing to do.
+  return false;
+}
+
+static bool IsDynamicHeapInitializer(const Expr *Init, bool &IsSampler) {
+  if (!Init)
+    return false;
+  QualType T = Init->IgnoreParenImpCasts()->getType();
+  if (hlsl::IsHLSLDynamicSamplerType(T)) {
+    IsSampler = true;
+    return true;
+  }
+  if (hlsl::IsHLSLDynamicResourceType(T)) {
+    IsSampler = false;
+    return true;
+  }
   return false;
 }
 
@@ -9026,6 +9042,27 @@ void Sema::AddInitializerToDecl(Decl *RealDecl, Expr *Init,
       RealDecl->setInvalidDecl();
       return;
     }
+
+    if (getLangOpts().HLSL) {
+      bool IsSampler = false;
+      if (IsDynamicHeapInitializer(DeduceInit, IsSampler)) {
+        Diag(VDecl->getLocation(), diag::err_hlsl_auto_descriptor_heap)
+            << IsSampler;
+        VDecl->setInvalidDecl();
+        return;
+      }
+
+      // A dependent deduced type cannot be classified yet; defer the check to
+      // instantiation, when 'auto' is re-deduced to a concrete type.
+      if (!DeducedType->isDependentType() &&
+          !hlsl::IsTypeDeducibleWithAuto(*this, DeducedType)) {
+        Diag(VDecl->getLocation(), diag::err_hlsl_auto_undeducible_type)
+            << DeducedType;
+        VDecl->setInvalidDecl();
+        return;
+      }
+    }
+
     VDecl->setType(DeducedType);
     assert(VDecl->isLinkageValid());
 
@@ -9047,7 +9084,6 @@ void Sema::AddInitializerToDecl(Decl *RealDecl, Expr *Init,
 
     // If this is a redeclaration, check that the type we just deduced matches
     // the previously declared type.
-    assert(!getLangOpts().HLSL && "auto types are not supported - merge type below is inconsequential"); // HLSL Change
     if (VarDecl *Old = VDecl->getPreviousDecl()) {
       // We never need to merge the type, because we cannot form an incomplete
       // array of auto, nor deduce such a type.
@@ -9167,9 +9203,10 @@ void Sema::AddInitializerToDecl(Decl *RealDecl, Expr *Init,
 
   // HLSL Change begin
   // When initializing an HLSL resource type we should diagnose mismatches in
-  // globally coherent annotations _unless_ the source is a dynamic resource
-  // placeholder type where we safely infer the globallycoherent annotaiton.
-  DiagnoseGloballyCoherentMismatch(Init, DclT, Init->getExprLoc());
+  // globally and reorder coherent annotations _unless_ the source is a dynamic
+  // resource placeholder type where we safely infer the coherence
+  // annotations.
+  DiagnoseCoherenceMismatch(Init, DclT, Init->getExprLoc());
   // HLSL Change end
   
   // Expressions default to 'id' when we're in a debugger

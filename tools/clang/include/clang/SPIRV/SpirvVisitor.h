@@ -4,6 +4,7 @@
 //
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
+//
 //===----------------------------------------------------------------------===//
 #ifndef LLVM_CLANG_SPIRV_SPIRVVISITOR_H
 #define LLVM_CLANG_SPIRV_SPIRVVISITOR_H
@@ -60,12 +61,13 @@ public:
   DEFINE_VISIT_METHOD(SpirvExtInstImport)
   DEFINE_VISIT_METHOD(SpirvMemoryModel)
   DEFINE_VISIT_METHOD(SpirvEntryPoint)
-  DEFINE_VISIT_METHOD(SpirvExecutionMode)
+  DEFINE_VISIT_METHOD(SpirvExecutionModeBase)
   DEFINE_VISIT_METHOD(SpirvString)
   DEFINE_VISIT_METHOD(SpirvSource)
   DEFINE_VISIT_METHOD(SpirvModuleProcessed)
   DEFINE_VISIT_METHOD(SpirvDecoration)
   DEFINE_VISIT_METHOD(SpirvVariable)
+  DEFINE_VISIT_METHOD(SpirvUntypedVariableKHR)
 
   DEFINE_VISIT_METHOD(SpirvFunctionParameter)
   DEFINE_VISIT_METHOD(SpirvLoopMerge)
@@ -79,8 +81,14 @@ public:
   DEFINE_VISIT_METHOD(SpirvUnreachable)
 
   DEFINE_VISIT_METHOD(SpirvAccessChain)
+  DEFINE_VISIT_METHOD(SpirvUntypedAccessChainKHR)
   DEFINE_VISIT_METHOD(SpirvAtomic)
   DEFINE_VISIT_METHOD(SpirvBarrier)
+  DEFINE_VISIT_METHOD(SpirvIsNodePayloadValid)
+  DEFINE_VISIT_METHOD(SpirvNodePayloadArrayLength)
+  DEFINE_VISIT_METHOD(SpirvAllocateNodePayloads)
+  DEFINE_VISIT_METHOD(SpirvEnqueueNodePayloads)
+  DEFINE_VISIT_METHOD(SpirvFinishWritingNodePayload)
   DEFINE_VISIT_METHOD(SpirvBinaryOp)
   DEFINE_VISIT_METHOD(SpirvBitFieldExtract)
   DEFINE_VISIT_METHOD(SpirvBitFieldInsert)
@@ -88,7 +96,10 @@ public:
   DEFINE_VISIT_METHOD(SpirvConstantInteger)
   DEFINE_VISIT_METHOD(SpirvConstantFloat)
   DEFINE_VISIT_METHOD(SpirvConstantComposite)
+  DEFINE_VISIT_METHOD(SpirvConstantString)
   DEFINE_VISIT_METHOD(SpirvConstantNull)
+  DEFINE_VISIT_METHOD(SpirvConvertPtrToU)
+  DEFINE_VISIT_METHOD(SpirvConvertUToPtr)
   DEFINE_VISIT_METHOD(SpirvUndef)
   DEFINE_VISIT_METHOD(SpirvCompositeConstruct)
   DEFINE_VISIT_METHOD(SpirvCompositeExtract)
@@ -102,6 +113,7 @@ public:
   DEFINE_VISIT_METHOD(SpirvImageQuery)
   DEFINE_VISIT_METHOD(SpirvImageSparseTexelsResident)
   DEFINE_VISIT_METHOD(SpirvImageTexelPointer)
+  DEFINE_VISIT_METHOD(SpirvUntypedImageTexelPointerEXT)
   DEFINE_VISIT_METHOD(SpirvLoad)
   DEFINE_VISIT_METHOD(SpirvCopyObject)
   DEFINE_VISIT_METHOD(SpirvSampledImage)

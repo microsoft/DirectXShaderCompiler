@@ -1,3 +1,4 @@
+// REQUIRES: dxil-1-9
 // RUN: %dxc -fcgl -T lib_6_9 %s | FileCheck %s
 
 // Mainly a source for the ScalarReductionOfAggregatesHLSL(SROA)

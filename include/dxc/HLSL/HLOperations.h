@@ -160,6 +160,10 @@ const unsigned kOpcodeIdx = 0;
 // Used to initialize values that have no valid index in the HL overload.
 const unsigned kInvalidIdx = UINT32_MAX;
 
+// HL intrinsic operations place the SRet return pointer at operand index 1,
+// since the first argument is reserved for the HL OpCode.
+const unsigned kIOP_SRetOpIdx = 1;
+
 // Matrix store.
 const unsigned kMatStoreDstPtrOpIdx = 1;
 const unsigned kMatStoreValOpIdx = 2;
@@ -396,7 +400,12 @@ const unsigned kAnnotateHandleResourceTypeOpIdx = 3;
 
 // TraceRay.
 const unsigned kTraceRayRayDescOpIdx = 7;
-const unsigned kTraceRayPayLoadOpIdx = 8;
+// kTraceRayPayloadPreOpIdx is before flattening the RayDesc
+const unsigned kTraceRayPayloadPreOpIdx = 8;
+// kTraceRayPayloadOpIdx is after flattening the RayDesc
+const unsigned kTraceRayPayloadOpIdx = 11;
+const unsigned kTraceRay_PreNumOp = 9;
+const unsigned kTraceRay_NumOp = 12;
 
 // AllocateRayQuery
 const unsigned kAllocateRayQueryRayFlagsIdx = 1;
@@ -407,6 +416,10 @@ const unsigned kCallShaderPayloadOpIdx = 2;
 
 // TraceRayInline.
 const unsigned kTraceRayInlineRayDescOpIdx = 5;
+// kTraceRayInlinePayloadPreOpIdx is before flattening the RayDesc
+const unsigned kTraceRayInlinePayloadPreOpIdx = 6;
+// kTraceRayInlinePayloadOpIdx is after flattening the RayDesc
+const unsigned kTraceRayInlinePayloadOpIdx = 9;
 
 // ReportIntersection.
 const unsigned kReportIntersectionAttributeOpIdx = 3;
@@ -432,6 +445,29 @@ const unsigned kNodeInputRecordMetadataIDIdx = 1;
 const unsigned kNodeHandleToResCastOpIdx = 1;
 const unsigned kAnnotateNodeHandleNodePropIdx = 2;
 const unsigned kAnnotateNodeRecordHandleNodeRecordPropIdx = 2;
+
+// HitObject::MakeMiss
+const unsigned kHitObjectMakeMiss_NumOp = 8;
+const unsigned kHitObjectMakeMiss_RayDescOpIdx = 4;
+
+// HitObject::TraceRay
+const unsigned kHitObjectTraceRay_RayDescOpIdx = 8;
+// kHitObjectTraceRay_PayloadPreOpIdx is before flattening the RayDesc
+const unsigned kHitObjectTraceRay_PayloadPreOpIdx = 9;
+// kHitObjectTraceRay_PayloadOpIdx is after flattening the RayDesc
+const unsigned kHitObjectTraceRay_PayloadOpIdx = 12;
+const unsigned kHitObjectTraceRay_PreNumOp = 10;
+const unsigned kHitObjectTraceRay_NumOp = 13;
+
+// HitObject::Invoke
+const unsigned kHitObjectInvoke_PayloadOpIdx = 2;
+
+// HitObject::FromRayQuery
+const unsigned kHitObjectFromRayQuery_WithAttrs_AttributeOpIdx = 4;
+const unsigned kHitObjectFromRayQuery_WithAttrs_NumOp = 5;
+
+// HitObject::GetAttributes
+const unsigned kHitObjectGetAttributes_AttributeOpIdx = 2;
 
 } // namespace HLOperandIndex
 

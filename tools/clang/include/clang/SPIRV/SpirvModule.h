@@ -119,11 +119,11 @@ public:
 
   // Returns an existing execution mode instruction that is the same as em if it
   // exists. Return nullptr otherwise.
-  SpirvExecutionMode *findExecutionMode(SpirvFunction *entryPoint,
-                                        spv::ExecutionMode em);
+  SpirvExecutionModeBase *findExecutionMode(SpirvFunction *entryPoint,
+                                            spv::ExecutionMode em);
 
   // Adds an execution mode to the module.
-  void addExecutionMode(SpirvExecutionMode *);
+  void addExecutionMode(SpirvExecutionModeBase *em);
 
   // Adds an extension to the module. Returns true if the extension was added.
   // Returns false otherwise (e.g. if the extension already existed).
@@ -137,7 +137,11 @@ public:
   SpirvExtInstImport *getExtInstSet(llvm::StringRef name);
 
   // Adds a variable to the module.
-  void addVariable(SpirvVariable *);
+  void addVariable(SpirvVariableLike *);
+
+  // Adds a variable to the module immediately before `pos`.
+  // If `pos` is not found, `var` is added at the end of the variable list.
+  void addVariable(SpirvVariableLike *var, SpirvInstruction *pos);
 
   // Adds a decoration to the module.
   void addDecoration(SpirvDecoration *);
@@ -161,10 +165,14 @@ public:
     return debugInstructions;
   }
 
+  // Access the one DebugCompilationUnit per module
+  SpirvDebugCompilationUnit *getDebugCompilationUnit();
+  void setDebugCompilationUnit(SpirvDebugCompilationUnit *unit);
+
   // Adds the given OpModuleProcessed to the module.
   void addModuleProcessed(SpirvModuleProcessed *);
 
-  llvm::ArrayRef<SpirvVariable *> getVariables() const { return variables; }
+  llvm::ArrayRef<SpirvVariableLike *> getVariables() const { return variables; }
 
   llvm::ArrayRef<SpirvEntryPoint *> getEntryPoints() const {
     return entryPoints;
@@ -194,7 +202,7 @@ private:
   llvm::SmallVector<SpirvExtInstImport *, 1> extInstSets;
   SpirvMemoryModel *memoryModel;
   llvm::SmallVector<SpirvEntryPoint *, 1> entryPoints;
-  llvm::SmallVector<SpirvExecutionMode *, 4> executionModes;
+  llvm::SmallVector<SpirvExecutionModeBase *, 4> executionModes;
   llvm::SmallVector<SpirvString *, 4> constStrings;
   std::vector<SpirvSource *> sources;
   std::vector<SpirvModuleProcessed *> moduleProcesses;
@@ -209,7 +217,7 @@ private:
 
   std::vector<SpirvConstant *> constants;
   std::vector<SpirvUndef *> undefs;
-  std::vector<SpirvVariable *> variables;
+  std::vector<SpirvVariableLike *> variables;
   // A vector of functions in the module in the order that they should be
   // emitted. The order starts with the entry-point function followed by a
   // depth-first discovery of functions reachable from the entry-point function.
@@ -220,6 +228,10 @@ private:
 
   // Keep all rich DebugInfo instructions.
   llvm::SmallVector<SpirvDebugInstruction *, 32> debugInstructions;
+
+  // There is one debugCompilationUnit per module
+  SpirvDebugCompilationUnit *debugCompilationUnit;
+
   // Whether current module is in pervertex interpolation mode.
   bool perVertexInterp;
 };
