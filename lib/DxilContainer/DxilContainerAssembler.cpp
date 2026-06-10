@@ -1665,11 +1665,6 @@ public:
     Builder.AddStringBufferPart();
     m_pResourceTable = Builder.AddTable<RDAT::RuntimeDataResourceInfo>();
     m_pFunctionTable = Builder.AddTable<RuntimeDataFunctionInfo>();
-    if (DXIL::CompareVersions(m_ValMajor, m_ValMinor, 1, 8) >= 0) {
-      m_pFunctionTable->SetRecordStride(sizeof(RuntimeDataFunctionInfo2));
-    } else {
-      m_pFunctionTable->SetRecordStride(sizeof(RuntimeDataFunctionInfo));
-    }
     Builder.AddIndexArraysPart();
     Builder.AddRawBytesPart();
     if (RDAT::RecordTraits<RuntimeDataSubobjectInfo>::PartType() <=
@@ -1681,6 +1676,13 @@ public:
   if (RDAT::RecordTraits<RDAT::type>::PartType() <= maxAllowedType &&          \
       !Builder.GetTable<RDAT::type>())                                         \
     (void)Builder.AddTable<RDAT::type>();
+// Update the record stride for supported derived types.
+#define RDAT_STRUCT_TABLE_DERIVED(type, base, table, MajorVer, MinorVer)       \
+  if (DXIL::CompareVersions(m_ValMajor, m_ValMinor, MajorVer, MinorVer) >=     \
+          0 &&                                                                 \
+      Builder.GetTable<RDAT::type>()) {                                        \
+    Builder.GetTable<RDAT::type>()->SetRecordStride(sizeof(RDAT::type));       \
+  }
 
 #define DEF_RDAT_TYPES DEF_RDAT_DEFAULTS
 #include "dxc/DxilContainer/RDAT_Macros.inl"
