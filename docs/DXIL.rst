@@ -521,7 +521,7 @@ Shaders have additional flags that convey their capabilities via a tag-value pai
 Bit SM   Description                                                                              Criteria to set shader flag
 === ==== ======================================================================================== ==========================================================================================================================================================================================================================================================================================================================================================
 0        Disable shader optimizations                                                             Command-line flag ``/Od`` is provided to DXC
-1        Disable math refactoring                                                                 Only used in Dxilconv; corresponds to `~D3D10_SB_GLOBAL_FLAG_REFACTORING_ALLOWED` in DXBC
+1        Disable math refactoring                                                                 Only used in Dxilconv; corresponds to ``~D3D10_SB_GLOBAL_FLAG_REFACTORING_ALLOWED`` in DXBC
 2        Double-precision floating point                                                          Use of the double data type
 3        Force early depth-stencil test                                                           Shader is a pixel shader, and the ``[earlydepthstencil]`` attribute is present in the HLSL source
 4        Raw and Structured buffers                                                               Use of RawBuffer or StructuredBuffer resource types
