@@ -101,16 +101,12 @@ MaxPartTypeForValVer(unsigned Major, unsigned Minor,
              ? RuntimeDataPartType::Last_1_3
          : DXIL::CompareVersions(Major, Minor, 1, 8) < 0
              ? RuntimeDataPartType::Last_1_4
-         : DXIL::CompareVersions(Major, Minor, 1, DXIL::kDxilReleasedMinor) <= 0
-             ? RuntimeDataPartType::LastRelease
-         : (IsPrereleaseShaderModel || Major == 0)
+         : DXIL::IsVersionExperimental(Major, Minor) &&
+                 (IsPrereleaseShaderModel || Major == 0)
              ? RuntimeDataPartType::LastExperimental
              : RuntimeDataPartType::LastRelease;
-  // For the last condition, we already have a validator version > released
-  // version, so the remaining rule is:
-  // - If it's a prerelease shader model or unbound validator, allow
-  //   experimental parts.
-  // - Otherwise, allow only released parts.
+  // If validator version > released version, and it's a prerelease shader model
+  // or unbound validator, allow experimental parts.
 }
 
 enum class RecordTableIndex : unsigned {
