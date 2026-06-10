@@ -1675,24 +1675,24 @@ public:
     mod.ComputeShaderCompatInfo();
 
     // Instantiate the parts in the order that validator expects.
-    Builder.GetStringBufferPart();
-    m_pResourceTable = Builder.GetOrAddTable<RDAT::RuntimeDataResourceInfo>();
-    m_pFunctionTable = Builder.GetOrAddTable<RuntimeDataFunctionInfo>();
+    Builder.AddStringBufferPart();
+    m_pResourceTable = Builder.AddTable<RDAT::RuntimeDataResourceInfo>();
+    m_pFunctionTable = Builder.AddTable<RuntimeDataFunctionInfo>();
     if (DXIL::CompareVersions(m_ValMajor, m_ValMinor, 1, 8) >= 0) {
       m_pFunctionTable->SetRecordStride(sizeof(RuntimeDataFunctionInfo2));
     } else {
       m_pFunctionTable->SetRecordStride(sizeof(RuntimeDataFunctionInfo));
     }
-    Builder.GetIndexArraysPart();
-    Builder.GetRawBytesPart();
+    Builder.AddIndexArraysPart();
+    Builder.AddRawBytesPart();
     if (RDAT::RecordTraits<RuntimeDataSubobjectInfo>::PartType() <=
         maxAllowedType)
-      m_pSubobjectTable = Builder.GetOrAddTable<RuntimeDataSubobjectInfo>();
+      m_pSubobjectTable = Builder.AddTable<RuntimeDataSubobjectInfo>();
 
 // Once per table.
 #define RDAT_STRUCT_TABLE(type, table)                                         \
   if (RDAT::RecordTraits<RDAT::type>::PartType() <= maxAllowedType)            \
-    (void)Builder.GetOrAddTable<RDAT::type>();
+    (void)Builder.AddTable<RDAT::type>();
 
 #define DEF_RDAT_TYPES DEF_RDAT_DEFAULTS
 #include "dxc/DxilContainer/RDAT_Macros.inl"
