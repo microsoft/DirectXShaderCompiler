@@ -83,6 +83,7 @@ enum class RuntimeDataPartType : uint32_t {
 
   LastPlus1,
   LastExperimental = LastPlus1 - 1,
+  LastRelease = Last_1_8,
 
   DxilPdbInfoTable = RDAT_PART_ID_WITH_GROUP(RuntimeDataGroup::PdbInfo, 1),
   DxilPdbInfoSourceTable =
@@ -91,17 +92,25 @@ enum class RuntimeDataPartType : uint32_t {
       RDAT_PART_ID_WITH_GROUP(RuntimeDataGroup::PdbInfo, 3),
 };
 
-inline RuntimeDataPartType MaxPartTypeForValVer(unsigned Major,
-                                                unsigned Minor) {
+inline RuntimeDataPartType
+MaxPartTypeForValVer(unsigned Major, unsigned Minor,
+                     bool IsPrereleaseShaderModel = false) {
   return DXIL::CompareVersions(Major, Minor, 1, 3) < 0
              ? RuntimeDataPartType::Invalid // No RDAT before 1.3
          : DXIL::CompareVersions(Major, Minor, 1, 4) < 0
              ? RuntimeDataPartType::Last_1_3
          : DXIL::CompareVersions(Major, Minor, 1, 8) < 0
              ? RuntimeDataPartType::Last_1_4
-         : DXIL::CompareVersions(Major, Minor, 1, 8) == 0
-             ? RuntimeDataPartType::Last_1_8
-             : RuntimeDataPartType::LastExperimental;
+         : DXIL::CompareVersions(Major, Minor, 1, DXIL::kDxilReleasedMinor) <= 0
+             ? RuntimeDataPartType::LastRelease
+         : (IsPrereleaseShaderModel || Major == 0)
+             ? RuntimeDataPartType::LastExperimental
+             : RuntimeDataPartType::LastRelease;
+  // For the last condition, we already have a validator version > released
+  // version, so the remaining rule is:
+  // - If it's a prerelease shader model or unbound validator, allow
+  //   experimental parts.
+  // - Otherwise, allow only released parts.
 }
 
 enum class RecordTableIndex : unsigned {
