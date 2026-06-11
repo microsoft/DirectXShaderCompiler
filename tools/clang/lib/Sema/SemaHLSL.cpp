@@ -11359,6 +11359,18 @@ HLSLExternalSource::DeduceTemplateArgumentsForHLSL(
       IsBABLoad = intrinsicOp == (UINT)IntrinsicOp::MOP_Load;
       IsBABStore = intrinsicOp == (UINT)IntrinsicOp::MOP_Store;
     }
+#ifdef ENABLE_SPIRV_CODEGEN
+    // We don't support 16 bit stores in SPIRV for RWByteAddressBuffer due to
+    // representing the buffer as a series of 32 bit values.
+    // See https://github.com/microsoft/DirectXShaderCompiler/issues/8172
+    if (IsBABStore && getSema()->getLangOpts().SPIRV) {
+      if (getSema()->getASTContext().getIntWidth(argTypes[2]) == 16) {
+        getSema()->Diag(Args[1]->getLocStart(),
+                        diag::err_hlsl_vk_rwbyteaddressbuffer_16bit_store);
+        return Sema::TemplateDeductionResult::TDK_Invalid;
+      }
+    }
+#endif
     if (ExplicitTemplateArgs && ExplicitTemplateArgs->size() >= 1) {
       SourceLocation Loc = ExplicitTemplateArgs->getLAngleLoc();
       if (!IsBABLoad && !IsBABStore) {
