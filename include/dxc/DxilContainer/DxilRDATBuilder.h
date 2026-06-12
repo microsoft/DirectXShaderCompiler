@@ -41,21 +41,57 @@ class DxilRDATBuilder {
 public:
   DxilRDATBuilder(bool allowRecordDuplication);
 
-  template <typename T> RDATTable *GetOrAddTable() {
-    RDATTable **tablePtr =
+  // Add all supported parts first to control table ordering and prevent use of
+  // unsupported parts.
+
+  StringBufferPart *AddStringBufferPart() {
+    assert(nullptr == m_pStringBufferPart &&
+           "otherwise, string buffer part already exists");
+    return GetOrAddPart(&m_pStringBufferPart);
+  }
+  IndexArraysPart *AddIndexArraysPart() {
+    assert(nullptr == m_pIndexArraysPart &&
+           "otherwise, index arrays part already exists");
+    return GetOrAddPart(&m_pIndexArraysPart);
+  }
+  RawBytesPart *AddRawBytesPart() {
+    assert(nullptr == m_pRawBytesPart &&
+           "otherwise, raw bytes part already exists");
+    return GetOrAddPart(&m_pRawBytesPart);
+  }
+
+  template <typename T> RDATTable *AddTable() {
+    RDATTable **TablePtr =
         &m_pTables[(size_t)RDAT::RecordTraits<T>::TableIndex()];
-    if (!*tablePtr) {
-      m_Parts.emplace_back(llvm::make_unique<RDATTable>());
-      *tablePtr = reinterpret_cast<RDATTable *>(m_Parts.back().get());
-      (*tablePtr)->SetRecordStride(sizeof(T));
-      (*tablePtr)->SetType(RDAT::RecordTraits<T>::PartType());
-      (*tablePtr)->SetDeduplication(m_bRecordDeduplicationEnabled);
-    }
-    return *tablePtr;
+    assert(nullptr == *TablePtr && "otherwise, table already exists");
+    RDATTable *Table = GetOrAddPart(TablePtr);
+    Table->SetRecordStride(sizeof(T));
+    Table->SetType(RDAT::RecordTraits<T>::PartType());
+    Table->SetDeduplication(m_bRecordDeduplicationEnabled);
+    return Table;
+  }
+
+  StringBufferPart &GetStringBufferPart() {
+    assert(m_pStringBufferPart);
+    return *m_pStringBufferPart;
+  }
+  IndexArraysPart &GetIndexArraysPart() {
+    assert(m_pIndexArraysPart);
+    return *m_pIndexArraysPart;
+  }
+  RawBytesPart &GetRawBytesPart() {
+    assert(m_pRawBytesPart);
+    return *m_pRawBytesPart;
+  }
+
+  template <typename T> RDATTable *GetTable() {
+    return m_pTables[(size_t)RDAT::RecordTraits<T>::TableIndex()];
   }
 
   template <typename T> uint32_t InsertRecord(const T &record) {
-    return GetOrAddTable<T>()->Insert(record);
+    RDATTable *Table = GetTable<T>();
+    assert(Table && "otherwise, missing version check");
+    return Table->Insert(record);
   }
   uint32_t InsertString(llvm::StringRef str) {
     return GetStringBufferPart().Insert(str);
@@ -72,14 +108,6 @@ public:
   template <typename T> uint32_t InsertArray(T arr) {
     return InsertArray(arr.begin(), arr.end());
   }
-
-  StringBufferPart &GetStringBufferPart() {
-    return *GetOrAddPart(&m_pStringBufferPart);
-  }
-  IndexArraysPart &GetIndexArraysPart() {
-    return *GetOrAddPart(&m_pIndexArraysPart);
-  }
-  RawBytesPart &GetRawBytesPart() { return *GetOrAddPart(&m_pRawBytesPart); }
 
   struct SizeInfo {
     uint32_t sizeInBytes;
