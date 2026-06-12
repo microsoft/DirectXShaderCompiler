@@ -1136,6 +1136,12 @@ DeclResultIdMapper::createFnVar(const VarDecl *var,
   return varInstr;
 }
 
+void DeclResultIdMapper::registerFnVarAlias(const VarDecl *var,
+                                            SpirvInstruction *varInstr) {
+  if (varInstr)
+    registerVariableForDecl(var, createDeclSpirvInfo(varInstr));
+}
+
 SpirvDebugGlobalVariable *DeclResultIdMapper::createDebugGlobalVariable(
     SpirvVariable *var, const QualType &type, const SourceLocation &loc,
     const StringRef &name) {
