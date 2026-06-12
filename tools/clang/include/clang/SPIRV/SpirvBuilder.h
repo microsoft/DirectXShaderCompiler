@@ -277,7 +277,7 @@ public:
   /// \brief Creates an OpUntypedImageTexelPointerEXT SPIR-V instruction with
   /// the given parameters.
   SpirvUntypedImageTexelPointerEXT *createUntypedImageTexelPointerEXT(
-      QualType resultType, SpirvInstruction *image,
+      QualType resultType, const SpirvType *imageType, SpirvInstruction *image,
       SpirvInstruction *coordinate, SpirvInstruction *sample, SourceLocation);
 
   /// \brief Creates an OpConverPtrToU SPIR-V instruction with the given
