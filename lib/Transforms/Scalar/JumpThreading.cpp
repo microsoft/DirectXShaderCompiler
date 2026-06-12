@@ -11,7 +11,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/Transforms/Scalar.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/DenseSet.h"
 #include "llvm/ADT/STLExtras.h"
@@ -24,6 +23,7 @@
 #include "llvm/Analysis/LazyValueInfo.h"
 #include "llvm/Analysis/Loads.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
+#include "llvm/IR/CallSite.h" // HLSL Change - for convergent call detection
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/LLVMContext.h"
@@ -33,6 +33,7 @@
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Utils/Local.h"
 #include "llvm/Transforms/Utils/SSAUpdater.h"
@@ -1387,6 +1388,47 @@ bool JumpThreading::ThreadEdge(BasicBlock *BB,
           << "' - it might create an irreducible loop!\n");
     return false;
   }
+
+  // HLSL Change Begin - Don't thread through loop latch blocks when the loop
+  // body contains convergent calls (e.g., wave intrinsics). Threading through
+  // a latch can restructure the loop so that convergent calls that were inside
+  // the loop end up outside it, changing which lanes are active at those call
+  // sites on SIMT hardware.
+  for (succ_iterator SI = succ_begin(BB), SE = succ_end(BB); SI != SE; ++SI) {
+    BasicBlock *Header = *SI;
+    if (!LoopHeaders.count(Header))
+      continue;
+    // BB is a loop latch (has a back-edge to Header). Walk backward from BB
+    // to find all blocks in the loop body and check for convergent calls.
+    SmallVector<BasicBlock *, 16> Worklist;
+    SmallPtrSet<BasicBlock *, 16> InLoop;
+    InLoop.insert(Header); // Seed to prevent going above header.
+    Worklist.push_back(BB);
+    bool HasConvergent = false;
+    while (!Worklist.empty() && !HasConvergent) {
+      BasicBlock *WBB = Worklist.pop_back_val();
+      if (!InLoop.insert(WBB).second)
+        continue;
+      for (auto &I : *WBB) {
+        if (auto CS = CallSite(&I)) {
+          if (CS.hasFnAttr(Attribute::Convergent)) {
+            HasConvergent = true;
+            break;
+          }
+        }
+      }
+      if (!HasConvergent)
+        for (pred_iterator PI = pred_begin(WBB), PE = pred_end(WBB); PI != PE;
+             ++PI)
+          Worklist.push_back(*PI);
+    }
+    if (HasConvergent) {
+      DEBUG(dbgs() << "  Not threading across loop latch BB '" << BB->getName()
+                   << "' - loop body has convergent calls\n");
+      return false;
+    }
+  }
+  // HLSL Change End
 
   unsigned JumpThreadCost = getJumpThreadDuplicationCost(BB, BBDupThreshold);
   if (JumpThreadCost > BBDupThreshold) {
