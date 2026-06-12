@@ -1,4 +1,4 @@
-// RUN: %dxc -auto-binding-space 13 -exports PSMain,PSMain_Clone1,PSMain_Clone2=PSMain -T lib_6_3 -Vd -validator-version 0.0 %s | %D3DReflect %s | FileCheck %s
+// RUN: %dxc -auto-binding-space 13 -exports PSMain,PSMain_Clone1,PSMain_Clone2=PSMain -T lib_6_10 -Vd -validator-version 0.0 %s | %D3DReflect %s | FileCheck %s
 
 Buffer<int> T0;
 
@@ -207,7 +207,7 @@ float4 PSMain(int idx : INDEX) : SV_Target {
 // CHECK:     FunctionCount: 6
 // CHECK:   ID3D12FunctionReflection:
 // CHECK:     D3D12_FUNCTION_DESC: Name: \01?PSMain{{[@$?.A-Za-z0-9_]+}}
-// CHECK:       Shader Version: Library 6.3
+// CHECK:       Shader Version: Library 6.10
 // CHECK:       BoundResources: 2
 // CHECK:     Bound Resources:
 // CHECK:       D3D12_SHADER_INPUT_BIND_DESC: Name: T0
@@ -232,7 +232,7 @@ float4 PSMain(int idx : INDEX) : SV_Target {
 // CHECK:         uFlags: 0
 // CHECK:   ID3D12FunctionReflection:
 // CHECK:     D3D12_FUNCTION_DESC: Name: \01?PSMain_Clone1{{[@$?.A-Za-z0-9_]+}}
-// CHECK:       Shader Version: Library 6.3
+// CHECK:       Shader Version: Library 6.10
 // CHECK:       BoundResources: 2
 // CHECK:     Bound Resources:
 // CHECK:       D3D12_SHADER_INPUT_BIND_DESC: Name: T0
@@ -257,7 +257,7 @@ float4 PSMain(int idx : INDEX) : SV_Target {
 // CHECK:         uFlags: 0
 // CHECK:   ID3D12FunctionReflection:
 // CHECK:     D3D12_FUNCTION_DESC: Name: \01?PSMain_Clone2{{[@$?.A-Za-z0-9_]+}}
-// CHECK:       Shader Version: Library 6.3
+// CHECK:       Shader Version: Library 6.10
 // CHECK:       BoundResources: 2
 // CHECK:     Bound Resources:
 // CHECK:       D3D12_SHADER_INPUT_BIND_DESC: Name: T0
@@ -282,7 +282,7 @@ float4 PSMain(int idx : INDEX) : SV_Target {
 // CHECK:         uFlags: 0
 // CHECK:   ID3D12FunctionReflection:
 // CHECK:     D3D12_FUNCTION_DESC: Name: PSMain
-// CHECK:       Shader Version: Pixel 6.3
+// CHECK:       Shader Version: Pixel 6.10
 // CHECK:       BoundResources: 2
 // CHECK:     Bound Resources:
 // CHECK:       D3D12_SHADER_INPUT_BIND_DESC: Name: T0
@@ -307,7 +307,7 @@ float4 PSMain(int idx : INDEX) : SV_Target {
 // CHECK:         uFlags: 0
 // CHECK:   ID3D12FunctionReflection:
 // CHECK:     D3D12_FUNCTION_DESC: Name: PSMain_Clone1
-// CHECK:       Shader Version: Pixel 6.3
+// CHECK:       Shader Version: Pixel 6.10
 // CHECK:       BoundResources: 2
 // CHECK:     Bound Resources:
 // CHECK:       D3D12_SHADER_INPUT_BIND_DESC: Name: T0
@@ -332,7 +332,7 @@ float4 PSMain(int idx : INDEX) : SV_Target {
 // CHECK:         uFlags: 0
 // CHECK:   ID3D12FunctionReflection:
 // CHECK:     D3D12_FUNCTION_DESC: Name: PSMain_Clone2
-// CHECK:       Shader Version: Pixel 6.3
+// CHECK:       Shader Version: Pixel 6.10
 // CHECK:       BoundResources: 2
 // CHECK:     Bound Resources:
 // CHECK:       D3D12_SHADER_INPUT_BIND_DESC: Name: T0

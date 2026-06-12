@@ -1,4 +1,4 @@
-// RUN: %dxc -auto-binding-space 13 -exports VS_RENAMED=\01?VSMain@@YA?AV?$vector@M$03@@V?$vector@H$02@@@Z;PS_RENAMED=PSMain -T lib_6_3 -Vd -validator-version 0.0 %s | %D3DReflect %s | FileCheck %s
+// RUN: %dxc -auto-binding-space 13 -exports VS_RENAMED=\01?VSMain@@YA?AV?$vector@M$03@@V?$vector@H$02@@@Z;PS_RENAMED=PSMain -T lib_6_10 -Vd -validator-version 0.0 %s | %D3DReflect %s | FileCheck %s
 
 Buffer<float> T_unused;
 
@@ -154,7 +154,7 @@ float4 PSMain(int idx : INDEX) : SV_Target {
 // CHECK:     FunctionCount: 3
 // CHECK:   ID3D12FunctionReflection:
 // CHECK:     D3D12_FUNCTION_DESC: Name: \01?PS_RENAMED{{[@$?.A-Za-z0-9_]+}}
-// CHECK:       Shader Version: Library 6.3
+// CHECK:       Shader Version: Library 6.10
 // CHECK:       BoundResources: 2
 // CHECK:     Bound Resources:
 // CHECK:       D3D12_SHADER_INPUT_BIND_DESC: Name: T0
@@ -179,7 +179,7 @@ float4 PSMain(int idx : INDEX) : SV_Target {
 // CHECK:         uFlags: 0
 // CHECK:   ID3D12FunctionReflection:
 // CHECK:     D3D12_FUNCTION_DESC: Name: \01?VS_RENAMED{{[@$?.A-Za-z0-9_]+}}
-// CHECK:       Shader Version: Library 6.3
+// CHECK:       Shader Version: Library 6.10
 // CHECK:       BoundResources: 1
 // CHECK:     Bound Resources:
 // CHECK:       D3D12_SHADER_INPUT_BIND_DESC: Name: T1
@@ -194,7 +194,7 @@ float4 PSMain(int idx : INDEX) : SV_Target {
 // CHECK:         uFlags: (D3D_SIF_TEXTURE_COMPONENT_0 | D3D_SIF_TEXTURE_COMPONENT_1)
 // CHECK:   ID3D12FunctionReflection:
 // CHECK:     D3D12_FUNCTION_DESC: Name: PS_RENAMED
-// CHECK:       Shader Version: Pixel 6.3
+// CHECK:       Shader Version: Pixel 6.10
 // CHECK:       BoundResources: 2
 // CHECK:     Bound Resources:
 // CHECK:       D3D12_SHADER_INPUT_BIND_DESC: Name: T0

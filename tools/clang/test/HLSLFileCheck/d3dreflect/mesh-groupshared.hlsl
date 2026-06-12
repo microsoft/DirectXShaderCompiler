@@ -1,4 +1,4 @@
-// RUN: %dxc -T lib_6_7 -Vd -validator-version 0.0 %s | %D3DReflect %s | FileCheck %s
+// RUN: %dxc -T lib_6_10 -Vd -validator-version 0.0 %s | %D3DReflect %s | FileCheck %s
 
 // CHECK:DxilRuntimeData (size = {{[0-9]+}} bytes):
 // CHECK:  StringBuffer (size = {{[0-9]+}} bytes)
@@ -153,7 +153,7 @@
 // CHECK:    FunctionCount: 1
 // CHECK:  ID3D12FunctionReflection:
 // CHECK:    D3D12_FUNCTION_DESC: Name: main
-// CHECK:      Shader Version: Mesh 6.7
+// CHECK:      Shader Version: Mesh 6.10
 // CHECK:      Creator: <nullptr>
 // CHECK:      Flags: 0
 // CHECK:      ConstantBuffers: 0
