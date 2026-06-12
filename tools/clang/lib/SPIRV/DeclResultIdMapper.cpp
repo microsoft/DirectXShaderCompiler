@@ -1136,6 +1136,12 @@ DeclResultIdMapper::createFnVar(const VarDecl *var,
   return varInstr;
 }
 
+void DeclResultIdMapper::registerFnVarAlias(const VarDecl *var,
+                                            SpirvInstruction *varInstr) {
+  if (varInstr)
+    registerVariableForDecl(var, createDeclSpirvInfo(varInstr));
+}
+
 SpirvDebugGlobalVariable *DeclResultIdMapper::createDebugGlobalVariable(
     SpirvVariable *var, const QualType &type, const SourceLocation &loc,
     const StringRef &name) {
@@ -1883,6 +1889,22 @@ void DeclResultIdMapper::registerSpecConstant(const VarDecl *decl,
                                               SpirvInstruction *specConstant) {
   specConstant->setRValue();
   registerVariableForDecl(decl, createDeclSpirvInfo(specConstant));
+  if (decl->hasAttr<VKResourceHeapStrideConstantIdAttr>()) {
+    resourceHeapStride = HeapStrideSpecConst{
+        specConstant,
+        static_cast<uint32_t>(
+            decl->getAttr<VKResourceHeapStrideConstantIdAttr>()
+                ->getSpecConstId()),
+        decl};
+  } else if (decl->hasAttr<VKSamplerHeapStrideConstantIdAttr>()) {
+    samplerHeapStride = HeapStrideSpecConst{
+        specConstant,
+        static_cast<uint32_t>(decl->getAttr<VKSamplerHeapStrideConstantIdAttr>()
+                                  ->getSpecConstId()),
+        decl};
+  } else if (const auto *attr = decl->getAttr<VKConstantIdAttr>()) {
+    userSpecConstIdMap[attr->getSpecConstId()] = decl;
+  }
 }
 
 void DeclResultIdMapper::createCounterVar(

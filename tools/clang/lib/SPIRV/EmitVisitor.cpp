@@ -820,6 +820,7 @@ bool EmitVisitor::visit(SpirvUntypedImageTexelPointerEXT *inst) {
   initInstruction(inst);
   curInst.push_back(inst->getResultTypeId());
   curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst));
+  curInst.push_back(typeHandler.emitType(inst->getImageType()));
   curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst->getImage()));
   curInst.push_back(
       getOrAssignResultId<SpirvInstruction>(inst->getCoordinate()));
@@ -2694,9 +2695,15 @@ uint32_t EmitTypeHandler::emitType(const SpirvType *type) {
     curTypeInst.push_back(elemTypeId);
     finalizeTypeInstruction();
 
-    auto stride = raType->getStride();
-    if (stride.hasValue())
-      emitDecoration(id, spv::Decoration::ArrayStride, {stride.getValue()});
+    if (auto *sc = raType->getStrideSpecConst()) {
+      const uint32_t scId = getOrAssignResultId<SpirvInstruction>(sc);
+      emitDecoration(id, spv::Decoration::ArrayStrideIdEXT, {scId}, llvm::None,
+                     /*usesIdParams=*/true);
+    } else {
+      auto stride = raType->getStride();
+      if (stride.hasValue())
+        emitDecoration(id, spv::Decoration::ArrayStride, {stride.getValue()});
+    }
   }
   // NodePayloadArray types
   else if (const auto *npaType = dyn_cast<NodePayloadArrayType>(type)) {

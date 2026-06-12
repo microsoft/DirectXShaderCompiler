@@ -65,6 +65,9 @@ SpirvContext::~SpirvContext() {
   for (auto *npaType : nodePayloadArrayTypes)
     npaType->~NodePayloadArrayType();
 
+  for (auto &pair : bufferEXTTypes)
+    pair.second->~BufferEXTType();
+
   for (auto *fnType : functionTypes)
     fnType->~FunctionType();
 
@@ -265,14 +268,15 @@ SpirvContext::getArrayType(const SpirvType *elemType, uint32_t elemCount,
 
 const RuntimeArrayType *
 SpirvContext::getRuntimeArrayType(const SpirvType *elemType,
-                                  llvm::Optional<uint32_t> arrayStride) {
-  RuntimeArrayType type(elemType, arrayStride);
+                                  llvm::Optional<uint32_t> arrayStride,
+                                  SpirvInstruction *strideSpecConst) {
+  RuntimeArrayType type(elemType, arrayStride, strideSpecConst);
   auto found = runtimeArrayTypes.find(&type);
   if (found != runtimeArrayTypes.end())
     return *found;
 
   auto inserted = runtimeArrayTypes.insert(
-      new (this) RuntimeArrayType(elemType, arrayStride));
+      new (this) RuntimeArrayType(elemType, arrayStride, strideSpecConst));
   return *(inserted.first);
 }
 
@@ -400,6 +404,14 @@ const StructType *SpirvContext::getByteAddressBufferType(bool isWritable) {
                        isWritable ? "type.RWByteAddressBuffer"
                                   : "type.ByteAddressBuffer",
                        !isWritable, StructInterfaceType::StorageBuffer);
+}
+
+const BufferEXTType *SpirvContext::getBufferEXTType(spv::StorageClass sc) {
+  auto found = bufferEXTTypes.find(sc);
+  if (found != bufferEXTTypes.end())
+    return found->second;
+
+  return bufferEXTTypes[sc] = new (this) BufferEXTType(sc);
 }
 
 const StructType *SpirvContext::getACSBufferCounterType() {
