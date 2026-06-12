@@ -921,6 +921,12 @@ private:
   /// \brief Handle inline SPIR-V attributes for the entry function.
   void processInlineSpirvAttributes(const FunctionDecl *entryFunction);
 
+  SpirvInstruction *
+  evalIntConstAttrArg(const Expr *expr,
+                      llvm::Optional<uint32_t> defaultVal = llvm::None);
+
+  bool processNumThreadsAttr(const FunctionDecl *decl);
+
   /// \brief Adds necessary execution modes for the hull/domain shaders based on
   /// the HLSL attributes of the entry point function.
   /// In the case of hull shaders, also writes the number of output control
@@ -1391,6 +1397,7 @@ private:
   ///  This decision is made according to the rules in
   ///  https://microsoft.github.io/DirectX-Specs/d3d/HLSL_SM_6_6_Derivatives.html.
   void addDerivativeGroupExecutionMode();
+  void addDerivativeGroupExecutionModeId();
 
   /// Creates an input variable for `param` that will be used by the patch
   /// constant function. The parameter is also added to the patch constant
