@@ -1,4 +1,4 @@
-// RUN: %dxc -I %hlsl_headers -T ps_6_9 -E main -verify %s
+// RUN: %dxc -T ps_6_9 -E main -verify %s
 
 #include <vector_utils.h>
 
