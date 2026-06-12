@@ -609,6 +609,42 @@ NumericLiteralParser::NumericLiteralParser(StringRef TokSpelling,
     case 'F':
      if (!isFPConstant) break;  // Error for integer constant.
       if (isFloat || isLong) break; // FF, LF invalid.
+      // HLSL Change Begin - fixed-size float suffixes f16/f32/f64
+      if (PP.getLangOpts().HLSL && (s + 2) < ThisTokEnd) {
+        unsigned Width = 0;
+        if (s[1] == '1' && s[2] == '6')
+          Width = 16;
+        else if (s[1] == '3' && s[2] == '2')
+          Width = 32;
+        else if (s[1] == '6' && s[2] == '4')
+          Width = 64;
+        if (Width != 0) {
+          StringRef SuffixStr(s, 3);
+          if (PP.getLangOpts().HLSLVersion < hlsl::LangStd::v202x) {
+            PP.Diag(PP.AdvanceToTokenCharacter(TokLoc, s - ThisTokBegin),
+                    diag::ext_hlsl_fixed_size_float_suffix_202x)
+                << SuffixStr;
+          }
+          if (Width == 16 && PP.getLangOpts().UseMinPrecision) {
+            PP.Diag(PP.AdvanceToTokenCharacter(TokLoc, s - ThisTokBegin),
+                    diag::err_hlsl_16bit_suffix_requires_native_16bit)
+                << SuffixStr;
+            hadError = true;
+          }
+          // Reuse existing width flags: f16 acts like 'h' (half), f32 like
+          // 'f' (float), f64 like 'l' (double in HLSL). The source token is
+          // preserved if anything later needs to distinguish the spellings.
+          if (Width == 16)
+            isHalf = true;
+          else if (Width == 32)
+            isFloat = true;
+          else
+            isLong = true;
+          s += 2; // The outer loop's ++s consumes the leading 'f'/'F'.
+          continue;
+        }
+      }
+      // HLSL Change End
       isFloat = true;
       continue;  // Success.
 // HLSL Change Starts
@@ -718,6 +754,7 @@ NumericLiteralParser::NumericLiteralParser(StringRef TokSpelling,
       isUnsigned = false;
       isLongLong = false;
       isFloat = false;
+      isHalf = false; // HLSL Change
       isImaginary = false;
       MicrosoftInteger = 0;
 
