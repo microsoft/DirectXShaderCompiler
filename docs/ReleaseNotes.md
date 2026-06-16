@@ -22,6 +22,13 @@ The included licenses apply to the following files:
 Place release notes for the upcoming release below this line and remove this
 line upon naming the release. Refer to previous for appropriate section names.
 
+#### Other Changes
+
+- Built-in HLSL headers are now embedded in the dxcompiler library so that users do not need to copy headers around with the toolchain.
+- vector_utils.h and enable_if.h are renamed to vector_utils and enable_if respectively in alignment with TC57 decision on standard header files to exclude file extensions (See: https://github.com/hlsl-tc57/tc57/blob/main/docs/DesignConsiderations.md#minor-details).
+
+### Version 1.10.26.05
+
 #### Experimental Shader Model 6.10
 
 - Removed experimental Cooperative Vector, this has been replaced by LinAlg matrix.

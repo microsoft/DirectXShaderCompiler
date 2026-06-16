@@ -1,4 +1,16 @@
-// Header for HLSL Linear Algebra Matrix APIs.
+//===----------------------------------------------------------------------===//
+//
+// Part of the DirectXShaderCompiler, under the Apache License v2.0 with LLVM
+// Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+//
+//===----------------------------------------------------------------------===//
+// DirectX Shader Model 6.10 Linear Algebra objects and APIs.
+//===----------------------------------------------------------------------===//
+
+#include <enable_if>
+#include <type_traits>
 
 #if ((__SHADER_TARGET_MAJOR > 6) ||                                            \
      (__SHADER_TARGET_MAJOR == 6 && __SHADER_TARGET_MINOR >= 10)) &&           \
@@ -7,55 +19,7 @@
 #pragma dxc diagnostic push
 #pragma dxc diagnostic ignored "-Whlsl-groupshared-202x"
 
-namespace hlsl {
-
 #define SIZE_TYPE int
-
-template <typename T> struct is_arithmetic {
-  static const bool value = false;
-};
-
-#define __ARITHMETIC_TYPE(type)                                                \
-  template <> struct is_arithmetic<type> {                                     \
-    static const bool value = true;                                            \
-  };
-
-#if __HLSL_ENABLE_16_BIT
-__ARITHMETIC_TYPE(uint16_t)
-__ARITHMETIC_TYPE(int16_t)
-#endif
-__ARITHMETIC_TYPE(uint)
-__ARITHMETIC_TYPE(int)
-__ARITHMETIC_TYPE(uint64_t)
-__ARITHMETIC_TYPE(int64_t)
-__ARITHMETIC_TYPE(half)
-__ARITHMETIC_TYPE(float)
-__ARITHMETIC_TYPE(double)
-
-template <typename T> struct is_signed {
-  static const bool value = true;
-};
-
-#define __UNSIGNED_TYPE(type)                                                  \
-  template <> struct is_signed<type> {                                         \
-    static const bool value = false;                                           \
-  };
-
-#if __HLSL_ENABLE_16_BIT
-__UNSIGNED_TYPE(uint16_t)
-#endif
-__UNSIGNED_TYPE(uint)
-__UNSIGNED_TYPE(uint64_t)
-
-#undef __UNSIGNED_TYPE
-
-template <bool B, typename T> struct enable_if {};
-
-template <typename T> struct enable_if<true, T> {
-  using type = T;
-};
-
-} // namespace hlsl
 
 namespace dxil {
 
