@@ -1,5 +1,5 @@
 // REQUIRES: dxil-1-10
-// RUN: %dxc -I %hlsl_headers -T lib_6_10 -ast-dump %s FileCheck %s
+// RUN: %dxc -T lib_6_10 -ast-dump %s FileCheck %s
 
 #include <dx/linalg.h>
 using namespace dx::linalg;

@@ -11,7 +11,7 @@
 #error "CooperativeMatrix requires a minimum of SPIR-V 1.6"
 #endif
 
-#include "vk/spirv.h"
+#include <vk/spirv.h>
 
 namespace vk {
 namespace khr {
@@ -271,5 +271,5 @@ cooperativeMatrixSaturatingMultiplyAdd(
 } // namespace khr
 } // namespace vk
 
-#include "cooperative_matrix.impl"
+#include <vk/khr/cooperative_matrix.impl>
 #endif // _HLSL_VK_KHR_COOPERATIVE_MATRIX_H_
