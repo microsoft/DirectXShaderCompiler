@@ -27,7 +27,7 @@ line upon naming the release. Refer to previous for appropriate section names.
 - Built-in HLSL headers are now embedded in the dxcompiler library so that users do not need to copy headers around with the toolchain.
 - vector_utils.h and enable_if.h are renamed to vector_utils and enable_if respectively in alignment with TC57 decision on standard header files to exclude file extensions (See: https://github.com/hlsl-tc57/tc57/blob/main/docs/DesignConsiderations.md#minor-details).
 
-### Version 1.10.26.05
+### Version 1.10.2605
 
 #### Experimental Shader Model 6.10
 
