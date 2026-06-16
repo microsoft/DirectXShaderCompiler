@@ -22,7 +22,7 @@ pycparser==2.21
     # via cffi
 pygithub==1.59.1
     # via -r utils/git/requirements_formatting.txt.in
-pyjwt[crypto]==2.8.0
+pyjwt[crypto]==2.13.0
     # via pygithub
 pynacl==1.5.0
     # via pygithub
