@@ -9258,10 +9258,10 @@ void TranslateStructBufMatSubscript(CallInst *CI, Value *handle,
   for (auto U = CI->user_begin(); U != CI->user_end();) {
     Value *subsUser = *(U++);
     if (resultSize == 1) {
-      TranslateStructBufSubscriptUser(
-          cast<Instruction>(subsUser), handle, ResKind,
-          isRawBuf ? idxList[0] : bufIdx, isRawBuf ? baseOffset : idxList[0],
-          status, hlslOP, DL);
+      TranslateStructBufSubscriptUser(cast<Instruction>(subsUser), handle,
+                                      ResKind, isRawBuf ? idxList[0] : bufIdx,
+                                      isRawBuf ? baseOffset : idxList[0],
+                                      status, hlslOP, DL);
       continue;
     }
     if (GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(subsUser)) {
