@@ -16235,14 +16235,15 @@ SpirvInstruction *SpirvEmitter::processRawBufferLoad(const CallExpr *callExpr) {
   if (callExpr->getNumArgs() == 1) {
     // Compute the required scalar alignment from the loaded type.
     // Per the Vulkan spec, PhysicalStorageBuffer alignment must be at least the
-    // largest scalar alignment within the type, this matches scalar layout rules.
-    // See: https://docs.vulkan.org/guide/latest/buffer_device_address_alignment.html
+    // largest scalar alignment within the type, this matches scalar layout
+    // rules. See:
+    // https://docs.vulkan.org/guide/latest/buffer_device_address_alignment.html
     AlignmentSizeCalculator alignmentCalc(astContext, spirvOptions);
     uint32_t stride = 0;
     QualType bufferType = callExpr->getCallReturnType(astContext);
-    std::tie(alignment, std::ignore) = alignmentCalc.getAlignmentAndSize(
-        bufferType, SpirvLayoutRule::Scalar,
-        /*isRowMajor*/ llvm::None, &stride);
+    std::tie(alignment, std::ignore) =
+        alignmentCalc.getAlignmentAndSize(bufferType, SpirvLayoutRule::Scalar,
+                                          /*isRowMajor*/ llvm::None, &stride);
   } else {
     alignment = getRawBufferAlignment(callExpr->getArg(1));
   }
@@ -16350,14 +16351,15 @@ SpirvEmitter::processRawBufferStore(const CallExpr *callExpr) {
   if (callExpr->getNumArgs() == 2) {
     // Compute the required scalar alignment from the stored type.
     // Per the Vulkan spec, PhysicalStorageBuffer alignment must be at least the
-    // largest scalar alignment within the type, this matches scalar layout rules.
-    // See: https://docs.vulkan.org/guide/latest/buffer_device_address_alignment.html
+    // largest scalar alignment within the type, this matches scalar layout
+    // rules. See:
+    // https://docs.vulkan.org/guide/latest/buffer_device_address_alignment.html
     QualType bufferType = callExpr->getArg(1)->getType();
     AlignmentSizeCalculator alignmentCalc(astContext, spirvOptions);
     uint32_t stride = 0;
-    std::tie(alignment, std::ignore) = alignmentCalc.getAlignmentAndSize(
-        bufferType, SpirvLayoutRule::Scalar,
-        /*isRowMajor*/ llvm::None, &stride);
+    std::tie(alignment, std::ignore) =
+        alignmentCalc.getAlignmentAndSize(bufferType, SpirvLayoutRule::Scalar,
+                                          /*isRowMajor*/ llvm::None, &stride);
   } else {
     alignment = getRawBufferAlignment(callExpr->getArg(2));
   }
