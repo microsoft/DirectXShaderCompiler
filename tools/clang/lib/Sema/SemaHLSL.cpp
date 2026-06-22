@@ -9589,6 +9589,10 @@ clang::ExprResult HLSLExternalSource::PerformHLSLConversion(
     clang::Sema::CheckedConversionKind CCK) {
   QualType sourceType = From->getType();
   sourceType = GetStructuralForm(sourceType);
+
+  // Store off the type attributes that could be accidentially dropped.
+  const bool targetGloballyCoherent = hlsl::HasHLSLGloballyCoherent(targetType);
+  const bool targetReorderCoherent = hlsl::HasHLSLReorderCoherent(targetType);
   targetType = GetStructuralForm(targetType);
   ArTypeInfo SourceInfo, TargetInfo;
   CollectInfo(sourceType, &SourceInfo);
@@ -9605,9 +9609,23 @@ clang::ExprResult HLSLExternalSource::PerformHLSLConversion(
     //    convert that to an array of casts under a special kind of flat
     //    flat conversion node?  What do component conversion casts cast
     //    from?  We don't have a From expression for individiual components.
+    QualType flatCastType = targetType.getUnqualifiedType();
+    // Preserve coherence qualifiers when converting to a resource type so the
+    // converted expression's type still reflects the coherence of its
+    // destination.
+    if (hlsl::IsHLSLResourceType(flatCastType)) {
+      if (targetGloballyCoherent)
+        flatCastType = m_context->getAttributedType(
+            AttributedType::attr_hlsl_globallycoherent, flatCastType,
+            flatCastType);
+      else if (targetReorderCoherent)
+        flatCastType = m_context->getAttributedType(
+            AttributedType::attr_hlsl_reordercoherent, flatCastType,
+            flatCastType);
+    }
     From = m_sema
-               ->ImpCastExprToType(From, targetType.getUnqualifiedType(),
-                                   CK_FlatConversion, From->getValueKind(),
+               ->ImpCastExprToType(From, flatCastType, CK_FlatConversion,
+                                   From->getValueKind(),
                                    /*BasePath=*/0, CCK)
                .get();
     break;
