@@ -3309,12 +3309,12 @@ static void ValidateFunctionBody(Function *F, ValidationContext &ValCtx) {
           // comes from a global variable. This was unncessary before SM 6.9
           // because everything was scalarized, but now we can have arrays of
           // vectors in TGSM, so we need to allow GEPs and bitcasts.
-        Value *Ptr = &I;
-        while (Ptr && (isa<GEPOperator>(Ptr) || isa<BitCastOperator>(Ptr)))
+          Value *Ptr = &I;
+          while (Ptr && (isa<GEPOperator>(Ptr) || isa<BitCastOperator>(Ptr)))
             Ptr = Ptr->getOperand(0);
-            if (!isa<GlobalVariable>(Ptr)) {
-              ValCtx.EmitInstrError(
-                  &I, ValidationRule::InstrFailToResloveTGSMPointer);
+          if (!isa<GlobalVariable>(Ptr)) {
+            ValCtx.EmitInstrError(
+                &I, ValidationRule::InstrFailToResloveTGSMPointer);
             }
           } else {
             ValCtx.EmitInstrError(
