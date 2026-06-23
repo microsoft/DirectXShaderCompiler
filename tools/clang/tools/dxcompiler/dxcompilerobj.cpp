@@ -879,16 +879,38 @@ public:
         preprocessAction.Execute();
         preprocessAction.EndSourceFile();
 
-        outStream << (opts.OutputObject.empty() ? opts.InputFile
-                                                : opts.OutputObject);
+        auto writeEscapedPath = [](auto &stream, auto const &path) {
+          for (auto p : path) {
+            switch (p) {
+            case ':':
+            case ' ':
+            case '#':
+            case '[':
+            case ']':
+            case '\\':
+              stream << '\\';
+              break;
+            case '$':
+              stream << '$';
+              break;
+            }
+            stream << p;
+          }
+        };
+
+        writeEscapedPath(outStream, opts.OutputObject.empty()
+                                        ? opts.InputFile
+                                        : opts.OutputObject);
+
         bool firstDependency = true;
         for (auto &dependency : dependencyCollector->getDependencies()) {
           if (firstDependency) {
-            outStream << ": " << dependency;
+            outStream << ": ";
             firstDependency = false;
-            continue;
+          } else {
+            outStream << " \\\n ";
           }
-          outStream << " \\\n " << dependency;
+          writeEscapedPath(outStream, dependency);
         }
         outStream << "\n";
         outStream.flush();
