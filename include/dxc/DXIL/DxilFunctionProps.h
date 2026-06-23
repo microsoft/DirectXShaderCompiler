@@ -109,6 +109,8 @@ struct DxilWaveSize {
 };
 
 struct DxilFunctionProps {
+  static constexpr int kGroupSharedLimitUnset = -1;
+
   DxilFunctionProps() {
     memset(&ShaderProps, 0, sizeof(ShaderProps));
     shaderKind = DXIL::ShaderKind::Invalid;
@@ -117,6 +119,7 @@ struct DxilFunctionProps {
     memset(&Node, 0, sizeof(Node));
     Node.LaunchType = DXIL::NodeLaunchType::Invalid;
     Node.LocalRootArgumentsTableIndex = -1;
+    groupSharedLimitBytes = kGroupSharedLimitUnset;
   }
   union {
     // Geometry shader.
@@ -173,6 +176,8 @@ struct DxilFunctionProps {
 
   // numThreads shared between multiple shader types and node shaders.
   unsigned numThreads[3];
+
+  int groupSharedLimitBytes;
 
   struct NodeProps {
     DXIL::NodeLaunchType LaunchType = DXIL::NodeLaunchType::Invalid;

@@ -288,8 +288,8 @@ uniform float g_uni_init = 1.0f;
 //typedef precise uniform volatile float2 t_pre_uni_vol;      /* expected-error {{'uniform' is not a valid modifier for a typedef}} fxc-error {{X3000: syntax error: unexpected token 'uniform'}} */
 //typedef precise uniform volatile const float2 t_pre_uni_vol_con;    /* expected-error {{'uniform' is not a valid modifier for a typedef}} fxc-error {{X3000: syntax error: unexpected token 'uniform'}} */
 //typedef precise uniform const float2 t_pre_uni_con;         /* expected-error {{'uniform' is not a valid modifier for a typedef}} fxc-error {{X3000: syntax error: unexpected token 'uniform'}} */
-typedef precise volatile float2 t_pre_vol;
-typedef precise volatile const float2 t_pre_vol_con;
+//typedef precise volatile float2 t_pre_vol;    /* expected-error {{'volatile' is a reserved keyword in HLSL}} */
+//typedef precise volatile const float2 t_pre_vol_con;    /* expected-error {{'volatile' is a reserved keyword in HLSL}} */
 typedef precise const float2 t_pre_con;
 //typedef static float2 t_sta;                                /* expected-error {{cannot combine with previous 'typedef' declaration specifier}} fxc-error {{X3000: syntax error: unexpected token 'static'}} */
 //typedef static volatile float2 t_sta_vol;                   /* expected-error {{cannot combine with previous 'typedef' declaration specifier}} fxc-error {{X3000: syntax error: unexpected token 'static'}} */
@@ -299,8 +299,8 @@ typedef precise const float2 t_pre_con;
 //typedef uniform volatile float2 t_uni_vol;                  /* expected-error {{'uniform' is not a valid modifier for a typedef}} fxc-error {{X3000: syntax error: unexpected token 'uniform'}} */
 //typedef uniform volatile const float2 t_uni_vol_con;        /* expected-error {{'uniform' is not a valid modifier for a typedef}} fxc-error {{X3000: syntax error: unexpected token 'uniform'}} */
 //typedef uniform const float2 t_uni_con;                     /* expected-error {{'uniform' is not a valid modifier for a typedef}} fxc-error {{X3000: syntax error: unexpected token 'uniform'}} */
-typedef volatile float2 t_vol;
-typedef volatile const float2 t_vol_con;
+//typedef volatile float2 t_vol;    /* expected-error {{'volatile' is a reserved keyword in HLSL}} */
+//typedef volatile const float2 t_vol_con;    /* expected-error {{'volatile' is a reserved keyword in HLSL}} */
 typedef const float2 t_con;
 // GENERATED_CODE:END
 
@@ -668,26 +668,26 @@ void vain() {
     //extern const float l_ext_con;                           /* expected-error {{'extern' is not a valid modifier for a local variable}} fxc-error {{X3006: 'l_ext_con': local variables cannot be declared 'extern'}} fxc-error {{X3012: 'l_ext_con': missing initial value}} */
     precise float l_pre;
     precise static float l_pre_sta;
-    precise static volatile float l_pre_sta_vol;
-    precise static volatile const float l_pre_sta_vol_con;
+    //precise static volatile float l_pre_sta_vol;    /* expected-error {{'volatile' is a reserved keyword in HLSL}} */
+    //precise static volatile const float l_pre_sta_vol_con;    /* expected-error {{'volatile' is a reserved keyword in HLSL}} */
     precise static const float l_pre_sta_con;
     //precise uniform float l_pre_uni;                        /* expected-error {{'uniform' is not a valid modifier for a local variable}} fxc-error {{X3047: 'l_pre_uni': local variables cannot be declared 'uniform'}} */
     //precise uniform volatile float l_pre_uni_vol;           /* expected-error {{'uniform' is not a valid modifier for a local variable}} fxc-error {{X3047: 'l_pre_uni_vol': local variables cannot be declared 'uniform'}} */
     //precise uniform volatile const float l_pre_uni_vol_con; /* expected-error {{'uniform' is not a valid modifier for a local variable}} fxc-error {{X3012: 'l_pre_uni_vol_con': missing initial value}} fxc-error {{X3047: 'l_pre_uni_vol_con': local variables cannot be declared 'uniform'}} */
     //precise uniform const float l_pre_uni_con;              /* expected-error {{'uniform' is not a valid modifier for a local variable}} fxc-error {{X3012: 'l_pre_uni_con': missing initial value}} fxc-error {{X3047: 'l_pre_uni_con': local variables cannot be declared 'uniform'}} */
-    precise volatile float l_pre_vol;
-    //precise volatile const float l_pre_vol_con;             /* fxc-error {{X3012: 'l_pre_vol_con': missing initial value}} */
+    //precise volatile float l_pre_vol;    /* expected-error {{'volatile' is a reserved keyword in HLSL}} */
+    //precise volatile const float l_pre_vol_con;             /* fxc-error {{X3012: 'l_pre_vol_con': missing initial value}} expected-error {{'volatile' is a reserved keyword in HLSL}} */
     //precise const float l_pre_con;                          /* fxc-error {{X3012: 'l_pre_con': missing initial value}} */
     static float l_sta;
-    static volatile float l_sta_vol;
-    static volatile const float l_sta_vol_con;
+    //static volatile float l_sta_vol;    /* expected-error {{'volatile' is a reserved keyword in HLSL}} */
+    //static volatile const float l_sta_vol_con;    /* expected-error {{'volatile' is a reserved keyword in HLSL}} */
     static const float l_sta_con;
     //uniform float l_uni;                                    /* expected-error {{'uniform' is not a valid modifier for a local variable}} fxc-error {{X3047: 'l_uni': local variables cannot be declared 'uniform'}} */
     //uniform volatile float l_uni_vol;                       /* expected-error {{'uniform' is not a valid modifier for a local variable}} fxc-error {{X3047: 'l_uni_vol': local variables cannot be declared 'uniform'}} */
     //uniform volatile const float l_uni_vol_con;             /* expected-error {{'uniform' is not a valid modifier for a local variable}} fxc-error {{X3012: 'l_uni_vol_con': missing initial value}} fxc-error {{X3047: 'l_uni_vol_con': local variables cannot be declared 'uniform'}} */
     //uniform const float l_uni_con;                          /* expected-error {{'uniform' is not a valid modifier for a local variable}} fxc-error {{X3012: 'l_uni_con': missing initial value}} fxc-error {{X3047: 'l_uni_con': local variables cannot be declared 'uniform'}} */
-    volatile float l_vol;
-    //volatile const float l_vol_con;                         /* fxc-error {{X3012: 'l_vol_con': missing initial value}} */
+    //volatile float l_vol;    /* expected-error {{'volatile' is a reserved keyword in HLSL}} */
+    //volatile const float l_vol_con;                         /* fxc-error {{X3012: 'l_vol_con': missing initial value}} expected-error {{'volatile' is a reserved keyword in HLSL}} */
     //const float l_con;                                      /* fxc-error {{X3012: 'l_con': missing initial value}} */
     // GENERATED_CODE:END
     // Now with const vars initialized:
@@ -713,17 +713,17 @@ void vain() {
     //extern uniform const float l_ext_uni_con_init = 0.0;    /* expected-error {{'extern' is not a valid modifier for a local variable}} expected-error {{'uniform' is not a valid modifier for a local variable}} fxc-error {{X3006: 'l_ext_uni_con_init': local variables cannot be declared 'extern'}} fxc-error {{X3012: 'l_ext_uni_con_init': missing initial value}} fxc-error {{X3047: 'l_ext_uni_con_init': local variables cannot be declared 'uniform'}} */
     //extern volatile const float l_ext_vol_con_init = 0.0;   /* expected-error {{'extern' is not a valid modifier for a local variable}} fxc-error {{X3006: 'l_ext_vol_con_init': local variables cannot be declared 'extern'}} fxc-error {{X3012: 'l_ext_vol_con_init': missing initial value}} */
     //extern const float l_ext_con_init = 0.0;                /* expected-error {{'extern' is not a valid modifier for a local variable}} fxc-error {{X3006: 'l_ext_con_init': local variables cannot be declared 'extern'}} fxc-error {{X3012: 'l_ext_con_init': missing initial value}} */
-    precise static volatile const float l_pre_sta_vol_con_init = 0.0;
+    //precise static volatile const float l_pre_sta_vol_con_init = 0.0;    /* expected-error {{'volatile' is a reserved keyword in HLSL}} */
     precise static const float l_pre_sta_con_init = 0.0;
     //precise uniform volatile const float l_pre_uni_vol_con_init = 0.0;    /* expected-error {{'uniform' is not a valid modifier for a local variable}} fxc-error {{X3012: 'l_pre_uni_vol_con_init': missing initial value}} fxc-error {{X3047: 'l_pre_uni_vol_con_init': local variables cannot be declared 'uniform'}} */
     //precise uniform const float l_pre_uni_con_init = 0.0;   /* expected-error {{'uniform' is not a valid modifier for a local variable}} fxc-error {{X3012: 'l_pre_uni_con_init': missing initial value}} fxc-error {{X3047: 'l_pre_uni_con_init': local variables cannot be declared 'uniform'}} */
-    precise volatile const float l_pre_vol_con_init = 0.0;
+    //precise volatile const float l_pre_vol_con_init = 0.0;    /* expected-error {{'volatile' is a reserved keyword in HLSL}} */
     precise const float l_pre_con_init = 0.0;
-    static volatile const float l_sta_vol_con_init = 0.0;
+    //static volatile const float l_sta_vol_con_init = 0.0;    /* expected-error {{'volatile' is a reserved keyword in HLSL}} */
     static const float l_sta_con_init = 0.0;
     //uniform volatile const float l_uni_vol_con_init = 0.0;  /* expected-error {{'uniform' is not a valid modifier for a local variable}} fxc-error {{X3012: 'l_uni_vol_con_init': missing initial value}} fxc-error {{X3047: 'l_uni_vol_con_init': local variables cannot be declared 'uniform'}} */
     //uniform const float l_uni_con_init = 0.0;               /* expected-error {{'uniform' is not a valid modifier for a local variable}} fxc-error {{X3012: 'l_uni_con_init': missing initial value}} fxc-error {{X3047: 'l_uni_con_init': local variables cannot be declared 'uniform'}} */
-    volatile const float l_vol_con_init = 0.0;
+    //volatile const float l_vol_con_init = 0.0;    /* expected-error {{'volatile' is a reserved keyword in HLSL}} */
     const float l_con_init = 0.0;
     // GENERATED_CODE:END
 

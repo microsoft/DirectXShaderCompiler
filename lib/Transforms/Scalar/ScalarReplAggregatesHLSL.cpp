@@ -1500,6 +1500,11 @@ static bool isUDTIntrinsicArg(CallInst *CI, unsigned OpIdx) {
     if (OpIdx == HLOperandIndex::kCallShaderPayloadOpIdx)
       return true;
     break;
+  case IntrinsicOp::IOP_TriangleObjectPositions:
+    // Not UDT exactly, but sret parameter that needs the same treatment.
+    if (OpIdx == HLOperandIndex::kIOP_SRetOpIdx)
+      return true;
+    break;
   case IntrinsicOp::MOP_DxHitObject_FromRayQuery:
     if (NumOps == HLOperandIndex::kHitObjectFromRayQuery_WithAttrs_NumOp &&
         OpIdx ==
@@ -1516,6 +1521,10 @@ static bool isUDTIntrinsicArg(CallInst *CI, unsigned OpIdx) {
     break;
   case IntrinsicOp::MOP_DxHitObject_Invoke:
     if (OpIdx == HLOperandIndex::kHitObjectInvoke_PayloadOpIdx)
+      return true;
+    break;
+  case IntrinsicOp::MOP_DxHitObject_GetAttributes:
+    if (OpIdx == HLOperandIndex::kHitObjectGetAttributes_AttributeOpIdx)
       return true;
     break;
   default:
@@ -6494,8 +6503,57 @@ ModulePass *llvm::createSROA_Parameter_HLSL() {
 //===----------------------------------------------------------------------===//
 
 namespace {
+
+struct GVDebugInfoPatchCache {
+  DenseMap<DILocation *, DISubprogram *> LocToSubprogram;
+  DenseMap<Function *, DISubprogram *> FuncToSubprogram;
+  DITypeIdentifierMap EmptyMap;
+
+  DISubprogram *GetSubprogramForLoc(DILocation *Loc) {
+    auto It = LocToSubprogram.find(Loc);
+    if (It != LocToSubprogram.end())
+      return It->second;
+    DISubprogram *Result = nullptr;
+    auto *Scope = dyn_cast<DIScope>(Loc->getScope());
+    while (Scope) {
+      if (auto SubP = dyn_cast<DISubprogram>(Scope)) {
+        Result = SubP;
+        break;
+      }
+      Scope = Scope->getScope().resolve(EmptyMap);
+    }
+    LocToSubprogram[Loc] = Result;
+    return Result;
+  }
+
+  // Collect DISubprograms from a DILocation's inlined-at chain.
+  void CollectSubprograms(DILocation *Loc, SetVector<DISubprogram *> &Set) {
+    while (Loc) {
+      if (DISubprogram *SP = GetSubprogramForLoc(Loc))
+        Set.insert(SP);
+      Loc = Loc->getInlinedAt();
+    }
+  }
+
+  DISubprogram *GetFuncSubprogram(Function *F, DebugInfoFinder &DbgFinder) {
+    auto It = FuncToSubprogram.find(F);
+    if (It != FuncToSubprogram.end())
+      return It->second;
+    DISubprogram *Result = nullptr;
+    for (DISubprogram *SP : DbgFinder.subprograms()) {
+      if (SP->getFunction() == F) {
+        Result = SP;
+        break;
+      }
+    }
+    FuncToSubprogram[F] = Result;
+    return Result;
+  }
+};
+
 class LowerStaticGlobalIntoAlloca : public ModulePass {
   DebugInfoFinder m_DbgFinder;
+  GVDebugInfoPatchCache m_GVDebugInfoCache;
 
 public:
   static char ID; // Pass identification, replacement for typeid
@@ -6683,28 +6741,15 @@ FindGlobalVariableFragment(const DebugInfoFinder &DbgFinder,
 // Create a fake local variable for the GlobalVariable GV that has just been
 // lowered to local Alloca.
 //
-static void PatchDebugInfo(DebugInfoFinder &DbgFinder, Function *F,
+static void PatchDebugInfo(GVDebugInfoPatchCache &Cache,
+                           DebugInfoFinder &DbgFinder, Function *F,
                            GlobalVariable *GV, AllocaInst *AI) {
-  if (!DbgFinder.compile_unit_count())
-    return;
-
-  // Find the subprogram for function
-  DISubprogram *Subprogram = nullptr;
-  for (DISubprogram *SP : DbgFinder.subprograms()) {
-    if (SP->getFunction() == F) {
-      Subprogram = SP;
-      break;
-    }
-  }
-
   DIGlobalVariable *DGV = dxilutil::FindGlobalVariableDebugInfo(GV, DbgFinder);
   if (!DGV)
     return;
 
-  DITypeIdentifierMap EmptyMap;
-  DIBuilder DIB(*GV->getParent());
-  DIScope *Scope = Subprogram;
-  DebugLoc Loc = DebugLoc::get(DGV->getLine(), 0, Scope);
+  if (!DbgFinder.compile_unit_count())
+    return;
 
   // If the variable is a member of another variable, find the offset and size
   bool IsFragment = false;
@@ -6721,20 +6766,40 @@ static void PatchDebugInfo(DebugInfoFinder &DbgFinder, Function *F,
   // Subprogram as its scope, so we don't have to make one up for it.
   llvm::dwarf::Tag Tag = llvm::dwarf::Tag::DW_TAG_arg_variable;
 
+  DITypeIdentifierMap EmptyMap;
   DIType *Ty = DGV->getType().resolve(EmptyMap);
   DXASSERT(Ty->getTag() != dwarf::DW_TAG_member,
            "Member type is not allowed for variables.");
-  DILocalVariable *ConvertedLocalVar = DIB.createLocalVariable(
-      Tag, Scope, Name, DGV->getFile(), DGV->getLine(), Ty);
 
-  DIExpression *Expr = nullptr;
-  if (IsFragment) {
-    Expr = DIB.createBitPieceExpression(OffsetInBits, SizeInBits);
-  } else {
-    Expr = DIB.createExpression(ArrayRef<int64_t>());
+  DIBuilder DIB(*GV->getParent());
+
+  // Only collect subprograms relevant to this GV to avoid creating
+  // O(subprograms × globals) debug instructions.
+  SetVector<DISubprogram *> Subprograms;
+
+  if (DISubprogram *SP = Cache.GetFuncSubprogram(F, DbgFinder))
+    Subprograms.insert(SP);
+
+  for (User *U : AI->users()) {
+    if (Instruction *I = dyn_cast<Instruction>(U))
+      Cache.CollectSubprograms(I->getDebugLoc(), Subprograms);
   }
 
-  DIB.insertDeclare(AI, ConvertedLocalVar, Expr, Loc, AI->getNextNode());
+  for (DISubprogram *Subprogram : Subprograms) {
+    DIScope *Scope = Subprogram;
+    DebugLoc Loc = DebugLoc::get(DGV->getLine(), 0, Scope);
+
+    DILocalVariable *ConvertedLocalVar = DIB.createLocalVariable(
+        Tag, Scope, Name, DGV->getFile(), DGV->getLine(), Ty);
+
+    DIExpression *Expr = nullptr;
+    if (IsFragment)
+      Expr = DIB.createBitPieceExpression(OffsetInBits, SizeInBits);
+    else
+      Expr = DIB.createExpression(ArrayRef<int64_t>());
+
+    DIB.insertDeclare(AI, ConvertedLocalVar, Expr, Loc, AI->getNextNode());
+  }
 }
 
 // Collect instructions using GV and the value used by the instruction.
@@ -6812,7 +6877,7 @@ bool LowerStaticGlobalIntoAlloca::lowerStaticGlobalIntoAlloca(
     if (AI->user_empty())
       AI->eraseFromParent();
     else
-      PatchDebugInfo(m_DbgFinder, F, GV, AI);
+      PatchDebugInfo(m_GVDebugInfoCache, m_DbgFinder, F, GV, AI);
   }
 
   GV->removeDeadConstantUsers();

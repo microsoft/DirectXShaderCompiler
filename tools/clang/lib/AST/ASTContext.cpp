@@ -13,6 +13,7 @@
 
 #include "clang/AST/ASTContext.h"
 #include "CXXABI.h"
+#include "dxc/DXIL/DxilConstants.h"
 #include "clang/AST/ASTMutationListener.h"
 #include "clang/AST/Attr.h"
 #include "clang/AST/CharUnits.h"
@@ -24,10 +25,12 @@
 #include "clang/AST/Expr.h"
 #include "clang/AST/ExprCXX.h"
 #include "clang/AST/ExternalASTSource.h"
+#include "clang/AST/HlslTypes.h" // HLSL Change
 #include "clang/AST/Mangle.h"
 #include "clang/AST/MangleNumberingContext.h"
 #include "clang/AST/RecordLayout.h"
 #include "clang/AST/RecursiveASTVisitor.h"
+#include "clang/AST/Type.h"
 #include "clang/AST/TypeLoc.h"
 #include "clang/AST/VTableBuilder.h"
 #include "clang/Basic/Builtins.h"
@@ -38,8 +41,8 @@
 #include "llvm/ADT/Triple.h"
 #include "llvm/Support/Capacity.h"
 #include "llvm/Support/MathExtras.h"
-#include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/MathExtras.h" // HLSL Change
+#include "llvm/Support/raw_ostream.h"
 #include <map>
 
 using namespace clang;
@@ -1105,6 +1108,7 @@ void ASTContext::InitBuiltinTypes(const TargetInfo &Target) {
     InitBuiltinType(LitFloatTy, BuiltinType::LitFloat);
     InitBuiltinType(Int8_4PackedTy, BuiltinType::Int8_4Packed);
     InitBuiltinType(UInt8_4PackedTy, BuiltinType::UInt8_4Packed);
+    InitBuiltinType(LinAlgMatrixTy, BuiltinType::LinAlgMatrix);
 
     HLSLStringTy = this->getPointerType(CharTy);
 
@@ -1696,6 +1700,11 @@ TypeInfo ASTContext::getTypeInfoImpl(const Type *T) const {
       Width = 64;
       Align = 64;
       break;
+    case BuiltinType::LinAlgMatrix:
+      // Model it as a pointer an to opaque type
+      Width = Target->getPointerWidth(0);
+      Align = Target->getPointerAlign(0);
+      break;
     // HLSL Change Ends
     case BuiltinType::LongDouble:
       Width = Target->getLongDoubleWidth();
@@ -1804,6 +1813,17 @@ TypeInfo ASTContext::getTypeInfoImpl(const Type *T) const {
 
     const RecordType *RT = cast<RecordType>(TT);
     const RecordDecl *RD = RT->getDecl();
+    // HLSL Change Begins
+#ifdef ENABLE_SPIRV_CODEGEN
+    if (hlsl::IsVKBufferPointerType(QualType(T, 0))) {
+      TypeInfo Info = getTypeInfo(UnsignedLongLongTy);
+      Width = Info.Width;
+      Align = Info.Align;
+      AlignIsRequired = Info.AlignIsRequired;
+      break;
+    }
+#endif
+    // HLSL Change Ends
     const ASTRecordLayout &Layout = getASTRecordLayout(RD);
     Width = toBits(Layout.getSize());
     Align = toBits(Layout.getAlignment());
@@ -1848,6 +1868,10 @@ TypeInfo ASTContext::getTypeInfoImpl(const Type *T) const {
   case Type::Attributed:
     return getTypeInfo(
                   cast<AttributedType>(T)->getEquivalentType().getTypePtr());
+
+  case Type::AttributedLinAlgMatrix:
+    return getTypeInfo(
+        cast<AttributedLinAlgMatrixType>(T)->getWrappedType().getTypePtr());
 
   case Type::Atomic: {
     // Start with the base type information.
@@ -3270,6 +3294,50 @@ QualType ASTContext::getAttributedType(AttributedType::Kind attrKind,
   return QualType(type, 0);
 }
 
+// HLSL Change Start
+QualType ASTContext::getAttributedLinAlgMatrixType(
+    QualType WrappedTy, hlsl::DXIL::ComponentType ComponentTy, size_t Rows,
+    size_t Cols, hlsl::DXIL::MatrixUse Use, hlsl::DXIL::MatrixScope Scope) {
+
+  llvm::FoldingSetNodeID ID;
+  AttributedLinAlgMatrixType::Profile(ID, WrappedTy, ComponentTy, Rows, Cols,
+                                      Use, Scope);
+  void *InsertPos = nullptr;
+  AttributedLinAlgMatrixType *Ty =
+      AttrLinAlgMatrixTypes.FindNodeOrInsertPos(ID, InsertPos);
+  if (Ty)
+    return QualType(Ty, 0);
+
+  Ty = new (*this, TypeAlignment) AttributedLinAlgMatrixType(
+      WrappedTy, ComponentTy, Rows, Cols, Use, Scope);
+  Types.push_back(Ty);
+  AttrLinAlgMatrixTypes.InsertNode(Ty, InsertPos);
+  return QualType(Ty, 0);
+}
+
+QualType ASTContext::getDependentAttributedLinAlgMatrixType(
+    QualType WrappedTy, Expr *ComponentTyExpr, Expr *RowsExpr, Expr *ColsExpr,
+    Expr *UseExpr, Expr *ScopeExpr) {
+  llvm::FoldingSetNodeID ID;
+  DependentAttributedLinAlgMatrixType::Profile(ID, *this, WrappedTy,
+                                               ComponentTyExpr, RowsExpr,
+                                               ColsExpr, UseExpr, ScopeExpr);
+
+  void *InsertPos = nullptr;
+  DependentAttributedLinAlgMatrixType *Ty =
+      DepAttrLinAlgMatrixTypes.FindNodeOrInsertPos(ID, InsertPos);
+  if (Ty)
+    return QualType(Ty, 0);
+
+  Ty = new (*this, TypeAlignment) DependentAttributedLinAlgMatrixType(
+      *this, WrappedTy, ComponentTyExpr, RowsExpr, ColsExpr, UseExpr,
+      ScopeExpr);
+
+  Types.push_back(Ty);
+  DepAttrLinAlgMatrixTypes.InsertNode(Ty, InsertPos);
+  return QualType(Ty, 0);
+}
+// HLSL Change Start
 
 /// \brief Retrieve a substitution-result type.
 QualType

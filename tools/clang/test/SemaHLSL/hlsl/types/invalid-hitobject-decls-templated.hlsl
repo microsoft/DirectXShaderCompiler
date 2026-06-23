@@ -275,7 +275,7 @@ void Intersection() {
   float hitT = RayTCurrent();
   RTTYPE attr = (RTTYPE)0;
   bool bReported = ReportHit(hitT, 0, attr);
-  // expected-error@-1{{object 'dx::HitObject' is not allowed in user-defined struct parameter}}
+  // expected-error@-1{{object 'dx::HitObject' is not allowed in attributes}}
   // expected-note@40{{'dx::HitObject' field declared here}}
 }
 

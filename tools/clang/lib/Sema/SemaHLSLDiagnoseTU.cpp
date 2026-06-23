@@ -436,6 +436,15 @@ public:
     return true;
   }
 
+  bool VisitMemberExpr(MemberExpr *ME) {
+    // Diagnose availability for member function calls.
+    if (AvailabilityAttr *AAttr = GetAvailabilityAttrOnce(ME)) {
+      DiagnoseAvailability(AAttr, ME->getMemberDecl(), ME->getExprLoc());
+    }
+
+    return true;
+  }
+
   AvailabilityAttr *GetAvailabilityAttrOnce(TypeLoc TL) {
     QualType Ty = TL.getType();
     CXXRecordDecl *RD = Ty->getAsCXXRecordDecl();
@@ -458,6 +467,18 @@ public:
       return nullptr;
     // Skip redundant availability diagnostics for the same Decl.
     if (!DeclAvailabilityChecked.insert(DRE).second)
+      return nullptr;
+
+    return AAttr;
+  }
+
+  AvailabilityAttr *GetAvailabilityAttrOnce(MemberExpr *ME) {
+    AvailabilityAttr *AAttr = ME->getMemberDecl()->getAttr<AvailabilityAttr>();
+    if (!AAttr)
+      return nullptr;
+    // Skip redundant availability diagnostics for the same member.
+    // Use the member location to track if we've already diagnosed this.
+    if (!DiagnosedTypeLocs.insert(ME->getMemberLoc()).second)
       return nullptr;
 
     return AAttr;
@@ -737,6 +758,15 @@ void hlsl::DiagnoseTranslationUnit(clang::Sema *self) {
           NodeLaunchTy = DXIL::NodeLaunchType::Broadcasting;
       }
     }
+
+    // lib_6_x is an offline linking target, which allows exported functions to
+    // perform actions that would otherwise be disallowed, as long as these
+    // actions are either inlined into entry points where they are allowed, or
+    // eliminated by the time the final library is linked to a runtime supported
+    // shader model. Therefore, skip reachable call diagnostics for non-entry
+    // points.
+    if (EntrySK == DXIL::ShaderKind::Library && IsTargetProfileLib6x(*self))
+      continue;
 
     // Visit all visited functions in call graph to collect illegal intrinsic
     // calls.

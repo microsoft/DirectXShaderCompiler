@@ -1,3 +1,4 @@
+// REQUIRES: dxil-1-9
 // RUN: %dxc -T cs_6_9 -enable-16bit-types -DNUM=2   %s | FileCheck %s
 // RUN: %dxc -T cs_6_9 -enable-16bit-types -DNUM=7   %s | FileCheck %s
 // RUN: %dxc -T cs_6_9 -enable-16bit-types -DNUM=125 %s | FileCheck %s
@@ -216,6 +217,82 @@ void main() {
   // CHECK: call <[[NUM]] x float> @dx.op.unary.[[FTY]](i32 21, <[[NUM]] x float> [[tmp2]])  ; Exp(value)
   fRes += pow(fVec2, fVec1);
 
+  // CHECK-NOT: extractelement
+  // CHECK-NOT: insertelement
+  // CHECK: [[div:%.*]] = fdiv fast <[[NUM]] x half> [[hvec3]], [[hvec2]]
+  // CHECK: [[atan:%.*]] = call <[[NUM]] x half> @dx.op.unary.[[HTY]](i32 17, <[[NUM]] x half> [[div]]) ; Atan(value)
+  // CHECK: [[add:%.*]] = fadd fast <[[NUM]] x half> [[atan]], <half 0x
+  // CHECK: [[sub:%.*]] = fsub fast <[[NUM]] x half> [[atan]], <half 0x
+  // CHECK: [[xlt:%.*]] = fcmp fast olt <[[NUM]] x half> [[hvec2]], zeroinitializer
+  // CHECK: [[xeq:%.*]] = fcmp fast oeq <[[NUM]] x half> [[hvec2]], zeroinitializer
+  // CHECK: [[yge:%.*]] = fcmp fast oge <[[NUM]] x half> [[hvec3]], zeroinitializer
+  // CHECK: [[ylt:%.*]] = fcmp fast olt <[[NUM]] x half> [[hvec3]], zeroinitializer
+  // CHECK: [[and:%.*]] = and <[[NUM]] x i1> [[yge]], [[xlt]]
+  // CHECK: select <[[NUM]] x i1> [[and]], <[[NUM]] x half> [[add]], <[[NUM]] x half>
+  // CHECK: [[and:%.*]] = and <[[NUM]] x i1> [[ylt]], [[xlt]]
+  // CHECK: select <[[NUM]] x i1> [[and]], <[[NUM]] x half> [[sub]], <[[NUM]] x half>
+  // CHECK: [[and:%.*]] = and <[[NUM]] x i1> [[ylt]], [[xeq]]
+  // CHECK: select <[[NUM]] x i1> [[and]], <[[NUM]] x half> <half 0x
+  // CHECK: [[and:%.*]] = and <[[NUM]] x i1> [[yge]], [[xeq]]
+  // CHECK: select <[[NUM]] x i1> [[and]], <[[NUM]] x half> <half 0x
+  hRes += atan2(hVec3, hVec2);
+
+  // CHECK-NOT: extractelement
+  // CHECK-NOT: insertelement
+  // CHECK: [[div:%.*]] = fdiv fast <[[NUM]] x float> [[fvec3]], [[fvec2]]
+  // CHECK: [[atan:%.*]] = call <[[NUM]] x float> @dx.op.unary.[[FTY]](i32 17, <[[NUM]] x float> [[div]]) ; Atan(value)
+  // CHECK: [[add:%.*]] = fadd fast <[[NUM]] x float> [[atan]], <float 0x
+  // CHECK: [[sub:%.*]] = fadd fast <[[NUM]] x float> [[atan]], <float 0x
+  // CHECK: [[xlt:%.*]] = fcmp fast olt <[[NUM]] x float> [[fvec2]], zeroinitializer
+  // CHECK: [[xeq:%.*]] = fcmp fast oeq <[[NUM]] x float> [[fvec2]], zeroinitializer
+  // CHECK: [[yge:%.*]] = fcmp fast oge <[[NUM]] x float> [[fvec3]], zeroinitializer
+  // CHECK: [[ylt:%.*]] = fcmp fast olt <[[NUM]] x float> [[fvec3]], zeroinitializer
+  // CHECK: [[and:%.*]] = and <[[NUM]] x i1> [[yge]], [[xlt]]
+  // CHECK: select <[[NUM]] x i1> [[and]], <[[NUM]] x float> [[add]], <[[NUM]] x float>
+  // CHECK: [[and:%.*]] = and <[[NUM]] x i1> [[ylt]], [[xlt]]
+  // CHECK: select <[[NUM]] x i1> [[and]], <[[NUM]] x float> [[sub]], <[[NUM]] x float>
+  // CHECK: [[and:%.*]] = and <[[NUM]] x i1> [[ylt]], [[xeq]]
+  // CHECK: select <[[NUM]] x i1> [[and]], <[[NUM]] x float> <float 0x
+  // CHECK: [[and:%.*]] = and <[[NUM]] x i1> [[yge]], [[xeq]]
+  // CHECK: select <[[NUM]] x i1> [[and]], <[[NUM]] x float> <float 0x
+  fRes += atan2(fVec3, fVec2);
+
+  // CHECK-NOT: extractelement
+  // CHECK-NOT: insertelement
+  // CHECK: [[div:%.*]] = fdiv fast <[[NUM]] x half> [[hvec2]], [[hvec3]]
+  // CHECK: [[ndiv:%.*]] = fsub fast <[[NUM]] x half> {{.*}}, [[div]]
+  // CHECK: [[cmp:%.*]] = fcmp fast oge <[[NUM]] x half> [[div]], [[ndiv]]
+  // CHECK: [[abs:%.*]] = call <[[NUM]] x half> @dx.op.unary.[[HTY]](i32 6, <[[NUM]] x half> [[div]]) ; FAbs(value)
+  // CHECK: [[frc:%.*]] = call <[[NUM]] x half> @dx.op.unary.[[HTY]](i32 22, <[[NUM]] x half> [[abs]]) ; Frc(value)
+  // CHECK: [[nfrc:%.*]] = fsub fast <[[NUM]] x half> {{.*}}, [[frc]]
+  // CHECK: [[rfrc:%.*]] = select <[[NUM]] x i1> [[cmp]], <[[NUM]] x half> [[frc]], <[[NUM]] x half> [[nfrc]]
+  // CHECK: fmul fast <[[NUM]] x half> [[rfrc]], [[hvec3]]
+  hRes += fmod(hVec2, hVec3);
+
+  // CHECK-NOT: extractelement
+  // CHECK-NOT: insertelement
+  // CHECK: [[div:%.*]] = fdiv fast <[[NUM]] x float> [[fvec2]], [[fvec3]]
+  // CHECK: [[ndiv:%.*]] = fsub fast <[[NUM]] x float> {{.*}}, [[div]]
+  // CHECK: [[cmp:%.*]] = fcmp fast oge <[[NUM]] x float> [[div]], [[ndiv]]
+  // CHECK: [[abs:%.*]] = call <[[NUM]] x float> @dx.op.unary.[[FTY]](i32 6, <[[NUM]] x float> [[div]]) ; FAbs(value)
+  // CHECK: [[frc:%.*]] = call <[[NUM]] x float> @dx.op.unary.[[FTY]](i32 22, <[[NUM]] x float> [[abs]]) ; Frc(value)
+  // CHECK: [[nfrc:%.*]] = fsub fast <[[NUM]] x float> {{.*}}, [[frc]]
+  // CHECK: [[rfrc:%.*]] = select <[[NUM]] x i1> [[cmp]], <[[NUM]] x float> [[frc]], <[[NUM]] x float> [[nfrc]]
+  // CHECK: fmul fast <[[NUM]] x float> [[rfrc]], [[fvec3]]
+  fRes += fmod(fVec2, fVec3);
+
+  // CHECK-NOT: extractelement
+  // CHECK-NOT: insertelement
+  // CHECK: [[exp:%.*]] = call <[[NUM]] x half> @dx.op.unary.[[HTY]](i32 21, <[[NUM]] x half> [[hvec2]]) ; Exp(value)
+  // CHECK: fmul fast <[[NUM]] x half> [[exp]], [[hvec1]]
+  hRes += ldexp(hVec1, hVec2);
+
+  // CHECK-NOT: extractelement
+  // CHECK-NOT: insertelement
+  // CHECK: [[exp:%.*]] = call <[[NUM]] x float> @dx.op.unary.[[FTY]](i32 21, <[[NUM]] x float> [[fvec2]]) ; Exp(value)
+  // CHECK: fmul fast <[[NUM]] x float> [[exp]], [[fvec1]]
+  fRes += ldexp(fVec1, fVec2);
+
   vector<half, NUM> hVal;
   // CHECK-NOT: extractelement
   // CHECK-NOT: insertelement
@@ -334,6 +411,22 @@ void main() {
   // CHECK: fdiv fast <[[NUM]] x float> <float 1.000000e+00, {{.*}}>, [[fvec1]]
   fRes += rcp(fVec1);
 
+  // CHECK-NOT: extractelement
+  // CHECK-NOT: insertelement
+  // CHECK: [[tmp:%.*]] = call <[[NUM]] x half> @dx.op.unary.[[HTY]](i32 83, <[[NUM]] x half> [[hvec1]])  ; DerivCoarseX(value)
+  // CHECK: call <[[NUM]] x half> @dx.op.unary.[[HTY]](i32 6, <[[NUM]] x half> [[tmp]])  ; FAbs(value)
+  // CHECK: [[tmp:%.*]] = call <[[NUM]] x half> @dx.op.unary.[[HTY]](i32 84, <[[NUM]] x half> [[hvec1]])  ; DerivCoarseY(value)
+  // CHECK: call <[[NUM]] x half> @dx.op.unary.[[HTY]](i32 6, <[[NUM]] x half> [[tmp]])  ; FAbs(value)
+  hRes += fwidth(hVec1);
+
+  // CHECK-NOT: extractelement
+  // CHECK-NOT: insertelement
+  // CHECK: [[tmp:%.*]] = call <[[NUM]] x float> @dx.op.unary.[[FTY]](i32 83, <[[NUM]] x float> [[fvec1]])  ; DerivCoarseX(value)
+  // CHECK: call <[[NUM]] x float> @dx.op.unary.[[FTY]](i32 6, <[[NUM]] x float> [[tmp]])  ; FAbs(value)
+  // CHECK: [[tmp:%.*]] = call <[[NUM]] x float> @dx.op.unary.[[FTY]](i32 84, <[[NUM]] x float> [[fvec1]])  ; DerivCoarseY(value)
+  // CHECK: call <[[NUM]] x float> @dx.op.unary.[[FTY]](i32 6, <[[NUM]] x float> [[tmp]])  ; FAbs(value)
+  fRes += fwidth(fVec1);
+
   vector<uint, NUM> signs = 1;
   // CHECK-NOT: extractelement
   // CHECK-NOT: insertelement
@@ -426,6 +519,28 @@ void main() {
   // CHECK-NOT: insertelement
   // CHECK: select <[[NUM]] x i1> [[bvec1]], <[[NUM]] x i16> [[svec2]], <[[NUM]] x i16> [[svec3]]
   sRes += select(sVec1, sVec2, sVec3);
+
+  // CHECK: [[vecreduceand:%.*]] = call i1 @dx.op.vectorReduce.v[[NUM]]i1(i32 309, <[[NUM]] x i1> [[bvec1]])  ; VectorReduceAnd(a)
+  // Upcast the i1 result to the correct vector size
+  // CHECK: [[vecreduceand16:%.*]] = zext i1 [[vecreduceand]] to i16
+  // CHECK: insertelement <[[NUM]] x i16> undef, i16 [[vecreduceand16]], i32 0
+  sRes += all(sVec1);
+
+  // The icmp is reused from above
+  // CHECK: [[vecreduceor:%.*]] = call i1 @dx.op.vectorReduce.v[[NUM]]i1(i32 310, <[[NUM]] x i1> [[bvec1]])  ; VectorReduceOr(a)
+  // Upcast the i1 result to the correct vector size
+  // CHECK: [[vecreduceor16:%.*]] = zext i1 [[vecreduceor]] to i16
+  // CHECK: insertelement <[[NUM]] x i16> undef, i16 [[vecreduceor16]], i32 0
+  sRes += any(sVec1);
+
+  // CHECK-NOT: extractelement
+  // CHECK-NOT: insertelement
+  // CHECK: call float @dx.op.dot.[[FTY]](i32 311, <[[NUM]] x float> [[fvec1]], <[[NUM]] x float> [[fvec2]])  ; FDot(a,b)
+  // One pair of extract/insert is expected for the [0]
+  // CHECK: extractelement <[[NUM]] x float> {{%.*}}, i32 0
+  // CHECK: insertelement <[[NUM]] x float> {{%.*}}, float {{%.*}}, i32 0
+  float fResScalar = dot(fVec1, fVec2);
+  fRes[0] += fResScalar;
 
   // CHECK-NOT: extractelement
   // CHECK-NOT: insertelement

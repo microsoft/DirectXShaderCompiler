@@ -233,6 +233,7 @@ def Borland : LangOpt<"Borland">;
 def CUDA : LangOpt<"CUDA">;
 def COnly : LangOpt<"CPlusPlus", 1>;
 def SPIRV : LangOpt<"SPIRV">; // SPIRV Change
+def HLSL : LangOpt<"HLSL">;   // HLSL Change
 
 // Defines targets for target-specific attributes. The list of strings should
 // specify architectures for which the target applies, based off the ArchType
@@ -671,6 +672,11 @@ def HLSLNumThreads: InheritableAttr {
   let Args = [IntArgument<"X">, IntArgument<"Y">, IntArgument<"Z">];
   let Documentation = [Undocumented];
 }
+def HLSLGroupSharedLimit: InheritableAttr {
+  let Spellings = [CXX11<"", "GroupSharedLimit", 2017>];
+  let Args = [IntArgument<"Limit">];
+  let Documentation = [Undocumented];
+}
 def HLSLRootSignature: InheritableAttr {
   let Spellings = [CXX11<"", "RootSignature", 2015>];
   let Args = [StringArgument<"SignatureName">];
@@ -945,6 +951,18 @@ def HLSLCXXOverload : InheritableAttr {
   let Documentation = [Undocumented];
 }
 
+// This attribute means something subtly different from the HLSLIntrinsic
+// attribute. Prior to this being introduced a subset of the HLSL intrinsics
+// were placed in the `hlsl` namespace, but not in a way that actually qualified
+// their name lookup. The presence of the namespace as the declcontext was then
+// sused in CGExpr to determine how to emit the call. This attribute replaces
+// the namespace in that context.
+def HLSLBuiltinCall : InheritableAttr {
+  let Spellings = [];
+  let Subjects = SubjectList<[Function]>;
+  let Documentation = [Undocumented];
+}
+
 def HLSLVector : InheritableAttr {
   let Spellings = []; // No spellings!
   let Subjects = SubjectList<[CXXRecord]>;
@@ -1170,10 +1188,30 @@ def HLSLSubObject : InheritableAttr {
   let Args = [UnsignedArgument<"SubObjKindUint">, UnsignedArgument<"HitGroupType">];
 }
 
+// Marks builtin record types that have no deducible value form, so 'auto' must
+// not infer them: the inner indexer objects behind .mips / .sample, and the
+// subobject types used to configure DXR state objects.
+def HLSLNonAutoDeducible : InheritableAttr {
+  let Spellings = []; // No spellings!
+  let Subjects = SubjectList<[CXXRecord]>;
+  let Documentation = [Undocumented];
+}
+
 // HLSL HitObject Attribute
 
 def HLSLHitObject : InheritableAttr {
   let Spellings = []; // No spellings!
+  let Subjects = SubjectList<[CXXRecord]>;
+  let Documentation = [Undocumented];
+}
+
+// HLSL Dynamic Resource Attribute
+// Marks the builtin `.Resource` / `.Sampler` placeholder record types used
+// for descriptor heap indexing (ResourceDescriptorHeap[i] /
+// SamplerDescriptorHeap[i]).
+def HLSLDynamicResource : InheritableAttr {
+  let Spellings = []; // No spellings!
+  let Args = [BoolArgument<"IsSampler">];
   let Subjects = SubjectList<[CXXRecord]>;
   let Documentation = [Undocumented];
 }
@@ -1211,6 +1249,13 @@ def HLSLUnboundedSparseNodes : InheritableParamAttr {
   let Documentation = [Undocumented];
 }
 
+def HLSLLinAlgMatrixAttributes : TypeAttr {
+  let Spellings = [CXX11<"", "__LinAlgMatrix_Attributes", 2015>];
+  let LangOpts = [HLSL];
+  let Args = [ExprArgument<"ComponentTy">, ExprArgument<"M">, ExprArgument<"N">,
+              ExprArgument<"Use">, ExprArgument<"Scope">];
+  let Documentation = [Undocumented];
+}
 // HLSL Change Ends
 
 // SPIRV Change Starts
@@ -2445,13 +2490,15 @@ def WarnUnused : InheritableAttr {
   let Documentation = [Undocumented];
 }
 
+// HLSL Change Begin - add C++11 spelling.
 def WarnUnusedResult : InheritableAttr {
-  let Spellings = [GCC<"warn_unused_result">,
+  let Spellings = [CXX11<"", "nodiscard", 2017>, GCC<"warn_unused_result">,
                    CXX11<"clang", "warn_unused_result">];
   let Subjects = SubjectList<[ObjCMethod, CXXRecord, FunctionLike], WarnDiag,
                              "ExpectedFunctionMethodOrClass">;
   let Documentation = [Undocumented];
 }
+// HLSL Change End - add C++11 spelling.
 
 def Weak : InheritableAttr {
   let Spellings = [GCC<"weak">];

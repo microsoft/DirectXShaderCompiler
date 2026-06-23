@@ -292,6 +292,9 @@ public:
   // DXR Payload Annotations metadata.
   static const char kDxilDxrPayloadAnnotationsMDName[];
 
+  // LinAlg Matrix Target Types metadata.
+  static const char kDxilTargetTypesMDName[];
+
   // Extended shader property tags.
   static const unsigned kDxilShaderFlagsTag = 0;
   static const unsigned kDxilGSStateTag = 1;
@@ -320,6 +323,7 @@ public:
   static const unsigned kDxilNodeOutputsTag = 21;
   static const unsigned kDxilNodeMaxDispatchGridTag = 22;
   static const unsigned kDxilRangedWaveSizeTag = 23;
+  static const unsigned kDxilGroupSharedLimitTag = 24;
 
   // Node Input/Output State.
   static const unsigned kDxilNodeOutputIDTag = 0;
@@ -644,6 +648,7 @@ private:
 public:
   // Utility functions.
   static bool IsKnownNamedMetaData(const llvm::NamedMDNode &Node);
+  static bool IsKnownGeneratedMetaData(const llvm::NamedMDNode &Node);
   static bool IsKnownMetadataID(llvm::LLVMContext &Ctx, unsigned ID);
   static void GetKnownMetadataIDs(llvm::LLVMContext &Ctx,
                                   llvm::SmallVectorImpl<unsigned> *pIDs);

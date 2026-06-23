@@ -1,3 +1,4 @@
+// REQUIRES: dxil-1-8
 // RUN: %dxc /enable-16bit-types /T cs_6_8 %s | FileCheck %s
 
 // Compiling this HLSL would fail this assertion in TranslateDot4AddPacked:

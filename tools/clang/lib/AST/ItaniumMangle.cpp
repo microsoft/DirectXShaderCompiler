@@ -1509,6 +1509,10 @@ bool CXXNameMangler::mangleUnresolvedTypeOrSimpleId(QualType Ty,
   case Type::FunctionNoProto:
   case Type::Paren:
   case Type::Attributed:
+    // HLSL Change Start
+  case Type::AttributedLinAlgMatrix:
+  case Type::DependentAttributedLinAlgMatrix:
+    // HLSL Change End
   case Type::Auto:
   case Type::PackExpansion:
   case Type::ObjCObject:
@@ -2050,6 +2054,9 @@ void CXXNameMangler::mangleType(const BuiltinType *T) {
   case BuiltinType::HalfFloat: Out << "half_float"; break;
   case BuiltinType::Int8_4Packed: Out << "int8_t4_packed"; break;
   case BuiltinType::UInt8_4Packed: Out << "uint8_t4_packed"; break;
+  case BuiltinType::LinAlgMatrix:
+    Out << "22__builtin_LinAlgMatrix";
+    break;
     // HLSL Change ends
   }
 }
@@ -2572,6 +2579,16 @@ void CXXNameMangler::mangleType(const AtomicType *T) {
   Out << "U7_Atomic";
   mangleType(T->getValueType());
 }
+
+// HLSL Change Start
+void CXXNameMangler::mangleType(const AttributedLinAlgMatrixType *) {
+  llvm_unreachable("DXC uses Microsoft name mangling");
+}
+
+void CXXNameMangler::mangleType(const DependentAttributedLinAlgMatrixType *) {
+  llvm_unreachable("DXC uses Microsoft name mangling");
+}
+// HLSL Change End
 
 void CXXNameMangler::mangleIntegerLiteral(QualType T,
                                           const llvm::APSInt &Value) {

@@ -146,8 +146,8 @@ ImplicitConversionRank clang::GetConversionRank(ImplicitConversionKind Kind) {
   };
   static_assert(_countof(Rank) == ICK_Num_Conversion_Kinds,
       "Otherwise, GetConversionRank is out of sync with ImplicitConversionKind"); // HLSL Change
-  assert((int)Kind < (int)ICK_Num_Conversion_Kinds); // HLSL Change
-  return Rank[(int)Kind];
+  assert(Kind < _countof(Rank)); // HLSL Change
+  return Rank[Kind];             // HLSL Change
 }
 
 /// GetImplicitConversionName - Return the name of this kind of
@@ -4953,6 +4953,26 @@ InitCallParamConversions(Sema &S, const FunctionProtoType *Proto,
                          ImplicitConversionSequence &OutConversion) {
   hlsl::ParameterModifier paramMods = Proto->getParamMods()[ArgIdx];
   QualType ParamType = Proto->getParamType(ArgIdx);
+
+  // must be a Ref; don't allow any conversions
+  if (!(paramMods.isAnyIn() || paramMods.isAnyOut())) {
+    if (!S.getASTContext().hasSameUnqualifiedType(
+            ParamType.getNonReferenceType(), Arg->getType()) ||
+        Arg->getType().getQualifiers().getAddressSpace() !=
+            hlsl::DXIL::kTGSMAddrSpace) {
+      InConversion.setBad(BadConversionSequence::no_conversion, Arg->getType(),
+                          ParamType.getNonReferenceType());
+      InConversion.Bad.FromExpr = Arg;
+      return;
+    }
+  }
+
+  if (S.getLangOpts().HLSLVersion >= hlsl::LangStd::v202x &&
+      paramMods.isAnyIn() && paramMods.isAnyOut() &&
+      Arg->getType().getQualifiers().getAddressSpace() ==
+          hlsl::DXIL::kTGSMAddrSpace)
+    S.Diag(Arg->getLocStart(), diag::warn_hlsl_groupshared_inout);
+
   if (paramMods.isAnyIn()) {
     InConversion =
         TryCopyInitialization(S, Arg, ParamType, SuppressUserConversions,
@@ -10627,6 +10647,7 @@ static void AddOverloadedCallCandidate(Sema &S,
 void Sema::AddOverloadedCallCandidates(UnresolvedLookupExpr *ULE,
                                        ArrayRef<Expr *> Args,
                                        OverloadCandidateSet &CandidateSet,
+                                       Scope *S, // HLSL Change
                                        bool PartialOverloading) {
 
 #ifndef NDEBUG
@@ -10659,8 +10680,8 @@ void Sema::AddOverloadedCallCandidates(UnresolvedLookupExpr *ULE,
 #endif
 
   // HLSL Change - allow ExternalSource the ability to add the overloads for a call.
-  if (ExternalSource &&
-    ExternalSource->AddOverloadedCallCandidates(ULE, Args, CandidateSet, PartialOverloading)) {
+  if (ExternalSource && ExternalSource->AddOverloadedCallCandidates(
+                            ULE, Args, CandidateSet, S, PartialOverloading)) {
     return;
   }
 
@@ -10970,7 +10991,7 @@ bool Sema::buildOverloadedCallSet(Scope *S, Expr *Fn,
 
   // Add the functions denoted by the callee to the set of candidate
   // functions, including those from argument-dependent lookup.
-  AddOverloadedCallCandidates(ULE, Args, *CandidateSet);
+  AddOverloadedCallCandidates(ULE, Args, *CandidateSet, S); // HLSL Change
 
   if (getLangOpts().MSVCCompat &&
       CurContext->isDependentContext() && !isSFINAEContext() &&

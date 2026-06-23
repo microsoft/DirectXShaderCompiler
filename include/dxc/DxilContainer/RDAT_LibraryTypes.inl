@@ -459,7 +459,7 @@ RDAT_STRUCT_END()
 
 #define RECORD_TYPE RuntimeDataFunctionInfo2
 RDAT_STRUCT_TABLE_DERIVED(RuntimeDataFunctionInfo2, RuntimeDataFunctionInfo,
-                          FunctionTable)
+                          FunctionTable, 1, 8)
 
   // 128 lanes is maximum that could be supported by HLSL
   RDAT_VALUE(uint8_t, MinimumExpectedWaveLaneCount) // 0 = none specified
@@ -567,7 +567,7 @@ RDAT_DXIL_ENUM_START(hlsl::DXIL::ComponentType, uint32_t)
   RDAT_ENUM_VALUE_NODEF(PackedU8x32)
   RDAT_ENUM_VALUE_NODEF(U8)
   RDAT_ENUM_VALUE_NODEF(I8)
-  RDAT_ENUM_VALUE_NODEF(F8_E4M3)
+  RDAT_ENUM_VALUE_NODEF(F8_E4M3FN)
   RDAT_ENUM_VALUE_NODEF(F8_E5M2)
   RDAT_ENUM_VALUE_NODEF(LastEntry)
 #if DEF_RDAT_ENUMS == DEF_RDAT_DUMP_IMPL

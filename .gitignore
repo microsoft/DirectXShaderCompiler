@@ -70,6 +70,8 @@ tools/polly
 docs/_build
 # TAEF crash logs.
 WexLogFileOutput/*
+# .cache directory - used by clangd
+.cache
 
 #==============================================================================#
 # Files created in tree by the Go bindings.

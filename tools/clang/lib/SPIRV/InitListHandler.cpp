@@ -142,7 +142,8 @@ bool InitListHandler::tryToSplitStruct() {
       // Sampler types will pass the above check but we cannot split it.
       isSampler(initType) ||
       // Can not split structuredOrByteBuffer
-      isAKindOfStructuredOrByteBuffer(initType))
+      isAKindOfStructuredOrByteBuffer(initType) ||
+      hlsl::IsVKBufferPointerType(initType))
     return false;
 
   // We are certain the current intializer will be replaced by now.
@@ -235,6 +236,11 @@ SpirvInstruction *InitListHandler::createInitForType(QualType type,
 
   // This should happen before the check for normal struct types
   if (isAKindOfStructuredOrByteBuffer(type)) {
+    return createInitForBufferOrImageType(type, srcLoc);
+  }
+
+  // If the type is a buffer pointer add a special case.
+  if (hlsl::IsVKBufferPointerType(type)) {
     return createInitForBufferOrImageType(type, srcLoc);
   }
 
@@ -512,7 +518,8 @@ SpirvInstruction *InitListHandler::createInitForConstantArrayType(
 SpirvInstruction *
 InitListHandler::createInitForBufferOrImageType(QualType type,
                                                 SourceLocation srcLoc) {
-  assert(isOpaqueType(type) || isAKindOfStructuredOrByteBuffer(type));
+  assert(isOpaqueType(type) || isAKindOfStructuredOrByteBuffer(type) ||
+         hlsl::IsVKBufferPointerType(type));
 
   // Samplers, (RW)Buffers, and (RW)Textures are translated into OpTypeSampler
   // and OpTypeImage. They should be treated similar as builtin types.

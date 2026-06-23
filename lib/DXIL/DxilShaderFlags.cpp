@@ -586,6 +586,8 @@ ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
           continue;
         if (hlsl::OP::IsDxilOpWave(dxilOp))
           hasWaveOps = true;
+        if (hlsl::OP::IsDxilOpFeedback(dxilOp))
+          hasSamplerFeedback = true;
         switch (dxilOp) {
         case DXIL::OpCode::CheckAccessFullyMapped:
           hasCheckAccessFully = true;
@@ -729,6 +731,10 @@ ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
           if (OP::BarrierRequiresGroup(CI))
             requiresGroup = true;
           break;
+        case DXIL::OpCode::GetGroupWaveIndex:
+        case DXIL::OpCode::GetGroupWaveCount:
+          requiresGroup = true;
+          break;
         default:
           // Normal opcodes.
           break;
@@ -816,6 +822,11 @@ ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
   if (requiresGroup && DXIL::CompareVersions(valMajor, valMinor, 1, 8) < 0) {
     // Before validator version 1.8, RequiresGroup flag did not exist.
     requiresGroup = false;
+  }
+  if (hasSamplerFeedback &&
+      DXIL::CompareVersions(valMajor, valMinor, 1, 9) < 0) {
+    // Before validator version 1.9, SamplerFeedback flag was not set.
+    hasSamplerFeedback = false;
   }
 
   flag.SetEnableDoublePrecision(hasDouble);

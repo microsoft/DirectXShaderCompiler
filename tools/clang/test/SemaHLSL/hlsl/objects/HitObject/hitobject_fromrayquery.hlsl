@@ -1,3 +1,4 @@
+// REQUIRES: dxil-1-9
 // RUN: %dxc -T lib_6_9 -E main %s -fcgl | FileCheck %s --check-prefix FCGL
 // RUN: %dxc -T lib_6_9 -E main %s -ast-dump-implicit | FileCheck %s --check-prefix AST
 
@@ -33,10 +34,14 @@
 // AST-NEXT: | | |   |-HLSLIntrinsicAttr {{[^ ]+}} <<invalid sloc>> Implicit "op" "" 363
 // AST-NEXT: | | |   `-AvailabilityAttr {{[^ ]+}} <<invalid sloc>> Implicit  6.9 0 0 ""
 
-// FCGL: call void @"dx.hl.op..void (i32, %dx.types.HitObject*, %\22class.RayQuery<5, 0>\22*)"(i32 363, %dx.types.HitObject* %[[HITPTR0:[^ ]+]], %"class.RayQuery<5, 0>"* %[[RQ:[^ ]+]])
-// FCGL-NEXT: call void @"\01?Use@@YAXVHitObject@dx@@@Z"(%dx.types.HitObject* %[[HITPTR0]])
-// FCGL: call void @"dx.hl.op..void (i32, %dx.types.HitObject*, %\22class.RayQuery<5, 0>\22*, i32, %struct.CustomAttrs*)"(i32 363, %dx.types.HitObject* %[[HITPTR1:[^ ]+]], %"class.RayQuery<5, 0>"* %[[RQ]], i32 16, %struct.CustomAttrs* %{{[^ ]+}})
-// FCGL-NEXT: call void @"\01?Use@@YAXVHitObject@dx@@@Z"(%dx.types.HitObject* %[[HITPTR1]])
+// FCGL: call void @"dx.hl.op..void (i32, %dx.types.HitObject*, %\22class.RayQuery<5, 0>\22*)"(i32 363, %dx.types.HitObject* %[[TMPPTR0:[^ ]+]], %"class.RayQuery<5, 0>"* %[[RQ:[^ ]+]])
+// FCGL: %[[HIT0:[^ ]+]] = load %dx.types.HitObject, %dx.types.HitObject* %[[TMPPTR0]]
+// FCGL: store %dx.types.HitObject %[[HIT0]], %dx.types.HitObject* %[[HITPTR0:[^ ]+]],
+// FCGL: call void @"\01?Use@@YAXVHitObject@dx@@@Z"(%dx.types.HitObject* %[[HITPTR0]])
+// FCGL: call void @"dx.hl.op..void (i32, %dx.types.HitObject*, %\22class.RayQuery<5, 0>\22*, i32, %struct.CustomAttrs*)"(i32 363, %dx.types.HitObject* %[[TMPPTR1:[^ ]+]], %"class.RayQuery<5, 0>"* %[[RQ]], i32 16, %struct.CustomAttrs* %{{[^ ]+}})
+// FCGL: %[[HIT1:[^ ]+]] = load %dx.types.HitObject, %dx.types.HitObject* %[[TMPPTR1]]
+// FCGL: store %dx.types.HitObject %[[HIT1]], %dx.types.HitObject* %[[HITPTR1:[^ ]+]],
+// FCGL: call void @"\01?Use@@YAXVHitObject@dx@@@Z"(%dx.types.HitObject* %[[HITPTR1]])
 
 RaytracingAccelerationStructure RTAS;
 RWStructuredBuffer<float> UAV : register(u0);

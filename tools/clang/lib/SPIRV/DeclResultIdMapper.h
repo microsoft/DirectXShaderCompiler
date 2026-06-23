@@ -16,6 +16,7 @@
 #include "dxc/Support/SPIRVOptions.h"
 #include "spirv/unified1/spirv.hpp11"
 #include "clang/AST/Attr.h"
+#include "clang/SPIRV/AstTypeProbe.h"
 #include "clang/SPIRV/FeatureManager.h"
 #include "clang/SPIRV/SpirvBuilder.h"
 #include "llvm/ADT/ArrayRef.h"
@@ -33,7 +34,7 @@ class SpirvEmitter;
 
 class ResourceVar {
 public:
-  ResourceVar(SpirvVariable *var, const Decl *decl, SourceLocation loc,
+  ResourceVar(SpirvVariable *var, const NamedDecl *decl, SourceLocation loc,
               const hlsl::RegisterAssignment *r, const VKBindingAttr *b,
               const VKCounterBindingAttr *cb, bool counter = false,
               bool globalsBuffer = false)
@@ -52,9 +53,17 @@ public:
     return counterBinding;
   }
 
+  bool isResourceDescriptorHeap() const {
+    return spirv::isResourceDescriptorHeap(declaration);
+  }
+
+  bool isSamplerDescriptorHeap() const {
+    return spirv::isSamplerDescriptorHeap(declaration);
+  }
+
 private:
   SpirvVariable *variable;                    ///< The variable
-  const Decl *declaration;                    ///< The declaration
+  const NamedDecl *declaration;               ///< The declaration
   SourceLocation srcLoc;                      ///< Source location
   const hlsl::RegisterAssignment *reg;        ///< HLSL register assignment
   const VKBindingAttr *binding;               ///< Vulkan binding assignment
@@ -262,7 +271,8 @@ public:
   /// parameter must have "1", not "0", which is what Clang generates for
   /// LLVM debug metadata.
   SpirvFunctionParameter *createFnParam(const ParmVarDecl *param,
-                                        uint32_t dbgArgNumber = 0);
+                                        uint32_t dbgArgNumber = 0,
+                                        bool decorateIntrinsicAttrs = true);
 
   /// \brief Creates the counter variable associated with the given param.
   /// This is meant to be used for forward-declared functions and this objects
@@ -282,7 +292,7 @@ public:
 
   /// Creates a global variable for resource heaps containing elements of type
   /// |type|.
-  SpirvVariable *createResourceHeap(const VarDecl *var, QualType type);
+  SpirvVariableLike *createResourceHeap(const VarDecl *var, QualType type);
 
   /// \brief Creates an external-visible variable and returns its instruction.
   SpirvVariable *createExternVar(const VarDecl *var);
@@ -326,7 +336,7 @@ public:
   /// for the whole buffer. When we refer to the field VarDecl later, we need
   /// to do an extra OpAccessChain to get its pointer from the SPIR-V variable
   /// standing for the whole buffer.
-  SpirvVariable *createCTBuffer(const HLSLBufferDecl *decl);
+  void createCTBuffer(const HLSLBufferDecl *decl);
 
   /// \brief Creates a PushConstant block from the given decl.
   SpirvVariable *createPushConstant(const VarDecl *decl);
@@ -351,13 +361,14 @@ public:
   /// \brief Sets the entry function.
   void setEntryFunction(SpirvFunction *fn) { entryFunction = fn; }
 
-  /// \brief If the given decl is an implicit VarDecl that evaluates to a
-  /// constant, it evaluates the constant and registers the resulting SPIR-V
-  /// instruction in the astDecls map. Otherwise returns without doing anything.
+  /// \brief If the given decl is a VarDecl that evaluates to a constant, it
+  /// evaluates the constant and registers the resulting SPIR-V instruction in
+  /// the astDecls map. Otherwise returns without doing anything. The typical
+  /// cases are implicit VarDecls and global static constant variables.
   ///
   /// Note: There are many cases where the front-end might create such implicit
   /// VarDecls (such as some ray tracing enums).
-  void tryToCreateImplicitConstVar(const ValueDecl *);
+  bool tryToCreateConstantVar(const ValueDecl *);
 
   /// \brief Creates instructions to copy output stage variables defined by
   /// outputPatchDecl to hullMainOutputPatch that is a variable for the
@@ -481,17 +492,11 @@ public:
   /// \brief Returns the associated counter's (instr-ptr, is-alias-or-not)
   /// pair for the given {RW|Append|Consume}StructuredBuffer variable.
   /// If indices is not nullptr, walks trhough the fields of the decl, expected
-  /// to be of struct type, using the indices to find the field. Returns nullptr
-  /// if the given decl has no associated counter variable created.
-  const CounterIdAliasPair *getCounterIdAliasPair(
+  /// to be of struct type, using the indices to find the field.
+  /// Creates counter for RW buffer if not already created.
+  const CounterIdAliasPair *getOrCreateCounterIdAliasPair(
       const DeclaratorDecl *decl,
       const llvm::SmallVector<uint32_t, 4> *indices = nullptr);
-
-  /// \brief Returns the associated counter's (instr-ptr, is-alias-or-not)
-  /// pair for the given {RW|Append|Consume}StructuredBuffer variable. Creates
-  /// counter for RW buffer if not already created.
-  const CounterIdAliasPair *
-  createOrGetCounterIdAliasPair(const DeclaratorDecl *decl);
 
   /// \brief Returns all the associated counters for the given decl. The decl is
   /// expected to be a struct containing alias RW/Append/Consume structured
@@ -500,7 +505,7 @@ public:
 
   /// \brief Returns all defined stage (builtin/input/ouput) variables for the
   /// entry point function entryPoint in this mapper.
-  std::vector<SpirvVariable *>
+  std::vector<SpirvVariableLike *>
   collectStageVars(SpirvFunction *entryPoint) const;
 
   /// \brief Writes out the contents in the function parameter for the GS
@@ -567,7 +572,7 @@ public:
   /// Decorate with spirv intrinsic attributes with lamda function variable
   /// check
   void decorateWithIntrinsicAttrs(
-      const NamedDecl *decl, SpirvVariable *varInst,
+      const NamedDecl *decl, SpirvInstruction *targetInst,
       llvm::function_ref<void(VKDecorateExtAttr *)> extraFunctionForDecoAttr =
           [](VKDecorateExtAttr *) {});
 
@@ -902,9 +907,9 @@ private:
   /// Creates all assoicated counter variables by recursively visiting decl's
   /// fields. Handles AssocCounter#3 and AssocCounter#4 (see the comment of
   /// CounterVarFields).
-  inline void createFieldCounterVars(const DeclaratorDecl *decl);
+  void createFieldCounterVars(const DeclaratorDecl *decl);
   void createFieldCounterVars(const DeclaratorDecl *rootDecl,
-                              const DeclaratorDecl *decl,
+                              const QualType type,
                               llvm::SmallVector<uint32_t, 4> *indices);
 
   /// Decorates varInstr of the given asType with proper interpolation modes
@@ -996,6 +1001,14 @@ private:
   /// all of them should be associated with the same variable.
   void registerVariableForDecl(const VarDecl *var, DeclSpirvInfo spirvInfo);
 
+  /// Creates a global variable for resource heaps using VK_EXT_descriptor_heap.
+  SpirvVariableLike *createResourceDescriptorHeap(const VarDecl *var);
+
+  /// Creates a global variable for resource heaps containing elements of type
+  /// |type| (emulated descriptor heaps).
+  SpirvVariableLike *createEmulatedDescriptorHeap(const VarDecl *var,
+                                                  QualType resourceType);
+
 private:
   SpirvBuilder &spvBuilder;
   SpirvEmitter &theEmitter;
@@ -1040,6 +1053,10 @@ private:
 
   /// Vector of all defined resource variables.
   llvm::SmallVector<ResourceVar, 8> resourceVars;
+
+  SpirvUntypedVariableKHR *ResourceHeapVar = nullptr;
+  SpirvUntypedVariableKHR *SamplerHeapVar = nullptr;
+
   /// Mapping from {RW|Append|Consume}StructuredBuffers to their
   /// counter variables' (instr-ptr, is-alias-or-not) pairs
   ///
@@ -1185,11 +1202,6 @@ bool DeclResultIdMapper::isInputStorageClass(const StageVar &v) {
 
 void DeclResultIdMapper::createFnParamCounterVar(const VarDecl *param) {
   createCounterVarForDecl(param);
-}
-
-void DeclResultIdMapper::createFieldCounterVars(const DeclaratorDecl *decl) {
-  llvm::SmallVector<uint32_t, 4> indices;
-  createFieldCounterVars(decl, decl, &indices);
 }
 
 } // end namespace spirv

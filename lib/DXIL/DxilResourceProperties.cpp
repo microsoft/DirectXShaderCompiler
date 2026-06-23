@@ -19,6 +19,7 @@
 #include "llvm/IR/Constant.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DerivedTypes.h"
+#include "llvm/IR/Module.h"
 
 using namespace llvm;
 
@@ -102,6 +103,17 @@ Constant *getAsConstant(const DxilResourceProperties &RP, Type *Ty,
     break;
   }
   return nullptr;
+}
+
+llvm::Type *GetResourcePropertiesType(Module &M) {
+  LLVMContext &Ctx = M.getContext();
+  StringRef Name = "dx.types.ResourceProperties";
+  if (StructType *ST = M.getTypeByName(Name))
+    return ST;
+
+  Type *Int32Ty = Type::getInt32Ty(Ctx);
+  Type *Elements[] = {Int32Ty, Int32Ty};
+  return StructType::create(Ctx, Elements, Name);
 }
 
 DxilResourceProperties loadPropsFromConstant(const Constant &C) {

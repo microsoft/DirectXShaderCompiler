@@ -462,7 +462,7 @@ distributeObjCPointerTypeAttrFromDeclarator(TypeProcessingState &state,
 
   // objc_gc goes on the innermost pointer to something that's not a
   // pointer.
-  unsigned innermost = -1U;
+  unsigned innermost = std::numeric_limits<unsigned>::max();
   bool considerDeclSpec = true;
   for (unsigned i = 0, e = declarator.getNumTypeObjects(); i != e; ++i) {
     DeclaratorChunk &chunk = declarator.getTypeObject(i);
@@ -501,7 +501,7 @@ distributeObjCPointerTypeAttrFromDeclarator(TypeProcessingState &state,
 
   // Otherwise, if we found an appropriate chunk, splice the attribute
   // into it.
-  if (innermost != -1U) {
+  if (innermost != std::numeric_limits<unsigned>::max()) {
     moveAttrFromListToList(attr, declarator.getAttrListRef(),
                        declarator.getTypeObject(innermost).getAttrListRef());
     return;
@@ -1849,6 +1849,13 @@ QualType Sema::BuildPointerType(QualType T,
     return QualType();
   }
 
+  // HLSL Change Begin - Disallow pointers.
+  if (getLangOpts().HLSL && Loc.isValid()) {
+    Diag(Loc, diag::err_hlsl_pointers_unsupported) << 0;
+    return QualType();
+  }
+  // HLSL Change End.
+
   if (checkQualifiedFunction(*this, T, Loc, QFK_Pointer))
     return QualType();
 
@@ -1910,6 +1917,13 @@ QualType Sema::BuildReferenceType(QualType T, bool SpelledAsLValue,
     Diag(Loc, diag::err_reference_to_void);
     return QualType();
   }
+
+  // HLSL Change Begin - Disallow references.
+  if (getLangOpts().HLSL && Loc.isValid()) {
+    Diag(Loc, diag::err_hlsl_pointers_unsupported) << 1;
+    return QualType();
+  }
+  // HLSL Change End.
 
   if (checkQualifiedFunction(*this, T, Loc, QFK_Reference))
     return QualType();
@@ -2312,6 +2326,13 @@ QualType Sema::BuildMemberPointerType(QualType T, QualType Class,
     Diag(Loc, diag::err_mempointer_in_nonclass_type) << Class;
     return QualType();
   }
+
+  // HLSL Change Begin - Disallow pointers.
+  if (getLangOpts().HLSL && Loc.isValid()) {
+    Diag(Loc, diag::err_hlsl_pointers_unsupported) << 0;
+    return QualType();
+  }
+  // HLSL Change End.
 
   // Adjust the default free function calling convention to the default method
   // calling convention.
@@ -5774,6 +5795,7 @@ static bool isHLSLTypeAttr(AttributeList::Kind Kind) {
   case AttributeList::AT_HLSLUnorm:
   case AttributeList::AT_HLSLGloballyCoherent:
   case AttributeList::AT_HLSLReorderCoherent:
+  case AttributeList::AT_HLSLLinAlgMatrixAttributes:
     return true;
   default:
     // Only meant to catch attr handled by handleHLSLTypeAttr, ignore the rest
@@ -5781,13 +5803,16 @@ static bool isHLSLTypeAttr(AttributeList::Kind Kind) {
   }
 }
 
+// Return true on error
 static bool handleHLSLTypeAttr(TypeProcessingState &State,
                                AttributeList &Attr,
                                QualType &Type) {
-  // Return true on error
+  AttributeList::Kind Kind = Attr.getKind();
   Sema &S = State.getSema();
 
-  AttributeList::Kind Kind = Attr.getKind();
+  // Handle LinAlg Matrix type attribute separatelly.
+  if (Kind == AttributeList::AT_HLSLLinAlgMatrixAttributes)
+    return hlsl::HandleLinAlgMatrixAttributes(S, Attr, Type);
 
   // Check for attributes on incorrect types
   if ((Kind == AttributeList::AT_HLSLColumnMajor ||

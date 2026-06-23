@@ -14,6 +14,7 @@
 #include "CGRecordLayout.h"
 #include "CodeGenFunction.h"
 #include "CodeGenModule.h"
+#include "dxc/DXIL/DxilConstants.h"
 #include "dxc/DXIL/DxilOperations.h"
 #include "dxc/DXIL/DxilTypeSystem.h"
 #include "dxc/DXIL/DxilUtil.h"
@@ -29,12 +30,17 @@
 #include "clang/Sema/SemaDiagnostic.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SmallPtrSet.h"
+#include "llvm/ADT/SmallString.h"
+#include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringSet.h"
 #include "llvm/ADT/StringSwitch.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/GetElementPtrTypeIterator.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/InstIterator.h"
+#include "llvm/IR/LLVMContext.h"
+#include "llvm/IR/Metadata.h"
+#include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include <memory>
 #include <set>
@@ -323,6 +329,9 @@ public:
   void EmitHLSLMartrixCastForStoreOp(
       CodeGenFunction &CGF, SmallVector<llvm::Value *, 16> &IRCallArgs,
       llvm::SmallVector<clang::QualType, 16> &ArgTys) override;
+  llvm::Type *ConvertAttributedLinAlgMatrixType(
+      const clang::AttributedLinAlgMatrixType *T) override;
+
   /// Get or add constant to the program
   HLCBuffer &GetOrCreateCBuffer(HLSLBufferDecl *D);
 };
@@ -1245,6 +1254,9 @@ unsigned CGMSHLSLRuntime::AddTypeAnnotation(QualType Ty,
   if (const ReferenceType *RefType = dyn_cast<ReferenceType>(paramTy))
     paramTy = RefType->getPointeeType();
 
+  if (const ReferenceType *RefType = dyn_cast<ReferenceType>(Ty))
+    Ty = RefType->getPointeeType();
+
   // Get size.
   llvm::Type *Type = CGM.getTypes().ConvertType(paramTy);
   unsigned size = dataLayout.getTypeAllocSize(Type);
@@ -1294,6 +1306,10 @@ unsigned CGMSHLSLRuntime::AddTypeAnnotation(QualType Ty,
     return IsHLSLResourceType(Ty) ? 0 : size;
   } else if (IsStringType(Ty)) {
     // string won't be included in cbuffer
+    return 0;
+  } else if (Ty->getUnqualifiedDesugaredType()
+                 ->isAttributedLinAlgMatrixType()) {
+    // LinAlg Matrix type does not count towards cbuffer size.
     return 0;
   } else {
     unsigned arraySize = 0;
@@ -1644,6 +1660,14 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
       Diags.Report(Attr->getLocation(), DiagID);
       return;
     }
+  }
+
+  if (const HLSLGroupSharedLimitAttr *Attr =
+          FD->getAttr<HLSLGroupSharedLimitAttr>()) {
+    funcProps->groupSharedLimitBytes = Attr->getLimit();
+  } else {
+    funcProps->groupSharedLimitBytes =
+        DxilFunctionProps::kGroupSharedLimitUnset; // not specified
   }
 
   // Hull shader.
@@ -6148,6 +6172,16 @@ void CGMSHLSLRuntime::EmitHLSLRootSignature(HLSLRootSignatureAttr *RSA,
   }
 }
 
+// Helper to determine HLSL object types that should be treated as pass-by-value
+// at HLSL source level by creating a local copy and passing its address.
+// FIXME: All objects should be passed by value. This helper only enables this
+// for the recent dx::HitObject type to not affect existing code that passes
+// objects.
+static bool IsByValueObject(QualType Ty) {
+  // Currently only HitObject is passed by value.
+  return hlsl::IsHLSLHitObjectType(Ty);
+}
+
 void CGMSHLSLRuntime::EmitHLSLOutParamConversionInit(
     CodeGenFunction &CGF, const FunctionDecl *FD, const CallExpr *E,
     llvm::SmallVector<LValue, 8> &castArgList,
@@ -6162,7 +6196,8 @@ void CGMSHLSLRuntime::EmitHLSLOutParamConversionInit(
     uint32_t ArgIdx = i + ArgsToSkip;
     const Expr *Arg = E->getArg(ArgIdx);
     QualType ParamTy = Param->getType().getNonReferenceType();
-    bool isObject = dxilutil::IsHLSLObjectType(CGF.ConvertTypeForMem(ParamTy));
+    bool isObject = !IsByValueObject(ParamTy) &&
+                    dxilutil::IsHLSLObjectType(CGF.ConvertTypeForMem(ParamTy));
     bool bAnnotResource = false;
     if (isObject) {
       auto [glcMismatch, rdcMismatch] =
@@ -6187,6 +6222,10 @@ void CGMSHLSLRuntime::EmitHLSLOutParamConversionInit(
     bool isAggregateType =
         !isObject &&
         (isArray || (ParamTy->isRecordType() && !(isMatrix || isVector)));
+    // Treat by-value objects as aggregate for copy-in to implement by-value
+    // semantics
+    if (IsByValueObject(ParamElTy))
+      isAggregateType = true;
 
     bool EmitRValueAgg = false;
     bool RValOnRef = false;
@@ -6217,7 +6256,8 @@ void CGMSHLSLRuntime::EmitHLSLOutParamConversionInit(
         }
       } else if (isAggregateType) {
         // aggregate in-only - emit RValue, unless LValueToRValue cast
-        EmitRValueAgg = true;
+        if (Param->isModifierIn())
+          EmitRValueAgg = true;
         if (const ImplicitCastExpr *cast = dyn_cast<ImplicitCastExpr>(Arg)) {
           if (cast->getCastKind() == CastKind::CK_LValueToRValue) {
             EmitRValueAgg = false;
@@ -6227,7 +6267,8 @@ void CGMSHLSLRuntime::EmitHLSLOutParamConversionInit(
         // Must be object
         DXASSERT(isObject,
                  "otherwise, flow condition changed, breaking assumption");
-        // in-only objects should be skipped to preserve previous behavior.
+        // in-only objects should be skipped to preserve previous behavior,
+        // except for by-value objects which we force to copy-in.
         if (!bAnnotResource)
           continue;
       }
@@ -6269,6 +6310,9 @@ void CGMSHLSLRuntime::EmitHLSLOutParamConversionInit(
         argAddr = argLV.getAddress();
 
       bool mustCopy = bAnnotResource;
+      // Force copy for by-value objects to ensure we pass a local copy
+      if (IsByValueObject(ParamElTy))
+        mustCopy = true;
 
       // If matrix orientation changes, we must copy here
       // TODO: A high level intrinsic for matrix array copy with orientation
@@ -6550,6 +6594,54 @@ Scope *CGMSHLSLRuntime::MarkScopeEnd(CodeGenFunction &CGF) {
   }
 
   return nullptr;
+}
+
+static MDNode *
+createLinAlgMatrixTypeMetadata(LLVMContext &Ctx,
+                               const clang::AttributedLinAlgMatrixType *T,
+                               llvm::StructType *ST) {
+  auto Createi32MD = [&](int32_t Val) {
+    return ConstantAsMetadata::get(
+        ConstantInt::get(llvm::Type::getInt32Ty(Ctx), Val));
+  };
+
+  return MDTuple::get(
+      Ctx, {ConstantAsMetadata::get(UndefValue::get(ST)),
+            Createi32MD(static_cast<uint32_t>(T->getComponentType())),
+            Createi32MD(T->getRows()), Createi32MD(T->getCols()),
+            Createi32MD(static_cast<uint32_t>(T->getUse())),
+            Createi32MD(static_cast<uint32_t>(T->getScope()))});
+}
+
+llvm::Type *CGMSHLSLRuntime::ConvertAttributedLinAlgMatrixType(
+    const clang::AttributedLinAlgMatrixType *T) {
+
+  llvm::LLVMContext &Ctx = CGM.getLLVMContext();
+  llvm::Type *Int8Ptr = llvm::Type::getInt8PtrTy(Ctx);
+  llvm::Type *StructElemTypes[] = {Int8Ptr};
+
+  llvm::SmallString<64> Buf;
+  llvm::raw_svector_ostream OS(Buf);
+  OS << DXIL::kDxLinAlgMatrixTypePrefix;
+  T->appendMangledAttributes(OS);
+  StringRef TypeName = OS.str();
+
+  llvm::StructType *ST = CGM.getModule().getTypeByName(TypeName);
+  if (ST) {
+    assert(ST->getNumElements() == 1 && ST->getElementType(0) == Int8Ptr &&
+           "Unexpected existing dx.types.LinAlgMatrix type");
+    return ST;
+  }
+
+  ST = StructType::create(Ctx, StructElemTypes, TypeName);
+
+  // Add metadata node for the new target type.
+  NamedMDNode *DxTypesMD =
+      CGM.getModule().getOrInsertNamedMetadata("dx.targetTypes");
+  MDNode *NewTyNode = createLinAlgMatrixTypeMetadata(Ctx, T, ST);
+  DxTypesMD->addOperand(NewTyNode);
+
+  return ST;
 }
 
 CGHLSLRuntime *CodeGen::CreateMSHLSLRuntime(CodeGenModule &CGM) {

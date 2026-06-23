@@ -70,7 +70,7 @@ inline static unsigned getDigit(char cdigit, uint8_t radix) {
   if (r < radix)
     return r;
 
-  return -1U;
+  return std::numeric_limits<unsigned>::max();
 }
 
 
@@ -79,7 +79,7 @@ void APInt::initSlowCase(unsigned numBits, uint64_t val, bool isSigned) {
   pVal[0] = val;
   if (isSigned && int64_t(val) < 0)
     for (unsigned i = 1; i < getNumWords(); ++i)
-      pVal[i] = -1ULL;
+      pVal[i] = std::numeric_limits<uint64_t>::max();
 }
 
 void APInt::initSlowCase(const APInt& that) {
@@ -552,8 +552,10 @@ bool APInt::ult(const APInt& RHS) const {
 bool APInt::slt(const APInt& RHS) const {
   assert(BitWidth == RHS.BitWidth && "Bit widths must be same for comparison");
   if (isSingleWord()) {
-    int64_t lhsSext = (int64_t(VAL) << (64-BitWidth)) >> (64-BitWidth);
-    int64_t rhsSext = (int64_t(RHS.VAL) << (64-BitWidth)) >> (64-BitWidth);
+    int64_t lhsSext =
+        int64_t(uint64_t(VAL) << (64 - BitWidth)) >> (64 - BitWidth);
+    int64_t rhsSext =
+        int64_t(uint64_t(RHS.VAL) << (64 - BitWidth)) >> (64 - BitWidth);
     return lhsSext < rhsSext;
   }
 
@@ -735,7 +737,7 @@ unsigned APInt::countLeadingOnes() const {
   unsigned Count = llvm::countLeadingOnes(pVal[i] << shift);
   if (Count == highWordBits) {
     for (i--; i >= 0; --i) {
-      if (pVal[i] == -1ULL)
+      if (pVal[i] == std::numeric_limits<uint64_t>::max())
         Count += APINT_BITS_PER_WORD;
       else {
         Count += llvm::countLeadingOnes(pVal[i]);
@@ -761,7 +763,8 @@ unsigned APInt::countTrailingZeros() const {
 unsigned APInt::countTrailingOnesSlowCase() const {
   unsigned Count = 0;
   unsigned i = 0;
-  for (; i < getNumWords() && pVal[i] == -1ULL; ++i)
+  for (; i < getNumWords() && pVal[i] == std::numeric_limits<uint64_t>::max();
+       ++i)
     Count += APINT_BITS_PER_WORD;
   if (i < getNumWords())
     Count += llvm::countTrailingOnes(pVal[i]);
@@ -1060,8 +1063,8 @@ APInt APInt::ashr(unsigned shiftAmt) const {
       return APInt(BitWidth, 0); // undefined
     else {
       unsigned SignBit = APINT_BITS_PER_WORD - BitWidth;
-      return APInt(BitWidth,
-        (((int64_t(VAL) << SignBit) >> SignBit) >> shiftAmt));
+      return APInt(BitWidth, (((int64_t(uint64_t(VAL) << SignBit) >> SignBit) >>
+                               shiftAmt)));
     }
   }
 
@@ -1070,7 +1073,7 @@ APInt APInt::ashr(unsigned shiftAmt) const {
   // issues in the algorithm below.
   if (shiftAmt == BitWidth) {
     if (isNegative())
-      return APInt(BitWidth, -1ULL, true);
+      return APInt(BitWidth, std::numeric_limits<uint64_t>::max(), true);
     else
       return APInt(BitWidth, 0);
   }
@@ -1123,7 +1126,8 @@ APInt APInt::ashr(unsigned shiftAmt) const {
   }
 
   // Remaining words are 0 or -1, just assign them.
-  uint64_t fillValue = (isNegative() ? -1ULL : 0);
+  uint64_t fillValue =
+      (isNegative() ? std::numeric_limits<uint64_t>::max() : 0);
   for (unsigned i = breakWord+1; i < getNumWords(); ++i)
     val[i] = fillValue;
   APInt Result(val, BitWidth);
@@ -2192,7 +2196,18 @@ void APInt::toString(SmallVectorImpl<char> &Str, unsigned Radix,
         N = I;
       } else {
         Str.push_back('-');
-        N = -(uint64_t)I;
+        // In this else block, all values of I must be less than 0.
+        //
+        // Because values are stored in 2's complement and I is a signed
+        // integer, the expression -I is equivalent to (~I + 1) for all values
+        // of I, except INT64_MIN, where -I is undefined behavior in C++ due to
+        // overflow.
+        //
+        // However, (~I + 1) is still well-defined even when I == INT64_MIN, and
+        // it evaluates to the same bit pattern as INT64_MIN. Because N is
+        // unsigned, assigning N = ~I + 1 preserves the exact bit pattern
+        // and correctly represents the 2's complement value of -I.
+        N = (~I + 1);
       }
     }
 
@@ -2408,7 +2423,7 @@ APInt::tcLSB(const integerPart *parts, unsigned int n)
       }
   }
 
-  return -1U;
+  return std::numeric_limits<unsigned int>::max();
 }
 
 /* Returns the bit number of the most significant set bit of a number.
@@ -2428,7 +2443,7 @@ APInt::tcMSB(const integerPart *parts, unsigned int n)
     }
   } while (n);
 
-  return -1U;
+  return std::numeric_limits<unsigned int>::max();
 }
 
 /* Copy the bit vector of width srcBITS from SRC, starting at bit

@@ -9,8 +9,6 @@ endif ()
 
 string(REPLACE ${CMAKE_CFG_INTDIR} ${LLVM_BUILD_MODE} CLANG_TOOLS_DIR ${LLVM_RUNTIME_OUTPUT_INTDIR})
 
-set(HLSL_HEADERS_DIR ${LLVM_SOURCE_DIR}/tools/clang/lib/Headers/hlsl) # HLSL Change
-
 configure_lit_site_cfg(
   ${CMAKE_CURRENT_SOURCE_DIR}/lit.site.cfg.in
   ${CMAKE_CURRENT_BINARY_DIR}/lit.site.cfg
@@ -25,6 +23,12 @@ configure_lit_site_cfg(
   ${CMAKE_CURRENT_SOURCE_DIR}/taef/lit.site.cfg.in
   ${CMAKE_CURRENT_BINARY_DIR}/taef/lit.site.cfg
   )
+
+# HLSL Change begin 
+# This must be done before configuring taef_exec's lit.site.cfg.
+include(taef_exec/DownloadWarp.cmake)
+# HLSL Change end
+
 
 configure_lit_site_cfg(
   ${CMAKE_CURRENT_SOURCE_DIR}/taef_exec/lit.site.cfg.in
@@ -108,6 +112,95 @@ set_target_properties(clang-test PROPERTIES FOLDER "Clang tests")
 
 # HLSL Change Begin - Generate lit targets for test subdirectories.
 
+# -------------------------------------------------------------------------
+# DXIL Backward Compatibility Section
+# -------------------------------------------------------------------------
+
+# Define DXC releases as (NAME VERSION) pairs
+set(DXC_RELEASES  
+  dxc_2025_07_14 v1.8.2505.1
+  dxc_2025_02_20 v1.8.2502
+  dxc_2023_08_14 v1.7.2308
+  dxc_2021_12_08 v1.6.2112
+)
+
+# Download a DXC release
+function(add_released_dxc name version)
+  ExternalProject_Add(${name}
+      URL https://github.com/microsoft/DirectXShaderCompiler/releases/download/${version}/${name}.zip
+      DOWNLOAD_DIR ${CMAKE_BINARY_DIR}/tools/clang/test/dxc_releases
+      SOURCE_DIR ${CMAKE_BINARY_DIR}/tools/clang/test/dxc_releases/${version}/${name}
+      CONFIGURE_COMMAND ""
+      BUILD_COMMAND ""
+      INSTALL_COMMAND ""
+      DOWNLOAD_EXTRACT_TIMESTAMP NEW
+  )
+endfunction()
+
+# Iterate over releases
+list(LENGTH DXC_RELEASES DXC_RELEASES_LENGTH)
+math(EXPR num_pairs "${DXC_RELEASES_LENGTH} / 2")
+math(EXPR loop_end "${num_pairs} - 1")
+foreach(i RANGE 0 ${loop_end})
+  math(EXPR idx_name "${i}*2")
+  math(EXPR idx_version "${i}*2 + 1")  
+
+  list(GET DXC_RELEASES ${idx_name} name)
+  list(GET DXC_RELEASES ${idx_version} version)
+
+  add_released_dxc(${name} ${version})
+
+  if(WIN32)
+  # Determine target architecture for DXC binaries
+    if(CMAKE_GENERATOR MATCHES "Visual Studio")
+        # Multi-config generators (VS/Xcode)
+        if(NOT DEFINED CMAKE_GENERATOR_PLATFORM)
+            message(FATAL_ERROR "CMAKE_GENERATOR_PLATFORM not set for multi-config generator")
+        endif()
+        set(TARGET_ARCH ${CMAKE_GENERATOR_PLATFORM})
+    else()
+        # Single-config generators (Ninja, Makefiles)
+        string(TOLOWER "${CMAKE_SYSTEM_PROCESSOR}" SYSTEM_PROCESSOR_LOWER)
+
+        if(SYSTEM_PROCESSOR_LOWER MATCHES "^(x86|i[3-6]86)$")
+            set(TARGET_ARCH x86)
+        elseif(SYSTEM_PROCESSOR_LOWER MATCHES "^(x64|amd64|x86_64)$")
+            set(TARGET_ARCH x64)
+        elseif(SYSTEM_PROCESSOR_LOWER MATCHES "^(arm64|aarch64)$")
+            set(TARGET_ARCH arm64)
+        elseif(SYSTEM_PROCESSOR_LOWER MATCHES "^arm")
+            set(TARGET_ARCH arm)
+        else()
+            message(FATAL_ERROR "Unknown architecture: ${CMAKE_SYSTEM_PROCESSOR}")
+        endif()
+    endif()
+
+    # Path to dxil.dll for this release
+    set(DXC_PATH ${CMAKE_BINARY_DIR}/tools/clang/test/dxc_releases/${version}/${name}/bin/${TARGET_ARCH}/dxil.dll)
+
+    # The only sub-dirs that make sense to run with the released external dxil
+    # validator setting are CodeGenDXIL, DXC, and HLSLFileCheckLit.
+    # It would be much better to run Unit/TAEF tests too, but those tests don't
+    # currently respect the DXC_DXIL_DLL_PATH environment variable.
+    # LitDXILValidation is also skipped, since it is a regression test for the
+    # latest validator only.
+
+    # Create a lit target for this release
+    add_lit_target("check-dxilcompat-${name}"
+      "Running clang regression tests with dxil validator from ${name}"
+      ${CMAKE_CURRENT_SOURCE_DIR}/CodeGenDXIL
+      ${CMAKE_CURRENT_SOURCE_DIR}/DXC
+      ${CMAKE_CURRENT_SOURCE_DIR}/HLSLFileCheckLit
+      PARAMS ${CLANG_TEST_PARAMS}
+      DXC_DXIL_DLL_PATH=${DXC_PATH} 
+      DXC_RELEASE_VERSION_TAG=${version}
+      DEPENDS ${CLANG_TEST_DEPS} ${name}
+      ARGS ${CLANG_TEST_EXTRA_ARGS}
+    )
+  endif()
+endforeach()
+# -------------------------------------------------------------------------
+
 set(CLANG_TEST_PARAMS
   ${CLANG_TEST_PARAMS}
   clang_unit_site_config=${CMAKE_CURRENT_BINARY_DIR}/Unit/lit.site.cfg
@@ -122,54 +215,63 @@ add_lit_testsuites(CLANG ${CMAKE_CURRENT_SOURCE_DIR}
   FOLDER "Clang tests/Suites"
 )
 
-# Manually generate targets that we need to expose in visual studio builds.
 
-# The code below here _ONLY_ executes when building with Visual Studio or Xcode.
-if (NOT CMAKE_CONFIGURATION_TYPES)
-  return()
+# add_lit_testsuites doesn't generate targets for Visual Studio or Xcode builds
+# (since these IDEs cannot handle the huge number of targets it generates).
+#
+# We must manually generate targets that we want to expose when using these
+# generators.
+if(CMAKE_CONFIGURATION_TYPES)
+
+  # Add the unit test suite
+  add_lit_target("check-clang-unit" "Running lit suite clang-unit"
+            ${CMAKE_CURRENT_SOURCE_DIR}/Unit
+            PARAMS ${CLANG_TEST_PARAMS}
+            DEPENDS ClangUnitTests
+            ARGS ${CLANG_TEST_EXTRA_ARGS}
+          )
+
+  # Add TAEF targets
+  if(WIN32)
+    add_lit_target("check-clang-taef" "Running lit suite hlsl"
+              ${CMAKE_CURRENT_SOURCE_DIR}/taef
+              PARAMS ${CLANG_TEST_PARAMS}
+              DEPENDS ClangHLSLTests
+              ARGS ${CLANG_TEST_EXTRA_ARGS}
+            )
+    set(TAEF_EXEC_ADAPTER "" CACHE STRING "adapter for taef exec test")
+
+    add_lit_target("check-clang-taef-exec" "Running lit suite hlsl execution test"
+              ${CMAKE_CURRENT_SOURCE_DIR}/taef_exec
+              PARAMS ${CLANG_TEST_PARAMS}
+              adapter=${TAEF_EXEC_ADAPTER}
+              DEPENDS ExecHLSLTests dxexp
+              ARGS ${CLANG_TEST_EXTRA_ARGS}
+            )
+  endif()
 endif()
 
-# Add the unit test suite
-add_lit_target("check-clang-unit" "Running lit suite clang-unit"
-          ${CMAKE_CURRENT_SOURCE_DIR}/Unit
-          PARAMS ${CLANG_TEST_PARAMS}
-          DEPENDS ClangUnitTests
-          ARGS ${CLANG_TEST_EXTRA_ARGS}
-        )
+# -------------------------------------------------------------------------
+# External Validator Testing
+# -------------------------------------------------------------------------
 
-# Add TAEF targets
-if (WIN32)
-  add_lit_target("check-clang-taef" "Running lit suite hlsl"
-            ${CMAKE_CURRENT_SOURCE_DIR}/taef
-            PARAMS ${CLANG_TEST_PARAMS}
-            DEPENDS ClangHLSLTests
-            ARGS ${CLANG_TEST_EXTRA_ARGS}
-          )
-  set(TAEF_EXEC_ADAPTER "" CACHE STRING "adapter for taef exec test")
+# The only sub-dirs that make sense to run with the external dxil validator
+# setting are CodeGenDXIL, DXC, HLSLFileCheckLit, and LitDXILValidation.
+# It would be much better to run Unit/TAEF tests too, but those tests don't
+# currently respect the DXC_DXIL_DLL_PATH environment variable.
 
-  # Use a custom target so we can depend on it and re-run the cmake logic which downloads warp
-  # from nuget if requested.
-  add_custom_target(WarpFromNuget
-            COMMAND "${CMAKE_COMMAND}"
-            -DCMAKE_SYSTEM_PROCESSOR=${CMAKE_SYSTEM_PROCESSOR} 
-            -DBUILD_TYPE=${CMAKE_BUILD_TYPE}
-            -DBINARY_DIR=${CMAKE_BINARY_DIR}
-            -P "${CMAKE_SOURCE_DIR}/cmake/modules/nuget.cmake")
+add_lit_target("check-extdxil"
+  "Running clang regression tests with built external dxil validator"
+  ${CMAKE_CURRENT_SOURCE_DIR}/CodeGenDXIL
+  ${CMAKE_CURRENT_SOURCE_DIR}/DXC
+  ${CMAKE_CURRENT_SOURCE_DIR}/HLSLFileCheckLit
+  ${CMAKE_CURRENT_SOURCE_DIR}/LitDXILValidation
+  PARAMS ${CLANG_TEST_PARAMS}
+  # Set path to external validator build target
+  "DXC_DXIL_DLL_PATH=$<TARGET_FILE:dxildll>"
+  DEPENDS ${CLANG_TEST_DEPS}
+  ARGS ${CLANG_TEST_EXTRA_ARGS}
+)
+# -------------------------------------------------------------------------
 
-  add_lit_target("check-clang-taef-exec" "Running lit suite hlsl execution test"
-            ${CMAKE_CURRENT_SOURCE_DIR}/taef_exec
-            PARAMS ${CLANG_TEST_PARAMS}
-                adapter=${TAEF_EXEC_ADAPTER}
-            DEPENDS ExecHLSLTests dxexp
-            ARGS ${CLANG_TEST_EXTRA_ARGS}
-          )
-
-  add_lit_target("check-clang-taef-exec-warp" "Running lit suite hlsl execution test with D3D WARP from nuget"
-            ${CMAKE_CURRENT_SOURCE_DIR}/taef_exec
-            PARAMS ${CLANG_TEST_PARAMS}
-                adapter=${TAEF_EXEC_ADAPTER}
-            DEPENDS ExecHLSLTests dxexp WarpFromNuget
-            ARGS ${CLANG_TEST_EXTRA_ARGS}
-          )
-endif()
 # HLSL Change End

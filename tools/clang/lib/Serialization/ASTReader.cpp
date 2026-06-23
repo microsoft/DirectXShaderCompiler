@@ -5609,6 +5609,12 @@ void TypeLocReader::VisitAttributedTypeLoc(AttributedTypeLoc TL) {
   } else if (TL.hasAttrEnumOperand())
     TL.setAttrEnumOperandLoc(ReadSourceLocation(Record, Idx));
 }
+// HLSL Change Start
+void TypeLocReader::VisitAttributedLinAlgMatrixTypeLoc(
+    AttributedLinAlgMatrixTypeLoc TL) {
+  TL.setSourceLocation(ReadSourceLocation(Record, Idx));
+}
+// HLSL Change End
 void TypeLocReader::VisitTemplateTypeParmTypeLoc(TemplateTypeParmTypeLoc TL) {
   TL.setNameLoc(ReadSourceLocation(Record, Idx));
 }
@@ -5755,6 +5761,9 @@ QualType ASTReader::GetType(TypeID ID) {
     case PREDEF_TYPE_IMAGE3D_ID:    T = Context.OCLImage3dTy;       break;
     case PREDEF_TYPE_SAMPLER_ID:    T = Context.OCLSamplerTy;       break;
     case PREDEF_TYPE_EVENT_ID:      T = Context.OCLEventTy;         break;
+    case PREDEF_TYPE_LINALG_MATRIX_ID:
+      T = Context.LinAlgMatrixTy;
+      break;
     case PREDEF_TYPE_AUTO_DEDUCT:   T = Context.getAutoDeductType(); break;
         
     case PREDEF_TYPE_AUTO_RREF_DEDUCT: 

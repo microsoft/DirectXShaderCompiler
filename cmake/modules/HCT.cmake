@@ -58,13 +58,17 @@ function(add_hlsl_hctgen mode)
   set(hctgen ${LLVM_SOURCE_DIR}/utils/hct/hctgen.py)
   set(hctdb ${LLVM_SOURCE_DIR}/utils/hct/hctdb.py)
   set(hctdb_helper ${LLVM_SOURCE_DIR}/utils/hct/hctdb_instrhelp.py)
+  set(opcodes_json ${LLVM_SOURCE_DIR}/utils/hct/hlsl_intrinsic_opcodes.json)
   set(output ${full_output})
   set(hct_dependencies ${LLVM_SOURCE_DIR}/utils/hct/gen_intrin_main.txt
                        ${hctgen}
                        ${hctdb}
-                       ${hctdb_helper})
+                       ${hctdb_helper}
+                       ${opcodes_json})
 
   get_filename_component(output_extension ${full_output} LAST_EXT)
+  string(SUBSTRING ${output_extension} 1 -1 output_extension_no_dot)
+  set(target_name "${mode}_${output_extension_no_dot}")
 
   if (CLANG_FORMAT_EXE AND output_extension MATCHES "\.h|\.cpp|\.inl")
     set(format_cmd COMMAND ${CLANG_FORMAT_EXE} -i ${temp_output})
@@ -130,8 +134,8 @@ function(add_hlsl_hctgen mode)
                      DEPENDS ${output}
                      COMMENT "Verifying clang-format results...")
 
-  add_custom_target(${mode}
+  add_custom_target(${target_name}
                     DEPENDS ${temp_output}.stamp)
 
-  add_dependencies(HCTGen ${mode})
+  add_dependencies(HCTGen ${target_name})
 endfunction()

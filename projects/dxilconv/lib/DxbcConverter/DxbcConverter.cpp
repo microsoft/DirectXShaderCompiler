@@ -6393,8 +6393,8 @@ void DxbcConverter::EmitGSOutputRegisterStore(unsigned StreamId) {
     CompType DxbcValueType = SE.GetCompType();
     Type *pDxbcValueType = DxbcValueType.GetLLVMType(m_Ctx);
 
-    for (BYTE c = 0; c < SE.GetCols(); c++) {
-      BYTE Comp = SE.GetStartCol() + c;
+    for (unsigned c = 0; c < SE.GetCols(); c++) {
+      unsigned Comp = SE.GetStartCol() + c;
 
       Value *pValue;
       // 1. Load value from the corresponding temp reg.

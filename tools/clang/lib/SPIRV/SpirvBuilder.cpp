@@ -81,7 +81,9 @@ SpirvBuilder::addFnParam(QualType ptrType, bool isPrecise, bool isNointerp,
     param = new (context)
         SpirvFunctionParameter(ptrType, isPrecise, isNointerp, loc);
   }
-  param->setStorageClass(spv::StorageClass::Function);
+  param->setStorageClass(hlsl::IsHLSLNodeInputType(ptrType)
+                             ? spv::StorageClass::NodePayloadAMDX
+                             : spv::StorageClass::Function);
   param->setDebugName(name);
   function->addParameter(param);
   return param;
@@ -203,10 +205,17 @@ SpirvInstruction *SpirvBuilder::createLoad(QualType resultType,
   instruction->setRValue(true);
 
   if (pointer->getStorageClass() == spv::StorageClass::PhysicalStorageBuffer) {
-    AlignmentSizeCalculator alignmentCalc(astContext, spirvOptions);
-    uint32_t align, size, stride;
-    std::tie(align, size) = alignmentCalc.getAlignmentAndSize(
-        resultType, pointer->getLayoutRule(), llvm::None, &stride);
+    QualType pointerType = pointer->getAstResultType();
+    uint32_t align = 0;
+    if (!pointerType.isNull() && hlsl::IsVKBufferPointerType(pointerType)) {
+      align = hlsl::GetVKBufferPointerAlignment(pointerType);
+    }
+    if (!align) {
+      AlignmentSizeCalculator alignmentCalc(astContext, spirvOptions);
+      uint32_t stride;
+      std::tie(align, std::ignore) = alignmentCalc.getAlignmentAndSize(
+          resultType, pointer->getLayoutRule(), llvm::None, &stride);
+    }
     instruction->setAlignment(align);
   }
 
@@ -228,6 +237,13 @@ SpirvInstruction *SpirvBuilder::createLoad(QualType resultType,
 
   if (pointer->isRasterizerOrdered()) {
     createEndInvocationInterlockEXT(loc, range);
+  }
+
+  if (context.hasLoweredType(pointer)) {
+    // preserve distinct node payload array types
+    auto *ptrType = dyn_cast<SpirvPointerType>(pointer->getResultType());
+    instruction->setResultType(ptrType->getPointeeType());
+    context.addToInstructionsWithLoweredType(instruction);
   }
 
   const auto &bitfieldInfo = pointer->getBitfieldInfo();
@@ -306,6 +322,12 @@ SpirvStore *SpirvBuilder::createStore(SpirvInstruction *address,
 
   auto *instruction =
       new (context) SpirvStore(loc, address, source, llvm::None, range);
+  if (context.hasLoweredType(source)) {
+    // preserve distinct node payload array types
+    address->setResultType(context.getPointerType(source->getResultType(),
+                                                  address->getStorageClass()));
+    context.addToInstructionsWithLoweredType(address);
+  }
   insertPoint->addInstruction(instruction);
 
   if (address->getStorageClass() == spv::StorageClass::PhysicalStorageBuffer &&
@@ -509,6 +531,19 @@ SpirvImageTexelPointer *SpirvBuilder::createImageTexelPointer(
   return instruction;
 }
 
+SpirvUntypedImageTexelPointerEXT *
+SpirvBuilder::createUntypedImageTexelPointerEXT(QualType resultType,
+                                                SpirvInstruction *image,
+                                                SpirvInstruction *coordinate,
+                                                SpirvInstruction *sample,
+                                                SourceLocation loc) {
+  assert(insertPoint && "null insert point");
+  auto *instruction = new (context) SpirvUntypedImageTexelPointerEXT(
+      resultType, loc, image, coordinate, sample);
+  insertPoint->addInstruction(instruction);
+  return instruction;
+}
+
 SpirvConvertPtrToU *SpirvBuilder::createConvertPtrToU(SpirvInstruction *ptr,
                                                       QualType type) {
   auto *instruction = new (context) SpirvConvertPtrToU(ptr, type);
@@ -598,8 +633,15 @@ SpirvInstruction *SpirvBuilder::createImageSample(
   assert(lod == nullptr || minLod == nullptr);
 
   // An OpSampledImage is required to do the image sampling.
-  auto *sampledImage =
-      createSampledImage(imageType, image, sampler, loc, range);
+  // Skip creating OpSampledImage if the imageType is a sampled texture.
+  SpirvInstruction *sampledImage;
+  if (isSampledTexture(imageType)) {
+    assert(!sampler &&
+           "sampler must be null when sampling from a sampled texture");
+    sampledImage = image;
+  } else {
+    sampledImage = createSampledImage(imageType, image, sampler, loc, range);
+  }
 
   const auto mask = composeImageOperandsMask(
       bias, lod, grad, constOffset, varOffset, constOffsets, sample, minLod);
@@ -685,8 +727,15 @@ SpirvInstruction *SpirvBuilder::createImageGather(
   assert(insertPoint && "null insert point");
 
   // An OpSampledImage is required to do the image sampling.
-  auto *sampledImage =
-      createSampledImage(imageType, image, sampler, loc, range);
+  // Skip creating OpSampledImage if the imageType is a sampled texture.
+  SpirvInstruction *sampledImage = nullptr;
+  if (isSampledTexture(imageType)) {
+    assert(!sampler &&
+           "sampler must be null when sampling from a sampled texture");
+    sampledImage = image;
+  } else {
+    sampledImage = createSampledImage(imageType, image, sampler, loc, range);
+  }
 
   // TODO: Update ImageGather to accept minLod if necessary.
   const auto mask = composeImageOperandsMask(
@@ -870,6 +919,63 @@ SpirvInstruction *SpirvBuilder::createNonSemanticDebugPrintfExtInst(
                    instId, operands);
   insertPoint->addInstruction(extInst);
   return extInst;
+}
+
+SpirvInstruction *
+SpirvBuilder::createNonSemanticDebugBreakExtInst(SourceLocation loc) {
+  assert(insertPoint && "null insert point");
+  auto *extInst = new (context) SpirvExtInst(
+      astContext.VoidTy, loc, getExtInstSet("NonSemantic.DebugBreak"),
+      NonSemanticDebugBreakDebugBreak, {});
+  insertPoint->addInstruction(extInst);
+  return extInst;
+}
+
+SpirvInstruction *
+SpirvBuilder::createIsNodePayloadValid(SpirvInstruction *payloadArray,
+                                       SpirvInstruction *nodeIndex,
+                                       SourceLocation loc) {
+  auto *inst = new (context)
+      SpirvIsNodePayloadValid(astContext.BoolTy, loc, payloadArray, nodeIndex);
+  insertPoint->addInstruction(inst);
+  return inst;
+}
+
+SpirvInstruction *
+SpirvBuilder::createNodePayloadArrayLength(SpirvInstruction *payloadArray,
+                                           SourceLocation loc) {
+  auto *inst = new (context)
+      SpirvNodePayloadArrayLength(astContext.UnsignedIntTy, loc, payloadArray);
+  insertPoint->addInstruction(inst);
+  return inst;
+}
+
+SpirvInstruction *SpirvBuilder::createAllocateNodePayloads(
+    QualType resultType, spv::Scope allocationScope,
+    SpirvInstruction *shaderIndex, SpirvInstruction *recordCount,
+    SourceLocation loc) {
+  assert(insertPoint && "null insert point");
+  auto *inst = new (context) SpirvAllocateNodePayloads(
+      resultType, loc, allocationScope, shaderIndex, recordCount);
+  insertPoint->addInstruction(inst);
+  return inst;
+}
+
+void SpirvBuilder::createEnqueueOutputNodePayloads(SpirvInstruction *payload,
+                                                   SourceLocation loc) {
+  assert(insertPoint && "null insert point");
+  auto *inst = new (context) SpirvEnqueueNodePayloads(loc, payload);
+  insertPoint->addInstruction(inst);
+}
+
+SpirvInstruction *
+SpirvBuilder::createFinishWritingNodePayload(SpirvInstruction *payload,
+                                             SourceLocation loc) {
+  assert(insertPoint && "null insert point");
+  auto *inst = new (context)
+      SpirvFinishWritingNodePayload(astContext.BoolTy, loc, payload);
+  insertPoint->addInstruction(inst);
+  return inst;
 }
 
 void SpirvBuilder::createBarrier(spv::Scope memoryScope,
@@ -1145,6 +1251,7 @@ SpirvBuilder::createDebugCompilationUnit(SpirvDebugSource *source) {
   auto *inst = new (context) SpirvDebugCompilationUnit(
       /*version*/ 1, /*DWARF version*/ 4, source);
   mod->addDebugInfo(inst);
+  mod->setDebugCompilationUnit(inst);
   return inst;
 }
 
@@ -1276,7 +1383,7 @@ SpirvInstruction *SpirvBuilder::createSpirvIntrInstExt(
   SpirvExtInstImport *set =
       (instSet.size() == 0) ? nullptr : getExtInstSet(instSet);
 
-  if (retType != QualType() && retType->isVoidType()) {
+  if (!set && retType != QualType() && retType->isVoidType()) {
     retType = QualType();
   }
 
@@ -1606,6 +1713,44 @@ SpirvVariable *SpirvBuilder::addModuleVar(
   return var;
 }
 
+SpirvVariable *SpirvBuilder::addModuleVar(
+    const SpirvType *type, spv::StorageClass storageClass, bool isPrecise,
+    bool isNointerp, SpirvInstruction *pos, llvm::StringRef name,
+    llvm::Optional<SpirvInstruction *> init, SourceLocation loc) {
+  assert(storageClass != spv::StorageClass::Function);
+  // Note: We store the underlying type in the variable, *not* the pointer type.
+  auto *var = new (context)
+      SpirvVariable(type, loc, storageClass, isPrecise, isNointerp,
+                    init.hasValue() ? init.getValue() : nullptr);
+  var->setResultType(type);
+  var->setDebugName(name);
+  mod->addVariable(var, pos);
+  return var;
+}
+
+SpirvUntypedVariableKHR *SpirvBuilder::createUntypedVariableKHR(
+    const SpirvType *type, spv::StorageClass storageClass, llvm::StringRef name,
+    SourceLocation loc) {
+  assert(storageClass != spv::StorageClass::Function);
+  auto *var = new (context) SpirvUntypedVariableKHR(type, loc, storageClass);
+  mod->addVariable(var);
+  var->setDebugName(name);
+  return var;
+}
+
+SpirvUntypedAccessChainKHR *SpirvBuilder::createUntypedAccessChainKHR(
+    const SpirvType *resultType, const SpirvType *baseType,
+    SpirvInstruction *base, llvm::ArrayRef<SpirvInstruction *> indexes,
+    SourceLocation loc) {
+  assert(insertPoint && "null insert point");
+  auto *instruction = new (context)
+      SpirvUntypedAccessChainKHR(resultType, loc, baseType, base, indexes);
+  instruction->setStorageClass(base->getStorageClass());
+  instruction->setLayoutRule(base->getLayoutRule());
+  insertPoint->addInstruction(instruction);
+  return instruction;
+}
+
 void SpirvBuilder::decorateLocation(SpirvInstruction *target,
                                     uint32_t location) {
   auto *decor =
@@ -1864,6 +2009,14 @@ SpirvConstant *SpirvBuilder::getConstantNull(QualType type) {
   auto *nullConst = new (context) SpirvConstantNull(type);
   mod->addConstant(nullConst);
   return nullConst;
+}
+
+SpirvConstant *SpirvBuilder::getConstantString(llvm::StringRef str,
+                                               bool specConst) {
+  // We do not care about making unique constants at this point.
+  auto *stringConst = new (context) SpirvConstantString(str, specConst);
+  mod->addConstant(stringConst);
+  return stringConst;
 }
 
 SpirvUndef *SpirvBuilder::getUndef(QualType type) {

@@ -1,3 +1,4 @@
+// REQUIRES: dxil-1-9
 // RUN: %dxc -HV 2018 -T lib_6_9 -DNUM=2 %s | FileCheck %s
 // RUN: %dxc -HV 2018 -T lib_6_9 -DNUM=5 %s | FileCheck %s
 // RUN: %dxc -HV 2018 -T lib_6_9 -DNUM=3 %s | FileCheck %s

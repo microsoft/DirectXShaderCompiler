@@ -3783,7 +3783,9 @@ static bool HandleIntrinsicCall(SourceLocation CallLoc, unsigned opcode,
   case hlsl::IntrinsicOp::IOP_asuint:
     assert(Args.size() == 1 && "else call should be invalid");
     if (ArgValues[0].isInt()) {
-      Result = ArgValues[0];
+      APSInt value = ArgValues[0].getInt();
+      value.setIsUnsigned(true);
+      Result = APValue(value);
     }
     else if (ArgValues[0].isFloat()) {
       const bool isUnsignedTrue = true;
@@ -6555,7 +6557,7 @@ bool IntExprEvaluator::VisitCallExpr(const CallExpr *E) {
     // handle all cases where the expression has side-effects.
     if (E->getArg(0)->HasSideEffects(Info.Ctx)) {
       if (E->getArg(1)->EvaluateKnownConstInt(Info.Ctx).getZExtValue() <= 1)
-        return Success(-1ULL, E);
+        return Success(~0ULL, E);
       return Success(0, E);
     }
 
@@ -6570,7 +6572,7 @@ bool IntExprEvaluator::VisitCallExpr(const CallExpr *E) {
       return Error(E);
     case EvalInfo::EM_ConstantExpressionUnevaluated:
     case EvalInfo::EM_PotentialConstantExpressionUnevaluated:
-      return Success(-1ULL, E);
+      return Success(~0ULL, E);
     }
     llvm_unreachable("Invalid EvalMode!");
   }

@@ -38,6 +38,7 @@ DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvSource)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvModuleProcessed)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvDecoration)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvVariable)
+DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvUntypedVariableKHR)
 
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvFunctionParameter)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvLoopMerge)
@@ -50,8 +51,14 @@ DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvSwitch)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvUnreachable)
 
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvAccessChain)
+DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvUntypedAccessChainKHR)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvAtomic)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvBarrier)
+DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvIsNodePayloadValid)
+DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvNodePayloadArrayLength)
+DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvAllocateNodePayloads)
+DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvEnqueueNodePayloads)
+DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvFinishWritingNodePayload)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvBinaryOp)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvBitFieldExtract)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvBitFieldInsert)
@@ -59,6 +66,7 @@ DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvConstantBoolean)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvConstantInteger)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvConstantFloat)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvConstantComposite)
+DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvConstantString)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvConstantNull)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvConvertPtrToU)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvConvertUToPtr)
@@ -75,6 +83,7 @@ DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvImageOp)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvImageQuery)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvImageSparseTexelsResident)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvImageTexelPointer)
+DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvUntypedImageTexelPointerEXT)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvLoad)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvCopyObject)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvSampledImage)
@@ -198,7 +207,7 @@ SpirvEntryPoint::SpirvEntryPoint(SourceLocation loc,
                                  spv::ExecutionModel executionModel,
                                  SpirvFunction *entryPointFn,
                                  llvm::StringRef nameStr,
-                                 llvm::ArrayRef<SpirvVariable *> iface)
+                                 llvm::ArrayRef<SpirvVariableLike *> iface)
     : SpirvInstruction(IK_EntryPoint, spv::Op::OpEntryPoint, QualType(), loc),
       execModel(executionModel), entryPoint(entryPointFn), name(nameStr),
       interfaceVec(iface.begin(), iface.end()) {}
@@ -301,7 +310,7 @@ bool SpirvDecoration::operator==(const SpirvDecoration &that) const {
 SpirvVariable::SpirvVariable(QualType resultType, SourceLocation loc,
                              spv::StorageClass sc, bool precise,
                              bool isNointerp, SpirvInstruction *initializerInst)
-    : SpirvInstruction(IK_Variable, spv::Op::OpVariable, resultType, loc),
+    : SpirvVariableLike(IK_Variable, spv::Op::OpVariable, resultType, loc),
       initializer(initializerInst), descriptorSet(-1), binding(-1),
       hlslUserType("") {
   setStorageClass(sc);
@@ -312,13 +321,45 @@ SpirvVariable::SpirvVariable(QualType resultType, SourceLocation loc,
 SpirvVariable::SpirvVariable(const SpirvType *spvType, SourceLocation loc,
                              spv::StorageClass sc, bool precise,
                              bool isNointerp, SpirvInstruction *initializerInst)
-    : SpirvInstruction(IK_Variable, spv::Op::OpVariable, QualType(), loc),
+    : SpirvVariableLike(IK_Variable, spv::Op::OpVariable, QualType(), loc),
       initializer(initializerInst), descriptorSet(-1), binding(-1),
       hlslUserType("") {
   setResultType(spvType);
   setStorageClass(sc);
   setPrecise(precise);
   setNoninterpolated(isNointerp);
+}
+
+SpirvUntypedVariableKHR::SpirvUntypedVariableKHR(QualType resultType,
+                                                 SourceLocation loc,
+                                                 spv::StorageClass sc)
+    : SpirvVariableLike(IK_UntypedVariableKHR, spv::Op::OpUntypedVariableKHR,
+                        resultType, loc) {
+  setStorageClass(sc);
+}
+
+SpirvUntypedVariableKHR::SpirvUntypedVariableKHR(const SpirvType *spvType,
+                                                 SourceLocation loc,
+                                                 spv::StorageClass sc)
+    : SpirvVariableLike(IK_UntypedVariableKHR, spv::Op::OpUntypedVariableKHR,
+                        QualType(), loc) {
+  setResultType(spvType);
+  setStorageClass(sc);
+}
+
+SpirvVariableLike::SpirvVariableLike(Kind kind, spv::Op opcode,
+                                     QualType astResultType, SourceLocation loc,
+                                     SourceRange range)
+    : SpirvInstruction(kind, opcode, astResultType, loc, range) {}
+
+SpirvUntypedAccessChainKHR::SpirvUntypedAccessChainKHR(
+    const SpirvType *resultType, SourceLocation loc, const SpirvType *baseType,
+    SpirvInstruction *baseInst, llvm::ArrayRef<SpirvInstruction *> indexVec)
+    : SpirvInstruction(IK_UntypedAccessChainKHR,
+                       spv::Op::OpUntypedAccessChainKHR, QualType(), loc),
+      baseType(baseType), base(baseInst),
+      indices(indexVec.begin(), indexVec.end()) {
+  setResultType(resultType);
 }
 
 SpirvFunctionParameter::SpirvFunctionParameter(QualType resultType,
@@ -469,6 +510,41 @@ SpirvBarrier::SpirvBarrier(SourceLocation loc, spv::Scope memScope,
       memoryScope(memScope), memorySemantics(memSemantics),
       executionScope(execScope) {}
 
+SpirvIsNodePayloadValid::SpirvIsNodePayloadValid(QualType resultType,
+                                                 SourceLocation loc,
+                                                 SpirvInstruction *payloadArray,
+                                                 SpirvInstruction *nodeIndex)
+    : SpirvInstruction(IK_IsNodePayloadValid, spv::Op::OpIsNodePayloadValidAMDX,
+                       resultType, loc),
+      payloadArray(payloadArray), nodeIndex(nodeIndex) {}
+
+SpirvNodePayloadArrayLength::SpirvNodePayloadArrayLength(
+    QualType resultType, SourceLocation loc, SpirvInstruction *payloadArray)
+    : SpirvInstruction(IK_NodePayloadArrayLength,
+                       spv::Op::OpNodePayloadArrayLengthAMDX, resultType, loc),
+      payloadArray(payloadArray) {}
+
+SpirvAllocateNodePayloads::SpirvAllocateNodePayloads(
+    QualType resultType, SourceLocation loc, spv::Scope allocationScope,
+    SpirvInstruction *shaderIndex, SpirvInstruction *recordCount)
+    : SpirvInstruction(IK_AllocateNodePayloads,
+                       spv::Op::OpAllocateNodePayloadsAMDX, resultType, loc),
+      allocationScope(allocationScope), shaderIndex(shaderIndex),
+      recordCount(recordCount) {}
+
+SpirvEnqueueNodePayloads::SpirvEnqueueNodePayloads(SourceLocation loc,
+                                                   SpirvInstruction *payload)
+    : SpirvInstruction(IK_EnqueueNodePayloads,
+                       spv::Op::OpEnqueueNodePayloadsAMDX, QualType(), loc),
+      payload(payload) {}
+
+SpirvFinishWritingNodePayload::SpirvFinishWritingNodePayload(
+    QualType resultType, SourceLocation loc, SpirvInstruction *payload)
+    : SpirvInstruction(IK_FinishWritingNodePayload,
+                       spv::Op::OpFinishWritingNodePayloadAMDX, resultType,
+                       loc),
+      payload(payload) {}
+
 SpirvBinaryOp::SpirvBinaryOp(spv::Op opcode, QualType resultType,
                              SourceLocation loc, SpirvInstruction *op1,
                              SpirvInstruction *op2, SourceRange range)
@@ -565,7 +641,8 @@ bool SpirvConstant::isSpecConstant() const {
   return opcode == spv::Op::OpSpecConstant ||
          opcode == spv::Op::OpSpecConstantTrue ||
          opcode == spv::Op::OpSpecConstantFalse ||
-         opcode == spv::Op::OpSpecConstantComposite;
+         opcode == spv::Op::OpSpecConstantComposite ||
+         opcode == spv::Op::OpSpecConstantStringAMDX;
 }
 
 SpirvConstantBoolean::SpirvConstantBoolean(QualType type, bool val,
@@ -619,6 +696,19 @@ SpirvConstantComposite::SpirvConstantComposite(
                                 : spv::Op::OpConstantComposite,
                     type),
       constituents(constituentsVec.begin(), constituentsVec.end()) {}
+
+SpirvConstantString::SpirvConstantString(llvm::StringRef stringLiteral,
+                                         bool isSpecConst)
+    : SpirvConstant(IK_ConstantString,
+                    isSpecConst ? spv::Op::OpSpecConstantStringAMDX
+                                : spv::Op::OpConstantStringAMDX,
+                    QualType()),
+      str(stringLiteral) {}
+
+bool SpirvConstantString::operator==(const SpirvConstantString &that) const {
+  return opcode == that.opcode && resultType == that.resultType &&
+         str == that.str;
+}
 
 SpirvConstantNull::SpirvConstantNull(QualType type)
     : SpirvConstant(IK_ConstantNull, spv::Op::OpConstantNull, type) {}
@@ -875,6 +965,13 @@ SpirvImageTexelPointer::SpirvImageTexelPointer(QualType resultType,
                                                SpirvInstruction *sampleInst)
     : SpirvInstruction(IK_ImageTexelPointer, spv::Op::OpImageTexelPointer,
                        resultType, loc),
+      image(imageInst), coordinate(coordinateInst), sample(sampleInst) {}
+
+SpirvUntypedImageTexelPointerEXT::SpirvUntypedImageTexelPointerEXT(
+    QualType resultType, SourceLocation loc, SpirvInstruction *imageInst,
+    SpirvInstruction *coordinateInst, SpirvInstruction *sampleInst)
+    : SpirvInstruction(IK_UntypedImageTexelPointerEXT,
+                       spv::Op::OpUntypedImageTexelPointerEXT, resultType, loc),
       image(imageInst), coordinate(coordinateInst), sample(sampleInst) {}
 
 SpirvLoad::SpirvLoad(QualType resultType, SourceLocation loc,

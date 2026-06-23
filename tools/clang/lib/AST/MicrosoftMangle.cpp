@@ -11,6 +11,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "dxc/DXIL/DxilConstants.h"
+
 #include "clang/AST/Mangle.h"
 #include "clang/AST/ASTContext.h"
 #include "clang/AST/Attr.h"
@@ -633,7 +635,7 @@ void MicrosoftCXXNameMangler::mangleNumber(int64_t Number) {
 
   uint64_t Value = static_cast<uint64_t>(Number);
   if (Number < 0) {
-    Value = -Value;
+    Value = ~Value + 1ULL;
     Out << '?';
   }
 
@@ -1621,6 +1623,9 @@ void MicrosoftCXXNameMangler::mangleType(const BuiltinType *T, Qualifiers,
   case BuiltinType::UInt8_4Packed:
     Out << "$ui8_4pk@";
     break;
+  case BuiltinType::LinAlgMatrix:
+    Out << "$linalg_matrix@";
+    break;
     // HLSL Change Ends
   }
 }
@@ -2033,6 +2038,9 @@ void MicrosoftCXXNameMangler::mangleType(const LValueReferenceType *T,
                                          Qualifiers Quals, SourceRange Range) {
   QualType PointeeType = T->getPointeeType();
   Out << (Quals.hasVolatile() ? 'B' : 'A');
+  if (PointeeType.getQualifiers().getAddressSpace() ==
+      hlsl::DXIL::kTGSMAddrSpace)
+    Out << 'G';
   manglePointerExtQualifiers(Quals, PointeeType);
   mangleType(PointeeType, Range);
 }
@@ -2237,6 +2245,23 @@ void MicrosoftCXXNameMangler::mangleType(const AtomicType *T, Qualifiers,
     << Range;
 }
 
+void MicrosoftCXXNameMangler::mangleType(const AttributedLinAlgMatrixType *T,
+                                         Qualifiers, SourceRange Range) {
+  Out << "$linalg_matrix";
+  T->appendMangledAttributes(Out);
+  Out << "@";
+}
+
+void MicrosoftCXXNameMangler::mangleType(
+    const DependentAttributedLinAlgMatrixType *T, Qualifiers,
+    SourceRange Range) {
+  DiagnosticsEngine &Diags = Context.getDiags();
+  unsigned DiagID = Diags.getCustomDiagID(
+      DiagnosticsEngine::Error, "cannot mangle this dependent-sized HLSL "
+                                "attributed linear algebra matrix type yet");
+  Diags.Report(Range.getBegin(), DiagID) << Range;
+}
+
 void MicrosoftMangleContextImpl::mangleCXXName(const NamedDecl *D,
                                                raw_ostream &Out) {
   assert((isa<FunctionDecl>(D) || isa<VarDecl>(D)) &&
@@ -2308,7 +2333,7 @@ static void mangleThunkThisAdjustment(const CXXMethodDecl *MD,
       Out << AccessSpec;
       Mangler.mangleNumber(
           static_cast<uint32_t>(Adjustment.Virtual.Microsoft.VtordispOffset));
-      Mangler.mangleNumber(-static_cast<uint32_t>(Adjustment.NonVirtual));
+      Mangler.mangleNumber(~static_cast<uint32_t>(Adjustment.NonVirtual) + 1);
     }
   } else if (Adjustment.NonVirtual != 0) {
     switch (MD->getAccess()) {
@@ -2323,7 +2348,7 @@ static void mangleThunkThisAdjustment(const CXXMethodDecl *MD,
     case AS_public:
       Out << 'W';
     }
-    Mangler.mangleNumber(-static_cast<uint32_t>(Adjustment.NonVirtual));
+    Mangler.mangleNumber(~static_cast<uint32_t>(Adjustment.NonVirtual) + 1);
   } else {
     switch (MD->getAccess()) {
     case AS_none:

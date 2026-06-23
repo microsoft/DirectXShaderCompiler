@@ -633,6 +633,16 @@ bool Parser::MaybeParseHLSLAttributes(std::vector<hlsl::UnusualAnnotation *> &ta
       Actions.DiagnoseSemanticDecl(pUA);
       ConsumeToken(); // consume semantic
 
+      // Likely a misspell of register(), packoffset() or a mismatching macro:
+      // both registr() and packofset() would cause a crash without this fix.
+
+      if (Tok.is(tok::l_paren)) {
+        Diag(Tok.getLocation(), diag::err_hlsl_expected_hlsl_attribute);
+        ConsumeParen();
+        SkipUntil(tok::r_paren, StopAtSemi); // skip through )
+        return true;
+      }
+
       target.push_back(pUA);
     }
     else {
@@ -833,6 +843,7 @@ void Parser::ParseGNUAttributeArgs(IdentifierInfo *AttrName,
     case AttributeList::AT_HLSLMaxVertexCount:
     case AttributeList::AT_HLSLUnroll:
     case AttributeList::AT_HLSLWaveSize:
+    case AttributeList::AT_HLSLGroupSharedLimit:
     case AttributeList::AT_NoInline:
       // The following are not accepted in [attribute(param)] syntax:
       // case AttributeList::AT_HLSLCentroid:
@@ -3345,11 +3356,20 @@ void Parser::ParseDeclarationSpecifiers(DeclSpec &DS,
       if (!AttrsLastTime)
         ProhibitAttributes(attrs);
       else {
-        // Reject C++11 attributes that appertain to decl specifiers as
-        // we don't support any C++11 attributes that appertain to decl
-        // specifiers. This also conforms to what g++ 4.8 is doing.
-        ProhibitCXX11Attributes(attrs);
-
+        // HLSL Change Start
+        // Reject attributes that aren't type attributes. Unknown attributes
+        // are diagnosed elsewhere.
+        AttributeList *Attr = attrs.getList();
+        while (Attr) {
+          if (!Attr->isTypeAttr() &&
+              Attr->getKind() != AttributeList::UnknownAttribute) {
+            Diag(Attr->getLoc(), diag::err_attribute_not_type_attr)
+                << Attr->getName();
+            Attr->setInvalid();
+          }
+          Attr = Attr->getNext();
+        }
+        // HLSL Change End
         DS.takeAttributesFrom(attrs);
       }
 
@@ -3360,7 +3380,7 @@ void Parser::ParseDeclarationSpecifiers(DeclSpec &DS,
 
     case tok::l_square:
     case tok::kw_alignas:
-      if (!getLangOpts().CPlusPlus11 || !isCXX11AttributeSpecifier())
+      if (!isCXX11AttributeSpecifier()) // HLSL Change
         goto DoneWithDeclSpec;
 
       ProhibitAttributes(attrs);
@@ -3898,8 +3918,12 @@ HLSLReservedKeyword:
       break;
       // HLSL Change Ends
     case tok::kw_auto:
-      if (getLangOpts().HLSL) { goto HLSLReservedKeyword; } // HLSL Change - auto is reserved for HLSL
-      if (getLangOpts().CPlusPlus11) {
+      // HLSL Change Begin - auto is reserved for HLSL 2015 and earlier.
+      if (getLangOpts().HLSL &&
+          getLangOpts().HLSLVersion <= hlsl::LangStd::v2015)
+        goto HLSLReservedKeyword;
+      // HLSL Change End
+      if (getLangOpts().CPlusPlus11 || getLangOpts().HLSL) { // HLSL Change
         if (isKnownToBeTypeSpecifier(GetLookAheadToken(1))) {
           isInvalid = DS.SetStorageClassSpec(Actions, DeclSpec::SCS_auto, Loc,
                                              PrevSpec, DiagID, Policy);
@@ -4173,6 +4197,10 @@ HLSLReservedKeyword:
                                  getLangOpts());
       break;
     case tok::kw_volatile:
+      // HLSL Change - volatile is reserved for HLSL
+      if (getLangOpts().HLSL)
+        goto HLSLReservedKeyword;
+      // HLSL Change Ends
       isInvalid = DS.SetTypeQual(DeclSpec::TQ_volatile, Loc, PrevSpec, DiagID,
                                  getLangOpts());
       break;
@@ -5863,15 +5891,6 @@ void Parser::ParseDeclaratorInternal(Declarator &D,
         return;
       }
 
-      // HLSL Change Starts - No pointer support in HLSL.
-      if (getLangOpts().HLSL) {
-        Diag(Tok, diag::err_hlsl_unsupported_pointer);
-        D.SetIdentifier(0, Tok.getLocation());
-        D.setInvalidType();
-        return;
-      }
-      // HLSL Change Ends
-
       SourceLocation Loc = ConsumeToken();
       D.SetRangeEnd(Loc);
       DeclSpec DS(AttrFactory);
@@ -5892,12 +5911,6 @@ void Parser::ParseDeclaratorInternal(Declarator &D,
   }
 
   tok::TokenKind Kind = Tok.getKind();
-
-  // HLSL Change Starts - HLSL doesn't support pointers, references or blocks
-  if (getLangOpts().HLSL && isPtrOperatorToken(Kind, getLangOpts(), D.getContext())) {
-    Diag(Tok, diag::err_hlsl_unsupported_pointer);
-  }
-  // HLSL Change Ends
 
   // Not a pointer, C++ reference, or block.
   if (!isPtrOperatorToken(Kind, getLangOpts(), D.getContext())) {

@@ -62,7 +62,7 @@ SpirvDebugTypeComposite *DebugTypeVisitor::createDebugTypeComposite(
     } else {
       auto *dbgSrc = spvBuilder.createDebugSource(file);
       setDefaultDebugInfo(dbgSrc);
-      auto dbgCompUnit = spvBuilder.createDebugCompilationUnit(dbgSrc);
+      auto dbgCompUnit = spvBuilder.getModule()->getDebugCompilationUnit();
       setDefaultDebugInfo(dbgCompUnit);
       debugInfo =
           &debugInfoMap.insert({file, RichDebugInfo(dbgSrc, dbgCompUnit)})
@@ -323,6 +323,7 @@ SpirvDebugType *DebugTypeVisitor::lowerToDebugType(const SpirvType *spirvType) {
   }
   case SpirvType::TK_Image:
   case SpirvType::TK_Sampler:
+  case SpirvType::TK_RayQueryKHR:
   case SpirvType::TK_Struct: {
     debugType = lowerToDebugTypeComposite(spirvType);
     break;
@@ -347,6 +348,17 @@ SpirvDebugType *DebugTypeVisitor::lowerToDebugType(const SpirvType *spirvType) {
   }
   case SpirvType::TK_RuntimeArray: {
     auto *arrType = dyn_cast<RuntimeArrayType>(spirvType);
+    SpirvDebugInstruction *elemDebugType =
+        lowerToDebugType(arrType->getElementType());
+
+    llvm::SmallVector<uint32_t, 4> counts;
+    counts.push_back(0u);
+
+    debugType = spvContext.getDebugTypeArray(spirvType, elemDebugType, counts);
+    break;
+  }
+  case SpirvType::TK_NodePayloadArrayAMD: {
+    auto *arrType = dyn_cast<NodePayloadArrayType>(spirvType);
     SpirvDebugInstruction *elemDebugType =
         lowerToDebugType(arrType->getElementType());
 
@@ -405,6 +417,13 @@ SpirvDebugType *DebugTypeVisitor::lowerToDebugType(const SpirvType *spirvType) {
     const uint32_t flags = 3u;
     debugType =
         spvContext.getDebugTypeFunction(spirvType, flags, returnType, params);
+    break;
+  }
+  case SpirvType::TK_BufferEXT:
+  case SpirvType::TK_UntypedPointerKHR: {
+    // There is no standard debug type for opaque buffer/pointers yet.
+    // For now, lower it as an empty composite type or ignore.
+    debugType = lowerToDebugTypeComposite(spirvType);
     break;
   }
   case SpirvType::TK_AccelerationStructureNV: {

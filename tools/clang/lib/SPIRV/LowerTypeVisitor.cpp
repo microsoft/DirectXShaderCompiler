@@ -37,33 +37,6 @@ inline uint32_t roundToPow2(uint32_t val, uint32_t pow2) {
 
 } // end anonymous namespace
 
-// This method sorts a field list in the following order:
-//  - fields with register annotation first, sorted by register index.
-//  - then fields without annotation, in order of declaration.
-static std::vector<const HybridStructType::FieldInfo *>
-sortFields(llvm::ArrayRef<HybridStructType::FieldInfo> fields) {
-  std::vector<const HybridStructType::FieldInfo *> output;
-  output.resize(fields.size());
-
-  auto back_inserter = output.rbegin();
-  std::map<uint32_t, const HybridStructType::FieldInfo *> fixed_fields;
-  for (auto it = fields.rbegin(); it < fields.rend(); it++) {
-    if (it->registerC) {
-      fixed_fields.insert({it->registerC->RegisterNumber, &*it});
-    } else {
-      *back_inserter = &*it;
-      back_inserter++;
-    }
-  }
-
-  auto front_inserter = output.begin();
-  for (const auto &item : fixed_fields) {
-    *front_inserter = item.second;
-    front_inserter++;
-  }
-  return output;
-}
-
 static void setDefaultFieldSize(const AlignmentSizeCalculator &alignmentCalc,
                                 const SpirvLayoutRule rule,
                                 const HybridStructType::FieldInfo *currentField,
@@ -292,6 +265,37 @@ bool LowerTypeVisitor::visitInstruction(SpirvInstruction *instr) {
   return true;
 }
 
+std::vector<const HybridStructType::FieldInfo *> LowerTypeVisitor::sortFields(
+    llvm::ArrayRef<HybridStructType::FieldInfo> fields) {
+  std::vector<const HybridStructType::FieldInfo *> output;
+  output.resize(fields.size());
+
+  auto back_inserter = output.rbegin();
+  std::map<uint32_t, const HybridStructType::FieldInfo *> fixed_fields;
+  for (auto it = fields.rbegin(); it < fields.rend(); it++) {
+    if (it->registerC) {
+      auto insertionResult =
+          fixed_fields.insert({it->registerC->RegisterNumber, &*it});
+      if (!insertionResult.second) {
+        emitError(
+            "field \"%0\" at register(c%1) overlaps with previous members",
+            it->registerC->Loc)
+            << it->name << it->registerC->RegisterNumber;
+      }
+    } else {
+      *back_inserter = &*it;
+      back_inserter++;
+    }
+  }
+
+  auto front_inserter = output.begin();
+  for (const auto &item : fixed_fields) {
+    *front_inserter = item.second;
+    front_inserter++;
+  }
+  return output;
+}
+
 const SpirvType *LowerTypeVisitor::lowerType(const SpirvType *type,
                                              SpirvLayoutRule rule,
                                              SourceLocation loc) {
@@ -329,7 +333,8 @@ const SpirvType *LowerTypeVisitor::lowerType(const SpirvType *type,
   else if (isa<VoidType>(type) || isa<ScalarType>(type) ||
            isa<MatrixType>(type) || isa<ImageType>(type) ||
            isa<SamplerType>(type) || isa<SampledImageType>(type) ||
-           isa<FunctionType>(type) || isa<StructType>(type)) {
+           isa<FunctionType>(type) || isa<StructType>(type) ||
+           isa<BufferEXTType>(type) || isa<UntypedPointerKHRType>(type)) {
     return type;
   }
   // Vectors could contain a hybrid type
@@ -361,6 +366,16 @@ const SpirvType *LowerTypeVisitor::lowerType(const SpirvType *type,
     if (raType->getElementType() == loweredElemType)
       return raType;
     return spvContext.getRuntimeArrayType(loweredElemType, raType->getStride());
+  }
+  // Node payload arrays could contain a hybrid type
+  else if (const auto *npaType = dyn_cast<NodePayloadArrayType>(type)) {
+    const auto *loweredElemType =
+        lowerType(npaType->getElementType(), rule, loc);
+    // If runtime array didn't contain any hybrid types, return itself.
+    if (npaType->getElementType() == loweredElemType)
+      return npaType;
+    return spvContext.getNodePayloadArrayType(loweredElemType,
+                                              npaType->getNodeDecl());
   }
   // Pointer types could point to a hybrid type.
   else if (const auto *ptrType = dyn_cast<SpirvPointerType>(type)) {
@@ -822,12 +837,10 @@ const SpirvType *LowerTypeVisitor::lowerVkTypeInVkNamespace(
     }
 
     QualType realType = hlsl::GetHLSLResourceTemplateParamType(type);
-    if (rule == SpirvLayoutRule::Void) {
-      rule = spvOptions.sBufferLayoutRule;
-    }
     visitedTypeStack.push_back(type);
 
-    const SpirvType *spirvType = lowerType(realType, rule, llvm::None, srcLoc);
+    const SpirvType *spirvType =
+        lowerType(realType, spvOptions.sBufferLayoutRule, llvm::None, srcLoc);
     const auto *pointerType = spvContext.getPointerType(
         spirvType, spv::StorageClass::PhysicalStorageBuffer);
     spvContext.registerForwardReference(type, pointerType);
@@ -836,6 +849,34 @@ const SpirvType *LowerTypeVisitor::lowerVkTypeInVkNamespace(
     visitedTypeStack.pop_back();
     assert(visitedTypeStack.size() == visitedTypeStackSize);
     return pointerType;
+  }
+  if (name.startswith("SampledTexture")) {
+    const auto sampledType = hlsl::GetHLSLResourceResultType(type);
+    auto loweredType = lowerType(getElementType(astContext, sampledType), rule,
+                                 /*isRowMajor*/ llvm::None, srcLoc);
+
+    // Bool does not have a defined size in SPIR-V, so it cannot be
+    // used in the external interface.
+    if (loweredType == spvContext.getBoolType()) {
+      loweredType = spvContext.getUIntType(32);
+    }
+
+    constexpr size_t sampledTexturePrefixLength = sizeof("SampledTexture") - 1;
+    StringRef suffix = name.drop_front(sampledTexturePrefixLength);
+    const spv::Dim dimension =
+        suffix.startswith("1D")
+            ? spv::Dim::Dim1D
+            : (suffix.startswith("2D")
+                   ? spv::Dim::Dim2D
+                   : (suffix.startswith("3D") ? spv::Dim::Dim3D
+                                              : spv::Dim::Cube));
+    const bool isArray = suffix.endswith("Array");
+    const bool isMS = suffix.find("MS") != StringRef::npos;
+
+    const auto *imageType = spvContext.getImageType(
+        loweredType, dimension, ImageType::WithDepth::No, isArray, isMS,
+        ImageType::WithSampler::Yes, spv::ImageFormat::Unknown);
+    return spvContext.getSampledImageType(imageType);
   }
   emitError("unknown type %0 in vk namespace", srcLoc) << type;
   return nullptr;
@@ -880,7 +921,8 @@ LowerTypeVisitor::lowerResourceType(QualType type, SpirvLayoutRule rule,
       auto loweredType =
           lowerType(getElementType(astContext, sampledType), rule,
                     /*isRowMajor*/ llvm::None, srcLoc);
-      // Treat bool textures as uint for compatibility with OpTypeImage.
+      // Bool does not have a defined size in SPIR-V, so it cannot be
+      // used in the external interface.
       if (loweredType == spvContext.getBoolType()) {
         loweredType = spvContext.getUIntType(32);
       }
@@ -1146,6 +1188,10 @@ LowerTypeVisitor::lowerStructFields(const RecordDecl *decl,
 spv::ImageFormat
 LowerTypeVisitor::translateSampledTypeToImageFormat(QualType sampledType,
                                                     SourceLocation srcLoc) {
+
+  if (spvOptions.useUnknownImageFormat)
+    return spv::ImageFormat::Unknown;
+
   uint32_t elemCount = 1;
   QualType ty = {};
   if (!isScalarType(sampledType, &ty) &&
@@ -1364,11 +1410,18 @@ LowerTypeVisitor::populateLayoutInformation(
   llvm::SmallVector<StructType::FieldInfo, 4> loweredFields;
   llvm::DenseMap<const HybridStructType::FieldInfo *, uint32_t> fieldToIndexMap;
 
+  llvm::SmallVector<StructType::FieldInfo, 4> result;
+
   // This stores the index of the field in the actual SPIR-V construct.
   // When bitfields are merged, this index will be the same for merged fields.
   uint32_t fieldIndexInConstruct = 0;
   for (size_t i = 0, iPrevious = -1; i < sortedFields.size(); iPrevious = i++) {
     const size_t fieldIndexForMap = loweredFields.size();
+
+    // Can happen if sortFields runs over fields with the same register(c#)
+    if (!sortedFields[i]) {
+      return result;
+    }
 
     loweredFields.emplace_back(fieldVisitor(
         (iPrevious < loweredFields.size() ? &loweredFields[iPrevious]
@@ -1383,7 +1436,6 @@ LowerTypeVisitor::populateLayoutInformation(
   }
 
   // Re-order the sorted fields back to their original order.
-  llvm::SmallVector<StructType::FieldInfo, 4> result;
   for (const auto &field : fields)
     result.push_back(loweredFields[fieldToIndexMap[&field]]);
   return result;

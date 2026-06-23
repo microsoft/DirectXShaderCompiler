@@ -1465,6 +1465,7 @@ bool CursorVisitor::VisitBuiltinTypeLoc(BuiltinTypeLoc TL) {
   case BuiltinType::OCLImage3d:
   case BuiltinType::OCLSampler:
   case BuiltinType::OCLEvent:
+  case BuiltinType::LinAlgMatrix:
 #define BUILTIN_TYPE(Id, SingletonId)
 #define SIGNED_TYPE(Id, SingletonId) case BuiltinType::Id:
 #define UNSIGNED_TYPE(Id, SingletonId) case BuiltinType::Id:
@@ -1700,6 +1701,8 @@ DEFAULT_TYPELOC_IMPL(FunctionProto, FunctionType)
 DEFAULT_TYPELOC_IMPL(FunctionNoProto, FunctionType)
 DEFAULT_TYPELOC_IMPL(Record, TagType)
 DEFAULT_TYPELOC_IMPL(Enum, TagType)
+DEFAULT_TYPELOC_IMPL(AttributedLinAlgMatrix, Type)
+DEFAULT_TYPELOC_IMPL(DependentAttributedLinAlgMatrix, Type)
 DEFAULT_TYPELOC_IMPL(SubstTemplateTypeParm, Type)
 DEFAULT_TYPELOC_IMPL(SubstTemplateTypeParmPack, Type)
 DEFAULT_TYPELOC_IMPL(Auto, Type)

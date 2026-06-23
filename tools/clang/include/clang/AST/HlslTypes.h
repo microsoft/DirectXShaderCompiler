@@ -407,6 +407,10 @@ clang::CXXRecordDecl *
 DeclareVkBufferPointerType(clang::ASTContext &context,
                            clang::DeclContext *declContext);
 
+clang::CXXRecordDecl *DeclareVkSampledTextureType(
+    clang::ASTContext &context, clang::DeclContext *declContext,
+    llvm::StringRef hlslTypeName, clang::QualType defaultParamType);
+
 clang::CXXRecordDecl *DeclareInlineSpirvType(clang::ASTContext &context,
                                              clang::DeclContext *declContext,
                                              llvm::StringRef typeName,
@@ -485,7 +489,10 @@ bool IsHLSLObjectWithImplicitMemberAccess(clang::QualType type);
 bool IsHLSLObjectWithImplicitROMemberAccess(clang::QualType type);
 bool IsHLSLRWNodeInputRecordType(clang::QualType type);
 bool IsHLSLRONodeInputRecordType(clang::QualType type);
+bool IsHLSLDispatchNodeInputRecordType(clang::QualType type);
+bool IsHLSLNodeRecordArrayType(clang::QualType type);
 bool IsHLSLNodeOutputType(clang::QualType type);
+bool IsHLSLEmptyNodeRecordType(clang::QualType type);
 
 DXIL::NodeIOKind GetNodeIOType(clang::QualType type);
 
@@ -495,6 +502,8 @@ bool IsHLSLCopyableAnnotatableRecord(clang::QualType QT);
 bool IsHLSLBuiltinRayAttributeStruct(clang::QualType QT);
 bool IsHLSLAggregateType(clang::QualType type);
 clang::QualType GetHLSLResourceResultType(clang::QualType type);
+clang::QualType GetHLSLNodeIOResultType(clang::ASTContext &astContext,
+                                        clang::QualType type);
 unsigned GetHLSLResourceTemplateUInt(clang::QualType type);
 bool IsIncompleteHLSLResourceArrayType(clang::ASTContext &context,
                                        clang::QualType type);

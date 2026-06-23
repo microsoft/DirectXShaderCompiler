@@ -62,10 +62,10 @@ float4 MainPs(void) : SV_Target0
 // CHECK: [[X4:%[_0-9A-Za-z]*]] = OpLoad [[PGS]] [[X3]]
 // CHECK: OpStore [[BP1]] [[X4]]
 // CHECK: [[X5:%[_0-9A-Za-z]*]] = OpLoad [[V4FLOAT]] [[VTEST]]
-// CHECK: [[X6:%[_0-9A-Za-z]*]] = OpLoad [[PGS]] [[BP0]] Aligned 16
+// CHECK: [[X6:%[_0-9A-Za-z]*]] = OpLoad [[PGS]] [[BP0]]
 // CHECK: [[X7:%[_0-9A-Za-z]*]] = OpAccessChain [[PBV4FLOAT]] [[X6]] [[I1]]
 // CHECK: OpStore [[X7]] [[X5]] Aligned 16
-// CHECK: [[X8:%[_0-9A-Za-z]*]] = OpLoad [[PGS]] [[BP1]] Aligned 16
+// CHECK: [[X8:%[_0-9A-Za-z]*]] = OpLoad [[PGS]] [[BP1]]
 // CHECK: [[X9:%[_0-9A-Za-z]*]] = OpAccessChain [[PBV4FLOAT]] [[X8]] [[I1]]
 // CHECK: [[X10:%[_0-9A-Za-z]*]] = OpLoad [[V4FLOAT]] [[X9]] Aligned 16
 // CHECK: OpReturnValue [[X10]]

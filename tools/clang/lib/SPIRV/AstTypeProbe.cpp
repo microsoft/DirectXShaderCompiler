@@ -23,6 +23,25 @@ clang::DiagnosticBuilder emitError(const clang::ASTContext &astContext,
       clang::DiagnosticsEngine::Error, message);
   return astContext.getDiagnostics().Report(srcLoc, diagId);
 }
+
+// Returns the attribute of the given type attached to the record declaration
+// behind \p type, or nullptr if there is none. Attributes live on the
+// declaration, so they cannot be retrieved with QualType::getAs (which only
+// navigates the clang::Type hierarchy).
+template <typename AttrType> AttrType *getAttr(clang::QualType type) {
+  type = type.getCanonicalType();
+  if (const clang::RecordType *RT = type->getAs<clang::RecordType>()) {
+    if (const auto *Spec =
+            clang::dyn_cast<clang::ClassTemplateSpecializationDecl>(
+                RT->getDecl()))
+      if (const auto *Template = clang::dyn_cast<clang::ClassTemplateDecl>(
+              Spec->getSpecializedTemplate()))
+        return Template->getTemplatedDecl()->getAttr<AttrType>();
+    if (const auto *Decl = clang::dyn_cast<clang::CXXRecordDecl>(RT->getDecl()))
+      return Decl->getAttr<AttrType>();
+  }
+  return nullptr;
+}
 } // namespace
 
 namespace clang {
@@ -926,10 +945,30 @@ bool isTexture(QualType type) {
   return false;
 }
 
+bool isSampledTexture(QualType type) {
+  if (const auto *rt = type->getAs<RecordType>()) {
+    const auto name = rt->getDecl()->getName();
+    return name.startswith("SampledTexture");
+  }
+  return false;
+}
+
 bool isTextureMS(QualType type) {
   if (const auto *rt = type->getAs<RecordType>()) {
     const auto name = rt->getDecl()->getName();
     if (name == "Texture2DMS" || name == "Texture2DMSArray")
+      return true;
+  }
+  return false;
+}
+
+bool isSampledTextureMS(QualType type) {
+  if (const auto *rt = type->getAs<RecordType>()) {
+    const auto name = rt->getDecl()->getName();
+    if (!name.startswith("SampledTexture"))
+      return false;
+
+    if (name == "SampledTexture2DMS" || name == "SampledTexture2DMSArray")
       return true;
   }
   return false;
@@ -995,18 +1034,24 @@ bool isRWAppendConsumeSBuffer(QualType type) {
          isAppendStructuredBuffer(type);
 }
 
-bool isResourceDescriptorHeap(QualType type) {
-  if (const auto *rt = type->getAs<RecordType>()) {
-    return rt->getDecl()->getName() == ".Resource";
-  }
-  return false;
+bool isResourceDescriptorHeap(const Decl *D) {
+  const VarDecl *VD = dyn_cast<VarDecl>(D);
+  return VD && isResourceDescriptorHeap(VD->getType());
 }
 
-bool isSamplerDescriptorHeap(QualType type) {
-  if (const auto *rt = type->getAs<RecordType>()) {
-    return rt->getDecl()->getName() == ".Sampler";
-  }
-  return false;
+bool isResourceDescriptorHeap(QualType T) {
+  const HLSLDynamicResourceAttr *Attr = getAttr<HLSLDynamicResourceAttr>(T);
+  return Attr && !Attr->getIsSampler();
+}
+
+bool isSamplerDescriptorHeap(const Decl *D) {
+  const VarDecl *VD = dyn_cast<VarDecl>(D);
+  return VD && isSamplerDescriptorHeap(VD->getType());
+}
+
+bool isSamplerDescriptorHeap(QualType T) {
+  const HLSLDynamicResourceAttr *Attr = getAttr<HLSLDynamicResourceAttr>(T);
+  return Attr && Attr->getIsSampler();
 }
 
 bool isAKindOfStructuredOrByteBuffer(QualType type) {
@@ -1280,6 +1325,13 @@ bool isUintOrVecOfUintType(QualType type) {
          elemType->isUnsignedIntegerType();
 }
 
+/// Returns true if the given type is a half or vector of half type.
+bool isHalfOrVecOfHalfType(QualType type) {
+  QualType elemType = {};
+  return (isScalarType(type, &elemType) || isVectorType(type, &elemType)) &&
+         elemType->isHalfType();
+}
+
 /// Returns true if the given type is a float or vector of float type.
 bool isFloatOrVecOfFloatType(QualType type) {
   QualType elemType = {};
@@ -1348,6 +1400,27 @@ bool isOrContainsNonFpColMajorMatrix(const ASTContext &astContext,
                                           field->getType(), field))
         return true;
     }
+  }
+
+  return false;
+}
+
+bool isOrContainsBoolType(QualType type) {
+  if (isBoolOrVecMatOfBoolType(type)) {
+    return true;
+  }
+
+  if (const auto *arrayType = type->getAsArrayTypeUnsafe()) {
+    return isOrContainsBoolType(arrayType->getElementType());
+  }
+
+  if (const auto *recordType = type->getAs<RecordType>()) {
+    for (auto field : recordType->getDecl()->fields()) {
+      if (isOrContainsBoolType(field->getType())) {
+        return true;
+      }
+    }
+    return false;
   }
 
   return false;
@@ -1580,7 +1653,10 @@ void forEachSpirvField(
   uint32_t lastConvertedIndex = 0;
   size_t astFieldIndex = 0;
   for (const auto &base : cxxDecl->bases()) {
-    const auto &type = base.getType();
+    auto type = base.getType();
+    if (auto *templatedType = dyn_cast<SubstTemplateTypeParmType>(type))
+      type = templatedType->getReplacementType();
+
     const auto &spirvField = spirvType->getFields()[astFieldIndex];
     if (!operation(spirvField.fieldIndex, type, spirvField)) {
       return;
@@ -1599,7 +1675,10 @@ void forEachSpirvField(
       continue;
     }
 
-    const auto &type = field->getType();
+    auto type = field->getType();
+    if (auto *templatedType = dyn_cast<SubstTemplateTypeParmType>(type))
+      type = templatedType->getReplacementType();
+
     if (!operation(currentFieldIndex, type, spirvField)) {
       return;
     }
