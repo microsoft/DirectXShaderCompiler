@@ -974,6 +974,19 @@ static void ValidateImmOperandForMathDxilOp(CallInst *CI, DXIL::OpCode Opcode,
   }
 }
 
+static void ValidateLinAlgNoUndefMatrixVector(CallInst *CI,
+                                              ValidationContext &ValCtx) {
+  for (uint32_t Idx = 0; Idx < CI->getNumArgOperands(); ++Idx) {
+    Value *Arg = CI->getArgOperand(Idx);
+    Type *Ty = Arg->getType();
+    if (!isa<UndefValue>(Arg))
+      continue;
+
+    if (Ty->isVectorTy() || dxilutil::IsHLSLLinAlgMatrixType(Ty))
+      ValCtx.EmitInstrError(CI, ValidationRule::InstrNoReadingUninitialized);
+  }
+}
+
 // Validate the type-defined mask compared to the store value mask which
 // indicates which parts were defined returns true if caller should continue
 // validation
@@ -1713,7 +1726,7 @@ static void ValidateDxilOperationCallInProfile(CallInst *CI,
       ShaderKind = DXIL::ShaderKind::Hull;
   }
 
-  // These shader models are treted like compute
+  // These shader models are treated like compute
   bool IsCSLike = ShaderKind == DXIL::ShaderKind::Compute ||
                   ShaderKind == DXIL::ShaderKind::Mesh ||
                   ShaderKind == DXIL::ShaderKind::Amplification ||
@@ -2177,6 +2190,32 @@ static void ValidateDxilOperationCallInProfile(CallInst *CI,
       ValCtx.EmitInstrFormatError(CI, ValidationRule::SmIsSpecialFloat, {});
     break;
   }
+
+  // LinAlg Operations
+  case DXIL::OpCode::LinAlgFillMatrix:
+  case DXIL::OpCode::LinAlgCopyConvertMatrix:
+  case DXIL::OpCode::LinAlgMatrixLoadFromDescriptor:
+  case DXIL::OpCode::LinAlgMatrixLoadFromMemory:
+  case DXIL::OpCode::LinAlgMatrixLength:
+  case DXIL::OpCode::LinAlgMatrixGetCoordinate:
+  case DXIL::OpCode::LinAlgMatrixGetElement:
+  case DXIL::OpCode::LinAlgMatrixSetElement:
+  case DXIL::OpCode::LinAlgMatrixStoreToDescriptor:
+  case DXIL::OpCode::LinAlgMatrixStoreToMemory:
+  case DXIL::OpCode::LinAlgMatrixMultiply:
+  case DXIL::OpCode::LinAlgMatrixAccumulate:
+  case DXIL::OpCode::LinAlgMatrixMultiplyAccumulate:
+  case DXIL::OpCode::LinAlgMatVecMul:
+  case DXIL::OpCode::LinAlgMatVecMulAdd:
+  case DXIL::OpCode::LinAlgMatrixAccumulateToDescriptor:
+  case DXIL::OpCode::LinAlgMatrixAccumulateToMemory:
+  case DXIL::OpCode::LinAlgMatrixOuterProduct:
+  case DXIL::OpCode::LinAlgConvert:
+  case DXIL::OpCode::LinAlgVectorAccumulateToDescriptor: {
+    ValidateLinAlgNoUndefMatrixVector(CI, ValCtx);
+    break;
+  }
+
   default:
     // TODO: make sure every Opcode is checked.
     // Skip opcodes don't need special check.

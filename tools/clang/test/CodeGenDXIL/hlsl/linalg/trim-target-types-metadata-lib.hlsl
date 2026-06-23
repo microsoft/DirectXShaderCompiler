@@ -32,6 +32,8 @@ uint useMatrix1() {
 uint useMatrix2() {
   // Matrix<ComponentType::F64, 2, 2, MatrixUse::B, MatrixScope::Wave> m;
   __builtin_LinAlgMatrix [[__LinAlgMatrix_Attributes(10, 2, 2, 1, 1)]] mat2;
+  // Matrix::Splat(1)
+  __builtin_LinAlg_FillMatrix(mat2, 1);
   // return mat2.Length();
   return __builtin_LinAlg_MatrixLength(mat2);
 }
