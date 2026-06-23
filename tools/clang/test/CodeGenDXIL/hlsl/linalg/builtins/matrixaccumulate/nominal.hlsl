@@ -9,9 +9,12 @@ void main() {
   __builtin_LinAlgMatrix [[__LinAlgMatrix_Attributes(5, 3, 4, 0, 0)]] mat1;
   __builtin_LinAlgMatrix [[__LinAlgMatrix_Attributes(1, 1, 1, 0, 0)]] mat2;
   __builtin_LinAlgMatrix [[__LinAlgMatrix_Attributes(2, 2, 2, 2, 2)]] mat3;
-  
+
+  __builtin_LinAlg_FillMatrix(mat1, 1);
+  __builtin_LinAlg_FillMatrix(mat2, 2);
+
   // CHECK: call %dx.types.LinAlgMatrixC2M2N2U2S2 @dx.op.linAlgMatrixAccumulate.mC2M2N2U2S2.mC1M1N1U0S0.mC5M3N4U0S
-  // CHECK-SAME: (i32 -2147483624, %dx.types.LinAlgMatrixC1M1N1U0S0 {{.*}}, %dx.types.LinAlgMatrixC5M3N4U0S0 {{.*}}) ; LinAlgMatrixAccumulate(matrixLHS,matrixRHS)
+  // CHECK-SAME: (i32 -2147483624, %dx.types.LinAlgMatrixC1M1N1U0S0 %{{.*}}, %dx.types.LinAlgMatrixC5M3N4U0S0 %{{.*}}) ; LinAlgMatrixAccumulate(matrixLHS,matrixRHS)
 
   // CHECK2: call void @"dx.hl.op..void (i32, %dx.types.LinAlgMatrixC2M2N2U2S2*, %dx.types.LinAlgMatrixC1M1N1U0S0,
   // CHECK2-SAME:  %dx.types.LinAlgMatrixC5M3N4U0S0)"(i32 411, %dx.types.LinAlgMatrixC2M2N2U2S2* %mat3,

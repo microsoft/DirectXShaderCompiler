@@ -15,6 +15,8 @@ uint useMatrix1() {
 
   // Matrix<ComponentType::U32, 3, 3, MatrixUse::A, MatrixScope::Thread> m;
   __builtin_LinAlgMatrix [[__LinAlgMatrix_Attributes(5, 3, 3, 0, 0)]] mat2;
+  // mat2 = Matrix::Splat(1);
+  __builtin_LinAlg_FillMatrix(mat2, 1);
   // return mat2.Length();
   return __builtin_LinAlg_MatrixLength(mat2);
 }
