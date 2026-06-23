@@ -4585,6 +4585,58 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
   // though they were unknown attributes.
   if (Attr.getKind() == AttributeList::UnknownAttribute ||
       !Attr.existsInTarget(S.Context.getTargetInfo().getTriple())) {
+
+    //HLSL change, language option to maintain unknown annotations.
+    //This is extremely useful for extending the language for providing extra reflection info.
+    //These annotations are accessible through IHLSLReflectionData.
+
+    const LangOptions &LangOpts = S.Context.getLangOpts();
+
+    if (LangOpts.HLSL && LangOpts.PreserveUnknownAnnotations) {
+
+      //In the case of oxc::stage("compute") clang only maintains oxc::stage.
+      //We get around this by instantiating a lexer and finding the end of the annotation (]]).
+      //We don't do any cleanup and pass the inside of [[]] as is, so any external parsing can be done on it.
+
+      SourceRange AttrRange = Attr.getRange();
+
+      const SourceManager &SM = S.Context.getSourceManager();
+      const LangOptions &LO = S.Context.getLangOpts();
+      FileID FID = SM.getFileID(Attr.getLoc());
+      StringRef Buffer = SM.getBufferData(FID);
+      const char *AttrData = SM.getCharacterData(AttrRange.getBegin());
+
+      SourceLocation BeginLoc = AttrRange.getBegin();
+      SourceLocation EndLoc = AttrRange.getEnd();
+
+      Lexer Lex(SM.getLocForStartOfFile(FID), LangOpts, Buffer.begin(),
+                AttrData, Buffer.end());
+      
+      Token Tok;
+      while (!Lex.LexFromRawLexer(Tok)) {       //Search until ]]
+      
+        if (!Tok.is(tok::r_square))
+          continue;
+
+        Token Next;
+        if (Lex.LexFromRawLexer(Next))
+          break;
+
+        if (!Next.is(tok::r_square))
+          continue;
+
+        EndLoc = Tok.getLocation();
+        break;
+      }
+
+      StringRef FullAttrSpelling = Lexer::getSourceText(
+          CharSourceRange::getCharRange(BeginLoc, EndLoc), SM, LO);
+
+      D->addAttr(AnnotateAttr::CreateImplicit(S.Context, FullAttrSpelling,
+                                              Attr.getLoc()));
+      return;
+    }
+
     S.Diag(Attr.getLoc(), Attr.isDeclspecAttribute()
                               ? diag::warn_unhandled_ms_attribute_ignored
                               : diag::warn_unknown_attribute_ignored)
