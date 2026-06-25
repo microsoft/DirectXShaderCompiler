@@ -3306,7 +3306,7 @@ static void ValidateFunctionBody(Function *F, ValidationContext &ValCtx) {
       if (PointerType *PT = dyn_cast<PointerType>(I.getType())) {
         if (PT->getAddressSpace() == DXIL::kTGSMAddrSpace) {
           // Walk through GEPs and bitcasts to ensure the pointer ultimately
-          // comes from a global variable. This was unncessary before SM 6.9
+          // comes from a global variable. This was unnecessary before SM 6.9
           // because everything was scalarized, but now we can have arrays of
           // vectors in TGSM, so we need to allow GEPs and bitcasts.
           if (isa<GetElementPtrInst>(&I) || isa<BitCastInst>(&I)) {
