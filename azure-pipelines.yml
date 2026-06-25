@@ -36,7 +36,7 @@ stages:
         VS2022_Release_NoSPIRV:
          configuration: Release
          spirvBuildFlag: ''
-         artifactName: dxc_dxil_release
+         artifactName: ''
 
     steps:
     - checkout: self
@@ -236,9 +236,6 @@ stages:
       clean: all
     strategy:
       matrix:
-        dxil_release:
-          artifact: 'dxc_dxil_release'
-          runLavapipe: 'false'
         spirv_release:
           artifact: 'dxc_spirv_release'
           runLavapipe: 'true'
