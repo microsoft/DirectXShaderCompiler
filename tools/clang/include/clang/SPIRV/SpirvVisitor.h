@@ -97,6 +97,7 @@ public:
   DEFINE_VISIT_METHOD(SpirvConstantFloat)
   DEFINE_VISIT_METHOD(SpirvConstantComposite)
   DEFINE_VISIT_METHOD(SpirvConstantString)
+  DEFINE_VISIT_METHOD(SpirvConstantSizeOfEXT)
   DEFINE_VISIT_METHOD(SpirvConstantNull)
   DEFINE_VISIT_METHOD(SpirvConvertPtrToU)
   DEFINE_VISIT_METHOD(SpirvConvertUToPtr)

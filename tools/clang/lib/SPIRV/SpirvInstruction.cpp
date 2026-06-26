@@ -67,6 +67,7 @@ DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvConstantInteger)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvConstantFloat)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvConstantComposite)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvConstantString)
+DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvConstantSizeOfEXT)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvConstantNull)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvConvertPtrToU)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvConvertUToPtr)
@@ -626,6 +627,11 @@ bool SpirvConstant::operator==(const SpirvConstant &that) const {
     if (thatNullInst == nullptr)
       return false;
     return *nullInst == *thatNullInst;
+  } else if (auto *sizeOfInst = dyn_cast<SpirvConstantSizeOfEXT>(this)) {
+    auto *thatSizeOfInst = dyn_cast<SpirvConstantSizeOfEXT>(&that);
+    if (thatSizeOfInst == nullptr)
+      return false;
+    return *sizeOfInst == *thatSizeOfInst;
   } else if (auto *nullInst = dyn_cast<SpirvUndef>(this)) {
     auto *thatNullInst = dyn_cast<SpirvUndef>(&that);
     if (thatNullInst == nullptr)
@@ -708,6 +714,18 @@ SpirvConstantString::SpirvConstantString(llvm::StringRef stringLiteral,
 bool SpirvConstantString::operator==(const SpirvConstantString &that) const {
   return opcode == that.opcode && resultType == that.resultType &&
          str == that.str;
+}
+
+SpirvConstantSizeOfEXT::SpirvConstantSizeOfEXT(QualType resultType,
+                                               const SpirvType *operandType)
+    : SpirvConstant(IK_ConstantSizeOfEXT, spv::Op::OpConstantSizeOfEXT,
+                    resultType),
+      operandType(operandType) {}
+
+bool SpirvConstantSizeOfEXT::operator==(
+    const SpirvConstantSizeOfEXT &that) const {
+  return resultType == that.resultType &&
+         astResultType == that.astResultType && operandType == that.operandType;
 }
 
 SpirvConstantNull::SpirvConstantNull(QualType type)
