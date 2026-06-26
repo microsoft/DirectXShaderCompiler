@@ -109,6 +109,7 @@ public:
   uint32_t getOrCreateConstantFloat(SpirvConstantFloat *);
   uint32_t getOrCreateConstantComposite(SpirvConstantComposite *);
   uint32_t getOrCreateConstantNull(SpirvConstantNull *);
+  uint32_t emitConstantSizeOfEXT(SpirvConstantSizeOfEXT *);
   uint32_t getOrCreateUndef(SpirvUndef *);
   uint32_t getOrCreateConstantBool(SpirvConstantBoolean *);
   uint32_t getOrCreateConstantString(SpirvConstantString *);
@@ -271,6 +272,7 @@ public:
   bool visit(SpirvConstantFloat *) override;
   bool visit(SpirvConstantComposite *) override;
   bool visit(SpirvConstantString *) override;
+  bool visit(SpirvConstantSizeOfEXT *) override;
   bool visit(SpirvConstantNull *) override;
   bool visit(SpirvConvertPtrToU *) override;
   bool visit(SpirvConvertUToPtr *) override;

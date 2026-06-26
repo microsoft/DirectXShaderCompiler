@@ -14,6 +14,12 @@
 // CHECK-DAG:   %[[RA_BufferType:[a-zA-Z0-9_]+]] = OpTypeRuntimeArray %[[BufferType]]{{$}}
 // CHECK-DAG: %[[RA_RWBufferType:[a-zA-Z0-9_]+]] = OpTypeRuntimeArray %[[RWBufferType]]{{$}}
 
+// Default heap stride: OpConstantSizeOfEXT + ArrayStrideIdEXT per element type.
+// CHECK-DAG:      %[[BufferSize:[a-zA-Z0-9_]+]] = OpConstantSizeOfEXT %uint %[[BufferType]]
+// CHECK-DAG:    %[[RWBufferSize:[a-zA-Z0-9_]+]] = OpConstantSizeOfEXT %uint %[[RWBufferType]]
+// CHECK-DAG:                                      OpDecorateId %[[RA_BufferType]] ArrayStrideIdEXT %[[BufferSize]]
+// CHECK-DAG:                                      OpDecorateId %[[RA_RWBufferType]] ArrayStrideIdEXT %[[RWBufferSize]]
+
 // CHECK:        %[[ResourceHeap:[a-zA-Z0-9_]+]] = OpUntypedVariableKHR %[[UntypedPtrType]] UniformConstant
 
 [numthreads(1, 1, 1)]
