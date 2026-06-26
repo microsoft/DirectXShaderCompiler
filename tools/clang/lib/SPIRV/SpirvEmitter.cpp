@@ -5304,9 +5304,8 @@ SpirvInstruction *SpirvEmitter::emitDescriptorHeapBufferAccess(
                                             ? spv::StorageClass::Uniform
                                             : spv::StorageClass::StorageBuffer;
   const auto *bufferDescriptorType = spvContext.getBufferEXTType(bufferExtSC);
-  // Buffer descriptors are always on the resource heap.
-  const auto *arrayType = getDescriptorHeapRuntimeArrayType(
-      bufferDescriptorType, /*onSamplerHeap=*/false);
+  const auto *arrayType =
+      getDescriptorHeapRuntimeArrayType(bufferDescriptorType);
   auto *untypedAccessChainPtr = spvBuilder.createUntypedAccessChainKHR(
       untypedUniformConstantType, arrayType, heapVar, index,
       baseExpr->getExprLoc());
@@ -7021,9 +7020,7 @@ SpirvEmitter::doCXXOperatorCallExpr(const CXXOperatorCallExpr *expr,
         const SpirvType *handleType =
             lowerTypeVisitor.lowerType(resourceType, SpirvLayoutRule::Void,
                                        llvm::None, baseExpr->getExprLoc());
-        // Images/samplers may come from either heap; pick the right stride.
-        const auto *arrayType = getDescriptorHeapRuntimeArrayType(
-            handleType, isSamplerDescriptorHeap(decl));
+        const auto *arrayType = getDescriptorHeapRuntimeArrayType(handleType);
         auto *untypedAccessChainPtr = spvBuilder.createUntypedAccessChainKHR(
             untypedUniformConstantType, arrayType, var, index,
             baseExpr->getExprLoc());
@@ -9230,13 +9227,11 @@ void SpirvEmitter::createSpecConstant(const VarDecl *varDecl) {
 }
 
 const SpirvType *
-SpirvEmitter::getDescriptorHeapRuntimeArrayType(const SpirvType *elemType,
-                                                bool onSamplerHeap) {
-  constexpr uint32_t kDefaultResourceHeapStride = 64;
-  constexpr uint32_t kDefaultSamplerHeapStride = 32;
-  const uint32_t stride =
-      onSamplerHeap ? kDefaultSamplerHeapStride : kDefaultResourceHeapStride;
-  return spvContext.getRuntimeArrayType(elemType, stride);
+SpirvEmitter::getDescriptorHeapRuntimeArrayType(const SpirvType *elemType) {
+  // The stride is the client-API defined size of the element descriptor type,
+  // given by OpConstantSizeOfEXT and applied via ArrayStrideIdEXT decoration.
+  SpirvInstruction *sizeOf = spvBuilder.getConstantSizeOfEXT(elemType);
+  return spvContext.getRuntimeArrayType(elemType, llvm::None, sizeOf);
 }
 
 SpirvInstruction *

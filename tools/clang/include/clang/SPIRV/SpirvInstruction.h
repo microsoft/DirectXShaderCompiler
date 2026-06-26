@@ -69,6 +69,7 @@ public:
     IK_ConstantFloat,
     IK_ConstantComposite,
     IK_ConstantString,
+    IK_ConstantSizeOfEXT,
     IK_ConstantNull,
 
     // Pointer <-> uint conversions.
@@ -1535,6 +1536,33 @@ public:
   }
 
   bool operator==(const SpirvConstantNull &that) const;
+};
+
+/// \brief Represents OpConstantSizeOfEXT (SPV_EXT_descriptor_heap).
+///
+/// Yields the client-API-defined size of a descriptor type in bytes. Unlike
+/// other constants its operand is a SPIR-V type (a descriptor type such as
+/// OpTypeBufferEXT/OpTypeImage/OpTypeSampler), not a value. Used as the operand
+/// of an ArrayStrideIdEXT decoration on descriptor-heap runtime arrays.
+class SpirvConstantSizeOfEXT : public SpirvConstant {
+public:
+  SpirvConstantSizeOfEXT(QualType resultType, const SpirvType *operandType);
+
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvConstantSizeOfEXT)
+
+  // For LLVM-style RTTI
+  static bool classof(const SpirvInstruction *inst) {
+    return inst->getKind() == IK_ConstantSizeOfEXT;
+  }
+
+  bool invokeVisitor(Visitor *v) override;
+
+  bool operator==(const SpirvConstantSizeOfEXT &that) const;
+
+  const SpirvType *getOperandType() const { return operandType; }
+
+private:
+  const SpirvType *operandType;
 };
 
 class SpirvConstantString : public SpirvConstant {

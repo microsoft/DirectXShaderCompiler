@@ -2012,6 +2012,21 @@ SpirvConstant *SpirvBuilder::getConstantNull(QualType type) {
   return nullConst;
 }
 
+SpirvConstant *SpirvBuilder::getConstantSizeOfEXT(const SpirvType *operandType) {
+  // Reuse the existing instruction for a given descriptor type; multiple heap
+  // accesses of the same element type share one OpConstantSizeOfEXT.
+  auto found = constantSizeOfEXTMap.find(operandType);
+  if (found != constantSizeOfEXTMap.end())
+    return found->second;
+
+  // size is a non-negative 32-bit unsigned value, though spec allows signed
+  auto *sizeOfConst = new (context)
+      SpirvConstantSizeOfEXT(astContext.UnsignedIntTy, operandType);
+  mod->addConstant(sizeOfConst);
+  constantSizeOfEXTMap[operandType] = sizeOfConst;
+  return sizeOfConst;
+}
+
 SpirvConstant *SpirvBuilder::getConstantString(llvm::StringRef str,
                                                bool specConst) {
   // We do not care about making unique constants at this point.
