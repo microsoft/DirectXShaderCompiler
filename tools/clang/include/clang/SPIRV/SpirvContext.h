@@ -89,7 +89,8 @@ struct RuntimeArrayTypeMapInfo {
   static inline RuntimeArrayType *getTombstoneKey() { return nullptr; }
   static unsigned getHashValue(const RuntimeArrayType *Val) {
     return llvm::hash_combine(Val->getElementType(),
-                              Val->getStride().hasValue());
+                              Val->getStride().hasValue(),
+                              Val->getArrayStrideId());
   }
   static bool isEqual(const RuntimeArrayType *LHS,
                       const RuntimeArrayType *RHS) {
@@ -284,7 +285,8 @@ public:
                                 llvm::Optional<uint32_t> arrayStride);
   const RuntimeArrayType *
   getRuntimeArrayType(const SpirvType *elemType,
-                      llvm::Optional<uint32_t> arrayStride);
+                      llvm::Optional<uint32_t> arrayStride,
+                      SpirvInstruction *arrayStrideId = nullptr);
   const NodePayloadArrayType *
   getNodePayloadArrayType(const SpirvType *elemType,
                           const ParmVarDecl *nodeDecl);

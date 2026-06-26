@@ -10,6 +10,12 @@
 // CHECK-DAG:      %[[RA_MS:[a-zA-Z0-9_]+]] = OpTypeRuntimeArray %[[MSType]]{{$}}
 // CHECK-DAG:   %[[RA_MSArr:[a-zA-Z0-9_]+]] = OpTypeRuntimeArray %[[MSArrType]]{{$}}
 
+// Default heap stride: OpConstantSizeOfEXT + ArrayStrideIdEXT per element type.
+// CHECK-DAG:     %[[MSSize:[a-zA-Z0-9_]+]] = OpConstantSizeOfEXT %uint %[[MSType]]
+// CHECK-DAG:  %[[MSArrSize:[a-zA-Z0-9_]+]] = OpConstantSizeOfEXT %uint %[[MSArrType]]
+// CHECK-DAG:                                 OpDecorateId %[[RA_MS]] ArrayStrideIdEXT %[[MSSize]]
+// CHECK-DAG:                                 OpDecorateId %[[RA_MSArr]] ArrayStrideIdEXT %[[MSArrSize]]
+
 // CHECK:   %[[ResourceHeap:[a-zA-Z0-9_]+]] = OpUntypedVariableKHR %[[UntypedPtr]] UniformConstant
 
 RWByteAddressBuffer output : register(u0);

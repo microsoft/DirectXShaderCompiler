@@ -19,6 +19,16 @@
 // CHECK-DAG:  %[[RA_RW2DArr:[a-zA-Z0-9_]+]] = OpTypeRuntimeArray %[[RW2DArrType]]{{$}}
 // CHECK-DAG:     %[[RA_RW3D:[a-zA-Z0-9_]+]] = OpTypeRuntimeArray %[[RW3DType]]{{$}}
 
+// Default heap stride: OpConstantSizeOfEXT + ArrayStrideIdEXT per element type.
+// CHECK-DAG:    %[[RW1DSize:[a-zA-Z0-9_]+]] = OpConstantSizeOfEXT %uint %[[RW1DType]]
+// CHECK-DAG: %[[RW1DArrSize:[a-zA-Z0-9_]+]] = OpConstantSizeOfEXT %uint %[[RW1DArrType]]
+// CHECK-DAG: %[[RW2DArrSize:[a-zA-Z0-9_]+]] = OpConstantSizeOfEXT %uint %[[RW2DArrType]]
+// CHECK-DAG:    %[[RW3DSize:[a-zA-Z0-9_]+]] = OpConstantSizeOfEXT %uint %[[RW3DType]]
+// CHECK-DAG:                                  OpDecorateId %[[RA_RW1D]] ArrayStrideIdEXT %[[RW1DSize]]
+// CHECK-DAG:                                  OpDecorateId %[[RA_RW1DArr]] ArrayStrideIdEXT %[[RW1DArrSize]]
+// CHECK-DAG:                                  OpDecorateId %[[RA_RW2DArr]] ArrayStrideIdEXT %[[RW2DArrSize]]
+// CHECK-DAG:                                  OpDecorateId %[[RA_RW3D]] ArrayStrideIdEXT %[[RW3DSize]]
+
 // CHECK:    %[[ResourceHeap:[a-zA-Z0-9_]+]] = OpUntypedVariableKHR %[[UntypedPtr]] UniformConstant
 
 [numthreads(1, 1, 1)]
