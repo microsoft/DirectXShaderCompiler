@@ -2870,9 +2870,8 @@ void SpirvEmitter::doForStmt(const ForStmt *forStmt,
     // We are done with processing this for statement. Remove its lexical block
     // from the stack of lexical scopes.
     spvContext.popDebugLexicalScope(info);
-    if (!spvBuilder.isCurrentBasicBlockTerminated()) {
+    if (!spvBuilder.isCurrentBasicBlockTerminated())
       spvBuilder.createDebugScope(spvContext.getCurrentLexicalScope());
-    }
   }
 }
 
