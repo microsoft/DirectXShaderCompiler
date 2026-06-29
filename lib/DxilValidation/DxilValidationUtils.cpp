@@ -41,7 +41,8 @@ EntryStatus::EntryStatus(DxilEntryProps &entryProps)
       entryProps.sig.PatchConstOrPrimSignature.GetElements().size(), 0);
 }
 
-static std::optional<std::tuple<Type*, LinAlgTargetType>> TryMakeLinAlgTargetType(MDTuple *MDT) {
+static std::optional<std::tuple<Type *, LinAlgTargetType>>
+TryMakeLinAlgTargetType(MDTuple *MDT) {
   if (!MDT || MDT->getNumOperands() != 6)
     return std::nullopt;
 
@@ -131,10 +132,11 @@ ValidationContext::ValidationContext(Module &llvmModule, Module *DebugModule,
   if (NMD) {
     for (llvm::MDNode *MDN : NMD->operands()) {
       MDTuple *MDT = dyn_cast<MDTuple>(MDN);
-      std::optional<std::tuple<Type*, LinAlgTargetType>> LATTOpt = TryMakeLinAlgTargetType(MDT);
+      std::optional<std::tuple<Type *, LinAlgTargetType>> LATTOpt =
+          TryMakeLinAlgTargetType(MDT);
       if (!LATTOpt)
         continue;
-      Type* Ty;
+      Type *Ty;
       LinAlgTargetType LATT;
       std::tie(Ty, LATT) = *LATTOpt;
       TargetTypeMap.try_emplace(Ty, LATT);
