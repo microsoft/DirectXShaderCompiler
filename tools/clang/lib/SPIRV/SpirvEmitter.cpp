@@ -5140,9 +5140,10 @@ bool SpirvEmitter::isDescriptorHeapCounterUnsupported(const Expr *expr) const {
 SpirvInstruction *SpirvEmitter::emitDescriptorHeapAccessChain(
     const SpirvType *arrayType, SpirvInstruction *heap, SpirvVariable *indexVar,
     SourceLocation loc) {
-  const auto *untypedUniformConstantType =
+  const SpirvType *untypedUniformConstantType =
       spvContext.getUntypedPointerKHRType(spv::StorageClass::UniformConstant);
-  auto *index = spvBuilder.createLoad(astContext.UnsignedIntTy, indexVar, loc);
+  SpirvInstruction *index =
+      spvBuilder.createLoad(astContext.UnsignedIntTy, indexVar, loc);
   return spvBuilder.createUntypedAccessChainKHR(untypedUniformConstantType,
                                                 arrayType, heap, index, loc);
 }
@@ -5240,9 +5241,9 @@ SpirvEmitter::emitDescriptorHeapBufferPointer(const VarDecl *decl,
   if (found == descriptorHeapBufferAliasVars.end())
     return nullptr;
 
-  auto *descriptorPtr = emitDescriptorHeapAccessChain(
+  SpirvInstruction *descriptorPtr = emitDescriptorHeapAccessChain(
       found->second.arrayType, found->second.heap, found->second.indexVar, loc);
-  auto *bufferDataPtr = spvBuilder.createUnaryOp(
+  SpirvInstruction *bufferDataPtr = spvBuilder.createUnaryOp(
       spv::Op::OpBufferPointerEXT, found->second.bufferPointerType,
       descriptorPtr, loc);
   bufferDataPtr->setStorageClass(
@@ -5259,9 +5260,9 @@ SpirvInstruction *SpirvEmitter::emitDescriptorHeapImageTexelPointer(
   if (found == descriptorHeapImageAliasVars.end())
     return nullptr;
 
-  auto *descriptorPtr = emitDescriptorHeapAccessChain(
+  SpirvInstruction *descriptorPtr = emitDescriptorHeapAccessChain(
       found->second.arrayType, found->second.heap, found->second.indexVar, loc);
-  auto *ptr = spvBuilder.createUntypedImageTexelPointerEXT(
+  SpirvInstruction *ptr = spvBuilder.createUntypedImageTexelPointerEXT(
       resultType, found->second.imageType, descriptorPtr, coordinate, sample,
       loc);
   ptr->setStorageClass(spv::StorageClass::Image);
@@ -5282,7 +5283,7 @@ getDescriptorHeapBufferStorageClass(QualType resourceType) {
 SpirvInstruction *SpirvEmitter::emitDescriptorHeapBufferAccess(
     QualType resourceType, SpirvInstruction *heapVar, SpirvInstruction *index,
     const Expr *expr, const Expr *baseExpr, const Expr *indexExpr) {
-  const auto *untypedUniformConstantType =
+  const SpirvType *untypedUniformConstantType =
       spvContext.getUntypedPointerKHRType(spv::StorageClass::UniformConstant);
   LowerTypeVisitor lowerTypeVisitor(astContext, spvContext, spirvOptions,
                                     spvBuilder);
@@ -5313,14 +5314,14 @@ SpirvInstruction *SpirvEmitter::emitDescriptorHeapBufferAccess(
   const spv::StorageClass bufferExtSC = isConstantBuffer(resourceType)
                                             ? spv::StorageClass::Uniform
                                             : spv::StorageClass::StorageBuffer;
-  const auto *bufferDescriptorType = spvContext.getBufferEXTType(bufferExtSC);
-  const auto *arrayType =
+  const SpirvType *bufferDescriptorType = spvContext.getBufferEXTType(bufferExtSC);
+  const SpirvType *arrayType =
       getDescriptorHeapRuntimeArrayType(bufferDescriptorType,
                                         /*onSamplerHeap=*/false);
-  auto *untypedAccessChainPtr = spvBuilder.createUntypedAccessChainKHR(
+  SpirvInstruction *untypedAccessChainPtr = spvBuilder.createUntypedAccessChainKHR(
       untypedUniformConstantType, arrayType, heapVar, index,
       baseExpr->getExprLoc());
-  auto *bufferDataPtr = spvBuilder.createUnaryOp(
+  SpirvInstruction *bufferDataPtr = spvBuilder.createUnaryOp(
       spv::Op::OpBufferPointerEXT, bufferDataPointerType, untypedAccessChainPtr,
       baseExpr->getExprLoc());
   bufferDataPtr->setStorageClass(bufferDataPointerType->getStorageClass());
@@ -6024,14 +6025,14 @@ SpirvEmitter::processIntrinsicMemberCall(const CXXMemberCallExpr *expr,
     retVal = processTextureLevelOfDetail(expr, /* unclamped */ true);
     break;
   case IntrinsicOp::MOP_IncrementCounter:
-    if (auto *counter = incDecRWACSBufferCounter(expr, /*isInc*/ true))
+    if (SpirvInstruction *counter = incDecRWACSBufferCounter(expr, /*isInc*/ true))
       retVal = spvBuilder.createUnaryOp(spv::Op::OpBitcast,
                                         astContext.UnsignedIntTy, counter,
                                         expr->getCallee()->getExprLoc(),
                                         expr->getCallee()->getSourceRange());
     break;
   case IntrinsicOp::MOP_DecrementCounter:
-    if (auto *counter = incDecRWACSBufferCounter(expr, /*isInc*/ false))
+    if (SpirvInstruction *counter = incDecRWACSBufferCounter(expr, /*isInc*/ false))
       retVal = spvBuilder.createUnaryOp(spv::Op::OpBitcast,
                                         astContext.UnsignedIntTy, counter,
                                         expr->getCallee()->getExprLoc(),
@@ -7023,7 +7024,7 @@ SpirvEmitter::doCXXOperatorCallExpr(const CXXOperatorCallExpr *expr,
                                                 baseExpr, indexExpr);
         }
 
-        const auto *untypedUniformConstantType =
+        const SpirvType *untypedUniformConstantType =
             spvContext.getUntypedPointerKHRType(
                 spv::StorageClass::UniformConstant);
         LowerTypeVisitor lowerTypeVisitor(astContext, spvContext, spirvOptions,
@@ -7031,11 +7032,12 @@ SpirvEmitter::doCXXOperatorCallExpr(const CXXOperatorCallExpr *expr,
         const SpirvType *handleType =
             lowerTypeVisitor.lowerType(resourceType, SpirvLayoutRule::Void,
                                        llvm::None, baseExpr->getExprLoc());
-        const auto *arrayType = getDescriptorHeapRuntimeArrayType(
+        const SpirvType *arrayType = getDescriptorHeapRuntimeArrayType(
             handleType, isSamplerDescriptorHeap(decl));
-        auto *untypedAccessChainPtr = spvBuilder.createUntypedAccessChainKHR(
-            untypedUniformConstantType, arrayType, var, index,
-            baseExpr->getExprLoc());
+        SpirvInstruction *untypedAccessChainPtr =
+            spvBuilder.createUntypedAccessChainKHR(
+                untypedUniformConstantType, arrayType, var, index,
+                baseExpr->getExprLoc());
         if (isRasterizerOrderedView(resourceType)) {
           spvBuilder.addExecutionMode(
               entryFunction, declIdMapper.getInterlockExecutionMode(), {},
@@ -10977,7 +10979,7 @@ SpirvEmitter::processIntrinsicInterlockedMethod(const CallExpr *expr,
       }
 
       if (!ptr) {
-        auto *baseInstr = doExpr(base);
+        SpirvInstruction *baseInstr = doExpr(base);
         if (baseInstr->isRValue()) {
           // OpImageTexelPointer's Image argument must have a type of
           // OpTypePointer with Type OpTypeImage. Need to create a temporary
