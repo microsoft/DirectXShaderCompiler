@@ -975,7 +975,7 @@ static void ValidateImmOperandForMathDxilOp(CallInst *CI, DXIL::OpCode Opcode,
 }
 
 static void ValidateLinAlgOpParameters(CallInst *CI,
-                                     ValidationContext &ValCtx) {
+                                       ValidationContext &ValCtx) {
   for (uint32_t Idx = 0; Idx < CI->getNumArgOperands(); ++Idx) {
     Value *Arg = CI->getArgOperand(Idx);
     Type *Ty = Arg->getType();
@@ -997,31 +997,29 @@ static void ValidateLinAlgOpParameters(CallInst *CI,
 }
 
 static void ValidateLinAlgOpReturn(CallInst *CI, ValidationContext &ValCtx) {
-    Type *Ty = CI->getType();
-    assert(dxilutil::IsHLSLLinAlgMatrixType(Ty) && "CI must result a matrix");
+  Type *Ty = CI->getType();
+  assert(dxilutil::IsHLSLLinAlgMatrixType(Ty) && "CI must return a matrix");
 
-    // Metadata is malformed if we don't have metadata
-    auto it = ValCtx.TargetTypeMap.find(Ty);
-    if (it == ValCtx.TargetTypeMap.end()) {
-      ValCtx.EmitInstrError(CI, ValidationRule::MetaWellFormed);
-      return;
-    }
+  // Metadata is malformed if we don't have metadata
+  auto it = ValCtx.TargetTypeMap.find(Ty);
+  if (it == ValCtx.TargetTypeMap.end()) {
+    ValCtx.EmitInstrError(CI, ValidationRule::MetaWellFormed);
+    return;
+  }
 
-    LinAlgTargetType LATT = it->second;
+  LinAlgTargetType LATT = it->second;
 
-    // Validate the K dim is in bounds. Which dim is K depends on use.
-    // This validation isn't applied to an accumulator matrix
-    if (LATT.Use != DXIL::MatrixUse::Accumulator) {
-      unsigned MinK = 4;
-      unsigned K = (LATT.Use == DXIL::MatrixUse::A) ? LATT.N : LATT.M;
-      unsigned MaxK = (LATT.Scope == DXIL::MatrixScope::ThreadGroup) ? 1024 : 128;
-      if (K < MinK || K > MaxK)
-        ValCtx.EmitInstrFormatError(
-            CI, ValidationRule::InstrLinAlgIllegalKDim,
-            {std::to_string(K),
-             std::to_string(MinK),
-             std::to_string(MaxK)});
-    }
+  // Validate the K dim is in bounds. Which dim is K depends on use.
+  // This validation isn't applied to an accumulator matrix
+  if (LATT.Use != DXIL::MatrixUse::Accumulator) {
+    unsigned MinK = 4;
+    unsigned K = (LATT.Use == DXIL::MatrixUse::A) ? LATT.N : LATT.M;
+    unsigned MaxK = (LATT.Scope == DXIL::MatrixScope::ThreadGroup) ? 1024 : 128;
+    if (K < MinK || K > MaxK)
+      ValCtx.EmitInstrFormatError(
+          CI, ValidationRule::InstrLinAlgIllegalKDim,
+          {std::to_string(K), std::to_string(MinK), std::to_string(MaxK)});
+  }
 }
 
 // Validate the type-defined mask compared to the store value mask which
@@ -2243,7 +2241,7 @@ static void ValidateDxilOperationCallInProfile(CallInst *CI,
     ValidateLinAlgOpParameters(CI, ValCtx);
     break;
   }
-  case DXIL::OpCode::LinAlgFillMatrix: 
+  case DXIL::OpCode::LinAlgFillMatrix:
   case DXIL::OpCode::LinAlgCopyConvertMatrix:
   case DXIL::OpCode::LinAlgMatrixLoadFromDescriptor:
   case DXIL::OpCode::LinAlgMatrixLoadFromMemory:
