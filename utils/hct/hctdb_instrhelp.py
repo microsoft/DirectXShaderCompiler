@@ -1732,7 +1732,8 @@ static const unsigned kHighestMinor = %d;""" % (
 
 
 def get_dxil_version_minor():
-    return "const unsigned kDxilMinor = %d;" % highest_minor
+    return (f"const unsigned kDxilMinor = {highest_minor};\n" +
+            f"const unsigned kDxilReleasedMinor = {highest_released_minor};")
 
 
 def get_dxil_version_minor_int():
