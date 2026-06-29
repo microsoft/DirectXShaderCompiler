@@ -36,6 +36,7 @@ class Value;
 class GlobalVariable;
 class Instruction;
 class Type;
+class MDTuple;
 } // namespace llvm
 
 namespace hlsl {
@@ -63,6 +64,14 @@ struct EntryStatus {
   EntryStatus(DxilEntryProps &entryProps);
 };
 
+struct LinAlgTargetType {
+  DXIL::ComponentType Type;
+  unsigned M;
+  unsigned N;
+  DXIL::MatrixUse Use;
+  DXIL::MatrixScope Scope;
+};
+
 struct ValidationContext {
   bool Failed = false;
   Module &M;
@@ -80,6 +89,7 @@ struct ValidationContext {
   std::unordered_map<Value *, DxilResourceProperties> ResPropMap;
   std::unordered_map<Function *, std::vector<Function *>> PatchConstantFuncMap;
   std::unordered_map<Function *, std::unique_ptr<EntryStatus>> entryStatusMap;
+  std::unordered_map<Type *, LinAlgTargetType> TargetTypeMap;
   bool isLibProfile;
   const unsigned kDxilControlFlowHintMDKind;
   const unsigned kDxilPreciseMDKind;

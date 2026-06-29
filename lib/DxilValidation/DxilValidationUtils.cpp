@@ -11,6 +11,8 @@
 
 #include "DxilValidationUtils.h"
 
+#include <optional>
+
 #include "dxc/DXIL/DxilEntryProps.h"
 #include "dxc/DXIL/DxilInstructions.h"
 #include "dxc/DXIL/DxilModule.h"
@@ -37,6 +39,39 @@ EntryStatus::EntryStatus(DxilEntryProps &entryProps)
   outputCols.resize(entryProps.sig.OutputSignature.GetElements().size(), 0);
   patchConstOrPrimCols.resize(
       entryProps.sig.PatchConstOrPrimSignature.GetElements().size(), 0);
+}
+
+static std::optional<std::tuple<Type*, LinAlgTargetType>> TryMakeLinAlgTargetType(MDTuple *MDT) {
+  if (!MDT || MDT->getNumOperands() != 6)
+    return std::nullopt;
+
+  ConstantAsMetadata *ConstMD0 =
+      dyn_cast<ConstantAsMetadata>(MDT->getOperand(0).get());
+  if (!ConstMD0)
+    return std::nullopt;
+
+  Type *Ty = ConstMD0->getValue()->getType();
+  ConstantInt *Ints[5];
+
+  for (size_t I = 0; I < 5; ++I) {
+    ConstantAsMetadata *ConstMDI =
+        dyn_cast<ConstantAsMetadata>(MDT->getOperand(I + 1).get());
+    if (!ConstMDI)
+      return std::nullopt;
+    ConstantInt *CI = dyn_cast<ConstantInt>(ConstMDI->getValue());
+    if (!CI)
+      return std::nullopt;
+    Ints[I] = CI;
+  }
+
+  LinAlgTargetType LATT;
+  LATT.Type = static_cast<DXIL::ComponentType>(Ints[0]->getLimitedValue());
+  LATT.M = Ints[1]->getLimitedValue();
+  LATT.N = Ints[2]->getLimitedValue();
+  LATT.Use = static_cast<DXIL::MatrixUse>(Ints[3]->getLimitedValue());
+  LATT.Scope = static_cast<DXIL::MatrixScope>(Ints[4]->getLimitedValue());
+
+  return {{Ty, LATT}};
 }
 
 ValidationContext::ValidationContext(Module &llvmModule, Module *DebugModule,
@@ -87,6 +122,22 @@ ValidationContext::ValidationContext(Module &llvmModule, Module *DebugModule,
     if (props.IsHS()) {
       PatchConstantFuncMap[props.ShaderProps.HS.patchConstantFunc].emplace_back(
           Entry);
+    }
+  }
+
+  // Capture the TargetTypes metadata in the validation context
+  // if it is present and valid.
+  NamedMDNode *NMD = M.getNamedMetadata("dx.targetTypes");
+  if (NMD) {
+    for (llvm::MDNode *MDN : NMD->operands()) {
+      MDTuple *MDT = dyn_cast<MDTuple>(MDN);
+      std::optional<std::tuple<Type*, LinAlgTargetType>> LATTOpt = TryMakeLinAlgTargetType(MDT);
+      if (!LATTOpt)
+        continue;
+      Type* Ty;
+      LinAlgTargetType LATT;
+      std::tie(Ty, LATT) = *LATTOpt;
+      TargetTypeMap.try_emplace(Ty, LATT);
     }
   }
 }
