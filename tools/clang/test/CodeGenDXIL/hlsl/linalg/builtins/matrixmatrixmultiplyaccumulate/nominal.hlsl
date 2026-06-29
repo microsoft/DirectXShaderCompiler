@@ -6,8 +6,8 @@
 void main() {
   // CHECK-LABEL: define void @main()
 
-  // The FillMatrix calls are similar enough the start matching the CHECK-SAME
-  // lines so we consume them first.
+  // The FillMatrix calls are similar enough that they start matching
+  // the CHECK-SAME lines so we consume them first.
   // CHECK: ; LinAlgFillMatrix(value)
   // CHECK: ; LinAlgFillMatrix(value)
   // CHECK: ; LinAlgFillMatrix(value)
