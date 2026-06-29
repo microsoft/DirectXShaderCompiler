@@ -5117,10 +5117,9 @@ SpirvEmitter::processStructuredBufferLoad(const CXXMemberCallExpr *expr) {
   // LValueToRValue cast for the call expression, so emit the load explicitly.
   // (Verified required: scoping this to alias vars only regresses the direct
   // heap-access tests; non-heap callers are unaffected in the existing suite.)
-  if (result && !result->isRValue()) {
+  if (result && !result->isRValue())
     result = spvBuilder.createLoad(structType, result, buffer->getExprLoc(),
                                    range);
-  }
 
   return result;
 }
@@ -7019,10 +7018,9 @@ SpirvEmitter::doCXXOperatorCallExpr(const CXXOperatorCallExpr *expr,
         }
 
         if (isAKindOfStructuredOrByteBuffer(resourceType) ||
-            isConstantTextureBuffer(resourceType)) {
+            isConstantTextureBuffer(resourceType))
           return emitDescriptorHeapBufferAccess(resourceType, var, index, expr,
                                                 baseExpr, indexExpr);
-        }
 
         const SpirvType *untypedUniformConstantType =
             spvContext.getUntypedPointerKHRType(
@@ -7038,11 +7036,10 @@ SpirvEmitter::doCXXOperatorCallExpr(const CXXOperatorCallExpr *expr,
             spvBuilder.createUntypedAccessChainKHR(
                 untypedUniformConstantType, arrayType, var, index,
                 baseExpr->getExprLoc());
-        if (isRasterizerOrderedView(resourceType)) {
+        if (isRasterizerOrderedView(resourceType))
           spvBuilder.addExecutionMode(
               entryFunction, declIdMapper.getInterlockExecutionMode(), {},
               baseExpr->getExprLoc());
-        }
         descriptorHeapImageAccesses[expr] = {untypedAccessChainPtr, handleType,
                                              arrayType, var, index,
                                              indexExpr->getType()};
