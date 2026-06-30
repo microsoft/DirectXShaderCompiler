@@ -136,10 +136,7 @@ ValidationContext::ValidationContext(Module &llvmModule, Module *DebugModule,
           TryMakeLinAlgTargetType(MDT);
       if (!LATTOpt)
         continue;
-      Type *Ty;
-      LinAlgTargetType LATT;
-      std::tie(Ty, LATT) = *LATTOpt;
-      TargetTypeMap.try_emplace(Ty, LATT);
+      TargetTypeMap.try_emplace(std::get<0>(*LATTOpt), std::get<1>(*LATTOpt));
     }
   }
 }
