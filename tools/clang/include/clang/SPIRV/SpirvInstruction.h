@@ -2065,6 +2065,7 @@ private:
 class SpirvUntypedImageTexelPointerEXT : public SpirvInstruction {
 public:
   SpirvUntypedImageTexelPointerEXT(QualType resultType, SourceLocation loc,
+                                   const SpirvType *imageType,
                                    SpirvInstruction *image,
                                    SpirvInstruction *coordinate,
                                    SpirvInstruction *sample);
@@ -2078,11 +2079,22 @@ public:
 
   bool invokeVisitor(Visitor *v) override;
 
+  const SpirvType *getImageType() const { return imageType; }
   SpirvInstruction *getImage() const { return image; }
   SpirvInstruction *getCoordinate() const { return coordinate; }
   SpirvInstruction *getSample() const { return sample; }
 
+  void replaceOperand(
+      llvm::function_ref<SpirvInstruction *(SpirvInstruction *)> remapOp,
+      bool inEntryFunctionWrapper) override {
+    // imageType is a compile-time SpirvType, not an SSA operand.
+    image = remapOp(image);
+    coordinate = remapOp(coordinate);
+    sample = remapOp(sample);
+  }
+
 private:
+  const SpirvType *imageType;
   SpirvInstruction *image;
   SpirvInstruction *coordinate;
   SpirvInstruction *sample;
