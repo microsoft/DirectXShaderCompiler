@@ -224,6 +224,12 @@ bool LowerTypeVisitor::visitInstruction(SpirvInstruction *instr) {
     instr->setResultType(pointerType);
     break;
   }
+  case spv::Op::OpUntypedImageTexelPointerEXT: {
+    instr->setResultType(
+        spvContext.getUntypedPointerKHRType(spv::StorageClass::Image));
+    instr->setStorageClass(spv::StorageClass::Image);
+    break;
+  }
   // Sparse image operations return a sparse residency struct.
   case spv::Op::OpImageSparseSampleImplicitLod:
   case spv::Op::OpImageSparseSampleExplicitLod:

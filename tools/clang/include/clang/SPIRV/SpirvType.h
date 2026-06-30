@@ -23,6 +23,7 @@ namespace clang {
 namespace spirv {
 
 class HybridType;
+class SpirvInstruction;
 
 enum class StructInterfaceType : uint32_t {
   InternalStorage = 0,
@@ -274,9 +275,10 @@ private:
 class RuntimeArrayType : public SpirvType {
 public:
   RuntimeArrayType(const SpirvType *elemType,
-                   llvm::Optional<uint32_t> arrayStride)
-      : SpirvType(TK_RuntimeArray), elementType(elemType), stride(arrayStride) {
-  }
+                   llvm::Optional<uint32_t> arrayStride,
+                   SpirvInstruction *strideSpecConst = nullptr)
+      : SpirvType(TK_RuntimeArray), elementType(elemType), stride(arrayStride),
+        strideSpecConst(strideSpecConst) {}
 
   static bool classof(const SpirvType *t) {
     return t->getKind() == TK_RuntimeArray;
@@ -286,12 +288,16 @@ public:
 
   const SpirvType *getElementType() const { return elementType; }
   llvm::Optional<uint32_t> getStride() const { return stride; }
+  SpirvInstruction *getStrideSpecConst() const { return strideSpecConst; }
 
 private:
   const SpirvType *elementType;
   // Two runtime arrays with different ArrayStride decorations, are in fact two
   // different types. If no layout information is needed, use llvm::None.
+  // Ignored when strideSpecConst is non-null (the spec-const wins).
   llvm::Optional<uint32_t> stride;
+  // When non-null, ArrayStrideIdEXT %id is emitted instead of ArrayStride N.
+  SpirvInstruction *strideSpecConst;
 };
 
 class NodePayloadArrayType : public SpirvType {
