@@ -533,13 +533,14 @@ SpirvImageTexelPointer *SpirvBuilder::createImageTexelPointer(
 
 SpirvUntypedImageTexelPointerEXT *
 SpirvBuilder::createUntypedImageTexelPointerEXT(QualType resultType,
+                                                const SpirvType *imageType,
                                                 SpirvInstruction *image,
                                                 SpirvInstruction *coordinate,
                                                 SpirvInstruction *sample,
                                                 SourceLocation loc) {
   assert(insertPoint && "null insert point");
   auto *instruction = new (context) SpirvUntypedImageTexelPointerEXT(
-      resultType, loc, image, coordinate, sample);
+      resultType, loc, imageType, image, coordinate, sample);
   insertPoint->addInstruction(instruction);
   return instruction;
 }
@@ -2009,6 +2010,21 @@ SpirvConstant *SpirvBuilder::getConstantNull(QualType type) {
   auto *nullConst = new (context) SpirvConstantNull(type);
   mod->addConstant(nullConst);
   return nullConst;
+}
+
+SpirvConstant *SpirvBuilder::getConstantSizeOfEXT(const SpirvType *operandType) {
+  // Reuse the existing instruction for a given descriptor type; multiple heap
+  // accesses of the same element type share one OpConstantSizeOfEXT.
+  auto found = constantSizeOfEXTMap.find(operandType);
+  if (found != constantSizeOfEXTMap.end())
+    return found->second;
+
+  // size is a non-negative 32-bit unsigned value, though spec allows signed
+  auto *sizeOfConst = new (context)
+      SpirvConstantSizeOfEXT(astContext.UnsignedIntTy, operandType);
+  mod->addConstant(sizeOfConst);
+  constantSizeOfEXTMap[operandType] = sizeOfConst;
+  return sizeOfConst;
 }
 
 SpirvConstant *SpirvBuilder::getConstantString(llvm::StringRef str,

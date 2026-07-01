@@ -277,7 +277,7 @@ public:
   /// \brief Creates an OpUntypedImageTexelPointerEXT SPIR-V instruction with
   /// the given parameters.
   SpirvUntypedImageTexelPointerEXT *createUntypedImageTexelPointerEXT(
-      QualType resultType, SpirvInstruction *image,
+      QualType resultType, const SpirvType *imageType, SpirvInstruction *image,
       SpirvInstruction *coordinate, SpirvInstruction *sample, SourceLocation);
 
   /// \brief Creates an OpConverPtrToU SPIR-V instruction with the given
@@ -825,6 +825,11 @@ public:
                        bool specConst = false);
   SpirvConstant *getConstantNull(QualType);
   SpirvConstant *getConstantString(llvm::StringRef str, bool specConst = false);
+  /// \brief Returns the OpConstantSizeOfEXT (SPV_EXT_descriptor_heap) for the
+  /// given descriptor operandType, yielding its client-API size in bytes as
+  /// a 32-bit unsigned value. The result is cached per operand type, so each
+  /// descriptor type emits at most one instruction.
+  SpirvConstant *getConstantSizeOfEXT(const SpirvType *operandType);
   SpirvUndef *getUndef(QualType);
 
   SpirvString *createString(llvm::StringRef str);
@@ -940,6 +945,10 @@ private:
   };
   /// Used as caches for all created builtin variables to avoid duplication.
   llvm::SmallVector<BuiltInVarInfo, 16> builtinVars;
+
+  /// Cache of OpConstantSizeOfEXT instructions keyed on the descriptor operand
+  /// type, so each distinct descriptor type emits at most one instruction.
+  llvm::DenseMap<const SpirvType *, SpirvConstant *> constantSizeOfEXTMap;
 
   SpirvDebugInfoNone *debugNone;
 
