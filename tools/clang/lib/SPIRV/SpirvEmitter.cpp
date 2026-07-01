@@ -11796,7 +11796,6 @@ SpirvInstruction *SpirvEmitter::processIntrinsicExtractRecordStruct(
   QualType objType = obj->getType();
   unsigned n = callExpr->getNumArgs();
   assert(hlsl::IsHLSLNodeType(objType));
-  assert(n == 0 || n == 1 && hlsl::IsHLSLNodeRecordArrayType(objType));
 
   QualType recordType = hlsl::GetHLSLNodeIOResultType(astContext, objType);
   SpirvInstruction *res = doExpr(obj);

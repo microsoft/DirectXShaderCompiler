@@ -603,12 +603,6 @@ bool IsHLSLNodeOutputType(clang::QualType type) {
          static_cast<uint32_t>(DXIL::NodeIOFlags::Output);
 }
 
-bool IsHLSLNodeRecordArrayType(clang::QualType type) {
-  return ((static_cast<uint32_t>(GetNodeIOType(type)) &
-           static_cast<uint32_t>(DXIL::NodeIOFlags::NodeArray)) ==
-          static_cast<uint32_t>(DXIL::NodeIOFlags::NodeArray));
-}
-
 bool IsHLSLEmptyNodeRecordType(clang::QualType type) {
   return (static_cast<uint32_t>(GetNodeIOType(type)) &
           static_cast<uint32_t>(DXIL::NodeIOFlags::EmptyRecord)) ==

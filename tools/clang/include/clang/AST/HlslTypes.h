@@ -490,7 +490,6 @@ bool IsHLSLObjectWithImplicitROMemberAccess(clang::QualType type);
 bool IsHLSLRWNodeInputRecordType(clang::QualType type);
 bool IsHLSLRONodeInputRecordType(clang::QualType type);
 bool IsHLSLDispatchNodeInputRecordType(clang::QualType type);
-bool IsHLSLNodeRecordArrayType(clang::QualType type);
 bool IsHLSLNodeOutputType(clang::QualType type);
 bool IsHLSLEmptyNodeRecordType(clang::QualType type);
 
