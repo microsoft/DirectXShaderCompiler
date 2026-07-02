@@ -6658,12 +6658,14 @@ TEST_F(ValidationTest, WrongPSVVersion) {
 
   CComPtr<IDxcBlob> pProgram68;
 
-  CompileFile(L"..\\DXC\\dumpPSV_CS.hlsl", "cs_6_8", &pProgram68);
+  LPCWSTR Args_1_8[] = {L"-validator-version", L"1.8"};
+  CompileFile(L"..\\DXC\\dumpPSV_CS.hlsl", "cs_6_8", Args_1_8,
+              _countof(Args_1_8), &pProgram68);
   CComPtr<IDxcOperationResult> pResult2;
   VERIFY_SUCCEEDED(pValidator->Validate(pProgram68, Flags, &pResult2));
   // Make sure the validation was successful.
-  VERIFY_IS_NOT_NULL(pResult);
-  VERIFY_SUCCEEDED(pResult->GetStatus(&status));
+  VERIFY_IS_NOT_NULL(pResult2);
+  VERIFY_SUCCEEDED(pResult2->GetStatus(&status));
   VERIFY_SUCCEEDED(status);
 
   hlsl::DxilContainerHeader *pHeader68;
@@ -6794,7 +6796,7 @@ TEST_F(ValidationTest, WrongPSVVersion) {
   CheckOperationResultMsgs(
       p60WithPSV68Result,
       {"DXIL container mismatch for 'PSVRuntimeInfoSize' between 'PSV0' "
-       "part:('56') and DXIL module:('24')"},
+       "part:('52') and DXIL module:('24')"},
       /*maySucceedAnyway*/ false, /*bRegex*/ false);
 
   // Create a new Blob.
@@ -6812,6 +6814,6 @@ TEST_F(ValidationTest, WrongPSVVersion) {
   CheckOperationResultMsgs(
       p68WithPSV60Result,
       {"DXIL container mismatch for 'PSVRuntimeInfoSize' between 'PSV0' "
-       "part:('24') and DXIL module:('56')"},
+       "part:('24') and DXIL module:('52')"},
       /*maySucceedAnyway*/ false, /*bRegex*/ false);
 }
