@@ -984,25 +984,25 @@ static void ValidateLinAlgOpParameters(CallInst *CI,
     if (isa<UndefValue>(Arg))
       ValCtx.EmitInstrError(CI, ValidationRule::InstrNoReadingUninitialized);
 
-    // If we have a LinAlg Matrix validate it
+    // If we have a LinAlg Matrix, validate that we have correct metadata.
     if (!dxilutil::IsHLSLLinAlgMatrixType(Ty))
       continue;
-
-    // Metadata is malformed if we don't have metadata
-    if (ValCtx.TargetTypeMap.find(Ty) == ValCtx.TargetTypeMap.end()) {
+    if (ValCtx.LinAlgTargetTypeMap.find(Ty) ==
+        ValCtx.LinAlgTargetTypeMap.end()) {
       ValCtx.EmitInstrError(CI, ValidationRule::MetaWellFormed);
       continue;
     }
   }
 }
 
-static void ValidateLinAlgOpReturn(CallInst *CI, ValidationContext &ValCtx) {
+static void ValidateLinAlgOpReturnMatrix(CallInst *CI,
+                                         ValidationContext &ValCtx) {
   Type *Ty = CI->getType();
   assert(dxilutil::IsHLSLLinAlgMatrixType(Ty) && "CI must return a matrix");
 
   // Metadata is malformed if we don't have metadata
-  auto it = ValCtx.TargetTypeMap.find(Ty);
-  if (it == ValCtx.TargetTypeMap.end()) {
+  auto it = ValCtx.LinAlgTargetTypeMap.find(Ty);
+  if (it == ValCtx.LinAlgTargetTypeMap.end()) {
     ValCtx.EmitInstrError(CI, ValidationRule::MetaWellFormed);
     return;
   }
@@ -1012,9 +1012,11 @@ static void ValidateLinAlgOpReturn(CallInst *CI, ValidationContext &ValCtx) {
   // Validate the K dim is in bounds. Which dim is K depends on use.
   // This validation isn't applied to an accumulator matrix
   if (LATT.Use != DXIL::MatrixUse::Accumulator) {
-    unsigned MinK = 4;
+    unsigned MinK = DXIL::kLinAlgMatrixMinK;
     unsigned K = (LATT.Use == DXIL::MatrixUse::A) ? LATT.N : LATT.M;
-    unsigned MaxK = (LATT.Scope == DXIL::MatrixScope::ThreadGroup) ? 1024 : 128;
+    unsigned MaxK = (LATT.Scope == DXIL::MatrixScope::ThreadGroup)
+                        ? DXIL::kLinAlgThreadGroupMatrixMaxK
+                        : DXIL::kLinAlgWaveThreadMatrixMaxK;
     if (K < MinK || K > MaxK)
       ValCtx.EmitInstrFormatError(
           CI, ValidationRule::InstrLinAlgIllegalKDim,
@@ -2250,7 +2252,7 @@ static void ValidateDxilOperationCallInProfile(CallInst *CI,
   case DXIL::OpCode::LinAlgMatrixAccumulate:
   case DXIL::OpCode::LinAlgMatrixMultiplyAccumulate:
   case DXIL::OpCode::LinAlgMatrixOuterProduct: {
-    ValidateLinAlgOpReturn(CI, ValCtx);
+    ValidateLinAlgOpReturnMatrix(CI, ValCtx);
     ValidateLinAlgOpParameters(CI, ValCtx);
     break;
   }

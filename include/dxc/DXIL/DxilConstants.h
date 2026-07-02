@@ -155,6 +155,9 @@ const unsigned kMinWaveSize = 4;
 const unsigned kMaxWaveSize = 128;
 const unsigned kDefaultMaxVectorLength = 4;
 const unsigned kSM69MaxVectorLength = 1024;
+const unsigned kLinAlgThreadGroupMatrixMaxK = 1024;
+const unsigned kLinAlgWaveThreadMatrixMaxK = 128;
+const unsigned kLinAlgMatrixMinK = 4;
 
 const float kMaxMipLodBias = 15.99f;
 const float kMinMipLodBias = -16.0f;

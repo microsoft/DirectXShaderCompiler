@@ -41,38 +41,35 @@ EntryStatus::EntryStatus(DxilEntryProps &entryProps)
       entryProps.sig.PatchConstOrPrimSignature.GetElements().size(), 0);
 }
 
-static std::optional<std::tuple<Type *, LinAlgTargetType>>
-TryMakeLinAlgTargetType(MDTuple *MDT) {
+static void
+TryAddLinAlgTargetType(MDTuple *MDT,
+                       std::unordered_map<Type *, LinAlgTargetType> &Map) {
   if (!MDT || MDT->getNumOperands() != 6)
-    return std::nullopt;
+    return;
 
   ConstantAsMetadata *ConstMD0 =
       dyn_cast<ConstantAsMetadata>(MDT->getOperand(0).get());
   if (!ConstMD0)
-    return std::nullopt;
+    return;
 
   Type *Ty = ConstMD0->getValue()->getType();
-  ConstantInt *Ints[5];
+  uint64_t Ints[5];
 
   for (size_t I = 0; I < 5; ++I) {
     ConstantAsMetadata *ConstMDI =
         dyn_cast<ConstantAsMetadata>(MDT->getOperand(I + 1).get());
     if (!ConstMDI)
-      return std::nullopt;
+      return;
     ConstantInt *CI = dyn_cast<ConstantInt>(ConstMDI->getValue());
     if (!CI)
-      return std::nullopt;
-    Ints[I] = CI;
+      return;
+    Ints[I] = CI->getLimitedValue();
   }
 
-  LinAlgTargetType LATT;
-  LATT.Type = static_cast<DXIL::ComponentType>(Ints[0]->getLimitedValue());
-  LATT.M = Ints[1]->getLimitedValue();
-  LATT.N = Ints[2]->getLimitedValue();
-  LATT.Use = static_cast<DXIL::MatrixUse>(Ints[3]->getLimitedValue());
-  LATT.Scope = static_cast<DXIL::MatrixScope>(Ints[4]->getLimitedValue());
-
-  return {{Ty, LATT}};
+  Map.try_emplace(
+      Ty, LinAlgTargetType{static_cast<DXIL::ComponentType>(Ints[0]), Ints[1],
+                           Ints[2], static_cast<DXIL::MatrixUse>(Ints[3]),
+                           static_cast<DXIL::MatrixScope>(Ints[4])});
 }
 
 ValidationContext::ValidationContext(Module &llvmModule, Module *DebugModule,
@@ -132,11 +129,7 @@ ValidationContext::ValidationContext(Module &llvmModule, Module *DebugModule,
   if (NMD) {
     for (llvm::MDNode *MDN : NMD->operands()) {
       MDTuple *MDT = dyn_cast<MDTuple>(MDN);
-      std::optional<std::tuple<Type *, LinAlgTargetType>> LATTOpt =
-          TryMakeLinAlgTargetType(MDT);
-      if (!LATTOpt)
-        continue;
-      TargetTypeMap.try_emplace(std::get<0>(*LATTOpt), std::get<1>(*LATTOpt));
+      TryAddLinAlgTargetType(MDT, LinAlgTargetTypeMap);
     }
   }
 }
