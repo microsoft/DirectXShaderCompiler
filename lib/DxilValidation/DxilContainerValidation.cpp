@@ -145,8 +145,22 @@ public:
     return true;
   }
   void Verify(ValidationContext &ValCtx) {
+    // Validator version 1.10 introduced the convention that the
+    // SemanticIndexTable may begin with a reserved 0 entry to support sharing
+    // it with empty sized-array patterns and with elements whose first
+    // semantic index is 0.  It is legal for that leading zero to remain
+    // unreferenced, but only if its value is actually 0 -- any other unused
+    // entry (including a non-zero value at offset 0) is still a violation.
+    unsigned ValMajor, ValMinor;
+    ValCtx.DxilMod.GetValidatorVersion(ValMajor, ValMinor);
+    bool AtLeast1_10 = DXIL::CompareVersions(ValMajor, ValMinor, 1, 10) >= 0;
     for (unsigned i = 0; i < Table.Entries; i++) {
       if (UseMask[i])
+        continue;
+      // A reserved zero at offset 0 is allowed to be unreferenced under the
+      // validator 1.10 convention.
+      if (AtLeast1_10 && i == 0 && Table.Table != nullptr &&
+          Table.Table[0] == 0)
         continue;
 
       ValCtx.EmitFormatError(ValidationRule::ContainerUnusedItemInTable,

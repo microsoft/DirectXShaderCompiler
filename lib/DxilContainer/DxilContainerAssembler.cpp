@@ -711,28 +711,79 @@ private:
     }
     // Search index buffer for matching semantic index sequence
     DXASSERT_NOMSG(SE.GetRows() == SE.GetSemanticIndexVec().size());
-    auto &SemIdx = SE.GetSemanticIndexVec();
-    bool match = false;
-    for (uint32_t offset = 0;
-         offset + SE.GetRows() - 1 < m_SemanticIndexBuffer.size(); offset++) {
-      match = true;
-      for (uint32_t row = 0; row < SE.GetRows(); row++) {
-        if ((uint32_t)SemIdx[row] != m_SemanticIndexBuffer[offset + row]) {
-          match = false;
+    E.SemanticIndexes = AddSemanticIndexSequence(llvm::ArrayRef(
+        SE.GetSemanticIndexVec().data(), SE.GetSemanticIndexVec().size()));
+  }
+
+  template <typename IndexType>
+  uint32_t
+  AddSemanticIndexSequence(const llvm::ArrayRef<IndexType> IndexArray) {
+    // Largest possible index buffer size is UINT32_MAX minus everything else in
+    // the container. This is a sanity upper bound check that would definitely
+    // still be too large for any valid container.
+    DXASSERT_NOMSG(IndexArray.size() > 0 &&
+                   IndexArray.size() < UINT32_MAX / sizeof(uint32_t));
+    uint32_t ArraySize = (uint32_t)IndexArray.size();
+    if (ArraySize == 0)
+      llvm_unreachable("can't add empty array to semantic index buffer.");
+    bool AtLeast1_10 =
+        DXIL::CompareVersions(m_ValMajor, m_ValMinor, 1, 10) >= 0;
+
+    if (m_SemanticIndexBuffer.size() == 0 && AtLeast1_10) {
+      // Always start buffer with a 0 if validation version is >= 1.9.
+      // This ensures that index 0 can be used both for a common case of
+      // semantic index of 0, and for the empty array case for a sized array
+      // pattern which starts with the array size.
+      m_SemanticIndexBuffer.push_back(0);
+    }
+
+    uint32_t BufSize = m_SemanticIndexBuffer.size();
+    uint32_t SuffixMatchOffset = BufSize;
+    uint32_t SuffixMatchLen = 0;
+
+    // Suffix-prefix match is not supported in validator versions prior to 1.10,
+    // so adjust offset end to only look for full matches.
+    uint32_t OffsetEnd =
+        AtLeast1_10 ? BufSize
+                    : (BufSize >= ArraySize ? BufSize - ArraySize + 1 : 0);
+
+    for (uint32_t Offset = 0; Offset < OffsetEnd; Offset++) {
+      // Early out if first element doesn't match.
+      if (m_SemanticIndexBuffer[Offset] != (uint32_t)IndexArray[0])
+        continue;
+
+      uint32_t MaxLen = std::min(ArraySize, BufSize - Offset);
+      uint32_t MatchLen = 1; // first element already matched
+      for (; MatchLen < MaxLen; MatchLen++) {
+        if (m_SemanticIndexBuffer[Offset + MatchLen] !=
+            (uint32_t)IndexArray[MatchLen])
           break;
-        }
       }
-      if (match) {
-        E.SemanticIndexes = offset;
+
+      // If we have a full match, return offset to start of match.
+      if (MatchLen == ArraySize)
+        return Offset;
+
+      // If match extends to end of buffer, it's a suffix-prefix overlap
+      if (MatchLen == MaxLen) {
+        SuffixMatchLen = MatchLen;
+        SuffixMatchOffset = Offset;
         break;
       }
     }
-    if (!match) {
-      E.SemanticIndexes = m_SemanticIndexBuffer.size();
-      for (uint32_t row = 0; row < SemIdx.size(); row++) {
-        m_SemanticIndexBuffer.push_back((uint32_t)SemIdx[row]);
-      }
+
+    // Need to add elements starting from SuffixMatchLen to end of array, since
+    // either the whole array is new, or the prefix of the array matches the
+    // suffix of the buffer. In the latter case, we can reuse the suffix that
+    // matches the prefix, and only need to add the additional elements to the
+    // end of the buffer.
+    for (uint32_t I = SuffixMatchLen; I < ArraySize; I++) {
+      DXASSERT(
+          (size_t)IndexArray[I] <= UINT32_MAX,
+          "otherwise, index value is too large for semantic index buffer.");
+      m_SemanticIndexBuffer.push_back((uint32_t)IndexArray[I]);
     }
+    return SuffixMatchOffset;
   }
 
 public:
