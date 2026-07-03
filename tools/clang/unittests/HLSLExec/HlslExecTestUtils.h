@@ -99,12 +99,47 @@ void addRootView(st::ShaderOp *Op, UINT Index, const char *ResName);
 std::shared_ptr<st::ShaderOpTestResult>
 runShaderOp(ID3D12Device *Device, dxc::SpecificDllLoader &DxcSupport,
             std::unique_ptr<st::ShaderOp> Op,
-            st::ShaderOpTest::TInitCallbackFn InitCallback = nullptr);
+            st::ShaderOpTest::TInitCallbackFn InitCallback = nullptr,
+            st::ShaderOpTest::TCommandCallbackFn PostExecuteCallback = nullptr);
 
 /// Compiles an HLSL shader using the DXC API to verify it is well-formed.
 /// Fails the test on compile error.
 void compileShader(dxc::SpecificDllLoader &DxcSupport, const char *Source,
                    const char *Target, const std::string &Args,
                    bool VerboseLogging = false);
+
+// Host-side linear-algebra matrix-conversion helpers. These need the D3D12
+// linear-algebra API (the D3D12_LINEAR_ALGEBRA_* types and the conversion
+// methods on ID3D12DevicePreview / ID3D12GraphicsCommandListPreview). When
+// absent, these helpers and the tests using them are compiled out (they Skip at
+// runtime).
+#if defined(DIRECT3D_LINEAR_ALGEBRA)
+#define HLSL_EXEC_LINALG_HOST_CONVERSION_AVAILABLE 1
+#else
+#define HLSL_EXEC_LINALG_HOST_CONVERSION_AVAILABLE 0
+#endif
+
+#if HLSL_EXEC_LINALG_HOST_CONVERSION_AVAILABLE
+/// Query the number of bytes required to store an NumRows x NumColumns matrix
+/// of the given datatype in the specified device layout.
+UINT getLinAlgMatrixByteSize(ID3D12Device *Device, UINT NumRows,
+                             UINT NumColumns,
+                             D3D12_LINEAR_ALGEBRA_DATATYPE DataType,
+                             D3D12_LINEAR_ALGEBRA_MATRIX_LAYOUT Layout,
+                             UINT Stride);
+
+/// Record a GPU matrix layout conversion onto \p List using
+/// ID3D12GraphicsCommandListPreview::ConvertLinearAlgebraMatrix. \p SrcBuffer
+/// (in \p SrcLayout) and \p DestBuffer (receiving \p DestLayout) must both be
+/// in the D3D12_RESOURCE_STATE_UNORDERED_ACCESS state. The caller is
+/// responsible for ensuring that writes that to \p SrcBuffer have completed
+/// before this conversion reads it.
+void recordLinAlgMatrixConversion(
+    ID3D12GraphicsCommandList *List, ID3D12Resource *SrcBuffer, UINT SrcSize,
+    ID3D12Resource *DestBuffer, UINT DestSize, UINT NumRows, UINT NumColumns,
+    D3D12_LINEAR_ALGEBRA_DATATYPE DataType,
+    D3D12_LINEAR_ALGEBRA_MATRIX_LAYOUT SrcLayout, UINT SrcStride,
+    D3D12_LINEAR_ALGEBRA_MATRIX_LAYOUT DestLayout, UINT DestStride);
+#endif // HLSL_EXEC_LINALG_HOST_CONVERSION_AVAILABLE
 
 #endif // HLSLEXECTESTUTILS_H

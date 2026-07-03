@@ -349,9 +349,7 @@ public:
   // Matrix Vector Arithmetic
   TEST_METHOD(MatVecMul_Thread_16x16_F16);
   TEST_METHOD(MatVecMulAdd_Thread_16x16_F16);
-#if 0
   TEST_METHOD(OuterProduct_Thread_16x16_F16);
-#endif
 
   // Query Accumulator Layout
   TEST_METHOD(QueryAccumLayout);
@@ -1321,7 +1319,29 @@ void DxilConf_SM610_LinAlg::MatVecMulAdd_Thread_16x16_F16() {
                   ComponentType::F16);
 }
 
-#if 0
+// Map a DXIL ComponentType to the D3D12 linear-algebra datatype used by the
+// host-side matrix conversion API.
+#if HLSL_EXEC_LINALG_HOST_CONVERSION_AVAILABLE
+static D3D12_LINEAR_ALGEBRA_DATATYPE toLinAlgDataType(ComponentType CT) {
+  switch (CT) {
+  case ComponentType::F16:
+    return D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT16;
+  case ComponentType::F32:
+    return D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT32;
+  case ComponentType::I16:
+    return D3D12_LINEAR_ALGEBRA_DATATYPE_SINT16;
+  case ComponentType::U16:
+    return D3D12_LINEAR_ALGEBRA_DATATYPE_UINT16;
+  case ComponentType::I32:
+    return D3D12_LINEAR_ALGEBRA_DATATYPE_SINT32;
+  case ComponentType::U32:
+    return D3D12_LINEAR_ALGEBRA_DATATYPE_UINT32;
+  default:
+    VERIFY_IS_TRUE(false, "Unsupported component type for linalg conversion");
+    return D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT16;
+  }
+}
+
 static const char OuterProductShader[] = R"(
   #define USE_A 0
   #define SCOPE_THREAD 0
@@ -1348,8 +1368,11 @@ static const char OuterProductShader[] = R"(
       Mat;
     __builtin_LinAlg_MatrixOuterProduct(Mat, VecA, VecB);
 
+    // Outer product accumulators are stored in the OuterProductOptimal layout
+    // with stride 0 and no alignment requirement (align 0), matching the
+    // dx::linalg header's thread-scoped InterlockedAccumulate.
     __builtin_LinAlg_MatrixAccumulateToDescriptor(
-      Mat, Output, 0, STRIDE, LAYOUT, 128);
+      Mat, Output, 0, STRIDE, LAYOUT, 0);
   }
 )";
 
@@ -1359,7 +1382,18 @@ static void runOuterProduct(ID3D12Device *Device,
   const size_t NumVecElements = Params.M + Params.N;
   const size_t InBuffSize = NumVecElements * elementSize(Params.CompType);
   const size_t NumMatElements = Params.totalElements();
-  const size_t OutBufferSize = Params.totalBytes();
+  const D3D12_LINEAR_ALGEBRA_DATATYPE DataType =
+      toLinAlgDataType(Params.CompType);
+
+  const UINT OutBufferSize = getLinAlgMatrixByteSize(
+      Device, Params.M, Params.N, DataType,
+      D3D12_LINEAR_ALGEBRA_MATRIX_LAYOUT_OUTER_PRODUCT_OPTIMAL, /*Stride=*/0);
+
+  const UINT RowMajorStride =
+      static_cast<UINT>(Params.N * elementSize(Params.CompType));
+  const UINT RowMajorSize = getLinAlgMatrixByteSize(
+      Device, Params.M, Params.N, DataType,
+      D3D12_LINEAR_ALGEBRA_MATRIX_LAYOUT_ROW_MAJOR, RowMajorStride);
 
   std::string Args = buildCompilerArgs(Params);
 
@@ -1371,7 +1405,8 @@ static void runOuterProduct(ID3D12Device *Device,
   auto Op = createComputeOp(OuterProductShader, "cs_6_10", "UAV(u0), UAV(u1)",
                             Args.c_str());
   addUAVBuffer(Op.get(), "Input", InBuffSize, false, "byname");
-  addUAVBuffer(Op.get(), "Output", OutBufferSize, true);
+  addUAVBuffer(Op.get(), "Output", OutBufferSize, /*ReadBack=*/false);
+  addUAVBuffer(Op.get(), "OutputRowMajor", RowMajorSize, /*ReadBack=*/true);
   addRootView(Op.get(), 0, "Input");
   addRootView(Op.get(), 1, "Output");
 
@@ -1383,27 +1418,49 @@ static void runOuterProduct(ID3D12Device *Device,
                                        NumVecElements,
                                        /*StartingVal=*/2, /*Increment=*/false),
                        "Saw unsupported component type");
+      },
+      [OutBufferSize, RowMajorSize, RowMajorStride, DataType,
+       Params](ID3D12GraphicsCommandList *List, st::ShaderOpTest *Test) {
+        ID3D12Resource *OptimalBuffer = nullptr;
+        ID3D12Resource *RowMajorBuffer = nullptr;
+        Test->GetResource("Output", &OptimalBuffer);
+        Test->GetResource("OutputRowMajor", &RowMajorBuffer);
+        recordLinAlgMatrixConversion(
+            List, OptimalBuffer, OutBufferSize, RowMajorBuffer, RowMajorSize,
+            Params.M, Params.N, DataType,
+            D3D12_LINEAR_ALGEBRA_MATRIX_LAYOUT_OUTER_PRODUCT_OPTIMAL,
+            /*SrcStride=*/0, D3D12_LINEAR_ALGEBRA_MATRIX_LAYOUT_ROW_MAJOR,
+            RowMajorStride);
       });
 
   MappedData OutData;
-  Result->Test->GetReadBackData("Output", &OutData);
+  Result->Test->GetReadBackData("OutputRowMajor", &OutData);
 
   VERIFY_IS_TRUE(verifyComponentBuffer(Params.CompType, OutData.data(),
                                        Expected, NumMatElements, Verbose));
 }
+#endif // HLSL_EXEC_LINALG_HOST_CONVERSION_AVAILABLE
 
 void DxilConf_SM610_LinAlg::OuterProduct_Thread_16x16_F16() {
+#if HLSL_EXEC_LINALG_HOST_CONVERSION_AVAILABLE
   MatrixParams Params = {};
   Params.CompType = ComponentType::F16;
   Params.M = 16;
   Params.N = 16;
   Params.Scope = MatrixScope::Thread;
-  Params.Layout = LinalgMatrixLayout::RowMajor;
+  Params.Layout = LinalgMatrixLayout::OuterProductOptimal;
   Params.NumThreads = 1;
   Params.Enable16Bit = true;
   runOuterProduct(D3DDevice, DxcSupport, Params, VerboseLogging);
+#else
+  WEX::Logging::Log::Comment(
+      L"Skipping OuterProduct_Thread_16x16_F16: built against a D3D12 SDK "
+      L"without the linear-algebra matrix-conversion API "
+      L"(DIRECT3D_LINEAR_ALGEBRA undefined); the host-side conversion helpers "
+      L"are compiled out.");
+  WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
+#endif // HLSL_EXEC_LINALG_HOST_CONVERSION_AVAILABLE
 }
-#endif
 
 static const char QueryAccumLayoutShader[] = R"(
   RWByteAddressBuffer Output : register(u0);

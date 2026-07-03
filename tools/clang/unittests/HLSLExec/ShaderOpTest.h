@@ -276,17 +276,22 @@ public:
   typedef std::function<void(LPCSTR Name, LPCSTR pText, IDxcBlob **ppShaderBlob,
                              ShaderOp *pShaderOp)>
       TShaderCallbackFn;
+  typedef std::function<void(ID3D12GraphicsCommandList *pCommandList,
+                             ShaderOpTest *pShaderOpTest)>
+      TCommandCallbackFn;
 
   ShaderOpTest();
   ~ShaderOpTest();
   void GetPipelineStats(D3D12_QUERY_DATA_PIPELINE_STATISTICS *pStats);
   void GetReadBackData(LPCSTR pResourceName, MappedData *pData);
+  void GetResource(LPCSTR pResourceName, ID3D12Resource **ppResource);
   void RunShaderOp(ShaderOp *pShaderOp);
   void RunShaderOp(std::shared_ptr<ShaderOp> pShaderOp);
   void SetDevice(ID3D12Device *pDevice);
   void SetSpecificDllLoader(dxc::SpecificDllLoader *pDxcSupport);
   void SetInitCallback(TInitCallbackFn InitCallbackFn);
   void SetShaderCallback(TShaderCallbackFn ShaderCallbackFn);
+  void SetPostExecuteCallback(TCommandCallbackFn PostExecuteCallbackFn);
   void SetupRenderTarget(ShaderOp *pShaderOp, ID3D12Device *pDevice,
                          ID3D12CommandQueue *pCommandQueue,
                          ID3D12Resource *pRenderTarget);
@@ -327,6 +332,7 @@ private:
   std::shared_ptr<ShaderOp> m_OrigShaderOp;
   TInitCallbackFn m_InitCallbackFn = nullptr;
   TShaderCallbackFn m_ShaderCallbackFn = nullptr;
+  TCommandCallbackFn m_PostExecuteCallbackFn = nullptr;
   void CopyBackResources();
   void CreateCommandList();
   void CreateDescriptorHeaps();
@@ -336,6 +342,7 @@ private:
   void CreateRootSignature();
   void CreateShaders();
   void RunCommandList();
+  void RunPostExecuteCommandList();
   void SetRootValues(ID3D12GraphicsCommandList *pList, bool isCompute);
 };
 
@@ -352,6 +359,13 @@ struct ShaderOpTestResult {
   std::shared_ptr<st::ShaderOpSet> ShaderOpSet;
   std::shared_ptr<st::ShaderOpTest> Test;
 };
+
+std::shared_ptr<ShaderOpTestResult> RunShaderOpTestAfterParse(
+    ID3D12Device *pDevice, dxc::SpecificDllLoader &support, LPCSTR pName,
+    st::ShaderOpTest::TInitCallbackFn pInitCallback,
+    st::ShaderOpTest::TShaderCallbackFn pShaderCallback,
+    st::ShaderOpTest::TCommandCallbackFn pPostExecuteCallback,
+    std::shared_ptr<st::ShaderOpSet> ShaderOpSet);
 
 std::shared_ptr<ShaderOpTestResult>
 RunShaderOpTestAfterParse(ID3D12Device *pDevice,
