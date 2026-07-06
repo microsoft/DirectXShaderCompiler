@@ -725,8 +725,8 @@ SpirvConstantSizeOfEXT::SpirvConstantSizeOfEXT(QualType resultType,
 
 bool SpirvConstantSizeOfEXT::operator==(
     const SpirvConstantSizeOfEXT &that) const {
-  return resultType == that.resultType &&
-         astResultType == that.astResultType && operandType == that.operandType;
+  return resultType == that.resultType && astResultType == that.astResultType &&
+         operandType == that.operandType;
 }
 
 SpirvConstantNull::SpirvConstantNull(QualType type)
