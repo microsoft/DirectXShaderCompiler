@@ -839,7 +839,8 @@ void recordLinAlgMatrixConversion(
   Barrier.Transition.pResource = SrcBuffer;
   Barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
   Barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
-  Barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
+  Barrier.Transition.StateAfter =
+      D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
   List->ResourceBarrier(1, &Barrier);
 
   D3D12_LINEAR_ALGEBRA_MATRIX_CONVERSION_INFO Info = {};
