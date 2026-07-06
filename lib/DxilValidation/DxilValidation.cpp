@@ -1014,9 +1014,11 @@ static void ValidateLinAlgOpReturnMatrix(CallInst *CI,
   if (LATT.Use != DXIL::MatrixUse::Accumulator) {
     unsigned MinK = DXIL::kLinAlgMatrixMinK;
     unsigned K = (LATT.Use == DXIL::MatrixUse::A) ? LATT.N : LATT.M;
-    unsigned MaxK = (LATT.Scope == DXIL::MatrixScope::ThreadGroup)
-                        ? DXIL::kLinAlgThreadGroupMatrixMaxK
-                        : DXIL::kLinAlgWaveThreadMatrixMaxK;
+    unsigned MaxK = DXIL::kLinAlgMatrixMaxK;
+    if (LATT.Scope == DXIL::MatrixScope::ThreadGroup) {
+      MinK = DXIL::kLinAlgThreadGroupMatrixMinK;
+      MaxK = DXIL::kLinAlgThreadGroupMatrixMaxK;
+    }
     if (K < MinK || K > MaxK)
       ValCtx.EmitInstrFormatError(
           CI, ValidationRule::InstrLinAlgIllegalKDim,

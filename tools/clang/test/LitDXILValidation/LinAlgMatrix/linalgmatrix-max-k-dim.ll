@@ -18,12 +18,12 @@ target triple = "dxil-ms-dx"
 %dx.types.LinAlgMatrixC8M3N16U1S0 = type { i8* }
 %dx.types.LinAlgMatrixC8M16N1025U0S2 = type { i8* }
 %dx.types.LinAlgMatrixC8M1025N16U0S2 = type { i8* }
-%dx.types.LinAlgMatrixC8M16N3U0S2 = type { i8* }
+%dx.types.LinAlgMatrixC8M16N0U0S2 = type { i8* }
 %dx.types.LinAlgMatrixC8M3N16U0S2 = type { i8* }
 %dx.types.LinAlgMatrixC8M129N1025U1S2 = type { i8* }
 %dx.types.LinAlgMatrixC8M1025N129U1S2 = type { i8* }
 %dx.types.LinAlgMatrixC8M129N3U1S2 = type { i8* }
-%dx.types.LinAlgMatrixC8M3N129U1S2 = type { i8* }
+%dx.types.LinAlgMatrixC8M0N129U1S2 = type { i8* }
 %dx.types.LinAlgMatrixC8M128N128U0S0 = type { i8* }
 %dx.types.LinAlgMatrixC8M128N128U1S0 = type { i8* }
 %dx.types.LinAlgMatrixC8M1024N1024U0S2 = type { i8* }
@@ -71,31 +71,31 @@ define void @main() {
   ; Matrix<F16, 16, 3, B, Thread> - M is K so pass
   %mC8M16N3U1S0 = call %dx.types.LinAlgMatrixC8M16N3U1S0 @dx.op.linAlgMatrixLoadFromDescriptor.mC8M16N3U1S0(i32 -2147483634, %dx.types.Handle %handle, i32 0, i32 0, i32 0, i32 0)
 
-  ; CHECK-NEXT: Function: main: error: Matrix K Dimension out of bounds. K=1025 must be >= 4 and <= 1024.
+  ; CHECK-NEXT: Function: main: error: Matrix K Dimension out of bounds. K=1025 must be >= 1 and <= 1024.
   ; CHECK-NEXT: note: at '%mC8M16N1025U0S2
   ; Matrix<F16, 1025, 16, A, ThreadGroup> - N is K so pass
   %mC8M1025N16U0S2 = call %dx.types.LinAlgMatrixC8M1025N16U0S2 @dx.op.linAlgMatrixLoadFromDescriptor.mC8M1025N16U0S2(i32 -2147483634, %dx.types.Handle %handle, i32 0, i32 0, i32 0, i32 0)
   ; Matrix<F16, 16, 1025, A, ThreadGroup> - N is K so fail
   %mC8M16N1025U0S2 = call %dx.types.LinAlgMatrixC8M16N1025U0S2 @dx.op.linAlgMatrixLoadFromDescriptor.mC8M16N1025U0S2(i32 -2147483634, %dx.types.Handle %handle, i32 0, i32 0, i32 0, i32 0)
 
-  ; CHECK-NEXT: Function: main: error: Matrix K Dimension out of bounds. K=3 must be >= 4 and <= 1024.
-  ; CHECK-NEXT: note: at '%mC8M16N3U0S2
+  ; CHECK-NEXT: Function: main: error: Matrix K Dimension out of bounds. K=0 must be >= 1 and <= 1024.
+  ; CHECK-NEXT: note: at '%mC8M16N0U0S2
   ; Matrix<F16, 16, 3, A, ThreadGroup> - N is K so fail
-  %mC8M16N3U0S2 = call %dx.types.LinAlgMatrixC8M16N3U0S2 @dx.op.linAlgMatrixLoadFromDescriptor.mC8M16N3U0S2(i32 -2147483634, %dx.types.Handle %handle, i32 0, i32 0, i32 0, i32 0)
+  %mC8M16N0U0S2 = call %dx.types.LinAlgMatrixC8M16N0U0S2 @dx.op.linAlgMatrixLoadFromDescriptor.mC8M16N0U0S2(i32 -2147483634, %dx.types.Handle %handle, i32 0, i32 0, i32 0, i32 0)
   ; Matrix<F16, 3, 16, A, ThreadGroup> - N is K so pass
   %mC8M3N16U0S2 = call %dx.types.LinAlgMatrixC8M3N16U0S2 @dx.op.linAlgMatrixLoadFromDescriptor.mC8M3N16U0S2(i32 -2147483634, %dx.types.Handle %handle, i32 0, i32 0, i32 0, i32 0)
 
-  ; CHECK-NEXT: Function: main: error: Matrix K Dimension out of bounds. K=1025 must be >= 4 and <= 1024.
+  ; CHECK-NEXT: Function: main: error: Matrix K Dimension out of bounds. K=1025 must be >= 1 and <= 1024.
   ; CHECK-NEXT: note: at '%mC8M1025N129U1S2
   ; Matrix<F16, 1025, 129, B, ThreadGroup> - M is K so fail
   %mC8M1025N129U1S2 = call %dx.types.LinAlgMatrixC8M1025N129U1S2 @dx.op.linAlgMatrixLoadFromDescriptor.mC8M1025N129U1S2(i32 -2147483634, %dx.types.Handle %handle, i32 0, i32 0, i32 0, i32 0)
   ; Matrix<F16, 129, 1025, B, ThreadGroup> - M is K so pass
   %mC8M129N1025U1S2 = call %dx.types.LinAlgMatrixC8M129N1025U1S2 @dx.op.linAlgMatrixLoadFromDescriptor.mC8M129N1025U1S2(i32 -2147483634, %dx.types.Handle %handle, i32 0, i32 0, i32 0, i32 0)
 
-  ; CHECK-NEXT: Function: main: error: Matrix K Dimension out of bounds. K=3 must be >= 4 and <= 1024.
-  ; CHECK-NEXT: note: at '%mC8M3N129U1S2
+  ; CHECK-NEXT: Function: main: error: Matrix K Dimension out of bounds. K=0 must be >= 1 and <= 1024.
+  ; CHECK-NEXT: note: at '%mC8M0N129U1S2
   ; Matrix<F16, 3, 129, B, ThreadGroup> - M is K so fail
-  %mC8M3N129U1S2 = call %dx.types.LinAlgMatrixC8M3N129U1S2 @dx.op.linAlgMatrixLoadFromDescriptor.mC8M3N129U1S2(i32 -2147483634, %dx.types.Handle %handle, i32 0, i32 0, i32 0, i32 0)
+  %mC8M0N129U1S2 = call %dx.types.LinAlgMatrixC8M0N129U1S2 @dx.op.linAlgMatrixLoadFromDescriptor.mC8M0N129U1S2(i32 -2147483634, %dx.types.Handle %handle, i32 0, i32 0, i32 0, i32 0)
   ; Matrix<F16, 129, 3, B, ThreadGroup> - M is K so pass
   %mC8M129N3U1S2 = call %dx.types.LinAlgMatrixC8M129N3U1S2 @dx.op.linAlgMatrixLoadFromDescriptor.mC8M129N3U1S2(i32 -2147483634, %dx.types.Handle %handle, i32 0, i32 0, i32 0, i32 0)
 
@@ -153,7 +153,7 @@ declare %dx.types.LinAlgMatrixC8M16N1025U0S2 @dx.op.linAlgMatrixLoadFromDescript
 declare %dx.types.LinAlgMatrixC8M1025N16U0S2 @dx.op.linAlgMatrixLoadFromDescriptor.mC8M1025N16U0S2(i32, %dx.types.Handle, i32, i32, i32, i32) #0
 
 ; Function Attrs: nounwind
-declare %dx.types.LinAlgMatrixC8M16N3U0S2 @dx.op.linAlgMatrixLoadFromDescriptor.mC8M16N3U0S2(i32, %dx.types.Handle, i32, i32, i32, i32) #0
+declare %dx.types.LinAlgMatrixC8M16N0U0S2 @dx.op.linAlgMatrixLoadFromDescriptor.mC8M16N0U0S2(i32, %dx.types.Handle, i32, i32, i32, i32) #0
 
 ; Function Attrs: nounwind
 declare %dx.types.LinAlgMatrixC8M3N16U0S2 @dx.op.linAlgMatrixLoadFromDescriptor.mC8M3N16U0S2(i32, %dx.types.Handle, i32, i32, i32, i32) #0
@@ -168,7 +168,7 @@ declare %dx.types.LinAlgMatrixC8M1025N129U1S2 @dx.op.linAlgMatrixLoadFromDescrip
 declare %dx.types.LinAlgMatrixC8M129N3U1S2 @dx.op.linAlgMatrixLoadFromDescriptor.mC8M129N3U1S2(i32, %dx.types.Handle, i32, i32, i32, i32) #0
 
 ; Function Attrs: nounwind
-declare %dx.types.LinAlgMatrixC8M3N129U1S2 @dx.op.linAlgMatrixLoadFromDescriptor.mC8M3N129U1S2(i32, %dx.types.Handle, i32, i32, i32, i32) #0
+declare %dx.types.LinAlgMatrixC8M0N129U1S2 @dx.op.linAlgMatrixLoadFromDescriptor.mC8M0N129U1S2(i32, %dx.types.Handle, i32, i32, i32, i32) #0
 
 ; Function Attrs: nounwind
 declare %dx.types.LinAlgMatrixC8M128N128U0S0 @dx.op.linAlgMatrixLoadFromDescriptor.mC8M128N128U0S0(i32, %dx.types.Handle, i32, i32, i32, i32) #0
@@ -210,12 +210,12 @@ attributes #1 = { nounwind readnone }
 !8 = !{%dx.types.LinAlgMatrixC8M3N16U1S0 undef, i32 8, i32 3, i32 16, i32 1, i32 0}
 !9 = !{%dx.types.LinAlgMatrixC8M16N1025U0S2 undef, i32 8, i32 16, i32 1025, i32 0, i32 2}
 !10 = !{%dx.types.LinAlgMatrixC8M1025N16U0S2 undef, i32 8, i32 1025, i32 16, i32 0, i32 2}
-!11 = !{%dx.types.LinAlgMatrixC8M16N3U0S2 undef, i32 8, i32 16, i32 3, i32 0, i32 2}
+!11 = !{%dx.types.LinAlgMatrixC8M16N0U0S2 undef, i32 8, i32 16, i32 0, i32 0, i32 2}
 !12 = !{%dx.types.LinAlgMatrixC8M3N16U0S2 undef, i32 8, i32 3, i32 16, i32 0, i32 2}
 !13 = !{%dx.types.LinAlgMatrixC8M129N1025U1S2 undef, i32 8, i32 129, i32 1025, i32 1, i32 2}
 !14 = !{%dx.types.LinAlgMatrixC8M1025N129U1S2 undef, i32 8, i32 1025, i32 129, i32 1, i32 2}
 !15 = !{%dx.types.LinAlgMatrixC8M129N3U1S2 undef, i32 8, i32 129, i32 3, i32 1, i32 2}
-!16 = !{%dx.types.LinAlgMatrixC8M3N129U1S2 undef, i32 8, i32 3, i32 129, i32 1, i32 2}
+!16 = !{%dx.types.LinAlgMatrixC8M0N129U1S2 undef, i32 8, i32 0, i32 129, i32 1, i32 2}
 !17 = !{!"dxc(private) 1.9.0.15241 (main, 1f63535ae)"}
 !18 = !{i32 1, i32 10}
 !19 = !{!"cs", i32 6, i32 10}
