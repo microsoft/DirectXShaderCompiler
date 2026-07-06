@@ -2012,7 +2012,8 @@ SpirvConstant *SpirvBuilder::getConstantNull(QualType type) {
   return nullConst;
 }
 
-SpirvConstant *SpirvBuilder::getConstantSizeOfEXT(const SpirvType *operandType) {
+SpirvConstant *
+SpirvBuilder::getConstantSizeOfEXT(const SpirvType *operandType) {
   // Reuse the existing instruction for a given descriptor type; multiple heap
   // accesses of the same element type share one OpConstantSizeOfEXT.
   auto found = constantSizeOfEXTMap.find(operandType);
