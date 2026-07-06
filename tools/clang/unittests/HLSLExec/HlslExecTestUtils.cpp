@@ -829,6 +829,19 @@ void recordLinAlgMatrixConversion(
   CComPtr<ID3D12GraphicsCommandListPreview> PreviewList;
   VERIFY_SUCCEEDED(List->QueryInterface(IID_PPV_ARGS(&PreviewList)));
 
+  // Per the linear-algebra spec, ConvertLinearAlgebraMatrix (legacy barriers)
+  // requires the source buffer in NON_PIXEL_SHADER_RESOURCE and the destination
+  // in UNORDERED_ACCESS. The caller passes both in UNORDERED_ACCESS (the
+  // ShaderOp default UAV state), so transition the source to the required read
+  // state; the destination is already in UNORDERED_ACCESS.
+  D3D12_RESOURCE_BARRIER Barrier = {};
+  Barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+  Barrier.Transition.pResource = SrcBuffer;
+  Barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+  Barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
+  Barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
+  List->ResourceBarrier(1, &Barrier);
+
   D3D12_LINEAR_ALGEBRA_MATRIX_CONVERSION_INFO Info = {};
   Info.DestInfo.DestSize = DestSize;
   Info.DestInfo.DestLayout = DestLayout;

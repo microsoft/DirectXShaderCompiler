@@ -129,11 +129,13 @@ UINT getLinAlgMatrixByteSize(ID3D12Device *Device, UINT NumRows,
                              UINT Stride);
 
 /// Record a GPU matrix layout conversion onto \p List using
-/// ID3D12GraphicsCommandListPreview::ConvertLinearAlgebraMatrix. \p SrcBuffer
-/// (in \p SrcLayout) and \p DestBuffer (receiving \p DestLayout) must both be
-/// in the D3D12_RESOURCE_STATE_UNORDERED_ACCESS state. The caller is
-/// responsible for ensuring that writes that to \p SrcBuffer have completed
-/// before this conversion reads it.
+/// ID3D12GraphicsCommandListPreview::ConvertLinearAlgebraMatrix. Both
+/// \p SrcBuffer (in \p SrcLayout) and \p DestBuffer (receiving \p DestLayout)
+/// must be passed in the D3D12_RESOURCE_STATE_UNORDERED_ACCESS state; the
+/// conversion requires the source in NON_PIXEL_SHADER_RESOURCE, so this helper
+/// transitions it and leaves the destination in UNORDERED_ACCESS. The caller is
+/// responsible for ensuring that writes to \p SrcBuffer have completed before
+/// this conversion reads it.
 void recordLinAlgMatrixConversion(
     ID3D12GraphicsCommandList *List, ID3D12Resource *SrcBuffer, UINT SrcSize,
     ID3D12Resource *DestBuffer, UINT DestSize, UINT NumRows, UINT NumColumns,
