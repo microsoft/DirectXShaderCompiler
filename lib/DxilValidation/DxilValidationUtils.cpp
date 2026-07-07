@@ -11,6 +11,7 @@
 
 #include "DxilValidationUtils.h"
 
+#include <limits>
 #include <optional>
 
 #include "dxc/DXIL/DxilEntryProps.h"
@@ -63,13 +64,15 @@ TryAddLinAlgTargetType(MDTuple *MDT,
     ConstantInt *CI = dyn_cast<ConstantInt>(ConstMDI->getValue());
     if (!CI)
       return;
-    Ints[I] = CI->getLimitedValue();
+    Ints[I] = CI->getLimitedValue(std::numeric_limits<unsigned>::max());
   }
 
-  Map.try_emplace(
-      Ty, LinAlgTargetType{static_cast<DXIL::ComponentType>(Ints[0]), Ints[1],
-                           Ints[2], static_cast<DXIL::MatrixUse>(Ints[3]),
-                           static_cast<DXIL::MatrixScope>(Ints[4])});
+  Map.try_emplace(Ty,
+                  LinAlgTargetType{static_cast<DXIL::ComponentType>(Ints[0]),
+                                   static_cast<unsigned>(Ints[1]),
+                                   static_cast<unsigned>(Ints[2]),
+                                   static_cast<DXIL::MatrixUse>(Ints[3]),
+                                   static_cast<DXIL::MatrixScope>(Ints[4])});
 }
 
 ValidationContext::ValidationContext(Module &llvmModule, Module *DebugModule,
