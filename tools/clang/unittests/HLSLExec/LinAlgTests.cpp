@@ -1321,7 +1321,7 @@ void DxilConf_SM610_LinAlg::MatVecMulAdd_Thread_16x16_F16() {
 
 // Map a DXIL ComponentType to the D3D12 linear-algebra datatype used by the
 // host-side matrix conversion API.
-#if HLSL_EXEC_LINALG_HOST_CONVERSION_AVAILABLE
+#if defined(DIRECT3D_LINEAR_ALGEBRA)
 static D3D12_LINEAR_ALGEBRA_DATATYPE toLinAlgDataType(ComponentType CT) {
   switch (CT) {
   case ComponentType::F16:
@@ -1439,10 +1439,10 @@ static void runOuterProduct(ID3D12Device *Device,
   VERIFY_IS_TRUE(verifyComponentBuffer(Params.CompType, OutData.data(),
                                        Expected, NumMatElements, Verbose));
 }
-#endif // HLSL_EXEC_LINALG_HOST_CONVERSION_AVAILABLE
+#endif // defined(DIRECT3D_LINEAR_ALGEBRA)
 
 void DxilConf_SM610_LinAlg::OuterProduct_Thread_16x16_F16() {
-#if HLSL_EXEC_LINALG_HOST_CONVERSION_AVAILABLE
+#if defined(DIRECT3D_LINEAR_ALGEBRA)
   MatrixParams Params = {};
   Params.CompType = ComponentType::F16;
   Params.M = 16;
@@ -1459,7 +1459,7 @@ void DxilConf_SM610_LinAlg::OuterProduct_Thread_16x16_F16() {
       L"(DIRECT3D_LINEAR_ALGEBRA undefined); the host-side conversion helpers "
       L"are compiled out.");
   WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
-#endif // HLSL_EXEC_LINALG_HOST_CONVERSION_AVAILABLE
+#endif // defined(DIRECT3D_LINEAR_ALGEBRA)
 }
 
 static const char QueryAccumLayoutShader[] = R"(

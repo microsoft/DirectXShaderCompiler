@@ -110,16 +110,11 @@ void compileShader(dxc::SpecificDllLoader &DxcSupport, const char *Source,
 
 // Host-side linear-algebra matrix-conversion helpers. These need the D3D12
 // linear-algebra API (the D3D12_LINEAR_ALGEBRA_* types and the conversion
-// methods on ID3D12DevicePreview / ID3D12GraphicsCommandListPreview). When
+// methods on ID3D12DevicePreview / ID3D12GraphicsCommandListPreview), which is
+// gated behind the preview SDK's DIRECT3D_LINEAR_ALGEBRA feature macro. When
 // absent, these helpers and the tests using them are compiled out (they Skip at
 // runtime).
 #if defined(DIRECT3D_LINEAR_ALGEBRA)
-#define HLSL_EXEC_LINALG_HOST_CONVERSION_AVAILABLE 1
-#else
-#define HLSL_EXEC_LINALG_HOST_CONVERSION_AVAILABLE 0
-#endif
-
-#if HLSL_EXEC_LINALG_HOST_CONVERSION_AVAILABLE
 /// Query the number of bytes required to store an NumRows x NumColumns matrix
 /// of the given datatype in the specified device layout.
 UINT getLinAlgMatrixByteSize(ID3D12Device *Device, UINT NumRows,
@@ -142,6 +137,6 @@ void recordLinAlgMatrixConversion(
     D3D12_LINEAR_ALGEBRA_DATATYPE DataType,
     D3D12_LINEAR_ALGEBRA_MATRIX_LAYOUT SrcLayout, UINT SrcStride,
     D3D12_LINEAR_ALGEBRA_MATRIX_LAYOUT DestLayout, UINT DestStride);
-#endif // HLSL_EXEC_LINALG_HOST_CONVERSION_AVAILABLE
+#endif // defined(DIRECT3D_LINEAR_ALGEBRA)
 
 #endif // HLSLEXECTESTUTILS_H

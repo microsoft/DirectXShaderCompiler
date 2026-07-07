@@ -800,7 +800,7 @@ void compileShader(dxc::SpecificDllLoader &DxcSupport, const char *Source,
   }
 }
 
-#if HLSL_EXEC_LINALG_HOST_CONVERSION_AVAILABLE
+#if defined(DIRECT3D_LINEAR_ALGEBRA)
 UINT getLinAlgMatrixByteSize(ID3D12Device *Device, UINT NumRows,
                              UINT NumColumns,
                              D3D12_LINEAR_ALGEBRA_DATATYPE DataType,
@@ -858,4 +858,4 @@ void recordLinAlgMatrixConversion(
   Info.DataDesc.SrcVA = SrcBuffer->GetGPUVirtualAddress();
   PreviewList->ConvertLinearAlgebraMatrix(&Info, 1);
 }
-#endif // HLSL_EXEC_LINALG_HOST_CONVERSION_AVAILABLE
+#endif // defined(DIRECT3D_LINEAR_ALGEBRA)
