@@ -8636,6 +8636,10 @@ class db_dxil(object):
             "Instr.ReorderCoherentRequiresSM69",
             "reordercoherent requires SM 6.9 or later.",
         )
+        self.add_valrule(
+            "Instr.LinAlgIllegalKDim",
+            "Matrix K Dimension out of bounds. K=%0 must be >= %1 and <= %2.",
+        )
 
         # Some legacy rules:
         # - space is only supported for shader targets 5.1 and higher

@@ -1,22 +1,36 @@
 ; REQUIRES: dxil-1-10
 ; RUN: not %dxv %s 2>&1 | FileCheck %s
 
-; CHECK: Function:  MainGS: error: Opcode LinAlgMatrixMultiply not valid in shader model gs_6_10.
-; CHECK: Function:  MainGS: error: Opcode LinAlgMatrixAccumulate not valid in shader model gs_6_10.
-; CHECK: Function:  MainGS: error: Opcode LinAlgMatrixStoreToDescriptor not valid in shader model gs_6_10.
-; CHECK: Function:  MainGS: error: Opcode LinAlgMatrixLength not valid in shader model gs_6_10.
-; CHECK: Function:  MainGS: error: Opcode LinAlgCopyConvertMatrix not valid in shader model gs_6_10.
-; CHECK: Function:  MainGS: error: Opcode LinAlgFillMatrix not valid in shader model gs_6_10.
-; CHECK: Function:  MainGS: error: Opcode LinAlgMatrixGetCoordinate not valid in shader model gs_6_10.
-; CHECK: Function:  MainGS: error: Opcode LinAlgMatrixGetElement not valid in shader model gs_6_10.
-; CHECK: Function:  MainGS: error: Opcode LinAlgMatrixMultiplyAccumulate not valid in shader model gs_6_10.
-; CHECK: Function:  MainGS: error: Opcode LinAlgMatrixSetElement not valid in shader model gs_6_10.
-; CHECK: Function:  MainGS: error: Opcode LinAlgMatrixStoreToMemory not valid in shader model gs_6_10.
-; CHECK: Function:  MainGS: error: Opcode LinAlgMatrixAccumulateToMemory not valid in shader model gs_6_10.
-; CHECK: Function:  MainGS: error: Opcode LinAlgMatrixLoadFromMemory not valid in shader model gs_6_10.
-; CHECK: Function:  MainGS: error: Entry function performs some operation that is incompatible with the shader stage or other entry properties.  See other errors for details.
-; CHECK: Function:  MainGS: error: Function uses features incompatible with the shader stage (gs) of the entry function.
-; CHECK: Validation failed.
+; CHECK: Function: MainGS: error: Opcode LinAlgMatrixMultiply not valid in shader model gs_6_10.
+; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixMultiply
+; CHECK-NEXT: Function: MainGS: error: Opcode LinAlgMatrixAccumulate not valid in shader model gs_6_10.
+; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixAccumulate
+; CHECK-NEXT: Function: MainGS: error: Opcode LinAlgMatrixStoreToDescriptor not valid in shader model gs_6_10.
+; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixStoreToDescriptor
+; CHECK-NEXT: Function: MainGS: error: Opcode LinAlgMatrixLength not valid in shader model gs_6_10.
+; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixLength
+; CHECK-NEXT: Function: MainGS: error: Opcode LinAlgCopyConvertMatrix not valid in shader model gs_6_10.
+; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgCopyConvertMatrix
+; CHECK-NEXT: Function: MainGS: error: Opcode LinAlgFillMatrix not valid in shader model gs_6_10.
+; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgFillMatrix
+; CHECK-NEXT: Function: MainGS: error: Opcode LinAlgMatrixGetCoordinate not valid in shader model gs_6_10.
+; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixGetCoordinate
+; CHECK-NEXT: Function: MainGS: error: Opcode LinAlgMatrixGetElement not valid in shader model gs_6_10.
+; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixGetElement
+; CHECK-NEXT: Function: MainGS: error: Opcode LinAlgMatrixMultiplyAccumulate not valid in shader model gs_6_10.
+; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixMultiplyAccumulate
+; CHECK-NEXT: Function: MainGS: error: Opcode LinAlgMatrixSetElement not valid in shader model gs_6_10.
+; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixSetElement
+; CHECK-NEXT: Function: MainGS: error: Opcode LinAlgMatrixStoreToMemory not valid in shader model gs_6_10.
+; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixStoreToMemory
+; CHECK-NEXT: Function: MainGS: error: Opcode LinAlgMatrixAccumulateToMemory not valid in shader model gs_6_10.
+; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixAccumulateToMemory
+; CHECK-NEXT: Function: MainGS: error: Opcode LinAlgMatrixLoadFromMemory not valid in shader model gs_6_10.
+; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixLoadFromMemory
+; CHECK-NEXT: Function: MainGS: error: Entry function performs some operation that is incompatible with the shader stage or other entry properties.  See other errors for details.
+; CHECK-NEXT: Function: MainGS: error: Function uses features incompatible with the shader stage (gs) of the entry function.
+; CHECK-NEXT: Function: MainGS: error: Function requires a visible group, but is called from a shader without one.
+; CHECK-NEXT: Validation failed.
 
 
 target datalayout = "e-m:e-p:32:32-i1:32-i8:32-i16:32-i32:32-i64:64-f16:32-f32:32-f64:64-n8:16:32:64"
@@ -41,14 +55,17 @@ define void @MainGS() {
   ; Built-ins allowed in all stages
   ;
 
+  %mC4M5N4U0S2 = call %dx.types.LinAlgMatrixC4M5N4U0S2 @dx.op.linAlgMatrixLoadFromDescriptor.mC4M5N4U0S2(i32 -2147483634, %dx.types.Handle %handle, i32 0, i32 0, i32 0, i32 0)
+  %mC4M4N5U1S2 = call %dx.types.LinAlgMatrixC4M4N5U1S2 @dx.op.linAlgMatrixLoadFromDescriptor.mC4M4N5U1S2(i32 -2147483634, %dx.types.Handle %handle, i32 0, i32 0, i32 0, i32 0)
+
   ; dx.op.linAlgMatrixAccumulate
-  %v1 = call %dx.types.LinAlgMatrixC4M5N4U2S2 @dx.op.linAlgMatrixAccumulate.mC4M5N4U2S2.mC4M5N4U0S2.mC4M4N5U1S2(i32 -2147483624, %dx.types.LinAlgMatrixC4M5N4U0S2 undef, %dx.types.LinAlgMatrixC4M4N5U1S2 undef)  ; LinAlgMatrixAccumulate(matrixLHS,matrixRHS)
+  %v1 = call %dx.types.LinAlgMatrixC4M5N4U2S2 @dx.op.linAlgMatrixAccumulate.mC4M5N4U2S2.mC4M5N4U0S2.mC4M4N5U1S2(i32 -2147483624, %dx.types.LinAlgMatrixC4M5N4U0S2 %mC4M5N4U0S2, %dx.types.LinAlgMatrixC4M4N5U1S2 %mC4M4N5U1S2)  ; LinAlgMatrixAccumulate(matrixLHS,matrixRHS)
 
   ; dx.op.linAlgMatrixAccumulateToDescriptor
-  call void @dx.op.linAlgMatrixAccumulateToDescriptor.mC4M5N4U0S2(i32 -2147483621, %dx.types.LinAlgMatrixC4M5N4U0S2 undef, %dx.types.Handle %handle, i32 1, i32 2, i32 3, i32 4)  ; LinAlgMatrixAccumulateToDescriptor(matrix,handle,offset,stride,layout,align)
+  call void @dx.op.linAlgMatrixAccumulateToDescriptor.mC4M5N4U0S2(i32 -2147483621, %dx.types.LinAlgMatrixC4M5N4U0S2 %mC4M5N4U0S2, %dx.types.Handle %handle, i32 1, i32 2, i32 3, i32 4)  ; LinAlgMatrixAccumulateToDescriptor(matrix,handle,offset,stride,layout,align)
 
   ; dx.op.linAlgMatrixLength
-  %v2 = call i32 @dx.op.linAlgMatrixLength.mC4M5N4U0S2(i32 -2147483632, %dx.types.LinAlgMatrixC4M5N4U0S2 undef)  ; LinAlgMatrixLength(matrix)
+  %v2 = call i32 @dx.op.linAlgMatrixLength.mC4M5N4U0S2(i32 -2147483632, %dx.types.LinAlgMatrixC4M5N4U0S2 %mC4M5N4U0S2)  ; LinAlgMatrixLength(matrix)
 
   ; dx.op.linAlgMatrixLoadFromDescriptor
   %v3 = call %dx.types.LinAlgMatrixC4M5N4U0S2 @dx.op.linAlgMatrixLoadFromDescriptor.mC4M5N4U0S2(i32 -2147483634, %dx.types.Handle %handle, i32 5, i32 5, i32 5, i32 4)  ; LinAlgMatrixLoadFromDescriptor(handle,offset,stride,layout,align)
@@ -135,6 +152,9 @@ declare i32 @dx.op.linAlgMatrixLength.mC4M5N4U0S2(i32, %dx.types.LinAlgMatrixC4M
 
 ; Function Attrs: nounwind
 declare %dx.types.LinAlgMatrixC4M5N4U0S2 @dx.op.linAlgMatrixLoadFromDescriptor.mC4M5N4U0S2(i32, %dx.types.Handle, i32, i32, i32, i32) #0
+
+; Function Attrs: nounwind
+declare %dx.types.LinAlgMatrixC4M4N5U1S2 @dx.op.linAlgMatrixLoadFromDescriptor.mC4M4N5U1S2(i32, %dx.types.Handle, i32, i32, i32, i32) #0
 
 ; Function Attrs: nounwind
 declare %dx.types.LinAlgMatrixC4M5N4U0S2 @dx.op.linAlgMatrixOuterProduct.mC4M5N4U0S2.v4i32.v4i32(i32, <4 x i32>, <4 x i32>) #0

@@ -3209,6 +3209,7 @@ INSTR.ILLEGALDXILOPCODE                               DXILOpCode must be valid o
 INSTR.ILLEGALDXILOPFUNCTION                           '%0' is not a DXILOpFuncition for DXILOpcode '%1'.
 INSTR.IMMBIASFORSAMPLEB                               bias amount for sample_b must be in the range [%0,%1], but %2 was specified as an immediate.
 INSTR.INBOUNDSACCESS                                  Access to out-of-bounds memory is disallowed.
+INSTR.LINALGILLEGALKDIM                               Matrix K Dimension out of bounds. K=%0 must be >= %1 and <= %2.
 INSTR.MAYREORDERTHREADUNDEFCOHERENCEHINTPARAM         Use of undef coherence hint or num coherence hint bits in MaybeReorderThread.
 INSTR.MINPRECISIONNOTPRECISE                          Instructions marked precise may not refer to minprecision values.
 INSTR.MINPRECISONBITCAST                              Bitcast on minprecison types is not allowed.

@@ -25,14 +25,17 @@ define void @mainCS() {
   ; Built-ins allowed in all stages
   ;
 
+  %mC4M5N4U0S2 = call %dx.types.LinAlgMatrixC4M5N4U0S2 @dx.op.linAlgMatrixLoadFromDescriptor.mC4M5N4U0S2(i32 -2147483634, %dx.types.Handle %handle, i32 0, i32 0, i32 0, i32 0)
+  %mC4M4N5U1S2 = call %dx.types.LinAlgMatrixC4M4N5U1S2 @dx.op.linAlgMatrixLoadFromDescriptor.mC4M4N5U1S2(i32 -2147483634, %dx.types.Handle %handle, i32 0, i32 0, i32 0, i32 0)
+
   ; dx.op.linAlgMatrixAccumulate
-  %v1 = call %dx.types.LinAlgMatrixC4M5N4U2S2 @dx.op.linAlgMatrixAccumulate.mC4M5N4U2S2.mC4M5N4U0S2.mC4M4N5U1S2(i32 -2147483624, %dx.types.LinAlgMatrixC4M5N4U0S2 undef, %dx.types.LinAlgMatrixC4M4N5U1S2 undef)  ; LinAlgMatrixAccumulate(matrixLHS,matrixRHS)
+  %v1 = call %dx.types.LinAlgMatrixC4M5N4U2S2 @dx.op.linAlgMatrixAccumulate.mC4M5N4U2S2.mC4M5N4U0S2.mC4M4N5U1S2(i32 -2147483624, %dx.types.LinAlgMatrixC4M5N4U0S2 %mC4M5N4U0S2, %dx.types.LinAlgMatrixC4M4N5U1S2 %mC4M4N5U1S2)  ; LinAlgMatrixAccumulate(matrixLHS,matrixRHS)
 
   ; dx.op.linAlgMatrixAccumulateToDescriptor
-  call void @dx.op.linAlgMatrixAccumulateToDescriptor.mC4M5N4U0S2(i32 -2147483621, %dx.types.LinAlgMatrixC4M5N4U0S2 undef, %dx.types.Handle %handle, i32 1, i32 2, i32 3, i32 4)  ; LinAlgMatrixAccumulateToDescriptor(matrix,handle,offset,stride,layout,align)
+  call void @dx.op.linAlgMatrixAccumulateToDescriptor.mC4M5N4U0S2(i32 -2147483621, %dx.types.LinAlgMatrixC4M5N4U0S2 %mC4M5N4U0S2, %dx.types.Handle %handle, i32 1, i32 2, i32 3, i32 4)  ; LinAlgMatrixAccumulateToDescriptor(matrix,handle,offset,stride,layout,align)
 
   ; dx.op.linAlgMatrixLength
-  %v2 = call i32 @dx.op.linAlgMatrixLength.mC4M5N4U0S2(i32 -2147483632, %dx.types.LinAlgMatrixC4M5N4U0S2 undef)  ; LinAlgMatrixLength(matrix)
+  %v2 = call i32 @dx.op.linAlgMatrixLength.mC4M5N4U0S2(i32 -2147483632, %dx.types.LinAlgMatrixC4M5N4U0S2 %mC4M5N4U0S2)  ; LinAlgMatrixLength(matrix)
 
   ; dx.op.linAlgMatrixLoadFromDescriptor
   %v3 = call %dx.types.LinAlgMatrixC4M5N4U0S2 @dx.op.linAlgMatrixLoadFromDescriptor.mC4M5N4U0S2(i32 -2147483634, %dx.types.Handle %handle, i32 5, i32 5, i32 5, i32 4)  ; LinAlgMatrixLoadFromDescriptor(handle,offset,stride,layout,align)
@@ -112,6 +115,9 @@ declare i32 @dx.op.linAlgMatrixLength.mC4M5N4U0S2(i32, %dx.types.LinAlgMatrixC4M
 
 ; Function Attrs: nounwind
 declare %dx.types.LinAlgMatrixC4M5N4U0S2 @dx.op.linAlgMatrixLoadFromDescriptor.mC4M5N4U0S2(i32, %dx.types.Handle, i32, i32, i32, i32) #0
+
+; Function Attrs: nounwind
+declare %dx.types.LinAlgMatrixC4M4N5U1S2 @dx.op.linAlgMatrixLoadFromDescriptor.mC4M4N5U1S2(i32, %dx.types.Handle, i32, i32, i32, i32) #0
 
 ; Function Attrs: nounwind
 declare %dx.types.LinAlgMatrixC4M5N4U0S2 @dx.op.linAlgMatrixOuterProduct.mC4M5N4U0S2.v4i32.v4i32(i32, <4 x i32>, <4 x i32>) #0

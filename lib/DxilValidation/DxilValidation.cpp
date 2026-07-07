@@ -974,6 +974,58 @@ static void ValidateImmOperandForMathDxilOp(CallInst *CI, DXIL::OpCode Opcode,
   }
 }
 
+static void ValidateLinAlgOpParameters(CallInst *CI,
+                                       ValidationContext &ValCtx) {
+  for (uint32_t Idx = 0; Idx < CI->getNumArgOperands(); ++Idx) {
+    Value *Arg = CI->getArgOperand(Idx);
+    Type *Ty = Arg->getType();
+
+    // No parameters may be undef
+    if (isa<UndefValue>(Arg))
+      ValCtx.EmitInstrError(CI, ValidationRule::InstrNoReadingUninitialized);
+
+    // If we have a LinAlg Matrix, validate that we have correct metadata.
+    if (!dxilutil::IsHLSLLinAlgMatrixType(Ty))
+      continue;
+    if (ValCtx.LinAlgTargetTypeMap.find(Ty) ==
+        ValCtx.LinAlgTargetTypeMap.end()) {
+      ValCtx.EmitInstrError(CI, ValidationRule::MetaWellFormed);
+      continue;
+    }
+  }
+}
+
+static void ValidateLinAlgOpReturnMatrix(CallInst *CI,
+                                         ValidationContext &ValCtx) {
+  Type *Ty = CI->getType();
+  assert(dxilutil::IsHLSLLinAlgMatrixType(Ty) && "CI must return a matrix");
+
+  // Metadata is malformed if we don't have metadata
+  auto it = ValCtx.LinAlgTargetTypeMap.find(Ty);
+  if (it == ValCtx.LinAlgTargetTypeMap.end()) {
+    ValCtx.EmitInstrError(CI, ValidationRule::MetaWellFormed);
+    return;
+  }
+
+  LinAlgTargetType LATT = it->second;
+
+  // Validate the K dim is in bounds. Which dim is K depends on use.
+  // This validation isn't applied to an accumulator matrix
+  if (LATT.Use != DXIL::MatrixUse::Accumulator) {
+    unsigned MinK = DXIL::kLinAlgMatrixMinK;
+    unsigned K = (LATT.Use == DXIL::MatrixUse::A) ? LATT.N : LATT.M;
+    unsigned MaxK = DXIL::kLinAlgMatrixMaxK;
+    if (LATT.Scope == DXIL::MatrixScope::ThreadGroup) {
+      MinK = DXIL::kLinAlgThreadGroupMatrixMinK;
+      MaxK = DXIL::kLinAlgThreadGroupMatrixMaxK;
+    }
+    if (K < MinK || K > MaxK)
+      ValCtx.EmitInstrFormatError(
+          CI, ValidationRule::InstrLinAlgIllegalKDim,
+          {std::to_string(K), std::to_string(MinK), std::to_string(MaxK)});
+  }
+}
+
 // Validate the type-defined mask compared to the store value mask which
 // indicates which parts were defined returns true if caller should continue
 // validation
@@ -1713,7 +1765,7 @@ static void ValidateDxilOperationCallInProfile(CallInst *CI,
       ShaderKind = DXIL::ShaderKind::Hull;
   }
 
-  // These shader models are treted like compute
+  // These shader models are treated like compute
   bool IsCSLike = ShaderKind == DXIL::ShaderKind::Compute ||
                   ShaderKind == DXIL::ShaderKind::Mesh ||
                   ShaderKind == DXIL::ShaderKind::Amplification ||
@@ -2177,6 +2229,36 @@ static void ValidateDxilOperationCallInProfile(CallInst *CI,
       ValCtx.EmitInstrFormatError(CI, ValidationRule::SmIsSpecialFloat, {});
     break;
   }
+
+  // LinAlg Operations
+  case DXIL::OpCode::LinAlgMatrixLength:
+  case DXIL::OpCode::LinAlgMatrixGetCoordinate:
+  case DXIL::OpCode::LinAlgMatrixGetElement:
+  case DXIL::OpCode::LinAlgMatrixStoreToDescriptor:
+  case DXIL::OpCode::LinAlgMatrixStoreToMemory:
+  case DXIL::OpCode::LinAlgMatVecMul:
+  case DXIL::OpCode::LinAlgMatVecMulAdd:
+  case DXIL::OpCode::LinAlgMatrixAccumulateToDescriptor:
+  case DXIL::OpCode::LinAlgMatrixAccumulateToMemory:
+  case DXIL::OpCode::LinAlgConvert:
+  case DXIL::OpCode::LinAlgVectorAccumulateToDescriptor: {
+    ValidateLinAlgOpParameters(CI, ValCtx);
+    break;
+  }
+  case DXIL::OpCode::LinAlgFillMatrix:
+  case DXIL::OpCode::LinAlgCopyConvertMatrix:
+  case DXIL::OpCode::LinAlgMatrixLoadFromDescriptor:
+  case DXIL::OpCode::LinAlgMatrixLoadFromMemory:
+  case DXIL::OpCode::LinAlgMatrixSetElement:
+  case DXIL::OpCode::LinAlgMatrixMultiply:
+  case DXIL::OpCode::LinAlgMatrixAccumulate:
+  case DXIL::OpCode::LinAlgMatrixMultiplyAccumulate:
+  case DXIL::OpCode::LinAlgMatrixOuterProduct: {
+    ValidateLinAlgOpReturnMatrix(CI, ValCtx);
+    ValidateLinAlgOpParameters(CI, ValCtx);
+    break;
+  }
+
   default:
     // TODO: make sure every Opcode is checked.
     // Skip opcodes don't need special check.

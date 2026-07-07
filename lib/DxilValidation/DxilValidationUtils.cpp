@@ -11,6 +11,9 @@
 
 #include "DxilValidationUtils.h"
 
+#include <limits>
+#include <optional>
+
 #include "dxc/DXIL/DxilEntryProps.h"
 #include "dxc/DXIL/DxilInstructions.h"
 #include "dxc/DXIL/DxilModule.h"
@@ -37,6 +40,39 @@ EntryStatus::EntryStatus(DxilEntryProps &entryProps)
   outputCols.resize(entryProps.sig.OutputSignature.GetElements().size(), 0);
   patchConstOrPrimCols.resize(
       entryProps.sig.PatchConstOrPrimSignature.GetElements().size(), 0);
+}
+
+static void
+TryAddLinAlgTargetType(MDTuple *MDT,
+                       std::unordered_map<Type *, LinAlgTargetType> &Map) {
+  if (!MDT || MDT->getNumOperands() != 6)
+    return;
+
+  ConstantAsMetadata *ConstMD0 =
+      dyn_cast<ConstantAsMetadata>(MDT->getOperand(0).get());
+  if (!ConstMD0)
+    return;
+
+  Type *Ty = ConstMD0->getValue()->getType();
+  uint64_t Ints[5];
+
+  for (size_t I = 0; I < 5; ++I) {
+    ConstantAsMetadata *ConstMDI =
+        dyn_cast<ConstantAsMetadata>(MDT->getOperand(I + 1).get());
+    if (!ConstMDI)
+      return;
+    ConstantInt *CI = dyn_cast<ConstantInt>(ConstMDI->getValue());
+    if (!CI)
+      return;
+    Ints[I] = CI->getLimitedValue(std::numeric_limits<unsigned>::max());
+  }
+
+  Map.try_emplace(Ty,
+                  LinAlgTargetType{static_cast<DXIL::ComponentType>(Ints[0]),
+                                   static_cast<unsigned>(Ints[1]),
+                                   static_cast<unsigned>(Ints[2]),
+                                   static_cast<DXIL::MatrixUse>(Ints[3]),
+                                   static_cast<DXIL::MatrixScope>(Ints[4])});
 }
 
 ValidationContext::ValidationContext(Module &llvmModule, Module *DebugModule,
@@ -87,6 +123,16 @@ ValidationContext::ValidationContext(Module &llvmModule, Module *DebugModule,
     if (props.IsHS()) {
       PatchConstantFuncMap[props.ShaderProps.HS.patchConstantFunc].emplace_back(
           Entry);
+    }
+  }
+
+  // Capture the TargetTypes metadata in the validation context
+  // if it is present and valid.
+  NamedMDNode *NMD = M.getNamedMetadata("dx.targetTypes");
+  if (NMD) {
+    for (llvm::MDNode *MDN : NMD->operands()) {
+      MDTuple *MDT = dyn_cast<MDTuple>(MDN);
+      TryAddLinAlgTargetType(MDT, LinAlgTargetTypeMap);
     }
   }
 }
