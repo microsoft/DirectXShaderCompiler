@@ -96,11 +96,11 @@ void addSRVBuffer(st::ShaderOp *Op, const char *Name, UINT64 Width,
 void addRootView(st::ShaderOp *Op, UINT Index, const char *ResName);
 
 /// Run a programmatically-built ShaderOp and return the result.
-std::shared_ptr<st::ShaderOpTestResult>
-runShaderOp(ID3D12Device *Device, dxc::SpecificDllLoader &DxcSupport,
-            std::unique_ptr<st::ShaderOp> Op,
-            st::ShaderOpTest::TInitCallbackFn InitCallback = nullptr,
-            st::ShaderOpTest::TCommandCallbackFn PostExecuteCallback = nullptr);
+std::shared_ptr<st::ShaderOpTestResult> runShaderOp(
+    ID3D12Device *Device, dxc::SpecificDllLoader &DxcSupport,
+    std::unique_ptr<st::ShaderOp> Op,
+    st::ShaderOpTest::TInitCallbackFn InitCallback = nullptr,
+    st::ShaderOpTest::TCommandCallbackFn PostDispatchCallback = nullptr);
 
 /// Compiles an HLSL shader using the DXC API to verify it is well-formed.
 /// Fails the test on compile error.

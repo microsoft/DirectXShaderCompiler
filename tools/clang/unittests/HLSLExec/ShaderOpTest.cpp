@@ -958,6 +958,8 @@ void ShaderOpTest::RunCommandList() {
     SetRootValues(pList, m_pShaderOp->IsCompute());
     pList->Dispatch(m_pShaderOp->DispatchX, m_pShaderOp->DispatchY,
                     m_pShaderOp->DispatchZ);
+    if (m_PostDispatchCallbackFn)
+      m_PostDispatchCallbackFn(pList, this);
   } else {
     pList->SetPipelineState(m_pPSO);
     SetDescriptorHeaps(pList, m_DescriptorHeaps);
@@ -1066,27 +1068,6 @@ void ShaderOpTest::RunCommandList() {
   WaitForSignal(m_CommandList.Queue, m_pFence, m_hFence, m_FenceValue++);
 }
 
-// Runs the post-execute callback on a dedicated DIRECT command list that is
-// submitted after the compute/graphics command list has completed. This lets
-// the callback record DIRECT-only commands (e.g. ConvertLinearAlgebraMatrix)
-// while the shader itself still runs on its native (compute) queue. The
-// fence wait at the end of RunCommandList orders the two submissions.
-void ShaderOpTest::RunPostExecuteCommandList() {
-  if (!m_PostExecuteCallbackFn)
-    return;
-
-  CommandListRefs DirectCommandList;
-  DirectCommandList.CreateForDevice(m_pDevice, /*compute=*/false);
-  ID3D12GraphicsCommandList *pList = DirectCommandList.List;
-  pList->SetName(L"ShaderOpTest PostExecute CommandList");
-
-  m_PostExecuteCallbackFn(pList, this);
-
-  CHECK_HR(pList->Close());
-  ExecuteCommandList(DirectCommandList.Queue, pList);
-  WaitForSignal(DirectCommandList.Queue, m_pFence, m_hFence, m_FenceValue++);
-}
-
 void ShaderOpTest::RunShaderOp(ShaderOp *pShaderOp) {
   m_pShaderOp = pShaderOp;
 
@@ -1096,7 +1077,6 @@ void ShaderOpTest::RunShaderOp(ShaderOp *pShaderOp) {
   CreatePipelineState();
   CreateCommandList();
   RunCommandList();
-  RunPostExecuteCommandList();
   CopyBackResources();
 }
 
@@ -1179,9 +1159,9 @@ void ShaderOpTest::SetInitCallback(TInitCallbackFn InitCallbackFn) {
 void ShaderOpTest::SetShaderCallback(TShaderCallbackFn ShaderCallbackFn) {
   m_ShaderCallbackFn = ShaderCallbackFn;
 }
-void ShaderOpTest::SetPostExecuteCallback(
-    TCommandCallbackFn PostExecuteCallbackFn) {
-  m_PostExecuteCallbackFn = PostExecuteCallbackFn;
+void ShaderOpTest::SetPostDispatchCallback(
+    TCommandCallbackFn PostDispatchCallbackFn) {
+  m_PostDispatchCallbackFn = PostDispatchCallbackFn;
 }
 
 void ShaderOpTest::SetupRenderTarget(ShaderOp *pShaderOp, ID3D12Device *pDevice,
@@ -2787,7 +2767,7 @@ std::shared_ptr<ShaderOpTestResult> RunShaderOpTestAfterParse(
     ID3D12Device *pDevice, dxc::SpecificDllLoader &support, LPCSTR pName,
     st::ShaderOpTest::TInitCallbackFn pInitCallback,
     st::ShaderOpTest::TShaderCallbackFn pShaderCallback,
-    st::ShaderOpTest::TCommandCallbackFn pPostExecuteCallback,
+    st::ShaderOpTest::TCommandCallbackFn pPostDispatchCallback,
     std::shared_ptr<st::ShaderOpSet> ShaderOpSet) {
   st::ShaderOp *pShaderOp;
   if (pName == nullptr) {
@@ -2819,7 +2799,7 @@ std::shared_ptr<ShaderOpTestResult> RunShaderOpTestAfterParse(
   test->SetSpecificDllLoader(&support);
   test->SetInitCallback(pInitCallback);
   test->SetShaderCallback(pShaderCallback);
-  test->SetPostExecuteCallback(pPostExecuteCallback);
+  test->SetPostDispatchCallback(pPostDispatchCallback);
   test->SetDevice(pDevice);
   test->RunShaderOp(pShaderOp);
 
