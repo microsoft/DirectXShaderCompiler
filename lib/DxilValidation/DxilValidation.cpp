@@ -1024,6 +1024,29 @@ static void ValidateLinAlgOpReturnMatrix(CallInst *CI,
           CI, ValidationRule::InstrLinAlgIllegalKDim,
           {std::to_string(K), std::to_string(MinK), std::to_string(MaxK)});
   }
+
+  // Validate the ComponentType is allowed
+  switch (LATT.Type) {
+  case DXIL::ComponentType::I8:
+  case DXIL::ComponentType::I16:
+  case DXIL::ComponentType::I32:
+  case DXIL::ComponentType::I64:
+  case DXIL::ComponentType::U8:
+  case DXIL::ComponentType::U16:
+  case DXIL::ComponentType::U32:
+  case DXIL::ComponentType::U64:
+  case DXIL::ComponentType::F8_E4M3FN:
+  case DXIL::ComponentType::F8_E5M2:
+  case DXIL::ComponentType::F16:
+  case DXIL::ComponentType::F32:
+  case DXIL::ComponentType::F64:
+    break;
+  default:
+    ValCtx.EmitInstrFormatError(CI,
+                                ValidationRule::InstrLinAlgIllegalComponentType,
+                                {ComponentTypeToString(LATT.Type)});
+    break;
+  }
 }
 
 // Validate the type-defined mask compared to the store value mask which

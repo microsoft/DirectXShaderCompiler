@@ -155,4 +155,6 @@ struct ValidationContext {
 };
 
 uint32_t ValidateDxilModule(llvm::Module *pModule, llvm::Module *pDebugModule);
+
+llvm::StringRef ComponentTypeToString(DXIL::ComponentType CT);
 } // namespace hlsl

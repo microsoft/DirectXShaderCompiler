@@ -616,4 +616,57 @@ void ValidationContext::EmitFnAttributeError(Function *F, StringRef Kind,
                     {F->getName(), Kind, Value});
 }
 
+llvm::StringRef ComponentTypeToString(DXIL::ComponentType CT) {
+  switch (CT) {
+  case DXIL::ComponentType::Invalid:
+    return "Invalid";
+  case DXIL::ComponentType::I1:
+    return "I1";
+  case DXIL::ComponentType::I16:
+    return "I16";
+  case DXIL::ComponentType::U16:
+    return "U16";
+  case DXIL::ComponentType::I32:
+    return "I32";
+  case DXIL::ComponentType::U32:
+    return "U32";
+  case DXIL::ComponentType::I64:
+    return "I64";
+  case DXIL::ComponentType::U64:
+    return "U64";
+  case DXIL::ComponentType::F16:
+    return "F16";
+  case DXIL::ComponentType::F32:
+    return "F32";
+  case DXIL::ComponentType::F64:
+    return "F64";
+  case DXIL::ComponentType::SNormF16:
+    return "SNormF16";
+  case DXIL::ComponentType::UNormF16:
+    return "UNormF16";
+  case DXIL::ComponentType::SNormF32:
+    return "SNormF32";
+  case DXIL::ComponentType::UNormF32:
+    return "UNormF32";
+  case DXIL::ComponentType::SNormF64:
+    return "SNormF64";
+  case DXIL::ComponentType::UNormF64:
+    return "UNormF64";
+  case DXIL::ComponentType::PackedS8x32:
+    return "PackedS8x32";
+  case DXIL::ComponentType::PackedU8x32:
+    return "PackedU8x32";
+  case DXIL::ComponentType::I8:
+    return "I8";
+  case DXIL::ComponentType::U8:
+    return "U8";
+  case DXIL::ComponentType::F8_E4M3FN:
+    return "F8_E4M3FN";
+  case DXIL::ComponentType::F8_E5M2:
+    return "F8_E5M2";
+  default:
+    return "Unknown ComponentType";
+  }
+}
+
 } // namespace hlsl
