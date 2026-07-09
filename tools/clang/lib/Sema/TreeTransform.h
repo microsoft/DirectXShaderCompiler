@@ -9852,7 +9852,12 @@ TreeTransform<Derived>::TransformCXXDependentScopeMemberExpr(
   } else {
     OldBase = nullptr;
     BaseType = getDerived().TransformType(E->getBaseType());
-    ObjectType = BaseType->getPointeeType();
+    // HLSL Change - Begin
+    // In HLSL, 'this' is an lvalue reference so implicit member accesses use
+    // '.' (IsArrow=false) and the stored base type IS the object type, not a
+    // pointer to it.
+    ObjectType = E->isArrow() ? BaseType->getPointeeType() : BaseType;
+    // HLSL Change - End
   }
 
   // Transform the first part of the nested-name-specifier that qualifies

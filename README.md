@@ -1,26 +1,38 @@
 # DirectX Shader Compiler
 
-The DirectX Shader Compiler project includes a compiler and related tools used to compile High-Level Shader Language (HLSL) programs into DirectX Intermediate Language (DXIL) representation. Applications that make use of DirectX for graphics, games, and computation can use it to generate shader programs.
+The DirectX Shader Compiler project includes a compiler and related tools used to compile High-Level Shader Language (HLSL) programs into DirectX Intermediate Language (DXIL) for DirectX and the Standard Portable Intermediate Representation (SPIR-V) for Vulkan.
+
+Applications that make use of DirectX or Vulkan for graphics, games, and computation can use it to generate shader program binaries.
 
 For more information, see the [Wiki](https://github.com/microsoft/DirectXShaderCompiler/wiki).
 
-Visit the [DirectX Landing Page](https://devblogs.microsoft.com/directx/landing-page/) for more resources for DirectX developers.
+Visit the [DirectX Landing Page](https://devblogs.microsoft.com/directx/landing-page/) for more resources for DirectX developers, or the [Vulkan homepage](https://www.vulkan.org) for resources for Vulkan developers.
+
+## Pre-built binaries
+
+Officially supported binary release for the DirectX Shader Compiler are available:
+- On this repository's [Releases](https://github.com/microsoft/DirectXShaderCompiler/releases) page
+- as a [NuGet package](https://www.nuget.org/packages/Microsoft.Direct3D.DXC)
+- in the [Windows SDK](https://learn.microsoft.com/en-us/windows/apps/windows-sdk/downloads)(DXIL-only), and
+- in the [Vulkan SDK](https://www.lunarg.com/products/vulkan-sdk/)
 
 ## Features and Goals
 
-The starting point of the project is a fork of the [LLVM](http://llvm.org/) and [Clang](http://clang.llvm.org/) projects, modified to accept HLSL and emit a validated container that can be consumed by GPU drivers.
+The starting point of the project is a fork of the [LLVM](http://llvm.org/) and [Clang](http://clang.llvm.org/) projects, modified to accept HLSL and emit a validated shader binary that can be consumed by GPU drivers.
 
-At the moment, the DirectX HLSL Compiler provides the following components:
+At the moment, the DirectX Shader Compiler releases provide the following components:
 
 - dxc.exe, a command-line tool that can compile HLSL programs for shader model 6.0 or higher
 
-- dxcompiler.dll, a DLL providing a componentized compiler, assembler, disassembler, and validator
+- dxcompiler.\[dll|so\], a DLL providing a componentized compiler, assembler, disassembler, and validator
 
-- dxilconv.dll, a DLL providing a converter from DXBC (older shader bytecode format)
+- dxil.\[dll|so\], a DLL providing the DXIL validation and hashing support
 
-- dxv.exe, a command-line tool that validates DXIL IR (compiled HLSL programs). 
+- dxv.exe, a command-line tool that validates DXIL IR (compiled HLSL programs)
 
-- various other tools based on the above components
+- A collection of C++ headers for working with the contained dynamic libraries
+
+- A collection of HLSL headers exposing useful high level abstractions
 
 The Microsoft Windows SDK releases include a supported version of the compiler and validator.
 

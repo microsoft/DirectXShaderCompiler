@@ -840,7 +840,9 @@ bool Parser::ParseGreaterThanInTemplateList(SourceLocation &RAngleLoc,
       Hint2 = FixItHint::CreateInsertion(Next.getLocation(), " ");
 
     unsigned DiagId = diag::err_two_right_angle_brackets_need_space;
-    if (getLangOpts().CPlusPlus11 &&
+    if ((getLangOpts().CPlusPlus11 ||
+         (getLangOpts().HLSL &&
+          getLangOpts().HLSLVersion >= hlsl::LangStd::v202x)) &&
         (Tok.is(tok::greatergreater) || Tok.is(tok::greatergreatergreater)))
       DiagId = diag::warn_cxx98_compat_two_right_angle_brackets;
     else if (Tok.is(tok::greaterequal))

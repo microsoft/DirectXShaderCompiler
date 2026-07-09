@@ -13,6 +13,7 @@
 
 #include "TypeLocBuilder.h"
 #include "dxc/DXIL/DxilSemantic.h" // HLSL Change
+#include "dxc/HlslIntrinsicOp.h"   // HLSL Change
 #include "clang/AST/ASTConsumer.h"
 #include "clang/AST/ASTContext.h"
 #include "clang/AST/ASTLambda.h"
@@ -6417,6 +6418,21 @@ static bool checkForConflictWithNonVisibleExternC(Sema &S, const T *ND,
   return false;
 }
 
+static bool IsDynamicHeapInitializer(const Expr *Init, bool &IsSampler) {
+  if (!Init)
+    return false;
+  QualType T = Init->IgnoreParenImpCasts()->getType();
+  if (hlsl::IsHLSLDynamicSamplerType(T)) {
+    IsSampler = true;
+    return true;
+  }
+  if (hlsl::IsHLSLDynamicResourceType(T)) {
+    IsSampler = false;
+    return true;
+  }
+  return false;
+}
+
 void Sema::CheckVariableDeclarationType(VarDecl *NewVD) {
   // If the decl is already known invalid, don't check it.
   if (NewVD->isInvalidDecl())
@@ -9026,6 +9042,27 @@ void Sema::AddInitializerToDecl(Decl *RealDecl, Expr *Init,
       RealDecl->setInvalidDecl();
       return;
     }
+
+    if (getLangOpts().HLSL) {
+      bool IsSampler = false;
+      if (IsDynamicHeapInitializer(DeduceInit, IsSampler)) {
+        Diag(VDecl->getLocation(), diag::err_hlsl_auto_descriptor_heap)
+            << IsSampler;
+        VDecl->setInvalidDecl();
+        return;
+      }
+
+      // A dependent deduced type cannot be classified yet; defer the check to
+      // instantiation, when 'auto' is re-deduced to a concrete type.
+      if (!DeducedType->isDependentType() &&
+          !hlsl::IsTypeDeducibleWithAuto(*this, DeducedType)) {
+        Diag(VDecl->getLocation(), diag::err_hlsl_auto_undeducible_type)
+            << DeducedType;
+        VDecl->setInvalidDecl();
+        return;
+      }
+    }
+
     VDecl->setType(DeducedType);
     assert(VDecl->isLinkageValid());
 
@@ -9047,7 +9084,6 @@ void Sema::AddInitializerToDecl(Decl *RealDecl, Expr *Init,
 
     // If this is a redeclaration, check that the type we just deduced matches
     // the previously declared type.
-    assert(!getLangOpts().HLSL && "auto types are not supported - merge type below is inconsequential"); // HLSL Change
     if (VarDecl *Old = VDecl->getPreviousDecl()) {
       // We never need to merge the type, because we cannot form an incomplete
       // array of auto, nor deduce such a type.

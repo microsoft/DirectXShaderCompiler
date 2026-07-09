@@ -1849,6 +1849,13 @@ QualType Sema::BuildPointerType(QualType T,
     return QualType();
   }
 
+  // HLSL Change Begin - Disallow pointers.
+  if (getLangOpts().HLSL && Loc.isValid()) {
+    Diag(Loc, diag::err_hlsl_pointers_unsupported) << 0;
+    return QualType();
+  }
+  // HLSL Change End.
+
   if (checkQualifiedFunction(*this, T, Loc, QFK_Pointer))
     return QualType();
 
@@ -1910,6 +1917,13 @@ QualType Sema::BuildReferenceType(QualType T, bool SpelledAsLValue,
     Diag(Loc, diag::err_reference_to_void);
     return QualType();
   }
+
+  // HLSL Change Begin - Disallow references.
+  if (getLangOpts().HLSL && Loc.isValid()) {
+    Diag(Loc, diag::err_hlsl_pointers_unsupported) << 1;
+    return QualType();
+  }
+  // HLSL Change End.
 
   if (checkQualifiedFunction(*this, T, Loc, QFK_Reference))
     return QualType();
@@ -2312,6 +2326,13 @@ QualType Sema::BuildMemberPointerType(QualType T, QualType Class,
     Diag(Loc, diag::err_mempointer_in_nonclass_type) << Class;
     return QualType();
   }
+
+  // HLSL Change Begin - Disallow pointers.
+  if (getLangOpts().HLSL && Loc.isValid()) {
+    Diag(Loc, diag::err_hlsl_pointers_unsupported) << 0;
+    return QualType();
+  }
+  // HLSL Change End.
 
   // Adjust the default free function calling convention to the default method
   // calling convention.

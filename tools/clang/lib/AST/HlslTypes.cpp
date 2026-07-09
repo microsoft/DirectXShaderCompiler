@@ -544,18 +544,16 @@ bool IsHLSLNodeInputType(clang::QualType type) {
 }
 
 bool IsHLSLDynamicResourceType(clang::QualType type) {
-  if (const RecordType *RT = type->getAs<RecordType>()) {
-    StringRef name = RT->getDecl()->getName();
-    return name == ".Resource";
-  }
+  if (const HLSLDynamicResourceAttr *Attr =
+          getAttr<HLSLDynamicResourceAttr>(type))
+    return !Attr->getIsSampler();
   return false;
 }
 
 bool IsHLSLDynamicSamplerType(clang::QualType type) {
-  if (const RecordType *RT = type->getAs<RecordType>()) {
-    StringRef name = RT->getDecl()->getName();
-    return name == ".Sampler";
-  }
+  if (const HLSLDynamicResourceAttr *Attr =
+          getAttr<HLSLDynamicResourceAttr>(type))
+    return Attr->getIsSampler();
   return false;
 }
 
@@ -603,17 +601,6 @@ bool IsHLSLNodeOutputType(clang::QualType type) {
           (static_cast<uint32_t>(DXIL::NodeIOFlags::Output) |
            static_cast<uint32_t>(DXIL::NodeIOFlags::RecordGranularityMask))) ==
          static_cast<uint32_t>(DXIL::NodeIOFlags::Output);
-}
-
-bool IsHLSLNodeRecordArrayType(clang::QualType type) {
-  if (const RecordType *RT = type->getAs<RecordType>()) {
-    StringRef name = RT->getDecl()->getName();
-    if (name == "ThreadNodeOutputRecords" || name == "GroupNodeOutputRecords" ||
-        name == "GroupNodeInputRecords" || name == "RWGroupNodeInputRecords" ||
-        name == "EmptyNodeInput")
-      return true;
-  }
-  return false;
 }
 
 bool IsHLSLEmptyNodeRecordType(clang::QualType type) {

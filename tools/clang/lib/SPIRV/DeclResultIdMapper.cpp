@@ -1838,7 +1838,7 @@ SpirvFunction *DeclResultIdMapper::getOrRegisterFn(const FunctionDecl *fn) {
   return spirvFunction;
 }
 
-const CounterIdAliasPair *DeclResultIdMapper::getCounterIdAliasPair(
+const CounterIdAliasPair *DeclResultIdMapper::getOrCreateCounterIdAliasPair(
     const DeclaratorDecl *decl, const llvm::SmallVector<uint32_t, 4> *indices) {
   if (!decl)
     return nullptr;
@@ -1864,24 +1864,6 @@ const CounterIdAliasPair *DeclResultIdMapper::getCounterIdAliasPair(
       return &counter->second;
   }
 
-  return nullptr;
-}
-
-const CounterIdAliasPair *
-DeclResultIdMapper::createOrGetCounterIdAliasPair(const DeclaratorDecl *decl) {
-  auto counterPair = getCounterIdAliasPair(decl);
-  if (counterPair)
-    return counterPair;
-  if (!decl)
-    return nullptr;
-  // If deferred RWStructuredBuffer, try creating the counter now
-  auto declInstr = declRWSBuffers[decl];
-  if (declInstr) {
-    createCounterVar(decl, declInstr, /*isAlias*/ false);
-    auto counter = counterVars.find(decl);
-    assert(counter != counterVars.end() && "counter not found");
-    return &counter->second;
-  }
   return nullptr;
 }
 

@@ -1319,6 +1319,8 @@ CXXRecordDecl *hlsl::DeclareResourceType(ASTContext &context, bool bSampler) {
   typeDeclBuilder.addField("h", GetHLSLObjectHandleType(context));
 
   CXXRecordDecl *recordDecl = typeDeclBuilder.getRecordDecl();
+  recordDecl->addAttr(
+      HLSLDynamicResourceAttr::CreateImplicit(context, bSampler));
 
   QualType indexType = context.UnsignedIntTy;
   QualType resultType = context.getRecordType(recordDecl);
