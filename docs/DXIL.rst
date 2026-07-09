@@ -3211,6 +3211,9 @@ INSTR.IMMBIASFORSAMPLEB                               bias amount for sample_b m
 INSTR.INBOUNDSACCESS                                  Access to out-of-bounds memory is disallowed.
 INSTR.LINALGILLEGALCOMPONENTTYPE                      Matrix Component Type '%0' not allowed in LinAlg Matrix.
 INSTR.LINALGILLEGALKDIM                               Matrix K Dimension out of bounds. K=%0 must be >= %1 and <= %2.
+INSTR.LINALGMATRIXDIMMISMATCH                         Matrix Dimension '%0x%1' does not match expected dimension %2x%3.
+INSTR.LINALGMATRIXSCOPEMISMATCH                       Matrix Scope '%0' does not match expected scope %1.
+INSTR.LINALGMATRIXSCOPENOTALLOWED                     Matrix Scope '%0' not allowed in %1 operation.
 INSTR.MAYREORDERTHREADUNDEFCOHERENCEHINTPARAM         Use of undef coherence hint or num coherence hint bits in MaybeReorderThread.
 INSTR.MINPRECISIONNOTPRECISE                          Instructions marked precise may not refer to minprecision values.
 INSTR.MINPRECISONBITCAST                              Bitcast on minprecison types is not allowed.
