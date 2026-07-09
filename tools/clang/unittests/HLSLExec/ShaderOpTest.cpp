@@ -931,8 +931,8 @@ void ShaderOpTest::GetReadBackData(LPCSTR pResourceName, MappedData *pData) {
 void ShaderOpTest::GetResource(LPCSTR pResourceName,
                                ID3D12Resource **ppResource) {
   pResourceName = m_pShaderOp->Strings.insert(pResourceName); // Unique
-  auto It = m_ResourceData.find(pResourceName);
-  *ppResource = It == m_ResourceData.end() ? nullptr : It->second.Resource.p;
+  ShaderOpResourceData &D = m_ResourceData.at(pResourceName);
+  *ppResource = D.Resource.p;
 }
 
 static void SetDescriptorHeaps(ID3D12GraphicsCommandList *pList,
