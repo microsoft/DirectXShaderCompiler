@@ -1145,9 +1145,6 @@ bool isOpaqueType(QualType type) {
       return true;
   }
 
-  // Use IsHLSLRayQueryType() rather than a plain name comparison so a
-  // user-defined struct or class named "RayQuery" that shadows the reserved
-  // name is not mistaken for the opaque ray query type.
   if (hlsl::IsHLSLRayQueryType(type))
     return true;
 
