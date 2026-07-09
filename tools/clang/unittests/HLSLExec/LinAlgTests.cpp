@@ -1453,12 +1453,20 @@ void DxilConf_SM610_LinAlg::OuterProduct_Thread_16x16_F16() {
   Params.Enable16Bit = true;
   runOuterProduct(D3DDevice, DxcSupport, Params, VerboseLogging);
 #else
+#ifdef _HLK_CONF
+  // HLK forbids skipping, so treat the missing linear-algebra matrix-conversion
+  // API as a failure rather than emitting a (compiled-out) skip.
+  hlsl_test::LogErrorFmt(L"OuterProduct_Thread_16x16_F16 requires the "
+                         L"linear-algebra matrix-conversion API "
+                         L"(DIRECT3D_LINEAR_ALGEBRA), which this build lacks");
+#else
   WEX::Logging::Log::Comment(
       L"Skipping OuterProduct_Thread_16x16_F16: built against a D3D12 SDK "
       L"without the linear-algebra matrix-conversion API "
       L"(DIRECT3D_LINEAR_ALGEBRA undefined); the host-side conversion helpers "
       L"are compiled out.");
   WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
+#endif // _HLK_CONF
 #endif // defined(DIRECT3D_LINEAR_ALGEBRA)
 }
 
