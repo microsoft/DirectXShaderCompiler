@@ -965,10 +965,6 @@ LowerTypeVisitor::lowerResourceType(QualType type, SpirvLayoutRule rule,
     return spvContext.getAccelerationStructureTypeNV();
   }
 
-  // Use IsHLSLRayQueryType() rather than a plain name comparison: a
-  // user-defined struct or class named "RayQuery" is allowed to shadow the
-  // reserved name and must be lowered as an ordinary struct instead of the
-  // opaque ray query type.
   if (hlsl::IsHLSLRayQueryType(type))
     return spvContext.getRayQueryTypeKHR();
 
