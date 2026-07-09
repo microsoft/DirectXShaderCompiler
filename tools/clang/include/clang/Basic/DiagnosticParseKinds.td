@@ -285,7 +285,8 @@ def warn_cxx98_compat_trailing_return_type : Warning<
   "trailing return types are incompatible with C++98">,
   InGroup<CXX98Compat>, DefaultIgnore;
 def ext_auto_type_specifier : ExtWarn<
-  "'auto' type specifier is a C++11 extension">, InGroup<CXX11>;
+  "'auto' type specifier is a %select{C++11|HLSL 202x}0 extension">,
+  InGroup<CXX11>;
 def warn_auto_storage_class : Warning<
   "'auto' storage class specifier is redundant and incompatible with C++11">,
   InGroup<CXX11Compat>, DefaultIgnore;
@@ -994,8 +995,6 @@ def err_hlsl_unsupported_member_default : Error<
   "struct/class members cannot have default values">;
 def err_hlsl_unsupported_packoffset_component : Error<
   "packoffset component should indicate offset with one of x, y, z, w, r, g, b, or a">;
-def err_hlsl_unsupported_pointer : Error<
-  "pointers are unsupported in HLSL">;
 def err_hlsl_unsupported_register_number : Error<
   "register number should be an integral numeric string">;
 def err_hlsl_unsupported_register_noninteger : Error<

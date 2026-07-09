@@ -30,6 +30,7 @@ const unsigned kDxilMajor = 1;
 /* <py::lines('VALRULE-TEXT')>hctdb_instrhelp.get_dxil_version_minor()</py>*/
 // VALRULE-TEXT:BEGIN
 const unsigned kDxilMinor = 10;
+const unsigned kDxilReleasedMinor = 9;
 // VALRULE-TEXT:END
 
 inline unsigned MakeDxilVersion(unsigned DxilMajor, unsigned DxilMinor) {
@@ -58,6 +59,11 @@ inline int CompareVersions(unsigned Major1, unsigned Minor1, unsigned Major2,
   if (Minor1 > Minor2)
     return 1;
   return 0;
+}
+
+// Use this instead of fixed version checks to enable experimental features.
+inline bool IsVersionExperimental(unsigned Major, unsigned Minor) {
+  return CompareVersions(Major, Minor, kDxilMajor, kDxilReleasedMinor) > 0;
 }
 
 // Utility for updating major,minor to max of current and new.
@@ -149,6 +155,10 @@ const unsigned kMinWaveSize = 4;
 const unsigned kMaxWaveSize = 128;
 const unsigned kDefaultMaxVectorLength = 4;
 const unsigned kSM69MaxVectorLength = 1024;
+const unsigned kLinAlgMatrixMaxK = 128;
+const unsigned kLinAlgMatrixMinK = 4;
+const unsigned kLinAlgThreadGroupMatrixMaxK = 1024;
+const unsigned kLinAlgThreadGroupMatrixMinK = 1;
 
 const float kMaxMipLodBias = 15.99f;
 const float kMinMipLodBias = -16.0f;
@@ -533,8 +543,7 @@ static const OpCodeTableID TableID = OpCodeTableID::ExperimentalOps;
 // Enumeration for ExperimentalOps DXIL operations
 enum class OpCode : unsigned {
   //
-  ReservedE0 = 31, // reserved
-  ReservedE1 = 32, // reserved
+  ReservedE0 = 32, // reserved
 
   // Debugging
   DebugBreak = 33,        // triggers a breakpoint if a debugger is attached
@@ -597,6 +606,8 @@ enum class OpCode : unsigned {
   LinAlgMatrixStoreToDescriptor =
       20,                         // stores a matrix to a RWByteAddressBuffer
   LinAlgMatrixStoreToMemory = 21, // stores a matrix to groupshared memory
+  LinAlgVectorAccumulateToDescriptor =
+      31, // Accumulates given vector to the buffer at the given offset
 
   // No-op
   ExperimentalNop = 0, // nop does nothing
@@ -1355,10 +1366,13 @@ enum class OpCode : unsigned {
   // LinAlgConvert = 0x8000001E, 2147483678U, -2147483618
   EXP_OPCODE(ExperimentalOps, LinAlgConvert), // Convert vector components from
                                               // one interpretation to another
-  // ReservedE0 = 0x8000001F, 2147483679U, -2147483617
+  // LinAlgVectorAccumulateToDescriptor = 0x8000001F, 2147483679U, -2147483617
+  EXP_OPCODE(
+      ExperimentalOps,
+      LinAlgVectorAccumulateToDescriptor), // Accumulates given vector to the
+                                           // buffer at the given offset
+  // ReservedE0 = 0x80000020, 2147483680U, -2147483616
   EXP_OPCODE(ExperimentalOps, ReservedE0), // reserved
-  // ReservedE1 = 0x80000020, 2147483680U, -2147483616
-  EXP_OPCODE(ExperimentalOps, ReservedE1), // reserved
   // DebugBreak = 0x80000021, 2147483681U, -2147483615
   EXP_OPCODE(ExperimentalOps,
              DebugBreak), // triggers a breakpoint if a debugger is attached
@@ -1544,6 +1558,7 @@ enum class OpCodeClass : unsigned {
   LinAlgMatrixSetElement,
   LinAlgMatrixStoreToDescriptor,
   LinAlgMatrixStoreToMemory,
+  LinAlgVectorAccumulateToDescriptor,
 
   // Mesh shader instructions
   EmitIndices,
@@ -1730,7 +1745,7 @@ enum class OpCodeClass : unsigned {
   NodeOutputIsValid,
   OutputComplete,
 
-  NumOpClasses = 222, // exclusive last value of enumeration
+  NumOpClasses = 223, // exclusive last value of enumeration
 };
 // OPCODECLASS-ENUM:END
 

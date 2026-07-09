@@ -28,6 +28,10 @@
 #include <optional>
 #include <sstream>
 #include <string>
+
+#define STREAM_FLOAT(stream, name, value)                                      \
+  stream << std::showpoint << " -D" << name << "=" << value << "F"             \
+         << std::noshowpoint
 #include <variant>
 #include <vector>
 
@@ -355,6 +359,9 @@ public:
   // Convert
   TEST_METHOD(Convert);
 
+  // Vector Accumulate
+  TEST_METHOD(VectorAccumulateDescriptor_Thread_F16);
+
 private:
   CComPtr<ID3D12Device> D3DDevice;
   dxc::SpecificDllLoader DxcSupport;
@@ -505,7 +512,7 @@ static void runSplatStore(ID3D12Device *Device,
   const size_t BufferSize = Params.totalBytes();
 
   std::stringstream ExtraDefs;
-  ExtraDefs << "-DFILL_VALUE=" << FillValue;
+  STREAM_FLOAT(ExtraDefs, "FILL_VALUE", FillValue);
 
   std::string Args = buildCompilerArgs(Params, ExtraDefs.str().c_str());
 
@@ -624,7 +631,7 @@ static const char ElementAccessShader[] = R"(
   // flatten the 2D index into a 1D index then scale by element size
   // Always store row-major and work it out in the test runner
   uint coordToByteOffset(uint2 coord) {
-    return (coord.y * M_DIM + coord.x) * ELEM_SIZE;
+    return (coord.x * N_DIM + coord.y) * ELEM_SIZE;
   }
 
   [WaveSize(4, 64)]
@@ -936,8 +943,8 @@ static void runMatMatMul(ID3D12Device *Device,
 
   std::stringstream ExtraDefs;
   ExtraDefs << " -DK_DIM=" << K;
-  ExtraDefs << " -DA_FILL=" << AFill;
-  ExtraDefs << " -DB_FILL=" << BFill;
+  STREAM_FLOAT(ExtraDefs, "A_FILL", AFill);
+  STREAM_FLOAT(ExtraDefs, "B_FILL", BFill);
 
   std::string Args = buildCompilerArgs(Params, ExtraDefs.str().c_str());
 
@@ -1018,9 +1025,9 @@ static void runMatMatMulAccum(ID3D12Device *Device,
 
   std::stringstream ExtraDefs;
   ExtraDefs << " -DK_DIM=" << K;
-  ExtraDefs << " -DA_FILL=" << AFill;
-  ExtraDefs << " -DB_FILL=" << BFill;
-  ExtraDefs << " -DC_FILL=" << CFill;
+  STREAM_FLOAT(ExtraDefs, "A_FILL", AFill);
+  STREAM_FLOAT(ExtraDefs, "B_FILL", BFill);
+  STREAM_FLOAT(ExtraDefs, "C_FILL", CFill);
 
   std::string Args = buildCompilerArgs(Params, ExtraDefs.str().c_str());
 
@@ -1094,8 +1101,8 @@ static void runMatAccum(ID3D12Device *Device,
   const size_t BufferSize = Params.totalBytes();
 
   std::stringstream ExtraDefs;
-  ExtraDefs << " -DLHS_FILL=" << LHSFill;
-  ExtraDefs << " -DRHS_FILL=" << RHSFill;
+  STREAM_FLOAT(ExtraDefs, "LHS_FILL", LHSFill);
+  STREAM_FLOAT(ExtraDefs, "RHS_FILL", RHSFill);
 
   std::string Args = buildCompilerArgs(Params, ExtraDefs.str().c_str());
 
@@ -1552,7 +1559,7 @@ static void runStoreMemory(ID3D12Device *Device,
 
   std::stringstream ExtraDefs;
   ExtraDefs << " -DOFFSET=" << 0;
-  ExtraDefs << " -DFILL_VALUE=" << FillValue;
+  STREAM_FLOAT(ExtraDefs, "FILL_VALUE", FillValue);
 
   std::string Args = buildCompilerArgs(Params, ExtraDefs.str().c_str());
 
@@ -1632,7 +1639,7 @@ static void runAccumulateMemory(ID3D12Device *Device,
 
   std::stringstream ExtraDefs;
   ExtraDefs << " -DOFFSET=" << 0;
-  ExtraDefs << " -DFILL_VALUE=" << FillValue;
+  STREAM_FLOAT(ExtraDefs, "FILL_VALUE", FillValue);
 
   std::string Args = buildCompilerArgs(Params, ExtraDefs.str().c_str());
 
@@ -1689,7 +1696,7 @@ static const char ConvertShader[] = R"(
 
 static void runConvert(ID3D12Device *Device, dxc::SpecificDllLoader &DxcSupport,
                        bool Verbose) {
-  std::string Args = "-HV 202x";
+  std::string Args = "-HV 202x -enable-16bit-types";
   MatrixDim NumElements = 4;
   size_t BufferSize = elementSize(ComponentType::F32) * NumElements;
 
@@ -1712,6 +1719,46 @@ static void runConvert(ID3D12Device *Device, dxc::SpecificDllLoader &DxcSupport,
 
 void DxilConf_SM610_LinAlg::Convert() {
   runConvert(D3DDevice, DxcSupport, VerboseLogging);
+}
+
+static const char VectorAccumulateDescriptorShader[] = R"(
+  RWByteAddressBuffer Output : register(u0);
+
+  [numthreads(1, 1, 1)]
+  void main() {
+    vector<half, 4> InVec = {1.0, 2.0, 3.0, 4.0};
+    __builtin_LinAlg_VectorAccumulateToDescriptor(InVec, Output, 0, 64);
+  }
+)";
+
+static void runVectorAccumulateDescriptor(ID3D12Device *Device,
+                                          dxc::SpecificDllLoader &DxcSupport,
+                                          bool Verbose) {
+  std::string Args = "-HV 202x -enable-16bit-types";
+  MatrixDim NumElements = 4;
+  size_t BufferSize = elementSize(ComponentType::F16) * NumElements;
+
+  compileShader(DxcSupport, VectorAccumulateDescriptorShader, "cs_6_10", Args,
+                Verbose);
+
+  auto Expected = makeExpectedVec(ComponentType::F16, NumElements, 1.0);
+
+  auto Op = createComputeOp(VectorAccumulateDescriptorShader, "cs_6_10",
+                            "UAV(u0)", Args.c_str());
+  addUAVBuffer(Op.get(), "Output", BufferSize, true);
+  addRootView(Op.get(), 0, "Output");
+
+  auto Result = runShaderOp(Device, DxcSupport, std::move(Op));
+
+  MappedData OutData;
+  Result->Test->GetReadBackData("Output", &OutData);
+
+  VERIFY_IS_TRUE(verifyComponentBuffer(ComponentType::F16, OutData.data(),
+                                       Expected, NumElements, Verbose));
+}
+
+void DxilConf_SM610_LinAlg::VectorAccumulateDescriptor_Thread_F16() {
+  runVectorAccumulateDescriptor(D3DDevice, DxcSupport, VerboseLogging);
 }
 
 } // namespace LinAlg

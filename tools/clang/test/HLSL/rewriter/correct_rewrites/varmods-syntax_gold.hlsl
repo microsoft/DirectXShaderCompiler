@@ -37,11 +37,7 @@ precise uniform const float g_pre_uni_init = 1.F;
 static float g_sta_init = 1.F;
 static const float g_sta_con_init = 1.F;
 uniform const float g_uni_init = 1.F;
-typedef volatile float2 t_pre_vol;
-typedef const volatile float2 t_pre_vol_con;
 typedef const float2 t_pre_con;
-typedef volatile float2 t_vol;
-typedef const volatile float2 t_vol_con;
 typedef const float2 t_con;
 struct s_storage_mods {
   precise float2 f_pre;
@@ -222,22 +218,12 @@ float4 foo_interpolation_different_decl(sample float4 val) {
 void vain() {
   precise float l_pre;
   static precise float l_pre_sta;
-  static precise volatile float l_pre_sta_vol;
-  static precise const volatile float l_pre_sta_vol_con;
   static precise const float l_pre_sta_con;
-  precise volatile float l_pre_vol;
   static float l_sta;
-  static volatile float l_sta_vol;
-  static const volatile float l_sta_vol_con;
   static const float l_sta_con;
-  volatile float l_vol;
-  static precise const volatile float l_pre_sta_vol_con_init = 0.;
   static precise const float l_pre_sta_con_init = 0.;
-  precise const volatile float l_pre_vol_con_init = 0.;
   precise const float l_pre_con_init = 0.;
-  static const volatile float l_sta_vol_con_init = 0.;
   static const float l_sta_con_init = 0.;
-  const volatile float l_vol_con_init = 0.;
   const float l_con_init = 0.;
 }
 

@@ -93,6 +93,10 @@ bool DiagnoseTypeElements(clang::Sema &S, clang::SourceLocation Loc,
                           TypeDiagContext LongVecDiagContext,
                           const clang::FieldDecl *FD = nullptr);
 
+// Returns true if 'auto' is allowed to deduce the given type. Container types
+// are deducible only when the type they wrap is deducible.
+bool IsTypeDeducibleWithAuto(clang::Sema &S, clang::QualType Ty);
+
 void DiagnoseControlFlowConditionForHLSL(clang::Sema *self,
                                          clang::Expr *condExpr,
                                          llvm::StringRef StmtName);

@@ -459,7 +459,7 @@ RDAT_STRUCT_END()
 
 #define RECORD_TYPE RuntimeDataFunctionInfo2
 RDAT_STRUCT_TABLE_DERIVED(RuntimeDataFunctionInfo2, RuntimeDataFunctionInfo,
-                          FunctionTable)
+                          FunctionTable, 1, 8)
 
   // 128 lanes is maximum that could be supported by HLSL
   RDAT_VALUE(uint8_t, MinimumExpectedWaveLaneCount) // 0 = none specified

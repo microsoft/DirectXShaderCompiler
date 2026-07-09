@@ -11,12 +11,11 @@ cbuffer Test {
 
 [numthreads(256, 1, 1)]
 void main(in uint3 threadId : SV_DispatchThreadID) {
-// CHECK: [[LD:%[_0-9A-Za-z]*]] = OpLoad %_ptr_PhysicalStorageBuffer_float
-// CHECK: [[CC:%[_0-9A-Za-z]*]] = OpCompositeConstruct {{%[_0-9A-Za-z]*}} [[LD]]
+// CHECK: [[AC:%[_0-9A-Za-z]*]] = OpAccessChain %_ptr_Uniform__ptr_PhysicalStorageBuffer_float %Test %int_0
+// CHECK: [[PTR:%[_0-9A-Za-z]*]] = OpLoad %_ptr_PhysicalStorageBuffer_float [[AC]]
     BufferAccessor<float> accessor = BufferAccessor<float>(buffer);
 
-// CHECK: [[COPY:%[_0-9A-Za-z]*]] = OpCopyLogical {{%[_0-9A-Za-z]*}} [[CC]]
-// CHECK: [[PTR:%[_0-9A-Za-z]*]] = OpCompositeExtract %_ptr_PhysicalStorageBuffer_float [[COPY]] 0
-// CHECK: OpLoad %float [[PTR]] Aligned 4  
+// CHECK: [[VAL:%[_0-9A-Za-z]*]] = OpLoad %float [[PTR]] Aligned 4
+// CHECK: OpStore [[PTR]] [[VAL]] Aligned 4
     buffer.Get() = accessor.ptr.Get();
 }

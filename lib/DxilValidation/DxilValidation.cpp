@@ -974,6 +974,58 @@ static void ValidateImmOperandForMathDxilOp(CallInst *CI, DXIL::OpCode Opcode,
   }
 }
 
+static void ValidateLinAlgOpParameters(CallInst *CI,
+                                       ValidationContext &ValCtx) {
+  for (uint32_t Idx = 0; Idx < CI->getNumArgOperands(); ++Idx) {
+    Value *Arg = CI->getArgOperand(Idx);
+    Type *Ty = Arg->getType();
+
+    // No parameters may be undef
+    if (isa<UndefValue>(Arg))
+      ValCtx.EmitInstrError(CI, ValidationRule::InstrNoReadingUninitialized);
+
+    // If we have a LinAlg Matrix, validate that we have correct metadata.
+    if (!dxilutil::IsHLSLLinAlgMatrixType(Ty))
+      continue;
+    if (ValCtx.LinAlgTargetTypeMap.find(Ty) ==
+        ValCtx.LinAlgTargetTypeMap.end()) {
+      ValCtx.EmitInstrError(CI, ValidationRule::MetaWellFormed);
+      continue;
+    }
+  }
+}
+
+static void ValidateLinAlgOpReturnMatrix(CallInst *CI,
+                                         ValidationContext &ValCtx) {
+  Type *Ty = CI->getType();
+  assert(dxilutil::IsHLSLLinAlgMatrixType(Ty) && "CI must return a matrix");
+
+  // Metadata is malformed if we don't have metadata
+  auto it = ValCtx.LinAlgTargetTypeMap.find(Ty);
+  if (it == ValCtx.LinAlgTargetTypeMap.end()) {
+    ValCtx.EmitInstrError(CI, ValidationRule::MetaWellFormed);
+    return;
+  }
+
+  LinAlgTargetType LATT = it->second;
+
+  // Validate the K dim is in bounds. Which dim is K depends on use.
+  // This validation isn't applied to an accumulator matrix
+  if (LATT.Use != DXIL::MatrixUse::Accumulator) {
+    unsigned MinK = DXIL::kLinAlgMatrixMinK;
+    unsigned K = (LATT.Use == DXIL::MatrixUse::A) ? LATT.N : LATT.M;
+    unsigned MaxK = DXIL::kLinAlgMatrixMaxK;
+    if (LATT.Scope == DXIL::MatrixScope::ThreadGroup) {
+      MinK = DXIL::kLinAlgThreadGroupMatrixMinK;
+      MaxK = DXIL::kLinAlgThreadGroupMatrixMaxK;
+    }
+    if (K < MinK || K > MaxK)
+      ValCtx.EmitInstrFormatError(
+          CI, ValidationRule::InstrLinAlgIllegalKDim,
+          {std::to_string(K), std::to_string(MinK), std::to_string(MaxK)});
+  }
+}
+
 // Validate the type-defined mask compared to the store value mask which
 // indicates which parts were defined returns true if caller should continue
 // validation
@@ -1713,7 +1765,7 @@ static void ValidateDxilOperationCallInProfile(CallInst *CI,
       ShaderKind = DXIL::ShaderKind::Hull;
   }
 
-  // These shader models are treted like compute
+  // These shader models are treated like compute
   bool IsCSLike = ShaderKind == DXIL::ShaderKind::Compute ||
                   ShaderKind == DXIL::ShaderKind::Mesh ||
                   ShaderKind == DXIL::ShaderKind::Amplification ||
@@ -2177,6 +2229,36 @@ static void ValidateDxilOperationCallInProfile(CallInst *CI,
       ValCtx.EmitInstrFormatError(CI, ValidationRule::SmIsSpecialFloat, {});
     break;
   }
+
+  // LinAlg Operations
+  case DXIL::OpCode::LinAlgMatrixLength:
+  case DXIL::OpCode::LinAlgMatrixGetCoordinate:
+  case DXIL::OpCode::LinAlgMatrixGetElement:
+  case DXIL::OpCode::LinAlgMatrixStoreToDescriptor:
+  case DXIL::OpCode::LinAlgMatrixStoreToMemory:
+  case DXIL::OpCode::LinAlgMatVecMul:
+  case DXIL::OpCode::LinAlgMatVecMulAdd:
+  case DXIL::OpCode::LinAlgMatrixAccumulateToDescriptor:
+  case DXIL::OpCode::LinAlgMatrixAccumulateToMemory:
+  case DXIL::OpCode::LinAlgConvert:
+  case DXIL::OpCode::LinAlgVectorAccumulateToDescriptor: {
+    ValidateLinAlgOpParameters(CI, ValCtx);
+    break;
+  }
+  case DXIL::OpCode::LinAlgFillMatrix:
+  case DXIL::OpCode::LinAlgCopyConvertMatrix:
+  case DXIL::OpCode::LinAlgMatrixLoadFromDescriptor:
+  case DXIL::OpCode::LinAlgMatrixLoadFromMemory:
+  case DXIL::OpCode::LinAlgMatrixSetElement:
+  case DXIL::OpCode::LinAlgMatrixMultiply:
+  case DXIL::OpCode::LinAlgMatrixAccumulate:
+  case DXIL::OpCode::LinAlgMatrixMultiplyAccumulate:
+  case DXIL::OpCode::LinAlgMatrixOuterProduct: {
+    ValidateLinAlgOpReturnMatrix(CI, ValCtx);
+    ValidateLinAlgOpParameters(CI, ValCtx);
+    break;
+  }
+
   default:
     // TODO: make sure every Opcode is checked.
     // Skip opcodes don't need special check.
@@ -2413,6 +2495,9 @@ static bool ValidateType(Type *Ty, ValidationContext &ValCtx,
       hlsl::OP *HlslOP = ValCtx.DxilMod.GetOP();
       // Allow HitObject type.
       if (ST == HlslOP->GetHitObjectType())
+        return true;
+      // Allow LinAlgMatrix type.
+      if (dxilutil::IsHLSLLinAlgMatrixType(ST))
         return true;
       if (IsDxilBuiltinStructType(ST, HlslOP)) {
         ValCtx.EmitTypeError(Ty, ValidationRule::InstrDxilStructUser);
@@ -3302,21 +3387,24 @@ static void ValidateFunctionBody(Function *F, ValidationContext &ValCtx) {
 
       if (PointerType *PT = dyn_cast<PointerType>(I.getType())) {
         if (PT->getAddressSpace() == DXIL::kTGSMAddrSpace) {
-          if (GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(&I)) {
-            Value *Ptr = GEP->getPointerOperand();
-            // Allow inner constant GEP
-            if (isa<ConstantExpr>(Ptr) && isa<GEPOperator>(Ptr))
-              Ptr = cast<GEPOperator>(Ptr)->getPointerOperand();
-            if (!isa<GlobalVariable>(Ptr)) {
-              ValCtx.EmitInstrError(
-                  &I, ValidationRule::InstrFailToResloveTGSMPointer);
+          // Walk through GEPs and bitcasts to ensure the pointer ultimately
+          // comes from a global variable. This was unnecessary before SM 6.9
+          // because everything was scalarized, but now we can have arrays of
+          // vectors in TGSM, so we need to allow GEPs and bitcasts.
+          if (isa<GetElementPtrInst>(&I) || isa<BitCastInst>(&I)) {
+            Value *Ptr = cast<Instruction>(&I)->getOperand(0);
+            while (Ptr) {
+              if (GEPOperator *GEP = dyn_cast<GEPOperator>(Ptr)) {
+                Ptr = GEP->getPointerOperand();
+                continue;
+              }
+              if (BitCastOperator *BC = dyn_cast<BitCastOperator>(Ptr)) {
+                Ptr = BC->getOperand(0);
+                continue;
+              }
+              break;
             }
-          } else if (BitCastInst *BCI = dyn_cast<BitCastInst>(&I)) {
-            Value *Ptr = BCI->getOperand(0);
-            // Allow inner constant GEP
-            if (isa<ConstantExpr>(Ptr) && isa<GEPOperator>(Ptr))
-              Ptr = cast<GEPOperator>(Ptr)->getPointerOperand();
-            if (!isa<GetElementPtrInst>(Ptr) && !isa<GlobalVariable>(Ptr)) {
+            if (!isa<GlobalVariable>(Ptr)) {
               ValCtx.EmitInstrError(
                   &I, ValidationRule::InstrFailToResloveTGSMPointer);
             }

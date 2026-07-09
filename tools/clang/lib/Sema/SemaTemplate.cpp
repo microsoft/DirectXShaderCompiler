@@ -421,8 +421,14 @@ Sema::ActOnDependentIdExpression(const CXXScopeSpec &SS,
     NamedDecl *FirstQualifierInScope = nullptr;
 
     // HLSL Change begin - This is a reference.
+    // In HLSL, 'this' is an lvalue reference (not a pointer), so implicit
+    // member accesses use '.' (IsArrow=false). The base type must be the
+    // class type T, not the pointer type T*.
+    QualType MemberBaseType =
+        getLangOpts().HLSL ? ThisType->getPointeeType() : ThisType;
     return CXXDependentScopeMemberExpr::Create(
-        Context, /*This*/ nullptr, ThisType, /*IsArrow*/ !getLangOpts().HLSL,
+        Context, /*This*/ nullptr, MemberBaseType,
+        /*IsArrow*/ !getLangOpts().HLSL,
         /*Op*/ SourceLocation(), SS.getWithLocInContext(Context), TemplateKWLoc,
         FirstQualifierInScope, NameInfo, TemplateArgs);
     // HLSL Change end - This is a reference.
