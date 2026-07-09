@@ -8640,6 +8640,10 @@ class db_dxil(object):
             "Instr.LinAlgIllegalKDim",
             "Matrix K Dimension out of bounds. K=%0 must be >= %1 and <= %2.",
         )
+        self.add_valrule(
+            "Instr.LinAlgIllegalComponentType",
+            "Matrix Component Type '%0' not allowed in LinAlg Matrix.",
+        )
 
         # Some legacy rules:
         # - space is only supported for shader targets 5.1 and higher
