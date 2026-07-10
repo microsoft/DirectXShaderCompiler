@@ -138,6 +138,7 @@ public:
     IK_ReadClock,                   // OpReadClock
     IK_SampledImage,                // OpSampledImage
     IK_Select,                      // OpSelect
+    IK_SpecConstantTernaryOp,       // SpecConstant ternary operations
     IK_SpecConstantBinaryOp,        // SpecConstant binary operations
     IK_SpecConstantUnaryOp,         // SpecConstant unary operations
     IK_Store,                       // OpStore
@@ -2253,6 +2254,35 @@ private:
   SpirvInstruction *condition;
   SpirvInstruction *trueObject;
   SpirvInstruction *falseObject;
+};
+
+/// \brief OpSpecConstantOp instruction where the operation is ternary.
+class SpirvSpecConstantTernaryOp : public SpirvInstruction {
+public:
+  SpirvSpecConstantTernaryOp(spv::Op specConstantOp, QualType resultType,
+                             SourceLocation loc, SpirvInstruction *operand1,
+                             SpirvInstruction *operand2,
+                             SpirvInstruction *operand3);
+
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvSpecConstantTernaryOp)
+
+  // For LLVM-style RTTI
+  static bool classof(const SpirvInstruction *inst) {
+    return inst->getKind() == IK_SpecConstantTernaryOp;
+  }
+
+  bool invokeVisitor(Visitor *v) override;
+
+  spv::Op getSpecConstantopcode() const { return specOp; }
+  SpirvInstruction *getOperand1() const { return operand1; }
+  SpirvInstruction *getOperand2() const { return operand2; }
+  SpirvInstruction *getOperand3() const { return operand3; }
+
+private:
+  spv::Op specOp;
+  SpirvInstruction *operand1;
+  SpirvInstruction *operand2;
+  SpirvInstruction *operand3;
 };
 
 /// \brief OpSpecConstantOp instruction where the operation is binary.

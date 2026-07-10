@@ -291,6 +291,7 @@ public:
   bool visit(SpirvCopyObject *) override;
   bool visit(SpirvSampledImage *) override;
   bool visit(SpirvSelect *) override;
+  bool visit(SpirvSpecConstantTernaryOp *) override;
   bool visit(SpirvSpecConstantBinaryOp *) override;
   bool visit(SpirvSpecConstantUnaryOp *) override;
   bool visit(SpirvStore *) override;

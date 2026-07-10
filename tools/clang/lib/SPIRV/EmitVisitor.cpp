@@ -1430,6 +1430,20 @@ bool EmitVisitor::visit(SpirvSelect *inst) {
   return true;
 }
 
+bool EmitVisitor::visit(SpirvSpecConstantTernaryOp *inst) {
+  initInstruction(inst);
+  curInst.push_back(inst->getResultTypeId());
+  curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst));
+  curInst.push_back(static_cast<uint32_t>(inst->getSpecConstantopcode()));
+  curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst->getOperand1()));
+  curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst->getOperand2()));
+  curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst->getOperand3()));
+  finalizeInstruction(&typeConstantBinary);
+  emitDebugNameForInstruction(getOrAssignResultId<SpirvInstruction>(inst),
+                              inst->getDebugName());
+  return true;
+}
+
 bool EmitVisitor::visit(SpirvSpecConstantBinaryOp *inst) {
   initInstruction(inst);
   curInst.push_back(inst->getResultTypeId());

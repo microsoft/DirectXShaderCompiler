@@ -119,6 +119,7 @@ public:
   DEFINE_VISIT_METHOD(SpirvCopyObject)
   DEFINE_VISIT_METHOD(SpirvSampledImage)
   DEFINE_VISIT_METHOD(SpirvSelect)
+  DEFINE_VISIT_METHOD(SpirvSpecConstantTernaryOp)
   DEFINE_VISIT_METHOD(SpirvSpecConstantBinaryOp)
   DEFINE_VISIT_METHOD(SpirvSpecConstantUnaryOp)
   DEFINE_VISIT_METHOD(SpirvStore)

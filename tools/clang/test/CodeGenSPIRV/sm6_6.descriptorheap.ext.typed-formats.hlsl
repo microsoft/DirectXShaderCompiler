@@ -23,15 +23,12 @@
 // CHECK-DAG:  %[[RWTexIType:[a-zA-Z0-9_]+]] = OpTypeImage %int 2D 2 0 0 2 R32i
 // CHECK-DAG:   %[[RA_RWTexI:[a-zA-Z0-9_]+]] = OpTypeRuntimeArray %[[RWTexIType]]{{$}}
 
-// Default heap stride: OpConstantSizeOfEXT + ArrayStrideIdEXT per element type.
-// CHECK-DAG: %[[TexUintSize:[a-zA-Z0-9_]+]] = OpConstantSizeOfEXT %uint %[[TexUintType]]
-// CHECK-DAG: %[[RWTexF2Size:[a-zA-Z0-9_]+]] = OpConstantSizeOfEXT %uint %[[RWTexF2Type]]
-// CHECK-DAG: %[[RWTexU2Size:[a-zA-Z0-9_]+]] = OpConstantSizeOfEXT %uint %[[RWTexU2Type]]
-// CHECK-DAG:  %[[RWTexISize:[a-zA-Z0-9_]+]] = OpConstantSizeOfEXT %uint %[[RWTexIType]]
-// CHECK-DAG:                                  OpDecorateId %[[RA_TexUint]] ArrayStrideIdEXT %[[TexUintSize]]
-// CHECK-DAG:                                  OpDecorateId %[[RA_RWTexF2]] ArrayStrideIdEXT %[[RWTexF2Size]]
-// CHECK-DAG:                                  OpDecorateId %[[RA_RWTexU2]] ArrayStrideIdEXT %[[RWTexU2Size]]
-// CHECK-DAG:                                  OpDecorateId %[[RA_RWTexI]] ArrayStrideIdEXT %[[RWTexISize]]
+// All of these are resource descriptors, so every array shares one resource stride
+// (derivation covered by sm6_6.descriptorheap.ext.array-stride.hlsl)
+// CHECK-DAG: OpDecorateId %[[RA_TexUint]] ArrayStrideIdEXT %[[ResSize:[a-zA-Z0-9_]+]]
+// CHECK-DAG: OpDecorateId %[[RA_RWTexF2]] ArrayStrideIdEXT %[[ResSize]]
+// CHECK-DAG: OpDecorateId %[[RA_RWTexU2]] ArrayStrideIdEXT %[[ResSize]]
+// CHECK-DAG: OpDecorateId %[[RA_RWTexI]] ArrayStrideIdEXT %[[ResSize]]
 
 // CHECK:    %[[ResourceHeap:[a-zA-Z0-9_]+]] = OpUntypedVariableKHR %[[UntypedPtr]] UniformConstant
 
