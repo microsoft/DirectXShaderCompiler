@@ -90,6 +90,7 @@ DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvCopyObject)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvSampledImage)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvSelect)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvSpecConstantBinaryOp)
+DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvSpecConstantTernaryOp)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvSpecConstantUnaryOp)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvStore)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvNullaryOp)
@@ -1039,6 +1040,13 @@ SpirvSpecConstantBinaryOp::SpirvSpecConstantBinaryOp(spv::Op specConstantOp,
     : SpirvInstruction(IK_SpecConstantBinaryOp, spv::Op::OpSpecConstantOp,
                        resultType, loc),
       specOp(specConstantOp), operand1(op1), operand2(op2) {}
+
+SpirvSpecConstantTernaryOp::SpirvSpecConstantTernaryOp(
+    spv::Op specConstantOp, QualType resultType, SourceLocation loc,
+    SpirvInstruction *op1, SpirvInstruction *op2, SpirvInstruction *op3)
+    : SpirvInstruction(IK_SpecConstantTernaryOp, spv::Op::OpSpecConstantOp,
+                       resultType, loc),
+      specOp(specConstantOp), operand1(op1), operand2(op2), operand3(op3) {}
 
 SpirvSpecConstantUnaryOp::SpirvSpecConstantUnaryOp(spv::Op specConstantOp,
                                                    QualType resultType,

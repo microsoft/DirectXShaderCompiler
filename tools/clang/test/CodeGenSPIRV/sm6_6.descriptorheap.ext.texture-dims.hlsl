@@ -19,15 +19,12 @@
 // CHECK-DAG:  %[[RA_Tex2DArr:[a-zA-Z0-9_]+]] = OpTypeRuntimeArray %[[Tex2DArrType]]{{$}}
 // CHECK-DAG:     %[[RA_Tex3D:[a-zA-Z0-9_]+]] = OpTypeRuntimeArray %[[Tex3DType]]{{$}}
 
-// Default heap stride: OpConstantSizeOfEXT + ArrayStrideIdEXT per element type.
-// CHECK-DAG:    %[[Tex1DSize:[a-zA-Z0-9_]+]] = OpConstantSizeOfEXT %uint %[[Tex1DType]]
-// CHECK-DAG: %[[Tex1DArrSize:[a-zA-Z0-9_]+]] = OpConstantSizeOfEXT %uint %[[Tex1DArrType]]
-// CHECK-DAG: %[[Tex2DArrSize:[a-zA-Z0-9_]+]] = OpConstantSizeOfEXT %uint %[[Tex2DArrType]]
-// CHECK-DAG:    %[[Tex3DSize:[a-zA-Z0-9_]+]] = OpConstantSizeOfEXT %uint %[[Tex3DType]]
-// CHECK-DAG:                                   OpDecorateId %[[RA_Tex1D]] ArrayStrideIdEXT %[[Tex1DSize]]
-// CHECK-DAG:                                   OpDecorateId %[[RA_Tex1DArr]] ArrayStrideIdEXT %[[Tex1DArrSize]]
-// CHECK-DAG:                                   OpDecorateId %[[RA_Tex2DArr]] ArrayStrideIdEXT %[[Tex2DArrSize]]
-// CHECK-DAG:                                   OpDecorateId %[[RA_Tex3D]] ArrayStrideIdEXT %[[Tex3DSize]]
+// All textures are resource descriptors, so every array shares one resource stride 
+// (derivation covered by sm6_6.descriptorheap.ext.array-stride.hlsl)
+// CHECK-DAG: OpDecorateId %[[RA_Tex1D]] ArrayStrideIdEXT %[[ResSize:[a-zA-Z0-9_]+]]
+// CHECK-DAG: OpDecorateId %[[RA_Tex1DArr]] ArrayStrideIdEXT %[[ResSize]]
+// CHECK-DAG: OpDecorateId %[[RA_Tex2DArr]] ArrayStrideIdEXT %[[ResSize]]
+// CHECK-DAG: OpDecorateId %[[RA_Tex3D]] ArrayStrideIdEXT %[[ResSize]]
 
 // CHECK:     %[[ResourceHeap:[a-zA-Z0-9_]+]] = OpUntypedVariableKHR %[[UntypedPtr]] UniformConstant
 

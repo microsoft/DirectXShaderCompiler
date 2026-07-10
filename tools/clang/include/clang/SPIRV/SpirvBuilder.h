@@ -830,6 +830,20 @@ public:
   /// a 32-bit unsigned value. The result is cached per operand type, so each
   /// descriptor type emits at most one instruction.
   SpirvConstant *getConstantSizeOfEXT(const SpirvType *operandType);
+
+  SpirvSpecConstantTernaryOp *
+  createSpecConstantTernaryOp(spv::Op op, QualType resultType,
+                              SpirvInstruction *op1, SpirvInstruction *op2,
+                              SpirvInstruction *op3, SourceLocation loc);
+
+  /// \brief Shared ArrayStrideIdEXT operand for resource-heap runtime arrays:
+  /// max(sizeof(image), sizeof(buffer)) computed via OpSpecConstantOp.
+  /// Cached per module.
+  SpirvInstruction *getResourceHeapArrayStride();
+
+  /// \brief Shared ArrayStrideIdEXT operand for sampler-heap runtime arrays:
+  /// the sampler descriptor size. Cached per module.
+  SpirvInstruction *getSamplerHeapArrayStride();
   SpirvUndef *getUndef(QualType);
 
   SpirvString *createString(llvm::StringRef str);
@@ -949,6 +963,12 @@ private:
   /// Cache of OpConstantSizeOfEXT instructions keyed on the descriptor operand
   /// type, so each distinct descriptor type emits at most one instruction.
   llvm::DenseMap<const SpirvType *, SpirvConstant *> constantSizeOfEXTMap;
+
+  /// Cached shared descriptor-heap array strides (SPV_EXT_descriptor_heap), so
+  /// each is emitted once per module (see
+  /// get{Resource,Sampler}HeapArrayStride).
+  SpirvInstruction *resourceHeapArrayStride = nullptr;
+  SpirvInstruction *samplerHeapArrayStride = nullptr;
 
   SpirvDebugInfoNone *debugNone;
 

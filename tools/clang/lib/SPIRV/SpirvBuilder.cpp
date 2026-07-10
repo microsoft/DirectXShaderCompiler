@@ -471,6 +471,16 @@ SpirvSpecConstantBinaryOp *SpirvBuilder::createSpecConstantBinaryOp(
   return instruction;
 }
 
+SpirvSpecConstantTernaryOp *SpirvBuilder::createSpecConstantTernaryOp(
+    spv::Op op, QualType resultType, SpirvInstruction *op1,
+    SpirvInstruction *op2, SpirvInstruction *op3, SourceLocation loc) {
+  assert(insertPoint && "null insert point");
+  auto *instruction = new (context)
+      SpirvSpecConstantTernaryOp(op, resultType, loc, op1, op2, op3);
+  insertPoint->addInstruction(instruction);
+  return instruction;
+}
+
 SpirvGroupNonUniformOp *SpirvBuilder::createGroupNonUniformOp(
     spv::Op op, QualType resultType, llvm::Optional<spv::Scope> execScope,
     llvm::ArrayRef<SpirvInstruction *> operands, SourceLocation loc,
@@ -2026,6 +2036,50 @@ SpirvBuilder::getConstantSizeOfEXT(const SpirvType *operandType) {
   mod->addConstant(sizeOfConst);
   constantSizeOfEXTMap[operandType] = sizeOfConst;
   return sizeOfConst;
+}
+
+SpirvInstruction *SpirvBuilder::getResourceHeapArrayStride() {
+  if (resourceHeapArrayStride)
+    return resourceHeapArrayStride;
+
+  // The HLSL SM6.6 ResourceDescriptorHeap is a single flat array in which the
+  // client may place any resource descriptor at any slot. To match DX12
+  // semantics, all resource descriptor arrays must share one stride equal to
+  // the largest resource descriptor size: max(sizeof(image), sizeof(buffer)).
+  // Images and buffers are the two resource descriptor categories defined by
+  // VkPhysicalDeviceDescriptorHeapPropertiesEXT (imageDescriptorSize /
+  // bufferDescriptorSize); textures lower to OpTypeImage, so image/buffer
+  // covers all relevant HLSL resource kinds.
+  // Both sizes are driver defined and known only at pipeline creation time, so
+  // the maximum is computed with OpSpecConstantOp over two OpConstantSizeOfEXT
+  // placeholders. A canonical sampled 2D float image and a Uniform buffer stand
+  // in as representatives; VkPhysicalDeviceDescriptorHeapPropertiesEXT reports
+  // one size per category, so subtype and storage class do not affect the size.
+  const SpirvType *placeholderImage = context.getImageType(
+      context.getFloatType(32), spv::Dim::Dim2D, ImageType::WithDepth::No,
+      /*arrayed*/ false, /*ms*/ false, ImageType::WithSampler::Yes,
+      spv::ImageFormat::Unknown);
+  const SpirvType *placeholderBuffer =
+      context.getBufferEXTType(spv::StorageClass::Uniform);
+
+  SpirvInstruction *imageSize = getConstantSizeOfEXT(placeholderImage);
+  SpirvInstruction *bufferSize = getConstantSizeOfEXT(placeholderBuffer);
+  SpirvInstruction *imageIsBigger = createSpecConstantBinaryOp(
+      spv::Op::OpUGreaterThan, astContext.BoolTy, imageSize, bufferSize, {});
+  resourceHeapArrayStride =
+      createSpecConstantTernaryOp(spv::Op::OpSelect, astContext.UnsignedIntTy,
+                                  imageIsBigger, imageSize, bufferSize, {});
+  return resourceHeapArrayStride;
+}
+
+SpirvInstruction *SpirvBuilder::getSamplerHeapArrayStride() {
+  if (samplerHeapArrayStride)
+    return samplerHeapArrayStride;
+  // The sampler heap holds only OpTypeSampler descriptors. All samplers are the
+  // same size (unlike resources, which split into image and buffer categories
+  // that may differ), so the stride is just that one descriptor size.
+  samplerHeapArrayStride = getConstantSizeOfEXT(context.getSamplerType());
+  return samplerHeapArrayStride;
 }
 
 SpirvConstant *SpirvBuilder::getConstantString(llvm::StringRef str,
