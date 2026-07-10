@@ -2287,7 +2287,7 @@ static void ValidateDxilOperationCallInProfile(CallInst *CI,
     Type *DstMatTy = CI->getType();
     Type *SrcMatTy = CI->getArgOperand(1)->getType();
     assert(dxilutil::IsHLSLLinAlgMatrixType(DstMatTy) &&
-           dxilutil::IsHLSLLinAlgMatrixType(DstMatTy) &&
+           dxilutil::IsHLSLLinAlgMatrixType(SrcMatTy) &&
            "Must be LinAlg types");
 
     Value *TransposeOp = CI->getArgOperand(2);
