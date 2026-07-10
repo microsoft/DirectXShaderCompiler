@@ -14,11 +14,10 @@
 // CHECK-DAG:   %[[RA_BufferType:[a-zA-Z0-9_]+]] = OpTypeRuntimeArray %[[BufferType]]{{$}}
 // CHECK-DAG: %[[RA_RWBufferType:[a-zA-Z0-9_]+]] = OpTypeRuntimeArray %[[RWBufferType]]{{$}}
 
-// Default heap stride: OpConstantSizeOfEXT + ArrayStrideIdEXT per element type.
-// CHECK-DAG:      %[[BufferSize:[a-zA-Z0-9_]+]] = OpConstantSizeOfEXT %uint %[[BufferType]]
-// CHECK-DAG:    %[[RWBufferSize:[a-zA-Z0-9_]+]] = OpConstantSizeOfEXT %uint %[[RWBufferType]]
-// CHECK-DAG:                                      OpDecorateId %[[RA_BufferType]] ArrayStrideIdEXT %[[BufferSize]]
-// CHECK-DAG:                                      OpDecorateId %[[RA_RWBufferType]] ArrayStrideIdEXT %[[RWBufferSize]]
+// Buffer<T> and RWBuffer<T> are both resource descriptors, so both arrays share one resource stride
+// (derivation covered by sm6_6.descriptorheap.ext.array-stride.hlsl)
+// CHECK-DAG: OpDecorateId %[[RA_BufferType]] ArrayStrideIdEXT %[[ResSize:[a-zA-Z0-9_]+]]
+// CHECK-DAG: OpDecorateId %[[RA_RWBufferType]] ArrayStrideIdEXT %[[ResSize]]
 
 // CHECK:        %[[ResourceHeap:[a-zA-Z0-9_]+]] = OpUntypedVariableKHR %[[UntypedPtrType]] UniformConstant
 
