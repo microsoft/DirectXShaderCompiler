@@ -1924,16 +1924,8 @@ bool SpirvEmitter::validateVKAttributes(const NamedDecl *decl) {
 
 void SpirvEmitter::registerCapabilitiesAndExtensionsForVarDecl(
     const VarDecl *varDecl) {
-  // First record any extensions that are part of the actual variable
-  // declaration.
-  for (auto *attribute : varDecl->specific_attrs<VKExtensionExtAttr>()) {
-    clang::StringRef extensionName = attribute->getName();
-    spvBuilder.requireExtension(extensionName, varDecl->getLocation());
-  }
-  for (auto *attribute : varDecl->specific_attrs<VKCapabilityExtAttr>()) {
-    spv::Capability cap = spv::Capability(attribute->getCapability());
-    spvBuilder.requireCapability(cap, varDecl->getLocation());
-  }
+  // First record any extensions/capabilities declared on the variable itself.
+  declIdMapper.registerCapabilitiesAndExtensionsForDecl(varDecl);
 
   // Now check for any capabilities or extensions that are part of the type.
   const TypedefType *type = dyn_cast<TypedefType>(varDecl->getType());

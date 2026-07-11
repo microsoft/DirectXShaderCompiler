@@ -1826,6 +1826,17 @@ SpirvFunction *DeclResultIdMapper::getOrRegisterFn(const FunctionDecl *fn) {
                                spv::LinkageType::Export, fn->getLocation());
   }
 
+  // Honor inline-SPIR-V attributes placed directly on a function. The
+  // entry-point path handles these only for entry functions, and the
+  // vk::ext_instruction path only for functions lowered to an instruction, so a
+  // plain function was previously skipped and these attributes silently
+  // dropped. These reuse the same helpers as the variable/parameter paths:
+  //   [[vk::ext_decorate(d, ...)]]  -> OpDecorate targeting the OpFunction
+  //   [[vk::ext_capability(c)]]     -> OpCapability for the module
+  //   [[vk::ext_extension("...")]]  -> OpExtension for the module
+  decorateWithIntrinsicAttrs(fn, spirvFunction);
+  registerCapabilitiesAndExtensionsForDecl(fn);
+
   // No need to dereference to get the pointer. Function returns that are
   // stand-alone aliases are already pointers to values. All other cases should
   // be normal rvalues.
@@ -5047,6 +5058,29 @@ void DeclResultIdMapper::decorateWithIntrinsicAttrs(
   }
 }
 
+void DeclResultIdMapper::decorateWithIntrinsicAttrs(const NamedDecl *decl,
+                                                    SpirvFunction *targetFunc) {
+  if (!decl->hasAttrs())
+    return;
+
+  for (auto &attr : decl->getAttrs()) {
+    if (auto *decoAttr = dyn_cast<VKDecorateExtAttr>(attr)) {
+      spvBuilder.decorateWithLiterals(
+          targetFunc, decoAttr->getDecorate(),
+          {decoAttr->literals_begin(), decoAttr->literals_end()},
+          decl->getLocation());
+      continue;
+    }
+    // The id/string forms decorate a SpirvInstruction target; there is no
+    // SpirvFunction-target equivalent yet, so reject rather than silently drop.
+    if (isa<VKDecorateIdExtAttr>(attr) || isa<VKDecorateStringExtAttr>(attr)) {
+      emitError("vk::ext_decorate_id and vk::ext_decorate_string are not "
+                "supported on functions",
+                decl->getLocation());
+    }
+  }
+}
+
 void DeclResultIdMapper::decorateStageVarWithIntrinsicAttrs(
     const NamedDecl *decl, StageVar *stageVar, SpirvVariable *varInst) {
   auto checkBuiltInLocationDecoration =
@@ -5133,6 +5167,17 @@ void DeclResultIdMapper::storeOutStageVarsToStorage(
     storeOutStageVarsToStorage(cast<DeclaratorDecl>(field), ctrlPointID,
                                field->getType(), tempLocation);
     ++index;
+  }
+}
+
+void DeclResultIdMapper::registerCapabilitiesAndExtensionsForDecl(
+    const NamedDecl *decl) {
+  for (auto *attribute : decl->specific_attrs<VKExtensionExtAttr>()) {
+    spvBuilder.requireExtension(attribute->getName(), decl->getLocation());
+  }
+  for (auto *attribute : decl->specific_attrs<VKCapabilityExtAttr>()) {
+    spv::Capability cap = spv::Capability(attribute->getCapability());
+    spvBuilder.requireCapability(cap, decl->getLocation());
   }
 }
 
