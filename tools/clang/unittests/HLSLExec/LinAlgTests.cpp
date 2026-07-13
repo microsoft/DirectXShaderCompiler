@@ -1379,6 +1379,9 @@ static const char OuterProductShader[] = R"(
 static void runOuterProduct(ID3D12Device *Device,
                             dxc::SpecificDllLoader &DxcSupport,
                             const MatrixParams &Params, bool Verbose) {
+  VERIFY_IS_TRUE(
+      Params.Layout == LinalgMatrixLayout::OuterProductOptimal,
+      "Outer product must output its matrix in OuterProductOptimal layout");
   const size_t NumVecElements = Params.M + Params.N;
   const size_t InBuffSize = NumVecElements * elementSize(Params.CompType);
   const size_t NumMatElements = Params.totalElements();
