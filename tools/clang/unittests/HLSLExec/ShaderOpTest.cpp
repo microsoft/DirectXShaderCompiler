@@ -928,6 +928,13 @@ void ShaderOpTest::GetReadBackData(LPCSTR pResourceName, MappedData *pData) {
   pData->reset(D.ReadBack, sizeInBytes);
 }
 
+void ShaderOpTest::GetResource(LPCSTR pResourceName,
+                               ID3D12Resource **ppResource) {
+  pResourceName = m_pShaderOp->Strings.insert(pResourceName); // Unique
+  ShaderOpResourceData &D = m_ResourceData.at(pResourceName);
+  *ppResource = D.Resource.p;
+}
+
 static void SetDescriptorHeaps(ID3D12GraphicsCommandList *pList,
                                std::vector<ID3D12DescriptorHeap *> &heaps) {
   if (heaps.empty())
@@ -951,6 +958,8 @@ void ShaderOpTest::RunCommandList() {
     SetRootValues(pList, m_pShaderOp->IsCompute());
     pList->Dispatch(m_pShaderOp->DispatchX, m_pShaderOp->DispatchY,
                     m_pShaderOp->DispatchZ);
+    if (m_PostDispatchCallbackFn)
+      m_PostDispatchCallbackFn(pList, this);
   } else {
     pList->SetPipelineState(m_pPSO);
     SetDescriptorHeaps(pList, m_DescriptorHeaps);
@@ -1149,6 +1158,10 @@ void ShaderOpTest::SetInitCallback(TInitCallbackFn InitCallbackFn) {
 }
 void ShaderOpTest::SetShaderCallback(TShaderCallbackFn ShaderCallbackFn) {
   m_ShaderCallbackFn = ShaderCallbackFn;
+}
+void ShaderOpTest::SetPostDispatchCallback(
+    TCommandCallbackFn PostDispatchCallbackFn) {
+  m_PostDispatchCallbackFn = PostDispatchCallbackFn;
 }
 
 void ShaderOpTest::SetupRenderTarget(ShaderOp *pShaderOp, ID3D12Device *pDevice,
@@ -2750,12 +2763,12 @@ bool ShaderOpParser::ReadAtElementName(IXmlReader *pReader, LPCWSTR pName) {
   }
 }
 
-std::shared_ptr<ShaderOpTestResult>
-RunShaderOpTestAfterParse(ID3D12Device *pDevice,
-                          dxc::SpecificDllLoader &support, LPCSTR pName,
-                          st::ShaderOpTest::TInitCallbackFn pInitCallback,
-                          st::ShaderOpTest::TShaderCallbackFn pShaderCallback,
-                          std::shared_ptr<st::ShaderOpSet> ShaderOpSet) {
+std::shared_ptr<ShaderOpTestResult> RunShaderOpTestAfterParse(
+    ID3D12Device *pDevice, dxc::SpecificDllLoader &support, LPCSTR pName,
+    st::ShaderOpTest::TInitCallbackFn pInitCallback,
+    st::ShaderOpTest::TShaderCallbackFn pShaderCallback,
+    st::ShaderOpTest::TCommandCallbackFn pPostDispatchCallback,
+    std::shared_ptr<st::ShaderOpSet> ShaderOpSet) {
   st::ShaderOp *pShaderOp;
   if (pName == nullptr) {
     if (ShaderOpSet->ShaderOps.size() != 1) {
@@ -2786,6 +2799,7 @@ RunShaderOpTestAfterParse(ID3D12Device *pDevice,
   test->SetSpecificDllLoader(&support);
   test->SetInitCallback(pInitCallback);
   test->SetShaderCallback(pShaderCallback);
+  test->SetPostDispatchCallback(pPostDispatchCallback);
   test->SetDevice(pDevice);
   test->RunShaderOp(pShaderOp);
 
@@ -2801,9 +2815,19 @@ std::shared_ptr<ShaderOpTestResult>
 RunShaderOpTestAfterParse(ID3D12Device *pDevice,
                           dxc::SpecificDllLoader &support, LPCSTR pName,
                           st::ShaderOpTest::TInitCallbackFn pInitCallback,
+                          st::ShaderOpTest::TShaderCallbackFn pShaderCallback,
                           std::shared_ptr<st::ShaderOpSet> ShaderOpSet) {
   return RunShaderOpTestAfterParse(pDevice, support, pName, pInitCallback,
-                                   nullptr, ShaderOpSet);
+                                   pShaderCallback, nullptr, ShaderOpSet);
+}
+
+std::shared_ptr<ShaderOpTestResult>
+RunShaderOpTestAfterParse(ID3D12Device *pDevice,
+                          dxc::SpecificDllLoader &support, LPCSTR pName,
+                          st::ShaderOpTest::TInitCallbackFn pInitCallback,
+                          std::shared_ptr<st::ShaderOpSet> ShaderOpSet) {
+  return RunShaderOpTestAfterParse(pDevice, support, pName, pInitCallback,
+                                   nullptr, nullptr, ShaderOpSet);
 }
 
 std::shared_ptr<ShaderOpTestResult>

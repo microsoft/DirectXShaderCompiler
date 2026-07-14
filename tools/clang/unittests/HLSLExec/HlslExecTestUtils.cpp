@@ -725,12 +725,15 @@ void addRootView(st::ShaderOp *Op, UINT Index, const char *ResName) {
 std::shared_ptr<st::ShaderOpTestResult>
 runShaderOp(ID3D12Device *Device, dxc::SpecificDllLoader &DxcSupport,
             std::unique_ptr<st::ShaderOp> Op,
-            st::ShaderOpTest::TInitCallbackFn InitCallback) {
+            st::ShaderOpTest::TInitCallbackFn InitCallback,
+            st::ShaderOpTest::TCommandCallbackFn PostDispatchCallback) {
   auto OpSet = std::make_shared<st::ShaderOpSet>();
   OpSet->ShaderOps.push_back(std::move(Op));
 
   return st::RunShaderOpTestAfterParse(
-      Device, DxcSupport, nullptr, std::move(InitCallback), std::move(OpSet));
+      Device, DxcSupport, nullptr, std::move(InitCallback),
+      /*pShaderCallback=*/nullptr, std::move(PostDispatchCallback),
+      std::move(OpSet));
 }
 
 void compileShader(dxc::SpecificDllLoader &DxcSupport, const char *Source,
@@ -796,3 +799,63 @@ void compileShader(dxc::SpecificDllLoader &DxcSupport, const char *Source,
     VERIFY_SUCCEEDED(HR);
   }
 }
+
+#if defined(DIRECT3D_LINEAR_ALGEBRA)
+UINT getLinAlgMatrixByteSize(ID3D12Device *Device, UINT NumRows,
+                             UINT NumColumns,
+                             D3D12_LINEAR_ALGEBRA_DATATYPE DataType,
+                             D3D12_LINEAR_ALGEBRA_MATRIX_LAYOUT Layout,
+                             UINT Stride) {
+  CComPtr<ID3D12DevicePreview> DevicePreview;
+  VERIFY_SUCCEEDED(Device->QueryInterface(IID_PPV_ARGS(&DevicePreview)));
+
+  D3D12_LINEAR_ALGEBRA_MATRIX_CONVERSION_DEST_INFO Info = {};
+  Info.DestSize = 0;
+  Info.DestLayout = Layout;
+  Info.DestStride = Stride;
+  Info.NumRows = NumRows;
+  Info.NumColumns = NumColumns;
+  Info.DestDataType = DataType;
+  DevicePreview->GetLinearAlgebraMatrixConversionDestinationInfo(&Info);
+  return Info.DestSize;
+}
+
+void recordLinAlgMatrixConversion(
+    ID3D12GraphicsCommandList *List, ID3D12Resource *SrcBuffer, UINT SrcSize,
+    ID3D12Resource *DestBuffer, UINT DestSize, UINT NumRows, UINT NumColumns,
+    D3D12_LINEAR_ALGEBRA_DATATYPE DataType,
+    D3D12_LINEAR_ALGEBRA_MATRIX_LAYOUT SrcLayout, UINT SrcStride,
+    D3D12_LINEAR_ALGEBRA_MATRIX_LAYOUT DestLayout, UINT DestStride) {
+  CComPtr<ID3D12GraphicsCommandListPreview> PreviewList;
+  VERIFY_SUCCEEDED(List->QueryInterface(IID_PPV_ARGS(&PreviewList)));
+
+  // Per the linear-algebra spec, ConvertLinearAlgebraMatrix (legacy barriers)
+  // requires the source buffer in NON_PIXEL_SHADER_RESOURCE and the destination
+  // in UNORDERED_ACCESS. The caller passes both in UNORDERED_ACCESS (the
+  // ShaderOp default UAV state), so transition the source to the required read
+  // state; the destination is already in UNORDERED_ACCESS.
+  D3D12_RESOURCE_BARRIER Barrier = {};
+  Barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+  Barrier.Transition.pResource = SrcBuffer;
+  Barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+  Barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
+  Barrier.Transition.StateAfter =
+      D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
+  List->ResourceBarrier(1, &Barrier);
+
+  D3D12_LINEAR_ALGEBRA_MATRIX_CONVERSION_INFO Info = {};
+  Info.DestInfo.DestSize = DestSize;
+  Info.DestInfo.DestLayout = DestLayout;
+  Info.DestInfo.DestStride = DestStride;
+  Info.DestInfo.NumRows = NumRows;
+  Info.DestInfo.NumColumns = NumColumns;
+  Info.DestInfo.DestDataType = DataType;
+  Info.SrcInfo.SrcSize = SrcSize;
+  Info.SrcInfo.SrcDataType = DataType;
+  Info.SrcInfo.SrcLayout = SrcLayout;
+  Info.SrcInfo.SrcStride = SrcStride;
+  Info.DataDesc.DestVA = DestBuffer->GetGPUVirtualAddress();
+  Info.DataDesc.SrcVA = SrcBuffer->GetGPUVirtualAddress();
+  PreviewList->ConvertLinearAlgebraMatrix(&Info, 1);
+}
+#endif // defined(DIRECT3D_LINEAR_ALGEBRA)
