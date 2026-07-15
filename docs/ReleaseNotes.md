@@ -93,6 +93,9 @@ line upon naming the release. Refer to previous for appropriate section names.
   [#8246](https://github.com/microsoft/DirectXShaderCompiler/issues/8246).
 - Fixed an ambiguous overloaded `operator+` error with newer Clang
   [#8516](https://github.com/microsoft/DirectXShaderCompiler/pull/8516).
+- Stopped emitting illegal `*.with.overflow` intrinsics for DXIL, which caused
+  validation failures for overflow-check idioms when optimizations were enabled
+  [#8600](https://github.com/microsoft/DirectXShaderCompiler/pull/8600).
 
 #### Other Changes
 
