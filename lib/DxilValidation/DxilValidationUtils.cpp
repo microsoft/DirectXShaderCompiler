@@ -683,4 +683,17 @@ llvm::StringRef MatrixScopeToString(DXIL::MatrixScope MS) {
   }
 }
 
+llvm::StringRef MatrixUseToString(DXIL::MatrixUse MU) {
+  switch (MU) {
+  case DXIL::MatrixUse::A:
+    return "A";
+  case DXIL::MatrixUse::B:
+    return "B";
+  case DXIL::MatrixUse::Accumulator:
+    return "Accumulator";
+  default:
+    return "Unknown MatrixUse";
+  }
+}
+
 } // namespace hlsl
