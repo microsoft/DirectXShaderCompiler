@@ -93,6 +93,9 @@ line upon naming the release. Refer to previous for appropriate section names.
   [#8246](https://github.com/microsoft/DirectXShaderCompiler/issues/8246).
 - Fixed an ambiguous overloaded `operator+` error with newer Clang
   [#8516](https://github.com/microsoft/DirectXShaderCompiler/pull/8516).
+- Stopped emitting illegal `*.with.overflow` intrinsics for DXIL, which caused
+  validation failures for overflow-check idioms when optimizations were enabled
+  [#8600](https://github.com/microsoft/DirectXShaderCompiler/pull/8600).
 
 #### Other Changes
 
@@ -116,6 +119,10 @@ first shipped in the 1.10.2605 preview.
   [#8271](https://github.com/microsoft/DirectXShaderCompiler/issues/8271).
 - Corrected the parameter order of `InterlockedAccumulate`
   [#8459](https://github.com/microsoft/DirectXShaderCompiler/pull/8459).
+- Added validation of LinAlg matrix builtin parameters and result K dimension
+  [#8588](https://github.com/microsoft/DirectXShaderCompiler/pull/8588).
+- Restricted the component types allowed in LinAlg matrices
+  [#8608](https://github.com/microsoft/DirectXShaderCompiler/pull/8608).
 
 ### Version 1.10.2605
 
