@@ -17,7 +17,10 @@ The included licenses apply to the following files:
 
 ## Changelog
 
-### Version 1.9.2607
+### Upcoming Release
+
+Place release notes for the upcoming release below this line and remove this
+line upon naming the release. Refer to previous for appropriate section names.
 
 #### HLSL Language
 
@@ -101,6 +104,25 @@ The included licenses apply to the following files:
 - Added `-Fre` support for the Metal backend to emit the Metal Shader Converter
   reflection JSON
   [#8159](https://github.com/microsoft/DirectXShaderCompiler/pull/8159).
+
+### Upcoming Preview Release
+
+These changes apply to experimental preview shader models only and will not be
+part of the next non-preview release.
+
+#### Experimental Shader Model 6.10
+
+These are incremental changes to the experimental Shader Model 6.10 features that
+first shipped in the 1.10.2605 preview.
+
+- Fixed the set of numeric types allowed in LinAlg matrix intrinsics
+  [#8271](https://github.com/microsoft/DirectXShaderCompiler/issues/8271).
+- Corrected the parameter order of `InterlockedAccumulate`
+  [#8459](https://github.com/microsoft/DirectXShaderCompiler/pull/8459).
+- Added validation of LinAlg matrix builtin parameters and result K dimension
+  [#8588](https://github.com/microsoft/DirectXShaderCompiler/pull/8588).
+- Restricted the component types allowed in LinAlg matrices
+  [#8608](https://github.com/microsoft/DirectXShaderCompiler/pull/8608).
 
 ### Version 1.10.2605
 
