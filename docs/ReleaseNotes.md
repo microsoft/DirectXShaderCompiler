@@ -119,6 +119,10 @@ first shipped in the 1.10.2605 preview.
   [#8271](https://github.com/microsoft/DirectXShaderCompiler/issues/8271).
 - Corrected the parameter order of `InterlockedAccumulate`
   [#8459](https://github.com/microsoft/DirectXShaderCompiler/pull/8459).
+- Added validation of LinAlg matrix builtin parameters and result K dimension
+  [#8588](https://github.com/microsoft/DirectXShaderCompiler/pull/8588).
+- Restricted the component types allowed in LinAlg matrices
+  [#8608](https://github.com/microsoft/DirectXShaderCompiler/pull/8608).
 
 ### Version 1.10.2605
 
