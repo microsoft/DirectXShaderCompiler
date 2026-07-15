@@ -7974,8 +7974,8 @@ constexpr IntrinsicLower gLowerTable[] = {
 
     {IntrinsicOp::IOP_DebugBreak, TrivialNoArgOperation,
      DXIL::OpCode::DebugBreak},
-    {IntrinsicOp::IOP_DxIsDebuggerPresent, TranslateWaveToVal,
-     DXIL::OpCode::IsDebuggerPresent},
+    {IntrinsicOp::IOP_DxIsDebuggingEnabled, TranslateWaveToVal,
+     DXIL::OpCode::IsDebuggingEnabled},
 
     {IntrinsicOp::IOP___builtin_LinAlg_Convert, TranslateLinAlgConvert,
      DXIL::OpCode::LinAlgConvert},

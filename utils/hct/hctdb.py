@@ -1184,7 +1184,7 @@ class db_dxil(object):
                 "compute",
             )
 
-        for i in insts("DebugBreak", "IsDebuggerPresent"):
+        for i in insts("DebugBreak", "IsDebuggingEnabled"):
             i.category = "Debugging"
             i.shader_model = experimental_sm
 
@@ -6612,7 +6612,7 @@ class db_dxil(object):
         add_dxil_op(
             "DebugBreak",
             "DebugBreak",
-            "triggers a breakpoint if a debugger is attached",
+            "triggers a breakpoint if debugging is enabled",
             "v",
             "nd",
             [
@@ -6620,13 +6620,13 @@ class db_dxil(object):
             ],
         )
         add_dxil_op(
-            "IsDebuggerPresent",
-            "IsDebuggerPresent",
-            "returns true if a debugger is attached",
+            "IsDebuggingEnabled",
+            "IsDebuggingEnabled",
+            "returns true if debugging is enabled",
             "v",
-            "ro",
+            "",
             [
-                db_dxil_param(0, "i1", "", "true if a debugger is attached"),
+                db_dxil_param(0, "i1", "", "true if debugging is enabled"),
             ],
         )
 

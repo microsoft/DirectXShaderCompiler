@@ -10997,7 +10997,7 @@ struct DxilInst_LinAlgVectorAccumulateToDescriptor {
   void set_align(llvm::Value *val) { Instr->setOperand(4, val); }
 };
 
-/// This instruction triggers a breakpoint if a debugger is attached
+/// This instruction triggers a breakpoint if debugging is enabled
 struct DxilInst_DebugBreak {
   llvm::Instruction *Instr;
   // Construction and identification
@@ -11016,14 +11016,14 @@ struct DxilInst_DebugBreak {
   bool requiresUniformInputs() const { return false; }
 };
 
-/// This instruction returns true if a debugger is attached
-struct DxilInst_IsDebuggerPresent {
+/// This instruction returns true if debugging is enabled
+struct DxilInst_IsDebuggingEnabled {
   llvm::Instruction *Instr;
   // Construction and identification
-  DxilInst_IsDebuggerPresent(llvm::Instruction *pInstr) : Instr(pInstr) {}
+  DxilInst_IsDebuggingEnabled(llvm::Instruction *pInstr) : Instr(pInstr) {}
   operator bool() const {
     return hlsl::OP::IsDxilOpFuncCallInst(Instr,
-                                          hlsl::OP::OpCode::IsDebuggerPresent);
+                                          hlsl::OP::OpCode::IsDebuggingEnabled);
   }
   // Validation support
   bool isAllowed() const { return true; }
