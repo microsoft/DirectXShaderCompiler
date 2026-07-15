@@ -4885,8 +4885,8 @@ TEST_F(ValidationTest, CacheInitWithLowPrec) {
 // PSVRuntimeInfo4 adds NumBytesGroupSharedMemory and is only emitted for
 // validator version >= 1.10; earlier validators emit PSVRuntimeInfo3.
 static uint32_t GetExpectedPSVRuntimeInfoSize(const VersionSupportInfo &ver) {
-  bool HasV4 = ver.m_ValMajor > 1 ||
-               (ver.m_ValMajor == 1 && ver.m_ValMinor >= 10);
+  bool HasV4 =
+      ver.m_ValMajor > 1 || (ver.m_ValMajor == 1 && ver.m_ValMinor >= 10);
   return HasV4 ? static_cast<uint32_t>(sizeof(PSVRuntimeInfo4))
                : static_cast<uint32_t>(sizeof(PSVRuntimeInfo3));
 }
