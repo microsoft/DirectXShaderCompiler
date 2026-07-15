@@ -1,3 +1,4 @@
+// REQUIRES: dxil-1-10
 // RUN: not %dxc -T cs_6_10 -spirv %s 2>&1 | FileCheck %s
 
 // CHECK: :9:9: error: no equivalent for IsDebuggerPresent intrinsic function in Vulkan
