@@ -5278,36 +5278,30 @@ SpirvInstruction *SpirvEmitter::emitDescriptorHeapBufferAccess(
       spvContext.getUntypedPointerKHRType(spv::StorageClass::UniformConstant);
   LowerTypeVisitor lowerTypeVisitor(astContext, spvContext, spirvOptions,
                                     spvBuilder);
+
+  // Select storage class and concrete layout rule for this buffer kind.
+  // ConstantBuffer -> Uniform (UBO); all others -> StorageBuffer (SSBO).
+  // Passing the concrete layout rule (not Void) causes lowerType to return
+  // the bare struct/buffer type rather than a Uniform alias pointer, so we
+  // can wrap it with the correct storage class here without touching
+  // LowerTypeVisitor or relying on RemoveBufferBlockVisitor to fix it later.
+  const spv::StorageClass bufferSC =
+      getDescriptorHeapBufferStorageClass(resourceType);
+  SpirvLayoutRule layoutRule;
+  if (isConstantBuffer(resourceType))
+    layoutRule = spirvOptions.cBufferLayoutRule;
+  else if (isTextureBuffer(resourceType))
+    layoutRule = spirvOptions.tBufferLayoutRule;
+  else
+    layoutRule = spirvOptions.sBufferLayoutRule;
+
   const SpirvType *bufferDataType = lowerTypeVisitor.lowerType(
-      resourceType, SpirvLayoutRule::Void, llvm::None, baseExpr->getExprLoc());
+      resourceType, layoutRule, llvm::None, baseExpr->getExprLoc());
+  const SpirvPointerType *bufferDataPointerType =
+      spvContext.getPointerType(bufferDataType, bufferSC);
 
-  const SpirvPointerType *bufferDataPointerType = nullptr;
-  SpirvLayoutRule layoutRule = spirvOptions.sBufferLayoutRule;
-  if (isConstantTextureBuffer(resourceType)) {
-    layoutRule = isConstantBuffer(resourceType)
-                     ? spirvOptions.cBufferLayoutRule
-                     : spirvOptions.tBufferLayoutRule;
-    bufferDataPointerType = spvContext.getPointerType(
-        bufferDataType, getDescriptorHeapBufferStorageClass(resourceType));
-  } else {
-    bufferDataPointerType = dyn_cast<SpirvPointerType>(bufferDataType);
-  }
-
-  if (!bufferDataPointerType) {
-    emitError("descriptor heap buffer type lowering failed",
-              expr->getExprLoc());
-    return nullptr;
-  }
-
-  // ConstantBuffer -> Uniform (UBO); all others -> StorageBuffer (SSBO)
-  // TODO: Remove this manual override once LowerTypeVisitor returns the
-  // correct StorageClass for descriptor-heap alias pointer types
-  // (currently it returns Uniform for all of them).
-  const spv::StorageClass bufferExtSC = isConstantBuffer(resourceType)
-                                            ? spv::StorageClass::Uniform
-                                            : spv::StorageClass::StorageBuffer;
   const BufferEXTType *bufferDescriptorType =
-      spvContext.getBufferEXTType(bufferExtSC);
+      spvContext.getBufferEXTType(bufferSC);
   const SpirvType *arrayType =
       getDescriptorHeapRuntimeArrayType(bufferDescriptorType);
   SpirvUntypedAccessChainKHR *untypedAccessChainPtr =
@@ -5317,7 +5311,7 @@ SpirvInstruction *SpirvEmitter::emitDescriptorHeapBufferAccess(
   SpirvUnaryOp *bufferDataPtr = spvBuilder.createUnaryOp(
       spv::Op::OpBufferPointerEXT, bufferDataPointerType, untypedAccessChainPtr,
       baseExpr->getExprLoc());
-  bufferDataPtr->setStorageClass(bufferDataPointerType->getStorageClass());
+  bufferDataPtr->setStorageClass(bufferSC);
   bufferDataPtr->setLayoutRule(layoutRule);
   bufferDataPtr->setRValue(false);
   if (isRasterizerOrderedView(resourceType)) {
