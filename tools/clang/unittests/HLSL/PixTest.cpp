@@ -3389,6 +3389,8 @@ void RaygenInternalName()
 }
 
 TEST_F(PixTest, DebugBreakInstrumentation_Basic) {
+  if (m_ver.SkipDxilVersion(1, 10))
+    return;
 
   const char *source = R"x(
 [numthreads(1, 1, 1)]
@@ -3426,6 +3428,8 @@ void main() {
 }
 
 TEST_F(PixTest, DebugBreakInstrumentation_Multiple) {
+  if (m_ver.SkipDxilVersion(1, 10))
+    return;
 
   const char *source = R"x(
 RWByteAddressBuffer buf : register(u0);
