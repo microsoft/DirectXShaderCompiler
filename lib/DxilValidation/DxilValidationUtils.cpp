@@ -14,6 +14,7 @@
 #include <limits>
 #include <optional>
 
+#include "dxc/DXIL/DxilConstants.h"
 #include "dxc/DXIL/DxilEntryProps.h"
 #include "dxc/DXIL/DxilInstructions.h"
 #include "dxc/DXIL/DxilModule.h"
@@ -666,6 +667,19 @@ llvm::StringRef ComponentTypeToString(DXIL::ComponentType CT) {
     return "F8_E5M2";
   default:
     return "Unknown ComponentType";
+  }
+}
+
+llvm::StringRef MatrixScopeToString(DXIL::MatrixScope MS) {
+  switch (MS) {
+  case DXIL::MatrixScope::Thread:
+    return "Thread";
+  case DXIL::MatrixScope::Wave:
+    return "Wave";
+  case DXIL::MatrixScope::ThreadGroup:
+    return "ThreadGroup";
+  default:
+    return "Unknown MatrixScope";
   }
 }
 
