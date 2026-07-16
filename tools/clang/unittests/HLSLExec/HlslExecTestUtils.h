@@ -96,15 +96,47 @@ void addSRVBuffer(st::ShaderOp *Op, const char *Name, UINT64 Width,
 void addRootView(st::ShaderOp *Op, UINT Index, const char *ResName);
 
 /// Run a programmatically-built ShaderOp and return the result.
-std::shared_ptr<st::ShaderOpTestResult>
-runShaderOp(ID3D12Device *Device, dxc::SpecificDllLoader &DxcSupport,
-            std::unique_ptr<st::ShaderOp> Op,
-            st::ShaderOpTest::TInitCallbackFn InitCallback = nullptr);
+std::shared_ptr<st::ShaderOpTestResult> runShaderOp(
+    ID3D12Device *Device, dxc::SpecificDllLoader &DxcSupport,
+    std::unique_ptr<st::ShaderOp> Op,
+    st::ShaderOpTest::TInitCallbackFn InitCallback = nullptr,
+    st::ShaderOpTest::TCommandCallbackFn PostDispatchCallback = nullptr);
 
 /// Compiles an HLSL shader using the DXC API to verify it is well-formed.
 /// Fails the test on compile error.
 void compileShader(dxc::SpecificDllLoader &DxcSupport, const char *Source,
                    const char *Target, const std::string &Args,
                    bool VerboseLogging = false);
+
+// Host-side linear-algebra matrix-conversion helpers. These need the D3D12
+// linear-algebra API (the D3D12_LINEAR_ALGEBRA_* types and the conversion
+// methods on ID3D12DevicePreview / ID3D12GraphicsCommandListPreview), which is
+// gated behind the preview SDK's DIRECT3D_LINEAR_ALGEBRA feature macro. When
+// absent, these helpers and the tests using them are compiled out (they Skip at
+// runtime).
+#if defined(DIRECT3D_LINEAR_ALGEBRA)
+/// Query the number of bytes required to store an NumRows x NumColumns matrix
+/// of the given datatype in the specified device layout.
+UINT getLinAlgMatrixByteSize(ID3D12Device *Device, UINT NumRows,
+                             UINT NumColumns,
+                             D3D12_LINEAR_ALGEBRA_DATATYPE DataType,
+                             D3D12_LINEAR_ALGEBRA_MATRIX_LAYOUT Layout,
+                             UINT Stride);
+
+/// Record a GPU matrix layout conversion onto \p List using
+/// ID3D12GraphicsCommandListPreview::ConvertLinearAlgebraMatrix. Both
+/// \p SrcBuffer (in \p SrcLayout) and \p DestBuffer (receiving \p DestLayout)
+/// must be passed in the D3D12_RESOURCE_STATE_UNORDERED_ACCESS state; the
+/// conversion requires the source in NON_PIXEL_SHADER_RESOURCE, so this helper
+/// transitions it and leaves the destination in UNORDERED_ACCESS. The caller is
+/// responsible for ensuring that writes to \p SrcBuffer have completed before
+/// this conversion reads it.
+void recordLinAlgMatrixConversion(
+    ID3D12GraphicsCommandList *List, ID3D12Resource *SrcBuffer, UINT SrcSize,
+    ID3D12Resource *DestBuffer, UINT DestSize, UINT NumRows, UINT NumColumns,
+    D3D12_LINEAR_ALGEBRA_DATATYPE DataType,
+    D3D12_LINEAR_ALGEBRA_MATRIX_LAYOUT SrcLayout, UINT SrcStride,
+    D3D12_LINEAR_ALGEBRA_MATRIX_LAYOUT DestLayout, UINT DestStride);
+#endif // defined(DIRECT3D_LINEAR_ALGEBRA)
 
 #endif // HLSLEXECTESTUTILS_H

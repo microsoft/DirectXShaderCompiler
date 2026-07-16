@@ -2269,7 +2269,6 @@ static void ValidateDxilOperationCallInProfile(CallInst *CI,
     break;
   }
   case DXIL::OpCode::LinAlgFillMatrix:
-  case DXIL::OpCode::LinAlgCopyConvertMatrix:
   case DXIL::OpCode::LinAlgMatrixLoadFromDescriptor:
   case DXIL::OpCode::LinAlgMatrixLoadFromMemory:
   case DXIL::OpCode::LinAlgMatrixSetElement:
@@ -2279,6 +2278,64 @@ static void ValidateDxilOperationCallInProfile(CallInst *CI,
   case DXIL::OpCode::LinAlgMatrixOuterProduct: {
     ValidateLinAlgOpReturnMatrix(CI, ValCtx);
     ValidateLinAlgOpParameters(CI, ValCtx);
+    break;
+  }
+  case DXIL::OpCode::LinAlgCopyConvertMatrix: {
+    ValidateLinAlgOpReturnMatrix(CI, ValCtx);
+    ValidateLinAlgOpParameters(CI, ValCtx);
+
+    Type *DstMatTy = CI->getType();
+    Type *SrcMatTy = CI->getArgOperand(1)->getType();
+    assert(dxilutil::IsHLSLLinAlgMatrixType(DstMatTy) &&
+           dxilutil::IsHLSLLinAlgMatrixType(SrcMatTy) &&
+           "Must be LinAlg types");
+
+    Value *TransposeOp = CI->getArgOperand(2);
+    ConstantInt *TransposeCI = dyn_cast<ConstantInt>(TransposeOp);
+    bool Transpose = false;
+
+    if (TransposeCI)
+      Transpose = TransposeCI->isOne();
+    else
+      ValCtx.EmitInstrFormatError(CI, ValidationRule::InstrOpConst,
+                                  {"Transpose", "LinAlgCopyConvertMatrix"});
+
+    auto DstIt = ValCtx.LinAlgTargetTypeMap.find(DstMatTy);
+    auto SrcIt = ValCtx.LinAlgTargetTypeMap.find(SrcMatTy);
+    if (DstIt == ValCtx.LinAlgTargetTypeMap.end())
+      break;
+    if (SrcIt == ValCtx.LinAlgTargetTypeMap.end())
+      break;
+    LinAlgTargetType DstLATT = DstIt->second;
+    LinAlgTargetType SrcLATT = SrcIt->second;
+
+    if (DstLATT.Scope == DXIL::MatrixScope::Thread ||
+        SrcLATT.Scope == DXIL::MatrixScope::Thread)
+      ValCtx.EmitInstrFormatError(
+          CI, ValidationRule::InstrLinAlgMatrixScopeNotAllowed,
+          {"Thread", "LinAlgCopyConvertMatrix"});
+
+    if (DstLATT.Scope != SrcLATT.Scope)
+      ValCtx.EmitInstrFormatError(
+          CI, ValidationRule::InstrLinAlgMatrixScopeMismatch,
+          {MatrixScopeToString(DstLATT.Scope),
+           MatrixScopeToString(SrcLATT.Scope)});
+
+    unsigned DstM = DstLATT.M;
+    unsigned DstN = DstLATT.N;
+    unsigned SrcM = SrcLATT.M;
+    unsigned SrcN = SrcLATT.N;
+    if (Transpose) {
+      SrcM = SrcLATT.N;
+      SrcN = SrcLATT.M;
+    }
+
+    if (DstM != SrcM || DstN != SrcN)
+      ValCtx.EmitInstrFormatError(CI,
+                                  ValidationRule::InstrLinAlgMatrixDimMismatch,
+                                  {std::to_string(DstM), std::to_string(DstN),
+                                   std::to_string(SrcM), std::to_string(SrcN)});
+
     break;
   }
 
