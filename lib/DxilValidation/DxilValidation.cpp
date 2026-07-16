@@ -2284,8 +2284,7 @@ static void ValidateDxilOperationCallInProfile(CallInst *CI,
     ValidateLinAlgOpParameters(CI, ValCtx);
 
     Type *RetMatTy = CI->getType();
-    Value *LHSMat = CI->getArgOperand(1);
-    Type *LHSMatTy = LHSMat->getType();
+    Type *LHSMatTy = CI->getArgOperand(1)->getType();
     Type *RHSMatTy = CI->getArgOperand(2)->getType();
     assert(dxilutil::IsHLSLLinAlgMatrixType(RetMatTy) &&
            dxilutil::IsHLSLLinAlgMatrixType(LHSMatTy) &&

@@ -8665,10 +8665,6 @@ class db_dxil(object):
             "Matrix Use '%0' does not match expected use %1 or %2.",
         )
         self.add_valrule(
-            "Instr.LinAlgMatrixTypeMismatch",
-            "Matrix type '%0' does not match expected type %1.",
-        )
-        self.add_valrule(
             "Instr.LinAlgMatrixNotExactMatch",
             "Matrix '%0' must exactly match matrix '%1'.",
         )

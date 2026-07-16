@@ -3215,7 +3215,6 @@ INSTR.LINALGMATRIXDIMMISMATCH                         Matrix Dimension '%0x%1' d
 INSTR.LINALGMATRIXNOTEXACTMATCH                       Matrix '%0' must exactly match matrix '%1'.
 INSTR.LINALGMATRIXSCOPEMISMATCH                       Matrix Scope '%0' does not match expected scope %1.
 INSTR.LINALGMATRIXSCOPENOTALLOWED                     Matrix Scope '%0' not allowed in %1 operation.
-INSTR.LINALGMATRIXTYPEMISMATCH                        Matrix type '%0' does not match expected type %1.
 INSTR.LINALGMATRIXUSEMISMATCH                         Matrix Use '%0' does not match expected use %1.
 INSTR.LINALGMATRIXUSEMISMATCH2                        Matrix Use '%0' does not match expected use %1 or %2.
 INSTR.MAYREORDERTHREADUNDEFCOHERENCEHINTPARAM         Use of undef coherence hint or num coherence hint bits in MaybeReorderThread.
