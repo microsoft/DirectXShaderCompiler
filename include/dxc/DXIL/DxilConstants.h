@@ -546,7 +546,7 @@ enum class OpCode : unsigned {
   ReservedE0 = 32, // reserved
 
   // Debugging
-  DebugBreak = 33,        // triggers a breakpoint if debugging is enabled
+  DebugBreak = 33,         // triggers a breakpoint if debugging is enabled
   IsDebuggingEnabled = 34, // returns true if debugging is enabled
 
   // Group Wave Ops
