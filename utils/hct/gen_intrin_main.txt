@@ -1167,7 +1167,7 @@ namespace DxHitObjectMethods {
 } namespace
 
 namespace DxIntrinsics {
-bool [[ro,min_sm=6.10]] IsDebuggerPresent();
+bool [[min_sm=6.10]] IsDebuggingEnabled();
 void [[min_sm=6.9]] MaybeReorderThread(in DxHitObject HitObject);
 void [[min_sm=6.9]] MaybeReorderThread(in uint CoherenceHint, in uint NumCoherenceHintBitsFromLSB);
 void [[min_sm=6.9]] MaybeReorderThread(in DxHitObject HitObject, in uint CoherenceHint, in uint NumCoherenceHintBitsFromLSB);

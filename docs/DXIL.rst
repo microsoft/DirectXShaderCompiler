@@ -3117,8 +3117,8 @@ ID         Name                                     Description
 2147483678 LinAlgConvert                            Convert vector components from one interpretation to another
 2147483679 LinAlgVectorAccumulateToDescriptor       Accumulates given vector to the buffer at the given offset
 2147483680 ReservedE0                               reserved
-2147483681 DebugBreak                               triggers a breakpoint if a debugger is attached
-2147483682 IsDebuggerPresent                        returns true if a debugger is attached
+2147483681 DebugBreak                               triggers a breakpoint if debugging is enabled
+2147483682 IsDebuggingEnabled                       returns true if debugging is enabled
 ========== ======================================== ===================================================================================================================
 
 

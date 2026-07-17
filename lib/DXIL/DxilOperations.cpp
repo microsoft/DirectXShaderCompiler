@@ -3011,11 +3011,11 @@ static const OP::OpCodeProperty ExperimentalOps_OpCodeProps[] = {
      0,
      {},
      {}}, // Overloads: v
-    {OC::IsDebuggerPresent,
-     "IsDebuggerPresent",
-     OCC::IsDebuggerPresent,
-     "isDebuggerPresent",
-     Attribute::ReadOnly,
+    {OC::IsDebuggingEnabled,
+     "IsDebuggingEnabled",
+     OCC::IsDebuggingEnabled,
+     "isDebuggingEnabled",
+     Attribute::None,
      0,
      {},
      {}}, // Overloads: v
@@ -3957,7 +3957,7 @@ void OP::GetMinShaderModelAndMask(OpCode C, bool bWithTranslation,
   // LinAlgMatrixAccumulateToDescriptor=2147483675,
   // LinAlgMatrixOuterProduct=2147483677, LinAlgConvert=2147483678,
   // LinAlgVectorAccumulateToDescriptor=2147483679, DebugBreak=2147483681,
-  // IsDebuggerPresent=2147483682
+  // IsDebuggingEnabled=2147483682
   if (op == 2147483648 || (2147483652 <= op && op <= 2147483653) ||
       (2147483656 <= op && op <= 2147483657) || op == 2147483662 ||
       op == 2147483670 || (2147483673 <= op && op <= 2147483675) ||
@@ -6703,7 +6703,7 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
     A(pV);
     A(pI32);
     break;
-  case OpCode::IsDebuggerPresent:
+  case OpCode::IsDebuggingEnabled:
     A(pI1);
     A(pI32);
     break;
@@ -7015,7 +7015,7 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
   case OpCode::LinAlgMatrixQueryAccumulatorLayout:
   case OpCode::ReservedE0:
   case OpCode::DebugBreak:
-  case OpCode::IsDebuggerPresent:
+  case OpCode::IsDebuggingEnabled:
     return Type::getVoidTy(Ctx);
   case OpCode::QuadVote:
     return IntegerType::get(Ctx, 1);

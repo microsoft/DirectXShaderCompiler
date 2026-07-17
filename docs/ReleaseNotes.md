@@ -137,10 +137,11 @@ first shipped in the 1.10.2605 preview.
   - GetGroupWaveCount: New intrinsic for Compute, Mesh, Amplification and Node
   shaders which returns the total number of waves executing within the thread
   group.
-- Added `DebugBreak()` and `dx::IsDebuggerPresent()` intrinsics for shader debugging (experimental Shader Model 6.10).
-  - `DebugBreak()` triggers a breakpoint if a debugger is attached.
-  - `dx::IsDebuggerPresent()` returns true if a debugger is attached.
-  - SPIR-V: `DebugBreak()` emits `NonSemantic.DebugBreak` extended instruction; `IsDebuggerPresent()` is not supported.
+- Added `DebugBreak()` and `dx::IsDebuggingEnabled()` intrinsics for shader debugging (experimental Shader Model 6.10).
+  - `DebugBreak()` triggers a breakpoint if debugging is enabled.
+  - `dx::IsDebuggingEnabled()` returns true if debugging is enabled when the
+    intrinsic executes.
+  - SPIR-V: `DebugBreak()` emits `NonSemantic.DebugBreak` extended instruction; `IsDebuggingEnabled()` is not supported.
 
 #### Bug Fixes
 

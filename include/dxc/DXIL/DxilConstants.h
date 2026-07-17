@@ -546,8 +546,8 @@ enum class OpCode : unsigned {
   ReservedE0 = 32, // reserved
 
   // Debugging
-  DebugBreak = 33,        // triggers a breakpoint if a debugger is attached
-  IsDebuggerPresent = 34, // returns true if a debugger is attached
+  DebugBreak = 33,         // triggers a breakpoint if debugging is enabled
+  IsDebuggingEnabled = 34, // returns true if debugging is enabled
 
   // Group Wave Ops
   GetGroupWaveCount = 2, // returns the number of waves in the thread group
@@ -1375,10 +1375,10 @@ enum class OpCode : unsigned {
   EXP_OPCODE(ExperimentalOps, ReservedE0), // reserved
   // DebugBreak = 0x80000021, 2147483681U, -2147483615
   EXP_OPCODE(ExperimentalOps,
-             DebugBreak), // triggers a breakpoint if a debugger is attached
-  // IsDebuggerPresent = 0x80000022, 2147483682U, -2147483614
+             DebugBreak), // triggers a breakpoint if debugging is enabled
+  // IsDebuggingEnabled = 0x80000022, 2147483682U, -2147483614
   EXP_OPCODE(ExperimentalOps,
-             IsDebuggerPresent), // returns true if a debugger is attached
+             IsDebuggingEnabled), // returns true if debugging is enabled
 };
 // OPCODE-ENUM:END
 #undef EXP_OPCODE
@@ -1443,7 +1443,7 @@ enum class OpCodeClass : unsigned {
 
   // Debugging
   DebugBreak,
-  IsDebuggerPresent,
+  IsDebuggingEnabled,
 
   // Derivatives
   CalculateLOD,
