@@ -1,4 +1,4 @@
-// RUN: %dxc -T lib_6_6 -fspv-use-descriptor-heap -fspv-target-env=vulkan1.3 -fvk-resource-heap-stride 64 -fvk-sampler-heap-stride 32 -fspv-extension=SPV_KHR_ray_tracing -fspv-extension=SPV_EXT_descriptor_heap -fspv-extension=SPV_KHR_untyped_pointers -spirv %s | FileCheck %s
+// RUN: %dxc -T lib_6_6 -fspv-use-descriptor-heap -fspv-target-env=vulkan1.3 -fspv-extension=SPV_KHR_ray_tracing -fspv-extension=SPV_EXT_descriptor_heap -fspv-extension=SPV_KHR_untyped_pointers -spirv %s | FileCheck %s
 
 // Verifies: ResourceDescriptorHeap of a RaytracingAccelerationStructure 
 //  lowers to an acceleration-structure runtime array, loads the accel 
