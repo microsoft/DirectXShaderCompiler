@@ -28,14 +28,20 @@ void main(uint ID : SV_GroupID) {
   // CHECK-SAME: half 0xH4926>, i32 8) ; LinAlgMatVecMul(matrix,isOutputSigned,inputVector,interpretation)
   vector<half, 8> vec2 = Multiply<half>(Mat1, vec1);
 
-  // CHECK: %[[VEC3:.*]] = call <8 x half> @dx.op.linAlgMatVecMulAdd.v8f16.mC8M8N4U0S0.v4f16.v8f16(i32 -2147483622,
-  // CHECK-SAME: %dx.types.LinAlgMatrixC8M8N4U0S0 %[[MAT1]], i1 true, <4 x half> <half 0xH4926, half 0xH4926, half 0xH4926,
-  // CHECK-SAME: half 0xH4926>, i32 8, <8 x half> %[[VEC2]], i32 8)
-  // CHECK-SAME: ; LinAlgMatVecMulAdd(matrix,isOutputSigned,inputVector,inputInterpretation,biasVector,biasInterpretation)
-  vector<half, 8> vec3 = MultiplyAdd<half>(Mat1, vec1, vec2);
-
   // CHECK: %[[VEC20:.*]] = shufflevector
   vector<half, 4> vec20 = (vector<half, 4>)vec2;
+
+  // CHECK: %[[VEC29:.*]] = call <8 x half> @dx.op.linAlgMatVecMul.v8f16.mC8M8N4U0S0.v4f16(i32 -2147483623,
+  // CHECK-SAME: %dx.types.LinAlgMatrixC8M8N4U0S0 %[[MAT1]], i1 true, <4 x half> %[[VEC20]], i32 8)
+  // CHECK-SAME: ; LinAlgMatVecMul(matrix,isOutputSigned,inputVector,interpretation)
+  InterpretedVector<half, 4, ComponentType::F16> interpVec0 = MakeInterpretedVector<ComponentType::F16>(vec20);
+  vector<half, 8> vec29 = Multiply<half>(Mat1, interpVec0);
+
+  // CHECK: %[[VEC3:.*]] = call <8 x half> @dx.op.linAlgMatVecMulAdd.v8f16.mC8M8N4U0S0.v4f16.v8f16(i32 -2147483622,
+  // CHECK-SAME: %dx.types.LinAlgMatrixC8M8N4U0S0 %[[MAT1]], i1 true, <4 x half> <half 0xH4926, half 0xH4926, half 0xH4926,
+  // CHECK-SAME: half 0xH4926>, i32 8, <8 x half> %[[VEC29]], i32 8)
+  // CHECK-SAME: ; LinAlgMatVecMulAdd(matrix,isOutputSigned,inputVector,inputInterpretation,biasVector,biasInterpretation)
+  vector<half, 8> vec3 = MultiplyAdd<half>(Mat1, vec1, vec29);
 
   // CHECK: %[[VEC4:.*]] = call <8 x half> @dx.op.linAlgMatVecMulAdd.v8f16.mC8M8N4U0S0.v4f16.v8f16(i32 -2147483622,
   // CHECK-SAME: %dx.types.LinAlgMatrixC8M8N4U0S0 %[[MAT1]], i1 true, <4 x half> %[[VEC20]], i32 8, <8 x half> %[[VEC3]], i32 8)

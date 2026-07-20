@@ -477,6 +477,20 @@ Multiply(Matrix<MatrixDT, M, K, MatrixUse::A, MatrixScope::Thread> MatrixA,
   return Result;
 }
 
+template <typename OutputElTy, typename InputElTy, ComponentEnum InputInterp,
+          SIZE_TYPE M, SIZE_TYPE K, SIZE_TYPE VecK, ComponentEnum MatrixDT>
+typename hlsl::enable_if<
+    InterpretedVector<InputElTy, VecK, InputInterp>::Size == K,
+    vector<OutputElTy, M> >::type
+Multiply(Matrix<MatrixDT, M, K, MatrixUse::A, MatrixScope::Thread> MatrixA,
+         InterpretedVector<InputElTy, VecK, InputInterp> InterpVec) {
+  vector<OutputElTy, M> Result;
+  __builtin_LinAlg_MatrixVectorMultiply(
+      Result, MatrixA.__handle, hlsl::is_signed<OutputElTy>::value,
+      InterpVec.Data, InterpVec.Interpretation);
+  return Result;
+}
+
 template <typename OutputElTy, typename InputElTy, typename BiasElTy,
           SIZE_TYPE M, SIZE_TYPE K, ComponentEnum MatrixDT>
 typename hlsl::enable_if<hlsl::is_arithmetic<InputElTy>::value,
