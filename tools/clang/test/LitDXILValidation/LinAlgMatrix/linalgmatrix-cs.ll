@@ -124,7 +124,6 @@ declare %dx.types.LinAlgMatrixC4M4N5U1S2 @dx.op.linAlgMatrixLoadFromDescriptor.m
 ; Function Attrs: nounwind
 declare %dx.types.LinAlgMatrixC4M4N5U2S2 @dx.op.linAlgMatrixLoadFromDescriptor.mC4M4N5U2S2(i32, %dx.types.Handle, i32, i32, i32, i32) #0
 
-
 ; Function Attrs: nounwind
 declare %dx.types.LinAlgMatrixC4M5N4U0S2 @dx.op.linAlgMatrixOuterProduct.mC4M5N4U0S2.v4i32.v4i32(i32, <4 x i32>, <4 x i32>) #0
 
