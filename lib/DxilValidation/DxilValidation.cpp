@@ -2269,7 +2269,6 @@ static void ValidateDxilOperationCallInProfile(CallInst *CI,
     break;
   }
   case DXIL::OpCode::LinAlgFillMatrix:
-  case DXIL::OpCode::LinAlgMatrixLoadFromDescriptor:
   case DXIL::OpCode::LinAlgMatrixLoadFromMemory:
   case DXIL::OpCode::LinAlgMatrixSetElement:
   case DXIL::OpCode::LinAlgMatrixMultiply:
@@ -2277,6 +2276,54 @@ static void ValidateDxilOperationCallInProfile(CallInst *CI,
   case DXIL::OpCode::LinAlgMatrixOuterProduct: {
     ValidateLinAlgOpReturnMatrix(CI, ValCtx);
     ValidateLinAlgOpParameters(CI, ValCtx);
+    break;
+  }
+  case DXIL::OpCode::LinAlgMatrixLoadFromDescriptor: {
+    ValidateLinAlgOpReturnMatrix(CI, ValCtx);
+    ValidateLinAlgOpParameters(CI, ValCtx);
+
+    Type *RetMatTy = CI->getType();
+    assert(dxilutil::IsHLSLLinAlgMatrixType(RetMatTy) && "Must be LinAlg type");
+    auto RetIt = ValCtx.LinAlgTargetTypeMap.find(RetMatTy);
+    if (RetIt == ValCtx.LinAlgTargetTypeMap.end())
+      break;
+    LinAlgTargetType RetLATT = RetIt->second;
+
+    Value *StrideOp = CI->getArgOperand(3);
+    Value *LayoutOp = CI->getArgOperand(4);
+    ConstantInt *LayoutCI = dyn_cast<ConstantInt>(LayoutOp);
+    if (!LayoutCI) {
+      ValCtx.EmitInstrFormatError(CI, ValidationRule::InstrOpConst,
+                                  {"Layout", "LinAlgMatrixLoadFromDescriptor"});
+      break;
+    }
+
+    auto Layout =
+        static_cast<DXIL::LinalgMatrixLayout>(LayoutCI->getLimitedValue());
+    bool LayoutIsRowColMajor =
+        (Layout == DXIL::LinalgMatrixLayout::RowMajor ||
+         Layout == DXIL::LinalgMatrixLayout::ColumnMajor);
+
+    // Layout must be Row/Col Major if Scope is Wave/ThreadGroup
+    if (RetLATT.Scope != DXIL::MatrixScope::Thread && !LayoutIsRowColMajor)
+      ValCtx.EmitInstrFormatError(
+          CI, ValidationRule::InstrLinAlgMatrixScopeReqLayout2,
+          {MatrixScopeToString(RetLATT.Scope), "RowMajor", "ColumnMajor"});
+
+    // Stride must be an imm 0 if Layout is not Row/Col Major
+    if (!LayoutIsRowColMajor) {
+      ConstantInt *StrideCI = dyn_cast<ConstantInt>(StrideOp);
+      if (StrideCI) {
+        if (!StrideCI->isZero())
+          ValCtx.EmitInstrFormatError(
+              CI, ValidationRule::InstrLinAlgMatrixLayoutReqStride,
+              {MatrixLayoutToString(Layout)});
+      } else
+        ValCtx.EmitInstrFormatError(
+            CI, ValidationRule::InstrOpConst,
+            {"Stride", "LinAlgMatrixLoadFromDescriptor"});
+    }
+
     break;
   }
   case DXIL::OpCode::LinAlgMatrixAccumulate: {

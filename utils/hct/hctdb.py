@@ -8668,6 +8668,14 @@ class db_dxil(object):
             "Instr.LinAlgMatrixNotExactMatch",
             "Matrix '%0' must exactly match matrix '%1'.",
         )
+        self.add_valrule(
+            "Instr.LinAlgMatrixScopeReqLayout2",
+            "Matrix scope '%0' requires layout %1 or %2.",
+        )
+        self.add_valrule(
+            "Instr.LinAlgMatrixLayoutReqStride",
+            "Matrix layout '%0' requires stride 0.",
+        )
 
         # Some legacy rules:
         # - space is only supported for shader targets 5.1 and higher
