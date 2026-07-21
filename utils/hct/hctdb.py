@@ -8656,6 +8656,19 @@ class db_dxil(object):
             "Instr.LinAlgMatrixDimMismatch",
             "Matrix Dimension '%0x%1' does not match expected dimension %2x%3.",
         )
+        self.add_valrule(
+            "Instr.LinAlgMatrixUseMismatch",
+            "Matrix Use '%0' does not match expected use %1.",
+        )
+        self.add_valrule(
+            "Instr.LinAlgMatrixUseMismatch2",
+            "Matrix Use '%0' does not match expected use %1 or %2.",
+        )
+        self.add_valrule(
+            "Instr.LinAlgMatrixNotExactMatch",
+            "Matrix '%0' must exactly match matrix '%1'.",
+        )
+
         # Some legacy rules:
         # - space is only supported for shader targets 5.1 and higher
         # - multiple rules regarding derivatives, which isn't a supported feature for DXIL

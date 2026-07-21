@@ -159,4 +159,6 @@ uint32_t ValidateDxilModule(llvm::Module *pModule, llvm::Module *pDebugModule);
 llvm::StringRef ComponentTypeToString(DXIL::ComponentType CT);
 
 llvm::StringRef MatrixScopeToString(DXIL::MatrixScope MS);
+
+llvm::StringRef MatrixUseToString(DXIL::MatrixUse MU);
 } // namespace hlsl
