@@ -255,8 +255,8 @@ static VariantCompType makeExpectedMat(ComponentType CompType, MatrixDim M,
 
   for (size_t I = 0; I < M; ++I) {
     for (size_t J = 0; J < N; ++J) {
-      size_t Value = I * M + J;
-      size_t Idx = Transpose ? J * N + I : Value;
+      size_t Value = I * N + J;
+      size_t Idx = Transpose ? J * M + I : Value;
       switch (CompType) {
       case ComponentType::F32:
         Floats[Idx] = StartingVal + static_cast<float>(Increment ? Value : 0);
@@ -340,6 +340,7 @@ public:
   // Cast/Convert
   TEST_METHOD(CopyConvert_Wave_16x16_F16);
   TEST_METHOD(CopyConvert_Wave_16x16_F16_Transpose);
+  TEST_METHOD(CopyConvert_Wave_4x8_F32_Transpose);
 
   // Matrix Matrix Arithmetic
   TEST_METHOD(MatMatMul_Wave_16x16x16_F16);
@@ -819,14 +820,14 @@ static const char CopyConvertShader[] = R"(
       [[__LinAlgMatrix_Attributes(COMP_TYPE, M_DIM, N_DIM, USE, SCOPE)]]
       Src;
     __builtin_LinAlgMatrix
-      [[__LinAlgMatrix_Attributes(COMP_TYPE, N_DIM, M_DIM, USE, SCOPE)]]
+      [[__LinAlgMatrix_Attributes(COMP_TYPE, DST_M_DIM, DST_N_DIM, USE, SCOPE)]]
       Dst;
 
     __builtin_LinAlg_MatrixLoadFromDescriptor(
-      Src, Input, 0, STRIDE, LAYOUT, 128);
+      Src, Input, 0, SRC_STRIDE, LAYOUT, 128);
     __builtin_LinAlg_CopyConvertMatrix(Dst, Src, TRANSPOSE);
     __builtin_LinAlg_MatrixStoreToDescriptor(
-      Dst, Output, 0, STRIDE, LAYOUT, 128);
+      Dst, Output, 0, DST_STRIDE, LAYOUT, 128);
   }
 )";
 
@@ -836,9 +837,18 @@ static void runCopyConvert(ID3D12Device *Device,
                            bool Transpose) {
   const size_t NumElements = Params.totalElements();
   const size_t BufferSize = Params.totalBytes();
+  MatrixParams DstParams = Params;
+  if (Transpose) {
+    DstParams.M = Params.N;
+    DstParams.N = Params.M;
+  }
 
   std::stringstream ExtraDefs;
   ExtraDefs << " -DTRANSPOSE=" << Transpose;
+  ExtraDefs << " -DDST_M_DIM=" << DstParams.M;
+  ExtraDefs << " -DDST_N_DIM=" << DstParams.N;
+  ExtraDefs << " -DSRC_STRIDE=" << Params.strideBytes();
+  ExtraDefs << " -DDST_STRIDE=" << DstParams.strideBytes();
 
   std::string Args = buildCompilerArgs(Params, ExtraDefs.str().c_str());
 
@@ -895,6 +905,21 @@ void DxilConf_SM610_LinAlg::CopyConvert_Wave_16x16_F16_Transpose() {
   Params.Layout = LinalgMatrixLayout::RowMajor;
   Params.NumThreads = 64;
   Params.Enable16Bit = true;
+  runCopyConvert(D3DDevice, DxcSupport, Params, VerboseLogging,
+                 /*Transpose=*/true);
+}
+
+void DxilConf_SM610_LinAlg::CopyConvert_Wave_4x8_F32_Transpose() {
+  MatrixParams Params = {};
+  Params.CompType = ComponentType::F32;
+  Params.M = 4;
+  Params.N = 8;
+  Params.Use = MatrixUse::A;
+  Params.Scope = MatrixScope::Wave;
+  Params.Layout = LinalgMatrixLayout::RowMajor;
+  Params.NumThreads = 64;
+  Params.Enable16Bit = false;
+  // Non-square dimensions make the destination shape and row stride observable.
   runCopyConvert(D3DDevice, DxcSupport, Params, VerboseLogging,
                  /*Transpose=*/true);
 }
