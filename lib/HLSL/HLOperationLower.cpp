@@ -7173,16 +7173,16 @@ Value *TranslateLinAlgVectorAccumulateToDescriptor(
 
   Constant *OpArg = HlslOp->GetU32Const(static_cast<unsigned>(OpCode));
 
-  Value *Vector = CI->getArgOperand(1);
-  Value *ResHandle = CI->getArgOperand(2);
-  Value *Offset = CI->getArgOperand(3);
-  Value *Align = CI->getArgOperand(4);
+  Value *ResHandle = CI->getArgOperand(1);
+  Value *Offset = CI->getArgOperand(2);
+  Value *Align = CI->getArgOperand(3);
+  Value *Vector = CI->getArgOperand(4);
 
   // Get the DXIL function for the operation
   Function *DxilFunc = HlslOp->GetOpFunc(OpCode, Vector->getType());
 
   return Builder.CreateCall(DxilFunc,
-                            {OpArg, Vector, ResHandle, Offset, Align});
+                            {OpArg, ResHandle, Offset, Align, Vector});
 }
 
 } // namespace

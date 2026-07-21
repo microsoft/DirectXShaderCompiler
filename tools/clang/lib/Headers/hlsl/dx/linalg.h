@@ -629,11 +629,11 @@ OuterProduct(vector<InputElTy, M> VecA, vector<InputElTy, N> VecB) {
   return Result;
 }
 
-template <typename InputElTy, SIZE_TYPE M>
+template <uint Align = 64, typename InputElTy, SIZE_TYPE M>
 typename hlsl::enable_if<hlsl::is_arithmetic<InputElTy>::value, void>::type
-InterlockedAccumulate(vector<InputElTy, M> Vec, RWByteAddressBuffer Res,
-                      uint StartOffset, uint Align = 64) {
-  __builtin_LinAlg_VectorAccumulateToDescriptor(Vec, Res, StartOffset, Align);
+InterlockedAccumulate(RWByteAddressBuffer Res, uint StartOffset,
+                      vector<InputElTy, M> Vec) {
+  __builtin_LinAlg_VectorAccumulateToDescriptor(Res, StartOffset, Align, Vec);
 }
 
 } // namespace linalg

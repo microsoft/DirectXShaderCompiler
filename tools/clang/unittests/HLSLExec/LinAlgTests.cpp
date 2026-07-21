@@ -1795,7 +1795,7 @@ static const char VectorAccumulateDescriptorShader[] = R"(
   [numthreads(1, 1, 1)]
   void main() {
     vector<half, 4> InVec = {1.0, 2.0, 3.0, 4.0};
-    __builtin_LinAlg_VectorAccumulateToDescriptor(InVec, Output, 0, 64);
+    __builtin_LinAlg_VectorAccumulateToDescriptor(Output, 0, 64, InVec);
   }
 )";
 

@@ -196,12 +196,12 @@ void main(uint ID : SV_GroupID) {
   // CHECK-SAME: ; LinAlgMatVecMulAdd(matrix,isOutputSigned,inputVector,inputInterpretation,biasVector,biasInterpretation)
   vector<half, 7> vec24 = MultiplyAdd<half>(Mat_7_15_Packed, interpVecH15Packed, memBias7Packed);
 
-  // CHECK: call void @dx.op.linAlgVectorAccumulateToDescriptor.v4f16(i32 -2147483617, <4 x half>
-  // CHECK-SAME: <half 0xH4926, half 0xH4926, half 0xH4926, half 0xH4926>, %dx.types.Handle %{{[0-9]+}}, i32 0, i32 64)
-  // CHECK-SAME: ; LinAlgVectorAccumulateToDescriptor(vector,handle,offset,align)
-  InterlockedAccumulate(vec1, RWBAB, 0);
+  // CHECK: call void @dx.op.linAlgVectorAccumulateToDescriptor.v4f16(i32 -2147483617, %dx.types.Handle %{{[0-9]+}},
+  // CHECK-SAME: i32 0, i32 64, <4 x half> <half 0xH4926, half 0xH4926, half 0xH4926, half 0xH4926>)
+  // CHECK-SAME: ; LinAlgVectorAccumulateToDescriptor(handle,offset,align,vector)
+  InterlockedAccumulate(RWBAB, 0, vec1);
 
-  // CHECK: call void @dx.op.linAlgVectorAccumulateToDescriptor.v8f16(i32 -2147483617, <8 x half> %{{[0-9]+}},
-  // CHECK-SAME: %dx.types.Handle %{{[0-9]+}}, i32 8, i32 64) ; LinAlgVectorAccumulateToDescriptor(vector,handle,offset,align)
-  InterlockedAccumulate(vec2, RWBAB, 8);
+  // CHECK: call void @dx.op.linAlgVectorAccumulateToDescriptor.v8f16(i32 -2147483617, %dx.types.Handle %{{[0-9]+}},
+  // CHECK-SAME: i32 8, i32 64, <8 x half> %{{[0-9]+}}) ; LinAlgVectorAccumulateToDescriptor(handle,offset,align,vector)
+  InterlockedAccumulate(RWBAB, 8, vec2);
 }
