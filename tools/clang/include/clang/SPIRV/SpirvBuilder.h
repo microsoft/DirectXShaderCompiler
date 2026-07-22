@@ -836,9 +836,19 @@ public:
                               SpirvInstruction *op1, SpirvInstruction *op2,
                               SpirvInstruction *op3, SourceLocation loc);
 
-  /// \brief Shared ArrayStrideIdEXT operand for resource-heap runtime arrays:
-  /// max(sizeof(image), sizeof(buffer)) computed via OpSpecConstantOp.
-  /// Cached per module.
+  /// \brief Record that acceleration structures may occupy the resource heap.
+  /// Note: Must be called before getResourceHeapArrayStride() (before the
+  /// code-gen loop in HandleTranslationUnit) so the cached stride is correct
+  /// on the first call. Calling it later has no effect because the result is
+  /// frozen after the first getResourceHeapArrayStride() invocation.
+  void noteResourceHeapHasAccelStruct() { resourceHeapHasAccelStruct = true; }
+
+  /// \brief Shared ArrayStrideIdEXT operand for resource-heap runtime arrays.
+  /// Default:  max(sizeof(image), sizeof(buffer))
+  /// With RT:  max(max(sizeof(image), sizeof(buffer)), sizeof(accel_struct))
+  /// Computed via OpSpecConstantOp and cached per module.
+  /// Note: noteResourceHeapHasAccelStruct() must be called before this if AS
+  /// may be present (result is frozen on the first call).
   SpirvInstruction *getResourceHeapArrayStride();
 
   /// \brief Shared ArrayStrideIdEXT operand for sampler-heap runtime arrays:
@@ -969,6 +979,12 @@ private:
   /// get{Resource,Sampler}HeapArrayStride).
   SpirvInstruction *resourceHeapArrayStride = nullptr;
   SpirvInstruction *samplerHeapArrayStride = nullptr;
+
+  /// Set by noteResourceHeapHasAccelStruct() when HandleTranslationUnit
+  /// detects that the shader uses ray-tracing features.  When true,
+  /// getResourceHeapArrayStride() extends the stride to include
+  /// sizeof(acceleration_structure).
+  bool resourceHeapHasAccelStruct = false;
 
   SpirvDebugInfoNone *debugNone;
 
