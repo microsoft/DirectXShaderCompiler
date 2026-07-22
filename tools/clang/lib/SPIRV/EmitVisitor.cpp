@@ -2732,13 +2732,13 @@ uint32_t EmitTypeHandler::emitType(const SpirvType *type) {
     curTypeInst.push_back(elemTypeId);
     finalizeTypeInstruction();
 
-    if (auto *strideId = raType->getArrayStrideId()) {
+    if (SpirvInstruction *strideId = raType->getArrayStrideId()) {
       // SPV_EXT_descriptor_heap: stride given by a constant <id> rather than a
       // literal, emitted as OpDecorateId ... ArrayStrideIdEXT <id>.
       emitDecoration(id, spv::Decoration::ArrayStrideIdEXT,
                      {getOrAssignResultId<SpirvInstruction>(strideId)},
                      llvm::None, /*usesIdParams=*/true);
-    } else if (auto stride = raType->getStride()) {
+    } else if (llvm::Optional<uint32_t> stride = raType->getStride()) {
       emitDecoration(id, spv::Decoration::ArrayStride, {stride.getValue()});
     }
   }

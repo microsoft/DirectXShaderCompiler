@@ -3189,7 +3189,7 @@ SpirvInstruction *SpirvEmitter::doBinaryOperator(const BinaryOperator *expr) {
             tryToAssignToDescriptorHeapBuffer(expr))
       return aliasResult.getValue();
 
-    auto *rhs = loadIfGLValue(expr->getRHS());
+    SpirvInstruction *rhs = loadIfGLValue(expr->getRHS());
     tryToAssignDescriptorHeapImageAlias(expr->getLHS(), expr->getRHS());
 
     return processAssignment(expr->getLHS(), rhs,
@@ -5096,7 +5096,7 @@ SpirvEmitter::processStructuredBufferLoad(const CXXMemberCallExpr *expr) {
   auto *zero = spvBuilder.getConstantInt(astContext.IntTy, llvm::APInt(32, 0));
   auto *index = doExpr(expr->getArg(0));
 
-  auto *result =
+  SpirvInstruction *result =
       derefOrCreatePointerToValue(buffer->getType(), info, structType,
                                   {zero, index}, buffer->getExprLoc(), range);
 
@@ -5122,7 +5122,7 @@ void SpirvEmitter::markDescriptorHeapCounterUnsupported(
 }
 
 bool SpirvEmitter::isDescriptorHeapCounterUnsupported(const Expr *expr) const {
-  if (const auto *decl = getReferencedDef(expr))
+  if (const DeclaratorDecl *decl = getReferencedDef(expr))
     return descriptorHeapUnsupportedCounters.count(decl) != 0;
   return false;
 }
@@ -5166,7 +5166,7 @@ bool SpirvEmitter::tryToAssignDescriptorHeapImageAlias(
       (!isRWTexture(dstVar->getType()) && !isRWBuffer(dstVar->getType())))
     return false;
 
-  const auto *src = srcExpr->IgnoreParenCasts();
+  const Expr *src = srcExpr->IgnoreParenCasts();
   auto found = descriptorHeapImageAccesses.find(src);
   if (found == descriptorHeapImageAccesses.end())
     return false;
@@ -5198,7 +5198,7 @@ bool SpirvEmitter::tryToAssignDescriptorHeapBufferAlias(
                    isAKindOfStructuredOrByteBuffer(dstVar->getType())))
     return false;
 
-  const auto *src = srcExpr->IgnoreParenCasts();
+  const Expr *src = srcExpr->IgnoreParenCasts();
   auto found = descriptorHeapBufferAccesses.find(src);
   if (found == descriptorHeapBufferAccesses.end())
     return false;
@@ -5523,7 +5523,7 @@ SpirvEmitter::getFinalACSBufferCounterInstruction(const Expr *expr) {
 const CounterIdAliasPair *
 SpirvEmitter::getFinalACSBufferCounter(const Expr *expr) {
   // AssocCounter#1: referencing some stand-alone variable
-  if (const auto *decl = getReferencedDef(expr))
+  if (const DeclaratorDecl *decl = getReferencedDef(expr))
     return declIdMapper.getOrCreateCounterIdAliasPair(decl);
 
   const Expr *expr_withoutcasts = expr->IgnoreParenCasts();
@@ -6013,13 +6013,15 @@ SpirvEmitter::processIntrinsicMemberCall(const CXXMemberCallExpr *expr,
     retVal = processTextureLevelOfDetail(expr, /* unclamped */ true);
     break;
   case IntrinsicOp::MOP_IncrementCounter:
-    if (auto *counter = incDecRWACSBufferCounter(expr, /*isInc*/ true))
+    if (SpirvInstruction *counter =
+            incDecRWACSBufferCounter(expr, /*isInc*/ true))
       retVal = spvBuilder.createUnaryOp(
           spv::Op::OpBitcast, astContext.UnsignedIntTy, counter,
           expr->getCallee()->getExprLoc(), expr->getCallee()->getSourceRange());
     break;
   case IntrinsicOp::MOP_DecrementCounter:
-    if (auto *counter = incDecRWACSBufferCounter(expr, /*isInc*/ false))
+    if (SpirvInstruction *counter =
+            incDecRWACSBufferCounter(expr, /*isInc*/ false))
       retVal = spvBuilder.createUnaryOp(
           spv::Op::OpBitcast, astContext.UnsignedIntTy, counter,
           expr->getCallee()->getExprLoc(), expr->getCallee()->getSourceRange());
@@ -10964,7 +10966,7 @@ SpirvEmitter::processIntrinsicInterlockedMethod(const CallExpr *expr,
       }
 
       if (!ptr) {
-        auto *baseInstr = doExpr(base);
+        SpirvInstruction *baseInstr = doExpr(base);
         if (baseInstr->isRValue()) {
           // OpImageTexelPointer's Image argument must have a type of
           // OpTypePointer with Type OpTypeImage. Need to create a temporary
