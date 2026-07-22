@@ -6686,10 +6686,10 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
   case OpCode::LinAlgVectorAccumulateToDescriptor:
     A(pV);
     A(pI32);
-    A(pETy);
     A(pRes);
     A(pI32);
     A(pI32);
+    A(pETy);
     break;
 
     //
@@ -6858,6 +6858,7 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
   case OpCode::StorePrimitiveOutput:
   case OpCode::DispatchMesh:
   case OpCode::RawBufferVectorStore:
+  case OpCode::LinAlgVectorAccumulateToDescriptor:
     if (FT->getNumParams() <= 4)
       return nullptr;
     return FT->getParamType(4);
@@ -6886,7 +6887,6 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
   case OpCode::LinAlgMatrixGetCoordinate:
   case OpCode::LinAlgMatrixStoreToDescriptor:
   case OpCode::LinAlgMatrixAccumulateToDescriptor:
-  case OpCode::LinAlgVectorAccumulateToDescriptor:
     if (FT->getNumParams() <= 1)
       return nullptr;
     return FT->getParamType(1);

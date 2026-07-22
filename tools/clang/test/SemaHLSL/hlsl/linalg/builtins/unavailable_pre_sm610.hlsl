@@ -73,5 +73,5 @@ void main() {
   __builtin_LinAlg_Convert(result, vec1, 1, 1);
 
   // expected-error@+1{{intrinsic __builtin_LinAlg_VectorAccumulateToDescriptor potentially used by ''main'' requires shader model 6.10 or greater}}
-  __builtin_LinAlg_VectorAccumulateToDescriptor(vec1, Buf, 1, 64);
+  __builtin_LinAlg_VectorAccumulateToDescriptor(Buf, 1, 64, vec1);
 }

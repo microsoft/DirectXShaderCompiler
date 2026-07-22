@@ -10981,20 +10981,20 @@ struct DxilInst_LinAlgVectorAccumulateToDescriptor {
   bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
-    arg_vector = 1,
-    arg_handle = 2,
-    arg_offset = 3,
-    arg_align = 4,
+    arg_handle = 1,
+    arg_offset = 2,
+    arg_align = 3,
+    arg_vector = 4,
   };
   // Accessors
-  llvm::Value *get_vector() const { return Instr->getOperand(1); }
-  void set_vector(llvm::Value *val) { Instr->setOperand(1, val); }
-  llvm::Value *get_handle() const { return Instr->getOperand(2); }
-  void set_handle(llvm::Value *val) { Instr->setOperand(2, val); }
-  llvm::Value *get_offset() const { return Instr->getOperand(3); }
-  void set_offset(llvm::Value *val) { Instr->setOperand(3, val); }
-  llvm::Value *get_align() const { return Instr->getOperand(4); }
-  void set_align(llvm::Value *val) { Instr->setOperand(4, val); }
+  llvm::Value *get_handle() const { return Instr->getOperand(1); }
+  void set_handle(llvm::Value *val) { Instr->setOperand(1, val); }
+  llvm::Value *get_offset() const { return Instr->getOperand(2); }
+  void set_offset(llvm::Value *val) { Instr->setOperand(2, val); }
+  llvm::Value *get_align() const { return Instr->getOperand(3); }
+  void set_align(llvm::Value *val) { Instr->setOperand(3, val); }
+  llvm::Value *get_vector() const { return Instr->getOperand(4); }
+  void set_vector(llvm::Value *val) { Instr->setOperand(4, val); }
 };
 
 /// This instruction triggers a breakpoint if debugging is enabled
