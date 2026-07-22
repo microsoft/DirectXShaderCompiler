@@ -354,8 +354,8 @@ class Matrix {
       void>::type
   InterlockedAccumulate(groupshared T Arr[Size], uint StartIdx, uint Stride,
                         MatrixLayoutEnum Layout) {
-    __builtin_LinAlg_MatrixAccumulateToMemory(__handle, Arr, StartIdx, Stride,
-                                              Layout);
+    __builtin_LinAlg_MatrixAccumulateToMemory(__handle, Arr, 0, StartIdx,
+                                              Stride, Layout);
   }
 
   template <ComponentEnum CompTy, MatrixUseEnum UseLocal = Use>

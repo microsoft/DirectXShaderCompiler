@@ -75,7 +75,7 @@ void CallFunction()
 #endif
 
 #ifdef MATRIX_ACCUMULATE_TO_MEMORY
-  #define DO_FUNC __builtin_LinAlg_MatrixAccumulateToMemory(mat1, gs_arr, 0, 0, 0);
+  #define DO_FUNC __builtin_LinAlg_MatrixAccumulateToMemory(mat1, gs_arr, 0, 0, 0, 0);
 #endif
 
   // The builtins below are allowed in all stages, if they raise an error
