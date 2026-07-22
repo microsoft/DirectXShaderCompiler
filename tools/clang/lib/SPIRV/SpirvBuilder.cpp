@@ -2052,16 +2052,24 @@ SpirvInstruction *SpirvBuilder::getResourceHeapArrayStride() {
   if (resourceHeapArrayStride)
     return resourceHeapArrayStride;
 
-  // ResourceDescriptorHeap is a flat array: any descriptor may sit at any slot.
-  // DX12 semantics require all resource arrays share stride =
-  // max(sizeof(image), sizeof(buffer)).
+  // ResourceDescriptorHeap is a flat array; any descriptor may sit at any slot.
+  // DX12 semantics require all resource arrays share one stride:
+  //   stride = max(sizeof(image), sizeof(buffer) [, sizeof(accel_struct)])
+  //
+  // Categories and placeholders:
+  //   image: - always included; textures lower to OpTypeImage, so this covers
+  //             all non-RT resource kinds. Representative: canonical sampled 
+  //             2D float image (subtype/storage class do not affect size).
+  //   buffer - always included. Representative: Uniform buffer.
+  //   accel  - included only when noteResourceHeapHasAccelStruct() was called.
+  //             Placeholder: getAccelerationStructureType(). Requires 
+  //             OpCapability RayTracingKHR, guaranteed present when 
+  //             noteResourceHeapHasAccelStruct() is called.
+  //
   // VkPhysicalDeviceDescriptorHeapPropertiesEXT reports one size per category
-  // (imageDescriptorSize / bufferDescriptorSize); textures lower to
-  // OpTypeImage, so image/buffer covers all relevant HLSL resource kinds. Sizes
-  // are driver-defined (known only at pipeline creation), so the max is
-  // computed via OpSpecConstantOp over two OpConstantSizeOfEXT placeholders.
-  // A canonical sampled 2D float image and a Uniform buffer serve as
-  // representatives; subtype and storage class do not affect the category size.
+  // (imageDescriptorSize / bufferDescriptorSize); all sizes are driver-defined.
+  // The max is computed via OpSpecConstantOp over OpConstantSizeOfEXT
+  // placeholders: 2 for non-RT shaders, 3 when accel struct is present.
   const SpirvType *placeholderImage = context.getImageType(
       context.getFloatType(32), spv::Dim::Dim2D, ImageType::WithDepth::No,
       /*arrayed*/ false, /*ms*/ false, ImageType::WithSampler::Yes,
@@ -2073,9 +2081,22 @@ SpirvInstruction *SpirvBuilder::getResourceHeapArrayStride() {
   SpirvInstruction *bufferSize = getConstantSizeOfEXT(placeholderBuffer);
   SpirvInstruction *imageIsBigger = createSpecConstantBinaryOp(
       spv::Op::OpUGreaterThan, astContext.BoolTy, imageSize, bufferSize, {});
-  resourceHeapArrayStride =
+  SpirvInstruction *maxImgBuf =
       createSpecConstantTernaryOp(spv::Op::OpSelect, astContext.UnsignedIntTy,
                                   imageIsBigger, imageSize, bufferSize, {});
+
+  if (resourceHeapHasAccelStruct) {
+    // Extend to max(max(img, buf), accel_struct).
+    const SpirvType *placeholderAS = context.getAccelerationStructureTypeNV();
+    SpirvInstruction *asSize = getConstantSizeOfEXT(placeholderAS);
+    SpirvInstruction *maxImgBufIsBigger = createSpecConstantBinaryOp(
+        spv::Op::OpUGreaterThan, astContext.BoolTy, maxImgBuf, asSize, {});
+    resourceHeapArrayStride =
+        createSpecConstantTernaryOp(spv::Op::OpSelect, astContext.UnsignedIntTy,
+                                    maxImgBufIsBigger, maxImgBuf, asSize, {});
+  } else {
+    resourceHeapArrayStride = maxImgBuf;
+  }
   return resourceHeapArrayStride;
 }
 
