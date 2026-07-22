@@ -349,7 +349,9 @@ public:
 
   // Matrix Vector Arithmetic
   TEST_METHOD(MatVecMul_Thread_16x16_F16);
+  TEST_METHOD(MatVecMul_Thread_4x8_F32);
   TEST_METHOD(MatVecMulAdd_Thread_16x16_F16);
+  TEST_METHOD(MatVecMulAdd_Thread_4x8_F32);
   TEST_METHOD(OuterProduct_Thread_16x16_F16);
 
   // Query Accumulator Layout
@@ -1176,7 +1178,7 @@ static const char MatVecMulShader[] = R"(
       Mat, Input, 0, STRIDE, LAYOUT, 128);
 
     vector<ELEM_TYPE, N_DIM> InVec;
-    for (uint I = 0; I < M_DIM; ++I) {
+    for (uint I = 0; I < N_DIM; ++I) {
       InVec[I] = Input.Load<ELEM_TYPE>(I * ELEM_SIZE);
     }
 
@@ -1248,6 +1250,18 @@ void DxilConf_SM610_LinAlg::MatVecMul_Thread_16x16_F16() {
                /*FillValue=*/2, /*OutputSigned=*/true, ComponentType::F16);
 }
 
+void DxilConf_SM610_LinAlg::MatVecMul_Thread_4x8_F32() {
+  MatrixParams Params = {};
+  Params.CompType = ComponentType::F32;
+  Params.M = 4;
+  Params.N = 8;
+  Params.Scope = MatrixScope::Thread;
+  Params.Layout = LinalgMatrixLayout::RowMajor;
+  Params.NumThreads = 1;
+  runMatVecMul(D3DDevice, DxcSupport, Params, VerboseLogging,
+               /*FillValue=*/2, /*OutputSigned=*/true, ComponentType::F32);
+}
+
 static const char MatVecMulAddShader[] = R"(
   #define USE_A 0
   #define SCOPE_THREAD 0
@@ -1264,7 +1278,7 @@ static const char MatVecMulAddShader[] = R"(
       Mat, Input, 0, STRIDE, LAYOUT, 128);
 
     vector<ELEM_TYPE, N_DIM> InVec;
-    for (uint I = 0; I < M_DIM; ++I) {
+    for (uint I = 0; I < N_DIM; ++I) {
       InVec[I] = Input.Load<ELEM_TYPE>(I * ELEM_SIZE);
     }
 
@@ -1342,6 +1356,19 @@ void DxilConf_SM610_LinAlg::MatVecMulAdd_Thread_16x16_F16() {
   runMatVecMulAdd(D3DDevice, DxcSupport, Params, VerboseLogging,
                   /*FillValue=*/2, /*OutputSigned=*/true, ComponentType::F16,
                   ComponentType::F16);
+}
+
+void DxilConf_SM610_LinAlg::MatVecMulAdd_Thread_4x8_F32() {
+  MatrixParams Params = {};
+  Params.CompType = ComponentType::F32;
+  Params.M = 4;
+  Params.N = 8;
+  Params.Scope = MatrixScope::Thread;
+  Params.Layout = LinalgMatrixLayout::RowMajor;
+  Params.NumThreads = 1;
+  runMatVecMulAdd(D3DDevice, DxcSupport, Params, VerboseLogging,
+                  /*FillValue=*/2, /*OutputSigned=*/true, ComponentType::F32,
+                  ComponentType::F32);
 }
 
 // Map a DXIL ComponentType to the D3D12 linear-algebra datatype used by the
