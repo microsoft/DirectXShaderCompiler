@@ -25,9 +25,13 @@
 #include "HlslTestUtils.h"
 
 #include <climits>
+#include <cstring>
+#include <limits>
 #include <optional>
 #include <sstream>
 #include <string>
+#include <type_traits>
+#include <utility>
 
 #define STREAM_FLOAT(stream, name, value)                                      \
   stream << std::showpoint << " -D" << name << "=" << value << "F"             \
@@ -92,6 +96,671 @@ struct MatrixParams {
   size_t totalBytes() const { return totalElements() * elementSize(CompType); }
 };
 
+namespace cpu_oracle {
+
+using TypedMatrixValues =
+    std::variant<std::vector<HLSLHalf_t>, std::vector<float>,
+                 std::vector<int32_t>, std::vector<uint32_t>>;
+
+struct TypedMatrix {
+  ComponentType CompType;
+  MatrixDim M;
+  MatrixDim N;
+  TypedMatrixValues Values;
+
+  size_t totalElements() const {
+    return static_cast<size_t>(M) * static_cast<size_t>(N);
+  }
+};
+
+struct MatrixBufferLayout {
+  LinalgMatrixLayout Layout;
+  size_t OffsetBytes;
+  size_t StrideBytes;
+};
+
+enum class ComparisonMode {
+  // Floating-point alternatives allowed by the specification must be listed as
+  // permitted results; Exact compares the encoded component bits.
+  Exact,
+  PermittedResults,
+  Excluded,
+};
+
+// MatrixResultOracle models matrix-valued outputs. Operations whose observable
+// result is a complete destination buffer need a whole-buffer oracle instead.
+struct MatrixResultOracle {
+  ComparisonMode Mode;
+  std::vector<TypedMatrix> Candidates;
+  std::wstring PublicRule;
+};
+
+template <typename T, ComponentType CT> struct NativeComponentTraits {
+  static constexpr ComponentType CompType = CT;
+  static constexpr size_t Size = sizeof(T);
+
+  static void store(BYTE *Dest, const T &Value) {
+    static_assert(std::is_trivially_copyable<T>::value,
+                  "Component must be trivially copyable");
+    std::memcpy(Dest, &Value, sizeof(Value));
+  }
+
+  static T load(const BYTE *Source) {
+    T Value;
+    std::memcpy(&Value, Source, sizeof(Value));
+    return Value;
+  }
+
+  static bool exactMatch(const T &Actual, const T &Expected) {
+    return std::memcmp(&Actual, &Expected, sizeof(T)) == 0;
+  }
+
+  static std::wstring format(const T &Value) {
+    std::wstringstream Stream;
+    Stream << Value;
+    return Stream.str();
+  }
+};
+
+template <typename T> struct ComponentTraits;
+
+template <>
+struct ComponentTraits<float>
+    : NativeComponentTraits<float, ComponentType::F32> {};
+
+template <>
+struct ComponentTraits<int32_t>
+    : NativeComponentTraits<int32_t, ComponentType::I32> {};
+
+template <>
+struct ComponentTraits<uint32_t>
+    : NativeComponentTraits<uint32_t, ComponentType::U32> {};
+
+template <> struct ComponentTraits<HLSLHalf_t> {
+  static constexpr ComponentType CompType = ComponentType::F16;
+  static constexpr size_t Size = sizeof(uint16_t);
+
+  static void store(BYTE *Dest, const HLSLHalf_t &Value) {
+    std::memcpy(Dest, &Value.Val, sizeof(Value.Val));
+  }
+
+  static HLSLHalf_t load(const BYTE *Source) {
+    uint16_t Bits;
+    std::memcpy(&Bits, Source, sizeof(Bits));
+    return HLSLHalf_t::FromHALF(static_cast<DirectX::PackedVector::HALF>(Bits));
+  }
+
+  static bool exactMatch(const HLSLHalf_t &Actual, const HLSLHalf_t &Expected) {
+    return Actual.Val == Expected.Val;
+  }
+
+  static std::wstring format(const HLSLHalf_t &Value) {
+    std::wstringstream Stream;
+    Stream << static_cast<float>(Value) << L" (bits=0x" << std::hex << Value.Val
+           << L")";
+    return Stream.str();
+  }
+};
+
+static bool checkedMultiply(size_t Left, size_t Right, size_t &Result) {
+  if (Right != 0 && Left > std::numeric_limits<size_t>::max() / Right)
+    return false;
+  Result = Left * Right;
+  return true;
+}
+
+static bool checkedAdd(size_t Left, size_t Right, size_t &Result) {
+  if (Left > std::numeric_limits<size_t>::max() - Right)
+    return false;
+  Result = Left + Right;
+  return true;
+}
+
+static bool isSupportedComponentType(ComponentType CompType) {
+  switch (CompType) {
+  case ComponentType::F16:
+  case ComponentType::F32:
+  case ComponentType::I32:
+  case ComponentType::U32:
+    return true;
+  default:
+    return false;
+  }
+}
+
+static LPCWSTR componentTypeName(ComponentType CompType) {
+  switch (CompType) {
+  case ComponentType::F16:
+    return L"F16";
+  case ComponentType::F32:
+    return L"F32";
+  case ComponentType::I32:
+    return L"I32";
+  case ComponentType::U32:
+    return L"U32";
+  default:
+    return L"Unsupported";
+  }
+}
+
+static LPCWSTR comparisonModeName(ComparisonMode Mode) {
+  switch (Mode) {
+  case ComparisonMode::Exact:
+    return L"Exact";
+  case ComparisonMode::PermittedResults:
+    return L"PermittedResults";
+  case ComparisonMode::Excluded:
+    return L"Excluded";
+  }
+  return L"Unknown";
+}
+
+static bool isMatrixValid(const TypedMatrix &Matrix) {
+  size_t ExpectedElements;
+  if (Matrix.M == 0 || Matrix.N == 0 ||
+      !checkedMultiply(static_cast<size_t>(Matrix.M),
+                       static_cast<size_t>(Matrix.N), ExpectedElements))
+    return false;
+
+  switch (Matrix.CompType) {
+  case ComponentType::F16:
+    return std::holds_alternative<std::vector<HLSLHalf_t>>(Matrix.Values) &&
+           std::get<std::vector<HLSLHalf_t>>(Matrix.Values).size() ==
+               ExpectedElements;
+  case ComponentType::F32:
+    return std::holds_alternative<std::vector<float>>(Matrix.Values) &&
+           std::get<std::vector<float>>(Matrix.Values).size() ==
+               ExpectedElements;
+  case ComponentType::I32:
+    return std::holds_alternative<std::vector<int32_t>>(Matrix.Values) &&
+           std::get<std::vector<int32_t>>(Matrix.Values).size() ==
+               ExpectedElements;
+  case ComponentType::U32:
+    return std::holds_alternative<std::vector<uint32_t>>(Matrix.Values) &&
+           std::get<std::vector<uint32_t>>(Matrix.Values).size() ==
+               ExpectedElements;
+  default:
+    return false;
+  }
+}
+
+template <typename T>
+static std::optional<TypedMatrix> makeTypedMatrix(MatrixDim M, MatrixDim N,
+                                                  std::vector<T> Values) {
+  size_t ExpectedElements;
+  if (M == 0 || N == 0 ||
+      !checkedMultiply(static_cast<size_t>(M), static_cast<size_t>(N),
+                       ExpectedElements) ||
+      Values.size() != ExpectedElements) {
+    hlsl_test::LogErrorFmt(
+        L"Invalid typed matrix dimensions or element count: M=%u, N=%u, "
+        L"elements=%zu",
+        M, N, Values.size());
+    return std::nullopt;
+  }
+
+  return TypedMatrix{ComponentTraits<T>::CompType, M, N, std::move(Values)};
+}
+
+static std::optional<TypedMatrix>
+makeSequentialMatrix(ComponentType CompType, MatrixDim M, MatrixDim N,
+                     uint32_t StartingValue = 1) {
+  size_t NumElements;
+  if (M == 0 || N == 0 ||
+      !checkedMultiply(static_cast<size_t>(M), static_cast<size_t>(N),
+                       NumElements)) {
+    hlsl_test::LogErrorFmt(L"Invalid sequential matrix dimensions: M=%u, N=%u",
+                           M, N);
+    return std::nullopt;
+  }
+
+  size_t LastValueSize;
+  if (!checkedAdd(static_cast<size_t>(StartingValue), NumElements - 1,
+                  LastValueSize)) {
+    hlsl_test::LogErrorFmt(L"Sequential matrix value calculation overflowed");
+    return std::nullopt;
+  }
+  const uint64_t LastValue = static_cast<uint64_t>(LastValueSize);
+
+  switch (CompType) {
+  case ComponentType::F16: {
+    if (LastValue > 65504) {
+      hlsl_test::LogErrorFmt(L"F16 sequential value is out of range: %llu",
+                             LastValue);
+      return std::nullopt;
+    }
+    std::vector<HLSLHalf_t> Values;
+    Values.reserve(NumElements);
+    for (size_t I = 0; I < NumElements; ++I)
+      Values.emplace_back(static_cast<float>(
+          static_cast<uint64_t>(StartingValue) + static_cast<uint64_t>(I)));
+    return makeTypedMatrix(M, N, std::move(Values));
+  }
+  case ComponentType::F32: {
+    if (LastValue > (1u << 24)) {
+      hlsl_test::LogErrorFmt(
+          L"F32 sequential integer cannot be represented exactly: %llu",
+          LastValue);
+      return std::nullopt;
+    }
+    std::vector<float> Values;
+    Values.reserve(NumElements);
+    for (size_t I = 0; I < NumElements; ++I)
+      Values.push_back(static_cast<float>(static_cast<uint64_t>(StartingValue) +
+                                          static_cast<uint64_t>(I)));
+    return makeTypedMatrix(M, N, std::move(Values));
+  }
+  case ComponentType::I32: {
+    if (LastValue >
+        static_cast<uint64_t>(std::numeric_limits<int32_t>::max())) {
+      hlsl_test::LogErrorFmt(L"I32 sequential value is out of range: %llu",
+                             LastValue);
+      return std::nullopt;
+    }
+    std::vector<int32_t> Values;
+    Values.reserve(NumElements);
+    for (size_t I = 0; I < NumElements; ++I)
+      Values.push_back(static_cast<int32_t>(
+          static_cast<uint64_t>(StartingValue) + static_cast<uint64_t>(I)));
+    return makeTypedMatrix(M, N, std::move(Values));
+  }
+  case ComponentType::U32: {
+    if (LastValue > std::numeric_limits<uint32_t>::max()) {
+      hlsl_test::LogErrorFmt(L"U32 sequential value is out of range: %llu",
+                             LastValue);
+      return std::nullopt;
+    }
+    std::vector<uint32_t> Values;
+    Values.reserve(NumElements);
+    for (size_t I = 0; I < NumElements; ++I)
+      Values.push_back(static_cast<uint32_t>(
+          static_cast<uint64_t>(StartingValue) + static_cast<uint64_t>(I)));
+    return makeTypedMatrix(M, N, std::move(Values));
+  }
+  default:
+    hlsl_test::LogErrorFmt(L"Unsupported sequential matrix component type: %u",
+                           static_cast<uint32_t>(CompType));
+    return std::nullopt;
+  }
+}
+
+template <typename T>
+static std::optional<TypedMatrix>
+transposeTypedMatrix(const TypedMatrix &Source) {
+  const std::vector<T> &SourceValues = std::get<std::vector<T>>(Source.Values);
+  std::vector<T> Result(Source.totalElements());
+  for (MatrixDim Row = 0; Row < Source.M; ++Row) {
+    for (MatrixDim Column = 0; Column < Source.N; ++Column) {
+      const size_t SourceIndex = static_cast<size_t>(Row) * Source.N + Column;
+      const size_t ResultIndex = static_cast<size_t>(Column) * Source.M + Row;
+      Result[ResultIndex] = SourceValues[SourceIndex];
+    }
+  }
+  return makeTypedMatrix(Source.N, Source.M, std::move(Result));
+}
+
+static std::optional<TypedMatrix> transposeMatrix(const TypedMatrix &Source) {
+  if (!isMatrixValid(Source)) {
+    hlsl_test::LogErrorFmt(L"Cannot transpose an invalid typed matrix");
+    return std::nullopt;
+  }
+
+  switch (Source.CompType) {
+  case ComponentType::F16:
+    return transposeTypedMatrix<HLSLHalf_t>(Source);
+  case ComponentType::F32:
+    return transposeTypedMatrix<float>(Source);
+  case ComponentType::I32:
+    return transposeTypedMatrix<int32_t>(Source);
+  case ComponentType::U32:
+    return transposeTypedMatrix<uint32_t>(Source);
+  default:
+    return std::nullopt;
+  }
+}
+
+static bool isMemoryLayout(LinalgMatrixLayout Layout) {
+  return Layout == LinalgMatrixLayout::RowMajor ||
+         Layout == LinalgMatrixLayout::ColumnMajor;
+}
+
+static std::optional<size_t>
+getMatrixBufferSize(ComponentType CompType, MatrixDim M, MatrixDim N,
+                    const MatrixBufferLayout &Layout) {
+  if (!isSupportedComponentType(CompType) || M == 0 || N == 0 ||
+      !isMemoryLayout(Layout.Layout)) {
+    hlsl_test::LogErrorFmt(
+        L"Invalid matrix buffer description: component=%s, M=%u, N=%u, "
+        L"layout=%u",
+        componentTypeName(CompType), M, N,
+        static_cast<uint32_t>(Layout.Layout));
+    return std::nullopt;
+  }
+
+  const size_t ElementBytes = elementSize(CompType);
+  const size_t MajorCount =
+      Layout.Layout == LinalgMatrixLayout::RowMajor ? M : N;
+  const size_t MinorCount =
+      Layout.Layout == LinalgMatrixLayout::RowMajor ? N : M;
+  size_t PackedMinorBytes;
+  if (!checkedMultiply(MinorCount, ElementBytes, PackedMinorBytes) ||
+      Layout.StrideBytes < PackedMinorBytes) {
+    hlsl_test::LogErrorFmt(
+        L"Matrix stride is too small: component=%s, M=%u, N=%u, stride=%zu, "
+        L"required=%zu",
+        componentTypeName(CompType), M, N, Layout.StrideBytes,
+        PackedMinorBytes);
+    return std::nullopt;
+  }
+
+  size_t LastMajorOffset;
+  size_t RequiredBytes;
+  if (!checkedMultiply(MajorCount - 1, Layout.StrideBytes, LastMajorOffset) ||
+      !checkedAdd(Layout.OffsetBytes, LastMajorOffset, RequiredBytes) ||
+      !checkedAdd(RequiredBytes, PackedMinorBytes, RequiredBytes)) {
+    hlsl_test::LogErrorFmt(L"Matrix buffer size calculation overflowed");
+    return std::nullopt;
+  }
+  return RequiredBytes;
+}
+
+static std::optional<size_t>
+getMatrixBufferSize(const TypedMatrix &Matrix,
+                    const MatrixBufferLayout &Layout) {
+  if (!isMatrixValid(Matrix)) {
+    hlsl_test::LogErrorFmt(L"Cannot size an invalid typed matrix");
+    return std::nullopt;
+  }
+  return getMatrixBufferSize(Matrix.CompType, Matrix.M, Matrix.N, Layout);
+}
+
+static std::optional<size_t>
+getElementByteOffset(ComponentType CompType, MatrixDim M, MatrixDim N,
+                     MatrixDim Row, MatrixDim Column,
+                     const MatrixBufferLayout &Layout) {
+  if (Row >= M || Column >= N)
+    return std::nullopt;
+
+  const size_t Major =
+      Layout.Layout == LinalgMatrixLayout::RowMajor ? Row : Column;
+  const size_t Minor =
+      Layout.Layout == LinalgMatrixLayout::RowMajor ? Column : Row;
+  size_t MajorOffset;
+  size_t MinorOffset;
+  size_t ByteOffset;
+  if (!checkedMultiply(Major, Layout.StrideBytes, MajorOffset) ||
+      !checkedMultiply(Minor, elementSize(CompType), MinorOffset) ||
+      !checkedAdd(Layout.OffsetBytes, MajorOffset, ByteOffset) ||
+      !checkedAdd(ByteOffset, MinorOffset, ByteOffset))
+    return std::nullopt;
+  return ByteOffset;
+}
+
+template <typename T>
+static bool writeTypedMatrixBuffer(const TypedMatrix &Matrix,
+                                   const MatrixBufferLayout &Layout,
+                                   std::vector<BYTE> &Buffer) {
+  const std::vector<T> &Values = std::get<std::vector<T>>(Matrix.Values);
+  for (MatrixDim Row = 0; Row < Matrix.M; ++Row) {
+    for (MatrixDim Column = 0; Column < Matrix.N; ++Column) {
+      const size_t ValueIndex = static_cast<size_t>(Row) * Matrix.N + Column;
+      std::optional<size_t> ByteOffset = getElementByteOffset(
+          Matrix.CompType, Matrix.M, Matrix.N, Row, Column, Layout);
+      if (!ByteOffset.has_value())
+        return false;
+      ComponentTraits<T>::store(Buffer.data() + *ByteOffset,
+                                Values[ValueIndex]);
+    }
+  }
+  return true;
+}
+
+static bool writeMatrixBuffer(const TypedMatrix &Matrix,
+                              const MatrixBufferLayout &Layout,
+                              std::vector<BYTE> &Buffer) {
+  std::optional<size_t> RequiredBytes = getMatrixBufferSize(Matrix, Layout);
+  if (!RequiredBytes.has_value() || Buffer.size() < *RequiredBytes) {
+    hlsl_test::LogErrorFmt(
+        L"Matrix buffer is too small: actual=%zu, required=%zu", Buffer.size(),
+        RequiredBytes.value_or(0));
+    return false;
+  }
+
+  switch (Matrix.CompType) {
+  case ComponentType::F16:
+    return writeTypedMatrixBuffer<HLSLHalf_t>(Matrix, Layout, Buffer);
+  case ComponentType::F32:
+    return writeTypedMatrixBuffer<float>(Matrix, Layout, Buffer);
+  case ComponentType::I32:
+    return writeTypedMatrixBuffer<int32_t>(Matrix, Layout, Buffer);
+  case ComponentType::U32:
+    return writeTypedMatrixBuffer<uint32_t>(Matrix, Layout, Buffer);
+  default:
+    return false;
+  }
+}
+
+template <typename T>
+static std::optional<TypedMatrix>
+decodeTypedMatrixBuffer(ComponentType CompType, MatrixDim M, MatrixDim N,
+                        const MatrixBufferLayout &Layout, const BYTE *Buffer) {
+  std::vector<T> Values(static_cast<size_t>(M) * N);
+  for (MatrixDim Row = 0; Row < M; ++Row) {
+    for (MatrixDim Column = 0; Column < N; ++Column) {
+      const size_t ValueIndex = static_cast<size_t>(Row) * N + Column;
+      std::optional<size_t> ByteOffset =
+          getElementByteOffset(CompType, M, N, Row, Column, Layout);
+      if (!ByteOffset.has_value())
+        return std::nullopt;
+      Values[ValueIndex] = ComponentTraits<T>::load(Buffer + *ByteOffset);
+    }
+  }
+  return makeTypedMatrix(M, N, std::move(Values));
+}
+
+static std::optional<TypedMatrix>
+decodeMatrixBuffer(ComponentType CompType, MatrixDim M, MatrixDim N,
+                   const MatrixBufferLayout &Layout, const void *Buffer,
+                   size_t BufferSize) {
+  std::optional<size_t> RequiredBytes =
+      getMatrixBufferSize(CompType, M, N, Layout);
+  if (!Buffer || !RequiredBytes.has_value() || BufferSize < *RequiredBytes) {
+    hlsl_test::LogErrorFmt(
+        L"Cannot decode matrix buffer: actual=%zu, required=%zu", BufferSize,
+        RequiredBytes.value_or(0));
+    return std::nullopt;
+  }
+
+  const BYTE *Bytes = static_cast<const BYTE *>(Buffer);
+  switch (CompType) {
+  case ComponentType::F16:
+    return decodeTypedMatrixBuffer<HLSLHalf_t>(CompType, M, N, Layout, Bytes);
+  case ComponentType::F32:
+    return decodeTypedMatrixBuffer<float>(CompType, M, N, Layout, Bytes);
+  case ComponentType::I32:
+    return decodeTypedMatrixBuffer<int32_t>(CompType, M, N, Layout, Bytes);
+  case ComponentType::U32:
+    return decodeTypedMatrixBuffer<uint32_t>(CompType, M, N, Layout, Bytes);
+  default:
+    return std::nullopt;
+  }
+}
+
+template <typename T>
+static bool exactMatrixMatch(const TypedMatrix &Actual,
+                             const TypedMatrix &Expected,
+                             size_t &FirstMismatch) {
+  const std::vector<T> &ActualValues = std::get<std::vector<T>>(Actual.Values);
+  const std::vector<T> &ExpectedValues =
+      std::get<std::vector<T>>(Expected.Values);
+  for (size_t I = 0; I < ActualValues.size(); ++I) {
+    if (!ComponentTraits<T>::exactMatch(ActualValues[I], ExpectedValues[I])) {
+      FirstMismatch = I;
+      return false;
+    }
+  }
+  FirstMismatch = ActualValues.size();
+  return true;
+}
+
+static bool exactMatrixMatch(const TypedMatrix &Actual,
+                             const TypedMatrix &Expected,
+                             size_t &FirstMismatch) {
+  if (!isMatrixValid(Actual) || !isMatrixValid(Expected) ||
+      Actual.CompType != Expected.CompType || Actual.M != Expected.M ||
+      Actual.N != Expected.N) {
+    FirstMismatch = 0;
+    return false;
+  }
+
+  switch (Actual.CompType) {
+  case ComponentType::F16:
+    return exactMatrixMatch<HLSLHalf_t>(Actual, Expected, FirstMismatch);
+  case ComponentType::F32:
+    return exactMatrixMatch<float>(Actual, Expected, FirstMismatch);
+  case ComponentType::I32:
+    return exactMatrixMatch<int32_t>(Actual, Expected, FirstMismatch);
+  case ComponentType::U32:
+    return exactMatrixMatch<uint32_t>(Actual, Expected, FirstMismatch);
+  default:
+    FirstMismatch = 0;
+    return false;
+  }
+}
+
+static std::wstring matrixValueString(const TypedMatrix &Matrix, size_t Index) {
+  switch (Matrix.CompType) {
+  case ComponentType::F16:
+    return ComponentTraits<HLSLHalf_t>::format(
+        std::get<std::vector<HLSLHalf_t>>(Matrix.Values)[Index]);
+  case ComponentType::F32:
+    return ComponentTraits<float>::format(
+        std::get<std::vector<float>>(Matrix.Values)[Index]);
+  case ComponentType::I32:
+    return ComponentTraits<int32_t>::format(
+        std::get<std::vector<int32_t>>(Matrix.Values)[Index]);
+  case ComponentType::U32:
+    return ComponentTraits<uint32_t>::format(
+        std::get<std::vector<uint32_t>>(Matrix.Values)[Index]);
+  default:
+    return L"unsupported";
+  }
+}
+
+static MatrixResultOracle exactResult(TypedMatrix Expected,
+                                      std::wstring PublicRule) {
+  return MatrixResultOracle{
+      ComparisonMode::Exact, {std::move(Expected)}, std::move(PublicRule)};
+}
+
+static MatrixResultOracle permittedResults(std::vector<TypedMatrix> Candidates,
+                                           std::wstring PublicRule) {
+  return MatrixResultOracle{ComparisonMode::PermittedResults,
+                            std::move(Candidates), std::move(PublicRule)};
+}
+
+static MatrixResultOracle excludedResult(std::wstring PublicRule) {
+  return MatrixResultOracle{
+      ComparisonMode::Excluded, {}, std::move(PublicRule)};
+}
+
+static bool isOracleValid(const MatrixResultOracle &Oracle) {
+  if (Oracle.PublicRule.empty())
+    return false;
+  if (Oracle.Mode == ComparisonMode::Excluded)
+    return Oracle.Candidates.empty();
+  if (Oracle.Mode == ComparisonMode::Exact && Oracle.Candidates.size() != 1)
+    return false;
+  if (Oracle.Mode == ComparisonMode::PermittedResults &&
+      Oracle.Candidates.size() < 2)
+    return false;
+
+  const TypedMatrix &First = Oracle.Candidates.front();
+  if (!isMatrixValid(First))
+    return false;
+  for (const TypedMatrix &Candidate : Oracle.Candidates) {
+    if (!isMatrixValid(Candidate) || Candidate.CompType != First.CompType ||
+        Candidate.M != First.M || Candidate.N != First.N)
+      return false;
+  }
+  return true;
+}
+
+static bool
+matchesAnyCompleteCandidate(const TypedMatrix &Actual,
+                            const MatrixResultOracle &Oracle,
+                            std::vector<size_t> *FirstMismatches = nullptr) {
+  if (!isOracleValid(Oracle) || Oracle.Mode == ComparisonMode::Excluded)
+    return false;
+
+  if (FirstMismatches)
+    FirstMismatches->clear();
+  for (const TypedMatrix &Candidate : Oracle.Candidates) {
+    size_t FirstMismatch;
+    if (exactMatrixMatch(Actual, Candidate, FirstMismatch))
+      return true;
+    if (FirstMismatches)
+      FirstMismatches->push_back(FirstMismatch);
+  }
+  return false;
+}
+
+static bool verifyMatrixBuffer(const void *ActualBuffer,
+                               size_t ActualBufferSize,
+                               const MatrixBufferLayout &Layout,
+                               const MatrixResultOracle &Oracle, bool Verbose) {
+  if (!isOracleValid(Oracle)) {
+    hlsl_test::LogErrorFmt(L"Invalid matrix oracle");
+    return false;
+  }
+  if (Oracle.Mode == ComparisonMode::Excluded) {
+    hlsl_test::LogErrorFmt(
+        L"Excluded matrix result cannot be used as a success fallback: %s",
+        Oracle.PublicRule.c_str());
+    return false;
+  }
+
+  const TypedMatrix &Shape = Oracle.Candidates.front();
+  std::optional<TypedMatrix> Actual = decodeMatrixBuffer(
+      Shape.CompType, Shape.M, Shape.N, Layout, ActualBuffer, ActualBufferSize);
+  if (!Actual.has_value())
+    return false;
+
+  std::vector<size_t> FirstMismatches;
+  if (matchesAnyCompleteCandidate(*Actual, Oracle, &FirstMismatches)) {
+    if (Verbose) {
+      hlsl_test::LogCommentFmt(
+          L"Matrix comparison passed: component=%s, M=%u, N=%u, mode=%s, "
+          L"rule=%s",
+          componentTypeName(Shape.CompType), Shape.M, Shape.N,
+          comparisonModeName(Oracle.Mode), Oracle.PublicRule.c_str());
+    }
+    return true;
+  }
+
+  hlsl_test::LogErrorFmt(
+      L"No complete matrix candidate matched: component=%s, M=%u, N=%u, "
+      L"mode=%s, rule=%s",
+      componentTypeName(Shape.CompType), Shape.M, Shape.N,
+      comparisonModeName(Oracle.Mode), Oracle.PublicRule.c_str());
+  for (size_t CandidateIndex = 0; CandidateIndex < Oracle.Candidates.size();
+       ++CandidateIndex) {
+    const TypedMatrix &Candidate = Oracle.Candidates[CandidateIndex];
+    const size_t Mismatch = FirstMismatches[CandidateIndex];
+    const size_t Row = Mismatch / Shape.N;
+    const size_t Column = Mismatch % Shape.N;
+    hlsl_test::LogErrorFmt(
+        L"Candidate %zu first mismatch at index=%zu, coordinate=(%zu,%zu): "
+        L"actual=%s, expected=%s",
+        CandidateIndex, Mismatch, Row, Column,
+        matrixValueString(*Actual, Mismatch).c_str(),
+        matrixValueString(Candidate, Mismatch).c_str());
+  }
+  return false;
+}
+
+} // namespace cpu_oracle
+
 static std::string buildCompilerArgs(const MatrixParams &Params,
                                      const char *ExtraDefines = nullptr) {
   std::stringstream SS;
@@ -112,8 +781,14 @@ static std::string buildCompilerArgs(const MatrixParams &Params,
   case ComponentType::F32:
     SS << " -DELEM_TYPE=float";
     break;
-  default:
+  case ComponentType::I32:
+    SS << " -DELEM_TYPE=int";
+    break;
+  case ComponentType::U32:
     SS << " -DELEM_TYPE=uint";
+    break;
+  default:
+    VERIFY_IS_TRUE(false, "Unsupported LinAlg component type");
     break;
   }
   if (Params.Enable16Bit)
@@ -303,6 +978,132 @@ static VariantCompType makeExpectedVec(ComponentType CompType,
                                        bool Increment = true) {
   return makeExpectedMat(CompType, 1, NumElements, StartingVal, Increment,
                          false);
+}
+
+class LinAlgCPUOracleTests {
+public:
+  BEGIN_TEST_CLASS(LinAlgCPUOracleTests)
+  TEST_METHOD_PROPERTY(L"Priority", L"0")
+  END_TEST_CLASS()
+
+  TEST_METHOD(TypedMatrixBufferRoundTrip);
+};
+
+void LinAlgCPUOracleTests::TypedMatrixBufferRoundTrip() {
+  using namespace cpu_oracle;
+
+  auto VerifyScalarEncoding = [](const std::optional<TypedMatrix> &Matrix,
+                                 const std::vector<BYTE> &ExpectedBytes) {
+    if (!Matrix.has_value())
+      return false;
+    MatrixBufferLayout Layout = {
+        LinalgMatrixLayout::RowMajor,
+        /*OffsetBytes=*/0,
+        /*StrideBytes=*/ExpectedBytes.size(),
+    };
+    std::vector<BYTE> ActualBytes(ExpectedBytes.size(), 0);
+    MatrixResultOracle Oracle =
+        exactResult(*Matrix, L"Host scalar encoding and decoding");
+    return writeMatrixBuffer(*Matrix, Layout, ActualBytes) &&
+           ActualBytes == ExpectedBytes &&
+           verifyMatrixBuffer(ActualBytes.data(), ActualBytes.size(), Layout,
+                              Oracle, /*Verbose=*/false);
+  };
+
+  VERIFY_IS_TRUE(VerifyScalarEncoding(
+      makeTypedMatrix<HLSLHalf_t>(1, 1, {HLSLHalf_t(1.5f)}), {0x00, 0x3e}));
+  VERIFY_IS_TRUE(VerifyScalarEncoding(makeTypedMatrix<float>(1, 1, {-2.5f}),
+                                      {0x00, 0x00, 0x20, 0xc0}));
+  VERIFY_IS_TRUE(VerifyScalarEncoding(makeTypedMatrix<int32_t>(1, 1, {-7}),
+                                      {0xf9, 0xff, 0xff, 0xff}));
+  VERIFY_IS_TRUE(
+      VerifyScalarEncoding(makeTypedMatrix<uint32_t>(1, 1, {0x89abcdefu}),
+                           {0xef, 0xcd, 0xab, 0x89}));
+
+  std::optional<TypedMatrix> Matrix =
+      makeTypedMatrix<uint32_t>(2, 3, {1, 2, 3, 4, 5, 6});
+  VERIFY_IS_TRUE(Matrix.has_value());
+
+  MatrixBufferLayout RowMajor = {
+      LinalgMatrixLayout::RowMajor,
+      /*OffsetBytes=*/4,
+      /*StrideBytes=*/16,
+  };
+  std::optional<size_t> RowBytes = getMatrixBufferSize(*Matrix, RowMajor);
+  VERIFY_IS_TRUE(RowBytes.has_value());
+  std::vector<BYTE> RowBuffer(*RowBytes, 0xcd);
+  VERIFY_IS_TRUE(writeMatrixBuffer(*Matrix, RowMajor, RowBuffer));
+  const std::vector<BYTE> ExpectedRowBuffer = {
+      0xcd, 0xcd, 0xcd, 0xcd, 0x01, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00,
+      0x00, 0x03, 0x00, 0x00, 0x00, 0xcd, 0xcd, 0xcd, 0xcd, 0x04, 0x00,
+      0x00, 0x00, 0x05, 0x00, 0x00, 0x00, 0x06, 0x00, 0x00, 0x00,
+  };
+  VERIFY_IS_TRUE(RowBuffer == ExpectedRowBuffer);
+  MatrixResultOracle Exact =
+      exactResult(*Matrix, L"Host exact row-major matrix encoding");
+  VERIFY_IS_TRUE(verifyMatrixBuffer(RowBuffer.data(), RowBuffer.size(),
+                                    RowMajor, Exact, /*Verbose=*/false));
+
+  MatrixBufferLayout ColumnMajor = {
+      LinalgMatrixLayout::ColumnMajor,
+      /*OffsetBytes=*/4,
+      /*StrideBytes=*/12,
+  };
+  std::optional<size_t> ColumnBytes = getMatrixBufferSize(*Matrix, ColumnMajor);
+  VERIFY_IS_TRUE(ColumnBytes.has_value());
+  std::vector<BYTE> ColumnBuffer(*ColumnBytes, 0xcd);
+  VERIFY_IS_TRUE(writeMatrixBuffer(*Matrix, ColumnMajor, ColumnBuffer));
+  const std::vector<BYTE> ExpectedColumnBuffer = {
+      0xcd, 0xcd, 0xcd, 0xcd, 0x01, 0x00, 0x00, 0x00, 0x04, 0x00, 0x00, 0x00,
+      0xcd, 0xcd, 0xcd, 0xcd, 0x02, 0x00, 0x00, 0x00, 0x05, 0x00, 0x00, 0x00,
+      0xcd, 0xcd, 0xcd, 0xcd, 0x03, 0x00, 0x00, 0x00, 0x06, 0x00, 0x00, 0x00,
+  };
+  VERIFY_IS_TRUE(ColumnBuffer == ExpectedColumnBuffer);
+  VERIFY_IS_TRUE(verifyMatrixBuffer(ColumnBuffer.data(), ColumnBuffer.size(),
+                                    ColumnMajor, Exact, /*Verbose=*/false));
+
+  std::optional<TypedMatrix> Transposed = transposeMatrix(*Matrix);
+  std::optional<TypedMatrix> ExpectedTranspose =
+      makeTypedMatrix<uint32_t>(3, 2, {1, 4, 2, 5, 3, 6});
+  VERIFY_IS_TRUE(Transposed.has_value());
+  VERIFY_IS_TRUE(ExpectedTranspose.has_value());
+  size_t FirstMismatch;
+  VERIFY_IS_TRUE(
+      exactMatrixMatch(*Transposed, *ExpectedTranspose, FirstMismatch));
+
+  std::optional<TypedMatrix> MixedActual =
+      makeTypedMatrix<uint32_t>(1, 2, {1, 4});
+  std::optional<TypedMatrix> CandidateA =
+      makeTypedMatrix<uint32_t>(1, 2, {1, 2});
+  std::optional<TypedMatrix> CandidateB =
+      makeTypedMatrix<uint32_t>(1, 2, {3, 4});
+  VERIFY_IS_TRUE(MixedActual.has_value());
+  VERIFY_IS_TRUE(CandidateA.has_value());
+  VERIFY_IS_TRUE(CandidateB.has_value());
+  MatrixResultOracle Permitted =
+      permittedResults({*CandidateA, *CandidateB},
+                       L"Host whole-result permitted candidate semantics");
+  VERIFY_IS_FALSE(matchesAnyCompleteCandidate(*MixedActual, Permitted));
+  Permitted.Candidates.push_back(*MixedActual);
+  VERIFY_IS_TRUE(matchesAnyCompleteCandidate(*MixedActual, Permitted));
+
+  MatrixResultOracle Excluded =
+      excludedResult(L"Host excluded-oracle classification");
+  VERIFY_IS_FALSE(matchesAnyCompleteCandidate(*Matrix, Excluded));
+
+  MatrixParams Params = {};
+  Params.M = 2;
+  Params.N = 3;
+  Params.Use = MatrixUse::A;
+  Params.Scope = MatrixScope::Wave;
+  Params.Layout = LinalgMatrixLayout::RowMajor;
+  Params.NumThreads = 4;
+  Params.CompType = ComponentType::I32;
+  VERIFY_IS_TRUE(buildCompilerArgs(Params).find(" -DELEM_TYPE=int") !=
+                 std::string::npos);
+  Params.CompType = ComponentType::U32;
+  VERIFY_IS_TRUE(buildCompilerArgs(Params).find(" -DELEM_TYPE=uint") !=
+                 std::string::npos);
 }
 
 class DxilConf_SM610_LinAlg {
@@ -837,8 +1638,6 @@ static void runCopyConvert(ID3D12Device *Device,
                            dxc::SpecificDllLoader &DxcSupport,
                            const MatrixParams &Params, bool Verbose,
                            bool Transpose) {
-  const size_t NumElements = Params.totalElements();
-  const size_t BufferSize = Params.totalBytes();
   MatrixParams DstParams = Params;
   if (Transpose) {
     DstParams.M = Params.N;
@@ -856,31 +1655,63 @@ static void runCopyConvert(ID3D12Device *Device,
 
   compileShader(DxcSupport, CopyConvertShader, "cs_6_10", Args, Verbose);
 
-  auto Expected = makeExpectedMat(Params.CompType, Params.M, Params.N, 1,
-                                  /*Increment=*/true, Transpose);
+  std::optional<cpu_oracle::TypedMatrix> Input =
+      cpu_oracle::makeSequentialMatrix(Params.CompType, Params.M, Params.N);
+  VERIFY_IS_TRUE(Input.has_value(),
+                 "Unable to construct typed CopyConvert input");
+  std::optional<cpu_oracle::TypedMatrix> Expected =
+      Transpose ? cpu_oracle::transposeMatrix(*Input) : Input;
+  VERIFY_IS_TRUE(Expected.has_value(),
+                 "Unable to construct independent CopyConvert oracle");
+
+  cpu_oracle::MatrixBufferLayout SourceLayout = {
+      Params.Layout,
+      /*OffsetBytes=*/0,
+      /*StrideBytes=*/Params.strideBytes(),
+  };
+  cpu_oracle::MatrixBufferLayout DestinationLayout = {
+      DstParams.Layout,
+      /*OffsetBytes=*/0,
+      /*StrideBytes=*/DstParams.strideBytes(),
+  };
+  std::optional<size_t> SourceBufferSize =
+      cpu_oracle::getMatrixBufferSize(*Input, SourceLayout);
+  std::optional<size_t> DestinationBufferSize =
+      cpu_oracle::getMatrixBufferSize(*Expected, DestinationLayout);
+  VERIFY_IS_TRUE(SourceBufferSize.has_value(),
+                 "Unable to size typed CopyConvert input");
+  VERIFY_IS_TRUE(DestinationBufferSize.has_value(),
+                 "Unable to size typed CopyConvert output");
+
+  cpu_oracle::TypedMatrix InputMatrix = *Input;
+  cpu_oracle::MatrixResultOracle Oracle = cpu_oracle::exactResult(
+      *Expected,
+      L"HLSL proposal 0035 CopyConvertMatrix transpose and descriptor layout");
 
   // Construct the ShaderOp: two UAV buffers, load from one, store to other.
   auto Op = createComputeOp(CopyConvertShader, "cs_6_10", "UAV(u0), UAV(u1)",
                             Args.c_str());
-  addUAVBuffer(Op.get(), "Input", BufferSize, false, "byname");
-  addUAVBuffer(Op.get(), "Output", BufferSize, true);
+  addUAVBuffer(Op.get(), "Input", *SourceBufferSize, false, "byname");
+  addUAVBuffer(Op.get(), "Output", *DestinationBufferSize, true);
   addRootView(Op.get(), 0, "Input");
   addRootView(Op.get(), 1, "Output");
 
-  auto Result =
-      runShaderOp(Device, DxcSupport, std::move(Op),
-                  [NumElements, Params](LPCSTR Name, std::vector<BYTE> &Data,
-                                        st::ShaderOp *) {
-                    VERIFY_IS_TRUE(fillInputBuffer(Name, Data, Params.CompType,
-                                                   NumElements),
-                                   "Saw unsupported component type");
-                  });
+  auto Result = runShaderOp(
+      Device, DxcSupport, std::move(Op),
+      [InputMatrix, SourceLayout](LPCSTR Name, std::vector<BYTE> &Data,
+                                  st::ShaderOp *) {
+        if (_stricmp(Name, "Input") != 0)
+          return;
+        VERIFY_IS_TRUE(
+            cpu_oracle::writeMatrixBuffer(InputMatrix, SourceLayout, Data),
+            "Unable to encode typed CopyConvert input");
+      });
 
   MappedData OutData;
   Result->Test->GetReadBackData("Output", &OutData);
 
-  VERIFY_IS_TRUE(verifyComponentBuffer(Params.CompType, OutData.data(),
-                                       Expected, NumElements, Verbose));
+  VERIFY_IS_TRUE(cpu_oracle::verifyMatrixBuffer(
+      OutData.data(), OutData.size(), DestinationLayout, Oracle, Verbose));
 }
 
 void DxilConf_SM610_LinAlg::CopyConvert_Wave_16x16_F16() {
