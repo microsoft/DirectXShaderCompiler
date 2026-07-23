@@ -15,7 +15,8 @@
 // D3D12_FEATURE_D3D12_OPTIONS_PREVIEW and its data struct are not yet in
 // the released Windows SDK. Define locally so the test can query variable
 // group shared memory capabilities from the Agility SDK runtime.
-// TODO(#8661): Remove me when GroupSharedLimit is available in a released Windows SDK.
+// TODO(#8661): Remove me when GroupSharedLimit is available in a released
+// Windows SDK.
 #if defined(D3D12_PREVIEW_SDK_VERSION) && D3D12_PREVIEW_SDK_VERSION < 720
 
 #ifndef D3D12_FEATURE_D3D12_OPTIONS_PREVIEW
@@ -619,7 +620,8 @@ bool isFallbackPathEnabled() {
   return EnableFallbackValue != 0;
 }
 
-// TODO(#8661): Remove me when GroupSharedLimit is available in a released Windows SDK.
+// TODO(#8661): Remove me when GroupSharedLimit is available in a released
+// Windows SDK.
 #if defined(D3D12_PREVIEW_SDK_VERSION)
 UINT getMaxGroupSharedMemoryCS(ID3D12Device *Device) {
   D3D12_FEATURE_DATA_D3D12_OPTIONS_PREVIEW O = {};
