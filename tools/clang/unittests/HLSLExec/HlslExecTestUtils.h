@@ -74,9 +74,12 @@ bool doesDeviceSupportEnhancedBarriers(ID3D12Device *pDevice);
 bool doesDeviceSupportRelaxedFormatCasting(ID3D12Device *pDevice);
 bool isFallbackPathEnabled();
 
+// TODO(#8661): Remove me when GroupSharedLimit is available in a release SDK.
+#if defined(D3D12_PREVIEW_SDK_VERSION)
 UINT getMaxGroupSharedMemoryCS(ID3D12Device *Device);
 UINT getMaxGroupSharedMemoryAS(ID3D12Device *Device);
 UINT getMaxGroupSharedMemoryMS(ID3D12Device *Device);
+#endif // defined(D3D12_PREVIEW_SDK_VERSION)
 
 /// Create a ShaderOp for a compute shader dispatch.
 std::unique_ptr<st::ShaderOp>
