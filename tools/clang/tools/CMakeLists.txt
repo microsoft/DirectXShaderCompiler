@@ -4,6 +4,8 @@ add_subdirectory(driver)
 # add_subdirectory(clang-fuzzer)    # HLSL Change
 
 # add_subdirectory(c-index-test)    # HLSL Change
+add_subdirectory(dxcreflectioncontainer)		# HLSL Change
+add_subdirectory(dxcreflection)		# HLSL Change
 add_subdirectory(libclang)
 
 if(0 AND CLANG_ENABLE_ARCMT)        # HLSL Change
@@ -32,6 +34,7 @@ add_subdirectory(dxa)
 add_subdirectory(dxopt)
 add_subdirectory(dxl)
 add_subdirectory(dxr)
+add_subdirectory(dxreflector)
 add_subdirectory(dxv)
 
 # These targets can currently only be built on Windows.
