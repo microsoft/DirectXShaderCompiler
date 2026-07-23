@@ -210,9 +210,13 @@ public:
   TEST_METHOD(WaveIntrinsicsInPSTest);
   TEST_METHOD(WaveSizeTest);
   TEST_METHOD(WaveSizeRangeTest);
+  // TODO(#8661): Remove me when GroupSharedLimit is available in a released
+  // Windows SDK.
+#if defined(D3D12_PREVIEW_SDK_VERSION)
   TEST_METHOD(GroupSharedLimitTest);
   TEST_METHOD(GroupSharedLimitASTest);
   TEST_METHOD(GroupSharedLimitMSTest);
+#endif // defined(D3D12_PREVIEW_SDK_VERSION)
   TEST_METHOD(GroupWaveIndexTest);
   TEST_METHOD(PartialDerivTest);
   TEST_METHOD(DerivativesTest);
@@ -10624,6 +10628,9 @@ void ExecutionTest::WaveSizeRangeTest() {
                        m_support);
 }
 
+// TODO(#8661): Remove me when GroupSharedLimit is available in a released
+// Windows SDK.
+#if defined(D3D12_PREVIEW_SDK_VERSION)
 // Helper: create a SM 6.10 device with HLK-aware skip/fail logic.
 // Returns true if device was created, false if skipped.
 static bool CreateGSMLimitTestDevice(D3D12SDKSelector *D3D12SDK,
@@ -10934,6 +10941,7 @@ void ExecutionTest::GroupSharedLimitMSTest() {
         L"MS Test passed: GroupSharedLimit in mesh shader succeeded.");
   }
 }
+#endif // defined(D3D12_PREVIEW_SDK_VERSION)
 
 void ExecutionTest::GroupWaveIndexTest() {
   WEX::TestExecution::SetVerifyOutput VerifySettings(
