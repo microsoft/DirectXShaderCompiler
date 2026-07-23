@@ -326,6 +326,7 @@ public:
   // Load/Store/Accumulate Descriptor
   TEST_METHOD(LoadStoreDescriptor_Wave_16x16_F16);
   TEST_METHOD(SplatStore_Wave_16x16_F16);
+  TEST_METHOD(SplatStorePublicAPI_Wave_16x16_F16);
   TEST_METHOD(AccumulateDescriptor_Wave_16x16_F16);
 
   // Load/Store/Accumulate Memory
@@ -505,10 +506,31 @@ static const char SplatStoreShader[] = R"(
   }
 )";
 
+static const char SplatStorePublicAPIShader[] = R"(
+  #include <dx/linalg.h>
+  using namespace dx::linalg;
+
+  RWByteAddressBuffer Output : register(u0);
+
+  using MatrixTy =
+    Matrix<ComponentType::F16, M_DIM, N_DIM, MatrixUse::Accumulator,
+           MatrixScope::Wave>;
+
+  [WaveSize(4, 64)]
+  [numthreads(NUMTHREADS, 1, 1)]
+  void main() {
+    if (GetGroupWaveIndex() != 0)
+      return;
+
+    MatrixTy Mat = MatrixTy::Splat(FILL_VALUE);
+    Mat.Store(Output, 0, STRIDE, MatrixLayoutEnum::RowMajor, 128);
+  }
+)";
+
 static void runSplatStore(ID3D12Device *Device,
                           dxc::SpecificDllLoader &DxcSupport,
                           const MatrixParams &Params, float FillValue,
-                          bool Verbose) {
+                          bool Verbose, LPCSTR Shader = SplatStoreShader) {
   const size_t NumElements = Params.totalElements();
   const size_t BufferSize = Params.totalBytes();
 
@@ -517,13 +539,12 @@ static void runSplatStore(ID3D12Device *Device,
 
   std::string Args = buildCompilerArgs(Params, ExtraDefs.str().c_str());
 
-  compileShader(DxcSupport, SplatStoreShader, "cs_6_10", Args, Verbose);
+  compileShader(DxcSupport, Shader, "cs_6_10", Args, Verbose);
 
   auto Expected =
       makeExpectedMat(Params.CompType, Params.M, Params.N, FillValue, false);
 
-  auto Op =
-      createComputeOp(SplatStoreShader, "cs_6_10", "UAV(u0)", Args.c_str());
+  auto Op = createComputeOp(Shader, "cs_6_10", "UAV(u0)", Args.c_str());
   addUAVBuffer(Op.get(), "Output", BufferSize, true);
   addRootView(Op.get(), 0, "Output");
 
@@ -547,6 +568,20 @@ void DxilConf_SM610_LinAlg::SplatStore_Wave_16x16_F16() {
   Params.NumThreads = 64;
   Params.Enable16Bit = true;
   runSplatStore(D3DDevice, DxcSupport, Params, 42.0f, VerboseLogging);
+}
+
+void DxilConf_SM610_LinAlg::SplatStorePublicAPI_Wave_16x16_F16() {
+  MatrixParams Params = {};
+  Params.CompType = ComponentType::F16;
+  Params.M = 16;
+  Params.N = 16;
+  Params.Use = MatrixUse::Accumulator;
+  Params.Scope = MatrixScope::Wave;
+  Params.Layout = LinalgMatrixLayout::RowMajor;
+  Params.NumThreads = 64;
+  Params.Enable16Bit = true;
+  runSplatStore(D3DDevice, DxcSupport, Params, 42.0f, VerboseLogging,
+                SplatStorePublicAPIShader);
 }
 
 static const char AccumulateDescriptorShader[] = R"(
