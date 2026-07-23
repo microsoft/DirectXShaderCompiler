@@ -471,6 +471,16 @@ SpirvSpecConstantBinaryOp *SpirvBuilder::createSpecConstantBinaryOp(
   return instruction;
 }
 
+SpirvSpecConstantTernaryOp *SpirvBuilder::createSpecConstantTernaryOp(
+    spv::Op op, QualType resultType, SpirvInstruction *op1,
+    SpirvInstruction *op2, SpirvInstruction *op3, SourceLocation loc) {
+  assert(insertPoint && "null insert point");
+  auto *instruction = new (context)
+      SpirvSpecConstantTernaryOp(op, resultType, loc, op1, op2, op3);
+  insertPoint->addInstruction(instruction);
+  return instruction;
+}
+
 SpirvGroupNonUniformOp *SpirvBuilder::createGroupNonUniformOp(
     spv::Op op, QualType resultType, llvm::Optional<spv::Scope> execScope,
     llvm::ArrayRef<SpirvInstruction *> operands, SourceLocation loc,
@@ -533,13 +543,14 @@ SpirvImageTexelPointer *SpirvBuilder::createImageTexelPointer(
 
 SpirvUntypedImageTexelPointerEXT *
 SpirvBuilder::createUntypedImageTexelPointerEXT(QualType resultType,
+                                                const SpirvType *imageType,
                                                 SpirvInstruction *image,
                                                 SpirvInstruction *coordinate,
                                                 SpirvInstruction *sample,
                                                 SourceLocation loc) {
   assert(insertPoint && "null insert point");
   auto *instruction = new (context) SpirvUntypedImageTexelPointerEXT(
-      resultType, loc, image, coordinate, sample);
+      resultType, loc, imageType, image, coordinate, sample);
   insertPoint->addInstruction(instruction);
   return instruction;
 }
@@ -2009,6 +2020,94 @@ SpirvConstant *SpirvBuilder::getConstantNull(QualType type) {
   auto *nullConst = new (context) SpirvConstantNull(type);
   mod->addConstant(nullConst);
   return nullConst;
+}
+
+SpirvConstant *
+SpirvBuilder::getConstantSizeOfEXT(const SpirvType *operandType) {
+  // Reuse the existing instruction for a given descriptor type; multiple heap
+  // accesses of the same element type share one OpConstantSizeOfEXT.
+  auto found = constantSizeOfEXTMap.find(operandType);
+  if (found != constantSizeOfEXTMap.end())
+    return found->second;
+
+  // size is a non-negative 32-bit unsigned value, though spec allows signed
+  auto *sizeOfConst = new (context)
+      SpirvConstantSizeOfEXT(astContext.UnsignedIntTy, operandType);
+  mod->addConstant(sizeOfConst);
+  constantSizeOfEXTMap[operandType] = sizeOfConst;
+  return sizeOfConst;
+}
+
+SpirvInstruction *SpirvBuilder::getResourceHeapArrayStride() {
+  if (resourceHeapArrayStride)
+    return resourceHeapArrayStride;
+
+  // The HLSL SM6.6 ResourceDescriptorHeap is a single flat array in which the
+  // client may place any resource descriptor at any slot. To match DX12
+  // semantics, all resource descriptor arrays must share one stride equal to
+  // the largest resource descriptor size across all categories that may appear
+  // in this shader.
+  //
+  // Base categories (always included): image and buffer, as defined by
+  // VkPhysicalDeviceDescriptorHeapPropertiesEXT (imageDescriptorSize /
+  // bufferDescriptorSize). Textures lower to OpTypeImage so image/buffer
+  // covers all non-RT resource kinds.
+  //
+  // Optional category: acceleration structure, included only when the shader
+  // uses ray-tracing features (noteResourceHeapHasAccelStruct() was called).
+  // The placeholder is getAccelerationStructureTypeNV(), which emits opcode
+  // 5341 — the same opcode shared by OpTypeAccelerationStructureNV and
+  // OpTypeAccelerationStructureKHR. SPIRV-Tools disassembles it as
+  // OpTypeAccelerationStructureKHR. Emitting OpConstantSizeOfEXT on this type
+  // requires OpCapability RayTracingKHR, which is guaranteed present whenever
+  // noteResourceHeapHasAccelStruct() has been called.
+  //
+  // All sizes are driver-defined and known only at pipeline creation time, so
+  // the maximum is computed with OpSpecConstantOp over OpConstantSizeOfEXT
+  // placeholders (two for non-RT shaders; three when acceleration structures
+  // are present). A canonical sampled 2D float image and a Uniform buffer stand
+  // in as representatives for the image and buffer categories.
+  //
+  // VkPhysicalDeviceDescriptorHeapPropertiesEXT reports one size per category,
+  // so subtype and storage class do not affect the size.
+  const SpirvType *placeholderImage = context.getImageType(
+      context.getFloatType(32), spv::Dim::Dim2D, ImageType::WithDepth::No,
+      /*arrayed*/ false, /*ms*/ false, ImageType::WithSampler::Yes,
+      spv::ImageFormat::Unknown);
+  const SpirvType *placeholderBuffer =
+      context.getBufferEXTType(spv::StorageClass::Uniform);
+
+  SpirvInstruction *imageSize = getConstantSizeOfEXT(placeholderImage);
+  SpirvInstruction *bufferSize = getConstantSizeOfEXT(placeholderBuffer);
+  SpirvInstruction *imageIsBigger = createSpecConstantBinaryOp(
+      spv::Op::OpUGreaterThan, astContext.BoolTy, imageSize, bufferSize, {});
+  SpirvInstruction *maxImgBuf =
+      createSpecConstantTernaryOp(spv::Op::OpSelect, astContext.UnsignedIntTy,
+                                  imageIsBigger, imageSize, bufferSize, {});
+
+  if (resourceHeapHasAccelStruct) {
+    // Extend to max(max(img, buf), accel_struct).
+    const SpirvType *placeholderAS = context.getAccelerationStructureTypeNV();
+    SpirvInstruction *asSize = getConstantSizeOfEXT(placeholderAS);
+    SpirvInstruction *maxImgBufIsBigger = createSpecConstantBinaryOp(
+        spv::Op::OpUGreaterThan, astContext.BoolTy, maxImgBuf, asSize, {});
+    resourceHeapArrayStride =
+        createSpecConstantTernaryOp(spv::Op::OpSelect, astContext.UnsignedIntTy,
+                                    maxImgBufIsBigger, maxImgBuf, asSize, {});
+  } else {
+    resourceHeapArrayStride = maxImgBuf;
+  }
+  return resourceHeapArrayStride;
+}
+
+SpirvInstruction *SpirvBuilder::getSamplerHeapArrayStride() {
+  if (samplerHeapArrayStride)
+    return samplerHeapArrayStride;
+  // The sampler heap holds only OpTypeSampler descriptors. All samplers are the
+  // same size (unlike resources, which split into image and buffer categories
+  // that may differ), so the stride is just that one descriptor size.
+  samplerHeapArrayStride = getConstantSizeOfEXT(context.getSamplerType());
+  return samplerHeapArrayStride;
 }
 
 SpirvConstant *SpirvBuilder::getConstantString(llvm::StringRef str,
