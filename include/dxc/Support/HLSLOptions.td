@@ -454,6 +454,20 @@ def fvk_bind_sampler_heap : MultiArg<["-"], "fvk-bind-sampler-heap", 2>, MetaVar
   HelpText<"Specify Vulkan binding number and set number for the sampler heap.">;
 def fvk_bind_counter_heap : MultiArg<["-"], "fvk-bind-counter-heap", 2>, MetaVarName<"<binding> <set>">, Group<spirv_Group>, Flags<[CoreOption, DriverOption]>,
   HelpText<"Specify Vulkan binding number and set number for the counter heap.">;
+def fvk_resource_heap_stride
+    : Separate<["-"], "fvk-resource-heap-stride">,
+      MetaVarName<"<stride>">,
+      Group<spirv_Group>,
+      Flags<[CoreOption, DriverOption]>,
+      HelpText<"Override the byte ArrayStride of the resource descriptor heap "
+               "runtime array. Must be a power of 2 in [8, 256].">;
+def fvk_sampler_heap_stride
+    : Separate<["-"], "fvk-sampler-heap-stride">,
+      MetaVarName<"<stride>">,
+      Group<spirv_Group>,
+      Flags<[CoreOption, DriverOption]>,
+      HelpText<"Override the byte ArrayStride of the sampler descriptor heap "
+               "runtime array. Must be a power of 2 in [8, 256].">;
 // SPIRV Change Ends
 
 //////////////////////////////////////////////////////////////////////////////
