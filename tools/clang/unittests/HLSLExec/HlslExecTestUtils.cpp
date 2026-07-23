@@ -707,9 +707,10 @@ void addSRVBuffer(st::ShaderOp *Op, const char *Name, UINT64 Width,
   Res.Desc.MipLevels = 1;
   Res.Desc.SampleDesc.Count = 1;
   Res.Desc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
-  Res.Desc.Flags = D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
+  Res.Desc.Flags = D3D12_RESOURCE_FLAG_NONE;
   Res.InitialResourceState = D3D12_RESOURCE_STATE_COPY_DEST;
-  Res.TransitionTo = D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
+  Res.TransitionTo = D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE |
+                     D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
 
   Op->Resources.push_back(Res);
 }
