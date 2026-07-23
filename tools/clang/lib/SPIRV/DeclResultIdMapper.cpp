@@ -309,6 +309,11 @@ bool shouldSkipInStructLayout(const Decl *decl) {
   // Ignore embeded function decls
   if (isa<FunctionDecl>(decl))
     return true;
+  // Ignore static variables. They are not part of struct-like explicit
+  // layouts and should not consume a member index.
+  if (const auto *varDecl = dyn_cast<VarDecl>(decl))
+    if (varDecl->getStorageClass() == StorageClass::SC_Static)
+      return true;
   // Ignore empty decls
   if (isa<EmptyDecl>(decl))
     return true;
