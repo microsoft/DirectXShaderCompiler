@@ -138,8 +138,8 @@ void main(uint ID : SV_GroupID)
 // CHECK: call void @dx.op.linAlgMatrixAccumulateToMemory.mC9M4N4U2S1.f32(i32 -2147483620,
 // CHECK-SAME: %dx.types.LinAlgMatrixC9M4N4U2S1 %[[ACCUM0]],
 // CHECK-SAME: float addrspace(3)* getelementptr inbounds ([256 x float],
-// CHECK-SAME: [256 x float] addrspace(3)* @"\01?SharedArr@@3PAMA", i32 0, i32 0), i32 0, i32 16, i32 1)
-// CHECK-SAME: ; LinAlgMatrixAccumulateToMemory(matrix,memory,offset,stride,layout)
+// CHECK-SAME: [256 x float] addrspace(3)* @"\01?SharedArr@@3PAMA", i32 0, i32 0), i32 0, i32 0, i32 16, i32 1)
+// CHECK-SAME: ; LinAlgMatrixAccumulateToMemory(matrix,memory,targetType,offset,stride,layout)
   AccMat1.InterlockedAccumulate(SharedArr, 0, 16, MatrixLayoutEnum::ColMajor);
 
 // Matrix::Accumulate
