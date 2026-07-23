@@ -801,6 +801,12 @@ public:
   void decorateWithLiterals(SpirvInstruction *targetInst, unsigned decorate,
                             llvm::ArrayRef<unsigned> literals, SourceLocation);
 
+  /// \brief Decorates the given function with information from VKDecorateExt.
+  /// Used for [[vk::ext_decorate(...)]] placed directly on a function, which
+  /// emits an OpDecorate targeting the OpFunction.
+  void decorateWithLiterals(SpirvFunction *targetFunc, unsigned decorate,
+                            llvm::ArrayRef<unsigned> literals, SourceLocation);
+
   /// \brief Decorates the given target with result ids of SPIR-V
   /// instructions.
   void decorateWithIds(SpirvInstruction *targetInst, unsigned decorate,

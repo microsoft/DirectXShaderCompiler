@@ -576,6 +576,13 @@ public:
       llvm::function_ref<void(VKDecorateExtAttr *)> extraFunctionForDecoAttr =
           [](VKDecorateExtAttr *) {});
 
+  /// Applies [[vk::ext_decorate(...)]] placed directly on a function to the
+  /// function itself, emitting an OpDecorate that targets the OpFunction. Only
+  /// the literal form is supported; the id/string variants are diagnosed as
+  /// unsupported on functions (they lack a SpirvFunction-target decoration).
+  void decorateWithIntrinsicAttrs(const NamedDecl *decl,
+                                  SpirvFunction *targetFunc);
+
   /// \brief Creates instructions to load the value of output stage variable
   /// defined by outputPatchDecl and store it to ptr. Since the output stage
   /// variable for OutputPatch is an array whose number of elements is the
@@ -588,6 +595,12 @@ public:
                                   SpirvInstruction *ptr);
 
   spv::ExecutionMode getInterlockExecutionMode();
+
+  /// Records any Spir-V capabilities and extensions declared directly on the
+  /// given decl via [[vk::ext_capability(...)]] / [[vk::ext_extension(...)]]
+  /// so they will be added to the SPIR-V module. Shared by the variable and
+  /// function declaration paths.
+  void registerCapabilitiesAndExtensionsForDecl(const NamedDecl *decl);
 
   /// Records any Spir-V capabilities and extensions for the given type so
   /// they will be added to the SPIR-V module. The capabilities and extension
