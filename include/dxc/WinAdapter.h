@@ -198,19 +198,8 @@
 #define OutputDebugStringA(msg) fputs(msg, stderr)
 #define OutputDebugFormatA(...) fprintf(stderr, __VA_ARGS__)
 
-// Event Tracing for Windows (ETW) provides application programmers the ability
-// to start and stop event tracing sessions, instrument an application to
-// provide trace events, and consume trace events.
-#define DxcEtw_DXCompilerCreateInstance_Start()
-#define DxcEtw_DXCompilerCreateInstance_Stop(hr)
-#define DxcEtw_DXCompilerCompile_Start()
-#define DxcEtw_DXCompilerCompile_Stop(hr)
-#define DxcEtw_DXCompilerDisassemble_Start()
-#define DxcEtw_DXCompilerDisassemble_Stop(hr)
-#define DxcEtw_DXCompilerPreprocess_Start()
-#define DxcEtw_DXCompilerPreprocess_Stop(hr)
-#define DxcEtw_DxcValidation_Start()
-#define DxcEtw_DxcValidation_Stop(hr)
+// I have no idea if I don't break something like INSTALL targets, requires CI tests
+#include "WinEtwAdapter.h"
 
 #define UInt32Add UIntAdd
 #define Int32ToUInt32 IntToUInt
