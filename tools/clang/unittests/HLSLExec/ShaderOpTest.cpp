@@ -587,7 +587,8 @@ void ShaderOpTest::CreatePipelineState() {
 
 void ShaderOpTest::CreateResources() {
   CommandListRefs ResCommandList;
-  ResCommandList.CreateForDevice(m_pDevice, true);
+  // Graphics-only transition states require a DIRECT list.
+  ResCommandList.CreateForDevice(m_pDevice, /*compute*/ false);
   ResCommandList.Allocator->SetName(
       L"ShaderOpTest Resource Creation Allocation");
   ResCommandList.Queue->SetName(L"ShaderOpTest Resource Creation Queue");
