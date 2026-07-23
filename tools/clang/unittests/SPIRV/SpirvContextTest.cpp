@@ -324,6 +324,9 @@ TEST_F(SpirvContextTest, RuntimeArrayTypeUnique3) {
 
   EXPECT_NE(spvContext.getRuntimeArrayType(int32, 4),
             spvContext.getRuntimeArrayType(int32, llvm::None));
+
+  EXPECT_NE(spvContext.getRuntimeArrayType(int32, llvm::None),
+            spvContext.getRuntimeArrayType(int32, 32));
 }
 
 TEST_F(SpirvContextTest, PointerTypeUnique1) {
