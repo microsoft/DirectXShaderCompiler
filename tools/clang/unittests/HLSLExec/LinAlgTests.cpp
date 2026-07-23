@@ -1395,7 +1395,6 @@ static D3D12_LINEAR_ALGEBRA_DATATYPE toLinAlgDataType(ComponentType CT) {
 }
 
 static const char OuterProductShader[] = R"(
-  #define USE_A 0
   #define SCOPE_THREAD 0
 
   RWByteAddressBuffer Input : register(u0);
@@ -1416,7 +1415,7 @@ static const char OuterProductShader[] = R"(
     }
 
     __builtin_LinAlgMatrix
-      [[__LinAlgMatrix_Attributes(COMP_TYPE, M_DIM, N_DIM, USE_A, SCOPE_THREAD)]]
+      [[__LinAlgMatrix_Attributes(COMP_TYPE, M_DIM, N_DIM, USE, SCOPE_THREAD)]]
       Mat;
     __builtin_LinAlg_MatrixOuterProduct(Mat, VecA, VecB);
 
@@ -1434,6 +1433,8 @@ static void runOuterProduct(ID3D12Device *Device,
   VERIFY_IS_TRUE(
       Params.Layout == LinalgMatrixLayout::OuterProductOptimal,
       "Outer product must output its matrix in OuterProductOptimal layout");
+  VERIFY_IS_TRUE(Params.Use == MatrixUse::Accumulator,
+                 "Outer product must output an accumulator matrix");
   const size_t NumVecElements = Params.M + Params.N;
   const size_t InBuffSize = NumVecElements * elementSize(Params.CompType);
   const size_t NumMatElements = Params.totalElements();
@@ -1502,6 +1503,7 @@ void DxilConf_SM610_LinAlg::OuterProduct_Thread_16x16_F16() {
   Params.CompType = ComponentType::F16;
   Params.M = 16;
   Params.N = 16;
+  Params.Use = MatrixUse::Accumulator;
   Params.Scope = MatrixScope::Thread;
   Params.Layout = LinalgMatrixLayout::OuterProductOptimal;
   Params.NumThreads = 1;
