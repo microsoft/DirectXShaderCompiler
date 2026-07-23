@@ -587,7 +587,8 @@ void ShaderOpTest::CreatePipelineState() {
 
 void ShaderOpTest::CreateResources() {
   CommandListRefs ResCommandList;
-  ResCommandList.CreateForDevice(m_pDevice, true);
+  // Resource initialization may transition to graphics-only states.
+  ResCommandList.CreateForDevice(m_pDevice, false);
   ResCommandList.Allocator->SetName(
       L"ShaderOpTest Resource Creation Allocation");
   ResCommandList.Queue->SetName(L"ShaderOpTest Resource Creation Queue");
