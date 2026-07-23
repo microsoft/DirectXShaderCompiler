@@ -210,7 +210,7 @@ public:
   TEST_METHOD(WaveIntrinsicsInPSTest);
   TEST_METHOD(WaveSizeTest);
   TEST_METHOD(WaveSizeRangeTest);
-  // TODO(#8661): Remove me when GroupSharedLimit is available in a release SDK.
+  // TODO(#8661): Remove me when GroupSharedLimit is available in a released Windows SDK.
 #if defined(D3D12_PREVIEW_SDK_VERSION)
   TEST_METHOD(GroupSharedLimitTest);
   TEST_METHOD(GroupSharedLimitASTest);
@@ -10627,7 +10627,7 @@ void ExecutionTest::WaveSizeRangeTest() {
                        m_support);
 }
 
-// TODO(#8661): Remove me when GroupSharedLimit is available in a release SDK.
+// TODO(#8661): Remove me when GroupSharedLimit is available in a released Windows SDK.
 #if defined(D3D12_PREVIEW_SDK_VERSION)
 // Helper: create a SM 6.10 device with HLK-aware skip/fail logic.
 // Returns true if device was created, false if skipped.
