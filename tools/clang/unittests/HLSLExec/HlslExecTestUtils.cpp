@@ -11,6 +11,7 @@
 #include <d3d12.h>
 #include <dxgi1_4.h>
 #include <filesystem>
+#include <limits>
 #include <optional>
 
 // D3D12_FEATURE_D3D12_OPTIONS_PREVIEW and its data struct are not yet in
@@ -1458,6 +1459,76 @@ void addSRVBuffer(st::ShaderOp *Op, const char *Name, UINT64 Width,
                      D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
 
   Op->Resources.push_back(Res);
+}
+
+void addRawBufferDescriptorTable(st::ShaderOp *Op, UINT RootIndex,
+                                 const char *HeapName,
+                                 std::initializer_list<RawBufferView> Views) {
+  if (!Op || !HeapName || Views.size() == 0 ||
+      Views.size() > (std::numeric_limits<UINT>::max)()) {
+    VERIFY_IS_TRUE(false, "Invalid raw buffer descriptor table");
+    return;
+  }
+
+  st::ShaderOpDescriptorHeap Heap = {};
+  Heap.Name = Op->Strings.insert(HeapName);
+  Heap.Desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+  Heap.Desc.NumDescriptors = static_cast<UINT>(Views.size());
+  Heap.Desc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
+
+  for (const RawBufferView &View : Views) {
+    st::ShaderOpResource *Resource =
+        View.ResourceName ? Op->GetResourceByName(View.ResourceName) : nullptr;
+    const bool Valid =
+        View.DescriptorName && View.ResourceName && View.NumBytes != 0 &&
+        Resource &&
+        (View.Kind == RawBufferViewKind::SRV ||
+         View.Kind == RawBufferViewKind::UAV) &&
+        View.FirstByte % sizeof(UINT32) == 0 &&
+        View.NumBytes % sizeof(UINT32) == 0 &&
+        View.FirstByte / sizeof(UINT32) <= (std::numeric_limits<UINT>::max)() &&
+        View.NumBytes / sizeof(UINT32) <= (std::numeric_limits<UINT>::max)() &&
+        View.FirstByte <= Resource->Desc.Width &&
+        View.NumBytes <= Resource->Desc.Width - View.FirstByte;
+    if (!Valid) {
+      VERIFY_IS_TRUE(false, "Invalid raw buffer descriptor");
+      return;
+    }
+
+    st::ShaderOpDescriptor Descriptor = {};
+    Descriptor.Name = Op->Strings.insert(View.DescriptorName);
+    Descriptor.ResName = Op->Strings.insert(View.ResourceName);
+    if (View.Kind == RawBufferViewKind::SRV) {
+      Descriptor.Kind = Op->Strings.insert("SRV");
+      Descriptor.SrvDescPresent = true;
+      Descriptor.SrvDesc.Format = DXGI_FORMAT_R32_TYPELESS;
+      Descriptor.SrvDesc.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
+      Descriptor.SrvDesc.Shader4ComponentMapping =
+          D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+      Descriptor.SrvDesc.Buffer.FirstElement =
+          static_cast<UINT>(View.FirstByte / sizeof(UINT32));
+      Descriptor.SrvDesc.Buffer.NumElements =
+          static_cast<UINT>(View.NumBytes / sizeof(UINT32));
+      Descriptor.SrvDesc.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_RAW;
+    } else {
+      Descriptor.Kind = Op->Strings.insert("UAV");
+      Descriptor.UavDesc.Format = DXGI_FORMAT_R32_TYPELESS;
+      Descriptor.UavDesc.ViewDimension = D3D12_UAV_DIMENSION_BUFFER;
+      Descriptor.UavDesc.Buffer.FirstElement =
+          static_cast<UINT>(View.FirstByte / sizeof(UINT32));
+      Descriptor.UavDesc.Buffer.NumElements =
+          static_cast<UINT>(View.NumBytes / sizeof(UINT32));
+      Descriptor.UavDesc.Buffer.Flags = D3D12_BUFFER_UAV_FLAG_RAW;
+    }
+    Heap.Descriptors.push_back(Descriptor);
+  }
+
+  Op->DescriptorHeaps.push_back(std::move(Heap));
+
+  st::ShaderOpRootValue RootValue = {};
+  RootValue.HeapName = Op->Strings.insert(HeapName);
+  RootValue.Index = RootIndex;
+  Op->RootValues.push_back(RootValue);
 }
 
 void addRootView(st::ShaderOp *Op, UINT Index, const char *ResName) {

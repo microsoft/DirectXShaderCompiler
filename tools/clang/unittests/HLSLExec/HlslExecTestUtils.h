@@ -3,6 +3,7 @@
 
 #include <atlcomcli.h>
 #include <d3d12.h>
+#include <initializer_list>
 #include <memory>
 #include <optional>
 #include <string>
@@ -285,6 +286,24 @@ void addUAVBuffer(st::ShaderOp *Op, const char *Name, UINT64 Width,
 /// Add a SRV buffer resource to a ShaderOp.
 void addSRVBuffer(st::ShaderOp *Op, const char *Name, UINT64 Width,
                   const char *Init = "zero");
+
+enum class RawBufferViewKind {
+  SRV,
+  UAV,
+};
+
+struct RawBufferView {
+  const char *DescriptorName;
+  const char *ResourceName;
+  RawBufferViewKind Kind;
+  UINT64 FirstByte;
+  UINT64 NumBytes;
+};
+
+/// Add a shader-visible descriptor table containing raw buffer views.
+void addRawBufferDescriptorTable(st::ShaderOp *Op, UINT RootIndex,
+                                 const char *HeapName,
+                                 std::initializer_list<RawBufferView> Views);
 
 /// Bind a resource to a root view parameter by index.
 void addRootView(st::ShaderOp *Op, UINT Index, const char *ResName);

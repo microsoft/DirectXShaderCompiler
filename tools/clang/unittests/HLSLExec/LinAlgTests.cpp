@@ -24,6 +24,7 @@
 #include "HlslTestDataTypes.h"
 #include "HlslTestUtils.h"
 
+#include <algorithm>
 #include <climits>
 #include <cstring>
 #include <initializer_list>
@@ -208,6 +209,12 @@ struct MatrixResultOracle {
   std::wstring PublicRule;
 };
 
+struct BufferResultOracle {
+  ComparisonMode Mode;
+  std::vector<std::vector<BYTE>> Candidates;
+  std::wstring PublicRule;
+};
+
 template <typename T, ComponentType CT> struct NativeComponentTraits {
   static constexpr ComponentType CompType = CT;
   static constexpr size_t Size = sizeof(T);
@@ -377,7 +384,7 @@ static std::optional<TypedMatrix> makeTypedMatrix(MatrixDim M, MatrixDim N,
 
 static std::optional<TypedMatrix>
 makeSequentialMatrix(ComponentType CompType, MatrixDim M, MatrixDim N,
-                     uint32_t StartingValue = 1) {
+                     uint32_t StartingValue = 1, bool Increment = true) {
   size_t NumElements;
   if (M == 0 || N == 0 ||
       !checkedMultiply(static_cast<size_t>(M), static_cast<size_t>(N),
@@ -388,7 +395,8 @@ makeSequentialMatrix(ComponentType CompType, MatrixDim M, MatrixDim N,
   }
 
   size_t LastValueSize;
-  if (!checkedAdd(static_cast<size_t>(StartingValue), NumElements - 1,
+  const size_t ValueSpan = Increment ? NumElements - 1 : 0;
+  if (!checkedAdd(static_cast<size_t>(StartingValue), ValueSpan,
                   LastValueSize)) {
     hlsl_test::LogErrorFmt(L"Sequential matrix value calculation overflowed");
     return std::nullopt;
@@ -405,8 +413,9 @@ makeSequentialMatrix(ComponentType CompType, MatrixDim M, MatrixDim N,
     std::vector<HLSLHalf_t> Values;
     Values.reserve(NumElements);
     for (size_t I = 0; I < NumElements; ++I)
-      Values.emplace_back(static_cast<float>(
-          static_cast<uint64_t>(StartingValue) + static_cast<uint64_t>(I)));
+      Values.emplace_back(
+          static_cast<float>(static_cast<uint64_t>(StartingValue) +
+                             static_cast<uint64_t>(Increment ? I : 0)));
     return makeTypedMatrix(M, N, std::move(Values));
   }
   case ComponentType::F32: {
@@ -419,8 +428,9 @@ makeSequentialMatrix(ComponentType CompType, MatrixDim M, MatrixDim N,
     std::vector<float> Values;
     Values.reserve(NumElements);
     for (size_t I = 0; I < NumElements; ++I)
-      Values.push_back(static_cast<float>(static_cast<uint64_t>(StartingValue) +
-                                          static_cast<uint64_t>(I)));
+      Values.push_back(
+          static_cast<float>(static_cast<uint64_t>(StartingValue) +
+                             static_cast<uint64_t>(Increment ? I : 0)));
     return makeTypedMatrix(M, N, std::move(Values));
   }
   case ComponentType::I32: {
@@ -433,8 +443,9 @@ makeSequentialMatrix(ComponentType CompType, MatrixDim M, MatrixDim N,
     std::vector<int32_t> Values;
     Values.reserve(NumElements);
     for (size_t I = 0; I < NumElements; ++I)
-      Values.push_back(static_cast<int32_t>(
-          static_cast<uint64_t>(StartingValue) + static_cast<uint64_t>(I)));
+      Values.push_back(
+          static_cast<int32_t>(static_cast<uint64_t>(StartingValue) +
+                               static_cast<uint64_t>(Increment ? I : 0)));
     return makeTypedMatrix(M, N, std::move(Values));
   }
   case ComponentType::U32: {
@@ -446,8 +457,9 @@ makeSequentialMatrix(ComponentType CompType, MatrixDim M, MatrixDim N,
     std::vector<uint32_t> Values;
     Values.reserve(NumElements);
     for (size_t I = 0; I < NumElements; ++I)
-      Values.push_back(static_cast<uint32_t>(
-          static_cast<uint64_t>(StartingValue) + static_cast<uint64_t>(I)));
+      Values.push_back(
+          static_cast<uint32_t>(static_cast<uint64_t>(StartingValue) +
+                                static_cast<uint64_t>(Increment ? I : 0)));
     return makeTypedMatrix(M, N, std::move(Values));
   }
   default:
@@ -641,6 +653,73 @@ static bool writeMatrixBuffer(const TypedMatrix &Matrix,
 }
 
 template <typename T>
+static bool writeTypedMatrixBufferWithinBounds(const TypedMatrix &Matrix,
+                                               const MatrixBufferLayout &Layout,
+                                               size_t AccessibleBytes,
+                                               std::vector<BYTE> &Buffer) {
+  const std::vector<T> &Values = std::get<std::vector<T>>(Matrix.Values);
+  for (MatrixDim Row = 0; Row < Matrix.M; ++Row) {
+    for (MatrixDim Column = 0; Column < Matrix.N; ++Column) {
+      const size_t ValueIndex = static_cast<size_t>(Row) * Matrix.N + Column;
+      std::optional<size_t> ByteOffset = getElementByteOffset(
+          Matrix.CompType, Matrix.M, Matrix.N, Row, Column, Layout);
+      size_t EndOffset;
+      if (!ByteOffset.has_value() ||
+          !checkedAdd(*ByteOffset, ComponentTraits<T>::Size, EndOffset))
+        return false;
+      if (EndOffset > AccessibleBytes)
+        continue;
+      ComponentTraits<T>::store(Buffer.data() + *ByteOffset,
+                                Values[ValueIndex]);
+    }
+  }
+  return true;
+}
+
+static bool writeMatrixBufferWithinBounds(const TypedMatrix &Matrix,
+                                          const MatrixBufferLayout &Layout,
+                                          size_t AccessibleBytes,
+                                          std::vector<BYTE> &Buffer) {
+  std::optional<size_t> RequiredBytes = getMatrixBufferSize(Matrix, Layout);
+  if (!RequiredBytes.has_value() || Buffer.size() < *RequiredBytes ||
+      AccessibleBytes > Buffer.size()) {
+    hlsl_test::LogErrorFmt(
+        L"Invalid bounded matrix buffer: actual=%zu, required=%zu, bound=%zu",
+        Buffer.size(), RequiredBytes.value_or(0), AccessibleBytes);
+    return false;
+  }
+
+  switch (Matrix.CompType) {
+  case ComponentType::F16:
+    return writeTypedMatrixBufferWithinBounds<HLSLHalf_t>(
+        Matrix, Layout, AccessibleBytes, Buffer);
+  case ComponentType::F32:
+    return writeTypedMatrixBufferWithinBounds<float>(Matrix, Layout,
+                                                     AccessibleBytes, Buffer);
+  case ComponentType::I32:
+    return writeTypedMatrixBufferWithinBounds<int32_t>(Matrix, Layout,
+                                                       AccessibleBytes, Buffer);
+  case ComponentType::U32:
+    return writeTypedMatrixBufferWithinBounds<uint32_t>(
+        Matrix, Layout, AccessibleBytes, Buffer);
+  default:
+    return false;
+  }
+}
+
+static std::optional<std::vector<BYTE>>
+encodeMatrixBuffer(const TypedMatrix &Matrix, const MatrixBufferLayout &Layout,
+                   BYTE FillByte = 0) {
+  std::optional<size_t> RequiredBytes = getMatrixBufferSize(Matrix, Layout);
+  if (!RequiredBytes.has_value())
+    return std::nullopt;
+  std::vector<BYTE> Buffer(*RequiredBytes, FillByte);
+  if (!writeMatrixBuffer(Matrix, Layout, Buffer))
+    return std::nullopt;
+  return Buffer;
+}
+
+template <typename T>
 static std::optional<TypedMatrix>
 decodeTypedMatrixBuffer(ComponentType CompType, MatrixDim M, MatrixDim N,
                         const MatrixBufferLayout &Layout, const BYTE *Buffer) {
@@ -684,6 +763,21 @@ decodeMatrixBuffer(ComponentType CompType, MatrixDim M, MatrixDim N,
   default:
     return std::nullopt;
   }
+}
+
+static std::optional<TypedMatrix>
+makeBoundedReadResult(const TypedMatrix &Source,
+                      const MatrixBufferLayout &Layout,
+                      size_t AccessibleBytes) {
+  std::optional<size_t> RequiredBytes = getMatrixBufferSize(Source, Layout);
+  if (!RequiredBytes.has_value() || AccessibleBytes > *RequiredBytes)
+    return std::nullopt;
+
+  std::vector<BYTE> Buffer(*RequiredBytes, 0);
+  if (!writeMatrixBufferWithinBounds(Source, Layout, AccessibleBytes, Buffer))
+    return std::nullopt;
+  return decodeMatrixBuffer(Source.CompType, Source.M, Source.N, Layout,
+                            Buffer.data(), Buffer.size());
 }
 
 template <typename T>
@@ -762,6 +856,19 @@ static MatrixResultOracle permittedResults(std::vector<TypedMatrix> Candidates,
 static MatrixResultOracle excludedResult(std::wstring PublicRule) {
   return MatrixResultOracle{
       ComparisonMode::Excluded, {}, std::move(PublicRule)};
+}
+
+static BufferResultOracle exactBufferResult(std::vector<BYTE> Expected,
+                                            std::wstring PublicRule) {
+  return BufferResultOracle{
+      ComparisonMode::Exact, {std::move(Expected)}, std::move(PublicRule)};
+}
+
+static BufferResultOracle
+permittedBufferResults(std::vector<std::vector<BYTE>> Candidates,
+                       std::wstring PublicRule) {
+  return BufferResultOracle{ComparisonMode::PermittedResults,
+                            std::move(Candidates), std::move(PublicRule)};
 }
 
 static bool isOracleValid(const MatrixResultOracle &Oracle) {
@@ -855,6 +962,95 @@ static bool verifyMatrixBuffer(const void *ActualBuffer,
         CandidateIndex, Mismatch, Row, Column,
         matrixValueString(*Actual, Mismatch).c_str(),
         matrixValueString(Candidate, Mismatch).c_str());
+  }
+  return false;
+}
+
+static bool isBufferOracleValid(const BufferResultOracle &Oracle) {
+  if (Oracle.PublicRule.empty() || Oracle.Candidates.empty())
+    return false;
+  if (Oracle.Mode == ComparisonMode::Excluded)
+    return false;
+  if (Oracle.Mode == ComparisonMode::Exact && Oracle.Candidates.size() != 1)
+    return false;
+  if (Oracle.Mode == ComparisonMode::PermittedResults &&
+      Oracle.Candidates.size() < 2)
+    return false;
+
+  const size_t ExpectedSize = Oracle.Candidates.front().size();
+  if (ExpectedSize == 0)
+    return false;
+  for (const std::vector<BYTE> &Candidate : Oracle.Candidates) {
+    if (Candidate.size() != ExpectedSize)
+      return false;
+  }
+  return true;
+}
+
+static bool matchesAnyCompleteBufferCandidate(
+    const std::vector<BYTE> &Actual, const BufferResultOracle &Oracle,
+    std::vector<size_t> *FirstMismatches = nullptr) {
+  if (!isBufferOracleValid(Oracle) ||
+      Actual.size() != Oracle.Candidates.front().size())
+    return false;
+
+  if (FirstMismatches)
+    FirstMismatches->clear();
+  for (const std::vector<BYTE> &Candidate : Oracle.Candidates) {
+    const auto Mismatch =
+        std::mismatch(Actual.begin(), Actual.end(), Candidate.begin());
+    const size_t FirstMismatch =
+        static_cast<size_t>(std::distance(Actual.begin(), Mismatch.first));
+    if (FirstMismatch == Actual.size())
+      return true;
+    if (FirstMismatches)
+      FirstMismatches->push_back(FirstMismatch);
+  }
+  return false;
+}
+
+static bool verifyBufferResult(const void *ActualBuffer,
+                               size_t ActualBufferSize,
+                               const BufferResultOracle &Oracle, bool Verbose) {
+  if (!ActualBuffer || !isBufferOracleValid(Oracle)) {
+    hlsl_test::LogErrorFmt(L"Invalid whole-buffer result or oracle");
+    return false;
+  }
+
+  const size_t ExpectedSize = Oracle.Candidates.front().size();
+  if (ActualBufferSize != ExpectedSize) {
+    hlsl_test::LogErrorFmt(
+        L"Whole-buffer size mismatch: actual=%zu, expected=%zu, rule=%s",
+        ActualBufferSize, ExpectedSize, Oracle.PublicRule.c_str());
+    return false;
+  }
+
+  const BYTE *ActualBytes = static_cast<const BYTE *>(ActualBuffer);
+  std::vector<BYTE> Actual(ActualBytes, ActualBytes + ActualBufferSize);
+  std::vector<size_t> FirstMismatches;
+  if (matchesAnyCompleteBufferCandidate(Actual, Oracle, &FirstMismatches)) {
+    if (Verbose) {
+      hlsl_test::LogCommentFmt(
+          L"Whole-buffer comparison passed: bytes=%zu, mode=%s, rule=%s",
+          ActualBufferSize, comparisonModeName(Oracle.Mode),
+          Oracle.PublicRule.c_str());
+    }
+    return true;
+  }
+
+  hlsl_test::LogErrorFmt(
+      L"No complete whole-buffer candidate matched: bytes=%zu, mode=%s, "
+      L"rule=%s",
+      ActualBufferSize, comparisonModeName(Oracle.Mode),
+      Oracle.PublicRule.c_str());
+  for (size_t CandidateIndex = 0; CandidateIndex < Oracle.Candidates.size();
+       ++CandidateIndex) {
+    const size_t Mismatch = FirstMismatches[CandidateIndex];
+    hlsl_test::LogErrorFmt(
+        L"Candidate %zu first mismatch at byte=%zu: actual=0x%02x, "
+        L"expected=0x%02x",
+        CandidateIndex, Mismatch, Actual[Mismatch],
+        Oracle.Candidates[CandidateIndex][Mismatch]);
   }
   return false;
 }
@@ -1191,6 +1387,18 @@ void LinAlgCPUOracleTests::TypedMatrixBufferRoundTrip() {
       excludedResult(L"Host excluded-oracle classification");
   VERIFY_IS_FALSE(matchesAnyCompleteCandidate(*Matrix, Excluded));
 
+  const std::vector<BYTE> BufferCandidateA = {1, 2, 3, 4};
+  const std::vector<BYTE> BufferCandidateB = {5, 6, 7, 8};
+  const std::vector<BYTE> MixedBuffer = {1, 2, 7, 8};
+  BufferResultOracle BufferPermitted = permittedBufferResults(
+      {BufferCandidateA, BufferCandidateB},
+      L"Host whole-buffer permitted candidate semantics");
+  VERIFY_IS_FALSE(
+      matchesAnyCompleteBufferCandidate(MixedBuffer, BufferPermitted));
+  BufferPermitted.Candidates.push_back(MixedBuffer);
+  VERIFY_IS_TRUE(
+      matchesAnyCompleteBufferCandidate(MixedBuffer, BufferPermitted));
+
   MatrixParams Params = {};
   Params.M = 2;
   Params.N = 3;
@@ -1333,6 +1541,23 @@ void LinAlgCapabilityTests::CapabilityPolicyAndPredicates() {
   VERIFY_IS_TRUE(AtomicQuery.ComponentType == DataType::Float16);
 }
 
+struct MatrixConstructionRequirement {
+  linalg_test::MatrixRole Role;
+  MatrixDim Rows;
+  MatrixDim Columns;
+};
+
+static HRESULT queryMatrixConstructionSupport(
+    ID3D12Device *Device, const MatrixParams &Params,
+    std::initializer_list<MatrixConstructionRequirement> Requirements,
+    LPCWSTR CaseName, bool &Supported, UINT &SelectedWaveSize);
+
+static HRESULT queryDescriptorAccumulateSupport(ID3D12Device *Device,
+                                                const MatrixParams &Params,
+                                                LPCWSTR CaseName,
+                                                bool &Supported,
+                                                UINT &SelectedWaveSize);
+
 class DxilConf_SM610_LinAlg {
 public:
   BEGIN_TEST_CLASS(DxilConf_SM610_LinAlg)
@@ -1353,8 +1578,13 @@ public:
 
   // Load/Store/Accumulate Descriptor
   TEST_METHOD(LoadStoreDescriptor_Wave_16x16_F16);
+  TEST_METHOD(LoadStoreDescriptor_Wave_4x8_F16_RowMajorOffsetPadded);
+  TEST_METHOD(LoadStoreDescriptor_Wave_4x8_F32_ColumnMajorOffset);
+  TEST_METHOD(LoadDescriptorBounds_Wave_4x8_F32);
+  TEST_METHOD(StoreDescriptorBounds_Wave_4x8_F32);
   TEST_METHOD(SplatStore_Wave_16x16_F16);
   TEST_METHOD(AccumulateDescriptor_Wave_16x16_F16);
+  TEST_METHOD(AccumulateDescriptorBounds_Wave_4x8_F32);
 
   // Load/Store/Accumulate Memory
   TEST_METHOD(LoadMemory_Wave_16x16_F16);
@@ -1444,11 +1674,15 @@ bool DxilConf_SM610_LinAlg::setupMethod() {
   return D3D12SDK->createDevice(&D3DDevice, D3D_SHADER_MODEL_6_10, false);
 }
 
-static const char LoadStoreDescriptorShader[] = R"(
-  RWByteAddressBuffer Input : register(u0);
+static const char DescriptorIOShader[] = R"(
+  ByteAddressBuffer Input : register(t0);
   RWByteAddressBuffer Output : register(u1);
 
+  #ifdef FORCED_WAVE_SIZE
+  [WaveSize(FORCED_WAVE_SIZE)]
+  #else
   [WaveSize(4, 64)]
+  #endif
   [numthreads(NUMTHREADS, 1, 1)]
   void main() {
     if (GetGroupWaveIndex() != 0)
@@ -1458,51 +1692,121 @@ static const char LoadStoreDescriptorShader[] = R"(
       [[__LinAlgMatrix_Attributes(COMP_TYPE, M_DIM, N_DIM, USE, SCOPE)]]
       Mat;
     __builtin_LinAlg_MatrixLoadFromDescriptor(
-      Mat, Input, OFFSET, STRIDE, LAYOUT, 128);
+      Mat, Input, SRC_OFFSET, SRC_STRIDE, SRC_LAYOUT, SRC_ALIGNMENT);
+  #ifdef ACCUMULATE_COUNT
+    for (uint I = 0; I < ACCUMULATE_COUNT; ++I) {
+      __builtin_LinAlg_MatrixAccumulateToDescriptor(
+        Mat, Output, DST_OFFSET, DST_STRIDE, DST_LAYOUT, DST_ALIGNMENT);
+    }
+  #else
     __builtin_LinAlg_MatrixStoreToDescriptor(
-      Mat, Output, OFFSET, STRIDE, LAYOUT, 128);
+      Mat, Output, DST_OFFSET, DST_STRIDE, DST_LAYOUT, DST_ALIGNMENT);
+  #endif
   }
 )";
 
-static void runLoadStoreDescriptor(ID3D12Device *Device,
-                                   dxc::SpecificDllLoader &DxcSupport,
-                                   const MatrixParams &Params, bool Verbose) {
-  const size_t NumElements = Params.totalElements();
-  const size_t BufferSize = Params.totalBytes();
+static void runDescriptorIO(
+    ID3D12Device *Device, dxc::SpecificDllLoader &DxcSupport,
+    const MatrixParams &Params, const cpu_oracle::TypedMatrix &InputMatrix,
+    const cpu_oracle::MatrixBufferLayout &SourceLayout,
+    const cpu_oracle::MatrixBufferLayout &DestinationLayout,
+    UINT SourceAlignment, UINT DestinationAlignment, size_t SourceViewBytes,
+    size_t DestinationViewBytes, std::vector<BYTE> InitialOutput,
+    const cpu_oracle::BufferResultOracle &Oracle, bool Verbose,
+    UINT ForcedWaveSize = 0, UINT AccumulateCount = 0) {
+  std::optional<std::vector<BYTE>> SourceBuffer =
+      cpu_oracle::encodeMatrixBuffer(InputMatrix, SourceLayout, 0xcd);
+  VERIFY_IS_TRUE(SourceBuffer.has_value(),
+                 "Unable to encode descriptor input matrix");
+  VERIFY_IS_TRUE(SourceViewBytes <= SourceBuffer->size() &&
+                     DestinationViewBytes <= InitialOutput.size(),
+                 "Descriptor view exceeds its backing resource");
 
-  // TODO: these should be varied by test to ensure full coverage
   std::stringstream ExtraDefs;
-  ExtraDefs << " -DOFFSET=" << 0;
+  ExtraDefs << " -DSRC_OFFSET=" << SourceLayout.OffsetBytes;
+  ExtraDefs << " -DSRC_STRIDE=" << SourceLayout.StrideBytes;
+  ExtraDefs << " -DSRC_LAYOUT=" << static_cast<UINT>(SourceLayout.Layout);
+  ExtraDefs << " -DSRC_ALIGNMENT=" << SourceAlignment;
+  ExtraDefs << " -DDST_OFFSET=" << DestinationLayout.OffsetBytes;
+  ExtraDefs << " -DDST_STRIDE=" << DestinationLayout.StrideBytes;
+  ExtraDefs << " -DDST_LAYOUT=" << static_cast<UINT>(DestinationLayout.Layout);
+  ExtraDefs << " -DDST_ALIGNMENT=" << DestinationAlignment;
+  if (ForcedWaveSize != 0)
+    ExtraDefs << " -DFORCED_WAVE_SIZE=" << ForcedWaveSize;
+  if (AccumulateCount != 0)
+    ExtraDefs << " -DACCUMULATE_COUNT=" << AccumulateCount;
 
   std::string Args = buildCompilerArgs(Params, ExtraDefs.str().c_str());
 
-  compileShader(DxcSupport, LoadStoreDescriptorShader, "cs_6_10", Args,
-                Verbose);
+  compileShader(DxcSupport, DescriptorIOShader, "cs_6_10", Args, Verbose);
 
-  auto Expected = makeExpectedMat(Params.CompType, Params.M, Params.N, 1);
+  auto Op = createComputeOp(DescriptorIOShader, "cs_6_10",
+                            "DescriptorTable(SRV(t0), UAV(u1))", Args.c_str());
+  addSRVBuffer(Op.get(), "Input", SourceBuffer->size(), "byname");
+  addUAVBuffer(Op.get(), "Output", InitialOutput.size(), true, "byname");
+  addRawBufferDescriptorTable(
+      Op.get(), 0, "DescriptorHeap",
+      {
+          {"InputView", "Input", RawBufferViewKind::SRV, 0, SourceViewBytes},
+          {"OutputView", "Output", RawBufferViewKind::UAV, 0,
+           DestinationViewBytes},
+      });
 
-  // Construct the ShaderOp: two UAV buffers, load from one, store to other.
-  auto Op = createComputeOp(LoadStoreDescriptorShader, "cs_6_10",
-                            "UAV(u0), UAV(u1)", Args.c_str());
-  addUAVBuffer(Op.get(), "Input", BufferSize, false, "byname");
-  addUAVBuffer(Op.get(), "Output", BufferSize, true);
-  addRootView(Op.get(), 0, "Input");
-  addRootView(Op.get(), 1, "Output");
-
-  auto Result =
-      runShaderOp(Device, DxcSupport, std::move(Op),
-                  [NumElements, Params](LPCSTR Name, std::vector<BYTE> &Data,
-                                        st::ShaderOp *) {
-                    VERIFY_IS_TRUE(fillInputBuffer(Name, Data, Params.CompType,
-                                                   NumElements),
-                                   "Saw unsupported component type");
-                  });
+  const std::vector<BYTE> SourceData = *SourceBuffer;
+  auto Result = runShaderOp(
+      Device, DxcSupport, std::move(Op),
+      [SourceData, InitialOutput](LPCSTR Name, std::vector<BYTE> &Data,
+                                  st::ShaderOp *) {
+        const std::vector<BYTE> *ExpectedData = nullptr;
+        if (_stricmp(Name, "Input") == 0)
+          ExpectedData = &SourceData;
+        else if (_stricmp(Name, "Output") == 0)
+          ExpectedData = &InitialOutput;
+        if (!ExpectedData)
+          return;
+        VERIFY_IS_TRUE(Data.size() == ExpectedData->size(),
+                       "Descriptor resource initializer size mismatch");
+        std::copy(ExpectedData->begin(), ExpectedData->end(), Data.begin());
+      });
 
   MappedData OutData;
   Result->Test->GetReadBackData("Output", &OutData);
 
-  VERIFY_IS_TRUE(verifyComponentBuffer(Params.CompType, OutData.data(),
-                                       Expected, NumElements, Verbose));
+  VERIFY_IS_TRUE(cpu_oracle::verifyBufferResult(OutData.data(), OutData.size(),
+                                                Oracle, Verbose));
+}
+
+static void runExactDescriptorRoundTrip(
+    ID3D12Device *Device, dxc::SpecificDllLoader &DxcSupport,
+    const MatrixParams &Params,
+    const cpu_oracle::MatrixBufferLayout &SourceLayout,
+    const cpu_oracle::MatrixBufferLayout &DestinationLayout,
+    UINT SourceAlignment, UINT DestinationAlignment, bool Verbose,
+    UINT ForcedWaveSize = 0) {
+  std::optional<cpu_oracle::TypedMatrix> Input =
+      cpu_oracle::makeSequentialMatrix(Params.CompType, Params.M, Params.N);
+  VERIFY_IS_TRUE(Input.has_value(),
+                 "Unable to construct descriptor round-trip input");
+  std::optional<size_t> SourceBytes =
+      cpu_oracle::getMatrixBufferSize(*Input, SourceLayout);
+  std::optional<size_t> DestinationBytes =
+      cpu_oracle::getMatrixBufferSize(*Input, DestinationLayout);
+  VERIFY_IS_TRUE(SourceBytes.has_value() && DestinationBytes.has_value(),
+                 "Unable to size descriptor round-trip buffers");
+
+  std::vector<BYTE> InitialOutput(*DestinationBytes, 0xcd);
+  std::vector<BYTE> Expected = InitialOutput;
+  VERIFY_IS_TRUE(
+      cpu_oracle::writeMatrixBuffer(*Input, DestinationLayout, Expected),
+      "Unable to encode descriptor round-trip expectation");
+  cpu_oracle::BufferResultOracle Oracle = cpu_oracle::exactBufferResult(
+      std::move(Expected), L"Descriptor load/store preserves logical values, "
+                           L"addressing and padding");
+
+  runDescriptorIO(Device, DxcSupport, Params, *Input, SourceLayout,
+                  DestinationLayout, SourceAlignment, DestinationAlignment,
+                  *SourceBytes, *DestinationBytes, std::move(InitialOutput),
+                  Oracle, Verbose, ForcedWaveSize);
 }
 
 void DxilConf_SM610_LinAlg::LoadStoreDescriptor_Wave_16x16_F16() {
@@ -1515,7 +1819,251 @@ void DxilConf_SM610_LinAlg::LoadStoreDescriptor_Wave_16x16_F16() {
   Params.Layout = LinalgMatrixLayout::RowMajor;
   Params.NumThreads = 64;
   Params.Enable16Bit = true;
-  runLoadStoreDescriptor(D3DDevice, DxcSupport, Params, VerboseLogging);
+  const cpu_oracle::MatrixBufferLayout Layout = {
+      LinalgMatrixLayout::RowMajor,
+      /*OffsetBytes=*/0,
+      /*StrideBytes=*/32,
+  };
+  runExactDescriptorRoundTrip(D3DDevice, DxcSupport, Params, Layout, Layout,
+                              /*SourceAlignment=*/128,
+                              /*DestinationAlignment=*/128, VerboseLogging);
+}
+
+void DxilConf_SM610_LinAlg::
+    LoadStoreDescriptor_Wave_4x8_F16_RowMajorOffsetPadded() {
+  MatrixParams Params = {};
+  Params.CompType = ComponentType::F16;
+  Params.M = 4;
+  Params.N = 8;
+  Params.Use = MatrixUse::A;
+  Params.Scope = MatrixScope::Wave;
+  Params.Layout = LinalgMatrixLayout::RowMajor;
+  Params.NumThreads = 64;
+  Params.Enable16Bit = true;
+
+  bool Supported;
+  UINT SelectedWaveSize;
+  const HRESULT QueryResult = queryMatrixConstructionSupport(
+      D3DDevice, Params, {{linalg_test::MatrixRole::A, Params.M, Params.N}},
+      L"LoadStoreDescriptor_Wave_4x8_F16_RowMajorOffsetPadded", Supported,
+      SelectedWaveSize);
+  const linalg_test::Applicability Applicability =
+      linalg_test::classifyApplicability(
+          QueryResult, Supported,
+          linalg_test::CapabilityRequirement::CapabilityGated);
+  if (!applyApplicability(
+          Applicability,
+          L"LoadStoreDescriptor_Wave_4x8_F16_RowMajorOffsetPadded"))
+    return;
+
+  const cpu_oracle::MatrixBufferLayout Target = {
+      LinalgMatrixLayout::RowMajor,
+      /*OffsetBytes=*/16,
+      /*StrideBytes=*/24,
+  };
+  const cpu_oracle::MatrixBufferLayout Canonical = {
+      LinalgMatrixLayout::RowMajor,
+      /*OffsetBytes=*/0,
+      /*StrideBytes=*/16,
+  };
+  runExactDescriptorRoundTrip(D3DDevice, DxcSupport, Params, Target, Canonical,
+                              /*SourceAlignment=*/16,
+                              /*DestinationAlignment=*/128, VerboseLogging,
+                              SelectedWaveSize);
+  runExactDescriptorRoundTrip(D3DDevice, DxcSupport, Params, Canonical, Target,
+                              /*SourceAlignment=*/128,
+                              /*DestinationAlignment=*/16, VerboseLogging,
+                              SelectedWaveSize);
+}
+
+void DxilConf_SM610_LinAlg::
+    LoadStoreDescriptor_Wave_4x8_F32_ColumnMajorOffset() {
+  MatrixParams Params = {};
+  Params.CompType = ComponentType::F32;
+  Params.M = 4;
+  Params.N = 8;
+  Params.Use = MatrixUse::A;
+  Params.Scope = MatrixScope::Wave;
+  Params.Layout = LinalgMatrixLayout::ColumnMajor;
+  Params.NumThreads = 64;
+  Params.Enable16Bit = false;
+
+  bool Supported;
+  UINT SelectedWaveSize;
+  const HRESULT QueryResult = queryMatrixConstructionSupport(
+      D3DDevice, Params, {{linalg_test::MatrixRole::A, Params.M, Params.N}},
+      L"LoadStoreDescriptor_Wave_4x8_F32_ColumnMajorOffset", Supported,
+      SelectedWaveSize);
+  const linalg_test::Applicability Applicability =
+      linalg_test::classifyApplicability(
+          QueryResult, Supported,
+          linalg_test::CapabilityRequirement::CapabilityGated);
+  if (!applyApplicability(
+          Applicability, L"LoadStoreDescriptor_Wave_4x8_F32_ColumnMajorOffset"))
+    return;
+
+  const cpu_oracle::MatrixBufferLayout Target = {
+      LinalgMatrixLayout::ColumnMajor,
+      /*OffsetBytes=*/32,
+      /*StrideBytes=*/16,
+  };
+  const cpu_oracle::MatrixBufferLayout Canonical = {
+      LinalgMatrixLayout::RowMajor,
+      /*OffsetBytes=*/0,
+      /*StrideBytes=*/32,
+  };
+  runExactDescriptorRoundTrip(D3DDevice, DxcSupport, Params, Target, Canonical,
+                              /*SourceAlignment=*/32,
+                              /*DestinationAlignment=*/128, VerboseLogging,
+                              SelectedWaveSize);
+  runExactDescriptorRoundTrip(D3DDevice, DxcSupport, Params, Canonical, Target,
+                              /*SourceAlignment=*/128,
+                              /*DestinationAlignment=*/32, VerboseLogging,
+                              SelectedWaveSize);
+}
+
+void DxilConf_SM610_LinAlg::LoadDescriptorBounds_Wave_4x8_F32() {
+  MatrixParams Params = {};
+  Params.CompType = ComponentType::F32;
+  Params.M = 4;
+  Params.N = 8;
+  Params.Use = MatrixUse::A;
+  Params.Scope = MatrixScope::Wave;
+  Params.Layout = LinalgMatrixLayout::RowMajor;
+  Params.NumThreads = 64;
+  Params.Enable16Bit = false;
+
+  bool Supported;
+  UINT SelectedWaveSize;
+  const HRESULT QueryResult = queryMatrixConstructionSupport(
+      D3DDevice, Params, {{linalg_test::MatrixRole::A, Params.M, Params.N}},
+      L"LoadDescriptorBounds_Wave_4x8_F32", Supported, SelectedWaveSize);
+  const linalg_test::Applicability Applicability =
+      linalg_test::classifyApplicability(
+          QueryResult, Supported,
+          linalg_test::CapabilityRequirement::CapabilityGated);
+  if (!applyApplicability(Applicability, L"LoadDescriptorBounds_Wave_4x8_F32"))
+    return;
+
+  const cpu_oracle::MatrixBufferLayout SourceLayout = {
+      LinalgMatrixLayout::RowMajor,
+      /*OffsetBytes=*/16,
+      /*StrideBytes=*/32,
+  };
+  const cpu_oracle::MatrixBufferLayout DestinationLayout = {
+      LinalgMatrixLayout::RowMajor,
+      /*OffsetBytes=*/0,
+      /*StrideBytes=*/32,
+  };
+  constexpr size_t SourceViewBytes = 128;
+
+  std::optional<cpu_oracle::TypedMatrix> Input =
+      cpu_oracle::makeSequentialMatrix(Params.CompType, Params.M, Params.N);
+  std::optional<cpu_oracle::TypedMatrix> WholeLoadZero =
+      cpu_oracle::makeZeroMatrix(Params.CompType, Params.M, Params.N);
+  std::optional<cpu_oracle::TypedMatrix> PerElementLoad =
+      Input ? cpu_oracle::makeBoundedReadResult(*Input, SourceLayout,
+                                                SourceViewBytes)
+            : std::nullopt;
+  VERIFY_IS_TRUE(Input.has_value() && WholeLoadZero.has_value() &&
+                     PerElementLoad.has_value(),
+                 "Unable to construct bounded descriptor load expectations");
+
+  std::optional<size_t> SourceBytes =
+      cpu_oracle::getMatrixBufferSize(*Input, SourceLayout);
+  std::optional<size_t> DestinationBytes =
+      cpu_oracle::getMatrixBufferSize(*Input, DestinationLayout);
+  VERIFY_IS_TRUE(SourceBytes.has_value() && DestinationBytes.has_value() &&
+                     SourceViewBytes < *SourceBytes,
+                 "Bounded descriptor load must cross the source view end");
+
+  std::vector<BYTE> InitialOutput(*DestinationBytes, 0xcd);
+  std::vector<BYTE> WholeZero = InitialOutput;
+  std::vector<BYTE> PerElement = InitialOutput;
+  VERIFY_IS_TRUE(cpu_oracle::writeMatrixBuffer(*WholeLoadZero,
+                                               DestinationLayout, WholeZero) &&
+                     cpu_oracle::writeMatrixBuffer(
+                         *PerElementLoad, DestinationLayout, PerElement),
+                 "Unable to encode bounded descriptor load candidates");
+  cpu_oracle::BufferResultOracle Oracle = cpu_oracle::permittedBufferResults(
+      {std::move(WholeZero), std::move(PerElement)},
+      L"Descriptor load may zero the whole matrix or only out-of-bounds "
+      L"elements");
+
+  runDescriptorIO(D3DDevice, DxcSupport, Params, *Input, SourceLayout,
+                  DestinationLayout, /*SourceAlignment=*/16,
+                  /*DestinationAlignment=*/128, SourceViewBytes,
+                  *DestinationBytes, std::move(InitialOutput), Oracle,
+                  VerboseLogging, SelectedWaveSize);
+}
+
+void DxilConf_SM610_LinAlg::StoreDescriptorBounds_Wave_4x8_F32() {
+  MatrixParams Params = {};
+  Params.CompType = ComponentType::F32;
+  Params.M = 4;
+  Params.N = 8;
+  Params.Use = MatrixUse::A;
+  Params.Scope = MatrixScope::Wave;
+  Params.Layout = LinalgMatrixLayout::RowMajor;
+  Params.NumThreads = 64;
+  Params.Enable16Bit = false;
+
+  bool Supported;
+  UINT SelectedWaveSize;
+  const HRESULT QueryResult = queryMatrixConstructionSupport(
+      D3DDevice, Params, {{linalg_test::MatrixRole::A, Params.M, Params.N}},
+      L"StoreDescriptorBounds_Wave_4x8_F32", Supported, SelectedWaveSize);
+  const linalg_test::Applicability Applicability =
+      linalg_test::classifyApplicability(
+          QueryResult, Supported,
+          linalg_test::CapabilityRequirement::CapabilityGated);
+  if (!applyApplicability(Applicability, L"StoreDescriptorBounds_Wave_4x8_F32"))
+    return;
+
+  const cpu_oracle::MatrixBufferLayout SourceLayout = {
+      LinalgMatrixLayout::RowMajor,
+      /*OffsetBytes=*/0,
+      /*StrideBytes=*/32,
+  };
+  const cpu_oracle::MatrixBufferLayout DestinationLayout = {
+      LinalgMatrixLayout::RowMajor,
+      /*OffsetBytes=*/16,
+      /*StrideBytes=*/32,
+  };
+  constexpr size_t DestinationViewBytes = 128;
+
+  std::optional<cpu_oracle::TypedMatrix> Input =
+      cpu_oracle::makeSequentialMatrix(Params.CompType, Params.M, Params.N);
+  std::optional<cpu_oracle::TypedMatrix> InitialMatrix =
+      cpu_oracle::makeZeroMatrix(Params.CompType, Params.M, Params.N);
+  VERIFY_IS_TRUE(Input.has_value() && InitialMatrix.has_value(),
+                 "Unable to construct bounded descriptor store data");
+  std::optional<std::vector<BYTE>> InitialOutput =
+      cpu_oracle::encodeMatrixBuffer(*InitialMatrix, DestinationLayout, 0xcd);
+  std::optional<size_t> SourceBytes =
+      cpu_oracle::getMatrixBufferSize(*Input, SourceLayout);
+  VERIFY_IS_TRUE(
+      InitialOutput.has_value() && SourceBytes.has_value() &&
+          DestinationViewBytes < InitialOutput->size(),
+      "Bounded descriptor store must cross the destination view end");
+
+  std::vector<BYTE> WholeNoOp = *InitialOutput;
+  std::vector<BYTE> PerElementNoOp = *InitialOutput;
+  VERIFY_IS_TRUE(
+      cpu_oracle::writeMatrixBufferWithinBounds(
+          *Input, DestinationLayout, DestinationViewBytes, PerElementNoOp),
+      "Unable to encode bounded descriptor store candidate");
+  cpu_oracle::BufferResultOracle Oracle = cpu_oracle::permittedBufferResults(
+      {std::move(WholeNoOp), std::move(PerElementNoOp)},
+      L"Descriptor store may suppress the whole operation or only "
+      L"out-of-bounds "
+      L"elements");
+
+  runDescriptorIO(D3DDevice, DxcSupport, Params, *Input, SourceLayout,
+                  DestinationLayout, /*SourceAlignment=*/128,
+                  /*DestinationAlignment=*/16, *SourceBytes,
+                  DestinationViewBytes, std::move(*InitialOutput), Oracle,
+                  VerboseLogging, SelectedWaveSize);
 }
 
 static const char SplatStoreShader[] = R"(
@@ -1580,69 +2128,6 @@ void DxilConf_SM610_LinAlg::SplatStore_Wave_16x16_F16() {
   runSplatStore(D3DDevice, DxcSupport, Params, 42.0f, VerboseLogging);
 }
 
-static const char AccumulateDescriptorShader[] = R"(
-  #define USE_ACC 2
-
-  ByteAddressBuffer Input : register(t0);
-  RWByteAddressBuffer Output : register(u1);
-
-  [WaveSize(4, 64)]
-  [numthreads(NUMTHREADS, 1, 1)]
-  void main() {
-    if (GetGroupWaveIndex() != 0)
-      return;
-
-    __builtin_LinAlgMatrix
-      [[__LinAlgMatrix_Attributes(COMP_TYPE, M_DIM, N_DIM, USE_ACC, SCOPE)]]
-      Mat;
-    __builtin_LinAlg_MatrixLoadFromDescriptor(
-      Mat, Input, 0, STRIDE, LAYOUT, 128);
-    __builtin_LinAlg_MatrixAccumulateToDescriptor(
-      Mat, Output, 0, STRIDE, LAYOUT, 128);
-    __builtin_LinAlg_MatrixAccumulateToDescriptor(
-      Mat, Output, 0, STRIDE, LAYOUT, 128);
-  }
-)";
-
-static void runAccumulateDescriptor(ID3D12Device *Device,
-                                    dxc::SpecificDllLoader &DxcSupport,
-                                    const MatrixParams &Params, int FillValue,
-                                    bool Verbose) {
-  const size_t NumElements = Params.totalElements();
-  const size_t BufferSize = Params.totalBytes();
-
-  std::string Args = buildCompilerArgs(Params);
-
-  compileShader(DxcSupport, AccumulateDescriptorShader, "cs_6_10", Args,
-                Verbose);
-
-  auto Expected = makeExpectedMat(Params.CompType, Params.M, Params.N,
-                                  static_cast<float>(FillValue) * 2, false);
-
-  auto Op = createComputeOp(AccumulateDescriptorShader, "cs_6_10",
-                            "SRV(t0), UAV(u1)", Args.c_str());
-  addSRVBuffer(Op.get(), "Input", BufferSize, "byname");
-  addUAVBuffer(Op.get(), "Output", BufferSize, true);
-  addRootView(Op.get(), 0, "Input");
-  addRootView(Op.get(), 1, "Output");
-
-  auto Result = runShaderOp(
-      Device, DxcSupport, std::move(Op),
-      [NumElements, Params, FillValue](LPCSTR Name, std::vector<BYTE> &Data,
-                                       st::ShaderOp *) {
-        VERIFY_IS_TRUE(fillInputBuffer(Name, Data, Params.CompType, NumElements,
-                                       /*StartingVal=*/FillValue,
-                                       /*Increment=*/false),
-                       "Saw unsupported component type");
-      });
-
-  MappedData OutData;
-  Result->Test->GetReadBackData("Output", &OutData);
-
-  VERIFY_IS_TRUE(verifyComponentBuffer(Params.CompType, OutData.data(),
-                                       Expected, NumElements, Verbose));
-}
-
 void DxilConf_SM610_LinAlg::AccumulateDescriptor_Wave_16x16_F16() {
   MatrixParams Params = {};
   Params.CompType = ComponentType::F16;
@@ -1653,14 +2138,112 @@ void DxilConf_SM610_LinAlg::AccumulateDescriptor_Wave_16x16_F16() {
   Params.Layout = LinalgMatrixLayout::RowMajor;
   Params.NumThreads = 64;
   Params.Enable16Bit = true;
-  runAccumulateDescriptor(D3DDevice, DxcSupport, Params, 12, VerboseLogging);
+
+  const cpu_oracle::MatrixBufferLayout Layout = {
+      LinalgMatrixLayout::RowMajor,
+      /*OffsetBytes=*/0,
+      /*StrideBytes=*/32,
+  };
+  std::optional<cpu_oracle::TypedMatrix> Input =
+      cpu_oracle::makeSequentialMatrix(Params.CompType, Params.M, Params.N,
+                                       /*StartingValue=*/12,
+                                       /*Increment=*/false);
+  std::optional<cpu_oracle::TypedMatrix> InitialMatrix =
+      cpu_oracle::makeZeroMatrix(Params.CompType, Params.M, Params.N);
+  std::optional<cpu_oracle::TypedMatrix> ExpectedMatrix =
+      cpu_oracle::makeSequentialMatrix(Params.CompType, Params.M, Params.N,
+                                       /*StartingValue=*/24,
+                                       /*Increment=*/false);
+  VERIFY_IS_TRUE(Input.has_value() && InitialMatrix.has_value() &&
+                     ExpectedMatrix.has_value(),
+                 "Unable to construct descriptor accumulation data");
+  std::optional<std::vector<BYTE>> InitialOutput =
+      cpu_oracle::encodeMatrixBuffer(*InitialMatrix, Layout);
+  std::optional<std::vector<BYTE>> Expected =
+      cpu_oracle::encodeMatrixBuffer(*ExpectedMatrix, Layout);
+  VERIFY_IS_TRUE(InitialOutput.has_value() && Expected.has_value(),
+                 "Unable to encode descriptor accumulation buffers");
+  cpu_oracle::BufferResultOracle Oracle = cpu_oracle::exactBufferResult(
+      std::move(*Expected), L"Two descriptor accumulations add the matrix to "
+                            L"each destination element");
+  const size_t BufferSize = InitialOutput->size();
+
+  runDescriptorIO(D3DDevice, DxcSupport, Params, *Input, Layout, Layout,
+                  /*SourceAlignment=*/128, /*DestinationAlignment=*/128,
+                  BufferSize, BufferSize, std::move(*InitialOutput), Oracle,
+                  VerboseLogging,
+                  /*ForcedWaveSize=*/0, /*AccumulateCount=*/2);
 }
 
-struct MatrixConstructionRequirement {
-  linalg_test::MatrixRole Role;
-  MatrixDim Rows;
-  MatrixDim Columns;
-};
+void DxilConf_SM610_LinAlg::AccumulateDescriptorBounds_Wave_4x8_F32() {
+  MatrixParams Params = {};
+  Params.CompType = ComponentType::F32;
+  Params.M = 4;
+  Params.N = 8;
+  Params.Use = MatrixUse::Accumulator;
+  Params.Scope = MatrixScope::Wave;
+  Params.Layout = LinalgMatrixLayout::RowMajor;
+  Params.NumThreads = 64;
+  Params.Enable16Bit = false;
+
+  bool Supported;
+  UINT SelectedWaveSize;
+  const HRESULT QueryResult = queryDescriptorAccumulateSupport(
+      D3DDevice, Params, L"AccumulateDescriptorBounds_Wave_4x8_F32", Supported,
+      SelectedWaveSize);
+  const linalg_test::Applicability Applicability =
+      linalg_test::classifyApplicability(
+          QueryResult, Supported,
+          linalg_test::CapabilityRequirement::CapabilityGated);
+  if (!applyApplicability(Applicability,
+                          L"AccumulateDescriptorBounds_Wave_4x8_F32"))
+    return;
+
+  const cpu_oracle::MatrixBufferLayout SourceLayout = {
+      LinalgMatrixLayout::RowMajor,
+      /*OffsetBytes=*/0,
+      /*StrideBytes=*/32,
+  };
+  const cpu_oracle::MatrixBufferLayout DestinationLayout = {
+      LinalgMatrixLayout::RowMajor,
+      /*OffsetBytes=*/16,
+      /*StrideBytes=*/32,
+  };
+  constexpr size_t DestinationViewBytes = 128;
+
+  std::optional<cpu_oracle::TypedMatrix> Input =
+      cpu_oracle::makeSequentialMatrix(Params.CompType, Params.M, Params.N);
+  std::optional<cpu_oracle::TypedMatrix> InitialMatrix =
+      cpu_oracle::makeZeroMatrix(Params.CompType, Params.M, Params.N);
+  VERIFY_IS_TRUE(Input.has_value() && InitialMatrix.has_value(),
+                 "Unable to construct bounded descriptor accumulation data");
+  std::optional<std::vector<BYTE>> InitialOutput =
+      cpu_oracle::encodeMatrixBuffer(*InitialMatrix, DestinationLayout, 0xcd);
+  std::optional<size_t> SourceBytes =
+      cpu_oracle::getMatrixBufferSize(*Input, SourceLayout);
+  VERIFY_IS_TRUE(
+      InitialOutput.has_value() && SourceBytes.has_value() &&
+          DestinationViewBytes < InitialOutput->size(),
+      "Bounded descriptor accumulation must cross the destination view end");
+
+  std::vector<BYTE> WholeNoOp = *InitialOutput;
+  std::vector<BYTE> PerElementNoOp = *InitialOutput;
+  VERIFY_IS_TRUE(
+      cpu_oracle::writeMatrixBufferWithinBounds(
+          *Input, DestinationLayout, DestinationViewBytes, PerElementNoOp),
+      "Unable to encode bounded descriptor accumulation candidate");
+  cpu_oracle::BufferResultOracle Oracle = cpu_oracle::permittedBufferResults(
+      {std::move(WholeNoOp), std::move(PerElementNoOp)},
+      L"Descriptor accumulation may suppress the whole operation or only "
+      L"out-of-bounds elements");
+
+  runDescriptorIO(D3DDevice, DxcSupport, Params, *Input, SourceLayout,
+                  DestinationLayout, /*SourceAlignment=*/128,
+                  /*DestinationAlignment=*/16, *SourceBytes,
+                  DestinationViewBytes, std::move(*InitialOutput), Oracle,
+                  VerboseLogging, SelectedWaveSize,
+                  /*AccumulateCount=*/1);
+}
 
 static LPCWSTR matrixRoleName(linalg_test::MatrixRole Role) {
   switch (Role) {
@@ -1765,6 +2348,47 @@ static HRESULT queryMatrixConstructionSupport(
   hlsl_test::LogCommentFmt(
       L"No MatrixConstruction query within shader WaveSize(4,64) supports %s",
       CaseName);
+  return S_OK;
+}
+
+static HRESULT queryDescriptorAccumulateSupport(ID3D12Device *Device,
+                                                const MatrixParams &Params,
+                                                LPCWSTR CaseName,
+                                                bool &Supported,
+                                                UINT &SelectedWaveSize) {
+  Supported = false;
+  SelectedWaveSize = 0;
+  if (!CaseName || !linalg_test::isLegalScope(
+                       linalg_test::OperationType::AtomicAccumulateStore,
+                       toCapabilityScope(Params.Scope)))
+    return E_INVALIDARG;
+
+  bool ConstructionSupported;
+  HRESULT HR = queryMatrixConstructionSupport(
+      Device, Params,
+      {{linalg_test::MatrixRole::Accumulator, Params.M, Params.N}}, CaseName,
+      ConstructionSupported, SelectedWaveSize);
+  if (FAILED(HR) || !ConstructionSupported)
+    return HR;
+
+  std::optional<linalg_test::DataType> DataType =
+      toCapabilityDataType(Params.CompType);
+  if (!DataType.has_value())
+    return E_INVALIDARG;
+
+  linalg_test::AtomicAccumulateStoreSupport AtomicSupport;
+  HR = linalg_test::queryAtomicAccumulateStore(Device, {*DataType},
+                                               AtomicSupport);
+  if (FAILED(HR))
+    return HR;
+
+  Supported = AtomicSupport.supports(
+      linalg_test::AtomicDestination::RWByteAddressBuffer);
+  if (!Supported) {
+    SelectedWaveSize = 0;
+    hlsl_test::LogCommentFmt(
+        L"Atomic descriptor accumulation is unsupported for %s", CaseName);
+  }
   return S_OK;
 }
 
