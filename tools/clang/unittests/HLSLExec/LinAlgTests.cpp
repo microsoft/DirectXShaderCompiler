@@ -2172,10 +2172,11 @@ public:
   BEGIN_TEST_CLASS(DxilConf_SM610_LinAlg)
   TEST_CLASS_PROPERTY("Kits.TestName",
                       "D3D12 - Shader Model 6.10 - LinAlg Matrix Operations")
-  TEST_CLASS_PROPERTY("Kits.TestId", "a1b2c3d4-e5f6-7890-abcd-ef1234567890")
+  TEST_CLASS_PROPERTY("Kits.TestId", "e2f563d7-7fea-42c1-a841-3fb0decb43a7")
   TEST_CLASS_PROPERTY(
       "Kits.Description",
-      "Validates SM 6.10 linear algebra matrix operations execute correctly")
+      "Validates SM 6.10 linear algebra matrix operations and advertised "
+      "capability variants")
   TEST_CLASS_PROPERTY(
       "Kits.Specification",
       "Device.Graphics.D3D12.DXILCore.ShaderModel610.CoreRequirement")
