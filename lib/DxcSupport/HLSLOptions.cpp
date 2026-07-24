@@ -357,6 +357,43 @@ handleFixedBinding(const InputArgList &args, OptSpecifier id,
   return true;
 }
 
+// Parses the single-integer descriptor-heap stride flag |id| in |args|. If
+// present, validates that the value is a power of 2 in [8, 256] and stores it
+// in |stride|. Returns true on success (including when the flag is absent).
+// Returns false and writes to |errors| when the value is malformed or invalid,
+// using |name| as the pretty flag name.
+static bool handleHeapStride(const InputArgList &args, OptSpecifier id,
+                             std::optional<uint32_t> *stride,
+                             llvm::StringRef name, llvm::raw_ostream &errors) {
+  Arg *arg = args.getLastArg(id);
+  if (!arg) {
+    *stride = std::nullopt;
+    return true;
+  }
+
+  if (!args.hasArg(OPT_spirv)) {
+    errors << name << " requires -spirv";
+    return false;
+  }
+
+  llvm::StringRef value = arg->getValue();
+  uint32_t number = 0;
+  if (value.getAsInteger(10, number)) {
+    errors << "invalid " << name << " argument: '" << value << "'";
+    return false;
+  }
+  // Power of 2 in [8, 256] inclusive.
+  if (number < 8 || number > 256 || (number & (number - 1)) != 0) {
+    errors << name
+           << " must be a power of 2 between 8 and 256 (inclusive); got "
+           << value;
+    return false;
+  }
+
+  *stride = number;
+  return true;
+}
+
 // Check if any options that are unsupported with SPIR-V are used.
 static bool hasUnsupportedSpirvOption(const InputArgList &args,
                                       llvm::raw_ostream &errors) {
@@ -1175,6 +1212,16 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
     return 1;
   }
 
+  bool stride_ok = true;
+  stride_ok &= handleHeapStride(Args, OPT_fvk_resource_heap_stride,
+                                &opts.SpirvOptions.resourceHeapStride,
+                                "-fvk-resource-heap-stride", errors);
+  stride_ok &= handleHeapStride(Args, OPT_fvk_sampler_heap_stride,
+                                &opts.SpirvOptions.samplerHeapStride,
+                                "-fvk-sampler-heap-stride", errors);
+  if (!stride_ok)
+    return 1;
+
   for (const Arg *A : Args.filtered(OPT_fspv_extension_EQ)) {
     opts.SpirvOptions.allowedExtensions.push_back(A->getValue());
   }
@@ -1316,7 +1363,9 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
       !Args.getLastArgValue(OPT_fvk_u_shift).empty() ||
       !Args.getLastArgValue(OPT_fvk_bind_resource_heap).empty() ||
       !Args.getLastArgValue(OPT_fvk_bind_sampler_heap).empty() ||
-      !Args.getLastArgValue(OPT_fvk_bind_counter_heap).empty()) {
+      !Args.getLastArgValue(OPT_fvk_bind_counter_heap).empty() ||
+      !Args.getLastArgValue(OPT_fvk_resource_heap_stride).empty() ||
+      !Args.getLastArgValue(OPT_fvk_sampler_heap_stride).empty()) {
     errors << "SPIR-V CodeGen not available. "
               "Please recompile with -DENABLE_SPIRV_CODEGEN=ON.";
     return 1;
