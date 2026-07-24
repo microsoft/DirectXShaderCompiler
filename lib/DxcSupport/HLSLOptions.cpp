@@ -1212,14 +1212,15 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
     return 1;
   }
 
-  if (!handleHeapStride(Args, OPT_fvk_resource_heap_stride,
-                        &opts.SpirvOptions.resourceHeapStride,
-                        "-fvk-resource-heap-stride", errors) ||
-      !handleHeapStride(Args, OPT_fvk_sampler_heap_stride,
-                        &opts.SpirvOptions.samplerHeapStride,
-                        "-fvk-sampler-heap-stride", errors)) {
+  bool stride_ok = true;
+  stride_ok &= handleHeapStride(Args, OPT_fvk_resource_heap_stride,
+                                &opts.SpirvOptions.resourceHeapStride,
+                                "-fvk-resource-heap-stride", errors);
+  stride_ok &= handleHeapStride(Args, OPT_fvk_sampler_heap_stride,
+                                &opts.SpirvOptions.samplerHeapStride,
+                                "-fvk-sampler-heap-stride", errors);
+  if (!stride_ok)
     return 1;
-  }
 
   for (const Arg *A : Args.filtered(OPT_fspv_extension_EQ)) {
     opts.SpirvOptions.allowedExtensions.push_back(A->getValue());
