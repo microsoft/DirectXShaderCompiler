@@ -318,6 +318,10 @@ static LPCWSTR componentTypeName(ComponentType CompType) {
     return L"I32";
   case ComponentType::U32:
     return L"U32";
+  case ComponentType::F8_E4M3FN:
+    return L"F8_E4M3FN";
+  case ComponentType::F8_E5M2:
+    return L"F8_E5M2";
   default:
     return L"Unsupported";
   }
@@ -1091,6 +1095,91 @@ static bool verifyBufferResult(const void *ActualBuffer,
   return false;
 }
 
+template <typename T>
+static std::vector<BYTE> encodeNativeVector(std::initializer_list<T> Values) {
+  static_assert(std::is_trivially_copyable<T>::value,
+                "Vector values must be trivially copyable");
+  std::vector<T> NativeValues(Values);
+  std::vector<BYTE> Bytes(NativeValues.size() * sizeof(T));
+  std::memcpy(Bytes.data(), NativeValues.data(), Bytes.size());
+  return Bytes;
+}
+
+static std::optional<BYTE> encodeExactFP8(HLSLHalf_t Value,
+                                          ComponentType CompType) {
+  unsigned MantissaBits;
+  unsigned ExponentBias;
+  unsigned MaxFiniteExponent;
+  switch (CompType) {
+  case ComponentType::F8_E4M3FN:
+    MantissaBits = 3;
+    ExponentBias = 7;
+    MaxFiniteExponent = 0xf;
+    break;
+  case ComponentType::F8_E5M2:
+    MantissaBits = 2;
+    ExponentBias = 15;
+    MaxFiniteExponent = 0x1e;
+    break;
+  default:
+    return std::nullopt;
+  }
+
+  const unsigned Sign = Value.Val >> 15;
+  const unsigned SourceExponent = (Value.Val >> 10) & 0x1f;
+  const unsigned SourceMantissa = Value.Val & 0x3ff;
+  if (SourceExponent == 0) {
+    if (SourceMantissa != 0)
+      return std::nullopt;
+    return static_cast<BYTE>(Sign << 7);
+  }
+  if (SourceExponent == 0x1f)
+    return std::nullopt;
+
+  const int DestinationExponent =
+      static_cast<int>(SourceExponent) - 15 + static_cast<int>(ExponentBias);
+  if (DestinationExponent <= 0 ||
+      static_cast<unsigned>(DestinationExponent) > MaxFiniteExponent)
+    return std::nullopt;
+
+  const unsigned DiscardedBits = 10 - MantissaBits;
+  const unsigned DiscardedMask = (1u << DiscardedBits) - 1;
+  if ((SourceMantissa & DiscardedMask) != 0)
+    return std::nullopt;
+
+  const unsigned DestinationMantissa = SourceMantissa >> DiscardedBits;
+  if (CompType == ComponentType::F8_E4M3FN && DestinationExponent == 0xf &&
+      DestinationMantissa == 0x7)
+    return std::nullopt;
+
+  return static_cast<BYTE>(
+      (Sign << 7) |
+      (static_cast<unsigned>(DestinationExponent) << MantissaBits) |
+      DestinationMantissa);
+}
+
+static std::optional<std::vector<BYTE>>
+encodeExactFP8RoundTrip(const std::vector<float> &Values,
+                        ComponentType CompType) {
+  if (Values.empty() || Values.size() % 4 != 0)
+    return std::nullopt;
+
+  const size_t PackedBytes = Values.size();
+  std::vector<BYTE> Expected(PackedBytes + Values.size() * sizeof(uint16_t));
+  for (size_t I = 0; I < Values.size(); ++I) {
+    const HLSLHalf_t Half(Values[I]);
+    const std::optional<BYTE> Encoded = encodeExactFP8(Half, CompType);
+    if (!Encoded.has_value())
+      return std::nullopt;
+
+    Expected[I] = *Encoded;
+    const size_t HalfOffset = PackedBytes + I * sizeof(uint16_t);
+    Expected[HalfOffset] = static_cast<BYTE>(Half.Val & 0xff);
+    Expected[HalfOffset + 1] = static_cast<BYTE>(Half.Val >> 8);
+  }
+  return Expected;
+}
+
 } // namespace cpu_oracle
 
 static std::string buildCompilerArgs(const MatrixParams &Params,
@@ -1437,6 +1526,30 @@ void LinAlgCPUOracleTests::TypedMatrixBufferRoundTrip() {
   Params.CompType = ComponentType::U32;
   VERIFY_IS_TRUE(buildCompilerArgs(Params).find(" -DELEM_TYPE=uint") !=
                  std::string::npos);
+
+  const std::vector<float> FP8Values = {
+      0.0f, 1.0f, -1.0f, 1.5f, -1.5f, 3.0f, 6.0f, -6.0f,
+  };
+  const std::optional<std::vector<BYTE>> E4M3 =
+      encodeExactFP8RoundTrip(FP8Values, ComponentType::F8_E4M3FN);
+  const std::optional<std::vector<BYTE>> E5M2 =
+      encodeExactFP8RoundTrip(FP8Values, ComponentType::F8_E5M2);
+  VERIFY_IS_TRUE(E4M3.has_value());
+  VERIFY_IS_TRUE(E5M2.has_value());
+  if (E4M3.has_value()) {
+    const std::vector<BYTE> ExpectedE4M3 = {
+        0x00, 0x38, 0xb8, 0x3c, 0xbc, 0x44, 0x4c, 0xcc, 0x00, 0x00, 0x00, 0x3c,
+        0x00, 0xbc, 0x00, 0x3e, 0x00, 0xbe, 0x00, 0x42, 0x00, 0x46, 0x00, 0xc6,
+    };
+    VERIFY_IS_TRUE(*E4M3 == ExpectedE4M3);
+  }
+  if (E5M2.has_value()) {
+    const std::vector<BYTE> ExpectedE5M2 = {
+        0x00, 0x3c, 0xbc, 0x3e, 0xbe, 0x42, 0x46, 0xc6, 0x00, 0x00, 0x00, 0x3c,
+        0x00, 0xbc, 0x00, 0x3e, 0x00, 0xbe, 0x00, 0x42, 0x00, 0x46, 0x00, 0xc6,
+    };
+    VERIFY_IS_TRUE(*E5M2 == ExpectedE5M2);
+  }
 }
 
 class LinAlgCapabilityTests {
@@ -1570,6 +1683,8 @@ struct MatrixConstructionRequirement {
   linalg_test::MatrixRole Role;
   MatrixDim Rows;
   MatrixDim Columns;
+  ComponentType CompType = ComponentType::Invalid;
+  bool RequireShape = true;
 };
 
 static HRESULT queryMatrixConstructionSupport(
@@ -1637,6 +1752,8 @@ public:
   TEST_METHOD(CopyConvert_Wave_16x16_F16);
   TEST_METHOD(CopyConvert_Wave_16x16_F16_Transpose);
   TEST_METHOD(CopyConvert_Wave_4x8_F32_Transpose);
+  TEST_METHOD(CopyConvert_Wave_4x8_F16_ToF32);
+  TEST_METHOD(CopyConvert_Wave_4x8_F32_ToF16_Transpose);
 
   // Matrix Matrix Arithmetic
   TEST_METHOD(MatMatMul_Wave_16x16x16_F16);
@@ -1655,6 +1772,9 @@ public:
 
   // Convert
   TEST_METHOD(Convert);
+  TEST_METHOD(Convert_I16_ToI32_Exact);
+  TEST_METHOD(Convert_F32_ToI16_RTNE_Saturate);
+  TEST_METHOD(Convert_F16_FP8_RoundTrip);
 
   // Vector Accumulate
   TEST_METHOD(VectorAccumulateDescriptor_Thread_F16);
@@ -2304,14 +2424,18 @@ static HRESULT queryMatrixConstructionSupport(
     return E_INVALIDARG;
 
   for (const MatrixConstructionRequirement &Requirement : Requirements) {
-    if (Requirement.Rows == 0 || Requirement.Columns == 0)
+    if (Requirement.RequireShape &&
+        (Requirement.Rows == 0 || Requirement.Columns == 0))
       return E_INVALIDARG;
   }
 
-  std::optional<linalg_test::DataType> DataType =
-      toCapabilityDataType(Params.CompType);
-  if (!DataType.has_value())
-    return E_INVALIDARG;
+  for (const MatrixConstructionRequirement &Requirement : Requirements) {
+    const ComponentType CompType =
+        Requirement.CompType == ComponentType::Invalid ? Params.CompType
+                                                       : Requirement.CompType;
+    if (!toCapabilityDataType(CompType).has_value())
+      return E_INVALIDARG;
+  }
 
   linalg_test::TierSupport Tier;
   HRESULT HR = linalg_test::queryTierSupport(Device, Tier);
@@ -2350,16 +2474,34 @@ static HRESULT queryMatrixConstructionSupport(
         WaveSize > WaveOptions.WaveLaneCountMax)
       continue;
 
-    linalg_test::MatrixConstructionSupport Construction;
-    HR = linalg_test::queryMatrixConstruction(Device, {*DataType, WaveSize},
-                                              Construction);
-    if (FAILED(HR))
-      return HR;
-
+    std::vector<std::pair<linalg_test::DataType,
+                          linalg_test::MatrixConstructionSupport>>
+        ConstructionByType;
     bool AllSupported = true;
     for (const MatrixConstructionRequirement &Requirement : Requirements) {
-      if (!Construction.supports(Requirement.Role, Requirement.Rows,
-                                 Requirement.Columns)) {
+      const ComponentType CompType =
+          Requirement.CompType == ComponentType::Invalid ? Params.CompType
+                                                         : Requirement.CompType;
+      const linalg_test::DataType DataType =
+          toCapabilityDataType(CompType).value();
+      auto Construction = std::find_if(
+          ConstructionByType.begin(), ConstructionByType.end(),
+          [DataType](const auto &Entry) { return Entry.first == DataType; });
+      if (Construction == ConstructionByType.end()) {
+        linalg_test::MatrixConstructionSupport Support;
+        HR = linalg_test::queryMatrixConstruction(Device, {DataType, WaveSize},
+                                                  Support);
+        if (FAILED(HR))
+          return HR;
+        Construction = ConstructionByType.emplace(ConstructionByType.end(),
+                                                  DataType, Support);
+      }
+      const bool RequirementSupported =
+          Requirement.RequireShape
+              ? Construction->second.supports(
+                    Requirement.Role, Requirement.Rows, Requirement.Columns)
+              : Construction->second.supported();
+      if (!RequirementSupported) {
         AllSupported = false;
         break;
       }
@@ -2371,9 +2513,18 @@ static HRESULT queryMatrixConstructionSupport(
         L"MatrixConstruction capability matched wave=%u for %s", WaveSize,
         CaseName);
     for (const MatrixConstructionRequirement &Requirement : Requirements) {
-      hlsl_test::LogCommentFmt(L"  role=%s, rows=%u, columns=%u",
-                               matrixRoleName(Requirement.Role),
-                               Requirement.Rows, Requirement.Columns);
+      const ComponentType CompType =
+          Requirement.CompType == ComponentType::Invalid ? Params.CompType
+                                                         : Requirement.CompType;
+      if (Requirement.RequireShape) {
+        hlsl_test::LogCommentFmt(L"  type=%s, role=%s, rows=%u, columns=%u",
+                                 cpu_oracle::componentTypeName(CompType),
+                                 matrixRoleName(Requirement.Role),
+                                 Requirement.Rows, Requirement.Columns);
+      } else {
+        hlsl_test::LogCommentFmt(L"  type=%s",
+                                 cpu_oracle::componentTypeName(CompType));
+      }
     }
     Supported = true;
     SelectedWaveSize = WaveSize;
@@ -2965,6 +3116,7 @@ void DxilConf_SM610_LinAlg::ElementSetOOB_Wave_4x8_F32() {
 static const char CopyConvertShader[] = R"(
   RWByteAddressBuffer Input : register(u0);
   RWByteAddressBuffer Output : register(u1);
+  RWByteAddressBuffer SourceAfter : register(u2);
 
   #ifdef FORCED_WAVE_SIZE
   [WaveSize(FORCED_WAVE_SIZE)]
@@ -2980,7 +3132,7 @@ static const char CopyConvertShader[] = R"(
       [[__LinAlgMatrix_Attributes(COMP_TYPE, M_DIM, N_DIM, USE, SCOPE)]]
       Src;
     __builtin_LinAlgMatrix
-      [[__LinAlgMatrix_Attributes(COMP_TYPE, DST_M_DIM, DST_N_DIM, USE, SCOPE)]]
+      [[__LinAlgMatrix_Attributes(DST_COMP_TYPE, DST_M_DIM, DST_N_DIM, USE, SCOPE)]]
       Dst;
 
     __builtin_LinAlg_MatrixLoadFromDescriptor(
@@ -2988,19 +3140,24 @@ static const char CopyConvertShader[] = R"(
     __builtin_LinAlg_CopyConvertMatrix(Dst, Src, TRANSPOSE);
     __builtin_LinAlg_MatrixStoreToDescriptor(
       Dst, Output, 0, DST_STRIDE, LAYOUT, 128);
+    __builtin_LinAlg_MatrixStoreToDescriptor(
+      Src, SourceAfter, 0, SRC_STRIDE, LAYOUT, 128);
   }
 )";
 
 static HRESULT queryCopyConvertSupport(ID3D12Device *Device,
                                        const MatrixParams &Params,
+                                       ComponentType DestinationCompType,
                                        bool Transpose, bool &Supported,
                                        UINT &SelectedWaveSize) {
   Supported = false;
   SelectedWaveSize = 0;
-  if (Params.Use != MatrixUse::A)
+  if (Params.Use != MatrixUse::A ||
+      DestinationCompType == ComponentType::Invalid)
     return E_INVALIDARG;
 
   MatrixParams Destination = Params;
+  Destination.CompType = DestinationCompType;
   if (Transpose) {
     Destination.M = Params.N;
     Destination.N = Params.M;
@@ -3009,17 +3166,20 @@ static HRESULT queryCopyConvertSupport(ID3D12Device *Device,
   return queryMatrixConstructionSupport(
       Device, Params,
       {
-          {linalg_test::MatrixRole::A, Params.M, Params.N},
-          {linalg_test::MatrixRole::A, Destination.M, Destination.N},
+          {linalg_test::MatrixRole::A, Params.M, Params.N, Params.CompType},
+          {linalg_test::MatrixRole::A, Destination.M, Destination.N,
+           Destination.CompType},
       },
       L"CopyConvert source and destination", Supported, SelectedWaveSize);
 }
 
 static void runCopyConvert(ID3D12Device *Device,
                            dxc::SpecificDllLoader &DxcSupport,
-                           const MatrixParams &Params, bool Verbose,
+                           const MatrixParams &Params,
+                           ComponentType DestinationCompType, bool Verbose,
                            bool Transpose, UINT ForcedWaveSize = 0) {
   MatrixParams DstParams = Params;
+  DstParams.CompType = DestinationCompType;
   if (Transpose) {
     DstParams.M = Params.N;
     DstParams.N = Params.M;
@@ -3027,6 +3187,7 @@ static void runCopyConvert(ID3D12Device *Device,
 
   std::stringstream ExtraDefs;
   ExtraDefs << " -DTRANSPOSE=" << Transpose;
+  ExtraDefs << " -DDST_COMP_TYPE=" << static_cast<int>(DstParams.CompType);
   ExtraDefs << " -DDST_M_DIM=" << DstParams.M;
   ExtraDefs << " -DDST_N_DIM=" << DstParams.N;
   ExtraDefs << " -DSRC_STRIDE=" << Params.strideBytes();
@@ -3042,8 +3203,12 @@ static void runCopyConvert(ID3D12Device *Device,
       cpu_oracle::makeSequentialMatrix(Params.CompType, Params.M, Params.N);
   VERIFY_IS_TRUE(Input.has_value(),
                  "Unable to construct typed CopyConvert input");
+  std::optional<cpu_oracle::TypedMatrix> Converted =
+      cpu_oracle::makeSequentialMatrix(DstParams.CompType, Params.M, Params.N);
+  VERIFY_IS_TRUE(Converted.has_value(),
+                 "Unable to construct typed CopyConvert conversion oracle");
   std::optional<cpu_oracle::TypedMatrix> Expected =
-      Transpose ? cpu_oracle::transposeMatrix(*Input) : Input;
+      Transpose ? cpu_oracle::transposeMatrix(*Converted) : Converted;
   VERIFY_IS_TRUE(Expected.has_value(),
                  "Unable to construct independent CopyConvert oracle");
 
@@ -3070,14 +3235,17 @@ static void runCopyConvert(ID3D12Device *Device,
   cpu_oracle::MatrixResultOracle Oracle = cpu_oracle::exactResult(
       *Expected,
       L"HLSL proposal 0035 CopyConvertMatrix transpose and descriptor layout");
+  cpu_oracle::MatrixResultOracle SourceOracle = cpu_oracle::exactResult(
+      *Input, L"CopyConvertMatrix leaves the source matrix unmodified");
 
-  // Construct the ShaderOp: two UAV buffers, load from one, store to other.
-  auto Op = createComputeOp(CopyConvertShader, "cs_6_10", "UAV(u0), UAV(u1)",
-                            Args.c_str());
+  auto Op = createComputeOp(CopyConvertShader, "cs_6_10",
+                            "UAV(u0), UAV(u1), UAV(u2)", Args.c_str());
   addUAVBuffer(Op.get(), "Input", *SourceBufferSize, false, "byname");
   addUAVBuffer(Op.get(), "Output", *DestinationBufferSize, true);
+  addUAVBuffer(Op.get(), "SourceAfter", *SourceBufferSize, true);
   addRootView(Op.get(), 0, "Input");
   addRootView(Op.get(), 1, "Output");
+  addRootView(Op.get(), 2, "SourceAfter");
 
   auto Result = runShaderOp(
       Device, DxcSupport, std::move(Op),
@@ -3091,10 +3259,15 @@ static void runCopyConvert(ID3D12Device *Device,
       });
 
   MappedData OutData;
+  MappedData SourceAfterData;
   Result->Test->GetReadBackData("Output", &OutData);
+  Result->Test->GetReadBackData("SourceAfter", &SourceAfterData);
 
   VERIFY_IS_TRUE(cpu_oracle::verifyMatrixBuffer(
       OutData.data(), OutData.size(), DestinationLayout, Oracle, Verbose));
+  VERIFY_IS_TRUE(cpu_oracle::verifyMatrixBuffer(
+      SourceAfterData.data(), SourceAfterData.size(), SourceLayout,
+      SourceOracle, Verbose));
 }
 
 void DxilConf_SM610_LinAlg::CopyConvert_Wave_16x16_F16() {
@@ -3107,7 +3280,8 @@ void DxilConf_SM610_LinAlg::CopyConvert_Wave_16x16_F16() {
   Params.Layout = LinalgMatrixLayout::RowMajor;
   Params.NumThreads = 64;
   Params.Enable16Bit = true;
-  runCopyConvert(D3DDevice, DxcSupport, Params, VerboseLogging,
+  runCopyConvert(D3DDevice, DxcSupport, Params, ComponentType::F16,
+                 VerboseLogging,
                  /*Transpose=*/false);
 }
 
@@ -3121,7 +3295,8 @@ void DxilConf_SM610_LinAlg::CopyConvert_Wave_16x16_F16_Transpose() {
   Params.Layout = LinalgMatrixLayout::RowMajor;
   Params.NumThreads = 64;
   Params.Enable16Bit = true;
-  runCopyConvert(D3DDevice, DxcSupport, Params, VerboseLogging,
+  runCopyConvert(D3DDevice, DxcSupport, Params, ComponentType::F16,
+                 VerboseLogging,
                  /*Transpose=*/true);
 }
 
@@ -3138,8 +3313,9 @@ void DxilConf_SM610_LinAlg::CopyConvert_Wave_4x8_F32_Transpose() {
 
   bool Supported;
   UINT SelectedWaveSize;
-  const HRESULT QueryResult = queryCopyConvertSupport(
-      D3DDevice, Params, /*Transpose=*/true, Supported, SelectedWaveSize);
+  const HRESULT QueryResult =
+      queryCopyConvertSupport(D3DDevice, Params, ComponentType::F32,
+                              /*Transpose=*/true, Supported, SelectedWaveSize);
   const linalg_test::Applicability Applicability =
       linalg_test::classifyApplicability(
           QueryResult, Supported,
@@ -3150,8 +3326,66 @@ void DxilConf_SM610_LinAlg::CopyConvert_Wave_4x8_F32_Transpose() {
     return;
 
   // Non-square dimensions make the destination shape and row stride observable.
-  runCopyConvert(D3DDevice, DxcSupport, Params, VerboseLogging,
+  runCopyConvert(D3DDevice, DxcSupport, Params, ComponentType::F32,
+                 VerboseLogging,
                  /*Transpose=*/true, SelectedWaveSize);
+}
+
+void DxilConf_SM610_LinAlg::CopyConvert_Wave_4x8_F16_ToF32() {
+  MatrixParams Params = {};
+  Params.CompType = ComponentType::F16;
+  Params.M = 4;
+  Params.N = 8;
+  Params.Use = MatrixUse::A;
+  Params.Scope = MatrixScope::Wave;
+  Params.Layout = LinalgMatrixLayout::RowMajor;
+  Params.NumThreads = 64;
+  Params.Enable16Bit = true;
+
+  bool Supported;
+  UINT SelectedWaveSize;
+  const HRESULT QueryResult =
+      queryCopyConvertSupport(D3DDevice, Params, ComponentType::F32,
+                              /*Transpose=*/false, Supported, SelectedWaveSize);
+  const linalg_test::Applicability Applicability =
+      linalg_test::classifyApplicability(
+          QueryResult, Supported,
+          linalg_test::CapabilityRequirement::CapabilityGated);
+  if (!applyApplicability(Applicability,
+                          L"CopyConvert_Wave_4x8_F16_ToF32 MatrixConstruction"))
+    return;
+
+  runCopyConvert(D3DDevice, DxcSupport, Params, ComponentType::F32,
+                 VerboseLogging, /*Transpose=*/false, SelectedWaveSize);
+}
+
+void DxilConf_SM610_LinAlg::CopyConvert_Wave_4x8_F32_ToF16_Transpose() {
+  MatrixParams Params = {};
+  Params.CompType = ComponentType::F32;
+  Params.M = 4;
+  Params.N = 8;
+  Params.Use = MatrixUse::A;
+  Params.Scope = MatrixScope::Wave;
+  Params.Layout = LinalgMatrixLayout::RowMajor;
+  Params.NumThreads = 64;
+  Params.Enable16Bit = true;
+
+  bool Supported;
+  UINT SelectedWaveSize;
+  const HRESULT QueryResult =
+      queryCopyConvertSupport(D3DDevice, Params, ComponentType::F16,
+                              /*Transpose=*/true, Supported, SelectedWaveSize);
+  const linalg_test::Applicability Applicability =
+      linalg_test::classifyApplicability(
+          QueryResult, Supported,
+          linalg_test::CapabilityRequirement::CapabilityGated);
+  if (!applyApplicability(
+          Applicability,
+          L"CopyConvert_Wave_4x8_F32_ToF16_Transpose MatrixConstruction"))
+    return;
+
+  runCopyConvert(D3DDevice, DxcSupport, Params, ComponentType::F16,
+                 VerboseLogging, /*Transpose=*/true, SelectedWaveSize);
 }
 
 static const char MatMatMulShader[] = R"(
@@ -4502,6 +4736,94 @@ static const char ConvertShader[] = R"(
   }
 )";
 
+static const char ConvertI16ToI32Shader[] = R"(
+  #define CT_I16 2
+  #define CT_I32 4
+
+  RWByteAddressBuffer Output : register(u0);
+
+  [numthreads(1, 1, 1)]
+  void main() {
+    vector<int16_t, 8> InVec = {
+      -32768, -1024, -1, 0, 1, 1024, 12345, 32767
+    };
+    vector<int, 8> OutVec;
+    __builtin_LinAlg_Convert(OutVec, InVec, CT_I16, CT_I32);
+    for (uint I = 0; I < 8; ++I)
+      Output.Store<int>(I * sizeof(int), OutVec[I]);
+  }
+)";
+
+static const char ConvertF32ToI16Shader[] = R"(
+  #define CT_I16 2
+  #define CT_F32 9
+
+  RWByteAddressBuffer Output : register(u0);
+
+  [numthreads(1, 1, 1)]
+  void main() {
+    vector<float, 8> InVec = {
+      -40000.0F, -32768.5F, -2.5F, -1.5F,
+      1.5F, 2.5F, 32767.5F, 40000.0F
+    };
+    vector<int16_t, 8> OutVec;
+    __builtin_LinAlg_Convert(OutVec, InVec, CT_F32, CT_I16);
+    for (uint I = 0; I < 8; ++I)
+      Output.Store<int16_t>(I * sizeof(int16_t), OutVec[I]);
+  }
+)";
+
+static const char ConvertF16FP8RoundTripShader[] = R"(
+  #define CT_F16 8
+
+  RWByteAddressBuffer Output : register(u0);
+
+  [numthreads(1, 1, 1)]
+  void main() {
+    vector<half, 8> InVec = {
+      0.0, 1.0, -1.0, 1.5, -1.5, 3.0, 6.0, -6.0
+    };
+    vector<uint, 2> PackedBits;
+    vector<uint, 2> PackedRoundTrip;
+    vector<half, 8> RoundTrip;
+    __builtin_LinAlg_Convert(PackedBits, InVec, CT_F16, FP8_TYPE);
+    __builtin_LinAlg_Convert(PackedRoundTrip, InVec, CT_F16, FP8_TYPE);
+    __builtin_LinAlg_Convert(RoundTrip, PackedRoundTrip, FP8_TYPE, CT_F16);
+
+    Output.Store<uint>(0, PackedBits.x);
+    Output.Store<uint>(4, PackedBits.y);
+    for (uint I = 0; I < 8; ++I)
+      Output.Store<half>(8 + I * sizeof(half), RoundTrip[I]);
+  }
+)";
+
+static void runExactConvertShader(ID3D12Device *Device,
+                                  dxc::SpecificDllLoader &DxcSupport,
+                                  const char *Shader, const std::string &Args,
+                                  std::vector<BYTE> Expected,
+                                  const std::wstring &PublicRule,
+                                  bool Verbose) {
+  compileShader(DxcSupport, Shader, "cs_6_10", Args, Verbose);
+
+  auto Op = createComputeOp(Shader, "cs_6_10", "UAV(u0)", Args.c_str());
+  addUAVBuffer(Op.get(), "Output", Expected.size(), true);
+  addRootView(Op.get(), 0, "Output");
+
+  auto Result = runShaderOp(Device, DxcSupport, std::move(Op));
+  MappedData OutData;
+  Result->Test->GetReadBackData("Output", &OutData);
+  if (Verbose) {
+    const BYTE *Bytes = static_cast<const BYTE *>(OutData.data());
+    for (size_t I = 0; I < OutData.size(); ++I)
+      hlsl_test::LogCommentFmt(L"  output[%zu]=0x%02x", I, Bytes[I]);
+  }
+
+  cpu_oracle::BufferResultOracle Oracle =
+      cpu_oracle::exactBufferResult(std::move(Expected), PublicRule);
+  VERIFY_IS_TRUE(cpu_oracle::verifyBufferResult(OutData.data(), OutData.size(),
+                                                Oracle, Verbose));
+}
+
 static void runConvert(ID3D12Device *Device, dxc::SpecificDllLoader &DxcSupport,
                        bool Verbose) {
   std::string Args = "-HV 202x -enable-16bit-types";
@@ -4527,6 +4849,96 @@ static void runConvert(ID3D12Device *Device, dxc::SpecificDllLoader &DxcSupport,
 
 void DxilConf_SM610_LinAlg::Convert() {
   runConvert(D3DDevice, DxcSupport, VerboseLogging);
+}
+
+void DxilConf_SM610_LinAlg::Convert_I16_ToI32_Exact() {
+  runExactConvertShader(
+      D3DDevice, DxcSupport, ConvertI16ToI32Shader,
+      "-HV 202x -enable-16bit-types",
+      cpu_oracle::encodeNativeVector<int32_t>(
+          {-32768, -1024, -1, 0, 1, 1024, 12345, 32767}),
+      L"Integer widening preserves exactly representable values",
+      VerboseLogging);
+}
+
+void DxilConf_SM610_LinAlg::Convert_F32_ToI16_RTNE_Saturate() {
+  runExactConvertShader(
+      D3DDevice, DxcSupport, ConvertF32ToI16Shader,
+      "-HV 202x -enable-16bit-types",
+      cpu_oracle::encodeNativeVector<int16_t>(
+          {-32768, -32768, -2, -2, 2, 2, 32767, 32767}),
+      L"Floating-to-integer conversion uses RTNE and saturation",
+      VerboseLogging);
+}
+
+void DxilConf_SM610_LinAlg::Convert_F16_FP8_RoundTrip() {
+  MatrixParams Params = {};
+  Params.M = 1;
+  Params.N = 1;
+  Params.Use = MatrixUse::A;
+  Params.Scope = MatrixScope::Wave;
+  Params.Layout = LinalgMatrixLayout::RowMajor;
+  Params.NumThreads = 64;
+  Params.Enable16Bit = true;
+
+  const std::vector<float> Values = {
+      0.0f, 1.0f, -1.0f, 1.5f, -1.5f, 3.0f, 6.0f, -6.0f,
+  };
+
+  size_t ExecutedFormats = 0;
+  auto RunFormat = [&](ComponentType CompType, const char *CompilerArgs,
+                       LPCWSTR CaseName) -> bool {
+    Params.CompType = CompType;
+    bool Supported;
+    UINT SelectedWaveSize;
+    // D3D12 has no Convert query, so use shape-independent construction
+    // support as the closest available component-type capability proxy.
+    const HRESULT QueryResult = queryMatrixConstructionSupport(
+        D3DDevice, Params,
+        {{linalg_test::MatrixRole::A, 0, 0, CompType,
+          /*RequireShape=*/false}},
+        CaseName, Supported, SelectedWaveSize);
+    const linalg_test::Applicability Applicability =
+        linalg_test::classifyApplicability(
+            QueryResult, Supported,
+            linalg_test::CapabilityRequirement::CapabilityGated);
+    if (Applicability == linalg_test::Applicability::Fail)
+      return applyApplicability(Applicability, CaseName);
+    if (Applicability == linalg_test::Applicability::NotApplicable) {
+      // Each format is an optional subcase; the method is not applicable only
+      // when neither format can execute.
+      hlsl_test::LogCommentFmt(
+          L"Skipping %s because the component type is not advertised",
+          CaseName);
+      return true;
+    }
+
+    std::optional<std::vector<BYTE>> Expected =
+        cpu_oracle::encodeExactFP8RoundTrip(Values, CompType);
+    VERIFY_IS_TRUE(Expected.has_value(),
+                   "Unable to derive exact FP8 conversion oracle");
+    if (!Expected.has_value())
+      return false;
+
+    ++ExecutedFormats;
+    runExactConvertShader(D3DDevice, DxcSupport, ConvertF16FP8RoundTripShader,
+                          CompilerArgs, std::move(*Expected),
+                          std::wstring(CaseName) +
+                              L" exact packed encoding and F16 round trip",
+                          VerboseLogging);
+    return true;
+  };
+
+  if (!RunFormat(ComponentType::F8_E4M3FN,
+                 "-HV 202x -enable-16bit-types -DFP8_TYPE=21", L"F8_E4M3FN"))
+    return;
+  if (!RunFormat(ComponentType::F8_E5M2,
+                 "-HV 202x -enable-16bit-types -DFP8_TYPE=22", L"F8_E5M2"))
+    return;
+
+  if (ExecutedFormats == 0)
+    applyApplicability(linalg_test::Applicability::NotApplicable,
+                       L"Convert_F16_FP8_RoundTrip");
 }
 
 static const char VectorAccumulateDescriptorShader[] = R"(
