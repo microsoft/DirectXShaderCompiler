@@ -96,6 +96,78 @@ struct MatrixParams {
   size_t totalBytes() const { return totalElements() * elementSize(CompType); }
 };
 
+static std::optional<linalg_test::DataType>
+toCapabilityDataType(ComponentType CompType) {
+  using linalg_test::DataType;
+  switch (CompType) {
+  case ComponentType::I16:
+    return DataType::SInt16;
+  case ComponentType::U16:
+    return DataType::UInt16;
+  case ComponentType::I32:
+    return DataType::SInt32;
+  case ComponentType::U32:
+    return DataType::UInt32;
+  case ComponentType::F16:
+    return DataType::Float16;
+  case ComponentType::F32:
+    return DataType::Float32;
+  case ComponentType::I8:
+    return DataType::SInt8;
+  case ComponentType::U8:
+    return DataType::UInt8;
+  case ComponentType::F8_E4M3FN:
+    return DataType::Float8E4M3FN;
+  case ComponentType::F8_E5M2:
+    return DataType::Float8E5M2;
+  default:
+    return std::nullopt;
+  }
+}
+
+static linalg_test::ExecutionScope toCapabilityScope(MatrixScope Scope) {
+  switch (Scope) {
+  case MatrixScope::Thread:
+    return linalg_test::ExecutionScope::Thread;
+  case MatrixScope::Wave:
+    return linalg_test::ExecutionScope::Wave;
+  case MatrixScope::ThreadGroup:
+    return linalg_test::ExecutionScope::ThreadGroup;
+  }
+  VERIFY_IS_TRUE(false, "Unsupported LinAlg matrix scope");
+  return linalg_test::ExecutionScope::Thread;
+}
+
+static bool applyApplicability(linalg_test::Applicability Result,
+                               LPCWSTR CaseName) {
+  using linalg_test::Applicability;
+  switch (Result) {
+  case Applicability::Execute:
+    return true;
+  case Applicability::NotApplicable:
+#ifdef _HLK_CONF
+    hlsl_test::LogErrorFmt(
+        L"Capability-gated case %s reached HLK execution on an unsupported "
+        L"device. Requirement or playlist applicability must exclude it.",
+        CaseName);
+    VERIFY_IS_TRUE(false,
+                   "Unsupported capability-gated case reached HLK execution");
+#else
+    hlsl_test::LogCommentFmt(
+        L"Capability-gated case %s is not applicable on this device", CaseName);
+    WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
+#endif
+    return false;
+  case Applicability::Fail:
+    hlsl_test::LogErrorFmt(L"Capability evaluation failed for case %s",
+                           CaseName);
+    VERIFY_IS_TRUE(false, "LinAlg capability evaluation failed");
+    return false;
+  }
+  VERIFY_IS_TRUE(false, "Unknown LinAlg applicability result");
+  return false;
+}
+
 namespace cpu_oracle {
 
 using TypedMatrixValues =
@@ -1106,6 +1178,133 @@ void LinAlgCPUOracleTests::TypedMatrixBufferRoundTrip() {
                  std::string::npos);
 }
 
+class LinAlgCapabilityTests {
+public:
+  BEGIN_TEST_CLASS(LinAlgCapabilityTests)
+  TEST_METHOD_PROPERTY(L"Priority", L"0")
+  END_TEST_CLASS()
+
+  TEST_METHOD(CapabilityPolicyAndPredicates);
+};
+
+void LinAlgCapabilityTests::CapabilityPolicyAndPredicates() {
+  using namespace linalg_test;
+
+  VERIFY_IS_TRUE(
+      classifyApplicability(S_OK, true, CapabilityRequirement::Mandatory) ==
+      Applicability::Execute);
+  VERIFY_IS_TRUE(classifyApplicability(
+                     S_OK, false, CapabilityRequirement::CapabilityGated) ==
+                 Applicability::NotApplicable);
+  VERIFY_IS_TRUE(
+      classifyApplicability(S_OK, false, CapabilityRequirement::Mandatory) ==
+      Applicability::Fail);
+  VERIFY_IS_TRUE(
+      classifyApplicability(E_UNEXPECTED, true,
+                            CapabilityRequirement::CapabilityGated) ==
+      Applicability::Fail);
+
+  VERIFY_IS_TRUE(
+      isLegalScope(OperationType::MatrixConstruction, ExecutionScope::Wave));
+  VERIFY_IS_TRUE(isLegalScope(OperationType::MatrixConstruction,
+                              ExecutionScope::ThreadGroup));
+  VERIFY_IS_FALSE(
+      isLegalScope(OperationType::MatrixConstruction, ExecutionScope::Thread));
+  VERIFY_IS_TRUE(
+      isLegalScope(OperationType::WaveMatrixMultiply, ExecutionScope::Wave));
+  VERIFY_IS_TRUE(isLegalScope(OperationType::ThreadGroupMatrixMultiply,
+                              ExecutionScope::ThreadGroup));
+  VERIFY_IS_TRUE(isLegalScope(OperationType::ThreadVectorMatrixMultiply,
+                              ExecutionScope::Thread));
+  VERIFY_IS_TRUE(
+      isLegalScope(OperationType::ThreadOuterProduct, ExecutionScope::Thread));
+  VERIFY_IS_TRUE(isLegalScope(OperationType::AtomicAccumulateStore,
+                              ExecutionScope::Thread));
+  VERIFY_IS_TRUE(
+      isLegalScope(OperationType::AtomicAccumulateStore, ExecutionScope::Wave));
+  VERIFY_IS_TRUE(isLegalScope(OperationType::AtomicAccumulateStore,
+                              ExecutionScope::ThreadGroup));
+
+  MatrixConstructionSupport Construction = {4, 8, 16};
+  VERIFY_IS_TRUE(Construction.valid());
+  VERIFY_IS_TRUE(Construction.supports(MatrixRole::A, 4, 8));
+  VERIFY_IS_TRUE(Construction.supports(MatrixRole::B, 8, 16));
+  VERIFY_IS_TRUE(Construction.supports(MatrixRole::Accumulator, 4, 16));
+  VERIFY_IS_FALSE(Construction.supports(MatrixRole::A, 3, 8));
+  MatrixConstructionSupport InvalidConstruction = {4, 0, 16};
+  VERIFY_IS_FALSE(InvalidConstruction.valid());
+
+  WaveMatrixMultiplySupport Wave = {
+      MultiplicationFlags::Supported,
+      {{8, 16, 8}, {16, 16, 16}},
+  };
+  VERIFY_IS_TRUE(Wave.valid());
+  VERIFY_IS_TRUE(Wave.supportsShape(32, 32, 16));
+  VERIFY_IS_FALSE(Wave.supportsShape(12, 32, 16));
+  WaveMatrixMultiplySupport InvalidWave = {
+      MultiplicationFlags::EmulatedInputs,
+      {},
+  };
+  VERIFY_IS_FALSE(InvalidWave.valid());
+
+  ThreadGroupMatrixMultiplySupport ThreadGroup = {
+      MultiplicationFlags::Supported,
+      32,
+      128,
+      64,
+  };
+  VERIFY_IS_TRUE(ThreadGroup.valid());
+  VERIFY_IS_TRUE(ThreadGroup.supportsThreadGroupSize(64));
+  VERIFY_IS_FALSE(ThreadGroup.supportsThreadGroupSize(48));
+  ThreadGroup.PreferredThreadGroupSize = 48;
+  VERIFY_IS_FALSE(ThreadGroup.valid());
+
+  ThreadVectorMatrixMultiplySupport ThreadVector = {
+      static_cast<MultiplicationFlags>(
+          static_cast<UINT>(MultiplicationFlags::Supported) |
+          static_cast<UINT>(MultiplicationFlags::EmulatedInputs)),
+  };
+  VERIFY_IS_TRUE(ThreadVector.valid());
+  VERIFY_IS_TRUE(ThreadVector.supported());
+  ThreadVector.SupportFlags = MultiplicationFlags::EmulatedInputs;
+  VERIFY_IS_FALSE(ThreadVector.valid());
+
+  ThreadOuterProductSupport OuterProduct = {true};
+  VERIFY_IS_TRUE(OuterProduct.supported());
+  AtomicAccumulateStoreSupport Atomic = {true, false};
+  VERIFY_IS_TRUE(Atomic.supports(AtomicDestination::RWByteAddressBuffer));
+  VERIFY_IS_FALSE(Atomic.supports(AtomicDestination::GroupShared));
+
+  VERIFY_ARE_EQUAL(0u, static_cast<UINT>(DataType::None));
+  MatrixConstructionQuery ConstructionQuery = {DataType::Float32, 32};
+  WaveMatrixMultiplyQuery WaveQuery = {
+      32,
+      DataType::Float16,
+      DataType::Float16,
+      DataType::Float32,
+  };
+  ThreadGroupMatrixMultiplyQuery ThreadGroupQuery = {
+      WaveQuery,
+      {16, 16, 16},
+  };
+  ThreadVectorMatrixMultiplyQuery ThreadVectorQuery = {
+      DataType::Float16,
+      DataType::Float16,
+      DataType::None,
+      DataType::Float16,
+  };
+  ThreadOuterProductQuery OuterProductQuery = {
+      DataType::Float16,
+      DataType::Float16,
+  };
+  AtomicAccumulateStoreQuery AtomicQuery = {DataType::Float16};
+  VERIFY_ARE_EQUAL(32u, ConstructionQuery.WaveSize);
+  VERIFY_ARE_EQUAL(16u, ThreadGroupQuery.Shape.M);
+  VERIFY_IS_TRUE(ThreadVectorQuery.BiasInputType == DataType::None);
+  VERIFY_IS_TRUE(OuterProductQuery.InputComponentType == DataType::Float16);
+  VERIFY_IS_TRUE(AtomicQuery.ComponentType == DataType::Float16);
+}
+
 class DxilConf_SM610_LinAlg {
 public:
   BEGIN_TEST_CLASS(DxilConf_SM610_LinAlg)
@@ -1634,6 +1833,88 @@ static const char CopyConvertShader[] = R"(
   }
 )";
 
+static HRESULT queryCopyConvertSupport(ID3D12Device *Device,
+                                       const MatrixParams &Params,
+                                       bool Transpose, bool &Supported) {
+  Supported = false;
+  if (!Device || Params.Use != MatrixUse::A ||
+      !linalg_test::isLegalScope(linalg_test::OperationType::MatrixConstruction,
+                                 toCapabilityScope(Params.Scope)))
+    return E_INVALIDARG;
+
+  std::optional<linalg_test::DataType> DataType =
+      toCapabilityDataType(Params.CompType);
+  if (!DataType.has_value())
+    return E_INVALIDARG;
+
+  linalg_test::TierSupport Tier;
+  HRESULT HR = linalg_test::queryTierSupport(Device, Tier);
+  if (FAILED(HR) || !Tier.supported())
+    return HR;
+
+  D3D12_FEATURE_DATA_D3D12_OPTIONS1 WaveOptions = {};
+  HR = Device->CheckFeatureSupport(D3D12_FEATURE_D3D12_OPTIONS1, &WaveOptions,
+                                   sizeof(WaveOptions));
+  if (FAILED(HR)) {
+    hlsl_test::LogCommentFmt(L"Wave-size capability query failed: 0x%08x", HR);
+    return HR;
+  }
+  if (!WaveOptions.WaveOps) {
+    hlsl_test::LogCommentFmt(
+        L"Wave operations are unsupported; MatrixConstruction is not "
+        L"applicable");
+    return S_OK;
+  }
+
+  const auto IsPowerOfTwo = [](UINT Value) {
+    return Value != 0 && (Value & (Value - 1)) == 0;
+  };
+  if (!IsPowerOfTwo(WaveOptions.WaveLaneCountMin) ||
+      !IsPowerOfTwo(WaveOptions.WaveLaneCountMax) ||
+      WaveOptions.WaveLaneCountMax < WaveOptions.WaveLaneCountMin) {
+    hlsl_test::LogCommentFmt(
+        L"Wave-size capability response is malformed: WaveOps=%u, min=%u, "
+        L"max=%u",
+        WaveOptions.WaveOps, WaveOptions.WaveLaneCountMin,
+        WaveOptions.WaveLaneCountMax);
+    return E_UNEXPECTED;
+  }
+
+  MatrixParams Destination = Params;
+  if (Transpose) {
+    Destination.M = Params.N;
+    Destination.N = Params.M;
+  }
+
+  for (UINT WaveSize = 4; WaveSize <= 64; WaveSize *= 2) {
+    if (WaveSize < WaveOptions.WaveLaneCountMin ||
+        WaveSize > WaveOptions.WaveLaneCountMax)
+      continue;
+
+    linalg_test::MatrixConstructionSupport Construction;
+    HR = linalg_test::queryMatrixConstruction(Device, {*DataType, WaveSize},
+                                              Construction);
+    if (FAILED(HR))
+      return HR;
+    if (Construction.supports(linalg_test::MatrixRole::A, Params.M, Params.N) &&
+        Construction.supports(linalg_test::MatrixRole::A, Destination.M,
+                              Destination.N)) {
+      hlsl_test::LogCommentFmt(
+          L"CopyConvert capability matched wave=%u for source=%ux%u and "
+          L"destination=%ux%u",
+          WaveSize, Params.M, Params.N, Destination.M, Destination.N);
+      Supported = true;
+      return S_OK;
+    }
+  }
+
+  hlsl_test::LogCommentFmt(
+      L"No MatrixConstruction query within shader WaveSize(4,64) supports "
+      L"CopyConvert source=%ux%u and destination=%ux%u",
+      Params.M, Params.N, Destination.M, Destination.N);
+  return S_OK;
+}
+
 static void runCopyConvert(ID3D12Device *Device,
                            dxc::SpecificDllLoader &DxcSupport,
                            const MatrixParams &Params, bool Verbose,
@@ -1752,6 +2033,19 @@ void DxilConf_SM610_LinAlg::CopyConvert_Wave_4x8_F32_Transpose() {
   Params.Layout = LinalgMatrixLayout::RowMajor;
   Params.NumThreads = 64;
   Params.Enable16Bit = false;
+
+  bool Supported;
+  const HRESULT QueryResult =
+      queryCopyConvertSupport(D3DDevice, Params, /*Transpose=*/true, Supported);
+  const linalg_test::Applicability Applicability =
+      linalg_test::classifyApplicability(
+          QueryResult, Supported,
+          linalg_test::CapabilityRequirement::CapabilityGated);
+  if (!applyApplicability(
+          Applicability,
+          L"CopyConvert_Wave_4x8_F32_Transpose MatrixConstruction"))
+    return;
+
   // Non-square dimensions make the destination shape and row stride observable.
   runCopyConvert(D3DDevice, DxcSupport, Params, VerboseLogging,
                  /*Transpose=*/true);

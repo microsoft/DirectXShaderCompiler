@@ -6,6 +6,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <vector>
 #include <windows.h>
 
 #include "ShaderOpTest.h"
@@ -73,6 +74,199 @@ bool doesDeviceSupportWritableMSAA(ID3D12Device *pDevice);
 bool doesDeviceSupportEnhancedBarriers(ID3D12Device *pDevice);
 bool doesDeviceSupportRelaxedFormatCasting(ID3D12Device *pDevice);
 bool isFallbackPathEnabled();
+
+namespace linalg_test {
+
+enum class Tier : UINT {
+  NotSupported = 0,
+  Tier1_0 = 0x10,
+};
+
+enum class DataType : UINT {
+  None = 0,
+  SInt16 = 2,
+  UInt16 = 3,
+  SInt32 = 4,
+  UInt32 = 5,
+  Float16 = 7,
+  Float32 = 8,
+  SInt8 = 18,
+  UInt8 = 19,
+  Float8E4M3FN = 20,
+  Float8E5M2 = 21,
+};
+
+enum class OperationType : UINT {
+  MatrixConstruction = 0,
+  WaveMatrixMultiply = 1,
+  ThreadGroupMatrixMultiply = 2,
+  ThreadVectorMatrixMultiply = 3,
+  ThreadOuterProduct = 4,
+  AtomicAccumulateStore = 5,
+};
+
+enum class MultiplicationFlags : UINT {
+  None = 0,
+  Supported = 1,
+  EmulatedInputs = 2,
+  EmulatedOutputs = 4,
+  Transpose = 8,
+};
+
+enum class MatrixRole {
+  A,
+  B,
+  Accumulator,
+};
+
+enum class ExecutionScope : UINT {
+  Thread = 1,
+  Wave = 2,
+  ThreadGroup = 4,
+};
+
+using ScopeFlags = UINT;
+
+enum class AtomicDestination {
+  RWByteAddressBuffer,
+  GroupShared,
+};
+
+enum class CapabilityRequirement {
+  Mandatory,
+  CapabilityGated,
+};
+
+enum class Applicability {
+  Execute,
+  NotApplicable,
+  Fail,
+};
+
+struct TierSupport {
+  Tier LinearAlgebraTier = Tier::NotSupported;
+
+  bool supported() const { return LinearAlgebraTier != Tier::NotSupported; }
+};
+
+struct MatrixConstructionQuery {
+  DataType ComponentType;
+  UINT WaveSize;
+};
+
+struct MatrixConstructionSupport {
+  UINT MinM = 0;
+  UINT MinK = 0;
+  UINT MinN = 0;
+
+  bool valid() const;
+  bool supported() const;
+  bool supports(MatrixRole Role, UINT Rows, UINT Columns) const;
+};
+
+struct MatrixMultiplyShape {
+  UINT M;
+  UINT K;
+  UINT N;
+};
+
+struct WaveMatrixMultiplyQuery {
+  UINT WaveSize;
+  DataType MatrixAComponentType;
+  DataType MatrixBComponentType;
+  DataType AccumulatorComponentType;
+};
+
+struct WaveMatrixMultiplySupport {
+  MultiplicationFlags SupportFlags = MultiplicationFlags::None;
+  std::vector<MatrixMultiplyShape> Shapes;
+
+  bool valid() const;
+  bool supported() const;
+  bool supportsShape(UINT M, UINT K, UINT N) const;
+};
+
+struct ThreadGroupMatrixMultiplyQuery {
+  WaveMatrixMultiplyQuery WaveInputs;
+  MatrixMultiplyShape Shape;
+};
+
+struct ThreadGroupMatrixMultiplySupport {
+  MultiplicationFlags SupportFlags = MultiplicationFlags::None;
+  UINT MinThreadGroupSize = 0;
+  UINT MaxThreadGroupSize = 0;
+  UINT PreferredThreadGroupSize = 0;
+
+  bool valid() const;
+  bool supported() const;
+  bool supportsThreadGroupSize(UINT ThreadGroupSize) const;
+};
+
+struct ThreadVectorMatrixMultiplyQuery {
+  DataType VectorInputType;
+  DataType MatrixInputType;
+  DataType BiasInputType;
+  DataType VectorResultType;
+};
+
+struct ThreadVectorMatrixMultiplySupport {
+  MultiplicationFlags SupportFlags = MultiplicationFlags::None;
+
+  bool valid() const;
+  bool supported() const;
+};
+
+struct ThreadOuterProductQuery {
+  DataType InputComponentType;
+  DataType ResultComponentType;
+};
+
+struct ThreadOuterProductSupport {
+  bool Supported = false;
+
+  bool supported() const { return Supported; }
+};
+
+struct AtomicAccumulateStoreQuery {
+  DataType ComponentType;
+};
+
+struct AtomicAccumulateStoreSupport {
+  bool RWByteAddressBufferSupported = false;
+  bool GroupSharedSupported = false;
+
+  bool supports(AtomicDestination Destination) const;
+};
+
+bool hasFlag(MultiplicationFlags Value, MultiplicationFlags Flag);
+ScopeFlags legalScopes(OperationType Operation);
+bool isLegalScope(OperationType Operation, ExecutionScope Scope);
+Applicability classifyApplicability(HRESULT QueryResult, bool Supported,
+                                    CapabilityRequirement Requirement);
+
+HRESULT queryTierSupport(ID3D12Device *Device, TierSupport &Support);
+HRESULT queryMatrixConstruction(ID3D12Device *Device,
+                                const MatrixConstructionQuery &Query,
+                                MatrixConstructionSupport &Support);
+HRESULT queryWaveMatrixMultiply(ID3D12Device *Device,
+                                const WaveMatrixMultiplyQuery &Query,
+                                WaveMatrixMultiplySupport &Support);
+HRESULT
+queryThreadGroupMatrixMultiply(ID3D12Device *Device,
+                               const ThreadGroupMatrixMultiplyQuery &Query,
+                               ThreadGroupMatrixMultiplySupport &Support);
+HRESULT
+queryThreadVectorMatrixMultiply(ID3D12Device *Device,
+                                const ThreadVectorMatrixMultiplyQuery &Query,
+                                ThreadVectorMatrixMultiplySupport &Support);
+HRESULT queryThreadOuterProduct(ID3D12Device *Device,
+                                const ThreadOuterProductQuery &Query,
+                                ThreadOuterProductSupport &Support);
+HRESULT queryAtomicAccumulateStore(ID3D12Device *Device,
+                                   const AtomicAccumulateStoreQuery &Query,
+                                   AtomicAccumulateStoreSupport &Support);
+
+} // namespace linalg_test
 
 UINT getMaxGroupSharedMemoryCS(ID3D12Device *Device);
 UINT getMaxGroupSharedMemoryAS(ID3D12Device *Device);
