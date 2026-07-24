@@ -596,6 +596,113 @@ makeSequentialMatrix(ComponentType CompType, MatrixDim M, MatrixDim N,
   }
 }
 
+static std::optional<TypedMatrix> makeRepeatedIntegerAccumulationMatrix(
+    ComponentType CompType, MatrixDim M, MatrixDim N, int64_t InitialValue,
+    int64_t AccumulateStartingValue, uint32_t AccumulationCount) {
+  size_t NumElements;
+  if (M == 0 || N == 0 || AccumulationCount == 0 ||
+      !checkedMultiply(static_cast<size_t>(M), static_cast<size_t>(N),
+                       NumElements)) {
+    hlsl_test::LogErrorFmt(
+        L"Invalid repeated accumulation dimensions or count: M=%u, N=%u, "
+        L"count=%u",
+        M, N, AccumulationCount);
+    return std::nullopt;
+  }
+
+  std::vector<int64_t> LogicalValues;
+  LogicalValues.reserve(NumElements);
+  for (size_t I = 0; I < NumElements; ++I) {
+    if (I > static_cast<size_t>(std::numeric_limits<int64_t>::max())) {
+      hlsl_test::LogErrorFmt(L"Repeated accumulation index is out of range");
+      return std::nullopt;
+    }
+
+    int64_t Addend;
+    int64_t RepeatedAddend;
+    int64_t Result;
+    if (!checkedAddInt64(AccumulateStartingValue, static_cast<int64_t>(I),
+                         Addend) ||
+        !checkedMultiplyInt64(Addend, static_cast<int64_t>(AccumulationCount),
+                              RepeatedAddend) ||
+        !checkedAddInt64(InitialValue, RepeatedAddend, Result)) {
+      hlsl_test::LogErrorFmt(
+          L"Repeated accumulation expectation overflowed at index %zu", I);
+      return std::nullopt;
+    }
+    LogicalValues.push_back(Result);
+  }
+
+  switch (CompType) {
+  case ComponentType::F16: {
+    std::vector<HLSLHalf_t> Values;
+    Values.reserve(NumElements);
+    for (int64_t Value : LogicalValues) {
+      HLSLHalf_t Encoded(static_cast<float>(Value));
+      if (static_cast<double>(static_cast<float>(Encoded)) !=
+          static_cast<double>(Value)) {
+        hlsl_test::LogErrorFmt(
+            L"Repeated F16 accumulation result is not exactly representable: "
+            L"%lld",
+            Value);
+        return std::nullopt;
+      }
+      Values.push_back(Encoded);
+    }
+    return makeTypedMatrix(M, N, std::move(Values));
+  }
+  case ComponentType::F32: {
+    std::vector<float> Values;
+    Values.reserve(NumElements);
+    for (int64_t Value : LogicalValues) {
+      const float Encoded = static_cast<float>(Value);
+      if (static_cast<double>(Encoded) != static_cast<double>(Value)) {
+        hlsl_test::LogErrorFmt(
+            L"Repeated F32 accumulation result is not exactly representable: "
+            L"%lld",
+            Value);
+        return std::nullopt;
+      }
+      Values.push_back(Encoded);
+    }
+    return makeTypedMatrix(M, N, std::move(Values));
+  }
+  case ComponentType::I32: {
+    std::vector<int32_t> Values;
+    Values.reserve(NumElements);
+    for (int64_t Value : LogicalValues) {
+      if (Value < std::numeric_limits<int32_t>::min() ||
+          Value > std::numeric_limits<int32_t>::max()) {
+        hlsl_test::LogErrorFmt(
+            L"Repeated I32 accumulation result is out of range: %lld", Value);
+        return std::nullopt;
+      }
+      Values.push_back(static_cast<int32_t>(Value));
+    }
+    return makeTypedMatrix(M, N, std::move(Values));
+  }
+  case ComponentType::U32: {
+    std::vector<uint32_t> Values;
+    Values.reserve(NumElements);
+    for (int64_t Value : LogicalValues) {
+      if (Value < 0 ||
+          static_cast<uint64_t>(Value) > std::numeric_limits<uint32_t>::max()) {
+        hlsl_test::LogErrorFmt(
+            L"Repeated U32 accumulation result is out of range: %lld", Value);
+        return std::nullopt;
+      }
+      Values.push_back(static_cast<uint32_t>(Value));
+    }
+    return makeTypedMatrix(M, N, std::move(Values));
+  }
+  default:
+    hlsl_test::LogErrorFmt(
+        L"Unsupported repeated accumulation component type: %u",
+        static_cast<uint32_t>(CompType));
+    return std::nullopt;
+  }
+}
+
 static std::optional<TypedMatrix> makeZeroMatrix(ComponentType CompType,
                                                  MatrixDim M, MatrixDim N) {
   size_t NumElements;
@@ -1739,6 +1846,17 @@ void LinAlgCPUOracleTests::TypedMatrixBufferRoundTrip() {
   VERIFY_IS_TRUE(*ProductAccumulated ==
                  std::vector<int64_t>({59, 63, 141, 152}));
 
+  std::optional<TypedMatrix> RepeatedAccumulation =
+      makeRepeatedIntegerAccumulationMatrix(
+          ComponentType::I32, /*M=*/2, /*N=*/2, /*InitialValue=*/10,
+          /*AccumulateStartingValue=*/1, /*AccumulationCount=*/3);
+  std::optional<TypedMatrix> ExpectedRepeatedAccumulation =
+      makeTypedMatrix<int32_t>(2, 2, {13, 16, 19, 22});
+  VERIFY_IS_TRUE(RepeatedAccumulation.has_value());
+  VERIFY_IS_TRUE(ExpectedRepeatedAccumulation.has_value());
+  VERIFY_IS_TRUE(exactMatrixMatch(
+      *RepeatedAccumulation, *ExpectedRepeatedAccumulation, FirstMismatch));
+
   std::optional<TypedMatrix> MixedActual =
       makeTypedMatrix<uint32_t>(1, 2, {1, 4});
   std::optional<TypedMatrix> CandidateA =
@@ -2008,6 +2126,8 @@ public:
   TEST_METHOD(SplatStore_Wave_16x16_F16);
   TEST_METHOD(AccumulateDescriptor_Wave_16x16_F16);
   TEST_METHOD(AccumulateDescriptorBounds_Wave_4x8_F32);
+  TEST_METHOD(AccumulateDescriptorContention_Wave_4x8_I32);
+  TEST_METHOD(AccumulateDescriptorContention_Wave_4x8_F32_OrderInvariant);
 
   // Load/Store/Accumulate Memory
   TEST_METHOD(LoadMemory_Wave_16x16_F16);
@@ -2017,6 +2137,8 @@ public:
   TEST_METHOD(LoadStoreMemory_Wave_4x8_F32_ColumnMajorOffsetPadded);
   TEST_METHOD(LoadStoreMemory_ThreadGroup_4x8_F16);
   TEST_METHOD(AccumulateMemory_Wave_4x8_F16_RowMajorOffsetPadded);
+  TEST_METHOD(AccumulateMemoryContention_Wave_4x8_F16);
+  TEST_METHOD(AccumulateMemoryContention_Wave_4x8_I32);
 
   // Element access
   TEST_METHOD(ElementAccess_Wave_16x16_F16);
@@ -2074,6 +2196,8 @@ public:
   TEST_METHOD(VectorAccumulateDescriptor_Thread_F16);
   TEST_METHOD(VectorAccumulateDescriptor_Thread_F16_Length8_NonZero);
   TEST_METHOD(VectorAccumulateDescriptor_Thread_F32_Length8_NonZero);
+  TEST_METHOD(VectorAccumulateDescriptorContention_Thread_F16);
+  TEST_METHOD(VectorAccumulateDescriptorContention_Thread_I32);
 
 private:
   CComPtr<ID3D12Device> D3DDevice;
@@ -2125,6 +2249,26 @@ bool DxilConf_SM610_LinAlg::setupMethod() {
   return D3D12SDK->createDevice(&D3DDevice, D3D_SHADER_MODEL_6_10, false);
 }
 
+static bool configureContendingWaves(MatrixParams &Params, UINT WaveSize,
+                                     UINT ActiveWaveCount, LPCWSTR CaseName) {
+  size_t NumThreads;
+  if (!CaseName || WaveSize == 0 || ActiveWaveCount < 2 ||
+      !cpu_oracle::checkedMultiply(static_cast<size_t>(WaveSize),
+                                   static_cast<size_t>(ActiveWaveCount),
+                                   NumThreads) ||
+      NumThreads > D3D12_CS_THREAD_GROUP_MAX_THREADS_PER_GROUP ||
+      NumThreads > static_cast<size_t>(std::numeric_limits<int>::max())) {
+    VERIFY_IS_TRUE(false, "Invalid contending Wave configuration");
+    return false;
+  }
+
+  Params.NumThreads = static_cast<int>(NumThreads);
+  hlsl_test::LogCommentFmt(
+      L"%s contention uses wave=%u, active waves/group=%u, threads/group=%zu",
+      CaseName, WaveSize, ActiveWaveCount, NumThreads);
+  return true;
+}
+
 static const char DescriptorIOShader[] = R"(
   ByteAddressBuffer Input : register(t0);
   RWByteAddressBuffer Output : register(u1);
@@ -2136,7 +2280,7 @@ static const char DescriptorIOShader[] = R"(
   #endif
   [numthreads(NUMTHREADS, 1, 1)]
   void main() {
-    if (GetGroupWaveIndex() != 0)
+    if (GetGroupWaveIndex() >= ACTIVE_WAVE_COUNT)
       return;
 
     __builtin_LinAlgMatrix
@@ -2164,14 +2308,35 @@ static void runDescriptorIO(
     UINT SourceAlignment, UINT DestinationAlignment, size_t SourceViewBytes,
     size_t DestinationViewBytes, std::vector<BYTE> InitialOutput,
     const cpu_oracle::BufferResultOracle &Oracle, bool Verbose,
-    UINT ForcedWaveSize = 0, UINT AccumulateCount = 0) {
+    UINT ForcedWaveSize = 0, UINT AccumulateCount = 0, UINT ActiveWaveCount = 1,
+    UINT DispatchX = 1) {
   std::optional<std::vector<BYTE>> SourceBuffer =
       cpu_oracle::encodeMatrixBuffer(InputMatrix, SourceLayout, 0xcd);
   VERIFY_IS_TRUE(SourceBuffer.has_value(),
                  "Unable to encode descriptor input matrix");
-  VERIFY_IS_TRUE(SourceViewBytes <= SourceBuffer->size() &&
-                     DestinationViewBytes <= InitialOutput.size(),
-                 "Descriptor view exceeds its backing resource");
+  if (!SourceBuffer.has_value())
+    return;
+
+  size_t ActiveThreads = 0;
+  const bool ValidContention =
+      ActiveWaveCount != 0 && DispatchX != 0 &&
+      (ActiveWaveCount == 1 ||
+       (ForcedWaveSize != 0 &&
+        cpu_oracle::checkedMultiply(static_cast<size_t>(ForcedWaveSize),
+                                    static_cast<size_t>(ActiveWaveCount),
+                                    ActiveThreads) &&
+        ActiveThreads == static_cast<size_t>(Params.NumThreads))) &&
+      (AccumulateCount != 0 || (ActiveWaveCount == 1 && DispatchX == 1));
+  VERIFY_IS_TRUE(ValidContention,
+                 "Invalid descriptor dispatch or contention configuration");
+  if (!ValidContention)
+    return;
+
+  const bool ValidViews = SourceViewBytes <= SourceBuffer->size() &&
+                          DestinationViewBytes <= InitialOutput.size();
+  VERIFY_IS_TRUE(ValidViews, "Descriptor view exceeds its backing resource");
+  if (!ValidViews)
+    return;
 
   std::stringstream ExtraDefs;
   ExtraDefs << " -DSRC_OFFSET=" << SourceLayout.OffsetBytes;
@@ -2186,13 +2351,15 @@ static void runDescriptorIO(
     ExtraDefs << " -DFORCED_WAVE_SIZE=" << ForcedWaveSize;
   if (AccumulateCount != 0)
     ExtraDefs << " -DACCUMULATE_COUNT=" << AccumulateCount;
+  ExtraDefs << " -DACTIVE_WAVE_COUNT=" << ActiveWaveCount;
 
   std::string Args = buildCompilerArgs(Params, ExtraDefs.str().c_str());
 
   compileShader(DxcSupport, DescriptorIOShader, "cs_6_10", Args, Verbose);
 
   auto Op = createComputeOp(DescriptorIOShader, "cs_6_10",
-                            "DescriptorTable(SRV(t0), UAV(u1))", Args.c_str());
+                            "DescriptorTable(SRV(t0), UAV(u1))", Args.c_str(),
+                            DispatchX);
   addSRVBuffer(Op.get(), "Input", SourceBuffer->size(), "byname");
   addUAVBuffer(Op.get(), "Output", InitialOutput.size(), true, "byname");
   addRawBufferDescriptorTable(
@@ -2225,6 +2392,61 @@ static void runDescriptorIO(
 
   VERIFY_IS_TRUE(cpu_oracle::verifyBufferResult(OutData.data(), OutData.size(),
                                                 Oracle, Verbose));
+}
+
+static void runExactDescriptorAccumulateContention(
+    ID3D12Device *Device, dxc::SpecificDllLoader &DxcSupport,
+    const MatrixParams &Params, const cpu_oracle::TypedMatrix &Input,
+    const cpu_oracle::TypedMatrix &Initial,
+    const cpu_oracle::TypedMatrix &Expected,
+    const cpu_oracle::MatrixBufferLayout &SourceLayout,
+    const cpu_oracle::MatrixBufferLayout &DestinationLayout,
+    UINT SourceAlignment, UINT DestinationAlignment, UINT SelectedWaveSize,
+    UINT ActiveWaveCount, UINT DispatchX, std::wstring PublicRule,
+    bool Verbose) {
+  using namespace cpu_oracle;
+
+  if (!isMatrixValid(Input) || !isMatrixValid(Initial) ||
+      !isMatrixValid(Expected) || Input.CompType != Params.CompType ||
+      Initial.CompType != Params.CompType ||
+      Expected.CompType != Params.CompType || Input.M != Params.M ||
+      Input.N != Params.N || Initial.M != Params.M || Initial.N != Params.N ||
+      Expected.M != Params.M || Expected.N != Params.N ||
+      ActiveWaveCount == 0 || DispatchX == 0) {
+    VERIFY_IS_TRUE(false, "Invalid descriptor contention matrices");
+    return;
+  }
+
+  std::optional<size_t> SourceBytes = getMatrixBufferSize(Input, SourceLayout);
+  std::optional<std::vector<BYTE>> InitialOutput =
+      encodeMatrixBuffer(Initial, DestinationLayout, 0xcd);
+  std::optional<std::vector<BYTE>> ExpectedOutput =
+      encodeMatrixBuffer(Expected, DestinationLayout, 0xcd);
+  if (!SourceBytes.has_value() || !InitialOutput.has_value() ||
+      !ExpectedOutput.has_value()) {
+    VERIFY_IS_TRUE(false, "Unable to build descriptor contention buffers");
+    return;
+  }
+
+  size_t InvocationCount;
+  if (!checkedMultiply(static_cast<size_t>(ActiveWaveCount),
+                       static_cast<size_t>(DispatchX), InvocationCount)) {
+    VERIFY_IS_TRUE(false, "Descriptor contention invocation count overflowed");
+    return;
+  }
+  hlsl_test::LogCommentFmt(
+      L"Descriptor contention: scope=Wave, waves/group=%u, groups=%u, "
+      L"atomic invocations=%zu",
+      ActiveWaveCount, DispatchX, InvocationCount);
+
+  BufferResultOracle Oracle =
+      exactBufferResult(std::move(*ExpectedOutput), std::move(PublicRule));
+  const size_t DestinationBytes = InitialOutput->size();
+  runDescriptorIO(Device, DxcSupport, Params, Input, SourceLayout,
+                  DestinationLayout, SourceAlignment, DestinationAlignment,
+                  *SourceBytes, DestinationBytes, std::move(*InitialOutput),
+                  Oracle, Verbose, SelectedWaveSize,
+                  /*AccumulateCount=*/1, ActiveWaveCount, DispatchX);
 }
 
 static void runExactDescriptorRoundTrip(
@@ -2694,6 +2916,137 @@ void DxilConf_SM610_LinAlg::AccumulateDescriptorBounds_Wave_4x8_F32() {
                   DestinationViewBytes, std::move(*InitialOutput), Oracle,
                   VerboseLogging, SelectedWaveSize,
                   /*AccumulateCount=*/1);
+}
+
+void DxilConf_SM610_LinAlg::AccumulateDescriptorContention_Wave_4x8_I32() {
+  MatrixParams Params = {};
+  Params.CompType = ComponentType::I32;
+  Params.M = 4;
+  Params.N = 8;
+  Params.Use = MatrixUse::Accumulator;
+  Params.Scope = MatrixScope::Wave;
+  Params.Layout = LinalgMatrixLayout::RowMajor;
+  Params.NumThreads = 64;
+  Params.Enable16Bit = false;
+
+  constexpr UINT ActiveWaveCount = 2;
+  constexpr UINT DispatchX = 2;
+  bool Supported;
+  UINT SelectedWaveSize;
+  const HRESULT QueryResult = queryDescriptorAccumulateSupport(
+      D3DDevice, Params, L"AccumulateDescriptorContention_Wave_4x8_I32",
+      Supported, SelectedWaveSize);
+  const linalg_test::Applicability Applicability =
+      linalg_test::classifyApplicability(
+          QueryResult, Supported,
+          linalg_test::CapabilityRequirement::CapabilityGated);
+  if (!applyApplicability(Applicability,
+                          L"AccumulateDescriptorContention_Wave_4x8_I32") ||
+      !configureContendingWaves(Params, SelectedWaveSize, ActiveWaveCount,
+                                L"AccumulateDescriptorContention_Wave_4x8_I32"))
+    return;
+
+  std::optional<cpu_oracle::TypedMatrix> Input =
+      cpu_oracle::makeSequentialMatrix(Params.CompType, Params.M, Params.N);
+  std::optional<cpu_oracle::TypedMatrix> Initial =
+      cpu_oracle::makeSequentialMatrix(Params.CompType, Params.M, Params.N,
+                                       /*StartingValue=*/7,
+                                       /*Increment=*/false);
+  std::optional<cpu_oracle::TypedMatrix> Expected =
+      cpu_oracle::makeRepeatedIntegerAccumulationMatrix(
+          Params.CompType, Params.M, Params.N, /*InitialValue=*/7,
+          /*AccumulateStartingValue=*/1,
+          /*AccumulationCount=*/ActiveWaveCount * DispatchX);
+  VERIFY_IS_TRUE(Input.has_value() && Initial.has_value() &&
+                     Expected.has_value(),
+                 "Unable to build I32 descriptor contention matrices");
+  if (!Input.has_value() || !Initial.has_value() || !Expected.has_value())
+    return;
+
+  const cpu_oracle::MatrixBufferLayout SourceLayout = {
+      LinalgMatrixLayout::RowMajor,
+      /*OffsetBytes=*/0,
+      /*StrideBytes=*/32,
+  };
+  const cpu_oracle::MatrixBufferLayout DestinationLayout = {
+      LinalgMatrixLayout::RowMajor,
+      /*OffsetBytes=*/16,
+      /*StrideBytes=*/40,
+  };
+  runExactDescriptorAccumulateContention(
+      D3DDevice, DxcSupport, Params, *Input, *Initial, *Expected, SourceLayout,
+      DestinationLayout, /*SourceAlignment=*/128,
+      /*DestinationAlignment=*/16, SelectedWaveSize, ActiveWaveCount, DispatchX,
+      L"Four I32 matrix atomic additions across two Waves in each of two "
+      L"thread groups exactly preserve every update and all destination guards",
+      VerboseLogging);
+}
+
+void DxilConf_SM610_LinAlg::
+    AccumulateDescriptorContention_Wave_4x8_F32_OrderInvariant() {
+  MatrixParams Params = {};
+  Params.CompType = ComponentType::F32;
+  Params.M = 4;
+  Params.N = 8;
+  Params.Use = MatrixUse::Accumulator;
+  Params.Scope = MatrixScope::Wave;
+  Params.Layout = LinalgMatrixLayout::RowMajor;
+  Params.NumThreads = 64;
+  Params.Enable16Bit = false;
+
+  constexpr UINT ActiveWaveCount = 2;
+  constexpr UINT DispatchX = 2;
+  bool Supported;
+  UINT SelectedWaveSize;
+  const HRESULT QueryResult = queryDescriptorAccumulateSupport(
+      D3DDevice, Params,
+      L"AccumulateDescriptorContention_Wave_4x8_F32_OrderInvariant", Supported,
+      SelectedWaveSize);
+  const linalg_test::Applicability Applicability =
+      linalg_test::classifyApplicability(
+          QueryResult, Supported,
+          linalg_test::CapabilityRequirement::CapabilityGated);
+  if (!applyApplicability(
+          Applicability,
+          L"AccumulateDescriptorContention_Wave_4x8_F32_OrderInvariant") ||
+      !configureContendingWaves(
+          Params, SelectedWaveSize, ActiveWaveCount,
+          L"AccumulateDescriptorContention_Wave_4x8_F32_OrderInvariant"))
+    return;
+
+  const size_t NumElements = Params.totalElements();
+  std::optional<cpu_oracle::TypedMatrix> Input =
+      cpu_oracle::makeTypedMatrix<float>(Params.M, Params.N,
+                                         std::vector<float>(NumElements, 0.5f));
+  std::optional<cpu_oracle::TypedMatrix> Initial =
+      cpu_oracle::makeTypedMatrix<float>(Params.M, Params.N,
+                                         std::vector<float>(NumElements, 1.0f));
+  std::optional<cpu_oracle::TypedMatrix> Expected =
+      cpu_oracle::makeTypedMatrix<float>(Params.M, Params.N,
+                                         std::vector<float>(NumElements, 3.0f));
+  VERIFY_IS_TRUE(Input.has_value() && Initial.has_value() &&
+                     Expected.has_value(),
+                 "Unable to build F32 descriptor contention matrices");
+  if (!Input.has_value() || !Initial.has_value() || !Expected.has_value())
+    return;
+
+  const cpu_oracle::MatrixBufferLayout SourceLayout = {
+      LinalgMatrixLayout::RowMajor,
+      /*OffsetBytes=*/0,
+      /*StrideBytes=*/32,
+  };
+  const cpu_oracle::MatrixBufferLayout DestinationLayout = {
+      LinalgMatrixLayout::RowMajor,
+      /*OffsetBytes=*/16,
+      /*StrideBytes=*/40,
+  };
+  runExactDescriptorAccumulateContention(
+      D3DDevice, DxcSupport, Params, *Input, *Initial, *Expected, SourceLayout,
+      DestinationLayout, /*SourceAlignment=*/128,
+      /*DestinationAlignment=*/16, SelectedWaveSize, ActiveWaveCount, DispatchX,
+      L"Four F32 atomic additions of exactly representable 0.5 to 1.0 have "
+      L"the order-independent exact intermediates 1.5, 2.0, 2.5 and 3.0",
+      VerboseLogging);
 }
 
 static LPCWSTR matrixRoleName(linalg_test::MatrixRole Role) {
@@ -6588,7 +6941,7 @@ static const char GroupSharedAccumulateShader[] = R"(
 
     GroupMemoryBarrierWithGroupSync();
 
-    if (GetGroupWaveIndex() == 0) {
+    if (GetGroupWaveIndex() < ACTIVE_WAVE_COUNT) {
       __builtin_LinAlgMatrix
         [[__LinAlgMatrix_Attributes(COMP_TYPE, M_DIM, N_DIM, USE, SCOPE)]]
         Mat;
@@ -6616,15 +6969,25 @@ static void runGroupSharedAccumulate(
     ID3D12Device *Device, dxc::SpecificDllLoader &DxcSupport,
     const MatrixParams &Params, const GroupSharedMemorySpec &Memory,
     uint32_t InitialValue, uint32_t AccumulateStartingValue, bool Verbose,
-    std::optional<UINT> ForcedWaveSize = std::nullopt) {
+    std::optional<UINT> ForcedWaveSize = std::nullopt,
+    UINT ActiveWaveCount = 1) {
   using namespace cpu_oracle;
 
   if (!Device || Params.Scope != MatrixScope::Wave ||
-      Params.Use != MatrixUse::Accumulator ||
-      InitialValue >
-          (std::numeric_limits<uint32_t>::max)() - AccumulateStartingValue) {
+      Params.Use != MatrixUse::Accumulator || ActiveWaveCount == 0) {
     VERIFY_IS_TRUE(false, "Invalid group-shared accumulate parameters");
     return;
+  }
+  if (ActiveWaveCount > 1) {
+    size_t ActiveThreads;
+    if (!ForcedWaveSize.has_value() ||
+        !checkedMultiply(static_cast<size_t>(*ForcedWaveSize),
+                         static_cast<size_t>(ActiveWaveCount), ActiveThreads) ||
+        ActiveThreads != static_cast<size_t>(Params.NumThreads)) {
+      VERIFY_IS_TRUE(false,
+                     "Group-shared contention must use exact active Waves");
+      return;
+    }
   }
 
   size_t BufferSize;
@@ -6638,9 +7001,10 @@ static void runGroupSharedAccumulate(
   std::optional<TypedMatrix> InitialMatrix =
       makeSequentialMatrix(Params.CompType, Params.M, Params.N, InitialValue,
                            /*Increment=*/false);
-  std::optional<TypedMatrix> ExpectedMatrix = makeSequentialMatrix(
-      Params.CompType, Params.M, Params.N,
-      InitialValue + AccumulateStartingValue, /*Increment=*/true);
+  std::optional<TypedMatrix> ExpectedMatrix =
+      makeRepeatedIntegerAccumulationMatrix(
+          Params.CompType, Params.M, Params.N, InitialValue,
+          AccumulateStartingValue, ActiveWaveCount);
   std::optional<std::vector<BYTE>> Initial =
       makeFilledComponentBuffer(Params.CompType, BufferSize, 90);
   std::optional<std::vector<BYTE>> Expected =
@@ -6661,6 +7025,7 @@ static void runGroupSharedAccumulate(
             << Memory.Layout.StrideBytes / elementSize(Params.CompType);
   ExtraDefs << " -DMEM_LAYOUT=" << static_cast<UINT>(Memory.Layout.Layout);
   ExtraDefs << " -DACCUMULATE_START=" << AccumulateStartingValue;
+  ExtraDefs << " -DACTIVE_WAVE_COUNT=" << ActiveWaveCount;
   if (ForcedWaveSize.has_value())
     ExtraDefs << " -DFORCED_WAVE_SIZE=" << *ForcedWaveSize;
 
@@ -6684,8 +7049,12 @@ static void runGroupSharedAccumulate(
 
   MappedData OutData;
   Result->Test->GetReadBackData("Output", &OutData);
-  BufferResultOracle Oracle = exactBufferResult(
-      std::move(*Expected), L"Exact Wave group-shared atomic accumulation");
+  std::wstringstream PublicRule;
+  PublicRule << L"Exact Wave group-shared atomic accumulation from "
+             << ActiveWaveCount << L" contending Wave"
+             << (ActiveWaveCount == 1 ? L"" : L"s");
+  BufferResultOracle Oracle =
+      exactBufferResult(std::move(*Expected), PublicRule.str());
   VERIFY_IS_TRUE(
       verifyBufferResult(OutData.data(), OutData.size(), Oracle, Verbose));
 }
@@ -6724,6 +7093,76 @@ void DxilConf_SM610_LinAlg::
                            /*InitialValue=*/12,
                            /*AccumulateStartingValue=*/1, VerboseLogging,
                            SelectedWaveSize);
+}
+
+void DxilConf_SM610_LinAlg::AccumulateMemoryContention_Wave_4x8_I32() {
+  MatrixParams Params = {};
+  Params.CompType = ComponentType::I32;
+  Params.M = 4;
+  Params.N = 8;
+  Params.Use = MatrixUse::Accumulator;
+  Params.Scope = MatrixScope::Wave;
+  Params.Layout = LinalgMatrixLayout::RowMajor;
+  Params.NumThreads = 64;
+  Params.Enable16Bit = false;
+
+  constexpr UINT ActiveWaveCount = 2;
+  bool Supported;
+  UINT SelectedWaveSize;
+  const HRESULT QueryResult = queryAtomicAccumulateSupport(
+      D3DDevice, Params, linalg_test::AtomicDestination::GroupShared,
+      L"AccumulateMemoryContention_Wave_4x8_I32", Supported, SelectedWaveSize);
+  const linalg_test::Applicability Applicability =
+      linalg_test::classifyApplicability(
+          QueryResult, Supported,
+          linalg_test::CapabilityRequirement::CapabilityGated);
+  if (!applyApplicability(Applicability,
+                          L"AccumulateMemoryContention_Wave_4x8_I32") ||
+      !configureContendingWaves(Params, SelectedWaveSize, ActiveWaveCount,
+                                L"AccumulateMemoryContention_Wave_4x8_I32"))
+    return;
+
+  const GroupSharedMemorySpec Memory = {{LinalgMatrixLayout::RowMajor,
+                                         /*OffsetBytes=*/16,
+                                         /*StrideBytes=*/40}};
+  runGroupSharedAccumulate(D3DDevice, DxcSupport, Params, Memory,
+                           /*InitialValue=*/7, /*AccumulateStartingValue=*/1,
+                           VerboseLogging, SelectedWaveSize, ActiveWaveCount);
+}
+
+void DxilConf_SM610_LinAlg::AccumulateMemoryContention_Wave_4x8_F16() {
+  MatrixParams Params = {};
+  Params.CompType = ComponentType::F16;
+  Params.M = 4;
+  Params.N = 8;
+  Params.Use = MatrixUse::Accumulator;
+  Params.Scope = MatrixScope::Wave;
+  Params.Layout = LinalgMatrixLayout::RowMajor;
+  Params.NumThreads = 64;
+  Params.Enable16Bit = true;
+
+  constexpr UINT ActiveWaveCount = 2;
+  bool Supported;
+  UINT SelectedWaveSize;
+  const HRESULT QueryResult = queryAtomicAccumulateSupport(
+      D3DDevice, Params, linalg_test::AtomicDestination::GroupShared,
+      L"AccumulateMemoryContention_Wave_4x8_F16", Supported, SelectedWaveSize);
+  const linalg_test::Applicability Applicability =
+      linalg_test::classifyApplicability(
+          QueryResult, Supported,
+          linalg_test::CapabilityRequirement::CapabilityGated);
+  if (!applyApplicability(Applicability,
+                          L"AccumulateMemoryContention_Wave_4x8_F16") ||
+      !configureContendingWaves(Params, SelectedWaveSize, ActiveWaveCount,
+                                L"AccumulateMemoryContention_Wave_4x8_F16"))
+    return;
+
+  const GroupSharedMemorySpec Memory = {{LinalgMatrixLayout::RowMajor,
+                                         /*OffsetBytes=*/8,
+                                         /*StrideBytes=*/24}};
+  runGroupSharedAccumulate(D3DDevice, DxcSupport, Params, Memory,
+                           /*InitialValue=*/7, /*AccumulateStartingValue=*/1,
+                           VerboseLogging, SelectedWaveSize, ActiveWaveCount);
 }
 
 static const char ConvertShader[] = R"(
@@ -6953,7 +7392,7 @@ static const char VectorAccumulateDescriptorShader[] = R"(
   ByteAddressBuffer Input : register(t0);
   RWByteAddressBuffer Output : register(u1);
 
-  [numthreads(1, 1, 1)]
+  [numthreads(NUMTHREADS, 1, 1)]
   void main() {
     vector<ELEM_TYPE, VECTOR_LENGTH> InVec;
     for (uint I = 0; I < VECTOR_LENGTH; ++I) {
@@ -6968,12 +7407,16 @@ struct VectorAccumulateCaseData {
   ComponentType CompType = ComponentType::Invalid;
   std::vector<int64_t> InputValues;
   std::vector<int64_t> InitialValues;
+  std::vector<int64_t> OutputGuardValues;
+  UINT NumThreads = 1;
+  UINT DispatchX = 1;
   std::wstring PublicRule;
 };
 
 static bool isVectorAccumulateCaseValid(const VectorAccumulateCaseData &Case) {
   return !Case.InputValues.empty() &&
          Case.InputValues.size() == Case.InitialValues.size() &&
+         Case.NumThreads != 0 && Case.DispatchX != 0 &&
          toCapabilityDataType(Case.CompType).has_value() &&
          cpu_oracle::hlslElementTypeName(Case.CompType) &&
          !Case.PublicRule.empty();
@@ -6983,9 +7426,21 @@ static std::optional<std::vector<int64_t>>
 calculateVectorAccumulateExpected(const VectorAccumulateCaseData &Case) {
   if (!isVectorAccumulateCaseValid(Case))
     return std::nullopt;
+  size_t InvocationCountSize;
+  if (!cpu_oracle::checkedMultiply(static_cast<size_t>(Case.NumThreads),
+                                   static_cast<size_t>(Case.DispatchX),
+                                   InvocationCountSize) ||
+      InvocationCountSize >
+          static_cast<size_t>(std::numeric_limits<int64_t>::max()))
+    return std::nullopt;
+  const int64_t InvocationCount = static_cast<int64_t>(InvocationCountSize);
+
   std::vector<int64_t> Expected(Case.InputValues.size());
   for (size_t I = 0; I < Expected.size(); ++I) {
-    if (!cpu_oracle::checkedAddInt64(Case.InitialValues[I], Case.InputValues[I],
+    int64_t TotalAddend;
+    if (!cpu_oracle::checkedMultiplyInt64(Case.InputValues[I], InvocationCount,
+                                          TotalAddend) ||
+        !cpu_oracle::checkedAddInt64(Case.InitialValues[I], TotalAddend,
                                      Expected[I]))
       return std::nullopt;
   }
@@ -7001,6 +7456,7 @@ buildVectorAccumulateCompilerArgs(const VectorAccumulateCaseData &Case) {
   SS << " -DELEM_TYPE=" << cpu_oracle::hlslElementTypeName(Case.CompType);
   SS << " -DELEM_SIZE=" << static_cast<int>(elementSize(Case.CompType));
   SS << " -DVECTOR_LENGTH=" << Case.InputValues.size();
+  SS << " -DNUMTHREADS=" << Case.NumThreads;
   if (needs16BitTypes(Case.CompType))
     SS << " -enable-16bit-types";
   return SS.str();
@@ -7025,14 +7481,23 @@ static void runVectorAccumulateDescriptor(ID3D12Device *Device,
 
   const std::optional<std::vector<BYTE>> Input =
       cpu_oracle::encodeExactComponents(Case.CompType, Case.InputValues);
-  const std::optional<std::vector<BYTE>> Initial =
-      cpu_oracle::encodeExactComponents(Case.CompType, Case.InitialValues);
   const std::optional<std::vector<int64_t>> ExpectedValues =
       calculateVectorAccumulateExpected(Case);
+  std::vector<int64_t> InitialBufferValues = Case.InitialValues;
+  InitialBufferValues.insert(InitialBufferValues.end(),
+                             Case.OutputGuardValues.begin(),
+                             Case.OutputGuardValues.end());
+  std::vector<int64_t> ExpectedBufferValues =
+      ExpectedValues.value_or(std::vector<int64_t>());
+  ExpectedBufferValues.insert(ExpectedBufferValues.end(),
+                              Case.OutputGuardValues.begin(),
+                              Case.OutputGuardValues.end());
+  const std::optional<std::vector<BYTE>> Initial =
+      cpu_oracle::encodeExactComponents(Case.CompType, InitialBufferValues);
   const std::optional<std::vector<BYTE>> Expected =
-      ExpectedValues.has_value()
-          ? cpu_oracle::encodeExactComponents(Case.CompType, *ExpectedValues)
-          : std::optional<std::vector<BYTE>>();
+      ExpectedValues.has_value() ? cpu_oracle::encodeExactComponents(
+                                       Case.CompType, ExpectedBufferValues)
+                                 : std::optional<std::vector<BYTE>>();
   const std::optional<std::string> Args =
       buildVectorAccumulateCompilerArgs(Case);
   VERIFY_IS_TRUE(Input.has_value());
@@ -7043,10 +7508,22 @@ static void runVectorAccumulateDescriptor(ID3D12Device *Device,
       !Args.has_value())
     return;
 
+  size_t InvocationCount;
+  if (!cpu_oracle::checkedMultiply(static_cast<size_t>(Case.NumThreads),
+                                   static_cast<size_t>(Case.DispatchX),
+                                   InvocationCount)) {
+    VERIFY_IS_TRUE(false, "Vector accumulation invocation count overflowed");
+    return;
+  }
+  hlsl_test::LogCommentFmt(
+      L"Vector descriptor accumulation: scope=Thread, threads/group=%u, "
+      L"groups=%u, atomic invocations=%zu",
+      Case.NumThreads, Case.DispatchX, InvocationCount);
+
   compileShader(DxcSupport, VectorAccumulateDescriptorShader, "cs_6_10", *Args,
                 Verbose);
   auto Op = createComputeOp(VectorAccumulateDescriptorShader, "cs_6_10",
-                            "SRV(t0), UAV(u1)", Args->c_str());
+                            "SRV(t0), UAV(u1)", Args->c_str(), Case.DispatchX);
   addSRVBuffer(Op.get(), "Input", Input->size(), "byname");
   addUAVBuffer(Op.get(), "Output", Initial->size(), true, "byname");
   addRootView(Op.get(), 0, "Input");
@@ -7110,6 +7587,39 @@ void DxilConf_SM610_LinAlg::
   runVectorAccumulateDescriptor(
       D3DDevice, DxcSupport, Case,
       L"VectorAccumulateDescriptor_Thread_F32_Length8_NonZero", VerboseLogging);
+}
+
+void DxilConf_SM610_LinAlg::VectorAccumulateDescriptorContention_Thread_I32() {
+  VectorAccumulateCaseData Case = {};
+  Case.CompType = ComponentType::I32;
+  Case.InputValues = {1, -2, 3, -4, 5, -6, 7, -8};
+  Case.InitialValues = {100, 200, 300, 400, 500, 600, 700, 800};
+  Case.OutputGuardValues = {0x12345678, -123456789};
+  Case.NumThreads = 8;
+  Case.DispatchX = 2;
+  Case.PublicRule =
+      L"Sixteen I32 vector atomic additions across eight threads in each of "
+      L"two thread groups exactly preserve every update and both guard values";
+  runVectorAccumulateDescriptor(
+      D3DDevice, DxcSupport, Case,
+      L"VectorAccumulateDescriptorContention_Thread_I32", VerboseLogging);
+}
+
+void DxilConf_SM610_LinAlg::VectorAccumulateDescriptorContention_Thread_F16() {
+  VectorAccumulateCaseData Case = {};
+  Case.CompType = ComponentType::F16;
+  Case.InputValues = {1, -2, 3, -4, 5, -6, 7, -8};
+  Case.InitialValues = {20, 21, 22, 23, 24, 25, 26, 27};
+  Case.OutputGuardValues = {31, -31};
+  Case.NumThreads = 8;
+  Case.DispatchX = 2;
+  Case.PublicRule =
+      L"Sixteen exactly representable F16 vector atomic additions across "
+      L"eight threads in each of two thread groups preserve every update and "
+      L"both guard values";
+  runVectorAccumulateDescriptor(
+      D3DDevice, DxcSupport, Case,
+      L"VectorAccumulateDescriptorContention_Thread_F16", VerboseLogging);
 }
 
 } // namespace LinAlg
