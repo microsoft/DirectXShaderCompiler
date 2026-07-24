@@ -97,6 +97,13 @@ enum class DataType : UINT {
   Float8E5M2 = 21,
 };
 
+enum class MatrixLayout : UINT {
+  RowMajor = 0,
+  ColumnMajor = 1,
+  MulOptimal = 2,
+  OuterProductOptimal = 3,
+};
+
 enum class OperationType : UINT {
   MatrixConstruction = 0,
   WaveMatrixMultiply = 1,
@@ -321,20 +328,14 @@ void compileShader(dxc::SpecificDllLoader &DxcSupport, const char *Source,
                    const char *Target, const std::string &Args,
                    bool VerboseLogging = false);
 
-// Host-side linear-algebra matrix-conversion helpers. These need the D3D12
-// linear-algebra API (the D3D12_LINEAR_ALGEBRA_* types and the conversion
-// methods on ID3D12DevicePreview / ID3D12GraphicsCommandListPreview), which is
-// gated behind the preview SDK's DIRECT3D_LINEAR_ALGEBRA feature macro. When
-// absent, these helpers and the tests using them are compiled out (they Skip at
-// runtime).
-#if defined(DIRECT3D_LINEAR_ALGEBRA)
+// Host-side linear-algebra matrix-conversion helpers. The implementation uses
+// SDK-neutral ABI mirrors for the preview D3D12 interfaces so these remain
+// available when the tests are built against released Windows SDK headers.
 /// Query the number of bytes required to store an NumRows x NumColumns matrix
 /// of the given datatype in the specified device layout.
 UINT getLinAlgMatrixByteSize(ID3D12Device *Device, UINT NumRows,
-                             UINT NumColumns,
-                             D3D12_LINEAR_ALGEBRA_DATATYPE DataType,
-                             D3D12_LINEAR_ALGEBRA_MATRIX_LAYOUT Layout,
-                             UINT Stride);
+                             UINT NumColumns, linalg_test::DataType DataType,
+                             linalg_test::MatrixLayout Layout, UINT Stride);
 
 /// Record a GPU matrix layout conversion onto \p List using
 /// ID3D12GraphicsCommandListPreview::ConvertLinearAlgebraMatrix. Both
@@ -347,9 +348,7 @@ UINT getLinAlgMatrixByteSize(ID3D12Device *Device, UINT NumRows,
 void recordLinAlgMatrixConversion(
     ID3D12GraphicsCommandList *List, ID3D12Resource *SrcBuffer, UINT SrcSize,
     ID3D12Resource *DestBuffer, UINT DestSize, UINT NumRows, UINT NumColumns,
-    D3D12_LINEAR_ALGEBRA_DATATYPE DataType,
-    D3D12_LINEAR_ALGEBRA_MATRIX_LAYOUT SrcLayout, UINT SrcStride,
-    D3D12_LINEAR_ALGEBRA_MATRIX_LAYOUT DestLayout, UINT DestStride);
-#endif // defined(DIRECT3D_LINEAR_ALGEBRA)
+    linalg_test::DataType DataType, linalg_test::MatrixLayout SrcLayout,
+    UINT SrcStride, linalg_test::MatrixLayout DestLayout, UINT DestStride);
 
 #endif // HLSLEXECTESTUTILS_H

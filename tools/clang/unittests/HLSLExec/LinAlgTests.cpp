@@ -2058,6 +2058,8 @@ public:
   TEST_METHOD(MatVecMulAdd_Thread_4x8_F32);
   TEST_METHOD(MatVecMulAdd_Thread_4x8_F16_IndependentBias);
   TEST_METHOD(OuterProduct_Thread_16x16_F16);
+  TEST_METHOD(OuterProduct_Thread_8x16_F16_NonUniform);
+  TEST_METHOD(OuterProduct_Thread_4x8_F32_NonUniform);
 
   // Query Accumulator Layout
   TEST_METHOD(QueryAccumLayout);
@@ -2070,6 +2072,8 @@ public:
 
   // Vector Accumulate
   TEST_METHOD(VectorAccumulateDescriptor_Thread_F16);
+  TEST_METHOD(VectorAccumulateDescriptor_Thread_F16_Length8_NonZero);
+  TEST_METHOD(VectorAccumulateDescriptor_Thread_F32_Length8_NonZero);
 
 private:
   CComPtr<ID3D12Device> D3DDevice;
@@ -3115,6 +3119,71 @@ static HRESULT queryThreadVectorMatrixMultiplySupport(
   if (!Supported)
     hlsl_test::LogCommentFmt(
         L"Thread-vector matrix multiplication is unsupported for %s", CaseName);
+  return S_OK;
+}
+
+static HRESULT queryThreadOuterProductSupport(ID3D12Device *Device,
+                                              ComponentType InputType,
+                                              ComponentType ResultType,
+                                              LPCWSTR CaseName,
+                                              bool &Supported) {
+  Supported = false;
+  const std::optional<linalg_test::DataType> InputDataType =
+      toCapabilityDataType(InputType);
+  const std::optional<linalg_test::DataType> ResultDataType =
+      toCapabilityDataType(ResultType);
+  if (!Device || !CaseName || !InputDataType.has_value() ||
+      !ResultDataType.has_value() ||
+      !linalg_test::isLegalScope(linalg_test::OperationType::ThreadOuterProduct,
+                                 linalg_test::ExecutionScope::Thread))
+    return E_INVALIDARG;
+
+  linalg_test::TierSupport Tier;
+  HRESULT HR = linalg_test::queryTierSupport(Device, Tier);
+  if (FAILED(HR) || !Tier.supported())
+    return HR;
+
+  linalg_test::ThreadOuterProductSupport Support;
+  HR = linalg_test::queryThreadOuterProduct(
+      Device, {*InputDataType, *ResultDataType}, Support);
+  if (FAILED(HR))
+    return HR;
+
+  Supported = Support.supported();
+  if (!Supported)
+    hlsl_test::LogCommentFmt(L"Thread OuterProduct is unsupported for %s",
+                             CaseName);
+  return S_OK;
+}
+
+static HRESULT queryVectorAccumulateDescriptorSupport(ID3D12Device *Device,
+                                                      ComponentType CompType,
+                                                      LPCWSTR CaseName,
+                                                      bool &Supported) {
+  Supported = false;
+  const std::optional<linalg_test::DataType> DataType =
+      toCapabilityDataType(CompType);
+  if (!Device || !CaseName || !DataType.has_value() ||
+      !linalg_test::isLegalScope(
+          linalg_test::OperationType::AtomicAccumulateStore,
+          linalg_test::ExecutionScope::Thread))
+    return E_INVALIDARG;
+
+  linalg_test::TierSupport Tier;
+  HRESULT HR = linalg_test::queryTierSupport(Device, Tier);
+  if (FAILED(HR) || !Tier.supported())
+    return HR;
+
+  linalg_test::AtomicAccumulateStoreSupport Support;
+  HR = linalg_test::queryAtomicAccumulateStore(Device, {*DataType}, Support);
+  if (FAILED(HR))
+    return HR;
+
+  Supported =
+      Support.supports(linalg_test::AtomicDestination::RWByteAddressBuffer);
+  if (!Supported)
+    hlsl_test::LogCommentFmt(
+        L"Vector descriptor accumulation is unsupported for %s", CaseName);
   return S_OK;
 }
 
@@ -5596,160 +5665,237 @@ void DxilConf_SM610_LinAlg::MatVecMulAdd_Thread_4x8_F16_IndependentBias() {
                              VerboseLogging);
 }
 
-// Map a DXIL ComponentType to the D3D12 linear-algebra datatype used by the
-// host-side matrix conversion API.
-#if defined(DIRECT3D_LINEAR_ALGEBRA)
-static D3D12_LINEAR_ALGEBRA_DATATYPE toLinAlgDataType(ComponentType CT) {
-  switch (CT) {
-  case ComponentType::F16:
-    return D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT16;
-  case ComponentType::F32:
-    return D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT32;
-  case ComponentType::I16:
-    return D3D12_LINEAR_ALGEBRA_DATATYPE_SINT16;
-  case ComponentType::U16:
-    return D3D12_LINEAR_ALGEBRA_DATATYPE_UINT16;
-  case ComponentType::I32:
-    return D3D12_LINEAR_ALGEBRA_DATATYPE_SINT32;
-  case ComponentType::U32:
-    return D3D12_LINEAR_ALGEBRA_DATATYPE_UINT32;
-  default:
-    VERIFY_IS_TRUE(false, "Unsupported component type for linalg conversion");
-    return D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT16;
+struct OuterProductCaseData {
+  ComponentType InputType = ComponentType::Invalid;
+  ComponentType ResultType = ComponentType::Invalid;
+  MatrixDim M = 0;
+  MatrixDim N = 0;
+  std::vector<int64_t> VectorAValues;
+  std::vector<int64_t> VectorBValues;
+  std::wstring PublicRule;
+};
+
+static bool isOuterProductCaseValid(const OuterProductCaseData &Case) {
+  return Case.M != 0 && Case.N != 0 && Case.VectorAValues.size() == Case.M &&
+         Case.VectorBValues.size() == Case.N &&
+         toCapabilityDataType(Case.InputType).has_value() &&
+         toCapabilityDataType(Case.ResultType).has_value() &&
+         cpu_oracle::hlslElementTypeName(Case.InputType) &&
+         cpu_oracle::hlslElementTypeName(Case.ResultType) &&
+         !Case.PublicRule.empty();
+}
+
+static std::optional<std::vector<int64_t>>
+calculateOuterProductExpected(const OuterProductCaseData &Case) {
+  if (!isOuterProductCaseValid(Case))
+    return std::nullopt;
+
+  std::vector<int64_t> Expected(static_cast<size_t>(Case.M) * Case.N);
+  for (MatrixDim Row = 0; Row < Case.M; ++Row) {
+    for (MatrixDim Column = 0; Column < Case.N; ++Column) {
+      const size_t Index = static_cast<size_t>(Row) * Case.N + Column;
+      if (!cpu_oracle::checkedMultiplyInt64(Case.VectorAValues[Row],
+                                            Case.VectorBValues[Column],
+                                            Expected[Index]))
+        return std::nullopt;
+    }
   }
+  return Expected;
 }
 
 static const char OuterProductShader[] = R"(
+  #define USE_ACC 2
   #define SCOPE_THREAD 0
 
   RWByteAddressBuffer Input : register(u0);
   RWByteAddressBuffer Output : register(u1);
 
-  [numthreads(NUMTHREADS, 1, 1)]
+  [numthreads(1, 1, 1)]
   void main() {
-    vector<ELEM_TYPE, M_DIM> VecA;
+    vector<INPUT_ELEM_TYPE, M_DIM> VecA;
     for (uint I = 0; I < M_DIM; ++I) {
-      VecA[I] = Input.Load<ELEM_TYPE>(I * ELEM_SIZE);
+      VecA[I] = Input.Load<INPUT_ELEM_TYPE>(I * INPUT_ELEM_SIZE);
     }
 
-    uint EndVecA = M_DIM * ELEM_SIZE;
-
-    vector<ELEM_TYPE, N_DIM> VecB;
+    vector<INPUT_ELEM_TYPE, N_DIM> VecB;
+    uint VecBOffset = M_DIM * INPUT_ELEM_SIZE;
     for (uint I = 0; I < N_DIM; ++I) {
-      VecB[I] = Input.Load<ELEM_TYPE>(EndVecA + I * ELEM_SIZE);
+      VecB[I] =
+        Input.Load<INPUT_ELEM_TYPE>(VecBOffset + I * INPUT_ELEM_SIZE);
     }
 
     __builtin_LinAlgMatrix
-      [[__LinAlgMatrix_Attributes(COMP_TYPE, M_DIM, N_DIM, USE, SCOPE_THREAD)]]
+      [[__LinAlgMatrix_Attributes(
+        RESULT_COMP_TYPE, M_DIM, N_DIM, USE_ACC, SCOPE_THREAD)]]
       Mat;
     __builtin_LinAlg_MatrixOuterProduct(Mat, VecA, VecB);
 
-    // Outer product accumulators are stored in the OuterProductOptimal layout
-    // with stride 0 and no alignment requirement (align 0), matching the
-    // dx::linalg header's thread-scoped InterlockedAccumulate.
     __builtin_LinAlg_MatrixAccumulateToDescriptor(
-      Mat, Output, 0, STRIDE, LAYOUT, 0);
+      Mat, Output, 0, 0, OUTPUT_LAYOUT, 0);
   }
 )";
 
-static void runOuterProduct(ID3D12Device *Device,
-                            dxc::SpecificDllLoader &DxcSupport,
-                            const MatrixParams &Params, bool Verbose) {
-  VERIFY_IS_TRUE(
-      Params.Layout == LinalgMatrixLayout::OuterProductOptimal,
-      "Outer product must output its matrix in OuterProductOptimal layout");
-  VERIFY_IS_TRUE(Params.Use == MatrixUse::Accumulator,
-                 "Outer product must output an accumulator matrix");
-  const size_t NumVecElements = Params.M + Params.N;
-  const size_t InBuffSize = NumVecElements * elementSize(Params.CompType);
-  const size_t NumMatElements = Params.totalElements();
-  const D3D12_LINEAR_ALGEBRA_DATATYPE DataType =
-      toLinAlgDataType(Params.CompType);
+static std::optional<std::string>
+buildOuterProductCompilerArgs(const OuterProductCaseData &Case) {
+  if (!isOuterProductCaseValid(Case))
+    return std::nullopt;
 
-  const UINT OutBufferSize = getLinAlgMatrixByteSize(
-      Device, Params.M, Params.N, DataType,
-      D3D12_LINEAR_ALGEBRA_MATRIX_LAYOUT_OUTER_PRODUCT_OPTIMAL, /*Stride=*/0);
+  std::stringstream SS;
+  SS << "-HV 202x";
+  SS << " -DINPUT_ELEM_TYPE="
+     << cpu_oracle::hlslElementTypeName(Case.InputType);
+  SS << " -DRESULT_COMP_TYPE=" << static_cast<int>(Case.ResultType);
+  SS << " -DINPUT_ELEM_SIZE=" << static_cast<int>(elementSize(Case.InputType));
+  SS << " -DOUTPUT_LAYOUT="
+     << static_cast<int>(LinalgMatrixLayout::OuterProductOptimal);
+  SS << " -DM_DIM=" << Case.M;
+  SS << " -DN_DIM=" << Case.N;
+  if (needs16BitTypes(Case.InputType) || needs16BitTypes(Case.ResultType))
+    SS << " -enable-16bit-types";
+  return SS.str();
+}
 
+static void runOuterProductCase(ID3D12Device *Device,
+                                dxc::SpecificDllLoader &DxcSupport,
+                                const OuterProductCaseData &Case,
+                                LPCWSTR CaseName, bool Verbose) {
+  VERIFY_IS_TRUE(isOuterProductCaseValid(Case));
+  if (!isOuterProductCaseValid(Case))
+    return;
+
+  bool Supported;
+  const HRESULT HR = queryThreadOuterProductSupport(
+      Device, Case.InputType, Case.ResultType, CaseName, Supported);
+  const linalg_test::Applicability Applicability =
+      linalg_test::classifyApplicability(
+          HR, Supported, linalg_test::CapabilityRequirement::CapabilityGated);
+  if (!applyApplicability(Applicability, CaseName))
+    return;
+
+  const std::optional<std::vector<BYTE>> VectorA =
+      cpu_oracle::encodeExactComponents(Case.InputType, Case.VectorAValues);
+  const std::optional<std::vector<BYTE>> VectorB =
+      cpu_oracle::encodeExactComponents(Case.InputType, Case.VectorBValues);
+  const std::optional<std::vector<int64_t>> ExpectedValues =
+      calculateOuterProductExpected(Case);
+  const std::optional<std::vector<BYTE>> Expected =
+      ExpectedValues.has_value()
+          ? cpu_oracle::encodeExactComponents(Case.ResultType, *ExpectedValues)
+          : std::optional<std::vector<BYTE>>();
+  const std::optional<std::string> Args = buildOuterProductCompilerArgs(Case);
+  const std::optional<linalg_test::DataType> DataType =
+      toCapabilityDataType(Case.ResultType);
+  VERIFY_IS_TRUE(VectorA.has_value());
+  VERIFY_IS_TRUE(VectorB.has_value());
+  VERIFY_IS_TRUE(Expected.has_value());
+  VERIFY_IS_TRUE(Args.has_value());
+  VERIFY_IS_TRUE(DataType.has_value());
+  if (!VectorA.has_value() || !VectorB.has_value() || !Expected.has_value() ||
+      !Args.has_value() || !DataType.has_value())
+    return;
+
+  std::vector<BYTE> Input;
+  Input.reserve(VectorA->size() + VectorB->size());
+  Input.insert(Input.end(), VectorA->begin(), VectorA->end());
+  Input.insert(Input.end(), VectorB->begin(), VectorB->end());
+
+  const UINT OptimalBufferSize = getLinAlgMatrixByteSize(
+      Device, Case.M, Case.N, *DataType,
+      linalg_test::MatrixLayout::OuterProductOptimal, /*Stride=*/0);
   const UINT RowMajorStride =
-      static_cast<UINT>(Params.N * elementSize(Params.CompType));
-  const UINT RowMajorSize = getLinAlgMatrixByteSize(
-      Device, Params.M, Params.N, DataType,
-      D3D12_LINEAR_ALGEBRA_MATRIX_LAYOUT_ROW_MAJOR, RowMajorStride);
+      static_cast<UINT>(Case.N * elementSize(Case.ResultType));
+  const UINT RowMajorBufferSize = getLinAlgMatrixByteSize(
+      Device, Case.M, Case.N, *DataType, linalg_test::MatrixLayout::RowMajor,
+      RowMajorStride);
+  VERIFY_IS_TRUE(OptimalBufferSize != 0);
+  VERIFY_IS_TRUE(RowMajorBufferSize == Expected->size());
+  if (OptimalBufferSize == 0 || RowMajorBufferSize != Expected->size())
+    return;
+  const std::vector<BYTE> InitialOptimal(OptimalBufferSize, 0);
 
-  std::string Args = buildCompilerArgs(Params);
-
-  compileShader(DxcSupport, OuterProductShader, "cs_6_10", Args, Verbose);
-
-  auto Expected = makeExpectedMat(Params.CompType, Params.M, Params.N, 4,
-                                  /*Increment=*/false);
-
+  compileShader(DxcSupport, OuterProductShader, "cs_6_10", *Args, Verbose);
   auto Op = createComputeOp(OuterProductShader, "cs_6_10", "UAV(u0), UAV(u1)",
-                            Args.c_str());
-  addUAVBuffer(Op.get(), "Input", InBuffSize, false, "byname");
-  addUAVBuffer(Op.get(), "Output", OutBufferSize, /*ReadBack=*/false);
-  addUAVBuffer(Op.get(), "OutputRowMajor", RowMajorSize, /*ReadBack=*/true);
+                            Args->c_str());
+  addUAVBuffer(Op.get(), "Input", Input.size(), false, "byname");
+  addUAVBuffer(Op.get(), "Output", OptimalBufferSize, false, "byname");
+  addUAVBuffer(Op.get(), "OutputRowMajor", RowMajorBufferSize, true);
   addRootView(Op.get(), 0, "Input");
   addRootView(Op.get(), 1, "Output");
 
   auto Result = runShaderOp(
       Device, DxcSupport, std::move(Op),
-      [NumVecElements, Params](LPCSTR Name, std::vector<BYTE> &Data,
-                               st::ShaderOp *) {
-        VERIFY_IS_TRUE(fillInputBuffer(Name, Data, Params.CompType,
-                                       NumVecElements,
-                                       /*StartingVal=*/2, /*Increment=*/false),
-                       "Saw unsupported component type");
+      [&](LPCSTR Name, std::vector<BYTE> &Data, st::ShaderOp *) {
+        const std::vector<BYTE> *Source = nullptr;
+        if (strcmp(Name, "Input") == 0)
+          Source = &Input;
+        else if (strcmp(Name, "Output") == 0)
+          Source = &InitialOptimal;
+        if (!Source)
+          return;
+        VERIFY_IS_TRUE(Data.size() == Source->size(),
+                       "OuterProduct initializer size mismatch");
+        std::copy(Source->begin(), Source->end(), Data.begin());
       },
-      [OutBufferSize, RowMajorSize, RowMajorStride, DataType,
-       Params](ID3D12GraphicsCommandList *List, st::ShaderOpTest *Test) {
+      [OptimalBufferSize, RowMajorBufferSize, RowMajorStride, DataType,
+       Case](ID3D12GraphicsCommandList *List, st::ShaderOpTest *Test) {
         ID3D12Resource *OptimalBuffer = nullptr;
         ID3D12Resource *RowMajorBuffer = nullptr;
         Test->GetResource("Output", &OptimalBuffer);
         Test->GetResource("OutputRowMajor", &RowMajorBuffer);
         recordLinAlgMatrixConversion(
-            List, OptimalBuffer, OutBufferSize, RowMajorBuffer, RowMajorSize,
-            Params.M, Params.N, DataType,
-            D3D12_LINEAR_ALGEBRA_MATRIX_LAYOUT_OUTER_PRODUCT_OPTIMAL,
-            /*SrcStride=*/0, D3D12_LINEAR_ALGEBRA_MATRIX_LAYOUT_ROW_MAJOR,
-            RowMajorStride);
+            List, OptimalBuffer, OptimalBufferSize, RowMajorBuffer,
+            RowMajorBufferSize, Case.M, Case.N, *DataType,
+            linalg_test::MatrixLayout::OuterProductOptimal, /*SrcStride=*/0,
+            linalg_test::MatrixLayout::RowMajor, RowMajorStride);
       });
 
   MappedData OutData;
   Result->Test->GetReadBackData("OutputRowMajor", &OutData);
-
-  VERIFY_IS_TRUE(verifyComponentBuffer(Params.CompType, OutData.data(),
-                                       Expected, NumMatElements, Verbose));
+  const cpu_oracle::BufferResultOracle Oracle =
+      cpu_oracle::exactBufferResult(*Expected, Case.PublicRule);
+  VERIFY_IS_TRUE(cpu_oracle::verifyBufferResult(OutData.data(), OutData.size(),
+                                                Oracle, Verbose));
 }
-#endif // defined(DIRECT3D_LINEAR_ALGEBRA)
 
 void DxilConf_SM610_LinAlg::OuterProduct_Thread_16x16_F16() {
-#if defined(DIRECT3D_LINEAR_ALGEBRA)
-  MatrixParams Params = {};
-  Params.CompType = ComponentType::F16;
-  Params.M = 16;
-  Params.N = 16;
-  Params.Use = MatrixUse::Accumulator;
-  Params.Scope = MatrixScope::Thread;
-  Params.Layout = LinalgMatrixLayout::OuterProductOptimal;
-  Params.NumThreads = 1;
-  Params.Enable16Bit = true;
-  runOuterProduct(D3DDevice, DxcSupport, Params, VerboseLogging);
-#else
-#ifdef _HLK_CONF
-  // HLK forbids skipping, so treat the missing linear-algebra matrix-conversion
-  // API as a failure rather than emitting a (compiled-out) skip.
-  hlsl_test::LogErrorFmt(L"OuterProduct_Thread_16x16_F16 requires the "
-                         L"linear-algebra matrix-conversion API "
-                         L"(DIRECT3D_LINEAR_ALGEBRA), which this build lacks");
-#else
-  WEX::Logging::Log::Comment(
-      L"Skipping OuterProduct_Thread_16x16_F16: built against a D3D12 SDK "
-      L"without the linear-algebra matrix-conversion API "
-      L"(DIRECT3D_LINEAR_ALGEBRA undefined); the host-side conversion helpers "
-      L"are compiled out.");
-  WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
-#endif // _HLK_CONF
-#endif // defined(DIRECT3D_LINEAR_ALGEBRA)
+  OuterProductCaseData Case = {};
+  Case.InputType = ComponentType::F16;
+  Case.ResultType = ComponentType::F16;
+  Case.M = 16;
+  Case.N = 16;
+  Case.VectorAValues.assign(Case.M, 2);
+  Case.VectorBValues.assign(Case.N, 2);
+  Case.PublicRule = L"Exact uniform F16 Thread OuterProduct";
+  runOuterProductCase(D3DDevice, DxcSupport, Case,
+                      L"OuterProduct_Thread_16x16_F16", VerboseLogging);
+}
+
+void DxilConf_SM610_LinAlg::OuterProduct_Thread_8x16_F16_NonUniform() {
+  OuterProductCaseData Case = {};
+  Case.InputType = ComponentType::F16;
+  Case.ResultType = ComponentType::F16;
+  Case.M = 8;
+  Case.N = 16;
+  Case.VectorAValues = makeMatrixArithmeticPattern(/*M=*/1, Case.M, 0, 2, 7, 3);
+  Case.VectorBValues = makeMatrixArithmeticPattern(/*M=*/1, Case.N, 0, 3, 5, 2);
+  Case.PublicRule = L"Exact non-uniform F16 Thread OuterProduct";
+  runOuterProductCase(D3DDevice, DxcSupport, Case,
+                      L"OuterProduct_Thread_8x16_F16_NonUniform",
+                      VerboseLogging);
+}
+
+void DxilConf_SM610_LinAlg::OuterProduct_Thread_4x8_F32_NonUniform() {
+  OuterProductCaseData Case = {};
+  Case.InputType = ComponentType::F32;
+  Case.ResultType = ComponentType::F32;
+  Case.M = 4;
+  Case.N = 8;
+  Case.VectorAValues = makeMatrixArithmeticPattern(/*M=*/1, Case.M, 0, 3, 7, 2);
+  Case.VectorBValues = makeMatrixArithmeticPattern(/*M=*/1, Case.N, 0, 2, 5, 2);
+  Case.PublicRule = L"Exact non-uniform F32 Thread OuterProduct";
+  runOuterProductCase(D3DDevice, DxcSupport, Case,
+                      L"OuterProduct_Thread_4x8_F32_NonUniform",
+                      VerboseLogging);
 }
 
 static const char QueryAccumLayoutShader[] = R"(
@@ -6804,43 +6950,166 @@ void DxilConf_SM610_LinAlg::Convert_F16_FP8_RoundTrip() {
 }
 
 static const char VectorAccumulateDescriptorShader[] = R"(
-  RWByteAddressBuffer Output : register(u0);
+  ByteAddressBuffer Input : register(t0);
+  RWByteAddressBuffer Output : register(u1);
 
   [numthreads(1, 1, 1)]
   void main() {
-    vector<half, 4> InVec = {1.0, 2.0, 3.0, 4.0};
-    __builtin_LinAlg_VectorAccumulateToDescriptor(Output, 0, 64, InVec);
+    vector<ELEM_TYPE, VECTOR_LENGTH> InVec;
+    for (uint I = 0; I < VECTOR_LENGTH; ++I) {
+      InVec[I] = Input.Load<ELEM_TYPE>(I * ELEM_SIZE);
+    }
+    __builtin_LinAlg_VectorAccumulateToDescriptor(
+      Output, 0, 64, InVec);
   }
 )";
 
+struct VectorAccumulateCaseData {
+  ComponentType CompType = ComponentType::Invalid;
+  std::vector<int64_t> InputValues;
+  std::vector<int64_t> InitialValues;
+  std::wstring PublicRule;
+};
+
+static bool isVectorAccumulateCaseValid(const VectorAccumulateCaseData &Case) {
+  return !Case.InputValues.empty() &&
+         Case.InputValues.size() == Case.InitialValues.size() &&
+         toCapabilityDataType(Case.CompType).has_value() &&
+         cpu_oracle::hlslElementTypeName(Case.CompType) &&
+         !Case.PublicRule.empty();
+}
+
+static std::optional<std::vector<int64_t>>
+calculateVectorAccumulateExpected(const VectorAccumulateCaseData &Case) {
+  if (!isVectorAccumulateCaseValid(Case))
+    return std::nullopt;
+  std::vector<int64_t> Expected(Case.InputValues.size());
+  for (size_t I = 0; I < Expected.size(); ++I) {
+    if (!cpu_oracle::checkedAddInt64(Case.InitialValues[I], Case.InputValues[I],
+                                     Expected[I]))
+      return std::nullopt;
+  }
+  return Expected;
+}
+
+static std::optional<std::string>
+buildVectorAccumulateCompilerArgs(const VectorAccumulateCaseData &Case) {
+  if (!isVectorAccumulateCaseValid(Case))
+    return std::nullopt;
+  std::stringstream SS;
+  SS << "-HV 202x";
+  SS << " -DELEM_TYPE=" << cpu_oracle::hlslElementTypeName(Case.CompType);
+  SS << " -DELEM_SIZE=" << static_cast<int>(elementSize(Case.CompType));
+  SS << " -DVECTOR_LENGTH=" << Case.InputValues.size();
+  if (needs16BitTypes(Case.CompType))
+    SS << " -enable-16bit-types";
+  return SS.str();
+}
+
 static void runVectorAccumulateDescriptor(ID3D12Device *Device,
                                           dxc::SpecificDllLoader &DxcSupport,
-                                          bool Verbose) {
-  std::string Args = "-HV 202x -enable-16bit-types";
-  MatrixDim NumElements = 4;
-  size_t BufferSize = elementSize(ComponentType::F16) * NumElements;
+                                          const VectorAccumulateCaseData &Case,
+                                          LPCWSTR CaseName, bool Verbose) {
+  VERIFY_IS_TRUE(isVectorAccumulateCaseValid(Case));
+  if (!isVectorAccumulateCaseValid(Case))
+    return;
 
-  compileShader(DxcSupport, VectorAccumulateDescriptorShader, "cs_6_10", Args,
+  bool Supported;
+  const HRESULT HR = queryVectorAccumulateDescriptorSupport(
+      Device, Case.CompType, CaseName, Supported);
+  const linalg_test::Applicability Applicability =
+      linalg_test::classifyApplicability(
+          HR, Supported, linalg_test::CapabilityRequirement::CapabilityGated);
+  if (!applyApplicability(Applicability, CaseName))
+    return;
+
+  const std::optional<std::vector<BYTE>> Input =
+      cpu_oracle::encodeExactComponents(Case.CompType, Case.InputValues);
+  const std::optional<std::vector<BYTE>> Initial =
+      cpu_oracle::encodeExactComponents(Case.CompType, Case.InitialValues);
+  const std::optional<std::vector<int64_t>> ExpectedValues =
+      calculateVectorAccumulateExpected(Case);
+  const std::optional<std::vector<BYTE>> Expected =
+      ExpectedValues.has_value()
+          ? cpu_oracle::encodeExactComponents(Case.CompType, *ExpectedValues)
+          : std::optional<std::vector<BYTE>>();
+  const std::optional<std::string> Args =
+      buildVectorAccumulateCompilerArgs(Case);
+  VERIFY_IS_TRUE(Input.has_value());
+  VERIFY_IS_TRUE(Initial.has_value());
+  VERIFY_IS_TRUE(Expected.has_value());
+  VERIFY_IS_TRUE(Args.has_value());
+  if (!Input.has_value() || !Initial.has_value() || !Expected.has_value() ||
+      !Args.has_value())
+    return;
+
+  compileShader(DxcSupport, VectorAccumulateDescriptorShader, "cs_6_10", *Args,
                 Verbose);
-
-  auto Expected = makeExpectedVec(ComponentType::F16, NumElements, 1.0);
-
   auto Op = createComputeOp(VectorAccumulateDescriptorShader, "cs_6_10",
-                            "UAV(u0)", Args.c_str());
-  addUAVBuffer(Op.get(), "Output", BufferSize, true);
-  addRootView(Op.get(), 0, "Output");
+                            "SRV(t0), UAV(u1)", Args->c_str());
+  addSRVBuffer(Op.get(), "Input", Input->size(), "byname");
+  addUAVBuffer(Op.get(), "Output", Initial->size(), true, "byname");
+  addRootView(Op.get(), 0, "Input");
+  addRootView(Op.get(), 1, "Output");
 
-  auto Result = runShaderOp(Device, DxcSupport, std::move(Op));
+  auto Result = runShaderOp(
+      Device, DxcSupport, std::move(Op),
+      [&](LPCSTR Name, std::vector<BYTE> &Data, st::ShaderOp *) {
+        const std::vector<BYTE> *Source = nullptr;
+        if (strcmp(Name, "Input") == 0)
+          Source = &*Input;
+        else if (strcmp(Name, "Output") == 0)
+          Source = &*Initial;
+        if (!Source)
+          return;
+        VERIFY_IS_TRUE(Data.size() == Source->size(),
+                       "Vector accumulation initializer size mismatch");
+        std::copy(Source->begin(), Source->end(), Data.begin());
+      });
 
   MappedData OutData;
   Result->Test->GetReadBackData("Output", &OutData);
-
-  VERIFY_IS_TRUE(verifyComponentBuffer(ComponentType::F16, OutData.data(),
-                                       Expected, NumElements, Verbose));
+  const cpu_oracle::BufferResultOracle Oracle =
+      cpu_oracle::exactBufferResult(*Expected, Case.PublicRule);
+  VERIFY_IS_TRUE(cpu_oracle::verifyBufferResult(OutData.data(), OutData.size(),
+                                                Oracle, Verbose));
 }
 
 void DxilConf_SM610_LinAlg::VectorAccumulateDescriptor_Thread_F16() {
-  runVectorAccumulateDescriptor(D3DDevice, DxcSupport, VerboseLogging);
+  VectorAccumulateCaseData Case = {};
+  Case.CompType = ComponentType::F16;
+  Case.InputValues = {1, 2, 3, 4};
+  Case.InitialValues = {0, 0, 0, 0};
+  Case.PublicRule = L"Exact F16 vector descriptor accumulation";
+  runVectorAccumulateDescriptor(D3DDevice, DxcSupport, Case,
+                                L"VectorAccumulateDescriptor_Thread_F16",
+                                VerboseLogging);
+}
+
+void DxilConf_SM610_LinAlg::
+    VectorAccumulateDescriptor_Thread_F16_Length8_NonZero() {
+  VectorAccumulateCaseData Case = {};
+  Case.CompType = ComponentType::F16;
+  Case.InputValues = {-3, 2, 5, -1, 4, 0, -2, 6};
+  Case.InitialValues = {10, 11, 12, 13, 14, 15, 16, 17};
+  Case.PublicRule =
+      L"Exact non-contended F16 vector accumulation onto non-zero values";
+  runVectorAccumulateDescriptor(
+      D3DDevice, DxcSupport, Case,
+      L"VectorAccumulateDescriptor_Thread_F16_Length8_NonZero", VerboseLogging);
+}
+
+void DxilConf_SM610_LinAlg::
+    VectorAccumulateDescriptor_Thread_F32_Length8_NonZero() {
+  VectorAccumulateCaseData Case = {};
+  Case.CompType = ComponentType::F32;
+  Case.InputValues = {6, -2, 0, 3, -5, 4, 1, -1};
+  Case.InitialValues = {20, 21, 22, 23, 24, 25, 26, 27};
+  Case.PublicRule =
+      L"Exact non-contended F32 vector accumulation onto non-zero values";
+  runVectorAccumulateDescriptor(
+      D3DDevice, DxcSupport, Case,
+      L"VectorAccumulateDescriptor_Thread_F32_Length8_NonZero", VerboseLogging);
 }
 
 } // namespace LinAlg

@@ -112,6 +112,57 @@ struct RuntimeLinearAlgebraOperationSupport {
   };
 };
 
+struct RuntimeMatrixConversionDestInfo {
+  UINT DestSize;
+  UINT DestLayout;
+  UINT DestStride;
+  UINT NumRows;
+  UINT NumColumns;
+  UINT DestDataType;
+};
+
+struct RuntimeMatrixConversionData {
+  D3D12_GPU_VIRTUAL_ADDRESS DestVA;
+  D3D12_GPU_VIRTUAL_ADDRESS SrcVA;
+};
+
+struct RuntimeMatrixConversionSrcInfo {
+  UINT SrcSize;
+  UINT SrcDataType;
+  UINT SrcLayout;
+  UINT SrcStride;
+};
+
+struct RuntimeMatrixConversionInfo {
+  RuntimeMatrixConversionDestInfo DestInfo;
+  RuntimeMatrixConversionSrcInfo SrcInfo;
+  RuntimeMatrixConversionData DataDesc;
+};
+
+MIDL_INTERFACE("8f0856ad-e37c-4d75-be18-fbb3d8c04ced")
+RuntimeD3D12DevicePreview : public IUnknown {
+public:
+  virtual void STDMETHODCALLTYPE
+      GetLinearAlgebraMatrixConversionDestinationInfo(
+          RuntimeMatrixConversionDestInfo * Desc) = 0;
+};
+
+MIDL_INTERFACE("447e915c-c6f9-47e8-84d9-dc4f4495d230")
+RuntimeD3D12GraphicsCommandListPreview : public ID3D12GraphicsCommandList10 {
+public:
+  virtual void STDMETHODCALLTYPE WaitBarrier(
+      UINT NumBarrierGroups, const D3D12_BARRIER_GROUP *BarrierGroups,
+      UINT NumFences, ID3D12Fence *const *Fences,
+      const UINT64 *FenceValues) = 0;
+  virtual void STDMETHODCALLTYPE SignalBarrier(
+      UINT NumBarrierGroups, const D3D12_BARRIER_GROUP *BarrierGroups,
+      ID3D12Fence *Fence, UINT64 FenceValue) = 0;
+  virtual void STDMETHODCALLTYPE SetWorkGraphMaximumGPUInputRecords(
+      UINT MaxRecords, UINT MaxNodeInputs) = 0;
+  virtual void STDMETHODCALLTYPE ConvertLinearAlgebraMatrix(
+      const RuntimeMatrixConversionInfo *Desc, UINT DescCount) = 0;
+};
+
 #if defined(DIRECT3D_LINEAR_ALGEBRA)
 static_assert(static_cast<UINT>(D3D12_FEATURE_LINEAR_ALGEBRA_SUPPORT) ==
                   static_cast<UINT>(LinearAlgebraSupportFeature),
@@ -150,6 +201,14 @@ ASSERT_RUNTIME_ABI(RuntimeAtomicAccumulateStoreSupport,
                    D3D12_LINEAR_ALGEBRA_ATOMIC_ACCUMULATE_STORE_SUPPORT);
 ASSERT_RUNTIME_ABI(RuntimeLinearAlgebraOperationSupport,
                    D3D12_FEATURE_DATA_LINEAR_ALGEBRA_MATRIX_OPERATION_SUPPORT);
+ASSERT_RUNTIME_ABI(RuntimeMatrixConversionDestInfo,
+                   D3D12_LINEAR_ALGEBRA_MATRIX_CONVERSION_DEST_INFO);
+ASSERT_RUNTIME_ABI(RuntimeMatrixConversionData,
+                   D3D12_LINEAR_ALGEBRA_MATRIX_CONVERSION_DATA);
+ASSERT_RUNTIME_ABI(RuntimeMatrixConversionSrcInfo,
+                   D3D12_LINEAR_ALGEBRA_MATRIX_CONVERSION_SRC_INFO);
+ASSERT_RUNTIME_ABI(RuntimeMatrixConversionInfo,
+                   D3D12_LINEAR_ALGEBRA_MATRIX_CONVERSION_INFO);
 
 #undef ASSERT_RUNTIME_ABI
 
@@ -183,8 +242,33 @@ ASSERT_RUNTIME_OFFSET(
     RuntimeLinearAlgebraOperationSupport, MatrixConstruction,
     D3D12_FEATURE_DATA_LINEAR_ALGEBRA_MATRIX_OPERATION_SUPPORT,
     MatrixConstruction);
+ASSERT_RUNTIME_OFFSET(RuntimeMatrixConversionDestInfo, DestDataType,
+                      D3D12_LINEAR_ALGEBRA_MATRIX_CONVERSION_DEST_INFO,
+                      DestDataType);
+ASSERT_RUNTIME_OFFSET(RuntimeMatrixConversionSrcInfo, SrcStride,
+                      D3D12_LINEAR_ALGEBRA_MATRIX_CONVERSION_SRC_INFO,
+                      SrcStride);
+ASSERT_RUNTIME_OFFSET(RuntimeMatrixConversionInfo, DataDesc,
+                      D3D12_LINEAR_ALGEBRA_MATRIX_CONVERSION_INFO, DataDesc);
 
 #undef ASSERT_RUNTIME_OFFSET
+
+static_assert(static_cast<UINT>(D3D12_LINEAR_ALGEBRA_MATRIX_LAYOUT_ROW_MAJOR) ==
+                  static_cast<UINT>(linalg_test::MatrixLayout::RowMajor),
+              "Linear algebra RowMajor layout ABI changed");
+static_assert(
+    static_cast<UINT>(D3D12_LINEAR_ALGEBRA_MATRIX_LAYOUT_COLUMN_MAJOR) ==
+        static_cast<UINT>(linalg_test::MatrixLayout::ColumnMajor),
+    "Linear algebra ColumnMajor layout ABI changed");
+static_assert(
+    static_cast<UINT>(D3D12_LINEAR_ALGEBRA_MATRIX_LAYOUT_MUL_OPTIMAL) ==
+        static_cast<UINT>(linalg_test::MatrixLayout::MulOptimal),
+    "Linear algebra MulOptimal layout ABI changed");
+static_assert(
+    static_cast<UINT>(
+        D3D12_LINEAR_ALGEBRA_MATRIX_LAYOUT_OUTER_PRODUCT_OPTIMAL) ==
+        static_cast<UINT>(linalg_test::MatrixLayout::OuterProductOptimal),
+    "Linear algebra OuterProductOptimal layout ABI changed");
 #endif
 
 constexpr UINT KnownMultiplicationFlags = 0xf;
@@ -1617,22 +1701,19 @@ void compileShader(dxc::SpecificDllLoader &DxcSupport, const char *Source,
   }
 }
 
-#if defined(DIRECT3D_LINEAR_ALGEBRA)
 UINT getLinAlgMatrixByteSize(ID3D12Device *Device, UINT NumRows,
-                             UINT NumColumns,
-                             D3D12_LINEAR_ALGEBRA_DATATYPE DataType,
-                             D3D12_LINEAR_ALGEBRA_MATRIX_LAYOUT Layout,
-                             UINT Stride) {
-  CComPtr<ID3D12DevicePreview> DevicePreview;
+                             UINT NumColumns, linalg_test::DataType DataType,
+                             linalg_test::MatrixLayout Layout, UINT Stride) {
+  CComPtr<RuntimeD3D12DevicePreview> DevicePreview;
   VERIFY_SUCCEEDED(Device->QueryInterface(IID_PPV_ARGS(&DevicePreview)));
 
-  D3D12_LINEAR_ALGEBRA_MATRIX_CONVERSION_DEST_INFO Info = {};
+  RuntimeMatrixConversionDestInfo Info = {};
   Info.DestSize = 0;
-  Info.DestLayout = Layout;
+  Info.DestLayout = static_cast<UINT>(Layout);
   Info.DestStride = Stride;
   Info.NumRows = NumRows;
   Info.NumColumns = NumColumns;
-  Info.DestDataType = DataType;
+  Info.DestDataType = static_cast<UINT>(DataType);
   DevicePreview->GetLinearAlgebraMatrixConversionDestinationInfo(&Info);
   return Info.DestSize;
 }
@@ -1640,10 +1721,9 @@ UINT getLinAlgMatrixByteSize(ID3D12Device *Device, UINT NumRows,
 void recordLinAlgMatrixConversion(
     ID3D12GraphicsCommandList *List, ID3D12Resource *SrcBuffer, UINT SrcSize,
     ID3D12Resource *DestBuffer, UINT DestSize, UINT NumRows, UINT NumColumns,
-    D3D12_LINEAR_ALGEBRA_DATATYPE DataType,
-    D3D12_LINEAR_ALGEBRA_MATRIX_LAYOUT SrcLayout, UINT SrcStride,
-    D3D12_LINEAR_ALGEBRA_MATRIX_LAYOUT DestLayout, UINT DestStride) {
-  CComPtr<ID3D12GraphicsCommandListPreview> PreviewList;
+    linalg_test::DataType DataType, linalg_test::MatrixLayout SrcLayout,
+    UINT SrcStride, linalg_test::MatrixLayout DestLayout, UINT DestStride) {
+  CComPtr<RuntimeD3D12GraphicsCommandListPreview> PreviewList;
   VERIFY_SUCCEEDED(List->QueryInterface(IID_PPV_ARGS(&PreviewList)));
 
   // Per the linear-algebra spec, ConvertLinearAlgebraMatrix (legacy barriers)
@@ -1660,19 +1740,18 @@ void recordLinAlgMatrixConversion(
       D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
   List->ResourceBarrier(1, &Barrier);
 
-  D3D12_LINEAR_ALGEBRA_MATRIX_CONVERSION_INFO Info = {};
+  RuntimeMatrixConversionInfo Info = {};
   Info.DestInfo.DestSize = DestSize;
-  Info.DestInfo.DestLayout = DestLayout;
+  Info.DestInfo.DestLayout = static_cast<UINT>(DestLayout);
   Info.DestInfo.DestStride = DestStride;
   Info.DestInfo.NumRows = NumRows;
   Info.DestInfo.NumColumns = NumColumns;
-  Info.DestInfo.DestDataType = DataType;
+  Info.DestInfo.DestDataType = static_cast<UINT>(DataType);
   Info.SrcInfo.SrcSize = SrcSize;
-  Info.SrcInfo.SrcDataType = DataType;
-  Info.SrcInfo.SrcLayout = SrcLayout;
+  Info.SrcInfo.SrcDataType = static_cast<UINT>(DataType);
+  Info.SrcInfo.SrcLayout = static_cast<UINT>(SrcLayout);
   Info.SrcInfo.SrcStride = SrcStride;
   Info.DataDesc.DestVA = DestBuffer->GetGPUVirtualAddress();
   Info.DataDesc.SrcVA = SrcBuffer->GetGPUVirtualAddress();
   PreviewList->ConvertLinearAlgebraMatrix(&Info, 1);
 }
-#endif // defined(DIRECT3D_LINEAR_ALGEBRA)
