@@ -5073,10 +5073,15 @@ void DeclResultIdMapper::decorateWithIntrinsicAttrs(const NamedDecl *decl,
     }
     // The id/string forms decorate a SpirvInstruction target; there is no
     // SpirvFunction-target equivalent yet, so reject rather than silently drop.
-    if (isa<VKDecorateIdExtAttr>(attr) || isa<VKDecorateStringExtAttr>(attr)) {
-      emitError("vk::ext_decorate_id and vk::ext_decorate_string are not "
-                "supported on functions",
+    if (isa<VKDecorateIdExtAttr>(attr)) {
+      emitError("vk::ext_decorate_id is not supported on functions",
                 decl->getLocation());
+      continue;
+    }
+    if (isa<VKDecorateStringExtAttr>(attr)) {
+      emitError("vk::ext_decorate_string is not supported on functions",
+                decl->getLocation());
+      continue;
     }
   }
 }
