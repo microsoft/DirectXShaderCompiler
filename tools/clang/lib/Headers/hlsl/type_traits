@@ -14,7 +14,17 @@
 
 #if __HLSL_VERSION >= 2021
 
+#define SIZE_TYPE int
+
 namespace hlsl {
+
+template <typename T, typename U> struct is_same {
+  static const bool value = false;
+};
+
+template <typename T> struct is_same<T, T> {
+  static const bool value = true;
+};
 
 template <typename T> struct is_arithmetic {
   static const bool value = false;
@@ -37,6 +47,8 @@ __ARITHMETIC_TYPE(half)
 __ARITHMETIC_TYPE(float)
 __ARITHMETIC_TYPE(double)
 
+#undef __ARITHMETIC_TYPE
+
 template <typename T> struct is_signed {
   static const bool value = true;
 };
@@ -53,6 +65,29 @@ __UNSIGNED_TYPE(uint)
 __UNSIGNED_TYPE(uint64_t)
 
 #undef __UNSIGNED_TYPE
+
+template <typename T> struct is_vector {
+  static const bool value = false;
+};
+
+template <typename T, uint N> struct is_vector<vector<T, N> > {
+  static const bool value = true;
+};
+
+template <typename T> struct strip_vector_type {
+  using type = T;
+};
+
+template <typename T, SIZE_TYPE N> struct strip_vector_type<vector<T, N> > {
+  using type = T;
+};
+
+template <typename T> struct is_arithmetic_vector {
+  static const bool value =
+      is_arithmetic<T>::value ||
+      (is_vector<T>::value &&
+       is_arithmetic<typename strip_vector_type<T>::type>::value);
+};
 
 } // namespace hlsl
 
