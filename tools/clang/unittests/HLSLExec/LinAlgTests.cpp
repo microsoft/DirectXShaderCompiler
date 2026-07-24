@@ -26,6 +26,7 @@
 
 #include <climits>
 #include <cstring>
+#include <initializer_list>
 #include <limits>
 #include <optional>
 #include <sstream>
@@ -451,6 +452,33 @@ makeSequentialMatrix(ComponentType CompType, MatrixDim M, MatrixDim N,
   }
   default:
     hlsl_test::LogErrorFmt(L"Unsupported sequential matrix component type: %u",
+                           static_cast<uint32_t>(CompType));
+    return std::nullopt;
+  }
+}
+
+static std::optional<TypedMatrix> makeZeroMatrix(ComponentType CompType,
+                                                 MatrixDim M, MatrixDim N) {
+  size_t NumElements;
+  if (M == 0 || N == 0 ||
+      !checkedMultiply(static_cast<size_t>(M), static_cast<size_t>(N),
+                       NumElements)) {
+    hlsl_test::LogErrorFmt(L"Invalid zero matrix dimensions: M=%u, N=%u", M, N);
+    return std::nullopt;
+  }
+
+  switch (CompType) {
+  case ComponentType::F16:
+    return makeTypedMatrix(
+        M, N, std::vector<HLSLHalf_t>(NumElements, HLSLHalf_t(0.0f)));
+  case ComponentType::F32:
+    return makeTypedMatrix(M, N, std::vector<float>(NumElements, 0.0f));
+  case ComponentType::I32:
+    return makeTypedMatrix(M, N, std::vector<int32_t>(NumElements, 0));
+  case ComponentType::U32:
+    return makeTypedMatrix(M, N, std::vector<uint32_t>(NumElements, 0));
+  default:
+    hlsl_test::LogErrorFmt(L"Unsupported zero matrix component type: %u",
                            static_cast<uint32_t>(CompType));
     return std::nullopt;
   }
@@ -1335,7 +1363,10 @@ public:
 
   // Element access
   TEST_METHOD(ElementAccess_Wave_16x16_F16);
+  TEST_METHOD(ElementAccess_Wave_4x8_F32);
+  TEST_METHOD(ElementGetOOB_Wave_4x8_F32);
   TEST_METHOD(ElementSet_Wave_16x16_F16);
+  TEST_METHOD(ElementSetOOB_Wave_4x8_F32);
 
   // Cast/Convert
   TEST_METHOD(CopyConvert_Wave_16x16_F16);
@@ -1625,17 +1656,129 @@ void DxilConf_SM610_LinAlg::AccumulateDescriptor_Wave_16x16_F16() {
   runAccumulateDescriptor(D3DDevice, DxcSupport, Params, 12, VerboseLogging);
 }
 
-static const char ElementAccessShader[] = R"(
-  RWByteAddressBuffer Input : register(u0);
-  RWByteAddressBuffer Output : register(u1);
+struct MatrixConstructionRequirement {
+  linalg_test::MatrixRole Role;
+  MatrixDim Rows;
+  MatrixDim Columns;
+};
 
-  // flatten the 2D index into a 1D index then scale by element size
-  // Always store row-major and work it out in the test runner
-  uint coordToByteOffset(uint2 coord) {
-    return (coord.x * N_DIM + coord.y) * ELEM_SIZE;
+static LPCWSTR matrixRoleName(linalg_test::MatrixRole Role) {
+  switch (Role) {
+  case linalg_test::MatrixRole::A:
+    return L"A";
+  case linalg_test::MatrixRole::B:
+    return L"B";
+  case linalg_test::MatrixRole::Accumulator:
+    return L"Accumulator";
+  }
+  return L"Unknown";
+}
+
+static HRESULT queryMatrixConstructionSupport(
+    ID3D12Device *Device, const MatrixParams &Params,
+    std::initializer_list<MatrixConstructionRequirement> Requirements,
+    LPCWSTR CaseName, bool &Supported, UINT &SelectedWaveSize) {
+  Supported = false;
+  SelectedWaveSize = 0;
+  if (!Device || !CaseName || Requirements.size() == 0 ||
+      !linalg_test::isLegalScope(linalg_test::OperationType::MatrixConstruction,
+                                 toCapabilityScope(Params.Scope)))
+    return E_INVALIDARG;
+
+  for (const MatrixConstructionRequirement &Requirement : Requirements) {
+    if (Requirement.Rows == 0 || Requirement.Columns == 0)
+      return E_INVALIDARG;
   }
 
+  std::optional<linalg_test::DataType> DataType =
+      toCapabilityDataType(Params.CompType);
+  if (!DataType.has_value())
+    return E_INVALIDARG;
+
+  linalg_test::TierSupport Tier;
+  HRESULT HR = linalg_test::queryTierSupport(Device, Tier);
+  if (FAILED(HR) || !Tier.supported())
+    return HR;
+
+  D3D12_FEATURE_DATA_D3D12_OPTIONS1 WaveOptions = {};
+  HR = Device->CheckFeatureSupport(D3D12_FEATURE_D3D12_OPTIONS1, &WaveOptions,
+                                   sizeof(WaveOptions));
+  if (FAILED(HR)) {
+    hlsl_test::LogCommentFmt(L"Wave-size capability query failed: 0x%08x", HR);
+    return HR;
+  }
+  if (!WaveOptions.WaveOps) {
+    hlsl_test::LogCommentFmt(
+        L"Wave operations are unsupported; %s is not applicable", CaseName);
+    return S_OK;
+  }
+
+  const auto IsPowerOfTwo = [](UINT Value) {
+    return Value != 0 && (Value & (Value - 1)) == 0;
+  };
+  if (!IsPowerOfTwo(WaveOptions.WaveLaneCountMin) ||
+      !IsPowerOfTwo(WaveOptions.WaveLaneCountMax) ||
+      WaveOptions.WaveLaneCountMax < WaveOptions.WaveLaneCountMin) {
+    hlsl_test::LogCommentFmt(
+        L"Wave-size capability response is malformed: WaveOps=%u, min=%u, "
+        L"max=%u",
+        WaveOptions.WaveOps, WaveOptions.WaveLaneCountMin,
+        WaveOptions.WaveLaneCountMax);
+    return E_UNEXPECTED;
+  }
+
+  for (UINT WaveSize = 4; WaveSize <= 64; WaveSize *= 2) {
+    if (WaveSize < WaveOptions.WaveLaneCountMin ||
+        WaveSize > WaveOptions.WaveLaneCountMax)
+      continue;
+
+    linalg_test::MatrixConstructionSupport Construction;
+    HR = linalg_test::queryMatrixConstruction(Device, {*DataType, WaveSize},
+                                              Construction);
+    if (FAILED(HR))
+      return HR;
+
+    bool AllSupported = true;
+    for (const MatrixConstructionRequirement &Requirement : Requirements) {
+      if (!Construction.supports(Requirement.Role, Requirement.Rows,
+                                 Requirement.Columns)) {
+        AllSupported = false;
+        break;
+      }
+    }
+    if (!AllSupported)
+      continue;
+
+    hlsl_test::LogCommentFmt(
+        L"MatrixConstruction capability matched wave=%u for %s", WaveSize,
+        CaseName);
+    for (const MatrixConstructionRequirement &Requirement : Requirements) {
+      hlsl_test::LogCommentFmt(L"  role=%s, rows=%u, columns=%u",
+                               matrixRoleName(Requirement.Role),
+                               Requirement.Rows, Requirement.Columns);
+    }
+    Supported = true;
+    SelectedWaveSize = WaveSize;
+    return S_OK;
+  }
+
+  hlsl_test::LogCommentFmt(
+      L"No MatrixConstruction query within shader WaveSize(4,64) supports %s",
+      CaseName);
+  return S_OK;
+}
+
+static const char ElementAccessShader[] = R"(
+  RWByteAddressBuffer Input : register(u0);
+  RWByteAddressBuffer Coordinates : register(u1);
+  RWByteAddressBuffer Values : register(u2);
+  RWByteAddressBuffer Lengths : register(u3);
+
+  #ifdef FORCED_WAVE_SIZE
+  [WaveSize(FORCED_WAVE_SIZE)]
+  #else
   [WaveSize(4, 64)]
+  #endif
   [numthreads(NUMTHREADS, 1, 1)]
   void main(uint threadID : SV_GroupIndex) {
     if (GetGroupWaveIndex() != 0)
@@ -1647,72 +1790,163 @@ static const char ElementAccessShader[] = R"(
     __builtin_LinAlg_MatrixLoadFromDescriptor(
       Mat, Input, 0, STRIDE, LAYOUT, 128);
 
-    // Copy Matrix values from input to output without assuming order
-    for (uint I = 0; I < __builtin_LinAlg_MatrixLength(Mat); ++I) {
+    uint Len = __builtin_LinAlg_MatrixLength(Mat);
+    Lengths.Store<uint>(threadID * sizeof(uint), Len);
+
+    // Each thread writes to a private slice because implementations may map
+    // multiple threads to the same matrix component.
+    uint SafeLen = min(Len, (uint)(M_DIM * N_DIM));
+    for (uint I = 0; I < SafeLen; ++I) {
       uint2 Coord = __builtin_LinAlg_MatrixGetCoordinate(Mat, I);
-      uint Offset = coordToByteOffset(Coord);
       ELEM_TYPE Elem;
       __builtin_LinAlg_MatrixGetElement(Elem, Mat, I);
-      Output.Store<ELEM_TYPE>(Offset, Elem);
+      uint Slot = threadID * (M_DIM * N_DIM) + I;
+      Coordinates.Store2(Slot * sizeof(uint2), Coord);
+      Values.Store<ELEM_TYPE>(Slot * ELEM_SIZE, Elem);
     }
-
-    // Save the matrix length that this thread saw. The length is written
-    // to the output right after the matrix, offset by the thread index
-    uint LenIdx = (M_DIM * N_DIM * ELEM_SIZE) + (threadID * sizeof(uint));
-    uint Len = __builtin_LinAlg_MatrixLength(Mat);
-    Output.Store<uint>(LenIdx, Len);
   }
 )";
 
 static void runElementAccess(ID3D12Device *Device,
                              dxc::SpecificDllLoader &DxcSupport,
-                             const MatrixParams &Params, bool Verbose) {
+                             const MatrixParams &Params, bool Verbose,
+                             UINT ForcedWaveSize = 0) {
   const size_t NumElements = Params.totalElements();
   const size_t NumThreads = Params.NumThreads;
   const size_t MatrixSize = Params.totalBytes();
-  // OutputBuf needs to fit the Matrix plus one uint per thread
-  const size_t OutputBufSize = MatrixSize + NumThreads * sizeof(uint32_t);
+  const size_t MaxRecords = NumThreads * NumElements;
+  const size_t CoordinateBufferSize = MaxRecords * 2 * sizeof(uint32_t);
+  const size_t ValueBufferSize = MaxRecords * elementSize(Params.CompType);
+  const size_t LengthBufferSize = NumThreads * sizeof(uint32_t);
 
   std::stringstream ExtraDefs;
+  if (ForcedWaveSize != 0)
+    ExtraDefs << " -DFORCED_WAVE_SIZE=" << ForcedWaveSize;
   std::string Args = buildCompilerArgs(Params, ExtraDefs.str().c_str());
 
   compileShader(DxcSupport, ElementAccessShader, "cs_6_10", Args, Verbose);
 
-  auto Expected = makeExpectedMat(Params.CompType, Params.M, Params.N, 1);
+  std::optional<cpu_oracle::TypedMatrix> Expected =
+      cpu_oracle::makeSequentialMatrix(Params.CompType, Params.M, Params.N);
+  VERIFY_IS_TRUE(Expected.has_value(),
+                 "Unable to construct typed element-access input");
+  const cpu_oracle::MatrixBufferLayout InputLayout = {
+      Params.Layout,
+      0,
+      Params.strideBytes(),
+  };
+  const cpu_oracle::MatrixBufferLayout PackedRowMajor = {
+      LinalgMatrixLayout::RowMajor,
+      0,
+      static_cast<size_t>(Params.N) * elementSize(Params.CompType),
+  };
+  std::vector<BYTE> ExpectedBytes(MatrixSize, 0);
+  VERIFY_IS_TRUE(
+      cpu_oracle::writeMatrixBuffer(*Expected, PackedRowMajor, ExpectedBytes),
+      "Unable to encode typed element-access expectation");
+  const cpu_oracle::TypedMatrix ExpectedMatrix = *Expected;
 
-  auto Op = createComputeOp(ElementAccessShader, "cs_6_10", "UAV(u0), UAV(u1)",
-                            Args.c_str());
+  auto Op = createComputeOp(ElementAccessShader, "cs_6_10",
+                            "UAV(u0), UAV(u1), UAV(u2), UAV(u3)", Args.c_str());
   addUAVBuffer(Op.get(), "Input", MatrixSize, false, "byname");
-  addUAVBuffer(Op.get(), "Output", OutputBufSize, true);
+  addUAVBuffer(Op.get(), "Coordinates", CoordinateBufferSize, true);
+  addUAVBuffer(Op.get(), "Values", ValueBufferSize, true);
+  addUAVBuffer(Op.get(), "Lengths", LengthBufferSize, true);
   addRootView(Op.get(), 0, "Input");
-  addRootView(Op.get(), 1, "Output");
+  addRootView(Op.get(), 1, "Coordinates");
+  addRootView(Op.get(), 2, "Values");
+  addRootView(Op.get(), 3, "Lengths");
 
-  auto Result =
-      runShaderOp(Device, DxcSupport, std::move(Op),
-                  [NumElements, Params](LPCSTR Name, std::vector<BYTE> &Data,
-                                        st::ShaderOp *) {
-                    VERIFY_IS_TRUE(fillInputBuffer(Name, Data, Params.CompType,
-                                                   NumElements),
-                                   "Saw unsupported component type");
-                  });
+  auto Result = runShaderOp(
+      Device, DxcSupport, std::move(Op),
+      [ExpectedMatrix, InputLayout](LPCSTR Name, std::vector<BYTE> &Data,
+                                    st::ShaderOp *) {
+        if (_stricmp(Name, "Input") != 0)
+          return;
+        VERIFY_IS_TRUE(
+            cpu_oracle::writeMatrixBuffer(ExpectedMatrix, InputLayout, Data),
+            "Unable to encode element-access input");
+      });
 
-  MappedData OutData;
-  Result->Test->GetReadBackData("Output", &OutData);
+  MappedData CoordinateData;
+  MappedData ValueData;
+  MappedData LengthData;
+  Result->Test->GetReadBackData("Coordinates", &CoordinateData);
+  Result->Test->GetReadBackData("Values", &ValueData);
+  Result->Test->GetReadBackData("Lengths", &LengthData);
+  VERIFY_IS_GREATER_THAN_OR_EQUAL(CoordinateData.size(),
+                                  static_cast<UINT32>(CoordinateBufferSize));
+  VERIFY_IS_GREATER_THAN_OR_EQUAL(ValueData.size(),
+                                  static_cast<UINT32>(ValueBufferSize));
+  VERIFY_IS_GREATER_THAN_OR_EQUAL(LengthData.size(),
+                                  static_cast<UINT32>(LengthBufferSize));
 
-  // Verify the front of the buffer is a list of elements of the expected type
-  VERIFY_IS_TRUE(verifyComponentBuffer(Params.CompType, OutData.data(),
-                                       Expected, NumElements, Verbose));
+  const BYTE *CoordinateBytes =
+      static_cast<const BYTE *>(CoordinateData.data());
+  const BYTE *ValueBytes = static_cast<const BYTE *>(ValueData.data());
+  const BYTE *LengthBytes = static_cast<const BYTE *>(LengthData.data());
+  const size_t ElementBytes = elementSize(Params.CompType);
+  std::vector<bool> Seen(NumElements, false);
+  uint64_t TotalLength = 0;
+  bool RecordsValid = true;
 
-  // Verify the end of the buffer is NumThreads number of lengths, whose
-  // sum is greater than or equal to NumElements
-  const BYTE *Out = static_cast<const BYTE *>(OutData.data());
-  const uint32_t *Lengths =
-      reinterpret_cast<const uint32_t *>(Out + MatrixSize);
-  uint32_t TotalLength = 0;
-  for (size_t I = 0; I < NumThreads; ++I)
-    TotalLength += Lengths[I];
+  for (size_t Thread = 0; Thread < NumThreads && RecordsValid; ++Thread) {
+    uint32_t Length;
+    std::memcpy(&Length, LengthBytes + Thread * sizeof(Length), sizeof(Length));
+    TotalLength += Length;
+    if (Length > NumElements) {
+      hlsl_test::LogErrorFmt(
+          L"MatrixLength returned too many elements: thread=%zu, length=%u, "
+          L"matrixElements=%zu",
+          Thread, Length, NumElements);
+      RecordsValid = false;
+      break;
+    }
+
+    for (size_t LocalIndex = 0; LocalIndex < Length; ++LocalIndex) {
+      const size_t Slot = Thread * NumElements + LocalIndex;
+      uint32_t Coordinate[2];
+      std::memcpy(Coordinate, CoordinateBytes + Slot * 2 * sizeof(uint32_t),
+                  sizeof(Coordinate));
+      const uint32_t Row = Coordinate[0];
+      const uint32_t Column = Coordinate[1];
+      if (Row >= Params.M || Column >= Params.N) {
+        hlsl_test::LogErrorFmt(
+            L"GetCoordinate returned an invalid coordinate: thread=%zu, "
+            L"index=%zu, coordinate=(%u,%u), matrix=(%u,%u)",
+            Thread, LocalIndex, Row, Column, Params.M, Params.N);
+        RecordsValid = false;
+        break;
+      }
+
+      const size_t MatrixIndex = static_cast<size_t>(Row) * Params.N + Column;
+      if (std::memcmp(ValueBytes + Slot * ElementBytes,
+                      ExpectedBytes.data() + MatrixIndex * ElementBytes,
+                      ElementBytes) != 0) {
+        hlsl_test::LogErrorFmt(
+            L"GetElement did not match its reported coordinate: thread=%zu, "
+            L"index=%zu, coordinate=(%u,%u)",
+            Thread, LocalIndex, Row, Column);
+        RecordsValid = false;
+        break;
+      }
+      Seen[MatrixIndex] = true;
+    }
+  }
+
+  VERIFY_IS_TRUE(RecordsValid,
+                 "Matrix Length/GetCoordinate/GetElement records were invalid");
   VERIFY_IS_GREATER_THAN_OR_EQUAL(
-      TotalLength, NumElements, "Sum of all lengths must be gte num elements");
+      TotalLength, static_cast<uint64_t>(NumElements),
+      "Sum of all lengths must cover at least the matrix element count");
+  for (size_t MatrixIndex = 0; MatrixIndex < NumElements; ++MatrixIndex) {
+    if (!Seen[MatrixIndex]) {
+      hlsl_test::LogErrorFmt(
+          L"No thread-local element mapped to matrix coordinate=(%zu,%zu)",
+          MatrixIndex / Params.N, MatrixIndex % Params.N);
+      VERIFY_IS_TRUE(false, "Matrix coordinate was not covered");
+    }
+  }
 }
 
 void DxilConf_SM610_LinAlg::ElementAccess_Wave_16x16_F16() {
@@ -1728,11 +1962,178 @@ void DxilConf_SM610_LinAlg::ElementAccess_Wave_16x16_F16() {
   runElementAccess(D3DDevice, DxcSupport, Params, VerboseLogging);
 }
 
+void DxilConf_SM610_LinAlg::ElementAccess_Wave_4x8_F32() {
+  MatrixParams Params = {};
+  Params.CompType = ComponentType::F32;
+  Params.M = 4;
+  Params.N = 8;
+  Params.Use = MatrixUse::Accumulator;
+  Params.Scope = MatrixScope::Wave;
+  Params.Layout = LinalgMatrixLayout::RowMajor;
+  Params.NumThreads = 64;
+  Params.Enable16Bit = false;
+
+  bool Supported;
+  UINT SelectedWaveSize;
+  const HRESULT QueryResult = queryMatrixConstructionSupport(
+      D3DDevice, Params,
+      {{linalg_test::MatrixRole::Accumulator, Params.M, Params.N}},
+      L"ElementAccess_Wave_4x8_F32", Supported, SelectedWaveSize);
+  const linalg_test::Applicability Applicability =
+      linalg_test::classifyApplicability(
+          QueryResult, Supported,
+          linalg_test::CapabilityRequirement::CapabilityGated);
+  if (!applyApplicability(Applicability, L"ElementAccess_Wave_4x8_F32"))
+    return;
+
+  runElementAccess(D3DDevice, DxcSupport, Params, VerboseLogging,
+                   SelectedWaveSize);
+}
+
+static const char ElementGetOOBShader[] = R"(
+  RWByteAddressBuffer Input : register(u0);
+  RWByteAddressBuffer Values : register(u1);
+  RWByteAddressBuffer Executed : register(u2);
+
+  #ifdef FORCED_WAVE_SIZE
+  [WaveSize(FORCED_WAVE_SIZE)]
+  #else
+  [WaveSize(4, 64)]
+  #endif
+  [numthreads(NUMTHREADS, 1, 1)]
+  void main(uint threadID : SV_GroupIndex) {
+    if (GetGroupWaveIndex() != 0)
+      return;
+
+    __builtin_LinAlgMatrix
+      [[__LinAlgMatrix_Attributes(COMP_TYPE, M_DIM, N_DIM, USE, SCOPE)]]
+      Mat;
+    __builtin_LinAlg_MatrixLoadFromDescriptor(
+      Mat, Input, 0, STRIDE, LAYOUT, 128);
+
+    uint OOBIndex = __builtin_LinAlg_MatrixLength(Mat);
+    ELEM_TYPE Elem;
+    __builtin_LinAlg_MatrixGetElement(Elem, Mat, OOBIndex);
+    Values.Store<ELEM_TYPE>(threadID * ELEM_SIZE, Elem);
+    Executed.Store<uint>(threadID * sizeof(uint), 1);
+  }
+)";
+
+static void runElementGetOOB(ID3D12Device *Device,
+                             dxc::SpecificDllLoader &DxcSupport,
+                             const MatrixParams &Params, bool Verbose,
+                             UINT ForcedWaveSize = 0) {
+  const size_t NumThreads = Params.NumThreads;
+  const size_t MatrixSize = Params.totalBytes();
+  const size_t ValueBufferSize = NumThreads * elementSize(Params.CompType);
+  const size_t ExecutedBufferSize = NumThreads * sizeof(uint32_t);
+  std::stringstream ExtraDefs;
+  if (ForcedWaveSize != 0)
+    ExtraDefs << " -DFORCED_WAVE_SIZE=" << ForcedWaveSize;
+  const std::string Args = buildCompilerArgs(Params, ExtraDefs.str().c_str());
+
+  compileShader(DxcSupport, ElementGetOOBShader, "cs_6_10", Args, Verbose);
+
+  std::optional<cpu_oracle::TypedMatrix> Input =
+      cpu_oracle::makeSequentialMatrix(Params.CompType, Params.M, Params.N);
+  std::optional<cpu_oracle::TypedMatrix> Expected = cpu_oracle::makeZeroMatrix(
+      Params.CompType, 1, static_cast<MatrixDim>(NumThreads));
+  VERIFY_IS_TRUE(Input.has_value() && Expected.has_value(),
+                 "Unable to construct typed GetElement OOB data");
+  const cpu_oracle::MatrixBufferLayout InputLayout = {
+      Params.Layout,
+      0,
+      Params.strideBytes(),
+  };
+  const cpu_oracle::MatrixBufferLayout ValueLayout = {
+      LinalgMatrixLayout::RowMajor,
+      0,
+      ValueBufferSize,
+  };
+  const cpu_oracle::MatrixResultOracle Oracle = cpu_oracle::exactResult(
+      *Expected, L"Matrix::Get returns zero when Index equals Length()");
+  const cpu_oracle::TypedMatrix InputMatrix = *Input;
+
+  auto Op = createComputeOp(ElementGetOOBShader, "cs_6_10",
+                            "UAV(u0), UAV(u1), UAV(u2)", Args.c_str());
+  addUAVBuffer(Op.get(), "Input", MatrixSize, false, "byname");
+  addUAVBuffer(Op.get(), "Values", ValueBufferSize, true);
+  addUAVBuffer(Op.get(), "Executed", ExecutedBufferSize, true);
+  addRootView(Op.get(), 0, "Input");
+  addRootView(Op.get(), 1, "Values");
+  addRootView(Op.get(), 2, "Executed");
+
+  auto Result = runShaderOp(
+      Device, DxcSupport, std::move(Op),
+      [InputMatrix, InputLayout](LPCSTR Name, std::vector<BYTE> &Data,
+                                 st::ShaderOp *) {
+        if (_stricmp(Name, "Input") != 0)
+          return;
+        VERIFY_IS_TRUE(
+            cpu_oracle::writeMatrixBuffer(InputMatrix, InputLayout, Data),
+            "Unable to encode GetElement OOB input");
+      });
+
+  MappedData ValueData;
+  MappedData ExecutedData;
+  Result->Test->GetReadBackData("Values", &ValueData);
+  Result->Test->GetReadBackData("Executed", &ExecutedData);
+  VERIFY_IS_TRUE(cpu_oracle::verifyMatrixBuffer(
+      ValueData.data(), ValueData.size(), ValueLayout, Oracle, Verbose));
+  VERIFY_IS_GREATER_THAN_OR_EQUAL(ExecutedData.size(),
+                                  static_cast<UINT32>(ExecutedBufferSize));
+
+  const BYTE *ExecutedBytes = static_cast<const BYTE *>(ExecutedData.data());
+  size_t ExecutedThreads = 0;
+  for (size_t Thread = 0; Thread < NumThreads; ++Thread) {
+    uint32_t Marker;
+    std::memcpy(&Marker, ExecutedBytes + Thread * sizeof(Marker),
+                sizeof(Marker));
+    VERIFY_IS_TRUE(Marker == 0 || Marker == 1,
+                   "GetElement OOB execution marker was invalid");
+    ExecutedThreads += Marker;
+  }
+  VERIFY_IS_GREATER_THAN(ExecutedThreads, static_cast<size_t>(0),
+                         "At least one thread must execute the OOB read");
+}
+
+void DxilConf_SM610_LinAlg::ElementGetOOB_Wave_4x8_F32() {
+  MatrixParams Params = {};
+  Params.CompType = ComponentType::F32;
+  Params.M = 4;
+  Params.N = 8;
+  Params.Use = MatrixUse::Accumulator;
+  Params.Scope = MatrixScope::Wave;
+  Params.Layout = LinalgMatrixLayout::RowMajor;
+  Params.NumThreads = 64;
+  Params.Enable16Bit = false;
+
+  bool Supported;
+  UINT SelectedWaveSize;
+  const HRESULT QueryResult = queryMatrixConstructionSupport(
+      D3DDevice, Params,
+      {{linalg_test::MatrixRole::Accumulator, Params.M, Params.N}},
+      L"ElementGetOOB_Wave_4x8_F32", Supported, SelectedWaveSize);
+  const linalg_test::Applicability Applicability =
+      linalg_test::classifyApplicability(
+          QueryResult, Supported,
+          linalg_test::CapabilityRequirement::CapabilityGated);
+  if (!applyApplicability(Applicability, L"ElementGetOOB_Wave_4x8_F32"))
+    return;
+
+  runElementGetOOB(D3DDevice, DxcSupport, Params, VerboseLogging,
+                   SelectedWaveSize);
+}
+
 static const char ElementSetShader[] = R"(
   RWByteAddressBuffer Input : register(u0);
   RWByteAddressBuffer Output : register(u1);
 
+  #ifdef FORCED_WAVE_SIZE
+  [WaveSize(FORCED_WAVE_SIZE)]
+  #else
   [WaveSize(4, 64)]
+  #endif
   [numthreads(NUMTHREADS, 1, 1)]
   void main() {
     if (GetGroupWaveIndex() != 0)
@@ -1757,42 +2158,87 @@ static const char ElementSetShader[] = R"(
   }
 )";
 
+static const char ElementSetOOBShader[] = R"(
+  RWByteAddressBuffer Input : register(u0);
+  RWByteAddressBuffer Output : register(u1);
+
+  #ifdef FORCED_WAVE_SIZE
+  [WaveSize(FORCED_WAVE_SIZE)]
+  #else
+  [WaveSize(4, 64)]
+  #endif
+  [numthreads(NUMTHREADS, 1, 1)]
+  void main() {
+    if (GetGroupWaveIndex() != 0)
+      return;
+
+    __builtin_LinAlgMatrix
+      [[__LinAlgMatrix_Attributes(COMP_TYPE, M_DIM, N_DIM, USE, SCOPE)]]
+      Mat;
+    __builtin_LinAlg_MatrixLoadFromDescriptor(
+      Mat, Input, 0, STRIDE, LAYOUT, 128);
+
+    uint OOBIndex = __builtin_LinAlg_MatrixLength(Mat);
+    __builtin_LinAlg_MatrixSetElement(
+      Mat, Mat, OOBIndex, (ELEM_TYPE)123);
+
+    __builtin_LinAlg_MatrixStoreToDescriptor(
+      Mat, Output, 0, STRIDE, LAYOUT, 128);
+  }
+)";
+
 static void runElementSet(ID3D12Device *Device,
                           dxc::SpecificDllLoader &DxcSupport,
-                          const MatrixParams &Params, bool Verbose) {
-  const size_t NumElements = Params.totalElements();
+                          const MatrixParams &Params, const char *Shader,
+                          uint32_t ExpectedStartingValue, LPCWSTR PublicRule,
+                          bool Verbose, UINT ForcedWaveSize = 0) {
   const size_t MatrixSize = Params.totalBytes();
 
   std::stringstream ExtraDefs;
+  if (ForcedWaveSize != 0)
+    ExtraDefs << " -DFORCED_WAVE_SIZE=" << ForcedWaveSize;
   std::string Args = buildCompilerArgs(Params, ExtraDefs.str().c_str());
 
-  compileShader(DxcSupport, ElementSetShader, "cs_6_10", Args, Verbose);
+  compileShader(DxcSupport, Shader, "cs_6_10", Args, Verbose);
 
-  // Start counting from 6 since each element was increased by 5
-  auto Expected = makeExpectedMat(Params.CompType, Params.M, Params.N, 6);
+  std::optional<cpu_oracle::TypedMatrix> Input =
+      cpu_oracle::makeSequentialMatrix(Params.CompType, Params.M, Params.N);
+  std::optional<cpu_oracle::TypedMatrix> Expected =
+      cpu_oracle::makeSequentialMatrix(Params.CompType, Params.M, Params.N,
+                                       ExpectedStartingValue);
+  VERIFY_IS_TRUE(Input.has_value() && Expected.has_value(),
+                 "Unable to construct typed SetElement data");
+  const cpu_oracle::MatrixBufferLayout Layout = {
+      Params.Layout,
+      0,
+      Params.strideBytes(),
+  };
+  const cpu_oracle::MatrixResultOracle Oracle =
+      cpu_oracle::exactResult(*Expected, PublicRule);
+  const cpu_oracle::TypedMatrix InputMatrix = *Input;
 
-  auto Op = createComputeOp(ElementSetShader, "cs_6_10", "UAV(u0), UAV(u1)",
-                            Args.c_str());
+  auto Op =
+      createComputeOp(Shader, "cs_6_10", "UAV(u0), UAV(u1)", Args.c_str());
   addUAVBuffer(Op.get(), "Input", MatrixSize, false, "byname");
   addUAVBuffer(Op.get(), "Output", MatrixSize, true);
   addRootView(Op.get(), 0, "Input");
   addRootView(Op.get(), 1, "Output");
 
-  auto Result =
-      runShaderOp(Device, DxcSupport, std::move(Op),
-                  [NumElements, Params](LPCSTR Name, std::vector<BYTE> &Data,
-                                        st::ShaderOp *) {
-                    VERIFY_IS_TRUE(fillInputBuffer(Name, Data, Params.CompType,
-                                                   NumElements),
-                                   "Saw unsupported component type");
-                  });
+  auto Result = runShaderOp(
+      Device, DxcSupport, std::move(Op),
+      [InputMatrix, Layout](LPCSTR Name, std::vector<BYTE> &Data,
+                            st::ShaderOp *) {
+        if (_stricmp(Name, "Input") != 0)
+          return;
+        VERIFY_IS_TRUE(cpu_oracle::writeMatrixBuffer(InputMatrix, Layout, Data),
+                       "Unable to encode SetElement input");
+      });
 
   MappedData OutData;
   Result->Test->GetReadBackData("Output", &OutData);
 
-  // Verify the front of the buffer is a list of elements of the expected type
-  VERIFY_IS_TRUE(verifyComponentBuffer(Params.CompType, OutData.data(),
-                                       Expected, NumElements, Verbose));
+  VERIFY_IS_TRUE(cpu_oracle::verifyMatrixBuffer(OutData.data(), OutData.size(),
+                                                Layout, Oracle, Verbose));
 }
 
 void DxilConf_SM610_LinAlg::ElementSet_Wave_16x16_F16() {
@@ -1805,7 +2251,40 @@ void DxilConf_SM610_LinAlg::ElementSet_Wave_16x16_F16() {
   Params.Layout = LinalgMatrixLayout::RowMajor;
   Params.NumThreads = 64;
   Params.Enable16Bit = true;
-  runElementSet(D3DDevice, DxcSupport, Params, VerboseLogging);
+  runElementSet(D3DDevice, DxcSupport, Params, ElementSetShader,
+                /*ExpectedStartingValue=*/6,
+                L"Matrix::Set updates every in-range thread-local element",
+                VerboseLogging);
+}
+
+void DxilConf_SM610_LinAlg::ElementSetOOB_Wave_4x8_F32() {
+  MatrixParams Params = {};
+  Params.CompType = ComponentType::F32;
+  Params.M = 4;
+  Params.N = 8;
+  Params.Use = MatrixUse::Accumulator;
+  Params.Scope = MatrixScope::Wave;
+  Params.Layout = LinalgMatrixLayout::RowMajor;
+  Params.NumThreads = 64;
+  Params.Enable16Bit = false;
+
+  bool Supported;
+  UINT SelectedWaveSize;
+  const HRESULT QueryResult = queryMatrixConstructionSupport(
+      D3DDevice, Params,
+      {{linalg_test::MatrixRole::Accumulator, Params.M, Params.N}},
+      L"ElementSetOOB_Wave_4x8_F32", Supported, SelectedWaveSize);
+  const linalg_test::Applicability Applicability =
+      linalg_test::classifyApplicability(
+          QueryResult, Supported,
+          linalg_test::CapabilityRequirement::CapabilityGated);
+  if (!applyApplicability(Applicability, L"ElementSetOOB_Wave_4x8_F32"))
+    return;
+
+  runElementSet(D3DDevice, DxcSupport, Params, ElementSetOOBShader,
+                /*ExpectedStartingValue=*/1,
+                L"Matrix::Set is a no-op when Index equals Length()",
+                VerboseLogging, SelectedWaveSize);
 }
 
 static const char CopyConvertShader[] = R"(
@@ -1843,48 +2322,8 @@ static HRESULT queryCopyConvertSupport(ID3D12Device *Device,
                                        UINT &SelectedWaveSize) {
   Supported = false;
   SelectedWaveSize = 0;
-  if (!Device || Params.Use != MatrixUse::A ||
-      !linalg_test::isLegalScope(linalg_test::OperationType::MatrixConstruction,
-                                 toCapabilityScope(Params.Scope)))
+  if (Params.Use != MatrixUse::A)
     return E_INVALIDARG;
-
-  std::optional<linalg_test::DataType> DataType =
-      toCapabilityDataType(Params.CompType);
-  if (!DataType.has_value())
-    return E_INVALIDARG;
-
-  linalg_test::TierSupport Tier;
-  HRESULT HR = linalg_test::queryTierSupport(Device, Tier);
-  if (FAILED(HR) || !Tier.supported())
-    return HR;
-
-  D3D12_FEATURE_DATA_D3D12_OPTIONS1 WaveOptions = {};
-  HR = Device->CheckFeatureSupport(D3D12_FEATURE_D3D12_OPTIONS1, &WaveOptions,
-                                   sizeof(WaveOptions));
-  if (FAILED(HR)) {
-    hlsl_test::LogCommentFmt(L"Wave-size capability query failed: 0x%08x", HR);
-    return HR;
-  }
-  if (!WaveOptions.WaveOps) {
-    hlsl_test::LogCommentFmt(
-        L"Wave operations are unsupported; MatrixConstruction is not "
-        L"applicable");
-    return S_OK;
-  }
-
-  const auto IsPowerOfTwo = [](UINT Value) {
-    return Value != 0 && (Value & (Value - 1)) == 0;
-  };
-  if (!IsPowerOfTwo(WaveOptions.WaveLaneCountMin) ||
-      !IsPowerOfTwo(WaveOptions.WaveLaneCountMax) ||
-      WaveOptions.WaveLaneCountMax < WaveOptions.WaveLaneCountMin) {
-    hlsl_test::LogCommentFmt(
-        L"Wave-size capability response is malformed: WaveOps=%u, min=%u, "
-        L"max=%u",
-        WaveOptions.WaveOps, WaveOptions.WaveLaneCountMin,
-        WaveOptions.WaveLaneCountMax);
-    return E_UNEXPECTED;
-  }
 
   MatrixParams Destination = Params;
   if (Transpose) {
@@ -1892,34 +2331,13 @@ static HRESULT queryCopyConvertSupport(ID3D12Device *Device,
     Destination.N = Params.M;
   }
 
-  for (UINT WaveSize = 4; WaveSize <= 64; WaveSize *= 2) {
-    if (WaveSize < WaveOptions.WaveLaneCountMin ||
-        WaveSize > WaveOptions.WaveLaneCountMax)
-      continue;
-
-    linalg_test::MatrixConstructionSupport Construction;
-    HR = linalg_test::queryMatrixConstruction(Device, {*DataType, WaveSize},
-                                              Construction);
-    if (FAILED(HR))
-      return HR;
-    if (Construction.supports(linalg_test::MatrixRole::A, Params.M, Params.N) &&
-        Construction.supports(linalg_test::MatrixRole::A, Destination.M,
-                              Destination.N)) {
-      hlsl_test::LogCommentFmt(
-          L"CopyConvert capability matched wave=%u for source=%ux%u and "
-          L"destination=%ux%u",
-          WaveSize, Params.M, Params.N, Destination.M, Destination.N);
-      Supported = true;
-      SelectedWaveSize = WaveSize;
-      return S_OK;
-    }
-  }
-
-  hlsl_test::LogCommentFmt(
-      L"No MatrixConstruction query within shader WaveSize(4,64) supports "
-      L"CopyConvert source=%ux%u and destination=%ux%u",
-      Params.M, Params.N, Destination.M, Destination.N);
-  return S_OK;
+  return queryMatrixConstructionSupport(
+      Device, Params,
+      {
+          {linalg_test::MatrixRole::A, Params.M, Params.N},
+          {linalg_test::MatrixRole::A, Destination.M, Destination.N},
+      },
+      L"CopyConvert source and destination", Supported, SelectedWaveSize);
 }
 
 static void runCopyConvert(ID3D12Device *Device,
