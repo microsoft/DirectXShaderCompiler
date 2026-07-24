@@ -2041,6 +2041,9 @@ public:
   TEST_METHOD(MatMatMulAccum_Wave_8x32x16_F16_ToF32_NonUniform);
   TEST_METHOD(MatAccum_Wave_16x16_F16);
   TEST_METHOD(MatAccum_Wave_8x32_F16_BUse_NonUniform);
+  TEST_METHOD(MatMatMul_ThreadGroup_8x16x8_F16_NonUniform);
+  TEST_METHOD(MatMatMulAccum_ThreadGroup_8x16x8_F16_ToF32_NonUniform);
+  TEST_METHOD(MatMatMul_ThreadGroup_8x8x8_I32);
 
   // Matrix Vector Arithmetic
   TEST_METHOD(MatVecMul_Thread_16x16_F16);
@@ -2920,6 +2923,125 @@ static HRESULT queryWaveMatrixMultiplyCaseSupport(
 
   hlsl_test::LogCommentFmt(
       L"No WaveMatrixMultiply query within the device wave range supports %s",
+      CaseName);
+  return S_OK;
+}
+
+static HRESULT queryThreadGroupMatrixMultiplyCaseSupport(
+    ID3D12Device *Device, ComponentType MatrixAType, ComponentType MatrixBType,
+    ComponentType AccumulatorType, MatrixDim M, MatrixDim K, MatrixDim N,
+    LPCWSTR CaseName, bool &Supported, UINT &SelectedWaveSize,
+    UINT &SelectedThreadGroupSize) {
+  Supported = false;
+  SelectedWaveSize = 0;
+  SelectedThreadGroupSize = 0;
+  const std::optional<linalg_test::DataType> MatrixADataType =
+      toCapabilityDataType(MatrixAType);
+  const std::optional<linalg_test::DataType> MatrixBDataType =
+      toCapabilityDataType(MatrixBType);
+  const std::optional<linalg_test::DataType> AccumulatorDataType =
+      toCapabilityDataType(AccumulatorType);
+  if (!Device || !CaseName || M == 0 || K == 0 || N == 0 ||
+      !MatrixADataType.has_value() || !MatrixBDataType.has_value() ||
+      !AccumulatorDataType.has_value() ||
+      !linalg_test::isLegalScope(
+          linalg_test::OperationType::ThreadGroupMatrixMultiply,
+          linalg_test::ExecutionScope::ThreadGroup))
+    return E_INVALIDARG;
+
+  linalg_test::TierSupport Tier;
+  HRESULT HR = linalg_test::queryTierSupport(Device, Tier);
+  if (FAILED(HR) || !Tier.supported())
+    return HR;
+
+  D3D12_FEATURE_DATA_D3D12_OPTIONS1 WaveOptions = {};
+  HR = Device->CheckFeatureSupport(D3D12_FEATURE_D3D12_OPTIONS1, &WaveOptions,
+                                   sizeof(WaveOptions));
+  if (FAILED(HR)) {
+    hlsl_test::LogCommentFmt(L"Wave-size capability query failed: 0x%08x", HR);
+    return HR;
+  }
+  const auto IsPowerOfTwo = [](UINT Value) {
+    return Value != 0 && (Value & (Value - 1)) == 0;
+  };
+  if (!WaveOptions.WaveOps || !IsPowerOfTwo(WaveOptions.WaveLaneCountMin) ||
+      !IsPowerOfTwo(WaveOptions.WaveLaneCountMax) ||
+      WaveOptions.WaveLaneCountMax < WaveOptions.WaveLaneCountMin) {
+    if (!WaveOptions.WaveOps)
+      return S_OK;
+    hlsl_test::LogCommentFmt(
+        L"Wave-size capability response is malformed: WaveOps=%u, min=%u, "
+        L"max=%u",
+        WaveOptions.WaveOps, WaveOptions.WaveLaneCountMin,
+        WaveOptions.WaveLaneCountMax);
+    return E_UNEXPECTED;
+  }
+
+  constexpr UINT MaxThreadsPerGroup = 1024;
+  for (UINT WaveSize = 4; WaveSize <= 64; WaveSize *= 2) {
+    if (WaveSize < WaveOptions.WaveLaneCountMin ||
+        WaveSize > WaveOptions.WaveLaneCountMax)
+      continue;
+
+    linalg_test::MatrixConstructionSupport MatrixASupport;
+    linalg_test::MatrixConstructionSupport MatrixBSupport;
+    linalg_test::MatrixConstructionSupport AccumulatorSupport;
+    HR = linalg_test::queryMatrixConstruction(
+        Device, {*MatrixADataType, WaveSize}, MatrixASupport);
+    if (FAILED(HR))
+      return HR;
+    HR = linalg_test::queryMatrixConstruction(
+        Device, {*MatrixBDataType, WaveSize}, MatrixBSupport);
+    if (FAILED(HR))
+      return HR;
+    HR = linalg_test::queryMatrixConstruction(
+        Device, {*AccumulatorDataType, WaveSize}, AccumulatorSupport);
+    if (FAILED(HR))
+      return HR;
+    if (!MatrixASupport.supports(linalg_test::MatrixRole::A, M, K) ||
+        !MatrixBSupport.supports(linalg_test::MatrixRole::B, K, N) ||
+        !AccumulatorSupport.supports(linalg_test::MatrixRole::Accumulator, M,
+                                     N))
+      continue;
+
+    linalg_test::ThreadGroupMatrixMultiplySupport MultiplySupport;
+    HR = linalg_test::queryThreadGroupMatrixMultiply(
+        Device,
+        {{WaveSize, *MatrixADataType, *MatrixBDataType, *AccumulatorDataType},
+         {M, K, N}},
+        MultiplySupport);
+    if (FAILED(HR))
+      return HR;
+    if (!MultiplySupport.supported())
+      continue;
+
+    UINT ThreadGroupSize = MultiplySupport.PreferredThreadGroupSize;
+    if (ThreadGroupSize == 0 || ThreadGroupSize > MaxThreadsPerGroup)
+      ThreadGroupSize = MultiplySupport.MinThreadGroupSize;
+    if (!MultiplySupport.supportsThreadGroupSize(ThreadGroupSize) ||
+        ThreadGroupSize > MaxThreadsPerGroup) {
+      hlsl_test::LogCommentFmt(
+          L"ThreadGroupMatrixMultiply returned no executable group size for "
+          L"%s: min=%u, max=%u, preferred=%u",
+          CaseName, MultiplySupport.MinThreadGroupSize,
+          MultiplySupport.MaxThreadGroupSize,
+          MultiplySupport.PreferredThreadGroupSize);
+      return E_UNEXPECTED;
+    }
+
+    hlsl_test::LogCommentFmt(
+        L"ThreadGroupMatrixMultiply capability matched wave=%u, threads=%u, "
+        L"M=%u, K=%u, N=%u for %s",
+        WaveSize, ThreadGroupSize, M, K, N, CaseName);
+    Supported = true;
+    SelectedWaveSize = WaveSize;
+    SelectedThreadGroupSize = ThreadGroupSize;
+    return S_OK;
+  }
+
+  hlsl_test::LogCommentFmt(
+      L"No ThreadGroupMatrixMultiply query within the device wave range "
+      L"supports %s",
       CaseName);
   return S_OK;
 }
@@ -4088,11 +4210,10 @@ static MatrixParams makeWaveArithmeticParams(ComponentType CompType,
   return Params;
 }
 
-static std::vector<int64_t> makeWaveArithmeticPattern(MatrixDim M, MatrixDim N,
-                                                      int64_t RowScale,
-                                                      int64_t ColumnScale,
-                                                      int64_t Modulus,
-                                                      int64_t Center) {
+static std::vector<int64_t>
+makeMatrixArithmeticPattern(MatrixDim M, MatrixDim N, int64_t RowScale,
+                            int64_t ColumnScale, int64_t Modulus,
+                            int64_t Center) {
   VERIFY_IS_TRUE(M != 0 && N != 0 && Modulus > 0);
   if (M == 0 || N == 0 || Modulus <= 0)
     return {};
@@ -4109,30 +4230,30 @@ static std::vector<int64_t> makeWaveArithmeticPattern(MatrixDim M, MatrixDim N,
   return Values;
 }
 
-enum class WaveMultiplyOperation {
+enum class MatrixMultiplyOperation {
   Multiply,
   MultiplyAccumulate,
 };
 
-struct WaveMultiplyCaseData {
+struct MatrixMultiplyCaseData {
   ComponentType MatrixAType = ComponentType::Invalid;
   ComponentType MatrixBType = ComponentType::Invalid;
   ComponentType AccumulatorType = ComponentType::Invalid;
   MatrixDim M = 0;
   MatrixDim K = 0;
   MatrixDim N = 0;
-  WaveMultiplyOperation Operation = WaveMultiplyOperation::Multiply;
+  MatrixMultiplyOperation Operation = MatrixMultiplyOperation::Multiply;
   std::vector<int64_t> MatrixAValues;
   std::vector<int64_t> MatrixBValues;
   std::vector<int64_t> AccumulatorValues;
   std::wstring PublicRule;
 
   bool hasInitialAccumulator() const {
-    return Operation == WaveMultiplyOperation::MultiplyAccumulate;
+    return Operation == MatrixMultiplyOperation::MultiplyAccumulate;
   }
 };
 
-static bool isWaveMultiplyCaseValid(const WaveMultiplyCaseData &Case) {
+static bool isMatrixMultiplyCaseValid(const MatrixMultiplyCaseData &Case) {
   const size_t MatrixAElements = static_cast<size_t>(Case.M) * Case.K;
   const size_t MatrixBElements = static_cast<size_t>(Case.K) * Case.N;
   const size_t AccumulatorElements = static_cast<size_t>(Case.M) * Case.N;
@@ -4148,7 +4269,7 @@ static bool isWaveMultiplyCaseValid(const WaveMultiplyCaseData &Case) {
 }
 
 static std::optional<std::vector<int64_t>>
-calculateWaveMultiplyExpected(const WaveMultiplyCaseData &Case) {
+calculateMatrixMultiplyExpected(const MatrixMultiplyCaseData &Case) {
   const std::vector<int64_t> *Accumulator =
       Case.hasInitialAccumulator() ? &Case.AccumulatorValues : nullptr;
   return cpu_oracle::multiplyIntegerMatrices(Case.M, Case.K, Case.N,
@@ -4216,8 +4337,9 @@ static const char WaveMultiplyShader[] = R"(
 )";
 
 static std::optional<std::string>
-buildWaveMultiplyCompilerArgs(const WaveMultiplyCaseData &Case, UINT WaveSize) {
-  if (!isWaveMultiplyCaseValid(Case) || WaveSize == 0)
+buildWaveMultiplyCompilerArgs(const MatrixMultiplyCaseData &Case,
+                              UINT WaveSize) {
+  if (!isMatrixMultiplyCaseValid(Case) || WaveSize == 0)
     return std::nullopt;
 
   const MatrixParams MatrixA = makeWaveArithmeticParams(
@@ -4249,8 +4371,8 @@ buildWaveMultiplyCompilerArgs(const WaveMultiplyCaseData &Case, UINT WaveSize) {
 
 static void runWaveMultiplyCase(ID3D12Device *Device,
                                 dxc::SpecificDllLoader &DxcSupport,
-                                const WaveMultiplyCaseData &Case, UINT WaveSize,
-                                bool Verbose) {
+                                const MatrixMultiplyCaseData &Case,
+                                UINT WaveSize, bool Verbose) {
   const MatrixParams MatrixA = makeWaveArithmeticParams(
       Case.MatrixAType, Case.M, Case.K, MatrixUse::A, WaveSize);
   const MatrixParams MatrixB = makeWaveArithmeticParams(
@@ -4266,7 +4388,7 @@ static void runWaveMultiplyCase(ID3D12Device *Device,
                                          Accumulator, Case.AccumulatorValues)
                                    : std::optional<std::vector<BYTE>>();
   const std::optional<std::vector<int64_t>> ExpectedValues =
-      calculateWaveMultiplyExpected(Case);
+      calculateMatrixMultiplyExpected(Case);
   const std::optional<std::vector<BYTE>> Expected =
       ExpectedValues.has_value()
           ? cpu_oracle::encodeLogicalMatrixBuffer(Accumulator, *ExpectedValues)
@@ -4335,11 +4457,11 @@ static void runWaveMultiplyCase(ID3D12Device *Device,
 static void
 runCapabilityCheckedWaveMultiply(ID3D12Device *Device,
                                  dxc::SpecificDllLoader &DxcSupport,
-                                 const WaveMultiplyCaseData &Case,
+                                 const MatrixMultiplyCaseData &Case,
                                  linalg_test::CapabilityRequirement Requirement,
                                  LPCWSTR CaseName, bool Verbose) {
-  VERIFY_IS_TRUE(isWaveMultiplyCaseValid(Case));
-  if (!isWaveMultiplyCaseValid(Case))
+  VERIFY_IS_TRUE(isMatrixMultiplyCaseValid(Case));
+  if (!isMatrixMultiplyCaseValid(Case))
     return;
 
   bool Supported;
@@ -4354,10 +4476,10 @@ runCapabilityCheckedWaveMultiply(ID3D12Device *Device,
   runWaveMultiplyCase(Device, DxcSupport, Case, SelectedWaveSize, Verbose);
 }
 
-static WaveMultiplyCaseData
+static MatrixMultiplyCaseData
 makeRectangularF16WaveMultiplyCase(ComponentType AccumulatorType,
-                                   WaveMultiplyOperation Operation) {
-  WaveMultiplyCaseData Case = {};
+                                   MatrixMultiplyOperation Operation) {
+  MatrixMultiplyCaseData Case = {};
   Case.MatrixAType = ComponentType::F16;
   Case.MatrixBType = ComponentType::F16;
   Case.AccumulatorType = AccumulatorType;
@@ -4365,11 +4487,11 @@ makeRectangularF16WaveMultiplyCase(ComponentType AccumulatorType,
   Case.K = 32;
   Case.N = 16;
   Case.Operation = Operation;
-  Case.MatrixAValues = makeWaveArithmeticPattern(Case.M, Case.K, 3, 2, 5, 2);
-  Case.MatrixBValues = makeWaveArithmeticPattern(Case.K, Case.N, 1, 3, 7, 3);
+  Case.MatrixAValues = makeMatrixArithmeticPattern(Case.M, Case.K, 3, 2, 5, 2);
+  Case.MatrixBValues = makeMatrixArithmeticPattern(Case.K, Case.N, 1, 3, 7, 3);
   if (Case.hasInitialAccumulator()) {
     Case.AccumulatorValues =
-        makeWaveArithmeticPattern(Case.M, Case.N, 2, 1, 5, 2);
+        makeMatrixArithmeticPattern(Case.M, Case.N, 2, 1, 5, 2);
     Case.PublicRule =
         L"Exact non-uniform F16 products plus an independent F32 accumulator";
   } else if (AccumulatorType == ComponentType::F32) {
@@ -4382,8 +4504,8 @@ makeRectangularF16WaveMultiplyCase(ComponentType AccumulatorType,
 }
 
 void DxilConf_SM610_LinAlg::MatMatMul_Wave_8x32x16_F16_NonUniform() {
-  const WaveMultiplyCaseData Case = makeRectangularF16WaveMultiplyCase(
-      ComponentType::F16, WaveMultiplyOperation::Multiply);
+  const MatrixMultiplyCaseData Case = makeRectangularF16WaveMultiplyCase(
+      ComponentType::F16, MatrixMultiplyOperation::Multiply);
   runCapabilityCheckedWaveMultiply(
       D3DDevice, DxcSupport, Case,
       linalg_test::CapabilityRequirement::CapabilityGated,
@@ -4391,8 +4513,8 @@ void DxilConf_SM610_LinAlg::MatMatMul_Wave_8x32x16_F16_NonUniform() {
 }
 
 void DxilConf_SM610_LinAlg::MatMatMul_Wave_8x32x16_F16_ToF32() {
-  const WaveMultiplyCaseData Case = makeRectangularF16WaveMultiplyCase(
-      ComponentType::F32, WaveMultiplyOperation::Multiply);
+  const MatrixMultiplyCaseData Case = makeRectangularF16WaveMultiplyCase(
+      ComponentType::F32, MatrixMultiplyOperation::Multiply);
   runCapabilityCheckedWaveMultiply(
       D3DDevice, DxcSupport, Case,
       linalg_test::CapabilityRequirement::CapabilityGated,
@@ -4400,8 +4522,8 @@ void DxilConf_SM610_LinAlg::MatMatMul_Wave_8x32x16_F16_ToF32() {
 }
 
 void DxilConf_SM610_LinAlg::MatMatMulAccum_Wave_8x32x16_F16_ToF32_NonUniform() {
-  const WaveMultiplyCaseData Case = makeRectangularF16WaveMultiplyCase(
-      ComponentType::F32, WaveMultiplyOperation::MultiplyAccumulate);
+  const MatrixMultiplyCaseData Case = makeRectangularF16WaveMultiplyCase(
+      ComponentType::F32, MatrixMultiplyOperation::MultiplyAccumulate);
   runCapabilityCheckedWaveMultiply(
       D3DDevice, DxcSupport, Case,
       linalg_test::CapabilityRequirement::CapabilityGated,
@@ -4409,20 +4531,361 @@ void DxilConf_SM610_LinAlg::MatMatMulAccum_Wave_8x32x16_F16_ToF32_NonUniform() {
 }
 
 void DxilConf_SM610_LinAlg::MatMatMul_Wave_16x16x16_I32() {
-  WaveMultiplyCaseData Case = {};
+  MatrixMultiplyCaseData Case = {};
   Case.MatrixAType = ComponentType::I32;
   Case.MatrixBType = ComponentType::I32;
   Case.AccumulatorType = ComponentType::I32;
   Case.M = 16;
   Case.K = 16;
   Case.N = 16;
-  Case.MatrixAValues = makeWaveArithmeticPattern(Case.M, Case.K, 3, 2, 5, 2);
-  Case.MatrixBValues = makeWaveArithmeticPattern(Case.K, Case.N, 1, 3, 7, 3);
+  Case.MatrixAValues = makeMatrixArithmeticPattern(Case.M, Case.K, 3, 2, 5, 2);
+  Case.MatrixBValues = makeMatrixArithmeticPattern(Case.K, Case.N, 1, 3, 7, 3);
   Case.PublicRule = L"Exact non-uniform I32 matrix product";
   runCapabilityCheckedWaveMultiply(
       D3DDevice, DxcSupport, Case,
       linalg_test::CapabilityRequirement::CapabilityGated,
       L"MatMatMul_Wave_16x16x16_I32", VerboseLogging);
+}
+
+static MatrixParams makeThreadGroupArithmeticParams(ComponentType CompType,
+                                                    MatrixDim M, MatrixDim N,
+                                                    MatrixUse Use,
+                                                    UINT ThreadGroupSize) {
+  MatrixParams Params = {};
+  Params.CompType = CompType;
+  Params.M = M;
+  Params.N = N;
+  Params.Use = Use;
+  Params.Scope = MatrixScope::ThreadGroup;
+  Params.Layout = LinalgMatrixLayout::RowMajor;
+  Params.NumThreads = static_cast<int>(ThreadGroupSize);
+  Params.Enable16Bit = needs16BitTypes(CompType);
+  return Params;
+}
+
+static const char ThreadGroupMultiplyShader[] = R"(
+  #define USE_A 0
+  #define USE_B 1
+  #define USE_ACC 2
+  #define SCOPE_THREAD_GROUP 2
+  #define LAYOUT_ROW_MAJOR 0
+
+  ByteAddressBuffer MatrixAInput : register(t0);
+  ByteAddressBuffer MatrixBInput : register(t1);
+  #if DO_ACCUMULATE
+  ByteAddressBuffer AccumulatorInput : register(t2);
+  RWByteAddressBuffer Output : register(u3);
+  #else
+  RWByteAddressBuffer Output : register(u2);
+  #endif
+
+  groupshared MATRIX_A_ELEM_TYPE MatrixAData[MATRIX_A_ELEMENTS];
+  groupshared MATRIX_B_ELEM_TYPE MatrixBData[MATRIX_B_ELEMENTS];
+  #if DO_ACCUMULATE
+  groupshared ACCUMULATOR_ELEM_TYPE AccumulatorData[ACCUMULATOR_ELEMENTS];
+  #endif
+  groupshared ACCUMULATOR_ELEM_TYPE ResultData[ACCUMULATOR_ELEMENTS];
+
+  [WaveSize(FORCED_WAVE_SIZE)]
+  [numthreads(THREADGROUP_SIZE, 1, 1)]
+  void main(uint threadID : SV_GroupIndex) {
+    for (uint Index = threadID; Index < MATRIX_A_ELEMENTS;
+         Index += THREADGROUP_SIZE) {
+      MatrixAData[Index] =
+        MatrixAInput.Load<MATRIX_A_ELEM_TYPE>(Index * MATRIX_A_ELEM_SIZE);
+    }
+    for (uint Index = threadID; Index < MATRIX_B_ELEMENTS;
+         Index += THREADGROUP_SIZE) {
+      MatrixBData[Index] =
+        MatrixBInput.Load<MATRIX_B_ELEM_TYPE>(Index * MATRIX_B_ELEM_SIZE);
+    }
+    #if DO_ACCUMULATE
+    for (uint Index = threadID; Index < ACCUMULATOR_ELEMENTS;
+         Index += THREADGROUP_SIZE) {
+      AccumulatorData[Index] =
+        AccumulatorInput.Load<ACCUMULATOR_ELEM_TYPE>(
+          Index * ACCUMULATOR_ELEM_SIZE);
+    }
+    #endif
+    for (uint Index = threadID; Index < ACCUMULATOR_ELEMENTS;
+         Index += THREADGROUP_SIZE) {
+      ResultData[Index] = (ACCUMULATOR_ELEM_TYPE)-4096;
+    }
+
+    GroupMemoryBarrierWithGroupSync();
+
+    __builtin_LinAlgMatrix
+      [[__LinAlgMatrix_Attributes(
+        MATRIX_A_COMP_TYPE, M_DIM, K_DIM, USE_A, SCOPE_THREAD_GROUP)]]
+      MatA;
+    __builtin_LinAlg_MatrixLoadFromMemory(
+      MatA, MatrixAData, 0, MATRIX_A_STRIDE, LAYOUT_ROW_MAJOR);
+
+    __builtin_LinAlgMatrix
+      [[__LinAlgMatrix_Attributes(
+        MATRIX_B_COMP_TYPE, K_DIM, N_DIM, USE_B, SCOPE_THREAD_GROUP)]]
+      MatB;
+    __builtin_LinAlg_MatrixLoadFromMemory(
+      MatB, MatrixBData, 0, MATRIX_B_STRIDE, LAYOUT_ROW_MAJOR);
+
+    __builtin_LinAlgMatrix
+      [[__LinAlgMatrix_Attributes(
+        ACCUMULATOR_COMP_TYPE, M_DIM, N_DIM, USE_ACC, SCOPE_THREAD_GROUP)]]
+      Result;
+    #if DO_ACCUMULATE
+    __builtin_LinAlgMatrix
+      [[__LinAlgMatrix_Attributes(
+        ACCUMULATOR_COMP_TYPE, M_DIM, N_DIM, USE_ACC, SCOPE_THREAD_GROUP)]]
+      Accumulator;
+    __builtin_LinAlg_MatrixLoadFromMemory(
+      Accumulator, AccumulatorData, 0, ACCUMULATOR_STRIDE, LAYOUT_ROW_MAJOR);
+    __builtin_LinAlg_MatrixMatrixMultiplyAccumulate(
+      Result, MatA, MatB, Accumulator);
+    #else
+    __builtin_LinAlg_MatrixMatrixMultiply(Result, MatA, MatB);
+    #endif
+
+    __builtin_LinAlg_MatrixStoreToMemory(
+      Result, ResultData, 0, ACCUMULATOR_STRIDE, LAYOUT_ROW_MAJOR);
+
+    GroupMemoryBarrierWithGroupSync();
+
+    for (uint Index = threadID; Index < ACCUMULATOR_ELEMENTS;
+         Index += THREADGROUP_SIZE) {
+      Output.Store<ACCUMULATOR_ELEM_TYPE>(
+        Index * ACCUMULATOR_ELEM_SIZE, ResultData[Index]);
+    }
+  }
+)";
+
+static std::optional<std::string>
+buildThreadGroupMultiplyCompilerArgs(const MatrixMultiplyCaseData &Case,
+                                     UINT WaveSize, UINT ThreadGroupSize) {
+  if (!isMatrixMultiplyCaseValid(Case) || WaveSize == 0 || ThreadGroupSize == 0)
+    return std::nullopt;
+
+  const char *MatrixAElementType =
+      cpu_oracle::hlslElementTypeName(Case.MatrixAType);
+  const char *MatrixBElementType =
+      cpu_oracle::hlslElementTypeName(Case.MatrixBType);
+  const char *AccumulatorElementType =
+      cpu_oracle::hlslElementTypeName(Case.AccumulatorType);
+  if (!MatrixAElementType || !MatrixBElementType || !AccumulatorElementType)
+    return std::nullopt;
+
+  const MatrixParams MatrixA = makeThreadGroupArithmeticParams(
+      Case.MatrixAType, Case.M, Case.K, MatrixUse::A, ThreadGroupSize);
+  const MatrixParams MatrixB = makeThreadGroupArithmeticParams(
+      Case.MatrixBType, Case.K, Case.N, MatrixUse::B, ThreadGroupSize);
+  const MatrixParams Accumulator =
+      makeThreadGroupArithmeticParams(Case.AccumulatorType, Case.M, Case.N,
+                                      MatrixUse::Accumulator, ThreadGroupSize);
+
+  std::stringstream SS;
+  SS << "-HV 202x";
+  SS << " -DMATRIX_A_COMP_TYPE=" << static_cast<int>(Case.MatrixAType);
+  SS << " -DMATRIX_B_COMP_TYPE=" << static_cast<int>(Case.MatrixBType);
+  SS << " -DACCUMULATOR_COMP_TYPE=" << static_cast<int>(Case.AccumulatorType);
+  SS << " -DMATRIX_A_ELEM_TYPE=" << MatrixAElementType;
+  SS << " -DMATRIX_B_ELEM_TYPE=" << MatrixBElementType;
+  SS << " -DACCUMULATOR_ELEM_TYPE=" << AccumulatorElementType;
+  SS << " -DM_DIM=" << Case.M;
+  SS << " -DK_DIM=" << Case.K;
+  SS << " -DN_DIM=" << Case.N;
+  SS << " -DMATRIX_A_ELEMENTS=" << MatrixA.totalElements();
+  SS << " -DMATRIX_B_ELEMENTS=" << MatrixB.totalElements();
+  SS << " -DACCUMULATOR_ELEMENTS=" << Accumulator.totalElements();
+  SS << " -DMATRIX_A_ELEM_SIZE="
+     << static_cast<int>(elementSize(Case.MatrixAType));
+  SS << " -DMATRIX_B_ELEM_SIZE="
+     << static_cast<int>(elementSize(Case.MatrixBType));
+  SS << " -DACCUMULATOR_ELEM_SIZE="
+     << static_cast<int>(elementSize(Case.AccumulatorType));
+  SS << " -DMATRIX_A_STRIDE=" << MatrixA.N;
+  SS << " -DMATRIX_B_STRIDE=" << MatrixB.N;
+  SS << " -DACCUMULATOR_STRIDE=" << Accumulator.N;
+  SS << " -DTHREADGROUP_SIZE=" << ThreadGroupSize;
+  SS << " -DFORCED_WAVE_SIZE=" << WaveSize;
+  SS << " -DDO_ACCUMULATE=" << Case.hasInitialAccumulator();
+  if (needs16BitTypes(Case.MatrixAType) || needs16BitTypes(Case.MatrixBType) ||
+      needs16BitTypes(Case.AccumulatorType))
+    SS << " -enable-16bit-types";
+  return SS.str();
+}
+
+static void runThreadGroupMultiplyCase(ID3D12Device *Device,
+                                       dxc::SpecificDllLoader &DxcSupport,
+                                       const MatrixMultiplyCaseData &Case,
+                                       UINT WaveSize, UINT ThreadGroupSize,
+                                       bool Verbose) {
+  const MatrixParams MatrixA = makeThreadGroupArithmeticParams(
+      Case.MatrixAType, Case.M, Case.K, MatrixUse::A, ThreadGroupSize);
+  const MatrixParams MatrixB = makeThreadGroupArithmeticParams(
+      Case.MatrixBType, Case.K, Case.N, MatrixUse::B, ThreadGroupSize);
+  const MatrixParams Accumulator =
+      makeThreadGroupArithmeticParams(Case.AccumulatorType, Case.M, Case.N,
+                                      MatrixUse::Accumulator, ThreadGroupSize);
+  const std::optional<std::vector<BYTE>> MatrixABuffer =
+      cpu_oracle::encodeLogicalMatrixBuffer(MatrixA, Case.MatrixAValues);
+  const std::optional<std::vector<BYTE>> MatrixBBuffer =
+      cpu_oracle::encodeLogicalMatrixBuffer(MatrixB, Case.MatrixBValues);
+  const std::optional<std::vector<BYTE>> AccumulatorBuffer =
+      Case.hasInitialAccumulator() ? cpu_oracle::encodeLogicalMatrixBuffer(
+                                         Accumulator, Case.AccumulatorValues)
+                                   : std::optional<std::vector<BYTE>>();
+  const std::optional<std::vector<int64_t>> ExpectedValues =
+      calculateMatrixMultiplyExpected(Case);
+  const std::optional<std::vector<BYTE>> Expected =
+      ExpectedValues.has_value()
+          ? cpu_oracle::encodeLogicalMatrixBuffer(Accumulator, *ExpectedValues)
+          : std::optional<std::vector<BYTE>>();
+  const std::optional<std::string> Args =
+      buildThreadGroupMultiplyCompilerArgs(Case, WaveSize, ThreadGroupSize);
+  VERIFY_IS_TRUE(MatrixABuffer.has_value());
+  VERIFY_IS_TRUE(MatrixBBuffer.has_value());
+  VERIFY_IS_TRUE(!Case.hasInitialAccumulator() ||
+                 AccumulatorBuffer.has_value());
+  VERIFY_IS_TRUE(Expected.has_value());
+  VERIFY_IS_TRUE(Args.has_value());
+  if (!MatrixABuffer.has_value() || !MatrixBBuffer.has_value() ||
+      (Case.hasInitialAccumulator() && !AccumulatorBuffer.has_value()) ||
+      !Expected.has_value() || !Args.has_value())
+    return;
+
+  const char *RootSignature = Case.hasInitialAccumulator()
+                                  ? "SRV(t0), SRV(t1), SRV(t2), UAV(u3)"
+                                  : "SRV(t0), SRV(t1), UAV(u2)";
+  compileShader(DxcSupport, ThreadGroupMultiplyShader, "cs_6_10", *Args,
+                Verbose);
+
+  auto Op = createComputeOp(ThreadGroupMultiplyShader, "cs_6_10", RootSignature,
+                            Args->c_str());
+  addSRVBuffer(Op.get(), "MatrixAInput", MatrixABuffer->size(), "byname");
+  addSRVBuffer(Op.get(), "MatrixBInput", MatrixBBuffer->size(), "byname");
+  if (Case.hasInitialAccumulator())
+    addSRVBuffer(Op.get(), "AccumulatorInput", AccumulatorBuffer->size(),
+                 "byname");
+  addUAVBuffer(Op.get(), "Output", Expected->size(), true);
+  addRootView(Op.get(), 0, "MatrixAInput");
+  addRootView(Op.get(), 1, "MatrixBInput");
+  if (Case.hasInitialAccumulator()) {
+    addRootView(Op.get(), 2, "AccumulatorInput");
+    addRootView(Op.get(), 3, "Output");
+  } else {
+    addRootView(Op.get(), 2, "Output");
+  }
+
+  auto Result = runShaderOp(
+      Device, DxcSupport, std::move(Op),
+      [&](LPCSTR Name, std::vector<BYTE> &Data, st::ShaderOp *) {
+        const std::vector<BYTE> *Source = nullptr;
+        if (strcmp(Name, "MatrixAInput") == 0)
+          Source = &*MatrixABuffer;
+        else if (strcmp(Name, "MatrixBInput") == 0)
+          Source = &*MatrixBBuffer;
+        else if (Case.hasInitialAccumulator() &&
+                 strcmp(Name, "AccumulatorInput") == 0)
+          Source = &*AccumulatorBuffer;
+        if (!Source)
+          return;
+        VERIFY_IS_TRUE(
+            Data.size() == Source->size(),
+            "ThreadGroup matrix arithmetic initializer size mismatch");
+        std::copy(Source->begin(), Source->end(), Data.begin());
+      });
+
+  MappedData OutData;
+  Result->Test->GetReadBackData("Output", &OutData);
+  const cpu_oracle::BufferResultOracle Oracle =
+      cpu_oracle::exactBufferResult(*Expected, Case.PublicRule);
+  VERIFY_IS_TRUE(cpu_oracle::verifyBufferResult(OutData.data(), OutData.size(),
+                                                Oracle, Verbose));
+}
+
+static void runCapabilityCheckedThreadGroupMultiply(
+    ID3D12Device *Device, dxc::SpecificDllLoader &DxcSupport,
+    const MatrixMultiplyCaseData &Case,
+    linalg_test::CapabilityRequirement Requirement, LPCWSTR CaseName,
+    bool Verbose) {
+  VERIFY_IS_TRUE(isMatrixMultiplyCaseValid(Case));
+  if (!isMatrixMultiplyCaseValid(Case))
+    return;
+
+  bool Supported;
+  UINT SelectedWaveSize;
+  UINT SelectedThreadGroupSize;
+  const HRESULT HR = queryThreadGroupMatrixMultiplyCaseSupport(
+      Device, Case.MatrixAType, Case.MatrixBType, Case.AccumulatorType, Case.M,
+      Case.K, Case.N, CaseName, Supported, SelectedWaveSize,
+      SelectedThreadGroupSize);
+  const linalg_test::Applicability Applicability =
+      linalg_test::classifyApplicability(HR, Supported, Requirement);
+  if (!applyApplicability(Applicability, CaseName))
+    return;
+  runThreadGroupMultiplyCase(Device, DxcSupport, Case, SelectedWaveSize,
+                             SelectedThreadGroupSize, Verbose);
+}
+
+static MatrixMultiplyCaseData
+makeRectangularF16ThreadGroupMultiplyCase(ComponentType AccumulatorType,
+                                          MatrixMultiplyOperation Operation) {
+  MatrixMultiplyCaseData Case = {};
+  Case.MatrixAType = ComponentType::F16;
+  Case.MatrixBType = ComponentType::F16;
+  Case.AccumulatorType = AccumulatorType;
+  Case.M = 8;
+  Case.K = 16;
+  Case.N = 8;
+  Case.Operation = Operation;
+  Case.MatrixAValues = makeMatrixArithmeticPattern(Case.M, Case.K, 3, 2, 5, 2);
+  Case.MatrixBValues = makeMatrixArithmeticPattern(Case.K, Case.N, 1, 3, 7, 3);
+  if (Case.hasInitialAccumulator()) {
+    Case.AccumulatorValues =
+        makeMatrixArithmeticPattern(Case.M, Case.N, 2, 1, 5, 2);
+    Case.PublicRule =
+        L"Exact ThreadGroup F16 products plus an independent F32 accumulator";
+  } else {
+    Case.PublicRule =
+        L"Exact non-uniform rectangular ThreadGroup F16 matrix product";
+  }
+  return Case;
+}
+
+void DxilConf_SM610_LinAlg::MatMatMul_ThreadGroup_8x16x8_F16_NonUniform() {
+  const MatrixMultiplyCaseData Case = makeRectangularF16ThreadGroupMultiplyCase(
+      ComponentType::F16, MatrixMultiplyOperation::Multiply);
+  runCapabilityCheckedThreadGroupMultiply(
+      D3DDevice, DxcSupport, Case,
+      linalg_test::CapabilityRequirement::CapabilityGated,
+      L"MatMatMul_ThreadGroup_8x16x8_F16_NonUniform", VerboseLogging);
+}
+
+void DxilConf_SM610_LinAlg::
+    MatMatMulAccum_ThreadGroup_8x16x8_F16_ToF32_NonUniform() {
+  const MatrixMultiplyCaseData Case = makeRectangularF16ThreadGroupMultiplyCase(
+      ComponentType::F32, MatrixMultiplyOperation::MultiplyAccumulate);
+  runCapabilityCheckedThreadGroupMultiply(
+      D3DDevice, DxcSupport, Case,
+      linalg_test::CapabilityRequirement::CapabilityGated,
+      L"MatMatMulAccum_ThreadGroup_8x16x8_F16_ToF32_NonUniform",
+      VerboseLogging);
+}
+
+void DxilConf_SM610_LinAlg::MatMatMul_ThreadGroup_8x8x8_I32() {
+  MatrixMultiplyCaseData Case = {};
+  Case.MatrixAType = ComponentType::I32;
+  Case.MatrixBType = ComponentType::I32;
+  Case.AccumulatorType = ComponentType::I32;
+  Case.M = 8;
+  Case.K = 8;
+  Case.N = 8;
+  Case.MatrixAValues = makeMatrixArithmeticPattern(Case.M, Case.K, 3, 2, 5, 2);
+  Case.MatrixBValues = makeMatrixArithmeticPattern(Case.K, Case.N, 1, 3, 7, 3);
+  Case.PublicRule = L"Exact non-uniform ThreadGroup I32 matrix product";
+  runCapabilityCheckedThreadGroupMultiply(
+      D3DDevice, DxcSupport, Case,
+      linalg_test::CapabilityRequirement::CapabilityGated,
+      L"MatMatMul_ThreadGroup_8x8x8_I32", VerboseLogging);
 }
 
 struct WaveAccumulateCaseData {
@@ -4615,8 +5078,8 @@ void DxilConf_SM610_LinAlg::MatAccum_Wave_8x32_F16_BUse_NonUniform() {
   Case.M = 8;
   Case.N = 32;
   Case.AccumulatorValues =
-      makeWaveArithmeticPattern(Case.M, Case.N, 2, 1, 7, 3);
-  Case.RHSValues = makeWaveArithmeticPattern(Case.M, Case.N, 1, 3, 5, 2);
+      makeMatrixArithmeticPattern(Case.M, Case.N, 2, 1, 7, 3);
+  Case.RHSValues = makeMatrixArithmeticPattern(Case.M, Case.N, 1, 3, 5, 2);
   Case.PublicRule =
       L"Exact non-uniform F16 accumulator plus a B-use F16 matrix";
   runWaveAccumulateCase(D3DDevice, DxcSupport, Case,
