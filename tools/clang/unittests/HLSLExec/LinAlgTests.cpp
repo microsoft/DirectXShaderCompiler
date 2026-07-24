@@ -1812,7 +1812,11 @@ static const char CopyConvertShader[] = R"(
   RWByteAddressBuffer Input : register(u0);
   RWByteAddressBuffer Output : register(u1);
 
+  #ifdef FORCED_WAVE_SIZE
+  [WaveSize(FORCED_WAVE_SIZE)]
+  #else
   [WaveSize(4, 64)]
+  #endif
   [numthreads(NUMTHREADS, 1, 1)]
   void main() {
     if (GetGroupWaveIndex() != 0)
@@ -1835,8 +1839,10 @@ static const char CopyConvertShader[] = R"(
 
 static HRESULT queryCopyConvertSupport(ID3D12Device *Device,
                                        const MatrixParams &Params,
-                                       bool Transpose, bool &Supported) {
+                                       bool Transpose, bool &Supported,
+                                       UINT &SelectedWaveSize) {
   Supported = false;
+  SelectedWaveSize = 0;
   if (!Device || Params.Use != MatrixUse::A ||
       !linalg_test::isLegalScope(linalg_test::OperationType::MatrixConstruction,
                                  toCapabilityScope(Params.Scope)))
@@ -1904,6 +1910,7 @@ static HRESULT queryCopyConvertSupport(ID3D12Device *Device,
           L"destination=%ux%u",
           WaveSize, Params.M, Params.N, Destination.M, Destination.N);
       Supported = true;
+      SelectedWaveSize = WaveSize;
       return S_OK;
     }
   }
@@ -1918,7 +1925,7 @@ static HRESULT queryCopyConvertSupport(ID3D12Device *Device,
 static void runCopyConvert(ID3D12Device *Device,
                            dxc::SpecificDllLoader &DxcSupport,
                            const MatrixParams &Params, bool Verbose,
-                           bool Transpose) {
+                           bool Transpose, UINT ForcedWaveSize = 0) {
   MatrixParams DstParams = Params;
   if (Transpose) {
     DstParams.M = Params.N;
@@ -1931,6 +1938,8 @@ static void runCopyConvert(ID3D12Device *Device,
   ExtraDefs << " -DDST_N_DIM=" << DstParams.N;
   ExtraDefs << " -DSRC_STRIDE=" << Params.strideBytes();
   ExtraDefs << " -DDST_STRIDE=" << DstParams.strideBytes();
+  if (ForcedWaveSize != 0)
+    ExtraDefs << " -DFORCED_WAVE_SIZE=" << ForcedWaveSize;
 
   std::string Args = buildCompilerArgs(Params, ExtraDefs.str().c_str());
 
@@ -2035,8 +2044,9 @@ void DxilConf_SM610_LinAlg::CopyConvert_Wave_4x8_F32_Transpose() {
   Params.Enable16Bit = false;
 
   bool Supported;
-  const HRESULT QueryResult =
-      queryCopyConvertSupport(D3DDevice, Params, /*Transpose=*/true, Supported);
+  UINT SelectedWaveSize;
+  const HRESULT QueryResult = queryCopyConvertSupport(
+      D3DDevice, Params, /*Transpose=*/true, Supported, SelectedWaveSize);
   const linalg_test::Applicability Applicability =
       linalg_test::classifyApplicability(
           QueryResult, Supported,
@@ -2048,7 +2058,7 @@ void DxilConf_SM610_LinAlg::CopyConvert_Wave_4x8_F32_Transpose() {
 
   // Non-square dimensions make the destination shape and row stride observable.
   runCopyConvert(D3DDevice, DxcSupport, Params, VerboseLogging,
-                 /*Transpose=*/true);
+                 /*Transpose=*/true, SelectedWaveSize);
 }
 
 static const char MatMatMulShader[] = R"(
