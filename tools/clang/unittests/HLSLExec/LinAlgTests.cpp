@@ -323,6 +323,21 @@ static LPCWSTR componentTypeName(ComponentType CompType) {
   }
 }
 
+static const char *hlslElementTypeName(ComponentType CompType) {
+  switch (CompType) {
+  case ComponentType::F16:
+    return "half";
+  case ComponentType::F32:
+    return "float";
+  case ComponentType::I32:
+    return "int";
+  case ComponentType::U32:
+    return "uint";
+  default:
+    return nullptr;
+  }
+}
+
 static LPCWSTR comparisonModeName(ComparisonMode Mode) {
   switch (Mode) {
   case ComparisonMode::Exact:
@@ -719,6 +734,27 @@ encodeMatrixBuffer(const TypedMatrix &Matrix, const MatrixBufferLayout &Layout,
   return Buffer;
 }
 
+static std::optional<std::vector<BYTE>>
+makeFilledComponentBuffer(ComponentType CompType, size_t BufferSize,
+                          uint32_t FillValue) {
+  const size_t ElementBytes = elementSize(CompType);
+  if (!isSupportedComponentType(CompType) || BufferSize == 0 ||
+      BufferSize % ElementBytes != 0 ||
+      BufferSize / ElementBytes > (std::numeric_limits<MatrixDim>::max)())
+    return std::nullopt;
+
+  const MatrixDim NumElements =
+      static_cast<MatrixDim>(BufferSize / ElementBytes);
+  std::optional<TypedMatrix> Fill =
+      makeSequentialMatrix(CompType, 1, NumElements, FillValue,
+                           /*Increment=*/false);
+  if (!Fill.has_value())
+    return std::nullopt;
+
+  return encodeMatrixBuffer(*Fill,
+                            {LinalgMatrixLayout::RowMajor, 0, BufferSize});
+}
+
 template <typename T>
 static std::optional<TypedMatrix>
 decodeTypedMatrixBuffer(ComponentType CompType, MatrixDim M, MatrixDim N,
@@ -1070,22 +1106,11 @@ static std::string buildCompilerArgs(const MatrixParams &Params,
   SS << " -DLAYOUT=" << static_cast<int>(Params.Layout);
   SS << " -DELEM_SIZE=" << static_cast<int>(elementSize(Params.CompType));
   SS << " -DNUMTHREADS=" << Params.NumThreads;
-  switch (Params.CompType) {
-  case ComponentType::F16:
-    SS << " -DELEM_TYPE=half";
-    break;
-  case ComponentType::F32:
-    SS << " -DELEM_TYPE=float";
-    break;
-  case ComponentType::I32:
-    SS << " -DELEM_TYPE=int";
-    break;
-  case ComponentType::U32:
-    SS << " -DELEM_TYPE=uint";
-    break;
-  default:
+  const char *ElementType = cpu_oracle::hlslElementTypeName(Params.CompType);
+  if (!ElementType) {
     VERIFY_IS_TRUE(false, "Unsupported LinAlg component type");
-    break;
+  } else {
+    SS << " -DELEM_TYPE=" << ElementType;
   }
   if (Params.Enable16Bit)
     SS << " -enable-16bit-types";
@@ -1558,6 +1583,12 @@ static HRESULT queryDescriptorAccumulateSupport(ID3D12Device *Device,
                                                 bool &Supported,
                                                 UINT &SelectedWaveSize);
 
+static HRESULT
+queryAtomicAccumulateSupport(ID3D12Device *Device, const MatrixParams &Params,
+                             linalg_test::AtomicDestination Destination,
+                             LPCWSTR CaseName, bool &Supported,
+                             UINT &SelectedWaveSize);
+
 class DxilConf_SM610_LinAlg {
 public:
   BEGIN_TEST_CLASS(DxilConf_SM610_LinAlg)
@@ -1590,6 +1621,10 @@ public:
   TEST_METHOD(LoadMemory_Wave_16x16_F16);
   TEST_METHOD(StoreMemory_Wave_16x16_F16);
   TEST_METHOD(AccumulateMemory_Wave_16x16_F16);
+  TEST_METHOD(LoadStoreMemory_Wave_4x8_F16_RowMajorOffsetPadded);
+  TEST_METHOD(LoadStoreMemory_Wave_4x8_F32_ColumnMajorOffsetPadded);
+  TEST_METHOD(LoadStoreMemory_ThreadGroup_4x8_F16);
+  TEST_METHOD(AccumulateMemory_Wave_4x8_F16_RowMajorOffsetPadded);
 
   // Element access
   TEST_METHOD(ElementAccess_Wave_16x16_F16);
@@ -2356,11 +2391,24 @@ static HRESULT queryDescriptorAccumulateSupport(ID3D12Device *Device,
                                                 LPCWSTR CaseName,
                                                 bool &Supported,
                                                 UINT &SelectedWaveSize) {
+  return queryAtomicAccumulateSupport(
+      Device, Params, linalg_test::AtomicDestination::RWByteAddressBuffer,
+      CaseName, Supported, SelectedWaveSize);
+}
+
+static HRESULT
+queryAtomicAccumulateSupport(ID3D12Device *Device, const MatrixParams &Params,
+                             linalg_test::AtomicDestination Destination,
+                             LPCWSTR CaseName, bool &Supported,
+                             UINT &SelectedWaveSize) {
   Supported = false;
   SelectedWaveSize = 0;
-  if (!CaseName || !linalg_test::isLegalScope(
-                       linalg_test::OperationType::AtomicAccumulateStore,
-                       toCapabilityScope(Params.Scope)))
+  if (!CaseName ||
+      (Destination != linalg_test::AtomicDestination::RWByteAddressBuffer &&
+       Destination != linalg_test::AtomicDestination::GroupShared) ||
+      !linalg_test::isLegalScope(
+          linalg_test::OperationType::AtomicAccumulateStore,
+          toCapabilityScope(Params.Scope)))
     return E_INVALIDARG;
 
   bool ConstructionSupported;
@@ -2382,12 +2430,15 @@ static HRESULT queryDescriptorAccumulateSupport(ID3D12Device *Device,
   if (FAILED(HR))
     return HR;
 
-  Supported = AtomicSupport.supports(
-      linalg_test::AtomicDestination::RWByteAddressBuffer);
+  Supported = AtomicSupport.supports(Destination);
   if (!Supported) {
     SelectedWaveSize = 0;
     hlsl_test::LogCommentFmt(
-        L"Atomic descriptor accumulation is unsupported for %s", CaseName);
+        L"Atomic %s accumulation is unsupported for %s",
+        Destination == linalg_test::AtomicDestination::RWByteAddressBuffer
+            ? L"descriptor"
+            : L"group-shared",
+        CaseName);
   }
   return S_OK;
 }
@@ -3749,13 +3800,11 @@ static const char LoadMemoryShader[] = R"(
   RWByteAddressBuffer Output : register(u1);
   groupshared ELEM_TYPE GsData[M_DIM * N_DIM];
 
-  #define ELEM_PER_THREAD (M_DIM * N_DIM / NUMTHREADS)
-
   [WaveSize(4, 64)]
   [numthreads(NUMTHREADS, 1, 1)]
   void main(uint threadID : SV_GroupIndex) {
-    for (uint I = 0; I < ELEM_PER_THREAD; ++I) {
-      uint Index = threadID * ELEM_PER_THREAD + I;
+    for (uint Index = threadID; Index < M_DIM * N_DIM;
+         Index += NUMTHREADS) {
       GsData[Index] = Input.Load<ELEM_TYPE>(Index * ELEM_SIZE);
     }
 
@@ -3831,20 +3880,22 @@ static const char StoreMemoryShader[] = R"(
 
   [WaveSize(4, 64)]
   [numthreads(NUMTHREADS, 1, 1)]
-  void main() {
-    if (GetGroupWaveIndex() != 0)
-      return;
+  void main(uint threadID : SV_GroupIndex) {
+    if (GetGroupWaveIndex() == 0) {
+      __builtin_LinAlgMatrix
+        [[__LinAlgMatrix_Attributes(COMP_TYPE, M_DIM, N_DIM, USE, SCOPE)]]
+        Mat;
+      __builtin_LinAlg_FillMatrix(Mat, FILL_VALUE);
 
-    __builtin_LinAlgMatrix
-      [[__LinAlgMatrix_Attributes(COMP_TYPE, M_DIM, N_DIM, USE, SCOPE)]]
-      Mat;
-    __builtin_LinAlg_FillMatrix(Mat, FILL_VALUE);
+      __builtin_LinAlg_MatrixStoreToMemory(
+        Mat, GsData, OFFSET / ELEM_SIZE, STRIDE / ELEM_SIZE, LAYOUT);
+    }
 
-    __builtin_LinAlg_MatrixStoreToMemory(
-      Mat, GsData, OFFSET / ELEM_SIZE, STRIDE / ELEM_SIZE, LAYOUT);
+    GroupMemoryBarrierWithGroupSync();
 
-    for (uint I = 0; I < M_DIM*N_DIM; ++I) {
-      Output.Store<ELEM_TYPE>(I*ELEM_SIZE, GsData[I]);
+    for (uint Index = threadID; Index < M_DIM * N_DIM;
+         Index += NUMTHREADS) {
+      Output.Store<ELEM_TYPE>(Index * ELEM_SIZE, GsData[Index]);
     }
   }
 )";
@@ -3899,32 +3950,31 @@ static const char AccumulateMemoryShader[] = R"(
   RWByteAddressBuffer Output : register(u0);
   groupshared ELEM_TYPE GsData[M_DIM * N_DIM];
 
-  #define ELEM_PER_THREAD (M_DIM * N_DIM / NUMTHREADS)
-
   [WaveSize(4, 64)]
   [numthreads(NUMTHREADS, 1, 1)]
   void main(uint threadID : SV_GroupIndex) {
-    ELEM_TYPE fill = FILL_VALUE;
-    for (uint I = 0; I < ELEM_PER_THREAD; ++I) {
-      uint Index = threadID * ELEM_PER_THREAD + I;
-      GsData[Index] = fill;
+    for (uint Index = threadID; Index < M_DIM * N_DIM;
+         Index += NUMTHREADS) {
+      GsData[Index] = FILL_VALUE;
     }
 
     GroupMemoryBarrierWithGroupSync();
 
-    if (GetGroupWaveIndex() != 0)
-      return;
+    if (GetGroupWaveIndex() == 0) {
+      __builtin_LinAlgMatrix
+        [[__LinAlgMatrix_Attributes(COMP_TYPE, M_DIM, N_DIM, USE, SCOPE)]]
+        Mat;
+      __builtin_LinAlg_FillMatrix(Mat, FILL_VALUE);
 
-    __builtin_LinAlgMatrix
-      [[__LinAlgMatrix_Attributes(COMP_TYPE, M_DIM, N_DIM, USE, SCOPE)]]
-      Mat;
-    __builtin_LinAlg_FillMatrix(Mat, FILL_VALUE);
+      __builtin_LinAlg_MatrixAccumulateToMemory(
+        Mat, GsData, OFFSET / ELEM_SIZE, STRIDE / ELEM_SIZE, LAYOUT);
+    }
 
-    __builtin_LinAlg_MatrixAccumulateToMemory(
-      Mat, GsData, OFFSET / ELEM_SIZE, STRIDE / ELEM_SIZE, LAYOUT);
+    GroupMemoryBarrierWithGroupSync();
 
-    for (uint I = 0; I < M_DIM*N_DIM; ++I) {
-      Output.Store<ELEM_TYPE>(I*ELEM_SIZE, GsData[I]);
+    for (uint Index = threadID; Index < M_DIM * N_DIM;
+         Index += NUMTHREADS) {
+      Output.Store<ELEM_TYPE>(Index * ELEM_SIZE, GsData[Index]);
     }
   }
 )";
@@ -3973,6 +4023,465 @@ void DxilConf_SM610_LinAlg::AccumulateMemory_Wave_16x16_F16() {
   Params.Enable16Bit = true;
   runAccumulateMemory(D3DDevice, DxcSupport, Params, VerboseLogging,
                       /*FillValue=*/7.0f);
+}
+
+struct GroupSharedMemorySpec {
+  cpu_oracle::MatrixBufferLayout Layout;
+};
+
+static const char GroupSharedTransferShader[] = R"(
+  ByteAddressBuffer SourceInit : register(t0);
+  ByteAddressBuffer DestinationInit : register(t1);
+  RWByteAddressBuffer Output : register(u2);
+
+  groupshared ELEM_TYPE SourceData[SRC_ELEMENTS];
+  groupshared ELEM_TYPE DestinationData[DST_ELEMENTS];
+
+  void TransferMatrix() {
+    __builtin_LinAlgMatrix
+      [[__LinAlgMatrix_Attributes(COMP_TYPE, M_DIM, N_DIM, USE, SCOPE)]]
+      Mat;
+    __builtin_LinAlg_MatrixLoadFromMemory(
+      Mat, SourceData, SRC_OFFSET, SRC_STRIDE, SRC_LAYOUT);
+    __builtin_LinAlg_MatrixStoreToMemory(
+      Mat, DestinationData, DST_OFFSET, DST_STRIDE, DST_LAYOUT);
+  }
+
+  #ifdef FORCED_WAVE_SIZE
+  [WaveSize(FORCED_WAVE_SIZE)]
+  #else
+  [WaveSize(4, 64)]
+  #endif
+  [numthreads(NUMTHREADS, 1, 1)]
+  void main(uint threadID : SV_GroupIndex) {
+    for (uint Index = threadID; Index < SRC_ELEMENTS;
+         Index += NUMTHREADS) {
+      SourceData[Index] =
+        SourceInit.Load<ELEM_TYPE>(Index * ELEM_SIZE);
+    }
+    for (uint Index = threadID; Index < DST_ELEMENTS;
+         Index += NUMTHREADS) {
+      DestinationData[Index] =
+        DestinationInit.Load<ELEM_TYPE>(Index * ELEM_SIZE);
+    }
+
+    GroupMemoryBarrierWithGroupSync();
+
+    #if SCOPE == 1
+    if (GetGroupWaveIndex() == 0)
+      TransferMatrix();
+    #elif SCOPE == 2
+    TransferMatrix();
+    #else
+    #error Group-shared matrix transfer requires Wave or ThreadGroup scope
+    #endif
+
+    GroupMemoryBarrierWithGroupSync();
+
+    for (uint Index = threadID; Index < DST_ELEMENTS;
+         Index += NUMTHREADS) {
+      Output.Store<ELEM_TYPE>(Index * ELEM_SIZE, DestinationData[Index]);
+    }
+  }
+)";
+
+static bool getGroupSharedBufferDescription(const MatrixParams &Params,
+                                            const GroupSharedMemorySpec &Spec,
+                                            size_t &BufferSize,
+                                            UINT &NumElements) {
+  const size_t ElementBytes = elementSize(Params.CompType);
+  std::optional<size_t> RequiredBytes = cpu_oracle::getMatrixBufferSize(
+      Params.CompType, Params.M, Params.N, Spec.Layout);
+  if (!RequiredBytes.has_value() ||
+      Spec.Layout.OffsetBytes % ElementBytes != 0 ||
+      Spec.Layout.StrideBytes % ElementBytes != 0 ||
+      *RequiredBytes % ElementBytes != 0 ||
+      *RequiredBytes / ElementBytes > (std::numeric_limits<UINT>::max)())
+    return false;
+
+  BufferSize = *RequiredBytes;
+  NumElements = static_cast<UINT>(BufferSize / ElementBytes);
+  return true;
+}
+
+static void
+runGroupSharedTransfer(ID3D12Device *Device, dxc::SpecificDllLoader &DxcSupport,
+                       const MatrixParams &Params,
+                       const GroupSharedMemorySpec &Source,
+                       const GroupSharedMemorySpec &Destination, bool Verbose,
+                       std::optional<UINT> ForcedWaveSize = std::nullopt) {
+  using namespace cpu_oracle;
+
+  if (!Device ||
+      (Params.Scope != MatrixScope::Wave &&
+       Params.Scope != MatrixScope::ThreadGroup) ||
+      Params.Use != MatrixUse::A) {
+    VERIFY_IS_TRUE(false, "Invalid group-shared transfer parameters");
+    return;
+  }
+
+  size_t SourceBufferSize;
+  UINT SourceElements;
+  size_t DestinationBufferSize;
+  UINT DestinationElements;
+  if (!getGroupSharedBufferDescription(Params, Source, SourceBufferSize,
+                                       SourceElements) ||
+      !getGroupSharedBufferDescription(
+          Params, Destination, DestinationBufferSize, DestinationElements)) {
+    VERIFY_IS_TRUE(false, "Invalid group-shared buffer description");
+    return;
+  }
+
+  std::optional<TypedMatrix> SourceValues = makeSequentialMatrix(
+      Params.CompType, Params.M, Params.N, /*StartingValue=*/1);
+  std::optional<TypedMatrix> DestinationValues = makeSequentialMatrix(
+      Params.CompType, Params.M, Params.N, /*StartingValue=*/1);
+  std::optional<std::vector<BYTE>> SourceBuffer =
+      makeFilledComponentBuffer(Params.CompType, SourceBufferSize, 91);
+  std::optional<std::vector<BYTE>> DestinationInitial =
+      makeFilledComponentBuffer(Params.CompType, DestinationBufferSize, 90);
+  if (!SourceValues.has_value() || !DestinationValues.has_value() ||
+      !SourceBuffer.has_value() || !DestinationInitial.has_value() ||
+      !writeMatrixBuffer(*SourceValues, Source.Layout, *SourceBuffer)) {
+    VERIFY_IS_TRUE(false, "Failed to build group-shared transfer inputs");
+    return;
+  }
+
+  std::vector<BYTE> Expected = *DestinationInitial;
+  if (!writeMatrixBuffer(*DestinationValues, Destination.Layout, Expected)) {
+    VERIFY_IS_TRUE(false, "Failed to build group-shared transfer expectation");
+    return;
+  }
+
+  std::stringstream ExtraDefs;
+  ExtraDefs << " -DSRC_ELEMENTS=" << SourceElements;
+  ExtraDefs << " -DSRC_OFFSET="
+            << Source.Layout.OffsetBytes / elementSize(Params.CompType);
+  ExtraDefs << " -DSRC_STRIDE="
+            << Source.Layout.StrideBytes / elementSize(Params.CompType);
+  ExtraDefs << " -DSRC_LAYOUT=" << static_cast<UINT>(Source.Layout.Layout);
+  ExtraDefs << " -DDST_ELEMENTS=" << DestinationElements;
+  ExtraDefs << " -DDST_OFFSET="
+            << Destination.Layout.OffsetBytes / elementSize(Params.CompType);
+  ExtraDefs << " -DDST_STRIDE="
+            << Destination.Layout.StrideBytes / elementSize(Params.CompType);
+  ExtraDefs << " -DDST_LAYOUT=" << static_cast<UINT>(Destination.Layout.Layout);
+  if (ForcedWaveSize.has_value())
+    ExtraDefs << " -DFORCED_WAVE_SIZE=" << *ForcedWaveSize;
+
+  const std::string Args = buildCompilerArgs(Params, ExtraDefs.str().c_str());
+  compileShader(DxcSupport, GroupSharedTransferShader, "cs_6_10", Args,
+                Verbose);
+
+  auto Op = createComputeOp(GroupSharedTransferShader, "cs_6_10",
+                            "SRV(t0), SRV(t1), UAV(u2)", Args.c_str());
+  addSRVBuffer(Op.get(), "SourceInit", SourceBuffer->size(), "byname");
+  addSRVBuffer(Op.get(), "DestinationInit", DestinationInitial->size(),
+               "byname");
+  addUAVBuffer(Op.get(), "Output", Expected.size(), true);
+  addRootView(Op.get(), 0, "SourceInit");
+  addRootView(Op.get(), 1, "DestinationInit");
+  addRootView(Op.get(), 2, "Output");
+
+  auto Result =
+      runShaderOp(Device, DxcSupport, std::move(Op),
+                  [&](LPCSTR Name, std::vector<BYTE> &Data, st::ShaderOp *) {
+                    if (strcmp(Name, "SourceInit") == 0)
+                      Data = *SourceBuffer;
+                    else if (strcmp(Name, "DestinationInit") == 0)
+                      Data = *DestinationInitial;
+                  });
+
+  MappedData OutData;
+  Result->Test->GetReadBackData("Output", &OutData);
+  BufferResultOracle Oracle =
+      exactBufferResult(std::move(Expected),
+                        L"Exact group-shared load/store layout and addressing");
+  VERIFY_IS_TRUE(
+      verifyBufferResult(OutData.data(), OutData.size(), Oracle, Verbose));
+}
+
+static void runBidirectionalGroupSharedTransfer(
+    ID3D12Device *Device, dxc::SpecificDllLoader &DxcSupport,
+    const MatrixParams &Params, const GroupSharedMemorySpec &Target,
+    const GroupSharedMemorySpec &Canonical, bool Verbose,
+    std::optional<UINT> ForcedWaveSize = std::nullopt) {
+  hlsl_test::LogCommentFmt(L"Group-shared transfer: target to canonical");
+  runGroupSharedTransfer(Device, DxcSupport, Params, Target, Canonical, Verbose,
+                         ForcedWaveSize);
+  hlsl_test::LogCommentFmt(L"Group-shared transfer: canonical to target");
+  runGroupSharedTransfer(Device, DxcSupport, Params, Canonical, Target, Verbose,
+                         ForcedWaveSize);
+}
+
+void DxilConf_SM610_LinAlg::
+    LoadStoreMemory_Wave_4x8_F16_RowMajorOffsetPadded() {
+  MatrixParams Params = {};
+  Params.CompType = ComponentType::F16;
+  Params.M = 4;
+  Params.N = 8;
+  Params.Use = MatrixUse::A;
+  Params.Scope = MatrixScope::Wave;
+  Params.Layout = LinalgMatrixLayout::RowMajor;
+  Params.NumThreads = 64;
+  Params.Enable16Bit = true;
+
+  bool Supported;
+  UINT SelectedWaveSize;
+  const HRESULT QueryResult = queryMatrixConstructionSupport(
+      D3DDevice, Params, {{linalg_test::MatrixRole::A, Params.M, Params.N}},
+      L"LoadStoreMemory_Wave_4x8_F16_RowMajorOffsetPadded", Supported,
+      SelectedWaveSize);
+  const linalg_test::Applicability Applicability =
+      linalg_test::classifyApplicability(
+          QueryResult, Supported,
+          linalg_test::CapabilityRequirement::CapabilityGated);
+  if (!applyApplicability(Applicability,
+                          L"LoadStoreMemory_Wave_4x8_F16_RowMajorOffsetPadded "
+                          L"MatrixConstruction"))
+    return;
+
+  const GroupSharedMemorySpec Target = {{LinalgMatrixLayout::RowMajor,
+                                         /*OffsetBytes=*/8,
+                                         /*StrideBytes=*/24}};
+  const GroupSharedMemorySpec Canonical = {{LinalgMatrixLayout::RowMajor,
+                                            /*OffsetBytes=*/0,
+                                            /*StrideBytes=*/16}};
+  runBidirectionalGroupSharedTransfer(D3DDevice, DxcSupport, Params, Target,
+                                      Canonical, VerboseLogging,
+                                      SelectedWaveSize);
+}
+
+void DxilConf_SM610_LinAlg::
+    LoadStoreMemory_Wave_4x8_F32_ColumnMajorOffsetPadded() {
+  MatrixParams Params = {};
+  Params.CompType = ComponentType::F32;
+  Params.M = 4;
+  Params.N = 8;
+  Params.Use = MatrixUse::A;
+  Params.Scope = MatrixScope::Wave;
+  Params.Layout = LinalgMatrixLayout::ColumnMajor;
+  Params.NumThreads = 64;
+  Params.Enable16Bit = false;
+
+  bool Supported;
+  UINT SelectedWaveSize;
+  const HRESULT QueryResult = queryMatrixConstructionSupport(
+      D3DDevice, Params, {{linalg_test::MatrixRole::A, Params.M, Params.N}},
+      L"LoadStoreMemory_Wave_4x8_F32_ColumnMajorOffsetPadded", Supported,
+      SelectedWaveSize);
+  const linalg_test::Applicability Applicability =
+      linalg_test::classifyApplicability(
+          QueryResult, Supported,
+          linalg_test::CapabilityRequirement::CapabilityGated);
+  if (!applyApplicability(
+          Applicability,
+          L"LoadStoreMemory_Wave_4x8_F32_ColumnMajorOffsetPadded "
+          L"MatrixConstruction"))
+    return;
+
+  const GroupSharedMemorySpec Target = {{LinalgMatrixLayout::ColumnMajor,
+                                         /*OffsetBytes=*/16,
+                                         /*StrideBytes=*/24}};
+  const GroupSharedMemorySpec Canonical = {{LinalgMatrixLayout::RowMajor,
+                                            /*OffsetBytes=*/0,
+                                            /*StrideBytes=*/32}};
+  runBidirectionalGroupSharedTransfer(D3DDevice, DxcSupport, Params, Target,
+                                      Canonical, VerboseLogging,
+                                      SelectedWaveSize);
+}
+
+void DxilConf_SM610_LinAlg::LoadStoreMemory_ThreadGroup_4x8_F16() {
+  MatrixParams Params = {};
+  Params.CompType = ComponentType::F16;
+  Params.M = 4;
+  Params.N = 8;
+  Params.Use = MatrixUse::A;
+  Params.Scope = MatrixScope::ThreadGroup;
+  Params.Layout = LinalgMatrixLayout::ColumnMajor;
+  Params.NumThreads = 64;
+  Params.Enable16Bit = true;
+
+  bool Supported;
+  UINT SelectedWaveSize;
+  const HRESULT QueryResult = queryMatrixConstructionSupport(
+      D3DDevice, Params, {{linalg_test::MatrixRole::A, Params.M, Params.N}},
+      L"LoadStoreMemory_ThreadGroup_4x8_F16", Supported, SelectedWaveSize);
+  const linalg_test::Applicability Applicability =
+      linalg_test::classifyApplicability(
+          QueryResult, Supported,
+          linalg_test::CapabilityRequirement::CapabilityGated);
+  if (!applyApplicability(
+          Applicability,
+          L"LoadStoreMemory_ThreadGroup_4x8_F16 MatrixConstruction"))
+    return;
+
+  const GroupSharedMemorySpec Target = {{LinalgMatrixLayout::ColumnMajor,
+                                         /*OffsetBytes=*/8,
+                                         /*StrideBytes=*/12}};
+  const GroupSharedMemorySpec Canonical = {{LinalgMatrixLayout::RowMajor,
+                                            /*OffsetBytes=*/0,
+                                            /*StrideBytes=*/16}};
+  runBidirectionalGroupSharedTransfer(D3DDevice, DxcSupport, Params, Target,
+                                      Canonical, VerboseLogging,
+                                      SelectedWaveSize);
+}
+
+static const char GroupSharedAccumulateShader[] = R"(
+  ByteAddressBuffer Initial : register(t0);
+  RWByteAddressBuffer Output : register(u1);
+  groupshared ELEM_TYPE GsData[MEM_ELEMENTS];
+
+  #ifdef FORCED_WAVE_SIZE
+  [WaveSize(FORCED_WAVE_SIZE)]
+  #else
+  [WaveSize(4, 64)]
+  #endif
+  [numthreads(NUMTHREADS, 1, 1)]
+  void main(uint threadID : SV_GroupIndex) {
+    for (uint Index = threadID; Index < MEM_ELEMENTS;
+         Index += NUMTHREADS) {
+      GsData[Index] = Initial.Load<ELEM_TYPE>(Index * ELEM_SIZE);
+    }
+
+    GroupMemoryBarrierWithGroupSync();
+
+    if (GetGroupWaveIndex() == 0) {
+      __builtin_LinAlgMatrix
+        [[__LinAlgMatrix_Attributes(COMP_TYPE, M_DIM, N_DIM, USE, SCOPE)]]
+        Mat;
+      __builtin_LinAlg_FillMatrix(Mat, 0);
+      for (uint I = 0; I < __builtin_LinAlg_MatrixLength(Mat); ++I) {
+        uint2 Coord = __builtin_LinAlg_MatrixGetCoordinate(Mat, I);
+        __builtin_LinAlg_MatrixSetElement(
+          Mat, Mat, I,
+          (ELEM_TYPE)(ACCUMULATE_START + Coord.x * N_DIM + Coord.y));
+      }
+      __builtin_LinAlg_MatrixAccumulateToMemory(
+        Mat, GsData, MEM_OFFSET, MEM_STRIDE, MEM_LAYOUT);
+    }
+
+    GroupMemoryBarrierWithGroupSync();
+
+    for (uint Index = threadID; Index < MEM_ELEMENTS;
+         Index += NUMTHREADS) {
+      Output.Store<ELEM_TYPE>(Index * ELEM_SIZE, GsData[Index]);
+    }
+  }
+)";
+
+static void runGroupSharedAccumulate(
+    ID3D12Device *Device, dxc::SpecificDllLoader &DxcSupport,
+    const MatrixParams &Params, const GroupSharedMemorySpec &Memory,
+    uint32_t InitialValue, uint32_t AccumulateStartingValue, bool Verbose,
+    std::optional<UINT> ForcedWaveSize = std::nullopt) {
+  using namespace cpu_oracle;
+
+  if (!Device || Params.Scope != MatrixScope::Wave ||
+      Params.Use != MatrixUse::Accumulator ||
+      InitialValue >
+          (std::numeric_limits<uint32_t>::max)() - AccumulateStartingValue) {
+    VERIFY_IS_TRUE(false, "Invalid group-shared accumulate parameters");
+    return;
+  }
+
+  size_t BufferSize;
+  UINT NumElements;
+  if (!getGroupSharedBufferDescription(Params, Memory, BufferSize,
+                                       NumElements)) {
+    VERIFY_IS_TRUE(false, "Invalid group-shared accumulate buffer");
+    return;
+  }
+
+  std::optional<TypedMatrix> InitialMatrix =
+      makeSequentialMatrix(Params.CompType, Params.M, Params.N, InitialValue,
+                           /*Increment=*/false);
+  std::optional<TypedMatrix> ExpectedMatrix = makeSequentialMatrix(
+      Params.CompType, Params.M, Params.N,
+      InitialValue + AccumulateStartingValue, /*Increment=*/true);
+  std::optional<std::vector<BYTE>> Initial =
+      makeFilledComponentBuffer(Params.CompType, BufferSize, 90);
+  std::optional<std::vector<BYTE>> Expected =
+      makeFilledComponentBuffer(Params.CompType, BufferSize, 90);
+  if (!InitialMatrix.has_value() || !ExpectedMatrix.has_value() ||
+      !Initial.has_value() || !Expected.has_value() ||
+      !writeMatrixBuffer(*InitialMatrix, Memory.Layout, *Initial) ||
+      !writeMatrixBuffer(*ExpectedMatrix, Memory.Layout, *Expected)) {
+    VERIFY_IS_TRUE(false, "Failed to build group-shared accumulate oracle");
+    return;
+  }
+
+  std::stringstream ExtraDefs;
+  ExtraDefs << " -DMEM_ELEMENTS=" << NumElements;
+  ExtraDefs << " -DMEM_OFFSET="
+            << Memory.Layout.OffsetBytes / elementSize(Params.CompType);
+  ExtraDefs << " -DMEM_STRIDE="
+            << Memory.Layout.StrideBytes / elementSize(Params.CompType);
+  ExtraDefs << " -DMEM_LAYOUT=" << static_cast<UINT>(Memory.Layout.Layout);
+  ExtraDefs << " -DACCUMULATE_START=" << AccumulateStartingValue;
+  if (ForcedWaveSize.has_value())
+    ExtraDefs << " -DFORCED_WAVE_SIZE=" << *ForcedWaveSize;
+
+  const std::string Args = buildCompilerArgs(Params, ExtraDefs.str().c_str());
+  compileShader(DxcSupport, GroupSharedAccumulateShader, "cs_6_10", Args,
+                Verbose);
+
+  auto Op = createComputeOp(GroupSharedAccumulateShader, "cs_6_10",
+                            "SRV(t0), UAV(u1)", Args.c_str());
+  addSRVBuffer(Op.get(), "Initial", Initial->size(), "byname");
+  addUAVBuffer(Op.get(), "Output", Expected->size(), true);
+  addRootView(Op.get(), 0, "Initial");
+  addRootView(Op.get(), 1, "Output");
+
+  auto Result =
+      runShaderOp(Device, DxcSupport, std::move(Op),
+                  [&](LPCSTR Name, std::vector<BYTE> &Data, st::ShaderOp *) {
+                    if (strcmp(Name, "Initial") == 0)
+                      Data = *Initial;
+                  });
+
+  MappedData OutData;
+  Result->Test->GetReadBackData("Output", &OutData);
+  BufferResultOracle Oracle = exactBufferResult(
+      std::move(*Expected), L"Exact Wave group-shared atomic accumulation");
+  VERIFY_IS_TRUE(
+      verifyBufferResult(OutData.data(), OutData.size(), Oracle, Verbose));
+}
+
+void DxilConf_SM610_LinAlg::
+    AccumulateMemory_Wave_4x8_F16_RowMajorOffsetPadded() {
+  MatrixParams Params = {};
+  Params.CompType = ComponentType::F16;
+  Params.M = 4;
+  Params.N = 8;
+  Params.Use = MatrixUse::Accumulator;
+  Params.Scope = MatrixScope::Wave;
+  Params.Layout = LinalgMatrixLayout::RowMajor;
+  Params.NumThreads = 64;
+  Params.Enable16Bit = true;
+
+  bool Supported;
+  UINT SelectedWaveSize;
+  const HRESULT QueryResult = queryAtomicAccumulateSupport(
+      D3DDevice, Params, linalg_test::AtomicDestination::GroupShared,
+      L"AccumulateMemory_Wave_4x8_F16_RowMajorOffsetPadded", Supported,
+      SelectedWaveSize);
+  const linalg_test::Applicability Applicability =
+      linalg_test::classifyApplicability(
+          QueryResult, Supported,
+          linalg_test::CapabilityRequirement::CapabilityGated);
+  if (!applyApplicability(Applicability,
+                          L"AccumulateMemory_Wave_4x8_F16_RowMajorOffsetPadded "
+                          L"AtomicAccumulateStore"))
+    return;
+
+  const GroupSharedMemorySpec Memory = {{LinalgMatrixLayout::RowMajor,
+                                         /*OffsetBytes=*/8,
+                                         /*StrideBytes=*/24}};
+  runGroupSharedAccumulate(D3DDevice, DxcSupport, Params, Memory,
+                           /*InitialValue=*/12,
+                           /*AccumulateStartingValue=*/1, VerboseLogging,
+                           SelectedWaveSize);
 }
 
 static const char ConvertShader[] = R"(
