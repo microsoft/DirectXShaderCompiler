@@ -166,7 +166,15 @@ template <typename T> struct ComponentTraits;
 
 template <>
 struct ComponentTraits<float>
-    : NativeComponentTraits<float, ComponentType::F32> {};
+    : NativeComponentTraits<float, ComponentType::F32> {
+  static std::wstring format(const float &Value) {
+    uint32_t Bits;
+    std::memcpy(&Bits, &Value, sizeof(Bits));
+    std::wstringstream Stream;
+    Stream << Value << L" (bits=0x" << std::hex << Bits << L")";
+    return Stream.str();
+  }
+};
 
 template <>
 struct ComponentTraits<int32_t>
@@ -443,8 +451,14 @@ getMatrixBufferSize(ComponentType CompType, MatrixDim M, MatrixDim N,
   const size_t MinorCount =
       Layout.Layout == LinalgMatrixLayout::RowMajor ? N : M;
   size_t PackedMinorBytes;
-  if (!checkedMultiply(MinorCount, ElementBytes, PackedMinorBytes) ||
-      Layout.StrideBytes < PackedMinorBytes) {
+  if (!checkedMultiply(MinorCount, ElementBytes, PackedMinorBytes)) {
+    hlsl_test::LogErrorFmt(
+        L"Matrix packed row or column byte calculation overflowed: "
+        L"component=%s, M=%u, N=%u",
+        componentTypeName(CompType), M, N);
+    return std::nullopt;
+  }
+  if (Layout.StrideBytes < PackedMinorBytes) {
     hlsl_test::LogErrorFmt(
         L"Matrix stride is too small: component=%s, M=%u, N=%u, stride=%zu, "
         L"required=%zu",
@@ -1021,6 +1035,13 @@ void LinAlgCPUOracleTests::TypedMatrixBufferRoundTrip() {
   VERIFY_IS_TRUE(
       VerifyScalarEncoding(makeTypedMatrix<uint32_t>(1, 1, {0x89abcdefu}),
                            {0xef, 0xcd, 0xab, 0x89}));
+
+  const uint32_t AdjacentFloatBits = 0x3f800001;
+  float AdjacentFloat;
+  std::memcpy(&AdjacentFloat, &AdjacentFloatBits, sizeof(AdjacentFloat));
+  VERIFY_IS_TRUE(
+      ComponentTraits<float>::format(AdjacentFloat).find(L"3f800001") !=
+      std::wstring::npos);
 
   std::optional<TypedMatrix> Matrix =
       makeTypedMatrix<uint32_t>(2, 3, {1, 2, 3, 4, 5, 6});
