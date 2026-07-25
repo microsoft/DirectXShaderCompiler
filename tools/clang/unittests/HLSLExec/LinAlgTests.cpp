@@ -3215,9 +3215,23 @@ static HRESULT queryThreadOuterProductSupport(ID3D12Device *Device,
     return HR;
 
   Supported = Support.supported();
-  if (!Supported)
+  if (!Supported) {
     hlsl_test::LogCommentFmt(L"Thread OuterProduct is unsupported for %s",
                              CaseName);
+    return S_OK;
+  }
+
+  linalg_test::AtomicAccumulateStoreSupport AccumulateSupport;
+  HR = linalg_test::queryAtomicAccumulateStore(Device, {*ResultDataType},
+                                               AccumulateSupport);
+  if (FAILED(HR))
+    return HR;
+  Supported = AccumulateSupport.supports(
+      linalg_test::AtomicDestination::RWByteAddressBuffer);
+  if (!Supported)
+    hlsl_test::LogCommentFmt(
+        L"OuterProduct descriptor accumulation is unsupported for %s",
+        CaseName);
   return S_OK;
 }
 
@@ -7147,12 +7161,14 @@ struct VectorAccumulateCaseData {
   ComponentType CompType = ComponentType::Invalid;
   std::vector<int64_t> InputValues;
   std::vector<int64_t> InitialValues;
+  std::vector<int64_t> OutputGuardValues;
   std::wstring PublicRule;
 };
 
 static bool isVectorAccumulateCaseValid(const VectorAccumulateCaseData &Case) {
   return !Case.InputValues.empty() &&
          Case.InputValues.size() == Case.InitialValues.size() &&
+         !Case.OutputGuardValues.empty() &&
          toCapabilityDataType(Case.CompType).has_value() &&
          cpu_oracle::hlslElementTypeName(Case.CompType) &&
          !Case.PublicRule.empty();
@@ -7204,14 +7220,23 @@ static void runVectorAccumulateDescriptor(ID3D12Device *Device,
 
   const std::optional<std::vector<BYTE>> Input =
       cpu_oracle::encodeExactComponents(Case.CompType, Case.InputValues);
-  const std::optional<std::vector<BYTE>> Initial =
-      cpu_oracle::encodeExactComponents(Case.CompType, Case.InitialValues);
   const std::optional<std::vector<int64_t>> ExpectedValues =
       calculateVectorAccumulateExpected(Case);
+  std::vector<int64_t> InitialBufferValues = Case.InitialValues;
+  InitialBufferValues.insert(InitialBufferValues.end(),
+                             Case.OutputGuardValues.begin(),
+                             Case.OutputGuardValues.end());
+  std::vector<int64_t> ExpectedBufferValues =
+      ExpectedValues.value_or(std::vector<int64_t>());
+  ExpectedBufferValues.insert(ExpectedBufferValues.end(),
+                              Case.OutputGuardValues.begin(),
+                              Case.OutputGuardValues.end());
+  const std::optional<std::vector<BYTE>> Initial =
+      cpu_oracle::encodeExactComponents(Case.CompType, InitialBufferValues);
   const std::optional<std::vector<BYTE>> Expected =
-      ExpectedValues.has_value()
-          ? cpu_oracle::encodeExactComponents(Case.CompType, *ExpectedValues)
-          : std::optional<std::vector<BYTE>>();
+      ExpectedValues.has_value() ? cpu_oracle::encodeExactComponents(
+                                       Case.CompType, ExpectedBufferValues)
+                                 : std::optional<std::vector<BYTE>>();
   const std::optional<std::string> Args =
       buildVectorAccumulateCompilerArgs(Case);
   VERIFY_IS_TRUE(Input.has_value());
@@ -7259,6 +7284,7 @@ void DxilConf_SM610_LinAlg::VectorAccumulateDescriptor_Thread_F16() {
   Case.CompType = ComponentType::F16;
   Case.InputValues = {1, 2, 3, 4};
   Case.InitialValues = {0, 0, 0, 0};
+  Case.OutputGuardValues = {37, -91};
   Case.PublicRule = L"Exact F16 vector descriptor accumulation";
   runVectorAccumulateDescriptor(D3DDevice, DxcSupport, Case,
                                 L"VectorAccumulateDescriptor_Thread_F16",
@@ -7271,6 +7297,7 @@ void DxilConf_SM610_LinAlg::
   Case.CompType = ComponentType::F16;
   Case.InputValues = {-3, 2, 5, -1, 4, 0, -2, 6};
   Case.InitialValues = {10, 11, 12, 13, 14, 15, 16, 17};
+  Case.OutputGuardValues = {123, -321};
   Case.PublicRule =
       L"Exact non-contended F16 vector accumulation onto non-zero values";
   runVectorAccumulateDescriptor(
@@ -7284,6 +7311,7 @@ void DxilConf_SM610_LinAlg::
   Case.CompType = ComponentType::F32;
   Case.InputValues = {6, -2, 0, 3, -5, 4, 1, -1};
   Case.InitialValues = {20, 21, 22, 23, 24, 25, 26, 27};
+  Case.OutputGuardValues = {123456, -654321};
   Case.PublicRule =
       L"Exact non-contended F32 vector accumulation onto non-zero values";
   runVectorAccumulateDescriptor(

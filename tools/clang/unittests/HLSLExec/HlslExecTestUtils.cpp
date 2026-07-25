@@ -411,14 +411,49 @@ ASSERT_RUNTIME_OFFSET(
     RuntimeLinearAlgebraOperationSupport, AccumulateStore,
     D3D12_FEATURE_DATA_LINEAR_ALGEBRA_MATRIX_OPERATION_SUPPORT,
     AccumulateStore);
-ASSERT_RUNTIME_OFFSET(RuntimeMatrixConversionDestInfo, DestDataType,
-                      D3D12_LINEAR_ALGEBRA_MATRIX_CONVERSION_DEST_INFO,
-                      DestDataType);
-ASSERT_RUNTIME_OFFSET(RuntimeMatrixConversionSrcInfo, SrcStride,
-                      D3D12_LINEAR_ALGEBRA_MATRIX_CONVERSION_SRC_INFO,
-                      SrcStride);
-ASSERT_RUNTIME_OFFSET(RuntimeMatrixConversionInfo, DataDesc,
-                      D3D12_LINEAR_ALGEBRA_MATRIX_CONVERSION_INFO, DataDesc);
+ASSERT_RUNTIME_OFFSET_SAME(RuntimeMatrixConversionDestInfo,
+                           D3D12_LINEAR_ALGEBRA_MATRIX_CONVERSION_DEST_INFO,
+                           DestSize);
+ASSERT_RUNTIME_OFFSET_SAME(RuntimeMatrixConversionDestInfo,
+                           D3D12_LINEAR_ALGEBRA_MATRIX_CONVERSION_DEST_INFO,
+                           DestLayout);
+ASSERT_RUNTIME_OFFSET_SAME(RuntimeMatrixConversionDestInfo,
+                           D3D12_LINEAR_ALGEBRA_MATRIX_CONVERSION_DEST_INFO,
+                           DestStride);
+ASSERT_RUNTIME_OFFSET_SAME(RuntimeMatrixConversionDestInfo,
+                           D3D12_LINEAR_ALGEBRA_MATRIX_CONVERSION_DEST_INFO,
+                           NumRows);
+ASSERT_RUNTIME_OFFSET_SAME(RuntimeMatrixConversionDestInfo,
+                           D3D12_LINEAR_ALGEBRA_MATRIX_CONVERSION_DEST_INFO,
+                           NumColumns);
+ASSERT_RUNTIME_OFFSET_SAME(RuntimeMatrixConversionDestInfo,
+                           D3D12_LINEAR_ALGEBRA_MATRIX_CONVERSION_DEST_INFO,
+                           DestDataType);
+ASSERT_RUNTIME_OFFSET_SAME(RuntimeMatrixConversionData,
+                           D3D12_LINEAR_ALGEBRA_MATRIX_CONVERSION_DATA, DestVA);
+ASSERT_RUNTIME_OFFSET_SAME(RuntimeMatrixConversionData,
+                           D3D12_LINEAR_ALGEBRA_MATRIX_CONVERSION_DATA, SrcVA);
+ASSERT_RUNTIME_OFFSET_SAME(RuntimeMatrixConversionSrcInfo,
+                           D3D12_LINEAR_ALGEBRA_MATRIX_CONVERSION_SRC_INFO,
+                           SrcSize);
+ASSERT_RUNTIME_OFFSET_SAME(RuntimeMatrixConversionSrcInfo,
+                           D3D12_LINEAR_ALGEBRA_MATRIX_CONVERSION_SRC_INFO,
+                           SrcDataType);
+ASSERT_RUNTIME_OFFSET_SAME(RuntimeMatrixConversionSrcInfo,
+                           D3D12_LINEAR_ALGEBRA_MATRIX_CONVERSION_SRC_INFO,
+                           SrcLayout);
+ASSERT_RUNTIME_OFFSET_SAME(RuntimeMatrixConversionSrcInfo,
+                           D3D12_LINEAR_ALGEBRA_MATRIX_CONVERSION_SRC_INFO,
+                           SrcStride);
+ASSERT_RUNTIME_OFFSET_SAME(RuntimeMatrixConversionInfo,
+                           D3D12_LINEAR_ALGEBRA_MATRIX_CONVERSION_INFO,
+                           DestInfo);
+ASSERT_RUNTIME_OFFSET_SAME(RuntimeMatrixConversionInfo,
+                           D3D12_LINEAR_ALGEBRA_MATRIX_CONVERSION_INFO,
+                           SrcInfo);
+ASSERT_RUNTIME_OFFSET_SAME(RuntimeMatrixConversionInfo,
+                           D3D12_LINEAR_ALGEBRA_MATRIX_CONVERSION_INFO,
+                           DataDesc);
 
 #undef ASSERT_RUNTIME_OFFSET_SAME
 #undef ASSERT_RUNTIME_OFFSET
