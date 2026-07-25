@@ -4101,6 +4101,8 @@ struct GroupSharedMemorySpec {
   cpu_oracle::MatrixBufferLayout Layout;
 };
 
+static constexpr size_t GroupSharedTrailingGuardElements = 4;
+
 static const char GroupSharedTransferShader[] = R"(
   ByteAddressBuffer SourceInit : register(t0);
   ByteAddressBuffer DestinationInit : register(t1);
@@ -4162,16 +4164,19 @@ static bool getGroupSharedBufferDescription(const MatrixParams &Params,
                                             size_t &BufferSize,
                                             UINT &NumElements) {
   const size_t ElementBytes = elementSize(Params.CompType);
+  size_t GuardBytes;
   std::optional<size_t> RequiredBytes = cpu_oracle::getMatrixBufferSize(
       Params.CompType, Params.M, Params.N, Spec.Layout);
   if (!RequiredBytes.has_value() ||
       Spec.Layout.OffsetBytes % ElementBytes != 0 ||
       Spec.Layout.StrideBytes % ElementBytes != 0 ||
       *RequiredBytes % ElementBytes != 0 ||
-      *RequiredBytes / ElementBytes > (std::numeric_limits<UINT>::max)())
+      !cpu_oracle::checkedMultiply(GroupSharedTrailingGuardElements,
+                                   ElementBytes, GuardBytes) ||
+      !cpu_oracle::checkedAdd(*RequiredBytes, GuardBytes, BufferSize) ||
+      BufferSize / ElementBytes > (std::numeric_limits<UINT>::max)())
     return false;
 
-  BufferSize = *RequiredBytes;
   NumElements = static_cast<UINT>(BufferSize / ElementBytes);
   return true;
 }
