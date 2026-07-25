@@ -4210,11 +4210,14 @@ static bool isWaveMultiplyCaseValid(const WaveMultiplyCaseData &Case) {
   const size_t MatrixAElements = static_cast<size_t>(Case.M) * Case.K;
   const size_t MatrixBElements = static_cast<size_t>(Case.K) * Case.N;
   const size_t AccumulatorElements = static_cast<size_t>(Case.M) * Case.N;
+  const bool AccumulatorValuesValid =
+      Case.hasInitialAccumulator()
+          ? Case.AccumulatorValues.size() == AccumulatorElements
+          : Case.AccumulatorValues.empty();
   return Case.M != 0 && Case.K != 0 && Case.N != 0 &&
          Case.MatrixAValues.size() == MatrixAElements &&
          Case.MatrixBValues.size() == MatrixBElements &&
-         Case.hasInitialAccumulator() ==
-             (Case.AccumulatorValues.size() == AccumulatorElements) &&
+         AccumulatorValuesValid &&
          toCapabilityDataType(Case.MatrixAType).has_value() &&
          toCapabilityDataType(Case.MatrixBType).has_value() &&
          toCapabilityDataType(Case.AccumulatorType).has_value() &&
