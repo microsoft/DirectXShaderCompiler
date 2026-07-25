@@ -24,6 +24,7 @@
 #include "HlslTestDataTypes.h"
 #include "HlslTestUtils.h"
 
+#include <algorithm>
 #include <climits>
 #include <cstring>
 #include <initializer_list>
@@ -2056,19 +2057,30 @@ static void runElementGetOOB(ID3D12Device *Device,
                              UINT ForcedWaveSize = 0) {
   const size_t NumThreads = Params.NumThreads;
   const size_t MatrixSize = Params.totalBytes();
-  const size_t ValueBufferSize = NumThreads * elementSize(Params.CompType);
+  const size_t ElementBytes = elementSize(Params.CompType);
+  const size_t ValueBufferSize = NumThreads * ElementBytes;
   const size_t ExecutedBufferSize = NumThreads * sizeof(uint32_t);
+  constexpr BYTE Sentinel = 0xcd;
+  constexpr uint32_t MarkerSentinel = 0xcdcdcdcd;
+  if (ForcedWaveSize == 0 || ForcedWaveSize > NumThreads) {
+    hlsl_test::LogErrorFmt(
+        L"GetElement OOB requires a concrete wave size within the dispatch: "
+        L"wave=%u, threads=%zu",
+        ForcedWaveSize, NumThreads);
+    VERIFY_IS_TRUE(false, "Invalid GetElement OOB wave size");
+    return;
+  }
+
   std::stringstream ExtraDefs;
-  if (ForcedWaveSize != 0)
-    ExtraDefs << " -DFORCED_WAVE_SIZE=" << ForcedWaveSize;
+  ExtraDefs << " -DFORCED_WAVE_SIZE=" << ForcedWaveSize;
   const std::string Args = buildCompilerArgs(Params, ExtraDefs.str().c_str());
 
   compileShader(DxcSupport, ElementGetOOBShader, "cs_6_10", Args, Verbose);
 
   std::optional<cpu_oracle::TypedMatrix> Input =
       cpu_oracle::makeSequentialMatrix(Params.CompType, Params.M, Params.N);
-  std::optional<cpu_oracle::TypedMatrix> Expected = cpu_oracle::makeZeroMatrix(
-      Params.CompType, 1, static_cast<MatrixDim>(NumThreads));
+  std::optional<cpu_oracle::TypedMatrix> Expected =
+      cpu_oracle::makeZeroMatrix(Params.CompType, 1, 1);
   VERIFY_IS_TRUE(Input.has_value() && Expected.has_value(),
                  "Unable to construct typed GetElement OOB data");
   const cpu_oracle::MatrixBufferLayout InputLayout = {
@@ -2076,56 +2088,90 @@ static void runElementGetOOB(ID3D12Device *Device,
       0,
       Params.strideBytes(),
   };
-  const cpu_oracle::MatrixBufferLayout ValueLayout = {
+  const cpu_oracle::MatrixBufferLayout ExpectedLayout = {
       LinalgMatrixLayout::RowMajor,
       0,
-      ValueBufferSize,
+      ElementBytes,
   };
-  const cpu_oracle::MatrixResultOracle Oracle = cpu_oracle::exactResult(
-      *Expected, L"Matrix::Get returns zero when Index equals Length()");
+  std::vector<BYTE> ExpectedValue(ElementBytes, Sentinel);
+  VERIFY_IS_TRUE(
+      cpu_oracle::writeMatrixBuffer(*Expected, ExpectedLayout, ExpectedValue),
+      "Unable to encode GetElement OOB zero expectation");
   const cpu_oracle::TypedMatrix InputMatrix = *Input;
 
   auto Op = createComputeOp(ElementGetOOBShader, "cs_6_10",
                             "UAV(u0), UAV(u1), UAV(u2)", Args.c_str());
   addUAVBuffer(Op.get(), "Input", MatrixSize, false, "byname");
-  addUAVBuffer(Op.get(), "Values", ValueBufferSize, true);
-  addUAVBuffer(Op.get(), "Executed", ExecutedBufferSize, true);
+  addUAVBuffer(Op.get(), "Values", ValueBufferSize, true, "byname");
+  addUAVBuffer(Op.get(), "Executed", ExecutedBufferSize, true, "byname");
   addRootView(Op.get(), 0, "Input");
   addRootView(Op.get(), 1, "Values");
   addRootView(Op.get(), 2, "Executed");
 
   auto Result = runShaderOp(
       Device, DxcSupport, std::move(Op),
-      [InputMatrix, InputLayout](LPCSTR Name, std::vector<BYTE> &Data,
-                                 st::ShaderOp *) {
-        if (_stricmp(Name, "Input") != 0)
+      [InputMatrix, InputLayout, Sentinel](LPCSTR Name, std::vector<BYTE> &Data,
+                                           st::ShaderOp *) {
+        if (_stricmp(Name, "Input") == 0) {
+          VERIFY_IS_TRUE(
+              cpu_oracle::writeMatrixBuffer(InputMatrix, InputLayout, Data),
+              "Unable to encode GetElement OOB input");
           return;
-        VERIFY_IS_TRUE(
-            cpu_oracle::writeMatrixBuffer(InputMatrix, InputLayout, Data),
-            "Unable to encode GetElement OOB input");
+        }
+        if (_stricmp(Name, "Values") == 0 || _stricmp(Name, "Executed") == 0)
+          std::fill(Data.begin(), Data.end(), Sentinel);
       });
 
   MappedData ValueData;
   MappedData ExecutedData;
   Result->Test->GetReadBackData("Values", &ValueData);
   Result->Test->GetReadBackData("Executed", &ExecutedData);
-  VERIFY_IS_TRUE(cpu_oracle::verifyMatrixBuffer(
-      ValueData.data(), ValueData.size(), ValueLayout, Oracle, Verbose));
+  VERIFY_IS_GREATER_THAN_OR_EQUAL(ValueData.size(),
+                                  static_cast<UINT32>(ValueBufferSize));
   VERIFY_IS_GREATER_THAN_OR_EQUAL(ExecutedData.size(),
                                   static_cast<UINT32>(ExecutedBufferSize));
 
+  const BYTE *ValueBytes = static_cast<const BYTE *>(ValueData.data());
   const BYTE *ExecutedBytes = static_cast<const BYTE *>(ExecutedData.data());
   size_t ExecutedThreads = 0;
+  bool OutputsValid = true;
   for (size_t Thread = 0; Thread < NumThreads; ++Thread) {
     uint32_t Marker;
     std::memcpy(&Marker, ExecutedBytes + Thread * sizeof(Marker),
                 sizeof(Marker));
-    VERIFY_IS_TRUE(Marker == 0 || Marker == 1,
-                   "GetElement OOB execution marker was invalid");
-    ExecutedThreads += Marker;
+    const BYTE *Value = ValueBytes + Thread * ElementBytes;
+    if (Marker == 1) {
+      ++ExecutedThreads;
+      if (std::memcmp(Value, ExpectedValue.data(), ElementBytes) != 0) {
+        hlsl_test::LogErrorFmt(
+            L"GetElement OOB returned a non-zero value: thread=%zu", Thread);
+        OutputsValid = false;
+      }
+      continue;
+    }
+
+    if (Marker != MarkerSentinel) {
+      hlsl_test::LogErrorFmt(
+          L"GetElement OOB execution marker was invalid: thread=%zu, "
+          L"marker=0x%08x",
+          Thread, Marker);
+      OutputsValid = false;
+      continue;
+    }
+    for (size_t Byte = 0; Byte < ElementBytes; ++Byte) {
+      if (Value[Byte] != Sentinel) {
+        hlsl_test::LogErrorFmt(
+            L"An unexecuted GetElement OOB lane modified its value: "
+            L"thread=%zu",
+            Thread);
+        OutputsValid = false;
+        break;
+      }
+    }
   }
-  VERIFY_IS_GREATER_THAN(ExecutedThreads, static_cast<size_t>(0),
-                         "At least one thread must execute the OOB read");
+  VERIFY_IS_TRUE(OutputsValid, "GetElement OOB outputs were invalid");
+  VERIFY_ARE_EQUAL(static_cast<size_t>(ForcedWaveSize), ExecutedThreads,
+                   "Every lane in the selected first wave must execute");
 }
 
 void DxilConf_SM610_LinAlg::ElementGetOOB_Wave_4x8_F32() {
