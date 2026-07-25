@@ -7609,8 +7609,8 @@ struct VectorAccumulateCaseData {
 static bool isVectorAccumulateCaseValid(const VectorAccumulateCaseData &Case) {
   return !Case.InputValues.empty() &&
          Case.InputValues.size() == Case.InitialValues.size() &&
-         !Case.OutputGuardValues.empty() &&
-         Case.NumThreads != 0 && Case.DispatchX != 0 &&
+         !Case.OutputGuardValues.empty() && Case.NumThreads != 0 &&
+         Case.DispatchX != 0 &&
          toCapabilityDataType(Case.CompType).has_value() &&
          cpu_oracle::hlslElementTypeName(Case.CompType) &&
          !Case.PublicRule.empty();
