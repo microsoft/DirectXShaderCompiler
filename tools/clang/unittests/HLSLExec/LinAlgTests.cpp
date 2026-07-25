@@ -4852,6 +4852,7 @@ static const char ConvertF32ToI16Shader[] = R"(
 static const char ConvertF16FP8RoundTripShader[] = R"(
   #define CT_F16 8
 
+  ByteAddressBuffer Input : register(t0);
   RWByteAddressBuffer Output : register(u0);
 
   [numthreads(1, 1, 1)]
@@ -4860,11 +4861,12 @@ static const char ConvertF16FP8RoundTripShader[] = R"(
       0.0, 1.0, -1.0, 1.5, -1.5, 3.0, 6.0, -6.0
     };
     vector<uint, 2> PackedBits;
-    vector<uint, 2> PackedRoundTrip;
+    vector<uint, 2> PackedInput = {
+      Input.Load<uint>(0), Input.Load<uint>(sizeof(uint))
+    };
     vector<half, 8> RoundTrip;
     __builtin_LinAlg_Convert(PackedBits, InVec, CT_F16, FP8_TYPE);
-    __builtin_LinAlg_Convert(PackedRoundTrip, InVec, CT_F16, FP8_TYPE);
-    __builtin_LinAlg_Convert(RoundTrip, PackedRoundTrip, FP8_TYPE, CT_F16);
+    __builtin_LinAlg_Convert(RoundTrip, PackedInput, FP8_TYPE, CT_F16);
 
     Output.Store<uint>(0, PackedBits.x);
     Output.Store<uint>(4, PackedBits.y);
@@ -4877,15 +4879,32 @@ static void runExactConvertShader(ID3D12Device *Device,
                                   dxc::SpecificDllLoader &DxcSupport,
                                   const char *Shader, const std::string &Args,
                                   std::vector<BYTE> Expected,
-                                  const std::wstring &PublicRule,
-                                  bool Verbose) {
+                                  const std::wstring &PublicRule, bool Verbose,
+                                  const std::vector<BYTE> *Input = nullptr) {
+  if (Input && Input->empty()) {
+    VERIFY_IS_TRUE(false, "Convert input must not be empty");
+    return;
+  }
+
   compileShader(DxcSupport, Shader, "cs_6_10", Args, Verbose);
 
-  auto Op = createComputeOp(Shader, "cs_6_10", "UAV(u0)", Args.c_str());
+  auto Op = createComputeOp(
+      Shader, "cs_6_10", Input ? "SRV(t0), UAV(u0)" : "UAV(u0)", Args.c_str());
+  UINT OutputRootIndex = 0;
+  if (Input) {
+    addSRVBuffer(Op.get(), "Input", Input->size(), "byname");
+    addRootView(Op.get(), 0, "Input");
+    OutputRootIndex = 1;
+  }
   addUAVBuffer(Op.get(), "Output", Expected.size(), true);
-  addRootView(Op.get(), 0, "Output");
+  addRootView(Op.get(), OutputRootIndex, "Output");
 
-  auto Result = runShaderOp(Device, DxcSupport, std::move(Op));
+  auto Result = runShaderOp(
+      Device, DxcSupport, std::move(Op),
+      [Input](LPCSTR Name, std::vector<BYTE> &Data, st::ShaderOp *) {
+        if (Input && _stricmp(Name, "Input") == 0)
+          Data = *Input;
+      });
   MappedData OutData;
   Result->Test->GetReadBackData("Output", &OutData);
   if (Verbose) {
@@ -4996,12 +5015,14 @@ void DxilConf_SM610_LinAlg::Convert_F16_FP8_RoundTrip() {
     if (!Expected.has_value())
       return false;
 
+    const std::vector<BYTE> PackedInput(Expected->begin(),
+                                        Expected->begin() + Values.size());
     ++ExecutedFormats;
     runExactConvertShader(D3DDevice, DxcSupport, ConvertF16FP8RoundTripShader,
                           CompilerArgs, std::move(*Expected),
                           std::wstring(CaseName) +
                               L" exact packed encoding and F16 round trip",
-                          VerboseLogging);
+                          VerboseLogging, &PackedInput);
     return true;
   };
 
