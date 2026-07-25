@@ -1809,9 +1809,46 @@ void addRawBufferDescriptorTable(st::ShaderOp *Op, UINT RootIndex,
                                  const char *HeapName,
                                  std::initializer_list<RawBufferView> Views) {
   if (!Op || !HeapName || Views.size() == 0 ||
-      Views.size() > (std::numeric_limits<UINT>::max)()) {
+      Views.size() > (std::numeric_limits<UINT>::max)() ||
+      Op->RootValues.size() > (std::numeric_limits<UINT>::max)()) {
     VERIFY_IS_TRUE(false, "Invalid raw buffer descriptor table");
     return;
+  }
+
+  for (const st::ShaderOpDescriptorHeap &ExistingHeap : Op->DescriptorHeaps) {
+    const bool DuplicateName =
+        ExistingHeap.Name && _stricmp(ExistingHeap.Name, HeapName) == 0;
+    const bool ConflictingVisibleHeap =
+        ExistingHeap.Desc.Type == D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV &&
+        (ExistingHeap.Desc.Flags & D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE) !=
+            0;
+    if (DuplicateName || ConflictingVisibleHeap) {
+      VERIFY_IS_TRUE(false, "Conflicting raw buffer descriptor table");
+      return;
+    }
+  }
+
+  if (RootIndex == 0 && !Op->RootValues.empty()) {
+    VERIFY_IS_TRUE(false, "Root parameter zero must be the first root value");
+    return;
+  }
+  for (size_t I = 0; I < Op->RootValues.size(); ++I) {
+    const st::ShaderOpRootValue &ExistingRoot = Op->RootValues[I];
+    const UINT ExistingIndex =
+        ExistingRoot.Index == 0 ? static_cast<UINT>(I) : ExistingRoot.Index;
+    if (ExistingIndex == RootIndex) {
+      VERIFY_IS_TRUE(false, "Duplicate root parameter index");
+      return;
+    }
+    for (size_t J = 0; J < I; ++J) {
+      const st::ShaderOpRootValue &PreviousRoot = Op->RootValues[J];
+      const UINT PreviousIndex =
+          PreviousRoot.Index == 0 ? static_cast<UINT>(J) : PreviousRoot.Index;
+      if (ExistingIndex == PreviousIndex) {
+        VERIFY_IS_TRUE(false, "Duplicate root parameter index");
+        return;
+      }
+    }
   }
 
   st::ShaderOpDescriptorHeap Heap = {};
@@ -1826,11 +1863,17 @@ void addRawBufferDescriptorTable(st::ShaderOp *Op, UINT RootIndex,
     const bool Valid =
         View.DescriptorName && View.ResourceName && View.NumBytes != 0 &&
         Resource &&
+        Resource->Desc.Dimension == D3D12_RESOURCE_DIMENSION_BUFFER &&
         (View.Kind == RawBufferViewKind::SRV ||
          View.Kind == RawBufferViewKind::UAV) &&
-        View.FirstByte % sizeof(UINT32) == 0 &&
+        (View.Kind != RawBufferViewKind::SRV ||
+         (Resource->Desc.Flags & D3D12_RESOURCE_FLAG_DENY_SHADER_RESOURCE) ==
+             0) &&
+        (View.Kind != RawBufferViewKind::UAV ||
+         (Resource->Desc.Flags & D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS) !=
+             0) &&
+        View.FirstByte % D3D12_RAW_UAV_SRV_BYTE_ALIGNMENT == 0 &&
         View.NumBytes % sizeof(UINT32) == 0 &&
-        View.FirstByte / sizeof(UINT32) <= (std::numeric_limits<UINT>::max)() &&
         View.NumBytes / sizeof(UINT32) <= (std::numeric_limits<UINT>::max)() &&
         View.FirstByte <= Resource->Desc.Width &&
         View.NumBytes <= Resource->Desc.Width - View.FirstByte;
@@ -1849,8 +1892,7 @@ void addRawBufferDescriptorTable(st::ShaderOp *Op, UINT RootIndex,
       Descriptor.SrvDesc.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
       Descriptor.SrvDesc.Shader4ComponentMapping =
           D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-      Descriptor.SrvDesc.Buffer.FirstElement =
-          static_cast<UINT>(View.FirstByte / sizeof(UINT32));
+      Descriptor.SrvDesc.Buffer.FirstElement = View.FirstByte / sizeof(UINT32);
       Descriptor.SrvDesc.Buffer.NumElements =
           static_cast<UINT>(View.NumBytes / sizeof(UINT32));
       Descriptor.SrvDesc.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_RAW;
@@ -1858,8 +1900,7 @@ void addRawBufferDescriptorTable(st::ShaderOp *Op, UINT RootIndex,
       Descriptor.Kind = Op->Strings.insert("UAV");
       Descriptor.UavDesc.Format = DXGI_FORMAT_R32_TYPELESS;
       Descriptor.UavDesc.ViewDimension = D3D12_UAV_DIMENSION_BUFFER;
-      Descriptor.UavDesc.Buffer.FirstElement =
-          static_cast<UINT>(View.FirstByte / sizeof(UINT32));
+      Descriptor.UavDesc.Buffer.FirstElement = View.FirstByte / sizeof(UINT32);
       Descriptor.UavDesc.Buffer.NumElements =
           static_cast<UINT>(View.NumBytes / sizeof(UINT32));
       Descriptor.UavDesc.Buffer.Flags = D3D12_BUFFER_UAV_FLAG_RAW;
