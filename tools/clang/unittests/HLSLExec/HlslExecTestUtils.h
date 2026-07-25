@@ -211,6 +211,7 @@ struct ThreadVectorMatrixMultiplyQuery {
 
 struct ThreadVectorMatrixMultiplySupport {
   MultiplicationFlags SupportFlags = MultiplicationFlags::None;
+  DataType MatrixInputType = DataType::None;
 
   bool valid() const;
   bool supported() const;

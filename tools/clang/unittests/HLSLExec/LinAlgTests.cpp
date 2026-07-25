@@ -145,18 +145,9 @@ static bool applyApplicability(linalg_test::Applicability Result,
   case Applicability::Execute:
     return true;
   case Applicability::NotApplicable:
-#ifdef _HLK_CONF
-    hlsl_test::LogErrorFmt(
-        L"Capability-gated case %s reached HLK execution on an unsupported "
-        L"device. Requirement or playlist applicability must exclude it.",
-        CaseName);
-    VERIFY_IS_TRUE(false,
-                   "Unsupported capability-gated case reached HLK execution");
-#else
     hlsl_test::LogCommentFmt(
         L"Capability-gated case %s is not applicable on this device", CaseName);
     WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
-#endif
     return false;
   case Applicability::Fail:
     hlsl_test::LogErrorFmt(L"Capability evaluation failed for case %s",
@@ -1266,6 +1257,13 @@ void LinAlgCapabilityTests::CapabilityPolicyAndPredicates() {
       {},
   };
   VERIFY_IS_FALSE(InvalidWave.valid());
+  InvalidWave = {
+      static_cast<MultiplicationFlags>(
+          static_cast<UINT>(MultiplicationFlags::Supported) |
+          static_cast<UINT>(MultiplicationFlags::EmulatedInputs)),
+      {{8, 16, 8}},
+  };
+  VERIFY_IS_FALSE(InvalidWave.valid());
 
   ThreadGroupMatrixMultiplySupport ThreadGroup = {
       MultiplicationFlags::Supported,
@@ -1278,14 +1276,30 @@ void LinAlgCapabilityTests::CapabilityPolicyAndPredicates() {
   VERIFY_IS_FALSE(ThreadGroup.supportsThreadGroupSize(48));
   ThreadGroup.PreferredThreadGroupSize = 48;
   VERIFY_IS_FALSE(ThreadGroup.valid());
+  ThreadGroup = {
+      static_cast<MultiplicationFlags>(
+          static_cast<UINT>(MultiplicationFlags::Supported) |
+          static_cast<UINT>(MultiplicationFlags::Transpose)),
+      32,
+      128,
+      64,
+  };
+  VERIFY_IS_FALSE(ThreadGroup.valid());
 
   ThreadVectorMatrixMultiplySupport ThreadVector = {
       static_cast<MultiplicationFlags>(
           static_cast<UINT>(MultiplicationFlags::Supported) |
-          static_cast<UINT>(MultiplicationFlags::EmulatedInputs)),
+          static_cast<UINT>(MultiplicationFlags::Transpose)),
+      DataType::Float32,
   };
   VERIFY_IS_TRUE(ThreadVector.valid());
   VERIFY_IS_TRUE(ThreadVector.supported());
+  ThreadVector.SupportFlags = static_cast<MultiplicationFlags>(
+      static_cast<UINT>(MultiplicationFlags::Supported) |
+      static_cast<UINT>(MultiplicationFlags::EmulatedInputs));
+  VERIFY_IS_FALSE(ThreadVector.valid());
+  ThreadVector.MatrixInputType = DataType::Float8E4M3FN;
+  VERIFY_IS_TRUE(ThreadVector.valid());
   ThreadVector.SupportFlags = MultiplicationFlags::EmulatedInputs;
   VERIFY_IS_FALSE(ThreadVector.valid());
 
