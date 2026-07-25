@@ -166,6 +166,35 @@ static bool applyApplicability(linalg_test::Applicability Result,
   return false;
 }
 
+static UINT selectThreadGroupMatrixMultiplySize(
+    const linalg_test::ThreadGroupMatrixMultiplySupport &Support, UINT WaveSize,
+    UINT MaxThreadsPerGroup) {
+  if (!Support.supported() || WaveSize == 0 || MaxThreadsPerGroup == 0)
+    return 0;
+
+  UINT Selected = Support.PreferredThreadGroupSize;
+  if (!Support.supportsThreadGroupSize(Selected) ||
+      Selected > MaxThreadsPerGroup)
+    Selected = Support.MinThreadGroupSize;
+  if (!Support.supportsThreadGroupSize(Selected) ||
+      Selected > MaxThreadsPerGroup)
+    return 0;
+  if (Selected > WaveSize)
+    return Selected;
+
+  const UINT MaxExecutable =
+      std::min(Support.MaxThreadGroupSize, MaxThreadsPerGroup);
+  for (UINT Candidate = Support.MinThreadGroupSize;
+       Candidate <= MaxExecutable;) {
+    if (Candidate > WaveSize)
+      return Candidate;
+    if (Candidate > MaxExecutable - Support.MinThreadGroupSize)
+      break;
+    Candidate += Support.MinThreadGroupSize;
+  }
+  return Selected;
+}
+
 namespace cpu_oracle {
 
 using TypedMatrixValues =
@@ -1916,6 +1945,15 @@ void LinAlgCapabilityTests::CapabilityPolicyAndPredicates() {
   VERIFY_IS_TRUE(ThreadGroup.valid());
   VERIFY_IS_TRUE(ThreadGroup.supportsThreadGroupSize(64));
   VERIFY_IS_FALSE(ThreadGroup.supportsThreadGroupSize(48));
+  VERIFY_ARE_EQUAL(64u,
+                   selectThreadGroupMatrixMultiplySize(ThreadGroup, 32, 1024));
+  ThreadGroup.PreferredThreadGroupSize = 32;
+  VERIFY_ARE_EQUAL(64u,
+                   selectThreadGroupMatrixMultiplySize(ThreadGroup, 32, 1024));
+  ThreadGroup.MaxThreadGroupSize = 32;
+  VERIFY_ARE_EQUAL(32u,
+                   selectThreadGroupMatrixMultiplySize(ThreadGroup, 32, 1024));
+  ThreadGroup.MaxThreadGroupSize = 128;
   ThreadGroup.PreferredThreadGroupSize = 48;
   VERIFY_IS_FALSE(ThreadGroup.valid());
   ThreadGroup = {
@@ -3045,11 +3083,9 @@ static HRESULT queryThreadGroupMatrixMultiplyCaseSupport(
     if (!MultiplySupport.supported())
       continue;
 
-    UINT ThreadGroupSize = MultiplySupport.PreferredThreadGroupSize;
-    if (ThreadGroupSize == 0 || ThreadGroupSize > MaxThreadsPerGroup)
-      ThreadGroupSize = MultiplySupport.MinThreadGroupSize;
-    if (!MultiplySupport.supportsThreadGroupSize(ThreadGroupSize) ||
-        ThreadGroupSize > MaxThreadsPerGroup) {
+    const UINT ThreadGroupSize = selectThreadGroupMatrixMultiplySize(
+        MultiplySupport, WaveSize, MaxThreadsPerGroup);
+    if (ThreadGroupSize == 0) {
       hlsl_test::LogCommentFmt(
           L"ThreadGroupMatrixMultiply returned no executable group size for "
           L"%s: min=%u, max=%u, preferred=%u",
@@ -4640,6 +4676,10 @@ static MatrixParams makeThreadGroupArithmeticParams(ComponentType CompType,
   return Params;
 }
 
+static constexpr size_t ThreadGroupArithmeticTrailingGuardElements = 4;
+static constexpr int64_t ThreadGroupArithmeticResultSentinel = -4096;
+static constexpr int64_t ThreadGroupArithmeticGuardSentinel = -2048;
+
 static const char ThreadGroupMultiplyShader[] = R"(
   #define USE_A 0
   #define USE_B 1
@@ -4661,7 +4701,8 @@ static const char ThreadGroupMultiplyShader[] = R"(
   #if DO_ACCUMULATE
   groupshared ACCUMULATOR_ELEM_TYPE AccumulatorData[ACCUMULATOR_ELEMENTS];
   #endif
-  groupshared ACCUMULATOR_ELEM_TYPE ResultData[ACCUMULATOR_ELEMENTS];
+  groupshared ACCUMULATOR_ELEM_TYPE
+    ResultData[ACCUMULATOR_ELEMENTS + RESULT_GUARD_ELEMENTS];
 
   [WaveSize(FORCED_WAVE_SIZE)]
   [numthreads(THREADGROUP_SIZE, 1, 1)]
@@ -4684,9 +4725,12 @@ static const char ThreadGroupMultiplyShader[] = R"(
           Index * ACCUMULATOR_ELEM_SIZE);
     }
     #endif
-    for (uint Index = threadID; Index < ACCUMULATOR_ELEMENTS;
+    for (uint Index = threadID;
+         Index < ACCUMULATOR_ELEMENTS + RESULT_GUARD_ELEMENTS;
          Index += THREADGROUP_SIZE) {
-      ResultData[Index] = (ACCUMULATOR_ELEM_TYPE)-4096;
+      ResultData[Index] = Index < ACCUMULATOR_ELEMENTS
+        ? (ACCUMULATOR_ELEM_TYPE)RESULT_SENTINEL
+        : (ACCUMULATOR_ELEM_TYPE)RESULT_GUARD_SENTINEL;
     }
 
     GroupMemoryBarrierWithGroupSync();
@@ -4727,7 +4771,8 @@ static const char ThreadGroupMultiplyShader[] = R"(
 
     GroupMemoryBarrierWithGroupSync();
 
-    for (uint Index = threadID; Index < ACCUMULATOR_ELEMENTS;
+    for (uint Index = threadID;
+         Index < ACCUMULATOR_ELEMENTS + RESULT_GUARD_ELEMENTS;
          Index += THREADGROUP_SIZE) {
       Output.Store<ACCUMULATOR_ELEM_TYPE>(
         Index * ACCUMULATOR_ELEM_SIZE, ResultData[Index]);
@@ -4772,6 +4817,10 @@ buildThreadGroupMultiplyCompilerArgs(const MatrixMultiplyCaseData &Case,
   SS << " -DMATRIX_A_ELEMENTS=" << MatrixA.totalElements();
   SS << " -DMATRIX_B_ELEMENTS=" << MatrixB.totalElements();
   SS << " -DACCUMULATOR_ELEMENTS=" << Accumulator.totalElements();
+  SS << " -DRESULT_GUARD_ELEMENTS="
+     << ThreadGroupArithmeticTrailingGuardElements;
+  SS << " -DRESULT_SENTINEL=" << ThreadGroupArithmeticResultSentinel;
+  SS << " -DRESULT_GUARD_SENTINEL=" << ThreadGroupArithmeticGuardSentinel;
   SS << " -DMATRIX_A_ELEM_SIZE="
      << static_cast<int>(elementSize(Case.MatrixAType));
   SS << " -DMATRIX_B_ELEM_SIZE="
@@ -4812,9 +4861,16 @@ static void runThreadGroupMultiplyCase(ID3D12Device *Device,
                                    : std::optional<std::vector<BYTE>>();
   const std::optional<std::vector<int64_t>> ExpectedValues =
       calculateMatrixMultiplyExpected(Case);
+  std::optional<std::vector<int64_t>> GuardedExpectedValues = ExpectedValues;
+  if (GuardedExpectedValues.has_value()) {
+    GuardedExpectedValues->insert(GuardedExpectedValues->end(),
+                                  ThreadGroupArithmeticTrailingGuardElements,
+                                  ThreadGroupArithmeticGuardSentinel);
+  }
   const std::optional<std::vector<BYTE>> Expected =
-      ExpectedValues.has_value()
-          ? cpu_oracle::encodeLogicalMatrixBuffer(Accumulator, *ExpectedValues)
+      GuardedExpectedValues.has_value()
+          ? cpu_oracle::encodeExactComponents(Case.AccumulatorType,
+                                              *GuardedExpectedValues)
           : std::optional<std::vector<BYTE>>();
   const std::optional<std::string> Args =
       buildThreadGroupMultiplyCompilerArgs(Case, WaveSize, ThreadGroupSize);
