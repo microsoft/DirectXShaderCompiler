@@ -3979,7 +3979,9 @@ struct MatVecCaseData {
   ComponentType ResultType = ComponentType::Invalid;
   bool OutputSigned = true;
   std::vector<int64_t> MatrixValues;
-  std::vector<int64_t> VectorValues;
+  // Keep native F32 inputs separate from their hand-derived interpreted values.
+  std::vector<int64_t> InterpretedVectorValues;
+  std::optional<std::vector<float>> NativeF32VectorValues;
   std::vector<int64_t> BiasValues;
   std::wstring PublicRule;
 
@@ -3996,7 +3998,18 @@ static bool isMatVecCaseValid(const MatVecCaseData &Case) {
        Case.Matrix.Layout != LinalgMatrixLayout::ColumnMajor) ||
       Case.Matrix.NumThreads != 1 ||
       Case.MatrixValues.size() != MatrixElementCount ||
-      Case.VectorValues.size() != Case.Matrix.N || Case.PublicRule.empty())
+      Case.InterpretedVectorValues.size() != Case.Matrix.N ||
+      Case.PublicRule.empty())
+    return false;
+
+  if (Case.NativeF32VectorValues.has_value() &&
+      (Case.VectorInputType != ComponentType::F32 ||
+       Case.InputInterpretation == ComponentType::F32 ||
+       Case.NativeF32VectorValues->size() != Case.Matrix.N))
+    return false;
+  if (Case.VectorInputType == ComponentType::F32 &&
+      Case.InputInterpretation != ComponentType::F32 &&
+      !Case.NativeF32VectorValues.has_value())
     return false;
 
   if (Case.hasBias() != !Case.BiasValues.empty() ||
@@ -4010,6 +4023,10 @@ static bool isMatVecCaseValid(const MatVecCaseData &Case) {
     return false;
   if (!cpu_oracle::isPackedVectorComponent(Case.VectorInputType) &&
       Case.InputInterpretation != Case.Matrix.CompType)
+    return false;
+  if (!cpu_oracle::encodeExactComponents(Case.InputInterpretation,
+                                         Case.InterpretedVectorValues)
+           .has_value())
     return false;
 
   const char *ResultTypeName = cpu_oracle::hlslElementTypeName(Case.ResultType);
@@ -4070,7 +4087,7 @@ calculateMatVecExpected(const MatVecCaseData &Case) {
     for (MatrixDim Column = 0; Column < Case.Matrix.N; ++Column) {
       Expected[Row] +=
           Case.MatrixValues[static_cast<size_t>(Row) * Case.Matrix.N + Column] *
-          Case.VectorValues[Column];
+          Case.InterpretedVectorValues[Column];
     }
     if (Case.hasBias())
       Expected[Row] += Case.BiasValues[Row];
@@ -4140,8 +4157,11 @@ static void runMatVecCase(ID3D12Device *Device,
   const std::optional<std::vector<BYTE>> MatrixBuffer =
       encodeMatVecMatrix(Case);
   const std::optional<std::vector<BYTE>> VectorBuffer =
-      cpu_oracle::encodeExactComponents(Case.VectorInputType,
-                                        Case.VectorValues);
+      Case.NativeF32VectorValues.has_value()
+          ? std::optional<std::vector<BYTE>>(
+                cpu_oracle::encodeNativeVector(*Case.NativeF32VectorValues))
+          : cpu_oracle::encodeExactComponents(Case.VectorInputType,
+                                              Case.InterpretedVectorValues);
   const std::optional<std::vector<BYTE>> BiasBuffer =
       Case.hasBias() ? cpu_oracle::encodeExactComponents(Case.BiasInputType,
                                                          Case.BiasValues)
@@ -4254,7 +4274,7 @@ makeUniformMatVecCase(const MatrixParams &Params, int FillValue,
   Case.ResultType = Params.CompType;
   Case.OutputSigned = OutputSigned;
   Case.MatrixValues.assign(static_cast<size_t>(Params.M) * Params.N, FillValue);
-  Case.VectorValues.assign(Params.N, FillValue);
+  Case.InterpretedVectorValues.assign(Params.N, FillValue);
   if (Case.hasBias())
     Case.BiasValues.assign(Params.M, FillValue);
   Case.PublicRule =
@@ -4275,7 +4295,7 @@ static MatVecCaseData makeNonUniformF16MatVecCase(LinalgMatrixLayout Layout) {
       1,  0, -1, 2, -2, 3, -3, 1,  0, 1,  2, -1, 3, -2, 1,  -3,
       -1, 2, 0,  1, -2, 1, 3,  -1, 2, -1, 1, 0,  1, -3, -2, 3,
   };
-  Case.VectorValues = {1, -2, 3, -1, 2, -3, 1, 2};
+  Case.InterpretedVectorValues = {1, -2, 3, -1, 2, -3, 1, 2};
   Case.PublicRule =
       Layout == LinalgMatrixLayout::RowMajor
           ? L"Exact non-uniform F16 RowMajor matrix-vector dot products"
@@ -4295,11 +4315,18 @@ static MatVecCaseData makeSInt8MatVecCase(ComponentType VectorInputType) {
       1, -2, 3, -4, 5, -6, 7, -8, -1, 2,  -3, 4,  -5, 6,  -7, 8,
       1, 1,  1, 1,  1, 1,  1, 1,  -8, -7, -6, -5, -4, -3, -2, -1,
   };
-  Case.VectorValues = {1, -1, 2, -2, 3, -3, 4, -4};
+  if (VectorInputType == ComponentType::F32) {
+    Case.NativeF32VectorValues = std::vector<float>{
+        1.5f, -1.5f, 2.5f, -2.5f, 127.6f, -128.6f, 200.0f, -200.0f};
+    Case.InterpretedVectorValues = {2, -2, 2, -2, 127, -128, 127, -128};
+  } else {
+    Case.InterpretedVectorValues = {1, -1, 2, -2, 3, -3, 4, -4};
+  }
   Case.PublicRule =
       VectorInputType == ComponentType::I8
           ? L"Exact packed SInt8 vector times SInt8 matrix dot products"
-          : L"Exact native F32 vector conversion for SInt8 matrix dot products";
+          : L"Native F32 vector uses RTNE saturating SInt8 conversion before "
+            L"exact matrix dot products";
   return Case;
 }
 
@@ -4315,7 +4342,7 @@ static MatVecCaseData makeUInt8MatVecCase() {
       255, 1, 2,   3, 4,   5, 6,   7, 128, 127, 1, 1,   1, 1,   1, 1,
       200, 0, 200, 0, 200, 0, 200, 0, 0,   200, 0, 200, 0, 200, 0, 200,
   };
-  Case.VectorValues = {1, 2, 3, 4, 5, 6, 7, 8};
+  Case.InterpretedVectorValues = {255, 128, 200, 1, 2, 3, 4, 5};
   Case.PublicRule =
       L"Exact packed UInt8 vector times UInt8 matrix dot products";
   return Case;
@@ -4333,7 +4360,7 @@ static MatVecCaseData makeUInt32MatVecCase() {
       2147483648LL, 0, 0,   0, 0,   0, 0,   0, 1, 2,   3, 4,   5, 6,   7, 8,
       100,          0, 100, 0, 100, 0, 100, 0, 0, 200, 0, 200, 0, 200, 0, 200,
   };
-  Case.VectorValues = {1, 1, 1, 1, 1, 1, 1, 1};
+  Case.InterpretedVectorValues = {1, 1, 1, 1, 1, 1, 1, 1};
   Case.PublicRule =
       L"Exact native UInt32 matrix-vector results with unsigned output";
   return Case;
