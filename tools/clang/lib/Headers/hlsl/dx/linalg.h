@@ -259,18 +259,18 @@ class Matrix {
     return Result;
   }
 
+  template <uint Align = 128>
   [[nodiscard]] static Matrix Load(ByteAddressBuffer Res, uint StartOffset,
-                                   uint Stride, MatrixLayoutEnum Layout,
-                                   uint Align = 128) {
+                                   uint Stride, MatrixLayoutEnum Layout) {
     Matrix Result;
     __builtin_LinAlg_MatrixLoadFromDescriptor(Result.__handle, Res, StartOffset,
                                               Stride, Layout, Align);
     return Result;
   }
 
+  template <uint Align = 128>
   [[nodiscard]] static Matrix Load(RWByteAddressBuffer Res, uint StartOffset,
-                                   uint Stride, MatrixLayoutEnum Layout,
-                                   uint Align = 128) {
+                                   uint Stride, MatrixLayoutEnum Layout) {
     Matrix Result;
     __builtin_LinAlg_MatrixLoadFromDescriptor(Result.__handle, Res, StartOffset,
                                               Stride, Layout, Align);
@@ -322,8 +322,9 @@ class Matrix {
     __builtin_LinAlg_MatrixSetElement(__handle, __handle, Index, Value);
   }
 
+  template <uint Align = 128>
   void Store(RWByteAddressBuffer Res, uint StartOffset, uint Stride,
-             MatrixLayoutEnum Layout, uint Align = 128) {
+             MatrixLayoutEnum Layout) {
     __builtin_LinAlg_MatrixStoreToDescriptor(__handle, Res, StartOffset, Stride,
                                              Layout, Align);
   }
@@ -342,11 +343,11 @@ class Matrix {
   }
 
   // Accumulate methods
-  template <MatrixUseEnum UseLocal = Use>
+  template <uint Align = 128, MatrixUseEnum UseLocal = Use>
   typename hlsl::enable_if<Use == MatrixUse::Accumulator && UseLocal == Use,
                            void>::type
   InterlockedAccumulate(RWByteAddressBuffer Res, uint StartOffset, uint Stride,
-                        MatrixLayoutEnum Layout, uint Align = 128) {
+                        MatrixLayoutEnum Layout) {
     __builtin_LinAlg_MatrixAccumulateToDescriptor(__handle, Res, StartOffset,
                                                   Stride, Layout, Align);
   }
@@ -414,12 +415,12 @@ class Matrix<ComponentTy, M, N, Use, MatrixScope::Thread> {
       ComponentTy, M, N, Use, MatrixScope::Thread)]];
   HandleT __handle;
 
-  template <MatrixLayoutEnum Layout, MatrixUseEnum UseLocal = Use>
+  template <MatrixLayoutEnum Layout, uint Align = 128,
+            MatrixUseEnum UseLocal = Use>
   [[nodiscard]] static
       typename hlsl::enable_if<Use == MatrixUse::A && UseLocal == Use,
                                Matrix>::type
-      Load(ByteAddressBuffer Res, uint StartOffset, uint Stride,
-           uint Align = 128) {
+      Load(ByteAddressBuffer Res, uint StartOffset, uint Stride) {
     Matrix Result;
     __builtin_LinAlg_MatrixLoadFromDescriptor(Result.__handle, Res, StartOffset,
                                               Stride, Layout, Align);
