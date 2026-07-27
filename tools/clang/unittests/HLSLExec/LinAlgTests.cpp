@@ -38,7 +38,7 @@
 namespace LinAlg {
 
 using hlsl::DXIL::ComponentType;
-using hlsl::DXIL::LinalgMatrixLayout;
+using hlsl::DXIL::MatrixLayout;
 using hlsl::DXIL::MatrixScope;
 using hlsl::DXIL::MatrixUse;
 
@@ -72,16 +72,16 @@ struct MatrixParams {
   MatrixDim N;
   MatrixUse Use;
   MatrixScope Scope;
-  LinalgMatrixLayout Layout;
+  MatrixLayout Layout;
   int NumThreads;
   bool Enable16Bit;
   bool EmulateTest;
 
   size_t strideBytes() const {
     uint32_t ES = elementSize(CompType);
-    if (Layout == LinalgMatrixLayout::RowMajor)
+    if (Layout == MatrixLayout::RowMajor)
       return N * ES;
-    if (Layout == LinalgMatrixLayout::ColumnMajor)
+    if (Layout == MatrixLayout::ColumnMajor)
       return M * ES;
     // If not Row/Col major, spec says to use 0
     return 0;
@@ -481,7 +481,7 @@ void DxilConf_SM610_LinAlg::LoadStoreDescriptor_Wave_16x16_F16() {
   Params.N = 16;
   Params.Use = MatrixUse::A;
   Params.Scope = MatrixScope::Wave;
-  Params.Layout = LinalgMatrixLayout::RowMajor;
+  Params.Layout = MatrixLayout::RowMajor;
   Params.NumThreads = 64;
   Params.Enable16Bit = true;
   runLoadStoreDescriptor(D3DDevice, DxcSupport, Params, VerboseLogging);
@@ -543,7 +543,7 @@ void DxilConf_SM610_LinAlg::SplatStore_Wave_16x16_F16() {
   Params.N = 16;
   Params.Use = MatrixUse::Accumulator;
   Params.Scope = MatrixScope::Wave;
-  Params.Layout = LinalgMatrixLayout::RowMajor;
+  Params.Layout = MatrixLayout::RowMajor;
   Params.NumThreads = 64;
   Params.Enable16Bit = true;
   runSplatStore(D3DDevice, DxcSupport, Params, 42.0f, VerboseLogging);
@@ -619,7 +619,7 @@ void DxilConf_SM610_LinAlg::AccumulateDescriptor_Wave_16x16_F16() {
   Params.N = 16;
   Params.Use = MatrixUse::Accumulator;
   Params.Scope = MatrixScope::Wave;
-  Params.Layout = LinalgMatrixLayout::RowMajor;
+  Params.Layout = MatrixLayout::RowMajor;
   Params.NumThreads = 64;
   Params.Enable16Bit = true;
   runAccumulateDescriptor(D3DDevice, DxcSupport, Params, 12, VerboseLogging);
@@ -722,7 +722,7 @@ void DxilConf_SM610_LinAlg::ElementAccess_Wave_16x16_F16() {
   Params.N = 16;
   Params.Use = MatrixUse::Accumulator;
   Params.Scope = MatrixScope::Wave;
-  Params.Layout = LinalgMatrixLayout::RowMajor;
+  Params.Layout = MatrixLayout::RowMajor;
   Params.NumThreads = 64;
   Params.Enable16Bit = true;
   runElementAccess(D3DDevice, DxcSupport, Params, VerboseLogging);
@@ -802,7 +802,7 @@ void DxilConf_SM610_LinAlg::ElementSet_Wave_16x16_F16() {
   Params.N = 16;
   Params.Use = MatrixUse::Accumulator;
   Params.Scope = MatrixScope::Wave;
-  Params.Layout = LinalgMatrixLayout::RowMajor;
+  Params.Layout = MatrixLayout::RowMajor;
   Params.NumThreads = 64;
   Params.Enable16Bit = true;
   runElementSet(D3DDevice, DxcSupport, Params, VerboseLogging);
@@ -890,7 +890,7 @@ void DxilConf_SM610_LinAlg::CopyConvert_Wave_16x16_F16() {
   Params.N = 16;
   Params.Use = MatrixUse::A;
   Params.Scope = MatrixScope::Wave;
-  Params.Layout = LinalgMatrixLayout::RowMajor;
+  Params.Layout = MatrixLayout::RowMajor;
   Params.NumThreads = 64;
   Params.Enable16Bit = true;
   runCopyConvert(D3DDevice, DxcSupport, Params, VerboseLogging,
@@ -904,7 +904,7 @@ void DxilConf_SM610_LinAlg::CopyConvert_Wave_16x16_F16_Transpose() {
   Params.N = 16;
   Params.Use = MatrixUse::A;
   Params.Scope = MatrixScope::Wave;
-  Params.Layout = LinalgMatrixLayout::RowMajor;
+  Params.Layout = MatrixLayout::RowMajor;
   Params.NumThreads = 64;
   Params.Enable16Bit = true;
   runCopyConvert(D3DDevice, DxcSupport, Params, VerboseLogging,
@@ -918,7 +918,7 @@ void DxilConf_SM610_LinAlg::CopyConvert_Wave_4x8_F32_Transpose() {
   Params.N = 8;
   Params.Use = MatrixUse::A;
   Params.Scope = MatrixScope::Wave;
-  Params.Layout = LinalgMatrixLayout::RowMajor;
+  Params.Layout = MatrixLayout::RowMajor;
   Params.NumThreads = 64;
   Params.Enable16Bit = false;
   // Non-square dimensions make the destination shape and row stride observable.
@@ -998,7 +998,7 @@ void DxilConf_SM610_LinAlg::MatMatMul_Wave_16x16x16_F16() {
   Params.M = 16;
   Params.N = 16;
   Params.Scope = MatrixScope::Wave;
-  Params.Layout = LinalgMatrixLayout::RowMajor;
+  Params.Layout = MatrixLayout::RowMajor;
   Params.NumThreads = 64;
   Params.Enable16Bit = true;
   runMatMatMul(D3DDevice, DxcSupport, Params, VerboseLogging, /*K=*/16,
@@ -1082,7 +1082,7 @@ void DxilConf_SM610_LinAlg::MatMatMulAccum_Wave_16x16x16_F16() {
   Params.M = 16;
   Params.N = 16;
   Params.Scope = MatrixScope::Wave;
-  Params.Layout = LinalgMatrixLayout::RowMajor;
+  Params.Layout = MatrixLayout::RowMajor;
   Params.NumThreads = 64;
   Params.Enable16Bit = true;
   runMatMatMulAccum(D3DDevice, DxcSupport, Params, VerboseLogging, /*K=*/16,
@@ -1155,7 +1155,7 @@ void DxilConf_SM610_LinAlg::MatAccum_Wave_16x16_F16() {
   Params.M = 16;
   Params.N = 16;
   Params.Scope = MatrixScope::Wave;
-  Params.Layout = LinalgMatrixLayout::RowMajor;
+  Params.Layout = MatrixLayout::RowMajor;
   Params.NumThreads = 64;
   Params.Enable16Bit = true;
   runMatAccum(D3DDevice, DxcSupport, Params, VerboseLogging,
@@ -1243,7 +1243,7 @@ void DxilConf_SM610_LinAlg::MatVecMul_Thread_16x16_F16() {
   Params.M = 16;
   Params.N = 16;
   Params.Scope = MatrixScope::Thread;
-  Params.Layout = LinalgMatrixLayout::RowMajor;
+  Params.Layout = MatrixLayout::RowMajor;
   Params.NumThreads = 1;
   Params.Enable16Bit = true;
   runMatVecMul(D3DDevice, DxcSupport, Params, VerboseLogging,
@@ -1256,7 +1256,7 @@ void DxilConf_SM610_LinAlg::MatVecMul_Thread_4x8_F32() {
   Params.M = 4;
   Params.N = 8;
   Params.Scope = MatrixScope::Thread;
-  Params.Layout = LinalgMatrixLayout::RowMajor;
+  Params.Layout = MatrixLayout::RowMajor;
   Params.NumThreads = 1;
   runMatVecMul(D3DDevice, DxcSupport, Params, VerboseLogging,
                /*FillValue=*/2, /*OutputSigned=*/true, ComponentType::F32);
@@ -1350,7 +1350,7 @@ void DxilConf_SM610_LinAlg::MatVecMulAdd_Thread_16x16_F16() {
   Params.M = 16;
   Params.N = 16;
   Params.Scope = MatrixScope::Thread;
-  Params.Layout = LinalgMatrixLayout::RowMajor;
+  Params.Layout = MatrixLayout::RowMajor;
   Params.NumThreads = 1;
   Params.Enable16Bit = true;
   runMatVecMulAdd(D3DDevice, DxcSupport, Params, VerboseLogging,
@@ -1364,7 +1364,7 @@ void DxilConf_SM610_LinAlg::MatVecMulAdd_Thread_4x8_F32() {
   Params.M = 4;
   Params.N = 8;
   Params.Scope = MatrixScope::Thread;
-  Params.Layout = LinalgMatrixLayout::RowMajor;
+  Params.Layout = MatrixLayout::RowMajor;
   Params.NumThreads = 1;
   runMatVecMulAdd(D3DDevice, DxcSupport, Params, VerboseLogging,
                   /*FillValue=*/2, /*OutputSigned=*/true, ComponentType::F32,
@@ -1432,7 +1432,7 @@ static void runOuterProduct(ID3D12Device *Device,
                             dxc::SpecificDllLoader &DxcSupport,
                             const MatrixParams &Params, bool Verbose) {
   VERIFY_IS_TRUE(
-      Params.Layout == LinalgMatrixLayout::OuterProductOptimal,
+      Params.Layout == MatrixLayout::OuterProductOptimal,
       "Outer product must output its matrix in OuterProductOptimal layout");
   const size_t NumVecElements = Params.M + Params.N;
   const size_t InBuffSize = NumVecElements * elementSize(Params.CompType);
@@ -1503,7 +1503,7 @@ void DxilConf_SM610_LinAlg::OuterProduct_Thread_16x16_F16() {
   Params.M = 16;
   Params.N = 16;
   Params.Scope = MatrixScope::Thread;
-  Params.Layout = LinalgMatrixLayout::OuterProductOptimal;
+  Params.Layout = MatrixLayout::OuterProductOptimal;
   Params.NumThreads = 1;
   Params.Enable16Bit = true;
   runOuterProduct(D3DDevice, DxcSupport, Params, VerboseLogging);
@@ -1640,7 +1640,7 @@ void DxilConf_SM610_LinAlg::LoadMemory_Wave_16x16_F16() {
   Params.N = 16;
   Params.Use = MatrixUse::A;
   Params.Scope = MatrixScope::Wave;
-  Params.Layout = LinalgMatrixLayout::RowMajor;
+  Params.Layout = MatrixLayout::RowMajor;
   Params.NumThreads = 64;
   Params.Enable16Bit = true;
   runLoadMemory(D3DDevice, DxcSupport, Params, VerboseLogging);
@@ -1709,7 +1709,7 @@ void DxilConf_SM610_LinAlg::StoreMemory_Wave_16x16_F16() {
   Params.N = 16;
   Params.Use = MatrixUse::A;
   Params.Scope = MatrixScope::Wave;
-  Params.Layout = LinalgMatrixLayout::RowMajor;
+  Params.Layout = MatrixLayout::RowMajor;
   Params.NumThreads = 64;
   Params.Enable16Bit = true;
   runStoreMemory(D3DDevice, DxcSupport, Params, VerboseLogging,
@@ -1789,7 +1789,7 @@ void DxilConf_SM610_LinAlg::AccumulateMemory_Wave_16x16_F16() {
   Params.N = 16;
   Params.Use = MatrixUse::Accumulator;
   Params.Scope = MatrixScope::Wave;
-  Params.Layout = LinalgMatrixLayout::RowMajor;
+  Params.Layout = MatrixLayout::RowMajor;
   Params.NumThreads = 64;
   Params.Enable16Bit = true;
   runAccumulateMemory(D3DDevice, DxcSupport, Params, VerboseLogging,

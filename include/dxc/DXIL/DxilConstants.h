@@ -214,7 +214,7 @@ enum class MatrixScope : uint32_t {
   ThreadGroup = 2,
 };
 
-enum class LinalgMatrixLayout : uint32_t {
+enum class MatrixLayout : uint32_t {
   RowMajor = 0,
   ColumnMajor = 1,
   MulOptimal = 2,
