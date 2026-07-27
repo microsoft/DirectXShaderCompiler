@@ -6549,14 +6549,15 @@ class db_dxil(object):
                 db_dxil_param(
                     3, "$x_gs1", "memory", "groupshared array to accumulate into"
                 ),
-                db_dxil_param(4, "i32", "offset", "starting offset in the array"),
+                db_dxil_param(4, "i32", "targetType", "data type of the array"),
+                db_dxil_param(5, "i32", "offset", "starting offset in the array"),
                 db_dxil_param(
-                    5,
+                    6,
                     "i32",
                     "stride",
                     "number of bytes between the start of each row or column",
                 ),
-                db_dxil_param(6, "i32", "layout", "memory layout of matrix elements"),
+                db_dxil_param(7, "i32", "layout", "memory layout of matrix elements"),
             ],
         )
 

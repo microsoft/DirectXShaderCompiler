@@ -7115,7 +7115,7 @@ Value *TranslateLinAlgMatrixLoadFromMemory(
   return nullptr;
 }
 
-Value *TranslateLinAlgMatrixAccumStoreToMemory(
+Value *TranslateLinAlgMatrixStoreToMemory(
     CallInst *CI, IntrinsicOp IOP, OP::OpCode OpCode,
     HLOperationLowerHelper &Helper, HLObjectOperationLowerHelper *ObjHelper,
     bool &Translated) {
@@ -7137,6 +7137,31 @@ Value *TranslateLinAlgMatrixAccumStoreToMemory(
 
   return Builder.CreateCall(DxilFunc,
                             {OpArg, Matrix, ArrPtr, Offset, Stride, Layout});
+}
+
+Value *TranslateLinAlgMatrixAccumToMemory(
+    CallInst *CI, IntrinsicOp IOP, OP::OpCode OpCode,
+    HLOperationLowerHelper &Helper, HLObjectOperationLowerHelper *ObjHelper,
+    bool &Translated) {
+  hlsl::OP *HlslOp = &Helper.hlslOP;
+  IRBuilder<> Builder(CI);
+
+  Value *Matrix = CI->getArgOperand(1);
+  Value *Arr = CI->getArgOperand(2);
+  Value *TargetType = CI->getArgOperand(3);
+  Value *Offset = CI->getArgOperand(4);
+  Value *Stride = CI->getArgOperand(5);
+  Value *Layout = CI->getArgOperand(6);
+
+  Value *Zero = Builder.getInt32(0);
+  Value *ArrPtr = Builder.CreateGEP(Arr, {Zero, Zero});
+  Type *ArrEltTy = ArrPtr->getType()->getPointerElementType();
+
+  Constant *OpArg = HlslOp->GetU32Const((unsigned)OpCode);
+  Function *DxilFunc = HlslOp->GetOpFunc(OpCode, {Matrix->getType(), ArrEltTy});
+
+  return Builder.CreateCall(
+      DxilFunc, {OpArg, Matrix, ArrPtr, TargetType, Offset, Stride, Layout});
 }
 
 Value *TranslateLinAlgConvert(CallInst *CI, IntrinsicOp IOP, OP::OpCode OpCode,
@@ -7948,7 +7973,7 @@ constexpr IntrinsicLower gLowerTable[] = {
      TranslateLinAlgMatrixAccumStoreToDescriptor,
      DXIL::OpCode::LinAlgMatrixStoreToDescriptor},
     {IntrinsicOp::IOP___builtin_LinAlg_MatrixStoreToMemory,
-     TranslateLinAlgMatrixAccumStoreToMemory,
+     TranslateLinAlgMatrixStoreToMemory,
      DXIL::OpCode::LinAlgMatrixStoreToMemory},
     {IntrinsicOp::IOP___builtin_LinAlg_MatrixAccumulate,
      TranslateLinAlgMatrixAccumulate, DXIL::OpCode::LinAlgMatrixAccumulate},
@@ -7963,7 +7988,7 @@ constexpr IntrinsicLower gLowerTable[] = {
      TranslateLinAlgMatrixAccumStoreToDescriptor,
      DXIL::OpCode::LinAlgMatrixAccumulateToDescriptor},
     {IntrinsicOp::IOP___builtin_LinAlg_MatrixAccumulateToMemory,
-     TranslateLinAlgMatrixAccumStoreToMemory,
+     TranslateLinAlgMatrixAccumToMemory,
      DXIL::OpCode::LinAlgMatrixAccumulateToMemory},
     {IntrinsicOp::IOP___builtin_LinAlg_MatrixOuterProduct,
      TranslateLinAlgMatrixOuterProduct, DXIL::OpCode::LinAlgMatrixOuterProduct},

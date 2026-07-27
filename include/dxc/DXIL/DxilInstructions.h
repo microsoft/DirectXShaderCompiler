@@ -10867,7 +10867,7 @@ struct DxilInst_LinAlgMatrixAccumulateToMemory {
   // Validation support
   bool isAllowed() const { return true; }
   bool isArgumentListValid() const {
-    if (6 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands())
+    if (7 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands())
       return false;
     return true;
   }
@@ -10877,21 +10877,24 @@ struct DxilInst_LinAlgMatrixAccumulateToMemory {
   enum OperandIdx {
     arg_matrix = 1,
     arg_memory = 2,
-    arg_offset = 3,
-    arg_stride = 4,
-    arg_layout = 5,
+    arg_targetType = 3,
+    arg_offset = 4,
+    arg_stride = 5,
+    arg_layout = 6,
   };
   // Accessors
   llvm::Value *get_matrix() const { return Instr->getOperand(1); }
   void set_matrix(llvm::Value *val) { Instr->setOperand(1, val); }
   llvm::Value *get_memory() const { return Instr->getOperand(2); }
   void set_memory(llvm::Value *val) { Instr->setOperand(2, val); }
-  llvm::Value *get_offset() const { return Instr->getOperand(3); }
-  void set_offset(llvm::Value *val) { Instr->setOperand(3, val); }
-  llvm::Value *get_stride() const { return Instr->getOperand(4); }
-  void set_stride(llvm::Value *val) { Instr->setOperand(4, val); }
-  llvm::Value *get_layout() const { return Instr->getOperand(5); }
-  void set_layout(llvm::Value *val) { Instr->setOperand(5, val); }
+  llvm::Value *get_targetType() const { return Instr->getOperand(3); }
+  void set_targetType(llvm::Value *val) { Instr->setOperand(3, val); }
+  llvm::Value *get_offset() const { return Instr->getOperand(4); }
+  void set_offset(llvm::Value *val) { Instr->setOperand(4, val); }
+  llvm::Value *get_stride() const { return Instr->getOperand(5); }
+  void set_stride(llvm::Value *val) { Instr->setOperand(5, val); }
+  llvm::Value *get_layout() const { return Instr->getOperand(6); }
+  void set_layout(llvm::Value *val) { Instr->setOperand(6, val); }
 };
 
 /// This instruction Outer products an M sized vector and a N sized vector

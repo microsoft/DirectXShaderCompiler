@@ -1742,7 +1742,7 @@ static const char AccumulateMemoryShader[] = R"(
     __builtin_LinAlg_FillMatrix(Mat, FILL_VALUE);
 
     __builtin_LinAlg_MatrixAccumulateToMemory(
-      Mat, GsData, OFFSET / ELEM_SIZE, STRIDE / ELEM_SIZE, LAYOUT);
+      Mat, GsData, COMP_TYPE, OFFSET / ELEM_SIZE, STRIDE / ELEM_SIZE, LAYOUT);
 
     for (uint I = 0; I < M_DIM*N_DIM; ++I) {
       Output.Store<ELEM_TYPE>(I*ELEM_SIZE, GsData[I]);
