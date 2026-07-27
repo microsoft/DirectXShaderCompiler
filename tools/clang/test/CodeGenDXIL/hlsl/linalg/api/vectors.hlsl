@@ -39,13 +39,13 @@ void main(uint ID : SV_GroupID) {
 
   // CHECK: %[[VEC3:.*]] = call <8 x half> @dx.op.linAlgMatVecMulAdd.v8f16.mC8M8N4U0S0.v4f16.v8f16(i32 -2147483622,
   // CHECK-SAME: %dx.types.LinAlgMatrixC8M8N4U0S0 %[[MAT1]], i1 true, <4 x half> <half 0xH4926, half 0xH4926, half 0xH4926,
-  // CHECK-SAME: half 0xH4926>, i32 8, <8 x half> %[[VEC29]], i32 8)
-  // CHECK-SAME: ; LinAlgMatVecMulAdd(matrix,isOutputSigned,inputVector,inputInterpretation,biasVector,biasInterpretation)
+  // CHECK-SAME: half 0xH4926>, i32 8, <8 x half> %[[VEC29]])
+  // CHECK-SAME: ; LinAlgMatVecMulAdd(matrix,isOutputSigned,inputVector,inputInterpretation,biasVector)
   vector<half, 8> vec3 = MultiplyAdd<half>(Mat1, vec1, vec29);
 
   // CHECK: %[[VEC4:.*]] = call <8 x half> @dx.op.linAlgMatVecMulAdd.v8f16.mC8M8N4U0S0.v4f16.v8f16(i32 -2147483622,
-  // CHECK-SAME: %dx.types.LinAlgMatrixC8M8N4U0S0 %[[MAT1]], i1 true, <4 x half> %[[VEC20]], i32 8, <8 x half> %[[VEC3]], i32 8)
-  // CHECK-SAME: ; LinAlgMatVecMulAdd(matrix,isOutputSigned,inputVector,inputInterpretation,biasVector,biasInterpretation)
+  // CHECK-SAME: %dx.types.LinAlgMatrixC8M8N4U0S0 %[[MAT1]], i1 true, <4 x half> %[[VEC20]], i32 8, <8 x half> %[[VEC3]])
+  // CHECK-SAME: ; LinAlgMatVecMulAdd(matrix,isOutputSigned,inputVector,inputInterpretation,biasVector)
   InterpretedVector<half, 4, ComponentType::F16> interpVec2 = MakeInterpretedVector<ComponentType::F16>(vec20);
   vector<half, 8> vec4 = MultiplyAdd<half>(Mat1, interpVec2, vec3);
 
@@ -57,8 +57,8 @@ void main(uint ID : SV_GroupID) {
   // CHECK: %[[BIAS_CONV:.*]] = call <8 x half> @dx.op.linAlgConvert.v8f16.v8i16(i32 -2147483618, <8 x i16> %[[VEC_BIAS]], i32 2, i32 8)
   // CHECK-SAME: ; LinAlgConvert(inputVector,inputInterpretation,outputInterpretation)
   // CHECK: %[[VEC5:.*]] = call <8 x half> @dx.op.linAlgMatVecMulAdd.v8f16.mC8M8N4U0S0.v4f16.v8f16(i32 -2147483622,
-  // CHECK-SAME: %dx.types.LinAlgMatrixC8M8N4U0S0 %[[MAT1]], i1 true, <4 x half> %[[VEC20]], i32 8, <8 x half> %[[BIAS_CONV]], i32 8)
-  // CHECK-SAME:; LinAlgMatVecMulAdd(matrix,isOutputSigned,inputVector,inputInterpretation,biasVector,biasInterpretation)
+  // CHECK-SAME: %dx.types.LinAlgMatrixC8M8N4U0S0 %[[MAT1]], i1 true, <4 x half> %[[VEC20]], i32 8, <8 x half> %[[BIAS_CONV]])
+  // CHECK-SAME:; LinAlgMatVecMulAdd(matrix,isOutputSigned,inputVector,inputInterpretation,biasVector)
   VectorRef<ComponentType::I16, 8> memBias = {BAB, 4096};
   vector<half, 8> vec5 = MultiplyAdd<half>(Mat1, interpVec2, memBias);
 
@@ -71,8 +71,8 @@ void main(uint ID : SV_GroupID) {
   // CHECK: %[[BIAS_CONV:.*]] = call <8 x half> @dx.op.linAlgConvert.v8f16.v8i16(i32 -2147483618, <8 x i16> %[[VEC_BIAS]], i32 2, i32 8)
   // CHECK-SAME: ; LinAlgConvert(inputVector,inputInterpretation,outputInterpretation)
   // CHECK: %[[VEC6:.*]] = call <8 x half> @dx.op.linAlgMatVecMulAdd.v8f16.mC8M8N4U0S0.v4f16.v8f16(i32 -2147483622,
-  // CHECK-SAME: %dx.types.LinAlgMatrixC8M8N4U0S0 %[[MAT1]], i1 true, <4 x half> %[[VEC20]], i32 8, <8 x half> %[[BIAS_CONV]], i32 8)
-  // CHECK-SAME: ; LinAlgMatVecMulAdd(matrix,isOutputSigned,inputVector,inputInterpretation,biasVector,biasInterpretation)
+  // CHECK-SAME: %dx.types.LinAlgMatrixC8M8N4U0S0 %[[MAT1]], i1 true, <4 x half> %[[VEC20]], i32 8, <8 x half> %[[BIAS_CONV]])
+  // CHECK-SAME: ; LinAlgMatVecMulAdd(matrix,isOutputSigned,inputVector,inputInterpretation,biasVector)
   vector<half, 8> vec6 = MultiplyAdd<half>(Mat1, interpVec2, memBias);
 
   // CHECK: %[[ACCUM1:.*]] = call %dx.types.LinAlgMatrixC8M8N8U2S0
@@ -112,29 +112,29 @@ void main(uint ID : SV_GroupID) {
   Matrix_7_15_ATy Mat_7_15 = Matrix_7_15_ATy::Load<MatrixLayoutEnum::ColMajor>(BAB, 0, 16);
 
   // CHECK: call <7 x half> @dx.op.linAlgMatVecMulAdd.v7f16.mC8M7N15U0S0.v15f16.v7f16(i32 -2147483622,
-  // CHECK-SAME: %dx.types.LinAlgMatrixC8M7N15U0S0 %[[MAT_7_15]], i1 true, <15 x half> %{{[0-9]+}}, i32 8, <7 x half> %{{[0-9]+}}, i32 8)
-  // CHECK-SAME: ; LinAlgMatVecMulAdd(matrix,isOutputSigned,inputVector,inputInterpretation,biasVector,biasInterpretation)
+  // CHECK-SAME: %dx.types.LinAlgMatrixC8M7N15U0S0 %[[MAT_7_15]], i1 true, <15 x half> %{{[0-9]+}}, i32 8, <7 x half> %{{[0-9]+}})
+  // CHECK-SAME: ; LinAlgMatVecMulAdd(matrix,isOutputSigned,inputVector,inputInterpretation,biasVector)
   vector<half, 7> vec7 = MultiplyAdd<half>(Mat_7_15, vecH15, vecH7);
 
   // CHECK: call <7 x half> @dx.op.linAlgMatVecMulAdd.v7f16.mC8M7N15U0S0.v15f16.v7f16(i32 -2147483622, %dx.types.LinAlgMatrixC8M7N15U0S0 %[[MAT_7_15]],
-  // CHECK-SAME; i1 true, <15 x half> %{{[0-9]+}}, i32 8, <7 x half> %{{[0-9]+}}, i32 8)
-  // CHECK-SAME: ; LinAlgMatVecMulAdd(matrix,isOutputSigned,inputVector,inputInterpretation,biasVector,biasInterpretation)
+  // CHECK-SAME; i1 true, <15 x half> %{{[0-9]+}}, i32 8, <7 x half> %{{[0-9]+}})
+  // CHECK-SAME: ; LinAlgMatVecMulAdd(matrix,isOutputSigned,inputVector,inputInterpretation,biasVector)
   vector<half, 7> vec8 = MultiplyAdd<half>(Mat_7_15, interpVecH15, vecH7);
 
   // CHECK: %[[LOAD1:.*]] = call %dx.types.ResRet.v7f16 @dx.op.rawBufferVectorLoad.v7f16(i32 303, %dx.types.Handle %{{[0-9]+}}, i32 512, i32 undef, i32 2)
   // CHECK-SAME: ; RawBufferVectorLoad(buf,index,elementOffset,alignment)
   // CHECK-NEXT: %[[MEM_BIAS1:.*]] = extractvalue %dx.types.ResRet.v7f16 %[[LOAD1]], 0
   // CHECK-NEXT: call <7 x half> @dx.op.linAlgMatVecMulAdd.v7f16.mC8M7N15U0S0.v15f16.v7f16(i32 -2147483622,
-  // CHECK-SAME: %dx.types.LinAlgMatrixC8M7N15U0S0 %[[MAT_7_15]], i1 true, <15 x half> %{{[0-9]+}}, i32 8, <7 x half> %{{[0-9]+}}, i32 8)
-  // CHECK-SAME: ; LinAlgMatVecMulAdd(matrix,isOutputSigned,inputVector,inputInterpretation,biasVector,biasInterpretation)
+  // CHECK-SAME: %dx.types.LinAlgMatrixC8M7N15U0S0 %[[MAT_7_15]], i1 true, <15 x half> %{{[0-9]+}}, i32 8, <7 x half> %{{[0-9]+}})
+  // CHECK-SAME: ; LinAlgMatVecMulAdd(matrix,isOutputSigned,inputVector,inputInterpretation,biasVector)
   VectorRef<ComponentType::F16, 7> memBias7 = {BAB, 512};
   vector<half, 7> vec9 = MultiplyAdd<half>(Mat_7_15, vecH15, memBias7);
 
   // CHECK: %[[LOAD2:.*]] = call %dx.types.ResRet.v7f16 @dx.op.rawBufferVectorLoad.v7f16(i32 303, %dx.types.Handle %{{[0-9]+}}, i32 512, i32 undef, i32 2)
   // CHECK-SAME: ; RawBufferVectorLoad(buf,index,elementOffset,alignment)
   // CHECK-NEXT: %[[MEM_BIAS2:.*]] = extractvalue %dx.types.ResRet.v7f16 %[[LOAD2]], 0
-  // CHECK-NEXT: %dx.types.LinAlgMatrixC8M7N15U0S0 %[[MAT_7_15]], i1 true, <15 x half> %{{[0-9]+}}, i32 8, <7 x half> %[[MEM_BIAS2]], i32 8)
-  // CHECK-SAME: ; LinAlgMatVecMulAdd(matrix,isOutputSigned,inputVector,inputInterpretation,biasVector,biasInterpretation)
+  // CHECK-NEXT: %dx.types.LinAlgMatrixC8M7N15U0S0 %[[MAT_7_15]], i1 true, <15 x half> %{{[0-9]+}}, i32 8, <7 x half> %[[MEM_BIAS2]])
+  // CHECK-SAME: ; LinAlgMatVecMulAdd(matrix,isOutputSigned,inputVector,inputInterpretation,biasVector)
   vector<half, 7> vec10 = MultiplyAdd<half>(Mat_7_15, interpVecH15, memBias7);
 
   // Test MultiplyAdd with packed input vector
@@ -144,16 +144,16 @@ void main(uint ID : SV_GroupID) {
   InterpretedVector<uint, 4, ComponentEnum::F8_E4M3FN> interpVecH15Packed = Convert<ComponentEnum::F8_E4M3FN, ComponentEnum::F16>(vecH15);
 
   // CHECK: call <7 x half> @dx.op.linAlgMatVecMulAdd.v7f16.mC8M7N15U0S0.v4i32.v7f16(i32 -2147483622,
-  // CHECK-SAME: %dx.types.LinAlgMatrixC8M7N15U0S0 %[[MAT_7_15]], i1 true, <4 x i32> %{{[0-9]+}}, i32 21, <7 x half> %{{[0-9]+}}, i32 8)
-  // CHECK-SAME: ; LinAlgMatVecMulAdd(matrix,isOutputSigned,inputVector,inputInterpretation,biasVector,biasInterpretation)
+  // CHECK-SAME: %dx.types.LinAlgMatrixC8M7N15U0S0 %[[MAT_7_15]], i1 true, <4 x i32> %{{[0-9]+}}, i32 21, <7 x half> %{{[0-9]+}})
+  // CHECK-SAME: ; LinAlgMatVecMulAdd(matrix,isOutputSigned,inputVector,inputInterpretation,biasVector)
   vector<half, 7> vec11 = MultiplyAdd<half>(Mat_7_15, interpVecH15Packed, vecH7);
 
   // CHECK: %[[LOAD3:.+]] = call %dx.types.ResRet.v7f16 @dx.op.rawBufferVectorLoad.v7f16(i32 303, %dx.types.Handle %{{[0-9]+}}, i32 512, i32 undef, i32 2)
   // CHECK-SAME: ; RawBufferVectorLoad(buf,index,elementOffset,alignment)
   // CHECK-NEXT: %[[MEM_BIAS3:.*]] = extractvalue %dx.types.ResRet.v7f16 %{{[0-9]+}}, 0
   // CHECK-NEXT: call <7 x half> @dx.op.linAlgMatVecMulAdd.v7f16.mC8M7N15U0S0.v4i32.v7f16(i32 -2147483622,
-  // CHECK-SAME: %dx.types.LinAlgMatrixC8M7N15U0S0 %[[MAT_7_15]], i1 true, <4 x i32> %[[INTERP_VEC_H15_PACKED]], i32 21, <7 x half> %[[MEM_BIAS3]], i32 8)
-  // CHECK-SAME: ; LinAlgMatVecMulAdd(matrix,isOutputSigned,inputVector,inputInterpretation,biasVector,biasInterpretation)
+  // CHECK-SAME: %dx.types.LinAlgMatrixC8M7N15U0S0 %[[MAT_7_15]], i1 true, <4 x i32> %[[INTERP_VEC_H15_PACKED]], i32 21, <7 x half> %[[MEM_BIAS3]])
+  // CHECK-SAME: ; LinAlgMatVecMulAdd(matrix,isOutputSigned,inputVector,inputInterpretation,biasVector)
 
    vector<half, 7> vec12 = MultiplyAdd<half>(Mat_7_15, interpVecH15Packed, memBias7);
 
@@ -164,13 +164,13 @@ void main(uint ID : SV_GroupID) {
   MatrixPacked_7_15_ATy Mat_7_15_Packed = MatrixPacked_7_15_ATy::Load<MatrixLayoutEnum::ColMajor>(BAB, 0, 16);
 
   // CHECK: call <7 x half> @dx.op.linAlgMatVecMulAdd.v7f16.mC21M7N15U0S0.v15f16.v7f16(i32 -2147483622,
-  // CHECK-SAME: %dx.types.LinAlgMatrixC21M7N15U0S0 %[[MAT_7_15_PACKED]], i1 true, <15 x half> %{{[0-9]+}}, i32 8, <7 x half> %{{[0-9]+}}, i32 8)
-  // CHECK-SAME: ; LinAlgMatVecMulAdd(matrix,isOutputSigned,inputVector,inputInterpretation,biasVector,biasInterpretation)
+  // CHECK-SAME: %dx.types.LinAlgMatrixC21M7N15U0S0 %[[MAT_7_15_PACKED]], i1 true, <15 x half> %{{[0-9]+}}, i32 8, <7 x half> %{{[0-9]+}})
+  // CHECK-SAME: ; LinAlgMatVecMulAdd(matrix,isOutputSigned,inputVector,inputInterpretation,biasVector)
   vector<half, 7> vec21 = MultiplyAdd<half>(Mat_7_15_Packed, vecH15, vecH7);
 
   // CHECK: call <7 x half> @dx.op.linAlgMatVecMulAdd.v7f16.mC21M7N15U0S0.v4i32.v7f16(i32 -2147483622, %dx.types.LinAlgMatrixC21M7N15U0S0 %[[MAT_7_15_PACKED]],
-  // CHECK-SAME: i1 true, <4 x i32> %[[INTERP_VEC_H15_PACKED]], i32 21, <7 x half> %{{[0-9]+}}, i32 8)
-  // CHECK-SAME: ; LinAlgMatVecMulAdd(matrix,isOutputSigned,inputVector,inputInterpretation,biasVector,biasInterpretation)
+  // CHECK-SAME: i1 true, <4 x i32> %[[INTERP_VEC_H15_PACKED]], i32 21, <7 x half> %{{[0-9]+}})
+  // CHECK-SAME: ; LinAlgMatVecMulAdd(matrix,isOutputSigned,inputVector,inputInterpretation,biasVector)
   vector<half, 7> vec22 = MultiplyAdd<half>(Mat_7_15_Packed, interpVecH15Packed, vecH7);
 
   // CHECK: %[[LOAD4:.*]] = call %dx.types.ResRet.v2i32 @dx.op.rawBufferVectorLoad.v2i32(i32 303, %dx.types.Handle %{{[0-9]+}}, i32 512, i32 undef, i32 4)
@@ -180,8 +180,8 @@ void main(uint ID : SV_GroupID) {
   // CHECK-SAME: <2 x i32> %[[MEM_BIAS_PACKED1]], i32 21, i32 8)  ; LinAlgConvert(inputVector,inputInterpretation,outputInterpretation)
   // CHECK-NEXT: %[[MEM_BIAS_CONV1:.*]] = shufflevector <8 x half> %[[MEM_BIAS_CONV_PADDED]], <8 x half> undef, <7 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6>
   // CHECK-NEXT: call <7 x half> @dx.op.linAlgMatVecMulAdd.v7f16.mC21M7N15U0S0.v15f16.v7f16(i32 -2147483622,
-  // CHECK-SAME: %dx.types.LinAlgMatrixC21M7N15U0S0 %[[MAT_7_15_PACKED]], i1 true, <15 x half> %{{[0-9]+}}, i32 8, <7 x half> %[[MEM_BIAS_CONV1]], i32 8)
-  // CHECK-SAME: ; LinAlgMatVecMulAdd(matrix,isOutputSigned,inputVector,inputInterpretation,biasVector,biasInterpretation)
+  // CHECK-SAME: %dx.types.LinAlgMatrixC21M7N15U0S0 %[[MAT_7_15_PACKED]], i1 true, <15 x half> %{{[0-9]+}}, i32 8, <7 x half> %[[MEM_BIAS_CONV1]])
+  // CHECK-SAME: ; LinAlgMatVecMulAdd(matrix,isOutputSigned,inputVector,inputInterpretation,biasVector)
   VectorRef<ComponentType::F8_E4M3FN, 7> memBias7Packed = {BAB, 512};
   vector<half, 7> vec23 = MultiplyAdd<half>(Mat_7_15_Packed, vecH15, memBias7Packed);
 
@@ -192,8 +192,8 @@ void main(uint ID : SV_GroupID) {
   // CHECK-SAME: <2 x i32> %[[MEM_BIAS_PACKED2]], i32 21, i32 8)  ; LinAlgConvert(inputVector,inputInterpretation,outputInterpretation)
   // CHECK-NEXT: %[[MEM_BIAS_CONV2:.*]] = shufflevector <8 x half> %[[MEM_BIAS_CONV_PADDED2]], <8 x half> undef, <7 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6>
   // CHECK-NEXT: call <7 x half> @dx.op.linAlgMatVecMulAdd.v7f16.mC21M7N15U0S0.v4i32.v7f16(i32 -2147483622,
-  // CHECK-SAME: %dx.types.LinAlgMatrixC21M7N15U0S0 %[[MAT_7_15_PACKED]], i1 true, <4 x i32> %[[INTERP_VEC_H15_PACKED]], i32 21, <7 x half> %[[MEM_BIAS_CONV2]], i32 8)
-  // CHECK-SAME: ; LinAlgMatVecMulAdd(matrix,isOutputSigned,inputVector,inputInterpretation,biasVector,biasInterpretation)
+  // CHECK-SAME: %dx.types.LinAlgMatrixC21M7N15U0S0 %[[MAT_7_15_PACKED]], i1 true, <4 x i32> %[[INTERP_VEC_H15_PACKED]], i32 21, <7 x half> %[[MEM_BIAS_CONV2]])
+  // CHECK-SAME: ; LinAlgMatVecMulAdd(matrix,isOutputSigned,inputVector,inputInterpretation,biasVector)
   vector<half, 7> vec24 = MultiplyAdd<half>(Mat_7_15_Packed, interpVecH15Packed, memBias7Packed);
 
   // CHECK: call void @dx.op.linAlgVectorAccumulateToDescriptor.v4f16(i32 -2147483617, %dx.types.Handle %{{[0-9]+}},

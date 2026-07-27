@@ -505,8 +505,7 @@ MultiplyAdd(Matrix<MatrixDT, M, K, MatrixUse::A, MatrixScope::Thread> MatrixA,
   vector<OutputElTy, M> Result;
   __builtin_LinAlg_MatrixVectorMultiplyAdd(
       Result, MatrixA.__handle, hlsl::is_signed<OutputElTy>::value, Vec,
-      __detail::TypeTraits<InputElTy>::CompType, BiasConvInterp.Data,
-      BiasConvInterp.Interpretation);
+      __detail::TypeTraits<InputElTy>::CompType, BiasConvInterp.Data);
   return Result;
 }
 
@@ -527,8 +526,7 @@ MultiplyAdd(Matrix<MatrixDT, M, K, MatrixUse::A, MatrixScope::Thread> MatrixA,
   vector<OutputElTy, M> Result;
   __builtin_LinAlg_MatrixVectorMultiplyAdd(
       Result, MatrixA.__handle, hlsl::is_signed<OutputElTy>::value,
-      InterpVec.Data, InterpVec.Interpretation, BiasConvInterp.Data,
-      BiasConvInterp.Interpretation);
+      InterpVec.Data, InterpVec.Interpretation, BiasConvInterp.Data);
   return Result;
 }
 
@@ -570,8 +568,7 @@ MultiplyAdd(Matrix<MatrixDT, M, K, MatrixUse::A, MatrixScope::Thread> MatrixA,
   vector<OutputElTy, M> Result;
   __builtin_LinAlg_MatrixVectorMultiplyAdd(
       Result, MatrixA.__handle, hlsl::is_signed<OutputElTy>::value, Vec,
-      __detail::TypeTraits<InputElTy>::CompType, BiasConv,
-      __detail::TypeTraits<OutputElTy>::CompType);
+      __detail::TypeTraits<InputElTy>::CompType, BiasConv);
   return Result;
 }
 
@@ -615,8 +612,7 @@ MultiplyAdd(Matrix<MatrixDT, M, K, MatrixUse::A, MatrixScope::Thread> MatrixA,
   vector<OutputElTy, M> Result;
   __builtin_LinAlg_MatrixVectorMultiplyAdd(
       Result, MatrixA.__handle, hlsl::is_signed<OutputElTy>::value,
-      InterpVec.Data, InterpVec.Interpretation, BiasConv,
-      __detail::TypeTraits<OutputElTy>::CompType);
+      InterpVec.Data, InterpVec.Interpretation, BiasConv);
   return Result;
 }
 
