@@ -7682,6 +7682,18 @@ def warn_hlsl_builtin_constant_unavailable: Warning<
 def warn_hlsl_builtin_type_unavailable: Warning<
   "potential misuse of built-in type %0 in shader model %1; introduced"
   " in shader model %2">, DefaultError, InGroup<HLSLAvailability>;
+def warn_hlsl_builtin_constant_removed: Warning<
+  "built-in constant %0 is unavailable in shader model %1; it was removed"
+  " in shader model %2">, InGroup<HLSLAvailabilityConstant>;
+def warn_hlsl_builtin_type_removed: Warning<
+  "built-in type %0 is unavailable in shader model %1; it was removed"
+  " in shader model %2">, DefaultError, InGroup<HLSLAvailability>;
+def warn_hlsl_intrinsic_removed: Warning<
+   "intrinsic %0 potentially used by '%1' is unavailable; it was removed"
+   " in shader model %2">, DefaultError, InGroup<HLSLAvailability>;
+def warn_hlsl_node_shader_removed: Warning<
+   "node shaders and other Work Graphs functionality are not supported"
+   " when targeting shader model %0">, DefaultError, InGroup<HLSLAvailability>;
 def err_hlsl_unsupported_char_literal : Error<
   "unsupported style of char literal - use a single-character char-based literal">;
 def err_hlsl_unsupported_clipplane_argument_expression : Error<

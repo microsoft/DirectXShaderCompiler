@@ -2090,12 +2090,28 @@ static void AddHLSLIntrinsicAttr(FunctionDecl *FD, ASTContext &context,
     FD->addAttr(PureAttr::CreateImplicit(context));
   if (pIntrinsic->Flags & INTRIN_FLAG_IS_WAVE)
     FD->addAttr(HLSLWaveSensitiveAttr::CreateImplicit(context));
-  if (pIntrinsic->MinShaderModel) {
-    unsigned Major = pIntrinsic->MinShaderModel >> 4;
-    unsigned Minor = pIntrinsic->MinShaderModel & 0xF;
+  if (pIntrinsic->MinShaderModel || pIntrinsic->MaxShaderModel) {
+    clang::VersionTuple Introduced;
+    if (pIntrinsic->MinShaderModel) {
+      unsigned Major = pIntrinsic->MinShaderModel >> 4;
+      unsigned Minor = pIntrinsic->MinShaderModel & 0xF;
+      Introduced = clang::VersionTuple(Major, Minor);
+    }
+    // The maximum shader model is the last one that still supports the
+    // intrinsic: it is deprecated there, and obsoleted in the next minor
+    // shader model version. We could give longer deprecation periods in the
+    // future if there is a need for that.
+    clang::VersionTuple Deprecated;
+    clang::VersionTuple Obsoleted;
+    if (pIntrinsic->MaxShaderModel) {
+      unsigned Major = pIntrinsic->MaxShaderModel >> 4;
+      unsigned Minor = pIntrinsic->MaxShaderModel & 0xF;
+      Deprecated = clang::VersionTuple(Major, Minor);
+      Obsoleted = clang::VersionTuple(Major, Minor + 1);
+    }
     FD->addAttr(AvailabilityAttr::CreateImplicit(
-        context, &context.Idents.get(""), clang::VersionTuple(Major, Minor),
-        clang::VersionTuple(), clang::VersionTuple(), false, ""));
+        context, &context.Idents.get(""), Introduced, Deprecated, Obsoleted,
+        false, ""));
   }
 }
 

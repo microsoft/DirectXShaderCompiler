@@ -22,6 +22,7 @@ void node_2_0(
 // CHECK:|-CXXRecordDecl 0x{{.+}} <<invalid sloc>> <invalid sloc> implicit struct EmptyNodeOutput definition
 // CHECK-NEXT:| |-FinalAttr 0x{{.+}} <<invalid sloc>> Implicit final
 // CHECK-NEXT:| |-HLSLNodeObjectAttr 0x{{.+}} <<invalid sloc>> Implicit EmptyNodeOutput
+// CHECK-NEXT:| |-AvailabilityAttr 0x{{.+}} <<invalid sloc>> Implicit 6.8 6.9 6.10 ""
 // CHECK-NEXT:| |-FieldDecl 0x{{.+}} <<invalid sloc>> <invalid sloc> implicit h 'int'
 // CHECK-NEXT:| |-FunctionTemplateDecl 0x{{.+}} <<invalid sloc>> <invalid sloc> GroupIncrementOutputCount
 // CHECK-NEXT:| | |-TemplateTypeParmDecl 0x{{.+}} <<invalid sloc>> <invalid sloc> class TResult
@@ -46,6 +47,7 @@ void node_2_0(
 // CHECK:|-CXXRecordDecl 0x{{.+}} <<invalid sloc>> <invalid sloc> implicit referenced struct EmptyNodeOutputArray definition
 // CHECK-NEXT:| |-FinalAttr 0x{{.+}} <<invalid sloc>> Implicit final
 // CHECK-NEXT:| |-HLSLNodeObjectAttr 0x{{.+}} <<invalid sloc>> Implicit EmptyNodeOutputArray
+// CHECK-NEXT:| |-AvailabilityAttr 0x{{.+}} <<invalid sloc>> Implicit 6.8 6.9 6.10 ""
 // CHECK-NEXT:| |-FieldDecl 0x{{.+}} <<invalid sloc>> <invalid sloc> implicit h 'int'
 // CHECK-NEXT:| `-CXXMethodDecl 0x[[SUB:[0-9a-f]+]] <<invalid sloc>> <invalid sloc> used operator[] 'EmptyNodeOutput (unsigned int)'
 // CHECK-NEXT:|   |-ParmVarDecl 0x{{.+}} <<invalid sloc>> <invalid sloc> index 'unsigned int'

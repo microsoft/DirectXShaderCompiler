@@ -489,31 +489,57 @@ public:
     return SMVT >= AAttrVT;
   }
 
+  bool CheckObsoleted(VersionTuple ObsoletedVT) {
+    if (ObsoletedVT.empty() || IsTargetProfileLib6x(*sema))
+      return true;
+    VersionTuple SMVT = VersionTuple(SM->GetMajor(), SM->GetMinor());
+    return SMVT < ObsoletedVT;
+  }
+
   void DiagnoseAvailability(AvailabilityAttr *AAttr, QualType Ty,
                             SourceLocation Loc) {
     VersionTuple AAttrVT = AAttr->getIntroduced();
-    if (CheckSMVersion(AAttrVT))
+    if (!CheckSMVersion(AAttrVT)) {
+      sema->Diag(Loc, diag::warn_hlsl_builtin_type_unavailable)
+          << Ty << SM->GetName() << AAttrVT.getAsString();
       return;
+    }
 
-    sema->Diag(Loc, diag::warn_hlsl_builtin_type_unavailable)
-        << Ty << SM->GetName() << AAttrVT.getAsString();
+    VersionTuple ObsoletedVT = AAttr->getObsoleted();
+    if (!CheckObsoleted(ObsoletedVT))
+      sema->Diag(Loc, diag::warn_hlsl_builtin_type_removed)
+          << Ty << SM->GetName() << ObsoletedVT.getAsString();
   }
 
   void DiagnoseAvailability(AvailabilityAttr *AAttr, NamedDecl *ND,
                             SourceLocation Loc) {
     VersionTuple AAttrVT = AAttr->getIntroduced();
-    if (CheckSMVersion(AAttrVT))
-      return;
+    if (!CheckSMVersion(AAttrVT)) {
+      if (isa<FunctionDecl>(ND)) {
+        sema->Diag(Loc, diag::warn_hlsl_intrinsic_in_wrong_shader_model)
+            << ND->getQualifiedNameAsString() << EntryDecl
+            << AAttrVT.getAsString();
+        return;
+      }
 
-    if (isa<FunctionDecl>(ND)) {
-      sema->Diag(Loc, diag::warn_hlsl_intrinsic_in_wrong_shader_model)
-          << ND->getQualifiedNameAsString() << EntryDecl
-          << AAttrVT.getAsString();
+      sema->Diag(Loc, diag::warn_hlsl_builtin_constant_unavailable)
+          << ND << SM->GetName() << AAttrVT.getAsString();
       return;
     }
 
-    sema->Diag(Loc, diag::warn_hlsl_builtin_constant_unavailable)
-        << ND << SM->GetName() << AAttrVT.getAsString();
+    VersionTuple ObsoletedVT = AAttr->getObsoleted();
+    if (CheckObsoleted(ObsoletedVT))
+      return;
+
+    if (isa<FunctionDecl>(ND)) {
+      sema->Diag(Loc, diag::warn_hlsl_intrinsic_removed)
+          << ND->getQualifiedNameAsString() << EntryDecl
+          << ObsoletedVT.getAsString();
+      return;
+    }
+
+    sema->Diag(Loc, diag::warn_hlsl_builtin_constant_removed)
+        << ND << SM->GetName() << ObsoletedVT.getAsString();
   }
 
   clang::Sema *getSema() { return sema; }
@@ -767,6 +793,15 @@ void hlsl::DiagnoseTranslationUnit(clang::Sema *self) {
     // points.
     if (EntrySK == DXIL::ShaderKind::Library && IsTargetProfileLib6x(*self))
       continue;
+
+    // Work Graphs (node shaders) were obsoleted in shader model 6.10.
+    // Declaring a node shader when targeting 6.10 or above is an error,
+    // regardless of whether any node record types are actually used.
+    if (EntrySK == DXIL::ShaderKind::Node &&
+        shaderModel->IsSMAtLeast(6, 10) && !IsTargetProfileLib6x(*self)) {
+      self->Diag(FDecl->getLocation(), diag::warn_hlsl_node_shader_removed)
+          << shaderModel->GetName();
+    }
 
     // Visit all visited functions in call graph to collect illegal intrinsic
     // calls.
