@@ -12,24 +12,22 @@
 #include <filesystem>
 #include <optional>
 
-// D3D12_FEATURE_D3D12_OPTIONS_PREVIEW and its data struct are not yet in
-// the released Windows SDK. Define locally so the test can query variable
-// group shared memory capabilities from the Agility SDK runtime.
-// TODO(#8661): Remove me when GroupSharedLimit is available in a released
-// Windows SDK.
-#if defined(D3D12_PREVIEW_SDK_VERSION) && D3D12_PREVIEW_SDK_VERSION < 720
-
-#ifndef D3D12_FEATURE_D3D12_OPTIONS_PREVIEW
-#define D3D12_FEATURE_D3D12_OPTIONS_PREVIEW ((D3D12_FEATURE)72)
-#endif
-
-typedef struct D3D12_FEATURE_DATA_D3D12_OPTIONS_PREVIEW {
+// D3D12_FEATURE_D3D12_OPTIONS_PREVIEW (feature 72) reports variable group-shared
+// memory limits. It is not in the released Windows SDK, and internal D3D headers
+// only expose it in preview deployment tiers -- yet those headers still define
+// D3D12_PREVIEW_SDK_VERSION unconditionally, so that macro cannot be used to
+// detect the feature. Define the query privately (matching the runtime ABI:
+// feature id 72, three UINTs) so the test compiles against any SDK/tier without
+// colliding with the header's typedef; execution is gated on a runtime
+// CheckFeatureSupport query instead.
+namespace {
+constexpr D3D12_FEATURE DxcFeatureOptionsPreview = static_cast<D3D12_FEATURE>(72);
+struct DxcOptionsPreview {
   UINT MaxGroupSharedMemoryPerGroupCS;
   UINT MaxGroupSharedMemoryPerGroupAS;
   UINT MaxGroupSharedMemoryPerGroupMS;
-} D3D12_FEATURE_DATA_D3D12_OPTIONS_PREVIEW;
-
-#endif
+};
+} // namespace
 
 using namespace hlsl_test;
 
@@ -620,30 +618,31 @@ bool isFallbackPathEnabled() {
   return EnableFallbackValue != 0;
 }
 
-// TODO(#8661): Remove me when GroupSharedLimit is available in a released
-// Windows SDK.
-#if defined(D3D12_PREVIEW_SDK_VERSION)
+// Return the device's variable group-shared-memory limits, or 0 when the runtime
+// does not support the preview feature (callers skip in that case).
 UINT getMaxGroupSharedMemoryCS(ID3D12Device *Device) {
-  D3D12_FEATURE_DATA_D3D12_OPTIONS_PREVIEW O = {};
-  VERIFY_SUCCEEDED(Device->CheckFeatureSupport(
-      D3D12_FEATURE_D3D12_OPTIONS_PREVIEW, &O, sizeof(O)));
+  DxcOptionsPreview O = {};
+  if (FAILED(Device->CheckFeatureSupport(DxcFeatureOptionsPreview, &O,
+                                         sizeof(O))))
+    return 0;
   return O.MaxGroupSharedMemoryPerGroupCS;
 }
 
 UINT getMaxGroupSharedMemoryAS(ID3D12Device *Device) {
-  D3D12_FEATURE_DATA_D3D12_OPTIONS_PREVIEW O = {};
-  VERIFY_SUCCEEDED(Device->CheckFeatureSupport(
-      D3D12_FEATURE_D3D12_OPTIONS_PREVIEW, &O, sizeof(O)));
+  DxcOptionsPreview O = {};
+  if (FAILED(Device->CheckFeatureSupport(DxcFeatureOptionsPreview, &O,
+                                         sizeof(O))))
+    return 0;
   return O.MaxGroupSharedMemoryPerGroupAS;
 }
 
 UINT getMaxGroupSharedMemoryMS(ID3D12Device *Device) {
-  D3D12_FEATURE_DATA_D3D12_OPTIONS_PREVIEW O = {};
-  VERIFY_SUCCEEDED(Device->CheckFeatureSupport(
-      D3D12_FEATURE_D3D12_OPTIONS_PREVIEW, &O, sizeof(O)));
+  DxcOptionsPreview O = {};
+  if (FAILED(Device->CheckFeatureSupport(DxcFeatureOptionsPreview, &O,
+                                         sizeof(O))))
+    return 0;
   return O.MaxGroupSharedMemoryPerGroupMS;
 }
-#endif // defined(D3D12_PREVIEW_SDK_VERSION)
 
 std::unique_ptr<st::ShaderOp> createComputeOp(const char *Source,
                                               const char *Target,
