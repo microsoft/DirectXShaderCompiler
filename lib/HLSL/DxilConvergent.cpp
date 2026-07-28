@@ -62,9 +62,14 @@ public:
       for (BasicBlock &bb : F.getBasicBlockList()) {
         for (auto it = bb.begin(); it != bb.end();) {
           Instruction *I = (it++);
-          if (Value *V = FindConvergentOperand(I)) {
-            if (PropagateConvergent(V, &F, PDR)) {
+          ConvergentOperand CO = FindConvergentOperand(I);
+          if (CO.Operand) {
+            if (PropagateConvergent(CO.Operand, &F, PDR)) {
               // TODO: emit warning here.
+            }
+            if (CO.ResultIsConvergent) {
+              IRBuilder<> Builder(I->getNextNode());
+              MarkConvergent(I, Builder, M);
             }
             bUpdated = true;
           }
@@ -76,8 +81,13 @@ public:
   }
 
 private:
+  struct ConvergentOperand {
+    Value *Operand;
+    bool ResultIsConvergent;
+  };
+
   void MarkConvergent(Value *V, IRBuilder<> &Builder, Module &M);
-  Value *FindConvergentOperand(Instruction *I);
+  static ConvergentOperand FindConvergentOperand(Instruction *I);
   bool PropagateConvergent(Value *V, Function *F,
                            DominatorTreeBase<BasicBlock> &PostDom);
   bool PropagateConvergentImpl(Value *V, Function *F,
@@ -171,7 +181,8 @@ bool DxilConvergentMark::PropagateConvergentImpl(
   }
 }
 
-Value *DxilConvergentMark::FindConvergentOperand(Instruction *I) {
+DxilConvergentMark::ConvergentOperand
+DxilConvergentMark::FindConvergentOperand(Instruction *I) {
   if (CallInst *CI = dyn_cast<CallInst>(I)) {
     if (hlsl::GetHLOpcodeGroup(CI->getCalledFunction()) ==
         HLOpcodeGroup::HLIntrinsic) {
@@ -183,24 +194,25 @@ Value *DxilConvergentMark::FindConvergentOperand(Instruction *I) {
       case IntrinsicOp::IOP_ddy:
       case IntrinsicOp::IOP_ddy_fine:
       case IntrinsicOp::IOP_ddy_coarse:
-        return CI->getArgOperand(HLOperandIndex::kUnaryOpSrc0Idx);
+        return {CI->getArgOperand(HLOperandIndex::kUnaryOpSrc0Idx), true};
       case IntrinsicOp::MOP_Sample:
       case IntrinsicOp::MOP_SampleBias:
       case IntrinsicOp::MOP_SampleCmp:
       case IntrinsicOp::MOP_CalculateLevelOfDetail:
       case IntrinsicOp::MOP_CalculateLevelOfDetailUnclamped:
-        return CI->getArgOperand(HLOperandIndex::kSampleCoordArgIndex);
+        return {CI->getArgOperand(HLOperandIndex::kSampleCoordArgIndex), false};
       case IntrinsicOp::MOP_WriteSamplerFeedback:
       case IntrinsicOp::MOP_WriteSamplerFeedbackBias:
-        return CI->getArgOperand(
-            HLOperandIndex::kWriteSamplerFeedbackCoordArgIndex);
+        return {CI->getArgOperand(
+                    HLOperandIndex::kWriteSamplerFeedbackCoordArgIndex),
+                false};
       default:
         // No other ops have convergent operands.
         break;
       }
     }
   }
-  return nullptr;
+  return {};
 }
 
 } // namespace

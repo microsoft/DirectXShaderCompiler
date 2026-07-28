@@ -18,13 +18,33 @@ bb:
   br i1 %tmp6, label %bb7, label %bb10
 
 bb7:                                              ; preds = %bb
-  ; CHECK: call <2 x float> @"dx.hl.op.rn.<2 x float> (i32, <2 x float>)"(i32 128, <2 x float> [[vec]])
-  %tmp8 = call <2 x float> @"dx.hl.op.rn.<2 x float> (i32, <2 x float>)"(i32 128, <2 x float> %tmp)
-  %tmp9 = fsub <2 x float> zeroinitializer, %tmp8
+  ; CHECK: [[ddx:%.*]] = call <2 x float> @"dx.hl.op.rn.<2 x float> (i32, <2 x float>)"(i32 125, <2 x float> {{%.*}})
+  ; CHECK: call <2 x float> @"dxil.convergent.marker.<2 x float>"(<2 x float> [[ddx]])
+  ; CHECK: [[ddxCoarse:%.*]] = call <2 x float> @"dx.hl.op.rn.<2 x float> (i32, <2 x float>)"(i32 126, <2 x float> {{%.*}})
+  ; CHECK: call <2 x float> @"dxil.convergent.marker.<2 x float>"(<2 x float> [[ddxCoarse]])
+  ; CHECK: [[ddxFine:%.*]] = call <2 x float> @"dx.hl.op.rn.<2 x float> (i32, <2 x float>)"(i32 127, <2 x float> {{%.*}})
+  ; CHECK: call <2 x float> @"dxil.convergent.marker.<2 x float>"(<2 x float> [[ddxFine]])
+  ; CHECK: [[ddy:%.*]] = call <2 x float> @"dx.hl.op.rn.<2 x float> (i32, <2 x float>)"(i32 128, <2 x float> {{%.*}})
+  ; CHECK: call <2 x float> @"dxil.convergent.marker.<2 x float>"(<2 x float> [[ddy]])
+  ; CHECK: [[ddyCoarse:%.*]] = call <2 x float> @"dx.hl.op.rn.<2 x float> (i32, <2 x float>)"(i32 129, <2 x float> {{%.*}})
+  ; CHECK: call <2 x float> @"dxil.convergent.marker.<2 x float>"(<2 x float> [[ddyCoarse]])
+  ; CHECK: [[ddyFine:%.*]] = call <2 x float> @"dx.hl.op.rn.<2 x float> (i32, <2 x float>)"(i32 130, <2 x float> {{%.*}})
+  ; CHECK: call <2 x float> @"dxil.convergent.marker.<2 x float>"(<2 x float> [[ddyFine]])
+  %tmp8 = call <2 x float> @"dx.hl.op.rn.<2 x float> (i32, <2 x float>)"(i32 125, <2 x float> %tmp)
+  %tmp9 = call <2 x float> @"dx.hl.op.rn.<2 x float> (i32, <2 x float>)"(i32 126, <2 x float> %tmp)
+  %tmp10 = call <2 x float> @"dx.hl.op.rn.<2 x float> (i32, <2 x float>)"(i32 127, <2 x float> %tmp)
+  %tmp11 = call <2 x float> @"dx.hl.op.rn.<2 x float> (i32, <2 x float>)"(i32 128, <2 x float> %tmp)
+  %tmp12 = call <2 x float> @"dx.hl.op.rn.<2 x float> (i32, <2 x float>)"(i32 129, <2 x float> %tmp)
+  %tmp13 = call <2 x float> @"dx.hl.op.rn.<2 x float> (i32, <2 x float>)"(i32 130, <2 x float> %tmp)
+  %tmp14 = fadd <2 x float> %tmp8, %tmp9
+  %tmp15 = fadd <2 x float> %tmp10, %tmp11
+  %tmp16 = fadd <2 x float> %tmp12, %tmp13
+  %tmp17 = fadd <2 x float> %tmp14, %tmp15
+  %tmp18 = fadd <2 x float> %tmp17, %tmp16
   br label %bb10
 
 bb10:                                             ; preds = %bb7, %bb
-  %res.0 = phi <2 x float> [ %tmp9, %bb7 ], [ zeroinitializer, %bb ]
+  %res.0 = phi <2 x float> [ %tmp18, %bb7 ], [ zeroinitializer, %bb ]
   store <2 x float> %res.0, <2 x float>* %arg
   ret void
 }

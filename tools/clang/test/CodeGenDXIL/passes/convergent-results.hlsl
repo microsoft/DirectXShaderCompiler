@@ -1,5 +1,4 @@
 // REQUIRES: dxil-1-9
-// XFAIL: *
 // RUN: %dxc -T cs_6_6 -DSCALAR -DFUNC=ddx %s        | FileCheck %s
 // RUN: %dxc -T cs_6_6 -DSCALAR -DFUNC=ddx_coarse %s | FileCheck %s
 // RUN: %dxc -T cs_6_6 -DSCALAR -DFUNC=ddx_fine %s   | FileCheck %s
