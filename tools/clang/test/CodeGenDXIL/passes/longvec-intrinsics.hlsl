@@ -81,9 +81,9 @@ void main() {
   // CHECK: fmul fast <13 x half> [[tmp]], [[hvec1]]
   hRes += lerp(hVec2, hVec3, hVec1);
 
-  // CHECK: [[tmp:%.*]] = call <13 x float> @dx.op.unary.v13f32(i32 83, <13 x float> [[fvec1]])  ; DerivCoarseX(value)
+  // CHECK: [[tmp:%.*]] = call <13 x float> @dx.op.unary.v13f32(i32 83, <13 x float> [[fvec1]]) #[[CONV:[0-9]+]]  ; DerivCoarseX(value)
   // CHECK: call <13 x float> @dx.op.unary.v13f32(i32 6, <13 x float> [[tmp]])  ; FAbs(value)
-  // CHECK: [[tmp:%.*]] = call <13 x float> @dx.op.unary.v13f32(i32 84, <13 x float> [[fvec1]])  ; DerivCoarseY(value)
+  // CHECK: [[tmp:%.*]] = call <13 x float> @dx.op.unary.v13f32(i32 84, <13 x float> [[fvec1]]) #[[CONV]]  ; DerivCoarseY(value)
   // CHECK: call <13 x float> @dx.op.unary.v13f32(i32 6, <13 x float> [[tmp]])  ; FAbs(value)
   fRes += fwidth(fVec1);
 
@@ -180,7 +180,7 @@ void main() {
   // CHECK: call <13 x float> @dx.op.tertiary.v13f32(i32 46, <13 x float> [[fvec1]], <13 x float> [[fvec2]], <13 x float> [[fvec3]])  ; FMad(a,b,c)
   fRes += mad(fVec1, fVec2, fVec3);
 
-  // CHECK: call <13 x half> @dx.op.unary.v13f16(i32 85, <13 x half> [[hvec1]])  ; DerivFineX(value)
+  // CHECK: call <13 x half> @dx.op.unary.v13f16(i32 85, <13 x half> [[hvec1]]) #[[CONV]]  ; DerivFineX(value)
   hRes += ddx_fine(hVec1);
 
   // CHECK: [[ld:%.*]] = call %dx.types.ResRet.v13f64 @dx.op.rawBufferVectorLoad.v13f64(i32 303, %dx.types.Handle {{%.*}}, i32 24, i32 0, i32 8) 
@@ -202,3 +202,5 @@ void main() {
   uBuf[0] = uRes;
   lBuf[0] = lRes;
 }
+
+// CHECK: attributes #[[CONV]] = { convergent }

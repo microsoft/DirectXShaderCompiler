@@ -3,8 +3,8 @@
 target datalayout = "e-m:e-p:32:32-i1:32-i8:32-i16:32-i32:32-i64:64-f16:32-f32:32-f64:64-n8:16:32:64"
 target triple = "dxil-ms-dx"
 
-; Function Attrs: nounwind readnone
-declare <2 x float> @"dx.hl.op.rn.<2 x float> (i32, <2 x float>)"(i32, <2 x float>) #1
+; Function Attrs: convergent nounwind readnone
+declare <2 x float> @"dx.hl.op.cvrn.<2 x float> (i32, <2 x float>)"(i32, <2 x float>) #1
 
 ; Function Attrs: nounwind
 define void @main(<2 x float>* noalias %arg, <2 x float> %arg1, <2 x float> %arg2, i32 %arg3) #0 {
@@ -19,37 +19,25 @@ bb:
   %tmp4 = icmp sgt i32 %arg3, 2
   %tmp5 = icmp ne i1 %tmp4, false
   %tmp6 = icmp ne i1 %tmp5, false
+  ; CHECK: br i1
   br i1 %tmp6, label %bb7, label %bb10
 
 bb7:                                              ; preds = %bb
-  ; CHECK: [[ddx:%.*]] = call <2 x float> @"dx.hl.op.rn.<2 x float> (i32, <2 x float>)"(i32 125, <2 x float> {{%.*}})
-  ; CHECK: [[ddx0:%.*]] = extractelement <2 x float> [[ddx]], i64 0
-  ; CHECK: [[ddxConv0:%.*]] = call float @dxil.convergent.marker.float(float [[ddx0]])
-  ; CHECK: [[ddxVec0:%.*]] = insertelement <2 x float> undef, float [[ddxConv0]], i64 0
-  ; CHECK: [[ddx1:%.*]] = extractelement <2 x float> [[ddx]], i64 1
-  ; CHECK: [[ddxConv1:%.*]] = call float @dxil.convergent.marker.float(float [[ddx1]])
-  ; CHECK: insertelement <2 x float> [[ddxVec0]], float [[ddxConv1]], i64 1
-  ; CHECK: [[ddxCoarse:%.*]] = call <2 x float> @"dx.hl.op.rn.<2 x float> (i32, <2 x float>)"(i32 126, <2 x float> {{%.*}})
-  ; CHECK: [[ddxCoarse0:%.*]] = extractelement <2 x float> [[ddxCoarse]], i64 0
-  ; CHECK: call float @dxil.convergent.marker.float(float [[ddxCoarse0]])
-  ; CHECK: [[ddxFine:%.*]] = call <2 x float> @"dx.hl.op.rn.<2 x float> (i32, <2 x float>)"(i32 127, <2 x float> {{%.*}})
-  ; CHECK: [[ddxFine0:%.*]] = extractelement <2 x float> [[ddxFine]], i64 0
-  ; CHECK: call float @dxil.convergent.marker.float(float [[ddxFine0]])
-  ; CHECK: [[ddy:%.*]] = call <2 x float> @"dx.hl.op.rn.<2 x float> (i32, <2 x float>)"(i32 128, <2 x float> {{%.*}})
-  ; CHECK: [[ddy0:%.*]] = extractelement <2 x float> [[ddy]], i64 0
-  ; CHECK: call float @dxil.convergent.marker.float(float [[ddy0]])
-  ; CHECK: [[ddyCoarse:%.*]] = call <2 x float> @"dx.hl.op.rn.<2 x float> (i32, <2 x float>)"(i32 129, <2 x float> {{%.*}})
-  ; CHECK: [[ddyCoarse0:%.*]] = extractelement <2 x float> [[ddyCoarse]], i64 0
-  ; CHECK: call float @dxil.convergent.marker.float(float [[ddyCoarse0]])
-  ; CHECK: [[ddyFine:%.*]] = call <2 x float> @"dx.hl.op.rn.<2 x float> (i32, <2 x float>)"(i32 130, <2 x float> {{%.*}})
-  ; CHECK: [[ddyFine0:%.*]] = extractelement <2 x float> [[ddyFine]], i64 0
-  ; CHECK: call float @dxil.convergent.marker.float(float [[ddyFine0]])
-  %tmp8 = call <2 x float> @"dx.hl.op.rn.<2 x float> (i32, <2 x float>)"(i32 125, <2 x float> %tmp)
-  %tmp9 = call <2 x float> @"dx.hl.op.rn.<2 x float> (i32, <2 x float>)"(i32 126, <2 x float> %tmp)
-  %tmp10 = call <2 x float> @"dx.hl.op.rn.<2 x float> (i32, <2 x float>)"(i32 127, <2 x float> %tmp)
-  %tmp11 = call <2 x float> @"dx.hl.op.rn.<2 x float> (i32, <2 x float>)"(i32 128, <2 x float> %tmp)
-  %tmp12 = call <2 x float> @"dx.hl.op.rn.<2 x float> (i32, <2 x float>)"(i32 129, <2 x float> %tmp)
-  %tmp13 = call <2 x float> @"dx.hl.op.rn.<2 x float> (i32, <2 x float>)"(i32 130, <2 x float> %tmp)
+  ; CHECK-NOT: call {{.*}} @dxil.convergent.marker
+  ; CHECK: call <2 x float> @"dx.hl.op.cvrn.<2 x float> (i32, <2 x float>)"(i32 125,
+  ; CHECK: call <2 x float> @"dx.hl.op.cvrn.<2 x float> (i32, <2 x float>)"(i32 126,
+  ; CHECK: call <2 x float> @"dx.hl.op.cvrn.<2 x float> (i32, <2 x float>)"(i32 127,
+  ; CHECK: call <2 x float> @"dx.hl.op.cvrn.<2 x float> (i32, <2 x float>)"(i32 128,
+  ; CHECK: call <2 x float> @"dx.hl.op.cvrn.<2 x float> (i32, <2 x float>)"(i32 129,
+  ; CHECK: call <2 x float> @"dx.hl.op.cvrn.<2 x float> (i32, <2 x float>)"(i32 130,
+  ; CHECK-NOT: call {{.*}} @dxil.convergent.marker
+  ; CHECK: bb10:
+  %tmp8 = call <2 x float> @"dx.hl.op.cvrn.<2 x float> (i32, <2 x float>)"(i32 125, <2 x float> %tmp)
+  %tmp9 = call <2 x float> @"dx.hl.op.cvrn.<2 x float> (i32, <2 x float>)"(i32 126, <2 x float> %tmp)
+  %tmp10 = call <2 x float> @"dx.hl.op.cvrn.<2 x float> (i32, <2 x float>)"(i32 127, <2 x float> %tmp)
+  %tmp11 = call <2 x float> @"dx.hl.op.cvrn.<2 x float> (i32, <2 x float>)"(i32 128, <2 x float> %tmp)
+  %tmp12 = call <2 x float> @"dx.hl.op.cvrn.<2 x float> (i32, <2 x float>)"(i32 129, <2 x float> %tmp)
+  %tmp13 = call <2 x float> @"dx.hl.op.cvrn.<2 x float> (i32, <2 x float>)"(i32 130, <2 x float> %tmp)
   %tmp14 = fadd <2 x float> %tmp8, %tmp9
   %tmp15 = fadd <2 x float> %tmp10, %tmp11
   %tmp16 = fadd <2 x float> %tmp12, %tmp13
@@ -64,7 +52,7 @@ bb10:                                             ; preds = %bb7, %bb
 }
 
 attributes #0 = { nounwind }
-attributes #1 = { nounwind readnone }
+attributes #1 = { convergent nounwind readnone }
 
 !llvm.module.flags = !{!0}
 !pauseresume = !{!1}

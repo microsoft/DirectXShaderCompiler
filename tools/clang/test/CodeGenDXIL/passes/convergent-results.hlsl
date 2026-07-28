@@ -11,6 +11,12 @@
 // RUN: %dxc -T cs_6_9 -DFUNC=ddy %s                  | FileCheck %s
 // RUN: %dxc -T cs_6_9 -DFUNC=ddy_coarse %s           | FileCheck %s
 // RUN: %dxc -T cs_6_9 -DFUNC=ddy_fine %s             | FileCheck %s
+// RUN: %dxc -T cs_6_6 -fcgl -DSCALAR -DFUNC=ddx %s        | FileCheck %s --check-prefixes=HL,HL-DDX
+// RUN: %dxc -T cs_6_6 -fcgl -DSCALAR -DFUNC=ddx_coarse %s | FileCheck %s --check-prefixes=HL,HL-DDX-COARSE
+// RUN: %dxc -T cs_6_6 -fcgl -DSCALAR -DFUNC=ddx_fine %s   | FileCheck %s --check-prefixes=HL,HL-DDX-FINE
+// RUN: %dxc -T cs_6_6 -fcgl -DSCALAR -DFUNC=ddy %s        | FileCheck %s --check-prefixes=HL,HL-DDY
+// RUN: %dxc -T cs_6_6 -fcgl -DSCALAR -DFUNC=ddy_coarse %s | FileCheck %s --check-prefixes=HL,HL-DDY-COARSE
+// RUN: %dxc -T cs_6_6 -fcgl -DSCALAR -DFUNC=ddy_fine %s   | FileCheck %s --check-prefixes=HL,HL-DDY-FINE
 
 RWByteAddressBuffer output;
 
@@ -29,7 +35,7 @@ void main() {
 
   // Derivatives require all quad lanes, so the call must remain before the
   // divergent branch even though only lane 3 consumes the result.
-  // CHECK: call {{(<3 x float>|float)}} @dx.op.unary{{.*}}(i32 {{8[3-6]}},
+  // CHECK: call {{(<3 x float>|float)}} @dx.op.unary{{.*}}(i32 {{8[3-6]}}, {{.*}}) #[[CONV:[0-9]+]]
   // CHECK: icmp eq i32
   // CHECK-NEXT: br i1
   if (laneIndex == 3) {
@@ -40,3 +46,14 @@ void main() {
 #endif
   }
 }
+
+// CHECK: attributes #[[CONV]] = { convergent }
+
+// HL-DDX: call float @"dx.hl.op.cvrn.float (i32, float)"(i32 125,
+// HL-DDX-COARSE: call float @"dx.hl.op.cvrn.float (i32, float)"(i32 126,
+// HL-DDX-FINE: call float @"dx.hl.op.cvrn.float (i32, float)"(i32 127,
+// HL-DDY: call float @"dx.hl.op.cvrn.float (i32, float)"(i32 128,
+// HL-DDY-COARSE: call float @"dx.hl.op.cvrn.float (i32, float)"(i32 129,
+// HL-DDY-FINE: call float @"dx.hl.op.cvrn.float (i32, float)"(i32 130,
+// HL: ; Function Attrs: convergent nounwind readnone
+// HL-NEXT: declare float @"dx.hl.op.cvrn.float (i32, float)"(i32, float)

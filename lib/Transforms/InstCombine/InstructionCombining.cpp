@@ -2665,6 +2665,10 @@ static bool TryToSinkInstruction(Instruction *I, BasicBlock *DestBlock) {
       isa<TerminatorInst>(I))
     return false;
 
+  if (CallInst *CI = dyn_cast<CallInst>(I))
+    if (CI->hasFnAttr(Attribute::Convergent))
+      return false;
+
   // Do not sink alloca instructions out of the entry block.
   if (isa<AllocaInst>(I) && I->getParent() ==
         &DestBlock->getParent()->getEntryBlock())
