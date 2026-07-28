@@ -24,7 +24,11 @@ bb:
 bb7:                                              ; preds = %bb
   ; CHECK: [[ddx:%.*]] = call <2 x float> @"dx.hl.op.rn.<2 x float> (i32, <2 x float>)"(i32 125, <2 x float> {{%.*}})
   ; CHECK: [[ddx0:%.*]] = extractelement <2 x float> [[ddx]], i64 0
-  ; CHECK: call float @dxil.convergent.marker.float(float [[ddx0]])
+  ; CHECK: [[ddxConv0:%.*]] = call float @dxil.convergent.marker.float(float [[ddx0]])
+  ; CHECK: [[ddxVec0:%.*]] = insertelement <2 x float> undef, float [[ddxConv0]], i64 0
+  ; CHECK: [[ddx1:%.*]] = extractelement <2 x float> [[ddx]], i64 1
+  ; CHECK: [[ddxConv1:%.*]] = call float @dxil.convergent.marker.float(float [[ddx1]])
+  ; CHECK: insertelement <2 x float> [[ddxVec0]], float [[ddxConv1]], i64 1
   ; CHECK: [[ddxCoarse:%.*]] = call <2 x float> @"dx.hl.op.rn.<2 x float> (i32, <2 x float>)"(i32 126, <2 x float> {{%.*}})
   ; CHECK: [[ddxCoarse0:%.*]] = extractelement <2 x float> [[ddxCoarse]], i64 0
   ; CHECK: call float @dxil.convergent.marker.float(float [[ddxCoarse0]])

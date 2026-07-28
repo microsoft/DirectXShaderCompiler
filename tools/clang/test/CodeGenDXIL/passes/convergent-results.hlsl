@@ -29,7 +29,7 @@ void main() {
 
   // Derivatives require all quad lanes, so the call must remain before the
   // divergent branch even though only lane 3 consumes the result.
-  // CHECK: call {{(<3 x float>|float)}} @dx.op.unary
+  // CHECK: call {{(<3 x float>|float)}} @dx.op.unary{{.*}}(i32 {{8[3-6]}},
   // CHECK: icmp eq i32
   // CHECK-NEXT: br i1
   if (laneIndex == 3) {
