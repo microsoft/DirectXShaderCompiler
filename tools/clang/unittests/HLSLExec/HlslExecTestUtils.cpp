@@ -33,44 +33,38 @@ typedef struct D3D12_FEATURE_DATA_D3D12_OPTIONS_PREVIEW {
 
 using namespace hlsl_test;
 
-// Reads the D3D12DebugLayer runtime parameter. Accepts "true", "1", "*" or an
-// empty value to enable, and "false" or "0" to disable.
-//
-// GetTestParamBool is deliberately not used here. Despite its name it matches
-// its value as a pattern against the current test name, which is not available
-// while the SDK selector is being constructed.
-static bool isDebugLayerRequested() {
-  WEX::Common::String Value;
-  if (FAILED(WEX::TestExecution::RuntimeParameters::TryGetValue(
-          L"D3D12DebugLayer", Value)))
-    return false;
-
-  const wchar_t *Text = Value;
-  if (Value.IsEmpty() || _wcsicmp(Text, L"true") == 0 ||
-      _wcsicmp(Text, L"1") == 0 || wcscmp(Text, L"*") == 0)
-    return true;
-  if (_wcsicmp(Text, L"false") == 0 || _wcsicmp(Text, L"0") == 0)
-    return false;
-
-  LogWarningFmt(L"Unrecognized D3D12DebugLayer '%s'. The debug layer will not "
-                L"be enabled.",
-                Text);
+// Disabled by default for HLK runs.
+static bool debugLayerOnByDefault() {
+#ifdef _HLK_CONF
   return false;
+#else
+  return true;
+#endif
 }
 
-// The D3D12 debug layer is opt-in. It requires the Graphics Tools optional
-// feature, costs significant runtime overhead, and is unexpected during HLK
-// conformance runs, so it stays off unless /p:D3D12DebugLayer=true is passed.
-// Development and debugging runs are expected to pass it.
+// /p:D3D12DebugLayer=true or /p:D3D12DebugLayer=false overrides the default.
 static bool useDebugIfaces() {
-  static const bool Requested = isDebugLayerRequested();
-  return Requested;
+  static const bool Enabled = [] {
+    WEX::Common::String Value;
+    if (FAILED(WEX::TestExecution::RuntimeParameters::TryGetValue(
+            L"D3D12DebugLayer", Value)))
+      return debugLayerOnByDefault();
+
+    const wchar_t *Text = Value;
+    if (_wcsicmp(Text, L"true") == 0)
+      return true;
+    if (_wcsicmp(Text, L"false") == 0)
+      return false;
+
+    LogWarningFmt(L"Unrecognized D3D12DebugLayer '%s'. Expected \"true\" or "
+                  L"\"false\". Using the default.",
+                  Text);
+    return debugLayerOnByDefault();
+  }();
+  return Enabled;
 }
 
-// Diagnostic only: records whether the D3D12 debug layer was successfully
-// enabled, so that a device unexpectedly missing ID3D12InfoQueue can be
-// reported without warning on every device creation on machines where the
-// debug layer is simply unavailable.
+// Set when the debug layer has been enabled.
 static bool DebugLayerEnabled = false;
 
 bool useDxbc() {
@@ -134,19 +128,12 @@ static UINT getD3D12SDKVersion(std::wstring SDKPath) {
   return SDKVersion;
 }
 
-// D3D12 message severities are ordered most-to-least severe
-// (D3D12_MESSAGE_SEVERITY_CORRUPTION == 0), so a message is reported when its
-// severity is <= this threshold. -1 disables reporting entirely. Only has an
-// effect when the debug layer is enabled.
-//
-// Errors and corruption indicate a real defect and are near-zero volume, so
-// they are reported by default. Warnings are informative but repeat per
-// resource and per PSO, so they are opt-in.
+// Severities are ordered most-to-least severe (CORRUPTION == 0), so a message
+// is reported when its severity is <= this threshold. -1 reports nothing.
 static int DebugMessageSeverityThreshold = D3D12_MESSAGE_SEVERITY_ERROR;
 
-// Reads the D3D12DebugMessageSeverity runtime parameter. Accepts "none" or any
-// D3D12_MESSAGE_SEVERITY name: "corruption", "error", "warning", "info" or
-// "message".
+// /p:D3D12DebugMessageSeverity accepts "none" or a D3D12_MESSAGE_SEVERITY name:
+// "corruption", "error", "warning", "info" or "message".
 static int getDebugMessageSeverityThreshold() {
   WEX::Common::String Value;
   if (FAILED(WEX::TestExecution::RuntimeParameters::TryGetValue(
@@ -172,12 +159,9 @@ static int getDebugMessageSeverityThreshold() {
   return D3D12_MESSAGE_SEVERITY_ERROR;
 }
 
-// The D3D12 debug layer emits messages via OutputDebugString, which is not
-// visible outside a debugger, so validation failures are otherwise invisible in
-// a plain test run. Route them into the test log instead.
-//
-// This is diagnostic only: messages are logged as comments and deliberately do
-// not alter the outcome of any test.
+// Routes debug layer messages into the test log; they are otherwise emitted via
+// OutputDebugString and only visible under a debugger. Logged as comments, so
+// they never alter a test outcome.
 static void __stdcall logD3D12DebugMessage(D3D12_MESSAGE_CATEGORY Category,
                                            D3D12_MESSAGE_SEVERITY Severity,
                                            D3D12_MESSAGE_ID ID,
@@ -383,11 +367,9 @@ void readHlslDataIntoNewStream(LPCWSTR RelativePath, IStream **Stream,
   *Stream = StreamCom.Detach();
 }
 
-// Enables the debug layer for the process-global D3D12 runtime. This resolves
-// against whichever D3D12Core the loader has bound for the process, so it must
-// only be called after the global Agility SDK version has been selected.
-// It has no effect on devices created through an ID3D12DeviceFactory, which
-// host their own D3D12Core instance; use enableDebugLayerOnFactory() for those.
+// Enables the debug layer on the process-global D3D12Core, so it must be called
+// after the global Agility SDK version has been selected. Devices created
+// through an ID3D12DeviceFactory need enableDebugLayerOnFactory() instead.
 static bool enableGlobalDebugLayer() {
   CComPtr<ID3D12Debug> DebugController;
   HRESULT HR;
@@ -517,11 +499,8 @@ setGlobalConfiguration(const std::optional<AgilitySDKConfiguration> &C) {
   else
     LogCommentFmt(L"Agility SDK not enabled.");
 
-  // Must follow Agility SDK selection so the debug layer is retrieved from the
-  // D3D12Core that will actually service device creation, rather than from the
-  // inbox runtime.
   if (!useDebugIfaces())
-    LogCommentFmt(L"Debug layer not requested.");
+    LogCommentFmt(L"Debug layer disabled.");
   else if (enableGlobalDebugLayer())
     LogCommentFmt(L"Debug layer enabled.");
   else
@@ -549,9 +528,8 @@ static bool enableExperimentalMode(ID3D12DeviceFactory *DeviceFactory) {
   return true;
 }
 
-// An ID3D12DeviceFactory hosts its own D3D12Core instance, so the debug layer
-// must be enabled through the factory's configuration interface. Enabling it
-// globally has no effect on devices the factory creates.
+// An ID3D12DeviceFactory hosts its own D3D12Core, so the debug layer must be
+// enabled through the factory's configuration interface.
 static bool enableDebugLayerOnFactory(ID3D12DeviceFactory *DeviceFactory) {
   CComPtr<ID3D12Debug> DebugController;
   HRESULT HR;
@@ -591,7 +569,7 @@ createDeviceFactorySDK(const AgilitySDKConfiguration &C) {
                 C.SDKVersion, static_cast<const wchar_t *>(C.SDKPath));
 
   if (!useDebugIfaces())
-    LogCommentFmt(L"Debug layer not requested.");
+    LogCommentFmt(L"Debug layer disabled.");
   else if (enableDebugLayerOnFactory(DeviceFactory))
     LogCommentFmt(L"Debug layer enabled on device factory.");
   else
