@@ -6658,6 +6658,8 @@ SpirvEmitter::doCXXOperatorCallExpr(const CXXOperatorCallExpr *expr,
       auto *decl = cast<VarDecl>(declRefExpr->getDecl());
       auto *var = declIdMapper.createResourceHeap(decl, resourceType);
 
+      if (hlsl::HasHLSLGloballyCoherent(resourceType))
+        spvBuilder.decorateCoherent(var, baseExpr->getExprLoc());
       auto *index = doExpr(indexExpr);
 
       if (spirvOptions.useDescriptorHeap) {
