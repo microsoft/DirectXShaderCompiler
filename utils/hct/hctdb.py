@@ -8676,6 +8676,18 @@ class db_dxil(object):
             "Instr.LinAlgMatrixLayoutReqStride",
             "Matrix layout '%0' requires stride 0.",
         )
+        self.add_valrule(
+            "Instr.LinAlgMatrixDimVectorMismatch",
+            "%0 vector size '%1' must match matrix %2 dimension '%3'",
+        )
+        self.add_valrule(
+            "Instr.LinAlgMatrixOutputBiasVecMismatch",
+            "Output vector element type '%0' must match Bias vector element type '%1'",
+        )
+        self.add_valrule(
+            "Instr.LinAlgMatrixUnsignedFloatTypeNotAllowed",
+            "Float-like type '%0' must be signed",
+        )
 
         # Some legacy rules:
         # - space is only supported for shader targets 5.1 and higher

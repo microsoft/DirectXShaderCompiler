@@ -717,4 +717,11 @@ llvm::StringRef MatrixLayoutToString(DXIL::MatrixLayout ML) {
   }
 }
 
+std::string TypeToString(llvm::Type *Ty) {
+  std::string S;
+  llvm::raw_string_ostream OS(S);
+  Ty->print(OS);
+  return OS.str();
+}
+
 } // namespace hlsl
