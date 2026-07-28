@@ -12,25 +12,6 @@
 #include <filesystem>
 #include <optional>
 
-// D3D12_FEATURE_D3D12_OPTIONS_PREVIEW and its data struct are not yet in
-// the released Windows SDK. Define locally so the test can query variable
-// group shared memory capabilities from the Agility SDK runtime.
-// TODO(#8661): Remove me when GroupSharedLimit is available in a released
-// Windows SDK.
-#if defined(D3D12_PREVIEW_SDK_VERSION) && D3D12_PREVIEW_SDK_VERSION < 720
-
-#ifndef D3D12_FEATURE_D3D12_OPTIONS_PREVIEW
-#define D3D12_FEATURE_D3D12_OPTIONS_PREVIEW ((D3D12_FEATURE)72)
-#endif
-
-typedef struct D3D12_FEATURE_DATA_D3D12_OPTIONS_PREVIEW {
-  UINT MaxGroupSharedMemoryPerGroupCS;
-  UINT MaxGroupSharedMemoryPerGroupAS;
-  UINT MaxGroupSharedMemoryPerGroupMS;
-} D3D12_FEATURE_DATA_D3D12_OPTIONS_PREVIEW;
-
-#endif
-
 using namespace hlsl_test;
 
 static bool useDebugIfaces() { return true; }
@@ -619,31 +600,6 @@ bool isFallbackPathEnabled() {
                                                      EnableFallbackValue);
   return EnableFallbackValue != 0;
 }
-
-// TODO(#8661): Remove me when GroupSharedLimit is available in a released
-// Windows SDK.
-#if defined(D3D12_PREVIEW_SDK_VERSION)
-UINT getMaxGroupSharedMemoryCS(ID3D12Device *Device) {
-  D3D12_FEATURE_DATA_D3D12_OPTIONS_PREVIEW O = {};
-  VERIFY_SUCCEEDED(Device->CheckFeatureSupport(
-      D3D12_FEATURE_D3D12_OPTIONS_PREVIEW, &O, sizeof(O)));
-  return O.MaxGroupSharedMemoryPerGroupCS;
-}
-
-UINT getMaxGroupSharedMemoryAS(ID3D12Device *Device) {
-  D3D12_FEATURE_DATA_D3D12_OPTIONS_PREVIEW O = {};
-  VERIFY_SUCCEEDED(Device->CheckFeatureSupport(
-      D3D12_FEATURE_D3D12_OPTIONS_PREVIEW, &O, sizeof(O)));
-  return O.MaxGroupSharedMemoryPerGroupAS;
-}
-
-UINT getMaxGroupSharedMemoryMS(ID3D12Device *Device) {
-  D3D12_FEATURE_DATA_D3D12_OPTIONS_PREVIEW O = {};
-  VERIFY_SUCCEEDED(Device->CheckFeatureSupport(
-      D3D12_FEATURE_D3D12_OPTIONS_PREVIEW, &O, sizeof(O)));
-  return O.MaxGroupSharedMemoryPerGroupMS;
-}
-#endif // defined(D3D12_PREVIEW_SDK_VERSION)
 
 std::unique_ptr<st::ShaderOp> createComputeOp(const char *Source,
                                               const char *Target,
