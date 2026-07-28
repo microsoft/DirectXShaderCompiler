@@ -10647,8 +10647,9 @@ static bool CreateGSMLimitTestDevice(D3D12SDKSelector *D3D12SDK,
   // released-SDK runtime): the group-shared-memory query returns 0.
   if (getMaxGroupSharedMemoryCS(Device) == 0) {
     if (FailIfRequirementsNotMet)
-      LogErrorFmt(L"D3D12_FEATURE_D3D12_OPTIONS_PREVIEW not supported, resulting "
-                  L"in test failure, since FailIfRequirementsNotMet is set.");
+      LogErrorFmt(
+          L"D3D12_FEATURE_D3D12_OPTIONS_PREVIEW not supported, resulting "
+          L"in test failure, since FailIfRequirementsNotMet is set.");
     else
       LogCommentFmt(L"Skipping: D3D12_FEATURE_D3D12_OPTIONS_PREVIEW not "
                     L"supported by this runtime.");

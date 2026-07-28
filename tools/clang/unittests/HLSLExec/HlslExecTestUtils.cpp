@@ -12,16 +12,17 @@
 #include <filesystem>
 #include <optional>
 
-// D3D12_FEATURE_D3D12_OPTIONS_PREVIEW (feature 72) reports variable group-shared
-// memory limits. It is not in the released Windows SDK, and internal D3D headers
-// only expose it in preview deployment tiers -- yet those headers still define
-// D3D12_PREVIEW_SDK_VERSION unconditionally, so that macro cannot be used to
-// detect the feature. Define the query privately (matching the runtime ABI:
-// feature id 72, three UINTs) so the test compiles against any SDK/tier without
-// colliding with the header's typedef; execution is gated on a runtime
-// CheckFeatureSupport query instead.
+// D3D12_FEATURE_D3D12_OPTIONS_PREVIEW (feature 72) reports variable
+// group-shared memory limits. It is not in the released Windows SDK, and
+// internal D3D headers only expose it in preview deployment tiers -- yet those
+// headers still define D3D12_PREVIEW_SDK_VERSION unconditionally, so that macro
+// cannot be used to detect the feature. Define the query privately (matching
+// the runtime ABI: feature id 72, three UINTs) so the test compiles against any
+// SDK/tier without colliding with the header's typedef; execution is gated on a
+// runtime CheckFeatureSupport query instead.
 namespace {
-constexpr D3D12_FEATURE DxcFeatureOptionsPreview = static_cast<D3D12_FEATURE>(72);
+constexpr D3D12_FEATURE DxcFeatureOptionsPreview =
+    static_cast<D3D12_FEATURE>(72);
 struct DxcOptionsPreview {
   UINT MaxGroupSharedMemoryPerGroupCS;
   UINT MaxGroupSharedMemoryPerGroupAS;
@@ -618,28 +619,28 @@ bool isFallbackPathEnabled() {
   return EnableFallbackValue != 0;
 }
 
-// Return the device's variable group-shared-memory limits, or 0 when the runtime
-// does not support the preview feature (callers skip in that case).
+// Return the device's variable group-shared-memory limits, or 0 when the
+// runtime does not support the preview feature (callers skip in that case).
 UINT getMaxGroupSharedMemoryCS(ID3D12Device *Device) {
   DxcOptionsPreview O = {};
-  if (FAILED(Device->CheckFeatureSupport(DxcFeatureOptionsPreview, &O,
-                                         sizeof(O))))
+  if (FAILED(
+          Device->CheckFeatureSupport(DxcFeatureOptionsPreview, &O, sizeof(O))))
     return 0;
   return O.MaxGroupSharedMemoryPerGroupCS;
 }
 
 UINT getMaxGroupSharedMemoryAS(ID3D12Device *Device) {
   DxcOptionsPreview O = {};
-  if (FAILED(Device->CheckFeatureSupport(DxcFeatureOptionsPreview, &O,
-                                         sizeof(O))))
+  if (FAILED(
+          Device->CheckFeatureSupport(DxcFeatureOptionsPreview, &O, sizeof(O))))
     return 0;
   return O.MaxGroupSharedMemoryPerGroupAS;
 }
 
 UINT getMaxGroupSharedMemoryMS(ID3D12Device *Device) {
   DxcOptionsPreview O = {};
-  if (FAILED(Device->CheckFeatureSupport(DxcFeatureOptionsPreview, &O,
-                                         sizeof(O))))
+  if (FAILED(
+          Device->CheckFeatureSupport(DxcFeatureOptionsPreview, &O, sizeof(O))))
     return 0;
   return O.MaxGroupSharedMemoryPerGroupMS;
 }
