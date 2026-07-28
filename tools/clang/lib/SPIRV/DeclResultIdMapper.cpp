@@ -2664,7 +2664,9 @@ bool DeclResultIdMapper::decorateResourceBindings() {
     // resources (e.g. array of textures), DX uses one binding number per array
     // element. We can match this behavior via a command line option.
     uint32_t numBindingsToUse = 1;
-    if (spirvOptions.flattenResourceArrays || needsFlatteningCompositeResources)
+    if (spirvOptions.flattenResourceArrays ||
+        spirvOptions.flattenResourceArrayBindingsOnly ||
+        needsFlatteningCompositeResources)
       numBindingsToUse = getNumBindingsUsedByResourceType(
           var.getSpirvInstr()->getAstResultType());
 
@@ -2754,7 +2756,9 @@ bool DeclResultIdMapper::decorateResourceBindings() {
     // resources (e.g. array of textures), DX uses one binding number per array
     // element. We can match this behavior via a command line option.
     uint32_t numBindingsToUse = 1;
-    if (spirvOptions.flattenResourceArrays || needsFlatteningCompositeResources)
+    if (spirvOptions.flattenResourceArrays ||
+        spirvOptions.flattenResourceArrayBindingsOnly ||
+        needsFlatteningCompositeResources)
       numBindingsToUse = getNumBindingsUsedByResourceType(
           var.getSpirvInstr()->getAstResultType());
 
