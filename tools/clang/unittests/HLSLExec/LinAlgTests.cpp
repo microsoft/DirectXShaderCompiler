@@ -1868,7 +1868,7 @@ static void runElementAccess(ID3D12Device *Device,
       Params.strideBytes(),
   };
   const cpu_oracle::MatrixBufferLayout PackedRowMajor = {
-      LinalgMatrixLayout::RowMajor,
+      MatrixLayout::RowMajor,
       0,
       static_cast<size_t>(Params.N) * elementSize(Params.CompType),
   };
@@ -2001,7 +2001,7 @@ void DxilConf_SM610_LinAlg::ElementAccess_Wave_4x8_F32() {
   Params.N = 8;
   Params.Use = MatrixUse::Accumulator;
   Params.Scope = MatrixScope::Wave;
-  Params.Layout = LinalgMatrixLayout::RowMajor;
+  Params.Layout = MatrixLayout::RowMajor;
   Params.NumThreads = 64;
   Params.Enable16Bit = false;
 
@@ -2089,7 +2089,7 @@ static void runElementGetOOB(ID3D12Device *Device,
       Params.strideBytes(),
   };
   const cpu_oracle::MatrixBufferLayout ExpectedLayout = {
-      LinalgMatrixLayout::RowMajor,
+      MatrixLayout::RowMajor,
       0,
       ElementBytes,
   };
@@ -2181,7 +2181,7 @@ void DxilConf_SM610_LinAlg::ElementGetOOB_Wave_4x8_F32() {
   Params.N = 8;
   Params.Use = MatrixUse::Accumulator;
   Params.Scope = MatrixScope::Wave;
-  Params.Layout = LinalgMatrixLayout::RowMajor;
+  Params.Layout = MatrixLayout::RowMajor;
   Params.NumThreads = 64;
   Params.Enable16Bit = false;
 
@@ -2341,7 +2341,7 @@ void DxilConf_SM610_LinAlg::ElementSetOOB_Wave_4x8_F32() {
   Params.N = 8;
   Params.Use = MatrixUse::Accumulator;
   Params.Scope = MatrixScope::Wave;
-  Params.Layout = LinalgMatrixLayout::RowMajor;
+  Params.Layout = MatrixLayout::RowMajor;
   Params.NumThreads = 64;
   Params.Enable16Bit = false;
 
