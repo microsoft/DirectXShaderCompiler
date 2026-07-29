@@ -752,8 +752,7 @@ makeFilledComponentBuffer(ComponentType CompType, size_t BufferSize,
   if (!Fill.has_value())
     return std::nullopt;
 
-  return encodeMatrixBuffer(*Fill,
-                            {LinalgMatrixLayout::RowMajor, 0, BufferSize});
+  return encodeMatrixBuffer(*Fill, {MatrixLayout::RowMajor, 0, BufferSize});
 }
 
 template <typename T>
@@ -4299,7 +4298,7 @@ void DxilConf_SM610_LinAlg::
   Params.N = 8;
   Params.Use = MatrixUse::A;
   Params.Scope = MatrixScope::Wave;
-  Params.Layout = LinalgMatrixLayout::RowMajor;
+  Params.Layout = MatrixLayout::RowMajor;
   Params.NumThreads = 64;
   Params.Enable16Bit = true;
 
@@ -4318,10 +4317,10 @@ void DxilConf_SM610_LinAlg::
                           L"MatrixConstruction"))
     return;
 
-  const GroupSharedMemorySpec Target = {{LinalgMatrixLayout::RowMajor,
+  const GroupSharedMemorySpec Target = {{MatrixLayout::RowMajor,
                                          /*OffsetBytes=*/8,
                                          /*StrideBytes=*/24}};
-  const GroupSharedMemorySpec Canonical = {{LinalgMatrixLayout::RowMajor,
+  const GroupSharedMemorySpec Canonical = {{MatrixLayout::RowMajor,
                                             /*OffsetBytes=*/0,
                                             /*StrideBytes=*/16}};
   runBidirectionalGroupSharedTransfer(D3DDevice, DxcSupport, Params, Target,
@@ -4337,7 +4336,7 @@ void DxilConf_SM610_LinAlg::
   Params.N = 8;
   Params.Use = MatrixUse::A;
   Params.Scope = MatrixScope::Wave;
-  Params.Layout = LinalgMatrixLayout::ColumnMajor;
+  Params.Layout = MatrixLayout::ColumnMajor;
   Params.NumThreads = 64;
   Params.Enable16Bit = false;
 
@@ -4357,10 +4356,10 @@ void DxilConf_SM610_LinAlg::
           L"MatrixConstruction"))
     return;
 
-  const GroupSharedMemorySpec Target = {{LinalgMatrixLayout::ColumnMajor,
+  const GroupSharedMemorySpec Target = {{MatrixLayout::ColumnMajor,
                                          /*OffsetBytes=*/16,
                                          /*StrideBytes=*/24}};
-  const GroupSharedMemorySpec Canonical = {{LinalgMatrixLayout::RowMajor,
+  const GroupSharedMemorySpec Canonical = {{MatrixLayout::RowMajor,
                                             /*OffsetBytes=*/0,
                                             /*StrideBytes=*/32}};
   runBidirectionalGroupSharedTransfer(D3DDevice, DxcSupport, Params, Target,
@@ -4375,7 +4374,7 @@ void DxilConf_SM610_LinAlg::LoadStoreMemory_ThreadGroup_4x8_F16() {
   Params.N = 8;
   Params.Use = MatrixUse::A;
   Params.Scope = MatrixScope::ThreadGroup;
-  Params.Layout = LinalgMatrixLayout::ColumnMajor;
+  Params.Layout = MatrixLayout::ColumnMajor;
   Params.NumThreads = 64;
   Params.Enable16Bit = true;
 
@@ -4393,10 +4392,10 @@ void DxilConf_SM610_LinAlg::LoadStoreMemory_ThreadGroup_4x8_F16() {
           L"LoadStoreMemory_ThreadGroup_4x8_F16 MatrixConstruction"))
     return;
 
-  const GroupSharedMemorySpec Target = {{LinalgMatrixLayout::ColumnMajor,
+  const GroupSharedMemorySpec Target = {{MatrixLayout::ColumnMajor,
                                          /*OffsetBytes=*/8,
                                          /*StrideBytes=*/12}};
-  const GroupSharedMemorySpec Canonical = {{LinalgMatrixLayout::RowMajor,
+  const GroupSharedMemorySpec Canonical = {{MatrixLayout::RowMajor,
                                             /*OffsetBytes=*/0,
                                             /*StrideBytes=*/16}};
   runBidirectionalGroupSharedTransfer(D3DDevice, DxcSupport, Params, Target,
@@ -4533,7 +4532,7 @@ void DxilConf_SM610_LinAlg::
   Params.N = 8;
   Params.Use = MatrixUse::Accumulator;
   Params.Scope = MatrixScope::Wave;
-  Params.Layout = LinalgMatrixLayout::RowMajor;
+  Params.Layout = MatrixLayout::RowMajor;
   Params.NumThreads = 64;
   Params.Enable16Bit = true;
 
@@ -4552,7 +4551,7 @@ void DxilConf_SM610_LinAlg::
                           L"AtomicAccumulateStore"))
     return;
 
-  const GroupSharedMemorySpec Memory = {{LinalgMatrixLayout::RowMajor,
+  const GroupSharedMemorySpec Memory = {{MatrixLayout::RowMajor,
                                          /*OffsetBytes=*/8,
                                          /*StrideBytes=*/24}};
   runGroupSharedAccumulate(D3DDevice, DxcSupport, Params, Memory,
