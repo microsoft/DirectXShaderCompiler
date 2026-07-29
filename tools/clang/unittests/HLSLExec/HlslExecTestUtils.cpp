@@ -45,21 +45,10 @@ static bool debugLayerOnByDefault() {
 // /p:D3D12DebugLayer=true or /p:D3D12DebugLayer=false overrides the default.
 static bool useDebugIfaces() {
   static const bool Enabled = [] {
-    WEX::Common::String Value;
-    if (FAILED(WEX::TestExecution::RuntimeParameters::TryGetValue(
-            L"D3D12DebugLayer", Value)))
-      return debugLayerOnByDefault();
-
-    const wchar_t *Text = Value;
-    if (_wcsicmp(Text, L"true") == 0)
-      return true;
-    if (_wcsicmp(Text, L"false") == 0)
-      return false;
-
-    LogWarningFmt(L"Unrecognized D3D12DebugLayer '%s'. Expected \"true\" or "
-                  L"\"false\". Using the default.",
-                  Text);
-    return debugLayerOnByDefault();
+    bool Value = debugLayerOnByDefault();
+    WEX::TestExecution::RuntimeParameters::TryGetValue(L"D3D12DebugLayer",
+                                                       Value);
+    return Value;
   }();
   return Enabled;
 }
@@ -195,6 +184,39 @@ static void __stdcall logD3D12DebugMessage(D3D12_MESSAGE_CATEGORY Category,
                 static_cast<const wchar_t *>(CA2W(Description)));
 }
 
+// Routes debug layer messages for this device into the test log.
+static void logDebugLayerMessages(ID3D12Device *Device) {
+  CComPtr<ID3D12InfoQueue> InfoQueue;
+  if (FAILED(Device->QueryInterface(&InfoQueue))) {
+    if (DebugLayerEnabled)
+      LogWarningFmt(L"The debug layer was enabled but this device does not "
+                    L"expose ID3D12InfoQueue. D3D12 debug layer messages will "
+                    L"not be reported.");
+    return;
+  }
+
+  InfoQueue->SetMuteDebugOutput(FALSE);
+
+  CComPtr<ID3D12InfoQueue1> InfoQueue1;
+  if (FAILED(InfoQueue->QueryInterface(&InfoQueue1))) {
+    LogWarningFmt(L"Device does not expose ID3D12InfoQueue1. D3D12 debug "
+                  L"layer messages will not be reported.");
+    return;
+  }
+
+  DebugMessageSeverityThreshold = getDebugMessageSeverityThreshold();
+
+  // The callback is unregistered implicitly when the device is destroyed.
+  DWORD CallbackCookie = 0;
+  HRESULT HR = InfoQueue1->RegisterMessageCallback(
+      logD3D12DebugMessage, D3D12_MESSAGE_CALLBACK_FLAG_NONE, nullptr,
+      &CallbackCookie);
+  if (FAILED(HR))
+    LogWarningFmt(L"RegisterMessageCallback failed: 0x%08x. D3D12 debug "
+                  L"layer messages will not be reported.",
+                  HR);
+}
+
 static bool createDevice(
     ID3D12Device **D3DDevice, D3D_SHADER_MODEL TestModel, bool SkipUnsupported,
     std::function<HRESULT(IUnknown *, D3D_FEATURE_LEVEL, REFIID, void **)>
@@ -320,33 +342,8 @@ static bool createDevice(
     }
   }
 
-  if (useDebugIfaces()) {
-    CComPtr<ID3D12InfoQueue> InfoQueue;
-    if (SUCCEEDED(D3DDeviceCom->QueryInterface(&InfoQueue))) {
-      InfoQueue->SetMuteDebugOutput(FALSE);
-
-      // The callback is unregistered implicitly when the device is destroyed.
-      CComPtr<ID3D12InfoQueue1> InfoQueue1;
-      if (SUCCEEDED(InfoQueue->QueryInterface(&InfoQueue1))) {
-        DebugMessageSeverityThreshold = getDebugMessageSeverityThreshold();
-        DWORD CallbackCookie = 0;
-        HRESULT HR = InfoQueue1->RegisterMessageCallback(
-            logD3D12DebugMessage, D3D12_MESSAGE_CALLBACK_FLAG_NONE, nullptr,
-            &CallbackCookie);
-        if (FAILED(HR))
-          LogWarningFmt(L"RegisterMessageCallback failed: 0x%08x. D3D12 debug "
-                        L"layer messages will not be reported.",
-                        HR);
-      } else {
-        LogWarningFmt(L"Device does not expose ID3D12InfoQueue1. D3D12 debug "
-                      L"layer messages will not be reported.");
-      }
-    } else if (DebugLayerEnabled) {
-      LogWarningFmt(L"The debug layer was enabled but this device does not "
-                    L"expose ID3D12InfoQueue. D3D12 debug layer messages will "
-                    L"not be reported.");
-    }
-  }
+  if (useDebugIfaces())
+    logDebugLayerMessages(D3DDeviceCom);
 
   *D3DDevice = D3DDeviceCom.Detach();
   return true;
