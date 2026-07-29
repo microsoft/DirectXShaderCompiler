@@ -1851,7 +1851,7 @@ void DxilConf_SM610_LinAlg::LoadStoreDescriptor_Wave_16x16_F16() {
   Params.NumThreads = 64;
   Params.Enable16Bit = true;
   const cpu_oracle::MatrixBufferLayout Layout = {
-      LinalgMatrixLayout::RowMajor,
+      MatrixLayout::RowMajor,
       /*OffsetBytes=*/0,
       /*StrideBytes=*/32,
   };
@@ -1868,7 +1868,7 @@ void DxilConf_SM610_LinAlg::
   Params.N = 8;
   Params.Use = MatrixUse::A;
   Params.Scope = MatrixScope::Wave;
-  Params.Layout = LinalgMatrixLayout::RowMajor;
+  Params.Layout = MatrixLayout::RowMajor;
   Params.NumThreads = 64;
   Params.Enable16Bit = true;
 
@@ -1888,12 +1888,12 @@ void DxilConf_SM610_LinAlg::
     return;
 
   const cpu_oracle::MatrixBufferLayout Target = {
-      LinalgMatrixLayout::RowMajor,
+      MatrixLayout::RowMajor,
       /*OffsetBytes=*/16,
       /*StrideBytes=*/24,
   };
   const cpu_oracle::MatrixBufferLayout Canonical = {
-      LinalgMatrixLayout::RowMajor,
+      MatrixLayout::RowMajor,
       /*OffsetBytes=*/0,
       /*StrideBytes=*/16,
   };
@@ -1915,7 +1915,7 @@ void DxilConf_SM610_LinAlg::
   Params.N = 8;
   Params.Use = MatrixUse::A;
   Params.Scope = MatrixScope::Wave;
-  Params.Layout = LinalgMatrixLayout::ColumnMajor;
+  Params.Layout = MatrixLayout::ColumnMajor;
   Params.NumThreads = 64;
   Params.Enable16Bit = false;
 
@@ -1934,12 +1934,12 @@ void DxilConf_SM610_LinAlg::
     return;
 
   const cpu_oracle::MatrixBufferLayout Target = {
-      LinalgMatrixLayout::ColumnMajor,
+      MatrixLayout::ColumnMajor,
       /*OffsetBytes=*/32,
       /*StrideBytes=*/16,
   };
   const cpu_oracle::MatrixBufferLayout Canonical = {
-      LinalgMatrixLayout::RowMajor,
+      MatrixLayout::RowMajor,
       /*OffsetBytes=*/0,
       /*StrideBytes=*/32,
   };
@@ -1960,7 +1960,7 @@ void DxilConf_SM610_LinAlg::LoadDescriptorBounds_Wave_4x8_F32() {
   Params.N = 8;
   Params.Use = MatrixUse::A;
   Params.Scope = MatrixScope::Wave;
-  Params.Layout = LinalgMatrixLayout::RowMajor;
+  Params.Layout = MatrixLayout::RowMajor;
   Params.NumThreads = 64;
   Params.Enable16Bit = false;
 
@@ -1977,12 +1977,12 @@ void DxilConf_SM610_LinAlg::LoadDescriptorBounds_Wave_4x8_F32() {
     return;
 
   const cpu_oracle::MatrixBufferLayout SourceLayout = {
-      LinalgMatrixLayout::RowMajor,
+      MatrixLayout::RowMajor,
       /*OffsetBytes=*/16,
       /*StrideBytes=*/32,
   };
   const cpu_oracle::MatrixBufferLayout DestinationLayout = {
-      LinalgMatrixLayout::RowMajor,
+      MatrixLayout::RowMajor,
       /*OffsetBytes=*/0,
       /*StrideBytes=*/32,
   };
@@ -2035,7 +2035,7 @@ void DxilConf_SM610_LinAlg::StoreDescriptorBounds_Wave_4x8_F32() {
   Params.N = 8;
   Params.Use = MatrixUse::A;
   Params.Scope = MatrixScope::Wave;
-  Params.Layout = LinalgMatrixLayout::RowMajor;
+  Params.Layout = MatrixLayout::RowMajor;
   Params.NumThreads = 64;
   Params.Enable16Bit = false;
 
@@ -2052,12 +2052,12 @@ void DxilConf_SM610_LinAlg::StoreDescriptorBounds_Wave_4x8_F32() {
     return;
 
   const cpu_oracle::MatrixBufferLayout SourceLayout = {
-      LinalgMatrixLayout::RowMajor,
+      MatrixLayout::RowMajor,
       /*OffsetBytes=*/0,
       /*StrideBytes=*/32,
   };
   const cpu_oracle::MatrixBufferLayout DestinationLayout = {
-      LinalgMatrixLayout::RowMajor,
+      MatrixLayout::RowMajor,
       /*OffsetBytes=*/16,
       /*StrideBytes=*/32,
   };
@@ -2171,7 +2171,7 @@ void DxilConf_SM610_LinAlg::AccumulateDescriptor_Wave_16x16_F16() {
   Params.Enable16Bit = true;
 
   const cpu_oracle::MatrixBufferLayout Layout = {
-      LinalgMatrixLayout::RowMajor,
+      MatrixLayout::RowMajor,
       /*OffsetBytes=*/0,
       /*StrideBytes=*/32,
   };
@@ -2213,7 +2213,7 @@ void DxilConf_SM610_LinAlg::AccumulateDescriptorBounds_Wave_4x8_F32() {
   Params.N = 8;
   Params.Use = MatrixUse::Accumulator;
   Params.Scope = MatrixScope::Wave;
-  Params.Layout = LinalgMatrixLayout::RowMajor;
+  Params.Layout = MatrixLayout::RowMajor;
   Params.NumThreads = 64;
   Params.Enable16Bit = false;
 
@@ -2231,12 +2231,12 @@ void DxilConf_SM610_LinAlg::AccumulateDescriptorBounds_Wave_4x8_F32() {
     return;
 
   const cpu_oracle::MatrixBufferLayout SourceLayout = {
-      LinalgMatrixLayout::RowMajor,
+      MatrixLayout::RowMajor,
       /*OffsetBytes=*/0,
       /*StrideBytes=*/32,
   };
   const cpu_oracle::MatrixBufferLayout DestinationLayout = {
-      LinalgMatrixLayout::RowMajor,
+      MatrixLayout::RowMajor,
       /*OffsetBytes=*/16,
       /*StrideBytes=*/32,
   };
