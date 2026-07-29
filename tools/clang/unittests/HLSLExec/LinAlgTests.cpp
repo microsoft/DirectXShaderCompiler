@@ -3413,7 +3413,7 @@ void DxilConf_SM610_LinAlg::CopyConvert_Wave_4x8_F16_ToF32() {
   Params.N = 8;
   Params.Use = MatrixUse::A;
   Params.Scope = MatrixScope::Wave;
-  Params.Layout = LinalgMatrixLayout::RowMajor;
+  Params.Layout = MatrixLayout::RowMajor;
   Params.NumThreads = 64;
   Params.Enable16Bit = true;
 
@@ -3441,7 +3441,7 @@ void DxilConf_SM610_LinAlg::CopyConvert_Wave_4x8_F32_ToF16_Transpose() {
   Params.N = 8;
   Params.Use = MatrixUse::A;
   Params.Scope = MatrixScope::Wave;
-  Params.Layout = LinalgMatrixLayout::RowMajor;
+  Params.Layout = MatrixLayout::RowMajor;
   Params.NumThreads = 64;
   Params.Enable16Bit = true;
 
@@ -4972,7 +4972,7 @@ void DxilConf_SM610_LinAlg::Convert_F16_FP8_RoundTrip() {
   Params.N = 1;
   Params.Use = MatrixUse::A;
   Params.Scope = MatrixScope::Wave;
-  Params.Layout = LinalgMatrixLayout::RowMajor;
+  Params.Layout = MatrixLayout::RowMajor;
   Params.NumThreads = 64;
   Params.Enable16Bit = true;
 
