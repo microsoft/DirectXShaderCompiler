@@ -1049,6 +1049,256 @@ static void ValidateLinAlgOpReturnMatrix(CallInst *CI,
   }
 }
 
+static void ValidateLinAlgMatrixLength(CallInst *CI,
+                                       ValidationContext &ValCtx) {
+  ValidateLinAlgOpParameters(CI, ValCtx);
+}
+
+static void ValidateLinAlgMatrixGetCoordinate(CallInst *CI,
+                                              ValidationContext &ValCtx) {
+  ValidateLinAlgOpParameters(CI, ValCtx);
+}
+
+static void ValidateLinAlgMatrixGetElement(CallInst *CI,
+                                           ValidationContext &ValCtx) {
+  ValidateLinAlgOpParameters(CI, ValCtx);
+}
+
+static void ValidateLinAlgMatrixStoreToDescriptor(CallInst *CI,
+                                                  ValidationContext &ValCtx) {
+  ValidateLinAlgOpParameters(CI, ValCtx);
+}
+
+static void ValidateLinAlgMatrixStoreToMemory(CallInst *CI,
+                                              ValidationContext &ValCtx) {
+  ValidateLinAlgOpParameters(CI, ValCtx);
+}
+
+static void ValidateLinAlgMatVecMul(CallInst *CI, ValidationContext &ValCtx) {
+  ValidateLinAlgOpParameters(CI, ValCtx);
+}
+
+static void ValidateLinAlgMatVecMulAdd(CallInst *CI,
+                                       ValidationContext &ValCtx) {
+  ValidateLinAlgOpParameters(CI, ValCtx);
+}
+
+static void
+ValidateLinAlgMatrixAccumulateToDescriptor(CallInst *CI,
+                                           ValidationContext &ValCtx) {
+  ValidateLinAlgOpParameters(CI, ValCtx);
+}
+
+static void ValidateLinAlgMatrixAccumulateToMemory(CallInst *CI,
+                                                   ValidationContext &ValCtx) {
+  ValidateLinAlgOpParameters(CI, ValCtx);
+}
+
+static void ValidateLinAlgConvert(CallInst *CI, ValidationContext &ValCtx) {
+  ValidateLinAlgOpParameters(CI, ValCtx);
+}
+
+static void
+ValidateLinAlgVectorAccumulateToDescriptor(CallInst *CI,
+                                           ValidationContext &ValCtx) {
+  ValidateLinAlgOpParameters(CI, ValCtx);
+}
+
+static void ValidateLinAlgFillMatrix(CallInst *CI, ValidationContext &ValCtx) {
+  ValidateLinAlgOpReturnMatrix(CI, ValCtx);
+  ValidateLinAlgOpParameters(CI, ValCtx);
+}
+
+static void ValidateLinAlgMatrixLoadFromMemory(CallInst *CI,
+                                               ValidationContext &ValCtx) {
+  ValidateLinAlgOpReturnMatrix(CI, ValCtx);
+  ValidateLinAlgOpParameters(CI, ValCtx);
+}
+
+static void ValidateLinAlgMatrixSetElement(CallInst *CI,
+                                           ValidationContext &ValCtx) {
+  ValidateLinAlgOpReturnMatrix(CI, ValCtx);
+  ValidateLinAlgOpParameters(CI, ValCtx);
+}
+
+static void ValidateLinAlgMatrixMultiply(CallInst *CI,
+                                         ValidationContext &ValCtx) {
+  ValidateLinAlgOpReturnMatrix(CI, ValCtx);
+  ValidateLinAlgOpParameters(CI, ValCtx);
+}
+
+static void ValidateLinAlgMatrixMultiplyAccumulate(CallInst *CI,
+                                                   ValidationContext &ValCtx) {
+  ValidateLinAlgOpReturnMatrix(CI, ValCtx);
+  ValidateLinAlgOpParameters(CI, ValCtx);
+}
+
+static void ValidateLinAlgMatrixOuterProduct(CallInst *CI,
+                                             ValidationContext &ValCtx) {
+  ValidateLinAlgOpReturnMatrix(CI, ValCtx);
+  ValidateLinAlgOpParameters(CI, ValCtx);
+}
+
+static void ValidateLinAlgMatrixLoadFromDescriptor(CallInst *CI,
+                                                   ValidationContext &ValCtx) {
+  ValidateLinAlgOpReturnMatrix(CI, ValCtx);
+  ValidateLinAlgOpParameters(CI, ValCtx);
+
+  Type *RetMatTy = CI->getType();
+  assert(dxilutil::IsHLSLLinAlgMatrixType(RetMatTy) && "Must be LinAlg type");
+  auto RetIt = ValCtx.LinAlgTargetTypeMap.find(RetMatTy);
+  if (RetIt == ValCtx.LinAlgTargetTypeMap.end())
+    return;
+  LinAlgTargetType RetLATT = RetIt->second;
+
+  Value *StrideOp = CI->getArgOperand(3);
+  Value *LayoutOp = CI->getArgOperand(4);
+  ConstantInt *LayoutCI = dyn_cast<ConstantInt>(LayoutOp);
+  if (!LayoutCI) {
+    ValCtx.EmitInstrFormatError(CI, ValidationRule::InstrOpConst,
+                                {"Layout", "LinAlgMatrixLoadFromDescriptor"});
+    return;
+  }
+
+  auto Layout = static_cast<DXIL::MatrixLayout>(LayoutCI->getLimitedValue());
+  bool LayoutIsRowColMajor = (Layout == DXIL::MatrixLayout::RowMajor ||
+                              Layout == DXIL::MatrixLayout::ColumnMajor);
+
+  // Layout must be Row/Col Major if Scope is Wave/ThreadGroup
+  if (RetLATT.Scope != DXIL::MatrixScope::Thread && !LayoutIsRowColMajor)
+    ValCtx.EmitInstrFormatError(
+        CI, ValidationRule::InstrLinAlgMatrixScopeReqLayout2,
+        {MatrixScopeToString(RetLATT.Scope), "RowMajor", "ColumnMajor"});
+
+  // Stride must be an imm 0 if Layout is not Row/Col Major
+  if (!LayoutIsRowColMajor) {
+    ConstantInt *StrideCI = dyn_cast<ConstantInt>(StrideOp);
+    if (StrideCI) {
+      if (!StrideCI->isZero())
+        ValCtx.EmitInstrFormatError(
+            CI, ValidationRule::InstrLinAlgMatrixLayoutReqStride,
+            {MatrixLayoutToString(Layout)});
+    } else
+      ValCtx.EmitInstrFormatError(CI, ValidationRule::InstrOpConst,
+                                  {"Stride", "LinAlgMatrixLoadFromDescriptor"});
+  }
+}
+
+static void ValidateLinAlgMatrixAccumulate(CallInst *CI,
+                                           ValidationContext &ValCtx) {
+  ValidateLinAlgOpReturnMatrix(CI, ValCtx);
+  ValidateLinAlgOpParameters(CI, ValCtx);
+
+  Type *RetMatTy = CI->getType();
+  Type *LHSMatTy = CI->getArgOperand(1)->getType();
+  Type *RHSMatTy = CI->getArgOperand(2)->getType();
+  assert(dxilutil::IsHLSLLinAlgMatrixType(RetMatTy) &&
+         dxilutil::IsHLSLLinAlgMatrixType(LHSMatTy) &&
+         dxilutil::IsHLSLLinAlgMatrixType(RHSMatTy) && "Must be LinAlg types");
+
+  // Ret and LHS must have the exact same type
+  if (RetMatTy != LHSMatTy) {
+    StructType *RetST = cast<StructType>(RetMatTy);
+    StructType *LHSST = cast<StructType>(LHSMatTy);
+
+    ValCtx.EmitInstrFormatError(CI,
+                                ValidationRule::InstrLinAlgMatrixNotExactMatch,
+                                {RetST->getName(), LHSST->getName()});
+  }
+  auto RetIt = ValCtx.LinAlgTargetTypeMap.find(RetMatTy);
+  auto RHSIt = ValCtx.LinAlgTargetTypeMap.find(RHSMatTy);
+  if (RetIt == ValCtx.LinAlgTargetTypeMap.end())
+    return;
+  if (RHSIt == ValCtx.LinAlgTargetTypeMap.end())
+    return;
+  LinAlgTargetType RetLATT = RetIt->second;
+  LinAlgTargetType RHSLATT = RHSIt->second;
+
+  if (RetLATT.Use != DXIL::MatrixUse::Accumulator)
+    ValCtx.EmitInstrFormatError(
+        CI, ValidationRule::InstrLinAlgMatrixUseMismatch,
+        {MatrixUseToString(RetLATT.Use), "Accumulator"});
+
+  if (RHSLATT.Use == DXIL::MatrixUse::Accumulator)
+    ValCtx.EmitInstrFormatError(CI,
+                                ValidationRule::InstrLinAlgMatrixUseMismatch2,
+                                {MatrixUseToString(RHSLATT.Use), "A", "B"});
+
+  if (RetLATT.Scope != RHSLATT.Scope)
+    ValCtx.EmitInstrFormatError(CI,
+                                ValidationRule::InstrLinAlgMatrixScopeMismatch,
+                                {MatrixScopeToString(RHSLATT.Scope),
+                                 MatrixScopeToString(RetLATT.Scope)});
+
+  if (RetLATT.Scope == DXIL::MatrixScope::Thread)
+    ValCtx.EmitInstrFormatError(
+        CI, ValidationRule::InstrLinAlgMatrixScopeNotAllowed,
+        {"Thread", "LinAlgMatrixAccumulate"});
+
+  if (RetLATT.M != RHSLATT.M || RetLATT.N != RHSLATT.N)
+    ValCtx.EmitInstrFormatError(
+        CI, ValidationRule::InstrLinAlgMatrixDimMismatch,
+        {std::to_string(RHSLATT.M), std::to_string(RHSLATT.N),
+         std::to_string(RetLATT.M), std::to_string(RetLATT.N)});
+}
+
+static void ValidateLinAlgCopyConvertMatrix(CallInst *CI,
+                                            ValidationContext &ValCtx) {
+  ValidateLinAlgOpReturnMatrix(CI, ValCtx);
+  ValidateLinAlgOpParameters(CI, ValCtx);
+
+  Type *DstMatTy = CI->getType();
+  Type *SrcMatTy = CI->getArgOperand(1)->getType();
+  assert(dxilutil::IsHLSLLinAlgMatrixType(DstMatTy) &&
+         dxilutil::IsHLSLLinAlgMatrixType(SrcMatTy) && "Must be LinAlg types");
+
+  Value *TransposeOp = CI->getArgOperand(2);
+  ConstantInt *TransposeCI = dyn_cast<ConstantInt>(TransposeOp);
+  bool Transpose = false;
+
+  if (TransposeCI)
+    Transpose = TransposeCI->isOne();
+  else
+    ValCtx.EmitInstrFormatError(CI, ValidationRule::InstrOpConst,
+                                {"Transpose", "LinAlgCopyConvertMatrix"});
+
+  auto DstIt = ValCtx.LinAlgTargetTypeMap.find(DstMatTy);
+  auto SrcIt = ValCtx.LinAlgTargetTypeMap.find(SrcMatTy);
+  if (DstIt == ValCtx.LinAlgTargetTypeMap.end())
+    return;
+  if (SrcIt == ValCtx.LinAlgTargetTypeMap.end())
+    return;
+  LinAlgTargetType DstLATT = DstIt->second;
+  LinAlgTargetType SrcLATT = SrcIt->second;
+
+  if (DstLATT.Scope == DXIL::MatrixScope::Thread ||
+      SrcLATT.Scope == DXIL::MatrixScope::Thread)
+    ValCtx.EmitInstrFormatError(
+        CI, ValidationRule::InstrLinAlgMatrixScopeNotAllowed,
+        {"Thread", "LinAlgCopyConvertMatrix"});
+
+  if (DstLATT.Scope != SrcLATT.Scope)
+    ValCtx.EmitInstrFormatError(CI,
+                                ValidationRule::InstrLinAlgMatrixScopeMismatch,
+                                {MatrixScopeToString(DstLATT.Scope),
+                                 MatrixScopeToString(SrcLATT.Scope)});
+
+  unsigned DstM = DstLATT.M;
+  unsigned DstN = DstLATT.N;
+  unsigned SrcM = SrcLATT.M;
+  unsigned SrcN = SrcLATT.N;
+  if (Transpose) {
+    SrcM = SrcLATT.N;
+    SrcN = SrcLATT.M;
+  }
+
+  if (DstM != SrcM || DstN != SrcN)
+    ValCtx.EmitInstrFormatError(CI,
+                                ValidationRule::InstrLinAlgMatrixDimMismatch,
+                                {std::to_string(DstM), std::to_string(DstN),
+                                 std::to_string(SrcM), std::to_string(SrcN)});
+}
+
 // Validate the type-defined mask compared to the store value mask which
 // indicates which parts were defined returns true if caller should continue
 // validation
@@ -2255,192 +2505,65 @@ static void ValidateDxilOperationCallInProfile(CallInst *CI,
 
   // LinAlg Operations
   case DXIL::OpCode::LinAlgMatrixLength:
+    ValidateLinAlgMatrixLength(CI, ValCtx);
+    break;
   case DXIL::OpCode::LinAlgMatrixGetCoordinate:
+    ValidateLinAlgMatrixGetCoordinate(CI, ValCtx);
+    break;
   case DXIL::OpCode::LinAlgMatrixGetElement:
+    ValidateLinAlgMatrixGetElement(CI, ValCtx);
+    break;
   case DXIL::OpCode::LinAlgMatrixStoreToDescriptor:
+    ValidateLinAlgMatrixStoreToDescriptor(CI, ValCtx);
+    break;
   case DXIL::OpCode::LinAlgMatrixStoreToMemory:
+    ValidateLinAlgMatrixStoreToMemory(CI, ValCtx);
+    break;
   case DXIL::OpCode::LinAlgMatVecMul:
+    ValidateLinAlgMatVecMul(CI, ValCtx);
+    break;
   case DXIL::OpCode::LinAlgMatVecMulAdd:
+    ValidateLinAlgMatVecMulAdd(CI, ValCtx);
+    break;
   case DXIL::OpCode::LinAlgMatrixAccumulateToDescriptor:
+    ValidateLinAlgMatrixAccumulateToDescriptor(CI, ValCtx);
+    break;
   case DXIL::OpCode::LinAlgMatrixAccumulateToMemory:
+    ValidateLinAlgMatrixAccumulateToMemory(CI, ValCtx);
+    break;
   case DXIL::OpCode::LinAlgConvert:
-  case DXIL::OpCode::LinAlgVectorAccumulateToDescriptor: {
-    ValidateLinAlgOpParameters(CI, ValCtx);
+    ValidateLinAlgConvert(CI, ValCtx);
     break;
-  }
+  case DXIL::OpCode::LinAlgVectorAccumulateToDescriptor:
+    ValidateLinAlgVectorAccumulateToDescriptor(CI, ValCtx);
+    break;
   case DXIL::OpCode::LinAlgFillMatrix:
+    ValidateLinAlgFillMatrix(CI, ValCtx);
+    break;
   case DXIL::OpCode::LinAlgMatrixLoadFromMemory:
+    ValidateLinAlgMatrixLoadFromMemory(CI, ValCtx);
+    break;
   case DXIL::OpCode::LinAlgMatrixSetElement:
+    ValidateLinAlgMatrixSetElement(CI, ValCtx);
+    break;
   case DXIL::OpCode::LinAlgMatrixMultiply:
+    ValidateLinAlgMatrixMultiply(CI, ValCtx);
+    break;
   case DXIL::OpCode::LinAlgMatrixMultiplyAccumulate:
-  case DXIL::OpCode::LinAlgMatrixOuterProduct: {
-    ValidateLinAlgOpReturnMatrix(CI, ValCtx);
-    ValidateLinAlgOpParameters(CI, ValCtx);
+    ValidateLinAlgMatrixMultiplyAccumulate(CI, ValCtx);
     break;
-  }
-  case DXIL::OpCode::LinAlgMatrixLoadFromDescriptor: {
-    ValidateLinAlgOpReturnMatrix(CI, ValCtx);
-    ValidateLinAlgOpParameters(CI, ValCtx);
-
-    Type *RetMatTy = CI->getType();
-    assert(dxilutil::IsHLSLLinAlgMatrixType(RetMatTy) && "Must be LinAlg type");
-    auto RetIt = ValCtx.LinAlgTargetTypeMap.find(RetMatTy);
-    if (RetIt == ValCtx.LinAlgTargetTypeMap.end())
-      break;
-    LinAlgTargetType RetLATT = RetIt->second;
-
-    Value *StrideOp = CI->getArgOperand(3);
-    Value *LayoutOp = CI->getArgOperand(4);
-    ConstantInt *LayoutCI = dyn_cast<ConstantInt>(LayoutOp);
-    if (!LayoutCI) {
-      ValCtx.EmitInstrFormatError(CI, ValidationRule::InstrOpConst,
-                                  {"Layout", "LinAlgMatrixLoadFromDescriptor"});
-      break;
-    }
-
-    auto Layout = static_cast<DXIL::MatrixLayout>(LayoutCI->getLimitedValue());
-    bool LayoutIsRowColMajor = (Layout == DXIL::MatrixLayout::RowMajor ||
-                                Layout == DXIL::MatrixLayout::ColumnMajor);
-
-    // Layout must be Row/Col Major if Scope is Wave/ThreadGroup
-    if (RetLATT.Scope != DXIL::MatrixScope::Thread && !LayoutIsRowColMajor)
-      ValCtx.EmitInstrFormatError(
-          CI, ValidationRule::InstrLinAlgMatrixScopeReqLayout2,
-          {MatrixScopeToString(RetLATT.Scope), "RowMajor", "ColumnMajor"});
-
-    // Stride must be an imm 0 if Layout is not Row/Col Major
-    if (!LayoutIsRowColMajor) {
-      ConstantInt *StrideCI = dyn_cast<ConstantInt>(StrideOp);
-      if (StrideCI) {
-        if (!StrideCI->isZero())
-          ValCtx.EmitInstrFormatError(
-              CI, ValidationRule::InstrLinAlgMatrixLayoutReqStride,
-              {MatrixLayoutToString(Layout)});
-      } else
-        ValCtx.EmitInstrFormatError(
-            CI, ValidationRule::InstrOpConst,
-            {"Stride", "LinAlgMatrixLoadFromDescriptor"});
-    }
-
+  case DXIL::OpCode::LinAlgMatrixOuterProduct:
+    ValidateLinAlgMatrixOuterProduct(CI, ValCtx);
     break;
-  }
-  case DXIL::OpCode::LinAlgMatrixAccumulate: {
-    ValidateLinAlgOpReturnMatrix(CI, ValCtx);
-    ValidateLinAlgOpParameters(CI, ValCtx);
-
-    Type *RetMatTy = CI->getType();
-    Type *LHSMatTy = CI->getArgOperand(1)->getType();
-    Type *RHSMatTy = CI->getArgOperand(2)->getType();
-    assert(dxilutil::IsHLSLLinAlgMatrixType(RetMatTy) &&
-           dxilutil::IsHLSLLinAlgMatrixType(LHSMatTy) &&
-           dxilutil::IsHLSLLinAlgMatrixType(RHSMatTy) &&
-           "Must be LinAlg types");
-
-    // Ret and LHS must have the exact same type
-    if (RetMatTy != LHSMatTy) {
-      StructType *RetST = cast<StructType>(RetMatTy);
-      StructType *LHSST = cast<StructType>(LHSMatTy);
-
-      ValCtx.EmitInstrFormatError(
-          CI, ValidationRule::InstrLinAlgMatrixNotExactMatch,
-          {RetST->getName(), LHSST->getName()});
-    }
-    auto RetIt = ValCtx.LinAlgTargetTypeMap.find(RetMatTy);
-    auto RHSIt = ValCtx.LinAlgTargetTypeMap.find(RHSMatTy);
-    if (RetIt == ValCtx.LinAlgTargetTypeMap.end())
-      break;
-    if (RHSIt == ValCtx.LinAlgTargetTypeMap.end())
-      break;
-    LinAlgTargetType RetLATT = RetIt->second;
-    LinAlgTargetType RHSLATT = RHSIt->second;
-
-    if (RetLATT.Use != DXIL::MatrixUse::Accumulator)
-      ValCtx.EmitInstrFormatError(
-          CI, ValidationRule::InstrLinAlgMatrixUseMismatch,
-          {MatrixUseToString(RetLATT.Use), "Accumulator"});
-
-    if (RHSLATT.Use == DXIL::MatrixUse::Accumulator)
-      ValCtx.EmitInstrFormatError(CI,
-                                  ValidationRule::InstrLinAlgMatrixUseMismatch2,
-                                  {MatrixUseToString(RHSLATT.Use), "A", "B"});
-
-    if (RetLATT.Scope != RHSLATT.Scope)
-      ValCtx.EmitInstrFormatError(
-          CI, ValidationRule::InstrLinAlgMatrixScopeMismatch,
-          {MatrixScopeToString(RHSLATT.Scope),
-           MatrixScopeToString(RetLATT.Scope)});
-
-    if (RetLATT.Scope == DXIL::MatrixScope::Thread)
-      ValCtx.EmitInstrFormatError(
-          CI, ValidationRule::InstrLinAlgMatrixScopeNotAllowed,
-          {"Thread", "LinAlgMatrixAccumulate"});
-
-    if (RetLATT.M != RHSLATT.M || RetLATT.N != RHSLATT.N)
-      ValCtx.EmitInstrFormatError(
-          CI, ValidationRule::InstrLinAlgMatrixDimMismatch,
-          {std::to_string(RHSLATT.M), std::to_string(RHSLATT.N),
-           std::to_string(RetLATT.M), std::to_string(RetLATT.N)});
-
+  case DXIL::OpCode::LinAlgMatrixLoadFromDescriptor:
+    ValidateLinAlgMatrixLoadFromDescriptor(CI, ValCtx);
     break;
-  }
-  case DXIL::OpCode::LinAlgCopyConvertMatrix: {
-    ValidateLinAlgOpReturnMatrix(CI, ValCtx);
-    ValidateLinAlgOpParameters(CI, ValCtx);
-
-    Type *DstMatTy = CI->getType();
-    Type *SrcMatTy = CI->getArgOperand(1)->getType();
-    assert(dxilutil::IsHLSLLinAlgMatrixType(DstMatTy) &&
-           dxilutil::IsHLSLLinAlgMatrixType(SrcMatTy) &&
-           "Must be LinAlg types");
-
-    Value *TransposeOp = CI->getArgOperand(2);
-    ConstantInt *TransposeCI = dyn_cast<ConstantInt>(TransposeOp);
-    bool Transpose = false;
-
-    if (TransposeCI)
-      Transpose = TransposeCI->isOne();
-    else
-      ValCtx.EmitInstrFormatError(CI, ValidationRule::InstrOpConst,
-                                  {"Transpose", "LinAlgCopyConvertMatrix"});
-
-    auto DstIt = ValCtx.LinAlgTargetTypeMap.find(DstMatTy);
-    auto SrcIt = ValCtx.LinAlgTargetTypeMap.find(SrcMatTy);
-    if (DstIt == ValCtx.LinAlgTargetTypeMap.end())
-      break;
-    if (SrcIt == ValCtx.LinAlgTargetTypeMap.end())
-      break;
-    LinAlgTargetType DstLATT = DstIt->second;
-    LinAlgTargetType SrcLATT = SrcIt->second;
-
-    if (DstLATT.Scope == DXIL::MatrixScope::Thread ||
-        SrcLATT.Scope == DXIL::MatrixScope::Thread)
-      ValCtx.EmitInstrFormatError(
-          CI, ValidationRule::InstrLinAlgMatrixScopeNotAllowed,
-          {"Thread", "LinAlgCopyConvertMatrix"});
-
-    if (DstLATT.Scope != SrcLATT.Scope)
-      ValCtx.EmitInstrFormatError(
-          CI, ValidationRule::InstrLinAlgMatrixScopeMismatch,
-          {MatrixScopeToString(DstLATT.Scope),
-           MatrixScopeToString(SrcLATT.Scope)});
-
-    unsigned DstM = DstLATT.M;
-    unsigned DstN = DstLATT.N;
-    unsigned SrcM = SrcLATT.M;
-    unsigned SrcN = SrcLATT.N;
-    if (Transpose) {
-      SrcM = SrcLATT.N;
-      SrcN = SrcLATT.M;
-    }
-
-    if (DstM != SrcM || DstN != SrcN)
-      ValCtx.EmitInstrFormatError(CI,
-                                  ValidationRule::InstrLinAlgMatrixDimMismatch,
-                                  {std::to_string(DstM), std::to_string(DstN),
-                                   std::to_string(SrcM), std::to_string(SrcN)});
-
+  case DXIL::OpCode::LinAlgMatrixAccumulate:
+    ValidateLinAlgMatrixAccumulate(CI, ValCtx);
     break;
-  }
+  case DXIL::OpCode::LinAlgCopyConvertMatrix:
+    ValidateLinAlgCopyConvertMatrix(CI, ValCtx);
+    break;
 
   default:
     // TODO: make sure every Opcode is checked.
