@@ -19,8 +19,6 @@
 #pragma dxc diagnostic push
 #pragma dxc diagnostic ignored "-Whlsl-groupshared-202x"
 
-#define SIZE_TYPE int
-
 namespace dxil {
 
 // This enum must _exactly_ match the DXIL constants.
@@ -242,8 +240,8 @@ class Matrix {
 
   template <ComponentEnum NewCompTy, MatrixUseEnum NewUse = Use,
             bool Transpose = false>
-  Matrix<NewCompTy, __detail::DimMN<M, N, Transpose>::M,
-         __detail::DimMN<M, N, Transpose>::N, NewUse, Scope>
+  [[nodiscard]] Matrix<NewCompTy, __detail::DimMN<M, N, Transpose>::M,
+                       __detail::DimMN<M, N, Transpose>::N, NewUse, Scope>
   Cast() {
     Matrix<NewCompTy, __detail::DimMN<M, N, Transpose>::M,
            __detail::DimMN<M, N, Transpose>::N, NewUse, Scope>
@@ -261,16 +259,18 @@ class Matrix {
     return Result;
   }
 
-  static Matrix Load(ByteAddressBuffer Res, uint StartOffset, uint Stride,
-                     MatrixLayoutEnum Layout, uint Align = 128) {
+  [[nodiscard]] static Matrix Load(ByteAddressBuffer Res, uint StartOffset,
+                                   uint Stride, MatrixLayoutEnum Layout,
+                                   uint Align = 128) {
     Matrix Result;
     __builtin_LinAlg_MatrixLoadFromDescriptor(Result.__handle, Res, StartOffset,
                                               Stride, Layout, Align);
     return Result;
   }
 
-  static Matrix Load(RWByteAddressBuffer Res, uint StartOffset, uint Stride,
-                     MatrixLayoutEnum Layout, uint Align = 128) {
+  [[nodiscard]] static Matrix Load(RWByteAddressBuffer Res, uint StartOffset,
+                                   uint Stride, MatrixLayoutEnum Layout,
+                                   uint Align = 128) {
     Matrix Result;
     __builtin_LinAlg_MatrixLoadFromDescriptor(Result.__handle, Res, StartOffset,
                                               Stride, Layout, Align);
@@ -278,9 +278,12 @@ class Matrix {
   }
 
   template <typename T, SIZE_TYPE Size>
-  static typename hlsl::enable_if<hlsl::is_arithmetic<T>::value &&
-                                      (M * N / ElementsPerScalar <= Size),
-                                  Matrix>::type
+  [[nodiscard]] static typename hlsl::enable_if<
+      (hlsl::is_same<typename hlsl::strip_vector_type<T>::type,
+                     ElementType>::value ||
+       hlsl::is_same<typename hlsl::strip_vector_type<T>::type,
+                     uint8_t4_packed>::value),
+      Matrix>::type
   Load(groupshared T Arr[Size], uint StartIdx, uint Stride,
        MatrixLayoutEnum Layout) {
     Matrix Result;
@@ -326,9 +329,12 @@ class Matrix {
   }
 
   template <typename T, SIZE_TYPE Size>
-  typename hlsl::enable_if<hlsl::is_arithmetic<T>::value &&
-                               (M * N / ElementsPerScalar <= Size),
-                           void>::type
+  typename hlsl::enable_if<
+      (hlsl::is_same<typename hlsl::strip_vector_type<T>::type,
+                     ElementType>::value ||
+       hlsl::is_same<typename hlsl::strip_vector_type<T>::type,
+                     uint8_t4_packed>::value),
+      void>::type
   Store(groupshared T Arr[Size], uint StartIdx, uint Stride,
         MatrixLayoutEnum Layout) {
     __builtin_LinAlg_MatrixStoreToMemory(__handle, Arr, StartIdx, Stride,
@@ -348,14 +354,28 @@ class Matrix {
   template <typename T, MatrixUseEnum UseLocal = Use,
             MatrixScopeEnum ScopeLocal = Scope, SIZE_TYPE Size>
   typename hlsl::enable_if<
-      hlsl::is_arithmetic<T>::value && Use == MatrixUse::Accumulator &&
-          UseLocal == Use && (M * N / ElementsPerScalar <= Size) &&
+      hlsl::is_arithmetic_vector<T>::value && Use == MatrixUse::Accumulator &&
+          UseLocal == Use && Scope == MatrixScope::Wave && ScopeLocal == Scope,
+      void>::type
+  InterlockedAccumulate(groupshared T Arr[Size], uint StartIdx, uint Stride,
+                        MatrixLayoutEnum Layout) {
+    __builtin_LinAlg_MatrixAccumulateToMemory(__handle, Arr, ComponentTy,
+                                              StartIdx, Stride, Layout);
+  }
+
+  template <ComponentEnum TargetCompTy = ComponentTy, typename T,
+            MatrixUseEnum UseLocal = Use, MatrixScopeEnum ScopeLocal = Scope,
+            SIZE_TYPE Size>
+  typename hlsl::enable_if<
+      hlsl::is_same<typename hlsl::strip_vector_type<T>::type,
+                    uint8_t4_packed>::value &&
+          Use == MatrixUse::Accumulator && UseLocal == Use &&
           Scope == MatrixScope::Wave && ScopeLocal == Scope,
       void>::type
   InterlockedAccumulate(groupshared T Arr[Size], uint StartIdx, uint Stride,
                         MatrixLayoutEnum Layout) {
-    __builtin_LinAlg_MatrixAccumulateToMemory(__handle, Arr, 0, StartIdx,
-                                              Stride, Layout);
+    __builtin_LinAlg_MatrixAccumulateToMemory(__handle, Arr, TargetCompTy,
+                                              StartIdx, Stride, Layout);
   }
 
   template <ComponentEnum CompTy, MatrixUseEnum UseLocal = Use>
@@ -395,9 +415,11 @@ class Matrix<ComponentTy, M, N, Use, MatrixScope::Thread> {
   HandleT __handle;
 
   template <MatrixLayoutEnum Layout, MatrixUseEnum UseLocal = Use>
-  static typename hlsl::enable_if<Use == MatrixUse::A && UseLocal == Use,
-                                  Matrix>::type
-  Load(ByteAddressBuffer Res, uint StartOffset, uint Stride, uint Align = 128) {
+  [[nodiscard]] static
+      typename hlsl::enable_if<Use == MatrixUse::A && UseLocal == Use,
+                               Matrix>::type
+      Load(ByteAddressBuffer Res, uint StartOffset, uint Stride,
+           uint Align = 128) {
     Matrix Result;
     __builtin_LinAlg_MatrixLoadFromDescriptor(Result.__handle, Res, StartOffset,
                                               Stride, Layout, Align);
@@ -419,7 +441,7 @@ MatrixUseEnum AccumulatorLayout() {
 
 template <ComponentEnum OutTy, ComponentEnum ATy, ComponentEnum BTy,
           SIZE_TYPE M, SIZE_TYPE N, SIZE_TYPE K>
-Matrix<OutTy, M, N, MatrixUse::Accumulator, MatrixScope::Wave>
+[[nodiscard]] Matrix<OutTy, M, N, MatrixUse::Accumulator, MatrixScope::Wave>
 Multiply(const Matrix<ATy, M, K, MatrixUse::A, MatrixScope::Wave> MatrixA,
          const Matrix<BTy, K, N, MatrixUse::B, MatrixScope::Wave> MatrixB) {
   Matrix<OutTy, M, N, MatrixUse::Accumulator, MatrixScope::Wave> Result;
@@ -429,7 +451,7 @@ Multiply(const Matrix<ATy, M, K, MatrixUse::A, MatrixScope::Wave> MatrixA,
 }
 
 template <ComponentEnum CompTy, SIZE_TYPE M, SIZE_TYPE N, SIZE_TYPE K>
-Matrix<CompTy, M, N, MatrixUse::Accumulator, MatrixScope::Wave>
+[[nodiscard]] Matrix<CompTy, M, N, MatrixUse::Accumulator, MatrixScope::Wave>
 Multiply(const Matrix<CompTy, M, K, MatrixUse::A, MatrixScope::Wave> MatrixA,
          const Matrix<CompTy, K, N, MatrixUse::B, MatrixScope::Wave> MatrixB) {
   Matrix<CompTy, M, N, MatrixUse::Accumulator, MatrixScope::Wave> Result;
@@ -440,7 +462,9 @@ Multiply(const Matrix<CompTy, M, K, MatrixUse::A, MatrixScope::Wave> MatrixA,
 
 template <ComponentEnum OutTy, ComponentEnum ATy, ComponentEnum BTy,
           SIZE_TYPE M, SIZE_TYPE N, SIZE_TYPE K>
-Matrix<OutTy, M, N, MatrixUse::Accumulator, MatrixScope::ThreadGroup> Multiply(
+[[nodiscard]] Matrix<OutTy, M, N, MatrixUse::Accumulator,
+                     MatrixScope::ThreadGroup>
+Multiply(
     const Matrix<ATy, M, K, MatrixUse::A, MatrixScope::ThreadGroup> MatrixA,
     const Matrix<BTy, K, N, MatrixUse::B, MatrixScope::ThreadGroup> MatrixB) {
   Matrix<OutTy, M, N, MatrixUse::Accumulator, MatrixScope::ThreadGroup> Result;
@@ -450,7 +474,9 @@ Matrix<OutTy, M, N, MatrixUse::Accumulator, MatrixScope::ThreadGroup> Multiply(
 }
 
 template <ComponentEnum CompTy, SIZE_TYPE M, SIZE_TYPE N, SIZE_TYPE K>
-Matrix<CompTy, M, N, MatrixUse::Accumulator, MatrixScope::ThreadGroup> Multiply(
+[[nodiscard]] Matrix<CompTy, M, N, MatrixUse::Accumulator,
+                     MatrixScope::ThreadGroup>
+Multiply(
     const Matrix<CompTy, M, K, MatrixUse::A, MatrixScope::ThreadGroup> MatrixA,
     const Matrix<CompTy, K, N, MatrixUse::B, MatrixScope::ThreadGroup>
         MatrixB) {
@@ -493,7 +519,8 @@ Multiply(Matrix<MatrixDT, M, K, MatrixUse::A, MatrixScope::Thread> MatrixA,
 
 template <typename OutputElTy, typename InputElTy, typename BiasElTy,
           SIZE_TYPE M, SIZE_TYPE K, ComponentEnum MatrixDT>
-typename hlsl::enable_if<hlsl::is_arithmetic<InputElTy>::value,
+typename hlsl::enable_if<hlsl::is_arithmetic<InputElTy>::value &&
+                             hlsl::is_arithmetic<BiasElTy>::value,
                          vector<OutputElTy, M> >::type
 MultiplyAdd(Matrix<MatrixDT, M, K, MatrixUse::A, MatrixScope::Thread> MatrixA,
             vector<InputElTy, K> Vec, vector<BiasElTy, M> Bias) {
@@ -510,10 +537,11 @@ MultiplyAdd(Matrix<MatrixDT, M, K, MatrixUse::A, MatrixScope::Thread> MatrixA,
 }
 
 template <typename OutputElTy, typename InputElTy, ComponentEnum InputInterp,
-          typename BiasElTy, SIZE_TYPE M, SIZE_TYPE VecK, SIZE_TYPE K,
+          typename BiasElTy, SIZE_TYPE M, SIZE_TYPE K, SIZE_TYPE VecK,
           ComponentEnum MatrixDT>
 typename hlsl::enable_if<
-    VecK == __detail::ScalarCountFromPackedComponents<InputInterp, K>::Value,
+    VecK == __detail::ScalarCountFromPackedComponents<InputInterp, K>::Value &&
+        hlsl::is_arithmetic<BiasElTy>::value,
     vector<OutputElTy, M> >::type
 MultiplyAdd(Matrix<MatrixDT, M, K, MatrixUse::A, MatrixScope::Thread> MatrixA,
             InterpretedVector<InputElTy, VecK, InputInterp> InterpVec,
@@ -530,16 +558,16 @@ MultiplyAdd(Matrix<MatrixDT, M, K, MatrixUse::A, MatrixScope::Thread> MatrixA,
   return Result;
 }
 
-template <typename OutputElTy, typename InputElTy, ComponentEnum BiasInterp,
+template <typename OutputElTy, typename InputElTy, ComponentEnum BiasElTy,
           SIZE_TYPE M, SIZE_TYPE K, ComponentEnum MatrixDT>
 typename hlsl::enable_if<hlsl::is_arithmetic<InputElTy>::value,
                          vector<OutputElTy, M> >::type
 MultiplyAdd(Matrix<MatrixDT, M, K, MatrixUse::A, MatrixScope::Thread> MatrixA,
-            vector<InputElTy, K> Vec, VectorRef<BiasInterp, M> BiasRef) {
+            vector<InputElTy, K> Vec, VectorRef<BiasElTy, M> BiasRef) {
 
   using BiasVecTy =
-      vector<typename __detail::ComponentTypeTraits<BiasInterp>::Type,
-             __detail::ScalarCountFromPackedComponents<BiasInterp, M>::Value>;
+      vector<typename __detail::ComponentTypeTraits<BiasElTy>::Type,
+             __detail::ScalarCountFromPackedComponents<BiasElTy, M>::Value>;
   BiasVecTy Bias = BiasRef.Buf.template Load<BiasVecTy>(BiasRef.Offset);
 
   // FIXME: Convert currently does not support packed type vector sizes that
@@ -553,13 +581,13 @@ MultiplyAdd(Matrix<MatrixDT, M, K, MatrixUse::A, MatrixScope::Thread> MatrixA,
   // Convert to OutputElTy vector with padding
   using BiasConvInterpPaddedTy = InterpretedVector<
       OutputElTy,
-      __detail::DstN<__detail::TypeTraits<OutputElTy>::CompType, BiasInterp,
+      __detail::DstN<__detail::TypeTraits<OutputElTy>::CompType, BiasElTy,
                      __detail::ScalarCountFromPackedComponents<
-                         BiasInterp, M>::Value>::Value,
+                         BiasElTy, M>::Value>::Value,
       __detail::TypeTraits<OutputElTy>::CompType>;
 
   BiasConvInterpPaddedTy BiasConvInterpPadded =
-      Convert<__detail::TypeTraits<OutputElTy>::CompType, BiasInterp>(Bias);
+      Convert<__detail::TypeTraits<OutputElTy>::CompType, BiasElTy>(Bias);
 
   // Truncate the vector to the correct size M
   vector<OutputElTy, M> BiasConv =
@@ -573,17 +601,17 @@ MultiplyAdd(Matrix<MatrixDT, M, K, MatrixUse::A, MatrixScope::Thread> MatrixA,
 }
 
 template <typename OutputElTy, typename InputElTy, ComponentEnum InputInterp,
-          ComponentEnum BiasInterp, SIZE_TYPE M, SIZE_TYPE VecK, SIZE_TYPE K,
+          ComponentEnum BiasElTy, SIZE_TYPE M, SIZE_TYPE K, SIZE_TYPE VecK,
           ComponentEnum MatrixDT>
 typename hlsl::enable_if<
     VecK == __detail::ScalarCountFromPackedComponents<InputInterp, K>::Value,
     vector<OutputElTy, M> >::type
 MultiplyAdd(Matrix<MatrixDT, M, K, MatrixUse::A, MatrixScope::Thread> MatrixA,
             InterpretedVector<InputElTy, VecK, InputInterp> InterpVec,
-            VectorRef<BiasInterp, M> BiasRef) {
+            VectorRef<BiasElTy, M> BiasRef) {
   using BiasVecTy =
-      vector<typename __detail::ComponentTypeTraits<BiasInterp>::Type,
-             __detail::ScalarCountFromPackedComponents<BiasInterp, M>::Value>;
+      vector<typename __detail::ComponentTypeTraits<BiasElTy>::Type,
+             __detail::ScalarCountFromPackedComponents<BiasElTy, M>::Value>;
   BiasVecTy Bias = BiasRef.Buf.template Load<BiasVecTy>(BiasRef.Offset);
 
   // FIXME: Convert currently does not support packed type vector sizes that
@@ -597,13 +625,13 @@ MultiplyAdd(Matrix<MatrixDT, M, K, MatrixUse::A, MatrixScope::Thread> MatrixA,
   // Convert to OutputElTy vector with padding
   using BiasConvInterpPaddedTy = InterpretedVector<
       OutputElTy,
-      __detail::DstN<__detail::TypeTraits<OutputElTy>::CompType, BiasInterp,
+      __detail::DstN<__detail::TypeTraits<OutputElTy>::CompType, BiasElTy,
                      __detail::ScalarCountFromPackedComponents<
-                         BiasInterp, M>::Value>::Value,
+                         BiasElTy, M>::Value>::Value,
       __detail::TypeTraits<OutputElTy>::CompType>;
 
   BiasConvInterpPaddedTy BiasConvInterpPadded =
-      Convert<__detail::TypeTraits<OutputElTy>::CompType, BiasInterp>(Bias);
+      Convert<__detail::TypeTraits<OutputElTy>::CompType, BiasElTy>(Bias);
 
   // Truncate the vector to the correct size M
   vector<OutputElTy, M> BiasConv =
@@ -618,7 +646,9 @@ MultiplyAdd(Matrix<MatrixDT, M, K, MatrixUse::A, MatrixScope::Thread> MatrixA,
 
 // Outer product functions
 template <ComponentEnum OutTy, typename InputElTy, SIZE_TYPE M, SIZE_TYPE N>
-Matrix<OutTy, M, N, MatrixUse::Accumulator, MatrixScope::Thread>
+[[nodiscard]] typename hlsl::enable_if<
+    hlsl::is_arithmetic<InputElTy>::value,
+    Matrix<OutTy, M, N, MatrixUse::Accumulator, MatrixScope::Thread> >::type
 OuterProduct(vector<InputElTy, M> VecA, vector<InputElTy, N> VecB) {
   Matrix<OutTy, M, N, MatrixUse::Accumulator, MatrixScope::Thread> Result;
   __builtin_LinAlg_MatrixOuterProduct(Result.__handle, VecA, VecB);
