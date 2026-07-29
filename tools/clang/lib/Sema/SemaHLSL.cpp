@@ -10283,6 +10283,15 @@ bool HLSLExternalSource::CanConvert(SourceLocation loc, Expr *sourceExpr,
     // Handle explicit splats from single element numerical types (scalars,
     // vector1s and matrix1x1s) to aggregate types.
     if (explicitConversion) {
+      const bool SourceIsSingleElement =
+          SourceInfo.ShapeKind == AR_TOBJ_SCALAR ||
+          (hlsl::IsHLSLVecMatType(source) &&
+           hlsl::GetElementCount(source) == 1);
+      if (SourceIsSingleElement &&
+          (m_sema->RequireCompleteType(loc, target, 0) ||
+           !hlsl::IsHLSLNumericOrAggregateOfNumericType(target)))
+        return false;
+
       const BuiltinType *sourceSingleElementBuiltinType =
           source->getAs<BuiltinType>();
       if (sourceSingleElementBuiltinType == nullptr &&
@@ -10292,11 +10301,7 @@ bool HLSLExternalSource::CanConvert(SourceLocation loc, Expr *sourceExpr,
             hlsl::GetElementTypeOrType(source)->getAs<BuiltinType>();
       }
 
-      // We can only splat to target types that do not contain object/resource
-      // types
-      if (sourceSingleElementBuiltinType != nullptr &&
-          !m_sema->RequireCompleteType(loc, target, 0) &&
-          hlsl::IsHLSLNumericOrAggregateOfNumericType(target)) {
+      if (sourceSingleElementBuiltinType != nullptr) {
         BuiltinType::Kind kind = sourceSingleElementBuiltinType->getKind();
         switch (kind) {
         case BuiltinType::Kind::UInt:
