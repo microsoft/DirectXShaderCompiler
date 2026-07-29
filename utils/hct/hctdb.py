@@ -6507,9 +6507,6 @@ class db_dxil(object):
                     5, "i32", "inputInterpretation", "input vector interpretation type"
                 ),
                 db_dxil_param(6, "$x3", "biasVector", "M dim vector to add"),
-                db_dxil_param(
-                    7, "i32", "biasInterpretation", "bias vector interpretation type"
-                ),
             ],
         )
 

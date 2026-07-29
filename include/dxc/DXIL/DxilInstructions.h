@@ -10781,7 +10781,7 @@ struct DxilInst_LinAlgMatVecMulAdd {
   // Validation support
   bool isAllowed() const { return true; }
   bool isArgumentListValid() const {
-    if (7 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands())
+    if (6 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands())
       return false;
     return true;
   }
@@ -10794,7 +10794,6 @@ struct DxilInst_LinAlgMatVecMulAdd {
     arg_inputVector = 3,
     arg_inputInterpretation = 4,
     arg_biasVector = 5,
-    arg_biasInterpretation = 6,
   };
   // Accessors
   llvm::Value *get_matrix() const { return Instr->getOperand(1); }
@@ -10807,8 +10806,6 @@ struct DxilInst_LinAlgMatVecMulAdd {
   void set_inputInterpretation(llvm::Value *val) { Instr->setOperand(4, val); }
   llvm::Value *get_biasVector() const { return Instr->getOperand(5); }
   void set_biasVector(llvm::Value *val) { Instr->setOperand(5, val); }
-  llvm::Value *get_biasInterpretation() const { return Instr->getOperand(6); }
-  void set_biasInterpretation(llvm::Value *val) { Instr->setOperand(6, val); }
 };
 
 /// This instruction accumulates a matrix to a RWByteAddressBuffer
