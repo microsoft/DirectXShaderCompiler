@@ -114,7 +114,7 @@ struct TypedMatrix {
 };
 
 struct MatrixBufferLayout {
-  LinalgMatrixLayout Layout;
+  MatrixLayout Layout;
   size_t OffsetBytes;
   size_t StrideBytes;
 };
@@ -427,9 +427,9 @@ static std::optional<TypedMatrix> transposeMatrix(const TypedMatrix &Source) {
   }
 }
 
-static bool isMemoryLayout(LinalgMatrixLayout Layout) {
-  return Layout == LinalgMatrixLayout::RowMajor ||
-         Layout == LinalgMatrixLayout::ColumnMajor;
+static bool isMemoryLayout(MatrixLayout Layout) {
+  return Layout == MatrixLayout::RowMajor ||
+         Layout == MatrixLayout::ColumnMajor;
 }
 
 static std::optional<size_t>
@@ -446,10 +446,8 @@ getMatrixBufferSize(ComponentType CompType, MatrixDim M, MatrixDim N,
   }
 
   const size_t ElementBytes = elementSize(CompType);
-  const size_t MajorCount =
-      Layout.Layout == LinalgMatrixLayout::RowMajor ? M : N;
-  const size_t MinorCount =
-      Layout.Layout == LinalgMatrixLayout::RowMajor ? N : M;
+  const size_t MajorCount = Layout.Layout == MatrixLayout::RowMajor ? M : N;
+  const size_t MinorCount = Layout.Layout == MatrixLayout::RowMajor ? N : M;
   size_t PackedMinorBytes;
   if (!checkedMultiply(MinorCount, ElementBytes, PackedMinorBytes)) {
     hlsl_test::LogErrorFmt(
@@ -495,10 +493,8 @@ getElementByteOffset(ComponentType CompType, MatrixDim M, MatrixDim N,
   if (Row >= M || Column >= N)
     return std::nullopt;
 
-  const size_t Major =
-      Layout.Layout == LinalgMatrixLayout::RowMajor ? Row : Column;
-  const size_t Minor =
-      Layout.Layout == LinalgMatrixLayout::RowMajor ? Column : Row;
+  const size_t Major = Layout.Layout == MatrixLayout::RowMajor ? Row : Column;
+  const size_t Minor = Layout.Layout == MatrixLayout::RowMajor ? Column : Row;
   size_t MajorOffset;
   size_t MinorOffset;
   size_t ByteOffset;
@@ -1011,7 +1007,7 @@ void LinAlgCPUOracleTests::TypedMatrixBufferRoundTrip() {
     if (!Matrix.has_value())
       return false;
     MatrixBufferLayout Layout = {
-        LinalgMatrixLayout::RowMajor,
+        MatrixLayout::RowMajor,
         /*OffsetBytes=*/0,
         /*StrideBytes=*/ExpectedBytes.size(),
     };
@@ -1046,7 +1042,7 @@ void LinAlgCPUOracleTests::TypedMatrixBufferRoundTrip() {
   VERIFY_IS_TRUE(Matrix.has_value());
 
   MatrixBufferLayout RowMajor = {
-      LinalgMatrixLayout::RowMajor,
+      MatrixLayout::RowMajor,
       /*OffsetBytes=*/4,
       /*StrideBytes=*/16,
   };
@@ -1066,7 +1062,7 @@ void LinAlgCPUOracleTests::TypedMatrixBufferRoundTrip() {
                                     RowMajor, Exact, /*Verbose=*/false));
 
   MatrixBufferLayout ColumnMajor = {
-      LinalgMatrixLayout::ColumnMajor,
+      MatrixLayout::ColumnMajor,
       /*OffsetBytes=*/4,
       /*StrideBytes=*/12,
   };
@@ -1117,7 +1113,7 @@ void LinAlgCPUOracleTests::TypedMatrixBufferRoundTrip() {
   Params.N = 3;
   Params.Use = MatrixUse::A;
   Params.Scope = MatrixScope::Wave;
-  Params.Layout = LinalgMatrixLayout::RowMajor;
+  Params.Layout = MatrixLayout::RowMajor;
   Params.NumThreads = 4;
   Params.CompType = ComponentType::I32;
   VERIFY_IS_TRUE(buildCompilerArgs(Params).find(" -DELEM_TYPE=int") !=
