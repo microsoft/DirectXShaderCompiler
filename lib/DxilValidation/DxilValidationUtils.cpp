@@ -696,4 +696,23 @@ llvm::StringRef MatrixUseToString(DXIL::MatrixUse MU) {
   }
 }
 
+llvm::StringRef MatrixLayoutToString(DXIL::MatrixLayout ML) {
+  switch (ML) {
+  case DXIL::MatrixLayout::ColumnMajor:
+    return "ColumnMajor";
+  case DXIL::MatrixLayout::RowMajor:
+    return "RowMajor";
+  case DXIL::MatrixLayout::MulOptimal:
+    return "MulOptimal";
+  case DXIL::MatrixLayout::MulOptimalTranspose:
+    return "MulOptimalTranspose";
+  case DXIL::MatrixLayout::OuterProductOptimal:
+    return "OuterProductOptimal";
+  case DXIL::MatrixLayout::OuterProductOptimalTranspose:
+    return "OuterProductOptimalTranspose";
+  default:
+    return "Unknown MatrixUse";
+  }
+}
+
 } // namespace hlsl
