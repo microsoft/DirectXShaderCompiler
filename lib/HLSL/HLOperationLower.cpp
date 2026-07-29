@@ -482,9 +482,9 @@ Value *TrivialDxilOperation(Function *dxilFunc, OP::OpCode opcode,
 Value *TrivialDxilVectorOperation(Function *Func, OP::OpCode Opcode,
                                   ArrayRef<Value *> Args, Type *Ty, OP *OP,
                                   IRBuilder<> &Builder) {
-  return CreateTrivialDxilCall(
-      Func, Opcode, Args, Ty->isVoidTy() ? "" : OP->GetOpCodeName(Opcode),
-      Builder);
+  return CreateTrivialDxilCall(Func, Opcode, Args,
+                               Ty->isVoidTy() ? "" : OP->GetOpCodeName(Opcode),
+                               Builder);
 }
 
 // Generates a DXIL operation with the overloaded type based on `Ty` and return
