@@ -33,7 +33,28 @@ typedef struct D3D12_FEATURE_DATA_D3D12_OPTIONS_PREVIEW {
 
 using namespace hlsl_test;
 
-static bool useDebugIfaces() { return true; }
+// Disabled by default for HLK runs.
+static bool debugLayerOnByDefault() {
+#ifdef _HLK_CONF
+  return false;
+#else
+  return true;
+#endif
+}
+
+// /p:D3D12DebugLayer=true or /p:D3D12DebugLayer=false overrides the default.
+static bool useDebugIfaces() {
+  static const bool Enabled = [] {
+    bool Value = debugLayerOnByDefault();
+    WEX::TestExecution::RuntimeParameters::TryGetValue(L"D3D12DebugLayer",
+                                                       Value);
+    return Value;
+  }();
+  return Enabled;
+}
+
+// Set when the debug layer has been enabled.
+static bool DebugLayerEnabled = false;
 
 bool useDxbc() {
 #ifdef _HLK_CONF
@@ -94,6 +115,106 @@ static UINT getD3D12SDKVersion(std::wstring SDKPath) {
     LogCommentFmt(L"%s - unable to load", D3DCorePath.c_str());
   }
   return SDKVersion;
+}
+
+// Severities are ordered most-to-least severe (CORRUPTION == 0), so a message
+// is reported when its severity is <= this threshold. -1 reports nothing.
+static int DebugMessageSeverityThreshold = D3D12_MESSAGE_SEVERITY_ERROR;
+
+// /p:D3D12DebugMessageSeverity accepts "none" or a D3D12_MESSAGE_SEVERITY name:
+// "corruption", "error", "warning", "info" or "message".
+static int getDebugMessageSeverityThreshold() {
+  WEX::Common::String Value;
+  if (FAILED(WEX::TestExecution::RuntimeParameters::TryGetValue(
+          L"D3D12DebugMessageSeverity", Value)))
+    return D3D12_MESSAGE_SEVERITY_ERROR;
+
+  const wchar_t *Name = Value;
+  if (_wcsicmp(Name, L"none") == 0)
+    return -1;
+  if (_wcsicmp(Name, L"corruption") == 0)
+    return D3D12_MESSAGE_SEVERITY_CORRUPTION;
+  if (_wcsicmp(Name, L"error") == 0)
+    return D3D12_MESSAGE_SEVERITY_ERROR;
+  if (_wcsicmp(Name, L"warning") == 0)
+    return D3D12_MESSAGE_SEVERITY_WARNING;
+  if (_wcsicmp(Name, L"info") == 0)
+    return D3D12_MESSAGE_SEVERITY_INFO;
+  if (_wcsicmp(Name, L"message") == 0)
+    return D3D12_MESSAGE_SEVERITY_MESSAGE;
+
+  LogWarningFmt(L"Unrecognized D3D12DebugMessageSeverity '%s'. Using 'error'.",
+                Name);
+  return D3D12_MESSAGE_SEVERITY_ERROR;
+}
+
+// Routes debug layer messages into the test log; they are otherwise emitted via
+// OutputDebugString and only visible under a debugger. Logged as comments, so
+// they never alter a test outcome.
+static void __stdcall logD3D12DebugMessage(D3D12_MESSAGE_CATEGORY Category,
+                                           D3D12_MESSAGE_SEVERITY Severity,
+                                           D3D12_MESSAGE_ID ID,
+                                           LPCSTR Description, void *Context) {
+  (void)Category;
+  (void)Context;
+
+  if (static_cast<int>(Severity) > DebugMessageSeverityThreshold)
+    return;
+
+  const wchar_t *SeverityName;
+  switch (Severity) {
+  case D3D12_MESSAGE_SEVERITY_CORRUPTION:
+    SeverityName = L"CORRUPTION";
+    break;
+  case D3D12_MESSAGE_SEVERITY_ERROR:
+    SeverityName = L"ERROR";
+    break;
+  case D3D12_MESSAGE_SEVERITY_WARNING:
+    SeverityName = L"WARNING";
+    break;
+  case D3D12_MESSAGE_SEVERITY_INFO:
+    SeverityName = L"INFO";
+    break;
+  default:
+    SeverityName = L"MESSAGE";
+    break;
+  }
+
+  LogCommentFmt(L"D3D12 %s [id %u]: %s", SeverityName, static_cast<UINT>(ID),
+                static_cast<const wchar_t *>(CA2W(Description)));
+}
+
+// Routes debug layer messages for this device into the test log.
+static void logDebugLayerMessages(ID3D12Device *Device) {
+  CComPtr<ID3D12InfoQueue> InfoQueue;
+  if (FAILED(Device->QueryInterface(&InfoQueue))) {
+    if (DebugLayerEnabled)
+      LogWarningFmt(L"The debug layer was enabled but this device does not "
+                    L"expose ID3D12InfoQueue. D3D12 debug layer messages will "
+                    L"not be reported.");
+    return;
+  }
+
+  InfoQueue->SetMuteDebugOutput(FALSE);
+
+  CComPtr<ID3D12InfoQueue1> InfoQueue1;
+  if (FAILED(InfoQueue->QueryInterface(&InfoQueue1))) {
+    LogWarningFmt(L"Device does not expose ID3D12InfoQueue1. D3D12 debug "
+                  L"layer messages will not be reported.");
+    return;
+  }
+
+  DebugMessageSeverityThreshold = getDebugMessageSeverityThreshold();
+
+  // The callback is unregistered implicitly when the device is destroyed.
+  DWORD CallbackCookie = 0;
+  HRESULT HR = InfoQueue1->RegisterMessageCallback(
+      logD3D12DebugMessage, D3D12_MESSAGE_CALLBACK_FLAG_NONE, nullptr,
+      &CallbackCookie);
+  if (FAILED(HR))
+    LogWarningFmt(L"RegisterMessageCallback failed: 0x%08x. D3D12 debug "
+                  L"layer messages will not be reported.",
+                  HR);
 }
 
 static bool createDevice(
@@ -221,11 +342,8 @@ static bool createDevice(
     }
   }
 
-  if (useDebugIfaces()) {
-    CComPtr<ID3D12InfoQueue> InfoQueue;
-    if (SUCCEEDED(D3DDeviceCom->QueryInterface(&InfoQueue)))
-      InfoQueue->SetMuteDebugOutput(FALSE);
-  }
+  if (useDebugIfaces())
+    logDebugLayerMessages(D3DDeviceCom);
 
   *D3DDevice = D3DDeviceCom.Detach();
   return true;
@@ -246,7 +364,10 @@ void readHlslDataIntoNewStream(LPCWSTR RelativePath, IStream **Stream,
   *Stream = StreamCom.Detach();
 }
 
-static bool enableDebugLayer() {
+// Enables the debug layer on the process-global D3D12Core, so it must be called
+// after the global Agility SDK version has been selected. Devices created
+// through an ID3D12DeviceFactory need enableDebugLayerOnFactory() instead.
+static bool enableGlobalDebugLayer() {
   CComPtr<ID3D12Debug> DebugController;
   HRESULT HR;
   if (FAILED(HR = D3D12GetDebugInterface(IID_PPV_ARGS(&DebugController)))) {
@@ -255,6 +376,7 @@ static bool enableDebugLayer() {
   }
 
   DebugController->EnableDebugLayer();
+  DebugLayerEnabled = true;
   return true;
 }
 
@@ -374,6 +496,13 @@ setGlobalConfiguration(const std::optional<AgilitySDKConfiguration> &C) {
   else
     LogCommentFmt(L"Agility SDK not enabled.");
 
+  if (!useDebugIfaces())
+    LogCommentFmt(L"Debug layer disabled.");
+  else if (enableGlobalDebugLayer())
+    LogCommentFmt(L"Debug layer enabled.");
+  else
+    LogCommentFmt(L"Debug layer not enabled.");
+
   if (enableGlobalExperimentalMode())
     LogCommentFmt(L"Experimental mode enabled.");
   else
@@ -393,6 +522,22 @@ static bool enableExperimentalMode(ID3D12DeviceFactory *DeviceFactory) {
     return false;
   }
 
+  return true;
+}
+
+// An ID3D12DeviceFactory hosts its own D3D12Core, so the debug layer must be
+// enabled through the factory's configuration interface.
+static bool enableDebugLayerOnFactory(ID3D12DeviceFactory *DeviceFactory) {
+  CComPtr<ID3D12Debug> DebugController;
+  HRESULT HR;
+  if (FAILED(HR = DeviceFactory->GetConfigurationInterface(
+                 CLSID_D3D12Debug, IID_PPV_ARGS(&DebugController)))) {
+    LogWarningFmt(L"Failed to get ID3D12Debug from device factory: 0x%08x", HR);
+    return false;
+  }
+
+  DebugController->EnableDebugLayer();
+  DebugLayerEnabled = true;
   return true;
 }
 
@@ -420,6 +565,13 @@ createDeviceFactorySDK(const AgilitySDKConfiguration &C) {
   LogCommentFmt(L"Using DeviceFactory for SDKVersion %d, SDKPath %s",
                 C.SDKVersion, static_cast<const wchar_t *>(C.SDKPath));
 
+  if (!useDebugIfaces())
+    LogCommentFmt(L"Debug layer disabled.");
+  else if (enableDebugLayerOnFactory(DeviceFactory))
+    LogCommentFmt(L"Debug layer enabled on device factory.");
+  else
+    LogCommentFmt(L"Debug layer not enabled on device factory.");
+
   if (enableExperimentalMode(DeviceFactory))
     LogCommentFmt(L"Experimental mode enabled.");
   else
@@ -429,14 +581,10 @@ createDeviceFactorySDK(const AgilitySDKConfiguration &C) {
 }
 
 D3D12SDKSelector::D3D12SDKSelector() {
-  if (enableDebugLayer())
-    LogCommentFmt(L"Debug layer enabled");
-  else
-    LogCommentFmt(L"Debug layer not enabled");
-
   std::optional<AgilitySDKConfiguration> C = getAgilitySDKConfiguration();
 
   if (C && C->SDKVersion > 0) {
+    // createDeviceFactorySDK() enables the debug layer on the factory itself.
     CComPtr<ID3D12DeviceFactory> DeviceFactory = createDeviceFactorySDK(*C);
     if (DeviceFactory) {
       this->DeviceFactory = DeviceFactory;
