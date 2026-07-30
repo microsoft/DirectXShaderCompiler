@@ -7,6 +7,15 @@ parameters:
     displayName: 'WARP version'
     type: string
     default: '1.0.19'
+  # TEMPORARY: Azure Artifacts publishing is failing org-wide with
+  # "Artifact cannot be uploaded because max quantity has been exceeded or the
+  # payment instrument is invalid" (https://aka.ms/artbilling). The offload
+  # tests hand binaries between jobs via a pipeline artifact, so they cannot
+  # run until that is resolved. Flip this back to true once it is.
+  - name: enableOffloadTests
+    displayName: 'Run offload tests (requires pipeline artifact publishing)'
+    type: boolean
+    default: false
 
 trigger:
   - main
@@ -38,7 +47,10 @@ stages:
         VS2022_Release:
          configuration: Release
          spirvBuildFlag: -spirvtest
-         artifactName: dxc_spirv_release
+         ${{ if parameters.enableOffloadTests }}:
+           artifactName: dxc_spirv_release
+         ${{ else }}:
+           artifactName: ''
         VS2022_Debug:
          configuration: Debug
          spirvBuildFlag: -spirvtest
@@ -235,7 +247,10 @@ stages:
   dependsOn:
   - Build
   - OffloadGate
-  condition: and(succeededOrFailed(), eq(dependencies.OffloadGate.outputs['gate.decide.run'], 'true'))
+  ${{ if parameters.enableOffloadTests }}:
+    condition: and(succeededOrFailed(), eq(dependencies.OffloadGate.outputs['gate.decide.run'], 'true'))
+  ${{ else }}:
+    condition: false
 
   jobs:
   - job: Offload
