@@ -1635,6 +1635,18 @@ void SpirvEmitter::doFunctionDecl(const FunctionDecl *decl) {
     }
   }
 
+  // Apply inline-SPIR-V attributes written directly on an ordinary function to
+  // its OpFunction:
+  //   [[vk::ext_decorate(d, ...)]]  -> OpDecorate targeting the OpFunction
+  //   [[vk::ext_capability(c)]]     -> OpCapability for the module
+  //   [[vk::ext_extension("...")]]  -> OpExtension for the module
+  // Entry points are excluded: their function-level attributes apply to stage-
+  // variables, not the OpFunction.
+  if (!isEntry) {
+    declIdMapper.decorateWithIntrinsicAttrs(decl, func);
+    declIdMapper.registerCapabilitiesAndExtensionsForDecl(decl);
+  }
+
   if (spirvOptions.debugInfoRich) {
     if (srcDebugFunction) {
       spvContext.pushDebugLexicalScope(info, srcDebugFunction);
