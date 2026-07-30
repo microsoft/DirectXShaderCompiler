@@ -8692,6 +8692,10 @@ class db_dxil(object):
             "Instr.LinAlgMatrixUnsignedFloatTypeNotAllowed",
             "Float-like type '%0' must be signed",
         )
+        self.add_valrule(
+            "Instr.LinAlgMatrixLoadThreadRequiresSRV",
+            "Loading matrix with Thread scope requires SRV resource.",
+        )
 
         # Some legacy rules:
         # - space is only supported for shader targets 5.1 and higher
