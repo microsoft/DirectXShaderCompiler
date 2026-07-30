@@ -5914,7 +5914,7 @@ buildOuterProductCompilerArgs(const OuterProductCaseData &Case) {
   SS << " -DRESULT_COMP_TYPE=" << static_cast<int>(Case.ResultType);
   SS << " -DINPUT_ELEM_SIZE=" << static_cast<int>(elementSize(Case.InputType));
   SS << " -DOUTPUT_LAYOUT="
-     << static_cast<int>(LinalgMatrixLayout::OuterProductOptimal);
+     << static_cast<int>(MatrixLayout::OuterProductOptimal);
   SS << " -DM_DIM=" << Case.M;
   SS << " -DN_DIM=" << Case.N;
   if (needs16BitTypes(Case.InputType) || needs16BitTypes(Case.ResultType))
