@@ -1033,9 +1033,8 @@ private:
       for (BasicBlock &BB : F) {
         for (Instruction &I : BB) {
           CallSite CS(&I);
-          if (!CS ||
-              !CS.getAttributes().hasAttribute(
-                  AttributeSet::FunctionIndex, Attribute::Convergent))
+          if (!CS || !CS.getAttributes().hasAttribute(
+                         AttributeSet::FunctionIndex, Attribute::Convergent))
             continue;
 
           CS.setAttributes(CS.getAttributes().removeAttribute(
