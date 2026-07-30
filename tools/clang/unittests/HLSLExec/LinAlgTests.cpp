@@ -1300,8 +1300,8 @@ encodeLogicalMatrixBuffer(const MatrixParams &Matrix,
       !checkedMultiply(static_cast<size_t>(Matrix.M), Matrix.N,
                        ExpectedElements) ||
       Values.size() != ExpectedElements ||
-      (Matrix.Layout != LinalgMatrixLayout::RowMajor &&
-       Matrix.Layout != LinalgMatrixLayout::ColumnMajor))
+      (Matrix.Layout != MatrixLayout::RowMajor &&
+       Matrix.Layout != MatrixLayout::ColumnMajor))
     return std::nullopt;
 
   const std::optional<std::vector<BYTE>> LogicalComponents =
@@ -1315,9 +1315,9 @@ encodeLogicalMatrixBuffer(const MatrixParams &Matrix,
     return std::nullopt;
   const size_t Stride = Matrix.strideBytes();
   const size_t MinorCount =
-      Matrix.Layout == LinalgMatrixLayout::RowMajor ? Matrix.N : Matrix.M;
+      Matrix.Layout == MatrixLayout::RowMajor ? Matrix.N : Matrix.M;
   const size_t MajorCount =
-      Matrix.Layout == LinalgMatrixLayout::RowMajor ? Matrix.M : Matrix.N;
+      Matrix.Layout == MatrixLayout::RowMajor ? Matrix.M : Matrix.N;
   size_t MinimumStride;
   if (!checkedMultiply(MinorCount, ComponentSize, MinimumStride) ||
       LogicalComponents->size() < LogicalByteCount || Stride < MinimumStride)
@@ -1332,7 +1332,7 @@ encodeLogicalMatrixBuffer(const MatrixParams &Matrix,
       const size_t SourceOffset =
           (static_cast<size_t>(Row) * Matrix.N + Column) * ComponentSize;
       const size_t DestinationOffset =
-          Matrix.Layout == LinalgMatrixLayout::RowMajor
+          Matrix.Layout == MatrixLayout::RowMajor
               ? static_cast<size_t>(Row) * Stride + Column * ComponentSize
               : static_cast<size_t>(Column) * Stride + Row * ComponentSize;
       std::memcpy(Buffer.data() + DestinationOffset,
@@ -4156,7 +4156,7 @@ static MatrixParams makeWaveArithmeticParams(ComponentType CompType,
   Params.N = N;
   Params.Use = Use;
   Params.Scope = MatrixScope::Wave;
-  Params.Layout = LinalgMatrixLayout::RowMajor;
+  Params.Layout = MatrixLayout::RowMajor;
   Params.NumThreads = static_cast<int>(WaveSize);
   Params.Enable16Bit = needs16BitTypes(CompType);
   return Params;
