@@ -3962,7 +3962,7 @@ static const char MatVecMulAddShader[] = R"(
 
     vector<OUTPUT_TYPE, M_DIM> OutVec;
     __builtin_LinAlg_MatrixVectorMultiplyAdd(
-      OutVec, Mat, OUTPUT_SIGNED, InVec, INPUT_INTERP, BiasVec, BIAS_INTERP);
+      OutVec, Mat, OUTPUT_SIGNED, InVec, INPUT_INTERP, BiasVec);
 
     for (uint I = 0; I < M_DIM; ++I) {
       Output.Store<OUTPUT_TYPE>(I * OUTPUT_SIZE, OutVec[I]);
@@ -4140,7 +4140,6 @@ buildMatVecCompilerArgs(const MatVecCaseData &Case) {
        << cpu_oracle::vectorStorageCount(Case.BiasInputType, Case.Matrix.M);
     SS << " -DBIAS_STORAGE_SIZE="
        << cpu_oracle::vectorStorageElementSize(Case.BiasInputType);
-    SS << " -DBIAS_INTERP=" << static_cast<int>(Case.BiasInputType);
   }
 
   if (needs16BitTypes(Case.Matrix.CompType) ||
@@ -4380,11 +4379,10 @@ static void runMatVecMulAdd(ID3D12Device *Device,
                             dxc::SpecificDllLoader &DxcSupport,
                             const MatrixParams &Params, bool Verbose,
                             int FillValue, bool OutputSigned,
-                            ComponentType InputInterp,
-                            ComponentType BiasInterp) {
+                            ComponentType InputInterp) {
   runMatVecCase(Device, DxcSupport,
                 makeUniformMatVecCase(Params, FillValue, OutputSigned,
-                                      InputInterp, BiasInterp),
+                                      InputInterp, Params.CompType),
                 Verbose);
 }
 
