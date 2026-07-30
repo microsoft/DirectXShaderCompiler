@@ -413,17 +413,17 @@ void main() {
 
   // CHECK-NOT: extractelement
   // CHECK-NOT: insertelement
-  // CHECK: [[tmp:%.*]] = call <[[NUM]] x half> @dx.op.unary.[[HTY]](i32 83, <[[NUM]] x half> [[hvec1]]) #[[CONV:[0-9]+]]  ; DerivCoarseX(value)
+  // CHECK: [[tmp:%.*]] = call <[[NUM]] x half> @dx.op.unary.[[HTY]](i32 83, <[[NUM]] x half> [[hvec1]])  ; DerivCoarseX(value)
   // CHECK: call <[[NUM]] x half> @dx.op.unary.[[HTY]](i32 6, <[[NUM]] x half> [[tmp]])  ; FAbs(value)
-  // CHECK: [[tmp:%.*]] = call <[[NUM]] x half> @dx.op.unary.[[HTY]](i32 84, <[[NUM]] x half> [[hvec1]]) #[[CONV]]  ; DerivCoarseY(value)
+  // CHECK: [[tmp:%.*]] = call <[[NUM]] x half> @dx.op.unary.[[HTY]](i32 84, <[[NUM]] x half> [[hvec1]])  ; DerivCoarseY(value)
   // CHECK: call <[[NUM]] x half> @dx.op.unary.[[HTY]](i32 6, <[[NUM]] x half> [[tmp]])  ; FAbs(value)
   hRes += fwidth(hVec1);
 
   // CHECK-NOT: extractelement
   // CHECK-NOT: insertelement
-  // CHECK: [[tmp:%.*]] = call <[[NUM]] x float> @dx.op.unary.[[FTY]](i32 83, <[[NUM]] x float> [[fvec1]]) #[[CONV]]  ; DerivCoarseX(value)
+  // CHECK: [[tmp:%.*]] = call <[[NUM]] x float> @dx.op.unary.[[FTY]](i32 83, <[[NUM]] x float> [[fvec1]])  ; DerivCoarseX(value)
   // CHECK: call <[[NUM]] x float> @dx.op.unary.[[FTY]](i32 6, <[[NUM]] x float> [[tmp]])  ; FAbs(value)
-  // CHECK: [[tmp:%.*]] = call <[[NUM]] x float> @dx.op.unary.[[FTY]](i32 84, <[[NUM]] x float> [[fvec1]]) #[[CONV]]  ; DerivCoarseY(value)
+  // CHECK: [[tmp:%.*]] = call <[[NUM]] x float> @dx.op.unary.[[FTY]](i32 84, <[[NUM]] x float> [[fvec1]])  ; DerivCoarseY(value)
   // CHECK: call <[[NUM]] x float> @dx.op.unary.[[FTY]](i32 6, <[[NUM]] x float> [[tmp]])  ; FAbs(value)
   fRes += fwidth(fVec1);
 
@@ -555,5 +555,3 @@ void main() {
   ibuf.Store<vector<int64_t, NUM> >(4096, lRes);
   ibuf.Store<vector<uint64_t, NUM> >(5120, ulRes);
 }
-
-// CHECK: attributes #[[CONV]] = { convergent }

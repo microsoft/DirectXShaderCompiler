@@ -1005,6 +1005,8 @@ public:
       // Clear intermediate options that shouldn't be in the final DXIL
       DM.ClearIntermediateOptions();
 
+      StripDxilOpConvergentAttrs(M);
+
       // Remove unused AllocateRayQuery calls
       RemoveUnusedRayQuery(M);
 
@@ -1023,6 +1025,26 @@ public:
   }
 
 private:
+  void StripDxilOpConvergentAttrs(Module &M) {
+    for (Function &F : M) {
+      for (BasicBlock &BB : F) {
+        for (Instruction &I : BB) {
+          CallInst *CI = dyn_cast<CallInst>(&I);
+          if (!CI ||
+              !CI->getAttributes().hasAttribute(
+                  AttributeSet::FunctionIndex, Attribute::Convergent) ||
+              !OP::IsDxilOpFuncCallInst(CI) ||
+              !OP::IsDxilOpConvergent(OP::getOpCode(CI)))
+            continue;
+
+          CI->removeAttribute(
+              AttributeSet::FunctionIndex,
+              Attribute::get(M.getContext(), Attribute::Convergent));
+        }
+      }
+    }
+  }
+
   void RemoveUnusedStaticGlobal(Module &M) {
     // Remove unused internal global.
     std::vector<GlobalVariable *> staticGVs;

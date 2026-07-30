@@ -11,6 +11,7 @@
 // RUN: %dxc -T cs_6_9 -DFUNC=ddy %s                  | FileCheck %s
 // RUN: %dxc -T cs_6_9 -DFUNC=ddy_coarse %s           | FileCheck %s
 // RUN: %dxc -T cs_6_9 -DFUNC=ddy_fine %s             | FileCheck %s
+// RUN: %dxc -T cs_6_6 -DSCALAR -DFUNC=ddx -print-before hlsl-dxilfinalize %s 2>&1 | FileCheck %s --check-prefix=PRE-FINALIZE
 // RUN: %dxc -T cs_6_6 -fcgl -DSCALAR -DFUNC=ddx %s        | FileCheck %s --check-prefixes=HL,HL-DDX
 // RUN: %dxc -T cs_6_6 -fcgl -DSCALAR -DFUNC=ddx_coarse %s | FileCheck %s --check-prefixes=HL,HL-DDX-COARSE
 // RUN: %dxc -T cs_6_6 -fcgl -DSCALAR -DFUNC=ddx_fine %s   | FileCheck %s --check-prefixes=HL,HL-DDX-FINE
@@ -35,7 +36,7 @@ void main() {
 
   // Derivatives require all quad lanes, so the call must remain before the
   // divergent branch even though only lane 3 consumes the result.
-  // CHECK: call {{(<3 x float>|float)}} @dx.op.unary{{.*}}(i32 {{8[3-6]}}, {{.*}}) #[[CONV:[0-9]+]]
+  // CHECK: call {{(<3 x float>|float)}} @dx.op.unary{{.*}}(i32 {{8[3-6]}}, {{.*}})
   // CHECK: icmp eq i32
   // CHECK-NEXT: br i1
   if (laneIndex == 3) {
@@ -47,7 +48,10 @@ void main() {
   }
 }
 
-// CHECK: attributes #[[CONV]] = { convergent }
+// CHECK-NOT: convergent
+
+// PRE-FINALIZE: call float @dx.op.unary.f32(i32 83, {{.*}}) #[[DXIL_CONV:[0-9]+]]
+// PRE-FINALIZE: attributes #[[DXIL_CONV]] = { convergent }
 
 // HL-DDX: call float @"dx.hl.op.cvrn.float (i32, float)"(i32 125,
 // HL-DDX-COARSE: call float @"dx.hl.op.cvrn.float (i32, float)"(i32 126,
