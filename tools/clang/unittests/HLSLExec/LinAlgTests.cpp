@@ -2993,7 +2993,7 @@ void DxilConf_SM610_LinAlg::AccumulateDescriptorContention_Wave_4x8_I32() {
   Params.N = 8;
   Params.Use = MatrixUse::Accumulator;
   Params.Scope = MatrixScope::Wave;
-  Params.Layout = LinalgMatrixLayout::RowMajor;
+  Params.Layout = MatrixLayout::RowMajor;
   Params.NumThreads = 64;
   Params.Enable16Bit = false;
 
@@ -3032,12 +3032,12 @@ void DxilConf_SM610_LinAlg::AccumulateDescriptorContention_Wave_4x8_I32() {
     return;
 
   const cpu_oracle::MatrixBufferLayout SourceLayout = {
-      LinalgMatrixLayout::RowMajor,
+      MatrixLayout::RowMajor,
       /*OffsetBytes=*/0,
       /*StrideBytes=*/32,
   };
   const cpu_oracle::MatrixBufferLayout DestinationLayout = {
-      LinalgMatrixLayout::RowMajor,
+      MatrixLayout::RowMajor,
       /*OffsetBytes=*/16,
       /*StrideBytes=*/40,
   };
@@ -3058,7 +3058,7 @@ void DxilConf_SM610_LinAlg::
   Params.N = 8;
   Params.Use = MatrixUse::Accumulator;
   Params.Scope = MatrixScope::Wave;
-  Params.Layout = LinalgMatrixLayout::RowMajor;
+  Params.Layout = MatrixLayout::RowMajor;
   Params.NumThreads = 64;
   Params.Enable16Bit = false;
 
@@ -3099,12 +3099,12 @@ void DxilConf_SM610_LinAlg::
     return;
 
   const cpu_oracle::MatrixBufferLayout SourceLayout = {
-      LinalgMatrixLayout::RowMajor,
+      MatrixLayout::RowMajor,
       /*OffsetBytes=*/0,
       /*StrideBytes=*/32,
   };
   const cpu_oracle::MatrixBufferLayout DestinationLayout = {
-      LinalgMatrixLayout::RowMajor,
+      MatrixLayout::RowMajor,
       /*OffsetBytes=*/16,
       /*StrideBytes=*/40,
   };
@@ -7274,7 +7274,7 @@ void DxilConf_SM610_LinAlg::AccumulateMemoryContention_Wave_4x8_I32() {
   Params.N = 8;
   Params.Use = MatrixUse::Accumulator;
   Params.Scope = MatrixScope::Wave;
-  Params.Layout = LinalgMatrixLayout::RowMajor;
+  Params.Layout = MatrixLayout::RowMajor;
   Params.NumThreads = 64;
   Params.Enable16Bit = false;
 
@@ -7294,7 +7294,7 @@ void DxilConf_SM610_LinAlg::AccumulateMemoryContention_Wave_4x8_I32() {
                                 L"AccumulateMemoryContention_Wave_4x8_I32"))
     return;
 
-  const GroupSharedMemorySpec Memory = {{LinalgMatrixLayout::RowMajor,
+  const GroupSharedMemorySpec Memory = {{MatrixLayout::RowMajor,
                                          /*OffsetBytes=*/16,
                                          /*StrideBytes=*/40}};
   runGroupSharedAccumulate(D3DDevice, DxcSupport, Params, Memory,
@@ -7309,7 +7309,7 @@ void DxilConf_SM610_LinAlg::AccumulateMemoryContention_Wave_4x8_F16() {
   Params.N = 8;
   Params.Use = MatrixUse::Accumulator;
   Params.Scope = MatrixScope::Wave;
-  Params.Layout = LinalgMatrixLayout::RowMajor;
+  Params.Layout = MatrixLayout::RowMajor;
   Params.NumThreads = 64;
   Params.Enable16Bit = true;
 
@@ -7329,7 +7329,7 @@ void DxilConf_SM610_LinAlg::AccumulateMemoryContention_Wave_4x8_F16() {
                                 L"AccumulateMemoryContention_Wave_4x8_F16"))
     return;
 
-  const GroupSharedMemorySpec Memory = {{LinalgMatrixLayout::RowMajor,
+  const GroupSharedMemorySpec Memory = {{MatrixLayout::RowMajor,
                                          /*OffsetBytes=*/8,
                                          /*StrideBytes=*/24}};
   runGroupSharedAccumulate(D3DDevice, DxcSupport, Params, Memory,
