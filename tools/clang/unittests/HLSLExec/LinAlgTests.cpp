@@ -2768,9 +2768,8 @@ static HRESULT queryThreadVectorMatrixMultiplySupport(
   const bool SupportsTranspose =
       (SupportFlags &
        static_cast<UINT>(linalg_test::MultiplicationFlags::Transpose)) != 0;
-  Supported =
-      Support.supported() &&
-      (Params.Layout != LinalgMatrixLayout::ColumnMajor || SupportsTranspose);
+  Supported = Support.supported() &&
+              (Params.Layout != MatrixLayout::ColumnMajor || SupportsTranspose);
   if (!Supported)
     hlsl_test::LogCommentFmt(
         L"Thread-vector matrix multiplication is unsupported for %s", CaseName);
@@ -3994,8 +3993,8 @@ static bool isMatVecCaseValid(const MatVecCaseData &Case) {
   if (Case.Matrix.M == 0 || Case.Matrix.N == 0 ||
       Case.Matrix.Use != MatrixUse::A ||
       Case.Matrix.Scope != MatrixScope::Thread ||
-      (Case.Matrix.Layout != LinalgMatrixLayout::RowMajor &&
-       Case.Matrix.Layout != LinalgMatrixLayout::ColumnMajor) ||
+      (Case.Matrix.Layout != MatrixLayout::RowMajor &&
+       Case.Matrix.Layout != MatrixLayout::ColumnMajor) ||
       Case.Matrix.NumThreads != 1 ||
       Case.MatrixValues.size() != MatrixElementCount ||
       Case.InterpretedVectorValues.size() != Case.Matrix.N ||
@@ -4051,10 +4050,10 @@ encodeMatVecMatrix(const MatVecCaseData &Case) {
   const size_t LogicalByteCount =
       static_cast<size_t>(Case.Matrix.M) * Case.Matrix.N * ComponentSize;
   const size_t Stride = Case.Matrix.strideBytes();
-  const size_t MinorCount = Case.Matrix.Layout == LinalgMatrixLayout::RowMajor
+  const size_t MinorCount = Case.Matrix.Layout == MatrixLayout::RowMajor
                                 ? Case.Matrix.N
                                 : Case.Matrix.M;
-  const size_t MajorCount = Case.Matrix.Layout == LinalgMatrixLayout::RowMajor
+  const size_t MajorCount = Case.Matrix.Layout == MatrixLayout::RowMajor
                                 ? Case.Matrix.M
                                 : Case.Matrix.N;
   if (LogicalComponents->size() < LogicalByteCount ||
@@ -4070,7 +4069,7 @@ encodeMatVecMatrix(const MatVecCaseData &Case) {
       const size_t SourceOffset =
           (static_cast<size_t>(Row) * Case.Matrix.N + Column) * ComponentSize;
       const size_t DestinationOffset =
-          Case.Matrix.Layout == LinalgMatrixLayout::RowMajor
+          Case.Matrix.Layout == MatrixLayout::RowMajor
               ? static_cast<size_t>(Row) * Stride + Column * ComponentSize
               : static_cast<size_t>(Column) * Stride + Row * ComponentSize;
       std::memcpy(Buffer.data() + DestinationOffset,
@@ -4248,7 +4247,7 @@ static void runCapabilityCheckedMatVec(
 
 static MatrixParams makeThreadMatVecParams(ComponentType MatrixType,
                                            MatrixDim M, MatrixDim N,
-                                           LinalgMatrixLayout Layout) {
+                                           MatrixLayout Layout) {
   MatrixParams Params = {};
   Params.CompType = MatrixType;
   Params.M = M;
@@ -4284,7 +4283,7 @@ makeUniformMatVecCase(const MatrixParams &Params, int FillValue,
   return Case;
 }
 
-static MatVecCaseData makeNonUniformF16MatVecCase(LinalgMatrixLayout Layout) {
+static MatVecCaseData makeNonUniformF16MatVecCase(MatrixLayout Layout) {
   MatVecCaseData Case = {};
   Case.Matrix = makeThreadMatVecParams(ComponentType::F16, 4, 8, Layout);
   Case.VectorInputType = ComponentType::F16;
@@ -4297,7 +4296,7 @@ static MatVecCaseData makeNonUniformF16MatVecCase(LinalgMatrixLayout Layout) {
   };
   Case.InterpretedVectorValues = {1, -2, 3, -1, 2, -3, 1, 2};
   Case.PublicRule =
-      Layout == LinalgMatrixLayout::RowMajor
+      Layout == MatrixLayout::RowMajor
           ? L"Exact non-uniform F16 RowMajor matrix-vector dot products"
           : L"Exact non-uniform F16 ColumnMajor matrix-vector dot products";
   return Case;
@@ -4305,8 +4304,8 @@ static MatVecCaseData makeNonUniformF16MatVecCase(LinalgMatrixLayout Layout) {
 
 static MatVecCaseData makeSInt8MatVecCase(ComponentType VectorInputType) {
   MatVecCaseData Case = {};
-  Case.Matrix = makeThreadMatVecParams(ComponentType::I8, 4, 8,
-                                       LinalgMatrixLayout::RowMajor);
+  Case.Matrix =
+      makeThreadMatVecParams(ComponentType::I8, 4, 8, MatrixLayout::RowMajor);
   Case.VectorInputType = VectorInputType;
   Case.InputInterpretation = ComponentType::I8;
   Case.ResultType = ComponentType::I32;
@@ -4332,8 +4331,8 @@ static MatVecCaseData makeSInt8MatVecCase(ComponentType VectorInputType) {
 
 static MatVecCaseData makeUInt8MatVecCase() {
   MatVecCaseData Case = {};
-  Case.Matrix = makeThreadMatVecParams(ComponentType::U8, 4, 8,
-                                       LinalgMatrixLayout::RowMajor);
+  Case.Matrix =
+      makeThreadMatVecParams(ComponentType::U8, 4, 8, MatrixLayout::RowMajor);
   Case.VectorInputType = ComponentType::U8;
   Case.InputInterpretation = ComponentType::U8;
   Case.ResultType = ComponentType::I32;
@@ -4350,8 +4349,8 @@ static MatVecCaseData makeUInt8MatVecCase() {
 
 static MatVecCaseData makeUInt32MatVecCase() {
   MatVecCaseData Case = {};
-  Case.Matrix = makeThreadMatVecParams(ComponentType::U32, 4, 8,
-                                       LinalgMatrixLayout::RowMajor);
+  Case.Matrix =
+      makeThreadMatVecParams(ComponentType::U32, 4, 8, MatrixLayout::RowMajor);
   Case.VectorInputType = ComponentType::U32;
   Case.InputInterpretation = ComponentType::U32;
   Case.ResultType = ComponentType::U32;
@@ -4391,21 +4390,20 @@ static void runMatVecMulAdd(ID3D12Device *Device,
 
 void DxilConf_SM610_LinAlg::MatVecMul_Thread_16x16_F16() {
   MatrixParams Params = makeThreadMatVecParams(ComponentType::F16, 16, 16,
-                                               LinalgMatrixLayout::RowMajor);
+                                               MatrixLayout::RowMajor);
   runMatVecMul(D3DDevice, DxcSupport, Params, VerboseLogging,
                /*FillValue=*/2, /*OutputSigned=*/true, ComponentType::F16);
 }
 
 void DxilConf_SM610_LinAlg::MatVecMul_Thread_4x8_F32() {
-  MatrixParams Params = makeThreadMatVecParams(ComponentType::F32, 4, 8,
-                                               LinalgMatrixLayout::RowMajor);
+  MatrixParams Params =
+      makeThreadMatVecParams(ComponentType::F32, 4, 8, MatrixLayout::RowMajor);
   runMatVecMul(D3DDevice, DxcSupport, Params, VerboseLogging,
                /*FillValue=*/2, /*OutputSigned=*/true, ComponentType::F32);
 }
 
 void DxilConf_SM610_LinAlg::MatVecMul_Thread_4x8_F16_NonUniform() {
-  MatVecCaseData Case =
-      makeNonUniformF16MatVecCase(LinalgMatrixLayout::RowMajor);
+  MatVecCaseData Case = makeNonUniformF16MatVecCase(MatrixLayout::RowMajor);
   runCapabilityCheckedMatVec(D3DDevice, DxcSupport, Case,
                              linalg_test::CapabilityRequirement::Mandatory,
                              L"MatVecMul_Thread_4x8_F16_NonUniform",
@@ -4413,8 +4411,7 @@ void DxilConf_SM610_LinAlg::MatVecMul_Thread_4x8_F16_NonUniform() {
 }
 
 void DxilConf_SM610_LinAlg::MatVecMul_Thread_4x8_F16_ColumnMajor() {
-  MatVecCaseData Case =
-      makeNonUniformF16MatVecCase(LinalgMatrixLayout::ColumnMajor);
+  MatVecCaseData Case = makeNonUniformF16MatVecCase(MatrixLayout::ColumnMajor);
   runCapabilityCheckedMatVec(
       D3DDevice, DxcSupport, Case,
       linalg_test::CapabilityRequirement::CapabilityGated,
@@ -4454,21 +4451,20 @@ void DxilConf_SM610_LinAlg::MatVecMul_Thread_4x8_U32_UnsignedOutput() {
 
 void DxilConf_SM610_LinAlg::MatVecMulAdd_Thread_16x16_F16() {
   MatrixParams Params = makeThreadMatVecParams(ComponentType::F16, 16, 16,
-                                               LinalgMatrixLayout::RowMajor);
+                                               MatrixLayout::RowMajor);
   runMatVecMulAdd(D3DDevice, DxcSupport, Params, VerboseLogging,
                   /*FillValue=*/2, /*OutputSigned=*/true, ComponentType::F16);
 }
 
 void DxilConf_SM610_LinAlg::MatVecMulAdd_Thread_4x8_F32() {
-  MatrixParams Params = makeThreadMatVecParams(ComponentType::F32, 4, 8,
-                                               LinalgMatrixLayout::RowMajor);
+  MatrixParams Params =
+      makeThreadMatVecParams(ComponentType::F32, 4, 8, MatrixLayout::RowMajor);
   runMatVecMulAdd(D3DDevice, DxcSupport, Params, VerboseLogging,
                   /*FillValue=*/2, /*OutputSigned=*/true, ComponentType::F32);
 }
 
 void DxilConf_SM610_LinAlg::MatVecMulAdd_Thread_4x8_F16_IndependentBias() {
-  MatVecCaseData Case =
-      makeNonUniformF16MatVecCase(LinalgMatrixLayout::RowMajor);
+  MatVecCaseData Case = makeNonUniformF16MatVecCase(MatrixLayout::RowMajor);
   Case.BiasInputType = ComponentType::F16;
   Case.BiasValues = {-5, 7, 3, -9};
   Case.PublicRule =
