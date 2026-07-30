@@ -29,6 +29,7 @@
 #include "llvm/Analysis/DxilValueCache.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/PostDominators.h"
+#include "llvm/IR/CallSite.h"
 #include "llvm/IR/DIBuilder.h"
 #include "llvm/IR/DebugInfo.h"
 #include "llvm/IR/GetElementPtrTypeIterator.h"
@@ -1005,7 +1006,7 @@ public:
       // Clear intermediate options that shouldn't be in the final DXIL
       DM.ClearIntermediateOptions();
 
-      StripDxilOpConvergentAttrs(M);
+      StripConvergentAttrs(M);
 
       // Remove unused AllocateRayQuery calls
       RemoveUnusedRayQuery(M);
@@ -1025,21 +1026,21 @@ public:
   }
 
 private:
-  void StripDxilOpConvergentAttrs(Module &M) {
+  void StripConvergentAttrs(Module &M) {
     for (Function &F : M) {
+      F.removeFnAttr(Attribute::Convergent);
+
       for (BasicBlock &BB : F) {
         for (Instruction &I : BB) {
-          CallInst *CI = dyn_cast<CallInst>(&I);
-          if (!CI ||
-              !CI->getAttributes().hasAttribute(
-                  AttributeSet::FunctionIndex, Attribute::Convergent) ||
-              !OP::IsDxilOpFuncCallInst(CI) ||
-              !OP::IsDxilOpConvergent(OP::getOpCode(CI)))
+          CallSite CS(&I);
+          if (!CS ||
+              !CS.getAttributes().hasAttribute(
+                  AttributeSet::FunctionIndex, Attribute::Convergent))
             continue;
 
-          CI->removeAttribute(
-              AttributeSet::FunctionIndex,
-              Attribute::get(M.getContext(), Attribute::Convergent));
+          CS.setAttributes(CS.getAttributes().removeAttribute(
+              M.getContext(), AttributeSet::FunctionIndex,
+              Attribute::Convergent));
         }
       }
     }
