@@ -11,6 +11,11 @@
 // VkPhysicalDeviceDescriptorHeapPropertiesEXT (imageDescriptorSize /
 // bufferDescriptorSize); textures lower to OpTypeImage, so image/buffer
 // covers all relevant HLSL resource kinds.
+//
+// NOTE: This covers the case with no RaytracingAccelerationStructures.
+// When present, the stride formula expands to a three-way max:
+// max(max(sizeof(image), sizeof(buffer)), sizeof(accelerationStructure)).
+//
 // Both sizes are driver defined and known only at pipeline creation time, so
 // the maximum is computed with OpSpecConstantOp over two OpConstantSizeOfEXT
 // placeholders.
@@ -27,11 +32,16 @@
 // CHECK-DAG:       %[[UBufDesc:[a-zA-Z0-9_]+]] = OpTypeBufferEXT Uniform
 // CHECK-DAG:    %[[SamplerDesc:[a-zA-Z0-9_]+]] = OpTypeSampler
 
-// Image descriptor type. Texture2D<float4> lowers to this same type
-// (Dim2D, depth=0, not-arrayed, non-MS, sampled, Unknown format), so
-// %[[TexDesc]] serves as both the placeholder for the size calculation and
-// the real descriptor type for the Texture2D access below.
-// CHECK-DAG:        %[[TexDesc:[a-zA-Z0-9_]+]] = OpTypeImage %float 2D 0 0 0 1 Unknown
+// Two distinct OpTypeImage types appear in the output:
+//
+// 1) ImgPlaceholder: a canonical sampled 2D float image used only as
+//   the operand to OpConstantSizeOfEXT.
+//
+// 2) TexDesc: the actual lowered type for Texture2D<float4>.
+//   This is the element type of the texture heap runtime array.
+//
+// CHECK-DAG: %[[ImgPlaceholder:[a-zA-Z0-9_]+]] = OpTypeImage %float 2D 0 0 0 1 Unknown
+// CHECK-DAG:        %[[TexDesc:[a-zA-Z0-9_]+]] = OpTypeImage %float 2D 2 0 0 1 Unknown
 
 // Heap runtime arrays of the accessed element types.
 // CHECK-DAG:     %[[SBBufArray:[a-zA-Z0-9_]+]] = OpTypeRuntimeArray %[[SBBufDesc]]
@@ -40,22 +50,23 @@
 // CHECK-DAG:   %[[SamplerArray:[a-zA-Z0-9_]+]] = OpTypeRuntimeArray %[[SamplerDesc]]
 
 // Resource stride = max(image_size, buffer_size); sampler stride = sampler_size.
-// CHECK-DAG:        %[[ImgSize:[a-zA-Z0-9_]+]] = OpConstantSizeOfEXT %uint %[[TexDesc]]
+// The size query uses ImgPlaceholder (depth=0); the driver returns the same
+// imageDescriptorSize regardless of which image subtype is used as the operand.
+// CHECK-DAG:        %[[ImgSize:[a-zA-Z0-9_]+]] = OpConstantSizeOfEXT %uint %[[ImgPlaceholder]]
 // CHECK-DAG:        %[[BufSize:[a-zA-Z0-9_]+]] = OpConstantSizeOfEXT %uint %[[UBufDesc]]
 // CHECK-DAG:      %[[ImgBigger:[a-zA-Z0-9_]+]] = OpSpecConstantOp %bool UGreaterThan %[[ImgSize]] %[[BufSize]]
 // CHECK-DAG:        %[[ResSize:[a-zA-Z0-9_]+]] = OpSpecConstantOp %uint Select %[[ImgBigger]] %[[ImgSize]] %[[BufSize]]
 // CHECK-DAG:       %[[SampSize:[a-zA-Z0-9_]+]] = OpConstantSizeOfEXT %uint %[[SamplerDesc]]
 
-// Every resource runtime array shares the one resource stride; the sampler
-// array uses the sampler size.
+// Every resource runtime array shares the one resource stride. 
+// The sampler array just uses the sampler size as it's stride.
 // CHECK-DAG:                                     OpDecorateId %[[SBBufArray]] ArrayStrideIdEXT %[[ResSize]]
 // CHECK-DAG:                                     OpDecorateId %[[UBufArray]] ArrayStrideIdEXT %[[ResSize]]
 // CHECK-DAG:                                     OpDecorateId %[[TexArray]] ArrayStrideIdEXT %[[ResSize]]
 // CHECK-DAG:                                     OpDecorateId %[[SamplerArray]] ArrayStrideIdEXT %[[SampSize]]
 
-// Three distinct descriptor heap sizes exist:
-// the image/Texture2D type (%[[TexDesc]]), the Uniform buffer, and the sampler.
-// Regression test: make sure of no per-element nor per acces behavior exists
+// Three distinct OpConstantSizeOfEXT calls exist: ImgPlaceholder, Uniform
+// buffer, and sampler. Regression test: no per-element or per-access behavior;
 // otherwise StorageBuffer would add a fourth, pushing the count above three.
 // COUNT-COUNT-3: OpConstantSizeOfEXT %uint
 // COUNT-NOT:     OpConstantSizeOfEXT %uint
