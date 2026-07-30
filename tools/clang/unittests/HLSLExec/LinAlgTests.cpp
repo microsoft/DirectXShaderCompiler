@@ -4670,7 +4670,7 @@ static MatrixParams makeThreadGroupArithmeticParams(ComponentType CompType,
   Params.N = N;
   Params.Use = Use;
   Params.Scope = MatrixScope::ThreadGroup;
-  Params.Layout = LinalgMatrixLayout::RowMajor;
+  Params.Layout = MatrixLayout::RowMajor;
   Params.NumThreads = static_cast<int>(ThreadGroupSize);
   Params.Enable16Bit = needs16BitTypes(CompType);
   return Params;
