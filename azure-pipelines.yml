@@ -22,6 +22,7 @@ resources:
 stages:
 
 - stage: Build
+  condition: succeededOrFailed()
   jobs:
   - job: Windows
     timeoutInMinutes: 180
