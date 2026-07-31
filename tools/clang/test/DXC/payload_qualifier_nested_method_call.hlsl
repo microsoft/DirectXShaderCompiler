@@ -1,4 +1,5 @@
-// RUN: %dxc -T lib_6_9 %s -enable-payload-qualifiers | FileCheck %s
+// REQUIRES: dxil-1-7
+// RUN: %dxc -T lib_6_7 %s -enable-payload-qualifiers | FileCheck %s
 
 // Regression test for two crashes in the payload-access analysis triggered by
 // calling a member method under -enable-payload-qualifiers:
