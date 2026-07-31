@@ -1289,7 +1289,7 @@ static const char MatVecMulAddShader[] = R"(
 
     vector<ELEM_TYPE, M_DIM> OutVec;
     __builtin_LinAlg_MatrixVectorMultiplyAdd(
-      OutVec, Mat, OUTPUT_SIGNED, InVec, IN_INTERP, BiasVec, BIAS_INTERP);
+      OutVec, Mat, OUTPUT_SIGNED, InVec, IN_INTERP, BiasVec);
 
     for (uint I = 0; I < M_DIM; ++I) {
       Output.Store<ELEM_TYPE>(I * ELEM_SIZE, OutVec[I]);
@@ -1301,15 +1301,13 @@ static void runMatVecMulAdd(ID3D12Device *Device,
                             dxc::SpecificDllLoader &DxcSupport,
                             const MatrixParams &Params, bool Verbose,
                             int FillValue, bool OutputSigned,
-                            ComponentType InputInterp,
-                            ComponentType BiasInterp) {
+                            ComponentType InputInterp) {
   const size_t NumElements = Params.totalElements();
   const size_t BufferSize = Params.totalBytes();
 
   std::stringstream ExtraDefs;
   ExtraDefs << " -DOUTPUT_SIGNED=" << OutputSigned;
   ExtraDefs << " -DIN_INTERP=" << static_cast<int>(InputInterp);
-  ExtraDefs << " -DBIAS_INTERP=" << static_cast<int>(BiasInterp);
 
   std::string Args = buildCompilerArgs(Params, ExtraDefs.str().c_str());
 
@@ -1354,8 +1352,7 @@ void DxilConf_SM610_LinAlg::MatVecMulAdd_Thread_16x16_F16() {
   Params.NumThreads = 1;
   Params.Enable16Bit = true;
   runMatVecMulAdd(D3DDevice, DxcSupport, Params, VerboseLogging,
-                  /*FillValue=*/2, /*OutputSigned=*/true, ComponentType::F16,
-                  ComponentType::F16);
+                  /*FillValue=*/2, /*OutputSigned=*/true, ComponentType::F16);
 }
 
 void DxilConf_SM610_LinAlg::MatVecMulAdd_Thread_4x8_F32() {
@@ -1367,8 +1364,7 @@ void DxilConf_SM610_LinAlg::MatVecMulAdd_Thread_4x8_F32() {
   Params.Layout = MatrixLayout::RowMajor;
   Params.NumThreads = 1;
   runMatVecMulAdd(D3DDevice, DxcSupport, Params, VerboseLogging,
-                  /*FillValue=*/2, /*OutputSigned=*/true, ComponentType::F32,
-                  ComponentType::F32);
+                  /*FillValue=*/2, /*OutputSigned=*/true, ComponentType::F32);
 }
 
 // Map a DXIL ComponentType to the D3D12 linear-algebra datatype used by the
@@ -1395,7 +1391,6 @@ static D3D12_LINEAR_ALGEBRA_DATATYPE toLinAlgDataType(ComponentType CT) {
 }
 
 static const char OuterProductShader[] = R"(
-  #define USE_A 0
   #define SCOPE_THREAD 0
 
   RWByteAddressBuffer Input : register(u0);
@@ -1416,7 +1411,7 @@ static const char OuterProductShader[] = R"(
     }
 
     __builtin_LinAlgMatrix
-      [[__LinAlgMatrix_Attributes(COMP_TYPE, M_DIM, N_DIM, USE_A, SCOPE_THREAD)]]
+      [[__LinAlgMatrix_Attributes(COMP_TYPE, M_DIM, N_DIM, USE, SCOPE_THREAD)]]
       Mat;
     __builtin_LinAlg_MatrixOuterProduct(Mat, VecA, VecB);
 
@@ -1434,6 +1429,8 @@ static void runOuterProduct(ID3D12Device *Device,
   VERIFY_IS_TRUE(
       Params.Layout == MatrixLayout::OuterProductOptimal,
       "Outer product must output its matrix in OuterProductOptimal layout");
+  VERIFY_IS_TRUE(Params.Use == MatrixUse::Accumulator,
+                 "Outer product must output an accumulator matrix");
   const size_t NumVecElements = Params.M + Params.N;
   const size_t InBuffSize = NumVecElements * elementSize(Params.CompType);
   const size_t NumMatElements = Params.totalElements();
@@ -1502,6 +1499,7 @@ void DxilConf_SM610_LinAlg::OuterProduct_Thread_16x16_F16() {
   Params.CompType = ComponentType::F16;
   Params.M = 16;
   Params.N = 16;
+  Params.Use = MatrixUse::Accumulator;
   Params.Scope = MatrixScope::Thread;
   Params.Layout = MatrixLayout::OuterProductOptimal;
   Params.NumThreads = 1;

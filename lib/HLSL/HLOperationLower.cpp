@@ -6862,16 +6862,15 @@ Value *TranslateLinAlgMatVecMulAdd(CallInst *CI, IntrinsicOp IOP,
   Value *InputVector = CI->getArgOperand(4);
   Value *InputVectorInterp = CI->getArgOperand(5);
   Value *BiasVector = CI->getArgOperand(6);
-  Value *BiasVectorInterp = CI->getArgOperand(7);
 
   Constant *OpArg = HlslOp->GetU32Const((unsigned)OpCode);
   Function *DxilFunc = HlslOp->GetOpFunc(
       OpCode, {ReturnVecType, Matrix->getType(), InputVector->getType(),
                BiasVector->getType()});
 
-  Value *ReturnVec = Builder.CreateCall(
-      DxilFunc, {OpArg, Matrix, IsOutputSigned, InputVector, InputVectorInterp,
-                 BiasVector, BiasVectorInterp});
+  Value *ReturnVec =
+      Builder.CreateCall(DxilFunc, {OpArg, Matrix, IsOutputSigned, InputVector,
+                                    InputVectorInterp, BiasVector});
   Builder.CreateStore(ReturnVec, ReturnVecPtr);
 
   return nullptr;

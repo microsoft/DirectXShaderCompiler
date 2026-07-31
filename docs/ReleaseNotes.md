@@ -28,6 +28,12 @@ line upon naming the release. Refer to previous for appropriate section names.
   could produce incorrect results
   [#8001](https://github.com/microsoft/DirectXShaderCompiler/issues/8001).
 
+#### HLSL Language
+
+- Casting a scalar to a struct or array containing a resource is now an error
+  instead of crashing
+  [#6661](https://github.com/microsoft/DirectXShaderCompiler/issues/6661).
+
 ### Upcoming Preview Release
 
 These changes apply to experimental preview shader models only and will not be

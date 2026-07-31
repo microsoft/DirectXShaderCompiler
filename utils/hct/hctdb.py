@@ -6508,9 +6508,6 @@ class db_dxil(object):
                     5, "i32", "inputInterpretation", "input vector interpretation type"
                 ),
                 db_dxil_param(6, "$x3", "biasVector", "M dim vector to add"),
-                db_dxil_param(
-                    7, "i32", "biasInterpretation", "bias vector interpretation type"
-                ),
             ],
         )
 
@@ -8670,6 +8667,14 @@ class db_dxil(object):
         self.add_valrule(
             "Instr.LinAlgMatrixNotExactMatch",
             "Matrix '%0' must exactly match matrix '%1'.",
+        )
+        self.add_valrule(
+            "Instr.LinAlgMatrixScopeReqLayout2",
+            "Matrix scope '%0' requires layout %1 or %2.",
+        )
+        self.add_valrule(
+            "Instr.LinAlgMatrixLayoutReqStride",
+            "Matrix layout '%0' requires stride 0.",
         )
 
         # Some legacy rules:

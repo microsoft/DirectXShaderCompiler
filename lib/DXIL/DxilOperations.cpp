@@ -6662,7 +6662,6 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
     A(EXT(2));
     A(pI32);
     A(EXT(3));
-    A(pI32);
     break;
   case OpCode::LinAlgMatrixAccumulateToDescriptor:
     A(pV);

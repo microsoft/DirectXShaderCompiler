@@ -85,7 +85,7 @@ void CallFunction()
   __builtin_LinAlg_MatrixOuterProduct(mat1, vecA, vecB);
   __builtin_LinAlg_MatrixAccumulateToDescriptor(mat1, buf, 1, 2, 3, 4);
   __builtin_LinAlg_MatrixVectorMultiply(vecA, mat1, true, vecB, 1);
-  __builtin_LinAlg_MatrixVectorMultiplyAdd(vecA, mat1, true, vecB, 2, vecC, 3);
+  __builtin_LinAlg_MatrixVectorMultiplyAdd(vecA, mat1, true, vecB, 2, vecC);
   int4 outVec;
   __builtin_LinAlg_Convert(outVec, vecA, 1, 2);
   __builtin_LinAlg_VectorAccumulateToDescriptor(buf, 0, 64, vecA);
