@@ -108,8 +108,12 @@ stages:
         $run = $true
         if ("$(Build.Reason)" -eq "PullRequest") {
           $run = $false
-          $labels = Invoke-RestMethod "https://api.github.com/repos/$(Build.Repository.Name)/issues/$(System.PullRequest.PullRequestNumber)/labels"
-          if ($labels.name -contains "run-offload-tests") { $run = $true }
+          try {
+            $labels = Invoke-RestMethod "https://api.github.com/repos/$(Build.Repository.Name)/issues/$(System.PullRequest.PullRequestNumber)/labels" -ErrorAction Stop
+            if ($labels.name -contains "run-offload-tests") { $run = $true }
+          } catch {
+            Write-Warning "Unable to check pull request labels; skipping offload tests: $_"
+          }
         }
         Write-Host "Build.Reason=$(Build.Reason) run=$run"
         Write-Host "##vso[task.setvariable variable=run;isOutput=true]$($run.ToString().ToLower())"
