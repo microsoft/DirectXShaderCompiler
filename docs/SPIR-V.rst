@@ -2101,14 +2101,16 @@ objects as untyped variables in ``UniformConstant`` storage class:
 
 The concrete descriptor type is selected at each heap access. For image,
 sampler, and texel buffer resources, DXC forms a runtime array of that
-descriptor type and decorates the array with a byte ``ArrayStride``, then uses
-``OpUntypedAccessChainKHR`` followed by ``OpLoad``:
+descriptor type, decorates the array with a byte stride, and uses
+``OpUntypedAccessChainKHR`` followed by ``OpLoad``. The stride is an
+``ArrayStrideIdEXT`` decoration referencing a specialization constant rather
+than a literal ``ArrayStride`` (see `Descriptor heap array stride`_ below):
 
 .. code:: spirv
 
   %image_type = OpTypeImage %float 2D 2 0 0 1 Unknown
   %image_array = OpTypeRuntimeArray %image_type
-  OpDecorate %image_array ArrayStride 64
+  OpDecorateId %image_array ArrayStrideIdEXT %resource_stride
   %descriptor = OpUntypedAccessChainKHR %uptr_uc %image_array %resource_heap %index
   %image = OpLoad %image_type %descriptor
 
@@ -2122,7 +2124,7 @@ example, ``ConstantBuffer<T>`` uses ``Uniform`` and ``TextureBuffer<T>`` uses
 
   %buffer_type = OpTypeBufferEXT Uniform
   %buffer_array = OpTypeRuntimeArray %buffer_type
-  OpDecorate %buffer_array ArrayStride 64
+  OpDecorateId %buffer_array ArrayStrideIdEXT %resource_stride
   %descriptor = OpUntypedAccessChainKHR %uptr_uc %buffer_array %resource_heap %index
   %buffer_ptr = OpBufferPointerEXT %_ptr_Uniform_type_BufferData %descriptor
 
@@ -2146,9 +2148,11 @@ StructuredBuffer/RWStructuredBuffer without associated counter operations,
 ByteAddressBuffer/RWByteAddressBuffer, ConstantBuffer, and TextureBuffer heap
 loads, including direct field and array-element accesses for
 ``ConstantBuffer<T>`` and ``TextureBuffer<T>``. ``NonUniformResourceIndex`` is
-accepted but the ``NonUniform`` decoration is not emitted on
-``OpUntypedAccessChainKHR`` or the loaded value; ``SPV_EXT_descriptor_heap``
-deprecates the ``NonUniform`` decoration for heap accesses.
+accepted, but no ``NonUniform`` decoration is emitted on the
+``OpUntypedAccessChainKHR`` result or on the loaded descriptor;
+``SPV_EXT_descriptor_heap`` deprecates the decoration for heap accesses and
+drivers handle divergent heap indices natively. The index operand itself may
+still carry ``NonUniform`` from the surrounding expression.
 
 Append/consume structured buffers and UAV counter heap lowering are not
 supported by the native descriptor heap path yet. Those forms should continue
@@ -2158,6 +2162,46 @@ unsupported append/consume structured-buffer heap loads. Heap-loaded
 associated counter operations such as ``IncrementCounter`` and
 ``DecrementCounter`` emit a diagnostic because the native descriptor heap path
 does not recover an associated counter descriptor.
+
+A local resource variable initialized from a heap access is resolved entirely at
+compile time: the variable is recorded as an alias for the heap index, and every
+later use is re-lowered as a fresh access chain rather than as a load of a stored
+descriptor handle. This is sound only when the variable holds a heap descriptor
+on every path that reaches the use. DXC therefore rejects a variable that holds
+both a bound resource and a heap descriptor, whether through a conditional
+assignment, a reassignment back to a bound resource, or an assignment inside a
+loop::
+
+  error: mixing bound and descriptor heap resources in the same variable is not
+  supported with SPV_EXT_descriptor_heap
+
+Supporting these forms requires modelling the alias as a value with real
+control-flow merges instead of as compile-time state.
+
+Two further restrictions on the heap access expression itself produce
+diagnostics. The object being subscripted must be a direct reference to the
+builtin ``ResourceDescriptorHeap`` or ``SamplerDescriptorHeap`` variable, and
+the subscript result must be immediately converted to a concrete resource type
+so that DXC can select a descriptor type for the access. A subscript whose
+result is discarded, or used in a context that supplies no target resource
+type, is rejected.
+
+Descriptor heap array stride
+++++++++++++++++++++++++++++
+
+All resource heap runtime arrays share a single ``ArrayStrideIdEXT`` decoration
+rather than a literal ``ArrayStride``, because descriptor sizes are not known
+until pipeline creation. The shared value is built from ``OpConstantSizeOfEXT``
+and ``OpSpecConstantOp`` and evaluates to
+``max(sizeof(image_descriptor), sizeof(buffer_descriptor))``. The sampler heap
+carries its own ``ArrayStrideIdEXT`` equal to ``sizeof(sampler_descriptor)``.
+
+The ``OpConstantSizeOfEXT`` operands are placeholder types chosen only for their
+descriptor class. All image types report the same descriptor size, so the
+placeholder is a plain sampled 2D float image and bears no relation to the image
+types the shader actually uses; a module will normally contain both the
+placeholder type and the distinct image types its heap accesses lower to. The
+stride value is built once and cached on first use.
 
 HLSL Expressions
 ================

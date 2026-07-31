@@ -1224,7 +1224,8 @@ private:
 
   /// \brief Returns true if counter operations on the resource expression are
   /// known to be unsupported because the resource came from
-  /// ResourceDescriptorHeap.
+  /// ResourceDescriptorHeap. Consults the counterUnsupported field of the
+  /// buffer alias entry for the referenced variable.
   bool isDescriptorHeapCounterUnsupported(const Expr *expr) const;
 
   /// \brief Records the descriptor heap index assigned to a local image
@@ -1240,6 +1241,24 @@ private:
                                             const Expr *srcExpr);
   bool tryToAssignDescriptorHeapBufferAlias(const Expr *dstExpr,
                                             const Expr *srcExpr);
+
+  /// \brief Diagnoses a local resource variable assigned from both a bound
+  /// resource and ResourceDescriptorHeap.
+  ///
+  /// The alias table maps each aliased VarDecl to heap descriptor info at
+  /// compile time. Once a variable is recorded as an alias, every later use is
+  /// re-lowered as a heap access chain, ignoring control flow. That is only
+  /// correct when the variable holds a heap descriptor on every path reaching
+  /// the use, so assigning it from both kinds of source must be diagnosed
+  /// rather than silently miscompiled.
+  ///
+  /// Returns true if the assignment was rejected (either a new diagnostic was
+  /// emitted, or the variable was already diagnosed). Callers need not act on
+  /// the return value: the alias-recording helpers check descriptorHeapVarState
+  /// themselves and skip rejected variables automatically.
+  bool diagnoseDescriptorHeapAliasMixing(const VarDecl *dstVar,
+                                         const Expr *srcExpr,
+                                         SourceLocation loc);
 
   /// \brief Creates the "<name>.descriptor.index" function variable used to
   /// remember the descriptor heap index of a local resource alias dstVar.
@@ -1257,6 +1276,14 @@ private:
   /// is the result of the assignment expression (possibly nullptr).
   llvm::Optional<SpirvInstruction *>
   tryToAssignToDescriptorHeapBuffer(const BinaryOperator *assignExpr);
+
+  /// \brief Entry point for the descriptor-heap handling of a simple
+  /// assignment: rejects a destination that mixes bound and heap resources,
+  /// then defers to tryToAssignToDescriptorHeapBuffer. Returns None if the
+  /// assignment needs no heap-specific treatment and the caller should lower it
+  /// as a normal assignment.
+  llvm::Optional<SpirvInstruction *>
+  tryToAssignToDescriptorHeapAlias(const BinaryOperator *assignExpr);
 
   /// \brief Emits the instructions that re-derive the buffer-data pointer for a
   /// descriptor-heap buffer alias decl (OpLoad of the saved index, then
@@ -1640,6 +1667,10 @@ private:
   /// The SPIR-V function parameter for the current this object.
   SpirvInstruction *curThis;
 
+  // TODO: The following ~15 descriptorHeap* members and their methods are good
+  // candidates for refactoring into a dedicated DescriptorHeapAliasEmitter
+  // helper class.
+
   /// Native descriptor heap image descriptors used to directly form image
   /// atomics. The emitter is single-use per translation unit, so these
   /// AST-pointer maps live for the emitter lifetime.
@@ -1671,7 +1702,17 @@ private:
     const SpirvType *arrayType;
     SpirvInstruction *heap;
     SpirvLayoutRule layoutRule;
+    bool counterUnsupported = false;
   };
+  /// Tracks per-variable assignment history for the mixed-alias diagnostic.
+  /// Bound: the variable has been assigned from a bound resource; a later heap
+  ///        assignment to it would be a diagnosable mix.
+  /// Mixed: mixing was already diagnosed; alias recording stays suppressed for
+  ///        the remainder of the function so the error fires only once.
+  enum class DescriptorHeapVarState : uint8_t { Bound, Mixed };
+  llvm::DenseMap<const VarDecl *, DescriptorHeapVarState>
+      descriptorHeapVarState;
+
   llvm::DenseMap<const Expr *, DescriptorHeapImageAccess>
       descriptorHeapImageAccesses;
   llvm::DenseMap<const VarDecl *, DescriptorHeapImageAlias>
@@ -1680,10 +1721,6 @@ private:
       descriptorHeapBufferAccesses;
   llvm::DenseMap<const VarDecl *, DescriptorHeapBufferAlias>
       descriptorHeapBufferAliasVars;
-
-  /// RWStructuredBuffer aliases loaded from ResourceDescriptorHeap have no
-  /// associated UAV counter descriptor in the native descriptor heap path.
-  llvm::DenseSet<const DeclaratorDecl *> descriptorHeapUnsupportedCounters;
 
   /// The source location of a push constant block we have previously seen.
   /// Invalid means no push constant blocks defined thus far.
