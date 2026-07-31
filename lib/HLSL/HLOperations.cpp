@@ -492,6 +492,7 @@ static AttributeSet GetHLFunctionAttributes(LLVMContext &C,
   };
 
   // Copy attributes we preserve from the original function.
+  copyAttr(Attribute::Convergent);
   copyAttr(Attribute::ReadOnly);
   copyAttr(Attribute::ReadNone);
   copyStrAttr(HLWaveSensitive);
@@ -524,6 +525,14 @@ static AttributeSet GetHLFunctionAttributes(LLVMContext &C,
     IntrinsicOp intrinsicOp = static_cast<IntrinsicOp>(opcode);
     switch (intrinsicOp) {
     default:
+      break;
+    case IntrinsicOp::IOP_ddx:
+    case IntrinsicOp::IOP_ddx_coarse:
+    case IntrinsicOp::IOP_ddx_fine:
+    case IntrinsicOp::IOP_ddy:
+    case IntrinsicOp::IOP_ddy_coarse:
+    case IntrinsicOp::IOP_ddy_fine:
+      addAttr(Attribute::Convergent);
       break;
     case IntrinsicOp::IOP_DeviceMemoryBarrierWithGroupSync:
     case IntrinsicOp::IOP_DeviceMemoryBarrier:
@@ -558,6 +567,7 @@ static std::string GetHLFunctionAttributeMangling(const AttributeSet &attribs) {
   bool ReadNone = false;
   bool ReadOnly = false;
   bool ArgMemOnly = false;
+  bool Convergent = false;
   bool NoDuplicate = false;
   bool WaveSensitive = false;
 
@@ -568,6 +578,9 @@ static std::string GetHLFunctionAttributeMangling(const AttributeSet &attribs) {
            it++) {
         if (it->isEnumAttribute()) {
           switch (it->getKindAsEnum()) {
+          case Attribute::Convergent:
+            Convergent = true;
+            break;
           case Attribute::ReadNone:
             ReadNone = true;
             break;
@@ -606,6 +619,8 @@ static std::string GetHLFunctionAttributeMangling(const AttributeSet &attribs) {
          "ReadNone, ReadOnly, and ArgMemOnly are mutually exclusive");
 
   // Add mangling in canonical order
+  if (Convergent)
+    mangledNameStr << "cv";
   if (NoDuplicate)
     mangledNameStr << "nd";
   if (ReadNone)

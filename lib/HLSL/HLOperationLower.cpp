@@ -424,6 +424,15 @@ struct IntrinsicLower {
 // IOP intrinsics.
 namespace {
 
+CallInst *CreateTrivialDxilCall(Function *Func, OP::OpCode Opcode,
+                                ArrayRef<Value *> Args, const Twine &Name,
+                                IRBuilder<> &Builder) {
+  CallInst *Call = Builder.CreateCall(Func, Args, Name);
+  if (OP::IsDxilOpConvergent(Opcode))
+    Call->addAttribute(AttributeSet::FunctionIndex, Attribute::Convergent);
+  return Call;
+}
+
 // Creates the necessary scalar calls to for a "trivial" operation where only
 // call instructions to a single function type are needed.
 // The overload type `Ty` determines what scalarization might be required.
@@ -450,8 +459,8 @@ Value *TrivialDxilOperation(Function *dxilFunc, OP::OpCode opcode,
           args[argIdx] = Builder.CreateExtractElement(arg, i);
         }
       }
-      Value *EltOP =
-          Builder.CreateCall(dxilFunc, args, hlslOP->GetOpCodeName(opcode));
+      Value *EltOP = CreateTrivialDxilCall(
+          dxilFunc, opcode, args, hlslOP->GetOpCodeName(opcode), Builder);
       retVal = Builder.CreateInsertElement(retVal, EltOP, i);
     }
     return retVal;
@@ -459,9 +468,10 @@ Value *TrivialDxilOperation(Function *dxilFunc, OP::OpCode opcode,
 
   // Cannot add name to void.
   if (RetTy->isVoidTy())
-    return Builder.CreateCall(dxilFunc, args);
+    return CreateTrivialDxilCall(dxilFunc, opcode, args, "", Builder);
 
-  return Builder.CreateCall(dxilFunc, args, hlslOP->GetOpCodeName(opcode));
+  return CreateTrivialDxilCall(dxilFunc, opcode, args,
+                               hlslOP->GetOpCodeName(opcode), Builder);
 }
 
 // Creates a native vector call to for a "trivial" operation where only a single
@@ -472,9 +482,9 @@ Value *TrivialDxilOperation(Function *dxilFunc, OP::OpCode opcode,
 Value *TrivialDxilVectorOperation(Function *Func, OP::OpCode Opcode,
                                   ArrayRef<Value *> Args, Type *Ty, OP *OP,
                                   IRBuilder<> &Builder) {
-  if (!Ty->isVoidTy())
-    return Builder.CreateCall(Func, Args, OP->GetOpCodeName(Opcode));
-  return Builder.CreateCall(Func, Args); // Cannot add name to void.
+  return CreateTrivialDxilCall(Func, Opcode, Args,
+                               Ty->isVoidTy() ? "" : OP->GetOpCodeName(Opcode),
+                               Builder);
 }
 
 // Generates a DXIL operation with the overloaded type based on `Ty` and return

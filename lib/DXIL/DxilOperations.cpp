@@ -3398,6 +3398,19 @@ bool OP::IsDxilOpGradient(OpCode C) {
   // OPCODE-GRADIENT:END
 }
 
+bool OP::IsDxilOpConvergent(OpCode C) {
+  unsigned op = (unsigned)C;
+  // clang-format off
+  // Python lines need to be not formatted.
+  /* <py::lines('OPCODE-CONVERGENT')>hctdb_instrhelp.get_instrs_pred("op", "is_convergent")</py>*/
+  // clang-format on
+  // OPCODE-CONVERGENT:BEGIN
+  // Instructions: DerivCoarseX=83, DerivCoarseY=84, DerivFineX=85,
+  // DerivFineY=86
+  return (83 <= op && op <= 86);
+  // OPCODE-CONVERGENT:END
+}
+
 bool OP::IsDxilOpFeedback(OpCode C) {
   unsigned op = (unsigned)C;
   // clang-format off
