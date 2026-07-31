@@ -43,6 +43,7 @@ stages:
 - stage: Build
   dependsOn:
     - OffloadGate
+  condition: succeededOrFailed()
   jobs:
   - job: Windows
     timeoutInMinutes: 180
