@@ -28,6 +28,12 @@ line upon naming the release. Refer to previous for appropriate section names.
   instead of crashing
   [#6661](https://github.com/microsoft/DirectXShaderCompiler/issues/6661).
 
+#### Bug Fixes
+
+- Fixed internal compiler errors when a member method is called on a ray payload
+  or on one of its fields with payload access qualifiers enabled
+  [#6464](https://github.com/microsoft/DirectXShaderCompiler/issues/6464).
+
 ### Upcoming Preview Release
 
 These changes apply to experimental preview shader models only and will not be
