@@ -43,11 +43,15 @@ enum class ComponentType : uint32_t {
   PackedS8x32 = 17,
   PackedU8x32 = 18,
 
-  // BEGIN NEW FOR SM 6.10
+  // BEGIN NEW FOR SM 6.9
   I8 = 19,
   U8 = 20,
   F8_E4M3FN = 21,
   F8_E5M2 = 22,
+  // END
+
+  // BEGIN NEW FOR SM 6.10
+  BFloat16 = 23,
   // END
 
   LastEntry
@@ -83,6 +87,7 @@ struct ComponentType {
     __COMPONENT_TYPE(F16),
     __COMPONENT_TYPE(F32),
     __COMPONENT_TYPE(F64),
+    __COMPONENT_TYPE(BFloat16),
   };
 };
 
@@ -130,6 +135,12 @@ template <ComponentEnum CompTy> struct ComponentTypeTraits {
 template <typename T> struct TypeTraits {
   static const ComponentEnum CompType =
       (ComponentEnum)dxil::ComponentType::Invalid;
+};
+
+template <> struct ComponentTypeTraits<ComponentType::BFloat16> {
+  using Type = uint;
+  static const bool IsNativeScalar = false;
+  static const uint ElementsPerScalar = 2;
 };
 
 #define __MATRIX_SCALAR_COMPONENT_MAPPING(enum_val, type)                      \

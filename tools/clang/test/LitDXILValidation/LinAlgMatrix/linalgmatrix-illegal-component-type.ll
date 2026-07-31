@@ -7,17 +7,22 @@ target triple = "dxil-ms-dx"
 %dx.types.Handle = type { i8* }
 %dx.types.ResBind = type { i32, i32, i32, i8 }
 %dx.types.LinAlgMatrixC0M128N128U0S0 = type { i8* }
+%dx.types.LinAlgMatrixC23M128N128U0S0 = type { i8* }
 %dx.types.ResourceProperties = type { i32, i32 }
 %struct.RWByteAddressBuffer = type { i32 }
 
 define void @main() {
   %1 = call %dx.types.Handle @dx.op.createHandleFromBinding(i32 217, %dx.types.ResBind { i32 0, i32 0, i32 0, i8 1 }, i32 0, i1 false)  ; CreateHandleFromBinding(bind,index,nonUniformIndex)
-  %handle = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %1, %dx.types.ResourceProperties { i32 4107, i32 0 })  ; AnnotateHandle(res,props)  resource: RWByteAddressBuffer
+  %h1 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %1, %dx.types.ResourceProperties { i32 4107, i32 0 })  ; AnnotateHandle(res,props)  resource: RWByteAddressBuffer
 
   ; CHECK: Function: main: error: Matrix Component Type 'Invalid' not allowed in LinAlg Matrix.
   ; CHECK-NEXT: note: at '%mC0M128N128U0S0
   ; Matrix<Invalid, 128, 128, A, Thread>
-  %mC0M128N128U0S0 = call %dx.types.LinAlgMatrixC0M128N128U0S0 @dx.op.linAlgMatrixLoadFromDescriptor.mC0M128N128U0S0(i32 -2147483634, %dx.types.Handle %handle, i32 0, i32 0, i32 0, i32 0)
+  %mC0M128N128U0S0 = call %dx.types.LinAlgMatrixC0M128N128U0S0 @dx.op.linAlgMatrixLoadFromDescriptor.mC0M128N128U0S0(i32 -2147483634, %dx.types.Handle %h1, i32 0, i32 0, i32 0, i32 0)
+
+  ; C23 (BFloat16) is not invalid
+  %h2 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %1, %dx.types.ResourceProperties { i32 4107, i32 0 })  ; AnnotateHandle(res,props)  resource: RWByteAddressBuffer
+  %mC23M128N128U0S0 = call %dx.types.LinAlgMatrixC23M128N128U0S0 @dx.op.linAlgMatrixLoadFromDescriptor.mC23M128N128U0S0(i32 -2147483634, %dx.types.Handle %h2, i32 0, i32 0, i32 0, i32 0)
 
   ; CHECK-NEXT: Validation failed.
 
@@ -26,6 +31,9 @@ define void @main() {
 
 ; Function Attrs: nounwind
 declare %dx.types.LinAlgMatrixC0M128N128U0S0 @dx.op.linAlgMatrixLoadFromDescriptor.mC0M128N128U0S0(i32, %dx.types.Handle, i32, i32, i32, i32) #0
+
+; Function Attrs: nounwind
+declare %dx.types.LinAlgMatrixC23M128N128U0S0 @dx.op.linAlgMatrixLoadFromDescriptor.mC23M128N128U0S0(i32, %dx.types.Handle, i32, i32, i32, i32) #0
 
 ; Function Attrs: nounwind readnone
 declare %dx.types.Handle @dx.op.annotateHandle(i32, %dx.types.Handle, %dx.types.ResourceProperties) #1
@@ -36,7 +44,7 @@ declare %dx.types.Handle @dx.op.createHandleFromBinding(i32, %dx.types.ResBind, 
 attributes #0 = { nounwind }
 attributes #1 = { nounwind readnone }
 
-!dx.targetTypes = !{!26}
+!dx.targetTypes = !{!26, !27}
 !llvm.ident = !{!17}
 !dx.version = !{!18}
 !dx.valver = !{!18}
@@ -54,3 +62,4 @@ attributes #1 = { nounwind readnone }
 !24 = !{i32 0, i64 8589934608, i32 4, !25}
 !25 = !{i32 4, i32 4, i32 4}
 !26 = !{%dx.types.LinAlgMatrixC0M128N128U0S0 undef, i32 0, i32 128, i32 128, i32 0, i32 0}
+!27 = !{%dx.types.LinAlgMatrixC23M128N128U0S0 undef, i32 23, i32 128, i32 128, i32 0, i32 0}

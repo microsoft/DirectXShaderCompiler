@@ -17896,6 +17896,8 @@ ConvertLinAlgMatrixComponentTypeToString(hlsl::DXIL::ComponentType CompType) {
     return "ComponentType::F8_E4M3FN";
   case DXIL::ComponentType::F8_E5M2:
     return "ComponentType::F8_E5M2";
+  case DXIL::ComponentType::BFloat16:
+    return "ComponentType::BFloat16";
   default:
     llvm_unreachable("Unknown ComponentType");
   }

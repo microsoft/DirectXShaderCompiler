@@ -1040,6 +1040,7 @@ static void ValidateLinAlgOpReturnMatrix(CallInst *CI,
   case DXIL::ComponentType::F16:
   case DXIL::ComponentType::F32:
   case DXIL::ComponentType::F64:
+  case DXIL::ComponentType::BFloat16:
     break;
   default:
     ValCtx.EmitInstrFormatError(CI,
