@@ -1332,7 +1332,7 @@ static void ValidateLinAlgMatrixLoadFromDescriptor(CallInst *CI,
     if (ResClass != DXIL::ResourceClass::SRV ||
         ResKind != DXIL::ResourceKind::RawBuffer)
       ValCtx.EmitInstrError(
-          CI, ValidationRule::InstrLinAlgMatrixLoadThreadRequiresSRVBAB);
+          CI, ValidationRule::InstrLinAlgMatrixLoadThreadRequiresBAB);
   }
 }
 

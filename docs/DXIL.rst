@@ -3215,6 +3215,7 @@ INSTR.LINALGMATRIXDIMKVECKMISMATCH                    %0 vector size '%1' must b
 INSTR.LINALGMATRIXDIMMISMATCH                         Matrix Dimension '%0x%1' does not match expected dimension %2x%3.
 INSTR.LINALGMATRIXDIMVECTORMISMATCH                   %0 vector size '%1' must match matrix %2 dimension '%3'
 INSTR.LINALGMATRIXLAYOUTREQSTRIDE                     Matrix layout '%0' requires stride 0.
+INSTR.LINALGMATRIXLOADTHREADREQUIRESBAB               Loading matrix with Thread scope requires ByteAddressBuffer.
 INSTR.LINALGMATRIXLOADTHREADREQUIRESSRV               Loading matrix with Thread scope requires SRV resource.
 INSTR.LINALGMATRIXLOADTHREADREQUIRESSRVBAB            Loading matrix with Thread scope requires SRV ByteAddressBuffer.
 INSTR.LINALGMATRIXNOTEXACTMATCH                       Matrix '%0' must exactly match matrix '%1'.

@@ -8705,6 +8705,10 @@ class db_dxil(object):
             "Instr.LinAlgMatrixLoadThreadRequiresSRVBAB",
             "Loading matrix with Thread scope requires SRV ByteAddressBuffer.",
         )
+        self.add_valrule(
+            "Instr.LinAlgMatrixLoadThreadRequiresBAB",
+            "Loading matrix with Thread scope requires ByteAddressBuffer.",
+        )
 
         # Some legacy rules:
         # - space is only supported for shader targets 5.1 and higher
