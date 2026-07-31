@@ -1097,16 +1097,17 @@ static void ValidateLinAlgMatrixStoreToMemory(CallInst *CI,
   ValidateLinAlgOpParameters(CI, ValCtx);
 }
 
-static void ValidateLinAlgMatVecMul(CallInst *CI, ValidationContext &ValCtx) {
+static void ValidateLinAlgMatVecMul(CallInst *CI, ValidationContext &ValCtx,
+                                    const char *OpName = "LinAlgMatVecMul") {
   ValidateLinAlgOpParameters(CI, ValCtx);
 
+  DxilInst_LinAlgMatVecMul Op(CI);
+
   VectorType *OutputVecTy = cast<VectorType>(CI->getType());
-  Type *MatTy = CI->getArgOperand(1)->getType();
-  Value *IsSignedOp = CI->getArgOperand(2);
-  ConstantInt *IsSignedCI = dyn_cast<ConstantInt>(IsSignedOp);
-  VectorType *InputVecTy = cast<VectorType>(CI->getArgOperand(3)->getType());
-  Value *InputInterpOp = CI->getArgOperand(4);
-  ConstantInt *InputInterpCI = dyn_cast<ConstantInt>(InputInterpOp);
+  Type *MatTy = Op.get_matrix()->getType();
+  ConstantInt *IsSignedCI = dyn_cast<ConstantInt>(Op.get_isOutputSigned());
+  VectorType *InputVecTy = cast<VectorType>(Op.get_inputVector()->getType());
+  ConstantInt *InputInterpCI = dyn_cast<ConstantInt>(Op.get_interpretation());
 
   assert(dxilutil::IsHLSLLinAlgMatrixType(MatTy) && "Must be LinAlg type");
 
@@ -1132,7 +1133,7 @@ static void ValidateLinAlgMatVecMul(CallInst *CI, ValidationContext &ValCtx) {
     ValidateLinAlgComponentType(CI, Interp, ValCtx);
   } else
     ValCtx.EmitInstrFormatError(CI, ValidationRule::InstrOpConst,
-                                {"InputInterp", "LinAlgMatVecMul"});
+                                {"InputInterp", OpName});
 
   // InputVec length must match K dim
   // K is always N since Use is always A however when the element is packed
@@ -1163,21 +1164,23 @@ static void ValidateLinAlgMatVecMul(CallInst *CI, ValidationContext &ValCtx) {
           {TypeToString(OutputVecTy->getElementType())});
   } else
     ValCtx.EmitInstrFormatError(CI, ValidationRule::InstrOpConst,
-                                {"IsSigned", "LinAlgMatVecMul"});
+                                {"IsSigned", OpName});
 }
 
 static void ValidateLinAlgMatVecMulAdd(CallInst *CI,
                                        ValidationContext &ValCtx) {
   // All the rules from LinAlgMatVecMul apply
-  ValidateLinAlgMatVecMul(CI, ValCtx);
+  ValidateLinAlgMatVecMul(CI, ValCtx, "LinAlgMatVecMulAdd");
+
+  DxilInst_LinAlgMatVecMulAdd Op(CI);
 
   VectorType *OutputVecTy = cast<VectorType>(CI->getType());
-  Type *MatTy = CI->getArgOperand(1)->getType();
+  Type *MatTy = Op.get_matrix()->getType();
   auto MatIt = ValCtx.LinAlgTargetTypeMap.find(MatTy);
   if (MatIt == ValCtx.LinAlgTargetTypeMap.end())
     return;
   LinAlgTargetType MatLATT = MatIt->second;
-  VectorType *BiasVecTy = cast<VectorType>(CI->getArgOperand(5)->getType());
+  VectorType *BiasVecTy = cast<VectorType>(Op.get_biasVector()->getType());
 
   // BiasVec length must match M dim
   if (MatLATT.M != BiasVecTy->getNumElements())

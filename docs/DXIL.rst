@@ -3209,7 +3209,7 @@ INSTR.ILLEGALDXILOPCODE                               DXILOpCode must be valid o
 INSTR.ILLEGALDXILOPFUNCTION                           '%0' is not a DXILOpFuncition for DXILOpcode '%1'.
 INSTR.IMMBIASFORSAMPLEB                               bias amount for sample_b must be in the range [%0,%1], but %2 was specified as an immediate.
 INSTR.INBOUNDSACCESS                                  Access to out-of-bounds memory is disallowed.
-INSTR.LINALGILLEGALCOMPONENTTYPE                      Matrix Component Type '%0' not allowed in LinAlg Matrix.
+INSTR.LINALGILLEGALCOMPONENTTYPE                      Component Type '%0' not allowed in LinAlg Matrix.
 INSTR.LINALGILLEGALKDIM                               Matrix K Dimension out of bounds. K=%0 must be >= %1 and <= %2.
 INSTR.LINALGMATRIXDIMMISMATCH                         Matrix Dimension '%0x%1' does not match expected dimension %2x%3.
 INSTR.LINALGMATRIXDIMVECTORMISMATCH                   %0 vector size '%1' must match matrix %2 dimension '%3'

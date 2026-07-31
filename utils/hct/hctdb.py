@@ -8642,7 +8642,7 @@ class db_dxil(object):
         )
         self.add_valrule(
             "Instr.LinAlgIllegalComponentType",
-            "Matrix Component Type '%0' not allowed in LinAlg Matrix.",
+            "Component Type '%0' not allowed in LinAlg Matrix.",
         )
         self.add_valrule(
             "Instr.LinAlgMatrixScopeNotAllowed",

@@ -18,7 +18,7 @@ define void @main() {
   %2 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %1, %dx.types.ResourceProperties { i32 11, i32 0 })  ; AnnotateHandle(res,props)  resource: ByteAddressBuffer
   %3 = call %dx.types.LinAlgMatrixC9M4N32U0S0 @dx.op.linAlgMatrixLoadFromDescriptor.mC9M4N32U0S0(i32 -2147483634, %dx.types.Handle %2, i32 0, i32 0, i32 0, i32 0)  ; LinAlgMatrixLoadFromDescriptor(handle,offset,stride,layout,align)
 
-  ; CHECK: Function: main: error: Matrix Component Type 'I1' not allowed in LinAlg Matrix.
+  ; CHECK: Function: main: error: Component Type 'I1' not allowed in LinAlg Matrix.
   ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatVecMulAdd.v4f32.mC9M4N32U0S0.v8f32.v4f32
   %4 = call <4 x float> @dx.op.linAlgMatVecMulAdd.v4f32.mC9M4N32U0S0.v8f32.v4f32(i32 -2147483622, %dx.types.LinAlgMatrixC9M4N32U0S0 %3, i1 true, <8 x float> <float 1.000000e+00, float 2.000000e+00, float 3.000000e+00, float 4.000000e+00, float 5.000000e+00, float 6.000000e+00, float 7.000000e+00, float 8.000000e+00>, i32 1, <4 x float> <float 4.000000e+00, float 3.000000e+00, float 2.000000e+00, float 1.000000e+00>)  ; LinAlgMatVecMulAdd(matrix,isOutputSigned,inputVector,inputInterpretation,biasVector)
   %5 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %1, %dx.types.ResourceProperties { i32 11, i32 0 })  ; AnnotateHandle(res,props)  resource: ByteAddressBuffer
