@@ -329,6 +329,34 @@ TEST_F(SpirvContextTest, RuntimeArrayTypeUnique3) {
             spvContext.getRuntimeArrayType(int32, 32));
 }
 
+TEST_F(SpirvContextTest, RuntimeArrayTypeUnique4) {
+  // Uniquing behaviour for the arrayStrideId (SpirvInstruction*) overload.
+  SpirvContext &spvContext = getSpirvContext();
+  const auto *int32 = spvContext.getSIntType(32);
+
+  // Two distinct pointer values stand in for two distinct SpirvInstruction
+  // operands. getRuntimeArrayType compares them by pointer identity and never
+  // dereferences them during the lookup.
+  auto *instr1 =
+      reinterpret_cast<SpirvInstruction *>(static_cast<uintptr_t>(1));
+  auto *instr2 =
+      reinterpret_cast<SpirvInstruction *>(static_cast<uintptr_t>(2));
+
+  // 1. Different arrayStrideId values -> different RuntimeArrayType pointers.
+  EXPECT_NE(spvContext.getRuntimeArrayType(int32, llvm::None, instr1),
+            spvContext.getRuntimeArrayType(int32, llvm::None, instr2));
+
+  // 2. Same arrayStrideId value -> same RuntimeArrayType pointer (uniqued).
+  EXPECT_EQ(spvContext.getRuntimeArrayType(int32, llvm::None, instr1),
+            spvContext.getRuntimeArrayType(int32, llvm::None, instr1));
+
+  // 3. Literal-stride type != id-stride type even when the numeric values
+  //    could be considered equivalent (arrayStride=64, no id) vs
+  //    (arrayStride=None, instr1 as id).
+  EXPECT_NE(spvContext.getRuntimeArrayType(int32, 64),
+            spvContext.getRuntimeArrayType(int32, llvm::None, instr1));
+}
+
 TEST_F(SpirvContextTest, PointerTypeUnique1) {
   SpirvContext &spvContext = getSpirvContext();
   const auto *int32 = spvContext.getSIntType(32);
