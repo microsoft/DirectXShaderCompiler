@@ -21,28 +21,7 @@ resources:
 
 stages:
 
-- stage: OffloadGate
-  dependsOn: []
-  jobs:
-  - job: gate
-    pool:
-      vmImage: ubuntu-latest
-    steps:
-    - checkout: none
-    - bash: |
-        run=true
-        if [ "$(Build.Reason)" = "PullRequest" ]; then
-          run=false
-          labels=$(curl -sf "https://api.github.com/repos/$(Build.Repository.Name)/issues/$(System.PullRequest.PullRequestNumber)/labels" | python3 -c "import sys, json; print(' '.join(l['name'] for l in json.load(sys.stdin)))")
-          for l in $labels; do [ "$l" = "run-offload-tests" ] && run=true; done
-        fi
-        echo "Build.Reason=$(Build.Reason) run=$run"
-        echo "##vso[task.setvariable variable=run;isOutput=true]$run"
-      name: decide
-
 - stage: Build
-  dependsOn:
-    - OffloadGate
   jobs:
   - job: Windows
     timeoutInMinutes: 180
@@ -54,7 +33,6 @@ stages:
       HLSL_SRC_DIR: '$(Build.SourcesDirectory)'
       HLSL_BLD_DIR: '$(Agent.BuildDirectory)'
       platform: x64
-      uploadArtifact: $[ stageDependencies.OffloadGate.gate.outputs['decide.run'] ]
 
     strategy:
       matrix:
@@ -126,9 +104,21 @@ stages:
         }
       displayName: 'Stage DXC binaries'
       condition: and(succeeded(), ne(variables['artifactName'], ''))
+    - pwsh: |
+        $run = $true
+        if ("$(Build.Reason)" -eq "PullRequest") {
+          $run = $false
+          $labels = Invoke-RestMethod "https://api.github.com/repos/$(Build.Repository.Name)/issues/$(System.PullRequest.PullRequestNumber)/labels"
+          if ($labels.name -contains "run-offload-tests") { $run = $true }
+        }
+        Write-Host "Build.Reason=$(Build.Reason) run=$run"
+        Write-Host "##vso[task.setvariable variable=run;isOutput=true]$($run.ToString().ToLower())"
+      name: decide
+      displayName: 'Decide whether to run offload tests'
+      condition: and(succeeded(), ne(variables['artifactName'], ''))
     - task: PublishPipelineArtifact@1
       displayName: 'Publish DXC binaries'
-      condition: and(succeeded(), ne(variables['artifactName'], ''), eq(variables['uploadArtifact'], 'true'))
+      condition: and(succeeded(), ne(variables['artifactName'], ''), eq(variables['decide.run'], 'true'))
       inputs:
         targetPath: '$(Build.ArtifactStagingDirectory)\dxc'
         artifact: '$(artifactName)'
@@ -238,8 +228,7 @@ stages:
   displayName: 'Offload tests'
   dependsOn:
   - Build
-  - OffloadGate
-  condition: and(succeededOrFailed(), eq(dependencies.OffloadGate.outputs['gate.decide.run'], 'true'))
+  condition: and(succeededOrFailed(), eq(dependencies.Build.outputs['Windows.VS2022_Release.decide.run'], 'true'))
 
   jobs:
   - job: Offload
