@@ -2258,6 +2258,7 @@ void SpirvEmitter::doVarDecl(const VarDecl *decl) {
         spvBuilder.createStore(var, constInit, loc, range);
       } else {
         storeValue(var, loadIfGLValue(init), decl->getType(), loc, range);
+        diagnoseDescriptorHeapAliasMixing(decl, init, loc);
         tryToAssignDescriptorHeapImageAlias(decl, init);
       }
 
@@ -3176,6 +3177,27 @@ SpirvEmitter::tryToAssignToDescriptorHeapBuffer(
   return emitDescriptorHeapBufferPointer(decl, assignExpr->getExprLoc());
 }
 
+llvm::Optional<SpirvInstruction *>
+SpirvEmitter::tryToAssignToDescriptorHeapAlias(
+    const BinaryOperator *assignExpr) {
+  if (!spirvOptions.useDescriptorHeap)
+    return llvm::None;
+
+  const auto *dstVar =
+      dyn_cast_or_null<VarDecl>(getReferencedDef(assignExpr->getLHS()));
+  if (!diagnoseDescriptorHeapAliasMixing(dstVar, assignExpr->getRHS(),
+                                         assignExpr->getExprLoc()))
+    return tryToAssignToDescriptorHeapBuffer(assignExpr);
+
+  // The assignment was rejected. A heap buffer alias is represented only by its
+  // index variable, so the normal path has no destination to store into and
+  // would null-deref; consume the assignment instead. Image aliases do have a
+  // function variable, so they can fall through to the plain handle store.
+  if (descriptorHeapBufferAliasVars.count(dstVar))
+    return static_cast<SpirvInstruction *>(nullptr);
+  return llvm::None;
+}
+
 SpirvInstruction *SpirvEmitter::doBinaryOperator(const BinaryOperator *expr) {
   const auto opcode = expr->getOpcode();
 
@@ -3186,7 +3208,7 @@ SpirvInstruction *SpirvEmitter::doBinaryOperator(const BinaryOperator *expr) {
     tryToAssignCounterVar(expr->getLHS(), expr->getRHS());
 
     if (llvm::Optional<SpirvInstruction *> aliasResult =
-            tryToAssignToDescriptorHeapBuffer(expr))
+            tryToAssignToDescriptorHeapAlias(expr))
       return aliasResult.getValue();
 
     SpirvInstruction *rhs = loadIfGLValue(expr->getRHS());
@@ -5117,13 +5139,19 @@ SpirvEmitter::processStructuredBufferLoad(const CXXMemberCallExpr *expr) {
 
 void SpirvEmitter::markDescriptorHeapCounterUnsupported(
     const DeclaratorDecl *decl) {
-  if (decl)
-    descriptorHeapUnsupportedCounters.insert(decl);
+  if (const auto *var = dyn_cast_or_null<VarDecl>(decl)) {
+    auto it = descriptorHeapBufferAliasVars.find(var);
+    if (it != descriptorHeapBufferAliasVars.end())
+      it->second.counterUnsupported = true;
+  }
 }
 
 bool SpirvEmitter::isDescriptorHeapCounterUnsupported(const Expr *expr) const {
-  if (const DeclaratorDecl *decl = getReferencedDef(expr))
-    return descriptorHeapUnsupportedCounters.count(decl) != 0;
+  if (const auto *var = dyn_cast_or_null<VarDecl>(getReferencedDef(expr))) {
+    auto it = descriptorHeapBufferAliasVars.find(var);
+    if (it != descriptorHeapBufferAliasVars.end())
+      return it->second.counterUnsupported;
+  }
   return false;
 }
 
@@ -5156,6 +5184,52 @@ SpirvEmitter::createDescriptorHeapIndexVar(const VarDecl *dstVar) {
                              name);
 }
 
+bool SpirvEmitter::diagnoseDescriptorHeapAliasMixing(const VarDecl *dstVar,
+                                                     const Expr *srcExpr,
+                                                     SourceLocation loc) {
+  if (!spirvOptions.useDescriptorHeap || !dstVar || !srcExpr)
+    return false;
+
+  // Report once per variable; every later assignment stays rejected.
+  auto stateIt = descriptorHeapVarState.find(dstVar);
+  if (stateIt != descriptorHeapVarState.end() &&
+      stateIt->second == DescriptorHeapVarState::Mixed)
+    return true;
+
+  // Only the resource kinds that use the compile-time alias mechanism can be
+  // miscompiled by a mixed assignment. Other resources are stored into a real
+  // function variable, which merges correctly across control flow.
+  const QualType dstType = dstVar->getType();
+  if (!isRWTexture(dstType) && !isRWBuffer(dstType) &&
+      !isConstantTextureBuffer(dstType) &&
+      !isAKindOfStructuredOrByteBuffer(dstType))
+    return false;
+
+  const bool srcIsHeap = isDescriptorHeap(srcExpr->IgnoreParenCasts());
+  const bool wasHeap = descriptorHeapImageAliasVars.count(dstVar) ||
+                       descriptorHeapBufferAliasVars.count(dstVar);
+  const bool wasBound = stateIt != descriptorHeapVarState.end() &&
+                        stateIt->second == DescriptorHeapVarState::Bound;
+  const bool mixingDetected =
+      (srcIsHeap && wasBound) || (!srcIsHeap && wasHeap);
+
+  if (mixingDetected) {
+    emitError("mixing bound and descriptor heap resources in the same variable "
+              "is not supported with SPV_EXT_descriptor_heap",
+              loc);
+    // Leave any recorded alias in place. For heap-initialized buffer variables,
+    // doVarDecl returns early before calling createFnVar, so the alias is the
+    // only handle they have. Erasing it would crash downstream uses; keeping it
+    // is safe because the emitted error already fails the compilation.
+    descriptorHeapVarState[dstVar] = DescriptorHeapVarState::Mixed;
+    return true;
+  }
+
+  if (!srcIsHeap)
+    descriptorHeapVarState[dstVar] = DescriptorHeapVarState::Bound;
+  return false;
+}
+
 bool SpirvEmitter::tryToAssignDescriptorHeapImageAlias(
     const DeclaratorDecl *dstDecl, const Expr *srcExpr) {
   if (!spirvOptions.useDescriptorHeap || !dstDecl || !srcExpr)
@@ -5165,6 +5239,13 @@ bool SpirvEmitter::tryToAssignDescriptorHeapImageAlias(
   if (!dstVar ||
       (!isRWTexture(dstVar->getType()) && !isRWBuffer(dstVar->getType())))
     return false;
+
+  {
+    auto stateIt = descriptorHeapVarState.find(dstVar);
+    if (stateIt != descriptorHeapVarState.end() &&
+        stateIt->second == DescriptorHeapVarState::Mixed)
+      return false;
+  }
 
   const Expr *src = srcExpr->IgnoreParenCasts();
   auto found = descriptorHeapImageAccesses.find(src);
@@ -5198,13 +5279,17 @@ bool SpirvEmitter::tryToAssignDescriptorHeapBufferAlias(
                    isAKindOfStructuredOrByteBuffer(dstVar->getType())))
     return false;
 
+  {
+    auto stateIt = descriptorHeapVarState.find(dstVar);
+    if (stateIt != descriptorHeapVarState.end() &&
+        stateIt->second == DescriptorHeapVarState::Mixed)
+      return false;
+  }
+
   const Expr *src = srcExpr->IgnoreParenCasts();
   auto found = descriptorHeapBufferAccesses.find(src);
   if (found == descriptorHeapBufferAccesses.end())
     return false;
-
-  if (isRWStructuredBuffer(dstVar->getType()))
-    markDescriptorHeapCounterUnsupported(dstVar);
 
   auto &alias = descriptorHeapBufferAliasVars[dstVar];
   if (!alias.indexVar)
@@ -5213,6 +5298,7 @@ bool SpirvEmitter::tryToAssignDescriptorHeapBufferAlias(
   alias.arrayType = found->second.arrayType;
   alias.heap = found->second.heap;
   alias.layoutRule = found->second.layoutRule;
+  alias.counterUnsupported = isRWStructuredBuffer(dstVar->getType());
   storeDescriptorHeapIndex(alias.indexVar, found->second.index,
                            found->second.indexType, srcExpr);
   return true;
@@ -5354,13 +5440,19 @@ SpirvEmitter::incDecRWACSBufferCounter(const CXXMemberCallExpr *expr,
     return nullptr;
   }
 
+  // Only heap-loaded append/consume buffers are unsupported. Explicitly bound
+  // ones keep working in native heap mode, so key the diagnostic on the object
+  // actually having a heap alias rather than on the option alone.
   if (spirvOptions.useDescriptorHeap &&
       (isAppendStructuredBuffer(object->getType()) ||
        isConsumeStructuredBuffer(object->getType()))) {
-    emitError("append/consume structured buffers are not supported with "
-              "SPV_EXT_descriptor_heap",
-              expr->getCallee()->getExprLoc());
-    return nullptr;
+    const auto *objVar = dyn_cast_or_null<VarDecl>(getReferencedDef(object));
+    if (objVar && descriptorHeapBufferAliasVars.count(objVar)) {
+      emitError("append/consume structured buffers are not supported with "
+                "SPV_EXT_descriptor_heap",
+                expr->getCallee()->getExprLoc());
+      return nullptr;
+    }
   }
 
   auto *counter = getFinalACSBufferCounterInstruction(object);
