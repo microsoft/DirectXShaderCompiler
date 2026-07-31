@@ -1309,10 +1309,13 @@ static void ValidateLinAlgMatrixLoadFromDescriptor(CallInst *CI,
                                   {"Stride", "LinAlgMatrixLoadFromDescriptor"});
   }
 
-  // Align must be an immarg of multiple of 128
+  // Align must be an immediate constant that is a multiple of 128
   ConstantInt *AlignCI = dyn_cast<ConstantInt>(Op.get_align());
   if (AlignCI) {
     unsigned Align = AlignCI->getLimitedValue();
+    if (Align == 0)
+      ValCtx.EmitInstrFormatError(CI, ValidationRule::InstrParamMinimumValue,
+                                  {"Align", "0", std::to_string(Align)});
     if (Align % 128 != 0)
       ValCtx.EmitInstrFormatError(CI, ValidationRule::InstrParamMultiple,
                                   {"Align", "128", std::to_string(Align)});
@@ -1324,10 +1327,12 @@ static void ValidateLinAlgMatrixLoadFromDescriptor(CallInst *CI,
   if (RetLATT.Scope == DXIL::MatrixScope::Thread) {
     DXIL::ComponentType ResCompTy;
     DXIL::ResourceClass ResClass;
-    GetResourceKindAndCompTy(Op.get_handle(), ResCompTy, ResClass, ValCtx);
-    if (ResClass != DXIL::ResourceClass::SRV)
+    DXIL::ResourceKind ResKind =
+        GetResourceKindAndCompTy(Op.get_handle(), ResCompTy, ResClass, ValCtx);
+    if (ResClass != DXIL::ResourceClass::SRV ||
+        ResKind != DXIL::ResourceKind::RawBuffer)
       ValCtx.EmitInstrError(
-          CI, ValidationRule::InstrLinAlgMatrixLoadThreadRequiresSRV);
+          CI, ValidationRule::InstrLinAlgMatrixLoadThreadRequiresSRVBAB);
   }
 }
 

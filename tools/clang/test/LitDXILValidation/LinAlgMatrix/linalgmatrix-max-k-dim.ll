@@ -36,103 +36,103 @@ define void @main() {
 
   ; Matrix<F16, 1025, 1025, Accumulator, Thread> - its not possible to statically determine which dim is K on Accumulator so no validation occurs
   %2 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %1, %dx.types.ResourceProperties { i32 11, i32 0 })  ; AnnotateHandle(res,props)  resource: ByteAddressBuffer
-  %3 = call %dx.types.LinAlgMatrixC8M1025N1025U2S0 @dx.op.linAlgMatrixLoadFromDescriptor.mC8M1025N1025U2S0(i32 -2147483634, %dx.types.Handle %2, i32 0, i32 0, i32 0, i32 0)  ; LinAlgMatrixLoadFromDescriptor(handle,offset,stride,layout,align)
+  %3 = call %dx.types.LinAlgMatrixC8M1025N1025U2S0 @dx.op.linAlgMatrixLoadFromDescriptor.mC8M1025N1025U2S0(i32 -2147483634, %dx.types.Handle %2, i32 0, i32 0, i32 0, i32 128)  ; LinAlgMatrixLoadFromDescriptor(handle,offset,stride,layout,align)
 
   ; CHECK: Function: main: error: Metadata must be well-formed in operand count and types.
   ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixLoadFromDescriptor.mC4M16N16U0S2
   ; Matrix<I32, 16, 16, A, ThreadGroup> - missing metadata
   %4 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %1, %dx.types.ResourceProperties { i32 11, i32 0 })  ; AnnotateHandle(res,props)  resource: ByteAddressBuffer
-  %5 = call %dx.types.LinAlgMatrixC4M16N16U0S2 @dx.op.linAlgMatrixLoadFromDescriptor.mC4M16N16U0S2(i32 -2147483634, %dx.types.Handle %4, i32 0, i32 0, i32 0, i32 0)  ; LinAlgMatrixLoadFromDescriptor(handle,offset,stride,layout,align)
+  %5 = call %dx.types.LinAlgMatrixC4M16N16U0S2 @dx.op.linAlgMatrixLoadFromDescriptor.mC4M16N16U0S2(i32 -2147483634, %dx.types.Handle %4, i32 0, i32 0, i32 0, i32 128)  ; LinAlgMatrixLoadFromDescriptor(handle,offset,stride,layout,align)
 
   ; CHECK-NEXT: Function: main: error: Matrix K Dimension out of bounds. K=129 must be >= 4 and <= 128.
   ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixLoadFromDescriptor.mC8M16N129U0S0
   ; Matrix<F16, 129, 16, A, Thread> - N is K so pass
   %6 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %1, %dx.types.ResourceProperties { i32 11, i32 0 })  ; AnnotateHandle(res,props)  resource: ByteAddressBuffer
-  %7 = call %dx.types.LinAlgMatrixC8M129N16U0S0 @dx.op.linAlgMatrixLoadFromDescriptor.mC8M129N16U0S0(i32 -2147483634, %dx.types.Handle %6, i32 0, i32 0, i32 0, i32 0)  ; LinAlgMatrixLoadFromDescriptor(handle,offset,stride,layout,align)
+  %7 = call %dx.types.LinAlgMatrixC8M129N16U0S0 @dx.op.linAlgMatrixLoadFromDescriptor.mC8M129N16U0S0(i32 -2147483634, %dx.types.Handle %6, i32 0, i32 0, i32 0, i32 128)  ; LinAlgMatrixLoadFromDescriptor(handle,offset,stride,layout,align)
   ; Matrix<F16, 16, 129, A, Thread> - N is K so fail
   %8 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %1, %dx.types.ResourceProperties { i32 11, i32 0 })  ; AnnotateHandle(res,props)  resource: ByteAddressBuffer
-  %9 = call %dx.types.LinAlgMatrixC8M16N129U0S0 @dx.op.linAlgMatrixLoadFromDescriptor.mC8M16N129U0S0(i32 -2147483634, %dx.types.Handle %8, i32 0, i32 0, i32 0, i32 0)  ; LinAlgMatrixLoadFromDescriptor(handle,offset,stride,layout,align)
+  %9 = call %dx.types.LinAlgMatrixC8M16N129U0S0 @dx.op.linAlgMatrixLoadFromDescriptor.mC8M16N129U0S0(i32 -2147483634, %dx.types.Handle %8, i32 0, i32 0, i32 0, i32 128)  ; LinAlgMatrixLoadFromDescriptor(handle,offset,stride,layout,align)
 
   ; CHECK-NEXT: Function: main: error: Matrix K Dimension out of bounds. K=3 must be >= 4 and <= 128.
   ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixLoadFromDescriptor.mC8M16N3U0S0
   ; Matrix<F16, 3, 16, A, Thread> - N is K so pass
   %10 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %1, %dx.types.ResourceProperties { i32 11, i32 0 })  ; AnnotateHandle(res,props)  resource: ByteAddressBuffer
-  %11 = call %dx.types.LinAlgMatrixC8M3N16U0S0 @dx.op.linAlgMatrixLoadFromDescriptor.mC8M3N16U0S0(i32 -2147483634, %dx.types.Handle %10, i32 0, i32 0, i32 0, i32 0)  ; LinAlgMatrixLoadFromDescriptor(handle,offset,stride,layout,align)
+  %11 = call %dx.types.LinAlgMatrixC8M3N16U0S0 @dx.op.linAlgMatrixLoadFromDescriptor.mC8M3N16U0S0(i32 -2147483634, %dx.types.Handle %10, i32 0, i32 0, i32 0, i32 128)  ; LinAlgMatrixLoadFromDescriptor(handle,offset,stride,layout,align)
   ; Matrix<F16, 16, 3, A, Thread> - N is K so fail
   %12 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %1, %dx.types.ResourceProperties { i32 11, i32 0 })  ; AnnotateHandle(res,props)  resource: ByteAddressBuffer
-  %13 = call %dx.types.LinAlgMatrixC8M16N3U0S0 @dx.op.linAlgMatrixLoadFromDescriptor.mC8M16N3U0S0(i32 -2147483634, %dx.types.Handle %12, i32 0, i32 0, i32 0, i32 0)  ; LinAlgMatrixLoadFromDescriptor(handle,offset,stride,layout,align)
+  %13 = call %dx.types.LinAlgMatrixC8M16N3U0S0 @dx.op.linAlgMatrixLoadFromDescriptor.mC8M16N3U0S0(i32 -2147483634, %dx.types.Handle %12, i32 0, i32 0, i32 0, i32 128)  ; LinAlgMatrixLoadFromDescriptor(handle,offset,stride,layout,align)
 
   ; CHECK-NEXT: Function: main: error: Matrix K Dimension out of bounds. K=129 must be >= 4 and <= 128.
   ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixLoadFromDescriptor.mC8M129N16U1S0
   ; Matrix<F16, 129, 16, B, Thread> - M is K so fail
   %14 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %1, %dx.types.ResourceProperties { i32 11, i32 0 })  ; AnnotateHandle(res,props)  resource: ByteAddressBuffer
-  %15 = call %dx.types.LinAlgMatrixC8M129N16U1S0 @dx.op.linAlgMatrixLoadFromDescriptor.mC8M129N16U1S0(i32 -2147483634, %dx.types.Handle %14, i32 0, i32 0, i32 0, i32 0)  ; LinAlgMatrixLoadFromDescriptor(handle,offset,stride,layout,align)
+  %15 = call %dx.types.LinAlgMatrixC8M129N16U1S0 @dx.op.linAlgMatrixLoadFromDescriptor.mC8M129N16U1S0(i32 -2147483634, %dx.types.Handle %14, i32 0, i32 0, i32 0, i32 128)  ; LinAlgMatrixLoadFromDescriptor(handle,offset,stride,layout,align)
   ; Matrix<F16, 16, 129, B, Thread> - M is K so pass
   %16 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %1, %dx.types.ResourceProperties { i32 11, i32 0 })  ; AnnotateHandle(res,props)  resource: ByteAddressBuffer
-  %17 = call %dx.types.LinAlgMatrixC8M16N129U1S0 @dx.op.linAlgMatrixLoadFromDescriptor.mC8M16N129U1S0(i32 -2147483634, %dx.types.Handle %16, i32 0, i32 0, i32 0, i32 0)  ; LinAlgMatrixLoadFromDescriptor(handle,offset,stride,layout,align)
+  %17 = call %dx.types.LinAlgMatrixC8M16N129U1S0 @dx.op.linAlgMatrixLoadFromDescriptor.mC8M16N129U1S0(i32 -2147483634, %dx.types.Handle %16, i32 0, i32 0, i32 0, i32 128)  ; LinAlgMatrixLoadFromDescriptor(handle,offset,stride,layout,align)
 
   ; CHECK-NEXT: Function: main: error: Matrix K Dimension out of bounds. K=3 must be >= 4 and <= 128.
   ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixLoadFromDescriptor.mC8M3N16U1S0
   ; Matrix<F16, 3, 16, B, Thread> - M is K so fail
   %18 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %1, %dx.types.ResourceProperties { i32 11, i32 0 })  ; AnnotateHandle(res,props)  resource: ByteAddressBuffer
-  %19 = call %dx.types.LinAlgMatrixC8M3N16U1S0 @dx.op.linAlgMatrixLoadFromDescriptor.mC8M3N16U1S0(i32 -2147483634, %dx.types.Handle %18, i32 0, i32 0, i32 0, i32 0)  ; LinAlgMatrixLoadFromDescriptor(handle,offset,stride,layout,align)
+  %19 = call %dx.types.LinAlgMatrixC8M3N16U1S0 @dx.op.linAlgMatrixLoadFromDescriptor.mC8M3N16U1S0(i32 -2147483634, %dx.types.Handle %18, i32 0, i32 0, i32 0, i32 128)  ; LinAlgMatrixLoadFromDescriptor(handle,offset,stride,layout,align)
   ; Matrix<F16, 16, 3, B, Thread> - M is K so pass
   %20 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %1, %dx.types.ResourceProperties { i32 11, i32 0 })  ; AnnotateHandle(res,props)  resource: ByteAddressBuffer
-  %21 = call %dx.types.LinAlgMatrixC8M16N3U1S0 @dx.op.linAlgMatrixLoadFromDescriptor.mC8M16N3U1S0(i32 -2147483634, %dx.types.Handle %20, i32 0, i32 0, i32 0, i32 0)  ; LinAlgMatrixLoadFromDescriptor(handle,offset,stride,layout,align)
+  %21 = call %dx.types.LinAlgMatrixC8M16N3U1S0 @dx.op.linAlgMatrixLoadFromDescriptor.mC8M16N3U1S0(i32 -2147483634, %dx.types.Handle %20, i32 0, i32 0, i32 0, i32 128)  ; LinAlgMatrixLoadFromDescriptor(handle,offset,stride,layout,align)
 
   ; CHECK-NEXT: Function: main: error: Matrix K Dimension out of bounds. K=1025 must be >= 1 and <= 1024.
   ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixLoadFromDescriptor.mC8M16N1025U0S2
   ; Matrix<F16, 1025, 16, A, ThreadGroup> - N is K so pass
   %22 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %1, %dx.types.ResourceProperties { i32 11, i32 0 })  ; AnnotateHandle(res,props)  resource: ByteAddressBuffer
-  %23 = call %dx.types.LinAlgMatrixC8M1025N16U0S2 @dx.op.linAlgMatrixLoadFromDescriptor.mC8M1025N16U0S2(i32 -2147483634, %dx.types.Handle %22, i32 0, i32 0, i32 0, i32 0)  ; LinAlgMatrixLoadFromDescriptor(handle,offset,stride,layout,align)
+  %23 = call %dx.types.LinAlgMatrixC8M1025N16U0S2 @dx.op.linAlgMatrixLoadFromDescriptor.mC8M1025N16U0S2(i32 -2147483634, %dx.types.Handle %22, i32 0, i32 0, i32 0, i32 128)  ; LinAlgMatrixLoadFromDescriptor(handle,offset,stride,layout,align)
   ; Matrix<F16, 16, 1025, A, ThreadGroup> - N is K so fail
   %24 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %1, %dx.types.ResourceProperties { i32 11, i32 0 })  ; AnnotateHandle(res,props)  resource: ByteAddressBuffer
-  %25 = call %dx.types.LinAlgMatrixC8M16N1025U0S2 @dx.op.linAlgMatrixLoadFromDescriptor.mC8M16N1025U0S2(i32 -2147483634, %dx.types.Handle %24, i32 0, i32 0, i32 0, i32 0)  ; LinAlgMatrixLoadFromDescriptor(handle,offset,stride,layout,align)
+  %25 = call %dx.types.LinAlgMatrixC8M16N1025U0S2 @dx.op.linAlgMatrixLoadFromDescriptor.mC8M16N1025U0S2(i32 -2147483634, %dx.types.Handle %24, i32 0, i32 0, i32 0, i32 128)  ; LinAlgMatrixLoadFromDescriptor(handle,offset,stride,layout,align)
 
   ; CHECK-NEXT: Function: main: error: Matrix K Dimension out of bounds. K=0 must be >= 1 and <= 1024.
   ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixLoadFromDescriptor.mC8M16N0U0S2
   ; Matrix<F16, 16, 3, A, ThreadGroup> - N is K so fail
   %26 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %1, %dx.types.ResourceProperties { i32 11, i32 0 })  ; AnnotateHandle(res,props)  resource: ByteAddressBuffer
-  %27 = call %dx.types.LinAlgMatrixC8M16N0U0S2 @dx.op.linAlgMatrixLoadFromDescriptor.mC8M16N0U0S2(i32 -2147483634, %dx.types.Handle %26, i32 0, i32 0, i32 0, i32 0)  ; LinAlgMatrixLoadFromDescriptor(handle,offset,stride,layout,align)
+  %27 = call %dx.types.LinAlgMatrixC8M16N0U0S2 @dx.op.linAlgMatrixLoadFromDescriptor.mC8M16N0U0S2(i32 -2147483634, %dx.types.Handle %26, i32 0, i32 0, i32 0, i32 128)  ; LinAlgMatrixLoadFromDescriptor(handle,offset,stride,layout,align)
   ; Matrix<F16, 3, 16, A, ThreadGroup> - N is K so pass
   %28 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %1, %dx.types.ResourceProperties { i32 11, i32 0 })  ; AnnotateHandle(res,props)  resource: ByteAddressBuffer
-  %29 = call %dx.types.LinAlgMatrixC8M3N16U0S2 @dx.op.linAlgMatrixLoadFromDescriptor.mC8M3N16U0S2(i32 -2147483634, %dx.types.Handle %28, i32 0, i32 0, i32 0, i32 0)  ; LinAlgMatrixLoadFromDescriptor(handle,offset,stride,layout,align)
+  %29 = call %dx.types.LinAlgMatrixC8M3N16U0S2 @dx.op.linAlgMatrixLoadFromDescriptor.mC8M3N16U0S2(i32 -2147483634, %dx.types.Handle %28, i32 0, i32 0, i32 0, i32 128)  ; LinAlgMatrixLoadFromDescriptor(handle,offset,stride,layout,align)
 
   ; CHECK-NEXT: Function: main: error: Matrix K Dimension out of bounds. K=1025 must be >= 1 and <= 1024.
   ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixLoadFromDescriptor.mC8M1025N129U1S2
   ; Matrix<F16, 1025, 129, B, ThreadGroup> - M is K so fail
   %30 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %1, %dx.types.ResourceProperties { i32 11, i32 0 })  ; AnnotateHandle(res,props)  resource: ByteAddressBuffer
-  %31 = call %dx.types.LinAlgMatrixC8M1025N129U1S2 @dx.op.linAlgMatrixLoadFromDescriptor.mC8M1025N129U1S2(i32 -2147483634, %dx.types.Handle %30, i32 0, i32 0, i32 0, i32 0)  ; LinAlgMatrixLoadFromDescriptor(handle,offset,stride,layout,align)
+  %31 = call %dx.types.LinAlgMatrixC8M1025N129U1S2 @dx.op.linAlgMatrixLoadFromDescriptor.mC8M1025N129U1S2(i32 -2147483634, %dx.types.Handle %30, i32 0, i32 0, i32 0, i32 128)  ; LinAlgMatrixLoadFromDescriptor(handle,offset,stride,layout,align)
   ; Matrix<F16, 129, 1025, B, ThreadGroup> - M is K so pass
   %32 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %1, %dx.types.ResourceProperties { i32 11, i32 0 })  ; AnnotateHandle(res,props)  resource: ByteAddressBuffer
-  %33 = call %dx.types.LinAlgMatrixC8M129N1025U1S2 @dx.op.linAlgMatrixLoadFromDescriptor.mC8M129N1025U1S2(i32 -2147483634, %dx.types.Handle %32, i32 0, i32 0, i32 0, i32 0)  ; LinAlgMatrixLoadFromDescriptor(handle,offset,stride,layout,align)
+  %33 = call %dx.types.LinAlgMatrixC8M129N1025U1S2 @dx.op.linAlgMatrixLoadFromDescriptor.mC8M129N1025U1S2(i32 -2147483634, %dx.types.Handle %32, i32 0, i32 0, i32 0, i32 128)  ; LinAlgMatrixLoadFromDescriptor(handle,offset,stride,layout,align)
 
   ; CHECK-NEXT: Function: main: error: Matrix K Dimension out of bounds. K=0 must be >= 1 and <= 1024.
   ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixLoadFromDescriptor.mC8M0N129U1S2
   ; Matrix<F16, 3, 129, B, ThreadGroup> - M is K so fail
   %34 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %1, %dx.types.ResourceProperties { i32 11, i32 0 })  ; AnnotateHandle(res,props)  resource: ByteAddressBuffer
-  %35 = call %dx.types.LinAlgMatrixC8M0N129U1S2 @dx.op.linAlgMatrixLoadFromDescriptor.mC8M0N129U1S2(i32 -2147483634, %dx.types.Handle %34, i32 0, i32 0, i32 0, i32 0)  ; LinAlgMatrixLoadFromDescriptor(handle,offset,stride,layout,align)
+  %35 = call %dx.types.LinAlgMatrixC8M0N129U1S2 @dx.op.linAlgMatrixLoadFromDescriptor.mC8M0N129U1S2(i32 -2147483634, %dx.types.Handle %34, i32 0, i32 0, i32 0, i32 128)  ; LinAlgMatrixLoadFromDescriptor(handle,offset,stride,layout,align)
   ; Matrix<F16, 129, 3, B, ThreadGroup> - M is K so pass
   %36 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %1, %dx.types.ResourceProperties { i32 11, i32 0 })  ; AnnotateHandle(res,props)  resource: ByteAddressBuffer
-  %37 = call %dx.types.LinAlgMatrixC8M129N3U1S2 @dx.op.linAlgMatrixLoadFromDescriptor.mC8M129N3U1S2(i32 -2147483634, %dx.types.Handle %36, i32 0, i32 0, i32 0, i32 0)  ; LinAlgMatrixLoadFromDescriptor(handle,offset,stride,layout,align)
+  %37 = call %dx.types.LinAlgMatrixC8M129N3U1S2 @dx.op.linAlgMatrixLoadFromDescriptor.mC8M129N3U1S2(i32 -2147483634, %dx.types.Handle %36, i32 0, i32 0, i32 0, i32 128)  ; LinAlgMatrixLoadFromDescriptor(handle,offset,stride,layout,align)
 
   ; Below are just barely in bounds. No validation errors should be emitted.
 
   ; Matrix<F16, 128, 128, A, Thread>
   %38 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %1, %dx.types.ResourceProperties { i32 11, i32 0 })  ; AnnotateHandle(res,props)  resource: ByteAddressBuffer
-  %39 = call %dx.types.LinAlgMatrixC8M128N128U0S0 @dx.op.linAlgMatrixLoadFromDescriptor.mC8M128N128U0S0(i32 -2147483634, %dx.types.Handle %38, i32 0, i32 0, i32 0, i32 0)  ; LinAlgMatrixLoadFromDescriptor(handle,offset,stride,layout,align)
+  %39 = call %dx.types.LinAlgMatrixC8M128N128U0S0 @dx.op.linAlgMatrixLoadFromDescriptor.mC8M128N128U0S0(i32 -2147483634, %dx.types.Handle %38, i32 0, i32 0, i32 0, i32 128)  ; LinAlgMatrixLoadFromDescriptor(handle,offset,stride,layout,align)
 
   ; Matrix<F16, 128, 128, B, Thread>
   %40 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %1, %dx.types.ResourceProperties { i32 11, i32 0 })  ; AnnotateHandle(res,props)  resource: ByteAddressBuffer
-  %41 = call %dx.types.LinAlgMatrixC8M128N128U1S0 @dx.op.linAlgMatrixLoadFromDescriptor.mC8M128N128U1S0(i32 -2147483634, %dx.types.Handle %40, i32 0, i32 0, i32 0, i32 0)  ; LinAlgMatrixLoadFromDescriptor(handle,offset,stride,layout,align)
+  %41 = call %dx.types.LinAlgMatrixC8M128N128U1S0 @dx.op.linAlgMatrixLoadFromDescriptor.mC8M128N128U1S0(i32 -2147483634, %dx.types.Handle %40, i32 0, i32 0, i32 0, i32 128)  ; LinAlgMatrixLoadFromDescriptor(handle,offset,stride,layout,align)
 
   ; Matrix<F16, 1024, 1024, A, ThreadGroup>
   %42 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %1, %dx.types.ResourceProperties { i32 11, i32 0 })  ; AnnotateHandle(res,props)  resource: ByteAddressBuffer
-  %43 = call %dx.types.LinAlgMatrixC8M1024N1024U0S2 @dx.op.linAlgMatrixLoadFromDescriptor.mC8M1024N1024U0S2(i32 -2147483634, %dx.types.Handle %42, i32 0, i32 0, i32 0, i32 0)  ; LinAlgMatrixLoadFromDescriptor(handle,offset,stride,layout,align)
+  %43 = call %dx.types.LinAlgMatrixC8M1024N1024U0S2 @dx.op.linAlgMatrixLoadFromDescriptor.mC8M1024N1024U0S2(i32 -2147483634, %dx.types.Handle %42, i32 0, i32 0, i32 0, i32 128)  ; LinAlgMatrixLoadFromDescriptor(handle,offset,stride,layout,align)
 
   ; Matrix<F16, 1024, 1024, B, ThreadGroup>
   %44 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %1, %dx.types.ResourceProperties { i32 11, i32 0 })  ; AnnotateHandle(res,props)  resource: ByteAddressBuffer
-  %45 = call %dx.types.LinAlgMatrixC8M1024N1024U1S2 @dx.op.linAlgMatrixLoadFromDescriptor.mC8M1024N1024U1S2(i32 -2147483634, %dx.types.Handle %44, i32 0, i32 0, i32 0, i32 0)  ; LinAlgMatrixLoadFromDescriptor(handle,offset,stride,layout,align)
+  %45 = call %dx.types.LinAlgMatrixC8M1024N1024U1S2 @dx.op.linAlgMatrixLoadFromDescriptor.mC8M1024N1024U1S2(i32 -2147483634, %dx.types.Handle %44, i32 0, i32 0, i32 0, i32 128)  ; LinAlgMatrixLoadFromDescriptor(handle,offset,stride,layout,align)
 
   ; CHECK-NEXT: Validation failed.
   ret void
@@ -213,7 +213,7 @@ declare %dx.types.Handle @dx.op.createHandleFromBinding(i32, %dx.types.ResBind, 
 attributes #0 = { nounwind }
 attributes #1 = { nounwind readnone }
 
-; !1 is intenionally removed. See below.
+; !1 is intentionally removed. See below.
 !dx.targetTypes = !{!0, !2, !3, !4, !5, !6, !7, !8, !9, !10, !11, !12, !13, !14, !15, !16, !17, !18, !19, !20, !21}
 !llvm.ident = !{!22}
 !dx.version = !{!23}
