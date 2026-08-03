@@ -1,52 +1,51 @@
-// Two test paths share this file; select via -D RT_STAGE:
+// Verifies the descriptor-heap array stride when a RaytracingAccelerationStructure
+// is present in the resource heap.
 //
-//   Path A; Condition 1 (RT stage):
-//     -T lib_6_6 -D RT_STAGE -fspv-extension=SPV_KHR_ray_tracing
-//     A closesthit entry point is in the workQueue; shaderModelKindIsRayTracing()
-//     returns true and noteResourceHeapHasAccelStruct() is called unconditionally.
+// When acceleration structures are accessed from ResourceDescriptorHeap, the
+// stride formula expands from max(sizeof(image), sizeof(buffer)) to the
+// three-way max: max(max(sizeof(image), sizeof(buffer)), sizeof(accel_struct)).
+// All resource runtime arrays must share this wider stride so that any slot
+// can hold any descriptor type.
 //
-//   Path B; Condition 3 (explicit KHR_ray_query extension):
-//     -T cs_6_6 -E main -fspv-extension=SPV_KHR_ray_query
-//     No RT stage in workQueue, so Condition 1 is skipped. The
-//     !spirvOptions.allowedExtensions.empty() guard passes (user listed an
-//     explicit extension), isExtensionEnabled(KHR_ray_query) is true, and
-//     noteResourceHeapHasAccelStruct() is called.
+// The compiler widens the stride under two conditions:
 //
-// Both paths verify that the shared resource-heap array stride expands to
-//   max(max(sizeof(image), sizeof(buffer)), sizeof(accel_struct))
-// and that ALL resource runtime arrays share that three-way max stride.
+//   Path A (RT stage): the shader model is a ray-tracing stage, so any heap
+//   access may load an acceleration structure. Ray-tracing extensions are
+//   requested explicitly via -fspv-extension=SPV_KHR_ray_tracing.
+//
+//   Path B (ray query): the SPV_KHR_ray_query extension is explicitly requested
+//   by the user, signalling that AS descriptors may appear in the heap even
+//   without a ray-tracing stage.
 //
 // Ordering stress test: Texture2D is accessed BEFORE the AS in source order.
-// The stride cache must already hold sizeof(accel_struct) when the first
-// runtime array type is created so the texture array uses the correct stride.
+// If the stride cache were populated before the AS widens it, the texture
+// runtime array would be decorated with the narrower two-way max stride.
 //
-// The regression test for the "default-extension-mode" false positive (no
-// -fspv-extension flags -> allowedExtensions is empty -> Condition 3 is skipped)
-// is sm6_6.descriptorheap.ext.array-stride.hlsl, which must emit exactly 3
-// OpConstantSizeOfEXT (img, buf, sampler - no accel_struct).
+// For the no-AS baseline (exactly 3 OpConstantSizeOfEXT: img, buf, sampler)
+// see sm6_6.descriptorheap.ext.array-stride.hlsl.
 
-// RUN: %dxc -T lib_6_6 -D RT_STAGE -fspv-use-descriptor-heap               \
+// RUN: %dxc -T lib_6_6 -D RT_STAGE -Od -fspv-use-descriptor-heap           \
 // RUN:   -fspv-target-env=vulkan1.3                                        \
 // RUN:   -fspv-extension=SPV_EXT_descriptor_heap                           \
 // RUN:   -fspv-extension=SPV_KHR_untyped_pointers                          \
 // RUN:   -fspv-extension=SPV_KHR_ray_tracing                               \
 // RUN:   -spirv %s | FileCheck %s --check-prefixes=CHECK,RT
 
-// RUN: %dxc -T cs_6_6 -E main -fspv-use-descriptor-heap                    \
+// RUN: %dxc -T cs_6_6 -E main -Od -fspv-use-descriptor-heap                \
 // RUN:   -fspv-target-env=vulkan1.3                                        \
 // RUN:   -fspv-extension=SPV_EXT_descriptor_heap                           \
 // RUN:   -fspv-extension=SPV_KHR_untyped_pointers                          \
 // RUN:   -fspv-extension=SPV_KHR_ray_query                                 \
 // RUN:   -spirv %s | FileCheck %s
 
-// RUN: %dxc -T lib_6_6 -D RT_STAGE -fspv-use-descriptor-heap               \
+// RUN: %dxc -T lib_6_6 -D RT_STAGE -Od -fspv-use-descriptor-heap           \
 // RUN:   -fspv-target-env=vulkan1.3                                        \
 // RUN:   -fspv-extension=SPV_EXT_descriptor_heap                           \
 // RUN:   -fspv-extension=SPV_KHR_untyped_pointers                          \
 // RUN:   -fspv-extension=SPV_KHR_ray_tracing                               \
 // RUN:   -spirv %s | FileCheck %s --check-prefix=SZRT
 
-// RUN: %dxc -T cs_6_6 -E main -fspv-use-descriptor-heap                    \
+// RUN: %dxc -T cs_6_6 -E main -Od -fspv-use-descriptor-heap                \
 // RUN:   -fspv-target-env=vulkan1.3                                        \
 // RUN:   -fspv-extension=SPV_EXT_descriptor_heap                           \
 // RUN:   -fspv-extension=SPV_KHR_untyped_pointers                          \

@@ -5319,9 +5319,16 @@ bool SpirvEmitter::diagnoseDescriptorHeapAliasMixing(const VarDecl *dstVar,
                         stateIt->second == DescriptorHeapVarState::Heap);
   const bool wasBound = stateIt != descriptorHeapVarState.end() &&
                         stateIt->second == DescriptorHeapVarState::Bound;
+<<<<<<< HEAD
   // AS aliases are frozen (registerFnVarAlias cannot be updated), so any
   // reassignment — including heap-to-heap — is rejected. Image/buffer aliases
   // support heap-to-heap reassignment; only cross-kind (bound↔heap) is flagged.
+=======
+  // AS aliases cannot be updated after initialization (registerFnVarAlias is
+  // frozen), so any reassignment (including heap-to-heap) must be rejected.
+  // Image and buffer aliases support heap-to-heap reassignment via their
+  // respective alias-update paths, so only the cross-kind cases are errors.
+>>>>>>> 54810f039 (Added AS reassignment diagnostic, fixed tests and docs)
   const bool mixingDetected = (isASType && wasHeap) ||
                               (srcIsHeap && wasBound) ||
                               (!srcIsHeap && wasHeap);
