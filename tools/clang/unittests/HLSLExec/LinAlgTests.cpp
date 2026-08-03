@@ -38,7 +38,7 @@
 namespace LinAlg {
 
 using hlsl::DXIL::ComponentType;
-using hlsl::DXIL::LinalgMatrixLayout;
+using hlsl::DXIL::MatrixLayout;
 using hlsl::DXIL::MatrixScope;
 using hlsl::DXIL::MatrixUse;
 
@@ -72,16 +72,16 @@ struct MatrixParams {
   MatrixDim N;
   MatrixUse Use;
   MatrixScope Scope;
-  LinalgMatrixLayout Layout;
+  MatrixLayout Layout;
   int NumThreads;
   bool Enable16Bit;
   bool EmulateTest;
 
   size_t strideBytes() const {
     uint32_t ES = elementSize(CompType);
-    if (Layout == LinalgMatrixLayout::RowMajor)
+    if (Layout == MatrixLayout::RowMajor)
       return N * ES;
-    if (Layout == LinalgMatrixLayout::ColumnMajor)
+    if (Layout == MatrixLayout::ColumnMajor)
       return M * ES;
     // If not Row/Col major, spec says to use 0
     return 0;
@@ -255,8 +255,8 @@ static VariantCompType makeExpectedMat(ComponentType CompType, MatrixDim M,
 
   for (size_t I = 0; I < M; ++I) {
     for (size_t J = 0; J < N; ++J) {
-      size_t Value = I * M + J;
-      size_t Idx = Transpose ? J * N + I : Value;
+      size_t Value = I * N + J;
+      size_t Idx = Transpose ? J * M + I : Value;
       switch (CompType) {
       case ComponentType::F32:
         Floats[Idx] = StartingVal + static_cast<float>(Increment ? Value : 0);
@@ -340,6 +340,7 @@ public:
   // Cast/Convert
   TEST_METHOD(CopyConvert_Wave_16x16_F16);
   TEST_METHOD(CopyConvert_Wave_16x16_F16_Transpose);
+  TEST_METHOD(CopyConvert_Wave_4x8_F32_Transpose);
 
   // Matrix Matrix Arithmetic
   TEST_METHOD(MatMatMul_Wave_16x16x16_F16);
@@ -348,10 +349,10 @@ public:
 
   // Matrix Vector Arithmetic
   TEST_METHOD(MatVecMul_Thread_16x16_F16);
+  TEST_METHOD(MatVecMul_Thread_4x8_F32);
   TEST_METHOD(MatVecMulAdd_Thread_16x16_F16);
-#if 0
+  TEST_METHOD(MatVecMulAdd_Thread_4x8_F32);
   TEST_METHOD(OuterProduct_Thread_16x16_F16);
-#endif
 
   // Query Accumulator Layout
   TEST_METHOD(QueryAccumLayout);
@@ -480,7 +481,7 @@ void DxilConf_SM610_LinAlg::LoadStoreDescriptor_Wave_16x16_F16() {
   Params.N = 16;
   Params.Use = MatrixUse::A;
   Params.Scope = MatrixScope::Wave;
-  Params.Layout = LinalgMatrixLayout::RowMajor;
+  Params.Layout = MatrixLayout::RowMajor;
   Params.NumThreads = 64;
   Params.Enable16Bit = true;
   runLoadStoreDescriptor(D3DDevice, DxcSupport, Params, VerboseLogging);
@@ -542,7 +543,7 @@ void DxilConf_SM610_LinAlg::SplatStore_Wave_16x16_F16() {
   Params.N = 16;
   Params.Use = MatrixUse::Accumulator;
   Params.Scope = MatrixScope::Wave;
-  Params.Layout = LinalgMatrixLayout::RowMajor;
+  Params.Layout = MatrixLayout::RowMajor;
   Params.NumThreads = 64;
   Params.Enable16Bit = true;
   runSplatStore(D3DDevice, DxcSupport, Params, 42.0f, VerboseLogging);
@@ -618,7 +619,7 @@ void DxilConf_SM610_LinAlg::AccumulateDescriptor_Wave_16x16_F16() {
   Params.N = 16;
   Params.Use = MatrixUse::Accumulator;
   Params.Scope = MatrixScope::Wave;
-  Params.Layout = LinalgMatrixLayout::RowMajor;
+  Params.Layout = MatrixLayout::RowMajor;
   Params.NumThreads = 64;
   Params.Enable16Bit = true;
   runAccumulateDescriptor(D3DDevice, DxcSupport, Params, 12, VerboseLogging);
@@ -721,7 +722,7 @@ void DxilConf_SM610_LinAlg::ElementAccess_Wave_16x16_F16() {
   Params.N = 16;
   Params.Use = MatrixUse::Accumulator;
   Params.Scope = MatrixScope::Wave;
-  Params.Layout = LinalgMatrixLayout::RowMajor;
+  Params.Layout = MatrixLayout::RowMajor;
   Params.NumThreads = 64;
   Params.Enable16Bit = true;
   runElementAccess(D3DDevice, DxcSupport, Params, VerboseLogging);
@@ -801,7 +802,7 @@ void DxilConf_SM610_LinAlg::ElementSet_Wave_16x16_F16() {
   Params.N = 16;
   Params.Use = MatrixUse::Accumulator;
   Params.Scope = MatrixScope::Wave;
-  Params.Layout = LinalgMatrixLayout::RowMajor;
+  Params.Layout = MatrixLayout::RowMajor;
   Params.NumThreads = 64;
   Params.Enable16Bit = true;
   runElementSet(D3DDevice, DxcSupport, Params, VerboseLogging);
@@ -821,14 +822,14 @@ static const char CopyConvertShader[] = R"(
       [[__LinAlgMatrix_Attributes(COMP_TYPE, M_DIM, N_DIM, USE, SCOPE)]]
       Src;
     __builtin_LinAlgMatrix
-      [[__LinAlgMatrix_Attributes(COMP_TYPE, N_DIM, M_DIM, USE, SCOPE)]]
+      [[__LinAlgMatrix_Attributes(COMP_TYPE, DST_M_DIM, DST_N_DIM, USE, SCOPE)]]
       Dst;
 
     __builtin_LinAlg_MatrixLoadFromDescriptor(
-      Src, Input, 0, STRIDE, LAYOUT, 128);
+      Src, Input, 0, SRC_STRIDE, LAYOUT, 128);
     __builtin_LinAlg_CopyConvertMatrix(Dst, Src, TRANSPOSE);
     __builtin_LinAlg_MatrixStoreToDescriptor(
-      Dst, Output, 0, STRIDE, LAYOUT, 128);
+      Dst, Output, 0, DST_STRIDE, LAYOUT, 128);
   }
 )";
 
@@ -838,9 +839,18 @@ static void runCopyConvert(ID3D12Device *Device,
                            bool Transpose) {
   const size_t NumElements = Params.totalElements();
   const size_t BufferSize = Params.totalBytes();
+  MatrixParams DstParams = Params;
+  if (Transpose) {
+    DstParams.M = Params.N;
+    DstParams.N = Params.M;
+  }
 
   std::stringstream ExtraDefs;
   ExtraDefs << " -DTRANSPOSE=" << Transpose;
+  ExtraDefs << " -DDST_M_DIM=" << DstParams.M;
+  ExtraDefs << " -DDST_N_DIM=" << DstParams.N;
+  ExtraDefs << " -DSRC_STRIDE=" << Params.strideBytes();
+  ExtraDefs << " -DDST_STRIDE=" << DstParams.strideBytes();
 
   std::string Args = buildCompilerArgs(Params, ExtraDefs.str().c_str());
 
@@ -880,7 +890,7 @@ void DxilConf_SM610_LinAlg::CopyConvert_Wave_16x16_F16() {
   Params.N = 16;
   Params.Use = MatrixUse::A;
   Params.Scope = MatrixScope::Wave;
-  Params.Layout = LinalgMatrixLayout::RowMajor;
+  Params.Layout = MatrixLayout::RowMajor;
   Params.NumThreads = 64;
   Params.Enable16Bit = true;
   runCopyConvert(D3DDevice, DxcSupport, Params, VerboseLogging,
@@ -894,9 +904,24 @@ void DxilConf_SM610_LinAlg::CopyConvert_Wave_16x16_F16_Transpose() {
   Params.N = 16;
   Params.Use = MatrixUse::A;
   Params.Scope = MatrixScope::Wave;
-  Params.Layout = LinalgMatrixLayout::RowMajor;
+  Params.Layout = MatrixLayout::RowMajor;
   Params.NumThreads = 64;
   Params.Enable16Bit = true;
+  runCopyConvert(D3DDevice, DxcSupport, Params, VerboseLogging,
+                 /*Transpose=*/true);
+}
+
+void DxilConf_SM610_LinAlg::CopyConvert_Wave_4x8_F32_Transpose() {
+  MatrixParams Params = {};
+  Params.CompType = ComponentType::F32;
+  Params.M = 4;
+  Params.N = 8;
+  Params.Use = MatrixUse::A;
+  Params.Scope = MatrixScope::Wave;
+  Params.Layout = MatrixLayout::RowMajor;
+  Params.NumThreads = 64;
+  Params.Enable16Bit = false;
+  // Non-square dimensions make the destination shape and row stride observable.
   runCopyConvert(D3DDevice, DxcSupport, Params, VerboseLogging,
                  /*Transpose=*/true);
 }
@@ -973,7 +998,7 @@ void DxilConf_SM610_LinAlg::MatMatMul_Wave_16x16x16_F16() {
   Params.M = 16;
   Params.N = 16;
   Params.Scope = MatrixScope::Wave;
-  Params.Layout = LinalgMatrixLayout::RowMajor;
+  Params.Layout = MatrixLayout::RowMajor;
   Params.NumThreads = 64;
   Params.Enable16Bit = true;
   runMatMatMul(D3DDevice, DxcSupport, Params, VerboseLogging, /*K=*/16,
@@ -1057,7 +1082,7 @@ void DxilConf_SM610_LinAlg::MatMatMulAccum_Wave_16x16x16_F16() {
   Params.M = 16;
   Params.N = 16;
   Params.Scope = MatrixScope::Wave;
-  Params.Layout = LinalgMatrixLayout::RowMajor;
+  Params.Layout = MatrixLayout::RowMajor;
   Params.NumThreads = 64;
   Params.Enable16Bit = true;
   runMatMatMulAccum(D3DDevice, DxcSupport, Params, VerboseLogging, /*K=*/16,
@@ -1130,7 +1155,7 @@ void DxilConf_SM610_LinAlg::MatAccum_Wave_16x16_F16() {
   Params.M = 16;
   Params.N = 16;
   Params.Scope = MatrixScope::Wave;
-  Params.Layout = LinalgMatrixLayout::RowMajor;
+  Params.Layout = MatrixLayout::RowMajor;
   Params.NumThreads = 64;
   Params.Enable16Bit = true;
   runMatAccum(D3DDevice, DxcSupport, Params, VerboseLogging,
@@ -1153,7 +1178,7 @@ static const char MatVecMulShader[] = R"(
       Mat, Input, 0, STRIDE, LAYOUT, 128);
 
     vector<ELEM_TYPE, N_DIM> InVec;
-    for (uint I = 0; I < M_DIM; ++I) {
+    for (uint I = 0; I < N_DIM; ++I) {
       InVec[I] = Input.Load<ELEM_TYPE>(I * ELEM_SIZE);
     }
 
@@ -1218,11 +1243,23 @@ void DxilConf_SM610_LinAlg::MatVecMul_Thread_16x16_F16() {
   Params.M = 16;
   Params.N = 16;
   Params.Scope = MatrixScope::Thread;
-  Params.Layout = LinalgMatrixLayout::RowMajor;
+  Params.Layout = MatrixLayout::RowMajor;
   Params.NumThreads = 1;
   Params.Enable16Bit = true;
   runMatVecMul(D3DDevice, DxcSupport, Params, VerboseLogging,
                /*FillValue=*/2, /*OutputSigned=*/true, ComponentType::F16);
+}
+
+void DxilConf_SM610_LinAlg::MatVecMul_Thread_4x8_F32() {
+  MatrixParams Params = {};
+  Params.CompType = ComponentType::F32;
+  Params.M = 4;
+  Params.N = 8;
+  Params.Scope = MatrixScope::Thread;
+  Params.Layout = MatrixLayout::RowMajor;
+  Params.NumThreads = 1;
+  runMatVecMul(D3DDevice, DxcSupport, Params, VerboseLogging,
+               /*FillValue=*/2, /*OutputSigned=*/true, ComponentType::F32);
 }
 
 static const char MatVecMulAddShader[] = R"(
@@ -1241,7 +1278,7 @@ static const char MatVecMulAddShader[] = R"(
       Mat, Input, 0, STRIDE, LAYOUT, 128);
 
     vector<ELEM_TYPE, N_DIM> InVec;
-    for (uint I = 0; I < M_DIM; ++I) {
+    for (uint I = 0; I < N_DIM; ++I) {
       InVec[I] = Input.Load<ELEM_TYPE>(I * ELEM_SIZE);
     }
 
@@ -1252,7 +1289,7 @@ static const char MatVecMulAddShader[] = R"(
 
     vector<ELEM_TYPE, M_DIM> OutVec;
     __builtin_LinAlg_MatrixVectorMultiplyAdd(
-      OutVec, Mat, OUTPUT_SIGNED, InVec, IN_INTERP, BiasVec, BIAS_INTERP);
+      OutVec, Mat, OUTPUT_SIGNED, InVec, IN_INTERP, BiasVec);
 
     for (uint I = 0; I < M_DIM; ++I) {
       Output.Store<ELEM_TYPE>(I * ELEM_SIZE, OutVec[I]);
@@ -1264,15 +1301,13 @@ static void runMatVecMulAdd(ID3D12Device *Device,
                             dxc::SpecificDllLoader &DxcSupport,
                             const MatrixParams &Params, bool Verbose,
                             int FillValue, bool OutputSigned,
-                            ComponentType InputInterp,
-                            ComponentType BiasInterp) {
+                            ComponentType InputInterp) {
   const size_t NumElements = Params.totalElements();
   const size_t BufferSize = Params.totalBytes();
 
   std::stringstream ExtraDefs;
   ExtraDefs << " -DOUTPUT_SIGNED=" << OutputSigned;
   ExtraDefs << " -DIN_INTERP=" << static_cast<int>(InputInterp);
-  ExtraDefs << " -DBIAS_INTERP=" << static_cast<int>(BiasInterp);
 
   std::string Args = buildCompilerArgs(Params, ExtraDefs.str().c_str());
 
@@ -1313,17 +1348,49 @@ void DxilConf_SM610_LinAlg::MatVecMulAdd_Thread_16x16_F16() {
   Params.M = 16;
   Params.N = 16;
   Params.Scope = MatrixScope::Thread;
-  Params.Layout = LinalgMatrixLayout::RowMajor;
+  Params.Layout = MatrixLayout::RowMajor;
   Params.NumThreads = 1;
   Params.Enable16Bit = true;
   runMatVecMulAdd(D3DDevice, DxcSupport, Params, VerboseLogging,
-                  /*FillValue=*/2, /*OutputSigned=*/true, ComponentType::F16,
-                  ComponentType::F16);
+                  /*FillValue=*/2, /*OutputSigned=*/true, ComponentType::F16);
 }
 
-#if 0
+void DxilConf_SM610_LinAlg::MatVecMulAdd_Thread_4x8_F32() {
+  MatrixParams Params = {};
+  Params.CompType = ComponentType::F32;
+  Params.M = 4;
+  Params.N = 8;
+  Params.Scope = MatrixScope::Thread;
+  Params.Layout = MatrixLayout::RowMajor;
+  Params.NumThreads = 1;
+  runMatVecMulAdd(D3DDevice, DxcSupport, Params, VerboseLogging,
+                  /*FillValue=*/2, /*OutputSigned=*/true, ComponentType::F32);
+}
+
+// Map a DXIL ComponentType to the D3D12 linear-algebra datatype used by the
+// host-side matrix conversion API.
+#if defined(DIRECT3D_LINEAR_ALGEBRA)
+static D3D12_LINEAR_ALGEBRA_DATATYPE toLinAlgDataType(ComponentType CT) {
+  switch (CT) {
+  case ComponentType::F16:
+    return D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT16;
+  case ComponentType::F32:
+    return D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT32;
+  case ComponentType::I16:
+    return D3D12_LINEAR_ALGEBRA_DATATYPE_SINT16;
+  case ComponentType::U16:
+    return D3D12_LINEAR_ALGEBRA_DATATYPE_UINT16;
+  case ComponentType::I32:
+    return D3D12_LINEAR_ALGEBRA_DATATYPE_SINT32;
+  case ComponentType::U32:
+    return D3D12_LINEAR_ALGEBRA_DATATYPE_UINT32;
+  default:
+    VERIFY_IS_TRUE(false, "Unsupported component type for linalg conversion");
+    return D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT16;
+  }
+}
+
 static const char OuterProductShader[] = R"(
-  #define USE_A 0
   #define SCOPE_THREAD 0
 
   RWByteAddressBuffer Input : register(u0);
@@ -1344,22 +1411,41 @@ static const char OuterProductShader[] = R"(
     }
 
     __builtin_LinAlgMatrix
-      [[__LinAlgMatrix_Attributes(COMP_TYPE, M_DIM, N_DIM, USE_A, SCOPE_THREAD)]]
+      [[__LinAlgMatrix_Attributes(COMP_TYPE, M_DIM, N_DIM, USE, SCOPE_THREAD)]]
       Mat;
     __builtin_LinAlg_MatrixOuterProduct(Mat, VecA, VecB);
 
+    // Outer product accumulators are stored in the OuterProductOptimal layout
+    // with stride 0 and no alignment requirement (align 0), matching the
+    // dx::linalg header's thread-scoped InterlockedAccumulate.
     __builtin_LinAlg_MatrixAccumulateToDescriptor(
-      Mat, Output, 0, STRIDE, LAYOUT, 128);
+      Mat, Output, 0, STRIDE, LAYOUT, 0);
   }
 )";
 
 static void runOuterProduct(ID3D12Device *Device,
                             dxc::SpecificDllLoader &DxcSupport,
                             const MatrixParams &Params, bool Verbose) {
+  VERIFY_IS_TRUE(
+      Params.Layout == MatrixLayout::OuterProductOptimal,
+      "Outer product must output its matrix in OuterProductOptimal layout");
+  VERIFY_IS_TRUE(Params.Use == MatrixUse::Accumulator,
+                 "Outer product must output an accumulator matrix");
   const size_t NumVecElements = Params.M + Params.N;
   const size_t InBuffSize = NumVecElements * elementSize(Params.CompType);
   const size_t NumMatElements = Params.totalElements();
-  const size_t OutBufferSize = Params.totalBytes();
+  const D3D12_LINEAR_ALGEBRA_DATATYPE DataType =
+      toLinAlgDataType(Params.CompType);
+
+  const UINT OutBufferSize = getLinAlgMatrixByteSize(
+      Device, Params.M, Params.N, DataType,
+      D3D12_LINEAR_ALGEBRA_MATRIX_LAYOUT_OUTER_PRODUCT_OPTIMAL, /*Stride=*/0);
+
+  const UINT RowMajorStride =
+      static_cast<UINT>(Params.N * elementSize(Params.CompType));
+  const UINT RowMajorSize = getLinAlgMatrixByteSize(
+      Device, Params.M, Params.N, DataType,
+      D3D12_LINEAR_ALGEBRA_MATRIX_LAYOUT_ROW_MAJOR, RowMajorStride);
 
   std::string Args = buildCompilerArgs(Params);
 
@@ -1371,7 +1457,8 @@ static void runOuterProduct(ID3D12Device *Device,
   auto Op = createComputeOp(OuterProductShader, "cs_6_10", "UAV(u0), UAV(u1)",
                             Args.c_str());
   addUAVBuffer(Op.get(), "Input", InBuffSize, false, "byname");
-  addUAVBuffer(Op.get(), "Output", OutBufferSize, true);
+  addUAVBuffer(Op.get(), "Output", OutBufferSize, /*ReadBack=*/false);
+  addUAVBuffer(Op.get(), "OutputRowMajor", RowMajorSize, /*ReadBack=*/true);
   addRootView(Op.get(), 0, "Input");
   addRootView(Op.get(), 1, "Output");
 
@@ -1383,27 +1470,58 @@ static void runOuterProduct(ID3D12Device *Device,
                                        NumVecElements,
                                        /*StartingVal=*/2, /*Increment=*/false),
                        "Saw unsupported component type");
+      },
+      [OutBufferSize, RowMajorSize, RowMajorStride, DataType,
+       Params](ID3D12GraphicsCommandList *List, st::ShaderOpTest *Test) {
+        ID3D12Resource *OptimalBuffer = nullptr;
+        ID3D12Resource *RowMajorBuffer = nullptr;
+        Test->GetResource("Output", &OptimalBuffer);
+        Test->GetResource("OutputRowMajor", &RowMajorBuffer);
+        recordLinAlgMatrixConversion(
+            List, OptimalBuffer, OutBufferSize, RowMajorBuffer, RowMajorSize,
+            Params.M, Params.N, DataType,
+            D3D12_LINEAR_ALGEBRA_MATRIX_LAYOUT_OUTER_PRODUCT_OPTIMAL,
+            /*SrcStride=*/0, D3D12_LINEAR_ALGEBRA_MATRIX_LAYOUT_ROW_MAJOR,
+            RowMajorStride);
       });
 
   MappedData OutData;
-  Result->Test->GetReadBackData("Output", &OutData);
+  Result->Test->GetReadBackData("OutputRowMajor", &OutData);
 
   VERIFY_IS_TRUE(verifyComponentBuffer(Params.CompType, OutData.data(),
                                        Expected, NumMatElements, Verbose));
 }
+#endif // defined(DIRECT3D_LINEAR_ALGEBRA)
 
 void DxilConf_SM610_LinAlg::OuterProduct_Thread_16x16_F16() {
+#if defined(DIRECT3D_LINEAR_ALGEBRA)
   MatrixParams Params = {};
   Params.CompType = ComponentType::F16;
   Params.M = 16;
   Params.N = 16;
+  Params.Use = MatrixUse::Accumulator;
   Params.Scope = MatrixScope::Thread;
-  Params.Layout = LinalgMatrixLayout::RowMajor;
+  Params.Layout = MatrixLayout::OuterProductOptimal;
   Params.NumThreads = 1;
   Params.Enable16Bit = true;
   runOuterProduct(D3DDevice, DxcSupport, Params, VerboseLogging);
+#else
+#ifdef _HLK_CONF
+  // HLK forbids skipping, so treat the missing linear-algebra matrix-conversion
+  // API as a failure rather than emitting a (compiled-out) skip.
+  hlsl_test::LogErrorFmt(L"OuterProduct_Thread_16x16_F16 requires the "
+                         L"linear-algebra matrix-conversion API "
+                         L"(DIRECT3D_LINEAR_ALGEBRA), which this build lacks");
+#else
+  WEX::Logging::Log::Comment(
+      L"Skipping OuterProduct_Thread_16x16_F16: built against a D3D12 SDK "
+      L"without the linear-algebra matrix-conversion API "
+      L"(DIRECT3D_LINEAR_ALGEBRA undefined); the host-side conversion helpers "
+      L"are compiled out.");
+  WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
+#endif // _HLK_CONF
+#endif // defined(DIRECT3D_LINEAR_ALGEBRA)
 }
-#endif
 
 static const char QueryAccumLayoutShader[] = R"(
   RWByteAddressBuffer Output : register(u0);
@@ -1520,7 +1638,7 @@ void DxilConf_SM610_LinAlg::LoadMemory_Wave_16x16_F16() {
   Params.N = 16;
   Params.Use = MatrixUse::A;
   Params.Scope = MatrixScope::Wave;
-  Params.Layout = LinalgMatrixLayout::RowMajor;
+  Params.Layout = MatrixLayout::RowMajor;
   Params.NumThreads = 64;
   Params.Enable16Bit = true;
   runLoadMemory(D3DDevice, DxcSupport, Params, VerboseLogging);
@@ -1589,7 +1707,7 @@ void DxilConf_SM610_LinAlg::StoreMemory_Wave_16x16_F16() {
   Params.N = 16;
   Params.Use = MatrixUse::A;
   Params.Scope = MatrixScope::Wave;
-  Params.Layout = LinalgMatrixLayout::RowMajor;
+  Params.Layout = MatrixLayout::RowMajor;
   Params.NumThreads = 64;
   Params.Enable16Bit = true;
   runStoreMemory(D3DDevice, DxcSupport, Params, VerboseLogging,
@@ -1622,7 +1740,7 @@ static const char AccumulateMemoryShader[] = R"(
     __builtin_LinAlg_FillMatrix(Mat, FILL_VALUE);
 
     __builtin_LinAlg_MatrixAccumulateToMemory(
-      Mat, GsData, OFFSET / ELEM_SIZE, STRIDE / ELEM_SIZE, LAYOUT);
+      Mat, GsData, COMP_TYPE, OFFSET / ELEM_SIZE, STRIDE / ELEM_SIZE, LAYOUT);
 
     for (uint I = 0; I < M_DIM*N_DIM; ++I) {
       Output.Store<ELEM_TYPE>(I*ELEM_SIZE, GsData[I]);
@@ -1669,7 +1787,7 @@ void DxilConf_SM610_LinAlg::AccumulateMemory_Wave_16x16_F16() {
   Params.N = 16;
   Params.Use = MatrixUse::Accumulator;
   Params.Scope = MatrixScope::Wave;
-  Params.Layout = LinalgMatrixLayout::RowMajor;
+  Params.Layout = MatrixLayout::RowMajor;
   Params.NumThreads = 64;
   Params.Enable16Bit = true;
   runAccumulateMemory(D3DDevice, DxcSupport, Params, VerboseLogging,
@@ -1727,7 +1845,7 @@ static const char VectorAccumulateDescriptorShader[] = R"(
   [numthreads(1, 1, 1)]
   void main() {
     vector<half, 4> InVec = {1.0, 2.0, 3.0, 4.0};
-    __builtin_LinAlg_VectorAccumulateToDescriptor(InVec, Output, 0, 64);
+    __builtin_LinAlg_VectorAccumulateToDescriptor(Output, 0, 64, InVec);
   }
 )";
 

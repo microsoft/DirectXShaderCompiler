@@ -15,7 +15,8 @@
 // D3D12_FEATURE_D3D12_OPTIONS_PREVIEW and its data struct are not yet in
 // the released Windows SDK. Define locally so the test can query variable
 // group shared memory capabilities from the Agility SDK runtime.
-// This should be removed once widely supported.
+// TODO(#8661): Remove me when GroupSharedLimit is available in a released
+// Windows SDK.
 #if defined(D3D12_PREVIEW_SDK_VERSION) && D3D12_PREVIEW_SDK_VERSION < 720
 
 #ifndef D3D12_FEATURE_D3D12_OPTIONS_PREVIEW
@@ -32,7 +33,28 @@ typedef struct D3D12_FEATURE_DATA_D3D12_OPTIONS_PREVIEW {
 
 using namespace hlsl_test;
 
-static bool useDebugIfaces() { return true; }
+// Disabled by default for HLK runs.
+static bool debugLayerOnByDefault() {
+#ifdef _HLK_CONF
+  return false;
+#else
+  return true;
+#endif
+}
+
+// /p:D3D12DebugLayer=true or /p:D3D12DebugLayer=false overrides the default.
+static bool useDebugIfaces() {
+  static const bool Enabled = [] {
+    bool Value = debugLayerOnByDefault();
+    WEX::TestExecution::RuntimeParameters::TryGetValue(L"D3D12DebugLayer",
+                                                       Value);
+    return Value;
+  }();
+  return Enabled;
+}
+
+// Set when the debug layer has been enabled.
+static bool DebugLayerEnabled = false;
 
 bool useDxbc() {
 #ifdef _HLK_CONF
@@ -93,6 +115,106 @@ static UINT getD3D12SDKVersion(std::wstring SDKPath) {
     LogCommentFmt(L"%s - unable to load", D3DCorePath.c_str());
   }
   return SDKVersion;
+}
+
+// Severities are ordered most-to-least severe (CORRUPTION == 0), so a message
+// is reported when its severity is <= this threshold. -1 reports nothing.
+static int DebugMessageSeverityThreshold = D3D12_MESSAGE_SEVERITY_ERROR;
+
+// /p:D3D12DebugMessageSeverity accepts "none" or a D3D12_MESSAGE_SEVERITY name:
+// "corruption", "error", "warning", "info" or "message".
+static int getDebugMessageSeverityThreshold() {
+  WEX::Common::String Value;
+  if (FAILED(WEX::TestExecution::RuntimeParameters::TryGetValue(
+          L"D3D12DebugMessageSeverity", Value)))
+    return D3D12_MESSAGE_SEVERITY_ERROR;
+
+  const wchar_t *Name = Value;
+  if (_wcsicmp(Name, L"none") == 0)
+    return -1;
+  if (_wcsicmp(Name, L"corruption") == 0)
+    return D3D12_MESSAGE_SEVERITY_CORRUPTION;
+  if (_wcsicmp(Name, L"error") == 0)
+    return D3D12_MESSAGE_SEVERITY_ERROR;
+  if (_wcsicmp(Name, L"warning") == 0)
+    return D3D12_MESSAGE_SEVERITY_WARNING;
+  if (_wcsicmp(Name, L"info") == 0)
+    return D3D12_MESSAGE_SEVERITY_INFO;
+  if (_wcsicmp(Name, L"message") == 0)
+    return D3D12_MESSAGE_SEVERITY_MESSAGE;
+
+  LogWarningFmt(L"Unrecognized D3D12DebugMessageSeverity '%s'. Using 'error'.",
+                Name);
+  return D3D12_MESSAGE_SEVERITY_ERROR;
+}
+
+// Routes debug layer messages into the test log; they are otherwise emitted via
+// OutputDebugString and only visible under a debugger. Logged as comments, so
+// they never alter a test outcome.
+static void __stdcall logD3D12DebugMessage(D3D12_MESSAGE_CATEGORY Category,
+                                           D3D12_MESSAGE_SEVERITY Severity,
+                                           D3D12_MESSAGE_ID ID,
+                                           LPCSTR Description, void *Context) {
+  (void)Category;
+  (void)Context;
+
+  if (static_cast<int>(Severity) > DebugMessageSeverityThreshold)
+    return;
+
+  const wchar_t *SeverityName;
+  switch (Severity) {
+  case D3D12_MESSAGE_SEVERITY_CORRUPTION:
+    SeverityName = L"CORRUPTION";
+    break;
+  case D3D12_MESSAGE_SEVERITY_ERROR:
+    SeverityName = L"ERROR";
+    break;
+  case D3D12_MESSAGE_SEVERITY_WARNING:
+    SeverityName = L"WARNING";
+    break;
+  case D3D12_MESSAGE_SEVERITY_INFO:
+    SeverityName = L"INFO";
+    break;
+  default:
+    SeverityName = L"MESSAGE";
+    break;
+  }
+
+  LogCommentFmt(L"D3D12 %s [id %u]: %s", SeverityName, static_cast<UINT>(ID),
+                static_cast<const wchar_t *>(CA2W(Description)));
+}
+
+// Routes debug layer messages for this device into the test log.
+static void logDebugLayerMessages(ID3D12Device *Device) {
+  CComPtr<ID3D12InfoQueue> InfoQueue;
+  if (FAILED(Device->QueryInterface(&InfoQueue))) {
+    if (DebugLayerEnabled)
+      LogWarningFmt(L"The debug layer was enabled but this device does not "
+                    L"expose ID3D12InfoQueue. D3D12 debug layer messages will "
+                    L"not be reported.");
+    return;
+  }
+
+  InfoQueue->SetMuteDebugOutput(FALSE);
+
+  CComPtr<ID3D12InfoQueue1> InfoQueue1;
+  if (FAILED(InfoQueue->QueryInterface(&InfoQueue1))) {
+    LogWarningFmt(L"Device does not expose ID3D12InfoQueue1. D3D12 debug "
+                  L"layer messages will not be reported.");
+    return;
+  }
+
+  DebugMessageSeverityThreshold = getDebugMessageSeverityThreshold();
+
+  // The callback is unregistered implicitly when the device is destroyed.
+  DWORD CallbackCookie = 0;
+  HRESULT HR = InfoQueue1->RegisterMessageCallback(
+      logD3D12DebugMessage, D3D12_MESSAGE_CALLBACK_FLAG_NONE, nullptr,
+      &CallbackCookie);
+  if (FAILED(HR))
+    LogWarningFmt(L"RegisterMessageCallback failed: 0x%08x. D3D12 debug "
+                  L"layer messages will not be reported.",
+                  HR);
 }
 
 static bool createDevice(
@@ -220,11 +342,8 @@ static bool createDevice(
     }
   }
 
-  if (useDebugIfaces()) {
-    CComPtr<ID3D12InfoQueue> InfoQueue;
-    if (SUCCEEDED(D3DDeviceCom->QueryInterface(&InfoQueue)))
-      InfoQueue->SetMuteDebugOutput(FALSE);
-  }
+  if (useDebugIfaces())
+    logDebugLayerMessages(D3DDeviceCom);
 
   *D3DDevice = D3DDeviceCom.Detach();
   return true;
@@ -245,7 +364,10 @@ void readHlslDataIntoNewStream(LPCWSTR RelativePath, IStream **Stream,
   *Stream = StreamCom.Detach();
 }
 
-static bool enableDebugLayer() {
+// Enables the debug layer on the process-global D3D12Core, so it must be called
+// after the global Agility SDK version has been selected. Devices created
+// through an ID3D12DeviceFactory need enableDebugLayerOnFactory() instead.
+static bool enableGlobalDebugLayer() {
   CComPtr<ID3D12Debug> DebugController;
   HRESULT HR;
   if (FAILED(HR = D3D12GetDebugInterface(IID_PPV_ARGS(&DebugController)))) {
@@ -254,6 +376,7 @@ static bool enableDebugLayer() {
   }
 
   DebugController->EnableDebugLayer();
+  DebugLayerEnabled = true;
   return true;
 }
 
@@ -373,6 +496,13 @@ setGlobalConfiguration(const std::optional<AgilitySDKConfiguration> &C) {
   else
     LogCommentFmt(L"Agility SDK not enabled.");
 
+  if (!useDebugIfaces())
+    LogCommentFmt(L"Debug layer disabled.");
+  else if (enableGlobalDebugLayer())
+    LogCommentFmt(L"Debug layer enabled.");
+  else
+    LogCommentFmt(L"Debug layer not enabled.");
+
   if (enableGlobalExperimentalMode())
     LogCommentFmt(L"Experimental mode enabled.");
   else
@@ -392,6 +522,22 @@ static bool enableExperimentalMode(ID3D12DeviceFactory *DeviceFactory) {
     return false;
   }
 
+  return true;
+}
+
+// An ID3D12DeviceFactory hosts its own D3D12Core, so the debug layer must be
+// enabled through the factory's configuration interface.
+static bool enableDebugLayerOnFactory(ID3D12DeviceFactory *DeviceFactory) {
+  CComPtr<ID3D12Debug> DebugController;
+  HRESULT HR;
+  if (FAILED(HR = DeviceFactory->GetConfigurationInterface(
+                 CLSID_D3D12Debug, IID_PPV_ARGS(&DebugController)))) {
+    LogWarningFmt(L"Failed to get ID3D12Debug from device factory: 0x%08x", HR);
+    return false;
+  }
+
+  DebugController->EnableDebugLayer();
+  DebugLayerEnabled = true;
   return true;
 }
 
@@ -419,6 +565,13 @@ createDeviceFactorySDK(const AgilitySDKConfiguration &C) {
   LogCommentFmt(L"Using DeviceFactory for SDKVersion %d, SDKPath %s",
                 C.SDKVersion, static_cast<const wchar_t *>(C.SDKPath));
 
+  if (!useDebugIfaces())
+    LogCommentFmt(L"Debug layer disabled.");
+  else if (enableDebugLayerOnFactory(DeviceFactory))
+    LogCommentFmt(L"Debug layer enabled on device factory.");
+  else
+    LogCommentFmt(L"Debug layer not enabled on device factory.");
+
   if (enableExperimentalMode(DeviceFactory))
     LogCommentFmt(L"Experimental mode enabled.");
   else
@@ -428,14 +581,10 @@ createDeviceFactorySDK(const AgilitySDKConfiguration &C) {
 }
 
 D3D12SDKSelector::D3D12SDKSelector() {
-  if (enableDebugLayer())
-    LogCommentFmt(L"Debug layer enabled");
-  else
-    LogCommentFmt(L"Debug layer not enabled");
-
   std::optional<AgilitySDKConfiguration> C = getAgilitySDKConfiguration();
 
   if (C && C->SDKVersion > 0) {
+    // createDeviceFactorySDK() enables the debug layer on the factory itself.
     CComPtr<ID3D12DeviceFactory> DeviceFactory = createDeviceFactorySDK(*C);
     if (DeviceFactory) {
       this->DeviceFactory = DeviceFactory;
@@ -619,6 +768,9 @@ bool isFallbackPathEnabled() {
   return EnableFallbackValue != 0;
 }
 
+// TODO(#8661): Remove me when GroupSharedLimit is available in a released
+// Windows SDK.
+#if defined(D3D12_PREVIEW_SDK_VERSION)
 UINT getMaxGroupSharedMemoryCS(ID3D12Device *Device) {
   D3D12_FEATURE_DATA_D3D12_OPTIONS_PREVIEW O = {};
   VERIFY_SUCCEEDED(Device->CheckFeatureSupport(
@@ -639,6 +791,7 @@ UINT getMaxGroupSharedMemoryMS(ID3D12Device *Device) {
       D3D12_FEATURE_D3D12_OPTIONS_PREVIEW, &O, sizeof(O)));
   return O.MaxGroupSharedMemoryPerGroupMS;
 }
+#endif // defined(D3D12_PREVIEW_SDK_VERSION)
 
 std::unique_ptr<st::ShaderOp> createComputeOp(const char *Source,
                                               const char *Target,
@@ -725,12 +878,15 @@ void addRootView(st::ShaderOp *Op, UINT Index, const char *ResName) {
 std::shared_ptr<st::ShaderOpTestResult>
 runShaderOp(ID3D12Device *Device, dxc::SpecificDllLoader &DxcSupport,
             std::unique_ptr<st::ShaderOp> Op,
-            st::ShaderOpTest::TInitCallbackFn InitCallback) {
+            st::ShaderOpTest::TInitCallbackFn InitCallback,
+            st::ShaderOpTest::TCommandCallbackFn PostDispatchCallback) {
   auto OpSet = std::make_shared<st::ShaderOpSet>();
   OpSet->ShaderOps.push_back(std::move(Op));
 
   return st::RunShaderOpTestAfterParse(
-      Device, DxcSupport, nullptr, std::move(InitCallback), std::move(OpSet));
+      Device, DxcSupport, nullptr, std::move(InitCallback),
+      /*pShaderCallback=*/nullptr, std::move(PostDispatchCallback),
+      std::move(OpSet));
 }
 
 void compileShader(dxc::SpecificDllLoader &DxcSupport, const char *Source,
@@ -796,3 +952,63 @@ void compileShader(dxc::SpecificDllLoader &DxcSupport, const char *Source,
     VERIFY_SUCCEEDED(HR);
   }
 }
+
+#if defined(DIRECT3D_LINEAR_ALGEBRA)
+UINT getLinAlgMatrixByteSize(ID3D12Device *Device, UINT NumRows,
+                             UINT NumColumns,
+                             D3D12_LINEAR_ALGEBRA_DATATYPE DataType,
+                             D3D12_LINEAR_ALGEBRA_MATRIX_LAYOUT Layout,
+                             UINT Stride) {
+  CComPtr<ID3D12DevicePreview> DevicePreview;
+  VERIFY_SUCCEEDED(Device->QueryInterface(IID_PPV_ARGS(&DevicePreview)));
+
+  D3D12_LINEAR_ALGEBRA_MATRIX_CONVERSION_DEST_INFO Info = {};
+  Info.DestSize = 0;
+  Info.DestLayout = Layout;
+  Info.DestStride = Stride;
+  Info.NumRows = NumRows;
+  Info.NumColumns = NumColumns;
+  Info.DestDataType = DataType;
+  DevicePreview->GetLinearAlgebraMatrixConversionDestinationInfo(&Info);
+  return Info.DestSize;
+}
+
+void recordLinAlgMatrixConversion(
+    ID3D12GraphicsCommandList *List, ID3D12Resource *SrcBuffer, UINT SrcSize,
+    ID3D12Resource *DestBuffer, UINT DestSize, UINT NumRows, UINT NumColumns,
+    D3D12_LINEAR_ALGEBRA_DATATYPE DataType,
+    D3D12_LINEAR_ALGEBRA_MATRIX_LAYOUT SrcLayout, UINT SrcStride,
+    D3D12_LINEAR_ALGEBRA_MATRIX_LAYOUT DestLayout, UINT DestStride) {
+  CComPtr<ID3D12GraphicsCommandListPreview> PreviewList;
+  VERIFY_SUCCEEDED(List->QueryInterface(IID_PPV_ARGS(&PreviewList)));
+
+  // Per the linear-algebra spec, ConvertLinearAlgebraMatrix (legacy barriers)
+  // requires the source buffer in NON_PIXEL_SHADER_RESOURCE and the destination
+  // in UNORDERED_ACCESS. The caller passes both in UNORDERED_ACCESS (the
+  // ShaderOp default UAV state), so transition the source to the required read
+  // state; the destination is already in UNORDERED_ACCESS.
+  D3D12_RESOURCE_BARRIER Barrier = {};
+  Barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+  Barrier.Transition.pResource = SrcBuffer;
+  Barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+  Barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
+  Barrier.Transition.StateAfter =
+      D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
+  List->ResourceBarrier(1, &Barrier);
+
+  D3D12_LINEAR_ALGEBRA_MATRIX_CONVERSION_INFO Info = {};
+  Info.DestInfo.DestSize = DestSize;
+  Info.DestInfo.DestLayout = DestLayout;
+  Info.DestInfo.DestStride = DestStride;
+  Info.DestInfo.NumRows = NumRows;
+  Info.DestInfo.NumColumns = NumColumns;
+  Info.DestInfo.DestDataType = DataType;
+  Info.SrcInfo.SrcSize = SrcSize;
+  Info.SrcInfo.SrcDataType = DataType;
+  Info.SrcInfo.SrcLayout = SrcLayout;
+  Info.SrcInfo.SrcStride = SrcStride;
+  Info.DataDesc.DestVA = DestBuffer->GetGPUVirtualAddress();
+  Info.DataDesc.SrcVA = SrcBuffer->GetGPUVirtualAddress();
+  PreviewList->ConvertLinearAlgebraMatrix(&Info, 1);
+}
+#endif // defined(DIRECT3D_LINEAR_ALGEBRA)

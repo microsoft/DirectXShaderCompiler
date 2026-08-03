@@ -45,15 +45,16 @@ void main() {
 // CHECK-NEXT: AvailabilityAttr {{.*}} Implicit  6.10 0 0 ""
   __builtin_LinAlg_MatrixAccumulateToDescriptor(mat1, Buf, 1, 2, 3, 4);
 
-// CHECK: FunctionDecl {{.*}} implicit used __builtin_LinAlg_MatrixAccumulateToMemory 'void (__builtin_LinAlgMatrix {{.*}}, float const __attribute__((address_space(3))) (&)[64], unsigned int, unsigned int, unsigned int)' extern
+// CHECK: FunctionDecl {{.*}} implicit used __builtin_LinAlg_MatrixAccumulateToMemory 'void (__builtin_LinAlgMatrix {{.*}}, float const __attribute__((address_space(3))) (&)[64], unsigned int, unsigned int, unsigned int, unsigned int)' extern
 // CHECK-NEXT: ParmVarDecl {{.*}} matrix '__builtin_LinAlgMatrix {{.*}}'
 // CHECK-NEXT: ParmVarDecl {{.*}} memory 'float const __attribute__((address_space(3))) (&)[64]'
+// CHECK-NEXT: ParmVarDecl {{.*}} targetType 'unsigned int'
 // CHECK-NEXT: ParmVarDecl {{.*}} offset 'unsigned int'
 // CHECK-NEXT: ParmVarDecl {{.*}} stride 'unsigned int'
 // CHECK-NEXT: ParmVarDecl {{.*}} layout 'unsigned int'
 // CHECK-NEXT: HLSLIntrinsicAttr {{.*}} Implicit "op" "" 416
 // CHECK-NEXT: AvailabilityAttr {{.*}} Implicit  6.10 0 0 ""
-  __builtin_LinAlg_MatrixAccumulateToMemory(mat1, SharedArr, 0, 0, 0);
+  __builtin_LinAlg_MatrixAccumulateToMemory(mat1, SharedArr, 0, 0, 0, 0);
 
 // CHECK: FunctionDecl {{.*}} implicit used __builtin_LinAlg_MatrixGetCoordinate 'vector<uint, 2> (__builtin_LinAlgMatrix {{.*}}, unsigned int)' extern
 // CHECK-NEXT: ParmVarDecl {{.*}} matrix '__builtin_LinAlgMatrix {{.*}}'
@@ -182,19 +183,18 @@ void main() {
   float4 result;
   __builtin_LinAlg_MatrixVectorMultiply(result, mat1, true, vec, 1);
 
-// CHECK: FunctionDecl {{.*}} implicit used __builtin_LinAlg_MatrixVectorMultiplyAdd 'void (vector<float, 4> &, __builtin_LinAlgMatrix {{.*}}, vector<float, 4>, unsigned int, vector<float, 4>, unsigned int)' extern
+// CHECK: FunctionDecl {{.*}} implicit used __builtin_LinAlg_MatrixVectorMultiplyAdd 'void (vector<float, 4> &, __builtin_LinAlgMatrix {{.*}}, vector<float, 4>, unsigned int, vector<float, 4>)' extern
 // CHECK-NEXT: ParmVarDecl {{.*}} ret 'vector<float, 4> &&__restrict'
 // CHECK-NEXT: ParmVarDecl {{.*}} mat '__builtin_LinAlgMatrix {{.*}}'
 // CHECK-NEXT: ParmVarDecl {{.*}} isOutputSigned 'bool'
 // CHECK-NEXT: ParmVarDecl {{.*}} input 'vector<float, 4>':'vector<float, 4>'
 // CHECK-NEXT: ParmVarDecl {{.*}} inputInterp 'unsigned int'
 // CHECK-NEXT: ParmVarDecl {{.*}} bias 'vector<float, 4>':'vector<float, 4>'
-// CHECK-NEXT: ParmVarDecl {{.*}} biasInterp 'unsigned int'
 // CHECK-NEXT: HLSLIntrinsicAttr {{.*}} Implicit "op" "" 419
 // CHECK-NEXT: AvailabilityAttr {{.*}} Implicit  6.10 0 0 ""
   float4 input = {1,2,3,4};
   float4 bias = {5,6,7,8};
-  __builtin_LinAlg_MatrixVectorMultiplyAdd(result, mat1, true, input, 1, bias, 2);
+  __builtin_LinAlg_MatrixVectorMultiplyAdd(result, mat1, true, input, 1, bias);
 
 // CHECK: FunctionDecl {{.*}} implicit used __builtin_LinAlg_Convert 'void (vector<int, 4> &, vector<float, 4>, unsigned int, unsigned int)' extern
 // CHECK-NEXT: ParmVarDecl {{.*}} ret 'vector<int, 4> &&__restrict'
@@ -206,12 +206,12 @@ void main() {
   int4 result2;
   __builtin_LinAlg_Convert(result2, vec, 0, 1);
 
-// CHECK: FunctionDecl {{.*}} implicit used __builtin_LinAlg_VectorAccumulateToDescriptor 'void (vector<float, 4>, RWByteAddressBuffer, unsigned int, unsigned int)' extern
-// CHECK-NEXT: ParmVarDecl {{.*}} vec 'vector<float, 4>':'vector<float, 4>'
+// CHECK: FunctionDecl {{.*}} implicit used __builtin_LinAlg_VectorAccumulateToDescriptor 'void (RWByteAddressBuffer, unsigned int, unsigned int, vector<float, 4>)' extern
 // CHECK-NEXT: ParmVarDecl {{.*}} buf 'RWByteAddressBuffer'
 // CHECK-NEXT: ParmVarDecl {{.*}} offset 'unsigned int'
 // CHECK-NEXT: ParmVarDecl {{.*}} align 'unsigned int'
+// CHECK-NEXT: ParmVarDecl {{.*}} vec 'vector<float, 4>':'vector<float, 4>'
 // CHECK-NEXT: HLSLIntrinsicAttr {{.*}} Implicit "op" "" 423
 // CHECK-NEXT: AvailabilityAttr {{.*}} Implicit  6.10 0 0 ""
-  __builtin_LinAlg_VectorAccumulateToDescriptor(input, Buf, 10, 64);
+  __builtin_LinAlg_VectorAccumulateToDescriptor(Buf, 10, 64, input);
 }

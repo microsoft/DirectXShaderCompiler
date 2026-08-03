@@ -211,7 +211,7 @@ TYPE userFunc(TYPE arg) {
 
 [shader("raygeneration")]
 void raygen() {
-  RTTYPE p = (RTTYPE)0;
+  RTTYPE p;
   RayDesc ray = (RayDesc)0;
   TraceRay(RTAS, RAY_FLAG_NONE, 0, 0, 1, 0, ray, p); 
   // expected-error@-1{{object 'dx::HitObject' is not allowed in user-defined struct parameter}}
@@ -273,7 +273,7 @@ void Miss(
 [shader("intersection")]
 void Intersection() {
   float hitT = RayTCurrent();
-  RTTYPE attr = (RTTYPE)0;
+  RTTYPE attr;
   bool bReported = ReportHit(hitT, 0, attr);
   // expected-error@-1{{object 'dx::HitObject' is not allowed in attributes}}
   // expected-note@40{{'dx::HitObject' field declared here}}
