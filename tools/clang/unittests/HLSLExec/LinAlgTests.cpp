@@ -123,8 +123,10 @@ struct MatrixBufferLayout {
 };
 
 enum class ComparisonMode {
-  // Floating-point alternatives allowed by the specification must be listed as
-  // permitted results; Exact compares the encoded component bits.
+  // Every mode compares encoded component bits exactly. Implementation freedom
+  // is expressed by enumerating the permitted results rather than by an Epsilon
+  // or Ulp tolerance, so a conforming result must match a candidate bit for
+  // bit.
   Exact,
   PermittedResults,
   Excluded,
@@ -425,7 +427,7 @@ static std::optional<TypedMatrix> transposeMatrix(const TypedMatrix &Source) {
   }
 }
 
-static bool isMemoryLayout(MatrixLayout Layout) {
+static bool isRowColLayout(MatrixLayout Layout) {
   return Layout == MatrixLayout::RowMajor ||
          Layout == MatrixLayout::ColumnMajor;
 }
@@ -434,7 +436,7 @@ static std::optional<size_t>
 getMatrixBufferSize(ComponentType CompType, MatrixDim M, MatrixDim N,
                     const MatrixBufferLayout &Layout) {
   if (!isSupportedComponentType(CompType) || M == 0 || N == 0 ||
-      !isMemoryLayout(Layout.Layout)) {
+      !isRowColLayout(Layout.Layout)) {
     hlsl_test::LogErrorFmt(
         L"Invalid matrix buffer description: component=%s, M=%u, N=%u, "
         L"layout=%u",
@@ -514,7 +516,7 @@ static bool writeTypedMatrixBuffer(const TypedMatrix &Matrix,
       const size_t ValueIndex = static_cast<size_t>(Row) * Matrix.N + Column;
       std::optional<size_t> ByteOffset = getElementByteOffset(
           Matrix.compType(), Matrix.M, Matrix.N, Row, Column, Layout);
-      if (!ByteOffset.has_value())
+      if (!ByteOffset)
         return false;
       ComponentTraits<T>::store(Buffer.data() + *ByteOffset,
                                 Values[ValueIndex]);
@@ -527,7 +529,7 @@ static bool writeMatrixBuffer(const TypedMatrix &Matrix,
                               const MatrixBufferLayout &Layout,
                               std::vector<BYTE> &Buffer) {
   std::optional<size_t> RequiredBytes = getMatrixBufferSize(Matrix, Layout);
-  if (!RequiredBytes.has_value() || Buffer.size() < *RequiredBytes) {
+  if (!RequiredBytes || Buffer.size() < *RequiredBytes) {
     hlsl_test::LogErrorFmt(
         L"Matrix buffer is too small: actual=%zu, required=%zu", Buffer.size(),
         RequiredBytes.value_or(0));
@@ -558,7 +560,7 @@ decodeTypedMatrixBuffer(ComponentType CompType, MatrixDim M, MatrixDim N,
       const size_t ValueIndex = static_cast<size_t>(Row) * N + Column;
       std::optional<size_t> ByteOffset =
           getElementByteOffset(CompType, M, N, Row, Column, Layout);
-      if (!ByteOffset.has_value())
+      if (!ByteOffset)
         return std::nullopt;
       Values[ValueIndex] = ComponentTraits<T>::load(Buffer + *ByteOffset);
     }
@@ -572,7 +574,7 @@ decodeMatrixBuffer(ComponentType CompType, MatrixDim M, MatrixDim N,
                    size_t BufferSize) {
   std::optional<size_t> RequiredBytes =
       getMatrixBufferSize(CompType, M, N, Layout);
-  if (!Buffer || !RequiredBytes.has_value() || BufferSize < *RequiredBytes) {
+  if (!Buffer || !RequiredBytes || BufferSize < *RequiredBytes) {
     hlsl_test::LogErrorFmt(
         L"Cannot decode matrix buffer: actual=%zu, required=%zu", BufferSize,
         RequiredBytes.value_or(0));
@@ -732,7 +734,7 @@ static bool verifyMatrixBuffer(const void *ActualBuffer,
   std::optional<TypedMatrix> Actual =
       decodeMatrixBuffer(Shape.compType(), Shape.M, Shape.N, Layout,
                          ActualBuffer, ActualBufferSize);
-  if (!Actual.has_value())
+  if (!Actual)
     return false;
 
   std::vector<size_t> FirstMismatches;
@@ -1005,7 +1007,7 @@ void LinAlgCPUOracleTests::TypedMatrixBufferRoundTrip() {
 
   auto VerifyScalarEncoding = [](const std::optional<TypedMatrix> &Matrix,
                                  const std::vector<BYTE> &ExpectedBytes) {
-    if (!Matrix.has_value())
+    if (!Matrix)
       return false;
     MatrixBufferLayout Layout = {
         MatrixLayout::RowMajor,
