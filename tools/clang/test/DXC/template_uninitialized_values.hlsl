@@ -1,6 +1,6 @@
 // RUN: dxc -E main -T cs_6_6 -HV 2021 -Wno-unused-value %s | FileCheck %s
 
-// Asserts in UnitializedValues.cpp were triggered by the following code
+// Asserts in UninitializedValues.cpp were triggered by the following code
 // examples. The cause was that HLSL out parameters or local variables from
 // template instantiations may not be present in the declToIndex map when the
 // variable's DeclContext differs from the analysis context (common in
