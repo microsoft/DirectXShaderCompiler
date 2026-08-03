@@ -2103,12 +2103,17 @@ bool SpirvEmitter::tryToCreateDescriptorHeapAlias(const VarDecl *decl,
   }
 
   if (isRaytracingAccelerationStructure(decl->getType())) {
-    if (auto *initVal = loadIfGLValue(init))
+    if (SpirvInstruction *initVal = loadIfGLValue(init)) {
       declIdMapper.registerFnVarAlias(decl, initVal);
-    else
+      // Track the AS as heap-initialized so diagnoseDescriptorHeapAliasMixing
+      // can detect any later reassignment (even heap-to-heap, since
+      // registerFnVarAlias cannot be updated after the fact).
+      descriptorHeapVarState[decl] = DescriptorHeapVarState::Heap;
+    } else {
       emitError("cannot create descriptor heap acceleration structure alias "
                 "from initializer",
                 init->getExprLoc());
+    }
     return true;
   }
 
@@ -3289,11 +3294,14 @@ SpirvEmitter::tryToAssignToDescriptorHeapAlias(
                                          assignExpr->getExprLoc()))
     return tryToAssignToDescriptorHeapBuffer(assignExpr);
 
-  // The assignment was rejected. A heap buffer alias is represented only by its
-  // index variable, so the normal path has no destination to store into and
-  // would null-deref; consume the assignment instead. Image aliases do have a
-  // function variable, so they can fall through to the plain handle store.
-  if (descriptorHeapBufferAliasVars.count(dstVar))
+  // The assignment was rejected. Buffer aliases (index-only, no backing
+  // function variable) and AS aliases (value registered via registerFnVarAlias,
+  // not a SpirvVariable) have no valid destination for processAssignment;
+  // consume the assignment to prevent a null-deref. Image aliases do have a
+  // backing function variable, so they can fall through to the plain handle
+  // store.
+  if (descriptorHeapBufferAliasVars.count(dstVar) ||
+      declIdMapper.hasFnVarAlias(dstVar))
     return static_cast<SpirvInstruction *>(nullptr);
   return llvm::None;
 }
@@ -5320,19 +5328,29 @@ bool SpirvEmitter::diagnoseDescriptorHeapAliasMixing(const VarDecl *dstVar,
   // Only the resource kinds that use the compile-time alias mechanism can be
   // miscompiled by a mixed assignment. Other resources are stored into a real
   // function variable, which merges correctly across control flow.
+  // RaytracingAccelerationStructure uses registerFnVarAlias and is covered
+  // here too; its Heap state is set in tryToCreateDescriptorHeapAlias.
   const QualType dstType = dstVar->getType();
-  if (!isRWTexture(dstType) && !isRWBuffer(dstType) &&
+  const bool isASType = isRaytracingAccelerationStructure(dstType);
+  if (!isASType && !isRWTexture(dstType) && !isRWBuffer(dstType) &&
       !isConstantTextureBuffer(dstType) &&
       !isAKindOfStructuredOrByteBuffer(dstType))
     return false;
 
   const bool srcIsHeap = isHeapSourcedValue(srcExpr->IgnoreParenCasts());
   const bool wasHeap = descriptorHeapImageAliasVars.count(dstVar) ||
-                       descriptorHeapBufferAliasVars.count(dstVar);
+                       descriptorHeapBufferAliasVars.count(dstVar) ||
+                       (stateIt != descriptorHeapVarState.end() &&
+                        stateIt->second == DescriptorHeapVarState::Heap);
   const bool wasBound = stateIt != descriptorHeapVarState.end() &&
                         stateIt->second == DescriptorHeapVarState::Bound;
-  const bool mixingDetected =
-      (srcIsHeap && wasBound) || (!srcIsHeap && wasHeap);
+  // AS aliases cannot be updated after initialization (registerFnVarAlias is
+  // frozen), so any reassignment (including heap-to-heap) must be rejected.
+  // Image and buffer aliases support heap-to-heap reassignment via their
+  // respective alias-update paths, so only the cross-kind cases are errors.
+  const bool mixingDetected = (isASType && wasHeap) ||
+                              (srcIsHeap && wasBound) ||
+                              (!srcIsHeap && wasHeap);
 
   if (mixingDetected) {
     emitError("mixing bound and descriptor heap resources in the same variable "
@@ -7256,7 +7274,8 @@ SpirvEmitter::doCXXOperatorCallExpr(const CXXOperatorCallExpr *expr,
           emitError("acceleration structure loaded from ResourceDescriptorHeap "
                     "requires the resource heap stride to account for "
                     "acceleration structure descriptors; compile with "
-                    "-fspv-extension=SPV_KHR_ray_tracing or "
+                    "-fspv-extension=SPV_KHR_ray_tracing, "
+                    "-fspv-extension=SPV_NV_ray_tracing, or "
                     "-fspv-extension=SPV_KHR_ray_query",
                     expr->getExprLoc());
           return nullptr;
