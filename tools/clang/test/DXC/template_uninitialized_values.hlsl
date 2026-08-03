@@ -1,4 +1,4 @@
-// RUN: dxc -E main -T cs_6_6 -HV 2021 -Wno-unused-value %s | FileCheck %s
+// RUN: %dxc -E main -T cs_6_6 -HV 2021 -Wno-unused-value %s | FileCheck %s
 
 // Asserts in UninitializedValues.cpp were triggered by the following code
 // examples. The cause was that HLSL out parameters or local variables from
