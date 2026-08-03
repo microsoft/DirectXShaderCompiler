@@ -1707,11 +1707,14 @@ private:
     bool counterUnsupported = false;
   };
   /// Tracks per-variable assignment history for the mixed-alias diagnostic.
+  /// Heap:  the variable was initialized from ResourceDescriptorHeap. For AS
+  ///        variables this is the only state that can follow initialization,
+  ///        since registerFnVarAlias cannot be updated after the fact.
   /// Bound: the variable has been assigned from a bound resource; a later heap
   ///        assignment to it would be a diagnosable mix.
   /// Mixed: mixing was already diagnosed; alias recording stays suppressed for
   ///        the remainder of the function so the error fires only once.
-  enum class DescriptorHeapVarState : uint8_t { Bound, Mixed };
+  enum class DescriptorHeapVarState : uint8_t { Heap, Bound, Mixed };
   llvm::DenseMap<const VarDecl *, DescriptorHeapVarState>
       descriptorHeapVarState;
 
