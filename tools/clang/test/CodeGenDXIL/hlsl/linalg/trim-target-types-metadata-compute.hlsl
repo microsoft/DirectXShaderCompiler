@@ -13,8 +13,10 @@ uint useMatrix1() {
   // mat1 = Matrix::Splat(5);
   __builtin_LinAlg_FillMatrix(mat1, 5);
 
-  // Matrix<ComponentType::U32, 3, 3, MatrixUse::A, MatrixScope::Thread> m;
-  __builtin_LinAlgMatrix [[__LinAlgMatrix_Attributes(5, 3, 3, 0, 0)]] mat2;
+  // Matrix<ComponentType::U32, 8, 8, MatrixUse::A, MatrixScope::Thread> m;
+  __builtin_LinAlgMatrix [[__LinAlgMatrix_Attributes(5, 8, 8, 0, 0)]] mat2;
+  // mat2 = Matrix::Splat(1);
+  __builtin_LinAlg_FillMatrix(mat2, 1);
   // return mat2.Length();
   return __builtin_LinAlg_MatrixLength(mat2);
 }
@@ -37,5 +39,5 @@ void main() {
 
 // CHECK: !dx.targetTypes = !{!{{[0-9]+}}, !{{[0-9]+}}}
 // CHECK: !{{[0-9]+}} = !{%dx.types.LinAlgMatrixC4M4N5U0S0 undef, i32 4, i32 4, i32 5, i32 0, i32 0}
-// CHECK: !{{[0-9]+}} = !{%dx.types.LinAlgMatrixC5M3N3U0S0 undef, i32 5, i32 3, i32 3, i32 0, i32 0}
+// CHECK: !{{[0-9]+}} = !{%dx.types.LinAlgMatrixC5M8N8U0S0 undef, i32 5, i32 8, i32 8, i32 0, i32 0}
 // CHECK-NOT: !{%dx.types.LinAlgMatrixC10M2N2U1S1 undef, i32 10, i32 2, i32 2, i32 1, i32 1}

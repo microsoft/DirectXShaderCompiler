@@ -75,7 +75,7 @@ void CallFunction()
 #endif
 
 #ifdef MATRIX_ACCUMULATE_TO_MEMORY
-  #define DO_FUNC __builtin_LinAlg_MatrixAccumulateToMemory(mat1, gs_arr, 0, 0, 0);
+  #define DO_FUNC __builtin_LinAlg_MatrixAccumulateToMemory(mat1, gs_arr, 0, 0, 0, 0);
 #endif
 
   // The builtins below are allowed in all stages, if they raise an error
@@ -85,10 +85,10 @@ void CallFunction()
   __builtin_LinAlg_MatrixOuterProduct(mat1, vecA, vecB);
   __builtin_LinAlg_MatrixAccumulateToDescriptor(mat1, buf, 1, 2, 3, 4);
   __builtin_LinAlg_MatrixVectorMultiply(vecA, mat1, true, vecB, 1);
-  __builtin_LinAlg_MatrixVectorMultiplyAdd(vecA, mat1, true, vecB, 2, vecC, 3);
+  __builtin_LinAlg_MatrixVectorMultiplyAdd(vecA, mat1, true, vecB, 2, vecC);
   int4 outVec;
   __builtin_LinAlg_Convert(outVec, vecA, 1, 2);
-  __builtin_LinAlg_VectorAccumulateToDescriptor(vecA, buf, 0, 64);
+  __builtin_LinAlg_VectorAccumulateToDescriptor(buf, 0, 64, vecA);
 
   // expected-error@+12{{builtin unavailable in shader stage 'pixel' (requires 'compute', 'mesh' or 'amplification')}}
   // expected-error@+11{{builtin unavailable in shader stage 'vertex' (requires 'compute', 'mesh' or 'amplification')}}

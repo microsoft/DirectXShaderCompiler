@@ -63,6 +63,14 @@ struct EntryStatus {
   EntryStatus(DxilEntryProps &entryProps);
 };
 
+struct LinAlgTargetType {
+  DXIL::ComponentType Type;
+  unsigned M;
+  unsigned N;
+  DXIL::MatrixUse Use;
+  DXIL::MatrixScope Scope;
+};
+
 struct ValidationContext {
   bool Failed = false;
   Module &M;
@@ -80,6 +88,7 @@ struct ValidationContext {
   std::unordered_map<Value *, DxilResourceProperties> ResPropMap;
   std::unordered_map<Function *, std::vector<Function *>> PatchConstantFuncMap;
   std::unordered_map<Function *, std::unique_ptr<EntryStatus>> entryStatusMap;
+  std::unordered_map<Type *, LinAlgTargetType> LinAlgTargetTypeMap;
   bool isLibProfile;
   const unsigned kDxilControlFlowHintMDKind;
   const unsigned kDxilPreciseMDKind;
@@ -146,4 +155,12 @@ struct ValidationContext {
 };
 
 uint32_t ValidateDxilModule(llvm::Module *pModule, llvm::Module *pDebugModule);
+
+llvm::StringRef ComponentTypeToString(DXIL::ComponentType CT);
+
+llvm::StringRef MatrixScopeToString(DXIL::MatrixScope MS);
+
+llvm::StringRef MatrixUseToString(DXIL::MatrixUse MU);
+
+llvm::StringRef MatrixLayoutToString(DXIL::MatrixLayout ML);
 } // namespace hlsl

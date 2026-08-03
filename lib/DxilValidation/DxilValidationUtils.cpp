@@ -11,6 +11,10 @@
 
 #include "DxilValidationUtils.h"
 
+#include <limits>
+#include <optional>
+
+#include "dxc/DXIL/DxilConstants.h"
 #include "dxc/DXIL/DxilEntryProps.h"
 #include "dxc/DXIL/DxilInstructions.h"
 #include "dxc/DXIL/DxilModule.h"
@@ -37,6 +41,39 @@ EntryStatus::EntryStatus(DxilEntryProps &entryProps)
   outputCols.resize(entryProps.sig.OutputSignature.GetElements().size(), 0);
   patchConstOrPrimCols.resize(
       entryProps.sig.PatchConstOrPrimSignature.GetElements().size(), 0);
+}
+
+static void
+TryAddLinAlgTargetType(MDTuple *MDT,
+                       std::unordered_map<Type *, LinAlgTargetType> &Map) {
+  if (!MDT || MDT->getNumOperands() != 6)
+    return;
+
+  ConstantAsMetadata *ConstMD0 =
+      dyn_cast<ConstantAsMetadata>(MDT->getOperand(0).get());
+  if (!ConstMD0)
+    return;
+
+  Type *Ty = ConstMD0->getValue()->getType();
+  uint64_t Ints[5];
+
+  for (size_t I = 0; I < 5; ++I) {
+    ConstantAsMetadata *ConstMDI =
+        dyn_cast<ConstantAsMetadata>(MDT->getOperand(I + 1).get());
+    if (!ConstMDI)
+      return;
+    ConstantInt *CI = dyn_cast<ConstantInt>(ConstMDI->getValue());
+    if (!CI)
+      return;
+    Ints[I] = CI->getLimitedValue(std::numeric_limits<unsigned>::max());
+  }
+
+  Map.try_emplace(Ty,
+                  LinAlgTargetType{static_cast<DXIL::ComponentType>(Ints[0]),
+                                   static_cast<unsigned>(Ints[1]),
+                                   static_cast<unsigned>(Ints[2]),
+                                   static_cast<DXIL::MatrixUse>(Ints[3]),
+                                   static_cast<DXIL::MatrixScope>(Ints[4])});
 }
 
 ValidationContext::ValidationContext(Module &llvmModule, Module *DebugModule,
@@ -87,6 +124,16 @@ ValidationContext::ValidationContext(Module &llvmModule, Module *DebugModule,
     if (props.IsHS()) {
       PatchConstantFuncMap[props.ShaderProps.HS.patchConstantFunc].emplace_back(
           Entry);
+    }
+  }
+
+  // Capture the TargetTypes metadata in the validation context
+  // if it is present and valid.
+  NamedMDNode *NMD = M.getNamedMetadata("dx.targetTypes");
+  if (NMD) {
+    for (llvm::MDNode *MDN : NMD->operands()) {
+      MDTuple *MDT = dyn_cast<MDTuple>(MDN);
+      TryAddLinAlgTargetType(MDT, LinAlgTargetTypeMap);
     }
   }
 }
@@ -568,6 +615,104 @@ void ValidationContext::EmitFnAttributeError(Function *F, StringRef Kind,
                                              StringRef Value) {
   EmitFnFormatError(F, ValidationRule::DeclFnAttribute,
                     {F->getName(), Kind, Value});
+}
+
+llvm::StringRef ComponentTypeToString(DXIL::ComponentType CT) {
+  switch (CT) {
+  case DXIL::ComponentType::Invalid:
+    return "Invalid";
+  case DXIL::ComponentType::I1:
+    return "I1";
+  case DXIL::ComponentType::I16:
+    return "I16";
+  case DXIL::ComponentType::U16:
+    return "U16";
+  case DXIL::ComponentType::I32:
+    return "I32";
+  case DXIL::ComponentType::U32:
+    return "U32";
+  case DXIL::ComponentType::I64:
+    return "I64";
+  case DXIL::ComponentType::U64:
+    return "U64";
+  case DXIL::ComponentType::F16:
+    return "F16";
+  case DXIL::ComponentType::F32:
+    return "F32";
+  case DXIL::ComponentType::F64:
+    return "F64";
+  case DXIL::ComponentType::SNormF16:
+    return "SNormF16";
+  case DXIL::ComponentType::UNormF16:
+    return "UNormF16";
+  case DXIL::ComponentType::SNormF32:
+    return "SNormF32";
+  case DXIL::ComponentType::UNormF32:
+    return "UNormF32";
+  case DXIL::ComponentType::SNormF64:
+    return "SNormF64";
+  case DXIL::ComponentType::UNormF64:
+    return "UNormF64";
+  case DXIL::ComponentType::PackedS8x32:
+    return "PackedS8x32";
+  case DXIL::ComponentType::PackedU8x32:
+    return "PackedU8x32";
+  case DXIL::ComponentType::I8:
+    return "I8";
+  case DXIL::ComponentType::U8:
+    return "U8";
+  case DXIL::ComponentType::F8_E4M3FN:
+    return "F8_E4M3FN";
+  case DXIL::ComponentType::F8_E5M2:
+    return "F8_E5M2";
+  default:
+    return "Unknown ComponentType";
+  }
+}
+
+llvm::StringRef MatrixScopeToString(DXIL::MatrixScope MS) {
+  switch (MS) {
+  case DXIL::MatrixScope::Thread:
+    return "Thread";
+  case DXIL::MatrixScope::Wave:
+    return "Wave";
+  case DXIL::MatrixScope::ThreadGroup:
+    return "ThreadGroup";
+  default:
+    return "Unknown MatrixScope";
+  }
+}
+
+llvm::StringRef MatrixUseToString(DXIL::MatrixUse MU) {
+  switch (MU) {
+  case DXIL::MatrixUse::A:
+    return "A";
+  case DXIL::MatrixUse::B:
+    return "B";
+  case DXIL::MatrixUse::Accumulator:
+    return "Accumulator";
+  default:
+    return "Unknown MatrixUse";
+  }
+}
+
+llvm::StringRef MatrixLayoutToString(DXIL::MatrixLayout ML) {
+  switch (ML) {
+  case DXIL::MatrixLayout::ColumnMajor:
+    return "ColumnMajor";
+  case DXIL::MatrixLayout::RowMajor:
+    return "RowMajor";
+  case DXIL::MatrixLayout::MulOptimal:
+    return "MulOptimal";
+  case DXIL::MatrixLayout::MulOptimalTranspose:
+    return "MulOptimalTranspose";
+  case DXIL::MatrixLayout::OuterProductOptimal:
+    return "OuterProductOptimal";
+  case DXIL::MatrixLayout::OuterProductOptimalTranspose:
+    return "OuterProductOptimalTranspose";
+  default:
+    return "Unknown MatrixUse";
+  }
 }
 
 } // namespace hlsl

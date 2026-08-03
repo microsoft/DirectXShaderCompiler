@@ -12,10 +12,10 @@
 ///
 //===----------------------------------------------------------------------===//
 
-#include "clang/Lex/Preprocessor.h"
 #include "clang/Basic/FileManager.h"
 #include "clang/Basic/SourceManager.h"
 #include "clang/Lex/CodeCompletionHandler.h"
+#include "clang/Lex/HLSLEmbeddedHeaders.h"
 #include "clang/Lex/HeaderSearch.h"
 #include "clang/Lex/HeaderSearchOptions.h"
 #include "clang/Lex/LexDiagnostic.h"
@@ -23,11 +23,14 @@
 #include "clang/Lex/MacroInfo.h"
 #include "clang/Lex/ModuleLoader.h"
 #include "clang/Lex/Pragma.h"
+#include "clang/Lex/Preprocessor.h"
+#include "clang/Lex/PreprocessorOptions.h" // HLSL Change - ignore line directives.
 #include "llvm/ADT/APInt.h"
 #include "llvm/Support/ErrorHandling.h"
+#include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/Path.h"
 #include "llvm/Support/SaveAndRestore.h"
-#include "clang/Lex/PreprocessorOptions.h" // HLSL Change - ignore line directives.
+#include <algorithm> // HLSL Change - std::replace for path separator normalisation.
 using namespace clang;
 
 //===----------------------------------------------------------------------===//
@@ -723,6 +726,49 @@ const FileEntry *Preprocessor::LookupFile(
       }
     }
   }
+
+  // HLSL Change Begin - Resolve #include's from compiled-in HLSL headers.
+
+  // Doing this after the normal file lookup allows this to only trigger as a
+  // fallback so the user may override it.
+  if (isAngled && !FromDir && !FromFile) {
+    const llvm::StringMap<llvm::StringRef> &EmbeddedHeaders =
+        hlsl::getEmbeddedHeaders();
+    // Normalize the filename to POSIX-style separators so that the lookup is
+    // consistent regardless of how the user spelled the include.
+    SmallString<128> NormalizedFilename(Filename);
+    std::replace(NormalizedFilename.begin(), NormalizedFilename.end(), '\\',
+                 '/');
+    auto It = EmbeddedHeaders.find(NormalizedFilename);
+    if (It != EmbeddedHeaders.end()) {
+      llvm::StringRef Data = It->second;
+      SmallString<128> VirtualName("<built-in:hlsl>/");
+      VirtualName.append(NormalizedFilename.begin(), NormalizedFilename.end());
+      const FileEntry *EmbeddedFE =
+          FileMgr.getVirtualFile(VirtualName, Data.size(), /*ModTime=*/0);
+      if (EmbeddedFE) {
+        if (!SourceMgr.isFileOverridden(EmbeddedFE)) {
+          SourceMgr.overrideFileContents(
+              EmbeddedFE,
+              llvm::MemoryBuffer::getMemBuffer(Data, VirtualName,
+                                               /*RequiresNullTerminator=*/
+                                               false));
+        }
+        if (SearchPath)
+          SearchPath->clear();
+        if (RelativePath) {
+          RelativePath->clear();
+          RelativePath->append(NormalizedFilename.begin(),
+                               NormalizedFilename.end());
+        }
+        CurDir = nullptr;
+        if (SuggestedModule)
+          *SuggestedModule = ModuleMap::KnownHeader();
+        return EmbeddedFE;
+      }
+    }
+  }
+  // HLSL Change End
 
   // Otherwise, we really couldn't find the file.
   return nullptr;

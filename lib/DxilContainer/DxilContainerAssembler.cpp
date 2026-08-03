@@ -1547,8 +1547,7 @@ private:
             if (entryProps.props.IsNode()) {
               shaderInfo = AddShaderNodeInfo(DM, function, entryProps, *pInfo2,
                                              TGSMInFunc[&function]);
-            } else if (DXIL::CompareVersions(m_ValMajor, m_ValMinor, 1, 8) >
-                       0) {
+            } else if (Builder.GetTable<RDAT::SignatureElement>()) {
               shaderInfo =
                   AddShaderInfo(function, entryProps, *pInfo2,
                                 compatInfo.shaderFlags, TGSMInFunc[&function]);
@@ -1656,30 +1655,34 @@ public:
   DxilRDATWriter(DxilModule &mod) : Builder(GetRecordDuplicationAllowed(mod)) {
     // Keep track of validator version so we can make a compatible RDAT
     mod.GetValidatorVersion(m_ValMajor, m_ValMinor);
-    RDAT::RuntimeDataPartType maxAllowedType =
-        RDAT::MaxPartTypeForValVer(m_ValMajor, m_ValMinor);
+    RDAT::RuntimeDataPartType maxAllowedType = RDAT::MaxPartTypeForValVer(
+        m_ValMajor, m_ValMinor,
+        mod.GetShaderModel()->IsPreReleaseShaderModel());
 
     mod.ComputeShaderCompatInfo();
 
     // Instantiate the parts in the order that validator expects.
-    Builder.GetStringBufferPart();
-    m_pResourceTable = Builder.GetOrAddTable<RDAT::RuntimeDataResourceInfo>();
-    m_pFunctionTable = Builder.GetOrAddTable<RuntimeDataFunctionInfo>();
-    if (DXIL::CompareVersions(m_ValMajor, m_ValMinor, 1, 8) >= 0) {
-      m_pFunctionTable->SetRecordStride(sizeof(RuntimeDataFunctionInfo2));
-    } else {
-      m_pFunctionTable->SetRecordStride(sizeof(RuntimeDataFunctionInfo));
-    }
-    Builder.GetIndexArraysPart();
-    Builder.GetRawBytesPart();
+    Builder.AddStringBufferPart();
+    m_pResourceTable = Builder.AddTable<RDAT::RuntimeDataResourceInfo>();
+    m_pFunctionTable = Builder.AddTable<RuntimeDataFunctionInfo>();
+    Builder.AddIndexArraysPart();
+    Builder.AddRawBytesPart();
     if (RDAT::RecordTraits<RuntimeDataSubobjectInfo>::PartType() <=
         maxAllowedType)
-      m_pSubobjectTable = Builder.GetOrAddTable<RuntimeDataSubobjectInfo>();
+      m_pSubobjectTable = Builder.AddTable<RuntimeDataSubobjectInfo>();
 
-// Once per table.
+// Once per table, if not already added.
 #define RDAT_STRUCT_TABLE(type, table)                                         \
-  if (RDAT::RecordTraits<RDAT::type>::PartType() <= maxAllowedType)            \
-    (void)Builder.GetOrAddTable<RDAT::type>();
+  if (RDAT::RecordTraits<RDAT::type>::PartType() <= maxAllowedType &&          \
+      !Builder.GetTable<RDAT::type>())                                         \
+    (void)Builder.AddTable<RDAT::type>();
+// Update the record stride for supported derived types.
+#define RDAT_STRUCT_TABLE_DERIVED(type, base, table, MajorVer, MinorVer)       \
+  if (DXIL::CompareVersions(m_ValMajor, m_ValMinor, MajorVer, MinorVer) >=     \
+          0 &&                                                                 \
+      Builder.GetTable<RDAT::type>()) {                                        \
+    Builder.GetTable<RDAT::type>()->SetRecordStride(sizeof(RDAT::type));       \
+  }
 
 #define DEF_RDAT_TYPES DEF_RDAT_DEFAULTS
 #include "dxc/DxilContainer/RDAT_Macros.inl"

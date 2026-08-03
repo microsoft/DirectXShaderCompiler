@@ -658,4 +658,12 @@ def err_pp_eof_in_assume_nonnull : Error<
 
 }
 
+// HLSL Change Begin - fixed-size floating-point literal suffixes
+def ext_hlsl_fixed_size_float_suffix_202x : ExtWarn<
+  "fixed-size floating-point literal suffix '%0' is a HLSL 202x extension">,
+  InGroup<HLSL202xExtensions>;
+def err_hlsl_16bit_suffix_requires_native_16bit : Error<
+  "16-bit floating-point literal suffix '%0' requires '-enable-16bit-types'">;
+// HLSL Change End
+
 }

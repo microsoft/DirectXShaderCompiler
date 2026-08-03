@@ -301,8 +301,9 @@ spv::Op SpirvDecoration::getDecorateStringOpcode(bool isMemberDecoration) {
 }
 
 bool SpirvDecoration::operator==(const SpirvDecoration &that) const {
-  return target == that.target && decoration == that.decoration &&
-         params == that.params && idParams == that.idParams &&
+  return target == that.target && targetFunction == that.targetFunction &&
+         decoration == that.decoration && params == that.params &&
+         idParams == that.idParams &&
          index.hasValue() == that.index.hasValue() &&
          (!index.hasValue() || index.getValue() == that.index.getValue());
 }

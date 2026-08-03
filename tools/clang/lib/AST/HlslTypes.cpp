@@ -603,17 +603,6 @@ bool IsHLSLNodeOutputType(clang::QualType type) {
          static_cast<uint32_t>(DXIL::NodeIOFlags::Output);
 }
 
-bool IsHLSLNodeRecordArrayType(clang::QualType type) {
-  if (const RecordType *RT = type->getAs<RecordType>()) {
-    StringRef name = RT->getDecl()->getName();
-    if (name == "ThreadNodeOutputRecords" || name == "GroupNodeOutputRecords" ||
-        name == "GroupNodeInputRecords" || name == "RWGroupNodeInputRecords" ||
-        name == "EmptyNodeInput")
-      return true;
-  }
-  return false;
-}
-
 bool IsHLSLEmptyNodeRecordType(clang::QualType type) {
   return (static_cast<uint32_t>(GetNodeIOType(type)) &
           static_cast<uint32_t>(DXIL::NodeIOFlags::EmptyRecord)) ==

@@ -115,6 +115,7 @@ class db_dxil_inst(object):
         # Always call process_oload_types() after setting oload_types.
         self.fn_attr = ""  # attribute shorthands: rn=does not access memory,ro=only reads from memory,
         self.is_deriv = False  # whether this is some kind of derivative
+        self.is_convergent = False  # whether this operation is convergent
         self.is_gradient = False  # whether this requires a gradient calculation
         self.is_feedback = False  # whether this is a sampler feedback op
         self.is_wave = False  # whether this requires in-wave, cross-lane functionality
@@ -1184,7 +1185,7 @@ class db_dxil(object):
                 "compute",
             )
 
-        for i in insts("DebugBreak", "IsDebuggerPresent"):
+        for i in insts("DebugBreak", "IsDebuggingEnabled"):
             i.category = "Debugging"
             i.shader_model = experimental_sm
 
@@ -6507,9 +6508,6 @@ class db_dxil(object):
                     5, "i32", "inputInterpretation", "input vector interpretation type"
                 ),
                 db_dxil_param(6, "$x3", "biasVector", "M dim vector to add"),
-                db_dxil_param(
-                    7, "i32", "biasInterpretation", "bias vector interpretation type"
-                ),
             ],
         )
 
@@ -6549,14 +6547,15 @@ class db_dxil(object):
                 db_dxil_param(
                     3, "$x_gs1", "memory", "groupshared array to accumulate into"
                 ),
-                db_dxil_param(4, "i32", "offset", "starting offset in the array"),
+                db_dxil_param(4, "i32", "targetType", "data type of the array"),
+                db_dxil_param(5, "i32", "offset", "starting offset in the array"),
                 db_dxil_param(
-                    5,
+                    6,
                     "i32",
                     "stride",
                     "number of bytes between the start of each row or column",
                 ),
-                db_dxil_param(6, "i32", "layout", "memory layout of matrix elements"),
+                db_dxil_param(7, "i32", "layout", "memory layout of matrix elements"),
             ],
         )
 
@@ -6599,10 +6598,10 @@ class db_dxil(object):
             "",
             [
                 db_dxil_param(0, "v", "", ""),
-                db_dxil_param(2, "$o", "vector", "vector to accumulate"),
-                db_dxil_param(3, "res", "handle", "buffer to accumulate into"),
-                db_dxil_param(4, "i32", "offset", "starting offset in the buffer"),
-                db_dxil_param(5, "i32", "align", "alignment of starting offset"),
+                db_dxil_param(2, "res", "handle", "buffer to accumulate into"),
+                db_dxil_param(3, "i32", "offset", "starting offset in the buffer"),
+                db_dxil_param(4, "i32", "align", "alignment of starting offset"),
+                db_dxil_param(5, "$o", "vector", "vector to accumulate"),
             ],
         )
 
@@ -6612,7 +6611,7 @@ class db_dxil(object):
         add_dxil_op(
             "DebugBreak",
             "DebugBreak",
-            "triggers a breakpoint if a debugger is attached",
+            "triggers a breakpoint if debugging is enabled",
             "v",
             "nd",
             [
@@ -6620,13 +6619,13 @@ class db_dxil(object):
             ],
         )
         add_dxil_op(
-            "IsDebuggerPresent",
-            "IsDebuggerPresent",
-            "returns true if a debugger is attached",
+            "IsDebuggingEnabled",
+            "IsDebuggingEnabled",
+            "returns true if debugging is enabled",
             "v",
-            "ro",
+            "",
             [
-                db_dxil_param(0, "i1", "", "true if a debugger is attached"),
+                db_dxil_param(0, "i1", "", "true if debugging is enabled"),
             ],
         )
 
@@ -6653,6 +6652,7 @@ class db_dxil(object):
                 self.name_idx[i].is_gradient == True
             ), "all derivatives are marked as requiring gradients"
             self.name_idx[i].is_deriv = True
+            self.name_idx[i].is_convergent = True
 
         # TODO - some arguments are required to be immediate constants in DXIL, eg resource kinds; add this information
         # consider - report instructions that are overloaded on a single type, then turn them into non-overloaded version of that type
@@ -8635,6 +8635,46 @@ class db_dxil(object):
         self.add_valrule(
             "Instr.ReorderCoherentRequiresSM69",
             "reordercoherent requires SM 6.9 or later.",
+        )
+        self.add_valrule(
+            "Instr.LinAlgIllegalKDim",
+            "Matrix K Dimension out of bounds. K=%0 must be >= %1 and <= %2.",
+        )
+        self.add_valrule(
+            "Instr.LinAlgIllegalComponentType",
+            "Matrix Component Type '%0' not allowed in LinAlg Matrix.",
+        )
+        self.add_valrule(
+            "Instr.LinAlgMatrixScopeNotAllowed",
+            "Matrix Scope '%0' not allowed in %1 operation.",
+        )
+        self.add_valrule(
+            "Instr.LinAlgMatrixScopeMismatch",
+            "Matrix Scope '%0' does not match expected scope %1.",
+        )
+        self.add_valrule(
+            "Instr.LinAlgMatrixDimMismatch",
+            "Matrix Dimension '%0x%1' does not match expected dimension %2x%3.",
+        )
+        self.add_valrule(
+            "Instr.LinAlgMatrixUseMismatch",
+            "Matrix Use '%0' does not match expected use %1.",
+        )
+        self.add_valrule(
+            "Instr.LinAlgMatrixUseMismatch2",
+            "Matrix Use '%0' does not match expected use %1 or %2.",
+        )
+        self.add_valrule(
+            "Instr.LinAlgMatrixNotExactMatch",
+            "Matrix '%0' must exactly match matrix '%1'.",
+        )
+        self.add_valrule(
+            "Instr.LinAlgMatrixScopeReqLayout2",
+            "Matrix scope '%0' requires layout %1 or %2.",
+        )
+        self.add_valrule(
+            "Instr.LinAlgMatrixLayoutReqStride",
+            "Matrix layout '%0' requires stride 0.",
         )
 
         # Some legacy rules:
