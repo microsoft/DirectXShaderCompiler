@@ -399,10 +399,13 @@ private:
   /// Translates the given varDecl into a spec constant.
   void createSpecConstant(const VarDecl *varDecl);
 
-  /// Returns the OpTypeRuntimeArray for a descriptor heap array of elemType,
-  /// decorated with ArrayStrideIdEXT referencing an OpConstantSizeOfEXT of the
-  /// element (descriptor) type.
-  const SpirvType *getDescriptorHeapRuntimeArrayType(const SpirvType *elemType);
+  /// Returns the OpTypeRuntimeArray for a descriptor heap array of elemType.
+  /// onSamplerHeap selects which heap the descriptor is loaded from. If that
+  /// heap has a -fvk-{resource,sampler}-heap-stride override, the array carries
+  /// that literal ArrayStride; otherwise it is decorated with ArrayStrideIdEXT
+  /// referencing the shared stride for the heap.
+  const SpirvType *getDescriptorHeapRuntimeArrayType(const SpirvType *elemType,
+                                                     bool onSamplerHeap);
 
   /// Emits the native (SPV_EXT_descriptor_heap) access for a buffer-like
   /// resource (StructuredBuffer/ByteAddressBuffer/ConstantBuffer/TextureBuffer
@@ -1245,17 +1248,16 @@ private:
   /// \brief Diagnoses a local resource variable assigned from both a bound
   /// resource and ResourceDescriptorHeap.
   ///
-  /// The alias table maps each aliased VarDecl to heap descriptor info at
-  /// compile time. Once a variable is recorded as an alias, every later use is
-  /// re-lowered as a heap access chain, ignoring control flow. That is only
-  /// correct when the variable holds a heap descriptor on every path reaching
-  /// the use, so assigning it from both kinds of source must be diagnosed
-  /// rather than silently miscompiled.
+  /// The per-resource alias maps (descriptorHeapImageAliasVars,
+  /// descriptorHeapBufferAliasVars, and the acceleration structure alias
+  /// registered via registerFnVarAlias) record each aliased VarDecl at compile
+  /// time. Every later use is unconditionally re-lowered as a heap access
+  /// chain, ignoring control flow; correct only when the variable holds a heap
+  /// descriptor on every reaching path. Mixed assignments must therefore be
+  /// diagnosed rather than generate incorrect code.
   ///
-  /// Returns true if the assignment was rejected (either a new diagnostic was
-  /// emitted, or the variable was already diagnosed). Callers need not act on
-  /// the return value: the alias-recording helpers check descriptorHeapVarState
-  /// themselves and skip rejected variables automatically.
+  /// Returns true if the assignment was rejected. Alias-recording helpers check
+  /// descriptorHeapVarState themselves and skip Mixed variables automatically.
   bool diagnoseDescriptorHeapAliasMixing(const VarDecl *dstVar,
                                          const Expr *srcExpr,
                                          SourceLocation loc);
@@ -1705,11 +1707,14 @@ private:
     bool counterUnsupported = false;
   };
   /// Tracks per-variable assignment history for the mixed-alias diagnostic.
+  /// Heap:  the variable was initialized from ResourceDescriptorHeap. For AS
+  ///        variables this is the only state that can follow initialization,
+  ///        since registerFnVarAlias cannot be updated after the fact.
   /// Bound: the variable has been assigned from a bound resource; a later heap
   ///        assignment to it would be a diagnosable mix.
   /// Mixed: mixing was already diagnosed; alias recording stays suppressed for
   ///        the remainder of the function so the error fires only once.
-  enum class DescriptorHeapVarState : uint8_t { Bound, Mixed };
+  enum class DescriptorHeapVarState : uint8_t { Heap, Bound, Mixed };
   llvm::DenseMap<const VarDecl *, DescriptorHeapVarState>
       descriptorHeapVarState;
 
