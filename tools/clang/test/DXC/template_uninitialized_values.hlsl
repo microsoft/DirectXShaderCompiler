@@ -56,8 +56,26 @@ void func2(out uint var1)
     var1;
 }
 
+// Exercise the defensive ClassifyRefs::Init path when an unmapped out
+// parameter is forwarded to another out parameter through a template call.
+template <typename NameType>
+void func3(out uint var1, out uint var2)
+{
+    var2 = var1;
+}
+
+template <typename NameType>
+void func4(out uint var1)
+{
+    uint var2;
+    func3<NameType>(var1, var2);
+}
+
 void func1()
 {
     uint var33;
     func2<uint>(var33);
+
+    uint var34;
+    func4<uint>(var34);
 }
