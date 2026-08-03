@@ -408,10 +408,13 @@ private:
   /// Translates the given varDecl into a spec constant.
   void createSpecConstant(const VarDecl *varDecl);
 
-  /// Returns the OpTypeRuntimeArray for a descriptor heap array of elemType,
-  /// decorated with ArrayStrideIdEXT referencing an OpConstantSizeOfEXT of the
-  /// element (descriptor) type.
-  const SpirvType *getDescriptorHeapRuntimeArrayType(const SpirvType *elemType);
+  /// Returns the OpTypeRuntimeArray for a descriptor heap array of elemType.
+  /// onSamplerHeap selects which heap the descriptor is loaded from. If that
+  /// heap has a -fvk-{resource,sampler}-heap-stride override, the array carries
+  /// that literal ArrayStride; otherwise it is decorated with ArrayStrideIdEXT
+  /// referencing the shared stride for the heap.
+  const SpirvType *getDescriptorHeapRuntimeArrayType(const SpirvType *elemType,
+                                                     bool onSamplerHeap);
 
   /// Emits the native (SPV_EXT_descriptor_heap) access for a buffer-like
   /// resource (StructuredBuffer/ByteAddressBuffer/ConstantBuffer/TextureBuffer
