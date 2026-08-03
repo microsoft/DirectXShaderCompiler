@@ -21,7 +21,7 @@
 // when the user lists a ray-tracing/ray-query extension explicitly. The first
 // run does not, and must fail; the second one does, and must compile.
 
-// CHECK: error: acceleration structure loaded from ResourceDescriptorHeap requires the resource heap stride to account for acceleration structure descriptors; compile with -fspv-extension=SPV_KHR_ray_tracing or -fspv-extension=SPV_KHR_ray_query
+// CHECK: error: acceleration structure loaded from ResourceDescriptorHeap requires the resource heap stride to account for acceleration structure descriptors; compile with -fspv-extension=SPV_KHR_ray_tracing, -fspv-extension=SPV_NV_ray_tracing, or -fspv-extension=SPV_KHR_ray_query
 
 // OK-DAG:   %[[Accel:[a-zA-Z0-9_]+]] = OpTypeAccelerationStructureKHR
 // OK-DAG: %[[AccelSz:[a-zA-Z0-9_]+]] = OpConstantSizeOfEXT %uint %[[Accel]]
