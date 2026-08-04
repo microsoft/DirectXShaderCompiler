@@ -1,4 +1,4 @@
-// RUN: %dxc -T cs_6_6 -E MainRayGenShader -fcgl -spirv %s | FileCheck %s
+// RUN: %dxc -T cs_6_6 -E MainRayGenShader -fcgl -spirv %s | FileCheck %s --implicit-check-not=OpTypeRayQueryKHR
 
 // A user-defined struct named "RayQuery" that shadows the reserved intrinsic
 // name must be lowered as an ordinary struct, not as the opaque ray query
@@ -17,8 +17,9 @@ struct RayQuery {
 // CHECK: %_ptr_Function_RayQuery = OpTypePointer Function %RayQuery
 // CHECK: %rayQuery = OpVariable %_ptr_Function_RayQuery Function
 
-// It must not be lowered to the opaque ray query type.
-// CHECK-NOT: OpTypeRayQueryKHR
+// It must not be lowered to the opaque ray query type. The absence of
+// OpTypeRayQueryKHR anywhere in the module is checked by the
+// --implicit-check-not on the FileCheck invocation above.
 
 StructuredBuffer<uint> _UnifiedRT_DispatchDims;
 
