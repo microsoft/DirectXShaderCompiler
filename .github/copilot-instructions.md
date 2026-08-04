@@ -22,6 +22,7 @@ When to skip a release note comment:
 
 When reviewing an existing release note:
 - Check it against the release note policy and entry rules in `CONTRIBUTING.md`.
+- Review the PR as merged with the current base branch, not only the head branch's file contents. If the head branch is behind or diverged from the base branch, account for newer release headings already on the base branch and flag the PR for an update when the stale branch makes the entry's final placement ambiguous or incorrect.
 - Put changes targeting the next release under `### Upcoming Release`.
 - Use `### Upcoming Preview Release` only for changes that apply exclusively to experimental preview shader models.
 - Do not add entries to an already named release unless the change explicitly targets that release.
