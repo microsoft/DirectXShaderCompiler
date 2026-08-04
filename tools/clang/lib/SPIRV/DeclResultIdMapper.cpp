@@ -299,6 +299,14 @@ LocationAndComponent getLocationAndComponentCount(const ASTContext &astContext,
   return {0, 0, false};
 }
 
+/// Returns true if the given decl is a static variable declared inside
+/// a cbuffer/tbuffer/struct. These are not actually part of the
+/// cbuffer/tbuffer/struct, and should not consume a member index.
+bool isStaticBufferDecl(const Decl *decl) {
+  const auto *varDecl = dyn_cast<VarDecl>(decl);
+  return varDecl && varDecl->getStorageClass() == StorageClass::SC_Static;
+}
+
 bool shouldSkipInStructLayout(const Decl *decl) {
   // Ignore implicit generated struct declarations/constructors/destructors
   if (decl->isImplicit())
@@ -1455,7 +1463,7 @@ SpirvVariable *DeclResultIdMapper::createStructOrStructArrayVarOfExplicitLayout(
 
       // Static variables are not part of the struct from a layout perspective.
       // Thus, they should not be listed in the struct fields.
-      if (fieldVar->getStorageClass() == StorageClass::SC_Static) {
+      if (isStaticBufferDecl(fieldVar)) {
         continue;
       }
 
@@ -1564,6 +1572,9 @@ void DeclResultIdMapper::createCTBuffer(const HLSLBufferDecl *decl) {
       createExternVar(varDecl);
       continue;
     }
+
+    if (isStaticBufferDecl(varDecl))
+      continue;
 
     variablesToDeclare.push_back(varDecl);
   }
@@ -1735,6 +1746,9 @@ DeclResultIdMapper::createShaderRecordBuffer(const HLSLBufferDecl *decl,
     // OpVariable for it in createStructOrStructArrayVarOfExplicitLayout().
     const auto *varDecl = cast<VarDecl>(subDecl);
     if (isResourceType(varDecl->getType()))
+      continue;
+
+    if (isStaticBufferDecl(varDecl))
       continue;
 
     registerVariableForDecl(varDecl, createDeclSpirvInfo(bufferVar, index++));
