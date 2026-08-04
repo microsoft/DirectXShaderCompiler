@@ -113,12 +113,6 @@ enum class MultiplicationFlags : UINT {
   Transpose = 8,
 };
 
-enum class MatrixRole {
-  A,
-  B,
-  Accumulator,
-};
-
 enum class ExecutionScope : UINT {
   Thread = 1,
   Wave = 2,
@@ -149,45 +143,50 @@ struct TierSupport {
   bool supported() const { return LinearAlgebraTier != Tier::NotSupported; }
 };
 
-struct MatrixConstructionQuery {
-  DataType ComponentType;
-  UINT WaveSize;
-};
-
-struct MatrixConstructionSupport {
-  UINT MinM = 0;
-  UINT MinK = 0;
-  UINT MinN = 0;
-
-  bool valid() const;
-  bool supported() const;
-  bool supports(MatrixRole Role, UINT Rows, UINT Columns) const;
-};
-
 struct MatrixMultiplyShape {
   UINT M;
   UINT K;
   UINT N;
 };
 
-struct WaveMatrixMultiplyQuery {
+// Capability queries name a concrete shape and the runtime answers whether it
+// is supported; it applies the "positive multiple of a native tile" rule
+// itself. Callers therefore ask about the shape they intend to use rather than
+// reasoning about native tiles on their behalf.
+struct MatrixConstructionQuery {
+  DataType ComponentType;
+  UINT WaveSize;
+  MatrixMultiplyShape Shape;
+};
+
+struct MatrixConstructionSupport {
+  BOOL Supported = FALSE;
+
+  bool valid() const;
+  bool supported() const;
+};
+
+struct WaveMatrixMultiplyInputs {
   UINT WaveSize;
   DataType MatrixAComponentType;
   DataType MatrixBComponentType;
   DataType AccumulatorComponentType;
 };
 
+struct WaveMatrixMultiplyQuery {
+  WaveMatrixMultiplyInputs Inputs;
+  MatrixMultiplyShape Shape;
+};
+
 struct WaveMatrixMultiplySupport {
   MultiplicationFlags SupportFlags = MultiplicationFlags::None;
-  std::vector<MatrixMultiplyShape> Shapes;
 
   bool valid() const;
   bool supported() const;
-  bool supportsShape(UINT M, UINT K, UINT N) const;
 };
 
 struct ThreadGroupMatrixMultiplyQuery {
-  WaveMatrixMultiplyQuery WaveInputs;
+  WaveMatrixMultiplyInputs WaveInputs;
   MatrixMultiplyShape Shape;
 };
 

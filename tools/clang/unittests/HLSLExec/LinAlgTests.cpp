@@ -1236,32 +1236,27 @@ void LinAlgCapabilityTests::CapabilityPolicyAndPredicates() {
   VERIFY_IS_TRUE(isLegalScope(OperationType::AtomicAccumulateStore,
                               ExecutionScope::ThreadGroup));
 
-  MatrixConstructionSupport Construction = {4, 8, 16};
+  MatrixConstructionSupport Construction = {TRUE};
   VERIFY_IS_TRUE(Construction.valid());
-  VERIFY_IS_TRUE(Construction.supports(MatrixRole::A, 4, 8));
-  VERIFY_IS_TRUE(Construction.supports(MatrixRole::B, 8, 16));
-  VERIFY_IS_TRUE(Construction.supports(MatrixRole::Accumulator, 4, 16));
-  VERIFY_IS_FALSE(Construction.supports(MatrixRole::A, 3, 8));
-  MatrixConstructionSupport InvalidConstruction = {4, 0, 16};
+  VERIFY_IS_TRUE(Construction.supported());
+  MatrixConstructionSupport UnsupportedConstruction = {FALSE};
+  VERIFY_IS_TRUE(UnsupportedConstruction.valid());
+  VERIFY_IS_FALSE(UnsupportedConstruction.supported());
+  // The runtime contract is a canonical BOOL; anything else is a driver bug.
+  MatrixConstructionSupport InvalidConstruction = {2};
   VERIFY_IS_FALSE(InvalidConstruction.valid());
+  VERIFY_IS_FALSE(InvalidConstruction.supported());
 
-  WaveMatrixMultiplySupport Wave = {
-      MultiplicationFlags::Supported,
-      {{8, 16, 8}, {16, 16, 16}},
-  };
+  WaveMatrixMultiplySupport Wave = {MultiplicationFlags::Supported};
   VERIFY_IS_TRUE(Wave.valid());
-  VERIFY_IS_TRUE(Wave.supportsShape(32, 32, 16));
-  VERIFY_IS_FALSE(Wave.supportsShape(12, 32, 16));
+  VERIFY_IS_TRUE(Wave.supported());
+  WaveMatrixMultiplySupport UnsupportedWave = {MultiplicationFlags::None};
+  VERIFY_IS_TRUE(UnsupportedWave.valid());
+  VERIFY_IS_FALSE(UnsupportedWave.supported());
   WaveMatrixMultiplySupport InvalidWave = {
-      MultiplicationFlags::EmulatedInputs,
-      {},
-  };
-  VERIFY_IS_FALSE(InvalidWave.valid());
-  InvalidWave = {
       static_cast<MultiplicationFlags>(
           static_cast<UINT>(MultiplicationFlags::Supported) |
           static_cast<UINT>(MultiplicationFlags::EmulatedInputs)),
-      {{8, 16, 8}},
   };
   VERIFY_IS_FALSE(InvalidWave.valid());
 
@@ -1310,15 +1305,17 @@ void LinAlgCapabilityTests::CapabilityPolicyAndPredicates() {
   VERIFY_IS_FALSE(Atomic.supports(AtomicDestination::GroupShared));
 
   VERIFY_ARE_EQUAL(0u, static_cast<UINT>(DataType::None));
-  MatrixConstructionQuery ConstructionQuery = {DataType::Float32, 32};
-  WaveMatrixMultiplyQuery WaveQuery = {
+  MatrixConstructionQuery ConstructionQuery = {
+      DataType::Float32, 32, {8, 8, 8}};
+  WaveMatrixMultiplyInputs WaveInputs = {
       32,
       DataType::Float16,
       DataType::Float16,
       DataType::Float32,
   };
+  WaveMatrixMultiplyQuery WaveQuery = {WaveInputs, {16, 16, 16}};
   ThreadGroupMatrixMultiplyQuery ThreadGroupQuery = {
-      WaveQuery,
+      WaveInputs,
       {16, 16, 16},
   };
   ThreadVectorMatrixMultiplyQuery ThreadVectorQuery = {
@@ -1333,6 +1330,10 @@ void LinAlgCapabilityTests::CapabilityPolicyAndPredicates() {
   };
   AtomicAccumulateStoreQuery AtomicQuery = {DataType::Float16};
   VERIFY_ARE_EQUAL(32u, ConstructionQuery.WaveSize);
+  VERIFY_ARE_EQUAL(8u, ConstructionQuery.Shape.K);
+  VERIFY_ARE_EQUAL(32u, WaveQuery.Inputs.WaveSize);
+  VERIFY_ARE_EQUAL(16u, WaveQuery.Shape.M);
+  VERIFY_ARE_EQUAL(32u, ThreadGroupQuery.WaveInputs.WaveSize);
   VERIFY_ARE_EQUAL(16u, ThreadGroupQuery.Shape.M);
   VERIFY_IS_TRUE(ThreadVectorQuery.BiasInputType == DataType::None);
   VERIFY_IS_TRUE(OuterProductQuery.InputComponentType == DataType::Float16);
@@ -1871,6 +1872,32 @@ static const char CopyConvertShader[] = R"(
   }
 )";
 
+// MatrixConstruction is queried with a full {M,K,N} multiply shape, but a use-A
+// tile only pins M and K; the N extent is free. The runtime accepts a shape
+// when every extent is a positive multiple of a native tile, so probe the
+// power-of-two extents that native tiles are built from and accept the tile if
+// any probe matches. Missing an extent skips a test case; it can never report
+// an unsupported tile as supported.
+static constexpr UINT FreeExtentProbes[] = {4, 8, 16, 32, 64, 128};
+
+static HRESULT supportsUseAMatrix(ID3D12Device *Device,
+                                  linalg_test::DataType Type, UINT WaveSize,
+                                  UINT Rows, UINT Columns, bool &Supported) {
+  Supported = false;
+  for (UINT FreeExtent : FreeExtentProbes) {
+    linalg_test::MatrixConstructionSupport Construction;
+    const HRESULT HR = linalg_test::queryMatrixConstruction(
+        Device, {Type, WaveSize, {Rows, Columns, FreeExtent}}, Construction);
+    if (FAILED(HR))
+      return HR;
+    if (Construction.supported()) {
+      Supported = true;
+      return S_OK;
+    }
+  }
+  return S_OK;
+}
+
 static HRESULT queryCopyConvertSupport(ID3D12Device *Device,
                                        const MatrixParams &Params,
                                        bool Transpose, bool &Supported,
@@ -1931,14 +1958,19 @@ static HRESULT queryCopyConvertSupport(ID3D12Device *Device,
         WaveSize > WaveOptions.WaveLaneCountMax)
       continue;
 
-    linalg_test::MatrixConstructionSupport Construction;
-    HR = linalg_test::queryMatrixConstruction(Device, {*DataType, WaveSize},
-                                              Construction);
+    bool SourceSupported = false;
+    HR = supportsUseAMatrix(Device, *DataType, WaveSize, Params.M, Params.N,
+                            SourceSupported);
     if (FAILED(HR))
       return HR;
-    if (Construction.supports(linalg_test::MatrixRole::A, Params.M, Params.N) &&
-        Construction.supports(linalg_test::MatrixRole::A, Destination.M,
-                              Destination.N)) {
+
+    bool DestinationSupported = false;
+    HR = supportsUseAMatrix(Device, *DataType, WaveSize, Destination.M,
+                            Destination.N, DestinationSupported);
+    if (FAILED(HR))
+      return HR;
+
+    if (SourceSupported && DestinationSupported) {
       hlsl_test::LogCommentFmt(
           L"CopyConvert capability matched wave=%u for source=%ux%u and "
           L"destination=%ux%u",
