@@ -1127,9 +1127,15 @@ bool isFallbackPathEnabled() {
 namespace linalg_test {
 
 // The runtime answers with a BOOL, so the only thing left to police is that it
-// is a canonical TRUE or FALSE rather than an arbitrary non-zero value.
+// is a canonical TRUE or FALSE rather than an arbitrary non-zero value. Every
+// BOOL-valued response goes through here so that no category silently accepts
+// a malformed value by normalizing it to true.
+static bool isCanonicalBool(BOOL Value) {
+  return Value == TRUE || Value == FALSE;
+}
+
 bool MatrixConstructionSupport::valid() const {
-  return Supported == TRUE || Supported == FALSE;
+  return isCanonicalBool(Supported);
 }
 
 bool MatrixConstructionSupport::supported() const {
@@ -1517,8 +1523,15 @@ HRESULT queryThreadOuterProduct(ID3D12Device *Device,
     return HR;
   }
 
-  Support.Supported =
-      RuntimeSupport.ThreadOuterProductSupport.Supported != FALSE;
+  const BOOL Supported = RuntimeSupport.ThreadOuterProductSupport.Supported;
+  if (!isCanonicalBool(Supported)) {
+    LogCommentFmt(
+        L"ThreadOuterProduct query returned a non-boolean result: 0x%x",
+        Supported);
+    return E_UNEXPECTED;
+  }
+
+  Support.Supported = Supported != FALSE;
   LogCommentFmt(L"ThreadOuterProduct query: input=%s, result=%s, supported=%u",
                 dataTypeName(Query.InputComponentType),
                 dataTypeName(Query.ResultComponentType), Support.Supported);
@@ -1548,10 +1561,20 @@ HRESULT queryAtomicAccumulateStore(ID3D12Device *Device,
     return HR;
   }
 
-  Support.RWByteAddressBufferSupported =
-      RuntimeSupport.AccumulateStore.RWByteAddressBufferSupported != FALSE;
-  Support.GroupSharedSupported =
-      RuntimeSupport.AccumulateStore.GroupSharedSupported != FALSE;
+  const BOOL BufferSupported =
+      RuntimeSupport.AccumulateStore.RWByteAddressBufferSupported;
+  const BOOL GroupSharedSupported =
+      RuntimeSupport.AccumulateStore.GroupSharedSupported;
+  if (!isCanonicalBool(BufferSupported) ||
+      !isCanonicalBool(GroupSharedSupported)) {
+    LogCommentFmt(L"AtomicAccumulateStore query returned a non-boolean result: "
+                  L"UAV=0x%x, groupshared=0x%x",
+                  BufferSupported, GroupSharedSupported);
+    return E_UNEXPECTED;
+  }
+
+  Support.RWByteAddressBufferSupported = BufferSupported != FALSE;
+  Support.GroupSharedSupported = GroupSharedSupported != FALSE;
   LogCommentFmt(L"AtomicAccumulateStore query: type=%s, UAV=%u, groupshared=%u",
                 dataTypeName(Query.ComponentType),
                 Support.RWByteAddressBufferSupported,
