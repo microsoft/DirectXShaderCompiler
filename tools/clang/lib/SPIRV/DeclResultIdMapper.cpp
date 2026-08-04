@@ -1566,15 +1566,15 @@ void DeclResultIdMapper::createCTBuffer(const HLSLBufferDecl *decl) {
     if (shouldSkipInStructLayout(subDecl))
       continue;
 
-    // If the subDecl is a resource, it is lowered as a standalone variable.
     const auto *varDecl = cast<VarDecl>(subDecl);
+
+    if (isStaticBufferDecl(varDecl))
+      continue;
+
     if (isResourceType(varDecl->getType())) {
       createExternVar(varDecl);
       continue;
     }
-
-    if (isStaticBufferDecl(varDecl))
-      continue;
 
     variablesToDeclare.push_back(varDecl);
   }

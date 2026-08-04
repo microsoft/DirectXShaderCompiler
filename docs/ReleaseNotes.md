@@ -58,6 +58,10 @@ line upon naming the release. Refer to previous for appropriate section names.
   [#8278](https://github.com/microsoft/DirectXShaderCompiler/pull/8278).
 - Fixed a crash with out-of-line template declarations
   [#5823](https://github.com/microsoft/DirectXShaderCompiler/issues/5823).
+- Fixed a crash from `static` members of a `cbuffer`/`tbuffer`/struct, which were
+  incorrectly counted as buffer members and shifted the member indices of the
+  members declared after them
+  [#8731](https://github.com/microsoft/DirectXShaderCompiler/pull/8731).
 - Fixed handling of `void` in extended instruction sets
   [#8012](https://github.com/microsoft/DirectXShaderCompiler/issues/8012).
 
