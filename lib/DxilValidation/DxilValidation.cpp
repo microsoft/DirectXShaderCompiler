@@ -2613,7 +2613,8 @@ static void ValidateExternalFunction(Function *F, ValidationContext &ValCtx) {
   bool IsDxilOp = OP::IsDxilOpFunc(F);
   Type *VoidTy = Type::getVoidTy(F->getContext());
 
-  for (User *user : F->users()) {
+  llvm::SmallVector<llvm::User *, 16> Users(F->users());
+  for (User *user : llvm::reverse(Users)) {
     CallInst *CI = dyn_cast<CallInst>(user);
     if (!CI) {
       ValCtx.EmitFnFormatError(F, ValidationRule::DeclFnIsCalled,
