@@ -141,6 +141,7 @@ public:
   static OpCodeClass GetOpCodeClass(OpCode OpCode);
   static const char *GetOpCodeClassName(OpCode OpCode);
   static llvm::Attribute::AttrKind GetMemAccessAttr(OpCode opCode);
+  static bool IsDxilOpConvergent(OpCode C);
   static bool IsOverloadLegal(OpCode OpCode, llvm::Type *pType);
   static bool CheckOpCodeTable();
   static bool IsDxilOpFuncName(llvm::StringRef name);

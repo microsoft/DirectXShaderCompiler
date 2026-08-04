@@ -29,6 +29,7 @@
 #include "llvm/Analysis/DxilValueCache.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/PostDominators.h"
+#include "llvm/IR/CallSite.h"
 #include "llvm/IR/DIBuilder.h"
 #include "llvm/IR/DebugInfo.h"
 #include "llvm/IR/GetElementPtrTypeIterator.h"
@@ -1005,6 +1006,8 @@ public:
       // Clear intermediate options that shouldn't be in the final DXIL
       DM.ClearIntermediateOptions();
 
+      StripConvergentAttrs(M);
+
       // Remove unused AllocateRayQuery calls
       RemoveUnusedRayQuery(M);
 
@@ -1023,6 +1026,25 @@ public:
   }
 
 private:
+  void StripConvergentAttrs(Module &M) {
+    for (Function &F : M) {
+      F.removeFnAttr(Attribute::Convergent);
+
+      for (BasicBlock &BB : F) {
+        for (Instruction &I : BB) {
+          CallSite CS(&I);
+          if (!CS || !CS.getAttributes().hasAttribute(
+                         AttributeSet::FunctionIndex, Attribute::Convergent))
+            continue;
+
+          CS.setAttributes(CS.getAttributes().removeAttribute(
+              M.getContext(), AttributeSet::FunctionIndex,
+              Attribute::Convergent));
+        }
+      }
+    }
+  }
+
   void RemoveUnusedStaticGlobal(Module &M) {
     // Remove unused internal global.
     std::vector<GlobalVariable *> staticGVs;

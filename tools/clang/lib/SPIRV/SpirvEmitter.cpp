@@ -1924,16 +1924,8 @@ bool SpirvEmitter::validateVKAttributes(const NamedDecl *decl) {
 
 void SpirvEmitter::registerCapabilitiesAndExtensionsForVarDecl(
     const VarDecl *varDecl) {
-  // First record any extensions that are part of the actual variable
-  // declaration.
-  for (auto *attribute : varDecl->specific_attrs<VKExtensionExtAttr>()) {
-    clang::StringRef extensionName = attribute->getName();
-    spvBuilder.requireExtension(extensionName, varDecl->getLocation());
-  }
-  for (auto *attribute : varDecl->specific_attrs<VKCapabilityExtAttr>()) {
-    spv::Capability cap = spv::Capability(attribute->getCapability());
-    spvBuilder.requireCapability(cap, varDecl->getLocation());
-  }
+  // First record any extensions/capabilities declared on the variable itself.
+  declIdMapper.registerCapabilitiesAndExtensionsForDecl(varDecl);
 
   // Now check for any capabilities or extensions that are part of the type.
   const TypedefType *type = dyn_cast<TypedefType>(varDecl->getType());
@@ -6669,6 +6661,8 @@ SpirvEmitter::doCXXOperatorCallExpr(const CXXOperatorCallExpr *expr,
       auto *decl = cast<VarDecl>(declRefExpr->getDecl());
       auto *var = declIdMapper.createResourceHeap(decl, resourceType);
 
+      if (hlsl::HasHLSLGloballyCoherent(resourceType))
+        spvBuilder.decorateCoherent(var, baseExpr->getExprLoc());
       auto *index = doExpr(indexExpr);
 
       if (spirvOptions.useDescriptorHeap) {
@@ -9805,7 +9799,7 @@ SpirvEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
     retVal = processWaveQuadAnyAll(callExpr, hlslOpcode);
     break;
   case hlsl::IntrinsicOp::IOP_abort:
-  case hlsl::IntrinsicOp::IOP_DxIsDebuggerPresent:
+  case hlsl::IntrinsicOp::IOP_DxIsDebuggingEnabled:
   case hlsl::IntrinsicOp::IOP_GetRenderTargetSampleCount:
   case hlsl::IntrinsicOp::IOP_GetRenderTargetSamplePosition: {
     emitError("no equivalent for %0 intrinsic function in Vulkan", srcLoc)

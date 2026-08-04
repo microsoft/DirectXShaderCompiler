@@ -3117,8 +3117,8 @@ ID         Name                                     Description
 2147483678 LinAlgConvert                            Convert vector components from one interpretation to another
 2147483679 LinAlgVectorAccumulateToDescriptor       Accumulates given vector to the buffer at the given offset
 2147483680 ReservedE0                               reserved
-2147483681 DebugBreak                               triggers a breakpoint if a debugger is attached
-2147483682 IsDebuggerPresent                        returns true if a debugger is attached
+2147483681 DebugBreak                               triggers a breakpoint if debugging is enabled
+2147483682 IsDebuggingEnabled                       returns true if debugging is enabled
 ========== ======================================== ===================================================================================================================
 
 
@@ -3209,7 +3209,16 @@ INSTR.ILLEGALDXILOPCODE                               DXILOpCode must be valid o
 INSTR.ILLEGALDXILOPFUNCTION                           '%0' is not a DXILOpFuncition for DXILOpcode '%1'.
 INSTR.IMMBIASFORSAMPLEB                               bias amount for sample_b must be in the range [%0,%1], but %2 was specified as an immediate.
 INSTR.INBOUNDSACCESS                                  Access to out-of-bounds memory is disallowed.
+INSTR.LINALGILLEGALCOMPONENTTYPE                      Matrix Component Type '%0' not allowed in LinAlg Matrix.
 INSTR.LINALGILLEGALKDIM                               Matrix K Dimension out of bounds. K=%0 must be >= %1 and <= %2.
+INSTR.LINALGMATRIXDIMMISMATCH                         Matrix Dimension '%0x%1' does not match expected dimension %2x%3.
+INSTR.LINALGMATRIXLAYOUTREQSTRIDE                     Matrix layout '%0' requires stride 0.
+INSTR.LINALGMATRIXNOTEXACTMATCH                       Matrix '%0' must exactly match matrix '%1'.
+INSTR.LINALGMATRIXSCOPEMISMATCH                       Matrix Scope '%0' does not match expected scope %1.
+INSTR.LINALGMATRIXSCOPENOTALLOWED                     Matrix Scope '%0' not allowed in %1 operation.
+INSTR.LINALGMATRIXSCOPEREQLAYOUT2                     Matrix scope '%0' requires layout %1 or %2.
+INSTR.LINALGMATRIXUSEMISMATCH                         Matrix Use '%0' does not match expected use %1.
+INSTR.LINALGMATRIXUSEMISMATCH2                        Matrix Use '%0' does not match expected use %1 or %2.
 INSTR.MAYREORDERTHREADUNDEFCOHERENCEHINTPARAM         Use of undef coherence hint or num coherence hint bits in MaybeReorderThread.
 INSTR.MINPRECISIONNOTPRECISE                          Instructions marked precise may not refer to minprecision values.
 INSTR.MINPRECISONBITCAST                              Bitcast on minprecison types is not allowed.

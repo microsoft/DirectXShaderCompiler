@@ -22,6 +22,45 @@ The included licenses apply to the following files:
 Place release notes for the upcoming release below this line and remove this
 line upon naming the release. Refer to previous for appropriate section names.
 
+#### Bug Fixes
+
+- Fixed derivative operations being moved into divergent control flow, which
+  could produce incorrect results
+  [#8001](https://github.com/microsoft/DirectXShaderCompiler/issues/8001).
+
+#### HLSL Language
+
+- Casting a scalar to a struct or array containing a resource is now an error
+  instead of crashing
+  [#6661](https://github.com/microsoft/DirectXShaderCompiler/issues/6661).
+
+#### Bug Fixes
+
+- Fixed internal compiler errors when a member method is called on a ray payload
+  or on one of its fields with payload access qualifiers enabled
+  [#6464](https://github.com/microsoft/DirectXShaderCompiler/issues/6464).
+
+### Upcoming Preview Release
+
+These changes apply to experimental preview shader models only and will not be
+part of the next non-preview release.
+
+#### Experimental Shader Model 6.10
+
+These are incremental changes to the experimental Shader Model 6.10 features that
+first shipped in the 1.10.2605 preview.
+
+- Fixed the set of numeric types allowed in LinAlg matrix intrinsics
+  [#8271](https://github.com/microsoft/DirectXShaderCompiler/issues/8271).
+- Corrected the parameter order of `InterlockedAccumulate`
+  [#8459](https://github.com/microsoft/DirectXShaderCompiler/pull/8459).
+- Added validation of LinAlg matrix builtin parameters and result K dimension
+  [#8588](https://github.com/microsoft/DirectXShaderCompiler/pull/8588).
+- Restricted the component types allowed in LinAlg matrices
+  [#8608](https://github.com/microsoft/DirectXShaderCompiler/pull/8608).
+
+### Version 1.9.2607
+
 #### HLSL Language
 
 - Added `auto` for C++11-style type deduction
@@ -97,6 +136,9 @@ line upon naming the release. Refer to previous for appropriate section names.
   [#8246](https://github.com/microsoft/DirectXShaderCompiler/issues/8246).
 - Fixed an ambiguous overloaded `operator+` error with newer Clang
   [#8516](https://github.com/microsoft/DirectXShaderCompiler/pull/8516).
+- Stopped emitting illegal `*.with.overflow` intrinsics for DXIL, which caused
+  validation failures for overflow-check idioms when optimizations were enabled
+  [#8600](https://github.com/microsoft/DirectXShaderCompiler/pull/8600).
 
 #### Other Changes
 
@@ -105,21 +147,6 @@ line upon naming the release. Refer to previous for appropriate section names.
 - Added `-Fre` support for the Metal backend to emit the Metal Shader Converter
   reflection JSON
   [#8159](https://github.com/microsoft/DirectXShaderCompiler/pull/8159).
-
-### Upcoming Preview Release
-
-These changes apply to experimental preview shader models only and will not be
-part of the next non-preview release.
-
-#### Experimental Shader Model 6.10
-
-These are incremental changes to the experimental Shader Model 6.10 features that
-first shipped in the 1.10.2605 preview.
-
-- Fixed the set of numeric types allowed in LinAlg matrix intrinsics
-  [#8271](https://github.com/microsoft/DirectXShaderCompiler/issues/8271).
-- Corrected the parameter order of `InterlockedAccumulate`
-  [#8459](https://github.com/microsoft/DirectXShaderCompiler/pull/8459).
 
 ### Version 1.10.2605
 
@@ -132,10 +159,11 @@ first shipped in the 1.10.2605 preview.
   - GetGroupWaveCount: New intrinsic for Compute, Mesh, Amplification and Node
   shaders which returns the total number of waves executing within the thread
   group.
-- Added `DebugBreak()` and `dx::IsDebuggerPresent()` intrinsics for shader debugging (experimental Shader Model 6.10).
-  - `DebugBreak()` triggers a breakpoint if a debugger is attached.
-  - `dx::IsDebuggerPresent()` returns true if a debugger is attached.
-  - SPIR-V: `DebugBreak()` emits `NonSemantic.DebugBreak` extended instruction; `IsDebuggerPresent()` is not supported.
+- Added `DebugBreak()` and `dx::IsDebuggingEnabled()` intrinsics for shader debugging (experimental Shader Model 6.10).
+  - `DebugBreak()` triggers a breakpoint if debugging is enabled.
+  - `dx::IsDebuggingEnabled()` returns true if debugging is enabled when the
+    intrinsic executes.
+  - SPIR-V: `DebugBreak()` emits `NonSemantic.DebugBreak` extended instruction; `IsDebuggingEnabled()` is not supported.
 
 #### Bug Fixes
 

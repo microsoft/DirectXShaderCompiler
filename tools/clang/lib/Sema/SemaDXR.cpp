@@ -69,9 +69,10 @@ struct PayloadAccessInfo {
 };
 
 struct DxrShaderDiagnoseInfo {
-  const FunctionDecl *funcDecl;
-  const VarDecl *Payload;
-  DXIL::PayloadAccessShaderStage Stage;
+  const FunctionDecl *funcDecl = nullptr;
+  const VarDecl *Payload = nullptr;
+  DXIL::PayloadAccessShaderStage Stage =
+      DXIL::PayloadAccessShaderStage::Invalid;
   std::vector<PayloadBuiltinCall> PayloadBuiltinCalls;
   std::map<const FieldDecl *, std::vector<PayloadUse>> WritesPerField;
   std::map<const FieldDecl *, std::vector<PayloadUse>> ReadsPerField;
@@ -85,6 +86,7 @@ DiagnosePayloadAccess(Sema &S, DxrShaderDiagnoseInfo &Info,
                       std::set<const FunctionDecl *> VisitedFunctions);
 
 const Stmt *IgnoreParensAndDecay(const Stmt *S);
+const MemberExpr *GetPayloadFieldMember(const Stmt *S);
 
 // Transform the shader stage to string to be used in diagnostics
 StringRef GetStringForShaderStage(DXIL::PayloadAccessShaderStage Stage) {
@@ -180,7 +182,7 @@ void GetPayloadAccesses(const Stmt *S, const DxrShaderDiagnoseInfo &Info,
     }
 
     GetPayloadAccesses(C, Info, Accesses, IsLValue,
-                       Member ? Member : dyn_cast<MemberExpr>(C),
+                       Member ? Member : GetPayloadFieldMember(C),
                        Call ? Call : dyn_cast<CallExpr>(C));
   }
 }
@@ -190,18 +192,20 @@ void CollectReadsWritesAndCallsForPayload(const Stmt *S,
                                           DxrShaderDiagnoseInfo &Info,
                                           const CFGBlock *Block) {
   std::vector<PayloadAccessInfo> PayloadAccesses;
-  GetPayloadAccesses(S, Info, PayloadAccesses, true, dyn_cast<MemberExpr>(S),
+  GetPayloadAccesses(S, Info, PayloadAccesses, true, GetPayloadFieldMember(S),
                      dyn_cast<CallExpr>(S));
   for (auto &Access : PayloadAccesses) {
     // An access to a payload member was found.
     if (Access.Member) {
-      FieldDecl *Field = cast<FieldDecl>(Access.Member->getMemberDecl());
-      if (Access.IsLValue) {
-        Info.WritesPerField[Field].push_back(
-            PayloadUse{S, Block, Access.Member});
-      } else {
-        Info.ReadsPerField[Field].push_back(
-            PayloadUse{S, Block, Access.Member});
+      if (FieldDecl *Field =
+              dyn_cast<FieldDecl>(Access.Member->getMemberDecl())) {
+        if (Access.IsLValue) {
+          Info.WritesPerField[Field].push_back(
+              PayloadUse{S, Block, Access.Member});
+        } else {
+          Info.ReadsPerField[Field].push_back(
+              PayloadUse{S, Block, Access.Member});
+        }
       }
     } else if (Access.Call) {
       Info.PayloadAsCallArg.push_back(PayloadUse{S, Block});
@@ -1061,6 +1065,13 @@ const Stmt *IgnoreParensAndDecay(const Stmt *S) {
       return S;
     }
   }
+}
+
+const MemberExpr *GetPayloadFieldMember(const Stmt *S) {
+  const MemberExpr *Member = dyn_cast_or_null<MemberExpr>(S);
+  if (!Member || !isa<FieldDecl>(Member->getMemberDecl()))
+    return nullptr;
+  return Member;
 }
 
 // Emit warnings for calls that pass the payload to extern functions.

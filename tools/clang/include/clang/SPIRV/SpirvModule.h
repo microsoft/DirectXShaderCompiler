@@ -39,7 +39,7 @@ struct DecorationComparisonInfo {
   static inline SpirvDecoration *getEmptyKey() { return nullptr; }
   static inline SpirvDecoration *getTombstoneKey() { return nullptr; }
   static unsigned getHashValue(const SpirvDecoration *decor) {
-    return llvm::hash_combine(decor->getTarget(),
+    return llvm::hash_combine(decor->getTarget(), decor->getTargetFunc(),
                               static_cast<uint32_t>(decor->getDecoration()));
   }
   static bool isEqual(SpirvDecoration *LHS, SpirvDecoration *RHS) {
