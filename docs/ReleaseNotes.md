@@ -34,6 +34,13 @@ line upon naming the release. Refer to previous for appropriate section names.
   instead of crashing
   [#6661](https://github.com/microsoft/DirectXShaderCompiler/issues/6661).
 
+#### SPIR-V
+
+- Fixed a crash from `static` members of a `cbuffer`/`tbuffer`, which were
+  incorrectly counted as buffer members and shifted the member indices of the
+  members declared after them
+  [#8537](https://github.com/microsoft/DirectXShaderCompiler/issues/8537).
+
 #### Bug Fixes
 
 - Fixed internal compiler errors when a member method is called on a ray payload
@@ -97,10 +104,6 @@ first shipped in the 1.10.2605 preview.
   [#8278](https://github.com/microsoft/DirectXShaderCompiler/pull/8278).
 - Fixed a crash with out-of-line template declarations
   [#5823](https://github.com/microsoft/DirectXShaderCompiler/issues/5823).
-- Fixed a crash from `static` members of a `cbuffer`/`tbuffer`, which were
-  incorrectly counted as buffer members and shifted the member indices of the
-  members declared after them
-  [#8537](https://github.com/microsoft/DirectXShaderCompiler/issues/8537).
 - Fixed handling of `void` in extended instruction sets
   [#8012](https://github.com/microsoft/DirectXShaderCompiler/issues/8012).
 
