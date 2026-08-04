@@ -16,9 +16,15 @@ How to comment when release notes are missing:
 - If it is not obvious whether one is required, leave only a gentle prompt: **"Did you consider adding a release note?"**
 
 When to skip a release note comment:
-- If the PR already updates `docs/ReleaseNotes.md`, do not ask for an additional release note.
+- If the PR already updates `docs/ReleaseNotes.md`, review the entry's placement and content instead of asking for an additional release note.
 - If the PR is docs-only, do not leave a release note comment.
 - If the PR is a dependency bump (for example, a "Bump ..." PR), do not leave a release note comment.
+
+When reviewing an existing release note:
+- Check it against the release note policy and entry rules in `CONTRIBUTING.md`.
+- Put changes targeting the next release under `### Upcoming Release`.
+- Use `### Upcoming Preview Release` only for changes that apply exclusively to experimental preview shader models or other preview-only behavior.
+- Do not add entries to an already named release unless the change explicitly targets that release.
 
 Comment tone:
 - Use a stronger ask when the PR clearly appears to be a user-visible bug fix or feature.
