@@ -41,6 +41,13 @@ first shipped in the 1.10.2605 preview.
 - Restricted the component types allowed in LinAlg matrices
   [#8608](https://github.com/microsoft/DirectXShaderCompiler/pull/8608).
 
+#### SPIR-V
+
+- Functions can now be decorated with inline SPIR-V. `[[vk::ext_capability]]`
+  and `[[vk::ext_extension]]` are now honored on ordinary functions
+  [#8616](https://github.com/microsoft/DirectXShaderCompiler/pull/8616)
+  [#8719](https://github.com/microsoft/DirectXShaderCompiler/pull/8719).
+
 ### Version 1.9.2607
 
 #### HLSL Language
@@ -68,10 +75,6 @@ first shipped in the 1.10.2605 preview.
   [#8281](https://github.com/microsoft/DirectXShaderCompiler/pull/8281).
 - Function parameters can now be decorated with inline SPIR-V
   [#8103](https://github.com/microsoft/DirectXShaderCompiler/issues/8103).
-- Functions can now be decorated with inline SPIR-V, and
-  `[[vk::ext_capability]]`/`[[vk::ext_extension]]` are honored on ordinary
-  functions
-  [#8616](https://github.com/microsoft/DirectXShaderCompiler/pull/8616).
 - Fixed `vk::BufferPointer` cast methods
   [#8365](https://github.com/microsoft/DirectXShaderCompiler/pull/8365).
 - Fixed layout-rule propagation for `ConstantBuffer`/`TextureBuffer` function
