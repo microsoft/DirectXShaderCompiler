@@ -40,10 +40,6 @@ line upon naming the release. Refer to previous for appropriate section names.
   or on one of its fields with payload access qualifiers enabled
   [#6464](https://github.com/microsoft/DirectXShaderCompiler/issues/6464).
 
-#### LinAlg Matrix
-- Adds `BFloat16` to the ComponentType enum in DxilConstants and the linalg
-  header [#8722](https://github.com/microsoft/DirectXShaderCompiler/issues/8722)
-
 ### Upcoming Preview Release
 
 These changes apply to experimental preview shader models only and will not be
@@ -62,6 +58,8 @@ first shipped in the 1.10.2605 preview.
   [#8588](https://github.com/microsoft/DirectXShaderCompiler/pull/8588).
 - Restricted the component types allowed in LinAlg matrices
   [#8608](https://github.com/microsoft/DirectXShaderCompiler/pull/8608).
+- Added `BFloat16` to the ComponentType enum in DxilConstants and the linalg
+  header [#8722](https://github.com/microsoft/DirectXShaderCompiler/issues/8722)
 
 ### Version 1.9.2607
 

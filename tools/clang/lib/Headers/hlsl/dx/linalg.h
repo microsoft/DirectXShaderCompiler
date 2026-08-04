@@ -238,8 +238,8 @@ template <ComponentEnum ComponentTy, SIZE_TYPE M, SIZE_TYPE N,
           MatrixUseEnum Use, MatrixScopeEnum Scope>
 class Matrix {
   using ElementType = typename __detail::ComponentTypeTraits<ComponentTy>::Type;
-  // If this isn't a native scalar, we have an 8-bit type, so we have 4 elements
-  // packed in each scalar value.
+  // If this isn't a native scalar, we have a type that may pack more than 1
+  // element in each scalar value. (Ex. 8bit => 4elems, 16bit => 2elems)
   static const uint ElementsPerScalar =
       __detail::ComponentTypeTraits<ComponentTy>::ElementsPerScalar;
   static const bool IsNativeScalar =
