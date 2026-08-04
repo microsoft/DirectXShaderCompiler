@@ -2102,9 +2102,10 @@ objects as untyped variables in ``UniformConstant`` storage class:
 The concrete descriptor type is selected at each heap access. For image,
 sampler, and texel buffer resources, DXC forms a runtime array of that
 descriptor type, decorates the array with a byte stride, and uses
-``OpUntypedAccessChainKHR`` followed by ``OpLoad``. The stride is an
-``ArrayStrideIdEXT`` decoration referencing a specialization constant rather
-than a literal ``ArrayStride`` (see `Descriptor heap array stride`_ below):
+``OpUntypedAccessChainKHR`` followed by ``OpLoad``. By default the stride is an
+``ArrayStrideIdEXT`` decoration referencing a specialization constant; a literal
+``ArrayStride`` is emitted only when the stride is overridden on the command
+line (see `Descriptor heap array stride`_ below):
 
 .. code:: spirv
 
@@ -2224,10 +2225,10 @@ Three further restrictions on heap accesses produce diagnostics:
 Descriptor heap array stride
 ++++++++++++++++++++++++++++
 
-All resource heap runtime arrays share a single ``ArrayStrideIdEXT`` decoration
-rather than a literal ``ArrayStride``, because descriptor sizes are not known
-until pipeline creation. The shared value is built from ``OpConstantSizeOfEXT``
-and ``OpSpecConstantOp`` and evaluates to
+By default, all resource heap runtime arrays share a single ``ArrayStrideIdEXT``
+decoration rather than a literal ``ArrayStride``, because descriptor sizes are
+not known until pipeline creation. The shared value is built from
+``OpConstantSizeOfEXT`` and ``OpSpecConstantOp`` and evaluates to
 ``max(sizeof(image_descriptor), sizeof(buffer_descriptor))``. The sampler heap
 carries its own ``ArrayStrideIdEXT`` equal to ``sizeof(sampler_descriptor)``.
 
@@ -2258,6 +2259,20 @@ then ``SPV_KHR_ray_tracing``, then ``SPV_NV_ray_tracing``. A shader that is not
 a ray-tracing stage and heap-loads a ``RaytracingAccelerationStructure``
 without such an extension is rejected, because its stride would not cover the
 acceleration structure descriptor.
+
+The computed stride can be replaced with a fixed literal using
+``-fvk-resource-heap-stride <N>`` and ``-fvk-sampler-heap-stride <N>``, which
+emit ``OpDecorate <array> ArrayStride N`` on the resource and sampler heap
+arrays respectively. ``N`` must be a power of two in the inclusive range
+[8, 256], and both flags require ``-spirv``. The command-line override has the
+highest precedence: when it is set for a heap, no ``ArrayStrideIdEXT`` is
+emitted for that heap and no ``OpConstantSizeOfEXT`` is built for it. The two
+flags are independent, so overriding one heap leaves the other on its computed
+stride.
+
+The literal is not validated against the descriptor sizes of the target
+implementation. A value smaller than the largest descriptor that may appear in
+the heap produces out-of-bounds descriptor accesses at runtime.
 
 HLSL Expressions
 ================
