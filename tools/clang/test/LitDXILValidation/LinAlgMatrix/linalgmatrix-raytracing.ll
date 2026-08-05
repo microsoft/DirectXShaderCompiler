@@ -1,173 +1,173 @@
 ; REQUIRES: dxil-1-10
 ; RUN: not %dxv %s 2>&1 | FileCheck %s
 
-; CHECK: Function: {{.*}}MainMS{{.*}}: error: Opcode LinAlgMatrixMultiply not valid in shader model lib_6_10(miss).
-; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixMultiply
-; CHECK-NEXT: Function: {{.*}}MainCH{{.*}}: error: Opcode LinAlgMatrixMultiply not valid in shader model lib_6_10(closesthit).
-; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixMultiply
-; CHECK-NEXT: Function: {{.*}}MainAH{{.*}}: error: Opcode LinAlgMatrixMultiply not valid in shader model lib_6_10(anyhit).
-; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixMultiply
-; CHECK-NEXT: Function: {{.*}}MainCL{{.*}}: error: Opcode LinAlgMatrixMultiply not valid in shader model lib_6_10(callable).
+; CHECK: Function: {{.*}}MainRG{{.*}}: error: Opcode LinAlgMatrixMultiply not valid in shader model lib_6_10(raygeneration).
 ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixMultiply
 ; CHECK-NEXT: Function: {{.*}}MainIS{{.*}}: error: Opcode LinAlgMatrixMultiply not valid in shader model lib_6_10(intersection).
 ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixMultiply
-; CHECK-NEXT: Function: {{.*}}MainRG{{.*}}: error: Opcode LinAlgMatrixMultiply not valid in shader model lib_6_10(raygeneration).
+; CHECK-NEXT: Function: {{.*}}MainCL{{.*}}: error: Opcode LinAlgMatrixMultiply not valid in shader model lib_6_10(callable).
+; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixMultiply
+; CHECK-NEXT: Function: {{.*}}MainAH{{.*}}: error: Opcode LinAlgMatrixMultiply not valid in shader model lib_6_10(anyhit).
+; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixMultiply
+; CHECK-NEXT: Function: {{.*}}MainCH{{.*}}: error: Opcode LinAlgMatrixMultiply not valid in shader model lib_6_10(closesthit).
+; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixMultiply
+; CHECK-NEXT: Function: {{.*}}MainMS{{.*}}: error: Opcode LinAlgMatrixMultiply not valid in shader model lib_6_10(miss).
 ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixMultiply
 
-; CHECK-NEXT: Function: {{.*}}MainMS{{.*}}: error: Opcode LinAlgMatrixAccumulate not valid in shader model lib_6_10(miss).
-; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixAccumulate
-; CHECK-NEXT: Function: {{.*}}MainCH{{.*}}: error: Opcode LinAlgMatrixAccumulate not valid in shader model lib_6_10(closesthit).
-; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixAccumulate
-; CHECK-NEXT: Function: {{.*}}MainAH{{.*}}: error: Opcode LinAlgMatrixAccumulate not valid in shader model lib_6_10(anyhit).
-; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixAccumulate
-; CHECK-NEXT: Function: {{.*}}MainCL{{.*}}: error: Opcode LinAlgMatrixAccumulate not valid in shader model lib_6_10(callable).
+; CHECK-NEXT: Function: {{.*}}MainRG{{.*}}: error: Opcode LinAlgMatrixAccumulate not valid in shader model lib_6_10(raygeneration).
 ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixAccumulate
 ; CHECK-NEXT: Function: {{.*}}MainIS{{.*}}: error: Opcode LinAlgMatrixAccumulate not valid in shader model lib_6_10(intersection).
 ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixAccumulate
-; CHECK-NEXT: Function: {{.*}}MainRG{{.*}}: error: Opcode LinAlgMatrixAccumulate not valid in shader model lib_6_10(raygeneration).
+; CHECK-NEXT: Function: {{.*}}MainCL{{.*}}: error: Opcode LinAlgMatrixAccumulate not valid in shader model lib_6_10(callable).
+; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixAccumulate
+; CHECK-NEXT: Function: {{.*}}MainAH{{.*}}: error: Opcode LinAlgMatrixAccumulate not valid in shader model lib_6_10(anyhit).
+; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixAccumulate
+; CHECK-NEXT: Function: {{.*}}MainCH{{.*}}: error: Opcode LinAlgMatrixAccumulate not valid in shader model lib_6_10(closesthit).
+; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixAccumulate
+; CHECK-NEXT: Function: {{.*}}MainMS{{.*}}: error: Opcode LinAlgMatrixAccumulate not valid in shader model lib_6_10(miss).
 ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixAccumulate
 
-; CHECK-NEXT: Function: {{.*}}MainMS{{.*}}: error: Opcode LinAlgMatrixStoreToDescriptor not valid in shader model lib_6_10(miss).
-; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixStoreToDescriptor
-; CHECK-NEXT: Function: {{.*}}MainCH{{.*}}: error: Opcode LinAlgMatrixStoreToDescriptor not valid in shader model lib_6_10(closesthit).
-; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixStoreToDescriptor
-; CHECK-NEXT: Function: {{.*}}MainAH{{.*}}: error: Opcode LinAlgMatrixStoreToDescriptor not valid in shader model lib_6_10(anyhit).
-; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixStoreToDescriptor
-; CHECK-NEXT: Function: {{.*}}MainCL{{.*}}: error: Opcode LinAlgMatrixStoreToDescriptor not valid in shader model lib_6_10(callable).
+; CHECK-NEXT: Function: {{.*}}MainRG{{.*}}: error: Opcode LinAlgMatrixStoreToDescriptor not valid in shader model lib_6_10(raygeneration).
 ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixStoreToDescriptor
 ; CHECK-NEXT: Function: {{.*}}MainIS{{.*}}: error: Opcode LinAlgMatrixStoreToDescriptor not valid in shader model lib_6_10(intersection).
 ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixStoreToDescriptor
-; CHECK-NEXT: Function: {{.*}}MainRG{{.*}}: error: Opcode LinAlgMatrixStoreToDescriptor not valid in shader model lib_6_10(raygeneration).
+; CHECK-NEXT: Function: {{.*}}MainCL{{.*}}: error: Opcode LinAlgMatrixStoreToDescriptor not valid in shader model lib_6_10(callable).
+; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixStoreToDescriptor
+; CHECK-NEXT: Function: {{.*}}MainAH{{.*}}: error: Opcode LinAlgMatrixStoreToDescriptor not valid in shader model lib_6_10(anyhit).
+; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixStoreToDescriptor
+; CHECK-NEXT: Function: {{.*}}MainCH{{.*}}: error: Opcode LinAlgMatrixStoreToDescriptor not valid in shader model lib_6_10(closesthit).
+; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixStoreToDescriptor
+; CHECK-NEXT: Function: {{.*}}MainMS{{.*}}: error: Opcode LinAlgMatrixStoreToDescriptor not valid in shader model lib_6_10(miss).
 ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixStoreToDescriptor
 
-; CHECK-NEXT: Function: {{.*}}MainMS{{.*}}: error: Opcode LinAlgMatrixLength not valid in shader model lib_6_10(miss).
-; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixLength
-; CHECK-NEXT: Function: {{.*}}MainCH{{.*}}: error: Opcode LinAlgMatrixLength not valid in shader model lib_6_10(closesthit).
-; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixLength
-; CHECK-NEXT: Function: {{.*}}MainAH{{.*}}: error: Opcode LinAlgMatrixLength not valid in shader model lib_6_10(anyhit).
-; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixLength
-; CHECK-NEXT: Function: {{.*}}MainCL{{.*}}: error: Opcode LinAlgMatrixLength not valid in shader model lib_6_10(callable).
+; CHECK-NEXT: Function: {{.*}}MainRG{{.*}}: error: Opcode LinAlgMatrixLength not valid in shader model lib_6_10(raygeneration).
 ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixLength
 ; CHECK-NEXT: Function: {{.*}}MainIS{{.*}}: error: Opcode LinAlgMatrixLength not valid in shader model lib_6_10(intersection).
 ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixLength
-; CHECK-NEXT: Function: {{.*}}MainRG{{.*}}: error: Opcode LinAlgMatrixLength not valid in shader model lib_6_10(raygeneration).
+; CHECK-NEXT: Function: {{.*}}MainCL{{.*}}: error: Opcode LinAlgMatrixLength not valid in shader model lib_6_10(callable).
+; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixLength
+; CHECK-NEXT: Function: {{.*}}MainAH{{.*}}: error: Opcode LinAlgMatrixLength not valid in shader model lib_6_10(anyhit).
+; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixLength
+; CHECK-NEXT: Function: {{.*}}MainCH{{.*}}: error: Opcode LinAlgMatrixLength not valid in shader model lib_6_10(closesthit).
+; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixLength
+; CHECK-NEXT: Function: {{.*}}MainMS{{.*}}: error: Opcode LinAlgMatrixLength not valid in shader model lib_6_10(miss).
 ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixLength
 
-; CHECK-NEXT: Function: {{.*}}MainMS{{.*}}: error: Opcode LinAlgCopyConvertMatrix not valid in shader model lib_6_10(miss).
-; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgCopyConvertMatrix
-; CHECK-NEXT: Function: {{.*}}MainCH{{.*}}: error: Opcode LinAlgCopyConvertMatrix not valid in shader model lib_6_10(closesthit).
-; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgCopyConvertMatrix
-; CHECK-NEXT: Function: {{.*}}MainAH{{.*}}: error: Opcode LinAlgCopyConvertMatrix not valid in shader model lib_6_10(anyhit).
-; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgCopyConvertMatrix
-; CHECK-NEXT: Function: {{.*}}MainCL{{.*}}: error: Opcode LinAlgCopyConvertMatrix not valid in shader model lib_6_10(callable).
+; CHECK-NEXT: Function: {{.*}}MainRG{{.*}}: error: Opcode LinAlgCopyConvertMatrix not valid in shader model lib_6_10(raygeneration).
 ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgCopyConvertMatrix
 ; CHECK-NEXT: Function: {{.*}}MainIS{{.*}}: error: Opcode LinAlgCopyConvertMatrix not valid in shader model lib_6_10(intersection).
 ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgCopyConvertMatrix
-; CHECK-NEXT: Function: {{.*}}MainRG{{.*}}: error: Opcode LinAlgCopyConvertMatrix not valid in shader model lib_6_10(raygeneration).
+; CHECK-NEXT: Function: {{.*}}MainCL{{.*}}: error: Opcode LinAlgCopyConvertMatrix not valid in shader model lib_6_10(callable).
+; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgCopyConvertMatrix
+; CHECK-NEXT: Function: {{.*}}MainAH{{.*}}: error: Opcode LinAlgCopyConvertMatrix not valid in shader model lib_6_10(anyhit).
+; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgCopyConvertMatrix
+; CHECK-NEXT: Function: {{.*}}MainCH{{.*}}: error: Opcode LinAlgCopyConvertMatrix not valid in shader model lib_6_10(closesthit).
+; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgCopyConvertMatrix
+; CHECK-NEXT: Function: {{.*}}MainMS{{.*}}: error: Opcode LinAlgCopyConvertMatrix not valid in shader model lib_6_10(miss).
 ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgCopyConvertMatrix
 
-; CHECK-NEXT: Function: {{.*}}MainMS{{.*}}: error: Opcode LinAlgFillMatrix not valid in shader model lib_6_10(miss).
-; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgFillMatrix
-; CHECK-NEXT: Function: {{.*}}MainCH{{.*}}: error: Opcode LinAlgFillMatrix not valid in shader model lib_6_10(closesthit).
-; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgFillMatrix
-; CHECK-NEXT: Function: {{.*}}MainAH{{.*}}: error: Opcode LinAlgFillMatrix not valid in shader model lib_6_10(anyhit).
-; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgFillMatrix
-; CHECK-NEXT: Function: {{.*}}MainCL{{.*}}: error: Opcode LinAlgFillMatrix not valid in shader model lib_6_10(callable).
+; CHECK-NEXT: Function: {{.*}}MainRG{{.*}}: error: Opcode LinAlgFillMatrix not valid in shader model lib_6_10(raygeneration).
 ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgFillMatrix
 ; CHECK-NEXT: Function: {{.*}}MainIS{{.*}}: error: Opcode LinAlgFillMatrix not valid in shader model lib_6_10(intersection).
 ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgFillMatrix
-; CHECK-NEXT: Function: {{.*}}MainRG{{.*}}: error: Opcode LinAlgFillMatrix not valid in shader model lib_6_10(raygeneration).
+; CHECK-NEXT: Function: {{.*}}MainCL{{.*}}: error: Opcode LinAlgFillMatrix not valid in shader model lib_6_10(callable).
+; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgFillMatrix
+; CHECK-NEXT: Function: {{.*}}MainAH{{.*}}: error: Opcode LinAlgFillMatrix not valid in shader model lib_6_10(anyhit).
+; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgFillMatrix
+; CHECK-NEXT: Function: {{.*}}MainCH{{.*}}: error: Opcode LinAlgFillMatrix not valid in shader model lib_6_10(closesthit).
+; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgFillMatrix
+; CHECK-NEXT: Function: {{.*}}MainMS{{.*}}: error: Opcode LinAlgFillMatrix not valid in shader model lib_6_10(miss).
 ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgFillMatrix
 
-; CHECK-NEXT: Function: {{.*}}MainMS{{.*}}: error: Opcode LinAlgMatrixGetCoordinate not valid in shader model lib_6_10(miss).
-; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixGetCoordinate
-; CHECK-NEXT: Function: {{.*}}MainCH{{.*}}: error: Opcode LinAlgMatrixGetCoordinate not valid in shader model lib_6_10(closesthit).
-; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixGetCoordinate
-; CHECK-NEXT: Function: {{.*}}MainAH{{.*}}: error: Opcode LinAlgMatrixGetCoordinate not valid in shader model lib_6_10(anyhit).
-; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixGetCoordinate
-; CHECK-NEXT: Function: {{.*}}MainCL{{.*}}: error: Opcode LinAlgMatrixGetCoordinate not valid in shader model lib_6_10(callable).
+; CHECK-NEXT: Function: {{.*}}MainRG{{.*}}: error: Opcode LinAlgMatrixGetCoordinate not valid in shader model lib_6_10(raygeneration).
 ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixGetCoordinate
 ; CHECK-NEXT: Function: {{.*}}MainIS{{.*}}: error: Opcode LinAlgMatrixGetCoordinate not valid in shader model lib_6_10(intersection).
 ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixGetCoordinate
-; CHECK-NEXT: Function: {{.*}}MainRG{{.*}}: error: Opcode LinAlgMatrixGetCoordinate not valid in shader model lib_6_10(raygeneration).
+; CHECK-NEXT: Function: {{.*}}MainCL{{.*}}: error: Opcode LinAlgMatrixGetCoordinate not valid in shader model lib_6_10(callable).
+; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixGetCoordinate
+; CHECK-NEXT: Function: {{.*}}MainAH{{.*}}: error: Opcode LinAlgMatrixGetCoordinate not valid in shader model lib_6_10(anyhit).
+; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixGetCoordinate
+; CHECK-NEXT: Function: {{.*}}MainCH{{.*}}: error: Opcode LinAlgMatrixGetCoordinate not valid in shader model lib_6_10(closesthit).
+; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixGetCoordinate
+; CHECK-NEXT: Function: {{.*}}MainMS{{.*}}: error: Opcode LinAlgMatrixGetCoordinate not valid in shader model lib_6_10(miss).
 ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixGetCoordinate
 
-; CHECK-NEXT: Function: {{.*}}MainMS{{.*}}: error: Opcode LinAlgMatrixGetElement not valid in shader model lib_6_10(miss).
-; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixGetElement
-; CHECK-NEXT: Function: {{.*}}MainCH{{.*}}: error: Opcode LinAlgMatrixGetElement not valid in shader model lib_6_10(closesthit).
-; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixGetElement
-; CHECK-NEXT: Function: {{.*}}MainAH{{.*}}: error: Opcode LinAlgMatrixGetElement not valid in shader model lib_6_10(anyhit).
-; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixGetElement
-; CHECK-NEXT: Function: {{.*}}MainCL{{.*}}: error: Opcode LinAlgMatrixGetElement not valid in shader model lib_6_10(callable).
+; CHECK-NEXT: Function: {{.*}}MainRG{{.*}}: error: Opcode LinAlgMatrixGetElement not valid in shader model lib_6_10(raygeneration).
 ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixGetElement
 ; CHECK-NEXT: Function: {{.*}}MainIS{{.*}}: error: Opcode LinAlgMatrixGetElement not valid in shader model lib_6_10(intersection).
 ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixGetElement
-; CHECK-NEXT: Function: {{.*}}MainRG{{.*}}: error: Opcode LinAlgMatrixGetElement not valid in shader model lib_6_10(raygeneration).
+; CHECK-NEXT: Function: {{.*}}MainCL{{.*}}: error: Opcode LinAlgMatrixGetElement not valid in shader model lib_6_10(callable).
+; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixGetElement
+; CHECK-NEXT: Function: {{.*}}MainAH{{.*}}: error: Opcode LinAlgMatrixGetElement not valid in shader model lib_6_10(anyhit).
+; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixGetElement
+; CHECK-NEXT: Function: {{.*}}MainCH{{.*}}: error: Opcode LinAlgMatrixGetElement not valid in shader model lib_6_10(closesthit).
+; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixGetElement
+; CHECK-NEXT: Function: {{.*}}MainMS{{.*}}: error: Opcode LinAlgMatrixGetElement not valid in shader model lib_6_10(miss).
 ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixGetElement
 
-; CHECK-NEXT: Function: {{.*}}MainMS{{.*}}: error: Opcode LinAlgMatrixMultiplyAccumulate not valid in shader model lib_6_10(miss).
-; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixMultiplyAccumulate
-; CHECK-NEXT: Function: {{.*}}MainCH{{.*}}: error: Opcode LinAlgMatrixMultiplyAccumulate not valid in shader model lib_6_10(closesthit).
-; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixMultiplyAccumulate
-; CHECK-NEXT: Function: {{.*}}MainAH{{.*}}: error: Opcode LinAlgMatrixMultiplyAccumulate not valid in shader model lib_6_10(anyhit).
-; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixMultiplyAccumulate
-; CHECK-NEXT: Function: {{.*}}MainCL{{.*}}: error: Opcode LinAlgMatrixMultiplyAccumulate not valid in shader model lib_6_10(callable).
+; CHECK-NEXT: Function: {{.*}}MainRG{{.*}}: error: Opcode LinAlgMatrixMultiplyAccumulate not valid in shader model lib_6_10(raygeneration).
 ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixMultiplyAccumulate
 ; CHECK-NEXT: Function: {{.*}}MainIS{{.*}}: error: Opcode LinAlgMatrixMultiplyAccumulate not valid in shader model lib_6_10(intersection).
 ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixMultiplyAccumulate
-; CHECK-NEXT: Function: {{.*}}MainRG{{.*}}: error: Opcode LinAlgMatrixMultiplyAccumulate not valid in shader model lib_6_10(raygeneration).
+; CHECK-NEXT: Function: {{.*}}MainCL{{.*}}: error: Opcode LinAlgMatrixMultiplyAccumulate not valid in shader model lib_6_10(callable).
+; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixMultiplyAccumulate
+; CHECK-NEXT: Function: {{.*}}MainAH{{.*}}: error: Opcode LinAlgMatrixMultiplyAccumulate not valid in shader model lib_6_10(anyhit).
+; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixMultiplyAccumulate
+; CHECK-NEXT: Function: {{.*}}MainCH{{.*}}: error: Opcode LinAlgMatrixMultiplyAccumulate not valid in shader model lib_6_10(closesthit).
+; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixMultiplyAccumulate
+; CHECK-NEXT: Function: {{.*}}MainMS{{.*}}: error: Opcode LinAlgMatrixMultiplyAccumulate not valid in shader model lib_6_10(miss).
 ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixMultiplyAccumulate
 
-; CHECK-NEXT: Function: {{.*}}MainMS{{.*}}: error: Opcode LinAlgMatrixSetElement not valid in shader model lib_6_10(miss).
-; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixSetElement
-; CHECK-NEXT: Function: {{.*}}MainCH{{.*}}: error: Opcode LinAlgMatrixSetElement not valid in shader model lib_6_10(closesthit).
-; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixSetElement
-; CHECK-NEXT: Function: {{.*}}MainAH{{.*}}: error: Opcode LinAlgMatrixSetElement not valid in shader model lib_6_10(anyhit).
-; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixSetElement
-; CHECK-NEXT: Function: {{.*}}MainCL{{.*}}: error: Opcode LinAlgMatrixSetElement not valid in shader model lib_6_10(callable).
+; CHECK-NEXT: Function: {{.*}}MainRG{{.*}}: error: Opcode LinAlgMatrixSetElement not valid in shader model lib_6_10(raygeneration).
 ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixSetElement
 ; CHECK-NEXT: Function: {{.*}}MainIS{{.*}}: error: Opcode LinAlgMatrixSetElement not valid in shader model lib_6_10(intersection).
 ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixSetElement
-; CHECK-NEXT: Function: {{.*}}MainRG{{.*}}: error: Opcode LinAlgMatrixSetElement not valid in shader model lib_6_10(raygeneration).
+; CHECK-NEXT: Function: {{.*}}MainCL{{.*}}: error: Opcode LinAlgMatrixSetElement not valid in shader model lib_6_10(callable).
+; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixSetElement
+; CHECK-NEXT: Function: {{.*}}MainAH{{.*}}: error: Opcode LinAlgMatrixSetElement not valid in shader model lib_6_10(anyhit).
+; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixSetElement
+; CHECK-NEXT: Function: {{.*}}MainCH{{.*}}: error: Opcode LinAlgMatrixSetElement not valid in shader model lib_6_10(closesthit).
+; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixSetElement
+; CHECK-NEXT: Function: {{.*}}MainMS{{.*}}: error: Opcode LinAlgMatrixSetElement not valid in shader model lib_6_10(miss).
 ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixSetElement
 
-; CHECK-NEXT: Function: {{.*}}MainMS{{.*}}: error: Opcode LinAlgMatrixStoreToMemory not valid in shader model lib_6_10(miss).
-; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixStoreToMemory
-; CHECK-NEXT: Function: {{.*}}MainCH{{.*}}: error: Opcode LinAlgMatrixStoreToMemory not valid in shader model lib_6_10(closesthit).
-; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixStoreToMemory
-; CHECK-NEXT: Function: {{.*}}MainAH{{.*}}: error: Opcode LinAlgMatrixStoreToMemory not valid in shader model lib_6_10(anyhit).
-; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixStoreToMemory
-; CHECK-NEXT: Function: {{.*}}MainCL{{.*}}: error: Opcode LinAlgMatrixStoreToMemory not valid in shader model lib_6_10(callable).
+; CHECK-NEXT: Function: {{.*}}MainRG{{.*}}: error: Opcode LinAlgMatrixStoreToMemory not valid in shader model lib_6_10(raygeneration).
 ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixStoreToMemory
 ; CHECK-NEXT: Function: {{.*}}MainIS{{.*}}: error: Opcode LinAlgMatrixStoreToMemory not valid in shader model lib_6_10(intersection).
 ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixStoreToMemory
-; CHECK-NEXT: Function: {{.*}}MainRG{{.*}}: error: Opcode LinAlgMatrixStoreToMemory not valid in shader model lib_6_10(raygeneration).
+; CHECK-NEXT: Function: {{.*}}MainCL{{.*}}: error: Opcode LinAlgMatrixStoreToMemory not valid in shader model lib_6_10(callable).
+; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixStoreToMemory
+; CHECK-NEXT: Function: {{.*}}MainAH{{.*}}: error: Opcode LinAlgMatrixStoreToMemory not valid in shader model lib_6_10(anyhit).
+; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixStoreToMemory
+; CHECK-NEXT: Function: {{.*}}MainCH{{.*}}: error: Opcode LinAlgMatrixStoreToMemory not valid in shader model lib_6_10(closesthit).
+; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixStoreToMemory
+; CHECK-NEXT: Function: {{.*}}MainMS{{.*}}: error: Opcode LinAlgMatrixStoreToMemory not valid in shader model lib_6_10(miss).
 ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixStoreToMemory
 
-; CHECK-NEXT: Function: {{.*}}MainMS{{.*}}: error: Opcode LinAlgMatrixAccumulateToMemory not valid in shader model lib_6_10(miss).
-; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixAccumulateToMemory
-; CHECK-NEXT: Function: {{.*}}MainCH{{.*}}: error: Opcode LinAlgMatrixAccumulateToMemory not valid in shader model lib_6_10(closesthit).
-; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixAccumulateToMemory
-; CHECK-NEXT: Function: {{.*}}MainAH{{.*}}: error: Opcode LinAlgMatrixAccumulateToMemory not valid in shader model lib_6_10(anyhit).
-; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixAccumulateToMemory
-; CHECK-NEXT: Function: {{.*}}MainCL{{.*}}: error: Opcode LinAlgMatrixAccumulateToMemory not valid in shader model lib_6_10(callable).
+; CHECK-NEXT: Function: {{.*}}MainRG{{.*}}: error: Opcode LinAlgMatrixAccumulateToMemory not valid in shader model lib_6_10(raygeneration).
 ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixAccumulateToMemory
 ; CHECK-NEXT: Function: {{.*}}MainIS{{.*}}: error: Opcode LinAlgMatrixAccumulateToMemory not valid in shader model lib_6_10(intersection).
 ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixAccumulateToMemory
-; CHECK-NEXT: Function: {{.*}}MainRG{{.*}}: error: Opcode LinAlgMatrixAccumulateToMemory not valid in shader model lib_6_10(raygeneration).
+; CHECK-NEXT: Function: {{.*}}MainCL{{.*}}: error: Opcode LinAlgMatrixAccumulateToMemory not valid in shader model lib_6_10(callable).
+; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixAccumulateToMemory
+; CHECK-NEXT: Function: {{.*}}MainAH{{.*}}: error: Opcode LinAlgMatrixAccumulateToMemory not valid in shader model lib_6_10(anyhit).
+; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixAccumulateToMemory
+; CHECK-NEXT: Function: {{.*}}MainCH{{.*}}: error: Opcode LinAlgMatrixAccumulateToMemory not valid in shader model lib_6_10(closesthit).
+; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixAccumulateToMemory
+; CHECK-NEXT: Function: {{.*}}MainMS{{.*}}: error: Opcode LinAlgMatrixAccumulateToMemory not valid in shader model lib_6_10(miss).
 ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixAccumulateToMemory
 
-; CHECK-NEXT: Function: {{.*}}MainMS{{.*}}: error: Opcode LinAlgMatrixLoadFromMemory not valid in shader model lib_6_10(miss).
-; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixLoadFromMemory
-; CHECK-NEXT: Function: {{.*}}MainCH{{.*}}: error: Opcode LinAlgMatrixLoadFromMemory not valid in shader model lib_6_10(closesthit).
-; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixLoadFromMemory
-; CHECK-NEXT: Function: {{.*}}MainAH{{.*}}: error: Opcode LinAlgMatrixLoadFromMemory not valid in shader model lib_6_10(anyhit).
-; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixLoadFromMemory
-; CHECK-NEXT: Function: {{.*}}MainCL{{.*}}: error: Opcode LinAlgMatrixLoadFromMemory not valid in shader model lib_6_10(callable).
+; CHECK-NEXT: Function: {{.*}}MainRG{{.*}}: error: Opcode LinAlgMatrixLoadFromMemory not valid in shader model lib_6_10(raygeneration).
 ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixLoadFromMemory
 ; CHECK-NEXT: Function: {{.*}}MainIS{{.*}}: error: Opcode LinAlgMatrixLoadFromMemory not valid in shader model lib_6_10(intersection).
 ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixLoadFromMemory
-; CHECK-NEXT: Function: {{.*}}MainRG{{.*}}: error: Opcode LinAlgMatrixLoadFromMemory not valid in shader model lib_6_10(raygeneration).
+; CHECK-NEXT: Function: {{.*}}MainCL{{.*}}: error: Opcode LinAlgMatrixLoadFromMemory not valid in shader model lib_6_10(callable).
+; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixLoadFromMemory
+; CHECK-NEXT: Function: {{.*}}MainAH{{.*}}: error: Opcode LinAlgMatrixLoadFromMemory not valid in shader model lib_6_10(anyhit).
+; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixLoadFromMemory
+; CHECK-NEXT: Function: {{.*}}MainCH{{.*}}: error: Opcode LinAlgMatrixLoadFromMemory not valid in shader model lib_6_10(closesthit).
+; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixLoadFromMemory
+; CHECK-NEXT: Function: {{.*}}MainMS{{.*}}: error: Opcode LinAlgMatrixLoadFromMemory not valid in shader model lib_6_10(miss).
 ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixLoadFromMemory
 
 
