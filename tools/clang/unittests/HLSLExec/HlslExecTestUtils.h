@@ -76,43 +76,76 @@ bool doesDeviceSupportEnhancedBarriers(ID3D12Device *pDevice);
 bool doesDeviceSupportRelaxedFormatCasting(ID3D12Device *pDevice);
 bool isFallbackPathEnabled();
 
+// Local copies of the D3D12 linear algebra enumerations and matrix shape. The
+// released Windows SDK does not declare them yet, but the capability queries
+// below must work without the preview SDK: CheckFeatureSupport takes an untyped
+// (void *, size) pair, so they need the values, not the SDK's declarations.
+//
+// Transcribed verbatim from d3d12.h - same type names, same enumerator names,
+// same values - so they can be diffed against the header directly, and so
+// deleting this namespace once the types ship leaves the use sites needing only
+// the linalg_abi:: qualifier removed.
+//
+// The values are pinned to the real header by the ASSERT_RUNTIME_ENUM block in
+// HlslExecTestUtils.cpp, which qualifies each side explicitly because the names
+// are deliberately identical.
+//
+// Note there is no using-directive for this namespace, and there must not be:
+// the matrix-conversion helpers at the bottom of this header take the real
+// D3D12 types, so pulling these names in unqualified would make every one of
+// those declarations ambiguous in a preview-SDK build.
+//
+// TODO: delete this namespace once the types ship in a released Windows SDK.
+namespace linalg_abi {
+
+enum D3D12_LINEAR_ALGEBRA_TIER {
+  D3D12_LINEAR_ALGEBRA_TIER_NOT_SUPPORTED = 0,
+  D3D12_LINEAR_ALGEBRA_TIER_1_0 = 0x10
+};
+
+enum D3D12_LINEAR_ALGEBRA_DATATYPE {
+  D3D12_LINEAR_ALGEBRA_DATATYPE_NONE = 0,
+  D3D12_LINEAR_ALGEBRA_DATATYPE_SINT16 = 2,
+  D3D12_LINEAR_ALGEBRA_DATATYPE_UINT16 = 3,
+  D3D12_LINEAR_ALGEBRA_DATATYPE_SINT32 = 4,
+  D3D12_LINEAR_ALGEBRA_DATATYPE_UINT32 = 5,
+  D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT16 = 7,
+  D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT32 = 8,
+  D3D12_LINEAR_ALGEBRA_DATATYPE_SINT8 = 18,
+  D3D12_LINEAR_ALGEBRA_DATATYPE_UINT8 = 19,
+  D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT8_E4M3FN = 20,
+  D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT8_E5M2 = 21
+};
+
+enum D3D12_LINEAR_ALGEBRA_OPERATION_TYPE {
+  D3D12_LINEAR_ALGEBRA_OPERATION_TYPE_MATRIX_CONSTRUCTION = 0,
+  D3D12_LINEAR_ALGEBRA_OPERATION_TYPE_WAVE_MATRIX_MULTIPLY = 1,
+  D3D12_LINEAR_ALGEBRA_OPERATION_TYPE_THREADGROUP_MATRIX_MULTIPLY = 2,
+  D3D12_LINEAR_ALGEBRA_OPERATION_TYPE_THREAD_VECTOR_MATRIX_MULTIPLY = 3,
+  D3D12_LINEAR_ALGEBRA_OPERATION_TYPE_THREAD_OUTER_PRODUCT = 4,
+  D3D12_LINEAR_ALGEBRA_OPERATION_TYPE_ATOMIC_ACCUMULATE_STORE = 5
+};
+
+enum D3D12_LINEAR_ALGEBRA_MULTIPLICATION_SUPPORT_FLAGS {
+  D3D12_LINEAR_ALGEBRA_MULTIPLICATION_SUPPORT_FLAG_NONE = 0,
+  D3D12_LINEAR_ALGEBRA_MULTIPLICATION_SUPPORT_FLAG_SUPPORTED = 1,
+  D3D12_LINEAR_ALGEBRA_MULTIPLICATION_SUPPORT_FLAG_EMULATED_INPUTS = 2,
+  D3D12_LINEAR_ALGEBRA_MULTIPLICATION_SUPPORT_FLAG_EMULATED_OUTPUTS = 4,
+  D3D12_LINEAR_ALGEBRA_MULTIPLICATION_SUPPORT_FLAG_TRANSPOSE = 8
+};
+
+struct D3D12_LINEAR_ALGEBRA_MATRIX_SHAPE {
+  UINT M;
+  UINT K;
+  UINT N;
+};
+
+typedef D3D12_LINEAR_ALGEBRA_MATRIX_SHAPE
+    D3D12_LINEAR_ALGEBRA_MATRIX_MULTIPLY_SHAPE;
+
+} // namespace linalg_abi
+
 namespace linalg_test {
-
-enum class Tier : UINT {
-  NotSupported = 0,
-  Tier1_0 = 0x10,
-};
-
-enum class DataType : UINT {
-  None = 0,
-  SInt16 = 2,
-  UInt16 = 3,
-  SInt32 = 4,
-  UInt32 = 5,
-  Float16 = 7,
-  Float32 = 8,
-  SInt8 = 18,
-  UInt8 = 19,
-  Float8E4M3FN = 20,
-  Float8E5M2 = 21,
-};
-
-enum class OperationType : UINT {
-  MatrixConstruction = 0,
-  WaveMatrixMultiply = 1,
-  ThreadGroupMatrixMultiply = 2,
-  ThreadVectorMatrixMultiply = 3,
-  ThreadOuterProduct = 4,
-  AtomicAccumulateStore = 5,
-};
-
-enum class MultiplicationFlags : UINT {
-  None = 0,
-  Supported = 1,
-  EmulatedInputs = 2,
-  EmulatedOutputs = 4,
-  Transpose = 8,
-};
 
 // Execution scope is DXIL's MatrixScope. Its enumerators are sequential rather
 // than disjoint bits, so scope sets are built with scopeBit() below.
@@ -139,15 +172,13 @@ enum class Applicability {
 };
 
 struct TierSupport {
-  Tier LinearAlgebraTier = Tier::NotSupported;
+  linalg_abi::D3D12_LINEAR_ALGEBRA_TIER LinearAlgebraTier =
+      linalg_abi::D3D12_LINEAR_ALGEBRA_TIER_NOT_SUPPORTED;
 
-  bool supported() const { return LinearAlgebraTier != Tier::NotSupported; }
-};
-
-struct MatrixMultiplyShape {
-  UINT M;
-  UINT K;
-  UINT N;
+  bool supported() const {
+    return LinearAlgebraTier !=
+           linalg_abi::D3D12_LINEAR_ALGEBRA_TIER_NOT_SUPPORTED;
+  }
 };
 
 // Capability queries name a concrete shape and the runtime answers whether it
@@ -155,9 +186,9 @@ struct MatrixMultiplyShape {
 // itself. Callers therefore ask about the shape they intend to use rather than
 // reasoning about native tiles on their behalf.
 struct MatrixConstructionQuery {
-  DataType ComponentType;
+  linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE ComponentType;
   UINT WaveSize;
-  MatrixMultiplyShape Shape;
+  linalg_abi::D3D12_LINEAR_ALGEBRA_MATRIX_SHAPE Shape;
 };
 
 struct MatrixConstructionSupport {
@@ -169,18 +200,19 @@ struct MatrixConstructionSupport {
 
 struct WaveMatrixMultiplyInputs {
   UINT WaveSize;
-  DataType MatrixAComponentType;
-  DataType MatrixBComponentType;
-  DataType AccumulatorComponentType;
+  linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE MatrixAComponentType;
+  linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE MatrixBComponentType;
+  linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE AccumulatorComponentType;
 };
 
 struct WaveMatrixMultiplyQuery {
   WaveMatrixMultiplyInputs Inputs;
-  MatrixMultiplyShape Shape;
+  linalg_abi::D3D12_LINEAR_ALGEBRA_MATRIX_SHAPE Shape;
 };
 
 struct WaveMatrixMultiplySupport {
-  MultiplicationFlags SupportFlags = MultiplicationFlags::None;
+  linalg_abi::D3D12_LINEAR_ALGEBRA_MULTIPLICATION_SUPPORT_FLAGS SupportFlags =
+      linalg_abi::D3D12_LINEAR_ALGEBRA_MULTIPLICATION_SUPPORT_FLAG_NONE;
 
   bool valid() const;
   bool supported() const;
@@ -188,11 +220,12 @@ struct WaveMatrixMultiplySupport {
 
 struct ThreadGroupMatrixMultiplyQuery {
   WaveMatrixMultiplyInputs WaveInputs;
-  MatrixMultiplyShape Shape;
+  linalg_abi::D3D12_LINEAR_ALGEBRA_MATRIX_SHAPE Shape;
 };
 
 struct ThreadGroupMatrixMultiplySupport {
-  MultiplicationFlags SupportFlags = MultiplicationFlags::None;
+  linalg_abi::D3D12_LINEAR_ALGEBRA_MULTIPLICATION_SUPPORT_FLAGS SupportFlags =
+      linalg_abi::D3D12_LINEAR_ALGEBRA_MULTIPLICATION_SUPPORT_FLAG_NONE;
   UINT MinThreadGroupSize = 0;
   UINT MaxThreadGroupSize = 0;
   UINT PreferredThreadGroupSize = 0;
@@ -203,23 +236,25 @@ struct ThreadGroupMatrixMultiplySupport {
 };
 
 struct ThreadVectorMatrixMultiplyQuery {
-  DataType VectorInputType;
-  DataType MatrixInputType;
-  DataType BiasInputType;
-  DataType VectorResultType;
+  linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE VectorInputType;
+  linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE MatrixInputType;
+  linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE BiasInputType;
+  linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE VectorResultType;
 };
 
 struct ThreadVectorMatrixMultiplySupport {
-  MultiplicationFlags SupportFlags = MultiplicationFlags::None;
-  DataType MatrixInputType = DataType::None;
+  linalg_abi::D3D12_LINEAR_ALGEBRA_MULTIPLICATION_SUPPORT_FLAGS SupportFlags =
+      linalg_abi::D3D12_LINEAR_ALGEBRA_MULTIPLICATION_SUPPORT_FLAG_NONE;
+  linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE MatrixInputType =
+      linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE_NONE;
 
   bool valid() const;
   bool supported() const;
 };
 
 struct ThreadOuterProductQuery {
-  DataType InputComponentType;
-  DataType ResultComponentType;
+  linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE InputComponentType;
+  linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE ResultComponentType;
 };
 
 struct ThreadOuterProductSupport {
@@ -229,7 +264,7 @@ struct ThreadOuterProductSupport {
 };
 
 struct AtomicAccumulateStoreQuery {
-  DataType ComponentType;
+  linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE ComponentType;
 };
 
 struct AtomicAccumulateStoreSupport {
@@ -239,9 +274,13 @@ struct AtomicAccumulateStoreSupport {
   bool supports(AtomicDestination Destination) const;
 };
 
-bool hasFlag(MultiplicationFlags Value, MultiplicationFlags Flag);
-ScopeFlags legalScopes(OperationType Operation);
-bool isLegalScope(OperationType Operation, hlsl::DXIL::MatrixScope Scope);
+bool hasFlag(
+    linalg_abi::D3D12_LINEAR_ALGEBRA_MULTIPLICATION_SUPPORT_FLAGS Value,
+    linalg_abi::D3D12_LINEAR_ALGEBRA_MULTIPLICATION_SUPPORT_FLAGS Flag);
+ScopeFlags
+legalScopes(linalg_abi::D3D12_LINEAR_ALGEBRA_OPERATION_TYPE Operation);
+bool isLegalScope(linalg_abi::D3D12_LINEAR_ALGEBRA_OPERATION_TYPE Operation,
+                  hlsl::DXIL::MatrixScope Scope);
 Applicability classifyApplicability(HRESULT QueryResult, bool Supported,
                                     CapabilityRequirement Requirement);
 

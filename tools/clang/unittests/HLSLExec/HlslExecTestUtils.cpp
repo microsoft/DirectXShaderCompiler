@@ -32,14 +32,8 @@ typedef struct D3D12_FEATURE_DATA_D3D12_OPTIONS_PREVIEW {
 
 #endif
 
-namespace {
-
-constexpr D3D12_FEATURE LinearAlgebraSupportFeature =
-    static_cast<D3D12_FEATURE>(77);
-constexpr D3D12_FEATURE LinearAlgebraOperationSupportFeature =
-    static_cast<D3D12_FEATURE>(78);
-
-// Local copies of the D3D12 linear algebra capability structures. The released
+// Local copies of the D3D12 linear algebra capability structures, continuing
+// the linalg_abi namespace declared in HlslExecTestUtils.h. The released
 // Windows SDK does not declare these types yet, and CheckFeatureSupport takes
 // an untyped (void *, size) pair, so the contract this code depends on is a
 // runtime layout rather than a compile-time type.
@@ -47,9 +41,13 @@ constexpr D3D12_FEATURE LinearAlgebraOperationSupportFeature =
 // The copies are transcribed verbatim from d3d12.h - same type names, same
 // field names, same declaration order - so they can be diffed against the
 // header directly. Enum-typed fields are declared as UINT because the values
-// crossing CheckFeatureSupport are opaque here; linalg_test's own enums are the
-// typed surface, and their values are pinned to the D3D12 enumerators by the
-// ASSERT_RUNTIME_ENUM block below.
+// crossing CheckFeatureSupport are opaque here; the linalg_abi enumerations in
+// HlslExecTestUtils.h are the typed surface, and their values are pinned to the
+// D3D12 enumerators by the ASSERT_RUNTIME_ENUM block below.
+//
+// This namespace must stay at global scope. Nesting it in the anonymous
+// namespace below would declare a second, distinct linalg_abi that silently
+// shadows the header's for unqualified lookup.
 //
 // TODO: delete this namespace once the types ship in a released Windows SDK and
 // drop the linalg_abi:: qualifier from the use sites.
@@ -58,15 +56,6 @@ namespace linalg_abi {
 struct D3D12_FEATURE_DATA_LINEAR_ALGEBRA_SUPPORT {
   UINT LinearAlgebraTier;
 };
-
-struct D3D12_LINEAR_ALGEBRA_MATRIX_SHAPE {
-  UINT M;
-  UINT K;
-  UINT N;
-};
-
-typedef D3D12_LINEAR_ALGEBRA_MATRIX_SHAPE
-    D3D12_LINEAR_ALGEBRA_MATRIX_MULTIPLY_SHAPE;
 
 struct D3D12_LINEAR_ALGEBRA_MATRIX_CONSTRUCTION_SUPPORT {
   UINT ComponentType;
@@ -133,6 +122,13 @@ struct D3D12_FEATURE_DATA_LINEAR_ALGEBRA_MATRIX_OPERATION_SUPPORT {
 
 } // namespace linalg_abi
 
+namespace {
+
+constexpr D3D12_FEATURE LinearAlgebraSupportFeature =
+    static_cast<D3D12_FEATURE>(77);
+constexpr D3D12_FEATURE LinearAlgebraOperationSupportFeature =
+    static_cast<D3D12_FEATURE>(78);
+
 #if defined(DIRECT3D_LINEAR_ALGEBRA)
 static_assert(static_cast<UINT>(D3D12_FEATURE_LINEAR_ALGEBRA_SUPPORT) ==
                   static_cast<UINT>(LinearAlgebraSupportFeature),
@@ -142,63 +138,40 @@ static_assert(
         static_cast<UINT>(LinearAlgebraOperationSupportFeature),
     "Linear algebra operation feature ID changed");
 
-#define ASSERT_RUNTIME_ENUM(RuntimeValue, D3DValue)                            \
-  static_assert(static_cast<UINT>(RuntimeValue) ==                             \
-                    static_cast<UINT>(D3DValue),                               \
+#define ASSERT_RUNTIME_ENUM(EnumeratorName)                                    \
+  static_assert(static_cast<UINT>(linalg_abi::EnumeratorName) ==               \
+                    static_cast<UINT>(::EnumeratorName),                       \
                 "Linear algebra runtime enum value changed")
 
-ASSERT_RUNTIME_ENUM(linalg_test::Tier::NotSupported,
-                    D3D12_LINEAR_ALGEBRA_TIER_NOT_SUPPORTED);
-ASSERT_RUNTIME_ENUM(linalg_test::Tier::Tier1_0, D3D12_LINEAR_ALGEBRA_TIER_1_0);
-static_assert(static_cast<UINT>(linalg_test::DataType::None) == 0,
-              "Linear algebra no-bias datatype value changed");
-ASSERT_RUNTIME_ENUM(linalg_test::DataType::SInt16,
-                    D3D12_LINEAR_ALGEBRA_DATATYPE_SINT16);
-ASSERT_RUNTIME_ENUM(linalg_test::DataType::UInt16,
-                    D3D12_LINEAR_ALGEBRA_DATATYPE_UINT16);
-ASSERT_RUNTIME_ENUM(linalg_test::DataType::SInt32,
-                    D3D12_LINEAR_ALGEBRA_DATATYPE_SINT32);
-ASSERT_RUNTIME_ENUM(linalg_test::DataType::UInt32,
-                    D3D12_LINEAR_ALGEBRA_DATATYPE_UINT32);
-ASSERT_RUNTIME_ENUM(linalg_test::DataType::Float16,
-                    D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT16);
-ASSERT_RUNTIME_ENUM(linalg_test::DataType::Float32,
-                    D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT32);
-ASSERT_RUNTIME_ENUM(linalg_test::DataType::SInt8,
-                    D3D12_LINEAR_ALGEBRA_DATATYPE_SINT8);
-ASSERT_RUNTIME_ENUM(linalg_test::DataType::UInt8,
-                    D3D12_LINEAR_ALGEBRA_DATATYPE_UINT8);
-ASSERT_RUNTIME_ENUM(linalg_test::DataType::Float8E4M3FN,
-                    D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT8_E4M3FN);
-ASSERT_RUNTIME_ENUM(linalg_test::DataType::Float8E5M2,
-                    D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT8_E5M2);
-ASSERT_RUNTIME_ENUM(linalg_test::OperationType::MatrixConstruction,
-                    D3D12_LINEAR_ALGEBRA_OPERATION_TYPE_MATRIX_CONSTRUCTION);
-ASSERT_RUNTIME_ENUM(linalg_test::OperationType::WaveMatrixMultiply,
-                    D3D12_LINEAR_ALGEBRA_OPERATION_TYPE_WAVE_MATRIX_MULTIPLY);
+ASSERT_RUNTIME_ENUM(D3D12_LINEAR_ALGEBRA_TIER_NOT_SUPPORTED);
+ASSERT_RUNTIME_ENUM(D3D12_LINEAR_ALGEBRA_TIER_1_0);
+ASSERT_RUNTIME_ENUM(D3D12_LINEAR_ALGEBRA_DATATYPE_NONE);
+ASSERT_RUNTIME_ENUM(D3D12_LINEAR_ALGEBRA_DATATYPE_SINT16);
+ASSERT_RUNTIME_ENUM(D3D12_LINEAR_ALGEBRA_DATATYPE_UINT16);
+ASSERT_RUNTIME_ENUM(D3D12_LINEAR_ALGEBRA_DATATYPE_SINT32);
+ASSERT_RUNTIME_ENUM(D3D12_LINEAR_ALGEBRA_DATATYPE_UINT32);
+ASSERT_RUNTIME_ENUM(D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT16);
+ASSERT_RUNTIME_ENUM(D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT32);
+ASSERT_RUNTIME_ENUM(D3D12_LINEAR_ALGEBRA_DATATYPE_SINT8);
+ASSERT_RUNTIME_ENUM(D3D12_LINEAR_ALGEBRA_DATATYPE_UINT8);
+ASSERT_RUNTIME_ENUM(D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT8_E4M3FN);
+ASSERT_RUNTIME_ENUM(D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT8_E5M2);
+ASSERT_RUNTIME_ENUM(D3D12_LINEAR_ALGEBRA_OPERATION_TYPE_MATRIX_CONSTRUCTION);
+ASSERT_RUNTIME_ENUM(D3D12_LINEAR_ALGEBRA_OPERATION_TYPE_WAVE_MATRIX_MULTIPLY);
 ASSERT_RUNTIME_ENUM(
-    linalg_test::OperationType::ThreadGroupMatrixMultiply,
     D3D12_LINEAR_ALGEBRA_OPERATION_TYPE_THREADGROUP_MATRIX_MULTIPLY);
 ASSERT_RUNTIME_ENUM(
-    linalg_test::OperationType::ThreadVectorMatrixMultiply,
     D3D12_LINEAR_ALGEBRA_OPERATION_TYPE_THREAD_VECTOR_MATRIX_MULTIPLY);
-ASSERT_RUNTIME_ENUM(linalg_test::OperationType::ThreadOuterProduct,
-                    D3D12_LINEAR_ALGEBRA_OPERATION_TYPE_THREAD_OUTER_PRODUCT);
+ASSERT_RUNTIME_ENUM(D3D12_LINEAR_ALGEBRA_OPERATION_TYPE_THREAD_OUTER_PRODUCT);
 ASSERT_RUNTIME_ENUM(
-    linalg_test::OperationType::AtomicAccumulateStore,
     D3D12_LINEAR_ALGEBRA_OPERATION_TYPE_ATOMIC_ACCUMULATE_STORE);
-ASSERT_RUNTIME_ENUM(linalg_test::MultiplicationFlags::None,
-                    D3D12_LINEAR_ALGEBRA_MULTIPLICATION_SUPPORT_FLAG_NONE);
-ASSERT_RUNTIME_ENUM(linalg_test::MultiplicationFlags::Supported,
-                    D3D12_LINEAR_ALGEBRA_MULTIPLICATION_SUPPORT_FLAG_SUPPORTED);
+ASSERT_RUNTIME_ENUM(D3D12_LINEAR_ALGEBRA_MULTIPLICATION_SUPPORT_FLAG_NONE);
+ASSERT_RUNTIME_ENUM(D3D12_LINEAR_ALGEBRA_MULTIPLICATION_SUPPORT_FLAG_SUPPORTED);
 ASSERT_RUNTIME_ENUM(
-    linalg_test::MultiplicationFlags::EmulatedInputs,
     D3D12_LINEAR_ALGEBRA_MULTIPLICATION_SUPPORT_FLAG_EMULATED_INPUTS);
 ASSERT_RUNTIME_ENUM(
-    linalg_test::MultiplicationFlags::EmulatedOutputs,
     D3D12_LINEAR_ALGEBRA_MULTIPLICATION_SUPPORT_FLAG_EMULATED_OUTPUTS);
-ASSERT_RUNTIME_ENUM(linalg_test::MultiplicationFlags::Transpose,
-                    D3D12_LINEAR_ALGEBRA_MULTIPLICATION_SUPPORT_FLAG_TRANSPOSE);
+ASSERT_RUNTIME_ENUM(D3D12_LINEAR_ALGEBRA_MULTIPLICATION_SUPPORT_FLAG_TRANSPOSE);
 
 #undef ASSERT_RUNTIME_ENUM
 
@@ -319,55 +292,62 @@ ASSERT_RUNTIME_OFFSET(
 
 constexpr UINT KnownMultiplicationFlags = 0xf;
 constexpr UINT MatrixMultiplicationFlags =
-    static_cast<UINT>(linalg_test::MultiplicationFlags::Supported) |
-    static_cast<UINT>(linalg_test::MultiplicationFlags::EmulatedOutputs);
+    static_cast<UINT>(
+        linalg_abi::
+            D3D12_LINEAR_ALGEBRA_MULTIPLICATION_SUPPORT_FLAG_SUPPORTED) |
+    static_cast<UINT>(
+        linalg_abi::
+            D3D12_LINEAR_ALGEBRA_MULTIPLICATION_SUPPORT_FLAG_EMULATED_OUTPUTS);
 
 bool isValidMultiplicationFlags(UINT Flags, UINT AllowedFlags) {
   if ((Flags & ~AllowedFlags) != 0)
     return false;
   return Flags == 0 ||
          (Flags &
-          static_cast<UINT>(linalg_test::MultiplicationFlags::Supported)) != 0;
+          static_cast<UINT>(
+              linalg_abi::
+                  D3D12_LINEAR_ALGEBRA_MULTIPLICATION_SUPPORT_FLAG_SUPPORTED)) !=
+             0;
 }
 
-bool isFloat8DataType(linalg_test::DataType Type) {
-  return Type == linalg_test::DataType::Float8E4M3FN ||
-         Type == linalg_test::DataType::Float8E5M2;
+bool isFloat8DataType(linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE Type) {
+  return Type == linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT8_E4M3FN ||
+         Type == linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT8_E5M2;
 }
 
 bool isValidThreadVectorMultiplicationFlags(
-    UINT Flags, linalg_test::DataType MatrixInputType) {
+    UINT Flags, linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE MatrixInputType) {
   if (!isValidMultiplicationFlags(Flags, KnownMultiplicationFlags))
     return false;
-  const UINT EmulatedInputs =
-      static_cast<UINT>(linalg_test::MultiplicationFlags::EmulatedInputs);
+  const UINT EmulatedInputs = static_cast<UINT>(
+      linalg_abi::
+          D3D12_LINEAR_ALGEBRA_MULTIPLICATION_SUPPORT_FLAG_EMULATED_INPUTS);
   return (Flags & EmulatedInputs) == 0 || isFloat8DataType(MatrixInputType);
 }
 
-LPCWSTR dataTypeName(linalg_test::DataType Type) {
-  using linalg_test::DataType;
+LPCWSTR dataTypeName(linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE Type) {
   switch (Type) {
-  case DataType::None:
+  case linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE_NONE:
     return L"None";
-  case DataType::SInt16:
+  case linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE_SINT16:
     return L"SInt16";
-  case DataType::UInt16:
+  case linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE_UINT16:
     return L"UInt16";
-  case DataType::SInt32:
+  case linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE_SINT32:
     return L"SInt32";
-  case DataType::UInt32:
+  case linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE_UINT32:
     return L"UInt32";
-  case DataType::Float16:
+  case linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT16:
     return L"Float16";
-  case DataType::Float32:
+  case linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT32:
     return L"Float32";
-  case DataType::SInt8:
+  case linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE_SINT8:
     return L"SInt8";
-  case DataType::UInt8:
+  case linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE_UINT8:
     return L"UInt8";
-  case DataType::Float8E4M3FN:
+  case linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT8_E4M3FN:
     return L"Float8E4M3FN";
-  case DataType::Float8E5M2:
+  case linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT8_E5M2:
     return L"Float8E5M2";
   }
   return L"Unknown";
@@ -1142,7 +1122,9 @@ bool MatrixConstructionSupport::supported() const {
   return valid() && Supported != FALSE;
 }
 
-bool hasFlag(MultiplicationFlags Value, MultiplicationFlags Flag) {
+bool hasFlag(
+    linalg_abi::D3D12_LINEAR_ALGEBRA_MULTIPLICATION_SUPPORT_FLAGS Value,
+    linalg_abi::D3D12_LINEAR_ALGEBRA_MULTIPLICATION_SUPPORT_FLAGS Flag) {
   return (static_cast<UINT>(Value) & static_cast<UINT>(Flag)) != 0;
 }
 
@@ -1152,18 +1134,28 @@ bool WaveMatrixMultiplySupport::valid() const {
 }
 
 bool WaveMatrixMultiplySupport::supported() const {
-  return valid() && hasFlag(SupportFlags, MultiplicationFlags::Supported);
+  return valid() &&
+         hasFlag(
+             SupportFlags,
+             linalg_abi::
+                 D3D12_LINEAR_ALGEBRA_MULTIPLICATION_SUPPORT_FLAG_SUPPORTED);
 }
 
 bool ThreadGroupMatrixMultiplySupport::supported() const {
-  return valid() && hasFlag(SupportFlags, MultiplicationFlags::Supported);
+  return valid() &&
+         hasFlag(
+             SupportFlags,
+             linalg_abi::
+                 D3D12_LINEAR_ALGEBRA_MULTIPLICATION_SUPPORT_FLAG_SUPPORTED);
 }
 
 bool ThreadGroupMatrixMultiplySupport::valid() const {
   if (!isValidMultiplicationFlags(static_cast<UINT>(SupportFlags),
                                   MatrixMultiplicationFlags))
     return false;
-  if (!hasFlag(SupportFlags, MultiplicationFlags::Supported))
+  if (!hasFlag(SupportFlags,
+               linalg_abi::
+                   D3D12_LINEAR_ALGEBRA_MULTIPLICATION_SUPPORT_FLAG_SUPPORTED))
     return true;
   return MinThreadGroupSize != 0 && MaxThreadGroupSize >= MinThreadGroupSize &&
          MaxThreadGroupSize % MinThreadGroupSize == 0 &&
@@ -1182,7 +1174,11 @@ bool ThreadGroupMatrixMultiplySupport::supportsThreadGroupSize(
 }
 
 bool ThreadVectorMatrixMultiplySupport::supported() const {
-  return valid() && hasFlag(SupportFlags, MultiplicationFlags::Supported);
+  return valid() &&
+         hasFlag(
+             SupportFlags,
+             linalg_abi::
+                 D3D12_LINEAR_ALGEBRA_MULTIPLICATION_SUPPORT_FLAG_SUPPORTED);
 }
 
 bool ThreadVectorMatrixMultiplySupport::valid() const {
@@ -1201,22 +1197,25 @@ bool AtomicAccumulateStoreSupport::supports(
   return false;
 }
 
-ScopeFlags legalScopes(OperationType Operation) {
+ScopeFlags
+legalScopes(linalg_abi::D3D12_LINEAR_ALGEBRA_OPERATION_TYPE Operation) {
   using hlsl::DXIL::MatrixScope;
   const ScopeFlags Thread = scopeBit(MatrixScope::Thread);
   const ScopeFlags Wave = scopeBit(MatrixScope::Wave);
   const ScopeFlags ThreadGroup = scopeBit(MatrixScope::ThreadGroup);
   switch (Operation) {
-  case OperationType::MatrixConstruction:
+  case linalg_abi::D3D12_LINEAR_ALGEBRA_OPERATION_TYPE_MATRIX_CONSTRUCTION:
     return Wave | ThreadGroup;
-  case OperationType::WaveMatrixMultiply:
+  case linalg_abi::D3D12_LINEAR_ALGEBRA_OPERATION_TYPE_WAVE_MATRIX_MULTIPLY:
     return Wave;
-  case OperationType::ThreadGroupMatrixMultiply:
+  case linalg_abi::
+      D3D12_LINEAR_ALGEBRA_OPERATION_TYPE_THREADGROUP_MATRIX_MULTIPLY:
     return ThreadGroup;
-  case OperationType::ThreadVectorMatrixMultiply:
-  case OperationType::ThreadOuterProduct:
+  case linalg_abi::
+      D3D12_LINEAR_ALGEBRA_OPERATION_TYPE_THREAD_VECTOR_MATRIX_MULTIPLY:
+  case linalg_abi::D3D12_LINEAR_ALGEBRA_OPERATION_TYPE_THREAD_OUTER_PRODUCT:
     return Thread;
-  case OperationType::AtomicAccumulateStore:
+  case linalg_abi::D3D12_LINEAR_ALGEBRA_OPERATION_TYPE_ATOMIC_ACCUMULATE_STORE:
     // The query category spans thread vector/outer-product accumulation and
     // Wave/ThreadGroup matrix forms. Individual operations narrow this mask.
     return Thread | Wave | ThreadGroup;
@@ -1224,7 +1223,8 @@ ScopeFlags legalScopes(OperationType Operation) {
   return 0;
 }
 
-bool isLegalScope(OperationType Operation, hlsl::DXIL::MatrixScope Scope) {
+bool isLegalScope(linalg_abi::D3D12_LINEAR_ALGEBRA_OPERATION_TYPE Operation,
+                  hlsl::DXIL::MatrixScope Scope) {
   return (legalScopes(Operation) & scopeBit(Scope)) != 0;
 }
 
@@ -1253,15 +1253,18 @@ HRESULT queryTierSupport(ID3D12Device *Device, TierSupport &Support) {
   }
 
   if (RuntimeSupport.LinearAlgebraTier !=
-          static_cast<UINT>(Tier::NotSupported) &&
-      RuntimeSupport.LinearAlgebraTier != static_cast<UINT>(Tier::Tier1_0)) {
+          static_cast<UINT>(
+              linalg_abi::D3D12_LINEAR_ALGEBRA_TIER_NOT_SUPPORTED) &&
+      RuntimeSupport.LinearAlgebraTier !=
+          static_cast<UINT>(linalg_abi::D3D12_LINEAR_ALGEBRA_TIER_1_0)) {
     LogCommentFmt(L"Linear algebra tier query returned invalid tier: 0x%x",
                   RuntimeSupport.LinearAlgebraTier);
     return E_UNEXPECTED;
   }
 
   Support.LinearAlgebraTier =
-      static_cast<Tier>(RuntimeSupport.LinearAlgebraTier);
+      static_cast<linalg_abi::D3D12_LINEAR_ALGEBRA_TIER>(
+          RuntimeSupport.LinearAlgebraTier);
   LogCommentFmt(L"Linear algebra tier: 0x%x",
                 static_cast<UINT>(Support.LinearAlgebraTier));
   return S_OK;
@@ -1276,8 +1279,8 @@ HRESULT queryMatrixConstruction(ID3D12Device *Device,
 
   linalg_abi::D3D12_FEATURE_DATA_LINEAR_ALGEBRA_MATRIX_OPERATION_SUPPORT
       RuntimeSupport = {};
-  RuntimeSupport.OperationType =
-      static_cast<UINT>(OperationType::MatrixConstruction);
+  RuntimeSupport.OperationType = static_cast<UINT>(
+      linalg_abi::D3D12_LINEAR_ALGEBRA_OPERATION_TYPE_MATRIX_CONSTRUCTION);
   RuntimeSupport.MatrixConstruction.ComponentType =
       static_cast<UINT>(Query.ComponentType);
   RuntimeSupport.MatrixConstruction.WaveSize = Query.WaveSize;
@@ -1324,8 +1327,8 @@ HRESULT queryWaveMatrixMultiply(ID3D12Device *Device,
 
   linalg_abi::D3D12_FEATURE_DATA_LINEAR_ALGEBRA_MATRIX_OPERATION_SUPPORT
       RuntimeSupport = {};
-  RuntimeSupport.OperationType =
-      static_cast<UINT>(OperationType::WaveMatrixMultiply);
+  RuntimeSupport.OperationType = static_cast<UINT>(
+      linalg_abi::D3D12_LINEAR_ALGEBRA_OPERATION_TYPE_WAVE_MATRIX_MULTIPLY);
   setWaveInputs(RuntimeSupport.WaveMatrixMultiply.Inputs, Query.Inputs);
   RuntimeSupport.WaveMatrixMultiply.Shape = {
       Query.Shape.M,
@@ -1353,7 +1356,8 @@ HRESULT queryWaveMatrixMultiply(ID3D12Device *Device,
                   Flags);
     return E_UNEXPECTED;
   }
-  Support.SupportFlags = static_cast<MultiplicationFlags>(Flags);
+  Support.SupportFlags = static_cast<
+      linalg_abi::D3D12_LINEAR_ALGEBRA_MULTIPLICATION_SUPPORT_FLAGS>(Flags);
 
   LogCommentFmt(L"WaveMatrixMultiply query: wave=%u, A=%s, B=%s, Acc=%s, "
                 L"shape=(%u,%u,%u), flags=0x%x",
@@ -1375,8 +1379,9 @@ queryThreadGroupMatrixMultiply(ID3D12Device *Device,
 
   linalg_abi::D3D12_FEATURE_DATA_LINEAR_ALGEBRA_MATRIX_OPERATION_SUPPORT
       RuntimeSupport = {};
-  RuntimeSupport.OperationType =
-      static_cast<UINT>(OperationType::ThreadGroupMatrixMultiply);
+  RuntimeSupport.OperationType = static_cast<UINT>(
+      linalg_abi::
+          D3D12_LINEAR_ALGEBRA_OPERATION_TYPE_THREADGROUP_MATRIX_MULTIPLY);
   setWaveInputs(RuntimeSupport.ThreadGroupMatrixMultiply.WaveInputs,
                 Query.WaveInputs);
   RuntimeSupport.ThreadGroupMatrixMultiply.Shape = {
@@ -1408,7 +1413,11 @@ queryThreadGroupMatrixMultiply(ID3D12Device *Device,
   }
 
   const bool Supported =
-      (Flags & static_cast<UINT>(MultiplicationFlags::Supported)) != 0;
+      (Flags &
+       static_cast<UINT>(
+           linalg_abi::
+               D3D12_LINEAR_ALGEBRA_MULTIPLICATION_SUPPORT_FLAG_SUPPORTED)) !=
+      0;
   const UINT MinSize =
       RuntimeSupport.ThreadGroupMatrixMultiply.MinThreadGroupSize;
   const UINT MaxSize =
@@ -1427,7 +1436,8 @@ queryThreadGroupMatrixMultiply(ID3D12Device *Device,
     return E_UNEXPECTED;
   }
 
-  Support.SupportFlags = static_cast<MultiplicationFlags>(Flags);
+  Support.SupportFlags = static_cast<
+      linalg_abi::D3D12_LINEAR_ALGEBRA_MULTIPLICATION_SUPPORT_FLAGS>(Flags);
   Support.MinThreadGroupSize = MinSize;
   Support.MaxThreadGroupSize = MaxSize;
   Support.PreferredThreadGroupSize = PreferredSize;
@@ -1453,8 +1463,9 @@ queryThreadVectorMatrixMultiply(ID3D12Device *Device,
 
   linalg_abi::D3D12_FEATURE_DATA_LINEAR_ALGEBRA_MATRIX_OPERATION_SUPPORT
       RuntimeSupport = {};
-  RuntimeSupport.OperationType =
-      static_cast<UINT>(OperationType::ThreadVectorMatrixMultiply);
+  RuntimeSupport.OperationType = static_cast<UINT>(
+      linalg_abi::
+          D3D12_LINEAR_ALGEBRA_OPERATION_TYPE_THREAD_VECTOR_MATRIX_MULTIPLY);
   RuntimeSupport.ThreadVectorMatrixMultiply.VectorInputType =
       static_cast<UINT>(Query.VectorInputType);
   RuntimeSupport.ThreadVectorMatrixMultiply.MatrixInputType =
@@ -1485,7 +1496,8 @@ queryThreadVectorMatrixMultiply(ID3D12Device *Device,
     return E_UNEXPECTED;
   }
 
-  Support.SupportFlags = static_cast<MultiplicationFlags>(Flags);
+  Support.SupportFlags = static_cast<
+      linalg_abi::D3D12_LINEAR_ALGEBRA_MULTIPLICATION_SUPPORT_FLAGS>(Flags);
   Support.MatrixInputType = Query.MatrixInputType;
   LogCommentFmt(
       L"ThreadVectorMatrixMultiply query: vector=%s, matrix=%s, bias=%s, "
@@ -1505,8 +1517,8 @@ HRESULT queryThreadOuterProduct(ID3D12Device *Device,
 
   linalg_abi::D3D12_FEATURE_DATA_LINEAR_ALGEBRA_MATRIX_OPERATION_SUPPORT
       RuntimeSupport = {};
-  RuntimeSupport.OperationType =
-      static_cast<UINT>(OperationType::ThreadOuterProduct);
+  RuntimeSupport.OperationType = static_cast<UINT>(
+      linalg_abi::D3D12_LINEAR_ALGEBRA_OPERATION_TYPE_THREAD_OUTER_PRODUCT);
   RuntimeSupport.ThreadOuterProductSupport.InputComponentType =
       static_cast<UINT>(Query.InputComponentType);
   RuntimeSupport.ThreadOuterProductSupport.ResultComponentType =
@@ -1547,8 +1559,8 @@ HRESULT queryAtomicAccumulateStore(ID3D12Device *Device,
 
   linalg_abi::D3D12_FEATURE_DATA_LINEAR_ALGEBRA_MATRIX_OPERATION_SUPPORT
       RuntimeSupport = {};
-  RuntimeSupport.OperationType =
-      static_cast<UINT>(OperationType::AtomicAccumulateStore);
+  RuntimeSupport.OperationType = static_cast<UINT>(
+      linalg_abi::D3D12_LINEAR_ALGEBRA_OPERATION_TYPE_ATOMIC_ACCUMULATE_STORE);
   RuntimeSupport.AccumulateStore.ComponentType =
       static_cast<UINT>(Query.ComponentType);
 

@@ -96,30 +96,29 @@ struct MatrixParams {
   size_t totalBytes() const { return totalElements() * elementSize(CompType); }
 };
 
-static std::optional<linalg_test::DataType>
+static std::optional<linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE>
 toCapabilityDataType(ComponentType CompType) {
-  using linalg_test::DataType;
   switch (CompType) {
   case ComponentType::I16:
-    return DataType::SInt16;
+    return linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE_SINT16;
   case ComponentType::U16:
-    return DataType::UInt16;
+    return linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE_UINT16;
   case ComponentType::I32:
-    return DataType::SInt32;
+    return linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE_SINT32;
   case ComponentType::U32:
-    return DataType::UInt32;
+    return linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE_UINT32;
   case ComponentType::F16:
-    return DataType::Float16;
+    return linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT16;
   case ComponentType::F32:
-    return DataType::Float32;
+    return linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT32;
   case ComponentType::I8:
-    return DataType::SInt8;
+    return linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE_SINT8;
   case ComponentType::U8:
-    return DataType::UInt8;
+    return linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE_UINT8;
   case ComponentType::F8_E4M3FN:
-    return DataType::Float8E4M3FN;
+    return linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT8_E4M3FN;
   case ComponentType::F8_E5M2:
-    return DataType::Float8E5M2;
+    return linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT8_E5M2;
   default:
     return std::nullopt;
   }
@@ -1202,26 +1201,38 @@ void LinAlgCapabilityTests::CapabilityPolicyAndPredicates() {
                             CapabilityRequirement::CapabilityGated) ==
       Applicability::Fail);
 
-  VERIFY_IS_TRUE(
-      isLegalScope(OperationType::MatrixConstruction, MatrixScope::Wave));
-  VERIFY_IS_TRUE(isLegalScope(OperationType::MatrixConstruction,
-                              MatrixScope::ThreadGroup));
-  VERIFY_IS_FALSE(
-      isLegalScope(OperationType::MatrixConstruction, MatrixScope::Thread));
-  VERIFY_IS_TRUE(
-      isLegalScope(OperationType::WaveMatrixMultiply, MatrixScope::Wave));
-  VERIFY_IS_TRUE(isLegalScope(OperationType::ThreadGroupMatrixMultiply,
-                              MatrixScope::ThreadGroup));
-  VERIFY_IS_TRUE(isLegalScope(OperationType::ThreadVectorMatrixMultiply,
-                              MatrixScope::Thread));
-  VERIFY_IS_TRUE(
-      isLegalScope(OperationType::ThreadOuterProduct, MatrixScope::Thread));
-  VERIFY_IS_TRUE(
-      isLegalScope(OperationType::AtomicAccumulateStore, MatrixScope::Thread));
-  VERIFY_IS_TRUE(
-      isLegalScope(OperationType::AtomicAccumulateStore, MatrixScope::Wave));
-  VERIFY_IS_TRUE(isLegalScope(OperationType::AtomicAccumulateStore,
-                              MatrixScope::ThreadGroup));
+  VERIFY_IS_TRUE(isLegalScope(
+      linalg_abi::D3D12_LINEAR_ALGEBRA_OPERATION_TYPE_MATRIX_CONSTRUCTION,
+      MatrixScope::Wave));
+  VERIFY_IS_TRUE(isLegalScope(
+      linalg_abi::D3D12_LINEAR_ALGEBRA_OPERATION_TYPE_MATRIX_CONSTRUCTION,
+      MatrixScope::ThreadGroup));
+  VERIFY_IS_FALSE(isLegalScope(
+      linalg_abi::D3D12_LINEAR_ALGEBRA_OPERATION_TYPE_MATRIX_CONSTRUCTION,
+      MatrixScope::Thread));
+  VERIFY_IS_TRUE(isLegalScope(
+      linalg_abi::D3D12_LINEAR_ALGEBRA_OPERATION_TYPE_WAVE_MATRIX_MULTIPLY,
+      MatrixScope::Wave));
+  VERIFY_IS_TRUE(isLegalScope(
+      linalg_abi::
+          D3D12_LINEAR_ALGEBRA_OPERATION_TYPE_THREADGROUP_MATRIX_MULTIPLY,
+      MatrixScope::ThreadGroup));
+  VERIFY_IS_TRUE(isLegalScope(
+      linalg_abi::
+          D3D12_LINEAR_ALGEBRA_OPERATION_TYPE_THREAD_VECTOR_MATRIX_MULTIPLY,
+      MatrixScope::Thread));
+  VERIFY_IS_TRUE(isLegalScope(
+      linalg_abi::D3D12_LINEAR_ALGEBRA_OPERATION_TYPE_THREAD_OUTER_PRODUCT,
+      MatrixScope::Thread));
+  VERIFY_IS_TRUE(isLegalScope(
+      linalg_abi::D3D12_LINEAR_ALGEBRA_OPERATION_TYPE_ATOMIC_ACCUMULATE_STORE,
+      MatrixScope::Thread));
+  VERIFY_IS_TRUE(isLegalScope(
+      linalg_abi::D3D12_LINEAR_ALGEBRA_OPERATION_TYPE_ATOMIC_ACCUMULATE_STORE,
+      MatrixScope::Wave));
+  VERIFY_IS_TRUE(isLegalScope(
+      linalg_abi::D3D12_LINEAR_ALGEBRA_OPERATION_TYPE_ATOMIC_ACCUMULATE_STORE,
+      MatrixScope::ThreadGroup));
 
   MatrixConstructionSupport Construction = {TRUE};
   VERIFY_IS_TRUE(Construction.valid());
@@ -1234,21 +1245,28 @@ void LinAlgCapabilityTests::CapabilityPolicyAndPredicates() {
   VERIFY_IS_FALSE(InvalidConstruction.valid());
   VERIFY_IS_FALSE(InvalidConstruction.supported());
 
-  WaveMatrixMultiplySupport Wave = {MultiplicationFlags::Supported};
+  WaveMatrixMultiplySupport Wave = {
+      linalg_abi::D3D12_LINEAR_ALGEBRA_MULTIPLICATION_SUPPORT_FLAG_SUPPORTED};
   VERIFY_IS_TRUE(Wave.valid());
   VERIFY_IS_TRUE(Wave.supported());
-  WaveMatrixMultiplySupport UnsupportedWave = {MultiplicationFlags::None};
+  WaveMatrixMultiplySupport UnsupportedWave = {
+      linalg_abi::D3D12_LINEAR_ALGEBRA_MULTIPLICATION_SUPPORT_FLAG_NONE};
   VERIFY_IS_TRUE(UnsupportedWave.valid());
   VERIFY_IS_FALSE(UnsupportedWave.supported());
   WaveMatrixMultiplySupport InvalidWave = {
-      static_cast<MultiplicationFlags>(
-          static_cast<UINT>(MultiplicationFlags::Supported) |
-          static_cast<UINT>(MultiplicationFlags::EmulatedInputs)),
+      static_cast<
+          linalg_abi::D3D12_LINEAR_ALGEBRA_MULTIPLICATION_SUPPORT_FLAGS>(
+          static_cast<UINT>(
+              linalg_abi::
+                  D3D12_LINEAR_ALGEBRA_MULTIPLICATION_SUPPORT_FLAG_SUPPORTED) |
+          static_cast<UINT>(
+              linalg_abi::
+                  D3D12_LINEAR_ALGEBRA_MULTIPLICATION_SUPPORT_FLAG_EMULATED_INPUTS)),
   };
   VERIFY_IS_FALSE(InvalidWave.valid());
 
   ThreadGroupMatrixMultiplySupport ThreadGroup = {
-      MultiplicationFlags::Supported,
+      linalg_abi::D3D12_LINEAR_ALGEBRA_MULTIPLICATION_SUPPORT_FLAG_SUPPORTED,
       32,
       128,
       64,
@@ -1259,9 +1277,14 @@ void LinAlgCapabilityTests::CapabilityPolicyAndPredicates() {
   ThreadGroup.PreferredThreadGroupSize = 48;
   VERIFY_IS_FALSE(ThreadGroup.valid());
   ThreadGroup = {
-      static_cast<MultiplicationFlags>(
-          static_cast<UINT>(MultiplicationFlags::Supported) |
-          static_cast<UINT>(MultiplicationFlags::Transpose)),
+      static_cast<
+          linalg_abi::D3D12_LINEAR_ALGEBRA_MULTIPLICATION_SUPPORT_FLAGS>(
+          static_cast<UINT>(
+              linalg_abi::
+                  D3D12_LINEAR_ALGEBRA_MULTIPLICATION_SUPPORT_FLAG_SUPPORTED) |
+          static_cast<UINT>(
+              linalg_abi::
+                  D3D12_LINEAR_ALGEBRA_MULTIPLICATION_SUPPORT_FLAG_TRANSPOSE)),
       32,
       128,
       64,
@@ -1269,20 +1292,32 @@ void LinAlgCapabilityTests::CapabilityPolicyAndPredicates() {
   VERIFY_IS_FALSE(ThreadGroup.valid());
 
   ThreadVectorMatrixMultiplySupport ThreadVector = {
-      static_cast<MultiplicationFlags>(
-          static_cast<UINT>(MultiplicationFlags::Supported) |
-          static_cast<UINT>(MultiplicationFlags::Transpose)),
-      DataType::Float32,
+      static_cast<
+          linalg_abi::D3D12_LINEAR_ALGEBRA_MULTIPLICATION_SUPPORT_FLAGS>(
+          static_cast<UINT>(
+              linalg_abi::
+                  D3D12_LINEAR_ALGEBRA_MULTIPLICATION_SUPPORT_FLAG_SUPPORTED) |
+          static_cast<UINT>(
+              linalg_abi::
+                  D3D12_LINEAR_ALGEBRA_MULTIPLICATION_SUPPORT_FLAG_TRANSPOSE)),
+      linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT32,
   };
   VERIFY_IS_TRUE(ThreadVector.valid());
   VERIFY_IS_TRUE(ThreadVector.supported());
-  ThreadVector.SupportFlags = static_cast<MultiplicationFlags>(
-      static_cast<UINT>(MultiplicationFlags::Supported) |
-      static_cast<UINT>(MultiplicationFlags::EmulatedInputs));
+  ThreadVector.SupportFlags = static_cast<
+      linalg_abi::D3D12_LINEAR_ALGEBRA_MULTIPLICATION_SUPPORT_FLAGS>(
+      static_cast<UINT>(
+          linalg_abi::
+              D3D12_LINEAR_ALGEBRA_MULTIPLICATION_SUPPORT_FLAG_SUPPORTED) |
+      static_cast<UINT>(
+          linalg_abi::
+              D3D12_LINEAR_ALGEBRA_MULTIPLICATION_SUPPORT_FLAG_EMULATED_INPUTS));
   VERIFY_IS_FALSE(ThreadVector.valid());
-  ThreadVector.MatrixInputType = DataType::Float8E4M3FN;
+  ThreadVector.MatrixInputType =
+      linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT8_E4M3FN;
   VERIFY_IS_TRUE(ThreadVector.valid());
-  ThreadVector.SupportFlags = MultiplicationFlags::EmulatedInputs;
+  ThreadVector.SupportFlags = linalg_abi::
+      D3D12_LINEAR_ALGEBRA_MULTIPLICATION_SUPPORT_FLAG_EMULATED_INPUTS;
   VERIFY_IS_FALSE(ThreadVector.valid());
 
   ThreadOuterProductSupport OuterProduct = {true};
@@ -1291,14 +1326,15 @@ void LinAlgCapabilityTests::CapabilityPolicyAndPredicates() {
   VERIFY_IS_TRUE(Atomic.supports(AtomicDestination::RWByteAddressBuffer));
   VERIFY_IS_FALSE(Atomic.supports(AtomicDestination::GroupShared));
 
-  VERIFY_ARE_EQUAL(0u, static_cast<UINT>(DataType::None));
+  VERIFY_ARE_EQUAL(
+      0u, static_cast<UINT>(linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE_NONE));
   MatrixConstructionQuery ConstructionQuery = {
-      DataType::Float32, 32, {8, 8, 8}};
+      linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT32, 32, {8, 8, 8}};
   WaveMatrixMultiplyInputs WaveInputs = {
       32,
-      DataType::Float16,
-      DataType::Float16,
-      DataType::Float32,
+      linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT16,
+      linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT16,
+      linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT32,
   };
   WaveMatrixMultiplyQuery WaveQuery = {WaveInputs, {16, 16, 16}};
   ThreadGroupMatrixMultiplyQuery ThreadGroupQuery = {
@@ -1306,25 +1342,29 @@ void LinAlgCapabilityTests::CapabilityPolicyAndPredicates() {
       {16, 16, 16},
   };
   ThreadVectorMatrixMultiplyQuery ThreadVectorQuery = {
-      DataType::Float16,
-      DataType::Float16,
-      DataType::None,
-      DataType::Float16,
+      linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT16,
+      linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT16,
+      linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE_NONE,
+      linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT16,
   };
   ThreadOuterProductQuery OuterProductQuery = {
-      DataType::Float16,
-      DataType::Float16,
+      linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT16,
+      linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT16,
   };
-  AtomicAccumulateStoreQuery AtomicQuery = {DataType::Float16};
+  AtomicAccumulateStoreQuery AtomicQuery = {
+      linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT16};
   VERIFY_ARE_EQUAL(32u, ConstructionQuery.WaveSize);
   VERIFY_ARE_EQUAL(8u, ConstructionQuery.Shape.K);
   VERIFY_ARE_EQUAL(32u, WaveQuery.Inputs.WaveSize);
   VERIFY_ARE_EQUAL(16u, WaveQuery.Shape.M);
   VERIFY_ARE_EQUAL(32u, ThreadGroupQuery.WaveInputs.WaveSize);
   VERIFY_ARE_EQUAL(16u, ThreadGroupQuery.Shape.M);
-  VERIFY_IS_TRUE(ThreadVectorQuery.BiasInputType == DataType::None);
-  VERIFY_IS_TRUE(OuterProductQuery.InputComponentType == DataType::Float16);
-  VERIFY_IS_TRUE(AtomicQuery.ComponentType == DataType::Float16);
+  VERIFY_IS_TRUE(ThreadVectorQuery.BiasInputType ==
+                 linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE_NONE);
+  VERIFY_IS_TRUE(OuterProductQuery.InputComponentType ==
+                 linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT16);
+  VERIFY_IS_TRUE(AtomicQuery.ComponentType ==
+                 linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT16);
 }
 
 class DxilConf_SM610_LinAlg {
@@ -1867,9 +1907,10 @@ static const char CopyConvertShader[] = R"(
 // an unsupported tile as supported.
 static constexpr UINT FreeExtentProbes[] = {4, 8, 16, 32, 64, 128};
 
-static HRESULT supportsUseAMatrix(ID3D12Device *Device,
-                                  linalg_test::DataType Type, UINT WaveSize,
-                                  UINT Rows, UINT Columns, bool &Supported) {
+static HRESULT
+supportsUseAMatrix(ID3D12Device *Device,
+                   linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE Type,
+                   UINT WaveSize, UINT Rows, UINT Columns, bool &Supported) {
   Supported = false;
   for (UINT FreeExtent : FreeExtentProbes) {
     linalg_test::MatrixConstructionSupport Construction;
@@ -1892,11 +1933,12 @@ static HRESULT queryCopyConvertSupport(ID3D12Device *Device,
   Supported = false;
   SelectedWaveSize = 0;
   if (!Device || Params.Use != MatrixUse::A ||
-      !linalg_test::isLegalScope(linalg_test::OperationType::MatrixConstruction,
-                                 Params.Scope))
+      !linalg_test::isLegalScope(
+          linalg_abi::D3D12_LINEAR_ALGEBRA_OPERATION_TYPE_MATRIX_CONSTRUCTION,
+          Params.Scope))
     return E_INVALIDARG;
 
-  std::optional<linalg_test::DataType> DataType =
+  std::optional<linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE> DataType =
       toCapabilityDataType(Params.CompType);
   if (!DataType.has_value())
     return E_INVALIDARG;
