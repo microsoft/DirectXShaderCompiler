@@ -1,18 +1,19 @@
 ; REQUIRES: dxil-1-10
 ; RUN: not %dxv %s 2>&1 | FileCheck %s
 
-; CHECK:  error: Opcode GetGroupWaveCount not valid in shader model lib_6_10(callable).
-; CHECK:  error: Opcode GetGroupWaveCount not valid in shader model lib_6_10(intersection).
-; CHECK:  error: Opcode GetGroupWaveCount not valid in shader model lib_6_10(anyhit).
-; CHECK:  error: Opcode GetGroupWaveCount not valid in shader model lib_6_10(miss).
-; CHECK:  error: Opcode GetGroupWaveCount not valid in shader model lib_6_10(closesthit).
-; CHECK:  error: Opcode GetGroupWaveCount not valid in shader model lib_6_10(raygeneration).
-; CHECK:  error: Opcode GetGroupWaveIndex not valid in shader model lib_6_10(callable).
-; CHECK:  error: Opcode GetGroupWaveIndex not valid in shader model lib_6_10(intersection).
-; CHECK:  error: Opcode GetGroupWaveIndex not valid in shader model lib_6_10(anyhit).
-; CHECK:  error: Opcode GetGroupWaveIndex not valid in shader model lib_6_10(miss).
-; CHECK:  error: Opcode GetGroupWaveIndex not valid in shader model lib_6_10(closesthit).
-; CHECK:  error: Opcode GetGroupWaveIndex not valid in shader model lib_6_10(raygeneration).
+; CHECK: error: Opcode GetGroupWaveCount not valid in shader model lib_6_10(raygeneration).
+; CHECK: error: Opcode GetGroupWaveCount not valid in shader model lib_6_10(closesthit).
+; CHECK: error: Opcode GetGroupWaveCount not valid in shader model lib_6_10(miss).
+; CHECK: error: Opcode GetGroupWaveCount not valid in shader model lib_6_10(anyhit).
+; CHECK: error: Opcode GetGroupWaveCount not valid in shader model lib_6_10(intersection).
+; CHECK: error: Opcode GetGroupWaveCount not valid in shader model lib_6_10(callable).
+; CHECK: error: Opcode GetGroupWaveIndex not valid in shader model lib_6_10(raygeneration).
+; CHECK: error: Opcode GetGroupWaveIndex not valid in shader model lib_6_10(closesthit).
+; CHECK: error: Opcode GetGroupWaveIndex not valid in shader model lib_6_10(miss).
+; CHECK: error: Opcode GetGroupWaveIndex not valid in shader model lib_6_10(anyhit).
+; CHECK: error: Opcode GetGroupWaveIndex not valid in shader model lib_6_10(intersection).
+; CHECK: error: Opcode GetGroupWaveIndex not valid in shader model lib_6_10(callable).
+; CHECK: Validation failed.
 
 target datalayout = "e-m:e-p:32:32-i1:32-i8:32-i16:32-i32:32-i64:64-f16:32-f32:32-f64:64-n8:16:32:64"
 target triple = "dxil-ms-dx"
