@@ -9,6 +9,7 @@ using MatrixAccum_8_8_Ty = Matrix<ComponentType::F16, 8, 8, MatrixUse::Accumulat
 using MatrixAccum_8_4_Ty = Matrix<ComponentType::F16, 8, 4, MatrixUse::Accumulator, MatrixScope::Thread>;
 using Matrix_7_15_ATy = Matrix<ComponentType::F16, 7, 15, MatrixUse::A, MatrixScope::Thread>;
 using MatrixPacked_7_15_ATy = Matrix<ComponentType::F8_E4M3FN, 7, 15, MatrixUse::A, MatrixScope::Thread>;
+using MatrixA_BFloat = Matrix<ComponentType::BFloat16, 8, 4, MatrixUse::A, MatrixScope::Thread>;
 
 RWByteAddressBuffer RWBAB : register(u0);
 ByteAddressBuffer BAB : register(t0);
@@ -111,6 +112,10 @@ void main(uint ID : SV_GroupID) {
   // CHECK-SAME: %dx.types.Handle %{{[0-9]+}}, i32 0, i32 16, i32 1, i32 128)  ; LinAlgMatrixLoadFromDescriptor(handle,offset,stride,layout,align)
   Matrix_7_15_ATy Mat_7_15 = Matrix_7_15_ATy::Load<MatrixLayoutEnum::ColMajor>(BAB, 0, 16);
 
+  // CHECK: %[[MATBF:.*]] = call %dx.types.LinAlgMatrixC23M8N4U0S0 @dx.op.linAlgMatrixLoadFromDescriptor.mC23M8N4U0S0(i32 -2147483634,
+  // CHECK-SAME: %dx.types.Handle %{{[0-9]+}}, i32 0, i32 16, i32 1, i32 128)  ; LinAlgMatrixLoadFromDescriptor(handle,offset,stride,layout,align)
+  MatrixA_BFloat MatBF = MatrixA_BFloat::Load<MatrixLayoutEnum::ColMajor>(BAB, 0, 16);
+
   // CHECK: call <7 x half> @dx.op.linAlgMatVecMulAdd.v7f16.mC8M7N15U0S0.v15f16.v7f16(i32 -2147483622,
   // CHECK-SAME: %dx.types.LinAlgMatrixC8M7N15U0S0 %[[MAT_7_15]], i1 true, <15 x half> %{{[0-9]+}}, i32 8, <7 x half> %{{[0-9]+}})
   // CHECK-SAME: ; LinAlgMatVecMulAdd(matrix,isOutputSigned,inputVector,inputInterpretation,biasVector)
@@ -155,7 +160,14 @@ void main(uint ID : SV_GroupID) {
   // CHECK-SAME: %dx.types.LinAlgMatrixC8M7N15U0S0 %[[MAT_7_15]], i1 true, <4 x i32> %[[INTERP_VEC_H15_PACKED]], i32 21, <7 x half> %[[MEM_BIAS3]])
   // CHECK-SAME: ; LinAlgMatVecMulAdd(matrix,isOutputSigned,inputVector,inputInterpretation,biasVector)
 
-   vector<half, 7> vec12 = MultiplyAdd<half>(Mat_7_15, interpVecH15Packed, memBias7);
+  vector<half, 7> vec12 = MultiplyAdd<half>(Mat_7_15, interpVecH15Packed, memBias7);
+
+  // CHECK: call <8 x half> @dx.op.linAlgMatVecMul.v8f16.mC23M8N4U0S0.v2i32(i32 -2147483623,
+  // CHECK-SAME: %dx.types.LinAlgMatrixC23M8N4U0S0 %[[MATBF]], i1 true, <2 x i32> <i32 12345, i32 12345>, i32 23)
+  // CHECK-SAME: ; LinAlgMatVecMul(matrix,isOutputSigned,inputVector,interpretation)
+  vector<uint, 2> vecBfloatBin = 12345;
+  InterpretedVector<uint, 2, ComponentType::BFloat16> vecBfloat = MakeInterpretedVector<ComponentType::BFloat16>(vecBfloatBin);
+  vector<half, 8> vecBFMul = Multiply<half>(MatBF, vecBfloat);
 
   // Test Convert and MultiplyAdd with odd sizes and packed types
 

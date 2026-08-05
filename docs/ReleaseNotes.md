@@ -58,6 +58,8 @@ first shipped in the 1.10.2605 preview.
   [#8588](https://github.com/microsoft/DirectXShaderCompiler/pull/8588).
 - Restricted the component types allowed in LinAlg matrices
   [#8608](https://github.com/microsoft/DirectXShaderCompiler/pull/8608).
+- Added `BFloat16` to the ComponentType enum in DxilConstants and the linalg
+  header [#8722](https://github.com/microsoft/DirectXShaderCompiler/issues/8722)
 
 ### Version 1.9.2607
 

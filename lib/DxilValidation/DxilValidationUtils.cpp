@@ -665,6 +665,8 @@ llvm::StringRef ComponentTypeToString(DXIL::ComponentType CT) {
     return "F8_E4M3FN";
   case DXIL::ComponentType::F8_E5M2:
     return "F8_E5M2";
+  case DXIL::ComponentType::BFloat16:
+    return "BFloat16";
   default:
     return "Unknown ComponentType";
   }
