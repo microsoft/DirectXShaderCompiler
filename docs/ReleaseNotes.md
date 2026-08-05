@@ -22,6 +22,13 @@ The included licenses apply to the following files:
 Place release notes for the upcoming release below this line and remove this
 line upon naming the release. Refer to previous for appropriate section names.
 
+#### SPIR-V
+
+- Functions can now be decorated with inline SPIR-V. `[[vk::ext_capability]]`
+  and `[[vk::ext_extension]]` are now honored on ordinary functions
+  [#8616](https://github.com/microsoft/DirectXShaderCompiler/pull/8616)
+  [#8719](https://github.com/microsoft/DirectXShaderCompiler/pull/8719).
+
 ### Upcoming Preview Release
 
 These changes apply to experimental preview shader models only and will not be
@@ -40,13 +47,6 @@ first shipped in the 1.10.2605 preview.
   [#8588](https://github.com/microsoft/DirectXShaderCompiler/pull/8588).
 - Restricted the component types allowed in LinAlg matrices
   [#8608](https://github.com/microsoft/DirectXShaderCompiler/pull/8608).
-
-#### SPIR-V
-
-- Functions can now be decorated with inline SPIR-V. `[[vk::ext_capability]]`
-  and `[[vk::ext_extension]]` are now honored on ordinary functions
-  [#8616](https://github.com/microsoft/DirectXShaderCompiler/pull/8616)
-  [#8719](https://github.com/microsoft/DirectXShaderCompiler/pull/8719).
 
 ### Version 1.9.2607
 
