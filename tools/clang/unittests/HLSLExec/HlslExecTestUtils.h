@@ -9,6 +9,7 @@
 #include <vector>
 #include <windows.h>
 
+#include "LinAlgAbi.h"
 #include "ShaderOpTest.h"
 #include "dxc/DXIL/DxilConstants.h"
 #include "dxc/Support/dxcapi.use.h"
@@ -81,69 +82,6 @@ bool isFallbackPathEnabled();
 // below must work without the preview SDK: CheckFeatureSupport takes an untyped
 // (void *, size) pair, so they need the values, not the SDK's declarations.
 //
-// Transcribed verbatim from d3d12.h - same type names, same enumerator names,
-// same values - so they can be diffed against the header directly, and so
-// deleting this namespace once the types ship leaves the use sites needing only
-// the linalg_abi:: qualifier removed.
-//
-// The values are pinned to the real header by the ASSERT_RUNTIME_ENUM block in
-// HlslExecTestUtils.cpp, which qualifies each side explicitly because the names
-// are deliberately identical.
-//
-// Note there is no using-directive for this namespace, and there must not be:
-// the matrix-conversion helpers at the bottom of this header take the real
-// D3D12 types, so pulling these names in unqualified would make every one of
-// those declarations ambiguous in a preview-SDK build.
-//
-// TODO: delete this namespace once the types ship in a released Windows SDK.
-namespace linalg_abi {
-
-enum D3D12_LINEAR_ALGEBRA_TIER {
-  D3D12_LINEAR_ALGEBRA_TIER_NOT_SUPPORTED = 0,
-  D3D12_LINEAR_ALGEBRA_TIER_1_0 = 0x10
-};
-
-enum D3D12_LINEAR_ALGEBRA_DATATYPE {
-  D3D12_LINEAR_ALGEBRA_DATATYPE_NONE = 0,
-  D3D12_LINEAR_ALGEBRA_DATATYPE_SINT16 = 2,
-  D3D12_LINEAR_ALGEBRA_DATATYPE_UINT16 = 3,
-  D3D12_LINEAR_ALGEBRA_DATATYPE_SINT32 = 4,
-  D3D12_LINEAR_ALGEBRA_DATATYPE_UINT32 = 5,
-  D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT16 = 7,
-  D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT32 = 8,
-  D3D12_LINEAR_ALGEBRA_DATATYPE_SINT8 = 18,
-  D3D12_LINEAR_ALGEBRA_DATATYPE_UINT8 = 19,
-  D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT8_E4M3FN = 20,
-  D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT8_E5M2 = 21
-};
-
-enum D3D12_LINEAR_ALGEBRA_OPERATION_TYPE {
-  D3D12_LINEAR_ALGEBRA_OPERATION_TYPE_MATRIX_CONSTRUCTION = 0,
-  D3D12_LINEAR_ALGEBRA_OPERATION_TYPE_WAVE_MATRIX_MULTIPLY = 1,
-  D3D12_LINEAR_ALGEBRA_OPERATION_TYPE_THREADGROUP_MATRIX_MULTIPLY = 2,
-  D3D12_LINEAR_ALGEBRA_OPERATION_TYPE_THREAD_VECTOR_MATRIX_MULTIPLY = 3,
-  D3D12_LINEAR_ALGEBRA_OPERATION_TYPE_THREAD_OUTER_PRODUCT = 4,
-  D3D12_LINEAR_ALGEBRA_OPERATION_TYPE_ATOMIC_ACCUMULATE_STORE = 5
-};
-
-enum D3D12_LINEAR_ALGEBRA_MULTIPLICATION_SUPPORT_FLAGS {
-  D3D12_LINEAR_ALGEBRA_MULTIPLICATION_SUPPORT_FLAG_NONE = 0,
-  D3D12_LINEAR_ALGEBRA_MULTIPLICATION_SUPPORT_FLAG_SUPPORTED = 1,
-  D3D12_LINEAR_ALGEBRA_MULTIPLICATION_SUPPORT_FLAG_EMULATED_INPUTS = 2,
-  D3D12_LINEAR_ALGEBRA_MULTIPLICATION_SUPPORT_FLAG_EMULATED_OUTPUTS = 4,
-  D3D12_LINEAR_ALGEBRA_MULTIPLICATION_SUPPORT_FLAG_TRANSPOSE = 8
-};
-
-struct D3D12_LINEAR_ALGEBRA_MATRIX_SHAPE {
-  UINT M;
-  UINT K;
-  UINT N;
-};
-
-typedef D3D12_LINEAR_ALGEBRA_MATRIX_SHAPE
-    D3D12_LINEAR_ALGEBRA_MATRIX_MULTIPLY_SHAPE;
-
-} // namespace linalg_abi
 
 namespace linalg_test {
 
