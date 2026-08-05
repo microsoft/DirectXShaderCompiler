@@ -27,6 +27,10 @@ line upon naming the release. Refer to previous for appropriate section names.
 - Fixed derivative operations being moved into divergent control flow, which
   could produce incorrect results
   [#8001](https://github.com/microsoft/DirectXShaderCompiler/issues/8001).
+- Fixed a bug in template instantiations involving functions with an
+  out parameter, which could lead to an assert or a bad memory access.
+  [#5293](https://github.com/microsoft/DirectXShaderCompiler/issues/5293),
+  [#8310](https://github.com/microsoft/DirectXShaderCompiler/issues/8310).
 
 #### HLSL Language
 
@@ -132,10 +136,6 @@ first shipped in the 1.10.2605 preview.
   [#8246](https://github.com/microsoft/DirectXShaderCompiler/issues/8246).
 - Fixed an ambiguous overloaded `operator+` error with newer Clang
   [#8516](https://github.com/microsoft/DirectXShaderCompiler/pull/8516).
-- Fixed a bug in template instantiations involving functions with an
-  out parameter, which could lead to an assert or a bad memory access.
-  [#5293](https://github.com/microsoft/DirectXShaderCompiler/issues/5293),
-  [#8310](https://github.com/microsoft/DirectXShaderCompiler/issues/8310).
 - Stopped emitting illegal `*.with.overflow` intrinsics for DXIL, which caused
   validation failures for overflow-check idioms when optimizations were enabled
   [#8600](https://github.com/microsoft/DirectXShaderCompiler/pull/8600).
