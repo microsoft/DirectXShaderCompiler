@@ -36,14 +36,14 @@ define void @mainCS() {
   %mC4M5N4U0S2 = call %dx.types.LinAlgMatrixC4M5N4U0S2 @dx.op.linAlgMatrixLoadFromDescriptor.mC4M5N4U0S2(i32 -2147483634, %dx.types.Handle %bab, i32 0, i32 0, i32 0, i32 128)
   ; Matrix<I32, 4, 5, B, ThreadGroup>
   %mC4M4N5U1S2 = call %dx.types.LinAlgMatrixC4M4N5U1S2 @dx.op.linAlgMatrixLoadFromDescriptor.mC4M4N5U1S2(i32 -2147483634, %dx.types.Handle %bab, i32 0, i32 0, i32 0, i32 128)
-  ; Matrix<I32, 4, 4, Accumulator, ThreadGroup>
+  ; Matrix<I32, 4, 5, Accumulator, ThreadGroup>
   %mC4M4N5U2S2 = call %dx.types.LinAlgMatrixC4M4N5U2S2 @dx.op.linAlgMatrixLoadFromDescriptor.mC4M4N5U2S2(i32 -2147483634, %dx.types.Handle %bab, i32 0, i32 0, i32 0, i32 128)
 
   ; dx.op.linAlgMatrixAccumulate
   %v1 = call %dx.types.LinAlgMatrixC4M4N5U2S2 @dx.op.linAlgMatrixAccumulate.mC4M4N5U2S2.mC4M4N5U2S2.mC4M4N5U1S2(i32 -2147483624, %dx.types.LinAlgMatrixC4M4N5U2S2 %mC4M4N5U2S2, %dx.types.LinAlgMatrixC4M4N5U1S2 %mC4M4N5U1S2)  ; LinAlgMatrixAccumulate(matrixLHS,matrixRHS)
 
   ; dx.op.linAlgMatrixAccumulateToDescriptor
-  call void @dx.op.linAlgMatrixAccumulateToDescriptor.mC4M5N4U0S2(i32 -2147483621, %dx.types.LinAlgMatrixC4M5N4U0S2 %mC4M5N4U0S2, %dx.types.Handle %rwbab, i32 1, i32 2, i32 3, i32 4)  ; LinAlgMatrixAccumulateToDescriptor(matrix,handle,offset,stride,layout,align)
+  call void @dx.op.linAlgMatrixAccumulateToDescriptor.mC4M4N5U2S2(i32 -2147483621, %dx.types.LinAlgMatrixC4M4N5U2S2 %mC4M4N5U2S2, %dx.types.Handle %rwbab, i32 1, i32 2, i32 0, i32 128)  ; LinAlgMatrixAccumulateToDescriptor(matrix,handle,offset,stride,layout,align)
 
   ; dx.op.linAlgMatrixLength
   %v2 = call i32 @dx.op.linAlgMatrixLength.mC4M5N4U0S2(i32 -2147483632, %dx.types.LinAlgMatrixC4M5N4U0S2 %mC4M5N4U0S2)  ; LinAlgMatrixLength(matrix)
@@ -119,7 +119,7 @@ declare %dx.types.LinAlgMatrixC4M4N5U2S2 @dx.op.linAlgMatrixAccumulate.mC4M4N5U2
 declare void @dx.op.linAlgMatrixStoreToDescriptor.mC4M5N4U0S2(i32, %dx.types.LinAlgMatrixC4M5N4U0S2, %dx.types.Handle, i32, i32, i32, i32) #0
 
 ; Function Attrs: nounwind
-declare void @dx.op.linAlgMatrixAccumulateToDescriptor.mC4M5N4U0S2(i32, %dx.types.LinAlgMatrixC4M5N4U0S2, %dx.types.Handle, i32, i32, i32, i32) #0
+declare void @dx.op.linAlgMatrixAccumulateToDescriptor.mC4M4N5U2S2(i32, %dx.types.LinAlgMatrixC4M4N5U2S2, %dx.types.Handle, i32, i32, i32, i32) #0
 
 ; Function Attrs: nounwind
 declare i32 @dx.op.linAlgMatrixLength.mC4M5N4U0S2(i32, %dx.types.LinAlgMatrixC4M5N4U0S2) #0
