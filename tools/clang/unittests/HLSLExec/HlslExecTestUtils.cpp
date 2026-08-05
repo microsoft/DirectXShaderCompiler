@@ -949,7 +949,13 @@ legalScopes(linalg_abi::D3D12_LINEAR_ALGEBRA_OPERATION_TYPE Operation) {
   const ScopeFlags ThreadGroup = scopeBit(MatrixScope::ThreadGroup);
   switch (Operation) {
   case linalg_abi::D3D12_LINEAR_ALGEBRA_OPERATION_TYPE_MATRIX_CONSTRUCTION:
-    return Wave | ThreadGroup;
+    // Matrix construction spans every scope. Thread-scope matrices are the
+    // use-A operand of the cooperative-vector replacement Multiply, so a
+    // thread-scope matrix is constructed like any other; see
+    // hlsl-specs proposals/0035-linalg-matrix.md. The query carries no scope
+    // of its own, so callers asking about a thread-scope matrix leave
+    // WaveSize at 0, which the runtime treats as "any wave size".
+    return Thread | Wave | ThreadGroup;
   case linalg_abi::D3D12_LINEAR_ALGEBRA_OPERATION_TYPE_WAVE_MATRIX_MULTIPLY:
     return Wave;
   case linalg_abi::

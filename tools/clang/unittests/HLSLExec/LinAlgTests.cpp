@@ -1207,7 +1207,7 @@ void LinAlgCapabilityTests::CapabilityPolicyAndPredicates() {
   VERIFY_IS_TRUE(isLegalScope(
       linalg_abi::D3D12_LINEAR_ALGEBRA_OPERATION_TYPE_MATRIX_CONSTRUCTION,
       MatrixScope::ThreadGroup));
-  VERIFY_IS_FALSE(isLegalScope(
+  VERIFY_IS_TRUE(isLegalScope(
       linalg_abi::D3D12_LINEAR_ALGEBRA_OPERATION_TYPE_MATRIX_CONSTRUCTION,
       MatrixScope::Thread));
   VERIFY_IS_TRUE(isLegalScope(
@@ -2422,6 +2422,89 @@ static const char MatVecMulShader[] = R"(
   }
 )";
 
+// MatVecMul and MatVecMulAdd need two independent capability answers. The type
+// combination comes from ThreadVectorMatrixMultiply, which takes no shape, and
+// the matrix shape comes from MatrixConstruction, which takes no types. Both
+// have to agree before a case is applicable.
+static HRESULT queryMatVecMulSupport(ID3D12Device *Device,
+                                     const MatrixParams &Params,
+                                     ComponentType InputInterp, bool HasBias,
+                                     bool &Supported) {
+  Supported = false;
+  if (!Device ||
+      !linalg_test::isLegalScope(
+          linalg_abi::
+              D3D12_LINEAR_ALGEBRA_OPERATION_TYPE_THREAD_VECTOR_MATRIX_MULTIPLY,
+          Params.Scope) ||
+      !linalg_test::isLegalScope(
+          linalg_abi::D3D12_LINEAR_ALGEBRA_OPERATION_TYPE_MATRIX_CONSTRUCTION,
+          Params.Scope))
+    return E_INVALIDARG;
+
+  const std::optional<linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE> MatrixType =
+      toCapabilityDataType(Params.CompType);
+  const std::optional<linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE> VectorType =
+      toCapabilityDataType(InputInterp);
+  if (!MatrixType.has_value() || !VectorType.has_value())
+    return E_INVALIDARG;
+
+  linalg_test::TierSupport Tier;
+  HRESULT HR = linalg_test::queryTierSupport(Device, Tier);
+  if (FAILED(HR) || !Tier.supported())
+    return HR;
+
+  // The shaders declare the bias and result vectors with the matrix component
+  // type. A multiply with no bias is expressed as DATATYPE_NONE.
+  const linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE BiasType =
+      HasBias ? *MatrixType : linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE_NONE;
+
+  linalg_test::ThreadVectorMatrixMultiplySupport Multiply;
+  HR = linalg_test::queryThreadVectorMatrixMultiply(
+      Device, {*VectorType, *MatrixType, BiasType, *MatrixType}, Multiply);
+  if (FAILED(HR))
+    return HR;
+  if (!Multiply.supported()) {
+    hlsl_test::LogCommentFmt(
+        L"ThreadVectorMatrixMultiply reports vector=%u matrix=%u bias=%u "
+        L"result=%u is unsupported",
+        static_cast<UINT>(*VectorType), static_cast<UINT>(*MatrixType),
+        static_cast<UINT>(BiasType), static_cast<UINT>(*MatrixType));
+    return S_OK;
+  }
+
+  // A use-A tile pins M and K, so the matrix is queried as {M, N, free} where
+  // the test's N is the shape's K extent. A thread-scope matrix has no wave,
+  // so WaveSize is 0.
+  bool ShapeSupported = false;
+  HR = supportsUseAMatrix(Device, *MatrixType, /*WaveSize=*/0, Params.M,
+                          Params.N, ShapeSupported);
+  if (FAILED(HR))
+    return HR;
+  if (!ShapeSupported) {
+    hlsl_test::LogCommentFmt(
+        L"MatrixConstruction reports the %ux%u matrix is unsupported", Params.M,
+        Params.N);
+    return S_OK;
+  }
+
+  Supported = true;
+  return S_OK;
+}
+
+static bool matVecMulApplicable(ID3D12Device *Device,
+                                const MatrixParams &Params,
+                                ComponentType InputInterp, bool HasBias,
+                                LPCWSTR CaseName) {
+  bool Supported = false;
+  const HRESULT QueryResult =
+      queryMatVecMulSupport(Device, Params, InputInterp, HasBias, Supported);
+  return applyApplicability(
+      linalg_test::classifyApplicability(
+          QueryResult, Supported,
+          linalg_test::CapabilityRequirement::CapabilityGated),
+      CaseName);
+}
+
 static void runMatVecMul(ID3D12Device *Device,
                          dxc::SpecificDllLoader &DxcSupport,
                          const MatrixParams &Params, bool Verbose,
@@ -2476,6 +2559,11 @@ void DxilConf_SM610_LinAlg::MatVecMul_Thread_16x16_F16() {
   Params.Layout = MatrixLayout::RowMajor;
   Params.NumThreads = 1;
   Params.Enable16Bit = true;
+
+  if (!matVecMulApplicable(D3DDevice, Params, ComponentType::F16,
+                           /*HasBias=*/false, L"MatVecMul_Thread_16x16_F16"))
+    return;
+
   runMatVecMul(D3DDevice, DxcSupport, Params, VerboseLogging,
                /*FillValue=*/2, /*OutputSigned=*/true, ComponentType::F16);
 }
@@ -2488,6 +2576,11 @@ void DxilConf_SM610_LinAlg::MatVecMul_Thread_4x8_F32() {
   Params.Scope = MatrixScope::Thread;
   Params.Layout = MatrixLayout::RowMajor;
   Params.NumThreads = 1;
+
+  if (!matVecMulApplicable(D3DDevice, Params, ComponentType::F32,
+                           /*HasBias=*/false, L"MatVecMul_Thread_4x8_F32"))
+    return;
+
   runMatVecMul(D3DDevice, DxcSupport, Params, VerboseLogging,
                /*FillValue=*/2, /*OutputSigned=*/true, ComponentType::F32);
 }
@@ -2581,6 +2674,11 @@ void DxilConf_SM610_LinAlg::MatVecMulAdd_Thread_16x16_F16() {
   Params.Layout = MatrixLayout::RowMajor;
   Params.NumThreads = 1;
   Params.Enable16Bit = true;
+
+  if (!matVecMulApplicable(D3DDevice, Params, ComponentType::F16,
+                           /*HasBias=*/true, L"MatVecMulAdd_Thread_16x16_F16"))
+    return;
+
   runMatVecMulAdd(D3DDevice, DxcSupport, Params, VerboseLogging,
                   /*FillValue=*/2, /*OutputSigned=*/true, ComponentType::F16);
 }
@@ -2593,6 +2691,11 @@ void DxilConf_SM610_LinAlg::MatVecMulAdd_Thread_4x8_F32() {
   Params.Scope = MatrixScope::Thread;
   Params.Layout = MatrixLayout::RowMajor;
   Params.NumThreads = 1;
+
+  if (!matVecMulApplicable(D3DDevice, Params, ComponentType::F32,
+                           /*HasBias=*/true, L"MatVecMulAdd_Thread_4x8_F32"))
+    return;
+
   runMatVecMulAdd(D3DDevice, DxcSupport, Params, VerboseLogging,
                   /*FillValue=*/2, /*OutputSigned=*/true, ComponentType::F32);
 }
