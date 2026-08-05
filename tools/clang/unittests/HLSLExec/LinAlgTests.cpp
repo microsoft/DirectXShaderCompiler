@@ -125,19 +125,6 @@ toCapabilityDataType(ComponentType CompType) {
   }
 }
 
-static linalg_test::ExecutionScope toCapabilityScope(MatrixScope Scope) {
-  switch (Scope) {
-  case MatrixScope::Thread:
-    return linalg_test::ExecutionScope::Thread;
-  case MatrixScope::Wave:
-    return linalg_test::ExecutionScope::Wave;
-  case MatrixScope::ThreadGroup:
-    return linalg_test::ExecutionScope::ThreadGroup;
-  }
-  VERIFY_IS_TRUE(false, "Unsupported LinAlg matrix scope");
-  return linalg_test::ExecutionScope::Thread;
-}
-
 static bool applyApplicability(linalg_test::Applicability Result,
                                LPCWSTR CaseName) {
   using linalg_test::Applicability;
@@ -1216,25 +1203,25 @@ void LinAlgCapabilityTests::CapabilityPolicyAndPredicates() {
       Applicability::Fail);
 
   VERIFY_IS_TRUE(
-      isLegalScope(OperationType::MatrixConstruction, ExecutionScope::Wave));
+      isLegalScope(OperationType::MatrixConstruction, MatrixScope::Wave));
   VERIFY_IS_TRUE(isLegalScope(OperationType::MatrixConstruction,
-                              ExecutionScope::ThreadGroup));
+                              MatrixScope::ThreadGroup));
   VERIFY_IS_FALSE(
-      isLegalScope(OperationType::MatrixConstruction, ExecutionScope::Thread));
+      isLegalScope(OperationType::MatrixConstruction, MatrixScope::Thread));
   VERIFY_IS_TRUE(
-      isLegalScope(OperationType::WaveMatrixMultiply, ExecutionScope::Wave));
+      isLegalScope(OperationType::WaveMatrixMultiply, MatrixScope::Wave));
   VERIFY_IS_TRUE(isLegalScope(OperationType::ThreadGroupMatrixMultiply,
-                              ExecutionScope::ThreadGroup));
+                              MatrixScope::ThreadGroup));
   VERIFY_IS_TRUE(isLegalScope(OperationType::ThreadVectorMatrixMultiply,
-                              ExecutionScope::Thread));
+                              MatrixScope::Thread));
   VERIFY_IS_TRUE(
-      isLegalScope(OperationType::ThreadOuterProduct, ExecutionScope::Thread));
-  VERIFY_IS_TRUE(isLegalScope(OperationType::AtomicAccumulateStore,
-                              ExecutionScope::Thread));
+      isLegalScope(OperationType::ThreadOuterProduct, MatrixScope::Thread));
   VERIFY_IS_TRUE(
-      isLegalScope(OperationType::AtomicAccumulateStore, ExecutionScope::Wave));
+      isLegalScope(OperationType::AtomicAccumulateStore, MatrixScope::Thread));
+  VERIFY_IS_TRUE(
+      isLegalScope(OperationType::AtomicAccumulateStore, MatrixScope::Wave));
   VERIFY_IS_TRUE(isLegalScope(OperationType::AtomicAccumulateStore,
-                              ExecutionScope::ThreadGroup));
+                              MatrixScope::ThreadGroup));
 
   MatrixConstructionSupport Construction = {TRUE};
   VERIFY_IS_TRUE(Construction.valid());
@@ -1906,7 +1893,7 @@ static HRESULT queryCopyConvertSupport(ID3D12Device *Device,
   SelectedWaveSize = 0;
   if (!Device || Params.Use != MatrixUse::A ||
       !linalg_test::isLegalScope(linalg_test::OperationType::MatrixConstruction,
-                                 toCapabilityScope(Params.Scope)))
+                                 Params.Scope))
     return E_INVALIDARG;
 
   std::optional<linalg_test::DataType> DataType =

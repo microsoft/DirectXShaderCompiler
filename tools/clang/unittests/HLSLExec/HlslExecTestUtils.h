@@ -10,6 +10,7 @@
 #include <windows.h>
 
 #include "ShaderOpTest.h"
+#include "dxc/DXIL/DxilConstants.h"
 #include "dxc/Support/dxcapi.use.h"
 
 // D3D_SHADER_MODEL_6_10 is not yet in the released Windows SDK. Define locally
@@ -113,13 +114,13 @@ enum class MultiplicationFlags : UINT {
   Transpose = 8,
 };
 
-enum class ExecutionScope : UINT {
-  Thread = 1,
-  Wave = 2,
-  ThreadGroup = 4,
-};
-
+// Execution scope is DXIL's MatrixScope. Its enumerators are sequential rather
+// than disjoint bits, so scope sets are built with scopeBit() below.
 using ScopeFlags = UINT;
+
+constexpr ScopeFlags scopeBit(hlsl::DXIL::MatrixScope Scope) {
+  return 1u << static_cast<UINT>(Scope);
+}
 
 enum class AtomicDestination {
   RWByteAddressBuffer,
@@ -240,7 +241,7 @@ struct AtomicAccumulateStoreSupport {
 
 bool hasFlag(MultiplicationFlags Value, MultiplicationFlags Flag);
 ScopeFlags legalScopes(OperationType Operation);
-bool isLegalScope(OperationType Operation, ExecutionScope Scope);
+bool isLegalScope(OperationType Operation, hlsl::DXIL::MatrixScope Scope);
 Applicability classifyApplicability(HRESULT QueryResult, bool Supported,
                                     CapabilityRequirement Requirement);
 

@@ -1202,10 +1202,10 @@ bool AtomicAccumulateStoreSupport::supports(
 }
 
 ScopeFlags legalScopes(OperationType Operation) {
-  const ScopeFlags Thread = static_cast<ScopeFlags>(ExecutionScope::Thread);
-  const ScopeFlags Wave = static_cast<ScopeFlags>(ExecutionScope::Wave);
-  const ScopeFlags ThreadGroup =
-      static_cast<ScopeFlags>(ExecutionScope::ThreadGroup);
+  using hlsl::DXIL::MatrixScope;
+  const ScopeFlags Thread = scopeBit(MatrixScope::Thread);
+  const ScopeFlags Wave = scopeBit(MatrixScope::Wave);
+  const ScopeFlags ThreadGroup = scopeBit(MatrixScope::ThreadGroup);
   switch (Operation) {
   case OperationType::MatrixConstruction:
     return Wave | ThreadGroup;
@@ -1224,8 +1224,8 @@ ScopeFlags legalScopes(OperationType Operation) {
   return 0;
 }
 
-bool isLegalScope(OperationType Operation, ExecutionScope Scope) {
-  return (legalScopes(Operation) & static_cast<ScopeFlags>(Scope)) != 0;
+bool isLegalScope(OperationType Operation, hlsl::DXIL::MatrixScope Scope) {
+  return (legalScopes(Operation) & scopeBit(Scope)) != 0;
 }
 
 Applicability classifyApplicability(HRESULT QueryResult, bool Supported,
