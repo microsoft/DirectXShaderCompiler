@@ -228,6 +228,269 @@ static HRESULT queryLaunchableWaveSizes(ID3D12Device *Device, UINT &MinWaveSize,
   return S_OK;
 }
 
+// MATRIX_CONSTRUCTION is answered per wave size, so a case that queries it must
+// also compile for the size it asked about. Callers pass SelectedWaveSize to
+// their runner, which pins it with FORCED_WAVE_SIZE. Without that pin the
+// shader declares WaveSize(4, 64), the driver picks whatever it likes, and the
+// query answers a question the test never asks.
+//
+// Uses lists every matrix role the case constructs. A wave size only qualifies
+// if every role is supported there, because the roles pin different extents of
+// the same {M, K, N} shape.
+static HRESULT
+queryMatrixConstructionSupport(ID3D12Device *Device, const MatrixParams &Params,
+                               std::initializer_list<MatrixUse> Uses,
+                               bool &Supported, UINT &SelectedWaveSize) {
+  Supported = false;
+  SelectedWaveSize = 0;
+  if (!Device || Uses.size() == 0 ||
+      !linalg_test::isLegalScope(
+          linalg_abi::D3D12_LINEAR_ALGEBRA_OPERATION_TYPE_MATRIX_CONSTRUCTION,
+          Params.Scope))
+    return E_INVALIDARG;
+
+  const std::optional<linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE> DataType =
+      toCapabilityDataType(Params.CompType);
+  if (!DataType.has_value())
+    return E_INVALIDARG;
+
+  linalg_test::TierSupport Tier;
+  HRESULT HR = linalg_test::queryTierSupport(Device, Tier);
+  if (FAILED(HR) || !Tier.supported())
+    return HR;
+
+  UINT MinWaveSize = 0;
+  UINT MaxWaveSize = 0;
+  HR = queryLaunchableWaveSizes(Device, MinWaveSize, MaxWaveSize);
+  if (FAILED(HR))
+    return HR;
+  if (MinWaveSize == 0) {
+    hlsl_test::LogCommentFmt(
+        L"Wave operations are unsupported; MatrixConstruction is not "
+        L"applicable");
+    return S_OK;
+  }
+
+  for (UINT WaveSize = 4; WaveSize <= 64; WaveSize *= 2) {
+    if (WaveSize < MinWaveSize || WaveSize > MaxWaveSize)
+      continue;
+
+    bool AllRolesSupported = true;
+    for (const MatrixUse Use : Uses) {
+      bool ShapeSupported = false;
+      HR = supportsMatrixShape(Device, *DataType, WaveSize, Use, Params.M,
+                               Params.N, ShapeSupported);
+      if (FAILED(HR))
+        return HR;
+      if (!ShapeSupported) {
+        AllRolesSupported = false;
+        break;
+      }
+    }
+
+    if (AllRolesSupported) {
+      hlsl_test::LogCommentFmt(
+          L"MatrixConstruction capability matched wave=%u for the %ux%u tile",
+          WaveSize, Params.M, Params.N);
+      Supported = true;
+      SelectedWaveSize = WaveSize;
+      return S_OK;
+    }
+  }
+
+  hlsl_test::LogCommentFmt(
+      L"No MatrixConstruction query within shader WaveSize(4,64) supports the "
+      L"%ux%u tile",
+      Params.M, Params.N);
+  return S_OK;
+}
+
+static bool matrixConstructionApplicable(ID3D12Device *Device,
+                                         const MatrixParams &Params,
+                                         std::initializer_list<MatrixUse> Uses,
+                                         LPCWSTR CaseName,
+                                         UINT &SelectedWaveSize) {
+  bool Supported = false;
+  const HRESULT QueryResult = queryMatrixConstructionSupport(
+      Device, Params, Uses, Supported, SelectedWaveSize);
+  return applyApplicability(
+      linalg_test::classifyApplicability(
+          QueryResult, Supported,
+          linalg_test::CapabilityRequirement::CapabilityGated),
+      CaseName);
+}
+
+// Tier support is the only capability the matrix-free operations depend on.
+// They construct no matrix, so there is no shape or wave size to query.
+static bool linAlgTierApplicable(ID3D12Device *Device, LPCWSTR CaseName) {
+  linalg_test::TierSupport Tier;
+  const HRESULT QueryResult = linalg_test::queryTierSupport(Device, Tier);
+  return applyApplicability(
+      linalg_test::classifyApplicability(
+          QueryResult, SUCCEEDED(QueryResult) && Tier.supported(),
+          linalg_test::CapabilityRequirement::CapabilityGated),
+      CaseName);
+}
+
+// Accumulation store reports its destinations separately: a device may support
+// accumulating into a buffer but not into groupshared memory, or the reverse.
+// Tier 1 requires no formats at all here, so every case is gated.
+static bool
+accumulateStoreApplicable(ID3D12Device *Device, ComponentType CompType,
+                          linalg_test::AtomicDestination Destination,
+                          LPCWSTR CaseName) {
+  bool Supported = false;
+  HRESULT QueryResult = E_INVALIDARG;
+
+  const std::optional<linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE> DataType =
+      toCapabilityDataType(CompType);
+  if (DataType.has_value()) {
+    linalg_test::TierSupport Tier;
+    QueryResult = linalg_test::queryTierSupport(Device, Tier);
+    if (SUCCEEDED(QueryResult) && Tier.supported()) {
+      linalg_test::AtomicAccumulateStoreSupport Support;
+      QueryResult =
+          linalg_test::queryAtomicAccumulateStore(Device, {*DataType}, Support);
+      if (SUCCEEDED(QueryResult))
+        Supported = Support.supports(Destination);
+    }
+  }
+
+  return applyApplicability(
+      linalg_test::classifyApplicability(
+          QueryResult, Supported,
+          linalg_test::CapabilityRequirement::CapabilityGated),
+      CaseName);
+}
+
+// Tier 1 requires no outer product formats, so this is always gated.
+static bool outerProductApplicable(ID3D12Device *Device,
+                                   ComponentType InputCompType,
+                                   ComponentType ResultCompType,
+                                   LPCWSTR CaseName) {
+  bool Supported = false;
+  HRESULT QueryResult = E_INVALIDARG;
+
+  const std::optional<linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE> InputType =
+      toCapabilityDataType(InputCompType);
+  const std::optional<linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE> ResultType =
+      toCapabilityDataType(ResultCompType);
+  if (InputType.has_value() && ResultType.has_value()) {
+    linalg_test::TierSupport Tier;
+    QueryResult = linalg_test::queryTierSupport(Device, Tier);
+    if (SUCCEEDED(QueryResult) && Tier.supported()) {
+      linalg_test::ThreadOuterProductSupport Support;
+      QueryResult = linalg_test::queryThreadOuterProduct(
+          Device, {*InputType, *ResultType}, Support);
+      if (SUCCEEDED(QueryResult))
+        Supported = Support.supported();
+    }
+  }
+
+  return applyApplicability(
+      linalg_test::classifyApplicability(
+          QueryResult, Supported,
+          linalg_test::CapabilityRequirement::CapabilityGated),
+      CaseName);
+}
+
+// Wave matrix multiply needs both the matrices and the operation itself, and
+// both are answered per wave size, so they are resolved in one pass. Fp16 x
+// Fp16 -> Fp16 is Optional at Tier 1, so these cases are gated rather than
+// mandatory.
+static HRESULT queryWaveMatMulSupport(ID3D12Device *Device,
+                                      const MatrixParams &Params, MatrixDim K,
+                                      bool &Supported, UINT &SelectedWaveSize) {
+  Supported = false;
+  SelectedWaveSize = 0;
+  if (!Device ||
+      !linalg_test::isLegalScope(
+          linalg_abi::D3D12_LINEAR_ALGEBRA_OPERATION_TYPE_WAVE_MATRIX_MULTIPLY,
+          Params.Scope))
+    return E_INVALIDARG;
+
+  const std::optional<linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE> DataType =
+      toCapabilityDataType(Params.CompType);
+  if (!DataType.has_value())
+    return E_INVALIDARG;
+
+  linalg_test::TierSupport Tier;
+  HRESULT HR = linalg_test::queryTierSupport(Device, Tier);
+  if (FAILED(HR) || !Tier.supported())
+    return HR;
+
+  UINT MinWaveSize = 0;
+  UINT MaxWaveSize = 0;
+  HR = queryLaunchableWaveSizes(Device, MinWaveSize, MaxWaveSize);
+  if (FAILED(HR))
+    return HR;
+  if (MinWaveSize == 0) {
+    hlsl_test::LogCommentFmt(
+        L"Wave operations are unsupported; WaveMatrixMultiply is not "
+        L"applicable");
+    return S_OK;
+  }
+
+  for (UINT WaveSize = 4; WaveSize <= 64; WaveSize *= 2) {
+    if (WaveSize < MinWaveSize || WaveSize > MaxWaveSize)
+      continue;
+
+    bool ConstructionSupported = true;
+    for (const MatrixUse Use :
+         {MatrixUse::A, MatrixUse::B, MatrixUse::Accumulator}) {
+      bool ShapeSupported = false;
+      HR = supportsMatrixShape(Device, *DataType, WaveSize, Use, Params.M,
+                               Params.N, ShapeSupported);
+      if (FAILED(HR))
+        return HR;
+      if (!ShapeSupported) {
+        ConstructionSupported = false;
+        break;
+      }
+    }
+    if (!ConstructionSupported)
+      continue;
+
+    linalg_abi::D3D12_LINEAR_ALGEBRA_MATRIX_SHAPE Shape = {};
+    Shape.M = Params.M;
+    Shape.K = K;
+    Shape.N = Params.N;
+
+    linalg_test::WaveMatrixMultiplySupport Support;
+    HR = linalg_test::queryWaveMatrixMultiply(
+        Device, {{WaveSize, *DataType, *DataType, *DataType}, Shape}, Support);
+    if (FAILED(HR))
+      return HR;
+    if (Support.supported()) {
+      hlsl_test::LogCommentFmt(
+          L"WaveMatrixMultiply capability matched wave=%u for %ux%ux%u",
+          WaveSize, Params.M, K, Params.N);
+      Supported = true;
+      SelectedWaveSize = WaveSize;
+      return S_OK;
+    }
+  }
+
+  hlsl_test::LogCommentFmt(
+      L"No WaveMatrixMultiply query within shader WaveSize(4,64) supports "
+      L"%ux%ux%u",
+      Params.M, K, Params.N);
+  return S_OK;
+}
+
+static bool waveMatMulApplicable(ID3D12Device *Device,
+                                 const MatrixParams &Params, MatrixDim K,
+                                 LPCWSTR CaseName, UINT &SelectedWaveSize) {
+  bool Supported = false;
+  const HRESULT QueryResult =
+      queryWaveMatMulSupport(Device, Params, K, Supported, SelectedWaveSize);
+  return applyApplicability(
+      linalg_test::classifyApplicability(
+          QueryResult, Supported,
+          linalg_test::CapabilityRequirement::CapabilityGated),
+      CaseName);
+}
+
 namespace cpu_oracle {
 
 using TypedMatrixValues =
@@ -1565,7 +1828,11 @@ static const char LoadStoreDescriptorShader[] = R"(
   RWByteAddressBuffer Input : register(u0);
   RWByteAddressBuffer Output : register(u1);
 
+  #ifdef FORCED_WAVE_SIZE
+  [WaveSize(FORCED_WAVE_SIZE)]
+  #else
   [WaveSize(4, 64)]
+  #endif
   [numthreads(NUMTHREADS, 1, 1)]
   void main() {
     if (GetGroupWaveIndex() != 0)
@@ -1583,13 +1850,17 @@ static const char LoadStoreDescriptorShader[] = R"(
 
 static void runLoadStoreDescriptor(ID3D12Device *Device,
                                    dxc::SpecificDllLoader &DxcSupport,
-                                   const MatrixParams &Params, bool Verbose) {
+                                   const MatrixParams &Params, bool Verbose,
+                                   UINT ForcedWaveSize = 0) {
   const size_t NumElements = Params.totalElements();
   const size_t BufferSize = Params.totalBytes();
 
   // TODO: these should be varied by test to ensure full coverage
   std::stringstream ExtraDefs;
   ExtraDefs << " -DOFFSET=" << 0;
+
+  if (ForcedWaveSize != 0)
+    ExtraDefs << " -DFORCED_WAVE_SIZE=" << ForcedWaveSize;
 
   std::string Args = buildCompilerArgs(Params, ExtraDefs.str().c_str());
 
@@ -1632,13 +1903,25 @@ void DxilConf_SM610_LinAlg::LoadStoreDescriptor_Wave_16x16_F16() {
   Params.Layout = MatrixLayout::RowMajor;
   Params.NumThreads = 64;
   Params.Enable16Bit = true;
-  runLoadStoreDescriptor(D3DDevice, DxcSupport, Params, VerboseLogging);
+
+  UINT SelectedWaveSize = 0;
+  if (!matrixConstructionApplicable(D3DDevice, Params, {Params.Use},
+                                    L"LoadStoreDescriptor_Wave_16x16_F16",
+                                    SelectedWaveSize))
+    return;
+
+  runLoadStoreDescriptor(D3DDevice, DxcSupport, Params, VerboseLogging,
+                         SelectedWaveSize);
 }
 
 static const char SplatStoreShader[] = R"(
   RWByteAddressBuffer Output : register(u0);
 
+  #ifdef FORCED_WAVE_SIZE
+  [WaveSize(FORCED_WAVE_SIZE)]
+  #else
   [WaveSize(4, 64)]
+  #endif
   [numthreads(NUMTHREADS, 1, 1)]
   void main() {
     if (GetGroupWaveIndex() != 0)
@@ -1656,12 +1939,15 @@ static const char SplatStoreShader[] = R"(
 static void runSplatStore(ID3D12Device *Device,
                           dxc::SpecificDllLoader &DxcSupport,
                           const MatrixParams &Params, float FillValue,
-                          bool Verbose) {
+                          bool Verbose, UINT ForcedWaveSize = 0) {
   const size_t NumElements = Params.totalElements();
   const size_t BufferSize = Params.totalBytes();
 
   std::stringstream ExtraDefs;
   STREAM_FLOAT(ExtraDefs, "FILL_VALUE", FillValue);
+
+  if (ForcedWaveSize != 0)
+    ExtraDefs << " -DFORCED_WAVE_SIZE=" << ForcedWaveSize;
 
   std::string Args = buildCompilerArgs(Params, ExtraDefs.str().c_str());
 
@@ -1694,7 +1980,15 @@ void DxilConf_SM610_LinAlg::SplatStore_Wave_16x16_F16() {
   Params.Layout = MatrixLayout::RowMajor;
   Params.NumThreads = 64;
   Params.Enable16Bit = true;
-  runSplatStore(D3DDevice, DxcSupport, Params, 42.0f, VerboseLogging);
+
+  UINT SelectedWaveSize = 0;
+  if (!matrixConstructionApplicable(D3DDevice, Params, {Params.Use},
+                                    L"SplatStore_Wave_16x16_F16",
+                                    SelectedWaveSize))
+    return;
+
+  runSplatStore(D3DDevice, DxcSupport, Params, 42.0f, VerboseLogging,
+                SelectedWaveSize);
 }
 
 static const char AccumulateDescriptorShader[] = R"(
@@ -1703,7 +1997,11 @@ static const char AccumulateDescriptorShader[] = R"(
   ByteAddressBuffer Input : register(t0);
   RWByteAddressBuffer Output : register(u1);
 
+  #ifdef FORCED_WAVE_SIZE
+  [WaveSize(FORCED_WAVE_SIZE)]
+  #else
   [WaveSize(4, 64)]
+  #endif
   [numthreads(NUMTHREADS, 1, 1)]
   void main() {
     if (GetGroupWaveIndex() != 0)
@@ -1724,11 +2022,15 @@ static const char AccumulateDescriptorShader[] = R"(
 static void runAccumulateDescriptor(ID3D12Device *Device,
                                     dxc::SpecificDllLoader &DxcSupport,
                                     const MatrixParams &Params, int FillValue,
-                                    bool Verbose) {
+                                    bool Verbose, UINT ForcedWaveSize = 0) {
   const size_t NumElements = Params.totalElements();
   const size_t BufferSize = Params.totalBytes();
 
-  std::string Args = buildCompilerArgs(Params);
+  std::stringstream ExtraDefs;
+  if (ForcedWaveSize != 0)
+    ExtraDefs << " -DFORCED_WAVE_SIZE=" << ForcedWaveSize;
+
+  std::string Args = buildCompilerArgs(Params, ExtraDefs.str().c_str());
 
   compileShader(DxcSupport, AccumulateDescriptorShader, "cs_6_10", Args,
                 Verbose);
@@ -1770,7 +2072,20 @@ void DxilConf_SM610_LinAlg::AccumulateDescriptor_Wave_16x16_F16() {
   Params.Layout = MatrixLayout::RowMajor;
   Params.NumThreads = 64;
   Params.Enable16Bit = true;
-  runAccumulateDescriptor(D3DDevice, DxcSupport, Params, 12, VerboseLogging);
+
+  UINT SelectedWaveSize = 0;
+  if (!matrixConstructionApplicable(D3DDevice, Params, {Params.Use},
+                                    L"AccumulateDescriptor_Wave_16x16_F16",
+                                    SelectedWaveSize))
+    return;
+  if (!accumulateStoreApplicable(
+          D3DDevice, Params.CompType,
+          linalg_test::AtomicDestination::RWByteAddressBuffer,
+          L"AccumulateDescriptor_Wave_16x16_F16"))
+    return;
+
+  runAccumulateDescriptor(D3DDevice, DxcSupport, Params, 12, VerboseLogging,
+                          SelectedWaveSize);
 }
 
 // Element access constructs a wave-scope matrix and then reads or writes its
@@ -1780,79 +2095,6 @@ void DxilConf_SM610_LinAlg::AccumulateDescriptor_Wave_16x16_F16() {
 // supported type, and directs applications wanting smaller shapes to query
 // them case by case. Neither Fp32 nor Fp16 matrices are required at Tier 1, so
 // every element-access case is capability gated rather than mandatory.
-static HRESULT queryElementAccessSupport(ID3D12Device *Device,
-                                         const MatrixParams &Params,
-                                         bool &Supported,
-                                         UINT &SelectedWaveSize) {
-  Supported = false;
-  SelectedWaveSize = 0;
-  if (!Device ||
-      !linalg_test::isLegalScope(
-          linalg_abi::D3D12_LINEAR_ALGEBRA_OPERATION_TYPE_MATRIX_CONSTRUCTION,
-          Params.Scope))
-    return E_INVALIDARG;
-
-  const std::optional<linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE> DataType =
-      toCapabilityDataType(Params.CompType);
-  if (!DataType.has_value())
-    return E_INVALIDARG;
-
-  linalg_test::TierSupport Tier;
-  HRESULT HR = linalg_test::queryTierSupport(Device, Tier);
-  if (FAILED(HR) || !Tier.supported())
-    return HR;
-
-  UINT MinWaveSize = 0;
-  UINT MaxWaveSize = 0;
-  HR = queryLaunchableWaveSizes(Device, MinWaveSize, MaxWaveSize);
-  if (FAILED(HR))
-    return HR;
-  if (MinWaveSize == 0) {
-    hlsl_test::LogCommentFmt(
-        L"Wave operations are unsupported; MatrixConstruction is not "
-        L"applicable");
-    return S_OK;
-  }
-
-  for (UINT WaveSize = 4; WaveSize <= 64; WaveSize *= 2) {
-    if (WaveSize < MinWaveSize || WaveSize > MaxWaveSize)
-      continue;
-
-    bool ShapeSupported = false;
-    HR = supportsMatrixShape(Device, *DataType, WaveSize, Params.Use, Params.M,
-                             Params.N, ShapeSupported);
-    if (FAILED(HR))
-      return HR;
-    if (ShapeSupported) {
-      hlsl_test::LogCommentFmt(
-          L"MatrixConstruction capability matched wave=%u for the %ux%u tile",
-          WaveSize, Params.M, Params.N);
-      Supported = true;
-      SelectedWaveSize = WaveSize;
-      return S_OK;
-    }
-  }
-
-  hlsl_test::LogCommentFmt(
-      L"No MatrixConstruction query within shader WaveSize(4,64) supports the "
-      L"%ux%u tile",
-      Params.M, Params.N);
-  return S_OK;
-}
-
-static bool elementAccessApplicable(ID3D12Device *Device,
-                                    const MatrixParams &Params,
-                                    LPCWSTR CaseName, UINT &SelectedWaveSize) {
-  bool Supported = false;
-  const HRESULT QueryResult =
-      queryElementAccessSupport(Device, Params, Supported, SelectedWaveSize);
-  return applyApplicability(
-      linalg_test::classifyApplicability(
-          QueryResult, Supported,
-          linalg_test::CapabilityRequirement::CapabilityGated),
-      CaseName);
-}
-
 static const char ElementAccessShader[] = R"(
   RWByteAddressBuffer Input : register(u0);
   RWByteAddressBuffer Output : register(u1);
@@ -1962,8 +2204,9 @@ void DxilConf_SM610_LinAlg::ElementAccess_Wave_16x16_F16() {
   Params.Enable16Bit = true;
 
   UINT SelectedWaveSize = 0;
-  if (!elementAccessApplicable(
-          D3DDevice, Params, L"ElementAccess_Wave_16x16_F16", SelectedWaveSize))
+  if (!matrixConstructionApplicable(D3DDevice, Params, {Params.Use},
+                                    L"ElementAccess_Wave_16x16_F16",
+                                    SelectedWaveSize))
     return;
 
   runElementAccess(D3DDevice, DxcSupport, Params, VerboseLogging,
@@ -1982,8 +2225,9 @@ void DxilConf_SM610_LinAlg::ElementAccess_Wave_4x8_F32() {
   Params.Enable16Bit = false;
 
   UINT SelectedWaveSize = 0;
-  if (!elementAccessApplicable(D3DDevice, Params, L"ElementAccess_Wave_4x8_F32",
-                               SelectedWaveSize))
+  if (!matrixConstructionApplicable(D3DDevice, Params, {Params.Use},
+                                    L"ElementAccess_Wave_4x8_F32",
+                                    SelectedWaveSize))
     return;
 
   // Non-square dimensions make the row-major coordinate mapping observable: a
@@ -2079,8 +2323,9 @@ void DxilConf_SM610_LinAlg::ElementSet_Wave_16x16_F16() {
   Params.Enable16Bit = true;
 
   UINT SelectedWaveSize = 0;
-  if (!elementAccessApplicable(D3DDevice, Params, L"ElementSet_Wave_16x16_F16",
-                               SelectedWaveSize))
+  if (!matrixConstructionApplicable(D3DDevice, Params, {Params.Use},
+                                    L"ElementSet_Wave_16x16_F16",
+                                    SelectedWaveSize))
     return;
 
   runElementSet(D3DDevice, DxcSupport, Params, VerboseLogging,
@@ -2249,8 +2494,9 @@ void DxilConf_SM610_LinAlg::ElementGetOOB_Wave_4x8_F32() {
   Params.Enable16Bit = false;
 
   UINT SelectedWaveSize = 0;
-  if (!elementAccessApplicable(D3DDevice, Params, L"ElementGetOOB_Wave_4x8_F32",
-                               SelectedWaveSize))
+  if (!matrixConstructionApplicable(D3DDevice, Params, {Params.Use},
+                                    L"ElementGetOOB_Wave_4x8_F32",
+                                    SelectedWaveSize))
     return;
 
   runElementGetOOB(D3DDevice, DxcSupport, Params, VerboseLogging,
@@ -2365,8 +2611,9 @@ void DxilConf_SM610_LinAlg::ElementSetOOB_Wave_4x8_F32() {
   Params.Enable16Bit = false;
 
   UINT SelectedWaveSize = 0;
-  if (!elementAccessApplicable(D3DDevice, Params, L"ElementSetOOB_Wave_4x8_F32",
-                               SelectedWaveSize))
+  if (!matrixConstructionApplicable(D3DDevice, Params, {Params.Use},
+                                    L"ElementSetOOB_Wave_4x8_F32",
+                                    SelectedWaveSize))
     return;
 
   runElementSetOOB(D3DDevice, DxcSupport, Params, VerboseLogging,
@@ -2477,6 +2724,19 @@ static HRESULT queryCopyConvertSupport(ID3D12Device *Device,
   return S_OK;
 }
 
+static bool copyConvertApplicable(ID3D12Device *Device,
+                                  const MatrixParams &Params, bool Transpose,
+                                  LPCWSTR CaseName, UINT &SelectedWaveSize) {
+  bool Supported = false;
+  const HRESULT QueryResult = queryCopyConvertSupport(
+      Device, Params, Transpose, Supported, SelectedWaveSize);
+  return applyApplicability(
+      linalg_test::classifyApplicability(
+          QueryResult, Supported,
+          linalg_test::CapabilityRequirement::CapabilityGated),
+      CaseName);
+}
+
 static void runCopyConvert(ID3D12Device *Device,
                            dxc::SpecificDllLoader &DxcSupport,
                            const MatrixParams &Params, bool Verbose,
@@ -2569,8 +2829,14 @@ void DxilConf_SM610_LinAlg::CopyConvert_Wave_16x16_F16() {
   Params.Layout = MatrixLayout::RowMajor;
   Params.NumThreads = 64;
   Params.Enable16Bit = true;
+
+  UINT SelectedWaveSize = 0;
+  if (!copyConvertApplicable(D3DDevice, Params, /*Transpose=*/false,
+                             L"CopyConvert_Wave_16x16_F16", SelectedWaveSize))
+    return;
+
   runCopyConvert(D3DDevice, DxcSupport, Params, VerboseLogging,
-                 /*Transpose=*/false);
+                 /*Transpose=*/false, SelectedWaveSize);
 }
 
 void DxilConf_SM610_LinAlg::CopyConvert_Wave_16x16_F16_Transpose() {
@@ -2583,8 +2849,15 @@ void DxilConf_SM610_LinAlg::CopyConvert_Wave_16x16_F16_Transpose() {
   Params.Layout = MatrixLayout::RowMajor;
   Params.NumThreads = 64;
   Params.Enable16Bit = true;
+
+  UINT SelectedWaveSize = 0;
+  if (!copyConvertApplicable(D3DDevice, Params, /*Transpose=*/true,
+                             L"CopyConvert_Wave_16x16_F16_Transpose",
+                             SelectedWaveSize))
+    return;
+
   runCopyConvert(D3DDevice, DxcSupport, Params, VerboseLogging,
-                 /*Transpose=*/true);
+                 /*Transpose=*/true, SelectedWaveSize);
 }
 
 void DxilConf_SM610_LinAlg::CopyConvert_Wave_4x8_F32_Transpose() {
@@ -2623,7 +2896,11 @@ static const char MatMatMulShader[] = R"(
 
   RWByteAddressBuffer Output : register(u0);
 
+  #ifdef FORCED_WAVE_SIZE
+  [WaveSize(FORCED_WAVE_SIZE)]
+  #else
   [WaveSize(4, 64)]
+  #endif
   [numthreads(NUMTHREADS, 1, 1)]
   void main() {
     if (GetGroupWaveIndex() != 0)
@@ -2652,7 +2929,7 @@ static const char MatMatMulShader[] = R"(
 static void runMatMatMul(ID3D12Device *Device,
                          dxc::SpecificDllLoader &DxcSupport,
                          const MatrixParams &Params, bool Verbose, MatrixDim K,
-                         float AFill, float BFill) {
+                         float AFill, float BFill, UINT ForcedWaveSize = 0) {
   const size_t NumElements = Params.totalElements();
   const size_t BufferSize = Params.totalBytes();
 
@@ -2660,6 +2937,9 @@ static void runMatMatMul(ID3D12Device *Device,
   ExtraDefs << " -DK_DIM=" << K;
   STREAM_FLOAT(ExtraDefs, "A_FILL", AFill);
   STREAM_FLOAT(ExtraDefs, "B_FILL", BFill);
+
+  if (ForcedWaveSize != 0)
+    ExtraDefs << " -DFORCED_WAVE_SIZE=" << ForcedWaveSize;
 
   std::string Args = buildCompilerArgs(Params, ExtraDefs.str().c_str());
 
@@ -2691,8 +2971,14 @@ void DxilConf_SM610_LinAlg::MatMatMul_Wave_16x16x16_F16() {
   Params.Layout = MatrixLayout::RowMajor;
   Params.NumThreads = 64;
   Params.Enable16Bit = true;
+
+  UINT SelectedWaveSize = 0;
+  if (!waveMatMulApplicable(D3DDevice, Params, /*K=*/16,
+                            L"MatMatMul_Wave_16x16x16_F16", SelectedWaveSize))
+    return;
+
   runMatMatMul(D3DDevice, DxcSupport, Params, VerboseLogging, /*K=*/16,
-               /*AFill=*/2.0f, /*BFill=*/3.0f);
+               /*AFill=*/2.0f, /*BFill=*/3.0f, SelectedWaveSize);
 }
 
 static const char MatMatMulAccumShader[] = R"(
@@ -2702,7 +2988,11 @@ static const char MatMatMulAccumShader[] = R"(
 
   RWByteAddressBuffer Output : register(u0);
 
+  #ifdef FORCED_WAVE_SIZE
+  [WaveSize(FORCED_WAVE_SIZE)]
+  #else
   [WaveSize(4, 64)]
+  #endif
   [numthreads(NUMTHREADS, 1, 1)]
   void main() {
     if (GetGroupWaveIndex() != 0)
@@ -2734,7 +3024,7 @@ static void runMatMatMulAccum(ID3D12Device *Device,
                               dxc::SpecificDllLoader &DxcSupport,
                               const MatrixParams &Params, bool Verbose,
                               MatrixDim K, float AFill, float BFill,
-                              float CFill) {
+                              float CFill, UINT ForcedWaveSize = 0) {
   const size_t NumElements = Params.totalElements();
   const size_t BufferSize = Params.totalBytes();
 
@@ -2743,6 +3033,9 @@ static void runMatMatMulAccum(ID3D12Device *Device,
   STREAM_FLOAT(ExtraDefs, "A_FILL", AFill);
   STREAM_FLOAT(ExtraDefs, "B_FILL", BFill);
   STREAM_FLOAT(ExtraDefs, "C_FILL", CFill);
+
+  if (ForcedWaveSize != 0)
+    ExtraDefs << " -DFORCED_WAVE_SIZE=" << ForcedWaveSize;
 
   std::string Args = buildCompilerArgs(Params, ExtraDefs.str().c_str());
 
@@ -2775,8 +3068,16 @@ void DxilConf_SM610_LinAlg::MatMatMulAccum_Wave_16x16x16_F16() {
   Params.Layout = MatrixLayout::RowMajor;
   Params.NumThreads = 64;
   Params.Enable16Bit = true;
+
+  UINT SelectedWaveSize = 0;
+  if (!waveMatMulApplicable(D3DDevice, Params, /*K=*/16,
+                            L"MatMatMulAccum_Wave_16x16x16_F16",
+                            SelectedWaveSize))
+    return;
+
   runMatMatMulAccum(D3DDevice, DxcSupport, Params, VerboseLogging, /*K=*/16,
-                    /*AFill=*/2.0f, /*BFill=*/3.0f, /*CFill=*/4.0f);
+                    /*AFill=*/2.0f, /*BFill=*/3.0f, /*CFill=*/4.0f,
+                    SelectedWaveSize);
 }
 
 static const char MatAccumShader[] = R"(
@@ -2785,7 +3086,11 @@ static const char MatAccumShader[] = R"(
 
   RWByteAddressBuffer Output : register(u0);
 
+  #ifdef FORCED_WAVE_SIZE
+  [WaveSize(FORCED_WAVE_SIZE)]
+  #else
   [WaveSize(4, 64)]
+  #endif
   [numthreads(NUMTHREADS, 1, 1)]
   void main() {
     if (GetGroupWaveIndex() != 0)
@@ -2811,13 +3116,16 @@ static const char MatAccumShader[] = R"(
 static void runMatAccum(ID3D12Device *Device,
                         dxc::SpecificDllLoader &DxcSupport,
                         const MatrixParams &Params, bool Verbose, float LHSFill,
-                        float RHSFill) {
+                        float RHSFill, UINT ForcedWaveSize = 0) {
   const size_t NumElements = Params.totalElements();
   const size_t BufferSize = Params.totalBytes();
 
   std::stringstream ExtraDefs;
   STREAM_FLOAT(ExtraDefs, "LHS_FILL", LHSFill);
   STREAM_FLOAT(ExtraDefs, "RHS_FILL", RHSFill);
+
+  if (ForcedWaveSize != 0)
+    ExtraDefs << " -DFORCED_WAVE_SIZE=" << ForcedWaveSize;
 
   std::string Args = buildCompilerArgs(Params, ExtraDefs.str().c_str());
 
@@ -2848,8 +3156,17 @@ void DxilConf_SM610_LinAlg::MatAccum_Wave_16x16_F16() {
   Params.Layout = MatrixLayout::RowMajor;
   Params.NumThreads = 64;
   Params.Enable16Bit = true;
+
+  // MatAccum builds both an accumulator and an A matrix, and the two roles pin
+  // different extents of the same shape, so both must be constructible.
+  UINT SelectedWaveSize = 0;
+  if (!matrixConstructionApplicable(
+          D3DDevice, Params, {MatrixUse::Accumulator, MatrixUse::A},
+          L"MatAccum_Wave_16x16_F16", SelectedWaveSize))
+    return;
+
   runMatAccum(D3DDevice, DxcSupport, Params, VerboseLogging,
-              /*LHSFill=*/2.0f, /*RHSFill=*/3.0f);
+              /*LHSFill=*/2.0f, /*RHSFill=*/3.0f, SelectedWaveSize);
 }
 
 static const char MatVecMulShader[] = R"(
@@ -3311,6 +3628,12 @@ void DxilConf_SM610_LinAlg::OuterProduct_Thread_16x16_F16() {
   Params.Layout = MatrixLayout::OuterProductOptimal;
   Params.NumThreads = 1;
   Params.Enable16Bit = true;
+
+  // Tier 1 requires no outer product formats at all, so this is gated.
+  if (!outerProductApplicable(D3DDevice, Params.CompType, Params.CompType,
+                              L"OuterProduct_Thread_16x16_F16"))
+    return;
+
   runOuterProduct(D3DDevice, DxcSupport, Params, VerboseLogging);
 #else
 #ifdef _HLK_CONF
@@ -3367,6 +3690,10 @@ static void runQueryAccumLayout(ID3D12Device *Device,
 }
 
 void DxilConf_SM610_LinAlg::QueryAccumLayout() {
+  // Constructs no matrix, so tier support is the only capability it needs.
+  if (!linAlgTierApplicable(D3DDevice, L"QueryAccumLayout"))
+    return;
+
   runQueryAccumLayout(D3DDevice, DxcSupport, VerboseLogging);
 }
 
@@ -3377,7 +3704,11 @@ static const char LoadMemoryShader[] = R"(
 
   #define ELEM_PER_THREAD (M_DIM * N_DIM / NUMTHREADS)
 
+  #ifdef FORCED_WAVE_SIZE
+  [WaveSize(FORCED_WAVE_SIZE)]
+  #else
   [WaveSize(4, 64)]
+  #endif
   [numthreads(NUMTHREADS, 1, 1)]
   void main(uint threadID : SV_GroupIndex) {
     for (uint I = 0; I < ELEM_PER_THREAD; ++I) {
@@ -3402,12 +3733,16 @@ static const char LoadMemoryShader[] = R"(
 
 static void runLoadMemory(ID3D12Device *Device,
                           dxc::SpecificDllLoader &DxcSupport,
-                          const MatrixParams &Params, bool Verbose) {
+                          const MatrixParams &Params, bool Verbose,
+                          UINT ForcedWaveSize = 0) {
   const size_t NumElements = Params.totalElements();
   const size_t BufferSize = Params.totalBytes();
 
   std::stringstream ExtraDefs;
   ExtraDefs << " -DOFFSET=" << 0;
+
+  if (ForcedWaveSize != 0)
+    ExtraDefs << " -DFORCED_WAVE_SIZE=" << ForcedWaveSize;
 
   std::string Args = buildCompilerArgs(Params, ExtraDefs.str().c_str());
 
@@ -3448,14 +3783,26 @@ void DxilConf_SM610_LinAlg::LoadMemory_Wave_16x16_F16() {
   Params.Layout = MatrixLayout::RowMajor;
   Params.NumThreads = 64;
   Params.Enable16Bit = true;
-  runLoadMemory(D3DDevice, DxcSupport, Params, VerboseLogging);
+
+  UINT SelectedWaveSize = 0;
+  if (!matrixConstructionApplicable(D3DDevice, Params, {Params.Use},
+                                    L"LoadMemory_Wave_16x16_F16",
+                                    SelectedWaveSize))
+    return;
+
+  runLoadMemory(D3DDevice, DxcSupport, Params, VerboseLogging,
+                SelectedWaveSize);
 }
 
 static const char StoreMemoryShader[] = R"(
   RWByteAddressBuffer Output : register(u0);
   groupshared ELEM_TYPE GsData[M_DIM * N_DIM];
 
+  #ifdef FORCED_WAVE_SIZE
+  [WaveSize(FORCED_WAVE_SIZE)]
+  #else
   [WaveSize(4, 64)]
+  #endif
   [numthreads(NUMTHREADS, 1, 1)]
   void main() {
     if (GetGroupWaveIndex() != 0)
@@ -3478,13 +3825,16 @@ static const char StoreMemoryShader[] = R"(
 static void runStoreMemory(ID3D12Device *Device,
                            dxc::SpecificDllLoader &DxcSupport,
                            const MatrixParams &Params, bool Verbose,
-                           float FillValue) {
+                           float FillValue, UINT ForcedWaveSize = 0) {
   const size_t NumElements = Params.totalElements();
   const size_t BufferSize = Params.totalBytes();
 
   std::stringstream ExtraDefs;
   ExtraDefs << " -DOFFSET=" << 0;
   STREAM_FLOAT(ExtraDefs, "FILL_VALUE", FillValue);
+
+  if (ForcedWaveSize != 0)
+    ExtraDefs << " -DFORCED_WAVE_SIZE=" << ForcedWaveSize;
 
   std::string Args = buildCompilerArgs(Params, ExtraDefs.str().c_str());
 
@@ -3517,8 +3867,15 @@ void DxilConf_SM610_LinAlg::StoreMemory_Wave_16x16_F16() {
   Params.Layout = MatrixLayout::RowMajor;
   Params.NumThreads = 64;
   Params.Enable16Bit = true;
+
+  UINT SelectedWaveSize = 0;
+  if (!matrixConstructionApplicable(D3DDevice, Params, {Params.Use},
+                                    L"StoreMemory_Wave_16x16_F16",
+                                    SelectedWaveSize))
+    return;
+
   runStoreMemory(D3DDevice, DxcSupport, Params, VerboseLogging,
-                 /*FillValue=*/7.0f);
+                 /*FillValue=*/7.0f, SelectedWaveSize);
 }
 
 static const char AccumulateMemoryShader[] = R"(
@@ -3527,7 +3884,11 @@ static const char AccumulateMemoryShader[] = R"(
 
   #define ELEM_PER_THREAD (M_DIM * N_DIM / NUMTHREADS)
 
+  #ifdef FORCED_WAVE_SIZE
+  [WaveSize(FORCED_WAVE_SIZE)]
+  #else
   [WaveSize(4, 64)]
+  #endif
   [numthreads(NUMTHREADS, 1, 1)]
   void main(uint threadID : SV_GroupIndex) {
     ELEM_TYPE fill = FILL_VALUE;
@@ -3558,13 +3919,16 @@ static const char AccumulateMemoryShader[] = R"(
 static void runAccumulateMemory(ID3D12Device *Device,
                                 dxc::SpecificDllLoader &DxcSupport,
                                 const MatrixParams &Params, bool Verbose,
-                                float FillValue) {
+                                float FillValue, UINT ForcedWaveSize = 0) {
   const size_t NumElements = Params.totalElements();
   const size_t BufferSize = Params.totalBytes();
 
   std::stringstream ExtraDefs;
   ExtraDefs << " -DOFFSET=" << 0;
   STREAM_FLOAT(ExtraDefs, "FILL_VALUE", FillValue);
+
+  if (ForcedWaveSize != 0)
+    ExtraDefs << " -DFORCED_WAVE_SIZE=" << ForcedWaveSize;
 
   std::string Args = buildCompilerArgs(Params, ExtraDefs.str().c_str());
 
@@ -3597,8 +3961,19 @@ void DxilConf_SM610_LinAlg::AccumulateMemory_Wave_16x16_F16() {
   Params.Layout = MatrixLayout::RowMajor;
   Params.NumThreads = 64;
   Params.Enable16Bit = true;
+
+  UINT SelectedWaveSize = 0;
+  if (!matrixConstructionApplicable(D3DDevice, Params, {Params.Use},
+                                    L"AccumulateMemory_Wave_16x16_F16",
+                                    SelectedWaveSize))
+    return;
+  if (!accumulateStoreApplicable(D3DDevice, Params.CompType,
+                                 linalg_test::AtomicDestination::GroupShared,
+                                 L"AccumulateMemory_Wave_16x16_F16"))
+    return;
+
   runAccumulateMemory(D3DDevice, DxcSupport, Params, VerboseLogging,
-                      /*FillValue=*/7.0f);
+                      /*FillValue=*/7.0f, SelectedWaveSize);
 }
 
 static const char ConvertShader[] = R"(
@@ -3643,6 +4018,11 @@ static void runConvert(ID3D12Device *Device, dxc::SpecificDllLoader &DxcSupport,
 }
 
 void DxilConf_SM610_LinAlg::Convert() {
+  // Operates on vectors rather than matrices, so tier support is the only
+  // capability it needs.
+  if (!linAlgTierApplicable(D3DDevice, L"Convert"))
+    return;
+
   runConvert(D3DDevice, DxcSupport, VerboseLogging);
 }
 
@@ -3683,6 +4063,13 @@ static void runVectorAccumulateDescriptor(ID3D12Device *Device,
 }
 
 void DxilConf_SM610_LinAlg::VectorAccumulateDescriptor_Thread_F16() {
+  // Tier 1 requires no accumulation store formats, so this is gated.
+  if (!accumulateStoreApplicable(
+          D3DDevice, ComponentType::F16,
+          linalg_test::AtomicDestination::RWByteAddressBuffer,
+          L"VectorAccumulateDescriptor_Thread_F16"))
+    return;
+
   runVectorAccumulateDescriptor(D3DDevice, DxcSupport, VerboseLogging);
 }
 
