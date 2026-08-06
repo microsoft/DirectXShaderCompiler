@@ -8698,14 +8698,6 @@ class db_dxil(object):
             "Float-like type '%0' must be signed",
         )
         self.add_valrule(
-            "Instr.LinAlgMatrixLoadThreadRequiresSRV",
-            "Loading matrix with Thread scope requires SRV resource.",
-        )
-        self.add_valrule(
-            "Instr.LinAlgMatrixLoadThreadRequiresSRVBAB",
-            "Loading matrix with Thread scope requires SRV ByteAddressBuffer.",
-        )
-        self.add_valrule(
             "Instr.LinAlgMatrixLoadThreadRequiresBAB",
             "Loading matrix with Thread scope requires ByteAddressBuffer.",
         )
