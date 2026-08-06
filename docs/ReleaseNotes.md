@@ -27,6 +27,9 @@ line upon naming the release. Refer to previous for appropriate section names.
 - Fixed derivative operations being moved into divergent control flow, which
   could produce incorrect results
   [#8001](https://github.com/microsoft/DirectXShaderCompiler/issues/8001).
+- SPIR-V: Fixed an invalid `OpSelect` being generated when optimizing for
+  SPIR-V 1.3 and earlier
+  [#8603](https://github.com/microsoft/DirectXShaderCompiler/issues/8603).
 
 #### HLSL Language
 
