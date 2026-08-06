@@ -306,9 +306,9 @@ queryMatrixConstructionSupport(ID3D12Device *Device, const MatrixParams &Params,
   }
 
   hlsl_test::LogCommentFmt(
-      L"No MatrixConstruction query within shader WaveSize(4,64) supports the "
-      L"%ux%u tile",
-      Params.M, Params.N);
+      L"No MatrixConstruction query supports the %ux%u tile for any wave size "
+      L"launchable within shader WaveSize(4,128) and a %d-thread group",
+      Params.M, Params.N, Params.NumThreads);
   return S_OK;
 }
 
@@ -443,26 +443,22 @@ static HRESULT queryWaveMatMulSupport(ID3D12Device *Device,
         WaveSize > static_cast<UINT>(Params.NumThreads))
       continue;
 
-    bool ConstructionSupported = true;
-    for (const MatrixUse Use :
-         {MatrixUse::A, MatrixUse::B, MatrixUse::Accumulator}) {
-      bool ShapeSupported = false;
-      HR = supportsMatrixShape(Device, *DataType, WaveSize, Use, Params.M,
-                               Params.N, ShapeSupported);
-      if (FAILED(HR))
-        return HR;
-      if (!ShapeSupported) {
-        ConstructionSupported = false;
-        break;
-      }
-    }
-    if (!ConstructionSupported)
-      continue;
-
     linalg_abi::D3D12_LINEAR_ALGEBRA_MATRIX_SHAPE Shape = {};
     Shape.M = Params.M;
     Shape.K = K;
     Shape.N = Params.N;
+
+    // A multiply pins all three extents, so the construction query names the
+    // exact {M,K,N} shape instead of sweeping a free extent per operand. One
+    // answer covers all three operands, because a supported shape means A
+    // (MxK), B (KxN) and the accumulator (MxN) can all be constructed.
+    linalg_test::MatrixConstructionSupport Construction;
+    HR = linalg_test::queryMatrixConstruction(
+        Device, {*DataType, WaveSize, Shape}, Construction);
+    if (FAILED(HR))
+      return HR;
+    if (!Construction.supported())
+      continue;
 
     linalg_test::WaveMatrixMultiplySupport Support;
     HR = linalg_test::queryWaveMatrixMultiply(
@@ -480,9 +476,9 @@ static HRESULT queryWaveMatMulSupport(ID3D12Device *Device,
   }
 
   hlsl_test::LogCommentFmt(
-      L"No WaveMatrixMultiply query within shader WaveSize(4,64) supports "
-      L"%ux%ux%u",
-      Params.M, K, Params.N);
+      L"No WaveMatrixMultiply query supports %ux%ux%u for any wave size "
+      L"launchable within shader WaveSize(4,128) and a %d-thread group",
+      Params.M, K, Params.N, Params.NumThreads);
   return S_OK;
 }
 
@@ -2739,9 +2735,10 @@ static HRESULT queryCopyConvertSupport(ID3D12Device *Device,
   }
 
   hlsl_test::LogCommentFmt(
-      L"No MatrixConstruction query within shader WaveSize(4,64) supports "
-      L"CopyConvert source=%ux%u and destination=%ux%u",
-      Params.M, Params.N, Destination.M, Destination.N);
+      L"No MatrixConstruction query supports CopyConvert source=%ux%u and "
+      L"destination=%ux%u for any wave size launchable within shader "
+      L"WaveSize(4,128) and a %d-thread group",
+      Params.M, Params.N, Destination.M, Destination.N, Params.NumThreads);
   return S_OK;
 }
 
