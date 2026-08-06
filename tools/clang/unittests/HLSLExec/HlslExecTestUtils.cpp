@@ -32,8 +32,6 @@ typedef struct D3D12_FEATURE_DATA_D3D12_OPTIONS_PREVIEW {
 
 #endif
 
-namespace {
-
 constexpr UINT KnownMultiplicationFlags = 0xf;
 constexpr UINT MatrixMultiplicationFlags =
     static_cast<UINT>(
@@ -43,7 +41,7 @@ constexpr UINT MatrixMultiplicationFlags =
         linalg_abi::
             D3D12_LINEAR_ALGEBRA_MULTIPLICATION_SUPPORT_FLAG_EMULATED_OUTPUTS);
 
-bool isValidMultiplicationFlags(UINT Flags, UINT AllowedFlags) {
+static bool isValidMultiplicationFlags(UINT Flags, UINT AllowedFlags) {
   if ((Flags & ~AllowedFlags) != 0)
     return false;
   return Flags == 0 ||
@@ -54,12 +52,12 @@ bool isValidMultiplicationFlags(UINT Flags, UINT AllowedFlags) {
              0;
 }
 
-bool isFloat8DataType(linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE Type) {
+static bool isFloat8DataType(linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE Type) {
   return Type == linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT8_E4M3FN ||
          Type == linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT8_E5M2;
 }
 
-bool isValidThreadVectorMultiplicationFlags(
+static bool isValidThreadVectorMultiplicationFlags(
     UINT Flags, linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE MatrixInputType) {
   if (!isValidMultiplicationFlags(Flags, KnownMultiplicationFlags))
     return false;
@@ -69,7 +67,7 @@ bool isValidThreadVectorMultiplicationFlags(
   return (Flags & EmulatedInputs) == 0 || isFloat8DataType(MatrixInputType);
 }
 
-LPCWSTR dataTypeName(linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE Type) {
+static LPCWSTR dataTypeName(linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE Type) {
   switch (Type) {
   case linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE_NONE:
     return L"None";
@@ -97,7 +95,7 @@ LPCWSTR dataTypeName(linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE Type) {
   return L"Unknown";
 }
 
-void setWaveInputs(
+static void setWaveInputs(
     linalg_abi::D3D12_LINEAR_ALGEBRA_WAVE_MATRIX_MULTIPLY_INPUTS &RuntimeInputs,
     const linalg_test::WaveMatrixMultiplyInputs &Inputs) {
   RuntimeInputs.WaveSize = Inputs.WaveSize;
@@ -108,8 +106,6 @@ void setWaveInputs(
   RuntimeInputs.AccumulatorComponentType =
       static_cast<UINT>(Inputs.AccumulatorComponentType);
 }
-
-} // namespace
 
 using namespace hlsl_test;
 

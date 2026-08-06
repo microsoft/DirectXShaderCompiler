@@ -198,7 +198,7 @@ static HRESULT supportsMatrixShape(
   return S_OK;
 }
 
-// The shaders declare [WaveSize(4, 64)], so a capability query is only
+// The shaders declare [WaveSize(4, 128)], so a capability query is only
 // meaningful for wave sizes the device can actually launch within that range.
 static HRESULT queryLaunchableWaveSizes(ID3D12Device *Device, UINT &MinWaveSize,
                                         UINT &MaxWaveSize) {
@@ -237,7 +237,7 @@ static HRESULT queryLaunchableWaveSizes(ID3D12Device *Device, UINT &MinWaveSize,
 // MATRIX_CONSTRUCTION is answered per wave size, so a case that queries it must
 // also compile for the size it asked about. Callers pass SelectedWaveSize to
 // their runner, which pins it with FORCED_WAVE_SIZE. Without that pin the
-// shader declares WaveSize(4, 64), the driver picks whatever it likes, and the
+// shader declares WaveSize(4, 128), the driver picks whatever it likes, and the
 // query answers a question the test never asks.
 //
 // Uses lists every matrix role the case constructs. A wave size only qualifies
@@ -277,8 +277,9 @@ queryMatrixConstructionSupport(ID3D12Device *Device, const MatrixParams &Params,
     return S_OK;
   }
 
-  for (UINT WaveSize = 4; WaveSize <= 64; WaveSize *= 2) {
-    if (WaveSize < MinWaveSize || WaveSize > MaxWaveSize)
+  for (UINT WaveSize = 4; WaveSize <= 128; WaveSize *= 2) {
+    if (WaveSize < MinWaveSize || WaveSize > MaxWaveSize ||
+        WaveSize > static_cast<UINT>(Params.NumThreads))
       continue;
 
     bool AllRolesSupported = true;
@@ -437,8 +438,9 @@ static HRESULT queryWaveMatMulSupport(ID3D12Device *Device,
     return S_OK;
   }
 
-  for (UINT WaveSize = 4; WaveSize <= 64; WaveSize *= 2) {
-    if (WaveSize < MinWaveSize || WaveSize > MaxWaveSize)
+  for (UINT WaveSize = 4; WaveSize <= 128; WaveSize *= 2) {
+    if (WaveSize < MinWaveSize || WaveSize > MaxWaveSize ||
+        WaveSize > static_cast<UINT>(Params.NumThreads))
       continue;
 
     bool ConstructionSupported = true;
@@ -1837,7 +1839,7 @@ static const char LoadStoreDescriptorShader[] = R"(
   #ifdef FORCED_WAVE_SIZE
   [WaveSize(FORCED_WAVE_SIZE)]
   #else
-  [WaveSize(4, 64)]
+  [WaveSize(4, 128)]
   #endif
   [numthreads(NUMTHREADS, 1, 1)]
   void main() {
@@ -1907,7 +1909,7 @@ void DxilConf_SM610_LinAlg::LoadStoreDescriptor_Wave_16x16_F16() {
   Params.Use = MatrixUse::A;
   Params.Scope = MatrixScope::Wave;
   Params.Layout = MatrixLayout::RowMajor;
-  Params.NumThreads = 64;
+  Params.NumThreads = 128;
   Params.Enable16Bit = true;
 
   UINT SelectedWaveSize = 0;
@@ -1926,7 +1928,7 @@ static const char SplatStoreShader[] = R"(
   #ifdef FORCED_WAVE_SIZE
   [WaveSize(FORCED_WAVE_SIZE)]
   #else
-  [WaveSize(4, 64)]
+  [WaveSize(4, 128)]
   #endif
   [numthreads(NUMTHREADS, 1, 1)]
   void main() {
@@ -1984,7 +1986,7 @@ void DxilConf_SM610_LinAlg::SplatStore_Wave_16x16_F16() {
   Params.Use = MatrixUse::Accumulator;
   Params.Scope = MatrixScope::Wave;
   Params.Layout = MatrixLayout::RowMajor;
-  Params.NumThreads = 64;
+  Params.NumThreads = 128;
   Params.Enable16Bit = true;
 
   UINT SelectedWaveSize = 0;
@@ -2006,7 +2008,7 @@ static const char AccumulateDescriptorShader[] = R"(
   #ifdef FORCED_WAVE_SIZE
   [WaveSize(FORCED_WAVE_SIZE)]
   #else
-  [WaveSize(4, 64)]
+  [WaveSize(4, 128)]
   #endif
   [numthreads(NUMTHREADS, 1, 1)]
   void main() {
@@ -2076,7 +2078,7 @@ void DxilConf_SM610_LinAlg::AccumulateDescriptor_Wave_16x16_F16() {
   Params.Use = MatrixUse::Accumulator;
   Params.Scope = MatrixScope::Wave;
   Params.Layout = MatrixLayout::RowMajor;
-  Params.NumThreads = 64;
+  Params.NumThreads = 128;
   Params.Enable16Bit = true;
 
   UINT SelectedWaveSize = 0;
@@ -2114,7 +2116,7 @@ static const char ElementAccessShader[] = R"(
   #ifdef FORCED_WAVE_SIZE
   [WaveSize(FORCED_WAVE_SIZE)]
   #else
-  [WaveSize(4, 64)]
+  [WaveSize(4, 128)]
   #endif
   [numthreads(NUMTHREADS, 1, 1)]
   void main(uint threadID : SV_GroupIndex) {
@@ -2206,7 +2208,7 @@ void DxilConf_SM610_LinAlg::ElementAccess_Wave_16x16_F16() {
   Params.Use = MatrixUse::Accumulator;
   Params.Scope = MatrixScope::Wave;
   Params.Layout = MatrixLayout::RowMajor;
-  Params.NumThreads = 64;
+  Params.NumThreads = 128;
   Params.Enable16Bit = true;
 
   UINT SelectedWaveSize = 0;
@@ -2227,7 +2229,7 @@ void DxilConf_SM610_LinAlg::ElementAccess_Wave_4x8_F32() {
   Params.Use = MatrixUse::Accumulator;
   Params.Scope = MatrixScope::Wave;
   Params.Layout = MatrixLayout::RowMajor;
-  Params.NumThreads = 64;
+  Params.NumThreads = 128;
   Params.Enable16Bit = false;
 
   UINT SelectedWaveSize = 0;
@@ -2250,7 +2252,7 @@ static const char ElementSetShader[] = R"(
   #ifdef FORCED_WAVE_SIZE
   [WaveSize(FORCED_WAVE_SIZE)]
   #else
-  [WaveSize(4, 64)]
+  [WaveSize(4, 128)]
   #endif
   [numthreads(NUMTHREADS, 1, 1)]
   void main() {
@@ -2325,7 +2327,7 @@ void DxilConf_SM610_LinAlg::ElementSet_Wave_16x16_F16() {
   Params.Use = MatrixUse::Accumulator;
   Params.Scope = MatrixScope::Wave;
   Params.Layout = MatrixLayout::RowMajor;
-  Params.NumThreads = 64;
+  Params.NumThreads = 128;
   Params.Enable16Bit = true;
 
   UINT SelectedWaveSize = 0;
@@ -2367,7 +2369,7 @@ static const char ElementGetOOBShader[] = R"(
   #ifdef FORCED_WAVE_SIZE
   [WaveSize(FORCED_WAVE_SIZE)]
   #else
-  [WaveSize(4, 64)]
+  [WaveSize(4, 128)]
   #endif
   [numthreads(NUMTHREADS, 1, 1)]
   void main(uint threadID : SV_GroupIndex) {
@@ -2508,7 +2510,7 @@ void DxilConf_SM610_LinAlg::ElementGetOOB_Wave_4x8_F32() {
   Params.Use = MatrixUse::Accumulator;
   Params.Scope = MatrixScope::Wave;
   Params.Layout = MatrixLayout::RowMajor;
-  Params.NumThreads = 64;
+  Params.NumThreads = 128;
   Params.Enable16Bit = false;
 
   UINT SelectedWaveSize = 0;
@@ -2528,7 +2530,7 @@ static const char ElementSetOOBShader[] = R"(
   #ifdef FORCED_WAVE_SIZE
   [WaveSize(FORCED_WAVE_SIZE)]
   #else
-  [WaveSize(4, 64)]
+  [WaveSize(4, 128)]
   #endif
   [numthreads(NUMTHREADS, 1, 1)]
   void main(uint threadID : SV_GroupIndex) {
@@ -2625,7 +2627,7 @@ void DxilConf_SM610_LinAlg::ElementSetOOB_Wave_4x8_F32() {
   Params.Use = MatrixUse::Accumulator;
   Params.Scope = MatrixScope::Wave;
   Params.Layout = MatrixLayout::RowMajor;
-  Params.NumThreads = 64;
+  Params.NumThreads = 128;
   Params.Enable16Bit = false;
 
   UINT SelectedWaveSize = 0;
@@ -2645,7 +2647,7 @@ static const char CopyConvertShader[] = R"(
   #ifdef FORCED_WAVE_SIZE
   [WaveSize(FORCED_WAVE_SIZE)]
   #else
-  [WaveSize(4, 64)]
+  [WaveSize(4, 128)]
   #endif
   [numthreads(NUMTHREADS, 1, 1)]
   void main() {
@@ -2707,8 +2709,9 @@ static HRESULT queryCopyConvertSupport(ID3D12Device *Device,
     Destination.N = Params.M;
   }
 
-  for (UINT WaveSize = 4; WaveSize <= 64; WaveSize *= 2) {
-    if (WaveSize < MinWaveSize || WaveSize > MaxWaveSize)
+  for (UINT WaveSize = 4; WaveSize <= 128; WaveSize *= 2) {
+    if (WaveSize < MinWaveSize || WaveSize > MaxWaveSize ||
+        WaveSize > static_cast<UINT>(Params.NumThreads))
       continue;
 
     bool SourceSupported = false;
@@ -2845,7 +2848,7 @@ void DxilConf_SM610_LinAlg::CopyConvert_Wave_16x16_F16() {
   Params.Use = MatrixUse::A;
   Params.Scope = MatrixScope::Wave;
   Params.Layout = MatrixLayout::RowMajor;
-  Params.NumThreads = 64;
+  Params.NumThreads = 128;
   Params.Enable16Bit = true;
 
   UINT SelectedWaveSize = 0;
@@ -2865,7 +2868,7 @@ void DxilConf_SM610_LinAlg::CopyConvert_Wave_16x16_F16_Transpose() {
   Params.Use = MatrixUse::A;
   Params.Scope = MatrixScope::Wave;
   Params.Layout = MatrixLayout::RowMajor;
-  Params.NumThreads = 64;
+  Params.NumThreads = 128;
   Params.Enable16Bit = true;
 
   UINT SelectedWaveSize = 0;
@@ -2886,7 +2889,7 @@ void DxilConf_SM610_LinAlg::CopyConvert_Wave_4x8_F32_Transpose() {
   Params.Use = MatrixUse::A;
   Params.Scope = MatrixScope::Wave;
   Params.Layout = MatrixLayout::RowMajor;
-  Params.NumThreads = 64;
+  Params.NumThreads = 128;
   Params.Enable16Bit = false;
 
   bool Supported;
@@ -2917,7 +2920,7 @@ static const char MatMatMulShader[] = R"(
   #ifdef FORCED_WAVE_SIZE
   [WaveSize(FORCED_WAVE_SIZE)]
   #else
-  [WaveSize(4, 64)]
+  [WaveSize(4, 128)]
   #endif
   [numthreads(NUMTHREADS, 1, 1)]
   void main() {
@@ -2987,7 +2990,7 @@ void DxilConf_SM610_LinAlg::MatMatMul_Wave_16x16x16_F16() {
   Params.N = 16;
   Params.Scope = MatrixScope::Wave;
   Params.Layout = MatrixLayout::RowMajor;
-  Params.NumThreads = 64;
+  Params.NumThreads = 128;
   Params.Enable16Bit = true;
 
   UINT SelectedWaveSize = 0;
@@ -3009,7 +3012,7 @@ static const char MatMatMulAccumShader[] = R"(
   #ifdef FORCED_WAVE_SIZE
   [WaveSize(FORCED_WAVE_SIZE)]
   #else
-  [WaveSize(4, 64)]
+  [WaveSize(4, 128)]
   #endif
   [numthreads(NUMTHREADS, 1, 1)]
   void main() {
@@ -3084,7 +3087,7 @@ void DxilConf_SM610_LinAlg::MatMatMulAccum_Wave_16x16x16_F16() {
   Params.N = 16;
   Params.Scope = MatrixScope::Wave;
   Params.Layout = MatrixLayout::RowMajor;
-  Params.NumThreads = 64;
+  Params.NumThreads = 128;
   Params.Enable16Bit = true;
 
   UINT SelectedWaveSize = 0;
@@ -3107,7 +3110,7 @@ static const char MatAccumShader[] = R"(
   #ifdef FORCED_WAVE_SIZE
   [WaveSize(FORCED_WAVE_SIZE)]
   #else
-  [WaveSize(4, 64)]
+  [WaveSize(4, 128)]
   #endif
   [numthreads(NUMTHREADS, 1, 1)]
   void main() {
@@ -3172,7 +3175,7 @@ void DxilConf_SM610_LinAlg::MatAccum_Wave_16x16_F16() {
   Params.N = 16;
   Params.Scope = MatrixScope::Wave;
   Params.Layout = MatrixLayout::RowMajor;
-  Params.NumThreads = 64;
+  Params.NumThreads = 128;
   Params.Enable16Bit = true;
 
   // MatAccum builds both an accumulator and an A matrix, and the two roles pin
@@ -3725,7 +3728,7 @@ static const char LoadMemoryShader[] = R"(
   #ifdef FORCED_WAVE_SIZE
   [WaveSize(FORCED_WAVE_SIZE)]
   #else
-  [WaveSize(4, 64)]
+  [WaveSize(4, 128)]
   #endif
   [numthreads(NUMTHREADS, 1, 1)]
   void main(uint threadID : SV_GroupIndex) {
@@ -3799,7 +3802,7 @@ void DxilConf_SM610_LinAlg::LoadMemory_Wave_16x16_F16() {
   Params.Use = MatrixUse::A;
   Params.Scope = MatrixScope::Wave;
   Params.Layout = MatrixLayout::RowMajor;
-  Params.NumThreads = 64;
+  Params.NumThreads = 128;
   Params.Enable16Bit = true;
 
   UINT SelectedWaveSize = 0;
@@ -3819,7 +3822,7 @@ static const char StoreMemoryShader[] = R"(
   #ifdef FORCED_WAVE_SIZE
   [WaveSize(FORCED_WAVE_SIZE)]
   #else
-  [WaveSize(4, 64)]
+  [WaveSize(4, 128)]
   #endif
   [numthreads(NUMTHREADS, 1, 1)]
   void main() {
@@ -3883,7 +3886,7 @@ void DxilConf_SM610_LinAlg::StoreMemory_Wave_16x16_F16() {
   Params.Use = MatrixUse::A;
   Params.Scope = MatrixScope::Wave;
   Params.Layout = MatrixLayout::RowMajor;
-  Params.NumThreads = 64;
+  Params.NumThreads = 128;
   Params.Enable16Bit = true;
 
   UINT SelectedWaveSize = 0;
@@ -3905,7 +3908,7 @@ static const char AccumulateMemoryShader[] = R"(
   #ifdef FORCED_WAVE_SIZE
   [WaveSize(FORCED_WAVE_SIZE)]
   #else
-  [WaveSize(4, 64)]
+  [WaveSize(4, 128)]
   #endif
   [numthreads(NUMTHREADS, 1, 1)]
   void main(uint threadID : SV_GroupIndex) {
@@ -3977,7 +3980,7 @@ void DxilConf_SM610_LinAlg::AccumulateMemory_Wave_16x16_F16() {
   Params.Use = MatrixUse::Accumulator;
   Params.Scope = MatrixScope::Wave;
   Params.Layout = MatrixLayout::RowMajor;
-  Params.NumThreads = 64;
+  Params.NumThreads = 128;
   Params.Enable16Bit = true;
 
   UINT SelectedWaveSize = 0;
