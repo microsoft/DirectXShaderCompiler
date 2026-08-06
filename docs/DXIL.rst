@@ -3211,6 +3211,7 @@ INSTR.IMMBIASFORSAMPLEB                               bias amount for sample_b m
 INSTR.INBOUNDSACCESS                                  Access to out-of-bounds memory is disallowed.
 INSTR.LINALGILLEGALCOMPONENTTYPE                      Component Type '%0' not allowed in LinAlg Matrix.
 INSTR.LINALGILLEGALKDIM                               Matrix K Dimension out of bounds. K=%0 must be >= %1 and <= %2.
+INSTR.LINALGMATRIXDIMKVECKMISMATCH                    %0 vector size '%1' must be %2 for matrix with K '%3' and Type '%4'
 INSTR.LINALGMATRIXDIMMISMATCH                         Matrix Dimension '%0x%1' does not match expected dimension %2x%3.
 INSTR.LINALGMATRIXDIMVECTORMISMATCH                   %0 vector size '%1' must match matrix %2 dimension '%3'
 INSTR.LINALGMATRIXLAYOUTREQSTRIDE                     Matrix layout '%0' requires stride 0.

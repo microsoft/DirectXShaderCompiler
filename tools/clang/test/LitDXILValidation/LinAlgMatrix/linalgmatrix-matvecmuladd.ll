@@ -36,13 +36,13 @@ define void @main() {
   %11 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %1, %dx.types.ResourceProperties { i32 11, i32 0 })  ; AnnotateHandle(res,props)  resource: ByteAddressBuffer
   %12 = call %dx.types.LinAlgMatrixC9M4N8U0S0 @dx.op.linAlgMatrixLoadFromDescriptor.mC9M4N8U0S0(i32 -2147483634, %dx.types.Handle %11, i32 0, i32 0, i32 0, i32 0)  ; LinAlgMatrixLoadFromDescriptor(handle,offset,stride,layout,align)
 
-  ; CHECK-NEXT: Function: main: error: Input vector size '4' must match matrix K dimension '8'
+  ; CHECK-NEXT: Function: main: error: Input vector size '4' must be 8 for matrix with K '8' and Type 'F32'
   ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatVecMulAdd.v4f32.mC9M4N8U0S0.v4f32.v4f32
   %13 = call <4 x float> @dx.op.linAlgMatVecMulAdd.v4f32.mC9M4N8U0S0.v4f32.v4f32(i32 -2147483622, %dx.types.LinAlgMatrixC9M4N8U0S0 %12, i1 true, <4 x float> <float 1.000000e+00, float 2.000000e+00, float 3.000000e+00, float 4.000000e+00>, i32 9, <4 x float> <float 4.000000e+00, float 3.000000e+00, float 2.000000e+00, float 1.000000e+00>)  ; LinAlgMatVecMulAdd(matrix,isOutputSigned,inputVector,inputInterpretation,biasVector)
   %14 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %1, %dx.types.ResourceProperties { i32 11, i32 0 })  ; AnnotateHandle(res,props)  resource: ByteAddressBuffer
   %15 = call %dx.types.LinAlgMatrixC21M4N8U0S0 @dx.op.linAlgMatrixLoadFromDescriptor.mC21M4N8U0S0(i32 -2147483634, %dx.types.Handle %14, i32 0, i32 0, i32 0, i32 0)  ; LinAlgMatrixLoadFromDescriptor(handle,offset,stride,layout,align)
 
-  ; CHECK-NEXT: Function: main: error: Input vector size '8' must match matrix K dimension '2'
+  ; CHECK-NEXT: Function: main: error: Input vector size '8' must be 2 for matrix with K '8' and Type 'F8_E4M3FN'
   ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatVecMulAdd.v4f32.mC21M4N8U0S0.v8f32.v4f32
   %16 = call <4 x float> @dx.op.linAlgMatVecMulAdd.v4f32.mC21M4N8U0S0.v8f32.v4f32(i32 -2147483622, %dx.types.LinAlgMatrixC21M4N8U0S0 %15, i1 true, <8 x float> <float 1.000000e+00, float 2.000000e+00, float 3.000000e+00, float 4.000000e+00, float 5.000000e+00, float 6.000000e+00, float 7.000000e+00, float 8.000000e+00>, i32 21, <4 x float> <float 4.000000e+00, float 3.000000e+00, float 2.000000e+00, float 1.000000e+00>)  ; LinAlgMatVecMulAdd(matrix,isOutputSigned,inputVector,inputInterpretation,biasVector)
 

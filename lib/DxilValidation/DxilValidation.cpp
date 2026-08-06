@@ -1034,6 +1034,15 @@ static unsigned ComponentTypeElementsPerScalar(DXIL::ComponentType CT) {
   case DXIL::ComponentType::F32:
   case DXIL::ComponentType::F64:
     return 1;
+  case DXIL::ComponentType::BFloat16:
+    return 2;
+  case DXIL::ComponentType::I8:
+  case DXIL::ComponentType::U8:
+  case DXIL::ComponentType::F8_E4M3FN:
+  case DXIL::ComponentType::F8_E5M2:
+    return 4;
+  // All other ComponentTypes are illegal to use in LinAlg Matrix. Their usage
+  // is detected and reported in other parts on the validator
   default:
     return 4;
   }
@@ -1135,17 +1144,20 @@ static void ValidateLinAlgMatVecMul(CallInst *CI, ValidationContext &ValCtx,
     ValCtx.EmitInstrFormatError(CI, ValidationRule::InstrOpConst,
                                 {"InputInterp", OpName});
 
-  // InputVec length must match K dim
-  // K is always N since Use is always A however when the element is packed
-  // the size of the vector needed to hold the contents is smaller
+  // InputVec's length must match the K dim of input matrix after accounting
+  // for multiple elements packed into a single scalar. The packed elements may
+  // not fully saturate the final vector element but it must still be included.
+  // K is always the N of the matrix since its ensured to be an A Matrix.
   unsigned ElementsPerScalar = ComponentTypeElementsPerScalar(Interp);
-  unsigned K = (MatLATT.N + ElementsPerScalar - 1) / ElementsPerScalar;
+  unsigned ExpectedVecK =
+      (MatLATT.N + ElementsPerScalar - 1) / ElementsPerScalar;
 
-  if (K != InputVecTy->getNumElements())
+  if (ExpectedVecK != InputVecTy->getNumElements())
     ValCtx.EmitInstrFormatError(
-        CI, ValidationRule::InstrLinAlgMatrixDimVectorMismatch,
-        {"Input", std::to_string(InputVecTy->getNumElements()), "K",
-         std::to_string(K)});
+        CI, ValidationRule::InstrLinAlgMatrixDimKVecKMismatch,
+        {"Input", std::to_string(InputVecTy->getNumElements()),
+         std::to_string(ExpectedVecK), std::to_string(MatLATT.N),
+         ComponentTypeToString(Interp)});
 
   // OutputVec length must match M dim
   if (MatLATT.M != OutputVecTy->getNumElements())
