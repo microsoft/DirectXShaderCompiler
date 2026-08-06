@@ -8642,7 +8642,7 @@ class db_dxil(object):
         )
         self.add_valrule(
             "Instr.LinAlgIllegalComponentType",
-            "Matrix Component Type '%0' not allowed in LinAlg Matrix.",
+            "Component Type '%0' not allowed in LinAlg Matrix.",
         )
         self.add_valrule(
             "Instr.LinAlgMatrixScopeNotAllowed",
@@ -8675,6 +8675,22 @@ class db_dxil(object):
         self.add_valrule(
             "Instr.LinAlgMatrixLayoutReqStride",
             "Matrix layout '%0' requires stride 0.",
+        )
+        self.add_valrule(
+            "Instr.LinAlgMatrixDimVectorMismatch",
+            "%0 vector size '%1' must match matrix %2 dimension '%3'",
+        )
+        self.add_valrule(
+            "Instr.LinAlgMatrixDimKVecKMismatch",
+            "%0 vector size '%1' must be %2 for matrix with K '%3' and Type '%4'",
+        )
+        self.add_valrule(
+            "Instr.LinAlgMatrixOutputBiasVecMismatch",
+            "Output vector element type '%0' must match Bias vector element type '%1'",
+        )
+        self.add_valrule(
+            "Instr.LinAlgMatrixUnsignedFloatTypeNotAllowed",
+            "Float-like type '%0' must be signed",
         )
 
         # Some legacy rules:

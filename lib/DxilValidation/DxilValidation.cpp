@@ -35,6 +35,7 @@
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/Bitcode/ReaderWriter.h"
 #include "llvm/IR/Constants.h"
+#include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/DiagnosticInfo.h"
 #include "llvm/IR/DiagnosticPrinter.h"
 #include "llvm/IR/Dominators.h"
@@ -995,6 +996,58 @@ static void ValidateLinAlgOpParameters(CallInst *CI,
   }
 }
 
+static void ValidateLinAlgComponentType(CallInst *CI, DXIL::ComponentType CT,
+                                        ValidationContext &ValCtx) {
+  switch (CT) {
+  case DXIL::ComponentType::I8:
+  case DXIL::ComponentType::I16:
+  case DXIL::ComponentType::I32:
+  case DXIL::ComponentType::I64:
+  case DXIL::ComponentType::U8:
+  case DXIL::ComponentType::U16:
+  case DXIL::ComponentType::U32:
+  case DXIL::ComponentType::U64:
+  case DXIL::ComponentType::F8_E4M3FN:
+  case DXIL::ComponentType::F8_E5M2:
+  case DXIL::ComponentType::F16:
+  case DXIL::ComponentType::F32:
+  case DXIL::ComponentType::F64:
+  case DXIL::ComponentType::BFloat16:
+    break;
+  default:
+    ValCtx.EmitInstrFormatError(CI,
+                                ValidationRule::InstrLinAlgIllegalComponentType,
+                                {ComponentTypeToString(CT)});
+    break;
+  }
+}
+
+static unsigned ComponentTypeElementsPerScalar(DXIL::ComponentType CT) {
+  switch (CT) {
+  case DXIL::ComponentType::I16:
+  case DXIL::ComponentType::I32:
+  case DXIL::ComponentType::I64:
+  case DXIL::ComponentType::U16:
+  case DXIL::ComponentType::U32:
+  case DXIL::ComponentType::U64:
+  case DXIL::ComponentType::F16:
+  case DXIL::ComponentType::F32:
+  case DXIL::ComponentType::F64:
+    return 1;
+  case DXIL::ComponentType::BFloat16:
+    return 2;
+  case DXIL::ComponentType::I8:
+  case DXIL::ComponentType::U8:
+  case DXIL::ComponentType::F8_E4M3FN:
+  case DXIL::ComponentType::F8_E5M2:
+    return 4;
+  // All other ComponentTypes are illegal to use in LinAlg Matrix. Their usage
+  // is detected and reported in other parts on the validator
+  default:
+    return 4;
+  }
+}
+
 static void ValidateLinAlgOpReturnMatrix(CallInst *CI,
                                          ValidationContext &ValCtx) {
   Type *Ty = CI->getType();
@@ -1025,29 +1078,7 @@ static void ValidateLinAlgOpReturnMatrix(CallInst *CI,
           {std::to_string(K), std::to_string(MinK), std::to_string(MaxK)});
   }
 
-  // Validate the ComponentType is allowed
-  switch (LATT.Type) {
-  case DXIL::ComponentType::I8:
-  case DXIL::ComponentType::I16:
-  case DXIL::ComponentType::I32:
-  case DXIL::ComponentType::I64:
-  case DXIL::ComponentType::U8:
-  case DXIL::ComponentType::U16:
-  case DXIL::ComponentType::U32:
-  case DXIL::ComponentType::U64:
-  case DXIL::ComponentType::F8_E4M3FN:
-  case DXIL::ComponentType::F8_E5M2:
-  case DXIL::ComponentType::F16:
-  case DXIL::ComponentType::F32:
-  case DXIL::ComponentType::F64:
-  case DXIL::ComponentType::BFloat16:
-    break;
-  default:
-    ValCtx.EmitInstrFormatError(CI,
-                                ValidationRule::InstrLinAlgIllegalComponentType,
-                                {ComponentTypeToString(LATT.Type)});
-    break;
-  }
+  ValidateLinAlgComponentType(CI, LATT.Type, ValCtx);
 }
 
 static void ValidateLinAlgMatrixLength(CallInst *CI,
@@ -1075,13 +1106,107 @@ static void ValidateLinAlgMatrixStoreToMemory(CallInst *CI,
   ValidateLinAlgOpParameters(CI, ValCtx);
 }
 
-static void ValidateLinAlgMatVecMul(CallInst *CI, ValidationContext &ValCtx) {
+static void ValidateLinAlgMatVecMul(CallInst *CI, ValidationContext &ValCtx,
+                                    const char *OpName = "LinAlgMatVecMul") {
   ValidateLinAlgOpParameters(CI, ValCtx);
+
+  DxilInst_LinAlgMatVecMul Op(CI);
+
+  VectorType *OutputVecTy = cast<VectorType>(CI->getType());
+  Type *MatTy = Op.get_matrix()->getType();
+  ConstantInt *IsSignedCI = dyn_cast<ConstantInt>(Op.get_isOutputSigned());
+  VectorType *InputVecTy = cast<VectorType>(Op.get_inputVector()->getType());
+  ConstantInt *InputInterpCI = dyn_cast<ConstantInt>(Op.get_interpretation());
+
+  assert(dxilutil::IsHLSLLinAlgMatrixType(MatTy) && "Must be LinAlg type");
+
+  auto MatIt = ValCtx.LinAlgTargetTypeMap.find(MatTy);
+  if (MatIt == ValCtx.LinAlgTargetTypeMap.end())
+    return;
+  LinAlgTargetType MatLATT = MatIt->second;
+
+  // Mat must be A matrix of Thread scope
+  if (MatLATT.Scope != DXIL::MatrixScope::Thread)
+    ValCtx.EmitInstrFormatError(CI,
+                                ValidationRule::InstrLinAlgMatrixScopeMismatch,
+                                {MatrixScopeToString(MatLATT.Scope), "Thread"});
+  if (MatLATT.Use != DXIL::MatrixUse::A)
+    ValCtx.EmitInstrFormatError(CI,
+                                ValidationRule::InstrLinAlgMatrixUseMismatch,
+                                {MatrixUseToString(MatLATT.Use), "A"});
+
+  // Input Interp must be a immarg of allowed ComponentType
+  DXIL::ComponentType Interp = DXIL::ComponentType::Invalid;
+  if (InputInterpCI) {
+    Interp = static_cast<DXIL::ComponentType>(InputInterpCI->getLimitedValue());
+    ValidateLinAlgComponentType(CI, Interp, ValCtx);
+  } else
+    ValCtx.EmitInstrFormatError(CI, ValidationRule::InstrOpConst,
+                                {"InputInterp", OpName});
+
+  // InputVec's length must match the K dim of input matrix after accounting
+  // for multiple elements packed into a single scalar. The packed elements may
+  // not fully saturate the final vector element but it must still be included.
+  // K is always the N of the matrix since its ensured to be an A Matrix.
+  unsigned ElementsPerScalar = ComponentTypeElementsPerScalar(Interp);
+  unsigned ExpectedVecK =
+      (MatLATT.N + ElementsPerScalar - 1) / ElementsPerScalar;
+
+  if (ExpectedVecK != InputVecTy->getNumElements())
+    ValCtx.EmitInstrFormatError(
+        CI, ValidationRule::InstrLinAlgMatrixDimKVecKMismatch,
+        {"Input", std::to_string(InputVecTy->getNumElements()),
+         std::to_string(ExpectedVecK), std::to_string(MatLATT.N),
+         ComponentTypeToString(Interp)});
+
+  // OutputVec length must match M dim
+  if (MatLATT.M != OutputVecTy->getNumElements())
+    ValCtx.EmitInstrFormatError(
+        CI, ValidationRule::InstrLinAlgMatrixDimVectorMismatch,
+        {"Output", std::to_string(OutputVecTy->getNumElements()), "M",
+         std::to_string(MatLATT.M)});
+
+  // Sign bit must be immarg and must be true if output vec is a
+  // native floating point type
+  if (IsSignedCI) {
+    bool IsSigned = IsSignedCI->isOne();
+    if (OutputVecTy->getElementType()->isFloatingPointTy() && !IsSigned)
+      ValCtx.EmitInstrFormatError(
+          CI, ValidationRule::InstrLinAlgMatrixUnsignedFloatTypeNotAllowed,
+          {TypeToString(OutputVecTy->getElementType())});
+  } else
+    ValCtx.EmitInstrFormatError(CI, ValidationRule::InstrOpConst,
+                                {"IsSigned", OpName});
 }
 
 static void ValidateLinAlgMatVecMulAdd(CallInst *CI,
                                        ValidationContext &ValCtx) {
-  ValidateLinAlgOpParameters(CI, ValCtx);
+  // All the rules from LinAlgMatVecMul apply
+  ValidateLinAlgMatVecMul(CI, ValCtx, "LinAlgMatVecMulAdd");
+
+  DxilInst_LinAlgMatVecMulAdd Op(CI);
+
+  VectorType *OutputVecTy = cast<VectorType>(CI->getType());
+  Type *MatTy = Op.get_matrix()->getType();
+  auto MatIt = ValCtx.LinAlgTargetTypeMap.find(MatTy);
+  if (MatIt == ValCtx.LinAlgTargetTypeMap.end())
+    return;
+  LinAlgTargetType MatLATT = MatIt->second;
+  VectorType *BiasVecTy = cast<VectorType>(Op.get_biasVector()->getType());
+
+  // BiasVec length must match M dim
+  if (MatLATT.M != BiasVecTy->getNumElements())
+    ValCtx.EmitInstrFormatError(
+        CI, ValidationRule::InstrLinAlgMatrixDimVectorMismatch,
+        {"Bias", std::to_string(BiasVecTy->getNumElements()), "M",
+         std::to_string(MatLATT.M)});
+
+  // Bias element type must match output element type
+  if (BiasVecTy->getElementType() != OutputVecTy->getElementType())
+    ValCtx.EmitInstrFormatError(
+        CI, ValidationRule::InstrLinAlgMatrixOutputBiasVecMismatch,
+        {TypeToString(OutputVecTy->getElementType()),
+         TypeToString(BiasVecTy->getElementType())});
 }
 
 static void

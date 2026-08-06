@@ -15,7 +15,7 @@ define void @main() {
   %1 = call %dx.types.Handle @dx.op.createHandleFromBinding(i32 217, %dx.types.ResBind { i32 0, i32 0, i32 0, i8 1 }, i32 0, i1 false)  ; CreateHandleFromBinding(bind,index,nonUniformIndex)
   %h1 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %1, %dx.types.ResourceProperties { i32 4107, i32 0 })  ; AnnotateHandle(res,props)  resource: RWByteAddressBuffer
 
-  ; CHECK: Function: main: error: Matrix Component Type 'Invalid' not allowed in LinAlg Matrix.
+  ; CHECK: Function: main: error: Component Type 'Invalid' not allowed in LinAlg Matrix.
   ; CHECK-NEXT: note: at '%mC0M128N128U0S0
   ; Matrix<Invalid, 128, 128, A, Thread>
   %mC0M128N128U0S0 = call %dx.types.LinAlgMatrixC0M128N128U0S0 @dx.op.linAlgMatrixLoadFromDescriptor.mC0M128N128U0S0(i32 -2147483634, %dx.types.Handle %h1, i32 0, i32 0, i32 0, i32 0)
