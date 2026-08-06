@@ -154,16 +154,22 @@ static bool applyApplicability(linalg_test::Applicability Result,
 //   Accumulator  MxN    M=Rows, N=Cols  K
 //
 // The runtime accepts a shape when every extent is a positive multiple of a
-// native tile, so probe the power-of-two extents that native tiles are built
-// from and accept the tile if any probe matches. Missing an extent skips a
-// test case; it can never report an unsupported tile as supported.
-static constexpr UINT FreeExtentProbes[] = {4, 8, 16, 32, 64, 128};
+// native tile, so the free extent must be swept until one is accepted. Missing
+// an extent silently skips a test case, which is the dangerous direction, so
+// the sweep is exhaustive rather than a sampled set: native tile extents are
+// not required to be powers of two, and the specification's own example cites
+// an 8x32x16 tile. Wave-Scope Matrix Dimensions guarantees at least one
+// reported shape whose largest component is <= 16 for types of 16 bits or
+// larger (<= 256 bits for smaller types), so a sweep to 128 is certain to
+// reach a native extent whenever the device supports the type at all. Each
+// probe is a CheckFeatureSupport call with no GPU work, so the sweep is cheap.
+static constexpr UINT MaxFreeExtentProbe = 128;
 
 static HRESULT supportsMatrixShape(
     ID3D12Device *Device, linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE Type,
     UINT WaveSize, MatrixUse Use, UINT Rows, UINT Columns, bool &Supported) {
   Supported = false;
-  for (UINT FreeExtent : FreeExtentProbes) {
+  for (UINT FreeExtent = 1; FreeExtent <= MaxFreeExtentProbe; ++FreeExtent) {
     linalg_abi::D3D12_LINEAR_ALGEBRA_MATRIX_SHAPE Shape;
     switch (Use) {
     case MatrixUse::A:
@@ -2342,8 +2348,17 @@ static constexpr UINT FarOOBOffset = 64;
 static constexpr UINT OOBRecordSize = 16;
 
 // Seeds every output byte so a lane that never writes cannot be mistaken for a
-// lane that correctly wrote the specified zero.
+// lane that correctly wrote the specified zero. The output buffer must be
+// created "byname" for this to run at all: ShaderOpTest only invokes the
+// initializer callback for that mode, and the default "zero" mode would leave
+// the buffer holding exactly the value the out-of-bounds read is required to
+// produce, making the comparison vacuous.
 static constexpr BYTE OOBSentinelByte = 0xCD;
+
+// Seeds the shader's destination locals. Distinct from zero, so a read that is
+// dropped rather than performed cannot masquerade as a correct out-of-bounds
+// result, and exactly representable in F32.
+static constexpr int OOBGetPoisonValue = 999;
 
 static const char ElementGetOOBShader[] = R"(
   RWByteAddressBuffer Input : register(u0);
@@ -2367,9 +2382,11 @@ static const char ElementGetOOBShader[] = R"(
 
     uint Len = __builtin_LinAlg_MatrixLength(Mat);
 
-    ELEM_TYPE Just;
+    // Seeded so that a dropped read leaves a value distinguishable from the
+    // zero a correct out-of-bounds read must produce.
+    ELEM_TYPE Just = (ELEM_TYPE)POISON_VALUE;
     __builtin_LinAlg_MatrixGetElement(Just, Mat, Len);
-    ELEM_TYPE Far;
+    ELEM_TYPE Far = (ELEM_TYPE)POISON_VALUE;
     __builtin_LinAlg_MatrixGetElement(Far, Mat, Len + FAR_OOB_OFFSET);
 
     // Record unconditionally so the runner can tell that this lane ran.
@@ -2427,6 +2444,7 @@ static void runElementGetOOB(ID3D12Device *Device,
   std::stringstream ExtraDefs;
   ExtraDefs << " -DFAR_OOB_OFFSET=" << FarOOBOffset;
   ExtraDefs << " -DOOB_RECORD_SIZE=" << OOBRecordSize;
+  ExtraDefs << " -DPOISON_VALUE=" << OOBGetPoisonValue;
   if (ForcedWaveSize != 0)
     ExtraDefs << " -DFORCED_WAVE_SIZE=" << ForcedWaveSize;
   std::string Args = buildCompilerArgs(Params, ExtraDefs.str().c_str());
@@ -2436,7 +2454,7 @@ static void runElementGetOOB(ID3D12Device *Device,
   auto Op = createComputeOp(ElementGetOOBShader, "cs_6_10", "UAV(u0), UAV(u1)",
                             Args.c_str());
   addUAVBuffer(Op.get(), "Input", MatrixSize, false, "byname");
-  addUAVBuffer(Op.get(), "Output", OutputBufSize, true);
+  addUAVBuffer(Op.get(), "Output", OutputBufSize, true, "byname");
   addRootView(Op.get(), 0, "Input");
   addRootView(Op.get(), 1, "Output");
 
@@ -2569,7 +2587,7 @@ static void runElementSetOOB(ID3D12Device *Device,
   auto Op = createComputeOp(ElementSetOOBShader, "cs_6_10", "UAV(u0), UAV(u1)",
                             Args.c_str());
   addUAVBuffer(Op.get(), "Input", MatrixSize, false, "byname");
-  addUAVBuffer(Op.get(), "Output", OutputBufSize, true);
+  addUAVBuffer(Op.get(), "Output", OutputBufSize, true, "byname");
   addRootView(Op.get(), 0, "Input");
   addRootView(Op.get(), 1, "Output");
 
