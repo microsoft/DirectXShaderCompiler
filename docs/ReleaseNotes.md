@@ -17,6 +17,12 @@ The included licenses apply to the following files:
 
 ## Changelog
 
+### Version 1.10.2605.2 (preview)
+
+#### Bug Fixes
+- SPIR-V: Fixed invalid `OpSelect` generated when optimizing for SPIR-V 1.3 and earlier [#8603](https://github.com/microsoft/DirectXShaderCompiler/issues/8603)
+- SPIR-V: Fixed duplicate `RelaxedPrecision` decorations on unrolled loops [#8609](https://github.com/microsoft/DirectXShaderCompiler/issues/8609)
+
 ### Version 1.10.2605.1 (preview)
 
 #### Experimental Shader Model 6.10
