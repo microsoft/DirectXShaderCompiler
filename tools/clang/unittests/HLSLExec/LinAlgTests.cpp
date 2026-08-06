@@ -145,6 +145,89 @@ static bool applyApplicability(linalg_test::Applicability Result,
   return false;
 }
 
+// MatrixConstruction is queried with a full {M,K,N} multiply shape, but a
+// single tile only pins two of those extents and leaves the third free:
+//
+//   Use          Tile   Pinned          Free
+//   A            MxK    M=Rows, K=Cols  N
+//   B            KxN    K=Rows, N=Cols  M
+//   Accumulator  MxN    M=Rows, N=Cols  K
+//
+// The runtime accepts a shape when every extent is a positive multiple of a
+// native tile, so probe the power-of-two extents that native tiles are built
+// from and accept the tile if any probe matches. Missing an extent skips a
+// test case; it can never report an unsupported tile as supported.
+static constexpr UINT FreeExtentProbes[] = {4, 8, 16, 32, 64, 128};
+
+static HRESULT supportsMatrixShape(
+    ID3D12Device *Device, linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE Type,
+    UINT WaveSize, MatrixUse Use, UINT Rows, UINT Columns, bool &Supported) {
+  Supported = false;
+  for (UINT FreeExtent : FreeExtentProbes) {
+    linalg_abi::D3D12_LINEAR_ALGEBRA_MATRIX_SHAPE Shape;
+    switch (Use) {
+    case MatrixUse::A:
+      Shape = {Rows, Columns, FreeExtent};
+      break;
+    case MatrixUse::B:
+      Shape = {FreeExtent, Rows, Columns};
+      break;
+    case MatrixUse::Accumulator:
+      Shape = {Rows, FreeExtent, Columns};
+      break;
+    default:
+      return E_INVALIDARG;
+    }
+
+    linalg_test::MatrixConstructionSupport Construction;
+    const HRESULT HR = linalg_test::queryMatrixConstruction(
+        Device, {Type, WaveSize, Shape}, Construction);
+    if (FAILED(HR))
+      return HR;
+    if (Construction.supported()) {
+      Supported = true;
+      return S_OK;
+    }
+  }
+  return S_OK;
+}
+
+// The shaders declare [WaveSize(4, 64)], so a capability query is only
+// meaningful for wave sizes the device can actually launch within that range.
+static HRESULT queryLaunchableWaveSizes(ID3D12Device *Device, UINT &MinWaveSize,
+                                        UINT &MaxWaveSize) {
+  MinWaveSize = 0;
+  MaxWaveSize = 0;
+
+  D3D12_FEATURE_DATA_D3D12_OPTIONS1 WaveOptions = {};
+  const HRESULT HR = Device->CheckFeatureSupport(
+      D3D12_FEATURE_D3D12_OPTIONS1, &WaveOptions, sizeof(WaveOptions));
+  if (FAILED(HR)) {
+    hlsl_test::LogCommentFmt(L"Wave-size capability query failed: 0x%08x", HR);
+    return HR;
+  }
+  if (!WaveOptions.WaveOps)
+    return S_OK;
+
+  const auto IsPowerOfTwo = [](UINT Value) {
+    return Value != 0 && (Value & (Value - 1)) == 0;
+  };
+  if (!IsPowerOfTwo(WaveOptions.WaveLaneCountMin) ||
+      !IsPowerOfTwo(WaveOptions.WaveLaneCountMax) ||
+      WaveOptions.WaveLaneCountMax < WaveOptions.WaveLaneCountMin) {
+    hlsl_test::LogCommentFmt(
+        L"Wave-size capability response is malformed: WaveOps=%u, min=%u, "
+        L"max=%u",
+        WaveOptions.WaveOps, WaveOptions.WaveLaneCountMin,
+        WaveOptions.WaveLaneCountMax);
+    return E_UNEXPECTED;
+  }
+
+  MinWaveSize = WaveOptions.WaveLaneCountMin;
+  MaxWaveSize = WaveOptions.WaveLaneCountMax;
+  return S_OK;
+}
+
 namespace cpu_oracle {
 
 using TypedMatrixValues =
@@ -1397,7 +1480,10 @@ public:
 
   // Element access
   TEST_METHOD(ElementAccess_Wave_16x16_F16);
+  TEST_METHOD(ElementAccess_Wave_4x8_F32);
   TEST_METHOD(ElementSet_Wave_16x16_F16);
+  TEST_METHOD(ElementGetOOB_Wave_4x8_F32);
+  TEST_METHOD(ElementSetOOB_Wave_4x8_F32);
 
   // Cast/Convert
   TEST_METHOD(CopyConvert_Wave_16x16_F16);
@@ -1687,6 +1773,86 @@ void DxilConf_SM610_LinAlg::AccumulateDescriptor_Wave_16x16_F16() {
   runAccumulateDescriptor(D3DDevice, DxcSupport, Params, 12, VerboseLogging);
 }
 
+// Element access constructs a wave-scope matrix and then reads or writes its
+// components, so applicability is exactly MatrixConstruction for the tile the
+// case declares. D3D12LinearAlgebraRuntimeFeatureSupport.md guarantees only
+// that some shape whose largest component is 16 or less is reported for a
+// supported type, and directs applications wanting smaller shapes to query
+// them case by case. Neither Fp32 nor Fp16 matrices are required at Tier 1, so
+// every element-access case is capability gated rather than mandatory.
+static HRESULT queryElementAccessSupport(ID3D12Device *Device,
+                                         const MatrixParams &Params,
+                                         bool &Supported,
+                                         UINT &SelectedWaveSize) {
+  Supported = false;
+  SelectedWaveSize = 0;
+  if (!Device ||
+      !linalg_test::isLegalScope(
+          linalg_abi::D3D12_LINEAR_ALGEBRA_OPERATION_TYPE_MATRIX_CONSTRUCTION,
+          Params.Scope))
+    return E_INVALIDARG;
+
+  const std::optional<linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE> DataType =
+      toCapabilityDataType(Params.CompType);
+  if (!DataType.has_value())
+    return E_INVALIDARG;
+
+  linalg_test::TierSupport Tier;
+  HRESULT HR = linalg_test::queryTierSupport(Device, Tier);
+  if (FAILED(HR) || !Tier.supported())
+    return HR;
+
+  UINT MinWaveSize = 0;
+  UINT MaxWaveSize = 0;
+  HR = queryLaunchableWaveSizes(Device, MinWaveSize, MaxWaveSize);
+  if (FAILED(HR))
+    return HR;
+  if (MinWaveSize == 0) {
+    hlsl_test::LogCommentFmt(
+        L"Wave operations are unsupported; MatrixConstruction is not "
+        L"applicable");
+    return S_OK;
+  }
+
+  for (UINT WaveSize = 4; WaveSize <= 64; WaveSize *= 2) {
+    if (WaveSize < MinWaveSize || WaveSize > MaxWaveSize)
+      continue;
+
+    bool ShapeSupported = false;
+    HR = supportsMatrixShape(Device, *DataType, WaveSize, Params.Use, Params.M,
+                             Params.N, ShapeSupported);
+    if (FAILED(HR))
+      return HR;
+    if (ShapeSupported) {
+      hlsl_test::LogCommentFmt(
+          L"MatrixConstruction capability matched wave=%u for the %ux%u tile",
+          WaveSize, Params.M, Params.N);
+      Supported = true;
+      SelectedWaveSize = WaveSize;
+      return S_OK;
+    }
+  }
+
+  hlsl_test::LogCommentFmt(
+      L"No MatrixConstruction query within shader WaveSize(4,64) supports the "
+      L"%ux%u tile",
+      Params.M, Params.N);
+  return S_OK;
+}
+
+static bool elementAccessApplicable(ID3D12Device *Device,
+                                    const MatrixParams &Params,
+                                    LPCWSTR CaseName, UINT &SelectedWaveSize) {
+  bool Supported = false;
+  const HRESULT QueryResult =
+      queryElementAccessSupport(Device, Params, Supported, SelectedWaveSize);
+  return applyApplicability(
+      linalg_test::classifyApplicability(
+          QueryResult, Supported,
+          linalg_test::CapabilityRequirement::CapabilityGated),
+      CaseName);
+}
+
 static const char ElementAccessShader[] = R"(
   RWByteAddressBuffer Input : register(u0);
   RWByteAddressBuffer Output : register(u1);
@@ -1697,7 +1863,11 @@ static const char ElementAccessShader[] = R"(
     return (coord.x * N_DIM + coord.y) * ELEM_SIZE;
   }
 
+  #ifdef FORCED_WAVE_SIZE
+  [WaveSize(FORCED_WAVE_SIZE)]
+  #else
   [WaveSize(4, 64)]
+  #endif
   [numthreads(NUMTHREADS, 1, 1)]
   void main(uint threadID : SV_GroupIndex) {
     if (GetGroupWaveIndex() != 0)
@@ -1728,7 +1898,8 @@ static const char ElementAccessShader[] = R"(
 
 static void runElementAccess(ID3D12Device *Device,
                              dxc::SpecificDllLoader &DxcSupport,
-                             const MatrixParams &Params, bool Verbose) {
+                             const MatrixParams &Params, bool Verbose,
+                             UINT ForcedWaveSize = 0) {
   const size_t NumElements = Params.totalElements();
   const size_t NumThreads = Params.NumThreads;
   const size_t MatrixSize = Params.totalBytes();
@@ -1736,6 +1907,8 @@ static void runElementAccess(ID3D12Device *Device,
   const size_t OutputBufSize = MatrixSize + NumThreads * sizeof(uint32_t);
 
   std::stringstream ExtraDefs;
+  if (ForcedWaveSize != 0)
+    ExtraDefs << " -DFORCED_WAVE_SIZE=" << ForcedWaveSize;
   std::string Args = buildCompilerArgs(Params, ExtraDefs.str().c_str());
 
   compileShader(DxcSupport, ElementAccessShader, "cs_6_10", Args, Verbose);
@@ -1787,14 +1960,48 @@ void DxilConf_SM610_LinAlg::ElementAccess_Wave_16x16_F16() {
   Params.Layout = MatrixLayout::RowMajor;
   Params.NumThreads = 64;
   Params.Enable16Bit = true;
-  runElementAccess(D3DDevice, DxcSupport, Params, VerboseLogging);
+
+  UINT SelectedWaveSize = 0;
+  if (!elementAccessApplicable(
+          D3DDevice, Params, L"ElementAccess_Wave_16x16_F16", SelectedWaveSize))
+    return;
+
+  runElementAccess(D3DDevice, DxcSupport, Params, VerboseLogging,
+                   SelectedWaveSize);
+}
+
+void DxilConf_SM610_LinAlg::ElementAccess_Wave_4x8_F32() {
+  MatrixParams Params = {};
+  Params.CompType = ComponentType::F32;
+  Params.M = 4;
+  Params.N = 8;
+  Params.Use = MatrixUse::Accumulator;
+  Params.Scope = MatrixScope::Wave;
+  Params.Layout = MatrixLayout::RowMajor;
+  Params.NumThreads = 64;
+  Params.Enable16Bit = false;
+
+  UINT SelectedWaveSize = 0;
+  if (!elementAccessApplicable(D3DDevice, Params, L"ElementAccess_Wave_4x8_F32",
+                               SelectedWaveSize))
+    return;
+
+  // Non-square dimensions make the row-major coordinate mapping observable: a
+  // transposed GetCoordinate would land inside the matrix for a square tile
+  // but out of it here.
+  runElementAccess(D3DDevice, DxcSupport, Params, VerboseLogging,
+                   SelectedWaveSize);
 }
 
 static const char ElementSetShader[] = R"(
   RWByteAddressBuffer Input : register(u0);
   RWByteAddressBuffer Output : register(u1);
 
+  #ifdef FORCED_WAVE_SIZE
+  [WaveSize(FORCED_WAVE_SIZE)]
+  #else
   [WaveSize(4, 64)]
+  #endif
   [numthreads(NUMTHREADS, 1, 1)]
   void main() {
     if (GetGroupWaveIndex() != 0)
@@ -1821,11 +2028,14 @@ static const char ElementSetShader[] = R"(
 
 static void runElementSet(ID3D12Device *Device,
                           dxc::SpecificDllLoader &DxcSupport,
-                          const MatrixParams &Params, bool Verbose) {
+                          const MatrixParams &Params, bool Verbose,
+                          UINT ForcedWaveSize = 0) {
   const size_t NumElements = Params.totalElements();
   const size_t MatrixSize = Params.totalBytes();
 
   std::stringstream ExtraDefs;
+  if (ForcedWaveSize != 0)
+    ExtraDefs << " -DFORCED_WAVE_SIZE=" << ForcedWaveSize;
   std::string Args = buildCompilerArgs(Params, ExtraDefs.str().c_str());
 
   compileShader(DxcSupport, ElementSetShader, "cs_6_10", Args, Verbose);
@@ -1867,7 +2077,300 @@ void DxilConf_SM610_LinAlg::ElementSet_Wave_16x16_F16() {
   Params.Layout = MatrixLayout::RowMajor;
   Params.NumThreads = 64;
   Params.Enable16Bit = true;
-  runElementSet(D3DDevice, DxcSupport, Params, VerboseLogging);
+
+  UINT SelectedWaveSize = 0;
+  if (!elementAccessApplicable(D3DDevice, Params, L"ElementSet_Wave_16x16_F16",
+                               SelectedWaveSize))
+    return;
+
+  runElementSet(D3DDevice, DxcSupport, Params, VerboseLogging,
+                SelectedWaveSize);
+}
+
+// Length() is thread local, so the first index past a lane's own length is
+// already out of bounds even though the wave collectively holds more elements.
+// Probing Length() and a index far beyond it covers both a driver that clamps
+// only at the wave total and one that wraps a large index back into range.
+static constexpr UINT FarOOBOffset = 64;
+
+// Per-lane record: {uint Length, uint Executed, ELEM_TYPE Just, ELEM_TYPE Far}.
+static constexpr UINT OOBRecordSize = 16;
+
+// Seeds every output byte so a lane that never writes cannot be mistaken for a
+// lane that correctly wrote the specified zero.
+static constexpr BYTE OOBSentinelByte = 0xCD;
+
+static const char ElementGetOOBShader[] = R"(
+  RWByteAddressBuffer Input : register(u0);
+  RWByteAddressBuffer Output : register(u1);
+
+  #ifdef FORCED_WAVE_SIZE
+  [WaveSize(FORCED_WAVE_SIZE)]
+  #else
+  [WaveSize(4, 64)]
+  #endif
+  [numthreads(NUMTHREADS, 1, 1)]
+  void main(uint threadID : SV_GroupIndex) {
+    if (GetGroupWaveIndex() != 0)
+      return;
+
+    __builtin_LinAlgMatrix
+      [[__LinAlgMatrix_Attributes(COMP_TYPE, M_DIM, N_DIM, USE, SCOPE)]]
+      Mat;
+    __builtin_LinAlg_MatrixLoadFromDescriptor(
+      Mat, Input, 0, STRIDE, LAYOUT, 128);
+
+    uint Len = __builtin_LinAlg_MatrixLength(Mat);
+
+    ELEM_TYPE Just;
+    __builtin_LinAlg_MatrixGetElement(Just, Mat, Len);
+    ELEM_TYPE Far;
+    __builtin_LinAlg_MatrixGetElement(Far, Mat, Len + FAR_OOB_OFFSET);
+
+    // Record unconditionally so the runner can tell that this lane ran.
+    uint Base = threadID * OOB_RECORD_SIZE;
+    Output.Store<uint>(Base + 0, Len);
+    Output.Store<uint>(Base + 4, 1);
+    Output.Store<ELEM_TYPE>(Base + 8, Just);
+    Output.Store<ELEM_TYPE>(Base + 12, Far);
+  }
+)";
+
+// Reads back the {Length, Executed} half of each lane record and checks the
+// wave actually ran. Returns the total element count the wave reported.
+static uint32_t verifyOOBLaneRecords(const BYTE *Records, size_t NumThreads,
+                                     UINT SelectedWaveSize, UINT RecordStride,
+                                     size_t NumElements, bool Verbose) {
+  uint32_t ExecutedLanes = 0;
+  uint32_t TotalLength = 0;
+  for (size_t I = 0; I < NumThreads; ++I) {
+    const BYTE *Record = Records + I * RecordStride;
+    uint32_t Length = 0;
+    uint32_t Executed = 0;
+    memcpy(&Length, Record, sizeof(Length));
+    memcpy(&Executed, Record + 4, sizeof(Executed));
+    if (Executed != 1)
+      continue;
+    ++ExecutedLanes;
+    TotalLength += Length;
+    if (Verbose)
+      hlsl_test::LogCommentFmt(L"lane %u reported Length=%u",
+                               static_cast<UINT>(I), Length);
+  }
+
+  // Only wave 0 runs, so exactly the lanes of the wave the capability query
+  // selected must have written a record.
+  VERIFY_ARE_EQUAL(ExecutedLanes, SelectedWaveSize,
+                   "Every lane of the selected wave must execute");
+  VERIFY_IS_GREATER_THAN_OR_EQUAL(
+      TotalLength, static_cast<uint32_t>(NumElements),
+      "Sum of all lengths must be gte num elements");
+  return TotalLength;
+}
+
+static void runElementGetOOB(ID3D12Device *Device,
+                             dxc::SpecificDllLoader &DxcSupport,
+                             const MatrixParams &Params, bool Verbose,
+                             UINT ForcedWaveSize) {
+  VERIFY_IS_TRUE(Params.CompType == ComponentType::F32,
+                 "Out-of-bounds Get records assume a 4-byte element");
+  const size_t NumElements = Params.totalElements();
+  const size_t NumThreads = Params.NumThreads;
+  const size_t MatrixSize = Params.totalBytes();
+  const size_t OutputBufSize = NumThreads * OOBRecordSize;
+
+  std::stringstream ExtraDefs;
+  ExtraDefs << " -DFAR_OOB_OFFSET=" << FarOOBOffset;
+  ExtraDefs << " -DOOB_RECORD_SIZE=" << OOBRecordSize;
+  if (ForcedWaveSize != 0)
+    ExtraDefs << " -DFORCED_WAVE_SIZE=" << ForcedWaveSize;
+  std::string Args = buildCompilerArgs(Params, ExtraDefs.str().c_str());
+
+  compileShader(DxcSupport, ElementGetOOBShader, "cs_6_10", Args, Verbose);
+
+  auto Op = createComputeOp(ElementGetOOBShader, "cs_6_10", "UAV(u0), UAV(u1)",
+                            Args.c_str());
+  addUAVBuffer(Op.get(), "Input", MatrixSize, false, "byname");
+  addUAVBuffer(Op.get(), "Output", OutputBufSize, true);
+  addRootView(Op.get(), 0, "Input");
+  addRootView(Op.get(), 1, "Output");
+
+  auto Result =
+      runShaderOp(Device, DxcSupport, std::move(Op),
+                  [NumElements, Params](LPCSTR Name, std::vector<BYTE> &Data,
+                                        st::ShaderOp *) {
+                    if (_stricmp(Name, "Output") == 0) {
+                      std::fill(Data.begin(), Data.end(), OOBSentinelByte);
+                      return;
+                    }
+                    VERIFY_IS_TRUE(fillInputBuffer(Name, Data, Params.CompType,
+                                                   NumElements),
+                                   "Saw unsupported component type");
+                  });
+
+  MappedData OutData;
+  Result->Test->GetReadBackData("Output", &OutData);
+  const BYTE *Out = static_cast<const BYTE *>(OutData.data());
+
+  verifyOOBLaneRecords(Out, NumThreads, ForcedWaveSize, OOBRecordSize,
+                       NumElements, Verbose);
+
+  // 0035-linalg-matrix.md: reading an index outside [0, Length()-1] yields
+  // zero cast to the element type.
+  for (size_t I = 0; I < NumThreads; ++I) {
+    const BYTE *Record = Out + I * OOBRecordSize;
+    uint32_t Executed = 0;
+    memcpy(&Executed, Record + 4, sizeof(Executed));
+    if (Executed != 1)
+      continue;
+
+    float Just = 0.0f;
+    float Far = 0.0f;
+    memcpy(&Just, Record + 8, sizeof(Just));
+    memcpy(&Far, Record + 12, sizeof(Far));
+    VERIFY_ARE_EQUAL(Just, 0.0f,
+                     "Get at Length() must return zero cast to the element "
+                     "type");
+    VERIFY_ARE_EQUAL(Far, 0.0f,
+                     "Get far past Length() must return zero cast to the "
+                     "element type");
+  }
+}
+
+void DxilConf_SM610_LinAlg::ElementGetOOB_Wave_4x8_F32() {
+  MatrixParams Params = {};
+  Params.CompType = ComponentType::F32;
+  Params.M = 4;
+  Params.N = 8;
+  Params.Use = MatrixUse::Accumulator;
+  Params.Scope = MatrixScope::Wave;
+  Params.Layout = MatrixLayout::RowMajor;
+  Params.NumThreads = 64;
+  Params.Enable16Bit = false;
+
+  UINT SelectedWaveSize = 0;
+  if (!elementAccessApplicable(D3DDevice, Params, L"ElementGetOOB_Wave_4x8_F32",
+                               SelectedWaveSize))
+    return;
+
+  runElementGetOOB(D3DDevice, DxcSupport, Params, VerboseLogging,
+                   SelectedWaveSize);
+}
+
+static const char ElementSetOOBShader[] = R"(
+  RWByteAddressBuffer Input : register(u0);
+  RWByteAddressBuffer Output : register(u1);
+
+  #ifdef FORCED_WAVE_SIZE
+  [WaveSize(FORCED_WAVE_SIZE)]
+  #else
+  [WaveSize(4, 64)]
+  #endif
+  [numthreads(NUMTHREADS, 1, 1)]
+  void main(uint threadID : SV_GroupIndex) {
+    if (GetGroupWaveIndex() != 0)
+      return;
+
+    __builtin_LinAlgMatrix
+      [[__LinAlgMatrix_Attributes(COMP_TYPE, M_DIM, N_DIM, USE, SCOPE)]]
+      Mat;
+    __builtin_LinAlg_MatrixLoadFromDescriptor(
+      Mat, Input, 0, STRIDE, LAYOUT, 128);
+
+    uint Len = __builtin_LinAlg_MatrixLength(Mat);
+
+    // Both indices are outside this lane's range, so both writes must be
+    // no-ops and the stored matrix must still equal the loaded one.
+    __builtin_LinAlg_MatrixSetElement(Mat, Mat, Len, (ELEM_TYPE)POISON_VALUE);
+    __builtin_LinAlg_MatrixSetElement(Mat, Mat, Len + FAR_OOB_OFFSET,
+                                      (ELEM_TYPE)POISON_VALUE);
+
+    __builtin_LinAlg_MatrixStoreToDescriptor(
+      Mat, Output, 0, STRIDE, LAYOUT, 128);
+
+    uint Base = MATRIX_BYTES + threadID * OOB_RECORD_SIZE;
+    Output.Store<uint>(Base + 0, Len);
+    Output.Store<uint>(Base + 4, 1);
+  }
+)";
+
+static void runElementSetOOB(ID3D12Device *Device,
+                             dxc::SpecificDllLoader &DxcSupport,
+                             const MatrixParams &Params, bool Verbose,
+                             UINT ForcedWaveSize) {
+  const size_t NumElements = Params.totalElements();
+  const size_t NumThreads = Params.NumThreads;
+  const size_t MatrixSize = Params.totalBytes();
+  const size_t OutputBufSize = MatrixSize + NumThreads * OOBRecordSize;
+
+  // Distinct from every sequential input value, so a stray write is visible.
+  const int PoisonValue = 999;
+
+  std::stringstream ExtraDefs;
+  ExtraDefs << " -DFAR_OOB_OFFSET=" << FarOOBOffset;
+  ExtraDefs << " -DOOB_RECORD_SIZE=" << OOBRecordSize;
+  ExtraDefs << " -DMATRIX_BYTES=" << MatrixSize;
+  ExtraDefs << " -DPOISON_VALUE=" << PoisonValue;
+  if (ForcedWaveSize != 0)
+    ExtraDefs << " -DFORCED_WAVE_SIZE=" << ForcedWaveSize;
+  std::string Args = buildCompilerArgs(Params, ExtraDefs.str().c_str());
+
+  compileShader(DxcSupport, ElementSetOOBShader, "cs_6_10", Args, Verbose);
+
+  // The matrix must come back exactly as it went in.
+  auto Expected = makeExpectedMat(Params.CompType, Params.M, Params.N, 1);
+
+  auto Op = createComputeOp(ElementSetOOBShader, "cs_6_10", "UAV(u0), UAV(u1)",
+                            Args.c_str());
+  addUAVBuffer(Op.get(), "Input", MatrixSize, false, "byname");
+  addUAVBuffer(Op.get(), "Output", OutputBufSize, true);
+  addRootView(Op.get(), 0, "Input");
+  addRootView(Op.get(), 1, "Output");
+
+  auto Result =
+      runShaderOp(Device, DxcSupport, std::move(Op),
+                  [NumElements, Params](LPCSTR Name, std::vector<BYTE> &Data,
+                                        st::ShaderOp *) {
+                    if (_stricmp(Name, "Output") == 0) {
+                      std::fill(Data.begin(), Data.end(), OOBSentinelByte);
+                      return;
+                    }
+                    VERIFY_IS_TRUE(fillInputBuffer(Name, Data, Params.CompType,
+                                                   NumElements),
+                                   "Saw unsupported component type");
+                  });
+
+  MappedData OutData;
+  Result->Test->GetReadBackData("Output", &OutData);
+  const BYTE *Out = static_cast<const BYTE *>(OutData.data());
+
+  verifyOOBLaneRecords(Out + MatrixSize, NumThreads, ForcedWaveSize,
+                       OOBRecordSize, NumElements, Verbose);
+
+  // 0035-linalg-matrix.md: setting an index outside [0, Length()-1] is a
+  // no-op, so no poisoned value may appear anywhere in the matrix.
+  VERIFY_IS_TRUE(verifyComponentBuffer(Params.CompType, OutData.data(),
+                                       Expected, NumElements, Verbose));
+}
+
+void DxilConf_SM610_LinAlg::ElementSetOOB_Wave_4x8_F32() {
+  MatrixParams Params = {};
+  Params.CompType = ComponentType::F32;
+  Params.M = 4;
+  Params.N = 8;
+  Params.Use = MatrixUse::Accumulator;
+  Params.Scope = MatrixScope::Wave;
+  Params.Layout = MatrixLayout::RowMajor;
+  Params.NumThreads = 64;
+  Params.Enable16Bit = false;
+
+  UINT SelectedWaveSize = 0;
+  if (!elementAccessApplicable(D3DDevice, Params, L"ElementSetOOB_Wave_4x8_F32",
+                               SelectedWaveSize))
+    return;
+
+  runElementSetOOB(D3DDevice, DxcSupport, Params, VerboseLogging,
+                   SelectedWaveSize);
 }
 
 static const char CopyConvertShader[] = R"(
@@ -1899,33 +2402,6 @@ static const char CopyConvertShader[] = R"(
   }
 )";
 
-// MatrixConstruction is queried with a full {M,K,N} multiply shape, but a use-A
-// tile only pins M and K; the N extent is free. The runtime accepts a shape
-// when every extent is a positive multiple of a native tile, so probe the
-// power-of-two extents that native tiles are built from and accept the tile if
-// any probe matches. Missing an extent skips a test case; it can never report
-// an unsupported tile as supported.
-static constexpr UINT FreeExtentProbes[] = {4, 8, 16, 32, 64, 128};
-
-static HRESULT
-supportsUseAMatrix(ID3D12Device *Device,
-                   linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE Type,
-                   UINT WaveSize, UINT Rows, UINT Columns, bool &Supported) {
-  Supported = false;
-  for (UINT FreeExtent : FreeExtentProbes) {
-    linalg_test::MatrixConstructionSupport Construction;
-    const HRESULT HR = linalg_test::queryMatrixConstruction(
-        Device, {Type, WaveSize, {Rows, Columns, FreeExtent}}, Construction);
-    if (FAILED(HR))
-      return HR;
-    if (Construction.supported()) {
-      Supported = true;
-      return S_OK;
-    }
-  }
-  return S_OK;
-}
-
 static HRESULT queryCopyConvertSupport(ID3D12Device *Device,
                                        const MatrixParams &Params,
                                        bool Transpose, bool &Supported,
@@ -1948,32 +2424,16 @@ static HRESULT queryCopyConvertSupport(ID3D12Device *Device,
   if (FAILED(HR) || !Tier.supported())
     return HR;
 
-  D3D12_FEATURE_DATA_D3D12_OPTIONS1 WaveOptions = {};
-  HR = Device->CheckFeatureSupport(D3D12_FEATURE_D3D12_OPTIONS1, &WaveOptions,
-                                   sizeof(WaveOptions));
-  if (FAILED(HR)) {
-    hlsl_test::LogCommentFmt(L"Wave-size capability query failed: 0x%08x", HR);
+  UINT MinWaveSize = 0;
+  UINT MaxWaveSize = 0;
+  HR = queryLaunchableWaveSizes(Device, MinWaveSize, MaxWaveSize);
+  if (FAILED(HR))
     return HR;
-  }
-  if (!WaveOptions.WaveOps) {
+  if (MinWaveSize == 0) {
     hlsl_test::LogCommentFmt(
         L"Wave operations are unsupported; MatrixConstruction is not "
         L"applicable");
     return S_OK;
-  }
-
-  const auto IsPowerOfTwo = [](UINT Value) {
-    return Value != 0 && (Value & (Value - 1)) == 0;
-  };
-  if (!IsPowerOfTwo(WaveOptions.WaveLaneCountMin) ||
-      !IsPowerOfTwo(WaveOptions.WaveLaneCountMax) ||
-      WaveOptions.WaveLaneCountMax < WaveOptions.WaveLaneCountMin) {
-    hlsl_test::LogCommentFmt(
-        L"Wave-size capability response is malformed: WaveOps=%u, min=%u, "
-        L"max=%u",
-        WaveOptions.WaveOps, WaveOptions.WaveLaneCountMin,
-        WaveOptions.WaveLaneCountMax);
-    return E_UNEXPECTED;
   }
 
   MatrixParams Destination = Params;
@@ -1983,19 +2443,19 @@ static HRESULT queryCopyConvertSupport(ID3D12Device *Device,
   }
 
   for (UINT WaveSize = 4; WaveSize <= 64; WaveSize *= 2) {
-    if (WaveSize < WaveOptions.WaveLaneCountMin ||
-        WaveSize > WaveOptions.WaveLaneCountMax)
+    if (WaveSize < MinWaveSize || WaveSize > MaxWaveSize)
       continue;
 
     bool SourceSupported = false;
-    HR = supportsUseAMatrix(Device, *DataType, WaveSize, Params.M, Params.N,
-                            SourceSupported);
+    HR = supportsMatrixShape(Device, *DataType, WaveSize, MatrixUse::A,
+                             Params.M, Params.N, SourceSupported);
     if (FAILED(HR))
       return HR;
 
     bool DestinationSupported = false;
-    HR = supportsUseAMatrix(Device, *DataType, WaveSize, Destination.M,
-                            Destination.N, DestinationSupported);
+    HR =
+        supportsMatrixShape(Device, *DataType, WaveSize, MatrixUse::A,
+                            Destination.M, Destination.N, DestinationSupported);
     if (FAILED(HR))
       return HR;
 
