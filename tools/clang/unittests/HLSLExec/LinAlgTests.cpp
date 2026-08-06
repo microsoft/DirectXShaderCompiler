@@ -96,6 +96,55 @@ struct MatrixParams {
   size_t totalBytes() const { return totalElements() * elementSize(CompType); }
 };
 
+static std::optional<linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE>
+toCapabilityDataType(ComponentType CompType) {
+  switch (CompType) {
+  case ComponentType::I16:
+    return linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE_SINT16;
+  case ComponentType::U16:
+    return linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE_UINT16;
+  case ComponentType::I32:
+    return linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE_SINT32;
+  case ComponentType::U32:
+    return linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE_UINT32;
+  case ComponentType::F16:
+    return linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT16;
+  case ComponentType::F32:
+    return linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT32;
+  case ComponentType::I8:
+    return linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE_SINT8;
+  case ComponentType::U8:
+    return linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE_UINT8;
+  case ComponentType::F8_E4M3FN:
+    return linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT8_E4M3FN;
+  case ComponentType::F8_E5M2:
+    return linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT8_E5M2;
+  default:
+    return std::nullopt;
+  }
+}
+
+static bool applyApplicability(linalg_test::Applicability Result,
+                               LPCWSTR CaseName) {
+  using linalg_test::Applicability;
+  switch (Result) {
+  case Applicability::Execute:
+    return true;
+  case Applicability::NotApplicable:
+    hlsl_test::LogCommentFmt(
+        L"Capability-gated case %s is not applicable on this device", CaseName);
+    WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
+    return false;
+  case Applicability::Fail:
+    hlsl_test::LogErrorFmt(L"Capability evaluation failed for case %s",
+                           CaseName);
+    VERIFY_IS_TRUE(false, "LinAlg capability evaluation failed");
+    return false;
+  }
+  VERIFY_IS_TRUE(false, "Unknown LinAlg applicability result");
+  return false;
+}
+
 namespace cpu_oracle {
 
 using TypedMatrixValues =
@@ -1126,6 +1175,198 @@ void LinAlgCPUOracleTests::TypedMatrixBufferRoundTrip() {
                  std::string::npos);
 }
 
+class LinAlgCapabilityTests {
+public:
+  BEGIN_TEST_CLASS(LinAlgCapabilityTests)
+  TEST_METHOD_PROPERTY(L"Priority", L"0")
+  END_TEST_CLASS()
+
+  TEST_METHOD(CapabilityPolicyAndPredicates);
+};
+
+void LinAlgCapabilityTests::CapabilityPolicyAndPredicates() {
+  using namespace linalg_test;
+
+  VERIFY_IS_TRUE(
+      classifyApplicability(S_OK, true, CapabilityRequirement::Mandatory) ==
+      Applicability::Execute);
+  VERIFY_IS_TRUE(classifyApplicability(
+                     S_OK, false, CapabilityRequirement::CapabilityGated) ==
+                 Applicability::NotApplicable);
+  VERIFY_IS_TRUE(
+      classifyApplicability(S_OK, false, CapabilityRequirement::Mandatory) ==
+      Applicability::Fail);
+  VERIFY_IS_TRUE(
+      classifyApplicability(E_UNEXPECTED, true,
+                            CapabilityRequirement::CapabilityGated) ==
+      Applicability::Fail);
+
+  VERIFY_IS_TRUE(isLegalScope(
+      linalg_abi::D3D12_LINEAR_ALGEBRA_OPERATION_TYPE_MATRIX_CONSTRUCTION,
+      MatrixScope::Wave));
+  VERIFY_IS_TRUE(isLegalScope(
+      linalg_abi::D3D12_LINEAR_ALGEBRA_OPERATION_TYPE_MATRIX_CONSTRUCTION,
+      MatrixScope::ThreadGroup));
+  VERIFY_IS_FALSE(isLegalScope(
+      linalg_abi::D3D12_LINEAR_ALGEBRA_OPERATION_TYPE_MATRIX_CONSTRUCTION,
+      MatrixScope::Thread));
+  VERIFY_IS_TRUE(isLegalScope(
+      linalg_abi::D3D12_LINEAR_ALGEBRA_OPERATION_TYPE_WAVE_MATRIX_MULTIPLY,
+      MatrixScope::Wave));
+  VERIFY_IS_TRUE(isLegalScope(
+      linalg_abi::
+          D3D12_LINEAR_ALGEBRA_OPERATION_TYPE_THREADGROUP_MATRIX_MULTIPLY,
+      MatrixScope::ThreadGroup));
+  VERIFY_IS_TRUE(isLegalScope(
+      linalg_abi::
+          D3D12_LINEAR_ALGEBRA_OPERATION_TYPE_THREAD_VECTOR_MATRIX_MULTIPLY,
+      MatrixScope::Thread));
+  VERIFY_IS_TRUE(isLegalScope(
+      linalg_abi::D3D12_LINEAR_ALGEBRA_OPERATION_TYPE_THREAD_OUTER_PRODUCT,
+      MatrixScope::Thread));
+  VERIFY_IS_TRUE(isLegalScope(
+      linalg_abi::D3D12_LINEAR_ALGEBRA_OPERATION_TYPE_ATOMIC_ACCUMULATE_STORE,
+      MatrixScope::Thread));
+  VERIFY_IS_TRUE(isLegalScope(
+      linalg_abi::D3D12_LINEAR_ALGEBRA_OPERATION_TYPE_ATOMIC_ACCUMULATE_STORE,
+      MatrixScope::Wave));
+  VERIFY_IS_TRUE(isLegalScope(
+      linalg_abi::D3D12_LINEAR_ALGEBRA_OPERATION_TYPE_ATOMIC_ACCUMULATE_STORE,
+      MatrixScope::ThreadGroup));
+
+  MatrixConstructionSupport Construction = {TRUE};
+  VERIFY_IS_TRUE(Construction.valid());
+  VERIFY_IS_TRUE(Construction.supported());
+  MatrixConstructionSupport UnsupportedConstruction = {FALSE};
+  VERIFY_IS_TRUE(UnsupportedConstruction.valid());
+  VERIFY_IS_FALSE(UnsupportedConstruction.supported());
+  // The runtime contract is a canonical BOOL; anything else is a driver bug.
+  MatrixConstructionSupport InvalidConstruction = {2};
+  VERIFY_IS_FALSE(InvalidConstruction.valid());
+  VERIFY_IS_FALSE(InvalidConstruction.supported());
+
+  WaveMatrixMultiplySupport Wave = {
+      linalg_abi::D3D12_LINEAR_ALGEBRA_MULTIPLICATION_SUPPORT_FLAG_SUPPORTED};
+  VERIFY_IS_TRUE(Wave.valid());
+  VERIFY_IS_TRUE(Wave.supported());
+  WaveMatrixMultiplySupport UnsupportedWave = {
+      linalg_abi::D3D12_LINEAR_ALGEBRA_MULTIPLICATION_SUPPORT_FLAG_NONE};
+  VERIFY_IS_TRUE(UnsupportedWave.valid());
+  VERIFY_IS_FALSE(UnsupportedWave.supported());
+  WaveMatrixMultiplySupport InvalidWave = {
+      static_cast<
+          linalg_abi::D3D12_LINEAR_ALGEBRA_MULTIPLICATION_SUPPORT_FLAGS>(
+          static_cast<UINT>(
+              linalg_abi::
+                  D3D12_LINEAR_ALGEBRA_MULTIPLICATION_SUPPORT_FLAG_SUPPORTED) |
+          static_cast<UINT>(
+              linalg_abi::
+                  D3D12_LINEAR_ALGEBRA_MULTIPLICATION_SUPPORT_FLAG_EMULATED_INPUTS)),
+  };
+  VERIFY_IS_FALSE(InvalidWave.valid());
+
+  ThreadGroupMatrixMultiplySupport ThreadGroup = {
+      linalg_abi::D3D12_LINEAR_ALGEBRA_MULTIPLICATION_SUPPORT_FLAG_SUPPORTED,
+      32,
+      128,
+      64,
+  };
+  VERIFY_IS_TRUE(ThreadGroup.valid());
+  VERIFY_IS_TRUE(ThreadGroup.supportsThreadGroupSize(64));
+  VERIFY_IS_FALSE(ThreadGroup.supportsThreadGroupSize(48));
+  ThreadGroup.PreferredThreadGroupSize = 48;
+  VERIFY_IS_FALSE(ThreadGroup.valid());
+  ThreadGroup = {
+      static_cast<
+          linalg_abi::D3D12_LINEAR_ALGEBRA_MULTIPLICATION_SUPPORT_FLAGS>(
+          static_cast<UINT>(
+              linalg_abi::
+                  D3D12_LINEAR_ALGEBRA_MULTIPLICATION_SUPPORT_FLAG_SUPPORTED) |
+          static_cast<UINT>(
+              linalg_abi::
+                  D3D12_LINEAR_ALGEBRA_MULTIPLICATION_SUPPORT_FLAG_TRANSPOSE)),
+      32,
+      128,
+      64,
+  };
+  VERIFY_IS_FALSE(ThreadGroup.valid());
+
+  ThreadVectorMatrixMultiplySupport ThreadVector = {
+      static_cast<
+          linalg_abi::D3D12_LINEAR_ALGEBRA_MULTIPLICATION_SUPPORT_FLAGS>(
+          static_cast<UINT>(
+              linalg_abi::
+                  D3D12_LINEAR_ALGEBRA_MULTIPLICATION_SUPPORT_FLAG_SUPPORTED) |
+          static_cast<UINT>(
+              linalg_abi::
+                  D3D12_LINEAR_ALGEBRA_MULTIPLICATION_SUPPORT_FLAG_TRANSPOSE)),
+      linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT32,
+  };
+  VERIFY_IS_TRUE(ThreadVector.valid());
+  VERIFY_IS_TRUE(ThreadVector.supported());
+  ThreadVector.SupportFlags = static_cast<
+      linalg_abi::D3D12_LINEAR_ALGEBRA_MULTIPLICATION_SUPPORT_FLAGS>(
+      static_cast<UINT>(
+          linalg_abi::
+              D3D12_LINEAR_ALGEBRA_MULTIPLICATION_SUPPORT_FLAG_SUPPORTED) |
+      static_cast<UINT>(
+          linalg_abi::
+              D3D12_LINEAR_ALGEBRA_MULTIPLICATION_SUPPORT_FLAG_EMULATED_INPUTS));
+  VERIFY_IS_FALSE(ThreadVector.valid());
+  ThreadVector.MatrixInputType =
+      linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT8_E4M3FN;
+  VERIFY_IS_TRUE(ThreadVector.valid());
+  ThreadVector.SupportFlags = linalg_abi::
+      D3D12_LINEAR_ALGEBRA_MULTIPLICATION_SUPPORT_FLAG_EMULATED_INPUTS;
+  VERIFY_IS_FALSE(ThreadVector.valid());
+
+  ThreadOuterProductSupport OuterProduct = {true};
+  VERIFY_IS_TRUE(OuterProduct.supported());
+  AtomicAccumulateStoreSupport Atomic = {true, false};
+  VERIFY_IS_TRUE(Atomic.supports(AtomicDestination::RWByteAddressBuffer));
+  VERIFY_IS_FALSE(Atomic.supports(AtomicDestination::GroupShared));
+
+  VERIFY_ARE_EQUAL(
+      0u, static_cast<UINT>(linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE_NONE));
+  MatrixConstructionQuery ConstructionQuery = {
+      linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT32, 32, {8, 8, 8}};
+  WaveMatrixMultiplyInputs WaveInputs = {
+      32,
+      linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT16,
+      linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT16,
+      linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT32,
+  };
+  WaveMatrixMultiplyQuery WaveQuery = {WaveInputs, {16, 16, 16}};
+  ThreadGroupMatrixMultiplyQuery ThreadGroupQuery = {
+      WaveInputs,
+      {16, 16, 16},
+  };
+  ThreadVectorMatrixMultiplyQuery ThreadVectorQuery = {
+      linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT16,
+      linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT16,
+      linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE_NONE,
+      linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT16,
+  };
+  ThreadOuterProductQuery OuterProductQuery = {
+      linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT16,
+      linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT16,
+  };
+  AtomicAccumulateStoreQuery AtomicQuery = {
+      linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT16};
+  VERIFY_ARE_EQUAL(32u, ConstructionQuery.WaveSize);
+  VERIFY_ARE_EQUAL(8u, ConstructionQuery.Shape.K);
+  VERIFY_ARE_EQUAL(32u, WaveQuery.Inputs.WaveSize);
+  VERIFY_ARE_EQUAL(16u, WaveQuery.Shape.M);
+  VERIFY_ARE_EQUAL(32u, ThreadGroupQuery.WaveInputs.WaveSize);
+  VERIFY_ARE_EQUAL(16u, ThreadGroupQuery.Shape.M);
+  VERIFY_IS_TRUE(ThreadVectorQuery.BiasInputType ==
+                 linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE_NONE);
+  VERIFY_IS_TRUE(OuterProductQuery.InputComponentType ==
+                 linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT16);
+  VERIFY_IS_TRUE(AtomicQuery.ComponentType ==
+                 linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT16);
+}
+
 class DxilConf_SM610_LinAlg {
 public:
   BEGIN_TEST_CLASS(DxilConf_SM610_LinAlg)
@@ -1633,7 +1874,11 @@ static const char CopyConvertShader[] = R"(
   RWByteAddressBuffer Input : register(u0);
   RWByteAddressBuffer Output : register(u1);
 
+  #ifdef FORCED_WAVE_SIZE
+  [WaveSize(FORCED_WAVE_SIZE)]
+  #else
   [WaveSize(4, 64)]
+  #endif
   [numthreads(NUMTHREADS, 1, 1)]
   void main() {
     if (GetGroupWaveIndex() != 0)
@@ -1654,10 +1899,128 @@ static const char CopyConvertShader[] = R"(
   }
 )";
 
+// MatrixConstruction is queried with a full {M,K,N} multiply shape, but a use-A
+// tile only pins M and K; the N extent is free. The runtime accepts a shape
+// when every extent is a positive multiple of a native tile, so probe the
+// power-of-two extents that native tiles are built from and accept the tile if
+// any probe matches. Missing an extent skips a test case; it can never report
+// an unsupported tile as supported.
+static constexpr UINT FreeExtentProbes[] = {4, 8, 16, 32, 64, 128};
+
+static HRESULT
+supportsUseAMatrix(ID3D12Device *Device,
+                   linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE Type,
+                   UINT WaveSize, UINT Rows, UINT Columns, bool &Supported) {
+  Supported = false;
+  for (UINT FreeExtent : FreeExtentProbes) {
+    linalg_test::MatrixConstructionSupport Construction;
+    const HRESULT HR = linalg_test::queryMatrixConstruction(
+        Device, {Type, WaveSize, {Rows, Columns, FreeExtent}}, Construction);
+    if (FAILED(HR))
+      return HR;
+    if (Construction.supported()) {
+      Supported = true;
+      return S_OK;
+    }
+  }
+  return S_OK;
+}
+
+static HRESULT queryCopyConvertSupport(ID3D12Device *Device,
+                                       const MatrixParams &Params,
+                                       bool Transpose, bool &Supported,
+                                       UINT &SelectedWaveSize) {
+  Supported = false;
+  SelectedWaveSize = 0;
+  if (!Device || Params.Use != MatrixUse::A ||
+      !linalg_test::isLegalScope(
+          linalg_abi::D3D12_LINEAR_ALGEBRA_OPERATION_TYPE_MATRIX_CONSTRUCTION,
+          Params.Scope))
+    return E_INVALIDARG;
+
+  std::optional<linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE> DataType =
+      toCapabilityDataType(Params.CompType);
+  if (!DataType.has_value())
+    return E_INVALIDARG;
+
+  linalg_test::TierSupport Tier;
+  HRESULT HR = linalg_test::queryTierSupport(Device, Tier);
+  if (FAILED(HR) || !Tier.supported())
+    return HR;
+
+  D3D12_FEATURE_DATA_D3D12_OPTIONS1 WaveOptions = {};
+  HR = Device->CheckFeatureSupport(D3D12_FEATURE_D3D12_OPTIONS1, &WaveOptions,
+                                   sizeof(WaveOptions));
+  if (FAILED(HR)) {
+    hlsl_test::LogCommentFmt(L"Wave-size capability query failed: 0x%08x", HR);
+    return HR;
+  }
+  if (!WaveOptions.WaveOps) {
+    hlsl_test::LogCommentFmt(
+        L"Wave operations are unsupported; MatrixConstruction is not "
+        L"applicable");
+    return S_OK;
+  }
+
+  const auto IsPowerOfTwo = [](UINT Value) {
+    return Value != 0 && (Value & (Value - 1)) == 0;
+  };
+  if (!IsPowerOfTwo(WaveOptions.WaveLaneCountMin) ||
+      !IsPowerOfTwo(WaveOptions.WaveLaneCountMax) ||
+      WaveOptions.WaveLaneCountMax < WaveOptions.WaveLaneCountMin) {
+    hlsl_test::LogCommentFmt(
+        L"Wave-size capability response is malformed: WaveOps=%u, min=%u, "
+        L"max=%u",
+        WaveOptions.WaveOps, WaveOptions.WaveLaneCountMin,
+        WaveOptions.WaveLaneCountMax);
+    return E_UNEXPECTED;
+  }
+
+  MatrixParams Destination = Params;
+  if (Transpose) {
+    Destination.M = Params.N;
+    Destination.N = Params.M;
+  }
+
+  for (UINT WaveSize = 4; WaveSize <= 64; WaveSize *= 2) {
+    if (WaveSize < WaveOptions.WaveLaneCountMin ||
+        WaveSize > WaveOptions.WaveLaneCountMax)
+      continue;
+
+    bool SourceSupported = false;
+    HR = supportsUseAMatrix(Device, *DataType, WaveSize, Params.M, Params.N,
+                            SourceSupported);
+    if (FAILED(HR))
+      return HR;
+
+    bool DestinationSupported = false;
+    HR = supportsUseAMatrix(Device, *DataType, WaveSize, Destination.M,
+                            Destination.N, DestinationSupported);
+    if (FAILED(HR))
+      return HR;
+
+    if (SourceSupported && DestinationSupported) {
+      hlsl_test::LogCommentFmt(
+          L"CopyConvert capability matched wave=%u for source=%ux%u and "
+          L"destination=%ux%u",
+          WaveSize, Params.M, Params.N, Destination.M, Destination.N);
+      Supported = true;
+      SelectedWaveSize = WaveSize;
+      return S_OK;
+    }
+  }
+
+  hlsl_test::LogCommentFmt(
+      L"No MatrixConstruction query within shader WaveSize(4,64) supports "
+      L"CopyConvert source=%ux%u and destination=%ux%u",
+      Params.M, Params.N, Destination.M, Destination.N);
+  return S_OK;
+}
+
 static void runCopyConvert(ID3D12Device *Device,
                            dxc::SpecificDllLoader &DxcSupport,
                            const MatrixParams &Params, bool Verbose,
-                           bool Transpose) {
+                           bool Transpose, UINT ForcedWaveSize = 0) {
   MatrixParams DstParams = Params;
   if (Transpose) {
     DstParams.M = Params.N;
@@ -1670,6 +2033,8 @@ static void runCopyConvert(ID3D12Device *Device,
   ExtraDefs << " -DDST_N_DIM=" << DstParams.N;
   ExtraDefs << " -DSRC_STRIDE=" << Params.strideBytes();
   ExtraDefs << " -DDST_STRIDE=" << DstParams.strideBytes();
+  if (ForcedWaveSize != 0)
+    ExtraDefs << " -DFORCED_WAVE_SIZE=" << ForcedWaveSize;
 
   std::string Args = buildCompilerArgs(Params, ExtraDefs.str().c_str());
 
@@ -1772,9 +2137,23 @@ void DxilConf_SM610_LinAlg::CopyConvert_Wave_4x8_F32_Transpose() {
   Params.Layout = MatrixLayout::RowMajor;
   Params.NumThreads = 64;
   Params.Enable16Bit = false;
+
+  bool Supported;
+  UINT SelectedWaveSize;
+  const HRESULT QueryResult = queryCopyConvertSupport(
+      D3DDevice, Params, /*Transpose=*/true, Supported, SelectedWaveSize);
+  const linalg_test::Applicability Applicability =
+      linalg_test::classifyApplicability(
+          QueryResult, Supported,
+          linalg_test::CapabilityRequirement::CapabilityGated);
+  if (!applyApplicability(
+          Applicability,
+          L"CopyConvert_Wave_4x8_F32_Transpose MatrixConstruction"))
+    return;
+
   // Non-square dimensions make the destination shape and row stride observable.
   runCopyConvert(D3DDevice, DxcSupport, Params, VerboseLogging,
-                 /*Transpose=*/true);
+                 /*Transpose=*/true, SelectedWaveSize);
 }
 
 static const char MatMatMulShader[] = R"(
@@ -2043,6 +2422,88 @@ static const char MatVecMulShader[] = R"(
   }
 )";
 
+// Thread-scope vector-matrix multiplication is described entirely by its type
+// combination. D3D12LinearAlgebraRuntimeFeatureSupport.md scopes
+// MatrixConstruction to "wave-scope and group-scope matrices" and states there
+// is no requirement around thread-scope vector-matrix multiplication
+// dimensions, which is why neither the support struct nor the enumeration
+// entry for this operation carries a shape. Applicability therefore rests on
+// ThreadVectorMatrixMultiply alone.
+static HRESULT queryMatVecMulSupport(ID3D12Device *Device,
+                                     const MatrixParams &Params,
+                                     ComponentType InputInterp, bool HasBias,
+                                     bool &TierSupported, bool &Supported) {
+  TierSupported = false;
+  Supported = false;
+  if (!Device ||
+      !linalg_test::isLegalScope(
+          linalg_abi::
+              D3D12_LINEAR_ALGEBRA_OPERATION_TYPE_THREAD_VECTOR_MATRIX_MULTIPLY,
+          Params.Scope))
+    return E_INVALIDARG;
+
+  const std::optional<linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE> MatrixType =
+      toCapabilityDataType(Params.CompType);
+  const std::optional<linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE> VectorType =
+      toCapabilityDataType(InputInterp);
+  if (!MatrixType.has_value() || !VectorType.has_value())
+    return E_INVALIDARG;
+
+  linalg_test::TierSupport Tier;
+  HRESULT HR = linalg_test::queryTierSupport(Device, Tier);
+  if (FAILED(HR))
+    return HR;
+  TierSupported = Tier.supported();
+  if (!TierSupported)
+    return S_OK;
+
+  // The shaders declare the bias and result vectors with the matrix component
+  // type. A multiply with no bias is expressed as DATATYPE_NONE, which Tier 1
+  // requires alongside a bias type matching the result type.
+  const linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE BiasType =
+      HasBias ? *MatrixType : linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE_NONE;
+
+  linalg_test::ThreadVectorMatrixMultiplySupport Multiply;
+  HR = linalg_test::queryThreadVectorMatrixMultiply(
+      Device, {*VectorType, *MatrixType, BiasType, *MatrixType}, Multiply);
+  if (FAILED(HR))
+    return HR;
+  if (!Multiply.supported()) {
+    hlsl_test::LogCommentFmt(
+        L"ThreadVectorMatrixMultiply reports vector=%u matrix=%u bias=%u "
+        L"result=%u is unsupported",
+        static_cast<UINT>(*VectorType), static_cast<UINT>(*MatrixType),
+        static_cast<UINT>(BiasType), static_cast<UINT>(*MatrixType));
+    return S_OK;
+  }
+
+  Supported = true;
+  return S_OK;
+}
+
+static bool matVecMulApplicable(ID3D12Device *Device,
+                                const MatrixParams &Params,
+                                ComponentType InputInterp, bool HasBias,
+                                linalg_test::CapabilityRequirement Requirement,
+                                LPCWSTR CaseName) {
+  bool TierSupported = false;
+  bool Supported = false;
+  const HRESULT QueryResult = queryMatVecMulSupport(
+      Device, Params, InputInterp, HasBias, TierSupported, Supported);
+
+  // A device that does not implement linear algebra at all is outside the
+  // Tier 1 requirements, so it skips rather than failing even where the
+  // configuration is mandatory.
+  const linalg_test::CapabilityRequirement Effective =
+      SUCCEEDED(QueryResult) && !TierSupported
+          ? linalg_test::CapabilityRequirement::CapabilityGated
+          : Requirement;
+
+  return applyApplicability(
+      linalg_test::classifyApplicability(QueryResult, Supported, Effective),
+      CaseName);
+}
+
 static void runMatVecMul(ID3D12Device *Device,
                          dxc::SpecificDllLoader &DxcSupport,
                          const MatrixParams &Params, bool Verbose,
@@ -2097,6 +2558,16 @@ void DxilConf_SM610_LinAlg::MatVecMul_Thread_16x16_F16() {
   Params.Layout = MatrixLayout::RowMajor;
   Params.NumThreads = 1;
   Params.Enable16Bit = true;
+
+  // Tier 1 requires Fp16 vector x Fp16 matrix -> Fp16, and requires a bias
+  // matching the result type as well as no bias at all, so a Tier 1 device
+  // reporting this unsupported is a conformance failure rather than a skip.
+  if (!matVecMulApplicable(D3DDevice, Params, ComponentType::F16,
+                           /*HasBias=*/false,
+                           linalg_test::CapabilityRequirement::Mandatory,
+                           L"MatVecMul_Thread_16x16_F16"))
+    return;
+
   runMatVecMul(D3DDevice, DxcSupport, Params, VerboseLogging,
                /*FillValue=*/2, /*OutputSigned=*/true, ComponentType::F16);
 }
@@ -2109,6 +2580,15 @@ void DxilConf_SM610_LinAlg::MatVecMul_Thread_4x8_F32() {
   Params.Scope = MatrixScope::Thread;
   Params.Layout = MatrixLayout::RowMajor;
   Params.NumThreads = 1;
+
+  // Fp32 vector x Fp32 matrix -> Fp32 is absent from the Tier 1 table, so it
+  // is optional and a device reporting it unsupported skips.
+  if (!matVecMulApplicable(D3DDevice, Params, ComponentType::F32,
+                           /*HasBias=*/false,
+                           linalg_test::CapabilityRequirement::CapabilityGated,
+                           L"MatVecMul_Thread_4x8_F32"))
+    return;
+
   runMatVecMul(D3DDevice, DxcSupport, Params, VerboseLogging,
                /*FillValue=*/2, /*OutputSigned=*/true, ComponentType::F32);
 }
@@ -2202,6 +2682,14 @@ void DxilConf_SM610_LinAlg::MatVecMulAdd_Thread_16x16_F16() {
   Params.Layout = MatrixLayout::RowMajor;
   Params.NumThreads = 1;
   Params.Enable16Bit = true;
+
+  // Required by Tier 1: Fp16 throughout, with a bias matching the result type.
+  if (!matVecMulApplicable(D3DDevice, Params, ComponentType::F16,
+                           /*HasBias=*/true,
+                           linalg_test::CapabilityRequirement::Mandatory,
+                           L"MatVecMulAdd_Thread_16x16_F16"))
+    return;
+
   runMatVecMulAdd(D3DDevice, DxcSupport, Params, VerboseLogging,
                   /*FillValue=*/2, /*OutputSigned=*/true, ComponentType::F16);
 }
@@ -2214,6 +2702,14 @@ void DxilConf_SM610_LinAlg::MatVecMulAdd_Thread_4x8_F32() {
   Params.Scope = MatrixScope::Thread;
   Params.Layout = MatrixLayout::RowMajor;
   Params.NumThreads = 1;
+
+  // Optional: see MatVecMul_Thread_4x8_F32.
+  if (!matVecMulApplicable(D3DDevice, Params, ComponentType::F32,
+                           /*HasBias=*/true,
+                           linalg_test::CapabilityRequirement::CapabilityGated,
+                           L"MatVecMulAdd_Thread_4x8_F32"))
+    return;
+
   runMatVecMulAdd(D3DDevice, DxcSupport, Params, VerboseLogging,
                   /*FillValue=*/2, /*OutputSigned=*/true, ComponentType::F32);
 }
