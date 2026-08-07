@@ -244,9 +244,10 @@ static HRESULT queryLaunchableWaveSizes(ID3D12Device *Device, UINT &MinWaveSize,
 // if every role is supported there, because the roles pin different extents of
 // the same {M, K, N} shape.
 static HRESULT
-queryMatrixConstructionSupport(ID3D12Device *Device, const MatrixParams &Params,
-                               std::initializer_list<MatrixUse> Uses,
-                               bool &Supported, UINT &SelectedWaveSize) {
+selectMatrixConstructionWaveSize(ID3D12Device *Device,
+                                 const MatrixParams &Params,
+                                 std::initializer_list<MatrixUse> Uses,
+                                 bool &Supported, UINT &SelectedWaveSize) {
   Supported = false;
   SelectedWaveSize = 0;
   if (!Device || Uses.size() == 0 ||
@@ -312,19 +313,29 @@ queryMatrixConstructionSupport(ID3D12Device *Device, const MatrixParams &Params,
   return S_OK;
 }
 
+// SelectedWaveSize is only meaningful when one of these helpers returns true.
+// The selectors set it on the same path that reports support, so a case cleared
+// to run always has a wave size to pin with FORCED_WAVE_SIZE. It stays 0 on the
+// skip and failure paths, where the caller has already returned. The assert
+// keeps that an invariant rather than a convention.
 static bool matrixConstructionApplicable(ID3D12Device *Device,
                                          const MatrixParams &Params,
                                          std::initializer_list<MatrixUse> Uses,
                                          LPCWSTR CaseName,
                                          UINT &SelectedWaveSize) {
   bool Supported = false;
-  const HRESULT QueryResult = queryMatrixConstructionSupport(
+  const HRESULT QueryResult = selectMatrixConstructionWaveSize(
       Device, Params, Uses, Supported, SelectedWaveSize);
-  return applyApplicability(
-      linalg_test::classifyApplicability(
-          QueryResult, Supported,
-          linalg_test::CapabilityRequirement::CapabilityGated),
-      CaseName);
+  if (!applyApplicability(
+          linalg_test::classifyApplicability(
+              QueryResult, Supported,
+              linalg_test::CapabilityRequirement::CapabilityGated),
+          CaseName))
+    return false;
+
+  VERIFY_IS_TRUE(SelectedWaveSize != 0,
+                 "A case cleared to run must have a selected wave size");
+  return true;
 }
 
 // Tier support is the only capability the matrix-free operations depend on.
@@ -405,9 +416,10 @@ static bool outerProductApplicable(ID3D12Device *Device,
 // both are answered per wave size, so they are resolved in one pass. Fp16 x
 // Fp16 -> Fp16 is Optional at Tier 1, so these cases are gated rather than
 // mandatory.
-static HRESULT queryWaveMatMulSupport(ID3D12Device *Device,
-                                      const MatrixParams &Params, MatrixDim K,
-                                      bool &Supported, UINT &SelectedWaveSize) {
+static HRESULT selectWaveMatMulWaveSize(ID3D12Device *Device,
+                                        const MatrixParams &Params, MatrixDim K,
+                                        bool &Supported,
+                                        UINT &SelectedWaveSize) {
   Supported = false;
   SelectedWaveSize = 0;
   if (!Device ||
@@ -487,12 +499,17 @@ static bool waveMatMulApplicable(ID3D12Device *Device,
                                  LPCWSTR CaseName, UINT &SelectedWaveSize) {
   bool Supported = false;
   const HRESULT QueryResult =
-      queryWaveMatMulSupport(Device, Params, K, Supported, SelectedWaveSize);
-  return applyApplicability(
-      linalg_test::classifyApplicability(
-          QueryResult, Supported,
-          linalg_test::CapabilityRequirement::CapabilityGated),
-      CaseName);
+      selectWaveMatMulWaveSize(Device, Params, K, Supported, SelectedWaveSize);
+  if (!applyApplicability(
+          linalg_test::classifyApplicability(
+              QueryResult, Supported,
+              linalg_test::CapabilityRequirement::CapabilityGated),
+          CaseName))
+    return false;
+
+  VERIFY_IS_TRUE(SelectedWaveSize != 0,
+                 "A case cleared to run must have a selected wave size");
+  return true;
 }
 
 namespace cpu_oracle {
@@ -2665,10 +2682,10 @@ static const char CopyConvertShader[] = R"(
   }
 )";
 
-static HRESULT queryCopyConvertSupport(ID3D12Device *Device,
-                                       const MatrixParams &Params,
-                                       bool Transpose, bool &Supported,
-                                       UINT &SelectedWaveSize) {
+static HRESULT selectCopyConvertWaveSize(ID3D12Device *Device,
+                                         const MatrixParams &Params,
+                                         bool Transpose, bool &Supported,
+                                         UINT &SelectedWaveSize) {
   Supported = false;
   SelectedWaveSize = 0;
   if (!Device || Params.Use != MatrixUse::A ||
@@ -2746,13 +2763,18 @@ static bool copyConvertApplicable(ID3D12Device *Device,
                                   const MatrixParams &Params, bool Transpose,
                                   LPCWSTR CaseName, UINT &SelectedWaveSize) {
   bool Supported = false;
-  const HRESULT QueryResult = queryCopyConvertSupport(
+  const HRESULT QueryResult = selectCopyConvertWaveSize(
       Device, Params, Transpose, Supported, SelectedWaveSize);
-  return applyApplicability(
-      linalg_test::classifyApplicability(
-          QueryResult, Supported,
-          linalg_test::CapabilityRequirement::CapabilityGated),
-      CaseName);
+  if (!applyApplicability(
+          linalg_test::classifyApplicability(
+              QueryResult, Supported,
+              linalg_test::CapabilityRequirement::CapabilityGated),
+          CaseName))
+    return false;
+
+  VERIFY_IS_TRUE(SelectedWaveSize != 0,
+                 "A case cleared to run must have a selected wave size");
+  return true;
 }
 
 static void runCopyConvert(ID3D12Device *Device,
@@ -2889,17 +2911,10 @@ void DxilConf_SM610_LinAlg::CopyConvert_Wave_4x8_F32_Transpose() {
   Params.NumThreads = 128;
   Params.Enable16Bit = false;
 
-  bool Supported;
-  UINT SelectedWaveSize;
-  const HRESULT QueryResult = queryCopyConvertSupport(
-      D3DDevice, Params, /*Transpose=*/true, Supported, SelectedWaveSize);
-  const linalg_test::Applicability Applicability =
-      linalg_test::classifyApplicability(
-          QueryResult, Supported,
-          linalg_test::CapabilityRequirement::CapabilityGated);
-  if (!applyApplicability(
-          Applicability,
-          L"CopyConvert_Wave_4x8_F32_Transpose MatrixConstruction"))
+  UINT SelectedWaveSize = 0;
+  if (!copyConvertApplicable(D3DDevice, Params, /*Transpose=*/true,
+                             L"CopyConvert_Wave_4x8_F32_Transpose",
+                             SelectedWaveSize))
     return;
 
   // Non-square dimensions make the destination shape and row stride observable.
