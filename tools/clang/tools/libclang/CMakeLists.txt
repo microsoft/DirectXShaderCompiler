@@ -179,6 +179,7 @@ endif()
 endif() # HLSL Change
 
 add_dependencies(libclang TablegenHLSLOptions)  # HLSL Change
+target_link_libraries(libclang PRIVATE dxcreflection)  # HLSL Change
 
 # HLSL Change Starts
 # add_clang_library(${LIBCLANG_STATIC_TARGET_NAME} STATIC ${SOURCES})
