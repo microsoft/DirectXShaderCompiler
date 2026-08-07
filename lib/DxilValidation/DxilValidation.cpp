@@ -1089,11 +1089,39 @@ static void ValidateLinAlgMatrixLength(CallInst *CI,
 static void ValidateLinAlgMatrixGetCoordinate(CallInst *CI,
                                               ValidationContext &ValCtx) {
   ValidateLinAlgOpParameters(CI, ValCtx);
+
+  DxilInst_LinAlgMatrixGetCoordinate Op(CI);
+  Type *MatTy = Op.get_matrix()->getType();
+
+  assert(dxilutil::IsHLSLLinAlgMatrixType(MatTy) && "Must be LinAlg type");
+  auto MatIt = ValCtx.LinAlgTargetTypeMap.find(MatTy);
+  if (MatIt == ValCtx.LinAlgTargetTypeMap.end())
+    return;
+  LinAlgTargetType MatLATT = MatIt->second;
+
+  if (MatLATT.Scope == DXIL::MatrixScope::Thread)
+    ValCtx.EmitInstrFormatError(
+        CI, ValidationRule::InstrLinAlgMatrixScopeMismatch2,
+        {MatrixScopeToString(MatLATT.Scope), "Wave", "ThreadGroup"});
 }
 
 static void ValidateLinAlgMatrixGetElement(CallInst *CI,
                                            ValidationContext &ValCtx) {
   ValidateLinAlgOpParameters(CI, ValCtx);
+
+  DxilInst_LinAlgMatrixGetElement Op(CI);
+  Type *MatTy = Op.get_matrix()->getType();
+
+  assert(dxilutil::IsHLSLLinAlgMatrixType(MatTy) && "Must be LinAlg type");
+  auto MatIt = ValCtx.LinAlgTargetTypeMap.find(MatTy);
+  if (MatIt == ValCtx.LinAlgTargetTypeMap.end())
+    return;
+  LinAlgTargetType MatLATT = MatIt->second;
+
+  if (MatLATT.Scope == DXIL::MatrixScope::Thread)
+    ValCtx.EmitInstrFormatError(
+        CI, ValidationRule::InstrLinAlgMatrixScopeMismatch2,
+        {MatrixScopeToString(MatLATT.Scope), "Wave", "ThreadGroup"});
 }
 
 static void ValidateLinAlgMatrixStoreToDescriptor(CallInst *CI,
@@ -1315,6 +1343,20 @@ ValidateLinAlgVectorAccumulateToDescriptor(CallInst *CI,
 static void ValidateLinAlgFillMatrix(CallInst *CI, ValidationContext &ValCtx) {
   ValidateLinAlgOpReturnMatrix(CI, ValCtx);
   ValidateLinAlgOpParameters(CI, ValCtx);
+
+  DxilInst_LinAlgMatrixSetElement Op(CI);
+  Type *RetMatTy = CI->getType();
+
+  assert(dxilutil::IsHLSLLinAlgMatrixType(RetMatTy) && "Must be LinAlg type");
+  auto RetMatIt = ValCtx.LinAlgTargetTypeMap.find(RetMatTy);
+  if (RetMatIt == ValCtx.LinAlgTargetTypeMap.end())
+    return;
+  LinAlgTargetType RetMatLATT = RetMatIt->second;
+
+  if (RetMatLATT.Scope == DXIL::MatrixScope::Thread)
+    ValCtx.EmitInstrFormatError(
+        CI, ValidationRule::InstrLinAlgMatrixScopeMismatch2,
+        {MatrixScopeToString(RetMatLATT.Scope), "Wave", "ThreadGroup"});
 }
 
 static void ValidateLinAlgMatrixLoadFromMemory(CallInst *CI,
@@ -1327,6 +1369,31 @@ static void ValidateLinAlgMatrixSetElement(CallInst *CI,
                                            ValidationContext &ValCtx) {
   ValidateLinAlgOpReturnMatrix(CI, ValCtx);
   ValidateLinAlgOpParameters(CI, ValCtx);
+
+  DxilInst_LinAlgMatrixSetElement Op(CI);
+  Type *RetMatTy = CI->getType();
+  Type *InMatTy = Op.get_matrix()->getType();
+
+  assert(dxilutil::IsHLSLLinAlgMatrixType(InMatTy) &&
+         dxilutil::IsHLSLLinAlgMatrixType(RetMatTy) && "Must be LinAlg types");
+  auto InMatIt = ValCtx.LinAlgTargetTypeMap.find(InMatTy);
+  if (InMatIt == ValCtx.LinAlgTargetTypeMap.end())
+    return;
+  auto RetMatIt = ValCtx.LinAlgTargetTypeMap.find(RetMatTy);
+  if (RetMatIt == ValCtx.LinAlgTargetTypeMap.end())
+    return;
+  LinAlgTargetType InMatLATT = InMatIt->second;
+  LinAlgTargetType RetMatLATT = RetMatIt->second;
+
+  if (InMatLATT.Scope == DXIL::MatrixScope::Thread)
+    ValCtx.EmitInstrFormatError(
+        CI, ValidationRule::InstrLinAlgMatrixScopeMismatch2,
+        {MatrixScopeToString(InMatLATT.Scope), "Wave", "ThreadGroup"});
+
+  if (RetMatLATT.Scope == DXIL::MatrixScope::Thread)
+    ValCtx.EmitInstrFormatError(
+        CI, ValidationRule::InstrLinAlgMatrixScopeMismatch2,
+        {MatrixScopeToString(RetMatLATT.Scope), "Wave", "ThreadGroup"});
 }
 
 static void ValidateLinAlgMatrixMultiply(CallInst *CI,

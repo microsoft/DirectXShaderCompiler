@@ -8658,6 +8658,10 @@ class db_dxil(object):
             "Matrix Scope '%0' does not match expected scope %1.",
         )
         self.add_valrule(
+            "Instr.LinAlgMatrixScopeMismatch2",
+            "Matrix Scope '%0' does not match expected scope %1 or %2.",
+        )
+        self.add_valrule(
             "Instr.LinAlgMatrixDimMismatch",
             "Matrix Dimension '%0x%1' does not match expected dimension %2x%3.",
         )
