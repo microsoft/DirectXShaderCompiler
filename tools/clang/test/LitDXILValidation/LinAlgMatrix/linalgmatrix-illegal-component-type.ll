@@ -1,23 +1,22 @@
 ; REQUIRES: dxil-1-10
 ; RUN: not %dxv %s 2>&1 | FileCheck %s
-
-target datalayout = "e-m:e-p:32:32-i1:32-i8:32-i16:32-i32:32-i64:64-f16:32-f32:32-f64:64-n8:16:32:64"
+target datalayout = "e-m:e-p:32:32-i1:32-i8:8-i16:16-i32:32-i64:64-f16:16-f32:32-f64:64-n8:16:32:64"
 target triple = "dxil-ms-dx"
 
 %dx.types.Handle = type { i8* }
 %dx.types.ResBind = type { i32, i32, i32, i8 }
-%dx.types.LinAlgMatrixC0M128N128U0S0 = type { i8* }
 %dx.types.ResourceProperties = type { i32, i32 }
-%struct.RWByteAddressBuffer = type { i32 }
+%dx.types.LinAlgMatrixC0M16N16U0S0 = type { i8* }
+%struct.ByteAddressBuffer = type { i32 }
 
 define void @main() {
-  %1 = call %dx.types.Handle @dx.op.createHandleFromBinding(i32 217, %dx.types.ResBind { i32 0, i32 0, i32 0, i8 1 }, i32 0, i1 false)  ; CreateHandleFromBinding(bind,index,nonUniformIndex)
-  %handle = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %1, %dx.types.ResourceProperties { i32 4107, i32 0 })  ; AnnotateHandle(res,props)  resource: RWByteAddressBuffer
+  %1 = call %dx.types.Handle @dx.op.createHandleFromBinding(i32 217, %dx.types.ResBind zeroinitializer, i32 0, i1 false)  ; CreateHandleFromBinding(bind,index,nonUniformIndex)
+  %2 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %1, %dx.types.ResourceProperties { i32 11, i32 0 })  ; AnnotateHandle(res,props)  resource: ByteAddressBuffer
 
-  ; CHECK: Function: main: error: Matrix Component Type 'Invalid' not allowed in LinAlg Matrix.
-  ; CHECK-NEXT: note: at '%mC0M128N128U0S0
-  ; Matrix<Invalid, 128, 128, A, Thread>
-  %mC0M128N128U0S0 = call %dx.types.LinAlgMatrixC0M128N128U0S0 @dx.op.linAlgMatrixLoadFromDescriptor.mC0M128N128U0S0(i32 -2147483634, %dx.types.Handle %handle, i32 0, i32 0, i32 0, i32 0)
+  ; CHECK: Function: main: error: Component Type 'Invalid' not allowed in LinAlg Matrix.
+  ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixLoadFromDescriptor.mC0M16N16U0S0
+  ; Matrix<Invalid, 16, 16, A, Thread>
+  %3 = call %dx.types.LinAlgMatrixC0M16N16U0S0 @dx.op.linAlgMatrixLoadFromDescriptor.mC0M16N16U0S0(i32 -2147483634, %dx.types.Handle %2, i32 0, i32 0, i32 0, i32 128)  ; LinAlgMatrixLoadFromDescriptor(handle,offset,stride,layout,align)
 
   ; CHECK-NEXT: Validation failed.
 
@@ -25,7 +24,7 @@ define void @main() {
 }
 
 ; Function Attrs: nounwind
-declare %dx.types.LinAlgMatrixC0M128N128U0S0 @dx.op.linAlgMatrixLoadFromDescriptor.mC0M128N128U0S0(i32, %dx.types.Handle, i32, i32, i32, i32) #0
+declare %dx.types.LinAlgMatrixC0M16N16U0S0 @dx.op.linAlgMatrixLoadFromDescriptor.mC0M16N16U0S0(i32, %dx.types.Handle, i32, i32, i32, i32) #0
 
 ; Function Attrs: nounwind readnone
 declare %dx.types.Handle @dx.op.annotateHandle(i32, %dx.types.Handle, %dx.types.ResourceProperties) #1
@@ -36,21 +35,21 @@ declare %dx.types.Handle @dx.op.createHandleFromBinding(i32, %dx.types.ResBind, 
 attributes #0 = { nounwind }
 attributes #1 = { nounwind readnone }
 
-!dx.targetTypes = !{!26}
-!llvm.ident = !{!17}
-!dx.version = !{!18}
-!dx.valver = !{!18}
-!dx.shaderModel = !{!19}
-!dx.resources = !{!20}
-!dx.entryPoints = !{!23}
+!dx.targetTypes = !{!0}
+!llvm.ident = !{!1}
+!dx.version = !{!2}
+!dx.valver = !{!2}
+!dx.shaderModel = !{!3}
+!dx.resources = !{!4}
+!dx.entryPoints = !{!7}
 
-!17 = !{!"dxc(private) 1.9.0.15241 (main, 1f63535ae)"}
-!18 = !{i32 1, i32 10}
-!19 = !{!"cs", i32 6, i32 10}
-!20 = !{null, !21, null, null}
-!21 = !{!22}
-!22 = !{i32 0, %struct.RWByteAddressBuffer* undef, !"", i32 0, i32 0, i32 1, i32 11, i1 false, i1 false, i1 false, null}
-!23 = !{void ()* @main, !"main", null, !20, !24}
-!24 = !{i32 0, i64 8589934608, i32 4, !25}
-!25 = !{i32 4, i32 4, i32 4}
-!26 = !{%dx.types.LinAlgMatrixC0M128N128U0S0 undef, i32 0, i32 128, i32 128, i32 0, i32 0}
+!0 = !{%dx.types.LinAlgMatrixC0M16N16U0S0 undef, i32 0, i32 16, i32 16, i32 0, i32 0}
+!1 = !{!"dxc(private) 1.9.0.15416 (main, 27579abe5)"}
+!2 = !{i32 1, i32 10}
+!3 = !{!"cs", i32 6, i32 10}
+!4 = !{!5, null, null, null}
+!5 = !{!6}
+!6 = !{i32 0, %struct.ByteAddressBuffer* undef, !"", i32 0, i32 0, i32 1, i32 11, i32 0, null}
+!7 = !{void ()* @main, !"main", null, !4, !8}
+!8 = !{i32 0, i64 8388624, i32 4, !9}
+!9 = !{i32 1, i32 1, i32 1}

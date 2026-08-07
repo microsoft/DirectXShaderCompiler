@@ -40,34 +40,42 @@ target triple = "dxil-ms-dx"
 %dx.types.LinAlgMatrixC4M5N4U2S2 = type { i8* }
 %dx.types.LinAlgMatrixC4M5N4U0S2 = type { i8* }
 %dx.types.LinAlgMatrixC4M4N5U1S2 = type { i8* }
+%dx.types.LinAlgMatrixC4M4N4U0S0 = type { i8* }
 %dx.types.ResourceProperties = type { i32, i32 }
+%struct.ByteAddressBuffer = type { i32 }
 %struct.RWByteAddressBuffer = type { i32 }
 
 @"\01?SharedArr@@3PAMA" = external addrspace(3) global [64 x float], align 4
 
 define void @mainAS() {
 
-  %1 = call %dx.types.Handle @dx.op.createHandleFromBinding(i32 217, %dx.types.ResBind { i32 0, i32 0, i32 0, i8 1 }, i32 0, i1 false)  ; CreateHandleFromBinding(bind,index,nonUniformIndex)
-  %handle = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %1, %dx.types.ResourceProperties { i32 4107, i32 0 })  ; AnnotateHandle(res,props)  resource: RWByteAddressBuffer
+  %h1 = call %dx.types.Handle @dx.op.createHandleFromBinding(i32 217, %dx.types.ResBind { i32 0, i32 0, i32 0, i8 1 }, i32 0, i1 false)  ; CreateHandleFromBinding(bind,index,nonUniformIndex)
+  %h2 = call %dx.types.Handle @dx.op.createHandleFromBinding(i32 217, %dx.types.ResBind zeroinitializer, i32 0, i1 false)  ; CreateHandleFromBinding(bind,index,nonUniformIndex)
+  %rwbab = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %h1, %dx.types.ResourceProperties { i32 4107, i32 0 })  ; AnnotateHandle(res,props)  resource: RWByteAddressBuffer
+  %bab = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %h2, %dx.types.ResourceProperties { i32 11, i32 0 })  ; AnnotateHandle(res,props)  resource: ByteAddressBuffer
 
   ;
   ; Built-ins allowed in all stages
   ;
 
-  %mC4M5N4U0S2 = call %dx.types.LinAlgMatrixC4M5N4U0S2 @dx.op.linAlgMatrixLoadFromDescriptor.mC4M5N4U0S2(i32 -2147483634, %dx.types.Handle %handle, i32 0, i32 0, i32 0, i32 0)
-  %mC4M4N5U1S2 = call %dx.types.LinAlgMatrixC4M4N5U1S2 @dx.op.linAlgMatrixLoadFromDescriptor.mC4M4N5U1S2(i32 -2147483634, %dx.types.Handle %handle, i32 0, i32 0, i32 0, i32 0)
+  ; Matrix<I32, 4, 4, A, Thread>
+  %mC4M4N4U0S0 = call %dx.types.LinAlgMatrixC4M4N4U0S0 @dx.op.linAlgMatrixLoadFromDescriptor.mC4M4N4U0S0(i32 -2147483634, %dx.types.Handle %bab, i32 0, i32 0, i32 0, i32 128)
+  ; Matrix<I32, 5, 4, A, ThreadGroup>
+  %mC4M5N4U0S2 = call %dx.types.LinAlgMatrixC4M5N4U0S2 @dx.op.linAlgMatrixLoadFromDescriptor.mC4M5N4U0S2(i32 -2147483634, %dx.types.Handle %bab, i32 0, i32 0, i32 0, i32 128)
+  ; Matrix<I32, 4, 5, B, ThreadGroup>
+  %mC4M4N5U1S2 = call %dx.types.LinAlgMatrixC4M4N5U1S2 @dx.op.linAlgMatrixLoadFromDescriptor.mC4M4N5U1S2(i32 -2147483634, %dx.types.Handle %bab, i32 0, i32 0, i32 0, i32 128)
 
   ; dx.op.linAlgMatrixAccumulate
   %v1 = call %dx.types.LinAlgMatrixC4M5N4U2S2 @dx.op.linAlgMatrixAccumulate.mC4M5N4U2S2.mC4M5N4U0S2.mC4M4N5U1S2(i32 -2147483624, %dx.types.LinAlgMatrixC4M5N4U0S2 %mC4M5N4U0S2, %dx.types.LinAlgMatrixC4M4N5U1S2 %mC4M4N5U1S2)  ; LinAlgMatrixAccumulate(matrixLHS,matrixRHS)
 
   ; dx.op.linAlgMatrixAccumulateToDescriptor
-  call void @dx.op.linAlgMatrixAccumulateToDescriptor.mC4M5N4U0S2(i32 -2147483621, %dx.types.LinAlgMatrixC4M5N4U0S2 %mC4M5N4U0S2, %dx.types.Handle %handle, i32 1, i32 2, i32 3, i32 4)  ; LinAlgMatrixAccumulateToDescriptor(matrix,handle,offset,stride,layout,align)
+  call void @dx.op.linAlgMatrixAccumulateToDescriptor.mC4M5N4U0S2(i32 -2147483621, %dx.types.LinAlgMatrixC4M5N4U0S2 %mC4M5N4U0S2, %dx.types.Handle %rwbab, i32 1, i32 2, i32 3, i32 4)  ; LinAlgMatrixAccumulateToDescriptor(matrix,handle,offset,stride,layout,align)
 
   ; dx.op.linAlgMatrixLength
   %v2 = call i32 @dx.op.linAlgMatrixLength.mC4M5N4U0S2(i32 -2147483632, %dx.types.LinAlgMatrixC4M5N4U0S2 %mC4M5N4U0S2)  ; LinAlgMatrixLength(matrix)
 
   ; dx.op.linAlgMatrixLoadFromDescriptor
-  %v3 = call %dx.types.LinAlgMatrixC4M5N4U0S2 @dx.op.linAlgMatrixLoadFromDescriptor.mC4M5N4U0S2(i32 -2147483634, %dx.types.Handle %handle, i32 0, i32 0, i32 0, i32 0)  ; LinAlgMatrixLoadFromDescriptor(handle,offset,stride,layout,align)
+  %v3 = call %dx.types.LinAlgMatrixC4M5N4U0S2 @dx.op.linAlgMatrixLoadFromDescriptor.mC4M5N4U0S2(i32 -2147483634, %dx.types.Handle %bab, i32 0, i32 0, i32 0, i32 128)  ; LinAlgMatrixLoadFromDescriptor(handle,offset,stride,layout,align)
 
   ; dx.op.linAlgMatrixOuterProduct
   %v4 = call %dx.types.LinAlgMatrixC4M5N4U0S2 @dx.op.linAlgMatrixOuterProduct.mC4M5N4U0S2.v4i32.v4i32(i32 -2147483619, <4 x i32> <i32 9, i32 9, i32 9, i32 9>, <4 x i32> <i32 3, i32 3, i32 3, i32 3>)  ; LinAlgMatrixOuterProduct(vectorA,vectorB)
@@ -76,16 +84,16 @@ define void @mainAS() {
   %v5 = call i32 @dx.op.linAlgMatrixQueryAccumulatorLayout(i32 -2147483626)  ; LinAlgMatrixQueryAccumulatorLayout()
 
   ; dx.op.linAlgMatVecMul
-  %v6 = call <4 x i32> @dx.op.linAlgMatVecMul.v4i32.mC4M5N4U0S2.v4i32(i32 -2147483623, %dx.types.LinAlgMatrixC4M5N4U0S2 %v4, i1 true, <4 x i32> <i32 9, i32 9, i32 9, i32 9>, i32 1)  ; LinAlgMatVecMul(matrix,isOutputSigned,inputVector,interpretation)
+  %v6 = call <4 x i32> @dx.op.linAlgMatVecMul.v4i32.mC4M4N4U0S0.v4i32(i32 -2147483623, %dx.types.LinAlgMatrixC4M4N4U0S0 %mC4M4N4U0S0, i1 true, <4 x i32> <i32 9, i32 9, i32 9, i32 9>, i32 9)  ; LinAlgMatVecMul(matrix,isOutputSigned,inputVector,interpretation)
 
   ; dx.op.linAlgMatVecMulAdd
-  %v7 = call <4 x i32> @dx.op.linAlgMatVecMulAdd.v4i32.mC4M5N4U0S2.v4i32.v4i32(i32 -2147483622, %dx.types.LinAlgMatrixC4M5N4U0S2 %v4, i1 true, <4 x i32> <i32 9, i32 9, i32 9, i32 9>, i32 2, <4 x i32> <i32 7, i32 7, i32 7, i32 7>)  ; LinAlgMatVecMulAdd(matrix,isOutputSigned,inputVector,inputInterpretation,biasVector)
+  %v7 = call <4 x i32> @dx.op.linAlgMatVecMulAdd.v4i32.mC4M4N4U0S0.v4i32.v4i32(i32 -2147483622, %dx.types.LinAlgMatrixC4M4N4U0S0 %mC4M4N4U0S0, i1 true, <4 x i32> <i32 9, i32 9, i32 9, i32 9>, i32 2, <4 x i32> <i32 7, i32 7, i32 7, i32 7>)  ; LinAlgMatVecMulAdd(matrix,isOutputSigned,inputVector,inputInterpretation,biasVector)
 
   ; dx.op.linAlgConvert
   %v16 = call <4 x float> @dx.op.linAlgConvert.v4f32.v4i32(i32 -2147483618, <4 x i32> zeroinitializer, i32 1, i32 2)  ; LinAlgConvert(inputVector,inputInterpretation,outputInterpretation)
 
   ; dx.op.linAlgVectorAccumulateToDescriptor
-  call void @dx.op.linAlgVectorAccumulateToDescriptor.v4f32(i32 -2147483617, %dx.types.Handle %handle, i32 0, i32 64, <4 x float> zeroinitializer)  ; LinAlgVectorAccumulateToDescriptor(handle,offset,align,vector)
+  call void @dx.op.linAlgVectorAccumulateToDescriptor.v4f32(i32 -2147483617, %dx.types.Handle %rwbab, i32 0, i32 64, <4 x float> zeroinitializer)  ; LinAlgVectorAccumulateToDescriptor(handle,offset,align,vector)
 
   ;
   ; Built-ins restricted to compute, mesh and amplification shaders
@@ -113,7 +121,7 @@ define void @mainAS() {
   %v14 = call %dx.types.LinAlgMatrixC4M5N4U0S2 @dx.op.linAlgMatrixSetElement.mC4M5N4U0S2.mC4M5N4U0S2.i32(i32 -2147483629, %dx.types.LinAlgMatrixC4M5N4U0S2 %v9, i32 1, i32 1)  ; LinAlgMatrixSetElement(matrix,threadLocalIndex,value)
 
   ; dx.op.linAlgMatrixStoreToDescriptor
-  call void @dx.op.linAlgMatrixStoreToDescriptor.mC4M5N4U0S2(i32 -2147483628, %dx.types.LinAlgMatrixC4M5N4U0S2 %v14, %dx.types.Handle %handle, i32 1, i32 2, i32 3, i32 4)  ; LinAlgMatrixStoreToDescriptor(matrix,handle,offset,stride,layout,align)
+  call void @dx.op.linAlgMatrixStoreToDescriptor.mC4M5N4U0S2(i32 -2147483628, %dx.types.LinAlgMatrixC4M5N4U0S2 %v14, %dx.types.Handle %rwbab, i32 1, i32 2, i32 3, i32 4)  ; LinAlgMatrixStoreToDescriptor(matrix,handle,offset,stride,layout,align)
 
   ; dx.op.linAlgMatrixAccumulateToMemory
   call void @dx.op.linAlgMatrixAccumulateToMemory.mC4M5N4U0S2.f32(i32 -2147483620, %dx.types.LinAlgMatrixC4M5N4U0S2 %v14, float addrspace(3)* getelementptr inbounds ([64 x float], [64 x float] addrspace(3)* @"\01?SharedArr@@3PAMA", i32 0, i32 0), i32 0, i32 0, i32 0, i32 0)  ; LinAlgMatrixAccumulateToMemory(matrix,memory,targetType,offset,stride,layout)
@@ -124,8 +132,8 @@ define void @mainAS() {
   ; dx.op.linAlgMatrixStoreToMemory
   call void @dx.op.linAlgMatrixStoreToMemory.mC4M5N4U0S2.f32(i32 -2147483627, %dx.types.LinAlgMatrixC4M5N4U0S2 %v15, float addrspace(3)* getelementptr inbounds ([64 x float], [64 x float] addrspace(3)* @"\01?SharedArr@@3PAMA", i32 0, i32 0), i32 0, i32 0, i32 0)  ; LinAlgMatrixStoreToMemory(matrix,memory,offset,stride,layout)
 
-  %2 = alloca %struct.AmpPayload.0, align 8
-  call void @dx.op.dispatchMesh.struct.AmpPayload.0(i32 173, i32 8, i32 1, i32 1, %struct.AmpPayload.0* nonnull %2)  ; DispatchMesh(threadGroupCountX,threadGroupCountY,threadGroupCountZ,payload)
+  %1 = alloca %struct.AmpPayload.0, align 8
+  call void @dx.op.dispatchMesh.struct.AmpPayload.0(i32 173, i32 8, i32 1, i32 1, %struct.AmpPayload.0* nonnull %1)  ; DispatchMesh(threadGroupCountX,threadGroupCountY,threadGroupCountZ,payload)
 
   ret void
 }
@@ -152,16 +160,19 @@ declare %dx.types.LinAlgMatrixC4M5N4U0S2 @dx.op.linAlgMatrixLoadFromDescriptor.m
 declare %dx.types.LinAlgMatrixC4M4N5U1S2 @dx.op.linAlgMatrixLoadFromDescriptor.mC4M4N5U1S2(i32, %dx.types.Handle, i32, i32, i32, i32) #0
 
 ; Function Attrs: nounwind
+declare %dx.types.LinAlgMatrixC4M4N4U0S0 @dx.op.linAlgMatrixLoadFromDescriptor.mC4M4N4U0S0(i32, %dx.types.Handle, i32, i32, i32, i32) #0
+
+; Function Attrs: nounwind
 declare %dx.types.LinAlgMatrixC4M5N4U0S2 @dx.op.linAlgMatrixOuterProduct.mC4M5N4U0S2.v4i32.v4i32(i32, <4 x i32>, <4 x i32>) #0
 
 ; Function Attrs: nounwind
 declare i32 @dx.op.linAlgMatrixQueryAccumulatorLayout(i32) #0
 
 ; Function Attrs: nounwind
-declare <4 x i32> @dx.op.linAlgMatVecMul.v4i32.mC4M5N4U0S2.v4i32(i32, %dx.types.LinAlgMatrixC4M5N4U0S2, i1, <4 x i32>, i32) #0
+declare <4 x i32> @dx.op.linAlgMatVecMul.v4i32.mC4M4N4U0S0.v4i32(i32, %dx.types.LinAlgMatrixC4M4N4U0S0, i1, <4 x i32>, i32) #0
 
 ; Function Attrs: nounwind
-declare <4 x i32> @dx.op.linAlgMatVecMulAdd.v4i32.mC4M5N4U0S2.v4i32.v4i32(i32, %dx.types.LinAlgMatrixC4M5N4U0S2, i1, <4 x i32>, i32, <4 x i32>) #0
+declare <4 x i32> @dx.op.linAlgMatVecMulAdd.v4i32.mC4M4N4U0S0.v4i32.v4i32(i32, %dx.types.LinAlgMatrixC4M4N4U0S0, i1, <4 x i32>, i32, <4 x i32>) #0
 
 ; Function Attrs: nounwind
 declare <4 x float> @dx.op.linAlgConvert.v4f32.v4i32(i32, <4 x i32>, i32, i32) #0
@@ -208,7 +219,7 @@ declare void @dx.op.dispatchMesh.struct.AmpPayload.0(i32, i32, i32, i32, %struct
 attributes #0 = { nounwind }
 attributes #1 = { nounwind readnone }
 
-!dx.targetTypes = !{!0, !1, !2}
+!dx.targetTypes = !{!0, !1, !2, !13}
 !llvm.ident = !{!3}
 !dx.version = !{!4}
 !dx.valver = !{!4}
@@ -222,10 +233,13 @@ attributes #1 = { nounwind readnone }
 !3 = !{!"dxc(private) 1.9.0.15241 (main, 1f63535ae)"}
 !4 = !{i32 1, i32 10}
 !5 = !{!"as", i32 6, i32 10}
-!6 = !{null, !7, null, null}
+!6 = !{!14, !7, null, null}
 !7 = !{!8}
 !8 = !{i32 0, %struct.RWByteAddressBuffer* undef, !"", i32 0, i32 0, i32 1, i32 11, i1 false, i1 false, i1 false, null}
 !9 = !{void ()* @mainAS, !"mainAS", null, !6, !10}
 !10 = !{i32 0, i64 8589934608, i32 10, !11}
 !11 = !{!12, i32 8}
 !12 = !{i32 8, i32 1, i32 1}
+!13 = !{%dx.types.LinAlgMatrixC4M4N4U0S0 undef, i32 4, i32 4, i32 4, i32 0, i32 0}
+!14 = !{!15}
+!15 = !{i32 0, %struct.ByteAddressBuffer* undef, !"", i32 0, i32 0, i32 1, i32 11, i32 0, null}

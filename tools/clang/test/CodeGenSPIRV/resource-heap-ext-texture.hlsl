@@ -1,5 +1,10 @@
 // RUN: %dxc -T cs_6_6 -E main -fspv-use-descriptor-heap -spirv %s | FileCheck %s
 
+// The validator now requires explicit layout for UniformConstant when
+// SPV_EXT_descriptor_heap is used (KhronosGroup/SPIRV-Tools#6792). DXC's
+// descriptor heap support does not yet emit ArrayStride.
+// XFAIL: *
+
 // CHECK: OpCapability DescriptorHeapEXT
 // CHECK: OpExtension "SPV_EXT_descriptor_heap"
 

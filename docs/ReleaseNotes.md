@@ -40,6 +40,9 @@ line upon naming the release. Refer to previous for appropriate section names.
 - Fixed derivative operations being moved into divergent control flow, which
   could produce incorrect results
   [#8001](https://github.com/microsoft/DirectXShaderCompiler/issues/8001).
+- SPIR-V: Fixed an invalid `OpSelect` being generated when optimizing for
+  SPIR-V 1.3 and earlier
+  [#8603](https://github.com/microsoft/DirectXShaderCompiler/issues/8603).
 - Fixed internal compiler errors when a member method is called on a ray payload
   or on one of its fields with payload access qualifiers enabled
   [#6464](https://github.com/microsoft/DirectXShaderCompiler/issues/6464).
@@ -62,6 +65,8 @@ first shipped in the 1.10.2605 preview.
   [#8588](https://github.com/microsoft/DirectXShaderCompiler/pull/8588).
 - Restricted the component types allowed in LinAlg matrices
   [#8608](https://github.com/microsoft/DirectXShaderCompiler/pull/8608).
+- Added `BFloat16` to the ComponentType enum in DxilConstants and the linalg
+  header [#8722](https://github.com/microsoft/DirectXShaderCompiler/issues/8722)
 
 ### Version 1.9.2607
 

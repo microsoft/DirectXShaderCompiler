@@ -199,6 +199,10 @@ enum class ComponentType : uint32_t {
   F8_E5M2 = 22,
   // END
 
+  // BEGIN NEW FOR SM 6.10
+  BFloat16 = 23,
+  // END
+
   LastEntry
 };
 
