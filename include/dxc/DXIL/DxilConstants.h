@@ -2501,6 +2501,8 @@ extern const char *kHostLayoutTypePrefix;
 
 extern const char *kWaveOpsIncludeHelperLanesString;
 
+extern const char *kPreciseString;
+
 } // namespace DXIL
 
 } // namespace hlsl

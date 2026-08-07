@@ -1022,11 +1022,7 @@ void HLModule::ClearPreciseAttributeWithMetadata(Instruction *I) {
 }
 
 static void MarkPreciseAttribute(Function *F) {
-  LLVMContext &Ctx = F->getContext();
-  MDNode *preciseNode = MDNode::get(
-      Ctx, {MDString::get(Ctx, DxilMDHelper::kDxilPreciseAttributeMDName)});
-
-  F->setMetadata(DxilMDHelper::kDxilPreciseAttributeMDName, preciseNode);
+  F->addFnAttr(DXIL::kPreciseString);
 }
 
 template <typename BuilderTy>
@@ -1034,7 +1030,10 @@ void HLModule::MarkPreciseAttributeOnValWithFunctionCall(llvm::Value *V,
                                                          BuilderTy &Builder,
                                                          llvm::Module &M) {
   Type *Ty = V->getType();
-  Type *EltTy = Ty->getScalarType();
+  Type *EltTy = Ty;
+  bool SupportsVectors = M.GetHLModule().GetShaderModel()->IsSM69Plus();
+  if (!SupportsVectors)
+    EltTy = Ty->getScalarType();
 
   // TODO: Only do this on basic types.
 
@@ -1050,7 +1049,8 @@ void HLModule::MarkPreciseAttributeOnValWithFunctionCall(llvm::Value *V,
       cast<Function>(M.getOrInsertFunction(preciseFuncName, preciseFuncTy));
   if (!HLModule::HasPreciseAttribute(preciseFunc))
     MarkPreciseAttribute(preciseFunc);
-  if (FixedVectorType *VT = dyn_cast<FixedVectorType>(Ty)) {
+  if (!SupportsVectors && isa<FixedVectorType>(Ty)) {
+    FixedVectorType *VT = dyn_cast<FixedVectorType>(Ty);
     for (unsigned i = 0; i < VT->getNumElements(); i++) {
       Value *Elt = Builder.CreateExtractElement(V, i);
       Builder.CreateCall(preciseFunc, {Elt});
@@ -1103,9 +1103,9 @@ void HLModule::MarkPreciseAttributeOnPtrWithFunctionCall(llvm::Value *Ptr,
 }
 
 bool HLModule::HasPreciseAttribute(Function *F) {
-  MDNode *preciseNode =
-      F->getMetadata(DxilMDHelper::kDxilPreciseAttributeMDName);
-  return preciseNode != nullptr;
+  AttributeSet Attributeset = F->getAttributes();
+  return Attributeset.hasAttribute(AttributeSet::FunctionIndex,
+                                   DXIL::kPreciseString);
 }
 
 static void AddDIGlobalVariable(DIBuilder &Builder, DIGlobalVariable *LocDIGV,

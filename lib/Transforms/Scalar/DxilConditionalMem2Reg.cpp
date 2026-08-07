@@ -270,6 +270,11 @@ public:
   static bool ScalarizePreciseVectorAlloca(Function &F) {
     BasicBlock *Entry = &*F.begin();
 
+    // No need to scalarize the vector if 6.9 native vector support is available
+    Module *M = F.getParent();
+    if (M->HasHLModule() && M->GetHLModule().GetShaderModel()->IsSM69Plus())
+      return false;
+
     SmallVector<AllocaInst *, 4> PreciseAllocaInsts;
     for (auto it = Entry->begin(); it != Entry->end();) {
       Instruction *I = &*(it++);
