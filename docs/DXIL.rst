@@ -3215,6 +3215,7 @@ INSTR.LINALGMATRIXDIMKVECKMISMATCH                    %0 vector size '%1' must b
 INSTR.LINALGMATRIXDIMMISMATCH                         Matrix Dimension '%0x%1' does not match expected dimension %2x%3.
 INSTR.LINALGMATRIXDIMVECTORMISMATCH                   %0 vector size '%1' must match matrix %2 dimension '%3'
 INSTR.LINALGMATRIXLAYOUTREQSTRIDE                     Matrix layout '%0' requires stride 0.
+INSTR.LINALGMATRIXLOADTHREADREQUIRESBAB               Loading matrix with Thread scope requires ByteAddressBuffer.
 INSTR.LINALGMATRIXNOTEXACTMATCH                       Matrix '%0' must exactly match matrix '%1'.
 INSTR.LINALGMATRIXOUTPUTBIASVECMISMATCH               Output vector element type '%0' must match Bias vector element type '%1'
 INSTR.LINALGMATRIXSCOPEMISMATCH                       Matrix Scope '%0' does not match expected scope %1.
@@ -3250,6 +3251,7 @@ INSTR.OPCODERESERVED                                  Instructions must not refe
 INSTR.OPCONST                                         DXIL intrinsic requires an immediate constant operand
 INSTR.OPCONSTRANGE                                    Constant values must be in-range for operation.
 INSTR.OPERANDRANGE                                    DXIL intrinsic operand must be within defined range
+INSTR.PARAMMINIMUMVALUE                               Parameter must be greater than a minimum value
 INSTR.PARAMMULTIPLE                                   Parameter must be a valid multiple
 INSTR.PTRBITCAST                                      Pointer type bitcast must be have same size.
 INSTR.REORDERCOHERENTREQUIRESSM69                     reordercoherent requires SM 6.9 or later.

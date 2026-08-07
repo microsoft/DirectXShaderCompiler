@@ -8628,6 +8628,11 @@ class db_dxil(object):
             "Parameter must be a valid multiple",
             "parameter '%0' must be a multiple of %1, got %2",
         )
+        self.add_valrule_msg(
+            "Instr.ParamMinimumValue",
+            "Parameter must be greater than a minimum value",
+            "parameter '%0' must be greater than %1, got %2",
+        )
         self.add_valrule(
             "Instr.MayReorderThreadUndefCoherenceHintParam",
             "Use of undef coherence hint or num coherence hint bits in MaybeReorderThread.",
@@ -8691,6 +8696,10 @@ class db_dxil(object):
         self.add_valrule(
             "Instr.LinAlgMatrixUnsignedFloatTypeNotAllowed",
             "Float-like type '%0' must be signed",
+        )
+        self.add_valrule(
+            "Instr.LinAlgMatrixLoadThreadRequiresBAB",
+            "Loading matrix with Thread scope requires ByteAddressBuffer.",
         )
 
         # Some legacy rules:
