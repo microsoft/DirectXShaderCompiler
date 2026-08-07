@@ -3667,6 +3667,17 @@ void DxilConf_SM610_LinAlg::OuterProduct_Thread_16x16_F16() {
                               L"OuterProduct_Thread_16x16_F16"))
     return;
 
+  // The shader accumulates its result into an RWByteAddressBuffer, which is
+  // reported independently of the outer product itself. A device may produce
+  // the outer product yet not support accumulating this component type into a
+  // buffer, so the destination has to be gated too or that device fails to
+  // create the pipeline instead of skipping.
+  if (!accumulateStoreApplicable(
+          D3DDevice, Params.CompType,
+          linalg_test::AtomicDestination::RWByteAddressBuffer,
+          L"OuterProduct_Thread_16x16_F16"))
+    return;
+
   runOuterProduct(D3DDevice, DxcSupport, Params, VerboseLogging);
 #else
 #ifdef _HLK_CONF
