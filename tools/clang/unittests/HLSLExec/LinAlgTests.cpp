@@ -1212,23 +1212,26 @@ static bool verifyMatrixBuffer(const void *ActualBuffer,
 // both directions. verifyUntouchedBytes reports through Log::Error, which
 // marks the calling test failed, so a test that deliberately supplies a
 // corrupted buffer cannot call it.
-static BYTE poisonByteAt(BYTE Seed, size_t Offset) {
-  return static_cast<BYTE>(Seed ^ static_cast<BYTE>(Offset * 31u));
+static constexpr BYTE PoisonSeed = 0xa5;
+
+static BYTE poisonByteAt(size_t Offset) {
+  return static_cast<BYTE>(PoisonSeed ^ static_cast<BYTE>(Offset * 31u));
 }
 
-static void fillPoison(void *Buffer, size_t BufferSize, BYTE Seed) {
+static void fillPoison(void *Buffer, size_t BufferSize) {
   BYTE *Bytes = static_cast<BYTE *>(Buffer);
   for (size_t I = 0; I < BufferSize; ++I)
-    Bytes[I] = poisonByteAt(Seed, I);
+    Bytes[I] = poisonByteAt(I);
 }
 
 // Returns the number of offending bytes, or nullopt if the buffer cannot hold
 // the described matrix at all. FirstOffsets, when supplied, collects the
 // leading offenders for diagnostics.
-static std::optional<size_t> countTouchedBytesOutsideElements(
-    ComponentType CompType, MatrixDim M, MatrixDim N,
-    const MatrixBufferLayout &Layout, const void *Buffer, size_t BufferSize,
-    BYTE PoisonSeed, std::vector<size_t> *FirstOffsets = nullptr) {
+static std::optional<size_t>
+countTouchedBytesOutsideElements(ComponentType CompType, MatrixDim M,
+                                 MatrixDim N, const MatrixBufferLayout &Layout,
+                                 const void *Buffer, size_t BufferSize,
+                                 std::vector<size_t> *FirstOffsets = nullptr) {
   static constexpr size_t MaxReportedOffsets = 8;
 
   std::optional<size_t> RequiredBytes =
@@ -1252,7 +1255,7 @@ static std::optional<size_t> countTouchedBytesOutsideElements(
   const BYTE *Bytes = static_cast<const BYTE *>(Buffer);
   size_t Corrupted = 0;
   for (size_t I = 0; I < BufferSize; ++I) {
-    if (Owned[I] || Bytes[I] == poisonByteAt(PoisonSeed, I))
+    if (Owned[I] || Bytes[I] == poisonByteAt(I))
       continue;
     if (FirstOffsets && FirstOffsets->size() < MaxReportedOffsets)
       FirstOffsets->push_back(I);
@@ -1266,10 +1269,10 @@ static std::optional<size_t> countTouchedBytesOutsideElements(
 static bool verifyUntouchedBytes(ComponentType CompType, MatrixDim M,
                                  MatrixDim N, const MatrixBufferLayout &Layout,
                                  const void *Buffer, size_t BufferSize,
-                                 BYTE PoisonSeed, bool Verbose) {
+                                 bool Verbose) {
   std::vector<size_t> FirstOffsets;
   std::optional<size_t> Corrupted = countTouchedBytesOutsideElements(
-      CompType, M, N, Layout, Buffer, BufferSize, PoisonSeed, &FirstOffsets);
+      CompType, M, N, Layout, Buffer, BufferSize, &FirstOffsets);
 
   if (!Corrupted) {
     hlsl_test::LogErrorFmt(
@@ -1291,7 +1294,7 @@ static bool verifyUntouchedBytes(ComponentType CompType, MatrixDim M,
         L"Byte %zu is outside every element but was overwritten: "
         L"actual=0x%02x, expected poison=0x%02x",
         Offset, static_cast<const BYTE *>(Buffer)[Offset],
-        poisonByteAt(PoisonSeed, Offset));
+        poisonByteAt(Offset));
   hlsl_test::LogErrorFmt(L"%zu bytes outside the stored elements were "
                          L"overwritten",
                          *Corrupted);
@@ -1678,15 +1681,13 @@ void LinAlgCPUOracleTests::UntouchedByteVerification() {
   VERIFY_IS_TRUE(Size.has_value());
   VERIFY_ARE_EQUAL(size_t(32), *Size);
 
-  constexpr BYTE PoisonSeed = 0xa5;
   std::vector<BYTE> Buffer(*Size);
-  fillPoison(Buffer.data(), Buffer.size(), PoisonSeed);
+  fillPoison(Buffer.data(), Buffer.size());
   VERIFY_IS_TRUE(writeMatrixBuffer(*Matrix, Layout, Buffer));
 
-  auto CountTouched = [&Layout, PoisonSeed](const std::vector<BYTE> &Bytes) {
+  auto CountTouched = [&Layout](const std::vector<BYTE> &Bytes) {
     return countTouchedBytesOutsideElements(ComponentType::U32, 2, 3, Layout,
-                                            Bytes.data(), Bytes.size(),
-                                            PoisonSeed);
+                                            Bytes.data(), Bytes.size());
   };
 
   // A correctly encoded buffer leaves every non-element byte poisoned.
@@ -1694,7 +1695,7 @@ void LinAlgCPUOracleTests::UntouchedByteVerification() {
   VERIFY_IS_TRUE(Clean.has_value());
   VERIFY_ARE_EQUAL(size_t(0), *Clean);
   VERIFY_IS_TRUE(verifyUntouchedBytes(ComponentType::U32, 2, 3, Layout,
-                                      Buffer.data(), Buffer.size(), PoisonSeed,
+                                      Buffer.data(), Buffer.size(),
                                       /*Verbose=*/false));
 
   // Damaging an element is the element comparison's job, not this check's, so
@@ -1717,7 +1718,7 @@ void LinAlgCPUOracleTests::UntouchedByteVerification() {
 
   // Every non-element byte damaged at once is still counted exactly.
   std::vector<BYTE> AllTouched(*Size);
-  fillPoison(AllTouched.data(), AllTouched.size(), PoisonSeed);
+  fillPoison(AllTouched.data(), AllTouched.size());
   for (BYTE &Byte : AllTouched)
     Byte = static_cast<BYTE>(~Byte);
   VERIFY_IS_TRUE(writeMatrixBuffer(*Matrix, Layout, AllTouched));
@@ -1738,7 +1739,7 @@ void LinAlgCPUOracleTests::UntouchedByteVerification() {
   // poison pattern itself uses. Because the pattern varies, that value matches
   // at exactly one offset, so seven of the eight non-element bytes are still
   // caught. A constant poison would match everywhere and report nothing.
-  std::vector<BYTE> PoisonValuedFill(*Size, poisonByteAt(PoisonSeed, 0));
+  std::vector<BYTE> PoisonValuedFill(*Size, poisonByteAt(0));
   std::optional<size_t> AfterPoisonValued = CountTouched(PoisonValuedFill);
   VERIFY_IS_TRUE(AfterPoisonValued.has_value());
   VERIFY_ARE_EQUAL(size_t(7), *AfterPoisonValued);
@@ -1746,8 +1747,7 @@ void LinAlgCPUOracleTests::UntouchedByteVerification() {
   // No two adjacent bytes share a poison value, so a constant written over any
   // two neighbours cannot hide in both.
   for (size_t Offset = 1; Offset < *Size; ++Offset)
-    VERIFY_ARE_NOT_EQUAL(poisonByteAt(PoisonSeed, Offset - 1),
-                         poisonByteAt(PoisonSeed, Offset));
+    VERIFY_ARE_NOT_EQUAL(poisonByteAt(Offset - 1), poisonByteAt(Offset));
 
   // The diagnostic list is capped but the count is not, so the two have to be
   // checked against a buffer with more offenders than the cap. A 2x3 uint32
@@ -1764,13 +1764,13 @@ void LinAlgCPUOracleTests::UntouchedByteVerification() {
   VERIFY_ARE_EQUAL(size_t(44), *PaddedSize);
 
   std::vector<BYTE> AllPaddingTouched(*PaddedSize);
-  fillPoison(AllPaddingTouched.data(), AllPaddingTouched.size(), PoisonSeed);
+  fillPoison(AllPaddingTouched.data(), AllPaddingTouched.size());
   for (BYTE &Byte : AllPaddingTouched)
     Byte = static_cast<BYTE>(~Byte);
   std::vector<size_t> ReportedOffsets;
   std::optional<size_t> AfterPadded = countTouchedBytesOutsideElements(
       ComponentType::U32, 2, 3, PaddedLayout, AllPaddingTouched.data(),
-      AllPaddingTouched.size(), PoisonSeed, &ReportedOffsets);
+      AllPaddingTouched.size(), &ReportedOffsets);
   VERIFY_IS_TRUE(AfterPadded.has_value());
   VERIFY_ARE_EQUAL(size_t(20), *AfterPadded);
   VERIFY_ARE_EQUAL(size_t(8), ReportedOffsets.size());
@@ -1780,13 +1780,13 @@ void LinAlgCPUOracleTests::UntouchedByteVerification() {
   // Below the cap every offender is reported, and by its offset in the buffer
   // rather than its position among the offenders.
   std::vector<BYTE> TwoPaddingBytes(*PaddedSize);
-  fillPoison(TwoPaddingBytes.data(), TwoPaddingBytes.size(), PoisonSeed);
+  fillPoison(TwoPaddingBytes.data(), TwoPaddingBytes.size());
   TwoPaddingBytes[28] ^= 0xff;
   TwoPaddingBytes[29] ^= 0xff;
   std::vector<size_t> TwoOffsets;
   std::optional<size_t> AfterTwo = countTouchedBytesOutsideElements(
       ComponentType::U32, 2, 3, PaddedLayout, TwoPaddingBytes.data(),
-      TwoPaddingBytes.size(), PoisonSeed, &TwoOffsets);
+      TwoPaddingBytes.size(), &TwoOffsets);
   VERIFY_IS_TRUE(AfterTwo.has_value());
   VERIFY_ARE_EQUAL(size_t(2), *AfterTwo);
   VERIFY_ARE_EQUAL(size_t(2), TwoOffsets.size());
@@ -1795,7 +1795,7 @@ void LinAlgCPUOracleTests::UntouchedByteVerification() {
 
   // A buffer too small for the layout cannot be checked at all.
   std::vector<BYTE> TooSmall(*Size - 1);
-  fillPoison(TooSmall.data(), TooSmall.size(), PoisonSeed);
+  fillPoison(TooSmall.data(), TooSmall.size());
   VERIFY_IS_FALSE(CountTouched(TooSmall).has_value());
 }
 
@@ -2120,22 +2120,37 @@ static const char LoadStoreDescriptorShader[] = R"(
       [[__LinAlgMatrix_Attributes(COMP_TYPE, M_DIM, N_DIM, USE, SCOPE)]]
       Mat;
     __builtin_LinAlg_MatrixLoadFromDescriptor(
-      Mat, Input, OFFSET, STRIDE, LAYOUT, 128);
+      Mat, Input, LOAD_OFFSET, LOAD_STRIDE, LOAD_LAYOUT, 128);
     __builtin_LinAlg_MatrixStoreToDescriptor(
-      Mat, Output, OFFSET, STRIDE, LAYOUT, 128);
+      Mat, Output, STORE_OFFSET, STORE_STRIDE, STORE_LAYOUT, 128);
   }
 )";
 
-static void runLoadStoreDescriptor(ID3D12Device *Device,
-                                   dxc::SpecificDllLoader &DxcSupport,
-                                   const MatrixParams &Params, bool Verbose,
-                                   UINT ForcedWaveSize = 0) {
-  const size_t NumElements = Params.totalElements();
-  const size_t BufferSize = Params.totalBytes();
+static void
+runLoadStoreDescriptor(ID3D12Device *Device, dxc::SpecificDllLoader &DxcSupport,
+                       const MatrixParams &Params,
+                       const cpu_oracle::MatrixBufferLayout &LoadLayout,
+                       const cpu_oracle::MatrixBufferLayout &StoreLayout,
+                       bool Verbose, UINT ForcedWaveSize = 0) {
+  std::optional<cpu_oracle::TypedMatrix> Input =
+      cpu_oracle::makeSequentialMatrix(Params.CompType, Params.M, Params.N);
+  VERIFY_IS_TRUE(Input.has_value(),
+                 "Unable to construct typed LoadStoreDescriptor input");
 
-  // TODO: these should be varied by test to ensure full coverage
+  std::optional<size_t> InputSize =
+      cpu_oracle::getMatrixBufferSize(*Input, LoadLayout);
+  std::optional<size_t> OutputSize =
+      cpu_oracle::getMatrixBufferSize(*Input, StoreLayout);
+  VERIFY_IS_TRUE(InputSize.has_value() && OutputSize.has_value(),
+                 "Unable to size the LoadStoreDescriptor buffers");
+
   std::stringstream ExtraDefs;
-  ExtraDefs << " -DOFFSET=" << 0;
+  ExtraDefs << " -DLOAD_OFFSET=" << LoadLayout.OffsetBytes;
+  ExtraDefs << " -DLOAD_STRIDE=" << LoadLayout.StrideBytes;
+  ExtraDefs << " -DLOAD_LAYOUT=" << static_cast<int>(LoadLayout.Layout);
+  ExtraDefs << " -DSTORE_OFFSET=" << StoreLayout.OffsetBytes;
+  ExtraDefs << " -DSTORE_STRIDE=" << StoreLayout.StrideBytes;
+  ExtraDefs << " -DSTORE_LAYOUT=" << static_cast<int>(StoreLayout.Layout);
 
   if (ForcedWaveSize != 0)
     ExtraDefs << " -DFORCED_WAVE_SIZE=" << ForcedWaveSize;
@@ -2145,30 +2160,50 @@ static void runLoadStoreDescriptor(ID3D12Device *Device,
   compileShader(DxcSupport, LoadStoreDescriptorShader, "cs_6_10", Args,
                 Verbose);
 
-  auto Expected = makeExpectedMat(Params.CompType, Params.M, Params.N, 1);
+  const cpu_oracle::TypedMatrix InputMatrix = *Input;
+  cpu_oracle::MatrixResultOracle Oracle = cpu_oracle::exactResult(
+      InputMatrix, L"HLSL proposal 0035 MatrixLoadFromDescriptor and "
+                   L"MatrixStoreToDescriptor "
+                   L"round trip at the requested offset, stride and layout");
 
-  // Construct the ShaderOp: two UAV buffers, load from one, store to other.
+  // Two UAV buffers, load from one, store to the other. The destination is
+  // filled by name rather than zeroed so unowned bytes carry the poison.
   auto Op = createComputeOp(LoadStoreDescriptorShader, "cs_6_10",
                             "UAV(u0), UAV(u1)", Args.c_str());
-  addUAVBuffer(Op.get(), "Input", BufferSize, false, "byname");
-  addUAVBuffer(Op.get(), "Output", BufferSize, true);
+  addUAVBuffer(Op.get(), "Input", *InputSize, false, "byname");
+  addUAVBuffer(Op.get(), "Output", *OutputSize, true, "byname");
   addRootView(Op.get(), 0, "Input");
   addRootView(Op.get(), 1, "Output");
 
-  auto Result =
-      runShaderOp(Device, DxcSupport, std::move(Op),
-                  [NumElements, Params](LPCSTR Name, std::vector<BYTE> &Data,
-                                        st::ShaderOp *) {
-                    VERIFY_IS_TRUE(fillInputBuffer(Name, Data, Params.CompType,
-                                                   NumElements),
-                                   "Saw unsupported component type");
-                  });
+  auto Result = runShaderOp(
+      Device, DxcSupport, std::move(Op),
+      [InputMatrix, LoadLayout](LPCSTR Name, std::vector<BYTE> &Data,
+                                st::ShaderOp *) {
+        cpu_oracle::fillPoison(Data.data(), Data.size());
+        if (_stricmp(Name, "Input") != 0)
+          return;
+        VERIFY_IS_TRUE(
+            cpu_oracle::writeMatrixBuffer(InputMatrix, LoadLayout, Data),
+            "Unable to encode typed LoadStoreDescriptor input");
+      });
 
   MappedData OutData;
   Result->Test->GetReadBackData("Output", &OutData);
 
-  VERIFY_IS_TRUE(verifyComponentBuffer(Params.CompType, OutData.data(),
-                                       Expected, NumElements, Verbose));
+  VERIFY_IS_TRUE(cpu_oracle::verifyMatrixBuffer(OutData.data(), OutData.size(),
+                                                StoreLayout, Oracle, Verbose));
+  VERIFY_IS_TRUE(cpu_oracle::verifyUntouchedBytes(
+      Params.CompType, Params.M, Params.N, StoreLayout, OutData.data(),
+      OutData.size(), Verbose));
+}
+
+// No offset and a tightly packed stride: a matrix occupying the whole buffer.
+static cpu_oracle::MatrixBufferLayout packedLayout(const MatrixParams &Params) {
+  return cpu_oracle::MatrixBufferLayout{
+      Params.Layout,
+      /*OffsetBytes=*/0,
+      /*StrideBytes=*/Params.strideBytes(),
+  };
 }
 
 void DxilConf_SM610_LinAlg::LoadStoreDescriptor_Wave_16x16_F16() {
@@ -2188,7 +2223,8 @@ void DxilConf_SM610_LinAlg::LoadStoreDescriptor_Wave_16x16_F16() {
                                     SelectedWaveSize))
     return;
 
-  runLoadStoreDescriptor(D3DDevice, DxcSupport, Params, VerboseLogging,
+  runLoadStoreDescriptor(D3DDevice, DxcSupport, Params, packedLayout(Params),
+                         packedLayout(Params), VerboseLogging,
                          SelectedWaveSize);
 }
 
