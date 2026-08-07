@@ -22,6 +22,19 @@ The included licenses apply to the following files:
 Place release notes for the upcoming release below this line and remove this
 line upon naming the release. Refer to previous for appropriate section names.
 
+#### HLSL Language
+
+- Casting a scalar to a struct or array containing a resource is now an error
+  instead of crashing
+  [#6661](https://github.com/microsoft/DirectXShaderCompiler/issues/6661).
+
+#### SPIR-V
+
+- Functions can now be decorated with inline SPIR-V. `[[vk::ext_capability]]`
+  and `[[vk::ext_extension]]` are now honored on ordinary functions
+  [#8616](https://github.com/microsoft/DirectXShaderCompiler/pull/8616)
+  [#8719](https://github.com/microsoft/DirectXShaderCompiler/pull/8719).
+
 #### Bug Fixes
 
 - Fixed derivative operations being moved into divergent control flow, which
@@ -30,15 +43,6 @@ line upon naming the release. Refer to previous for appropriate section names.
 - SPIR-V: Fixed an invalid `OpSelect` being generated when optimizing for
   SPIR-V 1.3 and earlier
   [#8603](https://github.com/microsoft/DirectXShaderCompiler/issues/8603).
-
-#### HLSL Language
-
-- Casting a scalar to a struct or array containing a resource is now an error
-  instead of crashing
-  [#6661](https://github.com/microsoft/DirectXShaderCompiler/issues/6661).
-
-#### Bug Fixes
-
 - Fixed internal compiler errors when a member method is called on a ray payload
   or on one of its fields with payload access qualifiers enabled
   [#6464](https://github.com/microsoft/DirectXShaderCompiler/issues/6464).
