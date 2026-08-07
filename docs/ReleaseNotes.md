@@ -37,6 +37,13 @@ line upon naming the release. Refer to previous for appropriate section names.
   instead of crashing
   [#6661](https://github.com/microsoft/DirectXShaderCompiler/issues/6661).
 
+#### SPIR-V
+
+- Fixed a crash from `static` members of a `cbuffer`/`tbuffer`, which were
+  incorrectly counted as buffer members and shifted the member indices of the
+  members declared after them
+  [#8537](https://github.com/microsoft/DirectXShaderCompiler/issues/8537).
+
 #### Bug Fixes
 
 - Fixed internal compiler errors when a member method is called on a ray payload
