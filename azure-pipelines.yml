@@ -39,19 +39,34 @@ stages:
          configuration: Release
          spirvBuildFlag: -spirvtest
          artifactName: dxc_spirv_release
+         offloadCandidate: true
         VS2022_Debug:
          configuration: Debug
          spirvBuildFlag: -spirvtest
-         artifactName: ''
         VS2022_Release_NoSPIRV:
          configuration: Release
          spirvBuildFlag: ''
-         artifactName: ''
 
     steps:
     - checkout: self
       clean: true
       submodules: true
+    - pwsh: |
+        $run = $true
+        if ("$(Build.Reason)" -eq "PullRequest") {
+          $run = $false
+          try {
+            $labels = Invoke-RestMethod "https://api.github.com/repos/$(Build.Repository.Name)/issues/$(System.PullRequest.PullRequestNumber)/labels" -ErrorAction Stop
+            if ($labels.name -contains "run-offload-tests") { $run = $true }
+          } catch {
+            Write-Warning "Unable to check pull request labels; skipping offload tests: $_"
+          }
+        }
+        Write-Host "Build.Reason=$(Build.Reason) runOffloadTests=$run"
+        Write-Host "##vso[task.setvariable variable=runOffloadTests;isOutput=true]$($run.ToString().ToLower())"
+      name: decide
+      displayName: 'Decide whether to run offload tests'
+      condition: and(succeeded(), eq(variables['offloadCandidate'], 'true'))
     - script: |
         call utils\hct\hctstart.cmd %HLSL_SRC_DIR% %HLSL_BLD_DIR%
         call utils\hct\hctbuild.cmd -vs2022 -$(platform) -$(configuration) -show-cmake-log $(spirvBuildFlag) -warp-nuget-version 1.0.16.1
@@ -102,10 +117,10 @@ stages:
           if (Test-Path "$bin\$f") { Copy-Item "$bin\$f" $dst } else { throw "Required file not found: $bin\$f" }
         }
       displayName: 'Stage DXC binaries'
-      condition: and(succeeded(), ne(variables['artifactName'], ''))
+      condition: and(succeeded(), eq(variables['decide.runOffloadTests'], 'true'))
     - task: PublishPipelineArtifact@1
       displayName: 'Publish DXC binaries'
-      condition: and(succeeded(), ne(variables['artifactName'], ''))
+      condition: and(succeeded(), eq(variables['decide.runOffloadTests'], 'true'))
       inputs:
         targetPath: '$(Build.ArtifactStagingDirectory)\dxc'
         artifact: '$(artifactName)'
@@ -211,34 +226,9 @@ stages:
         testResultsFiles: '**/testresults.xunit.xml'
       condition: succeededOrFailed()
 
-- stage: OffloadGate
-  dependsOn: []
-  jobs:
-  - job: gate
-    pool:
-      vmImage: ubuntu-latest
-    steps:
-    - checkout: none
-    - bash: |
-        run=true
-        if [ "$(Build.Reason)" = "PullRequest" ]; then
-          run=false
-          labels=$(curl -sf "https://api.github.com/repos/$(Build.Repository.Name)/issues/$(System.PullRequest.PullRequestNumber)/labels" | python3 -c "import sys, json; print(' '.join(l['name'] for l in json.load(sys.stdin)))")
-          for l in $labels; do [ "$l" = "run-offload-tests" ] && run=true; done
-        fi
-        echo "Build.Reason=$(Build.Reason) run=$run"
-        echo "##vso[task.setvariable variable=run;isOutput=true]$run"
-      name: decide
-
-- stage: OffloadTests
-  displayName: 'Offload tests'
-  dependsOn:
-  - Build
-  - OffloadGate
-  condition: and(succeededOrFailed(), eq(dependencies.OffloadGate.outputs['gate.decide.run'], 'true'))
-
-  jobs:
   - job: Offload
+    dependsOn: Windows
+    condition: and(succeededOrFailed(), eq(dependencies.Windows.outputs['VS2022_Release.decide.runOffloadTests'], 'true'))
     timeoutInMinutes: 180
     pool:
       vmImage: windows-2025
