@@ -1186,6 +1186,118 @@ static bool verifyMatrixBuffer(const void *ActualBuffer,
   return false;
 }
 
+// The bytes a matrix does not occupy -- the prologue before the offset, and
+// the padding between rows when the stride exceeds a packed row -- must
+// survive a store untouched.
+//
+// Comparing elements alone would not catch a store that damages the bytes
+// around them. A store that ignored the stride entirely writes its elements to
+// the wrong addresses and fails the element comparison anyway, but a store
+// that places every element correctly and also widens its writes over the
+// padding produces a correct matrix while silently corrupting whatever else
+// shared the buffer.
+// Seeding the destination with a poison pattern and checking that the
+// non-element bytes still hold it separates those two cases.
+//
+// The pattern varies with the byte offset rather than repeating a single
+// value. A constant would be indistinguishable from a store that happened to
+// write that same value, and also from memory nobody wrote at all -- 0xcd, the
+// obvious choice, is what the MSVC debug allocator fills fresh heap with.
+// Multiplying the offset by an odd number keeps consecutive bytes distinct, so
+// a store writing any constant over two or more adjacent bytes is always
+// caught, and a single overwritten byte survives only if it happens to match
+// the pattern at exactly that offset.
+//
+// Counting is kept separate from reporting so the check can be unit tested in
+// both directions. verifyUntouchedBytes reports through Log::Error, which
+// marks the calling test failed, so a test that deliberately supplies a
+// corrupted buffer cannot call it.
+static BYTE poisonByteAt(BYTE Seed, size_t Offset) {
+  return static_cast<BYTE>(Seed ^ static_cast<BYTE>(Offset * 31u));
+}
+
+static void fillPoison(void *Buffer, size_t BufferSize, BYTE Seed) {
+  BYTE *Bytes = static_cast<BYTE *>(Buffer);
+  for (size_t I = 0; I < BufferSize; ++I)
+    Bytes[I] = poisonByteAt(Seed, I);
+}
+
+// Returns the number of offending bytes, or nullopt if the buffer cannot hold
+// the described matrix at all. FirstOffsets, when supplied, collects the
+// leading offenders for diagnostics.
+static std::optional<size_t> countTouchedBytesOutsideElements(
+    ComponentType CompType, MatrixDim M, MatrixDim N,
+    const MatrixBufferLayout &Layout, const void *Buffer, size_t BufferSize,
+    BYTE PoisonSeed, std::vector<size_t> *FirstOffsets = nullptr) {
+  static constexpr size_t MaxReportedOffsets = 8;
+
+  std::optional<size_t> RequiredBytes =
+      getMatrixBufferSize(CompType, M, N, Layout);
+  if (!RequiredBytes || BufferSize < *RequiredBytes)
+    return std::nullopt;
+
+  const size_t ElementBytes = elementSize(CompType);
+  std::vector<bool> Owned(BufferSize, false);
+  for (MatrixDim Row = 0; Row < M; ++Row) {
+    for (MatrixDim Column = 0; Column < N; ++Column) {
+      std::optional<size_t> ByteOffset =
+          getElementByteOffset(CompType, M, N, Row, Column, Layout);
+      if (!ByteOffset || *ByteOffset + ElementBytes > BufferSize)
+        return std::nullopt;
+      for (size_t I = 0; I < ElementBytes; ++I)
+        Owned[*ByteOffset + I] = true;
+    }
+  }
+
+  const BYTE *Bytes = static_cast<const BYTE *>(Buffer);
+  size_t Corrupted = 0;
+  for (size_t I = 0; I < BufferSize; ++I) {
+    if (Owned[I] || Bytes[I] == poisonByteAt(PoisonSeed, I))
+      continue;
+    if (FirstOffsets && FirstOffsets->size() < MaxReportedOffsets)
+      FirstOffsets->push_back(I);
+    ++Corrupted;
+  }
+  return Corrupted;
+}
+
+// Reporting wrapper around countTouchedBytesOutsideElements for the execution
+// tests.
+static bool verifyUntouchedBytes(ComponentType CompType, MatrixDim M,
+                                 MatrixDim N, const MatrixBufferLayout &Layout,
+                                 const void *Buffer, size_t BufferSize,
+                                 BYTE PoisonSeed, bool Verbose) {
+  std::vector<size_t> FirstOffsets;
+  std::optional<size_t> Corrupted = countTouchedBytesOutsideElements(
+      CompType, M, N, Layout, Buffer, BufferSize, PoisonSeed, &FirstOffsets);
+
+  if (!Corrupted) {
+    hlsl_test::LogErrorFmt(
+        L"Buffer of %zu bytes cannot hold the requested matrix layout",
+        BufferSize);
+    return false;
+  }
+
+  if (*Corrupted == 0) {
+    if (Verbose)
+      hlsl_test::LogCommentFmt(L"Every byte outside the stored elements still "
+                               L"holds the poison pattern for seed 0x%02x",
+                               PoisonSeed);
+    return true;
+  }
+
+  for (size_t Offset : FirstOffsets)
+    hlsl_test::LogErrorFmt(
+        L"Byte %zu is outside every element but was overwritten: "
+        L"actual=0x%02x, expected poison=0x%02x",
+        Offset, static_cast<const BYTE *>(Buffer)[Offset],
+        poisonByteAt(PoisonSeed, Offset));
+  hlsl_test::LogErrorFmt(L"%zu bytes outside the stored elements were "
+                         L"overwritten",
+                         *Corrupted);
+  return false;
+}
+
 } // namespace cpu_oracle
 
 static std::string buildCompilerArgs(const MatrixParams &Params,
@@ -1416,6 +1528,7 @@ public:
   END_TEST_CLASS()
 
   TEST_METHOD(TypedMatrixBufferRoundTrip);
+  TEST_METHOD(UntouchedByteVerification);
 };
 
 void LinAlgCPUOracleTests::TypedMatrixBufferRoundTrip() {
@@ -1540,6 +1653,150 @@ void LinAlgCPUOracleTests::TypedMatrixBufferRoundTrip() {
   Params.CompType = ComponentType::U32;
   VERIFY_IS_TRUE(buildCompilerArgs(Params).find(" -DELEM_TYPE=uint") !=
                  std::string::npos);
+}
+
+// The padding check is verified here rather than only through the execution
+// tests because a GPU round trip cannot easily produce a store that places
+// every element correctly and still damages the bytes around them, which is
+// the single case this check exists to catch.
+void LinAlgCPUOracleTests::UntouchedByteVerification() {
+  using namespace cpu_oracle;
+
+  // A 2x3 uint32 matrix at a 4 byte offset with a 16 byte stride occupies
+  // bytes 4..15 and 20..31, leaving a 4 byte prologue at 0..3 and 4 bytes of
+  // padding at 16..19.
+  std::optional<TypedMatrix> Matrix =
+      makeTypedMatrix<uint32_t>(2, 3, {1, 2, 3, 4, 5, 6});
+  VERIFY_IS_TRUE(Matrix.has_value());
+
+  const MatrixBufferLayout Layout = {
+      MatrixLayout::RowMajor,
+      /*OffsetBytes=*/4,
+      /*StrideBytes=*/16,
+  };
+  std::optional<size_t> Size = getMatrixBufferSize(*Matrix, Layout);
+  VERIFY_IS_TRUE(Size.has_value());
+  VERIFY_ARE_EQUAL(size_t(32), *Size);
+
+  constexpr BYTE PoisonSeed = 0xa5;
+  std::vector<BYTE> Buffer(*Size);
+  fillPoison(Buffer.data(), Buffer.size(), PoisonSeed);
+  VERIFY_IS_TRUE(writeMatrixBuffer(*Matrix, Layout, Buffer));
+
+  auto CountTouched = [&Layout, PoisonSeed](const std::vector<BYTE> &Bytes) {
+    return countTouchedBytesOutsideElements(ComponentType::U32, 2, 3, Layout,
+                                            Bytes.data(), Bytes.size(),
+                                            PoisonSeed);
+  };
+
+  // A correctly encoded buffer leaves every non-element byte poisoned.
+  std::optional<size_t> Clean = CountTouched(Buffer);
+  VERIFY_IS_TRUE(Clean.has_value());
+  VERIFY_ARE_EQUAL(size_t(0), *Clean);
+  VERIFY_IS_TRUE(verifyUntouchedBytes(ComponentType::U32, 2, 3, Layout,
+                                      Buffer.data(), Buffer.size(), PoisonSeed,
+                                      /*Verbose=*/false));
+
+  // Damaging an element is the element comparison's job, not this check's, so
+  // the count must stay at zero.
+  std::vector<BYTE> ElementTouched = Buffer;
+  ElementTouched[4] ^= 0xff;
+  std::optional<size_t> AfterElement = CountTouched(ElementTouched);
+  VERIFY_IS_TRUE(AfterElement.has_value());
+  VERIFY_ARE_EQUAL(size_t(0), *AfterElement);
+
+  // Damaging the prologue or the inter-row padding is what this check exists
+  // to catch, so each one must be counted.
+  for (size_t Offset : {size_t(0), size_t(16)}) {
+    std::vector<BYTE> PaddingTouched = Buffer;
+    PaddingTouched[Offset] ^= 0xff;
+    std::optional<size_t> AfterPadding = CountTouched(PaddingTouched);
+    VERIFY_IS_TRUE(AfterPadding.has_value());
+    VERIFY_ARE_EQUAL(size_t(1), *AfterPadding);
+  }
+
+  // Every non-element byte damaged at once is still counted exactly.
+  std::vector<BYTE> AllTouched(*Size);
+  fillPoison(AllTouched.data(), AllTouched.size(), PoisonSeed);
+  for (BYTE &Byte : AllTouched)
+    Byte = static_cast<BYTE>(~Byte);
+  VERIFY_IS_TRUE(writeMatrixBuffer(*Matrix, Layout, AllTouched));
+  std::optional<size_t> AfterAll = CountTouched(AllTouched);
+  VERIFY_IS_TRUE(AfterAll.has_value());
+  VERIFY_ARE_EQUAL(size_t(8), *AfterAll);
+
+  // A buffer filled with one repeated value is fully detected, which is the
+  // reason the pattern varies with the offset. A constant poison would score
+  // zero here whenever the store happened to pick that same value, and 0xcd in
+  // particular is what the MSVC debug allocator leaves in memory nobody wrote.
+  std::vector<BYTE> ConstantFill(*Size, BYTE(0xcd));
+  std::optional<size_t> AfterConstant = CountTouched(ConstantFill);
+  VERIFY_IS_TRUE(AfterConstant.has_value());
+  VERIFY_ARE_EQUAL(size_t(8), *AfterConstant);
+
+  // The case a constant poison cannot survive: a store that writes a value the
+  // poison pattern itself uses. Because the pattern varies, that value matches
+  // at exactly one offset, so seven of the eight non-element bytes are still
+  // caught. A constant poison would match everywhere and report nothing.
+  std::vector<BYTE> PoisonValuedFill(*Size, poisonByteAt(PoisonSeed, 0));
+  std::optional<size_t> AfterPoisonValued = CountTouched(PoisonValuedFill);
+  VERIFY_IS_TRUE(AfterPoisonValued.has_value());
+  VERIFY_ARE_EQUAL(size_t(7), *AfterPoisonValued);
+
+  // No two adjacent bytes share a poison value, so a constant written over any
+  // two neighbours cannot hide in both.
+  for (size_t Offset = 1; Offset < *Size; ++Offset)
+    VERIFY_ARE_NOT_EQUAL(poisonByteAt(PoisonSeed, Offset - 1),
+                         poisonByteAt(PoisonSeed, Offset));
+
+  // The diagnostic list is capped but the count is not, so the two have to be
+  // checked against a buffer with more offenders than the cap. A 2x3 uint32
+  // matrix at a 16 byte offset with a 16 byte stride occupies bytes 16..27 and
+  // 32..43, leaving twenty bytes outside the elements.
+  const MatrixBufferLayout PaddedLayout = {
+      MatrixLayout::RowMajor,
+      /*OffsetBytes=*/16,
+      /*StrideBytes=*/16,
+  };
+  std::optional<size_t> PaddedSize =
+      getMatrixBufferSize(ComponentType::U32, 2, 3, PaddedLayout);
+  VERIFY_IS_TRUE(PaddedSize.has_value());
+  VERIFY_ARE_EQUAL(size_t(44), *PaddedSize);
+
+  std::vector<BYTE> AllPaddingTouched(*PaddedSize);
+  fillPoison(AllPaddingTouched.data(), AllPaddingTouched.size(), PoisonSeed);
+  for (BYTE &Byte : AllPaddingTouched)
+    Byte = static_cast<BYTE>(~Byte);
+  std::vector<size_t> ReportedOffsets;
+  std::optional<size_t> AfterPadded = countTouchedBytesOutsideElements(
+      ComponentType::U32, 2, 3, PaddedLayout, AllPaddingTouched.data(),
+      AllPaddingTouched.size(), PoisonSeed, &ReportedOffsets);
+  VERIFY_IS_TRUE(AfterPadded.has_value());
+  VERIFY_ARE_EQUAL(size_t(20), *AfterPadded);
+  VERIFY_ARE_EQUAL(size_t(8), ReportedOffsets.size());
+  for (size_t I = 0; I < ReportedOffsets.size(); ++I)
+    VERIFY_ARE_EQUAL(I, ReportedOffsets[I]);
+
+  // Below the cap every offender is reported, and by its offset in the buffer
+  // rather than its position among the offenders.
+  std::vector<BYTE> TwoPaddingBytes(*PaddedSize);
+  fillPoison(TwoPaddingBytes.data(), TwoPaddingBytes.size(), PoisonSeed);
+  TwoPaddingBytes[28] ^= 0xff;
+  TwoPaddingBytes[29] ^= 0xff;
+  std::vector<size_t> TwoOffsets;
+  std::optional<size_t> AfterTwo = countTouchedBytesOutsideElements(
+      ComponentType::U32, 2, 3, PaddedLayout, TwoPaddingBytes.data(),
+      TwoPaddingBytes.size(), PoisonSeed, &TwoOffsets);
+  VERIFY_IS_TRUE(AfterTwo.has_value());
+  VERIFY_ARE_EQUAL(size_t(2), *AfterTwo);
+  VERIFY_ARE_EQUAL(size_t(2), TwoOffsets.size());
+  VERIFY_ARE_EQUAL(size_t(28), TwoOffsets[0]);
+  VERIFY_ARE_EQUAL(size_t(29), TwoOffsets[1]);
+
+  // A buffer too small for the layout cannot be checked at all.
+  std::vector<BYTE> TooSmall(*Size - 1);
+  fillPoison(TooSmall.data(), TooSmall.size(), PoisonSeed);
+  VERIFY_IS_FALSE(CountTouched(TooSmall).has_value());
 }
 
 class LinAlgCapabilityTests {
