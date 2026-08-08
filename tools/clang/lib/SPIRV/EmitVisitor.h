@@ -67,6 +67,9 @@ public:
   EmitTypeHandler(const EmitTypeHandler &) = delete;
   EmitTypeHandler &operator=(const EmitTypeHandler &) = delete;
 
+  uint32_t getAttrArgInstr(ASTContext &astContext, const Expr *expr,
+                           uint32_t defaultVal = 0);
+
   // Emits the instruction for the given type into the typeConstantBinary and
   // returns the result-id for the type. If the type has already been emitted,
   // it only returns its result-id.
