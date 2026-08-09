@@ -22,6 +22,12 @@ The included licenses apply to the following files:
 Place release notes for the upcoming release below this line and remove this
 line upon naming the release. Refer to previous for appropriate section names.
 
+#### SPIR-V
+
+- Added `-fspv-flatten-resource-array-bindings-only`, which reserves one
+  binding number per array element for arrays of resources without splitting
+  the array into separate SPIR-V variables/bindings.
+
 ### Upcoming Preview Release
 
 These changes apply to experimental preview shader models only and will not be
