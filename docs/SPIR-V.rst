@@ -4289,6 +4289,14 @@ codegen for Vulkan:
   SPIR-V backend. Also note that this requires the optimizer to be able to
   resolve all array accesses with constant indeces. Therefore, all loops using
   the resource arrays must be marked with ``[unroll]``.
+- ``-fspv-flatten-resource-array-bindings-only``: Reserves one binding number
+  per array element for arrays of resources, matching the binding numbers
+  that ``-fspv-flatten-resource-arrays`` would reserve, but keeps each array
+  as a single SPIR-V variable/binding (with ``descriptorCount`` equal to the
+  array size) instead of splitting it into one variable per element. Use this
+  when you want later-declared resources to avoid overlapping the numbers an
+  array would need under DX, without requiring the array itself to be
+  split up or unrolled.
 - ``-fspv-entrypoint-name=<name>``: Specify the SPIR-V entry point name. Defaults
   to the HLSL entry point name.
 - ``-fspv-use-legacy-buffer-matrix-order``: Assumes the legacy matrix order (row

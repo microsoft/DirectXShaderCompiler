@@ -1120,6 +1120,8 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
       Args.hasFlag(OPT_Wno_vk_emulated_features, OPT_INVALID, false);
   opts.SpirvOptions.flattenResourceArrays =
       Args.hasFlag(OPT_fspv_flatten_resource_arrays, OPT_INVALID, false);
+  opts.SpirvOptions.flattenResourceArrayBindingsOnly = Args.hasFlag(
+      OPT_fspv_flatten_resource_array_bindings_only, OPT_INVALID, false);
   opts.SpirvOptions.reduceLoadSize =
       Args.hasFlag(OPT_fspv_reduce_load_size, OPT_INVALID, false);
   opts.SpirvOptions.fixFuncCallArguments =
@@ -1294,6 +1296,8 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
       Args.hasFlag(OPT_fspv_use_legacy_buffer_matrix_order, OPT_INVALID,
                    false) ||
       Args.hasFlag(OPT_fspv_flatten_resource_arrays, OPT_INVALID, false) ||
+      Args.hasFlag(OPT_fspv_flatten_resource_array_bindings_only, OPT_INVALID,
+                   false) ||
       Args.hasFlag(OPT_fspv_reduce_load_size, OPT_INVALID, false) ||
       Args.hasFlag(OPT_fspv_reflect, OPT_INVALID, false) ||
       Args.hasFlag(OPT_fspv_fix_func_call_arguments, OPT_INVALID, false) ||
