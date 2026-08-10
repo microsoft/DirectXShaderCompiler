@@ -1129,6 +1129,62 @@ static void ValidateLinAlgMatrixGetElement(CallInst *CI,
 static void ValidateLinAlgMatrixStoreToDescriptor(CallInst *CI,
                                                   ValidationContext &ValCtx) {
   ValidateLinAlgOpParameters(CI, ValCtx);
+
+  DxilInst_LinAlgMatrixStoreToDescriptor Op(CI);
+  Type *MatTy = Op.get_matrix()->getType();
+
+  assert(dxilutil::IsHLSLLinAlgMatrixType(MatTy) && "Must be LinAlg type");
+  auto MatIt = ValCtx.LinAlgTargetTypeMap.find(MatTy);
+  if (MatIt == ValCtx.LinAlgTargetTypeMap.end())
+    return;
+  LinAlgTargetType MatLATT = MatIt->second;
+
+  ConstantInt *LayoutCI = dyn_cast<ConstantInt>(Op.get_layout());
+  if (!LayoutCI) {
+    ValCtx.EmitInstrFormatError(CI, ValidationRule::InstrOpConst,
+                                {"Layout", "LinAlgMatrixStoreToDescriptor"});
+    return;
+  }
+  auto Layout = static_cast<DXIL::MatrixLayout>(LayoutCI->getLimitedValue());
+
+  // Layout must be Row/Col Major
+  if (Layout != DXIL::MatrixLayout::RowMajor &&
+      Layout != DXIL::MatrixLayout::ColumnMajor)
+    ValCtx.EmitInstrFormatError(
+        CI, ValidationRule::InstrLinAlgMatrixRequiresLayout2,
+        {"LinAlgMatrixStoreToDescriptor", "RowMajor", "ColumnMajor"});
+
+  // Scope must be wave/threadgroup
+  if (MatLATT.Scope == DXIL::MatrixScope::Thread)
+    ValCtx.EmitInstrFormatError(
+        CI, ValidationRule::InstrLinAlgMatrixScopeMismatch2,
+        {MatrixScopeToString(MatLATT.Scope), "Wave", "ThreadGroup"});
+
+  // handle must be a UAV Raw buffer (RWByteAddressBuffer)
+  DXIL::ComponentType ResCompTy;
+  DXIL::ResourceClass ResClass;
+  DXIL::ResourceKind ResKind =
+      GetResourceKindAndCompTy(Op.get_handle(), ResCompTy, ResClass, ValCtx);
+  if (ResClass != DXIL::ResourceClass::UAV ||
+      ResKind != DXIL::ResourceKind::RawBuffer)
+    ValCtx.EmitInstrFormatError(
+        CI, ValidationRule::InstrLinAlgMatrixRequiresRWBAB,
+        {"LinAlgMatrixStoreToDescriptor"});
+
+  // Align must be an immediate constant that is a multiple of 128 greater than
+  // 0
+  ConstantInt *AlignCI = dyn_cast<ConstantInt>(Op.get_align());
+  if (AlignCI) {
+    unsigned Align = AlignCI->getLimitedValue();
+    if (Align == 0)
+      ValCtx.EmitInstrFormatError(CI, ValidationRule::InstrParamMinimumValue,
+                                  {"Align", "0", std::to_string(Align)});
+    if (Align % 128 != 0)
+      ValCtx.EmitInstrFormatError(CI, ValidationRule::InstrParamMultiple,
+                                  {"Align", "128", std::to_string(Align)});
+  } else
+    ValCtx.EmitInstrFormatError(CI, ValidationRule::InstrOpConst,
+                                {"Align", "LinAlgMatrixStoreToDescriptor"});
 }
 
 static void ValidateLinAlgMatrixStoreToMemory(CallInst *CI,
