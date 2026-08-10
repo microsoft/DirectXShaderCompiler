@@ -77,22 +77,22 @@ The set of parts depends on the shader model and compile flags. From
 ## Container-level structure
 
 ```
-+---------------------------------------------------------------+
-| DxilContainerHeader                                            |
-|   uint32_t          HeaderFourCC     = 'DXBC'                 |
-|   DxilContainerHash Hash             (16 bytes)               |
-|   DxilContainerVersion Version       { uint16 Major, Minor }  |
-|   uint32_t          ContainerSizeInBytes                     |
-|   uint32_t          PartCount                                |
-+---------------------------------------------------------------+
++-------------------------------------------------------------------+
+| DxilContainerHeader                                               |
+|   uint32_t          HeaderFourCC     = 'DXBC'                     |
+|   DxilContainerHash Hash             (16 bytes)                   |
+|   DxilContainerVersion Version       { uint16 Major, Minor }      |
+|   uint32_t          ContainerSizeInBytes                          |
+|   uint32_t          PartCount                                     |
++-------------------------------------------------------------------+
 | uint32_t PartOffset[PartCount]   (absolute, from container start) |
-+---------------------------------------------------------------+
-| Part 0:  DxilPartHeader { uint32 PartFourCC, uint32 PartSize }|
-|          uint8_t PartData[PartSize]                          |
-+---------------------------------------------------------------+
-| Part 1:  DxilPartHeader ...                                   |
-| ...                                                           |
-+---------------------------------------------------------------+
++-------------------------------------------------------------------+
+| Part 0:  DxilPartHeader { uint32 PartFourCC, uint32 PartSize }    |
+|          uint8_t PartData[PartSize]                               |
++-------------------------------------------------------------------+
+| Part 1:  DxilPartHeader ...                                       |
+| ...                                                               |
++-------------------------------------------------------------------+
 ```
 
 All structures in `DxilContainer.h` are declared under `#pragma pack(push, 1)`,
@@ -101,15 +101,15 @@ explicit (see below). All integers are little-endian.
 
 ### `DxilContainerHeader`
 
-| Offset | Type                   | Field                 | Description                                        |
-|-------:|------------------------|-----------------------|----------------------------------------------------|
+| Offset | Type                   | Field                 | Description                                         |
+|-------:|------------------------|-----------------------|-----------------------------------------------------|
 | 0      | `uint32_t`             | `HeaderFourCC`        | `DFCC_Container` = `'DXBC'` (back-compat with DXBC).|
-| 4      | `uint8_t[16]`          | `Hash.Digest`         | Container hash (see hashing below).                |
-| 20     | `uint16_t`             | `Version.Major`       | Container major version (currently `1`).           |
-| 22     | `uint16_t`             | `Version.Minor`       | Container minor version (currently `0`).           |
-| 24     | `uint32_t`             | `ContainerSizeInBytes`| Total container size from start of this header.    |
-| 28     | `uint32_t`             | `PartCount`           | Number of parts.                                   |
-| 32     | `uint32_t[PartCount]`  | (part offsets)        | Absolute offset of each `DxilPartHeader`.          |
+| 4      | `uint8_t[16]`          | `Hash.Digest`         | Container hash (see hashing below).                 |
+| 20     | `uint16_t`             | `Version.Major`       | Container major version (currently `1`).            |
+| 22     | `uint16_t`             | `Version.Minor`       | Container minor version (currently `0`).            |
+| 24     | `uint32_t`             | `ContainerSizeInBytes`| Total container size from start of this header.     |
+| 28     | `uint32_t`             | `PartCount`           | Number of parts.                                    |
+| 32     | `uint32_t[PartCount]`  | (part offsets)        | Absolute offset of each `DxilPartHeader`.           |
 
 `DxilContainerMaxSize` = `0x80000000` bounds the total size.
 
@@ -119,7 +119,7 @@ explicit (see below). All integers are little-endian.
 |-------:|------------|---------------|----------------------------------------------|
 | 0      | `uint32_t` | `PartFourCC`  | Part type FourCC (`DFCC_*`).                 |
 | 4      | `uint32_t` | `PartSize`    | Size of `PartData`, **not** including header.|
-| 8      | `uint8_t[PartSize]` | (data) | Part payload.                             |
+| 8      | `uint8_t[PartSize]` | (data) | Part payload.                              |
 
 The offset table is written after the container header, and each part follows
 the previous one contiguously:
@@ -231,23 +231,23 @@ A sentinel `PreviewByPassHash` (all `2`s) is used in some preview scenarios.
 
 ## Part catalog
 
-| FourCC | `DxilFourCC`                    | Contents                                                        |
-|--------|---------------------------------|----------------------------------------------------------------|
-| `DXBC` | `DFCC_Container`                | Container header FourCC (not a part).                          |
-| `RDEF` | `DFCC_ResourceDef`              | Legacy DXBC resource-definition reflection.                    |
-| `ISG1` | `DFCC_InputSignature`           | Input signature (`DxilProgramSignature`).                     |
-| `OSG1` | `DFCC_OutputSignature`          | Output signature.                                             |
+| FourCC | `DxilFourCC`                    | Contents                                                     |
+|--------|---------------------------------|--------------------------------------------------------------|
+| `DXBC` | `DFCC_Container`                | Container header FourCC (not a part).                        |
+| `RDEF` | `DFCC_ResourceDef`              | Legacy DXBC resource-definition reflection.                  |
+| `ISG1` | `DFCC_InputSignature`           | Input signature (`DxilProgramSignature`).                    |
+| `OSG1` | `DFCC_OutputSignature`          | Output signature.                                            |
 | `PSG1` | `DFCC_PatchConstantSignature`   | Patch-constant / primitive signature.                        |
-| `STAT` | `DFCC_ShaderStatistics`         | Reflection data (program-header-wrapped reflection bitcode).  |
+| `STAT` | `DFCC_ShaderStatistics`         | Reflection data (program-header-wrapped reflection bitcode). |
 | `ILDB` | `DFCC_ShaderDebugInfoDXIL`      | DXIL bitcode **with** debug info.                            |
-| `ILDN` | `DFCC_ShaderDebugName`          | Debug name / PDB file reference (`DxilShaderDebugName`).      |
-| `SFI0` | `DFCC_FeatureInfo`              | 64-bit shader feature flags (`DxilShaderFeatureInfo`).        |
+| `ILDN` | `DFCC_ShaderDebugName`          | Debug name / PDB file reference (`DxilShaderDebugName`).     |
+| `SFI0` | `DFCC_FeatureInfo`              | 64-bit shader feature flags (`DxilShaderFeatureInfo`).       |
 | `PRIV` | `DFCC_PrivateData`              | Arbitrary caller-provided private data.                      |
-| `RTS0` | `DFCC_RootSignature`            | Serialized root signature.                                    |
-| `DXIL` | `DFCC_DXIL`                     | The DXIL program (LLVM bitcode via `DxilProgramHeader`).      |
+| `RTS0` | `DFCC_RootSignature`            | Serialized root signature.                                   |
+| `DXIL` | `DFCC_DXIL`                     | The DXIL program (LLVM bitcode via `DxilProgramHeader`).     |
 | `PSV0` | `DFCC_PipelineStateValidation`  | Pipeline State Validation data.                              |
-| `RDAT` | `DFCC_RuntimeData`              | Runtime Data reflection (see [RDAT doc](RDAT_Format.md)).     |
-| `HASH` | `DFCC_ShaderHash`               | Shader hash (`DxilShaderHash`).                             |
+| `RDAT` | `DFCC_RuntimeData`              | Runtime Data reflection (see [RDAT doc](RDAT_Format.md)).    |
+| `HASH` | `DFCC_ShaderHash`               | Shader hash (`DxilShaderHash`).                              |
 | `SRCI` | `DFCC_ShaderSourceInfo`         | Source names, contents, and compile args.                    |
 | `PDBI` | `DFCC_ShaderPDBInfo`            | PDB info (RDAT-encoded; replaces `SRCI` in the PDB).         |
 | `VERS` | `DFCC_CompilerVersion`          | Compiler version info (`DxilCompilerVersion`).               |
@@ -266,20 +266,20 @@ the same layout: a `DxilProgramHeader` followed by LLVM bitcode.
 
 `DxilProgramHeader`:
 
-| Offset | Type               | Field           | Description                                     |
-|-------:|--------------------|-----------------|-------------------------------------------------|
-| 0      | `uint32_t`         | `ProgramVersion`| Shader kind + SM version (see encoding above).  |
+| Offset | Type               | Field           | Description                                      |
+|-------:|--------------------|-----------------|--------------------------------------------------|
+| 0      | `uint32_t`         | `ProgramVersion`| Shader kind + SM version (see encoding above).   |
 | 4      | `uint32_t`         | `SizeInUint32`  | Size in `uint32_t` units, including this header. |
-| 8      | `DxilBitcodeHeader`| `BitcodeHeader` | Bitcode-specific sub-header.                    |
+| 8      | `DxilBitcodeHeader`| `BitcodeHeader` | Bitcode-specific sub-header.                     |
 
 `DxilBitcodeHeader`:
 
-| Offset | Type       | Field           | Description                                    |
-|-------:|------------|-----------------|------------------------------------------------|
-| 0      | `uint32_t` | `DxilMagic`     | `'DXIL'` = `0x4C495844`.                        |
-| 4      | `uint32_t` | `DxilVersion`   | DXIL version.                                  |
-| 8      | `uint32_t` | `BitcodeOffset` | Offset to LLVM bitcode from start of this header.|
-| 12     | `uint32_t` | `BitcodeSize`   | Size of the LLVM bitcode.                      |
+| Offset | Type       | Field           | Description                                       |
+|-------:|------------|-----------------|---------------------------------------------------|
+| 0      | `uint32_t` | `DxilMagic`     | `'DXIL'` = `0x4C495844`.                          |
+| 4      | `uint32_t` | `DxilVersion`   | DXIL version.                                     |
+| 8      | `uint32_t` | `BitcodeOffset` | Offset to LLVM bitcode from start of this header. |
+| 12     | `uint32_t` | `BitcodeSize`   | Size of the LLVM bitcode.                         |
 
 The bitcode itself is standard LLVM bitcode encoding the DXIL module. The
 program payload is zero-padded so the part size is a multiple of 4 bytes.
@@ -294,25 +294,25 @@ elements and referenced by offset.
 
 `DxilProgramSignature`:
 
-| Offset | Type       | Field        | Description                                        |
-|-------:|------------|--------------|----------------------------------------------------|
-| 0      | `uint32_t` | `ParamCount` | Number of signature elements.                      |
+| Offset | Type       | Field        | Description                                              |
+|-------:|------------|--------------|----------------------------------------------------------|
+| 0      | `uint32_t` | `ParamCount` | Number of signature elements.                            |
 | 4      | `uint32_t` | `ParamOffset`| Offset (from start of this header) to the element array. |
 
 `DxilProgramSignatureElement` (exactly `0x20` = 32 bytes, static-asserted):
 
-| Offset | Type                        | Field          | Description                                                  |
-|-------:|-----------------------------|----------------|--------------------------------------------------------------|
-| 0      | `uint32_t`                  | `Stream`       | Stream index (non-decreasing order).                        |
-| 4      | `uint32_t`                  | `SemanticName` | Offset to `LPCSTR` from start of `DxilProgramSignature`.    |
-| 8      | `uint32_t`                  | `SemanticIndex`| Semantic index.                                             |
-| 12     | `DxilProgramSigSemantic`    | `SystemValue`  | System-value semantic (`uint32_t` enum).                    |
-| 16     | `DxilProgramSigCompType`    | `CompType`     | Component type (`uint32_t` enum).                           |
-| 20     | `uint32_t`                  | `Register`     | Register (row) index.                                       |
-| 24     | `uint8_t`                   | `Mask`         | Column allocation mask.                                     |
+| Offset | Type                        | Field          | Description                                                                       |
+|-------:|-----------------------------|----------------|-----------------------------------------------------------------------------------|
+| 0      | `uint32_t`                  | `Stream`       | Stream index (non-decreasing order).                                              |
+| 4      | `uint32_t`                  | `SemanticName` | Offset to `LPCSTR` from start of `DxilProgramSignature`.                          |
+| 8      | `uint32_t`                  | `SemanticIndex`| Semantic index.                                                                   |
+| 12     | `DxilProgramSigSemantic`    | `SystemValue`  | System-value semantic (`uint32_t` enum).                                          |
+| 16     | `DxilProgramSigCompType`    | `CompType`     | Component type (`uint32_t` enum).                                                 |
+| 20     | `uint32_t`                  | `Register`     | Register (row) index.                                                             |
+| 24     | `uint8_t`                   | `Mask`         | Column allocation mask.                                                           |
 | 25     | `uint8_t`                   | `NeverWrites_Mask` / `AlwaysReads_Mask` | Union; write-never (output) or read-always (input) mask. |
-| 26     | `uint16_t`                  | `Pad`          | Padding to align.                                           |
-| 28     | `DxilProgramSigMinPrecision`| `MinPrecision` | Minimum precision (`uint32_t` enum).                        |
+| 26     | `uint16_t`                  | `Pad`          | Padding to align.                                                                 |
+| 28     | `DxilProgramSigMinPrecision`| `MinPrecision` | Minimum precision (`uint32_t` enum).                                              |
 
 Enums:
 - `DxilProgramSigSemantic` mirrors `D3D_NAME` (Position, ClipDistance, Target,
@@ -379,11 +379,11 @@ Successive versions append fields:
 
 **`PSVSignatureElement0`** (referenced via the string/semantic-index tables):
 
-| Offset | Type       | Field                 | Description                                             |
-|-------:|------------|-----------------------|---------------------------------------------------------|
+| Offset | Type       | Field                 | Description                                            |
+|-------:|------------|-----------------------|--------------------------------------------------------|
 | 0      | `uint32_t` | `SemanticName`        | Offset into PSV string table.                          |
 | 4      | `uint32_t` | `SemanticIndexes`     | Offset into semantic-index table; count == `Rows`.     |
-| 8      | `uint8_t`  | `Rows`                | Rows occupied.                                          |
+| 8      | `uint8_t`  | `Rows`                | Rows occupied.                                         |
 | 9      | `uint8_t`  | `StartRow`            | Packing start row (if allocated).                      |
 | 10     | `uint8_t`  | `ColsAndStart`        | bits 0:4 `Cols`, 4:6 `StartCol`, bit 6 `Allocated`.    |
 | 11     | `uint8_t`  | `SemanticKind`        | `PSVSemanticKind`.                                     |
@@ -424,7 +424,7 @@ Written only when validator version ≥ 1.5.
 |-------:|------------|--------------|------------------------------------------------|
 | 0      | `uint16_t` | `Flags`      | Reserved, must be 0.                           |
 | 2      | `uint16_t` | `NameLength` | Debug name length, excluding null terminator.  |
-| 4      | `char[NameLength]` | (name) | UTF-8 name.                                |
+| 4      | `char[NameLength]` | (name) | UTF-8 name.                                  |
 | …      | `char`     | (null)       | Null terminator.                               |
 | …      | `char[0-3]`| (pad)        | Zero padding to a 4-byte boundary.             |
 
@@ -462,11 +462,11 @@ A `DxilSourceInfo` header followed by `SectionCount` sections, each a
 
 `DxilSourceInfoSection`:
 
-| Offset | Type                        | Field                | Description                              |
-|-------:|-----------------------------|----------------------|------------------------------------------|
-| 0      | `uint32_t`                  | `AlignedSizeInBytes` | Section size including header + padding.  |
-| 4      | `uint16_t`                  | `Flags`              | Reserved, 0.                             |
-| 6      | `DxilSourceInfoSectionType` | `Type`               | `SourceContents` / `SourceNames` / `Args`.|
+| Offset | Type                        | Field                | Description                                |
+|-------:|-----------------------------|----------------------|--------------------------------------------|
+| 0      | `uint32_t`                  | `AlignedSizeInBytes` | Section size including header + padding.   |
+| 4      | `uint16_t`                  | `Flags`              | Reserved, 0.                               |
+| 6      | `DxilSourceInfoSectionType` | `Type`               | `SourceContents` / `SourceNames` / `Args`. |
 
 Section payloads:
 
@@ -489,12 +489,12 @@ Section payloads:
 itself **RDAT-encoded** (see `RDAT_PdbInfoTypes.inl` and the
 [RDAT doc](RDAT_Format.md)). It supersedes `SRCI` inside PDB files.
 
-| Offset | Type                              | Field                     | Description                        |
-|-------:|-----------------------------------|---------------------------|------------------------------------|
-| 0      | `DxilShaderPDBInfoVersion` (`uint16_t`) | `Version`           | `Version_0` currently.             |
-| 2      | `DxilShaderPDBInfoCompressionType` (`uint16_t`) | `CompressionType` | `Uncompressed` or `Zlib`.       |
+| Offset | Type                              | Field                     | Description                             |
+|-------:|-----------------------------------|---------------------------|-----------------------------------------|
+| 0      | `DxilShaderPDBInfoVersion` (`uint16_t`) | `Version`           | `Version_0` currently.                  |
+| 2      | `DxilShaderPDBInfoCompressionType` (`uint16_t`) | `CompressionType` | `Uncompressed` or `Zlib`.         |
 | 4      | `uint32_t`                        | `SizeInBytes`             | Size of the (possibly compressed) data. |
-| 8      | `uint32_t`                        | `UncompressedSizeInBytes` | Uncompressed size.                 |
+| 8      | `uint32_t`                        | `UncompressedSizeInBytes` | Uncompressed size.                      |
 
 ### `RTS0` — root signature
 
@@ -547,18 +547,18 @@ Unknown FourCCs should be skipped — this is what makes the format extensible.
 
 ## Appendix: constants
 
-| Name                         | Value            | Meaning                                     |
-|------------------------------|------------------|---------------------------------------------|
-| `DFCC_Container`             | `'DXBC'`         | Container header FourCC.                     |
-| `DxilContainerVersionMajor`  | `1`              | Current container major version.            |
-| `DxilContainerVersionMinor`  | `0`              | Current container minor version.            |
-| `DxilContainerMaxSize`       | `0x80000000`     | Maximum container size.                      |
-| `DxilContainerHashSize`      | `16`             | Container/hash digest length in bytes.       |
-| `DxilMagicValue`             | `0x4C495844`     | `'DXIL'` bitcode magic.                      |
-| `MinDxilShaderDebugNameSize` | `sizeof(DxilShaderDebugName)+4` | Minimum `ILDN` part size.     |
-| `MAX_PSV_VERSION`            | `4`              | Highest PSV runtime-info version.            |
-| `PSVALIGN4(x)`               | `(x+3)&~3`       | 4-byte alignment used across parts.          |
-| `PreviewByPassHash`          | all `2`s         | Sentinel container hash for preview.         |
+| Name                         | Value            | Meaning                                   |
+|------------------------------|------------------|-------------------------------------------|
+| `DFCC_Container`             | `'DXBC'`         | Container header FourCC.                  |
+| `DxilContainerVersionMajor`  | `1`              | Current container major version.          |
+| `DxilContainerVersionMinor`  | `0`              | Current container minor version.          |
+| `DxilContainerMaxSize`       | `0x80000000`     | Maximum container size.                   |
+| `DxilContainerHashSize`      | `16`             | Container/hash digest length in bytes.    |
+| `DxilMagicValue`             | `0x4C495844`     | `'DXIL'` bitcode magic.                   |
+| `MinDxilShaderDebugNameSize` | `sizeof(DxilShaderDebugName)+4` | Minimum `ILDN` part size.  |
+| `MAX_PSV_VERSION`            | `4`              | Highest PSV runtime-info version.         |
+| `PSVALIGN4(x)`               | `(x+3)&~3`       | 4-byte alignment used across parts.       |
+| `PreviewByPassHash`          | all `2`s         | Sentinel container hash for preview.      |
 
 ### Program version encoding
 

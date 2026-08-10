@@ -94,12 +94,12 @@ An RDAT blob is laid out as follows:
 |   uint32_t Version                                          |
 |   uint32_t PartCount                                        |
 +-------------------------------------------------------------+
-| uint32_t PartOffsets[PartCount]                            |  4 * PartCount bytes
-|   (each offset is relative to the start of the header)     |
+| uint32_t PartOffsets[PartCount]                             |  4 * PartCount bytes
+|   (each offset is relative to the start of the header)      |
 +-------------------------------------------------------------+
 | Part 0                                                      |
-|   RuntimeDataPartHeader { Type, Size }                     |  8 bytes
-|   byte Data[ALIGN4(Size)]                                  |
+|   RuntimeDataPartHeader { Type, Size }                      |  8 bytes
+|   byte Data[ALIGN4(Size)]                                   |
 +-------------------------------------------------------------+
 | Part 1 ...                                                  |
 | ...                                                         |
@@ -140,10 +140,10 @@ container format and the target platforms). All sizes and offsets described as
 
 Defined in [DxilRuntimeReflection.h](../include/dxc/DxilContainer/DxilRuntimeReflection.h).
 
-| Offset | Type       | Field      | Description                                          |
-|-------:|------------|------------|------------------------------------------------------|
-| 0      | `uint32_t` | `Version`  | RDAT format version. Currently `RDAT_Version_10 = 0x10`. |
-| 4      | `uint32_t` | `PartCount`| Number of parts that follow.                         |
+| Offset | Type       | Field      | Description                                                                                          |
+|-------:|------------|------------|------------------------------------------------------------------------------------------------------|
+| 0      | `uint32_t` | `Version`  | RDAT format version. Currently `RDAT_Version_10 = 0x10`.                                             |
+| 4      | `uint32_t` | `PartCount`| Number of parts that follow.                                                                         |
 | 8      | `uint32_t[PartCount]` | (offsets) | Offset of each part, **relative to the start of this header**. Offsets are 4-byte aligned. |
 
 Size: `8 + 4 * PartCount` bytes. The value `0x10` for the version was chosen so
@@ -154,11 +154,11 @@ started with a raw part count, so `0x10` disambiguates.
 
 Each part begins (at its offset) with:
 
-| Offset | Type                   | Field  | Description                                            |
-|-------:|------------------------|--------|--------------------------------------------------------|
-| 0      | `RuntimeDataPartType` (`uint32_t`) | `Type` | Identifies which kind of part this is.     |
+| Offset | Type                   | Field  | Description                                                                  |
+|-------:|------------------------|--------|------------------------------------------------------------------------------|
+| 0      | `RuntimeDataPartType` (`uint32_t`) | `Type` | Identifies which kind of part this is.                           |
 | 4      | `uint32_t`             | `Size` | Size of the part data **not** including this header. Must be 4-byte aligned. |
-| 8      | `byte[ALIGN4(Size)]`   | (data) | Part payload.                                          |
+| 8      | `byte[ALIGN4(Size)]`   | (data) | Part payload.                                                                |
 
 The writer always stores `Size = PSVALIGN4(actualPartSize)`, and empty parts
 (size 0) are omitted entirely (see `ComputeSize` / `FinalizeAndGetData` in
@@ -200,21 +200,21 @@ readers locate parts by `Type` via the offset table, not by position.
 `RuntimeDataPartType` (a `uint32_t` enum) enumerates every part kind. The
 non-table kinds are the shared buffers; the rest are record tables.
 
-| Value  | Name                        | Introduced | Notes                                    |
-|-------:|-----------------------------|:----------:|------------------------------------------|
-| 0      | `Invalid`                   | —          |                                          |
-| 1      | `StringBuffer`              | 1.3        | Shared UTF-8 string pool                 |
-| 2      | `IndexArrays`               | 1.3        | Shared array-of-uint32 pool              |
-| 3      | `ResourceTable`             | 1.3        | `RuntimeDataResourceInfo` records        |
+| Value  | Name                        | Introduced | Notes                                            |
+|-------:|-----------------------------|:----------:|--------------------------------------------------|
+| 0      | `Invalid`                   | —          |                                                  |
+| 1      | `StringBuffer`              | 1.3        | Shared UTF-8 string pool                         |
+| 2      | `IndexArrays`               | 1.3        | Shared array-of-uint32 pool                      |
+| 3      | `ResourceTable`             | 1.3        | `RuntimeDataResourceInfo` records                |
 | 4      | `FunctionTable`             | 1.3        | `RuntimeDataFunctionInfo[2]` records; `Last_1_3` |
-| 5      | `RawBytes`                  | 1.4        | Shared raw byte pool                     |
-| 6      | `SubobjectTable`            | 1.4        | `Last_1_4`                               |
-| 7      | `NodeIDTable`               | 1.8        |                                          |
-| 8      | `NodeShaderIOAttribTable`   | 1.8        |                                          |
-| 9      | `NodeShaderFuncAttribTable` | 1.8        |                                          |
-| 10     | `IONodeTable`               | 1.8        |                                          |
-| 11     | `NodeShaderInfoTable`       | 1.8        | `Last_1_8`                               |
-| 12     | `Reserved_MeshNodesPreviewInfoTable` | —  | reserved                        |
+| 5      | `RawBytes`                  | 1.4        | Shared raw byte pool                             |
+| 6      | `SubobjectTable`            | 1.4        | `Last_1_4`                                       |
+| 7      | `NodeIDTable`               | 1.8        |                                                  |
+| 8      | `NodeShaderIOAttribTable`   | 1.8        |                                                  |
+| 9      | `NodeShaderFuncAttribTable` | 1.8        |                                                  |
+| 10     | `IONodeTable`               | 1.8        |                                                  |
+| 11     | `NodeShaderInfoTable`       | 1.8        | `Last_1_8`                                       |
+| 12     | `Reserved_MeshNodesPreviewInfoTable` | —  | reserved                                        |
 | 13+    | `SignatureElementTable`, `VSInfoTable`, `PSInfoTable`, `HSInfoTable`, `DSInfoTable`, `GSInfoTable`, `CSInfoTable`, `MSInfoTable`, `ASInfoTable` | experimental | **experimental** |
 
 The PDB-info group uses a separate namespace via `RDAT_PART_ID_WITH_GROUP`,
@@ -291,7 +291,7 @@ followed by `RecordCount` fixed-size records:
 |-------:|------------|---------------|----------------------------------------------|
 | 0      | `uint32_t` | `RecordCount` | Number of records.                           |
 | 4      | `uint32_t` | `RecordStride`| Size of each record in bytes; 4-byte aligned.|
-| 8      | `byte[RecordCount * RecordStride]` | (records) | Packed records. |
+| 8      | `byte[RecordCount * RecordStride]` | (records) | Packed records.          |
 
 Key properties:
 
@@ -323,20 +323,20 @@ layout, readers, validators, and dumpers all stay in lockstep.
 
 Every field maps to one of these on-disk encodings:
 
-| Macro                         | On-disk size | Encoding                                                        |
-|-------------------------------|-------------:|----------------------------------------------------------------|
-| `RDAT_VALUE(type, name)`      | `sizeof(type)` | Raw scalar (`uint8/16/32`, etc.).                            |
-| `RDAT_VALUE_HEX`              | `sizeof(type)` | Same; hint for dumping in hex.                              |
-| `RDAT_ENUM(sTy, eTy, name)`   | `sizeof(sTy)`  | Enum stored in storage type `sTy` (e.g. `uint32_t`/`uint8_t`).|
-| `RDAT_FLAGS(sTy, eTy, name)`  | `sizeof(sTy)`  | Bit flags stored in `sTy`.                                  |
-| `RDAT_STRING(name)`           | 4 bytes        | `RDATString` = byte offset into StringBuffer.               |
-| `RDAT_STRING_ARRAY_REF(name)` | 4 bytes        | `RDATStringArray` = index-array offset; array of string offsets.|
-| `RDAT_INDEX_ARRAY_REF(name)`  | 4 bytes        | `IndexArrayRef` = index-array offset; array of `uint32_t`.  |
-| `RDAT_RECORD_REF(type, name)` | 4 bytes        | `RecordRef<type>` = record index into that type's table.    |
+| Macro                         | On-disk size | Encoding                                                                |
+|-------------------------------|-------------:|-------------------------------------------------------------------------|
+| `RDAT_VALUE(type, name)`      | `sizeof(type)` | Raw scalar (`uint8/16/32`, etc.).                                     |
+| `RDAT_VALUE_HEX`              | `sizeof(type)` | Same; hint for dumping in hex.                                        |
+| `RDAT_ENUM(sTy, eTy, name)`   | `sizeof(sTy)`  | Enum stored in storage type `sTy` (e.g. `uint32_t`/`uint8_t`).        |
+| `RDAT_FLAGS(sTy, eTy, name)`  | `sizeof(sTy)`  | Bit flags stored in `sTy`.                                            |
+| `RDAT_STRING(name)`           | 4 bytes        | `RDATString` = byte offset into StringBuffer.                         |
+| `RDAT_STRING_ARRAY_REF(name)` | 4 bytes        | `RDATStringArray` = index-array offset; array of string offsets.      |
+| `RDAT_INDEX_ARRAY_REF(name)`  | 4 bytes        | `IndexArrayRef` = index-array offset; array of `uint32_t`.            |
+| `RDAT_RECORD_REF(type, name)` | 4 bytes        | `RecordRef<type>` = record index into that type's table.              |
 | `RDAT_RECORD_ARRAY_REF(type, name)` | 4 bytes  | `RecordArrayRef<type>` = index-array offset; array of record indices. |
-| `RDAT_RECORD_VALUE(type, name)` | `sizeof(type)` | Nested record embedded inline (by value).                 |
-| `RDAT_BYTES(name)`            | 8 bytes        | `BytesRef` = `{ uint32_t Offset; uint32_t Size; }` into RawBytes. |
-| `RDAT_ARRAY_VALUE(type,count,...)` | `count*sizeof(type)` | Fixed-size inline array.                          |
+| `RDAT_RECORD_VALUE(type, name)` | `sizeof(type)` | Nested record embedded inline (by value).                           |
+| `RDAT_BYTES(name)`            | 8 bytes        | `BytesRef` = `{ uint32_t Offset; uint32_t Size; }` into RawBytes.     |
+| `RDAT_ARRAY_VALUE(type,count,...)` | `count*sizeof(type)` | Fixed-size inline array.                                   |
 
 The sentinel `RDAT_NULL_REF = 0xFFFFFFFF` denotes a null reference for
 record/index/string references.
@@ -405,32 +405,32 @@ are 4-byte handles; `RDAT_BYTES` is 8 bytes (`Offset`+`Size`).
 
 ### `RuntimeDataResourceInfo` (ResourceTable, v1.3+)
 
-| Field        | Encoding        | Meaning                                        |
-|--------------|-----------------|------------------------------------------------|
+| Field        | Encoding        | Meaning                                               |
+|--------------|-----------------|-------------------------------------------------------|
 | `Class`      | `uint32_t` enum | `hlsl::DXIL::ResourceClass` (SRV/UAV/CBuffer/Sampler) |
-| `Kind`       | `uint32_t` enum | `hlsl::DXIL::ResourceKind`                      |
-| `ID`         | `uint32_t`      | Resource ID within its class                   |
-| `Space`      | `uint32_t`      | Register space                                 |
-| `LowerBound` | `uint32_t`      | First register                                 |
-| `UpperBound` | `uint32_t`      | Last register                                  |
-| `Name`       | `RDATString`    | Global name                                    |
-| `Flags`      | `uint32_t` flags| `DxilResourceFlag` (UAVCounter, ROV, Atomics64, …) |
+| `Kind`       | `uint32_t` enum | `hlsl::DXIL::ResourceKind`                            |
+| `ID`         | `uint32_t`      | Resource ID within its class                          |
+| `Space`      | `uint32_t`      | Register space                                        |
+| `LowerBound` | `uint32_t`      | First register                                        |
+| `UpperBound` | `uint32_t`      | Last register                                         |
+| `Name`       | `RDATString`    | Global name                                           |
+| `Flags`      | `uint32_t` flags| `DxilResourceFlag` (UAVCounter, ROV, Atomics64, …)    |
 
 ### `RuntimeDataFunctionInfo` (FunctionTable, v1.3+)
 
-| Field                   | Encoding                     | Meaning                                  |
-|-------------------------|------------------------------|------------------------------------------|
-| `Name`                  | `RDATString`                 | Full (mangled) function name             |
-| `UnmangledName`         | `RDATString`                 | Unmangled name                           |
-| `Resources`             | `RecordArrayRef<ResourceInfo>` | Global resources used                  |
-| `FunctionDependencies`  | `RDATStringArray`            | External functions called (by name)      |
-| `ShaderKind`            | `uint32_t` enum              | `hlsl::DXIL::ShaderKind`                  |
-| `PayloadSizeInBytes`    | `uint32_t`                   | Ray payload / callable param size        |
-| `AttributeSizeInBytes`  | `uint32_t`                   | Hit attribute size                       |
-| `FeatureInfo1`          | `uint32_t` flags             | Low 32 bits of feature flags             |
-| `FeatureInfo2`          | `uint32_t` flags             | High 32 bits of feature flags            |
+| Field                   | Encoding                     | Meaning                                      |
+|-------------------------|------------------------------|----------------------------------------------|
+| `Name`                  | `RDATString`                 | Full (mangled) function name                 |
+| `UnmangledName`         | `RDATString`                 | Unmangled name                               |
+| `Resources`             | `RecordArrayRef<ResourceInfo>` | Global resources used                      |
+| `FunctionDependencies`  | `RDATStringArray`            | External functions called (by name)          |
+| `ShaderKind`            | `uint32_t` enum              | `hlsl::DXIL::ShaderKind`                     |
+| `PayloadSizeInBytes`    | `uint32_t`                   | Ray payload / callable param size            |
+| `AttributeSizeInBytes`  | `uint32_t`                   | Hit attribute size                           |
+| `FeatureInfo1`          | `uint32_t` flags             | Low 32 bits of feature flags                 |
+| `FeatureInfo2`          | `uint32_t` flags             | High 32 bits of feature flags                |
 | `ShaderStageFlag`       | `uint32_t` flags             | Valid shader stages (`DxilShaderStageFlags`) |
-| `MinShaderTarget`       | `uint32_t` (hex)             | Encoded minimum shader model target      |
+| `MinShaderTarget`       | `uint32_t` (hex)             | Encoded minimum shader model target          |
 
 `GetFeatureFlags()`/`SetFeatureFlags()` combine `FeatureInfo1|2` into a 64-bit value.
 
@@ -438,10 +438,10 @@ are 4-byte handles; `RDAT_BYTES` is 8 bytes (`Offset`+`Size`).
 
 Extends `RuntimeDataFunctionInfo` with:
 
-| Field                        | Encoding          | Meaning                                        |
-|------------------------------|-------------------|------------------------------------------------|
-| `MinimumExpectedWaveLaneCount` | `uint8_t`       | 0 = unspecified                                |
-| `MaximumExpectedWaveLaneCount` | `uint8_t`       | 0 = unspecified                                |
+| Field                        | Encoding          | Meaning                                             |
+|------------------------------|-------------------|-----------------------------------------------------|
+| `MinimumExpectedWaveLaneCount` | `uint8_t`       | 0 = unspecified                                     |
+| `MaximumExpectedWaveLaneCount` | `uint8_t`       | 0 = unspecified                                     |
 | `ShaderFlags`                | `uint16_t` flags  | `DxilShaderFlags` (NodeProgramEntry, UsesViewID, …) |
 | *union selected by `ShaderKind`* | 4 bytes each  | `RawShaderRef` (uint32) / `RecordRef` to `NodeShaderInfo`, `VSInfo`, `PSInfo`, `HSInfo`, `DSInfo`, `GSInfo`, `CSInfo`, `MSInfo`, `ASInfo` |
 
@@ -473,9 +473,9 @@ the 4-byte union.
 
 | Field   | Encoding        | Meaning                              |
 |---------|-----------------|--------------------------------------|
-| `Kind`  | `uint32_t` enum | `hlsl::DXIL::SubobjectKind`           |
-| `Name`  | `RDATString`    | Subobject name                        |
-| *union selected by `Kind`* | varies | See below              |
+| `Kind`  | `uint32_t` enum | `hlsl::DXIL::SubobjectKind`          |
+| `Name`  | `RDATString`    | Subobject name                       |
+| *union selected by `Kind`* | varies | See below                  |
 
 Union members (inline `RDAT_RECORD_VALUE` structs):
 
@@ -568,11 +568,11 @@ The parser uses a bounds-checked `CheckedReader` that throws on overrun/overlap:
 
 ## Appendix: Key constants
 
-| Name                 | Value        | Meaning                                    |
-|----------------------|--------------|--------------------------------------------|
-| `DFCC_RuntimeData`   | `'RDAT'`     | Container FourCC for the RDAT part          |
-| `RDAT_Version_10`    | `0x10`       | Current RDAT blob version                   |
-| `RDAT_NULL_REF`      | `0xFFFFFFFF` | Null record/index/string reference          |
-| `PSVALIGN4(x)`       | `(x+3)&~3`   | 4-byte alignment used for part/record sizes |
-| `RuntimeDataGroup::Core` | `0`      | Default part group                          |
+| Name                 | Value        | Meaning                                         |
+|----------------------|--------------|-------------------------------------------------|
+| `DFCC_RuntimeData`   | `'RDAT'`     | Container FourCC for the RDAT part              |
+| `RDAT_Version_10`    | `0x10`       | Current RDAT blob version                       |
+| `RDAT_NULL_REF`      | `0xFFFFFFFF` | Null record/index/string reference              |
+| `PSVALIGN4(x)`       | `(x+3)&~3`   | 4-byte alignment used for part/record sizes     |
+| `RuntimeDataGroup::Core` | `0`      | Default part group                              |
 | `RuntimeDataGroup::PdbInfo` | `1`    | PDB info part group (packed into high 16 bits) |
