@@ -959,9 +959,8 @@ LowerTypeVisitor::lowerResourceType(QualType type, SpirvLayoutRule rule,
     }
 
     if (isTexture) {
-      const bool isMS =
-          resKind == hlsl::DXIL::ResourceKind::Texture2DMS ||
-          resKind == hlsl::DXIL::ResourceKind::Texture2DMSArray;
+      const bool isMS = resKind == hlsl::DXIL::ResourceKind::Texture2DMS ||
+                        resKind == hlsl::DXIL::ResourceKind::Texture2DMSArray;
 
       if (resClass == hlsl::DXIL::ResourceClass::SRV) {
         const auto sampledType = hlsl::GetHLSLResourceResultType(type);

@@ -296,13 +296,9 @@ bool isMxNMatrix(QualType type, QualType *elemType, uint32_t *numRows,
   return false;
 }
 
-bool isInputPatch(QualType type) {
-  return hlsl::IsHLSLInputPatchType(type);
-}
+bool isInputPatch(QualType type) { return hlsl::IsHLSLInputPatchType(type); }
 
-bool isOutputPatch(QualType type) {
-  return hlsl::IsHLSLOutputPatchType(type);
-}
+bool isOutputPatch(QualType type) { return hlsl::IsHLSLOutputPatchType(type); }
 
 bool isSubpassInput(QualType type) {
   if (const HLSLVkSubpassInputAttr *Attr =
