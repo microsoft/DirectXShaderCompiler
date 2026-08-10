@@ -77,7 +77,10 @@ class VersionGen():
             "dxcoob" if self.options.official else "dxc(private)")
 
     def rc_version_field_1(self):
-        return self.latest_release_info["version"]["major"]
+        major = int(self.latest_release_info["version"]["major"])
+        if self.options.vpack:
+            major += 100
+        return str(major)
 
     def rc_version_field_2(self):
         return self.latest_release_info["version"]["minor"]
@@ -147,6 +150,7 @@ def main():
     p = argparse.ArgumentParser("gen_version")
     p.add_argument("--no-commit-sha", action='store_true')
     p.add_argument("--official", action="store_true")
+    p.add_argument("--vpack", action="store_true")
     args = p.parse_args()
 
     VersionGen(args).print_version() 
