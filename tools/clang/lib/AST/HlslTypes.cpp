@@ -753,17 +753,7 @@ clang::RecordDecl *GetRecordDeclFromNodeObjectType(clang::QualType ObjectTy) {
 }
 
 bool IsHLSLRayQueryType(clang::QualType type) {
-  type = type.getCanonicalType();
-  if (const RecordType *RT = dyn_cast<RecordType>(type)) {
-    if (const ClassTemplateSpecializationDecl *templateDecl =
-            dyn_cast<ClassTemplateSpecializationDecl>(
-                RT->getAsCXXRecordDecl())) {
-      StringRef name = templateDecl->getName();
-      if (name == "RayQuery")
-        return true;
-    }
-  }
-  return false;
+  return nullptr != getAttr<HLSLRayQueryObjectAttr>(type);
 }
 
 #ifdef ENABLE_SPIRV_CODEGEN
