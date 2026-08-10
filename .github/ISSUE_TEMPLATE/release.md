@@ -30,12 +30,14 @@ we are confident we can generate builds for the new branch
 - [ ] Create the release branch from `main`
     - The release branch is kept into sync with main via regular fast-forward
       merges.
+- [ ] Final merge of `main` into the release branch
+- [ ] Update SPIRV-Headers and SPIRV-Tools submodules, in the release branch,
+      to target the commits specified by LunarG.
 - [ ] Internal branches and build pipelines configured
     - Verify that the engineering system can build:
     - [ ] Zip files for github release
     - [ ] NuGet package
     - [ ] VPack
-- [ ] Final merge of `main` into the release branch
 
 ## After Fork
 
@@ -45,12 +47,13 @@ we are confident we can generate builds for the new branch
 ## Quality Sign Off
 
 - [ ] Microsoft Testing Sign-off (@damyanp)
-- [ ] Google Testing Sign-off (@s-perron / @Keenuts)
+- [ ] NVIDIA Testing Sign-off (@dnovillo / @pow2clk)
 
 ## Release
 
 - [ ] Tag final release and post binaries
 - [ ] Add the new compiler to Compiler Explorer
+- [ ] Email LunarG the release tag and update the release spreadsheet.
 
 
 [^1]: [Ask Mode](https://devblogs.microsoft.com/oldnewthing/20140722-00/?p=433)
