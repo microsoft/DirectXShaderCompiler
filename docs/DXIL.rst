@@ -3216,9 +3216,9 @@ INSTR.LINALGMATRIXDIMMISMATCH                         Matrix Dimension '%0x%1' d
 INSTR.LINALGMATRIXDIMVECTORMISMATCH                   %0 vector size '%1' must match matrix %2 dimension '%3'
 INSTR.LINALGMATRIXLAYOUTREQSTRIDE                     Matrix layout '%0' requires stride 0.
 INSTR.LINALGMATRIXLOADTHREADREQUIRESBAB               Loading matrix with Thread scope requires ByteAddressBuffer.
-INSTR.LINALGMATRIXLOADTHREADREQUIRESRWBAB             Accumulating matrix requires RWByteAddressBuffer.
 INSTR.LINALGMATRIXNOTEXACTMATCH                       Matrix '%0' must exactly match matrix '%1'.
 INSTR.LINALGMATRIXOUTPUTBIASVECMISMATCH               Output vector element type '%0' must match Bias vector element type '%1'
+INSTR.LINALGMATRIXREQUIRESRWBAB                       %0 requires RWByteAddressBuffer.
 INSTR.LINALGMATRIXSCOPEMISMATCH                       Matrix Scope '%0' does not match expected scope %1.
 INSTR.LINALGMATRIXSCOPENOTALLOWED                     Matrix Scope '%0' not allowed in %1 operation.
 INSTR.LINALGMATRIXSCOPEREQLAYOUT2                     Matrix scope '%0' requires layout %1 or %2.

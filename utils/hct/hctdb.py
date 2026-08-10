@@ -8702,8 +8702,8 @@ class db_dxil(object):
             "Loading matrix with Thread scope requires ByteAddressBuffer.",
         )
         self.add_valrule(
-            "Instr.LinAlgMatrixLoadThreadRequiresRWBAB",
-            "Accumulating matrix requires RWByteAddressBuffer.",
+            "Instr.LinAlgMatrixRequiresRWBAB",
+            "%0 requires RWByteAddressBuffer.",
         )
 
         # Some legacy rules:
