@@ -331,14 +331,8 @@ void LowerGetResourceFromHeap(
     for (auto uit = resPtr->user_begin(); uit != resPtr->user_end();) {
       User *U = *(uit++);
       BitCastInst *BCI = cast<BitCastInst>(U);
-      // If the temporary resource variable is never actually read (e.g. its
-      // value is discarded, as in `ResourceDescriptorHeap[i];`), clang still
-      // emits lifetime markers for it. Those markers use an i8* bitcast of
-      // the resource pointer rather than a bitcast to the resource type.
-      // Leave them alone here: they are still valid uses of resPtr, and
-      // later legalization passes (which already know how to handle
-      // bitcasts that are onlyUsedByLifetimeMarkers) will clean them up
-      // once resPtr has no other real uses.
+      // Ignore uses of the resource which are just bitcasts to i8* for lifetime
+      // markers. These will get cleaned up in later legalization.
       if (BCI->getType()->getPointerElementType()->isIntegerTy(8)) {
         DXASSERT(onlyUsedByLifetimeMarkers(BCI),
                  "otherwise, unexpected use of i8* cast of resource ptr");
@@ -362,8 +356,8 @@ void LowerGetResourceFromHeap(
       }
       BCI->eraseFromParent();
     }
-    // resPtr may still have lifetime-marker-only bitcast uses left in place
-    // above; only erase it once it has no remaining uses.
+    // Only erase the resource if it has no remaining uses. The correct fix here
+    // is to just not generate these resources, but that is a larger change.
     if (resPtr->use_empty())
       resPtr->eraseFromParent();
   }
