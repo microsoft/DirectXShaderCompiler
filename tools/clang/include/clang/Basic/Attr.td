@@ -1205,6 +1205,16 @@ def HLSLHitObject : InheritableAttr {
   let Documentation = [Undocumented];
 }
 
+// Vulkan SubpassInput / SubpassInputMS Attribute
+// Marks the built-in SubpassInput<T> and SubpassInputMS<T,S> record types as
+// distinct from any user-defined type with the same unqualified name.
+def HLSLVkSubpassInput : InheritableAttr {
+  let Spellings = []; // No spellings!
+  let Args = [BoolArgument<"IsMultiSampled">];
+  let Subjects = SubjectList<[CXXRecord]>;
+  let Documentation = [Undocumented];
+}
+
 // HLSL Dynamic Resource Attribute
 // Marks the builtin `.Resource` / `.Sampler` placeholder record types used
 // for descriptor heap indexing (ResourceDescriptorHeap[i] /
