@@ -24,9 +24,20 @@ RWStructuredBuffer<float> output : register(u0);
 void main() {
   myns::StructuredBuffer sb;
   sb.data = 1.0;
+  myns::RWStructuredBuffer rwsb;
+  rwsb.data = 2.0;
+  myns::AppendStructuredBuffer asb;
+  asb.data = 3.0;
+  myns::ConsumeStructuredBuffer csb;
+  csb.data = 4.0;
   myns::ByteAddressBuffer bab;
   bab.raw = 42;
+  myns::RWByteAddressBuffer rwbab;
+  rwbab.raw = 43;
   myns::ConstantBuffer cb;
-  cb.v = 3.0;
-  output[0] = sb.data + cb.v;
+  cb.v = 5.0;
+  myns::TextureBuffer tb;
+  tb.v = 6.0;
+  output[0] = sb.data + rwsb.data + asb.data + csb.data + bab.raw +
+              rwbab.raw + cb.v + tb.v;
 }

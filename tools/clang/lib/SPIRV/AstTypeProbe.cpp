@@ -1047,7 +1047,12 @@ bool isOrContainsAKindOfStructuredOrByteBuffer(QualType type) {
 }
 
 bool isOpaqueType(QualType type) {
-  if (hlsl::IsHLSLResourceType(type) || hlsl::IsHLSLRayQueryType(type))
+  const auto resKind = hlsl::GetHLSLResourceKind(type);
+  if (hlsl::DXIL::IsAnyTexture(resKind) ||
+      resKind == hlsl::DXIL::ResourceKind::TypedBuffer ||
+      resKind == hlsl::DXIL::ResourceKind::Sampler ||
+      resKind == hlsl::DXIL::ResourceKind::RTAccelerationStructure ||
+      hlsl::IsHLSLRayQueryType(type))
     return true;
   if (isSubpassInput(type))
     return true;
