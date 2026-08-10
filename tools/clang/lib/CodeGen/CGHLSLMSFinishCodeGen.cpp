@@ -12,6 +12,7 @@
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Analysis/DxilValueCache.h"
+#include "llvm/Analysis/ValueTracking.h"
 #include "llvm/IR/CFG.h"
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/Function.h"
@@ -330,6 +331,19 @@ void LowerGetResourceFromHeap(
     for (auto uit = resPtr->user_begin(); uit != resPtr->user_end();) {
       User *U = *(uit++);
       BitCastInst *BCI = cast<BitCastInst>(U);
+      // If the temporary resource variable is never actually read (e.g. its
+      // value is discarded, as in `ResourceDescriptorHeap[i];`), clang still
+      // emits lifetime markers for it. Those markers use an i8* bitcast of
+      // the resource pointer rather than a bitcast to the resource type.
+      // Leave them alone here: they are still valid uses of resPtr, and
+      // later legalization passes (which already know how to handle
+      // bitcasts that are onlyUsedByLifetimeMarkers) will clean them up
+      // once resPtr has no other real uses.
+      if (BCI->getType()->getPointerElementType()->isIntegerTy(8)) {
+        DXASSERT(onlyUsedByLifetimeMarkers(BCI),
+                 "otherwise, unexpected use of i8* cast of resource ptr");
+        continue;
+      }
       DXASSERT(
           dxilutil::IsHLSLResourceType(
               BCI->getType()->getPointerElementType()) ||
@@ -348,7 +362,10 @@ void LowerGetResourceFromHeap(
       }
       BCI->eraseFromParent();
     }
-    resPtr->eraseFromParent();
+    // resPtr may still have lifetime-marker-only bitcast uses left in place
+    // above; only erase it once it has no remaining uses.
+    if (resPtr->use_empty())
+      resPtr->eraseFromParent();
   }
 }
 
