@@ -1735,9 +1735,9 @@ std::vector<size_t> getInputSizesToTest(size_t OverrideInputSize,
         IsStructuredBufferLoadAndStoreOp(OP) ? 2048 / sizeof(T) : 1024;
 
 #if defined(_M_IX86) && !defined(_HLK_CONF)
-    // x86 execution tests default to WARP, which cannot run the
+    // X86 Execution tests running against WARP cannot run the
     // largest vector sizes within the available address space for
-    // some Ops. This is a simple workaround for that.
+    // some Ops. Cap the max size to work around that.
     if (isX86WarpMemoryLimitedOp(OP) && isWarp(D3DDevice))
       MaxInputSize = std::min(MaxInputSize, size_t{256});
 #else
