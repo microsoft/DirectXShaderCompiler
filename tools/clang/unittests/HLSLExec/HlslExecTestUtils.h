@@ -368,6 +368,8 @@ public:
                     bool SkipUnsupported = true);
 };
 
+bool isWarp(ID3D12Device *D3DDevice);
+
 void readHlslDataIntoNewStream(LPCWSTR RelativePath, IStream **Stream,
                                dxc::SpecificDllLoader &Support);
 

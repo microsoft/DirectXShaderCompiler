@@ -1704,8 +1704,25 @@ template <OpType OP, typename T> struct ExpectedBuilder {
   }
 };
 
+#if defined(_M_IX86) && !defined(_HLK_CONF)
+constexpr bool isX86WarpMemoryLimitedOp(OpType Op) {
+  switch (Op) {
+  case OpType::QuadReadLaneAt:
+  case OpType::QuadReadAcrossX:
+  case OpType::QuadReadAcrossY:
+  case OpType::QuadReadAcrossDiagonal:
+  case OpType::AsDouble:
+  case OpType::AsUint_SplitDouble:
+    return true;
+  default:
+    return false;
+  }
+}
+#endif
+
 template <typename T, OpType OP>
-std::vector<size_t> getInputSizesToTest(size_t OverrideInputSize) {
+std::vector<size_t> getInputSizesToTest(size_t OverrideInputSize,
+                                        ID3D12Device *D3DDevice) {
   std::vector<size_t> InputVectorSizes;
   const std::array<size_t, 8> DefaultInputSizes = {3,  5,   16,  17,
                                                    35, 100, 256, 1024};
@@ -1714,8 +1731,18 @@ std::vector<size_t> getInputSizesToTest(size_t OverrideInputSize) {
     InputVectorSizes.push_back(OverrideInputSize);
   else {
     // StructuredBuffers have a max size of 2048 bytes.
-    const size_t MaxInputSize =
+    size_t MaxInputSize =
         IsStructuredBufferLoadAndStoreOp(OP) ? 2048 / sizeof(T) : 1024;
+
+#if defined(_M_IX86) && !defined(_HLK_CONF)
+    // X86 Execution tests running against WARP cannot run the
+    // largest vector sizes within the available address space for
+    // some Ops. Cap the max size to work around that.
+    if (isX86WarpMemoryLimitedOp(OP) && isWarp(D3DDevice))
+      MaxInputSize = std::min(MaxInputSize, size_t{256});
+#else
+    (void)D3DDevice;
+#endif
 
     for (size_t Size : DefaultInputSizes) {
       if (Size <= MaxInputSize)
@@ -1734,7 +1761,7 @@ void dispatchTest(ID3D12Device *D3DDevice, bool VerboseLogging,
                   size_t OverrideInputSize) {
 
   const std::vector<size_t> InputVectorSizes =
-      getInputSizesToTest<T, OP>(OverrideInputSize);
+      getInputSizesToTest<T, OP>(OverrideInputSize, D3DDevice);
 
   constexpr const Operation &Operation = getOperation(OP);
   Op<OP, T, Operation.Arity> Op;
@@ -1755,7 +1782,7 @@ void dispatchWaveOpTest(ID3D12Device *D3DDevice, bool VerboseLogging,
                         size_t OverrideInputSize, UINT WaveSize) {
 
   const std::vector<size_t> InputVectorSizes =
-      getInputSizesToTest<T, OP>(OverrideInputSize);
+      getInputSizesToTest<T, OP>(OverrideInputSize, D3DDevice);
 
   constexpr const Operation &Operation = getOperation(OP);
   Op<OP, T, Operation.Arity> Op;
