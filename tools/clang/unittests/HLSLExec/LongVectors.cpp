@@ -1721,7 +1721,8 @@ constexpr bool isX86WarpMemoryLimitedOp(OpType Op) {
 #endif
 
 template <typename T, OpType OP>
-std::vector<size_t> getInputSizesToTest(size_t OverrideInputSize) {
+std::vector<size_t> getInputSizesToTest(size_t OverrideInputSize,
+                                        ID3D12Device *D3DDevice) {
   std::vector<size_t> InputVectorSizes;
   const std::array<size_t, 8> DefaultInputSizes = {3,  5,   16,  17,
                                                    35, 100, 256, 1024};
@@ -1734,13 +1735,13 @@ std::vector<size_t> getInputSizesToTest(size_t OverrideInputSize) {
         IsStructuredBufferLoadAndStoreOp(OP) ? 2048 / sizeof(T) : 1024;
 
 #if defined(_M_IX86) && !defined(_HLK_CONF)
-    // This implies that we will create a WARP device.
-    const bool IsWarp = GetTestParamUseWARP(true);
     // x86 execution tests default to WARP, which cannot run the
     // largest vector sizes within the available address space for
     // some Ops. This is a simple workaround for that.
-    if (IsWarp && isX86WarpMemoryLimitedOp(OP))
+    if (isX86WarpMemoryLimitedOp(OP) && isWarp(D3DDevice))
       MaxInputSize = std::min(MaxInputSize, size_t{256});
+#else
+    (void)D3DDevice;
 #endif
 
     for (size_t Size : DefaultInputSizes) {
@@ -1760,7 +1761,7 @@ void dispatchTest(ID3D12Device *D3DDevice, bool VerboseLogging,
                   size_t OverrideInputSize) {
 
   const std::vector<size_t> InputVectorSizes =
-      getInputSizesToTest<T, OP>(OverrideInputSize);
+      getInputSizesToTest<T, OP>(OverrideInputSize, D3DDevice);
 
   constexpr const Operation &Operation = getOperation(OP);
   Op<OP, T, Operation.Arity> Op;
@@ -1781,7 +1782,7 @@ void dispatchWaveOpTest(ID3D12Device *D3DDevice, bool VerboseLogging,
                         size_t OverrideInputSize, UINT WaveSize) {
 
   const std::vector<size_t> InputVectorSizes =
-      getInputSizesToTest<T, OP>(OverrideInputSize);
+      getInputSizesToTest<T, OP>(OverrideInputSize, D3DDevice);
 
   constexpr const Operation &Operation = getOperation(OP);
   Op<OP, T, Operation.Arity> Op;

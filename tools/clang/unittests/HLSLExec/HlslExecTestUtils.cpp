@@ -484,6 +484,19 @@ bool D3D12SDKSelector::createDevice(ID3D12Device **D3DDevice,
                         D3D12CreateDevice);
 }
 
+bool isWarp(ID3D12Device *D3DDevice) {
+  CComPtr<IDXGIFactory4> DXGIFactory;
+  VERIFY_SUCCEEDED(CreateDXGIFactory1(IID_PPV_ARGS(&DXGIFactory)));
+
+  CComPtr<IDXGIAdapter1> DXGIAdapter;
+  VERIFY_SUCCEEDED(DXGIFactory->EnumAdapterByLuid(D3DDevice->GetAdapterLuid(),
+                                                  IID_PPV_ARGS(&DXGIAdapter)));
+
+  DXGI_ADAPTER_DESC1 AdapterDesc;
+  VERIFY_SUCCEEDED(DXGIAdapter->GetDesc1(&AdapterDesc));
+  return (AdapterDesc.Flags & DXGI_ADAPTER_FLAG_SOFTWARE) != 0;
+}
+
 bool doesDeviceSupportInt64(ID3D12Device *pDevice) {
   D3D12_FEATURE_DATA_D3D12_OPTIONS1 O;
   if (FAILED(pDevice->CheckFeatureSupport(
