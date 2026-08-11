@@ -43,11 +43,15 @@ enum class ComponentType : uint32_t {
   PackedS8x32 = 17,
   PackedU8x32 = 18,
 
-  // BEGIN NEW FOR SM 6.10
+  // BEGIN NEW FOR SM 6.9
   I8 = 19,
   U8 = 20,
   F8_E4M3FN = 21,
   F8_E5M2 = 22,
+  // END
+
+  // BEGIN NEW FOR SM 6.10
+  BFloat16 = 23,
   // END
 
   LastEntry
@@ -83,6 +87,7 @@ struct ComponentType {
     __COMPONENT_TYPE(F16),
     __COMPONENT_TYPE(F32),
     __COMPONENT_TYPE(F64),
+    __COMPONENT_TYPE(BFloat16),
   };
 };
 
@@ -130,6 +135,12 @@ template <ComponentEnum CompTy> struct ComponentTypeTraits {
 template <typename T> struct TypeTraits {
   static const ComponentEnum CompType =
       (ComponentEnum)dxil::ComponentType::Invalid;
+};
+
+template <> struct ComponentTypeTraits<ComponentType::BFloat16> {
+  using Type = uint;
+  static const bool IsNativeScalar = false;
+  static const uint ElementsPerScalar = 2;
 };
 
 #define __MATRIX_SCALAR_COMPONENT_MAPPING(enum_val, type)                      \
@@ -227,8 +238,8 @@ template <ComponentEnum ComponentTy, SIZE_TYPE M, SIZE_TYPE N,
           MatrixUseEnum Use, MatrixScopeEnum Scope>
 class Matrix {
   using ElementType = typename __detail::ComponentTypeTraits<ComponentTy>::Type;
-  // If this isn't a native scalar, we have an 8-bit type, so we have 4 elements
-  // packed in each scalar value.
+  // If this isn't a native scalar, we have a type that may pack more than 1
+  // element in each scalar value. (Ex. 8bit => 4elems, 16bit => 2elems)
   static const uint ElementsPerScalar =
       __detail::ComponentTypeTraits<ComponentTy>::ElementsPerScalar;
   static const bool IsNativeScalar =
@@ -427,12 +438,13 @@ class Matrix<ComponentTy, M, N, Use, MatrixScope::Thread> {
     return Result;
   }
 
-  template <MatrixUseEnum UseLocal = Use>
+  template <uint Align = 128, MatrixUseEnum UseLocal = Use>
   typename hlsl::enable_if<Use == MatrixUse::Accumulator && UseLocal == Use,
                            void>::type
   InterlockedAccumulate(RWByteAddressBuffer Res, uint StartOffset) {
     __builtin_LinAlg_MatrixAccumulateToDescriptor(
-        __handle, Res, StartOffset, 0, MatrixLayout::OuterProductOptimal, 0);
+        __handle, Res, StartOffset, 0, MatrixLayout::OuterProductOptimal,
+        Align);
   }
 };
 

@@ -20,6 +20,7 @@ Use dxc with -Odump to dump the pass sequence for reference.
 """
 
 import os
+import shutil
 import sys
 import subprocess
 import tempfile
@@ -29,6 +30,14 @@ import argparse
 def ParseArgs():
     parser = argparse.ArgumentParser(
         formatter_class=argparse.RawDescriptionHelpFormatter, description=__doc__
+    )
+    parser.add_argument(
+        "-t",
+        "--tool-path",
+        dest="tool_path",
+        metavar="<tool-path>",
+        default="",
+        help="directory containing dxc and dxopt executables",
     )
     parser.add_argument(
         "-p",
@@ -110,9 +119,28 @@ def GetTempFilename(*args, **kwargs):
 
 
 def main(args):
+    dxc_path = "dxc"
+    dxopt_path = "dxopt"
+    if args.tool_path:
+        if not os.path.isdir(args.tool_path):
+            raise NotADirectoryError(
+                f"Specified tool path is not a directory: '{args.tool_path}'"
+            )
+        dxc_path = os.path.join(args.tool_path, dxc_path)
+        dxopt_path = os.path.join(args.tool_path, dxopt_path)
+        if not os.path.isfile(dxc_path) or not os.path.isfile(dxopt_path):
+            raise FileNotFoundError(
+                f"dxc or dxopt not found in specified tool path: '{args.tool_path}'"
+            )
+    else:
+        # If no tool path is specified, check if dxc and dxopt are in PATH
+        if not shutil.which(dxc_path) or not shutil.which(dxopt_path):
+            raise FileNotFoundError(
+                "dxc or dxopt not found in PATH.  Use -t to specify path to dxc and dxopt."
+            )
     try:
         # 1. Gets the pass list for an HLSL compilation using -Odump
-        cmd = ["dxc", "/Odump", args.hlsl_file] + args.compilation_options
+        cmd = [dxc_path, "/Odump", args.hlsl_file] + args.compilation_options
         # print(cmd)
         all_passes = subprocess.check_output(cmd, text=True)
         all_passes = all_passes.splitlines()
@@ -120,7 +148,7 @@ def main(args):
         # 2. Compiles HLSL with -fcgl and outputs to intermediate IR
         fcgl_file = GetTempFilename(".ll")
         cmd = [
-            "dxc",
+            dxc_path,
             "-fcgl",
             "-Fc",
             fcgl_file,
@@ -143,20 +171,20 @@ def main(args):
 
         # 4. Invokes dxopt to run passes on -fcgl output and write bitcode result
         bitcode_file = GetTempFilename(".bc")
-        cmd = ["dxopt", "-o=" + bitcode_file, fcgl_file] + passes_before
+        cmd = [dxopt_path, "-o=" + bitcode_file, fcgl_file] + passes_before
         # print(cmd)
         subprocess.check_call(cmd)
 
         # 5. Disassembles bitcode to .ll file for use as a test
         temp_out = GetTempFilename(".ll")
-        cmd = ["dxc", "/dumpbin", "-Fc", temp_out, bitcode_file]
+        cmd = [dxc_path, "/dumpbin", "-Fc", temp_out, bitcode_file]
         # print(cmd)
         subprocess.check_call(cmd)
 
         # 6. Inserts RUN line with -hlsl-passes-resume and desired pass
         with open(args.output_file, "wt") as f:
             f.write(
-                "; RUN: %dxopt %s -hlsl-passes-resume -{} -S | FileCheck %s\n\n".format(
+                "; RUN: %dxopt %s -hlsl-passes-resume -{} -hlsl-passes-pause -S | FileCheck %s\n\n".format(
                     args.desired_pass
                 )
             )

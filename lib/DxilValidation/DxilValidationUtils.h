@@ -163,4 +163,6 @@ llvm::StringRef MatrixScopeToString(DXIL::MatrixScope MS);
 llvm::StringRef MatrixUseToString(DXIL::MatrixUse MU);
 
 llvm::StringRef MatrixLayoutToString(DXIL::MatrixLayout ML);
+
+std::string TypeToString(llvm::Type *Ty);
 } // namespace hlsl
