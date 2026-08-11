@@ -2191,12 +2191,18 @@ runLoadStoreDescriptor(ID3D12Device *Device, dxc::SpecificDllLoader &DxcSupport,
 
   // Two UAV buffers, load from one, store to the other. The destination is
   // filled by name rather than zeroed so unowned bytes carry the poison.
+  //
+  // Bound through a descriptor table rather than as root views. A root view is
+  // a bare GPU address, and proposal 0035 exempts root descriptors from bounds
+  // checking precisely because they carry no dimensions. Binding through a
+  // heap gives each buffer a view whose extent the implementation can see.
   auto Op = createComputeOp(LoadStoreDescriptorShader, "cs_6_10",
-                            "UAV(u0), UAV(u1)", Args.c_str());
+                            "DescriptorTable(UAV(u0), UAV(u1))", Args.c_str());
   addUAVBuffer(Op.get(), "Input", *InputSize, false, "byname");
   addUAVBuffer(Op.get(), "Output", *OutputSize, true, "byname");
-  addRootView(Op.get(), 0, "Input");
-  addRootView(Op.get(), 1, "Output");
+  addHeapRawUAV(Op.get(), "ResHeap", "Input", *InputSize);
+  addHeapRawUAV(Op.get(), "ResHeap", "Output", *OutputSize);
+  addRootTable(Op.get(), 0, "ResHeap");
 
   auto Result = runShaderOp(
       Device, DxcSupport, std::move(Op),
