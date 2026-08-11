@@ -1704,6 +1704,22 @@ template <OpType OP, typename T> struct ExpectedBuilder {
   }
 };
 
+#if defined(_M_IX86) && !defined(_HLK_CONF)
+constexpr bool isX86WarpMemoryLimitedOp(OpType Op) {
+  switch (Op) {
+  case OpType::QuadReadLaneAt:
+  case OpType::QuadReadAcrossX:
+  case OpType::QuadReadAcrossY:
+  case OpType::QuadReadAcrossDiagonal:
+  case OpType::AsDouble:
+  case OpType::AsUint_SplitDouble:
+    return true;
+  default:
+    return false;
+  }
+}
+#endif
+
 template <typename T, OpType OP>
 std::vector<size_t> getInputSizesToTest(size_t OverrideInputSize) {
   std::vector<size_t> InputVectorSizes;
@@ -1714,8 +1730,18 @@ std::vector<size_t> getInputSizesToTest(size_t OverrideInputSize) {
     InputVectorSizes.push_back(OverrideInputSize);
   else {
     // StructuredBuffers have a max size of 2048 bytes.
-    const size_t MaxInputSize =
+    size_t MaxInputSize =
         IsStructuredBufferLoadAndStoreOp(OP) ? 2048 / sizeof(T) : 1024;
+
+#if defined(_M_IX86) && !defined(_HLK_CONF)
+    // This implies that we will create a WARP device.
+    const bool IsWarp = GetTestParamUseWARP(true);
+    // x86 execution tests default to WARP, which cannot run the
+    // largest vector sizes within the available address space for
+    // some Ops. This is a simple workaround for that.
+    if (IsWarp && isX86WarpMemoryLimitedOp(OP))
+      MaxInputSize = std::min(MaxInputSize, size_t{256});
+#endif
 
     for (size_t Size : DefaultInputSizes) {
       if (Size <= MaxInputSize)
