@@ -3866,7 +3866,7 @@ static const char OuterProductShader[] = R"(
     __builtin_LinAlg_MatrixOuterProduct(Mat, VecA, VecB);
 
     // Outer product accumulators are stored in the OuterProductOptimal layout
-    // with stride 0, matching the dx::linalg header's thread-scoped
+    // Matching the dx::linalg header's thread-scoped
     // InterlockedAccumulate. The alignment argument must be a non-zero
     // multiple of 128; the matrix starts at offset 0 in a buffer D3D12 aligns
     // far more strongly than that.
