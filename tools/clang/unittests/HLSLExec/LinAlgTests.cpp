@@ -1058,6 +1058,8 @@ zeroElementsOutsideView(const TypedMatrix &Source,
   case ComponentType::U32:
     return zeroTypedElementsOutsideView<uint32_t>(Source, Layout, ViewBytes);
   default:
+    hlsl_test::LogErrorFmt(L"Unsupported component type for view bounding: %u",
+                           static_cast<uint32_t>(Source.compType()));
     return std::nullopt;
   }
 }
@@ -2336,11 +2338,11 @@ runLoadStoreDescriptor(ID3D12Device *Device, dxc::SpecificDllLoader &DxcSupport,
       OutData.size(), Verbose));
 }
 
-// Bounds checking is not one behaviour. Proposal 0035 lets an implementation
+// Proposal 0035 permits two bounds-checking behaviors. An implementation may
 // zero the whole matrix when any element falls outside the view, or zero only
 // the elements that do, and both are conformant. A single expected buffer
 // would therefore be wrong by construction, so the oracle carries both
-// outcomes and accepts either one complete.
+// outcomes and accepts a complete match against either one.
 //
 // What makes the test discriminating is that the source buffer is allocated
 // and written in full and only its *view* is shortened, so the bytes past the
@@ -2370,17 +2372,19 @@ static void runLoadDescriptorOutOfBounds(
   VERIFY_IS_TRUE(PerElement.has_value() && WholeMatrix.has_value(),
                  "Unable to derive the LoadDescriptorOOB candidates");
 
-  // A view that admits every element, or none, collapses the two candidates
-  // into one and the test stops discriminating between them. Both guards have
-  // to hold for the case to be worth running.
+  // The test requires both in-bounds and out-of-bounds elements. If none are
+  // in bounds, the two permitted results are identical. If all are in bounds,
+  // an implementation that performs no bounds checking would still pass.
   size_t FirstMismatch;
-  VERIFY_IS_FALSE(
-      cpu_oracle::exactMatrixMatch(*PerElement, *WholeMatrix, FirstMismatch),
-      "The source view admits no element, so the two permitted outcomes are "
-      "indistinguishable");
-  VERIFY_IS_FALSE(
-      cpu_oracle::exactMatrixMatch(*PerElement, *Input, FirstMismatch),
-      "The source view admits every element, so nothing is out of bounds");
+  const bool HasInBoundsElement =
+      !cpu_oracle::exactMatrixMatch(*PerElement, *WholeMatrix, FirstMismatch);
+  VERIFY_IS_TRUE(HasInBoundsElement,
+                 "The source view must include at least one complete element");
+
+  const bool HasOutOfBoundsElement =
+      !cpu_oracle::exactMatrixMatch(*PerElement, *Input, FirstMismatch);
+  VERIFY_IS_TRUE(HasOutOfBoundsElement,
+                 "The source view must exclude at least one element");
 
   std::stringstream ExtraDefs;
   ExtraDefs << " -DLOAD_OFFSET=" << Layout.OffsetBytes;
