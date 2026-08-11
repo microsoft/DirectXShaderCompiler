@@ -2011,6 +2011,8 @@ public:
 
   // Load/Store/Accumulate Descriptor
   TEST_METHOD(LoadStoreDescriptor_Wave_16x16_F16);
+  TEST_METHOD(LoadStoreDescriptor_Wave_4x8_F16_RowMajorOffsetPadded);
+  TEST_METHOD(LoadStoreDescriptor_Wave_4x8_F32_RowMajorToColumnMajor);
   TEST_METHOD(SplatStore_Wave_16x16_F16);
   TEST_METHOD(AccumulateDescriptor_Wave_16x16_F16);
 
@@ -2102,6 +2104,11 @@ bool DxilConf_SM610_LinAlg::setupMethod() {
   return D3D12SDK->createDevice(&D3DDevice, D3D_SHADER_MODEL_6_10, false);
 }
 
+// The alignment the descriptor shader declares to both builtins. Proposal 0035
+// requires the first element's address -- the resource base plus the offset --
+// to meet it.
+static constexpr size_t DescriptorDeclaredAlignment = 128;
+
 static const char LoadStoreDescriptorShader[] = R"(
   RWByteAddressBuffer Input : register(u0);
   RWByteAddressBuffer Output : register(u1);
@@ -2120,11 +2127,26 @@ static const char LoadStoreDescriptorShader[] = R"(
       [[__LinAlgMatrix_Attributes(COMP_TYPE, M_DIM, N_DIM, USE, SCOPE)]]
       Mat;
     __builtin_LinAlg_MatrixLoadFromDescriptor(
-      Mat, Input, LOAD_OFFSET, LOAD_STRIDE, LOAD_LAYOUT, 128);
+      Mat, Input, LOAD_OFFSET, LOAD_STRIDE, LOAD_LAYOUT, DECLARED_ALIGN);
     __builtin_LinAlg_MatrixStoreToDescriptor(
-      Mat, Output, STORE_OFFSET, STORE_STRIDE, STORE_LAYOUT, 128);
+      Mat, Output, STORE_OFFSET, STORE_STRIDE, STORE_LAYOUT, DECLARED_ALIGN);
   }
 )";
+
+// The base is a runtime property that no compile-time check can see, so check
+// it against the real GPU address.
+static void verifyDescriptorBaseAlignment(st::ShaderOpTest *Test, LPCSTR Name,
+                                          size_t OffsetBytes) {
+  // GetResource hands back a borrowed pointer without an AddRef.
+  ID3D12Resource *Resource = nullptr;
+  Test->GetResource(Name, &Resource);
+  VERIFY_IS_NOT_NULL(Resource);
+
+  const UINT64 ElementAddress = Resource->GetGPUVirtualAddress() + OffsetBytes;
+  VERIFY_IS_TRUE(ElementAddress % DescriptorDeclaredAlignment == 0,
+                 "Descriptor buffer's first element does not meet the "
+                 "alignment the shader declares");
+}
 
 static void
 runLoadStoreDescriptor(ID3D12Device *Device, dxc::SpecificDllLoader &DxcSupport,
@@ -2151,6 +2173,7 @@ runLoadStoreDescriptor(ID3D12Device *Device, dxc::SpecificDllLoader &DxcSupport,
   ExtraDefs << " -DSTORE_OFFSET=" << StoreLayout.OffsetBytes;
   ExtraDefs << " -DSTORE_STRIDE=" << StoreLayout.StrideBytes;
   ExtraDefs << " -DSTORE_LAYOUT=" << static_cast<int>(StoreLayout.Layout);
+  ExtraDefs << " -DDECLARED_ALIGN=" << DescriptorDeclaredAlignment;
 
   if (ForcedWaveSize != 0)
     ExtraDefs << " -DFORCED_WAVE_SIZE=" << ForcedWaveSize;
@@ -2185,6 +2208,11 @@ runLoadStoreDescriptor(ID3D12Device *Device, dxc::SpecificDllLoader &DxcSupport,
         VERIFY_IS_TRUE(
             cpu_oracle::writeMatrixBuffer(InputMatrix, LoadLayout, Data),
             "Unable to encode typed LoadStoreDescriptor input");
+      },
+      [LoadLayout, StoreLayout](ID3D12GraphicsCommandList *,
+                                st::ShaderOpTest *Test) {
+        verifyDescriptorBaseAlignment(Test, "Input", LoadLayout.OffsetBytes);
+        verifyDescriptorBaseAlignment(Test, "Output", StoreLayout.OffsetBytes);
       });
 
   MappedData OutData;
@@ -2206,6 +2234,12 @@ static cpu_oracle::MatrixBufferLayout packedLayout(const MatrixParams &Params) {
   };
 }
 
+// Where the padded cases put the matrix. Independent of the alignment above,
+// which is the contract rather than a placement, but constrained by it.
+static constexpr size_t DescriptorAlignedOffset = 128;
+static_assert(DescriptorAlignedOffset % DescriptorDeclaredAlignment == 0,
+              "descriptor offset must keep the first element aligned");
+
 void DxilConf_SM610_LinAlg::LoadStoreDescriptor_Wave_16x16_F16() {
   MatrixParams Params = {};
   Params.CompType = ComponentType::F16;
@@ -2226,6 +2260,84 @@ void DxilConf_SM610_LinAlg::LoadStoreDescriptor_Wave_16x16_F16() {
   runLoadStoreDescriptor(D3DDevice, DxcSupport, Params, packedLayout(Params),
                          packedLayout(Params), VerboseLogging,
                          SelectedWaveSize);
+}
+
+// Places the matrix at a non-zero offset and pads the row stride, so the
+// destination holds bytes the store must not touch: a 128-byte prologue and
+// three 16-byte gaps between its four rows. A store that addresses by element
+// index rather than by the supplied stride writes into that padding, which the
+// untouched-byte check catches and the element comparison cannot.
+void DxilConf_SM610_LinAlg::
+    LoadStoreDescriptor_Wave_4x8_F16_RowMajorOffsetPadded() {
+  MatrixParams Params = {};
+  Params.CompType = ComponentType::F16;
+  Params.M = 4;
+  Params.N = 8;
+  Params.Use = MatrixUse::A;
+  Params.Scope = MatrixScope::Wave;
+  Params.Layout = MatrixLayout::RowMajor;
+  Params.NumThreads = 128;
+  Params.Enable16Bit = true;
+
+  UINT SelectedWaveSize = 0;
+  if (!matrixConstructionApplicable(
+          D3DDevice, Params, {Params.Use},
+          L"LoadStoreDescriptor_Wave_4x8_F16_RowMajorOffsetPadded",
+          SelectedWaveSize))
+    return;
+
+  // A packed row of 8 F16 values is 16 bytes; 32 leaves a 16-byte gap between
+  // rows while remaining a legal multiple of 16.
+  const cpu_oracle::MatrixBufferLayout Layout = {
+      MatrixLayout::RowMajor,
+      /*OffsetBytes=*/DescriptorAlignedOffset,
+      /*StrideBytes=*/32,
+  };
+
+  runLoadStoreDescriptor(D3DDevice, DxcSupport, Params, Layout, Layout,
+                         VerboseLogging, SelectedWaveSize);
+}
+
+// Loads RowMajor and stores ColumnMajor, which a shared layout cannot express:
+// with the same layout on both sides, an implementation that ignores the
+// layout argument entirely still round trips byte-identically, because the
+// mapping it applies to the load it applies again to the store. Reading one
+// layout and writing the other stops the two from cancelling.
+void DxilConf_SM610_LinAlg::
+    LoadStoreDescriptor_Wave_4x8_F32_RowMajorToColumnMajor() {
+  MatrixParams Params = {};
+  Params.CompType = ComponentType::F32;
+  Params.M = 4;
+  Params.N = 8;
+  Params.Use = MatrixUse::A;
+  Params.Scope = MatrixScope::Wave;
+  Params.Layout = MatrixLayout::RowMajor;
+  Params.NumThreads = 128;
+
+  UINT SelectedWaveSize = 0;
+  if (!matrixConstructionApplicable(
+          D3DDevice, Params, {Params.Use},
+          L"LoadStoreDescriptor_Wave_4x8_F32_RowMajorToColumnMajor",
+          SelectedWaveSize))
+    return;
+
+  // Source rows of 8 F32 values are 32 bytes packed, padded here to 48.
+  const cpu_oracle::MatrixBufferLayout LoadLayout = {
+      MatrixLayout::RowMajor,
+      /*OffsetBytes=*/DescriptorAlignedOffset,
+      /*StrideBytes=*/48,
+  };
+
+  // Destination columns of 4 F32 values are 16 bytes, which is already a legal
+  // stride, so the column-major side is stored packed.
+  const cpu_oracle::MatrixBufferLayout StoreLayout = {
+      MatrixLayout::ColumnMajor,
+      /*OffsetBytes=*/DescriptorAlignedOffset,
+      /*StrideBytes=*/16,
+  };
+
+  runLoadStoreDescriptor(D3DDevice, DxcSupport, Params, LoadLayout, StoreLayout,
+                         VerboseLogging, SelectedWaveSize);
 }
 
 static const char SplatStoreShader[] = R"(
