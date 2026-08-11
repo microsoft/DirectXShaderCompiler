@@ -1012,6 +1012,56 @@ decodeMatrixBuffer(ComponentType CompType, MatrixDim M, MatrixDim N,
   }
 }
 
+// The per-element arm of the bounds-checking rule: elements whose bytes lie
+// entirely inside the view keep their value, and the rest read as the default
+// element value of zero. Uses the same element size the offset maths uses, so
+// the boundary cannot be computed two different ways.
+template <typename T>
+static std::optional<TypedMatrix>
+zeroTypedElementsOutsideView(const TypedMatrix &Source,
+                             const MatrixBufferLayout &Layout,
+                             size_t ViewBytes) {
+  const std::vector<T> &SourceValues = std::get<std::vector<T>>(Source.Values);
+  const size_t ElementBytes = elementSize(Source.compType());
+  std::vector<T> Result(Source.totalElements());
+  for (MatrixDim Row = 0; Row < Source.M; ++Row) {
+    for (MatrixDim Column = 0; Column < Source.N; ++Column) {
+      const size_t Index = static_cast<size_t>(Row) * Source.N + Column;
+      std::optional<size_t> ByteOffset = getElementByteOffset(
+          Source.compType(), Source.M, Source.N, Row, Column, Layout);
+      if (!ByteOffset)
+        return std::nullopt;
+      size_t ElementEnd;
+      if (!checkedAdd(*ByteOffset, ElementBytes, ElementEnd))
+        return std::nullopt;
+      Result[Index] = ElementEnd <= ViewBytes ? SourceValues[Index] : T{};
+    }
+  }
+  return makeTypedMatrix(Source.M, Source.N, std::move(Result));
+}
+
+static std::optional<TypedMatrix>
+zeroElementsOutsideView(const TypedMatrix &Source,
+                        const MatrixBufferLayout &Layout, size_t ViewBytes) {
+  if (!isMatrixValid(Source)) {
+    hlsl_test::LogErrorFmt(L"Cannot bound an invalid typed matrix to a view");
+    return std::nullopt;
+  }
+
+  switch (Source.compType()) {
+  case ComponentType::F16:
+    return zeroTypedElementsOutsideView<HLSLHalf_t>(Source, Layout, ViewBytes);
+  case ComponentType::F32:
+    return zeroTypedElementsOutsideView<float>(Source, Layout, ViewBytes);
+  case ComponentType::I32:
+    return zeroTypedElementsOutsideView<int32_t>(Source, Layout, ViewBytes);
+  case ComponentType::U32:
+    return zeroTypedElementsOutsideView<uint32_t>(Source, Layout, ViewBytes);
+  default:
+    return std::nullopt;
+  }
+}
+
 template <typename T>
 static bool exactMatrixMatch(const TypedMatrix &Actual,
                              const TypedMatrix &Expected,
@@ -1532,6 +1582,7 @@ public:
 
   TEST_METHOD(TypedMatrixBufferRoundTrip);
   TEST_METHOD(UntouchedByteVerification);
+  TEST_METHOD(ViewBoundedElements);
 };
 
 void LinAlgCPUOracleTests::TypedMatrixBufferRoundTrip() {
@@ -1799,6 +1850,58 @@ void LinAlgCPUOracleTests::UntouchedByteVerification() {
   VERIFY_IS_FALSE(CountTouched(TooSmall).has_value());
 }
 
+// The per-element arm of the bounds-checking rule is derived on the host, so
+// the boundary it draws is checked here rather than only through a GPU round
+// trip, where a wrong boundary and a wrong implementation would be
+// indistinguishable.
+void LinAlgCPUOracleTests::ViewBoundedElements() {
+  using namespace cpu_oracle;
+
+  // A 2x3 uint32 matrix at a 4 byte offset with a 16 byte stride puts its
+  // elements at bytes 4, 8, 12, 20, 24 and 28, each 4 bytes wide, so they end
+  // at 8, 12, 16, 24, 28 and 32.
+  std::optional<TypedMatrix> Matrix =
+      makeTypedMatrix<uint32_t>(2, 3, {1, 2, 3, 4, 5, 6});
+  VERIFY_IS_TRUE(Matrix.has_value());
+
+  const MatrixBufferLayout Layout = {
+      MatrixLayout::RowMajor,
+      /*OffsetBytes=*/4,
+      /*StrideBytes=*/16,
+  };
+
+  auto BoundedEquals = [&](size_t ViewBytes,
+                           const std::vector<uint32_t> &Expected) {
+    std::optional<TypedMatrix> Bounded =
+        zeroElementsOutsideView(*Matrix, Layout, ViewBytes);
+    std::optional<TypedMatrix> Want = makeTypedMatrix<uint32_t>(2, 3, Expected);
+    if (!Bounded || !Want)
+      return false;
+    size_t FirstMismatch;
+    return exactMatrixMatch(*Bounded, *Want, FirstMismatch);
+  };
+
+  // A view covering the whole buffer changes nothing, and an empty view
+  // zeroes everything.
+  VERIFY_IS_TRUE(BoundedEquals(32, {1, 2, 3, 4, 5, 6}));
+  VERIFY_IS_TRUE(BoundedEquals(0, {0, 0, 0, 0, 0, 0}));
+
+  // A view ending at 24 admits the element that ends exactly there and
+  // excludes the rest, which is the inclusive end the rule requires.
+  VERIFY_IS_TRUE(BoundedEquals(24, {1, 2, 3, 4, 0, 0}));
+
+  // One byte short of that boundary drops the straddling element whole. An
+  // element is either wholly inside the view or it is not there at all.
+  VERIFY_IS_TRUE(BoundedEquals(23, {1, 2, 3, 0, 0, 0}));
+
+  // The gap between the rows is not addressable, so a view that reaches into
+  // the padding admits no further elements.
+  VERIFY_IS_TRUE(BoundedEquals(19, {1, 2, 3, 0, 0, 0}));
+
+  // A view sized past the buffer cannot admit more than the buffer holds.
+  VERIFY_IS_TRUE(BoundedEquals(1024, {1, 2, 3, 4, 5, 6}));
+}
+
 class LinAlgCapabilityTests {
 public:
   BEGIN_TEST_CLASS(LinAlgCapabilityTests)
@@ -2013,6 +2116,8 @@ public:
   TEST_METHOD(LoadStoreDescriptor_Wave_16x16_F16);
   TEST_METHOD(LoadStoreDescriptor_Wave_4x8_F16_RowMajorOffsetPadded);
   TEST_METHOD(LoadStoreDescriptor_Wave_4x8_F32_RowMajorToColumnMajor);
+  TEST_METHOD(LoadDescriptorOOB_Wave_16x16_F16_PartialView);
+  TEST_METHOD(LoadDescriptorOOB_Wave_4x8_F16_OffsetPaddedPartialView);
   TEST_METHOD(SplatStore_Wave_16x16_F16);
   TEST_METHOD(AccumulateDescriptor_Wave_16x16_F16);
 
@@ -2231,6 +2336,113 @@ runLoadStoreDescriptor(ID3D12Device *Device, dxc::SpecificDllLoader &DxcSupport,
       OutData.size(), Verbose));
 }
 
+// Bounds checking is not one behaviour. Proposal 0035 lets an implementation
+// zero the whole matrix when any element falls outside the view, or zero only
+// the elements that do, and both are conformant. A single expected buffer
+// would therefore be wrong by construction, so the oracle carries both
+// outcomes and accepts either one complete.
+//
+// What makes the test discriminating is that the source buffer is allocated
+// and written in full and only its *view* is shortened, so the bytes past the
+// view hold real matrix data rather than zeros. An implementation that does no
+// bounds checking at all reads that data back and matches neither candidate.
+static void runLoadDescriptorOutOfBounds(
+    ID3D12Device *Device, dxc::SpecificDllLoader &DxcSupport,
+    const MatrixParams &Params, const cpu_oracle::MatrixBufferLayout &Layout,
+    size_t InputViewBytes, bool Verbose, UINT ForcedWaveSize = 0) {
+  std::optional<cpu_oracle::TypedMatrix> Input =
+      cpu_oracle::makeSequentialMatrix(Params.CompType, Params.M, Params.N);
+  VERIFY_IS_TRUE(Input.has_value(),
+                 "Unable to construct typed LoadDescriptorOOB input");
+
+  std::optional<size_t> BufferSize =
+      cpu_oracle::getMatrixBufferSize(*Input, Layout);
+  VERIFY_IS_TRUE(BufferSize.has_value(),
+                 "Unable to size the LoadDescriptorOOB buffers");
+  VERIFY_IS_TRUE(InputViewBytes < *BufferSize,
+                 "The source view must be shorter than its buffer");
+
+  std::optional<cpu_oracle::TypedMatrix> PerElement =
+      cpu_oracle::zeroElementsOutsideView(*Input, Layout, InputViewBytes);
+  // The whole-matrix arm is the per-element arm with nothing in view.
+  std::optional<cpu_oracle::TypedMatrix> WholeMatrix =
+      cpu_oracle::zeroElementsOutsideView(*Input, Layout, 0);
+  VERIFY_IS_TRUE(PerElement.has_value() && WholeMatrix.has_value(),
+                 "Unable to derive the LoadDescriptorOOB candidates");
+
+  // A view that admits every element, or none, collapses the two candidates
+  // into one and the test stops discriminating between them. Both guards have
+  // to hold for the case to be worth running.
+  size_t FirstMismatch;
+  VERIFY_IS_FALSE(
+      cpu_oracle::exactMatrixMatch(*PerElement, *WholeMatrix, FirstMismatch),
+      "The source view admits no element, so the two permitted outcomes are "
+      "indistinguishable");
+  VERIFY_IS_FALSE(
+      cpu_oracle::exactMatrixMatch(*PerElement, *Input, FirstMismatch),
+      "The source view admits every element, so nothing is out of bounds");
+
+  std::stringstream ExtraDefs;
+  ExtraDefs << " -DLOAD_OFFSET=" << Layout.OffsetBytes;
+  ExtraDefs << " -DLOAD_STRIDE=" << Layout.StrideBytes;
+  ExtraDefs << " -DLOAD_LAYOUT=" << static_cast<int>(Layout.Layout);
+  ExtraDefs << " -DSTORE_OFFSET=" << Layout.OffsetBytes;
+  ExtraDefs << " -DSTORE_STRIDE=" << Layout.StrideBytes;
+  ExtraDefs << " -DSTORE_LAYOUT=" << static_cast<int>(Layout.Layout);
+  ExtraDefs << " -DDECLARED_ALIGN=" << DescriptorDeclaredAlignment;
+
+  if (ForcedWaveSize != 0)
+    ExtraDefs << " -DFORCED_WAVE_SIZE=" << ForcedWaveSize;
+
+  std::string Args = buildCompilerArgs(Params, ExtraDefs.str().c_str());
+
+  compileShader(DxcSupport, LoadStoreDescriptorShader, "cs_6_10", Args,
+                Verbose);
+
+  cpu_oracle::MatrixResultOracle Oracle = cpu_oracle::permittedResults(
+      {*PerElement, *WholeMatrix},
+      L"HLSL proposal 0035 bounds checking on MatrixLoadFromDescriptor: "
+      L"either the whole matrix or only the out-of-view elements read as the "
+      L"default element value");
+
+  // Only the source view is short. The destination is viewed in full so that
+  // the store cannot be bounds checked as well, which would leave the observed
+  // result attributable to either operation.
+  const cpu_oracle::TypedMatrix InputMatrix = *Input;
+  auto Op = createComputeOp(LoadStoreDescriptorShader, "cs_6_10",
+                            "DescriptorTable(UAV(u0), UAV(u1))", Args.c_str());
+  addUAVBuffer(Op.get(), "Input", *BufferSize, false, "byname");
+  addUAVBuffer(Op.get(), "Output", *BufferSize, true, "byname");
+  addHeapRawUAV(Op.get(), "ResHeap", "Input", InputViewBytes);
+  addHeapRawUAV(Op.get(), "ResHeap", "Output", *BufferSize);
+  addRootTable(Op.get(), 0, "ResHeap");
+
+  auto Result = runShaderOp(
+      Device, DxcSupport, std::move(Op),
+      [InputMatrix, Layout](LPCSTR Name, std::vector<BYTE> &Data,
+                            st::ShaderOp *) {
+        cpu_oracle::fillPoison(Data.data(), Data.size());
+        if (_stricmp(Name, "Input") != 0)
+          return;
+        // Written in full, including the part the view does not cover.
+        VERIFY_IS_TRUE(cpu_oracle::writeMatrixBuffer(InputMatrix, Layout, Data),
+                       "Unable to encode typed LoadDescriptorOOB input");
+      },
+      [Layout](ID3D12GraphicsCommandList *, st::ShaderOpTest *Test) {
+        verifyDescriptorBaseAlignment(Test, "Input", Layout.OffsetBytes);
+        verifyDescriptorBaseAlignment(Test, "Output", Layout.OffsetBytes);
+      });
+
+  MappedData OutData;
+  Result->Test->GetReadBackData("Output", &OutData);
+
+  VERIFY_IS_TRUE(cpu_oracle::verifyMatrixBuffer(OutData.data(), OutData.size(),
+                                                Layout, Oracle, Verbose));
+  VERIFY_IS_TRUE(cpu_oracle::verifyUntouchedBytes(
+      Params.CompType, Params.M, Params.N, Layout, OutData.data(),
+      OutData.size(), Verbose));
+}
+
 // No offset and a tightly packed stride: a matrix occupying the whole buffer.
 static cpu_oracle::MatrixBufferLayout packedLayout(const MatrixParams &Params) {
   return cpu_oracle::MatrixBufferLayout{
@@ -2344,6 +2556,71 @@ void DxilConf_SM610_LinAlg::
 
   runLoadStoreDescriptor(D3DDevice, DxcSupport, Params, LoadLayout, StoreLayout,
                          VerboseLogging, SelectedWaveSize);
+}
+
+// Half the source matrix lies outside the view the descriptor carries. The
+// boundary is deliberately placed mid-row rather than on a row boundary, so an
+// implementation that bounds checks a row at a time cannot pass it.
+void DxilConf_SM610_LinAlg::LoadDescriptorOOB_Wave_16x16_F16_PartialView() {
+  MatrixParams Params = {};
+  Params.CompType = ComponentType::F16;
+  Params.M = 16;
+  Params.N = 16;
+  Params.Use = MatrixUse::A;
+  Params.Scope = MatrixScope::Wave;
+  Params.Layout = MatrixLayout::RowMajor;
+  Params.NumThreads = 128;
+  Params.Enable16Bit = true;
+
+  UINT SelectedWaveSize = 0;
+  if (!matrixConstructionApplicable(D3DDevice, Params, {Params.Use},
+                                    L"LoadDescriptorOOB_Wave_16x16_F16_"
+                                    L"PartialView",
+                                    SelectedWaveSize))
+    return;
+
+  // Packed, so the buffer is 16 rows of 32 bytes. A 264 byte view holds the
+  // first 132 elements: rows 0 to 7 whole, then four elements of row 8.
+  runLoadDescriptorOutOfBounds(D3DDevice, DxcSupport, Params,
+                               packedLayout(Params), /*InputViewBytes=*/264,
+                               VerboseLogging, SelectedWaveSize);
+}
+
+// The same behaviour where the matrix is offset and its rows are padded, so
+// the view boundary falls in a different place for byte offsets than it does
+// for element indices. An implementation that bounds checks by element index
+// keeps elements this view does not reach.
+void DxilConf_SM610_LinAlg::
+    LoadDescriptorOOB_Wave_4x8_F16_OffsetPaddedPartialView() {
+  MatrixParams Params = {};
+  Params.CompType = ComponentType::F16;
+  Params.M = 4;
+  Params.N = 8;
+  Params.Use = MatrixUse::A;
+  Params.Scope = MatrixScope::Wave;
+  Params.Layout = MatrixLayout::RowMajor;
+  Params.NumThreads = 128;
+  Params.Enable16Bit = true;
+
+  UINT SelectedWaveSize = 0;
+  if (!matrixConstructionApplicable(D3DDevice, Params, {Params.Use},
+                                    L"LoadDescriptorOOB_Wave_4x8_F16_"
+                                    L"OffsetPaddedPartialView",
+                                    SelectedWaveSize))
+    return;
+
+  const cpu_oracle::MatrixBufferLayout Layout = {
+      MatrixLayout::RowMajor,
+      /*OffsetBytes=*/DescriptorAlignedOffset,
+      /*StrideBytes=*/32,
+  };
+
+  // Elements sit at 128 + 32*Row + 2*Column. A 172 byte view holds row 0
+  // whole and columns 0 to 5 of row 1, so it cuts within a row and stops
+  // short of the padding rather than on it.
+  runLoadDescriptorOutOfBounds(D3DDevice, DxcSupport, Params, Layout,
+                               /*InputViewBytes=*/172, VerboseLogging,
+                               SelectedWaveSize);
 }
 
 static const char SplatStoreShader[] = R"(
