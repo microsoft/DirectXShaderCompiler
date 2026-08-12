@@ -7,11 +7,11 @@
 
 #include <Verify.h>
 #include <atlcomcli.h>
-#include <atomic>
 #include <cstddef>
 #include <d3d12.h>
 #include <dxgi1_4.h>
 #include <filesystem>
+#include <mutex>
 #include <optional>
 
 // D3D12_FEATURE_D3D12_OPTIONS_PREVIEW and its data struct are not yet in
@@ -456,14 +456,14 @@ static const std::wstring &getContainingModuleDirectory() {
 }
 
 // Every call site loads from the same directory, so log the first resolution
-// only. Atomic because tests may run in parallel.
+// only. Tests may run in parallel, so this has to be thread-safe.
 static void logResolvedDataDirOnce(const wchar_t *Origin,
                                    const std::filesystem::path &Path) {
-  static std::atomic<bool> Logged{false};
-  if (Logged.exchange(true))
-    return;
-  LogCommentFmt(L"Loading execution test data from %s: %s", Origin,
-                Path.parent_path().c_str());
+  static std::once_flag Logged;
+  std::call_once(Logged, [&] {
+    LogCommentFmt(L"Loading execution test data from %s: %s", Origin,
+                  Path.parent_path().c_str());
+  });
 }
 
 // Resolves a data file shipped with the execution tests, in this order:
