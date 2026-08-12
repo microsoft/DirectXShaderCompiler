@@ -30,7 +30,7 @@ void main() {
 
   // CHECK2: call void @"dx.hl.op..void (i32, %dx.types.LinAlgMatrixC5M8N4U0S2*, double)"
   // CHECK2-SAME: (i32 402, %dx.types.LinAlgMatrixC5M8N4U0S2* {{.*}}, double %{{.+}})
-  // Matrix<U32, 3, 4, A, ThreadGroup>
+  // Matrix<U32, 8, 4, A, ThreadGroup>
   double dVal = 9.87;
   __builtin_LinAlgMatrix [[__LinAlgMatrix_Attributes(5, 8, 4, 0, 2)]] mat3;
   __builtin_LinAlg_FillMatrix(mat3, dVal);

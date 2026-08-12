@@ -1587,7 +1587,7 @@ static void ValidateLinAlgCopyConvertMatrix(CallInst *CI,
       SrcLATT.Scope != DXIL::MatrixScope::ThreadGroup)
     ValCtx.EmitInstrFormatError(
         CI, ValidationRule::InstrLinAlgMatrixScopeMismatch2,
-        {MatrixScopeToString(DstLATT.Scope), "Wave", "ThreadGroup"});
+        {MatrixScopeToString(SrcLATT.Scope), "Wave", "ThreadGroup"});
 
   if (DstLATT.Scope != SrcLATT.Scope)
     ValCtx.EmitInstrFormatError(CI,
