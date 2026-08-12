@@ -7,6 +7,7 @@
 
 #include <Verify.h>
 #include <atlcomcli.h>
+#include <atomic>
 #include <cstddef>
 #include <d3d12.h>
 #include <dxgi1_4.h>
@@ -425,6 +426,118 @@ static bool createDevice(
   return true;
 }
 
+// Directory of this module, resolved by address rather than by name so it
+// works whatever the binary is called.
+static const std::wstring &getContainingModuleDirectory() {
+  static const std::wstring Dir = [] {
+    HMODULE Module = nullptr;
+    if (!GetModuleHandleExW(
+            GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS |
+                GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+            reinterpret_cast<LPCWSTR>(&getContainingModuleDirectory), &Module))
+      return std::wstring();
+
+    // GetModuleFileNameW truncates rather than failing, so grow until it fits.
+    std::wstring Path(MAX_PATH, L'\0');
+    for (;;) {
+      const DWORD Len =
+          GetModuleFileNameW(Module, &Path[0], static_cast<DWORD>(Path.size()));
+      if (Len == 0)
+        return std::wstring();
+      if (Len < Path.size()) {
+        Path.resize(Len);
+        break;
+      }
+      Path.resize(Path.size() * 2);
+    }
+    return std::filesystem::path(Path).parent_path().wstring();
+  }();
+  return Dir;
+}
+
+// Every call site loads from the same directory, so log the first resolution
+// only. Atomic because tests may run in parallel.
+static void logResolvedDataDirOnce(const wchar_t *Origin,
+                                   const std::filesystem::path &Path) {
+  static std::atomic<bool> Logged{false};
+  if (Logged.exchange(true))
+    return;
+  LogCommentFmt(L"Loading execution test data from %s: %s", Origin,
+                Path.parent_path().c_str());
+}
+
+// Resolves a data file shipped with the execution tests, in this order:
+//
+//   1. the HlslDataDir runtime parameter, if supplied. Authoritative: we fail
+//      rather than fall through, so a typo is reported instead of hidden.
+//   2. the directory containing this module, so a binary deployed with its
+//      data files finds them.
+//   3. the source directory recorded by CMake, so a build tree picks up edits
+//      to the data files without rebuilding.
+static std::wstring resolveHlslDataFile(LPCWSTR RelativePath) {
+  WEX::Common::String ParamValue;
+  std::wstring OverrideDir;
+  if (SUCCEEDED(WEX::TestExecution::RuntimeParameters::TryGetValue(
+          HLSLDATAFILEPARAM, ParamValue)))
+    OverrideDir = reinterpret_cast<const wchar_t *>(ParamValue.GetBuffer());
+
+  // Treat an empty value as absent and fall through to the other locations.
+  if (!OverrideDir.empty()) {
+    std::filesystem::path Candidate =
+        std::filesystem::path(OverrideDir) / RelativePath;
+    if (!std::filesystem::exists(Candidate))
+      LOG_ERROR_FMT_THROW(
+          L"Unable to find %s in the directory given by the %s parameter.\n"
+          L"  Tried: %s\n"
+          L"%s is authoritative, so no other location was searched. Omit it "
+          L"to search the test binary's directory and the source directory.",
+          RelativePath, HLSLDATAFILEPARAM, Candidate.c_str(),
+          HLSLDATAFILEPARAM);
+    logResolvedDataDirOnce(
+        FormatToWString(L"the %s parameter", HLSLDATAFILEPARAM).c_str(),
+        Candidate);
+    return Candidate.wstring();
+  }
+
+  const std::wstring ModuleDir = getContainingModuleDirectory();
+  std::filesystem::path ModuleCandidate;
+  if (!ModuleDir.empty()) {
+    ModuleCandidate = std::filesystem::path(ModuleDir) / RelativePath;
+    if (std::filesystem::exists(ModuleCandidate)) {
+      logResolvedDataDirOnce(L"the directory containing the test binary",
+                             ModuleCandidate);
+      return ModuleCandidate.wstring();
+    }
+  }
+
+  // Empty in _HLK_CONF builds; probing it would just look in the current
+  // directory.
+  const std::wstring SourceDir = DEFAULT_EXEC_TEST_DIR;
+  std::filesystem::path SourceCandidate;
+  if (!SourceDir.empty()) {
+    SourceCandidate = std::filesystem::path(SourceDir) / RelativePath;
+    if (std::filesystem::exists(SourceCandidate)) {
+      logResolvedDataDirOnce(L"the build-configured source directory",
+                             SourceCandidate);
+      return SourceCandidate.wstring();
+    }
+  }
+
+  LOG_ERROR_FMT_THROW(
+      L"Unable to find the test data file %s in any known location.\n"
+      L"  Next to the test binary:      %s\n"
+      L"  Build-configured source path: %s\n"
+      L"Deploy %s next to the test binary, or pass "
+      L"/p:\"%s=<directory containing %s>\" to specify its location.",
+      RelativePath,
+      ModuleCandidate.empty() ? L"<could not determine the binary's directory>"
+                              : ModuleCandidate.c_str(),
+      SourceCandidate.empty() ? L"<not configured for this build>"
+                              : SourceCandidate.c_str(),
+      RelativePath, HLSLDATAFILEPARAM, RelativePath);
+  return std::wstring();
+}
+
 void readHlslDataIntoNewStream(LPCWSTR RelativePath, IStream **Stream,
                                dxc::SpecificDllLoader &Support) {
   VERIFY_SUCCEEDED(
@@ -432,8 +545,7 @@ void readHlslDataIntoNewStream(LPCWSTR RelativePath, IStream **Stream,
   CComPtr<IDxcLibrary> Library;
   CComPtr<IDxcBlobEncoding> Blob;
   CComPtr<IStream> StreamCom;
-  std::wstring Path = GetPathToHlslDataFile(RelativePath, HLSLDATAFILEPARAM,
-                                            DEFAULT_EXEC_TEST_DIR);
+  std::wstring Path = resolveHlslDataFile(RelativePath);
   VERIFY_SUCCEEDED(Support.CreateInstance(CLSID_DxcLibrary, &Library));
   VERIFY_SUCCEEDED(Library->CreateBlobFromFile(Path.c_str(), nullptr, &Blob));
   VERIFY_SUCCEEDED(Library->CreateStreamFromBlobReadOnly(Blob, &StreamCom));
