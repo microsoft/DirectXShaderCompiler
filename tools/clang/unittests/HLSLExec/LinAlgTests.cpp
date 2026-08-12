@@ -2118,7 +2118,7 @@ public:
   TEST_METHOD(LoadStoreDescriptor_Wave_16x16_F16);
   TEST_METHOD(LoadStoreDescriptor_Wave_4x8_F16_RowMajorOffsetPadded);
   TEST_METHOD(LoadStoreDescriptor_Wave_4x8_F32_RowMajorToColumnMajor);
-  TEST_METHOD(LoadStoreDescriptor_Wave_16x16_F16_RowMajorToColumnMajor);
+  TEST_METHOD(LoadStoreDescriptor_Wave_4x8_F16_RowMajorToColumnMajor);
   TEST_METHOD(LoadDescriptorOOB_Wave_16x16_F16_PartialView);
   TEST_METHOD(LoadDescriptorOOB_Wave_4x8_F16_OffsetPaddedPartialView);
   TEST_METHOD(SplatStore_Wave_16x16_F16);
@@ -2565,18 +2565,17 @@ void DxilConf_SM610_LinAlg::
                          VerboseLogging, SelectedWaveSize);
 }
 
-// The same cross-layout axis on F16. Proposal 0029's Minimum Support Set
-// constrains component types only, and F16 is the one float type any tier is
-// required to support, so the F32 case above can skip in its entirety on a
-// conforming device and take the layout coverage with it. Layout handling has
-// nothing to do with the element type, so it should not be reachable only
-// through an optional one.
+// The same cross-layout axis on F16, because no tier is required to support
+// Fp32 matrices and the F32 case above can skip in its entirety. The shape
+// must stay non-square: swapping the two layouts transposes on load and back
+// on store, and for a square matrix those cancel byte for byte whatever
+// strides are used.
 void DxilConf_SM610_LinAlg::
-    LoadStoreDescriptor_Wave_16x16_F16_RowMajorToColumnMajor() {
+    LoadStoreDescriptor_Wave_4x8_F16_RowMajorToColumnMajor() {
   MatrixParams Params = {};
   Params.CompType = ComponentType::F16;
-  Params.M = 16;
-  Params.N = 16;
+  Params.M = 4;
+  Params.N = 8;
   Params.Use = MatrixUse::A;
   Params.Scope = MatrixScope::Wave;
   Params.Layout = MatrixLayout::RowMajor;
@@ -2586,24 +2585,23 @@ void DxilConf_SM610_LinAlg::
   UINT SelectedWaveSize = 0;
   if (!matrixConstructionApplicable(
           D3DDevice, Params, {Params.Use},
-          L"LoadStoreDescriptor_Wave_16x16_F16_RowMajorToColumnMajor",
+          L"LoadStoreDescriptor_Wave_4x8_F16_RowMajorToColumnMajor",
           SelectedWaveSize))
     return;
 
-  // Source rows of 16 F16 values are 32 bytes packed, padded here to 48.
+  // Source rows of 8 F16 values are 16 bytes packed, padded here to 48.
   const cpu_oracle::MatrixBufferLayout LoadLayout = {
       MatrixLayout::RowMajor,
       /*OffsetBytes=*/DescriptorAlignedOffset,
       /*StrideBytes=*/48,
   };
 
-  // The matrix is square, so a column is the same 32 bytes as a row. Storing
-  // it packed makes the two sides differ in stride as well as layout, so a
-  // reversed layout cannot land on the same bytes by coincidence.
+  // Destination columns of 4 F16 values are 8 bytes, padded here to 16 so the
+  // column-major side carries a gap of its own rather than sitting packed.
   const cpu_oracle::MatrixBufferLayout StoreLayout = {
       MatrixLayout::ColumnMajor,
       /*OffsetBytes=*/DescriptorAlignedOffset,
-      /*StrideBytes=*/32,
+      /*StrideBytes=*/16,
   };
 
   runLoadStoreDescriptor(D3DDevice, DxcSupport, Params, LoadLayout, StoreLayout,
@@ -3099,7 +3097,7 @@ void DxilConf_SM610_LinAlg::ElementSet_Wave_16x16_F16() {
 // only at the wave total and one that wraps a large index back into range.
 static constexpr UINT FarOOBOffset = 64;
 
-// Per-lane record: {uint Length, uint Executed, ELEM_TYPE Just, ELEM_TYPE Far}.
+// Per-lane record: {uint Length, uint Executed, float Just, float Far}.
 static constexpr UINT OOBRecordSize = 16;
 
 // Seeds every output byte so a lane that never writes cannot be mistaken for a
@@ -3148,10 +3146,9 @@ static const char ElementGetOOBShader[] = R"(
     uint Base = threadID * OOB_RECORD_SIZE;
     Output.Store<uint>(Base + 0, Len);
     Output.Store<uint>(Base + 4, 1);
-    // Widened to float so one record layout serves every element type. Only
-    // zero and the poison constant are ever compared, and both are exactly
-    // representable in F16 as well as F32, so the widening cannot mask a
-    // wrong value.
+    // Widened to float so the runner can read a fixed-width record whatever
+    // the element type: a half store would leave the record's upper two bytes
+    // holding the sentinel. Half to float is lossless, so no value is masked.
     Output.Store<float>(Base + 8, (float)Just);
     Output.Store<float>(Base + 12, (float)Far);
   }
@@ -3400,8 +3397,7 @@ void DxilConf_SM610_LinAlg::ElementSetOOB_Wave_4x8_F32() {
 
 // Out-of-bounds element access on F16. Both cases above pin the boundary
 // behaviour to F32, which no tier is required to support, so a conforming
-// F16-only device would exercise neither. Bounds handling is independent of
-// the element type and should not be reachable only through an optional one.
+// F16-only device would exercise neither.
 void DxilConf_SM610_LinAlg::ElementGetOOB_Wave_16x16_F16() {
   MatrixParams Params = {};
   Params.CompType = ComponentType::F16;
