@@ -1463,6 +1463,56 @@ void addRootView(st::ShaderOp *Op, UINT Index, const char *ResName) {
   Op->RootValues.push_back(RV);
 }
 
+static st::ShaderOpDescriptorHeap *getOrAddCbvSrvUavHeap(st::ShaderOp *Op,
+                                                         const char *HeapName) {
+  if (st::ShaderOpDescriptorHeap *Existing =
+          Op->GetDescriptorHeapByName(HeapName))
+    return Existing;
+
+  st::ShaderOpDescriptorHeap H = {};
+  H.Name = Op->Strings.insert(HeapName);
+  H.Desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+  // SetDescriptorHeaps skips heaps that are not shader visible, which would
+  // leave the table bound to nothing.
+  H.Desc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
+  // Left at zero so CreateDescriptorHeaps sizes it from the descriptors added.
+  H.Desc.NumDescriptors = 0;
+  Op->DescriptorHeaps.push_back(H);
+  return &Op->DescriptorHeaps.back();
+}
+
+void addHeapRawUAV(st::ShaderOp *Op, const char *HeapName, const char *ResName,
+                   UINT64 ViewBytes) {
+  // A raw view counts 32-bit words, so a byte size that is not a whole number
+  // of words cannot be represented and would silently round down.
+  VERIFY_IS_TRUE(ViewBytes % 4 == 0,
+                 "raw UAV view size must be a multiple of 4 bytes");
+  // NumElements is 32 bits, so a larger view cannot be described at all and
+  // narrowing would silently bind a shorter one.
+  VERIFY_IS_TRUE(ViewBytes / 4 <= UINT_MAX,
+                 "raw UAV view size exceeds what NumElements can describe");
+
+  st::ShaderOpDescriptor D = {};
+  D.Name = Op->Strings.insert(ResName);
+  D.ResName = Op->Strings.insert(ResName);
+  D.Kind = Op->Strings.insert("UAV");
+  D.UavDesc.Format = DXGI_FORMAT_R32_TYPELESS;
+  D.UavDesc.ViewDimension = D3D12_UAV_DIMENSION_BUFFER;
+  D.UavDesc.Buffer.FirstElement = 0;
+  D.UavDesc.Buffer.NumElements = static_cast<UINT>(ViewBytes / 4);
+  D.UavDesc.Buffer.Flags = D3D12_BUFFER_UAV_FLAG_RAW;
+
+  getOrAddCbvSrvUavHeap(Op, HeapName)->Descriptors.push_back(D);
+}
+
+void addRootTable(st::ShaderOp *Op, UINT Index, const char *HeapName) {
+  st::ShaderOpRootValue RV = {};
+  RV.ResName = nullptr;
+  RV.HeapName = Op->Strings.insert(HeapName);
+  RV.Index = Index;
+  Op->RootValues.push_back(RV);
+}
+
 std::shared_ptr<st::ShaderOpTestResult>
 runShaderOp(ID3D12Device *Device, dxc::SpecificDllLoader &DxcSupport,
             std::unique_ptr<st::ShaderOp> Op,
