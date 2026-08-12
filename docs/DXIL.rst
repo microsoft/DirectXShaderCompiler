@@ -3221,7 +3221,6 @@ INSTR.LINALGMATRIXOUTPUTBIASVECMISMATCH               Output vector element type
 INSTR.LINALGMATRIXREQUIRESRWBAB                       %0 requires RWByteAddressBuffer.
 INSTR.LINALGMATRIXSCOPEMISMATCH                       Matrix Scope '%0' does not match expected scope %1.
 INSTR.LINALGMATRIXSCOPEMISMATCH2                      Matrix Scope '%0' does not match expected scope %1 or %2.
-INSTR.LINALGMATRIXSCOPENOTALLOWED                     Matrix Scope '%0' not allowed in %1 operation.
 INSTR.LINALGMATRIXSCOPEREQLAYOUT2                     Matrix scope '%0' requires layout %1 or %2.
 INSTR.LINALGMATRIXUNSIGNEDFLOATTYPENOTALLOWED         Float-like type '%0' must be signed
 INSTR.LINALGMATRIXUSEMISMATCH                         Matrix Use '%0' does not match expected use %1.

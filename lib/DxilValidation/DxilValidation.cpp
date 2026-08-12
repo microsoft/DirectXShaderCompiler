@@ -1099,7 +1099,8 @@ static void ValidateLinAlgMatrixGetCoordinate(CallInst *CI,
     return;
   LinAlgTargetType MatLATT = MatIt->second;
 
-  if (MatLATT.Scope == DXIL::MatrixScope::Thread)
+  if (MatLATT.Scope != DXIL::MatrixScope::Wave &&
+      MatLATT.Scope != DXIL::MatrixScope::ThreadGroup)
     ValCtx.EmitInstrFormatError(
         CI, ValidationRule::InstrLinAlgMatrixScopeMismatch2,
         {MatrixScopeToString(MatLATT.Scope), "Wave", "ThreadGroup"});
@@ -1118,7 +1119,8 @@ static void ValidateLinAlgMatrixGetElement(CallInst *CI,
     return;
   LinAlgTargetType MatLATT = MatIt->second;
 
-  if (MatLATT.Scope == DXIL::MatrixScope::Thread)
+  if (MatLATT.Scope != DXIL::MatrixScope::Wave &&
+      MatLATT.Scope != DXIL::MatrixScope::ThreadGroup)
     ValCtx.EmitInstrFormatError(
         CI, ValidationRule::InstrLinAlgMatrixScopeMismatch2,
         {MatrixScopeToString(MatLATT.Scope), "Wave", "ThreadGroup"});
@@ -1344,7 +1346,7 @@ static void ValidateLinAlgFillMatrix(CallInst *CI, ValidationContext &ValCtx) {
   ValidateLinAlgOpReturnMatrix(CI, ValCtx);
   ValidateLinAlgOpParameters(CI, ValCtx);
 
-  DxilInst_LinAlgMatrixSetElement Op(CI);
+  DxilInst_LinAlgFillMatrix Op(CI);
   Type *RetMatTy = CI->getType();
 
   assert(dxilutil::IsHLSLLinAlgMatrixType(RetMatTy) && "Must be LinAlg type");
@@ -1353,7 +1355,8 @@ static void ValidateLinAlgFillMatrix(CallInst *CI, ValidationContext &ValCtx) {
     return;
   LinAlgTargetType RetMatLATT = RetMatIt->second;
 
-  if (RetMatLATT.Scope == DXIL::MatrixScope::Thread)
+  if (RetMatLATT.Scope != DXIL::MatrixScope::Wave &&
+      RetMatLATT.Scope != DXIL::MatrixScope::ThreadGroup)
     ValCtx.EmitInstrFormatError(
         CI, ValidationRule::InstrLinAlgMatrixScopeMismatch2,
         {MatrixScopeToString(RetMatLATT.Scope), "Wave", "ThreadGroup"});
@@ -1385,12 +1388,14 @@ static void ValidateLinAlgMatrixSetElement(CallInst *CI,
   LinAlgTargetType InMatLATT = InMatIt->second;
   LinAlgTargetType RetMatLATT = RetMatIt->second;
 
-  if (InMatLATT.Scope == DXIL::MatrixScope::Thread)
+  if (InMatLATT.Scope != DXIL::MatrixScope::Wave &&
+      InMatLATT.Scope != DXIL::MatrixScope::ThreadGroup)
     ValCtx.EmitInstrFormatError(
         CI, ValidationRule::InstrLinAlgMatrixScopeMismatch2,
         {MatrixScopeToString(InMatLATT.Scope), "Wave", "ThreadGroup"});
 
-  if (RetMatLATT.Scope == DXIL::MatrixScope::Thread)
+  if (RetMatLATT.Scope != DXIL::MatrixScope::Wave &&
+      RetMatLATT.Scope != DXIL::MatrixScope::ThreadGroup)
     ValCtx.EmitInstrFormatError(
         CI, ValidationRule::InstrLinAlgMatrixScopeMismatch2,
         {MatrixScopeToString(RetMatLATT.Scope), "Wave", "ThreadGroup"});
@@ -1531,10 +1536,11 @@ static void ValidateLinAlgMatrixAccumulate(CallInst *CI,
                                 {MatrixScopeToString(RHSLATT.Scope),
                                  MatrixScopeToString(RetLATT.Scope)});
 
-  if (RetLATT.Scope == DXIL::MatrixScope::Thread)
+  if (RetLATT.Scope != DXIL::MatrixScope::Wave &&
+      RetLATT.Scope != DXIL::MatrixScope::ThreadGroup)
     ValCtx.EmitInstrFormatError(
-        CI, ValidationRule::InstrLinAlgMatrixScopeNotAllowed,
-        {"Thread", "LinAlgMatrixAccumulate"});
+        CI, ValidationRule::InstrLinAlgMatrixScopeMismatch2,
+        {MatrixScopeToString(RetLATT.Scope), "Wave", "ThreadGroup"});
 
   if (RetLATT.M != RHSLATT.M || RetLATT.N != RHSLATT.N)
     ValCtx.EmitInstrFormatError(
@@ -1572,11 +1578,17 @@ static void ValidateLinAlgCopyConvertMatrix(CallInst *CI,
   LinAlgTargetType DstLATT = DstIt->second;
   LinAlgTargetType SrcLATT = SrcIt->second;
 
-  if (DstLATT.Scope == DXIL::MatrixScope::Thread ||
-      SrcLATT.Scope == DXIL::MatrixScope::Thread)
+  if (DstLATT.Scope != DXIL::MatrixScope::Wave &&
+      DstLATT.Scope != DXIL::MatrixScope::ThreadGroup)
     ValCtx.EmitInstrFormatError(
-        CI, ValidationRule::InstrLinAlgMatrixScopeNotAllowed,
-        {"Thread", "LinAlgCopyConvertMatrix"});
+        CI, ValidationRule::InstrLinAlgMatrixScopeMismatch2,
+        {MatrixScopeToString(DstLATT.Scope), "Wave", "ThreadGroup"});
+
+  if (SrcLATT.Scope != DXIL::MatrixScope::Wave &&
+      SrcLATT.Scope != DXIL::MatrixScope::ThreadGroup)
+    ValCtx.EmitInstrFormatError(
+        CI, ValidationRule::InstrLinAlgMatrixScopeMismatch2,
+        {MatrixScopeToString(DstLATT.Scope), "Wave", "ThreadGroup"});
 
   if (DstLATT.Scope != SrcLATT.Scope)
     ValCtx.EmitInstrFormatError(CI,

@@ -20,7 +20,7 @@ void main() {
 
   // CHECK2: call void @"dx.hl.op..void (i32, %dx.types.LinAlgMatrixC5M8N4U0S1*, float)"
   // CHECK2-SAME: (i32 402, %dx.types.LinAlgMatrixC5M8N4U0S1* {{.*}}, float 0x40091EB860000000)
-  // Matrix<U32, 3, 4, A, Wave>
+  // Matrix<U32, 8, 4, A, Wave>
   __builtin_LinAlgMatrix [[__LinAlgMatrix_Attributes(5, 8, 4, 0, 1)]] mat2;
   __builtin_LinAlg_FillMatrix(mat2, 3.14);
 
@@ -41,7 +41,7 @@ void main() {
 
   // CHECK2: call void @"dx.hl.op..void (i32, %dx.types.LinAlgMatrixC5M4N4U1S1*, i64)"
   // CHECK2-SAME: (i32 402, %dx.types.LinAlgMatrixC5M4N4U1S1* {{.*}}, i64 %{{.+}})
-  // Matrix<U32, 3, 4, B, Wave>
+  // Matrix<U32, 4, 4, B, Wave>
   int64_t i64Val = 12345;
   __builtin_LinAlgMatrix [[__LinAlgMatrix_Attributes(5, 4, 4, 1, 1)]] mat4;
   __builtin_LinAlg_FillMatrix(mat4, i64Val);

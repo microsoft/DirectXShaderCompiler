@@ -38,9 +38,12 @@ define void @main() {
 
   %6 = call %dx.types.LinAlgMatrixC2M4N5U1S0 @dx.op.linAlgMatrixLoadFromDescriptor.mC2M4N5U1S0(i32 -2147483634, %dx.types.Handle %bab, i32 0, i32 0, i32 0, i32 128)  ; LinAlgMatrixLoadFromDescriptor(handle,offset,stride,layout,align)
 
-  ; CHECK-NEXT: Function: main: error: Matrix Scope 'Thread' not allowed in LinAlgCopyConvertMatrix operation.
+  ; CHECK-NEXT: Function: main: error: Matrix Scope 'Thread' does not match expected scope Wave or ThreadGroup.
+  ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgCopyConvertMatrix.mC2M4N5U1S0.mC2M4N5U1S0
+  ; CHECK-NEXT: Function: main: error: Matrix Scope 'Thread' does not match expected scope Wave or ThreadGroup.
   ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgCopyConvertMatrix.mC2M4N5U1S0.mC2M4N5U1S0
   %7 = call %dx.types.LinAlgMatrixC2M4N5U1S0 @dx.op.linAlgCopyConvertMatrix.mC2M4N5U1S0.mC2M4N5U1S0(i32 -2147483635, %dx.types.LinAlgMatrixC2M4N5U1S0 %6, i1 false)  ; LinAlgCopyConvertMatrix(srcMatrix,transpose)
+
   ; CHECK-NEXT: Validation failed.
   ret void
 }
