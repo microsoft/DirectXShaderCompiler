@@ -51,9 +51,10 @@ we are confident we can generate builds for the new branch
 
 ## Release
 
-- [ ] Tag final release and post binaries
 - [ ] Add the new compiler to Compiler Explorer
 - [ ] Email LunarG the release tag and update the release spreadsheet.
+- [ ] Publish the new compiler Nuget package.
+- [ ] Tag final release and post binaries
 
 
 [^1]: [Ask Mode](https://devblogs.microsoft.com/oldnewthing/20140722-00/?p=433)
