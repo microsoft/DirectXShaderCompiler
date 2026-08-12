@@ -1346,7 +1346,6 @@ static void ValidateLinAlgFillMatrix(CallInst *CI, ValidationContext &ValCtx) {
   ValidateLinAlgOpReturnMatrix(CI, ValCtx);
   ValidateLinAlgOpParameters(CI, ValCtx);
 
-  DxilInst_LinAlgFillMatrix Op(CI);
   Type *RetMatTy = CI->getType();
 
   assert(dxilutil::IsHLSLLinAlgMatrixType(RetMatTy) && "Must be LinAlg type");
