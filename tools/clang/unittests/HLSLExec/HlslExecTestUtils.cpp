@@ -426,16 +426,16 @@ static bool createDevice(
   return true;
 }
 
-// Directory of this module, resolved by address rather than by name so it
-// works whatever the binary is called.
+// Linker-provided symbol at the base of the module containing this code, which
+// is also its HMODULE. Identifies the module without depending on the name of
+// the binary these sources are built into.
+// See https://devblogs.microsoft.com/oldnewthing/20041025-00/?p=37483.
+extern "C" IMAGE_DOS_HEADER __ImageBase;
+
+// Directory of the module containing this code.
 static const std::wstring &getContainingModuleDirectory() {
   static const std::wstring Dir = [] {
-    HMODULE Module = nullptr;
-    if (!GetModuleHandleExW(
-            GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS |
-                GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
-            reinterpret_cast<LPCWSTR>(&getContainingModuleDirectory), &Module))
-      return std::wstring();
+    HMODULE Module = reinterpret_cast<HMODULE>(&__ImageBase);
 
     // GetModuleFileNameW truncates rather than failing, so grow until it fits.
     std::wstring Path(MAX_PATH, L'\0');
