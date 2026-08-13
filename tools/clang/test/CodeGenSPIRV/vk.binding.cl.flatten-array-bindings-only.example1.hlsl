@@ -5,7 +5,7 @@
 // CHECK: OpDecorate %NextTexture Binding 6
 // CHECK: OpDecorate %MySamplers Binding 7
 Texture2D    MyTextures[5] : register(t0);
-Texture2D    NextTexture;  // This is suppose to be t6.
+Texture2D    NextTexture;  // This is supposed to be t6.
 Texture2D    AnotherTexture : register(t5);
 SamplerState MySamplers[2];
 
