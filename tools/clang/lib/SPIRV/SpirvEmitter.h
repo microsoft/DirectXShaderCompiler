@@ -284,7 +284,16 @@ private:
                                const Expr **base = nullptr,
                                const Expr **index = nullptr);
 
-  bool isDescriptorHeap(const Expr *expr);
+  bool isDescriptorHeap(const Expr *expr) const;
+
+  /// Returns true if expr is heap-sourced: either a direct descriptor
+  /// heap subscript (ResourceDescriptorHeap[i]) or a DeclRefExpr referencing a
+  /// local variable that was previously assigned from a heap subscript and is
+  /// recorded in the image or buffer alias maps.
+  ///
+  /// Use this in place of bare isDescriptorHeap() at all sites that ask "is
+  /// this value heap-sourced?" so that alias-to-alias flows are recognized.
+  bool isHeapSourcedValue(const Expr *expr) const;
 
   void getDescriptorHeapOperands(const Expr *expr, const Expr **base,
                                  const Expr **index);

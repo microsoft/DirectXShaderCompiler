@@ -2021,12 +2021,16 @@ void SpirvEmitter::doEnumDecl(const EnumDecl *decl) {
 bool SpirvEmitter::tryToCreateDescriptorHeapAlias(const VarDecl *decl,
                                                   const Expr *init) {
   if (!spirvOptions.useDescriptorHeap || !init ||
-      !isDescriptorHeap(init->IgnoreParenCasts()))
+      !isHeapSourcedValue(init->IgnoreParenCasts()))
     return false;
 
   if (isConstantTextureBuffer(decl->getType()) ||
       isAKindOfStructuredOrByteBuffer(decl->getType())) {
-    (void)doExpr(init->IgnoreParenCasts());
+    // doExpr populates descriptorHeapBufferAccesses for the direct-subscript
+    // path; the VarDecl fallback in tryToAssignDescriptorHeapBufferAlias
+    // bypasses that map, so skip the call to avoid emitting dead instructions.
+    if (isDescriptorHeap(init->IgnoreParenCasts()))
+      (void)doExpr(init->IgnoreParenCasts());
     tryToAssignDescriptorHeapBufferAlias(decl, init);
     return true;
   }
@@ -2976,14 +2980,33 @@ void SpirvEmitter::doReturnStmt(const ReturnStmt *stmt) {
   if (!returnsVoid) {
     assert(retVal);
     const Expr *srcExpr = retVal->IgnoreParenCasts();
-    if (isDescriptorHeap(srcExpr)) {
-      const Expr *base = nullptr;
-      getDescriptorHeapOperands(srcExpr, &base, /* index= */ nullptr);
-      const Expr *parentExpr = cast<CastExpr>(parentMap->getParent(srcExpr));
-      QualType resourceType = parentExpr->getType();
-      const auto *declRefExpr = dyn_cast<DeclRefExpr>(base->IgnoreCasts());
-      auto *decl = cast<VarDecl>(declRefExpr->getDecl());
-      declIdMapper.createResourceHeap(decl, resourceType);
+    if (isHeapSourcedValue(srcExpr)) {
+      if (isDescriptorHeap(srcExpr)) {
+        // Direct heap subscript: register the heap variable so the declaration
+        // mapper can resolve it for the return instruction.
+        const Expr *base = nullptr;
+        getDescriptorHeapOperands(srcExpr, &base, /* index= */ nullptr);
+        const Expr *parentExpr = cast<CastExpr>(parentMap->getParent(srcExpr));
+        QualType resourceType = parentExpr->getType();
+        const auto *declRefExpr = dyn_cast<DeclRefExpr>(base->IgnoreCasts());
+        declIdMapper.createResourceHeap(cast<VarDecl>(declRefExpr->getDecl()),
+                                        resourceType);
+      }
+      // Buffer alias: emitting a load of the whole resource (runtime-array
+      // struct) produces invalid SPIR-V.  emitError does not halt codegen,
+      // so return early to prevent the loadIfGLValue call below from
+      // emitting that invalid load.
+      // TODO: implement cross-function alias propagation for buffer aliases
+      //       using VariablePointersStorageBuffer (tracked as follow-up).
+      else if (const auto *var =
+                   dyn_cast_or_null<VarDecl>(getReferencedDef(srcExpr))) {
+        if (descriptorHeapBufferAliasVars.count(var)) {
+          emitError("heap buffer alias cannot be returned from a function; "
+                    "access the buffer element directly at the return site",
+                    retVal->getLocStart());
+          return;
+        }
+      }
     }
 
     auto *retInfo = loadIfGLValue(retVal);
@@ -3154,10 +3177,14 @@ SpirvEmitter::tryToAssignToDescriptorHeapBuffer(
     return llvm::None;
 
   const Expr *rhsValue = assignExpr->getRHS()->IgnoreParenCasts();
-  if (!isDescriptorHeap(rhsValue))
+  if (!isHeapSourcedValue(rhsValue))
     return llvm::None;
 
-  (void)doExpr(rhsValue);
+  // doExpr populates descriptorHeapBufferAccesses for the direct-subscript
+  // path; the VarDecl fallback bypasses that map, so skip the call to avoid
+  // emitting dead instructions when the source is an alias variable.
+  if (isDescriptorHeap(rhsValue))
+    (void)doExpr(rhsValue);
   if (!tryToAssignDescriptorHeapBufferAlias(assignExpr->getLHS(),
                                             assignExpr->getRHS()))
     return llvm::None;
@@ -3424,6 +3451,28 @@ SpirvInstruction *SpirvEmitter::processCall(const CallExpr *callExpr) {
     // for it if it can act as out parameter.
     SpirvInstruction *argInfo = nullptr;
     if (const auto *declRefExpr = dyn_cast<DeclRefExpr>(arg)) {
+      // Heap buffer alias vars are not registered in astDecls, so
+      // getDeclEvalInfo would crash. Passing a buffer alias by value to a
+      // user function also requires VariablePointersStorageBuffer and callee
+      // parameter type changes that are not yet implemented; emit a diagnostic
+      // instead of crashing. TODO: implement full buffer-alias function-call
+      // support (VariablePointersStorageBuffer + matching createFnParam type).
+      const auto *var = dyn_cast<VarDecl>(declRefExpr->getDecl());
+      if (var && descriptorHeapBufferAliasVars.count(var)) {
+        emitError("heap buffer alias cannot be passed to a user function; "
+                  "access the buffer element directly at the call site",
+                  arg->getLocStart());
+        // emitError does not halt codegen; returning nullptr here propagates
+        // to spvBuilder and causes an access violation before the diagnostic
+        // surfaces. Return a zero uint placeholder so downstream expression
+        // consumers remain valid. The emitted error ensures the shader is
+        // rejected even if codegen continues with the placeholder.
+        QualType retTy = callExpr->getCallReturnType(astContext);
+        if (retTy->isVoidType())
+          return nullptr;
+        return spvBuilder.getConstantInt(astContext.UnsignedIntTy,
+                                         llvm::APInt(32, 0), false);
+      }
       argInfo = declIdMapper.getDeclEvalInfo(declRefExpr->getDecl(),
                                              arg->getLocStart());
     }
@@ -5197,7 +5246,7 @@ bool SpirvEmitter::diagnoseDescriptorHeapAliasMixing(const VarDecl *dstVar,
       !isAKindOfStructuredOrByteBuffer(dstType))
     return false;
 
-  const bool srcIsHeap = isDescriptorHeap(srcExpr->IgnoreParenCasts());
+  const bool srcIsHeap = isHeapSourcedValue(srcExpr->IgnoreParenCasts());
   const bool wasHeap = descriptorHeapImageAliasVars.count(dstVar) ||
                        descriptorHeapBufferAliasVars.count(dstVar);
   const bool wasBound = stateIt != descriptorHeapVarState.end() &&
@@ -5241,8 +5290,31 @@ bool SpirvEmitter::tryToAssignDescriptorHeapImageAlias(
 
   const Expr *src = srcExpr->IgnoreParenCasts();
   auto found = descriptorHeapImageAccesses.find(src);
-  if (found == descriptorHeapImageAccesses.end())
-    return false;
+  if (found == descriptorHeapImageAccesses.end()) {
+    // Fallback: src is a DeclRefExpr referencing an existing image alias
+    // variable. The Expr*-keyed access map is only populated for direct heap
+    // subscripts; consult the VarDecl-keyed alias map instead.
+    const auto *srcVar = dyn_cast_or_null<VarDecl>(getReferencedDef(src));
+    if (!srcVar)
+      return false;
+    const auto srcAliasIt = descriptorHeapImageAliasVars.find(srcVar);
+    if (srcAliasIt == descriptorHeapImageAliasVars.end())
+      return false;
+    const DescriptorHeapImageAlias &srcAlias = srcAliasIt->second;
+    DescriptorHeapImageAlias &dstAlias = descriptorHeapImageAliasVars[dstVar];
+    if (!dstAlias.indexVar)
+      dstAlias.indexVar = createDescriptorHeapIndexVar(dstVar);
+    dstAlias.imageType = srcAlias.imageType;
+    dstAlias.arrayType = srcAlias.arrayType;
+    dstAlias.heap = srcAlias.heap;
+    // Propagate the runtime index: load current slot from the source alias
+    // variable and store it into the destination's index variable.
+    SpirvInstruction *index = spvBuilder.createLoad(
+        astContext.UnsignedIntTy, srcAlias.indexVar, srcExpr->getExprLoc());
+    spvBuilder.createStore(dstAlias.indexVar, index, srcExpr->getExprLoc(),
+                           srcExpr->getSourceRange());
+    return true;
+  }
 
   auto &alias = descriptorHeapImageAliasVars[dstVar];
   if (!alias.indexVar)
@@ -5280,8 +5352,33 @@ bool SpirvEmitter::tryToAssignDescriptorHeapBufferAlias(
 
   const Expr *src = srcExpr->IgnoreParenCasts();
   auto found = descriptorHeapBufferAccesses.find(src);
-  if (found == descriptorHeapBufferAccesses.end())
-    return false;
+  if (found == descriptorHeapBufferAccesses.end()) {
+    // Fallback: src is a DeclRefExpr referencing an existing buffer alias
+    // variable. The Expr*-keyed access map is only populated for direct heap
+    // subscripts; consult the VarDecl-keyed alias map instead.
+    const auto *srcVar = dyn_cast_or_null<VarDecl>(getReferencedDef(src));
+    if (!srcVar)
+      return false;
+    const auto srcAliasIt = descriptorHeapBufferAliasVars.find(srcVar);
+    if (srcAliasIt == descriptorHeapBufferAliasVars.end())
+      return false;
+    const DescriptorHeapBufferAlias &srcAlias = srcAliasIt->second;
+    DescriptorHeapBufferAlias &dstAlias = descriptorHeapBufferAliasVars[dstVar];
+    if (!dstAlias.indexVar)
+      dstAlias.indexVar = createDescriptorHeapIndexVar(dstVar);
+    dstAlias.bufferPointerType = srcAlias.bufferPointerType;
+    dstAlias.arrayType = srcAlias.arrayType;
+    dstAlias.heap = srcAlias.heap;
+    dstAlias.layoutRule = srcAlias.layoutRule;
+    dstAlias.counterUnsupported = isRWStructuredBuffer(dstVar->getType());
+    // Propagate the runtime index: load current slot from the source alias
+    // variable and store it into the destination's index variable.
+    SpirvInstruction *index = spvBuilder.createLoad(
+        astContext.UnsignedIntTy, srcAlias.indexVar, srcExpr->getExprLoc());
+    spvBuilder.createStore(dstAlias.indexVar, index, srcExpr->getExprLoc(),
+                           srcExpr->getSourceRange());
+    return true;
+  }
 
   auto &alias = descriptorHeapBufferAliasVars[dstVar];
   if (!alias.indexVar)
@@ -5494,7 +5591,7 @@ bool SpirvEmitter::tryToAssignCounterVar(const DeclaratorDecl *dstDecl,
     auto *srcCounter = getFinalACSBufferCounterInstruction(srcExpr);
     if (!srcCounter) {
       if (spirvOptions.useDescriptorHeap &&
-          isDescriptorHeap(srcExpr->IgnoreParenCasts())) {
+          isHeapSourcedValue(srcExpr->IgnoreParenCasts())) {
         markDescriptorHeapCounterUnsupported(dstDecl);
         return true;
       }
@@ -5538,7 +5635,7 @@ bool SpirvEmitter::tryToAssignCounterVar(const Expr *dstExpr,
 
   if ((dstCounter == nullptr) != (srcCounter == nullptr)) {
     if (spirvOptions.useDescriptorHeap && dstCounter &&
-        isDescriptorHeap(srcExpr->IgnoreParenCasts())) {
+        isHeapSourcedValue(srcExpr->IgnoreParenCasts())) {
       markDescriptorHeapCounterUnsupported(getReferencedDef(dstExpr));
       return true;
     }
@@ -8423,7 +8520,7 @@ bool SpirvEmitter::isBufferTextureIndexing(const CXXOperatorCallExpr *indexExpr,
   return false;
 }
 
-bool SpirvEmitter::isDescriptorHeap(const Expr *expr) {
+bool SpirvEmitter::isDescriptorHeap(const Expr *expr) const {
   const CXXOperatorCallExpr *operatorExpr = dyn_cast<CXXOperatorCallExpr>(expr);
   if (!operatorExpr)
     return false;
@@ -8436,6 +8533,16 @@ bool SpirvEmitter::isDescriptorHeap(const Expr *expr) {
   const auto objectType = object->getType();
   return isResourceDescriptorHeap(objectType) ||
          isSamplerDescriptorHeap(objectType);
+}
+
+bool SpirvEmitter::isHeapSourcedValue(const Expr *expr) const {
+  if (isDescriptorHeap(expr->IgnoreParenCasts()))
+    return true;
+  const auto *var = dyn_cast_or_null<VarDecl>(getReferencedDef(expr));
+  if (!var)
+    return false;
+  return descriptorHeapImageAliasVars.count(var) ||
+         descriptorHeapBufferAliasVars.count(var);
 }
 
 void SpirvEmitter::getDescriptorHeapOperands(const Expr *expr,

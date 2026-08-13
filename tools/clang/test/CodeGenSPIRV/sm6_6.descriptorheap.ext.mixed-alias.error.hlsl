@@ -4,6 +4,7 @@
 // RUN: not %dxc -T cs_6_6 -E main -fspv-use-descriptor-heap -fspv-target-env=vulkan1.3 -spirv -DCASE=3 %s 2>&1 | FileCheck %s
 // RUN: not %dxc -T cs_6_6 -E main -fspv-use-descriptor-heap -fspv-target-env=vulkan1.3 -spirv -DCASE=4 %s 2>&1 | FileCheck %s
 // RUN: not %dxc -T cs_6_6 -E main -fspv-use-descriptor-heap -fspv-target-env=vulkan1.3 -spirv -DCASE=5 %s 2>&1 | FileCheck %s
+// RUN: %dxc -T cs_6_6 -E main -fspv-use-descriptor-heap -fspv-target-env=vulkan1.3 -spirv -DCASE=6 %s | FileCheck %s --check-prefix=OK
 
 // Verifies that a local resource variable assigned from both a bound resource
 // and ResourceDescriptorHeap is rejected.
@@ -26,6 +27,9 @@
 // CASE=3, CASE=5) are tracked in descriptorHeapVarState; heap-then-bound
 // assignments (CASE=2, CASE=4) are detected by observing that the alias map
 // already contains an entry for the variable.
+//
+// CASE=6 (regression): heap-to-heap alias copy must NOT trigger the mixing
+// diagnostic; only a bound source mixed with a heap destination is true mixing.
 
 // CHECK: error: {{.*}}mixing bound and descriptor heap resources in the same variable is not supported with SPV_EXT_descriptor_heap
 // OK:    OpUntypedImageTexelPointerEXT
@@ -85,6 +89,15 @@ void main(uint3 tid : SV_DispatchThreadID) {
   RWByteAddressBuffer mixedBuf = boundBuf;
   mixedBuf = ResourceDescriptorHeap[3];
   original = mixedBuf.Load(0);
+
+#elif CASE == 6
+  // Heap-to-heap alias copy: both sources are heap-backed, so this is NOT
+  // mixing. heapB = heapA must propagate heapA's descriptor index to heapB
+  // without emitting the mixing error.
+  RWTexture2D<uint> heapA = ResourceDescriptorHeap[1];
+  RWTexture2D<uint> heapB = ResourceDescriptorHeap[2];
+  heapB = heapA;
+  InterlockedAdd(heapB[tid.xy], 6, original);
 
 #endif
 
