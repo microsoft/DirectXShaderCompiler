@@ -2118,6 +2118,7 @@ public:
   TEST_METHOD(LoadStoreDescriptor_Wave_16x16_F16);
   TEST_METHOD(LoadStoreDescriptor_Wave_4x8_F16_RowMajorOffsetPadded);
   TEST_METHOD(LoadStoreDescriptor_Wave_4x8_F32_RowMajorToColumnMajor);
+  TEST_METHOD(LoadStoreDescriptor_Wave_4x8_F16_RowMajorToColumnMajor);
   TEST_METHOD(LoadDescriptorOOB_Wave_16x16_F16_PartialView);
   TEST_METHOD(LoadDescriptorOOB_Wave_4x8_F16_OffsetPaddedPartialView);
   TEST_METHOD(SplatStore_Wave_16x16_F16);
@@ -2134,6 +2135,8 @@ public:
   TEST_METHOD(ElementSet_Wave_16x16_F16);
   TEST_METHOD(ElementGetOOB_Wave_4x8_F32);
   TEST_METHOD(ElementSetOOB_Wave_4x8_F32);
+  TEST_METHOD(ElementGetOOB_Wave_16x16_F16);
+  TEST_METHOD(ElementSetOOB_Wave_16x16_F16);
 
   // Cast/Convert
   TEST_METHOD(CopyConvert_Wave_16x16_F16);
@@ -2552,6 +2555,49 @@ void DxilConf_SM610_LinAlg::
 
   // Destination columns of 4 F32 values are 16 bytes, which is already a legal
   // stride, so the column-major side is stored packed.
+  const cpu_oracle::MatrixBufferLayout StoreLayout = {
+      MatrixLayout::ColumnMajor,
+      /*OffsetBytes=*/DescriptorAlignedOffset,
+      /*StrideBytes=*/16,
+  };
+
+  runLoadStoreDescriptor(D3DDevice, DxcSupport, Params, LoadLayout, StoreLayout,
+                         VerboseLogging, SelectedWaveSize);
+}
+
+// The same cross-layout axis on F16, because no tier is required to support
+// Fp32 matrices and the F32 case above can skip in its entirety. The shape
+// must stay non-square: swapping the two layouts transposes on load and back
+// on store, and for a square matrix those cancel byte for byte whatever
+// strides are used.
+void DxilConf_SM610_LinAlg::
+    LoadStoreDescriptor_Wave_4x8_F16_RowMajorToColumnMajor() {
+  MatrixParams Params = {};
+  Params.CompType = ComponentType::F16;
+  Params.M = 4;
+  Params.N = 8;
+  Params.Use = MatrixUse::A;
+  Params.Scope = MatrixScope::Wave;
+  Params.Layout = MatrixLayout::RowMajor;
+  Params.NumThreads = 128;
+  Params.Enable16Bit = true;
+
+  UINT SelectedWaveSize = 0;
+  if (!matrixConstructionApplicable(
+          D3DDevice, Params, {Params.Use},
+          L"LoadStoreDescriptor_Wave_4x8_F16_RowMajorToColumnMajor",
+          SelectedWaveSize))
+    return;
+
+  // Source rows of 8 F16 values are 16 bytes packed, padded here to 48.
+  const cpu_oracle::MatrixBufferLayout LoadLayout = {
+      MatrixLayout::RowMajor,
+      /*OffsetBytes=*/DescriptorAlignedOffset,
+      /*StrideBytes=*/48,
+  };
+
+  // Destination columns of 4 F16 values are 8 bytes, padded here to 16 so the
+  // column-major side carries a gap of its own rather than sitting packed.
   const cpu_oracle::MatrixBufferLayout StoreLayout = {
       MatrixLayout::ColumnMajor,
       /*OffsetBytes=*/DescriptorAlignedOffset,
@@ -3051,7 +3097,7 @@ void DxilConf_SM610_LinAlg::ElementSet_Wave_16x16_F16() {
 // only at the wave total and one that wraps a large index back into range.
 static constexpr UINT FarOOBOffset = 64;
 
-// Per-lane record: {uint Length, uint Executed, ELEM_TYPE Just, ELEM_TYPE Far}.
+// Per-lane record: {uint Length, uint Executed, float Just, float Far}.
 static constexpr UINT OOBRecordSize = 16;
 
 // Seeds every output byte so a lane that never writes cannot be mistaken for a
@@ -3100,8 +3146,11 @@ static const char ElementGetOOBShader[] = R"(
     uint Base = threadID * OOB_RECORD_SIZE;
     Output.Store<uint>(Base + 0, Len);
     Output.Store<uint>(Base + 4, 1);
-    Output.Store<ELEM_TYPE>(Base + 8, Just);
-    Output.Store<ELEM_TYPE>(Base + 12, Far);
+    // Widened to float so the runner can read a fixed-width record whatever
+    // the element type: a half store would leave the record's upper two bytes
+    // holding the sentinel. Half to float is lossless, so no value is masked.
+    Output.Store<float>(Base + 8, (float)Just);
+    Output.Store<float>(Base + 12, (float)Far);
   }
 )";
 
@@ -3141,8 +3190,9 @@ static void runElementGetOOB(ID3D12Device *Device,
                              dxc::SpecificDllLoader &DxcSupport,
                              const MatrixParams &Params, bool Verbose,
                              UINT ForcedWaveSize) {
-  VERIFY_IS_TRUE(Params.CompType == ComponentType::F32,
-                 "Out-of-bounds Get records assume a 4-byte element");
+  VERIFY_IS_TRUE(Params.CompType == ComponentType::F32 ||
+                     Params.CompType == ComponentType::F16,
+                 "Out-of-bounds Get records widen the element to float");
   const size_t NumElements = Params.totalElements();
   const size_t NumThreads = Params.NumThreads;
   const size_t MatrixSize = Params.totalBytes();
@@ -3338,6 +3388,51 @@ void DxilConf_SM610_LinAlg::ElementSetOOB_Wave_4x8_F32() {
   UINT SelectedWaveSize = 0;
   if (!matrixConstructionApplicable(D3DDevice, Params, {Params.Use},
                                     L"ElementSetOOB_Wave_4x8_F32",
+                                    SelectedWaveSize))
+    return;
+
+  runElementSetOOB(D3DDevice, DxcSupport, Params, VerboseLogging,
+                   SelectedWaveSize);
+}
+
+// Out-of-bounds element access on F16. Both cases above pin the boundary
+// behaviour to F32, which no tier is required to support, so a conforming
+// F16-only device would exercise neither.
+void DxilConf_SM610_LinAlg::ElementGetOOB_Wave_16x16_F16() {
+  MatrixParams Params = {};
+  Params.CompType = ComponentType::F16;
+  Params.M = 16;
+  Params.N = 16;
+  Params.Use = MatrixUse::Accumulator;
+  Params.Scope = MatrixScope::Wave;
+  Params.Layout = MatrixLayout::RowMajor;
+  Params.NumThreads = 128;
+  Params.Enable16Bit = true;
+
+  UINT SelectedWaveSize = 0;
+  if (!matrixConstructionApplicable(D3DDevice, Params, {Params.Use},
+                                    L"ElementGetOOB_Wave_16x16_F16",
+                                    SelectedWaveSize))
+    return;
+
+  runElementGetOOB(D3DDevice, DxcSupport, Params, VerboseLogging,
+                   SelectedWaveSize);
+}
+
+void DxilConf_SM610_LinAlg::ElementSetOOB_Wave_16x16_F16() {
+  MatrixParams Params = {};
+  Params.CompType = ComponentType::F16;
+  Params.M = 16;
+  Params.N = 16;
+  Params.Use = MatrixUse::Accumulator;
+  Params.Scope = MatrixScope::Wave;
+  Params.Layout = MatrixLayout::RowMajor;
+  Params.NumThreads = 128;
+  Params.Enable16Bit = true;
+
+  UINT SelectedWaveSize = 0;
+  if (!matrixConstructionApplicable(D3DDevice, Params, {Params.Use},
+                                    L"ElementSetOOB_Wave_16x16_F16",
                                     SelectedWaveSize))
     return;
 
