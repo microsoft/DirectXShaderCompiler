@@ -38,13 +38,13 @@ define void @main() {
   %2 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %1, %dx.types.ResourceProperties { i32 11, i32 0 })  ; AnnotateHandle(res,props)  resource: ByteAddressBuffer
   %3 = call %dx.types.LinAlgMatrixC8M1025N1025U2S0 @dx.op.linAlgMatrixLoadFromDescriptor.mC8M1025N1025U2S0(i32 -2147483634, %dx.types.Handle %2, i32 0, i32 0, i32 0, i32 128)  ; LinAlgMatrixLoadFromDescriptor(handle,offset,stride,layout,align)
 
-  ; CHECK: Function: main: error: Metadata must be well-formed in operand count and types.
+  ; CHECK: Function: main: error: Return matrix must have well-formed metadata.
   ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixLoadFromDescriptor.mC4M16N16U0S2
   ; Matrix<I32, 16, 16, A, ThreadGroup> - missing metadata
   %4 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %1, %dx.types.ResourceProperties { i32 11, i32 0 })  ; AnnotateHandle(res,props)  resource: ByteAddressBuffer
   %5 = call %dx.types.LinAlgMatrixC4M16N16U0S2 @dx.op.linAlgMatrixLoadFromDescriptor.mC4M16N16U0S2(i32 -2147483634, %dx.types.Handle %4, i32 0, i32 0, i32 0, i32 128)  ; LinAlgMatrixLoadFromDescriptor(handle,offset,stride,layout,align)
 
-  ; CHECK-NEXT: Function: main: error: Matrix K Dimension out of bounds. K=129 must be >= 4 and <= 128.
+  ; CHECK-NEXT: Function: main: error: Return matrix K dimension out of bounds. K=129 must be >= 4 and <= 128.
   ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixLoadFromDescriptor.mC8M16N129U0S0
   ; Matrix<F16, 129, 16, A, Thread> - N is K so pass
   %6 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %1, %dx.types.ResourceProperties { i32 11, i32 0 })  ; AnnotateHandle(res,props)  resource: ByteAddressBuffer
@@ -53,7 +53,7 @@ define void @main() {
   %8 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %1, %dx.types.ResourceProperties { i32 11, i32 0 })  ; AnnotateHandle(res,props)  resource: ByteAddressBuffer
   %9 = call %dx.types.LinAlgMatrixC8M16N129U0S0 @dx.op.linAlgMatrixLoadFromDescriptor.mC8M16N129U0S0(i32 -2147483634, %dx.types.Handle %8, i32 0, i32 0, i32 0, i32 128)  ; LinAlgMatrixLoadFromDescriptor(handle,offset,stride,layout,align)
 
-  ; CHECK-NEXT: Function: main: error: Matrix K Dimension out of bounds. K=3 must be >= 4 and <= 128.
+  ; CHECK-NEXT: Function: main: error: Return matrix K dimension out of bounds. K=3 must be >= 4 and <= 128.
   ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixLoadFromDescriptor.mC8M16N3U0S0
   ; Matrix<F16, 3, 16, A, Thread> - N is K so pass
   %10 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %1, %dx.types.ResourceProperties { i32 11, i32 0 })  ; AnnotateHandle(res,props)  resource: ByteAddressBuffer
@@ -62,7 +62,7 @@ define void @main() {
   %12 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %1, %dx.types.ResourceProperties { i32 11, i32 0 })  ; AnnotateHandle(res,props)  resource: ByteAddressBuffer
   %13 = call %dx.types.LinAlgMatrixC8M16N3U0S0 @dx.op.linAlgMatrixLoadFromDescriptor.mC8M16N3U0S0(i32 -2147483634, %dx.types.Handle %12, i32 0, i32 0, i32 0, i32 128)  ; LinAlgMatrixLoadFromDescriptor(handle,offset,stride,layout,align)
 
-  ; CHECK-NEXT: Function: main: error: Matrix K Dimension out of bounds. K=129 must be >= 4 and <= 128.
+  ; CHECK-NEXT: Function: main: error: Return matrix K dimension out of bounds. K=129 must be >= 4 and <= 128.
   ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixLoadFromDescriptor.mC8M129N16U1S0
   ; Matrix<F16, 129, 16, B, Thread> - M is K so fail
   %14 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %1, %dx.types.ResourceProperties { i32 11, i32 0 })  ; AnnotateHandle(res,props)  resource: ByteAddressBuffer
@@ -71,7 +71,7 @@ define void @main() {
   %16 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %1, %dx.types.ResourceProperties { i32 11, i32 0 })  ; AnnotateHandle(res,props)  resource: ByteAddressBuffer
   %17 = call %dx.types.LinAlgMatrixC8M16N129U1S0 @dx.op.linAlgMatrixLoadFromDescriptor.mC8M16N129U1S0(i32 -2147483634, %dx.types.Handle %16, i32 0, i32 0, i32 0, i32 128)  ; LinAlgMatrixLoadFromDescriptor(handle,offset,stride,layout,align)
 
-  ; CHECK-NEXT: Function: main: error: Matrix K Dimension out of bounds. K=3 must be >= 4 and <= 128.
+  ; CHECK-NEXT: Function: main: error: Return matrix K dimension out of bounds. K=3 must be >= 4 and <= 128.
   ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixLoadFromDescriptor.mC8M3N16U1S0
   ; Matrix<F16, 3, 16, B, Thread> - M is K so fail
   %18 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %1, %dx.types.ResourceProperties { i32 11, i32 0 })  ; AnnotateHandle(res,props)  resource: ByteAddressBuffer
@@ -80,7 +80,7 @@ define void @main() {
   %20 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %1, %dx.types.ResourceProperties { i32 11, i32 0 })  ; AnnotateHandle(res,props)  resource: ByteAddressBuffer
   %21 = call %dx.types.LinAlgMatrixC8M16N3U1S0 @dx.op.linAlgMatrixLoadFromDescriptor.mC8M16N3U1S0(i32 -2147483634, %dx.types.Handle %20, i32 0, i32 0, i32 0, i32 128)  ; LinAlgMatrixLoadFromDescriptor(handle,offset,stride,layout,align)
 
-  ; CHECK-NEXT: Function: main: error: Matrix K Dimension out of bounds. K=1025 must be >= 1 and <= 1024.
+  ; CHECK-NEXT: Function: main: error: Return matrix K dimension out of bounds. K=1025 must be >= 1 and <= 1024.
   ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixLoadFromDescriptor.mC8M16N1025U0S2
   ; Matrix<F16, 1025, 16, A, ThreadGroup> - N is K so pass
   %22 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %1, %dx.types.ResourceProperties { i32 11, i32 0 })  ; AnnotateHandle(res,props)  resource: ByteAddressBuffer
@@ -89,7 +89,7 @@ define void @main() {
   %24 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %1, %dx.types.ResourceProperties { i32 11, i32 0 })  ; AnnotateHandle(res,props)  resource: ByteAddressBuffer
   %25 = call %dx.types.LinAlgMatrixC8M16N1025U0S2 @dx.op.linAlgMatrixLoadFromDescriptor.mC8M16N1025U0S2(i32 -2147483634, %dx.types.Handle %24, i32 0, i32 0, i32 0, i32 128)  ; LinAlgMatrixLoadFromDescriptor(handle,offset,stride,layout,align)
 
-  ; CHECK-NEXT: Function: main: error: Matrix K Dimension out of bounds. K=0 must be >= 1 and <= 1024.
+  ; CHECK-NEXT: Function: main: error: Return matrix K dimension out of bounds. K=0 must be >= 1 and <= 1024.
   ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixLoadFromDescriptor.mC8M16N0U0S2
   ; Matrix<F16, 16, 3, A, ThreadGroup> - N is K so fail
   %26 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %1, %dx.types.ResourceProperties { i32 11, i32 0 })  ; AnnotateHandle(res,props)  resource: ByteAddressBuffer
@@ -98,7 +98,7 @@ define void @main() {
   %28 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %1, %dx.types.ResourceProperties { i32 11, i32 0 })  ; AnnotateHandle(res,props)  resource: ByteAddressBuffer
   %29 = call %dx.types.LinAlgMatrixC8M3N16U0S2 @dx.op.linAlgMatrixLoadFromDescriptor.mC8M3N16U0S2(i32 -2147483634, %dx.types.Handle %28, i32 0, i32 0, i32 0, i32 128)  ; LinAlgMatrixLoadFromDescriptor(handle,offset,stride,layout,align)
 
-  ; CHECK-NEXT: Function: main: error: Matrix K Dimension out of bounds. K=1025 must be >= 1 and <= 1024.
+  ; CHECK-NEXT: Function: main: error: Return matrix K dimension out of bounds. K=1025 must be >= 1 and <= 1024.
   ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixLoadFromDescriptor.mC8M1025N129U1S2
   ; Matrix<F16, 1025, 129, B, ThreadGroup> - M is K so fail
   %30 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %1, %dx.types.ResourceProperties { i32 11, i32 0 })  ; AnnotateHandle(res,props)  resource: ByteAddressBuffer
@@ -107,7 +107,7 @@ define void @main() {
   %32 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %1, %dx.types.ResourceProperties { i32 11, i32 0 })  ; AnnotateHandle(res,props)  resource: ByteAddressBuffer
   %33 = call %dx.types.LinAlgMatrixC8M129N1025U1S2 @dx.op.linAlgMatrixLoadFromDescriptor.mC8M129N1025U1S2(i32 -2147483634, %dx.types.Handle %32, i32 0, i32 0, i32 0, i32 128)  ; LinAlgMatrixLoadFromDescriptor(handle,offset,stride,layout,align)
 
-  ; CHECK-NEXT: Function: main: error: Matrix K Dimension out of bounds. K=0 must be >= 1 and <= 1024.
+  ; CHECK-NEXT: Function: main: error: Return matrix K dimension out of bounds. K=0 must be >= 1 and <= 1024.
   ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixLoadFromDescriptor.mC8M0N129U1S2
   ; Matrix<F16, 3, 129, B, ThreadGroup> - M is K so fail
   %34 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %1, %dx.types.ResourceProperties { i32 11, i32 0 })  ; AnnotateHandle(res,props)  resource: ByteAddressBuffer

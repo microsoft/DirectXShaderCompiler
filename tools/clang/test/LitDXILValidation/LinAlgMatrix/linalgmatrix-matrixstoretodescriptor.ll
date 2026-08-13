@@ -52,7 +52,7 @@ define void @main() {
   %13 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %1, %dx.types.ResourceProperties { i32 4107, i32 0 })  ; AnnotateHandle(res,props)  resource: RWByteAddressBuffer
   call void @dx.op.linAlgMatrixStoreToDescriptor.mC8M4N4U0S1(i32 -2147483628, %dx.types.LinAlgMatrixC8M4N4U0S1 %4, %dx.types.Handle %13, i32 0, i32 0, i32 %11, i32 256)  ; LinAlgMatrixStoreToDescriptor(matrix,handle,offset,stride,layout,align)
 
-  ; CHECK-NEXT: Function: main: error: Matrix Scope 'Thread' does not match expected scope Wave or ThreadGroup.
+  ; CHECK-NEXT: Function: main: error: Input matrix scope 'Thread' does not match expected scope Wave or ThreadGroup.
   ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixStoreToDescriptor.mC8M4N4U2S0
   %14 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %2, %dx.types.ResourceProperties { i32 11, i32 0 })  ; AnnotateHandle(res,props)  resource: ByteAddressBuffer
   %15 = call %dx.types.LinAlgMatrixC8M4N4U2S0 @dx.op.linAlgMatrixLoadFromDescriptor.mC8M4N4U2S0(i32 -2147483634, %dx.types.Handle %14, i32 0, i32 0, i32 4, i32 128)  ; LinAlgMatrixLoadFromDescriptor(handle,offset,stride,layout,align)
