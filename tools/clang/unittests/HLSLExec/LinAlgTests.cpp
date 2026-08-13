@@ -1325,7 +1325,9 @@ static bool verifyStoreBuffer(const void *ActualBuffer, size_t ActualBufferSize,
                               const std::vector<std::vector<BYTE>> &Candidates,
                               const std::wstring &PublicRule, bool Verbose) {
   if (Candidates.size() < 2 || PublicRule.empty()) {
-    hlsl_test::LogErrorFmt(L"Invalid store buffer oracle");
+    hlsl_test::LogErrorFmt(
+    L"Invalid store buffer oracle: candidates=%zu, public rule is %s",
+    Candidates.size(), PublicRule.empty() ? L"empty" : L"present");
     return false;
   }
 
