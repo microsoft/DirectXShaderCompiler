@@ -8,6 +8,7 @@ target triple = "dxil-ms-dx"
 %dx.types.ResourceProperties = type { i32, i32 }
 %dx.types.LinAlgMatrixC8M4N4U0S1 = type { i8* }
 %dx.types.LinAlgMatrixC8M4N4U2S0 = type { i8* }
+%dx.types.ResRet.i32 = type { i32, i32, i32, i32, i32 }
 %struct.ByteAddressBuffer = type { i32 }
 %struct.RWByteAddressBuffer = type { i32 }
 
@@ -37,13 +38,26 @@ define void @main() {
   %8 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %1, %dx.types.ResourceProperties { i32 4107, i32 0 })  ; AnnotateHandle(res,props)  resource: RWByteAddressBuffer
   call void @dx.op.linAlgMatrixStoreToDescriptor.mC8M4N4U0S1(i32 -2147483628, %dx.types.LinAlgMatrixC8M4N4U0S1 %4, %dx.types.Handle %8, i32 0, i32 0, i32 0, i32 0)  ; LinAlgMatrixStoreToDescriptor(matrix,handle,offset,stride,layout,align)
 
+  %9 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %2, %dx.types.ResourceProperties { i32 11, i32 0 })  ; AnnotateHandle(res,props)  resource: ByteAddressBuffer
+  %10 = call %dx.types.ResRet.i32 @dx.op.rawBufferLoad.i32(i32 139, %dx.types.Handle %9, i32 0, i32 undef, i8 1, i32 4)  ; RawBufferLoad(srv,index,elementOffset,mask,alignment)
+  %11 = extractvalue %dx.types.ResRet.i32 %10, 0
+
+  ; CHECK-NEXT: Function: main: error: Align of LinAlgMatrixStoreToDescriptor must be an immediate constant.
+  ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixStoreToDescriptor.mC8M4N4U0S1
+  %12 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %1, %dx.types.ResourceProperties { i32 4107, i32 0 })  ; AnnotateHandle(res,props)  resource: RWByteAddressBuffer
+  call void @dx.op.linAlgMatrixStoreToDescriptor.mC8M4N4U0S1(i32 -2147483628, %dx.types.LinAlgMatrixC8M4N4U0S1 %4, %dx.types.Handle %12, i32 0, i32 0, i32 0, i32 %11)  ; LinAlgMatrixStoreToDescriptor(matrix,handle,offset,stride,layout,align)
+
+  ; CHECK-NEXT: Function: main: error: Layout of LinAlgMatrixStoreToDescriptor must be an immediate constant.
+  ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixStoreToDescriptor.mC8M4N4U0S1
+  %13 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %1, %dx.types.ResourceProperties { i32 4107, i32 0 })  ; AnnotateHandle(res,props)  resource: RWByteAddressBuffer
+  call void @dx.op.linAlgMatrixStoreToDescriptor.mC8M4N4U0S1(i32 -2147483628, %dx.types.LinAlgMatrixC8M4N4U0S1 %4, %dx.types.Handle %13, i32 0, i32 0, i32 %11, i32 256)  ; LinAlgMatrixStoreToDescriptor(matrix,handle,offset,stride,layout,align)
 
   ; CHECK-NEXT: Function: main: error: Matrix Scope 'Thread' does not match expected scope Wave or ThreadGroup.
   ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixStoreToDescriptor.mC8M4N4U2S0
-  %9 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %2, %dx.types.ResourceProperties { i32 11, i32 0 })  ; AnnotateHandle(res,props)  resource: ByteAddressBuffer
-  %10 = call %dx.types.LinAlgMatrixC8M4N4U2S0 @dx.op.linAlgMatrixLoadFromDescriptor.mC8M4N4U2S0(i32 -2147483634, %dx.types.Handle %9, i32 0, i32 0, i32 4, i32 128)  ; LinAlgMatrixLoadFromDescriptor(handle,offset,stride,layout,align)
-  %11 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %1, %dx.types.ResourceProperties { i32 4107, i32 0 })  ; AnnotateHandle(res,props)  resource: RWByteAddressBuffer
-  call void @dx.op.linAlgMatrixStoreToDescriptor.mC8M4N4U2S0(i32 -2147483628, %dx.types.LinAlgMatrixC8M4N4U2S0 %10, %dx.types.Handle %11, i32 0, i32 0, i32 0, i32 128)  ; LinAlgMatrixStoreToDescriptor(matrix,handle,offset,stride,layout,align)
+  %14 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %2, %dx.types.ResourceProperties { i32 11, i32 0 })  ; AnnotateHandle(res,props)  resource: ByteAddressBuffer
+  %15 = call %dx.types.LinAlgMatrixC8M4N4U2S0 @dx.op.linAlgMatrixLoadFromDescriptor.mC8M4N4U2S0(i32 -2147483634, %dx.types.Handle %14, i32 0, i32 0, i32 4, i32 128)  ; LinAlgMatrixLoadFromDescriptor(handle,offset,stride,layout,align)
+  %16 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %1, %dx.types.ResourceProperties { i32 4107, i32 0 })  ; AnnotateHandle(res,props)  resource: RWByteAddressBuffer
+  call void @dx.op.linAlgMatrixStoreToDescriptor.mC8M4N4U2S0(i32 -2147483628, %dx.types.LinAlgMatrixC8M4N4U2S0 %15, %dx.types.Handle %16, i32 0, i32 0, i32 0, i32 128)  ; LinAlgMatrixStoreToDescriptor(matrix,handle,offset,stride,layout,align)
 
   ; CHECK-NEXT: Validation failed.
   ret void
@@ -61,14 +75,18 @@ declare %dx.types.LinAlgMatrixC8M4N4U2S0 @dx.op.linAlgMatrixLoadFromDescriptor.m
 ; Function Attrs: nounwind
 declare void @dx.op.linAlgMatrixStoreToDescriptor.mC8M4N4U2S0(i32, %dx.types.LinAlgMatrixC8M4N4U2S0, %dx.types.Handle, i32, i32, i32, i32) #0
 
-; Function Attrs: nounwind readnone
-declare %dx.types.Handle @dx.op.annotateHandle(i32, %dx.types.Handle, %dx.types.ResourceProperties) #1
+; Function Attrs: nounwind readonly
+declare %dx.types.ResRet.i32 @dx.op.rawBufferLoad.i32(i32, %dx.types.Handle, i32, i32, i8, i32) #1
 
 ; Function Attrs: nounwind readnone
-declare %dx.types.Handle @dx.op.createHandleFromBinding(i32, %dx.types.ResBind, i32, i1) #1
+declare %dx.types.Handle @dx.op.annotateHandle(i32, %dx.types.Handle, %dx.types.ResourceProperties) #2
+
+; Function Attrs: nounwind readnone
+declare %dx.types.Handle @dx.op.createHandleFromBinding(i32, %dx.types.ResBind, i32, i1) #2
 
 attributes #0 = { nounwind }
 attributes #1 = { nounwind readnone }
+attributes #2 = { nounwind readnone }
 
 !dx.targetTypes = !{!0, !1}
 !llvm.ident = !{!2}
