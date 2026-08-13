@@ -1155,7 +1155,8 @@ static void ValidateLinAlgMatrixStoreToDescriptor(CallInst *CI,
         {"LinAlgMatrixStoreToDescriptor", "RowMajor", "ColumnMajor"});
 
   // Scope must be wave/threadgroup
-  if (MatLATT.Scope == DXIL::MatrixScope::Thread)
+  if (MatLATT.Scope != DXIL::MatrixScope::Wave &&
+      MatLATT.Scope != DXIL::MatrixScope::ThreadGroup)
     ValCtx.EmitInstrFormatError(
         CI, ValidationRule::InstrLinAlgMatrixScopeMismatch2,
         {MatrixScopeToString(MatLATT.Scope), "Wave", "ThreadGroup"});
