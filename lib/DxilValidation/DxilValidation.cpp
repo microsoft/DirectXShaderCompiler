@@ -1168,9 +1168,9 @@ static void ValidateLinAlgMatrixStoreToDescriptor(CallInst *CI,
       GetResourceKindAndCompTy(Op.get_handle(), ResCompTy, ResClass, ValCtx);
   if (ResClass != DXIL::ResourceClass::UAV ||
       ResKind != DXIL::ResourceKind::RawBuffer)
-    ValCtx.EmitInstrFormatError(
-        CI, ValidationRule::InstrLinAlgMatrixRequiresRWBAB,
-        {"LinAlgMatrixStoreToDescriptor"});
+    ValCtx.EmitInstrFormatError(CI,
+                                ValidationRule::InstrLinAlgMatrixRequiresRWBAB,
+                                {"LinAlgMatrixStoreToDescriptor"});
 
   // Align must be an immediate constant that is a multiple of 128 greater than
   // 0
