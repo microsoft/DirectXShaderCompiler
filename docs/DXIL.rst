@@ -3218,6 +3218,7 @@ INSTR.LINALGMATRIXLAYOUTREQSTRIDE                     Matrix layout '%0' require
 INSTR.LINALGMATRIXLOADTHREADREQUIRESBAB               Loading matrix with Thread scope requires ByteAddressBuffer.
 INSTR.LINALGMATRIXNOTEXACTMATCH                       Matrix '%0' must exactly match matrix '%1'.
 INSTR.LINALGMATRIXOUTPUTBIASVECMISMATCH               Output vector element type '%0' must match Bias vector element type '%1'
+INSTR.LINALGMATRIXREQUIRESLAYOUT2                     %0 requires layout %1 or %2.
 INSTR.LINALGMATRIXREQUIRESRWBAB                       %0 requires RWByteAddressBuffer.
 INSTR.LINALGMATRIXSCOPEMISMATCH                       Matrix Scope '%0' does not match expected scope %1.
 INSTR.LINALGMATRIXSCOPEMISMATCH2                      Matrix Scope '%0' does not match expected scope %1 or %2.

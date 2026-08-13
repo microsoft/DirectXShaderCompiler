@@ -8705,6 +8705,10 @@ class db_dxil(object):
             "Instr.LinAlgMatrixRequiresRWBAB",
             "%0 requires RWByteAddressBuffer.",
         )
+        self.add_valrule(
+            "Instr.LinAlgMatrixRequiresLayout2",
+            "%0 requires layout %1 or %2.",
+        )
 
         # Some legacy rules:
         # - space is only supported for shader targets 5.1 and higher
