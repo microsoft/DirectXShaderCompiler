@@ -8650,12 +8650,12 @@ class db_dxil(object):
             "Component Type '%0' not allowed in LinAlg Matrix.",
         )
         self.add_valrule(
-            "Instr.LinAlgMatrixScopeNotAllowed",
-            "Matrix Scope '%0' not allowed in %1 operation.",
-        )
-        self.add_valrule(
             "Instr.LinAlgMatrixScopeMismatch",
             "Matrix Scope '%0' does not match expected scope %1.",
+        )
+        self.add_valrule(
+            "Instr.LinAlgMatrixScopeMismatch2",
+            "Matrix Scope '%0' does not match expected scope %1 or %2.",
         )
         self.add_valrule(
             "Instr.LinAlgMatrixDimMismatch",
