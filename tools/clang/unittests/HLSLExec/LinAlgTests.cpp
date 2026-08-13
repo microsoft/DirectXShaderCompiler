@@ -2322,8 +2322,14 @@ public:
   // Matrix Vector Arithmetic
   TEST_METHOD(MatVecMul_Thread_16x16_F16);
   TEST_METHOD(MatVecMul_Thread_4x8_F32);
+  TEST_METHOD(MatVecMul_Thread_4x8_F16_NonUniform);
+  TEST_METHOD(MatVecMul_Thread_4x8_F16_ColumnMajor);
+  TEST_METHOD(MatVecMul_Thread_4x8_I8_Interpreted);
+  TEST_METHOD(MatVecMul_Thread_4x8_U8_Interpreted);
+  TEST_METHOD(MatVecMul_Thread_4x8_U32_UnsignedOutput);
   TEST_METHOD(MatVecMulAdd_Thread_16x16_F16);
   TEST_METHOD(MatVecMulAdd_Thread_4x8_F32);
+  TEST_METHOD(MatVecMulAdd_Thread_4x8_F16_IndependentBias);
   TEST_METHOD(OuterProduct_Thread_16x16_F16);
 
   // Query Accumulator Layout
@@ -5270,6 +5276,829 @@ void DxilConf_SM610_LinAlg::VectorAccumulateDescriptor_Thread_F16() {
     return;
 
   runVectorAccumulateDescriptor(D3DDevice, DxcSupport, VerboseLogging);
+}
+
+namespace matvec_interpretation {
+
+static constexpr size_t OutputGuardBytes = 16;
+
+struct CaseData {
+  ComponentType MatrixType = ComponentType::Invalid;
+  MatrixDim M = 0;
+  MatrixDim N = 0;
+  MatrixLayout Layout = MatrixLayout::RowMajor;
+  ComponentType VectorInputType = ComponentType::Invalid;
+  ComponentType InputInterpretation = ComponentType::Invalid;
+  ComponentType BiasInputType = ComponentType::Invalid;
+  ComponentType ResultType = ComponentType::Invalid;
+  bool OutputSigned = true;
+  std::vector<int64_t> MatrixValues;
+  std::vector<int64_t> InterpretedVectorValues;
+  std::vector<int64_t> BiasValues;
+  std::wstring PublicRule;
+
+  bool hasBias() const { return BiasInputType != ComponentType::Invalid; }
+};
+
+static std::optional<size_t> componentByteSize(ComponentType Type) {
+  switch (Type) {
+  case ComponentType::I8:
+  case ComponentType::U8:
+    return 1;
+  case ComponentType::F16:
+  case ComponentType::I16:
+  case ComponentType::U16:
+    return 2;
+  case ComponentType::F32:
+  case ComponentType::I32:
+  case ComponentType::U32:
+    return 4;
+  default:
+    return std::nullopt;
+  }
+}
+
+static bool isPackedByteVector(ComponentType Type) {
+  return Type == ComponentType::I8 || Type == ComponentType::U8;
+}
+
+static const char *storageTypeName(ComponentType Type) {
+  if (isPackedByteVector(Type))
+    return "uint";
+
+  switch (Type) {
+  case ComponentType::F16:
+    return "half";
+  case ComponentType::F32:
+    return "float";
+  case ComponentType::I32:
+    return "int";
+  case ComponentType::U32:
+    return "uint";
+  default:
+    return nullptr;
+  }
+}
+
+static MatrixDim storageElementCount(ComponentType Type,
+                                     MatrixDim LogicalCount) {
+  return isPackedByteVector(Type) ? (LogicalCount + 3) / 4 : LogicalCount;
+}
+
+static size_t storageElementByteSize(ComponentType Type) {
+  return isPackedByteVector(Type) ? sizeof(uint32_t)
+                                  : componentByteSize(Type).value_or(0);
+}
+
+static bool checkedMultiplyInt64(int64_t Left, int64_t Right, int64_t &Result) {
+  if (Left == 0 || Right == 0) {
+    Result = 0;
+    return true;
+  }
+  if ((Left == -1 && Right == std::numeric_limits<int64_t>::min()) ||
+      (Right == -1 && Left == std::numeric_limits<int64_t>::min()))
+    return false;
+
+  if (Left > 0) {
+    if ((Right > 0 && Left > std::numeric_limits<int64_t>::max() / Right) ||
+        (Right < 0 && Right < std::numeric_limits<int64_t>::min() / Left))
+      return false;
+  } else {
+    if ((Right > 0 && Left < std::numeric_limits<int64_t>::min() / Right) ||
+        (Right < 0 && Left < std::numeric_limits<int64_t>::max() / Right))
+      return false;
+  }
+
+  Result = Left * Right;
+  return true;
+}
+
+static bool checkedAddInt64(int64_t Left, int64_t Right, int64_t &Result) {
+  if ((Right > 0 && Left > std::numeric_limits<int64_t>::max() - Right) ||
+      (Right < 0 && Left < std::numeric_limits<int64_t>::min() - Right))
+    return false;
+  Result = Left + Right;
+  return true;
+}
+
+template <typename T>
+static std::vector<BYTE> encodeNativeVector(const std::vector<T> &Values) {
+  static_assert(std::is_trivially_copyable<T>::value,
+                "Vector values must be trivially copyable");
+  std::vector<BYTE> Bytes(Values.size() * sizeof(T));
+  if (!Bytes.empty())
+    std::memcpy(Bytes.data(), Values.data(), Bytes.size());
+  return Bytes;
+}
+
+static std::optional<BYTE> encodeByte(ComponentType Type, int64_t Value) {
+  if (Type == ComponentType::I8) {
+    if (Value < std::numeric_limits<int8_t>::min() ||
+        Value > std::numeric_limits<int8_t>::max())
+      return std::nullopt;
+    return static_cast<BYTE>(static_cast<uint8_t>(static_cast<int8_t>(Value)));
+  }
+  if (Type == ComponentType::U8) {
+    if (Value < 0 || Value > std::numeric_limits<uint8_t>::max())
+      return std::nullopt;
+    return static_cast<BYTE>(Value);
+  }
+  return std::nullopt;
+}
+
+static std::optional<std::vector<BYTE>>
+encodeComponents(ComponentType Type, const std::vector<int64_t> &Values) {
+  switch (Type) {
+  case ComponentType::I8:
+  case ComponentType::U8: {
+    std::vector<BYTE> Bytes;
+    Bytes.reserve(Values.size());
+    for (int64_t Value : Values) {
+      std::optional<BYTE> Encoded = encodeByte(Type, Value);
+      if (!Encoded)
+        return std::nullopt;
+      Bytes.push_back(*Encoded);
+    }
+    return Bytes;
+  }
+  case ComponentType::F16: {
+    std::vector<HLSLHalf_t> Native;
+    Native.reserve(Values.size());
+    for (int64_t Value : Values) {
+      const HLSLHalf_t Half(static_cast<float>(Value));
+      if (static_cast<float>(Half) != static_cast<float>(Value))
+        return std::nullopt;
+      Native.push_back(Half);
+    }
+    return encodeNativeVector(Native);
+  }
+  case ComponentType::F32: {
+    std::vector<float> Native;
+    Native.reserve(Values.size());
+    for (int64_t Value : Values) {
+      const float FloatValue = static_cast<float>(Value);
+      if (static_cast<int64_t>(FloatValue) != Value)
+        return std::nullopt;
+      Native.push_back(FloatValue);
+    }
+    return encodeNativeVector(Native);
+  }
+  case ComponentType::I32: {
+    std::vector<int32_t> Native;
+    Native.reserve(Values.size());
+    for (int64_t Value : Values) {
+      if (Value < std::numeric_limits<int32_t>::min() ||
+          Value > std::numeric_limits<int32_t>::max())
+        return std::nullopt;
+      Native.push_back(static_cast<int32_t>(Value));
+    }
+    return encodeNativeVector(Native);
+  }
+  case ComponentType::U32: {
+    std::vector<uint32_t> Native;
+    Native.reserve(Values.size());
+    for (int64_t Value : Values) {
+      if (Value < 0 ||
+          static_cast<uint64_t>(Value) > std::numeric_limits<uint32_t>::max())
+        return std::nullopt;
+      Native.push_back(static_cast<uint32_t>(Value));
+    }
+    return encodeNativeVector(Native);
+  }
+  default:
+    return std::nullopt;
+  }
+}
+
+static std::optional<std::vector<BYTE>>
+encodePackedVector(ComponentType Type, const std::vector<int64_t> &Values) {
+  if (!isPackedByteVector(Type))
+    return std::nullopt;
+
+  size_t PaddedCount;
+  if (!cpu_oracle::checkedAdd(Values.size(), size_t(3), PaddedCount))
+    return std::nullopt;
+  PaddedCount &= ~size_t(3);
+  std::vector<BYTE> Bytes(PaddedCount, 0);
+
+  for (size_t WordIndex = 0; WordIndex < PaddedCount / 4; ++WordIndex) {
+    uint32_t Word = 0;
+    for (size_t Lane = 0; Lane < 4; ++Lane) {
+      const size_t ValueIndex = WordIndex * 4 + Lane;
+      if (ValueIndex == Values.size())
+        break;
+      std::optional<BYTE> Encoded = encodeByte(Type, Values[ValueIndex]);
+      if (!Encoded)
+        return std::nullopt;
+      // Lane zero occupies the least-significant byte of each uint.
+      Word |= static_cast<uint32_t>(*Encoded) << (Lane * 8);
+    }
+    for (size_t ByteIndex = 0; ByteIndex < 4; ++ByteIndex)
+      Bytes[WordIndex * 4 + ByteIndex] =
+          static_cast<BYTE>(Word >> (ByteIndex * 8));
+  }
+  return Bytes;
+}
+
+static std::optional<size_t> matrixStrideBytes(const CaseData &Case) {
+  const std::optional<size_t> ComponentSize =
+      componentByteSize(Case.MatrixType);
+  if (!ComponentSize)
+    return std::nullopt;
+  const size_t MinorCount =
+      Case.Layout == MatrixLayout::RowMajor ? Case.N : Case.M;
+  size_t Stride;
+  if (!cpu_oracle::checkedMultiply(MinorCount, *ComponentSize, Stride))
+    return std::nullopt;
+  return Stride;
+}
+
+static std::optional<std::vector<BYTE>>
+encodeMatrixBuffer(const CaseData &Case) {
+  const std::optional<size_t> ComponentSize =
+      componentByteSize(Case.MatrixType);
+  const std::optional<size_t> Stride = matrixStrideBytes(Case);
+  const std::optional<std::vector<BYTE>> Logical =
+      encodeComponents(Case.MatrixType, Case.MatrixValues);
+  if (!ComponentSize || !Stride || !Logical)
+    return std::nullopt;
+
+  const size_t MajorCount =
+      Case.Layout == MatrixLayout::RowMajor ? Case.M : Case.N;
+  size_t BufferSize;
+  if (!cpu_oracle::checkedMultiply(MajorCount, *Stride, BufferSize))
+    return std::nullopt;
+  std::vector<BYTE> Buffer(BufferSize, 0);
+
+  for (MatrixDim Row = 0; Row < Case.M; ++Row) {
+    for (MatrixDim Column = 0; Column < Case.N; ++Column) {
+      const size_t SourceIndex = static_cast<size_t>(Row) * Case.N + Column;
+      const size_t SourceOffset = SourceIndex * *ComponentSize;
+      const size_t DestinationOffset =
+          Case.Layout == MatrixLayout::RowMajor
+              ? static_cast<size_t>(Row) * *Stride + Column * *ComponentSize
+              : static_cast<size_t>(Column) * *Stride + Row * *ComponentSize;
+      std::memcpy(Buffer.data() + DestinationOffset,
+                  Logical->data() + SourceOffset, *ComponentSize);
+    }
+  }
+  return Buffer;
+}
+
+static std::optional<std::vector<int64_t>>
+calculateExpected(const CaseData &Case) {
+  size_t MatrixElementCount;
+  if (!cpu_oracle::checkedMultiply(static_cast<size_t>(Case.M),
+                                   static_cast<size_t>(Case.N),
+                                   MatrixElementCount) ||
+      Case.MatrixValues.size() != MatrixElementCount ||
+      Case.InterpretedVectorValues.size() != Case.N ||
+      (Case.hasBias() && Case.BiasValues.size() != Case.M))
+    return std::nullopt;
+
+  std::vector<int64_t> Expected(Case.M, 0);
+  for (MatrixDim Row = 0; Row < Case.M; ++Row) {
+    for (MatrixDim Column = 0; Column < Case.N; ++Column) {
+      int64_t Product;
+      int64_t Sum;
+      if (!checkedMultiplyInt64(
+              Case.MatrixValues[static_cast<size_t>(Row) * Case.N + Column],
+              Case.InterpretedVectorValues[Column], Product) ||
+          !checkedAddInt64(Expected[Row], Product, Sum))
+        return std::nullopt;
+      Expected[Row] = Sum;
+    }
+    if (Case.hasBias()) {
+      int64_t Sum;
+      if (!checkedAddInt64(Expected[Row], Case.BiasValues[Row], Sum))
+        return std::nullopt;
+      Expected[Row] = Sum;
+    }
+  }
+  return Expected;
+}
+
+static bool oracleSelfTest() {
+  const std::optional<std::vector<BYTE>> PackedSInt8 =
+      encodePackedVector(ComponentType::I8, {-1, 2, -3, 4, 5});
+  const std::optional<std::vector<BYTE>> PackedUInt8 =
+      encodePackedVector(ComponentType::U8, {255, 2, 253, 4, 5});
+  const std::vector<BYTE> PackedBytes = {0xff, 0x02, 0xfd, 0x04,
+                                         0x05, 0x00, 0x00, 0x00};
+
+  CaseData DotCase = {};
+  DotCase.M = 2;
+  DotCase.N = 3;
+  DotCase.MatrixValues = {1, 2, 3, -1, 4, 0};
+  DotCase.InterpretedVectorValues = {4, -2, 5};
+  DotCase.BiasInputType = ComponentType::I32;
+  DotCase.BiasValues = {7, -3};
+  const std::optional<std::vector<int64_t>> Dot = calculateExpected(DotCase);
+
+  int64_t Ignored;
+  return PackedSInt8 == PackedBytes && PackedUInt8 == PackedBytes && Dot &&
+         *Dot == std::vector<int64_t>({22, -15}) &&
+         !checkedMultiplyInt64(std::numeric_limits<int64_t>::max(), 2,
+                               Ignored) &&
+         !checkedAddInt64(std::numeric_limits<int64_t>::max(), 1, Ignored);
+}
+
+static bool isCaseValid(const CaseData &Case) {
+  size_t MatrixElementCount;
+  if (Case.M == 0 || Case.N == 0 ||
+      !cpu_oracle::checkedMultiply(static_cast<size_t>(Case.M),
+                                   static_cast<size_t>(Case.N),
+                                   MatrixElementCount) ||
+      Case.MatrixValues.size() != MatrixElementCount ||
+      Case.InterpretedVectorValues.size() != Case.N ||
+      (Case.Layout != MatrixLayout::RowMajor &&
+       Case.Layout != MatrixLayout::ColumnMajor) ||
+      !componentByteSize(Case.MatrixType) ||
+      !storageTypeName(Case.VectorInputType) ||
+      !storageTypeName(Case.ResultType) || Case.PublicRule.empty())
+    return false;
+
+  // A vector is either native or an InterpretedVector, which pairs a packed
+  // vector with an interpretation type. A native element type paired with a
+  // narrower interpretation is not a valid form.
+  if (Case.VectorInputType == ComponentType::F32 &&
+      Case.InputInterpretation != ComponentType::F32)
+    return false;
+  if (isPackedByteVector(Case.VectorInputType) &&
+      Case.InputInterpretation != Case.VectorInputType)
+    return false;
+  if (Case.hasBias() != !Case.BiasValues.empty() ||
+      (Case.hasBias() && (Case.BiasValues.size() != Case.M ||
+                          Case.BiasInputType != Case.ResultType ||
+                          !storageTypeName(Case.BiasInputType))))
+    return false;
+
+  const bool ExpectedSigned = Case.ResultType != ComponentType::U32;
+  return Case.OutputSigned == ExpectedSigned;
+}
+
+static std::optional<std::vector<BYTE>>
+encodeVectorBuffer(const CaseData &Case) {
+  if (isPackedByteVector(Case.VectorInputType))
+    return encodePackedVector(Case.VectorInputType,
+                              Case.InterpretedVectorValues);
+  return encodeComponents(Case.VectorInputType, Case.InterpretedVectorValues);
+}
+
+static std::optional<std::vector<BYTE>>
+encodeExpectedOutput(const CaseData &Case) {
+  const std::optional<std::vector<int64_t>> Values = calculateExpected(Case);
+  if (!Values)
+    return std::nullopt;
+  const std::optional<std::vector<BYTE>> Logical =
+      encodeComponents(Case.ResultType, *Values);
+  if (!Logical)
+    return std::nullopt;
+
+  size_t PaddedSize;
+  if (!cpu_oracle::checkedAdd(Logical->size(), size_t(3), PaddedSize))
+    return std::nullopt;
+  PaddedSize &= ~size_t(3);
+  size_t BufferSize;
+  if (!cpu_oracle::checkedAdd(PaddedSize, OutputGuardBytes, BufferSize))
+    return std::nullopt;
+
+  std::vector<BYTE> Buffer(BufferSize);
+  cpu_oracle::fillPoison(Buffer.data(), Buffer.size());
+  std::memcpy(Buffer.data(), Logical->data(), Logical->size());
+  return Buffer;
+}
+
+static bool needs16BitTypes(ComponentType Type) {
+  return Type == ComponentType::F16 || Type == ComponentType::I16 ||
+         Type == ComponentType::U16;
+}
+
+static std::optional<std::string> buildCompilerArgs(const CaseData &Case) {
+  const std::optional<size_t> MatrixStride = matrixStrideBytes(Case);
+  const char *InputStorageType = storageTypeName(Case.VectorInputType);
+  const char *OutputType = storageTypeName(Case.ResultType);
+  const char *BiasStorageType =
+      Case.hasBias() ? storageTypeName(Case.BiasInputType) : nullptr;
+  if (!MatrixStride || !InputStorageType || !OutputType ||
+      (Case.hasBias() && !BiasStorageType))
+    return std::nullopt;
+
+  std::stringstream Args;
+  Args << "-HV 202x";
+  Args << " -DMATRIX_COMP_TYPE=" << static_cast<int>(Case.MatrixType);
+  Args << " -DM_DIM=" << Case.M;
+  Args << " -DN_DIM=" << Case.N;
+  Args << " -DMATRIX_STRIDE=" << *MatrixStride;
+  Args << " -DMATRIX_LAYOUT=" << static_cast<int>(Case.Layout);
+  Args << " -DINPUT_STORAGE_TYPE=" << InputStorageType;
+  Args << " -DINPUT_STORAGE_COUNT="
+       << storageElementCount(Case.VectorInputType, Case.N);
+  Args << " -DINPUT_STORAGE_SIZE="
+       << storageElementByteSize(Case.VectorInputType);
+  Args << " -DINPUT_INTERP=" << static_cast<int>(Case.InputInterpretation);
+  Args << " -DOUTPUT_TYPE=" << OutputType;
+  Args << " -DOUTPUT_SIZE=" << componentByteSize(Case.ResultType).value_or(0);
+  Args << " -DOUTPUT_SIGNED=" << (Case.OutputSigned ? 1 : 0);
+  if (Case.hasBias()) {
+    Args << " -DBIAS_STORAGE_TYPE=" << BiasStorageType;
+    Args << " -DBIAS_STORAGE_COUNT="
+         << storageElementCount(Case.BiasInputType, Case.M);
+    Args << " -DBIAS_STORAGE_SIZE="
+         << storageElementByteSize(Case.BiasInputType);
+  }
+  if (needs16BitTypes(Case.MatrixType) ||
+      needs16BitTypes(Case.VectorInputType) ||
+      needs16BitTypes(Case.BiasInputType) || needs16BitTypes(Case.ResultType))
+    Args << " -enable-16bit-types";
+  return Args.str();
+}
+
+static bool verifyExactBuffer(const void *ActualBuffer, size_t ActualSize,
+                              const std::vector<BYTE> &Expected, bool Verbose) {
+  if (ActualSize != Expected.size()) {
+    hlsl_test::LogErrorFmt(
+        L"MatVec output size mismatch: actual=%zu, expected=%zu", ActualSize,
+        Expected.size());
+    return false;
+  }
+
+  const BYTE *Actual = static_cast<const BYTE *>(ActualBuffer);
+  size_t MismatchCount = 0;
+  for (size_t I = 0; I < Expected.size(); ++I) {
+    if (Actual[I] == Expected[I])
+      continue;
+    if (MismatchCount < 8)
+      hlsl_test::LogErrorFmt(
+          L"MatVec output byte %zu mismatch: actual=0x%02x, expected=0x%02x", I,
+          Actual[I], Expected[I]);
+    ++MismatchCount;
+  }
+  if (MismatchCount != 0) {
+    hlsl_test::LogErrorFmt(L"%zu MatVec output bytes differed", MismatchCount);
+    return false;
+  }
+  if (Verbose)
+    hlsl_test::LogCommentFmt(
+        L"All %zu MatVec output, padding, and guard bytes matched exactly",
+        Expected.size());
+  return true;
+}
+
+static const char MatVecMulShader[] = R"(
+  #define USE_A 0
+  #define SCOPE_THREAD 0
+
+  ByteAddressBuffer MatrixInput : register(t0);
+  ByteAddressBuffer VectorInput : register(t1);
+  RWByteAddressBuffer Output : register(u2);
+
+  [numthreads(1, 1, 1)]
+  void main() {
+    __builtin_LinAlgMatrix
+      [[__LinAlgMatrix_Attributes(
+        MATRIX_COMP_TYPE, M_DIM, N_DIM, USE_A, SCOPE_THREAD)]]
+      Mat;
+    __builtin_LinAlg_MatrixLoadFromDescriptor(
+      Mat, MatrixInput, 0, MATRIX_STRIDE, MATRIX_LAYOUT, 128);
+
+    vector<INPUT_STORAGE_TYPE, INPUT_STORAGE_COUNT> InVec;
+    for (uint I = 0; I < INPUT_STORAGE_COUNT; ++I) {
+      InVec[I] =
+        VectorInput.Load<INPUT_STORAGE_TYPE>(I * INPUT_STORAGE_SIZE);
+    }
+
+    vector<OUTPUT_TYPE, M_DIM> OutVec;
+    __builtin_LinAlg_MatrixVectorMultiply(
+      OutVec, Mat, OUTPUT_SIGNED, InVec, INPUT_INTERP);
+
+    for (uint I = 0; I < M_DIM; ++I) {
+      Output.Store<OUTPUT_TYPE>(I * OUTPUT_SIZE, OutVec[I]);
+    }
+  }
+)";
+
+static const char MatVecMulAddShader[] = R"(
+  #define USE_A 0
+  #define SCOPE_THREAD 0
+
+  ByteAddressBuffer MatrixInput : register(t0);
+  ByteAddressBuffer VectorInput : register(t1);
+  ByteAddressBuffer BiasInput : register(t2);
+  RWByteAddressBuffer Output : register(u3);
+
+  [numthreads(1, 1, 1)]
+  void main() {
+    __builtin_LinAlgMatrix
+      [[__LinAlgMatrix_Attributes(
+        MATRIX_COMP_TYPE, M_DIM, N_DIM, USE_A, SCOPE_THREAD)]]
+      Mat;
+    __builtin_LinAlg_MatrixLoadFromDescriptor(
+      Mat, MatrixInput, 0, MATRIX_STRIDE, MATRIX_LAYOUT, 128);
+
+    vector<INPUT_STORAGE_TYPE, INPUT_STORAGE_COUNT> InVec;
+    for (uint I = 0; I < INPUT_STORAGE_COUNT; ++I) {
+      InVec[I] =
+        VectorInput.Load<INPUT_STORAGE_TYPE>(I * INPUT_STORAGE_SIZE);
+    }
+
+    vector<BIAS_STORAGE_TYPE, BIAS_STORAGE_COUNT> BiasVec;
+    for (uint I = 0; I < BIAS_STORAGE_COUNT; ++I) {
+      BiasVec[I] = BiasInput.Load<BIAS_STORAGE_TYPE>(I * BIAS_STORAGE_SIZE);
+    }
+
+    vector<OUTPUT_TYPE, M_DIM> OutVec;
+    __builtin_LinAlg_MatrixVectorMultiplyAdd(
+      OutVec, Mat, OUTPUT_SIGNED, InVec, INPUT_INTERP, BiasVec);
+
+    for (uint I = 0; I < M_DIM; ++I) {
+      Output.Store<OUTPUT_TYPE>(I * OUTPUT_SIZE, OutVec[I]);
+    }
+  }
+)";
+
+static HRESULT querySupport(ID3D12Device *Device, const CaseData &Case,
+                            bool &TierSupported, bool &Supported) {
+  TierSupported = false;
+  Supported = false;
+  if (!Device)
+    return E_INVALIDARG;
+
+  const std::optional<linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE> VectorType =
+      toCapabilityDataType(Case.VectorInputType);
+  const std::optional<linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE> MatrixType =
+      toCapabilityDataType(Case.MatrixType);
+  const std::optional<linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE> BiasType =
+      Case.hasBias() ? toCapabilityDataType(Case.BiasInputType)
+                     : std::optional<linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE>(
+                           linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE_NONE);
+  const std::optional<linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE> ResultType =
+      toCapabilityDataType(Case.ResultType);
+  if (!VectorType || !MatrixType || !BiasType || !ResultType)
+    return E_INVALIDARG;
+
+  linalg_test::TierSupport Tier;
+  HRESULT HR = linalg_test::queryTierSupport(Device, Tier);
+  if (FAILED(HR))
+    return HR;
+  TierSupported = Tier.supported();
+  if (!TierSupported)
+    return S_OK;
+
+  linalg_test::ThreadVectorMatrixMultiplySupport Multiply;
+  HR = linalg_test::queryThreadVectorMatrixMultiply(
+      Device, {*VectorType, *MatrixType, *BiasType, *ResultType}, Multiply);
+  if (FAILED(HR))
+    return HR;
+
+  Supported = Multiply.supported();
+  if (!Supported)
+    hlsl_test::LogCommentFmt(
+        L"ThreadVectorMatrixMultiply reports vector=%u matrix=%u bias=%u "
+        L"result=%u layout=%u is unsupported",
+        static_cast<UINT>(*VectorType), static_cast<UINT>(*MatrixType),
+        static_cast<UINT>(*BiasType), static_cast<UINT>(*ResultType),
+        static_cast<UINT>(Case.Layout));
+  return S_OK;
+}
+
+static void runCase(ID3D12Device *Device, dxc::SpecificDllLoader &DxcSupport,
+                    const CaseData &Case, bool Verbose) {
+  const bool SelfTestPassed = oracleSelfTest();
+  VERIFY_IS_TRUE(SelfTestPassed, "MatVec host oracle self-test failed");
+  const bool Valid = isCaseValid(Case);
+  VERIFY_IS_TRUE(Valid, "Invalid MatVec interpretation case");
+  if (!SelfTestPassed || !Valid)
+    return;
+
+  const std::optional<std::vector<BYTE>> MatrixBuffer =
+      encodeMatrixBuffer(Case);
+  const std::optional<std::vector<BYTE>> VectorBuffer =
+      encodeVectorBuffer(Case);
+  const std::optional<std::vector<BYTE>> BiasBuffer =
+      Case.hasBias() ? encodeComponents(Case.BiasInputType, Case.BiasValues)
+                     : std::optional<std::vector<BYTE>>();
+  const std::optional<std::vector<BYTE>> ExpectedOutput =
+      encodeExpectedOutput(Case);
+  const std::optional<std::string> Args = buildCompilerArgs(Case);
+  VERIFY_IS_TRUE(MatrixBuffer.has_value());
+  VERIFY_IS_TRUE(VectorBuffer.has_value());
+  VERIFY_IS_TRUE(!Case.hasBias() || BiasBuffer.has_value());
+  VERIFY_IS_TRUE(ExpectedOutput.has_value());
+  VERIFY_IS_TRUE(Args.has_value());
+  if (!MatrixBuffer || !VectorBuffer || (Case.hasBias() && !BiasBuffer) ||
+      !ExpectedOutput || !Args)
+    return;
+
+  const char *Shader = Case.hasBias() ? MatVecMulAddShader : MatVecMulShader;
+  const char *RootSignature = Case.hasBias()
+                                  ? "SRV(t0), SRV(t1), SRV(t2), UAV(u3)"
+                                  : "SRV(t0), SRV(t1), UAV(u2)";
+  compileShader(DxcSupport, Shader, "cs_6_10", *Args, Verbose);
+
+  auto Op = createComputeOp(Shader, "cs_6_10", RootSignature, Args->c_str());
+  addSRVBuffer(Op.get(), "MatrixInput", MatrixBuffer->size(), "byname");
+  addSRVBuffer(Op.get(), "VectorInput", VectorBuffer->size(), "byname");
+  if (Case.hasBias())
+    addSRVBuffer(Op.get(), "BiasInput", BiasBuffer->size(), "byname");
+  addUAVBuffer(Op.get(), "Output", ExpectedOutput->size(), true, "byname");
+  addRootView(Op.get(), 0, "MatrixInput");
+  addRootView(Op.get(), 1, "VectorInput");
+  if (Case.hasBias()) {
+    addRootView(Op.get(), 2, "BiasInput");
+    addRootView(Op.get(), 3, "Output");
+  } else {
+    addRootView(Op.get(), 2, "Output");
+  }
+
+  auto Result =
+      runShaderOp(Device, DxcSupport, std::move(Op),
+                  [&](LPCSTR Name, std::vector<BYTE> &Data, st::ShaderOp *) {
+                    if (_stricmp(Name, "Output") == 0) {
+                      cpu_oracle::fillPoison(Data.data(), Data.size());
+                      return;
+                    }
+
+                    const std::vector<BYTE> *Source = nullptr;
+                    if (_stricmp(Name, "MatrixInput") == 0)
+                      Source = &*MatrixBuffer;
+                    else if (_stricmp(Name, "VectorInput") == 0)
+                      Source = &*VectorBuffer;
+                    else if (Case.hasBias() && _stricmp(Name, "BiasInput") == 0)
+                      Source = &*BiasBuffer;
+                    VERIFY_IS_TRUE(Source != nullptr,
+                                   "Unexpected MatVec resource initializer");
+                    if (!Source)
+                      return;
+                    VERIFY_IS_TRUE(Data.size() == Source->size(),
+                                   "MatVec resource initializer size mismatch");
+                    if (Data.size() == Source->size())
+                      std::memcpy(Data.data(), Source->data(), Data.size());
+                  });
+
+  MappedData OutData;
+  Result->Test->GetReadBackData("Output", &OutData);
+  VERIFY_IS_TRUE(verifyExactBuffer(OutData.data(), OutData.size(),
+                                   *ExpectedOutput, Verbose));
+}
+
+static void runCapabilityChecked(ID3D12Device *Device,
+                                 dxc::SpecificDllLoader &DxcSupport,
+                                 const CaseData &Case,
+                                 linalg_test::CapabilityRequirement Requirement,
+                                 LPCWSTR CaseName, bool Verbose) {
+  bool TierSupported = false;
+  bool Supported = false;
+  const HRESULT QueryResult =
+      querySupport(Device, Case, TierSupported, Supported);
+  const linalg_test::CapabilityRequirement Effective =
+      SUCCEEDED(QueryResult) && !TierSupported
+          ? linalg_test::CapabilityRequirement::CapabilityGated
+          : Requirement;
+  if (!applyApplicability(
+          linalg_test::classifyApplicability(QueryResult, Supported, Effective),
+          CaseName))
+    return;
+  runCase(Device, DxcSupport, Case, Verbose);
+}
+
+static CaseData makeNonUniformF16Case(MatrixLayout Layout) {
+  CaseData Case = {};
+  Case.MatrixType = ComponentType::F16;
+  Case.M = 4;
+  Case.N = 8;
+  Case.Layout = Layout;
+  Case.VectorInputType = ComponentType::F16;
+  Case.InputInterpretation = ComponentType::F16;
+  Case.ResultType = ComponentType::F16;
+  Case.MatrixValues = {
+      1,  0, -1, 2, -2, 3, -3, 1,  0, 1,  2, -1, 3, -2, 1,  -3,
+      -1, 2, 0,  1, -2, 1, 3,  -1, 2, -1, 1, 0,  1, -3, -2, 3,
+  };
+  Case.InterpretedVectorValues = {1, -2, 3, -1, 2, -3, 1, 2};
+  Case.PublicRule =
+      Layout == MatrixLayout::RowMajor
+          ? L"Exact non-uniform F16 RowMajor matrix-vector dot products"
+          : L"Exact non-uniform F16 ColumnMajor matrix-vector dot products";
+  return Case;
+}
+
+static CaseData makeSInt8Case() {
+  CaseData Case = {};
+  Case.MatrixType = ComponentType::I8;
+  Case.M = 4;
+  Case.N = 8;
+  Case.Layout = MatrixLayout::RowMajor;
+  Case.VectorInputType = ComponentType::I8;
+  Case.InputInterpretation = ComponentType::I8;
+  Case.ResultType = ComponentType::I32;
+  Case.MatrixValues = {
+      1, -2, 3, -4, 5, -6, 7, -8, -1, 2,  -3, 4,  -5, 6,  -7, 8,
+      1, 1,  1, 1,  1, 1,  1, 1,  -8, -7, -6, -5, -4, -3, -2, -1,
+  };
+  Case.InterpretedVectorValues = {1, -1, 2, -2, 3, -3, 4, -4};
+  Case.PublicRule =
+      L"Exact packed SInt8 vector times SInt8 matrix dot products";
+  return Case;
+}
+
+static CaseData makeUInt8Case() {
+  CaseData Case = {};
+  Case.MatrixType = ComponentType::U8;
+  Case.M = 4;
+  Case.N = 8;
+  Case.Layout = MatrixLayout::RowMajor;
+  Case.VectorInputType = ComponentType::U8;
+  Case.InputInterpretation = ComponentType::U8;
+  Case.ResultType = ComponentType::I32;
+  Case.MatrixValues = {
+      255, 1, 2,   3, 4,   5, 6,   7, 128, 127, 1, 1,   1, 1,   1, 1,
+      200, 0, 200, 0, 200, 0, 200, 0, 0,   200, 0, 200, 0, 200, 0, 200,
+  };
+  Case.InterpretedVectorValues = {1, 255, 2, 254, 3, 253, 4, 252};
+  Case.PublicRule =
+      L"Exact packed UInt8 vector times UInt8 matrix dot products";
+  return Case;
+}
+
+static CaseData makeUInt32OutputCase() {
+  CaseData Case = {};
+  Case.MatrixType = ComponentType::U32;
+  Case.M = 4;
+  Case.N = 8;
+  Case.Layout = MatrixLayout::RowMajor;
+  Case.VectorInputType = ComponentType::U32;
+  Case.InputInterpretation = ComponentType::U32;
+  Case.ResultType = ComponentType::U32;
+  Case.OutputSigned = false;
+  Case.MatrixValues = {
+      2147483648LL, 0, 0,   0, 0,   0, 0,   0, 1, 2,   3, 4,   5, 6,   7, 8,
+      100,          0, 100, 0, 100, 0, 100, 0, 0, 200, 0, 200, 0, 200, 0, 200,
+  };
+  Case.InterpretedVectorValues = {1, 1, 1, 1, 1, 1, 1, 1};
+  Case.PublicRule =
+      L"Exact native UInt32 matrix-vector results with unsigned output";
+  return Case;
+}
+
+} // namespace matvec_interpretation
+
+void DxilConf_SM610_LinAlg::MatVecMul_Thread_4x8_F16_NonUniform() {
+  const matvec_interpretation::CaseData Case =
+      matvec_interpretation::makeNonUniformF16Case(MatrixLayout::RowMajor);
+  matvec_interpretation::runCapabilityChecked(
+      D3DDevice, DxcSupport, Case,
+      linalg_test::CapabilityRequirement::Mandatory,
+      L"MatVecMul_Thread_4x8_F16_NonUniform", VerboseLogging);
+}
+
+void DxilConf_SM610_LinAlg::MatVecMul_Thread_4x8_F16_ColumnMajor() {
+  const matvec_interpretation::CaseData Case =
+      matvec_interpretation::makeNonUniformF16Case(MatrixLayout::ColumnMajor);
+  matvec_interpretation::runCapabilityChecked(
+      D3DDevice, DxcSupport, Case,
+      linalg_test::CapabilityRequirement::Mandatory,
+      L"MatVecMul_Thread_4x8_F16_ColumnMajor", VerboseLogging);
+}
+
+void DxilConf_SM610_LinAlg::MatVecMul_Thread_4x8_I8_Interpreted() {
+  const matvec_interpretation::CaseData Case =
+      matvec_interpretation::makeSInt8Case();
+  matvec_interpretation::runCapabilityChecked(
+      D3DDevice, DxcSupport, Case,
+      linalg_test::CapabilityRequirement::Mandatory,
+      L"MatVecMul_Thread_4x8_I8_Interpreted", VerboseLogging);
+}
+
+void DxilConf_SM610_LinAlg::MatVecMul_Thread_4x8_U8_Interpreted() {
+  const matvec_interpretation::CaseData Case =
+      matvec_interpretation::makeUInt8Case();
+  matvec_interpretation::runCapabilityChecked(
+      D3DDevice, DxcSupport, Case,
+      linalg_test::CapabilityRequirement::Mandatory,
+      L"MatVecMul_Thread_4x8_U8_Interpreted", VerboseLogging);
+}
+
+void DxilConf_SM610_LinAlg::MatVecMul_Thread_4x8_U32_UnsignedOutput() {
+  const matvec_interpretation::CaseData Case =
+      matvec_interpretation::makeUInt32OutputCase();
+  matvec_interpretation::runCapabilityChecked(
+      D3DDevice, DxcSupport, Case,
+      linalg_test::CapabilityRequirement::CapabilityGated,
+      L"MatVecMul_Thread_4x8_U32_UnsignedOutput", VerboseLogging);
+}
+
+void DxilConf_SM610_LinAlg::MatVecMulAdd_Thread_4x8_F16_IndependentBias() {
+  matvec_interpretation::CaseData Case =
+      matvec_interpretation::makeNonUniformF16Case(MatrixLayout::RowMajor);
+  Case.BiasInputType = ComponentType::F16;
+  Case.BiasValues = {-5, 7, 3, -9};
+  Case.PublicRule =
+      L"Exact non-uniform F16 dots plus independent non-uniform bias";
+  matvec_interpretation::runCapabilityChecked(
+      D3DDevice, DxcSupport, Case,
+      linalg_test::CapabilityRequirement::Mandatory,
+      L"MatVecMulAdd_Thread_4x8_F16_IndependentBias", VerboseLogging);
 }
 
 struct ConvertThreadVectorMatrixMultiplyEntry {
