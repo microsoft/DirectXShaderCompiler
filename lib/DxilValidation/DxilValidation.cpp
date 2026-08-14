@@ -1625,7 +1625,7 @@ static void ValidateLinAlgMatrixAccumulate(CallInst *CI,
       RHSLATT.Scope != DXIL::MatrixScope::ThreadGroup)
     ValCtx.EmitInstrFormatError(
         CI, ValidationRule::InstrLinAlgMatrixScopeMismatch2,
-        {"Arg 2", MatrixScopeToString(RetLATT.Scope), "Wave", "ThreadGroup"});
+        {"Arg 2", MatrixScopeToString(RHSLATT.Scope), "Wave", "ThreadGroup"});
 
   if (RetLATT.Scope != DXIL::MatrixScope::Wave &&
       RetLATT.Scope != DXIL::MatrixScope::ThreadGroup)
