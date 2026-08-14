@@ -1634,7 +1634,7 @@ static void ValidateLinAlgCopyConvertMatrix(CallInst *CI,
   unsigned DstN = DstMat->N;
   unsigned SrcM = SrcMat->M;
   unsigned SrcN = SrcMat->N;
-  if (*Transpose == 1) {
+  if (Transpose && *Transpose == 1) {
     SrcM = SrcMat->N;
     SrcN = SrcMat->M;
   }
