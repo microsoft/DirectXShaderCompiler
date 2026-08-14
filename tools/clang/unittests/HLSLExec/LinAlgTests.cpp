@@ -655,6 +655,37 @@ static bool checkedAdd(size_t Left, size_t Right, size_t &Result) {
   return true;
 }
 
+static bool checkedMultiplyInt64(int64_t Left, int64_t Right, int64_t &Result) {
+  if (Left == 0 || Right == 0) {
+    Result = 0;
+    return true;
+  }
+  if ((Left == -1 && Right == std::numeric_limits<int64_t>::min()) ||
+      (Right == -1 && Left == std::numeric_limits<int64_t>::min()))
+    return false;
+
+  if (Left > 0) {
+    if ((Right > 0 && Left > std::numeric_limits<int64_t>::max() / Right) ||
+        (Right < 0 && Right < std::numeric_limits<int64_t>::min() / Left))
+      return false;
+  } else {
+    if ((Right > 0 && Left < std::numeric_limits<int64_t>::min() / Right) ||
+        (Right < 0 && Left < std::numeric_limits<int64_t>::max() / Right))
+      return false;
+  }
+
+  Result = Left * Right;
+  return true;
+}
+
+static bool checkedAddInt64(int64_t Left, int64_t Right, int64_t &Result) {
+  if ((Right > 0 && Left > std::numeric_limits<int64_t>::max() - Right) ||
+      (Right < 0 && Left < std::numeric_limits<int64_t>::min() - Right))
+    return false;
+  Result = Left + Right;
+  return true;
+}
+
 static bool isSupportedComponentType(ComponentType CompType) {
   switch (CompType) {
   case ComponentType::F16:
@@ -671,6 +702,10 @@ static LPCWSTR componentTypeName(ComponentType CompType) {
   switch (CompType) {
   case ComponentType::I16:
     return L"I16";
+  case ComponentType::I8:
+    return L"I8";
+  case ComponentType::U8:
+    return L"U8";
   case ComponentType::F16:
     return L"F16";
   case ComponentType::F32:
@@ -1741,37 +1776,6 @@ static size_t storageElementByteSize(ComponentType Type) {
                                   : componentByteSize(Type).value_or(0);
 }
 
-static bool checkedMultiplyInt64(int64_t Left, int64_t Right, int64_t &Result) {
-  if (Left == 0 || Right == 0) {
-    Result = 0;
-    return true;
-  }
-  if ((Left == -1 && Right == std::numeric_limits<int64_t>::min()) ||
-      (Right == -1 && Left == std::numeric_limits<int64_t>::min()))
-    return false;
-
-  if (Left > 0) {
-    if ((Right > 0 && Left > std::numeric_limits<int64_t>::max() / Right) ||
-        (Right < 0 && Right < std::numeric_limits<int64_t>::min() / Left))
-      return false;
-  } else {
-    if ((Right > 0 && Left < std::numeric_limits<int64_t>::min() / Right) ||
-        (Right < 0 && Left < std::numeric_limits<int64_t>::max() / Right))
-      return false;
-  }
-
-  Result = Left * Right;
-  return true;
-}
-
-static bool checkedAddInt64(int64_t Left, int64_t Right, int64_t &Result) {
-  if ((Right > 0 && Left > std::numeric_limits<int64_t>::max() - Right) ||
-      (Right < 0 && Left < std::numeric_limits<int64_t>::min() - Right))
-    return false;
-  Result = Left + Right;
-  return true;
-}
-
 template <typename T>
 static std::vector<BYTE> encodeNativeVector(const std::vector<T> &Values) {
   static_assert(std::is_trivially_copyable<T>::value,
@@ -1782,16 +1786,22 @@ static std::vector<BYTE> encodeNativeVector(const std::vector<T> &Values) {
   return Bytes;
 }
 
+static std::nullopt_t reportUnrepresentable(ComponentType Type, int64_t Value) {
+  hlsl_test::LogErrorFmt(L"MatVec case value %lld is not representable as %s",
+                         Value, cpu_oracle::componentTypeName(Type));
+  return std::nullopt;
+}
+
 static std::optional<BYTE> encodeByte(ComponentType Type, int64_t Value) {
   if (Type == ComponentType::I8) {
     if (Value < std::numeric_limits<int8_t>::min() ||
         Value > std::numeric_limits<int8_t>::max())
-      return std::nullopt;
+      return reportUnrepresentable(Type, Value);
     return static_cast<BYTE>(static_cast<uint8_t>(static_cast<int8_t>(Value)));
   }
   if (Type == ComponentType::U8) {
     if (Value < 0 || Value > std::numeric_limits<uint8_t>::max())
-      return std::nullopt;
+      return reportUnrepresentable(Type, Value);
     return static_cast<BYTE>(Value);
   }
   return std::nullopt;
@@ -1818,7 +1828,7 @@ encodeComponents(ComponentType Type, const std::vector<int64_t> &Values) {
     for (int64_t Value : Values) {
       const HLSLHalf_t Half(static_cast<float>(Value));
       if (static_cast<float>(Half) != static_cast<float>(Value))
-        return std::nullopt;
+        return reportUnrepresentable(Type, Value);
       Native.push_back(Half);
     }
     return encodeNativeVector(Native);
@@ -1829,7 +1839,7 @@ encodeComponents(ComponentType Type, const std::vector<int64_t> &Values) {
     for (int64_t Value : Values) {
       const float FloatValue = static_cast<float>(Value);
       if (static_cast<int64_t>(FloatValue) != Value)
-        return std::nullopt;
+        return reportUnrepresentable(Type, Value);
       Native.push_back(FloatValue);
     }
     return encodeNativeVector(Native);
@@ -1840,7 +1850,7 @@ encodeComponents(ComponentType Type, const std::vector<int64_t> &Values) {
     for (int64_t Value : Values) {
       if (Value < std::numeric_limits<int32_t>::min() ||
           Value > std::numeric_limits<int32_t>::max())
-        return std::nullopt;
+        return reportUnrepresentable(Type, Value);
       Native.push_back(static_cast<int32_t>(Value));
     }
     return encodeNativeVector(Native);
@@ -1851,7 +1861,7 @@ encodeComponents(ComponentType Type, const std::vector<int64_t> &Values) {
     for (int64_t Value : Values) {
       if (Value < 0 ||
           static_cast<uint64_t>(Value) > std::numeric_limits<uint32_t>::max())
-        return std::nullopt;
+        return reportUnrepresentable(Type, Value);
       Native.push_back(static_cast<uint32_t>(Value));
     }
     return encodeNativeVector(Native);
@@ -1952,46 +1962,22 @@ calculateExpected(const CaseData &Case) {
     for (MatrixDim Column = 0; Column < Case.N; ++Column) {
       int64_t Product;
       int64_t Sum;
-      if (!checkedMultiplyInt64(
+      if (!cpu_oracle::checkedMultiplyInt64(
               Case.MatrixValues[static_cast<size_t>(Row) * Case.N + Column],
               Case.InterpretedVectorValues[Column], Product) ||
-          !checkedAddInt64(Expected[Row], Product, Sum))
+          !cpu_oracle::checkedAddInt64(Expected[Row], Product, Sum))
         return std::nullopt;
       Expected[Row] = Sum;
     }
     if (Case.hasBias()) {
       int64_t Sum;
-      if (!checkedAddInt64(Expected[Row], Case.BiasValues[Row], Sum))
+      if (!cpu_oracle::checkedAddInt64(Expected[Row], Case.BiasValues[Row],
+                                       Sum))
         return std::nullopt;
       Expected[Row] = Sum;
     }
   }
   return Expected;
-}
-
-static bool oracleSelfTest() {
-  const std::optional<std::vector<BYTE>> PackedSInt8 =
-      encodePackedVector(ComponentType::I8, {-1, 2, -3, 4, 5});
-  const std::optional<std::vector<BYTE>> PackedUInt8 =
-      encodePackedVector(ComponentType::U8, {255, 2, 253, 4, 5});
-  const std::vector<BYTE> PackedBytes = {0xff, 0x02, 0xfd, 0x04,
-                                         0x05, 0x00, 0x00, 0x00};
-
-  CaseData DotCase = {};
-  DotCase.M = 2;
-  DotCase.N = 3;
-  DotCase.MatrixValues = {1, 2, 3, -1, 4, 0};
-  DotCase.InterpretedVectorValues = {4, -2, 5};
-  DotCase.BiasInputType = ComponentType::I32;
-  DotCase.BiasValues = {7, -3};
-  const std::optional<std::vector<int64_t>> Dot = calculateExpected(DotCase);
-
-  int64_t Ignored;
-  return PackedSInt8 == PackedBytes && PackedUInt8 == PackedBytes && Dot &&
-         *Dot == std::vector<int64_t>({22, -15}) &&
-         !checkedMultiplyInt64(std::numeric_limits<int64_t>::max(), 2,
-                               Ignored) &&
-         !checkedAddInt64(std::numeric_limits<int64_t>::max(), 1, Ignored);
 }
 
 static bool isCaseValid(const CaseData &Case) {
@@ -2255,11 +2241,9 @@ static HRESULT querySupport(ID3D12Device *Device, const CaseData &Case,
 
 static void runCase(ID3D12Device *Device, dxc::SpecificDllLoader &DxcSupport,
                     const CaseData &Case, bool Verbose) {
-  const bool SelfTestPassed = oracleSelfTest();
-  VERIFY_IS_TRUE(SelfTestPassed, "MatVec host oracle self-test failed");
   const bool Valid = isCaseValid(Case);
   VERIFY_IS_TRUE(Valid, "Invalid MatVec interpretation case");
-  if (!SelfTestPassed || !Valid)
+  if (!Valid)
     return;
 
   const std::optional<std::vector<BYTE>> MatrixBuffer =
@@ -2446,6 +2430,7 @@ public:
   TEST_METHOD(UntouchedByteVerification);
   TEST_METHOD(ViewBoundedElements);
   TEST_METHOD(ViewBoundedStoreBytes);
+  TEST_METHOD(MatVecHostOracle);
 };
 
 void LinAlgCPUOracleTests::TypedMatrixBufferRoundTrip() {
@@ -2836,6 +2821,44 @@ void LinAlgCPUOracleTests::ViewBoundedStoreBytes() {
       ComponentType::U32, 2, 3, Layout, Full->data(), Full->size());
   VERIFY_IS_TRUE(Corrupted.has_value());
   VERIFY_ARE_EQUAL(*Corrupted, static_cast<size_t>(0));
+}
+
+void LinAlgCPUOracleTests::MatVecHostOracle() {
+  using namespace matvec_interpretation;
+
+  const std::vector<BYTE> PackedBytes = {0xff, 0x02, 0xfd, 0x04,
+                                         0x05, 0x00, 0x00, 0x00};
+  const std::optional<std::vector<BYTE>> PackedSInt8 =
+      encodePackedVector(ComponentType::I8, {-1, 2, -3, 4, 5});
+  VERIFY_IS_TRUE(PackedSInt8.has_value(), "SInt8 packing failed");
+  VERIFY_IS_TRUE(PackedSInt8 == PackedBytes,
+                 "SInt8 packing produced unexpected bytes");
+
+  const std::optional<std::vector<BYTE>> PackedUInt8 =
+      encodePackedVector(ComponentType::U8, {255, 2, 253, 4, 5});
+  VERIFY_IS_TRUE(PackedUInt8.has_value(), "UInt8 packing failed");
+  VERIFY_IS_TRUE(PackedUInt8 == PackedBytes,
+                 "UInt8 packing produced unexpected bytes");
+
+  CaseData DotCase = {};
+  DotCase.M = 2;
+  DotCase.N = 3;
+  DotCase.MatrixValues = {1, 2, 3, -1, 4, 0};
+  DotCase.InterpretedVectorValues = {4, -2, 5};
+  DotCase.BiasInputType = ComponentType::I32;
+  DotCase.BiasValues = {7, -3};
+  const std::optional<std::vector<int64_t>> Dot = calculateExpected(DotCase);
+  VERIFY_IS_TRUE(Dot.has_value(), "Biased dot product oracle returned nothing");
+  VERIFY_IS_TRUE(*Dot == std::vector<int64_t>({22, -15}),
+                 "Biased dot product oracle returned the wrong values");
+
+  int64_t Ignored;
+  VERIFY_IS_FALSE(cpu_oracle::checkedMultiplyInt64(
+                      std::numeric_limits<int64_t>::max(), 2, Ignored),
+                  "checkedMultiplyInt64 missed an overflow");
+  VERIFY_IS_FALSE(cpu_oracle::checkedAddInt64(
+                      std::numeric_limits<int64_t>::max(), 1, Ignored),
+                  "checkedAddInt64 missed an overflow");
 }
 
 class LinAlgCapabilityTests {
