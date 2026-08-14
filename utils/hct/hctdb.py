@@ -8713,6 +8713,22 @@ class db_dxil(object):
             "Instr.LinAlgMatrix2PartsMustMatch",
             "%0 matrix %1 '%2' must match %3 matrix %4 '%5'.",
         )
+        self.add_valrule(
+            "Instr.LinAlgMatrixScopeMustMatch3",
+            "Matrix scope must be the same for all matrices. %0 '%1', %2 '%3', %4 '%5'.",
+        )
+        self.add_valrule(
+            "Instr.LinAlgMatrixScopeMustMatch4",
+            "Matrix scope must be the same for all matrices. %0 '%1', %2 '%3', %4 '%5', %6 '%7'.",
+        )
+        self.add_valrule(
+            "Instr.LinAlgMatrixMatrixKDimMustMatch",
+            "K dim of A matrix '%0' must match K dim of B matrix '%1'. %2 != %3.",
+        )
+        self.add_valrule(
+            "Instr.LinAlgMatrixMatrixResDimMustMatch",
+            "%0 matrix dimension '%1' must match A.MxB.N '%2'",
+        )
 
         # Some legacy rules:
         # - space is only supported for shader targets 5.1 and higher

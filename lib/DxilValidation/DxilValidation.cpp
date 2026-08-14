@@ -1451,12 +1451,198 @@ static void ValidateLinAlgMatrixMultiply(CallInst *CI,
                                          ValidationContext &ValCtx) {
   ValidateLinAlgOpReturnMatrix(CI, ValCtx);
   ValidateLinAlgOpParameters(CI, ValCtx);
+  DxilInst_LinAlgMatrixMultiply Op(CI);
+  std::optional<LinAlgTargetType> RetMat =
+      GetCheckedLATT(CI->getType(), ValCtx);
+  if (!RetMat)
+    return;
+  std::optional<LinAlgTargetType> AMat =
+      GetCheckedLATT(Op.get_matrixA()->getType(), ValCtx);
+  if (!AMat)
+    return;
+  std::optional<LinAlgTargetType> BMat =
+      GetCheckedLATT(Op.get_matrixB()->getType(), ValCtx);
+  if (!BMat)
+    return;
+
+  // A is an A matrix
+  if (AMat->Use != DXIL::MatrixUse::A)
+    ValCtx.EmitInstrFormatError(CI,
+                                ValidationRule::InstrLinAlgMatrixUseMismatch,
+                                {"A", MatrixUseToString(AMat->Use), "A"});
+
+  // B is a B matrix
+  if (BMat->Use != DXIL::MatrixUse::B)
+    ValCtx.EmitInstrFormatError(CI,
+                                ValidationRule::InstrLinAlgMatrixUseMismatch,
+                                {"B", MatrixUseToString(BMat->Use), "B"});
+
+  // Ret is a Accumulator matrx
+  if (RetMat->Use != DXIL::MatrixUse::Accumulator)
+    ValCtx.EmitInstrFormatError(
+        CI, ValidationRule::InstrLinAlgMatrixUseMismatch,
+        {"Return", MatrixUseToString(RetMat->Use), "Accumulator"});
+
+  // A scope must be Wave or ThreadGroup
+  if (AMat->Scope != DXIL::MatrixScope::Wave &&
+      AMat->Scope != DXIL::MatrixScope::ThreadGroup)
+    ValCtx.EmitInstrFormatError(
+        CI, ValidationRule::InstrLinAlgMatrixScopeMismatch2,
+        {"A", MatrixScopeToString(AMat->Scope), "Wave", "ThreadGroup"});
+
+  // B scope must be Wave or ThreadGroup
+  if (BMat->Scope != DXIL::MatrixScope::Wave &&
+      BMat->Scope != DXIL::MatrixScope::ThreadGroup)
+    ValCtx.EmitInstrFormatError(
+        CI, ValidationRule::InstrLinAlgMatrixScopeMismatch2,
+        {"B", MatrixScopeToString(BMat->Scope), "Wave", "ThreadGroup"});
+
+  // Ret scope must be Wave or ThreadGroup
+  if (RetMat->Scope != DXIL::MatrixScope::Wave &&
+      RetMat->Scope != DXIL::MatrixScope::ThreadGroup)
+    ValCtx.EmitInstrFormatError(
+        CI, ValidationRule::InstrLinAlgMatrixScopeMismatch2,
+        {"Return", MatrixScopeToString(RetMat->Scope), "Wave", "ThreadGroup"});
+
+  // A, B, Ret scope must all be the same
+  if (AMat->Scope != BMat->Scope || BMat->Scope != RetMat->Scope)
+    ValCtx.EmitInstrFormatError(
+        CI, ValidationRule::InstrLinAlgMatrixScopeMustMatch3,
+        {"A", MatrixScopeToString(AMat->Scope), "B",
+         MatrixScopeToString(BMat->Scope), "Return",
+         MatrixScopeToString(RetMat->Scope)});
+
+  unsigned M = AMat->M;
+  unsigned AK = AMat->N;
+  unsigned BK = BMat->M;
+  unsigned N = BMat->N;
+
+  // K dim must match between A and B
+  if (AK != BK)
+    ValCtx.EmitInstrFormatError(
+        CI, ValidationRule::InstrLinAlgMatrixMatrixKDimMustMatch,
+        {std::to_string(M) + "x" + std::to_string(AK),
+         std::to_string(BK) + "x" + std::to_string(N), std::to_string(AK),
+         std::to_string(BK)});
+
+  // Return dim must match A.M x B.N
+  if (RetMat->M != M || RetMat->N != N)
+    ValCtx.EmitInstrFormatError(
+        CI, ValidationRule::InstrLinAlgMatrixMatrixResDimMustMatch,
+        {"Return", std::to_string(RetMat->M) + "x" + std::to_string(RetMat->N),
+         std::to_string(M) + "x" + std::to_string(N)});
 }
 
 static void ValidateLinAlgMatrixMultiplyAccumulate(CallInst *CI,
                                                    ValidationContext &ValCtx) {
   ValidateLinAlgOpReturnMatrix(CI, ValCtx);
   ValidateLinAlgOpParameters(CI, ValCtx);
+  DxilInst_LinAlgMatrixMultiplyAccumulate Op(CI);
+  std::optional<LinAlgTargetType> RetMat =
+      GetCheckedLATT(CI->getType(), ValCtx);
+  if (!RetMat)
+    return;
+  std::optional<LinAlgTargetType> AMat =
+      GetCheckedLATT(Op.get_matrixA()->getType(), ValCtx);
+  if (!AMat)
+    return;
+  std::optional<LinAlgTargetType> BMat =
+      GetCheckedLATT(Op.get_matrixB()->getType(), ValCtx);
+  if (!BMat)
+    return;
+  std::optional<LinAlgTargetType> CMat =
+      GetCheckedLATT(Op.get_matrixC()->getType(), ValCtx);
+  if (!CMat)
+    return;
+
+  // A is an A matrix
+  if (AMat->Use != DXIL::MatrixUse::A)
+    ValCtx.EmitInstrFormatError(CI,
+                                ValidationRule::InstrLinAlgMatrixUseMismatch,
+                                {"A", MatrixUseToString(AMat->Use), "A"});
+
+  // B is a B matrix
+  if (BMat->Use != DXIL::MatrixUse::B)
+    ValCtx.EmitInstrFormatError(CI,
+                                ValidationRule::InstrLinAlgMatrixUseMismatch,
+                                {"B", MatrixUseToString(BMat->Use), "B"});
+
+  // C is an Accumulator matrix
+  if (CMat->Use != DXIL::MatrixUse::Accumulator)
+    ValCtx.EmitInstrFormatError(
+        CI, ValidationRule::InstrLinAlgMatrixUseMismatch,
+        {"C", MatrixUseToString(BMat->Use), "Accumulator"});
+
+  // Ret is a Accumulator matrx
+  if (RetMat->Use != DXIL::MatrixUse::Accumulator)
+    ValCtx.EmitInstrFormatError(
+        CI, ValidationRule::InstrLinAlgMatrixUseMismatch,
+        {"Return", MatrixUseToString(RetMat->Use), "Accumulator"});
+
+  // A scope must be Wave or ThreadGroup
+  if (AMat->Scope != DXIL::MatrixScope::Wave &&
+      AMat->Scope != DXIL::MatrixScope::ThreadGroup)
+    ValCtx.EmitInstrFormatError(
+        CI, ValidationRule::InstrLinAlgMatrixScopeMismatch2,
+        {"A", MatrixScopeToString(AMat->Scope), "Wave", "ThreadGroup"});
+
+  // B scope must be Wave or ThreadGroup
+  if (BMat->Scope != DXIL::MatrixScope::Wave &&
+      BMat->Scope != DXIL::MatrixScope::ThreadGroup)
+    ValCtx.EmitInstrFormatError(
+        CI, ValidationRule::InstrLinAlgMatrixScopeMismatch2,
+        {"B", MatrixScopeToString(BMat->Scope), "Wave", "ThreadGroup"});
+
+  // C scope must be Wave or ThreadGroup
+  if (CMat->Scope != DXIL::MatrixScope::Wave &&
+      CMat->Scope != DXIL::MatrixScope::ThreadGroup)
+    ValCtx.EmitInstrFormatError(
+        CI, ValidationRule::InstrLinAlgMatrixScopeMismatch2,
+        {"C", MatrixScopeToString(CMat->Scope), "Wave", "ThreadGroup"});
+
+  // Ret scope must be Wave or ThreadGroup
+  if (RetMat->Scope != DXIL::MatrixScope::Wave &&
+      RetMat->Scope != DXIL::MatrixScope::ThreadGroup)
+    ValCtx.EmitInstrFormatError(
+        CI, ValidationRule::InstrLinAlgMatrixScopeMismatch2,
+        {"Return", MatrixScopeToString(RetMat->Scope), "Wave", "ThreadGroup"});
+
+  // A, B, C, Ret scope must all be the same
+  if (AMat->Scope != BMat->Scope || BMat->Scope != CMat->Scope ||
+      CMat->Scope != RetMat->Scope)
+    ValCtx.EmitInstrFormatError(
+        CI, ValidationRule::InstrLinAlgMatrixScopeMustMatch4,
+        {"A", MatrixScopeToString(AMat->Scope), "B",
+         MatrixScopeToString(BMat->Scope), "C",
+         MatrixScopeToString(CMat->Scope), "Return",
+         MatrixScopeToString(RetMat->Scope)});
+
+  unsigned M = AMat->M;
+  unsigned AK = AMat->N;
+  unsigned BK = BMat->M;
+  unsigned N = BMat->N;
+
+  // K dim must match between A and B
+  if (AK != BK)
+    ValCtx.EmitInstrFormatError(
+        CI, ValidationRule::InstrLinAlgMatrixMatrixKDimMustMatch,
+        {std::to_string(M) + "x" + std::to_string(AK),
+         std::to_string(BK) + "x" + std::to_string(N), std::to_string(AK),
+         std::to_string(BK)});
+
+  // C dim must match A.M x B.N
+  if (CMat->M != M || CMat->N != N)
+    ValCtx.EmitInstrFormatError(
+        CI, ValidationRule::InstrLinAlgMatrixMatrixResDimMustMatch,
+        {"C", std::to_string(CMat->M) + "x" + std::to_string(CMat->N),
+         std::to_string(M) + "x" + std::to_string(N)});
+
+  // Return dim must match A.M x B.N
+  if (RetMat->M != M || RetMat->N != N)
+    ValCtx.EmitInstrFormatError(
+        CI, ValidationRule::InstrLinAlgMatrixMatrixResDimMustMatch,
+        {"Return", std::to_string(RetMat->M) + "x" + std::to_string(RetMat->N),
+         std::to_string(M) + "x" + std::to_string(N)});
 }
 
 static void ValidateLinAlgMatrixOuterProduct(CallInst *CI,
