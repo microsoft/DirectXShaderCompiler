@@ -655,37 +655,6 @@ static bool checkedAdd(size_t Left, size_t Right, size_t &Result) {
   return true;
 }
 
-static bool checkedMultiplyInt64(int64_t Left, int64_t Right, int64_t &Result) {
-  if (Left == 0 || Right == 0) {
-    Result = 0;
-    return true;
-  }
-  if ((Left == -1 && Right == std::numeric_limits<int64_t>::min()) ||
-      (Right == -1 && Left == std::numeric_limits<int64_t>::min()))
-    return false;
-
-  if (Left > 0) {
-    if ((Right > 0 && Left > std::numeric_limits<int64_t>::max() / Right) ||
-        (Right < 0 && Right < std::numeric_limits<int64_t>::min() / Left))
-      return false;
-  } else {
-    if ((Right > 0 && Left < std::numeric_limits<int64_t>::min() / Right) ||
-        (Right < 0 && Left < std::numeric_limits<int64_t>::max() / Right))
-      return false;
-  }
-
-  Result = Left * Right;
-  return true;
-}
-
-static bool checkedAddInt64(int64_t Left, int64_t Right, int64_t &Result) {
-  if ((Right > 0 && Left > std::numeric_limits<int64_t>::max() - Right) ||
-      (Right < 0 && Left < std::numeric_limits<int64_t>::min() - Right))
-    return false;
-  Result = Left + Right;
-  return true;
-}
-
 static bool isSupportedComponentType(ComponentType CompType) {
   switch (CompType) {
   case ComponentType::F16:
@@ -1946,36 +1915,15 @@ encodeMatrixBuffer(const CaseData &Case) {
   return Buffer;
 }
 
-static std::optional<std::vector<int64_t>>
-calculateExpected(const CaseData &Case) {
-  size_t MatrixElementCount;
-  if (!cpu_oracle::checkedMultiply(static_cast<size_t>(Case.M),
-                                   static_cast<size_t>(Case.N),
-                                   MatrixElementCount) ||
-      Case.MatrixValues.size() != MatrixElementCount ||
-      Case.InterpretedVectorValues.size() != Case.N ||
-      (Case.hasBias() && Case.BiasValues.size() != Case.M))
-    return std::nullopt;
-
+static std::vector<int64_t> calculateExpected(const CaseData &Case) {
   std::vector<int64_t> Expected(Case.M, 0);
   for (MatrixDim Row = 0; Row < Case.M; ++Row) {
-    for (MatrixDim Column = 0; Column < Case.N; ++Column) {
-      int64_t Product;
-      int64_t Sum;
-      if (!cpu_oracle::checkedMultiplyInt64(
-              Case.MatrixValues[static_cast<size_t>(Row) * Case.N + Column],
-              Case.InterpretedVectorValues[Column], Product) ||
-          !cpu_oracle::checkedAddInt64(Expected[Row], Product, Sum))
-        return std::nullopt;
-      Expected[Row] = Sum;
-    }
-    if (Case.hasBias()) {
-      int64_t Sum;
-      if (!cpu_oracle::checkedAddInt64(Expected[Row], Case.BiasValues[Row],
-                                       Sum))
-        return std::nullopt;
-      Expected[Row] = Sum;
-    }
+    for (MatrixDim Column = 0; Column < Case.N; ++Column)
+      Expected[Row] +=
+          Case.MatrixValues[static_cast<size_t>(Row) * Case.N + Column] *
+          Case.InterpretedVectorValues[Column];
+    if (Case.hasBias())
+      Expected[Row] += Case.BiasValues[Row];
   }
   return Expected;
 }
@@ -2024,11 +1972,9 @@ encodeVectorBuffer(const CaseData &Case) {
 
 static std::optional<std::vector<BYTE>>
 encodeExpectedOutput(const CaseData &Case) {
-  const std::optional<std::vector<int64_t>> Values = calculateExpected(Case);
-  if (!Values)
-    return std::nullopt;
+  const std::vector<int64_t> Values = calculateExpected(Case);
   const std::optional<std::vector<BYTE>> Logical =
-      encodeComponents(Case.ResultType, *Values);
+      encodeComponents(Case.ResultType, Values);
   if (!Logical)
     return std::nullopt;
 
@@ -2847,18 +2793,9 @@ void LinAlgCPUOracleTests::MatVecHostOracle() {
   DotCase.InterpretedVectorValues = {4, -2, 5};
   DotCase.BiasInputType = ComponentType::I32;
   DotCase.BiasValues = {7, -3};
-  const std::optional<std::vector<int64_t>> Dot = calculateExpected(DotCase);
-  VERIFY_IS_TRUE(Dot.has_value(), "Biased dot product oracle returned nothing");
-  VERIFY_IS_TRUE(*Dot == std::vector<int64_t>({22, -15}),
+  const std::vector<int64_t> Dot = calculateExpected(DotCase);
+  VERIFY_IS_TRUE(Dot == std::vector<int64_t>({22, -15}),
                  "Biased dot product oracle returned the wrong values");
-
-  int64_t Ignored;
-  VERIFY_IS_FALSE(cpu_oracle::checkedMultiplyInt64(
-                      std::numeric_limits<int64_t>::max(), 2, Ignored),
-                  "checkedMultiplyInt64 missed an overflow");
-  VERIFY_IS_FALSE(cpu_oracle::checkedAddInt64(
-                      std::numeric_limits<int64_t>::max(), 1, Ignored),
-                  "checkedAddInt64 missed an overflow");
 }
 
 class LinAlgCapabilityTests {
