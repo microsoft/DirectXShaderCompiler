@@ -7,21 +7,21 @@ target triple = "dxil-ms-dx"
 %dx.types.LinAlgMatrixC8M4N4U2S0 = type { i8* }
 
 define void @main() {
-  ; CHECK: Function: main: error: Matrix Scope 'Thread' does not match expected scope Wave or ThreadGroup.
+  ; CHECK: Function: main: error: Return matrix scope 'Thread' does not match expected scope Wave or ThreadGroup.
   ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgFillMatrix.mC8M4N4U2S0.i32
   %1 = call %dx.types.LinAlgMatrixC8M4N4U2S0 @dx.op.linAlgFillMatrix.mC8M4N4U2S0.i32(i32 -2147483636, i32 1)  ; LinAlgFillMatrix(value)
 
-  ; CHECK-NEXT: Function: main: error: Matrix Scope 'Thread' does not match expected scope Wave or ThreadGroup.
+  ; CHECK-NEXT: Function: main: error: Input matrix scope 'Thread' does not match expected scope Wave or ThreadGroup.
   ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixGetElement.f32.mC8M4N4U2S0
   %2 = call float @dx.op.linAlgMatrixGetElement.f32.mC8M4N4U2S0(i32 -2147483630, %dx.types.LinAlgMatrixC8M4N4U2S0 %1, i32 1)  ; LinAlgMatrixGetElement(matrix,threadLocalIndex)
 
-  ; CHECK-NEXT: Function: main: error: Matrix Scope 'Thread' does not match expected scope Wave or ThreadGroup.
+  ; CHECK-NEXT: Function: main: error: Input matrix scope 'Thread' does not match expected scope Wave or ThreadGroup.
   ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixSetElement.mC8M4N4U2S0.mC8M4N4U2S0.f32
-  ; CHECK-NEXT: Function: main: error: Matrix Scope 'Thread' does not match expected scope Wave or ThreadGroup.
+  ; CHECK-NEXT: Function: main: error: Return matrix scope 'Thread' does not match expected scope Wave or ThreadGroup.
   ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixSetElement.mC8M4N4U2S0.mC8M4N4U2S0.f32
   %3 = call %dx.types.LinAlgMatrixC8M4N4U2S0 @dx.op.linAlgMatrixSetElement.mC8M4N4U2S0.mC8M4N4U2S0.f32(i32 -2147483629, %dx.types.LinAlgMatrixC8M4N4U2S0 %1, i32 1, float %2)  ; LinAlgMatrixSetElement(matrix,threadLocalIndex,value)
 
-  ; CHECK-NEXT: Function: main: error: Matrix Scope 'Thread' does not match expected scope Wave or ThreadGroup.
+  ; CHECK-NEXT: Function: main: error: Input matrix scope 'Thread' does not match expected scope Wave or ThreadGroup.
   ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixGetCoordinate.mC8M4N4U2S0
   %4 = call <2 x i32> @dx.op.linAlgMatrixGetCoordinate.mC8M4N4U2S0(i32 -2147483631, %dx.types.LinAlgMatrixC8M4N4U2S0 %3, i32 0)  ; LinAlgMatrixGetCoordinate(matrix,threadLocalIndex)
 

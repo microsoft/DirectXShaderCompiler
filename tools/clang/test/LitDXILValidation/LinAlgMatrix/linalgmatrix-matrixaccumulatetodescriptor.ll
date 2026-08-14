@@ -32,7 +32,7 @@ define void @main() {
   %12 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %1, %dx.types.ResourceProperties { i32 4107, i32 0 })  ; AnnotateHandle(res,props)  resource: RWByteAddressBuffer
   call void @dx.op.linAlgMatrixAccumulateToDescriptor.mC8M4N4U2S0(i32 -2147483621, %dx.types.LinAlgMatrixC8M4N4U2S0 %4, %dx.types.Handle %12, i32 0, i32 0, i32 %11, i32 128)  ; LinAlgMatrixAccumulateToDescriptor(matrix,handle,offset,stride,layout,align)
 
-  ; CHECK-NEXT: Function: main: error: Matrix scope 'Thread' requires layout OuterProductOptimal or OuterProductOptimalTranspose.
+  ; CHECK-NEXT: Function: main: error: Input matrix with scope 'Thread' requires layout OuterProductOptimal or OuterProductOptimalTranspose for LinAlgMatrixAccumulateToDescriptor.
   ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixAccumulateToDescriptor.mC8M4N4U2S0
   %13 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %1, %dx.types.ResourceProperties { i32 4107, i32 0 })  ; AnnotateHandle(res,props)  resource: RWByteAddressBuffer
   call void @dx.op.linAlgMatrixAccumulateToDescriptor.mC8M4N4U2S0(i32 -2147483621, %dx.types.LinAlgMatrixC8M4N4U2S0 %4, %dx.types.Handle %13, i32 0, i32 0, i32 0, i32 128)  ; LinAlgMatrixAccumulateToDescriptor(matrix,handle,offset,stride,layout,align)
@@ -62,17 +62,17 @@ define void @main() {
   %18 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %1, %dx.types.ResourceProperties { i32 4107, i32 0 })  ; AnnotateHandle(res,props)  resource: RWByteAddressBuffer
   call void @dx.op.linAlgMatrixAccumulateToDescriptor.mC8M4N4U2S0(i32 -2147483621, %dx.types.LinAlgMatrixC8M4N4U2S0 %4, %dx.types.Handle %18, i32 0, i32 0, i32 4, i32 215)  ; LinAlgMatrixAccumulateToDescriptor(matrix,handle,offset,stride,layout,align)
 
-  ; CHECK-NEXT: Function: main: error: Matrix layout 'OuterProductOptimal' requires stride 0.
+  ; CHECK-NEXT: Function: main: error: LinAlgMatrixAccumulateToDescriptor with layout 'OuterProductOptimal' requires stride 0.
   ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixAccumulateToDescriptor.mC8M4N4U2S0
   %19 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %1, %dx.types.ResourceProperties { i32 4107, i32 0 })  ; AnnotateHandle(res,props)  resource: RWByteAddressBuffer
   call void @dx.op.linAlgMatrixAccumulateToDescriptor.mC8M4N4U2S0(i32 -2147483621, %dx.types.LinAlgMatrixC8M4N4U2S0 %4, %dx.types.Handle %19, i32 0, i32 1, i32 4, i32 128)  ; LinAlgMatrixAccumulateToDescriptor(matrix,handle,offset,stride,layout,align)
 
-  ; CHECK-NEXT: Function: main: error: Matrix scope 'Wave' requires layout RowMajor or ColumnMajor.
+  ; CHECK-NEXT: Function: main: error: Input matrix with scope 'Wave' requires layout RowMajor or ColumnMajor for LinAlgMatrixAccumulateToDescriptor.
   ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixAccumulateToDescriptor.mC8M4N4U2S1
   %20 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %1, %dx.types.ResourceProperties { i32 4107, i32 0 })  ; AnnotateHandle(res,props)  resource: RWByteAddressBuffer
   call void @dx.op.linAlgMatrixAccumulateToDescriptor.mC8M4N4U2S1(i32 -2147483621, %dx.types.LinAlgMatrixC8M4N4U2S1 %6, %dx.types.Handle %20, i32 0, i32 0, i32 3, i32 256)  ; LinAlgMatrixAccumulateToDescriptor(matrix,handle,offset,stride,layout,align)
 
-  ; CHECK-NEXT: Function: main: error: Matrix Use 'A' does not match expected use Accumulator.
+  ; CHECK-NEXT: Function: main: error: Input matrix use 'A' does not match expected use Accumulator.
   ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixAccumulateToDescriptor.mC8M4N4U0S0
   %21 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %1, %dx.types.ResourceProperties { i32 4107, i32 0 })  ; AnnotateHandle(res,props)  resource: RWByteAddressBuffer
   call void @dx.op.linAlgMatrixAccumulateToDescriptor.mC8M4N4U0S0(i32 -2147483621, %dx.types.LinAlgMatrixC8M4N4U0S0 %8, %dx.types.Handle %21, i32 0, i32 0, i32 4, i32 128)  ; LinAlgMatrixAccumulateToDescriptor(matrix,handle,offset,stride,layout,align)

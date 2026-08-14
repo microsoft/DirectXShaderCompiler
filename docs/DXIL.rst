@@ -3209,23 +3209,24 @@ INSTR.ILLEGALDXILOPCODE                               DXILOpCode must be valid o
 INSTR.ILLEGALDXILOPFUNCTION                           '%0' is not a DXILOpFuncition for DXILOpcode '%1'.
 INSTR.IMMBIASFORSAMPLEB                               bias amount for sample_b must be in the range [%0,%1], but %2 was specified as an immediate.
 INSTR.INBOUNDSACCESS                                  Access to out-of-bounds memory is disallowed.
-INSTR.LINALGILLEGALCOMPONENTTYPE                      Component Type '%0' not allowed in LinAlg Matrix.
-INSTR.LINALGILLEGALKDIM                               Matrix K Dimension out of bounds. K=%0 must be >= %1 and <= %2.
-INSTR.LINALGMATRIXDIMKVECKMISMATCH                    %0 vector size '%1' must be %2 for matrix with K '%3' and Type '%4'
-INSTR.LINALGMATRIXDIMMISMATCH                         Matrix Dimension '%0x%1' does not match expected dimension %2x%3.
-INSTR.LINALGMATRIXDIMVECTORMISMATCH                   %0 vector size '%1' must match matrix %2 dimension '%3'
-INSTR.LINALGMATRIXLAYOUTREQSTRIDE                     Matrix layout '%0' requires stride 0.
+INSTR.LINALGILLEGALCOMPONENTTYPE                      Component type '%0' from %1 not allowed in LinAlg Matrix operations.
+INSTR.LINALGILLEGALKDIM                               %0 matrix K dimension out of bounds. K=%1 must be >= %2 and <= %3.
+INSTR.LINALGMATRIX2PARTSMUSTMATCH                     %0 matrix %1 '%2' must match %3 matrix %4 '%5'.
+INSTR.LINALGMATRIXDIMKVECKMISMATCH                    %0 vector size '%1' must be %2 for input matrix with K '%3' and Type '%4'
+INSTR.LINALGMATRIXDIMVECTORMISMATCH                   %0 vector size '%1' must match input matrix M dimension '%2'
+INSTR.LINALGMATRIXLAYOUTREQSTRIDE                     %0 with layout '%1' requires stride 0.
 INSTR.LINALGMATRIXLOADTHREADREQUIRESBAB               Loading matrix with Thread scope requires ByteAddressBuffer.
-INSTR.LINALGMATRIXNOTEXACTMATCH                       Matrix '%0' must exactly match matrix '%1'.
-INSTR.LINALGMATRIXOUTPUTBIASVECMISMATCH               Output vector element type '%0' must match Bias vector element type '%1'
+INSTR.LINALGMATRIXNOTEXACTMATCH                       %0 matrix '%1' must exactly match %2 matrix '%3'.
+INSTR.LINALGMATRIXOUTPUTBIASVECMISMATCH               Output vector element type '%0' must match bias vector element type '%1'
 INSTR.LINALGMATRIXREQUIRESLAYOUT2                     %0 requires layout %1 or %2.
 INSTR.LINALGMATRIXREQUIRESRWBAB                       %0 requires RWByteAddressBuffer.
-INSTR.LINALGMATRIXSCOPEMISMATCH                       Matrix Scope '%0' does not match expected scope %1.
-INSTR.LINALGMATRIXSCOPEMISMATCH2                      Matrix Scope '%0' does not match expected scope %1 or %2.
-INSTR.LINALGMATRIXSCOPEREQLAYOUT2                     Matrix scope '%0' requires layout %1 or %2.
+INSTR.LINALGMATRIXSCOPEMISMATCH                       %0 matrix scope '%1' does not match expected scope %2.
+INSTR.LINALGMATRIXSCOPEMISMATCH2                      %0 matrix scope '%1' does not match expected scope %2 or %3.
+INSTR.LINALGMATRIXSCOPEREQLAYOUT2                     %0 matrix with scope '%1' requires layout %2 or %3 for %4.
 INSTR.LINALGMATRIXUNSIGNEDFLOATTYPENOTALLOWED         Float-like type '%0' must be signed
-INSTR.LINALGMATRIXUSEMISMATCH                         Matrix Use '%0' does not match expected use %1.
-INSTR.LINALGMATRIXUSEMISMATCH2                        Matrix Use '%0' does not match expected use %1 or %2.
+INSTR.LINALGMATRIXUSEMISMATCH                         %0 matrix use '%1' does not match expected use %2.
+INSTR.LINALGMATRIXUSEMISMATCH2                        %0 matrix use '%1' does not match expected use %2 or %3.
+INSTR.LINALGMETADATAMISSING                           %0 matrix must have well-formed metadata.
 INSTR.MAYREORDERTHREADUNDEFCOHERENCEHINTPARAM         Use of undef coherence hint or num coherence hint bits in MaybeReorderThread.
 INSTR.MINPRECISIONNOTPRECISE                          Instructions marked precise may not refer to minprecision values.
 INSTR.MINPRECISONBITCAST                              Bitcast on minprecison types is not allowed.
