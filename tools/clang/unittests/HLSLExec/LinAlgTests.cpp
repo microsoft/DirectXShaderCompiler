@@ -4318,75 +4318,19 @@ void DxilConf_SM610_LinAlg::MatAccum_Wave_16x16_F16() {
 
 namespace cpu_oracle {
 
-static bool checkedAddInt64(int64_t Left, int64_t Right, int64_t &Result) {
-  if ((Right > 0 && Left > std::numeric_limits<int64_t>::max() - Right) ||
-      (Right < 0 && Left < std::numeric_limits<int64_t>::min() - Right))
-    return false;
-  Result = Left + Right;
-  return true;
-}
-
-static bool checkedMultiplyInt64(int64_t Left, int64_t Right, int64_t &Result) {
-  if (Left == 0 || Right == 0) {
-    Result = 0;
-    return true;
-  }
-  if (Left == -1) {
-    if (Right == std::numeric_limits<int64_t>::min())
-      return false;
-    Result = -Right;
-    return true;
-  }
-  if (Right == -1) {
-    if (Left == std::numeric_limits<int64_t>::min())
-      return false;
-    Result = -Left;
-    return true;
-  }
-
-  if ((Left > 0 && Right > 0 &&
-       Left > std::numeric_limits<int64_t>::max() / Right) ||
-      (Left > 0 && Right < 0 &&
-       Right < std::numeric_limits<int64_t>::min() / Left) ||
-      (Left < 0 && Right > 0 &&
-       Left < std::numeric_limits<int64_t>::min() / Right) ||
-      (Left < 0 && Right < 0 &&
-       Left < std::numeric_limits<int64_t>::max() / Right))
-    return false;
-
-  Result = Left * Right;
-  return true;
-}
-
-static std::optional<std::vector<int64_t>>
+static std::vector<int64_t>
 multiplyIntegerMatrices(MatrixDim M, MatrixDim K, MatrixDim N,
                         const std::vector<int64_t> &MatrixA,
                         const std::vector<int64_t> &MatrixB,
                         const std::vector<int64_t> *Accumulator = nullptr) {
-  size_t MatrixAElements;
-  size_t MatrixBElements;
-  size_t ResultElements;
-  if (M == 0 || K == 0 || N == 0 ||
-      !checkedMultiply(static_cast<size_t>(M), K, MatrixAElements) ||
-      !checkedMultiply(static_cast<size_t>(K), N, MatrixBElements) ||
-      !checkedMultiply(static_cast<size_t>(M), N, ResultElements) ||
-      MatrixA.size() != MatrixAElements || MatrixB.size() != MatrixBElements ||
-      (Accumulator && Accumulator->size() != ResultElements))
-    return std::nullopt;
-
-  std::vector<int64_t> Result(ResultElements);
+  std::vector<int64_t> Result(static_cast<size_t>(M) * N);
   for (MatrixDim Row = 0; Row < M; ++Row) {
     for (MatrixDim Column = 0; Column < N; ++Column) {
       const size_t ResultIndex = static_cast<size_t>(Row) * N + Column;
       int64_t Sum = Accumulator ? (*Accumulator)[ResultIndex] : 0;
-      for (MatrixDim Inner = 0; Inner < K; ++Inner) {
-        int64_t Product;
-        if (!checkedMultiplyInt64(
-                MatrixA[static_cast<size_t>(Row) * K + Inner],
-                MatrixB[static_cast<size_t>(Inner) * N + Column], Product) ||
-            !checkedAddInt64(Sum, Product, Sum))
-          return std::nullopt;
-      }
+      for (MatrixDim Inner = 0; Inner < K; ++Inner)
+        Sum += MatrixA[static_cast<size_t>(Row) * K + Inner] *
+               MatrixB[static_cast<size_t>(Inner) * N + Column];
       Result[ResultIndex] = Sum;
     }
   }
@@ -4396,13 +4340,12 @@ multiplyIntegerMatrices(MatrixDim M, MatrixDim K, MatrixDim N,
 static std::optional<std::vector<BYTE>>
 encodeLogicalMatrixBuffer(const MatrixParams &Matrix,
                           const std::vector<int64_t> &Values) {
-  size_t ExpectedElements;
-  if (Matrix.M == 0 || Matrix.N == 0 ||
-      !checkedMultiply(static_cast<size_t>(Matrix.M), Matrix.N,
-                       ExpectedElements) ||
-      Values.size() != ExpectedElements ||
-      (Matrix.Layout != MatrixLayout::RowMajor &&
-       Matrix.Layout != MatrixLayout::ColumnMajor))
+  if (Matrix.M == 0 || Matrix.N == 0)
+    return std::nullopt;
+  if (Values.size() != static_cast<size_t>(Matrix.M) * Matrix.N)
+    return std::nullopt;
+  if (Matrix.Layout != MatrixLayout::RowMajor &&
+      Matrix.Layout != MatrixLayout::ColumnMajor)
     return std::nullopt;
 
   std::optional<TypedMatrix> LogicalMatrix;
@@ -4481,36 +4424,18 @@ encodeLogicalMatrixBuffer(const MatrixParams &Matrix,
 void LinAlgCPUOracleTests::MatrixProductOracle() {
   using namespace cpu_oracle;
 
-  const std::optional<std::vector<int64_t>> Product =
+  const std::vector<int64_t> Product =
       multiplyIntegerMatrices(/*M=*/2, /*K=*/3, /*N=*/2,
                               /*MatrixA=*/{1, 2, 3, 4, 5, 6},
                               /*MatrixB=*/{7, 8, 9, 10, 11, 12});
-  VERIFY_IS_TRUE(Product.has_value());
-  if (!Product)
-    return;
-  VERIFY_IS_TRUE(*Product == std::vector<int64_t>({58, 64, 139, 154}));
+  VERIFY_IS_TRUE(Product == std::vector<int64_t>({58, 64, 139, 154}));
 
   const std::vector<int64_t> InitialAccumulator = {1, -1, 2, -2};
-  const std::optional<std::vector<int64_t>> Accumulated =
-      multiplyIntegerMatrices(/*M=*/2, /*K=*/3, /*N=*/2,
-                              /*MatrixA=*/{1, 2, 3, 4, 5, 6},
-                              /*MatrixB=*/{7, 8, 9, 10, 11, 12},
-                              &InitialAccumulator);
-  VERIFY_IS_TRUE(Accumulated.has_value());
-  if (!Accumulated)
-    return;
-  VERIFY_IS_TRUE(*Accumulated == std::vector<int64_t>({59, 63, 141, 152}));
-
-  int64_t CheckedResult;
-  VERIFY_IS_FALSE(
-      checkedAddInt64(std::numeric_limits<int64_t>::max(), 1, CheckedResult));
-  VERIFY_IS_FALSE(checkedMultiplyInt64(std::numeric_limits<int64_t>::min(), -1,
-                                       CheckedResult));
-  VERIFY_IS_FALSE(multiplyIntegerMatrices(
-                      /*M=*/1, /*K=*/1, /*N=*/1,
-                      /*MatrixA=*/{std::numeric_limits<int64_t>::max()},
-                      /*MatrixB=*/{2})
-                      .has_value());
+  const std::vector<int64_t> Accumulated = multiplyIntegerMatrices(
+      /*M=*/2, /*K=*/3, /*N=*/2,
+      /*MatrixA=*/{1, 2, 3, 4, 5, 6},
+      /*MatrixB=*/{7, 8, 9, 10, 11, 12}, &InitialAccumulator);
+  VERIFY_IS_TRUE(Accumulated == std::vector<int64_t>({59, 63, 141, 152}));
 }
 
 static bool waveArithmeticNeeds16BitTypes(ComponentType CompType) {
@@ -4579,27 +4504,24 @@ struct WaveMultiplyCase {
 };
 
 static bool isWaveMultiplyCaseValid(const WaveMultiplyCase &Case) {
-  size_t MatrixAElements;
-  size_t MatrixBElements;
-  size_t AccumulatorElements;
-  if (Case.M == 0 || Case.K == 0 || Case.N == 0 ||
-      !cpu_oracle::checkedMultiply(static_cast<size_t>(Case.M), Case.K,
-                                   MatrixAElements) ||
-      !cpu_oracle::checkedMultiply(static_cast<size_t>(Case.K), Case.N,
-                                   MatrixBElements) ||
-      !cpu_oracle::checkedMultiply(static_cast<size_t>(Case.M), Case.N,
-                                   AccumulatorElements))
+  if (Case.M == 0 || Case.K == 0 || Case.N == 0)
     return false;
-
-  return Case.MatrixAValues.size() == MatrixAElements &&
-         Case.MatrixBValues.size() == MatrixBElements &&
-         (Case.accumulates()
-              ? Case.AccumulatorValues.size() == AccumulatorElements
-              : Case.AccumulatorValues.empty()) &&
-         toCapabilityDataType(Case.MatrixAType).has_value() &&
-         toCapabilityDataType(Case.MatrixBType).has_value() &&
-         toCapabilityDataType(Case.AccumulatorType).has_value() &&
-         !Case.PublicRule.empty();
+  if (Case.MatrixAValues.size() != static_cast<size_t>(Case.M) * Case.K)
+    return false;
+  if (Case.MatrixBValues.size() != static_cast<size_t>(Case.K) * Case.N)
+    return false;
+  if (Case.accumulates() &&
+      Case.AccumulatorValues.size() != static_cast<size_t>(Case.M) * Case.N)
+    return false;
+  if (!Case.accumulates() && !Case.AccumulatorValues.empty())
+    return false;
+  if (!toCapabilityDataType(Case.MatrixAType))
+    return false;
+  if (!toCapabilityDataType(Case.MatrixBType))
+    return false;
+  if (!toCapabilityDataType(Case.AccumulatorType))
+    return false;
+  return !Case.PublicRule.empty();
 }
 
 static HRESULT selectWaveArithmeticMultiplyWaveSize(
@@ -4850,23 +4772,21 @@ static void runWaveMultiplyCase(ID3D12Device *Device,
       Case.accumulates() ? cpu_oracle::encodeLogicalMatrixBuffer(
                                Accumulator, Case.AccumulatorValues)
                          : std::optional<std::vector<BYTE>>();
-  const std::optional<std::vector<int64_t>> Expected =
-      cpu_oracle::multiplyIntegerMatrices(
-          Case.M, Case.K, Case.N, Case.MatrixAValues, Case.MatrixBValues,
-          Case.accumulates() ? &Case.AccumulatorValues : nullptr);
+  const std::vector<int64_t> Expected = cpu_oracle::multiplyIntegerMatrices(
+      Case.M, Case.K, Case.N, Case.MatrixAValues, Case.MatrixBValues,
+      Case.accumulates() ? &Case.AccumulatorValues : nullptr);
   const std::optional<std::string> Args =
       buildWaveMultiplyCompilerArgs(Case, SelectedWaveSize);
   VERIFY_IS_TRUE(MatrixABuffer.has_value());
   VERIFY_IS_TRUE(MatrixBBuffer.has_value());
   VERIFY_IS_TRUE(!Case.accumulates() || AccumulatorBuffer.has_value());
-  VERIFY_IS_TRUE(Expected.has_value());
   VERIFY_IS_TRUE(Args.has_value());
   if (!MatrixABuffer || !MatrixBBuffer ||
-      (Case.accumulates() && !AccumulatorBuffer) || !Expected || !Args)
+      (Case.accumulates() && !AccumulatorBuffer) || !Args)
     return;
 
   const std::optional<std::vector<BYTE>> ExpectedBuffer =
-      cpu_oracle::encodeLogicalMatrixBuffer(Accumulator, *Expected);
+      cpu_oracle::encodeLogicalMatrixBuffer(Accumulator, Expected);
   VERIFY_IS_TRUE(ExpectedBuffer.has_value());
   if (!ExpectedBuffer)
     return;
@@ -4915,7 +4835,7 @@ static void runWaveMultiplyCase(ID3D12Device *Device,
   MappedData OutData;
   Result->Test->GetReadBackData("Output", &OutData);
   VERIFY_IS_TRUE(verifyWaveArithmeticMatrix(OutData.data(), OutData.size(),
-                                            Accumulator, *Expected,
+                                            Accumulator, Expected,
                                             Case.PublicRule, Verbose));
 }
 
@@ -5032,10 +4952,8 @@ void DxilConf_SM610_LinAlg::MatAccum_Wave_8x32_F16_BUse_NonUniform() {
   const std::vector<int64_t> RHSValues =
       makeWaveArithmeticPattern(Params.M, Params.N, 1, 3, 5, 2);
   std::vector<int64_t> ExpectedValues(AccumulatorValues.size());
-  for (size_t I = 0; I < ExpectedValues.size(); ++I) {
-    VERIFY_IS_TRUE(cpu_oracle::checkedAddInt64(
-        AccumulatorValues[I], RHSValues[I], ExpectedValues[I]));
-  }
+  for (size_t I = 0; I < ExpectedValues.size(); ++I)
+    ExpectedValues[I] = AccumulatorValues[I] + RHSValues[I];
 
   const MatrixParams AccumulatorParams =
       makeWaveArithmeticParams(ComponentType::F16, Params.M, Params.N,
