@@ -1477,7 +1477,7 @@ static void ValidateLinAlgMatrixMultiply(CallInst *CI,
                                 ValidationRule::InstrLinAlgMatrixUseMismatch,
                                 {"B", MatrixUseToString(BMat->Use), "B"});
 
-  // Ret is a Accumulator matrx
+  // Ret is an Accumulator matrix
   if (RetMat->Use != DXIL::MatrixUse::Accumulator)
     ValCtx.EmitInstrFormatError(
         CI, ValidationRule::InstrLinAlgMatrixUseMismatch,
@@ -1571,9 +1571,9 @@ static void ValidateLinAlgMatrixMultiplyAccumulate(CallInst *CI,
   if (CMat->Use != DXIL::MatrixUse::Accumulator)
     ValCtx.EmitInstrFormatError(
         CI, ValidationRule::InstrLinAlgMatrixUseMismatch,
-        {"C", MatrixUseToString(BMat->Use), "Accumulator"});
+        {"C", MatrixUseToString(CMat->Use), "Accumulator"});
 
-  // Ret is a Accumulator matrx
+  // Ret is an Accumulator matrix
   if (RetMat->Use != DXIL::MatrixUse::Accumulator)
     ValCtx.EmitInstrFormatError(
         CI, ValidationRule::InstrLinAlgMatrixUseMismatch,

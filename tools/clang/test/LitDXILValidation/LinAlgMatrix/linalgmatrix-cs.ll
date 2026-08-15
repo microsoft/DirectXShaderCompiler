@@ -32,9 +32,9 @@ define void @mainCS() {
 
   ; Matrix<I32, 4, 4, A, Thread>
   %mC4M4N4U0S0 = call %dx.types.LinAlgMatrixC4M4N4U0S0 @dx.op.linAlgMatrixLoadFromDescriptor.mC4M4N4U0S0(i32 -2147483634, %dx.types.Handle %bab, i32 0, i32 0, i32 0, i32 128)
-  ; Matrix<I32, 5, 4, A, ThreadGroup>
+  ; Matrix<I32, 4, 4, A, ThreadGroup>
   %mC4M4N4U0S2 = call %dx.types.LinAlgMatrixC4M4N4U0S2 @dx.op.linAlgMatrixLoadFromDescriptor.mC4M4N4U0S2(i32 -2147483634, %dx.types.Handle %bab, i32 0, i32 0, i32 0, i32 128)
-  ; Matrix<I32, 4, 5, B, ThreadGroup>
+  ; Matrix<I32, 4, 4, B, ThreadGroup>
   %mC4M4N4U1S2 = call %dx.types.LinAlgMatrixC4M4N4U1S2 @dx.op.linAlgMatrixLoadFromDescriptor.mC4M4N4U1S2(i32 -2147483634, %dx.types.Handle %bab, i32 0, i32 0, i32 0, i32 128)
   ; Matrix<I32, 4, 5, Accumulator, ThreadGroup>
   %mC4M4N5U2S2 = call %dx.types.LinAlgMatrixC4M4N5U2S2 @dx.op.linAlgMatrixLoadFromDescriptor.mC4M4N5U2S2(i32 -2147483634, %dx.types.Handle %bab, i32 0, i32 0, i32 0, i32 128)
