@@ -8727,7 +8727,7 @@ class db_dxil(object):
         )
         self.add_valrule(
             "Instr.LinAlgMatrixMatrixResDimMustMatch",
-            "%0 matrix dimension '%1' must match A.MxB.N '%2'",
+            "%0 matrix dimension '%1' must match A.MxB.N '%2'.",
         )
 
         # Some legacy rules:

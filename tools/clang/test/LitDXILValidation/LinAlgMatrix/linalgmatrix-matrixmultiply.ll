@@ -66,7 +66,7 @@ define void @main() {
   ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixMultiply.mC8M8N8U2S2.mC8M8N8U0S2.mC8M6N8U1S2
   %18 = call %dx.types.LinAlgMatrixC8M8N8U2S2 @dx.op.linAlgMatrixMultiply.mC8M8N8U2S2.mC8M8N8U0S2.mC8M6N8U1S2(i32 -2147483625, %dx.types.LinAlgMatrixC8M8N8U0S2 %14, %dx.types.LinAlgMatrixC8M6N8U1S2 %11)  ; LinAlgMatrixMultiply(matrixA,matrixB)
 
-  ; CHECK-NEXT: Function: main: error: Return matrix dimension '8x6' must match A.MxB.N '8x8'
+  ; CHECK-NEXT: Function: main: error: Return matrix dimension '8x6' must match A.MxB.N '8x8'.
   ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixMultiply.mC8M8N6U2S2.mC8M8N8U0S2.mC8M8N8U1S2
   %19 = call %dx.types.LinAlgMatrixC8M8N6U2S2 @dx.op.linAlgMatrixMultiply.mC8M8N6U2S2.mC8M8N8U0S2.mC8M8N8U1S2(i32 -2147483625, %dx.types.LinAlgMatrixC8M8N8U0S2 %14, %dx.types.LinAlgMatrixC8M8N8U1S2 %5)  ; LinAlgMatrixMultiply(matrixA,matrixB)
 

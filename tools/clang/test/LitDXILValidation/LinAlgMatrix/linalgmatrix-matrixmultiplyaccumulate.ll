@@ -47,7 +47,7 @@ define void @main() {
   ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixMultiplyAccumulate.mC8M8N8U2S2.mC8M8N8U0S2.mC8M8N8U0S2.mC8M8N8U2S2
   %20 = call %dx.types.LinAlgMatrixC8M8N8U2S2 @dx.op.linAlgMatrixMultiplyAccumulate.mC8M8N8U2S2.mC8M8N8U0S2.mC8M8N8U0S2.mC8M8N8U2S2(i32 -2147483637, %dx.types.LinAlgMatrixC8M8N8U0S2 %3, %dx.types.LinAlgMatrixC8M8N8U0S2 %3, %dx.types.LinAlgMatrixC8M8N8U2S2 %7)  ; LinAlgMatrixMultiplyAccumulate(matrixA,matrixB,matrixC)
 
-  ; CHECK-NEXT: Function: main: error: C matrix use 'B' does not match expected use Accumulator.
+  ; CHECK-NEXT: Function: main: error: C matrix use 'A' does not match expected use Accumulator.
   ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixMultiplyAccumulate.mC8M8N8U2S2.mC8M8N8U0S2.mC8M8N8U1S2.mC8M8N8U0S2
   %21 = call %dx.types.LinAlgMatrixC8M8N8U2S2 @dx.op.linAlgMatrixMultiplyAccumulate.mC8M8N8U2S2.mC8M8N8U0S2.mC8M8N8U1S2.mC8M8N8U0S2(i32 -2147483637, %dx.types.LinAlgMatrixC8M8N8U0S2 %3, %dx.types.LinAlgMatrixC8M8N8U1S2 %5, %dx.types.LinAlgMatrixC8M8N8U0S2 %3)  ; LinAlgMatrixMultiplyAccumulate(matrixA,matrixB,matrixC)
 
@@ -87,11 +87,11 @@ define void @main() {
   ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixMultiplyAccumulate.mC8M8N8U2S2.mC8M8N6U0S2.mC8M8N8U1S2.mC8M8N8U2S2
   %27 = call %dx.types.LinAlgMatrixC8M8N8U2S2 @dx.op.linAlgMatrixMultiplyAccumulate.mC8M8N8U2S2.mC8M8N6U0S2.mC8M8N8U1S2.mC8M8N8U2S2(i32 -2147483637, %dx.types.LinAlgMatrixC8M8N6U0S2 %15, %dx.types.LinAlgMatrixC8M8N8U1S2 %22, %dx.types.LinAlgMatrixC8M8N8U2S2 %7)  ; LinAlgMatrixMultiplyAccumulate(matrixA,matrixB,matrixC)
 
-  ; CHECK-NEXT: Function: main: error: C matrix dimension '8x6' must match A.MxB.N '8x8'
+  ; CHECK-NEXT: Function: main: error: C matrix dimension '8x6' must match A.MxB.N '8x8'.
   ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixMultiplyAccumulate.mC8M8N8U2S2.mC8M8N8U0S2.mC8M8N8U1S2.mC8M8N6U2S2
   %28 = call %dx.types.LinAlgMatrixC8M8N8U2S2 @dx.op.linAlgMatrixMultiplyAccumulate.mC8M8N8U2S2.mC8M8N8U0S2.mC8M8N8U1S2.mC8M8N6U2S2(i32 -2147483637, %dx.types.LinAlgMatrixC8M8N8U0S2 %3, %dx.types.LinAlgMatrixC8M8N8U1S2 %22, %dx.types.LinAlgMatrixC8M8N6U2S2 %17)  ; LinAlgMatrixMultiplyAccumulate(matrixA,matrixB,matrixC)
 
-  ; CHECK-NEXT: Function: main: error: Return matrix dimension '8x6' must match A.MxB.N '8x8'
+  ; CHECK-NEXT: Function: main: error: Return matrix dimension '8x6' must match A.MxB.N '8x8'.
   ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixMultiplyAccumulate.mC8M8N6U2S2.mC8M8N8U0S2.mC8M8N8U1S2.mC8M8N8U2S2
   %29 = call %dx.types.LinAlgMatrixC8M8N6U2S2 @dx.op.linAlgMatrixMultiplyAccumulate.mC8M8N6U2S2.mC8M8N8U0S2.mC8M8N8U1S2.mC8M8N8U2S2(i32 -2147483637, %dx.types.LinAlgMatrixC8M8N8U0S2 %3, %dx.types.LinAlgMatrixC8M8N8U1S2 %22, %dx.types.LinAlgMatrixC8M8N8U2S2 %7)  ; LinAlgMatrixMultiplyAccumulate(matrixA,matrixB,matrixC)
 
