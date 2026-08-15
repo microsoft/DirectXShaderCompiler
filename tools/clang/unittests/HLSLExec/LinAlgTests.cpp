@@ -5152,13 +5152,27 @@ getGroupSharedBufferDescription(const MatrixParams &Params,
   const std::optional<size_t> RequiredBytes = cpu_oracle::getMatrixBufferSize(
       Params.CompType, Params.M, Params.N, Layout);
   size_t GuardBytes;
-  if (!RequiredBytes.has_value() || Layout.OffsetBytes % ElementBytes != 0 ||
-      Layout.StrideBytes % ElementBytes != 0 ||
-      *RequiredBytes % ElementBytes != 0 ||
-      !cpu_oracle::checkedMultiply(GroupSharedTrailingGuardElements,
-                                   ElementBytes, GuardBytes) ||
-      !cpu_oracle::checkedAdd(*RequiredBytes, GuardBytes, BufferSize) ||
-      BufferSize / ElementBytes > (std::numeric_limits<UINT>::max)())
+  // We must have gotten a valid size for the matrix buffer.
+  if (!RequiredBytes.has_value())
+    return false;
+
+  // The offset, stride and size must be whole multiples of the element size.
+  if (Layout.OffsetBytes % ElementBytes != 0)
+    return false;
+  if (Layout.StrideBytes % ElementBytes != 0)
+    return false;
+  if (*RequiredBytes % ElementBytes != 0)
+    return false;
+
+  // Safely compute the GuardBytes and BufferSize.
+  if (!cpu_oracle::checkedMultiply(GroupSharedTrailingGuardElements,
+                                   ElementBytes, GuardBytes))
+    return false;
+  if (!cpu_oracle::checkedAdd(*RequiredBytes, GuardBytes, BufferSize))
+    return false;
+
+  // The element count must fit in a uint32_t.
+  if (BufferSize / ElementBytes > std::numeric_limits<uint32_t>::max())
     return false;
 
   NumElements = static_cast<UINT>(BufferSize / ElementBytes);
