@@ -5527,21 +5527,6 @@ SpirvEmitter::incDecRWACSBufferCounter(const CXXMemberCallExpr *expr,
     return nullptr;
   }
 
-  // Only heap-loaded append/consume buffers are unsupported. Explicitly bound
-  // ones keep working in native heap mode, so key the diagnostic on the object
-  // actually having a heap alias rather than on the option alone.
-  if (spirvOptions.useDescriptorHeap &&
-      (isAppendStructuredBuffer(object->getType()) ||
-       isConsumeStructuredBuffer(object->getType()))) {
-    const auto *objVar = dyn_cast_or_null<VarDecl>(getReferencedDef(object));
-    if (objVar && descriptorHeapBufferAliasVars.count(objVar)) {
-      emitError("append/consume structured buffers are not supported with "
-                "SPV_EXT_descriptor_heap",
-                expr->getCallee()->getExprLoc());
-      return nullptr;
-    }
-  }
-
   auto *counter = getFinalACSBufferCounterInstruction(object);
   if (!counter) {
     emitFatalError("Cannot access associated counter variable for an array of "
