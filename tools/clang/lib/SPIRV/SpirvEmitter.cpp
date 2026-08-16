@@ -5281,12 +5281,10 @@ bool SpirvEmitter::tryToAssignDescriptorHeapImageAlias(
       (!isRWTexture(dstVar->getType()) && !isRWBuffer(dstVar->getType())))
     return false;
 
-  {
-    auto stateIt = descriptorHeapVarState.find(dstVar);
-    if (stateIt != descriptorHeapVarState.end() &&
-        stateIt->second == DescriptorHeapVarState::Mixed)
-      return false;
-  }
+  auto stateIt = descriptorHeapVarState.find(dstVar);
+  if (stateIt != descriptorHeapVarState.end() &&
+      stateIt->second == DescriptorHeapVarState::Mixed)
+    return false;
 
   const Expr *src = srcExpr->IgnoreParenCasts();
   auto found = descriptorHeapImageAccesses.find(src);
