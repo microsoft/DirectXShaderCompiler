@@ -25,6 +25,9 @@ The included licenses apply to the following files:
   and `SamplerDescriptorHeap` via `-fspv-use-descriptor-heap`. Requires
   `-fspv-target-env=vulkan1.3`
   [#8517](https://github.com/microsoft/DirectXShaderCompiler/pull/8517).
+- Extended `-fspv-use-descriptor-heap` to support `RaytracingAccelerationStructure`
+  loaded from `ResourceDescriptorHeap`
+  [#8518](https://github.com/microsoft/DirectXShaderCompiler/pull/8518).
 
 Place release notes for the upcoming release below this line and remove this
 line upon naming the release. Refer to previous for appropriate section names.
