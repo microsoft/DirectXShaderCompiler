@@ -2031,8 +2031,7 @@ bool SpirvEmitter::tryToCreateDescriptorHeapAlias(const VarDecl *decl,
     // bypasses that map, so skip the call to avoid emitting dead instructions.
     if (isDescriptorHeap(init->IgnoreParenCasts()))
       (void)doExpr(init->IgnoreParenCasts());
-    tryToAssignDescriptorHeapBufferAlias(decl, init);
-    return true;
+    return tryToAssignDescriptorHeapBufferAlias(decl, init);
   }
 
   return false;
@@ -2994,8 +2993,9 @@ void SpirvEmitter::doReturnStmt(const ReturnStmt *stmt) {
       }
       // Buffer alias: emitting a load of the whole resource (runtime-array
       // struct) produces invalid SPIR-V.  emitError does not halt codegen,
-      // so return early to prevent the loadIfGLValue call below from
-      // emitting that invalid load.
+      // so terminate the basic block with an undef return value before
+      // returning to prevent loadIfGLValue from emitting an invalid load and
+      // leaving the block without a terminator.
       // TODO: implement cross-function alias propagation for buffer aliases
       //       using VariablePointersStorageBuffer (tracked as follow-up).
       else if (const auto *var =
@@ -3004,6 +3004,9 @@ void SpirvEmitter::doReturnStmt(const ReturnStmt *stmt) {
           emitError("heap buffer alias cannot be returned from a function; "
                     "access the buffer element directly at the return site",
                     retVal->getLocStart());
+          spvBuilder.createReturnValue(
+              spvBuilder.getUndef(curFunction->getReturnType()),
+              stmt->getReturnLoc());
           return;
         }
       }
@@ -3464,14 +3467,13 @@ SpirvInstruction *SpirvEmitter::processCall(const CallExpr *callExpr) {
                   arg->getLocStart());
         // emitError does not halt codegen; returning nullptr here propagates
         // to spvBuilder and causes an access violation before the diagnostic
-        // surfaces. Return a zero uint placeholder so downstream expression
+        // surfaces. Return a typed undef placeholder so downstream expression
         // consumers remain valid. The emitted error ensures the shader is
         // rejected even if codegen continues with the placeholder.
         QualType retTy = callExpr->getCallReturnType(astContext);
         if (retTy->isVoidType())
           return nullptr;
-        return spvBuilder.getConstantInt(astContext.UnsignedIntTy,
-                                         llvm::APInt(32, 0), false);
+        return spvBuilder.getUndef(retTy);
       }
       argInfo = declIdMapper.getDeclEvalInfo(declRefExpr->getDecl(),
                                              arg->getLocStart());
@@ -5171,8 +5173,8 @@ SpirvEmitter::processStructuredBufferLoad(const CXXMemberCallExpr *expr) {
   // (Verified required: scoping this to alias vars only regresses the direct
   // heap-access tests; non-heap callers are unaffected in the existing suite.)
   if (result && !result->isRValue()) {
-    result =
-        spvBuilder.createLoad(structType, result, buffer->getExprLoc(), range);
+    result = spvBuilder.createLoad(expr->getType(), result,
+                                   buffer->getExprLoc(), range);
   }
 
   return result;
