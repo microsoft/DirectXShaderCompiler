@@ -7145,18 +7145,10 @@ SpirvEmitter::doCXXOperatorCallExpr(const CXXOperatorCallExpr *expr,
         return nullptr;
       }
       QualType resourceType = parentExpr->getType();
-      // The heap object must be a direct reference to the builtin heap
-      // variable. Anything else (e.g. a non-variable expression) has no backing
-      // VarDecl.
-      const auto *declRefExpr = dyn_cast<DeclRefExpr>(baseExpr->IgnoreCasts());
+      // The heap object is always a direct DeclRefExpr to the builtin heap
+      // VarDecl; sema rejects any other form.
       const auto *decl =
-          declRefExpr ? dyn_cast<VarDecl>(declRefExpr->getDecl()) : nullptr;
-      if (!decl) {
-        emitError("unsupported ResourceDescriptorHeap/SamplerDescriptorHeap "
-                  "expression",
-                  baseExpr->getExprLoc());
-        return nullptr;
-      }
+          cast<VarDecl>(cast<DeclRefExpr>(baseExpr->IgnoreCasts())->getDecl());
       SpirvVariableLike *var =
           declIdMapper.createResourceHeap(decl, resourceType);
 
