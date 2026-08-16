@@ -27,6 +27,10 @@ The included licenses apply to the following files:
   `SPV_KHR_untyped_pointers`. Requires `-fspv-target-env=vulkan1.3`.
 - Extended `-fspv-use-descriptor-heap` to support `RaytracingAccelerationStructure`
   loaded from `ResourceDescriptorHeap`.
+- Added `-fvk-resource-heap-stride` and `-fvk-sampler-heap-stride` to override
+  the `ArrayStride` of the descriptor heap runtime arrays emitted by
+  `-fspv-use-descriptor-heap`. The value must be a power of two in `[8, 256]`
+  and takes precedence over the default `OpConstantSizeOfEXT`-based stride.
 
 Place release notes for the upcoming release below this line and remove this
 line upon naming the release. Refer to previous for appropriate section names.
