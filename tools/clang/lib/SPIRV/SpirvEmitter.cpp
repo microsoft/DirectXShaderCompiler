@@ -7280,14 +7280,19 @@ SpirvEmitter::doCXXOperatorCallExpr(const CXXOperatorCallExpr *expr,
         // frozen on its first use, so it cannot be widened here. Reject rather
         // than emit a stride that may be too narrow for the acceleration
         // structure descriptor.
+        // Exception: -fvk-resource-heap-stride supplies a literal stride that
+        // bypasses the spec-constant machinery entirely, so the user has
+        // explicitly taken ownership of the stride value.
         if (isRaytracingAccelerationStructure(resourceType) &&
-            !spvBuilder.resourceHeapStrideIncludesAccelStruct()) {
+            !spvBuilder.resourceHeapStrideIncludesAccelStruct() &&
+            !spirvOptions.resourceHeapStride.has_value()) {
           emitError("acceleration structure loaded from ResourceDescriptorHeap "
                     "requires the resource heap stride to account for "
                     "acceleration structure descriptors; compile with "
                     "-fspv-extension=SPV_KHR_ray_tracing, "
-                    "-fspv-extension=SPV_NV_ray_tracing, or "
-                    "-fspv-extension=SPV_KHR_ray_query",
+                    "-fspv-extension=SPV_NV_ray_tracing, "
+                    "-fspv-extension=SPV_KHR_ray_query, or "
+                    "-fvk-resource-heap-stride",
                     expr->getExprLoc());
           return nullptr;
         }
