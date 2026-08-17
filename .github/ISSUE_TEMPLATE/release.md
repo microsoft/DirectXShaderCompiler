@@ -22,7 +22,7 @@ assignees: ''
 
 # Tasks
 
-<!-- This is only required if the release branch don't exist -->
+<!-- This is only required if the release branch doesn't exist -->
 ## Before Fork
 
 This part of the release process is to 'prime the pump' - that is to make sure
