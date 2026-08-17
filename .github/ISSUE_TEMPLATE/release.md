@@ -8,7 +8,12 @@ assignees: ''
 ---
 
 
-<!-- Some of the steps bellow might not be required, delete them as appropriate -->
+<!-- 
+Some of the steps below might not be required; delete them as appropriate.
+Some known scenarios that might require editing include, but are not limited to: 
+point releases; targeting a specific release, such as a Vulkan SDK only; and preview releases.
+-->
+
 # Schedule
 
 - [ ] MM/DD/YYYY - Release branch forks from `main`
@@ -33,14 +38,14 @@ we are confident we can generate builds for the new branch
 - [ ] Create the release branch from `main`
     - The release branch is kept into sync with main via regular fast-forward
       merges.
-- [ ] Final merge of `main` into the release branch
-- [ ] Update SPIRV-Headers and SPIRV-Tools submodules, in the release branch,
-      to target the commits specified by LunarG.
 - [ ] Internal branches and build pipelines configured
     - Verify that the engineering system can build:
     - [ ] Zip files for github release
     - [ ] NuGet package
     - [ ] VPack
+- [ ] Update SPIRV-Headers and SPIRV-Tools submodules, in the release branch,
+      to target the commits specified by LunarG.
+- [ ] Final merge of `main` into the release branch
 
 ## After Fork
 
@@ -54,10 +59,10 @@ we are confident we can generate builds for the new branch
 
 ## Release
 
+- [ ] Tag final release and post binaries
 - [ ] Add the new compiler to Compiler Explorer
 - [ ] Email LunarG the release tag and update the release spreadsheet.
 - [ ] Publish the new compiler Nuget package.
-- [ ] Tag final release and post binaries
 
 
 [^1]: [Ask Mode](https://devblogs.microsoft.com/oldnewthing/20140722-00/?p=433)
