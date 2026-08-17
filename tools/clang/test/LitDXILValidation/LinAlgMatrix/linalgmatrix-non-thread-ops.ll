@@ -25,6 +25,10 @@ define void @main() {
   ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixGetCoordinate.mC8M4N4U2S0
   %4 = call <2 x i32> @dx.op.linAlgMatrixGetCoordinate.mC8M4N4U2S0(i32 -2147483631, %dx.types.LinAlgMatrixC8M4N4U2S0 %3, i32 0)  ; LinAlgMatrixGetCoordinate(matrix,threadLocalIndex)
 
+  ; CHECK-NEXT: Function: main: error: Input matrix scope 'Thread' does not match expected scope Wave or ThreadGroup.
+  ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixLength.mC8M4N4U2S0
+  %5 = call i32 @dx.op.linAlgMatrixLength.mC8M4N4U2S0(i32 -2147483632, %dx.types.LinAlgMatrixC8M4N4U2S0 %3)  ; LinAlgMatrixLength(matrix)
+
   ; CHECK-NEXT: Validation failed.
   ret void
 }
@@ -40,6 +44,9 @@ declare %dx.types.LinAlgMatrixC8M4N4U2S0 @dx.op.linAlgMatrixSetElement.mC8M4N4U2
 
 ; Function Attrs: nounwind
 declare <2 x i32> @dx.op.linAlgMatrixGetCoordinate.mC8M4N4U2S0(i32, %dx.types.LinAlgMatrixC8M4N4U2S0, i32) #0
+
+; Function Attrs: nounwind
+declare i32 @dx.op.linAlgMatrixLength.mC8M4N4U2S0(i32, %dx.types.LinAlgMatrixC8M4N4U2S0) #0
 
 attributes #0 = { nounwind }
 
