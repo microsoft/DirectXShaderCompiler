@@ -8690,8 +8690,8 @@ class db_dxil(object):
             "%0 vector size '%1' must be %2 for input matrix with K '%3' and Type '%4'",
         )
         self.add_valrule(
-            "Instr.LinAlgMatrixOutputBiasVecMismatch",
-            "Output vector element type '%0' must match bias vector element type '%1'",
+            "Instr.LinAlgMatrixVecElementTypeMismatch",
+            "%0 vector element type '%1' must match %2 vector element type '%3'",
         )
         self.add_valrule(
             "Instr.LinAlgMatrixUnsignedFloatTypeNotAllowed",
@@ -8728,6 +8728,14 @@ class db_dxil(object):
         self.add_valrule(
             "Instr.LinAlgMatrixMatrixResDimMustMatch",
             "%0 matrix dimension '%1' must match A.MxB.N '%2'.",
+        )
+        self.add_valrule(
+            "Instr.LinAlgMatrixVectorTypeMustMatch",
+            "%0 vector element type '%1' must match %2 matrix element type '%3'.",
+        )
+        self.add_valrule(
+            "Instr.LinAlgMatrixVectorTypeMustMatchPacked",
+            "%0 vector element type '%1' must be i32 for %2 matrix with non-native element type '%3'."
         )
 
         # Some legacy rules:
