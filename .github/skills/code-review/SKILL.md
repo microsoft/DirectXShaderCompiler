@@ -58,11 +58,11 @@ This applies **everywhere in the diff**, including:
 
 Report these categories:
 
-- **Spelling errors and typos**, for example `bellow` → `below`,
-  `recieve` → `receive`, `seperate` → `separate`.
+- **Spelling errors and typos**, for example `recieve` → `receive`,
+  `seperate` → `separate`, `occured` → `occurred`.
 - **Grammar errors**, for example subject/verb disagreement such as
-  "the release branch don't exist" → "the release branch doesn't exist", or
-  awkward prepositions such as "kept into sync" → "kept in sync".
+  "the values is validated" → "the values are validated", or awkward
+  prepositions such as "compatible to" → "compatible with".
 - **Terminology and brand capitalization**, using the table below.
 - **Punctuation and formatting inconsistency within a single list, table, or
   block** — for example a checklist where some items end in a period and others
