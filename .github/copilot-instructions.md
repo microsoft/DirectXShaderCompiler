@@ -34,15 +34,17 @@ Comment tone:
 
 ## Attribution for content posted on a user's behalf
 
-This section applies to any agent acting through a user's GitHub account, including the Copilot CLI, the Copilot app, and the Copilot cloud agent. It does not apply to bots that post under their own identity, such as `copilot-pull-request-reviewer[bot]`, which are already attributed.
+This section applies to any AI agent acting through a user's GitHub account, whatever the vendor or product — for example the Copilot CLI, the Copilot app, or the Copilot cloud agent. It does not apply to bots that post under their own identity, such as `copilot-pull-request-reviewer[bot]`, which are already attributed by their username.
 
 Never publish AI-authored content under a user's name without saying that it was AI-assisted. Readers cannot tell the difference, and leaving them to assume a human wrote it misrepresents authorship.
 
-Add the following as the last line of the body:
+Add the following as the last line of the body, naming the agent that actually produced the content:
 
 ```
-_Assisted by GitHub Copilot._
+_Assisted by <agent>._
 ```
+
+For example, `_Assisted by GitHub Copilot._`. Name the agent you are, not a generic label and not another vendor's product. If you do not have a specific product name to use, write `_Assisted by an AI agent._` rather than guessing or naming something else.
 
 Apply this to:
 - Pull request descriptions
