@@ -7,6 +7,8 @@ assignees: ''
 
 ---
 
+
+<!-- Some of the steps bellow might not be required, delete them as appropriate -->
 # Schedule
 
 - [ ] MM/DD/YYYY - Release branch forks from `main`
@@ -20,6 +22,7 @@ assignees: ''
 
 # Tasks
 
+<!-- This is only required if the release branch don't exist -->
 ## Before Fork
 
 This part of the release process is to 'prime the pump' - that is to make sure
