@@ -1,6 +1,6 @@
 ---
 name: code-review
-description: Pull request review guidance for the DirectX Shader Compiler. Use when reviewing a pull request in this repository. Sets review priorities (correctness, memory safety, compiler compatibility, tests, design, conventions), and specifies that wording, spelling, grammar, and terminology findings should be reported as inline comments rather than suppressed. Also covers when release notes are required.
+description: Pull request review guidance for the DirectX Shader Compiler. Use when reviewing a pull request in this repository. Sets review priorities (correctness, memory safety, compiler compatibility, tests, design, conventions), and specifies that wording, spelling, grammar, and terminology findings should be reported as inline comments rather than suppressed. Defers to CONTRIBUTING.md and .github/copilot-instructions.md for release note policy.
 ---
 
 # Reviewing pull requests in DirectXShaderCompiler
@@ -106,23 +106,26 @@ Report these findings, but keep them clearly secondary to correctness:
 
 ## Release notes
 
-Check whether `docs/ReleaseNotes.md` should be updated, following the "Release
-Notes" policy in `CONTRIBUTING.md`.
+Check whether `docs/ReleaseNotes.md` should be updated.
 
-- Release notes are expected for user-visible, significant compiler behavior
-  changes: new language or hardware features, new compiler options, important
-  isolated bug fixes, and changes in default behavior.
-- Release notes are usually not needed for refactors, test-only updates, or
-  infrastructure-only changes, unless user-visible behavior changes.
-- Account for multi-pull-request efforts. If a pull request is one part of a
-  larger tracked effort, a single shared release note may be intentional;
-  confirm coverage exists or is planned across the effort rather than requiring
-  a duplicate entry per pull request.
+The release notes policy is defined in two places, and both take precedence over
+this skill:
 
-Do **not** leave a release note comment when the pull request already updates
-`docs/ReleaseNotes.md`, is docs-only, or is a dependency bump such as a
-"Bump ..." pull request.
+- `CONTRIBUTING.md`, section "Release Notes", for when a note is required and
+  the rules for writing an entry.
+- `.github/copilot-instructions.md`, section "Pull request review guidance",
+  for how to review and comment on release notes, including when a note is
+  expected, how to handle multi-pull-request efforts, when to skip the comment,
+  how to review an entry that already exists, and what tone to use.
 
-When a release note is clearly warranted and missing, say so directly and point
-to `docs/ReleaseNotes.md`. When it is not obvious, ask only the gentle version:
-**"Did you consider adding a release note?"**
+Follow those files directly. Do not substitute a summary of them, and if this
+skill ever appears to disagree with them, they win.
+
+Two points worth restating, because they are easy to get wrong:
+
+- A pull request that **already updates** `docs/ReleaseNotes.md` should still
+  have its entry reviewed for placement and content. Only the prompt asking for
+  a missing note is skipped, not review of the entry itself.
+- Review the entry as it would land **merged with the current base branch**, not
+  just as it appears on the head branch. A head branch that is behind or
+  diverged can make the entry's final placement ambiguous or wrong.
