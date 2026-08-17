@@ -1124,6 +1124,17 @@ static void ValidateLinAlgOpReturnMatrix(CallInst *CI,
 static void ValidateLinAlgMatrixLength(CallInst *CI,
                                        ValidationContext &ValCtx) {
   ValidateLinAlgOpParameters(CI, ValCtx);
+  DxilInst_LinAlgMatrixLength Op(CI);
+  std::optional<LinAlgTargetType> Mat =
+      GetCheckedLATT(Op.get_matrix()->getType(), ValCtx);
+  if (!Mat)
+    return;
+
+  if (Mat->Scope != DXIL::MatrixScope::Wave &&
+      Mat->Scope != DXIL::MatrixScope::ThreadGroup)
+    ValCtx.EmitInstrFormatError(
+        CI, ValidationRule::InstrLinAlgMatrixScopeMismatch2,
+        {"Input", MatrixScopeToString(Mat->Scope), "Wave", "ThreadGroup"});
 }
 
 static void ValidateLinAlgMatrixGetCoordinate(CallInst *CI,
