@@ -4368,7 +4368,7 @@ static bool IsX64EmulatedOnArm64() {
 #if defined(_M_X64)
   using IsWow64Process2Fn = BOOL(WINAPI *)(HANDLE, USHORT *, USHORT *);
   HMODULE kernel32 = GetModuleHandleW(L"kernel32.dll");
-  auto isWow64Process2 = reinterpret_cast<IsWow64Process2Fn>(
+  IsWow64Process2Fn isWow64Process2 = reinterpret_cast<IsWow64Process2Fn>(
       GetProcAddress(kernel32, "IsWow64Process2"));
   if (!isWow64Process2)
     return false;
