@@ -1609,14 +1609,21 @@ check_pSM_for_shader_stage = {
 def get_valopcode_sm_text():
     db = get_db_dxil()
     instrs = sorted(
-        db.get_dxil_ops(), key=lambda v: (v.shader_model, v.shader_stages, v.dxil_opid)
+        db.get_dxil_ops(),
+        key=lambda v: (
+            v.shader_model,
+            v.shader_model_max,
+            v.shader_stages,
+            v.dxil_opid,
+        ),
     )
     last_model = None
+    last_model_max = None
     last_stage = None
     grouped_instrs = []
     code = ""
 
-    def flush_instrs(grouped_instrs, last_model, last_stage):
+    def flush_instrs(grouped_instrs, last_model, last_model_max, last_stage):
         if len(grouped_instrs) == 0:
             return ""
         result = format_comment(
@@ -1631,20 +1638,30 @@ def get_valopcode_sm_text():
         )
         result += "  return "
 
-        model_cond = stage_cond = None
+        model_cond = model_max_cond = stage_cond = None
         if last_model != (6, 0):
             model_cond = "major > %d || (major == %d && minor >= %d)" % (
                 last_model[0],
                 last_model[0],
                 last_model[1],
             )
+        if last_model_max:
+            model_max_cond = "major < %d || (major == %d && minor <= %d)" % (
+                last_model_max[0],
+                last_model_max[0],
+                last_model_max[1],
+            )
         if last_stage:
             stage_cond = " || ".join(
                 [check_pSM_for_shader_stage[c] for c in last_stage]
             )
-        if model_cond or stage_cond:
+        if model_cond or model_max_cond or stage_cond:
             result += "\n      && ".join(
-                ["(%s)" % expr for expr in (model_cond, stage_cond) if expr]
+                [
+                    "(%s)" % expr
+                    for expr in (model_cond, model_max_cond, stage_cond)
+                    if expr
+                ]
             )
             return result + ";\n"
         else:
@@ -1652,13 +1669,20 @@ def get_valopcode_sm_text():
             return ""
 
     for i in instrs:
-        if (i.shader_model, i.shader_stages) != (last_model, last_stage):
-            code += flush_instrs(grouped_instrs, last_model, last_stage)
+        if (i.shader_model, i.shader_model_max, i.shader_stages) != (
+            last_model,
+            last_model_max,
+            last_stage,
+        ):
+            code += flush_instrs(
+                grouped_instrs, last_model, last_model_max, last_stage
+            )
             grouped_instrs = []
             last_model = i.shader_model
+            last_model_max = i.shader_model_max
             last_stage = i.shader_stages
         grouped_instrs.append(i)
-    code += flush_instrs(grouped_instrs, last_model, last_stage)
+    code += flush_instrs(grouped_instrs, last_model, last_model_max, last_stage)
     code += "return true;\n"
     return code
 
