@@ -1695,26 +1695,86 @@ struct CaseData {
   bool hasBias() const { return BiasInputType != ComponentType::Invalid; }
 };
 
+static void reportUnexpectedComponentType(LPCWSTR Function,
+                                          ComponentType Type) {
+  hlsl_test::LogErrorFmt(L"%s received an unexpected ComponentType: %s (%u)",
+                         Function, cpu_oracle::componentTypeName(Type),
+                         static_cast<unsigned>(Type));
+  VERIFY_FAIL(L"Unexpected ComponentType");
+}
+
+static void reportUnsupportedComponentType(LPCWSTR Function,
+                                           ComponentType Type) {
+  hlsl_test::LogErrorFmt(L"%s does not yet support ComponentType: %s (%u)",
+                         Function, cpu_oracle::componentTypeName(Type),
+                         static_cast<unsigned>(Type));
+  VERIFY_FAIL(L"Unsupported ComponentType");
+}
+
 static std::optional<size_t> componentByteSize(ComponentType Type) {
   switch (Type) {
   case ComponentType::I8:
   case ComponentType::U8:
+  case ComponentType::F8_E4M3FN:
+  case ComponentType::F8_E5M2:
     return 1;
-  case ComponentType::F16:
   case ComponentType::I16:
   case ComponentType::U16:
+  case ComponentType::F16:
+  case ComponentType::BFloat16:
     return 2;
-  case ComponentType::F32:
   case ComponentType::I32:
   case ComponentType::U32:
+  case ComponentType::F32:
     return 4;
+  case ComponentType::I64:
+  case ComponentType::U64:
+  case ComponentType::F64:
+    return 8;
   default:
+    reportUnexpectedComponentType(L"componentByteSize", Type);
     return std::nullopt;
   }
 }
 
+static MatrixDim elementsPerScalar(ComponentType Type) {
+  switch (Type) {
+  case ComponentType::I8:
+  case ComponentType::U8:
+  case ComponentType::F8_E4M3FN:
+  case ComponentType::F8_E5M2:
+    return 4;
+  case ComponentType::BFloat16:
+    return 2;
+  case ComponentType::I16:
+  case ComponentType::U16:
+  case ComponentType::F16:
+  case ComponentType::I32:
+  case ComponentType::U32:
+  case ComponentType::F32:
+  case ComponentType::I64:
+  case ComponentType::U64:
+  case ComponentType::F64:
+    return 1;
+  default:
+    reportUnexpectedComponentType(L"elementsPerScalar", Type);
+    return 1;
+  }
+}
+
+// True only for the byte-sized types that encodePackedVector can pack four to a
+// uint. BFloat16 is also packed, but two to a uint, so it must not be routed
+// through the byte packer.
 static bool isPackedByteVector(ComponentType Type) {
-  return Type == ComponentType::I8 || Type == ComponentType::U8;
+  switch (Type) {
+  case ComponentType::I8:
+  case ComponentType::U8:
+  case ComponentType::F8_E4M3FN:
+  case ComponentType::F8_E5M2:
+    return true;
+  default:
+    return false;
+  }
 }
 
 static const char *storageTypeName(ComponentType Type) {
@@ -1730,19 +1790,45 @@ static const char *storageTypeName(ComponentType Type) {
     return "int";
   case ComponentType::U32:
     return "uint";
-  default:
+  // Valid matrix component types that the host encoder cannot yet produce
+  // values for.
+  case ComponentType::I16:
+  case ComponentType::U16:
+  case ComponentType::I64:
+  case ComponentType::U64:
+  case ComponentType::F64:
+  case ComponentType::BFloat16:
+    reportUnsupportedComponentType(L"storageTypeName", Type);
     return nullptr;
+  default:
+    reportUnexpectedComponentType(L"storageTypeName", Type);
+    return nullptr;
+  }
+}
+
+static bool isEncodableComponentType(ComponentType Type) {
+  switch (Type) {
+  case ComponentType::I8:
+  case ComponentType::U8:
+  case ComponentType::F16:
+  case ComponentType::F32:
+  case ComponentType::I32:
+  case ComponentType::U32:
+    return true;
+  default:
+    return false;
   }
 }
 
 static MatrixDim storageElementCount(ComponentType Type,
                                      MatrixDim LogicalCount) {
-  return isPackedByteVector(Type) ? (LogicalCount + 3) / 4 : LogicalCount;
+  const MatrixDim PerScalar = elementsPerScalar(Type);
+  return (LogicalCount + PerScalar - 1) / PerScalar;
 }
 
 static size_t storageElementByteSize(ComponentType Type) {
-  return isPackedByteVector(Type) ? sizeof(uint32_t)
-                                  : componentByteSize(Type).value_or(0);
+  return elementsPerScalar(Type) > 1 ? sizeof(uint32_t)
+                                     : componentByteSize(Type).value_or(0);
 }
 
 template <typename T>
@@ -1845,10 +1931,9 @@ encodePackedVector(ComponentType Type, const std::vector<int64_t> &Values) {
   if (!isPackedByteVector(Type))
     return std::nullopt;
 
-  size_t PaddedCount;
-  if (!cpu_oracle::checkedAdd(Values.size(), size_t(3), PaddedCount))
-    return std::nullopt;
-  PaddedCount &= ~size_t(3);
+  // Round the element count up to a whole number of 4-byte words. The count is
+  // bounded by the matrix dimensions, so the addition cannot overflow.
+  const size_t PaddedCount = (Values.size() + 3) & ~size_t(3);
   std::vector<BYTE> Bytes(PaddedCount, 0);
 
   for (size_t WordIndex = 0; WordIndex < PaddedCount / 4; ++WordIndex) {
@@ -1877,10 +1962,7 @@ static std::optional<size_t> matrixStrideBytes(const CaseData &Case) {
     return std::nullopt;
   const size_t MinorCount =
       Case.Layout == MatrixLayout::RowMajor ? Case.N : Case.M;
-  size_t Stride;
-  if (!cpu_oracle::checkedMultiply(MinorCount, *ComponentSize, Stride))
-    return std::nullopt;
-  return Stride;
+  return MinorCount * *ComponentSize;
 }
 
 static std::optional<std::vector<BYTE>>
@@ -1895,10 +1977,7 @@ encodeMatrixBuffer(const CaseData &Case) {
 
   const size_t MajorCount =
       Case.Layout == MatrixLayout::RowMajor ? Case.M : Case.N;
-  size_t BufferSize;
-  if (!cpu_oracle::checkedMultiply(MajorCount, *Stride, BufferSize))
-    return std::nullopt;
-  std::vector<BYTE> Buffer(BufferSize, 0);
+  std::vector<BYTE> Buffer(MajorCount * *Stride, 0);
 
   for (MatrixDim Row = 0; Row < Case.M; ++Row) {
     for (MatrixDim Column = 0; Column < Case.N; ++Column) {
@@ -1929,18 +2008,31 @@ static std::vector<int64_t> calculateExpected(const CaseData &Case) {
 }
 
 static bool isCaseValid(const CaseData &Case) {
-  size_t MatrixElementCount;
-  if (Case.M == 0 || Case.N == 0 ||
-      !cpu_oracle::checkedMultiply(static_cast<size_t>(Case.M),
-                                   static_cast<size_t>(Case.N),
-                                   MatrixElementCount) ||
-      Case.MatrixValues.size() != MatrixElementCount ||
-      Case.InterpretedVectorValues.size() != Case.N ||
-      (Case.Layout != MatrixLayout::RowMajor &&
-       Case.Layout != MatrixLayout::ColumnMajor) ||
-      !componentByteSize(Case.MatrixType) ||
-      !storageTypeName(Case.VectorInputType) ||
-      !storageTypeName(Case.ResultType) || Case.PublicRule.empty())
+  // Dimensions.
+  if (Case.M == 0 || Case.N == 0)
+    return false;
+
+  // Input counts must match the declared dimensions. MatrixDim is 32 bits, so
+  // the row-by-column product cannot overflow a 64-bit comparison.
+  if (Case.MatrixValues.size() != static_cast<uint64_t>(Case.M) * Case.N)
+    return false;
+  if (Case.InterpretedVectorValues.size() != Case.N)
+    return false;
+
+  // Layout.
+  if (Case.Layout != MatrixLayout::RowMajor &&
+      Case.Layout != MatrixLayout::ColumnMajor)
+    return false;
+
+  // Component types the host and the shader can both express.
+  if (!isEncodableComponentType(Case.MatrixType))
+    return false;
+  if (!storageTypeName(Case.VectorInputType))
+    return false;
+  if (!storageTypeName(Case.ResultType))
+    return false;
+
+  if (Case.PublicRule.empty())
     return false;
 
   // A vector is either native or an InterpretedVector, which pairs a packed
@@ -1952,11 +2044,18 @@ static bool isCaseValid(const CaseData &Case) {
   if (isPackedByteVector(Case.VectorInputType) &&
       Case.InputInterpretation != Case.VectorInputType)
     return false;
-  if (Case.hasBias() != !Case.BiasValues.empty() ||
-      (Case.hasBias() && (Case.BiasValues.size() != Case.M ||
-                          Case.BiasInputType != Case.ResultType ||
-                          !storageTypeName(Case.BiasInputType))))
+
+  // Bias values are present exactly when a bias type is declared.
+  if (Case.hasBias() != !Case.BiasValues.empty())
     return false;
+  if (Case.hasBias()) {
+    if (Case.BiasValues.size() != Case.M)
+      return false;
+    if (Case.BiasInputType != Case.ResultType)
+      return false;
+    if (!storageTypeName(Case.BiasInputType))
+      return false;
+  }
 
   const bool ExpectedSigned = Case.ResultType != ComponentType::U32;
   return Case.OutputSigned == ExpectedSigned;
@@ -1978,13 +2077,11 @@ encodeExpectedOutput(const CaseData &Case) {
   if (!Logical)
     return std::nullopt;
 
-  size_t PaddedSize;
-  if (!cpu_oracle::checkedAdd(Logical->size(), size_t(3), PaddedSize))
-    return std::nullopt;
-  PaddedSize &= ~size_t(3);
-  size_t BufferSize;
-  if (!cpu_oracle::checkedAdd(PaddedSize, OutputGuardBytes, BufferSize))
-    return std::nullopt;
+  // Round the byte count up to a whole number of 4-byte words so that the four
+  // guard bytes start on a word boundary. Both sizes are bounded by the matrix
+  // dimensions, so neither addition can overflow.
+  const size_t PaddedSize = (Logical->size() + 3) & ~size_t(3);
+  const size_t BufferSize = PaddedSize + OutputGuardBytes;
 
   std::vector<BYTE> Buffer(BufferSize);
   cpu_oracle::fillPoison(Buffer.data(), Buffer.size());
