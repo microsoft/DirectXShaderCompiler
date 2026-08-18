@@ -53,12 +53,12 @@ jobs:
           echo "$LISTED_FILES"
 
       - name: Install clang-format
-        uses: aminya/setup-cpp@v1
+        uses: aminya/setup-cpp@8170d66c458f4a045220b7b0966c10940bb2a15d # v1.8.1
         with:
           clangformat: 17.0.1
 
       - name: Setup Python env
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@7f4fc3e22c37d6ff65e88745f38bd3157c663f7c # v4.9.1
         with:
           python-version: '3.11'
           cache: 'pip'
@@ -90,7 +90,7 @@ jobs:
       pull-requests: write
       contents: write
     steps:
-      - uses: actions/github-script@v3
+      - uses: actions/github-script@ffc2c79a5b2490bd33e0a41c1de74b877714d736 # v3.2.0
         id: get-pr
         with:
           script: |
@@ -122,7 +122,7 @@ jobs:
           path: code-format-tools
 
       - name: Setup Python env
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@7f4fc3e22c37d6ff65e88745f38bd3157c663f7c # v4.9.1
         with:
           python-version: '3.11'
           cache: 'pip'
@@ -143,7 +143,7 @@ jobs:
             --comment-id $COMMENT_ID
 
       - name: Fetch LLVM sources for head
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           fetch-depth: 2
           ref: ${{ fromJSON(steps.get-pr.outputs.result).head.ref }}
