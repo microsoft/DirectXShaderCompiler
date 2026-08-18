@@ -472,7 +472,7 @@ static void AddRecordSubscriptAccess(clang::ASTContext &Ctx,
   AddRecordAccessMethod(Ctx, RD, ReturnTy, false, true, true);
 }
 
-AvailabilityAttr *
+static AvailabilityAttr *
 ConstructAvailabilityAttribute(clang::ASTContext &context,
                                VersionTuple Introduced,
                                VersionTuple Deprecated = VersionTuple(),

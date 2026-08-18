@@ -2107,6 +2107,9 @@ static void AddHLSLIntrinsicAttr(FunctionDecl *FD, ASTContext &context,
       unsigned Major = pIntrinsic->MaxShaderModel >> 4;
       unsigned Minor = pIntrinsic->MaxShaderModel & 0xF;
       Deprecated = clang::VersionTuple(Major, Minor);
+      DXASSERT(
+          Minor <= 14,
+          "I don't know how we should handle this, so let's assert for now.");
       Obsoleted = clang::VersionTuple(Major, Minor + 1);
     }
     FD->addAttr(AvailabilityAttr::CreateImplicit(
