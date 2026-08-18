@@ -472,10 +472,11 @@ static void AddRecordSubscriptAccess(clang::ASTContext &Ctx,
   AddRecordAccessMethod(Ctx, RD, ReturnTy, false, true, true);
 }
 
-AvailabilityAttr *ConstructAvailabilityAttribute(
-    clang::ASTContext &context, VersionTuple Introduced,
-    VersionTuple Deprecated = VersionTuple(),
-    VersionTuple Obsoleted = VersionTuple()) {
+AvailabilityAttr *
+ConstructAvailabilityAttribute(clang::ASTContext &context,
+                               VersionTuple Introduced,
+                               VersionTuple Deprecated = VersionTuple(),
+                               VersionTuple Obsoleted = VersionTuple()) {
   AvailabilityAttr *AAttr = AvailabilityAttr::CreateImplicit(
       context, &context.Idents.get(""), Introduced, Deprecated, Obsoleted,
       false, "");
@@ -486,9 +487,8 @@ AvailabilityAttr *ConstructAvailabilityAttribute(
 // obsoleted SM6.10.
 static AvailabilityAttr *
 ConstructNodeRecordAvailabilityAttribute(clang::ASTContext &context) {
-  return ConstructAvailabilityAttribute(context, VersionTuple(6, 8),
-                                        VersionTuple(6, 9),
-                                        VersionTuple(6, 10));
+  return ConstructAvailabilityAttribute(
+      context, VersionTuple(6, 8), VersionTuple(6, 9), VersionTuple(6, 10));
 }
 
 /// <summary>Adds up-front support for HLSL *NodeOutputRecords template

@@ -797,8 +797,8 @@ void hlsl::DiagnoseTranslationUnit(clang::Sema *self) {
     // Work Graphs (node shaders) were obsoleted in shader model 6.10.
     // Declaring a node shader when targeting 6.10 or above is an error,
     // regardless of whether any node record types are actually used.
-    if (EntrySK == DXIL::ShaderKind::Node &&
-        shaderModel->IsSMAtLeast(6, 10) && !IsTargetProfileLib6x(*self)) {
+    if (EntrySK == DXIL::ShaderKind::Node && shaderModel->IsSMAtLeast(6, 10) &&
+        !IsTargetProfileLib6x(*self)) {
       self->Diag(FDecl->getLocation(), diag::warn_hlsl_node_shader_removed)
           << shaderModel->GetName();
     }

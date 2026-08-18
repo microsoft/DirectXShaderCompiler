@@ -201,8 +201,8 @@ struct HLSL_INTRINSIC {
                            // type
   UINT uNumArgs;           // Count of arguments in pArgs.
   const HLSL_INTRINSIC_ARGUMENT *pArgs; // Pointer to first argument.
-  UINT MaxShaderModel;     // Encoded maximum shader model, 0 = no maximum
-                           // (Major << 4) + (Minor & 0xf)
+  UINT MaxShaderModel; // Encoded maximum shader model, 0 = no maximum
+                       // (Major << 4) + (Minor & 0xf)
 };
 
 ///////////////////////////////////////////////////////////////////////////////
