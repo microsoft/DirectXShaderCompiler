@@ -2077,9 +2077,9 @@ encodeExpectedOutput(const CaseData &Case) {
   if (!Logical)
     return std::nullopt;
 
-  // Round the byte count up to a whole number of 4-byte words so that the four
-  // guard bytes start on a word boundary. Both sizes are bounded by the matrix
-  // dimensions, so neither addition can overflow.
+  // Round the byte count up to a whole number of 4-byte words so that the
+  // guard region starts on a word boundary. Both sizes are bounded by the
+  // matrix dimensions, so neither addition can overflow.
   const size_t PaddedSize = (Logical->size() + 3) & ~size_t(3);
   const size_t BufferSize = PaddedSize + OutputGuardBytes;
 
