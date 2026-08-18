@@ -3216,12 +3216,16 @@ INSTR.LINALGMATRIXDIMKVECKMISMATCH                    %0 vector size '%1' must b
 INSTR.LINALGMATRIXDIMVECTORMISMATCH                   %0 vector size '%1' must match input matrix M dimension '%2'
 INSTR.LINALGMATRIXLAYOUTREQSTRIDE                     %0 with layout '%1' requires stride 0.
 INSTR.LINALGMATRIXLOADTHREADREQUIRESBAB               Loading matrix with Thread scope requires ByteAddressBuffer.
+INSTR.LINALGMATRIXMATRIXKDIMMUSTMATCH                 K dim of A matrix '%0' must match K dim of B matrix '%1'. %2 != %3.
+INSTR.LINALGMATRIXMATRIXRESDIMMUSTMATCH               %0 matrix dimension '%1' must match A.MxB.N '%2'.
 INSTR.LINALGMATRIXNOTEXACTMATCH                       %0 matrix '%1' must exactly match %2 matrix '%3'.
 INSTR.LINALGMATRIXOUTPUTBIASVECMISMATCH               Output vector element type '%0' must match bias vector element type '%1'
 INSTR.LINALGMATRIXREQUIRESLAYOUT2                     %0 requires layout %1 or %2.
 INSTR.LINALGMATRIXREQUIRESRWBAB                       %0 requires RWByteAddressBuffer.
 INSTR.LINALGMATRIXSCOPEMISMATCH                       %0 matrix scope '%1' does not match expected scope %2.
 INSTR.LINALGMATRIXSCOPEMISMATCH2                      %0 matrix scope '%1' does not match expected scope %2 or %3.
+INSTR.LINALGMATRIXSCOPEMUSTMATCH3                     Matrix scope must be the same for all matrices. %0 '%1', %2 '%3', %4 '%5'.
+INSTR.LINALGMATRIXSCOPEMUSTMATCH4                     Matrix scope must be the same for all matrices. %0 '%1', %2 '%3', %4 '%5', %6 '%7'.
 INSTR.LINALGMATRIXSCOPEREQLAYOUT2                     %0 matrix with scope '%1' requires layout %2 or %3 for %4.
 INSTR.LINALGMATRIXUNSIGNEDFLOATTYPENOTALLOWED         Float-like type '%0' must be signed
 INSTR.LINALGMATRIXUSEMISMATCH                         %0 matrix use '%1' does not match expected use %2.
