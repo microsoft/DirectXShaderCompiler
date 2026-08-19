@@ -30,8 +30,8 @@ line upon naming the release. Refer to previous for appropriate section names.
 - SPIR-V: Fixed an invalid `OpSelect` being generated when optimizing for
   SPIR-V 1.3 and earlier
   [#8603](https://github.com/microsoft/DirectXShaderCompiler/issues/8603).
-- SPIR-V: Fixed user-defined types whose names match built-in resource types
-  being incorrectly lowered as resources.
+- SPIR-V: Fixed user-defined types whose names match built-in types being
+  incorrectly lowered as the built-in type.
 
 #### HLSL Language
 
