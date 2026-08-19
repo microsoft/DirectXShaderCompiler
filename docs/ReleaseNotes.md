@@ -48,6 +48,9 @@ line upon naming the release. Refer to previous for appropriate section names.
 - DXIL validation: added validation for `CreateHandleFromBinding`.
 - DXIL validation now rejects non-standard integer bit widths (e.g. `i25`) in
   instructions.
+- SPIR-V fixed incorrect alignment of 64-bit elements in `vk::RawBufferLoad` and
+  `vk::RawBufferStore` intrinsics
+  [#8576](https://github.com/microsoft/DirectXShaderCompiler/pull/8576)
 
 #### Other Changes
 
