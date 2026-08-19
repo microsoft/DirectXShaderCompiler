@@ -8642,56 +8642,56 @@ class db_dxil(object):
             "reordercoherent requires SM 6.9 or later.",
         )
         self.add_valrule(
+            "Instr.LinAlgMetadataMissing",
+            "%0 matrix must have well-formed metadata.",
+        )
+        self.add_valrule(
             "Instr.LinAlgIllegalKDim",
-            "Matrix K Dimension out of bounds. K=%0 must be >= %1 and <= %2.",
+            "%0 matrix K dimension out of bounds. K=%1 must be >= %2 and <= %3.",
         )
         self.add_valrule(
             "Instr.LinAlgIllegalComponentType",
-            "Component Type '%0' not allowed in LinAlg Matrix.",
-        )
-        self.add_valrule(
-            "Instr.LinAlgMatrixScopeNotAllowed",
-            "Matrix Scope '%0' not allowed in %1 operation.",
+            "Component type '%0' from %1 not allowed in LinAlg Matrix operations.",
         )
         self.add_valrule(
             "Instr.LinAlgMatrixScopeMismatch",
-            "Matrix Scope '%0' does not match expected scope %1.",
+            "%0 matrix scope '%1' does not match expected scope %2.",
         )
         self.add_valrule(
-            "Instr.LinAlgMatrixDimMismatch",
-            "Matrix Dimension '%0x%1' does not match expected dimension %2x%3.",
+            "Instr.LinAlgMatrixScopeMismatch2",
+            "%0 matrix scope '%1' does not match expected scope %2 or %3.",
         )
         self.add_valrule(
             "Instr.LinAlgMatrixUseMismatch",
-            "Matrix Use '%0' does not match expected use %1.",
+            "%0 matrix use '%1' does not match expected use %2.",
         )
         self.add_valrule(
             "Instr.LinAlgMatrixUseMismatch2",
-            "Matrix Use '%0' does not match expected use %1 or %2.",
+            "%0 matrix use '%1' does not match expected use %2 or %3.",
         )
         self.add_valrule(
             "Instr.LinAlgMatrixNotExactMatch",
-            "Matrix '%0' must exactly match matrix '%1'.",
+            "%0 matrix '%1' must exactly match %2 matrix '%3'.",
         )
         self.add_valrule(
             "Instr.LinAlgMatrixScopeReqLayout2",
-            "Matrix scope '%0' requires layout %1 or %2.",
+            "%0 matrix with scope '%1' requires layout %2 or %3 for %4.",
         )
         self.add_valrule(
             "Instr.LinAlgMatrixLayoutReqStride",
-            "Matrix layout '%0' requires stride 0.",
+            "%0 with layout '%1' requires stride 0.",
         )
         self.add_valrule(
             "Instr.LinAlgMatrixDimVectorMismatch",
-            "%0 vector size '%1' must match matrix %2 dimension '%3'",
+            "%0 vector size '%1' must match input matrix M dimension '%2'",
         )
         self.add_valrule(
             "Instr.LinAlgMatrixDimKVecKMismatch",
-            "%0 vector size '%1' must be %2 for matrix with K '%3' and Type '%4'",
+            "%0 vector size '%1' must be %2 for input matrix with K '%3' and Type '%4'",
         )
         self.add_valrule(
             "Instr.LinAlgMatrixOutputBiasVecMismatch",
-            "Output vector element type '%0' must match Bias vector element type '%1'",
+            "Output vector element type '%0' must match bias vector element type '%1'",
         )
         self.add_valrule(
             "Instr.LinAlgMatrixUnsignedFloatTypeNotAllowed",
@@ -8700,6 +8700,34 @@ class db_dxil(object):
         self.add_valrule(
             "Instr.LinAlgMatrixLoadThreadRequiresBAB",
             "Loading matrix with Thread scope requires ByteAddressBuffer.",
+        )
+        self.add_valrule(
+            "Instr.LinAlgMatrixRequiresRWBAB",
+            "%0 requires RWByteAddressBuffer.",
+        )
+        self.add_valrule(
+            "Instr.LinAlgMatrixRequiresLayout2",
+            "%0 requires layout %1 or %2.",
+        )
+        self.add_valrule(
+            "Instr.LinAlgMatrix2PartsMustMatch",
+            "%0 matrix %1 '%2' must match %3 matrix %4 '%5'.",
+        )
+        self.add_valrule(
+            "Instr.LinAlgMatrixScopeMustMatch3",
+            "Matrix scope must be the same for all matrices. %0 '%1', %2 '%3', %4 '%5'.",
+        )
+        self.add_valrule(
+            "Instr.LinAlgMatrixScopeMustMatch4",
+            "Matrix scope must be the same for all matrices. %0 '%1', %2 '%3', %4 '%5', %6 '%7'.",
+        )
+        self.add_valrule(
+            "Instr.LinAlgMatrixMatrixKDimMustMatch",
+            "K dim of A matrix '%0' must match K dim of B matrix '%1'. %2 != %3.",
+        )
+        self.add_valrule(
+            "Instr.LinAlgMatrixMatrixResDimMustMatch",
+            "%0 matrix dimension '%1' must match A.MxB.N '%2'.",
         )
 
         # Some legacy rules:

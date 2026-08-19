@@ -27,13 +27,13 @@ define void @main() {
   %4 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %3, %dx.types.ResourceProperties { i32 11, i32 0 })  ; AnnotateHandle(res,props)  resource: ByteAddressBuffer
 
 
-  ; CHECK: Function: main: error: Matrix scope 'ThreadGroup' requires layout RowMajor or ColumnMajor.
+  ; CHECK: Function: main: error: Return matrix with scope 'ThreadGroup' requires layout RowMajor or ColumnMajor for LinAlgMatrixLoadFromDescriptor.
   ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixLoadFromDescriptor.mC8M4N4U2S2
   %5 = call %dx.types.LinAlgMatrixC8M4N4U2S2 @dx.op.linAlgMatrixLoadFromDescriptor.mC8M4N4U2S2(i32 -2147483634, %dx.types.Handle %4, i32 0, i32 0, i32 4, i32 128)  ; LinAlgMatrixLoadFromDescriptor(handle,offset,stride,layout,align)
   %6 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %3, %dx.types.ResourceProperties { i32 11, i32 0 })  ; AnnotateHandle(res,props)  resource: ByteAddressBuffer
 
 
-  ; CHECK-NEXT: Function: main: error: Matrix layout 'OuterProductOptimal' requires stride 0.
+  ; CHECK-NEXT: Function: main: error: LinAlgMatrixLoadFromDescriptor with layout 'OuterProductOptimal' requires stride 0.
   ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixLoadFromDescriptor.mC8M4N4U2S0
   %7 = call %dx.types.LinAlgMatrixC8M4N4U2S0 @dx.op.linAlgMatrixLoadFromDescriptor.mC8M4N4U2S0(i32 -2147483634, %dx.types.Handle %6, i32 0, i32 4, i32 4, i32 128)  ; LinAlgMatrixLoadFromDescriptor(handle,offset,stride,layout,align)
   %8 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %2, %dx.types.ResourceProperties { i32 12, i32 4 })  ; AnnotateHandle(res,props)  resource: StructuredBuffer<stride=4>

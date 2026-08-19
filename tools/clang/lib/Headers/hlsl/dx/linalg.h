@@ -438,12 +438,13 @@ class Matrix<ComponentTy, M, N, Use, MatrixScope::Thread> {
     return Result;
   }
 
-  template <MatrixUseEnum UseLocal = Use>
+  template <uint Align = 128, MatrixUseEnum UseLocal = Use>
   typename hlsl::enable_if<Use == MatrixUse::Accumulator && UseLocal == Use,
                            void>::type
   InterlockedAccumulate(RWByteAddressBuffer Res, uint StartOffset) {
     __builtin_LinAlg_MatrixAccumulateToDescriptor(
-        __handle, Res, StartOffset, 0, MatrixLayout::OuterProductOptimal, 0);
+        __handle, Res, StartOffset, 0, MatrixLayout::OuterProductOptimal,
+        Align);
   }
 };
 

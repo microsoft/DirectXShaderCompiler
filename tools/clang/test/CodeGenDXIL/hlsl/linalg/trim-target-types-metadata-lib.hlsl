@@ -21,8 +21,8 @@ void useMatrix3();
 #ifdef LIB1
 
 uint useMatrix1() {
-  // Matrix<ComponentType::I32, 4, 5, MatrixUse::A, MatrixScope::Thread> m;
-  __builtin_LinAlgMatrix [[__LinAlgMatrix_Attributes(4, 4, 5, 0, 0)]] mat1;
+  // Matrix<ComponentType::I32, 4, 5, MatrixUse::A, MatrixScope::ThreadGroup> m;
+  __builtin_LinAlgMatrix [[__LinAlgMatrix_Attributes(4, 4, 5, 0, 2)]] mat1;
   // mat1 = Matrix::Splat(5);
   __builtin_LinAlg_FillMatrix(mat1, 5);
   // return mat1.Length();
@@ -75,7 +75,7 @@ void CSMain3() {
 
 // Target types in lib1
 // LIB1: !dx.targetTypes = !{![[TT1:.*]], ![[TT2:.*]]}
-// LIB1: ![[TT1]] = !{%dx.types.LinAlgMatrixC4M4N5U0S0 undef, i32 4, i32 4, i32 5, i32 0, i32 0}
+// LIB1: ![[TT1]] = !{%dx.types.LinAlgMatrixC4M4N5U0S2 undef, i32 4, i32 4, i32 5, i32 0, i32 2}
 // LIB1: ![[TT2]] = !{%dx.types.LinAlgMatrixC10M4N4U1S1 undef, i32 10, i32 4, i32 4, i32 1, i32 1}
 
 // Target types in lib2
@@ -89,7 +89,7 @@ void CSMain3() {
 
 // CSMain2 uses one type of matrix
 // CSMAIN2: !dx.targetTypes = !{!{{[0-9]+}}}
-// CSMAIN2: !{{[0-9]+}} = !{%dx.types.LinAlgMatrixC4M4N5U0S0 undef, i32 4, i32 4, i32 5, i32 0, i32 0}
+// CSMAIN2: !{{[0-9]+}} = !{%dx.types.LinAlgMatrixC4M4N5U0S2 undef, i32 4, i32 4, i32 5, i32 0, i32 2}
 
 // CSMain3 uses two types of matrices
 // CSMAIN3: !dx.targetTypes = !{!{{[0-9]+}}, !{{[0-9]+}}}

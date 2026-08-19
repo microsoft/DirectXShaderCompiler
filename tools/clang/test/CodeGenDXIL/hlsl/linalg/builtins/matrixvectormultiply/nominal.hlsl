@@ -2,12 +2,15 @@
 // RUN: %dxc -T cs_6_10 -E main %s | FileCheck %s
 // RUN: %dxc -T cs_6_10 -E main -fcgl %s | FileCheck %s --check-prefix=CHECK2 
 
+ByteAddressBuffer inbuf;
+
 [numthreads(1,1,1)]
 void main() {
   // CHECK-LABEL: define void @main()
 
+  // Matrix<I32, 4, 4, A, Thread>
   __builtin_LinAlgMatrix [[__LinAlgMatrix_Attributes(4, 4, 4, 0, 0)]] mat;
-  __builtin_LinAlg_FillMatrix(mat, 1);
+  __builtin_LinAlg_MatrixLoadFromDescriptor(mat, inbuf, 0, 0, 0, 128);
   float4 vec = {1,2,3,4};
   float4 result;
 
