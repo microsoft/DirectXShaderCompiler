@@ -30,6 +30,9 @@ line upon naming the release. Refer to previous for appropriate section names.
 - SPIR-V: Fixed an invalid `OpSelect` being generated when optimizing for
   SPIR-V 1.3 and earlier
   [#8603](https://github.com/microsoft/DirectXShaderCompiler/issues/8603).
+- Fix a crash generating DXIL from sources containing a dynamic resource heap
+  access that was discarded. Identified during development of SPIR-V support for
+  [descriptor heaps](https://github.com/microsoft/DirectXShaderCompiler/pull/8517#discussion_r3752113078).
 
 #### HLSL Language
 
