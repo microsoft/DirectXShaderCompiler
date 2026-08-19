@@ -1457,7 +1457,7 @@ static bool verifyUntouchedBytes(ComponentType CompType, MatrixDim M,
 static std::string buildCompilerArgs(const MatrixParams &Params,
                                      const char *ExtraDefines = nullptr) {
   std::stringstream SS;
-  SS << "-HV 202x";
+  SS << "-HV 2021";
   SS << " -DCOMP_TYPE=" << static_cast<int>(Params.CompType);
   SS << " -DM_DIM=" << Params.M;
   SS << " -DN_DIM=" << Params.N;
@@ -2105,7 +2105,7 @@ static std::optional<std::string> buildCompilerArgs(const CaseData &Case) {
     return std::nullopt;
 
   std::stringstream Args;
-  Args << "-HV 202x";
+  Args << "-HV 2021";
   Args << " -DMATRIX_COMP_TYPE=" << static_cast<int>(Case.MatrixType);
   Args << " -DM_DIM=" << Case.M;
   Args << " -DN_DIM=" << Case.N;
@@ -5560,7 +5560,7 @@ buildWaveMultiplyCompilerArgs(const WaveMultiplyCase &Case, UINT WaveSize) {
       Case.AccumulatorType, Case.M, Case.N, MatrixUse::Accumulator, WaveSize);
 
   std::stringstream SS;
-  SS << "-HV 202x";
+  SS << "-HV 2021";
   SS << " -DMATRIX_A_COMP_TYPE=" << static_cast<int>(Case.MatrixAType);
   SS << " -DMATRIX_B_COMP_TYPE=" << static_cast<int>(Case.MatrixBType);
   SS << " -DACCUMULATOR_COMP_TYPE=" << static_cast<int>(Case.AccumulatorType);
@@ -6398,7 +6398,7 @@ static const char QueryAccumLayoutValueShader[] = R"(
 static void runQueryAccumLayoutValue(ID3D12Device *Device,
                                      dxc::SpecificDllLoader &DxcSupport,
                                      bool Verbose) {
-  const std::string Args = "-HV 202x";
+  const std::string Args = "-HV 2021";
   const size_t BufferSize = sizeof(uint32_t);
 
   compileShader(DxcSupport, QueryAccumLayoutValueShader, "cs_6_10", Args,
@@ -7451,7 +7451,7 @@ static const char ConvertShader[] = R"(
 
 static void runConvert(ID3D12Device *Device, dxc::SpecificDllLoader &DxcSupport,
                        bool Verbose) {
-  std::string Args = "-HV 202x -enable-16bit-types";
+  std::string Args = "-HV 2021 -enable-16bit-types";
   MatrixDim NumElements = 4;
   size_t BufferSize = elementSize(ComponentType::F32) * NumElements;
 
@@ -7494,7 +7494,7 @@ static const char VectorAccumulateDescriptorShader[] = R"(
 static void runVectorAccumulateDescriptor(ID3D12Device *Device,
                                           dxc::SpecificDllLoader &DxcSupport,
                                           bool Verbose) {
-  std::string Args = "-HV 202x -enable-16bit-types";
+  std::string Args = "-HV 2021 -enable-16bit-types";
   MatrixDim NumElements = 4;
   size_t BufferSize = elementSize(ComponentType::F16) * NumElements;
 
@@ -7906,7 +7906,7 @@ static void runExactConvert(ID3D12Device *Device,
 static std::string buildConvertArgs(ComponentType SourceCompType,
                                     ComponentType DestinationCompType) {
   std::stringstream Args;
-  Args << "-HV 202x -enable-16bit-types";
+  Args << "-HV 2021 -enable-16bit-types";
   Args << " -DSRC_TYPE=" << static_cast<UINT>(SourceCompType);
   Args << " -DDST_TYPE=" << static_cast<UINT>(DestinationCompType);
   return Args.str();
