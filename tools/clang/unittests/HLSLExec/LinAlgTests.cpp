@@ -3122,6 +3122,8 @@ public:
   TEST_METHOD(StoreDescriptorOOB_Wave_4x8_F16_OffsetPaddedPartialView);
   TEST_METHOD(SplatStore_Wave_16x16_F16);
   TEST_METHOD(AccumulateDescriptor_Wave_16x16_F16);
+  TEST_METHOD(AccumulateDescriptorContention_Wave_4x8_I32);
+  TEST_METHOD(AccumulateDescriptorContention_Wave_4x8_F32_OrderInvariant);
 
   // Load/Store/Accumulate Memory
   TEST_METHOD(LoadMemory_Wave_16x16_F16);
@@ -3130,6 +3132,8 @@ public:
   TEST_METHOD(LoadStoreMemory_Wave_4x8_F16_RowMajorOffsetPadded);
   TEST_METHOD(LoadStoreMemory_Wave_4x8_F32_ColumnMajorOffsetPadded);
   TEST_METHOD(LoadStoreMemory_ThreadGroup_4x8_F16);
+  TEST_METHOD(AccumulateMemoryContention_Wave_4x8_F16);
+  TEST_METHOD(AccumulateMemoryContention_Wave_4x8_I32);
 
   // Element access
   TEST_METHOD(ElementAccess_Wave_16x16_F16);
@@ -3928,6 +3932,8 @@ void DxilConf_SM610_LinAlg::SplatStore_Wave_16x16_F16() {
                 SelectedWaveSize);
 }
 
+static constexpr UINT DescriptorAccumulatesPerWave = 2;
+
 static const char AccumulateDescriptorShader[] = R"(
   #define USE_ACC 2
 
@@ -3941,7 +3947,7 @@ static const char AccumulateDescriptorShader[] = R"(
   #endif
   [numthreads(NUMTHREADS, 1, 1)]
   void main() {
-    if (GetGroupWaveIndex() != 0)
+    if (GetGroupWaveIndex() >= ACTIVE_WAVE_COUNT)
       return;
 
     __builtin_LinAlgMatrix
@@ -3949,21 +3955,31 @@ static const char AccumulateDescriptorShader[] = R"(
       Mat;
     __builtin_LinAlg_MatrixLoadFromDescriptor(
       Mat, Input, 0, STRIDE, LAYOUT, 128);
-    __builtin_LinAlg_MatrixAccumulateToDescriptor(
-      Mat, Output, 0, STRIDE, LAYOUT, 128);
-    __builtin_LinAlg_MatrixAccumulateToDescriptor(
-      Mat, Output, 0, STRIDE, LAYOUT, 128);
+    // Repeating once per Wave index makes each Wave contribute a distinct
+    // amount, so a dropped update cannot cancel a duplicated one.
+    for (uint Repeat = 0; Repeat <= GetGroupWaveIndex(); ++Repeat) {
+      __builtin_LinAlg_MatrixAccumulateToDescriptor(
+        Mat, Output, 0, STRIDE, LAYOUT, 128);
+      __builtin_LinAlg_MatrixAccumulateToDescriptor(
+        Mat, Output, 0, STRIDE, LAYOUT, 128);
+    }
   }
 )";
 
 static void runAccumulateDescriptor(ID3D12Device *Device,
                                     dxc::SpecificDllLoader &DxcSupport,
                                     const MatrixParams &Params, int FillValue,
-                                    bool Verbose, UINT ForcedWaveSize = 0) {
+                                    bool Verbose, UINT ForcedWaveSize = 0,
+                                    UINT ActiveWaveCount = 1,
+                                    UINT DispatchX = 1) {
   const size_t NumElements = Params.totalElements();
   const size_t BufferSize = Params.totalBytes();
+  const UINT AccumulationCount = DescriptorAccumulatesPerWave *
+                                 (ActiveWaveCount * (ActiveWaveCount + 1) / 2) *
+                                 DispatchX;
 
   std::stringstream ExtraDefs;
+  ExtraDefs << " -DACTIVE_WAVE_COUNT=" << ActiveWaveCount;
   if (ForcedWaveSize != 0)
     ExtraDefs << " -DFORCED_WAVE_SIZE=" << ForcedWaveSize;
 
@@ -3973,10 +3989,16 @@ static void runAccumulateDescriptor(ID3D12Device *Device,
                 Verbose);
 
   auto Expected = makeExpectedMat(Params.CompType, Params.M, Params.N,
-                                  static_cast<float>(FillValue) * 2, false);
+                                  static_cast<float>(FillValue) *
+                                      static_cast<float>(AccumulationCount),
+                                  false);
 
+  hlsl_test::LogCommentFmt(
+      L"Descriptor accumulation issues %u atomic matrix additions in total "
+      L"across %u Waves in each of %u groups",
+      AccumulationCount, ActiveWaveCount, DispatchX);
   auto Op = createComputeOp(AccumulateDescriptorShader, "cs_6_10",
-                            "SRV(t0), UAV(u1)", Args.c_str());
+                            "SRV(t0), UAV(u1)", Args.c_str(), DispatchX);
   addSRVBuffer(Op.get(), "Input", BufferSize, "byname");
   addUAVBuffer(Op.get(), "Output", BufferSize, true);
   addRootView(Op.get(), 0, "Input");
@@ -4023,6 +4045,50 @@ void DxilConf_SM610_LinAlg::AccumulateDescriptor_Wave_16x16_F16() {
 
   runAccumulateDescriptor(D3DDevice, DxcSupport, Params, 12, VerboseLogging,
                           SelectedWaveSize);
+}
+
+static void runAccumulateDescriptorContention(
+    ID3D12Device *Device, dxc::SpecificDllLoader &DxcSupport,
+    ComponentType CompType, int FillValue, LPCWSTR CaseName, bool Verbose) {
+  MatrixParams Params = {};
+  Params.CompType = CompType;
+  Params.M = 4;
+  Params.N = 8;
+  Params.Use = MatrixUse::Accumulator;
+  Params.Scope = MatrixScope::Wave;
+  Params.Layout = MatrixLayout::RowMajor;
+  Params.NumThreads = 512;
+  Params.Enable16Bit = false;
+
+  UINT SelectedWaveSize = 0;
+  if (!matrixConstructionApplicable(Device, Params, {Params.Use}, CaseName,
+                                    SelectedWaveSize))
+    return;
+  if (!accumulateStoreApplicable(
+          Device, Params.CompType,
+          linalg_test::AtomicDestination::RWByteAddressBuffer, CaseName))
+    return;
+
+  constexpr UINT ActiveWaveCount = 4;
+  constexpr UINT DispatchX = 4;
+  Params.NumThreads = static_cast<int>(SelectedWaveSize * ActiveWaveCount);
+
+  runAccumulateDescriptor(Device, DxcSupport, Params, FillValue, Verbose,
+                          SelectedWaveSize, ActiveWaveCount, DispatchX);
+}
+
+void DxilConf_SM610_LinAlg::AccumulateDescriptorContention_Wave_4x8_I32() {
+  runAccumulateDescriptorContention(
+      D3DDevice, DxcSupport, ComponentType::I32, /*FillValue=*/7,
+      L"AccumulateDescriptorContention_Wave_4x8_I32", VerboseLogging);
+}
+
+void DxilConf_SM610_LinAlg::
+    AccumulateDescriptorContention_Wave_4x8_F32_OrderInvariant() {
+  runAccumulateDescriptorContention(
+      D3DDevice, DxcSupport, ComponentType::F32, /*FillValue=*/1,
+      L"AccumulateDescriptorContention_Wave_4x8_F32_OrderInvariant",
+      VerboseLogging);
 }
 
 // Element access constructs a wave-scope matrix and then reads or writes its
@@ -7536,7 +7602,7 @@ static const char GroupSharedAccumulateShader[] = R"(
 
     GroupMemoryBarrierWithGroupSync();
 
-    if (GetGroupWaveIndex() == 0) {
+    if (GetGroupWaveIndex() < ACTIVE_WAVE_COUNT) {
       __builtin_LinAlgMatrix
         [[__LinAlgMatrix_Attributes(COMP_TYPE, M_DIM, N_DIM, USE, SCOPE)]]
         Mat;
@@ -7545,7 +7611,8 @@ static const char GroupSharedAccumulateShader[] = R"(
         uint2 Coord = __builtin_LinAlg_MatrixGetCoordinate(Mat, I);
         __builtin_LinAlg_MatrixSetElement(
           Mat, Mat, I,
-          (ELEM_TYPE)(ACCUMULATE_START + Coord.x * N_DIM + Coord.y));
+          (ELEM_TYPE)((GetGroupWaveIndex() + 1) *
+                      (ACCUMULATE_START + Coord.x * N_DIM + Coord.y)));
       }
       __builtin_LinAlg_MatrixAccumulateToMemory(
         Mat, GsData, COMP_TYPE, MEM_OFFSET, MEM_STRIDE, MEM_LAYOUT);
@@ -7564,16 +7631,32 @@ static void runGroupSharedAccumulate(
     ID3D12Device *Device, dxc::SpecificDllLoader &DxcSupport,
     const MatrixParams &Params,
     const cpu_oracle::MatrixBufferLayout &MemoryLayout, uint32_t InitialValue,
-    uint32_t AccumulateStartingValue, bool Verbose, UINT ForcedWaveSize = 0) {
-  if (!Device || Params.CompType != ComponentType::F16 ||
-      Params.Scope != MatrixScope::Wave ||
-      Params.Use != MatrixUse::Accumulator ||
-      InitialValue >
-          (std::numeric_limits<uint32_t>::max)() - AccumulateStartingValue) {
-    VERIFY_IS_TRUE(false, "Invalid group-shared accumulate parameters");
+    uint32_t AccumulateStartingValue, bool Verbose, UINT ForcedWaveSize = 0,
+    UINT ActiveWaveCount = 1) {
+  if (!Device) {
+    hlsl_test::LogErrorFmt(L"Group-shared accumulation has no device");
+    VERIFY_FAIL(L"Invalid group-shared accumulation device");
     return;
   }
-
+  if (Params.CompType != ComponentType::F16 &&
+      Params.CompType != ComponentType::I32) {
+    hlsl_test::LogErrorFmt(
+        L"Group-shared accumulation does not support component type %u",
+        static_cast<uint32_t>(Params.CompType));
+    VERIFY_FAIL(L"Unsupported group-shared accumulation component type");
+    return;
+  }
+  if (Params.Scope != MatrixScope::Wave) {
+    hlsl_test::LogErrorFmt(L"Group-shared accumulation requires Wave scope");
+    VERIFY_FAIL(L"Invalid group-shared accumulation scope");
+    return;
+  }
+  if (Params.Use != MatrixUse::Accumulator) {
+    hlsl_test::LogErrorFmt(
+        L"Group-shared accumulation requires Accumulator use");
+    VERIFY_FAIL(L"Invalid group-shared accumulation matrix use");
+    return;
+  }
   size_t BufferSize;
   UINT NumElements;
   if (!getGroupSharedBufferDescription(Params, MemoryLayout, BufferSize,
@@ -7583,24 +7666,74 @@ static void runGroupSharedAccumulate(
   }
 
   const size_t MatrixElements = Params.totalElements();
-  std::optional<cpu_oracle::TypedMatrix> InitialMatrix =
-      cpu_oracle::makeTypedMatrix<HLSLHalf_t>(
-          Params.M, Params.N,
-          std::vector<HLSLHalf_t>(
-              MatrixElements, HLSLHalf_t(static_cast<float>(InitialValue))));
-  std::optional<cpu_oracle::TypedMatrix> ExpectedMatrix =
-      cpu_oracle::makeSequentialMatrix(Params.CompType, Params.M, Params.N,
-                                       InitialValue + AccumulateStartingValue);
+  // Wave w contributes w + 1 times its element value, matching the shader, so
+  // the weighted total distinguishes a dropped update from a duplicated one.
+  const uint32_t WaveWeightSum = ActiveWaveCount * (ActiveWaveCount + 1) / 2;
+  std::optional<cpu_oracle::TypedMatrix> InitialMatrix;
+  std::optional<cpu_oracle::TypedMatrix> ExpectedMatrix;
+  if (Params.CompType == ComponentType::F16) {
+    std::vector<HLSLHalf_t> InitialValues(
+        MatrixElements, HLSLHalf_t(static_cast<float>(InitialValue)));
+    std::vector<HLSLHalf_t> ExpectedValues;
+    ExpectedValues.reserve(MatrixElements);
+    for (size_t I = 0; I < MatrixElements; ++I) {
+      const uint32_t Value =
+          InitialValue +
+          WaveWeightSum * (AccumulateStartingValue + static_cast<uint32_t>(I));
+      ExpectedValues.emplace_back(static_cast<float>(Value));
+    }
+    InitialMatrix = cpu_oracle::makeTypedMatrix(Params.M, Params.N,
+                                                std::move(InitialValues));
+    ExpectedMatrix = cpu_oracle::makeTypedMatrix(Params.M, Params.N,
+                                                 std::move(ExpectedValues));
+  } else {
+    std::vector<int32_t> InitialValues(MatrixElements,
+                                       static_cast<int32_t>(InitialValue));
+    std::vector<int32_t> ExpectedValues;
+    ExpectedValues.reserve(MatrixElements);
+    for (size_t I = 0; I < MatrixElements; ++I) {
+      const uint32_t Value =
+          InitialValue +
+          WaveWeightSum * (AccumulateStartingValue + static_cast<uint32_t>(I));
+      ExpectedValues.push_back(static_cast<int32_t>(Value));
+    }
+    InitialMatrix = cpu_oracle::makeTypedMatrix(Params.M, Params.N,
+                                                std::move(InitialValues));
+    ExpectedMatrix = cpu_oracle::makeTypedMatrix(Params.M, Params.N,
+                                                 std::move(ExpectedValues));
+  }
+  if (!InitialMatrix || !ExpectedMatrix) {
+    hlsl_test::LogErrorFmt(
+        L"Failed to build %ux%u group-shared accumulation matrices for "
+        L"component type %u",
+        Params.M, Params.N, static_cast<uint32_t>(Params.CompType));
+    VERIFY_FAIL(L"Invalid group-shared accumulation matrices");
+    return;
+  }
+
   std::optional<std::vector<BYTE>> Initial =
       makeGroupSharedTypedBuffer(Params.CompType, BufferSize, 90);
   std::optional<std::vector<BYTE>> Expected =
       makeGroupSharedTypedBuffer(Params.CompType, BufferSize, 90);
-  if (!InitialMatrix.has_value() || !ExpectedMatrix.has_value() ||
-      !Initial.has_value() || !Expected.has_value() ||
-      !cpu_oracle::writeMatrixBuffer(*InitialMatrix, MemoryLayout, *Initial) ||
-      !cpu_oracle::writeMatrixBuffer(*ExpectedMatrix, MemoryLayout,
+  if (!Initial || !Expected) {
+    hlsl_test::LogErrorFmt(
+        L"Failed to allocate %zu-byte group-shared accumulation buffers for "
+        L"component type %u",
+        BufferSize, static_cast<uint32_t>(Params.CompType));
+    VERIFY_FAIL(L"Invalid group-shared accumulation buffers");
+    return;
+  }
+  if (!cpu_oracle::writeMatrixBuffer(*InitialMatrix, MemoryLayout, *Initial)) {
+    hlsl_test::LogErrorFmt(
+        L"Failed to write the initial group-shared accumulation matrix");
+    VERIFY_FAIL(L"Invalid initial group-shared accumulation layout");
+    return;
+  }
+  if (!cpu_oracle::writeMatrixBuffer(*ExpectedMatrix, MemoryLayout,
                                      *Expected)) {
-    VERIFY_IS_TRUE(false, "Failed to build group-shared accumulate oracle");
+    hlsl_test::LogErrorFmt(
+        L"Failed to write the expected group-shared accumulation matrix");
+    VERIFY_FAIL(L"Invalid expected group-shared accumulation layout");
     return;
   }
 
@@ -7611,6 +7744,7 @@ static void runGroupSharedAccumulate(
   ExtraDefs << " -DMEM_STRIDE=" << MemoryLayout.StrideBytes / ElementBytes;
   ExtraDefs << " -DMEM_LAYOUT=" << static_cast<UINT>(MemoryLayout.Layout);
   ExtraDefs << " -DACCUMULATE_START=" << AccumulateStartingValue;
+  ExtraDefs << " -DACTIVE_WAVE_COUNT=" << ActiveWaveCount;
   if (ForcedWaveSize != 0)
     ExtraDefs << " -DFORCED_WAVE_SIZE=" << ForcedWaveSize;
 
@@ -7634,11 +7768,16 @@ static void runGroupSharedAccumulate(
 
   MappedData OutData;
   Result->Test->GetReadBackData("Output", &OutData);
+  std::wstringstream PublicRule;
+  PublicRule << L"MatrixAccumulateToMemory atomically adds each logical "
+                L"matrix value from "
+             << ActiveWaveCount << L" active Wave";
+  if (ActiveWaveCount != 1)
+    PublicRule << L"s";
+  PublicRule << L", preserving every padding byte and guard";
   VERIFY_IS_TRUE(verifyGroupSharedTypedBuffer(
       Params.CompType, OutData.data(), OutData.size(), *Expected,
-      L"MatrixAccumulateToMemory adds each logical matrix value to 12 while "
-      L"preserving exact padding and guards",
-      Verbose));
+      PublicRule.str().c_str(), Verbose));
 }
 
 static void runPaddedGroupSharedAccumulateCase(
@@ -7712,6 +7851,55 @@ static void runPaddedGroupSharedAccumulateCase(
                            /*InitialValue=*/12,
                            /*AccumulateStartingValue=*/1, Verbose,
                            SelectedWaveSize);
+}
+
+static void runGroupSharedAccumulateContention(
+    ID3D12Device *Device, dxc::SpecificDllLoader &DxcSupport,
+    ComponentType CompType, LPCWSTR CaseName, bool Verbose) {
+  MatrixParams Params = {};
+  Params.CompType = CompType;
+  Params.M = 4;
+  Params.N = 8;
+  Params.Use = MatrixUse::Accumulator;
+  Params.Scope = MatrixScope::Wave;
+  Params.Layout = MatrixLayout::RowMajor;
+  Params.NumThreads = 512;
+  Params.Enable16Bit = CompType == ComponentType::F16;
+
+  UINT SelectedWaveSize = 0;
+  if (!matrixConstructionApplicable(Device, Params, {Params.Use}, CaseName,
+                                    SelectedWaveSize))
+    return;
+  if (!accumulateStoreApplicable(Device, Params.CompType,
+                                 linalg_test::AtomicDestination::GroupShared,
+                                 CaseName))
+    return;
+
+  constexpr UINT ActiveWaveCount = 4;
+  Params.NumThreads = static_cast<int>(SelectedWaveSize * ActiveWaveCount);
+
+  const size_t ElementBytes = elementSize(CompType);
+  const cpu_oracle::MatrixBufferLayout Memory = {
+      MatrixLayout::RowMajor,
+      /*OffsetBytes=*/4 * ElementBytes,
+      /*StrideBytes=*/Params.N * ElementBytes + 8,
+  };
+  runGroupSharedAccumulate(Device, DxcSupport, Params, Memory,
+                           /*InitialValue=*/7,
+                           /*AccumulateStartingValue=*/1, Verbose,
+                           SelectedWaveSize, ActiveWaveCount);
+}
+
+void DxilConf_SM610_LinAlg::AccumulateMemoryContention_Wave_4x8_F16() {
+  runGroupSharedAccumulateContention(D3DDevice, DxcSupport, ComponentType::F16,
+                                     L"AccumulateMemoryContention_Wave_4x8_F16",
+                                     VerboseLogging);
+}
+
+void DxilConf_SM610_LinAlg::AccumulateMemoryContention_Wave_4x8_I32() {
+  runGroupSharedAccumulateContention(D3DDevice, DxcSupport, ComponentType::I32,
+                                     L"AccumulateMemoryContention_Wave_4x8_I32",
+                                     VerboseLogging);
 }
 
 static const char ConvertShader[] = R"(
