@@ -362,8 +362,9 @@ if( MSVC )
     append("/analyze" CMAKE_CXX_FLAGS)
   endif ()
 
-  # Change release to always build debug information out-of-line, but
-  # also enable Reference optimization, ie dead function elimination.
+  # Change release to always build debug information out-of-line and enable
+  # function-level dead code elimination.
+  append("/Gy" CMAKE_C_FLAGS_RELEASE CMAKE_CXX_FLAGS_RELEASE)
   if (NOT CMAKE_MSVC_DEBUG_INFORMATION_FORMAT)
     append("/Zi" CMAKE_CXX_FLAGS_RELEASE)
     append("/DEBUG /OPT:REF" CMAKE_SHARED_LINKER_FLAGS_RELEASE)
@@ -609,9 +610,6 @@ endif()
 # HLSL Change Ends
 
 # Add flags for add_dead_strip().
-# FIXME: With MSVS, consider compiling with /Gy and linking with /OPT:REF?
-# But MinSizeRel seems to add that automatically, so maybe disable these
-# flags instead if LLVM_NO_DEAD_STRIP is set.
 if(NOT CYGWIN AND NOT WIN32)
   if(NOT ${CMAKE_SYSTEM_NAME} MATCHES "Darwin" AND
      NOT uppercase_CMAKE_BUILD_TYPE STREQUAL "DEBUG")
