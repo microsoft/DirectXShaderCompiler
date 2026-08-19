@@ -42,6 +42,9 @@ line upon naming the release. Refer to previous for appropriate section names.
 - Fixed internal compiler errors when a member method is called on a ray payload
   or on one of its fields with payload access qualifiers enabled
   [#6464](https://github.com/microsoft/DirectXShaderCompiler/issues/6464).
+- SPIR-V fixed incorrect alignment of 64-bit elements in `vk::RawBufferLoad` and
+  `vk::RawBufferStore` intrinsics
+  [#8576](https://github.com/microsoft/DirectXShaderCompiler/pull/8576)
 
 ### Upcoming Preview Release
 
@@ -178,9 +181,6 @@ first shipped in the 1.10.2605 preview.
 - DXIL validation: added validation for `CreateHandleFromBinding`.
 - DXIL validation now rejects non-standard integer bit widths (e.g. `i25`) in
   instructions.
-- SPIR-V fixed incorrect alignment of 64-bit elements in `vk::RawBufferLoad` and
-  `vk::RawBufferStore` intrinsics
-  [#8576](https://github.com/microsoft/DirectXShaderCompiler/pull/8576)
 
 #### Other Changes
 
