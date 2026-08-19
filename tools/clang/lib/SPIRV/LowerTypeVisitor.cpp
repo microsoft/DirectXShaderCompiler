@@ -980,6 +980,9 @@ LowerTypeVisitor::lowerResourceType(QualType type, SpirvLayoutRule rule,
       // UAV textures (RWTexture* and RasterizerOrderedTexture*) - no
       // Texture3DArray in DXIL/HLSL.
       if (resClass == hlsl::DXIL::ResourceClass::UAV) {
+        if (isMS)
+          spvBuilder.requireCapability(spv::Capability::StorageImageMultisample,
+                                       srcLoc);
         const auto sampledType = hlsl::GetHLSLResourceResultType(type);
         const auto format =
             translateSampledTypeToImageFormat(sampledType, srcLoc);
