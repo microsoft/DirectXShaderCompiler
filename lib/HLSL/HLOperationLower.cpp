@@ -424,6 +424,15 @@ struct IntrinsicLower {
 // IOP intrinsics.
 namespace {
 
+CallInst *CreateTrivialDxilCall(Function *Func, OP::OpCode Opcode,
+                                ArrayRef<Value *> Args, const Twine &Name,
+                                IRBuilder<> &Builder) {
+  CallInst *Call = Builder.CreateCall(Func, Args, Name);
+  if (OP::IsDxilOpConvergent(Opcode))
+    Call->addAttribute(AttributeSet::FunctionIndex, Attribute::Convergent);
+  return Call;
+}
+
 // Creates the necessary scalar calls to for a "trivial" operation where only
 // call instructions to a single function type are needed.
 // The overload type `Ty` determines what scalarization might be required.
@@ -450,8 +459,8 @@ Value *TrivialDxilOperation(Function *dxilFunc, OP::OpCode opcode,
           args[argIdx] = Builder.CreateExtractElement(arg, i);
         }
       }
-      Value *EltOP =
-          Builder.CreateCall(dxilFunc, args, hlslOP->GetOpCodeName(opcode));
+      Value *EltOP = CreateTrivialDxilCall(
+          dxilFunc, opcode, args, hlslOP->GetOpCodeName(opcode), Builder);
       retVal = Builder.CreateInsertElement(retVal, EltOP, i);
     }
     return retVal;
@@ -459,9 +468,10 @@ Value *TrivialDxilOperation(Function *dxilFunc, OP::OpCode opcode,
 
   // Cannot add name to void.
   if (RetTy->isVoidTy())
-    return Builder.CreateCall(dxilFunc, args);
+    return CreateTrivialDxilCall(dxilFunc, opcode, args, "", Builder);
 
-  return Builder.CreateCall(dxilFunc, args, hlslOP->GetOpCodeName(opcode));
+  return CreateTrivialDxilCall(dxilFunc, opcode, args,
+                               hlslOP->GetOpCodeName(opcode), Builder);
 }
 
 // Creates a native vector call to for a "trivial" operation where only a single
@@ -472,9 +482,9 @@ Value *TrivialDxilOperation(Function *dxilFunc, OP::OpCode opcode,
 Value *TrivialDxilVectorOperation(Function *Func, OP::OpCode Opcode,
                                   ArrayRef<Value *> Args, Type *Ty, OP *OP,
                                   IRBuilder<> &Builder) {
-  if (!Ty->isVoidTy())
-    return Builder.CreateCall(Func, Args, OP->GetOpCodeName(Opcode));
-  return Builder.CreateCall(Func, Args); // Cannot add name to void.
+  return CreateTrivialDxilCall(Func, Opcode, Args,
+                               Ty->isVoidTy() ? "" : OP->GetOpCodeName(Opcode),
+                               Builder);
 }
 
 // Generates a DXIL operation with the overloaded type based on `Ty` and return
@@ -6852,16 +6862,15 @@ Value *TranslateLinAlgMatVecMulAdd(CallInst *CI, IntrinsicOp IOP,
   Value *InputVector = CI->getArgOperand(4);
   Value *InputVectorInterp = CI->getArgOperand(5);
   Value *BiasVector = CI->getArgOperand(6);
-  Value *BiasVectorInterp = CI->getArgOperand(7);
 
   Constant *OpArg = HlslOp->GetU32Const((unsigned)OpCode);
   Function *DxilFunc = HlslOp->GetOpFunc(
       OpCode, {ReturnVecType, Matrix->getType(), InputVector->getType(),
                BiasVector->getType()});
 
-  Value *ReturnVec = Builder.CreateCall(
-      DxilFunc, {OpArg, Matrix, IsOutputSigned, InputVector, InputVectorInterp,
-                 BiasVector, BiasVectorInterp});
+  Value *ReturnVec =
+      Builder.CreateCall(DxilFunc, {OpArg, Matrix, IsOutputSigned, InputVector,
+                                    InputVectorInterp, BiasVector});
   Builder.CreateStore(ReturnVec, ReturnVecPtr);
 
   return nullptr;
@@ -7115,7 +7124,7 @@ Value *TranslateLinAlgMatrixLoadFromMemory(
   return nullptr;
 }
 
-Value *TranslateLinAlgMatrixAccumStoreToMemory(
+Value *TranslateLinAlgMatrixStoreToMemory(
     CallInst *CI, IntrinsicOp IOP, OP::OpCode OpCode,
     HLOperationLowerHelper &Helper, HLObjectOperationLowerHelper *ObjHelper,
     bool &Translated) {
@@ -7137,6 +7146,31 @@ Value *TranslateLinAlgMatrixAccumStoreToMemory(
 
   return Builder.CreateCall(DxilFunc,
                             {OpArg, Matrix, ArrPtr, Offset, Stride, Layout});
+}
+
+Value *TranslateLinAlgMatrixAccumToMemory(
+    CallInst *CI, IntrinsicOp IOP, OP::OpCode OpCode,
+    HLOperationLowerHelper &Helper, HLObjectOperationLowerHelper *ObjHelper,
+    bool &Translated) {
+  hlsl::OP *HlslOp = &Helper.hlslOP;
+  IRBuilder<> Builder(CI);
+
+  Value *Matrix = CI->getArgOperand(1);
+  Value *Arr = CI->getArgOperand(2);
+  Value *TargetType = CI->getArgOperand(3);
+  Value *Offset = CI->getArgOperand(4);
+  Value *Stride = CI->getArgOperand(5);
+  Value *Layout = CI->getArgOperand(6);
+
+  Value *Zero = Builder.getInt32(0);
+  Value *ArrPtr = Builder.CreateGEP(Arr, {Zero, Zero});
+  Type *ArrEltTy = ArrPtr->getType()->getPointerElementType();
+
+  Constant *OpArg = HlslOp->GetU32Const((unsigned)OpCode);
+  Function *DxilFunc = HlslOp->GetOpFunc(OpCode, {Matrix->getType(), ArrEltTy});
+
+  return Builder.CreateCall(
+      DxilFunc, {OpArg, Matrix, ArrPtr, TargetType, Offset, Stride, Layout});
 }
 
 Value *TranslateLinAlgConvert(CallInst *CI, IntrinsicOp IOP, OP::OpCode OpCode,
@@ -7173,16 +7207,16 @@ Value *TranslateLinAlgVectorAccumulateToDescriptor(
 
   Constant *OpArg = HlslOp->GetU32Const(static_cast<unsigned>(OpCode));
 
-  Value *Vector = CI->getArgOperand(1);
-  Value *ResHandle = CI->getArgOperand(2);
-  Value *Offset = CI->getArgOperand(3);
-  Value *Align = CI->getArgOperand(4);
+  Value *ResHandle = CI->getArgOperand(1);
+  Value *Offset = CI->getArgOperand(2);
+  Value *Align = CI->getArgOperand(3);
+  Value *Vector = CI->getArgOperand(4);
 
   // Get the DXIL function for the operation
   Function *DxilFunc = HlslOp->GetOpFunc(OpCode, Vector->getType());
 
   return Builder.CreateCall(DxilFunc,
-                            {OpArg, Vector, ResHandle, Offset, Align});
+                            {OpArg, ResHandle, Offset, Align, Vector});
 }
 
 } // namespace
@@ -7948,7 +7982,7 @@ constexpr IntrinsicLower gLowerTable[] = {
      TranslateLinAlgMatrixAccumStoreToDescriptor,
      DXIL::OpCode::LinAlgMatrixStoreToDescriptor},
     {IntrinsicOp::IOP___builtin_LinAlg_MatrixStoreToMemory,
-     TranslateLinAlgMatrixAccumStoreToMemory,
+     TranslateLinAlgMatrixStoreToMemory,
      DXIL::OpCode::LinAlgMatrixStoreToMemory},
     {IntrinsicOp::IOP___builtin_LinAlg_MatrixAccumulate,
      TranslateLinAlgMatrixAccumulate, DXIL::OpCode::LinAlgMatrixAccumulate},
@@ -7963,7 +7997,7 @@ constexpr IntrinsicLower gLowerTable[] = {
      TranslateLinAlgMatrixAccumStoreToDescriptor,
      DXIL::OpCode::LinAlgMatrixAccumulateToDescriptor},
     {IntrinsicOp::IOP___builtin_LinAlg_MatrixAccumulateToMemory,
-     TranslateLinAlgMatrixAccumStoreToMemory,
+     TranslateLinAlgMatrixAccumToMemory,
      DXIL::OpCode::LinAlgMatrixAccumulateToMemory},
     {IntrinsicOp::IOP___builtin_LinAlg_MatrixOuterProduct,
      TranslateLinAlgMatrixOuterProduct, DXIL::OpCode::LinAlgMatrixOuterProduct},
@@ -7974,8 +8008,8 @@ constexpr IntrinsicLower gLowerTable[] = {
 
     {IntrinsicOp::IOP_DebugBreak, TrivialNoArgOperation,
      DXIL::OpCode::DebugBreak},
-    {IntrinsicOp::IOP_DxIsDebuggerPresent, TranslateWaveToVal,
-     DXIL::OpCode::IsDebuggerPresent},
+    {IntrinsicOp::IOP_DxIsDebuggingEnabled, TranslateWaveToVal,
+     DXIL::OpCode::IsDebuggingEnabled},
 
     {IntrinsicOp::IOP___builtin_LinAlg_Convert, TranslateLinAlgConvert,
      DXIL::OpCode::LinAlgConvert},

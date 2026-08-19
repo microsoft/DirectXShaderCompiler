@@ -2450,7 +2450,7 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
             parmDecl->getLocation(),
             Diags.getCustomDiagID(DiagnosticsEngine::Error,
                                   "MaxRecordsSharedWith must reference a valid "
-                                  "ouput parameter name."));
+                                  "output parameter name."));
       } else if (ix == (int)outputNo) {
         Diags.Report(
             parmDecl->getLocation(),

@@ -862,6 +862,15 @@ static bool CanCoerceMustAliasedValueToLoad(Value *StoredVal,
     return false;
   if (LoadPrimBits && DL.getTypeSizeInBits(LoadTy) != LoadPrimBits)
     return false;
+
+  // Reject coercions that require bitcasting a non-integer value (e.g. a native
+  // vector) to an integer wider than 64 bits. DXIL does not support integer
+  // types wider than 64 bits, so such coercions would produce invalid DXIL.
+  uint64_t StoredValBits = DL.getTypeSizeInBits(StoredValTy);
+  uint64_t LoadBits = DL.getTypeSizeInBits(LoadTy);
+  if (StoredValBits > 64 && !StoredValTy->isIntegerTy() &&
+      (StoredValBits != LoadBits || LoadTy->isIntegerTy()))
+    return false;
   // HLSL Change End
 
   // The store has to be at least as big as the load.

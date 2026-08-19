@@ -878,11 +878,10 @@ GetOrCreateTemplateSpecialization(ASTContext &context, Sema &sema,
     if (specializationDecl->getInstantiatedFrom().isNull()) {
       // InstantiateClassTemplateSpecialization returns true if it finds an
       // error.
-      DXVERIFY_NOMSG(false ==
-                     sema.InstantiateClassTemplateSpecialization(
-                         NoLoc, specializationDecl,
-                         TemplateSpecializationKind::TSK_ImplicitInstantiation,
-                         true));
+      if (sema.InstantiateClassTemplateSpecialization(
+              NoLoc, specializationDecl,
+              TemplateSpecializationKind::TSK_ImplicitInstantiation, true))
+        return QualType();
     }
     return context.getTemplateSpecializationType(
         TemplateName(templateDecl), templateArgs.data(), templateArgs.size(),
@@ -893,18 +892,20 @@ GetOrCreateTemplateSpecialization(ASTContext &context, Sema &sema,
       context, TagDecl::TagKind::TTK_Class, currentDeclContext, NoLoc, NoLoc,
       templateDecl, templateArgsForDecl.data(), templateArgsForDecl.size(),
       nullptr);
-  // InstantiateClassTemplateSpecialization returns true if it finds an error.
-  DXVERIFY_NOMSG(false ==
-                 sema.InstantiateClassTemplateSpecialization(
-                     NoLoc, specializationDecl,
-                     TemplateSpecializationKind::TSK_ImplicitInstantiation,
-                     true));
+  // template specialization isn't performed if a fatal error has occurred
+  if (!sema.Diags.hasFatalErrorOccurred()) {
+    // InstantiateClassTemplateSpecialization returns true if it finds an error.
+    [[maybe_unused]] bool errorFound =
+        sema.InstantiateClassTemplateSpecialization(
+            NoLoc, specializationDecl,
+            TemplateSpecializationKind::TSK_ImplicitInstantiation, true);
+    assert(!errorFound && "template specialization failed");
+  }
   templateDecl->AddSpecialization(specializationDecl, InsertPos);
   specializationDecl->setImplicit(true);
-
   QualType canonType = context.getTypeDeclType(specializationDecl);
-  DXASSERT(isa<RecordType>(canonType),
-           "type of non-dependent specialization is not a RecordType");
+  assert(isa<RecordType>(canonType) &&
+         "type of non-dependent specialization is not a RecordType");
   TemplateArgumentListInfo templateArgumentList(NoLoc, NoLoc);
   TemplateArgumentLocInfo NoTemplateArgumentLocInfo;
   for (unsigned i = 0; i < templateArgs.size(); i++) {
@@ -939,16 +940,17 @@ static QualType GetOrCreateMatrixSpecialization(
       context, *sema, matrixTemplateDecl,
       ArrayRef<TemplateArgument>(templateArgs));
 
-#ifndef NDEBUG
-  // Verify that we can read the field member from the template record.
-  DXASSERT(matrixSpecializationType->getAsCXXRecordDecl(),
+  if (!matrixSpecializationType.isNull() &&
+      !sema->Diags.hasFatalErrorOccurred()) {
+    assert(matrixSpecializationType->getAsCXXRecordDecl() &&
            "type of non-dependent specialization is not a RecordType");
-  DeclContext::lookup_result lookupResult =
-      matrixSpecializationType->getAsCXXRecordDecl()->lookup(
-          DeclarationName(&context.Idents.get(StringRef("h"))));
-  DXASSERT(!lookupResult.empty(),
+    // Verify that we can read the field member from the template record.
+    [[maybe_unused]] DeclContext::lookup_result lookupResult =
+        matrixSpecializationType->getAsCXXRecordDecl()->lookup(
+            DeclarationName(&context.Idents.get(StringRef("h"))));
+    assert(!lookupResult.empty() &&
            "otherwise matrix handle cannot be looked up");
-#endif
+  }
 
   return matrixSpecializationType;
 }
@@ -974,16 +976,17 @@ GetOrCreateVectorSpecialization(ASTContext &context, Sema *sema,
       context, *sema, vectorTemplateDecl,
       ArrayRef<TemplateArgument>(templateArgs));
 
-#ifndef NDEBUG
-  // Verify that we can read the field member from the template record.
-  DXASSERT(vectorSpecializationType->getAsCXXRecordDecl(),
+  if (!vectorSpecializationType.isNull() &&
+      !sema->Diags.hasFatalErrorOccurred()) {
+    assert(vectorSpecializationType->getAsCXXRecordDecl() &&
            "type of non-dependent specialization is not a RecordType");
-  DeclContext::lookup_result lookupResult =
-      vectorSpecializationType->getAsCXXRecordDecl()->lookup(
-          DeclarationName(&context.Idents.get(StringRef("h"))));
-  DXASSERT(!lookupResult.empty(),
+    // Verify that we can read the field member from the template record.
+    [[maybe_unused]] DeclContext::lookup_result lookupResult =
+        vectorSpecializationType->getAsCXXRecordDecl()->lookup(
+            DeclarationName(&context.Idents.get(StringRef("h"))));
+    assert(!lookupResult.empty() &&
            "otherwise vector handle cannot be looked up");
-#endif
+  }
 
   return vectorSpecializationType;
 }
@@ -1002,16 +1005,16 @@ GetOrCreateNodeOutputRecordSpecialization(ASTContext &context, Sema *sema,
   QualType specializationType = GetOrCreateTemplateSpecialization(
       context, *sema, templateDecl, ArrayRef<TemplateArgument>(templateArgs));
 
-#ifdef DBG
-  // Verify that we can read the field member from the template record.
-  DXASSERT(specializationType->getAsCXXRecordDecl(),
+  if (!specializationType.isNull() && !sema->Diags.hasFatalErrorOccurred()) {
+    assert(specializationType->getAsCXXRecordDecl() &&
            "type of non-dependent specialization is not a RecordType");
-  DeclContext::lookup_result lookupResult =
-      specializationType->getAsCXXRecordDecl()->lookup(
-          DeclarationName(&context.Idents.get(StringRef("h"))));
-  DXASSERT(!lookupResult.empty(),
+    // Verify that we can read the field member from the template record.
+    [[maybe_unused]] DeclContext::lookup_result lookupResult =
+        specializationType->getAsCXXRecordDecl()->lookup(
+            DeclarationName(&context.Idents.get(StringRef("h"))));
+    assert(!lookupResult.empty() &&
            "otherwise *NodeOutputRecords handle cannot be looked up");
-#endif
+  }
 
   return specializationType;
 }
@@ -9589,6 +9592,10 @@ clang::ExprResult HLSLExternalSource::PerformHLSLConversion(
     clang::Sema::CheckedConversionKind CCK) {
   QualType sourceType = From->getType();
   sourceType = GetStructuralForm(sourceType);
+
+  // Store off the type attributes that could be accidentially dropped.
+  const bool targetGloballyCoherent = hlsl::HasHLSLGloballyCoherent(targetType);
+  const bool targetReorderCoherent = hlsl::HasHLSLReorderCoherent(targetType);
   targetType = GetStructuralForm(targetType);
   ArTypeInfo SourceInfo, TargetInfo;
   CollectInfo(sourceType, &SourceInfo);
@@ -9605,9 +9612,23 @@ clang::ExprResult HLSLExternalSource::PerformHLSLConversion(
     //    convert that to an array of casts under a special kind of flat
     //    flat conversion node?  What do component conversion casts cast
     //    from?  We don't have a From expression for individiual components.
+    QualType flatCastType = targetType.getUnqualifiedType();
+    // Preserve coherence qualifiers when converting to a resource type so the
+    // converted expression's type still reflects the coherence of its
+    // destination.
+    if (hlsl::IsHLSLResourceType(flatCastType)) {
+      if (targetGloballyCoherent)
+        flatCastType = m_context->getAttributedType(
+            AttributedType::attr_hlsl_globallycoherent, flatCastType,
+            flatCastType);
+      else if (targetReorderCoherent)
+        flatCastType = m_context->getAttributedType(
+            AttributedType::attr_hlsl_reordercoherent, flatCastType,
+            flatCastType);
+    }
     From = m_sema
-               ->ImpCastExprToType(From, targetType.getUnqualifiedType(),
-                                   CK_FlatConversion, From->getValueKind(),
+               ->ImpCastExprToType(From, flatCastType, CK_FlatConversion,
+                                   From->getValueKind(),
                                    /*BasePath=*/0, CCK)
                .get();
     break;
@@ -10262,6 +10283,15 @@ bool HLSLExternalSource::CanConvert(SourceLocation loc, Expr *sourceExpr,
     // Handle explicit splats from single element numerical types (scalars,
     // vector1s and matrix1x1s) to aggregate types.
     if (explicitConversion) {
+      const bool SourceIsSingleElement =
+          SourceInfo.ShapeKind == AR_TOBJ_SCALAR ||
+          (hlsl::IsHLSLVecMatType(source) &&
+           hlsl::GetElementCount(source) == 1);
+      if (SourceIsSingleElement &&
+          (m_sema->RequireCompleteType(loc, target, 0) ||
+           !hlsl::IsHLSLNumericOrAggregateOfNumericType(target)))
+        return false;
+
       const BuiltinType *sourceSingleElementBuiltinType =
           source->getAs<BuiltinType>();
       if (sourceSingleElementBuiltinType == nullptr &&
@@ -10271,11 +10301,7 @@ bool HLSLExternalSource::CanConvert(SourceLocation loc, Expr *sourceExpr,
             hlsl::GetElementTypeOrType(source)->getAs<BuiltinType>();
       }
 
-      // We can only splat to target types that do not contain object/resource
-      // types
-      if (sourceSingleElementBuiltinType != nullptr &&
-          !m_sema->RequireCompleteType(loc, target, 0) &&
-          hlsl::IsHLSLNumericOrAggregateOfNumericType(target)) {
+      if (sourceSingleElementBuiltinType != nullptr) {
         BuiltinType::Kind kind = sourceSingleElementBuiltinType->getKind();
         switch (kind) {
         case BuiltinType::Kind::UInt:
@@ -17870,6 +17896,8 @@ ConvertLinAlgMatrixComponentTypeToString(hlsl::DXIL::ComponentType CompType) {
     return "ComponentType::F8_E4M3FN";
   case DXIL::ComponentType::F8_E5M2:
     return "ComponentType::F8_E5M2";
+  case DXIL::ComponentType::BFloat16:
+    return "ComponentType::BFloat16";
   default:
     llvm_unreachable("Unknown ComponentType");
   }

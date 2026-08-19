@@ -115,6 +115,7 @@ class db_dxil_inst(object):
         # Always call process_oload_types() after setting oload_types.
         self.fn_attr = ""  # attribute shorthands: rn=does not access memory,ro=only reads from memory,
         self.is_deriv = False  # whether this is some kind of derivative
+        self.is_convergent = False  # whether this operation is convergent
         self.is_gradient = False  # whether this requires a gradient calculation
         self.is_feedback = False  # whether this is a sampler feedback op
         self.is_wave = False  # whether this requires in-wave, cross-lane functionality
@@ -1184,7 +1185,7 @@ class db_dxil(object):
                 "compute",
             )
 
-        for i in insts("DebugBreak", "IsDebuggerPresent"):
+        for i in insts("DebugBreak", "IsDebuggingEnabled"):
             i.category = "Debugging"
             i.shader_model = experimental_sm
 
@@ -6507,9 +6508,6 @@ class db_dxil(object):
                     5, "i32", "inputInterpretation", "input vector interpretation type"
                 ),
                 db_dxil_param(6, "$x3", "biasVector", "M dim vector to add"),
-                db_dxil_param(
-                    7, "i32", "biasInterpretation", "bias vector interpretation type"
-                ),
             ],
         )
 
@@ -6549,14 +6547,15 @@ class db_dxil(object):
                 db_dxil_param(
                     3, "$x_gs1", "memory", "groupshared array to accumulate into"
                 ),
-                db_dxil_param(4, "i32", "offset", "starting offset in the array"),
+                db_dxil_param(4, "i32", "targetType", "data type of the array"),
+                db_dxil_param(5, "i32", "offset", "starting offset in the array"),
                 db_dxil_param(
-                    5,
+                    6,
                     "i32",
                     "stride",
                     "number of bytes between the start of each row or column",
                 ),
-                db_dxil_param(6, "i32", "layout", "memory layout of matrix elements"),
+                db_dxil_param(7, "i32", "layout", "memory layout of matrix elements"),
             ],
         )
 
@@ -6599,10 +6598,10 @@ class db_dxil(object):
             "",
             [
                 db_dxil_param(0, "v", "", ""),
-                db_dxil_param(2, "$o", "vector", "vector to accumulate"),
-                db_dxil_param(3, "res", "handle", "buffer to accumulate into"),
-                db_dxil_param(4, "i32", "offset", "starting offset in the buffer"),
-                db_dxil_param(5, "i32", "align", "alignment of starting offset"),
+                db_dxil_param(2, "res", "handle", "buffer to accumulate into"),
+                db_dxil_param(3, "i32", "offset", "starting offset in the buffer"),
+                db_dxil_param(4, "i32", "align", "alignment of starting offset"),
+                db_dxil_param(5, "$o", "vector", "vector to accumulate"),
             ],
         )
 
@@ -6612,7 +6611,7 @@ class db_dxil(object):
         add_dxil_op(
             "DebugBreak",
             "DebugBreak",
-            "triggers a breakpoint if a debugger is attached",
+            "triggers a breakpoint if debugging is enabled",
             "v",
             "nd",
             [
@@ -6620,13 +6619,13 @@ class db_dxil(object):
             ],
         )
         add_dxil_op(
-            "IsDebuggerPresent",
-            "IsDebuggerPresent",
-            "returns true if a debugger is attached",
+            "IsDebuggingEnabled",
+            "IsDebuggingEnabled",
+            "returns true if debugging is enabled",
             "v",
-            "ro",
+            "",
             [
-                db_dxil_param(0, "i1", "", "true if a debugger is attached"),
+                db_dxil_param(0, "i1", "", "true if debugging is enabled"),
             ],
         )
 
@@ -6653,6 +6652,7 @@ class db_dxil(object):
                 self.name_idx[i].is_gradient == True
             ), "all derivatives are marked as requiring gradients"
             self.name_idx[i].is_deriv = True
+            self.name_idx[i].is_convergent = True
 
         # TODO - some arguments are required to be immediate constants in DXIL, eg resource kinds; add this information
         # consider - report instructions that are overloaded on a single type, then turn them into non-overloaded version of that type
@@ -8628,6 +8628,11 @@ class db_dxil(object):
             "Parameter must be a valid multiple",
             "parameter '%0' must be a multiple of %1, got %2",
         )
+        self.add_valrule_msg(
+            "Instr.ParamMinimumValue",
+            "Parameter must be greater than a minimum value",
+            "parameter '%0' must be greater than %1, got %2",
+        )
         self.add_valrule(
             "Instr.MayReorderThreadUndefCoherenceHintParam",
             "Use of undef coherence hint or num coherence hint bits in MaybeReorderThread.",
@@ -8635,6 +8640,94 @@ class db_dxil(object):
         self.add_valrule(
             "Instr.ReorderCoherentRequiresSM69",
             "reordercoherent requires SM 6.9 or later.",
+        )
+        self.add_valrule(
+            "Instr.LinAlgMetadataMissing",
+            "%0 matrix must have well-formed metadata.",
+        )
+        self.add_valrule(
+            "Instr.LinAlgIllegalKDim",
+            "%0 matrix K dimension out of bounds. K=%1 must be >= %2 and <= %3.",
+        )
+        self.add_valrule(
+            "Instr.LinAlgIllegalComponentType",
+            "Component type '%0' from %1 not allowed in LinAlg Matrix operations.",
+        )
+        self.add_valrule(
+            "Instr.LinAlgMatrixScopeMismatch",
+            "%0 matrix scope '%1' does not match expected scope %2.",
+        )
+        self.add_valrule(
+            "Instr.LinAlgMatrixScopeMismatch2",
+            "%0 matrix scope '%1' does not match expected scope %2 or %3.",
+        )
+        self.add_valrule(
+            "Instr.LinAlgMatrixUseMismatch",
+            "%0 matrix use '%1' does not match expected use %2.",
+        )
+        self.add_valrule(
+            "Instr.LinAlgMatrixUseMismatch2",
+            "%0 matrix use '%1' does not match expected use %2 or %3.",
+        )
+        self.add_valrule(
+            "Instr.LinAlgMatrixNotExactMatch",
+            "%0 matrix '%1' must exactly match %2 matrix '%3'.",
+        )
+        self.add_valrule(
+            "Instr.LinAlgMatrixScopeReqLayout2",
+            "%0 matrix with scope '%1' requires layout %2 or %3 for %4.",
+        )
+        self.add_valrule(
+            "Instr.LinAlgMatrixLayoutReqStride",
+            "%0 with layout '%1' requires stride 0.",
+        )
+        self.add_valrule(
+            "Instr.LinAlgMatrixDimVectorMismatch",
+            "%0 vector size '%1' must match input matrix M dimension '%2'",
+        )
+        self.add_valrule(
+            "Instr.LinAlgMatrixDimKVecKMismatch",
+            "%0 vector size '%1' must be %2 for input matrix with K '%3' and Type '%4'",
+        )
+        self.add_valrule(
+            "Instr.LinAlgMatrixOutputBiasVecMismatch",
+            "Output vector element type '%0' must match bias vector element type '%1'",
+        )
+        self.add_valrule(
+            "Instr.LinAlgMatrixUnsignedFloatTypeNotAllowed",
+            "Float-like type '%0' must be signed",
+        )
+        self.add_valrule(
+            "Instr.LinAlgMatrixLoadThreadRequiresBAB",
+            "Loading matrix with Thread scope requires ByteAddressBuffer.",
+        )
+        self.add_valrule(
+            "Instr.LinAlgMatrixRequiresRWBAB",
+            "%0 requires RWByteAddressBuffer.",
+        )
+        self.add_valrule(
+            "Instr.LinAlgMatrixRequiresLayout2",
+            "%0 requires layout %1 or %2.",
+        )
+        self.add_valrule(
+            "Instr.LinAlgMatrix2PartsMustMatch",
+            "%0 matrix %1 '%2' must match %3 matrix %4 '%5'.",
+        )
+        self.add_valrule(
+            "Instr.LinAlgMatrixScopeMustMatch3",
+            "Matrix scope must be the same for all matrices. %0 '%1', %2 '%3', %4 '%5'.",
+        )
+        self.add_valrule(
+            "Instr.LinAlgMatrixScopeMustMatch4",
+            "Matrix scope must be the same for all matrices. %0 '%1', %2 '%3', %4 '%5', %6 '%7'.",
+        )
+        self.add_valrule(
+            "Instr.LinAlgMatrixMatrixKDimMustMatch",
+            "K dim of A matrix '%0' must match K dim of B matrix '%1'. %2 != %3.",
+        )
+        self.add_valrule(
+            "Instr.LinAlgMatrixMatrixResDimMustMatch",
+            "%0 matrix dimension '%1' must match A.MxB.N '%2'.",
         )
 
         # Some legacy rules:

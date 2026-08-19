@@ -40,8 +40,9 @@ set(generate_embedded_headers_script
     "${LLVM_MAIN_SRC_DIR}/utils/generate_hlsl_embedded_headers.py")
 
 set(hlsl_embedded_inputs
-    enable_if.h
-    vector_utils.h
+    enable_if
+    type_traits
+    vector_utils
     dx/linalg.h
     )
 

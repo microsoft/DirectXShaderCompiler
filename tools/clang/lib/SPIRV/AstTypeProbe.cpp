@@ -1141,12 +1141,13 @@ bool isOpaqueType(QualType type) {
     if (name == "RaytracingAccelerationStructure")
       return true;
 
-    if (name == "RayQuery")
-      return true;
-
     if (name == "SubpassInput")
       return true;
   }
+
+  if (hlsl::IsHLSLRayQueryType(type))
+    return true;
+
   return false;
 }
 

@@ -14,9 +14,11 @@
 #include "InstCombineInternal.h"
 #include "llvm/ADT/APSInt.h"
 #include "llvm/ADT/Statistic.h"
+#include "llvm/ADT/Triple.h" // HLSL Change
 #include "llvm/Analysis/ConstantFolding.h"
 #include "llvm/Analysis/InstructionSimplify.h"
 #include "llvm/Analysis/MemoryBuiltins.h"
+#include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/IR/ConstantRange.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/GetElementPtrTypeIterator.h"
@@ -24,7 +26,6 @@
 #include "llvm/IR/PatternMatch.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
-#include "llvm/Analysis/TargetLibraryInfo.h"
 
 using namespace llvm;
 using namespace PatternMatch;
@@ -2053,6 +2054,10 @@ Instruction *InstCombiner::visitICmpInstWithCastAndCast(ICmpInst &ICI) {
 static Instruction *ProcessUGT_ADDCST_ADD(ICmpInst &I, Value *A, Value *B,
                                           ConstantInt *CI2, ConstantInt *CI1,
                                           InstCombiner &IC) {
+  // HLSL Change begin - DXIL has no sadd.with.overflow intrinsic.
+  if (Triple(I.getModule()->getTargetTriple()).isDXIL())
+    return nullptr;
+  // HLSL Change end
   // The transformation we're trying to do here is to transform this into an
   // llvm.sadd.with.overflow.  To do this, we have to replace the original add
   // with a narrower add, and discard the add-with-constant that is part of the
@@ -2245,6 +2250,10 @@ bool InstCombiner::OptimizeOverflowCheck(OverflowCheckFlavor OCF, Value *LHS,
 ///          replacement required.
 static Instruction *ProcessUMulZExtIdiom(ICmpInst &I, Value *MulVal,
                                          Value *OtherVal, InstCombiner &IC) {
+  // HLSL Change begin - DXIL has no umul.with.overflow intrinsic.
+  if (Triple(I.getModule()->getTargetTriple()).isDXIL())
+    return nullptr;
+  // HLSL Change end
   // Don't bother doing this transformation for pointers, don't do it for
   // vectors.
   if (!isa<IntegerType>(MulVal->getType()))

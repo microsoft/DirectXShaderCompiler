@@ -3,8 +3,8 @@
 target datalayout = "e-m:e-p:32:32-i1:32-i8:32-i16:32-i32:32-i64:64-f16:32-f32:32-f64:64-n8:16:32:64"
 target triple = "dxil-ms-dx"
 
-; Function Attrs: nounwind readnone
-declare <2 x float> @"dx.hl.op.rn.<2 x float> (i32, <2 x float>)"(i32, <2 x float>) #1
+; Function Attrs: convergent nounwind readnone
+declare <2 x float> @"dx.hl.op.cvrn.<2 x float> (i32, <2 x float>)"(i32, <2 x float>) #1
 
 ; Function Attrs: nounwind
 define void @main(<2 x float>* noalias %arg, <2 x float> %arg1, <2 x float> %arg2, i32 %arg3) #0 {
@@ -19,22 +19,40 @@ bb:
   %tmp4 = icmp sgt i32 %arg3, 2
   %tmp5 = icmp ne i1 %tmp4, false
   %tmp6 = icmp ne i1 %tmp5, false
+  ; CHECK: br i1
   br i1 %tmp6, label %bb7, label %bb10
 
 bb7:                                              ; preds = %bb
-  ; CHECK: call <2 x float> @"dx.hl.op.rn.<2 x float> (i32, <2 x float>)"(i32 128, <2 x float> [[vec]])
-  %tmp8 = call <2 x float> @"dx.hl.op.rn.<2 x float> (i32, <2 x float>)"(i32 128, <2 x float> %tmp)
-  %tmp9 = fsub <2 x float> zeroinitializer, %tmp8
+  ; CHECK-NOT: call {{.*}} @dxil.convergent.marker
+  ; CHECK: call <2 x float> @"dx.hl.op.cvrn.<2 x float> (i32, <2 x float>)"(i32 125,
+  ; CHECK: call <2 x float> @"dx.hl.op.cvrn.<2 x float> (i32, <2 x float>)"(i32 126,
+  ; CHECK: call <2 x float> @"dx.hl.op.cvrn.<2 x float> (i32, <2 x float>)"(i32 127,
+  ; CHECK: call <2 x float> @"dx.hl.op.cvrn.<2 x float> (i32, <2 x float>)"(i32 128,
+  ; CHECK: call <2 x float> @"dx.hl.op.cvrn.<2 x float> (i32, <2 x float>)"(i32 129,
+  ; CHECK: call <2 x float> @"dx.hl.op.cvrn.<2 x float> (i32, <2 x float>)"(i32 130,
+  ; CHECK-NOT: call {{.*}} @dxil.convergent.marker
+  ; CHECK: bb10:
+  %tmp8 = call <2 x float> @"dx.hl.op.cvrn.<2 x float> (i32, <2 x float>)"(i32 125, <2 x float> %tmp)
+  %tmp9 = call <2 x float> @"dx.hl.op.cvrn.<2 x float> (i32, <2 x float>)"(i32 126, <2 x float> %tmp)
+  %tmp10 = call <2 x float> @"dx.hl.op.cvrn.<2 x float> (i32, <2 x float>)"(i32 127, <2 x float> %tmp)
+  %tmp11 = call <2 x float> @"dx.hl.op.cvrn.<2 x float> (i32, <2 x float>)"(i32 128, <2 x float> %tmp)
+  %tmp12 = call <2 x float> @"dx.hl.op.cvrn.<2 x float> (i32, <2 x float>)"(i32 129, <2 x float> %tmp)
+  %tmp13 = call <2 x float> @"dx.hl.op.cvrn.<2 x float> (i32, <2 x float>)"(i32 130, <2 x float> %tmp)
+  %tmp14 = fadd <2 x float> %tmp8, %tmp9
+  %tmp15 = fadd <2 x float> %tmp10, %tmp11
+  %tmp16 = fadd <2 x float> %tmp12, %tmp13
+  %tmp17 = fadd <2 x float> %tmp14, %tmp15
+  %tmp18 = fadd <2 x float> %tmp17, %tmp16
   br label %bb10
 
 bb10:                                             ; preds = %bb7, %bb
-  %res.0 = phi <2 x float> [ %tmp9, %bb7 ], [ zeroinitializer, %bb ]
+  %res.0 = phi <2 x float> [ %tmp18, %bb7 ], [ zeroinitializer, %bb ]
   store <2 x float> %res.0, <2 x float>* %arg
   ret void
 }
 
 attributes #0 = { nounwind }
-attributes #1 = { nounwind readnone }
+attributes #1 = { convergent nounwind readnone }
 
 !llvm.module.flags = !{!0}
 !pauseresume = !{!1}

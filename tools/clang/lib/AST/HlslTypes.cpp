@@ -603,17 +603,6 @@ bool IsHLSLNodeOutputType(clang::QualType type) {
          static_cast<uint32_t>(DXIL::NodeIOFlags::Output);
 }
 
-bool IsHLSLNodeRecordArrayType(clang::QualType type) {
-  if (const RecordType *RT = type->getAs<RecordType>()) {
-    StringRef name = RT->getDecl()->getName();
-    if (name == "ThreadNodeOutputRecords" || name == "GroupNodeOutputRecords" ||
-        name == "GroupNodeInputRecords" || name == "RWGroupNodeInputRecords" ||
-        name == "EmptyNodeInput")
-      return true;
-  }
-  return false;
-}
-
 bool IsHLSLEmptyNodeRecordType(clang::QualType type) {
   return (static_cast<uint32_t>(GetNodeIOType(type)) &
           static_cast<uint32_t>(DXIL::NodeIOFlags::EmptyRecord)) ==
@@ -764,17 +753,7 @@ clang::RecordDecl *GetRecordDeclFromNodeObjectType(clang::QualType ObjectTy) {
 }
 
 bool IsHLSLRayQueryType(clang::QualType type) {
-  type = type.getCanonicalType();
-  if (const RecordType *RT = dyn_cast<RecordType>(type)) {
-    if (const ClassTemplateSpecializationDecl *templateDecl =
-            dyn_cast<ClassTemplateSpecializationDecl>(
-                RT->getAsCXXRecordDecl())) {
-      StringRef name = templateDecl->getName();
-      if (name == "RayQuery")
-        return true;
-    }
-  }
-  return false;
+  return nullptr != getAttr<HLSLRayQueryObjectAttr>(type);
 }
 
 #ifdef ENABLE_SPIRV_CODEGEN

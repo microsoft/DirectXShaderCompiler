@@ -30,6 +30,7 @@ const unsigned kDxilMajor = 1;
 /* <py::lines('VALRULE-TEXT')>hctdb_instrhelp.get_dxil_version_minor()</py>*/
 // VALRULE-TEXT:BEGIN
 const unsigned kDxilMinor = 10;
+const unsigned kDxilReleasedMinor = 9;
 // VALRULE-TEXT:END
 
 inline unsigned MakeDxilVersion(unsigned DxilMajor, unsigned DxilMinor) {
@@ -58,6 +59,11 @@ inline int CompareVersions(unsigned Major1, unsigned Minor1, unsigned Major2,
   if (Minor1 > Minor2)
     return 1;
   return 0;
+}
+
+// Use this instead of fixed version checks to enable experimental features.
+inline bool IsVersionExperimental(unsigned Major, unsigned Minor) {
+  return CompareVersions(Major, Minor, kDxilMajor, kDxilReleasedMinor) > 0;
 }
 
 // Utility for updating major,minor to max of current and new.
@@ -149,6 +155,10 @@ const unsigned kMinWaveSize = 4;
 const unsigned kMaxWaveSize = 128;
 const unsigned kDefaultMaxVectorLength = 4;
 const unsigned kSM69MaxVectorLength = 1024;
+const unsigned kLinAlgMatrixMaxK = 128;
+const unsigned kLinAlgMatrixMinK = 4;
+const unsigned kLinAlgThreadGroupMatrixMaxK = 1024;
+const unsigned kLinAlgThreadGroupMatrixMinK = 1;
 
 const float kMaxMipLodBias = 15.99f;
 const float kMinMipLodBias = -16.0f;
@@ -189,6 +199,10 @@ enum class ComponentType : uint32_t {
   F8_E5M2 = 22,
   // END
 
+  // BEGIN NEW FOR SM 6.10
+  BFloat16 = 23,
+  // END
+
   LastEntry
 };
 
@@ -204,7 +218,7 @@ enum class MatrixScope : uint32_t {
   ThreadGroup = 2,
 };
 
-enum class LinalgMatrixLayout : uint32_t {
+enum class MatrixLayout : uint32_t {
   RowMajor = 0,
   ColumnMajor = 1,
   MulOptimal = 2,
@@ -536,8 +550,8 @@ enum class OpCode : unsigned {
   ReservedE0 = 32, // reserved
 
   // Debugging
-  DebugBreak = 33,        // triggers a breakpoint if a debugger is attached
-  IsDebuggerPresent = 34, // returns true if a debugger is attached
+  DebugBreak = 33,         // triggers a breakpoint if debugging is enabled
+  IsDebuggingEnabled = 34, // returns true if debugging is enabled
 
   // Group Wave Ops
   GetGroupWaveCount = 2, // returns the number of waves in the thread group
@@ -1365,10 +1379,10 @@ enum class OpCode : unsigned {
   EXP_OPCODE(ExperimentalOps, ReservedE0), // reserved
   // DebugBreak = 0x80000021, 2147483681U, -2147483615
   EXP_OPCODE(ExperimentalOps,
-             DebugBreak), // triggers a breakpoint if a debugger is attached
-  // IsDebuggerPresent = 0x80000022, 2147483682U, -2147483614
+             DebugBreak), // triggers a breakpoint if debugging is enabled
+  // IsDebuggingEnabled = 0x80000022, 2147483682U, -2147483614
   EXP_OPCODE(ExperimentalOps,
-             IsDebuggerPresent), // returns true if a debugger is attached
+             IsDebuggingEnabled), // returns true if debugging is enabled
 };
 // OPCODE-ENUM:END
 #undef EXP_OPCODE
@@ -1433,7 +1447,7 @@ enum class OpCodeClass : unsigned {
 
   // Debugging
   DebugBreak,
-  IsDebuggerPresent,
+  IsDebuggingEnabled,
 
   // Derivatives
   CalculateLOD,

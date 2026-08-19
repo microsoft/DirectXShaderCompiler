@@ -1,11 +1,11 @@
 ; REQUIRES: dxil-1-10
 ; RUN: %dxopt %s -hlsl-passes-resume -dxilgen -S | FileCheck %s
 
-; CHECK: call i1 @dx.op.isDebuggerPresent(i32 -2147483614)
+; CHECK: call i1 @dx.op.isDebuggingEnabled(i32 -2147483614)
+; CHECK: declare i1 @dx.op.isDebuggingEnabled(i32) #[[QUERY_ATTR:[0-9]+]]
+; CHECK: attributes #[[QUERY_ATTR]] = { nounwind }
 
-; Generated from:
-; dxc -T cs_6_10 -fcgl tools/clang/test/HLSLFileCheckLit/hlsl/intrinsics/basic/isdebuggerpresent.hlsl
-; Debug info manually stripped.
+; Reduced high-level IR for dx::IsDebuggingEnabled().
 
 target datalayout = "e-m:e-p:32:32-i1:32-i8:32-i16:32-i32:32-i64:64-f16:32-f32:32-f64:64-n8:16:32:64"
 target triple = "dxil-ms-dx"
@@ -19,7 +19,7 @@ target triple = "dxil-ms-dx"
 ; Function Attrs: nounwind
 define void @main(<3 x i32> %threadId) #0 {
 entry:
-  %0 = call i1 @"dx.hl.op.ro.i1 (i32)"(i32 421)
+  %0 = call i1 @"dx.hl.op..i1 (i32)"(i32 421)
   br i1 %0, label %if.then, label %if.else
 
 if.then:
@@ -44,8 +44,8 @@ if.end:
   ret void
 }
 
-; Function Attrs: nounwind readonly
-declare i1 @"dx.hl.op.ro.i1 (i32)"(i32) #1
+; Function Attrs: nounwind
+declare i1 @"dx.hl.op..i1 (i32)"(i32) #1
 
 ; Function Attrs: nounwind readnone
 declare i32* @"dx.hl.subscript.[].rn.i32* (i32, %dx.types.Handle, i32)"(i32, %dx.types.Handle, i32) #2
@@ -57,7 +57,7 @@ declare %dx.types.Handle @"dx.hl.createhandle..%dx.types.Handle (i32, %\22class.
 declare %dx.types.Handle @"dx.hl.annotatehandle..%dx.types.Handle (i32, %dx.types.Handle, %dx.types.ResourceProperties, %\22class.RWStructuredBuffer<unsigned int>\22)"(i32, %dx.types.Handle, %dx.types.ResourceProperties, %"class.RWStructuredBuffer<unsigned int>") #2
 
 attributes #0 = { nounwind }
-attributes #1 = { nounwind readonly }
+attributes #1 = { nounwind }
 attributes #2 = { nounwind readnone }
 
 !pauseresume = !{!0}

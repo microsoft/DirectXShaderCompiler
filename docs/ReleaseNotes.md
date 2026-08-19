@@ -22,6 +22,135 @@ The included licenses apply to the following files:
 Place release notes for the upcoming release below this line and remove this
 line upon naming the release. Refer to previous for appropriate section names.
 
+#### Bug Fixes
+
+- Fixed derivative operations being moved into divergent control flow, which
+  could produce incorrect results
+  [#8001](https://github.com/microsoft/DirectXShaderCompiler/issues/8001).
+- SPIR-V: Fixed an invalid `OpSelect` being generated when optimizing for
+  SPIR-V 1.3 and earlier
+  [#8603](https://github.com/microsoft/DirectXShaderCompiler/issues/8603).
+
+#### HLSL Language
+
+- Casting a scalar to a struct or array containing a resource is now an error
+  instead of crashing
+  [#6661](https://github.com/microsoft/DirectXShaderCompiler/issues/6661).
+
+#### Bug Fixes
+
+- Fixed internal compiler errors when a member method is called on a ray payload
+  or on one of its fields with payload access qualifiers enabled
+  [#6464](https://github.com/microsoft/DirectXShaderCompiler/issues/6464).
+
+### Upcoming Preview Release
+
+These changes apply to experimental preview shader models only and will not be
+part of the next non-preview release.
+
+#### Experimental Shader Model 6.10
+
+These are incremental changes to the experimental Shader Model 6.10 features that
+first shipped in the 1.10.2605 preview.
+
+- Fixed the set of numeric types allowed in LinAlg matrix intrinsics
+  [#8271](https://github.com/microsoft/DirectXShaderCompiler/issues/8271).
+- Corrected the parameter order of `InterlockedAccumulate`
+  [#8459](https://github.com/microsoft/DirectXShaderCompiler/pull/8459).
+- Added validation of LinAlg matrix builtin parameters and result K dimension
+  [#8588](https://github.com/microsoft/DirectXShaderCompiler/pull/8588).
+- Restricted the component types allowed in LinAlg matrices
+  [#8608](https://github.com/microsoft/DirectXShaderCompiler/pull/8608).
+- Added `BFloat16` to the ComponentType enum in DxilConstants and the linalg
+  header [#8722](https://github.com/microsoft/DirectXShaderCompiler/issues/8722)
+
+### Version 1.9.2607
+
+#### HLSL Language
+
+- Added `auto` for C++11-style type deduction
+  [#8452](https://github.com/microsoft/DirectXShaderCompiler/pull/8452). `auto`
+  cannot be used to infer built-in internal types or the types returned by
+  `ResourceDescriptorHeap`/`SamplerDescriptorHeap`.
+- Added the `[[nodiscard]]` attribute
+  [#8462](https://github.com/microsoft/DirectXShaderCompiler/pull/8462).
+- Added bit-precise floating-point literal suffixes
+  [#8478](https://github.com/microsoft/DirectXShaderCompiler/pull/8478).
+- `>>` no longer requires surrounding spaces in nested template arguments
+  [#8453](https://github.com/microsoft/DirectXShaderCompiler/pull/8453).
+- The `volatile` keyword is now disallowed
+  [#8391](https://github.com/microsoft/DirectXShaderCompiler/issues/8391).
+- The `groupshared` parameter attribute can now be used on templates
+  [#8217](https://github.com/microsoft/DirectXShaderCompiler/pull/8217).
+- Added `GroupSharedLimit` attribute support for mesh, amplification, and node
+  shaders [#8140](https://github.com/microsoft/DirectXShaderCompiler/pull/8140).
+
+#### SPIR-V
+
+- Added sampler and resource heaps for textures
+  [#8281](https://github.com/microsoft/DirectXShaderCompiler/pull/8281).
+- Function parameters can now be decorated with inline SPIR-V
+  [#8103](https://github.com/microsoft/DirectXShaderCompiler/issues/8103).
+- Fixed `vk::BufferPointer` cast methods
+  [#8365](https://github.com/microsoft/DirectXShaderCompiler/pull/8365).
+- Fixed layout-rule propagation for `ConstantBuffer`/`TextureBuffer` function
+  variable and parameter aliasing
+  [#8244](https://github.com/microsoft/DirectXShaderCompiler/issues/8244).
+- Fixed counter handling in a direct `return` statement
+  [#8215](https://github.com/microsoft/DirectXShaderCompiler/issues/8215).
+- Fixed `OpSpecConstant` for composites
+  [#8278](https://github.com/microsoft/DirectXShaderCompiler/pull/8278).
+- Fixed a crash with out-of-line template declarations
+  [#5823](https://github.com/microsoft/DirectXShaderCompiler/issues/5823).
+- Fixed handling of `void` in extended instruction sets
+  [#8012](https://github.com/microsoft/DirectXShaderCompiler/issues/8012).
+
+#### Bug Fixes
+
+- Fixed GVN/SROA miscompilation of minimum-precision vector element access
+  [#8268](https://github.com/microsoft/DirectXShaderCompiler/issues/8268).
+- Fixed `rawBufferVectorLoad`/`Store` to widen minimum-precision types to 32-bit
+  [#8273](https://github.com/microsoft/DirectXShaderCompiler/issues/8273).
+- Fixed out-of-bounds subscript indexing of a column-major matrix in a constant
+  buffer [#7865](https://github.com/microsoft/DirectXShaderCompiler/issues/7865).
+- Fixed illegal-width bitmap generated from a `switch` lookup table in
+  SimplifyCFG
+  [#8421](https://github.com/microsoft/DirectXShaderCompiler/issues/8421).
+- Fixed a crash producing diagnostics for source containing embedded nulls
+  [#8164](https://github.com/microsoft/DirectXShaderCompiler/pull/8164).
+- Fixed constant folding of `VectorReduce.*`
+  [#8570](https://github.com/microsoft/DirectXShaderCompiler/issues/8570).
+- GVN no longer coerces a vector store through `i128` or wider
+  [#8573](https://github.com/microsoft/DirectXShaderCompiler/issues/8573).
+- Validation now drills through chained GEPs when resolving TGSM globals, needed
+  for SM 6.9 native vectors
+  [#8571](https://github.com/microsoft/DirectXShaderCompiler/issues/8571).
+- The sampler feedback shader flag is now set when sampler feedback operations
+  are used and the validator version is >= 1.9
+  [#8533](https://github.com/microsoft/DirectXShaderCompiler/issues/8533).
+- Preserve coherence qualifiers (`globallycoherent`/`reordercoherent`) on
+  resource flat-conversions
+  [#8583](https://github.com/microsoft/DirectXShaderCompiler/pull/8583).
+- Fixed type annotation serialization for resources in HL modules
+  [#8440](https://github.com/microsoft/DirectXShaderCompiler/issues/8440).
+- Fixed the `COMPARISON_NONE` handling and its error message
+  [#8246](https://github.com/microsoft/DirectXShaderCompiler/issues/8246).
+- Fixed an ambiguous overloaded `operator+` error with newer Clang
+  [#8516](https://github.com/microsoft/DirectXShaderCompiler/pull/8516).
+- Stopped emitting illegal `*.with.overflow` intrinsics for DXIL, which caused
+  validation failures for overflow-check idioms when optimizations were enabled
+  [#8600](https://github.com/microsoft/DirectXShaderCompiler/pull/8600).
+
+#### Other Changes
+
+- Built-in HLSL headers are now embedded in the dxcompiler library so that users do not need to copy headers around with the toolchain.
+- vector_utils.h and enable_if.h are renamed to vector_utils and enable_if respectively in alignment with TC57 decision on standard header files to exclude file extensions (See: https://github.com/hlsl-tc57/tc57/blob/main/docs/DesignConsiderations.md#minor-details).
+- Added `-Fre` support for the Metal backend to emit the Metal Shader Converter
+  reflection JSON
+  [#8159](https://github.com/microsoft/DirectXShaderCompiler/pull/8159).
+
+### Version 1.10.2605
+
 #### Experimental Shader Model 6.10
 
 - Removed experimental Cooperative Vector, this has been replaced by LinAlg matrix.
@@ -31,10 +160,11 @@ line upon naming the release. Refer to previous for appropriate section names.
   - GetGroupWaveCount: New intrinsic for Compute, Mesh, Amplification and Node
   shaders which returns the total number of waves executing within the thread
   group.
-- Added `DebugBreak()` and `dx::IsDebuggerPresent()` intrinsics for shader debugging (experimental Shader Model 6.10).
-  - `DebugBreak()` triggers a breakpoint if a debugger is attached.
-  - `dx::IsDebuggerPresent()` returns true if a debugger is attached.
-  - SPIR-V: `DebugBreak()` emits `NonSemantic.DebugBreak` extended instruction; `IsDebuggerPresent()` is not supported.
+- Added `DebugBreak()` and `dx::IsDebuggingEnabled()` intrinsics for shader debugging (experimental Shader Model 6.10).
+  - `DebugBreak()` triggers a breakpoint if debugging is enabled.
+  - `dx::IsDebuggingEnabled()` returns true if debugging is enabled when the
+    intrinsic executes.
+  - SPIR-V: `DebugBreak()` emits `NonSemantic.DebugBreak` extended instruction; `IsDebuggingEnabled()` is not supported.
 
 #### Bug Fixes
 

@@ -1,7 +1,7 @@
 // REQUIRES: dxil-1-9
 // RUN: %dxc -T ps_6_9 -E main %s | FileCheck %s
 
-#include <vector_utils.h>
+#include <vector_utils>
 
 RWByteAddressBuffer buf;
 

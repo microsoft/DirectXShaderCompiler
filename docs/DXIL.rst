@@ -3117,8 +3117,8 @@ ID         Name                                     Description
 2147483678 LinAlgConvert                            Convert vector components from one interpretation to another
 2147483679 LinAlgVectorAccumulateToDescriptor       Accumulates given vector to the buffer at the given offset
 2147483680 ReservedE0                               reserved
-2147483681 DebugBreak                               triggers a breakpoint if a debugger is attached
-2147483682 IsDebuggerPresent                        returns true if a debugger is attached
+2147483681 DebugBreak                               triggers a breakpoint if debugging is enabled
+2147483682 IsDebuggingEnabled                       returns true if debugging is enabled
 ========== ======================================== ===================================================================================================================
 
 
@@ -3209,6 +3209,28 @@ INSTR.ILLEGALDXILOPCODE                               DXILOpCode must be valid o
 INSTR.ILLEGALDXILOPFUNCTION                           '%0' is not a DXILOpFuncition for DXILOpcode '%1'.
 INSTR.IMMBIASFORSAMPLEB                               bias amount for sample_b must be in the range [%0,%1], but %2 was specified as an immediate.
 INSTR.INBOUNDSACCESS                                  Access to out-of-bounds memory is disallowed.
+INSTR.LINALGILLEGALCOMPONENTTYPE                      Component type '%0' from %1 not allowed in LinAlg Matrix operations.
+INSTR.LINALGILLEGALKDIM                               %0 matrix K dimension out of bounds. K=%1 must be >= %2 and <= %3.
+INSTR.LINALGMATRIX2PARTSMUSTMATCH                     %0 matrix %1 '%2' must match %3 matrix %4 '%5'.
+INSTR.LINALGMATRIXDIMKVECKMISMATCH                    %0 vector size '%1' must be %2 for input matrix with K '%3' and Type '%4'
+INSTR.LINALGMATRIXDIMVECTORMISMATCH                   %0 vector size '%1' must match input matrix M dimension '%2'
+INSTR.LINALGMATRIXLAYOUTREQSTRIDE                     %0 with layout '%1' requires stride 0.
+INSTR.LINALGMATRIXLOADTHREADREQUIRESBAB               Loading matrix with Thread scope requires ByteAddressBuffer.
+INSTR.LINALGMATRIXMATRIXKDIMMUSTMATCH                 K dim of A matrix '%0' must match K dim of B matrix '%1'. %2 != %3.
+INSTR.LINALGMATRIXMATRIXRESDIMMUSTMATCH               %0 matrix dimension '%1' must match A.MxB.N '%2'.
+INSTR.LINALGMATRIXNOTEXACTMATCH                       %0 matrix '%1' must exactly match %2 matrix '%3'.
+INSTR.LINALGMATRIXOUTPUTBIASVECMISMATCH               Output vector element type '%0' must match bias vector element type '%1'
+INSTR.LINALGMATRIXREQUIRESLAYOUT2                     %0 requires layout %1 or %2.
+INSTR.LINALGMATRIXREQUIRESRWBAB                       %0 requires RWByteAddressBuffer.
+INSTR.LINALGMATRIXSCOPEMISMATCH                       %0 matrix scope '%1' does not match expected scope %2.
+INSTR.LINALGMATRIXSCOPEMISMATCH2                      %0 matrix scope '%1' does not match expected scope %2 or %3.
+INSTR.LINALGMATRIXSCOPEMUSTMATCH3                     Matrix scope must be the same for all matrices. %0 '%1', %2 '%3', %4 '%5'.
+INSTR.LINALGMATRIXSCOPEMUSTMATCH4                     Matrix scope must be the same for all matrices. %0 '%1', %2 '%3', %4 '%5', %6 '%7'.
+INSTR.LINALGMATRIXSCOPEREQLAYOUT2                     %0 matrix with scope '%1' requires layout %2 or %3 for %4.
+INSTR.LINALGMATRIXUNSIGNEDFLOATTYPENOTALLOWED         Float-like type '%0' must be signed
+INSTR.LINALGMATRIXUSEMISMATCH                         %0 matrix use '%1' does not match expected use %2.
+INSTR.LINALGMATRIXUSEMISMATCH2                        %0 matrix use '%1' does not match expected use %2 or %3.
+INSTR.LINALGMETADATAMISSING                           %0 matrix must have well-formed metadata.
 INSTR.MAYREORDERTHREADUNDEFCOHERENCEHINTPARAM         Use of undef coherence hint or num coherence hint bits in MaybeReorderThread.
 INSTR.MINPRECISIONNOTPRECISE                          Instructions marked precise may not refer to minprecision values.
 INSTR.MINPRECISONBITCAST                              Bitcast on minprecison types is not allowed.
@@ -3236,6 +3258,7 @@ INSTR.OPCODERESERVED                                  Instructions must not refe
 INSTR.OPCONST                                         DXIL intrinsic requires an immediate constant operand
 INSTR.OPCONSTRANGE                                    Constant values must be in-range for operation.
 INSTR.OPERANDRANGE                                    DXIL intrinsic operand must be within defined range
+INSTR.PARAMMINIMUMVALUE                               Parameter must be greater than a minimum value
 INSTR.PARAMMULTIPLE                                   Parameter must be a valid multiple
 INSTR.PTRBITCAST                                      Pointer type bitcast must be have same size.
 INSTR.REORDERCOHERENTREQUIRESSM69                     reordercoherent requires SM 6.9 or later.

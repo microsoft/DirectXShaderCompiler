@@ -397,7 +397,7 @@ enum class IntrinsicOp {
   MOP_DxHitObject_SetShaderTableIndex = 388,
   MOP_DxHitObject_TraceRay = 389,
   MOP_DxHitObject_TriangleObjectPositions = 400,
-  IOP_DxIsDebuggerPresent = 421,
+  IOP_DxIsDebuggingEnabled = 421,
   IOP_DxMaybeReorderThread = 359,
   MOP_Count = 328,
   MOP_FinishedCrossGroupSharing = 329,

@@ -454,7 +454,7 @@ if "%TEST_EXEC%"=="1" (
   call :copyagility
 )
 
-set EXEC_COMMON_ARGS=/p:"HlslDataDir=%HLSL_SRC_DIR%\tools\clang\unittests\HLSLExec" /p:"ExperimentalShaders=*" %TEST_ADAPTER% %USE_AGILITY_SDK%
+set EXEC_COMMON_ARGS=/p:"ExperimentalShaders=*" %TEST_ADAPTER% %USE_AGILITY_SDK%
 if "%TEST_EXEC%"=="1" (
   echo Sniffing for D3D12 configuration ...
   call :runte ExecHLSLTests.dll /select:"@Name='ExecutionTest::BasicTriangleTest' AND @Architecture='%TEST_ARCH%'" %EXEC_COMMON_ARGS%

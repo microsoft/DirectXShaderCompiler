@@ -64,6 +64,8 @@ bool CanSimplify(const llvm::Function *F) {
       break;
     case OP::OpCodeClass::Tertiary:
       return true;
+    case OP::OpCodeClass::VectorReduce:
+      return true;
     }
   }
 
@@ -180,6 +182,28 @@ Value *SimplifyDxilCall(llvm::Function *F, ArrayRef<Value *> Args,
     if (op1 == zero)
       return op0;
     return nullptr;
+  } break;
+  case DXIL::OpCode::VectorReduceAnd:
+  case DXIL::OpCode::VectorReduceOr: {
+    Value *Op = Args[DXIL::OperandIndex::kUnarySrc0OpIdx];
+    Constant *VecC = dyn_cast<Constant>(Op);
+    if (!VecC || !Op->getType()->isVectorTy())
+      return nullptr;
+    unsigned NumElts = Op->getType()->getVectorNumElements();
+    if (NumElts == 0)
+      return nullptr;
+    Constant *Result = VecC->getAggregateElement(0u);
+    if (!Result)
+      return nullptr;
+    for (unsigned i = 1; i < NumElts; ++i) {
+      Constant *Elt = VecC->getAggregateElement(i);
+      if (!Elt)
+        return nullptr;
+      Result = (opcode == DXIL::OpCode::VectorReduceAnd)
+                   ? ConstantExpr::getAnd(Result, Elt)
+                   : ConstantExpr::getOr(Result, Elt);
+    }
+    return Result;
   } break;
   }
 }

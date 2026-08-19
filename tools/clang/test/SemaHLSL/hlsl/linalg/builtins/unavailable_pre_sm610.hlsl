@@ -58,10 +58,10 @@ void main() {
   __builtin_LinAlg_MatrixVectorMultiply(result, mat, true, vec1, 1);
 
   // expected-error@+1{{intrinsic __builtin_LinAlg_MatrixVectorMultiplyAdd potentially used by ''main'' requires shader model 6.10 or greater}}
-  __builtin_LinAlg_MatrixVectorMultiplyAdd(result, mat, true, vec1, 1, vec2, 0);
+  __builtin_LinAlg_MatrixVectorMultiplyAdd(result, mat, true, vec1, 1, vec2);
 
   // expected-error@+1{{intrinsic __builtin_LinAlg_MatrixAccumulateToMemory potentially used by ''main'' requires shader model 6.10 or greater}}
-  __builtin_LinAlg_MatrixAccumulateToMemory(mat, SharedArr, 0, 0, 0);
+  __builtin_LinAlg_MatrixAccumulateToMemory(mat, SharedArr, 0, 0, 0, 0);
 
   // expected-error@+1{{intrinsic __builtin_LinAlg_MatrixLoadFromMemory potentially used by ''main'' requires shader model 6.10 or greater}}
   __builtin_LinAlg_MatrixLoadFromMemory(mat, SharedArr, 0, 0, 0);
@@ -73,5 +73,5 @@ void main() {
   __builtin_LinAlg_Convert(result, vec1, 1, 1);
 
   // expected-error@+1{{intrinsic __builtin_LinAlg_VectorAccumulateToDescriptor potentially used by ''main'' requires shader model 6.10 or greater}}
-  __builtin_LinAlg_VectorAccumulateToDescriptor(vec1, Buf, 1, 64);
+  __builtin_LinAlg_VectorAccumulateToDescriptor(Buf, 1, 64, vec1);
 }
