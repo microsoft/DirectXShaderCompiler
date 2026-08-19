@@ -4242,6 +4242,12 @@ private:
       }
       m_objectTypeDecls[i] = recordDecl;
       m_objectTypeDeclsMap[i] = std::make_pair(recordDecl, i);
+#ifdef ENABLE_SPIRV_CODEGEN
+      if (kind == AR_OBJECT_VK_SUBPASS_INPUT ||
+          kind == AR_OBJECT_VK_SUBPASS_INPUT_MS)
+        recordDecl->addAttr(HLSLVkSubpassInputAttr::CreateImplicit(
+            *m_context, kind == AR_OBJECT_VK_SUBPASS_INPUT_MS));
+#endif // ENABLE_SPIRV_CODEGEN
     }
 
     // Create an alias for SamplerState. 'sampler' is very commonly used.
