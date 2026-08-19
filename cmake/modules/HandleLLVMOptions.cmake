@@ -370,6 +370,10 @@ if( MSVC )
     append("/DEBUG /OPT:REF" CMAKE_EXE_LINKER_FLAGS_RELEASE)
   endif()
 
+  if (DXC_OPTIMIZE_FOR_SIZE)
+    append("/Os" CMAKE_C_FLAGS_RELEASE CMAKE_CXX_FLAGS_RELEASE)
+  endif()
+
   # HLSL Changes End
 
   # Enable warnings
