@@ -5569,10 +5569,16 @@ static HRESULT selectThreadGroupMatMulConfiguration(
   const linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE AccumulatorType =
       *toCapabilityDataType(Case.AccumulatorType);
 
+  // The HRESULT reports whether the capability queries themselves ran; the
+  // Supported out-parameter reports whether a usable configuration was found.
+  // Leaving Supported false and returning success is how a case is routed to a
+  // capability-gated skip instead of a failure.
   linalg_test::TierSupport Tier;
   HRESULT HR = linalg_test::queryTierSupport(Device, Tier);
-  if (FAILED(HR) || !Tier.supported())
+  if (FAILED(HR))
     return HR;
+  if (!Tier.supported())
+    return S_OK;
 
   UINT MinWaveSize = 0;
   UINT MaxWaveSize = 0;
@@ -5639,6 +5645,8 @@ static HRESULT selectThreadGroupMatMulConfiguration(
   hlsl_test::LogCommentFmt(
       L"No executable ThreadGroupMatrixMultiply configuration supports %s",
       CaseName);
+  // Every query succeeded and none reported support, so Supported stays false
+  // and the case is skipped rather than failed.
   return S_OK;
 }
 
