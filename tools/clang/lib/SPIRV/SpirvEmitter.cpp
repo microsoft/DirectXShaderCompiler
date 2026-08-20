@@ -1941,6 +1941,9 @@ void SpirvEmitter::doHLSLBufferDecl(const HLSLBufferDecl *bufferDecl) {
   // supported in Vulkan
   for (const auto *member : bufferDecl->decls()) {
     if (const auto *varMember = dyn_cast<VarDecl>(member)) {
+      if (varMember->getStorageClass() == StorageClass::SC_Static)
+        continue;
+
       if (!spirvOptions.noWarnIgnoredFeatures) {
         if (const auto *init = varMember->getInit())
           emitWarning("%select{tbuffer|cbuffer}0 member initializer "
@@ -1969,6 +1972,12 @@ void SpirvEmitter::doHLSLBufferDecl(const HLSLBufferDecl *bufferDecl) {
         DeclResultIdMapper::ContextUsageKind::ShaderRecordBufferKHR);
   } else {
     declIdMapper.createCTBuffer(bufferDecl);
+  }
+
+  for (const auto *member : bufferDecl->decls()) {
+    const auto *varMember = dyn_cast<VarDecl>(member);
+    if (varMember && varMember->getStorageClass() == StorageClass::SC_Static)
+      doVarDecl(varMember);
   }
 }
 
@@ -2165,9 +2174,11 @@ void SpirvEmitter::doVarDecl(const VarDecl *decl) {
   // ConstantBuffers and TextureBuffers are not HLSLBufferDecls.
   if (const auto *bufferDecl =
           dyn_cast<HLSLBufferDecl>(decl->getDeclContext())) {
-    // This is a VarDecl of cbuffer/tbuffer type.
-    doHLSLBufferDecl(bufferDecl);
-    return;
+    if (decl->getStorageClass() != StorageClass::SC_Static) {
+      // This is a VarDecl of cbuffer/tbuffer type.
+      doHLSLBufferDecl(bufferDecl);
+      return;
+    }
   }
 
   if (decl->getAttr<VKInputAttachmentIndexAttr>()) {
