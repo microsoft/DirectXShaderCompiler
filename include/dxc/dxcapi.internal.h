@@ -48,7 +48,7 @@ enum LEGAL_INTRINSIC_TEMPLATES {
   LITEMPLATE_OBJECT = 5, // Object types.
   LITEMPLATE_ARRAY = 6,  // Scalar array.
   LITEMPLATE_ANY_ARRAY =
-      7, // Array of scalars or of vectors of scalars (eg. float3 x[4]).
+      7, // Array of scalars or of vectors of scalars (eg. float3[4]).
 
   LITEMPLATE_COUNT = 8
 };
