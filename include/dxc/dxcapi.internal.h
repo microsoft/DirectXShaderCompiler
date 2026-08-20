@@ -47,8 +47,10 @@ enum LEGAL_INTRINSIC_TEMPLATES {
       4, // Any one of scalar, vector or matrix types (but not object).
   LITEMPLATE_OBJECT = 5, // Object types.
   LITEMPLATE_ARRAY = 6,  // Scalar array.
+  LITEMPLATE_ANY_ARRAY =
+      7, // Array of scalars or of vectors of scalars (eg. float3 x[4]).
 
-  LITEMPLATE_COUNT = 7
+  LITEMPLATE_COUNT = 8
 };
 
 // INTRIN_COMPTYPE_FROM_TYPE_ELT0 is for object method intrinsics to indicate

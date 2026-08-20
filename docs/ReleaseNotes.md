@@ -66,6 +66,8 @@ first shipped in the 1.10.2605 preview.
   [#8608](https://github.com/microsoft/DirectXShaderCompiler/pull/8608).
 - Added `BFloat16` to the ComponentType enum in DxilConstants and the linalg
   header [#8722](https://github.com/microsoft/DirectXShaderCompiler/issues/8722)
+- LinAlg matrix `Load`, `Store` and `InterlockedAccumulate` now accept
+  groupshared arrays of vectors, in addition to groupshared arrays of scalars.
 
 ### Version 1.9.2607
 
