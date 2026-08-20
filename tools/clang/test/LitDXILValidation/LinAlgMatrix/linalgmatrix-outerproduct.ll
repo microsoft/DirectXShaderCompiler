@@ -15,41 +15,25 @@ define void @main() {
   %1 = call %dx.types.LinAlgMatrixC8M8N8U2S0 @dx.op.linAlgMatrixOuterProduct.mC8M8N8U2S0.v8f16.v8f16(i32 -2147483619, <8 x half> <half 0xH3C00, half 0xH3C00, half 0xH3C00, half 0xH3C00, half 0xH3C00, half 0xH3C00, half 0xH3C00, half 0xH3C00>, <8 x half> <half 0xH4000, half 0xH4000, half 0xH4000, half 0xH4000, half 0xH4000, half 0xH4000, half 0xH4000, half 0xH4000>)  ; LinAlgMatrixOuterProduct(vectorA,vectorB)
 
   ; okay
-  %2 = call %dx.types.LinAlgMatrixC21M8N8U2S0 @dx.op.linAlgMatrixOuterProduct.mC21M8N8U2S0.v2i32.v2i32(i32 -2147483619, <2 x i32> <i32 4, i32 4>, <2 x i32> <i32 4, i32 4>)  ; LinAlgMatrixOuterProduct(vectorA,vectorB)
+  %2 = call %dx.types.LinAlgMatrixC21M8N8U2S0 @dx.op.linAlgMatrixOuterProduct.mC21M8N8U2S0.v8f16.v8f16(i32 -2147483619, <8 x half> <half 0xH3C00, half 0xH3C00, half 0xH3C00, half 0xH3C00, half 0xH3C00, half 0xH3C00, half 0xH3C00, half 0xH3C00>, <8 x half> <half 0xH3C00, half 0xH3C00, half 0xH3C00, half 0xH3C00, half 0xH3C00, half 0xH3C00, half 0xH3C00, half 0xH3C00>)  ; LinAlgMatrixOuterProduct(vectorA,vectorB)
 
-; CHECK: Function: main: error: Return matrix scope 'Wave' does not match expected scope Thread.
-; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixOuterProduct.mC8M8N8U2S1.v8f16.v8f16
+  ; CHECK: Function: main: error: Return matrix scope 'Wave' does not match expected scope Thread.
+  ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixOuterProduct.mC8M8N8U2S1.v8f16.v8f16
   %3 = call %dx.types.LinAlgMatrixC8M8N8U2S1 @dx.op.linAlgMatrixOuterProduct.mC8M8N8U2S1.v8f16.v8f16(i32 -2147483619, <8 x half> <half 0xH3C00, half 0xH3C00, half 0xH3C00, half 0xH3C00, half 0xH3C00, half 0xH3C00, half 0xH3C00, half 0xH3C00>, <8 x half> <half 0xH4000, half 0xH4000, half 0xH4000, half 0xH4000, half 0xH4000, half 0xH4000, half 0xH4000, half 0xH4000>)  ; LinAlgMatrixOuterProduct(vectorA,vectorB)
 
-; CHECK-NEXT: Function: main: error: Return matrix use 'B' does not match expected use Accumulator.
-; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixOuterProduct.mC8M8N8U1S0.v8f16.v8f16
+  ; CHECK-NEXT: Function: main: error: Return matrix use 'B' does not match expected use Accumulator.
+  ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixOuterProduct.mC8M8N8U1S0.v8f16.v8f16
   %4 = call %dx.types.LinAlgMatrixC8M8N8U1S0 @dx.op.linAlgMatrixOuterProduct.mC8M8N8U1S0.v8f16.v8f16(i32 -2147483619, <8 x half> <half 0xH3C00, half 0xH3C00, half 0xH3C00, half 0xH3C00, half 0xH3C00, half 0xH3C00, half 0xH3C00, half 0xH3C00>, <8 x half> <half 0xH4000, half 0xH4000, half 0xH4000, half 0xH4000, half 0xH4000, half 0xH4000, half 0xH4000, half 0xH4000>)  ; LinAlgMatrixOuterProduct(vectorA,vectorB)
 
-; CHECK-NEXT: Function: main: error: Return matrix dimension '16x16' must match derived matrix dimension '8x8'.
-; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixOuterProduct.mC8M16N16U2S0.v8f16.v8f16
+  ; CHECK-NEXT: Function: main: error: Return matrix dimension '16x16' must match derived matrix dimension '8x8'.
+  ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixOuterProduct.mC8M16N16U2S0.v8f16.v8f16
   %5 = call %dx.types.LinAlgMatrixC8M16N16U2S0 @dx.op.linAlgMatrixOuterProduct.mC8M16N16U2S0.v8f16.v8f16(i32 -2147483619, <8 x half> <half 0xH3C00, half 0xH3C00, half 0xH3C00, half 0xH3C00, half 0xH3C00, half 0xH3C00, half 0xH3C00, half 0xH3C00>, <8 x half> <half 0xH4000, half 0xH4000, half 0xH4000, half 0xH4000, half 0xH4000, half 0xH4000, half 0xH4000, half 0xH4000>)  ; LinAlgMatrixOuterProduct(vectorA,vectorB)
 
-; CHECK-NEXT: Function: main: error: Return matrix dimension '8x8' must match derived matrix dimension '32x32'.
-; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixOuterProduct.mC21M8N8U2S0.v8i32.v8i32
-  %6 = call %dx.types.LinAlgMatrixC21M8N8U2S0 @dx.op.linAlgMatrixOuterProduct.mC21M8N8U2S0.v8i32.v8i32(i32 -2147483619, <8 x i32> <i32 3, i32 3, i32 3, i32 3, i32 3, i32 3, i32 3, i32 3>, <8 x i32> <i32 3, i32 3, i32 3, i32 3, i32 3, i32 3, i32 3, i32 3>)  ; LinAlgMatrixOuterProduct(vectorA,vectorB)
+  ; CHECK-NEXT: Function: main: error: A vector element type 'half' must match B vector element type 'i32'
+  ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixOuterProduct.mC8M8N8U2S0.v8f16.v8i32
+  %6 = call %dx.types.LinAlgMatrixC8M8N8U2S0 @dx.op.linAlgMatrixOuterProduct.mC8M8N8U2S0.v8f16.v8i32(i32 -2147483619, <8 x half> <half 0xH4000, half 0xH4000, half 0xH4000, half 0xH4000, half 0xH4000, half 0xH4000, half 0xH4000, half 0xH4000>, <8 x i32> <i32 3, i32 3, i32 3, i32 3, i32 3, i32 3, i32 3, i32 3>)  ; LinAlgMatrixOuterProduct(vectorA,vectorB)
 
-; CHECK-NEXT: Function: main: error: A vector element type 'half' must match B vector element type 'i32'
-; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixOuterProduct.mC8M8N8U2S0.v8f16.v8i32
-  %7 = call %dx.types.LinAlgMatrixC8M8N8U2S0 @dx.op.linAlgMatrixOuterProduct.mC8M8N8U2S0.v8f16.v8i32(i32 -2147483619, <8 x half> <half 0xH4000, half 0xH4000, half 0xH4000, half 0xH4000, half 0xH4000, half 0xH4000, half 0xH4000, half 0xH4000>, <8 x i32> <i32 3, i32 3, i32 3, i32 3, i32 3, i32 3, i32 3, i32 3>)  ; LinAlgMatrixOuterProduct(vectorA,vectorB)
-
-; CHECK-NEXT: Function: main: error: A vector element type 'half' must match return matrix element type 'I32'.
-; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixOuterProduct.mC4M8N8U2S0.v8f16.v8f16
-  %8 = call %dx.types.LinAlgMatrixC4M8N8U2S0 @dx.op.linAlgMatrixOuterProduct.mC4M8N8U2S0.v8f16.v8f16(i32 -2147483619, <8 x half> <half 0xH3C00, half 0xH3C00, half 0xH3C00, half 0xH3C00, half 0xH3C00, half 0xH3C00, half 0xH3C00, half 0xH3C00>, <8 x half> <half 0xH4000, half 0xH4000, half 0xH4000, half 0xH4000, half 0xH4000, half 0xH4000, half 0xH4000, half 0xH4000>)  ; LinAlgMatrixOuterProduct(vectorA,vectorB)
-
-; CHECK-NEXT: Function: main: error: A vector element type 'i32' must match return matrix element type 'F16'.
-; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixOuterProduct.mC8M8N8U2S0.v8i32.v8i32
-  %9 = call %dx.types.LinAlgMatrixC8M8N8U2S0 @dx.op.linAlgMatrixOuterProduct.mC8M8N8U2S0.v8i32.v8i32(i32 -2147483619, <8 x i32> <i32 3, i32 3, i32 3, i32 3, i32 3, i32 3, i32 3, i32 3>, <8 x i32> <i32 3, i32 3, i32 3, i32 3, i32 3, i32 3, i32 3, i32 3>)  ; LinAlgMatrixOuterProduct(vectorA,vectorB)
-
-; CHECK-NEXT: Function: main: error: A vector element type 'half' must be i32 for return matrix with non-native element type 'F8_E4M3FN'.
-; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixOuterProduct.mC21M8N8U2S0.v2f16.v2f16
-  %10 = call %dx.types.LinAlgMatrixC21M8N8U2S0 @dx.op.linAlgMatrixOuterProduct.mC21M8N8U2S0.v2f16.v2f16(i32 -2147483619, <2 x half> <half 0xH4500, half 0xH4500>, <2 x half> <half 0xH4500, half 0xH4500>)  ; LinAlgMatrixOuterProduct(vectorA,vectorB)
-
-; CHECK-NEXT: Validation failed.
+  ; CHECK-NEXT: Validation failed.
   ret void
 }
 
@@ -57,7 +41,7 @@ define void @main() {
 declare %dx.types.LinAlgMatrixC8M8N8U2S0 @dx.op.linAlgMatrixOuterProduct.mC8M8N8U2S0.v8f16.v8f16(i32, <8 x half>, <8 x half>) #0
 
 ; Function Attrs: nounwind
-declare %dx.types.LinAlgMatrixC21M8N8U2S0 @dx.op.linAlgMatrixOuterProduct.mC21M8N8U2S0.v2i32.v2i32(i32, <2 x i32>, <2 x i32>) #0
+declare %dx.types.LinAlgMatrixC21M8N8U2S0 @dx.op.linAlgMatrixOuterProduct.mC21M8N8U2S0.v8f16.v8f16(i32, <8 x half>, <8 x half>) #0
 
 ; Function Attrs: nounwind
 declare %dx.types.LinAlgMatrixC8M8N8U2S1 @dx.op.linAlgMatrixOuterProduct.mC8M8N8U2S1.v8f16.v8f16(i32, <8 x half>, <8 x half>) #0
@@ -69,19 +53,7 @@ declare %dx.types.LinAlgMatrixC8M8N8U1S0 @dx.op.linAlgMatrixOuterProduct.mC8M8N8
 declare %dx.types.LinAlgMatrixC8M16N16U2S0 @dx.op.linAlgMatrixOuterProduct.mC8M16N16U2S0.v8f16.v8f16(i32, <8 x half>, <8 x half>) #0
 
 ; Function Attrs: nounwind
-declare %dx.types.LinAlgMatrixC21M8N8U2S0 @dx.op.linAlgMatrixOuterProduct.mC21M8N8U2S0.v8i32.v8i32(i32, <8 x i32>, <8 x i32>) #0
-
-; Function Attrs: nounwind
 declare %dx.types.LinAlgMatrixC8M8N8U2S0 @dx.op.linAlgMatrixOuterProduct.mC8M8N8U2S0.v8f16.v8i32(i32, <8 x half>, <8 x i32>) #0
-
-; Function Attrs: nounwind
-declare %dx.types.LinAlgMatrixC4M8N8U2S0 @dx.op.linAlgMatrixOuterProduct.mC4M8N8U2S0.v8f16.v8f16(i32, <8 x half>, <8 x half>) #0
-
-; Function Attrs: nounwind
-declare %dx.types.LinAlgMatrixC8M8N8U2S0 @dx.op.linAlgMatrixOuterProduct.mC8M8N8U2S0.v8i32.v8i32(i32, <8 x i32>, <8 x i32>) #0
-
-; Function Attrs: nounwind
-declare %dx.types.LinAlgMatrixC21M8N8U2S0 @dx.op.linAlgMatrixOuterProduct.mC21M8N8U2S0.v2f16.v2f16(i32, <2 x half>, <2 x half>) #0
 
 attributes #0 = { nounwind }
 
@@ -98,7 +70,7 @@ attributes #0 = { nounwind }
 !3 = !{%dx.types.LinAlgMatrixC8M16N16U2S0 undef, i32 8, i32 16, i32 16, i32 2, i32 0}
 !4 = !{%dx.types.LinAlgMatrixC4M8N8U2S0 undef, i32 4, i32 8, i32 8, i32 2, i32 0}
 !5 = !{%dx.types.LinAlgMatrixC21M8N8U2S0 undef, i32 21, i32 8, i32 8, i32 2, i32 0}
-!6 = !{!"dxc(private) 1.9.0.5459 (linalg-vali-matrixouterproduct, bd6c0b684-dirty)"}
+!6 = !{!"dxc(private) 1.9.0.5461 (linalg-vali-matrixouterproduct, 677283588-dirty)"}
 !7 = !{i32 1, i32 10}
 !8 = !{!"cs", i32 6, i32 10}
 !9 = !{void ()* @main, !"main", null, null, !10}

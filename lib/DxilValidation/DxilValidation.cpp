@@ -1680,13 +1680,11 @@ static void ValidateLinAlgMatrixOuterProduct(CallInst *CI,
         CI, ValidationRule::InstrLinAlgMatrixUseMismatch,
         {"Return", MatrixUseToString(RetMat->Use), "Accumulator"});
 
-  unsigned ElementsPerScalar = ComponentTypeElementsPerScalar(RetMat->Type);
+  // M dim must be length of vecA
+  unsigned M = AVecTy->getNumElements();
 
-  // M dim = length of vecA * number of matrix elements that fit in each scalar
-  unsigned M = AVecTy->getNumElements() * ElementsPerScalar;
-
-  // N dim = length of vecB * number of matrix elements that fit in each scalar
-  unsigned N = BVecTy->getNumElements() * ElementsPerScalar;
+  // N dim must be length of vecB
+  unsigned N = BVecTy->getNumElements();
 
   // Matrix must be M*N dim
   if (RetMat->M != M || RetMat->N != N)
@@ -1702,24 +1700,6 @@ static void ValidateLinAlgMatrixOuterProduct(CallInst *CI,
         CI, ValidationRule::InstrLinAlgMatrixVecElementTypeMismatch,
         {"A", TypeToString(AVecTy->getElementType()), "B",
          TypeToString(BVecTy->getElementType())});
-
-  bool IsNativeMat = IsComponentTypeNative(RetMat->Type);
-
-  // If the matrix element type is native then the vec element type must match
-  if (IsNativeMat &&
-      !IsComponentTypeSameNativeType(RetMat->Type, AVecTy->getElementType()))
-    ValCtx.EmitInstrFormatError(
-        CI, ValidationRule::InstrLinAlgMatrixVectorTypeMustMatch,
-        {"A", TypeToString(AVecTy->getElementType()), "return",
-         ComponentTypeToString(RetMat->Type)});
-
-  // If the matrix element type is non-native then vector element type must be
-  // i32
-  if (!IsNativeMat && !AVecTy->getElementType()->isIntegerTy(32))
-    ValCtx.EmitInstrFormatError(
-        CI, ValidationRule::InstrLinAlgMatrixVectorTypeMustMatchPacked,
-        {"A", TypeToString(AVecTy->getElementType()), "return",
-         ComponentTypeToString(RetMat->Type)});
 }
 
 static void ValidateLinAlgMatrixLoadFromDescriptor(CallInst *CI,

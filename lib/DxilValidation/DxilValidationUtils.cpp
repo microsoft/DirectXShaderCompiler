@@ -724,44 +724,4 @@ std::string TypeToString(llvm::Type *Ty) {
   return OS.str();
 }
 
-bool IsComponentTypeSameNativeType(DXIL::ComponentType CT, llvm::Type *Ty) {
-  switch (CT) {
-  case DXIL::ComponentType::I16:
-  case DXIL::ComponentType::U16:
-    return Ty->isIntegerTy(16);
-  case DXIL::ComponentType::I32:
-  case DXIL::ComponentType::U32:
-    return Ty->isIntegerTy(32);
-  case DXIL::ComponentType::I64:
-  case DXIL::ComponentType::U64:
-    return Ty->isIntegerTy(64);
-  case DXIL::ComponentType::F16:
-    return Ty->isHalfTy();
-  case DXIL::ComponentType::F32:
-    return Ty->isFloatTy();
-  case DXIL::ComponentType::F64:
-    return Ty->isDoubleTy();
-  // All other CTs cannot be natively represented in a vector
-  default:
-    return false;
-  }
-}
-
-bool IsComponentTypeNative(DXIL::ComponentType CT) {
-  switch (CT) {
-  case DXIL::ComponentType::I16:
-  case DXIL::ComponentType::U16:
-  case DXIL::ComponentType::I32:
-  case DXIL::ComponentType::U32:
-  case DXIL::ComponentType::I64:
-  case DXIL::ComponentType::U64:
-  case DXIL::ComponentType::F16:
-  case DXIL::ComponentType::F32:
-  case DXIL::ComponentType::F64:
-    return true;
-  default:
-    return false;
-  }
-}
-
 } // namespace hlsl

@@ -8729,14 +8729,6 @@ class db_dxil(object):
             "Instr.LinAlgMatrixMatrixResDimMustMatch",
             "%0 matrix dimension '%1' must match A.MxB.N '%2'.",
         )
-        self.add_valrule(
-            "Instr.LinAlgMatrixVectorTypeMustMatch",
-            "%0 vector element type '%1' must match %2 matrix element type '%3'.",
-        )
-        self.add_valrule(
-            "Instr.LinAlgMatrixVectorTypeMustMatchPacked",
-            "%0 vector element type '%1' must be i32 for %2 matrix with non-native element type '%3'."
-        )
 
         # Some legacy rules:
         # - space is only supported for shader targets 5.1 and higher
