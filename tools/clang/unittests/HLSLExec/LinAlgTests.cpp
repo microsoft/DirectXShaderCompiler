@@ -5594,6 +5594,69 @@ makeThreadGroupMultiplyCase(const ThreadGroupMultiplyPlan &Plan,
 }
 
 void LinAlgCapabilityTests::ThreadGroupShapePolicy() {
+  struct PolicyProbe {
+    ComponentType AccumulatorType;
+    MatrixMultiplyOperation Operation;
+    MatrixDim MinExtent;
+    MatrixDim KExtentMultiple;
+  };
+  const PolicyProbe Probes[] = {
+      {ComponentType::F16, MatrixMultiplyOperation::Multiply, 8, 2},
+      {ComponentType::F32, MatrixMultiplyOperation::MultiplyAccumulate, 8, 2},
+      {ComponentType::I32, MatrixMultiplyOperation::Multiply, 8, 1},
+  };
+
+  for (const PolicyProbe &Probe : Probes) {
+    ThreadGroupMultiplyPlan Plan = {};
+    Plan.MatrixAType = ComponentType::F16;
+    Plan.MatrixBType = ComponentType::F16;
+    Plan.AccumulatorType = Probe.AccumulatorType;
+    Plan.Operation = Probe.Operation;
+    Plan.MinExtent = Probe.MinExtent;
+    Plan.KExtentMultiple = Probe.KExtentMultiple;
+    Plan.PublicRule = L"ThreadGroup shape policy";
+
+    // WARP tops out at 16, so 32 and 64 are only ever covered here.
+    for (UINT WaveSize : {4u, 8u, 16u, 32u, 64u, 128u}) {
+      const MatrixMultiplyCase Case =
+          makeThreadGroupMultiplyCase(Plan, WaveSize);
+      VERIFY_IS_TRUE(isMatrixMultiplyCaseValid(Case),
+                     "Derived shape must produce a valid case");
+      VERIFY_IS_TRUE(Case.M % WaveSize == 0 && Case.N % WaveSize == 0,
+                     "Derived extents must divide the wave size");
+      VERIFY_IS_TRUE(Case.K % 4 == 0, "Derived K must stay a multiple of four");
+      VERIFY_IS_TRUE(Case.M >= Plan.MinExtent &&
+                         Case.M < Plan.MinExtent + WaveSize,
+                     "Derived extent must be the smallest legal one");
+      VERIFY_IS_TRUE(Case.K == Case.M * Plan.KExtentMultiple,
+                     "Derived K must follow the plan multiple");
+
+      // Losing the operation would drop the accumulator from both the shader
+      // and the oracle, so the test would agree with itself and pass vacuously.
+      VERIFY_IS_TRUE(Case.Operation == Plan.Operation,
+                     "Derived case must keep the planned operation");
+      VERIFY_IS_TRUE(
+          Case.accumulates() ==
+              (Probe.Operation == MatrixMultiplyOperation::MultiplyAccumulate),
+          "Accumulation must follow the planned operation");
+
+      // F16 holds integers exactly below 2048 and is the tightest accumulator
+      // in the set, so the bound is applied to every probe.
+      int64_t MaxA = 0;
+      int64_t MaxB = 0;
+      int64_t MaxAccumulator = 0;
+      for (int64_t Value : Case.MatrixAValues)
+        MaxA = std::max(MaxA, Value < 0 ? -Value : Value);
+      for (int64_t Value : Case.MatrixBValues)
+        MaxB = std::max(MaxB, Value < 0 ? -Value : Value);
+      for (int64_t Value : Case.AccumulatorValues)
+        MaxAccumulator = std::max(MaxAccumulator, Value < 0 ? -Value : Value);
+      VERIFY_IS_TRUE(
+          MaxA * MaxB * static_cast<int64_t>(Case.K) + MaxAccumulator < 2048,
+          "Derived shape must keep dot products exact");
+    }
+  }
+
   ThreadGroupMultiplyPlan Plan = {};
   Plan.MatrixAType = ComponentType::F16;
   Plan.MatrixBType = ComponentType::F16;
@@ -5601,36 +5664,16 @@ void LinAlgCapabilityTests::ThreadGroupShapePolicy() {
   Plan.MinExtent = 8;
   Plan.KExtentMultiple = 2;
   Plan.PublicRule = L"ThreadGroup shape policy";
-
-  // WARP tops out at 16, so 32 and 64 are only ever covered here.
-  for (UINT WaveSize : {4u, 8u, 16u, 32u, 64u, 128u}) {
-    const MatrixMultiplyCase Case = makeThreadGroupMultiplyCase(Plan, WaveSize);
-    VERIFY_IS_TRUE(isMatrixMultiplyCaseValid(Case),
-                   "Derived shape must produce a valid case");
-    VERIFY_IS_TRUE(Case.M % WaveSize == 0 && Case.N % WaveSize == 0,
-                   "Derived extents must divide the wave size");
-    VERIFY_IS_TRUE(Case.K % 4 == 0, "Derived K must stay a multiple of four");
-    VERIFY_IS_TRUE(Case.M >= Plan.MinExtent &&
-                       Case.M < Plan.MinExtent + WaveSize,
-                   "Derived extent must be the smallest legal one");
-    VERIFY_IS_TRUE(Case.K == Case.M * Plan.KExtentMultiple,
-                   "Derived K must follow the plan multiple");
-
-    // F16 holds integers exactly below 2048.
-    int64_t MaxA = 0;
-    int64_t MaxB = 0;
-    for (int64_t Value : Case.MatrixAValues)
-      MaxA = std::max(MaxA, Value < 0 ? -Value : Value);
-    for (int64_t Value : Case.MatrixBValues)
-      MaxB = std::max(MaxB, Value < 0 ? -Value : Value);
-    VERIFY_IS_TRUE(MaxA * MaxB * static_cast<int64_t>(Case.K) < 2048,
-                   "Derived shape must keep F16 dot products exact");
-  }
-
   VERIFY_IS_TRUE(makeThreadGroupMultiplyCase(Plan, 4).M == 8,
                  "A wave of four must round the minimum extent up to eight");
   VERIFY_IS_TRUE(makeThreadGroupMultiplyCase(Plan, 32).M == 32,
                  "A wave of thirty-two must widen the extent to match");
+
+  // A minimum extent that neither divides nor is a multiple of the wave size.
+  Plan.MinExtent = 12;
+  const MatrixMultiplyCase Rounded = makeThreadGroupMultiplyCase(Plan, 8);
+  VERIFY_IS_TRUE(Rounded.M == 16 && Rounded.N == 16 && Rounded.K == 32,
+                 "An unaligned minimum extent must round up to the wave size");
 }
 
 static HRESULT selectThreadGroupMatMulConfiguration(
@@ -5644,6 +5687,10 @@ static HRESULT selectThreadGroupMatMulConfiguration(
   if (!Device)
     return E_INVALIDARG;
   if (!CaseName)
+    return E_INVALIDARG;
+
+  // A degenerate plan is an authoring error, so it must fail rather than skip.
+  if (Plan.MinExtent == 0 || Plan.KExtentMultiple == 0)
     return E_INVALIDARG;
 
   // Only the types can be validated here; the shape needs a wave size.
@@ -5687,8 +5734,10 @@ static HRESULT selectThreadGroupMatMulConfiguration(
 
     const MatrixMultiplyCase Candidate =
         makeThreadGroupMultiplyCase(Plan, WaveSize);
+    // A validated plan always derives a valid case, so this is a derivation
+    // bug rather than a device limitation.
     if (!isMatrixMultiplyCaseValid(Candidate))
-      continue;
+      return E_UNEXPECTED;
 
     const linalg_abi::D3D12_LINEAR_ALGEBRA_MATRIX_SHAPE Shape = {
         Candidate.M,
