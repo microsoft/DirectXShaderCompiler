@@ -683,6 +683,10 @@ static LPCWSTR componentTypeName(ComponentType CompType) {
     return L"I32";
   case ComponentType::U32:
     return L"U32";
+  case ComponentType::F8_E4M3FN:
+    return L"F8_E4M3FN";
+  case ComponentType::F8_E5M2:
+    return L"F8_E5M2";
   default:
     return L"Unsupported";
   }
@@ -2475,6 +2479,7 @@ public:
   TEST_METHOD(ViewBoundedElements);
   TEST_METHOD(ViewBoundedStoreBytes);
   TEST_METHOD(MatVecHostOracle);
+  TEST_METHOD(FP8HostOracle);
 };
 
 void LinAlgCPUOracleTests::TypedMatrixBufferRoundTrip() {
@@ -3174,6 +3179,8 @@ public:
   TEST_METHOD(CopyConvert_Wave_4x8_F32_ToF16_Transpose);
   TEST_METHOD(Convert_I16_ToI32_Exact);
   TEST_METHOD(Convert_F32_ToI16_RTNE_Saturate);
+  TEST_METHOD(Convert_F16_ToE4M3FN_AndBack);
+  TEST_METHOD(Convert_F16_ToE5M2_AndBack);
 
   // Vector Accumulate
   TEST_METHOD(VectorAccumulateDescriptor_Thread_F16);
@@ -7884,23 +7891,223 @@ static const char ConvertF32ToI16CoverageShader[] = R"(
   }
 )";
 
+static const char ConvertF16FP8CoverageShader[] = R"(
+  ByteAddressBuffer DecodeInput : register(t0);
+  RWByteAddressBuffer Output : register(u0);
+
+  [numthreads(1, 1, 1)]
+  void main() {
+    vector<half, 8> EncodeInput = {
+      0.0, 1.0, -1.0, 1.15625, -1.21875, 2.3125, 5.625, -13.25
+    };
+    vector<uint, 2> Packed;
+    __builtin_LinAlg_Convert(Packed, EncodeInput, SRC_TYPE, DST_TYPE);
+
+    vector<uint, 2> HostPacked = {
+      DecodeInput.Load<uint>(0), DecodeInput.Load<uint>(4)
+    };
+    vector<half, 8> Decoded;
+    __builtin_LinAlg_Convert(Decoded, HostPacked, DST_TYPE, SRC_TYPE);
+
+    Output.Store<uint>(0, Packed.x);
+    Output.Store<uint>(4, Packed.y);
+    for (uint I = 0; I < 8; ++I)
+      Output.Store<half>(8 + I * 2, Decoded[I]);
+  }
+)";
+
 static void runExactConvert(ID3D12Device *Device,
                             dxc::SpecificDllLoader &DxcSupport,
                             const char *Shader, const std::string &Args,
                             const std::vector<BYTE> &Expected,
-                            LPCWSTR PublicRule, bool Verbose) {
+                            LPCWSTR PublicRule, bool Verbose,
+                            const std::vector<BYTE> *Input = nullptr) {
   compileShader(DxcSupport, Shader, "cs_6_10", Args, Verbose);
 
-  auto Op = createComputeOp(Shader, "cs_6_10", "UAV(u0)", Args.c_str());
+  auto Op = createComputeOp(
+      Shader, "cs_6_10", Input ? "SRV(t0), UAV(u0)" : "UAV(u0)", Args.c_str());
+  UINT OutputRootIndex = 0;
+  if (Input) {
+    VERIFY_IS_TRUE(!Input->empty(), "Convert input must not be empty");
+    if (Input->empty())
+      return;
+    addSRVBuffer(Op.get(), "DecodeInput", Input->size(), "byname");
+    addRootView(Op.get(), 0, "DecodeInput");
+    OutputRootIndex = 1;
+  }
   addUAVBuffer(Op.get(), "Output", Expected.size(), true);
-  addRootView(Op.get(), 0, "Output");
+  addRootView(Op.get(), OutputRootIndex, "Output");
 
-  auto Result = runShaderOp(Device, DxcSupport, std::move(Op));
+  auto Result = runShaderOp(
+      Device, DxcSupport, std::move(Op),
+      [Input](LPCSTR Name, std::vector<BYTE> &Data, st::ShaderOp *) {
+        if (Input && _stricmp(Name, "DecodeInput") == 0)
+          Data = *Input;
+      });
 
   MappedData OutputData;
   Result->Test->GetReadBackData("Output", &OutputData);
   VERIFY_IS_TRUE(verifyConvertBytes(OutputData.data(), OutputData.size(),
                                     Expected, PublicRule, Verbose));
+}
+
+struct FP8Format {
+  unsigned ExponentBits;
+  unsigned MantissaBits;
+  unsigned ExponentBias;
+  bool HasInfinity;
+};
+
+static std::optional<FP8Format> getFP8Format(ComponentType CompType) {
+  switch (CompType) {
+  case ComponentType::F8_E4M3FN:
+    return FP8Format{/*ExponentBits=*/4, /*MantissaBits=*/3,
+                     /*ExponentBias=*/7, /*HasInfinity=*/false};
+  case ComponentType::F8_E5M2:
+    return FP8Format{/*ExponentBits=*/5, /*MantissaBits=*/2,
+                     /*ExponentBias=*/15, /*HasInfinity=*/true};
+  default:
+    return std::nullopt;
+  }
+}
+
+static std::optional<BYTE> encodeHalfToFP8(HLSLHalf_t Value,
+                                           ComponentType CompType) {
+  const std::optional<FP8Format> Format = getFP8Format(CompType);
+  if (!Format)
+    return std::nullopt;
+
+  const unsigned Sign = Value.Val >> 15;
+  const unsigned SourceExponent = (Value.Val >> 10) & 0x1f;
+  const unsigned SourceMantissa = Value.Val & 0x3ff;
+  if (SourceExponent == 0)
+    return SourceMantissa == 0
+               ? std::optional<BYTE>(static_cast<BYTE>(Sign << 7))
+               : std::nullopt;
+  if (SourceExponent == 0x1f)
+    return std::nullopt;
+
+  int DestinationExponent = static_cast<int>(SourceExponent) - 15 +
+                            static_cast<int>(Format->ExponentBias);
+  if (DestinationExponent <= 0)
+    return std::nullopt;
+
+  const unsigned Shift = 10 - Format->MantissaBits;
+  unsigned DestinationMantissa = SourceMantissa >> Shift;
+  const unsigned Remainder = SourceMantissa & ((1u << Shift) - 1);
+  const unsigned Halfway = 1u << (Shift - 1);
+  if (Remainder > Halfway) {
+    ++DestinationMantissa;
+  } else if (Remainder == Halfway) {
+    // Ties round to even.
+    if (DestinationMantissa & 1u)
+      ++DestinationMantissa;
+  }
+  if (DestinationMantissa == (1u << Format->MantissaBits)) {
+    DestinationMantissa = 0;
+    ++DestinationExponent;
+  }
+
+  const unsigned MaxExponent = (1u << Format->ExponentBits) - 1;
+  const unsigned MaxFiniteExponent =
+      Format->HasInfinity ? MaxExponent - 1 : MaxExponent;
+  if (DestinationExponent > static_cast<int>(MaxFiniteExponent))
+    return std::nullopt;
+  if (!Format->HasInfinity) {
+    // E4M3FN reserves the all-ones significand at the top exponent for NaN.
+    const bool TopExponent =
+        DestinationExponent == static_cast<int>(MaxExponent);
+    const bool AllOnesMantissa =
+        DestinationMantissa == (1u << Format->MantissaBits) - 1;
+    if (TopExponent && AllOnesMantissa)
+      return std::nullopt;
+  }
+
+  return static_cast<BYTE>(
+      (Sign << 7) |
+      (static_cast<unsigned>(DestinationExponent) << Format->MantissaBits) |
+      DestinationMantissa);
+}
+
+struct FP8ConvertData {
+  std::vector<BYTE> DecodeInput;
+  std::vector<BYTE> ExpectedOutput;
+};
+
+struct FP8TestVectors {
+  std::vector<HLSLHalf_t> EncodeValues;
+  std::vector<BYTE> HandEncoded;
+  std::vector<BYTE> DecodeInput;
+  std::vector<BYTE> HandDecoded;
+};
+
+static std::optional<FP8TestVectors> getFP8TestVectors(ComponentType CompType) {
+  // Chosen to discard mantissa bits without landing on a midpoint tie.
+  const std::vector<HLSLHalf_t> EncodeValues = {
+      HLSLHalf_t(0.0f),     HLSLHalf_t(1.0f),      HLSLHalf_t(-1.0f),
+      HLSLHalf_t(1.15625f), HLSLHalf_t(-1.21875f), HLSLHalf_t(2.3125f),
+      HLSLHalf_t(5.625f),   HLSLHalf_t(-13.25f)};
+
+  switch (CompType) {
+  case ComponentType::F8_E4M3FN:
+    return FP8TestVectors{EncodeValues,
+                          {0x00, 0x38, 0xb8, 0x39, 0xba, 0x41, 0x4b, 0xd5},
+                          {0x3b, 0xbc, 0x45, 0xc9, 0x52, 0xd6, 0x29, 0xa2},
+                          {0x80, 0x3d, 0x00, 0xbe, 0x80, 0x42, 0x80, 0xc4, 0x00,
+                           0x49, 0x00, 0xcb, 0x80, 0x34, 0x00, 0xb1}};
+  case ComponentType::F8_E5M2:
+    return FP8TestVectors{EncodeValues,
+                          {0x00, 0x3c, 0xbc, 0x3d, 0xbd, 0x41, 0x46, 0xcb},
+                          {0x3e, 0xbf, 0x45, 0xc8, 0x4b, 0xce, 0x32, 0xb5},
+                          {0x00, 0x3e, 0x00, 0xbf, 0x00, 0x45, 0x00, 0xc8, 0x00,
+                           0x4b, 0x00, 0xce, 0x00, 0x32, 0x00, 0xb5}};
+  default:
+    return std::nullopt;
+  }
+}
+
+static std::optional<FP8ConvertData>
+makeFP8ConvertData(ComponentType CompType) {
+  const std::optional<FP8TestVectors> Vectors = getFP8TestVectors(CompType);
+  if (!Vectors)
+    return std::nullopt;
+
+  std::vector<BYTE> ExpectedOutput = Vectors->HandEncoded;
+  ExpectedOutput.insert(ExpectedOutput.end(), Vectors->HandDecoded.begin(),
+                        Vectors->HandDecoded.end());
+  return FP8ConvertData{Vectors->DecodeInput, std::move(ExpectedOutput)};
+}
+
+void LinAlgCPUOracleTests::FP8HostOracle() {
+  for (ComponentType CompType :
+       {ComponentType::F8_E4M3FN, ComponentType::F8_E5M2}) {
+    const std::optional<FP8TestVectors> Vectors = getFP8TestVectors(CompType);
+    VERIFY_IS_TRUE(Vectors.has_value(), "Missing FP8 test vectors");
+    if (!Vectors)
+      continue;
+
+    std::vector<BYTE> Encoded;
+    for (HLSLHalf_t Value : Vectors->EncodeValues) {
+      const std::optional<BYTE> ByteValue = encodeHalfToFP8(Value, CompType);
+      if (!ByteValue) {
+        hlsl_test::LogErrorFmt(
+            L"%s is not representable as %s (half bits 0x%04x)",
+            std::to_wstring(static_cast<float>(Value)).c_str(),
+            cpu_oracle::componentTypeName(CompType), Value.Val);
+        VERIFY_FAIL(L"FP8 host encoder rejected a test value");
+        return;
+      }
+      Encoded.push_back(*ByteValue);
+    }
+
+    VERIFY_IS_TRUE(Encoded == Vectors->HandEncoded,
+                   "Host FP8 encoder disagrees with the hand-derived table");
+
+    // The decode input must not be the encoder's own output, or a shader that
+    // echoed its input would pass the decode half of the execution test.
+    VERIFY_IS_TRUE(Vectors->DecodeInput != Vectors->HandEncoded,
+                   "FP8 decode input must be independent of encode output");
+  }
 }
 
 static std::string buildConvertArgs(ComponentType SourceCompType,
@@ -7968,6 +8175,19 @@ void DxilConf_SM610_LinAlg::Convert_I16_ToI32_Exact() {
       VerboseLogging);
 }
 
+static void runFP8ConvertCase(ID3D12Device *Device,
+                              dxc::SpecificDllLoader &DxcSupport,
+                              ComponentType FP8CompType,
+                              const FP8ConvertData &Data, bool Verbose) {
+  const std::wstring PublicRule =
+      std::wstring(cpu_oracle::componentTypeName(FP8CompType)) +
+      L" packed fields and independent F16 decode";
+  runExactConvert(Device, DxcSupport, ConvertF16FP8CoverageShader,
+                  buildConvertArgs(ComponentType::F16, FP8CompType),
+                  Data.ExpectedOutput, PublicRule.c_str(), Verbose,
+                  &Data.DecodeInput);
+}
+
 void DxilConf_SM610_LinAlg::Convert_F32_ToI16_RTNE_Saturate() {
   if (!convertTypesApplicable(D3DDevice, ComponentType::F32, ComponentType::I16,
                               L"Convert_F32_ToI16_RTNE_Saturate"))
@@ -7979,6 +8199,48 @@ void DxilConf_SM610_LinAlg::Convert_F32_ToI16_RTNE_Saturate() {
                       {-32768, -32768, -2, -2, 2, 2, 32767, 32767}),
                   L"Float-to-integer conversion is RTNE with signed saturation",
                   VerboseLogging);
+}
+
+void DxilConf_SM610_LinAlg::Convert_F16_ToE4M3FN_AndBack() {
+  const std::optional<FP8ConvertData> Data =
+      makeFP8ConvertData(ComponentType::F8_E4M3FN);
+  VERIFY_IS_TRUE(Data.has_value(), "Unable to construct the host FP8 oracle");
+  if (!Data)
+    return;
+  compileShader(DxcSupport, ConvertF16FP8CoverageShader, "cs_6_10",
+                buildConvertArgs(ComponentType::F16, ComponentType::F8_E4M3FN),
+                VerboseLogging);
+
+  if (!convertTypesApplicable(D3DDevice, ComponentType::F16,
+                              ComponentType::F8_E4M3FN,
+                              L"Convert_F16_ToE4M3FN_AndBack"))
+    return;
+  if (!convertTypesApplicable(D3DDevice, ComponentType::U32, ComponentType::F16,
+                              L"Convert_F16_ToE4M3FN_AndBack"))
+    return;
+  runFP8ConvertCase(D3DDevice, DxcSupport, ComponentType::F8_E4M3FN, *Data,
+                    VerboseLogging);
+}
+
+void DxilConf_SM610_LinAlg::Convert_F16_ToE5M2_AndBack() {
+  const std::optional<FP8ConvertData> Data =
+      makeFP8ConvertData(ComponentType::F8_E5M2);
+  VERIFY_IS_TRUE(Data.has_value(), "Unable to construct the host FP8 oracle");
+  if (!Data)
+    return;
+  compileShader(DxcSupport, ConvertF16FP8CoverageShader, "cs_6_10",
+                buildConvertArgs(ComponentType::F16, ComponentType::F8_E5M2),
+                VerboseLogging);
+
+  if (!convertTypesApplicable(D3DDevice, ComponentType::F16,
+                              ComponentType::F8_E5M2,
+                              L"Convert_F16_ToE5M2_AndBack"))
+    return;
+  if (!convertTypesApplicable(D3DDevice, ComponentType::U32, ComponentType::F16,
+                              L"Convert_F16_ToE5M2_AndBack"))
+    return;
+  runFP8ConvertCase(D3DDevice, DxcSupport, ComponentType::F8_E5M2, *Data,
+                    VerboseLogging);
 }
 
 } // namespace LinAlg
