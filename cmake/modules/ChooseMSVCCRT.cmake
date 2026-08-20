@@ -5,7 +5,8 @@
 # The macro is invoked at the end of the file.
 #
 # To let the user override the MSVC runtime library for each build type:
-# 1. Detect legacy CRT flags and reflect them in LLVM_USE_CRT_*.
+# 1. Detect legacy /MD, /MDd, /MT, and /MTd switches in the
+# CMAKE_<LANG>_FLAGS_<CONFIG> variables and reflect them in LLVM_USE_CRT_*.
 # 2. Validate explicitly selected LLVM_USE_CRT_* values.
 # 3. Translate them to CMake's MSVC runtime library abstraction.
 
