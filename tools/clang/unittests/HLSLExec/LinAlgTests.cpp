@@ -7541,6 +7541,10 @@ static void runVectorAccumulateDescriptor(
 
   std::vector<BYTE> InputBytes(*InputSize);
   std::vector<BYTE> InitialBytes(*OutputSize);
+  // Seed the destination with poison so the bytes the accumulation must leave
+  // alone, including everything below StartOffsetBytes, carry a known value
+  // through to readback rather than a zero the operation could also produce.
+  cpu_oracle::fillPoison(InitialBytes.data(), InitialBytes.size());
   VERIFY_IS_TRUE(cpu_oracle::writeMatrixBuffer(Input, InputLayout, InputBytes),
                  "Unable to encode vector input buffer");
   VERIFY_IS_TRUE(
@@ -7592,6 +7596,9 @@ static void runVectorAccumulateDescriptor(
       cpu_oracle::exactResult(Expected, std::move(PublicRule));
   VERIFY_IS_TRUE(cpu_oracle::verifyMatrixBuffer(OutData.data(), OutData.size(),
                                                 OutputLayout, Oracle, Verbose));
+  VERIFY_IS_TRUE(cpu_oracle::verifyUntouchedBytes(
+      Initial.compType(), Initial.M, Initial.N, OutputLayout, OutData.data(),
+      OutData.size(), Verbose));
 }
 
 void DxilConf_SM610_LinAlg::VectorAccumulateDescriptor_Thread_F16() {
