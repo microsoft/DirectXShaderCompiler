@@ -976,6 +976,10 @@ int DxcContext::Link() {
                     wpInputFiles.size(), args.data(), args.size(),
                     &pLinkResult));
 
+  // Link will not include any debug info if StripDebug is set, so clear it
+  // here so we don't attempt to remove it again in UpdatePart
+  m_Opts.StripDebug = false;
+
   HRESULT status;
   IFT(pLinkResult->GetStatus(&status));
   if (SUCCEEDED(status)) {
