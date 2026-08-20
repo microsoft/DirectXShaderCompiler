@@ -6668,12 +6668,14 @@ TEST_F(ValidationTest, WrongPSVVersion) {
 
   CComPtr<IDxcBlob> pProgram68;
 
-  CompileFile(L"..\\DXC\\dumpPSV_CS.hlsl", "cs_6_8", &pProgram68);
+  LPCWSTR Args_1_8[] = {L"-validator-version", L"1.8"};
+  CompileFile(L"..\\DXC\\dumpPSV_CS.hlsl", "cs_6_8", Args_1_8,
+              _countof(Args_1_8), &pProgram68);
   CComPtr<IDxcOperationResult> pResult2;
   VERIFY_SUCCEEDED(pValidator->Validate(pProgram68, Flags, &pResult2));
   // Make sure the validation was successful.
-  VERIFY_IS_NOT_NULL(pResult);
-  VERIFY_SUCCEEDED(pResult->GetStatus(&status));
+  VERIFY_IS_NOT_NULL(pResult2);
+  VERIFY_SUCCEEDED(pResult2->GetStatus(&status));
   VERIFY_SUCCEEDED(status);
 
   hlsl::DxilContainerHeader *pHeader68;
