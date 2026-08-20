@@ -9256,6 +9256,13 @@ void TranslateStructBufMatSubscript(CallInst *CI, Value *handle,
   assert(resultSize <= 16);
   std::vector<Value *> idxList(resultSize);
 
+  // For raw buffers the byte offset rides in the buffer index and the element
+  // offset operand stays undef, so the per-element offset must accumulate into
+  // bufIdx. For structured buffers the per-element offset is the element offset
+  // and bufIdx is the structure index.
+  bool isRawBuf = DXIL::IsRawBuffer(ResKind);
+  Value *matBaseIdx = isRawBuf ? bufIdx : baseOffset;
+
   switch (subOp) {
   case HLSubscriptOpcode::ColMatSubscript:
   case HLSubscriptOpcode::RowMatSubscript: {
@@ -9263,7 +9270,7 @@ void TranslateStructBufMatSubscript(CallInst *CI, Value *handle,
       Value *offset =
           CI->getArgOperand(HLOperandIndex::kMatSubscriptSubOpIdx + i);
       offset = subBuilder.CreateMul(offset, EltByteSize);
-      idxList[i] = subBuilder.CreateAdd(baseOffset, offset);
+      idxList[i] = subBuilder.CreateAdd(matBaseIdx, offset);
     }
   } break;
   case HLSubscriptOpcode::RowMatElement:
@@ -9272,7 +9279,7 @@ void TranslateStructBufMatSubscript(CallInst *CI, Value *handle,
     for (unsigned i = 0; i < resultSize; i++) {
       Value *offset =
           subBuilder.CreateMul(EltIdxs->getAggregateElement(i), EltByteSize);
-      idxList[i] = subBuilder.CreateAdd(baseOffset, offset);
+      idxList[i] = subBuilder.CreateAdd(matBaseIdx, offset);
     }
   } break;
   default:
@@ -9286,8 +9293,9 @@ void TranslateStructBufMatSubscript(CallInst *CI, Value *handle,
     Value *subsUser = *(U++);
     if (resultSize == 1) {
       TranslateStructBufSubscriptUser(cast<Instruction>(subsUser), handle,
-                                      ResKind, bufIdx, idxList[0], status,
-                                      hlslOP, DL);
+                                      ResKind, isRawBuf ? idxList[0] : bufIdx,
+                                      isRawBuf ? baseOffset : idxList[0],
+                                      status, hlslOP, DL);
       continue;
     }
     if (GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(subsUser)) {
@@ -9295,8 +9303,9 @@ void TranslateStructBufMatSubscript(CallInst *CI, Value *handle,
 
       for (auto gepU = GEP->user_begin(); gepU != GEP->user_end();) {
         Instruction *gepUserInst = cast<Instruction>(*(gepU++));
-        TranslateStructBufSubscriptUser(gepUserInst, handle, ResKind, bufIdx,
-                                        GEPOffset, status, hlslOP, DL);
+        TranslateStructBufSubscriptUser(
+            gepUserInst, handle, ResKind, isRawBuf ? GEPOffset : bufIdx,
+            isRawBuf ? baseOffset : GEPOffset, status, hlslOP, DL);
       }
 
       GEP->eraseFromParent();
@@ -9310,13 +9319,15 @@ void TranslateStructBufMatSubscript(CallInst *CI, Value *handle,
         for (unsigned i = 0; i < resultSize; i++) {
           Value *EltVal = stBuilder.CreateExtractElement(Val, i);
           uint8_t mask = DXIL::kCompMask_X;
-          GenerateStructBufSt(handle, bufIdx, idxList[i], EltTy, hlslOP,
+          GenerateStructBufSt(handle, isRawBuf ? idxList[i] : bufIdx,
+                              isRawBuf ? baseOffset : idxList[i], EltTy, hlslOP,
                               stBuilder, {EltVal, undefElt, undefElt, undefElt},
                               mask, alignment);
         }
       } else {
         uint8_t mask = DXIL::kCompMask_X;
-        GenerateStructBufSt(handle, bufIdx, idxList[0], EltTy, hlslOP,
+        GenerateStructBufSt(handle, isRawBuf ? idxList[0] : bufIdx,
+                            isRawBuf ? baseOffset : idxList[0], EltTy, hlslOP,
                             stBuilder, {Val, undefElt, undefElt, undefElt},
                             mask, alignment);
       }
@@ -9334,14 +9345,16 @@ void TranslateStructBufMatSubscript(CallInst *CI, Value *handle,
         for (unsigned i = 0; i < resultSize; i++) {
           Value *ResultElt;
           // TODO: This can be inefficient for row major matrix load
-          GenerateRawBufLd(handle, bufIdx, idxList[i],
+          GenerateRawBufLd(handle, isRawBuf ? idxList[i] : bufIdx,
+                           isRawBuf ? baseOffset : idxList[i],
                            /*status*/ nullptr, EltTy, ResultElt, hlslOP,
                            ldBuilder, 1, alignment);
           ldData = ldBuilder.CreateInsertElement(ldData, ResultElt, i);
         }
       } else {
-        GenerateRawBufLd(handle, bufIdx, idxList[0], /*status*/ nullptr, EltTy,
-                         ldData, hlslOP, ldBuilder, 4, alignment);
+        GenerateRawBufLd(handle, isRawBuf ? idxList[0] : bufIdx,
+                         isRawBuf ? baseOffset : idxList[0], /*status*/ nullptr,
+                         EltTy, ldData, hlslOP, ldBuilder, 4, alignment);
       }
       ldUser->replaceAllUsesWith(ldData);
       ldUser->eraseFromParent();
