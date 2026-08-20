@@ -89,27 +89,6 @@ Open the resulting LLVM.sln placed under the ``<Path to Output>``. DXC should
 build successfully with either the ``Visual Studio 17 2022`` or ``Visual Studio
 16 2019`` generators.
 
-Reproducing the Official Release Configuration
-----------------------------------------------
-
-The ``OfficialRelease.cmake`` cache composes the basic DXC configuration with
-the settings used for official Release binaries. Configure and build an x64
-Visual Studio build with:
-
-.. code-block:: sh
-
-  cmake <Repository Root> \
-    -B <Path to Output> \
-    -C <Repository Root>/cmake/caches/OfficialRelease.cmake \
-    -G "Visual Studio 17 2022" \
-    -A x64
-
-  cmake --build <Path to Output> --config Release --parallel
-
-The cache selects the static multithreaded MSVC runtime for Release targets.
-It does not configure product versioning, signing, symbol packaging, or
-artifact publication.
-
 Using Visual Studio's CMake Integration
 ---------------------------------------
 
