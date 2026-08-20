@@ -5575,16 +5575,14 @@ static HRESULT selectThreadGroupMatMulConfiguration(
   // capability-gated skip instead of a failure.
   linalg_test::TierSupport Tier;
   HRESULT HR = linalg_test::queryTierSupport(Device, Tier);
-  if (FAILED(HR))
-    return HR;
+  VERIFY_SUCCEEDED(HR, "Linear algebra tier query must succeed");
   if (!Tier.supported())
     return S_OK;
 
   UINT MinWaveSize = 0;
   UINT MaxWaveSize = 0;
   HR = queryLaunchableWaveSizes(Device, MinWaveSize, MaxWaveSize);
-  if (FAILED(HR))
-    return HR;
+  VERIFY_SUCCEEDED(HR, "Launchable wave size query must succeed");
   if (MinWaveSize == 0) {
     hlsl_test::LogCommentFmt(
         L"Wave operations are unsupported; ThreadGroupMatrixMultiply is not "
@@ -5606,8 +5604,7 @@ static HRESULT selectThreadGroupMatMulConfiguration(
     HR = matrixMultiplyRolesConstructible(Device, Case, WaveSize, MatrixAType,
                                           MatrixBType, AccumulatorType,
                                           RolesConstructible);
-    if (FAILED(HR))
-      return HR;
+    VERIFY_SUCCEEDED(HR, "Matrix role construction query must succeed");
     if (!RolesConstructible)
       continue;
 
@@ -5615,8 +5612,7 @@ static HRESULT selectThreadGroupMatMulConfiguration(
     HR = linalg_test::queryThreadGroupMatrixMultiply(
         Device, {{WaveSize, MatrixAType, MatrixBType, AccumulatorType}, Shape},
         Multiply);
-    if (FAILED(HR))
-      return HR;
+    VERIFY_SUCCEEDED(HR, "ThreadGroup matrix multiply query must succeed");
     if (!Multiply.supported())
       continue;
 
