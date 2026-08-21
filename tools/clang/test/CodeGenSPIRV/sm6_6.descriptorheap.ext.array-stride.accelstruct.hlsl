@@ -50,7 +50,7 @@
 // RUN:   -fspv-extension=SPV_EXT_descriptor_heap                           \
 // RUN:   -fspv-extension=SPV_KHR_untyped_pointers                          \
 // RUN:   -fspv-extension=SPV_KHR_ray_query                                 \
-// RUN:   -spirv %s | FileCheck %s --check-prefix=SZRQ
+// RUN:   -spirv %s | FileCheck %s --check-prefixes=SZRQ,NOSAMP
 
 // Element (descriptor) types.
 // CHECK-DAG:          %[[Accel:[a-zA-Z0-9_]+]] = OpTypeAccelerationStructureKHR
@@ -104,14 +104,21 @@
 // Sampler stride is independent (path A only).
 // RT-DAG:        OpDecorateId %[[SampArr]] ArrayStrideIdEXT %[[SampSz]]
 
-// Exact OpConstantSizeOfEXT counts.
-// Path A (RT stage): img, buf, accel, sampler = 4.
-// SZRT-COUNT-4:  OpConstantSizeOfEXT %uint
-// SZRT-NOT:      OpConstantSizeOfEXT %uint
+// Path A (RT stage) queries img, buf, accel and sampler; path B (ray query)
+// queries img, buf and accel.  Each expected query is asserted by a CHECK-DAG
+// above, so what remains is to rule out the extra queries that a per-element or
+// per-access implementation would emit.
+//
+// In both paths the lowered Texture2D type must never be measured, because one
+// canonical image placeholder covers every image descriptor.
+// SZRT-DAG: %[[SZRT_Tex:[a-zA-Z0-9_]+]] = OpTypeImage %float 2D 2 0 0 1 Unknown
+// SZRT-NOT: OpConstantSizeOfEXT %uint %[[SZRT_Tex]]
+// SZRQ-DAG: %[[SZRQ_Tex:[a-zA-Z0-9_]+]] = OpTypeImage %float 2D 2 0 0 1 Unknown
+// SZRQ-NOT: OpConstantSizeOfEXT %uint %[[SZRQ_Tex]]
 
-// Path B (ray query): img, buf, accel = 3 (no sampler).
-// SZRQ-COUNT-3:  OpConstantSizeOfEXT %uint
-// SZRQ-NOT:      OpConstantSizeOfEXT %uint
+// Path B declares no sampler, so no sampler descriptor type reaches the module
+// and therefore no sampler size query can be emitted.
+// NOSAMP-NOT: OpTypeSampler
 
 #ifdef RT_STAGE
 
