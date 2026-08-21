@@ -25,10 +25,10 @@
 
 // All of these are resource descriptors, so every array shares one resource stride
 // (derivation covered by sm6_6.descriptorheap.ext.array-stride.hlsl)
-// CHECK-DAG: OpDecorateId %[[RA_TexUint]] ArrayStrideIdEXT %[[ResSize:[a-zA-Z0-9_]+]]
-// CHECK-DAG: OpDecorateId %[[RA_RWTexF2]] ArrayStrideIdEXT %[[ResSize]]
-// CHECK-DAG: OpDecorateId %[[RA_RWTexU2]] ArrayStrideIdEXT %[[ResSize]]
-// CHECK-DAG: OpDecorateId %[[RA_RWTexI]] ArrayStrideIdEXT %[[ResSize]]
+// CHECK-DAG:                                  OpDecorateId %[[RA_TexUint]] ArrayStrideIdEXT %[[ResSize:[a-zA-Z0-9_]+]]
+// CHECK-DAG:                                  OpDecorateId %[[RA_RWTexF2]] ArrayStrideIdEXT %[[ResSize]]
+// CHECK-DAG:                                  OpDecorateId %[[RA_RWTexU2]] ArrayStrideIdEXT %[[ResSize]]
+// CHECK-DAG:                                  OpDecorateId %[[RA_RWTexI]] ArrayStrideIdEXT %[[ResSize]]
 
 // CHECK:    %[[ResourceHeap:[a-zA-Z0-9_]+]] = OpUntypedVariableKHR %[[UntypedPtr]] UniformConstant
 

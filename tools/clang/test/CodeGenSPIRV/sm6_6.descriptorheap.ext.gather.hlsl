@@ -11,8 +11,12 @@
 // CHECK-DAG:       %[[RA_Tex2D:[a-zA-Z0-9_]+]] = OpTypeRuntimeArray %[[Tex2DType]]{{$}}
 // CHECK-DAG:     %[[RA_Sampler:[a-zA-Z0-9_]+]] = OpTypeRuntimeArray %[[SamplerType]]{{$}}
 
-// CHECK-DAG:   %[[ResourceHeap:[a-zA-Z0-9_]+]] = OpUntypedVariableKHR %[[UntypedPtr]] UniformConstant
-// CHECK-DAG:    %[[SamplerHeap:[a-zA-Z0-9_]+]] = OpUntypedVariableKHR %[[UntypedPtr]] UniformConstant
+// The two heap variables have identical definitions apart from their result id,
+// so bind each id from its OpName before checking the definition.
+// CHECK-DAG:                                     OpName %[[ResourceHeap:[a-zA-Z0-9_]+]] "resource_heap"
+// CHECK-DAG:                                     OpName %[[SamplerHeap:[a-zA-Z0-9_]+]] "sampler_heap"
+// CHECK-DAG:                 %[[ResourceHeap]] = OpUntypedVariableKHR %[[UntypedPtr]] UniformConstant
+// CHECK-DAG:                  %[[SamplerHeap]] = OpUntypedVariableKHR %[[UntypedPtr]] UniformConstant
 
 float4 main(float2 uv : TEXCOORD0) : SV_Target {
   Texture2D<float4> tex = ResourceDescriptorHeap[0];

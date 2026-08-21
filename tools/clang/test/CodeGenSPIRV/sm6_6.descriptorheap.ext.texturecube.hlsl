@@ -15,9 +15,9 @@
 
 // Both cube arrays are resource descriptors and share one resource stride; the sampler array uses the separate sampler stride
 // (derivation covered by sm6_6.descriptorheap.ext.array-stride.hlsl)
-// CHECK-DAG: OpDecorateId %[[RA_Cube]] ArrayStrideIdEXT %[[ResSize:[a-zA-Z0-9_]+]]
-// CHECK-DAG: OpDecorateId %[[RA_CubeArr]] ArrayStrideIdEXT %[[ResSize]]
-// CHECK-DAG: OpDecorateId %[[RA_Sampler]] ArrayStrideIdEXT %[[SampSize:[a-zA-Z0-9_]+]]
+// CHECK-DAG:                                  OpDecorateId %[[RA_Cube]] ArrayStrideIdEXT %[[ResSize:[a-zA-Z0-9_]+]]
+// CHECK-DAG:                                  OpDecorateId %[[RA_CubeArr]] ArrayStrideIdEXT %[[ResSize]]
+// CHECK-DAG:                                  OpDecorateId %[[RA_Sampler]] ArrayStrideIdEXT %[[SampSize:[a-zA-Z0-9_]+]]
 
 // CHECK:    %[[ResourceHeap:[a-zA-Z0-9_]+]] = OpUntypedVariableKHR %[[UntypedPtr]] UniformConstant
 // CHECK:     %[[SamplerHeap:[a-zA-Z0-9_]+]] = OpUntypedVariableKHR %[[UntypedPtr]] UniformConstant

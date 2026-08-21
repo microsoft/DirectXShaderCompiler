@@ -66,10 +66,11 @@
 // CHECK-DAG:                                     OpDecorateId %[[SamplerArray]] ArrayStrideIdEXT %[[SampSize]]
 
 // Three distinct OpConstantSizeOfEXT calls exist: ImgPlaceholder, Uniform
-// buffer, and sampler. Regression test: no per-element or per-access behavior;
-// otherwise StorageBuffer would add a fourth, pushing the count above three.
-// COUNT-COUNT-3: OpConstantSizeOfEXT %uint
-// COUNT-NOT:     OpConstantSizeOfEXT %uint
+// buffer, and sampler, each asserted by a CHECK-DAG above. Regression test: no
+// per-element or per-access behavior; otherwise the StorageBuffer descriptor
+// would be measured too, adding a fourth query.
+// COUNT-DAG: %[[SBBufDesc:[a-zA-Z0-9_]+]] = OpTypeBufferEXT StorageBuffer{{$}}
+// COUNT-NOT: OpConstantSizeOfEXT %uint %[[SBBufDesc]]
 
 struct Constants {
   uint value;

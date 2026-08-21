@@ -12,10 +12,11 @@
 //   reassignment        -> re-indexes shared StorageBuffer array (uint_4) -> same %type_StructuredBuffer_* pointer
 
 // CHECK-DAG: %[[UntypedPtrType:[a-zA-Z0-9_]+]] = OpTypeUntypedPointerKHR UniformConstant
-// CHECK-DAG:      %[[SBBufDesc:[a-zA-Z0-9_]+]] = OpTypeBufferEXT StorageBuffer
-// CHECK-DAG:     %[[SBBufArray:[a-zA-Z0-9_]+]] = OpTypeRuntimeArray %[[SBBufDesc]]
-// CHECK-DAG:       %[[UBufDesc:[a-zA-Z0-9_]+]] = OpTypeBufferEXT Uniform
-// CHECK-DAG:      %[[UBufArray:[a-zA-Z0-9_]+]] = OpTypeRuntimeArray %[[UBufDesc]]
+// CHECK-DAG:      %[[SBBufDesc:[a-zA-Z0-9_]+]] = OpTypeBufferEXT StorageBuffer{{$}}
+// CHECK-DAG:     %[[SBBufArray:[a-zA-Z0-9_]+]] = OpTypeRuntimeArray %[[SBBufDesc]]{{$}}
+// CHECK-DAG:       %[[UBufDesc:[a-zA-Z0-9_]+]] = OpTypeBufferEXT Uniform{{$}}
+// CHECK-DAG:      %[[UBufArray:[a-zA-Z0-9_]+]] = OpTypeRuntimeArray %[[UBufDesc]]{{$}}
+
 // Anchor each pointer type to its struct-type prefix to prevent FileCheck from
 // binding all three StorageBuffer captures to the scalar %_ptr_StorageBuffer_uint.
 // CHECK-DAG:     %[[SBInputPtr:[a-zA-Z0-9_]+]] = OpTypePointer StorageBuffer %type_StructuredBuffer_{{.*}}

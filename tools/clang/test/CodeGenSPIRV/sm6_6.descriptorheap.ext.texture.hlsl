@@ -16,8 +16,8 @@
 
 // Buffer<T> and RWBuffer<T> are both resource descriptors, so both arrays share one resource stride
 // (derivation covered by sm6_6.descriptorheap.ext.array-stride.hlsl)
-// CHECK-DAG: OpDecorateId %[[RA_BufferType]] ArrayStrideIdEXT %[[ResSize:[a-zA-Z0-9_]+]]
-// CHECK-DAG: OpDecorateId %[[RA_RWBufferType]] ArrayStrideIdEXT %[[ResSize]]
+// CHECK-DAG:                                      OpDecorateId %[[RA_BufferType]] ArrayStrideIdEXT %[[ResSize:[a-zA-Z0-9_]+]]
+// CHECK-DAG:                                      OpDecorateId %[[RA_RWBufferType]] ArrayStrideIdEXT %[[ResSize]]
 
 // CHECK:        %[[ResourceHeap:[a-zA-Z0-9_]+]] = OpUntypedVariableKHR %[[UntypedPtrType]] UniformConstant
 

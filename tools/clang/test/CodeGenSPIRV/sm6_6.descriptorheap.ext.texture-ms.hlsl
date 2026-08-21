@@ -12,8 +12,8 @@
 
 // Both multisampled textures are resource descriptors, so they share one resource stride 
 // (derivation covered by sm6_6.descriptorheap.ext.array-stride.hlsl)
-// CHECK-DAG: OpDecorateId %[[RA_MS]] ArrayStrideIdEXT %[[ResSize:[a-zA-Z0-9_]+]]
-// CHECK-DAG: OpDecorateId %[[RA_MSArr]] ArrayStrideIdEXT %[[ResSize]]
+// CHECK-DAG:                                 OpDecorateId %[[RA_MS]] ArrayStrideIdEXT %[[ResSize:[a-zA-Z0-9_]+]]
+// CHECK-DAG:                                 OpDecorateId %[[RA_MSArr]] ArrayStrideIdEXT %[[ResSize]]
 
 // CHECK:   %[[ResourceHeap:[a-zA-Z0-9_]+]] = OpUntypedVariableKHR %[[UntypedPtr]] UniformConstant
 

@@ -21,10 +21,10 @@
 
 // All RWTextures are resource descriptors, so every array shares one resource stride 
 // (derivation covered by sm6_6.descriptorheap.ext.array-stride.hlsl)
-// CHECK-DAG: OpDecorateId %[[RA_RW1D]] ArrayStrideIdEXT %[[ResSize:[a-zA-Z0-9_]+]]
-// CHECK-DAG: OpDecorateId %[[RA_RW1DArr]] ArrayStrideIdEXT %[[ResSize]]
-// CHECK-DAG: OpDecorateId %[[RA_RW2DArr]] ArrayStrideIdEXT %[[ResSize]]
-// CHECK-DAG: OpDecorateId %[[RA_RW3D]] ArrayStrideIdEXT %[[ResSize]]
+// CHECK-DAG:                                  OpDecorateId %[[RA_RW1D]] ArrayStrideIdEXT %[[ResSize:[a-zA-Z0-9_]+]]
+// CHECK-DAG:                                  OpDecorateId %[[RA_RW1DArr]] ArrayStrideIdEXT %[[ResSize]]
+// CHECK-DAG:                                  OpDecorateId %[[RA_RW2DArr]] ArrayStrideIdEXT %[[ResSize]]
+// CHECK-DAG:                                  OpDecorateId %[[RA_RW3D]] ArrayStrideIdEXT %[[ResSize]]
 
 // CHECK:    %[[ResourceHeap:[a-zA-Z0-9_]+]] = OpUntypedVariableKHR %[[UntypedPtr]] UniformConstant
 
