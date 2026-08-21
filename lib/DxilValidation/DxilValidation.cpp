@@ -1311,8 +1311,8 @@ static void ValidateLinAlgMatVecMulAdd(CallInst *CI,
   // Bias element type must match output element type
   if (BiasVecTy->getElementType() != OutputVecTy->getElementType())
     ValCtx.EmitInstrFormatError(
-        CI, ValidationRule::InstrLinAlgMatrixOutputBiasVecMismatch,
-        {TypeToString(OutputVecTy->getElementType()),
+        CI, ValidationRule::InstrLinAlgMatrixVecElementTypeMismatch,
+        {"Output", TypeToString(OutputVecTy->getElementType()), "bias",
          TypeToString(BiasVecTy->getElementType())});
 }
 
@@ -1660,6 +1660,46 @@ static void ValidateLinAlgMatrixOuterProduct(CallInst *CI,
                                              ValidationContext &ValCtx) {
   ValidateLinAlgOpReturnMatrix(CI, ValCtx);
   ValidateLinAlgOpParameters(CI, ValCtx);
+  DxilInst_LinAlgMatrixOuterProduct Op(CI);
+  VectorType *AVecTy = cast<VectorType>(Op.get_vectorA()->getType());
+  VectorType *BVecTy = cast<VectorType>(Op.get_vectorB()->getType());
+  std::optional<LinAlgTargetType> RetMat =
+      GetCheckedLATT(CI->getType(), ValCtx);
+  if (!RetMat)
+    return;
+
+  // Matrix must be thread scope
+  if (RetMat->Scope != DXIL::MatrixScope::Thread)
+    ValCtx.EmitInstrFormatError(
+        CI, ValidationRule::InstrLinAlgMatrixScopeMismatch,
+        {"Return", MatrixScopeToString(RetMat->Scope), "Thread"});
+
+  // Matrix must be accumulator use
+  if (RetMat->Use != DXIL::MatrixUse::Accumulator)
+    ValCtx.EmitInstrFormatError(
+        CI, ValidationRule::InstrLinAlgMatrixUseMismatch,
+        {"Return", MatrixUseToString(RetMat->Use), "Accumulator"});
+
+  // M dim must be length of vecA
+  unsigned M = AVecTy->getNumElements();
+
+  // N dim must be length of vecB
+  unsigned N = BVecTy->getNumElements();
+
+  // Matrix must be M*N dim
+  if (RetMat->M != M || RetMat->N != N)
+    ValCtx.EmitInstrFormatError(
+        CI, ValidationRule::InstrLinAlgMatrix2PartsMustMatch,
+        {"Return", "dimension",
+         std::to_string(RetMat->M) + "x" + std::to_string(RetMat->N), "derived",
+         "dimension", std::to_string(M) + "x" + std::to_string(N)});
+
+  // element type of vecA and vecB must be the same
+  if (AVecTy->getElementType() != BVecTy->getElementType())
+    ValCtx.EmitInstrFormatError(
+        CI, ValidationRule::InstrLinAlgMatrixVecElementTypeMismatch,
+        {"A", TypeToString(AVecTy->getElementType()), "B",
+         TypeToString(BVecTy->getElementType())});
 }
 
 static void ValidateLinAlgMatrixLoadFromDescriptor(CallInst *CI,
