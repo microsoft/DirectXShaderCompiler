@@ -5554,9 +5554,9 @@ static UINT selectThreadGroupMatMulSize(
   return 0;
 }
 
-// ThreadGroup matrix extents have to divide the device's wave size, which
-// varies by hardware, so a plan describes how to derive a shape rather than
-// fixing one. Hardcoded extents are only legal on the waves that divide them.
+// ThreadGroup matrix extents have to be a multiple of the device's wave size,
+// which varies by hardware, so a plan derives the shape instead of fixing it.
+// Hardcoded extents are only legal on the waves that divide them.
 struct ThreadGroupMultiplyPlan {
   ComponentType MatrixAType = ComponentType::Invalid;
   ComponentType MatrixBType = ComponentType::Invalid;
@@ -5616,14 +5616,14 @@ void LinAlgCapabilityTests::ThreadGroupShapePolicy() {
     Plan.KExtentMultiple = Probe.KExtentMultiple;
     Plan.PublicRule = L"ThreadGroup shape policy";
 
-    // WARP tops out at 16, so 32 and 64 are only ever covered here.
+    // WARP tops out at 16, so 32, 64 and 128 are only ever covered here.
     for (UINT WaveSize : {4u, 8u, 16u, 32u, 64u, 128u}) {
       const MatrixMultiplyCase Case =
           makeThreadGroupMultiplyCase(Plan, WaveSize);
       VERIFY_IS_TRUE(isMatrixMultiplyCaseValid(Case),
                      "Derived shape must produce a valid case");
       VERIFY_IS_TRUE(Case.M % WaveSize == 0 && Case.N % WaveSize == 0,
-                     "Derived extents must divide the wave size");
+                     "Derived extents must be a multiple of the wave size");
       VERIFY_IS_TRUE(Case.K % 4 == 0, "Derived K must stay a multiple of four");
       VERIFY_IS_TRUE(Case.M >= Plan.MinExtent &&
                          Case.M < Plan.MinExtent + WaveSize,
@@ -5668,8 +5668,12 @@ void LinAlgCapabilityTests::ThreadGroupShapePolicy() {
                  "A wave of four must round the minimum extent up to eight");
   VERIFY_IS_TRUE(makeThreadGroupMultiplyCase(Plan, 32).M == 32,
                  "A wave of thirty-two must widen the extent to match");
+  VERIFY_IS_TRUE(
+      makeThreadGroupMultiplyCase(Plan, hlsl::DXIL::kMaxWaveSize).M ==
+          hlsl::DXIL::kMaxWaveSize,
+      "The largest wave the language allows must widen the extent");
 
-  // A minimum extent that neither divides nor is a multiple of the wave size.
+  // A minimum extent that is not a multiple of the wave size.
   Plan.MinExtent = 12;
   const MatrixMultiplyCase Rounded = makeThreadGroupMultiplyCase(Plan, 8);
   VERIFY_IS_TRUE(Rounded.M == 16 && Rounded.N == 16 && Rounded.K == 32,
