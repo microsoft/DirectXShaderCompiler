@@ -1408,6 +1408,31 @@ static void
 ValidateLinAlgVectorAccumulateToDescriptor(CallInst *CI,
                                            ValidationContext &ValCtx) {
   ValidateLinAlgOpParameters(CI, ValCtx);
+  DxilInst_LinAlgVectorAccumulateToDescriptor Op(CI);
+
+  // handle must be a UAV Raw buffer (RWByteAddressBuffer)
+  DXIL::ComponentType ResCompTy;
+  DXIL::ResourceClass ResClass;
+  DXIL::ResourceKind ResKind =
+      GetResourceKindAndCompTy(Op.get_handle(), ResCompTy, ResClass, ValCtx);
+  if (ResClass != DXIL::ResourceClass::UAV ||
+      ResKind != DXIL::ResourceKind::RawBuffer)
+    ValCtx.EmitInstrFormatError(CI,
+                                ValidationRule::InstrLinAlgMatrixRequiresRWBAB,
+                                {"LinAlgVectorAccumulateToDescriptor"});
+
+  // Align must be an imm constant that is a multiple of 64 greater than 0
+  std::optional<uint64_t> Align =
+      ValidateConstantIntGetValue(CI, Op.get_align(), ValCtx, "Align",
+                                  "LinAlgVectorAccumulateToDescriptor");
+  if (Align) {
+    if (*Align == 0)
+      ValCtx.EmitInstrFormatError(CI, ValidationRule::InstrParamMinimumValue,
+                                  {"Align", "0", std::to_string(*Align)});
+    if (*Align % 64 != 0)
+      ValCtx.EmitInstrFormatError(CI, ValidationRule::InstrParamMultiple,
+                                  {"Align", "64", std::to_string(*Align)});
+  }
 }
 
 static void ValidateLinAlgFillMatrix(CallInst *CI, ValidationContext &ValCtx) {
