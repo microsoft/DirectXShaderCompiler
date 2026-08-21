@@ -6,6 +6,10 @@ Use the release note policy in `CONTRIBUTING.md` ("Release Notes") as the defaul
 - Release notes are expected for user-visible, significant compiler behavior changes.
 - Common examples include new features (language, hardware support, compiler options), important isolated bug fixes, and changes in default behavior.
 - Release notes are often not needed for refactors, test-only updates, or infrastructure-only changes unless user-visible behavior changes.
+- Ordinary changes belong in `Upcoming Release`, even if they first ship in a preview build.
+- Only changes to experimental or preview-only features belong in `Upcoming Preview Release`.
+- When a preview feature graduates, its supported behavior should be described in `Upcoming Release`.
+- Published release notes belong in the corresponding GitHub Release, not in `docs/ReleaseNotes.md`.
 
 Account for multi-PR efforts:
 - If a PR appears to be one part of a larger tracked effort, recognize that a single shared release note may be intentional.
@@ -26,6 +30,11 @@ When reviewing an existing release note:
 - Put changes targeting the next release under `### Upcoming Release`.
 - Use `### Upcoming Preview Release` only for changes that apply exclusively to experimental preview shader models.
 - Do not add entries to an already named release unless the change explicitly targets that release.
+
+When reviewing a post-release cleanup:
+- Confirm that the GitHub Release has been published before its notes are removed.
+- Confirm that the cleanup targets `main`, restores the applicable empty `Upcoming` section, and leaves the other upcoming section unchanged.
+- A non-preview release clears only `Upcoming Release`; a preview release clears only `Upcoming Preview Release`.
 
 Comment tone:
 - Use a stronger ask when the PR clearly appears to be a user-visible bug fix or feature.

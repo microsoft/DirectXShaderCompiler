@@ -50,7 +50,10 @@ we are confident we can generate builds for the new branch
 ## After Fork
 
 - [ ] Update README.md if necessary
-- [ ] Create draft of Release post on GitHub
+- [ ] Create a draft GitHub Release using the applicable section of
+      `docs/ReleaseNotes.md`
+    - For a non-preview release, use `Upcoming Release`.
+    - For a preview release, use `Upcoming Preview Release`.
 
 ## Quality Sign Off
 
@@ -60,6 +63,13 @@ we are confident we can generate builds for the new branch
 ## Release
 
 - [ ] Tag final release and post binaries
+- [ ] Publish the GitHub Release
+- [ ] Open a dedicated pull request to `main` that removes the published notes
+      from `docs/ReleaseNotes.md` and restores the applicable empty `Upcoming`
+      section
+    - A non-preview release clears only `Upcoming Release`.
+    - A preview release clears only `Upcoming Preview Release`.
+    - Leave the other upcoming section unchanged.
 - [ ] Add the new compiler to Compiler Explorer
 - [ ] Email LunarG the release tag and update the release spreadsheet.
 - [ ] Publish the new compiler NuGet package.
