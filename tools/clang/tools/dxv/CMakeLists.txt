@@ -32,5 +32,11 @@ else()
 endif()
 
 install(TARGETS dxv
-  RUNTIME DESTINATION bin)
+  RUNTIME DESTINATION bin
+  COMPONENT dxv)
 
+add_custom_target(install-dxv
+  DEPENDS dxv
+  COMMAND "${CMAKE_COMMAND}"
+          -DCMAKE_INSTALL_COMPONENT=dxv
+          -P "${CMAKE_BINARY_DIR}/cmake_install.cmake")
