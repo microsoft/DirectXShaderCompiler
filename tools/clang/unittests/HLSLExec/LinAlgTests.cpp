@@ -3946,7 +3946,7 @@ static const char AccumulateDescriptorShader[] = R"(
   [WaveSize(4, 128)]
   #endif
   [numthreads(NUMTHREADS, 1, 1)]
-  void main() {
+  void main(uint3 GroupID : SV_GroupID) {
     if (GetGroupWaveIndex() >= ACTIVE_WAVE_COUNT)
       return;
 
@@ -3955,14 +3955,22 @@ static const char AccumulateDescriptorShader[] = R"(
       Mat;
     __builtin_LinAlg_MatrixLoadFromDescriptor(
       Mat, Input, 0, STRIDE, LAYOUT, 128);
-    // Repeating once per Wave index makes each Wave contribute a distinct
-    // amount, so a dropped update cannot cancel a duplicated one.
-    for (uint Repeat = 0; Repeat <= GetGroupWaveIndex(); ++Repeat) {
-      __builtin_LinAlg_MatrixAccumulateToDescriptor(
-        Mat, Output, 0, STRIDE, LAYOUT, 128);
-      __builtin_LinAlg_MatrixAccumulateToDescriptor(
-        Mat, Output, 0, STRIDE, LAYOUT, 128);
+
+    // The index is distinct across every Wave in every group, so the total
+    // pins which Waves landed rather than only how many additions were
+    // applied. A Wave index alone would repeat in each group.
+    uint Weight = GroupID.x * ACTIVE_WAVE_COUNT + GetGroupWaveIndex() + 1;
+    for (uint I = 0; I < __builtin_LinAlg_MatrixLength(Mat); ++I) {
+      ELEM_TYPE Elem;
+      __builtin_LinAlg_MatrixGetElement(Elem, Mat, I);
+      __builtin_LinAlg_MatrixSetElement(
+        Mat, Mat, I, (ELEM_TYPE)(Weight * Elem));
     }
+
+    __builtin_LinAlg_MatrixAccumulateToDescriptor(
+      Mat, Output, 0, STRIDE, LAYOUT, 128);
+    __builtin_LinAlg_MatrixAccumulateToDescriptor(
+      Mat, Output, 0, STRIDE, LAYOUT, 128);
   }
 )";
 
@@ -3974,9 +3982,10 @@ static void runAccumulateDescriptor(ID3D12Device *Device,
                                     UINT DispatchX = 1) {
   const size_t NumElements = Params.totalElements();
   const size_t BufferSize = Params.totalBytes();
-  const UINT AccumulationCount = DescriptorAccumulatesPerWave *
-                                 (ActiveWaveCount * (ActiveWaveCount + 1) / 2) *
-                                 DispatchX;
+  const UINT ContendingWaves = ActiveWaveCount * DispatchX;
+  const UINT AccumulationCount = DescriptorAccumulatesPerWave * ContendingWaves;
+  const UINT WeightSum = ContendingWaves * (ContendingWaves + 1) / 2;
+  const UINT WeightedAccumulation = DescriptorAccumulatesPerWave * WeightSum;
 
   std::stringstream ExtraDefs;
   ExtraDefs << " -DACTIVE_WAVE_COUNT=" << ActiveWaveCount;
@@ -3990,13 +3999,13 @@ static void runAccumulateDescriptor(ID3D12Device *Device,
 
   auto Expected = makeExpectedMat(Params.CompType, Params.M, Params.N,
                                   static_cast<float>(FillValue) *
-                                      static_cast<float>(AccumulationCount),
+                                      static_cast<float>(WeightedAccumulation),
                                   false);
 
   hlsl_test::LogCommentFmt(
       L"Descriptor accumulation issues %u atomic matrix additions in total "
-      L"across %u Waves in each of %u groups",
-      AccumulationCount, ActiveWaveCount, DispatchX);
+      L"across %u Waves in each of %u groups, weighted to %u times the fill",
+      AccumulationCount, ActiveWaveCount, DispatchX, WeightedAccumulation);
   auto Op = createComputeOp(AccumulateDescriptorShader, "cs_6_10",
                             "SRV(t0), UAV(u1)", Args.c_str(), DispatchX);
   addSRVBuffer(Op.get(), "Input", BufferSize, "byname");
