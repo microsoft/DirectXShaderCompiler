@@ -820,6 +820,7 @@ bool EmitVisitor::visit(SpirvUntypedImageTexelPointerEXT *inst) {
   initInstruction(inst);
   curInst.push_back(inst->getResultTypeId());
   curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst));
+  curInst.push_back(typeHandler.emitType(inst->getImageType()));
   curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst->getImage()));
   curInst.push_back(
       getOrAssignResultId<SpirvInstruction>(inst->getCoordinate()));
@@ -1131,6 +1132,13 @@ bool EmitVisitor::visit(SpirvConstantString *inst) {
   return true;
 }
 
+bool EmitVisitor::visit(SpirvConstantSizeOfEXT *inst) {
+  typeHandler.emitConstantSizeOfEXT(inst);
+  emitDebugNameForInstruction(getOrAssignResultId<SpirvInstruction>(inst),
+                              inst->getDebugName());
+  return true;
+}
+
 bool EmitVisitor::visit(SpirvConstantNull *inst) {
   typeHandler.getOrCreateConstant(inst);
   emitDebugNameForInstruction(getOrAssignResultId<SpirvInstruction>(inst),
@@ -1417,6 +1425,20 @@ bool EmitVisitor::visit(SpirvSelect *inst) {
   curInst.push_back(
       getOrAssignResultId<SpirvInstruction>(inst->getFalseObject()));
   finalizeInstruction(&mainBinary);
+  emitDebugNameForInstruction(getOrAssignResultId<SpirvInstruction>(inst),
+                              inst->getDebugName());
+  return true;
+}
+
+bool EmitVisitor::visit(SpirvSpecConstantTernaryOp *inst) {
+  initInstruction(inst);
+  curInst.push_back(inst->getResultTypeId());
+  curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst));
+  curInst.push_back(static_cast<uint32_t>(inst->getSpecConstantopcode()));
+  curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst->getOperand1()));
+  curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst->getOperand2()));
+  curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst->getOperand3()));
+  finalizeInstruction(&typeConstantBinary);
   emitDebugNameForInstruction(getOrAssignResultId<SpirvInstruction>(inst),
                               inst->getDebugName());
   return true;
@@ -2194,6 +2216,8 @@ uint32_t EmitTypeHandler::getOrCreateConstant(SpirvConstant *inst) {
     return getOrCreateConstantBool(constBool);
   } else if (auto *constString = dyn_cast<SpirvConstantString>(inst)) {
     return getOrCreateConstantString(constString);
+  } else if (auto *constSizeOf = dyn_cast<SpirvConstantSizeOfEXT>(inst)) {
+    return emitConstantSizeOfEXT(constSizeOf);
   } else if (auto *constUndef = dyn_cast<SpirvUndef>(inst)) {
     return getOrCreateUndef(constUndef);
   }
@@ -2283,6 +2307,20 @@ uint32_t EmitTypeHandler::getOrCreateConstantNull(SpirvConstantNull *inst) {
     emittedConstantNulls.push_back(inst);
   }
 
+  return inst->getResultId();
+}
+
+uint32_t EmitTypeHandler::emitConstantSizeOfEXT(SpirvConstantSizeOfEXT *inst) {
+  // Uniqueness is already guaranteed upstream by
+  // SpirvBuilder::getConstantSizeOfEXT (one instruction per descriptor type),
+  // so there is no emit-time cache to consult here.
+  const uint32_t typeId = emitType(inst->getResultType());
+  const uint32_t operandTypeId = emitType(inst->getOperandType());
+  initTypeInstruction(spv::Op::OpConstantSizeOfEXT);
+  curTypeInst.push_back(typeId);
+  curTypeInst.push_back(getOrAssignResultId<SpirvInstruction>(inst));
+  curTypeInst.push_back(operandTypeId);
+  finalizeTypeInstruction();
   return inst->getResultId();
 }
 
@@ -2694,9 +2732,15 @@ uint32_t EmitTypeHandler::emitType(const SpirvType *type) {
     curTypeInst.push_back(elemTypeId);
     finalizeTypeInstruction();
 
-    auto stride = raType->getStride();
-    if (stride.hasValue())
+    if (SpirvInstruction *strideId = raType->getArrayStrideId()) {
+      // SPV_EXT_descriptor_heap: stride given by a constant <id> rather than a
+      // literal, emitted as OpDecorateId ... ArrayStrideIdEXT <id>.
+      emitDecoration(id, spv::Decoration::ArrayStrideIdEXT,
+                     {getOrAssignResultId<SpirvInstruction>(strideId)},
+                     llvm::None, /*usesIdParams=*/true);
+    } else if (llvm::Optional<uint32_t> stride = raType->getStride()) {
       emitDecoration(id, spv::Decoration::ArrayStride, {stride.getValue()});
+    }
   }
   // NodePayloadArray types
   else if (const auto *npaType = dyn_cast<NodePayloadArrayType>(type)) {
