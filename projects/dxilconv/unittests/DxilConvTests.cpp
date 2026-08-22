@@ -168,6 +168,71 @@ private:
   }
 };
 
+class DxilConvPassRegistryTest {
+public:
+  BEGIN_TEST_CLASS(DxilConvPassRegistryTest)
+  TEST_CLASS_PROPERTY(L"Parallel", L"false")
+  TEST_METHOD_PROPERTY(L"Priority", L"0")
+  END_TEST_CLASS()
+
+  TEST_METHOD(PassDependenciesRegistered);
+  TEST_METHOD(ConcurrentInitialization);
+
+private:
+  static DWORD RunHelper(LPCWSTR Arguments) {
+    HMODULE TestModule = GetModuleHandleW(L"dxilconv-tests.dll");
+    IFTBOOL(TestModule != nullptr, HRESULT_FROM_WIN32(GetLastError()));
+
+    wchar_t ModulePath[MAX_PATH];
+    DWORD Length =
+        GetModuleFileNameW(TestModule, ModulePath, _countof(ModulePath));
+    IFTBOOL(Length != 0 && Length != _countof(ModulePath),
+            HRESULT_FROM_WIN32(GetLastError()));
+
+    std::wstring HelperPath(ModulePath, Length);
+    size_t Separator = HelperPath.find_last_of(L"\\/");
+    IFTBOOL(Separator != std::wstring::npos, E_FAIL);
+    HelperPath.resize(Separator + 1);
+    HelperPath += L"dxilconv-pass-registry-test-helper.exe";
+
+    std::wstring CommandLine =
+        L"\"" + HelperPath + L"\" " + std::wstring(Arguments);
+    std::vector<wchar_t> MutableCommandLine(CommandLine.begin(),
+                                            CommandLine.end());
+    MutableCommandLine.push_back(L'\0');
+
+    STARTUPINFOW StartupInfo = {};
+    StartupInfo.cb = sizeof(StartupInfo);
+    PROCESS_INFORMATION ProcessInfo = {};
+    IFTBOOL(CreateProcessW(HelperPath.c_str(), MutableCommandLine.data(),
+                           nullptr, nullptr, FALSE, 0, nullptr, nullptr,
+                           &StartupInfo, &ProcessInfo),
+            HRESULT_FROM_WIN32(GetLastError()));
+
+    CloseHandle(ProcessInfo.hThread);
+    DWORD WaitResult = WaitForSingleObject(ProcessInfo.hProcess, 120000);
+    if (WaitResult != WAIT_OBJECT_0) {
+      TerminateProcess(ProcessInfo.hProcess, 1);
+      CloseHandle(ProcessInfo.hProcess);
+      IFT(E_FAIL);
+    }
+
+    DWORD ExitCode = 1;
+    BOOL GotExitCode = GetExitCodeProcess(ProcessInfo.hProcess, &ExitCode);
+    CloseHandle(ProcessInfo.hProcess);
+    IFTBOOL(GotExitCode, HRESULT_FROM_WIN32(GetLastError()));
+    return ExitCode;
+  }
+};
+
+TEST_F(DxilConvPassRegistryTest, PassDependenciesRegistered) {
+  VERIFY_ARE_EQUAL(0u, RunHelper(L"--verify-pass-registration"));
+}
+
+TEST_F(DxilConvPassRegistryTest, ConcurrentInitialization) {
+  VERIFY_ARE_EQUAL(0u, RunHelper(L"--concurrent-conversion"));
+}
+
 bool DxilConvTest::InitSupport() {
   if (!m_dllSupport.IsEnabled()) {
     VERIFY_SUCCEEDED(
