@@ -2,7 +2,30 @@
 # This file is distributed under the University of Illinois Open Source License. See LICENSE.TXT for details.
 
 find_package(TAEF REQUIRED)
+find_package(D3D12 REQUIRED)
 #find_package(DiaSDK REQUIRED) # Used for constants and declarations.
+
+set(LLVM_OPTIONAL_SOURCES
+  DxilConvPassRegistryTestHelper.cpp
+  DxilConvTests.cpp
+)
+
+add_dxilconv_project_executable(dxilconv-pass-registry-test-helper
+  DxilConvPassRegistryTestHelper.cpp
+)
+
+target_link_libraries(dxilconv-pass-registry-test-helper PRIVATE
+  DxilConvPasses
+  LLVMAnalysis
+  LLVMCore
+  LLVMScalarOpts
+  LLVMSupport
+  ${D3D12_LIBRARIES}
+)
+
+target_include_directories(dxilconv-pass-registry-test-helper PRIVATE
+  ${D3D12_INCLUDE_DIRS}
+)
 
 add_dxilconv_project_test_library(dxilconv-tests SHARED
   DxilConvTests.cpp
@@ -26,9 +49,13 @@ target_include_directories(dxilconv-tests PRIVATE
 # dxilconv-tests calls out to several external tools. Those need to be listed
 # here to ensure they build with dxilconv for our test target depencencies to be
 # correct.
-add_dependencies(dxilconv-tests dxilconv HLSLTestLib dxbc2dxil dxa opt)
+add_dependencies(dxilconv-tests dxilconv dxilconv-pass-registry-test-helper
+                 HLSLTestLib dxbc2dxil dxa opt)
 
 install(TARGETS dxilconv-tests
+  RUNTIME DESTINATION bin)
+
+install(TARGETS dxilconv-pass-registry-test-helper
   RUNTIME DESTINATION bin)
 
 # Add a .user file with settings for te.exe.
