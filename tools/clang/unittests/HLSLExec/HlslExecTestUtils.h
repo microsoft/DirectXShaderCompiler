@@ -368,6 +368,8 @@ public:
                     bool SkipUnsupported = true);
 };
 
+bool isWarp(ID3D12Device *D3DDevice);
+
 void readHlslDataIntoNewStream(LPCWSTR RelativePath, IStream **Stream,
                                dxc::SpecificDllLoader &Support);
 
@@ -581,6 +583,19 @@ void addSRVBuffer(st::ShaderOp *Op, const char *Name, UINT64 Width,
 
 /// Bind a resource to a root view parameter by index.
 void addRootView(st::ShaderOp *Op, UINT Index, const char *ResName);
+
+/// Add a raw-buffer UAV descriptor for a resource to a shader-visible
+/// descriptor heap, creating the heap on first use. ViewBytes sizes the view
+/// independently of the resource it looks at, which is the whole point of
+/// binding this way: a root view is a bare address, so the shader has no
+/// dimensions to bounds check against, while a descriptor carries them.
+/// Descriptors are consumed in the order added, matching the register order of
+/// the ranges declared in the root signature.
+void addHeapRawUAV(st::ShaderOp *Op, const char *HeapName, const char *ResName,
+                   UINT64 ViewBytes);
+
+/// Bind a descriptor heap to a root descriptor-table parameter by index.
+void addRootTable(st::ShaderOp *Op, UINT Index, const char *HeapName);
 
 /// Run a programmatically-built ShaderOp and return the result.
 std::shared_ptr<st::ShaderOpTestResult> runShaderOp(

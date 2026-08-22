@@ -46,6 +46,9 @@ line upon naming the release. Refer to previous for appropriate section names.
 - Fixed internal compiler errors when a member method is called on a ray payload
   or on one of its fields with payload access qualifiers enabled
   [#6464](https://github.com/microsoft/DirectXShaderCompiler/issues/6464).
+- Fix a crash generating DXIL from sources containing a dynamic resource heap
+  access that was discarded. Identified during development of SPIR-V support for
+  [descriptor heaps](https://github.com/microsoft/DirectXShaderCompiler/pull/8517#discussion_r3752113078).
 
 ### Upcoming Preview Release
 
