@@ -4395,8 +4395,6 @@ public:
   static char ID; // Pass identification, replacement for typeid
   explicit SROA_Parameter_HLSL() : ModulePass(ID) {}
   StringRef getPassName() const override { return "SROA Parameter HLSL"; }
-  static void RewriteBitcastWithIdenticalStructs(Function *F);
-  static void RewriteBitcastWithIdenticalStructs(BitCastInst *BCI);
   static bool DeleteSimpleStoreOnlyAlloca(AllocaInst *AI);
   static bool IsSimpleStoreOnlyAlloca(AllocaInst *AI);
 
@@ -4464,7 +4462,6 @@ public:
     while (!WorkList.empty()) {
       Function *F = WorkList.front();
       WorkList.pop_front();
-      RewriteBitcastWithIdenticalStructs(F);
       createFlattenedFunction(F);
     }
 
@@ -4609,28 +4606,6 @@ INITIALIZE_PASS(SROA_Parameter_HLSL, "scalarrepl-param-hlsl",
                 "Scalar Replacement of Aggregates HLSL (parameters)", false,
                 false)
 
-void SROA_Parameter_HLSL::RewriteBitcastWithIdenticalStructs(Function *F) {
-  if (F->isDeclaration())
-    return;
-  // Gather list of bitcast involving src and dest structs with identical layout
-  std::vector<BitCastInst *> worklist;
-  for (inst_iterator I = inst_begin(F), E = inst_end(F); I != E; ++I) {
-    if (BitCastInst *BCI = dyn_cast<BitCastInst>(&*I)) {
-      Type *DstTy = BCI->getDestTy();
-      Type *SrcTy = BCI->getSrcTy();
-      if (ArePointersToStructsOfIdenticalLayouts(DstTy, SrcTy))
-        worklist.push_back(BCI);
-    }
-  }
-
-  // Replace bitcast involving src and dest structs with identical layout
-  while (!worklist.empty()) {
-    BitCastInst *BCI = worklist.back();
-    worklist.pop_back();
-    RewriteBitcastWithIdenticalStructs(BCI);
-  }
-}
-
 bool SROA_Parameter_HLSL::IsSimpleStoreOnlyAlloca(AllocaInst *AI) {
   if (!AI->getAllocatedType()->isSingleValueType())
     return false;
@@ -4659,23 +4634,6 @@ bool SROA_Parameter_HLSL::DeleteSimpleStoreOnlyAlloca(AllocaInst *AI) {
 
   AI->eraseFromParent();
   return true;
-}
-
-void SROA_Parameter_HLSL::RewriteBitcastWithIdenticalStructs(BitCastInst *BCI) {
-  StructType *srcStTy =
-      cast<StructType>(BCI->getSrcTy()->getPointerElementType());
-  StructType *destStTy =
-      cast<StructType>(BCI->getDestTy()->getPointerElementType());
-  Value *srcPtr = BCI->getOperand(0);
-  IRBuilder<> AllocaBuilder(
-      dxilutil::FindAllocaInsertionPt(BCI->getParent()->getParent()));
-  AllocaInst *destPtr = AllocaBuilder.CreateAlloca(destStTy);
-  IRBuilder<> InstBuilder(BCI);
-  std::vector<unsigned> idxlist = {0};
-  CopyElementsOfStructsWithIdenticalLayout(InstBuilder, destPtr, srcPtr,
-                                           srcStTy, idxlist);
-  BCI->replaceAllUsesWith(destPtr);
-  BCI->eraseFromParent();
 }
 
 /// DeleteDeadInstructions - Erase instructions on the DeadInstrs list,
