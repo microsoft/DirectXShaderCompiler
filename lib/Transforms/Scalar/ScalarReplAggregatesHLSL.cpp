@@ -1533,6 +1533,39 @@ static bool isUDTIntrinsicArg(CallInst *CI, unsigned OpIdx) {
   return false;
 }
 
+/// isSafeBitCastForScalarRepl - Check if a bitcast can be handled for scalar
+/// replacement.  A struct to struct pointer cast is only rewritable when the
+/// destination is reachable through the leading elements of the source, or
+/// when both structs have an identical layout.
+static bool isSafeBitCastForScalarRepl(BitCastInst *BCI) {
+  // Unused bitcast may be leftover from temporary memcpy
+  if (BCI->use_empty())
+    return true;
+
+  Type *DstTy = BCI->getType();
+  Type *SrcTy = BCI->getOperand(0)->getType();
+
+  if (!DstTy->isPointerTy() || !SrcTy->isPointerTy())
+    return true;
+
+  StructType *DstST = dyn_cast<StructType>(DstTy->getPointerElementType());
+  StructType *SrcST = dyn_cast<StructType>(SrcTy->getPointerElementType());
+
+  // A non-struct destination is rewritten per llvm.lifetime.* intrinsic user
+  // A non-struct source never reaches the struct to struct rewrite
+  if (!DstST || !SrcST)
+    return true;
+
+  for (StructType *ST = SrcST; ST && ST->getNumElements();) {
+    Type *EltTy = ST->getElementType(0);
+    if (EltTy == DstST)
+      return true;
+    ST = dyn_cast<StructType>(EltTy);
+  }
+
+  return SrcST->isLayoutIdentical(DstST);
+}
+
 /// isSafeForScalarRepl - Check if instruction I is a safe use with regard to
 /// performing scalar replacement of alloca AI.  The results are flagged in
 /// the Info parameter.  Offset indicates the position within AI that is
@@ -1548,6 +1581,8 @@ void isSafeForScalarRepl(Instruction *I, uint64_t Offset, AllocaInfo &Info) {
     Instruction *User = cast<Instruction>(U.getUser());
 
     if (BitCastInst *BC = dyn_cast<BitCastInst>(User)) {
+      if (!isSafeBitCastForScalarRepl(BC))
+        return MarkUnsafe(Info, User);
       isSafeForScalarRepl(BC, Offset, Info);
     } else if (GetElementPtrInst *GEPI = dyn_cast<GetElementPtrInst>(User)) {
       uint64_t GEPOffset = Offset;
@@ -2687,7 +2722,10 @@ void SROA_Helper::RewriteBitCast(BitCastInst *BCI) {
       BCI->eraseFromParent();
       return;
     }
-    assert(0 && "Type mismatch.");
+    dxilutil::EmitErrorOnInstruction(
+        BCI, "Unsupported cast between struct types with different layouts.");
+    BCI->replaceAllUsesWith(UndefValue::get(BCI->getType()));
+    BCI->eraseFromParent();
     return;
   }
 
