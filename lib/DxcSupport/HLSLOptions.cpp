@@ -372,21 +372,21 @@ static bool handleHeapStride(const InputArgList &args, OptSpecifier id,
   }
 
   if (!args.hasArg(OPT_spirv)) {
-    errors << name << " requires -spirv";
+    errors << name << " requires -spirv\n";
     return false;
   }
 
   llvm::StringRef value = arg->getValue();
   uint32_t number = 0;
   if (value.getAsInteger(10, number)) {
-    errors << "invalid " << name << " argument: '" << value << "'";
+    errors << "invalid " << name << " argument: '" << value << "'\n";
     return false;
   }
   // Power of 2 in [8, 256] inclusive.
   if (number < 8 || number > 256 || (number & (number - 1)) != 0) {
     errors << name
            << " must be a power of 2 between 8 and 256 (inclusive); got "
-           << value;
+           << value << "\n";
     return false;
   }
 
