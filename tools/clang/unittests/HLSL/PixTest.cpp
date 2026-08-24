@@ -160,6 +160,12 @@ public:
   TEST_METHOD(NonUniformResourceIndex_DescriptorHeap)
   TEST_METHOD(NonUniformResourceIndex_Raytracing)
 
+  // Control tests for the PIX pass validation harness below
+  // (ValidateInstrumentedModule / VerifyInstrumentedModuleIsValid).
+  TEST_METHOD(Validation_ControlValidModulePasses)
+  TEST_METHOD(Validation_ControlInvalidModuleFails)
+  TEST_METHOD(Validation_ControlBoilerplateOnlyFailureIsRejected)
+
   dxc::DxCompilerDllLoader m_dllSupport;
   VersionSupportInfo m_ver;
 
@@ -261,6 +267,142 @@ public:
 
     return {
         std::move(pOptimizedModule), {}, Tokenize(outputText.c_str(), "\n")};
+  }
+
+  // Runs one named PIX or DXIL pass and returns the resulting module and
+  // its disassembly lines.
+  struct SinglePassOutput {
+    CComPtr<IDxcBlob> Module;
+    std::vector<std::string> Lines;
+  };
+
+  SinglePassOutput RunSinglePass(IDxcBlob *dxil, LPCWSTR passOption) {
+    CComPtr<IDxcOptimizer> pOptimizer;
+    VERIFY_SUCCEEDED(
+        m_dllSupport.CreateInstance(CLSID_DxcOptimizer, &pOptimizer));
+    std::vector<LPCWSTR> Options;
+    Options.push_back(L"-opt-mod-passes");
+    Options.push_back(passOption);
+
+    CComPtr<IDxcBlob> pOptimizedModule;
+    CComPtr<IDxcBlobEncoding> pText;
+    VERIFY_SUCCEEDED(pOptimizer->RunOptimizer(
+        dxil, Options.data(), Options.size(), &pOptimizedModule, &pText));
+
+    SinglePassOutput ret;
+    ret.Module = pOptimizedModule;
+    ret.Lines = Tokenize(BlobToUtf8(pText).c_str(), "\n");
+    return ret;
+  }
+
+  // PIX does not validate the shaders its passes instrument, so a pass
+  // that produces invalid DXIL goes undetected elsewhere. Validate here
+  // instead.
+  struct ValidationResult {
+    bool Valid;
+    std::string Errors;
+  };
+
+  ValidationResult ValidateInstrumentedModule(IDxcBlob *pModule) {
+    CComPtr<IDxcBlob> pContainer;
+
+    // Some pass runners return a bare bitcode module; others already
+    // return a container. The validator accepts only a container.
+    if (hlsl::IsDxilContainerLike(pModule->GetBufferPointer(),
+                                  pModule->GetBufferSize()) != nullptr) {
+      pContainer = pModule;
+    } else {
+      pContainer = pix_test::WrapInNewContainer(m_dllSupport, pModule);
+    }
+
+    CComPtr<IDxcValidator> pValidator;
+    VERIFY_SUCCEEDED(
+        m_dllSupport.CreateInstance(CLSID_DxcValidator, &pValidator));
+
+    CComPtr<IDxcOperationResult> pValidationResult;
+    VERIFY_SUCCEEDED(pValidator->Validate(pContainer, DxcValidatorFlags_Default,
+                                          &pValidationResult));
+
+    HRESULT validationStatus;
+    VERIFY_SUCCEEDED(pValidationResult->GetStatus(&validationStatus));
+    if (SUCCEEDED(validationStatus)) {
+      return {true, {}};
+    }
+
+    CComPtr<IDxcBlobEncoding> pValidationErrors;
+    VERIFY_SUCCEEDED(pValidationResult->GetErrorBuffer(&pValidationErrors));
+    return {false, BlobToUtf8(pValidationErrors)};
+  }
+
+  // Significant holds validator diagnostics other than boilerplate and the
+  // permitted metadata exception. PermittedExceptionCount counts the
+  // exception separately.
+  struct FilteredValidationDiagnostics {
+    std::vector<std::string> Significant;
+    int PermittedExceptionCount = 0;
+  };
+
+  // Filters out boilerplate ("Validation failed.") and the permitted
+  // metadata exception: virtual-register annotation passes add metadata
+  // that DXIL does not consume, so the validator reports it as unused. Do
+  // not widen this filter.
+  FilteredValidationDiagnostics
+  GetSignificantValidationDiagnostics(const std::string &errors) {
+    FilteredValidationDiagnostics result;
+    std::stringstream errorStream(errors);
+    std::string line;
+    while (std::getline(errorStream, line)) {
+      if (!line.empty() && line.back() == '\r') {
+        line.pop_back();
+      }
+      if (line.empty() || line == "Validation failed.") {
+        continue;
+      }
+      if (line.find("All metadata must be used by dxil") != std::string::npos) {
+        result.PermittedExceptionCount++;
+        continue;
+      }
+      result.Significant.push_back(line);
+    }
+    return result;
+  }
+
+  // True only if the diagnostics contain no significant errors and at
+  // least one instance of the permitted metadata exception.
+  bool IsPermittedValidationException(
+      const FilteredValidationDiagnostics &diagnostics) {
+    return diagnostics.Significant.empty() &&
+           diagnostics.PermittedExceptionCount > 0;
+  }
+
+  // Asserts an instrumented module validates. Accepts a module whose only
+  // diagnostic is the permitted metadata exception; logs and fails on any
+  // other validator error.
+  void VerifyInstrumentedModuleIsValid(IDxcBlob *pModule,
+                                       const char *description) {
+    ValidationResult validation = ValidateInstrumentedModule(pModule);
+    if (validation.Valid) {
+      return;
+    }
+
+    FilteredValidationDiagnostics diagnostics =
+        GetSignificantValidationDiagnostics(validation.Errors);
+    if (IsPermittedValidationException(diagnostics)) {
+      return;
+    }
+
+    std::string joined;
+    if (diagnostics.Significant.empty()) {
+      joined = "(validator reported failure with no significant diagnostic "
+               "text, and no permitted metadata exception was found)";
+    } else {
+      for (auto const &significantError : diagnostics.Significant) {
+        joined += significantError + "\n";
+      }
+    }
+    WEX::Logging::Log::Error(WEX::Common::String().Format(
+        L"Validation failed after %S:\n%S", description, joined.c_str()));
+    VERIFY_FAIL();
   }
 
   CComPtr<IDxcBlob> FindModule(hlsl::DxilFourCC fourCC, IDxcBlob *pSource) {
@@ -3466,4 +3608,109 @@ void main(uint3 tid : SV_DispatchThreadID) {
     pos += strlen("DebugBreakBitSet");
   }
   VERIFY_ARE_EQUAL(debugBreakBitSetCount, 2);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// Control tests for the PIX pass validation harness
+// (ValidateInstrumentedModule / VerifyInstrumentedModuleIsValid).
+//
+// Both tests instrument the same trivial pixel shader with the
+// virtual-register annotation pass, so the valid and invalid cases are
+// directly comparable.
+
+TEST_F(PixTest, Validation_ControlValidModulePasses) {
+  const char *source = R"x(
+float main() : SV_Target
+{
+    return 0;
+})x";
+
+  // Virtual-register annotation adds metadata that DXIL does not consume,
+  // so this module only validates via the permitted metadata exception.
+  auto compiled = Compile(m_dllSupport, source, L"ps_6_0", {L"-Od"});
+  auto output = RunSinglePass(compiled, L"-dxil-annotate-with-virtual-regs");
+  VerifyInstrumentedModuleIsValid(
+      output.Module,
+      "virtual-register annotation of a trivial pixel shader (validation "
+      "harness control)");
+}
+
+TEST_F(PixTest, Validation_ControlInvalidModuleFails) {
+  const char *source = R"x(
+float main() : SV_Target
+{
+    return 0;
+})x";
+
+  // Same shader and pass as Validation_ControlValidModulePasses; only the
+  // corruption below differs.
+  auto compiled = Compile(m_dllSupport, source, L"ps_6_0", {L"-Od"});
+  auto output = RunSinglePass(compiled, L"-dxil-annotate-with-virtual-regs");
+
+  // Confirm the baseline validates before corrupting it, so the failure
+  // below is caused by the corruption and nothing else.
+  VerifyInstrumentedModuleIsValid(
+      output.Module,
+      "virtual-register annotation of a trivial pixel shader, uncorrupted "
+      "baseline (validation harness control)");
+
+  // Mislabel the shader stage. The validator must reject this regardless
+  // of the permitted metadata exception.
+  std::string disassembly = Disassemble(output.Module);
+  const std::string shaderKindTag = "!\"ps\",";
+  auto tagPosition = disassembly.find(shaderKindTag);
+  VERIFY_IS_TRUE(tagPosition != std::string::npos);
+  disassembly.replace(tagPosition, shaderKindTag.size(), "!\"vs\",");
+
+  CComPtr<IDxcBlobEncoding> pDisassemblyBlob;
+  CreateBlobFromText(m_dllSupport, disassembly.c_str(), &pDisassemblyBlob);
+
+  CComPtr<IDxcAssembler> pAssembler;
+  VERIFY_SUCCEEDED(
+      m_dllSupport.CreateInstance(CLSID_DxcAssembler, &pAssembler));
+  CComPtr<IDxcOperationResult> pAssembleResult;
+  VERIFY_SUCCEEDED(
+      pAssembler->AssembleToContainer(pDisassemblyBlob, &pAssembleResult));
+  HRESULT assembleStatus;
+  VERIFY_SUCCEEDED(pAssembleResult->GetStatus(&assembleStatus));
+  VERIFY_SUCCEEDED(assembleStatus);
+  CComPtr<IDxcBlob> pCorruptedContainer;
+  VERIFY_SUCCEEDED(pAssembleResult->GetResult(&pCorruptedContainer));
+
+  ValidationResult validation = ValidateInstrumentedModule(pCorruptedContainer);
+  VERIFY_IS_FALSE(validation.Valid);
+
+  // Confirm the corruption produces a real diagnostic, not just the
+  // permitted metadata exception.
+  FilteredValidationDiagnostics diagnostics =
+      GetSignificantValidationDiagnostics(validation.Errors);
+  VERIFY_IS_FALSE(diagnostics.Significant.empty());
+}
+
+// Tests that a validator failure is rejected unless its only diagnostic is
+// the permitted metadata exception. A failure with only the "Validation
+// failed." boilerplate and no exception must not pass.
+TEST_F(PixTest, Validation_ControlBoilerplateOnlyFailureIsRejected) {
+  // Boilerplate only, no permitted exception: must be rejected.
+  FilteredValidationDiagnostics boilerplateOnly =
+      GetSignificantValidationDiagnostics("Validation failed.\n");
+  VERIFY_IS_TRUE(boilerplateOnly.Significant.empty());
+  VERIFY_ARE_EQUAL(boilerplateOnly.PermittedExceptionCount, 0);
+  VERIFY_IS_FALSE(IsPermittedValidationException(boilerplateOnly));
+
+  // Permitted exception present: must be accepted.
+  FilteredValidationDiagnostics exceptionOnly =
+      GetSignificantValidationDiagnostics(
+          "Validation failed.\n"
+          "All metadata must be used by dxil's users.\n");
+  VERIFY_IS_TRUE(exceptionOnly.Significant.empty());
+  VERIFY_IS_TRUE(exceptionOnly.PermittedExceptionCount > 0);
+  VERIFY_IS_TRUE(IsPermittedValidationException(exceptionOnly));
+
+  // Real diagnostic present: must be rejected, even with the exception.
+  FilteredValidationDiagnostics realDiagnostic =
+      GetSignificantValidationDiagnostics("Validation failed.\n"
+                                          "Some real validator diagnostic.\n");
+  VERIFY_IS_FALSE(realDiagnostic.Significant.empty());
+  VERIFY_IS_FALSE(IsPermittedValidationException(realDiagnostic));
 }
