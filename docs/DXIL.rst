@@ -3219,7 +3219,6 @@ INSTR.LINALGMATRIXLOADTHREADREQUIRESBAB               Loading matrix with Thread
 INSTR.LINALGMATRIXMATRIXKDIMMUSTMATCH                 K dim of A matrix '%0' must match K dim of B matrix '%1'. %2 != %3.
 INSTR.LINALGMATRIXMATRIXRESDIMMUSTMATCH               %0 matrix dimension '%1' must match A.MxB.N '%2'.
 INSTR.LINALGMATRIXNOTEXACTMATCH                       %0 matrix '%1' must exactly match %2 matrix '%3'.
-INSTR.LINALGMATRIXOUTPUTBIASVECMISMATCH               Output vector element type '%0' must match bias vector element type '%1'
 INSTR.LINALGMATRIXREQUIRESLAYOUT2                     %0 requires layout %1 or %2.
 INSTR.LINALGMATRIXREQUIRESRWBAB                       %0 requires RWByteAddressBuffer.
 INSTR.LINALGMATRIXSCOPEMISMATCH                       %0 matrix scope '%1' does not match expected scope %2.
@@ -3230,6 +3229,7 @@ INSTR.LINALGMATRIXSCOPEREQLAYOUT2                     %0 matrix with scope '%1' 
 INSTR.LINALGMATRIXUNSIGNEDFLOATTYPENOTALLOWED         Float-like type '%0' must be signed
 INSTR.LINALGMATRIXUSEMISMATCH                         %0 matrix use '%1' does not match expected use %2.
 INSTR.LINALGMATRIXUSEMISMATCH2                        %0 matrix use '%1' does not match expected use %2 or %3.
+INSTR.LINALGMATRIXVECELEMENTTYPEMISMATCH              %0 vector element type '%1' must match %2 vector element type '%3'
 INSTR.LINALGMETADATAMISSING                           %0 matrix must have well-formed metadata.
 INSTR.MAYREORDERTHREADUNDEFCOHERENCEHINTPARAM         Use of undef coherence hint or num coherence hint bits in MaybeReorderThread.
 INSTR.MINPRECISIONNOTPRECISE                          Instructions marked precise may not refer to minprecision values.

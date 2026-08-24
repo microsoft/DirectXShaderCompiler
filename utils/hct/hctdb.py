@@ -8690,8 +8690,8 @@ class db_dxil(object):
             "%0 vector size '%1' must be %2 for input matrix with K '%3' and Type '%4'",
         )
         self.add_valrule(
-            "Instr.LinAlgMatrixOutputBiasVecMismatch",
-            "Output vector element type '%0' must match bias vector element type '%1'",
+            "Instr.LinAlgMatrixVecElementTypeMismatch",
+            "%0 vector element type '%1' must match %2 vector element type '%3'",
         )
         self.add_valrule(
             "Instr.LinAlgMatrixUnsignedFloatTypeNotAllowed",
