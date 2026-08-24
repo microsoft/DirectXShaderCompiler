@@ -1,6 +1,6 @@
 // RUN: %dxc -E main -T ps_6_0 -HV 202x -O2 %s | FileCheck %s --check-prefixes=COMMON,O2
 // RUN: %dxc -E main -T ps_6_0 -HV 202x -O3 %s | FileCheck %s --check-prefixes=COMMON,O3
-// RUN: %dxc -E mainPowerOfTwo -T ps_6_0 -HV 202x -O2 %s | FileCheck %s --check-prefix=COMMON,POWER-O2
+// RUN: %dxc -E mainPowerOfTwo -T ps_6_0 -HV 202x -O2 %s | FileCheck %s --check-prefixes=COMMON,POWER-O2
 // RUN: %dxc -E mainPowerOfTwo -T ps_6_0 -HV 202x -O3 %s | FileCheck %s --check-prefix=POWER-O3
 
 // O2 Doesn't unroll and O3 Runtime unrolling only supports 
