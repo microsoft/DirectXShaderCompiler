@@ -52,6 +52,10 @@
 // ---- Both flags invalid: both errors must be reported (no short-circuit) ----
 // RUN: not %dxc -T cs_6_6 -E main -fspv-use-descriptor-heap -fspv-target-env=vulkan1.3 -fvk-resource-heap-stride 48 -fvk-sampler-heap-stride 24 -spirv %s 2>&1 | FileCheck %s --check-prefix=BOTH
 
+// ---- Flag without -spirv: "requires -spirv" diagnostic ----
+// RUN: not %dxc -T cs_6_6 -E main -fspv-use-descriptor-heap -fspv-target-env=vulkan1.3 -fvk-resource-heap-stride 128 %s 2>&1 | FileCheck %s --check-prefix=NOSPIRVRS
+// RUN: not %dxc -T cs_6_6 -E main -fspv-use-descriptor-heap -fspv-target-env=vulkan1.3 -fvk-sampler-heap-stride 16 %s 2>&1 | FileCheck %s --check-prefix=NOSPIRVSS
+
 // Bind each heap's runtime array to its element type so the strides are checked
 // independently. The resource Texture2D image array carries [[RS]]; the sampler
 // array carries [[SS]].
@@ -65,9 +69,11 @@
 // BADRS: -fvk-resource-heap-stride must be a power of 2 between 8 and 256 (inclusive)
 // BADSS: -fvk-sampler-heap-stride must be a power of 2 between 8 and 256 (inclusive)
 // BADNUM: invalid -fvk-resource-heap-stride argument: 'abc'
-// Both flags invalid: resource error appears first, sampler error follows on next line.
-// BOTH: -fvk-resource-heap-stride must be a power of 2 between 8 and 256 (inclusive)
-// BOTH: -fvk-sampler-heap-stride must be a power of 2 between 8 and 256 (inclusive)
+// Both flags invalid: resource error appears first, sampler error follows on the next line.
+// BOTH:      -fvk-resource-heap-stride must be a power of 2 between 8 and 256 (inclusive)
+// BOTH-NEXT: -fvk-sampler-heap-stride must be a power of 2 between 8 and 256 (inclusive)
+// NOSPIRVRS: -fvk-resource-heap-stride requires -spirv
+// NOSPIRVSS: -fvk-sampler-heap-stride requires -spirv
 
 RWByteAddressBuffer outputBytes : register(u0);
 
