@@ -33,6 +33,9 @@ line upon naming the release. Refer to previous for appropriate section names.
 
 #### HLSL Language
 
+- Starting with HLSL 202x, the count in `[unroll(N)]` is a partial-unroll hint
+  and no longer limits the number of loop iterations
+  [#8789](https://github.com/microsoft/DirectXShaderCompiler/issues/8789).
 - Casting a scalar to a struct or array containing a resource is now an error
   instead of crashing
   [#6661](https://github.com/microsoft/DirectXShaderCompiler/issues/6661).
