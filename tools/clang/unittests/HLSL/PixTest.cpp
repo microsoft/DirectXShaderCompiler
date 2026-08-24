@@ -160,7 +160,10 @@ public:
   TEST_METHOD(ToolsUav_RootSignatureSerializationFailurePreservesSignature)
   TEST_METHOD(ConstantColor_UnusedIntOverloadIsErased)
   TEST_METHOD(ConstantColor_NoTargetOverloadsAreErased)
+  TEST_METHOD(ConstantColor_FromConstantBufferIsWellFormed)
   TEST_METHOD(RemoveDiscards_UnusedDiscardOverloadIsErased)
+  TEST_METHOD(ReduceMSAAToSingleSample_SM66)
+  TEST_METHOD(ReduceMSAAToSingleSample_HalfLoad)
   TEST_METHOD(OperationCacheCleanup_RemovesErasedFunctions)
   TEST_METHOD(DynamicResourceCleanup_VisitorStopsEarly)
 
@@ -3730,6 +3733,121 @@ float4 main() : SV_Target
   VERIFY_IS_FALSE(HasUnusedDeclaration(output.Lines, "dx.op.discard"));
   VerifyInstrumentedModuleIsValid(output.Module,
                                   "discard removal with no discard");
+}
+
+TEST_F(PixTest, ConstantColor_FromConstantBufferIsWellFormed) {
+  const char *source = R"x(
+float4 main(float4 position : SV_Position) : SV_Target
+{
+    return position;
+})x";
+
+  auto compiled = Compile(m_dllSupport, source, L"ps_6_0", {L"-Od"});
+  auto output = RunSinglePass(compiled, L"-hlsl-dxil-constantColor,mod-mode=1");
+
+  // The CBuffer symbol must be a pointer to the struct so ValidateCBuffer
+  // can reach the annotation.
+  CComPtr<IDxcAssembler> pAssembler;
+  VERIFY_SUCCEEDED(
+      m_dllSupport.CreateInstance(CLSID_DxcAssembler, &pAssembler));
+  CComPtr<IDxcOperationResult> pAssembleResult;
+  VERIFY_SUCCEEDED(
+      pAssembler->AssembleToContainer(output.Module, &pAssembleResult));
+  HRESULT assembleStatus;
+  VERIFY_SUCCEEDED(pAssembleResult->GetStatus(&assembleStatus));
+  VERIFY_SUCCEEDED(assembleStatus);
+
+  CComPtr<IDxcBlob> pNewContainer;
+  VERIFY_SUCCEEDED(pAssembleResult->GetResult(&pNewContainer));
+
+  // The CBuffer resource record field 6 is size in bytes; a float4 row
+  // is 16 bytes.
+  auto lines = Tokenize(Disassemble(pNewContainer).c_str(), "\n");
+  bool foundConstantColorCBuffer = false;
+  for (auto const &line : lines) {
+    if (line.find("!\"PIX_ConstantColorCBName\"") == std::string::npos)
+      continue;
+    auto fields = Tokenize(line.c_str(), ",");
+    VERIFY_IS_TRUE(fields.size() > 6);
+    // Field 1 is the global symbol; it must be a pointer to the CB struct.
+    VERIFY_ARE_NOT_EQUAL(std::string::npos, fields[1].find('*'));
+    VERIFY_ARE_EQUAL(16, atoi(fields[6].c_str() + fields[6].find("i32 ") + 4));
+    foundConstantColorCBuffer = true;
+  }
+  VERIFY_IS_TRUE(foundConstantColorCBuffer);
+
+  // The struct annotation names the float4 row in the reflection header.
+  bool foundStructAnnotation = false;
+  for (auto const &line : lines) {
+    if (line.find("struct PIX_ConstantColorCB_Type") != std::string::npos)
+      foundStructAnnotation = true;
+  }
+  VERIFY_IS_TRUE(foundStructAnnotation);
+
+  VerifyInstrumentedModuleIsValid(pNewContainer,
+                                  "constant-colour from constant buffer");
+}
+
+static void
+VerifyMSAALoadSampleWasReduced(std::vector<std::string> const &lines,
+                               const char *textureLoadOverload,
+                               const char *originalSampleIndex) {
+  bool foundTextureLoad = false;
+  for (auto const &line : lines) {
+    if (line.find(" call ") == std::string::npos ||
+        line.find(textureLoadOverload) == std::string::npos) {
+      continue;
+    }
+
+    foundTextureLoad = true;
+    VERIFY_ARE_EQUAL(std::string::npos, line.find(originalSampleIndex));
+    VERIFY_ARE_NOT_EQUAL(std::string::npos, line.find(", i32 0,"));
+  }
+  VERIFY_IS_TRUE(foundTextureLoad);
+}
+
+TEST_F(PixTest, ReduceMSAAToSingleSample_SM66) {
+  if (m_ver.SkipDxilVersion(1, 6))
+    return;
+
+  // SM 6.6 lowers the resource handle through annotateHandle.
+  const char *source = R"x(
+Texture2DMS<float4> tex : register(t0);
+float4 main(float4 position : SV_Position) : SV_Target
+{
+    return tex.Load(int2(position.xy), 3);
+})x";
+
+  auto compiled = Compile(m_dllSupport, source, L"ps_6_6", {L"-Od"});
+  auto output = RunSinglePass(compiled, L"-hlsl-dxil-reduce-msaa-to-single");
+  auto lines = Tokenize(Disassemble(output.Module).c_str(), "\n");
+
+  VerifyMSAALoadSampleWasReduced(lines, "dx.op.textureLoad.f32", ", i32 3,");
+  VerifyInstrumentedModuleIsValid(output.Module,
+                                  "MSAA reduction on SM 6.6 handle");
+}
+
+TEST_F(PixTest, ReduceMSAAToSingleSample_HalfLoad) {
+  if (m_ver.SkipDxilVersion(1, 2))
+    return;
+
+  // Texture2DMS<half4>.Load lowers to dx.op.textureLoad.f16.
+  const char *source = R"x(
+Texture2DMS<half4> tex : register(t0);
+float4 main(float4 position : SV_Position) : SV_Target
+{
+    half4 color = tex.Load(int2(position.xy), 2);
+    return float4(color);
+})x";
+
+  auto compiled = Compile(m_dllSupport, source, L"ps_6_2",
+                          {L"-Od", L"-enable-16bit-types"});
+  auto output = RunSinglePass(compiled, L"-hlsl-dxil-reduce-msaa-to-single");
+  auto lines = Tokenize(Disassemble(output.Module).c_str(), "\n");
+
+  VerifyMSAALoadSampleWasReduced(lines, "dx.op.textureLoad.f16", ", i32 2,");
+  VerifyInstrumentedModuleIsValid(output.Module,
+                                  "MSAA reduction on 16-bit texture load");
 }
 
 TEST_F(PixTest, OperationCacheCleanup_RemovesErasedFunctions) {
