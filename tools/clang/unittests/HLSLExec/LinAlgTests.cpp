@@ -2908,6 +2908,7 @@ public:
   END_TEST_CLASS()
 
   TEST_METHOD(CapabilityPolicyAndPredicates);
+  TEST_METHOD(ThreadGroupShapePolicy);
 };
 
 void LinAlgCapabilityTests::CapabilityPolicyAndPredicates() {
@@ -3152,9 +3153,9 @@ public:
   TEST_METHOD(MatMatMul_Wave_16x16x16_I32);
   TEST_METHOD(MatMatMulAccum_Wave_16x16x16_F16);
   TEST_METHOD(MatMatMulAccum_Wave_8x32x16_F16_ToF32_NonUniform);
-  TEST_METHOD(MatMatMul_ThreadGroup_8x16x8_F16_NonUniform);
-  TEST_METHOD(MatMatMulAccum_ThreadGroup_8x16x8_F16_ToF32_NonUniform);
-  TEST_METHOD(MatMatMul_ThreadGroup_8x8x8_I32);
+  TEST_METHOD(MatMatMul_ThreadGroup_WaveScaled_F16_NonUniform);
+  TEST_METHOD(MatMatMulAccum_ThreadGroup_WaveScaled_F16_ToF32_NonUniform);
+  TEST_METHOD(MatMatMul_ThreadGroup_WaveScaled_I32);
   TEST_METHOD(MatAccum_Wave_16x16_F16);
   TEST_METHOD(MatAccum_Wave_8x32_F16_BUse_NonUniform);
 
@@ -5553,10 +5554,138 @@ static UINT selectThreadGroupMatMulSize(
   return 0;
 }
 
+// ThreadGroup matrix extents have to be a multiple of the device's wave size,
+// which varies by hardware, so a plan derives the shape instead of fixing it.
+// Hardcoded extents are only legal on the waves that divide them.
+struct ThreadGroupMultiplyPlan {
+  ComponentType MatrixAType = ComponentType::Invalid;
+  ComponentType MatrixBType = ComponentType::Invalid;
+  ComponentType AccumulatorType = ComponentType::Invalid;
+  MatrixMultiplyOperation Operation = MatrixMultiplyOperation::Multiply;
+  MatrixDim MinExtent = 8;
+  MatrixDim KExtentMultiple = 1;
+  std::wstring PublicRule;
+};
+
+static MatrixDim roundUpToMultiple(MatrixDim Value, MatrixDim Multiple) {
+  if (Multiple == 0)
+    return 0;
+  return ((Value + Multiple - 1) / Multiple) * Multiple;
+}
+
+static MatrixMultiplyCase
+makeThreadGroupMultiplyCase(const ThreadGroupMultiplyPlan &Plan,
+                            UINT WaveSize) {
+  MatrixMultiplyCase Case = {};
+  Case.MatrixAType = Plan.MatrixAType;
+  Case.MatrixBType = Plan.MatrixBType;
+  Case.AccumulatorType = Plan.AccumulatorType;
+  Case.Operation = Plan.Operation;
+  Case.M = roundUpToMultiple(Plan.MinExtent, static_cast<MatrixDim>(WaveSize));
+  Case.N = Case.M;
+  Case.K = Case.M * Plan.KExtentMultiple;
+  Case.MatrixAValues = makeMatrixArithmeticPattern(Case.M, Case.K, 3, 2, 5, 2);
+  Case.MatrixBValues = makeMatrixArithmeticPattern(Case.K, Case.N, 1, 3, 7, 3);
+  if (Case.accumulates())
+    Case.AccumulatorValues =
+        makeMatrixArithmeticPattern(Case.M, Case.N, 2, 1, 5, 2);
+  Case.PublicRule = Plan.PublicRule;
+  return Case;
+}
+
+void LinAlgCapabilityTests::ThreadGroupShapePolicy() {
+  struct PolicyProbe {
+    ComponentType AccumulatorType;
+    MatrixMultiplyOperation Operation;
+    MatrixDim MinExtent;
+    MatrixDim KExtentMultiple;
+  };
+  const PolicyProbe Probes[] = {
+      {ComponentType::F16, MatrixMultiplyOperation::Multiply, 8, 2},
+      {ComponentType::F32, MatrixMultiplyOperation::MultiplyAccumulate, 8, 2},
+      {ComponentType::I32, MatrixMultiplyOperation::Multiply, 8, 1},
+  };
+
+  for (const PolicyProbe &Probe : Probes) {
+    ThreadGroupMultiplyPlan Plan = {};
+    Plan.MatrixAType = ComponentType::F16;
+    Plan.MatrixBType = ComponentType::F16;
+    Plan.AccumulatorType = Probe.AccumulatorType;
+    Plan.Operation = Probe.Operation;
+    Plan.MinExtent = Probe.MinExtent;
+    Plan.KExtentMultiple = Probe.KExtentMultiple;
+    Plan.PublicRule = L"ThreadGroup shape policy";
+
+    // WARP tops out at 16, so 32, 64 and 128 are only ever covered here.
+    for (UINT WaveSize : {4u, 8u, 16u, 32u, 64u, 128u}) {
+      const MatrixMultiplyCase Case =
+          makeThreadGroupMultiplyCase(Plan, WaveSize);
+      VERIFY_IS_TRUE(isMatrixMultiplyCaseValid(Case),
+                     "Derived shape must produce a valid case");
+      VERIFY_IS_TRUE(Case.M % WaveSize == 0 && Case.N % WaveSize == 0,
+                     "Derived extents must be a multiple of the wave size");
+      VERIFY_IS_TRUE(Case.K % 4 == 0, "Derived K must stay a multiple of four");
+      VERIFY_IS_TRUE(Case.M >= Plan.MinExtent &&
+                         Case.M < Plan.MinExtent + WaveSize,
+                     "Derived extent must be the smallest legal one");
+      VERIFY_IS_TRUE(Case.K == Case.M * Plan.KExtentMultiple,
+                     "Derived K must follow the plan multiple");
+
+      // Losing the operation would drop the accumulator from both the shader
+      // and the oracle, so the test would agree with itself and pass vacuously.
+      VERIFY_IS_TRUE(Case.Operation == Plan.Operation,
+                     "Derived case must keep the planned operation");
+      VERIFY_IS_TRUE(
+          Case.accumulates() ==
+              (Probe.Operation == MatrixMultiplyOperation::MultiplyAccumulate),
+          "Accumulation must follow the planned operation");
+
+      // F16 holds integers exactly below 2048 and is the tightest accumulator
+      // in the set, so the bound is applied to every probe.
+      int64_t MaxA = 0;
+      int64_t MaxB = 0;
+      int64_t MaxAccumulator = 0;
+      for (int64_t Value : Case.MatrixAValues)
+        MaxA = std::max(MaxA, Value < 0 ? -Value : Value);
+      for (int64_t Value : Case.MatrixBValues)
+        MaxB = std::max(MaxB, Value < 0 ? -Value : Value);
+      for (int64_t Value : Case.AccumulatorValues)
+        MaxAccumulator = std::max(MaxAccumulator, Value < 0 ? -Value : Value);
+      VERIFY_IS_TRUE(
+          MaxA * MaxB * static_cast<int64_t>(Case.K) + MaxAccumulator < 2048,
+          "Derived shape must keep dot products exact");
+    }
+  }
+
+  ThreadGroupMultiplyPlan Plan = {};
+  Plan.MatrixAType = ComponentType::F16;
+  Plan.MatrixBType = ComponentType::F16;
+  Plan.AccumulatorType = ComponentType::F16;
+  Plan.MinExtent = 8;
+  Plan.KExtentMultiple = 2;
+  Plan.PublicRule = L"ThreadGroup shape policy";
+  VERIFY_IS_TRUE(makeThreadGroupMultiplyCase(Plan, 4).M == 8,
+                 "A wave of four must round the minimum extent up to eight");
+  VERIFY_IS_TRUE(makeThreadGroupMultiplyCase(Plan, 32).M == 32,
+                 "A wave of thirty-two must widen the extent to match");
+  VERIFY_IS_TRUE(
+      makeThreadGroupMultiplyCase(Plan, hlsl::DXIL::kMaxWaveSize).M ==
+          hlsl::DXIL::kMaxWaveSize,
+      "The largest wave the language allows must widen the extent");
+
+  // A minimum extent that is not a multiple of the wave size.
+  Plan.MinExtent = 12;
+  const MatrixMultiplyCase Rounded = makeThreadGroupMultiplyCase(Plan, 8);
+  VERIFY_IS_TRUE(Rounded.M == 16 && Rounded.N == 16 && Rounded.K == 32,
+                 "An unaligned minimum extent must round up to the wave size");
+}
+
 static HRESULT selectThreadGroupMatMulConfiguration(
-    ID3D12Device *Device, const MatrixMultiplyCase &Case, LPCWSTR CaseName,
-    bool &Supported, UINT &SelectedWaveSize, UINT &SelectedThreadGroupSize) {
+    ID3D12Device *Device, const ThreadGroupMultiplyPlan &Plan, LPCWSTR CaseName,
+    bool &Supported, MatrixMultiplyCase &SelectedCase, UINT &SelectedWaveSize,
+    UINT &SelectedThreadGroupSize) {
   Supported = false;
+  SelectedCase = {};
   SelectedWaveSize = 0;
   SelectedThreadGroupSize = 0;
   if (!Device)
@@ -5564,12 +5693,23 @@ static HRESULT selectThreadGroupMatMulConfiguration(
   if (!CaseName)
     return E_INVALIDARG;
 
-  const linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE MatrixAType =
-      *toCapabilityDataType(Case.MatrixAType);
-  const linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE MatrixBType =
-      *toCapabilityDataType(Case.MatrixBType);
+  // A degenerate plan is an authoring error, so it must fail rather than skip.
+  if (Plan.MinExtent == 0 || Plan.KExtentMultiple == 0)
+    return E_INVALIDARG;
+
+  // Only the types can be validated here; the shape needs a wave size.
+  const std::optional<linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE>
+      MatrixATypeOpt = toCapabilityDataType(Plan.MatrixAType);
+  const std::optional<linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE>
+      MatrixBTypeOpt = toCapabilityDataType(Plan.MatrixBType);
+  const std::optional<linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE>
+      AccumulatorTypeOpt = toCapabilityDataType(Plan.AccumulatorType);
+  if (!MatrixATypeOpt || !MatrixBTypeOpt || !AccumulatorTypeOpt)
+    return E_INVALIDARG;
+  const linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE MatrixAType = *MatrixATypeOpt;
+  const linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE MatrixBType = *MatrixBTypeOpt;
   const linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE AccumulatorType =
-      *toCapabilityDataType(Case.AccumulatorType);
+      *AccumulatorTypeOpt;
 
   // The HRESULT reports whether the capability queries themselves ran; the
   // Supported out-parameter reports whether a usable configuration was found.
@@ -5592,20 +5732,27 @@ static HRESULT selectThreadGroupMatMulConfiguration(
     return S_OK;
   }
 
-  const linalg_abi::D3D12_LINEAR_ALGEBRA_MATRIX_SHAPE Shape = {
-      Case.M,
-      Case.K,
-      Case.N,
-  };
-
   for (UINT WaveSize = 4; WaveSize <= 128; WaveSize *= 2) {
     if (WaveSize < MinWaveSize || WaveSize > MaxWaveSize)
       continue;
 
+    const MatrixMultiplyCase Candidate =
+        makeThreadGroupMultiplyCase(Plan, WaveSize);
+    // A validated plan always derives a valid case, so this is a derivation
+    // bug rather than a device limitation.
+    if (!isMatrixMultiplyCaseValid(Candidate))
+      return E_UNEXPECTED;
+
+    const linalg_abi::D3D12_LINEAR_ALGEBRA_MATRIX_SHAPE Shape = {
+        Candidate.M,
+        Candidate.K,
+        Candidate.N,
+    };
+
     bool RolesConstructible = false;
-    HR = matrixMultiplyRolesConstructible(Device, Case, WaveSize, MatrixAType,
-                                          MatrixBType, AccumulatorType,
-                                          RolesConstructible);
+    HR = matrixMultiplyRolesConstructible(Device, Candidate, WaveSize,
+                                          MatrixAType, MatrixBType,
+                                          AccumulatorType, RolesConstructible);
     VERIFY_SUCCEEDED(HR, "Matrix role construction query must succeed");
     if (!RolesConstructible)
       continue;
@@ -5632,9 +5779,10 @@ static HRESULT selectThreadGroupMatMulConfiguration(
     hlsl_test::LogCommentFmt(
         L"ThreadGroup matrix arithmetic capability matched wave=%u, "
         L"threads=%u, crossWave=%u, shape=(%u,%u,%u) for %s",
-        WaveSize, ThreadGroupSize, ThreadGroupSize > WaveSize, Case.M, Case.K,
-        Case.N, CaseName);
+        WaveSize, ThreadGroupSize, ThreadGroupSize > WaveSize, Candidate.M,
+        Candidate.K, Candidate.N, CaseName);
     Supported = true;
+    SelectedCase = Candidate;
     SelectedWaveSize = WaveSize;
     SelectedThreadGroupSize = ThreadGroupSize;
     return S_OK;
@@ -5649,13 +5797,14 @@ static HRESULT selectThreadGroupMatMulConfiguration(
 }
 
 static bool threadGroupMatMulApplicable(ID3D12Device *Device,
-                                        const MatrixMultiplyCase &Case,
+                                        const ThreadGroupMultiplyPlan &Plan,
                                         LPCWSTR CaseName,
+                                        MatrixMultiplyCase &SelectedCase,
                                         UINT &SelectedWaveSize,
                                         UINT &SelectedThreadGroupSize) {
   bool Supported = false;
   const HRESULT QueryResult = selectThreadGroupMatMulConfiguration(
-      Device, Case, CaseName, Supported, SelectedWaveSize,
+      Device, Plan, CaseName, Supported, SelectedCase, SelectedWaveSize,
       SelectedThreadGroupSize);
   if (!applyApplicability(
           linalg_test::classifyApplicability(
@@ -5669,6 +5818,8 @@ static bool threadGroupMatMulApplicable(ID3D12Device *Device,
   VERIFY_IS_TRUE(
       SelectedThreadGroupSize != 0,
       "A ThreadGroup case cleared to run must have a selected group size");
+  VERIFY_IS_TRUE(isMatrixMultiplyCaseValid(SelectedCase),
+                 "A case cleared to run must have a resolved shape");
   return true;
 }
 
@@ -5981,83 +6132,74 @@ void DxilConf_SM610_LinAlg::MatMatMul_Wave_16x16x16_I32() {
 
 static void runThreadGroupMultiplyCase(ID3D12Device *Device,
                                        dxc::SpecificDllLoader &DxcSupport,
-                                       const MatrixMultiplyCase &Case,
+                                       const ThreadGroupMultiplyPlan &Plan,
                                        LPCWSTR CaseName, bool Verbose) {
-  VERIFY_IS_TRUE(isMatrixMultiplyCaseValid(Case));
-  if (!isMatrixMultiplyCaseValid(Case))
-    return;
-
+  MatrixMultiplyCase Case = {};
   UINT SelectedWaveSize = 0;
   UINT SelectedThreadGroupSize = 0;
-  if (!threadGroupMatMulApplicable(Device, Case, CaseName, SelectedWaveSize,
-                                   SelectedThreadGroupSize))
+  if (!threadGroupMatMulApplicable(Device, Plan, CaseName, Case,
+                                   SelectedWaveSize, SelectedThreadGroupSize))
     return;
 
   runMatrixMultiplyCase(Device, DxcSupport, Case, MatrixScope::ThreadGroup,
                         SelectedWaveSize, SelectedThreadGroupSize, Verbose);
 }
 
-static MatrixMultiplyCase
-makeRectangularF16ThreadGroupMultiplyCase(ComponentType AccumulatorType,
+static ThreadGroupMultiplyPlan
+makeRectangularF16ThreadGroupMultiplyPlan(ComponentType AccumulatorType,
                                           MatrixMultiplyOperation Operation) {
-  MatrixMultiplyCase Case = {};
-  Case.MatrixAType = ComponentType::F16;
-  Case.MatrixBType = ComponentType::F16;
-  Case.AccumulatorType = AccumulatorType;
-  Case.M = 8;
-  Case.K = 16;
-  Case.N = 8;
-  Case.Operation = Operation;
-  Case.MatrixAValues = makeMatrixArithmeticPattern(Case.M, Case.K, 3, 2, 5, 2);
-  Case.MatrixBValues = makeMatrixArithmeticPattern(Case.K, Case.N, 1, 3, 7, 3);
-  if (Case.accumulates()) {
-    Case.AccumulatorValues =
-        makeMatrixArithmeticPattern(Case.M, Case.N, 2, 1, 5, 2);
-    Case.PublicRule =
+  ThreadGroupMultiplyPlan Plan = {};
+  Plan.MatrixAType = ComponentType::F16;
+  Plan.MatrixBType = ComponentType::F16;
+  Plan.AccumulatorType = AccumulatorType;
+  Plan.Operation = Operation;
+  Plan.MinExtent = 8;
+  Plan.KExtentMultiple = 2;
+  if (Operation == MatrixMultiplyOperation::MultiplyAccumulate) {
+    Plan.PublicRule =
         L"Exact non-uniform ThreadGroup F16 product plus an independent F32 "
         L"accumulator";
   } else if (AccumulatorType == ComponentType::F32) {
-    Case.PublicRule =
+    Plan.PublicRule =
         L"Exact non-uniform ThreadGroup F16 matrix product stored in an F32 "
         L"accumulator";
   } else {
-    Case.PublicRule =
+    Plan.PublicRule =
         L"Exact non-uniform ThreadGroup F16 product with rectangular inputs";
   }
-  return Case;
+  return Plan;
 }
 
-void DxilConf_SM610_LinAlg::MatMatMul_ThreadGroup_8x16x8_F16_NonUniform() {
-  const MatrixMultiplyCase Case = makeRectangularF16ThreadGroupMultiplyCase(
-      ComponentType::F16, MatrixMultiplyOperation::Multiply);
-  runThreadGroupMultiplyCase(D3DDevice, DxcSupport, Case,
-                             L"MatMatMul_ThreadGroup_8x16x8_F16_NonUniform",
+void DxilConf_SM610_LinAlg::MatMatMul_ThreadGroup_WaveScaled_F16_NonUniform() {
+  const ThreadGroupMultiplyPlan Plan =
+      makeRectangularF16ThreadGroupMultiplyPlan(
+          ComponentType::F16, MatrixMultiplyOperation::Multiply);
+  runThreadGroupMultiplyCase(D3DDevice, DxcSupport, Plan,
+                             L"MatMatMul_ThreadGroup_WaveScaled_F16_NonUniform",
                              VerboseLogging);
 }
 
 void DxilConf_SM610_LinAlg::
-    MatMatMulAccum_ThreadGroup_8x16x8_F16_ToF32_NonUniform() {
-  const MatrixMultiplyCase Case = makeRectangularF16ThreadGroupMultiplyCase(
-      ComponentType::F32, MatrixMultiplyOperation::MultiplyAccumulate);
+    MatMatMulAccum_ThreadGroup_WaveScaled_F16_ToF32_NonUniform() {
+  const ThreadGroupMultiplyPlan Plan =
+      makeRectangularF16ThreadGroupMultiplyPlan(
+          ComponentType::F32, MatrixMultiplyOperation::MultiplyAccumulate);
   runThreadGroupMultiplyCase(
-      D3DDevice, DxcSupport, Case,
-      L"MatMatMulAccum_ThreadGroup_8x16x8_F16_ToF32_NonUniform",
+      D3DDevice, DxcSupport, Plan,
+      L"MatMatMulAccum_ThreadGroup_WaveScaled_F16_ToF32_NonUniform",
       VerboseLogging);
 }
 
-void DxilConf_SM610_LinAlg::MatMatMul_ThreadGroup_8x8x8_I32() {
-  MatrixMultiplyCase Case = {};
-  Case.MatrixAType = ComponentType::I32;
-  Case.MatrixBType = ComponentType::I32;
-  Case.AccumulatorType = ComponentType::I32;
-  Case.M = 8;
-  Case.K = 8;
-  Case.N = 8;
-  Case.MatrixAValues = makeMatrixArithmeticPattern(Case.M, Case.K, 3, 2, 5, 2);
-  Case.MatrixBValues = makeMatrixArithmeticPattern(Case.K, Case.N, 1, 3, 7, 3);
-  Case.PublicRule = L"Exact non-uniform ThreadGroup I32 matrix product";
-  runThreadGroupMultiplyCase(D3DDevice, DxcSupport, Case,
-                             L"MatMatMul_ThreadGroup_8x8x8_I32",
+void DxilConf_SM610_LinAlg::MatMatMul_ThreadGroup_WaveScaled_I32() {
+  ThreadGroupMultiplyPlan Plan = {};
+  Plan.MatrixAType = ComponentType::I32;
+  Plan.MatrixBType = ComponentType::I32;
+  Plan.AccumulatorType = ComponentType::I32;
+  Plan.MinExtent = 8;
+  Plan.KExtentMultiple = 1;
+  Plan.PublicRule = L"Exact non-uniform ThreadGroup I32 matrix product";
+  runThreadGroupMultiplyCase(D3DDevice, DxcSupport, Plan,
+                             L"MatMatMul_ThreadGroup_WaveScaled_I32",
                              VerboseLogging);
 }
 
