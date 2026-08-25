@@ -7580,6 +7580,12 @@ class db_dxil(object):
                     "c": 1,
                     "d": "Whether the unroller should try to structurize loop exits first.",
                 },
+                {
+                    "n": "UnrollCountIsHint",
+                    "t": "bool",
+                    "c": 1,
+                    "d": "Whether an explicit unroll count should be treated as a hint.",
+                },
             ],
         )
         add_pass(
