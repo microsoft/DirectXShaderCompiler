@@ -13,12 +13,14 @@
 // Check that the correct metadata was emitted for vertex id and instance id. 
 // They should have 1 row, 1 column each. Vertex ID first at row 0, then instnce at row 1.
 // (With each row have the same value as the corresponding ID)
+// A vertex shader input is not interpolated, so the interpolation mode has to be
+// Undefined (0); the validator rejects anything else.
 // See DxilMDHelper::EmitSignatureElement for the meaning of these entries:
 //               ID                   TypeU32 SemKin Sem-Idx         interp  Rows  Cols   Row   Col
 //                |                     |     |       |                |      |     |      |     |
-// CHECK: = !{i32 0, !"SV_VertexID", i8 5, i8 1, ![[VIDID:[0-9]*]], i8 1, i32 1, i8 1, i32 0, i8 0,
+// CHECK: = !{i32 0, !"SV_VertexID", i8 5, i8 1, ![[VIDID:[0-9]*]], i8 0, i32 1, i8 1, i32 0, i8 0,
 //                |                       |     |     |                |      |     |      |     |
-// CHECK: = !{i32 1, !"SV_InstanceID", i8 5, i8 2, ![[IID:[0-9]*]], i8 1, i32 1, i8 1, i32 1, i8 0,
+// CHECK: = !{i32 1, !"SV_InstanceID", i8 5, i8 2, ![[IID:[0-9]*]], i8 0, i32 1, i8 1, i32 1, i8 0,
 [RootSignature("")]
 float4 main() : SV_Position{
   return float4(0,0,0,0);

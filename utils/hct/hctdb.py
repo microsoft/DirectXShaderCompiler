@@ -7050,6 +7050,10 @@ class db_dxil(object):
                 {"n": "add-pixel-cost", "t": "int", "c": 1},
                 {"n": "rt-width", "t": "int", "c": 1},
                 {"n": "num-pixels", "t": "int", "c": 1},
+                {"n": "preferred-sv-position-row", "t": "int", "c": 1},
+                {"n": "required-sv-position-row", "t": "int", "c": 1},
+                # Pre-rename spelling of preferred-sv-position-row, kept so
+                # PIX builds older than this rename keep working.
                 {"n": "upstream-sv-position-row", "t": "int", "c": 1},
             ],
         )
@@ -7109,6 +7113,7 @@ class db_dxil(object):
                 {"n": "parameter1", "t": "int", "c": 1},
                 {"n": "parameter2", "t": "int", "c": 1},
                 {"n": "upstreamSVPositionRow", "t": "int", "c": 1},
+                {"n": "authoritativeSVPositionRow", "t": "int", "c": 1},
             ],
         )
         add_pass(
