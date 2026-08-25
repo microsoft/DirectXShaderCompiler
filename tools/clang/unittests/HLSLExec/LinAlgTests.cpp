@@ -8105,9 +8105,9 @@ void DxilConf_SM610_LinAlg::Convert() {
   runConvert(D3DDevice, DxcSupport, VerboseLogging);
 }
 
-// One vector component varies by invocation modulo this value, so contending
-// threads do not all accumulate the same vector. A single-threaded dispatch
-// always has invocation zero and so is unaffected.
+// The base each vector component carries one digit of the invocation index in,
+// so contending threads all accumulate distinct vectors. A single-threaded
+// dispatch always has invocation zero and so is unaffected.
 static constexpr UINT VectorAccumulateVariation = 4;
 
 static const char VectorAccumulateDescriptorShader[] = R"(
@@ -8117,10 +8117,12 @@ static const char VectorAccumulateDescriptorShader[] = R"(
   [numthreads(NUMTHREADS, 1, 1)]
   void main(uint3 DispatchID : SV_DispatchThreadID) {
     vector<ELEM_TYPE, VECTOR_LENGTH> InVec;
+    uint Residual = DispatchID.x;
     for (uint I = 0; I < VECTOR_LENGTH; ++I) {
-      InVec[I] = Input.Load<ELEM_TYPE>(I * ELEM_SIZE);
+      InVec[I] = Input.Load<ELEM_TYPE>(I * ELEM_SIZE) +
+                 (ELEM_TYPE)(Residual % THREAD_VARIATION);
+      Residual /= THREAD_VARIATION;
     }
-    InVec[0] += (ELEM_TYPE)(DispatchID.x % THREAD_VARIATION);
     __builtin_LinAlg_VectorAccumulateToDescriptor(
       Output, START_OFFSET, 64, InVec);
   }
@@ -8343,13 +8345,23 @@ void DxilConf_SM610_LinAlg::
 
 // The single-threaded cases above show that an accumulation lands, not that
 // concurrent accumulations all land. These dispatch many threads across many
-// groups at one destination. One vector component varies by invocation so the
-// threads do not all add the same vector, which means a dropped update cannot
-// be cancelled by a duplicated one, and a lowering that applies one
-// representative vector scaled by the thread count does not match either.
+// groups at one destination. Each component carries one base-four digit of the
+// invocation index, so no two invocations contribute the same vector and a
+// dropped update cannot be cancelled by a duplicated one.
 static constexpr UINT VectorContentionThreads = 64;
 static constexpr UINT VectorContentionGroups = 4;
 static constexpr UINT VectorContentionInvocations = 256;
+
+static_assert(
+    VectorContentionInvocations ==
+        VectorContentionThreads * VectorContentionGroups,
+    "The expected values below are derived for this many invocations");
+static_assert(VectorContentionInvocations ==
+                  VectorAccumulateVariation * VectorAccumulateVariation *
+                      VectorAccumulateVariation * VectorAccumulateVariation,
+              "Each of the four vector components carries one base-four digit "
+              "of the invocation index, so the expected sums hold only when "
+              "every digit combination occurs exactly once");
 
 void DxilConf_SM610_LinAlg::VectorAccumulateDescriptorContention_Thread_F16() {
   if (!accumulateStoreApplicable(
@@ -8358,20 +8370,12 @@ void DxilConf_SM610_LinAlg::VectorAccumulateDescriptorContention_Thread_F16() {
           L"VectorAccumulateDescriptorContention_Thread_F16"))
     return;
 
-  VERIFY_ARE_EQUAL(VectorContentionInvocations,
-                   VectorContentionThreads * VectorContentionGroups,
-                   "The expected values below are derived for this many "
-                   "invocations and must be recomputed if it changes");
-  VERIFY_ARE_EQUAL(0u, VectorContentionInvocations % VectorAccumulateVariation,
-                   "Element zero's expected value assumes the invocation "
-                   "residues are evenly distributed");
-
-  // Invocation t adds {1 + t % 4, 2, 3, 4}. Elements 1 to 3 accumulate
-  // 256 * (I + 1); element 0 accumulates 256 + 384 = 640 because each of the
-  // four residues occurs 64 times. The largest result is 13 + 1024 = 1037 and
-  // every partial sum is a smaller integer, so all are exact in F16 and the
-  // comparison can be for equality. The last two elements are guards the
-  // accumulation must not reach.
+  // Invocation t adds digit I of t in base four to element I, on top of the
+  // base vector {1, 2, 3, 4}. Each digit value occurs 64 times in each
+  // position, so element I accumulates 256 * (I + 1) + 384. The largest result
+  // is 13 + 1408 = 1421 and every partial sum is a smaller integer, so all are
+  // exact in F16 and the comparison can be for equality. The last two elements
+  // are guards the accumulation must not reach.
   const auto Half = [](float Value) { return HLSLHalf_t(Value); };
   const std::optional<cpu_oracle::TypedMatrix> Input =
       cpu_oracle::makeTypedMatrix<HLSLHalf_t>(
@@ -8381,9 +8385,10 @@ void DxilConf_SM610_LinAlg::VectorAccumulateDescriptorContention_Thread_F16() {
           1, 6,
           {Half(10), Half(11), Half(12), Half(13), Half(777), Half(-777)});
   const std::optional<cpu_oracle::TypedMatrix> Expected =
-      cpu_oracle::makeTypedMatrix<HLSLHalf_t>(
-          1, 6,
-          {Half(650), Half(523), Half(780), Half(1037), Half(777), Half(-777)});
+      cpu_oracle::makeTypedMatrix<HLSLHalf_t>(1, 6,
+                                              {Half(650), Half(907), Half(1164),
+                                               Half(1421), Half(777),
+                                               Half(-777)});
   VERIFY_IS_TRUE(Input.has_value());
   VERIFY_IS_TRUE(Initial.has_value());
   VERIFY_IS_TRUE(Expected.has_value());
@@ -8410,15 +8415,7 @@ void DxilConf_SM610_LinAlg::
           L"VectorAccumulateDescriptorContention_Thread_F32_OrderInvariant"))
     return;
 
-  VERIFY_ARE_EQUAL(VectorContentionInvocations,
-                   VectorContentionThreads * VectorContentionGroups,
-                   "The expected values below are derived for this many "
-                   "invocations and must be recomputed if it changes");
-  VERIFY_ARE_EQUAL(0u, VectorContentionInvocations % VectorAccumulateVariation,
-                   "Element zero's expected value assumes the invocation "
-                   "residues are evenly distributed");
-
-  // The same distribution as above, reaching 23 + 1024 = 1047. Every partial
+  // The same distribution as above, reaching 23 + 1408 = 1431. Every partial
   // sum is an integer well inside the range F32 represents exactly, so no
   // ordering of the atomic additions can round differently and the result
   // cannot depend on the order the hardware happens to apply them.
@@ -8429,7 +8426,7 @@ void DxilConf_SM610_LinAlg::
                                          {20, 21, 22, 23, 123456, -654321});
   const std::optional<cpu_oracle::TypedMatrix> Expected =
       cpu_oracle::makeTypedMatrix<float>(
-          1, 6, {660, 533, 790, 1047, 123456, -654321});
+          1, 6, {660, 917, 1174, 1431, 123456, -654321});
   VERIFY_IS_TRUE(Input.has_value());
   VERIFY_IS_TRUE(Initial.has_value());
   VERIFY_IS_TRUE(Expected.has_value());
