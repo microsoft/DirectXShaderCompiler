@@ -1,7 +1,16 @@
-// RUN: %dxc -E main -T ps_6_0 -HV 202x -O2 %s | FileCheck %s --check-prefix=CHECK
-// RUN: %dxc -E main -T ps_6_0 -HV 202x -O3 %s | FileCheck %s --check-prefix=CHECK
+// RUN: %dxc -E main -T ps_6_0 -HV 202x -O2 %s | FileCheck %s -check-prefix=CHECK
+// RUN: %dxc -E main -T ps_6_0 -HV 202x -O3 %s | FileCheck %s -check-prefix=CHECK
 
-// CHECK-COUNT-10: call float @dx.op.dot3
+// CHECK: call float @dx.op.dot3
+// CHECK: call float @dx.op.dot3
+// CHECK: call float @dx.op.dot3
+// CHECK: call float @dx.op.dot3
+// CHECK: call float @dx.op.dot3
+// CHECK: call float @dx.op.dot3
+// CHECK: call float @dx.op.dot3
+// CHECK: call float @dx.op.dot3
+// CHECK: call float @dx.op.dot3
+// CHECK: call float @dx.op.dot3
 // CHECK-NOT: call float @dx.op.dot3
 // CHECK-NOT: br i1
 // CHECK-NOT: !llvm.loop
