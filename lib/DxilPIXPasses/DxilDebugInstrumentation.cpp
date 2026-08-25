@@ -377,6 +377,28 @@ private:
   CountBlockPayloadBytes(std::vector<InstructionToInstrument> const &IsAndTs);
 };
 
+static bool IsInstrumentableShaderKind(DXIL::ShaderKind shaderKind) {
+  switch (shaderKind) {
+  case DXIL::ShaderKind::Amplification:
+  case DXIL::ShaderKind::Mesh:
+  case DXIL::ShaderKind::Vertex:
+  case DXIL::ShaderKind::Geometry:
+  case DXIL::ShaderKind::Pixel:
+  case DXIL::ShaderKind::Compute:
+  case DXIL::ShaderKind::RayGeneration:
+  case DXIL::ShaderKind::Hull:
+  case DXIL::ShaderKind::Domain:
+  case DXIL::ShaderKind::Intersection:
+  case DXIL::ShaderKind::AnyHit:
+  case DXIL::ShaderKind::ClosestHit:
+  case DXIL::ShaderKind::Miss:
+  case DXIL::ShaderKind::Node:
+    return true;
+  default:
+    return false;
+  }
+}
+
 void DxilDebugInstrumentation::applyOptions(PassOptions O) {
   GetPassOptionUnsigned(O, "FirstInstruction", &m_FirstInstruction, 0);
   GetPassOptionUnsigned(O, "LastInstruction", &m_LastInstruction,
@@ -813,9 +835,17 @@ void DxilDebugInstrumentation::addInvocationSelectionProlog(
   case DXIL::ShaderKind::Vertex:
     ParameterTestResult = addVertexShaderProlog(BC, SVIndices);
     break;
-  case DXIL::ShaderKind::Hull:
-    ParameterTestResult = addHullhaderProlog(BC);
-    break;
+  case DXIL::ShaderKind::Hull: {
+    // OutputControlPointID only means something in the control point phase, so
+    // the patch-constant function is selected by primitive alone.
+    llvm::Function *function = BC.Builder.GetInsertBlock()->getParent();
+    if (function == BC.DM.GetPatchConstantFunction()) {
+      ParameterTestResult =
+          addComparePrimitiveIdProlog(BC, m_Parameters.HullShader.PrimitiveId);
+    } else {
+      ParameterTestResult = addHullhaderProlog(BC);
+    }
+  } break;
   case DXIL::ShaderKind::Domain:
     ParameterTestResult =
         addComparePrimitiveIdProlog(BC, m_Parameters.DomainShader.PrimitiveId);
@@ -993,11 +1023,17 @@ uint32_t DxilDebugInstrumentation::addDebugEntryValue(BuilderContext &BC,
         BC.Builder.CreateFPCast(TheValue, Type::getFloatTy(BC.Ctx), "AsFloat");
     BytesToBeEmitted += addDebugEntryValue(BC, AsFloat);
   } else {
+    // RawBufferStore is only legal from shader model 6.2 onwards. PIX also
+    // instruments 6.0 and 6.1 shaders, so fall back to BufferStore (legal from
+    // 6.0) on those. The two differ only in the trailing alignment operand.
+    const bool SupportsRawBufferStore = BC.DM.GetShaderModel()->IsSM62Plus();
+    const OP::OpCode StoreOpCode = SupportsRawBufferStore
+                                       ? OP::OpCode::RawBufferStore
+                                       : OP::OpCode::BufferStore;
     Function *StoreValue =
-        BC.HlslOP->GetOpFunc(OP::OpCode::RawBufferStore,
+        BC.HlslOP->GetOpFunc(StoreOpCode,
                              TheValue->getType()); // Type::getInt32Ty(BC.Ctx));
-    Constant *StoreValueOpcode =
-        BC.HlslOP->GetU32Const((unsigned)DXIL::OpCode::RawBufferStore);
+    Constant *StoreValueOpcode = BC.HlslOP->GetU32Const((unsigned)StoreOpCode);
     UndefValue *Undef32Arg = UndefValue::get(Type::getInt32Ty(BC.Ctx));
     UndefValue *UndefArg = nullptr;
     if (TheValueTypeID == Type::TypeID::IntegerTyID) {
@@ -1014,16 +1050,21 @@ uint32_t DxilDebugInstrumentation::addDebugEntryValue(BuilderContext &BC,
     auto &values = m_FunctionToValues[BC.Builder.GetInsertBlock()->getParent()];
     Constant *RawBufferStoreAlignment = BC.HlslOP->GetU32Const(4);
 
-    (void)BC.Builder.CreateCall(
-        StoreValue, {StoreValueOpcode,    // i32 opcode
-                     values.UAVHandle,    // %dx.types.Handle, ; resource handle
-                     values.CurrentIndex, // i32 c0: index in bytes into UAV
-                     Undef32Arg,          // i32 c1: unused
-                     TheValue,
-                     UndefArg, // unused values
-                     UndefArg, // unused values
-                     UndefArg, // unused values
-                     WriteMask_X, RawBufferStoreAlignment});
+    SmallVector<Value *, 10> StoreArgs{
+        StoreValueOpcode,    // i32 opcode
+        values.UAVHandle,    // %dx.types.Handle, ; resource handle
+        values.CurrentIndex, // i32 c0: index in bytes into UAV
+        Undef32Arg,          // i32 c1: unused
+        TheValue,
+        UndefArg, // unused values
+        UndefArg, // unused values
+        UndefArg, // unused values
+        WriteMask_X};
+    if (SupportsRawBufferStore) {
+      StoreArgs.push_back(RawBufferStoreAlignment);
+    }
+
+    (void)BC.Builder.CreateCall(StoreValue, StoreArgs);
 
     assert(m_RemainingReservedSpaceInBytes >= 4); // check for underflow
     m_RemainingReservedSpaceInBytes -= 4;
@@ -1313,19 +1354,54 @@ bool DxilDebugInstrumentation::runOnModule(Module &M) {
   auto ShaderModel = DM.GetShaderModel();
   auto shaderKind = ShaderModel->GetKind();
   auto HLSLBindId = 0;
+
+  std::vector<llvm::Function *> functionsToInstrument;
+  if (shaderKind == DXIL::ShaderKind::Library) {
+    functionsToInstrument = PIXPassHelpers::GetAllInstrumentableFunctions(DM);
+  } else {
+    // Only the functions that the runtime itself invokes are instrumented. A
+    // helper that the entry point calls is not one of them, and cannot become
+    // one: PIX names an invocation by a record stream in the debug UAV and maps
+    // that stream to a single function, so instrumenting a helper produces a
+    // second invocation for one thread whose records PIX then discards. The
+    // annotation pass inlines such helpers away before anything is numbered.
+    // See PIXPassHelpers::InlineNonEntryFunctions.
+    llvm::Function *entryFunction = PIXPassHelpers::GetEntryFunction(DM);
+    functionsToInstrument.push_back(entryFunction);
+
+    // The runtime invokes a hull shader patch-constant function rather than the
+    // entry point does, so it survives inlining and is numbered and advertised
+    // to PIX as a steppable range of its own. Instrument it too, or a user who
+    // steps into it sees instructions with no values behind them.
+    llvm::Function *patchConstantFunction = DM.GetPatchConstantFunction();
+    if (patchConstantFunction != nullptr &&
+        patchConstantFunction != entryFunction) {
+      functionsToInstrument.push_back(patchConstantFunction);
+    }
+  }
+
+  functionsToInstrument.erase(
+      std::remove_if(functionsToInstrument.begin(), functionsToInstrument.end(),
+                     [&DM](llvm::Function *function) {
+                       return function == nullptr ||
+                              !IsInstrumentableShaderKind(
+                                  PIXPassHelpers::GetFunctionShaderKind(
+                                      DM, function));
+                     }),
+      functionsToInstrument.end());
+
+  // Creating the UAV modifies the module, so nothing may be created before the
+  // pass knows it has something to instrument.
+  if (functionsToInstrument.empty()) {
+    return false;
+  }
+
   auto *uav = PIXPassHelpers::CreateGlobalUAVResource(DM, HLSLBindId, "PIXUAV");
   bool modified = false;
-  if (shaderKind == DXIL::ShaderKind::Library) {
-    auto instrumentableFunctions =
-        PIXPassHelpers::GetAllInstrumentableFunctions(DM);
-    for (auto *F : instrumentableFunctions) {
-      if (RunOnFunction(M, DM, uav, F)) {
-        modified = true;
-      }
+  for (auto *function : functionsToInstrument) {
+    if (RunOnFunction(M, DM, uav, function)) {
+      modified = true;
     }
-  } else {
-    llvm::Function *entryFunction = PIXPassHelpers::GetEntryFunction(DM);
-    modified = RunOnFunction(M, DM, uav, entryFunction);
   }
   return modified;
 }
@@ -1496,23 +1572,7 @@ bool DxilDebugInstrumentation::RunOnFunction(Module &M, DxilModule &DM,
   DXIL::ShaderKind shaderKind =
       PIXPassHelpers::GetFunctionShaderKind(DM, function);
 
-  switch (shaderKind) {
-  case DXIL::ShaderKind::Amplification:
-  case DXIL::ShaderKind::Mesh:
-  case DXIL::ShaderKind::Vertex:
-  case DXIL::ShaderKind::Geometry:
-  case DXIL::ShaderKind::Pixel:
-  case DXIL::ShaderKind::Compute:
-  case DXIL::ShaderKind::RayGeneration:
-  case DXIL::ShaderKind::Hull:
-  case DXIL::ShaderKind::Domain:
-  case DXIL::ShaderKind::Intersection:
-  case DXIL::ShaderKind::AnyHit:
-  case DXIL::ShaderKind::ClosestHit:
-  case DXIL::ShaderKind::Miss:
-  case DXIL::ShaderKind::Node:
-    break;
-  default:
+  if (!IsInstrumentableShaderKind(shaderKind)) {
     return false;
   }
   llvm::SmallPtrSet<Value *, 16> RayQueryHandles;
