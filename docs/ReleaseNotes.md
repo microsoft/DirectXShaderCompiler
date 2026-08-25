@@ -33,6 +33,9 @@ line upon naming the release. Refer to previous for appropriate section names.
 - Fix a crash generating DXIL from sources containing a dynamic resource heap
   access that was discarded. Identified during development of SPIR-V support for
   [descriptor heaps](https://github.com/microsoft/DirectXShaderCompiler/pull/8517#discussion_r3752113078).
+- SPIR-V: Fixed a crash when writing to a bitfield member through a
+  `vk::BufferPointer`
+  [#8402](https://github.com/microsoft/DirectXShaderCompiler/issues/8402).
 
 #### HLSL Language
 
