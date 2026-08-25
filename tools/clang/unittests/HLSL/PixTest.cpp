@@ -116,6 +116,12 @@ public:
   TEST_METHOD(CompileDebugDisasmPDB)
 
   TEST_METHOD(AddToASPayload)
+  TEST_METHOD(AddToASPayload_TailPadding)
+  TEST_METHOD(AddToASPayload_NearLimitPayloadIsNotExpanded)
+  TEST_METHOD(MeshShaderOutput_UnreadPayloadStillInstruments)
+  TEST_METHOD(MeshShaderOutput_NearLimitPayloadSkipsExpansion)
+  TEST_METHOD(Validation_MeshShaderOutput_And_AmplificationPayload)
+  TEST_METHOD(AddToASPayload_ExpandedAllocaKeepsTheNaturalAlignment)
   TEST_METHOD(AddToASGroupSharedPayload)
   TEST_METHOD(AddToASGroupSharedPayload_MeshletCullSample)
   TEST_METHOD(SignatureModification_Empty)
@@ -901,14 +907,22 @@ public:
                            size_t index, const char *name);
   PassOutput RunShaderAccessTrackingPass(
       IDxcBlob *blob, const wchar_t *config = L"U0:0:10i0;U0:1:2i0;.0;0;0.");
+  CComPtr<IDxcBlob> RunDxilPIXAddTidToAmplificationShaderPayloadPass(
+      IDxcBlob *blob, std::string *outputText = nullptr);
   CComPtr<IDxcBlob>
-  RunDxilPIXAddTidToAmplificationShaderPayloadPass(IDxcBlob *blob);
-  CComPtr<IDxcBlob> RunDxilPIXMeshShaderOutputPass(IDxcBlob *blob);
+  RunDxilPIXMeshShaderOutputPass(IDxcBlob *blob,
+                                 std::wstring const &additionalOptions = L"",
+                                 std::string *outputText = nullptr);
   CComPtr<IDxcBlob>
   RunDxilPIXDXRInvocationsLog(IDxcBlob *blob, unsigned maxNumEntriesInLog = 24);
   PassOutput
   RunDxilNonUniformResourceIndexInstrumentation(IDxcBlob *blob,
                                                 std::string &outputText);
+  void
+  VerifyDeclaredPayloadSizeMatchesExpandedStruct(IDxcBlob *optimizedModule);
+  void
+  VerifyPayloadWasNotExpandedAndPayloadSizeIs(IDxcBlob *optimizedModule,
+                                              unsigned expectedPayloadSize);
   void TestNuriCase(const char *source, const wchar_t *target,
                     uint32_t expectedResult);
   void TestPixUAVCase(char const *hlsl, wchar_t const *model,
@@ -1224,24 +1238,29 @@ PassOutput PixTest::RunShaderAccessTrackingPass(IDxcBlob *blob,
   return ret;
 }
 
-CComPtr<IDxcBlob> PixTest::RunDxilPIXMeshShaderOutputPass(IDxcBlob *blob) {
+CComPtr<IDxcBlob>
+PixTest::RunDxilPIXMeshShaderOutputPass(IDxcBlob *blob,
+                                        std::wstring const &additionalOptions,
+                                        std::string *outputText) {
   CComPtr<IDxcBlob> dxil = FindModule(DFCC_ShaderDebugInfoDXIL, blob);
   CComPtr<IDxcOptimizer> pOptimizer;
   VERIFY_SUCCEEDED(
       m_dllSupport.CreateInstance(CLSID_DxcOptimizer, &pOptimizer));
   std::vector<LPCWSTR> Options;
   Options.push_back(L"-opt-mod-passes");
-  Options.push_back(L"-hlsl-dxil-pix-meshshader-output-instrumentation,expand-"
-                    L"payload=1,UAVSize=8192");
+  std::wstring passOption =
+      L"-hlsl-dxil-pix-meshshader-output-instrumentation,expand-payload=1,"
+      L"UAVSize=8192";
+  passOption += additionalOptions;
+  Options.push_back(passOption.c_str());
 
   CComPtr<IDxcBlob> pOptimizedModule;
   CComPtr<IDxcBlobEncoding> pText;
   VERIFY_SUCCEEDED(pOptimizer->RunOptimizer(
       dxil, Options.data(), Options.size(), &pOptimizedModule, &pText));
 
-  std::string outputText;
-  if (pText->GetBufferSize() != 0) {
-    outputText = reinterpret_cast<const char *>(pText->GetBufferPointer());
+  if (outputText != nullptr) {
+    *outputText = BlobToUtf8(pText);
   }
 
   return pOptimizedModule;
@@ -1313,8 +1332,8 @@ PassOutput PixTest::RunDxilNonUniformResourceIndexInstrumentation(
   return result;
 }
 
-CComPtr<IDxcBlob>
-PixTest::RunDxilPIXAddTidToAmplificationShaderPayloadPass(IDxcBlob *blob) {
+CComPtr<IDxcBlob> PixTest::RunDxilPIXAddTidToAmplificationShaderPayloadPass(
+    IDxcBlob *blob, std::string *outputText) {
   CComPtr<IDxcBlob> dxil = FindModule(DFCC_ShaderDebugInfoDXIL, blob);
   CComPtr<IDxcOptimizer> pOptimizer;
   VERIFY_SUCCEEDED(
@@ -1329,7 +1348,49 @@ PixTest::RunDxilPIXAddTidToAmplificationShaderPayloadPass(IDxcBlob *blob) {
   VERIFY_SUCCEEDED(pOptimizer->RunOptimizer(
       dxil, Options.data(), Options.size(), &pOptimizedModule, &pText));
 
+  if (outputText != nullptr) {
+    *outputText = BlobToUtf8(pText);
+  }
+
   return pOptimizedModule;
+}
+
+void PixTest::VerifyDeclaredPayloadSizeMatchesExpandedStruct(
+    IDxcBlob *optimizedModule) {
+  CComPtr<IDxcBlob> container =
+      pix_test::WrapInNewContainer(m_dllSupport, optimizedModule);
+  ModuleAndHangersOn moduleEtc(container);
+  DxilModule &DM = moduleEtc.GetDxilModule();
+  llvm::Module *M = DM.GetModule();
+  llvm::StructType *expandedType = M->getTypeByName("PIX_AS2MS_Expanded_Type");
+  VERIFY_IS_NOT_NULL(expandedType);
+
+  unsigned allocSize =
+      (unsigned)M->getDataLayout().getTypeAllocSize(expandedType);
+  const DxilFunctionProps &props =
+      DM.GetDxilFunctionProps(DM.GetEntryFunction());
+  unsigned declaredSize = props.IsAS()
+                              ? props.ShaderProps.AS.payloadSizeInBytes
+                              : props.ShaderProps.MS.payloadSizeInBytes;
+  VERIFY_ARE_EQUAL(allocSize, declaredSize);
+}
+
+void PixTest::VerifyPayloadWasNotExpandedAndPayloadSizeIs(
+    IDxcBlob *optimizedModule, unsigned expectedPayloadSize) {
+  CComPtr<IDxcBlob> container =
+      pix_test::WrapInNewContainer(m_dllSupport, optimizedModule);
+  ModuleAndHangersOn moduleEtc(container);
+  DxilModule &DM = moduleEtc.GetDxilModule();
+  llvm::Module *M = DM.GetModule();
+  llvm::StructType *expandedType = M->getTypeByName("PIX_AS2MS_Expanded_Type");
+  VERIFY_IS_NULL(expandedType);
+
+  const DxilFunctionProps &props =
+      DM.GetDxilFunctionProps(DM.GetEntryFunction());
+  unsigned declaredSize = props.IsAS()
+                              ? props.ShaderProps.AS.payloadSizeInBytes
+                              : props.ShaderProps.MS.payloadSizeInBytes;
+  VERIFY_ARE_EQUAL(expectedPayloadSize, declaredSize);
 }
 
 static bool HasDeclaration(const std::string &disassembly,
@@ -1387,6 +1448,7 @@ void MSMain(
   auto asOutput = RunDxilPIXAddTidToAmplificationShaderPayloadPass(as);
   VERIFY_IS_FALSE(HasDeclarationLine(Disassemble(asOutput),
                                      originalDispatchMeshDeclaration));
+  VerifyDeclaredPayloadSizeMatchesExpandedStruct(asOutput);
 
   auto ms = Compile(m_dllSupport, hlsl, L"ms_6_6", {}, L"MSMain");
   const std::string originalGetMeshPayloadDeclaration =
@@ -1403,6 +1465,308 @@ void MSMain(
       HasDeclaration(meshDisassembly, "dx.op.storeVertexOutput.i16"));
   VERIFY_IS_FALSE(
       HasDeclaration(meshDisassembly, "dx.op.storeVertexOutput.f16"));
+  VerifyDeclaredPayloadSizeMatchesExpandedStruct(msOutput);
+}
+
+TEST_F(PixTest, AddToASPayload_TailPadding) {
+  const char *hlsl = R"(
+struct MyPayload
+{
+    double d;
+    float f1;
+    float f2;
+};
+
+[numthreads(1, 1, 1)]
+void ASMain(uint gid : SV_GroupID)
+{
+    MyPayload payload;
+    payload.d = (double)gid;
+    payload.f1 = (float)gid / 4.f;
+    payload.f2 = (float)gid * 4.f;
+    DispatchMesh(1, 1, 1, payload);
+}
+
+struct PSInput
+{
+    float4 position : SV_POSITION;
+};
+
+[outputtopology("triangle")]
+[numthreads(3, 1, 1)]
+void MSMain(
+    in payload MyPayload small,
+    in uint tid : SV_GroupThreadID,
+    out vertices PSInput verts[3],
+    out indices uint3 triangles[1])
+{
+    SetMeshOutputCounts(3, 1);
+    verts[tid].position = float4(small.f1, small.f2, (float)small.d, 0);
+    triangles[0] = uint3(0, 1, 2);
+}
+)";
+
+  auto as = Compile(m_dllSupport, hlsl, L"as_6_6", {}, L"ASMain");
+  auto asOutput = RunDxilPIXAddTidToAmplificationShaderPayloadPass(as);
+  VerifyDeclaredPayloadSizeMatchesExpandedStruct(asOutput);
+
+  auto ms = Compile(m_dllSupport, hlsl, L"ms_6_6", {}, L"MSMain");
+  auto msOutput = RunDxilPIXMeshShaderOutputPass(ms);
+  VerifyDeclaredPayloadSizeMatchesExpandedStruct(msOutput);
+}
+
+TEST_F(PixTest, AddToASPayload_NearLimitPayloadIsNotExpanded) {
+  const char *hlsl = R"(
+struct NearLimitPayload
+{
+    uint values[4094];
+};
+
+[numthreads(1, 1, 1)]
+void ASMain()
+{
+    NearLimitPayload payload;
+    payload.values[0] = 1;
+    DispatchMesh(1, 1, 1, payload);
+}
+)";
+
+  auto as = Compile(m_dllSupport, hlsl, L"as_6_6", {}, L"ASMain");
+  auto asOutput = RunDxilPIXAddTidToAmplificationShaderPayloadPass(as);
+  VerifyPayloadWasNotExpandedAndPayloadSizeIs(asOutput,
+                                              4094 * sizeof(uint32_t));
+}
+
+TEST_F(PixTest, MeshShaderOutput_UnreadPayloadStillInstruments) {
+  const char *hlsl = R"(
+struct UnreadPayload
+{
+    double d;
+    float f1;
+    float f2;
+};
+
+[numthreads(1, 1, 1)]
+void ASMain(uint gid : SV_GroupID)
+{
+    UnreadPayload payload;
+    payload.d = (double)gid;
+    payload.f1 = (float)gid;
+    payload.f2 = (float)gid;
+    DispatchMesh(1, 1, 1, payload);
+}
+
+struct PSInput
+{
+    float4 position : SV_POSITION;
+};
+
+[outputtopology("triangle")]
+[numthreads(3, 1, 1)]
+void MSMain(
+    in payload UnreadPayload payload,
+    in uint tid : SV_GroupThreadID,
+    out vertices PSInput verts[3],
+    out indices uint3 triangles[1])
+{
+    SetMeshOutputCounts(3, 1);
+    verts[tid].position = float4((float)tid, 0, 0, 1);
+    triangles[0] = uint3(0, 1, 2);
+}
+)";
+
+  auto ms = Compile(m_dllSupport, hlsl, L"ms_6_6", {}, L"MSMain");
+  auto msWithoutPayloadLayout = RunDxilPIXMeshShaderOutputPass(ms);
+  const std::string disassemblyWithoutPayloadLayout =
+      Disassemble(msWithoutPayloadLayout);
+  VERIFY_ARE_NOT_EQUAL(std::string::npos,
+                       disassemblyWithoutPayloadLayout.find("GroupIdX"));
+  VERIFY_ARE_NOT_EQUAL(std::string::npos, disassemblyWithoutPayloadLayout.find(
+                                              "PIX_DebugUAV_Handle"));
+  VERIFY_ARE_EQUAL(std::string::npos, disassemblyWithoutPayloadLayout.find(
+                                          "PIX_AS2MS_Expanded_Type"));
+  VerifyInstrumentedModuleIsValid(msWithoutPayloadLayout,
+                                  "mesh shader output instrumentation");
+
+  auto as = Compile(m_dllSupport, hlsl, L"as_6_6", {}, L"ASMain");
+  std::string asPassOutput;
+  auto asOutput =
+      RunDxilPIXAddTidToAmplificationShaderPayloadPass(as, &asPassOutput);
+  VerifyDeclaredPayloadSizeMatchesExpandedStruct(asOutput);
+  VERIFY_ARE_NOT_EQUAL(std::string::npos,
+                       asPassOutput.find("ExpandedPayloadSize:32"));
+  VERIFY_ARE_NOT_EQUAL(
+      std::string::npos,
+      asPassOutput.find("ExpandedPayloadAppendedFieldsOffset:16"));
+
+  auto msOutput = RunDxilPIXMeshShaderOutputPass(
+      ms, L",expanded-payload-size=32,expanded-payload-offset=16");
+  VerifyDeclaredPayloadSizeMatchesExpandedStruct(msOutput);
+  const std::string disassembly = Disassemble(msOutput);
+  VERIFY_ARE_NOT_EQUAL(std::string::npos,
+                       disassembly.find("PIX_DebugUAV_Handle"));
+  VERIFY_ARE_NOT_EQUAL(std::string::npos,
+                       disassembly.find("PIX_AS2MS_Expanded_Type"));
+  VerifyInstrumentedModuleIsValid(msOutput,
+                                  "mesh shader output instrumentation");
+}
+
+TEST_F(PixTest, MeshShaderOutput_NearLimitPayloadSkipsExpansion) {
+  const char *hlsl = R"(
+struct NearLimitPayload
+{
+    uint values[4094];
+};
+
+struct PSInput
+{
+    float4 position : SV_POSITION;
+};
+
+[outputtopology("triangle")]
+[numthreads(1, 1, 1)]
+void MSMain(
+    in payload NearLimitPayload payload,
+    out vertices PSInput verts[3],
+    out indices uint3 triangles[1])
+{
+    SetMeshOutputCounts(3, 1);
+    verts[0].position = float4((float)payload.values[0], 0, 0, 1);
+    verts[1].position = float4(0, 1, 0, 1);
+    verts[2].position = float4(0, 0, 1, 1);
+    triangles[0] = uint3(0, 1, 2);
+}
+)";
+
+  auto ms = Compile(m_dllSupport, hlsl, L"ms_6_6", {}, L"MSMain");
+  auto msOutput = RunDxilPIXMeshShaderOutputPass(ms);
+  VerifyPayloadWasNotExpandedAndPayloadSizeIs(msOutput,
+                                              4094 * sizeof(uint32_t));
+  VERIFY_ARE_NOT_EQUAL(std::string::npos,
+                       Disassemble(msOutput).find("PIX_DebugUAV_Handle"));
+
+  const char *readPayloadHlsl = R"(
+struct Payload
+{
+    uint value;
+};
+
+struct PSInput
+{
+    float4 position : SV_POSITION;
+};
+
+[outputtopology("triangle")]
+[numthreads(3, 1, 1)]
+void MSMain(
+    in payload Payload payload,
+    in uint tid : SV_GroupThreadID,
+    out vertices PSInput verts[3],
+    out indices uint3 triangles[1])
+{
+    SetMeshOutputCounts(3, 1);
+    verts[tid].position = float4((float)payload.value, 0, 0, 1);
+    triangles[0] = uint3(0, 1, 2);
+}
+)";
+
+  auto readPayload =
+      Compile(m_dllSupport, readPayloadHlsl, L"ms_6_6", {}, L"MSMain");
+  std::string passOutput;
+  auto incompatibleLayoutOutput = RunDxilPIXMeshShaderOutputPass(
+      readPayload, L",expanded-payload-size=16,expanded-payload-offset=6",
+      &passOutput);
+  VERIFY_ARE_NOT_EQUAL(std::string::npos,
+                       passOutput.find("MeshPayloadExpansionFailed"));
+  VerifyPayloadWasNotExpandedAndPayloadSizeIs(incompatibleLayoutOutput,
+                                              sizeof(uint32_t));
+  VERIFY_ARE_NOT_EQUAL(
+      std::string::npos,
+      Disassemble(incompatibleLayoutOutput).find("getMeshPayload"));
+  VerifyInstrumentedModuleIsValid(incompatibleLayoutOutput,
+                                  "mesh shader output instrumentation");
+}
+
+TEST_F(PixTest, Validation_MeshShaderOutput_And_AmplificationPayload) {
+  const char *hlsl = R"(
+struct MyPayload
+{
+    double d;
+    float f1;
+    float f2;
+};
+
+[numthreads(1, 1, 1)]
+void ASMain(uint gid : SV_GroupID)
+{
+    MyPayload payload;
+    payload.d = (double)gid;
+    payload.f1 = (float)gid / 4.f;
+    payload.f2 = (float)gid * 4.f;
+    DispatchMesh(1, 1, 1, payload);
+}
+
+struct PSInput
+{
+    float4 position : SV_POSITION;
+};
+
+[outputtopology("triangle")]
+[numthreads(3, 1, 1)]
+void MSMain(
+    in payload MyPayload small,
+    in uint tid : SV_GroupThreadID,
+    out vertices PSInput verts[3],
+    out indices uint3 triangles[1])
+{
+    SetMeshOutputCounts(3, 1);
+    verts[tid].position = float4(small.f1, small.f2, 0, 0);
+    triangles[0] = uint3(0, 1, 2);
+}
+)";
+
+  auto as = Compile(m_dllSupport, hlsl, L"as_6_6", {}, L"ASMain");
+  auto asOutput = RunDxilPIXAddTidToAmplificationShaderPayloadPass(as);
+  VerifyInstrumentedModuleIsValid(asOutput,
+                                  "amplification shader payload expansion");
+
+  auto ms = Compile(m_dllSupport, hlsl, L"ms_6_6", {}, L"MSMain");
+  auto msOutput = RunDxilPIXMeshShaderOutputPass(ms);
+  VerifyInstrumentedModuleIsValid(msOutput,
+                                  "mesh shader output instrumentation");
+}
+
+TEST_F(PixTest, AddToASPayload_ExpandedAllocaKeepsTheNaturalAlignment) {
+  const char *hlsl = R"(
+struct MyPayload
+{
+    double d;
+    float f;
+};
+
+[numthreads(1, 1, 1)]
+void ASMain(uint gid : SV_GroupID)
+{
+    MyPayload payload;
+    payload.d = (double)gid;
+    payload.f = (float)gid;
+    DispatchMesh(1, 1, 1, payload);
+}
+)";
+
+  auto as = Compile(m_dllSupport, hlsl, L"as_6_6", {}, L"ASMain");
+  auto asOutput = RunDxilPIXAddTidToAmplificationShaderPayloadPass(as);
+  auto lines = Tokenize(Disassemble(asOutput), "\n");
+  bool foundAlloca = false;
+  for (auto const &line : lines) {
+    if (line.find("alloca") == std::string::npos ||
+        line.find("NewPayload") == std::string::npos) {
+      continue;
+    }
+    foundAlloca = true;
+    VERIFY_ARE_NOT_EQUAL(std::string::npos, line.find("align 8"));
+  }
+  VERIFY_IS_TRUE(foundAlloca);
 }
 unsigned FindOrAddVSInSignatureElementForInstanceOrVertexID(
     hlsl::DxilSignature &InputSignature, hlsl::DXIL::SemanticKind semanticKind);
@@ -4544,9 +4908,9 @@ Texture2D tex[] : register(t0);
 float4 main(float2 uv : TEXCOORD0) : SV_TARGET
 {
     uint i = uv.x + uv.y;
-    Texture2D<float4> dynResTex = 
+    Texture2D<float4> dynResTex =
         ResourceDescriptorHeap[i];
-    SamplerState dynResSampler = 
+    SamplerState dynResSampler =
         SamplerDescriptorHeap[i];
     return dynResTex.Sample(dynResSampler, uv);
 })x";
@@ -4556,9 +4920,9 @@ Texture2D tex[] : register(t0);
 float4 main(float2 uv : TEXCOORD0) : SV_TARGET
 {
     uint i = uv.x + uv.y;
-    Texture2D<float4> dynResTex = 
+    Texture2D<float4> dynResTex =
         ResourceDescriptorHeap[NonUniformResourceIndex(i)];
-    SamplerState dynResSampler = 
+    SamplerState dynResSampler =
         SamplerDescriptorHeap[NonUniformResourceIndex(i)];
     return dynResTex.Sample(dynResSampler, uv);
 })x";
