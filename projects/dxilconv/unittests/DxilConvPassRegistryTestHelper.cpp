@@ -29,15 +29,9 @@ static int VerifyPassRegistration() {
 
   llvm::PassRegistry *Registry = llvm::PassRegistry::getPassRegistry();
   const char *RequiredPasses[] = {
-      "dce",
-      "mem2reg",
-      "assumption-cache-tracker",
-      "red",
-      "loops",
-      "domtree",
-      "dxil-cleanup",
-      "normalizedxil",
-      "scopenested",
+      "dce",           "mem2reg",       "assumption-cache-tracker",
+      "red",           "loops",         "domtree",
+      "dxil-cleanup",  "normalizedxil", "scopenested",
       "scopenestinfo",
   };
   for (const char *PassName : RequiredPasses) {
@@ -72,9 +66,9 @@ static bool CompileShaders(std::vector<CComPtr<ID3DBlob>> &Shaders) {
         std::to_string(Index) + ".0f, position.y, 0.0f, 1.0f); }";
     CComPtr<ID3DBlob> Errors;
     HRESULT Result =
-        D3DCompile(Source.data(), Source.size(), "concurrent-init.hlsl", nullptr,
-                   nullptr, "main", "ps_5_0", D3DCOMPILE_OPTIMIZATION_LEVEL3, 0,
-                   &Shaders[Index], &Errors);
+        D3DCompile(Source.data(), Source.size(), "concurrent-init.hlsl",
+                   nullptr, nullptr, "main", "ps_5_0",
+                   D3DCOMPILE_OPTIMIZATION_LEVEL3, 0, &Shaders[Index], &Errors);
     if (FAILED(Result)) {
       if (Errors)
         std::fwrite(Errors->GetBufferPointer(), 1, Errors->GetBufferSize(),
@@ -125,9 +119,9 @@ static int RunConcurrentConversions() {
   for (unsigned Index = 0; Index < WorkerCount; ++Index) {
     Workers.emplace_back([&, Index]() {
       IDxbcConverter *RawConverter = nullptr;
-      HRESULT Result = CreateInstance(
-          CLSID_DxbcConverter, __uuidof(IDxbcConverter),
-          reinterpret_cast<void **>(&RawConverter));
+      HRESULT Result =
+          CreateInstance(CLSID_DxbcConverter, __uuidof(IDxbcConverter),
+                         reinterpret_cast<void **>(&RawConverter));
       CComPtr<IDxbcConverter> Converter;
       Converter.Attach(RawConverter);
 
@@ -141,8 +135,8 @@ static int RunConcurrentConversions() {
         LPWSTR Diagnostics = nullptr;
         Result = Converter->Convert(
             Shaders[Index]->GetBufferPointer(),
-            static_cast<UINT32>(Shaders[Index]->GetBufferSize()), nullptr, &Dxil,
-            &DxilSize, &Diagnostics);
+            static_cast<UINT32>(Shaders[Index]->GetBufferSize()), nullptr,
+            &Dxil, &DxilSize, &Diagnostics);
         CoTaskMemFree(Dxil);
         CoTaskMemFree(Diagnostics);
       }
