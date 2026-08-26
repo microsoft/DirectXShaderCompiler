@@ -3194,6 +3194,8 @@ public:
   TEST_METHOD(VectorAccumulateDescriptor_Thread_F16);
   TEST_METHOD(VectorAccumulateDescriptor_Thread_F16_Length8_NonZero);
   TEST_METHOD(VectorAccumulateDescriptor_Thread_F32_Length8_NonZero);
+  TEST_METHOD(VectorAccumulateDescriptorContention_Thread_F16);
+  TEST_METHOD(VectorAccumulateDescriptorContention_Thread_F32_OrderInvariant);
 
 private:
   CComPtr<ID3D12Device> D3DDevice;
@@ -8103,15 +8105,23 @@ void DxilConf_SM610_LinAlg::Convert() {
   runConvert(D3DDevice, DxcSupport, VerboseLogging);
 }
 
+// Each vector component carries one digit of the invocation index in base
+// VectorAccumulateVariation, so contending threads all accumulate distinct
+// vectors. A single-threaded dispatch has invocation zero and is unaffected.
+static constexpr UINT VectorAccumulateVariation = 4;
+
 static const char VectorAccumulateDescriptorShader[] = R"(
   ByteAddressBuffer Input : register(t0);
   RWByteAddressBuffer Output : register(u1);
 
-  [numthreads(1, 1, 1)]
-  void main() {
+  [numthreads(NUMTHREADS, 1, 1)]
+  void main(uint3 DispatchID : SV_DispatchThreadID) {
     vector<ELEM_TYPE, VECTOR_LENGTH> InVec;
+    uint Residual = DispatchID.x;
     for (uint I = 0; I < VECTOR_LENGTH; ++I) {
-      InVec[I] = Input.Load<ELEM_TYPE>(I * ELEM_SIZE);
+      InVec[I] = Input.Load<ELEM_TYPE>(I * ELEM_SIZE) +
+                 (ELEM_TYPE)(Residual % THREAD_VARIATION);
+      Residual /= THREAD_VARIATION;
     }
     __builtin_LinAlg_VectorAccumulateToDescriptor(
       Output, START_OFFSET, 64, InVec);
@@ -8123,7 +8133,8 @@ static void runVectorAccumulateDescriptor(
     const cpu_oracle::TypedMatrix &Input,
     const cpu_oracle::TypedMatrix &Initial,
     const cpu_oracle::TypedMatrix &Expected, UINT StartOffsetBytes,
-    std::wstring PublicRule, bool Verbose) {
+    std::wstring PublicRule, bool Verbose, UINT NumThreads = 1,
+    UINT DispatchX = 1) {
   VERIFY_ARE_EQUAL(1u, Input.M, "Vector input must have one row");
   VERIFY_ARE_EQUAL(Input.compType(), Initial.compType(),
                    "Input and destination component types must match");
@@ -8175,18 +8186,19 @@ static void runVectorAccumulateDescriptor(
   Params.CompType = Input.compType();
   Params.M = Input.M;
   Params.N = Input.N;
-  Params.NumThreads = 1;
+  Params.NumThreads = static_cast<int>(NumThreads);
   Params.Enable16Bit = Input.compType() == ComponentType::F16;
   std::stringstream ExtraDefs;
   ExtraDefs << "-DVECTOR_LENGTH=" << Input.totalElements();
   ExtraDefs << " -DSTART_OFFSET=" << StartOffsetBytes;
+  ExtraDefs << " -DTHREAD_VARIATION=" << VectorAccumulateVariation;
   const std::string Args = buildCompilerArgs(Params, ExtraDefs.str().c_str());
 
   compileShader(DxcSupport, VectorAccumulateDescriptorShader, "cs_6_10", Args,
                 Verbose);
 
   auto Op = createComputeOp(VectorAccumulateDescriptorShader, "cs_6_10",
-                            "SRV(t0), UAV(u1)", Args.c_str());
+                            "SRV(t0), UAV(u1)", Args.c_str(), DispatchX);
   addSRVBuffer(Op.get(), "Input", InputBytes.size(), "byname");
   addUAVBuffer(Op.get(), "Output", InitialBytes.size(), true, "byname");
   addRootView(Op.get(), 0, "Input");
@@ -8329,6 +8341,108 @@ void DxilConf_SM610_LinAlg::
       L"Exact F32 length-8 accumulation at a non-zero offset onto non-zero "
       L"values with guard lanes",
       VerboseLogging);
+}
+
+// The single-threaded cases above show that an accumulation lands, not that
+// concurrent accumulations all land. These dispatch many threads across many
+// groups at one destination. Each component carries one base-four digit of the
+// invocation index, so no two invocations contribute the same vector and a
+// dropped update cannot be cancelled by a duplicated one.
+static constexpr UINT VectorContentionThreads = 64;
+static constexpr UINT VectorContentionGroups = 4;
+static constexpr UINT VectorContentionInvocations = 256;
+
+static_assert(
+    VectorContentionInvocations ==
+        VectorContentionThreads * VectorContentionGroups,
+    "The expected values below are derived for this many invocations");
+static_assert(VectorContentionInvocations ==
+                  VectorAccumulateVariation * VectorAccumulateVariation *
+                      VectorAccumulateVariation * VectorAccumulateVariation,
+              "Each of the four vector components carries one base-four digit "
+              "of the invocation index, so the expected sums hold only when "
+              "every digit combination occurs exactly once");
+
+void DxilConf_SM610_LinAlg::VectorAccumulateDescriptorContention_Thread_F16() {
+  if (!accumulateStoreApplicable(
+          D3DDevice, ComponentType::F16,
+          linalg_test::AtomicDestination::RWByteAddressBuffer,
+          L"VectorAccumulateDescriptorContention_Thread_F16"))
+    return;
+
+  // Invocation t adds digit I of t in base four to element I, on top of the
+  // base vector {1, 2, 3, 4}. Each digit value occurs 64 times in each
+  // position, so element I accumulates 256 * (I + 1) + 384. The largest result
+  // is 13 + 1408 = 1421 and every partial sum is a smaller integer, so all are
+  // exact in F16 and the comparison can be for equality. The last two elements
+  // are guards the accumulation must not reach.
+  const auto Half = [](float Value) { return HLSLHalf_t(Value); };
+  const std::optional<cpu_oracle::TypedMatrix> Input =
+      cpu_oracle::makeTypedMatrix<HLSLHalf_t>(
+          1, 4, {Half(1), Half(2), Half(3), Half(4)});
+  const std::optional<cpu_oracle::TypedMatrix> Initial =
+      cpu_oracle::makeTypedMatrix<HLSLHalf_t>(
+          1, 6,
+          {Half(10), Half(11), Half(12), Half(13), Half(777), Half(-777)});
+  const std::optional<cpu_oracle::TypedMatrix> Expected =
+      cpu_oracle::makeTypedMatrix<HLSLHalf_t>(1, 6,
+                                              {Half(650), Half(907), Half(1164),
+                                               Half(1421), Half(777),
+                                               Half(-777)});
+  VERIFY_IS_TRUE(Input.has_value());
+  VERIFY_IS_TRUE(Initial.has_value());
+  VERIFY_IS_TRUE(Expected.has_value());
+  if (!Input)
+    return;
+  if (!Initial)
+    return;
+  if (!Expected)
+    return;
+
+  runVectorAccumulateDescriptor(
+      D3DDevice, DxcSupport, *Input, *Initial, *Expected,
+      /*StartOffsetBytes=*/0,
+      L"Exact F16 vector descriptor accumulation under contention from many "
+      L"threads across many groups",
+      VerboseLogging, VectorContentionThreads, VectorContentionGroups);
+}
+
+void DxilConf_SM610_LinAlg::
+    VectorAccumulateDescriptorContention_Thread_F32_OrderInvariant() {
+  if (!accumulateStoreApplicable(
+          D3DDevice, ComponentType::F32,
+          linalg_test::AtomicDestination::RWByteAddressBuffer,
+          L"VectorAccumulateDescriptorContention_Thread_F32_OrderInvariant"))
+    return;
+
+  // The same distribution as above, reaching 23 + 1408 = 1431. Every partial
+  // sum is an integer well inside the range F32 represents exactly, so no
+  // ordering of the atomic additions can round differently and the result
+  // cannot depend on the order the hardware happens to apply them.
+  const std::optional<cpu_oracle::TypedMatrix> Input =
+      cpu_oracle::makeTypedMatrix<float>(1, 4, {1, 2, 3, 4});
+  const std::optional<cpu_oracle::TypedMatrix> Initial =
+      cpu_oracle::makeTypedMatrix<float>(1, 6,
+                                         {20, 21, 22, 23, 123456, -654321});
+  const std::optional<cpu_oracle::TypedMatrix> Expected =
+      cpu_oracle::makeTypedMatrix<float>(
+          1, 6, {660, 917, 1174, 1431, 123456, -654321});
+  VERIFY_IS_TRUE(Input.has_value());
+  VERIFY_IS_TRUE(Initial.has_value());
+  VERIFY_IS_TRUE(Expected.has_value());
+  if (!Input)
+    return;
+  if (!Initial)
+    return;
+  if (!Expected)
+    return;
+
+  runVectorAccumulateDescriptor(
+      D3DDevice, DxcSupport, *Input, *Initial, *Expected,
+      /*StartOffsetBytes=*/64,
+      L"Order-independent F32 vector descriptor accumulation under contention "
+      L"from many threads across many groups",
+      VerboseLogging, VectorContentionThreads, VectorContentionGroups);
 }
 
 void DxilConf_SM610_LinAlg::MatVecMul_Thread_4x8_F16_NonUniform() {
