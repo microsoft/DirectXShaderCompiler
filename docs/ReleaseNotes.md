@@ -30,9 +30,8 @@ line upon naming the release. Refer to previous for appropriate section names.
 
 #### SPIR-V
 
-- Functions can now be decorated with inline SPIR-V. `[[vk::ext_capability]]`
-  and `[[vk::ext_extension]]` are now honored on ordinary functions
-  [#8616](https://github.com/microsoft/DirectXShaderCompiler/pull/8616)
+- `[[vk::ext_decorate]]`, `[[vk::ext_capability]]`, and `[[vk::ext_extension]]`
+  are now honored on ordinary functions
   [#8719](https://github.com/microsoft/DirectXShaderCompiler/pull/8719).
 
 #### Bug Fixes
