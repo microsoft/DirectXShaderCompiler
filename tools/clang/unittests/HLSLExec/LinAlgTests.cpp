@@ -8105,9 +8105,9 @@ void DxilConf_SM610_LinAlg::Convert() {
   runConvert(D3DDevice, DxcSupport, VerboseLogging);
 }
 
-// The base each vector component carries one digit of the invocation index in,
-// so contending threads all accumulate distinct vectors. A single-threaded
-// dispatch always has invocation zero and so is unaffected.
+// Each vector component carries one digit of the invocation index in base
+// VectorAccumulateVariation, so contending threads all accumulate distinct
+// vectors. A single-threaded dispatch has invocation zero and is unaffected.
 static constexpr UINT VectorAccumulateVariation = 4;
 
 static const char VectorAccumulateDescriptorShader[] = R"(
