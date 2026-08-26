@@ -1553,56 +1553,66 @@ static void ValidateLinAlgConvert(CallInst *CI, ValidationContext &ValCtx) {
   VectorType *InVecTy = cast<VectorType>(Op.get_inputVector()->getType());
 
   // Input interp must be a immarg of allowed ComponentType
-  std::optional<uint64_t> InputInterpV = ValidateConstantIntGetValue(
-      CI, Op.get_inputInterpretation(), ValCtx, "InputInterpretation", "LinAlgConvert");
+  std::optional<uint64_t> InputInterpV =
+      ValidateConstantIntGetValue(CI, Op.get_inputInterpretation(), ValCtx,
+                                  "InputInterpretation", "LinAlgConvert");
   if (!InputInterpV)
     return;
-  DXIL::ComponentType InputInterp = static_cast<DXIL::ComponentType>(*InputInterpV);
+  DXIL::ComponentType InputInterp =
+      static_cast<DXIL::ComponentType>(*InputInterpV);
   ValidateLinAlgComponentType(CI, InputInterp, ValCtx, "InputInterpretation");
 
   // Output interp must be a immarg of allowed ComponentType
-  std::optional<uint64_t> OutputInterpV = ValidateConstantIntGetValue(
-      CI, Op.get_outputInterpretation(), ValCtx, "OutputInterpretation", "LinAlgConvert");
+  std::optional<uint64_t> OutputInterpV =
+      ValidateConstantIntGetValue(CI, Op.get_outputInterpretation(), ValCtx,
+                                  "OutputInterpretation", "LinAlgConvert");
   if (!OutputInterpV)
     return;
-  DXIL::ComponentType OutputInterp = static_cast<DXIL::ComponentType>(*OutputInterpV);
+  DXIL::ComponentType OutputInterp =
+      static_cast<DXIL::ComponentType>(*OutputInterpV);
   ValidateLinAlgComponentType(CI, OutputInterp, ValCtx, "OutputInterpretation");
 
   bool IsNativeInputInterp = IsComponentTypeNative(InputInterp);
   bool IsNativeOutputInterp = IsComponentTypeNative(OutputInterp);
 
-  // If input interp is native then input vector element type must match that type
-  if (IsNativeInputInterp && !IsComponentTypeSameNativeType(InputInterp, InVecTy->getElementType()))
+  // If input interp is native then input vector element type must match that
+  // type
+  if (IsNativeInputInterp &&
+      !IsComponentTypeSameNativeType(InputInterp, InVecTy->getElementType()))
     ValCtx.EmitInstrFormatError(
         CI, ValidationRule::InstrLinAlgMatrixVectorTypeMustMatch,
-        {"Input", TypeToString(InVecTy->getElementType()), "InputInterpretation",
-         ComponentTypeToString(InputInterp)});
+        {"Input", TypeToString(InVecTy->getElementType()),
+         "InputInterpretation", ComponentTypeToString(InputInterp)});
 
   // If input interp is non-native then input vector element type must be i32
   if (!IsNativeInputInterp && !InVecTy->getElementType()->isIntegerTy(32))
     ValCtx.EmitInstrFormatError(
         CI, ValidationRule::InstrLinAlgMatrixVectorTypeMustMatchPacked,
-        {"Input", TypeToString(InVecTy->getElementType()), "InputInterpretation",
-         ComponentTypeToString(InputInterp)});
+        {"Input", TypeToString(InVecTy->getElementType()),
+         "InputInterpretation", ComponentTypeToString(InputInterp)});
 
-  // If output interp is native then output vector element type must match that type
-  if (IsNativeOutputInterp && !IsComponentTypeSameNativeType(OutputInterp, RetVecTy->getElementType()))
+  // If output interp is native then output vector element type must match that
+  // type
+  if (IsNativeOutputInterp &&
+      !IsComponentTypeSameNativeType(OutputInterp, RetVecTy->getElementType()))
     ValCtx.EmitInstrFormatError(
         CI, ValidationRule::InstrLinAlgMatrixVectorTypeMustMatch,
-        {"Output", TypeToString(RetVecTy->getElementType()), "OutputInterpretation",
-         ComponentTypeToString(OutputInterp)});
+        {"Output", TypeToString(RetVecTy->getElementType()),
+         "OutputInterpretation", ComponentTypeToString(OutputInterp)});
 
   // If output interp is non-native then output vector element type must be i32
   if (!IsNativeOutputInterp && !RetVecTy->getElementType()->isIntegerTy(32))
     ValCtx.EmitInstrFormatError(
         CI, ValidationRule::InstrLinAlgMatrixVectorTypeMustMatchPacked,
-        {"Output", TypeToString(RetVecTy->getElementType()), "OutputInterpretation",
-         ComponentTypeToString(OutputInterp)});
+        {"Output", TypeToString(RetVecTy->getElementType()),
+         "OutputInterpretation", ComponentTypeToString(OutputInterp)});
 
   // output vector length must be properly converted from input length
-  unsigned InputElemCount = InVecTy->getNumElements() * ComponentTypeElementsPerScalar(InputInterp);
+  unsigned InputElemCount =
+      InVecTy->getNumElements() * ComponentTypeElementsPerScalar(InputInterp);
   unsigned OutputElemPerScalar = ComponentTypeElementsPerScalar(OutputInterp);
-  unsigned ExpectedOutVecSize = (InputElemCount + OutputElemPerScalar - 1) / OutputElemPerScalar;
+  unsigned ExpectedOutVecSize =
+      (InputElemCount + OutputElemPerScalar - 1) / OutputElemPerScalar;
   if (RetVecTy->getNumElements() != ExpectedOutVecSize)
     ValCtx.EmitInstrFormatError(
         CI, ValidationRule::InstrLinAlgMatrixDimVectorMismatch,
