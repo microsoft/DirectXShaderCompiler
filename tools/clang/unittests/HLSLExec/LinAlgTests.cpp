@@ -1766,6 +1766,35 @@ static std::optional<BYTE> encodeHalfToFP8(HLSLHalf_t Value,
       DestinationMantissa);
 }
 
+static std::optional<float> decodeFP8ToFloat(BYTE Encoded,
+                                             ComponentType CompType) {
+  const std::optional<FP8Format> Format = getFP8Format(CompType);
+  if (!Format)
+    return std::nullopt;
+
+  const unsigned MantissaMask = (1u << Format->MantissaBits) - 1;
+  const unsigned MaxExponent = (1u << Format->ExponentBits) - 1;
+  const unsigned Exponent = (Encoded >> Format->MantissaBits) & MaxExponent;
+  const unsigned Mantissa = Encoded & MantissaMask;
+  const float Sign = (Encoded & 0x80) != 0 ? -1.0f : 1.0f;
+
+  if (Exponent == MaxExponent &&
+      (Format->HasInfinity || Mantissa == MantissaMask))
+    return std::nullopt;
+  if (Exponent == 0)
+    return Mantissa == 0 ? std::optional<float>(Sign * 0.0f) : std::nullopt;
+
+  float Value = static_cast<float>((1u << Format->MantissaBits) | Mantissa);
+  int Scale = static_cast<int>(Exponent) -
+              static_cast<int>(Format->ExponentBias) -
+              static_cast<int>(Format->MantissaBits);
+  for (; Scale > 0; --Scale)
+    Value *= 2.0f;
+  for (; Scale < 0; ++Scale)
+    Value *= 0.5f;
+  return Sign * Value;
+}
+
 namespace matvec_interpretation {
 
 static constexpr size_t OutputGuardBytes = 16;
@@ -1890,6 +1919,8 @@ static bool isEncodableComponentType(ComponentType Type) {
   case ComponentType::F32:
   case ComponentType::I32:
   case ComponentType::U32:
+  case ComponentType::F8_E4M3FN:
+  case ComponentType::F8_E5M2:
     return true;
   default:
     return false;
@@ -1963,6 +1994,23 @@ encodeComponents(ComponentType Type, const std::vector<int64_t> &Values) {
       Native.push_back(Half);
     }
     return encodeNativeVector(Native);
+  }
+  case ComponentType::F8_E4M3FN:
+  case ComponentType::F8_E5M2: {
+    std::vector<BYTE> Bytes;
+    Bytes.reserve(Values.size());
+    for (int64_t Value : Values) {
+      const HLSLHalf_t Half(static_cast<float>(Value));
+      if (static_cast<float>(Half) != static_cast<float>(Value))
+        return reportUnrepresentable(Type, Value);
+      const std::optional<BYTE> Encoded = encodeHalfToFP8(Half, Type);
+      const std::optional<float> RoundTrip =
+          Encoded ? decodeFP8ToFloat(*Encoded, Type) : std::optional<float>();
+      if (!RoundTrip || *RoundTrip != static_cast<float>(Value))
+        return reportUnrepresentable(Type, Value);
+      Bytes.push_back(*Encoded);
+    }
+    return Bytes;
   }
   case ComponentType::F32: {
     std::vector<float> Native;
@@ -2535,6 +2583,30 @@ static CaseData makeUInt32OutputCase() {
   return Case;
 }
 
+static CaseData makeFP8MatrixCase(ComponentType MatrixType) {
+  CaseData Case = {};
+  Case.MatrixType = MatrixType;
+  Case.M = 4;
+  Case.N = 16;
+  Case.Layout = MatrixLayout::RowMajor;
+  Case.VectorInputType = ComponentType::F16;
+  Case.InputInterpretation = ComponentType::F16;
+  Case.ResultType = ComponentType::F16;
+  Case.MatrixValues = {
+      1,  0,  -1, 2,  -2, 3,  -3, 4,  -4, 8,  -8, 1, 2,  -1, 0,  1,
+      -1, 2,  0,  1,  -2, 1,  3,  -1, 2,  -1, 1,  0, 1,  -3, -2, 3,
+      8,  -8, 4,  -4, 2,  -2, 1,  -1, 0,  1,  2,  3, -3, -2, -1, 0,
+      0,  1,  1,  0,  2,  2,  0,  -1, -1, 0,  4,  4, 0,  -2, -2, 1,
+  };
+  Case.InterpretedVectorValues = {1, -1, 2,  -2, 3, -3, 4,  -4,
+                                  1, 2,  -1, -2, 5, 1,  -1, 2};
+  Case.PublicRule =
+      MatrixType == ComponentType::F8_E4M3FN
+          ? L"Exact F16 vector times FP8 E4M3FN matrix dot products"
+          : L"Exact F16 vector times FP8 E5M2 matrix dot products";
+  return Case;
+}
+
 } // namespace matvec_interpretation
 
 // Harness self-check for the CPU oracle. Deliberately carries no Kits metadata
@@ -2553,6 +2625,7 @@ public:
   TEST_METHOD(ViewBoundedStoreBytes);
   TEST_METHOD(MatVecHostOracle);
   TEST_METHOD(FP8HostOracle);
+  TEST_METHOD(FP8MatrixValueEncoding);
 };
 
 void LinAlgCPUOracleTests::ComponentByteSize() {
@@ -3278,6 +3351,8 @@ public:
   TEST_METHOD(MatVecMul_Thread_4x8_I8_Interpreted);
   TEST_METHOD(MatVecMul_Thread_4x8_U8_Interpreted);
   TEST_METHOD(MatVecMul_Thread_4x8_U32_UnsignedOutput);
+  TEST_METHOD(MatVecMul_Thread_4x16_F8_E4M3FN);
+  TEST_METHOD(MatVecMul_Thread_4x16_F8_E5M2);
   TEST_METHOD(MatVecMulAdd_Thread_16x16_F16);
   TEST_METHOD(MatVecMulAdd_Thread_4x8_F32);
   TEST_METHOD(MatVecMulAdd_Thread_4x8_F16_IndependentBias);
@@ -8597,6 +8672,24 @@ void DxilConf_SM610_LinAlg::MatVecMul_Thread_4x8_U32_UnsignedOutput() {
       L"MatVecMul_Thread_4x8_U32_UnsignedOutput", VerboseLogging);
 }
 
+void DxilConf_SM610_LinAlg::MatVecMul_Thread_4x16_F8_E4M3FN() {
+  const matvec_interpretation::CaseData Case =
+      matvec_interpretation::makeFP8MatrixCase(ComponentType::F8_E4M3FN);
+  matvec_interpretation::runCapabilityChecked(
+      D3DDevice, DxcSupport, Case,
+      linalg_test::CapabilityRequirement::Mandatory,
+      L"MatVecMul_Thread_4x16_F8_E4M3FN", VerboseLogging);
+}
+
+void DxilConf_SM610_LinAlg::MatVecMul_Thread_4x16_F8_E5M2() {
+  const matvec_interpretation::CaseData Case =
+      matvec_interpretation::makeFP8MatrixCase(ComponentType::F8_E5M2);
+  matvec_interpretation::runCapabilityChecked(
+      D3DDevice, DxcSupport, Case,
+      linalg_test::CapabilityRequirement::Mandatory,
+      L"MatVecMul_Thread_4x16_F8_E5M2", VerboseLogging);
+}
+
 void DxilConf_SM610_LinAlg::MatVecMulAdd_Thread_4x8_F16_IndependentBias() {
   matvec_interpretation::CaseData Case =
       matvec_interpretation::makeNonUniformF16Case(MatrixLayout::RowMajor);
@@ -9046,6 +9139,47 @@ void LinAlgCPUOracleTests::FP8HostOracle() {
     // echoed its input would pass the decode half of the execution test.
     VERIFY_IS_TRUE(Vectors->DecodeInput != Vectors->HandEncoded,
                    "FP8 decode input must be independent of encode output");
+  }
+}
+
+void LinAlgCPUOracleTests::FP8MatrixValueEncoding() {
+  struct GoldenEntry {
+    int Value;
+    BYTE E4M3FN;
+    BYTE E5M2;
+  };
+
+  // Hand-derived from the FP8 exponent and mantissa layouts in proposal 0035.
+  const std::vector<GoldenEntry> Golden = {
+      {0, 0x00, 0x00},  {1, 0x38, 0x3c}, {-1, 0xb8, 0xbc}, {2, 0x40, 0x40},
+      {-2, 0xc0, 0xc0}, {3, 0x44, 0x42}, {-3, 0xc4, 0xc2}, {4, 0x48, 0x44},
+      {-4, 0xc8, 0xc4}, {8, 0x50, 0x48}, {-8, 0xd0, 0xc8}};
+
+  for (const GoldenEntry &Entry : Golden) {
+    for (ComponentType CompType :
+         {ComponentType::F8_E4M3FN, ComponentType::F8_E5M2}) {
+      const BYTE Expected =
+          CompType == ComponentType::F8_E4M3FN ? Entry.E4M3FN : Entry.E5M2;
+      const std::optional<BYTE> Encoded = encodeHalfToFP8(
+          HLSLHalf_t(static_cast<float>(Entry.Value)), CompType);
+      if (!Encoded || *Encoded != Expected) {
+        hlsl_test::LogErrorFmt(
+            L"%s encoding of %d is 0x%02x, hand-derived table says 0x%02x",
+            cpu_oracle::componentTypeName(CompType), Entry.Value,
+            Encoded ? *Encoded : 0, Expected);
+        VERIFY_FAIL(L"FP8 encoder disagrees with the hand-derived table");
+        return;
+      }
+
+      const std::optional<float> Decoded = decodeFP8ToFloat(*Encoded, CompType);
+      if (!Decoded || *Decoded != static_cast<float>(Entry.Value)) {
+        hlsl_test::LogErrorFmt(
+            L"%s decoding of 0x%02x did not round-trip the exact value %d",
+            cpu_oracle::componentTypeName(CompType), *Encoded, Entry.Value);
+        VERIFY_FAIL(L"FP8 decoder failed to round-trip an exact value");
+        return;
+      }
+    }
   }
 }
 
