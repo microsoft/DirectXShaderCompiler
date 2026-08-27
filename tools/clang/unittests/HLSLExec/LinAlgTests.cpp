@@ -1688,6 +1688,84 @@ static VariantCompType makeExpectedVec(ComponentType CompType,
                          false);
 }
 
+struct FP8Format {
+  unsigned ExponentBits;
+  unsigned MantissaBits;
+  unsigned ExponentBias;
+  bool HasInfinity;
+};
+
+static std::optional<FP8Format> getFP8Format(ComponentType CompType) {
+  switch (CompType) {
+  case ComponentType::F8_E4M3FN:
+    return FP8Format{/*ExponentBits=*/4, /*MantissaBits=*/3,
+                     /*ExponentBias=*/7, /*HasInfinity=*/false};
+  case ComponentType::F8_E5M2:
+    return FP8Format{/*ExponentBits=*/5, /*MantissaBits=*/2,
+                     /*ExponentBias=*/15, /*HasInfinity=*/true};
+  default:
+    return std::nullopt;
+  }
+}
+
+static std::optional<BYTE> encodeHalfToFP8(HLSLHalf_t Value,
+                                           ComponentType CompType) {
+  const std::optional<FP8Format> Format = getFP8Format(CompType);
+  if (!Format)
+    return std::nullopt;
+
+  const unsigned Sign = Value.Val >> 15;
+  const unsigned SourceExponent = (Value.Val >> 10) & 0x1f;
+  const unsigned SourceMantissa = Value.Val & 0x3ff;
+  if (SourceExponent == 0)
+    return SourceMantissa == 0
+               ? std::optional<BYTE>(static_cast<BYTE>(Sign << 7))
+               : std::nullopt;
+  if (SourceExponent == 0x1f)
+    return std::nullopt;
+
+  int DestinationExponent = static_cast<int>(SourceExponent) - 15 +
+                            static_cast<int>(Format->ExponentBias);
+  if (DestinationExponent <= 0)
+    return std::nullopt;
+
+  const unsigned Shift = 10 - Format->MantissaBits;
+  unsigned DestinationMantissa = SourceMantissa >> Shift;
+  const unsigned Remainder = SourceMantissa & ((1u << Shift) - 1);
+  const unsigned Halfway = 1u << (Shift - 1);
+  if (Remainder > Halfway) {
+    ++DestinationMantissa;
+  } else if (Remainder == Halfway) {
+    // Ties round to even.
+    if (DestinationMantissa & 1u)
+      ++DestinationMantissa;
+  }
+  if (DestinationMantissa == (1u << Format->MantissaBits)) {
+    DestinationMantissa = 0;
+    ++DestinationExponent;
+  }
+
+  const unsigned MaxExponent = (1u << Format->ExponentBits) - 1;
+  const unsigned MaxFiniteExponent =
+      Format->HasInfinity ? MaxExponent - 1 : MaxExponent;
+  if (DestinationExponent > static_cast<int>(MaxFiniteExponent))
+    return std::nullopt;
+  if (!Format->HasInfinity) {
+    // E4M3FN reserves the all-ones significand at the top exponent for NaN.
+    const bool TopExponent =
+        DestinationExponent == static_cast<int>(MaxExponent);
+    const bool AllOnesMantissa =
+        DestinationMantissa == (1u << Format->MantissaBits) - 1;
+    if (TopExponent && AllOnesMantissa)
+      return std::nullopt;
+  }
+
+  return static_cast<BYTE>(
+      (Sign << 7) |
+      (static_cast<unsigned>(DestinationExponent) << Format->MantissaBits) |
+      DestinationMantissa);
+}
+
 namespace matvec_interpretation {
 
 static constexpr size_t OutputGuardBytes = 16;
@@ -8888,84 +8966,6 @@ static void runExactConvert(ID3D12Device *Device,
   Result->Test->GetReadBackData("Output", &OutputData);
   VERIFY_IS_TRUE(verifyConvertBytes(OutputData.data(), OutputData.size(),
                                     Expected, PublicRule, Verbose));
-}
-
-struct FP8Format {
-  unsigned ExponentBits;
-  unsigned MantissaBits;
-  unsigned ExponentBias;
-  bool HasInfinity;
-};
-
-static std::optional<FP8Format> getFP8Format(ComponentType CompType) {
-  switch (CompType) {
-  case ComponentType::F8_E4M3FN:
-    return FP8Format{/*ExponentBits=*/4, /*MantissaBits=*/3,
-                     /*ExponentBias=*/7, /*HasInfinity=*/false};
-  case ComponentType::F8_E5M2:
-    return FP8Format{/*ExponentBits=*/5, /*MantissaBits=*/2,
-                     /*ExponentBias=*/15, /*HasInfinity=*/true};
-  default:
-    return std::nullopt;
-  }
-}
-
-static std::optional<BYTE> encodeHalfToFP8(HLSLHalf_t Value,
-                                           ComponentType CompType) {
-  const std::optional<FP8Format> Format = getFP8Format(CompType);
-  if (!Format)
-    return std::nullopt;
-
-  const unsigned Sign = Value.Val >> 15;
-  const unsigned SourceExponent = (Value.Val >> 10) & 0x1f;
-  const unsigned SourceMantissa = Value.Val & 0x3ff;
-  if (SourceExponent == 0)
-    return SourceMantissa == 0
-               ? std::optional<BYTE>(static_cast<BYTE>(Sign << 7))
-               : std::nullopt;
-  if (SourceExponent == 0x1f)
-    return std::nullopt;
-
-  int DestinationExponent = static_cast<int>(SourceExponent) - 15 +
-                            static_cast<int>(Format->ExponentBias);
-  if (DestinationExponent <= 0)
-    return std::nullopt;
-
-  const unsigned Shift = 10 - Format->MantissaBits;
-  unsigned DestinationMantissa = SourceMantissa >> Shift;
-  const unsigned Remainder = SourceMantissa & ((1u << Shift) - 1);
-  const unsigned Halfway = 1u << (Shift - 1);
-  if (Remainder > Halfway) {
-    ++DestinationMantissa;
-  } else if (Remainder == Halfway) {
-    // Ties round to even.
-    if (DestinationMantissa & 1u)
-      ++DestinationMantissa;
-  }
-  if (DestinationMantissa == (1u << Format->MantissaBits)) {
-    DestinationMantissa = 0;
-    ++DestinationExponent;
-  }
-
-  const unsigned MaxExponent = (1u << Format->ExponentBits) - 1;
-  const unsigned MaxFiniteExponent =
-      Format->HasInfinity ? MaxExponent - 1 : MaxExponent;
-  if (DestinationExponent > static_cast<int>(MaxFiniteExponent))
-    return std::nullopt;
-  if (!Format->HasInfinity) {
-    // E4M3FN reserves the all-ones significand at the top exponent for NaN.
-    const bool TopExponent =
-        DestinationExponent == static_cast<int>(MaxExponent);
-    const bool AllOnesMantissa =
-        DestinationMantissa == (1u << Format->MantissaBits) - 1;
-    if (TopExponent && AllOnesMantissa)
-      return std::nullopt;
-  }
-
-  return static_cast<BYTE>(
-      (Sign << 7) |
-      (static_cast<unsigned>(DestinationExponent) << Format->MantissaBits) |
-      DestinationMantissa);
 }
 
 struct FP8ConvertData {
