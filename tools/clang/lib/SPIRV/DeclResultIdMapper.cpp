@@ -1826,16 +1826,12 @@ SpirvFunction *DeclResultIdMapper::getOrRegisterFn(const FunctionDecl *fn) {
                                spv::LinkageType::Export, fn->getLocation());
   }
 
-  // Honor inline-SPIR-V attributes placed directly on a function. The
-  // entry-point path handles these only for entry functions, and the
-  // vk::ext_instruction path only for functions lowered to an instruction, so a
-  // plain function was previously skipped and these attributes silently
-  // dropped. These reuse the same helpers as the variable/parameter paths:
-  //   [[vk::ext_decorate(d, ...)]]  -> OpDecorate targeting the OpFunction
-  //   [[vk::ext_capability(c)]]     -> OpCapability for the module
-  //   [[vk::ext_extension("...")]]  -> OpExtension for the module
-  decorateWithIntrinsicAttrs(fn, spirvFunction);
-  registerCapabilitiesAndExtensionsForDecl(fn);
+  // Note: inline-SPIR-V attributes on a function are applied in
+  // SpirvEmitter::doFunctionDecl. [[vk::ext_decorate]] is applied only to
+  // non-entry functions; for an entry point it is consumed by the
+  // stage-variable path (decorating interface variables, not the OpFunction).
+  // [[vk::ext_capability]] and [[vk::ext_extension]] are applied to every
+  // function, entry points included.
 
   // No need to dereference to get the pointer. Function returns that are
   // stand-alone aliases are already pointers to values. All other cases should
