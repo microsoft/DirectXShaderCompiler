@@ -342,6 +342,8 @@ void EmitAssemblyHelper::CreatePasses() {
   PMBuilder.HLSLHighLevel = CodeGenOpts.HLSLHighLevel;
   PMBuilder.HLSLAllowPreserveValues = CodeGenOpts.HLSLAllowPreserveValues;
   PMBuilder.HLSLOnlyWarnOnUnrollFail = CodeGenOpts.HLSLOnlyWarnOnUnrollFail;
+  PMBuilder.HLSLUnrollCountIsHint =
+      LangOpts.HLSLVersion >= hlsl::LangStd::v202x;
   PMBuilder.HLSLExtensionsCodeGen = CodeGenOpts.HLSLExtensionsCodegen.get();
   PMBuilder.HLSLResMayAlias = CodeGenOpts.HLSLResMayAlias;
   PMBuilder.ScanLimit = CodeGenOpts.ScanLimit;
