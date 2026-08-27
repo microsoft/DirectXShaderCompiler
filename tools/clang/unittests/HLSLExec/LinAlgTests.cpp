@@ -54,19 +54,30 @@ using VariantCompType = std::variant<std::vector<float>, std::vector<int32_t>,
                                      std::vector<HLSLHalf_t>>;
 using MatrixDim = uint32_t;
 
-/// Return the byte size of a single element for the given component type.
+/// Return the byte size of a single logical element for the given component
+/// type, or zero if the type is not a legal linear algebra component type.
 static uint8_t elementSize(ComponentType CT) {
   switch (CT) {
-  case ComponentType::F16:
+  case ComponentType::I8:
+  case ComponentType::U8:
+  case ComponentType::F8_E4M3FN:
+  case ComponentType::F8_E5M2:
+    return 1;
   case ComponentType::I16:
   case ComponentType::U16:
+  case ComponentType::F16:
+  case ComponentType::BFloat16:
     return 2;
-  case ComponentType::F64:
+  case ComponentType::I32:
+  case ComponentType::U32:
+  case ComponentType::F32:
+    return 4;
   case ComponentType::I64:
   case ComponentType::U64:
+  case ComponentType::F64:
     return 8;
   default:
-    return 4;
+    return 0;
   }
 }
 
@@ -1716,29 +1727,12 @@ static void reportUnsupportedComponentType(LPCWSTR Function,
 }
 
 static std::optional<size_t> componentByteSize(ComponentType Type) {
-  switch (Type) {
-  case ComponentType::I8:
-  case ComponentType::U8:
-  case ComponentType::F8_E4M3FN:
-  case ComponentType::F8_E5M2:
-    return 1;
-  case ComponentType::I16:
-  case ComponentType::U16:
-  case ComponentType::F16:
-  case ComponentType::BFloat16:
-    return 2;
-  case ComponentType::I32:
-  case ComponentType::U32:
-  case ComponentType::F32:
-    return 4;
-  case ComponentType::I64:
-  case ComponentType::U64:
-  case ComponentType::F64:
-    return 8;
-  default:
+  const uint8_t Size = elementSize(Type);
+  if (Size == 0) {
     reportUnexpectedComponentType(L"componentByteSize", Type);
     return std::nullopt;
   }
+  return Size;
 }
 
 static MatrixDim elementsPerScalar(ComponentType Type) {
@@ -2473,6 +2467,7 @@ public:
   TEST_METHOD_PROPERTY(L"Priority", L"0")
   END_TEST_CLASS()
 
+  TEST_METHOD(ComponentByteSize);
   TEST_METHOD(TypedMatrixBufferRoundTrip);
   TEST_METHOD(MatrixProductOracle);
   TEST_METHOD(UntouchedByteVerification);
@@ -2481,6 +2476,40 @@ public:
   TEST_METHOD(MatVecHostOracle);
   TEST_METHOD(FP8HostOracle);
 };
+
+void LinAlgCPUOracleTests::ComponentByteSize() {
+  struct ComponentSizes {
+    ComponentType Type;
+    uint8_t Bytes;
+    MatrixDim PerScalar;
+  };
+
+  // The fourteen component types legal for linear algebra matrices.
+  static constexpr ComponentSizes Expected[] = {
+      {ComponentType::I8, 1, 4},        {ComponentType::U8, 1, 4},
+      {ComponentType::F8_E4M3FN, 1, 4}, {ComponentType::F8_E5M2, 1, 4},
+      {ComponentType::I16, 2, 1},       {ComponentType::U16, 2, 1},
+      {ComponentType::F16, 2, 1},       {ComponentType::BFloat16, 2, 2},
+      {ComponentType::I32, 4, 1},       {ComponentType::U32, 4, 1},
+      {ComponentType::F32, 4, 1},       {ComponentType::I64, 8, 1},
+      {ComponentType::U64, 8, 1},       {ComponentType::F64, 8, 1}};
+
+  for (const ComponentSizes &Case : Expected) {
+    const uint8_t Bytes = elementSize(Case.Type);
+    const MatrixDim PerScalar =
+        matvec_interpretation::elementsPerScalar(Case.Type);
+    if (Bytes != Case.Bytes || PerScalar != Case.PerScalar)
+      hlsl_test::LogErrorFmt(
+          L"ComponentType %u: expected %u bytes and %u per scalar, got %u "
+          L"and %u",
+          static_cast<unsigned>(Case.Type), static_cast<unsigned>(Case.Bytes),
+          Case.PerScalar, static_cast<unsigned>(Bytes), PerScalar);
+    VERIFY_ARE_EQUAL(Case.Bytes, Bytes);
+    VERIFY_ARE_EQUAL(Case.PerScalar, PerScalar);
+  }
+
+  VERIFY_ARE_EQUAL(uint8_t(0), elementSize(ComponentType::Invalid));
+}
 
 void LinAlgCPUOracleTests::TypedMatrixBufferRoundTrip() {
   using namespace cpu_oracle;
