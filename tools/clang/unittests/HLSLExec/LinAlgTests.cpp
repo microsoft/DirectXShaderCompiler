@@ -1781,11 +1781,13 @@ static std::optional<float> decodeFP8ToFloat(BYTE Encoded,
   if (Exponent == MaxExponent &&
       (Format->HasInfinity || Mantissa == MantissaMask))
     return std::nullopt;
-  if (Exponent == 0)
-    return Mantissa == 0 ? std::optional<float>(Sign * 0.0f) : std::nullopt;
+  const bool Subnormal = Exponent == 0;
+  if (Subnormal && Mantissa == 0)
+    return Sign * 0.0f;
 
-  float Value = static_cast<float>((1u << Format->MantissaBits) | Mantissa);
-  int Scale = static_cast<int>(Exponent) -
+  float Value = static_cast<float>(
+      Subnormal ? Mantissa : (1u << Format->MantissaBits) | Mantissa);
+  int Scale = static_cast<int>(Subnormal ? 1u : Exponent) -
               static_cast<int>(Format->ExponentBias) -
               static_cast<int>(Format->MantissaBits);
   for (; Scale > 0; --Scale)
@@ -9179,6 +9181,41 @@ void LinAlgCPUOracleTests::FP8MatrixValueEncoding() {
         VERIFY_FAIL(L"FP8 decoder failed to round-trip an exact value");
         return;
       }
+    }
+  }
+
+  struct SubnormalEntry {
+    ComponentType CompType;
+    BYTE Encoded;
+    float Value;
+  };
+
+  // The Min row of the FP8 format table in proposal 0035 gives S.0000.001 as
+  // 2^-9 for E4M3FN and S.00000.01 as 2^-16 for E5M2, so exponent zero with a
+  // nonzero mantissa is a finite subnormal rather than an invalid encoding.
+  // The encoder never emits these, so they are pinned on the decoder alone.
+  const std::vector<SubnormalEntry> Subnormals = {
+      {ComponentType::F8_E4M3FN, 0x00, 0.0f},
+      {ComponentType::F8_E4M3FN, 0x80, 0.0f},
+      {ComponentType::F8_E4M3FN, 0x01, 1.0f / 512.0f},
+      {ComponentType::F8_E4M3FN, 0x03, 3.0f / 512.0f},
+      {ComponentType::F8_E4M3FN, 0x07, 7.0f / 512.0f},
+      {ComponentType::F8_E4M3FN, 0x81, -1.0f / 512.0f},
+      {ComponentType::F8_E5M2, 0x00, 0.0f},
+      {ComponentType::F8_E5M2, 0x01, 1.0f / 65536.0f},
+      {ComponentType::F8_E5M2, 0x03, 3.0f / 65536.0f},
+      {ComponentType::F8_E5M2, 0x83, -3.0f / 65536.0f}};
+
+  for (const SubnormalEntry &Entry : Subnormals) {
+    const std::optional<float> Decoded =
+        decodeFP8ToFloat(Entry.Encoded, Entry.CompType);
+    if (!Decoded || *Decoded != Entry.Value) {
+      hlsl_test::LogErrorFmt(
+          L"%s decoding of 0x%02x is %f, proposal 0035 says %f",
+          cpu_oracle::componentTypeName(Entry.CompType), Entry.Encoded,
+          Decoded ? *Decoded : 0.0f, Entry.Value);
+      VERIFY_FAIL(L"FP8 decoder disagrees with the specified subnormal value");
+      return;
     }
   }
 }
