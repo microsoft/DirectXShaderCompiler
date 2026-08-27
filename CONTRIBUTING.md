@@ -127,11 +127,22 @@ These include changes that are:
 When such a change is made, the release note should be included as part of that change.
 This is done in the docs/ReleaseNotes.md file.
 
-If the change is meant for a named release, it should be added to that named release's section of the release notes file.
-As the change is merged to the appropriate release branches, the release notes will come along with it.
+`docs/ReleaseNotes.md` contains notes only for releases that have not been
+published. Published notes are archived in the corresponding
+[GitHub Release](https://github.com/microsoft/DirectXShaderCompiler/releases).
 
-If a change is meant for the next upcoming release, it should be added to the "Upcoming Release" section.
-When the next upcoming release is named, the title will be updated and the release note will be included in the appropriate release.
+Add ordinary changes to **Upcoming Release**, even if they will first appear in
+a preview build. Add only changes to experimental or preview-only features to
+**Upcoming Preview Release**. When a preview feature becomes supported in a
+non-preview release, add a note describing that supported feature to
+**Upcoming Release**.
+
+The release team may rename the applicable upcoming section when a release is
+named. After the GitHub Release is published, a dedicated pull request to
+`main` removes that release's notes and restores the empty upcoming section.
+A non-preview release clears only **Upcoming Release**; a preview release
+clears only **Upcoming Preview Release**. The other section must remain
+unchanged.
 
 When writing release note list entries:
 
