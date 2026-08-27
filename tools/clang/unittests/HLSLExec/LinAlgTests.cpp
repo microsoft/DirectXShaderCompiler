@@ -1811,12 +1811,20 @@ struct CaseData {
   ComponentType BiasInputType = ComponentType::Invalid;
   ComponentType ResultType = ComponentType::Invalid;
   bool OutputSigned = true;
+  // Load the matrix from a MulOptimal layout produced on the device by
+  // ConvertLinearAlgebraMatrix. Layout above still describes the host-encoded
+  // source bytes, which remain RowMajor or ColumnMajor.
+  bool LoadFromMulOptimal = false;
   std::vector<int64_t> MatrixValues;
   std::vector<int64_t> InterpretedVectorValues;
   std::vector<int64_t> BiasValues;
   std::wstring PublicRule;
 
   bool hasBias() const { return BiasInputType != ComponentType::Invalid; }
+
+  MatrixLayout shaderLayout() const {
+    return LoadFromMulOptimal ? MatrixLayout::MulOptimal : Layout;
+  }
 };
 
 static void reportUnexpectedComponentType(LPCWSTR Function,
@@ -2235,8 +2243,10 @@ static std::optional<std::string> buildCompilerArgs(const CaseData &Case) {
   Args << " -DMATRIX_COMP_TYPE=" << static_cast<int>(Case.MatrixType);
   Args << " -DM_DIM=" << Case.M;
   Args << " -DN_DIM=" << Case.N;
-  Args << " -DMATRIX_STRIDE=" << *MatrixStride;
-  Args << " -DMATRIX_LAYOUT=" << static_cast<int>(Case.Layout);
+  // Optimal layouts are opaque, so the DXIL validator requires a zero stride
+  // for them.
+  Args << " -DMATRIX_STRIDE=" << (Case.LoadFromMulOptimal ? 0 : *MatrixStride);
+  Args << " -DMATRIX_LAYOUT=" << static_cast<int>(Case.shaderLayout());
   Args << " -DINPUT_STORAGE_TYPE=" << InputStorageType;
   Args << " -DINPUT_STORAGE_COUNT="
        << storageElementCount(Case.VectorInputType, Case.N);
@@ -2440,8 +2450,83 @@ static void runCase(ID3D12Device *Device, dxc::SpecificDllLoader &DxcSupport,
                                   : "SRV(t0), SRV(t1), UAV(u2)";
   compileShader(DxcSupport, Shader, "cs_6_10", *Args, Verbose);
 
+  UINT MulOptimalSize = 0;
+  st::ShaderOpTest::TCommandCallbackFn ConvertCallback = nullptr;
+#if defined(DIRECT3D_LINEAR_ALGEBRA)
+  if (Case.LoadFromMulOptimal) {
+    const std::optional<linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE> MirrorType =
+        toCapabilityDataType(Case.MatrixType);
+    VERIFY_IS_TRUE(MirrorType.has_value());
+    if (!MirrorType)
+      return;
+    // The mirror and the SDK enum are pinned to identical values by the
+    // ASSERT_RUNTIME_ENUM checks in HlslExecTestUtils.h.
+    const D3D12_LINEAR_ALGEBRA_DATATYPE DataType =
+        static_cast<D3D12_LINEAR_ALGEBRA_DATATYPE>(*MirrorType);
+    const D3D12_LINEAR_ALGEBRA_MATRIX_LAYOUT SourceLayout =
+        Case.Layout == MatrixLayout::RowMajor
+            ? D3D12_LINEAR_ALGEBRA_MATRIX_LAYOUT_ROW_MAJOR
+            : D3D12_LINEAR_ALGEBRA_MATRIX_LAYOUT_COLUMN_MAJOR;
+    const UINT SourceSize = static_cast<UINT>(MatrixBuffer->size());
+    const UINT SourceStride = static_cast<UINT>(*matrixStrideBytes(Case));
+
+    MulOptimalSize = getLinAlgMatrixByteSize(
+        Device, Case.M, Case.N, DataType,
+        D3D12_LINEAR_ALGEBRA_MATRIX_LAYOUT_MUL_OPTIMAL, /*Stride=*/0);
+    // GetLinearAlgebraMatrixConversionDestinationInfo returns void and reports
+    // a request it cannot serve by leaving DestSize zero, so this is the only
+    // failure signal the API offers.
+    VERIFY_IS_TRUE(MulOptimalSize != 0,
+                   "Device reported no MulOptimal destination size");
+    if (MulOptimalSize == 0)
+      return;
+
+    const MatrixDim Rows = Case.M;
+    const MatrixDim Columns = Case.N;
+    ConvertCallback = [=](ID3D12GraphicsCommandList *List,
+                          st::ShaderOpTest *Test) {
+      ID3D12Resource *Source = nullptr;
+      ID3D12Resource *Destination = nullptr;
+      Test->GetResource("MatrixSource", &Source);
+      Test->GetResource("MatrixInput", &Destination);
+
+      // A thread-scope load requires a read-only ByteAddressBuffer, so the
+      // destination is declared as an SRV and arrives in the shader-resource
+      // state. The conversion writes it, so borrow it as a UAV and hand it
+      // back; the closing transition also orders the write before the load.
+      D3D12_RESOURCE_BARRIER Barrier = {};
+      Barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+      Barrier.Transition.pResource = Destination;
+      Barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+      Barrier.Transition.StateBefore =
+          D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
+      Barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
+      List->ResourceBarrier(1, &Barrier);
+
+      recordLinAlgMatrixConversion(
+          List, Source, SourceSize, Destination, MulOptimalSize, Rows, Columns,
+          DataType, SourceLayout, SourceStride,
+          D3D12_LINEAR_ALGEBRA_MATRIX_LAYOUT_MUL_OPTIMAL, /*DestStride=*/0);
+
+      std::swap(Barrier.Transition.StateBefore, Barrier.Transition.StateAfter);
+      List->ResourceBarrier(1, &Barrier);
+    };
+  }
+#else
+  VERIFY_IS_FALSE(Case.LoadFromMulOptimal,
+                  "MulOptimal cases need the preview D3D12 linear algebra API");
+  if (Case.LoadFromMulOptimal)
+    return;
+#endif
+
   auto Op = createComputeOp(Shader, "cs_6_10", RootSignature, Args->c_str());
-  addSRVBuffer(Op.get(), "MatrixInput", MatrixBuffer->size(), "byname");
+  if (Case.LoadFromMulOptimal) {
+    addUAVBuffer(Op.get(), "MatrixSource", MatrixBuffer->size(),
+                 /*ReadBack=*/false, "byname");
+    addSRVBuffer(Op.get(), "MatrixInput", MulOptimalSize, "zero");
+  } else {
+    addSRVBuffer(Op.get(), "MatrixInput", MatrixBuffer->size(), "byname");
+  }
   addSRVBuffer(Op.get(), "VectorInput", VectorBuffer->size(), "byname");
   if (Case.hasBias())
     addSRVBuffer(Op.get(), "BiasInput", BiasBuffer->size(), "byname");
@@ -2455,30 +2540,32 @@ static void runCase(ID3D12Device *Device, dxc::SpecificDllLoader &DxcSupport,
     addRootView(Op.get(), 2, "Output");
   }
 
-  auto Result =
-      runShaderOp(Device, DxcSupport, std::move(Op),
-                  [&](LPCSTR Name, std::vector<BYTE> &Data, st::ShaderOp *) {
-                    if (_stricmp(Name, "Output") == 0) {
-                      cpu_oracle::fillPoison(Data.data(), Data.size());
-                      return;
-                    }
+  auto Result = runShaderOp(
+      Device, DxcSupport, std::move(Op),
+      [&](LPCSTR Name, std::vector<BYTE> &Data, st::ShaderOp *) {
+        if (_stricmp(Name, "Output") == 0) {
+          cpu_oracle::fillPoison(Data.data(), Data.size());
+          return;
+        }
 
-                    const std::vector<BYTE> *Source = nullptr;
-                    if (_stricmp(Name, "MatrixInput") == 0)
-                      Source = &*MatrixBuffer;
-                    else if (_stricmp(Name, "VectorInput") == 0)
-                      Source = &*VectorBuffer;
-                    else if (Case.hasBias() && _stricmp(Name, "BiasInput") == 0)
-                      Source = &*BiasBuffer;
-                    VERIFY_IS_TRUE(Source != nullptr,
-                                   "Unexpected MatVec resource initializer");
-                    if (!Source)
-                      return;
-                    VERIFY_IS_TRUE(Data.size() == Source->size(),
-                                   "MatVec resource initializer size mismatch");
-                    if (Data.size() == Source->size())
-                      std::memcpy(Data.data(), Source->data(), Data.size());
-                  });
+        const std::vector<BYTE> *Source = nullptr;
+        if (_stricmp(Name, "MatrixInput") == 0 ||
+            _stricmp(Name, "MatrixSource") == 0)
+          Source = &*MatrixBuffer;
+        else if (_stricmp(Name, "VectorInput") == 0)
+          Source = &*VectorBuffer;
+        else if (Case.hasBias() && _stricmp(Name, "BiasInput") == 0)
+          Source = &*BiasBuffer;
+        VERIFY_IS_TRUE(Source != nullptr,
+                       "Unexpected MatVec resource initializer");
+        if (!Source)
+          return;
+        VERIFY_IS_TRUE(Data.size() == Source->size(),
+                       "MatVec resource initializer size mismatch");
+        if (Data.size() == Source->size())
+          std::memcpy(Data.data(), Source->data(), Data.size());
+      },
+      /*PostDispatchCallback=*/nullptr, std::move(ConvertCallback));
 
   MappedData OutData;
   Result->Test->GetReadBackData("Output", &OutData);
@@ -2591,6 +2678,7 @@ static CaseData makeFP8MatrixCase(ComponentType MatrixType) {
   Case.M = 4;
   Case.N = 16;
   Case.Layout = MatrixLayout::RowMajor;
+  Case.LoadFromMulOptimal = true;
   Case.VectorInputType = ComponentType::F16;
   Case.InputInterpretation = ComponentType::F16;
   Case.ResultType = ComponentType::F16;
@@ -2609,8 +2697,27 @@ static CaseData makeFP8MatrixCase(ComponentType MatrixType) {
   return Case;
 }
 
-} // namespace matvec_interpretation
+#if !defined(DIRECT3D_LINEAR_ALGEBRA)
+static void reportMissingConversionApi(LPCWSTR CaseName) {
+#ifdef _HLK_CONF
+  // HLK forbids skipping, so treat the missing linear-algebra matrix-conversion
+  // API as a failure rather than emitting a (compiled-out) skip.
+  hlsl_test::LogErrorFmt(L"%s requires the linear-algebra matrix-conversion "
+                         L"API (DIRECT3D_LINEAR_ALGEBRA), which this build "
+                         L"lacks",
+                         CaseName);
+#else
+  hlsl_test::LogCommentFmt(
+      L"Skipping %s: built against a D3D12 SDK without the linear-algebra "
+      L"matrix-conversion API (DIRECT3D_LINEAR_ALGEBRA undefined); the "
+      L"host-side conversion helpers are compiled out.",
+      CaseName);
+  WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
+#endif // _HLK_CONF
+}
+#endif // !defined(DIRECT3D_LINEAR_ALGEBRA)
 
+} // namespace matvec_interpretation
 // Harness self-check for the CPU oracle. Deliberately carries no Kits metadata
 // so HLK runs never select it; drivers are not certified against this class.
 class LinAlgCPUOracleTests {
@@ -8675,21 +8782,31 @@ void DxilConf_SM610_LinAlg::MatVecMul_Thread_4x8_U32_UnsignedOutput() {
 }
 
 void DxilConf_SM610_LinAlg::MatVecMul_Thread_4x16_F8_E4M3FN() {
+#if defined(DIRECT3D_LINEAR_ALGEBRA)
   const matvec_interpretation::CaseData Case =
       matvec_interpretation::makeFP8MatrixCase(ComponentType::F8_E4M3FN);
   matvec_interpretation::runCapabilityChecked(
       D3DDevice, DxcSupport, Case,
       linalg_test::CapabilityRequirement::Mandatory,
       L"MatVecMul_Thread_4x16_F8_E4M3FN", VerboseLogging);
+#else
+  matvec_interpretation::reportMissingConversionApi(
+      L"MatVecMul_Thread_4x16_F8_E4M3FN");
+#endif // defined(DIRECT3D_LINEAR_ALGEBRA)
 }
 
 void DxilConf_SM610_LinAlg::MatVecMul_Thread_4x16_F8_E5M2() {
+#if defined(DIRECT3D_LINEAR_ALGEBRA)
   const matvec_interpretation::CaseData Case =
       matvec_interpretation::makeFP8MatrixCase(ComponentType::F8_E5M2);
   matvec_interpretation::runCapabilityChecked(
       D3DDevice, DxcSupport, Case,
       linalg_test::CapabilityRequirement::Mandatory,
       L"MatVecMul_Thread_4x16_F8_E5M2", VerboseLogging);
+#else
+  matvec_interpretation::reportMissingConversionApi(
+      L"MatVecMul_Thread_4x16_F8_E5M2");
+#endif // defined(DIRECT3D_LINEAR_ALGEBRA)
 }
 
 void DxilConf_SM610_LinAlg::MatVecMulAdd_Thread_4x8_F16_IndependentBias() {
