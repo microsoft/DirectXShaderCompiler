@@ -2243,8 +2243,6 @@ static std::optional<std::string> buildCompilerArgs(const CaseData &Case) {
   Args << " -DMATRIX_COMP_TYPE=" << static_cast<int>(Case.MatrixType);
   Args << " -DM_DIM=" << Case.M;
   Args << " -DN_DIM=" << Case.N;
-  // Optimal layouts are opaque, so the DXIL validator requires a zero stride
-  // for them.
   Args << " -DMATRIX_STRIDE=" << (Case.LoadFromMulOptimal ? 0 : *MatrixStride);
   Args << " -DMATRIX_LAYOUT=" << static_cast<int>(Case.shaderLayout());
   Args << " -DINPUT_STORAGE_TYPE=" << InputStorageType;
@@ -2473,11 +2471,6 @@ static void runCase(ID3D12Device *Device, dxc::SpecificDllLoader &DxcSupport,
     MulOptimalSize = getLinAlgMatrixByteSize(
         Device, Case.M, Case.N, DataType,
         D3D12_LINEAR_ALGEBRA_MATRIX_LAYOUT_MUL_OPTIMAL, /*Stride=*/0);
-    // GetLinearAlgebraMatrixConversionDestinationInfo returns void and reports
-    // a request it cannot serve by leaving DestSize zero, so this is the only
-    // failure signal the API offers.
-    VERIFY_IS_TRUE(MulOptimalSize != 0,
-                   "Device reported no MulOptimal destination size");
     if (MulOptimalSize == 0)
       return;
 

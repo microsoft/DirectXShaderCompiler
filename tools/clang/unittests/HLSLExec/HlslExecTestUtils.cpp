@@ -1721,6 +1721,9 @@ UINT getLinAlgMatrixByteSize(ID3D12Device *Device, UINT NumRows,
   Info.NumColumns = NumColumns;
   Info.DestDataType = DataType;
   DevicePreview->GetLinearAlgebraMatrixConversionDestinationInfo(&Info);
+  VERIFY_IS_TRUE(Info.DestSize != 0,
+                 "Device reported no destination size for the requested "
+                 "linear algebra matrix layout");
   return Info.DestSize;
 }
 
