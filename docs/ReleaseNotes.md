@@ -33,6 +33,10 @@ line upon naming the release. Refer to previous for appropriate section names.
 - Fix a crash generating DXIL from sources containing a dynamic resource heap
   access that was discarded. Identified during development of SPIR-V support for
   [descriptor heaps](https://github.com/microsoft/DirectXShaderCompiler/pull/8517#discussion_r3752113078).
+- Fixed a dropped `inout` write-back when an argument is passed to an `inout`
+  parameter of a struct type with an identical layout.
+- Fixed a compiler hang when an argument is passed to an `inout` parameter of a
+  struct type with a different layout.
 
 #### HLSL Language
 
