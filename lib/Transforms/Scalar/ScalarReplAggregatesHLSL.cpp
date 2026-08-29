@@ -1537,13 +1537,13 @@ static bool isUDTIntrinsicArg(CallInst *CI, unsigned OpIdx) {
 /// replacement.  A struct to struct pointer cast is only rewritable when the
 /// destination is reachable through the leading elements of the source, or
 /// when both structs have an identical layout.
-static bool isSafeBitCastForScalarRepl(BitCastInst *BCI) {
+static bool isSafeBitCastForScalarRepl(BitCastOperator *BC) {
   // Unused bitcast may be leftover from temporary memcpy
-  if (BCI->use_empty())
+  if (BC->use_empty())
     return true;
 
-  Type *DstTy = BCI->getType();
-  Type *SrcTy = BCI->getOperand(0)->getType();
+  Type *DstTy = BC->getDestTy();
+  Type *SrcTy = BC->getSrcTy();
 
   if (!DstTy->isPointerTy() || !SrcTy->isPointerTy())
     return true;
@@ -1581,7 +1581,7 @@ void isSafeForScalarRepl(Instruction *I, uint64_t Offset, AllocaInfo &Info) {
     Instruction *User = cast<Instruction>(U.getUser());
 
     if (BitCastInst *BC = dyn_cast<BitCastInst>(User)) {
-      if (!isSafeBitCastForScalarRepl(BC))
+      if (!isSafeBitCastForScalarRepl(cast<BitCastOperator>(BC)))
         return MarkUnsafe(Info, User);
       isSafeForScalarRepl(BC, Offset, Info);
     } else if (GetElementPtrInst *GEPI = dyn_cast<GetElementPtrInst>(User)) {
@@ -1702,6 +1702,24 @@ bool isSafeAllocaToScalarRepl(AllocaInst *AI) {
       HasPadding(AI->getAllocatedType(), DL))
     return false;
 
+  return true;
+}
+
+/// isSafeGlobalToScalarRepl - Check if a global can be broken down into
+/// elements.  Recursively walks the pointer producing users, which for a global
+/// may be constant expressions rather than instructions, and returns false when
+/// any of them cannot be rewritten.
+bool isSafeGlobalToScalarRepl(Value *V) {
+  for (User *U : V->users()) {
+    if (BitCastOperator *BC = dyn_cast<BitCastOperator>(U)) {
+      if (!isSafeBitCastForScalarRepl(BC))
+        return false;
+    } else if (!isa<GEPOperator>(U)) {
+      continue;
+    }
+    if (!isSafeGlobalToScalarRepl(U))
+      return false;
+  }
   return true;
 }
 } // namespace
@@ -6641,7 +6659,8 @@ public:
       } else {
         EltTy = dxilutil::GetArrayEltTy(EltTy);
         // Lower static [array of] resources
-        if (dxilutil::IsHLSLObjectType(EltTy) || EltTy == handleTy) {
+        if (dxilutil::IsHLSLObjectType(EltTy) || EltTy == handleTy ||
+            !isSafeGlobalToScalarRepl(&GV)) {
           staticGVs.emplace_back(&GV);
         }
       }
