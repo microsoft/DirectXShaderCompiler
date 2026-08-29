@@ -2721,7 +2721,7 @@ void SROA_Helper::RewriteBitCast(BitCastInst *BCI) {
 
   bool bTypeMatch = false;
   unsigned level = 0;
-  while (SrcST) {
+  while (SrcST && SrcST->getNumElements()) {
     level++;
     Type *EltTy = SrcST->getElementType(0);
     if (EltTy == DstST) {
