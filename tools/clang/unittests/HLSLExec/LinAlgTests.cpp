@@ -9024,7 +9024,10 @@ static HRESULT queryConvertDestinationGranular(
 static HRESULT queryConvertSupport(ID3D12Device *Device,
                                    ComponentType SourceCompType,
                                    ComponentType DestinationCompType,
+                                   bool &TierSupported, bool &SourceSupported,
                                    bool &Supported) {
+  TierSupported = false;
+  SourceSupported = false;
   Supported = false;
   if (!Device)
     return E_INVALIDARG;
@@ -9044,10 +9047,13 @@ static HRESULT queryConvertSupport(ID3D12Device *Device,
 
   linalg_test::TierSupport Tier;
   HRESULT HR = linalg_test::queryTierSupport(Device, Tier);
-  if (FAILED(HR) || !Tier.supported())
+  if (FAILED(HR))
     return HR;
 
-  bool SourceSupported = false;
+  TierSupported = Tier.supported();
+  if (!TierSupported)
+    return S_OK;
+
   HR = queryConvertSourceSupport(Device, SourceCompType, SourceSupported);
   if (FAILED(HR) || !SourceSupported)
     return HR;
@@ -9068,21 +9074,32 @@ static HRESULT queryConvertSupport(ID3D12Device *Device,
   return HR;
 }
 
-static bool convertTypesApplicable(ID3D12Device *Device,
-                                   ComponentType SourceCompType,
-                                   ComponentType DestinationCompType,
-                                   LPCWSTR CaseName) {
+static bool
+convertTypesApplicable(ID3D12Device *Device, ComponentType SourceCompType,
+                       ComponentType DestinationCompType,
+                       linalg_test::CapabilityRequirement Requirement,
+                       LPCWSTR CaseName) {
+  bool TierSupported = false;
+  bool SourceSupported = false;
   bool Supported = false;
-  const HRESULT QueryResult = queryConvertSupport(
-      Device, SourceCompType, DestinationCompType, Supported);
-  if (!applyApplicability(
-          linalg_test::classifyApplicability(
-              QueryResult, Supported,
-              linalg_test::CapabilityRequirement::CapabilityGated),
-          CaseName))
-    return false;
+  const HRESULT QueryResult =
+      queryConvertSupport(Device, SourceCompType, DestinationCompType,
+                          TierSupported, SourceSupported, Supported);
 
-  return true;
+  // A device without linear algebra is outside the Tier 1 requirements, and a
+  // mandatory destination is still unreachable when the source type itself is
+  // unsupported, so both skip rather than failing.
+  const bool QueryAnswered = SUCCEEDED(QueryResult);
+  const bool NoLinearAlgebra = QueryAnswered && !TierSupported;
+  const bool UnsupportedSource = QueryAnswered && !SourceSupported;
+
+  linalg_test::CapabilityRequirement Effective = Requirement;
+  if (NoLinearAlgebra || UnsupportedSource)
+    Effective = linalg_test::CapabilityRequirement::CapabilityGated;
+
+  return applyApplicability(
+      linalg_test::classifyApplicability(QueryResult, Supported, Effective),
+      CaseName);
 }
 
 template <typename T>
@@ -9420,8 +9437,10 @@ void DxilConf_SM610_LinAlg::CopyConvert_Wave_4x8_F32_ToF16_Transpose() {
 }
 
 void DxilConf_SM610_LinAlg::Convert_I16_ToI32_Exact() {
-  if (!convertTypesApplicable(D3DDevice, ComponentType::I16, ComponentType::I32,
-                              L"Convert_I16_ToI32_Exact"))
+  if (!convertTypesApplicable(
+          D3DDevice, ComponentType::I16, ComponentType::I32,
+          linalg_test::CapabilityRequirement::CapabilityGated,
+          L"Convert_I16_ToI32_Exact"))
     return;
 
   runExactConvert(
@@ -9447,8 +9466,10 @@ static void runFP8ConvertCase(ID3D12Device *Device,
 }
 
 void DxilConf_SM610_LinAlg::Convert_F32_ToI16_RTNE_Saturate() {
-  if (!convertTypesApplicable(D3DDevice, ComponentType::F32, ComponentType::I16,
-                              L"Convert_F32_ToI16_RTNE_Saturate"))
+  if (!convertTypesApplicable(
+          D3DDevice, ComponentType::F32, ComponentType::I16,
+          linalg_test::CapabilityRequirement::CapabilityGated,
+          L"Convert_F32_ToI16_RTNE_Saturate"))
     return;
 
   runExactConvert(D3DDevice, DxcSupport, ConvertF32ToI16CoverageShader,
@@ -9471,10 +9492,13 @@ void DxilConf_SM610_LinAlg::Convert_F16_ToE4M3FN_AndBack() {
 
   if (!convertTypesApplicable(D3DDevice, ComponentType::F16,
                               ComponentType::F8_E4M3FN,
+                              linalg_test::CapabilityRequirement::Mandatory,
                               L"Convert_F16_ToE4M3FN_AndBack"))
     return;
-  if (!convertTypesApplicable(D3DDevice, ComponentType::U32, ComponentType::F16,
-                              L"Convert_F16_ToE4M3FN_AndBack"))
+  if (!convertTypesApplicable(
+          D3DDevice, ComponentType::U32, ComponentType::F16,
+          linalg_test::CapabilityRequirement::CapabilityGated,
+          L"Convert_F16_ToE4M3FN_AndBack"))
     return;
   runFP8ConvertCase(D3DDevice, DxcSupport, ComponentType::F8_E4M3FN, *Data,
                     VerboseLogging);
@@ -9492,10 +9516,13 @@ void DxilConf_SM610_LinAlg::Convert_F16_ToE5M2_AndBack() {
 
   if (!convertTypesApplicable(D3DDevice, ComponentType::F16,
                               ComponentType::F8_E5M2,
+                              linalg_test::CapabilityRequirement::Mandatory,
                               L"Convert_F16_ToE5M2_AndBack"))
     return;
-  if (!convertTypesApplicable(D3DDevice, ComponentType::U32, ComponentType::F16,
-                              L"Convert_F16_ToE5M2_AndBack"))
+  if (!convertTypesApplicable(
+          D3DDevice, ComponentType::U32, ComponentType::F16,
+          linalg_test::CapabilityRequirement::CapabilityGated,
+          L"Convert_F16_ToE5M2_AndBack"))
     return;
   runFP8ConvertCase(D3DDevice, DxcSupport, ComponentType::F8_E5M2, *Data,
                     VerboseLogging);
