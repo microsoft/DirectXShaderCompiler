@@ -2089,6 +2089,8 @@ encodePackedVector(ComponentType Type, const std::vector<int64_t> &Values) {
   return Bytes;
 }
 
+static constexpr size_t MatrixStrideAlignmentBytes = 16;
+
 static std::optional<size_t> matrixStrideBytes(const CaseData &Case) {
   const std::optional<size_t> ComponentSize =
       componentByteSize(Case.MatrixType);
@@ -2096,7 +2098,9 @@ static std::optional<size_t> matrixStrideBytes(const CaseData &Case) {
     return std::nullopt;
   const size_t MinorCount =
       Case.Layout == MatrixLayout::RowMajor ? Case.N : Case.M;
-  return MinorCount * *ComponentSize;
+  const size_t PackedStride = MinorCount * *ComponentSize;
+  return (PackedStride + MatrixStrideAlignmentBytes - 1) /
+         MatrixStrideAlignmentBytes * MatrixStrideAlignmentBytes;
 }
 
 static std::optional<std::vector<BYTE>>
@@ -2190,6 +2194,10 @@ static bool isCaseValid(const CaseData &Case) {
     if (!storageTypeName(Case.BiasInputType))
       return false;
   }
+
+  const std::optional<size_t> Stride = matrixStrideBytes(Case);
+  if (!Stride || *Stride % MatrixStrideAlignmentBytes != 0)
+    return false;
 
   const bool ExpectedSigned = Case.ResultType != ComponentType::U32;
   return Case.OutputSigned == ExpectedSigned;
