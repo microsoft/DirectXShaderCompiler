@@ -204,86 +204,87 @@ Intrinsic Intrinsics[] = {
     {L"test_fn",
      DEFAULT_NAME,
      "r",
-     {1, INTRIN_FLAG_READ_NONE, 0, -1, countof(TestFnArgs), TestFnArgs}},
+     {1, INTRIN_FLAG_READ_NONE, 0, -1, countof(TestFnArgs), TestFnArgs, 0}},
     {L"test_proc",
      DEFAULT_NAME,
      "r",
-     {2, 0, 0, -1, countof(TestProcArgs), TestProcArgs}},
+     {2, 0, 0, -1, countof(TestProcArgs), TestProcArgs, 0}},
     {L"test_poly",
      "test_poly.$o",
      "r",
      {3, INTRIN_FLAG_READ_NONE, 0, -1, countof(TestFnCustomArgs),
-      TestFnCustomArgs}},
+      TestFnCustomArgs, 0}},
     {L"test_int",
      "test_int",
      "r",
-     {4, INTRIN_FLAG_READ_NONE, 0, -1, countof(TestFnIntArgs), TestFnIntArgs}},
+     {4, INTRIN_FLAG_READ_NONE, 0, -1, countof(TestFnIntArgs), TestFnIntArgs,
+      0}},
     {L"test_nolower",
      "test_nolower.$o",
      "n",
      {5, INTRIN_FLAG_READ_NONE, 0, -1, countof(TestFnNoLowerArgs),
-      TestFnNoLowerArgs}},
+      TestFnNoLowerArgs, 0}},
     {L"test_pack_0",
      "test_pack_0.$o",
      "p",
-     {6, 0, 0, -1, countof(TestFnPack0), TestFnPack0}},
+     {6, 0, 0, -1, countof(TestFnPack0), TestFnPack0, 0}},
     {L"test_pack_1",
      "test_pack_1.$o",
      "p",
-     {7, INTRIN_FLAG_READ_NONE, 0, -1, countof(TestFnPack1), TestFnPack1}},
+     {7, INTRIN_FLAG_READ_NONE, 0, -1, countof(TestFnPack1), TestFnPack1, 0}},
     {L"test_pack_2",
      "test_pack_2.$o",
      "p",
-     {8, INTRIN_FLAG_READ_NONE, 0, -1, countof(TestFnPack2), TestFnPack2}},
+     {8, INTRIN_FLAG_READ_NONE, 0, -1, countof(TestFnPack2), TestFnPack2, 0}},
     {L"test_pack_3",
      "test_pack_3.$o",
      "p",
-     {9, INTRIN_FLAG_READ_NONE, 0, -1, countof(TestFnPack3), TestFnPack3}},
+     {9, INTRIN_FLAG_READ_NONE, 0, -1, countof(TestFnPack3), TestFnPack3, 0}},
     {L"test_pack_4",
      "test_pack_4.$o",
      "p",
-     {10, 0, 0, -1, countof(TestFnPack4), TestFnPack4}},
+     {10, 0, 0, -1, countof(TestFnPack4), TestFnPack4, 0}},
     {L"test_rand",
      "test_rand",
      "r",
-     {11, 0, 0, -1, countof(TestRand), TestRand}},
+     {11, 0, 0, -1, countof(TestRand), TestRand, 0}},
     {L"test_isinf",
      "test_isinf",
      "d",
      {13, INTRIN_FLAG_READ_ONLY | INTRIN_FLAG_READ_NONE, 0, -1,
-      countof(TestIsInf), TestIsInf}},
+      countof(TestIsInf), TestIsInf, 0}},
     {L"test_ibfe",
      "test_ibfe",
      "d",
      {14, INTRIN_FLAG_READ_ONLY | INTRIN_FLAG_READ_NONE, 0, -1,
-      countof(TestIBFE), TestIBFE}},
+      countof(TestIBFE), TestIBFE, 0}},
     // Make this intrinsic have the same opcode as an hlsl intrinsic with an
     // unsigned counterpart for testing purposes.
     {L"test_unsigned",
      "test_unsigned",
      "n",
      {static_cast<unsigned>(hlsl::IntrinsicOp::IOP_min), INTRIN_FLAG_READ_NONE,
-      0, -1, countof(TestUnsigned), TestUnsigned}},
+      0, -1, countof(TestUnsigned), TestUnsigned, 0}},
     {L"wave_proc",
      DEFAULT_NAME,
      "r",
      {16, INTRIN_FLAG_READ_NONE | INTRIN_FLAG_IS_WAVE, 0, -1,
-      countof(WaveProcArgs), WaveProcArgs}},
+      countof(WaveProcArgs), WaveProcArgs, 0}},
     {L"test_o_1",
      "test_o_1.$o:1",
      "r",
      {18, INTRIN_FLAG_READ_NONE | INTRIN_FLAG_IS_WAVE, 0, -1,
-      countof(TestOverloadArgs), TestOverloadArgs}},
+      countof(TestOverloadArgs), TestOverloadArgs, 0}},
     {L"test_o_2",
      "test_o_2.$o:2",
      "r",
      {19, INTRIN_FLAG_READ_NONE | INTRIN_FLAG_IS_WAVE, 0, -1,
-      countof(TestOverloadArgs), TestOverloadArgs}},
+      countof(TestOverloadArgs), TestOverloadArgs, 0}},
     {L"test_o_3",
      "test_o_3.$o:3",
      "r",
      {20, INTRIN_FLAG_READ_NONE | INTRIN_FLAG_IS_WAVE, 0, -1,
-      countof(TestOverloadArgs), TestOverloadArgs}},
+      countof(TestOverloadArgs), TestOverloadArgs, 0}},
     // custom lowering with both optional arguments and vector exploding.
     // Arg 0 = Opcode
     // Arg 1 = Pass as is
@@ -294,25 +295,25 @@ Intrinsic Intrinsics[] = {
      "CustomLoadOp",
      "c:{\"default\" : \"0,1,2:?i1,3.0:?i32,3.1:?i32\"}",
      {21, INTRIN_FLAG_READ_ONLY, 0, -1, countof(TestCustomLoadOp),
-      TestCustomLoadOp}},
+      TestCustomLoadOp, 0}},
     {L"CustomLoadOp",
      "CustomLoadOp",
      "c:{\"default\" : \"0,1,2:?i1,3.0:?i32,3.1:?i32\"}",
      {21, INTRIN_FLAG_READ_ONLY, 0, -1, countof(TestCustomLoadOpBool),
-      TestCustomLoadOpBool}},
+      TestCustomLoadOpBool, 0}},
     {L"CustomLoadOp",
      "CustomLoadOp",
      "c:{\"default\" : \"0,1,2:?i1,3.0:?i32,3.1:?i32\"}",
      {21, INTRIN_FLAG_READ_ONLY, 0, -1, countof(TestCustomLoadOpSubscript),
-      TestCustomLoadOpSubscript}},
+      TestCustomLoadOpSubscript, 0}},
 };
 
 Intrinsic BufferIntrinsics[] = {
     {L"MyBufferOp",
      "MyBufferOp",
      "m",
-     {12, INTRIN_FLAG_READ_NONE, 0, -1, countof(TestMyBufferOp),
-      TestMyBufferOp}},
+     {12, INTRIN_FLAG_READ_NONE, 0, -1, countof(TestMyBufferOp), TestMyBufferOp,
+      0}},
 };
 
 // Test adding a method to an object that normally has no methods (SamplerState
@@ -322,7 +323,7 @@ Intrinsic SamplerIntrinsics[] = {
      "MySamplerOp",
      "m",
      {15, INTRIN_FLAG_READ_NONE, 0, -1, countof(TestMySamplerOp),
-      TestMySamplerOp}},
+      TestMySamplerOp, 0}},
 };
 
 // Define a lowering string to target a common dxil extension operation defined
@@ -356,12 +357,12 @@ Intrinsic Texture1DIntrinsics[] = {
      "MyTextureOp",
      MyTextureOp_LoweringInfo,
      {17, INTRIN_FLAG_READ_NONE, 0, -1, countof(TestMyTexture1DOp_0),
-      TestMyTexture1DOp_0}},
+      TestMyTexture1DOp_0, 0}},
     {L"MyTextureOp",
      "MyTextureOp",
      MyTextureOp_LoweringInfo,
      {17, INTRIN_FLAG_READ_NONE, 0, -1, countof(TestMyTexture1DOp_1),
-      TestMyTexture1DOp_1}},
+      TestMyTexture1DOp_1, 0}},
 };
 
 Intrinsic Texture2DIntrinsics[] = {
@@ -369,7 +370,7 @@ Intrinsic Texture2DIntrinsics[] = {
      "MyTextureOp",
      MyTextureOp_LoweringInfo,
      {17, INTRIN_FLAG_READ_NONE, 0, -1, countof(TestMyTexture2DOp),
-      TestMyTexture2DOp}},
+      TestMyTexture2DOp, 0}},
 };
 
 class IntrinsicTable {
@@ -1508,7 +1509,7 @@ TEST_F(ExtensionTest, EvalAttributeCollision) {
                            "collide_proc",
                            "r",
                            {static_cast<unsigned>(op), INTRIN_FLAG_READ_ONLY, 0,
-                            -1, countof(Args), Args}};
+                            -1, countof(Args), Args, 0}};
     Compiler c(m_dllSupport);
     c.RegisterIntrinsicTable(new TestIntrinsicTable(&Intrinsic, 1));
     c.Compile(R"(
@@ -1543,7 +1544,7 @@ TEST_F(ExtensionTest, NoUnwind) {
       {"value", AR_QUAL_IN, 1, LITEMPLATE_ANY, 1, LICOMPTYPE_NUMERIC, 1, IA_C}};
 
   Intrinsic Intrinsic = {
-      L"test_proc", "test_proc", "r", {1, 0, 0, -1, countof(Args), Args}};
+      L"test_proc", "test_proc", "r", {1, 0, 0, -1, countof(Args), Args, 0}};
   Compiler c(m_dllSupport);
   c.RegisterIntrinsicTable(new TestIntrinsicTable(&Intrinsic, 1));
   c.Compile(R"(
@@ -1581,7 +1582,7 @@ TEST_F(ExtensionTest, DCE) {
                          "test_proc",
                          "r",
                          {1, INTRIN_FLAG_READ_ONLY | INTRIN_FLAG_READ_NONE, 0,
-                          -1, countof(Args), Args}};
+                          -1, countof(Args), Args, 0}};
   Compiler c(m_dllSupport);
   c.RegisterIntrinsicTable(new TestIntrinsicTable(&Intrinsic, 1));
   c.Compile(R"(

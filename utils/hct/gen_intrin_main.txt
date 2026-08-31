@@ -385,7 +385,7 @@ $type2 [[rn]] select(in bool cond, in any_sampler t, in $type2 f);
 void [[]] Barrier(in uint MemoryTypeFlags, in uint SemanticFlags);
 void [[]] Barrier(in NodeRecordOrUAV o, in uint SemanticFlags);
 
-uint [[]] GetRemainingRecursionLevels();
+uint [[min_sm=6.8,max_sm=6.9]] GetRemainingRecursionLevels();
 
 // LinAlg intrinsics
 

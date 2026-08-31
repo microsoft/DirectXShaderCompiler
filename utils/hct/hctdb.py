@@ -9411,6 +9411,7 @@ class db_hlsl_intrinsic(object):
         overload_idx,
         hidden,
         min_shader_model,
+        max_shader_model,
         static_member,
         class_prefix,
     ):
@@ -9458,6 +9459,12 @@ class db_hlsl_intrinsic(object):
         if min_shader_model:
             self.min_shader_model = (min_shader_model[0] << 4) | (
                 min_shader_model[1] & 0x0F
+            )
+        # Encoded maximum shader model for this intrinsic, 0 = no maximum
+        self.max_shader_model = 0
+        if max_shader_model:
+            self.max_shader_model = (max_shader_model[0] << 4) | (
+                max_shader_model[1] & 0x0F
             )
         self.static_member = static_member  # HLSL static member function
         self.key = (
@@ -9871,6 +9878,7 @@ class db_hlsl(object):
             )  # Parameter determines the overload type, -1 means ret type.
             hidden = False
             min_shader_model = (0, 0)
+            max_shader_model = (0, 0)
             for a in attrs:
                 if a == "":
                     continue
@@ -9927,6 +9935,24 @@ class db_hlsl(object):
                     except ValueError:
                         assert False, "invalid min_sm: %s" % (v)
                     continue
+                if d == "max_sm":
+                    # max_sm is a string like "6.0" or "6.5"
+                    # Convert to a tuple of integers (major, minor)
+                    try:
+                        major_minor = v.split(".")
+                        if len(major_minor) != 2:
+                            raise ValueError
+                        major, minor = major_minor
+                        major = int(major)
+                        minor = int(minor)
+                        # minor of 15 has special meaning, and larger values
+                        # cannot be encoded in the version DWORD.
+                        if major < 0 or minor < 0 or minor > 14:
+                            raise ValueError
+                        max_shader_model = (major, minor)
+                    except ValueError:
+                        assert False, "invalid max_sm: %s" % (v)
+                    continue
                 assert False, "invalid attr %s" % (a)
 
             return (
@@ -9938,6 +9964,7 @@ class db_hlsl(object):
                 overload_param_index,
                 hidden,
                 min_shader_model,
+                max_shader_model,
                 static_member,
                 class_prefix,
             )
@@ -9988,6 +10015,7 @@ class db_hlsl(object):
                     overload_param_index,
                     hidden,
                     min_shader_model,
+                    max_shader_model,
                     static_member,
                     class_prefix,
                 ) = process_attr(attr)
@@ -10031,6 +10059,7 @@ class db_hlsl(object):
                         overload_param_index,
                         hidden,
                         min_shader_model,
+                        max_shader_model,
                         static_member,
                         class_prefix,
                     )
