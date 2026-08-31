@@ -1629,14 +1629,15 @@ std::shared_ptr<st::ShaderOpTestResult>
 runShaderOp(ID3D12Device *Device, dxc::SpecificDllLoader &DxcSupport,
             std::unique_ptr<st::ShaderOp> Op,
             st::ShaderOpTest::TInitCallbackFn InitCallback,
-            st::ShaderOpTest::TCommandCallbackFn PostDispatchCallback) {
+            st::ShaderOpTest::TCommandCallbackFn PostDispatchCallback,
+            st::ShaderOpTest::TCommandCallbackFn PreDispatchCallback) {
   auto OpSet = std::make_shared<st::ShaderOpSet>();
   OpSet->ShaderOps.push_back(std::move(Op));
 
   return st::RunShaderOpTestAfterParse(
       Device, DxcSupport, nullptr, std::move(InitCallback),
       /*pShaderCallback=*/nullptr, std::move(PostDispatchCallback),
-      std::move(OpSet));
+      std::move(OpSet), std::move(PreDispatchCallback));
 }
 
 void compileShader(dxc::SpecificDllLoader &DxcSupport, const char *Source,
@@ -1720,6 +1721,9 @@ UINT getLinAlgMatrixByteSize(ID3D12Device *Device, UINT NumRows,
   Info.NumColumns = NumColumns;
   Info.DestDataType = DataType;
   DevicePreview->GetLinearAlgebraMatrixConversionDestinationInfo(&Info);
+  VERIFY_IS_TRUE(Info.DestSize != 0,
+                 "Device reported no destination size for the requested "
+                 "linear algebra matrix layout");
   return Info.DestSize;
 }
 

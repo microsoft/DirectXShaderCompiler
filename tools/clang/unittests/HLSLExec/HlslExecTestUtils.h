@@ -598,11 +598,12 @@ void addHeapRawUAV(st::ShaderOp *Op, const char *HeapName, const char *ResName,
 void addRootTable(st::ShaderOp *Op, UINT Index, const char *HeapName);
 
 /// Run a programmatically-built ShaderOp and return the result.
-std::shared_ptr<st::ShaderOpTestResult> runShaderOp(
-    ID3D12Device *Device, dxc::SpecificDllLoader &DxcSupport,
-    std::unique_ptr<st::ShaderOp> Op,
-    st::ShaderOpTest::TInitCallbackFn InitCallback = nullptr,
-    st::ShaderOpTest::TCommandCallbackFn PostDispatchCallback = nullptr);
+std::shared_ptr<st::ShaderOpTestResult>
+runShaderOp(ID3D12Device *Device, dxc::SpecificDllLoader &DxcSupport,
+            std::unique_ptr<st::ShaderOp> Op,
+            st::ShaderOpTest::TInitCallbackFn InitCallback = nullptr,
+            st::ShaderOpTest::TCommandCallbackFn PostDispatchCallback = nullptr,
+            st::ShaderOpTest::TCommandCallbackFn PreDispatchCallback = nullptr);
 
 /// Compiles an HLSL shader using the DXC API to verify it is well-formed.
 /// Fails the test on compile error.
@@ -618,7 +619,8 @@ void compileShader(dxc::SpecificDllLoader &DxcSupport, const char *Source,
 // runtime).
 #if defined(DIRECT3D_LINEAR_ALGEBRA)
 /// Query the number of bytes required to store an NumRows x NumColumns matrix
-/// of the given datatype in the specified device layout.
+/// of the given datatype in the specified device layout. Fails the test if the
+/// device cannot serve the request, which it reports as a zero size.
 UINT getLinAlgMatrixByteSize(ID3D12Device *Device, UINT NumRows,
                              UINT NumColumns,
                              D3D12_LINEAR_ALGEBRA_DATATYPE DataType,

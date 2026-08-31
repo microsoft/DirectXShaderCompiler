@@ -1688,6 +1688,115 @@ static VariantCompType makeExpectedVec(ComponentType CompType,
                          false);
 }
 
+struct FP8Format {
+  unsigned ExponentBits;
+  unsigned MantissaBits;
+  unsigned ExponentBias;
+  bool HasInfinity;
+};
+
+static std::optional<FP8Format> getFP8Format(ComponentType CompType) {
+  switch (CompType) {
+  case ComponentType::F8_E4M3FN:
+    return FP8Format{/*ExponentBits=*/4, /*MantissaBits=*/3,
+                     /*ExponentBias=*/7, /*HasInfinity=*/false};
+  case ComponentType::F8_E5M2:
+    return FP8Format{/*ExponentBits=*/5, /*MantissaBits=*/2,
+                     /*ExponentBias=*/15, /*HasInfinity=*/true};
+  default:
+    return std::nullopt;
+  }
+}
+
+static std::optional<BYTE> encodeHalfToFP8(HLSLHalf_t Value,
+                                           ComponentType CompType) {
+  const std::optional<FP8Format> Format = getFP8Format(CompType);
+  if (!Format)
+    return std::nullopt;
+
+  const unsigned Sign = Value.Val >> 15;
+  const unsigned SourceExponent = (Value.Val >> 10) & 0x1f;
+  const unsigned SourceMantissa = Value.Val & 0x3ff;
+  if (SourceExponent == 0)
+    return SourceMantissa == 0
+               ? std::optional<BYTE>(static_cast<BYTE>(Sign << 7))
+               : std::nullopt;
+  if (SourceExponent == 0x1f)
+    return std::nullopt;
+
+  int DestinationExponent = static_cast<int>(SourceExponent) - 15 +
+                            static_cast<int>(Format->ExponentBias);
+  if (DestinationExponent <= 0)
+    return std::nullopt;
+
+  const unsigned Shift = 10 - Format->MantissaBits;
+  unsigned DestinationMantissa = SourceMantissa >> Shift;
+  const unsigned Remainder = SourceMantissa & ((1u << Shift) - 1);
+  const unsigned Halfway = 1u << (Shift - 1);
+  if (Remainder > Halfway) {
+    ++DestinationMantissa;
+  } else if (Remainder == Halfway) {
+    // Ties round to even.
+    if (DestinationMantissa & 1u)
+      ++DestinationMantissa;
+  }
+  if (DestinationMantissa == (1u << Format->MantissaBits)) {
+    DestinationMantissa = 0;
+    ++DestinationExponent;
+  }
+
+  const unsigned MaxExponent = (1u << Format->ExponentBits) - 1;
+  const unsigned MaxFiniteExponent =
+      Format->HasInfinity ? MaxExponent - 1 : MaxExponent;
+  if (DestinationExponent > static_cast<int>(MaxFiniteExponent))
+    return std::nullopt;
+  if (!Format->HasInfinity) {
+    // E4M3FN reserves the all-ones significand at the top exponent for NaN.
+    const bool TopExponent =
+        DestinationExponent == static_cast<int>(MaxExponent);
+    const bool AllOnesMantissa =
+        DestinationMantissa == (1u << Format->MantissaBits) - 1;
+    if (TopExponent && AllOnesMantissa)
+      return std::nullopt;
+  }
+
+  return static_cast<BYTE>(
+      (Sign << 7) |
+      (static_cast<unsigned>(DestinationExponent) << Format->MantissaBits) |
+      DestinationMantissa);
+}
+
+static std::optional<float> decodeFP8ToFloat(BYTE Encoded,
+                                             ComponentType CompType) {
+  const std::optional<FP8Format> Format = getFP8Format(CompType);
+  if (!Format)
+    return std::nullopt;
+
+  const unsigned MantissaMask = (1u << Format->MantissaBits) - 1;
+  const unsigned MaxExponent = (1u << Format->ExponentBits) - 1;
+  const unsigned Exponent = (Encoded >> Format->MantissaBits) & MaxExponent;
+  const unsigned Mantissa = Encoded & MantissaMask;
+  const float Sign = (Encoded & 0x80) != 0 ? -1.0f : 1.0f;
+
+  if (Exponent == MaxExponent &&
+      (Format->HasInfinity || Mantissa == MantissaMask))
+    return std::nullopt;
+  const bool Subnormal = Exponent == 0;
+  if (Subnormal && Mantissa == 0)
+    return Sign * 0.0f;
+
+  float Value = static_cast<float>(
+      Subnormal ? Mantissa : (1u << Format->MantissaBits) | Mantissa);
+  int Scale = static_cast<int>(Subnormal ? 1u : Exponent) -
+              static_cast<int>(Format->ExponentBias) -
+              static_cast<int>(Format->MantissaBits);
+  for (; Scale > 0; --Scale)
+    Value *= 2.0f;
+  for (; Scale < 0; ++Scale)
+    Value *= 0.5f;
+  return Sign * Value;
+}
+
 namespace matvec_interpretation {
 
 static constexpr size_t OutputGuardBytes = 16;
@@ -1702,12 +1811,20 @@ struct CaseData {
   ComponentType BiasInputType = ComponentType::Invalid;
   ComponentType ResultType = ComponentType::Invalid;
   bool OutputSigned = true;
+  // Load the matrix from a MulOptimal layout produced on the device by
+  // ConvertLinearAlgebraMatrix. Layout above still describes the host-encoded
+  // source bytes, which remain RowMajor or ColumnMajor.
+  bool LoadFromMulOptimal = false;
   std::vector<int64_t> MatrixValues;
   std::vector<int64_t> InterpretedVectorValues;
   std::vector<int64_t> BiasValues;
   std::wstring PublicRule;
 
   bool hasBias() const { return BiasInputType != ComponentType::Invalid; }
+
+  MatrixLayout shaderLayout() const {
+    return LoadFromMulOptimal ? MatrixLayout::MulOptimal : Layout;
+  }
 };
 
 static void reportUnexpectedComponentType(LPCWSTR Function,
@@ -1812,6 +1929,8 @@ static bool isEncodableComponentType(ComponentType Type) {
   case ComponentType::F32:
   case ComponentType::I32:
   case ComponentType::U32:
+  case ComponentType::F8_E4M3FN:
+  case ComponentType::F8_E5M2:
     return true;
   default:
     return false;
@@ -1885,6 +2004,23 @@ encodeComponents(ComponentType Type, const std::vector<int64_t> &Values) {
       Native.push_back(Half);
     }
     return encodeNativeVector(Native);
+  }
+  case ComponentType::F8_E4M3FN:
+  case ComponentType::F8_E5M2: {
+    std::vector<BYTE> Bytes;
+    Bytes.reserve(Values.size());
+    for (int64_t Value : Values) {
+      const HLSLHalf_t Half(static_cast<float>(Value));
+      if (static_cast<float>(Half) != static_cast<float>(Value))
+        return reportUnrepresentable(Type, Value);
+      const std::optional<BYTE> Encoded = encodeHalfToFP8(Half, Type);
+      const std::optional<float> RoundTrip =
+          Encoded ? decodeFP8ToFloat(*Encoded, Type) : std::optional<float>();
+      if (!RoundTrip || *RoundTrip != static_cast<float>(Value))
+        return reportUnrepresentable(Type, Value);
+      Bytes.push_back(*Encoded);
+    }
+    return Bytes;
   }
   case ComponentType::F32: {
     std::vector<float> Native;
@@ -2107,8 +2243,8 @@ static std::optional<std::string> buildCompilerArgs(const CaseData &Case) {
   Args << " -DMATRIX_COMP_TYPE=" << static_cast<int>(Case.MatrixType);
   Args << " -DM_DIM=" << Case.M;
   Args << " -DN_DIM=" << Case.N;
-  Args << " -DMATRIX_STRIDE=" << *MatrixStride;
-  Args << " -DMATRIX_LAYOUT=" << static_cast<int>(Case.Layout);
+  Args << " -DMATRIX_STRIDE=" << (Case.LoadFromMulOptimal ? 0 : *MatrixStride);
+  Args << " -DMATRIX_LAYOUT=" << static_cast<int>(Case.shaderLayout());
   Args << " -DINPUT_STORAGE_TYPE=" << InputStorageType;
   Args << " -DINPUT_STORAGE_COUNT="
        << storageElementCount(Case.VectorInputType, Case.N);
@@ -2312,8 +2448,78 @@ static void runCase(ID3D12Device *Device, dxc::SpecificDllLoader &DxcSupport,
                                   : "SRV(t0), SRV(t1), UAV(u2)";
   compileShader(DxcSupport, Shader, "cs_6_10", *Args, Verbose);
 
+  UINT MulOptimalSize = 0;
+  st::ShaderOpTest::TCommandCallbackFn ConvertCallback = nullptr;
+#if defined(DIRECT3D_LINEAR_ALGEBRA)
+  if (Case.LoadFromMulOptimal) {
+    const std::optional<linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE> MirrorType =
+        toCapabilityDataType(Case.MatrixType);
+    VERIFY_IS_TRUE(MirrorType.has_value());
+    if (!MirrorType)
+      return;
+    // The mirror and the SDK enum are pinned to identical values by the
+    // ASSERT_RUNTIME_ENUM checks in HlslExecTestUtils.h.
+    const D3D12_LINEAR_ALGEBRA_DATATYPE DataType =
+        static_cast<D3D12_LINEAR_ALGEBRA_DATATYPE>(*MirrorType);
+    const D3D12_LINEAR_ALGEBRA_MATRIX_LAYOUT SourceLayout =
+        Case.Layout == MatrixLayout::RowMajor
+            ? D3D12_LINEAR_ALGEBRA_MATRIX_LAYOUT_ROW_MAJOR
+            : D3D12_LINEAR_ALGEBRA_MATRIX_LAYOUT_COLUMN_MAJOR;
+    const UINT SourceSize = static_cast<UINT>(MatrixBuffer->size());
+    const UINT SourceStride = static_cast<UINT>(*matrixStrideBytes(Case));
+
+    MulOptimalSize = getLinAlgMatrixByteSize(
+        Device, Case.M, Case.N, DataType,
+        D3D12_LINEAR_ALGEBRA_MATRIX_LAYOUT_MUL_OPTIMAL, /*Stride=*/0);
+    if (MulOptimalSize == 0)
+      return;
+
+    const MatrixDim Rows = Case.M;
+    const MatrixDim Columns = Case.N;
+    ConvertCallback = [=](ID3D12GraphicsCommandList *List,
+                          st::ShaderOpTest *Test) {
+      ID3D12Resource *Source = nullptr;
+      ID3D12Resource *Destination = nullptr;
+      Test->GetResource("MatrixSource", &Source);
+      Test->GetResource("MatrixInput", &Destination);
+
+      // A thread-scope load requires a read-only ByteAddressBuffer, so the
+      // destination is declared as an SRV and arrives in the shader-resource
+      // state. The conversion writes it, so borrow it as a UAV and hand it
+      // back; the closing transition also orders the write before the load.
+      D3D12_RESOURCE_BARRIER Barrier = {};
+      Barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+      Barrier.Transition.pResource = Destination;
+      Barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+      Barrier.Transition.StateBefore =
+          D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
+      Barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
+      List->ResourceBarrier(1, &Barrier);
+
+      recordLinAlgMatrixConversion(
+          List, Source, SourceSize, Destination, MulOptimalSize, Rows, Columns,
+          DataType, SourceLayout, SourceStride,
+          D3D12_LINEAR_ALGEBRA_MATRIX_LAYOUT_MUL_OPTIMAL, /*DestStride=*/0);
+
+      std::swap(Barrier.Transition.StateBefore, Barrier.Transition.StateAfter);
+      List->ResourceBarrier(1, &Barrier);
+    };
+  }
+#else
+  VERIFY_IS_FALSE(Case.LoadFromMulOptimal,
+                  "MulOptimal cases need the preview D3D12 linear algebra API");
+  if (Case.LoadFromMulOptimal)
+    return;
+#endif
+
   auto Op = createComputeOp(Shader, "cs_6_10", RootSignature, Args->c_str());
-  addSRVBuffer(Op.get(), "MatrixInput", MatrixBuffer->size(), "byname");
+  if (Case.LoadFromMulOptimal) {
+    addUAVBuffer(Op.get(), "MatrixSource", MatrixBuffer->size(),
+                 /*ReadBack=*/false, "byname");
+    addSRVBuffer(Op.get(), "MatrixInput", MulOptimalSize, "zero");
+  } else {
+    addSRVBuffer(Op.get(), "MatrixInput", MatrixBuffer->size(), "byname");
+  }
   addSRVBuffer(Op.get(), "VectorInput", VectorBuffer->size(), "byname");
   if (Case.hasBias())
     addSRVBuffer(Op.get(), "BiasInput", BiasBuffer->size(), "byname");
@@ -2327,30 +2533,32 @@ static void runCase(ID3D12Device *Device, dxc::SpecificDllLoader &DxcSupport,
     addRootView(Op.get(), 2, "Output");
   }
 
-  auto Result =
-      runShaderOp(Device, DxcSupport, std::move(Op),
-                  [&](LPCSTR Name, std::vector<BYTE> &Data, st::ShaderOp *) {
-                    if (_stricmp(Name, "Output") == 0) {
-                      cpu_oracle::fillPoison(Data.data(), Data.size());
-                      return;
-                    }
+  auto Result = runShaderOp(
+      Device, DxcSupport, std::move(Op),
+      [&](LPCSTR Name, std::vector<BYTE> &Data, st::ShaderOp *) {
+        if (_stricmp(Name, "Output") == 0) {
+          cpu_oracle::fillPoison(Data.data(), Data.size());
+          return;
+        }
 
-                    const std::vector<BYTE> *Source = nullptr;
-                    if (_stricmp(Name, "MatrixInput") == 0)
-                      Source = &*MatrixBuffer;
-                    else if (_stricmp(Name, "VectorInput") == 0)
-                      Source = &*VectorBuffer;
-                    else if (Case.hasBias() && _stricmp(Name, "BiasInput") == 0)
-                      Source = &*BiasBuffer;
-                    VERIFY_IS_TRUE(Source != nullptr,
-                                   "Unexpected MatVec resource initializer");
-                    if (!Source)
-                      return;
-                    VERIFY_IS_TRUE(Data.size() == Source->size(),
-                                   "MatVec resource initializer size mismatch");
-                    if (Data.size() == Source->size())
-                      std::memcpy(Data.data(), Source->data(), Data.size());
-                  });
+        const std::vector<BYTE> *Source = nullptr;
+        if (_stricmp(Name, "MatrixInput") == 0 ||
+            _stricmp(Name, "MatrixSource") == 0)
+          Source = &*MatrixBuffer;
+        else if (_stricmp(Name, "VectorInput") == 0)
+          Source = &*VectorBuffer;
+        else if (Case.hasBias() && _stricmp(Name, "BiasInput") == 0)
+          Source = &*BiasBuffer;
+        VERIFY_IS_TRUE(Source != nullptr,
+                       "Unexpected MatVec resource initializer");
+        if (!Source)
+          return;
+        VERIFY_IS_TRUE(Data.size() == Source->size(),
+                       "MatVec resource initializer size mismatch");
+        if (Data.size() == Source->size())
+          std::memcpy(Data.data(), Source->data(), Data.size());
+      },
+      /*PostDispatchCallback=*/nullptr, std::move(ConvertCallback));
 
   MappedData OutData;
   Result->Test->GetReadBackData("Output", &OutData);
@@ -2457,8 +2665,52 @@ static CaseData makeUInt32OutputCase() {
   return Case;
 }
 
-} // namespace matvec_interpretation
+static CaseData makeFP8MatrixCase(ComponentType MatrixType) {
+  CaseData Case = {};
+  Case.MatrixType = MatrixType;
+  Case.M = 4;
+  Case.N = 16;
+  Case.Layout = MatrixLayout::RowMajor;
+  Case.LoadFromMulOptimal = true;
+  Case.VectorInputType = ComponentType::F16;
+  Case.InputInterpretation = ComponentType::F16;
+  Case.ResultType = ComponentType::F16;
+  Case.MatrixValues = {
+      1,  0,  -1, 2,  -2, 3,  -3, 4,  -4, 8,  -8, 1, 2,  -1, 0,  1,
+      -1, 2,  0,  1,  -2, 1,  3,  -1, 2,  -1, 1,  0, 1,  -3, -2, 3,
+      8,  -8, 4,  -4, 2,  -2, 1,  -1, 0,  1,  2,  3, -3, -2, -1, 0,
+      0,  1,  1,  0,  2,  2,  0,  -1, -1, 0,  4,  4, 0,  -2, -2, 1,
+  };
+  Case.InterpretedVectorValues = {1, -1, 2,  -2, 3, -3, 4,  -4,
+                                  1, 2,  -1, -2, 5, 1,  -1, 2};
+  Case.PublicRule =
+      MatrixType == ComponentType::F8_E4M3FN
+          ? L"Exact F16 vector times FP8 E4M3FN matrix dot products"
+          : L"Exact F16 vector times FP8 E5M2 matrix dot products";
+  return Case;
+}
 
+#if !defined(DIRECT3D_LINEAR_ALGEBRA)
+static void reportMissingConversionApi(LPCWSTR CaseName) {
+#ifdef _HLK_CONF
+  // HLK forbids skipping, so treat the missing linear-algebra matrix-conversion
+  // API as a failure rather than emitting a (compiled-out) skip.
+  hlsl_test::LogErrorFmt(L"%s requires the linear-algebra matrix-conversion "
+                         L"API (DIRECT3D_LINEAR_ALGEBRA), which this build "
+                         L"lacks",
+                         CaseName);
+#else
+  hlsl_test::LogCommentFmt(
+      L"Skipping %s: built against a D3D12 SDK without the linear-algebra "
+      L"matrix-conversion API (DIRECT3D_LINEAR_ALGEBRA undefined); the "
+      L"host-side conversion helpers are compiled out.",
+      CaseName);
+  WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
+#endif // _HLK_CONF
+}
+#endif // !defined(DIRECT3D_LINEAR_ALGEBRA)
+
+} // namespace matvec_interpretation
 // Harness self-check for the CPU oracle. Deliberately carries no Kits metadata
 // so HLK runs never select it; drivers are not certified against this class.
 class LinAlgCPUOracleTests {
@@ -2475,6 +2727,7 @@ public:
   TEST_METHOD(ViewBoundedStoreBytes);
   TEST_METHOD(MatVecHostOracle);
   TEST_METHOD(FP8HostOracle);
+  TEST_METHOD(FP8MatrixValueEncoding);
 };
 
 void LinAlgCPUOracleTests::ComponentByteSize() {
@@ -3200,6 +3453,8 @@ public:
   TEST_METHOD(MatVecMul_Thread_4x8_I8_Interpreted);
   TEST_METHOD(MatVecMul_Thread_4x8_U8_Interpreted);
   TEST_METHOD(MatVecMul_Thread_4x8_U32_UnsignedOutput);
+  TEST_METHOD(MatVecMul_Thread_4x16_F8_E4M3FN);
+  TEST_METHOD(MatVecMul_Thread_4x16_F8_E5M2);
   TEST_METHOD(MatVecMulAdd_Thread_16x16_F16);
   TEST_METHOD(MatVecMulAdd_Thread_4x8_F32);
   TEST_METHOD(MatVecMulAdd_Thread_4x8_F16_IndependentBias);
@@ -8519,6 +8774,34 @@ void DxilConf_SM610_LinAlg::MatVecMul_Thread_4x8_U32_UnsignedOutput() {
       L"MatVecMul_Thread_4x8_U32_UnsignedOutput", VerboseLogging);
 }
 
+void DxilConf_SM610_LinAlg::MatVecMul_Thread_4x16_F8_E4M3FN() {
+#if defined(DIRECT3D_LINEAR_ALGEBRA)
+  const matvec_interpretation::CaseData Case =
+      matvec_interpretation::makeFP8MatrixCase(ComponentType::F8_E4M3FN);
+  matvec_interpretation::runCapabilityChecked(
+      D3DDevice, DxcSupport, Case,
+      linalg_test::CapabilityRequirement::Mandatory,
+      L"MatVecMul_Thread_4x16_F8_E4M3FN", VerboseLogging);
+#else
+  matvec_interpretation::reportMissingConversionApi(
+      L"MatVecMul_Thread_4x16_F8_E4M3FN");
+#endif // defined(DIRECT3D_LINEAR_ALGEBRA)
+}
+
+void DxilConf_SM610_LinAlg::MatVecMul_Thread_4x16_F8_E5M2() {
+#if defined(DIRECT3D_LINEAR_ALGEBRA)
+  const matvec_interpretation::CaseData Case =
+      matvec_interpretation::makeFP8MatrixCase(ComponentType::F8_E5M2);
+  matvec_interpretation::runCapabilityChecked(
+      D3DDevice, DxcSupport, Case,
+      linalg_test::CapabilityRequirement::Mandatory,
+      L"MatVecMul_Thread_4x16_F8_E5M2", VerboseLogging);
+#else
+  matvec_interpretation::reportMissingConversionApi(
+      L"MatVecMul_Thread_4x16_F8_E5M2");
+#endif // defined(DIRECT3D_LINEAR_ALGEBRA)
+}
+
 void DxilConf_SM610_LinAlg::MatVecMulAdd_Thread_4x8_F16_IndependentBias() {
   matvec_interpretation::CaseData Case =
       matvec_interpretation::makeNonUniformF16Case(MatrixLayout::RowMajor);
@@ -8890,84 +9173,6 @@ static void runExactConvert(ID3D12Device *Device,
                                     Expected, PublicRule, Verbose));
 }
 
-struct FP8Format {
-  unsigned ExponentBits;
-  unsigned MantissaBits;
-  unsigned ExponentBias;
-  bool HasInfinity;
-};
-
-static std::optional<FP8Format> getFP8Format(ComponentType CompType) {
-  switch (CompType) {
-  case ComponentType::F8_E4M3FN:
-    return FP8Format{/*ExponentBits=*/4, /*MantissaBits=*/3,
-                     /*ExponentBias=*/7, /*HasInfinity=*/false};
-  case ComponentType::F8_E5M2:
-    return FP8Format{/*ExponentBits=*/5, /*MantissaBits=*/2,
-                     /*ExponentBias=*/15, /*HasInfinity=*/true};
-  default:
-    return std::nullopt;
-  }
-}
-
-static std::optional<BYTE> encodeHalfToFP8(HLSLHalf_t Value,
-                                           ComponentType CompType) {
-  const std::optional<FP8Format> Format = getFP8Format(CompType);
-  if (!Format)
-    return std::nullopt;
-
-  const unsigned Sign = Value.Val >> 15;
-  const unsigned SourceExponent = (Value.Val >> 10) & 0x1f;
-  const unsigned SourceMantissa = Value.Val & 0x3ff;
-  if (SourceExponent == 0)
-    return SourceMantissa == 0
-               ? std::optional<BYTE>(static_cast<BYTE>(Sign << 7))
-               : std::nullopt;
-  if (SourceExponent == 0x1f)
-    return std::nullopt;
-
-  int DestinationExponent = static_cast<int>(SourceExponent) - 15 +
-                            static_cast<int>(Format->ExponentBias);
-  if (DestinationExponent <= 0)
-    return std::nullopt;
-
-  const unsigned Shift = 10 - Format->MantissaBits;
-  unsigned DestinationMantissa = SourceMantissa >> Shift;
-  const unsigned Remainder = SourceMantissa & ((1u << Shift) - 1);
-  const unsigned Halfway = 1u << (Shift - 1);
-  if (Remainder > Halfway) {
-    ++DestinationMantissa;
-  } else if (Remainder == Halfway) {
-    // Ties round to even.
-    if (DestinationMantissa & 1u)
-      ++DestinationMantissa;
-  }
-  if (DestinationMantissa == (1u << Format->MantissaBits)) {
-    DestinationMantissa = 0;
-    ++DestinationExponent;
-  }
-
-  const unsigned MaxExponent = (1u << Format->ExponentBits) - 1;
-  const unsigned MaxFiniteExponent =
-      Format->HasInfinity ? MaxExponent - 1 : MaxExponent;
-  if (DestinationExponent > static_cast<int>(MaxFiniteExponent))
-    return std::nullopt;
-  if (!Format->HasInfinity) {
-    // E4M3FN reserves the all-ones significand at the top exponent for NaN.
-    const bool TopExponent =
-        DestinationExponent == static_cast<int>(MaxExponent);
-    const bool AllOnesMantissa =
-        DestinationMantissa == (1u << Format->MantissaBits) - 1;
-    if (TopExponent && AllOnesMantissa)
-      return std::nullopt;
-  }
-
-  return static_cast<BYTE>(
-      (Sign << 7) |
-      (static_cast<unsigned>(DestinationExponent) << Format->MantissaBits) |
-      DestinationMantissa);
-}
-
 struct FP8ConvertData {
   std::vector<BYTE> DecodeInput;
   std::vector<BYTE> ExpectedOutput;
@@ -9046,6 +9251,82 @@ void LinAlgCPUOracleTests::FP8HostOracle() {
     // echoed its input would pass the decode half of the execution test.
     VERIFY_IS_TRUE(Vectors->DecodeInput != Vectors->HandEncoded,
                    "FP8 decode input must be independent of encode output");
+  }
+}
+
+void LinAlgCPUOracleTests::FP8MatrixValueEncoding() {
+  struct GoldenEntry {
+    int Value;
+    BYTE E4M3FN;
+    BYTE E5M2;
+  };
+
+  // Hand-derived from the FP8 exponent and mantissa layouts in proposal 0035.
+  const std::vector<GoldenEntry> Golden = {
+      {0, 0x00, 0x00},  {1, 0x38, 0x3c}, {-1, 0xb8, 0xbc}, {2, 0x40, 0x40},
+      {-2, 0xc0, 0xc0}, {3, 0x44, 0x42}, {-3, 0xc4, 0xc2}, {4, 0x48, 0x44},
+      {-4, 0xc8, 0xc4}, {8, 0x50, 0x48}, {-8, 0xd0, 0xc8}};
+
+  for (const GoldenEntry &Entry : Golden) {
+    for (ComponentType CompType :
+         {ComponentType::F8_E4M3FN, ComponentType::F8_E5M2}) {
+      const BYTE Expected =
+          CompType == ComponentType::F8_E4M3FN ? Entry.E4M3FN : Entry.E5M2;
+      const std::optional<BYTE> Encoded = encodeHalfToFP8(
+          HLSLHalf_t(static_cast<float>(Entry.Value)), CompType);
+      if (!Encoded || *Encoded != Expected) {
+        hlsl_test::LogErrorFmt(
+            L"%s encoding of %d is 0x%02x, hand-derived table says 0x%02x",
+            cpu_oracle::componentTypeName(CompType), Entry.Value,
+            Encoded ? *Encoded : 0, Expected);
+        VERIFY_FAIL(L"FP8 encoder disagrees with the hand-derived table");
+        return;
+      }
+
+      const std::optional<float> Decoded = decodeFP8ToFloat(*Encoded, CompType);
+      if (!Decoded || *Decoded != static_cast<float>(Entry.Value)) {
+        hlsl_test::LogErrorFmt(
+            L"%s decoding of 0x%02x did not round-trip the exact value %d",
+            cpu_oracle::componentTypeName(CompType), *Encoded, Entry.Value);
+        VERIFY_FAIL(L"FP8 decoder failed to round-trip an exact value");
+        return;
+      }
+    }
+  }
+
+  struct SubnormalEntry {
+    ComponentType CompType;
+    BYTE Encoded;
+    float Value;
+  };
+
+  // The Min row of the FP8 format table in proposal 0035 gives S.0000.001 as
+  // 2^-9 for E4M3FN and S.00000.01 as 2^-16 for E5M2, so exponent zero with a
+  // nonzero mantissa is a finite subnormal rather than an invalid encoding.
+  // The encoder never emits these, so they are pinned on the decoder alone.
+  const std::vector<SubnormalEntry> Subnormals = {
+      {ComponentType::F8_E4M3FN, 0x00, 0.0f},
+      {ComponentType::F8_E4M3FN, 0x80, 0.0f},
+      {ComponentType::F8_E4M3FN, 0x01, 1.0f / 512.0f},
+      {ComponentType::F8_E4M3FN, 0x03, 3.0f / 512.0f},
+      {ComponentType::F8_E4M3FN, 0x07, 7.0f / 512.0f},
+      {ComponentType::F8_E4M3FN, 0x81, -1.0f / 512.0f},
+      {ComponentType::F8_E5M2, 0x00, 0.0f},
+      {ComponentType::F8_E5M2, 0x01, 1.0f / 65536.0f},
+      {ComponentType::F8_E5M2, 0x03, 3.0f / 65536.0f},
+      {ComponentType::F8_E5M2, 0x83, -3.0f / 65536.0f}};
+
+  for (const SubnormalEntry &Entry : Subnormals) {
+    const std::optional<float> Decoded =
+        decodeFP8ToFloat(Entry.Encoded, Entry.CompType);
+    if (!Decoded || *Decoded != Entry.Value) {
+      hlsl_test::LogErrorFmt(
+          L"%s decoding of 0x%02x is %f, proposal 0035 says %f",
+          cpu_oracle::componentTypeName(Entry.CompType), Entry.Encoded,
+          Decoded ? *Decoded : 0.0f, Entry.Value);
+      VERIFY_FAIL(L"FP8 decoder disagrees with the specified subnormal value");
+      return;
+    }
   }
 }
 
