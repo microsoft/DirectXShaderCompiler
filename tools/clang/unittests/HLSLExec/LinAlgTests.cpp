@@ -7013,6 +7013,14 @@ static D3D12_LINEAR_ALGEBRA_DATATYPE toLinAlgDataType(ComponentType CT) {
     return D3D12_LINEAR_ALGEBRA_DATATYPE_SINT32;
   case ComponentType::U32:
     return D3D12_LINEAR_ALGEBRA_DATATYPE_UINT32;
+  case ComponentType::I8:
+    return D3D12_LINEAR_ALGEBRA_DATATYPE_SINT8;
+  case ComponentType::U8:
+    return D3D12_LINEAR_ALGEBRA_DATATYPE_UINT8;
+  case ComponentType::F8_E4M3FN:
+    return D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT8_E4M3FN;
+  case ComponentType::F8_E5M2:
+    return D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT8_E5M2;
   default:
     VERIFY_IS_TRUE(false, "Unsupported component type for linalg conversion");
     return D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT16;
