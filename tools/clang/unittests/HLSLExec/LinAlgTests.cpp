@@ -7960,15 +7960,17 @@ void DxilConf_SM610_LinAlg::
           SelectedWaveSize))
     return;
 
+  const size_t ElementBytes = elementSize(Params.CompType);
   const cpu_oracle::MatrixBufferLayout Target = {
       MatrixLayout::RowMajor,
-      /*OffsetBytes=*/128,
-      /*StrideBytes=*/32,
+      /*OffsetBytes=*/MatrixOffsetAlignmentBytes,
+      /*StrideBytes=*/alignMatrixStride(Params.N * ElementBytes) +
+          MatrixStrideAlignmentBytes,
   };
   const cpu_oracle::MatrixBufferLayout Canonical = {
       MatrixLayout::ColumnMajor,
       /*OffsetBytes=*/0,
-      /*StrideBytes=*/16,
+      /*StrideBytes=*/alignMatrixStride(Params.M * ElementBytes),
   };
   runBidirectionalGroupSharedTransfer(D3DDevice, DxcSupport, Params, Target,
                                       Canonical, VerboseLogging,
@@ -7994,15 +7996,17 @@ void DxilConf_SM610_LinAlg::
           SelectedWaveSize))
     return;
 
+  const size_t ElementBytes = elementSize(Params.CompType);
   const cpu_oracle::MatrixBufferLayout Target = {
       MatrixLayout::ColumnMajor,
-      /*OffsetBytes=*/128,
-      /*StrideBytes=*/32,
+      /*OffsetBytes=*/MatrixOffsetAlignmentBytes,
+      /*StrideBytes=*/alignMatrixStride(Params.M * ElementBytes) +
+          MatrixStrideAlignmentBytes,
   };
   const cpu_oracle::MatrixBufferLayout Canonical = {
       MatrixLayout::RowMajor,
       /*OffsetBytes=*/0,
-      /*StrideBytes=*/32,
+      /*StrideBytes=*/alignMatrixStride(Params.N * ElementBytes),
   };
   runBidirectionalGroupSharedTransfer(D3DDevice, DxcSupport, Params, Target,
                                       Canonical, VerboseLogging,
@@ -8026,15 +8030,17 @@ void DxilConf_SM610_LinAlg::LoadStoreMemory_ThreadGroup_4x8_F16() {
                                     SelectedWaveSize))
     return;
 
+  const size_t ElementBytes = elementSize(Params.CompType);
   const cpu_oracle::MatrixBufferLayout Target = {
       MatrixLayout::ColumnMajor,
-      /*OffsetBytes=*/128,
-      /*StrideBytes=*/32,
+      /*OffsetBytes=*/MatrixOffsetAlignmentBytes,
+      /*StrideBytes=*/alignMatrixStride(Params.M * ElementBytes) +
+          MatrixStrideAlignmentBytes,
   };
   const cpu_oracle::MatrixBufferLayout Canonical = {
       MatrixLayout::RowMajor,
       /*OffsetBytes=*/0,
-      /*StrideBytes=*/16,
+      /*StrideBytes=*/alignMatrixStride(Params.N * ElementBytes),
   };
   runBidirectionalGroupSharedTransfer(D3DDevice, DxcSupport, Params, Target,
                                       Canonical, VerboseLogging,
@@ -8300,10 +8306,12 @@ static void runPaddedGroupSharedAccumulateCase(
     return;
   }
 
+  const size_t ElementBytes = elementSize(Params.CompType);
   const cpu_oracle::MatrixBufferLayout Memory = {
       MatrixLayout::RowMajor,
-      /*OffsetBytes=*/128,
-      /*StrideBytes=*/48,
+      /*OffsetBytes=*/MatrixOffsetAlignmentBytes,
+      /*StrideBytes=*/alignMatrixStride(Params.N * ElementBytes) +
+          2 * MatrixStrideAlignmentBytes,
   };
   runGroupSharedAccumulate(Device, DxcSupport, Params, Memory,
                            /*InitialValue=*/12,
