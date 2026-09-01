@@ -1825,6 +1825,8 @@ struct CaseData {
   // ConvertLinearAlgebraMatrix. Layout above still describes the host-encoded
   // source bytes, which remain RowMajor or ColumnMajor.
   bool LoadFromMulOptimal = false;
+  // An interpreted bias is only expressible through the public dx::linalg path.
+  bool BiasFromMemory = false;
   std::vector<int64_t> MatrixValues;
   std::vector<int64_t> InterpretedVectorValues;
   std::vector<int64_t> BiasValues;
@@ -1986,6 +1988,18 @@ static std::optional<BYTE> encodeByte(ComponentType Type, int64_t Value) {
       return reportUnrepresentable(Type, Value);
     return static_cast<BYTE>(Value);
   }
+  if (Type == ComponentType::F8_E4M3FN || Type == ComponentType::F8_E5M2) {
+    const HLSLHalf_t Half(static_cast<float>(Value));
+    if (static_cast<float>(Half) != static_cast<float>(Value))
+      return reportUnrepresentable(Type, Value);
+    const std::optional<BYTE> Encoded = encodeHalfToFP8(Half, Type);
+    // The oracle is an exact integer dot product, so reject rounded inputs.
+    const std::optional<float> RoundTrip =
+        Encoded ? decodeFP8ToFloat(*Encoded, Type) : std::optional<float>();
+    if (!RoundTrip || *RoundTrip != static_cast<float>(Value))
+      return reportUnrepresentable(Type, Value);
+    return *Encoded;
+  }
   return std::nullopt;
 }
 
@@ -1993,7 +2007,9 @@ static std::optional<std::vector<BYTE>>
 encodeComponents(ComponentType Type, const std::vector<int64_t> &Values) {
   switch (Type) {
   case ComponentType::I8:
-  case ComponentType::U8: {
+  case ComponentType::U8:
+  case ComponentType::F8_E4M3FN:
+  case ComponentType::F8_E5M2: {
     std::vector<BYTE> Bytes;
     Bytes.reserve(Values.size());
     for (int64_t Value : Values) {
@@ -2014,23 +2030,6 @@ encodeComponents(ComponentType Type, const std::vector<int64_t> &Values) {
       Native.push_back(Half);
     }
     return encodeNativeVector(Native);
-  }
-  case ComponentType::F8_E4M3FN:
-  case ComponentType::F8_E5M2: {
-    std::vector<BYTE> Bytes;
-    Bytes.reserve(Values.size());
-    for (int64_t Value : Values) {
-      const HLSLHalf_t Half(static_cast<float>(Value));
-      if (static_cast<float>(Half) != static_cast<float>(Value))
-        return reportUnrepresentable(Type, Value);
-      const std::optional<BYTE> Encoded = encodeHalfToFP8(Half, Type);
-      const std::optional<float> RoundTrip =
-          Encoded ? decodeFP8ToFloat(*Encoded, Type) : std::optional<float>();
-      if (!RoundTrip || *RoundTrip != static_cast<float>(Value))
-        return reportUnrepresentable(Type, Value);
-      Bytes.push_back(*Encoded);
-    }
-    return Bytes;
   }
   case ComponentType::F32: {
     std::vector<float> Native;
@@ -2195,10 +2194,15 @@ static bool isCaseValid(const CaseData &Case) {
   if (Case.hasBias()) {
     if (Case.BiasValues.size() != Case.M)
       return false;
-    if (Case.BiasInputType != Case.ResultType)
-      return false;
     if (!storageTypeName(Case.BiasInputType))
       return false;
+    if (Case.BiasFromMemory) {
+      // A packed bias must fill its last scalar. See DXC issue 8418.
+      if (Case.M % elementsPerScalar(Case.BiasInputType) != 0)
+        return false;
+    } else if (Case.BiasInputType != Case.ResultType) {
+      return false;
+    }
   }
 
   const std::optional<size_t> Stride = matrixStrideBytes(Case);
@@ -2269,6 +2273,7 @@ static std::optional<std::string> buildCompilerArgs(const CaseData &Case) {
   Args << " -DOUTPUT_SIZE=" << componentByteSize(Case.ResultType).value_or(0);
   Args << " -DOUTPUT_SIGNED=" << (Case.OutputSigned ? 1 : 0);
   if (Case.hasBias()) {
+    Args << " -DBIAS_INTERP=" << static_cast<int>(Case.BiasInputType);
     Args << " -DBIAS_STORAGE_TYPE=" << BiasStorageType;
     Args << " -DBIAS_STORAGE_COUNT="
          << storageElementCount(Case.BiasInputType, Case.M);
@@ -2385,6 +2390,40 @@ static const char MatVecMulAddShader[] = R"(
   }
 )";
 
+static const char MatVecMulAddMemoryBiasShader[] = R"(
+  #include <dx/linalg.h>
+
+  using namespace dx::linalg;
+
+  ByteAddressBuffer MatrixInput : register(t0);
+  ByteAddressBuffer VectorInput : register(t1);
+  ByteAddressBuffer BiasInput : register(t2);
+  RWByteAddressBuffer Output : register(u3);
+
+  [numthreads(1, 1, 1)]
+  void main() {
+    using MatrixATy = Matrix<(ComponentEnum)MATRIX_COMP_TYPE, M_DIM, N_DIM,
+                             MatrixUse::A, MatrixScope::Thread>;
+    MatrixATy Mat = MatrixATy::Load<(MatrixLayoutEnum)MATRIX_LAYOUT>(
+      MatrixInput, 0, MATRIX_STRIDE);
+
+    vector<INPUT_STORAGE_TYPE, INPUT_STORAGE_COUNT> InVec;
+    for (uint I = 0; I < INPUT_STORAGE_COUNT; ++I) {
+      InVec[I] =
+        VectorInput.Load<INPUT_STORAGE_TYPE>(I * INPUT_STORAGE_SIZE);
+    }
+
+    VectorRef<(ComponentEnum)BIAS_INTERP, M_DIM> BiasRef = {BiasInput, 0};
+
+    vector<OUTPUT_TYPE, M_DIM> OutVec =
+      MultiplyAdd<OUTPUT_TYPE>(Mat, InVec, BiasRef);
+
+    for (uint I = 0; I < M_DIM; ++I) {
+      Output.Store<OUTPUT_TYPE>(I * OUTPUT_SIZE, OutVec[I]);
+    }
+  }
+)";
+
 static HRESULT querySupport(ID3D12Device *Device, const CaseData &Case,
                             bool &TierSupported, bool &Supported) {
   TierSupported = false;
@@ -2396,8 +2435,11 @@ static HRESULT querySupport(ID3D12Device *Device, const CaseData &Case,
       toCapabilityDataType(Case.VectorInputType);
   const std::optional<linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE> MatrixType =
       toCapabilityDataType(Case.MatrixType);
+  // A memory bias is converted to the result type before reaching the builtin.
+  const ComponentType QueriedBiasType =
+      Case.BiasFromMemory ? Case.ResultType : Case.BiasInputType;
   const std::optional<linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE> BiasType =
-      Case.hasBias() ? toCapabilityDataType(Case.BiasInputType)
+      Case.hasBias() ? toCapabilityDataType(QueriedBiasType)
                      : std::optional<linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE>(
                            linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE_NONE);
   const std::optional<linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE> ResultType =
@@ -2456,7 +2498,10 @@ static void runCase(ID3D12Device *Device, dxc::SpecificDllLoader &DxcSupport,
       !ExpectedOutput || !Args)
     return;
 
-  const char *Shader = Case.hasBias() ? MatVecMulAddShader : MatVecMulShader;
+  const char *Shader = MatVecMulShader;
+  if (Case.hasBias())
+    Shader =
+        Case.BiasFromMemory ? MatVecMulAddMemoryBiasShader : MatVecMulAddShader;
   const char *RootSignature = Case.hasBias()
                                   ? "SRV(t0), SRV(t1), SRV(t2), UAV(u3)"
                                   : "SRV(t0), SRV(t1), UAV(u2)";
@@ -2701,6 +2746,40 @@ static CaseData makeFP8MatrixCase(ComponentType MatrixType) {
       MatrixType == ComponentType::F8_E4M3FN
           ? L"Exact F16 vector times FP8 E4M3FN matrix dot products"
           : L"Exact F16 vector times FP8 E5M2 matrix dot products";
+  return Case;
+}
+
+static CaseData makeFP8VectorCase(ComponentType VectorType) {
+  CaseData Case = {};
+  Case.MatrixType = ComponentType::F16;
+  Case.M = 4;
+  Case.N = 8;
+  Case.Layout = MatrixLayout::RowMajor;
+  Case.VectorInputType = VectorType;
+  Case.InputInterpretation = VectorType;
+  Case.ResultType = ComponentType::F16;
+  Case.MatrixValues = {
+      1,  0, -1, 2, -2, 3, -3, 1,  0, 1,  2, -1, 3, -2, 1,  -3,
+      -1, 2, 0,  1, -2, 1, 3,  -1, 2, -1, 1, 0,  1, -3, -2, 3,
+  };
+  // Only 0 through 8 are exactly representable in both FP8 formats.
+  Case.InterpretedVectorValues = {1, -2, 3, -1, 2, -3, 4, 8};
+  Case.PublicRule =
+      VectorType == ComponentType::F8_E4M3FN
+          ? L"Exact packed FP8 E4M3FN vector times F16 matrix dot products"
+          : L"Exact packed FP8 E5M2 vector times F16 matrix dot products";
+  return Case;
+}
+
+static CaseData makeFP8MemoryBiasCase(ComponentType BiasType) {
+  CaseData Case = makeNonUniformF16Case(MatrixLayout::RowMajor);
+  Case.BiasInputType = BiasType;
+  Case.BiasFromMemory = true;
+  Case.BiasValues = {-3, 8, 1, -4};
+  Case.PublicRule =
+      BiasType == ComponentType::F8_E4M3FN
+          ? L"Exact F16 dots plus an FP8 E4M3FN bias loaded from memory"
+          : L"Exact F16 dots plus an FP8 E5M2 bias loaded from memory";
   return Case;
 }
 
@@ -3469,6 +3548,10 @@ public:
   TEST_METHOD(MatVecMul_Thread_4x8_U32_UnsignedOutput);
   TEST_METHOD(MatVecMul_Thread_4x16_F8_E4M3FN);
   TEST_METHOD(MatVecMul_Thread_4x16_F8_E5M2);
+  TEST_METHOD(MatVecMul_Thread_4x8_F8_E4M3FN_Vector);
+  TEST_METHOD(MatVecMul_Thread_4x8_F8_E5M2_Vector);
+  TEST_METHOD(MatVecMulAdd_Thread_4x8_F8_E4M3FN_MemoryBias);
+  TEST_METHOD(MatVecMulAdd_Thread_4x8_F8_E5M2_MemoryBias);
   TEST_METHOD(MatVecMulAdd_Thread_16x16_F16);
   TEST_METHOD(MatVecMulAdd_Thread_4x8_F32);
   TEST_METHOD(MatVecMulAdd_Thread_4x8_F16_IndependentBias);
@@ -8838,6 +8921,42 @@ void DxilConf_SM610_LinAlg::MatVecMul_Thread_4x16_F8_E5M2() {
   matvec_interpretation::reportMissingConversionApi(
       L"MatVecMul_Thread_4x16_F8_E5M2");
 #endif // defined(DIRECT3D_LINEAR_ALGEBRA)
+}
+
+void DxilConf_SM610_LinAlg::MatVecMul_Thread_4x8_F8_E4M3FN_Vector() {
+  const matvec_interpretation::CaseData Case =
+      matvec_interpretation::makeFP8VectorCase(ComponentType::F8_E4M3FN);
+  matvec_interpretation::runCapabilityChecked(
+      D3DDevice, DxcSupport, Case,
+      linalg_test::CapabilityRequirement::Mandatory,
+      L"MatVecMul_Thread_4x8_F8_E4M3FN_Vector", VerboseLogging);
+}
+
+void DxilConf_SM610_LinAlg::MatVecMul_Thread_4x8_F8_E5M2_Vector() {
+  const matvec_interpretation::CaseData Case =
+      matvec_interpretation::makeFP8VectorCase(ComponentType::F8_E5M2);
+  matvec_interpretation::runCapabilityChecked(
+      D3DDevice, DxcSupport, Case,
+      linalg_test::CapabilityRequirement::Mandatory,
+      L"MatVecMul_Thread_4x8_F8_E5M2_Vector", VerboseLogging);
+}
+
+void DxilConf_SM610_LinAlg::MatVecMulAdd_Thread_4x8_F8_E4M3FN_MemoryBias() {
+  const matvec_interpretation::CaseData Case =
+      matvec_interpretation::makeFP8MemoryBiasCase(ComponentType::F8_E4M3FN);
+  matvec_interpretation::runCapabilityChecked(
+      D3DDevice, DxcSupport, Case,
+      linalg_test::CapabilityRequirement::Mandatory,
+      L"MatVecMulAdd_Thread_4x8_F8_E4M3FN_MemoryBias", VerboseLogging);
+}
+
+void DxilConf_SM610_LinAlg::MatVecMulAdd_Thread_4x8_F8_E5M2_MemoryBias() {
+  const matvec_interpretation::CaseData Case =
+      matvec_interpretation::makeFP8MemoryBiasCase(ComponentType::F8_E5M2);
+  matvec_interpretation::runCapabilityChecked(
+      D3DDevice, DxcSupport, Case,
+      linalg_test::CapabilityRequirement::Mandatory,
+      L"MatVecMulAdd_Thread_4x8_F8_E5M2_MemoryBias", VerboseLogging);
 }
 
 void DxilConf_SM610_LinAlg::MatVecMulAdd_Thread_4x8_F16_IndependentBias() {
