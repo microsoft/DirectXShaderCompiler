@@ -3214,6 +3214,8 @@ INSTR.LINALGILLEGALKDIM                               %0 matrix K dimension out 
 INSTR.LINALGMATRIX2PARTSMUSTMATCH                     %0 matrix %1 '%2' must match %3 matrix %4 '%5'.
 INSTR.LINALGMATRIXDIMKVECKMISMATCH                    %0 vector size '%1' must be %2 for input matrix with K '%3' and Type '%4'
 INSTR.LINALGMATRIXDIMVECTORMISMATCH                   %0 vector size '%1' must match input matrix M dimension '%2'
+INSTR.LINALGMATRIXGSMEMMUSTBELARGEENOUGH              Groupshared memory holds '%0' scalars but must hold at least '%1' scalars.
+INSTR.LINALGMATRIXGSMEMTYPEMUSTMATCH                  Groupshared memory inner type '%0' must match %1 matrix type '%2'.
 INSTR.LINALGMATRIXLAYOUTREQSTRIDE                     %0 with layout '%1' requires stride 0.
 INSTR.LINALGMATRIXLOADTHREADREQUIRESBAB               Loading matrix with Thread scope requires ByteAddressBuffer.
 INSTR.LINALGMATRIXMATRIXKDIMMUSTMATCH                 K dim of A matrix '%0' must match K dim of B matrix '%1'. %2 != %3.

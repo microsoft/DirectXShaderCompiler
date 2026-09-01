@@ -8735,6 +8735,14 @@ class db_dxil(object):
             "Instr.LinAlgMatrixMatrixResDimMustMatch",
             "%0 matrix dimension '%1' must match A.MxB.N '%2'.",
         )
+        self.add_valrule(
+            "Instr.LinAlgMatrixGSMemTypeMustMatch",
+            "Groupshared memory inner type '%0' must match %1 matrix type '%2'.",
+        )
+        self.add_valrule(
+            "Instr.LinAlgMatrixGSMemMustBeLargeEnough",
+            "Groupshared memory holds '%0' scalars but must hold at least '%1' scalars.",
+        )
 
         # Some legacy rules:
         # - space is only supported for shader targets 5.1 and higher
