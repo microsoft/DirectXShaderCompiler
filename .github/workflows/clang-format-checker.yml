@@ -47,8 +47,7 @@ jobs:
           trap 'rm -f "$output_file" "$changed_files_file"' EXIT
 
           git diff --name-only --diff-filter=ACMR -z \
-            "$START_REV" \
-            "$END_REV" \
+            "$START_REV...$END_REV" \
             -- >"$changed_files_file"
           mapfile -d '' -t changed_files <"$changed_files_file"
 
