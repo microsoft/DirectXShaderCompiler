@@ -6663,6 +6663,12 @@ static void ValidateEntryProps(ValidationContext &ValCtx,
 
   ValidateWaveSize(ValCtx, EntryProps, F);
 
+  const ShaderModel *SM = ValCtx.DxilMod.GetShaderModel();
+  if (Props.IsNode() && SM->IsSM610Plus())
+    ValCtx.EmitFnFormatError(
+        F, ValidationRule::SmShaderStage,
+        {ShaderModel::GetKindName(ShaderType), SM->GetName()});
+
   if (ShaderType == DXIL::ShaderKind::Compute || Props.IsNode()) {
     unsigned X = Props.numThreads[0];
     unsigned Y = Props.numThreads[1];

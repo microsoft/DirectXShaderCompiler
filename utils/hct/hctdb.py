@@ -1115,7 +1115,7 @@ class db_dxil(object):
         for i in insts("GetGroupWaveIndex,GetGroupWaveCount"):
             i.category = "Group Wave Ops"
             i.shader_model = experimental_sm
-            i.shader_stages = ("compute", "mesh", "amplification", "node")
+            i.shader_stages = ("compute", "mesh", "amplification")
             i.is_wave = True
 
         # Clustered Geometry
@@ -8794,6 +8794,11 @@ class db_dxil(object):
             "Sm.Opcode",
             "Opcode must be defined in target shader model",
             "Opcode %0 not valid in shader model %1.",
+        )
+        self.add_valrule_msg(
+            "Sm.ShaderStage",
+            "Shader stage must be supported by the target shader model",
+            "Shader stage '%0' not valid in shader model %1.",
         )
         self.add_valrule(
             "Sm.Operand", "Operand must be defined in target shader model."
