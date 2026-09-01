@@ -17,7 +17,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - name: Fetch DirectXShaderCompiler sources
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
           ref: ${{ github.event.pull_request.head.sha }}
           persist-credentials: false
@@ -43,11 +43,17 @@ jobs:
           set -euo pipefail
 
           output_file="$(mktemp)"
+          error_file="$(mktemp)"
           changed_files_file="$(mktemp)"
-          trap 'rm -f "$output_file" "$changed_files_file"' EXIT
+          patch_file="$RUNNER_TEMP/clang-format.patch"
+          trap 'rm -f "$output_file" "$error_file" "$changed_files_file"' EXIT
+          rm -f "$patch_file"
+
+          merge_base="$(git merge-base "$START_REV" "$END_REV")"
 
           git diff --name-only --diff-filter=ACMR -z \
-            "$START_REV...$END_REV" \
+            "$merge_base" \
+            "$END_REV" \
             -- >"$changed_files_file"
           mapfile -d '' -t changed_files <"$changed_files_file"
 
@@ -66,20 +72,32 @@ jobs:
           set +e
           git-clang-format \
             --diff \
-            "$START_REV" \
+            "$merge_base" \
             "$END_REV" \
             -- \
-            "${cpp_files[@]}" >"$output_file" 2>&1
+            "${cpp_files[@]}" >"$output_file" 2>"$error_file"
           formatter_status=$?
           set -e
 
           sed 's/^/[clang-format] /' "$output_file"
+          sed 's/^/[clang-format] /' "$error_file"
           if [[ "$formatter_status" -gt 1 ]]; then
             echo "::error::git-clang-format failed."
             exit "$formatter_status"
           fi
 
           if [[ "$formatter_status" -eq 1 ]] || grep -q '^diff --git ' "$output_file"; then
-            echo "::error::C/C++ formatting changes are required. Run 'git clang-format $START_REV' locally and update the pull request."
+            sed -n '/^diff --git /,$p' "$output_file" >"$patch_file"
+            git apply --check "$patch_file"
+            echo "::error::C/C++ formatting changes are required. Run 'git clang-format $merge_base' locally and update the pull request."
             exit 1
           fi
+
+      - name: Upload formatting patch
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: clang-format-patch
+          path: ${{ runner.temp }}/clang-format.patch
+          if-no-files-found: ignore
+          retention-days: 7
