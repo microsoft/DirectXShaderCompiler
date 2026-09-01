@@ -2,7 +2,7 @@ name: "Check code formatting"
 
 on:
   pull_request:
-    types: [opened, synchronize, reopened]
+    types: [opened, synchronize]
 
 permissions:
   contents: read
@@ -19,6 +19,7 @@ jobs:
       - name: Fetch DirectXShaderCompiler sources
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
+          ref: ${{ github.event.pull_request.head.sha }}
           persist-credentials: false
 
       - name: Checkout through merge base
@@ -42,14 +43,34 @@ jobs:
           set -euo pipefail
 
           output_file="$(mktemp)"
-          trap 'rm -f "$output_file"' EXIT
+          changed_files_file="$(mktemp)"
+          trap 'rm -f "$output_file" "$changed_files_file"' EXIT
+
+          git diff --name-only --diff-filter=ACMR -z \
+            "$START_REV" \
+            "$END_REV" \
+            -- >"$changed_files_file"
+          mapfile -d '' -t changed_files <"$changed_files_file"
+
+          cpp_files=()
+          for path in "${changed_files[@]}"; do
+            case "$path" in
+              *.cpp|*.c|*.h|*.hpp|*.hxx|*.cxx) cpp_files+=("$path") ;;
+            esac
+          done
+
+          if [[ "${#cpp_files[@]}" -eq 0 ]]; then
+            echo "[clang-format] no modified files to format"
+            exit 0
+          fi
 
           set +e
           git-clang-format \
             --diff \
-            --extensions=cpp,c,h,hpp,hxx,cxx \
             "$START_REV" \
-            "$END_REV" >"$output_file" 2>&1
+            "$END_REV" \
+            -- \
+            "${cpp_files[@]}" >"$output_file" 2>&1
           formatter_status=$?
           set -e
 
