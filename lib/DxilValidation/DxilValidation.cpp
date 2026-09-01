@@ -989,7 +989,9 @@ ValidateConstantIntGetValue(CallInst *CI, Value *V, ValidationContext &ValCtx,
   return cast<ConstantInt>(V)->getLimitedValue();
 }
 
-static void ValidateLinAlgComponentType(CallInst *CI, DXIL::ComponentType CT,
+// Determines if a ComponentType is allowed in LinAlg builtins.
+// Returns true when the CT is allowed.
+static bool ValidateLinAlgComponentType(CallInst *CI, DXIL::ComponentType CT,
                                         ValidationContext &ValCtx,
                                         StringRef SourceName) {
   switch (CT) {
@@ -1007,12 +1009,12 @@ static void ValidateLinAlgComponentType(CallInst *CI, DXIL::ComponentType CT,
   case DXIL::ComponentType::F32:
   case DXIL::ComponentType::F64:
   case DXIL::ComponentType::BFloat16:
-    break;
+    return true;
   default:
     ValCtx.EmitInstrFormatError(CI,
                                 ValidationRule::InstrLinAlgIllegalComponentType,
                                 {ComponentTypeToString(CT), SourceName});
-    break;
+    return false;
   }
 }
 
@@ -1551,6 +1553,7 @@ static void ValidateLinAlgConvert(CallInst *CI, ValidationContext &ValCtx) {
 
   VectorType *RetVecTy = cast<VectorType>(CI->getType());
   VectorType *InVecTy = cast<VectorType>(Op.get_inputVector()->getType());
+  bool IsComponentTypeValid = true;
 
   // Input interp must be a immarg of allowed ComponentType
   std::optional<uint64_t> InputInterpV =
@@ -1560,7 +1563,8 @@ static void ValidateLinAlgConvert(CallInst *CI, ValidationContext &ValCtx) {
     return;
   DXIL::ComponentType InputInterp =
       static_cast<DXIL::ComponentType>(*InputInterpV);
-  ValidateLinAlgComponentType(CI, InputInterp, ValCtx, "InputInterpretation");
+  IsComponentTypeValid &= ValidateLinAlgComponentType(CI, InputInterp, ValCtx,
+                                                      "InputInterpretation");
 
   // Output interp must be a immarg of allowed ComponentType
   std::optional<uint64_t> OutputInterpV =
@@ -1570,7 +1574,13 @@ static void ValidateLinAlgConvert(CallInst *CI, ValidationContext &ValCtx) {
     return;
   DXIL::ComponentType OutputInterp =
       static_cast<DXIL::ComponentType>(*OutputInterpV);
-  ValidateLinAlgComponentType(CI, OutputInterp, ValCtx, "OutputInterpretation");
+  IsComponentTypeValid &= ValidateLinAlgComponentType(CI, OutputInterp, ValCtx,
+                                                      "OutputInterpretation");
+
+  // The remaining validations only give reasonable errors when assuming valid
+  // ComponentTypes. Stop early to minimze noise/avoid being unhelpful
+  if (!IsComponentTypeValid)
+    return;
 
   bool IsNativeInputInterp = IsComponentTypeNative(InputInterp);
   bool IsNativeOutputInterp = IsComponentTypeNative(OutputInterp);
@@ -1615,8 +1625,8 @@ static void ValidateLinAlgConvert(CallInst *CI, ValidationContext &ValCtx) {
       (InputElemCount + OutputElemPerScalar - 1) / OutputElemPerScalar;
   if (RetVecTy->getNumElements() != ExpectedOutVecSize)
     ValCtx.EmitInstrFormatError(
-        CI, ValidationRule::InstrLinAlgMatrixDimVectorMismatch,
-        {"Return", std::to_string(RetVecTy->getNumElements()),
+        CI, ValidationRule::InstrLinAlgMatrixVecElemCountMismatch,
+        {std::to_string(RetVecTy->getNumElements()),
          std::to_string(ExpectedOutVecSize)});
 }
 
