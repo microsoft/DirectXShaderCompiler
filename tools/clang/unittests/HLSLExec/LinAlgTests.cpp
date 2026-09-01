@@ -81,6 +81,16 @@ static uint8_t elementSize(ComponentType CT) {
   }
 }
 
+// Proposal 0035 requires matrix strides in memory to be a multiple of 16 bytes
+// and non-zero matrix start offsets to be 128-byte aligned.
+static constexpr size_t MatrixStrideAlignmentBytes = 16;
+static constexpr size_t MatrixOffsetAlignmentBytes = 128;
+
+static constexpr size_t alignMatrixStride(size_t PackedStrideBytes) {
+  return (PackedStrideBytes + MatrixStrideAlignmentBytes - 1) /
+         MatrixStrideAlignmentBytes * MatrixStrideAlignmentBytes;
+}
+
 struct MatrixParams {
   ComponentType CompType;
   MatrixDim M;
@@ -95,9 +105,9 @@ struct MatrixParams {
   size_t strideBytes() const {
     uint32_t ES = elementSize(CompType);
     if (Layout == MatrixLayout::RowMajor)
-      return N * ES;
+      return alignMatrixStride(N * ES);
     if (Layout == MatrixLayout::ColumnMajor)
-      return M * ES;
+      return alignMatrixStride(M * ES);
     // If not Row/Col major, spec says to use 0
     return 0;
   }
@@ -2096,7 +2106,7 @@ static std::optional<size_t> matrixStrideBytes(const CaseData &Case) {
     return std::nullopt;
   const size_t MinorCount =
       Case.Layout == MatrixLayout::RowMajor ? Case.N : Case.M;
-  return MinorCount * *ComponentSize;
+  return alignMatrixStride(MinorCount * *ComponentSize);
 }
 
 static std::optional<std::vector<BYTE>>
@@ -2190,6 +2200,10 @@ static bool isCaseValid(const CaseData &Case) {
     if (!storageTypeName(Case.BiasInputType))
       return false;
   }
+
+  const std::optional<size_t> Stride = matrixStrideBytes(Case);
+  if (!Stride || *Stride % MatrixStrideAlignmentBytes != 0)
+    return false;
 
   const bool ExpectedSigned = Case.ResultType != ComponentType::U32;
   return Case.OutputSigned == ExpectedSigned;
@@ -3868,7 +3882,7 @@ static cpu_oracle::MatrixBufferLayout packedLayout(const MatrixParams &Params) {
 
 // Where the padded cases put the matrix. Independent of the alignment above,
 // which is the contract rather than a placement, but constrained by it.
-static constexpr size_t DescriptorAlignedOffset = 128;
+static constexpr size_t DescriptorAlignedOffset = MatrixOffsetAlignmentBytes;
 static_assert(DescriptorAlignedOffset % DescriptorDeclaredAlignment == 0,
               "descriptor offset must keep the first element aligned");
 
@@ -7665,6 +7679,13 @@ getGroupSharedBufferDescription(const MatrixParams &Params,
   if (*RequiredBytes % ElementBytes != 0)
     return false;
 
+  // Proposal 0035 requires a 16-byte aligned stride and a 128-byte aligned
+  // matrix start for group-shared Load, Store and Accumulate.
+  if (Layout.StrideBytes % MatrixStrideAlignmentBytes != 0)
+    return false;
+  if (Layout.OffsetBytes % MatrixOffsetAlignmentBytes != 0)
+    return false;
+
   // Safely compute the GuardBytes and BufferSize.
   if (!cpu_oracle::checkedMultiply(GroupSharedTrailingGuardElements,
                                    ElementBytes, GuardBytes))
@@ -7947,15 +7968,17 @@ void DxilConf_SM610_LinAlg::
           SelectedWaveSize))
     return;
 
+  const size_t ElementBytes = elementSize(Params.CompType);
   const cpu_oracle::MatrixBufferLayout Target = {
       MatrixLayout::RowMajor,
-      /*OffsetBytes=*/8,
-      /*StrideBytes=*/24,
+      /*OffsetBytes=*/MatrixOffsetAlignmentBytes,
+      /*StrideBytes=*/alignMatrixStride(Params.N * ElementBytes) +
+          MatrixStrideAlignmentBytes,
   };
   const cpu_oracle::MatrixBufferLayout Canonical = {
       MatrixLayout::ColumnMajor,
       /*OffsetBytes=*/0,
-      /*StrideBytes=*/8,
+      /*StrideBytes=*/alignMatrixStride(Params.M * ElementBytes),
   };
   runBidirectionalGroupSharedTransfer(D3DDevice, DxcSupport, Params, Target,
                                       Canonical, VerboseLogging,
@@ -7981,15 +8004,17 @@ void DxilConf_SM610_LinAlg::
           SelectedWaveSize))
     return;
 
+  const size_t ElementBytes = elementSize(Params.CompType);
   const cpu_oracle::MatrixBufferLayout Target = {
       MatrixLayout::ColumnMajor,
-      /*OffsetBytes=*/16,
-      /*StrideBytes=*/24,
+      /*OffsetBytes=*/MatrixOffsetAlignmentBytes,
+      /*StrideBytes=*/alignMatrixStride(Params.M * ElementBytes) +
+          MatrixStrideAlignmentBytes,
   };
   const cpu_oracle::MatrixBufferLayout Canonical = {
       MatrixLayout::RowMajor,
       /*OffsetBytes=*/0,
-      /*StrideBytes=*/32,
+      /*StrideBytes=*/alignMatrixStride(Params.N * ElementBytes),
   };
   runBidirectionalGroupSharedTransfer(D3DDevice, DxcSupport, Params, Target,
                                       Canonical, VerboseLogging,
@@ -8013,15 +8038,17 @@ void DxilConf_SM610_LinAlg::LoadStoreMemory_ThreadGroup_4x8_F16() {
                                     SelectedWaveSize))
     return;
 
+  const size_t ElementBytes = elementSize(Params.CompType);
   const cpu_oracle::MatrixBufferLayout Target = {
       MatrixLayout::ColumnMajor,
-      /*OffsetBytes=*/8,
-      /*StrideBytes=*/12,
+      /*OffsetBytes=*/MatrixOffsetAlignmentBytes,
+      /*StrideBytes=*/alignMatrixStride(Params.M * ElementBytes) +
+          MatrixStrideAlignmentBytes,
   };
   const cpu_oracle::MatrixBufferLayout Canonical = {
       MatrixLayout::RowMajor,
       /*OffsetBytes=*/0,
-      /*StrideBytes=*/16,
+      /*StrideBytes=*/alignMatrixStride(Params.N * ElementBytes),
   };
   runBidirectionalGroupSharedTransfer(D3DDevice, DxcSupport, Params, Target,
                                       Canonical, VerboseLogging,
@@ -8287,10 +8314,12 @@ static void runPaddedGroupSharedAccumulateCase(
     return;
   }
 
+  const size_t ElementBytes = elementSize(Params.CompType);
   const cpu_oracle::MatrixBufferLayout Memory = {
       MatrixLayout::RowMajor,
-      /*OffsetBytes=*/8,
-      /*StrideBytes=*/24,
+      /*OffsetBytes=*/MatrixOffsetAlignmentBytes,
+      /*StrideBytes=*/alignMatrixStride(Params.N * ElementBytes) +
+          2 * MatrixStrideAlignmentBytes,
   };
   runGroupSharedAccumulate(Device, DxcSupport, Params, Memory,
                            /*InitialValue=*/12,
@@ -8326,8 +8355,9 @@ static void runGroupSharedAccumulateContention(
   const size_t ElementBytes = elementSize(CompType);
   const cpu_oracle::MatrixBufferLayout Memory = {
       MatrixLayout::RowMajor,
-      /*OffsetBytes=*/4 * ElementBytes,
-      /*StrideBytes=*/Params.N * ElementBytes + 8,
+      /*OffsetBytes=*/MatrixOffsetAlignmentBytes,
+      /*StrideBytes=*/alignMatrixStride(Params.N * ElementBytes) +
+          MatrixStrideAlignmentBytes,
   };
   runGroupSharedAccumulate(Device, DxcSupport, Params, Memory,
                            /*InitialValue=*/7,
