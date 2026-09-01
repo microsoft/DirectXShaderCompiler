@@ -561,11 +561,11 @@ HRESULT queryAtomicAccumulateStore(ID3D12Device *Device,
 
 // TODO(#8661): Remove me when GroupSharedLimit is available in a released
 // Windows SDK.
-#if defined(D3D12_PREVIEW_SDK_VERSION)
+#if defined(DIRECT3D_PREVIEW_BUILD)
 UINT getMaxGroupSharedMemoryCS(ID3D12Device *Device);
 UINT getMaxGroupSharedMemoryAS(ID3D12Device *Device);
 UINT getMaxGroupSharedMemoryMS(ID3D12Device *Device);
-#endif // defined(D3D12_PREVIEW_SDK_VERSION)
+#endif // defined(DIRECT3D_PREVIEW_BUILD)
 
 /// Create a ShaderOp for a compute shader dispatch.
 std::unique_ptr<st::ShaderOp>

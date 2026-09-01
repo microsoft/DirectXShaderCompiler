@@ -19,7 +19,7 @@
 // group shared memory capabilities from the Agility SDK runtime.
 // TODO(#8661): Remove me when GroupSharedLimit is available in a released
 // Windows SDK.
-#if defined(D3D12_PREVIEW_SDK_VERSION) && D3D12_PREVIEW_SDK_VERSION < 720
+#if defined(DIRECT3D_PREVIEW_BUILD) && D3D12_PREVIEW_SDK_VERSION < 720
 
 #ifndef D3D12_FEATURE_D3D12_OPTIONS_PREVIEW
 #define D3D12_FEATURE_D3D12_OPTIONS_PREVIEW ((D3D12_FEATURE)72)
@@ -1470,7 +1470,7 @@ HRESULT queryAtomicAccumulateStore(ID3D12Device *Device,
 
 // TODO(#8661): Remove me when GroupSharedLimit is available in a released
 // Windows SDK.
-#if defined(D3D12_PREVIEW_SDK_VERSION)
+#if defined(DIRECT3D_PREVIEW_BUILD)
 UINT getMaxGroupSharedMemoryCS(ID3D12Device *Device) {
   D3D12_FEATURE_DATA_D3D12_OPTIONS_PREVIEW O = {};
   VERIFY_SUCCEEDED(Device->CheckFeatureSupport(
@@ -1491,7 +1491,7 @@ UINT getMaxGroupSharedMemoryMS(ID3D12Device *Device) {
       D3D12_FEATURE_D3D12_OPTIONS_PREVIEW, &O, sizeof(O)));
   return O.MaxGroupSharedMemoryPerGroupMS;
 }
-#endif // defined(D3D12_PREVIEW_SDK_VERSION)
+#endif // defined(DIRECT3D_PREVIEW_BUILD)
 
 std::unique_ptr<st::ShaderOp> createComputeOp(const char *Source,
                                               const char *Target,
