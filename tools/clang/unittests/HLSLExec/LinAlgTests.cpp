@@ -9330,8 +9330,9 @@ static const char ConvertI16ToI32CoverageShader[] = R"(
 )";
 
 // Each narrowing vector pairs exactly representable values with values one step
-// and far past both destination bounds, so saturation and the wrapping HLSL
-// cast disagree on at least one element.
+// and far beyond the destination bounds it can reach: signed sources cross both
+// bounds, unsigned sources only the maximum. Saturation and the wrapping HLSL
+// cast therefore disagree on at least one element.
 static const char ConvertI32ToI16CoverageShader[] = R"(
   RWByteAddressBuffer Output : register(u0);
 
@@ -9408,19 +9409,21 @@ static const char ConvertF32ToI16CoverageShader[] = R"(
   }
 )";
 
-// Each input is exactly on a midpoint of two representable F16 values, so RTNE
-// must break every tie toward the even mantissa.
+// 0 and 2048 are exactly representable controls; every other input is exactly
+// on a midpoint of two representable F16 values, so RTNE must break the tie
+// toward the even mantissa. The ties appear in both signs at both step sizes:
+// 2 across [2048, 4096) and 4 across [4096, 8192).
 static const char ConvertI32ToF16CoverageShader[] = R"(
   RWByteAddressBuffer Output : register(u0);
 
   [numthreads(1, 1, 1)]
   void main() {
-    vector<int, 8> InVec = {
-      0, 2048, 2049, 2051, 4098, 4102, -2049, -2051
+    vector<int, 10> InVec = {
+      0, 2048, 2049, 2051, 4098, 4102, -2049, -2051, -4098, -4102
     };
-    vector<half, 8> OutVec;
+    vector<half, 10> OutVec;
     __builtin_LinAlg_Convert(OutVec, InVec, SRC_TYPE, DST_TYPE);
-    for (uint I = 0; I < 8; ++I)
+    for (uint I = 0; I < 10; ++I)
       Output.Store<half>(I * 2, OutVec[I]);
   }
 )";
@@ -9810,8 +9813,8 @@ void DxilConf_SM610_LinAlg::Convert_I32_ToF16_RTNE() {
   runExactConvert(
       D3DDevice, DxcSupport, ConvertI32ToF16CoverageShader,
       buildConvertArgs(ComponentType::I32, ComponentType::F16),
-      encodeConvertVector<uint16_t>(
-          {0x0000, 0x6800, 0x6800, 0x6802, 0x6C00, 0x6C02, 0xE800, 0xE802}),
+      encodeConvertVector<uint16_t>({0x0000, 0x6800, 0x6800, 0x6802, 0x6C00,
+                                     0x6C02, 0xE800, 0xE802, 0xEC00, 0xEC02}),
       L"Integer-to-float conversion is RTNE", VerboseLogging);
 }
 
