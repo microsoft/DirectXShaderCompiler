@@ -51,7 +51,6 @@ jobs:
           git-clang-format \
             --verbose \
             --diff \
-            --extensions=cpp,c,h,hpp,hxx,cxx \
             "$merge_base" \
             "$END_REV" || formatter_status=$?
 
@@ -64,7 +63,6 @@ jobs:
             patch_status=0
             git-clang-format \
               --diff \
-              --extensions=cpp,c,h,hpp,hxx,cxx \
               "$merge_base" \
               "$END_REV" >"$patch_file" || patch_status=$?
             if [[ "$patch_status" -ne 1 ]]; then
