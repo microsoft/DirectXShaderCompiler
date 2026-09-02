@@ -185,6 +185,9 @@ static std::vector<uint8_t> SerializeRootSignatureToVector(
   SerializeRootSignature(rootSignature, &serializedRootSignature, &errorBlob,
                          allowReservedRegisterSpace);
   std::vector<uint8_t> ret;
+  if (serializedRootSignature == nullptr) {
+    return ret;
+  }
   auto const *serializedData = reinterpret_cast<const uint8_t *>(
       serializedRootSignature->GetBufferPointer());
   ret.assign(serializedData,
@@ -194,10 +197,9 @@ static std::vector<uint8_t> SerializeRootSignatureToVector(
 }
 
 constexpr uint32_t toolsRegisterSpace = static_cast<uint32_t>(-2);
-constexpr uint32_t toolsUAVRegister = 0;
 
 template <typename RootSigDesc, typename RootParameterDesc>
-void ExtendRootSig(RootSigDesc &rootSigDesc) {
+void ExtendRootSig(RootSigDesc &rootSigDesc, uint32_t toolsUAVRegister) {
   auto *existingParams = rootSigDesc.pParameters;
   for (uint32_t i = 0; i < rootSigDesc.NumParameters; ++i) {
     if (rootSigDesc.pParameters[i].ParameterType ==
@@ -229,17 +231,20 @@ void ExtendRootSig(RootSigDesc &rootSigDesc) {
   rootSigDesc.NumParameters++;
 }
 
-static std::vector<uint8_t> AddUAVParamterToRootSignature(const void *Data,
-                                                          uint32_t Size) {
+static std::vector<uint8_t>
+AddUAVParamterToRootSignature(const void *Data, uint32_t Size,
+                              uint32_t toolsUAVRegister) {
   DxilVersionedRootSignature rootSignature;
   DeserializeRootSignature(Data, Size, rootSignature.get_address_of());
   auto *rs = rootSignature.get_mutable();
   switch (rootSignature->Version) {
   case DxilRootSignatureVersion::Version_1_0:
-    ExtendRootSig<DxilRootSignatureDesc, DxilRootParameter>(rs->Desc_1_0);
+    ExtendRootSig<DxilRootSignatureDesc, DxilRootParameter>(rs->Desc_1_0,
+                                                            toolsUAVRegister);
     break;
   case DxilRootSignatureVersion::Version_1_1:
-    ExtendRootSig<DxilRootSignatureDesc1, DxilRootParameter1>(rs->Desc_1_1);
+    ExtendRootSig<DxilRootSignatureDesc1, DxilRootParameter1>(rs->Desc_1_1,
+                                                              toolsUAVRegister);
     rs->Desc_1_1.pParameters[rs->Desc_1_1.NumParameters - 1].Descriptor.Flags =
         hlsl::DxilRootDescriptorFlags::None;
     break;
@@ -247,16 +252,26 @@ static std::vector<uint8_t> AddUAVParamterToRootSignature(const void *Data,
   return SerializeRootSignatureToVector(rs);
 }
 
-static void AddUAVToShaderAttributeRootSignature(DxilModule &DM) {
+static void AddUAVToShaderAttributeRootSignature(DxilModule &DM,
+                                                 uint32_t toolsUAVRegister) {
   auto rs = DM.GetSerializedRootSignature();
   if (!rs.empty()) {
     std::vector<uint8_t> asVector = AddUAVParamterToRootSignature(
-        rs.data(), static_cast<uint32_t>(rs.size()));
-    DM.ResetSerializedRootSignature(asVector);
+        rs.data(), static_cast<uint32_t>(rs.size()), toolsUAVRegister);
+    if (!asVector.empty()) {
+      DM.ResetSerializedRootSignature(asVector);
+    }
   }
 }
 
-static void AddUAVToDxilDefinedGlobalRootSignatures(DxilModule &DM) {
+static void AddUAVToDxilDefinedGlobalRootSignatures(DxilModule &DM,
+                                                    uint32_t toolsUAVRegister) {
+  struct ReplacementRootSignature {
+    std::string Name;
+    std::vector<uint8_t> Data;
+  };
+
+  std::vector<ReplacementRootSignature> replacementRootSignatures;
   auto *subObjects = DM.GetSubobjects();
   if (subObjects != nullptr) {
     for (auto const &subObject : subObjects->GetSubobjects()) {
@@ -267,15 +282,23 @@ static void AddUAVToDxilDefinedGlobalRootSignatures(DxilModule &DM) {
         constexpr bool notALocalRS = false;
         if (subObject.second->GetRootSignature(notALocalRS, Data, Size,
                                                nullptr)) {
-          auto extendedRootSig = AddUAVParamterToRootSignature(Data, Size);
-          auto rootSignatureSubObjectName = subObject.first;
-          subObjects->RemoveSubobject(rootSignatureSubObjectName);
-          subObjects->CreateRootSignature(
-              rootSignatureSubObjectName, notALocalRS, extendedRootSig.data(),
-              static_cast<uint32_t>(extendedRootSig.size()));
-          break;
+          std::vector<uint8_t> extended =
+              AddUAVParamterToRootSignature(Data, Size, toolsUAVRegister);
+          if (!extended.empty()) {
+            replacementRootSignatures.push_back(
+                {subObject.first.str(), std::move(extended)});
+          }
         }
       }
+    }
+
+    constexpr bool notALocalRS = false;
+    for (auto const &replacementRootSignature : replacementRootSignatures) {
+      subObjects->RemoveSubobject(replacementRootSignature.Name);
+      subObjects->CreateRootSignature(
+          replacementRootSignature.Name, notALocalRS,
+          replacementRootSignature.Data.data(),
+          static_cast<uint32_t>(replacementRootSignature.Data.size()));
     }
   }
 }
@@ -286,6 +309,13 @@ hlsl::DxilResource *CreateGlobalUAVResource(hlsl::DxilModule &DM,
                                             const char *name) {
   LLVMContext &Ctx = DM.GetModule()->getContext();
 
+  for (auto const &existingUAV : DM.GetUAVs()) {
+    if (existingUAV->GetSpaceID() == toolsRegisterSpace &&
+        existingUAV->GetLowerBound() == hlslBindIndex) {
+      return existingUAV.get();
+    }
+  }
+
   const char *PIXStructTypeName = ShaderModelHandleTypeName(DM);
   llvm::StructType *UAVStructTy =
       DM.GetModule()->getTypeByName(PIXStructTypeName);
@@ -295,10 +325,8 @@ hlsl::DxilResource *CreateGlobalUAVResource(hlsl::DxilModule &DM,
     UAVStructTy = llvm::StructType::create(Elements, PIXStructTypeName);
   }
 
-  // Since this function should only be called once per module,
-  // we can modify the root sig at the same time:
-  AddUAVToDxilDefinedGlobalRootSignatures(DM);
-  AddUAVToShaderAttributeRootSignature(DM);
+  AddUAVToDxilDefinedGlobalRootSignatures(DM, hlslBindIndex);
+  AddUAVToShaderAttributeRootSignature(DM, hlslBindIndex);
 
   unsigned int Id = static_cast<unsigned int>(DM.GetUAVs().size());
   std::unique_ptr<DxilResource> pUAV = llvm::make_unique<DxilResource>();
@@ -320,8 +348,7 @@ hlsl::DxilResource *CreateGlobalUAVResource(hlsl::DxilModule &DM,
   }
   pUAV->SetGlobalName(name);
   pUAV->SetRW(true); // sets UAV class
-  pUAV->SetSpaceID(
-      (unsigned int)-2);   // This is the reserved-for-tools register space
+  pUAV->SetSpaceID(toolsRegisterSpace); // reserved-for-tools register space
   pUAV->SetSampleCount(0); // This is what compiler generates for a raw UAV
   pUAV->SetGloballyCoherent(false);
   pUAV->SetReorderCoherent(false);
@@ -351,7 +378,15 @@ hlsl::DxilResource *CreateGlobalUAVResource(hlsl::DxilModule &DM,
 
   auto *ret = pUAV.get();
   DM.AddUAV(std::move(pUAV));
+  DM.CollectShaderFlagsForModule();
   return ret;
+}
+
+void EraseIfUnused(hlsl::DxilModule &DM, llvm::Function *OpFunction) {
+  if (OpFunction != nullptr && OpFunction->user_empty()) {
+    DM.GetOP()->RemoveFunction(OpFunction);
+    OpFunction->eraseFromParent();
+  }
 }
 
 // Set up a UAV with structure of a single int
@@ -399,18 +434,6 @@ hlsl::DXIL::ShaderKind GetFunctionShaderKind(hlsl::DxilModule &DM,
     shaderKind = props.shaderKind;
   }
   return shaderKind;
-}
-
-std::vector<llvm::BasicBlock *> GetAllBlocks(hlsl::DxilModule &DM) {
-  std::vector<llvm::BasicBlock *> ret;
-  auto entryPoints = DM.GetExportedFunctions();
-  for (auto &fn : entryPoints) {
-    auto &blocks = fn->getBasicBlockList();
-    for (auto &block : blocks) {
-      ret.push_back(&block);
-    }
-  }
-  return ret;
 }
 
 ExpandedStruct ExpandStructType(LLVMContext &Ctx,
@@ -547,6 +570,24 @@ void ForEachDynamicallyIndexedResource(
 
   auto CreateHandleFn =
       HlslOP->GetOpFunc(DXIL::OpCode::CreateHandle, Type::getVoidTy(Ctx));
+  auto CreateHandleFromBindingFn = HlslOP->GetOpFunc(
+      DXIL::OpCode::CreateHandleFromBinding, Type::getVoidTy(Ctx));
+  auto CreateHandleFromHeapFn = HlslOP->GetOpFunc(
+      DXIL::OpCode::CreateHandleFromHeap, Type::getVoidTy(Ctx));
+
+  struct UnusedDeclarationCleanup {
+    hlsl::DxilModule &DM;
+    llvm::Function *CreateHandleFn;
+    llvm::Function *CreateHandleFromBindingFn;
+    llvm::Function *CreateHandleFromHeapFn;
+    ~UnusedDeclarationCleanup() {
+      EraseIfUnused(DM, CreateHandleFn);
+      EraseIfUnused(DM, CreateHandleFromBindingFn);
+      EraseIfUnused(DM, CreateHandleFromHeapFn);
+    }
+  } cleanup{DM, CreateHandleFn, CreateHandleFromBindingFn,
+            CreateHandleFromHeapFn};
+
   for (auto FI = CreateHandleFn->user_begin();
        FI != CreateHandleFn->user_end();) {
     auto *FunctionUser = *FI++;
@@ -562,8 +603,6 @@ void ForEachDynamicallyIndexedResource(
     }
   }
 
-  auto CreateHandleFromBindingFn = HlslOP->GetOpFunc(
-      DXIL::OpCode::CreateHandleFromBinding, Type::getVoidTy(Ctx));
   for (auto FI = CreateHandleFromBindingFn->user_begin();
        FI != CreateHandleFromBindingFn->user_end();) {
     auto *FunctionUser = *FI++;
@@ -579,8 +618,6 @@ void ForEachDynamicallyIndexedResource(
     }
   }
 
-  auto CreateHandleFromHeapFn = HlslOP->GetOpFunc(
-      DXIL::OpCode::CreateHandleFromHeap, Type::getVoidTy(Ctx));
   for (auto FI = CreateHandleFromHeapFn->user_begin();
        FI != CreateHandleFromHeapFn->user_end();) {
     auto *FunctionUser = *FI++;
