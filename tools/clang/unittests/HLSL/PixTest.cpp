@@ -37,6 +37,7 @@
 #include "dxc/DXIL/DxilModule.h"
 #include "dxc/DXIL/DxilOperations.h"
 #include "dxc/DXIL/DxilSubobject.h"
+#include "dxc/DxilPIXPasses/DxilPIXPasses.h"
 
 #include "dxc/Test/DxcTestUtils.h"
 #include "dxc/Test/HLSLTestData.h"
@@ -52,6 +53,7 @@
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SmallString.h"
 #include "llvm/ADT/StringSwitch.h"
+#include "llvm/AsmParser/Parser.h"
 #include "llvm/Bitcode/ReaderWriter.h"
 #include "llvm/IR/DebugInfo.h"
 #include "llvm/IR/Instructions.h"
@@ -61,10 +63,12 @@
 #include "llvm/IR/Module.h"
 #include "llvm/IR/ModuleSlotTracker.h"
 #include "llvm/IR/Operator.h"
+#include "llvm/Pass.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/MSFileSystem.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/Path.h"
+#include "llvm/Support/SourceMgr.h"
 #include <fstream>
 
 #include <../lib/DxilDia/DxcPixLiveVariables_FragmentIterator.h>
@@ -147,6 +151,11 @@ public:
   TEST_METHOD(PixStructAnnotation_Inheritance)
   TEST_METHOD(PixStructAnnotation_ResourceAsMember)
   TEST_METHOD(PixStructAnnotation_WheresMyDbgValue)
+  TEST_METHOD(DbgValueToDbgDeclare_BackwardLayout)
+  TEST_METHOD(DebugInstrumentation_DynamicIndexSpanMatchesAllocaRegisterCount)
+  TEST_METHOD(PixDbgValueToDbgDeclare_MultiDimensionalStaticGlobalArray)
+  TEST_METHOD(AllocaRegisterWrite_DeepAggregateChainIsAnnotated)
+  TEST_METHOD(EntryBlockInjection_HandlesLabelledAndUnlabelledFirstBlock)
 
   TEST_METHOD(VirtualRegisters_InstructionCounts)
   TEST_METHOD(VirtualRegisters_AlignedOffsets)
@@ -305,6 +314,42 @@ public:
     CComPtr<IDxcBlob> Module;
     std::vector<std::string> Lines;
   };
+
+  // Runs the virtual-register annotation pass over textual IR and returns the
+  // pass report. Textual IR builds a module shape that HLSL does not express.
+  std::vector<std::string> RunAnnotationPassOnText(const std::string &irText) {
+    CComPtr<IDxcBlobEncoding> pSource;
+    CreateBlobFromText(m_dllSupport, irText.c_str(), &pSource);
+
+    CComPtr<IDxcOptimizer> pOptimizer;
+    VERIFY_SUCCEEDED(
+        m_dllSupport.CreateInstance(CLSID_DxcOptimizer, &pOptimizer));
+    std::vector<LPCWSTR> Options;
+    Options.push_back(L"-S");
+    Options.push_back(L"-opt-mod-passes");
+    Options.push_back(L"-dxil-annotate-with-virtual-regs");
+
+    CComPtr<IDxcBlob> pOptimizedModule;
+    CComPtr<IDxcBlobEncoding> pText;
+    VERIFY_SUCCEEDED(pOptimizer->RunOptimizer(
+        pSource, Options.data(), Options.size(), &pOptimizedModule, &pText));
+
+    return Tokenize(BlobToUtf8(pText).c_str(), "\n");
+  }
+
+  // Replaces the one occurrence of needle, and fails the test when the text
+  // does not hold exactly one.
+  static std::string ReplaceOnlyOccurrence(const std::string &text,
+                                           const std::string &needle,
+                                           const std::string &replacement) {
+    auto position = text.find(needle);
+    VERIFY_IS_TRUE(position != std::string::npos);
+    VERIFY_IS_TRUE(text.find(needle, position + needle.size()) ==
+                   std::string::npos);
+    std::string result = text;
+    result.replace(position, needle.size(), replacement);
+    return result;
+  }
 
   SinglePassOutput RunSinglePass(IDxcBlob *dxil, LPCWSTR passOption) {
     CComPtr<IDxcOptimizer> pOptimizer;
@@ -2095,9 +2140,9 @@ void main()
 
     auto Testables = TestStructAnnotationCase(hlsl, optimization);
 
-    // 2 in unoptimized case (one for each instance of smallPayload)
-    // 1 in optimized case (cuz p2 aliases over p)
-    VERIFY_IS_TRUE(Testables.OffsetAndSizes.size() >= 1);
+    // Each unoptimized source variable has storage. Optimized copies alias.
+    const size_t ExpectedCount = choice.IsOptimized ? 1u : 2u;
+    VERIFY_ARE_EQUAL(ExpectedCount, Testables.OffsetAndSizes.size());
 
     for (const auto &os : Testables.OffsetAndSizes) {
       VERIFY_ARE_EQUAL(1u, os.countOfMembers);
@@ -2105,8 +2150,76 @@ void main()
       VERIFY_ARE_EQUAL(32u, os.size);
     }
 
-    VERIFY_ARE_EQUAL(1u, Testables.AllocaWrites.size());
+    VERIFY_ARE_EQUAL(ExpectedCount, Testables.AllocaWrites.size());
+    for (size_t i = 0; i < ExpectedCount; ++i) {
+      ValidateAllocaWrite(Testables.AllocaWrites, i, "dummy");
+    }
   }
+}
+
+TEST_F(PixTest, DbgValueToDbgDeclare_BackwardLayout) {
+  const char *IR = R"(
+  %BadStruct = type { i64, i32 }
+
+  define void @main() !dbg !5 {
+  entry:
+    %var = alloca %BadStruct, align 4
+    call void @llvm.dbg.value(metadata %BadStruct* %var, i64 0, metadata !10, metadata !15), !dbg !16
+    ret void
+  }
+
+  declare void @llvm.dbg.value(metadata, i64, metadata, metadata)
+
+  !llvm.dbg.cu = !{!0}
+  !llvm.module.flags = !{!3, !4}
+
+  !0 = distinct !DICompileUnit(language: DW_LANG_C_plus_plus, file: !1, producer: "clang", isOptimized: false, runtimeVersion: 0, emissionKind: 1, subprograms: !2)
+  !1 = !DIFile(filename: "test.hlsl", directory: "/")
+  !2 = !{!5}
+  !3 = !{i32 2, !"Dwarf Version", i32 4}
+  !4 = !{i32 2, !"Debug Info Version", i32 3}
+  !5 = distinct !DISubprogram(name: "main", scope: !1, file: !1, line: 1, type: !6, isLocal: false, isDefinition: true, scopeLine: 1, flags: DIFlagPrototyped, isOptimized: false, function: void ()* @main)
+  !6 = !DISubroutineType(types: !7)
+  !7 = !{null}
+  !8 = !DIBasicType(name: "int64", size: 64, align: 32, encoding: DW_ATE_signed)
+  !9 = !DIBasicType(name: "int", size: 32, align: 32, encoding: DW_ATE_signed)
+  !10 = !DILocalVariable(tag: DW_TAG_auto_variable, name: "var", scope: !5, file: !1, line: 2, type: !11)
+  !11 = !DICompositeType(tag: DW_TAG_structure_type, name: "BadStruct", file: !1, line: 1, size: 96, align: 32, elements: !12)
+  !12 = !{!13, !14}
+  !13 = !DIDerivedType(tag: DW_TAG_member, name: "First", scope: !11, file: !1, line: 2, baseType: !8, size: 64, align: 32, offset: 0)
+  !14 = !DIDerivedType(tag: DW_TAG_member, name: "Second", scope: !11, file: !1, line: 3, baseType: !9, size: 16, align: 32, offset: 32)
+  !15 = !DIExpression()
+  !16 = !DILocation(line: 2, column: 1, scope: !5)
+  )";
+
+  llvm::LLVMContext Context;
+  llvm::SMDiagnostic Error;
+  std::unique_ptr<llvm::Module> Module =
+      llvm::parseAssemblyString(IR, Error, Context);
+  VERIFY_IS_NOT_NULL(Module.get());
+
+  std::unique_ptr<llvm::ModulePass> Pass(
+      llvm::createDxilDbgValueToDbgDeclarePass());
+  VERIFY_IS_TRUE(Pass->runOnModule(*Module));
+
+  std::vector<std::pair<uint64_t, uint64_t>> Pieces;
+  for (llvm::BasicBlock &Block : *Module->getFunction("main")) {
+    for (llvm::Instruction &Instruction : Block) {
+      if (auto *Declare = llvm::dyn_cast<llvm::DbgDeclareInst>(&Instruction)) {
+        llvm::DIExpression *Expression = Declare->getExpression();
+        VERIFY_IS_TRUE(Expression->isBitPiece());
+        Pieces.emplace_back(Expression->getBitPieceOffset(),
+                            Expression->getBitPieceSize());
+      }
+    }
+  }
+
+  std::sort(Pieces.begin(), Pieces.end());
+  VERIFY_ARE_EQUAL(size_t(2), Pieces.size());
+  VERIFY_ARE_EQUAL(uint64_t(0), Pieces[0].first);
+  VERIFY_ARE_EQUAL(uint64_t(64), Pieces[0].second);
+  VERIFY_ARE_EQUAL(uint64_t(64), Pieces[1].first);
+  VERIFY_ARE_EQUAL(uint64_t(16), Pieces[1].second);
 }
 
 TEST_F(PixTest, PixStructAnnotation_MixedSizes) {
@@ -4744,4 +4857,279 @@ float4 main(float4 pos : SV_Position) : SV_Target
   auto output = RunShaderAccessTrackingPass(compiled);
   VerifyInstrumentedModuleIsValid(
       output.blob, "shader access tracking of a dynamically indexed resource");
+}
+
+// Pulls the register span out of every dynamically-indexed alloca write the
+// debug instrumentation pass reported. The per-block records it emits are
+// semicolon-separated and a dynamic alloca write looks like
+//
+//   <instruction ordinal>,<type>,<register>,d,<alloca base>-<register span>
+//
+// where the span is how many virtual registers the write could land in.
+static std::vector<int>
+FindDynamicAllocaWriteSpans(std::vector<std::string> const &passOutputLines) {
+  std::vector<int> spans;
+  for (auto const &line : passOutputLines) {
+    for (auto const &record : Split(line, ';')) {
+      auto tokens = Split(record, ',');
+      if (tokens.size() < 5 || tokens[3] != "d") {
+        continue;
+      }
+      auto const dash = tokens[4].find('-');
+      if (dash == std::string::npos) {
+        continue;
+      }
+      spans.push_back(atoi(tokens[4].substr(dash + 1).c_str()));
+    }
+  }
+  return spans;
+}
+
+// PIX clamps a dynamic index to the span this record reports, so a span that
+// undercounts the alloca hides every element past it. The span comes from the
+// !pix-alloca-reg-write metadata the annotation pass attaches to the
+// instruction, not from the alloca's LLVM array length, so it always matches
+// the virtual-register numbering.
+//
+// DXC's SROA flattens every aggregate the front end emits, so today's shapes
+// keep both derivations in agreement. This test guards against that ceasing
+// to be true.
+TEST_F(PixTest,
+       DebugInstrumentation_DynamicIndexSpanMatchesAllocaRegisterCount) {
+  struct Case {
+    char const *description;
+    char const *source;
+    int expectedSpan;
+  };
+
+  const Case cases[] = {
+      {"one-dimensional float array", R"x(
+RWByteAddressBuffer RawUAV : register(u0);
+[numthreads(1, 1, 1)]
+void main()
+{
+    float values[8];
+    for (uint i = 0; i < 8; ++i) values[i] = 0;
+    values[RawUAV.Load(0)] = 7;
+    RawUAV.Store(4, asuint(values[RawUAV.Load(8)]));
+})x",
+       8},
+      {"two-dimensional array is flattened to one register run", R"x(
+RWByteAddressBuffer RawUAV : register(u0);
+[numthreads(1, 1, 1)]
+void main()
+{
+    float m[4][4];
+    for (uint i = 0; i < 4; ++i) for (uint j = 0; j < 4; ++j) m[i][j] = 0;
+    m[RawUAV.Load(0)][RawUAV.Load(4)] = 7;
+    RawUAV.Store(8, asuint(m[RawUAV.Load(12)][RawUAV.Load(16)]));
+})x",
+       16},
+      {"array member of a struct", R"x(
+RWByteAddressBuffer RawUAV : register(u0);
+struct Container { float before; float values[8]; float after; };
+[numthreads(1, 1, 1)]
+void main()
+{
+    Container c;
+    c.before = 1;
+    c.after = 2;
+    for (uint i = 0; i < 8; ++i) c.values[i] = 0;
+    c.values[RawUAV.Load(0)] = 7;
+    RawUAV.Store(4, asuint(c.values[RawUAV.Load(8)] + c.before + c.after));
+})x",
+       8},
+      {"dynamically indexed vector", R"x(
+RWByteAddressBuffer RawUAV : register(u0);
+[numthreads(1, 1, 1)]
+void main()
+{
+    float3 v = float3(1, 2, 3);
+    v[RawUAV.Load(0)] = 7;
+    RawUAV.Store(4, asuint(v.x + v.y + v.z));
+})x",
+       3},
+  };
+
+  for (auto const &testCase : cases) {
+    WEX::Logging::Log::Comment(
+        WEX::Common::String().Format(L"%S", testCase.description));
+
+    auto compiled = Compile(m_dllSupport, testCase.source, L"cs_6_0", {L"-Od"});
+    auto output = RunDebugPass(compiled);
+    auto spans = FindDynamicAllocaWriteSpans(output.lines);
+
+    // If DXC ever stops emitting a dynamically-indexed alloca store for these
+    // shaders the test would otherwise quietly become a test of nothing.
+    VERIFY_IS_TRUE(spans.size() > 0);
+    for (int span : spans) {
+      VERIFY_ARE_EQUAL(testCase.expectedSpan, span);
+    }
+  }
+}
+
+// Counts stores of the given value into a shadow alloca, i.e. stores whose
+// destination is a local pointer rather than a module-scope global.
+static uint32_t
+CountStoresToAllocaOfValue(std::vector<std::string> const &disassemblyLines,
+                           const char *value) {
+  uint32_t count = 0;
+  for (auto const &line : disassemblyLines) {
+    if (line.find("store ") == std::string::npos) {
+      continue;
+    }
+    if (line.find(value) == std::string::npos) {
+      continue;
+    }
+    // A store into the original global names the global; the shadow stores this
+    // pass emits target an alloca reached through a local GEP.
+    if (line.find('@') != std::string::npos) {
+      continue;
+    }
+    count++;
+  }
+  return count;
+}
+
+// A flattened multi-dimensional array member renames the module global but
+// not the debug variable, so the pass gathers shadow storage by linkage
+// name. Keying it on the debug name instead loses the shadow store for every
+// write into the flattened array.
+TEST_F(PixTest, PixDbgValueToDbgDeclare_MultiDimensionalStaticGlobalArray) {
+  const char *source = R"x(
+RWByteAddressBuffer RawUAV : register(u0);
+struct StaticGlobalHolder
+{
+    float twoD[2][3];
+    float oneD[3];
+    float count;
+};
+static StaticGlobalHolder g_staticGlobalHolder;
+[numthreads(1, 1, 1)]
+void main()
+{
+    g_staticGlobalHolder.oneD[0] = 4.0;
+    g_staticGlobalHolder.oneD[1] = 5.0;
+    g_staticGlobalHolder.oneD[2] = 6.0;
+    g_staticGlobalHolder.twoD[1][0] = 40.0;
+    g_staticGlobalHolder.twoD[1][2] = 42.0;
+    g_staticGlobalHolder.count = 1;
+
+    float accumulator = 0;
+    uint index = 0;
+    [loop]
+    while (true)
+    {
+        accumulator += g_staticGlobalHolder.twoD[index % 2][index % 3];
+        accumulator += g_staticGlobalHolder.oneD[index % 3];
+        if (index++ == 4)
+        {
+            break;
+        }
+    }
+    RawUAV.Store(64, asuint(accumulator + g_staticGlobalHolder.count));
+})x";
+
+  auto compiled = Compile(m_dllSupport, source, L"cs_6_0", {L"-Od"});
+  CComPtr<IDxcBlob> dxilPart = FindModule(DFCC_ShaderDebugInfoDXIL, compiled);
+  auto output = RunValueToDeclarePass(dxilPart);
+  auto lines = Split(Disassemble(output.blob), '\n');
+
+  // The one-dimensional array in the same struct is the control: it is handled
+  // correctly whether or not the multi-dimensional case is.
+  VERIFY_ARE_EQUAL(1u, CountStoresToAllocaOfValue(lines, "4.000000e+00"));
+  // The two writes into the two-dimensional array are the point of the test.
+  VERIFY_ARE_EQUAL(1u, CountStoresToAllocaOfValue(lines, "4.000000e+01"));
+  VERIFY_ARE_EQUAL(1u, CountStoresToAllocaOfValue(lines, "4.200000e+01"));
+}
+
+// Returns the module with the given instructions at the start of the entry
+// point's first block. The disassembler prints a label for that block only
+// when the block is named, and instructions placed ahead of a label would form
+// a block with no terminator, so the injection follows the label when there is
+// one and the definition's brace when there is not.
+static std::string InjectIntoEntryBlock(const std::string &disassembly,
+                                        const std::string &instructions) {
+  const std::string definition = "define void @main() {";
+  const std::string labelledDefinition = definition + "\nentry:";
+  const std::string &anchor =
+      disassembly.find(labelledDefinition) != std::string::npos
+          ? labelledDefinition
+          : definition;
+  return PixTest::ReplaceOnlyOccurrence(disassembly, anchor,
+                                        anchor + "\n" + instructions);
+}
+
+// Whether the disassembler labels an entry point's first block depends on
+// whether the module kept the block's name, so the injection below pins its
+// point against both forms rather than against the one this build produces.
+TEST_F(PixTest, EntryBlockInjection_HandlesLabelledAndUnlabelledFirstBlock) {
+  const std::string instruction = "  %injected = alloca float";
+
+  const std::string labelled = "define void @main() {\nentry:\n  ret void\n}\n";
+  VERIFY_ARE_EQUAL("define void @main() {\nentry:\n" + instruction +
+                       "\n  ret void\n}\n",
+                   InjectIntoEntryBlock(labelled, instruction));
+
+  const std::string unlabelled = "define void @main() {\n  ret void\n}\n";
+  VERIFY_ARE_EQUAL("define void @main() {\n" + instruction +
+                       "\n  ret void\n}\n",
+                   InjectIntoEntryBlock(unlabelled, instruction));
+}
+
+// A value nested three GEPs below the alloca needs the annotator to walk the
+// whole ancestor chain, not just one level, before it can record the store's
+// !pix-alloca-reg-write. DXC's SROA flattens aggregates before this pass
+// runs, so this shape does not arise from HLSL; the module is constructed
+// directly here.
+TEST_F(PixTest, AllocaRegisterWrite_DeepAggregateChainIsAnnotated) {
+  auto compiled = Compile(m_dllSupport, R"x(
+RWByteAddressBuffer RawUAV : register(u0);
+[numthreads(1, 1, 1)]
+void main()
+{
+    RawUAV.Store(0, 0);
+})x",
+                          L"cs_6_0", {L"-Od"});
+  std::string disassembly = Disassemble(compiled);
+
+  // An alloca of a struct nested three levels deep, then a GEP chain that
+  // descends every level to select a scalar, then a store into it. The store's
+  // pointer is three GEPs removed from the alloca.
+  std::string withDeepStore = InjectIntoEntryBlock(
+      disassembly,
+      "  %deep = alloca { { { float, float } } }\n"
+      "  %deep.l0 = getelementptr { { { float, float } } }, { { { "
+      "float, float } } }* %deep, i32 0, i32 0\n"
+      "  %deep.l1 = getelementptr { { float, float } }, { { float, "
+      "float } }* %deep.l0, i32 0, i32 0\n"
+      "  %deep.l2 = getelementptr { float, float }, { float, float "
+      "}* %deep.l1, i32 0, i32 1\n"
+      "  store float 1.000000e+00, float* %deep.l2\n");
+
+  std::vector<std::string> lines = RunAnnotationPassOnText(withDeepStore);
+
+  bool allocaRegistered = false;
+  bool storeFound = false;
+  bool storeAnnotated = false;
+  for (const std::string &line : lines) {
+    if (line.find("%deep = alloca") != std::string::npos &&
+        line.find("pix-alloca-reg") != std::string::npos) {
+      allocaRegistered = true;
+    }
+    if (line.find("store float 1.000000e+00, float* %deep.l2") !=
+        std::string::npos) {
+      storeFound = true;
+      if (line.find("pix-alloca-reg-write") != std::string::npos) {
+        storeAnnotated = true;
+      }
+    }
+  }
+
+  // The alloca is registered, so the shape reached the pass and the store below
+  // is the thing under test rather than an artifact of it being skipped.
+  VERIFY_IS_TRUE(allocaRegistered);
+  VERIFY_IS_TRUE(storeFound);
+  // The store three GEPs deep still carries its alloca-register-write.
+  VERIFY_IS_TRUE(storeAnnotated);
 }
