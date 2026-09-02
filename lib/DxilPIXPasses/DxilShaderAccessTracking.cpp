@@ -659,6 +659,17 @@ DxilResourceAndClass DxilShaderAccessTracking::DetermineAccessForHandleForLib(
         }
       }
     }
+    if (ret.registerType == RegisterType::Invalid) {
+      auto const &Samplers = DM.GetSamplers();
+      for (auto &Sampler : Samplers) {
+        if (global == Sampler->GetGlobalSymbol()) {
+          binding =
+              hlsl::resource_helper::loadBindingFromResourceBase(Sampler.get());
+          ret.registerType = RegisterType::Sampler;
+          break;
+        }
+      }
+    }
     if (ret.registerType != RegisterType::Invalid) {
       ret.accessStyle = AccessStyle::FromRootSig;
       ret.RegisterID = binding.rangeLowerBound;
@@ -898,6 +909,15 @@ bool DxilShaderAccessTracking::runOnModule(Module &M) {
 
           // Special cases
           switch (opCode) {
+          case DXIL::OpCode::AnnotateHandle:
+            // annotateHandle attaches type information. It is not a resource
+            // access. GetResourceFromHandle still walks through it when a
+            // later access uses the annotated handle.
+            continue;
+          case DXIL::OpCode::BarrierByMemoryHandle:
+            // A barrier orders accesses to a resource. It is not itself an
+            // access.
+            continue;
           case DXIL::OpCode::GetDimensions:
             // readWrite = ShaderAccessFlags::DescriptorRead;  // TODO: Support
             // GetDimensions

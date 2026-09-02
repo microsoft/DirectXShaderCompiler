@@ -121,6 +121,7 @@ public:
   TEST_METHOD(AccessTracking_ModificationReport_Read)
   TEST_METHOD(AccessTracking_ModificationReport_Write)
   TEST_METHOD(AccessTracking_ModificationReport_SM66)
+  TEST_METHOD(AccessTracking_SamplerAccessInLibrary)
 
   TEST_METHOD(PixStructAnnotation_Lib_DualRaygen)
 
@@ -185,6 +186,7 @@ public:
   TEST_METHOD(Validation_ControlInvalidModuleFails)
   TEST_METHOD(Validation_ControlBoilerplateOnlyFailureIsRejected)
   TEST_METHOD(Validation_NonUniformResourceIndex_WaveOpsFlag)
+  TEST_METHOD(Validation_ShaderAccessTracking_DynamicallyIndexedResource)
 
   dxc::DxCompilerDllLoader m_dllSupport;
   VersionSupportInfo m_ver;
@@ -637,7 +639,8 @@ public:
                                            const wchar_t *profile = L"as_6_5");
   void ValidateAllocaWrite(std::vector<AllocaWrite> const &allocaWrites,
                            size_t index, const char *name);
-  PassOutput RunShaderAccessTrackingPass(IDxcBlob *blob);
+  PassOutput RunShaderAccessTrackingPass(
+      IDxcBlob *blob, const wchar_t *config = L"U0:0:10i0;U0:1:2i0;.0;0;0.");
   CComPtr<IDxcBlob>
   RunDxilPIXAddTidToAmplificationShaderPayloadPass(IDxcBlob *blob);
   CComPtr<IDxcBlob> RunDxilPIXMeshShaderOutputPass(IDxcBlob *blob);
@@ -921,14 +924,17 @@ TEST_F(PixTest, CompileDebugDisasmPDB) {
   VERIFY_SUCCEEDED(pCompiler->Disassemble(pPdbBlob, &pDisasm));
 }
 
-PassOutput PixTest::RunShaderAccessTrackingPass(IDxcBlob *blob) {
+PassOutput PixTest::RunShaderAccessTrackingPass(IDxcBlob *blob,
+                                                const wchar_t *config) {
   CComPtr<IDxcOptimizer> pOptimizer;
   VERIFY_SUCCEEDED(
       m_dllSupport.CreateInstance(CLSID_DxcOptimizer, &pOptimizer));
   std::vector<LPCWSTR> Options;
   Options.push_back(L"-opt-mod-passes");
-  Options.push_back(L"-hlsl-dxil-pix-shader-access-instrumentation,config=U0:0:"
-                    L"10i0;U0:1:2i0;.0;0;0.");
+  std::wstring passOption =
+      L"-hlsl-dxil-pix-shader-access-instrumentation,config=";
+  passOption += config;
+  Options.push_back(passOption.c_str());
 
   CComPtr<IDxcBlob> pOptimizedModule;
   CComPtr<IDxcBlobEncoding> pText;
@@ -1284,6 +1290,47 @@ float main() : SV_Target
 }
 )";
   ValidateAccessTrackingMods(hlsl, true);
+}
+
+std::vector<std::string> Split(std::string str, char delimeter);
+
+static bool HasBufferStoreWithByteOffset(std::vector<std::string> const &lines,
+                                         unsigned byteOffset) {
+  std::string needle = "i32 " + std::to_string(byteOffset);
+  for (auto const &line : lines) {
+    if (line.find("dx.op.bufferStore") != std::string::npos &&
+        line.find(needle) != std::string::npos) {
+      return true;
+    }
+  }
+  return false;
+}
+
+TEST_F(PixTest, AccessTracking_SamplerAccessInLibrary) {
+  if (m_ver.SkipDxilVersion(1, 6)) {
+    return;
+  }
+
+  const char *hlsl = R"(
+Texture2D<float4> g_texture : register(t0);
+SamplerState g_sampler : register(s2);
+RWByteAddressBuffer g_output : register(u0);
+
+[shader("raygeneration")]
+void RayGen()
+{
+    float4 value = g_texture.SampleLevel(g_sampler, float2(0, 0), 0);
+    g_output.Store(0, asuint(value.x));
+}
+)";
+
+  auto compiled = Compile(m_dllSupport, hlsl, L"lib_6_6", {L"-Od"});
+  auto output = RunShaderAccessTrackingPass(
+      compiled, L"S0:0:4i0;M0:20:4i0;U0:40:4i0;.0;0;0.");
+  auto lines = Split(Disassemble(output.blob), '\n');
+  VERIFY_IS_TRUE(HasBufferStoreWithByteOffset(lines, 264));
+  VerifyInstrumentedModuleIsValid(
+      output.blob, "shader access tracking of a library sampler access");
 }
 
 TEST_F(PixTest, AddToASGroupSharedPayload) {
@@ -4393,4 +4440,25 @@ float4 main(float4 pos : SV_Position) : SV_Target
   VERIFY_ARE_NOT_EQUAL(
       std::string::npos,
       Disassemble(pOptimizedModule).find("dx.op.waveActiveAllEqual"));
+}
+
+TEST_F(PixTest, Validation_ShaderAccessTracking_DynamicallyIndexedResource) {
+  const char *source = R"x(
+Texture2D textures[8] : register(t0);
+SamplerState samp     : register(s0);
+
+cbuffer Constants : register(b0)
+{
+    uint index;
+};
+
+float4 main(float4 pos : SV_Position) : SV_Target
+{
+    return textures[index].Sample(samp, pos.xy);
+})x";
+
+  auto compiled = Compile(m_dllSupport, source, L"ps_6_0", {L"-Od"});
+  auto output = RunShaderAccessTrackingPass(compiled);
+  VerifyInstrumentedModuleIsValid(
+      output.blob, "shader access tracking of a dynamically indexed resource");
 }
