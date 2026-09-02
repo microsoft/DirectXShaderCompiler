@@ -18,6 +18,7 @@
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/PassManager.h"
 #include "llvm/Support/FormattedStream.h"
+#include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Utils/Local.h"
 
 #include "PixPassHelpers.h"
@@ -66,6 +67,11 @@ bool DxilPIXDXRInvocationsLog::runOnModule(Module &M) {
   LLVMContext &Ctx = M.getContext();
   OP *HlslOP = DM.GetOP();
 
+  // A zero-entry log has no space for records.
+  if (m_MaxNumEntriesInLog == 0) {
+    return false;
+  }
+
   bool Modified = false;
 
   for (auto entryFunction : DM.GetExportedFunctions()) {
@@ -85,7 +91,9 @@ bool DxilPIXDXRInvocationsLog::runOnModule(Module &M) {
 
     Modified = true;
 
-    IRBuilder<> Builder(dxilutil::FirstNonAllocaInsertionPt(entryFunction));
+    Instruction *InsertionPoint =
+        dxilutil::FirstNonAllocaInsertionPt(entryFunction);
+    IRBuilder<> Builder(InsertionPoint);
 
     // Add the UAVs that we're going to write to
     CallInst *HandleForCountUAV = PIXPassHelpers::CreateUAVOnceForModule(
@@ -163,10 +171,6 @@ bool DxilPIXDXRInvocationsLog::runOnModule(Module &M) {
     Constant *AtomicAdd =
         HlslOP->GetU32Const((unsigned)DXIL::AtomicBinOpCode::Add);
 
-    Function *UMinOpFunc =
-        HlslOP->GetOpFunc(OP::OpCode::UMin, Type::getInt32Ty(Ctx));
-    Constant *UMinOpCode = HlslOP->GetU32Const((unsigned)OP::OpCode::UMin);
-
     Function *StoreFuncFloat =
         HlslOP->GetOpFunc(OP::OpCode::BufferStore, Type::getFloatTy(Ctx));
     Function *StoreFuncInt =
@@ -177,8 +181,8 @@ bool DxilPIXDXRInvocationsLog::runOnModule(Module &M) {
     Constant *WriteMask_XYZW = HlslOP->GetI8Const(15);
     Constant *WriteMask_X = HlslOP->GetI8Const(1);
     Constant *ShaderKindAsConstant = HlslOP->GetU32Const((uint32_t)ShaderKind);
-    Constant *MaxEntryIndexAsConstant =
-        HlslOP->GetU32Const((uint32_t)m_MaxNumEntriesInLog - 1u);
+    Constant *MaxEntryCountAsConstant =
+        HlslOP->GetU32Const((uint32_t)m_MaxNumEntriesInLog);
     Constant *Zero32Arg = HlslOP->GetU32Const(0);
     Constant *One32Arg = HlslOP->GetU32Const(1);
     UndefValue *UndefArg = UndefValue::get(Type::getInt32Ty(Ctx));
@@ -198,19 +202,21 @@ bool DxilPIXDXRInvocationsLog::runOnModule(Module &M) {
         },
         "EntryIndexResult");
 
-    // Clamp the index so that we don't write off the end of the UAV. If we
-    // clamp, then it's up to PIX to replay the work again with a larger log
-    // buffer.
-    auto *EntryIndexClamped = Builder.CreateCall(
-        UMinOpFunc, {UMinOpCode, EntryIndex, MaxEntryIndexAsConstant});
+    // The counter keeps counting past the log capacity. Skip the stores once
+    // the claimed slot is out of range, so the recorded entries stay intact.
+    auto *EntryIndexIsInRange = Builder.CreateICmpULT(
+        EntryIndex, MaxEntryCountAsConstant, "EntryIndexIsInRange");
+    TerminatorInst *StoreEntryBlockTerminator =
+        SplitBlockAndInsertIfThen(EntryIndexIsInRange, InsertionPoint,
+                                  /*Unreachable*/ false);
+    Builder.SetInsertPoint(StoreEntryBlockTerminator);
 
     const auto numBytesPerEntry =
         4 + (3 * 4) + (3 * 4) + (3 * 4) + 4 + 4 +
         4; // See number of bytes we store per shader invocation below
 
-    auto EntryOffset =
-        Builder.CreateMul(EntryIndexClamped,
-                          HlslOP->GetU32Const(numBytesPerEntry), "EntryOffset");
+    auto EntryOffset = Builder.CreateMul(
+        EntryIndex, HlslOP->GetU32Const(numBytesPerEntry), "EntryOffset");
     auto EntryOffsetPlus16 = Builder.CreateAdd(
         EntryOffset, HlslOP->GetU32Const(16), "EntryOffsetPlus16");
     auto EntryOffsetPlus32 = Builder.CreateAdd(
