@@ -7090,6 +7090,8 @@ class db_dxil(object):
                 {"n": "UAVSize", "t": "int", "c": 1},
                 {"n": "dispatchArgY", "t": "int", "c": 1},
                 {"n": "dispatchArgZ", "t": "int", "c": 1},
+                {"n": "expanded-payload-size", "t": "int", "c": 1},
+                {"n": "expanded-payload-offset", "t": "int", "c": 1},
             ],
         )
         add_pass(

@@ -10,6 +10,7 @@
 #include "dxc/DXIL/DxilOperations.h"
 #include "dxc/DXIL/DxilUtil.h"
 
+#include "dxc/DXIL/DxilConstants.h"
 #include "dxc/DXIL/DxilInstructions.h"
 #include "dxc/DXIL/DxilModule.h"
 #include "dxc/DxilPIXPasses/DxilPIXPasses.h"
@@ -98,13 +99,32 @@ bool DxilPIXAddTidToAmplificationShaderPayload::runOnModule(Module &M) {
           OriginalPayloadStructPointerType->getPointerElementType();
       ExpandedStruct expanded =
           ExpandStructType(Ctx, OriginalPayloadStructType);
+      unsigned expandedPayloadSizeInBytes =
+          (unsigned)M.getDataLayout().getTypeAllocSize(
+              expanded.ExpandedPayloadStructType);
+      if (expandedPayloadSizeInBytes > DXIL::kMaxMSASPayloadBytes) {
+        return false;
+      }
+
+      if (OSOverride != nullptr) {
+        auto const *expandedLayout = M.getDataLayout().getStructLayout(
+            cast<StructType>(expanded.ExpandedPayloadStructType));
+        unsigned appendedFieldsOffsetInBytes =
+            (unsigned)expandedLayout->getElementOffset(
+                expanded.ExpandedPayloadStructType->getStructNumElements() - 3);
+        *OSOverride << "ExpandedPayloadSize:"
+                    << std::to_string(expandedPayloadSizeInBytes) << "\n";
+        *OSOverride << "ExpandedPayloadAppendedFieldsOffset:"
+                    << std::to_string(appendedFieldsOffsetInBytes) << "\n";
+      }
 
       llvm::IRBuilder<> B(&*I);
 
       auto *NewStructAlloca =
           B.CreateAlloca(expanded.ExpandedPayloadStructType,
                          HlslOP->GetU32Const(1), "NewPayload");
-      NewStructAlloca->setAlignment(4);
+      NewStructAlloca->setAlignment(M.getDataLayout().getABITypeAlignment(
+          expanded.ExpandedPayloadStructType));
       auto PayloadType =
           llvm::dyn_cast<PointerType>(DispatchMesh.get_payload()->getType());
       SmallVector<Value *, 16> GEPIndices;
@@ -188,6 +208,8 @@ bool DxilPIXAddTidToAmplificationShaderPayload::runOnModule(Module &M) {
       I->removeFromParent();
       delete &*I;
       PIXPassHelpers::EraseIfUnused(DM, OriginalDispatchMeshFn);
+      DM.GetDxilFunctionProps(entryFunction).ShaderProps.AS.payloadSizeInBytes =
+          expandedPayloadSizeInBytes;
       // Validation requires exactly one DispatchMesh in an AS, so we can exit
       // after the first one:
       DM.ReEmitDxilResources();
