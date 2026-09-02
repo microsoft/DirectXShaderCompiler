@@ -927,9 +927,13 @@ private:
             if (!GetLinAlgMatrixInfo(CI->getArgOperand(1)->getType(), Matrix))
               break;
             DXIL::ComponentType AccumulatorType = Matrix.Type;
-            if (OpCode == DXIL::OpCode::LinAlgMatrixAccumulateToMemory)
+            if (OpCode == DXIL::OpCode::LinAlgMatrixAccumulateToMemory) {
+              auto *TargetType = dyn_cast<ConstantInt>(CI->getArgOperand(3));
+              if (!TargetType)
+                break;
               AccumulatorType = static_cast<DXIL::ComponentType>(
-                  cast<ConstantInt>(CI->getArgOperand(3))->getZExtValue());
+                  TargetType->getZExtValue());
+            }
             uint8_t Flag =
                 OpCode == DXIL::OpCode::LinAlgMatrixAccumulateToDescriptor
                     ? static_cast<uint8_t>(
