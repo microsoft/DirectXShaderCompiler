@@ -8737,7 +8737,7 @@ class db_dxil(object):
         )
         self.add_valrule(
             "Instr.LinAlgMatrixGSMemTypeMustMatch",
-            "Groupshared memory inner type '%0' must match %1 matrix type '%2'.",
+            "Groupshared memory inner type '%0' must match %1 type '%2'.",
         )
         self.add_valrule(
             "Instr.LinAlgMatrixGSMemMustBeLargeEnough",
