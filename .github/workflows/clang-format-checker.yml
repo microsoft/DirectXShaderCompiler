@@ -56,7 +56,7 @@ jobs:
             "$END_REV" || formatter_status=$?
 
           if [[ "$formatter_status" -gt 1 ]]; then
-            echo "git-clang-format failed: $formatter_status" >&2
+            echo "::error::git-clang-format failed: $formatter_status"
             exit "$formatter_status"
           fi
 
@@ -69,11 +69,11 @@ jobs:
               "$END_REV" >"$patch_file" || patch_status=$?
             if [[ "$patch_status" -ne 1 ]]; then
               rm -f "$patch_file"
-              echo "Could not create the clang-format patch." >&2
+              echo "::error::Could not create the clang-format patch."
               exit 2
             fi
 
-            echo "C/C++ formatting changes are required." >&2
+            echo "::error::C/C++ formatting changes are required."
             echo "Download clang-format-patch from this run or run 'git clang-format $merge_base' locally." >&2
             exit 1
           fi
