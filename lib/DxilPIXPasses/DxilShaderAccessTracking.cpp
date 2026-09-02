@@ -28,6 +28,8 @@
 #include "llvm/Transforms/Utils/Local.h"
 
 #include <deque>
+#include <set>
+#include <vector>
 
 #include "PixPassHelpers.h"
 
@@ -546,11 +548,16 @@ bool DxilShaderAccessTracking::EmitResourceAccess(DxilModule &DM,
           Builder.CreateMul(ZeroIfOutOfBounds, EncodedFlags);
       uint32_t InstructionNumber = 0;
       (void)pix_dxil::PixDxilInstNum::FromInst(instruction, &InstructionNumber);
-      auto const *shaderModel = DM.GetShaderModel();
-      auto shaderKind = shaderModel->GetKind();
-      uint32_t EncodedInstructionNumber = InstructionNumber |
-                                          InstructionOrdinalndicator |
-                                          EncodeShaderModel(shaderKind);
+      auto *EncodedShaderKindConstant = cast<ConstantInt>(
+          m_FunctionToEncodedAccess.at(Builder.GetInsertBlock()->getParent())
+              .at(ResourceAccessStyle::None));
+      uint32_t EncodedShaderKind = EncodedShaderKindConstant->getLimitedValue();
+      // The ordinal occupies the low 24 bits. Mask it so it does not overlap
+      // the indicator or the shader kind.
+      constexpr uint32_t InstructionOrdinalMask = 0x00FF'FFFF;
+      uint32_t EncodedInstructionNumber =
+          (InstructionNumber & InstructionOrdinalMask) |
+          InstructionOrdinalndicator | EncodedShaderKind;
       auto *MultipliedOutOfBoundsValue = Builder.CreateMul(
           OneIfOutOfBounds, HlslOP->GetU32Const(EncodedInstructionNumber));
       auto *CombinedFlagOrInstructionValue =
@@ -810,6 +817,69 @@ DxilShaderAccessTracking::GetResourceFromHandle(Value *resHandle,
   return ret;
 }
 
+// Map each function to the shader kind of the entry point that reaches it.
+// A library helper has no DxilFunctionProps, so the module kind is Library,
+// which PIX cannot attribute to a pipeline stage. If more than one entry
+// kind reaches the same helper, keep the module kind. Entry points keep
+// their own kind.
+static std::map<llvm::Function *, DXIL::ShaderKind>
+ResolveShaderKindByReachingEntryPoint(DxilModule &DM) {
+  std::map<llvm::Function *, DXIL::ShaderKind> functionToShaderKind;
+
+  const DXIL::ShaderKind ambiguousShaderKind = DM.GetShaderModel()->GetKind();
+  auto entryPoints = DM.GetExportedFunctions();
+
+  for (llvm::Function *entryPoint : entryPoints) {
+    if (entryPoint == nullptr || entryPoint->isDeclaration()) {
+      continue;
+    }
+
+    const DXIL::ShaderKind entryPointShaderKind =
+        PIXPassHelpers::GetFunctionShaderKind(DM, entryPoint);
+
+    std::vector<llvm::Function *> pending{entryPoint};
+    std::set<llvm::Function *> visited;
+    while (!pending.empty()) {
+      llvm::Function *reached = pending.back();
+      pending.pop_back();
+      if (!visited.insert(reached).second) {
+        continue;
+      }
+
+      auto emplaced =
+          functionToShaderKind.emplace(reached, entryPointShaderKind);
+      if (!emplaced.second && emplaced.first->second != entryPointShaderKind) {
+        emplaced.first->second = ambiguousShaderKind;
+      }
+
+      for (llvm::BasicBlock &block : reached->getBasicBlockList()) {
+        for (llvm::Instruction &instruction : block.getInstList()) {
+          auto *call = llvm::dyn_cast<llvm::CallInst>(&instruction);
+          if (call == nullptr) {
+            continue;
+          }
+          llvm::Function *callee = call->getCalledFunction();
+          if (callee == nullptr || callee->isDeclaration() ||
+              callee->isIntrinsic() || hlsl::OP::IsDxilOpFunc(callee)) {
+            continue;
+          }
+          pending.push_back(callee);
+        }
+      }
+    }
+  }
+
+  for (llvm::Function *entryPoint : entryPoints) {
+    if (entryPoint == nullptr || entryPoint->isDeclaration()) {
+      continue;
+    }
+    functionToShaderKind[entryPoint] =
+        PIXPassHelpers::GetFunctionShaderKind(DM, entryPoint);
+  }
+
+  return functionToShaderKind;
+}
+
 bool DxilShaderAccessTracking::runOnModule(Module &M) {
   // This pass adds instrumentation for shader access to resources
 
@@ -840,6 +910,8 @@ bool DxilShaderAccessTracking::runOnModule(Module &M) {
     auto instrumentableFunctions =
         PIXPassHelpers::GetAllInstrumentableFunctions(DM);
 
+    auto functionToShaderKind = ResolveShaderKindByReachingEntryPoint(DM);
+
     if (DM.m_ShaderFlags.GetForceEarlyDepthStencil()) {
       if (OSOverride != nullptr) {
         formatted_raw_ostream FOS(*OSOverride);
@@ -851,17 +923,11 @@ bool DxilShaderAccessTracking::runOnModule(Module &M) {
         PIXPassHelpers::CreateGlobalUAVResource(DM, 0u, "PIX_ShaderAccessUAV");
 
     for (auto *F : instrumentableFunctions) {
-      DXIL::ShaderKind shaderKind = DXIL::ShaderKind::Invalid;
-      if (!DM.HasDxilFunctionProps(F)) {
-        auto ShaderModel = DM.GetShaderModel();
-        shaderKind = ShaderModel->GetKind();
-        if (shaderKind == DXIL::ShaderKind::Library) {
-          continue;
-        }
-      } else {
-        hlsl::DxilFunctionProps const &props = DM.GetDxilFunctionProps(F);
-        shaderKind = props.shaderKind;
-      }
+      auto reachedFrom = functionToShaderKind.find(F);
+      DXIL::ShaderKind shaderKind =
+          reachedFrom != functionToShaderKind.end()
+              ? reachedFrom->second
+              : PIXPassHelpers::GetFunctionShaderKind(DM, F);
 
       IRBuilder<> Builder(F->getEntryBlock().getFirstInsertionPt());
 
@@ -959,9 +1025,13 @@ bool DxilShaderAccessTracking::runOnModule(Module &M) {
           }
 
           for (unsigned iParam : handleParams) {
+            auto uavHandle =
+                m_FunctionToUAVHandle.find(CallerParent->getParent());
+            if (uavHandle == m_FunctionToUAVHandle.end())
+              continue;
+
             // Don't instrument the accesses to the UAV that we just added
-            if (Call->getArgOperand(iParam) ==
-                m_FunctionToUAVHandle[CallerParent->getParent()])
+            if (Call->getArgOperand(iParam) == uavHandle->second)
               continue;
             auto res = GetResourceFromHandle(Call->getArgOperand(iParam), DM);
             if (res.accessStyle == AccessStyle::None) {

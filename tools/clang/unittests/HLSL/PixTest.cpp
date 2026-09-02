@@ -125,6 +125,8 @@ public:
   TEST_METHOD(AccessTracking_DynamicRangeRegisterIndex_SM66)
   TEST_METHOD(AccessTracking_ConstantIndexAtRangeLimit)
   TEST_METHOD(AccessTracking_SamplerAccessInLibrary)
+  TEST_METHOD(AccessTracking_OobBindlessUsesFunctionShaderKind)
+  TEST_METHOD(AccessTracking_LibraryNonEntryFunction)
 
   TEST_METHOD(PixStructAnnotation_Lib_DualRaygen)
 
@@ -1318,6 +1320,28 @@ static bool HasBufferStoreWithByteOffset(std::vector<std::string> const &lines,
   return false;
 }
 
+static bool
+HasBufferStoreValueMatchingMask(std::vector<std::string> const &lines,
+                                uint32_t mask, uint32_t maskedValue) {
+  for (auto const &line : lines) {
+    if (line.find("dx.op.bufferStore") == std::string::npos) {
+      continue;
+    }
+
+    size_t position = 0;
+    while ((position = line.find("i32 ", position)) != std::string::npos) {
+      position += 4;
+      char *end = nullptr;
+      uint32_t value =
+          static_cast<uint32_t>(strtoul(line.c_str() + position, &end, 10));
+      if (end != line.c_str() + position && (value & mask) == maskedValue) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
 TEST_F(PixTest, AccessTracking_MultipleDynamicRangesSameTypeAndSpace) {
   const char *hlsl = R"(
 ByteAddressBuffer g_indices : register(t0);
@@ -1414,6 +1438,64 @@ void RayGen()
   VERIFY_IS_TRUE(HasBufferStoreWithByteOffset(lines, 264));
   VerifyInstrumentedModuleIsValid(
       output.blob, "shader access tracking of a library sampler access");
+}
+
+TEST_F(PixTest, AccessTracking_OobBindlessUsesFunctionShaderKind) {
+  if (m_ver.SkipDxilVersion(1, 6)) {
+    return;
+  }
+
+  const char *hlsl = R"(
+[shader("raygeneration")]
+void RayGen()
+{
+    RWByteAddressBuffer output = ResourceDescriptorHeap[1];
+    output.Store(0, 1);
+}
+)";
+
+  auto compiled = Compile(m_dllSupport, hlsl, L"lib_6_6", {L"-Od"});
+  auto output = RunShaderAccessTrackingPass(compiled, L".0;0;0.");
+  auto lines = Split(Disassemble(output.blob), '\n');
+  VERIFY_IS_TRUE(
+      HasBufferStoreValueMatchingMask(lines, 0xF8000000, 0x78000000));
+  VERIFY_IS_TRUE(
+      !HasBufferStoreValueMatchingMask(lines, 0xF8000000, 0x68000000));
+  VerifyInstrumentedModuleIsValid(
+      output.blob,
+      "shader access tracking of an out-of-bounds bindless access");
+}
+
+TEST_F(PixTest, AccessTracking_LibraryNonEntryFunction) {
+  if (m_ver.SkipDxilVersion(1, 6)) {
+    return;
+  }
+
+  const char *hlsl = R"(
+Texture2D<float4> g_texture : register(t0);
+RWByteAddressBuffer g_output : register(u0);
+
+export float4 Helper(uint index)
+{
+    float4 value = g_texture.Load(int3(index, 0, 0));
+    g_output.Store(0, asuint(value.x));
+    return value;
+}
+
+[shader("raygeneration")]
+void RayGen()
+{
+    Helper(0);
+}
+)";
+
+  auto compiled = Compile(m_dllSupport, hlsl, L"lib_6_6", {L"-Od"});
+  auto output =
+      RunShaderAccessTrackingPass(compiled, L"S0:0:4i0;U0:4:4i0;.0;0;0.");
+  auto text = JoinLines(output.lines);
+  VERIFY_IS_TRUE(text.find("NotModified") == std::string::npos);
+  VerifyInstrumentedModuleIsValid(
+      output.blob, "shader access tracking of a library helper function");
 }
 
 TEST_F(PixTest, AddToASGroupSharedPayload) {
