@@ -1454,22 +1454,22 @@ HRESULT queryAtomicAccumulateStore(ID3D12Device *Device,
 #if defined(HLSLEXEC_GROUPSHARED_LIMITS)
 UINT getMaxGroupSharedMemoryCS(ID3D12Device *Device) {
   HlslExecGroupsharedLimits O = {};
-  VERIFY_SUCCEEDED(Device->CheckFeatureSupport(
-      HlslExecGroupsharedLimitsFeature, &O, sizeof(O)));
+  VERIFY_SUCCEEDED(Device->CheckFeatureSupport(HlslExecGroupsharedLimitsFeature,
+                                               &O, sizeof(O)));
   return O.MaxGroupSharedMemoryPerGroupCS;
 }
 
 UINT getMaxGroupSharedMemoryAS(ID3D12Device *Device) {
   HlslExecGroupsharedLimits O = {};
-  VERIFY_SUCCEEDED(Device->CheckFeatureSupport(
-      HlslExecGroupsharedLimitsFeature, &O, sizeof(O)));
+  VERIFY_SUCCEEDED(Device->CheckFeatureSupport(HlslExecGroupsharedLimitsFeature,
+                                               &O, sizeof(O)));
   return O.MaxGroupSharedMemoryPerGroupAS;
 }
 
 UINT getMaxGroupSharedMemoryMS(ID3D12Device *Device) {
   HlslExecGroupsharedLimits O = {};
-  VERIFY_SUCCEEDED(Device->CheckFeatureSupport(
-      HlslExecGroupsharedLimitsFeature, &O, sizeof(O)));
+  VERIFY_SUCCEEDED(Device->CheckFeatureSupport(HlslExecGroupsharedLimitsFeature,
+                                               &O, sizeof(O)));
   return O.MaxGroupSharedMemoryPerGroupMS;
 }
 #endif // defined(HLSLEXEC_GROUPSHARED_LIMITS)

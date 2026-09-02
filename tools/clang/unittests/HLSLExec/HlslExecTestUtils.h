@@ -38,7 +38,8 @@
 #if defined(HLSLEXEC_LINALG_CURRENT_NAMES)
 using IHlslExecLinAlgDevice = ID3D12Device18;
 using IHlslExecLinAlgCommandList = ID3D12GraphicsCommandList12;
-using HlslExecGroupsharedLimits = D3D12_FEATURE_DATA_VARIABLE_GROUPSHARED_LIMITS;
+using HlslExecGroupsharedLimits =
+    D3D12_FEATURE_DATA_VARIABLE_GROUPSHARED_LIMITS;
 constexpr D3D12_FEATURE HlslExecGroupsharedLimitsFeature =
     D3D12_FEATURE_VARIABLE_GROUPSHARED_LIMITS;
 #else
@@ -365,8 +366,9 @@ ASSERT_RUNTIME_OFFSET(
 // Headers below D3D12_SDK_VERSION 620 / D3D12_PREVIEW_SDK_VERSION 720 do not
 // declare D3D_SHADER_MODEL_6_10, released Windows SDKs included. Define it
 // locally there. Remove once a released Windows SDK declares it.
-#if !((defined(D3D12_SDK_VERSION) && D3D12_SDK_VERSION >= 620) ||              \
-      (defined(D3D12_PREVIEW_SDK_VERSION) && D3D12_PREVIEW_SDK_VERSION >= 720))
+#if !(                                                                         \
+    (defined(D3D12_SDK_VERSION) && D3D12_SDK_VERSION >= 620) ||                \
+    (defined(D3D12_PREVIEW_SDK_VERSION) && D3D12_PREVIEW_SDK_VERSION >= 720))
 static const D3D_SHADER_MODEL D3D_SHADER_MODEL_6_10 = (D3D_SHADER_MODEL)0x6a;
 #endif
 
