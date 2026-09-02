@@ -44,38 +44,18 @@ jobs:
 
           output_file="$(mktemp)"
           error_file="$(mktemp)"
-          changed_files_file="$(mktemp)"
           patch_file="$RUNNER_TEMP/clang-format.patch"
-          trap 'rm -f "$output_file" "$error_file" "$changed_files_file"' EXIT
+          trap 'rm -f "$output_file" "$error_file"' EXIT
           rm -f "$patch_file"
 
           merge_base="$(git merge-base "$START_REV" "$END_REV")"
 
-          git diff --name-only --diff-filter=ACMR -z \
-            "$merge_base" \
-            "$END_REV" \
-            -- >"$changed_files_file"
-          mapfile -d '' -t changed_files <"$changed_files_file"
-
-          cpp_files=()
-          for path in "${changed_files[@]}"; do
-            case "$path" in
-              *.cpp|*.c|*.h|*.hpp|*.hxx|*.cxx) cpp_files+=("$path") ;;
-            esac
-          done
-
-          if [[ "${#cpp_files[@]}" -eq 0 ]]; then
-            echo "[clang-format] no modified files to format"
-            exit 0
-          fi
-
           set +e
           git-clang-format \
             --diff \
+            --extensions=cpp,c,h,hpp,hxx,cxx \
             "$merge_base" \
-            "$END_REV" \
-            -- \
-            "${cpp_files[@]}" >"$output_file" 2>"$error_file"
+            "$END_REV" >"$output_file" 2>"$error_file"
           formatter_status=$?
           set -e
 
