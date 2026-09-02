@@ -13,6 +13,44 @@
 #include "dxc/DXIL/DxilConstants.h"
 #include "dxc/Support/dxcapi.use.h"
 
+// These tests build against released Windows SDKs, retail Agility SDK headers
+// and preview Agility SDK headers, which disagree on how the linear algebra and
+// groupshared-limit APIs are spelled. The deployment-tier macros
+// (DIRECT3D_PREVIEW_BUILD, DIRECT3D_LINEAR_ALGEBRA) don't answer that question,
+// so key off the SDK version instead. Headers at D3D12_SDK_VERSION 621 or later
+// use the newer names; preview headers at 722 use the older ones. Earlier
+// preview drops spelled the feature query differently again and aren't
+// supported here.
+#if defined(D3D12_SDK_VERSION) && D3D12_SDK_VERSION >= 621
+#define HLSLEXEC_LINALG_CURRENT_NAMES 1
+#endif
+
+#if defined(HLSLEXEC_LINALG_CURRENT_NAMES) ||                                  \
+    (defined(D3D12_PREVIEW_SDK_VERSION) && D3D12_PREVIEW_SDK_VERSION >= 722)
+// This header declares the linear algebra host API (the D3D12_LINEAR_ALGEBRA_*
+// types and the matrix-conversion methods).
+#define HLSLEXEC_LINALG_HOST_API 1
+// This header declares the variable groupshared memory limits query.
+#define HLSLEXEC_GROUPSHARED_LIMITS 1
+#endif
+
+#if defined(HLSLEXEC_LINALG_HOST_API)
+#if defined(HLSLEXEC_LINALG_CURRENT_NAMES)
+using IHlslExecLinAlgDevice = ID3D12Device18;
+using IHlslExecLinAlgCommandList = ID3D12GraphicsCommandList12;
+using HlslExecGroupsharedLimits =
+    D3D12_FEATURE_DATA_VARIABLE_GROUPSHARED_LIMITS;
+constexpr D3D12_FEATURE HlslExecGroupsharedLimitsFeature =
+    D3D12_FEATURE_VARIABLE_GROUPSHARED_LIMITS;
+#else
+using IHlslExecLinAlgDevice = ID3D12DevicePreview;
+using IHlslExecLinAlgCommandList = ID3D12GraphicsCommandListPreview;
+using HlslExecGroupsharedLimits = D3D12_FEATURE_DATA_D3D12_OPTIONS_PREVIEW;
+constexpr D3D12_FEATURE HlslExecGroupsharedLimitsFeature =
+    D3D12_FEATURE_D3D12_OPTIONS_PREVIEW;
+#endif
+#endif // defined(HLSLEXEC_LINALG_HOST_API)
+
 // The released Windows SDK does not declare the linear algebra API yet, and
 // CheckFeatureSupport takes an untyped (void *, size) pair, so what this code
 // depends on is a runtime layout rather than a compile-time type. Everything
@@ -167,9 +205,9 @@ struct D3D12_FEATURE_DATA_LINEAR_ALGEBRA_MATRIX_OPERATION_SUPPORT {
 } // namespace linalg_abi
 
 // Everything above is pinned to the real declarations here. This only compiles
-// against a preview SDK, so it is not reached by an ordinary build; run a
-// preview-SDK compile whenever the copies above are touched.
-#if defined(DIRECT3D_LINEAR_ALGEBRA)
+// against a header that declares the linear algebra API, so run such a compile
+// whenever the copies above are touched.
+#if defined(HLSLEXEC_LINALG_HOST_API)
 
 #define ASSERT_RUNTIME_ENUM(EnumeratorName)                                    \
   static_assert(static_cast<UINT>(linalg_abi::EnumeratorName) ==               \
@@ -323,12 +361,14 @@ ASSERT_RUNTIME_OFFSET(
 
 #undef ASSERT_RUNTIME_OFFSET
 
-#endif // defined(DIRECT3D_LINEAR_ALGEBRA)
+#endif // defined(HLSLEXEC_LINALG_HOST_API)
 
-// D3D_SHADER_MODEL_6_10 is not yet in the released Windows SDK. Define locally
-// so the test can query 6.10 driver support. This should be removed once
-// widely supported.
-#if defined(D3D12_PREVIEW_SDK_VERSION) && D3D12_PREVIEW_SDK_VERSION < 720
+// Headers below D3D12_SDK_VERSION 620 / D3D12_PREVIEW_SDK_VERSION 720 do not
+// declare D3D_SHADER_MODEL_6_10, released Windows SDKs included. Define it
+// locally there. Remove once a released Windows SDK declares it.
+#if !(                                                                         \
+    (defined(D3D12_SDK_VERSION) && D3D12_SDK_VERSION >= 620) ||                \
+    (defined(D3D12_PREVIEW_SDK_VERSION) && D3D12_PREVIEW_SDK_VERSION >= 720))
 static const D3D_SHADER_MODEL D3D_SHADER_MODEL_6_10 = (D3D_SHADER_MODEL)0x6a;
 #endif
 
@@ -561,11 +601,11 @@ HRESULT queryAtomicAccumulateStore(ID3D12Device *Device,
 
 // TODO(#8661): Remove me when GroupSharedLimit is available in a released
 // Windows SDK.
-#if defined(DIRECT3D_PREVIEW_BUILD)
+#if defined(HLSLEXEC_GROUPSHARED_LIMITS)
 UINT getMaxGroupSharedMemoryCS(ID3D12Device *Device);
 UINT getMaxGroupSharedMemoryAS(ID3D12Device *Device);
 UINT getMaxGroupSharedMemoryMS(ID3D12Device *Device);
-#endif // defined(DIRECT3D_PREVIEW_BUILD)
+#endif // defined(HLSLEXEC_GROUPSHARED_LIMITS)
 
 /// Create a ShaderOp for a compute shader dispatch.
 std::unique_ptr<st::ShaderOp>
@@ -611,13 +651,10 @@ void compileShader(dxc::SpecificDllLoader &DxcSupport, const char *Source,
                    const char *Target, const std::string &Args,
                    bool VerboseLogging = false);
 
-// Host-side linear-algebra matrix-conversion helpers. These need the D3D12
-// linear-algebra API (the D3D12_LINEAR_ALGEBRA_* types and the conversion
-// methods on ID3D12DevicePreview / ID3D12GraphicsCommandListPreview), which is
-// gated behind the preview SDK's DIRECT3D_LINEAR_ALGEBRA feature macro. When
-// absent, these helpers and the tests using them are compiled out (they Skip at
-// runtime).
-#if defined(DIRECT3D_LINEAR_ALGEBRA)
+// Host-side linear-algebra matrix-conversion helpers, which need the D3D12
+// linear-algebra API -- see HLSLEXEC_LINALG_HOST_API above. When absent, these
+// helpers and the tests using them are compiled out (they Skip at runtime).
+#if defined(HLSLEXEC_LINALG_HOST_API)
 /// Query the number of bytes required to store an NumRows x NumColumns matrix
 /// of the given datatype in the specified device layout. Fails the test if the
 /// device cannot serve the request, which it reports as a zero size.
@@ -628,7 +665,7 @@ UINT getLinAlgMatrixByteSize(ID3D12Device *Device, UINT NumRows,
                              UINT Stride);
 
 /// Record a GPU matrix layout conversion onto \p List using
-/// ID3D12GraphicsCommandListPreview::ConvertLinearAlgebraMatrix. Both
+/// IHlslExecLinAlgCommandList::ConvertLinearAlgebraMatrix. Both
 /// \p SrcBuffer (in \p SrcLayout) and \p DestBuffer (receiving \p DestLayout)
 /// must be passed in the D3D12_RESOURCE_STATE_UNORDERED_ACCESS state; the
 /// conversion requires the source in NON_PIXEL_SHADER_RESOURCE, so this helper
@@ -641,6 +678,6 @@ void recordLinAlgMatrixConversion(
     D3D12_LINEAR_ALGEBRA_DATATYPE DataType,
     D3D12_LINEAR_ALGEBRA_MATRIX_LAYOUT SrcLayout, UINT SrcStride,
     D3D12_LINEAR_ALGEBRA_MATRIX_LAYOUT DestLayout, UINT DestStride);
-#endif // defined(DIRECT3D_LINEAR_ALGEBRA)
+#endif // defined(HLSLEXEC_LINALG_HOST_API)
 
 #endif // HLSLEXECTESTUTILS_H

@@ -2559,7 +2559,7 @@ static void runCase(ID3D12Device *Device, dxc::SpecificDllLoader &DxcSupport,
 
   UINT MulOptimalSize = 0;
   st::ShaderOpTest::TCommandCallbackFn ConvertCallback = nullptr;
-#if defined(DIRECT3D_LINEAR_ALGEBRA)
+#if defined(HLSLEXEC_LINALG_HOST_API)
   if (Case.LoadFromMulOptimal) {
     const std::optional<linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE> MirrorType =
         toCapabilityDataType(Case.MatrixType);
@@ -2833,25 +2833,25 @@ static CaseData makeFP8MemoryBiasCase(ComponentType BiasType) {
   return Case;
 }
 
-#if !defined(DIRECT3D_LINEAR_ALGEBRA)
+#if !defined(HLSLEXEC_LINALG_HOST_API)
 static void reportMissingConversionApi(LPCWSTR CaseName) {
 #ifdef _HLK_CONF
   // HLK forbids skipping, so treat the missing linear-algebra matrix-conversion
   // API as a failure rather than emitting a (compiled-out) skip.
   hlsl_test::LogErrorFmt(L"%s requires the linear-algebra matrix-conversion "
-                         L"API (DIRECT3D_LINEAR_ALGEBRA), which this build "
+                         L"API (HLSLEXEC_LINALG_HOST_API), which this build "
                          L"lacks",
                          CaseName);
 #else
   hlsl_test::LogCommentFmt(
       L"Skipping %s: built against a D3D12 SDK without the linear-algebra "
-      L"matrix-conversion API (DIRECT3D_LINEAR_ALGEBRA undefined); the "
+      L"matrix-conversion API (HLSLEXEC_LINALG_HOST_API undefined); the "
       L"host-side conversion helpers are compiled out.",
       CaseName);
   WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
 #endif // _HLK_CONF
 }
-#endif // !defined(DIRECT3D_LINEAR_ALGEBRA)
+#endif // !defined(HLSLEXEC_LINALG_HOST_API)
 
 } // namespace matvec_interpretation
 // Harness self-check for the CPU oracle. Deliberately carries no Kits metadata
@@ -7148,7 +7148,7 @@ void DxilConf_SM610_LinAlg::MatVecMulAdd_Thread_4x8_F32() {
 
 // Map a DXIL ComponentType to the D3D12 linear-algebra datatype used by the
 // host-side matrix conversion API.
-#if defined(DIRECT3D_LINEAR_ALGEBRA)
+#if defined(HLSLEXEC_LINALG_HOST_API)
 static D3D12_LINEAR_ALGEBRA_DATATYPE toLinAlgDataType(ComponentType CT) {
   switch (CT) {
   case ComponentType::F16:
@@ -7280,10 +7280,10 @@ static void runOuterProduct(ID3D12Device *Device,
   VERIFY_IS_TRUE(verifyComponentBuffer(Params.CompType, OutData.data(),
                                        Expected, NumMatElements, Verbose));
 }
-#endif // defined(DIRECT3D_LINEAR_ALGEBRA)
+#endif // defined(HLSLEXEC_LINALG_HOST_API)
 
 void DxilConf_SM610_LinAlg::OuterProduct_Thread_16x16_F16() {
-#if defined(DIRECT3D_LINEAR_ALGEBRA)
+#if defined(HLSLEXEC_LINALG_HOST_API)
   MatrixParams Params = {};
   Params.CompType = ComponentType::F16;
   Params.M = 16;
@@ -7317,16 +7317,16 @@ void DxilConf_SM610_LinAlg::OuterProduct_Thread_16x16_F16() {
   // API as a failure rather than emitting a (compiled-out) skip.
   hlsl_test::LogErrorFmt(L"OuterProduct_Thread_16x16_F16 requires the "
                          L"linear-algebra matrix-conversion API "
-                         L"(DIRECT3D_LINEAR_ALGEBRA), which this build lacks");
+                         L"(HLSLEXEC_LINALG_HOST_API), which this build lacks");
 #else
   WEX::Logging::Log::Comment(
       L"Skipping OuterProduct_Thread_16x16_F16: built against a D3D12 SDK "
       L"without the linear-algebra matrix-conversion API "
-      L"(DIRECT3D_LINEAR_ALGEBRA undefined); the host-side conversion helpers "
+      L"(HLSLEXEC_LINALG_HOST_API undefined); the host-side conversion helpers "
       L"are compiled out.");
   WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
 #endif // _HLK_CONF
-#endif // defined(DIRECT3D_LINEAR_ALGEBRA)
+#endif // defined(HLSLEXEC_LINALG_HOST_API)
 }
 
 static const char QueryAccumLayoutValueShader[] = R"(
@@ -8949,7 +8949,7 @@ void DxilConf_SM610_LinAlg::MatVecMul_Thread_4x8_U32_UnsignedOutput() {
 }
 
 void DxilConf_SM610_LinAlg::MatVecMul_Thread_4x16_F8_E4M3FN() {
-#if defined(DIRECT3D_LINEAR_ALGEBRA)
+#if defined(HLSLEXEC_LINALG_HOST_API)
   const matvec_interpretation::CaseData Case =
       matvec_interpretation::makeFP8MatrixCase(ComponentType::F8_E4M3FN);
   matvec_interpretation::runCapabilityChecked(
@@ -8959,11 +8959,11 @@ void DxilConf_SM610_LinAlg::MatVecMul_Thread_4x16_F8_E4M3FN() {
 #else
   matvec_interpretation::reportMissingConversionApi(
       L"MatVecMul_Thread_4x16_F8_E4M3FN");
-#endif // defined(DIRECT3D_LINEAR_ALGEBRA)
+#endif // defined(HLSLEXEC_LINALG_HOST_API)
 }
 
 void DxilConf_SM610_LinAlg::MatVecMul_Thread_4x16_F8_E5M2() {
-#if defined(DIRECT3D_LINEAR_ALGEBRA)
+#if defined(HLSLEXEC_LINALG_HOST_API)
   const matvec_interpretation::CaseData Case =
       matvec_interpretation::makeFP8MatrixCase(ComponentType::F8_E5M2);
   matvec_interpretation::runCapabilityChecked(
@@ -8973,7 +8973,7 @@ void DxilConf_SM610_LinAlg::MatVecMul_Thread_4x16_F8_E5M2() {
 #else
   matvec_interpretation::reportMissingConversionApi(
       L"MatVecMul_Thread_4x16_F8_E5M2");
-#endif // defined(DIRECT3D_LINEAR_ALGEBRA)
+#endif // defined(HLSLEXEC_LINALG_HOST_API)
 }
 
 void DxilConf_SM610_LinAlg::MatVecMul_Thread_4x8_F8_E4M3FN_Vector() {
@@ -9066,7 +9066,7 @@ static constexpr linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE
         linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT32,
 };
 
-#if defined(DIRECT3D_LINEAR_ALGEBRA)
+#if defined(HLSLEXEC_LINALG_HOST_API)
 static_assert(
     static_cast<UINT>(ConvertOperationEnumerationFeature) ==
     static_cast<UINT>(D3D12_FEATURE_LINEAR_ALGEBRA_OPERATION_ENUMERATION));
@@ -9210,7 +9210,7 @@ static HRESULT queryConvertSupport(ID3D12Device *Device,
       DestinationType = toCapabilityDataType(DestinationCompType);
   if (!SourceType.has_value() || !DestinationType.has_value())
     return E_INVALIDARG;
-#if defined(DIRECT3D_LINEAR_ALGEBRA)
+#if defined(HLSLEXEC_LINALG_HOST_API)
   VERIFY_ARE_EQUAL(static_cast<UINT>(*SourceType),
                    static_cast<UINT>(toLinAlgDataType(SourceCompType)));
   VERIFY_ARE_EQUAL(static_cast<UINT>(*DestinationType),
