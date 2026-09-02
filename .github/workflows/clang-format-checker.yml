@@ -42,34 +42,39 @@ jobs:
         run: |
           set -euo pipefail
 
-          output_file="$(mktemp)"
-          error_file="$(mktemp)"
           patch_file="$RUNNER_TEMP/clang-format.patch"
-          trap 'rm -f "$output_file" "$error_file"' EXIT
           rm -f "$patch_file"
 
           merge_base="$(git merge-base "$START_REV" "$END_REV")"
 
-          set +e
+          formatter_status=0
           git-clang-format \
+            --verbose \
             --diff \
             --extensions=cpp,c,h,hpp,hxx,cxx \
             "$merge_base" \
-            "$END_REV" >"$output_file" 2>"$error_file"
-          formatter_status=$?
-          set -e
+            "$END_REV" || formatter_status=$?
 
-          sed 's/^/[clang-format] /' "$output_file"
-          sed 's/^/[clang-format] /' "$error_file"
           if [[ "$formatter_status" -gt 1 ]]; then
-            echo "::error::git-clang-format failed."
+            echo "git-clang-format failed: $formatter_status" >&2
             exit "$formatter_status"
           fi
 
-          if [[ "$formatter_status" -eq 1 ]] || grep -q '^diff --git ' "$output_file"; then
-            sed -n '/^diff --git /,$p' "$output_file" >"$patch_file"
-            git apply --check "$patch_file"
-            echo "::error::C/C++ formatting changes are required. Run 'git clang-format $merge_base' locally and update the pull request."
+          if [[ "$formatter_status" -eq 1 ]]; then
+            patch_status=0
+            git-clang-format \
+              --diff \
+              --extensions=cpp,c,h,hpp,hxx,cxx \
+              "$merge_base" \
+              "$END_REV" >"$patch_file" || patch_status=$?
+            if [[ "$patch_status" -ne 1 ]]; then
+              rm -f "$patch_file"
+              echo "Could not create the clang-format patch." >&2
+              exit 2
+            fi
+
+            echo "C/C++ formatting changes are required." >&2
+            echo "Download clang-format-patch from this run or run 'git clang-format $merge_base' locally." >&2
             exit 1
           fi
 
