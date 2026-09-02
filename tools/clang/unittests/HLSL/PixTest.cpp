@@ -19,6 +19,7 @@
 #include <cfloat>
 #include <map>
 #include <memory>
+#include <optional>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -188,6 +189,22 @@ public:
 
   TEST_METHOD(DebugInstrumentation_VectorAllocaWrite_Structs)
 
+  // Tests for the pixel-hit and debug instrumentation passes' SV_Position
+  // signature handling.
+  TEST_METHOD(PixelHitInstrumentation_ReturnOutsideEntryBlock)
+  TEST_METHOD(PixelHitInstrumentation_SVPositionRowAlreadyOccupied)
+  TEST_METHOD(PixelHitInstrumentation_SVPositionRowUnknown)
+  TEST_METHOD(PixelHitInstrumentation_SVPositionRowOccupiedBySystemValue)
+  TEST_METHOD(PixelHitInstrumentation_RejectsUnrepresentableDimensions)
+  TEST_METHOD(PixelHitInstrumentation_ClampsCounterIndexForSmallBuffer)
+  TEST_METHOD(
+      PixelHitInstrumentation_ClampOrderingSurvivesElementOffsetOverflow)
+  TEST_METHOD(PixelHitInstrumentation_RejectsAuthoritativeRowWithNoRoomToEvict)
+  TEST_METHOD(
+      PixelHitInstrumentation_ClearsStaleViewIdStateAfterSignatureGrowth)
+  TEST_METHOD(DebugInstrumentation_ClearsStaleViewIdStateAfterVSSignatureGrowth)
+  TEST_METHOD(Validation_PixelHit_PixelShader)
+
   TEST_METHOD(DebugBreakInstrumentation_Basic)
   TEST_METHOD(DebugBreakInstrumentation_NoDebugBreak)
   TEST_METHOD(DebugBreakInstrumentation_Multiple)
@@ -257,6 +274,38 @@ public:
     if (pText->GetBufferSize() != 0) {
       outputText = reinterpret_cast<const char *>(pText->GetBufferPointer());
     }
+
+    return {
+        std::move(pOptimizedModule), {}, Tokenize(outputText.c_str(), "\n")};
+  }
+
+  // std::nullopt omits the option entirely, which is how PIX signals that it
+  // could not read the previous stage's signature.
+  PassOutput RunPixelHitPass(
+      IDxcBlob *dxil, int RTWidth, int NumPixels,
+      std::optional<unsigned> RequiredSVPositionRow = std::nullopt) {
+    CComPtr<IDxcOptimizer> pOptimizer;
+    VERIFY_SUCCEEDED(
+        m_dllSupport.CreateInstance(CLSID_DxcOptimizer, &pOptimizer));
+    std::vector<LPCWSTR> Options;
+    Options.push_back(L"-opt-mod-passes");
+    std::wstring pixelHitArg =
+        L"-hlsl-dxil-add-pixel-hit-instrmentation,rt-width=" +
+        std::to_wstring(RTWidth) + L",num-pixels=" + std::to_wstring(NumPixels);
+    if (RequiredSVPositionRow.has_value()) {
+      // The required spelling: these tests know the row because they
+      // choose it, which is what entitles the pass to relocate an occupant.
+      pixelHitArg += L",required-sv-position-row=" +
+                     std::to_wstring(*RequiredSVPositionRow);
+    }
+    Options.push_back(pixelHitArg.c_str());
+
+    CComPtr<IDxcBlob> pOptimizedModule;
+    CComPtr<IDxcBlobEncoding> pText;
+    VERIFY_SUCCEEDED(pOptimizer->RunOptimizer(
+        dxil, Options.data(), Options.size(), &pOptimizedModule, &pText));
+
+    std::string outputText = BlobToUtf8(pText);
 
     return {
         std::move(pOptimizedModule), {}, Tokenize(outputText.c_str(), "\n")};
@@ -5132,4 +5181,475 @@ void main()
   VERIFY_IS_TRUE(storeFound);
   // The store three GEPs deep still carries its alloca-register-write.
   VERIFY_IS_TRUE(storeAnnotated);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// Tests for the pixel-hit and debug instrumentation passes' SV_Position
+// signature handling: finding the shader's return in every block, safe
+// counter arithmetic, and relocating the row occupant (rather than
+// SV_Position itself) when the upstream stage's row is already taken.
+
+// Pulls a named input-signature element's start row out of the DXIL signature
+// metadata, whose fields are
+// {ID, Name, ComponentType, SemanticKind, SemanticIndexes, InterpolationMode,
+//  Rows, Cols, StartRow, StartCol, NameValueList}.
+static int FindSignatureElementStartRow(std::vector<std::string> const &lines,
+                                        char const *name) {
+  std::string const needle = std::string("!\"") + name + "\"";
+  for (auto const &line : lines) {
+    if (line.find(needle) == std::string::npos)
+      continue;
+    auto fields = Split(line, ',');
+    if (fields.size() < 10)
+      continue;
+    constexpr size_t StartRowField = 8;
+    auto const &startRowField = fields[StartRowField];
+    auto valueStart = startRowField.find("i32 ");
+    if (valueStart == std::string::npos)
+      continue;
+    return atoi(startRowField.c_str() + valueStart + 4);
+  }
+  return -1;
+}
+
+// Counts the pixel-hit counter increments the instrumentation emitted. Every
+// increment is an atomic add against the pass's own counter UAV, so keying off
+// that handle name keeps any atomic the shader itself performs out of the
+// count.
+static int CountPixelHitIncrements(std::vector<std::string> const &lines) {
+  int increments = 0;
+  for (auto const &line : lines) {
+    if (line.find("dx.op.atomicBinOp") != std::string::npos &&
+        line.find("%PIX_CountUAV_Handle") != std::string::npos)
+      increments++;
+  }
+  return increments;
+}
+
+// A pixel shader containing a loop ends its entry block in a branch, not a
+// return. The pass scans every block in the function for a return
+// instruction, so this shader's counter still increments once per exit point.
+TEST_F(PixTest, PixelHitInstrumentation_ReturnOutsideEntryBlock) {
+  const char *source = R"x(
+float4 main(float4 pos : SV_Position, nointerpolation uint count : COUNT)
+    : SV_Target
+{
+    float4 accumulated = 0;
+    [loop] for (uint index = 0; index < count; ++index)
+    {
+        accumulated += pos * index;
+    }
+    return accumulated;
+})x";
+
+  auto compiled = Compile(m_dllSupport, source, L"ps_6_0", {});
+
+  // The whole point of the shader is that its return does not live in the entry
+  // block, so confirm the loop really did survive into the DXIL rather than
+  // being flattened away.
+  auto uninstrumentedLines = Split(Disassemble(compiled), '\n');
+  int labelCount = 0;
+  for (auto const &line : uninstrumentedLines) {
+    if (line.find("; preds = ") != std::string::npos)
+      labelCount++;
+  }
+  VERIFY_IS_TRUE(labelCount > 0);
+
+  auto output = RunPixelHitPass(compiled, 16, 64);
+  auto lines = Split(Disassemble(output.blob), '\n');
+
+  // The shader has one return, however many blocks control flow crosses
+  // to reach it, so the instrumented module increments the counter once.
+  VERIFY_ARE_EQUAL(1, CountPixelHitIncrements(lines));
+
+  VerifyInstrumentedModuleIsValid(output.blob, "pixel-hit instrumentation");
+}
+
+// The pixel-hit pass has to place SV_Position on the row the upstream stage
+// used, because D3D12 pairs the stages by register. When the pixel shader
+// has already packed one of its own inputs at that row, appending on top of
+// it leaves two elements overlapping the same register and the validator
+// rejects the module.
+TEST_F(PixTest, PixelHitInstrumentation_SVPositionRowAlreadyOccupied) {
+  const char *source = R"x(
+float4 main(float4 col : COLOR) : SV_Target
+{
+    return col;
+})x";
+
+  auto compiled = Compile(m_dllSupport, source, L"ps_6_0", {});
+
+  // Row 0 is both COLOR's row and, here, the upstream stage's SV_Position row.
+  auto output = RunPixelHitPass(compiled, 16, 64, 0 /*requiredSVPositionRow*/);
+  auto lines = Split(Disassemble(output.blob), '\n');
+
+  int const colorRow = FindSignatureElementStartRow(lines, "COLOR");
+  int const positionRow = FindSignatureElementStartRow(lines, "SV_Position");
+
+  // It has to land on the upstream row and nowhere else, because D3D12 pairs
+  // the stages by register and an SV_Position on any other row fails pipeline
+  // creation outright. So the occupant is the element that moves.
+  VERIFY_ARE_EQUAL(0, positionRow);
+  VERIFY_ARE_NOT_EQUAL(colorRow, positionRow);
+
+  VerifyInstrumentedModuleIsValid(output.blob, "pixel-hit instrumentation");
+}
+
+// PIX omits the option when it cannot read the previous stage's signature. The
+// pass must not relocate anything on the strength of a guessed row: the
+// shader's own attributes are still linkage-bound to whatever the real upstream
+// stage is, so the injected SV_Position goes on a row of its own and leaves
+// them alone.
+TEST_F(PixTest, PixelHitInstrumentation_SVPositionRowUnknown) {
+  const char *source = R"x(
+float4 main(float4 col : COLOR) : SV_Target
+{
+    return col;
+})x";
+
+  auto compiled = Compile(m_dllSupport, source, L"ps_6_0", {});
+
+  auto output = RunPixelHitPass(compiled, 16, 64);
+  auto lines = Split(Disassemble(output.blob), '\n');
+
+  VERIFY_ARE_EQUAL(0, FindSignatureElementStartRow(lines, "COLOR"));
+  VERIFY_ARE_EQUAL(1, FindSignatureElementStartRow(lines, "SV_Position"));
+
+  VerifyInstrumentedModuleIsValid(output.blob, "pixel-hit instrumentation");
+}
+
+// The collision that actually occurs in the wild: a pixel shader reading a
+// strict subset of the vertex shader's outputs plus a system value the
+// rasterizer supplies. SV_PrimitiveID needs no vertex shader counterpart, so it
+// packs onto row 2 -- exactly where the vertex shader here writes SV_Position.
+//
+// Relocating SV_Position off row 2 desynchronises the stages and D3D12 rejects
+// the pipeline with "Semantic 'SV_Position', Index '0' is defined for
+// mismatched hardware registers between the output stage and input stage".
+// SV_PrimitiveID has no such constraint, so it is the one that moves.
+TEST_F(PixTest, PixelHitInstrumentation_SVPositionRowOccupiedBySystemValue) {
+  const char *source = R"x(
+struct PSInput
+{
+    float2 uv : TEXCOORD0;
+    float4 color : COLOR0;
+    uint primitiveId : SV_PrimitiveID;
+};
+
+float4 main(PSInput input) : SV_Target
+{
+    return float4(input.color.rgb, input.uv.x + input.primitiveId);
+})x";
+
+  auto compiled = Compile(m_dllSupport, source, L"ps_6_0", {});
+
+  auto output = RunPixelHitPass(compiled, 16, 64, 2 /*requiredSVPositionRow*/);
+  auto lines = Split(Disassemble(output.blob), '\n');
+
+  VERIFY_ARE_EQUAL(2, FindSignatureElementStartRow(lines, "SV_Position"));
+  VERIFY_ARE_NOT_EQUAL(2,
+                       FindSignatureElementStartRow(lines, "SV_PrimitiveID"));
+  VERIFY_ARE_EQUAL(0, FindSignatureElementStartRow(lines, "TEXCOORD"));
+  VERIFY_ARE_EQUAL(1, FindSignatureElementStartRow(lines, "COLOR"));
+
+  VerifyInstrumentedModuleIsValid(output.blob, "pixel-hit instrumentation");
+}
+
+// rt-width and num-pixels size the counter UAV and convert SV_Position into a
+// byte offset into it. A num-pixels large enough that its pixel-cost high
+// water mark (num-pixels * 2 * 4 bytes) does not fit in 32 bits has no buffer
+// layout to compute offsets against, so the pass rejects it.
+TEST_F(PixTest, PixelHitInstrumentation_RejectsUnrepresentableDimensions) {
+  const char *source = R"x(
+float4 main(float4 pos : SV_Position) : SV_Target
+{
+    return pos;
+})x";
+
+  auto compiled = Compile(m_dllSupport, source, L"ps_6_0", {});
+
+  CComPtr<IDxcOptimizer> pOptimizer;
+  VERIFY_SUCCEEDED(
+      m_dllSupport.CreateInstance(CLSID_DxcOptimizer, &pOptimizer));
+  std::vector<LPCWSTR> Options;
+  Options.push_back(L"-opt-mod-passes");
+  Options.push_back(L"-hlsl-dxil-add-pixel-hit-instrmentation,rt-width=16,"
+                    L"num-pixels=536870912,add-pixel-cost=1");
+
+  CComPtr<IDxcBlob> pOptimizedModule;
+  CComPtr<IDxcBlobEncoding> pText;
+  HRESULT hr = pOptimizer->RunOptimizer(
+      compiled, Options.data(), Options.size(), &pOptimizedModule, &pText);
+  VERIFY_FAILED(hr);
+}
+
+// A viewport offset from the render target's origin, or a counter buffer
+// smaller than rt-width * rt-height, lets SV_Position describe a pixel
+// outside the rectangle num-pixels was sized for. The counter index is
+// clamped into the buffer, so the atomic add cannot land outside it.
+TEST_F(PixTest, PixelHitInstrumentation_ClampsCounterIndexForSmallBuffer) {
+  const char *source = R"x(
+float4 main(float4 pos : SV_Position) : SV_Target
+{
+    return pos;
+})x";
+
+  auto compiled = Compile(m_dllSupport, source, L"ps_6_0", {});
+
+  // A small render target and a small pixel count stand in for a viewport that
+  // does not cover the whole surface the shader was told about.
+  const int RTWidth = 4;
+  const int NumPixels = 16;
+  auto output = RunPixelHitPass(compiled, RTWidth, NumPixels);
+  auto lines = Split(Disassemble(output.blob), '\n');
+
+  // The clamp is a UMin (DXIL binary opcode 40) against the last valid
+  // element in the counter's first half, applied before the element count is
+  // scaled to a byte offset.
+  const std::string expectedClamp =
+      "= call i32 @dx.op.binary.i32(i32 40, i32 %ElementOffset, i32 " +
+      std::to_string(NumPixels - 1) + ")";
+  bool foundClamp = false;
+  bool incrementUsesClampedIndex = false;
+  for (auto const &line : lines) {
+    if (line.find(expectedClamp) != std::string::npos)
+      foundClamp = true;
+    if (line.find("dx.op.atomicBinOp") != std::string::npos &&
+        line.find("%PIX_CountUAV_Handle") != std::string::npos &&
+        line.find("%ByteIndex") != std::string::npos)
+      incrementUsesClampedIndex = true;
+  }
+  VERIFY_IS_TRUE(foundClamp);
+  VERIFY_IS_TRUE(incrementUsesClampedIndex);
+
+  VerifyInstrumentedModuleIsValid(output.blob, "pixel-hit instrumentation");
+}
+
+// applyOptions bounds num-pixels but not rt-width, so a caller can pass a
+// rt-width that num-pixels has no room for. SV_Position's Y coordinate then
+// drives the element count past num-pixels by enough that scaling it to a
+// byte offset first, then clamping, lets the 32-bit multiply wrap before the
+// clamp ever sees it. Clamping the element count first never wraps:
+// (NumPixels-1)*4 is always in range, so the clamped count is always safe to
+// scale by 4.
+TEST_F(PixTest,
+       PixelHitInstrumentation_ClampOrderingSurvivesElementOffsetOverflow) {
+  // YIndex=1 alone drives ElementOffset to RTWidth, and scaling that by 4
+  // wraps a 32-bit value to 0 before any clamp can bound it.
+  const uint32_t RTWidth = 0x40000000;
+  const uint32_t NumPixels = 64;
+  const uint32_t YIndex = 1;
+  const uint32_t XIndex = 0;
+  const uint32_t ElementOffset = XIndex + YIndex * RTWidth;
+  const uint32_t MaxCounterByteIndex = (NumPixels - 1) * 4;
+
+  // Scaling first, then clamping the byte offset: the multiply wraps
+  // ElementOffset to 0, and UMin of 0 against the limit is still 0 -- the
+  // increment lands on pixel 0's slot instead of the last one.
+  const uint32_t byteIndexScaledFirst = ElementOffset * 4u;
+  const uint32_t clampedAfterScaling =
+      std::min(byteIndexScaledFirst, MaxCounterByteIndex);
+  VERIFY_ARE_EQUAL(0u, byteIndexScaledFirst);
+  VERIFY_ARE_EQUAL(0u, clampedAfterScaling);
+
+  // Clamping the element count first, then scaling: the clamp can only
+  // shrink ElementOffset, so the multiply that follows is always within the
+  // range applyOptions already guarantees is safe.
+  const uint32_t clampedElementOffset = std::min(ElementOffset, NumPixels - 1);
+  const uint32_t byteIndexClampedFirst = clampedElementOffset * 4u;
+  VERIFY_ARE_EQUAL(MaxCounterByteIndex, byteIndexClampedFirst);
+
+  VERIFY_ARE_NOT_EQUAL(clampedAfterScaling, byteIndexClampedFirst);
+
+  // The pass itself clamps %ElementOffset, not a byte offset derived from it:
+  // confirm both the clamp's operand and the final increment's operand match
+  // that ordering for this exact hazard.
+  const char *source = R"x(
+float4 main(float4 pos : SV_Position) : SV_Target
+{
+    return pos;
+})x";
+
+  auto compiled = Compile(m_dllSupport, source, L"ps_6_0", {});
+  auto output = RunPixelHitPass(compiled, static_cast<int>(RTWidth),
+                                static_cast<int>(NumPixels));
+  auto lines = Split(Disassemble(output.blob), '\n');
+
+  const std::string expectedClamp =
+      "= call i32 @dx.op.binary.i32(i32 40, i32 %ElementOffset, i32 " +
+      std::to_string(NumPixels - 1) + ")";
+  bool foundClamp = false;
+  bool incrementUsesByteIndex = false;
+  for (auto const &line : lines) {
+    if (line.find(expectedClamp) != std::string::npos)
+      foundClamp = true;
+    if (line.find("dx.op.atomicBinOp") != std::string::npos &&
+        line.find("%PIX_CountUAV_Handle") != std::string::npos &&
+        line.find("%ByteIndex") != std::string::npos)
+      incrementUsesByteIndex = true;
+  }
+  VERIFY_IS_TRUE(foundClamp);
+  VERIFY_IS_TRUE(incrementUsesByteIndex);
+
+  VerifyInstrumentedModuleIsValid(output.blob, "pixel-hit instrumentation");
+}
+
+// A pixel shader input signature that already fills every one of the 32
+// available registers: ATTR occupies rows 0-30, and the two rasterizer
+// system values share row 31 with each other -- and with the upstream
+// stage's SV_Position. Evicting them to make room for SV_Position leaves
+// nowhere for either of them to go, so placing SV_Position at its
+// authoritative row cannot succeed. The pass rejects the module rather than
+// emitting a register past the end of the signature, and leaves both
+// evicted elements at their original row instead of one of them stranded
+// mid-repack.
+TEST_F(PixTest,
+       PixelHitInstrumentation_RejectsAuthoritativeRowWithNoRoomToEvict) {
+  const char *source = R"x(
+struct DensePSInput
+{
+    float4 attributes[31] : ATTR;
+    uint primitiveId : SV_PrimitiveID;
+    bool isFrontFace : SV_IsFrontFace;
+};
+
+float4 main(DensePSInput input) : SV_Target
+{
+    float4 accumulated = 0;
+    [unroll] for (uint index = 0; index < 31; ++index)
+    {
+        accumulated += input.attributes[index];
+    }
+
+    accumulated.a = input.primitiveId + (input.isFrontFace ? 1.0f : 0.0f);
+    return accumulated;
+})x";
+
+  auto compiled = Compile(m_dllSupport, source, L"ps_6_0", {});
+
+  CComPtr<IDxcOptimizer> pOptimizer;
+  VERIFY_SUCCEEDED(
+      m_dllSupport.CreateInstance(CLSID_DxcOptimizer, &pOptimizer));
+  std::vector<LPCWSTR> Options;
+  Options.push_back(L"-opt-mod-passes");
+  Options.push_back(
+      L"-hlsl-dxil-add-pixel-hit-instrmentation,rt-width=16,num-pixels=64,"
+      L"required-sv-position-row=31");
+
+  CComPtr<IDxcBlob> pOptimizedModule;
+  CComPtr<IDxcBlobEncoding> pText;
+  HRESULT hr = pOptimizer->RunOptimizer(
+      compiled, Options.data(), Options.size(), &pOptimizedModule, &pText);
+  VERIFY_FAILED(hr);
+}
+
+// A normal compile embeds a ViewID dependency table sized for the shader's
+// declared signature. Appending SV_Position grows the signature, so the
+// table must be cleared: container assembly reconciles the module's
+// per-register data against the table's size, and a table sized for the
+// smaller signature describes the wrong one.
+TEST_F(PixTest,
+       PixelHitInstrumentation_ClearsStaleViewIdStateAfterSignatureGrowth) {
+  const char *source = R"x(
+float4 main(float4 col : COLOR) : SV_Target
+{
+    return col;
+})x";
+
+  auto compiled = Compile(m_dllSupport, source, L"ps_6_0", {});
+
+  // Confirm the premise: an ordinary compile of this shader really does
+  // embed a ViewID dependency table, so the pass has something stale to
+  // clear.
+  auto uninstrumentedLines = Split(Disassemble(compiled), '\n');
+  bool hadViewIdState = false;
+  for (auto const &line : uninstrumentedLines) {
+    if (line.find("dx.viewIdState") != std::string::npos)
+      hadViewIdState = true;
+  }
+  VERIFY_IS_TRUE(hadViewIdState);
+
+  auto output = RunPixelHitPass(compiled, 16, 64, 0 /*requiredSVPositionRow*/);
+  auto lines = Split(Disassemble(output.blob), '\n');
+
+  // The table describing the old, smaller signature must not survive.
+  bool stillHasViewIdState = false;
+  for (auto const &line : lines) {
+    if (line.find("dx.viewIdState") != std::string::npos)
+      stillHasViewIdState = true;
+  }
+  VERIFY_IS_FALSE(stillHasViewIdState);
+
+  // Reassembling and validating exercises exactly this: a stale table must
+  // not reach container assembly.
+  VerifyInstrumentedModuleIsValid(output.blob, "pixel-hit instrumentation");
+}
+
+// A normal compile embeds a ViewID dependency table sized for the shader's
+// declared signature. Appending SV_VertexID or SV_InstanceID grows the
+// signature, so the table must be cleared: container assembly reconciles
+// the module's per-register data against the table's size, and a table
+// sized for the smaller signature describes the wrong one.
+TEST_F(PixTest,
+       DebugInstrumentation_ClearsStaleViewIdStateAfterVSSignatureGrowth) {
+  const char *source = R"x(
+float4 main(float4 pos : POSITION) : SV_Position
+{
+    return pos;
+})x";
+
+  auto compiled = Compile(m_dllSupport, source, L"vs_6_2", {});
+
+  // Confirm the premise: an ordinary compile of this shader really does
+  // embed a ViewID dependency table, so the pass has something stale to
+  // clear.
+  auto uninstrumentedLines = Split(Disassemble(compiled), '\n');
+  bool hadViewIdState = false;
+  for (auto const &line : uninstrumentedLines) {
+    if (line.find("dx.viewIdState") != std::string::npos)
+      hadViewIdState = true;
+  }
+  VERIFY_IS_TRUE(hadViewIdState);
+
+  CComPtr<IDxcOptimizer> pOptimizer;
+  VERIFY_SUCCEEDED(
+      m_dllSupport.CreateInstance(CLSID_DxcOptimizer, &pOptimizer));
+  std::vector<LPCWSTR> Options;
+  Options.push_back(L"-opt-mod-passes");
+  Options.push_back(
+      L"-hlsl-dxil-debug-instrumentation,parameter0=1,parameter1=2");
+  Options.push_back(L"-hlsl-dxilemit");
+
+  CComPtr<IDxcBlob> pOptimizedModule;
+  CComPtr<IDxcBlobEncoding> pText;
+  VERIFY_SUCCEEDED(pOptimizer->RunOptimizer(
+      compiled, Options.data(), Options.size(), &pOptimizedModule, &pText));
+
+  auto lines = Split(Disassemble(pOptimizedModule), '\n');
+
+  // The table describing the old, smaller signature must not survive.
+  bool stillHasViewIdState = false;
+  for (auto const &line : lines) {
+    if (line.find("dx.viewIdState") != std::string::npos)
+      stillHasViewIdState = true;
+  }
+  VERIFY_IS_FALSE(stillHasViewIdState);
+
+  // Reassembling and validating exercises exactly this: a stale table must
+  // not reach container assembly.
+  VerifyInstrumentedModuleIsValid(pOptimizedModule, "debug instrumentation");
+}
+
+// Control test for the pixel-hit pass' own use of the validation harness: a
+// straightforward pixel shader, instrumented and confirmed to still validate.
+TEST_F(PixTest, Validation_PixelHit_PixelShader) {
+  const char *source = R"x(
+float4 main(float4 pos : SV_Position) : SV_Target
+{
+    return pos;
+})x";
+
+  auto compiled = Compile(m_dllSupport, source, L"ps_6_0", {});
+  auto output = RunPixelHitPass(compiled, 16, 64, 0 /*requiredSVPositionRow*/);
+  VerifyInstrumentedModuleIsValid(output.blob, "pixel-hit instrumentation");
 }

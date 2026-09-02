@@ -284,7 +284,9 @@ private:
   unsigned m_LastInstruction = static_cast<unsigned>(-1);
 
   uint64_t m_UAVSize = 1024 * 1024;
-  unsigned m_upstreamSVPositionRow;
+  unsigned m_upstreamSVPositionRow = PIXPassHelpers::kUnknownSVPositionRow;
+  PIXPassHelpers::SVPositionRowAuthority m_svPositionRowAuthority =
+      PIXPassHelpers::SVPositionRowAuthority::Hint;
 
   struct PerFunctionValues {
     CallInst *UAVHandle = nullptr;
@@ -383,13 +385,37 @@ void DxilDebugInstrumentation::applyOptions(PassOptions O) {
   GetPassOptionUnsigned(O, "parameter1", &m_Parameters.Parameters[1], 0);
   GetPassOptionUnsigned(O, "parameter2", &m_Parameters.Parameters[2], 0);
   GetPassOptionUInt64(O, "UAVSize", &m_UAVSize, 1024 * 1024);
+  // The legacy option always sets a hint, never an authoritative row,
+  // matching DxilAddPixelHitInstrumentation: treating an unverified row as
+  // authoritative could evict a real interpolant based on a guess.
+  //
+  // GetPassOptionUnsigned leaves the value untouched when the option is
+  // present but unparseable, so seed the member before the call rather than
+  // rely on the default argument.
+  m_upstreamSVPositionRow = PIXPassHelpers::kUnknownSVPositionRow;
   GetPassOptionUnsigned(O, "upstreamSVPositionRow", &m_upstreamSVPositionRow,
-                        0);
+                        PIXPassHelpers::kUnknownSVPositionRow);
+  m_svPositionRowAuthority = PIXPassHelpers::SVPositionRowAuthority::Hint;
+
+  unsigned AuthoritativeRow = PIXPassHelpers::kUnknownSVPositionRow;
+  GetPassOptionUnsigned(O, "authoritativeSVPositionRow", &AuthoritativeRow,
+                        PIXPassHelpers::kUnknownSVPositionRow);
+  if (AuthoritativeRow != PIXPassHelpers::kUnknownSVPositionRow) {
+    m_upstreamSVPositionRow = AuthoritativeRow;
+    m_svPositionRowAuthority =
+        PIXPassHelpers::SVPositionRowAuthority::Authoritative;
+  }
 }
 
 uint32_t DxilDebugInstrumentation::UAVDumpingGroundOffset() {
   return static_cast<uint32_t>(m_UAVSize / 2);
 }
+
+// Returned in place of a signature element ID when the element the selection
+// prolog wanted could not be made available. See
+// FindOrAddVSInSignatureElementForInstanceOrVertexID.
+static constexpr unsigned kUnavailableSignatureElementID =
+    static_cast<unsigned>(-1);
 
 unsigned int GetNextEmptyRow(
     std::vector<std::unique_ptr<DxilSignatureElement>> const &Elements) {
@@ -418,12 +444,27 @@ unsigned FindOrAddVSInSignatureElementForInstanceOrVertexID(
                    });
 
   if (ExistingElement == InputElements.end()) {
+    unsigned Row = GetNextEmptyRow(InputElements);
+
+    // A signature holds at most kMaxSignatureTotalVectors registers. Each
+    // vertex-shader input gets its own register (PackingKind::InputAssembler),
+    // so a dense enough signature has no room for this element. Appending it
+    // anyway would write a register past the end of the signature, which the
+    // validator rejects; PIX does not re-validate what it patches, so the
+    // driver would see the failure instead. Report the element as
+    // unavailable and let the caller select an invocation with whatever
+    // identity remains.
+    if (Row >= hlsl::DXIL::kMaxSignatureTotalVectors) {
+      return kUnavailableSignatureElementID;
+    }
+
     auto AddedElement =
         llvm::make_unique<DxilSignatureElement>(DXIL::SigPointKind::VSIn);
-    unsigned Row = GetNextEmptyRow(InputElements);
+    // A vertex shader input is not interpolated, so the interpolation mode has
+    // to be Undefined; the validator rejects anything else on a VSIn element.
     AddedElement->Initialize(
         hlsl::Semantic::Get(semanticKind)->GetName(), hlsl::CompType::getU32(),
-        hlsl::DXIL::InterpolationMode::Constant, 1, 1, Row, 0);
+        hlsl::DXIL::InterpolationMode::Undefined, 1, 1, Row, 0);
     AddedElement->AppendSemanticIndex(0);
     AddedElement->SetKind(semanticKind);
     AddedElement->SetUsageMask(1);
@@ -454,12 +495,34 @@ DxilDebugInstrumentation::addRequiredSystemValues(BuilderContext &BC,
     break;
   case DXIL::ShaderKind::Vertex: {
     hlsl::DxilSignature &InputSignature = BC.DM.GetInputSignature();
+    size_t const ElementCountBeforeInjection =
+        InputSignature.GetElements().size();
     SVIndices.VertexShader.VertexId =
         FindOrAddVSInSignatureElementForInstanceOrVertexID(
             InputSignature, hlsl::DXIL::SemanticKind::VertexID);
     SVIndices.VertexShader.InstanceId =
         FindOrAddVSInSignatureElementForInstanceOrVertexID(
             InputSignature, hlsl::DXIL::SemanticKind::InstanceID);
+    // Adding an input-signature element invalidates any ViewID dependency
+    // table in the module.
+    if (InputSignature.GetElements().size() != ElementCountBeforeInjection) {
+      PIXPassHelpers::ClearViewIdState(BC.DM);
+    }
+    // VertexID is asked for first on purpose: when the signature has room for
+    // only one more element, the vertex index is the more discriminating of
+    // the two, because a draw always has vertices and only sometimes has more
+    // than one instance.
+    char const *Selection = "None";
+    if (SVIndices.VertexShader.VertexId != kUnavailableSignatureElementID) {
+      Selection =
+          SVIndices.VertexShader.InstanceId != kUnavailableSignatureElementID
+              ? "VertexIdAndInstanceId"
+              : "VertexIdOnly";
+    } else if (SVIndices.VertexShader.InstanceId !=
+               kUnavailableSignatureElementID) {
+      Selection = "InstanceIdOnly";
+    }
+    *OSOverride << "VertexShaderSelection:" << Selection << "\n";
   } break;
   case DXIL::ShaderKind::Geometry:
   case DXIL::ShaderKind::Hull:
@@ -468,8 +531,8 @@ DxilDebugInstrumentation::addRequiredSystemValues(BuilderContext &BC,
     // in the input signature
     break;
   case DXIL::ShaderKind::Pixel: {
-    SVIndices.PixelShader.Position =
-        PIXPassHelpers::FindOrAddSV_Position(BC.DM, m_upstreamSVPositionRow);
+    SVIndices.PixelShader.Position = PIXPassHelpers::FindOrAddSV_Position(
+        BC.DM, m_upstreamSVPositionRow, m_svPositionRowAuthority);
   } break;
   default:
     assert(false); // guaranteed by runOnModule
@@ -559,33 +622,63 @@ DxilDebugInstrumentation::addVertexShaderProlog(BuilderContext &BC,
       BC.HlslOP->GetOpFunc(DXIL::OpCode::LoadInput, Type::getInt32Ty(BC.Ctx));
   Constant *LoadInputOpcode =
       BC.HlslOP->GetU32Const((unsigned)DXIL::OpCode::LoadInput);
-  Constant *SV_Vert_ID =
-      BC.HlslOP->GetU32Const(SVIndices.VertexShader.VertexId);
-  auto VertId =
-      BC.Builder.CreateCall(LoadInputOpFunc,
-                            {LoadInputOpcode, SV_Vert_ID, Zero32Arg /*row*/,
-                             Zero8Arg /*column*/, UndefArg},
-                            "VertId");
 
-  Constant *SV_Instance_ID =
-      BC.HlslOP->GetU32Const(SVIndices.VertexShader.InstanceId);
-  auto InstanceId =
-      BC.Builder.CreateCall(LoadInputOpFunc,
-                            {LoadInputOpcode, SV_Instance_ID, Zero32Arg /*row*/,
-                             Zero8Arg /*column*/, UndefArg},
-                            "InstanceId");
+  // A full input signature can leave this shader without one of these system
+  // values. One surviving value still narrows the selection to a smaller
+  // set, which is an acceptable approximation; if neither value is
+  // available, there is nothing left to narrow with, handled below.
+  auto LoadSystemValue = [&](unsigned ElementID, char const *Name) -> Value * {
+    if (ElementID == kUnavailableSignatureElementID) {
+      return nullptr;
+    }
+    return BC.Builder.CreateCall(
+        LoadInputOpFunc,
+        {LoadInputOpcode, BC.HlslOP->GetU32Const(ElementID), Zero32Arg /*row*/,
+         Zero8Arg /*column*/, UndefArg},
+        Name);
+  };
+
+  Value *VertId = LoadSystemValue(SVIndices.VertexShader.VertexId, "VertId");
+  Value *InstanceId =
+      LoadSystemValue(SVIndices.VertexShader.InstanceId, "InstanceId");
 
   // Compare to expected vertex ID and instance ID
-  auto CompareToVert = BC.Builder.CreateICmpEQ(
-      VertId, BC.HlslOP->GetU32Const(m_Parameters.VertexShader.VertexId),
-      "CompareToVertId");
-  auto CompareToInstance = BC.Builder.CreateICmpEQ(
-      InstanceId, BC.HlslOP->GetU32Const(m_Parameters.VertexShader.InstanceId),
-      "CompareToInstanceId");
-  auto CompareBoth =
-      BC.Builder.CreateAnd(CompareToVert, CompareToInstance, "CompareBoth");
+  Value *CompareToVert =
+      VertId == nullptr
+          ? nullptr
+          : BC.Builder.CreateICmpEQ(
+                VertId,
+                BC.HlslOP->GetU32Const(m_Parameters.VertexShader.VertexId),
+                "CompareToVertId");
+  Value *CompareToInstance =
+      InstanceId == nullptr
+          ? nullptr
+          : BC.Builder.CreateICmpEQ(
+                InstanceId,
+                BC.HlslOP->GetU32Const(m_Parameters.VertexShader.InstanceId),
+                "CompareToInstanceId");
 
-  return CompareBoth;
+  if (CompareToVert != nullptr && CompareToInstance != nullptr) {
+    return BC.Builder.CreateAnd(CompareToVert, CompareToInstance,
+                                "CompareBoth");
+  }
+  if (CompareToVert != nullptr) {
+    return CompareToVert;
+  }
+  if (CompareToInstance != nullptr) {
+    return CompareToInstance;
+  }
+
+  // Neither identity is available, so select none: presenting an arbitrary
+  // vertex's trace as the one the user asked for would be misleading, and
+  // this lets PIX report the shader as undebuggable instead.
+  // VertexShaderSelection:None already records this case.
+  //
+  // GetOpFunc materializes the loadInput declaration before either system
+  // value's availability is known. With neither call emitted, the
+  // declaration is unused, which the validator rejects.
+  PIXPassHelpers::EraseIfUnused(BC.DM, LoadInputOpFunc);
+  return BC.HlslOP->GetI1Const(0);
 }
 
 Value *DxilDebugInstrumentation::addHullhaderProlog(BuilderContext &BC) {

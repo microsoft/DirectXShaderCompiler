@@ -23,6 +23,9 @@
 
 #include "PixPassHelpers.h"
 
+#include "dxc/Support/Global.h"
+#include <winerror.h>
+
 using namespace llvm;
 using namespace hlsl;
 
@@ -41,7 +44,9 @@ public:
   }
   void applyOptions(PassOptions O) override;
   bool runOnModule(Module &M) override;
-  unsigned m_upstreamSVPositionRow;
+  unsigned m_upstreamSVPositionRow = PIXPassHelpers::kUnknownSVPositionRow;
+  PIXPassHelpers::SVPositionRowAuthority m_svPositionRowAuthority =
+      PIXPassHelpers::SVPositionRowAuthority::Hint;
 };
 
 void DxilAddPixelHitInstrumentation::applyOptions(PassOptions O) {
@@ -49,8 +54,50 @@ void DxilAddPixelHitInstrumentation::applyOptions(PassOptions O) {
   GetPassOptionBool(O, "add-pixel-cost", &AddPixelCost, false);
   GetPassOptionInt(O, "rt-width", &RTWidth, 0);
   GetPassOptionInt(O, "num-pixels", &NumPixels, 0);
-  GetPassOptionUnsigned(O, "upstream-sv-position-row", &m_upstreamSVPositionRow,
-                        0);
+
+  // RTWidth and NumPixels size the counter UAV and convert SV_Position to a
+  // byte offset into it. Reject a width or pixel count this pass cannot
+  // represent -- zero, negative, or large enough that the pixel-cost half's
+  // high water mark (NumPixels * 2 * 4 bytes) does not fit in 32 bits --
+  // instead of emitting a shader whose offset arithmetic silently wraps.
+  if (RTWidth <= 0 || NumPixels <= 0 ||
+      static_cast<uint64_t>(NumPixels) * 2 * 4 > UINT32_MAX) {
+    throw ::hlsl::Exception(
+        E_FAIL, "PIX: the pixel-hit instrumentation was given a render "
+                "target width or pixel count it cannot represent.");
+  }
+
+  // This option always sets a hint, never a required row: treating an
+  // unverified row as required could evict a real interpolant based on a
+  // guess.
+  //
+  // GetPassOptionUnsigned leaves the value untouched when the option is
+  // present but unparseable, so seed the member before the call rather than
+  // rely on the default argument.
+  //
+  // "upstream-sv-position-row" is the pre-rename spelling: old PIX versions
+  // predate this rename and still send it, so it is kept as an accepted
+  // alias indefinitely rather than only for a deprecation window. New
+  // callers should prefer "preferred-sv-position-row"; if both are
+  // supplied, the preferred spelling wins.
+  m_upstreamSVPositionRow = PIXPassHelpers::kUnknownSVPositionRow;
+  if (!GetPassOptionUnsigned(O, "preferred-sv-position-row",
+                             &m_upstreamSVPositionRow,
+                             PIXPassHelpers::kUnknownSVPositionRow)) {
+    GetPassOptionUnsigned(O, "upstream-sv-position-row",
+                          &m_upstreamSVPositionRow,
+                          PIXPassHelpers::kUnknownSVPositionRow);
+  }
+  m_svPositionRowAuthority = PIXPassHelpers::SVPositionRowAuthority::Hint;
+
+  unsigned RequiredRow = PIXPassHelpers::kUnknownSVPositionRow;
+  GetPassOptionUnsigned(O, "required-sv-position-row", &RequiredRow,
+                        PIXPassHelpers::kUnknownSVPositionRow);
+  if (RequiredRow != PIXPassHelpers::kUnknownSVPositionRow) {
+    m_upstreamSVPositionRow = RequiredRow;
+    m_svPositionRowAuthority =
+        PIXPassHelpers::SVPositionRowAuthority::Authoritative;
+  }
 }
 
 bool DxilAddPixelHitInstrumentation::runOnModule(Module &M) {
@@ -66,12 +113,10 @@ bool DxilAddPixelHitInstrumentation::runOnModule(Module &M) {
     DM.m_ShaderFlags.SetForceEarlyDepthStencil(true);
   }
 
-  auto SV_Position_ID =
-      PIXPassHelpers::FindOrAddSV_Position(DM, m_upstreamSVPositionRow);
+  auto SV_Position_ID = PIXPassHelpers::FindOrAddSV_Position(
+      DM, m_upstreamSVPositionRow, m_svPositionRowAuthority);
 
   auto EntryPointFunction = PIXPassHelpers::GetEntryFunction(DM);
-
-  auto &EntryBlock = EntryPointFunction->getEntryBlock();
 
   CallInst *HandleForUAV;
   {
@@ -83,18 +128,32 @@ bool DxilAddPixelHitInstrumentation::runOnModule(Module &M) {
 
     DM.ReEmitDxilResources();
   }
-  // todo: is it a reasonable assumption that there will be a "Ret" in the entry
-  // block, and that these are the only points from which the shader can exit
-  // (except for a pixel-kill?)
-  auto &Instructions = EntryBlock.getInstList();
-  auto It = Instructions.begin();
-  while (It != Instructions.end()) {
-    auto ThisInstruction = It++;
+  // Every point where the shader completes must bump the counter. A
+  // straight-line shader keeps its Ret in the entry block, but a shader with
+  // a loop or branch ends the entry block early, so every basic block is
+  // scanned for a Ret.
+  llvm::SmallVector<llvm::Instruction *, 4> ReturnInstructions;
+  bool FunctionHasWork = false;
+  for (auto &ThisBlock : EntryPointFunction->getBasicBlockList()) {
+    for (auto &ThisInstruction : ThisBlock) {
+      LlvmInst_Ret Ret(&ThisInstruction);
+      if (Ret) {
+        ReturnInstructions.push_back(&ThisInstruction);
+      } else if (!llvm::isa<llvm::TerminatorInst>(&ThisInstruction)) {
+        FunctionHasWork = true;
+      }
+    }
+  }
+
+  bool Modified = false;
+
+  for (auto ThisInstruction : ReturnInstructions) {
     LlvmInst_Ret Ret(ThisInstruction);
     if (Ret) {
-      // Check that there is at least one instruction preceding the Ret (no need
-      // to instrument it if there isn't)
-      if (ThisInstruction->getPrevNode() != nullptr) {
+      // A function that contains nothing but terminators has no pixel work
+      // worth counting.
+      if (FunctionHasWork) {
+        Modified = true;
 
         // Start adding instructions right before the Ret:
         IRBuilder<> Builder(ThisInstruction);
@@ -110,7 +169,13 @@ bool DxilAddPixelHitInstrumentation::runOnModule(Module &M) {
         Constant *One32Arg = HlslOP->GetU32Const(1);
         Constant *One8Arg = HlslOP->GetI8Const(1);
         UndefValue *UndefArg = UndefValue::get(Type::getInt32Ty(Ctx));
-        Constant *NumPixelsByteOffsetArg = HlslOP->GetU32Const(NumPixels * 4);
+        // Compute as uint32_t, not NumPixels' own int: applyOptions
+        // guarantees NumPixels * 2 * 4 fits in 32 bits only for unsigned
+        // arithmetic. The signed multiply would overflow int32 for a
+        // NumPixels this pass accepts, which is undefined behavior on the
+        // host, not just a wrapped value in the shader.
+        Constant *NumPixelsByteOffsetArg =
+            HlslOP->GetU32Const(static_cast<uint32_t>(NumPixels) * 4u);
 
         // Step 1: Convert SV_POSITION to UINT
         Value *XAsInt;
@@ -141,12 +206,31 @@ bool DxilAddPixelHitInstrumentation::runOnModule(Module &M) {
         // Step 2: Calculate pixel index
         Value *Index;
         {
-          Constant *RTWidthArg = HlslOP->GetI32Const(RTWidth);
+          Constant *RTWidthArg =
+              HlslOP->GetU32Const(static_cast<uint32_t>(RTWidth));
           auto YOffset = Builder.CreateMul(YAsInt, RTWidthArg, "YOffset");
           auto Elementoffset =
               Builder.CreateAdd(XAsInt, YOffset, "ElementOffset");
-          Index = Builder.CreateMul(Elementoffset, HlslOP->GetU32Const(4),
-                                    "ByteIndex");
+
+          // The viewport can be offset from the render target's origin, or
+          // smaller than the counter buffer PIX sized for it, so
+          // SV_Position's X and Y can land ElementOffset past the last valid
+          // element. Clamp the element count before scaling to a byte
+          // offset: applyOptions guarantees (NumPixels-1)*4 fits in uint32,
+          // so the clamped multiply cannot wrap. Clamping after scaling
+          // would let an oversized ElementOffset overflow the multiply
+          // first.
+          Function *UMinOpFunc =
+              HlslOP->GetOpFunc(OP::OpCode::UMin, Type::getInt32Ty(Ctx));
+          Constant *UMinOpcode =
+              HlslOP->GetU32Const((unsigned)OP::OpCode::UMin);
+          Constant *LastElementArg =
+              HlslOP->GetU32Const(static_cast<uint32_t>(NumPixels) - 1);
+          auto ClampedElementOffset = Builder.CreateCall(
+              UMinOpFunc, {UMinOpcode, Elementoffset, LastElementArg},
+              "ClampedElementOffset");
+          Index = Builder.CreateMul(ClampedElementOffset,
+                                    HlslOP->GetU32Const(4), "ByteIndex");
         }
 
         // Insert the UAV increment instruction:
@@ -188,7 +272,8 @@ bool DxilAddPixelHitInstrumentation::runOnModule(Module &M) {
                                                      Type::getInt32Ty(Ctx));
             Constant *LoadWeightOpcode =
                 HlslOP->GetU32Const((unsigned)DXIL::OpCode::BufferLoad);
-            Constant *OffsetIntoUAV = HlslOP->GetU32Const(NumPixels * 2 * 4);
+            Constant *OffsetIntoUAV =
+                HlslOP->GetU32Const(static_cast<uint32_t>(NumPixels) * 2u * 4u);
             auto WeightStruct = Builder.CreateCall(
                 LoadWeight,
                 {
@@ -202,7 +287,9 @@ bool DxilAddPixelHitInstrumentation::runOnModule(Module &M) {
                 WeightStruct, static_cast<uint64_t>(0LL), "Weight");
           }
 
-          // Step 2: Update write position ("Index") to second half of the UAV
+          // Step 2: Update write position ("Index") to second half of the UAV.
+          // Index is already clamped to the first half, so this can only land
+          // in the second half without a clamp of its own.
           auto OffsetIndex = Builder.CreateAdd(Index, NumPixelsByteOffsetArg,
                                                "OffsetByteIndex");
 
@@ -224,8 +311,6 @@ bool DxilAddPixelHitInstrumentation::runOnModule(Module &M) {
       }
     }
   }
-
-  bool Modified = false;
 
   return Modified;
 }
