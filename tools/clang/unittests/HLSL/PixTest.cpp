@@ -167,7 +167,11 @@ public:
   TEST_METHOD(ToolsUav_LibraryWithTwoEntryPointsCreatesOnePair)
   TEST_METHOD(ToolsUav_ExtendsEveryGlobalRootSignatureSubobject)
   TEST_METHOD(DebugInstrumentation_RawBufferShaderFlagDeclared)
+  TEST_METHOD(DebugInstrumentation_NothingInstrumentableAddsNoUav)
   TEST_METHOD(ToolsUav_RootSignatureSerializationFailurePreservesSignature)
+  TEST_METHOD(DebugInstrumentation_SM60UsesBufferStore)
+  TEST_METHOD(DebugInstrumentation_SM61UsesBufferStore)
+  TEST_METHOD(DebugInstrumentation_SM62UsesRawBufferStore)
   TEST_METHOD(ConstantColor_UnusedIntOverloadIsErased)
   TEST_METHOD(ConstantColor_NoTargetOverloadsAreErased)
   TEST_METHOD(ConstantColor_FromConstantBufferIsWellFormed)
@@ -213,6 +217,15 @@ public:
   TEST_METHOD(NonUniformResourceIndex_QualifiedCleanupValidates)
   TEST_METHOD(NonUniformResourceIndex_DescriptorHeap)
   TEST_METHOD(NonUniformResourceIndex_Raytracing)
+
+  TEST_METHOD(HelperInlining_NoEntryFunctionLeavesModuleAlone)
+  TEST_METHOD(HelperInlining_SurvivingHelperIsReportedByExactName)
+  TEST_METHOD(HelperInlining_SurvivingHelperIsReportedAfterEarlierPrepass)
+  TEST_METHOD(HelperInlining_InlinedHelperIsNotReported)
+  TEST_METHOD(HelperInlining_InlinedHelperValidates)
+  TEST_METHOD(HelperInlining_HullPatchConstantFunctionValidates)
+  TEST_METHOD(HelperInlining_NonUniformResourceIndexHelperValidates)
+  TEST_METHOD(HelperInlining_DebugBreakHelperValidates)
 
   // Control tests for the PIX pass validation harness below
   // (ValidateInstrumentedModule / VerifyInstrumentedModuleIsValid).
@@ -367,6 +380,19 @@ public:
   // Runs the virtual-register annotation pass over textual IR and returns the
   // pass report. Textual IR builds a module shape that HLSL does not express.
   std::vector<std::string> RunAnnotationPassOnText(const std::string &irText) {
+    return RunPassesOnText(irText, {L"-dxil-annotate-with-virtual-regs"});
+  }
+
+  // Runs both prepasses that inline, in the order the debug pipeline uses, so
+  // the annotation pass sees a module another pass already inlined.
+  std::vector<std::string>
+  RunDbgValueAndAnnotationPassesOnText(const std::string &irText) {
+    return RunPassesOnText(irText, {L"-dxil-dbg-value-to-dbg-declare",
+                                    L"-dxil-annotate-with-virtual-regs"});
+  }
+
+  std::vector<std::string> RunPassesOnText(const std::string &irText,
+                                           std::vector<LPCWSTR> passes) {
     CComPtr<IDxcBlobEncoding> pSource;
     CreateBlobFromText(m_dllSupport, irText.c_str(), &pSource);
 
@@ -376,7 +402,7 @@ public:
     std::vector<LPCWSTR> Options;
     Options.push_back(L"-S");
     Options.push_back(L"-opt-mod-passes");
-    Options.push_back(L"-dxil-annotate-with-virtual-regs");
+    Options.insert(Options.end(), passes.begin(), passes.end());
 
     CComPtr<IDxcBlob> pOptimizedModule;
     CComPtr<IDxcBlobEncoding> pText;
@@ -384,6 +410,30 @@ public:
         pSource, Options.data(), Options.size(), &pOptimizedModule, &pText));
 
     return Tokenize(BlobToUtf8(pText).c_str(), "\n");
+  }
+
+  static bool AnyLineContains(const std::vector<std::string> &lines,
+                              const char *needle) {
+    for (const std::string &line : lines) {
+      if (line.find(needle) != std::string::npos) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  // Collects the whole payload of each report record with the given prefix, so
+  // a test pins the exact record rather than a substring of it.
+  static std::vector<std::string>
+  RecordsWithPrefix(const std::vector<std::string> &lines,
+                    const std::string &prefix) {
+    std::vector<std::string> records;
+    for (const std::string &line : lines) {
+      if (line.compare(0, prefix.size(), prefix) == 0) {
+        records.push_back(line.substr(prefix.size()));
+      }
+    }
+    return records;
   }
 
   // Replaces the one occurrence of needle, and fails the test when the text
@@ -398,6 +448,77 @@ public:
     std::string result = text;
     result.replace(position, needle.size(), replacement);
     return result;
+  }
+
+  // Returns the module with a global holding the helper's address, which makes
+  // the helper reachable other than by a direct call and so unreachable for the
+  // inliner. HLSL itself expresses no such module.
+  static std::string TakeAddressOfHelper(const std::string &disassembly,
+                                         const char *mangledHelperName) {
+    const std::string entryDefinition = "define void @main() {";
+    return ReplaceOnlyOccurrence(
+        disassembly, entryDefinition,
+        "@PIXTestHelperAddress = internal global float (float)* @\"\\01?" +
+            std::string(mangledHelperName) + "\"\n\n" + entryDefinition);
+  }
+
+  // Counts the definitions in a disassembly whose name holds the given text.
+  static unsigned CountFunctionDefinitions(const std::string &disassembly,
+                                           const char *nameFragment) {
+    unsigned count = 0;
+    for (const std::string &line : Tokenize(disassembly.c_str(), "\n")) {
+      if (line.compare(0, strlen("define "), "define ") == 0 &&
+          line.find(nameFragment) != std::string::npos) {
+        count++;
+      }
+    }
+    return count;
+  }
+
+  static unsigned CountOccurrences(const std::string &text,
+                                   const char *needle) {
+    unsigned count = 0;
+    size_t needleLength = strlen(needle);
+    for (size_t position = text.find(needle); position != std::string::npos;
+         position = text.find(needle, position + needleLength)) {
+      count++;
+    }
+    return count;
+  }
+
+  // Counts calls to a named operation. A disassembly also holds one declare
+  // line per operation, which is not a call.
+  static unsigned CountCallsTo(const std::string &disassembly,
+                               const char *operation) {
+    unsigned count = 0;
+    for (const std::string &line : Tokenize(disassembly.c_str(), "\n")) {
+      if (line.find(operation) != std::string::npos &&
+          line.find("call ") != std::string::npos) {
+        count++;
+      }
+    }
+    return count;
+  }
+
+  // Returns the text of the one definition whose name holds the given fragment,
+  // so a test asserts about one function rather than the whole module.
+  static std::string ExtractFunctionBody(const std::string &disassembly,
+                                         const char *nameFragment) {
+    std::string body;
+    bool inside = false;
+    for (const std::string &line : Tokenize(disassembly.c_str(), "\n")) {
+      if (!inside) {
+        inside = line.compare(0, strlen("define "), "define ") == 0 &&
+                 line.find(nameFragment) != std::string::npos;
+      } else if (line.compare(0, 1, "}") == 0) {
+        break;
+      }
+      if (inside) {
+        body += line + "\n";
+      }
+    }
+    VERIFY_IS_FALSE(body.empty());
+    return body;
   }
 
   SinglePassOutput RunSinglePass(IDxcBlob *dxil, LPCWSTR passOption) {
@@ -3724,6 +3845,22 @@ void main(uint threadId : SV_DispatchThreadID)
                                   "debug instrumentation shader flags");
 }
 
+TEST_F(PixTest, DebugInstrumentation_NothingInstrumentableAddsNoUav) {
+  const char *source = R"x(
+export float Helper(float x)
+{
+    return x * 2;
+}
+)x";
+
+  auto compiled = Compile(m_dllSupport, source, L"lib_6_6", {L"-Od"});
+  CComPtr<IDxcBlob> dxil = FindModule(DFCC_ShaderDebugInfoDXIL, compiled);
+  auto output = RunDebugPass(dxil);
+
+  VERIFY_ARE_EQUAL(
+      0, CountToolsUAVRecords(Tokenize(Disassemble(output.blob), "\n")));
+}
+
 TEST_F(PixTest, ToolsUav_RootSignatureSerializationFailurePreservesSignature) {
   const char *source = R"x(
 [numthreads(1, 1, 1)]
@@ -3800,6 +3937,83 @@ void main()
     foundRootSignature = true;
   }
   VERIFY_IS_TRUE(foundRootSignature);
+}
+
+static const char *kDebugStoreOpcodeComputeShader = R"x(
+[numthreads(1, 1, 1)]
+void main(uint threadId : SV_DispatchThreadID)
+{
+    uint value = threadId;
+}
+)x";
+
+// RawBufferStore is illegal below shader model 6.2. Debug instrumentation of
+// 6.0 and 6.1 shaders must emit BufferStore (opcode 69) instead, and the
+// instrumented module must validate. The declaration and opcode are checked so
+// a test cannot pass by skipping instrumentation.
+static void VerifyDebugStoreOpcodeDisassembly(const std::string &disassembly,
+                                              bool expectRawBufferStore) {
+  VERIFY_IS_TRUE(disassembly.find("PIX_DebugUAV_Handle") != std::string::npos);
+  VERIFY_ARE_NOT_EQUAL(
+      0u, PixTest::CountCallsTo(disassembly, "@dx.op.atomicBinOp.i32"));
+
+  if (expectRawBufferStore) {
+    VERIFY_ARE_NOT_EQUAL(
+        0u, PixTest::CountCallsTo(disassembly, "@dx.op.rawBufferStore.i32"));
+    VERIFY_IS_TRUE(
+        disassembly.find("call void @dx.op.rawBufferStore.i32(i32 "
+                         "140, %dx.types.Handle %PIX_DebugUAV_Handle") !=
+        std::string::npos);
+    VERIFY_IS_TRUE(
+        disassembly.find("declare void @dx.op.rawBufferStore.i32(i32, "
+                         "%dx.types.Handle, i32, i32, i32, i32, i32, i32, i8, "
+                         "i32)") != std::string::npos);
+    VERIFY_ARE_EQUAL(0u,
+                     PixTest::CountCallsTo(disassembly, "@dx.op.bufferStore"));
+    VERIFY_IS_TRUE(disassembly.find("declare void @dx.op.bufferStore") ==
+                   std::string::npos);
+  } else {
+    VERIFY_ARE_NOT_EQUAL(
+        0u, PixTest::CountCallsTo(disassembly, "@dx.op.bufferStore.i32"));
+    VERIFY_IS_TRUE(disassembly.find("call void @dx.op.bufferStore.i32(i32 69, "
+                                    "%dx.types.Handle %PIX_DebugUAV_Handle") !=
+                   std::string::npos);
+    VERIFY_IS_TRUE(
+        disassembly.find(
+            "declare void @dx.op.bufferStore.i32(i32, %dx.types.Handle, i32, "
+            "i32, i32, i32, i32, i32, i8)") != std::string::npos);
+    VERIFY_ARE_EQUAL(
+        0u, PixTest::CountCallsTo(disassembly, "@dx.op.rawBufferStore"));
+    VERIFY_IS_TRUE(disassembly.find("declare void @dx.op.rawBufferStore") ==
+                   std::string::npos);
+  }
+}
+
+TEST_F(PixTest, DebugInstrumentation_SM60UsesBufferStore) {
+  auto compiled = Compile(m_dllSupport, kDebugStoreOpcodeComputeShader,
+                          L"cs_6_0", {L"-Od"});
+  auto output = RunDebugPass(compiled);
+  VerifyInstrumentedModuleIsValid(
+      output.blob, "debug instrumentation of an SM 6.0 compute shader");
+  VerifyDebugStoreOpcodeDisassembly(Disassemble(output.blob), false);
+}
+
+TEST_F(PixTest, DebugInstrumentation_SM61UsesBufferStore) {
+  auto compiled = Compile(m_dllSupport, kDebugStoreOpcodeComputeShader,
+                          L"cs_6_1", {L"-Od"});
+  auto output = RunDebugPass(compiled);
+  VerifyInstrumentedModuleIsValid(
+      output.blob, "debug instrumentation of an SM 6.1 compute shader");
+  VerifyDebugStoreOpcodeDisassembly(Disassemble(output.blob), false);
+}
+
+TEST_F(PixTest, DebugInstrumentation_SM62UsesRawBufferStore) {
+  auto compiled = Compile(m_dllSupport, kDebugStoreOpcodeComputeShader,
+                          L"cs_6_2", {L"-Od"});
+  auto output = RunDebugPass(compiled);
+  VerifyInstrumentedModuleIsValid(
+      output.blob, "debug instrumentation of an SM 6.2 compute shader");
+  VerifyDebugStoreOpcodeDisassembly(Disassemble(output.blob), true);
 }
 
 static bool HasUnusedDeclaration(std::vector<std::string> const &lines,
@@ -5652,4 +5866,312 @@ float4 main(float4 pos : SV_Position) : SV_Target
   auto compiled = Compile(m_dllSupport, source, L"ps_6_0", {});
   auto output = RunPixelHitPass(compiled, 16, 64, 0 /*requiredSVPositionRow*/);
   VerifyInstrumentedModuleIsValid(output.blob, "pixel-hit instrumentation");
+}
+static const char *const kHullShaderWithHelper = R"x(
+struct HsConstantData
+{
+  float Edges[3] : SV_TessFactor;
+  float Inside   : SV_InsideTessFactor;
+};
+
+struct ControlPoint
+{
+  float3 position : WORLDPOS;
+};
+
+struct OutputPoint
+{
+  float3 vPosition : BEZIERPOS;
+};
+
+[noinline]
+float HullHelper(float value)
+{
+  return value * 2.f;
+}
+
+HsConstantData PatchConstantFunction(InputPatch<ControlPoint, 3> ip)
+{
+  HsConstantData Output;
+  Output.Edges[0] = HullHelper(ip[0].position.x);
+  Output.Edges[1] = 8;
+  Output.Edges[2] = 8;
+  Output.Inside = 8;
+  return Output;
+}
+
+[domain("tri")]
+[partitioning("integer")]
+[outputtopology("triangle_cw")]
+[outputcontrolpoints(3)]
+[patchconstantfunc("PatchConstantFunction")]
+OutputPoint main(InputPatch<ControlPoint, 3> ip, uint i : SV_OutputControlPointID)
+{
+  OutputPoint Output;
+  Output.vPosition = ip[i].position * HullHelper(2.f);
+  return Output;
+})x";
+
+static const char *const kComputeShaderWithHelper = R"x(
+RWStructuredBuffer<float> Output : register(u0);
+
+[noinline]
+float ScaleHelper(float value)
+{
+  float scaled = value * 3.f;
+  return scaled;
+}
+
+[numthreads(1, 1, 1)]
+void main(uint3 threadId : SV_DispatchThreadID)
+{
+  Output[threadId.x] = ScaleHelper(threadId.y);
+})x";
+
+// A module names no entry function, so nothing roots the call graph. The
+// inlining leaves such a module alone rather than erase every function in it.
+// The entry point has no caller in the IR, so it is the first body that an
+// inlining rooted on the patch-constant function alone erases.
+TEST_F(PixTest, HelperInlining_NoEntryFunctionLeavesModuleAlone) {
+  auto compiled =
+      Compile(m_dllSupport, kHullShaderWithHelper, L"hs_6_2", {L"-Od"});
+  std::string disassembly = Disassemble(compiled);
+
+  // The baseline names an entry function, so the edit below is what removes it.
+  VERIFY_IS_TRUE(disassembly.find("!{void ()* @main,") != std::string::npos);
+  std::string withoutEntry =
+      ReplaceOnlyOccurrence(disassembly, "!{void ()* @main,", "!{null,");
+
+  std::vector<std::string> lines = RunAnnotationPassOnText(withoutEntry);
+
+  // Every function is still here, entry point included.
+  VERIFY_IS_TRUE(AnyLineContains(lines, "define void @main()"));
+  VERIFY_IS_TRUE(AnyLineContains(lines, "HullHelper"));
+  VERIFY_IS_TRUE(AnyLineContains(lines, "PatchConstantFunction"));
+}
+
+// Something other than a direct call reaches a function, so the function
+// survives inlining. The annotation pass then advertises it to PIX as a
+// steppable range that no trace record arrives for, and names it in the report
+// so PIX does not offer it. Taking the address of a helper produces that shape,
+// which HLSL itself does not express.
+TEST_F(PixTest, HelperInlining_SurvivingHelperIsReportedByExactName) {
+  auto compiled =
+      Compile(m_dllSupport, kComputeShaderWithHelper, L"cs_6_2", {L"-Od"});
+  std::string withAddressTaken =
+      TakeAddressOfHelper(Disassemble(compiled), "ScaleHelper@@YAMM@Z");
+
+  std::vector<std::string> lines = RunAnnotationPassOnText(withAddressTaken);
+
+  // Exactly one record arrives, and it names the helper exactly. The report
+  // strips the leading mangling marker that
+  // PrintableSubsetOfMangledFunctionName removes, so the whole payload is
+  // compared, not a substring of it.
+  std::vector<std::string> records =
+      RecordsWithPrefix(lines, "UninlinedFunction:");
+  VERIFY_ARE_EQUAL(1u, static_cast<unsigned>(records.size()));
+  VERIFY_ARE_EQUAL(std::string("ScaleHelper@@YAMM@Z"), records[0]);
+
+  // The record is deterministic, so a second run over the same input produces
+  // the same one record.
+  std::vector<std::string> repeatRecords = RecordsWithPrefix(
+      RunAnnotationPassOnText(withAddressTaken), "UninlinedFunction:");
+  VERIFY_ARE_EQUAL(records, repeatRecords);
+}
+
+// Both prepasses inline, and the debug pipeline runs the dbg-value pass first,
+// so the annotation pass reaches an already-inlined module and has nothing left
+// to inline. It still names the survivor, because it is the pass that
+// advertises the instruction range the survivor keeps.
+TEST_F(PixTest, HelperInlining_SurvivingHelperIsReportedAfterEarlierPrepass) {
+  auto compiled =
+      Compile(m_dllSupport, kComputeShaderWithHelper, L"cs_6_2", {L"-Od"});
+  std::string withAddressTaken =
+      TakeAddressOfHelper(Disassemble(compiled), "ScaleHelper@@YAMM@Z");
+
+  std::vector<std::string> annotateOnly = RecordsWithPrefix(
+      RunAnnotationPassOnText(withAddressTaken), "UninlinedFunction:");
+  VERIFY_ARE_EQUAL(1u, static_cast<unsigned>(annotateOnly.size()));
+
+  // The report survives the earlier prepass, and arrives once rather than once
+  // per pass that inlines.
+  std::vector<std::string> bothPrepasses =
+      RecordsWithPrefix(RunDbgValueAndAnnotationPassesOnText(withAddressTaken),
+                        "UninlinedFunction:");
+  VERIFY_ARE_EQUAL(1u, static_cast<unsigned>(bothPrepasses.size()));
+  VERIFY_ARE_EQUAL(annotateOnly, bothPrepasses);
+
+  // The range the report is about is advertised, so the report is not vacuous.
+  std::vector<std::string> ranges =
+      RecordsWithPrefix(RunDbgValueAndAnnotationPassesOnText(withAddressTaken),
+                        "InstructionRange: ");
+  VERIFY_ARE_EQUAL(2u, static_cast<unsigned>(ranges.size()));
+  VERIFY_IS_TRUE(AnyLineContains(ranges, "ScaleHelper"));
+}
+
+// An inlined helper produces no record at all, so the presence of a record
+// means what the test above asserts it means.
+TEST_F(PixTest, HelperInlining_InlinedHelperIsNotReported) {
+  auto compiled =
+      Compile(m_dllSupport, kComputeShaderWithHelper, L"cs_6_2", {L"-Od"});
+  std::vector<std::string> lines =
+      RunAnnotationPassOnText(Disassemble(compiled));
+
+  VERIFY_ARE_EQUAL(0u,
+                   static_cast<unsigned>(
+                       RecordsWithPrefix(lines, "UninlinedFunction:").size()));
+
+  // The report stream also carries the module, so the same lines show that the
+  // helper has no body left to advertise.
+  for (const std::string &line : lines) {
+    if (line.compare(0, strlen("define "), "define ") == 0) {
+      VERIFY_IS_TRUE(line.find("ScaleHelper") == std::string::npos);
+    }
+  }
+}
+
+// The runtime invokes a hull shader patch-constant function rather than the
+// entry point does, so it survives inlining and needs instrumentation of its
+// own. The helper that both of them call is inlined away, and the emitted DXIL
+// validates.
+TEST_F(PixTest, HelperInlining_HullPatchConstantFunctionValidates) {
+  auto compiled =
+      Compile(m_dllSupport, kHullShaderWithHelper, L"hs_6_2", {L"-Od"});
+  auto output = RunDebugPass(compiled);
+  std::string disassembly = Disassemble(output.blob);
+
+  // Two ranges are advertised, one of them the patch-constant function, so the
+  // helper is inlined away and nothing else is offered.
+  std::vector<std::string> ranges =
+      RecordsWithPrefix(output.lines, "InstructionRange: ");
+  VERIFY_ARE_EQUAL(2u, static_cast<unsigned>(ranges.size()));
+  VERIFY_IS_TRUE(AnyLineContains(ranges, "PatchConstantFunction"));
+  VERIFY_IS_TRUE(AnyLineContains(ranges, "main hs"));
+  VERIFY_ARE_EQUAL(
+      0u, static_cast<unsigned>(
+              RecordsWithPrefix(output.lines, "UninlinedFunction:").size()));
+
+  VERIFY_ARE_EQUAL(0u, CountFunctionDefinitions(disassembly, "HullHelper"));
+
+  // Both functions carry a selection prolog, so PIX receives trace records for
+  // either of them.
+  VERIFY_ARE_EQUAL(2u, CountOccurrences(disassembly, "PIXInterestingBlock:"));
+
+  // OutputControlPointID is legal only in the control point phase, so the
+  // patch-constant function selects on the primitive alone.
+  std::string patchConstantBody =
+      ExtractFunctionBody(disassembly, "PatchConstantFunction");
+  VERIFY_ARE_EQUAL(
+      0u, CountCallsTo(patchConstantBody, "@dx.op.outputControlPointID.i32"));
+  VERIFY_ARE_EQUAL(1u,
+                   CountCallsTo(patchConstantBody, "@dx.op.primitiveID.i32"));
+
+  VerifyInstrumentedModuleIsValid(
+      output.blob, "debug instrumentation of a hull shader whose "
+                   "patch-constant function is instrumented too");
+}
+
+// The non-uniform-resource-index pipeline shares the annotation prepass, so it
+// also sees inlined shaders. A dynamic index inside a helper is still
+// diagnosed, and the emitted DXIL validates.
+TEST_F(PixTest, HelperInlining_NonUniformResourceIndexHelperValidates) {
+  const char *source = R"x(
+Texture2D tex[8] : register(t0);
+
+[noinline]
+float IndexInHelper(float u, float v)
+{
+    uint index = u * v;
+    return tex[index].Load(int3(0, 0, 0)).x;
+}
+
+float4 main(float2 uv : TEXCOORD0) : SV_TARGET
+{
+    return IndexInHelper(uv.x, uv.y);
+})x";
+
+  auto compiled = Compile(m_dllSupport, source, L"ps_6_0", {L"-Od"});
+  std::string outputText;
+  auto output =
+      RunDxilNonUniformResourceIndexInstrumentation(compiled, outputText);
+  std::string disassembly = Disassemble(output.blob);
+
+  VERIFY_ARE_EQUAL(0u, CountFunctionDefinitions(disassembly, "IndexInHelper"));
+
+  // The index is still reported, and the instrumentation is emitted.
+  VERIFY_IS_TRUE(outputText.find("FoundDynamicIndexingNoNuri") !=
+                 std::string::npos);
+  VERIFY_IS_TRUE(
+      outputText.find("NuriNotInstrumentedMissingInstructionNumber") ==
+      std::string::npos);
+  VERIFY_ARE_EQUAL(1u, CountCallsTo(disassembly, "@dx.op.waveActiveAllEqual"));
+
+  VerifyInstrumentedModuleIsValid(
+      output.blob, "non-uniform resource index instrumentation of a dynamic "
+                   "index inside an inlined helper");
+}
+
+// The debug-break pipeline shares the annotation prepass too. A DebugBreak
+// inside a helper is still found once the helper is part of the entry point,
+// and the emitted DXIL validates.
+TEST_F(PixTest, HelperInlining_DebugBreakHelperValidates) {
+  const char *source = R"x(
+RWStructuredBuffer<uint> Output : register(u0);
+
+[noinline]
+uint BreakInHelper(uint value)
+{
+    DebugBreak();
+    return value + 1;
+}
+
+[numthreads(1, 1, 1)]
+void main(uint3 threadId : SV_DispatchThreadID)
+{
+    Output[0] = BreakInHelper(threadId.x);
+})x";
+
+  if (m_ver.SkipDxilVersion(1, 10)) {
+    return;
+  }
+
+  auto compiled = Compile(m_dllSupport, source, L"cs_6_10", {L"-Od"});
+  auto output = RunDebugBreakPass(compiled);
+  std::string disassembly = Disassemble(output.blob);
+
+  VERIFY_ARE_EQUAL(0u, CountFunctionDefinitions(disassembly, "BreakInHelper"));
+
+  // The break is recorded from inside the entry point, and the original call is
+  // gone.
+  VERIFY_ARE_EQUAL(1u, CountCallsTo(disassembly, "@dx.op.atomicBinOp.i32"));
+  VERIFY_ARE_EQUAL(0u, CountCallsTo(disassembly, "@dx.op.debugBreak"));
+
+  VerifyInstrumentedModuleIsValid(
+      output.blob, "debug-break instrumentation of a break inside an inlined "
+                   "helper");
+}
+
+// The whole debug pipeline runs over a shader with a [noinline] helper. The
+// helper becomes part of the entry point, one instruction range is advertised,
+// the helper local is still traced, and the emitted DXIL validates.
+TEST_F(PixTest, HelperInlining_InlinedHelperValidates) {
+  auto compiled =
+      Compile(m_dllSupport, kComputeShaderWithHelper, L"cs_6_2", {L"-Od"});
+  auto output = RunDebugPass(compiled);
+  std::string disassembly = Disassemble(output.blob);
+
+  // One function gives PIX one invocation identity.
+  std::vector<std::string> ranges =
+      RecordsWithPrefix(output.lines, "InstructionRange: ");
+  VERIFY_ARE_EQUAL(1u, static_cast<unsigned>(ranges.size()));
+  VERIFY_IS_TRUE(ranges[0].find("main cs") != std::string::npos);
+  VERIFY_ARE_EQUAL(
+      0u, static_cast<unsigned>(
+              RecordsWithPrefix(output.lines, "UninlinedFunction:").size()));
+
+  VERIFY_ARE_EQUAL(0u, CountFunctionDefinitions(disassembly, "ScaleHelper"));
+
+  VerifyInstrumentedModuleIsValid(
+      output.blob, "debug instrumentation of a shader whose [noinline] helper "
+                   "is inlined away");
 }

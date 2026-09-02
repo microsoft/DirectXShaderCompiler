@@ -56,6 +56,36 @@ void EraseIfUnused(hlsl::DxilModule &DM, llvm::Function *OpFunction);
 void ClearViewIdState(hlsl::DxilModule &DM);
 std::vector<llvm::Function *>
 GetAllInstrumentableFunctions(hlsl::DxilModule &DM);
+// Inlines each function that the runtime does not invoke into its callers, and
+// erases the inlined-away body.
+//
+// PIX identifies one shader invocation by one record stream in the debug UAV,
+// and maps that stream to exactly one function. A helper instrumented as a
+// function of its own therefore reads as a second invocation of a thread that
+// runs once, and PIX discards its records. An inlined helper stays visible in
+// the inlinedAt chain of the debug locations, which is where PIX looks for it.
+//
+// Call this before any pass numbers instructions or synthesizes shadow storage.
+// PIX steps through the ordinals of the module this leaves behind, and
+// llvm::InlineFunction stamps the call site debug location onto each inlined
+// instruction that carries none. This function is idempotent, so every pass
+// that can come first in a PIX pipeline calls it.
+//
+// A library module keeps every function, because each exported function is an
+// invocation of its own.
+//
+// UninlinedFunctions, when supplied, receives each non-entry function that is
+// still in the module afterwards. Such a function keeps an instruction range
+// that no trace record arrives for, so the pass that advertises those ranges
+// supplies this parameter and reports what it receives. A pass that advertises
+// no range supplies nothing and stays silent, which also keeps one pipeline
+// from naming the same function twice.
+//
+// The survivor set is recomputed on every call, so a caller still receives it
+// when an earlier caller already inlined the module.
+bool InlineNonEntryFunctions(
+    hlsl::DxilModule &DM,
+    llvm::SmallVectorImpl<llvm::Function *> *UninlinedFunctions = nullptr);
 hlsl::DXIL::ShaderKind GetFunctionShaderKind(hlsl::DxilModule &DM,
                                              llvm::Function *fn);
 #ifdef PIX_DEBUG_DUMP_HELPER

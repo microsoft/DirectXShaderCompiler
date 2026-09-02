@@ -22,6 +22,7 @@
 #include "llvm/IR/Module.h"
 #include "llvm/IR/PassManager.h"
 #include "llvm/Pass.h"
+#include "llvm/Transforms/Utils/Cloning.h"
 
 #include "PixPassHelpers.h"
 
@@ -435,6 +436,92 @@ GetAllInstrumentableFunctions(hlsl::DxilModule &DM) {
   }
 
   return ret;
+}
+
+bool InlineNonEntryFunctions(
+    hlsl::DxilModule &DM,
+    llvm::SmallVectorImpl<llvm::Function *> *UninlinedFunctions) {
+  if (UninlinedFunctions != nullptr) {
+    UninlinedFunctions->clear();
+  }
+
+  if (DM.GetShaderModel()->IsLib()) {
+    return false;
+  }
+
+  // The runtime invokes a hull shader patch-constant function directly, so it
+  // is a second root of the call graph and stays alongside the entry point.
+  llvm::Function *const entryFunction = DM.GetEntryFunction();
+  llvm::Function *const patchConstantFunction = DM.GetPatchConstantFunction();
+
+  // A module that names no entry point has no root, and the entry point has no
+  // caller in the IR. Leave such a module alone rather than erase every
+  // function in it.
+  if (entryFunction == nullptr) {
+    return false;
+  }
+
+  bool modified = false;
+
+  // HLSL has no recursion, so the call graph is acyclic and inlining leaf-ward
+  // terminates. A fixed-point loop also reaches a helper that loses its last
+  // caller only once another helper is inlined away.
+  bool inlinedACallThisRound = true;
+  while (inlinedACallThisRound) {
+    inlinedACallThisRound = false;
+
+    for (llvm::Function *function : GetAllInstrumentableFunctions(DM)) {
+      if (function == entryFunction || function == patchConstantFunction) {
+        continue;
+      }
+
+      // llvm::InlineFunction is the mechanical inliner and ignores inlining
+      // attributes. Clear the attribute so the module carries no claim that
+      // contradicts its own shape.
+      function->removeFnAttr(llvm::Attribute::NoInline);
+
+      // Collect the call sites first, because inlining rewrites the use list.
+      llvm::SmallVector<llvm::CallInst *, 8> callSites;
+      for (llvm::User *user : function->users()) {
+        if (auto *call = llvm::dyn_cast<llvm::CallInst>(user)) {
+          if (call->getCalledFunction() == function) {
+            callSites.push_back(call);
+          }
+        }
+      }
+
+      for (llvm::CallInst *callSite : callSites) {
+        llvm::InlineFunctionInfo inlineFunctionInfo;
+        if (llvm::InlineFunction(callSite, inlineFunctionInfo)) {
+          inlinedACallThisRound = true;
+          modified = true;
+        }
+      }
+
+      // A body with no caller still gets numbered and advertised to PIX as
+      // somewhere to step into. Erase it. DxilModule keeps an entry-property
+      // map and a type-annotation map keyed on llvm::Function *, so tell it
+      // first or both keep entries keyed on freed storage.
+      if (function->use_empty()) {
+        DM.RemoveFunction(function);
+        function->eraseFromParent();
+        modified = true;
+      }
+    }
+  }
+
+  if (UninlinedFunctions != nullptr) {
+    // A function reached other than by a direct call, or one that
+    // llvm::InlineFunction declines, is still here. PIX gets an instruction
+    // range for it that no trace record arrives for, so report it.
+    for (llvm::Function *function : GetAllInstrumentableFunctions(DM)) {
+      if (function != entryFunction && function != patchConstantFunction) {
+        UninlinedFunctions->push_back(function);
+      }
+    }
+  }
+
+  return modified;
 }
 
 hlsl::DXIL::ShaderKind GetFunctionShaderKind(hlsl::DxilModule &DM,
