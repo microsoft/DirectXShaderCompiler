@@ -3617,7 +3617,12 @@ public:
   TEST_METHOD(CopyConvert_Wave_4x8_F16_ToF32);
   TEST_METHOD(CopyConvert_Wave_4x8_F32_ToF16_Transpose);
   TEST_METHOD(Convert_I16_ToI32_Exact);
+  TEST_METHOD(Convert_I32_ToI16_Saturate);
+  TEST_METHOD(Convert_I32_ToU16_Saturate);
+  TEST_METHOD(Convert_U32_ToI16_Saturate);
+  TEST_METHOD(Convert_U32_ToU16_Saturate);
   TEST_METHOD(Convert_F32_ToI16_RTNE_Saturate);
+  TEST_METHOD(Convert_I32_ToF16_RTNE);
   TEST_METHOD(Convert_F16_ToE4M3FN_AndBack);
   TEST_METHOD(Convert_F16_ToE5M2_AndBack);
 
@@ -9324,6 +9329,69 @@ static const char ConvertI16ToI32CoverageShader[] = R"(
   }
 )";
 
+// Each narrowing vector pairs exactly representable values with values one step
+// and far past both destination bounds, so saturation and the wrapping HLSL
+// cast disagree on at least one element.
+static const char ConvertI32ToI16CoverageShader[] = R"(
+  RWByteAddressBuffer Output : register(u0);
+
+  [numthreads(1, 1, 1)]
+  void main() {
+    vector<int, 8> InVec = {
+      -2147483647 - 1, -32769, -32768, -1, 0, 32767, 32768, 2147483647
+    };
+    vector<int16_t, 8> OutVec;
+    __builtin_LinAlg_Convert(OutVec, InVec, SRC_TYPE, DST_TYPE);
+    for (uint I = 0; I < 8; ++I)
+      Output.Store<int16_t>(I * 2, OutVec[I]);
+  }
+)";
+
+static const char ConvertI32ToU16CoverageShader[] = R"(
+  RWByteAddressBuffer Output : register(u0);
+
+  [numthreads(1, 1, 1)]
+  void main() {
+    vector<int, 8> InVec = {
+      -2147483647 - 1, -1, 0, 1, 65535, 65536, 100000, 2147483647
+    };
+    vector<uint16_t, 8> OutVec;
+    __builtin_LinAlg_Convert(OutVec, InVec, SRC_TYPE, DST_TYPE);
+    for (uint I = 0; I < 8; ++I)
+      Output.Store<uint16_t>(I * 2, OutVec[I]);
+  }
+)";
+
+static const char ConvertU32ToI16CoverageShader[] = R"(
+  RWByteAddressBuffer Output : register(u0);
+
+  [numthreads(1, 1, 1)]
+  void main() {
+    vector<uint, 8> InVec = {
+      0u, 1u, 16384u, 32766u, 32767u, 32768u, 65536u, 4294967295u
+    };
+    vector<int16_t, 8> OutVec;
+    __builtin_LinAlg_Convert(OutVec, InVec, SRC_TYPE, DST_TYPE);
+    for (uint I = 0; I < 8; ++I)
+      Output.Store<int16_t>(I * 2, OutVec[I]);
+  }
+)";
+
+static const char ConvertU32ToU16CoverageShader[] = R"(
+  RWByteAddressBuffer Output : register(u0);
+
+  [numthreads(1, 1, 1)]
+  void main() {
+    vector<uint, 8> InVec = {
+      0u, 1u, 32768u, 65534u, 65535u, 65536u, 100000u, 4294967295u
+    };
+    vector<uint16_t, 8> OutVec;
+    __builtin_LinAlg_Convert(OutVec, InVec, SRC_TYPE, DST_TYPE);
+    for (uint I = 0; I < 8; ++I)
+      Output.Store<uint16_t>(I * 2, OutVec[I]);
+  }
+)";
+
 static const char ConvertF32ToI16CoverageShader[] = R"(
   RWByteAddressBuffer Output : register(u0);
 
@@ -9337,6 +9405,23 @@ static const char ConvertF32ToI16CoverageShader[] = R"(
     __builtin_LinAlg_Convert(OutVec, InVec, SRC_TYPE, DST_TYPE);
     for (uint I = 0; I < 8; ++I)
       Output.Store<int16_t>(I * 2, OutVec[I]);
+  }
+)";
+
+// Each input is exactly on a midpoint of two representable F16 values, so RTNE
+// must break every tie toward the even mantissa.
+static const char ConvertI32ToF16CoverageShader[] = R"(
+  RWByteAddressBuffer Output : register(u0);
+
+  [numthreads(1, 1, 1)]
+  void main() {
+    vector<int, 8> InVec = {
+      0, 2048, 2049, 2051, 4098, 4102, -2049, -2051
+    };
+    vector<half, 8> OutVec;
+    __builtin_LinAlg_Convert(OutVec, InVec, SRC_TYPE, DST_TYPE);
+    for (uint I = 0; I < 8; ++I)
+      Output.Store<half>(I * 2, OutVec[I]);
   }
 )";
 
@@ -9624,6 +9709,67 @@ void DxilConf_SM610_LinAlg::Convert_I16_ToI32_Exact() {
       VerboseLogging);
 }
 
+void DxilConf_SM610_LinAlg::Convert_I32_ToI16_Saturate() {
+  if (!convertTypesApplicable(
+          D3DDevice, ComponentType::I32, ComponentType::I16,
+          linalg_test::CapabilityRequirement::CapabilityGated,
+          L"Convert_I32_ToI16_Saturate"))
+    return;
+
+  runExactConvert(D3DDevice, DxcSupport, ConvertI32ToI16CoverageShader,
+                  buildConvertArgs(ComponentType::I32, ComponentType::I16),
+                  encodeConvertVector<int16_t>(
+                      {-32768, -32768, -32768, -1, 0, 32767, 32767, 32767}),
+                  L"Integer narrowing saturates instead of wrapping",
+                  VerboseLogging);
+}
+
+void DxilConf_SM610_LinAlg::Convert_I32_ToU16_Saturate() {
+  if (!convertTypesApplicable(
+          D3DDevice, ComponentType::I32, ComponentType::U16,
+          linalg_test::CapabilityRequirement::CapabilityGated,
+          L"Convert_I32_ToU16_Saturate"))
+    return;
+
+  runExactConvert(
+      D3DDevice, DxcSupport, ConvertI32ToU16CoverageShader,
+      buildConvertArgs(ComponentType::I32, ComponentType::U16),
+      encodeConvertVector<uint16_t>({0, 0, 0, 1, 65535, 65535, 65535, 65535}),
+      L"Signed-to-unsigned conversion saturates negative values to zero",
+      VerboseLogging);
+}
+
+void DxilConf_SM610_LinAlg::Convert_U32_ToI16_Saturate() {
+  if (!convertTypesApplicable(
+          D3DDevice, ComponentType::U32, ComponentType::I16,
+          linalg_test::CapabilityRequirement::CapabilityGated,
+          L"Convert_U32_ToI16_Saturate"))
+    return;
+
+  runExactConvert(
+      D3DDevice, DxcSupport, ConvertU32ToI16CoverageShader,
+      buildConvertArgs(ComponentType::U32, ComponentType::I16),
+      encodeConvertVector<int16_t>(
+          {0, 1, 16384, 32766, 32767, 32767, 32767, 32767}),
+      L"Unsigned-to-signed conversion saturates at the signed maximum",
+      VerboseLogging);
+}
+
+void DxilConf_SM610_LinAlg::Convert_U32_ToU16_Saturate() {
+  if (!convertTypesApplicable(
+          D3DDevice, ComponentType::U32, ComponentType::U16,
+          linalg_test::CapabilityRequirement::CapabilityGated,
+          L"Convert_U32_ToU16_Saturate"))
+    return;
+
+  runExactConvert(D3DDevice, DxcSupport, ConvertU32ToU16CoverageShader,
+                  buildConvertArgs(ComponentType::U32, ComponentType::U16),
+                  encodeConvertVector<uint16_t>(
+                      {0, 1, 32768, 65534, 65535, 65535, 65535, 65535}),
+                  L"Unsigned narrowing saturates instead of wrapping",
+                  VerboseLogging);
+}
+
 static void runFP8ConvertCase(ID3D12Device *Device,
                               dxc::SpecificDllLoader &DxcSupport,
                               ComponentType FP8CompType,
@@ -9650,6 +9796,23 @@ void DxilConf_SM610_LinAlg::Convert_F32_ToI16_RTNE_Saturate() {
                       {-32768, -32768, -2, -2, 2, 2, 32767, 32767}),
                   L"Float-to-integer conversion is RTNE with signed saturation",
                   VerboseLogging);
+}
+
+void DxilConf_SM610_LinAlg::Convert_I32_ToF16_RTNE() {
+  if (!convertTypesApplicable(
+          D3DDevice, ComponentType::I32, ComponentType::F16,
+          linalg_test::CapabilityRequirement::CapabilityGated,
+          L"Convert_I32_ToF16_RTNE"))
+    return;
+
+  // Hand-derived F16 bit patterns: 2048 and 2052 are 0x6800 and 0x6802, 4096
+  // and 4104 are 0x6C00 and 0x6C02, and the sign bit gives the negatives.
+  runExactConvert(
+      D3DDevice, DxcSupport, ConvertI32ToF16CoverageShader,
+      buildConvertArgs(ComponentType::I32, ComponentType::F16),
+      encodeConvertVector<uint16_t>(
+          {0x0000, 0x6800, 0x6800, 0x6802, 0x6C00, 0x6C02, 0xE800, 0xE802}),
+      L"Integer-to-float conversion is RTNE", VerboseLogging);
 }
 
 void DxilConf_SM610_LinAlg::Convert_F16_ToE4M3FN_AndBack() {
