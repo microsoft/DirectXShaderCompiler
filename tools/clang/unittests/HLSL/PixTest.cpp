@@ -227,6 +227,12 @@ public:
   TEST_METHOD(HelperInlining_NonUniformResourceIndexHelperValidates)
   TEST_METHOD(HelperInlining_DebugBreakHelperValidates)
 
+  TEST_METHOD(InvocationSelection_CallableShaderValidates)
+  TEST_METHOD(InvocationSelection_NodeBroadcastingValidates)
+  TEST_METHOD(InvocationSelection_NodeCoalescingValidates)
+  TEST_METHOD(InvocationSelection_NodeCoalescingOutOfGroupSelectsAll)
+  TEST_METHOD(InvocationSelection_NodeThreadLaunchValidates)
+
   // Control tests for the PIX pass validation harness below
   // (ValidateInstrumentedModule / VerifyInstrumentedModuleIsValid).
   TEST_METHOD(Validation_ControlValidModulePasses)
@@ -334,6 +340,37 @@ public:
     Options.push_back(L"-dxil-annotate-with-virtual-regs");
     std::wstring debugArg =
         L"-hlsl-dxil-debug-instrumentation,UAVSize=" + std::to_wstring(UAVSize);
+    Options.push_back(debugArg.c_str());
+    Options.push_back(L"-viewid-state");
+    Options.push_back(L"-hlsl-dxilemit");
+
+    CComPtr<IDxcBlob> pOptimizedModule;
+    CComPtr<IDxcBlobEncoding> pText;
+    VERIFY_SUCCEEDED(pOptimizer->RunOptimizer(
+        dxil, Options.data(), Options.size(), &pOptimizedModule, &pText));
+
+    std::string outputText = BlobToUtf8(pText);
+
+    return {
+        std::move(pOptimizedModule), {}, Tokenize(outputText.c_str(), "\n")};
+  }
+
+  // Runs the debug pass with an explicit invocation to select, so a test drives
+  // the selection prolog the way PIX does.
+  PassOutput RunDebugPassWithParameters(IDxcBlob *dxil, unsigned parameter0,
+                                        unsigned parameter1,
+                                        unsigned parameter2) {
+    CComPtr<IDxcOptimizer> pOptimizer;
+    VERIFY_SUCCEEDED(
+        m_dllSupport.CreateInstance(CLSID_DxcOptimizer, &pOptimizer));
+    std::vector<LPCWSTR> Options;
+    Options.push_back(L"-opt-mod-passes");
+    Options.push_back(L"-dxil-dbg-value-to-dbg-declare");
+    Options.push_back(L"-dxil-annotate-with-virtual-regs");
+    std::wstring debugArg = L"-hlsl-dxil-debug-instrumentation,parameter0=" +
+                            std::to_wstring(parameter0) + L",parameter1=" +
+                            std::to_wstring(parameter1) + L",parameter2=" +
+                            std::to_wstring(parameter2);
     Options.push_back(debugArg.c_str());
     Options.push_back(L"-viewid-state");
     Options.push_back(L"-hlsl-dxilemit");
@@ -6174,4 +6211,193 @@ TEST_F(PixTest, HelperInlining_InlinedHelperValidates) {
   VerifyInstrumentedModuleIsValid(
       output.blob, "debug instrumentation of a shader whose [noinline] helper "
                    "is inlined away");
+}
+
+// A callable shader has no ray and no thread of its own, but
+// dx.op.dispatchRaysIndex is legal in it and reports the ray generation index
+// that is responsible for the call. PIX selects a raygen invocation on that
+// same identity, so a callable uses it too.
+TEST_F(PixTest, InvocationSelection_CallableShaderValidates) {
+  const char *source = R"x(
+RWStructuredBuffer<float> Output : register(u0);
+
+struct CallableParameters
+{
+  float value;
+};
+
+[shader("callable")]
+void MyCallable(inout CallableParameters parameters)
+{
+  parameters.value = parameters.value * 2.f;
+  Output[0] = parameters.value;
+})x";
+
+  auto compiled = Compile(m_dllSupport, source, L"lib_6_3", {L"-Od"});
+  auto output = RunDebugPass(compiled);
+  std::string disassembly = Disassemble(output.blob);
+
+  // The callable is the only shader in the module, so a block report means that
+  // it is instrumented.
+  VERIFY_IS_TRUE(AnyLineContains(output.lines, "Block#"));
+  VERIFY_ARE_EQUAL(3u,
+                   CountCallsTo(disassembly, "@dx.op.dispatchRaysIndex.i32"));
+  VERIFY_ARE_EQUAL(1u, CountOccurrences(disassembly, "PIXInterestingBlock:"));
+
+  VerifyInstrumentedModuleIsValid(output.blob,
+                                  "debug instrumentation of a callable shader");
+}
+
+// A broadcasting node runs over a grid, so SV_DispatchThreadID names an
+// invocation exactly as it does for a compute shader.
+TEST_F(PixTest, InvocationSelection_NodeBroadcastingValidates) {
+  const char *source = R"x(
+RWStructuredBuffer<uint> Output : register(u0);
+
+struct Record
+{
+  uint value;
+};
+
+[Shader("node")]
+[NodeLaunch("broadcasting")]
+[NodeDispatchGrid(2, 1, 1)]
+[NumThreads(4, 2, 1)]
+void BroadcastingNode(DispatchNodeInputRecord<Record> input)
+{
+  Output[0] = input.Get().value;
+})x";
+
+  if (m_ver.SkipDxilVersion(1, 8)) {
+    return;
+  }
+
+  auto compiled = Compile(m_dllSupport, source, L"lib_6_8", {L"-Od"});
+  auto output = RunDebugPass(compiled);
+  std::string disassembly = Disassemble(output.blob);
+
+  VERIFY_IS_TRUE(AnyLineContains(output.lines,
+                                 "NodeInvocationSelection:DispatchThreadId"));
+  VERIFY_ARE_EQUAL(3u, CountCallsTo(disassembly, "@dx.op.threadId.i32"));
+  VERIFY_ARE_EQUAL(0u, CountCallsTo(disassembly, "@dx.op.threadIdInGroup.i32"));
+
+  VerifyInstrumentedModuleIsValid(
+      output.blob, "debug instrumentation of a broadcasting node shader");
+}
+
+// A coalescing node has no dispatch grid, so the validator rejects ThreadId for
+// it. The thread group ID is legal, and discriminates invocations within one
+// group.
+TEST_F(PixTest, InvocationSelection_NodeCoalescingValidates) {
+  const char *source = R"x(
+RWStructuredBuffer<uint> Output : register(u0);
+
+struct Record
+{
+  uint value;
+};
+
+[Shader("node")]
+[NodeLaunch("coalescing")]
+[NumThreads(4, 2, 1)]
+void CoalescingNode(GroupNodeInputRecords<Record> input)
+{
+  Output[0] = input.Get(0).value;
+})x";
+
+  if (m_ver.SkipDxilVersion(1, 8)) {
+    return;
+  }
+
+  auto compiled = Compile(m_dllSupport, source, L"lib_6_8", {L"-Od"});
+  // The requested thread lies inside [NumThreads(4, 2, 1)].
+  auto output = RunDebugPassWithParameters(compiled, 3, 1, 0);
+  std::string disassembly = Disassemble(output.blob);
+
+  VERIFY_IS_TRUE(
+      AnyLineContains(output.lines, "NodeInvocationSelection:GroupThreadId"));
+  VERIFY_ARE_EQUAL(3u, CountCallsTo(disassembly, "@dx.op.threadIdInGroup.i32"));
+  VERIFY_ARE_EQUAL(0u, CountCallsTo(disassembly, "@dx.op.threadId.i32"));
+
+  VerifyInstrumentedModuleIsValid(
+      output.blob, "debug instrumentation of a coalescing node shader");
+}
+
+// A coordinate outside the declared group size matches no invocation, and a
+// criterion that nothing satisfies leaves the debugger with no trace at all.
+// Every invocation stays of interest instead.
+TEST_F(PixTest, InvocationSelection_NodeCoalescingOutOfGroupSelectsAll) {
+  const char *source = R"x(
+RWStructuredBuffer<uint> Output : register(u0);
+
+struct Record
+{
+  uint value;
+};
+
+[Shader("node")]
+[NodeLaunch("coalescing")]
+[NumThreads(4, 2, 1)]
+void CoalescingNode(GroupNodeInputRecords<Record> input)
+{
+  Output[0] = input.Get(0).value;
+})x";
+
+  if (m_ver.SkipDxilVersion(1, 8)) {
+    return;
+  }
+
+  auto compiled = Compile(m_dllSupport, source, L"lib_6_8", {L"-Od"});
+  // Y is 5, which lies outside [NumThreads(4, 2, 1)].
+  auto output = RunDebugPassWithParameters(compiled, 1, 5, 0);
+  std::string disassembly = Disassemble(output.blob);
+
+  VERIFY_IS_TRUE(AnyLineContains(output.lines, "NodeInvocationSelection:None"));
+  VERIFY_ARE_EQUAL(0u, CountCallsTo(disassembly, "@dx.op.threadIdInGroup.i32"));
+  VERIFY_IS_TRUE(disassembly.find("br i1 true, label %PIXInterestingBlock") !=
+                 std::string::npos);
+
+  VerifyInstrumentedModuleIsValid(
+      output.blob, "debug instrumentation of a coalescing node shader whose "
+                   "requested thread lies outside the group");
+}
+
+// A thread launch node has no thread-identity system value at all, so nothing
+// distinguishes one invocation from another and every invocation stays of
+// interest. This pins that decision, so that no intrinsic the validator rejects
+// is emitted.
+TEST_F(PixTest, InvocationSelection_NodeThreadLaunchValidates) {
+  const char *source = R"x(
+RWStructuredBuffer<uint> Output : register(u0);
+
+struct Record
+{
+  uint value;
+};
+
+[Shader("node")]
+[NodeLaunch("thread")]
+void ThreadLaunchNode(ThreadNodeInputRecord<Record> input)
+{
+  Output[0] = input.Get().value;
+})x";
+
+  if (m_ver.SkipDxilVersion(1, 8)) {
+    return;
+  }
+
+  auto compiled = Compile(m_dllSupport, source, L"lib_6_8", {L"-Od"});
+  auto output = RunDebugPass(compiled);
+  std::string disassembly = Disassemble(output.blob);
+
+  VERIFY_IS_TRUE(AnyLineContains(output.lines, "NodeInvocationSelection:None"));
+  VERIFY_ARE_EQUAL(0u, CountCallsTo(disassembly, "@dx.op.threadId.i32"));
+  VERIFY_ARE_EQUAL(0u, CountCallsTo(disassembly, "@dx.op.threadIdInGroup.i32"));
+  VERIFY_ARE_EQUAL(
+      0u, CountCallsTo(disassembly, "@dx.op.flattenedThreadIdInGroup.i32"));
+  VERIFY_IS_TRUE(disassembly.find("br i1 true, label %PIXInterestingBlock") !=
+                 std::string::npos);
+
+  VerifyInstrumentedModuleIsValid(
+      output.blob, "debug instrumentation of a thread launch node shader");
 }
