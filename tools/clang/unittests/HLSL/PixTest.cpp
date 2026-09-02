@@ -152,6 +152,7 @@ public:
   TEST_METHOD(ToolsUav_ExtendsEveryGlobalRootSignatureSubobject)
   TEST_METHOD(DebugInstrumentation_RawBufferShaderFlagDeclared)
   TEST_METHOD(ToolsUav_RootSignatureSerializationFailurePreservesSignature)
+  TEST_METHOD(ToolsUav_ExtendingRootSignaturePreservesUnrelatedParameterFlags)
   TEST_METHOD(ConstantColor_UnusedIntOverloadIsErased)
   TEST_METHOD(ConstantColor_NoTargetOverloadsAreErased)
   TEST_METHOD(RemoveDiscards_UnusedDiscardOverloadIsErased)
@@ -3420,6 +3421,83 @@ void main()
     foundRootSignature = true;
   }
   VERIFY_IS_TRUE(foundRootSignature);
+}
+
+TEST_F(PixTest,
+       ToolsUav_ExtendingRootSignaturePreservesUnrelatedParameterFlags) {
+  const char *source = R"x(
+[numthreads(1, 1, 1)]
+void main()
+{
+})x";
+
+  DxilRootParameter1 parameters[2] = {};
+  parameters[0].ParameterType = DxilRootParameterType::UAV;
+  parameters[0].Descriptor.RegisterSpace = static_cast<uint32_t>(-2);
+  parameters[0].Descriptor.ShaderRegister = 0;
+  parameters[0].Descriptor.Flags = DxilRootDescriptorFlags::None;
+  parameters[0].ShaderVisibility = DxilShaderVisibility::All;
+
+  parameters[1].ParameterType = DxilRootParameterType::CBV;
+  parameters[1].Descriptor.RegisterSpace = 0;
+  parameters[1].Descriptor.ShaderRegister = 0;
+  parameters[1].Descriptor.Flags = DxilRootDescriptorFlags::DataVolatile;
+  parameters[1].ShaderVisibility = DxilShaderVisibility::All;
+
+  DxilVersionedRootSignatureDesc rootSignature = {};
+  rootSignature.Version = DxilRootSignatureVersion::Version_1_1;
+  rootSignature.Desc_1_1.NumParameters = 2;
+  rootSignature.Desc_1_1.pParameters = parameters;
+  rootSignature.Desc_1_1.Flags = DxilRootSignatureFlags::None;
+
+  CComPtr<IDxcBlob> serializedRootSignature;
+  CComPtr<IDxcBlobEncoding> errorBlob;
+  SerializeRootSignature(&rootSignature, &serializedRootSignature, &errorBlob,
+                         true);
+  VERIFY_IS_NOT_NULL(serializedRootSignature);
+
+  const uint8_t *serializedData =
+      static_cast<const uint8_t *>(serializedRootSignature->GetBufferPointer());
+  std::vector<uint8_t> originalRootSignature(
+      serializedData,
+      serializedData + serializedRootSignature->GetBufferSize());
+
+  CComPtr<IDxcBlob> compiled = Compile(m_dllSupport, source, L"cs_6_0", {});
+  ModuleAndHangersOn moduleEtc(compiled);
+  DxilModule &DM = moduleEtc.GetDxilModule();
+  DM.ResetSerializedRootSignature(originalRootSignature);
+
+  PIXPassHelpers::CreateGlobalUAVResource(DM, 0, "PIX_TestUAV0");
+
+  {
+    const std::vector<uint8_t> &bytes = DM.GetSerializedRootSignature();
+    DxilVersionedRootSignatureDesc const *afterNoOp = nullptr;
+    DeserializeRootSignature(bytes.data(), static_cast<uint32_t>(bytes.size()),
+                             &afterNoOp);
+    VERIFY_ARE_EQUAL(afterNoOp->Desc_1_1.NumParameters, 2u);
+    VERIFY_IS_TRUE(afterNoOp->Desc_1_1.pParameters[1].Descriptor.Flags ==
+                   DxilRootDescriptorFlags::DataVolatile);
+    DeleteRootSignature(afterNoOp);
+  }
+
+  PIXPassHelpers::CreateGlobalUAVResource(DM, 1, "PIX_TestUAV1");
+
+  {
+    const std::vector<uint8_t> &bytes = DM.GetSerializedRootSignature();
+    DxilVersionedRootSignatureDesc const *afterAdd = nullptr;
+    DeserializeRootSignature(bytes.data(), static_cast<uint32_t>(bytes.size()),
+                             &afterAdd);
+    VERIFY_ARE_EQUAL(afterAdd->Desc_1_1.NumParameters, 3u);
+    VERIFY_IS_TRUE(afterAdd->Desc_1_1.pParameters[1].Descriptor.Flags ==
+                   DxilRootDescriptorFlags::DataVolatile);
+    VERIFY_ARE_EQUAL(afterAdd->Desc_1_1.pParameters[2].Descriptor.RegisterSpace,
+                     static_cast<uint32_t>(-2));
+    VERIFY_ARE_EQUAL(
+        afterAdd->Desc_1_1.pParameters[2].Descriptor.ShaderRegister, 1u);
+    VERIFY_IS_TRUE(afterAdd->Desc_1_1.pParameters[2].Descriptor.Flags ==
+                   DxilRootDescriptorFlags::None);
+    DeleteRootSignature(afterAdd);
+  }
 }
 
 static bool HasUnusedDeclaration(std::vector<std::string> const &lines,

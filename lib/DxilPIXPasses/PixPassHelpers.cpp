@@ -198,8 +198,9 @@ static std::vector<uint8_t> SerializeRootSignatureToVector(
 
 constexpr uint32_t toolsRegisterSpace = static_cast<uint32_t>(-2);
 
+// Returns whether a parameter was appended.
 template <typename RootSigDesc, typename RootParameterDesc>
-void ExtendRootSig(RootSigDesc &rootSigDesc, uint32_t toolsUAVRegister) {
+bool ExtendRootSig(RootSigDesc &rootSigDesc, uint32_t toolsUAVRegister) {
   auto *existingParams = rootSigDesc.pParameters;
   for (uint32_t i = 0; i < rootSigDesc.NumParameters; ++i) {
     if (rootSigDesc.pParameters[i].ParameterType ==
@@ -209,7 +210,7 @@ void ExtendRootSig(RootSigDesc &rootSigDesc, uint32_t toolsUAVRegister) {
           rootSigDesc.pParameters[i].Descriptor.ShaderRegister ==
               toolsUAVRegister) {
         // Already added
-        return;
+        return false;
       }
     }
   }
@@ -229,6 +230,7 @@ void ExtendRootSig(RootSigDesc &rootSigDesc, uint32_t toolsUAVRegister) {
   rootSigDesc.pParameters[rootSigDesc.NumParameters].ShaderVisibility =
       DxilShaderVisibility::All;
   rootSigDesc.NumParameters++;
+  return true;
 }
 
 static std::vector<uint8_t>
@@ -243,10 +245,11 @@ AddUAVParamterToRootSignature(const void *Data, uint32_t Size,
                                                             toolsUAVRegister);
     break;
   case DxilRootSignatureVersion::Version_1_1:
-    ExtendRootSig<DxilRootSignatureDesc1, DxilRootParameter1>(rs->Desc_1_1,
-                                                              toolsUAVRegister);
-    rs->Desc_1_1.pParameters[rs->Desc_1_1.NumParameters - 1].Descriptor.Flags =
-        hlsl::DxilRootDescriptorFlags::None;
+    if (ExtendRootSig<DxilRootSignatureDesc1, DxilRootParameter1>(
+            rs->Desc_1_1, toolsUAVRegister)) {
+      rs->Desc_1_1.pParameters[rs->Desc_1_1.NumParameters - 1]
+          .Descriptor.Flags = hlsl::DxilRootDescriptorFlags::None;
+    }
     break;
   }
   return SerializeRootSignatureToVector(rs);
