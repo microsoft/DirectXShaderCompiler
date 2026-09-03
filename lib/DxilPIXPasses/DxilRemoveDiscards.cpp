@@ -17,6 +17,8 @@
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/PassManager.h"
 
+#include "PixPassHelpers.h"
+
 using namespace llvm;
 using namespace hlsl;
 
@@ -52,6 +54,8 @@ bool DxilRemoveDiscards::runOnModule(Module &M) {
     instruction->eraseFromParent();
     Modified = true;
   }
+
+  PIXPassHelpers::EraseIfUnused(DM, DiscardFunction);
 
   return Modified;
 }
