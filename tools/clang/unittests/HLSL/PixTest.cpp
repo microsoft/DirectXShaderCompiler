@@ -53,6 +53,7 @@
 #include "llvm/ADT/SmallString.h"
 #include "llvm/ADT/StringSwitch.h"
 #include "llvm/Bitcode/ReaderWriter.h"
+#include "llvm/IR/Constants.h"
 #include "llvm/IR/DebugInfo.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/IntrinsicInst.h"
@@ -181,6 +182,7 @@ public:
   TEST_METHOD(Validation_ControlValidModulePasses)
   TEST_METHOD(Validation_ControlInvalidModuleFails)
   TEST_METHOD(Validation_ControlNonPixUnusedMetadataIsRejected)
+  TEST_METHOD(Validation_ControlInvalidPixMetadataIsRejected)
 
   dxc::DxCompilerDllLoader m_dllSupport;
   VersionSupportInfo m_ver;
@@ -358,16 +360,83 @@ public:
       pix_dxil::PixDxilInstNum::MDName, pix_dxil::PixDxilReg::MDName,
       pix_dxil::PixAllocaReg::MDName, pix_dxil::PixAllocaRegWrite::MDName};
 
-  // Removes the known PIX metadata kinds from every function and instruction.
+  // Checks that known PIX metadata has the expected location and payload.
+  static bool hasValidKnownPixVirtualRegisterMetadata(llvm::Module &M) {
+    llvm::LLVMContext &Ctx = M.getContext();
+    unsigned InstNumKindID = Ctx.getMDKindID(pix_dxil::PixDxilInstNum::MDName);
+    unsigned RegKindID = Ctx.getMDKindID(pix_dxil::PixDxilReg::MDName);
+    unsigned AllocaRegKindID = Ctx.getMDKindID(pix_dxil::PixAllocaReg::MDName);
+    unsigned AllocaRegWriteKindID =
+        Ctx.getMDKindID(pix_dxil::PixAllocaRegWrite::MDName);
+
+    for (llvm::Function &F : M) {
+      for (const char *Kind : KnownPixVirtualRegisterMetadataKinds) {
+        if (F.getMetadata(Ctx.getMDKindID(Kind)) != nullptr) {
+          return false;
+        }
+      }
+
+      for (llvm::BasicBlock &BB : F) {
+        for (llvm::Instruction &I : BB) {
+          if (I.getMetadata(InstNumKindID) != nullptr) {
+            std::uint32_t InstNum;
+            if (!pix_dxil::PixDxilInstNum::FromInst(&I, &InstNum)) {
+              return false;
+            }
+          }
+
+          if (I.getMetadata(RegKindID) != nullptr) {
+            std::uint32_t RegNum;
+            if (!pix_dxil::PixDxilReg::FromInst(&I, &RegNum)) {
+              return false;
+            }
+          }
+
+          if (I.getMetadata(AllocaRegKindID) != nullptr) {
+            llvm::AllocaInst *Alloca = llvm::dyn_cast<llvm::AllocaInst>(&I);
+            std::uint32_t RegBase;
+            std::uint32_t RegSize;
+            if (Alloca == nullptr ||
+                !pix_dxil::PixAllocaReg::FromInst(Alloca, &RegBase, &RegSize)) {
+              return false;
+            }
+          }
+
+          if (I.getMetadata(AllocaRegWriteKindID) != nullptr) {
+            llvm::StoreInst *Store = llvm::dyn_cast<llvm::StoreInst>(&I);
+            std::uint32_t RegBase;
+            std::uint32_t RegSize;
+            llvm::Value *Index;
+            if (Store == nullptr || !pix_dxil::PixAllocaRegWrite::FromInst(
+                                        Store, &RegBase, &RegSize, &Index)) {
+              return false;
+            }
+          }
+        }
+      }
+    }
+    return true;
+  }
+
+  // Removes valid PIX metadata from its documented instruction types.
   static void stripKnownPixVirtualRegisterMetadata(llvm::Module &M) {
     llvm::LLVMContext &Ctx = M.getContext();
-    for (const char *Kind : KnownPixVirtualRegisterMetadataKinds) {
-      unsigned KindID = Ctx.getMDKindID(Kind);
-      for (llvm::Function &F : M) {
-        F.setMetadata(KindID, nullptr);
-        for (llvm::BasicBlock &BB : F) {
-          for (llvm::Instruction &I : BB) {
-            I.setMetadata(KindID, nullptr);
+    unsigned InstNumKindID = Ctx.getMDKindID(pix_dxil::PixDxilInstNum::MDName);
+    unsigned RegKindID = Ctx.getMDKindID(pix_dxil::PixDxilReg::MDName);
+    unsigned AllocaRegKindID = Ctx.getMDKindID(pix_dxil::PixAllocaReg::MDName);
+    unsigned AllocaRegWriteKindID =
+        Ctx.getMDKindID(pix_dxil::PixAllocaRegWrite::MDName);
+
+    for (llvm::Function &F : M) {
+      for (llvm::BasicBlock &BB : F) {
+        for (llvm::Instruction &I : BB) {
+          I.setMetadata(InstNumKindID, nullptr);
+          I.setMetadata(RegKindID, nullptr);
+          if (llvm::isa<llvm::AllocaInst>(&I)) {
+            I.setMetadata(AllocaRegKindID, nullptr);
+          }
+          if (llvm::isa<llvm::StoreInst>(&I)) {
+            I.setMetadata(AllocaRegWriteKindID, nullptr);
           }
         }
       }
@@ -412,8 +481,17 @@ public:
     // from any other unsupported metadata. Strip only the known PIX kinds
     // and revalidate. If this fixes the module, PIX metadata was the only
     // cause.
-    CComPtr<IDxcBlob> StrippedContainer =
-        cloneModuleAndMutate(Container, stripKnownPixVirtualRegisterMetadata);
+    bool KnownPixMetadataIsValid = false;
+    CComPtr<IDxcBlob> StrippedContainer = cloneModuleAndMutate(
+        Container, [&KnownPixMetadataIsValid](llvm::Module &M) {
+          KnownPixMetadataIsValid = hasValidKnownPixVirtualRegisterMetadata(M);
+          if (KnownPixMetadataIsValid) {
+            stripKnownPixVirtualRegisterMetadata(M);
+          }
+        });
+    if (!KnownPixMetadataIsValid) {
+      return DirectResult;
+    }
     if (runValidator(StrippedContainer).Valid) {
       return {true, {}};
     }
@@ -4400,4 +4478,78 @@ float main() : SV_Target
 
   ValidationResult Result = validateInstrumentedModule(WithForeignMetadata);
   VERIFY_IS_FALSE(Result.Valid);
+}
+
+TEST_F(PixTest, Validation_ControlInvalidPixMetadataIsRejected) {
+  const char *Source = R"x(
+float main() : SV_Target
+{
+    return 0;
+})x";
+
+  CComPtr<IDxcBlob> Compiled =
+      Compile(m_dllSupport, Source, L"ps_6_0", {L"-Od"});
+  SinglePassOutput Output =
+      runSinglePass(Compiled, L"-dxil-annotate-with-virtual-regs");
+  CComPtr<IDxcBlob> Container = normalizeToContainer(Output.Module);
+
+  bool AddedFunctionMetadata = false;
+  CComPtr<IDxcBlob> WithFunctionMetadata = cloneModuleAndMutate(
+      Container, [&AddedFunctionMetadata](llvm::Module &M) {
+        for (llvm::Function &F : M) {
+          if (F.isDeclaration()) {
+            continue;
+          }
+          F.setMetadata(pix_dxil::PixDxilInstNum::MDName,
+                        llvm::MDNode::get(M.getContext(), {}));
+          AddedFunctionMetadata = true;
+          break;
+        }
+      });
+  VERIFY_IS_TRUE(AddedFunctionMetadata);
+  VERIFY_IS_FALSE(validateInstrumentedModule(WithFunctionMetadata).Valid);
+
+  bool AddedMisplacedMetadata = false;
+  CComPtr<IDxcBlob> WithMisplacedMetadata = cloneModuleAndMutate(
+      Container, [&AddedMisplacedMetadata](llvm::Module &M) {
+        llvm::LLVMContext &Ctx = M.getContext();
+        llvm::Type *Int32Ty = llvm::Type::getInt32Ty(Ctx);
+        llvm::MDNode *ValidAllocaReg = llvm::MDNode::get(
+            Ctx,
+            {llvm::ConstantAsMetadata::get(
+                 llvm::ConstantInt::get(Int32Ty, pix_dxil::PixAllocaReg::ID)),
+             llvm::ConstantAsMetadata::get(llvm::ConstantInt::get(Int32Ty, 0)),
+             llvm::ConstantAsMetadata::get(
+                 llvm::ConstantInt::get(Int32Ty, 1))});
+        for (llvm::Function &F : M) {
+          for (llvm::BasicBlock &BB : F) {
+            for (llvm::Instruction &I : BB) {
+              if (!llvm::isa<llvm::AllocaInst>(&I)) {
+                I.setMetadata(pix_dxil::PixAllocaReg::MDName, ValidAllocaReg);
+                AddedMisplacedMetadata = true;
+                return;
+              }
+            }
+          }
+        }
+      });
+  VERIFY_IS_TRUE(AddedMisplacedMetadata);
+  VERIFY_IS_FALSE(validateInstrumentedModule(WithMisplacedMetadata).Valid);
+
+  bool AddedMalformedMetadata = false;
+  CComPtr<IDxcBlob> WithMalformedMetadata = cloneModuleAndMutate(
+      Container, [&AddedMalformedMetadata](llvm::Module &M) {
+        for (llvm::Function &F : M) {
+          for (llvm::BasicBlock &BB : F) {
+            for (llvm::Instruction &I : BB) {
+              I.setMetadata(pix_dxil::PixDxilInstNum::MDName,
+                            llvm::MDNode::get(M.getContext(), {}));
+              AddedMalformedMetadata = true;
+              return;
+            }
+          }
+        }
+      });
+  VERIFY_IS_TRUE(AddedMalformedMetadata);
+  VERIFY_IS_FALSE(validateInstrumentedModule(WithMalformedMetadata).Valid);
 }
