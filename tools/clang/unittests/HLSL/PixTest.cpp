@@ -160,6 +160,12 @@ public:
   TEST_METHOD(NonUniformResourceIndex_DescriptorHeap)
   TEST_METHOD(NonUniformResourceIndex_Raytracing)
 
+  // Control tests for the PIX pass validation harness below
+  // (ValidateInstrumentedModule / VerifyInstrumentedModuleIsValid).
+  TEST_METHOD(Validation_ControlValidModulePasses)
+  TEST_METHOD(Validation_ControlInvalidModuleFails)
+  TEST_METHOD(Validation_ControlNonPixUnusedMetadataIsRejected)
+
   dxc::DxCompilerDllLoader m_dllSupport;
   VersionSupportInfo m_ver;
 
@@ -261,6 +267,176 @@ public:
 
     return {
         std::move(pOptimizedModule), {}, Tokenize(outputText.c_str(), "\n")};
+  }
+
+  // Runs one named PIX or DXIL pass and returns the resulting module and
+  // its disassembly lines.
+  struct SinglePassOutput {
+    CComPtr<IDxcBlob> Module;
+    std::vector<std::string> Lines;
+  };
+
+  SinglePassOutput RunSinglePass(IDxcBlob *dxil, LPCWSTR passOption) {
+    CComPtr<IDxcOptimizer> pOptimizer;
+    VERIFY_SUCCEEDED(
+        m_dllSupport.CreateInstance(CLSID_DxcOptimizer, &pOptimizer));
+    std::vector<LPCWSTR> Options;
+    Options.push_back(L"-opt-mod-passes");
+    Options.push_back(passOption);
+
+    CComPtr<IDxcBlob> pOptimizedModule;
+    CComPtr<IDxcBlobEncoding> pText;
+    VERIFY_SUCCEEDED(pOptimizer->RunOptimizer(
+        dxil, Options.data(), Options.size(), &pOptimizedModule, &pText));
+
+    SinglePassOutput ret;
+    ret.Module = pOptimizedModule;
+    ret.Lines = Tokenize(BlobToUtf8(pText).c_str(), "\n");
+    return ret;
+  }
+
+  // PIX does not validate the shaders its passes instrument, so a pass
+  // that produces invalid DXIL goes undetected elsewhere. Validate here
+  // instead.
+  struct ValidationResult {
+    bool Valid;
+    std::string Errors;
+  };
+
+  // The validator (and the assembler, when reconstructing a container
+  // from bare bitcode) both require a container; some pass runners
+  // return bare bitcode instead.
+  CComPtr<IDxcBlob> NormalizeToContainer(IDxcBlob *pModule) {
+    if (hlsl::IsDxilContainerLike(pModule->GetBufferPointer(),
+                                  pModule->GetBufferSize()) != nullptr) {
+      return pModule;
+    }
+    return pix_test::WrapInNewContainer(m_dllSupport, pModule);
+  }
+
+  ValidationResult RunValidator(IDxcBlob *pContainer) {
+    CComPtr<IDxcValidator> pValidator;
+    VERIFY_SUCCEEDED(
+        m_dllSupport.CreateInstance(CLSID_DxcValidator, &pValidator));
+
+    CComPtr<IDxcOperationResult> pValidationResult;
+    VERIFY_SUCCEEDED(pValidator->Validate(pContainer, DxcValidatorFlags_Default,
+                                          &pValidationResult));
+
+    HRESULT validationStatus;
+    VERIFY_SUCCEEDED(pValidationResult->GetStatus(&validationStatus));
+    if (SUCCEEDED(validationStatus)) {
+      return {true, {}};
+    }
+
+    CComPtr<IDxcBlobEncoding> pValidationErrors;
+    VERIFY_SUCCEEDED(pValidationResult->GetErrorBuffer(&pValidationErrors));
+    return {false, BlobToUtf8(pValidationErrors)};
+  }
+
+  // The metadata kinds that PIX's virtual-register annotation pass
+  // intentionally leaves unused for downstream tools. See
+  // DxilPIXVirtualRegisters.h.
+  static constexpr const char *KnownPixVirtualRegisterMetadataKinds[] = {
+      pix_dxil::PixDxilInstNum::MDName, pix_dxil::PixDxilReg::MDName,
+      pix_dxil::PixAllocaReg::MDName, pix_dxil::PixAllocaRegWrite::MDName};
+
+  // Removes the known PIX metadata kinds from every function and instruction.
+  static void StripKnownPixVirtualRegisterMetadata(llvm::Module &M) {
+    llvm::LLVMContext &Ctx = M.getContext();
+    for (const char *kind : KnownPixVirtualRegisterMetadataKinds) {
+      unsigned kindID = Ctx.getMDKindID(kind);
+      for (llvm::Function &F : M) {
+        F.setMetadata(kindID, nullptr);
+        for (llvm::BasicBlock &BB : F) {
+          for (llvm::Instruction &I : BB) {
+            I.setMetadata(kindID, nullptr);
+          }
+        }
+      }
+    }
+  }
+
+  // Parses pContainer into an isolated LLVM module, applies Mutate to it,
+  // and re-serializes into a fresh validator-ready container.
+  template <typename MutatorFn>
+  CComPtr<IDxcBlob> CloneModuleAndMutate(IDxcBlob *pContainer,
+                                         MutatorFn Mutate) {
+    ModuleAndHangersOn moduleEtc(pContainer);
+    llvm::Module *M = moduleEtc.GetDxilModule().GetModule();
+    Mutate(*M);
+
+    llvm::SmallVector<char, 0> bitcode;
+    {
+      llvm::raw_svector_ostream OS(bitcode);
+      llvm::WriteBitcodeToFile(M, OS);
+    }
+
+    CComPtr<IDxcLibrary> pLibrary;
+    VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcLibrary, &pLibrary));
+    CComPtr<IDxcBlobEncoding> pBitcodeBlob;
+    VERIFY_SUCCEEDED(pLibrary->CreateBlobWithEncodingFromPinned(
+        bitcode.data(), static_cast<UINT32>(bitcode.size()), CP_ACP,
+        &pBitcodeBlob));
+
+    return pix_test::WrapInNewContainer(m_dllSupport, pBitcodeBlob);
+  }
+
+  ValidationResult ValidateInstrumentedModule(IDxcBlob *pModule) {
+    CComPtr<IDxcBlob> pContainer = NormalizeToContainer(pModule);
+
+    ValidationResult direct = RunValidator(pContainer);
+    if (direct.Valid) {
+      return direct;
+    }
+
+    // The validator's "unused metadata" diagnostic names the metadata
+    // node, not the kind, so text can't separate PIX's own annotations
+    // from any other unsupported metadata. Strip only the known PIX kinds
+    // and revalidate. If this fixes the module, PIX metadata was the only
+    // cause.
+    CComPtr<IDxcBlob> strippedContainer =
+        CloneModuleAndMutate(pContainer, StripKnownPixVirtualRegisterMetadata);
+    if (RunValidator(strippedContainer).Valid) {
+      return {true, {}};
+    }
+
+    return direct;
+  }
+
+  // Joins diagnostic lines, skipping blanks and "Validation failed."
+  // boilerplate.
+  static std::string
+  GetSignificantValidationDiagnostics(const std::string &errors) {
+    std::string result;
+    std::stringstream errorStream(errors);
+    std::string line;
+    while (std::getline(errorStream, line)) {
+      if (!line.empty() && line.back() == '\r') {
+        line.pop_back();
+      }
+      if (line.empty() || line == "Validation failed.") {
+        continue;
+      }
+      result += line + "\n";
+    }
+    return result;
+  }
+
+  // Asserts an instrumented module validates, allowing for the four known
+  // PIX metadata kinds being unused; logs and fails on any other
+  // validator error.
+  void VerifyInstrumentedModuleIsValid(IDxcBlob *pModule,
+                                       const char *description) {
+    ValidationResult validation = ValidateInstrumentedModule(pModule);
+    if (validation.Valid) {
+      return;
+    }
+
+    WEX::Logging::Log::Error(WEX::Common::String().Format(
+        L"Validation failed after %S:\n%S", description,
+        GetSignificantValidationDiagnostics(validation.Errors).c_str()));
+    VERIFY_FAIL();
   }
 
   CComPtr<IDxcBlob> FindModule(hlsl::DxilFourCC fourCC, IDxcBlob *pSource) {
@@ -3466,4 +3642,114 @@ void main(uint3 tid : SV_DispatchThreadID) {
     pos += strlen("DebugBreakBitSet");
   }
   VERIFY_ARE_EQUAL(debugBreakBitSetCount, 2);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// Control tests for the PIX pass validation harness
+// (ValidateInstrumentedModule / VerifyInstrumentedModuleIsValid).
+//
+// Both tests instrument the same trivial pixel shader with the
+// virtual-register annotation pass, so the valid and invalid cases are
+// directly comparable.
+
+TEST_F(PixTest, Validation_ControlValidModulePasses) {
+  const char *source = R"x(
+float main() : SV_Target
+{
+    return 0;
+})x";
+
+  // Virtual-register annotation adds metadata that DXIL does not consume,
+  // so this module only validates because that metadata is one of the
+  // four known PIX kinds.
+  CComPtr<IDxcBlob> compiled =
+      Compile(m_dllSupport, source, L"ps_6_0", {L"-Od"});
+  SinglePassOutput output =
+      RunSinglePass(compiled, L"-dxil-annotate-with-virtual-regs");
+  VerifyInstrumentedModuleIsValid(
+      output.Module,
+      "virtual-register annotation of a trivial pixel shader (validation "
+      "harness control)");
+}
+
+TEST_F(PixTest, Validation_ControlInvalidModuleFails) {
+  const char *source = R"x(
+float main() : SV_Target
+{
+    return 0;
+})x";
+
+  CComPtr<IDxcBlob> compiled =
+      Compile(m_dllSupport, source, L"ps_6_0", {L"-Od"});
+  SinglePassOutput output =
+      RunSinglePass(compiled, L"-dxil-annotate-with-virtual-regs");
+
+  // Mislabel the shader stage, so the container carries both the
+  // harness's permitted PIX metadata and a real defect.
+  std::string disassembly = Disassemble(output.Module);
+  const std::string shaderKindTag = "!\"ps\",";
+  std::string::size_type tagPosition = disassembly.find(shaderKindTag);
+  VERIFY_IS_TRUE(tagPosition != std::string::npos);
+  disassembly.replace(tagPosition, shaderKindTag.size(), "!\"vs\",");
+
+  CComPtr<IDxcBlobEncoding> pDisassemblyBlob;
+  CreateBlobFromText(m_dllSupport, disassembly.c_str(), &pDisassemblyBlob);
+
+  CComPtr<IDxcAssembler> pAssembler;
+  VERIFY_SUCCEEDED(
+      m_dllSupport.CreateInstance(CLSID_DxcAssembler, &pAssembler));
+  CComPtr<IDxcOperationResult> pAssembleResult;
+  VERIFY_SUCCEEDED(
+      pAssembler->AssembleToContainer(pDisassemblyBlob, &pAssembleResult));
+  HRESULT assembleStatus;
+  VERIFY_SUCCEEDED(pAssembleResult->GetStatus(&assembleStatus));
+  VERIFY_SUCCEEDED(assembleStatus);
+  CComPtr<IDxcBlob> pCorruptedContainer;
+  VERIFY_SUCCEEDED(pAssembleResult->GetResult(&pCorruptedContainer));
+
+  // Direct validation's own diagnostic proves the PIX metadata is present
+  // and otherwise unused, alongside rejecting for the mislabeled stage.
+  ValidationResult direct = RunValidator(pCorruptedContainer);
+  VERIFY_IS_FALSE(direct.Valid);
+  VERIFY_IS_TRUE(direct.Errors.find("All metadata must be used by dxil") !=
+                 std::string::npos);
+
+  // The harness must still reject it, for a reason other than the
+  // permitted metadata.
+  ValidationResult validation = ValidateInstrumentedModule(pCorruptedContainer);
+  VERIFY_IS_FALSE(validation.Valid);
+  VERIFY_IS_FALSE(
+      GetSignificantValidationDiagnostics(validation.Errors).empty());
+}
+
+// A foreign, unused instruction metadata kind with the module's PIX metadata
+// must still be rejected. Stripping the known PIX kinds leaves it behind.
+TEST_F(PixTest, Validation_ControlNonPixUnusedMetadataIsRejected) {
+  const char *source = R"x(
+float main() : SV_Target
+{
+    return 0;
+})x";
+
+  CComPtr<IDxcBlob> compiled =
+      Compile(m_dllSupport, source, L"ps_6_0", {L"-Od"});
+  SinglePassOutput output =
+      RunSinglePass(compiled, L"-dxil-annotate-with-virtual-regs");
+  CComPtr<IDxcBlob> pContainer = NormalizeToContainer(output.Module);
+
+  CComPtr<IDxcBlob> withForeignMetadata =
+      CloneModuleAndMutate(pContainer, [](llvm::Module &M) {
+        for (llvm::Function &F : M) {
+          if (F.isDeclaration()) {
+            continue;
+          }
+          llvm::Instruction &I = *F.begin()->begin();
+          I.setMetadata("not-a-pix-kind",
+                        llvm::MDNode::get(M.getContext(), {}));
+          break;
+        }
+      });
+
+  ValidationResult validation = ValidateInstrumentedModule(withForeignMetadata);
+  VERIFY_IS_FALSE(validation.Valid);
 }
