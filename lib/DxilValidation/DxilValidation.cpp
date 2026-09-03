@@ -50,6 +50,7 @@
 #include "DxilValidationUtils.h"
 
 #include <algorithm>
+#include <cstdint>
 #include <deque>
 #include <optional>
 #include <string>
@@ -1306,7 +1307,7 @@ static void ValidateLinAlgMatrixStoreToMemory(CallInst *CI,
   // if it is constant then offset must be 128-byte aligned
   if (ConstantInt *OffsetV = dyn_cast<ConstantInt>(Op.get_offset())) {
     unsigned Offset = OffsetV->getLimitedValue();
-    unsigned OffsetBytes = Offset * ByteCount;
+    uint64_t OffsetBytes = Offset * ByteCount;
     if (OffsetBytes % 128 != 0)
       ValCtx.EmitInstrFormatError(
           CI, ValidationRule::InstrLinAlgMatrixBytewiseMustBeMultiple,
@@ -1315,10 +1316,10 @@ static void ValidateLinAlgMatrixStoreToMemory(CallInst *CI,
   }
 
   // if it is constant then stride must be 16-byte aligned
-  // gs memory ops have the parameter in element count so it msut be scaled
+  // gs memory ops have the parameter in element count so it must be scaled
   if (ConstantInt *StrideV = dyn_cast<ConstantInt>(Op.get_stride())) {
     unsigned Stride = StrideV->getLimitedValue();
-    unsigned StrideBytes = Stride * ByteCount;
+    uint64_t StrideBytes = Stride * ByteCount;
     if (StrideBytes % 16 != 0)
       ValCtx.EmitInstrFormatError(
           CI, ValidationRule::InstrLinAlgMatrixBytewiseMustBeMultiple,
@@ -1573,7 +1574,7 @@ static void ValidateLinAlgMatrixAccumulateToMemory(CallInst *CI,
   // if it is constant then offset must be 128-byte aligned
   if (ConstantInt *OffsetV = dyn_cast<ConstantInt>(Op.get_offset())) {
     unsigned Offset = OffsetV->getLimitedValue();
-    unsigned OffsetBytes = Offset * ByteCount;
+    uint64_t OffsetBytes = Offset * ByteCount;
     if (OffsetBytes % 128 != 0)
       ValCtx.EmitInstrFormatError(
           CI, ValidationRule::InstrLinAlgMatrixBytewiseMustBeMultiple,
@@ -1582,10 +1583,10 @@ static void ValidateLinAlgMatrixAccumulateToMemory(CallInst *CI,
   }
 
   // if it is constant then stride must be 16-byte aligned
-  // gs memory ops have the parameter in element count so it msut be scaled
+  // gs memory ops have the parameter in element count so it must be scaled
   if (ConstantInt *StrideV = dyn_cast<ConstantInt>(Op.get_stride())) {
     unsigned Stride = StrideV->getLimitedValue();
-    unsigned StrideBytes = Stride * ByteCount;
+    uint64_t StrideBytes = Stride * ByteCount;
     if (StrideBytes % 16 != 0)
       ValCtx.EmitInstrFormatError(
           CI, ValidationRule::InstrLinAlgMatrixBytewiseMustBeMultiple,
@@ -1779,7 +1780,7 @@ static void ValidateLinAlgMatrixLoadFromMemory(CallInst *CI,
   // if it is constant then offset must be 128-byte aligned
   if (ConstantInt *OffsetV = dyn_cast<ConstantInt>(Op.get_offset())) {
     unsigned Offset = OffsetV->getLimitedValue();
-    unsigned OffsetBytes = Offset * ByteCount;
+    uint64_t OffsetBytes = Offset * ByteCount;
     if (OffsetBytes % 128 != 0)
       ValCtx.EmitInstrFormatError(
           CI, ValidationRule::InstrLinAlgMatrixBytewiseMustBeMultiple,
@@ -1788,10 +1789,10 @@ static void ValidateLinAlgMatrixLoadFromMemory(CallInst *CI,
   }
 
   // if it is constant then stride must be 16-byte aligned
-  // gs memory ops have the parameter in element count so it msut be scaled
+  // gs memory ops have the parameter in element count so it must be scaled
   if (ConstantInt *StrideV = dyn_cast<ConstantInt>(Op.get_stride())) {
     unsigned Stride = StrideV->getLimitedValue();
-    unsigned StrideBytes = Stride * ByteCount;
+    uint64_t StrideBytes = Stride * ByteCount;
     if (StrideBytes % 16 != 0)
       ValCtx.EmitInstrFormatError(
           CI, ValidationRule::InstrLinAlgMatrixBytewiseMustBeMultiple,
