@@ -361,7 +361,7 @@ public:
   // and re-serializes into a fresh validator-ready container.
   template <typename MutatorFn>
   CComPtr<IDxcBlob> CloneModuleAndMutate(IDxcBlob *pContainer,
-                                        MutatorFn Mutate) {
+                                         MutatorFn Mutate) {
     ModuleAndHangersOn moduleEtc(pContainer);
     llvm::Module *M = moduleEtc.GetDxilModule().GetModule();
     Mutate(*M);
@@ -3712,7 +3712,7 @@ float main() : SV_Target
   ValidationResult direct = RunValidator(pCorruptedContainer);
   VERIFY_IS_FALSE(direct.Valid);
   VERIFY_IS_TRUE(direct.Errors.find("All metadata must be used by dxil") !=
-                std::string::npos);
+                 std::string::npos);
 
   // The harness must still reject it, for a reason other than the
   // permitted metadata.
@@ -3731,7 +3731,8 @@ float main() : SV_Target
     return 0;
 })x";
 
-  CComPtr<IDxcBlob> compiled = Compile(m_dllSupport, source, L"ps_6_0", {L"-Od"});
+  CComPtr<IDxcBlob> compiled =
+      Compile(m_dllSupport, source, L"ps_6_0", {L"-Od"});
   SinglePassOutput output =
       RunSinglePass(compiled, L"-dxil-annotate-with-virtual-regs");
   CComPtr<IDxcBlob> pContainer = NormalizeToContainer(output.Module);
