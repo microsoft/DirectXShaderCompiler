@@ -125,8 +125,8 @@ bool DxilOutputColorBecomesConstant::runOnModule(Module &M) {
       [&hasIntOutputs](CallInst *) { hasIntOutputs = true; });
 
   if (!hasFloatOutputs && !hasIntOutputs) {
-    PIXPassHelpers::EraseIfUnused(DM, FloatOutputFunction);
-    PIXPassHelpers::EraseIfUnused(DM, IntOutputFunction);
+    PIXPassHelpers::eraseIfUnused(DM, FloatOutputFunction);
+    PIXPassHelpers::eraseIfUnused(DM, IntOutputFunction);
     return false;
   }
 
@@ -253,8 +253,8 @@ bool DxilOutputColorBecomesConstant::runOnModule(Module &M) {
         });
   }
 
-  PIXPassHelpers::EraseIfUnused(DM, FloatOutputFunction);
-  PIXPassHelpers::EraseIfUnused(DM, IntOutputFunction);
+  PIXPassHelpers::eraseIfUnused(DM, FloatOutputFunction);
+  PIXPassHelpers::eraseIfUnused(DM, IntOutputFunction);
 
   return Modified;
 }

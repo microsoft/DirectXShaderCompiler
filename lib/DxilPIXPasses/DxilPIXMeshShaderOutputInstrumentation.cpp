@@ -328,7 +328,7 @@ bool DxilPIXMeshShaderOutputInstrumentation::runOnModule(Module &M) {
       ReplaceAllUsesOfInstructionWithNewValueAndDeleteInstruction(
           getMeshPayloadInstructions, payload,
           expanded.ExpandedPayloadStructType);
-      PIXPassHelpers::EraseIfUnused(DM, OriginalGetMeshPayloadFunction);
+      PIXPassHelpers::eraseIfUnused(DM, OriginalGetMeshPayloadFunction);
     }
   }
 
@@ -425,7 +425,7 @@ bool DxilPIXMeshShaderOutputInstrumentation::runOnModule(Module &M) {
   }
 
   for (Function *StoreVertexOutputFunction : StoreVertexOutputFunctions) {
-    PIXPassHelpers::EraseIfUnused(DM, StoreVertexOutputFunction);
+    PIXPassHelpers::eraseIfUnused(DM, StoreVertexOutputFunction);
   }
 
   DM.ReEmitDxilResources();

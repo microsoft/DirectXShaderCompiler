@@ -120,8 +120,8 @@ bool DxilDebugBreakInstrumentation::runOnModule(Module &M) {
     CI->eraseFromParent();
   }
 
-  PIXPassHelpers::EraseIfUnused(DM, DebugBreakFunc);
-  PIXPassHelpers::EraseIfUnused(DM, AtomicOpFunc);
+  PIXPassHelpers::eraseIfUnused(DM, DebugBreakFunc);
+  PIXPassHelpers::eraseIfUnused(DM, AtomicOpFunc);
 
   const bool modified = (PixUAVResource != nullptr);
 

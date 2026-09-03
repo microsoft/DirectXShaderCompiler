@@ -55,7 +55,7 @@ bool DxilRemoveDiscards::runOnModule(Module &M) {
     Modified = true;
   }
 
-  PIXPassHelpers::EraseIfUnused(DM, DiscardFunction);
+  PIXPassHelpers::eraseIfUnused(DM, DiscardFunction);
 
   return Modified;
 }
