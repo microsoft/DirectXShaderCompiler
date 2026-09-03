@@ -334,15 +334,14 @@ public:
     return {false, BlobToUtf8(pValidationErrors)};
   }
 
-  // The four metadata kinds PIX's virtual-register annotation pass
-  // intentionally leaves unused for downstream tools to consume. See
+  // The metadata kinds that PIX's virtual-register annotation pass
+  // intentionally leaves unused for downstream tools. See
   // DxilPIXVirtualRegisters.h.
   static constexpr const char *KnownPixVirtualRegisterMetadataKinds[] = {
       pix_dxil::PixDxilInstNum::MDName, pix_dxil::PixDxilReg::MDName,
       pix_dxil::PixAllocaReg::MDName, pix_dxil::PixAllocaRegWrite::MDName};
 
-  // Removes the four known PIX metadata kinds from every function and
-  // instruction.
+  // Removes the known PIX metadata kinds from every function and instruction.
   static void StripKnownPixVirtualRegisterMetadata(llvm::Module &M) {
     llvm::LLVMContext &Ctx = M.getContext();
     for (const char *kind : KnownPixVirtualRegisterMetadataKinds) {
@@ -393,9 +392,9 @@ public:
 
     // The validator's "unused metadata" diagnostic names the metadata
     // node, not the kind, so text can't separate PIX's own annotations
-    // from any other unsupported metadata. Strip only the four known PIX
-    // kinds and revalidate; if that alone fixes it, PIX metadata was the
-    // sole cause.
+    // from any other unsupported metadata. Strip only the known PIX kinds
+    // and revalidate. If this fixes the module, PIX metadata was the only
+    // cause.
     CComPtr<IDxcBlob> strippedContainer =
         CloneModuleAndMutate(pContainer, StripKnownPixVirtualRegisterMetadata);
     if (RunValidator(strippedContainer).Valid) {
@@ -3723,9 +3722,8 @@ float main() : SV_Target
       GetSignificantValidationDiagnostics(validation.Errors).empty());
 }
 
-// A foreign, unused instruction metadata kind alongside the module's own
-// permitted PIX metadata must still be rejected: stripping only the four
-// known PIX kinds leaves it behind.
+// A foreign, unused instruction metadata kind with the module's PIX metadata
+// must still be rejected. Stripping the known PIX kinds leaves it behind.
 TEST_F(PixTest, Validation_ControlNonPixUnusedMetadataIsRejected) {
   const char *source = R"x(
 float main() : SV_Target
