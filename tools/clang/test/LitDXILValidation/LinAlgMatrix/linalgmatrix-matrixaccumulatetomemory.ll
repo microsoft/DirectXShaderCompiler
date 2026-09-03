@@ -41,14 +41,14 @@ define void @main() {
   ; okay
   call void @dx.op.linAlgMatrixAccumulateToMemory.mC9M4N4U2S1.f32(i32 -2147483620, %dx.types.LinAlgMatrixC9M4N4U2S1 %7, float addrspace(3)* getelementptr inbounds ([64 x float], [64 x float] addrspace(3)* @"\01?SharedArr@@3PAMA", i32 0, i32 0), i32 9, i32 128, i32 16, i32 0)  ; LinAlgMatrixAccumulateToMemory(matrix,memory,targetType,offset,stride,layout)
 
-  ; CHECK: Function: main: error: Byte width of parameter 'Offset' must be a multiple of 128, got 516 (129 * 4).
+  ; CHECK: Function: main: error: Parameter 'Offset' in bytes must be a multiple of 128, got 516 (129 elements * 4 bytes per element).
   ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixAccumulateToMemory.mC9M4N4U2S1.f32
   call void @dx.op.linAlgMatrixAccumulateToMemory.mC9M4N4U2S1.f32(i32 -2147483620, %dx.types.LinAlgMatrixC9M4N4U2S1 %7, float addrspace(3)* getelementptr inbounds ([64 x float], [64 x float] addrspace(3)* @"\01?SharedArr@@3PAMA", i32 0, i32 0), i32 9, i32 129, i32 16, i32 0)  ; LinAlgMatrixAccumulateToMemory(matrix,memory,targetType,offset,stride,layout)
 
   ; okay only if offset accounts for byte width of component type
   call void @dx.op.linAlgMatrixAccumulateToMemory.mC9M4N4U2S1.f32(i32 -2147483620, %dx.types.LinAlgMatrixC9M4N4U2S1 %7, float addrspace(3)* getelementptr inbounds ([64 x float], [64 x float] addrspace(3)* @"\01?SharedArr@@3PAMA", i32 0, i32 0), i32 9, i32 32, i32 16, i32 0)  ; LinAlgMatrixAccumulateToMemory(matrix,memory,targetType,offset,stride,layout)
 
-  ; CHECK-NEXT: Function: main: error: Byte width of parameter 'Stride' must be a multiple of 16, got 68 (17 * 4).
+  ; CHECK-NEXT: Function: main: error: Parameter 'Stride' in bytes must be a multiple of 16, got 68 (17 elements * 4 bytes per element).
   ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixAccumulateToMemory.mC9M4N4U2S1.f32
   call void @dx.op.linAlgMatrixAccumulateToMemory.mC9M4N4U2S1.f32(i32 -2147483620, %dx.types.LinAlgMatrixC9M4N4U2S1 %7, float addrspace(3)* getelementptr inbounds ([64 x float], [64 x float] addrspace(3)* @"\01?SharedArr@@3PAMA", i32 0, i32 0), i32 9, i32 128, i32 17, i32 0)  ; LinAlgMatrixAccumulateToMemory(matrix,memory,targetType,offset,stride,layout)
 

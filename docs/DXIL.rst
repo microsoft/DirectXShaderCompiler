@@ -3212,7 +3212,7 @@ INSTR.INBOUNDSACCESS                                  Access to out-of-bounds me
 INSTR.LINALGILLEGALCOMPONENTTYPE                      Component type '%0' from %1 not allowed in LinAlg Matrix operations.
 INSTR.LINALGILLEGALKDIM                               %0 matrix K dimension out of bounds. K=%1 must be >= %2 and <= %3.
 INSTR.LINALGMATRIX2PARTSMUSTMATCH                     %0 matrix %1 '%2' must match %3 matrix %4 '%5'.
-INSTR.LINALGMATRIXBYTEWISEMUSTBEMULTIPLE              Byte width of parameter '%0' must be a multiple of %1, got %2 (%3 * %4).
+INSTR.LINALGMATRIXBYTEWISEMUSTBEMULTIPLE              Parameter '%0' in bytes must be a multiple of %1, got %2 (%3 elements * %4 bytes per element).
 INSTR.LINALGMATRIXDIMKVECKMISMATCH                    %0 vector size '%1' must be %2 for input matrix with K '%3' and Type '%4'
 INSTR.LINALGMATRIXDIMVECTORMISMATCH                   %0 vector size '%1' must match input matrix M dimension '%2'
 INSTR.LINALGMATRIXGSMEMMUSTBELARGEENOUGH              Groupshared memory holds '%0' scalars but must hold at least '%1' scalars.

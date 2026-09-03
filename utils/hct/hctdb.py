@@ -8757,7 +8757,7 @@ class db_dxil(object):
         )
         self.add_valrule(
             "Instr.LinAlgMatrixBytewiseMustBeMultiple",
-            "Byte width of parameter '%0' must be a multiple of %1, got %2 (%3 * %4).",
+            "Parameter '%0' in bytes must be a multiple of %1, got %2 (%3 elements * %4 bytes per element).",
         )
 
         # Some legacy rules:

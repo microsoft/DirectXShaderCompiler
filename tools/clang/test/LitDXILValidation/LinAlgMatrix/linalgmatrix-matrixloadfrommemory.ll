@@ -18,14 +18,14 @@ define void @main() {
   ; okay
   %1 = call %dx.types.LinAlgMatrixC9M4N4U0S1 @dx.op.linAlgMatrixLoadFromMemory.mC9M4N4U0S1.f32(i32 -2147483633, float addrspace(3)* getelementptr inbounds ([64 x float], [64 x float] addrspace(3)* @"\01?SharedArr@@3PAMA", i32 0, i32 0), i32 128, i32 16, i32 0)  ; LinAlgMatrixLoadFromMemory(memory,offset,stride,layout)
 
-  ; CHECK: Function: main: error: Byte width of parameter 'Offset' must be a multiple of 128, got 516 (129 * 4).
+  ; CHECK: Function: main: error: Parameter 'Offset' in bytes must be a multiple of 128, got 516 (129 elements * 4 bytes per element).
   ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixLoadFromMemory.mC9M4N4U0S1.f32
   %2 = call %dx.types.LinAlgMatrixC9M4N4U0S1 @dx.op.linAlgMatrixLoadFromMemory.mC9M4N4U0S1.f32(i32 -2147483633, float addrspace(3)* getelementptr inbounds ([64 x float], [64 x float] addrspace(3)* @"\01?SharedArr@@3PAMA", i32 0, i32 0), i32 129, i32 16, i32 0)  ; LinAlgMatrixLoadFromMemory(memory,offset,stride,layout)
 
   ; okay only if offset accounts for byte width of component type
   %3 = call %dx.types.LinAlgMatrixC9M4N4U0S1 @dx.op.linAlgMatrixLoadFromMemory.mC9M4N4U0S1.f32(i32 -2147483633, float addrspace(3)* getelementptr inbounds ([64 x float], [64 x float] addrspace(3)* @"\01?SharedArr@@3PAMA", i32 0, i32 0), i32 32, i32 16, i32 0)  ; LinAlgMatrixLoadFromMemory(memory,offset,stride,layout)
 
-  ; CHECK-NEXT: Function: main: error: Byte width of parameter 'Stride' must be a multiple of 16, got 68 (17 * 4).
+  ; CHECK-NEXT: Function: main: error: Parameter 'Stride' in bytes must be a multiple of 16, got 68 (17 elements * 4 bytes per element).
   ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixLoadFromMemory.mC9M4N4U0S1.f32
   %4 = call %dx.types.LinAlgMatrixC9M4N4U0S1 @dx.op.linAlgMatrixLoadFromMemory.mC9M4N4U0S1.f32(i32 -2147483633, float addrspace(3)* getelementptr inbounds ([64 x float], [64 x float] addrspace(3)* @"\01?SharedArr@@3PAMA", i32 0, i32 0), i32 128, i32 17, i32 0)  ; LinAlgMatrixLoadFromMemory(memory,offset,stride,layout)
 
