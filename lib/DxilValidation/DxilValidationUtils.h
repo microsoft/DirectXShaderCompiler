@@ -167,4 +167,6 @@ llvm::StringRef MatrixLayoutToString(DXIL::MatrixLayout ML);
 std::string TypeToString(llvm::Type *Ty);
 
 bool IsComponentTypeSameNativeType(DXIL::ComponentType CT, llvm::Type *Ty);
+
+bool IsComponentTypeNative(DXIL::ComponentType CT);
 } // namespace hlsl

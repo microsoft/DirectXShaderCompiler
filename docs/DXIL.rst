@@ -3231,7 +3231,10 @@ INSTR.LINALGMATRIXSCOPEREQLAYOUT2                     %0 matrix with scope '%1' 
 INSTR.LINALGMATRIXUNSIGNEDFLOATTYPENOTALLOWED         Float-like type '%0' must be signed
 INSTR.LINALGMATRIXUSEMISMATCH                         %0 matrix use '%1' does not match expected use %2.
 INSTR.LINALGMATRIXUSEMISMATCH2                        %0 matrix use '%1' does not match expected use %2 or %3.
+INSTR.LINALGMATRIXVECELEMCOUNTMISMATCH                Return vector size '%0' must match size '%1' derived from input vector size and type.
 INSTR.LINALGMATRIXVECELEMENTTYPEMISMATCH              %0 vector element type '%1' must match %2 vector element type '%3'
+INSTR.LINALGMATRIXVECTORTYPEMUSTMATCH                 %0 vector element type '%1' must match %2 matrix element type '%3'.
+INSTR.LINALGMATRIXVECTORTYPEMUSTMATCHPACKED           %0 vector element type '%1' must be i32 for %2 matrix with non-native element type '%3'.
 INSTR.LINALGMETADATAMISSING                           %0 matrix must have well-formed metadata.
 INSTR.MAYREORDERTHREADUNDEFCOHERENCEHINTPARAM         Use of undef coherence hint or num coherence hint bits in MaybeReorderThread.
 INSTR.MINPRECISIONNOTPRECISE                          Instructions marked precise may not refer to minprecision values.

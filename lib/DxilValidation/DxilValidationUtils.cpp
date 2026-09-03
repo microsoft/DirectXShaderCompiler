@@ -747,4 +747,21 @@ bool IsComponentTypeSameNativeType(DXIL::ComponentType CT, llvm::Type *Ty) {
   }
 }
 
+bool IsComponentTypeNative(DXIL::ComponentType CT) {
+  switch (CT) {
+  case DXIL::ComponentType::I16:
+  case DXIL::ComponentType::U16:
+  case DXIL::ComponentType::I32:
+  case DXIL::ComponentType::U32:
+  case DXIL::ComponentType::I64:
+  case DXIL::ComponentType::U64:
+  case DXIL::ComponentType::F16:
+  case DXIL::ComponentType::F32:
+  case DXIL::ComponentType::F64:
+    return true;
+  default:
+    return false;
+  }
+}
+
 } // namespace hlsl
