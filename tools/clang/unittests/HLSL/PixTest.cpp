@@ -161,7 +161,7 @@ public:
   TEST_METHOD(NonUniformResourceIndex_Raytracing)
 
   // Control tests for the PIX pass validation harness below
-  // (ValidateInstrumentedModule / VerifyInstrumentedModuleIsValid).
+  // (validateInstrumentedModule / verifyInstrumentedModuleIsValid).
   TEST_METHOD(Validation_ControlValidModulePasses)
   TEST_METHOD(Validation_ControlInvalidModuleFails)
   TEST_METHOD(Validation_ControlNonPixUnusedMetadataIsRejected)
@@ -276,7 +276,7 @@ public:
     std::vector<std::string> Lines;
   };
 
-  SinglePassOutput RunSinglePass(IDxcBlob *Dxil, LPCWSTR PassOption) {
+  SinglePassOutput runSinglePass(IDxcBlob *Dxil, LPCWSTR PassOption) {
     CComPtr<IDxcOptimizer> Optimizer;
     VERIFY_SUCCEEDED(
         m_dllSupport.CreateInstance(CLSID_DxcOptimizer, &Optimizer));
@@ -306,7 +306,7 @@ public:
   // The validator (and the assembler, when reconstructing a container
   // from bare bitcode) both require a container; some pass runners
   // return bare bitcode instead.
-  CComPtr<IDxcBlob> NormalizeToContainer(IDxcBlob *Module) {
+  CComPtr<IDxcBlob> normalizeToContainer(IDxcBlob *Module) {
     if (hlsl::IsDxilContainerLike(Module->GetBufferPointer(),
                                   Module->GetBufferSize()) != nullptr) {
       return Module;
@@ -314,7 +314,7 @@ public:
     return pix_test::WrapInNewContainer(m_dllSupport, Module);
   }
 
-  ValidationResult RunValidator(IDxcBlob *Container) {
+  ValidationResult runValidator(IDxcBlob *Container) {
     CComPtr<IDxcValidator> Validator;
     VERIFY_SUCCEEDED(
         m_dllSupport.CreateInstance(CLSID_DxcValidator, &Validator));
@@ -342,7 +342,7 @@ public:
       pix_dxil::PixAllocaReg::MDName, pix_dxil::PixAllocaRegWrite::MDName};
 
   // Removes the known PIX metadata kinds from every function and instruction.
-  static void StripKnownPixVirtualRegisterMetadata(llvm::Module &M) {
+  static void stripKnownPixVirtualRegisterMetadata(llvm::Module &M) {
     llvm::LLVMContext &Ctx = M.getContext();
     for (const char *Kind : KnownPixVirtualRegisterMetadataKinds) {
       unsigned KindID = Ctx.getMDKindID(Kind);
@@ -360,7 +360,7 @@ public:
   // Parses Container into an isolated LLVM module, applies Mutate to it,
   // and re-serializes into a fresh validator-ready container.
   template <typename MutatorFn>
-  CComPtr<IDxcBlob> CloneModuleAndMutate(IDxcBlob *Container,
+  CComPtr<IDxcBlob> cloneModuleAndMutate(IDxcBlob *Container,
                                          MutatorFn Mutate) {
     ModuleAndHangersOn ModuleEtc(Container);
     llvm::Module *M = ModuleEtc.GetDxilModule().GetModule();
@@ -382,10 +382,10 @@ public:
     return pix_test::WrapInNewContainer(m_dllSupport, BitcodeBlob);
   }
 
-  ValidationResult ValidateInstrumentedModule(IDxcBlob *Module) {
-    CComPtr<IDxcBlob> Container = NormalizeToContainer(Module);
+  ValidationResult validateInstrumentedModule(IDxcBlob *Module) {
+    CComPtr<IDxcBlob> Container = normalizeToContainer(Module);
 
-    ValidationResult DirectResult = RunValidator(Container);
+    ValidationResult DirectResult = runValidator(Container);
     if (DirectResult.Valid) {
       return DirectResult;
     }
@@ -396,8 +396,8 @@ public:
     // and revalidate. If this fixes the module, PIX metadata was the only
     // cause.
     CComPtr<IDxcBlob> StrippedContainer =
-        CloneModuleAndMutate(Container, StripKnownPixVirtualRegisterMetadata);
-    if (RunValidator(StrippedContainer).Valid) {
+        cloneModuleAndMutate(Container, stripKnownPixVirtualRegisterMetadata);
+    if (runValidator(StrippedContainer).Valid) {
       return {true, {}};
     }
 
@@ -407,7 +407,7 @@ public:
   // Joins diagnostic lines, skipping blanks and "Validation failed."
   // boilerplate.
   static std::string
-  GetSignificantValidationDiagnostics(const std::string &Errors) {
+  getSignificantValidationDiagnostics(const std::string &Errors) {
     std::string Result;
     std::stringstream ErrorStream(Errors);
     std::string Line;
@@ -425,16 +425,16 @@ public:
 
   // Asserts that an instrumented module is valid when known PIX metadata is
   // unused. Logs and fails on any other validator error.
-  void VerifyInstrumentedModuleIsValid(IDxcBlob *Module,
+  void verifyInstrumentedModuleIsValid(IDxcBlob *Module,
                                        const char *Description) {
-    ValidationResult Result = ValidateInstrumentedModule(Module);
+    ValidationResult Result = validateInstrumentedModule(Module);
     if (Result.Valid) {
       return;
     }
 
     WEX::Logging::Log::Error(WEX::Common::String().Format(
         L"Validation failed after %S:\n%S", Description,
-        GetSignificantValidationDiagnostics(Result.Errors).c_str()));
+        getSignificantValidationDiagnostics(Result.Errors).c_str()));
     VERIFY_FAIL();
   }
 
@@ -3645,7 +3645,7 @@ void main(uint3 tid : SV_DispatchThreadID) {
 
 ///////////////////////////////////////////////////////////////////////////////
 // Control tests for the PIX pass validation harness
-// (ValidateInstrumentedModule / VerifyInstrumentedModuleIsValid).
+// (validateInstrumentedModule / verifyInstrumentedModuleIsValid).
 //
 // These tests use the same trivial pixel shader and virtual-register
 // annotation pass. This keeps the valid and invalid cases comparable.
@@ -3662,8 +3662,8 @@ float main() : SV_Target
   CComPtr<IDxcBlob> Compiled =
       Compile(m_dllSupport, Source, L"ps_6_0", {L"-Od"});
   SinglePassOutput Output =
-      RunSinglePass(Compiled, L"-dxil-annotate-with-virtual-regs");
-  VerifyInstrumentedModuleIsValid(
+      runSinglePass(Compiled, L"-dxil-annotate-with-virtual-regs");
+  verifyInstrumentedModuleIsValid(
       Output.Module,
       "virtual-register annotation of a trivial pixel shader (validation "
       "harness control)");
@@ -3679,7 +3679,7 @@ float main() : SV_Target
   CComPtr<IDxcBlob> Compiled =
       Compile(m_dllSupport, Source, L"ps_6_0", {L"-Od"});
   SinglePassOutput Output =
-      RunSinglePass(Compiled, L"-dxil-annotate-with-virtual-regs");
+      runSinglePass(Compiled, L"-dxil-annotate-with-virtual-regs");
 
   // Mislabel the shader stage, so the container carries both the
   // harness's permitted PIX metadata and a real defect.
@@ -3705,7 +3705,7 @@ float main() : SV_Target
 
   // Direct validation's own diagnostic proves the PIX metadata is present
   // and otherwise unused, alongside rejecting for the mislabeled stage.
-  ValidationResult DirectResult = RunValidator(CorruptedContainer);
+  ValidationResult DirectResult = runValidator(CorruptedContainer);
   VERIFY_IS_FALSE(DirectResult.Valid);
   VERIFY_IS_TRUE(DirectResult.Errors.find(
                      "All metadata must be used by dxil") != std::string::npos);
@@ -3713,10 +3713,10 @@ float main() : SV_Target
   // The harness must still reject it, for a reason other than the
   // permitted metadata.
   ValidationResult HarnessResult =
-      ValidateInstrumentedModule(CorruptedContainer);
+      validateInstrumentedModule(CorruptedContainer);
   VERIFY_IS_FALSE(HarnessResult.Valid);
   VERIFY_IS_FALSE(
-      GetSignificantValidationDiagnostics(HarnessResult.Errors).empty());
+      getSignificantValidationDiagnostics(HarnessResult.Errors).empty());
 }
 
 // A foreign, unused instruction metadata kind with the module's PIX metadata
@@ -3731,11 +3731,11 @@ float main() : SV_Target
   CComPtr<IDxcBlob> Compiled =
       Compile(m_dllSupport, Source, L"ps_6_0", {L"-Od"});
   SinglePassOutput Output =
-      RunSinglePass(Compiled, L"-dxil-annotate-with-virtual-regs");
-  CComPtr<IDxcBlob> Container = NormalizeToContainer(Output.Module);
+      runSinglePass(Compiled, L"-dxil-annotate-with-virtual-regs");
+  CComPtr<IDxcBlob> Container = normalizeToContainer(Output.Module);
 
   CComPtr<IDxcBlob> WithForeignMetadata =
-      CloneModuleAndMutate(Container, [](llvm::Module &M) {
+      cloneModuleAndMutate(Container, [](llvm::Module &M) {
         for (llvm::Function &F : M) {
           if (F.isDeclaration()) {
             continue;
@@ -3747,6 +3747,6 @@ float main() : SV_Target
         }
       });
 
-  ValidationResult Result = ValidateInstrumentedModule(WithForeignMetadata);
+  ValidationResult Result = validateInstrumentedModule(WithForeignMetadata);
   VERIFY_IS_FALSE(Result.Valid);
 }
