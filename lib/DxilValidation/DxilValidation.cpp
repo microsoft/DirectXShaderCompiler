@@ -1118,7 +1118,7 @@ static unsigned ComponentTypeByteCount(DXIL::ComponentType CT) {
   case DXIL::ComponentType::F64:
     return 8;
   // All other ComponentTypes are illegal to use in LinAlg Matrix. Their usage
-  // is detected and reported in other parts on the validator
+  // is detected and reported in other parts of the validator
   default:
     return 1;
   }
