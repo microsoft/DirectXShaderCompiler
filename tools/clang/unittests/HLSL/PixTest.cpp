@@ -3663,8 +3663,10 @@ float main() : SV_Target
   // Virtual-register annotation adds metadata that DXIL does not consume,
   // so this module only validates because that metadata is one of the
   // four known PIX kinds.
-  auto compiled = Compile(m_dllSupport, source, L"ps_6_0", {L"-Od"});
-  auto output = RunSinglePass(compiled, L"-dxil-annotate-with-virtual-regs");
+  CComPtr<IDxcBlob> compiled =
+      Compile(m_dllSupport, source, L"ps_6_0", {L"-Od"});
+  SinglePassOutput output =
+      RunSinglePass(compiled, L"-dxil-annotate-with-virtual-regs");
   VerifyInstrumentedModuleIsValid(
       output.Module,
       "virtual-register annotation of a trivial pixel shader (validation "
@@ -3678,14 +3680,16 @@ float main() : SV_Target
     return 0;
 })x";
 
-  auto compiled = Compile(m_dllSupport, source, L"ps_6_0", {L"-Od"});
-  auto output = RunSinglePass(compiled, L"-dxil-annotate-with-virtual-regs");
+  CComPtr<IDxcBlob> compiled =
+      Compile(m_dllSupport, source, L"ps_6_0", {L"-Od"});
+  SinglePassOutput output =
+      RunSinglePass(compiled, L"-dxil-annotate-with-virtual-regs");
 
   // Mislabel the shader stage, so the container carries both the
   // harness's permitted PIX metadata and a real defect.
   std::string disassembly = Disassemble(output.Module);
   const std::string shaderKindTag = "!\"ps\",";
-  auto tagPosition = disassembly.find(shaderKindTag);
+  std::string::size_type tagPosition = disassembly.find(shaderKindTag);
   VERIFY_IS_TRUE(tagPosition != std::string::npos);
   disassembly.replace(tagPosition, shaderKindTag.size(), "!\"vs\",");
 
