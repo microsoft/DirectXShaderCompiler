@@ -1578,7 +1578,7 @@ static void ValidateLinAlgConvert(CallInst *CI, ValidationContext &ValCtx) {
                                                       "OutputInterpretation");
 
   // The remaining validations only give reasonable errors when assuming valid
-  // ComponentTypes. Stop early to minimze noise/avoid being unhelpful
+  // ComponentTypes. Stop early to minimize noise/avoid being unhelpful
   if (!IsComponentTypeValid)
     return;
 

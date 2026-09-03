@@ -8753,7 +8753,7 @@ class db_dxil(object):
         )
         self.add_valrule(
             "Instr.LinAlgMatrixVecElemCountMismatch",
-            "Return vector size '%0' must must size '%1' derived from input vector size and type.",
+            "Return vector size '%0' must match size '%1' derived from input vector size and type.",
         )
 
         # Some legacy rules:

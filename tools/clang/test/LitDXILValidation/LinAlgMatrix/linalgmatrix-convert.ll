@@ -47,7 +47,7 @@ define void @main() {
   ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgConvert.v32i32.v8f32
   %12 = call <32 x i32> @dx.op.linAlgConvert.v32i32.v8f32(i32 -2147483618, <8 x float> <float 9.000000e+00, float 8.000000e+00, float 7.000000e+00, float 6.000000e+00, float 5.000000e+00, float 4.000000e+00, float 3.000000e+00, float 2.000000e+00>, i32 21, i32 4)  ; LinAlgConvert(inputVector,inputInterpretation,outputInterpretation)
 
-  ; CHECK-NEXT: Function: main: error: Return vector size '32' must must size '2' derived from input vector size and type.
+  ; CHECK-NEXT: Function: main: error: Return vector size '32' must match size '2' derived from input vector size and type.
   ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgConvert.v32i32.v8f32
   %13 = call <32 x i32> @dx.op.linAlgConvert.v32i32.v8f32(i32 -2147483618, <8 x float> <float 9.000000e+00, float 8.000000e+00, float 7.000000e+00, float 6.000000e+00, float 5.000000e+00, float 4.000000e+00, float 3.000000e+00, float 2.000000e+00>, i32 9, i32 21)  ; LinAlgConvert(inputVector,inputInterpretation,outputInterpretation)
 
