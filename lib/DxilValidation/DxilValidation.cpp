@@ -1091,7 +1091,7 @@ static unsigned ComponentTypeElementsPerScalar(DXIL::ComponentType CT) {
   case DXIL::ComponentType::F8_E5M2:
     return 4;
   // All other ComponentTypes are illegal to use in LinAlg Matrix. Their usage
-  // is detected and reported in other parts on the validator
+  // is detected and reported in other parts of the validator
   default:
     return 4;
   }
@@ -1316,7 +1316,6 @@ static void ValidateLinAlgMatrixStoreToMemory(CallInst *CI,
   }
 
   // if it is constant then stride must be 16-byte aligned
-  // gs memory ops have the parameter in element count so it must be scaled
   if (ConstantInt *StrideV = dyn_cast<ConstantInt>(Op.get_stride())) {
     unsigned Stride = StrideV->getLimitedValue();
     uint64_t StrideBytes = Stride * ByteCount;
@@ -1583,7 +1582,6 @@ static void ValidateLinAlgMatrixAccumulateToMemory(CallInst *CI,
   }
 
   // if it is constant then stride must be 16-byte aligned
-  // gs memory ops have the parameter in element count so it must be scaled
   if (ConstantInt *StrideV = dyn_cast<ConstantInt>(Op.get_stride())) {
     unsigned Stride = StrideV->getLimitedValue();
     uint64_t StrideBytes = Stride * ByteCount;
@@ -1789,7 +1787,6 @@ static void ValidateLinAlgMatrixLoadFromMemory(CallInst *CI,
   }
 
   // if it is constant then stride must be 16-byte aligned
-  // gs memory ops have the parameter in element count so it must be scaled
   if (ConstantInt *StrideV = dyn_cast<ConstantInt>(Op.get_stride())) {
     unsigned Stride = StrideV->getLimitedValue();
     uint64_t StrideBytes = Stride * ByteCount;
