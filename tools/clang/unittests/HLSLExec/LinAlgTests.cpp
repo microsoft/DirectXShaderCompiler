@@ -809,7 +809,7 @@ static std::optional<TypedMatrix> makeTypedMatrix(MatrixDim M, MatrixDim N,
 
 static std::optional<TypedMatrix>
 makeSequentialMatrix(ComponentType CompType, MatrixDim M, MatrixDim N,
-                     uint32_t StartingValue = 1) {
+                     uint32_t StartingValue = 1, uint32_t Step = 1) {
   size_t NumElements;
   if (M == 0 || N == 0 ||
       !checkedMultiply(static_cast<size_t>(M), static_cast<size_t>(N),
@@ -819,8 +819,15 @@ makeSequentialMatrix(ComponentType CompType, MatrixDim M, MatrixDim N,
     return std::nullopt;
   }
 
+  if (Step == 0) {
+    hlsl_test::LogErrorFmt(L"Sequential matrix step must be non-zero");
+    return std::nullopt;
+  }
+
+  size_t SpanSize;
   size_t LastValueSize;
-  if (!checkedAdd(static_cast<size_t>(StartingValue), NumElements - 1,
+  if (!checkedMultiply(static_cast<size_t>(Step), NumElements - 1, SpanSize) ||
+      !checkedAdd(static_cast<size_t>(StartingValue), SpanSize,
                   LastValueSize)) {
     hlsl_test::LogErrorFmt(L"Sequential matrix value calculation overflowed");
     return std::nullopt;
@@ -838,7 +845,8 @@ makeSequentialMatrix(ComponentType CompType, MatrixDim M, MatrixDim N,
     Values.reserve(NumElements);
     for (size_t I = 0; I < NumElements; ++I)
       Values.emplace_back(static_cast<float>(
-          static_cast<uint64_t>(StartingValue) + static_cast<uint64_t>(I)));
+          static_cast<uint64_t>(StartingValue) +
+          static_cast<uint64_t>(Step) * static_cast<uint64_t>(I)));
     return makeTypedMatrix(M, N, std::move(Values));
   }
   case ComponentType::F32: {
@@ -852,7 +860,8 @@ makeSequentialMatrix(ComponentType CompType, MatrixDim M, MatrixDim N,
     Values.reserve(NumElements);
     for (size_t I = 0; I < NumElements; ++I)
       Values.push_back(static_cast<float>(static_cast<uint64_t>(StartingValue) +
-                                          static_cast<uint64_t>(I)));
+                                          static_cast<uint64_t>(Step) *
+                                              static_cast<uint64_t>(I)));
     return makeTypedMatrix(M, N, std::move(Values));
   }
   case ComponentType::I32: {
@@ -866,7 +875,8 @@ makeSequentialMatrix(ComponentType CompType, MatrixDim M, MatrixDim N,
     Values.reserve(NumElements);
     for (size_t I = 0; I < NumElements; ++I)
       Values.push_back(static_cast<int32_t>(
-          static_cast<uint64_t>(StartingValue) + static_cast<uint64_t>(I)));
+          static_cast<uint64_t>(StartingValue) +
+          static_cast<uint64_t>(Step) * static_cast<uint64_t>(I)));
     return makeTypedMatrix(M, N, std::move(Values));
   }
   case ComponentType::U32: {
@@ -879,7 +889,8 @@ makeSequentialMatrix(ComponentType CompType, MatrixDim M, MatrixDim N,
     Values.reserve(NumElements);
     for (size_t I = 0; I < NumElements; ++I)
       Values.push_back(static_cast<uint32_t>(
-          static_cast<uint64_t>(StartingValue) + static_cast<uint64_t>(I)));
+          static_cast<uint64_t>(StartingValue) +
+          static_cast<uint64_t>(Step) * static_cast<uint64_t>(I)));
     return makeTypedMatrix(M, N, std::move(Values));
   }
   default:
@@ -1393,6 +1404,54 @@ storeBufferBoundedByView(const TypedMatrix &Source,
         continue;
       for (size_t I = *ByteOffset; I < ElementEnd; ++I)
         Buffer[I] = poisonByteAt(I);
+    }
+  }
+  return Buffer;
+}
+
+// Accumulate-side counterpart to storeBufferBoundedByView. Elements the view
+// does not admit whole keep their seeded value.
+static std::optional<std::vector<BYTE>> accumulateBufferBoundedByView(
+    const TypedMatrix &Initial, const TypedMatrix &Accumulated,
+    const MatrixBufferLayout &Layout, size_t ViewBytes) {
+  if (!isMatrixValid(Initial) || !isMatrixValid(Accumulated)) {
+    hlsl_test::LogErrorFmt(L"Cannot bound an invalid typed matrix to a view");
+    return std::nullopt;
+  }
+  if (Initial.compType() != Accumulated.compType() ||
+      Initial.M != Accumulated.M || Initial.N != Accumulated.N) {
+    hlsl_test::LogErrorFmt(
+        L"Initial and accumulated matrices must share component type and "
+        L"shape");
+    return std::nullopt;
+  }
+
+  std::optional<size_t> BufferSize = getMatrixBufferSize(Initial, Layout);
+  if (!BufferSize)
+    return std::nullopt;
+
+  std::vector<BYTE> Buffer(*BufferSize);
+  std::vector<BYTE> InitialImage(*BufferSize);
+  fillPoison(Buffer.data(), Buffer.size());
+  fillPoison(InitialImage.data(), InitialImage.size());
+  if (!writeMatrixBuffer(Accumulated, Layout, Buffer) ||
+      !writeMatrixBuffer(Initial, Layout, InitialImage))
+    return std::nullopt;
+
+  const size_t ElementBytes = elementSize(Initial.compType());
+  for (MatrixDim Row = 0; Row < Initial.M; ++Row) {
+    for (MatrixDim Column = 0; Column < Initial.N; ++Column) {
+      std::optional<size_t> ByteOffset = getElementByteOffset(
+          Initial.compType(), Initial.M, Initial.N, Row, Column, Layout);
+      if (!ByteOffset)
+        return std::nullopt;
+      size_t ElementEnd;
+      if (!checkedAdd(*ByteOffset, ElementBytes, ElementEnd))
+        return std::nullopt;
+      if (ElementEnd <= ViewBytes)
+        continue;
+      for (size_t I = *ByteOffset; I < ElementEnd; ++I)
+        Buffer[I] = InitialImage[I];
     }
   }
   return Buffer;
@@ -3546,6 +3605,8 @@ public:
   TEST_METHOD(LoadDescriptorOOB_Wave_4x8_F16_OffsetPaddedPartialView);
   TEST_METHOD(StoreDescriptorOOB_Wave_16x16_F16_PartialView);
   TEST_METHOD(StoreDescriptorOOB_Wave_4x8_F16_OffsetPaddedPartialView);
+  TEST_METHOD(AccumulateDescriptorOOB_Wave_16x16_F16_PartialView);
+  TEST_METHOD(AccumulateDescriptorOOB_Wave_4x8_F16_OffsetPaddedPartialView);
   TEST_METHOD(SplatStore_Wave_16x16_F16);
   TEST_METHOD(AccumulateDescriptor_Wave_16x16_F16);
   TEST_METHOD(AccumulateDescriptorContention_Wave_4x8_I32);
@@ -4009,6 +4070,135 @@ static void runStoreDescriptorOutOfBounds(
       Verbose));
 }
 
+static const char AccumulateDescriptorOOBShader[] = R"(
+  RWByteAddressBuffer Input : register(u0);
+  RWByteAddressBuffer Output : register(u1);
+
+  #ifdef FORCED_WAVE_SIZE
+  [WaveSize(FORCED_WAVE_SIZE)]
+  #else
+  [WaveSize(4, 128)]
+  #endif
+  [numthreads(NUMTHREADS, 1, 1)]
+  void main() {
+    if (GetGroupWaveIndex() != 0)
+      return;
+
+    __builtin_LinAlgMatrix
+      [[__LinAlgMatrix_Attributes(COMP_TYPE, M_DIM, N_DIM, USE, SCOPE)]]
+      Mat;
+    __builtin_LinAlg_MatrixLoadFromDescriptor(
+      Mat, Input, LOAD_OFFSET, LOAD_STRIDE, LOAD_LAYOUT, DECLARED_ALIGN);
+    __builtin_LinAlg_MatrixAccumulateToDescriptor(
+      Mat, Output, STORE_OFFSET, STORE_STRIDE, STORE_LAYOUT, DECLARED_ALIGN);
+  }
+)";
+
+static constexpr uint32_t AccumulateOOBAddendBase = 1;
+static constexpr uint32_t AccumulateOOBInitialBase = 1000;
+
+static void runAccumulateDescriptorOutOfBounds(
+    ID3D12Device *Device, dxc::SpecificDllLoader &DxcSupport,
+    const MatrixParams &Params, const cpu_oracle::MatrixBufferLayout &Layout,
+    size_t OutputViewBytes, bool Verbose, UINT ForcedWaveSize = 0) {
+  std::optional<cpu_oracle::TypedMatrix> Addend =
+      cpu_oracle::makeSequentialMatrix(Params.CompType, Params.M, Params.N,
+                                       AccumulateOOBAddendBase);
+  std::optional<cpu_oracle::TypedMatrix> Initial =
+      cpu_oracle::makeSequentialMatrix(Params.CompType, Params.M, Params.N,
+                                       AccumulateOOBInitialBase);
+  std::optional<cpu_oracle::TypedMatrix> Accumulated =
+      cpu_oracle::makeSequentialMatrix(
+          Params.CompType, Params.M, Params.N,
+          AccumulateOOBInitialBase + AccumulateOOBAddendBase, /*Step=*/2);
+  VERIFY_IS_TRUE(Addend.has_value() && Initial.has_value() &&
+                     Accumulated.has_value(),
+                 "Unable to construct typed AccumulateDescriptorOOB matrices");
+
+  std::optional<size_t> BufferSize =
+      cpu_oracle::getMatrixBufferSize(*Initial, Layout);
+  VERIFY_IS_TRUE(BufferSize.has_value(),
+                 "Unable to size the AccumulateDescriptorOOB buffers");
+  VERIFY_IS_TRUE(OutputViewBytes < *BufferSize,
+                 "The destination view must be shorter than its buffer");
+
+  std::optional<std::vector<BYTE>> PerElement =
+      cpu_oracle::accumulateBufferBoundedByView(*Initial, *Accumulated, Layout,
+                                                OutputViewBytes);
+  std::optional<std::vector<BYTE>> WholeOperation =
+      cpu_oracle::accumulateBufferBoundedByView(*Initial, *Accumulated, Layout,
+                                                0);
+  std::optional<std::vector<BYTE>> Unbounded =
+      cpu_oracle::accumulateBufferBoundedByView(*Initial, *Accumulated, Layout,
+                                                *BufferSize);
+  VERIFY_IS_TRUE(PerElement.has_value() && WholeOperation.has_value() &&
+                     Unbounded.has_value(),
+                 "Unable to derive the AccumulateDescriptorOOB candidates");
+
+  VERIFY_IS_TRUE(*PerElement != *WholeOperation,
+                 "The destination view must admit at least one whole element");
+  VERIFY_IS_TRUE(*PerElement != *Unbounded,
+                 "The destination view must exclude at least one element");
+
+  std::stringstream ExtraDefs;
+  ExtraDefs << " -DLOAD_OFFSET=" << Layout.OffsetBytes;
+  ExtraDefs << " -DLOAD_STRIDE=" << Layout.StrideBytes;
+  ExtraDefs << " -DLOAD_LAYOUT=" << static_cast<int>(Layout.Layout);
+  ExtraDefs << " -DSTORE_OFFSET=" << Layout.OffsetBytes;
+  ExtraDefs << " -DSTORE_STRIDE=" << Layout.StrideBytes;
+  ExtraDefs << " -DSTORE_LAYOUT=" << static_cast<int>(Layout.Layout);
+  ExtraDefs << " -DDECLARED_ALIGN=" << DescriptorDeclaredAlignment;
+
+  if (ForcedWaveSize != 0)
+    ExtraDefs << " -DFORCED_WAVE_SIZE=" << ForcedWaveSize;
+
+  std::string Args = buildCompilerArgs(Params, ExtraDefs.str().c_str());
+
+  compileShader(DxcSupport, AccumulateDescriptorOOBShader, "cs_6_10", Args,
+                Verbose);
+
+  // The source is viewed in full so only the destination bound is exercised.
+  const cpu_oracle::TypedMatrix AddendMatrix = *Addend;
+  const cpu_oracle::TypedMatrix InitialMatrix = *Initial;
+  auto Op = createComputeOp(AccumulateDescriptorOOBShader, "cs_6_10",
+                            "DescriptorTable(UAV(u0), UAV(u1))", Args.c_str());
+  addUAVBuffer(Op.get(), "Input", *BufferSize, false, "byname");
+  addUAVBuffer(Op.get(), "Output", *BufferSize, true, "byname");
+  addHeapRawUAV(Op.get(), "ResHeap", "Input", *BufferSize);
+  addHeapRawUAV(Op.get(), "ResHeap", "Output", OutputViewBytes);
+  addRootTable(Op.get(), 0, "ResHeap");
+
+  auto Result = runShaderOp(
+      Device, DxcSupport, std::move(Op),
+      [AddendMatrix, InitialMatrix,
+       Layout](LPCSTR Name, std::vector<BYTE> &Data, st::ShaderOp *) {
+        cpu_oracle::fillPoison(Data.data(), Data.size());
+        const cpu_oracle::TypedMatrix *Source = nullptr;
+        if (_stricmp(Name, "Input") == 0)
+          Source = &AddendMatrix;
+        else if (_stricmp(Name, "Output") == 0)
+          Source = &InitialMatrix;
+        if (!Source)
+          return;
+        VERIFY_IS_TRUE(cpu_oracle::writeMatrixBuffer(*Source, Layout, Data),
+                       "Unable to encode AccumulateDescriptorOOB buffer");
+      },
+      [Layout](ID3D12GraphicsCommandList *, st::ShaderOpTest *Test) {
+        verifyDescriptorBaseAlignment(Test, "Input", Layout.OffsetBytes);
+        verifyDescriptorBaseAlignment(Test, "Output", Layout.OffsetBytes);
+      });
+
+  MappedData OutData;
+  Result->Test->GetReadBackData("Output", &OutData);
+
+  VERIFY_IS_TRUE(cpu_oracle::verifyStoreBuffer(
+      OutData.data(), OutData.size(), {*PerElement, *WholeOperation},
+      L"HLSL proposal 0035 bounds checking on MatrixAccumulateToDescriptor: "
+      L"either the whole accumulation or only the out-of-view element "
+      L"accumulations become a no-op",
+      Verbose));
+}
+
 // No offset and a tightly packed stride: a matrix occupying the whole buffer.
 static cpu_oracle::MatrixBufferLayout packedLayout(const MatrixParams &Params) {
   return cpu_oracle::MatrixBufferLayout{
@@ -4292,6 +4482,72 @@ void DxilConf_SM610_LinAlg::
   runStoreDescriptorOutOfBounds(D3DDevice, DxcSupport, Params, Layout,
                                 /*OutputViewBytes=*/172, VerboseLogging,
                                 SelectedWaveSize);
+}
+
+void DxilConf_SM610_LinAlg::
+    AccumulateDescriptorOOB_Wave_16x16_F16_PartialView() {
+  MatrixParams Params = {};
+  Params.CompType = ComponentType::F16;
+  Params.M = 16;
+  Params.N = 16;
+  Params.Use = MatrixUse::Accumulator;
+  Params.Scope = MatrixScope::Wave;
+  Params.Layout = MatrixLayout::RowMajor;
+  Params.NumThreads = 128;
+  Params.Enable16Bit = true;
+
+  UINT SelectedWaveSize = 0;
+  if (!matrixConstructionApplicable(D3DDevice, Params, {Params.Use},
+                                    L"AccumulateDescriptorOOB_Wave_16x16_F16_"
+                                    L"PartialView",
+                                    SelectedWaveSize))
+    return;
+  if (!accumulateStoreApplicable(
+          D3DDevice, Params.CompType,
+          linalg_test::AtomicDestination::RWByteAddressBuffer,
+          L"AccumulateDescriptorOOB_Wave_16x16_F16_PartialView"))
+    return;
+
+  // 260 bytes: rows 0 to 7 whole plus two elements of row 8.
+  runAccumulateDescriptorOutOfBounds(
+      D3DDevice, DxcSupport, Params, packedLayout(Params),
+      /*OutputViewBytes=*/260, VerboseLogging, SelectedWaveSize);
+}
+
+void DxilConf_SM610_LinAlg::
+    AccumulateDescriptorOOB_Wave_4x8_F16_OffsetPaddedPartialView() {
+  MatrixParams Params = {};
+  Params.CompType = ComponentType::F16;
+  Params.M = 4;
+  Params.N = 8;
+  Params.Use = MatrixUse::Accumulator;
+  Params.Scope = MatrixScope::Wave;
+  Params.Layout = MatrixLayout::RowMajor;
+  Params.NumThreads = 128;
+  Params.Enable16Bit = true;
+
+  UINT SelectedWaveSize = 0;
+  if (!matrixConstructionApplicable(D3DDevice, Params, {Params.Use},
+                                    L"AccumulateDescriptorOOB_Wave_4x8_F16_"
+                                    L"OffsetPaddedPartialView",
+                                    SelectedWaveSize))
+    return;
+  if (!accumulateStoreApplicable(
+          D3DDevice, Params.CompType,
+          linalg_test::AtomicDestination::RWByteAddressBuffer,
+          L"AccumulateDescriptorOOB_Wave_4x8_F16_OffsetPaddedPartialView"))
+    return;
+
+  const cpu_oracle::MatrixBufferLayout Layout = {
+      MatrixLayout::RowMajor,
+      /*OffsetBytes=*/DescriptorAlignedOffset,
+      /*StrideBytes=*/32,
+  };
+
+  // 172 bytes: row 0 whole plus columns 0 to 5 of row 1.
+  runAccumulateDescriptorOutOfBounds(D3DDevice, DxcSupport, Params, Layout,
+                                     /*OutputViewBytes=*/172, VerboseLogging,
+                                     SelectedWaveSize);
 }
 
 static const char SplatStoreShader[] = R"(
