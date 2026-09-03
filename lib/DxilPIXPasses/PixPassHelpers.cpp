@@ -296,7 +296,8 @@ static void AddUAVToDxilDefinedGlobalRootSignatures(DxilModule &DM,
     }
 
     constexpr bool notALocalRS = false;
-    for (auto const &replacementRootSignature : replacementRootSignatures) {
+    for (const ReplacementRootSignature &replacementRootSignature :
+         replacementRootSignatures) {
       subObjects->RemoveSubobject(replacementRootSignature.Name);
       subObjects->CreateRootSignature(
           replacementRootSignature.Name, notALocalRS,
@@ -312,7 +313,7 @@ hlsl::DxilResource *CreateGlobalUAVResource(hlsl::DxilModule &DM,
                                             const char *name) {
   LLVMContext &Ctx = DM.GetModule()->getContext();
 
-  for (auto const &existingUAV : DM.GetUAVs()) {
+  for (const std::unique_ptr<DxilResource> &existingUAV : DM.GetUAVs()) {
     if (existingUAV->GetSpaceID() == toolsRegisterSpace &&
         existingUAV->GetLowerBound() == hlslBindIndex) {
       return existingUAV.get();
@@ -573,9 +574,9 @@ void ForEachDynamicallyIndexedResource(
 
   auto CreateHandleFn =
       HlslOP->GetOpFunc(DXIL::OpCode::CreateHandle, Type::getVoidTy(Ctx));
-  auto CreateHandleFromBindingFn = HlslOP->GetOpFunc(
+  llvm::Function *CreateHandleFromBindingFn = HlslOP->GetOpFunc(
       DXIL::OpCode::CreateHandleFromBinding, Type::getVoidTy(Ctx));
-  auto CreateHandleFromHeapFn = HlslOP->GetOpFunc(
+  llvm::Function *CreateHandleFromHeapFn = HlslOP->GetOpFunc(
       DXIL::OpCode::CreateHandleFromHeap, Type::getVoidTy(Ctx));
 
   struct UnusedDeclarationCleanup {

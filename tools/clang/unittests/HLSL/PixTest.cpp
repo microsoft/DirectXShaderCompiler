@@ -692,7 +692,7 @@ bool PixTest::InitSupport() {
 
 static unsigned CountToolsUAVs(DxilModule &DM) {
   unsigned count = 0;
-  for (auto const &uav : DM.GetUAVs()) {
+  for (const std::unique_ptr<DxilResource> &uav : DM.GetUAVs()) {
     if (uav->GetSpaceID() == static_cast<uint32_t>(-2)) {
       count++;
     }
@@ -702,7 +702,7 @@ static unsigned CountToolsUAVs(DxilModule &DM) {
 
 static int CountToolsUAVRecords(std::vector<std::string> const &lines) {
   int count = 0;
-  for (auto const &line : lines) {
+  for (const std::string &line : lines) {
     if (!line.empty() && line[0] == '!' &&
         line.find(", i32 -2, i32 ") != std::string::npos) {
       count++;
@@ -801,7 +801,8 @@ void PixTest::VerifyGlobalRootSignaturesHaveToolsUAVs(
     foundRootSignatures[subObjectName] = true;
   }
 
-  for (const auto &foundRootSignature : foundRootSignatures) {
+  for (const std::map<std::string, bool>::value_type &foundRootSignature :
+       foundRootSignatures) {
     VERIFY_IS_TRUE(foundRootSignature.second);
   }
 }
@@ -1116,7 +1117,8 @@ void MSMain(
       FindDeclarationLine(Disassemble(as), "dx.op.dispatchMesh");
   VERIFY_IS_FALSE(originalDispatchMeshDeclaration.empty());
 
-  auto asOutput = RunDxilPIXAddTidToAmplificationShaderPayloadPass(as);
+  CComPtr<IDxcBlob> asOutput =
+      RunDxilPIXAddTidToAmplificationShaderPayloadPass(as);
   VERIFY_IS_FALSE(HasDeclarationLine(Disassemble(asOutput),
                                      originalDispatchMeshDeclaration));
 
@@ -1125,7 +1127,7 @@ void MSMain(
       FindDeclarationLine(Disassemble(ms), "dx.op.getMeshPayload");
   VERIFY_IS_FALSE(originalGetMeshPayloadDeclaration.empty());
 
-  auto msOutput = RunDxilPIXMeshShaderOutputPass(ms);
+  CComPtr<IDxcBlob> msOutput = RunDxilPIXMeshShaderOutputPass(ms);
   const std::string meshDisassembly = Disassemble(msOutput);
   VERIFY_IS_FALSE(
       HasDeclarationLine(meshDisassembly, originalGetMeshPayloadDeclaration));
@@ -3222,9 +3224,10 @@ void main(uint3 tid : SV_DispatchThreadID)
     output.Store(4 * tid.x, tid.x);
 })x";
 
-  auto compiled = Compile(m_dllSupport, source, L"cs_6_2", {L"-Od"});
-  auto debugOutput = RunDebugPass(compiled);
-  auto accessOutput = RunShaderAccessTrackingPass(debugOutput.blob);
+  CComPtr<IDxcBlob> compiled =
+      Compile(m_dllSupport, source, L"cs_6_2", {L"-Od"});
+  PassOutput debugOutput = RunDebugPass(compiled);
+  PassOutput accessOutput = RunShaderAccessTrackingPass(debugOutput.blob);
 
   ModuleAndHangersOn moduleEtc(accessOutput.blob);
   VERIFY_ARE_EQUAL(1u, CountToolsUAVs(moduleEtc.GetDxilModule()));
@@ -3254,10 +3257,10 @@ void MissTwo(inout MyPayload payload)
 }
 )x";
 
-  auto compiled = Compile(m_dllSupport, source, L"lib_6_6", {});
-  auto output = RunDxilPIXDXRInvocationsLog(compiled);
+  CComPtr<IDxcBlob> compiled = Compile(m_dllSupport, source, L"lib_6_6", {});
+  CComPtr<IDxcBlob> output = RunDxilPIXDXRInvocationsLog(compiled);
 
-  auto lines = Tokenize(Disassemble(output), "\n");
+  std::vector<std::string> lines = Tokenize(Disassemble(output), "\n");
   VERIFY_ARE_EQUAL(2, CountToolsUAVRecords(lines));
 }
 
@@ -3300,7 +3303,7 @@ void MyMiss(inout MyPayload payload)
 }
 )x";
 
-  auto compiled = Compile(m_dllSupport, source, L"lib_6_6", {});
+  CComPtr<IDxcBlob> compiled = Compile(m_dllSupport, source, L"lib_6_6", {});
   ModuleAndHangersOn moduleEtc(compiled);
   DxilModule &DM = moduleEtc.GetDxilModule();
   LoadSubobjectsFromContainerIntoModule(compiled, DM);
@@ -3319,16 +3322,17 @@ void main(uint threadId : SV_DispatchThreadID)
 {
 })x";
 
-  auto compiled = Compile(m_dllSupport, source, L"cs_6_2", {L"-Od"});
-  auto output = RunDebugPass(compiled);
-  auto lines = Tokenize(Disassemble(output.blob), "\n");
+  CComPtr<IDxcBlob> compiled =
+      Compile(m_dllSupport, source, L"cs_6_2", {L"-Od"});
+  PassOutput output = RunDebugPass(compiled);
+  std::vector<std::string> lines = Tokenize(Disassemble(output.blob), "\n");
 
   constexpr uint64_t EnableRawAndStructuredBuffers = 0x10;
   bool foundShaderFlags = false;
   uint64_t shaderFlags = 0;
   const std::string tagPrefix = "!{i32 0, i64 ";
-  for (auto const &line : lines) {
-    const auto tagStart = line.find(tagPrefix);
+  for (const std::string &line : lines) {
+    const std::string::size_type tagStart = line.find(tagPrefix);
     if (tagStart == std::string::npos) {
       continue;
     }
@@ -3377,13 +3381,13 @@ void main()
                          true);
   VERIFY_IS_NOT_NULL(serializedRootSignature);
 
-  auto serializedData =
+  const uint8_t *serializedData =
       static_cast<const uint8_t *>(serializedRootSignature->GetBufferPointer());
   std::vector<uint8_t> originalRootSignature(
       serializedData,
       serializedData + serializedRootSignature->GetBufferSize());
 
-  auto compiled = Compile(m_dllSupport, source, L"cs_6_0", {});
+  CComPtr<IDxcBlob> compiled = Compile(m_dllSupport, source, L"cs_6_0", {});
   ModuleAndHangersOn moduleEtc(compiled);
   DxilModule &DM = moduleEtc.GetDxilModule();
   DM.ResetSerializedRootSignature(originalRootSignature);
@@ -3503,7 +3507,7 @@ void main()
 static bool HasUnusedDeclaration(std::vector<std::string> const &lines,
                                  std::string const &functionName) {
   bool declared = false;
-  for (auto const &line : lines) {
+  for (const std::string &line : lines) {
     if (line.find("declare") != std::string::npos &&
         line.find(functionName) != std::string::npos) {
       declared = true;
@@ -3555,8 +3559,10 @@ float4 main() : SV_Target
     return float4(1, 2, 3, 4);
 })x";
 
-  auto compiled = Compile(m_dllSupport, source, L"ps_6_0", {L"-Od"});
-  auto output = RunSinglePass(compiled, L"-hlsl-dxil-constantColor");
+  CComPtr<IDxcBlob> compiled =
+      Compile(m_dllSupport, source, L"ps_6_0", {L"-Od"});
+  SinglePassOutput output =
+      RunSinglePass(compiled, L"-hlsl-dxil-constantColor");
 
   VERIFY_IS_FALSE(HasUnusedDeclaration(output.Lines, "dx.op.storeOutput.i32"));
   VerifyInstrumentedModuleIsValid(output.Module,
@@ -3570,8 +3576,10 @@ void main()
 {
 })x";
 
-  auto compiled = Compile(m_dllSupport, source, L"cs_6_0", {L"-Od"});
-  auto output = RunSinglePass(compiled, L"-hlsl-dxil-constantColor");
+  CComPtr<IDxcBlob> compiled =
+      Compile(m_dllSupport, source, L"cs_6_0", {L"-Od"});
+  SinglePassOutput output =
+      RunSinglePass(compiled, L"-hlsl-dxil-constantColor");
   const std::string disassembly = Disassemble(output.Module);
 
   VerifyInstrumentedModuleIsValid(
@@ -3587,8 +3595,10 @@ float4 main() : SV_Target
     return float4(1, 2, 3, 4);
 })x";
 
-  auto compiled = Compile(m_dllSupport, source, L"ps_6_0", {L"-Od"});
-  auto output = RunSinglePass(compiled, L"-hlsl-dxil-remove-discards");
+  CComPtr<IDxcBlob> compiled =
+      Compile(m_dllSupport, source, L"ps_6_0", {L"-Od"});
+  SinglePassOutput output =
+      RunSinglePass(compiled, L"-hlsl-dxil-remove-discards");
 
   VERIFY_IS_FALSE(HasUnusedDeclaration(output.Lines, "dx.op.discard"));
   VerifyInstrumentedModuleIsValid(output.Module,
@@ -3602,7 +3612,7 @@ float4 main() : SV_Target
     return float4(1, 2, 3, 4);
 })x";
 
-  auto compiled = Compile(m_dllSupport, source, L"ps_6_0", {});
+  CComPtr<IDxcBlob> compiled = Compile(m_dllSupport, source, L"ps_6_0", {});
   ModuleAndHangersOn moduleEtc(compiled);
   DxilModule &DM = moduleEtc.GetDxilModule();
   OP *HlslOP = DM.GetOP();
@@ -3634,7 +3644,8 @@ float4 main(float2 uv : TEXCOORD0) : SV_Target
     return textures[(uint)uv.x].Load(int3(0, 0, 0));
 })x";
 
-  auto compiled = Compile(m_dllSupport, source, L"ps_6_0", {L"-Od"});
+  CComPtr<IDxcBlob> compiled =
+      Compile(m_dllSupport, source, L"ps_6_0", {L"-Od"});
   ModuleAndHangersOn moduleEtc(compiled);
   DxilModule &DM = moduleEtc.GetDxilModule();
   bool visitorCalled = false;
@@ -3811,7 +3822,8 @@ float4 main(float2 uv : TEXCOORD0) : SV_Target
     return textures[NonUniformResourceIndex(index)].Load(int3(0, 0, 0));
 })x";
 
-  auto compiled = Compile(m_dllSupport, source, L"ps_6_6", {L"-Od"});
+  CComPtr<IDxcBlob> compiled =
+      Compile(m_dllSupport, source, L"ps_6_6", {L"-Od"});
   std::string outputText;
   PassOutput output =
       RunDxilNonUniformResourceIndexInstrumentation(compiled, outputText);
@@ -4209,7 +4221,7 @@ void main() {
     DebugBreak();
 })x";
 
-  auto compiled = Compile(m_dllSupport, source, L"cs_6_10", {});
+  CComPtr<IDxcBlob> compiled = Compile(m_dllSupport, source, L"cs_6_10", {});
   auto output = RunDebugBreakPass(compiled);
   bool foundDebugBreak = false;
   for (auto const &line : output.lines) {
