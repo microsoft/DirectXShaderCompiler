@@ -1302,7 +1302,7 @@ static void ValidateLinAlgMatrixStoreToMemory(CallInst *CI,
         {std::to_string(GSScalarCount), std::to_string(ExpectedScalarCount)});
 
   // gs memory ops have the parameter in element count so it must be scaled
-  unsigned ByteCount = ComponentTypeByteCount(Mat->Type);
+  uint64_t ByteCount = ComponentTypeByteCount(Mat->Type);
 
   // if it is constant then offset must be 128-byte aligned
   if (ConstantInt *OffsetV = dyn_cast<ConstantInt>(Op.get_offset())) {
@@ -1569,7 +1569,7 @@ static void ValidateLinAlgMatrixAccumulateToMemory(CallInst *CI,
   }
 
   // gs memory ops have the parameter in element count so it must be scaled
-  unsigned ByteCount = ComponentTypeByteCount(Mat->Type);
+  uint64_t ByteCount = ComponentTypeByteCount(Mat->Type);
 
   // if it is constant then offset must be 128-byte aligned
   if (ConstantInt *OffsetV = dyn_cast<ConstantInt>(Op.get_offset())) {
@@ -1775,7 +1775,7 @@ static void ValidateLinAlgMatrixLoadFromMemory(CallInst *CI,
         {std::to_string(GSScalarCount), std::to_string(ExpectedScalarCount)});
 
   // gs memory ops have the parameter in element count so it must be scaled
-  unsigned ByteCount = ComponentTypeByteCount(RetMat->Type);
+  uint64_t ByteCount = ComponentTypeByteCount(RetMat->Type);
 
   // if it is constant then offset must be 128-byte aligned
   if (ConstantInt *OffsetV = dyn_cast<ConstantInt>(Op.get_offset())) {
