@@ -36,13 +36,19 @@ define void @main() {
   ; okay
   call void @dx.op.linAlgMatrixStoreToMemory.mC9M4N4U0S1.f32(i32 -2147483627, %dx.types.LinAlgMatrixC9M4N4U0S1 %5, float addrspace(3)* getelementptr inbounds ([64 x float], [64 x float] addrspace(3)* @"\01?SharedArr@@3PAMA", i32 0, i32 0), i32 128, i32 16, i32 0)  ; LinAlgMatrixStoreToMemory(matrix,memory,offset,stride,layout)
 
-  ; CHECK: Function: main: error: parameter 'Offset' must be a multiple of 128, got 129
+  ; CHECK: Function: main: error: Byte width of parameter 'Offset' must be a multiple of 128, got 516 (129 * 4).
   ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixStoreToMemory.mC9M4N4U0S1.f32
   call void @dx.op.linAlgMatrixStoreToMemory.mC9M4N4U0S1.f32(i32 -2147483627, %dx.types.LinAlgMatrixC9M4N4U0S1 %5, float addrspace(3)* getelementptr inbounds ([64 x float], [64 x float] addrspace(3)* @"\01?SharedArr@@3PAMA", i32 0, i32 0), i32 129, i32 16, i32 0)  ; LinAlgMatrixStoreToMemory(matrix,memory,offset,stride,layout)
 
-  ; CHECK-NEXT: Function: main: error: parameter 'Stride' must be a multiple of 16, got 17
+  ; okay only if offset accounts for byte width of component type
+  call void @dx.op.linAlgMatrixStoreToMemory.mC9M4N4U0S1.f32(i32 -2147483627, %dx.types.LinAlgMatrixC9M4N4U0S1 %5, float addrspace(3)* getelementptr inbounds ([64 x float], [64 x float] addrspace(3)* @"\01?SharedArr@@3PAMA", i32 0, i32 0), i32 32, i32 16, i32 0)  ; LinAlgMatrixStoreToMemory(matrix,memory,offset,stride,layout)
+
+  ; CHECK-NEXT: Function: main: error: Byte width of parameter 'Stride' must be a multiple of 16, got 68 (17 * 4).
   ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixStoreToMemory.mC9M4N4U0S1.f32
   call void @dx.op.linAlgMatrixStoreToMemory.mC9M4N4U0S1.f32(i32 -2147483627, %dx.types.LinAlgMatrixC9M4N4U0S1 %5, float addrspace(3)* getelementptr inbounds ([64 x float], [64 x float] addrspace(3)* @"\01?SharedArr@@3PAMA", i32 0, i32 0), i32 128, i32 17, i32 0)  ; LinAlgMatrixStoreToMemory(matrix,memory,offset,stride,layout)
+
+  ; okay only if stride accounts for byte width of component type
+  call void @dx.op.linAlgMatrixStoreToMemory.mC9M4N4U0S1.f32(i32 -2147483627, %dx.types.LinAlgMatrixC9M4N4U0S1 %5, float addrspace(3)* getelementptr inbounds ([64 x float], [64 x float] addrspace(3)* @"\01?SharedArr@@3PAMA", i32 0, i32 0), i32 128, i32 4, i32 0)  ; LinAlgMatrixStoreToMemory(matrix,memory,offset,stride,layout)
 
   ; CHECK-NEXT: Function: main: error: Input matrix scope 'Thread' does not match expected scope Wave or ThreadGroup.
   ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixStoreToMemory.mC9M4N4U0S0.f32

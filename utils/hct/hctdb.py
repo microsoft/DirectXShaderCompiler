@@ -8755,6 +8755,10 @@ class db_dxil(object):
             "Instr.LinAlgMatrixVecElemCountMismatch",
             "Return vector size '%0' must match size '%1' derived from input vector size and type.",
         )
+        self.add_valrule(
+            "Instr.LinAlgMatrixBytewiseMustBeMultiple",
+            "Byte width of parameter '%0' must be a multiple of %1, got %2 (%3 * %4).",
+        )
 
         # Some legacy rules:
         # - space is only supported for shader targets 5.1 and higher
