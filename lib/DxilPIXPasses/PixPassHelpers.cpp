@@ -200,36 +200,36 @@ constexpr uint32_t toolsRegisterSpace = static_cast<uint32_t>(-2);
 
 // Returns whether a parameter was appended.
 template <typename RootSigDesc, typename RootParameterDesc>
-bool ExtendRootSig(RootSigDesc &rootSigDesc, uint32_t ToolsUAVRegister) {
-  auto *existingParams = rootSigDesc.pParameters;
-  for (uint32_t i = 0; i < rootSigDesc.NumParameters; ++i) {
-    if (rootSigDesc.pParameters[i].ParameterType ==
+bool ExtendRootSig(RootSigDesc &RootSignatureDesc, uint32_t ToolsUAVRegister) {
+  auto *existingParams = RootSignatureDesc.pParameters;
+  for (uint32_t i = 0; i < RootSignatureDesc.NumParameters; ++i) {
+    if (RootSignatureDesc.pParameters[i].ParameterType ==
         DxilRootParameterType::UAV) {
-      if (rootSigDesc.pParameters[i].Descriptor.RegisterSpace ==
+      if (RootSignatureDesc.pParameters[i].Descriptor.RegisterSpace ==
               toolsRegisterSpace &&
-          rootSigDesc.pParameters[i].Descriptor.ShaderRegister ==
+          RootSignatureDesc.pParameters[i].Descriptor.ShaderRegister ==
               ToolsUAVRegister) {
         // Already added
         return false;
       }
     }
   }
-  auto *newParams = new RootParameterDesc[rootSigDesc.NumParameters + 1];
+  auto *newParams = new RootParameterDesc[RootSignatureDesc.NumParameters + 1];
   if (existingParams != nullptr) {
     memcpy(newParams, existingParams,
-           rootSigDesc.NumParameters * sizeof(RootParameterDesc));
+           RootSignatureDesc.NumParameters * sizeof(RootParameterDesc));
     delete[] existingParams;
   }
-  rootSigDesc.pParameters = newParams;
-  rootSigDesc.pParameters[rootSigDesc.NumParameters].ParameterType =
+  RootSignatureDesc.pParameters = newParams;
+  RootSignatureDesc.pParameters[RootSignatureDesc.NumParameters].ParameterType =
       DxilRootParameterType::UAV;
-  rootSigDesc.pParameters[rootSigDesc.NumParameters].Descriptor.RegisterSpace =
-      toolsRegisterSpace;
-  rootSigDesc.pParameters[rootSigDesc.NumParameters].Descriptor.ShaderRegister =
-      ToolsUAVRegister;
-  rootSigDesc.pParameters[rootSigDesc.NumParameters].ShaderVisibility =
-      DxilShaderVisibility::All;
-  rootSigDesc.NumParameters++;
+  RootSignatureDesc.pParameters[RootSignatureDesc.NumParameters]
+      .Descriptor.RegisterSpace = toolsRegisterSpace;
+  RootSignatureDesc.pParameters[RootSignatureDesc.NumParameters]
+      .Descriptor.ShaderRegister = ToolsUAVRegister;
+  RootSignatureDesc.pParameters[RootSignatureDesc.NumParameters]
+      .ShaderVisibility = DxilShaderVisibility::All;
+  RootSignatureDesc.NumParameters++;
   return true;
 }
 
