@@ -4160,8 +4160,9 @@ static void runAccumulateDescriptorOutOfBounds(
   // The source is viewed in full so only the destination bound is exercised.
   const cpu_oracle::TypedMatrix AddendMatrix = *Addend;
   const cpu_oracle::TypedMatrix InitialMatrix = *Initial;
-  auto Op = createComputeOp(AccumulateDescriptorOOBShader, "cs_6_10",
-                            "DescriptorTable(UAV(u0), UAV(u1))", Args.c_str());
+  std::unique_ptr<st::ShaderOp> Op =
+      createComputeOp(AccumulateDescriptorOOBShader, "cs_6_10",
+                      "DescriptorTable(UAV(u0), UAV(u1))", Args.c_str());
   addUAVBuffer(Op.get(), "Input", *BufferSize, false, "byname");
   addUAVBuffer(Op.get(), "Output", *BufferSize, true, "byname");
   addHeapRawUAV(Op.get(), "ResHeap", "Input", *BufferSize);
