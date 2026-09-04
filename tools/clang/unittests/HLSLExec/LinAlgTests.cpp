@@ -7722,7 +7722,7 @@ static const char AccumulateMemoryShader[] = R"(
       __builtin_LinAlg_FillMatrix(Mat, FILL_VALUE);
 
       __builtin_LinAlg_MatrixAccumulateToMemory(
-        Mat, GsData, COMP_TYPE, OFFSET / ELEM_SIZE, STRIDE / ELEM_SIZE, LAYOUT);
+        Mat, GsData, OFFSET / ELEM_SIZE, STRIDE / ELEM_SIZE, LAYOUT);
     }
 
     GroupMemoryBarrierWithGroupSync();
@@ -8228,7 +8228,7 @@ static const char GroupSharedAccumulateShader[] = R"(
                       (ACCUMULATE_START + Coord.x * N_DIM + Coord.y)));
       }
       __builtin_LinAlg_MatrixAccumulateToMemory(
-        Mat, GsData, COMP_TYPE, MEM_OFFSET, MEM_STRIDE, MEM_LAYOUT);
+        Mat, GsData, MEM_OFFSET, MEM_STRIDE, MEM_LAYOUT);
     }
 
     GroupMemoryBarrierWithGroupSync();
