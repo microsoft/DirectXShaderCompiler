@@ -6327,12 +6327,12 @@ class db_dxil(object):
                 db_dxil_param(
                     2, "$x_gs1", "memory", "groupshared array to fill matrix with"
                 ),
-                db_dxil_param(3, "i32", "offset", "starting offset in the array"),
+                db_dxil_param(3, "i32", "offset", "starting offset in the array in elements"),
                 db_dxil_param(
                     4,
                     "i32",
                     "stride",
-                    "number of bytes between the start of each row or column",
+                    "number of elements between the start of each row or column",
                 ),
                 db_dxil_param(5, "i32", "layout", "memory layout of matrix elements"),
             ],
@@ -6430,12 +6430,12 @@ class db_dxil(object):
                 db_dxil_param(
                     3, "$x_gs1", "memory", "groupshared array to store into"
                 ),
-                db_dxil_param(4, "i32", "offset", "starting offset in the array"),
+                db_dxil_param(4, "i32", "offset", "starting offset in the array in elements"),
                 db_dxil_param(
                     5,
                     "i32",
                     "stride",
-                    "number of bytes between the start of each row or column",
+                    "number of elements between the start of each row or column",
                 ),
                 db_dxil_param(6, "i32", "layout", "memory layout of matrix elements"),
             ],
@@ -6548,12 +6548,12 @@ class db_dxil(object):
                     3, "$x_gs1", "memory", "groupshared array to accumulate into"
                 ),
                 db_dxil_param(4, "i32", "targetType", "data type of the array"),
-                db_dxil_param(5, "i32", "offset", "starting offset in the array"),
+                db_dxil_param(5, "i32", "offset", "starting offset in the array in elements"),
                 db_dxil_param(
                     6,
                     "i32",
                     "stride",
-                    "number of bytes between the start of each row or column",
+                    "number of elements between the start of each row or column",
                 ),
                 db_dxil_param(7, "i32", "layout", "memory layout of matrix elements"),
             ],
@@ -8754,6 +8754,10 @@ class db_dxil(object):
         self.add_valrule(
             "Instr.LinAlgMatrixVecElemCountMismatch",
             "Return vector size '%0' must match size '%1' derived from input vector size and type.",
+        )
+        self.add_valrule(
+            "Instr.LinAlgMatrixBytewiseMustBeMultiple",
+            "Parameter '%0' in bytes must be a multiple of %1, got %2 (%3 elements * %4 bytes per element).",
         )
 
         # Some legacy rules:

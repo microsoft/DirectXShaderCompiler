@@ -50,6 +50,7 @@
 #include "DxilValidationUtils.h"
 
 #include <algorithm>
+#include <cstdint>
 #include <deque>
 #include <optional>
 #include <string>
@@ -1090,9 +1091,36 @@ static unsigned ComponentTypeElementsPerScalar(DXIL::ComponentType CT) {
   case DXIL::ComponentType::F8_E5M2:
     return 4;
   // All other ComponentTypes are illegal to use in LinAlg Matrix. Their usage
-  // is detected and reported in other parts on the validator
+  // is detected and reported in other parts of the validator
   default:
     return 4;
+  }
+}
+
+static unsigned ComponentTypeByteCount(DXIL::ComponentType CT) {
+  switch (CT) {
+  case DXIL::ComponentType::I8:
+  case DXIL::ComponentType::U8:
+  case DXIL::ComponentType::F8_E4M3FN:
+  case DXIL::ComponentType::F8_E5M2:
+    return 1;
+  case DXIL::ComponentType::F16:
+  case DXIL::ComponentType::U16:
+  case DXIL::ComponentType::I16:
+  case DXIL::ComponentType::BFloat16:
+    return 2;
+  case DXIL::ComponentType::I32:
+  case DXIL::ComponentType::U32:
+  case DXIL::ComponentType::F32:
+    return 4;
+  case DXIL::ComponentType::I64:
+  case DXIL::ComponentType::U64:
+  case DXIL::ComponentType::F64:
+    return 8;
+  // All other ComponentTypes are illegal to use in LinAlg Matrix. Their usage
+  // is detected and reported in other parts of the validator
+  default:
+    return 1;
   }
 }
 
@@ -1273,20 +1301,29 @@ static void ValidateLinAlgMatrixStoreToMemory(CallInst *CI,
         CI, ValidationRule::InstrLinAlgMatrixGSMemMustBeLargeEnough,
         {std::to_string(GSScalarCount), std::to_string(ExpectedScalarCount)});
 
+  // gs memory ops have the parameter in element count so it must be scaled
+  uint64_t ByteCount = ComponentTypeByteCount(Mat->Type);
+
   // if it is constant then offset must be 128-byte aligned
   if (ConstantInt *OffsetV = dyn_cast<ConstantInt>(Op.get_offset())) {
     unsigned Offset = OffsetV->getLimitedValue();
-    if (Offset % 128 != 0)
-      ValCtx.EmitInstrFormatError(CI, ValidationRule::InstrParamMultiple,
-                                  {"Offset", "128", std::to_string(Offset)});
+    uint64_t OffsetBytes = Offset * ByteCount;
+    if (OffsetBytes % 128 != 0)
+      ValCtx.EmitInstrFormatError(
+          CI, ValidationRule::InstrLinAlgMatrixBytewiseMustBeMultiple,
+          {"Offset", "128", std::to_string(OffsetBytes), std::to_string(Offset),
+           std::to_string(ByteCount)});
   }
 
   // if it is constant then stride must be 16-byte aligned
   if (ConstantInt *StrideV = dyn_cast<ConstantInt>(Op.get_stride())) {
     unsigned Stride = StrideV->getLimitedValue();
-    if (Stride % 16 != 0)
-      ValCtx.EmitInstrFormatError(CI, ValidationRule::InstrParamMultiple,
-                                  {"Stride", "16", std::to_string(Stride)});
+    uint64_t StrideBytes = Stride * ByteCount;
+    if (StrideBytes % 16 != 0)
+      ValCtx.EmitInstrFormatError(
+          CI, ValidationRule::InstrLinAlgMatrixBytewiseMustBeMultiple,
+          {"Stride", "16", std::to_string(StrideBytes), std::to_string(Stride),
+           std::to_string(ByteCount)});
   }
 }
 
@@ -1530,20 +1567,29 @@ static void ValidateLinAlgMatrixAccumulateToMemory(CallInst *CI,
            ComponentTypeToString(Target)});
   }
 
+  // gs memory ops have the parameter in element count so it must be scaled
+  uint64_t ByteCount = ComponentTypeByteCount(Mat->Type);
+
   // if it is constant then offset must be 128-byte aligned
   if (ConstantInt *OffsetV = dyn_cast<ConstantInt>(Op.get_offset())) {
     unsigned Offset = OffsetV->getLimitedValue();
-    if (Offset % 128 != 0)
-      ValCtx.EmitInstrFormatError(CI, ValidationRule::InstrParamMultiple,
-                                  {"Offset", "128", std::to_string(Offset)});
+    uint64_t OffsetBytes = Offset * ByteCount;
+    if (OffsetBytes % 128 != 0)
+      ValCtx.EmitInstrFormatError(
+          CI, ValidationRule::InstrLinAlgMatrixBytewiseMustBeMultiple,
+          {"Offset", "128", std::to_string(OffsetBytes), std::to_string(Offset),
+           std::to_string(ByteCount)});
   }
 
   // if it is constant then stride must be 16-byte aligned
   if (ConstantInt *StrideV = dyn_cast<ConstantInt>(Op.get_stride())) {
     unsigned Stride = StrideV->getLimitedValue();
-    if (Stride % 16 != 0)
-      ValCtx.EmitInstrFormatError(CI, ValidationRule::InstrParamMultiple,
-                                  {"Stride", "16", std::to_string(Stride)});
+    uint64_t StrideBytes = Stride * ByteCount;
+    if (StrideBytes % 16 != 0)
+      ValCtx.EmitInstrFormatError(
+          CI, ValidationRule::InstrLinAlgMatrixBytewiseMustBeMultiple,
+          {"Stride", "16", std::to_string(StrideBytes), std::to_string(Stride),
+           std::to_string(ByteCount)});
   }
 }
 
@@ -1726,20 +1772,29 @@ static void ValidateLinAlgMatrixLoadFromMemory(CallInst *CI,
         CI, ValidationRule::InstrLinAlgMatrixGSMemMustBeLargeEnough,
         {std::to_string(GSScalarCount), std::to_string(ExpectedScalarCount)});
 
+  // gs memory ops have the parameter in element count so it must be scaled
+  uint64_t ByteCount = ComponentTypeByteCount(RetMat->Type);
+
   // if it is constant then offset must be 128-byte aligned
   if (ConstantInt *OffsetV = dyn_cast<ConstantInt>(Op.get_offset())) {
     unsigned Offset = OffsetV->getLimitedValue();
-    if (Offset % 128 != 0)
-      ValCtx.EmitInstrFormatError(CI, ValidationRule::InstrParamMultiple,
-                                  {"Offset", "128", std::to_string(Offset)});
+    uint64_t OffsetBytes = Offset * ByteCount;
+    if (OffsetBytes % 128 != 0)
+      ValCtx.EmitInstrFormatError(
+          CI, ValidationRule::InstrLinAlgMatrixBytewiseMustBeMultiple,
+          {"Offset", "128", std::to_string(OffsetBytes), std::to_string(Offset),
+           std::to_string(ByteCount)});
   }
 
   // if it is constant then stride must be 16-byte aligned
   if (ConstantInt *StrideV = dyn_cast<ConstantInt>(Op.get_stride())) {
     unsigned Stride = StrideV->getLimitedValue();
-    if (Stride % 16 != 0)
-      ValCtx.EmitInstrFormatError(CI, ValidationRule::InstrParamMultiple,
-                                  {"Stride", "16", std::to_string(Stride)});
+    uint64_t StrideBytes = Stride * ByteCount;
+    if (StrideBytes % 16 != 0)
+      ValCtx.EmitInstrFormatError(
+          CI, ValidationRule::InstrLinAlgMatrixBytewiseMustBeMultiple,
+          {"Stride", "16", std::to_string(StrideBytes), std::to_string(Stride),
+           std::to_string(ByteCount)});
   }
 }
 
