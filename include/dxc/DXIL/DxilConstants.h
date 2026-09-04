@@ -2378,7 +2378,7 @@ const uint64_t ShaderFeatureInfo_LinearAlgebra = 0x200000000;
 // This is because of the following set of flags, considered optional
 // and ignored by the runtime if not recognized:
 // D3D11_OPTIONAL_FEATURE_FLAGS 0x7FFFFF0000000000
-const unsigned ShaderFeatureInfoCount = 33;
+const unsigned ShaderFeatureInfoCount = 34;
 static_assert(ShaderFeatureInfoCount <= 40,
               "ShaderFeatureInfo flags must fit within the first 40 bits; "
               "after that we need to expand the FeatureInfo blob part and "
