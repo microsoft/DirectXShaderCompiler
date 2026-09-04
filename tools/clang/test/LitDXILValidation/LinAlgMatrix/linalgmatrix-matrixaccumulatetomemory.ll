@@ -151,14 +151,13 @@ declare void @dx.op.linAlgMatrixAccumulateToMemory.mC9M9N8U2S1.v4f32(i32, %dx.ty
 declare void @dx.op.linAlgMatrixAccumulateToMemory.mC9M8N9U2S1.v4f32(i32, %dx.types.LinAlgMatrixC9M8N9U2S1, <4 x float> addrspace(3)*, i32, i32, i32) #0
 
 ; Function Attrs: nounwind readnone
-declare %dx.types.Handle @dx.op.annotateHandle(i32, %dx.types.Handle, %dx.types.ResourceProperties) #2
+declare %dx.types.Handle @dx.op.annotateHandle(i32, %dx.types.Handle, %dx.types.ResourceProperties) #1
 
 ; Function Attrs: nounwind readnone
-declare %dx.types.Handle @dx.op.createHandleFromBinding(i32, %dx.types.ResBind, i32, i1) #2
+declare %dx.types.Handle @dx.op.createHandleFromBinding(i32, %dx.types.ResBind, i32, i1) #1
 
 attributes #0 = { nounwind }
 attributes #1 = { nounwind readnone }
-attributes #2 = { nounwind readnone }
 
 !dx.targetTypes = !{!0, !1, !2, !3, !4, !5, !6}
 !llvm.ident = !{!7}
