@@ -219,6 +219,10 @@ public:
   void SetRequiresGroup(bool flag) { m_bRequiresGroup = flag; }
   bool GetRequiresGroup() const { return m_bRequiresGroup; }
 
+  // SM 6.10+
+  void SetLinearAlgebra(bool flag) { m_bLinearAlgebra = flag; }
+  bool GetLinearAlgebra() const { return m_bLinearAlgebra; }
+
 private:
   // Bit: 0
   unsigned
@@ -359,7 +363,12 @@ private:
   unsigned m_bRequiresGroup : 1; // SHADER_FEATURE_OPT_REQUIRES_GROUP
                                  // (OptFeatureInfo_RequiresGroup)
 
-  uint32_t m_align1 : 23; // align to 64 bit.
+  // SM 6.10+
+  // m_bLinearAlgebra indicates the shader uses LinearAlgebra features.
+  // Bit: 41
+  unsigned m_bLinearAlgebra : 1; // SHADER_FEATURE_LINEAR_ALGEBRA
+
+  uint32_t m_align1 : 22; // align to 64 bit.
 };
 
 } // namespace hlsl
