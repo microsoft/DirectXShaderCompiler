@@ -18,7 +18,7 @@ define void @main() {
   %1 = call %dx.types.LinAlgMatrixC9M4N4U1S1 @dx.op.linAlgMatrixLoadFromMemory.mC9M4N4U1S1.v4f32(i32 -2147483633, <4 x float> addrspace(3)* getelementptr inbounds ([64 x <4 x float>], [64 x <4 x float>] addrspace(3)* @"\01?SharedVecArr@@3PAV?$vector@M$03@@A", i32 0, i32 0), i32 0, i32 16, i32 1)  ; LinAlgMatrixLoadFromMemory(memory,offset,stride,layout)
   call void @dx.op.linAlgMatrixStoreToMemory.mC9M4N4U1S1.v4f32(i32 -2147483627, %dx.types.LinAlgMatrixC9M4N4U1S1 %1, <4 x float> addrspace(3)* getelementptr inbounds ([64 x <4 x float>], [64 x <4 x float>] addrspace(3)* @"\01?SharedVecArr@@3PAV?$vector@M$03@@A", i32 0, i32 0), i32 0, i32 16, i32 1)  ; LinAlgMatrixStoreToMemory(matrix,memory,offset,stride,layout)
   %2 = call %dx.types.LinAlgMatrixC9M4N4U2S1 @dx.op.linAlgFillMatrix.mC9M4N4U2S1.i32(i32 -2147483636, i32 0)  ; LinAlgFillMatrix(value)
-  call void @dx.op.linAlgMatrixAccumulateToMemory.mC9M4N4U2S1.v4f32(i32 -2147483620, %dx.types.LinAlgMatrixC9M4N4U2S1 %2, <4 x float> addrspace(3)* getelementptr inbounds ([64 x <4 x float>], [64 x <4 x float>] addrspace(3)* @"\01?SharedVecArr@@3PAV?$vector@M$03@@A", i32 0, i32 0), i32 9, i32 0, i32 16, i32 1)  ; LinAlgMatrixAccumulateToMemory(matrix,memory,targetType,offset,stride,layout)
+  call void @dx.op.linAlgMatrixAccumulateToMemory.mC9M4N4U2S1.v4f32(i32 -2147483620, %dx.types.LinAlgMatrixC9M4N4U2S1 %2, <4 x float> addrspace(3)* getelementptr inbounds ([64 x <4 x float>], [64 x <4 x float>] addrspace(3)* @"\01?SharedVecArr@@3PAV?$vector@M$03@@A", i32 0, i32 0), i32 0, i32 16, i32 1)  ; LinAlgMatrixAccumulateToMemory(matrix,memory,offset,stride,layout)
   ret void
 }
 
@@ -32,7 +32,7 @@ declare void @dx.op.linAlgMatrixStoreToMemory.mC9M4N4U1S1.v4f32(i32, %dx.types.L
 declare %dx.types.LinAlgMatrixC9M4N4U2S1 @dx.op.linAlgFillMatrix.mC9M4N4U2S1.i32(i32, i32) #0
 
 ; Function Attrs: nounwind
-declare void @dx.op.linAlgMatrixAccumulateToMemory.mC9M4N4U2S1.v4f32(i32, %dx.types.LinAlgMatrixC9M4N4U2S1, <4 x float> addrspace(3)*, i32, i32, i32, i32) #0
+declare void @dx.op.linAlgMatrixAccumulateToMemory.mC9M4N4U2S1.v4f32(i32, %dx.types.LinAlgMatrixC9M4N4U2S1, <4 x float> addrspace(3)*, i32, i32, i32) #0
 
 attributes #0 = { nounwind }
 

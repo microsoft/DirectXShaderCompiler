@@ -7,6 +7,7 @@ using namespace dx::linalg;
 using MatrixATy = Matrix<ComponentType::F32, 4, 4, MatrixUse::A, MatrixScope::Wave>;
 using MatrixBTy = Matrix<ComponentType::F32, 4, 4, MatrixUse::B, MatrixScope::Wave>;
 using MatrixAccumTy = Matrix<ComponentType::F32, 4, 4, MatrixUse::Accumulator, MatrixScope::Wave>;
+using TGMatrixAccumTy = Matrix<ComponentType::F32, 4, 4, MatrixUse::Accumulator, MatrixScope::ThreadGroup>;
 using TSMatrixATy = Matrix<ComponentType::F32, 4, 4, MatrixUse::A, MatrixScope::Thread>;
 using TSMatrixAccumTy = Matrix<ComponentType::F32, 4, 4, MatrixUse::Accumulator, MatrixScope::Thread>;
 
@@ -156,8 +157,8 @@ void main(uint ID : SV_GroupID)
 // CHECK: call void @dx.op.linAlgMatrixAccumulateToMemory.mC9M4N4U2S1.f32(i32 -2147483620,
 // CHECK-SAME: %dx.types.LinAlgMatrixC9M4N4U2S1 %[[ACCUM0]],
 // CHECK-SAME: float addrspace(3)* getelementptr inbounds ([256 x float],
-// CHECK-SAME: [256 x float] addrspace(3)* @"\01?SharedArr@@3PAMA", i32 0, i32 0), i32 9, i32 0, i32 16, i32 1)
-// CHECK-SAME: ; LinAlgMatrixAccumulateToMemory(matrix,memory,targetType,offset,stride,layout)
+// CHECK-SAME: [256 x float] addrspace(3)* @"\01?SharedArr@@3PAMA", i32 0, i32 0), i32 0, i32 16, i32 1)
+// CHECK-SAME: ; LinAlgMatrixAccumulateToMemory(matrix,memory,offset,stride,layout)
   AccMat1.InterlockedAccumulate(SharedArr, 0, 16, MatrixLayoutEnum::ColMajor);
 
 // Matrix::InterlockedAccumulate to packed groupshared memory
@@ -165,15 +166,27 @@ void main(uint ID : SV_GroupID)
 // CHECK: call void @dx.op.linAlgMatrixAccumulateToMemory.mC9M4N4U2S1.i32(i32 -2147483620,
 // CHECK-SAME: %dx.types.LinAlgMatrixC9M4N4U2S1 %[[ACCUM0]],
 // CHECK-SAME: i32 addrspace(3)* getelementptr inbounds ([256 x i32],
-// CHECK-SAME: [256 x i32] addrspace(3)* @"\01?PackedArr@@3PA$ui8_4pk@A", i32 0, i32 0), i32 9, i32 0, i32 16, i32 1)
-// CHECK-SAME: ; LinAlgMatrixAccumulateToMemory(matrix,memory,targetType,offset,stride,layout)
+// CHECK-SAME: [256 x i32] addrspace(3)* @"\01?PackedArr@@3PA$ui8_4pk@A", i32 0, i32 0), i32 0, i32 16, i32 1)
+// CHECK-SAME: ; LinAlgMatrixAccumulateToMemory(matrix,memory,offset,stride,layout)
   AccMat1.InterlockedAccumulate(PackedArr, 0, 16, MatrixLayoutEnum::ColMajor);
 // CHECK: call void @dx.op.linAlgMatrixAccumulateToMemory.mC9M4N4U2S1.i32(i32 -2147483620,
 // CHECK-SAME: %dx.types.LinAlgMatrixC9M4N4U2S1 %[[ACCUM0]],
 // CHECK-SAME: i32 addrspace(3)* getelementptr inbounds ([256 x i32],
-// CHECK-SAME: [256 x i32] addrspace(3)* @"\01?PackedArr@@3PA$ui8_4pk@A", i32 0, i32 0), i32 4, i32 0, i32 16, i32 1)
-// CHECK-SAME: ; LinAlgMatrixAccumulateToMemory(matrix,memory,targetType,offset,stride,layout)
+// CHECK-SAME: [256 x i32] addrspace(3)* @"\01?PackedArr@@3PA$ui8_4pk@A", i32 0, i32 0), i32 0, i32 16, i32 1)
+// CHECK-SAME: ; LinAlgMatrixAccumulateToMemory(matrix,memory,offset,stride,layout)
   AccMat1.InterlockedAccumulate<ComponentType::I32>(PackedArr, 0, 16, MatrixLayoutEnum::ColMajor);
+
+// Matrix::InterlockedAccumulate supports thread-group scope
+//
+// CHECK: %[[TGACCUM:.*]] = call %dx.types.LinAlgMatrixC9M4N4U2S2 @dx.op.linAlgFillMatrix.mC9M4N4U2S2.f32(
+// CHECK-SAME: i32 -2147483636, float 1.500000e+01)
+  TGMatrixAccumTy TGAccMat = TGMatrixAccumTy::Splat(15.0f);
+// CHECK: call void @dx.op.linAlgMatrixAccumulateToMemory.mC9M4N4U2S2.f32(i32 -2147483620,
+// CHECK-SAME: %dx.types.LinAlgMatrixC9M4N4U2S2 %[[TGACCUM]],
+// CHECK-SAME: float addrspace(3)* getelementptr inbounds ([256 x float],
+// CHECK-SAME: [256 x float] addrspace(3)* @"\01?SharedArr@@3PAMA", i32 0, i32 0), i32 0, i32 16, i32 1)
+// CHECK-SAME: ; LinAlgMatrixAccumulateToMemory(matrix,memory,offset,stride,layout)
+  TGAccMat.InterlockedAccumulate(SharedArr, 0, 16, MatrixLayoutEnum::ColMajor);
 
 // Matrix::Accumulate
 //

@@ -363,31 +363,30 @@ class Matrix {
                                                   Stride, Layout, Align);
   }
 
-  template <typename T, MatrixUseEnum UseLocal = Use,
-            MatrixScopeEnum ScopeLocal = Scope, SIZE_TYPE Size>
+  template <typename T, MatrixUseEnum UseLocal = Use, SIZE_TYPE Size>
   typename hlsl::enable_if<
-      hlsl::is_arithmetic_vector<T>::value && Use == MatrixUse::Accumulator &&
-          UseLocal == Use && Scope == MatrixScope::Wave && ScopeLocal == Scope,
+      hlsl::is_same<typename hlsl::strip_vector_type<T>::type,
+                    ElementType>::value &&
+          hlsl::is_arithmetic_vector<T>::value &&
+          Use == MatrixUse::Accumulator && UseLocal == Use,
       void>::type
   InterlockedAccumulate(groupshared T Arr[Size], uint StartIdx, uint Stride,
                         MatrixLayoutEnum Layout) {
-    __builtin_LinAlg_MatrixAccumulateToMemory(__handle, Arr, ComponentTy,
-                                              StartIdx, Stride, Layout);
+    __builtin_LinAlg_MatrixAccumulateToMemory(__handle, Arr, StartIdx, Stride,
+                                              Layout);
   }
 
   template <ComponentEnum TargetCompTy = ComponentTy, typename T,
-            MatrixUseEnum UseLocal = Use, MatrixScopeEnum ScopeLocal = Scope,
-            SIZE_TYPE Size>
+            MatrixUseEnum UseLocal = Use, SIZE_TYPE Size>
   typename hlsl::enable_if<
       hlsl::is_same<typename hlsl::strip_vector_type<T>::type,
                     uint8_t4_packed>::value &&
-          Use == MatrixUse::Accumulator && UseLocal == Use &&
-          Scope == MatrixScope::Wave && ScopeLocal == Scope,
+          Use == MatrixUse::Accumulator && UseLocal == Use,
       void>::type
   InterlockedAccumulate(groupshared T Arr[Size], uint StartIdx, uint Stride,
                         MatrixLayoutEnum Layout) {
-    __builtin_LinAlg_MatrixAccumulateToMemory(__handle, Arr, TargetCompTy,
-                                              StartIdx, Stride, Layout);
+    __builtin_LinAlg_MatrixAccumulateToMemory(__handle, Arr, StartIdx, Stride,
+                                              Layout);
   }
 
   template <ComponentEnum CompTy, MatrixUseEnum UseLocal = Use>

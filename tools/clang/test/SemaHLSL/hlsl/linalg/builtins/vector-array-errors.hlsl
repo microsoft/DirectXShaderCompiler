@@ -24,5 +24,5 @@ groupshared S StructArr[64];
 
   // expected-error@+2{{no matching function for call to '__builtin_LinAlg_MatrixAccumulateToMemory'}}
   // expected-note@+1{{candidate function not viable: no known conversion from 'float2x2 __attribute__((address_space(3)))[64]' to 'float const __attribute__((address_space(3))) (&)[64]' for 2nd argument}}
-  __builtin_LinAlg_MatrixAccumulateToMemory(Mat, MatArr, 0, 0, 0, 0);
+  __builtin_LinAlg_MatrixAccumulateToMemory(Mat, MatArr, 0, 0, 0);
 }

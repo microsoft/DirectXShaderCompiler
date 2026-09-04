@@ -64,8 +64,8 @@ void main() {
 // CHECK-SAME: %dx.types.LinAlgMatrixC9M4N4U2S1 %[[ACC:[0-9]+]],
 // CHECK-SAME: <4 x float> addrspace(3)* getelementptr inbounds ([64 x <4 x float>],
 // CHECK-SAME: [64 x <4 x float>] addrspace(3)* @"\01?SharedVecArr@@3PAV?$vector@M$03@@A", i32 0, i32 0),
-// CHECK-SAME: i32 9, i32 0, i32 16, i32 1)
-// CHECK-SAME: ; LinAlgMatrixAccumulateToMemory(matrix,memory,targetType,offset,stride,layout)
+// CHECK-SAME: i32 0, i32 16, i32 1)
+// CHECK-SAME: ; LinAlgMatrixAccumulateToMemory(matrix,memory,offset,stride,layout)
   Acc.InterlockedAccumulate(SharedVecArr, 0, 16, MatrixLayoutEnum::ColMajor);
 
 // Matrix::InterlockedAccumulate to an array of packed vectors
@@ -74,7 +74,7 @@ void main() {
 // CHECK-SAME: %dx.types.LinAlgMatrixC9M4N4U2S1 %[[ACC]],
 // CHECK-SAME: <2 x i32> addrspace(3)* getelementptr inbounds ([64 x <2 x i32>],
 // CHECK-SAME: [64 x <2 x i32>] addrspace(3)* @"\01?PackedVecArr@@3PAV?$vector@$ui8_4pk@$01@@A", i32 0, i32 0),
-// CHECK-SAME: i32 4, i32 0, i32 16, i32 1)
-// CHECK-SAME: ; LinAlgMatrixAccumulateToMemory(matrix,memory,targetType,offset,stride,layout)
+// CHECK-SAME: i32 0, i32 16, i32 1)
+// CHECK-SAME: ; LinAlgMatrixAccumulateToMemory(matrix,memory,offset,stride,layout)
   Acc.InterlockedAccumulate<ComponentType::I32>(PackedVecArr, 0, 16, MatrixLayoutEnum::ColMajor);
 }
