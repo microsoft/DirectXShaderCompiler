@@ -47,7 +47,7 @@ CodeGenTypes::~CodeGenTypes() {
 
   for (llvm::FoldingSet<CGFunctionInfo>::iterator
        I = FunctionInfos.begin(), E = FunctionInfos.end(); I != E; )
-    delete &*I++;
+    ::operator delete(&*I++);
 }
 
 void CodeGenTypes::addRecordTypeName(const RecordDecl *RD,
