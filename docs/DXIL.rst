@@ -3424,6 +3424,7 @@ SM.RESOURCERANGEOVERLAP                               Resource ranges must not o
 SM.ROVONLYINPS                                        RasterizerOrdered objects are only allowed in 5.0+ pixel shaders.
 SM.SAMPLECOUNTONLYON2DMS                              Only Texture2DMS/2DMSArray could has sample count.
 SM.SEMANTIC                                           Semantic must be defined in target shader model
+SM.SHADERSTAGE                                        Shader stage must be supported by the target shader model
 SM.STREAMINDEXRANGE                                   Stream index (%0) must between 0 and %1.
 SM.TESSFACTORFORDOMAIN                                Required TessFactor for domain not found declared anywhere in Patch Constant data.
 SM.TESSFACTORSIZEMATCHDOMAIN                          TessFactor rows, columns (%0, %1) invalid for domain %2.  Expected %3 rows and 1 column.

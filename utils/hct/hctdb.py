@@ -123,6 +123,7 @@ class db_dxil_inst(object):
         self.is_barrier = False  # whether this is a barrier operation
         self.shader_stages = ()  # shader stages to which this applies, empty for all.
         self.shader_model = 6, 0  # minimum shader model required
+        self.shader_model_max = ()  # maximum shader model allowed, empty for no maximum
         self.inst_helper_prefix = None
         self.fully_qualified_name_prefix = "hlsl::OP::OpCode"
         self.shader_model_translated = ()  # minimum shader model required with translation by linker
@@ -1037,6 +1038,10 @@ class db_dxil(object):
             self.name_idx[i].category = "Work Graph intrinsics"
             self.name_idx[i].shader_model = 6, 8
             self.name_idx[i].shader_stages = ("node",)
+        for i in (
+            "AllocateNodeOutputRecords,GetNodeRecordPtr,IncrementOutputCount,OutputComplete,GetInputRecordCount,FinishedCrossGroupSharing,BarrierByNodeRecordHandle,CreateNodeOutputHandle,IndexNodeHandle,AnnotateNodeHandle,CreateNodeInputRecordHandle,AnnotateNodeRecordHandle,NodeOutputIsValid,GetRemainingRecursionLevels"
+        ).split(","):
+            self.name_idx[i].shader_model_max = 6, 9
         # All barrier ops:
         for i in "Barrier".split(","):
             self.name_idx[i].category = "Synchronization"
@@ -1110,7 +1115,7 @@ class db_dxil(object):
         for i in insts("GetGroupWaveIndex,GetGroupWaveCount"):
             i.category = "Group Wave Ops"
             i.shader_model = experimental_sm
-            i.shader_stages = ("compute", "mesh", "amplification", "node")
+            i.shader_stages = ("compute", "mesh", "amplification")
             i.is_wave = True
 
         # Clustered Geometry
@@ -8813,6 +8818,11 @@ class db_dxil(object):
             "Sm.Opcode",
             "Opcode must be defined in target shader model",
             "Opcode %0 not valid in shader model %1.",
+        )
+        self.add_valrule_msg(
+            "Sm.ShaderStage",
+            "Shader stage must be supported by the target shader model",
+            "Shader stage '%0' not valid in shader model %1.",
         )
         self.add_valrule(
             "Sm.Operand", "Operand must be defined in target shader model."
