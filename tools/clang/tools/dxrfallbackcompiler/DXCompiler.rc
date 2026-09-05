@@ -11,4 +11,6 @@
 #define VER_ORIGINALFILENAME_STR      "DxrFallbackCompiler.dll"
 
 // #include <common.ver>
+#ifdef DXC_ENABLE_ETW
 #include "dxcetw.rc"
+#endif
