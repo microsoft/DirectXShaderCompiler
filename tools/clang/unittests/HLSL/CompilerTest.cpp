@@ -4364,7 +4364,34 @@ void VerifyDivByZeroThrows() {
   VERIFY_IS_TRUE(bCaughtExpectedException);
 }
 
+static bool IsX64EmulatedOnArm64() {
+#if defined(_M_X64)
+  using IsWow64Process2Fn = BOOL(WINAPI *)(HANDLE, USHORT *, USHORT *);
+  HMODULE kernel32 = GetModuleHandleW(L"kernel32.dll");
+  IsWow64Process2Fn isWow64Process2 = reinterpret_cast<IsWow64Process2Fn>(
+      GetProcAddress(kernel32, "IsWow64Process2"));
+  if (!isWow64Process2)
+    return false;
+
+  USHORT processMachine = IMAGE_FILE_MACHINE_UNKNOWN;
+  USHORT nativeMachine = IMAGE_FILE_MACHINE_UNKNOWN;
+  return isWow64Process2(GetCurrentProcess(), &processMachine,
+                         &nativeMachine) &&
+         nativeMachine == IMAGE_FILE_MACHINE_ARM64;
+#else
+  return false;
+#endif
+}
+
 TEST_F(CompilerTest, CodeGenFloatingPointEnvironment) {
+  if (IsX64EmulatedOnArm64()) {
+    WEX::Logging::Log::Comment(
+        L"Skipping floating-point environment test under x64 emulation on "
+        L"ARM64.");
+    WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
+    return;
+  }
+
   unsigned int fpOriginal;
   VERIFY_IS_TRUE(_controlfp_s(&fpOriginal, 0, 0) == 0);
 
