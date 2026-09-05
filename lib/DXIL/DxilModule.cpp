@@ -87,6 +87,9 @@ const char *kDxLinAlgMatrixTypePrefix = "dx.types.LinAlgMatrix";
 const char *kHostLayoutTypePrefix = "hostlayout.";
 
 const char *kWaveOpsIncludeHelperLanesString = "waveops-include-helper-lanes";
+
+const char *kPreciseString = "dx.precise";
+
 } // namespace DXIL
 
 void SetDxilHook(Module &M);
