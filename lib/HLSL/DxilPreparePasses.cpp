@@ -1717,7 +1717,7 @@ public:
         continue;
 
       // Currently only LinAlgMatrix ops use target types.
-      if (!OP::IsDxilOpLinAlgFuncName(F.getName()))
+      if (!OP::IsDxilOpLinAlgFunc(&F))
         continue;
 
       llvm::Type *RetTy = F.getReturnType();
