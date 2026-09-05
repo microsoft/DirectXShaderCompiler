@@ -48,6 +48,9 @@ line upon naming the release. Refer to previous for appropriate section names.
 - Fixed internal compiler errors when a member method is called on a ray payload
   or on one of its fields with payload access qualifiers enabled
   [#6464](https://github.com/microsoft/DirectXShaderCompiler/issues/6464).
+- SPIR-V fixed incorrect alignment of 64-bit elements in `vk::RawBufferLoad` and
+  `vk::RawBufferStore` intrinsics
+  [#8576](https://github.com/microsoft/DirectXShaderCompiler/pull/8576)
 
 ### Upcoming Preview Release
 
