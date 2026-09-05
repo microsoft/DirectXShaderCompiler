@@ -36,7 +36,7 @@ public:
   HRESULT STDMETHODCALLTYPE RemovePart(UINT32 fourCC) override;
   // Builds a container of the given container builder state
   HRESULT STDMETHODCALLTYPE
-  SerializeContainer(IDxcOperationResult **ppResult) override;
+  SerializeContainer(_COM_Outptr_ IDxcOperationResult **ppResult) override;
 
   DXC_MICROCOM_TM_ADDREF_RELEASE_IMPL()
   DXC_MICROCOM_TM_CTOR(DxcContainerBuilder)
