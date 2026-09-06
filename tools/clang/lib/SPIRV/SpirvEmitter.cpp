@@ -579,6 +579,82 @@ const StructType *lowerStructType(const SpirvCodeGenOptions &spirvOptions,
   return output;
 }
 
+bool hasAnySemantic(const DeclaratorDecl *decl) {
+  if (!decl)
+    return false;
+
+  for (auto *annotation : decl->getUnusualAnnotations())
+    if (isa<hlsl::SemanticDecl>(annotation))
+      return true;
+
+  return false;
+}
+
+// Walks expression base chain and returns true if it is rooted in an input
+// parameter or stage variable.
+bool isVertexInputExpr(const Expr *expr) {
+  if (!expr)
+    return false;
+
+  expr = expr->IgnoreParenCasts();
+  bool hasSemanticField = false;
+
+  while (expr) {
+    if (const auto *member = dyn_cast<MemberExpr>(expr)) {
+      if (const auto *decl = dyn_cast<DeclaratorDecl>(member->getMemberDecl()))
+        hasSemanticField |= hasAnySemantic(decl);
+      expr = member->getBase()->IgnoreParenCasts();
+      continue;
+    }
+
+    if (const auto *subscript = dyn_cast<ArraySubscriptExpr>(expr)) {
+      expr = subscript->getBase()->IgnoreParenCasts();
+      continue;
+    }
+
+    if (const auto *vecElem = dyn_cast<HLSLVectorElementExpr>(expr)) {
+      expr = vecElem->getBase()->IgnoreParenCasts();
+      continue;
+    }
+
+    if (const auto *declRef = dyn_cast<DeclRefExpr>(expr)) {
+      if (const auto *parm = dyn_cast<ParmVarDecl>(declRef->getDecl()))
+        return canActAsInParmVar(parm) &&
+               (hasSemanticField || hasAnySemantic(parm));
+      return false;
+    }
+
+    break;
+  }
+
+  return false;
+}
+
+// Walks instruction provenance to detect stage input origin.
+bool originatesFromInputStorage(SpirvInstruction *inst) {
+  if (!inst)
+    return false;
+
+  if (inst->getStorageClass() == spv::StorageClass::Input)
+    return true;
+
+  switch (inst->getKind()) {
+    case SpirvInstruction::IK_Load:
+      return originatesFromInputStorage(cast<SpirvLoad>(inst)->getPointer());
+    case SpirvInstruction::IK_AccessChain:
+      return originatesFromInputStorage(cast<SpirvAccessChain>(inst)->getBase());
+    case SpirvInstruction::IK_CopyObject:
+      return originatesFromInputStorage(cast<SpirvCopyObject>(inst)->getPointer());
+    case SpirvInstruction::IK_CompositeExtract:
+      return originatesFromInputStorage(
+        cast<SpirvCompositeExtract>(inst)->getComposite());
+    case SpirvInstruction::IK_UnaryOp:
+      return originatesFromInputStorage(cast<SpirvUnaryOp>(inst)->getOperand());
+    default:
+      return false;
+  }
+}
+
 } // namespace
 
 SpirvEmitter::SpirvEmitter(CompilerInstance &ci)
@@ -12347,36 +12423,66 @@ SpirvInstruction *SpirvEmitter::processIntrinsicMul(const CallExpr *callExpr) {
   // mul(vector, matrix)
   {
     QualType vecElemType = {}, matElemType = {};
-    uint32_t elemCount = 0, numRows = 0;
+    uint32_t elemCount = 0, numRows = 0, numCols = 0;
     if (isVectorType(arg0Type, &vecElemType, &elemCount) &&
-        isMxNMatrix(arg1Type, &matElemType, &numRows)) {
+        isMxNMatrix(arg1Type, &matElemType, &numRows, &numCols)) {
       assert(elemCount == numRows);
 
-      if (vecElemType->isFloatingType() && matElemType->isFloatingType())
+      if (vecElemType->isFloatingType() && matElemType->isFloatingType()) {
+        const bool isSquare = (numRows == numCols);
+        const bool fromVertexInput =
+            isVertexInputExpr(arg1) || originatesFromInputStorage(arg1Id);
+
+        // Workaround: if matrix originates from vertex input and is square,
+        // emit OpVectorTimesMatrix without operand swapping.
+        // Otherwise, row_major cannot be emulated here because
+        // SPIR-V vertex attributes cannot be decorated with row_major layout.
+        if (isSquare && fromVertexInput)
+          return spvBuilder.createBinaryOp(spv::Op::OpVectorTimesMatrix,
+                                           returnType, arg0Id, arg1Id, loc,
+                                           range);
+
+        // Default path (existing behavior): swap operands and emit MatrixTimesVector.
         return spvBuilder.createBinaryOp(spv::Op::OpMatrixTimesVector,
                                          returnType, arg1Id, arg0Id, loc,
                                          range);
-      else
+      } else {
         return processNonFpVectorTimesMatrix(arg0Type, arg0Id, arg1Type, arg1Id,
                                              callExpr->getExprLoc(), nullptr,
                                              range);
+      }
     }
   }
 
   // mul(matrix, vector)
   {
     QualType vecElemType = {}, matElemType = {};
-    uint32_t elemCount = 0, numCols = 0;
-    if (isMxNMatrix(arg0Type, &matElemType, nullptr, &numCols) &&
+    uint32_t elemCount = 0, numRows = 0, numCols = 0;
+    if (isMxNMatrix(arg0Type, &matElemType, &numRows, &numCols) &&
         isVectorType(arg1Type, &vecElemType, &elemCount)) {
       assert(elemCount == numCols);
-      if (vecElemType->isFloatingType() && matElemType->isFloatingType())
-        return spvBuilder.createBinaryOp(spv::Op::OpVectorTimesMatrix,
-                                         returnType, arg1Id, arg0Id, loc,
-                                         range);
-      else
+
+      if (vecElemType->isFloatingType() && matElemType->isFloatingType()) {
+        const bool isSquare = (numRows == numCols);
+        const bool fromVertexInput =
+            isVertexInputExpr(arg0) || originatesFromInputStorage(arg0Id);
+
+        // Workaround: if matrix originates from vertex input and is square,
+        // emit OpMatrixTimesVector without operand swapping.
+        // Otherwise, row_major cannot be emulated here because
+        // SPIR-V vertex attributes cannot be decorated with row_major layout.
+        if (isSquare && fromVertexInput)
+          return spvBuilder.createBinaryOp(spv::Op::OpMatrixTimesVector,
+                                           returnType, arg0Id, arg1Id, loc,
+                                           range);
+  
+        // Default path (existing behavior): swap operands and emit VectorTimesMatrix.
+        return spvBuilder.createBinaryOp(spv::Op::OpVectorTimesMatrix, returnType,
+                                         arg1Id, arg0Id, loc, range);
+      } else {
         return processNonFpMatrixTimesVector(arg0Type, arg0Id, arg1Type, arg1Id,
                                              callExpr->getExprLoc(), range);
+      }
     }
   }
 
