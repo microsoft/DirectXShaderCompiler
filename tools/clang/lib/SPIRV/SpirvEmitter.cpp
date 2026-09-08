@@ -3955,8 +3955,9 @@ SpirvEmitter::processFlatConversion(const QualType type,
   if (hlsl::IsHLSLResourceType(sourceType))
     sourceType = hlsl::GetHLSLResourceResultType(sourceType);
 
-  // Converting the same AST type between layouts preserves its physical field
-  // sequence. Shape-changing flat conversions operate on AST fields.
+  // A same-type conversion emits one scalar per SPIR-V field, but a cast that
+  // changes the shape, keeps one scalar (potentially with merged bitfields) per
+  // AST field. includeMergedBitfields determines which indexing is used.
   const bool includeMergedBitfields =
       !astContext.hasSameUnqualifiedType(type, sourceType);
   std::vector<SpirvInstruction *> flatValues =
