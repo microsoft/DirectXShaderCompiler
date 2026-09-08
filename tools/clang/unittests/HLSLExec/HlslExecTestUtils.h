@@ -37,7 +37,7 @@
 #if defined(HLSLEXEC_LINALG_HOST_API)
 #if defined(HLSLEXEC_LINALG_CURRENT_NAMES)
 using IHlslExecLinAlgDevice = ID3D12Device18;
-using IHlslExecLinAlgCommandList = ID3D12GraphicsCommandList12;
+using IHlslExecLinAlgCommandList = ID3D12GraphicsCommandList13;
 using HlslExecGroupsharedLimits =
     D3D12_FEATURE_DATA_VARIABLE_GROUPSHARED_LIMITS;
 constexpr D3D12_FEATURE HlslExecGroupsharedLimitsFeature =
