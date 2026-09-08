@@ -19,6 +19,7 @@
 // CHECK-NEXT:  SigOutputVectors[2]: 0
 // CHECK-NEXT:  SigOutputVectors[3]: 0
 // CHECK-NEXT:  EntryFunctionName: main
+// CHECK-NEXT:  LinAlgRuntimeInfoPresent: false
 // CHECK-NEXT: ResourceCount : 3
 // CHECK-NEXT:  PSVResourceBindInfo:
 // CHECK-NEXT:   Space: 0
