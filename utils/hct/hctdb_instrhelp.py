@@ -1138,15 +1138,18 @@ def get_hlsl_intrinsics():
             flags = " | ".join(flags)
         else:
             flags = "0"
-        ns_table += "    {(UINT)%s::%s, %s, 0x%x, %d, %d, g_%s_Args%s},\n" % (
-            opcode_namespace,
-            i.enum_name,
-            flags,
-            i.min_shader_model,
-            i.overload_param_index,
-            len(i.params),
-            last_ns,
-            arg_idx,
+        ns_table += (
+            "    {(UINT)%s::%s, %s, 0x%x, %d, %d, g_%s_Args%s, 0x%x},\n" % (
+                opcode_namespace,
+                i.enum_name,
+                flags,
+                i.min_shader_model,
+                i.overload_param_index,
+                len(i.params),
+                last_ns,
+                arg_idx,
+                i.max_shader_model,
+            )
         )
         result += "static const HLSL_INTRINSIC_ARGUMENT g_%s_Args%s[] =\n{\n" % (
             last_ns,

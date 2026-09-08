@@ -6320,19 +6320,19 @@ class db_dxil(object):
             "LinAlgMatrixLoadFromMemory",
             "LinAlgMatrixLoadFromMemory",
             "fills a matrix with data from a groupshared array",
-            "o,hfdwil",
+            "o,hfdwil<",
             "",
             [
                 db_dxil_param(0, "$x0", "", "resulting matrix"),
                 db_dxil_param(
                     2, "$x_gs1", "memory", "groupshared array to fill matrix with"
                 ),
-                db_dxil_param(3, "i32", "offset", "starting offset in the array"),
+                db_dxil_param(3, "i32", "offset", "starting offset in the array in elements"),
                 db_dxil_param(
                     4,
                     "i32",
                     "stride",
-                    "number of bytes between the start of each row or column",
+                    "number of elements between the start of each row or column",
                 ),
                 db_dxil_param(5, "i32", "layout", "memory layout of matrix elements"),
             ],
@@ -6422,7 +6422,7 @@ class db_dxil(object):
             "LinAlgMatrixStoreToMemory",
             "LinAlgMatrixStoreToMemory",
             "stores a matrix to groupshared memory",
-            "o,hfdwil",
+            "o,hfdwil<",
             "",
             [
                 db_dxil_param(0, "v", "", ""),
@@ -6430,12 +6430,12 @@ class db_dxil(object):
                 db_dxil_param(
                     3, "$x_gs1", "memory", "groupshared array to store into"
                 ),
-                db_dxil_param(4, "i32", "offset", "starting offset in the array"),
+                db_dxil_param(4, "i32", "offset", "starting offset in the array in elements"),
                 db_dxil_param(
                     5,
                     "i32",
                     "stride",
-                    "number of bytes between the start of each row or column",
+                    "number of elements between the start of each row or column",
                 ),
                 db_dxil_param(6, "i32", "layout", "memory layout of matrix elements"),
             ],
@@ -6539,7 +6539,7 @@ class db_dxil(object):
             "LinAlgMatrixAccumulateToMemory",
             "LinAlgMatrixAccumulateToMemory",
             "accumulates a matrix to groupshared memory",
-            "o,hfdwil",
+            "o,hfdwil<",
             "",
             [
                 db_dxil_param(0, "v", "", ""),
@@ -6548,12 +6548,12 @@ class db_dxil(object):
                     3, "$x_gs1", "memory", "groupshared array to accumulate into"
                 ),
                 db_dxil_param(4, "i32", "targetType", "data type of the array"),
-                db_dxil_param(5, "i32", "offset", "starting offset in the array"),
+                db_dxil_param(5, "i32", "offset", "starting offset in the array in elements"),
                 db_dxil_param(
                     6,
                     "i32",
                     "stride",
-                    "number of bytes between the start of each row or column",
+                    "number of elements between the start of each row or column",
                 ),
                 db_dxil_param(7, "i32", "layout", "memory layout of matrix elements"),
             ],
@@ -7579,6 +7579,12 @@ class db_dxil(object):
                     "t": "bool",
                     "c": 1,
                     "d": "Whether the unroller should try to structurize loop exits first.",
+                },
+                {
+                    "n": "UnrollCountIsHint",
+                    "t": "bool",
+                    "c": 1,
+                    "d": "Whether an explicit unroll count should be treated as a hint.",
                 },
             ],
         )
@@ -8690,8 +8696,8 @@ class db_dxil(object):
             "%0 vector size '%1' must be %2 for input matrix with K '%3' and Type '%4'",
         )
         self.add_valrule(
-            "Instr.LinAlgMatrixOutputBiasVecMismatch",
-            "Output vector element type '%0' must match bias vector element type '%1'",
+            "Instr.LinAlgMatrixVecElementTypeMismatch",
+            "%0 vector element type '%1' must match %2 vector element type '%3'",
         )
         self.add_valrule(
             "Instr.LinAlgMatrixUnsignedFloatTypeNotAllowed",
@@ -8728,6 +8734,30 @@ class db_dxil(object):
         self.add_valrule(
             "Instr.LinAlgMatrixMatrixResDimMustMatch",
             "%0 matrix dimension '%1' must match A.MxB.N '%2'.",
+        )
+        self.add_valrule(
+            "Instr.LinAlgMatrixGSMemTypeMustMatch",
+            "Groupshared memory inner type '%0' must match %1 type '%2'.",
+        )
+        self.add_valrule(
+            "Instr.LinAlgMatrixGSMemMustBeLargeEnough",
+            "Groupshared memory holds '%0' scalars but must hold at least '%1' scalars.",
+        )
+        self.add_valrule(
+            "Instr.LinAlgMatrixVectorTypeMustMatch",
+            "%0 vector element type '%1' must match %2 matrix element type '%3'.",
+        )
+        self.add_valrule(
+            "Instr.LinAlgMatrixVectorTypeMustMatchPacked",
+            "%0 vector element type '%1' must be i32 for %2 matrix with non-native element type '%3'."
+        )
+        self.add_valrule(
+            "Instr.LinAlgMatrixVecElemCountMismatch",
+            "Return vector size '%0' must match size '%1' derived from input vector size and type.",
+        )
+        self.add_valrule(
+            "Instr.LinAlgMatrixBytewiseMustBeMultiple",
+            "Parameter '%0' in bytes must be a multiple of %1, got %2 (%3 elements * %4 bytes per element).",
         )
 
         # Some legacy rules:
@@ -9405,6 +9435,7 @@ class db_hlsl_intrinsic(object):
         overload_idx,
         hidden,
         min_shader_model,
+        max_shader_model,
         static_member,
         class_prefix,
     ):
@@ -9452,6 +9483,12 @@ class db_hlsl_intrinsic(object):
         if min_shader_model:
             self.min_shader_model = (min_shader_model[0] << 4) | (
                 min_shader_model[1] & 0x0F
+            )
+        # Encoded maximum shader model for this intrinsic, 0 = no maximum
+        self.max_shader_model = 0
+        if max_shader_model:
+            self.max_shader_model = (max_shader_model[0] << 4) | (
+                max_shader_model[1] & 0x0F
             )
         self.static_member = static_member  # HLSL static member function
         self.key = (
@@ -9628,6 +9665,7 @@ class db_hlsl(object):
         type_matrix_re = re.compile(r"(\S+)<(\S+)@(\S+)>$")
         type_vector_re = re.compile(r"(\S+)<(\S+)>$")
         type_any_re = re.compile(r"(\S+)<>$")
+        type_any_array_re = re.compile(r"(\S+)<>\[\]$")
         type_array_re = re.compile(r"(\S+)\[\]$")
         type_object_re = re.compile(
             r"""(
@@ -9737,6 +9775,12 @@ class db_hlsl(object):
                 template_list = "LITEMPLATE_ARRAY"
                 return base_type, rows, cols, template_list
 
+            def do_any_array(m):
+                base_type = m.group(1)
+                cols = "c"
+                template_list = "LITEMPLATE_ANY_ARRAY"
+                return base_type, rows, cols, template_list
+
             def do_object(m):
                 template_list = "LITEMPLATE_OBJECT"
                 return base_type, rows, cols, template_list
@@ -9745,6 +9789,7 @@ class db_hlsl(object):
                 (do_matrix, type_matrix_re),
                 (do_vector, type_vector_re),
                 (do_any, type_any_re),
+                (do_any_array, type_any_array_re),
                 (do_array, type_array_re),
                 (do_object, type_object_re),
             ]
@@ -9857,6 +9902,7 @@ class db_hlsl(object):
             )  # Parameter determines the overload type, -1 means ret type.
             hidden = False
             min_shader_model = (0, 0)
+            max_shader_model = (0, 0)
             for a in attrs:
                 if a == "":
                     continue
@@ -9913,6 +9959,24 @@ class db_hlsl(object):
                     except ValueError:
                         assert False, "invalid min_sm: %s" % (v)
                     continue
+                if d == "max_sm":
+                    # max_sm is a string like "6.0" or "6.5"
+                    # Convert to a tuple of integers (major, minor)
+                    try:
+                        major_minor = v.split(".")
+                        if len(major_minor) != 2:
+                            raise ValueError
+                        major, minor = major_minor
+                        major = int(major)
+                        minor = int(minor)
+                        # minor of 15 has special meaning, and larger values
+                        # cannot be encoded in the version DWORD.
+                        if major < 0 or minor < 0 or minor > 14:
+                            raise ValueError
+                        max_shader_model = (major, minor)
+                    except ValueError:
+                        assert False, "invalid max_sm: %s" % (v)
+                    continue
                 assert False, "invalid attr %s" % (a)
 
             return (
@@ -9924,6 +9988,7 @@ class db_hlsl(object):
                 overload_param_index,
                 hidden,
                 min_shader_model,
+                max_shader_model,
                 static_member,
                 class_prefix,
             )
@@ -9974,6 +10039,7 @@ class db_hlsl(object):
                     overload_param_index,
                     hidden,
                     min_shader_model,
+                    max_shader_model,
                     static_member,
                     class_prefix,
                 ) = process_attr(attr)
@@ -10017,6 +10083,7 @@ class db_hlsl(object):
                         overload_param_index,
                         hidden,
                         min_shader_model,
+                        max_shader_model,
                         static_member,
                         class_prefix,
                     )

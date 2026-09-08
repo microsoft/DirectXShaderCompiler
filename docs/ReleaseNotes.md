@@ -30,9 +30,15 @@ line upon naming the release. Refer to previous for appropriate section names.
 - SPIR-V: Fixed an invalid `OpSelect` being generated when optimizing for
   SPIR-V 1.3 and earlier
   [#8603](https://github.com/microsoft/DirectXShaderCompiler/issues/8603).
+- Fix a crash generating DXIL from sources containing a dynamic resource heap
+  access that was discarded. Identified during development of SPIR-V support for
+  [descriptor heaps](https://github.com/microsoft/DirectXShaderCompiler/pull/8517#discussion_r3752113078).
 
 #### HLSL Language
 
+- Starting with HLSL 202x, the count in `[unroll(N)]` is a partial-unroll hint
+  and no longer limits the number of loop iterations
+  [#8789](https://github.com/microsoft/DirectXShaderCompiler/issues/8789).
 - Casting a scalar to a struct or array containing a resource is now an error
   instead of crashing
   [#6661](https://github.com/microsoft/DirectXShaderCompiler/issues/6661).

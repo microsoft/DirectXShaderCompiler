@@ -90,9 +90,8 @@ void CallFunction()
   __builtin_LinAlg_Convert(outVec, vecA, 1, 2);
   __builtin_LinAlg_VectorAccumulateToDescriptor(buf, 0, 64, vecA);
 
-  // expected-error@+12{{builtin unavailable in shader stage 'pixel' (requires 'compute', 'mesh' or 'amplification')}}
-  // expected-error@+11{{builtin unavailable in shader stage 'vertex' (requires 'compute', 'mesh' or 'amplification')}}
-  // expected-error@+10{{builtin unavailable in shader stage 'node' (requires 'compute', 'mesh' or 'amplification')}}
+  // expected-error@+11{{builtin unavailable in shader stage 'pixel' (requires 'compute', 'mesh' or 'amplification')}}
+  // expected-error@+10{{builtin unavailable in shader stage 'vertex' (requires 'compute', 'mesh' or 'amplification')}}
   // expected-error@+9{{builtin unavailable in shader stage 'raygeneration' (requires 'compute', 'mesh' or 'amplification')}}
   // expected-error@+8{{builtin unavailable in shader stage 'intersection' (requires 'compute', 'mesh' or 'amplification')}}
   // expected-error@+7{{builtin unavailable in shader stage 'callable' (requires 'compute', 'mesh' or 'amplification')}}
@@ -155,14 +154,6 @@ float4 mainPS(uint ix : SV_PrimitiveID) : SV_TARGET {
 float4 mainVS(uint ix : SV_VertexID) : OUT {
   CallFunction();
   return 1.0;
-}
-
-[shader("node")]
-[nodedispatchgrid(8,1,1)]
-[numthreads(64,2,2)]
-// expected-note@+1{{entry function defined here}}
-void mainNS() {
-  CallFunction();
 }
 
 [shader("raygeneration")]

@@ -1042,7 +1042,7 @@ static const ArTypeObjectKind g_ArrayTT[] = {AR_TOBJ_ARRAY, AR_TOBJ_UNKNOWN};
 
 const ArTypeObjectKind *g_LegalIntrinsicTemplates[] = {
     g_NullTT, g_ScalarTT, g_VectorTT, g_MatrixTT,
-    g_AnyTT,  g_ObjectTT, g_ArrayTT,
+    g_AnyTT,  g_ObjectTT, g_ArrayTT,  g_ArrayTT,
 };
 C_ASSERT(ARRAYSIZE(g_LegalIntrinsicTemplates) == LITEMPLATE_COUNT);
 
@@ -2090,12 +2090,31 @@ static void AddHLSLIntrinsicAttr(FunctionDecl *FD, ASTContext &context,
     FD->addAttr(PureAttr::CreateImplicit(context));
   if (pIntrinsic->Flags & INTRIN_FLAG_IS_WAVE)
     FD->addAttr(HLSLWaveSensitiveAttr::CreateImplicit(context));
-  if (pIntrinsic->MinShaderModel) {
-    unsigned Major = pIntrinsic->MinShaderModel >> 4;
-    unsigned Minor = pIntrinsic->MinShaderModel & 0xF;
+  if (pIntrinsic->MinShaderModel || pIntrinsic->MaxShaderModel) {
+    clang::VersionTuple Introduced;
+    if (pIntrinsic->MinShaderModel) {
+      unsigned Major = pIntrinsic->MinShaderModel >> 4;
+      unsigned Minor = pIntrinsic->MinShaderModel & 0xF;
+      Introduced = clang::VersionTuple(Major, Minor);
+    }
+    // The maximum shader model is the last one that still supports the
+    // intrinsic: it is deprecated there, and obsoleted in the next minor
+    // shader model version. We could give longer deprecation periods in the
+    // future if there is a need for that.
+    clang::VersionTuple Deprecated;
+    clang::VersionTuple Obsoleted;
+    if (pIntrinsic->MaxShaderModel) {
+      unsigned Major = pIntrinsic->MaxShaderModel >> 4;
+      unsigned Minor = pIntrinsic->MaxShaderModel & 0xF;
+      Deprecated = clang::VersionTuple(Major, Minor);
+      DXASSERT(
+          Minor <= 14,
+          "I don't know how we should handle this, so let's assert for now.");
+      Obsoleted = clang::VersionTuple(Major, Minor + 1);
+    }
     FD->addAttr(AvailabilityAttr::CreateImplicit(
-        context, &context.Idents.get(""), clang::VersionTuple(Major, Minor),
-        clang::VersionTuple(), clang::VersionTuple(), false, ""));
+        context, &context.Idents.get(""), Introduced, Deprecated, Obsoleted,
+        false, ""));
   }
 }
 
@@ -7164,7 +7183,23 @@ bool HLSLExternalSource::MatchArguments(
     case AR_TOBJ_BASIC:
     case AR_TOBJ_OBJECT:
     case AR_TOBJ_STRING:
+      break;
     case AR_TOBJ_ARRAY:
+      // Arrays of vectors are only allowed for LITEMPLATE_ANY_ARRAY
+      // parameters, where the vector size is matched the same way it would be
+      // for a plain vector parameter.
+      if (pIntrinsicArg->uLegalTemplates == LITEMPLATE_ANY_ARRAY) {
+        QualType EltType = QualType(pType->getBaseElementTypeUnsafe(), 0);
+        switch (GetTypeObjectKind(EltType)) {
+        case AR_TOBJ_VECTOR:
+          TypeInfoCols = GetHLSLVecSize(EltType);
+          break;
+        case AR_TOBJ_BASIC:
+          break;
+        default:
+          badArgIdx = std::min(badArgIdx, iArg);
+        }
+      }
       break;
     default:
       badArgIdx = std::min(badArgIdx, iArg); // no struct, arrays or void
@@ -7618,8 +7653,21 @@ bool HLSLExternalSource::MatchArguments(
         qwQual |= AR_QUAL_CONST;
 
       DXASSERT_VALIDBASICKIND(pEltType);
-      pNewType = NewSimpleAggregateType(Template[pArgument->uTemplateId],
-                                        pEltType, qwQual, uRows, uCols);
+
+      // Array parameters build the array element type here, which is later
+      // wrapped in the argument's array dimensions. For arrays of vectors the
+      // element has to be built as a vector, even when it holds a single
+      // component.
+      ArTypeObjectKind AggregateKind = Template[pArgument->uTemplateId];
+      if (i > 0 && AggregateKind == AR_TOBJ_ARRAY &&
+          pArgument->uLegalTemplates == LITEMPLATE_ANY_ARRAY &&
+          GetTypeObjectKind(QualType(
+              Args[i - 1]->getType()->getBaseElementTypeUnsafe(), 0)) ==
+              AR_TOBJ_VECTOR)
+        AggregateKind = AR_TOBJ_VECTOR;
+
+      pNewType =
+          NewSimpleAggregateType(AggregateKind, pEltType, qwQual, uRows, uCols);
 
       // If array type, wrap in the argument's array type.
       if (i > 0 && Template[pArgument->uTemplateId] == AR_TOBJ_ARRAY) {

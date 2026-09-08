@@ -952,6 +952,10 @@ static void SetDescriptorHeaps(ID3D12GraphicsCommandList *pList,
 void ShaderOpTest::RunCommandList() {
   ID3D12GraphicsCommandList *pList = m_CommandList.List.p;
   if (m_pShaderOp->IsCompute()) {
+    // Runs before any pipeline or root state is set, so a callback that leaves
+    // the command list in a different state cannot disturb the dispatch.
+    if (m_PreDispatchCallbackFn)
+      m_PreDispatchCallbackFn(pList, this);
     pList->SetPipelineState(m_pPSO);
     SetDescriptorHeaps(pList, m_DescriptorHeaps);
     pList->SetComputeRootSignature(m_pRootSignature);
@@ -1158,6 +1162,10 @@ void ShaderOpTest::SetInitCallback(TInitCallbackFn InitCallbackFn) {
 }
 void ShaderOpTest::SetShaderCallback(TShaderCallbackFn ShaderCallbackFn) {
   m_ShaderCallbackFn = ShaderCallbackFn;
+}
+void ShaderOpTest::SetPreDispatchCallback(
+    TCommandCallbackFn PreDispatchCallbackFn) {
+  m_PreDispatchCallbackFn = PreDispatchCallbackFn;
 }
 void ShaderOpTest::SetPostDispatchCallback(
     TCommandCallbackFn PostDispatchCallbackFn) {
@@ -2768,7 +2776,8 @@ std::shared_ptr<ShaderOpTestResult> RunShaderOpTestAfterParse(
     st::ShaderOpTest::TInitCallbackFn pInitCallback,
     st::ShaderOpTest::TShaderCallbackFn pShaderCallback,
     st::ShaderOpTest::TCommandCallbackFn pPostDispatchCallback,
-    std::shared_ptr<st::ShaderOpSet> ShaderOpSet) {
+    std::shared_ptr<st::ShaderOpSet> ShaderOpSet,
+    st::ShaderOpTest::TCommandCallbackFn pPreDispatchCallback) {
   st::ShaderOp *pShaderOp;
   if (pName == nullptr) {
     if (ShaderOpSet->ShaderOps.size() != 1) {
@@ -2799,6 +2808,7 @@ std::shared_ptr<ShaderOpTestResult> RunShaderOpTestAfterParse(
   test->SetSpecificDllLoader(&support);
   test->SetInitCallback(pInitCallback);
   test->SetShaderCallback(pShaderCallback);
+  test->SetPreDispatchCallback(pPreDispatchCallback);
   test->SetPostDispatchCallback(pPostDispatchCallback);
   test->SetDevice(pDevice);
   test->RunShaderOp(pShaderOp);
