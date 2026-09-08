@@ -83,6 +83,7 @@ RDAT_ENUM_END()
 // High 32-bits of ShaderFeatureInfo from DFCC_FeatureInfo
 RDAT_ENUM_START(DxilFeatureInfo2, uint32_t)
   RDAT_ENUM_VALUE(ExtendedCommandInfo, 0x1)
+  RDAT_ENUM_VALUE(LinearAlgebra, 0x2)
   // OptFeatureInfo flags
   RDAT_ENUM_VALUE(Opt_UsesDerivatives, 0x100)
   RDAT_ENUM_VALUE(Opt_RequiresGroup, 0x200)

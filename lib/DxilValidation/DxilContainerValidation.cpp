@@ -180,6 +180,7 @@ private:
                               PSVSignatureElement0 *, const PSVStringTable &,
                               const PSVSemanticIndexTable &, std::string, bool);
   void VerifyResources(unsigned PSVVersion);
+  void VerifyLinAlgRuntimeInfo();
   template <typename T>
   void VerifyResourceTable(T &ResTab, unsigned &ResourceIndex,
                            unsigned PSVVersion);
@@ -465,6 +466,34 @@ void PSVContentVerifier::VerifyEntryProperties(
   }
 }
 
+void PSVContentVerifier::VerifyLinAlgRuntimeInfo() {
+  if (!PSV.GetPSVLinAlgRuntimeInfo0())
+    return;
+
+  auto VerifyShapes = [&](const PSVLinAlgMatrixShapeArrayReference &ShapeRef) {
+    if (!IndexTableVerifier.MarkUse(ShapeRef.ShapesIndex, ShapeRef.Count)) {
+      EmitInvalidError("LinAlgOperationShapes");
+      return;
+    }
+    const uint32_t *ShapeIndexes =
+        PSV.GetSemanticIndexTable().Get(ShapeRef.ShapesIndex);
+    for (uint32_t I = 0; I < ShapeRef.Count; ++I) {
+      if (!PSV.GetPSVLinAlgMatrixOperationShape(ShapeIndexes[I])) {
+        EmitInvalidError("LinAlgOperationShapeIndex");
+        return;
+      }
+    }
+  };
+
+  for (uint32_t I = 0; I < PSV.GetPSVLinAlgMatrixConstructionCount(); ++I)
+    VerifyShapes(PSV.GetPSVLinAlgMatrixConstruction(I)->OperationShapes);
+  for (uint32_t I = 0; I < PSV.GetPSVLinAlgWaveMatrixMultiplyCount(); ++I)
+    VerifyShapes(PSV.GetPSVLinAlgWaveMatrixMultiply(I)->OperationShapes);
+  for (uint32_t I = 0; I < PSV.GetPSVLinAlgThreadGroupMatrixMultiplyCount();
+       ++I)
+    VerifyShapes(PSV.GetPSVLinAlgThreadGroupMatrixMultiply(I)->OperationShapes);
+}
+
 void PSVContentVerifier::Verify(unsigned ValMajor, unsigned ValMinor,
                                 unsigned PSVVersion) {
   PSVInitInfo PSVInfo(PSVVersion);
@@ -521,6 +550,8 @@ void PSVContentVerifier::Verify(unsigned ValMajor, unsigned ValMinor,
                           DM.GetEntryFunctionName());
     }
   }
+  if (PSVVersion > 3)
+    VerifyLinAlgRuntimeInfo();
 
   StrTableVerifier.Verify(ValCtx);
   IndexTableVerifier.Verify(ValCtx);
@@ -616,6 +647,7 @@ struct SimplePSV {
   const uint32_t *SemanticIndexTable = nullptr;
   uint32_t PSVSignatureElementSize = 0;
   const PSVRuntimeInfo1 *RuntimeInfo1 = nullptr;
+  const PSVRuntimeInfo4 *RuntimeInfo4 = nullptr;
   bool IsValid = true;
   SimplePSV(const void *pPSVData, uint32_t PSVSize) {
 
@@ -632,6 +664,9 @@ struct SimplePSV {
     if (PSVRuntimeInfoSize >= sizeof(PSVRuntimeInfo1))
       RuntimeInfo1 =
           (const PSVRuntimeInfo1 *)(GetPtrAtOffset(pPSVData, Offset));
+    if (PSVRuntimeInfoSize >= sizeof(PSVRuntimeInfo4))
+      RuntimeInfo4 =
+          (const PSVRuntimeInfo4 *)(GetPtrAtOffset(pPSVData, Offset));
     INCREMENT_POS(PSVRuntimeInfoSize);
 
     PSVNumResources = GetUint32AtOffset(pPSVData, Offset);
@@ -721,6 +756,52 @@ struct SimplePSV {
                                    RuntimeInfo1->SigPatchConstOrPrimVectors,
                                    RuntimeInfo1->SigOutputVectors[0]);
         INCREMENT_POS(TableSizeInBytes);
+      }
+    }
+
+    if (RuntimeInfo4 && (RuntimeInfo4->Flags &
+                         static_cast<uint32_t>(
+                             PSVRuntimeInfo4Flag::LinAlgRuntimeInfoPresent))) {
+      uint32_t LinAlgRuntimeInfoSize = GetUint32AtOffset(pPSVData, Offset);
+      INCREMENT_POS(4);
+      if (LinAlgRuntimeInfoSize < sizeof(PSVLinAlgRuntimeInfo0)) {
+        IsValid = false;
+        return;
+      }
+      const PSVLinAlgRuntimeInfo0 *LinAlgInfo =
+          reinterpret_cast<const PSVLinAlgRuntimeInfo0 *>(
+              GetPtrAtOffset(pPSVData, Offset));
+      INCREMENT_POS(LinAlgRuntimeInfoSize);
+
+      const uint32_t Counts[] = {
+          LinAlgInfo->MatrixOperationShapeCount,
+          LinAlgInfo->MatrixConstructionCount,
+          LinAlgInfo->ThreadMatrixVectorMultiplyCount,
+          LinAlgInfo->WaveMatrixMultiplyCount,
+          LinAlgInfo->ThreadGroupMatrixMultiplyCount,
+          LinAlgInfo->OuterProductCount,
+          LinAlgInfo->AccumulateStoreCount,
+      };
+      const uint32_t MinimumRecordSizes[] = {
+          sizeof(PSVLinAlgMatrixOperationShape0),
+          sizeof(PSVLinAlgMatrixConstruction0),
+          sizeof(PSVLinAlgThreadMatrixVectorMultiply0),
+          sizeof(PSVLinAlgWaveMatrixMultiply0),
+          sizeof(PSVLinAlgThreadGroupMatrixMultiply0),
+          sizeof(PSVLinAlgOuterProduct0),
+          sizeof(PSVLinAlgAccumulateStore0),
+      };
+      for (unsigned I = 0; I < sizeof(Counts) / sizeof(Counts[0]); ++I) {
+        if (!Counts[I])
+          continue;
+        uint32_t RecordSize = GetUint32AtOffset(pPSVData, Offset);
+        INCREMENT_POS(4);
+        if ((RecordSize & 3) != 0 || RecordSize < MinimumRecordSizes[I] ||
+            Counts[I] > (PSVSize - Offset) / RecordSize) {
+          IsValid = false;
+          return;
+        }
+        INCREMENT_POS(Counts[I] * RecordSize);
       }
     }
     IsValid = PSVSize == Offset;

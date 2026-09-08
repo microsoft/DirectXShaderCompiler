@@ -911,6 +911,10 @@ void hlsl::PrintPSVRuntimeInfo(llvm::raw_ostream &OS, PSVRuntimeInfo0 *pInfo0,
   }
   if (pInfo3)
     OS << Comment << " EntryFunctionName: " << EntryName << "\n";
+  if (pInfo4 &&
+      (pInfo4->Flags &
+       static_cast<uint32_t>(PSVRuntimeInfo4Flag::LinAlgRuntimeInfoPresent)))
+    OS << Comment << " LinAlgRuntimeInfoPresent: true\n";
 }
 
 void DxilPipelineStateValidation::PrintPSVRuntimeInfo(
@@ -985,6 +989,93 @@ void DxilPipelineStateValidation::Print(raw_ostream &OS,
                                         uint8_t ShaderKind) const {
   OS << "DxilPipelineStateValidation:\n";
   PrintPSVRuntimeInfo(OS, ShaderKind, "");
+
+  if (m_pPSVLinAlgRuntimeInfo0) {
+    OS << "PSVLinAlgRuntimeInfo:\n";
+    OS << " MatrixOperationShapeCount: "
+       << m_pPSVLinAlgRuntimeInfo0->MatrixOperationShapeCount << "\n";
+    OS << " MatrixConstructionCount: "
+       << m_pPSVLinAlgRuntimeInfo0->MatrixConstructionCount << "\n";
+    OS << " ThreadMatrixVectorMultiplyCount: "
+       << m_pPSVLinAlgRuntimeInfo0->ThreadMatrixVectorMultiplyCount << "\n";
+    OS << " WaveMatrixMultiplyCount: "
+       << m_pPSVLinAlgRuntimeInfo0->WaveMatrixMultiplyCount << "\n";
+    OS << " ThreadGroupMatrixMultiplyCount: "
+       << m_pPSVLinAlgRuntimeInfo0->ThreadGroupMatrixMultiplyCount << "\n";
+    OS << " OuterProductCount: " << m_pPSVLinAlgRuntimeInfo0->OuterProductCount
+       << "\n";
+    OS << " AccumulateStoreCount: "
+       << m_pPSVLinAlgRuntimeInfo0->AccumulateStoreCount << "\n";
+
+    auto PrintShapes = [&](const PSVLinAlgMatrixShapeArrayReference &ShapeRef) {
+      OS << "[";
+      const uint32_t *Indexes = m_SemanticIndexTable.Get(ShapeRef.ShapesIndex);
+      for (uint32_t I = 0; I < ShapeRef.Count; ++I) {
+        if (I)
+          OS << ", ";
+        PSVLinAlgMatrixOperationShape0 *Shape =
+            Indexes ? GetPSVLinAlgMatrixOperationShape(Indexes[I]) : nullptr;
+        if (Shape)
+          OS << "(" << Shape->M << "," << Shape->N << "," << Shape->K << ")";
+        else
+          OS << "invalid";
+      }
+      OS << "]";
+    };
+
+    for (uint32_t I = 0; I < GetPSVLinAlgMatrixConstructionCount(); ++I) {
+      auto *Record = GetPSVLinAlgMatrixConstruction(I);
+      OS << " MatrixConstruction[" << I
+         << "]: MatrixType=" << static_cast<uint32_t>(Record->MatrixType)
+         << ", Shapes=";
+      PrintShapes(Record->OperationShapes);
+      OS << "\n";
+    }
+    for (uint32_t I = 0; I < GetPSVLinAlgThreadMatrixVectorMultiplyCount();
+         ++I) {
+      auto *Record = GetPSVLinAlgThreadMatrixVectorMultiply(I);
+      OS << " ThreadMatrixVectorMultiply[" << I
+         << "]: ResultType=" << static_cast<uint32_t>(Record->ResultType)
+         << ", MatrixType=" << static_cast<uint32_t>(Record->MatrixType)
+         << ", VectorInputType="
+         << static_cast<uint32_t>(Record->VectorInputType)
+         << ", Flags=" << static_cast<uint32_t>(Record->Flags) << "\n";
+    }
+    for (uint32_t I = 0; I < GetPSVLinAlgWaveMatrixMultiplyCount(); ++I) {
+      auto *Record = GetPSVLinAlgWaveMatrixMultiply(I);
+      OS << " WaveMatrixMultiply[" << I << "]: AccumulatorType="
+         << static_cast<uint32_t>(Record->AccumulatorType)
+         << ", MatrixAType=" << static_cast<uint32_t>(Record->MatrixAType)
+         << ", MatrixBType=" << static_cast<uint32_t>(Record->MatrixBType)
+         << ", Shapes=";
+      PrintShapes(Record->OperationShapes);
+      OS << "\n";
+    }
+    for (uint32_t I = 0; I < GetPSVLinAlgThreadGroupMatrixMultiplyCount();
+         ++I) {
+      auto *Record = GetPSVLinAlgThreadGroupMatrixMultiply(I);
+      OS << " ThreadGroupMatrixMultiply[" << I << "]: AccumulatorType="
+         << static_cast<uint32_t>(Record->AccumulatorType)
+         << ", MatrixAType=" << static_cast<uint32_t>(Record->MatrixAType)
+         << ", MatrixBType=" << static_cast<uint32_t>(Record->MatrixBType)
+         << ", Shapes=";
+      PrintShapes(Record->OperationShapes);
+      OS << "\n";
+    }
+    for (uint32_t I = 0; I < GetPSVLinAlgOuterProductCount(); ++I) {
+      auto *Record = GetPSVLinAlgOuterProduct(I);
+      OS << " OuterProduct[" << I
+         << "]: ResultType=" << static_cast<uint32_t>(Record->ResultType)
+         << ", VectorInputType="
+         << static_cast<uint32_t>(Record->VectorInputType) << "\n";
+    }
+    for (uint32_t I = 0; I < GetPSVLinAlgAccumulateStoreCount(); ++I) {
+      auto *Record = GetPSVLinAlgAccumulateStore(I);
+      OS << " AccumulateStore[" << I << "]: AccumulatorType="
+         << static_cast<uint32_t>(Record->AccumulatorType)
+         << ", Flags=" << static_cast<uint32_t>(Record->Flags) << "\n";
+    }
+  }
 
   OS << "ResourceCount : " << m_uResourceCount << "\n ";
   if (m_uResourceCount) {

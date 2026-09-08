@@ -47,7 +47,7 @@ ShaderFlags::ShaderFlags()
       m_bAdvancedTextureOps(false), m_bWriteableMSAATextures(false),
       m_bReserved(false), m_bSampleCmpGradientOrBias(false),
       m_bExtendedCommandInfo(false), m_bUsesDerivatives(false),
-      m_bRequiresGroup(false), m_align1(0) {
+      m_bRequiresGroup(false), m_bLinearAlgebra(false), m_align1(0) {
   // Silence unused field warnings
   (void)m_align1;
 }
@@ -132,6 +132,7 @@ uint64_t ShaderFlags::GetFeatureInfo() const {
   Flags |= m_bExtendedCommandInfo
                ? hlsl::DXIL::ShaderFeatureInfo_ExtendedCommandInfo
                : 0;
+  Flags |= m_bLinearAlgebra ? hlsl::DXIL::ShaderFeatureInfo_LinearAlgebra : 0;
 
   // Per-function flags
   Flags |= m_bUsesDerivatives ? hlsl::DXIL::OptFeatureInfo_UsesDerivatives : 0;
@@ -198,6 +199,7 @@ uint64_t ShaderFlags::GetShaderFlagsRawForCollection() {
   Flags.SetWriteableMSAATextures(true);
   Flags.SetSampleCmpGradientOrBias(true);
   Flags.SetExtendedCommandInfo(true);
+  Flags.SetLinearAlgebra(true);
   Flags.SetUsesDerivatives(true);
   Flags.SetRequiresGroup(true);
   return Flags.GetShaderFlagsRaw();
@@ -445,6 +447,7 @@ ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
   bool hasSampleCmpGradientOrBias = false;
 
   bool hasExtendedCommandInfo = false;
+  bool hasLinearAlgebra = false;
 
   // UsesDerivatives is used to indicate any derivative use per-function, before
   // flags are combined from called functions. Later, the flags are adjusted for
@@ -584,6 +587,8 @@ ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
         DXIL::OpCode dxilOp = hlsl::OP::getOpCode(CI);
         if (dxilOp == DXIL::OpCode::NumOpCodes)
           continue;
+        if (hlsl::OP::IsDxilOpLinAlgFunc(CI->getCalledFunction()))
+          hasLinearAlgebra = true;
         if (hlsl::OP::IsDxilOpWave(dxilOp))
           hasWaveOps = true;
         if (hlsl::OP::IsDxilOpFeedback(dxilOp))
@@ -861,6 +866,7 @@ ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
                          !M->GetResMayAlias());
   flag.SetSampleCmpGradientOrBias(hasSampleCmpGradientOrBias);
   flag.SetExtendedCommandInfo(hasExtendedCommandInfo);
+  flag.SetLinearAlgebra(hasLinearAlgebra);
   flag.SetUsesDerivatives(hasDerivatives);
   flag.SetRequiresGroup(requiresGroup);
 
