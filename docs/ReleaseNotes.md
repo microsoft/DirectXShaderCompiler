@@ -50,7 +50,7 @@ line upon naming the release. Refer to previous for appropriate section names.
   [#6464](https://github.com/microsoft/DirectXShaderCompiler/issues/6464).
 - SPIR-V fixed incorrect alignment of 64-bit elements in `vk::RawBufferLoad` and
   `vk::RawBufferStore` intrinsics
-  [#8576](https://github.com/microsoft/DirectXShaderCompiler/pull/8576)
+  [#8572](https://github.com/microsoft/DirectXShaderCompiler/issues/8572)
 
 ### Upcoming Preview Release
 
