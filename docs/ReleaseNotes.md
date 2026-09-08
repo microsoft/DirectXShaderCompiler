@@ -68,7 +68,8 @@ first shipped in the 1.10.2605 preview.
 - Restricted the component types allowed in LinAlg matrices
   [#8608](https://github.com/microsoft/DirectXShaderCompiler/pull/8608).
 - Added `BFloat16` to the ComponentType enum in DxilConstants and the linalg
-  header [#8722](https://github.com/microsoft/DirectXShaderCompiler/issues/8722)
+  header [#8722](https://github.com/microsoft/DirectXShaderCompiler/issues/8722).
+- Removed work graph support from Shader Model 6.10, and DXIL 1.10 [microsoft/hlsl-specs#915](https://github.com/microsoft/hlsl-specs/issues/915).
 
 ### Version 1.9.2607
 
