@@ -109,12 +109,15 @@ public:
   unsigned MaxIterationAttempt = 0;
   bool OnlyWarnOnFail = false;
   bool StructurizeLoopExits = false;
+  bool UnrollCountIsHint = false;
 
   DxilLoopUnroll(unsigned MaxIterationAttempt = 1024,
-                 bool OnlyWarnOnFail = false, bool StructurizeLoopExits = false)
+                 bool OnlyWarnOnFail = false, bool StructurizeLoopExits = false,
+                 bool UnrollCountIsHint = false)
       : LoopPass(ID), MaxIterationAttempt(MaxIterationAttempt),
         OnlyWarnOnFail(OnlyWarnOnFail),
-        StructurizeLoopExits(StructurizeLoopExits) {
+        StructurizeLoopExits(StructurizeLoopExits),
+        UnrollCountIsHint(UnrollCountIsHint) {
     initializeDxilLoopUnrollPass(*PassRegistry::getPassRegistry());
   }
   StringRef getPassName() const override { return "Dxil Loop Unroll"; }
@@ -138,12 +141,14 @@ public:
                           false);
     GetPassOptionBool(O, "OnlyWarnOnFail", &OnlyWarnOnFail, false);
     GetPassOptionBool(O, "StructurizeLoopExits", &StructurizeLoopExits, false);
+    GetPassOptionBool(O, "UnrollCountIsHint", &UnrollCountIsHint, false);
   }
   void dumpConfig(raw_ostream &OS) override {
     LoopPass::dumpConfig(OS);
     OS << ",MaxIterationAttempt=" << MaxIterationAttempt;
     OS << ",OnlyWarnOnFail=" << OnlyWarnOnFail;
     OS << ",StructurizeLoopExits=" << StructurizeLoopExits;
+    OS << ",UnrollCountIsHint=" << UnrollCountIsHint;
   }
   void RecursivelyRemoveLoopOnSuccess(LPPassManager &LPM, Loop *L);
   void RecursivelyRecreateSubLoopForIteration(LPPassManager &LPM, LoopInfo *LI,
@@ -790,6 +795,8 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
       return false;
     }
     ExplicitUnrollCount = (unsigned)ExplicitUnrollCountSigned;
+    if (UnrollCountIsHint)
+      return false;
   }
 
   if (!IsLoopSafeToClone(L))
@@ -1256,9 +1263,10 @@ bool DxilLoopUnroll::doFinalization() {
 
 Pass *llvm::createDxilLoopUnrollPass(unsigned MaxIterationAttempt,
                                      bool OnlyWarnOnFail,
-                                     bool StructurizeLoopExits) {
+                                     bool StructurizeLoopExits,
+                                     bool UnrollCountIsHint) {
   return new DxilLoopUnroll(MaxIterationAttempt, OnlyWarnOnFail,
-                            StructurizeLoopExits);
+                            StructurizeLoopExits, UnrollCountIsHint);
 }
 
 INITIALIZE_PASS_BEGIN(DxilLoopUnroll, "dxil-loop-unroll", "Dxil Unroll loops",

@@ -12,6 +12,7 @@
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Analysis/DxilValueCache.h"
+#include "llvm/Analysis/ValueTracking.h"
 #include "llvm/IR/CFG.h"
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/Function.h"
@@ -330,6 +331,13 @@ void LowerGetResourceFromHeap(
     for (auto uit = resPtr->user_begin(); uit != resPtr->user_end();) {
       User *U = *(uit++);
       BitCastInst *BCI = cast<BitCastInst>(U);
+      // Ignore uses of the resource which are just bitcasts to i8* for lifetime
+      // markers. These will get cleaned up in later legalization.
+      if (BCI->getType()->getPointerElementType()->isIntegerTy(8)) {
+        DXASSERT(onlyUsedByLifetimeMarkers(BCI),
+                 "otherwise, unexpected use of i8* cast of resource ptr");
+        continue;
+      }
       DXASSERT(
           dxilutil::IsHLSLResourceType(
               BCI->getType()->getPointerElementType()) ||
@@ -348,7 +356,10 @@ void LowerGetResourceFromHeap(
       }
       BCI->eraseFromParent();
     }
-    resPtr->eraseFromParent();
+    // Only erase the resource if it has no remaining uses. The correct fix here
+    // is to just not generate these resources, but that is a larger change.
+    if (resPtr->use_empty())
+      resPtr->eraseFromParent();
   }
 }
 

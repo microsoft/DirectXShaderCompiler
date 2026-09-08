@@ -25,6 +25,7 @@ void node_1_1(
 // CHECK-NEXT:| |-CXXRecordDecl 0x{{.+}} <<invalid sloc>> <invalid sloc> implicit struct ThreadNodeOutputRecords definition
 // CHECK-NEXT:| | |-FinalAttr 0x{{.+}} <<invalid sloc>> Implicit final
 // CHECK-NEXT:| | |-HLSLNodeObjectAttr 0x{{.+}} <<invalid sloc>> Implicit ThreadNodeOutputRecords
+// CHECK-NEXT:| | |-AvailabilityAttr 0x{{.+}} <<invalid sloc>> Implicit 6.8 6.9 6.10 ""
 // CHECK-NEXT:| | |-FieldDecl 0x{{.+}} <<invalid sloc>> <invalid sloc> implicit h 'int'
 // CHECK-NEXT:| | |-CXXMethodDecl 0x{{.+}} <<invalid sloc>> <invalid sloc> operator[] 'recordType &(unsigned int)'
 // CHECK-NEXT:| | | |-ParmVarDecl 0x{{.+}} <<invalid sloc>> <invalid sloc> Index 'unsigned int'
@@ -56,6 +57,7 @@ void node_1_1(
 // CHECK-NEXT:|   |-TemplateArgument type 'RECORD1'
 // CHECK-NEXT:|   |-FinalAttr 0x{{.+}} <<invalid sloc>> Implicit final
 // CHECK-NEXT:|   |-HLSLNodeObjectAttr 0x{{.+}} <<invalid sloc>> Implicit ThreadNodeOutputRecords
+// CHECK-NEXT:|   |-AvailabilityAttr 0x{{.+}} <<invalid sloc>> Implicit 6.8 6.9 6.10 ""
 // CHECK-NEXT:|   |-FieldDecl 0x{{.+}} <<invalid sloc>> <invalid sloc> implicit h 'int'
 // CHECK-NEXT:|   |-CXXMethodDecl 0x{{.+}} <<invalid sloc>> <invalid sloc> operator[] 'RECORD1 &(unsigned int)'
 // CHECK-NEXT:|   | |-ParmVarDecl 0x{{.+}} <<invalid sloc>> <invalid sloc> Index 'unsigned int'
@@ -91,6 +93,7 @@ void node_1_1(
 // CHECK-NEXT:| |-CXXRecordDecl 0x{{.+}} <<invalid sloc>> <invalid sloc> implicit struct NodeOutput definition
 // CHECK-NEXT:| | |-FinalAttr 0x{{.+}} <<invalid sloc>> Implicit final
 // CHECK-NEXT:| | |-HLSLNodeObjectAttr 0x{{.+}} <<invalid sloc>> Implicit NodeOutput
+// CHECK-NEXT:| | |-AvailabilityAttr 0x{{.+}} <<invalid sloc>> Implicit 6.8 6.9 6.10 ""
 // CHECK-NEXT:| | |-FieldDecl 0x{{.+}} <<invalid sloc>> <invalid sloc> implicit h 'int'
 // CHECK-NEXT:| | |-FunctionTemplateDecl 0x{{.+}} <<invalid sloc>> <invalid sloc> GetGroupNodeOutputRecords
 // CHECK-NEXT:| | | |-TemplateTypeParmDecl 0x{{.+}} <<invalid sloc>> <invalid sloc> class TResult
@@ -109,6 +112,7 @@ void node_1_1(
 // CHECK-NEXT:|   |-TemplateArgument type 'RECORD1'
 // CHECK-NEXT:|   |-FinalAttr 0x{{.+}} <<invalid sloc>> Implicit final
 // CHECK-NEXT:|   |-HLSLNodeObjectAttr 0x{{.+}} <<invalid sloc>> Implicit NodeOutput
+// CHECK-NEXT:|   |-AvailabilityAttr 0x{{.+}} <<invalid sloc>> Implicit 6.8 6.9 6.10 ""
 // CHECK-NEXT:|   |-FieldDecl 0x{{.+}} <<invalid sloc>> <invalid sloc> implicit h 'int'
 // CHECK-NEXT:|   |-FunctionTemplateDecl 0x{{.+}} <<invalid sloc>> <invalid sloc> GetGroupNodeOutputRecords
 // CHECK-NEXT:|   | |-TemplateTypeParmDecl 0x{{.+}} <<invalid sloc>> <invalid sloc> class TResult
@@ -135,6 +139,7 @@ void node_1_1(
 // CHECK-NEXT:| |-CXXRecordDecl 0x{{.+}} <<invalid sloc>> <invalid sloc> implicit struct NodeOutputArray definition
 // CHECK-NEXT:| | |-FinalAttr 0x{{.+}} <<invalid sloc>> Implicit final
 // CHECK-NEXT:| | |-HLSLNodeObjectAttr 0x{{.+}} <<invalid sloc>> Implicit NodeOutputArray
+// CHECK-NEXT:| | |-AvailabilityAttr 0x{{.+}} <<invalid sloc>> Implicit 6.8 6.9 6.10 ""
 // CHECK-NEXT:| | |-FieldDecl 0x{{.+}} <<invalid sloc>> <invalid sloc> implicit h 'int'
 // CHECK-NEXT:| | `-CXXMethodDecl 0x{{.+}} <<invalid sloc>> <invalid sloc> operator[] 'NodeOutput<recordtype> (unsigned int)'
 // CHECK-NEXT:| |   |-ParmVarDecl 0x{{.+}} <<invalid sloc>> <invalid sloc> index 'unsigned int'
@@ -144,6 +149,7 @@ void node_1_1(
 // CHECK-NEXT:|   |-TemplateArgument type 'RECORD1'
 // CHECK-NEXT:|   |-FinalAttr 0x{{.+}} <<invalid sloc>> Implicit final
 // CHECK-NEXT:|   |-HLSLNodeObjectAttr 0x{{.+}} <<invalid sloc>> Implicit NodeOutputArray
+// CHECK-NEXT:|   |-AvailabilityAttr 0x{{.+}} <<invalid sloc>> Implicit 6.8 6.9 6.10 ""
 // CHECK-NEXT:|   |-FieldDecl 0x{{.+}} <<invalid sloc>> <invalid sloc> implicit h 'int'
 // CHECK-NEXT:|   `-CXXMethodDecl 0x[[SUB:[0-9a-f]+]] <<invalid sloc>> <invalid sloc> used operator[] 'NodeOutput<RECORD1> (unsigned int)'
 // CHECK-NEXT:|     |-ParmVarDecl 0x{{.+}} <<invalid sloc>> <invalid sloc> index 'unsigned int'

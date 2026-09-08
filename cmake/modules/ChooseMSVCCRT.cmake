@@ -4,15 +4,7 @@
 #
 # The macro is invoked at the end of the file.
 #
-# CMake already sets CRT flags in the CMAKE_CXX_FLAGS_* and
-# CMAKE_C_FLAGS_* variables by default. To let the user
-# override that for each build type:
-# 1. Detect which CRT is already selected, and reflect this in
-# LLVM_USE_CRT_* so the user can have a better idea of what
-# changes they're making.
-# 2. Replace the flags in both variables with the new flag via a regex.
-# 3. set() the variables back into the cache so the changes
-# are user-visible.
+# HLSL Change - removed outdated flag-rewriting description.
 
 ### Helper macros: ###
 macro(make_crt_regex regex crts)
@@ -33,23 +25,7 @@ macro(get_current_crt crt_current regex flagsvar)
   string(STRIP "${${crt_current}}" ${crt_current})
 endmacro(get_current_crt)
 
-# Replaces or adds a flag to a variable.
-# Expects 'flag' to be padded with spaces.
-macro(set_flag_in_var flagsvar regex flag)
-  string(REGEX MATCH "${${regex}}" current_flag "${${flagsvar}}")
-  if("${current_flag}" STREQUAL "")
-    set(${flagsvar} "${${flagsvar}}${${flag}}")
-  else()
-    string(REGEX REPLACE "${${regex}}" "${${flag}}" ${flagsvar} "${${flagsvar}}")
-  endif()
-  string(STRIP "${${flagsvar}}" ${flagsvar})
-  # Make sure this change gets reflected in the cache/gui.
-  # CMake requires the docstring parameter whenever set() touches the cache,
-  # so get the existing docstring and re-use that.
-  get_property(flagsvar_docs CACHE ${flagsvar} PROPERTY HELPSTRING)
-  set(${flagsvar} "${${flagsvar}}" CACHE STRING "${flagsvar_docs}" FORCE)
-endmacro(set_flag_in_var)
-
+# HLSL Change - removed set_flag_in_var().
 
 macro(choose_msvc_crt MSVC_CRT)
   if(LLVM_USE_CRT)
@@ -60,7 +36,11 @@ variables (LLVM_USE_CRT_DEBUG, etc) instead.")
 
   make_crt_regex(MSVC_CRT_REGEX ${MSVC_CRT})
 
-  foreach(build_type ${CMAKE_CONFIGURATION_TYPES} ${CMAKE_BUILD_TYPE})
+  # HLSL Change Starts
+  set(llvm_crt_build_types ${CMAKE_CONFIGURATION_TYPES} ${CMAKE_BUILD_TYPE})
+  list(REMOVE_DUPLICATES llvm_crt_build_types)
+
+  foreach(build_type ${llvm_crt_build_types})
     string(TOUPPER "${build_type}" build)
     if (NOT LLVM_USE_CRT_${build})
       get_current_crt(LLVM_USE_CRT_${build}
@@ -75,12 +55,11 @@ variables (LLVM_USE_CRT_DEBUG, etc) instead.")
     endif(NOT LLVM_USE_CRT_${build})
   endforeach(build_type)
 
-  foreach(build_type ${CMAKE_CONFIGURATION_TYPES} ${CMAKE_BUILD_TYPE})
+  set(llvm_crt_override_requested FALSE)
+  foreach(build_type ${llvm_crt_build_types})
     string(TOUPPER "${build_type}" build)
-    if ("${LLVM_USE_CRT_${build}}" STREQUAL "")
-      set(flag_string " ")
-    else()
-      set(flag_string " /${LLVM_USE_CRT_${build}} ")
+    if (NOT "${LLVM_USE_CRT_${build}}" STREQUAL "")
+      set(llvm_crt_override_requested TRUE)
       list(FIND ${MSVC_CRT} ${LLVM_USE_CRT_${build}} idx)
       if (idx LESS 0)
         message(FATAL_ERROR
@@ -88,10 +67,36 @@ variables (LLVM_USE_CRT_DEBUG, etc) instead.")
       endif (idx LESS 0)
       message(STATUS "Using ${build_type} VC++ CRT: ${LLVM_USE_CRT_${build}}")
     endif()
-    foreach(lang C CXX)
-      set_flag_in_var(CMAKE_${lang}_FLAGS_${build} MSVC_CRT_REGEX flag_string)
-    endforeach(lang)
   endforeach(build_type)
+
+  if (llvm_crt_override_requested)
+    set(cmake_msvc_runtime_library "")
+    foreach(build_type ${llvm_crt_build_types})
+      string(TOUPPER "${build_type}" build)
+      set(crt "${LLVM_USE_CRT_${build}}")
+      if ("${crt}" STREQUAL "")
+        if ("${build}" STREQUAL "DEBUG")
+          set(crt "MDd")
+        else()
+          set(crt "MD")
+        endif()
+      endif()
+
+      if ("${crt}" STREQUAL "MD")
+        set(runtime_library "MultiThreadedDLL")
+      elseif ("${crt}" STREQUAL "MDd")
+        set(runtime_library "MultiThreadedDebugDLL")
+      elseif ("${crt}" STREQUAL "MT")
+        set(runtime_library "MultiThreaded")
+      elseif ("${crt}" STREQUAL "MTd")
+        set(runtime_library "MultiThreadedDebug")
+      endif()
+      string(APPEND cmake_msvc_runtime_library
+        "$<$<CONFIG:${build_type}>:${runtime_library}>")
+    endforeach(build_type)
+    set(CMAKE_MSVC_RUNTIME_LIBRARY "${cmake_msvc_runtime_library}")
+  endif()
+  # HLSL Change Ends
 endmacro(choose_msvc_crt MSVC_CRT)
 
 
@@ -103,4 +108,3 @@ set(MSVC_CRT
   MTd)
 
 choose_msvc_crt(MSVC_CRT)
-
