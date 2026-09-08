@@ -42,7 +42,7 @@ line upon naming the release. Refer to previous for appropriate section names.
 - Casting a scalar to a struct or array containing a resource is now an error
   instead of crashing
   [#6661](https://github.com/microsoft/DirectXShaderCompiler/issues/6661).
-- Added the opt-in `-Whlsl-2026-compat` warning group for identifying issues
+- Added the `-Whlsl-2026-compat` warning group for identifying issues
   with language changes introduced in HLSL 2026.
 - The legacy effects syntax support is removed in HLSL 202x
   [#8480](https://github.com/microsoft/DirectXShaderCompiler/issues/8480).
