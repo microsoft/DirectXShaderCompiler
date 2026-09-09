@@ -58,7 +58,7 @@ void main(uint ID : SV_GroupID)
 //
 // CHECK: %[[MATA2:.*]] = call %dx.types.LinAlgMatrixC9M4N4U0S1
 // CHECK-SAME: @dx.op.linAlgMatrixLoadFromDescriptor.mC9M4N4U0S1(i32 -2147483634,
-// CHECK-SAME: %dx.types.Handle %{{[0-9]+}}, i32 0, i32 16, i32 1, i32 128)
+// CHECK-SAME: %dx.types.Handle %{{[0-9]+}}, i32 0, i32 16, i32 1, i32 16)
 // CHECK-SAME: ; LinAlgMatrixLoadFromDescriptor(handle,offset,stride,layout,align)
   MatrixATy MatA2 = MatrixATy::Load(BAB, 0, 16, MatrixLayoutEnum::ColMajor);
 
@@ -66,7 +66,7 @@ void main(uint ID : SV_GroupID)
 //
 // CHECK: %[[MATB2:.*]] = call %dx.types.LinAlgMatrixC9M4N4U1S1
 // CHECK-SAME: @dx.op.linAlgMatrixLoadFromDescriptor.mC9M4N4U1S1(i32 -2147483634,
-// CHECK-SAME: %dx.types.Handle %{{[0-9]+}}, i32 256, i32 16, i32 1, i32 128)
+// CHECK-SAME: %dx.types.Handle %{{[0-9]+}}, i32 256, i32 16, i32 1, i32 16)
 // CHECK-SAME: ; LinAlgMatrixLoadFromDescriptor(handle,offset,stride,layout,align)
   MatrixBTy MatB2;
   MatB2 = MatrixBTy::Load(RWBAB, 256, 16, MatrixLayoutEnum::ColMajor);
@@ -121,7 +121,7 @@ void main(uint ID : SV_GroupID)
 //
 // CHECK: call void @dx.op.linAlgMatrixStoreToDescriptor.mC9M4N4U1S1(i32 -2147483628,
 // CHECK-SAME: %dx.types.LinAlgMatrixC9M4N4U1S1 %[[MATB1_2]], %dx.types.Handle %{{[0-9]+}},
-// CHECK-SAME: i32 256, i32 16, i32 1, i32 128)  ;
+// CHECK-SAME: i32 256, i32 16, i32 1, i32 16)  ;
 // CHECK-SAME: LinAlgMatrixStoreToDescriptor(matrix,handle,offset,stride,layout,align)
   MatB1.Store(RWBAB, 256, 16, MatrixLayoutEnum::ColMajor);
 
@@ -148,7 +148,7 @@ void main(uint ID : SV_GroupID)
 // Matrix::InterlockedAccumulate to resource descriptor
 //
 // CHECK: call void @dx.op.linAlgMatrixAccumulateToDescriptor.mC9M4N4U2S1(i32 -2147483621,
-// CHECK-SAME: %dx.types.LinAlgMatrixC9M4N4U2S1 %[[ACCUM0]], %dx.types.Handle %{{[0-9]+}}, i32 0, i32 16, i32 1, i32 128)
+// CHECK-SAME: %dx.types.LinAlgMatrixC9M4N4U2S1 %[[ACCUM0]], %dx.types.Handle %{{[0-9]+}}, i32 0, i32 16, i32 1, i32 16)
 // CHECK-SAME: ; LinAlgMatrixAccumulateToDescriptor(matrix,handle,offset,stride,layout,align)
   AccMat1.InterlockedAccumulate(RWBAB, 0, 16, MatrixLayoutEnum::ColMajor);
 

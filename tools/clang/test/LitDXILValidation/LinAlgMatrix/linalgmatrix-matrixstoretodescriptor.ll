@@ -28,10 +28,10 @@ define void @main() {
   %6 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %2, %dx.types.ResourceProperties { i32 11, i32 0 })  ; AnnotateHandle(res,props)  resource: ByteAddressBuffer
   call void @dx.op.linAlgMatrixStoreToDescriptor.mC8M4N4U0S1(i32 -2147483628, %dx.types.LinAlgMatrixC8M4N4U0S1 %4, %dx.types.Handle %6, i32 0, i32 0, i32 0, i32 128)  ; LinAlgMatrixStoreToDescriptor(matrix,handle,offset,stride,layout,align)
 
-  ; CHECK-NEXT: Function: main: error: parameter 'Align' must be a multiple of 128, got 296
+  ; CHECK-NEXT: Function: main: error: parameter 'Align' must be a multiple of 4, got 298
   ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixStoreToDescriptor.mC8M4N4U0S1
   %7 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %1, %dx.types.ResourceProperties { i32 4107, i32 0 })  ; AnnotateHandle(res,props)  resource: RWByteAddressBuffer
-  call void @dx.op.linAlgMatrixStoreToDescriptor.mC8M4N4U0S1(i32 -2147483628, %dx.types.LinAlgMatrixC8M4N4U0S1 %4, %dx.types.Handle %7, i32 0, i32 0, i32 0, i32 296)  ; LinAlgMatrixStoreToDescriptor(matrix,handle,offset,stride,layout,align)
+  call void @dx.op.linAlgMatrixStoreToDescriptor.mC8M4N4U0S1(i32 -2147483628, %dx.types.LinAlgMatrixC8M4N4U0S1 %4, %dx.types.Handle %7, i32 0, i32 0, i32 0, i32 298)  ; LinAlgMatrixStoreToDescriptor(matrix,handle,offset,stride,layout,align)
 
   ; CHECK-NEXT: Function: main: error: parameter 'Align' must be greater than 0, got 0
   ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixStoreToDescriptor.mC8M4N4U0S1

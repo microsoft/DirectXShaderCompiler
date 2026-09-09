@@ -58,7 +58,6 @@ define void @main() {
   %16 = call %dx.types.LinAlgMatrixC8M4N8U2S0 @dx.op.linAlgMatrixLoadFromDescriptor.mC8M4N8U2S0(i32 -2147483634, %dx.types.Handle %15, i32 0, i32 %10, i32 0, i32 128)  ; LinAlgMatrixLoadFromDescriptor(handle,offset,stride,layout,align)
   %17 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %3, %dx.types.ResourceProperties { i32 11, i32 0 })  ; AnnotateHandle(res,props)  resource: ByteAddressBuffer
 
-
   ; CHECK-NEXT: Function: main: error: parameter 'Align' must be a multiple of 128, got 215
   ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixLoadFromDescriptor.mC8M4N8U2S0
   %18 = call %dx.types.LinAlgMatrixC8M4N8U2S0 @dx.op.linAlgMatrixLoadFromDescriptor.mC8M4N8U2S0(i32 -2147483634, %dx.types.Handle %17, i32 0, i32 0, i32 0, i32 215)  ; LinAlgMatrixLoadFromDescriptor(handle,offset,stride,layout,align)

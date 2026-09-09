@@ -193,6 +193,17 @@ struct ScalarCountFromPackedComponents {
       (PackedComponentCount + ElementsPerScalar - 1) / ElementsPerScalar;
 };
 
+template <ComponentEnum ElementType, SIZE_TYPE M, SIZE_TYPE N>
+struct DefaultAlign {
+  enum {
+    MinDim = M < N ? M : N,
+    ScalarCount = ScalarCountFromPackedComponents<ElementType, MinDim>::Value,
+    ByteAlign = ScalarCount * 4,
+    MinByteAlign = ByteAlign < 4 ? 4 : ByteAlign,
+    Value = MinByteAlign < 16 ? MinByteAlign : 16
+  };
+};
+
 } // namespace __detail
 
 template <ComponentEnum ElementType, uint DimA> struct VectorRef {
@@ -270,7 +281,7 @@ class Matrix {
     return Result;
   }
 
-  template <uint Align = 128>
+  template <uint Align = __detail::DefaultAlign<ComponentTy, M, N>::Value>
   [[nodiscard]] static Matrix Load(ByteAddressBuffer Res, uint StartOffset,
                                    uint Stride, MatrixLayoutEnum Layout) {
     Matrix Result;
@@ -279,7 +290,7 @@ class Matrix {
     return Result;
   }
 
-  template <uint Align = 128>
+  template <uint Align = __detail::DefaultAlign<ComponentTy, M, N>::Value>
   [[nodiscard]] static Matrix Load(RWByteAddressBuffer Res, uint StartOffset,
                                    uint Stride, MatrixLayoutEnum Layout) {
     Matrix Result;
@@ -333,7 +344,7 @@ class Matrix {
     __builtin_LinAlg_MatrixSetElement(__handle, __handle, Index, Value);
   }
 
-  template <uint Align = 128>
+  template <uint Align = __detail::DefaultAlign<ComponentTy, M, N>::Value>
   void Store(RWByteAddressBuffer Res, uint StartOffset, uint Stride,
              MatrixLayoutEnum Layout) {
     __builtin_LinAlg_MatrixStoreToDescriptor(__handle, Res, StartOffset, Stride,
@@ -354,7 +365,8 @@ class Matrix {
   }
 
   // Accumulate methods
-  template <uint Align = 128, MatrixUseEnum UseLocal = Use>
+  template <uint Align = __detail::DefaultAlign<ComponentTy, M, N>::Value,
+            MatrixUseEnum UseLocal = Use>
   typename hlsl::enable_if<Use == MatrixUse::Accumulator && UseLocal == Use,
                            void>::type
   InterlockedAccumulate(RWByteAddressBuffer Res, uint StartOffset, uint Stride,
