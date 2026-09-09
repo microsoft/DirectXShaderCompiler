@@ -1533,6 +1533,39 @@ static bool isUDTIntrinsicArg(CallInst *CI, unsigned OpIdx) {
   return false;
 }
 
+/// isSafeBitCastForScalarRepl - Check if a bitcast can be handled for scalar
+/// replacement.  A struct to struct pointer cast is only rewritable when the
+/// destination is reachable through the leading elements of the source, or
+/// when both structs have an identical layout.
+static bool isSafeBitCastForScalarRepl(BitCastOperator *BC) {
+  // Unused bitcast may be leftover from temporary memcpy
+  if (BC->use_empty())
+    return true;
+
+  Type *DstTy = BC->getDestTy();
+  Type *SrcTy = BC->getSrcTy();
+
+  if (!DstTy->isPointerTy() || !SrcTy->isPointerTy())
+    return true;
+
+  StructType *DstST = dyn_cast<StructType>(DstTy->getPointerElementType());
+  StructType *SrcST = dyn_cast<StructType>(SrcTy->getPointerElementType());
+
+  // A non-struct destination is rewritten per llvm.lifetime.* intrinsic user
+  // A non-struct source never reaches the struct to struct rewrite
+  if (!DstST || !SrcST)
+    return true;
+
+  for (StructType *ST = SrcST; ST && ST->getNumElements();) {
+    Type *EltTy = ST->getElementType(0);
+    if (EltTy == DstST)
+      return true;
+    ST = dyn_cast<StructType>(EltTy);
+  }
+
+  return SrcST->isLayoutIdentical(DstST);
+}
+
 /// isSafeForScalarRepl - Check if instruction I is a safe use with regard to
 /// performing scalar replacement of alloca AI.  The results are flagged in
 /// the Info parameter.  Offset indicates the position within AI that is
@@ -1548,6 +1581,8 @@ void isSafeForScalarRepl(Instruction *I, uint64_t Offset, AllocaInfo &Info) {
     Instruction *User = cast<Instruction>(U.getUser());
 
     if (BitCastInst *BC = dyn_cast<BitCastInst>(User)) {
+      if (!isSafeBitCastForScalarRepl(cast<BitCastOperator>(BC)))
+        return MarkUnsafe(Info, User);
       isSafeForScalarRepl(BC, Offset, Info);
     } else if (GetElementPtrInst *GEPI = dyn_cast<GetElementPtrInst>(User)) {
       uint64_t GEPOffset = Offset;
@@ -1667,6 +1702,24 @@ bool isSafeAllocaToScalarRepl(AllocaInst *AI) {
       HasPadding(AI->getAllocatedType(), DL))
     return false;
 
+  return true;
+}
+
+/// isSafeGlobalToScalarRepl - Check if a global can be broken down into
+/// elements.  Recursively walks the pointer producing users, which for a global
+/// may be constant expressions rather than instructions, and returns false when
+/// any of them cannot be rewritten.
+bool isSafeGlobalToScalarRepl(Value *V) {
+  for (User *U : V->users()) {
+    if (BitCastOperator *BC = dyn_cast<BitCastOperator>(U)) {
+      if (!isSafeBitCastForScalarRepl(BC))
+        return false;
+    } else if (!isa<GEPOperator>(U)) {
+      continue;
+    }
+    if (!isSafeGlobalToScalarRepl(U))
+      return false;
+  }
   return true;
 }
 } // namespace
@@ -2668,7 +2721,7 @@ void SROA_Helper::RewriteBitCast(BitCastInst *BCI) {
 
   bool bTypeMatch = false;
   unsigned level = 0;
-  while (SrcST) {
+  while (SrcST && SrcST->getNumElements()) {
     level++;
     Type *EltTy = SrcST->getElementType(0);
     if (EltTy == DstST) {
@@ -2687,7 +2740,10 @@ void SROA_Helper::RewriteBitCast(BitCastInst *BCI) {
       BCI->eraseFromParent();
       return;
     }
-    assert(0 && "Type mismatch.");
+    dxilutil::EmitErrorOnInstruction(
+        BCI, "Unsupported cast between struct types with different layouts.");
+    BCI->replaceAllUsesWith(UndefValue::get(BCI->getType()));
+    BCI->eraseFromParent();
     return;
   }
 
@@ -4395,8 +4451,6 @@ public:
   static char ID; // Pass identification, replacement for typeid
   explicit SROA_Parameter_HLSL() : ModulePass(ID) {}
   StringRef getPassName() const override { return "SROA Parameter HLSL"; }
-  static void RewriteBitcastWithIdenticalStructs(Function *F);
-  static void RewriteBitcastWithIdenticalStructs(BitCastInst *BCI);
   static bool DeleteSimpleStoreOnlyAlloca(AllocaInst *AI);
   static bool IsSimpleStoreOnlyAlloca(AllocaInst *AI);
 
@@ -4464,7 +4518,6 @@ public:
     while (!WorkList.empty()) {
       Function *F = WorkList.front();
       WorkList.pop_front();
-      RewriteBitcastWithIdenticalStructs(F);
       createFlattenedFunction(F);
     }
 
@@ -4609,28 +4662,6 @@ INITIALIZE_PASS(SROA_Parameter_HLSL, "scalarrepl-param-hlsl",
                 "Scalar Replacement of Aggregates HLSL (parameters)", false,
                 false)
 
-void SROA_Parameter_HLSL::RewriteBitcastWithIdenticalStructs(Function *F) {
-  if (F->isDeclaration())
-    return;
-  // Gather list of bitcast involving src and dest structs with identical layout
-  std::vector<BitCastInst *> worklist;
-  for (inst_iterator I = inst_begin(F), E = inst_end(F); I != E; ++I) {
-    if (BitCastInst *BCI = dyn_cast<BitCastInst>(&*I)) {
-      Type *DstTy = BCI->getDestTy();
-      Type *SrcTy = BCI->getSrcTy();
-      if (ArePointersToStructsOfIdenticalLayouts(DstTy, SrcTy))
-        worklist.push_back(BCI);
-    }
-  }
-
-  // Replace bitcast involving src and dest structs with identical layout
-  while (!worklist.empty()) {
-    BitCastInst *BCI = worklist.back();
-    worklist.pop_back();
-    RewriteBitcastWithIdenticalStructs(BCI);
-  }
-}
-
 bool SROA_Parameter_HLSL::IsSimpleStoreOnlyAlloca(AllocaInst *AI) {
   if (!AI->getAllocatedType()->isSingleValueType())
     return false;
@@ -4659,23 +4690,6 @@ bool SROA_Parameter_HLSL::DeleteSimpleStoreOnlyAlloca(AllocaInst *AI) {
 
   AI->eraseFromParent();
   return true;
-}
-
-void SROA_Parameter_HLSL::RewriteBitcastWithIdenticalStructs(BitCastInst *BCI) {
-  StructType *srcStTy =
-      cast<StructType>(BCI->getSrcTy()->getPointerElementType());
-  StructType *destStTy =
-      cast<StructType>(BCI->getDestTy()->getPointerElementType());
-  Value *srcPtr = BCI->getOperand(0);
-  IRBuilder<> AllocaBuilder(
-      dxilutil::FindAllocaInsertionPt(BCI->getParent()->getParent()));
-  AllocaInst *destPtr = AllocaBuilder.CreateAlloca(destStTy);
-  IRBuilder<> InstBuilder(BCI);
-  std::vector<unsigned> idxlist = {0};
-  CopyElementsOfStructsWithIdenticalLayout(InstBuilder, destPtr, srcPtr,
-                                           srcStTy, idxlist);
-  BCI->replaceAllUsesWith(destPtr);
-  BCI->eraseFromParent();
 }
 
 /// DeleteDeadInstructions - Erase instructions on the DeadInstrs list,
@@ -6645,7 +6659,8 @@ public:
       } else {
         EltTy = dxilutil::GetArrayEltTy(EltTy);
         // Lower static [array of] resources
-        if (dxilutil::IsHLSLObjectType(EltTy) || EltTy == handleTy) {
+        if (dxilutil::IsHLSLObjectType(EltTy) || EltTy == handleTy ||
+            !isSafeGlobalToScalarRepl(&GV)) {
           staticGVs.emplace_back(&GV);
         }
       }
