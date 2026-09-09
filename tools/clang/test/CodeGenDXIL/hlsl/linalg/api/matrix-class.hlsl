@@ -169,12 +169,6 @@ void main(uint ID : SV_GroupID)
 // CHECK-SAME: [256 x i32] addrspace(3)* @"\01?PackedArr@@3PA$ui8_4pk@A", i32 0, i32 0), i32 0, i32 16, i32 1)
 // CHECK-SAME: ; LinAlgMatrixAccumulateToMemory(matrix,memory,offset,stride,layout)
   AccMat1.InterlockedAccumulate(PackedArr, 0, 16, MatrixLayoutEnum::ColMajor);
-// CHECK: call void @dx.op.linAlgMatrixAccumulateToMemory.mC9M4N4U2S1.i32(i32 -2147483620,
-// CHECK-SAME: %dx.types.LinAlgMatrixC9M4N4U2S1 %[[ACCUM0]],
-// CHECK-SAME: i32 addrspace(3)* getelementptr inbounds ([256 x i32],
-// CHECK-SAME: [256 x i32] addrspace(3)* @"\01?PackedArr@@3PA$ui8_4pk@A", i32 0, i32 0), i32 0, i32 16, i32 1)
-// CHECK-SAME: ; LinAlgMatrixAccumulateToMemory(matrix,memory,offset,stride,layout)
-  AccMat1.InterlockedAccumulate(PackedArr, 0, 16, MatrixLayoutEnum::ColMajor);
 
 // Matrix::InterlockedAccumulate supports thread-group scope
 //
