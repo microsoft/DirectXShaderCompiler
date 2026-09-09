@@ -376,8 +376,7 @@ class Matrix {
                                               Layout);
   }
 
-  template <ComponentEnum TargetCompTy = ComponentTy, typename T,
-            MatrixUseEnum UseLocal = Use, SIZE_TYPE Size>
+  template <typename T, MatrixUseEnum UseLocal = Use, SIZE_TYPE Size>
   typename hlsl::enable_if<
       hlsl::is_same<typename hlsl::strip_vector_type<T>::type,
                     uint8_t4_packed>::value &&
