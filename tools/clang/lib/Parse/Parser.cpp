@@ -593,7 +593,6 @@ bool Parser::ParseTopLevelDecl(DeclGroupPtrTy &Result) {
     SkipUntil(tok::r_brace); // skip through matching }
     Result = DeclGroupPtrTy();
     return false;
-    break;
     // HLSL Change Ends
 
   default:
