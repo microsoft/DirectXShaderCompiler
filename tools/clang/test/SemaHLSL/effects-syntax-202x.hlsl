@@ -17,7 +17,7 @@ Texture2D texAnnotated < int foo = 1; >;  /* expected-error {{expected ';' after
 Texture2D texStateBlock { state = foo; };  /* expected-error {{expected ';' after top level declarator}} */
 
 // sampler_state assignment initializer is no longer skipped.
-sampler S : register(s1) = sampler_state { texture = tex; };  /* expected-error {{expected expression}} */
+sampler S : register(s1) = sampler_state { texture = tex; };  /* expected-error {{use of undeclared identifier 'sampler_state'}} expected-error {{expected ';' after top level declarator}} */
 
 // Deprecated effect object type names are no longer declared, so they are
 // reported as unknown types.
@@ -37,7 +37,7 @@ pixelfragment pfrag;       /* expected-error {{unknown type name 'pixelfragment'
 vertexfragment vfrag;      /* expected-error {{unknown type name 'vertexfragment'}} */
 
 // The 'technique' keyword is no longer treated as a legacy effects block.
-technique T0 { pass {} }   /* expected-error {{expected unqualified-id}} */
+technique T0 { pass {} }   /* expected-error {{unknown type name 'technique'}} expected-error {{expected ';' after top level declarator}} */
 
 [shader("pixel")]
 float4 main() : SV_Target {

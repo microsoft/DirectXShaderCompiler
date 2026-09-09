@@ -587,14 +587,12 @@ bool Parser::ParseTopLevelDecl(DeclGroupPtrTy &Result) {
 
   // HLSL Change Starts - skip legacy effects technique syntax
   case tok::kw_technique:
-    if (getLangOpts().HLSLVersion < hlsl::LangStd::v202x) {
-      Diag(Tok.getLocation(), diag::warn_hlsl_2026_effects)
-          << /*technique*/ 3 << /*known not possible*/ 1;
-      SkipUntil(tok::l_brace); // skip through {
-      SkipUntil(tok::r_brace); // skip through matching }
-      Result = DeclGroupPtrTy();
-      return false;
-    }
+    Diag(Tok.getLocation(), diag::warn_hlsl_2026_effects)
+        << /*technique*/ 3 << /*known not possible*/ 1;
+    SkipUntil(tok::l_brace); // skip through {
+    SkipUntil(tok::r_brace); // skip through matching }
+    Result = DeclGroupPtrTy();
+    return false;
     break;
     // HLSL Change Ends
 
