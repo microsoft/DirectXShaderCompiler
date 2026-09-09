@@ -76,5 +76,5 @@ void main() {
 // CHECK-SAME: [64 x <2 x i32>] addrspace(3)* @"\01?PackedVecArr@@3PAV?$vector@$ui8_4pk@$01@@A", i32 0, i32 0),
 // CHECK-SAME: i32 0, i32 16, i32 1)
 // CHECK-SAME: ; LinAlgMatrixAccumulateToMemory(matrix,memory,offset,stride,layout)
-  Acc.InterlockedAccumulate<ComponentType::I32>(PackedVecArr, 0, 16, MatrixLayoutEnum::ColMajor);
+  Acc.InterlockedAccumulate(PackedVecArr, 0, 16, MatrixLayoutEnum::ColMajor);
 }
