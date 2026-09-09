@@ -39,7 +39,7 @@ def _find_git_windows_unix_tools(tools_needed):
                 return lit.util.to_string(candidate_path)
         except:
             continue
-    raise(f"fail to find {tools_needed} which are required for DXC tests")
+    raise RuntimeError(f"failed to find {tools_needed} which are required for DXC tests")
 
 class TestingConfig:
     """"
