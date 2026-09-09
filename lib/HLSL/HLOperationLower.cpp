@@ -7157,10 +7157,9 @@ Value *TranslateLinAlgMatrixAccumToMemory(
 
   Value *Matrix = CI->getArgOperand(1);
   Value *Arr = CI->getArgOperand(2);
-  Value *TargetType = CI->getArgOperand(3);
-  Value *Offset = CI->getArgOperand(4);
-  Value *Stride = CI->getArgOperand(5);
-  Value *Layout = CI->getArgOperand(6);
+  Value *Offset = CI->getArgOperand(3);
+  Value *Stride = CI->getArgOperand(4);
+  Value *Layout = CI->getArgOperand(5);
 
   Value *Zero = Builder.getInt32(0);
   Value *ArrPtr = Builder.CreateGEP(Arr, {Zero, Zero});
@@ -7169,8 +7168,8 @@ Value *TranslateLinAlgMatrixAccumToMemory(
   Constant *OpArg = HlslOp->GetU32Const((unsigned)OpCode);
   Function *DxilFunc = HlslOp->GetOpFunc(OpCode, {Matrix->getType(), ArrEltTy});
 
-  return Builder.CreateCall(
-      DxilFunc, {OpArg, Matrix, ArrPtr, TargetType, Offset, Stride, Layout});
+  return Builder.CreateCall(DxilFunc,
+                            {OpArg, Matrix, ArrPtr, Offset, Stride, Layout});
 }
 
 Value *TranslateLinAlgConvert(CallInst *CI, IntrinsicOp IOP, OP::OpCode OpCode,

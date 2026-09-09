@@ -6689,7 +6689,6 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
     A(pI32);
     A(pI32);
     A(pI32);
-    A(pI32);
     break;
   case OpCode::LinAlgMatrixOuterProduct:
     A(EXT(0));

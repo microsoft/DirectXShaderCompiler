@@ -1549,24 +1549,6 @@ static void ValidateLinAlgMatrixAccumulateToMemory(CallInst *CI,
         CI, ValidationRule::InstrLinAlgMatrixGSMemMustBeLargeEnough,
         {std::to_string(GSScalarCount), std::to_string(ExpectedScalarCount)});
 
-  // Target type must be a immarg of allowed ComponentType
-  DXIL::ComponentType Target = DXIL::ComponentType::Invalid;
-  std::optional<uint64_t> TargetV =
-      ValidateConstantIntGetValue(CI, Op.get_targetType(), ValCtx, "TargetType",
-                                  "LinAlgMatrixAccumulateToMemory");
-  if (TargetV) {
-    Target = static_cast<DXIL::ComponentType>(*TargetV);
-    ValidateLinAlgComponentType(CI, Target, ValCtx, "TargetType");
-
-    // if gs memory inner type != i32 then target elem type must match it
-    if (!GSMemInnerTy->isIntegerTy(32) &&
-        !IsComponentTypeSameNativeType(Target, GSMemInnerTy))
-      ValCtx.EmitInstrFormatError(
-          CI, ValidationRule::InstrLinAlgMatrixGSMemTypeMustMatch,
-          {TypeToString(GSMemInnerTy), "target",
-           ComponentTypeToString(Target)});
-  }
-
   // gs memory ops have the parameter in element count so it must be scaled
   uint64_t ByteCount = ComponentTypeByteCount(Mat->Type);
 
