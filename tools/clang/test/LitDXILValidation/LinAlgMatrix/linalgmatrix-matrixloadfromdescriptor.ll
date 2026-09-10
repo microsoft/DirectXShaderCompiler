@@ -30,6 +30,16 @@ define void @main() {
   ; CHECK: Function: main: error: Return matrix with scope 'ThreadGroup' requires layout RowMajor or ColumnMajor for LinAlgMatrixLoadFromDescriptor.
   ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixLoadFromDescriptor.mC8M4N4U2S2
   %5 = call %dx.types.LinAlgMatrixC8M4N4U2S2 @dx.op.linAlgMatrixLoadFromDescriptor.mC8M4N4U2S2(i32 -2147483634, %dx.types.Handle %4, i32 0, i32 0, i32 4, i32 128)  ; LinAlgMatrixLoadFromDescriptor(handle,offset,stride,layout,align)
+  %threadgroup_align4_anno = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %3, %dx.types.ResourceProperties { i32 11, i32 0 })  ; AnnotateHandle(res,props)  resource: ByteAddressBuffer
+
+
+  ; No error expected for 4-byte alignment on a ThreadGroup matrix.
+  %threadgroup_align4 = call %dx.types.LinAlgMatrixC8M4N4U2S2 @dx.op.linAlgMatrixLoadFromDescriptor.mC8M4N4U2S2(i32 -2147483634, %dx.types.Handle %threadgroup_align4_anno, i32 0, i32 4, i32 0, i32 4)  ; LinAlgMatrixLoadFromDescriptor(handle,offset,stride,layout,align)
+  %threadgroup_align6_anno = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %3, %dx.types.ResourceProperties { i32 11, i32 0 })  ; AnnotateHandle(res,props)  resource: ByteAddressBuffer
+
+  ; CHECK-NEXT: Function: main: error: parameter 'Align' must be a multiple of 4, got 6
+  ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixLoadFromDescriptor.mC8M4N4U2S2
+  %threadgroup_align6 = call %dx.types.LinAlgMatrixC8M4N4U2S2 @dx.op.linAlgMatrixLoadFromDescriptor.mC8M4N4U2S2(i32 -2147483634, %dx.types.Handle %threadgroup_align6_anno, i32 0, i32 4, i32 0, i32 6)  ; LinAlgMatrixLoadFromDescriptor(handle,offset,stride,layout,align)
   %6 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %3, %dx.types.ResourceProperties { i32 11, i32 0 })  ; AnnotateHandle(res,props)  resource: ByteAddressBuffer
 
 
@@ -57,7 +67,6 @@ define void @main() {
   ; No error expected for non-imm arg stride on row/col layout
   %16 = call %dx.types.LinAlgMatrixC8M4N8U2S0 @dx.op.linAlgMatrixLoadFromDescriptor.mC8M4N8U2S0(i32 -2147483634, %dx.types.Handle %15, i32 0, i32 %10, i32 0, i32 128)  ; LinAlgMatrixLoadFromDescriptor(handle,offset,stride,layout,align)
   %17 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %3, %dx.types.ResourceProperties { i32 11, i32 0 })  ; AnnotateHandle(res,props)  resource: ByteAddressBuffer
-
 
   ; CHECK-NEXT: Function: main: error: parameter 'Align' must be a multiple of 128, got 215
   ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixLoadFromDescriptor.mC8M4N8U2S0

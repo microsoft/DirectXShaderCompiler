@@ -13,10 +13,12 @@ target triple = "dxil-ms-dx"
 %dx.types.LinAlgMatrixC9M8N8U0S1 = type { i8* }
 %dx.types.LinAlgMatrixC9M9N8U0S1 = type { i8* }
 %dx.types.LinAlgMatrixC9M8N9U0S1 = type { i8* }
+%dx.types.LinAlgMatrixC19M4N4U0S1 = type { i8* }
 %struct.ByteAddressBuffer = type { i32 }
 
 @"\01?SharedArr@@3PAMA" = external addrspace(3) global [64 x float], align 4
 @"\01?SharedVecArr@@3PAV?$vector@M$03@@A" = external addrspace(3) global [16 x <4 x float>], align 4
+@"\01?SharedIntArr@@3PAIA" = external addrspace(3) global [64 x i32], align 4
 
 define void @main() {
   %1 = call %dx.types.Handle @dx.op.createHandleFromBinding(i32 217, %dx.types.ResBind zeroinitializer, i32 0, i1 false)  ; CreateHandleFromBinding(bind,index,nonUniformIndex)
@@ -32,25 +34,18 @@ define void @main() {
   %11 = call %dx.types.LinAlgMatrixC9M9N8U0S1 @dx.op.linAlgMatrixLoadFromDescriptor.mC9M9N8U0S1(i32 -2147483634, %dx.types.Handle %10, i32 0, i32 0, i32 0, i32 128)  ; LinAlgMatrixLoadFromDescriptor(handle,offset,stride,layout,align)
   %12 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %1, %dx.types.ResourceProperties { i32 11, i32 0 })  ; AnnotateHandle(res,props)  resource: ByteAddressBuffer
   %13 = call %dx.types.LinAlgMatrixC9M8N9U0S1 @dx.op.linAlgMatrixLoadFromDescriptor.mC9M8N9U0S1(i32 -2147483634, %dx.types.Handle %12, i32 0, i32 0, i32 0, i32 128)  ; LinAlgMatrixLoadFromDescriptor(handle,offset,stride,layout,align)
+  %i8_matrix = call %dx.types.LinAlgMatrixC19M4N4U0S1 @dx.op.linAlgMatrixLoadFromDescriptor.mC19M4N4U0S1(i32 -2147483634, %dx.types.Handle %2, i32 0, i32 4, i32 0, i32 4)  ; LinAlgMatrixLoadFromDescriptor(handle,offset,stride,layout,align)
 
   ; okay
   call void @dx.op.linAlgMatrixStoreToMemory.mC9M4N4U0S1.f32(i32 -2147483627, %dx.types.LinAlgMatrixC9M4N4U0S1 %5, float addrspace(3)* getelementptr inbounds ([64 x float], [64 x float] addrspace(3)* @"\01?SharedArr@@3PAMA", i32 0, i32 0), i32 128, i32 16, i32 0)  ; LinAlgMatrixStoreToMemory(matrix,memory,offset,stride,layout)
 
-  ; CHECK: Function: main: error: Parameter 'Offset' in bytes must be a multiple of 128, got 516 (129 elements * 4 bytes per element).
-  ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixStoreToMemory.mC9M4N4U0S1.f32
-  call void @dx.op.linAlgMatrixStoreToMemory.mC9M4N4U0S1.f32(i32 -2147483627, %dx.types.LinAlgMatrixC9M4N4U0S1 %5, float addrspace(3)* getelementptr inbounds ([64 x float], [64 x float] addrspace(3)* @"\01?SharedArr@@3PAMA", i32 0, i32 0), i32 129, i32 16, i32 0)  ; LinAlgMatrixStoreToMemory(matrix,memory,offset,stride,layout)
-
   ; okay only if offset accounts for byte width of component type
   call void @dx.op.linAlgMatrixStoreToMemory.mC9M4N4U0S1.f32(i32 -2147483627, %dx.types.LinAlgMatrixC9M4N4U0S1 %5, float addrspace(3)* getelementptr inbounds ([64 x float], [64 x float] addrspace(3)* @"\01?SharedArr@@3PAMA", i32 0, i32 0), i32 32, i32 16, i32 0)  ; LinAlgMatrixStoreToMemory(matrix,memory,offset,stride,layout)
-
-  ; CHECK-NEXT: Function: main: error: Parameter 'Stride' in bytes must be a multiple of 16, got 68 (17 elements * 4 bytes per element).
-  ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixStoreToMemory.mC9M4N4U0S1.f32
-  call void @dx.op.linAlgMatrixStoreToMemory.mC9M4N4U0S1.f32(i32 -2147483627, %dx.types.LinAlgMatrixC9M4N4U0S1 %5, float addrspace(3)* getelementptr inbounds ([64 x float], [64 x float] addrspace(3)* @"\01?SharedArr@@3PAMA", i32 0, i32 0), i32 128, i32 17, i32 0)  ; LinAlgMatrixStoreToMemory(matrix,memory,offset,stride,layout)
 
   ; okay only if stride accounts for byte width of component type
   call void @dx.op.linAlgMatrixStoreToMemory.mC9M4N4U0S1.f32(i32 -2147483627, %dx.types.LinAlgMatrixC9M4N4U0S1 %5, float addrspace(3)* getelementptr inbounds ([64 x float], [64 x float] addrspace(3)* @"\01?SharedArr@@3PAMA", i32 0, i32 0), i32 128, i32 4, i32 0)  ; LinAlgMatrixStoreToMemory(matrix,memory,offset,stride,layout)
 
-  ; CHECK-NEXT: Function: main: error: Input matrix scope 'Thread' does not match expected scope Wave or ThreadGroup.
+  ; CHECK: Function: main: error: Input matrix scope 'Thread' does not match expected scope Wave or ThreadGroup.
   ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixStoreToMemory.mC9M4N4U0S0.f32
   call void @dx.op.linAlgMatrixStoreToMemory.mC9M4N4U0S0.f32(i32 -2147483627, %dx.types.LinAlgMatrixC9M4N4U0S0 %3, float addrspace(3)* getelementptr inbounds ([64 x float], [64 x float] addrspace(3)* @"\01?SharedArr@@3PAMA", i32 0, i32 0), i32 128, i32 16, i32 0)  ; LinAlgMatrixStoreToMemory(matrix,memory,offset,stride,layout)
 
@@ -80,6 +75,14 @@ define void @main() {
   ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixStoreToMemory.mC9M8N9U0S1.v4f32
   call void @dx.op.linAlgMatrixStoreToMemory.mC9M8N9U0S1.v4f32(i32 -2147483627, %dx.types.LinAlgMatrixC9M8N9U0S1 %13, <4 x float> addrspace(3)* getelementptr inbounds ([16 x <4 x float>], [16 x <4 x float>] addrspace(3)* @"\01?SharedVecArr@@3PAV?$vector@M$03@@A", i32 0, i32 0), i32 128, i32 16, i32 0)  ; LinAlgMatrixStoreToMemory(matrix,memory,offset,stride,layout)
 
+  ; CHECK-NEXT: Function: main: error: Parameter 'Offset' in bytes must be a multiple of 4, got 2 (2 elements * 1 bytes per element).
+  ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixStoreToMemory.mC19M4N4U0S1.i32
+  call void @dx.op.linAlgMatrixStoreToMemory.mC19M4N4U0S1.i32(i32 -2147483627, %dx.types.LinAlgMatrixC19M4N4U0S1 %i8_matrix, i32 addrspace(3)* getelementptr inbounds ([64 x i32], [64 x i32] addrspace(3)* @"\01?SharedIntArr@@3PAIA", i32 0, i32 0), i32 2, i32 4, i32 0)  ; LinAlgMatrixStoreToMemory(matrix,memory,offset,stride,layout)
+
+  ; CHECK-NEXT: Function: main: error: Parameter 'Stride' in bytes must be a multiple of 4, got 2 (2 elements * 1 bytes per element).
+  ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixStoreToMemory.mC19M4N4U0S1.i32
+  call void @dx.op.linAlgMatrixStoreToMemory.mC19M4N4U0S1.i32(i32 -2147483627, %dx.types.LinAlgMatrixC19M4N4U0S1 %i8_matrix, i32 addrspace(3)* getelementptr inbounds ([64 x i32], [64 x i32] addrspace(3)* @"\01?SharedIntArr@@3PAIA", i32 0, i32 0), i32 4, i32 2, i32 0)  ; LinAlgMatrixStoreToMemory(matrix,memory,offset,stride,layout)
+
   ; CHECK-NEXT: Validation failed.
   ret void
 }
@@ -101,6 +104,9 @@ declare %dx.types.LinAlgMatrixC9M9N8U0S1 @dx.op.linAlgMatrixLoadFromDescriptor.m
 
 ; Function Attrs: nounwind
 declare %dx.types.LinAlgMatrixC9M8N9U0S1 @dx.op.linAlgMatrixLoadFromDescriptor.mC9M8N9U0S1(i32, %dx.types.Handle, i32, i32, i32, i32) #0
+
+; Function Attrs: nounwind
+declare %dx.types.LinAlgMatrixC19M4N4U0S1 @dx.op.linAlgMatrixLoadFromDescriptor.mC19M4N4U0S1(i32, %dx.types.Handle, i32, i32, i32, i32) #0
 
 ; Function Attrs: nounwind
 declare void @dx.op.linAlgMatrixStoreToMemory.mC9M4N4U0S1.f32(i32, %dx.types.LinAlgMatrixC9M4N4U0S1, float addrspace(3)*, i32, i32, i32) #0
@@ -129,6 +135,9 @@ declare void @dx.op.linAlgMatrixStoreToMemory.mC9M9N8U0S1.v4f32(i32, %dx.types.L
 ; Function Attrs: nounwind
 declare void @dx.op.linAlgMatrixStoreToMemory.mC9M8N9U0S1.v4f32(i32, %dx.types.LinAlgMatrixC9M8N9U0S1, <4 x float> addrspace(3)*, i32, i32, i32) #0
 
+; Function Attrs: nounwind
+declare void @dx.op.linAlgMatrixStoreToMemory.mC19M4N4U0S1.i32(i32, %dx.types.LinAlgMatrixC19M4N4U0S1, i32 addrspace(3)*, i32, i32, i32) #0
+
 ; Function Attrs: nounwind readnone
 declare %dx.types.Handle @dx.op.annotateHandle(i32, %dx.types.Handle, %dx.types.ResourceProperties) #1
 
@@ -138,7 +147,7 @@ declare %dx.types.Handle @dx.op.createHandleFromBinding(i32, %dx.types.ResBind, 
 attributes #0 = { nounwind }
 attributes #1 = { nounwind readnone }
 
-!dx.targetTypes = !{!0, !1, !2, !3, !4, !5}
+!dx.targetTypes = !{!0, !1, !2, !3, !4, !5, !15}
 !llvm.ident = !{!6}
 !dx.version = !{!7}
 !dx.valver = !{!7}
@@ -161,3 +170,4 @@ attributes #1 = { nounwind readnone }
 !12 = !{void ()* @main, !"main", null, !9, !13}
 !13 = !{i32 0, i64 2199031644176, i32 4, !14}
 !14 = !{i32 1, i32 1, i32 1}
+!15 = !{%dx.types.LinAlgMatrixC19M4N4U0S1 undef, i32 19, i32 4, i32 4, i32 0, i32 1}
