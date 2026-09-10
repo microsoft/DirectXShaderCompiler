@@ -2667,78 +2667,79 @@ Decl *Parser::ParseDeclarationAfterDeclaratorAndAttributes(
   if (isTokenEqualOrEqualTypo()) {
     SourceLocation EqualLoc = ConsumeToken();
 
-    // HLSL Change Starts - skip legacy effects sampler_state { ... } assignment and warn
-    if (Tok.is(tok::kw_sampler_state)) {
-      Diag(Tok.getLocation(), diag::warn_hlsl_effect_sampler_state);
+    // HLSL Change Starts - skip legacy effects sampler_state assignment
+    if (getLangOpts().HLSLVersion < hlsl::LangStd::v202x &&
+        Tok.is(tok::kw_sampler_state)) {
+      Diag(Tok.getLocation(), diag::warn_hlsl_2026_effects)
+          << /*sampler_state assignment*/ 1 << /*known not possible*/ 1;
       SkipUntil(tok::l_brace); // skip until '{'
       SkipUntil(tok::r_brace); // skip until '}'
     } else
-    // HLSL Change Ends
-    if (Tok.is(tok::kw_delete)) {
-      if (D.isFunctionDeclarator())
-        Diag(ConsumeToken(), diag::err_default_delete_in_multiple_declaration)
-          << 1 /* delete */;
-      else
-        Diag(ConsumeToken(), diag::err_deleted_non_function);
-    } else if (Tok.is(tok::kw_default)) {
-      if (D.isFunctionDeclarator())
-        Diag(ConsumeToken(), diag::err_default_delete_in_multiple_declaration)
-          << 0 /* default */;
-      else
-        Diag(ConsumeToken(), diag::err_default_special_members);
-    } else {
-      if (getLangOpts().CPlusPlus && D.getCXXScopeSpec().isSet()) {
-        EnterScope(0);
-        Actions.ActOnCXXEnterDeclInitializer(getCurScope(), ThisDecl);
+      // HLSL Change Ends
+      if (Tok.is(tok::kw_delete)) {
+        if (D.isFunctionDeclarator())
+          Diag(ConsumeToken(), diag::err_default_delete_in_multiple_declaration)
+              << 1 /* delete */;
+        else
+          Diag(ConsumeToken(), diag::err_deleted_non_function);
+      } else if (Tok.is(tok::kw_default)) {
+        if (D.isFunctionDeclarator())
+          Diag(ConsumeToken(), diag::err_default_delete_in_multiple_declaration)
+              << 0 /* default */;
+        else
+          Diag(ConsumeToken(), diag::err_default_special_members);
+      } else {
+        if (getLangOpts().CPlusPlus && D.getCXXScopeSpec().isSet()) {
+          EnterScope(0);
+          Actions.ActOnCXXEnterDeclInitializer(getCurScope(), ThisDecl);
+        }
+
+        if (Tok.is(tok::code_completion)) {
+          Actions.CodeCompleteInitializer(getCurScope(), ThisDecl);
+          Actions.FinalizeDeclaration(ThisDecl);
+          cutOffParsing();
+          return nullptr;
+        }
+
+        // HLSL Change Begin.
+        // Skip the initializer of effect object.
+        if (D.isInvalidType()) {
+          SkipUntil(tok::semi, StopBeforeMatch); // skip until ';'
+          Actions.ActOnUninitializedDecl(ThisDecl, TypeContainsAuto);
+          return nullptr;
+        }
+        // HLSL Change End.
+
+        ExprResult Init(ParseInitializer());
+
+        // If this is the only decl in (possibly) range based for statement,
+        // our best guess is that the user meant ':' instead of '='.
+        if (Tok.is(tok::r_paren) && FRI && D.isFirstDeclarator()) {
+          Diag(EqualLoc, diag::err_single_decl_assign_in_for_range)
+              << FixItHint::CreateReplacement(EqualLoc, ":");
+          // We are trying to stop parser from looking for ';' in this for
+          // statement, therefore preventing spurious errors to be issued.
+          FRI->ColonLoc = EqualLoc;
+          Init = ExprError();
+          FRI->RangeExpr = Init;
+        }
+
+        if (getLangOpts().CPlusPlus && D.getCXXScopeSpec().isSet()) {
+          Actions.ActOnCXXExitDeclInitializer(getCurScope(), ThisDecl);
+          ExitScope();
+        }
+
+        if (Init.isInvalid()) {
+          SmallVector<tok::TokenKind, 2> StopTokens;
+          StopTokens.push_back(tok::comma);
+          if (D.getContext() == Declarator::ForContext)
+            StopTokens.push_back(tok::r_paren);
+          SkipUntil(StopTokens, StopAtSemi | StopBeforeMatch);
+          Actions.ActOnInitializerError(ThisDecl);
+        } else
+          Actions.AddInitializerToDecl(ThisDecl, Init.get(),
+                                       /*DirectInit=*/false, TypeContainsAuto);
       }
-
-      if (Tok.is(tok::code_completion)) {
-        Actions.CodeCompleteInitializer(getCurScope(), ThisDecl);
-        Actions.FinalizeDeclaration(ThisDecl);
-        cutOffParsing();
-        return nullptr;
-      }
-
-
-      // HLSL Change Begin.
-      // Skip the initializer of effect object.
-      if (D.isInvalidType()) {
-        SkipUntil(tok::semi, StopBeforeMatch); // skip until ';'
-        Actions.ActOnUninitializedDecl(ThisDecl, TypeContainsAuto);
-        return nullptr;
-      }
-      // HLSL Change End.
-
-      ExprResult Init(ParseInitializer());
-
-      // If this is the only decl in (possibly) range based for statement,
-      // our best guess is that the user meant ':' instead of '='.
-      if (Tok.is(tok::r_paren) && FRI && D.isFirstDeclarator()) {
-        Diag(EqualLoc, diag::err_single_decl_assign_in_for_range)
-            << FixItHint::CreateReplacement(EqualLoc, ":");
-        // We are trying to stop parser from looking for ';' in this for
-        // statement, therefore preventing spurious errors to be issued.
-        FRI->ColonLoc = EqualLoc;
-        Init = ExprError();
-        FRI->RangeExpr = Init;
-      }
-
-      if (getLangOpts().CPlusPlus && D.getCXXScopeSpec().isSet()) {
-        Actions.ActOnCXXExitDeclInitializer(getCurScope(), ThisDecl);
-        ExitScope();
-      }
-
-      if (Init.isInvalid()) {
-        SmallVector<tok::TokenKind, 2> StopTokens;
-        StopTokens.push_back(tok::comma);
-        if (D.getContext() == Declarator::ForContext)
-          StopTokens.push_back(tok::r_paren);
-        SkipUntil(StopTokens, StopAtSemi | StopBeforeMatch);
-        Actions.ActOnInitializerError(ThisDecl);
-      } else
-        Actions.AddInitializerToDecl(ThisDecl, Init.get(),
-                                     /*DirectInit=*/false, TypeContainsAuto);
-    }
   } else if (Tok.is(tok::l_paren)) {
     // Parse C++ direct initializer: '(' expression-list ')'
     BalancedDelimiterTracker T(*this, tok::l_paren);
@@ -2806,12 +2807,15 @@ Decl *Parser::ParseDeclarationAfterDeclaratorAndAttributes(
                                    /*DirectInit=*/true, TypeContainsAuto);
 
     // HLSL Change Starts
-  } else if (getLangOpts().HLSL && Tok.is(tok::l_brace) &&
-             !D.isFunctionDeclarator()) {
+  } else if (getLangOpts().HLSL &&
+             getLangOpts().HLSLVersion < hlsl::LangStd::v202x &&
+             Tok.is(tok::l_brace) && !D.isFunctionDeclarator()) {
     // HLSL allows for a block definition here that it silently ignores.
     // This is to allow for effects state block definitions.  Detect a
     // block here, warn about effect deprecation, and ignore the block.
-    Diag(Tok.getLocation(), diag::warn_hlsl_effect_state_block);
+    Diag(Tok.getLocation(), diag::warn_hlsl_2026_effects)
+        << /*state block */ 2 << /*known not possible*/ 1;
+    Diag(Tok.getLocation(), diag::note_hlsl_effects_use_equal);
     ConsumeBrace();
     SkipUntil(tok::r_brace); // skip until '}'
     // Braces could have been used to initialize an array.
@@ -6330,9 +6334,10 @@ void Parser::ParseDirectDeclarator(Declarator &D) {
   if (getLangOpts().HLSL) {
     if (MaybeParseHLSLAttributes(D))
       D.setInvalidType();
-    if (Tok.is(tok::less)) {
+    if (getLangOpts().HLSLVersion < hlsl::LangStd::v202x && Tok.is(tok::less)) {
       // Consume effects annotations
-      Diag(Tok.getLocation(), diag::warn_hlsl_effect_annotation);
+      Diag(Tok.getLocation(), diag::warn_hlsl_2026_effects)
+          << /*annotation*/ 0 << /*possible*/ 0;
       ConsumeToken();
       while (!Tok.is(tok::greater) && !Tok.is(tok::eof)) {
         SkipUntil(tok::semi); // skip through ;

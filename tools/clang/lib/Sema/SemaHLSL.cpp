@@ -47,11 +47,11 @@
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallSet.h"
+#include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/raw_ostream.h"
 #include <algorithm>
-#include <array>
 #include <bitset>
 #include <float.h>
 
@@ -3269,9 +3269,9 @@ private:
   CXXRecordDecl *m_objectTypeDecls[_countof(g_ArBasicKindsAsTypes)];
   // Map from object decl to the object index.
   using ObjectTypeDeclMapType =
-      std::array<std::pair<CXXRecordDecl *, unsigned>,
-                 _countof(g_ArBasicKindsAsTypes) +
-                     _countof(g_DeprecatedEffectObjectNames)>;
+      SmallVector<std::pair<CXXRecordDecl *, unsigned>,
+                  _countof(g_ArBasicKindsAsTypes) +
+                      _countof(g_DeprecatedEffectObjectNames)>;
   ObjectTypeDeclMapType m_objectTypeDeclsMap;
 
   UsedIntrinsicStore m_usedIntrinsics;
@@ -4260,7 +4260,7 @@ private:
             *m_context, typeName, templateArgCount, typeDefault, Attr);
       }
       m_objectTypeDecls[i] = recordDecl;
-      m_objectTypeDeclsMap[i] = std::make_pair(recordDecl, i);
+      m_objectTypeDeclsMap.push_back(std::make_pair(recordDecl, i));
     }
 
     // Create an alias for SamplerState. 'sampler' is very commonly used.
@@ -4277,10 +4277,14 @@ private:
       samplerDecl->setImplicit(true);
 
       // Create decls for each deprecated effect object type:
-      unsigned effectObjBase = _countof(g_ArBasicKindsAsTypes);
-      // TypeSourceInfo* effectObjTypeSource =
-      // m_context->getTrivialTypeSourceInfo(GetBasicKindType(AR_OBJECT_LEGACY_EFFECT));
+      // The legacy effects syntax is removed in HLSL 202x, so these type names
+      // are not registered in 202x and later. Using them then produces a
+      // natural "unknown type name" diagnostic.
+      bool RegisterEffectObjects =
+          m_sema->getLangOpts().HLSLVersion < hlsl::LangStd::v202x;
       for (unsigned i = 0; i < _countof(g_DeprecatedEffectObjectNames); i++) {
+        if (!RegisterEffectObjects)
+          continue;
         IdentifierInfo &idInfo =
             m_context->Idents.get(StringRef(g_DeprecatedEffectObjectNames[i]),
                                   tok::TokenKind::identifier);
@@ -4291,8 +4295,8 @@ private:
                                   currentDeclContext, NoLoc, NoLoc, &idInfo);
         currentDeclContext->addDecl(effectObjDecl);
         effectObjDecl->setImplicit(true);
-        m_objectTypeDeclsMap[i + effectObjBase] =
-            std::make_pair(effectObjDecl, effectKindIndex);
+        m_objectTypeDeclsMap.push_back(
+            std::make_pair(effectObjDecl, effectKindIndex));
       }
     }
 
@@ -15679,7 +15683,8 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC, Expr *BitWidth,
   if (hlsl::IsObjectType(this, qt, &bDeprecatedEffectObject)) {
     bIsObject = true;
     if (bDeprecatedEffectObject) {
-      Diag(D.getLocStart(), diag::warn_hlsl_effect_object);
+      Diag(D.getLocStart(), diag::warn_hlsl_2026_effects)
+          << /*object*/ 4 << /*known not possible*/ 1;
       D.setInvalidType();
       return false;
     }
