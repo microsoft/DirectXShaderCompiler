@@ -27,6 +27,7 @@
 #include "dxc/HLSL/HLUtil.h"
 #include "dxc/HlslIntrinsicOp.h"
 #include "llvm/ADT/DenseSet.h"
+#include "llvm/ADT/MapVector.h"
 #include "llvm/ADT/SetVector.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/Statistic.h"
@@ -6808,7 +6809,7 @@ static void PatchDebugInfo(GVDebugInfoPatchCache &Cache,
 // instruction. This requires recursion to unwrap nested constant operators
 // using the GV.
 static void collectGVInstUsers(Value *V,
-                               DenseMap<Instruction *, Value *> &InstUserMap) {
+                               MapVector<Instruction *, Value *> &InstUserMap) {
   for (User *U : V->users()) {
     if (Instruction *I = dyn_cast<Instruction>(U)) {
       InstUserMap[I] = V;
@@ -6856,7 +6857,13 @@ bool LowerStaticGlobalIntoAlloca::lowerStaticGlobalIntoAlloca(
     }
   }
 
-  DenseMap<Instruction *, Value *> InstUserMap;
+  // Iteration order of this map is observable: rewriting a use below mutates
+  // AI's use list, and PatchDebugInfo() walks AI->users() to decide the order in
+  // which it creates a DILocalVariable per inlined DISubprogram. A DenseMap keyed
+  // on Instruction* walks its buckets, so the order is pointer-derived and moves
+  // with heap addresses, which made that debug info come out permuted between
+  // runs of the same compilation. Keep insertion order.
+  MapVector<Instruction *, Value *> InstUserMap;
   collectGVInstUsers(GV, InstUserMap);
 
   for (auto it : InstUserMap) {
