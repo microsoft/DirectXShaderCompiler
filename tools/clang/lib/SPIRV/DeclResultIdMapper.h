@@ -285,9 +285,6 @@ public:
   SpirvVariable *createFnVar(const VarDecl *var,
                              llvm::Optional<SpirvInstruction *> init);
 
-  /// \brief Registers a function-scope alias to an existing instruction.
-  void registerFnVarAlias(const VarDecl *var, SpirvInstruction *varInstr);
-
   /// \brief Creates a file-scope variable and returns its instruction.
   SpirvVariable *createFileVar(const VarDecl *var,
                                llvm::Optional<SpirvInstruction *> init);

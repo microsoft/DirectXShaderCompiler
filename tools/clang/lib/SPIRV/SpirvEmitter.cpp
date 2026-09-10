@@ -2991,11 +2991,9 @@ void SpirvEmitter::doReturnStmt(const ReturnStmt *stmt) {
         declIdMapper.createResourceHeap(cast<VarDecl>(declRefExpr->getDecl()),
                                         resourceType);
       }
-      // Buffer alias: emitting a load of the whole resource (runtime-array
-      // struct) produces invalid SPIR-V.  emitError does not halt codegen,
-      // so terminate the basic block with an undef return value before
-      // returning to prevent loadIfGLValue from emitting an invalid load and
-      // leaving the block without a terminator.
+      // Buffer alias: loading the whole runtime-array struct produces invalid
+      // SPIR-V. emitError does not halt codegen; terminate the block with an
+      // undef return to prevent loadIfGLValue emitting an unterminated block.
       // TODO: implement cross-function alias propagation for buffer aliases
       //       using VariablePointersStorageBuffer (tracked as follow-up).
       else if (const auto *var =
@@ -3454,22 +3452,20 @@ SpirvInstruction *SpirvEmitter::processCall(const CallExpr *callExpr) {
     // for it if it can act as out parameter.
     SpirvInstruction *argInfo = nullptr;
     if (const auto *declRefExpr = dyn_cast<DeclRefExpr>(arg)) {
-      // Heap buffer alias vars are not registered in astDecls, so
-      // getDeclEvalInfo would crash. Passing a buffer alias by value to a
-      // user function also requires VariablePointersStorageBuffer and callee
-      // parameter type changes that are not yet implemented; emit a diagnostic
-      // instead of crashing. TODO: implement full buffer-alias function-call
-      // support (VariablePointersStorageBuffer + matching createFnParam type).
+      // Buffer alias vars are not in astDecls (getDeclEvalInfo would crash);
+      // passing by value also requires VariablePointersStorageBuffer + callee
+      // parameter type changes (not yet implemented). Emit diagnostic instead.
+      // TODO: implement full buffer-alias function-call support
+      //       (VariablePointersStorageBuffer + matching createFnParam type).
       const auto *var = dyn_cast<VarDecl>(declRefExpr->getDecl());
       if (var && descriptorHeapBufferAliasVars.count(var)) {
         emitError("heap buffer alias cannot be passed to a user function; "
                   "access the buffer element directly at the call site",
                   arg->getLocStart());
-        // emitError does not halt codegen; returning nullptr here propagates
-        // to spvBuilder and causes an access violation before the diagnostic
-        // surfaces. Return a typed undef placeholder so downstream expression
-        // consumers remain valid. The emitted error ensures the shader is
-        // rejected even if codegen continues with the placeholder.
+        // emitError does not halt codegen; nullptr propagates to spvBuilder
+        // causing an access violation. Return a typed undef so downstream
+        // consumers remain valid; the diagnostic rejects the shader even if
+        // codegen continues with the placeholder.
         QualType retTy = callExpr->getCallReturnType(astContext);
         if (retTy->isVoidType())
           return nullptr;
@@ -5166,12 +5162,8 @@ SpirvEmitter::processStructuredBufferLoad(const CXXMemberCallExpr *expr) {
                                   {zero, index}, buffer->getExprLoc(), range);
 
   // derefOrCreatePointerToValue returns an lvalue (AccessChain) when the base
-  // is an lvalue. This covers descriptor-heap buffers reached either directly
-  // (ResourceDescriptorHeap[i].Load()) or through a local alias var.
-  // StructuredBuffer::Load semantically returns a value, and the AST emits no
-  // LValueToRValue cast for the call expression, so emit the load explicitly.
-  // (Verified required: scoping this to alias vars only regresses the direct
-  // heap-access tests; non-heap callers are unaffected in the existing suite.)
+  // is an lvalue (SPIR-V pointer into the buffer element) not the value.
+  // StructuredBuffer::Load must return the element value, so load explicitly.
   if (result && !result->isRValue()) {
     result = spvBuilder.createLoad(expr->getType(), result,
                                    buffer->getExprLoc(), range);
@@ -5260,10 +5252,9 @@ bool SpirvEmitter::diagnoseDescriptorHeapAliasMixing(const VarDecl *dstVar,
     emitError("mixing bound and descriptor heap resources in the same variable "
               "is not supported with SPV_EXT_descriptor_heap",
               loc);
-    // Leave any recorded alias in place. For heap-initialized buffer variables,
-    // doVarDecl returns early before calling createFnVar, so the alias is the
-    // only handle they have. Erasing it would crash downstream uses; keeping it
-    // is safe because the emitted error already fails the compilation.
+    // Leave the alias in place: heap-initialized buffer vars have doVarDecl
+    // return early (before createFnVar), making the alias their only handle;
+    // erasing it crashes downstream. The emitted error fails the compilation.
     descriptorHeapVarState[dstVar] = DescriptorHeapVarState::Mixed;
     return true;
   }
@@ -5316,7 +5307,7 @@ bool SpirvEmitter::tryToAssignDescriptorHeapImageAlias(
     return true;
   }
 
-  auto &alias = descriptorHeapImageAliasVars[dstVar];
+  DescriptorHeapImageAlias &alias = descriptorHeapImageAliasVars[dstVar];
   if (!alias.indexVar)
     alias.indexVar = createDescriptorHeapIndexVar(dstVar);
   alias.imageType = found->second.imageType;
@@ -5380,7 +5371,7 @@ bool SpirvEmitter::tryToAssignDescriptorHeapBufferAlias(
     return true;
   }
 
-  auto &alias = descriptorHeapBufferAliasVars[dstVar];
+  DescriptorHeapBufferAlias &alias = descriptorHeapBufferAliasVars[dstVar];
   if (!alias.indexVar)
     alias.indexVar = createDescriptorHeapIndexVar(dstVar);
   alias.bufferPointerType = found->second.bufferPointerType;
@@ -5435,11 +5426,11 @@ SpirvInstruction *SpirvEmitter::emitDescriptorHeapImageTexelPointer(
   return ptr;
 }
 
-// Descriptor-heap buffers: ConstantBuffer is a UBO (Uniform); every other
-// buffer resource (Structured/RW/ByteAddress, TextureBuffer) is an SSBO
-// (StorageBuffer). Here because the opaque OpTypeBufferEXT descriptor
-// carries no pointee interface type, so RemoveBufferBlockVisitor
-// cannot infer/correct its storage class post-lowering.
+// Descriptor-heap buffers: ConstantBuffer -> Uniform (UBO);
+// StructuredBuffer/RW/ByteAddress/TextureBuffer -> StorageBuffer (SSBO).
+// Placed here because opaque OpTypeBufferEXT has no pointee interface type,
+// so RemoveBufferBlockVisitor cannot infer/correct its storage class
+// post-lowering.
 static spv::StorageClass
 getDescriptorHeapBufferStorageClass(QualType resourceType) {
   return isConstantBuffer(resourceType) ? spv::StorageClass::Uniform
@@ -5454,12 +5445,11 @@ SpirvInstruction *SpirvEmitter::emitDescriptorHeapBufferAccess(
   LowerTypeVisitor lowerTypeVisitor(astContext, spvContext, spirvOptions,
                                     spvBuilder);
 
-  // Select storage class and concrete layout rule for this buffer kind.
+  // Select storage class and layout rule for this buffer kind:
   // ConstantBuffer -> Uniform (UBO); all others -> StorageBuffer (SSBO).
-  // Passing the concrete layout rule (not Void) causes lowerType to return
-  // the bare struct/buffer type rather than a Uniform alias pointer, so we
-  // can wrap it with the correct storage class here without touching
-  // LowerTypeVisitor or relying on RemoveBufferBlockVisitor to fix it later.
+  // Passing a concrete layout rule (not Void) makes lowerType return the bare
+  // type rather than a Uniform alias pointer, so we apply the correct storage
+  // class here without patching LowerTypeVisitor or RemoveBufferBlockVisitor.
   const spv::StorageClass bufferSC =
       getDescriptorHeapBufferStorageClass(resourceType);
   SpirvLayoutRule layoutRule;
@@ -7133,11 +7123,10 @@ SpirvEmitter::doCXXOperatorCallExpr(const CXXOperatorCallExpr *expr,
       const Expr *indexExpr = nullptr;
       getDescriptorHeapOperands(expr, &baseExpr, &indexExpr);
 
-      // The heap index expression must be immediately converted to a concrete
-      // resource type (an implicit cast inserted by the front-end). If the
-      // parent is missing or is not a cast (e.g. the result is discarded as
-      // a statement, or used in a context with no target resource type) we
-      // cannot determine the resource type.
+      // The heap index must be immediately consumed by a front-end-inserted
+      // implicit cast to a concrete resource type. If the parent is missing
+      // or is not a cast (result discarded or no target type), the resource
+      // type is indeterminate.
       const auto *parentExpr =
           dyn_cast_or_null<CastExpr>(parentMap->getParent(expr));
       if (!parentExpr) {

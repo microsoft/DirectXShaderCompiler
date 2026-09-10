@@ -292,8 +292,8 @@ public:
   const SpirvType *getElementType() const { return elementType; }
   llvm::Optional<uint32_t> getStride() const { return stride; }
   // When non-null, the array is decorated with ArrayStrideIdEXT referencing
-  // this constant <id> (SPV_EXT_descriptor_heap) instead of a literal
-  // ArrayStride. Mutually exclusive with a literal stride.
+  // this constant <id> instead of a literal ArrayStride. Mutually exclusive
+  // with a literal stride.
   SpirvInstruction *getArrayStrideId() const { return arrayStrideId; }
 
 private:

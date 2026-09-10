@@ -2052,19 +2052,16 @@ SpirvInstruction *SpirvBuilder::getResourceHeapArrayStride() {
   if (resourceHeapArrayStride)
     return resourceHeapArrayStride;
 
-  // The HLSL SM6.6 ResourceDescriptorHeap is a single flat array in which the
-  // client may place any resource descriptor at any slot. To match DX12
-  // semantics, all resource descriptor arrays must share one stride equal to
-  // the largest resource descriptor size: max(sizeof(image), sizeof(buffer)).
-  // Images and buffers are the two resource descriptor categories defined by
-  // VkPhysicalDeviceDescriptorHeapPropertiesEXT (imageDescriptorSize /
-  // bufferDescriptorSize); textures lower to OpTypeImage, so image/buffer
-  // covers all relevant HLSL resource kinds.
-  // Both sizes are driver defined and known only at pipeline creation time, so
-  // the maximum is computed with OpSpecConstantOp over two OpConstantSizeOfEXT
-  // placeholders. A canonical sampled 2D float image and a Uniform buffer stand
-  // in as representatives; VkPhysicalDeviceDescriptorHeapPropertiesEXT reports
-  // one size per category, so subtype and storage class do not affect the size.
+  // ResourceDescriptorHeap is a flat array: any descriptor may sit at any slot.
+  // DX12 semantics require all resource arrays share stride =
+  // max(sizeof(image), sizeof(buffer)).
+  // VkPhysicalDeviceDescriptorHeapPropertiesEXT reports one size per category
+  // (imageDescriptorSize / bufferDescriptorSize); textures lower to
+  // OpTypeImage, so image/buffer covers all relevant HLSL resource kinds. Sizes are
+  // driver-defined (known only at pipeline creation), so the max is computed
+  // via OpSpecConstantOp over two OpConstantSizeOfEXT placeholders. A canonical
+  // sampled 2D float image and a Uniform buffer serve as representatives;
+  // subtype and storage class do not affect the category size.
   const SpirvType *placeholderImage = context.getImageType(
       context.getFloatType(32), spv::Dim::Dim2D, ImageType::WithDepth::No,
       /*arrayed*/ false, /*ms*/ false, ImageType::WithSampler::Yes,

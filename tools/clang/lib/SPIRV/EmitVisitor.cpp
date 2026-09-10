@@ -2738,9 +2738,8 @@ uint32_t EmitTypeHandler::emitType(const SpirvType *type) {
       emitDecoration(id, spv::Decoration::ArrayStrideIdEXT,
                      {getOrAssignResultId<SpirvInstruction>(strideId)},
                      llvm::None, /*usesIdParams=*/true);
-    } else if (llvm::Optional<uint32_t> stride = raType->getStride()) {
+    } else if (llvm::Optional<uint32_t> stride = raType->getStride())
       emitDecoration(id, spv::Decoration::ArrayStride, {stride.getValue()});
-    }
   }
   // NodePayloadArray types
   else if (const auto *npaType = dyn_cast<NodePayloadArrayType>(type)) {

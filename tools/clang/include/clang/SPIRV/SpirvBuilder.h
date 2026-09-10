@@ -831,10 +831,9 @@ public:
                        bool specConst = false);
   SpirvConstant *getConstantNull(QualType);
   SpirvConstant *getConstantString(llvm::StringRef str, bool specConst = false);
-  /// \brief Returns the OpConstantSizeOfEXT (SPV_EXT_descriptor_heap) for the
-  /// given descriptor operandType, yielding its client-API size in bytes as
-  /// a 32-bit unsigned value. The result is cached per operand type, so each
-  /// descriptor type emits at most one instruction.
+  /// \brief Returns the OpConstantSizeOfEXT (SPV_EXT_descriptor_heap) for descriptor operandType:
+  /// client-API size in bytes as a 32-bit unsigned integer. Cached per operand
+  /// type.
   SpirvConstant *getConstantSizeOfEXT(const SpirvType *operandType);
 
   SpirvSpecConstantTernaryOp *
@@ -967,12 +966,11 @@ private:
   llvm::SmallVector<BuiltInVarInfo, 16> builtinVars;
 
   /// Cache of OpConstantSizeOfEXT instructions keyed on the descriptor operand
-  /// type, so each distinct descriptor type emits at most one instruction.
+  /// type; each distinct descriptor type produces at most one constant.
   llvm::DenseMap<const SpirvType *, SpirvConstant *> constantSizeOfEXTMap;
 
-  /// Cached shared descriptor-heap array strides (SPV_EXT_descriptor_heap), so
-  /// each is emitted once per module (see
-  /// get{Resource,Sampler}HeapArrayStride).
+  /// Cached shared descriptor-heap array strides, each emitted once per
+  /// module (see get{Resource,Sampler}HeapArrayStride).
   SpirvInstruction *resourceHeapArrayStride = nullptr;
   SpirvInstruction *samplerHeapArrayStride = nullptr;
 
