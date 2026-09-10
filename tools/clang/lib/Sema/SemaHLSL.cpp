@@ -15820,6 +15820,9 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC, Expr *BitWidth,
             << pAttr->getRange();
         result = false;
       }
+      if ((isGlobal || isParameter) && !isStatic)
+        Diag(pAttr->getLoc(), diag::warn_hlsl_2026_removed_keyword)
+            << "uniform";
       pUniform = pAttr;
       break;
 
