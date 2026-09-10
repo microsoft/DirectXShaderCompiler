@@ -5352,8 +5352,6 @@ bool Parser::isDeclarationSpecifier(bool DisambiguatingWithExpression) {
 
   // HLSL Change Starts
   case tok::kw_shared:
-    Diag(Tok.getLocation(), diag::warn_hlsl_2026_removed_keyword) << "shared";
-    [[fallthrough]];
   case tok::kw_precise:
   case tok::kw_center:
   case tok::kw_groupshared:
