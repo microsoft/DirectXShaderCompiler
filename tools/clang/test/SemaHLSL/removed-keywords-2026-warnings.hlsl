@@ -6,6 +6,9 @@
 shared float globalShared; // expected-warning {{'shared' is ignored and will be removed in HLSL 2026}}
 uniform float globalUniform; // expected-warning {{'uniform' is ignored and will be removed in HLSL 2026}}
 
+precise shared float globalPreciseShared; // expected-warning {{'shared' is ignored and will be removed in HLSL 2026}}
+precise uniform float globalPreciseUniform; // expected-warning {{'uniform' is ignored and will be removed in HLSL 2026}}
+
 float useUniformParameter(uniform float value) { // expected-warning {{'uniform' is ignored and will be removed in HLSL 2026}}
   return value;
 }
@@ -15,6 +18,9 @@ float useUniformParameter(uniform float value) { // expected-warning {{'uniform'
 // expected-no-diagnostics
 shared float globalShared;
 uniform float globalUniform;
+
+precise shared float globalPreciseShared;
+precise uniform float globalPreciseUniform;
 
 float useUniformParameter(uniform float value) {
   return value;

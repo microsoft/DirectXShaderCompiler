@@ -1292,6 +1292,9 @@ Parser::isCXXDeclarationSpecifier(Parser::TPResult BracedCastResult,
       return TPResult::True;
     }
 
+  case tok::kw_shared:
+    Diag(Tok.getLocation(), diag::warn_hlsl_2026_removed_keyword) << "shared";
+    [[fallthrough]];
   case tok::kw_in:
   case tok::kw_inout:
   case tok::kw_out:
@@ -1299,7 +1302,6 @@ Parser::isCXXDeclarationSpecifier(Parser::TPResult BracedCastResult,
   case tok::kw_centroid:
   case tok::kw_nointerpolation:
   case tok::kw_noperspective:
-  case tok::kw_shared:
   case tok::kw_groupshared:
   case tok::kw_uniform:
   case tok::kw_row_major:
