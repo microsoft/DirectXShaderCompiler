@@ -3591,6 +3591,8 @@ public:
   // Matrix Vector Arithmetic
   TEST_METHOD(MatVecMul_Thread_16x16_F16);
   TEST_METHOD(MatVecMul_Thread_4x8_F32);
+  TEST_METHOD(MatVecMul_Thread_4x8_F16_PerThread);
+  TEST_METHOD(MatVecMul_Thread_4x8_F16_Divergent);
   TEST_METHOD(MatVecMul_Thread_4x8_F16_NonUniform);
   TEST_METHOD(MatVecMul_Thread_4x8_F16_ColumnMajor);
   TEST_METHOD(MatVecMul_Thread_4x8_I8_Interpreted);
@@ -7028,6 +7030,391 @@ void DxilConf_SM610_LinAlg::MatVecMul_Thread_4x8_F32() {
 
   runMatVecMul(D3DDevice, DxcSupport, Params, VerboseLogging,
                /*FillValue=*/2, /*OutputSigned=*/true, ComponentType::F32);
+}
+
+// Thread-scope cases that give each thread distinct matrix values, the second
+// under divergent control flow.
+static constexpr int ThreadSemanticsThreads = 8;
+static constexpr int ThreadSemanticsM = 4;
+static constexpr int ThreadSemanticsN = 8;
+static constexpr size_t ThreadSemanticsElementBytes = sizeof(HLSLHalf_t);
+static constexpr size_t ThreadSemanticsStrideBytes =
+    alignMatrixStride(ThreadSemanticsN * ThreadSemanticsElementBytes);
+static constexpr size_t ThreadSemanticsMatrixSlotBytes =
+    MatrixOffsetAlignmentBytes;
+static constexpr size_t ThreadSemanticsResultBytes =
+    ThreadSemanticsM * ThreadSemanticsElementBytes;
+static constexpr size_t ThreadSemanticsWitnessOffset =
+    ThreadSemanticsResultBytes;
+static constexpr size_t ThreadSemanticsArmOffset =
+    ThreadSemanticsWitnessOffset + sizeof(uint32_t);
+static constexpr size_t ThreadSemanticsOutputSlotBytes =
+    ThreadSemanticsArmOffset + sizeof(uint32_t);
+static constexpr size_t ThreadSemanticsVectorBytes =
+    ThreadSemanticsN * ThreadSemanticsElementBytes;
+
+// Bits of the witness word each thread stores before the divergent branch.
+static constexpr uint32_t ThreadSemanticsWitnessUseB = 1u;
+static constexpr uint32_t ThreadSemanticsWitnessMixed = 2u;
+static constexpr uint32_t ThreadSemanticsWitnessMask =
+    ThreadSemanticsWitnessUseB | ThreadSemanticsWitnessMixed;
+
+static_assert(ThreadSemanticsElementBytes == 2,
+              "Thread semantics cases encode F16 elements");
+static_assert(ThreadSemanticsM * ThreadSemanticsStrideBytes <=
+                  ThreadSemanticsMatrixSlotBytes,
+              "Each thread's matrix must fit its aligned slot");
+static_assert(ThreadSemanticsWitnessOffset % sizeof(uint32_t) == 0 &&
+                  ThreadSemanticsArmOffset % sizeof(uint32_t) == 0,
+              "Witness words must be four byte aligned");
+
+static int threadSemanticsRowSeed(int Thread, int Row) {
+  return ThreadSemanticsM * Thread + Row + 1;
+}
+
+// Matrix[t][m][c] = Z + c, vector A is {1..N} and vector B is all -1, which
+// keeps the two arms' results in disjoint sign ranges.
+static int threadSemanticsMatrixValue(int Thread, int Row, int Column) {
+  return threadSemanticsRowSeed(Thread, Row) + Column;
+}
+
+// Closed forms over sum(c+1) = 36, sum(c*(c+1)) = 168 and sum(c) = 28:
+//   A: sum_c  (Z + c) * (c + 1) =  36*Z + 168
+//   B: sum_c -(Z + c)           = -(8*Z +  28)
+static int threadSemanticsExpected(int Thread, int Row, bool UseVectorB) {
+  static_assert(ThreadSemanticsN == 8,
+                "Closed-form expectations are derived for N = 8");
+  const int Z = threadSemanticsRowSeed(Thread, Row);
+  return UseVectorB ? -(8 * Z + 28) : 36 * Z + 168;
+}
+
+static void storeThreadSemanticsHalf(std::vector<BYTE> &Bytes, size_t Offset,
+                                     int Value) {
+  const HLSLHalf_t Encoded(static_cast<float>(Value));
+  VERIFY_ARE_EQUAL(static_cast<float>(Encoded), static_cast<float>(Value));
+  std::memcpy(Bytes.data() + Offset, &Encoded, ThreadSemanticsElementBytes);
+}
+
+static std::vector<BYTE> buildThreadSemanticsMatrixBuffer() {
+  std::vector<BYTE> Bytes(
+      ThreadSemanticsThreads * ThreadSemanticsMatrixSlotBytes, 0);
+  for (int Thread = 0; Thread < ThreadSemanticsThreads; ++Thread)
+    for (int Row = 0; Row < ThreadSemanticsM; ++Row)
+      for (int Column = 0; Column < ThreadSemanticsN; ++Column)
+        storeThreadSemanticsHalf(
+            Bytes,
+            Thread * ThreadSemanticsMatrixSlotBytes +
+                Row * ThreadSemanticsStrideBytes +
+                Column * ThreadSemanticsElementBytes,
+            threadSemanticsMatrixValue(Thread, Row, Column));
+  return Bytes;
+}
+
+static std::vector<BYTE> buildThreadSemanticsVectorBuffer() {
+  std::vector<BYTE> Bytes(2 * ThreadSemanticsVectorBytes, 0);
+  for (int Column = 0; Column < ThreadSemanticsN; ++Column) {
+    storeThreadSemanticsHalf(Bytes, Column * ThreadSemanticsElementBytes,
+                             Column + 1);
+    storeThreadSemanticsHalf(
+        Bytes,
+        ThreadSemanticsVectorBytes + Column * ThreadSemanticsElementBytes, -1);
+  }
+  return Bytes;
+}
+
+enum class ThreadSemanticsOutcome { Verified, Inconclusive, Failed };
+
+static ThreadSemanticsOutcome verifyThreadSemanticsOutput(const void *Data,
+                                                          size_t Size,
+                                                          bool Divergent,
+                                                          bool Verbose) {
+  const size_t RequiredBytes =
+      ThreadSemanticsThreads * ThreadSemanticsOutputSlotBytes;
+  if (Size < RequiredBytes) {
+    hlsl_test::LogErrorFmt(
+        L"Thread semantics readback is %zu bytes, expected at least %zu", Size,
+        RequiredBytes);
+    return ThreadSemanticsOutcome::Failed;
+  }
+
+  const BYTE *Bytes = static_cast<const BYTE *>(Data);
+  bool Success = true;
+  int MixedWaves = 0;
+  for (int Thread = 0; Thread < ThreadSemanticsThreads; ++Thread) {
+    const BYTE *Slot = Bytes + Thread * ThreadSemanticsOutputSlotBytes;
+    uint32_t Witness = 0;
+    uint32_t Arm = 0;
+    std::memcpy(&Witness, Slot + ThreadSemanticsWitnessOffset, sizeof(Witness));
+    std::memcpy(&Arm, Slot + ThreadSemanticsArmOffset, sizeof(Arm));
+
+    if ((Witness & ~ThreadSemanticsWitnessMask) != 0) {
+      hlsl_test::LogErrorFmt(L"Thread %d witness has unexpected bits: 0x%08x",
+                             Thread, Witness);
+      Success = false;
+      continue;
+    }
+    if (Arm > 1) {
+      hlsl_test::LogErrorFmt(L"Thread %d arm marker is not 0 or 1: 0x%08x",
+                             Thread, Arm);
+      Success = false;
+      continue;
+    }
+
+    if ((Witness & ThreadSemanticsWitnessMixed) != 0)
+      ++MixedWaves;
+
+    // The witness is written before the branch and the arm marker inside it, so
+    // a disagreement means the arm that ran is not the one the predicate chose.
+    const bool UseVectorB = (Witness & ThreadSemanticsWitnessUseB) != 0;
+    if (UseVectorB != (Arm == 1)) {
+      hlsl_test::LogErrorFmt(
+          L"Thread %d executed arm %s but its predicate selected vector %s",
+          Thread, Arm == 1 ? L"B" : L"A", UseVectorB ? L"B" : L"A");
+      Success = false;
+      continue;
+    }
+    if (!Divergent && UseVectorB) {
+      hlsl_test::LogErrorFmt(L"Thread %d selected vector B without a branch",
+                             Thread);
+      Success = false;
+      continue;
+    }
+
+    const HLSLHalf_t *Values = reinterpret_cast<const HLSLHalf_t *>(Slot);
+    for (int Row = 0; Row < ThreadSemanticsM; ++Row) {
+      const float Actual = static_cast<float>(Values[Row]);
+      const float Expected =
+          static_cast<float>(threadSemanticsExpected(Thread, Row, UseVectorB));
+      // Every expectation is an integer F16 holds exactly.
+      if (Actual != Expected) {
+        hlsl_test::LogErrorFmt(L"Thread %d row %d (vector %s): actual=%f, "
+                               L"expected=%f",
+                               Thread, Row, UseVectorB ? L"B" : L"A",
+                               static_cast<double>(Actual),
+                               static_cast<double>(Expected));
+        Success = false;
+      } else if (Verbose)
+        hlsl_test::LogCommentFmt(L"Thread %d row %d (vector %s): %f", Thread,
+                                 Row, UseVectorB ? L"B" : L"A",
+                                 static_cast<double>(Actual));
+    }
+  }
+
+  if (!Success)
+    return ThreadSemanticsOutcome::Failed;
+
+  // Thread-to-wave distribution is implementation defined, so a wave holding
+  // only same-parity lanes is legal and leaves the divergent case unproven
+  // rather than violated.
+  if (Divergent && MixedWaves == 0) {
+    hlsl_test::LogCommentFmt(
+        L"Every thread reported a wave that executed a single arm, so the "
+        L"thread-scope operations never ran under non-uniform control flow "
+        L"and this case establishes nothing about it. The per-thread results "
+        L"were verified before reporting this case as inconclusive");
+    return ThreadSemanticsOutcome::Inconclusive;
+  }
+  if (Divergent && Verbose)
+    hlsl_test::LogCommentFmt(L"%d of %d threads ran in a wave that executed "
+                             L"both arms",
+                             MixedWaves, ThreadSemanticsThreads);
+
+  return ThreadSemanticsOutcome::Verified;
+}
+
+static const char ThreadPerLaneMatVecShader[] = R"(
+  ByteAddressBuffer MatrixInput : register(t0);
+  ByteAddressBuffer VectorInput : register(t1);
+  RWByteAddressBuffer Output : register(u2);
+
+  [numthreads(NUMTHREADS, 1, 1)]
+  void main(uint3 GroupThreadID : SV_GroupThreadID) {
+    const uint T = GroupThreadID.x;
+
+    __builtin_LinAlgMatrix
+      [[__LinAlgMatrix_Attributes(COMP_TYPE, M_DIM, N_DIM, USE, SCOPE)]] Mat;
+    __builtin_LinAlg_MatrixLoadFromDescriptor(
+      Mat, MatrixInput, T * MATRIX_SLOT_BYTES, STRIDE, LAYOUT,
+      MATRIX_SLOT_BYTES);
+
+    vector<ELEM_TYPE, N_DIM> InVec;
+    for (uint I = 0; I < N_DIM; ++I) {
+      InVec[I] = VectorInput.Load<ELEM_TYPE>(I * ELEM_SIZE);
+    }
+
+    vector<ELEM_TYPE, M_DIM> OutVec;
+    __builtin_LinAlg_MatrixVectorMultiply(OutVec, Mat, 1, InVec, IN_INTERP);
+
+    for (uint I = 0; I < M_DIM; ++I) {
+      Output.Store<ELEM_TYPE>(T * OUTPUT_SLOT_BYTES + I * ELEM_SIZE, OutVec[I]);
+    }
+    Output.Store<uint>(T * OUTPUT_SLOT_BYTES + WITNESS_OFFSET, 0);
+    Output.Store<uint>(T * OUTPUT_SLOT_BYTES + ARM_OFFSET, 0);
+  }
+)";
+
+static const char ThreadDivergentMatVecShader[] = R"(
+  ByteAddressBuffer MatrixInput : register(t0);
+  ByteAddressBuffer VectorInput : register(t1);
+  RWByteAddressBuffer Output : register(u2);
+
+  [numthreads(NUMTHREADS, 1, 1)]
+  void main(uint3 GroupThreadID : SV_GroupThreadID) {
+    const uint T = GroupThreadID.x;
+    vector<ELEM_TYPE, M_DIM> OutVec;
+
+    // Lane parity rather than thread parity, because the thread-to-wave
+    // mapping is implementation defined and only lane parity is guaranteed to
+    // diverge inside a wave. Both votes run with every lane active.
+    const bool UseB = (WaveGetLaneIndex() & 1) != 0;
+    const bool Mixed = WaveActiveAnyTrue(UseB) && WaveActiveAnyTrue(!UseB);
+    Output.Store<uint>(T * OUTPUT_SLOT_BYTES + WITNESS_OFFSET,
+                       (UseB ? WITNESS_USE_B : 0) | (Mixed ? WITNESS_MIXED : 0));
+
+    if (!UseB) {
+      __builtin_LinAlgMatrix
+        [[__LinAlgMatrix_Attributes(COMP_TYPE, M_DIM, N_DIM, USE, SCOPE)]] Mat;
+      __builtin_LinAlg_MatrixLoadFromDescriptor(
+        Mat, MatrixInput, T * MATRIX_SLOT_BYTES, STRIDE, LAYOUT,
+        MATRIX_SLOT_BYTES);
+
+      vector<ELEM_TYPE, N_DIM> VecA;
+      for (uint I = 0; I < N_DIM; ++I) {
+        VecA[I] = VectorInput.Load<ELEM_TYPE>(I * ELEM_SIZE);
+      }
+      __builtin_LinAlg_MatrixVectorMultiply(OutVec, Mat, 1, VecA, IN_INTERP);
+      Output.Store<uint>(T * OUTPUT_SLOT_BYTES + ARM_OFFSET, 0);
+    } else {
+      __builtin_LinAlgMatrix
+        [[__LinAlgMatrix_Attributes(COMP_TYPE, M_DIM, N_DIM, USE, SCOPE)]] Mat;
+      __builtin_LinAlg_MatrixLoadFromDescriptor(
+        Mat, MatrixInput, T * MATRIX_SLOT_BYTES, STRIDE, LAYOUT,
+        MATRIX_SLOT_BYTES);
+
+      vector<ELEM_TYPE, N_DIM> VecB;
+      for (uint I = 0; I < N_DIM; ++I) {
+        VecB[I] = VectorInput.Load<ELEM_TYPE>(VEC_B_OFFSET + I * ELEM_SIZE);
+      }
+      __builtin_LinAlg_MatrixVectorMultiply(OutVec, Mat, 1, VecB, IN_INTERP);
+      Output.Store<uint>(T * OUTPUT_SLOT_BYTES + ARM_OFFSET, 1);
+    }
+
+    for (uint I = 0; I < M_DIM; ++I) {
+      Output.Store<ELEM_TYPE>(T * OUTPUT_SLOT_BYTES + I * ELEM_SIZE, OutVec[I]);
+    }
+  }
+)";
+
+static MatrixParams makeThreadSemanticsParams() {
+  MatrixParams Params = {};
+  Params.CompType = ComponentType::F16;
+  Params.M = ThreadSemanticsM;
+  Params.N = ThreadSemanticsN;
+  Params.Use = MatrixUse::A;
+  Params.Scope = MatrixScope::Thread;
+  Params.Layout = MatrixLayout::RowMajor;
+  Params.NumThreads = ThreadSemanticsThreads;
+  Params.Enable16Bit = true;
+  return Params;
+}
+
+static void runThreadSemanticsMatVec(ID3D12Device *Device,
+                                     dxc::SpecificDllLoader &DxcSupport,
+                                     const MatrixParams &Params,
+                                     const char *Shader, bool Divergent,
+                                     bool Verbose) {
+  VERIFY_ARE_EQUAL(Params.strideBytes(), ThreadSemanticsStrideBytes);
+
+  std::stringstream ExtraDefs;
+  ExtraDefs << " -DIN_INTERP=" << static_cast<int>(Params.CompType);
+  ExtraDefs << " -DMATRIX_SLOT_BYTES=" << ThreadSemanticsMatrixSlotBytes;
+  ExtraDefs << " -DOUTPUT_SLOT_BYTES=" << ThreadSemanticsOutputSlotBytes;
+  ExtraDefs << " -DVEC_B_OFFSET=" << ThreadSemanticsVectorBytes;
+  ExtraDefs << " -DWITNESS_OFFSET=" << ThreadSemanticsWitnessOffset;
+  ExtraDefs << " -DARM_OFFSET=" << ThreadSemanticsArmOffset;
+  ExtraDefs << " -DWITNESS_USE_B=" << ThreadSemanticsWitnessUseB;
+  ExtraDefs << " -DWITNESS_MIXED=" << ThreadSemanticsWitnessMixed;
+
+  const std::string Args = buildCompilerArgs(Params, ExtraDefs.str().c_str());
+  compileShader(DxcSupport, Shader, "cs_6_10", Args, Verbose);
+
+  const std::vector<BYTE> MatrixBuffer = buildThreadSemanticsMatrixBuffer();
+  const std::vector<BYTE> VectorBuffer = buildThreadSemanticsVectorBuffer();
+  const size_t OutputBytes =
+      ThreadSemanticsThreads * ThreadSemanticsOutputSlotBytes;
+
+  auto Op = createComputeOp(Shader, "cs_6_10", "SRV(t0), SRV(t1), UAV(u2)",
+                            Args.c_str());
+  addSRVBuffer(Op.get(), "MatrixInput", MatrixBuffer.size(), "byname");
+  addSRVBuffer(Op.get(), "VectorInput", VectorBuffer.size(), "byname");
+  addUAVBuffer(Op.get(), "Output", OutputBytes, true, "byname");
+  addRootView(Op.get(), 0, "MatrixInput");
+  addRootView(Op.get(), 1, "VectorInput");
+  addRootView(Op.get(), 2, "Output");
+
+  auto Result = runShaderOp(
+      Device, DxcSupport, std::move(Op),
+      [&](LPCSTR Name, std::vector<BYTE> &Data, st::ShaderOp *) {
+        if (_stricmp(Name, "Output") == 0) {
+          cpu_oracle::fillPoison(Data.data(), Data.size());
+          return;
+        }
+        const std::vector<BYTE> *Source = nullptr;
+        if (_stricmp(Name, "MatrixInput") == 0)
+          Source = &MatrixBuffer;
+        else if (_stricmp(Name, "VectorInput") == 0)
+          Source = &VectorBuffer;
+        VERIFY_IS_TRUE(Source != nullptr,
+                       "Unexpected thread semantics resource initializer");
+        if (!Source)
+          return;
+        VERIFY_ARE_EQUAL(Data.size(), Source->size());
+        if (Data.size() == Source->size())
+          std::memcpy(Data.data(), Source->data(), Data.size());
+      });
+
+  MappedData OutData;
+  Result->Test->GetReadBackData("Output", &OutData);
+  switch (verifyThreadSemanticsOutput(OutData.data(), OutData.size(), Divergent,
+                                      Verbose)) {
+  case ThreadSemanticsOutcome::Verified:
+    return;
+  case ThreadSemanticsOutcome::Inconclusive:
+    WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
+    return;
+  case ThreadSemanticsOutcome::Failed:
+    VERIFY_IS_TRUE(false, "Thread semantics verification failed");
+    return;
+  }
+  VERIFY_IS_TRUE(false, "Unknown thread semantics outcome");
+}
+
+void DxilConf_SM610_LinAlg::MatVecMul_Thread_4x8_F16_PerThread() {
+  const MatrixParams Params = makeThreadSemanticsParams();
+
+  if (!matVecMulApplicable(D3DDevice, Params, ComponentType::F16,
+                           /*HasBias=*/false,
+                           linalg_test::CapabilityRequirement::Mandatory,
+                           L"MatVecMul_Thread_4x8_F16_PerThread"))
+    return;
+
+  runThreadSemanticsMatVec(D3DDevice, DxcSupport, Params,
+                           ThreadPerLaneMatVecShader, /*Divergent=*/false,
+                           VerboseLogging);
+}
+
+void DxilConf_SM610_LinAlg::MatVecMul_Thread_4x8_F16_Divergent() {
+  const MatrixParams Params = makeThreadSemanticsParams();
+
+  if (!matVecMulApplicable(D3DDevice, Params, ComponentType::F16,
+                           /*HasBias=*/false,
+                           linalg_test::CapabilityRequirement::Mandatory,
+                           L"MatVecMul_Thread_4x8_F16_Divergent"))
+    return;
+
+  runThreadSemanticsMatVec(D3DDevice, DxcSupport, Params,
+                           ThreadDivergentMatVecShader, /*Divergent=*/true,
+                           VerboseLogging);
 }
 
 static const char MatVecMulAddShader[] = R"(
