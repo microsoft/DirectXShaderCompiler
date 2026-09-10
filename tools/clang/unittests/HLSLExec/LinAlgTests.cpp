@@ -6674,10 +6674,13 @@ static const char MatrixMultiplyShader[] = R"(
       if (I < Length) {
         if (Coord.x < M_DIM && Coord.y < N_DIM) {
           uint Cell = Coord.x * N_DIM + Coord.y;
-          float Expected = ExpectedResult.Load<float>(
+          uint ExpectedBits = ExpectedResult.Load<uint>(
             Coord.x * ACCUMULATOR_STRIDE + Coord.y * sizeof(float));
+          uint ActualBits = asuint(Elem);
+          bool Matches = ActualBits == ExpectedBits ||
+                         ((ActualBits | ExpectedBits) & 0x7fffffffu) == 0u;
           // Duplicate owners must not hide a bad value.
-          uint State = 1u | (Elem != Expected ? 2u : 0u);
+          uint State = 1u | (Matches ? 0u : 2u);
           AccessStatus.InterlockedOr(Cell * sizeof(uint), State);
         } else {
           AccessStatus.InterlockedOr(M_DIM * N_DIM * sizeof(uint), 1u);
