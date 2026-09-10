@@ -72,10 +72,19 @@ define void @main() {
   %20 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %1, %dx.types.ResourceProperties { i32 4107, i32 0 })  ; AnnotateHandle(res,props)  resource: RWByteAddressBuffer
   call void @dx.op.linAlgMatrixAccumulateToDescriptor.mC8M4N4U2S1(i32 -2147483621, %dx.types.LinAlgMatrixC8M4N4U2S1 %6, %dx.types.Handle %20, i32 0, i32 0, i32 3, i32 256)  ; LinAlgMatrixAccumulateToDescriptor(matrix,handle,offset,stride,layout,align)
 
+  ; No error expected for 4-byte alignment on a Wave matrix.
+  %21 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %1, %dx.types.ResourceProperties { i32 4107, i32 0 })  ; AnnotateHandle(res,props)  resource: RWByteAddressBuffer
+  call void @dx.op.linAlgMatrixAccumulateToDescriptor.mC8M4N4U2S1(i32 -2147483621, %dx.types.LinAlgMatrixC8M4N4U2S1 %6, %dx.types.Handle %21, i32 0, i32 4, i32 0, i32 4)  ; LinAlgMatrixAccumulateToDescriptor(matrix,handle,offset,stride,layout,align)
+
+  ; CHECK-NEXT: Function: main: error: parameter 'Align' must be a multiple of 4, got 6
+  ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixAccumulateToDescriptor.mC8M4N4U2S1
+  %22 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %1, %dx.types.ResourceProperties { i32 4107, i32 0 })  ; AnnotateHandle(res,props)  resource: RWByteAddressBuffer
+  call void @dx.op.linAlgMatrixAccumulateToDescriptor.mC8M4N4U2S1(i32 -2147483621, %dx.types.LinAlgMatrixC8M4N4U2S1 %6, %dx.types.Handle %22, i32 0, i32 4, i32 0, i32 6)  ; LinAlgMatrixAccumulateToDescriptor(matrix,handle,offset,stride,layout,align)
+
   ; CHECK-NEXT: Function: main: error: Input matrix use 'A' does not match expected use Accumulator.
   ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixAccumulateToDescriptor.mC8M4N4U0S0
-  %21 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %1, %dx.types.ResourceProperties { i32 4107, i32 0 })  ; AnnotateHandle(res,props)  resource: RWByteAddressBuffer
-  call void @dx.op.linAlgMatrixAccumulateToDescriptor.mC8M4N4U0S0(i32 -2147483621, %dx.types.LinAlgMatrixC8M4N4U0S0 %8, %dx.types.Handle %21, i32 0, i32 0, i32 4, i32 128)  ; LinAlgMatrixAccumulateToDescriptor(matrix,handle,offset,stride,layout,align)
+  %23 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %1, %dx.types.ResourceProperties { i32 4107, i32 0 })  ; AnnotateHandle(res,props)  resource: RWByteAddressBuffer
+  call void @dx.op.linAlgMatrixAccumulateToDescriptor.mC8M4N4U0S0(i32 -2147483621, %dx.types.LinAlgMatrixC8M4N4U0S0 %8, %dx.types.Handle %23, i32 0, i32 0, i32 4, i32 128)  ; LinAlgMatrixAccumulateToDescriptor(matrix,handle,offset,stride,layout,align)
 
   ; CHECK-NEXT: Validation failed.
   ret void
