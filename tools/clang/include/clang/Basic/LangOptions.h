@@ -164,6 +164,7 @@ public:
   bool EnablePayloadAccessQualifiers = false;
   bool DumpImplicitTopLevelDecls = true;
   bool ExportShadersOnly = false;
+  bool PreserveUnknownAnnotations = false;
   hlsl::DXIL::DefaultLinkage DefaultLinkage =
       hlsl::DXIL::DefaultLinkage::Default;
   /// Whether use row major as default matrix major.
