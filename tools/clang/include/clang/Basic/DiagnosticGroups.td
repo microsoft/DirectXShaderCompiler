@@ -810,12 +810,10 @@ def HLSLBarrier : DiagGroup<"hlsl-barrier">;
 // HLSL 2026 compatibility warnings: these warn on code in older language modes
 // that changes meaning or becomes illegal in HLSL 2026.
 def HLSLLegacyLiterals : DiagGroup<"hlsl-legacy-literal">;
-def HLSL2026RemovedKeywords
-    : DiagGroup<"hlsl-2026-removed-keywords">;
-def HLSL2026Compat : DiagGroup<"hlsl-2026-compat", [
-      HLSLLegacyLiterals,
-      HLSLEffectsSyntax,
-      HLSL2026RemovedKeywords]>;
+def HLSL2026RemovedKeywords : DiagGroup<"hlsl-2026-removed-keywords">;
+def HLSL2026Compat
+    : DiagGroup<"hlsl-2026-compat", [HLSLLegacyLiterals, HLSLEffectsSyntax,
+                                     HLSL2026RemovedKeywords]>;
 
 def HLSLGroupshared202x : DiagGroup<"hlsl-groupshared-202x">;
 def HLSL202xExtensions : DiagGroup<"hlsl-202x-extensions", [HLSLGroupshared202x]>;

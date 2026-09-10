@@ -761,9 +761,9 @@ Parser::ParseExternalDeclaration(ParsedAttributesWithRange &attrs,
     return DeclGroupPtrTy();
   // HLSL Change Starts: Ignore shared keyword for now
   case tok::kw_shared:
-      Diag(Tok.getLocation(), diag::warn_hlsl_2026_removed_keyword) << "shared";
-      ConsumeToken();
-      return ParseExternalDeclaration(attrs);
+    Diag(Tok.getLocation(), diag::warn_hlsl_2026_removed_keyword) << "shared";
+    ConsumeToken();
+    return ParseExternalDeclaration(attrs);
   // HLSL Change Ends
   // HLSL Change Starts: Start parsing declaration of cbuffer and tbuffers
   case tok::kw_cbuffer:
