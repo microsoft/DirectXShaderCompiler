@@ -88,6 +88,9 @@ line upon naming the release. Refer to previous for appropriate section names.
   [#8526](https://github.com/microsoft/DirectXShaderCompiler/issues/8526).
 - Fixed incorrect shader results caused by stale overflow and exactness flags
   after bit-tracking dead code elimination.
+- Fixed non-deterministic debug information for static globals localized into
+  allocas, which made the embedded debug module differ between compilations of
+  byte-identical input.
 
 ### Upcoming Preview Release
 
