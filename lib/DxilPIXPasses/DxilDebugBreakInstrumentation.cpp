@@ -120,10 +120,8 @@ bool DxilDebugBreakInstrumentation::runOnModule(Module &M) {
     CI->eraseFromParent();
   }
 
-  // Clean up the now-unused declaration. Not strictly required for
-  // correctness, but keeps the module free of dead references.
-  if (DebugBreakFunc->use_empty())
-    DebugBreakFunc->eraseFromParent();
+  PIXPassHelpers::eraseIfUnused(DM, DebugBreakFunc);
+  PIXPassHelpers::eraseIfUnused(DM, AtomicOpFunc);
 
   const bool modified = (PixUAVResource != nullptr);
 

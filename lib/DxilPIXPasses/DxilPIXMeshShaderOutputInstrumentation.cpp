@@ -310,6 +310,8 @@ bool DxilPIXMeshShaderOutputInstrumentation::runOnModule(Module &M) {
     }
 
     if (getMeshPayloadInstructions != nullptr) {
+      llvm::Function *OriginalGetMeshPayloadFunction =
+          cast<CallInst>(getMeshPayloadInstructions)->getCalledFunction();
 
       Function *DxilFunc = HlslOP->GetOpFunc(
           OP::OpCode::GetMeshPayload, expanded.ExpandedPayloadStructPtrType);
@@ -326,6 +328,7 @@ bool DxilPIXMeshShaderOutputInstrumentation::runOnModule(Module &M) {
       ReplaceAllUsesOfInstructionWithNewValueAndDeleteInstruction(
           getMeshPayloadInstructions, payload,
           expanded.ExpandedPayloadStructType);
+      PIXPassHelpers::eraseIfUnused(DM, OriginalGetMeshPayloadFunction);
     }
   }
 
@@ -378,9 +381,11 @@ bool DxilPIXMeshShaderOutputInstrumentation::runOnModule(Module &M) {
       {Type::getInt16Ty(Ctx), int16ValueIndicator},
       {Type::getFloatTy(Ctx), floatValueIndicator},
       {Type::getHalfTy(Ctx), float16ValueIndicator}};
+  SmallVector<Function *, 4> StoreVertexOutputFunctions;
 
   for (auto const &Overload : StoreVertexOutputOverloads) {
     F = HlslOP->GetOpFunc(DXIL::OpCode::StoreVertexOutput, Overload.type);
+    StoreVertexOutputFunctions.push_back(F);
     FunctionUses = F->uses();
     for (auto FI = FunctionUses.begin(); FI != FunctionUses.end();) {
       auto &FunctionUse = *FI++;
@@ -417,6 +422,10 @@ bool DxilPIXMeshShaderOutputInstrumentation::runOnModule(Module &M) {
                  Call->getOperand(1), Call->getOperand(2), ColumnIndex,
                  CoercedValue, Call->getOperand(5));
     }
+  }
+
+  for (Function *StoreVertexOutputFunction : StoreVertexOutputFunctions) {
+    PIXPassHelpers::eraseIfUnused(DM, StoreVertexOutputFunction);
   }
 
   DM.ReEmitDxilResources();

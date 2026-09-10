@@ -149,6 +149,9 @@ bool DxilNonUniformResourceIndexInstrumentation::runOnModule(Module &M) {
 
   const bool modified = (PixUAVResource != nullptr);
 
+  PIXPassHelpers::eraseIfUnused(DM, WaveActiveAllEqualFunc);
+  PIXPassHelpers::eraseIfUnused(DM, AtomicOpFunc);
+
   if (modified) {
     DM.ReEmitDxilResources();
 

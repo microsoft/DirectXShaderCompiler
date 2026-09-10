@@ -125,6 +125,8 @@ bool DxilOutputColorBecomesConstant::runOnModule(Module &M) {
       [&hasIntOutputs](CallInst *) { hasIntOutputs = true; });
 
   if (!hasFloatOutputs && !hasIntOutputs) {
+    PIXPassHelpers::eraseIfUnused(DM, FloatOutputFunction);
+    PIXPassHelpers::eraseIfUnused(DM, IntOutputFunction);
     return false;
   }
 
@@ -250,6 +252,9 @@ bool DxilOutputColorBecomesConstant::runOnModule(Module &M) {
               ReplacementColors[*OutputColumn.getRawData()]);
         });
   }
+
+  PIXPassHelpers::eraseIfUnused(DM, FloatOutputFunction);
+  PIXPassHelpers::eraseIfUnused(DM, IntOutputFunction);
 
   return Modified;
 }
