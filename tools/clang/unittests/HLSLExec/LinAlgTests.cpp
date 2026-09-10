@@ -3643,6 +3643,7 @@ public:
   TEST_METHOD(MatMatMul_Wave_16x16x16_I32);
   TEST_METHOD(MatMatMulAccum_Wave_16x16x16_F16);
   TEST_METHOD(MatMatMulAccum_Wave_8x32x16_F16_ToF32_NonUniform);
+  TEST_METHOD(MatMatMulAccum_Wave_16x16x16_F16_ToF32_Integrity);
   TEST_METHOD(MatMatMul_ThreadGroup_WaveScaled_F16_NonUniform);
   TEST_METHOD(MatMatMulAccum_ThreadGroup_WaveScaled_F16_ToF32_NonUniform);
   TEST_METHOD(MatMatMul_ThreadGroup_WaveScaled_I32);
@@ -6150,10 +6151,12 @@ struct MatrixMultiplyCase {
   ComponentType MatrixAType = ComponentType::Invalid;
   ComponentType MatrixBType = ComponentType::Invalid;
   ComponentType AccumulatorType = ComponentType::Invalid;
+  MatrixLayout MatrixBLayout = MatrixLayout::RowMajor;
   MatrixDim M = 0;
   MatrixDim K = 0;
   MatrixDim N = 0;
   MatrixMultiplyOperation Operation = MatrixMultiplyOperation::Multiply;
+  bool CheckResultAccess = false;
   std::vector<int64_t> MatrixAValues;
   std::vector<int64_t> MatrixBValues;
   std::vector<int64_t> AccumulatorValues;
@@ -6181,6 +6184,12 @@ static bool isMatrixMultiplyCaseValid(const MatrixMultiplyCase &Case) {
   if (!toCapabilityDataType(Case.MatrixBType))
     return false;
   if (!toCapabilityDataType(Case.AccumulatorType))
+    return false;
+  if (Case.MatrixBLayout != MatrixLayout::RowMajor &&
+      Case.MatrixBLayout != MatrixLayout::ColumnMajor)
+    return false;
+  if (Case.CheckResultAccess &&
+      (!Case.accumulates() || Case.AccumulatorType != ComponentType::F32))
     return false;
   return !Case.PublicRule.empty();
 }
@@ -6614,6 +6623,10 @@ static const char MatrixMultiplyShader[] = R"(
 #else
   RWByteAddressBuffer Output : register(u2);
 #endif
+#if CHECK_RESULT_ACCESS
+  ByteAddressBuffer ExpectedResult : register(t4);
+  RWByteAddressBuffer AccessStatus : register(u5);
+#endif
 
   [WaveSize(FORCED_WAVE_SIZE)]
   [numthreads(NUMTHREADS, 1, 1)]
@@ -6630,7 +6643,7 @@ static const char MatrixMultiplyShader[] = R"(
         MATRIX_B_COMP_TYPE, K_DIM, N_DIM, USE_B, MATRIX_SCOPE)]]
       MatB;
     __builtin_LinAlg_MatrixLoadFromDescriptor(
-      MatB, MatrixBInput, 0, MATRIX_B_STRIDE, LAYOUT_ROW_MAJOR, 128);
+      MatB, MatrixBInput, 0, MATRIX_B_STRIDE, MATRIX_B_LAYOUT, 128);
 
     __builtin_LinAlgMatrix
       [[__LinAlgMatrix_Attributes(
@@ -6652,6 +6665,29 @@ static const char MatrixMultiplyShader[] = R"(
 
     __builtin_LinAlg_MatrixStoreToDescriptor(
       Result, Output, 0, ACCUMULATOR_STRIDE, LAYOUT_ROW_MAJOR, 128);
+
+#if CHECK_RESULT_ACCESS
+    uint Length = __builtin_LinAlg_MatrixLength(Result);
+    uint MaxLength = WaveActiveMax(Length);
+    // Keep calls uniform; ignore exhausted lanes' defined OOB results.
+    for (uint I = 0; I < MaxLength; ++I) {
+      uint2 Coord = __builtin_LinAlg_MatrixGetCoordinate(Result, I);
+      float Elem;
+      __builtin_LinAlg_MatrixGetElement(Elem, Result, I);
+      if (I < Length) {
+        if (Coord.x < M_DIM && Coord.y < N_DIM) {
+          uint Cell = Coord.x * N_DIM + Coord.y;
+          float Expected = ExpectedResult.Load<float>(
+            Coord.x * ACCUMULATOR_STRIDE + Coord.y * sizeof(float));
+          // Duplicate owners must not hide a bad value.
+          uint State = 1u | (Elem != Expected ? 2u : 0u);
+          AccessStatus.InterlockedOr(Cell * sizeof(uint), State);
+        } else {
+          AccessStatus.InterlockedOr(M_DIM * N_DIM * sizeof(uint), 1u);
+        }
+      }
+    }
+#endif
   }
 )";
 
@@ -6663,11 +6699,14 @@ buildMatrixMultiplyCompilerArgs(const MatrixMultiplyCase &Case,
     return std::nullopt;
   if (WaveSize == 0 || NumThreads == 0)
     return std::nullopt;
+  if (Case.CheckResultAccess && Scope != MatrixScope::Wave)
+    return std::nullopt;
 
   const MatrixParams MatrixA = makeMatrixArithmeticParams(
       Case.MatrixAType, Case.M, Case.K, MatrixUse::A, Scope, NumThreads);
-  const MatrixParams MatrixB = makeMatrixArithmeticParams(
+  MatrixParams MatrixB = makeMatrixArithmeticParams(
       Case.MatrixBType, Case.K, Case.N, MatrixUse::B, Scope, NumThreads);
+  MatrixB.Layout = Case.MatrixBLayout;
   const MatrixParams Accumulator =
       makeMatrixArithmeticParams(Case.AccumulatorType, Case.M, Case.N,
                                  MatrixUse::Accumulator, Scope, NumThreads);
@@ -6683,10 +6722,12 @@ buildMatrixMultiplyCompilerArgs(const MatrixMultiplyCase &Case,
   SS << " -DN_DIM=" << Case.N;
   SS << " -DMATRIX_A_STRIDE=" << MatrixA.strideBytes();
   SS << " -DMATRIX_B_STRIDE=" << MatrixB.strideBytes();
+  SS << " -DMATRIX_B_LAYOUT=" << static_cast<int>(Case.MatrixBLayout);
   SS << " -DACCUMULATOR_STRIDE=" << Accumulator.strideBytes();
   SS << " -DNUMTHREADS=" << NumThreads;
   SS << " -DFORCED_WAVE_SIZE=" << WaveSize;
   SS << " -DDO_ACCUMULATE=" << static_cast<int>(Case.accumulates());
+  SS << " -DCHECK_RESULT_ACCESS=" << static_cast<int>(Case.CheckResultAccess);
   if (matrixArithmeticNeeds16BitTypes(Case.MatrixAType) ||
       matrixArithmeticNeeds16BitTypes(Case.MatrixBType) ||
       matrixArithmeticNeeds16BitTypes(Case.AccumulatorType))
@@ -6736,8 +6777,9 @@ static void runMatrixMultiplyCase(ID3D12Device *Device,
 
   const MatrixParams MatrixA = makeMatrixArithmeticParams(
       Case.MatrixAType, Case.M, Case.K, MatrixUse::A, Scope, NumThreads);
-  const MatrixParams MatrixB = makeMatrixArithmeticParams(
+  MatrixParams MatrixB = makeMatrixArithmeticParams(
       Case.MatrixBType, Case.K, Case.N, MatrixUse::B, Scope, NumThreads);
+  MatrixB.Layout = Case.MatrixBLayout;
   const MatrixParams Accumulator =
       makeMatrixArithmeticParams(Case.AccumulatorType, Case.M, Case.N,
                                  MatrixUse::Accumulator, Scope, NumThreads);
@@ -6769,13 +6811,23 @@ static void runMatrixMultiplyCase(ID3D12Device *Device,
   if (!ExpectedBuffer)
     return;
 
-  const char *RootSignature = Case.accumulates()
+  std::string RootSignature = Case.accumulates()
                                   ? "SRV(t0), SRV(t1), SRV(t2), UAV(u3)"
                                   : "SRV(t0), SRV(t1), UAV(u2)";
+  const size_t CellCount = static_cast<size_t>(Case.M) * Case.N;
+  const size_t AccessStatusBytes = (CellCount + 1) * sizeof(uint32_t);
+  if (Case.CheckResultAccess) {
+    RootSignature += ", SRV(t4), UAV(u5)";
+    hlsl_test::LogCommentFmt(
+        L"MMA integrity: wave=%u, B=%s, shape=(%u,%u,%u)", WaveSize,
+        Case.MatrixBLayout == MatrixLayout::RowMajor ? L"RowMajor"
+                                                     : L"ColumnMajor",
+        Case.M, Case.K, Case.N);
+  }
   compileShader(DxcSupport, MatrixMultiplyShader, "cs_6_10", *Args, Verbose);
 
-  auto Op = createComputeOp(MatrixMultiplyShader, "cs_6_10", RootSignature,
-                            Args->c_str());
+  auto Op = createComputeOp(MatrixMultiplyShader, "cs_6_10",
+                            RootSignature.c_str(), Args->c_str());
   addSRVBuffer(Op.get(), "MatrixAInput", MatrixABuffer->size(), "byname");
   addSRVBuffer(Op.get(), "MatrixBInput", MatrixBBuffer->size(), "byname");
   if (Case.accumulates())
@@ -6790,10 +6842,16 @@ static void runMatrixMultiplyCase(ID3D12Device *Device,
   } else {
     addRootView(Op.get(), 2, "Output");
   }
+  if (Case.CheckResultAccess) {
+    addSRVBuffer(Op.get(), "ExpectedResult", ExpectedBuffer->size(), "byname");
+    addUAVBuffer(Op.get(), "AccessStatus", AccessStatusBytes, true, "zero");
+    addRootView(Op.get(), 4, "ExpectedResult");
+    addRootView(Op.get(), 5, "AccessStatus");
+  }
 
   auto Result = runShaderOp(
       Device, DxcSupport, std::move(Op),
-      [MatrixABuffer, MatrixBBuffer, AccumulatorBuffer,
+      [MatrixABuffer, MatrixBBuffer, AccumulatorBuffer, ExpectedBuffer,
        &Case](LPCSTR Name, std::vector<BYTE> &Data, st::ShaderOp *) {
         const std::vector<BYTE> *Source = nullptr;
         if (_stricmp(Name, "MatrixAInput") == 0)
@@ -6802,6 +6860,9 @@ static void runMatrixMultiplyCase(ID3D12Device *Device,
           Source = &*MatrixBBuffer;
         else if (Case.accumulates() && _stricmp(Name, "AccumulatorInput") == 0)
           Source = &*AccumulatorBuffer;
+        else if (Case.CheckResultAccess &&
+                 _stricmp(Name, "ExpectedResult") == 0)
+          Source = &*ExpectedBuffer;
         if (!Source)
           return;
         VERIFY_IS_TRUE(Data.size() == Source->size());
@@ -6812,9 +6873,51 @@ static void runMatrixMultiplyCase(ID3D12Device *Device,
 
   MappedData OutData;
   Result->Test->GetReadBackData("Output", &OutData);
-  VERIFY_IS_TRUE(verifyMatrixArithmeticMatrix(OutData.data(), OutData.size(),
-                                              Accumulator, Expected,
-                                              Case.PublicRule, Verbose));
+  const bool StoredMatches =
+      verifyMatrixArithmeticMatrix(OutData.data(), OutData.size(), Accumulator,
+                                   Expected, Case.PublicRule, Verbose);
+  bool AccessMatches = true;
+  if (Case.CheckResultAccess) {
+    MappedData StatusData;
+    Result->Test->GetReadBackData("AccessStatus", &StatusData);
+    VERIFY_ARE_EQUAL(AccessStatusBytes, StatusData.size());
+    if (StatusData.size() != AccessStatusBytes)
+      return;
+    const BYTE *Status = static_cast<const BYTE *>(StatusData.data());
+    size_t CoveredCells = 0;
+    size_t WrongValueCells = 0;
+    for (size_t Cell = 0; Cell < CellCount; ++Cell) {
+      uint32_t State = 0;
+      std::memcpy(&State, Status + Cell * sizeof(State), sizeof(State));
+      if (State & 1u)
+        ++CoveredCells;
+      if (State & 2u)
+        ++WrongValueCells;
+      if (State != 1u) {
+        hlsl_test::LogErrorFmt(
+            L"MMA accessor cell (%zu,%zu): state=%u; expected visited=1, "
+            L"wrong-value=0",
+            Cell / Case.N, Cell % Case.N, State);
+        AccessMatches = false;
+      }
+    }
+    uint32_t InvalidCoordinates = 0;
+    std::memcpy(&InvalidCoordinates, Status + CellCount * sizeof(uint32_t),
+                sizeof(InvalidCoordinates));
+    if (InvalidCoordinates != 0) {
+      hlsl_test::LogErrorFmt(
+          L"MMA accessor returned an out-of-range coordinate");
+      AccessMatches = false;
+    }
+    hlsl_test::LogCommentFmt(
+        L"MMA accessor coverage: %zu/%zu cells, wrong-value cells=%zu, "
+        L"invalid-coordinate flag=%u",
+        CoveredCells, CellCount, WrongValueCells, InvalidCoordinates);
+  }
+  VERIFY_IS_TRUE(StoredMatches,
+                 "MMA store must match the independent CPU product");
+  VERIFY_IS_TRUE(AccessMatches,
+                 "Every MMA result cell must be visited with no wrong values");
 }
 
 static void runWaveMultiplyCase(ID3D12Device *Device,
@@ -6888,6 +6991,34 @@ void DxilConf_SM610_LinAlg::MatMatMulAccum_Wave_8x32x16_F16_ToF32_NonUniform() {
   runWaveMultiplyCase(D3DDevice, DxcSupport, Case,
                       L"MatMatMulAccum_Wave_8x32x16_F16_ToF32_NonUniform",
                       VerboseLogging);
+}
+
+void DxilConf_SM610_LinAlg::MatMatMulAccum_Wave_16x16x16_F16_ToF32_Integrity() {
+  MatrixMultiplyCase Case = {};
+  Case.MatrixAType = ComponentType::F16;
+  Case.MatrixBType = ComponentType::F16;
+  Case.AccumulatorType = ComponentType::F32;
+  Case.M = Case.K = Case.N = 16;
+  Case.Operation = MatrixMultiplyOperation::MultiplyAccumulate;
+  Case.CheckResultAccess = true;
+  Case.MatrixAValues.assign(static_cast<size_t>(Case.M) * Case.K, 0);
+  for (MatrixDim Row = 0; Row < Case.M; ++Row)
+    Case.MatrixAValues[static_cast<size_t>(Row) * Case.K + Row] = 1;
+  for (MatrixDim Row = 0; Row < Case.K; ++Row)
+    for (MatrixDim Column = 0; Column < Case.N; ++Column)
+      Case.MatrixBValues.push_back(static_cast<int64_t>(Row) * Case.N + Column +
+                                   1);
+  Case.AccumulatorValues.assign(static_cast<size_t>(Case.M) * Case.N, 0);
+  Case.PublicRule =
+      L"Both B layouts and every native MMA result accessor match the "
+      L"independent CPU product";
+  for (MatrixLayout Layout :
+       {MatrixLayout::RowMajor, MatrixLayout::ColumnMajor}) {
+    Case.MatrixBLayout = Layout;
+    runWaveMultiplyCase(D3DDevice, DxcSupport, Case,
+                        L"MatMatMulAccum_Wave_16x16x16_F16_ToF32_Integrity",
+                        VerboseLogging);
+  }
 }
 
 void DxilConf_SM610_LinAlg::MatMatMul_Wave_16x16x16_I32() {
