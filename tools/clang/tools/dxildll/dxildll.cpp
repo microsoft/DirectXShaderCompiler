@@ -23,8 +23,12 @@
 #include "llvm/Support/ManagedStatic.h"
 #include <algorithm>
 #ifdef _WIN32
+#ifdef DXC_ENABLE_ETW
 #include "Tracing/DxcRuntimeEtw.h"
 #include "dxc/Tracing/dxcetw.h"
+#else
+#include "dxc/WinEtwAdapter.h"
+#endif // DXC_ENABLE_ETW
 #endif
 
 #include "dxc/dxcisense.h"
