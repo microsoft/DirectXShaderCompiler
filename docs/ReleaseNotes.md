@@ -76,6 +76,9 @@ line upon naming the release. Refer to previous for appropriate section names.
 - Fixed members following a merged bitfield reading the wrong value when a
   struct is flat-converted
   [#8526](https://github.com/microsoft/DirectXShaderCompiler/issues/8526).
+- Fixed non-deterministic debug information for static globals localized into
+  allocas, which made the embedded debug module differ between compilations of
+  byte-identical input.
 
 ### Upcoming Preview Release
 
