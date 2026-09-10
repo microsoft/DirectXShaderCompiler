@@ -807,7 +807,7 @@ def HLSLAvailability: DiagGroup<"hlsl-availability">;
 def HLSLAvailabilityConstant: DiagGroup<"hlsl-availability-constant">;
 def HLSLBarrier : DiagGroup<"hlsl-barrier">;
 
-// HLSL 2026 compatability warnings: these warn on code in older language modes
+// HLSL 2026 compatibility warnings: these warn on code in older language modes
 // that changes meaning or becomes illegal in HLSL 2026.
 def HLSLLegacyLiterals : DiagGroup<"hlsl-legacy-literal">;
 def HLSL2026RemovedKeywords
