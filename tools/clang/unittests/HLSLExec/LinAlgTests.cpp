@@ -8705,7 +8705,7 @@ static const char GroupSharedI8MultiplyShader[] = R"(
   }
 )";
 
-static void runGroupSharedI8MultiplyCase(ID3D12Device *Device,
+static bool runGroupSharedI8MultiplyCase(ID3D12Device *Device,
                                          dxc::SpecificDllLoader &DxcSupport,
                                          const MatrixMultiplyCase &Case,
                                          UINT WaveSize, bool Verbose) {
@@ -8740,7 +8740,7 @@ static void runGroupSharedI8MultiplyCase(ID3D12Device *Device,
                  ExpectedBuffer && BaseArgs);
   if (!MatrixABuffer || !MatrixBBuffer || !AccumulatorBuffer ||
       !ExpectedBuffer || !BaseArgs)
-    return;
+    return false;
 
   const std::optional<cpu_oracle::TypedMatrix> ExpectedMatrix =
       cpu_oracle::decodeMatrixBuffer(
@@ -8753,7 +8753,7 @@ static void runGroupSharedI8MultiplyCase(ID3D12Device *Device,
       !getGroupSharedBufferDescription(Accumulator, OutputLayout, OutputSize,
                                        OutputElements)) {
     VERIFY_IS_TRUE(false, "Invalid I32 result matrix or output layout");
-    return;
+    return false;
   }
 
   // Array lengths count i32 words; matrix offsets and strides count I8
@@ -8831,8 +8831,7 @@ static void runGroupSharedI8MultiplyCase(ID3D12Device *Device,
       WaveSize, static_cast<UINT>(MatrixMatches),
       static_cast<UINT>(GuardsMatch), static_cast<UINT>(MatrixAPreserved),
       static_cast<UINT>(MatrixBPreserved));
-  VERIFY_IS_TRUE(MatrixMatches && GuardsMatch && MatrixAPreserved &&
-                 MatrixBPreserved);
+  return MatrixMatches && GuardsMatch && MatrixAPreserved && MatrixBPreserved;
 }
 
 void DxilConf_SM610_LinAlg::
@@ -8869,9 +8868,12 @@ void DxilConf_SM610_LinAlg::
           L"MatMatMulAccumMemory_Wave_8x32x16_I8_ToI32_OffsetPadded"))
     return;
 
+  bool AllWavesMatch = true;
   for (const UINT WaveSize : WaveSizes)
-    runGroupSharedI8MultiplyCase(D3DDevice, DxcSupport, Case, WaveSize,
-                                 VerboseLogging);
+    AllWavesMatch = runGroupSharedI8MultiplyCase(D3DDevice, DxcSupport, Case,
+                                                 WaveSize, VerboseLogging) &&
+                    AllWavesMatch;
+  VERIFY_IS_TRUE(AllWavesMatch);
 }
 
 static const char GroupSharedTransferShader[] = R"(
