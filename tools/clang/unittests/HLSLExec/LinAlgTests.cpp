@@ -6663,9 +6663,6 @@ static const char MatrixMultiplyShader[] = R"(
     __builtin_LinAlg_MatrixMatrixMultiply(Result, MatA, MatB);
 #endif
 
-    __builtin_LinAlg_MatrixStoreToDescriptor(
-      Result, Output, 0, ACCUMULATOR_STRIDE, LAYOUT_ROW_MAJOR, 128);
-
 #if CHECK_RESULT_ACCESS
     uint Length = __builtin_LinAlg_MatrixLength(Result);
     uint MaxLength = WaveActiveMax(Length);
@@ -6688,6 +6685,9 @@ static const char MatrixMultiplyShader[] = R"(
       }
     }
 #endif
+
+    __builtin_LinAlg_MatrixStoreToDescriptor(
+      Result, Output, 0, ACCUMULATOR_STRIDE, LAYOUT_ROW_MAJOR, 128);
   }
 )";
 
