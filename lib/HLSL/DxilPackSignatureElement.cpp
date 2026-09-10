@@ -73,8 +73,10 @@ unsigned PackDxilSignature(DxilSignature &sig, DXIL::PackingStrategy packing) {
     // incrementally assign each element that belongs in the signature to the
     // start of the next free row
     for (auto &SE : packElements) {
-      SE.SetLocation(rowsUsed, 0);
-      rowsUsed += SE.GetRows();
+      if (SE.GetRows() <= (32 - rowsUsed)) {
+        SE.SetLocation(rowsUsed, 0);
+        rowsUsed += SE.GetRows();
+      }
     }
     break;
 

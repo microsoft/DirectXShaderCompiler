@@ -37,8 +37,7 @@ namespace {
 // Return semantic index.
 unsigned UpdateSemanticAndInterpMode(StringRef &semName,
                                      DXIL::InterpolationMode &mode,
-                                     DXIL::SigPointKind kind,
-                                     LLVMContext &Context) {
+                                     DXIL::SigPointKind kind, Function *Entry) {
   llvm::StringRef baseSemName; // The 'FOO' in 'FOO1'.
   uint32_t semIndex;           // The '1' in 'FOO1'
 
@@ -61,7 +60,9 @@ unsigned UpdateSemanticAndInterpMode(StringRef &semName,
     case InterpolationMode::Kind::Constant:
     case InterpolationMode::Kind::Undefined:
     case InterpolationMode::Kind::Invalid: {
-      llvm_unreachable("invalid interpolation mode for SV_Position");
+      dxilutil::EmitErrorOnFunction(
+          Entry->getContext(), Entry,
+          "invalid interpolation mode for SV_Position");
     } break;
     case InterpolationMode::Kind::LinearNoperspective:
     case InterpolationMode::Kind::LinearNoperspectiveCentroid:
@@ -80,7 +81,7 @@ DxilSignatureElement *FindArgInSignature(Argument &arg,
                                          DxilSignature &sig) {
   // Match output ID.
   unsigned semIndex =
-      UpdateSemanticAndInterpMode(semantic, interpMode, kind, arg.getContext());
+      UpdateSemanticAndInterpMode(semantic, interpMode, kind, arg.getParent());
 
   for (uint32_t i = 0; i < sig.GetElements().size(); i++) {
     DxilSignatureElement &SE = sig.GetElement(i);
@@ -290,7 +291,7 @@ void HLSignatureLower::ProcessArgument(Function *func,
     return;
   }
   UpdateSemanticAndInterpMode(semanticStr, interpMode, sigPoint->GetKind(),
-                              arg.getContext());
+                              func);
 
   // Get Semantic interpretation, skipping if not in signature
   const Semantic *pSemantic = Semantic::GetByName(semanticStr);
@@ -519,15 +520,17 @@ void HLSignatureLower::AllocateDxilInputOutputs() {
 
   hlsl::PackDxilSignature(EntrySig.InputSignature, packing);
   if (!EntrySig.InputSignature.IsFullyAllocated()) {
-    llvm_unreachable(
+    dxilutil::EmitErrorOnFunction(
+        Entry->getContext(), Entry,
         "Failed to allocate all input signature elements in available space.");
   }
 
   if (props.shaderKind != DXIL::ShaderKind::Amplification) {
     hlsl::PackDxilSignature(EntrySig.OutputSignature, packing);
     if (!EntrySig.OutputSignature.IsFullyAllocated()) {
-      llvm_unreachable("Failed to allocate all output signature elements in "
-                       "available space.");
+      dxilutil::EmitErrorOnFunction(Entry->getContext(), Entry,
+                                    "Failed to allocate all output signature "
+                                    "elements in available space.");
     }
   }
 
@@ -536,8 +539,9 @@ void HLSignatureLower::AllocateDxilInputOutputs() {
       props.shaderKind == DXIL::ShaderKind::Mesh) {
     hlsl::PackDxilSignature(EntrySig.PatchConstOrPrimSignature, packing);
     if (!EntrySig.PatchConstOrPrimSignature.IsFullyAllocated()) {
-      llvm_unreachable("Failed to allocate all patch constant signature "
-                       "elements in available space.");
+      dxilutil::EmitErrorOnFunction(Entry->getContext(), Entry,
+                                    "Failed to allocate all patch constant "
+                                    "signature elements in available space.");
     }
   }
 }
