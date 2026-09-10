@@ -3071,6 +3071,17 @@ bool Sema::DeduceFunctionTypeFromReturnExpr(FunctionDecl *FD,
     if (DAR != DAR_Succeeded)
       return true;
 
+    // HLSL Change Begin - Diagnose deduced return types that 'auto' cannot
+    // represent. A dependent deduced type cannot be classified yet; defer the
+    // check to instantiation, when 'auto' is re-deduced to a concrete type.
+    if (getLangOpts().HLSL && !Deduced->isDependentType() &&
+        !hlsl::IsTypeDeducibleWithAuto(*this, Deduced)) {
+      Diag(RetExpr->getExprLoc(), diag::err_hlsl_auto_undeducible_type)
+          << Deduced;
+      return true;
+    }
+    // HLSL Change End
+
     // If a local type is part of the returned type, mark its fields as
     // referenced.
     LocalTypedefNameReferencer Referencer(*this);
