@@ -61,3 +61,14 @@ auto GetDynamicSampler() {
   // expected-error@+1 {{'auto' cannot deduce type '.Sampler'}}
   return SamplerDescriptorHeap[0];
 }
+
+auto GetDynamicResource2() {
+  return ((RWBuffer<float>)ResourceDescriptorHeap[0]);
+}
+
+auto GetDynamicResource(bool IsRW) {
+  if (IsRW)
+    return ((RWBuffer<float>)ResourceDescriptorHeap[0]);
+  // expected-error@+1 {{'auto' in return type deduced as 'Buffer<float>' here but deduced as 'RWBuffer<float>' in earlier return statement}}
+  return ((Buffer<float>)ResourceDescriptorHeap[0]);
+}
