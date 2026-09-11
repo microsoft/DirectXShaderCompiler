@@ -40,6 +40,13 @@ line upon naming the release. Refer to previous for appropriate section names.
 - SPIR-V: Fixed a crash when writing to a bitfield member through a
   `vk::BufferPointer`
   [#8402](https://github.com/microsoft/DirectXShaderCompiler/issues/8402).
+- Fixed template-specialization failures after an earlier fatal diagnostic
+  asserting instead of preserving the original diagnostic
+  [#6615](https://github.com/microsoft/DirectXShaderCompiler/issues/6615),
+  [#4875](https://github.com/microsoft/DirectXShaderCompiler/issues/4875).
+- Fixed internal compiler errors when a member method is called on a ray payload
+  or on one of its fields with payload access qualifiers enabled
+  [#6464](https://github.com/microsoft/DirectXShaderCompiler/issues/6464).
 
 #### HLSL Language
 
@@ -56,19 +63,20 @@ line upon naming the release. Refer to previous for appropriate section names.
 
 #### SPIR-V
 
+- Inline `[[vk::ext_decorate]]`, `[[vk::ext_capability]]`, and
+  `[[vk::ext_extension]]` attributes are now honored on ordinary functions
+  [#8616](https://github.com/microsoft/DirectXShaderCompiler/pull/8616).
+- `globallycoherent` is now supported on `ResourceDescriptorHeap` accesses
+  [#8513](https://github.com/microsoft/DirectXShaderCompiler/pull/8513).
+- Fixed a crash when a user-defined type named `RayQuery` shadows the intrinsic
+  type [#8601](https://github.com/microsoft/DirectXShaderCompiler/issues/8601).
 - Fixed a crash from `static` members of a `cbuffer`/`tbuffer`, which were
   incorrectly counted as buffer members and shifted the member indices of the
   members declared after them
   [#8537](https://github.com/microsoft/DirectXShaderCompiler/issues/8537).
-
-#### Bug Fixes
-
-- Fixed internal compiler errors when a member method is called on a ray payload
-  or on one of its fields with payload access qualifiers enabled
-  [#6464](https://github.com/microsoft/DirectXShaderCompiler/issues/6464).
-- SPIR-V fixed incorrect alignment of 64-bit elements in `vk::RawBufferLoad` and
+- Fixed incorrect alignment of 64-bit elements in `vk::RawBufferLoad` and
   `vk::RawBufferStore` intrinsics
-  [#8572](https://github.com/microsoft/DirectXShaderCompiler/issues/8572)
+  [#8572](https://github.com/microsoft/DirectXShaderCompiler/issues/8572).
 
 ### Upcoming Preview Release
 
@@ -90,7 +98,26 @@ first shipped in the 1.10.2605 preview.
   [#8608](https://github.com/microsoft/DirectXShaderCompiler/pull/8608).
 - Added `BFloat16` to the ComponentType enum in DxilConstants and the linalg
   header [#8722](https://github.com/microsoft/DirectXShaderCompiler/issues/8722).
-- Removed work graph support from Shader Model 6.10, and DXIL 1.10 [microsoft/hlsl-specs#915](https://github.com/microsoft/hlsl-specs/issues/915).
+- LinAlg shaders now set the `ShaderFeatureInfo_LinearAlgebra` DXIL feature flag
+  [#8884](https://github.com/microsoft/DirectXShaderCompiler/pull/8884).
+- LinAlg matrix memory APIs now take alignment as a template argument and use
+  shape- and component-derived default alignments
+  [#8710](https://github.com/microsoft/DirectXShaderCompiler/pull/8710),
+  [#8898](https://github.com/microsoft/DirectXShaderCompiler/pull/8898).
+- Removed the bias-interpretation parameter from LinAlg `MultiplyAdd` to match
+  the current specification
+  [#8702](https://github.com/microsoft/DirectXShaderCompiler/pull/8702).
+- LinAlg group-shared matrix memory operations now accept vector arrays and
+  thread-group matrix accumulators
+  [#8815](https://github.com/microsoft/DirectXShaderCompiler/pull/8815),
+  [#8883](https://github.com/microsoft/DirectXShaderCompiler/pull/8883).
+- Added the missing LinAlg `Multiply(Matrix, InterpretedVector)` overload
+  [#8638](https://github.com/microsoft/DirectXShaderCompiler/pull/8638).
+- Fixed group-shared LinAlg validation to scale element offsets by component
+  width, preventing valid shaders from being rejected as misaligned
+  [#8880](https://github.com/microsoft/DirectXShaderCompiler/pull/8880).
+- Removed work graph support from Shader Model 6.10 and DXIL 1.10
+  [microsoft/hlsl-specs#915](https://github.com/microsoft/hlsl-specs/issues/915).
 
 ### Version 1.9.2607
 
