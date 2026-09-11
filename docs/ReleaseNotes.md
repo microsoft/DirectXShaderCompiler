@@ -21,10 +21,10 @@ The included licenses apply to the following files:
 
 #### SPIR-V
 
-- Added native `SPV_EXT_descriptor_heap` lowering for `ResourceDescriptorHeap`
-  and `SamplerDescriptorHeap` via `-fspv-use-descriptor-heap`. Requires
-  `-fspv-target-env=vulkan1.3`
-  [#8517](https://github.com/microsoft/DirectXShaderCompiler/pull/8517).
+- Extended `SPV_EXT_descriptor_heap` lowering (`-fspv-use-descriptor-heap`) to
+  buffer-like resources (`StructuredBuffer`, `ByteAddressBuffer`,
+  `ConstantBuffer`, `TextureBuffer`, and RW variants) via
+  `SPV_KHR_untyped_pointers`. Requires `-fspv-target-env=vulkan1.3`.
 
 Place release notes for the upcoming release below this line and remove this
 line upon naming the release. Refer to previous for appropriate section names.
