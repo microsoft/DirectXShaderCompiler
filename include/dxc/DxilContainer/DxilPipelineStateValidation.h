@@ -175,8 +175,107 @@ struct PSVRuntimeInfo3 : public PSVRuntimeInfo2 {
   uint32_t EntryFunctionName;
 };
 
+enum class PSVRuntimeInfo4Flag : uint32_t {
+  None = 0x00000000,
+  // Indicates use of LinAlg operations beyond the Tier 1 required set, thus
+  // the presence of the PSVLinAlgRuntimeInfo structure with usage details.
+  LinAlgRuntimeInfoPresent = 0x00000001,
+};
+
 struct PSVRuntimeInfo4 : public PSVRuntimeInfo3 {
   uint32_t NumBytesGroupSharedMemory;
+  uint32_t Flags; // PSVRuntimeInfo4Flag
+};
+
+struct PSVLinAlgRuntimeInfo0 {
+  // Presence of each table is indicated by a non-zero count.
+  // Tables are serialized in this order, with each starting with the record
+  // stride in bytes, followed by the records.
+  uint32_t MatrixOperationShapeCount;
+  uint32_t MatrixConstructionCount;
+  uint32_t ThreadMatrixVectorMultiplyCount;
+  uint32_t WaveMatrixMultiplyCount;
+  uint32_t ThreadGroupMatrixMultiplyCount;
+  uint32_t OuterProductCount;
+  uint32_t AccumulateStoreCount;
+};
+
+struct PSVLinAlgMatrixOperationShape0 {
+  // For each dimension, unused == 0.
+  // For MatrixConstruction, the unused dimension depends on the matrix use.
+  uint32_t M; // Rows in matrix A / Accumulator
+  uint32_t N; // Columns in matrix B / Accumulator
+  uint32_t K; // Columns in matrix A / Rows in matrix B
+};
+
+struct PSVLinAlgMatrixShapeArrayReference {
+  uint32_t ShapesIndex; // Index into SemanticIndexTable where the array of
+                        // LinAlgMatrixOperationShape table indexes is located.
+  uint32_t Count;
+};
+
+struct PSVLinAlgMatrixConstruction0 {
+  // Each shape collects only the dimensions needed for a single matrix use.
+  // For instance, an Accumulator only uses M and N, so K will be set to 0.
+  // Different matrix use types are not combined to avoid implying uses that
+  // aren't present.
+  PSVLinAlgMatrixShapeArrayReference OperationShapes;
+  uint8_t MatrixType;
+  uint8_t Reserved[3];
+};
+
+enum class PSVLinAlgThreadMatrixVectorMultiplyFlag : uint8_t {
+  None = 0,
+  // If neither flag is set, the matrix is only loaded from MulOptimal layout.
+  // The matrix is loaded from MulOptimalTranspose layout.
+  MatrixTransposed = 1 << 0,
+  // The matrix is loaded from a non-MulOptimal layout.
+  MatrixNonMulOptimalLayout = 1 << 1,
+};
+
+struct PSVLinAlgThreadMatrixVectorMultiply0 {
+  uint8_t ResultType;
+  uint8_t MatrixType;
+  uint8_t VectorInputType;
+  uint8_t Flags; // PSVLinAlgThreadMatrixVectorMultiplyFlag
+};
+
+struct PSVLinAlgWaveMatrixMultiply0 {
+  PSVLinAlgMatrixShapeArrayReference OperationShapes;
+  uint8_t AccumulatorType;
+  uint8_t MatrixAType;
+  uint8_t MatrixBType;
+  uint8_t Reserved;
+};
+
+// This matches PSVLinAlgWaveMatrixMultiply0 for now, but remains a separate
+// structure in case the final wave and thread-group records diverge.
+struct PSVLinAlgThreadGroupMatrixMultiply0 {
+  PSVLinAlgMatrixShapeArrayReference OperationShapes;
+  uint8_t AccumulatorType;
+  uint8_t MatrixAType;
+  uint8_t MatrixBType;
+  uint8_t Reserved;
+};
+
+struct PSVLinAlgOuterProduct0 {
+  uint8_t ResultType;
+  uint8_t VectorInputType;
+  uint8_t Reserved[2];
+};
+
+enum class PSVLinAlgAccumulateStoreFlag : uint8_t {
+  None = 0,
+  // Accumulate is to a raw buffer, for all scopes.
+  RawBuffer = 1 << 0,
+  // Accumulate is to groupshared memory, for wave/group scope only.
+  GroupShared = 1 << 1,
+};
+
+struct PSVLinAlgAccumulateStore0 {
+  uint8_t AccumulatorType;
+  uint8_t Flags; // PSVLinAlgAccumulateStoreFlag
+  uint8_t Reserved[2];
 };
 
 enum class PSVResourceType {
@@ -494,6 +593,30 @@ struct PSVInitInfo {
   uint8_t SigInputVectors = 0;
   uint8_t SigPatchConstOrPrimVectors = 0;
   uint8_t SigOutputVectors[PSV_GS_MAX_STREAMS] = {0, 0, 0, 0};
+  const PSVLinAlgMatrixOperationShape0 *LinAlgMatrixOperationShapes = nullptr;
+  uint32_t LinAlgMatrixOperationShapeCount = 0;
+  const PSVLinAlgMatrixConstruction0 *LinAlgMatrixConstructions = nullptr;
+  uint32_t LinAlgMatrixConstructionCount = 0;
+  const PSVLinAlgThreadMatrixVectorMultiply0
+      *LinAlgThreadMatrixVectorMultiplies = nullptr;
+  uint32_t LinAlgThreadMatrixVectorMultiplyCount = 0;
+  const PSVLinAlgWaveMatrixMultiply0 *LinAlgWaveMatrixMultiplies = nullptr;
+  uint32_t LinAlgWaveMatrixMultiplyCount = 0;
+  const PSVLinAlgThreadGroupMatrixMultiply0 *LinAlgThreadGroupMatrixMultiplies =
+      nullptr;
+  uint32_t LinAlgThreadGroupMatrixMultiplyCount = 0;
+  const PSVLinAlgOuterProduct0 *LinAlgOuterProducts = nullptr;
+  uint32_t LinAlgOuterProductCount = 0;
+  const PSVLinAlgAccumulateStore0 *LinAlgAccumulateStores = nullptr;
+  uint32_t LinAlgAccumulateStoreCount = 0;
+
+  bool HasLinAlgRuntimeInfo() const {
+    return LinAlgMatrixConstructionCount ||
+           LinAlgThreadMatrixVectorMultiplyCount ||
+           LinAlgWaveMatrixMultiplyCount ||
+           LinAlgThreadGroupMatrixMultiplyCount || LinAlgOuterProductCount ||
+           LinAlgAccumulateStoreCount;
+  }
 
   static_assert(MAX_PSV_VERSION == 4, "otherwise this needs updating.");
   uint32_t RuntimeInfoSize() const {
@@ -542,6 +665,22 @@ class DxilPipelineStateValidation {
                                                          nullptr, nullptr};
   uint32_t *m_pInputToPCOutputTable = nullptr;
   uint32_t *m_pPCInputToOutputTable = nullptr;
+  uint32_t m_uPSVLinAlgRuntimeInfoSize = 0;
+  PSVLinAlgRuntimeInfo0 *m_pPSVLinAlgRuntimeInfo0 = nullptr;
+  uint32_t m_uPSVLinAlgMatrixOperationShapeSize = 0;
+  void *m_pPSVLinAlgMatrixOperationShapes = nullptr;
+  uint32_t m_uPSVLinAlgMatrixConstructionSize = 0;
+  void *m_pPSVLinAlgMatrixConstructions = nullptr;
+  uint32_t m_uPSVLinAlgThreadMatrixVectorMultiplySize = 0;
+  void *m_pPSVLinAlgThreadMatrixVectorMultiplies = nullptr;
+  uint32_t m_uPSVLinAlgWaveMatrixMultiplySize = 0;
+  void *m_pPSVLinAlgWaveMatrixMultiplies = nullptr;
+  uint32_t m_uPSVLinAlgThreadGroupMatrixMultiplySize = 0;
+  void *m_pPSVLinAlgThreadGroupMatrixMultiplies = nullptr;
+  uint32_t m_uPSVLinAlgOuterProductSize = 0;
+  void *m_pPSVLinAlgOuterProducts = nullptr;
+  uint32_t m_uPSVLinAlgAccumulateStoreSize = 0;
+  void *m_pPSVLinAlgAccumulateStores = nullptr;
 
 public:
   DxilPipelineStateValidation() {}
@@ -642,6 +781,101 @@ public:
   PSVRuntimeInfo3 *GetPSVRuntimeInfo3() const { return m_pPSVRuntimeInfo3; }
 
   PSVRuntimeInfo4 *GetPSVRuntimeInfo4() const { return m_pPSVRuntimeInfo4; }
+
+  PSVLinAlgRuntimeInfo0 *GetPSVLinAlgRuntimeInfo0() const {
+    return m_pPSVLinAlgRuntimeInfo0;
+  }
+
+  uint32_t GetPSVLinAlgMatrixOperationShapeCount() const {
+    return m_pPSVLinAlgRuntimeInfo0
+               ? m_pPSVLinAlgRuntimeInfo0->MatrixOperationShapeCount
+               : 0;
+  }
+
+  PSVLinAlgMatrixOperationShape0 *
+  GetPSVLinAlgMatrixOperationShape(uint32_t index) const {
+    return GetRecord<PSVLinAlgMatrixOperationShape0>(
+        m_pPSVLinAlgMatrixOperationShapes, m_uPSVLinAlgMatrixOperationShapeSize,
+        GetPSVLinAlgMatrixOperationShapeCount(), index);
+  }
+
+  uint32_t GetPSVLinAlgMatrixConstructionCount() const {
+    return m_pPSVLinAlgRuntimeInfo0
+               ? m_pPSVLinAlgRuntimeInfo0->MatrixConstructionCount
+               : 0;
+  }
+
+  PSVLinAlgMatrixConstruction0 *
+  GetPSVLinAlgMatrixConstruction(uint32_t index) const {
+    return GetRecord<PSVLinAlgMatrixConstruction0>(
+        m_pPSVLinAlgMatrixConstructions, m_uPSVLinAlgMatrixConstructionSize,
+        GetPSVLinAlgMatrixConstructionCount(), index);
+  }
+
+  uint32_t GetPSVLinAlgThreadMatrixVectorMultiplyCount() const {
+    return m_pPSVLinAlgRuntimeInfo0
+               ? m_pPSVLinAlgRuntimeInfo0->ThreadMatrixVectorMultiplyCount
+               : 0;
+  }
+
+  PSVLinAlgThreadMatrixVectorMultiply0 *
+  GetPSVLinAlgThreadMatrixVectorMultiply(uint32_t index) const {
+    return GetRecord<PSVLinAlgThreadMatrixVectorMultiply0>(
+        m_pPSVLinAlgThreadMatrixVectorMultiplies,
+        m_uPSVLinAlgThreadMatrixVectorMultiplySize,
+        GetPSVLinAlgThreadMatrixVectorMultiplyCount(), index);
+  }
+
+  uint32_t GetPSVLinAlgWaveMatrixMultiplyCount() const {
+    return m_pPSVLinAlgRuntimeInfo0
+               ? m_pPSVLinAlgRuntimeInfo0->WaveMatrixMultiplyCount
+               : 0;
+  }
+
+  PSVLinAlgWaveMatrixMultiply0 *
+  GetPSVLinAlgWaveMatrixMultiply(uint32_t index) const {
+    return GetRecord<PSVLinAlgWaveMatrixMultiply0>(
+        m_pPSVLinAlgWaveMatrixMultiplies, m_uPSVLinAlgWaveMatrixMultiplySize,
+        GetPSVLinAlgWaveMatrixMultiplyCount(), index);
+  }
+
+  uint32_t GetPSVLinAlgThreadGroupMatrixMultiplyCount() const {
+    return m_pPSVLinAlgRuntimeInfo0
+               ? m_pPSVLinAlgRuntimeInfo0->ThreadGroupMatrixMultiplyCount
+               : 0;
+  }
+
+  PSVLinAlgThreadGroupMatrixMultiply0 *
+  GetPSVLinAlgThreadGroupMatrixMultiply(uint32_t index) const {
+    return GetRecord<PSVLinAlgThreadGroupMatrixMultiply0>(
+        m_pPSVLinAlgThreadGroupMatrixMultiplies,
+        m_uPSVLinAlgThreadGroupMatrixMultiplySize,
+        GetPSVLinAlgThreadGroupMatrixMultiplyCount(), index);
+  }
+
+  uint32_t GetPSVLinAlgOuterProductCount() const {
+    return m_pPSVLinAlgRuntimeInfo0
+               ? m_pPSVLinAlgRuntimeInfo0->OuterProductCount
+               : 0;
+  }
+
+  PSVLinAlgOuterProduct0 *GetPSVLinAlgOuterProduct(uint32_t index) const {
+    return GetRecord<PSVLinAlgOuterProduct0>(
+        m_pPSVLinAlgOuterProducts, m_uPSVLinAlgOuterProductSize,
+        GetPSVLinAlgOuterProductCount(), index);
+  }
+
+  uint32_t GetPSVLinAlgAccumulateStoreCount() const {
+    return m_pPSVLinAlgRuntimeInfo0
+               ? m_pPSVLinAlgRuntimeInfo0->AccumulateStoreCount
+               : 0;
+  }
+
+  PSVLinAlgAccumulateStore0 *GetPSVLinAlgAccumulateStore(uint32_t index) const {
+    return GetRecord<PSVLinAlgAccumulateStore0>(
+        m_pPSVLinAlgAccumulateStores, m_uPSVLinAlgAccumulateStoreSize,
+        GetPSVLinAlgAccumulateStoreCount(), index);
+  }
 
   uint32_t GetBindCount() const { return m_uResourceCount; }
 
@@ -938,6 +1172,12 @@ inline void DxilPipelineStateValidation::CheckedReaderWriter::Clear() {
 //      PSVComputeInputOutputTableDwords(SigPatchConstOrPrimVectors,
 //      SigOutputVectors[0]) }
 //        - Outputs affected by patch constant inputs as a table of bitmasks
+// If PSVRuntimeInfo4::Flags has LinAlgRuntimeInfoPresent:
+//    uint32_t PSVLinAlgRuntimeInfo_size
+//    { PSVLinAlgRuntimeInfoN structure }
+//    For each non-empty LinAlg record table, in declaration order:
+//      uint32_t record_size
+//      { record } * record_count
 // returns true if no errors occurred.
 inline bool
 DxilPipelineStateValidation::ReadOrWrite(const void *pBits, uint32_t *pSize,
@@ -963,10 +1203,21 @@ DxilPipelineStateValidation::ReadOrWrite(const void *pBits, uint32_t *pSize,
 
   // In RWMode::CalcSize, use temp runtime info to hold needed values from
   // initInfo
-  PSVRuntimeInfo1 tempRuntimeInfo = {};
+  PSVRuntimeInfo4 tempRuntimeInfo = {};
   if (mode == RWMode::CalcSize && initInfo.PSVVersion > 0) {
     m_pPSVRuntimeInfo1 = &tempRuntimeInfo;
+    if (initInfo.PSVVersion > 1)
+      m_pPSVRuntimeInfo2 = &tempRuntimeInfo;
+    if (initInfo.PSVVersion > 2)
+      m_pPSVRuntimeInfo3 = &tempRuntimeInfo;
+    if (initInfo.PSVVersion > 3)
+      m_pPSVRuntimeInfo4 = &tempRuntimeInfo;
   }
+
+  if (mode != RWMode::Read && m_pPSVRuntimeInfo4 &&
+      initInfo.HasLinAlgRuntimeInfo())
+    m_pPSVRuntimeInfo4->Flags |=
+        static_cast<uint32_t>(PSVRuntimeInfo4Flag::LinAlgRuntimeInfoPresent);
 
   PSV_RETB(rw.MapValue(&m_uResourceCount, initInfo.ResourceCount));
 
@@ -1092,9 +1343,90 @@ DxilPipelineStateValidation::ReadOrWrite(const void *pBits, uint32_t *pSize,
     }
   }
 
+  bool HasLinAlgRuntimeInfo =
+      m_pPSVRuntimeInfo4 &&
+      (m_pPSVRuntimeInfo4->Flags &
+       static_cast<uint32_t>(PSVRuntimeInfo4Flag::LinAlgRuntimeInfoPresent));
+  PSVLinAlgRuntimeInfo0 tempLinAlgRuntimeInfo = {};
+  if (HasLinAlgRuntimeInfo) {
+    PSV_RETB(rw.MapValue(&m_uPSVLinAlgRuntimeInfoSize,
+                         static_cast<uint32_t>(sizeof(PSVLinAlgRuntimeInfo0))));
+    PSV_RETB(sizeof(PSVLinAlgRuntimeInfo0) <= m_uPSVLinAlgRuntimeInfoSize);
+    PSV_RETB(
+        rw.MapArray(&m_pPSVLinAlgRuntimeInfo0, 1, m_uPSVLinAlgRuntimeInfoSize));
+    if (mode == RWMode::CalcSize)
+      m_pPSVLinAlgRuntimeInfo0 = &tempLinAlgRuntimeInfo;
+
+    if (mode != RWMode::Read) {
+      m_pPSVLinAlgRuntimeInfo0->MatrixOperationShapeCount =
+          initInfo.LinAlgMatrixOperationShapeCount;
+      m_pPSVLinAlgRuntimeInfo0->MatrixConstructionCount =
+          initInfo.LinAlgMatrixConstructionCount;
+      m_pPSVLinAlgRuntimeInfo0->ThreadMatrixVectorMultiplyCount =
+          initInfo.LinAlgThreadMatrixVectorMultiplyCount;
+      m_pPSVLinAlgRuntimeInfo0->WaveMatrixMultiplyCount =
+          initInfo.LinAlgWaveMatrixMultiplyCount;
+      m_pPSVLinAlgRuntimeInfo0->ThreadGroupMatrixMultiplyCount =
+          initInfo.LinAlgThreadGroupMatrixMultiplyCount;
+      m_pPSVLinAlgRuntimeInfo0->OuterProductCount =
+          initInfo.LinAlgOuterProductCount;
+      m_pPSVLinAlgRuntimeInfo0->AccumulateStoreCount =
+          initInfo.LinAlgAccumulateStoreCount;
+    }
+
+#define PSV_MAP_LINALG_TABLE(Record, CountField, SizeField, DataField,         \
+                             InitData)                                         \
+  if (m_pPSVLinAlgRuntimeInfo0->CountField) {                                  \
+    PSV_RETB(rw.MapValue(&SizeField, static_cast<uint32_t>(sizeof(Record))));  \
+    PSV_RETB(sizeof(Record) <= SizeField);                                     \
+    PSV_RETB(rw.MapArray(&DataField, m_pPSVLinAlgRuntimeInfo0->CountField,     \
+                         SizeField));                                          \
+    if (mode == RWMode::Write) {                                               \
+      PSV_RETB(InitData != nullptr);                                           \
+      memcpy(DataField, InitData,                                              \
+             sizeof(Record) * m_pPSVLinAlgRuntimeInfo0->CountField);           \
+    }                                                                          \
+  }
+
+    PSV_MAP_LINALG_TABLE(
+        PSVLinAlgMatrixOperationShape0, MatrixOperationShapeCount,
+        m_uPSVLinAlgMatrixOperationShapeSize, m_pPSVLinAlgMatrixOperationShapes,
+        initInfo.LinAlgMatrixOperationShapes);
+    PSV_MAP_LINALG_TABLE(PSVLinAlgMatrixConstruction0, MatrixConstructionCount,
+                         m_uPSVLinAlgMatrixConstructionSize,
+                         m_pPSVLinAlgMatrixConstructions,
+                         initInfo.LinAlgMatrixConstructions);
+    PSV_MAP_LINALG_TABLE(PSVLinAlgThreadMatrixVectorMultiply0,
+                         ThreadMatrixVectorMultiplyCount,
+                         m_uPSVLinAlgThreadMatrixVectorMultiplySize,
+                         m_pPSVLinAlgThreadMatrixVectorMultiplies,
+                         initInfo.LinAlgThreadMatrixVectorMultiplies);
+    PSV_MAP_LINALG_TABLE(PSVLinAlgWaveMatrixMultiply0, WaveMatrixMultiplyCount,
+                         m_uPSVLinAlgWaveMatrixMultiplySize,
+                         m_pPSVLinAlgWaveMatrixMultiplies,
+                         initInfo.LinAlgWaveMatrixMultiplies);
+    PSV_MAP_LINALG_TABLE(PSVLinAlgThreadGroupMatrixMultiply0,
+                         ThreadGroupMatrixMultiplyCount,
+                         m_uPSVLinAlgThreadGroupMatrixMultiplySize,
+                         m_pPSVLinAlgThreadGroupMatrixMultiplies,
+                         initInfo.LinAlgThreadGroupMatrixMultiplies);
+    PSV_MAP_LINALG_TABLE(
+        PSVLinAlgOuterProduct0, OuterProductCount, m_uPSVLinAlgOuterProductSize,
+        m_pPSVLinAlgOuterProducts, initInfo.LinAlgOuterProducts);
+    PSV_MAP_LINALG_TABLE(PSVLinAlgAccumulateStore0, AccumulateStoreCount,
+                         m_uPSVLinAlgAccumulateStoreSize,
+                         m_pPSVLinAlgAccumulateStores,
+                         initInfo.LinAlgAccumulateStores);
+#undef PSV_MAP_LINALG_TABLE
+  }
+
   if (mode == RWMode::CalcSize) {
     *pSize = rw.GetSize();
-    m_pPSVRuntimeInfo1 = nullptr; // clear ptr to tempRuntimeInfo
+    m_pPSVRuntimeInfo1 = nullptr;
+    m_pPSVRuntimeInfo2 = nullptr;
+    m_pPSVRuntimeInfo3 = nullptr;
+    m_pPSVRuntimeInfo4 = nullptr;
+    m_pPSVLinAlgRuntimeInfo0 = nullptr;
   }
   return true;
 }
