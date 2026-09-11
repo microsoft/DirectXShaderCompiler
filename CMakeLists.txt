@@ -98,6 +98,14 @@ mark_as_advanced(DXC_DISABLE_ALLOCATOR_OVERRIDES)
 option(DXC_CODEGEN_EXCEPTIONS_TRAP "An exception in code generation generates a trap, ending the compiler process" OFF)
 mark_as_advanced(DXC_CODEGEN_EXCEPTIONS_TRAP)
 
+# HLSL Change Begin - Match DXC windows install packages
+if(WIN32)
+  set(CMAKE_INSTALL_INCLUDEDIR inc)
+else()
+  set(CMAKE_INSTALL_INCLUDEDIR include)
+endif()
+# HLSL Change End - Match DXC windows install packages
+
 # adjust link option to enable debugging from kernel mode; not compatible with incremental linking
 if(NOT CMAKE_VERSION VERSION_LESS "3.13" AND MSVC AND NOT CMAKE_C_COMPILER_ARCHITECTURE_ID STREQUAL "ARM64EC")
   add_link_options(/DEBUGTYPE:CV,FIXUP,PDATA /INCREMENTAL:NO)
@@ -805,7 +813,7 @@ endif()
 include(CoverageReport)
 
 # HLSL Change begin - Set default distribution value.
-set(LLVM_DISTRIBUTION_COMPONENTS "dxc;dxcompiler;dxc-headers" CACHE STRING "")
+set(LLVM_DISTRIBUTION_COMPONENTS "dxc;dxv;dxcompiler;dxildll;dxc-headers;hlsl-headers" CACHE STRING "")
 # HLSL Change end - Set default distribution value.
 
 # This must be at the end of the LLVM root CMakeLists file because it must run

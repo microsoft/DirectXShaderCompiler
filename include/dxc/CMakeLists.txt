@@ -41,6 +41,14 @@ install(FILES
     COMPONENT dxc-headers
     )
 
+
+
+install(FILES 
+    Support/ErrorCodes.h
+    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/dxc/Support
+    COMPONENT dxc-headers
+    )
+
 add_custom_target(install-dxc-headers
     DEPENDS dxc-headers
     COMMAND "${CMAKE_COMMAND}"

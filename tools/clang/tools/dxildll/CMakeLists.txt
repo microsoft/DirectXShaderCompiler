@@ -84,3 +84,19 @@ set_target_properties(dxildll
   PROPERTIES
   OUTPUT_NAME "dxil"
 )
+
+if (WIN32)
+  set(install_dest RUNTIME DESTINATION bin)
+else()
+  set(install_dest LIBRARY DESTINATION lib${LLVM_LIBDIR_SUFFIX})
+endif()
+
+install(TARGETS dxildll
+  ${install_dest}
+  COMPONENT dxildll)
+
+add_custom_target(install-dxildll
+  DEPENDS dxildll
+  COMMAND "${CMAKE_COMMAND}"
+          -DCMAKE_INSTALL_COMPONENT=dxildll
+          -P "${CMAKE_BINARY_DIR}/cmake_install.cmake")
