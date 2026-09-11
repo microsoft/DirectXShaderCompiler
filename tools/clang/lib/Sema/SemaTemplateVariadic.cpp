@@ -545,7 +545,7 @@ bool Sema::CheckParameterPacksForExpansion(
   std::pair<IdentifierInfo *, SourceLocation> FirstPack;
   bool HaveFirstPack = false;
 
-  if (getLangOpts().HLSL) {
+  if (getLangOpts().HLSLDisallowsVariadicTemplates()) {
     Diag(EllipsisLoc, diag::err_hlsl_variadic_templates);
     return true;
   }

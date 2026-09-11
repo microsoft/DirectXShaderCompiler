@@ -49,6 +49,9 @@ line upon naming the release. Refer to previous for appropriate section names.
   with language changes introduced in HLSL 2026.
 - The legacy effects syntax support is removed in HLSL 202x
   [#8480](https://github.com/microsoft/DirectXShaderCompiler/issues/8480).
+- HLSL 202x now supports template and function parameter packs, pack
+  expansions, and `sizeof...()`
+  [#8905](https://github.com/microsoft/DirectXShaderCompiler/issues/8905).
 
 #### SPIR-V
 
