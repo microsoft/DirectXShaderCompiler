@@ -831,9 +831,10 @@ public:
                        bool specConst = false);
   SpirvConstant *getConstantNull(QualType);
   SpirvConstant *getConstantString(llvm::StringRef str, bool specConst = false);
-  /// \brief Returns the OpConstantSizeOfEXT (SPV_EXT_descriptor_heap) for descriptor operandType:
-  /// client-API size in bytes as a 32-bit unsigned integer. Cached per operand
-  /// type.
+
+  /// \brief Returns the OpConstantSizeOfEXT (SPV_EXT_descriptor_heap) for
+  /// descriptor operandType: client-API size in bytes as a 32-bit unsigned
+  /// integer. Cached per operand type.
   SpirvConstant *getConstantSizeOfEXT(const SpirvType *operandType);
 
   SpirvSpecConstantTernaryOp *
@@ -993,7 +994,7 @@ private:
   SpirvInstruction *samplerHeapArrayStride = nullptr;
 
   /// Set by noteResourceHeapHasAccelStruct() when HandleTranslationUnit
-  /// detects shader useing ray-tracing features.
+  /// detects shader using ray-tracing features.
   /// When true, getResourceHeapArrayStride() includes
   /// sizeof(acceleration_structure). Set by noteResourceHeapHasAccelStruct().
   bool resourceHeapHasAccelStruct = false;

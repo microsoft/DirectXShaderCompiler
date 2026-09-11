@@ -1136,8 +1136,6 @@ DeclResultIdMapper::createFnVar(const VarDecl *var,
   return varInstr;
 }
 
-<<<<<<< HEAD
-=======
 void DeclResultIdMapper::registerFnVarAlias(const VarDecl *var,
                                             SpirvInstruction *varInstr) {
   if (varInstr)
@@ -1151,7 +1149,6 @@ bool DeclResultIdMapper::hasFnVarAlias(const VarDecl *var) const {
   return !isa<SpirvVariable>(info->instr);
 }
 
->>>>>>> b43202c63 (Added AS reassignment diagnostic, fixed tests and docs)
 SpirvDebugGlobalVariable *DeclResultIdMapper::createDebugGlobalVariable(
     SpirvVariable *var, const QualType &type, const SourceLocation &loc,
     const StringRef &name) {
