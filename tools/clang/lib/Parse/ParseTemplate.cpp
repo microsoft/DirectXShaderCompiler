@@ -522,10 +522,9 @@ Decl *Parser::ParseTypeParameter(unsigned Depth, unsigned Position) {
     }
     // HLSL Change Ends
     if (!getLangOpts().HLSL) // HLSL Change: HLSL has no C++98-compat warnings
-    Diag(EllipsisLoc,
-         getLangOpts().CPlusPlus11
-           ? diag::warn_cxx98_compat_variadic_templates
-           : diag::ext_variadic_templates);
+      Diag(EllipsisLoc, getLangOpts().CPlusPlus11
+                            ? diag::warn_cxx98_compat_variadic_templates
+                            : diag::ext_variadic_templates);
   }
 
   // Grab the template parameter name (if given)
