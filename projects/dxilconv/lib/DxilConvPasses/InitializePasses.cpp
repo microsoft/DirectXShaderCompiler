@@ -10,6 +10,7 @@
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
+#include "DxilConvPasses/InitializePasses.h"
 #include "DxilConvPasses/DxilCleanup.h"
 #include "DxilConvPasses/NormalizeDxil.h"
 #include "DxilConvPasses/ScopeNestInfo.h"
@@ -17,12 +18,17 @@
 #include "dxc/Support/Global.h"
 #include "dxc/Support/WinIncludes.h"
 
+#include "llvm/Analysis/ReducibilityAnalysis.h"
+#include "llvm/InitializePasses.h"
 #include "llvm/PassRegistry.h"
 
 using namespace llvm;
 
 // Place to put our private pass initialization for opt.exe.
 void __cdecl initializeDxilConvPasses(PassRegistry &Registry) {
+  initializeDCEPass(Registry);
+  initializePromotePassPass(Registry);
+  initializeReducibilityAnalysisPass(Registry);
   initializeScopeNestedCFGPass(Registry);
   initializeScopeNestInfoWrapperPassPass(Registry);
   initializeNormalizeDxilPassPass(Registry);

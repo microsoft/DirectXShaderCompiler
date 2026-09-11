@@ -24,6 +24,8 @@ line upon naming the release. Refer to previous for appropriate section names.
 
 #### Bug Fixes
 
+- Fixed a race that could crash concurrent first-time DXBC-to-DXIL conversions
+  [#8819](https://github.com/microsoft/DirectXShaderCompiler/issues/8819).
 - Fixed derivative operations being moved into divergent control flow, which
   could produce incorrect results
   [#8001](https://github.com/microsoft/DirectXShaderCompiler/issues/8001).
