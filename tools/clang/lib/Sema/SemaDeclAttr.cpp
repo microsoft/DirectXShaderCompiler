@@ -5332,6 +5332,11 @@ void Sema::ProcessDeclAttributes(Scope *S, Decl *D, const Declarator &PD) {
     D->addAttr(*i);
   }
   // HLSL Change Ends
+
+  // SPIR-V Change Starts
+  if (LangOpts.HLSL)
+    hlsl::NormalizeInlineSPIRVAttributes(*this, D);
+  // SPIR-V Change Ends
 }
 
 /// Is the given declaration allowed to use a forbidden type?
