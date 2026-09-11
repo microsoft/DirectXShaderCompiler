@@ -15,6 +15,10 @@
 #include "HLSLTestOptions.h"
 #include "dxc/Test/WEXAdapter.h"
 
+#include <clocale>
+#include <cstdio>
+#include <cstring>
+
 #if defined(_WIN32)
 #include <windows.h>
 #if defined(_MSC_VER)
@@ -56,16 +60,49 @@ public:
   void OnTestStart(const TestInfo &ti) override {
     // Do not output on test start
     // defaultListener->OnTestStart(ti);
+#ifndef _WIN32
+    // Each test starts with an empty log buffer; clear any leftovers from a
+    // previous test that may have failed before reaching the end-of-test
+    // flush path.
+    WEX::Logging::Log::ClearBufferedLog();
+#endif
   }
 
   void OnTestPartResult(const TestPartResult &result) override {
+#ifndef _WIN32
+    if (result.failed()) {
+      // Attribute the failure to any currently open WEX StartGroup scope.
+      WEX::Logging::Log::NotifyTestPartFailed();
+      // Suppress the gtest-default "WEXAdapterLog.cpp:N Failure / Failed"
+      // noise; the failing group name and Error text from the WEX log are
+      // what's actually informative.
+      const char *FileName = result.file_name();
+      if (FileName && std::strstr(FileName, "WEXAdapterLog.cpp"))
+        return;
+    }
+#endif
     defaultListener->OnTestPartResult(result);
   }
 
   void OnTestEnd(const TestInfo &ti) override {
     // Only output if failure on test end
-    if (ti.result()->Failed())
+    if (ti.result()->Failed()) {
+#ifndef _WIN32
+      // Flush any comments emitted after the last failing assertion.
+      if (WEX::Logging::Log::HasBufferedLog()) {
+        std::fputs(WEX::Logging::Log::GetBufferedLog(), stderr);
+        WEX::Logging::Log::ClearBufferedLog();
+      }
+#endif
       defaultListener->OnTestEnd(ti);
+    }
+#ifndef _WIN32
+    else {
+      // Test passed -- discard the buffered comments so they don't leak into
+      // the next test.
+      WEX::Logging::Log::ClearBufferedLog();
+    }
+#endif
   }
 
   void OnTestCaseEnd(const TestCase &tc) override {
@@ -107,6 +144,14 @@ const char *TestMainArgv0;
 
 int main(int argc, char **argv) {
   llvm::sys::PrintStackTraceOnErrorSignal(true /* Disable crash reporting */);
+
+#ifndef _WIN32
+  // Pick up the user's locale so wcstombs can convert wide log strings to
+  // UTF-8 in WEXAdapterLog.cpp.  Without this, fputws/%ls silently drop wide
+  // output in the default "C" locale, hiding the WEX::Logging::Log::Comment
+  // diagnostics that tests rely on for context on failure.
+  std::setlocale(LC_ALL, "");
+#endif
 
   for (int i = 1; i < argc; ++i) {
     ARG_LIST(SAVE_ARG)
