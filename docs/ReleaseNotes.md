@@ -49,6 +49,8 @@ line upon naming the release. Refer to previous for appropriate section names.
   with language changes introduced in HLSL 2026.
 - The legacy effects syntax support is removed in HLSL 202x
   [#8480](https://github.com/microsoft/DirectXShaderCompiler/issues/8480).
+- Added support for `auto` return types for normal functions aligning with C++14
+  [#8903](https://github.com/microsoft/DirectXShaderCompiler/issues/8903).
 
 #### SPIR-V
 
