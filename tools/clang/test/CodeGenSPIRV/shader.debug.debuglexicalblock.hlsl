@@ -3,11 +3,12 @@
 // CHECK:      [[debugSet:%[0-9]+]] = OpExtInstImport "NonSemantic.Shader.DebugInfo.100"
 // CHECK:   [[debugSource:%[0-9]+]] = OpExtInst %void [[debugSet]] DebugSource
 // CHECK:          [[main:%[0-9]+]] = OpExtInst %void [[debugSet]] DebugFunction
-// CHECK: [[mainFnLexBlock:%[0-9]+]] = OpExtInst %void [[debugSet]] DebugLexicalBlock [[debugSource]] %uint_13 %uint_1 [[main]]
-// CHECK: [[whileLoopLexBlock:%[0-9]+]] = OpExtInst %void [[debugSet]] DebugLexicalBlock [[debugSource]] %uint_21 %uint_3 [[mainFnLexBlock]]
-// CHECK: [[ifStmtLexBlock:%[0-9]+]] = OpExtInst %void [[debugSet]] DebugLexicalBlock [[debugSource]] %uint_26 %uint_20 [[whileLoopLexBlock]]
-// CHECK: [[tempLexBlock:%[0-9]+]] = OpExtInst %void [[debugSet]] DebugLexicalBlock [[debugSource]] %uint_28 %uint_7 [[ifStmtLexBlock]]
-// CHECK: [[forLoopLexBlock:%[0-9]+]] = OpExtInst %void [[debugSet]] DebugLexicalBlock [[debugSource]] %uint_15 %uint_12 [[mainFnLexBlock]]
+// CHECK: [[mainFnLexBlock:%[0-9]+]] = OpExtInst %void [[debugSet]] DebugLexicalBlock [[debugSource]] %uint_14 %uint_1 [[main]]
+// CHECK: [[whileLoopLexBlock:%[0-9]+]] = OpExtInst %void [[debugSet]] DebugLexicalBlock [[debugSource]] %uint_22 %uint_3 [[mainFnLexBlock]]
+// CHECK: [[ifStmtLexBlock:%[0-9]+]] = OpExtInst %void [[debugSet]] DebugLexicalBlock [[debugSource]] %uint_27 %uint_20 [[whileLoopLexBlock]]
+// CHECK: [[tempLexBlock:%[0-9]+]] = OpExtInst %void [[debugSet]] DebugLexicalBlock [[debugSource]] %uint_29 %uint_7 [[ifStmtLexBlock]]
+// CHECK: [[forLoopParensLexBlock:%[0-9]+]] = OpExtInst %void [[debugSet]] DebugLexicalBlock [[debugSource]] %uint_16 %uint_3 [[mainFnLexBlock]]
+// CHECK: [[forLoopLexBlock:%[0-9]+]] = OpExtInst %void [[debugSet]] DebugLexicalBlock [[debugSource]] %uint_16 %uint_12 [[forLoopParensLexBlock]]
 
 float4 main(float4 color : COLOR) : SV_TARGET
 {
