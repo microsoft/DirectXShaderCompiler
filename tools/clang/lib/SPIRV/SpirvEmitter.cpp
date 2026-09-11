@@ -5544,8 +5544,9 @@ SpirvInstruction *SpirvEmitter::emitDescriptorHeapBufferAccess(
 
   const BufferEXTType *bufferDescriptorType =
       spvContext.getBufferEXTType(bufferSC);
-  const SpirvType *arrayType =
-      getDescriptorHeapRuntimeArrayType(bufferDescriptorType);
+  // Buffer descriptors are always on the resource heap.
+  const SpirvType *arrayType = getDescriptorHeapRuntimeArrayType(
+      bufferDescriptorType, /*onSamplerHeap=*/false);
   SpirvUntypedAccessChainKHR *untypedAccessChainPtr =
       spvBuilder.createUntypedAccessChainKHR(untypedUniformConstantType,
                                              arrayType, heapVar, index,
@@ -7264,8 +7265,9 @@ SpirvEmitter::doCXXOperatorCallExpr(const CXXOperatorCallExpr *expr,
         const SpirvType *handleType =
             lowerTypeVisitor.lowerType(resourceType, SpirvLayoutRule::Void,
                                        llvm::None, baseExpr->getExprLoc());
-        const SpirvType *arrayType =
-            getDescriptorHeapRuntimeArrayType(handleType);
+        // Images and samplers may come from either heap; pick the right stride.
+        const SpirvType *arrayType = getDescriptorHeapRuntimeArrayType(
+            handleType, isSamplerDescriptorHeap(decl));
         SpirvUntypedAccessChainKHR *untypedAccessChainPtr =
             spvBuilder.createUntypedAccessChainKHR(untypedUniformConstantType,
                                                    arrayType, var, index,
