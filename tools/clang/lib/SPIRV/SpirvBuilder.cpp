@@ -2053,6 +2053,7 @@ SpirvInstruction *SpirvBuilder::getResourceHeapArrayStride() {
     return resourceHeapArrayStride;
 
 <<<<<<< HEAD
+<<<<<<< HEAD
   // ResourceDescriptorHeap is a flat array: any descriptor may sit at any slot.
   // DX12 semantics require all resource arrays share stride =
   // max(sizeof(image), sizeof(buffer)).
@@ -2069,30 +2070,37 @@ SpirvInstruction *SpirvBuilder::getResourceHeapArrayStride() {
   // semantics, all resource descriptor arrays must share one stride equal to
   // the largest resource descriptor size across all categories that may appear
   // in this shader.
+=======
+  // ResourceDescriptorHeap is a flat array: any descriptor may sit at any slot.
+  // DX12 semantics require all resource arrays share stride = max descriptor
+  // size across all categories that may appear in this shader.
+  // VkPhysicalDeviceDescriptorHeapPropertiesEXT reports one size per category
+  // (imageDescriptorSize / bufferDescriptorSize); textures lower to
+  // OpTypeImage, so image/buffer covers all non-RT resource kinds.
+>>>>>>> b95c3afed (improve comments and convention compliance)
   //
-  // Base categories (always included): image and buffer, as defined by
-  // VkPhysicalDeviceDescriptorHeapPropertiesEXT (imageDescriptorSize /
-  // bufferDescriptorSize). Textures lower to OpTypeImage so image/buffer
-  // covers all non-RT resource kinds.
-  //
-  // Optional category: acceleration structure, included only when the shader
-  // uses ray-tracing features (noteResourceHeapHasAccelStruct() was called).
-  // The placeholder is getAccelerationStructureTypeNV(), which emits opcode
-  // 5341 — the same opcode shared by OpTypeAccelerationStructureNV and
-  // OpTypeAccelerationStructureKHR. SPIRV-Tools disassembles it as
-  // OpTypeAccelerationStructureKHR. Emitting OpConstantSizeOfEXT on this type
-  // requires OpCapability RayTracingKHR, which is guaranteed present whenever
+  // When ray-tracing features are present (noteResourceHeapHasAccelStruct() was
+  // called), a third category is added: acceleration structure, represented by
+  // getAccelerationStructureTypeNV() (opcode 5341, shared by NV and KHR
+  // variants; SPIRV-Tools disassembles as KHR). Emitting OpConstantSizeOfEXT on
+  // this type requires OpCapability RayTracingKHR, which is guaranteed whenever
   // noteResourceHeapHasAccelStruct() has been called.
   //
-  // All sizes are driver-defined and known only at pipeline creation time, so
-  // the maximum is computed with OpSpecConstantOp over OpConstantSizeOfEXT
+  // Sizes are driver-defined and known only at pipeline creation, so the
+  // maximum is computed via OpSpecConstantOp over OpConstantSizeOfEXT
   // placeholders (two for non-RT shaders; three when acceleration structures
+<<<<<<< HEAD
   // are present). A canonical sampled 2D float image and a Uniform buffer stand
   // in as representatives for the image and buffer categories.
   //
   // VkPhysicalDeviceDescriptorHeapPropertiesEXT reports one size per category,
   // so subtype and storage class do not affect the size.
 >>>>>>> 436e9fb1d (Included AccelerationStructure in resource heap stride calculation)
+=======
+  // are present). A canonical sampled 2D float image and a Uniform buffer serve
+  // as representatives; subtype and storage class do not affect the category
+  // size.
+>>>>>>> b95c3afed (improve comments and convention compliance)
   const SpirvType *placeholderImage = context.getImageType(
       context.getFloatType(32), spv::Dim::Dim2D, ImageType::WithDepth::No,
       /*arrayed*/ false, /*ms*/ false, ImageType::WithSampler::Yes,
@@ -2117,9 +2125,8 @@ SpirvInstruction *SpirvBuilder::getResourceHeapArrayStride() {
     resourceHeapArrayStride =
         createSpecConstantTernaryOp(spv::Op::OpSelect, astContext.UnsignedIntTy,
                                     maxImgBufIsBigger, maxImgBuf, asSize, {});
-  } else {
+  } else
     resourceHeapArrayStride = maxImgBuf;
-  }
   return resourceHeapArrayStride;
 }
 

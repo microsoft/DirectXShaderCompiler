@@ -67,9 +67,8 @@ bool isImplicitVarDeclInVkNamespace(const Decl *decl) {
   return false;
 }
 
-// Returns true if the given shader model kind is a ray-tracing stage.
-// Used to detect whether the resource heap stride must include
-// sizeof(acceleration_structure).
+// Returns true if k is an RT stage; determines whether the resource-heap
+// stride must include sizeof(acceleration_structure).
 bool shaderModelKindIsRayTracing(hlsl::ShaderModel::Kind k) {
   switch (k) {
   case hlsl::ShaderModel::Kind::RayGeneration:
@@ -820,38 +819,25 @@ void SpirvEmitter::HandleTranslationUnit(ASTContext &context) {
       return;
   }
 
-  // Pre-detect whether the resource-heap array stride must include the
-  // acceleration structure descriptor size.
+  // Pre-detect whether the resource-heap stride must include the acceleration
+  // structure size. getResourceHeapArrayStride() caches on first call, so the
+  // decision must precede any descriptor-heap subscript evaluation.
   //
-  // getResourceHeapArrayStride() caches its result on the first call. All
-  // resource runtime arrays created during code-gen share that one cached
-  // stride instruction pointer. To make the value correct the decision must
-  // be made here, before any descriptor-heap subscript expression is evaluated.
+  // needsAccelStruct is set when any of three conditions holds:
+  //   C1: workQueue has an RT stage. RT stages emit RayTracingKHR, which
+  //       permits OpConstantSizeOfEXT on AccelerationStructureKHR.
+  //   C2: shader explicitly listed KHR_ray_tracing or NV_ray_tracing —
+  //       signals the shader may use acceleration structures via descriptor
+  //       heap.
+  //   C3: shader explicitly listed KHR_ray_query — same rationale.
   //
-  // Specifically, needsAccelStruct is set true under any of three conditions:
+  // isExtensionEnabled() requires the !allowedExtensions.empty() guard: in
+  // default mode FeatureManager enables KHR_ray_tracing and KHR_ray_query
+  // by default, causing false positives without it.
   //
-  // Condition 1, ray-tracing entry point: any workQueue entry is an RT stage.
-  // RT stages unconditionally emit OpCapability RayTracingKHR; that capability
-  // is what permits OpConstantSizeOfEXT on AccelerationStructureKHR, so the
-  // instruction is safe to emit.
-  //
-  // Condition 2, explicit KHR_ray_tracing / NV_ray_tracing extension: a
-  // compute or graphics shader declared one of these extensions explicitly,
-  // meaning it may use acceleration structures via descriptor heap.
-  //
-  // Condition 3, explicit KHR_ray_query extension: same rationale for
-  // RayQuery users.
-  //
-  // isExtensionEnabled() cannot be used without the guard: in default mode
-  // (no -fspv-extension flags), FeatureManager enables all by-default
-  // extensions (including KHR_ray_tracing and KHR_ray_query) causing false
-  // positives. The guard !spirvOptions.allowedExtensions.empty() reliably
-  // distinguishes "user-listed" from "allowed by default."
-  //
-  // Note: the global-decl pass above runs before this block. HLSL forbids
-  // descriptor-heap access in global initializers, so
-  // getResourceHeapArrayStride() cannot be called there. If that restriction is
-  // ever lifted, this block should be moved before that pass.
+  // Note: global-decl pass runs before this block. HLSL forbids heap access
+  // in global initializers (getResourceHeapArrayStride() cannot be called
+  // there). If that restriction lifts, move this block before that pass.
   if (spirvOptions.useDescriptorHeap) {
     bool needsAccelStruct = false;
 
@@ -3292,12 +3278,10 @@ SpirvEmitter::tryToAssignToDescriptorHeapAlias(
                                          assignExpr->getExprLoc()))
     return tryToAssignToDescriptorHeapBuffer(assignExpr);
 
-  // The assignment was rejected. Buffer aliases (index-only, no backing
-  // function variable) and AS aliases (value registered via registerFnVarAlias,
-  // not a SpirvVariable) have no valid destination for processAssignment;
-  // consume the assignment to prevent a null-deref. Image aliases do have a
-  // backing function variable, so they can fall through to the plain handle
-  // store.
+  // Assignment rejected. Buffer aliases (index-only, no backing variable) and
+  // AS aliases (registerFnVarAlias, not SpirvVariable) have no
+  // processAssignment destination; consume to prevent null-deref. Image aliases
+  // have a backing variable; fall through to handle store.
   if (descriptorHeapBufferAliasVars.count(dstVar) ||
       declIdMapper.hasFnVarAlias(dstVar))
     return static_cast<SpirvInstruction *>(nullptr);
@@ -5336,10 +5320,9 @@ bool SpirvEmitter::diagnoseDescriptorHeapAliasMixing(const VarDecl *dstVar,
                         stateIt->second == DescriptorHeapVarState::Heap);
   const bool wasBound = stateIt != descriptorHeapVarState.end() &&
                         stateIt->second == DescriptorHeapVarState::Bound;
-  // AS aliases cannot be updated after initialization (registerFnVarAlias is
-  // frozen), so any reassignment (including heap-to-heap) must be rejected.
-  // Image and buffer aliases support heap-to-heap reassignment via their
-  // respective alias-update paths, so only the cross-kind cases are errors.
+  // AS aliases are frozen (registerFnVarAlias cannot be updated), so any
+  // reassignment — including heap-to-heap — is rejected. Image/buffer aliases
+  // support heap-to-heap reassignment; only cross-kind (bound↔heap) is flagged.
   const bool mixingDetected = (isASType && wasHeap) ||
                               (srcIsHeap && wasBound) ||
                               (!srcIsHeap && wasHeap);
@@ -9502,19 +9485,13 @@ void SpirvEmitter::createSpecConstant(const VarDecl *varDecl) {
 
 const SpirvType *
 SpirvEmitter::getDescriptorHeapRuntimeArrayType(const SpirvType *elemType) {
-  // Apply a client-API-defined byte stride via an ArrayStrideIdEXT decoration.
-  // The sampler heap holds a single descriptor type, so its stride is the
-  // sampler descriptor size. The resource heap is a shared flat array in which
-  // any resource descriptor may sit at any slot, so every resource runtime
-  // array must use one common stride.
-  //
-  // [non-RT shaders]:
-  //   max(sizeof(image), sizeof(buffer))
-  // [RT shaders]:
-  //   max(sizeof(image), sizeof(buffer), sizeof(acceleration_structure))
-  //
-  // The stride is determined once before the code-gen loop and cached in
-  // spvBuilder.
+  // Apply a client-API-defined byte stride via ArrayStrideIdEXT.
+  // Sampler heap holds one descriptor type; stride = sampler descriptor size.
+  // Resource heap is a shared flat array; all runtime arrays share one stride:
+  //   non-RT: max(sizeof(image), sizeof(buffer))
+  //       RT: max(sizeof(image), sizeof(buffer),
+  //       sizeof(acceleration_structure))
+  // Determined once before the code-gen loop; cached in spvBuilder.
   SpirvInstruction *strideId = isa<SamplerType>(elemType)
                                    ? spvBuilder.getSamplerHeapArrayStride()
                                    : spvBuilder.getResourceHeapArrayStride();

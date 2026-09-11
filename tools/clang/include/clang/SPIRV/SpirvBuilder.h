@@ -842,26 +842,26 @@ public:
                               SpirvInstruction *op3, SourceLocation loc);
 
   /// \brief Record that acceleration structures may occupy the resource heap.
-  /// Note: Must be called before getResourceHeapArrayStride() (before the
-  /// code-gen loop in HandleTranslationUnit) so the cached stride is correct
-  /// on the first call. Calling it later has no effect because the result is
-  /// frozen after the first getResourceHeapArrayStride() invocation.
+  /// Must be called before getResourceHeapArrayStride() (before the code-gen
+  /// loop in HandleTranslationUnit); the result is cached on the first call.
+  /// Calling it after the first getResourceHeapArrayStride() invocation has
+  /// no effect.
   void noteResourceHeapHasAccelStruct() { resourceHeapHasAccelStruct = true; }
 
-  /// \brief Returns whether the resource-heap stride accounts for acceleration
-  /// structure descriptors. Code-gen must reject an acceleration structure heap
-  /// access when this is false: the decision is made before the code-gen loop
-  /// and the stride cannot be widened afterwards.
+  /// \brief Returns whether the resource-heap stride includes the acceleration
+  /// structure descriptor size. When false, code-gen must reject AS heap
+  /// access; the stride is frozen after getResourceHeapArrayStride()'s first
+  /// call.
   bool resourceHeapStrideIncludesAccelStruct() const {
     return resourceHeapHasAccelStruct;
   }
 
-  /// \brief Shared ArrayStrideIdEXT operand for resource-heap runtime arrays.
+  /// \brief Shared ArrayStrideIdEXT for resource-heap runtime arrays.
   /// Default:  max(sizeof(image), sizeof(buffer))
-  /// With RT:  max(max(sizeof(image), sizeof(buffer)), sizeof(accel_struct))
-  /// Computed via OpSpecConstantOp and cached per module.
-  /// Note: noteResourceHeapHasAccelStruct() must be called before this if AS
-  /// may be present (result is frozen on the first call).
+  /// With RT:  max(sizeof(image), sizeof(buffer), sizeof(accel_struct))
+  /// Via OpSpecConstantOp; cached per module.
+  /// Precondition: call noteResourceHeapHasAccelStruct() before first call if
+  /// AS present.
   SpirvInstruction *getResourceHeapArrayStride();
 
   /// \brief Shared ArrayStrideIdEXT operand for sampler-heap runtime arrays:
@@ -993,9 +993,9 @@ private:
   SpirvInstruction *samplerHeapArrayStride = nullptr;
 
   /// Set by noteResourceHeapHasAccelStruct() when HandleTranslationUnit
-  /// detects that the shader uses ray-tracing features.  When true,
-  /// getResourceHeapArrayStride() extends the stride to include
-  /// sizeof(acceleration_structure).
+  /// detects shader useing ray-tracing features.
+  /// When true, getResourceHeapArrayStride() includes
+  /// sizeof(acceleration_structure). Set by noteResourceHeapHasAccelStruct().
   bool resourceHeapHasAccelStruct = false;
 
   SpirvDebugInfoNone *debugNone;
