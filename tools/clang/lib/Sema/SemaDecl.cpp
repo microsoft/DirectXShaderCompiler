@@ -7479,12 +7479,12 @@ Sema::ActOnFunctionDeclarator(Scope *S, Declarator &D, DeclContext *DC,
         NewFD->setVirtualAsWritten(true);
       }
 
-      if (getLangOpts().CPlusPlus14 &&
+      if ((getLangOpts().CPlusPlus14) &&
           NewFD->getReturnType()->isUndeducedType())
         Diag(D.getDeclSpec().getVirtualSpecLoc(), diag::err_auto_fn_virtual);
     }
 
-    if (getLangOpts().CPlusPlus14 &&
+    if ((getLangOpts().CPlusPlus14 || getLangOpts().HLSL) && // HLSL Change
         (NewFD->isDependentContext() ||
          (isFriend && CurContext->isDependentContext())) &&
         NewFD->getReturnType()->isUndeducedType()) {
@@ -10907,8 +10907,11 @@ Decl *Sema::ActOnFinishFunctionBody(Decl *dcl, Stmt *Body,
   if (FD) {
     FD->setBody(Body);
 
-    if (getLangOpts().CPlusPlus14 && !FD->isInvalidDecl() && Body &&
-        !FD->isDependentContext() && FD->getReturnType()->isUndeducedType()) {
+    // HLSL Change Begin - HLSL supports C++14-style deduced return types.
+    if ((getLangOpts().CPlusPlus14 || getLangOpts().HLSL) &&
+        !FD->isInvalidDecl() && Body && !FD->isDependentContext() &&
+        FD->getReturnType()->isUndeducedType()) {
+      // HLSL Change End
       // If the function has a deduced result type but contains no 'return'
       // statements, the result type as written must be exactly 'auto', and
       // the deduced result type is 'void'.
