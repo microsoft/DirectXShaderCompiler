@@ -24,9 +24,10 @@ The included licenses apply to the following files:
 - Extended `SPV_EXT_descriptor_heap` lowering (`-fspv-use-descriptor-heap`) to
   buffer-like resources (`StructuredBuffer`, `ByteAddressBuffer`,
   `ConstantBuffer`, `TextureBuffer`, and RW variants) via
-  `SPV_KHR_untyped_pointers`. Requires `-fspv-target-env=vulkan1.3`
-  [#8517](https://github.com/microsoft/DirectXShaderCompiler/pull/8517).
-
+  `SPV_KHR_untyped_pointers`. Requires `-fspv-target-env=vulkan1.3`.
+- Extended `-fspv-use-descriptor-heap` to support `RaytracingAccelerationStructure`
+  loaded from `ResourceDescriptorHeap`.
+  
 Place release notes for the upcoming release below this line and remove this
 line upon naming the release. Refer to previous for appropriate section names.
 

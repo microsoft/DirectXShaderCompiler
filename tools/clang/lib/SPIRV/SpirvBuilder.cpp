@@ -2058,12 +2058,12 @@ SpirvInstruction *SpirvBuilder::getResourceHeapArrayStride() {
   //
   // Categories and placeholders:
   //   image: - always included; textures lower to OpTypeImage, so this covers
-  //             all non-RT resource kinds. Representative: canonical sampled 
+  //             all non-RT resource kinds. Representative: canonical sampled
   //             2D float image (subtype/storage class do not affect size).
   //   buffer - always included. Representative: Uniform buffer.
   //   accel  - included only when noteResourceHeapHasAccelStruct() was called.
-  //             Placeholder: getAccelerationStructureType(). Requires 
-  //             OpCapability RayTracingKHR, guaranteed present when 
+  //             Placeholder: getAccelerationStructureType(). Requires
+  //             OpCapability RayTracingKHR, guaranteed present when
   //             noteResourceHeapHasAccelStruct() is called.
   //
   // VkPhysicalDeviceDescriptorHeapPropertiesEXT reports one size per category
@@ -2094,9 +2094,8 @@ SpirvInstruction *SpirvBuilder::getResourceHeapArrayStride() {
     resourceHeapArrayStride =
         createSpecConstantTernaryOp(spv::Op::OpSelect, astContext.UnsignedIntTy,
                                     maxImgBufIsBigger, maxImgBuf, asSize, {});
-  } else {
+  } else
     resourceHeapArrayStride = maxImgBuf;
-  }
   return resourceHeapArrayStride;
 }
 

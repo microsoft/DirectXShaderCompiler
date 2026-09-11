@@ -288,9 +288,8 @@ public:
   /// \brief Registers a function-scope alias to an existing instruction.
   void registerFnVarAlias(const VarDecl *var, SpirvInstruction *varInstr);
 
-  /// \brief Returns true if the decl was registered via registerFnVarAlias,
+  /// \brief Returns true if the decl was registered via registerFnVarAlias.
   bool hasFnVarAlias(const VarDecl *var) const;
-
 
   /// \brief Creates a file-scope variable and returns its instruction.
   SpirvVariable *createFileVar(const VarDecl *var,
