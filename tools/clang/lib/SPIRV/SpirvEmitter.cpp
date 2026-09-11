@@ -7242,9 +7242,9 @@ SpirvEmitter::doCXXOperatorCallExpr(const CXXOperatorCallExpr *expr,
         // frozen on its first use, so it cannot be widened here. Reject rather
         // than emit a stride that may be too narrow for the acceleration
         // structure descriptor.
-        // Exception: -fvk-resource-heap-stride supplies a literal stride that
-        // bypasses the spec-constant machinery entirely, so the user has
-        // explicitly taken ownership of the stride value.
+        // Exception: -fvk-resource-heap-stride is a literal stride that
+        // bypasses spec-constant machinery; user has explicitly owned the
+        // stride value.
         if (isRaytracingAccelerationStructure(resourceType) &&
             !spvBuilder.resourceHeapStrideIncludesAccelStruct() &&
             !spirvOptions.resourceHeapStride.has_value()) {
@@ -9505,8 +9505,7 @@ SpirvEmitter::getDescriptorHeapRuntimeArrayType(const SpirvType *elemType,
   // Sampler heap holds one descriptor type; stride = sampler descriptor size.
   // Resource heap is a shared flat array; all runtime arrays share one stride:
   //   non-RT: max(sizeof(image), sizeof(buffer))
-  //       RT: max(sizeof(image), sizeof(buffer),
-  //       sizeof(acceleration_structure))
+  //       RT: max(sizeof(image), sizeof(buffer), sizeof(accel_struct))
   // Determined once before the code-gen loop; cached in spvBuilder.
   SpirvInstruction *strideId = isa<SamplerType>(elemType)
                                    ? spvBuilder.getSamplerHeapArrayStride()
