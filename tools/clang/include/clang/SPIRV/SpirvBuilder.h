@@ -831,9 +831,10 @@ public:
                        bool specConst = false);
   SpirvConstant *getConstantNull(QualType);
   SpirvConstant *getConstantString(llvm::StringRef str, bool specConst = false);
-  /// \brief Returns the OpConstantSizeOfEXT (SPV_EXT_descriptor_heap) for descriptor operandType:
-  /// client-API size in bytes as a 32-bit unsigned integer. Cached per operand
-  /// type.
+
+  /// \brief Returns the OpConstantSizeOfEXT (SPV_EXT_descriptor_heap) for
+  /// descriptor operandType: client-API size in bytes as a 32-bit unsigned
+  /// integer. Cached per operand type.
   SpirvConstant *getConstantSizeOfEXT(const SpirvType *operandType);
 
   SpirvSpecConstantTernaryOp *
