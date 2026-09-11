@@ -7240,9 +7240,9 @@ SpirvEmitter::doCXXOperatorCallExpr(const CXXOperatorCallExpr *expr,
         // frozen on its first use, so it cannot be widened here. Reject rather
         // than emit a stride that may be too narrow for the acceleration
         // structure descriptor.
-        // Exception: -fvk-resource-heap-stride supplies a literal stride that
-        // bypasses the spec-constant machinery entirely, so the user has
-        // explicitly taken ownership of the stride value.
+        // Exception: -fvk-resource-heap-stride is a literal stride that
+        // bypasses spec-constant machinery; user has explicitly owned the
+        // stride value.
         if (isRaytracingAccelerationStructure(resourceType) &&
             !spvBuilder.resourceHeapStrideIncludesAccelStruct() &&
             !spirvOptions.resourceHeapStride.has_value()) {
@@ -9489,7 +9489,16 @@ void SpirvEmitter::createSpecConstant(const VarDecl *varDecl) {
 }
 
 const SpirvType *
-SpirvEmitter::getDescriptorHeapRuntimeArrayType(const SpirvType *elemType) {
+SpirvEmitter::getDescriptorHeapRuntimeArrayType(const SpirvType *elemType,
+                                                bool onSamplerHeap) {
+  // -fvk-{resource,sampler}-heap-stride has highest precedence: array
+  // carries a literal ArrayStride and nothing ArrayStrideIdEXT.
+  const std::optional<uint32_t> &cliStride =
+      onSamplerHeap ? spirvOptions.samplerHeapStride
+                    : spirvOptions.resourceHeapStride;
+  if (cliStride.has_value())
+    return spvContext.getRuntimeArrayType(elemType, *cliStride);
+
   // Apply a client-API-defined byte stride via ArrayStrideIdEXT.
   // Sampler heap holds one descriptor type; stride = sampler descriptor size.
   // Resource heap is a shared flat array; all runtime arrays share one stride:
