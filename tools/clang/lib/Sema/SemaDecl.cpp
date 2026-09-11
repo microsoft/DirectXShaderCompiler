@@ -7479,8 +7479,7 @@ Sema::ActOnFunctionDeclarator(Scope *S, Declarator &D, DeclContext *DC,
         NewFD->setVirtualAsWritten(true);
       }
 
-      // HLSL Change - HLSL supports C++14-style deduced return types.
-      if ((getLangOpts().CPlusPlus14 || getLangOpts().HLSL) &&
+      if ((getLangOpts().CPlusPlus14) &&
           NewFD->getReturnType()->isUndeducedType())
         Diag(D.getDeclSpec().getVirtualSpecLoc(), diag::err_auto_fn_virtual);
     }
