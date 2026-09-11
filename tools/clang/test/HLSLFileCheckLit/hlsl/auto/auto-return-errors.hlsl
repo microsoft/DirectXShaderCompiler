@@ -24,10 +24,6 @@ auto BadRecurse(int x) {
 }
 // expected-note@-3 {{'BadRecurse' declared here}}
 
-// Returning an initializer list as the deduced return value is not allowed.
-// (Initializer lists in return statements are also unsupported in HLSL more
-// broadly, but the auto-return-type case is still flagged early.)
-
 [numthreads(1,1,1)]
 void main() {
     BadDeduction(1);
