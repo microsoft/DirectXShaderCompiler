@@ -67,7 +67,7 @@ void main() {
 // CHECK-NEXT: [[h_row2:%[0-9]+]] = OpCompositeExtract %v3uint [[h]] 2
 // CHECK-NEXT: [[cmp_h_row2:%[0-9]+]] = OpUGreaterThan %v3bool [[h_row2]] [[zeros_uint3]]
 // CHECK-NEXT: [[select_h_row2:%[0-9]+]] = OpSelect %v3int [[cmp_h_row2]] [[ones_int3]] [[zeros_int3]]
-// CHECK-NEXT: [[select_h:%[0-9]+]] = OpCompositeConstruct %_arr_v3uint_uint_3 [[select_h_row0]] [[select_h_row1]] [[select_h_row2]]
+// CHECK-NEXT: [[select_h:%[0-9]+]] = OpCompositeConstruct %_arr_v3int_uint_3 [[select_h_row0]] [[select_h_row1]] [[select_h_row2]]
 // CHECK-NEXT: OpStore %result3x3 [[select_h]]
   uint3x3 h;
   result3x3 = sign(h);
