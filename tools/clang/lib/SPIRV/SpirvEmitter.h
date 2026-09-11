@@ -1281,7 +1281,16 @@ private:
   /// \brief Diagnoses a local resource variable assigned from both a bound
   /// resource and ResourceDescriptorHeap.
   ///
-  /// Issues a diagnostic and returns true if rejected.
+  /// The per-resource alias maps (descriptorHeapImageAliasVars,
+  /// descriptorHeapBufferAliasVars, registerFnVarAlias for AS) record each
+  /// aliased VarDecl at compile time; every later use is unconditionally
+  /// re-lowered as a heap access chain, ignoring control flow. Correct only
+  /// when the variable holds a heap descriptor on every reaching path;
+  /// diagnose mixed assignments rather than miscompile.
+  ///
+  /// Returns true if rejected (new diagnostic emitted or variable already
+  /// diagnosed); callers need not act, alias-recording helpers check
+  /// descriptorHeapVarState and skip rejected variables automatically.
   bool diagnoseDescriptorHeapAliasMixing(const VarDecl *dstVar,
                                          const Expr *srcExpr,
                                          SourceLocation loc);

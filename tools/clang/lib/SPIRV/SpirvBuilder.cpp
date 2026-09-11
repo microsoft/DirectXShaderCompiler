@@ -2094,9 +2094,8 @@ SpirvInstruction *SpirvBuilder::getResourceHeapArrayStride() {
     resourceHeapArrayStride =
         createSpecConstantTernaryOp(spv::Op::OpSelect, astContext.UnsignedIntTy,
                                     maxImgBufIsBigger, maxImgBuf, asSize, {});
-  } else {
+  } else
     resourceHeapArrayStride = maxImgBuf;
-  }
   return resourceHeapArrayStride;
 }
 
