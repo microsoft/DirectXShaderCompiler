@@ -417,7 +417,7 @@ private:
   /// (StructuredBuffer/ByteAddressBuffer/ConstantBuffer/TextureBuffer + RW
   /// variants) loaded from heapVar at index via OpUntypedAccessChainKHR ->
   /// OpBufferPointerEXT. Records in descriptorHeapBufferAccesses[expr],
-  /// returning the buffer-data pointer or nullptr on lowering failure. 
+  /// returning the buffer-data pointer or nullptr on lowering failure.
   // Caller must have checked resource is buffer-like.
   SpirvInstruction *emitDescriptorHeapBufferAccess(
       QualType resourceType, SpirvInstruction *heapVar, SpirvInstruction *index,

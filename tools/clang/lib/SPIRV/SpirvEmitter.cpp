@@ -5164,10 +5164,9 @@ SpirvEmitter::processStructuredBufferLoad(const CXXMemberCallExpr *expr) {
   // derefOrCreatePointerToValue returns an lvalue (AccessChain) when the base
   // is an lvalue (SPIR-V pointer into the buffer element) not the value.
   // StructuredBuffer::Load must return the element value, so load explicitly.
-  if (result && !result->isRValue()) {
+  if (result && !result->isRValue())
     result = spvBuilder.createLoad(expr->getType(), result,
                                    buffer->getExprLoc(), range);
-  }
 
   return result;
 }
@@ -5334,12 +5333,10 @@ bool SpirvEmitter::tryToAssignDescriptorHeapBufferAlias(
                    isAKindOfStructuredOrByteBuffer(dstVar->getType())))
     return false;
 
-  {
-    auto stateIt = descriptorHeapVarState.find(dstVar);
-    if (stateIt != descriptorHeapVarState.end() &&
-        stateIt->second == DescriptorHeapVarState::Mixed)
-      return false;
-  }
+  auto stateIt = descriptorHeapVarState.find(dstVar);
+  if (stateIt != descriptorHeapVarState.end() &&
+      stateIt->second == DescriptorHeapVarState::Mixed)
+    return false;
 
   const Expr *src = srcExpr->IgnoreParenCasts();
   auto found = descriptorHeapBufferAccesses.find(src);

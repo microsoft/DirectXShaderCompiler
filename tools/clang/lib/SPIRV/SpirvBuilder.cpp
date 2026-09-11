@@ -2057,11 +2057,11 @@ SpirvInstruction *SpirvBuilder::getResourceHeapArrayStride() {
   // max(sizeof(image), sizeof(buffer)).
   // VkPhysicalDeviceDescriptorHeapPropertiesEXT reports one size per category
   // (imageDescriptorSize / bufferDescriptorSize); textures lower to
-  // OpTypeImage, so image/buffer covers all relevant HLSL resource kinds. Sizes are
-  // driver-defined (known only at pipeline creation), so the max is computed
-  // via OpSpecConstantOp over two OpConstantSizeOfEXT placeholders. A canonical
-  // sampled 2D float image and a Uniform buffer serve as representatives;
-  // subtype and storage class do not affect the category size.
+  // OpTypeImage, so image/buffer covers all relevant HLSL resource kinds. Sizes
+  // are driver-defined (known only at pipeline creation), so the max is
+  // computed via OpSpecConstantOp over two OpConstantSizeOfEXT placeholders.
+  // A canonical sampled 2D float image and a Uniform buffer serve as
+  // representatives; subtype and storage class do not affect the category size.
   const SpirvType *placeholderImage = context.getImageType(
       context.getFloatType(32), spv::Dim::Dim2D, ImageType::WithDepth::No,
       /*arrayed*/ false, /*ms*/ false, ImageType::WithSampler::Yes,
