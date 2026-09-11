@@ -99,24 +99,6 @@ first shipped in the 1.10.2605 preview.
 - Added `BFloat16` to the ComponentType enum in DxilConstants and the linalg
   header [#8722](https://github.com/microsoft/DirectXShaderCompiler/issues/8722).
 - Removed work graph support from Shader Model 6.10, and DXIL 1.10 [microsoft/hlsl-specs#915](https://github.com/microsoft/hlsl-specs/issues/915).
-- LinAlg shaders now set the `ShaderFeatureInfo_LinearAlgebra` DXIL feature flag
-  [#8884](https://github.com/microsoft/DirectXShaderCompiler/pull/8884).
-- LinAlg matrix memory APIs now take alignment as a template argument and use
-  shape- and component-derived default alignments
-  [#8710](https://github.com/microsoft/DirectXShaderCompiler/pull/8710),
-  [#8898](https://github.com/microsoft/DirectXShaderCompiler/pull/8898).
-- Removed the bias-interpretation parameter from LinAlg `MultiplyAdd` to match
-  the current specification
-  [#8702](https://github.com/microsoft/DirectXShaderCompiler/pull/8702).
-- LinAlg group-shared matrix memory operations now accept vector arrays and
-  thread-group matrix accumulators
-  [#8815](https://github.com/microsoft/DirectXShaderCompiler/pull/8815),
-  [#8883](https://github.com/microsoft/DirectXShaderCompiler/pull/8883).
-- Added the missing LinAlg `Multiply(Matrix, InterpretedVector)` overload
-  [#8638](https://github.com/microsoft/DirectXShaderCompiler/pull/8638).
-- Fixed group-shared LinAlg validation to scale element offsets by component
-  width, preventing valid shaders from being rejected as misaligned
-  [#8880](https://github.com/microsoft/DirectXShaderCompiler/pull/8880).
 
 ### Version 1.9.2607
 
