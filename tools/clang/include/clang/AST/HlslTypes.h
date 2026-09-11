@@ -545,6 +545,7 @@ bool DoesTypeDefineOverloadedOperator(clang::QualType typeWithOperator,
                                       clang::OverloadedOperatorKind opc,
                                       clang::QualType paramType);
 bool IsPatchConstantFunctionDecl(const clang::FunctionDecl *FD);
+bool IsTypeDeducibleWithAuto(clang::QualType type);
 
 #ifdef ENABLE_SPIRV_CODEGEN
 bool IsVKBufferPointerType(clang::QualType type);
