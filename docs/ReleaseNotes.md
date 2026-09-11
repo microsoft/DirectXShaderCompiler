@@ -98,6 +98,7 @@ first shipped in the 1.10.2605 preview.
   [#8608](https://github.com/microsoft/DirectXShaderCompiler/pull/8608).
 - Added `BFloat16` to the ComponentType enum in DxilConstants and the linalg
   header [#8722](https://github.com/microsoft/DirectXShaderCompiler/issues/8722).
+- Removed work graph support from Shader Model 6.10, and DXIL 1.10 [microsoft/hlsl-specs#915](https://github.com/microsoft/hlsl-specs/issues/915).
 - LinAlg shaders now set the `ShaderFeatureInfo_LinearAlgebra` DXIL feature flag
   [#8884](https://github.com/microsoft/DirectXShaderCompiler/pull/8884).
 - LinAlg matrix memory APIs now take alignment as a template argument and use
@@ -116,8 +117,6 @@ first shipped in the 1.10.2605 preview.
 - Fixed group-shared LinAlg validation to scale element offsets by component
   width, preventing valid shaders from being rejected as misaligned
   [#8880](https://github.com/microsoft/DirectXShaderCompiler/pull/8880).
-- Removed work graph support from Shader Model 6.10 and DXIL 1.10
-  [microsoft/hlsl-specs#915](https://github.com/microsoft/hlsl-specs/issues/915).
 
 ### Version 1.9.2607
 
