@@ -4804,26 +4804,6 @@ public:
     return type;
   }
 
-  bool IsTypeDeducibleWithAuto(QualType type) {
-    if (type.isNull())
-      return false;
-
-    if (hlsl::IsStringType(type) || hlsl::IsStringLiteralType(type))
-      return false;
-
-    if (const CXXRecordDecl *recordDecl =
-            GetStructuralForm(type)->getAsCXXRecordDecl()) {
-      if (!recordDecl->hasAttr<HLSLNonAutoDeducibleAttr>())
-        if (const CXXRecordDecl *pattern =
-                recordDecl->getTemplateInstantiationPattern())
-          recordDecl = pattern;
-      if (recordDecl->hasAttr<HLSLNonAutoDeducibleAttr>())
-        return false;
-    }
-
-    return true;
-  }
-
   /// <summary>Given a Clang type, return the ArBasicKind classification for its
   /// contents.</summary>
   ArBasicKind GetTypeElementKind(QualType type) {
@@ -12888,10 +12868,6 @@ bool hlsl::DiagnoseTypeElements(Sema &S, SourceLocation Loc, QualType Ty,
   llvm::SmallPtrSet<const RecordDecl *, 8> CheckedDecls;
   return DiagnoseElementTypes(S, Loc, Ty, Empty, ObjDiagContext,
                               LongVecDiagContext, CheckedDecls, FD);
-}
-
-bool hlsl::IsTypeDeducibleWithAuto(Sema &S, QualType Ty) {
-  return HLSLExternalSource::FromSema(&S)->IsTypeDeducibleWithAuto(Ty);
 }
 
 bool hlsl::DiagnoseNodeStructArgument(Sema *self, TemplateArgumentLoc ArgLoc,
