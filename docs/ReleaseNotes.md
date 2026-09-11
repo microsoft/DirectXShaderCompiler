@@ -40,6 +40,10 @@ line upon naming the release. Refer to previous for appropriate section names.
 - SPIR-V: Fixed a crash when writing to a bitfield member through a
   `vk::BufferPointer`
   [#8402](https://github.com/microsoft/DirectXShaderCompiler/issues/8402).
+- Fixed non-deterministic debug information for static globals localized into
+  allocas, which made the embedded debug module differ between compilations of
+  byte-identical input
+  [#8899](https://github.com/microsoft/DirectXShaderCompiler/pull/8899).
 
 #### HLSL Language
 
