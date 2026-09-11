@@ -1404,8 +1404,10 @@ private:
 
   /// Returns a vector of SpirvInstruction that is the decompostion of `inst`
   /// into scalars. This is recursive. For example, a struct of a 4 element
-  /// vector will return 4 scalars.
-  std::vector<SpirvInstruction *> decomposeToScalars(SpirvInstruction *inst);
+  /// vector will return 4 scalars. If `includeMergedBitfields` is false,
+  /// fields that share the same SPIR-V storage field produce one scalar.
+  std::vector<SpirvInstruction *>
+  decomposeToScalars(SpirvInstruction *inst, bool includeMergedBitfields);
 
   /// Returns a spirv instruction with the value of the given type and layout
   /// rule that is obtained by assigning each scalar in `type` to corresponding
