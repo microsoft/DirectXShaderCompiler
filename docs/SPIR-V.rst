@@ -336,6 +336,8 @@ Supported extensions
 * SPV_KHR_float_controls
 * SPV_NV_shader_subgroup_partitioned
 * SPV_KHR_quad_control
+* SPV_KHR_untyped_pointers
+* SPV_EXT_descriptor_heap
 
 Vulkan specific attributes
 --------------------------
@@ -1993,9 +1995,13 @@ responsibility to provide proper numbers and avoid binding overlaps.
 ResourceDescriptorHeaps & SamplerDescriptorHeaps
 ------------------------------------------------
 
-The SPIR-V backend supported SM6.6 resource heaps, using 2 extensions:
+By default, the SPIR-V backend supports SM6.6 resource heaps by emulating the
+heaps with descriptor-indexing runtime arrays, using 2 extensions:
+
 - `SPV_EXT_descriptor_indexing`
 - `VK_EXT_mutable_descriptor_type`
+
+This is also the behavior selected by ``-fspv-use-emulated-heap``.
 
 Each type loaded from a heap is considered to be an unbounded RuntimeArray
 bound to the descriptor set 0.
@@ -2073,6 +2079,129 @@ Bindings & sets associated with each heap can be explicitly set using:
   and set number for the resource heap.
 - `-fvk-bind-counter-heap <binding> <set>`: Specify Vulkan binding number
   and set number for the counter heap.
+
+Native descriptor heap extension lowering
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+When ``-fspv-use-descriptor-heap`` is specified, DXC lowers
+``ResourceDescriptorHeap`` and ``SamplerDescriptorHeap`` through
+``SPV_EXT_descriptor_heap`` instead of the default emulated heap path. This
+also requires ``SPV_KHR_untyped_pointers`` and ``-fspv-target-env=vulkan1.3``
+(targeting a lower environment is an error), and a SPIRV-Headers / SPIRV-Tools
+build that defines these extensions. The emitted module declares the heap
+objects as untyped variables in ``UniformConstant`` storage class:
+
+.. code:: spirv
+
+  %uptr_uc = OpTypeUntypedPointerKHR UniformConstant
+  %resource_heap = OpUntypedVariableKHR %uptr_uc UniformConstant
+  %sampler_heap  = OpUntypedVariableKHR %uptr_uc UniformConstant
+  OpDecorate %resource_heap BuiltIn ResourceHeapEXT
+  OpDecorate %sampler_heap BuiltIn SamplerHeapEXT
+
+The concrete descriptor type is selected at each heap access. For image,
+sampler, and texel buffer resources, DXC forms a runtime array of that
+descriptor type, decorates the array with a byte stride, and uses
+``OpUntypedAccessChainKHR`` followed by ``OpLoad``. The stride is an
+``ArrayStrideIdEXT`` decoration referencing a specialization constant rather
+than a literal ``ArrayStride`` (see `Descriptor heap array stride`_ below):
+
+.. code:: spirv
+
+  %image_type = OpTypeImage %float 2D 2 0 0 1 Unknown
+  %image_array = OpTypeRuntimeArray %image_type
+  OpDecorateId %image_array ArrayStrideIdEXT %resource_stride
+  %descriptor = OpUntypedAccessChainKHR %uptr_uc %image_array %resource_heap %index
+  %image = OpLoad %image_type %descriptor
+
+For buffer-like resources, DXC uses ``OpTypeBufferEXT`` as the descriptor type
+and ``OpBufferPointerEXT`` to recover the pointer to the buffer data. The
+descriptor storage class matches the recovered buffer pointer storage class; for
+example, ``ConstantBuffer<T>`` uses ``Uniform`` and ``TextureBuffer<T>`` uses
+``StorageBuffer``:
+
+.. code:: spirv
+
+  %buffer_type = OpTypeBufferEXT Uniform
+  %buffer_array = OpTypeRuntimeArray %buffer_type
+  OpDecorateId %buffer_array ArrayStrideIdEXT %resource_stride
+  %descriptor = OpUntypedAccessChainKHR %uptr_uc %buffer_array %resource_heap %index
+  %buffer_ptr = OpBufferPointerEXT %_ptr_Uniform_type_BufferData %descriptor
+
+For ``RWTexture`` resources loaded from ``ResourceDescriptorHeap``, interlocked
+operations that need a texel pointer use ``OpUntypedImageTexelPointerEXT``.
+The image descriptor pointer produced by ``OpUntypedAccessChainKHR`` is passed
+directly to the texel-pointer instruction instead of first storing the image
+handle into a function-scope image variable:
+
+.. code:: spirv
+
+  %image_type = OpTypeImage %uint 2D 2 0 0 2 R32ui
+  %image_array = OpTypeRuntimeArray %image_type
+  %descriptor = OpUntypedAccessChainKHR %uptr_uc %image_array %resource_heap %index
+  %uptr_image = OpTypeUntypedPointerKHR Image
+  %texel_ptr = OpUntypedImageTexelPointerEXT %uptr_image %image_type %descriptor %coord %sample
+  %old = OpAtomicIAdd %uint %texel_ptr %scope %semantics %value
+
+This path supports texture, RWTexture, sampler, Buffer/RWBuffer,
+StructuredBuffer/RWStructuredBuffer without associated counter operations,
+ByteAddressBuffer/RWByteAddressBuffer, ConstantBuffer, and TextureBuffer heap
+loads, including direct field and array-element accesses for
+``ConstantBuffer<T>`` and ``TextureBuffer<T>``. ``NonUniformResourceIndex`` is
+accepted, but no ``NonUniform`` decoration is emitted on the
+``OpUntypedAccessChainKHR`` result or on the loaded descriptor;
+``SPV_EXT_descriptor_heap`` deprecates the decoration for heap accesses and
+drivers handle divergent heap indices natively. The index operand itself may
+still carry ``NonUniform`` from the surrounding expression.
+
+Append/consume structured buffers and UAV counter heap lowering are not
+supported by the native descriptor heap path yet. Those forms should continue
+to use the default emulated heap lowering, or DXC will emit a diagnostic for
+unsupported append/consume structured-buffer heap loads. Heap-loaded
+``RWStructuredBuffer`` resources are supported for ordinary data access, but
+associated counter operations such as ``IncrementCounter`` and
+``DecrementCounter`` emit a diagnostic because the native descriptor heap path
+does not recover an associated counter descriptor.
+
+A local resource variable initialized from a heap access is resolved entirely at
+compile time: the variable is recorded as an alias for the heap index, and every
+later use is re-lowered as a fresh access chain rather than as a load of a stored
+descriptor handle. This is sound only when the variable holds a heap descriptor
+on every path that reaches the use. DXC therefore rejects a variable that holds
+both a bound resource and a heap descriptor, whether through a conditional
+assignment, a reassignment back to a bound resource, or an assignment inside a
+loop::
+
+  error: mixing bound and descriptor heap resources in the same variable is not
+  supported with SPV_EXT_descriptor_heap
+
+Supporting these forms requires modelling the alias as a value with real
+control-flow merges instead of as compile-time state.
+
+Two further restrictions on the heap access expression itself produce
+diagnostics. The object being subscripted must be a direct reference to the
+builtin ``ResourceDescriptorHeap`` or ``SamplerDescriptorHeap`` variable, and
+the subscript result must be immediately converted to a concrete resource type
+so that DXC can select a descriptor type for the access. A subscript whose
+result is discarded, or used in a context that supplies no target resource
+type, is rejected.
+
+Descriptor heap array stride
+++++++++++++++++++++++++++++
+
+All resource heap runtime arrays share a single ``ArrayStrideIdEXT`` decoration
+rather than a literal ``ArrayStride``, because descriptor sizes are not known
+until pipeline creation. The shared value is built from ``OpConstantSizeOfEXT``
+and ``OpSpecConstantOp`` and evaluates to
+``max(sizeof(image_descriptor), sizeof(buffer_descriptor))``. The sampler heap
+carries its own ``ArrayStrideIdEXT`` equal to ``sizeof(sampler_descriptor)``.
+
+The ``OpConstantSizeOfEXT`` operands are placeholder types chosen only for their
+descriptor class. All image types report the same descriptor size, so the
+placeholder is a plain sampled 2D float image and bears no relation to the image
+types the shader actually uses; a module will normally contain both the
+placeholder type and the distinct image types its heap accesses lower to. The
+stride value is built once and cached on first use.
 
 HLSL Expressions
 ================

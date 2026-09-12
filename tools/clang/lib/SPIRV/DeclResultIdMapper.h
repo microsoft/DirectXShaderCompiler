@@ -10,7 +10,6 @@
 #ifndef LLVM_CLANG_LIB_SPIRV_DECLRESULTIDMAPPER_H
 #define LLVM_CLANG_LIB_SPIRV_DECLRESULTIDMAPPER_H
 
-#include <tuple>
 #include <vector>
 
 #include "dxc/Support/SPIRVOptions.h"
