@@ -188,6 +188,13 @@ public:
     return MSCompatibilityVersion >= MajorVersion * 10000000U;
   }
 
+  // HLSL Change Starts
+  /// Whether the active HLSL version rejects variadic templates.
+  bool HLSLDisallowsVariadicTemplates() const {
+    return HLSL && HLSLVersion < hlsl::LangStd::v202x;
+  }
+  // HLSL Change Ends
+
   /// \brief Reset all of the options that are not considered when building a
   /// module.
   void resetNonModularOptions();

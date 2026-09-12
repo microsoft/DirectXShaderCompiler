@@ -4280,14 +4280,14 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
       // parameter packs in the type of the non-type template parameter, then
       // it expands those parameter packs.
       // HLSL Change Starts
-      if (LangOpts.HLSL) {
+      if (LangOpts.HLSLDisallowsVariadicTemplates()) {
         S.Diag(D.getEllipsisLoc(), diag::err_hlsl_variadic_templates);
         break;
       }
       // HLSL Change Ends
       if (T->containsUnexpandedParameterPack())
         T = Context.getPackExpansionType(T, None);
-      else
+      else if (!LangOpts.HLSL) // HLSL Change: HLSL has no C++98-compat warnings
         S.Diag(D.getEllipsisLoc(),
                LangOpts.CPlusPlus11
                  ? diag::warn_cxx98_compat_variadic_templates
