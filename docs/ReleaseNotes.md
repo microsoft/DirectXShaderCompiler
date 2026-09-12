@@ -64,7 +64,8 @@ line upon naming the release. Refer to previous for appropriate section names.
 #### SPIR-V
 
 - Inline `[[vk::ext_decorate]]`, `[[vk::ext_capability]]`, and
-  `[[vk::ext_extension]]` attributes are now honored on ordinary functions.
+  `[[vk::ext_extension]]` attributes are now honored on ordinary functions
+  [#8616](https://github.com/microsoft/DirectXShaderCompiler/pull/8616).
 - `globallycoherent` is now supported on `ResourceDescriptorHeap` accesses
   [#7740](https://github.com/microsoft/DirectXShaderCompiler/issues/7740).
 - Fixed a crash when a user-defined type named `RayQuery` shadows the intrinsic
