@@ -40,8 +40,8 @@ line upon naming the release. Refer to previous for appropriate section names.
 - SPIR-V: Fixed a crash when writing to a bitfield member through a
   `vk::BufferPointer`
   [#8402](https://github.com/microsoft/DirectXShaderCompiler/issues/8402).
-- Fixed template-specialization failures after an earlier fatal diagnostic
-  asserting instead of preserving the original diagnostic
+- Prevented an assertion from hiding the original fatal error when Clang skips
+  template specialization
   [#6615](https://github.com/microsoft/DirectXShaderCompiler/issues/6615),
   [#4875](https://github.com/microsoft/DirectXShaderCompiler/issues/4875).
 - Fixed internal compiler errors when a member method is called on a ray payload
@@ -64,10 +64,9 @@ line upon naming the release. Refer to previous for appropriate section names.
 #### SPIR-V
 
 - Inline `[[vk::ext_decorate]]`, `[[vk::ext_capability]]`, and
-  `[[vk::ext_extension]]` attributes are now honored on ordinary functions
-  [#8616](https://github.com/microsoft/DirectXShaderCompiler/pull/8616).
+  `[[vk::ext_extension]]` attributes are now honored on ordinary functions.
 - `globallycoherent` is now supported on `ResourceDescriptorHeap` accesses
-  [#8513](https://github.com/microsoft/DirectXShaderCompiler/pull/8513).
+  [#7740](https://github.com/microsoft/DirectXShaderCompiler/issues/7740).
 - Fixed a crash when a user-defined type named `RayQuery` shadows the intrinsic
   type [#8601](https://github.com/microsoft/DirectXShaderCompiler/issues/8601).
 - Fixed a crash from `static` members of a `cbuffer`/`tbuffer`, which were
