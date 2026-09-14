@@ -8588,13 +8588,16 @@ encodeGroupSharedI8Matrix(MatrixDim M, MatrixDim N,
 
   const std::optional<size_t> LastByte = cpu_oracle::getElementByteOffset(
       ComponentType::I8, M, N, M - 1, N - 1, Layout);
+  size_t StorageWords;
   size_t BufferSize;
+  // Include the final partially occupied word before appending guard words.
   if (!LastByte ||
-      !cpu_oracle::checkedAdd(
-          *LastByte, 1 + GroupSharedTrailingGuardElements * sizeof(int32_t),
-          BufferSize) ||
-      BufferSize % sizeof(int32_t) != 0) {
-    hlsl_test::LogErrorFmt(L"I8 group-shared storage must fit whole i32 words");
+      !cpu_oracle::checkedAdd(*LastByte / sizeof(int32_t),
+                              1 + GroupSharedTrailingGuardElements,
+                              StorageWords) ||
+      !cpu_oracle::checkedMultiply(StorageWords, sizeof(int32_t), BufferSize)) {
+    hlsl_test::LogErrorFmt(
+        L"I8 group-shared storage size calculation overflowed");
     return std::nullopt;
   }
 
@@ -8642,6 +8645,25 @@ void LinAlgCPUOracleTests::GroupSharedI8ByteEncoding() {
   std::memcpy(ExpectedColumn.data() + 704, Columns[1], 4);
   VERIFY_IS_TRUE(*RowMajor == ExpectedRow);
   VERIFY_IS_TRUE(*ColumnMajor == ExpectedColumn);
+
+  for (MatrixDim MinorCount = 1; MinorCount < 4; ++MinorCount) {
+    const std::vector<int64_t> PartialValues(Values.begin(),
+                                             Values.begin() + MinorCount);
+    const auto PartialRowMajor = encodeGroupSharedI8Matrix(
+        1, MinorCount, {MatrixLayout::RowMajor, 512, 128}, PartialValues);
+    const auto PartialColumnMajor = encodeGroupSharedI8Matrix(
+        MinorCount, 1, {MatrixLayout::ColumnMajor, 512, 192}, PartialValues);
+    VERIFY_IS_TRUE(PartialRowMajor.has_value() &&
+                   PartialColumnMajor.has_value());
+    if (!PartialRowMajor || !PartialColumnMajor)
+      return;
+
+    std::vector<BYTE> ExpectedPartial(532);
+    cpu_oracle::fillPoison(ExpectedPartial.data(), ExpectedPartial.size());
+    std::memcpy(ExpectedPartial.data() + 512, Rows[0], MinorCount);
+    VERIFY_IS_TRUE(*PartialRowMajor == ExpectedPartial);
+    VERIFY_IS_TRUE(*PartialColumnMajor == ExpectedPartial);
+  }
 }
 
 static const char GroupSharedI8MultiplyShader[] = R"(
