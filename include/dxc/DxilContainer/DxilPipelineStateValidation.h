@@ -611,7 +611,7 @@ struct PSVInitInfo {
   uint32_t LinAlgAccumulateStoreCount = 0;
 
   bool HasLinAlgRuntimeInfo() const {
-    return LinAlgMatrixConstructionCount ||
+    return LinAlgMatrixOperationShapeCount || LinAlgMatrixConstructionCount ||
            LinAlgThreadMatrixVectorMultiplyCount ||
            LinAlgWaveMatrixMultiplyCount ||
            LinAlgThreadGroupMatrixMultiplyCount || LinAlgOuterProductCount ||
