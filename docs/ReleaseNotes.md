@@ -62,6 +62,7 @@ line upon naming the release. Refer to previous for appropriate section names.
   [#8480](https://github.com/microsoft/DirectXShaderCompiler/issues/8480).
 
 #### SPIR-V
+
 - Inline `[[vk::ext_decorate]]`, `[[vk::ext_capability]]`, and
   `[[vk::ext_extension]]` attributes are now honored on ordinary functions
   [#8616](https://github.com/microsoft/DirectXShaderCompiler/pull/8616).
