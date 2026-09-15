@@ -1,3 +1,4 @@
+; REQUIRES: dxil-1-10
 ; RUN: %dxv %s 2>&1 | FileCheck %s
 
 ; CHECK-NOT: uses a reserved prefix.

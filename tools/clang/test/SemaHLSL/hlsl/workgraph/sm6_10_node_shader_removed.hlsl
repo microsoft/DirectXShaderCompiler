@@ -1,3 +1,4 @@
+// REQUIRES: dxil-1-10
 // RUN: %dxc -T lib_6_10 %s -verify
 
 // Work Graphs (node shaders) were obsoleted in shader model 6.10. Declaring a

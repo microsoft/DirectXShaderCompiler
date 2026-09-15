@@ -1,3 +1,4 @@
+// REQUIRES: dxil-1-10
 // RUN: %dxc -T cs_6_10 -spirv %s | FileCheck %s
 
 // CHECK: OpExtension "SPV_KHR_non_semantic_info"

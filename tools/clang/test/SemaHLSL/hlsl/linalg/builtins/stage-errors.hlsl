@@ -1,3 +1,4 @@
+// REQUIRES: dxil-1-10
 // RUN: %dxc -T lib_6_10 -DMATRIX_COPY_CONVERT %s -verify
 // RUN: %dxc -T lib_6_10 -DMATRIX_FILL %s -verify
 // RUN: %dxc -T lib_6_10 -DMATRIX_GET_COORDINATE %s -verify

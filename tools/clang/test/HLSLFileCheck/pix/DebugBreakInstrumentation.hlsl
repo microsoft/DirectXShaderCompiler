@@ -1,3 +1,4 @@
+// REQUIRES: dxil-1-10
 // RUN: %dxc -Emain -Tcs_6_10 %s | %opt -S -dxil-annotate-with-virtual-regs -hlsl-dxil-debugbreak-instrumentation | %FileCheck %s
 
 // Verify the PIX UAV handle is created for DebugBreak instrumentation:

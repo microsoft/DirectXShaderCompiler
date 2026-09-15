@@ -6994,7 +6994,7 @@ static void ValidateEntryProps(ValidationContext &ValCtx,
   ValidateWaveSize(ValCtx, EntryProps, F);
 
   const ShaderModel *SM = ValCtx.DxilMod.GetShaderModel();
-  if (Props.IsNode() && SM->IsSM610Plus())
+  if (Props.IsNode() && SM->IsSMAtLeast(6, 10))
     ValCtx.EmitFnFormatError(
         F, ValidationRule::SmShaderStage,
         {ShaderModel::GetKindName(ShaderType), SM->GetName()});
