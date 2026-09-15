@@ -3954,8 +3954,17 @@ SpirvEmitter::processFlatConversion(const QualType type,
       initInstr->setAstResultType(astContext.UnsignedLongLongTy);
   }
 
-  // Decompose `initInstr`.
-  std::vector<SpirvInstruction *> flatValues = decomposeToScalars(initInstr);
+  QualType sourceType = initInstr->getAstResultType();
+  if (hlsl::IsHLSLResourceType(sourceType))
+    sourceType = hlsl::GetHLSLResourceResultType(sourceType);
+
+  // A same-type conversion emits one scalar per SPIR-V field, but a cast that
+  // changes the shape, keeps one scalar (potentially with merged bitfields) per
+  // AST field. includeMergedBitfields determines which indexing is used.
+  const bool includeMergedBitfields =
+      !astContext.hasSameUnqualifiedType(type, sourceType);
+  std::vector<SpirvInstruction *> flatValues =
+      decomposeToScalars(initInstr, includeMergedBitfields);
 
   if (flatValues.size() == 1) {
     return splatScalarToGenerate(type, flatValues[0], SpirvLayoutRule::Void);
@@ -16812,7 +16821,8 @@ SpirvEmitter::doUnaryExprOrTypeTraitExpr(const UnaryExprOrTypeTraitExpr *expr) {
 }
 
 std::vector<SpirvInstruction *>
-SpirvEmitter::decomposeToScalars(SpirvInstruction *inst) {
+SpirvEmitter::decomposeToScalars(SpirvInstruction *inst,
+                                 bool includeMergedBitfields) {
   QualType elementType;
   uint32_t elementCount = 0;
   uint32_t numOfRows = 0;
@@ -16857,7 +16867,8 @@ SpirvEmitter::decomposeToScalars(SpirvInstruction *inst) {
       auto *element = spvBuilder.createCompositeExtract(
           elementType, inst, {i}, inst->getSourceLocation());
       element->setLayoutRule(inst->getLayoutRule());
-      auto decomposedElement = decomposeToScalars(element);
+      auto decomposedElement =
+          decomposeToScalars(element, includeMergedBitfields);
 
       // See how we can improve the performance by avoiding this copy.
       result.insert(result.end(), decomposedElement.begin(),
@@ -16877,20 +16888,22 @@ SpirvEmitter::decomposeToScalars(SpirvInstruction *inst) {
 
     forEachSpirvField(
         recordType, dyn_cast<StructType>(type),
-        [this, inst, &result](size_t spirvFieldIndex, const QualType &fieldType,
-                              const StructType::FieldInfo &fieldInfo) {
+        [this, inst, &result, includeMergedBitfields](
+            size_t spirvFieldIndex, const QualType &fieldType,
+            const StructType::FieldInfo &fieldInfo) {
           auto *field = spvBuilder.createCompositeExtract(
               fieldType, inst, {fieldInfo.fieldIndex},
               inst->getSourceLocation());
           field->setLayoutRule(inst->getLayoutRule());
-          auto decomposedField = decomposeToScalars(field);
+          auto decomposedField =
+              decomposeToScalars(field, includeMergedBitfields);
 
           // See how we can improve the performance by avoiding this copy.
           result.insert(result.end(), decomposedField.begin(),
                         decomposedField.end());
           return true;
         },
-        true);
+        includeMergedBitfields);
     return result;
   }
 
