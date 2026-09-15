@@ -1635,6 +1635,19 @@ void SpirvEmitter::doFunctionDecl(const FunctionDecl *decl) {
     }
   }
 
+  // Apply [[vk::ext_decorate]] written on an ordinary function to its
+  // OpFunction. Entry points are excluded: their function-level decorations are
+  // applied to the interface variables by the stage-variable path, and a
+  // decoration such as Location is invalid on an OpFunction.
+  if (!isEntry)
+    declIdMapper.decorateWithIntrinsicAttrs(decl, func);
+
+  // Register [[vk::ext_capability]]/[[vk::ext_extension]] for every function,
+  // entry points included. Non-ray-tracing entries are also covered by
+  // processInlineSpirvAttributes (this is idempotent), but ray-tracing entries
+  // return before that runs, so this is their only registration path.
+  declIdMapper.registerCapabilitiesAndExtensionsForDecl(decl);
+
   if (spirvOptions.debugInfoRich) {
     if (srcDebugFunction) {
       spvContext.pushDebugLexicalScope(info, srcDebugFunction);
