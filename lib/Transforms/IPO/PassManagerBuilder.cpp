@@ -308,10 +308,12 @@ void PassManagerBuilder::addHLSLPasses(legacy::PassManagerBase &MPM) {
   // struct members.
   // Needs to happen before resources are lowered and before HL
   // module is gone.
-  MPM.add(createDxilLoopUnrollPass(1024, HLSLOnlyWarnOnUnrollFail, StructurizeLoopExitsForUnroll));
+  MPM.add(createDxilLoopUnrollPass(1024, HLSLOnlyWarnOnUnrollFail,
+                                   StructurizeLoopExitsForUnroll,
+                                   HLSLUnrollCountIsHint));
 
-  // Default unroll pass. This is purely for optimizing loops without
-  // attributes.
+  // Default unroll pass. In HLSL 202x, this consumes [unroll(N)] as a
+  // partial-unroll hint; it otherwise optimizes loops without attributes.
   if (OptLevel > 2) {
     MPM.add(createLoopUnrollPass(-1, -1, -1, -1, StructurizeLoopExitsForUnroll));
   }

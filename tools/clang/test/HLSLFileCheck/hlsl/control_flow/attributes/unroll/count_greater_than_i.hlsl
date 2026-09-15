@@ -1,4 +1,4 @@
-// RUN: %dxc -E main -T ps_6_0 %s | FileCheck %s
+// RUN: %dxc -E main -T ps_6_0 -HV 2021 %s | FileCheck %s
 
 // CHECK: call float @dx.op.dot3
 // CHECK: call float @dx.op.dot3

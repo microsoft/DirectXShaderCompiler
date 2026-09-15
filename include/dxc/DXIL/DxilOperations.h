@@ -147,6 +147,7 @@ public:
   static bool IsDxilOpFuncName(llvm::StringRef name);
   static bool IsDxilOpFunc(const llvm::Function *F);
   static bool IsDxilOpLinAlgFuncName(llvm::StringRef Name);
+  static bool IsDxilOpLinAlgFunc(const llvm::Function *F);
   static bool IsDxilOpFuncCallInst(const llvm::Instruction *I);
   static bool IsDxilOpFuncCallInst(const llvm::Instruction *I, OpCode opcode);
   static bool IsDxilOpWave(OpCode C);

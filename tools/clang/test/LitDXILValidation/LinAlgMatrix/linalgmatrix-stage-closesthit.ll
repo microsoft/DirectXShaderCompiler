@@ -95,7 +95,7 @@ define void @"\01?mainCH@@YAXURayPayload@@UAttribs@@@Z"(%struct.RayPayload* noal
   call void @dx.op.linAlgMatrixStoreToDescriptor.mC8M16N16U2S1(i32 -2147483628, %dx.types.LinAlgMatrixC8M16N16U2S1 %31, %dx.types.Handle %33, i32 0, i32 64, i32 0, i32 128)  ; LinAlgMatrixStoreToDescriptor(matrix,handle,offset,stride,layout,align)
   call void @dx.op.linAlgMatrixStoreToMemory.mC8M16N16U2S1.i32(i32 -2147483627, %dx.types.LinAlgMatrixC8M16N16U2S1 %31, i32 addrspace(3)* getelementptr inbounds ([1024 x i32], [1024 x i32] addrspace(3)* @"\01?GSMemory@@3PA$ui8_4pk@A", i32 0, i32 0), i32 0, i32 64, i32 0)  ; LinAlgMatrixStoreToMemory(matrix,memory,offset,stride,layout)
   %34 = call %dx.types.LinAlgMatrixC8M16N16U2S1 @dx.op.linAlgCopyConvertMatrix.mC8M16N16U2S1.mC8M16N16U1S1(i32 -2147483635, %dx.types.LinAlgMatrixC8M16N16U1S1 %29, i1 false)  ; LinAlgCopyConvertMatrix(srcMatrix,transpose)
-  call void @dx.op.linAlgMatrixAccumulateToMemory.mC8M16N16U2S1.i32(i32 -2147483620, %dx.types.LinAlgMatrixC8M16N16U2S1 %34, i32 addrspace(3)* getelementptr inbounds ([1024 x i32], [1024 x i32] addrspace(3)* @"\01?GSMemory@@3PA$ui8_4pk@A", i32 0, i32 0), i32 8, i32 0, i32 64, i32 0)  ; LinAlgMatrixAccumulateToMemory(matrix,memory,targetType,offset,stride,layout)
+  call void @dx.op.linAlgMatrixAccumulateToMemory.mC8M16N16U2S1.i32(i32 -2147483620, %dx.types.LinAlgMatrixC8M16N16U2S1 %34, i32 addrspace(3)* getelementptr inbounds ([1024 x i32], [1024 x i32] addrspace(3)* @"\01?GSMemory@@3PA$ui8_4pk@A", i32 0, i32 0), i32 0, i32 64, i32 0)  ; LinAlgMatrixAccumulateToMemory(matrix,memory,offset,stride,layout)
   ret void
 }
 
@@ -169,7 +169,7 @@ declare void @dx.op.linAlgMatrixStoreToMemory.mC8M16N16U2S1.i32(i32, %dx.types.L
 declare %dx.types.LinAlgMatrixC8M16N16U2S1 @dx.op.linAlgCopyConvertMatrix.mC8M16N16U2S1.mC8M16N16U1S1(i32, %dx.types.LinAlgMatrixC8M16N16U1S1, i1) #0
 
 ; Function Attrs: nounwind
-declare void @dx.op.linAlgMatrixAccumulateToMemory.mC8M16N16U2S1.i32(i32, %dx.types.LinAlgMatrixC8M16N16U2S1, i32 addrspace(3)*, i32, i32, i32, i32) #0
+declare void @dx.op.linAlgMatrixAccumulateToMemory.mC8M16N16U2S1.i32(i32, %dx.types.LinAlgMatrixC8M16N16U2S1, i32 addrspace(3)*, i32, i32, i32) #0
 
 ; Function Attrs: nounwind readnone
 declare %dx.types.Handle @dx.op.annotateHandle(i32, %dx.types.Handle, %dx.types.ResourceProperties) #1
@@ -207,11 +207,10 @@ attributes #2 = { nounwind readonly }
 !14 = !{!15}
 !15 = !{i32 0, i32 13107}
 !16 = !{null, !"", null, !8, !17}
-!17 = !{i32 0, i64 8598323248}
+!17 = !{i32 0, i64 2207621578800}
 !18 = !{void (%struct.RayPayload*, %struct.Attribs*)* @"\01?mainCH@@YAXURayPayload@@UAttribs@@@Z", !"\01?mainCH@@YAXURayPayload@@UAttribs@@@Z", null, null, !19}
 !19 = !{i32 8, i32 10, i32 6, i32 4, i32 7, i32 8, i32 5, !20}
 !20 = !{i32 0}
 !21 = !{!22}
 !22 = distinct !{!22, !23, !"\01??$Load@$0IA@@?$Matrix@$07$0BA@$0BA@$01$00@linalg@dx@@SA?AV012@UByteAddressBuffer@@IIW4MatrixLayoutEnum@MatrixLayout@12@@Z: %agg.result"}
 !23 = distinct !{!23, !"\01??$Load@$0IA@@?$Matrix@$07$0BA@$0BA@$01$00@linalg@dx@@SA?AV012@UByteAddressBuffer@@IIW4MatrixLayoutEnum@MatrixLayout@12@@Z"}
-

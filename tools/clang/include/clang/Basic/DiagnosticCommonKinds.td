@@ -68,6 +68,11 @@ def err_invalid_storage_class_in_func_decl : Error<
 def err_expected_namespace_name : Error<"expected namespace name">;
 // HLSL Change Starts
 def err_hlsl_variadic_templates : Error<"variadic templates are not supported in HLSL">;
+def warn_hlsl_2026_effects
+    : Warning<"%select{possible |}1effect %select{annotation|sampler_state "
+              "assignment|state block|technique|object}0 ignored - "
+              "effect syntax is deprecated and will be removed in HLSL 2026">,
+      InGroup<HLSLEffectsSyntax>;
 // HLSL Change Ends
 def ext_variadic_templates : ExtWarn<
   "variadic templates are a C++11 extension">, InGroup<CXX11>;
