@@ -1,3 +1,4 @@
+; REQUIRES: dxil-1-10
 ; RUN: %dxv %s 2>&1 | FileCheck %s
 
 ; Regression test for TGSM pointer validation when SM 6.9 preserves native
