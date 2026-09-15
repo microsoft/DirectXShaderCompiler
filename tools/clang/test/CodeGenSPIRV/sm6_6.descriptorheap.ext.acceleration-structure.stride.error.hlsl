@@ -8,6 +8,18 @@
 // RUN:   -fspv-extension=SPV_KHR_ray_query                                  \
 // RUN:   -spirv %s | FileCheck %s --check-prefix=OK
 
+// Verify -fvk-resource-heap-stride suppresses the diagnostic: the stride is
+// user-supplied so no ray-extension pre-scan is needed to widen it.
+// The AS runtime array must carry a literal ArrayStride (not ArrayStrideIdEXT)
+// and the compiler must not emit OpConstantSizeOfEXT for the AS placeholder.
+// RUN: %dxc -T cs_6_6 -E main -fspv-use-descriptor-heap                     \
+// RUN:   -fspv-target-env=vulkan1.3                                         \
+// RUN:   -fspv-extension=SPV_EXT_descriptor_heap                            \
+// RUN:   -fspv-extension=SPV_KHR_untyped_pointers                           \
+// RUN:   -fspv-extension=SPV_KHR_ray_query                                  \
+// RUN:   -fvk-resource-heap-stride 256                                      \
+// RUN:   -spirv %s | FileCheck %s --check-prefix=CLI
+
 // Verifies: an acceleration structure loaded from ResourceDescriptorHeap is
 // rejected when the resource-heap stride was not widened to include the
 // acceleration structure descriptor size.
@@ -22,7 +34,7 @@
 // shader also needs for RayQuery (SPV_KHR_ray_tracing alone does not provide
 // the RayQueryKHR capability), and must compile.
 
-// CHECK: error: acceleration structure loaded from ResourceDescriptorHeap requires the resource heap stride to account for acceleration structure descriptors; compile with -fspv-extension=SPV_KHR_ray_tracing or -fspv-extension=SPV_KHR_ray_query
+// CHECK: error: acceleration structure loaded from ResourceDescriptorHeap requires the resource heap stride to account for acceleration structure descriptors; compile with -fspv-extension=SPV_KHR_ray_tracing, -fspv-extension=SPV_NV_ray_tracing, -fspv-extension=SPV_KHR_ray_query, or -fvk-resource-heap-stride
 
 // The variable initialized from the rejected load must not cascade into a
 // fatal error that hides the diagnostic above.
@@ -31,6 +43,14 @@
 
 // OK-DAG:    %[[Accel:[a-zA-Z0-9_]+]] = OpTypeAccelerationStructureKHR
 // OK-DAG:                               OpConstantSizeOfEXT %uint %[[Accel]]
+
+// AS runtime array carries the user-supplied literal stride (not ArrayStrideIdEXT),
+// and no OpConstantSizeOfEXT is emitted for the AS placeholder.
+// CLI-DAG:     %[[Accel:[a-zA-Z0-9_]+]] = OpTypeAccelerationStructureKHR
+// CLI-DAG:  %[[AccelArr:[a-zA-Z0-9_]+]] = OpTypeRuntimeArray %[[Accel]]
+// CLI-DAG:                                OpDecorate %[[AccelArr]] ArrayStride 256
+// CLI-NOT:                                OpDecorateId %[[AccelArr]] ArrayStrideIdEXT
+// CLI-NOT: OpConstantSizeOfEXT %uint %[[Accel]]
 
 RWBuffer<float4> output : register(u0);
 

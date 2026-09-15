@@ -7358,13 +7358,19 @@ SpirvEmitter::doCXXOperatorCallExpr(const CXXOperatorCallExpr *expr,
         // The stride was decided without an acceleration structure term (not a
         // ray-tracing stage, no ray extension listed). Reject the load: the
         // heap would be indexed with a stride that may be too narrow.
+        // Exception: -fvk-resource-heap-stride supplies a literal stride that
+        // bypasses the spec-constant machinery entirely, so the user has
+        // explicitly taken ownership of the stride value.
         if (isRaytracingAccelerationStructure(resourceType) &&
-            !spvBuilder.resourceHeapStrideIncludesAccelStruct()) {
+            !spvBuilder.resourceHeapStrideIncludesAccelStruct() &&
+            !spirvOptions.resourceHeapStride.has_value()) {
           emitError("acceleration structure loaded from ResourceDescriptorHeap "
                     "requires the resource heap stride to account for "
                     "acceleration structure descriptors; compile with "
-                    "-fspv-extension=SPV_KHR_ray_tracing or "
-                    "-fspv-extension=SPV_KHR_ray_query",
+                    "-fspv-extension=SPV_KHR_ray_tracing, "
+                    "-fspv-extension=SPV_NV_ray_tracing, "
+                    "-fspv-extension=SPV_KHR_ray_query, or "
+                    "-fvk-resource-heap-stride",
                     expr->getExprLoc());
           return nullptr;
         }
@@ -9831,7 +9837,16 @@ void SpirvEmitter::createSpecConstant(const VarDecl *varDecl) {
 }
 
 const SpirvType *
-SpirvEmitter::getDescriptorHeapRuntimeArrayType(const SpirvType *elemType) {
+SpirvEmitter::getDescriptorHeapRuntimeArrayType(const SpirvType *elemType,
+                                                bool onSamplerHeap) {
+  // -fvk-{resource,sampler}-heap-stride has the highest precedence: the array
+  // carries a literal ArrayStride and no ArrayStrideIdEXT.
+  const std::optional<uint32_t> &cliStride =
+      onSamplerHeap ? spirvOptions.samplerHeapStride
+                    : spirvOptions.resourceHeapStride;
+  if (cliStride.has_value())
+    return spvContext.getRuntimeArrayType(elemType, *cliStride);
+
   // Descriptor sizes are defined by the client API, so the stride is an
   // ArrayStrideIdEXT operand rather than a literal. The sampler heap holds one
   // descriptor type. The resource heap is a flat array in which any resource
