@@ -14,6 +14,9 @@
 
 #include "BreakpointPrinter.h"
 #include "NewPMDriver.h"
+#ifdef HAS_DXILCONV
+#include "DxilConvPasses/InitializePasses.h"
+#endif
 #include "llvm/ADT/Triple.h"
 #include "llvm/Analysis/CallGraph.h"
 #include "llvm/Analysis/CallGraphSCCPass.h"
@@ -312,9 +315,6 @@ void initializePollyPasses(llvm::PassRegistry &Registry);
 #endif
 
 // HLSL Change Start
-#ifdef HAS_DXILCONV
-void __cdecl initializeDxilConvPasses(llvm::PassRegistry &);
-#endif
 namespace hlsl {
 HRESULT SetupRegistryPassForHLSL();
 } // namespace hlsl
