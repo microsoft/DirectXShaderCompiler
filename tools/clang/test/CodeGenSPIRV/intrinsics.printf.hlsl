@@ -15,17 +15,16 @@ string second = "second string";
 
 [numthreads(1,1,1)]
 void main() {
-// CHECK: {{%[0-9]+}} = OpExtInst %void [[set]] 1 [[format1]]
+// CHECK: {{%[0-9]+}} = OpExtInst %void [[set]] DebugPrintf [[format1]]
   printf(first);
-// CHECK: {{%[0-9]+}} = OpExtInst %void [[set]] 1 [[format2]]
+// CHECK: {{%[0-9]+}} = OpExtInst %void [[set]] DebugPrintf [[format2]]
   printf(second);
-// CHECK: {{%[0-9]+}} = OpExtInst %void [[set]] 1 [[format3]]
+// CHECK: {{%[0-9]+}} = OpExtInst %void [[set]] DebugPrintf [[format3]]
   printf("please print this message.");
-// CHECK: {{%[0-9]+}} = OpExtInst %void [[set]] 1 [[format4]] %uint_1 %uint_2 %float_1_5
+// CHECK: {{%[0-9]+}} = OpExtInst %void [[set]] DebugPrintf [[format4]] %uint_1 %uint_2 %float_1_5
   printf("Variables are: %d %d %.2f", 1u, 2u, 1.5f);
-// CHECK: {{%[0-9]+}} = OpExtInst %void [[set]] 1 [[format5]] %int_1 %int_2 %int_3
+// CHECK: {{%[0-9]+}} = OpExtInst %void [[set]] DebugPrintf [[format5]] %int_1 %int_2 %int_3
   printf("Integers are: %d %d %d", 1, 2, 3);
-// CHECK: {{%[0-9]+}} = OpExtInst %void [[set]] 1 [[format6]] %int_1 %int_2 %int_3 %int_4 %int_5 %int_6 %int_7 %int_8 %int_9 %int_10
+// CHECK: {{%[0-9]+}} = OpExtInst %void [[set]] DebugPrintf [[format6]] %int_1 %int_2 %int_3 %int_4 %int_5 %int_6 %int_7 %int_8 %int_9 %int_10
   printf("More: %d %d %d %d %d %d %d %d %d %d", 1, 2, 3, 4, 5, 6, 7, 8, 9, 10);
 }
-
