@@ -467,29 +467,8 @@ void PSVContentVerifier::VerifyEntryProperties(
 }
 
 void PSVContentVerifier::VerifyLinAlgRuntimeInfo(unsigned PSVVersion) {
-  auto VerifyShapes = [&](const PSVLinAlgMatrixShapeArrayReference &ShapeRef) {
-    if (!IndexTableVerifier.MarkUse(ShapeRef.ShapesIndex, ShapeRef.Count)) {
-      EmitInvalidError("LinAlgOperationShapes");
-      return;
-    }
-    const uint32_t *ShapeIndexes =
-        PSV.GetSemanticIndexTable().Get(ShapeRef.ShapesIndex);
-    for (uint32_t I = 0; I < ShapeRef.Count; ++I) {
-      if (!PSV.GetPSVLinAlgMatrixOperationShape(ShapeIndexes[I])) {
-        EmitInvalidError("LinAlgOperationShapeIndex");
-        return;
-      }
-    }
-  };
-
-  for (uint32_t I = 0; I < PSV.GetPSVLinAlgMatrixConstructionCount(); ++I)
-    VerifyShapes(PSV.GetPSVLinAlgMatrixConstruction(I)->OperationShapes);
-  for (uint32_t I = 0; I < PSV.GetPSVLinAlgWaveMatrixMultiplyCount(); ++I)
-    VerifyShapes(PSV.GetPSVLinAlgWaveMatrixMultiply(I)->OperationShapes);
-  for (uint32_t I = 0; I < PSV.GetPSVLinAlgThreadGroupMatrixMultiplyCount();
-       ++I)
-    VerifyShapes(PSV.GetPSVLinAlgThreadGroupMatrixMultiply(I)->OperationShapes);
-
+  // Regenerate the expected runtime info to compare the container
+  // contents against
   unique_ptr<DxilPartWriter> pWriter(NewPSVWriter(DM, PSVVersion));
   CComPtr<AbstractMemoryStream> pOutputStream;
   IFT(CreateMemoryStream(DxcGetThreadMallocNoRef(), &pOutputStream));
@@ -514,8 +493,32 @@ void PSVContentVerifier::VerifyLinAlgRuntimeInfo(unsigned PSVVersion) {
                       ExpectedHasLinAlgRuntimeInfo ? "true" : "false");
     return;
   }
+
   if (!HasLinAlgRuntimeInfo)
     return;
+
+  auto VerifyShapes = [&](const PSVLinAlgMatrixShapeArrayReference &ShapeRef) {
+    if (!IndexTableVerifier.MarkUse(ShapeRef.ShapesIndex, ShapeRef.Count)) {
+      EmitInvalidError("LinAlgOperationShapes");
+      return;
+    }
+    const uint32_t *ShapeIndexes =
+        PSV.GetSemanticIndexTable().Get(ShapeRef.ShapesIndex);
+    for (uint32_t I = 0; I < ShapeRef.Count; ++I) {
+      if (!PSV.GetPSVLinAlgMatrixOperationShape(ShapeIndexes[I])) {
+        EmitInvalidError("LinAlgOperationShapeIndex");
+        return;
+      }
+    }
+  };
+
+  for (uint32_t I = 0; I < PSV.GetPSVLinAlgMatrixConstructionCount(); ++I)
+    VerifyShapes(PSV.GetPSVLinAlgMatrixConstruction(I)->OperationShapes);
+  for (uint32_t I = 0; I < PSV.GetPSVLinAlgWaveMatrixMultiplyCount(); ++I)
+    VerifyShapes(PSV.GetPSVLinAlgWaveMatrixMultiply(I)->OperationShapes);
+  for (uint32_t I = 0; I < PSV.GetPSVLinAlgThreadGroupMatrixMultiplyCount();
+       ++I)
+    VerifyShapes(PSV.GetPSVLinAlgThreadGroupMatrixMultiply(I)->OperationShapes);
 
 #define VERIFY_LINALG_TABLE(Name, Record, CountMethod, GetMethod)              \
   do {                                                                         \
@@ -561,6 +564,66 @@ void PSVContentVerifier::VerifyLinAlgRuntimeInfo(unsigned PSVVersion) {
                       GetPSVLinAlgAccumulateStore);
 
 #undef VERIFY_LINALG_TABLE
+
+  auto VerifyShapeReference =
+      [&](StringRef Name, const PSVLinAlgMatrixShapeArrayReference &ShapeRef,
+          const PSVLinAlgMatrixShapeArrayReference &ExpectedShapeRef) {
+        if (ShapeRef.Count != ExpectedShapeRef.Count)
+          return;
+        if (ShapeRef.Count == 0)
+          return;
+
+        const PSVSemanticIndexTable &IndexTable = PSV.GetSemanticIndexTable();
+        const PSVSemanticIndexTable &ExpectedIndexTable =
+            ExpectedPSV.GetSemanticIndexTable();
+        if (ShapeRef.ShapesIndex > IndexTable.Entries ||
+            ShapeRef.Count > IndexTable.Entries - ShapeRef.ShapesIndex ||
+            ExpectedShapeRef.ShapesIndex > ExpectedIndexTable.Entries ||
+            ExpectedShapeRef.Count >
+                ExpectedIndexTable.Entries - ExpectedShapeRef.ShapesIndex)
+          return;
+
+        const uint32_t *ShapeIndexes = IndexTable.Get(ShapeRef.ShapesIndex);
+        const uint32_t *ExpectedShapeIndexes =
+            ExpectedIndexTable.Get(ExpectedShapeRef.ShapesIndex);
+        if (!std::equal(ShapeIndexes, ShapeIndexes + ShapeRef.Count,
+                        ExpectedShapeIndexes))
+          EmitMismatchError(Name, "shape index sequence",
+                            "shape index sequence generated from DxilModule");
+      };
+
+  for (uint32_t I = 0; I < PSV.GetPSVLinAlgMatrixConstructionCount() &&
+                       I < ExpectedPSV.GetPSVLinAlgMatrixConstructionCount();
+       ++I) {
+    const auto *Record = PSV.GetPSVLinAlgMatrixConstruction(I);
+    const auto *ExpectedRecord = ExpectedPSV.GetPSVLinAlgMatrixConstruction(I);
+    if (Record && ExpectedRecord)
+      VerifyShapeReference("LinAlgMatrixConstructionOperationShapes",
+                           Record->OperationShapes,
+                           ExpectedRecord->OperationShapes);
+  }
+  for (uint32_t I = 0; I < PSV.GetPSVLinAlgWaveMatrixMultiplyCount() &&
+                       I < ExpectedPSV.GetPSVLinAlgWaveMatrixMultiplyCount();
+       ++I) {
+    const auto *Record = PSV.GetPSVLinAlgWaveMatrixMultiply(I);
+    const auto *ExpectedRecord = ExpectedPSV.GetPSVLinAlgWaveMatrixMultiply(I);
+    if (Record && ExpectedRecord)
+      VerifyShapeReference("LinAlgWaveMatrixMultiplyOperationShapes",
+                           Record->OperationShapes,
+                           ExpectedRecord->OperationShapes);
+  }
+  for (uint32_t I = 0;
+       I < PSV.GetPSVLinAlgThreadGroupMatrixMultiplyCount() &&
+       I < ExpectedPSV.GetPSVLinAlgThreadGroupMatrixMultiplyCount();
+       ++I) {
+    const auto *Record = PSV.GetPSVLinAlgThreadGroupMatrixMultiply(I);
+    const auto *ExpectedRecord =
+        ExpectedPSV.GetPSVLinAlgThreadGroupMatrixMultiply(I);
+    if (Record && ExpectedRecord)
+      VerifyShapeReference("LinAlgThreadGroupMatrixMultiplyOperationShapes",
+                           Record->OperationShapes,
+                           ExpectedRecord->OperationShapes);
+  }
 }
 
 void PSVContentVerifier::Verify(unsigned ValMajor, unsigned ValMinor,
@@ -707,9 +770,7 @@ bool VerifySignatureMatches(llvm::Module *pModule, DXIL::SignatureKind SigKind,
 }
 
 struct SimplePSV {
-  static bool IsDwordAligned(uint32_t Size) {
-    return Size % sizeof(uint32_t) == 0;
-  }
+  static bool IsDwordAligned(uint32_t Size) { return (Size & 3) == 0; }
 
   uint32_t PSVRuntimeInfoSize = 0;
   uint32_t PSVNumResources = 0;

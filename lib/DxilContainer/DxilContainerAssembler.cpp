@@ -791,8 +791,8 @@ private:
     }
   }
 
-  static DXIL::ComponentType GetVectorComponentType(Type *Ty,
-                                                    bool IsSigned = true) {
+  static DXIL::ComponentType
+  GetVectorOrScalarComponentType(Type *Ty, bool IsSigned = true) {
     if (VectorType *VT = dyn_cast<VectorType>(Ty))
       return GetScalarComponentType(VT->getElementType(), IsSigned);
     return GetScalarComponentType(Ty, IsSigned);
@@ -919,7 +919,7 @@ private:
             bool IsSigned =
                 cast<ConstantInt>(Op.get_isOutputSigned())->getZExtValue() != 0;
             DXIL::ComponentType ResultType =
-                GetVectorComponentType(CI->getType(), IsSigned);
+                GetVectorOrScalarComponentType(CI->getType(), IsSigned);
             DXIL::ComponentType InputType = static_cast<DXIL::ComponentType>(
                 cast<ConstantInt>(Op.get_interpretation())->getZExtValue());
             uint8_t Flags = GetMatVecLayoutFlags(Op.get_matrix());
@@ -966,8 +966,8 @@ private:
               break;
             PSVLinAlgOuterProduct0 Record = {
                 static_cast<uint8_t>(Result.Type),
-                static_cast<uint8_t>(
-                    GetVectorComponentType(Op.get_vectorA()->getType())),
+                static_cast<uint8_t>(GetVectorOrScalarComponentType(
+                    Op.get_vectorA()->getType())),
                 {0, 0}};
             if (std::find_if(
                     m_LinAlgOuterProducts.begin(), m_LinAlgOuterProducts.end(),
@@ -1015,7 +1015,7 @@ private:
           case DXIL::OpCode::LinAlgVectorAccumulateToDescriptor: {
             DxilInst_LinAlgVectorAccumulateToDescriptor Op(CI);
             DXIL::ComponentType Type =
-                GetVectorComponentType(Op.get_vector()->getType());
+                GetVectorOrScalarComponentType(Op.get_vector()->getType());
             auto It = std::find_if(
                 m_LinAlgAccumulateStores.begin(),
                 m_LinAlgAccumulateStores.end(),
