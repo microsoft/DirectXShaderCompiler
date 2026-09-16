@@ -3602,7 +3602,7 @@ public:
   TEST_METHOD(LoadStoreDescriptor_Wave_16x16_F16_RowMajorOffsetPadded);
   TEST_METHOD(LoadStoreDescriptor_Wave_4x8_F32_RowMajorToColumnMajor);
   TEST_METHOD(LoadStoreDescriptor_Wave_4x8_F16_RowMajorToColumnMajor);
-  TEST_METHOD(LoadStoreDescriptor_Wave_16x16_F16_RowMajorToColumnMajor);
+  TEST_METHOD(LoadStoreDescriptor_Wave_16x32_F16_RowMajorToColumnMajor);
   TEST_METHOD(LoadDescriptorOOB_Wave_16x16_F16_PartialView);
   TEST_METHOD(LoadDescriptorOOB_Wave_4x8_F16_OffsetPaddedPartialView);
   TEST_METHOD(LoadDescriptorOOB_Wave_16x16_F16_OffsetPaddedPartialView);
@@ -3622,7 +3622,7 @@ public:
   TEST_METHOD(StoreMemory_Wave_16x16_F16);
   TEST_METHOD(AccumulateMemory_Wave_16x16_F16);
   TEST_METHOD(LoadStoreMemory_Wave_4x8_F16_RowMajorOffsetPadded);
-  TEST_METHOD(LoadStoreMemory_Wave_16x16_F16_RowMajorOffsetPadded);
+  TEST_METHOD(LoadStoreMemory_Wave_16x32_F16_RowMajorOffsetPadded);
   TEST_METHOD(LoadStoreMemory_Wave_4x8_F32_ColumnMajorOffsetPadded);
   TEST_METHOD(LoadStoreMemory_ThreadGroup_4x8_F16);
   TEST_METHOD(AccumulateMemoryContention_Wave_4x8_F16);
@@ -4395,12 +4395,13 @@ void DxilConf_SM610_LinAlg::
                          VerboseLogging, SelectedWaveSize);
 }
 
+// A rectangular multiple of a 16x16 tile prevents swapped layouts cancelling.
 void DxilConf_SM610_LinAlg::
-    LoadStoreDescriptor_Wave_16x16_F16_RowMajorToColumnMajor() {
+    LoadStoreDescriptor_Wave_16x32_F16_RowMajorToColumnMajor() {
   MatrixParams Params = {};
   Params.CompType = ComponentType::F16;
   Params.M = 16;
-  Params.N = 16;
+  Params.N = 32;
   Params.Use = MatrixUse::A;
   Params.Scope = MatrixScope::Wave;
   Params.Layout = MatrixLayout::RowMajor;
@@ -4410,14 +4411,14 @@ void DxilConf_SM610_LinAlg::
   UINT SelectedWaveSize = 0;
   if (!matrixConstructionApplicable(
           D3DDevice, Params, {Params.Use},
-          L"LoadStoreDescriptor_Wave_16x16_F16_RowMajorToColumnMajor",
+          L"LoadStoreDescriptor_Wave_16x32_F16_RowMajorToColumnMajor",
           SelectedWaveSize))
     return;
 
   const cpu_oracle::MatrixBufferLayout LoadLayout = {
       MatrixLayout::RowMajor,
       /*OffsetBytes=*/DescriptorAlignedOffset,
-      /*StrideBytes=*/48,
+      /*StrideBytes=*/80,
   };
   const cpu_oracle::MatrixBufferLayout StoreLayout = {
       MatrixLayout::ColumnMajor,
@@ -8931,12 +8932,13 @@ void DxilConf_SM610_LinAlg::
                                       SelectedWaveSize);
 }
 
+// Keep this rectangular too: both transfer directions must expose layout swaps.
 void DxilConf_SM610_LinAlg::
-    LoadStoreMemory_Wave_16x16_F16_RowMajorOffsetPadded() {
+    LoadStoreMemory_Wave_16x32_F16_RowMajorOffsetPadded() {
   MatrixParams Params = {};
   Params.CompType = ComponentType::F16;
   Params.M = 16;
-  Params.N = 16;
+  Params.N = 32;
   Params.Use = MatrixUse::A;
   Params.Scope = MatrixScope::Wave;
   Params.Layout = MatrixLayout::RowMajor;
@@ -8946,7 +8948,7 @@ void DxilConf_SM610_LinAlg::
   UINT SelectedWaveSize = 0;
   if (!matrixConstructionApplicable(
           D3DDevice, Params, {Params.Use},
-          L"LoadStoreMemory_Wave_16x16_F16_RowMajorOffsetPadded",
+          L"LoadStoreMemory_Wave_16x32_F16_RowMajorOffsetPadded",
           SelectedWaveSize))
     return;
 
