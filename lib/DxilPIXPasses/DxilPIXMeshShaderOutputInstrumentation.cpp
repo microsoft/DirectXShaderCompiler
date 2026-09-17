@@ -355,8 +355,9 @@ bool DxilPIXMeshShaderOutputInstrumentation::runOnModule(Module &M) {
         FirstNewStructGetMeshPayload);
   }
 
-  auto F = HlslOP->GetOpFunc(DXIL::OpCode::EmitIndices, Type::getVoidTy(Ctx));
-  auto FunctionUses = F->uses();
+  Function *EmitIndicesFunction =
+      HlslOP->GetOpFunc(DXIL::OpCode::EmitIndices, Type::getVoidTy(Ctx));
+  auto FunctionUses = EmitIndicesFunction->uses();
   for (auto FI = FunctionUses.begin(); FI != FunctionUses.end();) {
     auto &FunctionUse = *FI++;
     auto FunctionUser = FunctionUse.getUser();
@@ -384,9 +385,10 @@ bool DxilPIXMeshShaderOutputInstrumentation::runOnModule(Module &M) {
   SmallVector<Function *, 4> StoreVertexOutputFunctions;
 
   for (auto const &Overload : StoreVertexOutputOverloads) {
-    F = HlslOP->GetOpFunc(DXIL::OpCode::StoreVertexOutput, Overload.type);
-    StoreVertexOutputFunctions.push_back(F);
-    FunctionUses = F->uses();
+    Function *StoreVertexOutputFunction =
+        HlslOP->GetOpFunc(DXIL::OpCode::StoreVertexOutput, Overload.type);
+    StoreVertexOutputFunctions.push_back(StoreVertexOutputFunction);
+    FunctionUses = StoreVertexOutputFunction->uses();
     for (auto FI = FunctionUses.begin(); FI != FunctionUses.end();) {
       auto &FunctionUse = *FI++;
       auto FunctionUser = FunctionUse.getUser();
@@ -427,6 +429,7 @@ bool DxilPIXMeshShaderOutputInstrumentation::runOnModule(Module &M) {
   for (Function *StoreVertexOutputFunction : StoreVertexOutputFunctions) {
     PIXPassHelpers::eraseIfUnused(DM, StoreVertexOutputFunction);
   }
+  PIXPassHelpers::eraseIfUnused(DM, EmitIndicesFunction);
 
   DM.ReEmitDxilResources();
 

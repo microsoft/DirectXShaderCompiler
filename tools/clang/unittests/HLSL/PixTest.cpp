@@ -159,6 +159,7 @@ public:
   TEST_METHOD(RemoveDiscards_UnusedDiscardOverloadIsErased)
   TEST_METHOD(OperationCacheCleanup_RemovesErasedFunctions)
   TEST_METHOD(DynamicResourceCleanup_VisitorStopsEarly)
+  TEST_METHOD(MeshOutput_NoIndicesDeclarationIsErased)
 
   TEST_METHOD(DxilPIXDXRInvocationsLog_SanityTest)
   TEST_METHOD(DxilPIXDXRInvocationsLog_EmbeddedRootSigs)
@@ -3747,6 +3748,35 @@ float4 main(float2 uv : TEXCOORD0) : SV_Target
       0u,
       static_cast<unsigned>(
           HlslOP->GetOpFuncList(DXIL::OpCode::CreateHandleFromHeap).size()));
+}
+
+TEST_F(PixTest, MeshOutput_NoIndicesDeclarationIsErased) {
+  const char *Source = R"x(
+struct Vertex
+{
+    float4 Position : SV_Position;
+};
+
+[outputtopology("point")]
+[numthreads(1, 1, 1)]
+void main(out vertices Vertex Vertices[1],
+          out indices uint3 Indices[1])
+{
+    Vertices[0].Position = 0;
+    SetMeshOutputCounts(0, 0);
+})x";
+
+  CComPtr<IDxcBlob> Compiled =
+      Compile(m_dllSupport, Source, L"ms_6_5", {L"-Od"});
+  SinglePassOutput Output = runSinglePass(
+      Compiled,
+      L"-hlsl-dxil-pix-meshshader-output-instrumentation,expand-payload=0,"
+      L"UAVSize=8192");
+  const std::string Disassembly = Disassemble(Output.Module);
+
+  VERIFY_IS_FALSE(hasDeclaration(Disassembly, "dx.op.emitIndices"));
+  verifyInstrumentedModuleIsValid(Output.Module,
+                                  "mesh output with no emitted indices");
 }
 
 TEST_F(PixTest, DxilPIXDXRInvocationsLog_SanityTest) {
