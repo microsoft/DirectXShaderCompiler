@@ -3877,6 +3877,14 @@ void PixTest::TestNuriCase(const char *source, const wchar_t *target,
     const std::vector<std::string> &dxilLines = Output.lines;
 
     VERIFY_ARE_EQUAL(NuriGetWaveInstructionCount(dxilLines), expectedResult);
+    if (expectedResult != 0) {
+      CComPtr<IDxcBlob> Container = normalizeToContainer(Output.blob);
+      ModuleAndHangersOn OutputModule(Container);
+      VERIFY_IS_TRUE(OutputModule.GetDxilModule().m_ShaderFlags.GetWaveOps());
+      verifyInstrumentedModuleIsValid(
+          Output.blob,
+          "unqualified non-uniform resource index instrumentation");
+    }
 
     bool foundDynamicIndexingNoNuri = false;
     const std::vector<std::string> outputTextLines = Tokenize(outputText, "\n");

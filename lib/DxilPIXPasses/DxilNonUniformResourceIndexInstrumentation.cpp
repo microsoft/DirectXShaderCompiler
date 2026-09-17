@@ -152,6 +152,7 @@ bool DxilNonUniformResourceIndexInstrumentation::runOnModule(Module &M) {
   modified |= PIXPassHelpers::eraseIfUnused(DM, AtomicOpFunc);
 
   if (modified) {
+    DM.CollectShaderFlagsForModule();
     DM.ReEmitDxilResources();
 
     if (OSOverride != nullptr && PixUAVResource != nullptr) {
