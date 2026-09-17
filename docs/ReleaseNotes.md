@@ -27,24 +27,56 @@ line upon naming the release. Refer to previous for appropriate section names.
 - Fixed derivative operations being moved into divergent control flow, which
   could produce incorrect results
   [#8001](https://github.com/microsoft/DirectXShaderCompiler/issues/8001).
+- Fixed a bug in template instantiations involving functions with an
+  out parameter, which could lead to an assert or a bad memory access.
+  [#5293](https://github.com/microsoft/DirectXShaderCompiler/issues/5293),
+  [#8310](https://github.com/microsoft/DirectXShaderCompiler/issues/8310).
 - SPIR-V: Fixed an invalid `OpSelect` being generated when optimizing for
   SPIR-V 1.3 and earlier
   [#8603](https://github.com/microsoft/DirectXShaderCompiler/issues/8603).
 - Fix a crash generating DXIL from sources containing a dynamic resource heap
   access that was discarded. Identified during development of SPIR-V support for
   [descriptor heaps](https://github.com/microsoft/DirectXShaderCompiler/pull/8517#discussion_r3752113078).
-
-#### HLSL Language
-
-- Casting a scalar to a struct or array containing a resource is now an error
-  instead of crashing
-  [#6661](https://github.com/microsoft/DirectXShaderCompiler/issues/6661).
-
-#### Bug Fixes
-
+- SPIR-V: Fixed a crash when writing to a bitfield member through a
+  `vk::BufferPointer`
+  [#8402](https://github.com/microsoft/DirectXShaderCompiler/issues/8402).
+- Prevented an assertion from hiding the original fatal error when Clang skips
+  template specialization
+  [#6615](https://github.com/microsoft/DirectXShaderCompiler/issues/6615),
+  [#4875](https://github.com/microsoft/DirectXShaderCompiler/issues/4875).
 - Fixed internal compiler errors when a member method is called on a ray payload
   or on one of its fields with payload access qualifiers enabled
   [#6464](https://github.com/microsoft/DirectXShaderCompiler/issues/6464).
+
+#### HLSL Language
+
+- Starting with HLSL 202x, the count in `[unroll(N)]` is a partial-unroll hint
+  and no longer limits the number of loop iterations
+  [#8789](https://github.com/microsoft/DirectXShaderCompiler/issues/8789).
+- Casting a scalar to a struct or array containing a resource is now an error
+  instead of crashing
+  [#6661](https://github.com/microsoft/DirectXShaderCompiler/issues/6661).
+- Added the `-Whlsl-2026-compat` warning group for identifying issues
+  with language changes introduced in HLSL 2026.
+- The legacy effects syntax support is removed in HLSL 202x
+  [#8480](https://github.com/microsoft/DirectXShaderCompiler/issues/8480).
+
+#### SPIR-V
+
+- Inline `[[vk::ext_decorate]]`, `[[vk::ext_capability]]`, and
+  `[[vk::ext_extension]]` attributes are now honored on ordinary functions
+  [#8616](https://github.com/microsoft/DirectXShaderCompiler/pull/8616).
+- `globallycoherent` is now supported on `ResourceDescriptorHeap` accesses
+  [#7740](https://github.com/microsoft/DirectXShaderCompiler/issues/7740).
+- Fixed a crash when a user-defined type named `RayQuery` shadows the intrinsic
+  type [#8601](https://github.com/microsoft/DirectXShaderCompiler/issues/8601).
+- Fixed a crash from `static` members of a `cbuffer`/`tbuffer`, which were
+  incorrectly counted as buffer members and shifted the member indices of the
+  members declared after them
+  [#8537](https://github.com/microsoft/DirectXShaderCompiler/issues/8537).
+- Fixed incorrect alignment of 64-bit elements in `vk::RawBufferLoad` and
+  `vk::RawBufferStore` intrinsics
+  [#8572](https://github.com/microsoft/DirectXShaderCompiler/issues/8572).
 
 ### Upcoming Preview Release
 
@@ -65,7 +97,8 @@ first shipped in the 1.10.2605 preview.
 - Restricted the component types allowed in LinAlg matrices
   [#8608](https://github.com/microsoft/DirectXShaderCompiler/pull/8608).
 - Added `BFloat16` to the ComponentType enum in DxilConstants and the linalg
-  header [#8722](https://github.com/microsoft/DirectXShaderCompiler/issues/8722)
+  header [#8722](https://github.com/microsoft/DirectXShaderCompiler/issues/8722).
+- Removed work graph support from Shader Model 6.10, and DXIL 1.10 [microsoft/hlsl-specs#915](https://github.com/microsoft/hlsl-specs/issues/915).
 
 ### Version 1.9.2607
 

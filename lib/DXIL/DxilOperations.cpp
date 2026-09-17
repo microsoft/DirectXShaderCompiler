@@ -3316,16 +3316,24 @@ bool OP::IsDxilOpFuncName(StringRef name) {
   return name.startswith(OP::m_NamePrefix);
 }
 
-bool OP::IsDxilOpLinAlgFuncName(StringRef Name) {
-  return Name.startswith(OP::m_LinAlgNamePrefix);
-}
-
 bool OP::IsDxilOpFunc(const llvm::Function *F) {
   // Test for null to allow IsDxilOpFunc(Call.getCalledFunc()) to be resilient
   // to indirect calls
   if (F == nullptr || !F->hasName())
     return false;
   return IsDxilOpFuncName(F->getName());
+}
+
+bool OP::IsDxilOpLinAlgFuncName(StringRef Name) {
+  return Name.startswith(OP::m_LinAlgNamePrefix);
+}
+
+bool OP::IsDxilOpLinAlgFunc(const llvm::Function *F) {
+  // Test for null to allow IsDxilOpLinAlgFunc(Call.getCalledFunc()) to be
+  // resilient to indirect calls
+  if (F == nullptr || !F->hasName())
+    return false;
+  return IsDxilOpLinAlgFuncName(F->getName());
 }
 
 bool OP::IsDxilOpFuncCallInst(const llvm::Instruction *I) {
@@ -4001,7 +4009,7 @@ void OP::GetMinShaderModelAndMask(OpCode C, bool bWithTranslation,
   if ((2147483649 <= op && op <= 2147483650)) {
     major = 6;
     minor = 10;
-    mask = SFLAG(Compute) | SFLAG(Mesh) | SFLAG(Amplification) | SFLAG(Node);
+    mask = SFLAG(Compute) | SFLAG(Mesh) | SFLAG(Amplification);
     return;
   }
   // Instructions: ClusterID=2147483651, TriangleObjectPosition=2147483655
@@ -6678,7 +6686,6 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
     A(pI32);
     A(EXT(0));
     TGSM(EXT(1));
-    A(pI32);
     A(pI32);
     A(pI32);
     A(pI32);

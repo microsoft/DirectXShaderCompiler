@@ -616,6 +616,7 @@ struct SimplePSV {
   const uint32_t *SemanticIndexTable = nullptr;
   uint32_t PSVSignatureElementSize = 0;
   const PSVRuntimeInfo1 *RuntimeInfo1 = nullptr;
+  const PSVRuntimeInfo4 *RuntimeInfo4 = nullptr;
   bool IsValid = true;
   SimplePSV(const void *pPSVData, uint32_t PSVSize) {
 
@@ -632,6 +633,9 @@ struct SimplePSV {
     if (PSVRuntimeInfoSize >= sizeof(PSVRuntimeInfo1))
       RuntimeInfo1 =
           (const PSVRuntimeInfo1 *)(GetPtrAtOffset(pPSVData, Offset));
+    if (PSVRuntimeInfoSize >= sizeof(PSVRuntimeInfo4))
+      RuntimeInfo4 =
+          (const PSVRuntimeInfo4 *)(GetPtrAtOffset(pPSVData, Offset));
     INCREMENT_POS(PSVRuntimeInfoSize);
 
     PSVNumResources = GetUint32AtOffset(pPSVData, Offset);
@@ -721,6 +725,58 @@ struct SimplePSV {
                                    RuntimeInfo1->SigPatchConstOrPrimVectors,
                                    RuntimeInfo1->SigOutputVectors[0]);
         INCREMENT_POS(TableSizeInBytes);
+      }
+    }
+
+    if (RuntimeInfo4 && (RuntimeInfo4->Flags &
+                         static_cast<uint32_t>(
+                             PSVRuntimeInfo4Flag::LinAlgRuntimeInfoPresent))) {
+      auto ReadUint32 = [&](uint32_t &Value) {
+        if (Offset > PSVSize || sizeof(uint32_t) > PSVSize - Offset)
+          return false;
+        memcpy(&Value, GetPtrAtOffset(pPSVData, Offset), sizeof(uint32_t));
+        Offset += sizeof(uint32_t);
+        return true;
+      };
+      auto ConsumeTable = [&](uint32_t Count, uint32_t MinimumRecordSize) {
+        if (!Count)
+          return true;
+        uint32_t RecordSize = 0;
+        if (!ReadUint32(RecordSize) || RecordSize < MinimumRecordSize)
+          return false;
+        if (Offset > PSVSize || Count > (PSVSize - Offset) / RecordSize)
+          return false;
+        Offset += Count * RecordSize;
+        return true;
+      };
+
+      uint32_t LinAlgRuntimeInfoSize = 0;
+      if (!ReadUint32(LinAlgRuntimeInfoSize) ||
+          LinAlgRuntimeInfoSize < sizeof(PSVLinAlgRuntimeInfo0) ||
+          Offset > PSVSize || LinAlgRuntimeInfoSize > PSVSize - Offset) {
+        IsValid = false;
+        return;
+      }
+      const PSVLinAlgRuntimeInfo0 *LinAlgRuntimeInfo =
+          (const PSVLinAlgRuntimeInfo0 *)GetPtrAtOffset(pPSVData, Offset);
+      Offset += LinAlgRuntimeInfoSize;
+
+      if (!ConsumeTable(LinAlgRuntimeInfo->MatrixOperationShapeCount,
+                        sizeof(PSVLinAlgMatrixOperationShape0)) ||
+          !ConsumeTable(LinAlgRuntimeInfo->MatrixConstructionCount,
+                        sizeof(PSVLinAlgMatrixConstruction0)) ||
+          !ConsumeTable(LinAlgRuntimeInfo->ThreadMatrixVectorMultiplyCount,
+                        sizeof(PSVLinAlgThreadMatrixVectorMultiply0)) ||
+          !ConsumeTable(LinAlgRuntimeInfo->WaveMatrixMultiplyCount,
+                        sizeof(PSVLinAlgWaveMatrixMultiply0)) ||
+          !ConsumeTable(LinAlgRuntimeInfo->ThreadGroupMatrixMultiplyCount,
+                        sizeof(PSVLinAlgThreadGroupMatrixMultiply0)) ||
+          !ConsumeTable(LinAlgRuntimeInfo->OuterProductCount,
+                        sizeof(PSVLinAlgOuterProduct0)) ||
+          !ConsumeTable(LinAlgRuntimeInfo->AccumulateStoreCount,
+                        sizeof(PSVLinAlgAccumulateStore0))) {
+        IsValid = false;
+        return;
       }
     }
     IsValid = PSVSize == Offset;
