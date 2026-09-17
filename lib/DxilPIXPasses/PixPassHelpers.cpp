@@ -385,11 +385,13 @@ hlsl::DxilResource *CreateGlobalUAVResource(hlsl::DxilModule &DM,
   return ret;
 }
 
-void eraseIfUnused(hlsl::DxilModule &DM, llvm::Function *OpFunction) {
+bool eraseIfUnused(hlsl::DxilModule &DM, llvm::Function *OpFunction) {
   if (OpFunction != nullptr && OpFunction->user_empty()) {
     DM.GetOP()->RemoveFunction(OpFunction);
     OpFunction->eraseFromParent();
+    return true;
   }
+  return false;
 }
 
 // Set up a UAV with structure of a single int
@@ -539,7 +541,7 @@ unsigned int FindOrAddSV_Position(hlsl::DxilModule &DM,
   }
 }
 
-void ForEachDynamicallyIndexedResource(
+bool ForEachDynamicallyIndexedResource(
     hlsl::DxilModule &DM,
     const std::function<bool(bool, Instruction *, Value *)> &Visitor) {
   OP *HlslOP = DM.GetOP();
@@ -561,7 +563,7 @@ void ForEachDynamicallyIndexedResource(
               if (auto *gep = dyn_cast<GetElementPtrInst>(resOrGep)) {
                 if (!Visitor(DxilMDHelper::IsMarkedNonUniform(gep), load,
                              gep->getOperand(2))) {
-                  return;
+                  return false;
                 }
               }
             }
@@ -578,18 +580,12 @@ void ForEachDynamicallyIndexedResource(
   llvm::Function *CreateHandleFromHeapFn = HlslOP->GetOpFunc(
       DXIL::OpCode::CreateHandleFromHeap, Type::getVoidTy(Ctx));
 
-  struct UnusedDeclarationCleanup {
-    hlsl::DxilModule &DM;
-    llvm::Function *CreateHandleFn;
-    llvm::Function *CreateHandleFromBindingFn;
-    llvm::Function *CreateHandleFromHeapFn;
-    ~UnusedDeclarationCleanup() {
-      eraseIfUnused(DM, CreateHandleFn);
-      eraseIfUnused(DM, CreateHandleFromBindingFn);
-      eraseIfUnused(DM, CreateHandleFromHeapFn);
-    }
-  } Cleanup{DM, CreateHandleFn, CreateHandleFromBindingFn,
-            CreateHandleFromHeapFn};
+  auto CleanupUnusedDeclarations = [&]() {
+    bool Modified = eraseIfUnused(DM, CreateHandleFn);
+    Modified |= eraseIfUnused(DM, CreateHandleFromBindingFn);
+    Modified |= eraseIfUnused(DM, CreateHandleFromHeapFn);
+    return Modified;
+  };
 
   for (auto FI = CreateHandleFn->user_begin();
        FI != CreateHandleFn->user_end();) {
@@ -601,7 +597,7 @@ void ForEachDynamicallyIndexedResource(
       const DxilInst_CreateHandle createHandle(instruction);
       if (!Visitor(createHandle.get_nonUniformIndex_val(), instruction,
                    index)) {
-        return;
+        return CleanupUnusedDeclarations();
       }
     }
   }
@@ -616,7 +612,7 @@ void ForEachDynamicallyIndexedResource(
       const DxilInst_CreateHandleFromBinding createHandle(instruction);
       if (!Visitor(createHandle.get_nonUniformIndex_val(), instruction,
                    index)) {
-        return;
+        return CleanupUnusedDeclarations();
       }
     }
   }
@@ -631,10 +627,11 @@ void ForEachDynamicallyIndexedResource(
       const DxilInst_CreateHandleFromHeap createHandle(instruction);
       if (!Visitor(createHandle.get_nonUniformIndex_val(), instruction,
                    index)) {
-        return;
+        return CleanupUnusedDeclarations();
       }
     }
   }
+  return CleanupUnusedDeclarations();
 }
 
 #ifdef PIX_DEBUG_DUMP_HELPER

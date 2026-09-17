@@ -3702,7 +3702,7 @@ float4 main() : SV_Target
   VERIFY_ARE_EQUAL(1u,
                    static_cast<unsigned>(
                        HlslOP->GetOpFuncList(DXIL::OpCode::Discard).size()));
-  PIXPassHelpers::eraseIfUnused(DM, Discard);
+  VERIFY_IS_TRUE(PIXPassHelpers::eraseIfUnused(DM, Discard));
   VERIFY_ARE_EQUAL(0u,
                    static_cast<unsigned>(
                        HlslOP->GetOpFuncList(DXIL::OpCode::Discard).size()));
@@ -3711,7 +3711,8 @@ float4 main() : SV_Target
       HlslOP->GetOpFunc(DXIL::OpCode::Discard,
                         llvm::Type::getVoidTy(DM.GetModule()->getContext()));
   VERIFY_IS_NOT_NULL(Recreated);
-  PIXPassHelpers::eraseIfUnused(DM, Recreated);
+  VERIFY_IS_TRUE(PIXPassHelpers::eraseIfUnused(DM, Recreated));
+  VERIFY_IS_FALSE(PIXPassHelpers::eraseIfUnused(DM, nullptr));
 }
 
 TEST_F(PixTest, DynamicResourceCleanup_VisitorStopsEarly) {
@@ -3728,13 +3729,15 @@ float4 main(float2 uv : TEXCOORD0) : SV_Target
   ModuleAndHangersOn ModuleEtc(Compiled);
   DxilModule &DM = ModuleEtc.GetDxilModule();
   bool VisitorCalled = false;
-  PIXPassHelpers::ForEachDynamicallyIndexedResource(
-      DM, [&VisitorCalled](bool, llvm::Instruction *, llvm::Value *) {
-        VisitorCalled = true;
-        return false;
-      });
+  const bool DeclarationsRemoved =
+      PIXPassHelpers::ForEachDynamicallyIndexedResource(
+          DM, [&VisitorCalled](bool, llvm::Instruction *, llvm::Value *) {
+            VisitorCalled = true;
+            return false;
+          });
 
   VERIFY_IS_TRUE(VisitorCalled);
+  VERIFY_IS_TRUE(DeclarationsRemoved);
   OP *HlslOP = DM.GetOP();
   VERIFY_ARE_EQUAL(
       0u,
