@@ -2178,6 +2178,10 @@ loop::
 Supporting these forms requires modelling the alias as a value with real
 control-flow merges instead of as compile-time state.
 
+``StructuredBuffer``, ``ByteAddressBuffer``, and related buffer-type aliases
+cannot yet be passed to or returned from user functions; access the resource
+directly at each call or return site.
+
 Two further restrictions on the heap access expression itself produce
 diagnostics. The object being subscripted must be a direct reference to the
 builtin ``ResourceDescriptorHeap`` or ``SamplerDescriptorHeap`` variable, and

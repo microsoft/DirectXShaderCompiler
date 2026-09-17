@@ -1228,7 +1228,7 @@ SpirvInstruction *SpirvEmitter::doExpr(const Expr *expr,
     if (isImplicitVarDeclInVkNamespace(declRefExpr->getDecl())) {
       result = doExpr(cast<VarDecl>(decl)->getInit());
     } else if (const auto *varDecl = dyn_cast<VarDecl>(decl)) {
-      if (auto *alias =
+      if (SpirvInstruction *alias =
               emitDescriptorHeapBufferPointer(varDecl, expr->getLocStart()))
         result = alias;
       else

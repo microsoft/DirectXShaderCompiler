@@ -5,13 +5,16 @@
 //  SPV_EXT_descriptor_heap deprecates the NonUniform decoration; drivers handle
 //  divergent indices natively and the decoration must be omitted.
 
+// The two NonUniformResourceIndex results retain NonUniform; it must not
+// propagate to access chains or loaded handles.
+// CHECK:                                         OpDecorate %{{.*}} NonUniform
+// CHECK:                                         OpDecorate %{{.*}} NonUniform
+// CHECK-NOT:                                     OpDecorate %{{.*}} NonUniform
 // CHECK-DAG: %[[UntypedPtrType:[a-zA-Z0-9_]+]] = OpTypeUntypedPointerKHR UniformConstant
 // CHECK-DAG:      %[[Tex2DType:[a-zA-Z0-9_]+]] = OpTypeImage %float 2D 2 0 0 1 Unknown
 // CHECK-DAG:    %[[SamplerType:[a-zA-Z0-9_]+]] = OpTypeSampler
 // CHECK-DAG:   %[[RA_Tex2DType:[a-zA-Z0-9_]+]] = OpTypeRuntimeArray %[[Tex2DType]]
 // CHECK-DAG: %[[RA_SamplerType:[a-zA-Z0-9_]+]] = OpTypeRuntimeArray %[[SamplerType]]
-
-// CHECK-NOT:                                     OpDecorate %{{.*}} NonUniform
 
 // CHECK:       %[[ResourceHeap:[a-zA-Z0-9_]+]] = OpUntypedVariableKHR %[[UntypedPtrType]] UniformConstant
 // CHECK:        %[[SamplerHeap:[a-zA-Z0-9_]+]] = OpUntypedVariableKHR %[[UntypedPtrType]] UniformConstant
