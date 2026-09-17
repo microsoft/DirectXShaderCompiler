@@ -14,25 +14,6 @@
 #include <mutex>
 #include <optional>
 
-// D3D12_FEATURE_D3D12_OPTIONS_PREVIEW and its data struct are not yet in
-// the released Windows SDK. Define locally so the test can query variable
-// group shared memory capabilities from the Agility SDK runtime.
-// TODO(#8661): Remove me when GroupSharedLimit is available in a released
-// Windows SDK.
-#if defined(D3D12_PREVIEW_SDK_VERSION) && D3D12_PREVIEW_SDK_VERSION < 720
-
-#ifndef D3D12_FEATURE_D3D12_OPTIONS_PREVIEW
-#define D3D12_FEATURE_D3D12_OPTIONS_PREVIEW ((D3D12_FEATURE)72)
-#endif
-
-typedef struct D3D12_FEATURE_DATA_D3D12_OPTIONS_PREVIEW {
-  UINT MaxGroupSharedMemoryPerGroupCS;
-  UINT MaxGroupSharedMemoryPerGroupAS;
-  UINT MaxGroupSharedMemoryPerGroupMS;
-} D3D12_FEATURE_DATA_D3D12_OPTIONS_PREVIEW;
-
-#endif
-
 constexpr UINT KnownMultiplicationFlags = 0xf;
 constexpr UINT MatrixMultiplicationFlags =
     static_cast<UINT>(
@@ -1470,28 +1451,28 @@ HRESULT queryAtomicAccumulateStore(ID3D12Device *Device,
 
 // TODO(#8661): Remove me when GroupSharedLimit is available in a released
 // Windows SDK.
-#if defined(D3D12_PREVIEW_SDK_VERSION)
+#if defined(HLSLEXEC_GROUPSHARED_LIMITS)
 UINT getMaxGroupSharedMemoryCS(ID3D12Device *Device) {
-  D3D12_FEATURE_DATA_D3D12_OPTIONS_PREVIEW O = {};
-  VERIFY_SUCCEEDED(Device->CheckFeatureSupport(
-      D3D12_FEATURE_D3D12_OPTIONS_PREVIEW, &O, sizeof(O)));
+  HlslExecGroupsharedLimits O = {};
+  VERIFY_SUCCEEDED(Device->CheckFeatureSupport(HlslExecGroupsharedLimitsFeature,
+                                               &O, sizeof(O)));
   return O.MaxGroupSharedMemoryPerGroupCS;
 }
 
 UINT getMaxGroupSharedMemoryAS(ID3D12Device *Device) {
-  D3D12_FEATURE_DATA_D3D12_OPTIONS_PREVIEW O = {};
-  VERIFY_SUCCEEDED(Device->CheckFeatureSupport(
-      D3D12_FEATURE_D3D12_OPTIONS_PREVIEW, &O, sizeof(O)));
+  HlslExecGroupsharedLimits O = {};
+  VERIFY_SUCCEEDED(Device->CheckFeatureSupport(HlslExecGroupsharedLimitsFeature,
+                                               &O, sizeof(O)));
   return O.MaxGroupSharedMemoryPerGroupAS;
 }
 
 UINT getMaxGroupSharedMemoryMS(ID3D12Device *Device) {
-  D3D12_FEATURE_DATA_D3D12_OPTIONS_PREVIEW O = {};
-  VERIFY_SUCCEEDED(Device->CheckFeatureSupport(
-      D3D12_FEATURE_D3D12_OPTIONS_PREVIEW, &O, sizeof(O)));
+  HlslExecGroupsharedLimits O = {};
+  VERIFY_SUCCEEDED(Device->CheckFeatureSupport(HlslExecGroupsharedLimitsFeature,
+                                               &O, sizeof(O)));
   return O.MaxGroupSharedMemoryPerGroupMS;
 }
-#endif // defined(D3D12_PREVIEW_SDK_VERSION)
+#endif // defined(HLSLEXEC_GROUPSHARED_LIMITS)
 
 std::unique_ptr<st::ShaderOp> createComputeOp(const char *Source,
                                               const char *Target,
@@ -1629,14 +1610,15 @@ std::shared_ptr<st::ShaderOpTestResult>
 runShaderOp(ID3D12Device *Device, dxc::SpecificDllLoader &DxcSupport,
             std::unique_ptr<st::ShaderOp> Op,
             st::ShaderOpTest::TInitCallbackFn InitCallback,
-            st::ShaderOpTest::TCommandCallbackFn PostDispatchCallback) {
+            st::ShaderOpTest::TCommandCallbackFn PostDispatchCallback,
+            st::ShaderOpTest::TCommandCallbackFn PreDispatchCallback) {
   auto OpSet = std::make_shared<st::ShaderOpSet>();
   OpSet->ShaderOps.push_back(std::move(Op));
 
   return st::RunShaderOpTestAfterParse(
       Device, DxcSupport, nullptr, std::move(InitCallback),
       /*pShaderCallback=*/nullptr, std::move(PostDispatchCallback),
-      std::move(OpSet));
+      std::move(OpSet), std::move(PreDispatchCallback));
 }
 
 void compileShader(dxc::SpecificDllLoader &DxcSupport, const char *Source,
@@ -1703,14 +1685,14 @@ void compileShader(dxc::SpecificDllLoader &DxcSupport, const char *Source,
   }
 }
 
-#if defined(DIRECT3D_LINEAR_ALGEBRA)
+#if defined(HLSLEXEC_LINALG_HOST_API)
 UINT getLinAlgMatrixByteSize(ID3D12Device *Device, UINT NumRows,
                              UINT NumColumns,
                              D3D12_LINEAR_ALGEBRA_DATATYPE DataType,
                              D3D12_LINEAR_ALGEBRA_MATRIX_LAYOUT Layout,
                              UINT Stride) {
-  CComPtr<ID3D12DevicePreview> DevicePreview;
-  VERIFY_SUCCEEDED(Device->QueryInterface(IID_PPV_ARGS(&DevicePreview)));
+  CComPtr<IHlslExecLinAlgDevice> LinAlgDevice;
+  VERIFY_SUCCEEDED(Device->QueryInterface(IID_PPV_ARGS(&LinAlgDevice)));
 
   D3D12_LINEAR_ALGEBRA_MATRIX_CONVERSION_DEST_INFO Info = {};
   Info.DestSize = 0;
@@ -1719,7 +1701,10 @@ UINT getLinAlgMatrixByteSize(ID3D12Device *Device, UINT NumRows,
   Info.NumRows = NumRows;
   Info.NumColumns = NumColumns;
   Info.DestDataType = DataType;
-  DevicePreview->GetLinearAlgebraMatrixConversionDestinationInfo(&Info);
+  LinAlgDevice->GetLinearAlgebraMatrixConversionDestinationInfo(&Info);
+  VERIFY_IS_TRUE(Info.DestSize != 0,
+                 "Device reported no destination size for the requested "
+                 "linear algebra matrix layout");
   return Info.DestSize;
 }
 
@@ -1729,8 +1714,8 @@ void recordLinAlgMatrixConversion(
     D3D12_LINEAR_ALGEBRA_DATATYPE DataType,
     D3D12_LINEAR_ALGEBRA_MATRIX_LAYOUT SrcLayout, UINT SrcStride,
     D3D12_LINEAR_ALGEBRA_MATRIX_LAYOUT DestLayout, UINT DestStride) {
-  CComPtr<ID3D12GraphicsCommandListPreview> PreviewList;
-  VERIFY_SUCCEEDED(List->QueryInterface(IID_PPV_ARGS(&PreviewList)));
+  CComPtr<IHlslExecLinAlgCommandList> LinAlgList;
+  VERIFY_SUCCEEDED(List->QueryInterface(IID_PPV_ARGS(&LinAlgList)));
 
   // Per the linear-algebra spec, ConvertLinearAlgebraMatrix (legacy barriers)
   // requires the source buffer in NON_PIXEL_SHADER_RESOURCE and the destination
@@ -1759,6 +1744,6 @@ void recordLinAlgMatrixConversion(
   Info.SrcInfo.SrcStride = SrcStride;
   Info.DataDesc.DestVA = DestBuffer->GetGPUVirtualAddress();
   Info.DataDesc.SrcVA = SrcBuffer->GetGPUVirtualAddress();
-  PreviewList->ConvertLinearAlgebraMatrix(&Info, 1);
+  LinAlgList->ConvertLinearAlgebraMatrix(&Info, 1);
 }
-#endif // defined(DIRECT3D_LINEAR_ALGEBRA)
+#endif // defined(HLSLEXEC_LINALG_HOST_API)

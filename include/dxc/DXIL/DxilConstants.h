@@ -2370,12 +2370,15 @@ const uint64_t ShaderFeatureInfo_ExtendedCommandInfo = 0x100000000;
 // Experimental SM 6.9+ - Reserved, not yet supported.
 const uint64_t ShaderFeatureInfo_Reserved = 0x8000000;
 
+// SM 6.10+
+const uint64_t ShaderFeatureInfo_LinearAlgebra = 0x200000000;
+
 // Maximum count without rolling over into another 64-bit field is 40,
 // so the last flag we can use for a feature requirement is: 0x8000000000
 // This is because of the following set of flags, considered optional
 // and ignored by the runtime if not recognized:
 // D3D11_OPTIONAL_FEATURE_FLAGS 0x7FFFFF0000000000
-const unsigned ShaderFeatureInfoCount = 33;
+const unsigned ShaderFeatureInfoCount = 34;
 static_assert(ShaderFeatureInfoCount <= 40,
               "ShaderFeatureInfo flags must fit within the first 40 bits; "
               "after that we need to expand the FeatureInfo blob part and "

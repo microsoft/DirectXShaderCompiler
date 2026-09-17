@@ -85,7 +85,7 @@ define void @mainDS() {
   call void @dx.op.linAlgMatrixStoreToDescriptor.mC8M16N16U2S1(i32 -2147483628, %dx.types.LinAlgMatrixC8M16N16U2S1 %26, %dx.types.Handle %27, i32 0, i32 64, i32 0, i32 128)  ; LinAlgMatrixStoreToDescriptor(matrix,handle,offset,stride,layout,align)
   call void @dx.op.linAlgMatrixStoreToMemory.mC8M16N16U2S1.i32(i32 -2147483627, %dx.types.LinAlgMatrixC8M16N16U2S1 %26, i32 addrspace(3)* getelementptr inbounds ([1024 x i32], [1024 x i32] addrspace(3)* @"\01?GSMemory@@3PA$ui8_4pk@A", i32 0, i32 0), i32 0, i32 64, i32 0)  ; LinAlgMatrixStoreToMemory(matrix,memory,offset,stride,layout)
   %28 = call %dx.types.LinAlgMatrixC8M16N16U2S1 @dx.op.linAlgCopyConvertMatrix.mC8M16N16U2S1.mC8M16N16U1S1(i32 -2147483635, %dx.types.LinAlgMatrixC8M16N16U1S1 %24, i1 false)  ; LinAlgCopyConvertMatrix(srcMatrix,transpose)
-  call void @dx.op.linAlgMatrixAccumulateToMemory.mC8M16N16U2S1.i32(i32 -2147483620, %dx.types.LinAlgMatrixC8M16N16U2S1 %28, i32 addrspace(3)* getelementptr inbounds ([1024 x i32], [1024 x i32] addrspace(3)* @"\01?GSMemory@@3PA$ui8_4pk@A", i32 0, i32 0), i32 8, i32 0, i32 64, i32 0)  ; LinAlgMatrixAccumulateToMemory(matrix,memory,targetType,offset,stride,layout)
+  call void @dx.op.linAlgMatrixAccumulateToMemory.mC8M16N16U2S1.i32(i32 -2147483620, %dx.types.LinAlgMatrixC8M16N16U2S1 %28, i32 addrspace(3)* getelementptr inbounds ([1024 x i32], [1024 x i32] addrspace(3)* @"\01?GSMemory@@3PA$ui8_4pk@A", i32 0, i32 0), i32 0, i32 64, i32 0)  ; LinAlgMatrixAccumulateToMemory(matrix,memory,offset,stride,layout)
   %29 = call float @dx.op.loadInput.f32(i32 4, i32 0, i32 0, i8 0, i32 0)  ; LoadInput(inputSigId,rowIndex,colIndex,gsVertexAxis)
   %30 = call float @dx.op.loadInput.f32(i32 4, i32 0, i32 0, i8 1, i32 0)  ; LoadInput(inputSigId,rowIndex,colIndex,gsVertexAxis)
   %31 = call float @dx.op.loadInput.f32(i32 4, i32 0, i32 0, i8 2, i32 0)  ; LoadInput(inputSigId,rowIndex,colIndex,gsVertexAxis)
@@ -173,7 +173,7 @@ declare void @dx.op.linAlgMatrixStoreToMemory.mC8M16N16U2S1.i32(i32, %dx.types.L
 declare %dx.types.LinAlgMatrixC8M16N16U2S1 @dx.op.linAlgCopyConvertMatrix.mC8M16N16U2S1.mC8M16N16U1S1(i32, %dx.types.LinAlgMatrixC8M16N16U1S1, i1) #1
 
 ; Function Attrs: nounwind
-declare void @dx.op.linAlgMatrixAccumulateToMemory.mC8M16N16U2S1.i32(i32, %dx.types.LinAlgMatrixC8M16N16U2S1, i32 addrspace(3)*, i32, i32, i32, i32) #1
+declare void @dx.op.linAlgMatrixAccumulateToMemory.mC8M16N16U2S1.i32(i32, %dx.types.LinAlgMatrixC8M16N16U2S1, i32 addrspace(3)*, i32, i32, i32) #1
 
 ; Function Attrs: nounwind readnone
 declare %dx.types.Handle @dx.op.annotateHandle(i32, %dx.types.Handle, %dx.types.ResourceProperties) #0
@@ -213,6 +213,5 @@ attributes #1 = { nounwind }
 !17 = !{i32 0, !"SV_Position", i8 9, i8 3, !18, i8 4, i32 1, i8 4, i32 0, i8 0, !19}
 !18 = !{i32 0}
 !19 = !{i32 3, i32 15}
-!20 = !{i32 0, i64 8598388784, i32 2, !21}
+!20 = !{i32 0, i64 2207621644336, i32 2, !21}
 !21 = !{i32 2, i32 3}
-

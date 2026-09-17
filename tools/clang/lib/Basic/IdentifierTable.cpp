@@ -91,38 +91,39 @@ IdentifierTable::IdentifierTable(const LangOptions &LangOpts,
 
 // Constants for TokenKinds.def
 namespace {
-  enum {
-    KEYC99 = 0x1,
-    KEYCXX = 0x2,
-    KEYCXX11 = 0x4,
-    KEYGNU = 0x8,
-    KEYMS = 0x10,
-    BOOLSUPPORT = 0x20,
-    KEYALTIVEC = 0x40,
-    KEYNOCXX = 0x80,
-    KEYBORLAND = 0x100,
-    KEYOPENCL = 0x200,
-    KEYC11 = 0x400,
-    KEYARC = 0x800,
-    KEYNOMS18 = 0x01000,
-    KEYNOOPENCL = 0x02000,
-    WCHARSUPPORT = 0x04000,
-    HALFSUPPORT = 0x08000,
-    KEYCONCEPTS = 0x10000,
-    KEYOBJC2    = 0x20000,
-    KEYZVECTOR  = 0x40000,
-    KEYHLSL = 0x80000, // MS Change: Flag for hlsl keywords
-    KEYALL = (0x7ffff & ~KEYNOMS18 &
-              ~KEYNOOPENCL) // KEYNOMS18 and KEYNOOPENCL are used to exclude.
-  };
+enum {
+  KEYC99 = 0x1,
+  KEYCXX = 0x2,
+  KEYCXX11 = 0x4,
+  KEYGNU = 0x8,
+  KEYMS = 0x10,
+  BOOLSUPPORT = 0x20,
+  KEYALTIVEC = 0x40,
+  KEYNOCXX = 0x80,
+  KEYBORLAND = 0x100,
+  KEYOPENCL = 0x200,
+  KEYC11 = 0x400,
+  KEYARC = 0x800,
+  KEYNOMS18 = 0x01000,
+  KEYNOOPENCL = 0x02000,
+  WCHARSUPPORT = 0x04000,
+  HALFSUPPORT = 0x08000,
+  KEYCONCEPTS = 0x10000,
+  KEYOBJC2 = 0x20000,
+  KEYZVECTOR = 0x40000,
+  KEYHLSL = 0x80000, // MS Change: Flag for hlsl keywords
+  KEYHLSL2026_REMOVED = 0x100000,
+  KEYALL = (0x7ffff & ~KEYNOMS18 &
+            ~KEYNOOPENCL) // KEYNOMS18 and KEYNOOPENCL are used to exclude.
+};
 
-  /// \brief How a keyword is treated in the selected standard.
-  enum KeywordStatus {
-    KS_Disabled,    // Disabled
-    KS_Extension,   // Is an extension
-    KS_Enabled,     // Enabled
-    KS_Future       // Is a keyword in future standard
-  };
+/// \brief How a keyword is treated in the selected standard.
+enum KeywordStatus {
+  KS_Disabled,  // Disabled
+  KS_Extension, // Is an extension
+  KS_Enabled,   // Enabled
+  KS_Future     // Is a keyword in future standard
+};
 }
 
 /// \brief Translates flags as specified in TokenKinds.def into keyword status
@@ -142,6 +143,9 @@ static KeywordStatus getKeywordStatus(const LangOptions &LangOpts,
   if (LangOpts.AltiVec && (Flags & KEYALTIVEC)) return KS_Enabled;
   if (LangOpts.OpenCL && (Flags & KEYOPENCL)) return KS_Enabled;
   if (!LangOpts.CPlusPlus && (Flags & KEYNOCXX)) return KS_Enabled;
+  if (LangOpts.HLSL && LangOpts.HLSLVersion >= hlsl::LangStd::v202x &&
+      (Flags & KEYHLSL2026_REMOVED))
+    return KS_Disabled;
   if (LangOpts.HLSL && (Flags & KEYHLSL)) return KS_Enabled; // HLSL Change: Support for HLSL Keywords
   if (LangOpts.C11 && (Flags & KEYC11)) return KS_Enabled;
   // We treat bridge casts as objective-C keywords so we can warn on them
