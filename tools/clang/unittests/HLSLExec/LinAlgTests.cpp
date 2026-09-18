@@ -3701,8 +3701,11 @@ public:
   TEST_METHOD(VectorAccumulateDescriptor_Thread_F16);
   TEST_METHOD(VectorAccumulateDescriptor_Thread_F16_Length8_NonZero);
   TEST_METHOD(VectorAccumulateDescriptor_Thread_F32_Length8_NonZero);
+  TEST_METHOD(VectorAccumulateDescriptorOOB_Thread_F16);
+  TEST_METHOD(VectorAccumulateDescriptorOOB_Thread_F32);
   TEST_METHOD(VectorAccumulateDescriptorContention_Thread_F16);
   TEST_METHOD(VectorAccumulateDescriptorContention_Thread_F32_OrderInvariant);
+  TEST_METHOD(VectorAccumulateDescriptorContention_Thread_I32);
 
 private:
   CComPtr<ID3D12Device> D3DDevice;
@@ -9520,7 +9523,7 @@ static void runVectorAccumulateDescriptor(
     const cpu_oracle::TypedMatrix &Initial,
     const cpu_oracle::TypedMatrix &Expected, UINT StartOffsetBytes,
     std::wstring PublicRule, bool Verbose, UINT NumThreads = 1,
-    UINT DispatchX = 1) {
+    UINT DispatchX = 1, std::optional<size_t> OutputViewBytes = std::nullopt) {
   VERIFY_ARE_EQUAL(1u, Input.M, "Vector input must have one row");
   VERIFY_ARE_EQUAL(Input.compType(), Initial.compType(),
                    "Input and destination component types must match");
@@ -9533,6 +9536,8 @@ static void runVectorAccumulateDescriptor(
   VERIFY_IS_GREATER_THAN_OR_EQUAL(
       Initial.totalElements(), Input.totalElements(),
       "Destination must hold the input vector and any guard elements");
+  VERIFY_IS_TRUE(StartOffsetBytes % 64 == 0,
+                 "Vector start offset must preserve 64-byte alignment");
 
   const cpu_oracle::MatrixBufferLayout InputLayout = {
       MatrixLayout::RowMajor,
@@ -9555,6 +9560,15 @@ static void runVectorAccumulateDescriptor(
     return;
   if (!OutputSize)
     return;
+
+  if (OutputViewBytes) {
+    VERIFY_IS_TRUE(*OutputViewBytes > 0 && *OutputViewBytes <= *OutputSize,
+                   "The bounded UAV view must fit the destination buffer");
+    hlsl_test::LogCommentFmt(
+        L"Vector accumulation bounded UAV: view=%zu bytes, vector offset=%u, "
+        L"vector size=%zu, destination size=%zu",
+        *OutputViewBytes, StartOffsetBytes, *InputSize, *OutputSize);
+  }
 
   std::vector<BYTE> InputBytes(*InputSize);
   std::vector<BYTE> InitialBytes(*OutputSize);
@@ -9583,12 +9597,20 @@ static void runVectorAccumulateDescriptor(
   compileShader(DxcSupport, VectorAccumulateDescriptorShader, "cs_6_10", Args,
                 Verbose);
 
+  const char *RootSignature = OutputViewBytes
+                                  ? "SRV(t0), DescriptorTable(UAV(u1))"
+                                  : "SRV(t0), UAV(u1)";
   auto Op = createComputeOp(VectorAccumulateDescriptorShader, "cs_6_10",
-                            "SRV(t0), UAV(u1)", Args.c_str(), DispatchX);
+                            RootSignature, Args.c_str(), DispatchX);
   addSRVBuffer(Op.get(), "Input", InputBytes.size(), "byname");
   addUAVBuffer(Op.get(), "Output", InitialBytes.size(), true, "byname");
   addRootView(Op.get(), 0, "Input");
-  addRootView(Op.get(), 1, "Output");
+  if (OutputViewBytes) {
+    addHeapRawUAV(Op.get(), "ResHeap", "Output", *OutputViewBytes);
+    addRootTable(Op.get(), 1, "ResHeap");
+  } else {
+    addRootView(Op.get(), 1, "Output");
+  }
 
   auto Result = runShaderOp(
       Device, DxcSupport, std::move(Op),
@@ -9606,12 +9628,28 @@ static void runVectorAccumulateDescriptor(
                          "Vector accumulation initializer size mismatch");
         if (Source->size() == Data.size())
           std::memcpy(Data.data(), Source->data(), Data.size());
+      },
+      /*PostDispatchCallback=*/nullptr,
+      [StartOffsetBytes](ID3D12GraphicsCommandList *, st::ShaderOpTest *Test) {
+        ID3D12Resource *Output = nullptr;
+        Test->GetResource("Output", &Output);
+        VERIFY_IS_NOT_NULL(Output);
+        VERIFY_IS_TRUE(
+            (Output->GetGPUVirtualAddress() + StartOffsetBytes) % 64 == 0,
+            "Vector destination must meet its declared 64-byte alignment");
       });
 
   MappedData OutData;
   Result->Test->GetReadBackData("Output", &OutData);
+  // Bounds apply to the input vector, not the larger guarded destination.
+  const bool PartiallyInView = OutputViewBytes &&
+                               *OutputViewBytes > StartOffsetBytes &&
+                               *OutputViewBytes - StartOffsetBytes < *InputSize;
   const cpu_oracle::MatrixResultOracle Oracle =
-      cpu_oracle::exactResult(Expected, std::move(PublicRule));
+      PartiallyInView
+          ? cpu_oracle::permittedResults({Expected, Initial},
+                                         std::move(PublicRule))
+          : cpu_oracle::exactResult(Expected, std::move(PublicRule));
   VERIFY_IS_TRUE(cpu_oracle::verifyMatrixBuffer(OutData.data(), OutData.size(),
                                                 OutputLayout, Oracle, Verbose));
   VERIFY_IS_TRUE(cpu_oracle::verifyUntouchedBytes(
@@ -9729,6 +9767,73 @@ void DxilConf_SM610_LinAlg::
       VerboseLogging);
 }
 
+template <typename T>
+static void
+runVectorAccumulateDescriptorOutOfBounds(ID3D12Device *Device,
+                                         dxc::SpecificDllLoader &DxcSupport,
+                                         LPCWSTR CaseName, bool Verbose) {
+  if (!accumulateStoreApplicable(
+          Device, cpu_oracle::ComponentTraits<T>::CompType,
+          linalg_test::AtomicDestination::RWByteAddressBuffer, CaseName))
+    return;
+
+  const auto Input =
+      cpu_oracle::makeTypedMatrix<T>(1, 8,
+                                     {T(-3.0f), T(2.0f), T(5.0f), T(-1.0f),
+                                      T(4.0f), T(1.0f), T(-2.0f), T(6.0f)});
+  const auto Initial = cpu_oracle::makeTypedMatrix<T>(
+      1, 10,
+      {T(10.0f), T(11.0f), T(12.0f), T(13.0f), T(14.0f), T(15.0f), T(16.0f),
+       T(17.0f), T(123.0f), T(-321.0f)});
+  const auto Accumulated = cpu_oracle::makeTypedMatrix<T>(
+      1, 10,
+      {T(7.0f), T(13.0f), T(17.0f), T(12.0f), T(18.0f), T(16.0f), T(14.0f),
+       T(23.0f), T(123.0f), T(-321.0f)});
+  const auto PartiallyAccumulated = cpu_oracle::makeTypedMatrix<T>(
+      1, 10,
+      {T(7.0f), T(13.0f), T(17.0f), T(12.0f), T(14.0f), T(15.0f), T(16.0f),
+       T(17.0f), T(123.0f), T(-321.0f)});
+  VERIFY_IS_TRUE(Input.has_value() && Initial.has_value() &&
+                     Accumulated.has_value() &&
+                     PartiallyAccumulated.has_value(),
+                 "Unable to construct vector descriptor bounds fixtures");
+  if (!Input || !Initial || !Accumulated || !PartiallyAccumulated)
+    return;
+
+  constexpr UINT StartOffsetBytes = 64;
+  const size_t ElementBytes = elementSize(Input->compType());
+  // The full vector fits this view even though its trailing guards do not.
+  runVectorAccumulateDescriptor(
+      Device, DxcSupport, *Input, *Initial, *Accumulated, StartOffsetBytes,
+      L"A fully in-view vector must accumulate onto its non-zero seed", Verbose,
+      /*NumThreads=*/1, /*DispatchX=*/1,
+      /*OutputViewBytes=*/StartOffsetBytes + 8 * ElementBytes);
+  runVectorAccumulateDescriptor(
+      Device, DxcSupport, *Input, *Initial, *PartiallyAccumulated,
+      StartOffsetBytes,
+      L"Proposal 0035 permits either whole-operation or per-element no-op "
+      L"for vector accumulation crossing the descriptor bound",
+      Verbose, /*NumThreads=*/1, /*DispatchX=*/1,
+      /*OutputViewBytes=*/StartOffsetBytes + 4 * ElementBytes);
+  runVectorAccumulateDescriptor(
+      Device, DxcSupport, *Input, *Initial, *Initial, StartOffsetBytes,
+      L"A wholly out-of-view vector must leave the destination unchanged",
+      Verbose, /*NumThreads=*/1, /*DispatchX=*/1,
+      /*OutputViewBytes=*/StartOffsetBytes);
+}
+
+void DxilConf_SM610_LinAlg::VectorAccumulateDescriptorOOB_Thread_F16() {
+  runVectorAccumulateDescriptorOutOfBounds<HLSLHalf_t>(
+      D3DDevice, DxcSupport, L"VectorAccumulateDescriptorOOB_Thread_F16",
+      VerboseLogging);
+}
+
+void DxilConf_SM610_LinAlg::VectorAccumulateDescriptorOOB_Thread_F32() {
+  runVectorAccumulateDescriptorOutOfBounds<float>(
+      D3DDevice, DxcSupport, L"VectorAccumulateDescriptorOOB_Thread_F32",
+      VerboseLogging);
+}
+
 // The single-threaded cases above show that an accumulation lands, not that
 // concurrent accumulations all land. These dispatch many threads across many
 // groups at one destination. Each component carries one base-four digit of the
@@ -9828,6 +9933,35 @@ void DxilConf_SM610_LinAlg::
       /*StartOffsetBytes=*/64,
       L"Order-independent F32 vector descriptor accumulation under contention "
       L"from many threads across many groups",
+      VerboseLogging, VectorContentionThreads, VectorContentionGroups);
+}
+
+void DxilConf_SM610_LinAlg::VectorAccumulateDescriptorContention_Thread_I32() {
+  if (!accumulateStoreApplicable(
+          D3DDevice, ComponentType::I32,
+          linalg_test::AtomicDestination::RWByteAddressBuffer,
+          L"VectorAccumulateDescriptorContention_Thread_I32"))
+    return;
+
+  const auto Input =
+      cpu_oracle::makeTypedMatrix<int32_t>(1, 4, {3, -7, 11, -13});
+  const auto Initial = cpu_oracle::makeTypedMatrix<int32_t>(
+      1, 6, {101, -203, 307, -409, 123456789, -987654321});
+  // Each base-four digit contributes 64 * (0 + 1 + 2 + 3) = 384.
+  // Every partial sum lies between the initial value and the exact result.
+  const auto Expected = cpu_oracle::makeTypedMatrix<int32_t>(
+      1, 6, {1253, -1611, 3507, -3353, 123456789, -987654321});
+  VERIFY_IS_TRUE(Input.has_value());
+  VERIFY_IS_TRUE(Initial.has_value());
+  VERIFY_IS_TRUE(Expected.has_value());
+  if (!Input || !Initial || !Expected)
+    return;
+
+  runVectorAccumulateDescriptor(
+      D3DDevice, DxcSupport, *Input, *Initial, *Expected,
+      /*StartOffsetBytes=*/64,
+      L"Exact signed I32 vector accumulation from 256 distinct contending "
+      L"invocations, with untouched trailing guards",
       VerboseLogging, VectorContentionThreads, VectorContentionGroups);
 }
 
