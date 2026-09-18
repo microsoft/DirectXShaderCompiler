@@ -4301,10 +4301,12 @@ void DxilConf_SM610_LinAlg::
           SelectedWaveSize))
     return;
 
+  const size_t ElementBytes = elementSize(Params.CompType);
   const cpu_oracle::MatrixBufferLayout Layout = {
       MatrixLayout::RowMajor,
       /*OffsetBytes=*/DescriptorAlignedOffset,
-      /*StrideBytes=*/48,
+      /*StrideBytes=*/alignMatrixStride(Params.N * ElementBytes) +
+          MatrixStrideAlignmentBytes,
   };
   runLoadStoreDescriptor(D3DDevice, DxcSupport, Params, Layout, Layout,
                          VerboseLogging, SelectedWaveSize);
@@ -4415,15 +4417,18 @@ void DxilConf_SM610_LinAlg::
           SelectedWaveSize))
     return;
 
+  const size_t ElementBytes = elementSize(Params.CompType);
   const cpu_oracle::MatrixBufferLayout LoadLayout = {
       MatrixLayout::RowMajor,
       /*OffsetBytes=*/DescriptorAlignedOffset,
-      /*StrideBytes=*/80,
+      /*StrideBytes=*/alignMatrixStride(Params.N * ElementBytes) +
+          MatrixStrideAlignmentBytes,
   };
   const cpu_oracle::MatrixBufferLayout StoreLayout = {
       MatrixLayout::ColumnMajor,
       /*OffsetBytes=*/DescriptorAlignedOffset,
-      /*StrideBytes=*/64,
+      /*StrideBytes=*/alignMatrixStride(Params.M * ElementBytes) +
+          2 * MatrixStrideAlignmentBytes,
   };
   runLoadStoreDescriptor(D3DDevice, DxcSupport, Params, LoadLayout, StoreLayout,
                          VerboseLogging, SelectedWaveSize);
@@ -4513,10 +4518,12 @@ void DxilConf_SM610_LinAlg::
           SelectedWaveSize))
     return;
 
+  const size_t ElementBytes = elementSize(Params.CompType);
   const cpu_oracle::MatrixBufferLayout Layout = {
       MatrixLayout::RowMajor,
       /*OffsetBytes=*/DescriptorAlignedOffset,
-      /*StrideBytes=*/48,
+      /*StrideBytes=*/alignMatrixStride(Params.N * ElementBytes) +
+          MatrixStrideAlignmentBytes,
   };
   // 128 + 8 * 48 + 6 * 2: eight complete rows and six elements of row 8.
   runLoadDescriptorOutOfBounds(D3DDevice, DxcSupport, Params, Layout,
@@ -4605,10 +4612,12 @@ void DxilConf_SM610_LinAlg::
           SelectedWaveSize))
     return;
 
+  const size_t ElementBytes = elementSize(Params.CompType);
   const cpu_oracle::MatrixBufferLayout Layout = {
       MatrixLayout::RowMajor,
       /*OffsetBytes=*/DescriptorAlignedOffset,
-      /*StrideBytes=*/48,
+      /*StrideBytes=*/alignMatrixStride(Params.N * ElementBytes) +
+          MatrixStrideAlignmentBytes,
   };
   runStoreDescriptorOutOfBounds(D3DDevice, DxcSupport, Params, Layout,
                                 /*OutputViewBytes=*/524, VerboseLogging,
@@ -4705,10 +4714,12 @@ void DxilConf_SM610_LinAlg::
           L"AccumulateDescriptorOOB_Wave_16x16_F16_OffsetPaddedPartialView"))
     return;
 
+  const size_t ElementBytes = elementSize(Params.CompType);
   const cpu_oracle::MatrixBufferLayout Layout = {
       MatrixLayout::RowMajor,
       /*OffsetBytes=*/DescriptorAlignedOffset,
-      /*StrideBytes=*/48,
+      /*StrideBytes=*/alignMatrixStride(Params.N * ElementBytes) +
+          MatrixStrideAlignmentBytes,
   };
   runAccumulateDescriptorOutOfBounds(D3DDevice, DxcSupport, Params, Layout,
                                      /*OutputViewBytes=*/524, VerboseLogging,
