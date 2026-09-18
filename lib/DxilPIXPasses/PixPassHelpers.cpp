@@ -26,6 +26,7 @@
 #include "dxc/Support/Global.h"
 #include "dxc/Support/WinIncludes.h"
 #include "dxc/dxcapi.h"
+#include <optional>
 
 #ifdef PIX_DEBUG_DUMP_HELPER
 #include "llvm/IR/DebugInfo.h"
@@ -272,6 +273,7 @@ static void AddUAVToDxilDefinedGlobalRootSignatures(DxilModule &DM,
   struct ReplacementRootSignature {
     std::string Name;
     std::vector<uint8_t> Data;
+    std::optional<std::string> Text;
   };
 
   std::vector<ReplacementRootSignature> ReplacementRootSignatures;
@@ -282,14 +284,19 @@ static void AddUAVToDxilDefinedGlobalRootSignatures(DxilModule &DM,
           DXIL::SubobjectKind::GlobalRootSignature) {
         const void *Data = nullptr;
         uint32_t Size = 0;
+        const char *Text = nullptr;
         constexpr bool notALocalRS = false;
         if (subObject.second->GetRootSignature(notALocalRS, Data, Size,
-                                               nullptr)) {
+                                               &Text)) {
           std::vector<uint8_t> ExtendedRootSignature =
               AddUAVParamterToRootSignature(Data, Size, ToolsUAVRegister);
           if (!ExtendedRootSignature.empty()) {
+            std::optional<std::string> OwnedText;
+            if (Text != nullptr)
+              OwnedText = Text;
             ReplacementRootSignatures.push_back(
-                {subObject.first.str(), std::move(ExtendedRootSignature)});
+                {subObject.first.str(), std::move(ExtendedRootSignature),
+                 std::move(OwnedText)});
           }
         }
       }
@@ -299,9 +306,13 @@ static void AddUAVToDxilDefinedGlobalRootSignatures(DxilModule &DM,
     for (const ReplacementRootSignature &Replacement :
          ReplacementRootSignatures) {
       subObjects->RemoveSubobject(Replacement.Name);
+      std::optional<StringRef> TextRef;
+      if (Replacement.Text)
+        TextRef.emplace(*Replacement.Text);
       subObjects->CreateRootSignature(
           Replacement.Name, NotALocalRootSignature, Replacement.Data.data(),
-          static_cast<uint32_t>(Replacement.Data.size()));
+          static_cast<uint32_t>(Replacement.Data.size()),
+          TextRef ? &*TextRef : nullptr);
     }
   }
 }

@@ -151,6 +151,7 @@ public:
   TEST_METHOD(ToolsUav_TwoPixPassesShareOneResource)
   TEST_METHOD(ToolsUav_LibraryWithTwoEntryPointsCreatesOnePair)
   TEST_METHOD(ToolsUav_ExtendsEveryGlobalRootSignatureSubobject)
+  TEST_METHOD(ToolsUav_PreservesGlobalRootSignatureSourceText)
   TEST_METHOD(DebugInstrumentation_RawBufferShaderFlagDeclared)
   TEST_METHOD(ToolsUav_RootSignatureSerializationFailurePreservesSignature)
   TEST_METHOD(ToolsUav_ExtendingRootSignaturePreservesUnrelatedParameterFlags)
@@ -3393,6 +3394,97 @@ void MyMiss(inout MyPayload payload)
   verifyGlobalRootSignaturesHaveToolsUAVs(
       DM.GetSubobjects(), {"firstRootSignature", "secondRootSignature"},
       {0, 1});
+}
+
+TEST_F(PixTest, ToolsUav_PreservesGlobalRootSignatureSourceText) {
+  const char *Source = R"x(
+struct Payload
+{
+    float4 Color;
+};
+
+[shader("miss")]
+void main(inout Payload Value)
+{
+})x";
+
+  DxilRootParameter Parameter = {};
+  Parameter.ParameterType = DxilRootParameterType::CBV;
+  Parameter.Descriptor.ShaderRegister = 0;
+  Parameter.ShaderVisibility = DxilShaderVisibility::All;
+
+  DxilVersionedRootSignatureDesc RootSignature = {};
+  RootSignature.Version = DxilRootSignatureVersion::Version_1_0;
+  RootSignature.Desc_1_0.NumParameters = 1;
+  RootSignature.Desc_1_0.pParameters = &Parameter;
+  RootSignature.Desc_1_0.Flags = DxilRootSignatureFlags::None;
+
+  CComPtr<IDxcBlob> SerializedRootSignature;
+  CComPtr<IDxcBlobEncoding> ErrorBlob;
+  SerializeRootSignature(&RootSignature, &SerializedRootSignature, &ErrorBlob,
+                         true);
+  VERIFY_IS_NOT_NULL(SerializedRootSignature);
+
+  CComPtr<IDxcBlob> Compiled = Compile(m_dllSupport, Source, L"lib_6_6", {});
+  ModuleAndHangersOn ModuleEtc(Compiled);
+  DxilModule &DM = ModuleEtc.GetDxilModule();
+
+  std::unique_ptr<DxilSubobjects> Subobjects(new DxilSubobjects());
+  const std::string ExpectedText = "CBV(b0)";
+  llvm::StringRef TextRef(ExpectedText);
+  constexpr bool NotALocalRootSignature = false;
+  Subobjects->CreateRootSignature(
+      "testRootSignature", NotALocalRootSignature,
+      SerializedRootSignature->GetBufferPointer(),
+      static_cast<uint32_t>(SerializedRootSignature->GetBufferSize()),
+      &TextRef);
+  DM.ResetSubobjects(Subobjects.release());
+
+  PIXPassHelpers::CreateGlobalUAVResource(DM, 0, "PIX_TestUAV");
+
+  auto VerifyTextAndUAV = [&](DxilModule &Module) {
+    DxilSubobjects *ModuleSubobjects = Module.GetSubobjects();
+    VERIFY_IS_NOT_NULL(ModuleSubobjects);
+    if (ModuleSubobjects == nullptr)
+      return;
+    DxilSubobject *Subobject =
+        ModuleSubobjects->FindSubobject("testRootSignature");
+    VERIFY_IS_NOT_NULL(Subobject);
+    const void *Data = nullptr;
+    uint32_t Size = 0;
+    const char *Text = nullptr;
+    VERIFY_IS_TRUE(
+        Subobject->GetRootSignature(NotALocalRootSignature, Data, Size, &Text));
+    VERIFY_IS_NOT_NULL(Text);
+    VERIFY_ARE_EQUAL(ExpectedText, std::string(Text));
+
+    DxilVersionedRootSignatureDesc const *UpdatedRootSignature = nullptr;
+    DeserializeRootSignature(Data, Size, &UpdatedRootSignature);
+    VERIFY_IS_TRUE(rootSignatureHasToolsUAV(UpdatedRootSignature, 0));
+    DeleteRootSignature(UpdatedRootSignature);
+  };
+
+  VerifyTextAndUAV(DM);
+
+  DM.ReEmitDxilResources();
+  llvm::NamedMDNode *SubobjectsMetadata =
+      DM.GetModule()->getNamedMetadata(DxilMDHelper::kDxilSubobjectsMDName);
+  VERIFY_IS_NOT_NULL(SubobjectsMetadata);
+  bool FoundMetadata = false;
+  for (unsigned Index = 0; Index < SubobjectsMetadata->getNumOperands();
+       ++Index) {
+    llvm::MDNode *Entry = SubobjectsMetadata->getOperand(Index);
+    llvm::MDString *Name = llvm::dyn_cast<llvm::MDString>(Entry->getOperand(0));
+    if (Name == nullptr || Name->getString() != "testRootSignature")
+      continue;
+    llvm::MDString *Text = llvm::dyn_cast<llvm::MDString>(Entry->getOperand(3));
+    VERIFY_IS_NOT_NULL(Text);
+    if (Text != nullptr)
+      VERIFY_ARE_EQUAL(ExpectedText, Text->getString().str());
+    FoundMetadata = true;
+    break;
+  }
+  VERIFY_IS_TRUE(FoundMetadata);
 }
 
 TEST_F(PixTest, DebugInstrumentation_RawBufferShaderFlagDeclared) {
