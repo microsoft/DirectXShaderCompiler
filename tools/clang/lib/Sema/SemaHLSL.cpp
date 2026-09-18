@@ -6099,7 +6099,7 @@ public:
         if (isMatrix || isVector) {
           Expr *expr = arg.getAsExpr();
           llvm::APSInt constantResult;
-          if (expr != nullptr &&
+          if (expr != nullptr && !expr->isValueDependent() &&
               expr->isIntegerConstantExpr(constantResult, *m_context)) {
             if (CheckRangedTemplateArgument(argSrcLoc, constantResult,
                                             isVector))

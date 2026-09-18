@@ -4753,8 +4753,17 @@ QualType TreeTransform<Derived>::TransformFunctionProtoType(
       !std::equal(T->param_type_begin(), T->param_type_end(),
                   ParamTypes.begin()) || EPIChanged) {
     // HLSL Change - FIX - We should move param mods to parameter QualTypes
+    SmallVector<hlsl::ParameterModifier, 4> ExpandedParamMods;
+    ArrayRef<hlsl::ParameterModifier> ParamMods = T->getParamMods();
+    if (ParamMods.size() != ParamTypes.size()) {
+      ExpandedParamMods.reserve(ParamDecls.size());
+      for (ParmVarDecl *Param : ParamDecls)
+        ExpandedParamMods.push_back(Param ? Param->getParamModifiers()
+                                          : hlsl::ParameterModifier());
+      ParamMods = ExpandedParamMods;
+    }
     Result = getDerived().RebuildFunctionProtoType(ResultType, ParamTypes,
-                                                   T->getParamMods(), EPI);
+                                                   ParamMods, EPI);
     // HLSL Change - End
     if (Result.isNull())
       return QualType();

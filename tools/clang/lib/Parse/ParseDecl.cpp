@@ -6107,12 +6107,11 @@ void Parser::ParseDirectDeclarator(Declarator &D) {
     //   been expanded or contains auto; otherwise, it is parsed as part of the
     //   parameter-declaration-clause.
     if (Tok.is(tok::ellipsis) && D.getCXXScopeSpec().isEmpty() &&
-        !getLangOpts().HLSL && // HLSL Change: do not support ellipsis
+        !getLangOpts().HLSLDisallowsVariadicTemplates() && // HLSL Change
         !((D.getContext() == Declarator::PrototypeContext ||
            D.getContext() == Declarator::LambdaExprParameterContext ||
            D.getContext() == Declarator::BlockLiteralContext) &&
-          NextToken().is(tok::r_paren) &&
-          !D.hasGroupingParens() &&
+          NextToken().is(tok::r_paren) && !D.hasGroupingParens() &&
           !Actions.containsUnexpandedParameterPacks(D) &&
           D.getDeclSpec().getTypeSpecType() != TST_auto)) {
       SourceLocation EllipsisLoc = ConsumeToken();
