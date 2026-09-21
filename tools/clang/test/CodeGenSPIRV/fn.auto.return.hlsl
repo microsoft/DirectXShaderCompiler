@@ -12,6 +12,7 @@
 // CHECK-DAG: %SquareFloat = OpFunction [[FLOAT]] None
 // CHECK-DAG: %Scale = OpFunction [[V4FLOAT]] None
 // CHECK-DAG: %WriteOutput = OpFunction %void None
+// CHECK-DAG: %Sum = OpFunction [[FLOAT]] None
 
 RWBuffer<float> output : register(u0);
 
@@ -27,6 +28,11 @@ auto Scale(float4 v, float s) {
     return v * s;
 }
 
+template <typename T>
+auto Sum(T L, T R) {
+  return L + R;
+}
+
 auto WriteOutput(uint i, float v) {
     output[i] = v;
 }
@@ -35,5 +41,5 @@ auto WriteOutput(uint i, float v) {
 void main() {
     float4 v = float4(1, 2, 3, 4);
     float4 s = Scale(v, 0.5f);
-    WriteOutput(0, (float)SquareInt(3) + SquareFloat(2.5f) + s.x);
+    WriteOutput(0, (float)SquareInt(3) + Sum(SquareFloat(2.5f), s.x));
 }

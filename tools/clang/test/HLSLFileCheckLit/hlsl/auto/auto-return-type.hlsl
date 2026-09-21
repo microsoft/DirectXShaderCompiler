@@ -18,6 +18,9 @@
 // CHECK-LABEL: define internal float @"\01?SquareFloat
 // CHECK: ret float
 
+// CHECK-LABEL: define internal float @"\01??$Sum
+// CHECK ret float
+
 // CHECK-LABEL: define internal float @"\01?Clamp01
 // CHECK: ret float
 
@@ -57,9 +60,15 @@ auto Clamp01(float v) {
     return v;
 }
 
+// expected-warning@+2 {{'auto' type specifier is a HLSL 202x extension}}
+template <typename T>
+auto Sum(T L, T R) {
+  return L + R;
+}
+
 [numthreads(1,1,1)]
 void main() {
     float4 v = float4(1, 2, 3, 4);
     float4 s = Scale(v, 0.5f);
-    WriteOutput(0, (float)SquareInt(3) + SquareFloat(2.5f) + s.x + Clamp01(1.5f));
+    WriteOutput(0, (float)SquareInt(3) + SquareFloat(2.5f) + Sum(s.x, Clamp01(1.5f)));
 }
