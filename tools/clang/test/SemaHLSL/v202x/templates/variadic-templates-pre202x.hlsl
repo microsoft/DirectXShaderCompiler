@@ -4,6 +4,16 @@
 // to 202x that supports templates at all) must continue to reject the C++
 // variadic template syntax.
 
+#if __has_feature(cxx_variadic_templates)
+#error HLSL 2021 should not report variadic templates as a feature
+#endif
+#if __has_extension(cxx_variadic_templates)
+#error HLSL 2021 should not report variadic templates as an extension
+#endif
+#ifdef __cpp_variadic_templates
+#error HLSL 2021 should not define __cpp_variadic_templates
+#endif
+
 template <typename T, typename... Rest>
 // expected-error@-1{{variadic templates are not supported in HLSL}}
 T Sum(T First, Rest... Others) {

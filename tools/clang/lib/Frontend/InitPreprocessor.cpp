@@ -376,6 +376,8 @@ static void InitializeStandardPredefinedMacros(const TargetInfo &TI,
     // HLSL Version
     Builder.defineMacro("__HLSL_VERSION",
                         Twine((unsigned int)LangOpts.HLSLVersion));
+    if (!LangOpts.HLSLDisallowsVariadicTemplates())
+      Builder.defineMacro("__cpp_variadic_templates", "200704");
     // This define is enabled in Clang and allows conditionally compiling code
     // based on whether or not native 16-bit types are supported.
     if (!LangOpts.UseMinPrecision)
@@ -487,7 +489,6 @@ static void InitializeCPlusPlusFeatureTestMacros(const LangOptions &LangOpts,
     Builder.defineMacro("__cpp_decltype", "200707");
     Builder.defineMacro("__cpp_attributes", "200809");
     Builder.defineMacro("__cpp_rvalue_references", "200610");
-    Builder.defineMacro("__cpp_variadic_templates", "200704");
     Builder.defineMacro("__cpp_initializer_lists", "200806");
     Builder.defineMacro("__cpp_delegating_constructors", "200604");
     Builder.defineMacro("__cpp_nsdmi", "200809");
@@ -495,7 +496,6 @@ static void InitializeCPlusPlusFeatureTestMacros(const LangOptions &LangOpts,
     Builder.defineMacro("__cpp_ref_qualifiers", "200710");
     Builder.defineMacro("__cpp_alias_templates", "200704");
   }
-
   // C++14 features.
   if (LangOpts.CPlusPlus14) {
     Builder.defineMacro("__cpp_binary_literals", "201304");

@@ -3,7 +3,15 @@
 
 // Verify HLSL 202x variadic templates in semantic analysis and the AST.
 
-// expected-no-diagnostics
+#if !__has_feature(cxx_variadic_templates)
+#error HLSL 202x should report variadic templates as a feature
+#endif
+#if !__has_extension(cxx_variadic_templates)
+#error HLSL 202x should report variadic templates as an extension
+#endif
+#if __cpp_variadic_templates != 200704
+#error HLSL 202x should define __cpp_variadic_templates
+#endif
 
 // Template type parameter pack.
 // CHECK: FunctionTemplateDecl {{.*}} Sum
@@ -36,6 +44,11 @@ struct Tuple {
 template <typename... Args>
 uint CountArgs(Args... args) {
   return sizeof...(Args);
+}
+
+template <typename... Args>
+uint FoldSum(Args... args) {
+  return (args + ...); // expected-warning {{fold expressions are a C++17 extension and are not part of standard HLSL}}
 }
 
 // Pack expansion forwarding a parameter pack as a template argument list.
@@ -126,6 +139,8 @@ float TestVariadic() {
   mw.M = matrix<float, 2, 2>(1, 2, 3, 4);
   uint z = Zipper<int, float>::Count<double>(1, 2.0, 3.0);
   uint empty = TestEmptyPack();
+    uint folded = FoldSum(1, 2, 3, 4);
   return a + b + c + d + e + eEmpty + v.x + f + mw.M._11 + z + empty +
-         (float)g_FloatHolder.Buf.Load(0) + (float)g_IntHolder.Buf.Load(0);
+      folded + (float)g_FloatHolder.Buf.Load(0) +
+      (float)g_IntHolder.Buf.Load(0);
 }

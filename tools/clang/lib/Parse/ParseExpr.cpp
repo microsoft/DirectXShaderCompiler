@@ -2748,9 +2748,12 @@ ExprResult Parser::ParseFoldExpression(ExprResult LHS,
     }
   }
 
-  Diag(EllipsisLoc, getLangOpts().CPlusPlus1z
-                        ? diag::warn_cxx14_compat_fold_expression
-                        : diag::ext_fold_expression);
+  if (getLangOpts().HLSL && !getLangOpts().HLSLDisallowsVariadicTemplates())
+    Diag(EllipsisLoc, diag::warn_hlsl_fold_expression);
+  else
+    Diag(EllipsisLoc, getLangOpts().CPlusPlus1z
+                          ? diag::warn_cxx14_compat_fold_expression
+                          : diag::ext_fold_expression);
 
   T.consumeClose();
   return Actions.ActOnCXXFoldExpr(T.getOpenLocation(), LHS.get(), Kind,
