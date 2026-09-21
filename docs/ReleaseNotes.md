@@ -27,6 +27,10 @@ line upon naming the release. Refer to previous for appropriate section names.
 - Fixed derivative operations being moved into divergent control flow, which
   could produce incorrect results
   [#8001](https://github.com/microsoft/DirectXShaderCompiler/issues/8001).
+- Fixed a bug in template instantiations involving functions with an
+  out parameter, which could lead to an assert or a bad memory access.
+  [#5293](https://github.com/microsoft/DirectXShaderCompiler/issues/5293),
+  [#8310](https://github.com/microsoft/DirectXShaderCompiler/issues/8310).
 - SPIR-V: Fixed an invalid `OpSelect` being generated when optimizing for
   SPIR-V 1.3 and earlier
   [#8603](https://github.com/microsoft/DirectXShaderCompiler/issues/8603).
@@ -36,6 +40,13 @@ line upon naming the release. Refer to previous for appropriate section names.
 - SPIR-V: Fixed a crash when writing to a bitfield member through a
   `vk::BufferPointer`
   [#8402](https://github.com/microsoft/DirectXShaderCompiler/issues/8402).
+- Prevented an assertion from hiding the original fatal error when Clang skips
+  template specialization
+  [#6615](https://github.com/microsoft/DirectXShaderCompiler/issues/6615),
+  [#4875](https://github.com/microsoft/DirectXShaderCompiler/issues/4875).
+- Fixed internal compiler errors when a member method is called on a ray payload
+  or on one of its fields with payload access qualifiers enabled
+  [#6464](https://github.com/microsoft/DirectXShaderCompiler/issues/6464).
 
 #### HLSL Language
 
@@ -54,19 +65,20 @@ line upon naming the release. Refer to previous for appropriate section names.
 
 #### SPIR-V
 
+- Inline `[[vk::ext_decorate]]`, `[[vk::ext_capability]]`, and
+  `[[vk::ext_extension]]` attributes are now honored on ordinary functions
+  [#8616](https://github.com/microsoft/DirectXShaderCompiler/pull/8616).
+- `globallycoherent` is now supported on `ResourceDescriptorHeap` accesses
+  [#7740](https://github.com/microsoft/DirectXShaderCompiler/issues/7740).
+- Fixed a crash when a user-defined type named `RayQuery` shadows the intrinsic
+  type [#8601](https://github.com/microsoft/DirectXShaderCompiler/issues/8601).
 - Fixed a crash from `static` members of a `cbuffer`/`tbuffer`, which were
   incorrectly counted as buffer members and shifted the member indices of the
   members declared after them
   [#8537](https://github.com/microsoft/DirectXShaderCompiler/issues/8537).
-
-#### Bug Fixes
-
-- Fixed internal compiler errors when a member method is called on a ray payload
-  or on one of its fields with payload access qualifiers enabled
-  [#6464](https://github.com/microsoft/DirectXShaderCompiler/issues/6464).
-- SPIR-V fixed incorrect alignment of 64-bit elements in `vk::RawBufferLoad` and
+- Fixed incorrect alignment of 64-bit elements in `vk::RawBufferLoad` and
   `vk::RawBufferStore` intrinsics
-  [#8572](https://github.com/microsoft/DirectXShaderCompiler/issues/8572)
+  [#8572](https://github.com/microsoft/DirectXShaderCompiler/issues/8572).
 
 ### Upcoming Preview Release
 

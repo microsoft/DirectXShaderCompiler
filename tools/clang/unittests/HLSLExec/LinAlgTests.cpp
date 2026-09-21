@@ -3599,14 +3599,19 @@ public:
   // Load/Store/Accumulate Descriptor
   TEST_METHOD(LoadStoreDescriptor_Wave_16x16_F16);
   TEST_METHOD(LoadStoreDescriptor_Wave_4x8_F16_RowMajorOffsetPadded);
+  TEST_METHOD(LoadStoreDescriptor_Wave_16x16_F16_RowMajorOffsetPadded);
   TEST_METHOD(LoadStoreDescriptor_Wave_4x8_F32_RowMajorToColumnMajor);
   TEST_METHOD(LoadStoreDescriptor_Wave_4x8_F16_RowMajorToColumnMajor);
+  TEST_METHOD(LoadStoreDescriptor_Wave_16x32_F16_RowMajorToColumnMajor);
   TEST_METHOD(LoadDescriptorOOB_Wave_16x16_F16_PartialView);
   TEST_METHOD(LoadDescriptorOOB_Wave_4x8_F16_OffsetPaddedPartialView);
+  TEST_METHOD(LoadDescriptorOOB_Wave_16x16_F16_OffsetPaddedPartialView);
   TEST_METHOD(StoreDescriptorOOB_Wave_16x16_F16_PartialView);
   TEST_METHOD(StoreDescriptorOOB_Wave_4x8_F16_OffsetPaddedPartialView);
+  TEST_METHOD(StoreDescriptorOOB_Wave_16x16_F16_OffsetPaddedPartialView);
   TEST_METHOD(AccumulateDescriptorOOB_Wave_16x16_F16_PartialView);
   TEST_METHOD(AccumulateDescriptorOOB_Wave_4x8_F16_OffsetPaddedPartialView);
+  TEST_METHOD(AccumulateDescriptorOOB_Wave_16x16_F16_OffsetPaddedPartialView);
   TEST_METHOD(SplatStore_Wave_16x16_F16);
   TEST_METHOD(AccumulateDescriptor_Wave_16x16_F16);
   TEST_METHOD(AccumulateDescriptorContention_Wave_4x8_I32);
@@ -3617,9 +3622,11 @@ public:
   TEST_METHOD(StoreMemory_Wave_16x16_F16);
   TEST_METHOD(AccumulateMemory_Wave_16x16_F16);
   TEST_METHOD(LoadStoreMemory_Wave_4x8_F16_RowMajorOffsetPadded);
+  TEST_METHOD(LoadStoreMemory_Wave_16x32_F16_RowMajorOffsetPadded);
   TEST_METHOD(LoadStoreMemory_Wave_4x8_F32_ColumnMajorOffsetPadded);
   TEST_METHOD(LoadStoreMemory_ThreadGroup_4x8_F16);
   TEST_METHOD(AccumulateMemoryContention_Wave_4x8_F16);
+  TEST_METHOD(AccumulateMemoryContention_Wave_16x16_F16);
   TEST_METHOD(AccumulateMemoryContention_Wave_4x8_I32);
 
   // Element access
@@ -3643,6 +3650,7 @@ public:
   TEST_METHOD(MatMatMul_Wave_16x16x16_I32);
   TEST_METHOD(MatMatMulAccum_Wave_16x16x16_F16);
   TEST_METHOD(MatMatMulAccum_Wave_8x32x16_F16_ToF32_NonUniform);
+  TEST_METHOD(MatMatMulAccum_Wave_16x16x16_F16_ToF32_BLayouts);
   TEST_METHOD(MatMatMul_ThreadGroup_WaveScaled_F16_NonUniform);
   TEST_METHOD(MatMatMulAccum_ThreadGroup_WaveScaled_F16_ToF32_NonUniform);
   TEST_METHOD(MatMatMul_ThreadGroup_WaveScaled_I32);
@@ -4275,6 +4283,36 @@ void DxilConf_SM610_LinAlg::
                          VerboseLogging, SelectedWaveSize);
 }
 
+void DxilConf_SM610_LinAlg::
+    LoadStoreDescriptor_Wave_16x16_F16_RowMajorOffsetPadded() {
+  MatrixParams Params = {};
+  Params.CompType = ComponentType::F16;
+  Params.M = 16;
+  Params.N = 16;
+  Params.Use = MatrixUse::A;
+  Params.Scope = MatrixScope::Wave;
+  Params.Layout = MatrixLayout::RowMajor;
+  Params.NumThreads = 128;
+  Params.Enable16Bit = true;
+
+  UINT SelectedWaveSize = 0;
+  if (!matrixConstructionApplicable(
+          D3DDevice, Params, {Params.Use},
+          L"LoadStoreDescriptor_Wave_16x16_F16_RowMajorOffsetPadded",
+          SelectedWaveSize))
+    return;
+
+  const size_t ElementBytes = elementSize(Params.CompType);
+  const cpu_oracle::MatrixBufferLayout Layout = {
+      MatrixLayout::RowMajor,
+      /*OffsetBytes=*/DescriptorAlignedOffset,
+      /*StrideBytes=*/alignMatrixStride(Params.N * ElementBytes) +
+          MatrixStrideAlignmentBytes,
+  };
+  runLoadStoreDescriptor(D3DDevice, DxcSupport, Params, Layout, Layout,
+                         VerboseLogging, SelectedWaveSize);
+}
+
 // Loads RowMajor and stores ColumnMajor, which a shared layout cannot express:
 // with the same layout on both sides, an implementation that ignores the
 // layout argument entirely still round trips byte-identically, because the
@@ -4360,6 +4398,43 @@ void DxilConf_SM610_LinAlg::
                          VerboseLogging, SelectedWaveSize);
 }
 
+// A rectangular multiple of a 16x16 tile prevents swapped layouts cancelling.
+void DxilConf_SM610_LinAlg::
+    LoadStoreDescriptor_Wave_16x32_F16_RowMajorToColumnMajor() {
+  MatrixParams Params = {};
+  Params.CompType = ComponentType::F16;
+  Params.M = 16;
+  Params.N = 32;
+  Params.Use = MatrixUse::A;
+  Params.Scope = MatrixScope::Wave;
+  Params.Layout = MatrixLayout::RowMajor;
+  Params.NumThreads = 128;
+  Params.Enable16Bit = true;
+
+  UINT SelectedWaveSize = 0;
+  if (!matrixConstructionApplicable(
+          D3DDevice, Params, {Params.Use},
+          L"LoadStoreDescriptor_Wave_16x32_F16_RowMajorToColumnMajor",
+          SelectedWaveSize))
+    return;
+
+  const size_t ElementBytes = elementSize(Params.CompType);
+  const cpu_oracle::MatrixBufferLayout LoadLayout = {
+      MatrixLayout::RowMajor,
+      /*OffsetBytes=*/DescriptorAlignedOffset,
+      /*StrideBytes=*/alignMatrixStride(Params.N * ElementBytes) +
+          MatrixStrideAlignmentBytes,
+  };
+  const cpu_oracle::MatrixBufferLayout StoreLayout = {
+      MatrixLayout::ColumnMajor,
+      /*OffsetBytes=*/DescriptorAlignedOffset,
+      /*StrideBytes=*/alignMatrixStride(Params.M * ElementBytes) +
+          2 * MatrixStrideAlignmentBytes,
+  };
+  runLoadStoreDescriptor(D3DDevice, DxcSupport, Params, LoadLayout, StoreLayout,
+                         VerboseLogging, SelectedWaveSize);
+}
+
 // Half the source matrix lies outside the view the descriptor carries. The
 // boundary is deliberately placed mid-row rather than on a row boundary, so an
 // implementation that bounds checks a row at a time cannot pass it.
@@ -4422,6 +4497,38 @@ void DxilConf_SM610_LinAlg::
   // short of the padding rather than on it.
   runLoadDescriptorOutOfBounds(D3DDevice, DxcSupport, Params, Layout,
                                /*InputViewBytes=*/172, VerboseLogging,
+                               SelectedWaveSize);
+}
+
+void DxilConf_SM610_LinAlg::
+    LoadDescriptorOOB_Wave_16x16_F16_OffsetPaddedPartialView() {
+  MatrixParams Params = {};
+  Params.CompType = ComponentType::F16;
+  Params.M = 16;
+  Params.N = 16;
+  Params.Use = MatrixUse::A;
+  Params.Scope = MatrixScope::Wave;
+  Params.Layout = MatrixLayout::RowMajor;
+  Params.NumThreads = 128;
+  Params.Enable16Bit = true;
+
+  UINT SelectedWaveSize = 0;
+  if (!matrixConstructionApplicable(
+          D3DDevice, Params, {Params.Use},
+          L"LoadDescriptorOOB_Wave_16x16_F16_OffsetPaddedPartialView",
+          SelectedWaveSize))
+    return;
+
+  const size_t ElementBytes = elementSize(Params.CompType);
+  const cpu_oracle::MatrixBufferLayout Layout = {
+      MatrixLayout::RowMajor,
+      /*OffsetBytes=*/DescriptorAlignedOffset,
+      /*StrideBytes=*/alignMatrixStride(Params.N * ElementBytes) +
+          MatrixStrideAlignmentBytes,
+  };
+  // 128 + 8 * 48 + 6 * 2: eight complete rows and six elements of row 8.
+  runLoadDescriptorOutOfBounds(D3DDevice, DxcSupport, Params, Layout,
+                               /*InputViewBytes=*/524, VerboseLogging,
                                SelectedWaveSize);
 }
 
@@ -4488,6 +4595,37 @@ void DxilConf_SM610_LinAlg::
 }
 
 void DxilConf_SM610_LinAlg::
+    StoreDescriptorOOB_Wave_16x16_F16_OffsetPaddedPartialView() {
+  MatrixParams Params = {};
+  Params.CompType = ComponentType::F16;
+  Params.M = 16;
+  Params.N = 16;
+  Params.Use = MatrixUse::A;
+  Params.Scope = MatrixScope::Wave;
+  Params.Layout = MatrixLayout::RowMajor;
+  Params.NumThreads = 128;
+  Params.Enable16Bit = true;
+
+  UINT SelectedWaveSize = 0;
+  if (!matrixConstructionApplicable(
+          D3DDevice, Params, {Params.Use},
+          L"StoreDescriptorOOB_Wave_16x16_F16_OffsetPaddedPartialView",
+          SelectedWaveSize))
+    return;
+
+  const size_t ElementBytes = elementSize(Params.CompType);
+  const cpu_oracle::MatrixBufferLayout Layout = {
+      MatrixLayout::RowMajor,
+      /*OffsetBytes=*/DescriptorAlignedOffset,
+      /*StrideBytes=*/alignMatrixStride(Params.N * ElementBytes) +
+          MatrixStrideAlignmentBytes,
+  };
+  runStoreDescriptorOutOfBounds(D3DDevice, DxcSupport, Params, Layout,
+                                /*OutputViewBytes=*/524, VerboseLogging,
+                                SelectedWaveSize);
+}
+
+void DxilConf_SM610_LinAlg::
     AccumulateDescriptorOOB_Wave_16x16_F16_PartialView() {
   MatrixParams Params = {};
   Params.CompType = ComponentType::F16;
@@ -4550,6 +4688,42 @@ void DxilConf_SM610_LinAlg::
   // 172 bytes: row 0 whole plus columns 0 to 5 of row 1.
   runAccumulateDescriptorOutOfBounds(D3DDevice, DxcSupport, Params, Layout,
                                      /*OutputViewBytes=*/172, VerboseLogging,
+                                     SelectedWaveSize);
+}
+
+void DxilConf_SM610_LinAlg::
+    AccumulateDescriptorOOB_Wave_16x16_F16_OffsetPaddedPartialView() {
+  MatrixParams Params = {};
+  Params.CompType = ComponentType::F16;
+  Params.M = 16;
+  Params.N = 16;
+  Params.Use = MatrixUse::Accumulator;
+  Params.Scope = MatrixScope::Wave;
+  Params.Layout = MatrixLayout::RowMajor;
+  Params.NumThreads = 128;
+  Params.Enable16Bit = true;
+
+  UINT SelectedWaveSize = 0;
+  if (!matrixConstructionApplicable(
+          D3DDevice, Params, {Params.Use},
+          L"AccumulateDescriptorOOB_Wave_16x16_F16_OffsetPaddedPartialView",
+          SelectedWaveSize))
+    return;
+  if (!accumulateStoreApplicable(
+          D3DDevice, Params.CompType,
+          linalg_test::AtomicDestination::RWByteAddressBuffer,
+          L"AccumulateDescriptorOOB_Wave_16x16_F16_OffsetPaddedPartialView"))
+    return;
+
+  const size_t ElementBytes = elementSize(Params.CompType);
+  const cpu_oracle::MatrixBufferLayout Layout = {
+      MatrixLayout::RowMajor,
+      /*OffsetBytes=*/DescriptorAlignedOffset,
+      /*StrideBytes=*/alignMatrixStride(Params.N * ElementBytes) +
+          MatrixStrideAlignmentBytes,
+  };
+  runAccumulateDescriptorOutOfBounds(D3DDevice, DxcSupport, Params, Layout,
+                                     /*OutputViewBytes=*/524, VerboseLogging,
                                      SelectedWaveSize);
 }
 
@@ -6150,6 +6324,7 @@ struct MatrixMultiplyCase {
   ComponentType MatrixAType = ComponentType::Invalid;
   ComponentType MatrixBType = ComponentType::Invalid;
   ComponentType AccumulatorType = ComponentType::Invalid;
+  MatrixLayout MatrixBLayout = MatrixLayout::RowMajor;
   MatrixDim M = 0;
   MatrixDim K = 0;
   MatrixDim N = 0;
@@ -6181,6 +6356,9 @@ static bool isMatrixMultiplyCaseValid(const MatrixMultiplyCase &Case) {
   if (!toCapabilityDataType(Case.MatrixBType))
     return false;
   if (!toCapabilityDataType(Case.AccumulatorType))
+    return false;
+  if (Case.MatrixBLayout != MatrixLayout::RowMajor &&
+      Case.MatrixBLayout != MatrixLayout::ColumnMajor)
     return false;
   return !Case.PublicRule.empty();
 }
@@ -6630,7 +6808,7 @@ static const char MatrixMultiplyShader[] = R"(
         MATRIX_B_COMP_TYPE, K_DIM, N_DIM, USE_B, MATRIX_SCOPE)]]
       MatB;
     __builtin_LinAlg_MatrixLoadFromDescriptor(
-      MatB, MatrixBInput, 0, MATRIX_B_STRIDE, LAYOUT_ROW_MAJOR, 128);
+      MatB, MatrixBInput, 0, MATRIX_B_STRIDE, MATRIX_B_LAYOUT, 128);
 
     __builtin_LinAlgMatrix
       [[__LinAlgMatrix_Attributes(
@@ -6666,8 +6844,9 @@ buildMatrixMultiplyCompilerArgs(const MatrixMultiplyCase &Case,
 
   const MatrixParams MatrixA = makeMatrixArithmeticParams(
       Case.MatrixAType, Case.M, Case.K, MatrixUse::A, Scope, NumThreads);
-  const MatrixParams MatrixB = makeMatrixArithmeticParams(
+  MatrixParams MatrixB = makeMatrixArithmeticParams(
       Case.MatrixBType, Case.K, Case.N, MatrixUse::B, Scope, NumThreads);
+  MatrixB.Layout = Case.MatrixBLayout;
   const MatrixParams Accumulator =
       makeMatrixArithmeticParams(Case.AccumulatorType, Case.M, Case.N,
                                  MatrixUse::Accumulator, Scope, NumThreads);
@@ -6683,6 +6862,7 @@ buildMatrixMultiplyCompilerArgs(const MatrixMultiplyCase &Case,
   SS << " -DN_DIM=" << Case.N;
   SS << " -DMATRIX_A_STRIDE=" << MatrixA.strideBytes();
   SS << " -DMATRIX_B_STRIDE=" << MatrixB.strideBytes();
+  SS << " -DMATRIX_B_LAYOUT=" << static_cast<int>(Case.MatrixBLayout);
   SS << " -DACCUMULATOR_STRIDE=" << Accumulator.strideBytes();
   SS << " -DNUMTHREADS=" << NumThreads;
   SS << " -DFORCED_WAVE_SIZE=" << WaveSize;
@@ -6736,8 +6916,9 @@ static void runMatrixMultiplyCase(ID3D12Device *Device,
 
   const MatrixParams MatrixA = makeMatrixArithmeticParams(
       Case.MatrixAType, Case.M, Case.K, MatrixUse::A, Scope, NumThreads);
-  const MatrixParams MatrixB = makeMatrixArithmeticParams(
+  MatrixParams MatrixB = makeMatrixArithmeticParams(
       Case.MatrixBType, Case.K, Case.N, MatrixUse::B, Scope, NumThreads);
+  MatrixB.Layout = Case.MatrixBLayout;
   const MatrixParams Accumulator =
       makeMatrixArithmeticParams(Case.AccumulatorType, Case.M, Case.N,
                                  MatrixUse::Accumulator, Scope, NumThreads);
@@ -6888,6 +7069,31 @@ void DxilConf_SM610_LinAlg::MatMatMulAccum_Wave_8x32x16_F16_ToF32_NonUniform() {
   runWaveMultiplyCase(D3DDevice, DxcSupport, Case,
                       L"MatMatMulAccum_Wave_8x32x16_F16_ToF32_NonUniform",
                       VerboseLogging);
+}
+
+void DxilConf_SM610_LinAlg::MatMatMulAccum_Wave_16x16x16_F16_ToF32_BLayouts() {
+  MatrixMultiplyCase Case = {};
+  Case.MatrixAType = ComponentType::F16;
+  Case.MatrixBType = ComponentType::F16;
+  Case.AccumulatorType = ComponentType::F32;
+  Case.M = Case.K = Case.N = 16;
+  Case.Operation = MatrixMultiplyOperation::MultiplyAccumulate;
+  Case.MatrixAValues.assign(static_cast<size_t>(Case.M) * Case.K, 0);
+  for (MatrixDim Row = 0; Row < Case.M; ++Row)
+    Case.MatrixAValues[static_cast<size_t>(Row) * Case.K + Row] = 1;
+  for (MatrixDim Row = 0; Row < Case.K; ++Row)
+    for (MatrixDim Column = 0; Column < Case.N; ++Column)
+      Case.MatrixBValues.push_back(static_cast<int64_t>(Row) * Case.N + Column +
+                                   1);
+  Case.AccumulatorValues.assign(static_cast<size_t>(Case.M) * Case.N, 0);
+  Case.PublicRule = L"Both B layouts match the independent CPU product";
+  for (MatrixLayout Layout :
+       {MatrixLayout::RowMajor, MatrixLayout::ColumnMajor}) {
+    Case.MatrixBLayout = Layout;
+    runWaveMultiplyCase(D3DDevice, DxcSupport, Case,
+                        L"MatMatMulAccum_Wave_16x16x16_F16_ToF32_BLayouts",
+                        VerboseLogging);
+  }
 }
 
 void DxilConf_SM610_LinAlg::MatMatMul_Wave_16x16x16_I32() {
@@ -8770,6 +8976,43 @@ void DxilConf_SM610_LinAlg::
                                       SelectedWaveSize);
 }
 
+// Keep this rectangular too: both transfer directions must expose layout swaps.
+void DxilConf_SM610_LinAlg::
+    LoadStoreMemory_Wave_16x32_F16_RowMajorOffsetPadded() {
+  MatrixParams Params = {};
+  Params.CompType = ComponentType::F16;
+  Params.M = 16;
+  Params.N = 32;
+  Params.Use = MatrixUse::A;
+  Params.Scope = MatrixScope::Wave;
+  Params.Layout = MatrixLayout::RowMajor;
+  Params.NumThreads = 128;
+  Params.Enable16Bit = true;
+
+  UINT SelectedWaveSize = 0;
+  if (!matrixConstructionApplicable(
+          D3DDevice, Params, {Params.Use},
+          L"LoadStoreMemory_Wave_16x32_F16_RowMajorOffsetPadded",
+          SelectedWaveSize))
+    return;
+
+  const size_t ElementBytes = elementSize(Params.CompType);
+  const cpu_oracle::MatrixBufferLayout Target = {
+      MatrixLayout::RowMajor,
+      /*OffsetBytes=*/MatrixOffsetAlignmentBytes,
+      /*StrideBytes=*/alignMatrixStride(Params.N * ElementBytes) +
+          MatrixStrideAlignmentBytes,
+  };
+  const cpu_oracle::MatrixBufferLayout Canonical = {
+      MatrixLayout::ColumnMajor,
+      /*OffsetBytes=*/0,
+      /*StrideBytes=*/alignMatrixStride(Params.M * ElementBytes),
+  };
+  runBidirectionalGroupSharedTransfer(D3DDevice, DxcSupport, Params, Target,
+                                      Canonical, VerboseLogging,
+                                      SelectedWaveSize);
+}
+
 void DxilConf_SM610_LinAlg::
     LoadStoreMemory_Wave_4x8_F32_ColumnMajorOffsetPadded() {
   MatrixParams Params = {};
@@ -9154,6 +9397,42 @@ void DxilConf_SM610_LinAlg::AccumulateMemoryContention_Wave_4x8_F16() {
   runGroupSharedAccumulateContention(D3DDevice, DxcSupport, ComponentType::F16,
                                      L"AccumulateMemoryContention_Wave_4x8_F16",
                                      VerboseLogging);
+}
+
+void DxilConf_SM610_LinAlg::AccumulateMemoryContention_Wave_16x16_F16() {
+  MatrixParams Params = {};
+  Params.CompType = ComponentType::F16;
+  Params.M = 16;
+  Params.N = 16;
+  Params.Use = MatrixUse::Accumulator;
+  Params.Scope = MatrixScope::Wave;
+  Params.Layout = MatrixLayout::RowMajor;
+  Params.NumThreads = 512;
+  Params.Enable16Bit = true;
+
+  UINT SelectedWaveSize = 0;
+  if (!matrixConstructionApplicable(
+          D3DDevice, Params, {Params.Use},
+          L"AccumulateMemoryContention_Wave_16x16_F16", SelectedWaveSize))
+    return;
+  if (!accumulateStoreApplicable(D3DDevice, Params.CompType,
+                                 linalg_test::AtomicDestination::GroupShared,
+                                 L"AccumulateMemoryContention_Wave_16x16_F16"))
+    return;
+
+  // Three waves bound every sum by 7 + 6 * 256 = 1543, exact in F16.
+  constexpr UINT ActiveWaveCount = 3;
+  Params.NumThreads = static_cast<int>(SelectedWaveSize * ActiveWaveCount);
+  const size_t ElementBytes = elementSize(Params.CompType);
+  const cpu_oracle::MatrixBufferLayout Memory = {
+      MatrixLayout::RowMajor,
+      /*OffsetBytes=*/MatrixOffsetAlignmentBytes,
+      /*StrideBytes=*/alignMatrixStride(Params.N * ElementBytes) +
+          MatrixStrideAlignmentBytes,
+  };
+  runGroupSharedAccumulate(D3DDevice, DxcSupport, Params, Memory,
+                           /*InitialValue=*/7, /*AccumulateStartingValue=*/1,
+                           VerboseLogging, SelectedWaveSize, ActiveWaveCount);
 }
 
 void DxilConf_SM610_LinAlg::AccumulateMemoryContention_Wave_4x8_I32() {
