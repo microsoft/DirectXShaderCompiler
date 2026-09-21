@@ -2555,16 +2555,17 @@ Sema::SubstituteExplicitTemplateArguments(
 
   // Isolate our substituted parameters from our caller.
   LocalInstantiationScope InstScope(*this, /*MergeWithOuterScope*/true);
+  SmallVector<ParmVarDecl *, 4> ParamDecls;
 
   // Instantiate the types of each of the function parameters given the
   // explicitly-specified template arguments. If the function has a trailing
   // return type, substitute it after the arguments to ensure we substitute
   // in lexical order.
   if (Proto->hasTrailingReturn()) {
-    if (SubstParmTypes(Function->getLocation(),
-                       Function->param_begin(), Function->getNumParams(),
+    if (SubstParmTypes(Function->getLocation(), Function->param_begin(),
+                       Function->getNumParams(),
                        MultiLevelTemplateArgumentList(*ExplicitArgumentList),
-                       ParamTypes))
+                       ParamTypes, &ParamDecls))
       return TDK_SubstitutionFailure;
   }
   
@@ -2598,18 +2599,22 @@ Sema::SubstituteExplicitTemplateArguments(
   // Instantiate the types of each of the function parameters given the
   // explicitly-specified template arguments if we didn't do so earlier.
   if (!Proto->hasTrailingReturn() &&
-      SubstParmTypes(Function->getLocation(),
-                     Function->param_begin(), Function->getNumParams(),
+      SubstParmTypes(Function->getLocation(), Function->param_begin(),
+                     Function->getNumParams(),
                      MultiLevelTemplateArgumentList(*ExplicitArgumentList),
-                     ParamTypes))
+                     ParamTypes, &ParamDecls))
     return TDK_SubstitutionFailure;
 
   if (FunctionType) {
     // HLSL Change - FIX - We should move param mods to parameter QualTypes
+    SmallVector<hlsl::ParameterModifier, 4> ParamMods;
+    ParamMods.reserve(ParamDecls.size());
+    for (ParmVarDecl *Param : ParamDecls)
+      ParamMods.push_back(Param ? Param->getParamModifiers()
+                                : hlsl::ParameterModifier());
     *FunctionType = BuildFunctionType(
         ResultType, ParamTypes, Function->getLocation(),
-        Function->getDeclName(), Proto->getExtProtoInfo(),
-        cast<FunctionProtoType>(Function->getType())->getParamMods());
+        Function->getDeclName(), Proto->getExtProtoInfo(), ParamMods);
     // HLSL Change - End
     if (FunctionType->isNull() || Trap.hasErrorOccurred())
       return TDK_SubstitutionFailure;

@@ -125,6 +125,9 @@ struct Zipper {
 // Zero-argument (empty pack) instantiation.
 uint TestEmptyPack() { return CountArgs(); }
 
+template <typename... Ts>
+void ExplicitArgs(Ts... values) {}
+
 export
 float TestVariadic() {
   float a = Sum(1.0, 2.0, 3.0);
@@ -139,7 +142,10 @@ float TestVariadic() {
   mw.M = matrix<float, 2, 2>(1, 2, 3, 4);
   uint z = Zipper<int, float>::Count<double>(1, 2.0, 3.0);
   uint empty = TestEmptyPack();
-    uint folded = FoldSum(1, 2, 3, 4);
+  int explicitInt;
+  float explicitFloat;
+  ExplicitArgs<int, float>(explicitInt, explicitFloat);
+  uint folded = FoldSum(1, 2, 3, 4);
   return a + b + c + d + e + eEmpty + v.x + f + mw.M._11 + z + empty +
       folded + (float)g_FloatHolder.Buf.Load(0) +
       (float)g_IntHolder.Buf.Load(0);
