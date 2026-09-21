@@ -59,6 +59,10 @@ bool DxilNonUniformResourceIndexInstrumentation::runOnModule(Module &M) {
 
   std::map<Function *, CallInst *> FunctionToUAVHandle;
 
+  // Set if any dynamically indexed handle lacks the PIX instruction ordinal
+  // this pass needs to address its diagnostic.
+  bool FoundHandleWithoutInstructionNumber = false;
+
   // This is the main pass that will iterate through all of the resources that
   // are dynamically indexed. If not already marked NonUniformResourceIndex,
   // then insert WaveActiveAllEqual to determine if the index is uniform
@@ -69,6 +73,16 @@ bool DxilNonUniformResourceIndexInstrumentation::runOnModule(Module &M) {
               Value *IndexOperand) {
         if (IsNonUniformIndex) {
           // The NonUniformResourceIndex qualifier was used, continue.
+          return true;
+        }
+
+        // Address each diagnostic by the PIX instruction ordinal. Skip a
+        // handle that has no ordinal instead of writing a record for
+        // instruction 0.
+        uint32_t InstructionNumber = 0;
+        if (!pix_dxil::PixDxilInstNum::FromInst(CreateHandle,
+                                                &InstructionNumber)) {
+          FoundHandleWithoutInstructionNumber = true;
           return true;
         }
 
@@ -96,12 +110,6 @@ bool DxilNonUniformResourceIndexInstrumentation::runOnModule(Module &M) {
         }
 
         IRBuilder<> Builder(CreateHandle);
-
-        uint32_t InstructionNumber = 0;
-        if (!pix_dxil::PixDxilInstNum::FromInst(CreateHandle,
-                                                &InstructionNumber)) {
-          DXASSERT_NOMSG(false);
-        }
 
         // The output UAV is treated as a bit array where each bit corresponds
         // to an instruction number. This determines what byte offset to write
@@ -159,6 +167,11 @@ bool DxilNonUniformResourceIndexInstrumentation::runOnModule(Module &M) {
       formatted_raw_ostream FOS(*OSOverride);
       FOS << "\nFoundDynamicIndexingNoNuri\n";
     }
+  }
+
+  if (FoundHandleWithoutInstructionNumber && OSOverride != nullptr) {
+    formatted_raw_ostream FOS(*OSOverride);
+    FOS << "\nNuriNotInstrumentedMissingInstructionNumber\n";
   }
 
   return modified;
