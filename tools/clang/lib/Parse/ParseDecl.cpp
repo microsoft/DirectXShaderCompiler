@@ -5351,9 +5351,9 @@ bool Parser::isDeclarationSpecifier(bool DisambiguatingWithExpression) {
     return isDeclarationSpecifier();
 
   // HLSL Change Starts
-  case tok::kw_shared:
   case tok::kw_precise:
   case tok::kw_center:
+  case tok::kw_shared:
   case tok::kw_groupshared:
   case tok::kw_globallycoherent:
   case tok::kw_reordercoherent:
