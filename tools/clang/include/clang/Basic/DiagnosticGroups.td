@@ -812,6 +812,7 @@ def HLSL2026Compat
 
 def HLSLGroupshared202x : DiagGroup<"hlsl-groupshared-202x">;
 def HLSLFoldExpressions : DiagGroup<"hlsl-fold-expressions">;
-def HLSL202xExtensions : DiagGroup<"hlsl-202x-extensions",
-    [HLSLFoldExpressions, HLSLGroupshared202x]>;
+def HLSL202xExtensions
+    : DiagGroup<"hlsl-202x-extensions", [HLSLFoldExpressions,
+                                         HLSLGroupshared202x]>;
 // HLSL Change Ends
