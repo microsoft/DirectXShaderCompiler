@@ -981,4 +981,24 @@ HLSLScalarType MakeUnsigned(HLSLScalarType T) {
   return T;
 }
 
+bool IsTypeDeducibleWithAuto(QualType type) {
+  if (type.isNull())
+    return false;
+
+  if (hlsl::IsStringType(type) || hlsl::IsStringLiteralType(type))
+    return false;
+
+  if (const CXXRecordDecl *recordDecl =
+          GetStructuralForm(type)->getAsCXXRecordDecl()) {
+    if (!recordDecl->hasAttr<HLSLNonAutoDeducibleAttr>())
+      if (const CXXRecordDecl *pattern =
+              recordDecl->getTemplateInstantiationPattern())
+        recordDecl = pattern;
+    if (recordDecl->hasAttr<HLSLNonAutoDeducibleAttr>())
+      return false;
+  }
+
+  return true;
+}
+
 } // namespace hlsl
