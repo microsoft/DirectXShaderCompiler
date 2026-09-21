@@ -3075,7 +3075,7 @@ bool Sema::DeduceFunctionTypeFromReturnExpr(FunctionDecl *FD,
     // represent. A dependent deduced type cannot be classified yet; defer the
     // check to instantiation, when 'auto' is re-deduced to a concrete type.
     if (getLangOpts().HLSL && !Deduced->isDependentType() &&
-        !hlsl::IsTypeDeducibleWithAuto(*this, Deduced)) {
+        !hlsl::IsTypeDeducibleWithAuto(Deduced)) {
       Diag(RetExpr->getExprLoc(), diag::err_hlsl_auto_undeducible_type)
           << Deduced;
       return true;
