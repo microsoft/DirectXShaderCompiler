@@ -125,7 +125,9 @@ bool DxilOutputColorBecomesConstant::runOnModule(Module &M) {
       [&hasIntOutputs](CallInst *) { hasIntOutputs = true; });
 
   if (!hasFloatOutputs && !hasIntOutputs) {
-    return false;
+    bool Modified = PIXPassHelpers::eraseIfUnused(DM, FloatOutputFunction);
+    Modified |= PIXPassHelpers::eraseIfUnused(DM, IntOutputFunction);
+    return Modified;
   }
 
   // Otherwise, we assume the shader outputs only one or the other (because the
@@ -250,6 +252,9 @@ bool DxilOutputColorBecomesConstant::runOnModule(Module &M) {
               ReplacementColors[*OutputColumn.getRawData()]);
         });
   }
+
+  Modified |= PIXPassHelpers::eraseIfUnused(DM, FloatOutputFunction);
+  Modified |= PIXPassHelpers::eraseIfUnused(DM, IntOutputFunction);
 
   return Modified;
 }

@@ -48,7 +48,7 @@ llvm::CallInst *CreateHandleForResource(hlsl::DxilModule &DM,
                                         hlsl::DxilResourceBase *resource,
                                         const char *name);
 llvm::Function *GetEntryFunction(hlsl::DxilModule &DM);
-std::vector<llvm::BasicBlock *> GetAllBlocks(hlsl::DxilModule &DM);
+bool eraseIfUnused(hlsl::DxilModule &DM, llvm::Function *OpFunction);
 std::vector<llvm::Function *>
 GetAllInstrumentableFunctions(hlsl::DxilModule &DM);
 hlsl::DXIL::ShaderKind GetFunctionShaderKind(hlsl::DxilModule &DM,
@@ -83,7 +83,7 @@ void ReplaceAllUsesOfInstructionWithNewValueAndDeleteInstruction(
     llvm::Instruction *Instr, llvm::Value *newValue, llvm::Type *newType);
 unsigned int FindOrAddSV_Position(hlsl::DxilModule &DM,
                                   unsigned UpStreamSVPosRow);
-void ForEachDynamicallyIndexedResource(
+bool ForEachDynamicallyIndexedResource(
     hlsl::DxilModule &DM,
     const std::function<bool(bool, llvm::Instruction *, llvm::Value *)>
         &Visitor);

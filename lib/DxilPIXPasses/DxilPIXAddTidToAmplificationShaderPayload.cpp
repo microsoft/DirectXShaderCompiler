@@ -183,8 +183,11 @@ bool DxilPIXAddTidToAmplificationShaderPayload::runOnModule(Module &M) {
                    {DispatchMeshOpcode, DispatchMesh.get_threadGroupCountX(),
                     DispatchMesh.get_threadGroupCountY(),
                     DispatchMesh.get_threadGroupCountZ(), NewStructAlloca});
+      llvm::Function *OriginalDispatchMeshFn =
+          cast<CallInst>(&*I)->getCalledFunction();
       I->removeFromParent();
       delete &*I;
+      PIXPassHelpers::eraseIfUnused(DM, OriginalDispatchMeshFn);
       // Validation requires exactly one DispatchMesh in an AS, so we can exit
       // after the first one:
       DM.ReEmitDxilResources();
