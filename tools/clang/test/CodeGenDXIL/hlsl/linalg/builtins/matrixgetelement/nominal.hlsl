@@ -15,7 +15,7 @@ void main() {
   // CHECK2: call void @"dx.hl.op..void (i32, i32*, %dx.types.LinAlgMatrixC4M5N4U1S2, i32)"
   // CHECK2-SAME: (i32 404, i32* %elem1, %dx.types.LinAlgMatrixC4M5N4U1S2 %{{.*}}, i32 0)
   uint elem1;
-  __builtin_LinAlg_FillMatrix(mat, 1);
+  __builtin_LinAlg_FillMatrix(mat, true, 1);
   __builtin_LinAlg_MatrixGetElement(elem1, mat, 0);
 
   // CHECK: call float @dx.op.linAlgMatrixGetElement.f32.mC4M5N4U1S2(i32 -2147483630,

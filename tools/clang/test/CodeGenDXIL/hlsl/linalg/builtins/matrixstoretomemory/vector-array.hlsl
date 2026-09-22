@@ -23,6 +23,6 @@ void main() {
   // CHECK2-SAME: i32, i32, i32)"(i32 410, %dx.types.LinAlgMatrixC9M5N4U1S2 %{{.*}}, [64 x <4 x float>] addrspace(3)*
   // CHECK2-SAME: @"\01?SharedArr@@3PAV?$vector@M$03@@A", i32 128, i32 16, i32 3)
   __builtin_LinAlgMatrix [[__LinAlgMatrix_Attributes(9, 5, 4, 1, 2)]] mat;
-  __builtin_LinAlg_FillMatrix(mat, 1);
+  __builtin_LinAlg_FillMatrix(mat, true, 1);
   __builtin_LinAlg_MatrixStoreToMemory(mat, SharedArr, 128, 16, 3);
 }

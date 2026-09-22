@@ -11,12 +11,12 @@ target triple = "dxil-ms-dx"
 %dx.types.LinAlgMatrixC8M8N8U0S2 = type { i8* }
 
 define void @main() {
-  %1 = call %dx.types.LinAlgMatrixC8M4N4U2S2 @dx.op.linAlgFillMatrix.mC8M4N4U2S2.i32(i32 -2147483636, i32 1)  ; LinAlgFillMatrix(value)
-  %2 = call %dx.types.LinAlgMatrixC8M4N4U0S2 @dx.op.linAlgFillMatrix.mC8M4N4U0S2.i32(i32 -2147483636, i32 2)  ; LinAlgFillMatrix(value)
-  %3 = call %dx.types.LinAlgMatrixC8M4N4U2S0 @dx.op.linAlgFillMatrix.mC8M4N4U2S0.i32(i32 -2147483636, i32 4)  ; LinAlgFillMatrix(value)
-  %4 = call %dx.types.LinAlgMatrixC8M4N4U1S0 @dx.op.linAlgFillMatrix.mC8M4N4U1S0.i32(i32 -2147483636, i32 5)  ; LinAlgFillMatrix(value)
-  %5 = call %dx.types.LinAlgMatrixC8M4N4U1S1 @dx.op.linAlgFillMatrix.mC8M4N4U1S1.i32(i32 -2147483636, i32 6)  ; LinAlgFillMatrix(value)
-  %6 = call %dx.types.LinAlgMatrixC8M8N8U0S2 @dx.op.linAlgFillMatrix.mC8M8N8U0S2.i32(i32 -2147483636, i32 7)  ; LinAlgFillMatrix(value)
+  %1 = call %dx.types.LinAlgMatrixC8M4N4U2S2 @dx.op.linAlgFillMatrix.mC8M4N4U2S2.i32(i32 -2147483636, i1 true, i32 1)  ; LinAlgFillMatrix(isInputSigned,value)
+  %2 = call %dx.types.LinAlgMatrixC8M4N4U0S2 @dx.op.linAlgFillMatrix.mC8M4N4U0S2.i32(i32 -2147483636, i1 true, i32 2)  ; LinAlgFillMatrix(isInputSigned,value)
+  %3 = call %dx.types.LinAlgMatrixC8M4N4U2S0 @dx.op.linAlgFillMatrix.mC8M4N4U2S0.i32(i32 -2147483636, i1 true, i32 4)  ; LinAlgFillMatrix(isInputSigned,value)
+  %4 = call %dx.types.LinAlgMatrixC8M4N4U1S0 @dx.op.linAlgFillMatrix.mC8M4N4U1S0.i32(i32 -2147483636, i1 true, i32 5)  ; LinAlgFillMatrix(isInputSigned,value)
+  %5 = call %dx.types.LinAlgMatrixC8M4N4U1S1 @dx.op.linAlgFillMatrix.mC8M4N4U1S1.i32(i32 -2147483636, i1 true, i32 6)  ; LinAlgFillMatrix(isInputSigned,value)
+  %6 = call %dx.types.LinAlgMatrixC8M8N8U0S2 @dx.op.linAlgFillMatrix.mC8M8N8U0S2.i32(i32 -2147483636, i1 true, i32 7)  ; LinAlgFillMatrix(isInputSigned,value)
 
   ; CHECK: Function: main: error: Return matrix 'dx.types.LinAlgMatrixC8M4N4U2S2' must exactly match arg 1 matrix 'dx.types.LinAlgMatrixC8M4N4U0S2'.
   ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixAccumulate.mC8M4N4U2S2.mC8M4N4U0S2.mC8M4N4U0S2
@@ -50,22 +50,22 @@ define void @main() {
 }
 
 ; Function Attrs: nounwind
-declare %dx.types.LinAlgMatrixC8M4N4U2S2 @dx.op.linAlgFillMatrix.mC8M4N4U2S2.i32(i32, i32) #0
+declare %dx.types.LinAlgMatrixC8M4N4U2S2 @dx.op.linAlgFillMatrix.mC8M4N4U2S2.i32(i32, i1, i32) #0
 
 ; Function Attrs: nounwind
-declare %dx.types.LinAlgMatrixC8M4N4U0S2 @dx.op.linAlgFillMatrix.mC8M4N4U0S2.i32(i32, i32) #0
+declare %dx.types.LinAlgMatrixC8M4N4U0S2 @dx.op.linAlgFillMatrix.mC8M4N4U0S2.i32(i32, i1, i32) #0
 
 ; Function Attrs: nounwind
-declare %dx.types.LinAlgMatrixC8M4N4U2S0 @dx.op.linAlgFillMatrix.mC8M4N4U2S0.i32(i32, i32) #0
+declare %dx.types.LinAlgMatrixC8M4N4U2S0 @dx.op.linAlgFillMatrix.mC8M4N4U2S0.i32(i32, i1, i32) #0
 
 ; Function Attrs: nounwind
-declare %dx.types.LinAlgMatrixC8M4N4U1S0 @dx.op.linAlgFillMatrix.mC8M4N4U1S0.i32(i32, i32) #0
+declare %dx.types.LinAlgMatrixC8M4N4U1S0 @dx.op.linAlgFillMatrix.mC8M4N4U1S0.i32(i32, i1, i32) #0
 
 ; Function Attrs: nounwind
-declare %dx.types.LinAlgMatrixC8M4N4U1S1 @dx.op.linAlgFillMatrix.mC8M4N4U1S1.i32(i32, i32) #0
+declare %dx.types.LinAlgMatrixC8M4N4U1S1 @dx.op.linAlgFillMatrix.mC8M4N4U1S1.i32(i32, i1, i32) #0
 
 ; Function Attrs: nounwind
-declare %dx.types.LinAlgMatrixC8M8N8U0S2 @dx.op.linAlgFillMatrix.mC8M8N8U0S2.i32(i32, i32) #0
+declare %dx.types.LinAlgMatrixC8M8N8U0S2 @dx.op.linAlgFillMatrix.mC8M8N8U0S2.i32(i32, i1, i32) #0
 
 ; Function Attrs: nounwind
 declare %dx.types.LinAlgMatrixC8M4N4U2S2 @dx.op.linAlgMatrixAccumulate.mC8M4N4U2S2.mC8M4N4U0S2.mC8M4N4U0S2(i32, %dx.types.LinAlgMatrixC8M4N4U0S2, %dx.types.LinAlgMatrixC8M4N4U0S2) #0

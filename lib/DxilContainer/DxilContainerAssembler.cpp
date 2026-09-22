@@ -964,10 +964,12 @@ private:
             LinAlgMatrixInfo Result;
             if (!GetLinAlgMatrixInfo(CI->getType(), Result))
               break;
+            bool IsInputSigned =
+                cast<ConstantInt>(Op.get_isInputSigned())->getZExtValue() != 0;
             PSVLinAlgOuterProduct0 Record = {
                 static_cast<uint8_t>(Result.Type),
                 static_cast<uint8_t>(GetVectorOrScalarComponentType(
-                    Op.get_vectorA()->getType())),
+                    Op.get_vectorA()->getType(), IsInputSigned)),
                 {0, 0}};
             if (std::find_if(
                     m_LinAlgOuterProducts.begin(), m_LinAlgOuterProducts.end(),

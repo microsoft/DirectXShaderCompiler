@@ -10,8 +10,8 @@ void main() {
   __builtin_LinAlgMatrix [[__LinAlgMatrix_Attributes(5, 4, 4, 2, 1)]] mat2;
   __builtin_LinAlgMatrix [[__LinAlgMatrix_Attributes(5, 4, 4, 2, 1)]] mat3;
 
-  __builtin_LinAlg_FillMatrix(mat1, 1);
-  __builtin_LinAlg_FillMatrix(mat2, 2);
+  __builtin_LinAlg_FillMatrix(mat1, true, 1);
+  __builtin_LinAlg_FillMatrix(mat2, true, 2);
 
   // CHECK: call %dx.types.LinAlgMatrixC5M4N4U2S1 @dx.op.linAlgMatrixAccumulate.mC5M4N4U2S1.mC5M4N4U2S1.mC5M4N4U0S1
   // CHECK-SAME: (i32 -2147483624, %dx.types.LinAlgMatrixC5M4N4U2S1 %{{.*}}, %dx.types.LinAlgMatrixC5M4N4U0S1 %{{.*}}) ; LinAlgMatrixAccumulate(matrixLHS,matrixRHS)

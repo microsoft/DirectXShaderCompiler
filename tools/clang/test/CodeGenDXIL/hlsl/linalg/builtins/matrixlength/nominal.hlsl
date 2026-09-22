@@ -12,6 +12,6 @@ void main() {
   // CHECK2: call i32 @"dx.hl.op..i32 (i32, %dx.types.LinAlgMatrixC4M5N4U1S2)"
   // CHECK2-SAME: (i32 405, %dx.types.LinAlgMatrixC4M5N4U1S2 %{{.*}})
   __builtin_LinAlgMatrix [[__LinAlgMatrix_Attributes(4, 5, 4, 1, 2)]] mat;
-  __builtin_LinAlg_FillMatrix(mat, 1);
+  __builtin_LinAlg_FillMatrix(mat, true, 1);
   uint len = __builtin_LinAlg_MatrixLength(mat);
 }

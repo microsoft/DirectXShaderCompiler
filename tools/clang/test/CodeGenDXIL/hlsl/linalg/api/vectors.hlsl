@@ -7,6 +7,7 @@ using namespace dx::linalg;
 using MatrixATy = Matrix<ComponentType::F16, 8, 4, MatrixUse::A, MatrixScope::Thread>;
 using MatrixAccum_8_8_Ty = Matrix<ComponentType::F16, 8, 8, MatrixUse::Accumulator, MatrixScope::Thread>;
 using MatrixAccum_8_4_Ty = Matrix<ComponentType::F16, 8, 4, MatrixUse::Accumulator, MatrixScope::Thread>;
+using MatrixAccum_U32_4_4_Ty = Matrix<ComponentType::U32, 4, 4, MatrixUse::Accumulator, MatrixScope::Thread>;
 using Matrix_7_15_ATy = Matrix<ComponentType::F16, 7, 15, MatrixUse::A, MatrixScope::Thread>;
 using MatrixPacked_7_15_ATy = Matrix<ComponentType::F8_E4M3FN, 7, 15, MatrixUse::A, MatrixScope::Thread>;
 using MatrixA_BFloat = Matrix<ComponentType::BFloat16, 8, 4, MatrixUse::A, MatrixScope::Thread>;
@@ -78,12 +79,19 @@ void main(uint ID : SV_GroupID) {
 
   // CHECK: %[[ACCUM1:.*]] = call %dx.types.LinAlgMatrixC8M8N8U2S0
   // CHECK-SAME: @dx.op.linAlgMatrixOuterProduct.mC8M8N8U2S0.v8f16.v8f16(i32 -2147483619,
-  // CHECK-SAME: <8 x half> %[[VEC5]], <8 x half> %[[VEC6]])  ; LinAlgMatrixOuterProduct(vectorA,vectorB)
+  // CHECK-SAME: i1 true, <8 x half> %[[VEC5]], <8 x half> %[[VEC6]])  ; LinAlgMatrixOuterProduct(isInputSigned,vectorA,vectorB)
   MatrixAccum_8_8_Ty AccumMatrix1 = OuterProduct<ComponentType::F16>(vec5, vec6);
 
   // CHECK: %[[ACCUM2:.*]] = call %dx.types.LinAlgMatrixC8M8N4U2S0 @dx.op.linAlgMatrixOuterProduct.mC8M8N4U2S0.v8f16.v4f16(
-  // CHECK-SAME: i32 -2147483619, <8 x half> %[[VEC5]], <4 x half> %[[VEC20]]) ; LinAlgMatrixOuterProduct(vectorA,vectorB)
+  // CHECK-SAME: i32 -2147483619, i1 true, <8 x half> %[[VEC5]], <4 x half> %[[VEC20]]) ; LinAlgMatrixOuterProduct(isInputSigned,vectorA,vectorB)
   MatrixAccum_8_4_Ty AccumMatrix2 = OuterProduct<ComponentType::F16>(vec5, vec20);
+
+  uint4 unsignedVec = {1, 2, 3, 4};
+  // CHECK: call %dx.types.LinAlgMatrixC5M4N4U2S0 @dx.op.linAlgMatrixOuterProduct.mC5M4N4U2S0.v4i32.v4i32(
+  // CHECK-SAME: i32 -2147483619, i1 false, <4 x i32> <i32 1, i32 2, i32 3, i32 4>, <4 x i32> <i32 1, i32 2, i32 3, i32 4>)
+  // CHECK-SAME: ; LinAlgMatrixOuterProduct(isInputSigned,vectorA,vectorB)
+  MatrixAccum_U32_4_4_Ty UnsignedAccum =
+      OuterProduct<ComponentType::U32>(unsignedVec, unsignedVec);
 
   // CHECK: %[[CONV_VEC:.*]] = call <8 x float> @dx.op.linAlgConvert.v8f32.v8f16(i32 -2147483618,
   // CHECK-SAME: <8 x half> %[[VEC6]], i32 8, i32 9)  ; LinAlgConvert(inputVector,inputInterpretation,outputInterpretation)

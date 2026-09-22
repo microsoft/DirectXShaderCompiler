@@ -9,7 +9,13 @@ target triple = "dxil-ms-dx"
 define void @main() {
   ; CHECK: Function: main: error: Return matrix scope 'Thread' does not match expected scope Wave or ThreadGroup.
   ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgFillMatrix.mC8M4N4U2S0.i32
-  %1 = call %dx.types.LinAlgMatrixC8M4N4U2S0 @dx.op.linAlgFillMatrix.mC8M4N4U2S0.i32(i32 -2147483636, i32 1)  ; LinAlgFillMatrix(value)
+  %1 = call %dx.types.LinAlgMatrixC8M4N4U2S0 @dx.op.linAlgFillMatrix.mC8M4N4U2S0.i32(i32 -2147483636, i1 true, i32 1)  ; LinAlgFillMatrix(isInputSigned,value)
+
+  ; CHECK-NEXT: Function: main: error: Float-like type 'float' must be signed
+  ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgFillMatrix.mC8M4N4U2S0.f32
+  ; CHECK-NEXT: Function: main: error: Return matrix scope 'Thread' does not match expected scope Wave or ThreadGroup.
+  ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgFillMatrix.mC8M4N4U2S0.f32
+  %badSigned = call %dx.types.LinAlgMatrixC8M4N4U2S0 @dx.op.linAlgFillMatrix.mC8M4N4U2S0.f32(i32 -2147483636, i1 false, float 1.0)  ; LinAlgFillMatrix(isInputSigned,value)
 
   ; CHECK-NEXT: Function: main: error: Input matrix scope 'Thread' does not match expected scope Wave or ThreadGroup.
   ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixGetElement.f32.mC8M4N4U2S0
@@ -34,7 +40,10 @@ define void @main() {
 }
 
 ; Function Attrs: nounwind
-declare %dx.types.LinAlgMatrixC8M4N4U2S0 @dx.op.linAlgFillMatrix.mC8M4N4U2S0.i32(i32, i32) #0
+declare %dx.types.LinAlgMatrixC8M4N4U2S0 @dx.op.linAlgFillMatrix.mC8M4N4U2S0.i32(i32, i1, i32) #0
+
+; Function Attrs: nounwind
+declare %dx.types.LinAlgMatrixC8M4N4U2S0 @dx.op.linAlgFillMatrix.mC8M4N4U2S0.f32(i32, i1, float) #0
 
 ; Function Attrs: nounwind
 declare float @dx.op.linAlgMatrixGetElement.f32.mC8M4N4U2S0(i32, %dx.types.LinAlgMatrixC8M4N4U2S0, i32) #0
