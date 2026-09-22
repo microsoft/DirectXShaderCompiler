@@ -2053,6 +2053,7 @@ ExtractElement extracts from vector
 InsertElement  inserts into vector
 ShuffleVector  Shuffle two vectors
 ExtractValue   extracts from aggregate
+InsertValue    inserts into aggregate
 ============== ======================================================================= =================
 
 

@@ -4257,20 +4257,20 @@ static bool IsLLVMInstructionAllowedForLib(Instruction &I,
 }
 
 // Shader model specific checks for valid LLVM instructions.
-// Currently only checks for pre 6.9 usage of vector operations.
-// Returns false if shader model is pre 6.9 and I represents a vector
-// operation. Returns true otherwise.
 static bool IsLLVMInstructionAllowedForShaderModel(Instruction &I,
                                                    ValidationContext &ValCtx) {
-  if (ValCtx.DxilMod.GetShaderModel()->IsSM69Plus())
+  switch (I.getOpcode()) {
+  // Instructions added in SM 6.9.
+  case Instruction::InsertElement:
+  case Instruction::ExtractElement:
+  case Instruction::ShuffleVector:
+    return ValCtx.DxilMod.GetShaderModel()->IsSM69Plus();
+  // Instructions added in SM 6.10.
+  case Instruction::InsertValue:
+    return ValCtx.DxilMod.GetShaderModel()->IsSM610Plus();
+  default:
     return true;
-  unsigned Opcode = I.getOpcode();
-  if (Opcode == Instruction::InsertElement ||
-      Opcode == Instruction::ExtractElement ||
-      Opcode == Instruction::ShuffleVector)
-    return false;
-
-  return true;
+  }
 }
 
 static void ValidateFunctionBody(Function *F, ValidationContext &ValCtx) {
@@ -4412,15 +4412,21 @@ static void ValidateFunctionBody(Function *F, ValidationContext &ValCtx) {
 
       for (Value *op : I.operands()) {
         if (isa<UndefValue>(op)) {
-          bool LegalUndef = isa<PHINode>(&I);
-          if (isa<InsertElementInst>(&I)) {
+          bool LegalUndef = false;
+          switch (I.getOpcode()) {
+          case Instruction::PHI:
+            LegalUndef = true;
+            break;
+          case Instruction::InsertElement:
+          case Instruction::InsertValue:
+          case Instruction::Store:
             LegalUndef = op == I.getOperand(0);
-          }
-          if (isa<ShuffleVectorInst>(&I)) {
+            break;
+          case Instruction::ShuffleVector:
             LegalUndef = op == I.getOperand(1);
-          }
-          if (isa<StoreInst>(&I)) {
-            LegalUndef = op == I.getOperand(0);
+            break;
+          default:
+            break;
           }
 
           if (!LegalUndef)

@@ -1714,6 +1714,15 @@ class db_dxil(object):
         )
         self.add_llvm_instr(
             "OTHER",
+            58,
+            "InsertValue",
+            "InsertValueInst",
+            "inserts into aggregate",
+            "",
+            [],
+        )
+        self.add_llvm_instr(
+            "OTHER",
             59,
             "LandingPad",
             "LandingPadInst",
