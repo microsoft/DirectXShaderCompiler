@@ -60,6 +60,9 @@ line upon naming the release. Refer to previous for appropriate section names.
   with language changes introduced in HLSL 2026.
 - The legacy effects syntax support is removed in HLSL 202x
   [#8480](https://github.com/microsoft/DirectXShaderCompiler/issues/8480).
+- HLSL 202x disallows putting cbuffer, tbuffer, or namespace declarations inside
+  a cbuffer or tbuffer
+  [#8484](https://github.com/microsoft/DirectXShaderCompiler/issues/8484).
 
 #### SPIR-V
 
