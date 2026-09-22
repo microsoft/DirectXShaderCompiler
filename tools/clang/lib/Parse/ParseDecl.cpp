@@ -4020,7 +4020,6 @@ HLSLReservedKeyword:
 
     // constexpr
     case tok::kw_constexpr:
-      if (getLangOpts().HLSL) { goto HLSLReservedKeyword; } // HLSL Change - reserved for HLSL
       isInvalid = DS.SetConstexprSpec(Loc, PrevSpec, DiagID);
       break;
 
