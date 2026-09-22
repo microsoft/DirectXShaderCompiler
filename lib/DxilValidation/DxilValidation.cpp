@@ -2032,9 +2032,7 @@ static void ValidateLinAlgMatrixOuterProduct(CallInst *CI,
   DxilInst_LinAlgMatrixOuterProduct Op(CI);
   VectorType *AVecTy = cast<VectorType>(Op.get_vectorA()->getType());
   VectorType *BVecTy = cast<VectorType>(Op.get_vectorB()->getType());
-  Type *SignednessTy =
-      AVecTy->getElementType()->isFloatingPointTy() ? AVecTy : BVecTy;
-  ValidateLinAlgIsInputSigned(CI, Op.get_isInputSigned(), SignednessTy, ValCtx,
+  ValidateLinAlgIsInputSigned(CI, Op.get_isInputSigned(), AVecTy, ValCtx,
                               "LinAlgMatrixOuterProduct");
   std::optional<LinAlgTargetType> RetMat =
       GetCheckedLATT(CI->getType(), ValCtx);
