@@ -25,6 +25,7 @@
 #include "clang/AST/DeclTemplate.h"
 #include "clang/AST/EvaluatedExprVisitor.h"
 #include "clang/AST/ExprCXX.h"
+#include "clang/AST/HlslTypes.h" // HLSL Change
 #include "clang/AST/StmtCXX.h"
 #include "clang/Basic/Builtins.h"
 #include "clang/Basic/PartialDiagnostic.h"
@@ -9055,7 +9056,7 @@ void Sema::AddInitializerToDecl(Decl *RealDecl, Expr *Init,
       // A dependent deduced type cannot be classified yet; defer the check to
       // instantiation, when 'auto' is re-deduced to a concrete type.
       if (!DeducedType->isDependentType() &&
-          !hlsl::IsTypeDeducibleWithAuto(*this, DeducedType)) {
+          !hlsl::IsTypeDeducibleWithAuto(DeducedType)) {
         Diag(VDecl->getLocation(), diag::err_hlsl_auto_undeducible_type)
             << DeducedType;
         VDecl->setInvalidDecl();
