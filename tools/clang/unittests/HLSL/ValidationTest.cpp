@@ -6443,7 +6443,6 @@ TEST_F(ValidationTest, PSVContentValidationLinAlg) {
       m_dllSupport.CreateInstance(CLSID_DxcValidator, &pValidator));
 
   auto ValidateFailure = [&](LPCSTR ExpectedError) {
-    SCOPED_TRACE(ExpectedError);
     CComPtr<IDxcOperationResult> pResult;
     VERIFY_SUCCEEDED(pValidator->Validate(pProgram, 0, &pResult));
     VERIFY_IS_NOT_NULL(pResult);
