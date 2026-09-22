@@ -1,19 +1,20 @@
 ; RUN: %dxopt %s -hlsl-passes-resume -scalarrepl-param-hlsl -S | FileCheck %s
 
 ; Scalar replacement splits an array of vectors into one scalar array per
-; vector lane. Verify that only lane indices which can select one of those
-; arrays are scalarized.
+; vector lane. Verify that invalid local lane indices are not scalarized.
+; Constant global GEPs are first canonicalized across the entire aggregate,
+; turning lane 7 into array index 1, lane 3, which can be scalarized safely.
 
 ; CHECK-DAG: %valid.3 = alloca [2 x float]
 ; CHECK-DAG: %nested = alloca [2 x %struct.S]
 ; CHECK-DAG: %out_of_bounds = alloca [2 x <4 x float>]
 ; CHECK-DAG: %negative = alloca [2 x <4 x float>]
-; CHECK-DAG: @global_out_of_bounds = internal global [2 x <4 x float>] zeroinitializer
+; CHECK-DAG: @global_out_of_bounds.3 = internal global [2 x float] zeroinitializer
 ; CHECK: getelementptr inbounds [2 x <4 x float>], [2 x <4 x float>]* %out_of_bounds, i32 0, i32 0, i32 7
 ; CHECK: getelementptr inbounds [2 x <4 x float>], [2 x <4 x float>]* %negative, i32 0, i32 0, i32 -1
 ; CHECK: getelementptr inbounds [2 x float], [2 x float]* %valid.3, i32 0, i32 0
 ; CHECK: getelementptr [2 x %struct.S], [2 x %struct.S]* %nested, i32 0, i32 0, i32 0, i32 7
-; CHECK: getelementptr inbounds [2 x <4 x float>], [2 x <4 x float>]* @global_out_of_bounds, i32 0, i32 0, i32 7
+; CHECK: getelementptr inbounds ([2 x float], [2 x float]* @global_out_of_bounds.3, i32 0, i64 1)
 
 target datalayout = "e-m:e-p:32:32-i1:32-i8:32-i16:32-i32:32-i64:64-f16:32-f32:32-f64:64-n8:16:32:64"
 target triple = "dxil-ms-dx"
