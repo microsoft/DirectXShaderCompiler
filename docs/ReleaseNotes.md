@@ -63,6 +63,8 @@ line upon naming the release. Refer to previous for appropriate section names.
 - The `shared` and `uniform` keywords are removed in HLSL 202x, with
   compatibility warnings available for earlier language versions
   [#8482](https://github.com/microsoft/DirectXShaderCompiler/issues/8482).
+- Starting with HLSL 202x, `cbuffer` and `tbuffer` declarations and their
+  members belong to their enclosing namespace.
 
 #### SPIR-V
 

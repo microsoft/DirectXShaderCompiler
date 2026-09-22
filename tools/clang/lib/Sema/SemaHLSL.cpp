@@ -15446,6 +15446,9 @@ HLSLBufferDecl::Create(ASTContext &C, DeclContext *lexicalParent, bool cbuffer,
                        std::vector<hlsl::UnusualAnnotation *> &BufferAttributes,
                        SourceLocation LBrace) {
   DeclContext *DC = C.getTranslationUnitDecl();
+  // In HLSL 202x, buffers and their members belong to the enclosing namespace.
+  if (C.getLangOpts().HLSLVersion >= hlsl::LangStd::v202x)
+    DC = lexicalParent;
   HLSLBufferDecl *result = ::new (C) HLSLBufferDecl(
       DC, cbuffer, constantbuffer, KwLoc, Id, IdLoc, BufferAttributes, LBrace);
   if (DC != lexicalParent) {
