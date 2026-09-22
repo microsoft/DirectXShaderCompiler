@@ -10731,9 +10731,18 @@ TreeTransform<Derived>::TransformBlockExpr(BlockExpr *E) {
       getDerived().TransformType(exprFunctionType->getReturnType());
 
   // HLSL Change - FIX - We should move param mods to parameter QualTypes
+  SmallVector<hlsl::ParameterModifier, 4> ExpandedParamMods;
+  ArrayRef<hlsl::ParameterModifier> ParamMods =
+      exprFunctionType->getParamMods();
+  if (ParamMods.size() != paramTypes.size()) {
+    ExpandedParamMods.reserve(params.size());
+    for (ParmVarDecl *Param : params)
+      ExpandedParamMods.push_back(Param ? Param->getParamModifiers()
+                                        : hlsl::ParameterModifier());
+    ParamMods = ExpandedParamMods;
+  }
   QualType functionType = getDerived().RebuildFunctionProtoType(
-      exprResultType, paramTypes, exprFunctionType->getParamMods(),
-      exprFunctionType->getExtProtoInfo());
+      exprResultType, paramTypes, ParamMods, exprFunctionType->getExtProtoInfo());
   // HLSL Change - End
   blockScope->FunctionType = functionType;
 

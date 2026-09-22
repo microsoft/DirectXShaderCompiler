@@ -125,8 +125,17 @@ struct Zipper {
 // Zero-argument (empty pack) instantiation.
 uint TestEmptyPack() { return CountArgs(); }
 
+// CHECK: FunctionTemplateDecl {{.*}} ExplicitOut
+// CHECK: FunctionDecl {{.*}} ExplicitOut 'void (Ts &__restrict...)'
+// CHECK: ParmVarDecl {{.*}} values 'Ts &__restrict...'
+// CHECK-NEXT: HLSLOutAttr
+// CHECK: FunctionDecl {{.*}} ExplicitOut 'void (int &__restrict, float &__restrict)'
+// CHECK: ParmVarDecl {{.*}} values 'int &__restrict'
+// CHECK-NEXT: HLSLOutAttr
+// CHECK: ParmVarDecl {{.*}} values 'float &__restrict'
+// CHECK-NEXT: HLSLOutAttr
 template <typename... Ts>
-void ExplicitArgs(Ts... values) {}
+void ExplicitOut(out Ts... values) {}
 
 export
 float TestVariadic() {
@@ -144,7 +153,8 @@ float TestVariadic() {
   uint empty = TestEmptyPack();
   int explicitInt;
   float explicitFloat;
-  ExplicitArgs<int, float>(explicitInt, explicitFloat);
+  ExplicitOut<int, float>(explicitInt, explicitFloat);
+  ExplicitOut<int, float>(explicitInt, explicitInt);
   uint folded = FoldSum(1, 2, 3, 4);
   return a + b + c + d + e + eEmpty + v.x + f + mw.M._11 + z + empty +
       folded + (float)g_FloatHolder.Buf.Load(0) +

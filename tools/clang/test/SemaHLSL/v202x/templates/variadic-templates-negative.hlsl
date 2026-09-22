@@ -52,3 +52,14 @@ uint TestMismatchedPackArgs() {
   return Zipper<int, float>::Count<double>(1, 2.0);
   // expected-error@-1{{no matching function for call to 'Count'}}
 }
+
+template <typename... Ts>
+void ExplicitOut(out Ts... values) {
+  // expected-note@-1{{for 2nd argument}}
+}
+
+void TestExplicitOutRValue() {
+  int first;
+  ExplicitOut<int, float>(first, 1.0);
+  // expected-error@-1{{no matching function for call to 'ExplicitOut'}}
+}
