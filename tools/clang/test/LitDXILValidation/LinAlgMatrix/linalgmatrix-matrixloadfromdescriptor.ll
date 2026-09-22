@@ -10,6 +10,7 @@ target triple = "dxil-ms-dx"
 %dx.types.LinAlgMatrixC8M4N4U2S0 = type { i8* }
 %dx.types.ResRet.i32 = type { i32, i32, i32, i32, i32 }
 %dx.types.LinAlgMatrixC8M8N8U2S0 = type { i8* }
+%dx.types.LinAlgMatrixC8M8N8U2S1 = type { i8* }
 %dx.types.LinAlgMatrixC8M16N16U2S0 = type { i8* }
 %dx.types.LinAlgMatrixC8M4N8U2S0 = type { i8* }
 %dx.types.LinAlgMatrixC8M16N16U0S0 = type { i8* }
@@ -55,6 +56,12 @@ define void @main() {
   ; CHECK-NEXT: Function: main: error: Layout of LinAlgMatrixLoadFromDescriptor must be an immediate constant.
   ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixLoadFromDescriptor.mC8M8N8U2S0
   %12 = call %dx.types.LinAlgMatrixC8M8N8U2S0 @dx.op.linAlgMatrixLoadFromDescriptor.mC8M8N8U2S0(i32 -2147483634, %dx.types.Handle %11, i32 0, i32 0, i32 %10, i32 128)  ; LinAlgMatrixLoadFromDescriptor(handle,offset,stride,layout,align)
+
+  ; No error expected for non-imm arg layout on Wave or ThreadGroup matrices.
+  %wave_dynamic_layout_anno = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %3, %dx.types.ResourceProperties { i32 11, i32 0 })  ; AnnotateHandle(res,props)  resource: ByteAddressBuffer
+  %wave_dynamic_layout = call %dx.types.LinAlgMatrixC8M8N8U2S1 @dx.op.linAlgMatrixLoadFromDescriptor.mC8M8N8U2S1(i32 -2147483634, %dx.types.Handle %wave_dynamic_layout_anno, i32 0, i32 0, i32 %10, i32 4)  ; LinAlgMatrixLoadFromDescriptor(handle,offset,stride,layout,align)
+  %threadgroup_dynamic_layout_anno = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %3, %dx.types.ResourceProperties { i32 11, i32 0 })  ; AnnotateHandle(res,props)  resource: ByteAddressBuffer
+  %threadgroup_dynamic_layout = call %dx.types.LinAlgMatrixC8M4N4U2S2 @dx.op.linAlgMatrixLoadFromDescriptor.mC8M4N4U2S2(i32 -2147483634, %dx.types.Handle %threadgroup_dynamic_layout_anno, i32 0, i32 0, i32 %10, i32 4)  ; LinAlgMatrixLoadFromDescriptor(handle,offset,stride,layout,align)
   %13 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %3, %dx.types.ResourceProperties { i32 11, i32 0 })  ; AnnotateHandle(res,props)  resource: ByteAddressBuffer
 
 
@@ -113,6 +120,9 @@ declare %dx.types.ResRet.i32 @dx.op.rawBufferLoad.i32(i32, %dx.types.Handle, i32
 declare %dx.types.LinAlgMatrixC8M8N8U2S0 @dx.op.linAlgMatrixLoadFromDescriptor.mC8M8N8U2S0(i32, %dx.types.Handle, i32, i32, i32, i32) #0
 
 ; Function Attrs: nounwind
+declare %dx.types.LinAlgMatrixC8M8N8U2S1 @dx.op.linAlgMatrixLoadFromDescriptor.mC8M8N8U2S1(i32, %dx.types.Handle, i32, i32, i32, i32) #0
+
+; Function Attrs: nounwind
 declare %dx.types.LinAlgMatrixC8M16N16U2S0 @dx.op.linAlgMatrixLoadFromDescriptor.mC8M16N16U2S0(i32, %dx.types.Handle, i32, i32, i32, i32) #0
 
 ; Function Attrs: nounwind
@@ -140,7 +150,7 @@ attributes #0 = { nounwind }
 attributes #1 = { nounwind readonly }
 attributes #2 = { nounwind readnone }
 
-!dx.targetTypes = !{!0, !1, !2, !3, !4, !5, !6, !7, !8}
+!dx.targetTypes = !{!0, !1, !2, !3, !4, !5, !6, !7, !8, !22}
 !llvm.ident = !{!9}
 !dx.version = !{!10}
 !dx.valver = !{!10}
@@ -170,3 +180,4 @@ attributes #2 = { nounwind readnone }
 !19 = !{void ()* @main, !"main", null, !12, !20}
 !20 = !{i32 0, i64 2207621578768, i32 4, !21}
 !21 = !{i32 1, i32 1, i32 1}
+!22 = !{%dx.types.LinAlgMatrixC8M8N8U2S1 undef, i32 8, i32 8, i32 8, i32 2, i32 1}
