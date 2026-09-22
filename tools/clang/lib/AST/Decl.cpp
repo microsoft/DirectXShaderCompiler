@@ -2384,8 +2384,8 @@ void ParmVarDecl::updateOutParamToRefType(ASTContext &C) {
   ParamType.addRestrict();
 
   if (Expansion)
-    ParamType = C.getPackExpansionType(ParamType,
-                                       Expansion->getNumExpansions());
+    ParamType =
+        C.getPackExpansionType(ParamType, Expansion->getNumExpansions());
   setType(ParamType);
 }
 // HLSL Change Ends

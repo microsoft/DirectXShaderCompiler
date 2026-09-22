@@ -2571,7 +2571,7 @@ Sema::SubstituteExplicitTemplateArguments(
       return TDK_SubstitutionFailure;
   }
   // HLSL Change End
-  
+
   // Instantiate the return type.
   QualType ResultType;
   {

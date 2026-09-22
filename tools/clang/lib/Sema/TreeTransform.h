@@ -10742,7 +10742,8 @@ TreeTransform<Derived>::TransformBlockExpr(BlockExpr *E) {
     ParamMods = ExpandedParamMods;
   }
   QualType functionType = getDerived().RebuildFunctionProtoType(
-      exprResultType, paramTypes, ParamMods, exprFunctionType->getExtProtoInfo());
+      exprResultType, paramTypes, ParamMods,
+      exprFunctionType->getExtProtoInfo());
   // HLSL Change - End
   blockScope->FunctionType = functionType;
 
