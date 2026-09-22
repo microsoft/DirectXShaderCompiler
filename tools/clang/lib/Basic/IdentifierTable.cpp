@@ -113,6 +113,7 @@ enum {
   KEYZVECTOR = 0x40000,
   KEYHLSL = 0x80000, // MS Change: Flag for hlsl keywords
   KEYHLSL2026_REMOVED = 0x100000,
+  KEYHLSL2026 = 0x200000,
   KEYALL = (0x7ffff & ~KEYNOMS18 &
             ~KEYNOOPENCL) // KEYNOMS18 and KEYNOOPENCL are used to exclude.
 };
@@ -146,6 +147,9 @@ static KeywordStatus getKeywordStatus(const LangOptions &LangOpts,
   if (LangOpts.HLSL && LangOpts.HLSLVersion >= hlsl::LangStd::v202x &&
       (Flags & KEYHLSL2026_REMOVED))
     return KS_Disabled;
+  if (LangOpts.HLSL && LangOpts.HLSLVersion >= hlsl::LangStd::v202x &&
+      (Flags & KEYHLSL2026))
+    return KS_Enabled;
   if (LangOpts.HLSL && (Flags & KEYHLSL)) return KS_Enabled; // HLSL Change: Support for HLSL Keywords
   if (LangOpts.C11 && (Flags & KEYC11)) return KS_Enabled;
   // We treat bridge casts as objective-C keywords so we can warn on them
