@@ -1324,7 +1324,7 @@ void MarkUnsafe(AllocaInfo &I, Instruction *User) {
 }
 
 static bool isValidVectorIndex(const ConstantInt *Index, unsigned NumElements) {
-  return Index->getValue().ult(NumElements);
+  return !Index->isNegative() && Index->getValue().ult(NumElements);
 }
 
 /// isSafeGEP - Check if a GEP instruction can be handled for scalar
