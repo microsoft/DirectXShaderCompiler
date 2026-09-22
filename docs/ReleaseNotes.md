@@ -73,6 +73,9 @@ line upon naming the release. Refer to previous for appropriate section names.
 
 - Fixed an optimizer crash when scalarizing an out-of-bounds vector access
   [#8940](https://github.com/microsoft/DirectXShaderCompiler/issues/8940).
+- Fixed members following a merged bitfield reading the wrong value when a
+  struct is flat-converted
+  [#8526](https://github.com/microsoft/DirectXShaderCompiler/issues/8526).
 
 ### Upcoming Preview Release
 
