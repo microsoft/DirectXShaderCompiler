@@ -1323,8 +1323,7 @@ void MarkUnsafe(AllocaInfo &I, Instruction *User) {
   DEBUG(dbgs() << "  Transformation preventing inst: " << *User << '\n');
 }
 
-static bool isValidVectorIndex(const ConstantInt *Index,
-                               unsigned NumElements) {
+static bool isValidVectorIndex(const ConstantInt *Index, unsigned NumElements) {
   return Index->getValue().ult(NumElements);
 }
 
@@ -1368,8 +1367,7 @@ void isSafeGEP(GetElementPtrInst *GEPI, uint64_t &Offset, AllocaInfo &Info) {
     }
     // Allow dynamic indexing
     ConstantInt *IdxVal = dyn_cast<ConstantInt>(GEPIt.getOperand());
-    if (GEPIt->isVectorTy() && IdxVal &&
-        !isValidVectorIndex(IdxVal, arraySize))
+    if (GEPIt->isVectorTy() && IdxVal && !isValidVectorIndex(IdxVal, arraySize))
       return MarkUnsafe(Info, GEPI);
     if (!IdxVal) {
       // for dynamic index, use array size - 1 to check the offset
@@ -1394,8 +1392,7 @@ void isSafeGEP(GetElementPtrInst *GEPI, uint64_t &Offset, AllocaInfo &Info) {
     }
     // Allow dynamic indexing
     ConstantInt *IdxVal = dyn_cast<ConstantInt>(GEPIt.getOperand());
-    if (GEPIt->isVectorTy() && IdxVal &&
-        !isValidVectorIndex(IdxVal, arraySize))
+    if (GEPIt->isVectorTy() && IdxVal && !isValidVectorIndex(IdxVal, arraySize))
       return MarkUnsafe(Info, GEPI);
     if (!IdxVal) {
       // for dynamic index, use array size - 1 to check the offset
