@@ -35,6 +35,7 @@
 #include "clang/SPIRV/SpirvContext.h"
 #include "llvm/ADT/DenseSet.h"
 #include "llvm/ADT/STLExtras.h"
+#include "llvm/ADT/SmallPtrSet.h"
 
 #include "ConstEvaluator.h"
 #include "DeclResultIdMapper.h"
@@ -294,6 +295,37 @@ private:
   /// Use this in place of bare isDescriptorHeap() at all sites that ask "is
   /// this value heap-sourced?" so that alias-to-alias flows are recognized.
   bool isHeapSourcedValue(const Expr *expr) const;
+
+  /// \brief Returns true if expr is a heap image whose heap slot was lost
+  /// crossing a user function call, as a parameter or a return value.
+  ///
+  /// The slot is recorded per variable in the function that indexed the heap
+  /// and isn't propagated across calls, so after a crossing only the
+  /// image handle remains. Detection is best-effort: it recognizes flagged
+  /// parameters and values returned from calls, not every copy or
+  /// reassignment of them. expr's type isn't checked, since heap buffer
+  /// aliases are rejected at the crossing itself.
+  bool isDescriptorHeapImageBoundaryLoss(const Expr *expr) const;
+
+  /// \brief Returns true if a return statement in fn yields a statically
+  /// heap-sourced value (see isExprStaticallyHeapSourcedImage).
+  ///
+  /// Scans the AST rather than recording state while emitting fn, because
+  /// the work queue can emit fn after the caller that needs the answer.
+  /// Memoized in descriptorHeapImageReturnCache.
+  bool functionReturnsHeapSourcedImage(const FunctionDecl *fn) const;
+
+  /// \brief Returns true if expr is a descriptor heap subscript, or refers to
+  /// a VarDecl initialized from one, eg:
+  ///   RWTexture2D<uint> a = ResourceDescriptorHeap[i];
+  ///   RWTexture2D<uint> b = a;  // b
+  ///
+  /// Reads initializers rather than descriptorHeapImageAliasVars, so it can
+  /// answer for a function that hasn't been emitted yet. Tradeoff is that
+  /// later assignments aren't seen. `visiting` guards against revisiting a
+  /// VarDecl.
+  bool isExprStaticallyHeapSourcedImage(
+      const Expr *expr, llvm::SmallPtrSetImpl<const VarDecl *> &visiting) const;
 
   void getDescriptorHeapOperands(const Expr *expr, const Expr **base,
                                  const Expr **index);
@@ -1723,6 +1755,27 @@ private:
       descriptorHeapBufferAccesses;
   llvm::DenseMap<const VarDecl *, DescriptorHeapBufferAlias>
       descriptorHeapBufferAliasVars;
+
+  /// Parameters whose argument, at some call site, was a heap-sourced image
+  /// (see isHeapSourcedValue): the slot lives in the caller's
+  /// descriptorHeapImageAliasVars, keyed on the caller's VarDecl, and is
+  /// invisible to the callee's parameter. Plain OpImageRead/OpImageWrite
+  /// remain valid on the parameter (the loaded handle alone is sufficient),
+  /// so this is only consulted lazily, when an atomic needs the heap slot
+  /// for OpImageTexelPointer. See isDescriptorHeapImageBoundaryLoss.
+  ///
+  /// Only parameters are recorded here: a local initialized from a
+  /// heap-returning call is instead detected on demand by
+  /// isDescriptorHeapImageBoundaryLoss re-deriving it from the local's own
+  /// initializer, because whether the call is heap-returning can depend on
+  /// a callee not yet emitted (see functionReturnsHeapSourcedImage) at the
+  /// point the local's declaration is processed.
+  llvm::DenseSet<const VarDecl *> descriptorHeapImageBoundaryLossVars;
+
+  /// Memoization cache for functionReturnsHeapSourcedImage, keyed on each
+  /// FunctionDecl's canonical declaration.
+  mutable llvm::DenseMap<const FunctionDecl *, bool>
+      descriptorHeapImageReturnCache;
 
   /// The source location of a push constant block we have previously seen.
   /// Invalid means no push constant blocks defined thus far.

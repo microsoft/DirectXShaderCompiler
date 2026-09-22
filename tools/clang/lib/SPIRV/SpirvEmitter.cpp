@@ -2979,10 +2979,24 @@ void SpirvEmitter::doReturnStmt(const ReturnStmt *stmt) {
   if (!returnsVoid) {
     assert(retVal);
     const Expr *srcExpr = retVal->IgnoreParenCasts();
-    if (isHeapSourcedValue(srcExpr)) {
+    if (spirvOptions.useDescriptorHeap && isHeapSourcedValue(srcExpr)) {
       if (isDescriptorHeap(srcExpr)) {
-        // Direct heap subscript: register the heap variable so the declaration
-        // mapper can resolve it for the return instruction.
+        // Buffer-like types cannot be returned: the OpBufferPointerEXT
+        // representation requires VariablePointersStorageBuffer which is
+        // not supported across function boundaries.
+        if (isAKindOfStructuredOrByteBuffer(retVal->getType()) ||
+            isConstantTextureBuffer(retVal->getType())) {
+          emitError("heap buffer cannot be returned from a function; "
+                    "access the buffer element directly at the return site",
+                    retVal->getLocStart());
+          spvBuilder.createReturnValue(
+              spvBuilder.getUndef(curFunction->getReturnType()),
+              stmt->getReturnLoc());
+          return;
+        }
+        // Direct heap subscript returning an image resource: register the heap
+        // variable so the declaration mapper can resolve it for the return
+        // instruction.
         const Expr *base = nullptr;
         getDescriptorHeapOperands(srcExpr, &base, /* index= */ nullptr);
         const Expr *parentExpr = cast<CastExpr>(parentMap->getParent(srcExpr));
@@ -3445,6 +3459,21 @@ SpirvInstruction *SpirvEmitter::processCall(const CallExpr *callExpr) {
           "Resource/sampler heaps are not allowed as function parameters.",
           param->getLocStart());
       return nullptr;
+    }
+
+    // A heap image's slot is tracked in the caller's alias state, which the
+    // callee's parameter doesn't share. Plain reads and writes on the
+    // parameter still work, since they only need the handle, but an atomic
+    // needs the slot, so the parameter is flagged for that atomic to report
+    // the loss. The flag only reaches atomics emitted after this call.
+    // Heap buffer aliases are rejected below instead: every access through
+    // one needs the buffer pointer, and passing that pointer would need
+    // VariablePointersStorageBuffer.
+    if (spirvOptions.useDescriptorHeap &&
+        !isAKindOfStructuredOrByteBuffer(paramType) &&
+        !isConstantTextureBuffer(paramType) &&
+        isHeapSourcedValue(arg->IgnoreParenCasts())) {
+      descriptorHeapImageBoundaryLossVars.insert(param);
     }
 
     // Get the evaluation info if this argument is referencing some variable
@@ -5509,7 +5538,9 @@ SpirvEmitter::incDecRWACSBufferCounter(const CXXMemberCallExpr *expr,
     (void)doExpr(object);
   }
 
-  if (isDescriptorHeapCounterUnsupported(object)) {
+  if (isDescriptorHeapCounterUnsupported(object) ||
+      (spirvOptions.useDescriptorHeap &&
+       isDescriptorHeap(object->IgnoreParenCasts()))) {
     emitError("counter operations on heap-loaded RWStructuredBuffer are not "
               "supported with SPV_EXT_descriptor_heap",
               expr->getCallee()->getExprLoc());
@@ -8508,6 +8539,85 @@ bool SpirvEmitter::isHeapSourcedValue(const Expr *expr) const {
          descriptorHeapBufferAliasVars.count(var);
 }
 
+bool SpirvEmitter::isExprStaticallyHeapSourcedImage(
+    const Expr *expr, llvm::SmallPtrSetImpl<const VarDecl *> &visiting) const {
+  expr = expr->IgnoreParenCasts();
+  if (isDescriptorHeap(expr))
+    return true;
+  const auto *declRefExpr = dyn_cast<DeclRefExpr>(expr);
+  const auto *var =
+      declRefExpr ? dyn_cast<VarDecl>(declRefExpr->getDecl()) : nullptr;
+  if (!var || !var->getInit() || !visiting.insert(var).second)
+    return false;
+  return isExprStaticallyHeapSourcedImage(var->getInit(), visiting);
+}
+
+bool SpirvEmitter::functionReturnsHeapSourcedImage(
+    const FunctionDecl *fn) const {
+  fn = fn->getCanonicalDecl();
+  auto cached = descriptorHeapImageReturnCache.find(fn);
+  if (cached != descriptorHeapImageReturnCache.end())
+    return cached->second;
+
+  // Memoize before recursing: a function that calls itself (directly or, in
+  // a future world with recursion, indirectly) must not re-enter this scan.
+  bool &result = descriptorHeapImageReturnCache[fn];
+  result = false;
+
+  if (const Stmt *body = fn->getBody()) {
+    llvm::SmallVector<const Stmt *, 16> worklist{body};
+    while (!worklist.empty()) {
+      const Stmt *s = worklist.pop_back_val();
+      if (!s)
+        continue;
+      if (const auto *ret = dyn_cast<ReturnStmt>(s)) {
+        const Expr *retVal = ret->getRetValue();
+        llvm::SmallPtrSet<const VarDecl *, 4> visiting;
+        if (retVal && isExprStaticallyHeapSourcedImage(retVal, visiting)) {
+          result = true;
+          break;
+        }
+        continue;
+      }
+      for (const Stmt *child : s->children())
+        worklist.push_back(child);
+    }
+  }
+  return result;
+}
+
+bool SpirvEmitter::isDescriptorHeapImageBoundaryLoss(const Expr *expr) const {
+  const Expr *e = expr->IgnoreParenCasts();
+
+  // A call expression evaluated directly (e.g. InterlockedAdd(f(x)[i], ...))
+  // never goes through a receiving VarDecl, so check the callee itself. This
+  // is a pure AST scan (functionReturnsHeapSourcedImage), not a lookup into
+  // state recorded while emitting the callee: SpirvEmitter drains a
+  // work queue seeded by the entry point (see HandleTranslationUnit), so a
+  // callee can be emitted after its caller. Any check keyed on "has the
+  // callee already run" would miss exactly the cases this function exists
+  // to catch.
+  if (const auto *call = dyn_cast<CallExpr>(e)) {
+    if (const auto *fn = call->getDirectCallee())
+      return functionReturnsHeapSourcedImage(fn);
+    return false;
+  }
+
+  const auto *var = dyn_cast_or_null<VarDecl>(getReferencedDef(e));
+  if (!var)
+    return false;
+  if (descriptorHeapImageBoundaryLossVars.count(var))
+    return true;
+  // A local initialized from a call inherits the call's loss, checked here
+  // directly (same reason as above: no side-recorded state to consult).
+  if (const auto *init = var->getInit()) {
+    if (const auto *call = dyn_cast<CallExpr>(init->IgnoreParenCasts()))
+      if (const auto *fn = call->getDirectCallee())
+        return functionReturnsHeapSourcedImage(fn);
+  }
+  return false;
+}
+
 void SpirvEmitter::getDescriptorHeapOperands(const Expr *expr,
                                              const Expr **base,
                                              const Expr **index) {
@@ -11100,6 +11210,26 @@ SpirvEmitter::processIntrinsicInterlockedMethod(const CallExpr *expr,
         }
       }
       auto *coordInstr = doExpr(index);
+
+      // An atomic on a heap image needs its heap slot, which doesn't survive
+      // a function call. Without this check, the fallback below emits
+      // OpImageTexelPointer on a Function-class copy, which fails
+      // VUID-StandaloneSpirv-OpTypeImage-06924 with no diagnostic. The loss
+      // is traced to the crossing rather than inferred from Function storage
+      // class, because bound images copied into locals or parameters are
+      // Function-class too and legalize fine. Detection is best-effort.
+      // TODO(#8784): implement cross-function heap image propagation; once
+      // the slot itself can cross the boundary, remove this check and it's
+      // tracker
+      if (spirvOptions.useDescriptorHeap &&
+          isDescriptorHeapImageBoundaryLoss(base)) {
+        emitError(
+            "interlocked operation on a heap-backed RWTexture passed to or "
+            "returned from a helper function is not supported; use the "
+            "image directly at the call site",
+            dest->getExprLoc());
+        return nullptr;
+      }
 
       if (spirvOptions.useDescriptorHeap) {
         const Expr *heapBase = base->IgnoreParenCasts();
