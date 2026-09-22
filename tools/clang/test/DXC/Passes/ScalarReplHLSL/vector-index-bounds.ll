@@ -8,10 +8,12 @@
 ; CHECK-DAG: %nested = alloca [2 x %struct.S]
 ; CHECK-DAG: %out_of_bounds = alloca [2 x <4 x float>]
 ; CHECK-DAG: %negative = alloca [2 x <4 x float>]
+; CHECK-DAG: @global_out_of_bounds = internal global [2 x <4 x float>] zeroinitializer
 ; CHECK: getelementptr inbounds [2 x <4 x float>], [2 x <4 x float>]* %out_of_bounds, i32 0, i32 0, i32 7
 ; CHECK: getelementptr inbounds [2 x <4 x float>], [2 x <4 x float>]* %negative, i32 0, i32 0, i32 -1
 ; CHECK: getelementptr inbounds [2 x float], [2 x float]* %valid.3, i32 0, i32 0
 ; CHECK: getelementptr [2 x %struct.S], [2 x %struct.S]* %nested, i32 0, i32 0, i32 0, i32 7
+; CHECK: getelementptr inbounds [2 x <4 x float>], [2 x <4 x float>]* @global_out_of_bounds, i32 0, i32 0, i32 7
 
 target datalayout = "e-m:e-p:32:32-i1:32-i8:32-i16:32-i32:32-i64:64-f16:32-f32:32-f64:64-n8:16:32:64"
 target triple = "dxil-ms-dx"
@@ -20,6 +22,7 @@ target triple = "dxil-ms-dx"
 %struct.S = type { <4 x float> }
 
 @"$Globals" = external constant %ConstantBuffer
+@global_out_of_bounds = internal global [2 x <4 x float>] zeroinitializer
 
 define <4 x float> @main() {
 entry:
@@ -41,6 +44,8 @@ entry:
   %nested = alloca [2 x %struct.S]
   %nested.element = getelementptr [2 x %struct.S], [2 x %struct.S]* %nested, i32 0, i32 0, i32 0, i32 7
   store float 9.000000e+00, float* %nested.element
+
+  store float 9.000000e+00, float* getelementptr inbounds ([2 x <4 x float>], [2 x <4 x float>]* @global_out_of_bounds, i32 0, i32 0, i32 7)
 
   ret <4 x float> zeroinitializer
 }

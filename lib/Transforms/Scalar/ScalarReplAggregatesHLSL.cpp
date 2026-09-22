@@ -1698,7 +1698,10 @@ bool hasDynamicVectorIndexing(Value *V) {
       for (; GEPIt != E; ++GEPIt) {
         if (isa<VectorType>(*GEPIt)) {
           Value *VecIdx = GEPIt.getOperand();
-          if (!isa<ConstantInt>(VecIdx))
+          ConstantInt *ConstantVecIdx = dyn_cast<ConstantInt>(VecIdx);
+          if (!ConstantVecIdx ||
+              !isValidVectorIndex(ConstantVecIdx,
+                        GEPIt->getVectorNumElements()))
             return true;
         }
       }
