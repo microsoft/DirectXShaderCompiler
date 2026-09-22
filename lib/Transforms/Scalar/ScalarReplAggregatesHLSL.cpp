@@ -1701,7 +1701,7 @@ bool hasDynamicVectorIndexing(Value *V) {
           ConstantInt *ConstantVecIdx = dyn_cast<ConstantInt>(VecIdx);
           if (!ConstantVecIdx ||
               !isValidVectorIndex(ConstantVecIdx,
-                        GEPIt->getVectorNumElements()))
+                                  GEPIt->getVectorNumElements()))
             return true;
         }
       }
