@@ -10730,7 +10730,7 @@ TreeTransform<Derived>::TransformBlockExpr(BlockExpr *E) {
   QualType exprResultType =
       getDerived().TransformType(exprFunctionType->getReturnType());
 
-  // HLSL Change - FIX - We should move param mods to parameter QualTypes
+  // HLSL Change - Fix up the parameter modifiers for the block's parameters.
   SmallVector<hlsl::ParameterModifier, 4> ExpandedParamMods;
   ArrayRef<hlsl::ParameterModifier> ParamMods =
       exprFunctionType->getParamMods();
@@ -10983,7 +10983,7 @@ TreeTransform<Derived>::RebuildDependentSizedExtVectorType(QualType ElementType,
   return SemaRef.BuildExtVectorType(ElementType, SizeExpr, AttributeLoc);
 }
 
-// HLSL Change - FIX - We should move param mods to parameter QualTypes
+// HLSL Change - Fix up the parameter modifiers for the function prototype.
 template<typename Derived>
 QualType TreeTransform<Derived>::RebuildFunctionProtoType(
     QualType T,

@@ -497,6 +497,7 @@ static void InitializeCPlusPlusFeatureTestMacros(const LangOptions &LangOpts,
     Builder.defineMacro("__cpp_ref_qualifiers", "200710");
     Builder.defineMacro("__cpp_alias_templates", "200704");
   }
+  
   // C++14 features.
   if (LangOpts.CPlusPlus14) {
     Builder.defineMacro("__cpp_binary_literals", "201304");
