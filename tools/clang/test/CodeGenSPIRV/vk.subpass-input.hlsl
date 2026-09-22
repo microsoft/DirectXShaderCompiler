@@ -1,5 +1,9 @@
-// RUN: %dxc -T ps_6_0 -E main -fcgl  %s -spirv | FileCheck %s
+// RUN: %dxc -T ps_6_0 -E main -fcgl  %s -spirv | FileCheck %s --implicit-check-not="OpCapability StorageImageMultisample"
 
+// SubpassInputMS lowers to an OpTypeImage with MS=1 and Sampled=2, which is
+// the shape that otherwise requires StorageImageMultisample. Dim SubpassData
+// is excluded from that requirement, so declaring one must not pull in an
+// optional Vulkan device feature.
 // CHECK: OpCapability InputAttachment
 
 // CHECK:  [[v2i00:%[0-9]+]] = OpConstantComposite %v2int %int_0 %int_0

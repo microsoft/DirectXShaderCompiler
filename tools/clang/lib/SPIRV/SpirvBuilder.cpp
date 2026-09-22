@@ -708,15 +708,19 @@ SpirvInstruction *SpirvBuilder::createImageFetchOrRead(
 
 void SpirvBuilder::createImageWrite(QualType imageType, SpirvInstruction *image,
                                     SpirvInstruction *coord,
-                                    SpirvInstruction *texel, SourceLocation loc,
-                                    SourceRange range) {
+                                    SpirvInstruction *texel,
+                                    SpirvInstruction *sample,
+                                    SourceLocation loc, SourceRange range) {
   assert(insertPoint && "null insert point");
+  const auto mask = composeImageOperandsMask(
+      /*bias*/ nullptr, /*lod*/ nullptr, std::make_pair(nullptr, nullptr),
+      /*constOffset*/ nullptr, /*varOffset*/ nullptr, /*constOffsets*/ nullptr,
+      sample, /*minLod*/ nullptr);
   auto *writeInst = new (context) SpirvImageOp(
-      spv::Op::OpImageWrite, imageType, loc, image, coord,
-      spv::ImageOperandsMask::MaskNone,
+      spv::Op::OpImageWrite, imageType, loc, image, coord, mask,
       /*dref*/ nullptr, /*bias*/ nullptr, /*lod*/ nullptr, /*gradDx*/ nullptr,
       /*gradDy*/ nullptr, /*constOffset*/ nullptr, /*varOffset*/ nullptr,
-      /*constOffsets*/ nullptr, /*sample*/ nullptr, /*minLod*/ nullptr,
+      /*constOffsets*/ nullptr, sample, /*minLod*/ nullptr,
       /*component*/ nullptr, texel, range);
   insertPoint->addInstruction(writeInst);
 }

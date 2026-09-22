@@ -71,6 +71,8 @@ line upon naming the release. Refer to previous for appropriate section names.
   [#8616](https://github.com/microsoft/DirectXShaderCompiler/pull/8616).
 - `globallycoherent` is now supported on `ResourceDescriptorHeap` accesses
   [#7740](https://github.com/microsoft/DirectXShaderCompiler/issues/7740).
+- `RWTexture2DMS` and `RWTexture2DMSArray` are now supported
+  [#5244](https://github.com/microsoft/DirectXShaderCompiler/issues/5244).
 - Fixed a crash when a user-defined type named `RayQuery` shadows the intrinsic
   type [#8601](https://github.com/microsoft/DirectXShaderCompiler/issues/8601).
 - Fixed a crash from `static` members of a `cbuffer`/`tbuffer`, which were
