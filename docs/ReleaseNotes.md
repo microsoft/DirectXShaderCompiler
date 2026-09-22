@@ -22,6 +22,12 @@ The included licenses apply to the following files:
 Place release notes for the upcoming release below this line and remove this
 line upon naming the release. Refer to previous for appropriate section names.
 
+#### Bug Fixes
+
+- Fixed members following a merged bitfield reading the wrong value when a
+  struct is flat-converted
+  [#8526](https://github.com/microsoft/DirectXShaderCompiler/issues/8526).
+
 ### Upcoming Preview Release
 
 These changes apply to experimental preview shader models only and will not be
