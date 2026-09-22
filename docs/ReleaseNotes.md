@@ -24,6 +24,8 @@ line upon naming the release. Refer to previous for appropriate section names.
 
 #### Bug Fixes
 
+- Fixed an optimizer crash when scalarizing an out-of-bounds vector access
+  [#8940](https://github.com/microsoft/DirectXShaderCompiler/issues/8940).
 - Fixed derivative operations being moved into divergent control flow, which
   could produce incorrect results
   [#8001](https://github.com/microsoft/DirectXShaderCompiler/issues/8001).

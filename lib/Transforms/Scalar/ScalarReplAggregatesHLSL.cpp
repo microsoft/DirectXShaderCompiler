@@ -1323,6 +1323,11 @@ void MarkUnsafe(AllocaInfo &I, Instruction *User) {
   DEBUG(dbgs() << "  Transformation preventing inst: " << *User << '\n');
 }
 
+static bool isValidVectorIndex(const ConstantInt *Index,
+                               unsigned NumElements) {
+  return Index->getValue().ult(NumElements);
+}
+
 /// isSafeGEP - Check if a GEP instruction can be handled for scalar
 /// replacement.  It is safe when all the indices are constant, in-bounds
 /// references, and when the resulting offset corresponds to an element within
@@ -1363,6 +1368,9 @@ void isSafeGEP(GetElementPtrInst *GEPI, uint64_t &Offset, AllocaInfo &Info) {
     }
     // Allow dynamic indexing
     ConstantInt *IdxVal = dyn_cast<ConstantInt>(GEPIt.getOperand());
+    if (GEPIt->isVectorTy() && IdxVal &&
+        !isValidVectorIndex(IdxVal, arraySize))
+      return MarkUnsafe(Info, GEPI);
     if (!IdxVal) {
       // for dynamic index, use array size - 1 to check the offset
       *indicesIt = Constant::getIntegerValue(
@@ -1386,6 +1394,9 @@ void isSafeGEP(GetElementPtrInst *GEPI, uint64_t &Offset, AllocaInfo &Info) {
     }
     // Allow dynamic indexing
     ConstantInt *IdxVal = dyn_cast<ConstantInt>(GEPIt.getOperand());
+    if (GEPIt->isVectorTy() && IdxVal &&
+        !isValidVectorIndex(IdxVal, arraySize))
+      return MarkUnsafe(Info, GEPI);
     if (!IdxVal) {
       // for dynamic index, use array size - 1 to check the offset
       *indicesIt = Constant::getIntegerValue(
