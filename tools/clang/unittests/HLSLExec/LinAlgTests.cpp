@@ -3637,7 +3637,9 @@ public:
   TEST_METHOD(LoadStoreMemory_Wave_16x32_F16_RowMajorOffsetPadded);
   TEST_METHOD(LoadStoreMemory_Wave_4x8_F32_ColumnMajorOffsetPadded);
   TEST_METHOD(LoadStoreMemory_ThreadGroup_4x8_F16);
+  TEST_METHOD(LoadStoreMemory_ThreadGroup_WaveScaled_F16);
   TEST_METHOD(MatMatMulAccumMemory_Wave_8x32x16_I8_ToI32_OffsetPadded);
+  TEST_METHOD(MatMatMulAccumMemory_Wave_16x32x16_I8_ToI32_OffsetPadded);
   TEST_METHOD(AccumulateMemoryContention_Wave_4x8_F16);
   TEST_METHOD(AccumulateMemoryContention_Wave_16x16_F16);
   TEST_METHOD(AccumulateMemoryContention_Wave_4x8_I32);
@@ -3660,15 +3662,19 @@ public:
   TEST_METHOD(MatMatMul_Wave_16x16x16_F16);
   TEST_METHOD(MatMatMul_Wave_8x32x16_F16_NonUniform);
   TEST_METHOD(MatMatMul_Wave_8x32x16_F16_ToF32);
+  TEST_METHOD(MatMatMul_Wave_16x32x16_F16_NonUniform);
+  TEST_METHOD(MatMatMul_Wave_16x32x16_F16_ToF32);
   TEST_METHOD(MatMatMul_Wave_16x16x16_I32);
   TEST_METHOD(MatMatMulAccum_Wave_16x16x16_F16);
   TEST_METHOD(MatMatMulAccum_Wave_8x32x16_F16_ToF32_NonUniform);
+  TEST_METHOD(MatMatMulAccum_Wave_16x32x16_F16_ToF32_NonUniform);
   TEST_METHOD(MatMatMulAccum_Wave_16x16x16_F16_ToF32_BLayouts);
   TEST_METHOD(MatMatMul_ThreadGroup_WaveScaled_F16_NonUniform);
   TEST_METHOD(MatMatMulAccum_ThreadGroup_WaveScaled_F16_ToF32_NonUniform);
   TEST_METHOD(MatMatMul_ThreadGroup_WaveScaled_I32);
   TEST_METHOD(MatAccum_Wave_16x16_F16);
   TEST_METHOD(MatAccum_Wave_8x32_F16_BUse_NonUniform);
+  TEST_METHOD(MatAccum_Wave_16x32_F16_BUse_NonUniform);
 
   // Matrix Vector Arithmetic
   TEST_METHOD(MatVecMul_Thread_16x16_F16);
@@ -7039,13 +7045,13 @@ static void runWaveMultiplyCase(ID3D12Device *Device,
 }
 
 static MatrixMultiplyCase
-makeRectangularF16WaveMultiplyCase(ComponentType AccumulatorType,
+makeRectangularF16WaveMultiplyCase(MatrixDim M, ComponentType AccumulatorType,
                                    MatrixMultiplyOperation Operation) {
   MatrixMultiplyCase Case = {};
   Case.MatrixAType = ComponentType::F16;
   Case.MatrixBType = ComponentType::F16;
   Case.AccumulatorType = AccumulatorType;
-  Case.M = 8;
+  Case.M = M;
   Case.K = 32;
   Case.N = 16;
   Case.Operation = Operation;
@@ -7067,23 +7073,48 @@ makeRectangularF16WaveMultiplyCase(ComponentType AccumulatorType,
 
 void DxilConf_SM610_LinAlg::MatMatMul_Wave_8x32x16_F16_NonUniform() {
   const MatrixMultiplyCase Case = makeRectangularF16WaveMultiplyCase(
-      ComponentType::F16, MatrixMultiplyOperation::Multiply);
+      /*M=*/8, ComponentType::F16, MatrixMultiplyOperation::Multiply);
   runWaveMultiplyCase(D3DDevice, DxcSupport, Case,
                       L"MatMatMul_Wave_8x32x16_F16_NonUniform", VerboseLogging);
 }
 
 void DxilConf_SM610_LinAlg::MatMatMul_Wave_8x32x16_F16_ToF32() {
   const MatrixMultiplyCase Case = makeRectangularF16WaveMultiplyCase(
-      ComponentType::F32, MatrixMultiplyOperation::Multiply);
+      /*M=*/8, ComponentType::F32, MatrixMultiplyOperation::Multiply);
   runWaveMultiplyCase(D3DDevice, DxcSupport, Case,
                       L"MatMatMul_Wave_8x32x16_F16_ToF32", VerboseLogging);
 }
 
+void DxilConf_SM610_LinAlg::MatMatMul_Wave_16x32x16_F16_NonUniform() {
+  const MatrixMultiplyCase Case = makeRectangularF16WaveMultiplyCase(
+      /*M=*/16, ComponentType::F16, MatrixMultiplyOperation::Multiply);
+  runWaveMultiplyCase(D3DDevice, DxcSupport, Case,
+                      L"MatMatMul_Wave_16x32x16_F16_NonUniform",
+                      VerboseLogging);
+}
+
+void DxilConf_SM610_LinAlg::MatMatMul_Wave_16x32x16_F16_ToF32() {
+  const MatrixMultiplyCase Case = makeRectangularF16WaveMultiplyCase(
+      /*M=*/16, ComponentType::F32, MatrixMultiplyOperation::Multiply);
+  runWaveMultiplyCase(D3DDevice, DxcSupport, Case,
+                      L"MatMatMul_Wave_16x32x16_F16_ToF32", VerboseLogging);
+}
+
 void DxilConf_SM610_LinAlg::MatMatMulAccum_Wave_8x32x16_F16_ToF32_NonUniform() {
   const MatrixMultiplyCase Case = makeRectangularF16WaveMultiplyCase(
-      ComponentType::F32, MatrixMultiplyOperation::MultiplyAccumulate);
+      /*M=*/8, ComponentType::F32, MatrixMultiplyOperation::MultiplyAccumulate);
   runWaveMultiplyCase(D3DDevice, DxcSupport, Case,
                       L"MatMatMulAccum_Wave_8x32x16_F16_ToF32_NonUniform",
+                      VerboseLogging);
+}
+
+void DxilConf_SM610_LinAlg::
+    MatMatMulAccum_Wave_16x32x16_F16_ToF32_NonUniform() {
+  const MatrixMultiplyCase Case = makeRectangularF16WaveMultiplyCase(
+      /*M=*/16, ComponentType::F32,
+      MatrixMultiplyOperation::MultiplyAccumulate);
+  runWaveMultiplyCase(D3DDevice, DxcSupport, Case,
+                      L"MatMatMulAccum_Wave_16x32x16_F16_ToF32_NonUniform",
                       VerboseLogging);
 }
 
@@ -7233,15 +7264,17 @@ static const char WaveAccumulateBUseShader[] = R"(
   }
 )";
 
-void DxilConf_SM610_LinAlg::MatAccum_Wave_8x32_F16_BUse_NonUniform() {
+static void runWaveAccumulateBUse(ID3D12Device *Device,
+                                  dxc::SpecificDllLoader &DxcSupport,
+                                  MatrixDim M, LPCWSTR CaseName, bool Verbose) {
   MatrixParams Params = makeMatrixArithmeticParams(
-      ComponentType::F16, /*M=*/8, /*N=*/32, MatrixUse::B, MatrixScope::Wave,
+      ComponentType::F16, M, /*N=*/32, MatrixUse::B, MatrixScope::Wave,
       /*NumThreads=*/128);
 
   UINT SelectedWaveSize = 0;
-  if (!matrixConstructionApplicable(
-          D3DDevice, Params, {MatrixUse::Accumulator, MatrixUse::B},
-          L"MatAccum_Wave_8x32_F16_BUse_NonUniform", SelectedWaveSize))
+  if (!matrixConstructionApplicable(Device, Params,
+                                    {MatrixUse::Accumulator, MatrixUse::B},
+                                    CaseName, SelectedWaveSize))
     return;
   Params.NumThreads = static_cast<int>(SelectedWaveSize);
 
@@ -7272,8 +7305,7 @@ void DxilConf_SM610_LinAlg::MatAccum_Wave_8x32_F16_BUse_NonUniform() {
   std::stringstream ExtraDefs;
   ExtraDefs << " -DFORCED_WAVE_SIZE=" << SelectedWaveSize;
   const std::string Args = buildCompilerArgs(Params, ExtraDefs.str().c_str());
-  compileShader(DxcSupport, WaveAccumulateBUseShader, "cs_6_10", Args,
-                VerboseLogging);
+  compileShader(DxcSupport, WaveAccumulateBUseShader, "cs_6_10", Args, Verbose);
 
   auto Op = createComputeOp(WaveAccumulateBUseShader, "cs_6_10",
                             "SRV(t0), SRV(t1), UAV(u2)", Args.c_str());
@@ -7286,7 +7318,7 @@ void DxilConf_SM610_LinAlg::MatAccum_Wave_8x32_F16_BUse_NonUniform() {
   addRootView(Op.get(), 2, "Output");
 
   auto Result =
-      runShaderOp(D3DDevice, DxcSupport, std::move(Op),
+      runShaderOp(Device, DxcSupport, std::move(Op),
                   [AccumulatorBuffer, RHSBuffer](
                       LPCSTR Name, std::vector<BYTE> &Data, st::ShaderOp *) {
                     const std::vector<BYTE> *Source = nullptr;
@@ -7306,8 +7338,19 @@ void DxilConf_SM610_LinAlg::MatAccum_Wave_8x32_F16_BUse_NonUniform() {
   Result->Test->GetReadBackData("Output", &OutData);
   VERIFY_IS_TRUE(verifyMatrixArithmeticMatrix(
       OutData.data(), OutData.size(), AccumulatorParams, ExpectedValues,
-      L"Exact non-uniform F16 accumulator plus a B-use F16 matrix",
-      VerboseLogging));
+      L"Exact non-uniform F16 accumulator plus a B-use F16 matrix", Verbose));
+}
+
+void DxilConf_SM610_LinAlg::MatAccum_Wave_8x32_F16_BUse_NonUniform() {
+  runWaveAccumulateBUse(D3DDevice, DxcSupport, /*M=*/8,
+                        L"MatAccum_Wave_8x32_F16_BUse_NonUniform",
+                        VerboseLogging);
+}
+
+void DxilConf_SM610_LinAlg::MatAccum_Wave_16x32_F16_BUse_NonUniform() {
+  runWaveAccumulateBUse(D3DDevice, DxcSupport, /*M=*/16,
+                        L"MatAccum_Wave_16x32_F16_BUse_NonUniform",
+                        VerboseLogging);
 }
 
 static const char MatVecMulShader[] = R"(
@@ -9076,13 +9119,15 @@ static bool runGroupSharedI8MultiplyCase(ID3D12Device *Device,
   return MatrixMatches && GuardsMatch && MatrixAPreserved && MatrixBPreserved;
 }
 
-void DxilConf_SM610_LinAlg::
-    MatMatMulAccumMemory_Wave_8x32x16_I8_ToI32_OffsetPadded() {
+static void runGroupSharedI8Multiply(ID3D12Device *Device,
+                                     dxc::SpecificDllLoader &DxcSupport,
+                                     MatrixDim M, LPCWSTR CaseName,
+                                     bool Verbose) {
   MatrixMultiplyCase Case = {};
   Case.MatrixAType = ComponentType::I8;
   Case.MatrixBType = ComponentType::I8;
   Case.AccumulatorType = ComponentType::I32;
-  Case.M = 8;
+  Case.M = M;
   Case.K = 32;
   Case.N = 16;
   Case.Operation = MatrixMultiplyOperation::MultiplyAccumulate;
@@ -9100,22 +9145,37 @@ void DxilConf_SM610_LinAlg::
     return;
 
   std::vector<UINT> WaveSizes;
-  const HRESULT QueryResult = collectWaveArithmeticMultiplyWaveSizes(
-      D3DDevice, Case,
-      L"MatMatMulAccumMemory_Wave_8x32x16_I8_ToI32_OffsetPadded", WaveSizes);
+  const HRESULT QueryResult =
+      collectWaveArithmeticMultiplyWaveSizes(Device, Case, CaseName, WaveSizes);
   if (!applyApplicability(
           linalg_test::classifyApplicability(
               QueryResult, !WaveSizes.empty(),
               linalg_test::CapabilityRequirement::CapabilityGated),
-          L"MatMatMulAccumMemory_Wave_8x32x16_I8_ToI32_OffsetPadded"))
+          CaseName))
     return;
 
   bool AllWavesMatch = true;
   for (const UINT WaveSize : WaveSizes)
-    AllWavesMatch = runGroupSharedI8MultiplyCase(D3DDevice, DxcSupport, Case,
-                                                 WaveSize, VerboseLogging) &&
+    AllWavesMatch = runGroupSharedI8MultiplyCase(Device, DxcSupport, Case,
+                                                 WaveSize, Verbose) &&
                     AllWavesMatch;
   VERIFY_IS_TRUE(AllWavesMatch);
+}
+
+void DxilConf_SM610_LinAlg::
+    MatMatMulAccumMemory_Wave_8x32x16_I8_ToI32_OffsetPadded() {
+  runGroupSharedI8Multiply(
+      D3DDevice, DxcSupport, /*M=*/8,
+      L"MatMatMulAccumMemory_Wave_8x32x16_I8_ToI32_OffsetPadded",
+      VerboseLogging);
+}
+
+void DxilConf_SM610_LinAlg::
+    MatMatMulAccumMemory_Wave_16x32x16_I8_ToI32_OffsetPadded() {
+  runGroupSharedI8Multiply(
+      D3DDevice, DxcSupport, /*M=*/16,
+      L"MatMatMulAccumMemory_Wave_16x32x16_I8_ToI32_OffsetPadded",
+      VerboseLogging);
 }
 
 static const char GroupSharedTransferShader[] = R"(
@@ -9139,6 +9199,9 @@ static const char GroupSharedTransferShader[] = R"(
       Mat, DestinationData, DST_OFFSET, DST_STRIDE, DST_LAYOUT);
   }
 
+  #ifdef GROUP_SHARED_LIMIT
+  [GroupSharedLimit(GROUP_SHARED_LIMIT)]
+  #endif
   #ifdef FORCED_WAVE_SIZE
   [WaveSize(FORCED_WAVE_SIZE)]
   #else
@@ -9182,7 +9245,8 @@ runGroupSharedTransfer(ID3D12Device *Device, dxc::SpecificDllLoader &DxcSupport,
                        const MatrixParams &Params,
                        const cpu_oracle::MatrixBufferLayout &SourceLayout,
                        const cpu_oracle::MatrixBufferLayout &DestinationLayout,
-                       bool Verbose, UINT ForcedWaveSize = 0) {
+                       bool Verbose, UINT ForcedWaveSize = 0,
+                       UINT GroupSharedLimit = 0) {
   if (!Device ||
       (Params.Scope != MatrixScope::Wave &&
        Params.Scope != MatrixScope::ThreadGroup) ||
@@ -9233,6 +9297,8 @@ runGroupSharedTransfer(ID3D12Device *Device, dxc::SpecificDllLoader &DxcSupport,
   ExtraDefs << " -DDST_OFFSET=" << DestinationLayout.OffsetBytes / ElementBytes;
   ExtraDefs << " -DDST_STRIDE=" << DestinationLayout.StrideBytes / ElementBytes;
   ExtraDefs << " -DDST_LAYOUT=" << static_cast<UINT>(DestinationLayout.Layout);
+  if (GroupSharedLimit != 0)
+    ExtraDefs << " -DGROUP_SHARED_LIMIT=" << GroupSharedLimit;
   if (ForcedWaveSize != 0)
     ExtraDefs << " -DFORCED_WAVE_SIZE=" << ForcedWaveSize;
 
@@ -9273,13 +9339,15 @@ static void runBidirectionalGroupSharedTransfer(
     const MatrixParams &Params,
     const cpu_oracle::MatrixBufferLayout &TargetLayout,
     const cpu_oracle::MatrixBufferLayout &CanonicalLayout, bool Verbose,
-    UINT ForcedWaveSize = 0) {
+    UINT ForcedWaveSize = 0, UINT GroupSharedLimit = 0) {
   hlsl_test::LogCommentFmt(L"Group-shared transfer: target to canonical");
   runGroupSharedTransfer(Device, DxcSupport, Params, TargetLayout,
-                         CanonicalLayout, Verbose, ForcedWaveSize);
+                         CanonicalLayout, Verbose, ForcedWaveSize,
+                         GroupSharedLimit);
   hlsl_test::LogCommentFmt(L"Group-shared transfer: canonical to target");
   runGroupSharedTransfer(Device, DxcSupport, Params, CanonicalLayout,
-                         TargetLayout, Verbose, ForcedWaveSize);
+                         TargetLayout, Verbose, ForcedWaveSize,
+                         GroupSharedLimit);
 }
 
 void DxilConf_SM610_LinAlg::
@@ -9423,6 +9491,101 @@ void DxilConf_SM610_LinAlg::LoadStoreMemory_ThreadGroup_4x8_F16() {
   runBidirectionalGroupSharedTransfer(D3DDevice, DxcSupport, Params, Target,
                                       Canonical, VerboseLogging,
                                       SelectedWaveSize);
+}
+
+void DxilConf_SM610_LinAlg::LoadStoreMemory_ThreadGroup_WaveScaled_F16() {
+  const LPCWSTR CaseName = L"LoadStoreMemory_ThreadGroup_WaveScaled_F16";
+  if (!linAlgTierApplicable(D3DDevice, CaseName))
+    return;
+
+  UINT MinWaveSize = 0;
+  UINT MaxWaveSize = 0;
+  const HRESULT WaveResult =
+      queryLaunchableWaveSizes(D3DDevice, MinWaveSize, MaxWaveSize);
+  if (!applyApplicability(
+          linalg_test::classifyApplicability(
+              WaveResult, MinWaveSize != 0,
+              linalg_test::CapabilityRequirement::CapabilityGated),
+          CaseName))
+    return;
+
+  for (UINT WaveSize = 4; WaveSize <= 128; WaveSize *= 2) {
+    if (WaveSize < MinWaveSize || WaveSize > MaxWaveSize)
+      continue;
+
+    const MatrixDim M = roundUpToMultiple(16, WaveSize);
+    MatrixParams Params = makeMatrixArithmeticParams(
+        ComponentType::F16, M, 2 * M, MatrixUse::A, MatrixScope::ThreadGroup,
+        /*NumThreads=*/2 * WaveSize);
+    Params.Layout = MatrixLayout::ColumnMajor;
+
+    bool Supported = false;
+    const HRESULT QueryResult = supportsMatrixShape(
+        D3DDevice, linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT16, WaveSize,
+        Params.Use, Params.M, Params.N, Supported);
+    if (FAILED(QueryResult)) {
+      applyApplicability(linalg_test::Applicability::Fail, CaseName);
+      return;
+    }
+    if (!Supported)
+      continue;
+
+    const size_t ElementBytes = elementSize(Params.CompType);
+    const cpu_oracle::MatrixBufferLayout Target = {
+        MatrixLayout::ColumnMajor,
+        /*OffsetBytes=*/MatrixOffsetAlignmentBytes,
+        /*StrideBytes=*/alignMatrixStride(Params.M * ElementBytes) +
+            MatrixStrideAlignmentBytes,
+    };
+    const cpu_oracle::MatrixBufferLayout Canonical = {
+        MatrixLayout::RowMajor,
+        /*OffsetBytes=*/0,
+        /*StrideBytes=*/alignMatrixStride(Params.N * ElementBytes),
+    };
+    size_t TargetBytes;
+    size_t CanonicalBytes;
+    UINT TargetElements;
+    UINT CanonicalElements;
+    if (!getGroupSharedBufferDescription(Params, Target, TargetBytes,
+                                         TargetElements) ||
+        !getGroupSharedBufferDescription(Params, Canonical, CanonicalBytes,
+                                         CanonicalElements)) {
+      VERIFY_IS_TRUE(false, "Invalid ThreadGroup transfer buffer description");
+      return;
+    }
+    const size_t SharedBytes = TargetBytes + CanonicalBytes;
+    UINT GroupSharedLimit = 0;
+    if (SharedBytes > hlsl::DXIL::kMaxTGSMSize) {
+#if defined(HLSLEXEC_GROUPSHARED_LIMITS)
+      const UINT MaxSharedBytes = getMaxGroupSharedMemoryCS(D3DDevice);
+      if (SharedBytes > MaxSharedBytes) {
+        hlsl_test::LogCommentFmt(
+            L"ThreadGroup transfer at wave=%u requires %zu groupshared bytes; "
+            L"device limit=%u",
+            WaveSize, SharedBytes, MaxSharedBytes);
+        continue;
+      }
+      GroupSharedLimit = static_cast<UINT>(SharedBytes);
+#else
+      hlsl_test::LogCommentFmt(
+          L"ThreadGroup transfer at wave=%u requires %zu groupshared bytes; "
+          L"this build cannot query extended groupshared limits",
+          WaveSize, SharedBytes);
+      continue;
+#endif
+    }
+
+    hlsl_test::LogCommentFmt(
+        L"ThreadGroup transfer: wave=%u, threads=%d, tile=%ux%u, "
+        L"groupshared bytes=%zu",
+        WaveSize, Params.NumThreads, Params.M, Params.N, SharedBytes);
+    runBidirectionalGroupSharedTransfer(D3DDevice, DxcSupport, Params, Target,
+                                        Canonical, VerboseLogging, WaveSize,
+                                        GroupSharedLimit);
+    return;
+  }
+
+  applyApplicability(linalg_test::Applicability::NotApplicable, CaseName);
 }
 
 static const char GroupSharedAccumulateShader[] = R"(
