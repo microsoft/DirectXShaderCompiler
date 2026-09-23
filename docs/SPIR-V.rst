@@ -2163,14 +2163,15 @@ associated counter operations such as ``IncrementCounter`` and
 ``DecrementCounter`` emit a diagnostic because the native descriptor heap path
 does not recover an associated counter descriptor.
 
-A local resource variable initialized from a heap access is resolved entirely at
-compile time: the variable is recorded as an alias for the heap index, and every
-later use is re-lowered as a fresh access chain rather than as a load of a stored
-descriptor handle. This is sound only when the variable holds a heap descriptor
-on every path that reaches the use. DXC therefore rejects a variable that holds
-both a bound resource and a heap descriptor, whether through a conditional
-assignment, a reassignment back to a bound resource, or an assignment inside a
-loop::
+Buffer-like local variables initialized from a heap access are tracked by their
+heap index, and later uses are re-lowered as fresh access chains. Image
+variables retain their loaded descriptor handle for ordinary reads and writes;
+the tracked heap index is used when an atomic operation requires
+``OpUntypedImageTexelPointerEXT``. Acceleration-structure aliases retain the
+initially loaded handle. Because index-tracked aliases do not model
+control-flow merges, DXC rejects a variable that holds both a bound resource
+and a heap descriptor, whether through a conditional assignment, a
+reassignment back to a bound resource, or an assignment inside a loop::
 
   error: mixing bound and descriptor heap resources in the same variable is not
   supported with SPV_EXT_descriptor_heap
