@@ -18,7 +18,7 @@ define void @main() {
   %h1 = call %dx.types.Handle @dx.op.createHandleFromBinding(i32 217, %dx.types.ResBind zeroinitializer, i32 0, i1 false)  ; CreateHandleFromBinding(bind,index,nonUniformIndex)
   %bab = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %h1, %dx.types.ResourceProperties { i32 11, i32 0 })  ; AnnotateHandle(res,props)  resource: ByteAddressBuffer
 
-  %1 = call %dx.types.LinAlgMatrixC2M5N4U1S2 @dx.op.linAlgFillMatrix.mC2M5N4U1S2.i32(i32 -2147483636, i32 1)  ; LinAlgFillMatrix(value)
+  %1 = call %dx.types.LinAlgMatrixC2M5N4U1S2 @dx.op.linAlgFillMatrix.mC2M5N4U1S2.i32(i32 -2147483636, i1 true, i32 1)  ; LinAlgFillMatrix(isInputSigned,value)
 
   ; CHECK: Function: main: error: Destination matrix dimension '8x4' must match source matrix dimension '5x4'.
   ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgCopyConvertMatrix.mC4M8N4U1S2.mC2M5N4U1S2
@@ -49,7 +49,7 @@ define void @main() {
 }
 
 ; Function Attrs: nounwind
-declare %dx.types.LinAlgMatrixC2M5N4U1S2 @dx.op.linAlgFillMatrix.mC2M5N4U1S2.i32(i32, i32) #0
+declare %dx.types.LinAlgMatrixC2M5N4U1S2 @dx.op.linAlgFillMatrix.mC2M5N4U1S2.i32(i32, i1, i32) #0
 
 ; Function Attrs: nounwind
 declare %dx.types.LinAlgMatrixC4M8N4U1S2 @dx.op.linAlgCopyConvertMatrix.mC4M8N4U1S2.mC2M5N4U1S2(i32, %dx.types.LinAlgMatrixC2M5N4U1S2, i1) #0

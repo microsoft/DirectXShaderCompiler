@@ -6281,7 +6281,10 @@ class db_dxil(object):
             "",
             [
                 db_dxil_param(0, "$x0", "", "resulting matrix"),
-                db_dxil_param(2, "$x1", "value", "value to fill matrix with"),
+                db_dxil_param(
+                    2, "i1", "isInputSigned", "true if input is signed"
+                ),
+                db_dxil_param(3, "$x1", "value", "value to fill matrix with"),
             ],
         )
 
@@ -6573,8 +6576,11 @@ class db_dxil(object):
             "",
             [
                 db_dxil_param(0, "$x0", "", "resulting matrix"),
-                db_dxil_param(2, "$x1", "vectorA", "M dim vector"),
-                db_dxil_param(3, "$x2", "vectorB", "N dim vector"),
+                db_dxil_param(
+                    2, "i1", "isInputSigned", "true if input is signed"
+                ),
+                db_dxil_param(3, "$x1", "vectorA", "M dim vector"),
+                db_dxil_param(4, "$x2", "vectorB", "N dim vector"),
             ],
         )
 

@@ -64,7 +64,7 @@ define void @mainGS() {
   %7 = call <16 x half> @dx.op.linAlgMatVecMul.v16f16.mC8M16N16U0S0.v16f16(i32 -2147483623, %dx.types.LinAlgMatrixC8M16N16U0S0 %6, i1 true, <16 x half> zeroinitializer, i32 8)  ; LinAlgMatVecMul(matrix,isOutputSigned,inputVector,interpretation)
   %8 = call <16 x half> @dx.op.linAlgMatVecMulAdd.v16f16.mC8M16N16U0S0.v16f16.v16f16(i32 -2147483622, %dx.types.LinAlgMatrixC8M16N16U0S0 %6, i1 true, <16 x half> %7, i32 8, <16 x half> %7)  ; LinAlgMatVecMulAdd(matrix,isOutputSigned,inputVector,inputInterpretation,biasVector)
   %9 = call <4 x i32> @dx.op.linAlgConvert.v4i32.v16i32(i32 -2147483618, <16 x i32> zeroinitializer, i32 5, i32 21)  ; LinAlgConvert(inputVector,inputInterpretation,outputInterpretation)
-  %10 = call %dx.types.LinAlgMatrixC8M16N16U2S0 @dx.op.linAlgMatrixOuterProduct.mC8M16N16U2S0.v16f16.v16f16(i32 -2147483619, <16 x half> %8, <16 x half> %8)  ; LinAlgMatrixOuterProduct(vectorA,vectorB)
+  %10 = call %dx.types.LinAlgMatrixC8M16N16U2S0 @dx.op.linAlgMatrixOuterProduct.mC8M16N16U2S0.v16f16.v16f16(i32 -2147483619, i1 true, <16 x half> %8, <16 x half> %8)  ; LinAlgMatrixOuterProduct(isInputSigned,vectorA,vectorB)
   %11 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %1, %dx.types.ResourceProperties { i32 4107, i32 0 })  ; AnnotateHandle(res,props)  resource: RWByteAddressBuffer
   call void @dx.op.linAlgMatrixAccumulateToDescriptor.mC8M16N16U2S0(i32 -2147483621, %dx.types.LinAlgMatrixC8M16N16U2S0 %10, %dx.types.Handle %11, i32 0, i32 0, i32 4, i32 128)  ; LinAlgMatrixAccumulateToDescriptor(matrix,handle,offset,stride,layout,align)
   %12 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %1, %dx.types.ResourceProperties { i32 4107, i32 0 })  ; AnnotateHandle(res,props)  resource: RWByteAddressBuffer
@@ -76,7 +76,7 @@ define void @mainGS() {
   %17 = call %dx.types.LinAlgMatrixC8M16N16U2S1 @dx.op.linAlgMatrixAccumulate.mC8M16N16U2S1.mC8M16N16U2S1.mC8M16N16U0S1(i32 -2147483624, %dx.types.LinAlgMatrixC8M16N16U2S1 %16, %dx.types.LinAlgMatrixC8M16N16U0S1 %14)  ; LinAlgMatrixAccumulate(matrixLHS,matrixRHS)
   %18 = call i32 @dx.op.linAlgMatrixLength.mC8M16N16U2S1(i32 -2147483632, %dx.types.LinAlgMatrixC8M16N16U2S1 %17)  ; LinAlgMatrixLength(matrix)
   %19 = call i32 @dx.op.linAlgMatrixQueryAccumulatorLayout(i32 -2147483626)  ; LinAlgMatrixQueryAccumulatorLayout()
-  %20 = call %dx.types.LinAlgMatrixC8M16N16U0S1 @dx.op.linAlgFillMatrix.mC8M16N16U0S1.f32(i32 -2147483636, float 0x40091EB860000000)  ; LinAlgFillMatrix(value)
+  %20 = call %dx.types.LinAlgMatrixC8M16N16U0S1 @dx.op.linAlgFillMatrix.mC8M16N16U0S1.f32(i32 -2147483636, i1 true, float 0x40091EB860000000)  ; LinAlgFillMatrix(isInputSigned,value)
   %21 = call i32 @dx.op.linAlgMatrixLength.mC8M16N16U0S1(i32 -2147483632, %dx.types.LinAlgMatrixC8M16N16U0S1 %20)  ; LinAlgMatrixLength(matrix)
   %22 = call <2 x i32> @dx.op.linAlgMatrixGetCoordinate.mC8M16N16U0S1(i32 -2147483631, %dx.types.LinAlgMatrixC8M16N16U0S1 %20, i32 %21)  ; LinAlgMatrixGetCoordinate(matrix,threadLocalIndex)
   %23 = call half @dx.op.linAlgMatrixGetElement.f16.mC8M16N16U0S1(i32 -2147483630, %dx.types.LinAlgMatrixC8M16N16U0S1 %20, i32 %21)  ; LinAlgMatrixGetElement(matrix,threadLocalIndex)
@@ -126,7 +126,7 @@ declare <16 x half> @dx.op.linAlgMatVecMulAdd.v16f16.mC8M16N16U0S0.v16f16.v16f16
 declare <4 x i32> @dx.op.linAlgConvert.v4i32.v16i32(i32, <16 x i32>, i32, i32) #0
 
 ; Function Attrs: nounwind
-declare %dx.types.LinAlgMatrixC8M16N16U2S0 @dx.op.linAlgMatrixOuterProduct.mC8M16N16U2S0.v16f16.v16f16(i32, <16 x half>, <16 x half>) #0
+declare %dx.types.LinAlgMatrixC8M16N16U2S0 @dx.op.linAlgMatrixOuterProduct.mC8M16N16U2S0.v16f16.v16f16(i32, i1, <16 x half>, <16 x half>) #0
 
 ; Function Attrs: nounwind
 declare void @dx.op.linAlgMatrixAccumulateToDescriptor.mC8M16N16U2S0(i32, %dx.types.LinAlgMatrixC8M16N16U2S0, %dx.types.Handle, i32, i32, i32, i32) #0
@@ -150,7 +150,7 @@ declare i32 @dx.op.linAlgMatrixLength.mC8M16N16U2S1(i32, %dx.types.LinAlgMatrixC
 declare i32 @dx.op.linAlgMatrixQueryAccumulatorLayout(i32) #0
 
 ; Function Attrs: nounwind
-declare %dx.types.LinAlgMatrixC8M16N16U0S1 @dx.op.linAlgFillMatrix.mC8M16N16U0S1.f32(i32, float) #0
+declare %dx.types.LinAlgMatrixC8M16N16U0S1 @dx.op.linAlgFillMatrix.mC8M16N16U0S1.f32(i32, i1, float) #0
 
 ; Function Attrs: nounwind
 declare i32 @dx.op.linAlgMatrixLength.mC8M16N16U0S1(i32, %dx.types.LinAlgMatrixC8M16N16U0S1) #0

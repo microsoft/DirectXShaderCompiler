@@ -8,14 +8,14 @@ target triple = "dxil-ms-dx"
 %dx.types.LinAlgMatrixC4M4N5U1S2 = type { i8* }
 
 define void @main() {
-  %1 = call %dx.types.LinAlgMatrixC4M5N4U1S2 @dx.op.linAlgFillMatrix.mC4M5N4U1S2.i32(i32 -2147483636, i32 5)  ; LinAlgFillMatrix(value)
+  %1 = call %dx.types.LinAlgMatrixC4M5N4U1S2 @dx.op.linAlgFillMatrix.mC4M5N4U1S2.i32(i32 -2147483636, i1 true, i32 5)  ; LinAlgFillMatrix(isInputSigned,value)
   %2 = bitcast %dx.types.LinAlgMatrixC4M5N4U1S2 %1 to i32
   ret void
   ; CHECK: shader: invalid cast opcode for cast from '%dx.types.LinAlgMatrixC4M5N4U1S2 = type { i8* }' to 'i32'
 }
 
 ; Function Attrs: nounwind
-declare %dx.types.LinAlgMatrixC4M5N4U1S2 @dx.op.linAlgFillMatrix.mC4M5N4U1S2.i32(i32, i32) #0
+declare %dx.types.LinAlgMatrixC4M5N4U1S2 @dx.op.linAlgFillMatrix.mC4M5N4U1S2.i32(i32, i1, i32) #0
 
 attributes #0 = { nounwind }
 

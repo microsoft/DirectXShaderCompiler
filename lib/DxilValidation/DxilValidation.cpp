@@ -1327,6 +1327,19 @@ static void ValidateLinAlgMatrixStoreToMemory(CallInst *CI,
   }
 }
 
+static void ValidateLinAlgIsInputSigned(CallInst *CI, Value *IsInputSignedValue,
+                                        Type *InputTy,
+                                        ValidationContext &ValCtx,
+                                        const char *OpName) {
+  std::optional<uint64_t> IsInputSigned = ValidateConstantIntGetValue(
+      CI, IsInputSignedValue, ValCtx, "IsInputSigned", OpName);
+  Type *ScalarTy = InputTy->getScalarType();
+  if (IsInputSigned && ScalarTy->isFloatingPointTy() && *IsInputSigned != 1)
+    ValCtx.EmitInstrFormatError(
+        CI, ValidationRule::InstrLinAlgMatrixUnsignedFloatTypeNotAllowed,
+        {TypeToString(ScalarTy)});
+}
+
 static void ValidateLinAlgMatVecMul(CallInst *CI, ValidationContext &ValCtx,
                                     const char *OpName = "LinAlgMatVecMul") {
   ValidateLinAlgOpParameters(CI, ValCtx);
@@ -1695,6 +1708,10 @@ ValidateLinAlgVectorAccumulateToDescriptor(CallInst *CI,
 static void ValidateLinAlgFillMatrix(CallInst *CI, ValidationContext &ValCtx) {
   ValidateLinAlgOpReturnMatrix(CI, ValCtx);
   ValidateLinAlgOpParameters(CI, ValCtx);
+  DxilInst_LinAlgFillMatrix Op(CI);
+  ValidateLinAlgIsInputSigned(CI, Op.get_isInputSigned(),
+                              Op.get_value()->getType(), ValCtx,
+                              "LinAlgFillMatrix");
   std::optional<LinAlgTargetType> RetMat =
       GetCheckedLATT(CI->getType(), ValCtx);
   if (!RetMat)
@@ -2015,6 +2032,8 @@ static void ValidateLinAlgMatrixOuterProduct(CallInst *CI,
   DxilInst_LinAlgMatrixOuterProduct Op(CI);
   VectorType *AVecTy = cast<VectorType>(Op.get_vectorA()->getType());
   VectorType *BVecTy = cast<VectorType>(Op.get_vectorB()->getType());
+  ValidateLinAlgIsInputSigned(CI, Op.get_isInputSigned(), AVecTy, ValCtx,
+                              "LinAlgMatrixOuterProduct");
   std::optional<LinAlgTargetType> RetMat =
       GetCheckedLATT(CI->getType(), ValCtx);
   if (!RetMat)

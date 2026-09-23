@@ -8,9 +8,9 @@ void main() {
 
   // The FillMatrix calls are similar enough that they start matching
   // the CHECK-SAME lines so we consume them first.
-  // CHECK: ; LinAlgFillMatrix(value)
-  // CHECK: ; LinAlgFillMatrix(value)
-  // CHECK: ; LinAlgFillMatrix(value)
+  // CHECK: ; LinAlgFillMatrix(isInputSigned,value)
+  // CHECK: ; LinAlgFillMatrix(isInputSigned,value)
+  // CHECK: ; LinAlgFillMatrix(isInputSigned,value)
 
   // Matrix<I32, 8, 4, A, ThreadGroup>
   __builtin_LinAlgMatrix [[__LinAlgMatrix_Attributes(4, 8, 4, 0, 2)]] matA;
@@ -21,9 +21,9 @@ void main() {
   // Matrix<I32, 8, 8, Acc, ThreadGroup>
   __builtin_LinAlgMatrix [[__LinAlgMatrix_Attributes(4, 8, 8, 2, 2)]] matR;
 
-  __builtin_LinAlg_FillMatrix(matA, 1);
-  __builtin_LinAlg_FillMatrix(matB, 2);
-  __builtin_LinAlg_FillMatrix(matC, 3);
+  __builtin_LinAlg_FillMatrix(matA, true, 1);
+  __builtin_LinAlg_FillMatrix(matB, true, 2);
+  __builtin_LinAlg_FillMatrix(matC, true, 3);
 
   // CHECK: call %dx.types.LinAlgMatrixC4M8N8U2S2
   // CHECK-SAME: @dx.op.linAlgMatrixMultiplyAccumulate.mC4M8N8U2S2.mC4M8N4U0S2.mC4M4N8U1S2.mC4M8N8U2S2

@@ -30,18 +30,18 @@ void main(uint ID : SV_GroupID)
 // Matrix::Splat
 //
 // CHECK: %[[MATA1:.*]] = call %dx.types.LinAlgMatrixC9M4N4U0S1 @dx.op.linAlgFillMatrix.mC9M4N4U0S1.f32(
-// CHECK-SAME: i32 -2147483636, float 1.000000e+00)
+// CHECK-SAME: i32 -2147483636, i1 true, float 1.000000e+00)
   MatrixATy MatA1 = MatrixATy::Splat(1.0f);
 
 // CHECK: %[[MATB1:.*]] = call %dx.types.LinAlgMatrixC9M4N4U1S1 @dx.op.linAlgFillMatrix.mC9M4N4U1S1.f32(
-// CHECK-SAME: i32 -2147483636, float 2.000000e+00)
+// CHECK-SAME: i32 -2147483636, i1 true, float 2.000000e+00)
   MatrixBTy MatB1;
   MatB1 = MatrixBTy::Splat(2.0f);
 
 // Matrix::Cast
 //
 // CHECK: %[[MAT48F:.*]] = call %dx.types.LinAlgMatrixC9M4N8U0S1 @dx.op.linAlgFillMatrix.mC9M4N8U0S1.f32(
-// CHECK-SAME: i32 -2147483636, float 3.000000e+00)  ; LinAlgFillMatrix(value)
+// CHECK-SAME: i32 -2147483636, i1 true, float 3.000000e+00)  ; LinAlgFillMatrix(isInputSigned,value)
 
 // CHECK: call %dx.types.LinAlgMatrixC4M4N8U0S1 @dx.op.linAlgCopyConvertMatrix.mC4M4N8U0S1.mC9M4N8U0S1(
 // CHECK-SAME: i32 -2147483635, %dx.types.LinAlgMatrixC9M4N8U0S1 %[[MAT48F]], i1 false)
@@ -142,7 +142,7 @@ void main(uint ID : SV_GroupID)
   MatB4.Store(PackedArr, 0, 16, MatrixLayoutEnum::ColMajor);
 
 // CHECK: %[[ACCUM0:.*]] = call %dx.types.LinAlgMatrixC9M4N4U2S1 @dx.op.linAlgFillMatrix.mC9M4N4U2S1.f32(
-// CHECK-SAME: i32 -2147483636, float 1.400000e+01)  ; LinAlgFillMatrix(value)
+// CHECK-SAME: i32 -2147483636, i1 true, float 1.400000e+01)  ; LinAlgFillMatrix(isInputSigned,value)
   MatrixAccumTy AccMat1 = MatrixAccumTy::Splat(14.0f);
 
 // Matrix::InterlockedAccumulate to resource descriptor
@@ -173,7 +173,7 @@ void main(uint ID : SV_GroupID)
 // Matrix::InterlockedAccumulate supports thread-group scope
 //
 // CHECK: %[[TGACCUM:.*]] = call %dx.types.LinAlgMatrixC9M4N4U2S2 @dx.op.linAlgFillMatrix.mC9M4N4U2S2.f32(
-// CHECK-SAME: i32 -2147483636, float 1.500000e+01)
+// CHECK-SAME: i32 -2147483636, i1 true, float 1.500000e+01)
   TGMatrixAccumTy TGAccMat = TGMatrixAccumTy::Splat(15.0f);
 // CHECK: call void @dx.op.linAlgMatrixAccumulateToMemory.mC9M4N4U2S2.f32(i32 -2147483620,
 // CHECK-SAME: %dx.types.LinAlgMatrixC9M4N4U2S2 %[[TGACCUM]],
@@ -185,7 +185,7 @@ void main(uint ID : SV_GroupID)
 // Matrix::Accumulate
 //
 // CHECK: %[[ACCUM1:.*]] = call %dx.types.LinAlgMatrixC9M4N4U2S1 @dx.op.linAlgFillMatrix.mC9M4N4U2S1.f32(
-// CHECK-SAME: i32 -2147483636, float 0.000000e+00)  ; LinAlgFillMatrix(value)
+// CHECK-SAME: i32 -2147483636, i1 true, float 0.000000e+00)  ; LinAlgFillMatrix(isInputSigned,value)
   MatrixAccumTy AccMat2 = MatrixAccumTy::Splat(0.0f);
 
 // CHECK: %[[ACCUM2:.*]] = call %dx.types.LinAlgMatrixC9M4N4U2S1
