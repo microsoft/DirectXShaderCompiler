@@ -627,14 +627,16 @@ class db_dxil(object):
             ev.category = v
 
     def mark_disallowed_operations(self):
+        insts = self.get_insts_by_names
+
         # Disallow indirect branching, unreachable instructions and support for exception unwinding.
-        for i in "IndirectBr,Invoke,Resume,LandingPad,Unreachable".split(","):
-            self.name_idx[i].is_allowed = False
-        for i in "UserOp1,UserOp2,VAArg".split(","):
-            self.name_idx[i].is_allowed = False
+        for i in insts("IndirectBr,Invoke,Resume,LandingPad,Unreachable"):
+            i.is_allowed = False
+        for i in insts("UserOp1,UserOp2,VAArg"):
+            i.is_allowed = False
         # Disallow conversions used for pointer math; GEP is used exclusively in the current model.
-        for i in "PtrToInt,IntToPtr".split(","):
-            self.name_idx[i].is_allowed = False
+        for i in insts("PtrToInt,IntToPtr"):
+            i.is_allowed = False
         # Barrier supersedes Fence.
         self.name_idx["Fence"].is_allowed = False
 
@@ -652,65 +654,56 @@ class db_dxil(object):
     def populate_categories_and_models(self):
         "Populate the category and shader_stages member of instructions."
 
-        # TODO: Update all loops below to use helper
         insts = self.get_insts_by_names
 
         for (
             i
-        ) in "TempRegLoad,TempRegStore,MinPrecXRegLoad,MinPrecXRegStore,LoadInput,StoreOutput".split(
-            ","
-        ):
-            self.name_idx[i].category = "Temporary, indexable, input, output registers"
+        ) in insts("TempRegLoad,TempRegStore,MinPrecXRegLoad,MinPrecXRegStore,LoadInput,StoreOutput"):
+            i.category = "Temporary, indexable, input, output registers"
         for (
             i
-        ) in "FAbs,Saturate,IsNaN,IsInf,IsFinite,IsNormal,Cos,Sin,Tan,Acos,Asin,Atan,Hcos,Hsin,Htan,Exp,Frc,Log,Sqrt,Rsqrt".split(
-            ","
-        ):
-            self.name_idx[i].category = "Unary float"
-        for i in "Round_ne,Round_ni,Round_pi,Round_z".split(","):
-            self.name_idx[i].category = "Unary float - rounding"
-        for i in "Bfrev,Countbits,FirstbitLo,FirstbitSHi".split(","):
-            self.name_idx[i].category = "Unary int"
-        for i in "FirstbitHi".split(","):
-            self.name_idx[i].category = "Unary uint"
-        for i in "FMax,FMin".split(","):
-            self.name_idx[i].category = "Binary float"
-        for i in "IMax,IMin,Add,Sub,Mul,SDiv,SRem,And,Or,Xor,AShr,LShr,Shl".split(","):
-            self.name_idx[i].category = "Binary int"
-        for i in "UMax,UMin,UMul,UDiv,URem".split(","):
-            self.name_idx[i].category = "Binary uint"
-        for i in "IMul".split(","):
-            self.name_idx[i].category = "Binary int with two outputs"
-        for i in "UMul,UDiv".split(","):  # Rename this UDiv OpCode to UDivMod
-            self.name_idx[i].category = "Binary uint with two outputs"
-        for i in "UAddc,USubb".split(","):
-            self.name_idx[i].category = "Binary uint with carry or borrow"
-        for i in "VectorReduceAnd,VectorReduceOr".split(","):
-            self.name_idx[i].category = "Vector reduce to scalar"
-        for i in "FMad,Fma".split(","):
-            self.name_idx[i].category = "Tertiary float"
-        for i in "IMad,Msad,Ibfe".split(","):
-            self.name_idx[i].category = "Tertiary int"
-        for i in "UMad,Ubfe".split(","):
-            self.name_idx[i].category = "Tertiary uint"
-        for i in "Bfi".split(","):
-            self.name_idx[i].category = "Quaternary"
-        for i in "FDot,Dot2,Dot3,Dot4".split(","):
-            self.name_idx[i].category = "Dot"
+        ) in insts("FAbs,Saturate,IsNaN,IsInf,IsFinite,IsNormal,Cos,Sin,Tan,Acos,Asin,Atan,Hcos,Hsin,Htan,Exp,Frc,Log,Sqrt,Rsqrt"):
+            i.category = "Unary float"
+        for i in insts("Round_ne,Round_ni,Round_pi,Round_z"):
+            i.category = "Unary float - rounding"
+        for i in insts("Bfrev,Countbits,FirstbitLo,FirstbitSHi"):
+            i.category = "Unary int"
+        for i in insts("FirstbitHi"):
+            i.category = "Unary uint"
+        for i in insts("FMax,FMin"):
+            i.category = "Binary float"
+        for i in insts("IMax,IMin,Add,Sub,Mul,SDiv,SRem,And,Or,Xor,AShr,LShr,Shl"):
+            i.category = "Binary int"
+        for i in insts("UMax,UMin,UMul,UDiv,URem"):
+            i.category = "Binary uint"
+        for i in insts("IMul"):
+            i.category = "Binary int with two outputs"
+        for i in insts("UMul,UDiv"):  # Rename this UDiv OpCode to UDivMod
+            i.category = "Binary uint with two outputs"
+        for i in insts("UAddc,USubb"):
+            i.category = "Binary uint with carry or borrow"
+        for i in insts("VectorReduceAnd,VectorReduceOr"):
+            i.category = "Vector reduce to scalar"
+        for i in insts("FMad,Fma"):
+            i.category = "Tertiary float"
+        for i in insts("IMad,Msad,Ibfe"):
+            i.category = "Tertiary int"
+        for i in insts("UMad,Ubfe"):
+            i.category = "Tertiary uint"
+        for i in insts("Bfi"):
+            i.category = "Quaternary"
+        for i in insts("FDot,Dot2,Dot3,Dot4"):
+            i.category = "Dot"
         for (
             i
-        ) in "CreateHandle,CBufferLoad,CBufferLoadLegacy,TextureLoad,TextureStore,TextureStoreSample,BufferLoad,BufferStore,BufferUpdateCounter,CheckAccessFullyMapped,GetDimensions,RawBufferLoad,RawBufferStore,RawBufferVectorLoad,RawBufferVectorStore".split(
-            ","
-        ):
-            self.name_idx[i].category = "Resources"
+        ) in insts("CreateHandle,CBufferLoad,CBufferLoadLegacy,TextureLoad,TextureStore,TextureStoreSample,BufferLoad,BufferStore,BufferUpdateCounter,CheckAccessFullyMapped,GetDimensions,RawBufferLoad,RawBufferStore,RawBufferVectorLoad,RawBufferVectorStore"):
+            i.category = "Resources"
         for (
             i
-        ) in "Sample,SampleBias,SampleLevel,SampleGrad,SampleCmp,SampleCmpLevelZero,SampleCmpLevel,SampleCmpBias,SampleCmpGrad,Texture2DMSGetSamplePosition,RenderTargetGetSamplePosition,RenderTargetGetSampleCount".split(
-            ","
-        ):
-            self.name_idx[i].category = "Resources - sample"
-        for i in "Sample,SampleBias,SampleCmp,SampleCmpBias".split(","):
-            self.name_idx[i].shader_stages = (
+        ) in insts("Sample,SampleBias,SampleLevel,SampleGrad,SampleCmp,SampleCmpLevelZero,SampleCmpLevel,SampleCmpBias,SampleCmpGrad,Texture2DMSGetSamplePosition,RenderTargetGetSamplePosition,RenderTargetGetSampleCount"):
+            i.category = "Resources - sample"
+        for i in insts("Sample,SampleBias,SampleCmp,SampleCmpBias"):
+            i.shader_stages = (
                 "library",
                 "pixel",
                 "compute",
@@ -718,17 +711,15 @@ class db_dxil(object):
                 "mesh",
                 "node",
             )
-        for i in "RenderTargetGetSamplePosition,RenderTargetGetSampleCount".split(","):
-            self.name_idx[i].shader_stages = ("pixel",)
-        for i in "TextureGather,TextureGatherCmp,TextureGatherRaw".split(","):
-            self.name_idx[i].category = "Resources - gather"
-        for i in "AtomicBinOp,AtomicCompareExchange".split(","):
-            self.name_idx[i].category = "Synchronization"
-        for i in "CalculateLOD,DerivCoarseX,DerivCoarseY,DerivFineX,DerivFineY".split(
-            ","
-        ):
-            self.name_idx[i].category = "Derivatives"
-            self.name_idx[i].shader_stages = (
+        for i in insts("RenderTargetGetSamplePosition,RenderTargetGetSampleCount"):
+            i.shader_stages = ("pixel",)
+        for i in insts("TextureGather,TextureGatherCmp,TextureGatherRaw"):
+            i.category = "Resources - gather"
+        for i in insts("AtomicBinOp,AtomicCompareExchange"):
+            i.category = "Synchronization"
+        for i in insts("CalculateLOD,DerivCoarseX,DerivCoarseY,DerivFineX,DerivFineY"):
+            i.category = "Derivatives"
+            i.shader_stages = (
                 "library",
                 "pixel",
                 "compute",
@@ -738,37 +729,35 @@ class db_dxil(object):
             )
         for (
             i
-        ) in "Discard,EvalSnapped,EvalSampleIndex,EvalCentroid,SampleIndex,Coverage,InnerCoverage,AttributeAtVertex".split(
-            ","
-        ):
-            self.name_idx[i].category = "Pixel shader"
-            self.name_idx[i].shader_stages = ("pixel",)
-        for i in "ThreadId,GroupId,ThreadIdInGroup,FlattenedThreadIdInGroup".split(","):
-            self.name_idx[i].category = "Compute/Mesh/Amplification/Node shader"
-            self.name_idx[i].shader_stages = (
+        ) in insts("Discard,EvalSnapped,EvalSampleIndex,EvalCentroid,SampleIndex,Coverage,InnerCoverage,AttributeAtVertex"):
+            i.category = "Pixel shader"
+            i.shader_stages = ("pixel",)
+        for i in insts("ThreadId,GroupId,ThreadIdInGroup,FlattenedThreadIdInGroup"):
+            i.category = "Compute/Mesh/Amplification/Node shader"
+            i.shader_stages = (
                 "compute",
                 "mesh",
                 "amplification",
                 "node",
             )
-        for i in "EmitStream,CutStream,EmitThenCutStream,GSInstanceID".split(","):
-            self.name_idx[i].category = "Geometry shader"
-            self.name_idx[i].shader_stages = ("geometry",)
-        for i in "LoadOutputControlPoint,LoadPatchConstant".split(","):
-            self.name_idx[i].category = "Domain and hull shader"
-            self.name_idx[i].shader_stages = ("domain", "hull")
-        for i in "DomainLocation".split(","):
-            self.name_idx[i].category = "Domain shader"
-            self.name_idx[i].shader_stages = ("domain",)
-        for i in "StorePatchConstant,OutputControlPointID".split(","):
-            self.name_idx[i].category = "Hull shader"
-            self.name_idx[i].shader_stages = ("hull",)
-        for i in "PrimitiveID".split(","):
-            self.name_idx[i].category = "Hull, Domain and Geometry shaders"
-            self.name_idx[i].shader_stages = ("geometry", "domain", "hull")
-        for i in "ViewID".split(","):
-            self.name_idx[i].category = "Graphics shader"
-            self.name_idx[i].shader_stages = (
+        for i in insts("EmitStream,CutStream,EmitThenCutStream,GSInstanceID"):
+            i.category = "Geometry shader"
+            i.shader_stages = ("geometry",)
+        for i in insts("LoadOutputControlPoint,LoadPatchConstant"):
+            i.category = "Domain and hull shader"
+            i.shader_stages = ("domain", "hull")
+        for i in insts("DomainLocation"):
+            i.category = "Domain shader"
+            i.shader_stages = ("domain",)
+        for i in insts("StorePatchConstant,OutputControlPointID"):
+            i.category = "Hull shader"
+            i.shader_stages = ("hull",)
+        for i in insts("PrimitiveID"):
+            i.category = "Hull, Domain and Geometry shaders"
+            i.shader_stages = ("geometry", "domain", "hull")
+        for i in insts("ViewID"):
+            i.category = "Graphics shader"
+            i.shader_stages = (
                 "vertex",
                 "hull",
                 "domain",
@@ -778,14 +767,12 @@ class db_dxil(object):
             )
         for (
             i
-        ) in "MakeDouble,SplitDouble,LegacyDoubleToFloat,LegacyDoubleToSInt32,LegacyDoubleToUInt32".split(
-            ","
-        ):
-            self.name_idx[i].category = "Double precision"
-        for i in "CycleCounterLegacy".split(","):
-            self.name_idx[i].category = "Other"
-        for i in "LegacyF32ToF16,LegacyF16ToF32".split(","):
-            self.name_idx[i].category = "Legacy floating-point"
+        ) in insts("MakeDouble,SplitDouble,LegacyDoubleToFloat,LegacyDoubleToSInt32,LegacyDoubleToUInt32"):
+            i.category = "Double precision"
+        for i in insts("CycleCounterLegacy"):
+            i.category = "Other"
+        for i in insts("LegacyF32ToF16,LegacyF16ToF32"):
+            i.category = "Legacy floating-point"
         for i in self.get_dxil_ops():
             if i.name.startswith("Wave"):
                 i.category = "Wave"
@@ -821,17 +808,17 @@ class db_dxil(object):
                 )
             elif i.name.startswith("Bitcast"):
                 i.category = "Bitcasts with different sizes"
-        for i in "ViewID,AttributeAtVertex".split(","):
-            self.name_idx[i].shader_model = 6, 1
-        for i in "RawBufferLoad,RawBufferStore".split(","):
-            self.name_idx[i].shader_model = 6, 2
-            self.name_idx[i].shader_model_translated = 6, 0
-        for i in "RawBufferVectorLoad,RawBufferVectorStore".split(","):
-            self.name_idx[i].shader_model = 6, 9
-        for i in "DispatchRaysIndex,DispatchRaysDimensions".split(","):
-            self.name_idx[i].category = "Ray Dispatch Arguments"
-            self.name_idx[i].shader_model = 6, 3
-            self.name_idx[i].shader_stages = (
+        for i in insts("ViewID,AttributeAtVertex"):
+            i.shader_model = 6, 1
+        for i in insts("RawBufferLoad,RawBufferStore"):
+            i.shader_model = 6, 2
+            i.shader_model_translated = 6, 0
+        for i in insts("RawBufferVectorLoad,RawBufferVectorStore"):
+            i.shader_model = 6, 9
+        for i in insts("DispatchRaysIndex,DispatchRaysDimensions"):
+            i.category = "Ray Dispatch Arguments"
+            i.shader_model = 6, 3
+            i.shader_stages = (
                 "library",
                 "raygeneration",
                 "intersection",
@@ -840,260 +827,246 @@ class db_dxil(object):
                 "miss",
                 "callable",
             )
-        for i in "InstanceID,InstanceIndex,PrimitiveIndex".split(","):
-            self.name_idx[i].category = "Raytracing object space uint System Values"
-            self.name_idx[i].shader_model = 6, 3
-            self.name_idx[i].shader_stages = (
+        for i in insts("InstanceID,InstanceIndex,PrimitiveIndex"):
+            i.category = "Raytracing object space uint System Values"
+            i.shader_model = 6, 3
+            i.shader_stages = (
                 "library",
                 "intersection",
                 "anyhit",
                 "closesthit",
             )
-        for i in "GeometryIndex".split(","):
-            self.name_idx[i].category = (
+        for i in insts("GeometryIndex"):
+            i.category = (
                 "Raytracing object space uint System Values, raytracing tier 1.1"
             )
-            self.name_idx[i].shader_model = 6, 5
-            self.name_idx[i].shader_stages = (
+            i.shader_model = 6, 5
+            i.shader_stages = (
                 "library",
                 "intersection",
                 "anyhit",
                 "closesthit",
             )
-        for i in "HitKind".split(","):
-            self.name_idx[i].category = "Raytracing hit uint System Values"
-            self.name_idx[i].shader_model = 6, 3
-            self.name_idx[i].shader_stages = (
+        for i in insts("HitKind"):
+            i.category = "Raytracing hit uint System Values"
+            i.shader_model = 6, 3
+            i.shader_stages = (
                 "library",
                 "intersection",
                 "anyhit",
                 "closesthit",
             )
-        for i in "RayFlags".split(","):
-            self.name_idx[i].category = "Raytracing uint System Values"
-            self.name_idx[i].shader_model = 6, 3
-            self.name_idx[i].shader_stages = (
-                "library",
-                "intersection",
-                "anyhit",
-                "closesthit",
-                "miss",
-            )
-        for i in "WorldRayOrigin,WorldRayDirection".split(","):
-            self.name_idx[i].category = "Ray Vectors"
-            self.name_idx[i].shader_model = 6, 3
-            self.name_idx[i].shader_stages = (
+        for i in insts("RayFlags"):
+            i.category = "Raytracing uint System Values"
+            i.shader_model = 6, 3
+            i.shader_stages = (
                 "library",
                 "intersection",
                 "anyhit",
                 "closesthit",
                 "miss",
             )
-        for i in "ObjectRayOrigin,ObjectRayDirection".split(","):
-            self.name_idx[i].category = "Ray object space Vectors"
-            self.name_idx[i].shader_model = 6, 3
-            self.name_idx[i].shader_stages = (
-                "library",
-                "intersection",
-                "anyhit",
-                "closesthit",
-            )
-        for i in "ObjectToWorld,WorldToObject".split(","):
-            self.name_idx[i].category = "Ray Transforms"
-            self.name_idx[i].shader_model = 6, 3
-            self.name_idx[i].shader_stages = (
-                "library",
-                "intersection",
-                "anyhit",
-                "closesthit",
-            )
-        for i in "RayTMin,RayTCurrent".split(","):
-            self.name_idx[i].category = "RayT"
-            self.name_idx[i].shader_model = 6, 3
-            self.name_idx[i].shader_stages = (
+        for i in insts("WorldRayOrigin,WorldRayDirection"):
+            i.category = "Ray Vectors"
+            i.shader_model = 6, 3
+            i.shader_stages = (
                 "library",
                 "intersection",
                 "anyhit",
                 "closesthit",
                 "miss",
             )
-        for i in "IgnoreHit,AcceptHitAndEndSearch".split(","):
-            self.name_idx[i].category = "AnyHit Terminals"
-            self.name_idx[i].shader_model = 6, 3
-            self.name_idx[i].shader_stages = ("anyhit",)
-        for i in "CallShader".split(","):
-            self.name_idx[i].category = "Indirect Shader Invocation"
-            self.name_idx[i].shader_model = 6, 3
-            self.name_idx[i].shader_stages = (
+        for i in insts("ObjectRayOrigin,ObjectRayDirection"):
+            i.category = "Ray object space Vectors"
+            i.shader_model = 6, 3
+            i.shader_stages = (
+                "library",
+                "intersection",
+                "anyhit",
+                "closesthit",
+            )
+        for i in insts("ObjectToWorld,WorldToObject"):
+            i.category = "Ray Transforms"
+            i.shader_model = 6, 3
+            i.shader_stages = (
+                "library",
+                "intersection",
+                "anyhit",
+                "closesthit",
+            )
+        for i in insts("RayTMin,RayTCurrent"):
+            i.category = "RayT"
+            i.shader_model = 6, 3
+            i.shader_stages = (
+                "library",
+                "intersection",
+                "anyhit",
+                "closesthit",
+                "miss",
+            )
+        for i in insts("IgnoreHit,AcceptHitAndEndSearch"):
+            i.category = "AnyHit Terminals"
+            i.shader_model = 6, 3
+            i.shader_stages = ("anyhit",)
+        for i in insts("CallShader"):
+            i.category = "Indirect Shader Invocation"
+            i.shader_model = 6, 3
+            i.shader_stages = (
                 "library",
                 "closesthit",
                 "raygeneration",
                 "miss",
                 "callable",
             )
-        for i in "TraceRay".split(","):
-            self.name_idx[i].category = "Indirect Shader Invocation"
-            self.name_idx[i].shader_model = 6, 3
-            self.name_idx[i].shader_stages = (
+        for i in insts("TraceRay"):
+            i.category = "Indirect Shader Invocation"
+            i.shader_model = 6, 3
+            i.shader_stages = (
                 "library",
                 "raygeneration",
                 "closesthit",
                 "miss",
             )
-        for i in "ReportHit".split(","):
-            self.name_idx[i].category = "Indirect Shader Invocation"
-            self.name_idx[i].shader_model = 6, 3
-            self.name_idx[i].shader_stages = ("library", "intersection")
-        for i in "CreateHandleForLib".split(","):
-            self.name_idx[i].category = (
+        for i in insts("ReportHit"):
+            i.category = "Indirect Shader Invocation"
+            i.shader_model = 6, 3
+            i.shader_stages = ("library", "intersection")
+        for i in insts("CreateHandleForLib"):
+            i.category = (
                 "Library create handle from resource struct (like HL intrinsic)"
             )
-            self.name_idx[i].shader_model = 6, 3
-            self.name_idx[i].shader_model_translated = 6, 0
-        for i in "AnnotateHandle,CreateHandleFromBinding,CreateHandleFromHeap".split(
-            ","
-        ):
-            self.name_idx[i].category = "Get handle from heap"
-            self.name_idx[i].shader_model = 6, 6
-        for i in "AnnotateHandle,CreateHandleFromBinding".split(","):
-            self.name_idx[i].shader_model_translated = 6, 0
-        for i in "Dot4AddU8Packed,Dot4AddI8Packed,Dot2AddHalf".split(","):
-            self.name_idx[i].category = "Dot product with accumulate"
-            self.name_idx[i].shader_model = 6, 4
-        for i in "WaveMatch,WaveMultiPrefixOp,WaveMultiPrefixBitCount".split(","):
-            self.name_idx[i].category = "Wave"
-            self.name_idx[i].shader_model = 6, 5
+            i.shader_model = 6, 3
+            i.shader_model_translated = 6, 0
+        for i in insts("AnnotateHandle,CreateHandleFromBinding,CreateHandleFromHeap"):
+            i.category = "Get handle from heap"
+            i.shader_model = 6, 6
+        for i in insts("AnnotateHandle,CreateHandleFromBinding"):
+            i.shader_model_translated = 6, 0
+        for i in insts("Dot4AddU8Packed,Dot4AddI8Packed,Dot2AddHalf"):
+            i.category = "Dot product with accumulate"
+            i.shader_model = 6, 4
+        for i in insts("WaveMatch,WaveMultiPrefixOp,WaveMultiPrefixBitCount"):
+            i.category = "Wave"
+            i.shader_model = 6, 5
         for (
             i
-        ) in "SetMeshOutputCounts,EmitIndices,GetMeshPayload,StoreVertexOutput,StorePrimitiveOutput".split(
-            ","
-        ):
-            self.name_idx[i].category = "Mesh shader instructions"
-            self.name_idx[i].shader_stages = ("mesh",)
-            self.name_idx[i].shader_model = 6, 5
-        for i in "DispatchMesh".split(","):
-            self.name_idx[i].category = "Amplification shader instructions"
-            self.name_idx[i].shader_stages = ("amplification",)
-            self.name_idx[i].shader_model = 6, 5
-        for i in "WriteSamplerFeedback,WriteSamplerFeedbackBias".split(","):
-            self.name_idx[i].category = "Sampler Feedback"
-            self.name_idx[i].is_feedback = True
-            self.name_idx[i].is_gradient = True
-            self.name_idx[i].shader_model = 6, 5
-            self.name_idx[i].shader_stages = (
+        ) in insts("SetMeshOutputCounts,EmitIndices,GetMeshPayload,StoreVertexOutput,StorePrimitiveOutput"):
+            i.category = "Mesh shader instructions"
+            i.shader_stages = ("mesh",)
+            i.shader_model = 6, 5
+        for i in insts("DispatchMesh"):
+            i.category = "Amplification shader instructions"
+            i.shader_stages = ("amplification",)
+            i.shader_model = 6, 5
+        for i in insts("WriteSamplerFeedback,WriteSamplerFeedbackBias"):
+            i.category = "Sampler Feedback"
+            i.is_feedback = True
+            i.is_gradient = True
+            i.shader_model = 6, 5
+            i.shader_stages = (
                 "library",
                 "pixel",
             )
-        for i in "WriteSamplerFeedbackLevel,WriteSamplerFeedbackGrad".split(","):
-            self.name_idx[i].category = "Sampler Feedback"
-            self.name_idx[i].is_feedback = True
-            self.name_idx[i].shader_model = 6, 5
-        for i in (
-            "AllocateRayQuery,RayQuery_TraceRayInline,RayQuery_Proceed,RayQuery_Abort,RayQuery_CommitNonOpaqueTriangleHit,RayQuery_CommitProceduralPrimitiveHit,RayQuery_RayFlags,RayQuery_WorldRayOrigin,RayQuery_WorldRayDirection,RayQuery_RayTMin,"
+        for i in insts("WriteSamplerFeedbackLevel,WriteSamplerFeedbackGrad"):
+            i.category = "Sampler Feedback"
+            i.is_feedback = True
+            i.shader_model = 6, 5
+        for i in insts("AllocateRayQuery,RayQuery_TraceRayInline,RayQuery_Proceed,RayQuery_Abort,RayQuery_CommitNonOpaqueTriangleHit,RayQuery_CommitProceduralPrimitiveHit,RayQuery_RayFlags,RayQuery_WorldRayOrigin,RayQuery_WorldRayDirection,RayQuery_RayTMin,"
             + "RayQuery_CandidateTriangleRayT,RayQuery_CommittedRayT,RayQuery_CandidateInstanceIndex,RayQuery_CandidateInstanceID,RayQuery_CandidateGeometryIndex,RayQuery_CandidatePrimitiveIndex,"
             + "RayQuery_CandidateObjectRayOrigin,RayQuery_CandidateObjectRayDirection,RayQuery_CommittedInstanceIndex,RayQuery_CommittedInstanceID,RayQuery_CommittedGeometryIndex,RayQuery_CommittedPrimitiveIndex,"
             + "RayQuery_CommittedObjectRayOrigin,RayQuery_CommittedObjectRayDirection,RayQuery_CandidateProceduralPrimitiveNonOpaque,RayQuery_CandidateTriangleFrontFace,RayQuery_CommittedTriangleFrontFace,"
             + "RayQuery_CandidateTriangleBarycentrics,RayQuery_CommittedTriangleBarycentrics,RayQuery_CommittedStatus,RayQuery_CandidateType,RayQuery_CandidateObjectToWorld3x4,"
-            + "RayQuery_CandidateWorldToObject3x4,RayQuery_CommittedObjectToWorld3x4,RayQuery_CommittedWorldToObject3x4,RayQuery_CandidateInstanceContributionToHitGroupIndex,RayQuery_CommittedInstanceContributionToHitGroupIndex"
-        ).split(","):
-            self.name_idx[i].category = "Inline Ray Query"
-            self.name_idx[i].shader_model = 6, 5
-        for i in "AllocateRayQuery2".split(","):
-            self.name_idx[i].category = "Inline Ray Query"
-            self.name_idx[i].shader_model = 6, 9
-        for i in "Unpack4x8".split(","):
-            self.name_idx[i].category = "Unpacking intrinsics"
-            self.name_idx[i].shader_model = 6, 6
-        for i in "Pack4x8".split(","):
-            self.name_idx[i].category = "Packing intrinsics"
-            self.name_idx[i].shader_model = 6, 6
-        for i in "IsHelperLane".split(","):
-            self.name_idx[i].category = "Helper Lanes"
-            self.name_idx[i].shader_model = 6, 6
-        for i in "QuadVote,TextureGatherRaw,SampleCmpLevel,TextureStoreSample".split(
-            ","
-        ):
-            self.name_idx[i].shader_model = 6, 7
-        for i in "QuadVote".split(","):
-            self.name_idx[i].shader_model_translated = 6, 0
-        for i in "CreateNodeOutputHandle".split(","):
-            self.name_idx[i].category = "Create/Annotate Node Handles"
-            self.name_idx[i].shader_model = 6, 8
-            self.name_idx[i].shader_stages = ("node",)
-        for i in "CreateNodeInputRecordHandle,AllocateNodeOutputRecords".split(","):
-            self.name_idx[i].category = "Create/Annotate Node Handles"
-            self.name_idx[i].shader_model = 6, 8
-            self.name_idx[i].shader_stages = ("node",)
-        for i in "IndexNodeHandle".split(","):
-            self.name_idx[i].category = "Create/Annotate Node Handles"
-            self.name_idx[i].shader_model = 6, 8
-            self.name_idx[i].shader_stages = ("node",)  # TBD: add "library"
-        for i in "AnnotateNodeHandle,AnnotateNodeRecordHandle".split(","):
-            self.name_idx[i].category = "Create/Annotate Node Handles"
-            self.name_idx[i].shader_model = 6, 8
-            self.name_idx[i].shader_stages = ("node",)  # TBD: add "library"
-        for i in "GetNodeRecordPtr".split(","):
-            self.name_idx[i].category = "Get Pointer to Node Record in Address Space 6"
-            self.name_idx[i].shader_model = 6, 8
-            self.name_idx[i].shader_stages = ("node",)  # TBD: add "library"
-        for i in (
-            "IncrementOutputCount,OutputComplete,GetInputRecordCount,FinishedCrossGroupSharing,NodeOutputIsValid,GetRemainingRecursionLevels"
-        ).split(","):
-            self.name_idx[i].category = "Work Graph intrinsics"
-            self.name_idx[i].shader_model = 6, 8
-            self.name_idx[i].shader_stages = ("node",)
-        for i in (
-            "AllocateNodeOutputRecords,GetNodeRecordPtr,IncrementOutputCount,OutputComplete,GetInputRecordCount,FinishedCrossGroupSharing,BarrierByNodeRecordHandle,CreateNodeOutputHandle,IndexNodeHandle,AnnotateNodeHandle,CreateNodeInputRecordHandle,AnnotateNodeRecordHandle,NodeOutputIsValid,GetRemainingRecursionLevels"
-        ).split(","):
-            self.name_idx[i].shader_model_max = 6, 9
+            + "RayQuery_CandidateWorldToObject3x4,RayQuery_CommittedObjectToWorld3x4,RayQuery_CommittedWorldToObject3x4,RayQuery_CandidateInstanceContributionToHitGroupIndex,RayQuery_CommittedInstanceContributionToHitGroupIndex"):
+            i.category = "Inline Ray Query"
+            i.shader_model = 6, 5
+        for i in insts("AllocateRayQuery2"):
+            i.category = "Inline Ray Query"
+            i.shader_model = 6, 9
+        for i in insts("Unpack4x8"):
+            i.category = "Unpacking intrinsics"
+            i.shader_model = 6, 6
+        for i in insts("Pack4x8"):
+            i.category = "Packing intrinsics"
+            i.shader_model = 6, 6
+        for i in insts("IsHelperLane"):
+            i.category = "Helper Lanes"
+            i.shader_model = 6, 6
+        for i in insts("QuadVote,TextureGatherRaw,SampleCmpLevel,TextureStoreSample"):
+            i.shader_model = 6, 7
+        for i in insts("QuadVote"):
+            i.shader_model_translated = 6, 0
+        for i in insts("CreateNodeOutputHandle"):
+            i.category = "Create/Annotate Node Handles"
+            i.shader_model = 6, 8
+            i.shader_stages = ("node",)
+        for i in insts("CreateNodeInputRecordHandle,AllocateNodeOutputRecords"):
+            i.category = "Create/Annotate Node Handles"
+            i.shader_model = 6, 8
+            i.shader_stages = ("node",)
+        for i in insts("IndexNodeHandle"):
+            i.category = "Create/Annotate Node Handles"
+            i.shader_model = 6, 8
+            i.shader_stages = ("node",)  # TBD: add "library"
+        for i in insts("AnnotateNodeHandle,AnnotateNodeRecordHandle"):
+            i.category = "Create/Annotate Node Handles"
+            i.shader_model = 6, 8
+            i.shader_stages = ("node",)  # TBD: add "library"
+        for i in insts("GetNodeRecordPtr"):
+            i.category = "Get Pointer to Node Record in Address Space 6"
+            i.shader_model = 6, 8
+            i.shader_stages = ("node",)  # TBD: add "library"
+        for i in insts("IncrementOutputCount,OutputComplete,GetInputRecordCount,FinishedCrossGroupSharing,NodeOutputIsValid,GetRemainingRecursionLevels"):
+            i.category = "Work Graph intrinsics"
+            i.shader_model = 6, 8
+            i.shader_stages = ("node",)
+        for i in insts("AllocateNodeOutputRecords,GetNodeRecordPtr,IncrementOutputCount,OutputComplete,GetInputRecordCount,FinishedCrossGroupSharing,BarrierByNodeRecordHandle,CreateNodeOutputHandle,IndexNodeHandle,AnnotateNodeHandle,CreateNodeInputRecordHandle,AnnotateNodeRecordHandle,NodeOutputIsValid,GetRemainingRecursionLevels"):
+            i.shader_model_max = 6, 9
         # All barrier ops:
-        for i in "Barrier".split(","):
-            self.name_idx[i].category = "Synchronization"
-            self.name_idx[i].is_barrier = True
-        for i in "BarrierByMemoryType".split(","):
-            self.name_idx[i].category = "Synchronization"
-            self.name_idx[i].is_barrier = True
-            self.name_idx[i].shader_model = 6, 8
-            self.name_idx[i].shader_model_translated = 6, 0
-        for i in "BarrierByMemoryHandle".split(","):
-            self.name_idx[i].category = "Synchronization"
-            self.name_idx[i].is_barrier = True
-            self.name_idx[i].shader_model = 6, 8
-        for i in "BarrierByNodeRecordHandle".split(","):
-            self.name_idx[i].category = "Synchronization"
-            self.name_idx[i].is_barrier = True
-            self.name_idx[i].shader_model = 6, 8
-            self.name_idx[i].shader_stages = ("node",)
-        for i in "SampleCmpBias,SampleCmpGrad".split(","):
-            self.name_idx[i].category = "Comparison Samples"
-            self.name_idx[i].shader_model = 6, 8
+        for i in insts("Barrier"):
+            i.category = "Synchronization"
+            i.is_barrier = True
+        for i in insts("BarrierByMemoryType"):
+            i.category = "Synchronization"
+            i.is_barrier = True
+            i.shader_model = 6, 8
+            i.shader_model_translated = 6, 0
+        for i in insts("BarrierByMemoryHandle"):
+            i.category = "Synchronization"
+            i.is_barrier = True
+            i.shader_model = 6, 8
+        for i in insts("BarrierByNodeRecordHandle"):
+            i.category = "Synchronization"
+            i.is_barrier = True
+            i.shader_model = 6, 8
+            i.shader_stages = ("node",)
+        for i in insts("SampleCmpBias,SampleCmpGrad"):
+            i.category = "Comparison Samples"
+            i.shader_model = 6, 8
 
-        for i in "StartVertexLocation,StartInstanceLocation".split(","):
-            self.name_idx[i].category = "Extended Command Information"
-            self.name_idx[i].shader_stages = ("vertex",)
-            self.name_idx[i].shader_model = 6, 8
-        for i in (
-            "HitObject_MakeMiss,HitObject_MakeNop"
+        for i in insts("StartVertexLocation,StartInstanceLocation"):
+            i.category = "Extended Command Information"
+            i.shader_stages = ("vertex",)
+            i.shader_model = 6, 8
+        for i in insts("HitObject_MakeMiss,HitObject_MakeNop"
             + ",HitObject_TraceRay,HitObject_Invoke"
             + ",HitObject_FromRayQuery,HitObject_FromRayQueryWithAttrs"
             + ",HitObject_IsMiss,HitObject_IsHit,HitObject_IsNop"
             + ",HitObject_RayFlags,HitObject_RayTMin,HitObject_RayTCurrent,HitObject_GeometryIndex,HitObject_InstanceIndex,HitObject_InstanceID,HitObject_PrimitiveIndex,HitObject_HitKind,HitObject_ShaderTableIndex"
             + ",HitObject_WorldRayOrigin,HitObject_WorldRayDirection,HitObject_ObjectRayOrigin,HitObject_ObjectRayDirection"
             + ",HitObject_ObjectToWorld3x4,HitObject_WorldToObject3x4"
-            + ",HitObject_SetShaderTableIndex,HitObject_LoadLocalRootTableConstant,HitObject_Attributes"
-        ).split(","):
-            self.name_idx[i].category = "Shader Execution Reordering"
-            self.name_idx[i].shader_model = 6, 9
-            self.name_idx[i].shader_stages = (
+            + ",HitObject_SetShaderTableIndex,HitObject_LoadLocalRootTableConstant,HitObject_Attributes"):
+            i.category = "Shader Execution Reordering"
+            i.shader_model = 6, 9
+            i.shader_stages = (
                 "library",
                 "raygeneration",
                 "closesthit",
                 "miss",
             )
-        for i in ("MaybeReorderThread").split(","):
-            self.name_idx[i].category = "Shader Execution Reordering"
-            self.name_idx[i].shader_model = 6, 9
-            self.name_idx[i].shader_stages = (
+        for i in insts("MaybeReorderThread"):
+            i.category = "Shader Execution Reordering"
+            i.shader_model = 6, 9
+            i.shader_stages = (
                 "library",
                 "raygeneration",
             )
@@ -2544,7 +2517,7 @@ class db_dxil(object):
             "hfwi",
             "",
             [
-                db_dxil_param(0, "v", "", ""),
+                retvoid_param,
                 db_dxil_param(2, "res", "srv", "handle of UAV to store to"),
                 db_dxil_param(3, "i32", "coord0", "coordinate"),
                 db_dxil_param(4, "i32", "coord1", "coordinate"),
@@ -2578,7 +2551,7 @@ class db_dxil(object):
             "hfwi",
             "",
             [
-                db_dxil_param(0, "v", "", ""),
+                retvoid_param,
                 db_dxil_param(2, "res", "uav", "handle of UAV to store to"),
                 db_dxil_param(3, "i32", "coord0", "coordinate in elements"),
                 db_dxil_param(4, "i32", "coord1", "coordinate (unused?)"),
@@ -3688,7 +3661,7 @@ class db_dxil(object):
             "hfwidl",
             "",
             [
-                db_dxil_param(0, "v", "", ""),
+                retvoid_param,
                 db_dxil_param(2, "res", "uav", "handle of UAV to store to"),
                 db_dxil_param(
                     3,
@@ -3889,7 +3862,7 @@ class db_dxil(object):
             "Used in an any hit shader to reject an intersection and terminate the shader",
             "v",
             "nr",
-            [db_dxil_param(0, "v", "", "")],
+            [retvoid_param],
         )
 
         add_dxil_op(
@@ -3898,7 +3871,7 @@ class db_dxil(object):
             "Used in an any hit shader to abort the ray query and the intersection shader (if any). The current hit is committed and execution passes to the closest hit shader with the closest hit recorded so far",
             "v",
             "nr",
-            [db_dxil_param(0, "v", "", "")],
+            [retvoid_param],
         )
 
         add_dxil_op(
@@ -3908,7 +3881,7 @@ class db_dxil(object):
             "u",
             "",
             [
-                db_dxil_param(0, "v", "", ""),
+                retvoid_param,
                 db_dxil_param(
                     2,
                     "res",
@@ -3990,7 +3963,7 @@ class db_dxil(object):
             "u",
             "",
             [
-                db_dxil_param(0, "v", "", "result"),
+                retvoid_param,
                 db_dxil_param(
                     2,
                     "i32",
@@ -4264,7 +4237,7 @@ class db_dxil(object):
             "v",
             "",
             [
-                db_dxil_param(0, "v", "", ""),
+                retvoid_param,
                 db_dxil_param(
                     2, "res", "feedbackTex", "handle of feedback texture UAV"
                 ),
@@ -4285,7 +4258,7 @@ class db_dxil(object):
             "v",
             "",
             [
-                db_dxil_param(0, "v", "", ""),
+                retvoid_param,
                 db_dxil_param(
                     2, "res", "feedbackTex", "handle of feedback texture UAV"
                 ),
@@ -4307,7 +4280,7 @@ class db_dxil(object):
             "v",
             "",
             [
-                db_dxil_param(0, "v", "", ""),
+                retvoid_param,
                 db_dxil_param(
                     2, "res", "feedbackTex", "handle of feedback texture UAV"
                 ),
@@ -4328,7 +4301,7 @@ class db_dxil(object):
             "v",
             "",
             [
-                db_dxil_param(0, "v", "", ""),
+                retvoid_param,
                 db_dxil_param(
                     2, "res", "feedbackTex", "handle of feedback texture UAV"
                 ),
@@ -4402,7 +4375,7 @@ class db_dxil(object):
             "v",
             "",
             [
-                db_dxil_param(0, "v", "", ""),
+                retvoid_param,
                 db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle"),
                 db_dxil_param(
                     3,
@@ -4452,7 +4425,7 @@ class db_dxil(object):
             "v",
             "",
             [
-                db_dxil_param(0, "v", "", ""),
+                retvoid_param,
                 db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle"),
             ],
         )
@@ -4464,7 +4437,7 @@ class db_dxil(object):
             "v",
             "",
             [
-                db_dxil_param(0, "v", "", ""),
+                retvoid_param,
                 db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle"),
             ],
         )
@@ -4476,7 +4449,7 @@ class db_dxil(object):
             "v",
             "",
             [
-                db_dxil_param(0, "v", "", ""),
+                retvoid_param,
                 db_dxil_param(2, "i32", "rayQueryHandle", "RayQuery handle"),
                 db_dxil_param(
                     3, "f", "t", "Procedural primitive hit distance (t) to commit."
@@ -5123,7 +5096,7 @@ class db_dxil(object):
             "hfwi",
             "",
             [
-                db_dxil_param(0, "v", "", ""),
+                retvoid_param,
                 db_dxil_param(
                     2, "res", "srv", "handle of Texture2DMS[Array] UAV to store to"
                 ),
@@ -6054,7 +6027,7 @@ class db_dxil(object):
             "hfwidl<",
             "",
             [
-                db_dxil_param(0, "v", "", ""),
+                retvoid_param,
                 db_dxil_param(2, "res", "uav", "handle of UAV to store to"),
                 db_dxil_param(
                     3,
@@ -6395,7 +6368,7 @@ class db_dxil(object):
             "o",
             "",
             [
-                db_dxil_param(0, "v", "", ""),
+                retvoid_param,
                 db_dxil_param(2, "$o", "matrix", "matrix to be stored"),
                 db_dxil_param(3, "res", "handle", "byte address buffer to store into"),
                 db_dxil_param(4, "i32", "offset", "starting offset in the buffer"),
@@ -6417,7 +6390,7 @@ class db_dxil(object):
             "o,hfdwil<",
             "",
             [
-                db_dxil_param(0, "v", "", ""),
+                retvoid_param,
                 db_dxil_param(2, "$x0", "matrix", "matrix to be stored"),
                 db_dxil_param(
                     3, "$x_gs1", "memory", "groupshared array to store into"
@@ -6510,7 +6483,7 @@ class db_dxil(object):
             "o",
             "",
             [
-                db_dxil_param(0, "v", "", ""),
+                retvoid_param,
                 db_dxil_param(2, "$o", "matrix", "Accumulator matrix"),
                 db_dxil_param(
                     3, "res", "handle", "byte address buffer to accumulated into"
@@ -6534,7 +6507,7 @@ class db_dxil(object):
             "o,hfdwil<",
             "",
             [
-                db_dxil_param(0, "v", "", ""),
+                retvoid_param,
                 db_dxil_param(2, "$x0", "matrix", "Accumulator matrix"),
                 db_dxil_param(
                     3, "$x_gs1", "memory", "groupshared array to accumulate into"
@@ -6593,7 +6566,7 @@ class db_dxil(object):
             "<hfdwil",
             "",
             [
-                db_dxil_param(0, "v", "", ""),
+                retvoid_param,
                 db_dxil_param(2, "res", "handle", "buffer to accumulate into"),
                 db_dxil_param(3, "i32", "offset", "starting offset in the buffer"),
                 db_dxil_param(4, "i32", "align", "alignment of starting offset"),
@@ -6647,7 +6620,7 @@ class db_dxil(object):
             "v",
             "rn",
             [
-                db_dxil_param(0, "v", "", "no result"),
+                retvoid_param,
             ],
         )
 
@@ -6658,6 +6631,8 @@ class db_dxil(object):
     def finalize_dxil_operations(self):
         "Finalize DXIL operations by setting properties and verifying consistency."
 
+        insts = self.get_insts_by_names
+
         # Sort tables by ID
         self.op_tables.sort(key=lambda t: t.id)
 
@@ -6667,18 +6642,14 @@ class db_dxil(object):
                 self.add_inst(op)
 
         # Set interesting properties.
-        for (
-            i
-        ) in "CalculateLOD,DerivCoarseX,DerivCoarseY,DerivFineX,DerivFineY,Sample,SampleBias,SampleCmp,SampleCmpBias".split(
-            ","
-        ):
-            self.name_idx[i].is_gradient = True
-        for i in "DerivCoarseX,DerivCoarseY,DerivFineX,DerivFineY".split(","):
+        for i in insts("CalculateLOD,DerivCoarseX,DerivCoarseY,DerivFineX,DerivFineY,Sample,SampleBias,SampleCmp,SampleCmpBias"):
+            i.is_gradient = True
+        for i in insts("DerivCoarseX,DerivCoarseY,DerivFineX,DerivFineY"):
             assert (
-                self.name_idx[i].is_gradient == True
+                i.is_gradient == True
             ), "all derivatives are marked as requiring gradients"
-            self.name_idx[i].is_deriv = True
-            self.name_idx[i].is_convergent = True
+            i.is_deriv = True
+            i.is_convergent = True
 
         # TODO - some arguments are required to be immediate constants in DXIL, eg resource kinds; add this information
         # consider - report instructions that are overloaded on a single type, then turn them into non-overloaded version of that type
