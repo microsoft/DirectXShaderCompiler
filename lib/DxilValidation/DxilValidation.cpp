@@ -2064,32 +2064,41 @@ static void ValidateLinAlgMatrixLoadFromDescriptor(CallInst *CI,
   if (!RetMat)
     return;
 
-  std::optional<uint64_t> LayoutV = ValidateConstantIntGetValue(
-      CI, Op.get_layout(), ValCtx, "Layout", "LinAlgMatrixLoadFromDescriptor");
-  if (!LayoutV)
-    return;
-  auto Layout = static_cast<DXIL::MatrixLayout>(*LayoutV);
-  bool LayoutIsRowColMajor = (Layout == DXIL::MatrixLayout::RowMajor ||
-                              Layout == DXIL::MatrixLayout::ColumnMajor);
+  std::optional<uint64_t> LayoutV;
+  // Layout must be an immarg for Thread matrix otherwise it can be non-immarg
+  if (RetMat->Scope == DXIL::MatrixScope::Thread) {
+    LayoutV = ValidateConstantIntGetValue(CI, Op.get_layout(), ValCtx, "Layout",
+                                          "LinAlgMatrixLoadFromDescriptor");
+    if (!LayoutV)
+      return;
+  } else if (ConstantInt *Layout = dyn_cast<ConstantInt>(Op.get_layout())) {
+    LayoutV = Layout->getZExtValue();
+  }
 
-  // Layout must be Row/Col Major if Scope is Wave/ThreadGroup
-  if ((RetMat->Scope == DXIL::MatrixScope::Wave ||
-       RetMat->Scope == DXIL::MatrixScope::ThreadGroup) &&
-      !LayoutIsRowColMajor)
-    ValCtx.EmitInstrFormatError(
-        CI, ValidationRule::InstrLinAlgMatrixScopeReqLayout2,
-        {"Return", MatrixScopeToString(RetMat->Scope), "RowMajor",
-         "ColumnMajor", "LinAlgMatrixLoadFromDescriptor"});
+  if (LayoutV) {
+    DXIL::MatrixLayout Layout = static_cast<DXIL::MatrixLayout>(*LayoutV);
+    bool LayoutIsRowColMajor = (Layout == DXIL::MatrixLayout::RowMajor ||
+                                Layout == DXIL::MatrixLayout::ColumnMajor);
 
-  // Stride must be an imm 0 if Layout is not Row/Col Major
-  if (!LayoutIsRowColMajor) {
-    std::optional<uint64_t> Stride =
-        ValidateConstantIntGetValue(CI, Op.get_stride(), ValCtx, "Stride",
-                                    "LinAlgMatrixLoadFromDescriptor");
-    if (Stride && *Stride != 0)
+    // Layout must be Row/Col Major if Scope is Wave/ThreadGroup
+    if ((RetMat->Scope == DXIL::MatrixScope::Wave ||
+         RetMat->Scope == DXIL::MatrixScope::ThreadGroup) &&
+        !LayoutIsRowColMajor)
       ValCtx.EmitInstrFormatError(
-          CI, ValidationRule::InstrLinAlgMatrixLayoutReqStride,
-          {"LinAlgMatrixLoadFromDescriptor", MatrixLayoutToString(Layout)});
+          CI, ValidationRule::InstrLinAlgMatrixScopeReqLayout2,
+          {"Return", MatrixScopeToString(RetMat->Scope), "RowMajor",
+           "ColumnMajor", "LinAlgMatrixLoadFromDescriptor"});
+
+    // Stride must be an imm 0 if Layout is not Row/Col Major
+    if (!LayoutIsRowColMajor) {
+      std::optional<uint64_t> Stride =
+          ValidateConstantIntGetValue(CI, Op.get_stride(), ValCtx, "Stride",
+                                      "LinAlgMatrixLoadFromDescriptor");
+      if (Stride && *Stride != 0)
+        ValCtx.EmitInstrFormatError(
+            CI, ValidationRule::InstrLinAlgMatrixLayoutReqStride,
+            {"LinAlgMatrixLoadFromDescriptor", MatrixLayoutToString(Layout)});
+    }
   }
 
   uint64_t RequiredAlignment =
