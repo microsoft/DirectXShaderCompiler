@@ -3476,30 +3476,34 @@ SpirvInstruction *SpirvEmitter::processCall(const CallExpr *callExpr) {
       descriptorHeapImageBoundaryLossVars.insert(param);
     }
 
+    // Any heap-sourced buffer argument (a direct heap subscript, or a
+    // reference to a variable recorded in descriptorHeapBufferAliasVars)
+    // has no VarDecl in astDecls to load a pointer from, and passing the
+    // OpBufferPointerEXT pointer itself would need
+    // VariablePointersStorageBuffer + callee parameter type changes.
+    // Reject before doExpr lowers it into an invalid function argument.
+    // TODO: implement full buffer-alias function-call support
+    //       (VariablePointersStorageBuffer + matching createFnParam type).
+    if (spirvOptions.useDescriptorHeap &&
+        (isAKindOfStructuredOrByteBuffer(paramType) ||
+         isConstantTextureBuffer(paramType)) &&
+        isHeapSourcedValue(arg->IgnoreParenCasts())) {
+      emitError("heap buffer alias cannot be passed to a user function; "
+                "access the buffer element directly at the call site",
+                arg->getLocStart());
+
+      // Return a typed undef so downstream consumers remain valid
+      QualType retTy = callExpr->getCallReturnType(astContext);
+      if (retTy->isVoidType())
+        return nullptr;
+      return spvBuilder.getUndef(retTy);
+    }
+
     // Get the evaluation info if this argument is referencing some variable
     // *as a whole*, in which case we can avoid creating the temporary variable
     // for it if it can act as out parameter.
     SpirvInstruction *argInfo = nullptr;
     if (const auto *declRefExpr = dyn_cast<DeclRefExpr>(arg)) {
-      // Buffer alias vars are not in astDecls (getDeclEvalInfo would crash);
-      // passing by value also requires VariablePointersStorageBuffer + callee
-      // parameter type changes (not yet implemented). Emit diagnostic instead.
-      // TODO: implement full buffer-alias function-call support
-      //       (VariablePointersStorageBuffer + matching createFnParam type).
-      const auto *var = dyn_cast<VarDecl>(declRefExpr->getDecl());
-      if (var && descriptorHeapBufferAliasVars.count(var)) {
-        emitError("heap buffer alias cannot be passed to a user function; "
-                  "access the buffer element directly at the call site",
-                  arg->getLocStart());
-        // emitError does not halt codegen; nullptr propagates to spvBuilder
-        // causing an access violation. Return a typed undef so downstream
-        // consumers remain valid; the diagnostic rejects the shader even if
-        // codegen continues with the placeholder.
-        QualType retTy = callExpr->getCallReturnType(astContext);
-        if (retTy->isVoidType())
-          return nullptr;
-        return spvBuilder.getUndef(retTy);
-      }
       argInfo = declIdMapper.getDeclEvalInfo(declRefExpr->getDecl(),
                                              arg->getLocStart());
     }
