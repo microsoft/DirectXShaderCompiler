@@ -64,6 +64,10 @@ line upon naming the release. Refer to previous for appropriate section names.
   compatibility warnings available for earlier language versions
   [#8482](https://github.com/microsoft/DirectXShaderCompiler/issues/8482).
 
+#### Shader Model 6.10
+
+- Shader Model 6.10 and DXIL 1.10 now use retail validation hashes.
+
 #### SPIR-V
 
 - Inline `[[vk::ext_decorate]]`, `[[vk::ext_capability]]`, and
@@ -85,6 +89,10 @@ line upon naming the release. Refer to previous for appropriate section names.
 
 These changes apply to experimental preview shader models only and will not be
 part of the next non-preview release.
+
+#### Experimental Shader Model 6.11
+
+- Added experimental Shader Model 6.11 target profiles.
 
 #### Experimental Shader Model 6.10
 
