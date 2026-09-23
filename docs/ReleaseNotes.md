@@ -24,10 +24,10 @@ line upon naming the release. Refer to previous for appropriate section names.
 
 #### Shader Model 6.10
 
-- Shader Model 6.10 and DXIL 1.10 are now available in retail. Detailed blogs
-  posts will be updated here once available. SM6.10 introduced the following
-  APIs: LinAlg Matrix, WaveGroup Index and Count, DebugBreak, Clustered
-  Geometry, and Triangle Object Positions.
+- Shader Model 6.10 and DXIL 1.10 are now available in retail, introducing
+  LinAlg Matrix, WaveGroup Index and Count, DebugBreak, Clustered Geometry, and
+  Triangle Object Positions, with detailed blog posts to be linked here once
+  available.
 
 #### HLSL Language
 
