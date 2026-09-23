@@ -3869,6 +3869,8 @@ HLSLReservedKeyword:
       break;
     // HLSL Change Starts
     case tok::kw_shared:
+      Diag(Tok.getLocation(), diag::warn_hlsl_2026_removed_keyword) << "shared";
+      [[fallthrough]];
     case tok::kw_groupshared:
     case tok::kw_uniform:
     case tok::kw_in:

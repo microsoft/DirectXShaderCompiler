@@ -24,6 +24,8 @@ line upon naming the release. Refer to previous for appropriate section names.
 
 #### Bug Fixes
 
+- Fixed an optimizer crash when scalarizing an out-of-bounds vector access
+  [#8940](https://github.com/microsoft/DirectXShaderCompiler/issues/8940).
 - Fixed derivative operations being moved into divergent control flow, which
   could produce incorrect results
   [#8001](https://github.com/microsoft/DirectXShaderCompiler/issues/8001).
@@ -60,6 +62,9 @@ line upon naming the release. Refer to previous for appropriate section names.
   with language changes introduced in HLSL 2026.
 - The legacy effects syntax support is removed in HLSL 202x
   [#8480](https://github.com/microsoft/DirectXShaderCompiler/issues/8480).
+- The `shared` and `uniform` keywords are removed in HLSL 202x, with
+  compatibility warnings available for earlier language versions
+  [#8482](https://github.com/microsoft/DirectXShaderCompiler/issues/8482).
 - Added support for `auto` return types for normal functions aligning with C++14
   [#8903](https://github.com/microsoft/DirectXShaderCompiler/issues/8903).
 

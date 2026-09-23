@@ -29,8 +29,8 @@ target triple = "dxil-ms-dx"
 ; Function Attrs: nounwind
 define void @"\01?RayGenMain@@YAXXZ"() #0 {
   %1 = load %dx.types.Handle, %dx.types.Handle* @"\01?output@@3V?$RWStructuredBuffer@I@@A", align 4
-  %2 = call i32 @dx.op.getGroupWaveIndex(i32 -2147483647)  ; GetGroupWaveIndex()
-  %3 = call i32 @dx.op.getGroupWaveCount(i32 -2147483646)  ; GetGroupWaveCount()
+  %2 = call i32 @dx.op.getGroupWaveIndex(i32 312)  ; GetGroupWaveIndex()
+  %3 = call i32 @dx.op.getGroupWaveCount(i32 313)  ; GetGroupWaveCount()
   %4 = add i32 %3, %2
   %5 = call %dx.types.Handle @dx.op.createHandleForLib.dx.types.Handle(i32 160, %dx.types.Handle %1)  ; CreateHandleForLib(Resource)
   %6 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %5, %dx.types.ResourceProperties { i32 4108, i32 4 })  ; AnnotateHandle(res,props)  resource: RWStructuredBuffer<stride=4>
@@ -40,8 +40,8 @@ define void @"\01?RayGenMain@@YAXXZ"() #0 {
 
 ; Function Attrs: nounwind
 define void @"\01?ClosestHitMain@@YAXUPayload@@UAttributes@@@Z"(%struct.Payload* noalias nocapture %payload, %struct.Attributes* nocapture readnone %attribs) #0 {
-  %1 = call i32 @dx.op.getGroupWaveIndex(i32 -2147483647)  ; GetGroupWaveIndex()
-  %2 = call i32 @dx.op.getGroupWaveCount(i32 -2147483646)  ; GetGroupWaveCount()
+  %1 = call i32 @dx.op.getGroupWaveIndex(i32 312)  ; GetGroupWaveIndex()
+  %2 = call i32 @dx.op.getGroupWaveCount(i32 313)  ; GetGroupWaveCount()
   %3 = add i32 %2, %1
   %4 = uitofp i32 %3 to float
   %5 = getelementptr inbounds %struct.Payload, %struct.Payload* %payload, i32 0, i32 0
@@ -51,8 +51,8 @@ define void @"\01?ClosestHitMain@@YAXUPayload@@UAttributes@@@Z"(%struct.Payload*
 
 ; Function Attrs: nounwind
 define void @"\01?MissMain@@YAXUPayload@@@Z"(%struct.Payload* noalias nocapture %payload) #0 {
-  %1 = call i32 @dx.op.getGroupWaveIndex(i32 -2147483647)  ; GetGroupWaveIndex()
-  %2 = call i32 @dx.op.getGroupWaveCount(i32 -2147483646)  ; GetGroupWaveCount()
+  %1 = call i32 @dx.op.getGroupWaveIndex(i32 312)  ; GetGroupWaveIndex()
+  %2 = call i32 @dx.op.getGroupWaveCount(i32 313)  ; GetGroupWaveCount()
   %3 = add i32 %2, %1
   %4 = uitofp i32 %3 to float
   %5 = getelementptr inbounds %struct.Payload, %struct.Payload* %payload, i32 0, i32 0
@@ -62,8 +62,8 @@ define void @"\01?MissMain@@YAXUPayload@@@Z"(%struct.Payload* noalias nocapture 
 
 ; Function Attrs: nounwind
 define void @"\01?AnyHitMain@@YAXUPayload@@UAttributes@@@Z"(%struct.Payload* noalias nocapture %payload, %struct.Attributes* nocapture readnone %attribs) #0 {
-  %1 = call i32 @dx.op.getGroupWaveIndex(i32 -2147483647)  ; GetGroupWaveIndex()
-  %2 = call i32 @dx.op.getGroupWaveCount(i32 -2147483646)  ; GetGroupWaveCount()
+  %1 = call i32 @dx.op.getGroupWaveIndex(i32 312)  ; GetGroupWaveIndex()
+  %2 = call i32 @dx.op.getGroupWaveCount(i32 313)  ; GetGroupWaveCount()
   %3 = add i32 %2, %1
   %4 = uitofp i32 %3 to float
   %5 = getelementptr inbounds %struct.Payload, %struct.Payload* %payload, i32 0, i32 0
@@ -74,8 +74,8 @@ define void @"\01?AnyHitMain@@YAXUPayload@@UAttributes@@@Z"(%struct.Payload* noa
 ; Function Attrs: nounwind
 define void @"\01?IntersectionMain@@YAXXZ"() #0 {
   %1 = load %dx.types.Handle, %dx.types.Handle* @"\01?output@@3V?$RWStructuredBuffer@I@@A", align 4
-  %2 = call i32 @dx.op.getGroupWaveIndex(i32 -2147483647)  ; GetGroupWaveIndex()
-  %3 = call i32 @dx.op.getGroupWaveCount(i32 -2147483646)  ; GetGroupWaveCount()
+  %2 = call i32 @dx.op.getGroupWaveIndex(i32 312)  ; GetGroupWaveIndex()
+  %3 = call i32 @dx.op.getGroupWaveCount(i32 313)  ; GetGroupWaveCount()
   %4 = add i32 %3, %2
   %5 = call %dx.types.Handle @dx.op.createHandleForLib.dx.types.Handle(i32 160, %dx.types.Handle %1)  ; CreateHandleForLib(Resource)
   %6 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %5, %dx.types.ResourceProperties { i32 4108, i32 4 })  ; AnnotateHandle(res,props)  resource: RWStructuredBuffer<stride=4>
@@ -85,8 +85,8 @@ define void @"\01?IntersectionMain@@YAXXZ"() #0 {
 
 ; Function Attrs: nounwind
 define void @"\01?CallableMain@@YAXUPayload@@@Z"(%struct.Payload* noalias nocapture %payload) #0 {
-  %1 = call i32 @dx.op.getGroupWaveIndex(i32 -2147483647)  ; GetGroupWaveIndex()
-  %2 = call i32 @dx.op.getGroupWaveCount(i32 -2147483646)  ; GetGroupWaveCount()
+  %1 = call i32 @dx.op.getGroupWaveIndex(i32 312)  ; GetGroupWaveIndex()
+  %2 = call i32 @dx.op.getGroupWaveCount(i32 313)  ; GetGroupWaveCount()
   %3 = add i32 %2, %1
   %4 = uitofp i32 %3 to float
   %5 = getelementptr inbounds %struct.Payload, %struct.Payload* %payload, i32 0, i32 0

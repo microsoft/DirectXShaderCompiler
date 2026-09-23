@@ -10002,26 +10002,6 @@ struct DxilInst_FDot {
   void set_b(llvm::Value *val) { Instr->setOperand(2, val); }
 };
 
-/// This instruction nop does nothing
-struct DxilInst_ExperimentalNop {
-  llvm::Instruction *Instr;
-  // Construction and identification
-  DxilInst_ExperimentalNop(llvm::Instruction *pInstr) : Instr(pInstr) {}
-  operator bool() const {
-    return hlsl::OP::IsDxilOpFuncCallInst(Instr,
-                                          hlsl::OP::OpCode::ExperimentalNop);
-  }
-  // Validation support
-  bool isAllowed() const { return true; }
-  bool isArgumentListValid() const {
-    if (1 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands())
-      return false;
-    return true;
-  }
-  // Metadata
-  bool requiresUniformInputs() const { return false; }
-};
-
 /// This instruction returns the index of the wave in the thread group
 struct DxilInst_GetGroupWaveIndex {
   llvm::Instruction *Instr;
@@ -10317,7 +10297,7 @@ struct DxilInst_LinAlgFillMatrix {
   // Validation support
   bool isAllowed() const { return true; }
   bool isArgumentListValid() const {
-    if (2 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands())
+    if (3 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands())
       return false;
     return true;
   }
@@ -10325,11 +10305,14 @@ struct DxilInst_LinAlgFillMatrix {
   bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
-    arg_value = 1,
+    arg_isInputSigned = 1,
+    arg_value = 2,
   };
   // Accessors
-  llvm::Value *get_value() const { return Instr->getOperand(1); }
-  void set_value(llvm::Value *val) { Instr->setOperand(1, val); }
+  llvm::Value *get_isInputSigned() const { return Instr->getOperand(1); }
+  void set_isInputSigned(llvm::Value *val) { Instr->setOperand(1, val); }
+  llvm::Value *get_value() const { return Instr->getOperand(2); }
+  void set_value(llvm::Value *val) { Instr->setOperand(2, val); }
 };
 
 /// This instruction Converts and copies the element and use type of the source
@@ -10905,7 +10888,7 @@ struct DxilInst_LinAlgMatrixOuterProduct {
   // Validation support
   bool isAllowed() const { return true; }
   bool isArgumentListValid() const {
-    if (3 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands())
+    if (4 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands())
       return false;
     return true;
   }
@@ -10913,14 +10896,17 @@ struct DxilInst_LinAlgMatrixOuterProduct {
   bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
-    arg_vectorA = 1,
-    arg_vectorB = 2,
+    arg_isInputSigned = 1,
+    arg_vectorA = 2,
+    arg_vectorB = 3,
   };
   // Accessors
-  llvm::Value *get_vectorA() const { return Instr->getOperand(1); }
-  void set_vectorA(llvm::Value *val) { Instr->setOperand(1, val); }
-  llvm::Value *get_vectorB() const { return Instr->getOperand(2); }
-  void set_vectorB(llvm::Value *val) { Instr->setOperand(2, val); }
+  llvm::Value *get_isInputSigned() const { return Instr->getOperand(1); }
+  void set_isInputSigned(llvm::Value *val) { Instr->setOperand(1, val); }
+  llvm::Value *get_vectorA() const { return Instr->getOperand(2); }
+  void set_vectorA(llvm::Value *val) { Instr->setOperand(2, val); }
+  llvm::Value *get_vectorB() const { return Instr->getOperand(3); }
+  void set_vectorB(llvm::Value *val) { Instr->setOperand(3, val); }
 };
 
 /// This instruction Convert vector components from one interpretation to
@@ -11021,6 +11007,26 @@ struct DxilInst_IsDebuggingEnabled {
   operator bool() const {
     return hlsl::OP::IsDxilOpFuncCallInst(Instr,
                                           hlsl::OP::OpCode::IsDebuggingEnabled);
+  }
+  // Validation support
+  bool isAllowed() const { return true; }
+  bool isArgumentListValid() const {
+    if (1 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands())
+      return false;
+    return true;
+  }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
+};
+
+/// This instruction nop does nothing
+struct DxilInst_ExperimentalNop {
+  llvm::Instruction *Instr;
+  // Construction and identification
+  DxilInst_ExperimentalNop(llvm::Instruction *pInstr) : Instr(pInstr) {}
+  operator bool() const {
+    return hlsl::OP::IsDxilOpFuncCallInst(Instr,
+                                          hlsl::OP::OpCode::ExperimentalNop);
   }
   // Validation support
   bool isAllowed() const { return true; }
