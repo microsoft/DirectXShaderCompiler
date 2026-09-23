@@ -17,29 +17,29 @@ void main()
   using MatrixAccI32WTy = Matrix<ComponentType::I32, 3, 5, MatrixUse::Accumulator, MatrixScope::Wave>;
 
 // CHECK: %[[MATA1:.*]] = call %dx.types.LinAlgMatrixC8M3N4U0S1 @dx.op.linAlgFillMatrix.mC8M3N4U0S1.f32(
-// CHECK-SAME: i32 -2147483636, i1 true, float 1.500000e+00)  ; LinAlgFillMatrix(isInputSigned,value)
+// CHECK-SAME: i32 323, i1 true, float 1.500000e+00)  ; LinAlgFillMatrix(isInputSigned,value)
   MatrixAF16WTy MatA1 = MatrixAF16WTy::Splat(1.5f);
 
 // CHECK: %[[MATA2:.*]] = call %dx.types.LinAlgMatrixC4M3N4U0S1 @dx.op.linAlgFillMatrix.mC4M3N4U0S1.i32(
-// CHECK-SAME: i32 -2147483636, i1 true, i32 45)  ; LinAlgFillMatrix(isInputSigned,value)
+// CHECK-SAME: i32 323, i1 true, i32 45)  ; LinAlgFillMatrix(isInputSigned,value)
   MatrixAI32WTy MatA2 = MatrixAI32WTy::Splat(45);
 
 // CHECK: call %dx.types.LinAlgMatrixC5M3N4U0S1 @dx.op.linAlgFillMatrix.mC5M3N4U0S1.i32(
-// CHECK-SAME: i32 -2147483636, i1 false, i32 45)  ; LinAlgFillMatrix(isInputSigned,value)
+// CHECK-SAME: i32 323, i1 false, i32 45)  ; LinAlgFillMatrix(isInputSigned,value)
   MatrixAU32WTy MatAU32 = MatrixAU32WTy::Splat(45u);
 
 // CHECK: %[[MATB1:.*]] = call %dx.types.LinAlgMatrixC4M4N5U1S1 @dx.op.linAlgFillMatrix.mC4M4N5U1S1.i32(
-// CHECK-SAME: i32 -2147483636, i1 true, i32 13)  ; LinAlgFillMatrix(isInputSigned,value)
+// CHECK-SAME: i32 323, i1 true, i32 13)  ; LinAlgFillMatrix(isInputSigned,value)
   MatrixBI32WTy MatB1 = MatrixBI32WTy::Splat(13);
 
 // CHECK: %[[MATC1:.*]] = call %dx.types.LinAlgMatrixC9M3N5U2S1
-// CHECK-SAME: @dx.op.linAlgMatrixMultiply.mC9M3N5U2S1.mC8M3N4U0S1.mC4M4N5U1S1(i32 -2147483625,
+// CHECK-SAME: @dx.op.linAlgMatrixMultiply.mC9M3N5U2S1.mC8M3N4U0S1.mC4M4N5U1S1(i32 334,
 // CHECK-SAME: %dx.types.LinAlgMatrixC8M3N4U0S1 %[[MATA1]], %dx.types.LinAlgMatrixC4M4N5U1S1 %[[MATB1]])
 // CHECK-SAME: ; LinAlgMatrixMultiply(matrixA,matrixB)
   MatrixAccF32WTy MatCFlt1 = Multiply<ComponentType::F32>(MatA1, MatB1);
 
 // CHECK: %[[MATC2:.*]] = call %dx.types.LinAlgMatrixC4M3N5U2S1
-// CHECK-SAME: @dx.op.linAlgMatrixMultiply.mC4M3N5U2S1.mC4M3N4U0S1.mC4M4N5U1S1(i32 -2147483625,
+// CHECK-SAME: @dx.op.linAlgMatrixMultiply.mC4M3N5U2S1.mC4M3N4U0S1.mC4M4N5U1S1(i32 334,
 // CHECK-SAME: %dx.types.LinAlgMatrixC4M3N4U0S1 %[[MATA2]], %dx.types.LinAlgMatrixC4M4N5U1S1 %[[MATB1]])
 // CHECK-SAME: ; LinAlgMatrixMultiply(matrixA,matrixB)
   MatrixAccI32WTy MatCInt1 = Multiply(MatA2, MatB1);
@@ -53,25 +53,25 @@ void main()
   using MatrixAccI32TGTy = Matrix<ComponentType::I32, 3, 5, MatrixUse::Accumulator, MatrixScope::ThreadGroup>;
 
 // CHECK: %[[MATA3:.*]] = call %dx.types.LinAlgMatrixC8M3N4U0S2 @dx.op.linAlgFillMatrix.mC8M3N4U0S2.f32(
-// CHECK-SAME: i32 -2147483636, i1 true, float 2.500000e+00)  ; LinAlgFillMatrix(isInputSigned,value)
+// CHECK-SAME: i32 323, i1 true, float 2.500000e+00)  ; LinAlgFillMatrix(isInputSigned,value)
   MatrixAF16TGTy MatA3 = MatrixAF16TGTy::Splat(2.5f);
 
 // CHECK: %[[MATA4:.*]] = call %dx.types.LinAlgMatrixC4M3N4U0S2 @dx.op.linAlgFillMatrix.mC4M3N4U0S2.i32(
-// CHECK-SAME: i32 -2147483636, i1 true, i32 23)  ; LinAlgFillMatrix(isInputSigned,value)
+// CHECK-SAME: i32 323, i1 true, i32 23)  ; LinAlgFillMatrix(isInputSigned,value)
   MatrixAI32TGTy MatA4 = MatrixAI32TGTy::Splat(23);
   
 // CHECK: %[[MATB3:.*]] = call %dx.types.LinAlgMatrixC4M4N5U1S2 @dx.op.linAlgFillMatrix.mC4M4N5U1S2.i32(
-// CHECK-SAME: i32 -2147483636, i1 true, i32 7)  ; LinAlgFillMatrix(isInputSigned,value)
+// CHECK-SAME: i32 323, i1 true, i32 7)  ; LinAlgFillMatrix(isInputSigned,value)
   MatrixBI32TGTy MatB3 = MatrixBI32TGTy::Splat(7);
 
 // CHECK: %[[MATC3:.*]] = call %dx.types.LinAlgMatrixC9M3N5U2S2
-// CHECK-SAME: @dx.op.linAlgMatrixMultiply.mC9M3N5U2S2.mC8M3N4U0S2.mC4M4N5U1S2(i32 -2147483625,
+// CHECK-SAME: @dx.op.linAlgMatrixMultiply.mC9M3N5U2S2.mC8M3N4U0S2.mC4M4N5U1S2(i32 334,
 // CHECK-SAME: %dx.types.LinAlgMatrixC8M3N4U0S2 %[[MATA3]], %dx.types.LinAlgMatrixC4M4N5U1S2 %[[MATB3]])
 // CHECK-SAME: ; LinAlgMatrixMultiply(matrixA,matrixB)
   MatrixAccF32TGTy MatCFlt2 = Multiply<ComponentType::F32>(MatA3, MatB3);
 
 // CHECK: %[[MATC4:.*]] = call %dx.types.LinAlgMatrixC4M3N5U2S2
-// CHECK-SAME: @dx.op.linAlgMatrixMultiply.mC4M3N5U2S2.mC4M3N4U0S2.mC4M4N5U1S2(i32 -2147483625,
+// CHECK-SAME: @dx.op.linAlgMatrixMultiply.mC4M3N5U2S2.mC4M3N4U0S2.mC4M4N5U1S2(i32 334,
 // CHECK-SAME: %dx.types.LinAlgMatrixC4M3N4U0S2 %[[MATA4]], %dx.types.LinAlgMatrixC4M4N5U1S2 %[[MATB3]])
 // CHECK-SAME: ; LinAlgMatrixMultiply(matrixA,matrixB)
   MatrixAccI32TGTy MatCInt2 = Multiply(MatA4, MatB3);

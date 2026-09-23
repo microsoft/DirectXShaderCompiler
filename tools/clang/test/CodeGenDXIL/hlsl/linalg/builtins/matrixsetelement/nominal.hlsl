@@ -10,7 +10,7 @@ void main() {
   // CHECK-LABEL: define void @main()
 
   // CHECK: call %dx.types.LinAlgMatrixC4M5N4U1S2 @dx.op.linAlgMatrixSetElement.mC4M5N4U1S2.mC4M5N4U1S2.i32
-  // CHECK-SAME: (i32 -2147483629, %dx.types.LinAlgMatrixC4M5N4U1S2 %{{.*}}, i32 1, i32 5)
+  // CHECK-SAME: (i32 330, %dx.types.LinAlgMatrixC4M5N4U1S2 %{{.*}}, i32 1, i32 5)
   // CHECK-SAME: ; LinAlgMatrixSetElement(matrix,threadLocalIndex,value)
 
   // CHECK2: call void @"dx.hl.op..void (i32, %dx.types.LinAlgMatrixC4M5N4U1S2*, %dx.types.LinAlgMatrixC4M5N4U1S2, i32, i32)

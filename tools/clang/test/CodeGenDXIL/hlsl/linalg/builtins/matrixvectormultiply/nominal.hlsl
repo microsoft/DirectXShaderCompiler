@@ -14,7 +14,7 @@ void main() {
   float4 vec = {1,2,3,4};
   float4 result;
 
-  // CHECK: call <4 x float> @dx.op.linAlgMatVecMul.v4f32.mC4M4N4U0S0.v4f32(i32 -2147483623,
+  // CHECK: call <4 x float> @dx.op.linAlgMatVecMul.v4f32.mC4M4N4U0S0.v4f32(i32 336,
   // CHECK-SAME: %dx.types.LinAlgMatrixC4M4N4U0S0 %{{.*}}, i1 true, <4 x float> <float 1.000000e+00, float 2.000000e+00,
   // CHECK-SAME: float 3.000000e+00, float 4.000000e+00>, i32 9)  ; LinAlgMatVecMul(matrix,isOutputSigned,inputVector,interpretation)
 

@@ -6,7 +6,7 @@
 void main() {
   // CHECK-LABEL: define void @main()
 
-  // CHECK: call <2 x i32> @dx.op.linAlgMatrixGetCoordinate.mC4M5N4U1S2(i32 -2147483631,
+  // CHECK: call <2 x i32> @dx.op.linAlgMatrixGetCoordinate.mC4M5N4U1S2(i32 328,
   // CHECK-SAME: %dx.types.LinAlgMatrixC4M5N4U1S2 %{{.*}}, i32 1) 
   // CHECK-SAME: ; LinAlgMatrixGetCoordinate(matrix,threadLocalIndex)
 

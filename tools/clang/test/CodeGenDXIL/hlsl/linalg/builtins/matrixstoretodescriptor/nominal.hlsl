@@ -8,7 +8,7 @@ RWByteAddressBuffer outbuf;
 void main() {
   // CHECK-LABEL: define void @main()
 
-  // CHECK: call void @dx.op.linAlgMatrixStoreToDescriptor.mC4M5N4U1S2(i32 -2147483628,
+  // CHECK: call void @dx.op.linAlgMatrixStoreToDescriptor.mC4M5N4U1S2(i32 331,
   // CHECK-SAME: %dx.types.LinAlgMatrixC4M5N4U1S2 %{{.*}}, %dx.types.Handle %{{.*}}, i32 1, i32 1, i32 0, i32 256)
   // CHECK-SAME:  ; LinAlgMatrixStoreToDescriptor(matrix,handle,offset,stride,layout,align)
 

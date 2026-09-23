@@ -27,7 +27,7 @@ void main() {
 
   // CHECK: call %dx.types.LinAlgMatrixC4M8N8U2S2
   // CHECK-SAME: @dx.op.linAlgMatrixMultiplyAccumulate.mC4M8N8U2S2.mC4M8N4U0S2.mC4M4N8U1S2.mC4M8N8U2S2
-  // CHECK-SAME: (i32 -2147483637, %dx.types.LinAlgMatrixC4M8N4U0S2 %{{[0-9]+}}, %dx.types.LinAlgMatrixC4M4N8U1S2 %{{[0-9]+}},
+  // CHECK-SAME: (i32 322, %dx.types.LinAlgMatrixC4M8N4U0S2 %{{[0-9]+}}, %dx.types.LinAlgMatrixC4M4N8U1S2 %{{[0-9]+}},
   // CHECK-SAME: %dx.types.LinAlgMatrixC4M8N8U2S2 %{{[0-9]+}}) ; LinAlgMatrixMultiplyAccumulate(matrixA,matrixB,matrixC)
 
   // CHECK2: call void @"dx.hl.op..void (i32, %dx.types.LinAlgMatrixC4M8N8U2S2*, %dx.types.LinAlgMatrixC4M8N4U0S2,

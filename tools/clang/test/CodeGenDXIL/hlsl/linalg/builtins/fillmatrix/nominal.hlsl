@@ -7,7 +7,7 @@ void main() {
   // CHECK-LABEL: define void @main()
 
   // CHECK: %{{.*}} = call %dx.types.LinAlgMatrixC4M5N4U1S2 @dx.op.linAlgFillMatrix.mC4M5N4U1S2.i32
-  // CHECK-SAME: (i32 -2147483636, i1 true, i32 {{.*}})  ; LinAlgFillMatrix(isInputSigned,value)
+  // CHECK-SAME: (i32 323, i1 true, i32 {{.*}})  ; LinAlgFillMatrix(isInputSigned,value)
 
   // CHECK2: call void @"dx.hl.op..void (i32, %dx.types.LinAlgMatrixC4M5N4U1S2*, i1, i32)"
   // CHECK2-SAME: (i32 402, %dx.types.LinAlgMatrixC4M5N4U1S2* {{.*}}, i1 true, i32 5),
@@ -16,7 +16,7 @@ void main() {
   __builtin_LinAlg_FillMatrix(mat1, true, 5);
 
   // CHECK: %{{.*}} = call %dx.types.LinAlgMatrixC5M8N4U0S1 @dx.op.linAlgFillMatrix.mC5M8N4U0S1.f32
-  // CHECK-SAME: (i32 -2147483636, i1 true, float {{.*}})  ; LinAlgFillMatrix(isInputSigned,value)
+  // CHECK-SAME: (i32 323, i1 true, float {{.*}})  ; LinAlgFillMatrix(isInputSigned,value)
 
   // CHECK2: call void @"dx.hl.op..void (i32, %dx.types.LinAlgMatrixC5M8N4U0S1*, i1, float)"
   // CHECK2-SAME: (i32 402, %dx.types.LinAlgMatrixC5M8N4U0S1* {{.*}}, i1 true, float 0x40091EB860000000)
@@ -26,7 +26,7 @@ void main() {
 
 
   // CHECK: %{{.*}} = call %dx.types.LinAlgMatrixC5M8N4U0S2 @dx.op.linAlgFillMatrix.mC5M8N4U0S2.f64
-  // CHECK-SAME: (i32 -2147483636, i1 true, double {{.*}})  ; LinAlgFillMatrix(isInputSigned,value)
+  // CHECK-SAME: (i32 323, i1 true, double {{.*}})  ; LinAlgFillMatrix(isInputSigned,value)
 
   // CHECK2: call void @"dx.hl.op..void (i32, %dx.types.LinAlgMatrixC5M8N4U0S2*, i1, double)"
   // CHECK2-SAME: (i32 402, %dx.types.LinAlgMatrixC5M8N4U0S2* {{.*}}, i1 true, double %{{.+}})
@@ -37,7 +37,7 @@ void main() {
 
 
   // CHECK: %{{.*}} = call %dx.types.LinAlgMatrixC5M4N4U1S1 @dx.op.linAlgFillMatrix.mC5M4N4U1S1.i64
-  // CHECK-SAME: (i32 -2147483636, i1 true, i64 {{.*}})  ; LinAlgFillMatrix(isInputSigned,value)
+  // CHECK-SAME: (i32 323, i1 true, i64 {{.*}})  ; LinAlgFillMatrix(isInputSigned,value)
 
   // CHECK2: call void @"dx.hl.op..void (i32, %dx.types.LinAlgMatrixC5M4N4U1S1*, i1, i64)"
   // CHECK2-SAME: (i32 402, %dx.types.LinAlgMatrixC5M4N4U1S1* {{.*}}, i1 true, i64 %{{.+}})

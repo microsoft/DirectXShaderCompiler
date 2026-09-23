@@ -2714,20 +2714,6 @@ static const OP::OpCodeProperty CoreOps_OpCodeProps[] = {
      1,
      {{0x400}},
      {{0x3}}}, // Overloads: <hf
-};
-static_assert(_countof(CoreOps_OpCodeProps) ==
-                  (size_t)DXIL::CoreOps::OpCode::NumOpCodes,
-              "mismatch in opcode count for CoreOps OpCodeProps");
-static const OP::OpCodeProperty ExperimentalOps_OpCodeProps[] = {
-    // No-op
-    {OC::ExperimentalNop,
-     "ExperimentalNop",
-     OCC::Nop,
-     "nop",
-     Attribute::ReadNone,
-     0,
-     {},
-     {}}, // Overloads: v
 
     // Group Wave Ops
     {OC::GetGroupWaveIndex,
@@ -2993,15 +2979,6 @@ static const OP::OpCodeProperty ExperimentalOps_OpCodeProps[] = {
      {{0x400}},
      {{0xe7}}}, // Overloads: <hfdwil
 
-    {OC::ReservedE0,
-     "ReservedE0",
-     OCC::Reserved,
-     "reserved",
-     Attribute::None,
-     0,
-     {},
-     {}}, // Overloads: v
-
     // Debugging
     {OC::DebugBreak,
      "DebugBreak",
@@ -3015,6 +2992,293 @@ static const OP::OpCodeProperty ExperimentalOps_OpCodeProps[] = {
      "IsDebuggingEnabled",
      OCC::IsDebuggingEnabled,
      "isDebuggingEnabled",
+     Attribute::None,
+     0,
+     {},
+     {}}, // Overloads: v
+};
+static_assert(_countof(CoreOps_OpCodeProps) ==
+                  (size_t)DXIL::CoreOps::OpCode::NumOpCodes,
+              "mismatch in opcode count for CoreOps OpCodeProps");
+static const OP::OpCodeProperty ExperimentalOps_OpCodeProps[] = {
+    // No-op
+    {OC::ExperimentalNop,
+     "ExperimentalNop",
+     OCC::Nop,
+     "nop",
+     Attribute::ReadNone,
+     0,
+     {},
+     {}}, // Overloads: v
+
+    {OC::ReservedE0,
+     "ReservedE0",
+     OCC::Reserved,
+     "reserved",
+     Attribute::None,
+     0,
+     {},
+     {}}, // Overloads: v
+    {OC::ReservedE1,
+     "ReservedE1",
+     OCC::Reserved,
+     "reserved",
+     Attribute::None,
+     0,
+     {},
+     {}}, // Overloads: v
+    {OC::ReservedE2,
+     "ReservedE2",
+     OCC::Reserved,
+     "reserved",
+     Attribute::None,
+     0,
+     {},
+     {}}, // Overloads: v
+    {OC::ReservedE3,
+     "ReservedE3",
+     OCC::Reserved,
+     "reserved",
+     Attribute::None,
+     0,
+     {},
+     {}}, // Overloads: v
+    {OC::ReservedE4,
+     "ReservedE4",
+     OCC::Reserved,
+     "reserved",
+     Attribute::None,
+     0,
+     {},
+     {}}, // Overloads: v
+    {OC::ReservedE5,
+     "ReservedE5",
+     OCC::Reserved,
+     "reserved",
+     Attribute::None,
+     0,
+     {},
+     {}}, // Overloads: v
+    {OC::ReservedE6,
+     "ReservedE6",
+     OCC::Reserved,
+     "reserved",
+     Attribute::None,
+     0,
+     {},
+     {}}, // Overloads: v
+    {OC::ReservedE7,
+     "ReservedE7",
+     OCC::Reserved,
+     "reserved",
+     Attribute::None,
+     0,
+     {},
+     {}}, // Overloads: v
+    {OC::ReservedE8,
+     "ReservedE8",
+     OCC::Reserved,
+     "reserved",
+     Attribute::None,
+     0,
+     {},
+     {}}, // Overloads: v
+    {OC::ReservedE9,
+     "ReservedE9",
+     OCC::Reserved,
+     "reserved",
+     Attribute::None,
+     0,
+     {},
+     {}}, // Overloads: v
+    {OC::ReservedE10,
+     "ReservedE10",
+     OCC::Reserved,
+     "reserved",
+     Attribute::None,
+     0,
+     {},
+     {}}, // Overloads: v
+    {OC::ReservedE11,
+     "ReservedE11",
+     OCC::Reserved,
+     "reserved",
+     Attribute::None,
+     0,
+     {},
+     {}}, // Overloads: v
+    {OC::ReservedE12,
+     "ReservedE12",
+     OCC::Reserved,
+     "reserved",
+     Attribute::None,
+     0,
+     {},
+     {}}, // Overloads: v
+    {OC::ReservedE13,
+     "ReservedE13",
+     OCC::Reserved,
+     "reserved",
+     Attribute::None,
+     0,
+     {},
+     {}}, // Overloads: v
+    {OC::ReservedE14,
+     "ReservedE14",
+     OCC::Reserved,
+     "reserved",
+     Attribute::None,
+     0,
+     {},
+     {}}, // Overloads: v
+    {OC::ReservedE15,
+     "ReservedE15",
+     OCC::Reserved,
+     "reserved",
+     Attribute::None,
+     0,
+     {},
+     {}}, // Overloads: v
+    {OC::ReservedE16,
+     "ReservedE16",
+     OCC::Reserved,
+     "reserved",
+     Attribute::None,
+     0,
+     {},
+     {}}, // Overloads: v
+    {OC::ReservedE17,
+     "ReservedE17",
+     OCC::Reserved,
+     "reserved",
+     Attribute::None,
+     0,
+     {},
+     {}}, // Overloads: v
+    {OC::ReservedE18,
+     "ReservedE18",
+     OCC::Reserved,
+     "reserved",
+     Attribute::None,
+     0,
+     {},
+     {}}, // Overloads: v
+    {OC::ReservedE19,
+     "ReservedE19",
+     OCC::Reserved,
+     "reserved",
+     Attribute::None,
+     0,
+     {},
+     {}}, // Overloads: v
+    {OC::ReservedE20,
+     "ReservedE20",
+     OCC::Reserved,
+     "reserved",
+     Attribute::None,
+     0,
+     {},
+     {}}, // Overloads: v
+    {OC::ReservedE21,
+     "ReservedE21",
+     OCC::Reserved,
+     "reserved",
+     Attribute::None,
+     0,
+     {},
+     {}}, // Overloads: v
+    {OC::ReservedE22,
+     "ReservedE22",
+     OCC::Reserved,
+     "reserved",
+     Attribute::None,
+     0,
+     {},
+     {}}, // Overloads: v
+    {OC::ReservedE23,
+     "ReservedE23",
+     OCC::Reserved,
+     "reserved",
+     Attribute::None,
+     0,
+     {},
+     {}}, // Overloads: v
+    {OC::ReservedE24,
+     "ReservedE24",
+     OCC::Reserved,
+     "reserved",
+     Attribute::None,
+     0,
+     {},
+     {}}, // Overloads: v
+    {OC::ReservedE25,
+     "ReservedE25",
+     OCC::Reserved,
+     "reserved",
+     Attribute::None,
+     0,
+     {},
+     {}}, // Overloads: v
+    {OC::ReservedE26,
+     "ReservedE26",
+     OCC::Reserved,
+     "reserved",
+     Attribute::None,
+     0,
+     {},
+     {}}, // Overloads: v
+    {OC::ReservedE27,
+     "ReservedE27",
+     OCC::Reserved,
+     "reserved",
+     Attribute::None,
+     0,
+     {},
+     {}}, // Overloads: v
+    {OC::ReservedE28,
+     "ReservedE28",
+     OCC::Reserved,
+     "reserved",
+     Attribute::None,
+     0,
+     {},
+     {}}, // Overloads: v
+    {OC::ReservedE29,
+     "ReservedE29",
+     OCC::Reserved,
+     "reserved",
+     Attribute::None,
+     0,
+     {},
+     {}}, // Overloads: v
+    {OC::ReservedE30,
+     "ReservedE30",
+     OCC::Reserved,
+     "reserved",
+     Attribute::None,
+     0,
+     {},
+     {}}, // Overloads: v
+    {OC::ReservedE31,
+     "ReservedE31",
+     OCC::Reserved,
+     "reserved",
+     Attribute::None,
+     0,
+     {},
+     {}}, // Overloads: v
+    {OC::ReservedE32,
+     "ReservedE32",
+     OCC::Reserved,
+     "reserved",
+     Attribute::None,
+     0,
+     {},
+     {}}, // Overloads: v
+    {OC::ReservedE33,
+     "ReservedE33",
+     OCC::Reserved,
+     "reserved",
      Attribute::None,
      0,
      {},
@@ -3383,11 +3647,10 @@ bool OP::IsDxilOpWave(OpCode C) {
   // WaveReadLaneFirst=118, WaveActiveOp=119, WaveActiveBit=120,
   // WavePrefixOp=121, QuadReadLaneAt=122, QuadOp=123, WaveAllBitCount=135,
   // WavePrefixBitCount=136, WaveMatch=165, WaveMultiPrefixOp=166,
-  // WaveMultiPrefixBitCount=167, QuadVote=222, GetGroupWaveIndex=2147483649,
-  // GetGroupWaveCount=2147483650
+  // WaveMultiPrefixBitCount=167, QuadVote=222, GetGroupWaveIndex=312,
+  // GetGroupWaveCount=313
   return (110 <= op && op <= 123) || (135 <= op && op <= 136) ||
-         (165 <= op && op <= 167) || op == 222 ||
-         (2147483649 <= op && op <= 2147483650);
+         (165 <= op && op <= 167) || op == 222 || (312 <= op && op <= 313);
   // OPCODE-WAVE:END
 }
 
@@ -3967,65 +4230,61 @@ void OP::GetMinShaderModelAndMask(OpCode C, bool bWithTranslation,
         SFLAG(Library) | SFLAG(RayGeneration) | SFLAG(ClosestHit) | SFLAG(Miss);
     return;
   }
-  // Instructions: ExperimentalNop=2147483648,
-  // RayQuery_CandidateClusterID=2147483652,
-  // RayQuery_CommittedClusterID=2147483653,
-  // RayQuery_CandidateTriangleObjectPosition=2147483656,
-  // RayQuery_CommittedTriangleObjectPosition=2147483657,
-  // LinAlgMatrixLoadFromDescriptor=2147483662,
-  // LinAlgMatrixQueryAccumulatorLayout=2147483670, LinAlgMatVecMul=2147483673,
-  // LinAlgMatVecMulAdd=2147483674,
-  // LinAlgMatrixAccumulateToDescriptor=2147483675,
-  // LinAlgMatrixOuterProduct=2147483677, LinAlgConvert=2147483678,
-  // LinAlgVectorAccumulateToDescriptor=2147483679, DebugBreak=2147483681,
-  // IsDebuggingEnabled=2147483682
-  if (op == 2147483648 || (2147483652 <= op && op <= 2147483653) ||
-      (2147483656 <= op && op <= 2147483657) || op == 2147483662 ||
-      op == 2147483670 || (2147483673 <= op && op <= 2147483675) ||
-      (2147483677 <= op && op <= 2147483679) ||
-      (2147483681 <= op && op <= 2147483682)) {
+  // Instructions: RayQuery_CandidateClusterID=315,
+  // RayQuery_CommittedClusterID=316,
+  // RayQuery_CandidateTriangleObjectPosition=319,
+  // RayQuery_CommittedTriangleObjectPosition=320,
+  // LinAlgMatrixLoadFromDescriptor=325, LinAlgMatrixQueryAccumulatorLayout=333,
+  // LinAlgMatVecMul=336, LinAlgMatVecMulAdd=337,
+  // LinAlgMatrixAccumulateToDescriptor=338, LinAlgMatrixOuterProduct=340,
+  // LinAlgConvert=341, LinAlgVectorAccumulateToDescriptor=342, DebugBreak=343,
+  // IsDebuggingEnabled=344
+  if ((315 <= op && op <= 316) || (319 <= op && op <= 320) || op == 325 ||
+      op == 333 || (336 <= op && op <= 338) || (340 <= op && op <= 344)) {
     major = 6;
     minor = 10;
     return;
   }
-  // Instructions: LinAlgMatrixMultiplyAccumulate=2147483659,
-  // LinAlgFillMatrix=2147483660, LinAlgCopyConvertMatrix=2147483661,
-  // LinAlgMatrixLoadFromMemory=2147483663, LinAlgMatrixLength=2147483664,
-  // LinAlgMatrixGetCoordinate=2147483665, LinAlgMatrixGetElement=2147483666,
-  // LinAlgMatrixSetElement=2147483667,
-  // LinAlgMatrixStoreToDescriptor=2147483668,
-  // LinAlgMatrixStoreToMemory=2147483669, LinAlgMatrixMultiply=2147483671,
-  // LinAlgMatrixAccumulate=2147483672,
-  // LinAlgMatrixAccumulateToMemory=2147483676
-  if ((2147483659 <= op && op <= 2147483661) ||
-      (2147483663 <= op && op <= 2147483669) ||
-      (2147483671 <= op && op <= 2147483672) || op == 2147483676) {
+  // Instructions: LinAlgMatrixMultiplyAccumulate=322, LinAlgFillMatrix=323,
+  // LinAlgCopyConvertMatrix=324, LinAlgMatrixLoadFromMemory=326,
+  // LinAlgMatrixLength=327, LinAlgMatrixGetCoordinate=328,
+  // LinAlgMatrixGetElement=329, LinAlgMatrixSetElement=330,
+  // LinAlgMatrixStoreToDescriptor=331, LinAlgMatrixStoreToMemory=332,
+  // LinAlgMatrixMultiply=334, LinAlgMatrixAccumulate=335,
+  // LinAlgMatrixAccumulateToMemory=339
+  if ((322 <= op && op <= 324) || (326 <= op && op <= 332) ||
+      (334 <= op && op <= 335) || op == 339) {
     major = 6;
     minor = 10;
     mask = SFLAG(Compute);
     return;
   }
-  // Instructions: GetGroupWaveIndex=2147483649, GetGroupWaveCount=2147483650
-  if ((2147483649 <= op && op <= 2147483650)) {
+  // Instructions: GetGroupWaveIndex=312, GetGroupWaveCount=313
+  if ((312 <= op && op <= 313)) {
     major = 6;
     minor = 10;
     mask = SFLAG(Compute) | SFLAG(Mesh) | SFLAG(Amplification);
     return;
   }
-  // Instructions: ClusterID=2147483651, TriangleObjectPosition=2147483655
-  if (op == 2147483651 || op == 2147483655) {
+  // Instructions: ClusterID=314, TriangleObjectPosition=318
+  if (op == 314 || op == 318) {
     major = 6;
     minor = 10;
     mask = SFLAG(Library) | SFLAG(AnyHit) | SFLAG(ClosestHit);
     return;
   }
-  // Instructions: HitObject_ClusterID=2147483654,
-  // HitObject_TriangleObjectPosition=2147483658
-  if (op == 2147483654 || op == 2147483658) {
+  // Instructions: HitObject_ClusterID=317, HitObject_TriangleObjectPosition=321
+  if (op == 317 || op == 321) {
     major = 6;
     minor = 10;
     mask =
         SFLAG(Library) | SFLAG(RayGeneration) | SFLAG(ClosestHit) | SFLAG(Miss);
+    return;
+  }
+  // Instructions: ExperimentalNop=2147483648
+  if (op == 2147483648) {
+    major = 6;
+    minor = 11;
     return;
   }
   // OPCODE-SMMASK:END
@@ -6493,12 +6752,6 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
     A(pETy);
     break;
 
-    // No-op
-  case OpCode::ExperimentalNop:
-    A(pV);
-    A(pI32);
-    break;
-
     // Group Wave Ops
   case OpCode::GetGroupWaveIndex:
     A(pI32);
@@ -6714,12 +6967,6 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
     A(pETy);
     break;
 
-    //
-  case OpCode::ReservedE0:
-    A(pV);
-    A(pI32);
-    break;
-
     // Debugging
   case OpCode::DebugBreak:
     A(pV);
@@ -6727,6 +6974,150 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
     break;
   case OpCode::IsDebuggingEnabled:
     A(pI1);
+    A(pI32);
+    break;
+
+    // No-op
+  case OpCode::ExperimentalNop:
+    A(pV);
+    A(pI32);
+    break;
+
+    //
+  case OpCode::ReservedE0:
+    A(pV);
+    A(pI32);
+    break;
+  case OpCode::ReservedE1:
+    A(pV);
+    A(pI32);
+    break;
+  case OpCode::ReservedE2:
+    A(pV);
+    A(pI32);
+    break;
+  case OpCode::ReservedE3:
+    A(pV);
+    A(pI32);
+    break;
+  case OpCode::ReservedE4:
+    A(pV);
+    A(pI32);
+    break;
+  case OpCode::ReservedE5:
+    A(pV);
+    A(pI32);
+    break;
+  case OpCode::ReservedE6:
+    A(pV);
+    A(pI32);
+    break;
+  case OpCode::ReservedE7:
+    A(pV);
+    A(pI32);
+    break;
+  case OpCode::ReservedE8:
+    A(pV);
+    A(pI32);
+    break;
+  case OpCode::ReservedE9:
+    A(pV);
+    A(pI32);
+    break;
+  case OpCode::ReservedE10:
+    A(pV);
+    A(pI32);
+    break;
+  case OpCode::ReservedE11:
+    A(pV);
+    A(pI32);
+    break;
+  case OpCode::ReservedE12:
+    A(pV);
+    A(pI32);
+    break;
+  case OpCode::ReservedE13:
+    A(pV);
+    A(pI32);
+    break;
+  case OpCode::ReservedE14:
+    A(pV);
+    A(pI32);
+    break;
+  case OpCode::ReservedE15:
+    A(pV);
+    A(pI32);
+    break;
+  case OpCode::ReservedE16:
+    A(pV);
+    A(pI32);
+    break;
+  case OpCode::ReservedE17:
+    A(pV);
+    A(pI32);
+    break;
+  case OpCode::ReservedE18:
+    A(pV);
+    A(pI32);
+    break;
+  case OpCode::ReservedE19:
+    A(pV);
+    A(pI32);
+    break;
+  case OpCode::ReservedE20:
+    A(pV);
+    A(pI32);
+    break;
+  case OpCode::ReservedE21:
+    A(pV);
+    A(pI32);
+    break;
+  case OpCode::ReservedE22:
+    A(pV);
+    A(pI32);
+    break;
+  case OpCode::ReservedE23:
+    A(pV);
+    A(pI32);
+    break;
+  case OpCode::ReservedE24:
+    A(pV);
+    A(pI32);
+    break;
+  case OpCode::ReservedE25:
+    A(pV);
+    A(pI32);
+    break;
+  case OpCode::ReservedE26:
+    A(pV);
+    A(pI32);
+    break;
+  case OpCode::ReservedE27:
+    A(pV);
+    A(pI32);
+    break;
+  case OpCode::ReservedE28:
+    A(pV);
+    A(pI32);
+    break;
+  case OpCode::ReservedE29:
+    A(pV);
+    A(pI32);
+    break;
+  case OpCode::ReservedE30:
+    A(pV);
+    A(pI32);
+    break;
+  case OpCode::ReservedE31:
+    A(pV);
+    A(pI32);
+    break;
+  case OpCode::ReservedE32:
+    A(pV);
+    A(pI32);
+    break;
+  case OpCode::ReservedE33:
+    A(pV);
     A(pI32);
     break;
   // OPCODE-OLOAD-FUNCS:END
@@ -7030,14 +7421,47 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
   case OpCode::ReservedD1:
   case OpCode::ReservedD2:
   case OpCode::ReservedD3:
-  case OpCode::ExperimentalNop:
   case OpCode::GetGroupWaveIndex:
   case OpCode::GetGroupWaveCount:
   case OpCode::ClusterID:
   case OpCode::LinAlgMatrixQueryAccumulatorLayout:
-  case OpCode::ReservedE0:
   case OpCode::DebugBreak:
   case OpCode::IsDebuggingEnabled:
+  case OpCode::ExperimentalNop:
+  case OpCode::ReservedE0:
+  case OpCode::ReservedE1:
+  case OpCode::ReservedE2:
+  case OpCode::ReservedE3:
+  case OpCode::ReservedE4:
+  case OpCode::ReservedE5:
+  case OpCode::ReservedE6:
+  case OpCode::ReservedE7:
+  case OpCode::ReservedE8:
+  case OpCode::ReservedE9:
+  case OpCode::ReservedE10:
+  case OpCode::ReservedE11:
+  case OpCode::ReservedE12:
+  case OpCode::ReservedE13:
+  case OpCode::ReservedE14:
+  case OpCode::ReservedE15:
+  case OpCode::ReservedE16:
+  case OpCode::ReservedE17:
+  case OpCode::ReservedE18:
+  case OpCode::ReservedE19:
+  case OpCode::ReservedE20:
+  case OpCode::ReservedE21:
+  case OpCode::ReservedE22:
+  case OpCode::ReservedE23:
+  case OpCode::ReservedE24:
+  case OpCode::ReservedE25:
+  case OpCode::ReservedE26:
+  case OpCode::ReservedE27:
+  case OpCode::ReservedE28:
+  case OpCode::ReservedE29:
+  case OpCode::ReservedE30:
+  case OpCode::ReservedE31:
+  case OpCode::ReservedE32:
+  case OpCode::ReservedE33:
     return Type::getVoidTy(Ctx);
   case OpCode::QuadVote:
     return IntegerType::get(Ctx, 1);

@@ -8,7 +8,7 @@ target triple = "dxil-ms-dx"
 %dx.types.LinAlgMatrixC4M4N5U1S2 = type { i8* }
 
 define void @main() {
-  %1 = call %dx.types.LinAlgMatrixC4M5N4U1S2 @dx.op.linAlgFillMatrix.mC4M5N4U1S2.i32(i32 -2147483636, i1 true, i32 5)  ; LinAlgFillMatrix(isInputSigned,value)
+  %1 = call %dx.types.LinAlgMatrixC4M5N4U1S2 @dx.op.linAlgFillMatrix.mC4M5N4U1S2.i32(i32 323, i1 true, i32 5)  ; LinAlgFillMatrix(isInputSigned,value)
   %2 = bitcast %dx.types.LinAlgMatrixC4M5N4U1S2 %1 to %dx.types.LinAlgMatrixC4M4N5U1S2
 
   ; CHECK: shader: invalid cast opcode for cast from '%dx.types.LinAlgMatrixC4M5N4U1S2 = type { i8* }' to '%dx.types.LinAlgMatrixC4M4N5U1S2 = type { i8* }'

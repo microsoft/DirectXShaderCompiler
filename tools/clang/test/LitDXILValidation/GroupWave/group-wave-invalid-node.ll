@@ -15,8 +15,8 @@ target triple = "dxil-ms-dx"
 define void @ThreadNode() {
   %1 = call %dx.types.NodeHandle @dx.op.createNodeOutputHandle(i32 247, i32 0)  ; CreateNodeOutputHandle(MetadataIdx)
   %2 = call %dx.types.NodeHandle @dx.op.annotateNodeHandle(i32 249, %dx.types.NodeHandle %1, %dx.types.NodeInfo { i32 6, i32 4 })  ; AnnotateNodeHandle(node,props)
-  %3 = call i32 @dx.op.getGroupWaveIndex(i32 -2147483647)  ; GetGroupWaveIndex()
-  %4 = call i32 @dx.op.getGroupWaveCount(i32 -2147483646)  ; GetGroupWaveCount()
+  %3 = call i32 @dx.op.getGroupWaveIndex(i32 312)  ; GetGroupWaveIndex()
+  %4 = call i32 @dx.op.getGroupWaveCount(i32 313)  ; GetGroupWaveCount()
   %5 = call %dx.types.NodeRecordHandle @dx.op.allocateNodeOutputRecords(i32 238, %dx.types.NodeHandle %2, i32 1, i1 true)  ; AllocateNodeOutputRecords(output,numRecords,perThread)
   %6 = call %dx.types.NodeRecordHandle @dx.op.annotateNodeRecordHandle(i32 251, %dx.types.NodeRecordHandle %5, %dx.types.NodeRecordInfo { i32 38, i32 4 })  ; AnnotateNodeRecordHandle(noderecord,props)
   %7 = add i32 %4, %3

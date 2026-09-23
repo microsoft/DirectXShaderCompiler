@@ -14,7 +14,7 @@ void main() {
   __builtin_LinAlg_FillMatrix(mat2, true, 2);
 
   // CHECK: call %dx.types.LinAlgMatrixC5M4N4U2S1 @dx.op.linAlgMatrixAccumulate.mC5M4N4U2S1.mC5M4N4U2S1.mC5M4N4U0S1
-  // CHECK-SAME: (i32 -2147483624, %dx.types.LinAlgMatrixC5M4N4U2S1 %{{.*}}, %dx.types.LinAlgMatrixC5M4N4U0S1 %{{.*}}) ; LinAlgMatrixAccumulate(matrixLHS,matrixRHS)
+  // CHECK-SAME: (i32 335, %dx.types.LinAlgMatrixC5M4N4U2S1 %{{.*}}, %dx.types.LinAlgMatrixC5M4N4U0S1 %{{.*}}) ; LinAlgMatrixAccumulate(matrixLHS,matrixRHS)
 
   // CHECK2: call void @"dx.hl.op..void (i32, %dx.types.LinAlgMatrixC5M4N4U2S1*, %dx.types.LinAlgMatrixC5M4N4U2S1,
   // CHECK2-SAME:  %dx.types.LinAlgMatrixC5M4N4U0S1)"(i32 411, %dx.types.LinAlgMatrixC5M4N4U2S1* %mat3,

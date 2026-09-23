@@ -2447,6 +2447,39 @@ ID  Name                                                  Description
 309 VectorReduceAnd                                       Bitwise AND reduction of the vector returning a scalar
 310 VectorReduceOr                                        Bitwise OR reduction of the vector returning a scalar
 311 FDot                                                  computes the n-dimensional vector dot-product
+312 GetGroupWaveIndex                                     returns the index of the wave in the thread group
+313 GetGroupWaveCount                                     returns the number of waves in the thread group
+314 ClusterID                                             returns the user-defined ClusterID of the intersected CLAS
+315 RayQuery_CandidateClusterID                           returns candidate hit cluster ID
+316 RayQuery_CommittedClusterID                           returns committed hit cluster ID
+317 HitObject_ClusterID                                   returns the cluster ID of this committed hit
+318 TriangleObjectPosition                                returns triangle vertices in object space as <9 x float>
+319 RayQuery_CandidateTriangleObjectPosition              returns candidate triangle vertices in object space as <9 x float>
+320 RayQuery_CommittedTriangleObjectPosition              returns committed triangle vertices in object space as <9 x float>
+321 HitObject_TriangleObjectPosition                      returns triangle vertices in object space as <9 x float>
+322 LinAlgMatrixMultiplyAccumulate                        Returns the resulting matrix from multiplying A and B and accumulating into C
+323 LinAlgFillMatrix                                      fills a matrix with a scalar value
+324 LinAlgCopyConvertMatrix                               Converts and copies the element and use type of the source matrix to the destination matrix with optional transpose
+325 LinAlgMatrixLoadFromDescriptor                        fills a matrix with data from a [RW]ByteAddressBuffer
+326 LinAlgMatrixLoadFromMemory                            fills a matrix with data from a groupshared array
+327 LinAlgMatrixLength                                    returns the number of elements stored in thread-local storage on the active thread for the provided matrix
+328 LinAlgMatrixGetCoordinate                             returns a two element vector containing the column and row of the matrix that the thread-local index corresponds to
+329 LinAlgMatrixGetElement                                returns the element of the matrix corresponding to the provided thread-local index
+330 LinAlgMatrixSetElement                                sets the element of the matrix corresponding to the provided thread-local index
+331 LinAlgMatrixStoreToDescriptor                         stores a matrix to a RWByteAddressBuffer
+332 LinAlgMatrixStoreToMemory                             stores a matrix to groupshared memory
+333 LinAlgMatrixQueryAccumulatorLayout                    returns comptime 0 when accumulator matrix are A layout, 1 when B layout
+334 LinAlgMatrixMultiply                                  Returns the resulting matrix from multiplying A and B
+335 LinAlgMatrixAccumulate                                accumulate A or B matrix into Accumulator matrix following LHS += RHS
+336 LinAlgMatVecMul                                       Multiplies a MxK dimension matrix and a K sized input vector
+337 LinAlgMatVecMulAdd                                    Multiplies a MxK dimension matrix and a K sized input vector then adds a M sized bias vector
+338 LinAlgMatrixAccumulateToDescriptor                    accumulates a matrix to a RWByteAddressBuffer
+339 LinAlgMatrixAccumulateToMemory                        accumulates a matrix to groupshared memory
+340 LinAlgMatrixOuterProduct                              Outer products an M sized vector and a N sized vector producing an MxN matrix
+341 LinAlgConvert                                         Convert vector components from one interpretation to another
+342 LinAlgVectorAccumulateToDescriptor                    Accumulates given vector to the buffer at the given offset
+343 DebugBreak                                            triggers a breakpoint if debugging is enabled
+344 IsDebuggingEnabled                                    returns true if debugging is enabled
 === ===================================================== =======================================================================================================================================================================================================================
 
 
@@ -3081,45 +3114,45 @@ Given width, offset:
 
 Opcode Table ExperimentalOps, id=32768: Experimental DXIL operations
 
-========== ======================================== ===================================================================================================================
-ID         Name                                     Description
-========== ======================================== ===================================================================================================================
-2147483648 ExperimentalNop                          nop does nothing
-2147483649 GetGroupWaveIndex                        returns the index of the wave in the thread group
-2147483650 GetGroupWaveCount                        returns the number of waves in the thread group
-2147483651 ClusterID                                returns the user-defined ClusterID of the intersected CLAS
-2147483652 RayQuery_CandidateClusterID              returns candidate hit cluster ID
-2147483653 RayQuery_CommittedClusterID              returns committed hit cluster ID
-2147483654 HitObject_ClusterID                      returns the cluster ID of this committed hit
-2147483655 TriangleObjectPosition                   returns triangle vertices in object space as <9 x float>
-2147483656 RayQuery_CandidateTriangleObjectPosition returns candidate triangle vertices in object space as <9 x float>
-2147483657 RayQuery_CommittedTriangleObjectPosition returns committed triangle vertices in object space as <9 x float>
-2147483658 HitObject_TriangleObjectPosition         returns triangle vertices in object space as <9 x float>
-2147483659 LinAlgMatrixMultiplyAccumulate           Returns the resulting matrix from multiplying A and B and accumulating into C
-2147483660 LinAlgFillMatrix                         fills a matrix with a scalar value
-2147483661 LinAlgCopyConvertMatrix                  Converts and copies the element and use type of the source matrix to the destination matrix with optional transpose
-2147483662 LinAlgMatrixLoadFromDescriptor           fills a matrix with data from a [RW]ByteAddressBuffer
-2147483663 LinAlgMatrixLoadFromMemory               fills a matrix with data from a groupshared array
-2147483664 LinAlgMatrixLength                       returns the number of elements stored in thread-local storage on the active thread for the provided matrix
-2147483665 LinAlgMatrixGetCoordinate                returns a two element vector containing the column and row of the matrix that the thread-local index corresponds to
-2147483666 LinAlgMatrixGetElement                   returns the element of the matrix corresponding to the provided thread-local index
-2147483667 LinAlgMatrixSetElement                   sets the element of the matrix corresponding to the provided thread-local index
-2147483668 LinAlgMatrixStoreToDescriptor            stores a matrix to a RWByteAddressBuffer
-2147483669 LinAlgMatrixStoreToMemory                stores a matrix to groupshared memory
-2147483670 LinAlgMatrixQueryAccumulatorLayout       returns comptime 0 when accumulator matrix are A layout, 1 when B layout
-2147483671 LinAlgMatrixMultiply                     Returns the resulting matrix from multiplying A and B
-2147483672 LinAlgMatrixAccumulate                   accumulate A or B matrix into Accumulator matrix following LHS += RHS
-2147483673 LinAlgMatVecMul                          Multiplies a MxK dimension matrix and a K sized input vector
-2147483674 LinAlgMatVecMulAdd                       Multiplies a MxK dimension matrix and a K sized input vector then adds a M sized bias vector
-2147483675 LinAlgMatrixAccumulateToDescriptor       accumulates a matrix to a RWByteAddressBuffer
-2147483676 LinAlgMatrixAccumulateToMemory           accumulates a matrix to groupshared memory
-2147483677 LinAlgMatrixOuterProduct                 Outer products an M sized vector and a N sized vector producing an MxN matrix
-2147483678 LinAlgConvert                            Convert vector components from one interpretation to another
-2147483679 LinAlgVectorAccumulateToDescriptor       Accumulates given vector to the buffer at the given offset
-2147483680 ReservedE0                               reserved
-2147483681 DebugBreak                               triggers a breakpoint if debugging is enabled
-2147483682 IsDebuggingEnabled                       returns true if debugging is enabled
-========== ======================================== ===================================================================================================================
+========== =============== ================
+ID         Name            Description
+========== =============== ================
+2147483648 ExperimentalNop nop does nothing
+2147483649 ReservedE0      reserved
+2147483650 ReservedE1      reserved
+2147483651 ReservedE2      reserved
+2147483652 ReservedE3      reserved
+2147483653 ReservedE4      reserved
+2147483654 ReservedE5      reserved
+2147483655 ReservedE6      reserved
+2147483656 ReservedE7      reserved
+2147483657 ReservedE8      reserved
+2147483658 ReservedE9      reserved
+2147483659 ReservedE10     reserved
+2147483660 ReservedE11     reserved
+2147483661 ReservedE12     reserved
+2147483662 ReservedE13     reserved
+2147483663 ReservedE14     reserved
+2147483664 ReservedE15     reserved
+2147483665 ReservedE16     reserved
+2147483666 ReservedE17     reserved
+2147483667 ReservedE18     reserved
+2147483668 ReservedE19     reserved
+2147483669 ReservedE20     reserved
+2147483670 ReservedE21     reserved
+2147483671 ReservedE22     reserved
+2147483672 ReservedE23     reserved
+2147483673 ReservedE24     reserved
+2147483674 ReservedE25     reserved
+2147483675 ReservedE26     reserved
+2147483676 ReservedE27     reserved
+2147483677 ReservedE28     reserved
+2147483678 ReservedE29     reserved
+2147483679 ReservedE30     reserved
+2147483680 ReservedE31     reserved
+2147483681 ReservedE32     reserved
+2147483682 ReservedE33     reserved
+========== =============== ================
 
 
 .. OPCODES-RST:END
