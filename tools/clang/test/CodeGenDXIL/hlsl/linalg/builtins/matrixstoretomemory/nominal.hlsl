@@ -9,7 +9,7 @@ groupshared float SharedArr[64];
 void main() {
   // CHECK-LABEL: define void @main()
 
-  // CHECK: call void @dx.op.linAlgMatrixStoreToMemory.mC9M5N4U1S2.f32(i32 -2147483627, 
+  // CHECK: call void @dx.op.linAlgMatrixStoreToMemory.mC9M5N4U1S2.f32(i32 332,
   // CHECK-SAME: %dx.types.LinAlgMatrixC9M5N4U1S2 %{{.*}}, float addrspace(3)* getelementptr
   // CHECK-SAME: inbounds ([64 x float], [64 x float] addrspace(3)* @"\01?SharedArr@@3PAMA",
   // CHECK-SAME: i32 0, i32 0), i32 896, i32 48, i32 3)  ; LinAlgMatrixStoreToMemory(matrix,memory,offset,stride,layout)

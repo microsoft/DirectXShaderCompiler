@@ -8,7 +8,7 @@ void main() {
 
   __builtin_LinAlgMatrix [[__LinAlgMatrix_Attributes(4, 5, 4, 1, 2)]] mat;
 
-  // CHECK: call i32 @dx.op.linAlgMatrixGetElement.i32.mC4M5N4U1S2(i32 -2147483630,
+  // CHECK: call i32 @dx.op.linAlgMatrixGetElement.i32.mC4M5N4U1S2(i32 329,
   // CHECK-SAME: %dx.types.LinAlgMatrixC4M5N4U1S2 %{{.*}}, i32 0)  
   // CHECK-SAME: ; LinAlgMatrixGetElement(matrix,threadLocalIndex)
 
@@ -18,7 +18,7 @@ void main() {
   __builtin_LinAlg_FillMatrix(mat, true, 1);
   __builtin_LinAlg_MatrixGetElement(elem1, mat, 0);
 
-  // CHECK: call float @dx.op.linAlgMatrixGetElement.f32.mC4M5N4U1S2(i32 -2147483630,
+  // CHECK: call float @dx.op.linAlgMatrixGetElement.f32.mC4M5N4U1S2(i32 329,
   // CHECK-SAME: %dx.types.LinAlgMatrixC4M5N4U1S2 %{{.*}}, i32 1)  
   // CHECK-SAME: ; LinAlgMatrixGetElement(matrix,threadLocalIndex)
 
@@ -27,7 +27,7 @@ void main() {
   float elem2;
   __builtin_LinAlg_MatrixGetElement(elem2, mat, 1);
 
-  // CHECK: call double @dx.op.linAlgMatrixGetElement.f64.mC4M5N4U1S2(i32 -2147483630,
+  // CHECK: call double @dx.op.linAlgMatrixGetElement.f64.mC4M5N4U1S2(i32 329,
   // CHECK-SAME: %dx.types.LinAlgMatrixC4M5N4U1S2 %{{.*}}, i32 1)  
   // CHECK-SAME: ; LinAlgMatrixGetElement(matrix,threadLocalIndex)
 
@@ -37,7 +37,7 @@ void main() {
   __builtin_LinAlg_MatrixGetElement(elem3, mat, 1);
 
 
-  // CHECK: call i64 @dx.op.linAlgMatrixGetElement.i64.mC4M5N4U1S2(i32 -2147483630,
+  // CHECK: call i64 @dx.op.linAlgMatrixGetElement.i64.mC4M5N4U1S2(i32 329,
   // CHECK-SAME: %dx.types.LinAlgMatrixC4M5N4U1S2 %{{.*}}, i32 1)  
   // CHECK-SAME: ; LinAlgMatrixGetElement(matrix,threadLocalIndex)
 

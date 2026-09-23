@@ -14,17 +14,17 @@ target triple = "dxil-ms-dx"
 
 ; Function Attrs: nounwind
 define void @"\01?test_closesthit@@YAXUPayload@@UBuiltInTriangleIntersectionAttributes@@@Z"(%struct.Payload* noalias nocapture %payload, %struct.BuiltInTriangleIntersectionAttributes* nocapture readnone %attr) #0 {
-  %1 = call <9 x float> @dx.op.triangleObjectPosition.f32(i32 -2147483641)  ; TriangleObjectPosition()
+  %1 = call <9 x float> @dx.op.triangleObjectPosition.f32(i32 318)  ; TriangleObjectPosition()
   ret void
 }
 
 ; Function Attrs: nounwind
 define void @"\01?test_raygeneration@@YAXXZ"() #0 {
   %1 = call %dx.types.HitObject @dx.op.hitObject_MakeNop(i32 266)  ; HitObject_MakeNop()
-  %2 = call <9 x float> @dx.op.hitObject_TriangleObjectPosition.f32(i32 -2147483638, %dx.types.HitObject %1)  ; HitObject_TriangleObjectPosition(hitObject)
+  %2 = call <9 x float> @dx.op.hitObject_TriangleObjectPosition.f32(i32 321, %dx.types.HitObject %1)  ; HitObject_TriangleObjectPosition(hitObject)
   %3 = call i32 @dx.op.allocateRayQuery(i32 178, i32 0)  ; AllocateRayQuery(constRayFlags)
-  %4 = call <9 x float> @dx.op.rayQuery_CandidateTriangleObjectPosition.f32(i32 -2147483640, i32 %3)  ; RayQuery_CandidateTriangleObjectPosition(rayQueryHandle)
-  %5 = call <9 x float> @dx.op.rayQuery_CommittedTriangleObjectPosition.f32(i32 -2147483639, i32 %3)  ; RayQuery_CommittedTriangleObjectPosition(rayQueryHandle)
+  %4 = call <9 x float> @dx.op.rayQuery_CandidateTriangleObjectPosition.f32(i32 319, i32 %3)  ; RayQuery_CandidateTriangleObjectPosition(rayQueryHandle)
+  %5 = call <9 x float> @dx.op.rayQuery_CommittedTriangleObjectPosition.f32(i32 320, i32 %3)  ; RayQuery_CommittedTriangleObjectPosition(rayQueryHandle)
   ret void
 }
 

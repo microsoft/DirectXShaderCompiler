@@ -10002,26 +10002,6 @@ struct DxilInst_FDot {
   void set_b(llvm::Value *val) { Instr->setOperand(2, val); }
 };
 
-/// This instruction nop does nothing
-struct DxilInst_ExperimentalNop {
-  llvm::Instruction *Instr;
-  // Construction and identification
-  DxilInst_ExperimentalNop(llvm::Instruction *pInstr) : Instr(pInstr) {}
-  operator bool() const {
-    return hlsl::OP::IsDxilOpFuncCallInst(Instr,
-                                          hlsl::OP::OpCode::ExperimentalNop);
-  }
-  // Validation support
-  bool isAllowed() const { return true; }
-  bool isArgumentListValid() const {
-    if (1 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands())
-      return false;
-    return true;
-  }
-  // Metadata
-  bool requiresUniformInputs() const { return false; }
-};
-
 /// This instruction returns the index of the wave in the thread group
 struct DxilInst_GetGroupWaveIndex {
   llvm::Instruction *Instr;
@@ -11027,6 +11007,26 @@ struct DxilInst_IsDebuggingEnabled {
   operator bool() const {
     return hlsl::OP::IsDxilOpFuncCallInst(Instr,
                                           hlsl::OP::OpCode::IsDebuggingEnabled);
+  }
+  // Validation support
+  bool isAllowed() const { return true; }
+  bool isArgumentListValid() const {
+    if (1 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands())
+      return false;
+    return true;
+  }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
+};
+
+/// This instruction nop does nothing
+struct DxilInst_ExperimentalNop {
+  llvm::Instruction *Instr;
+  // Construction and identification
+  DxilInst_ExperimentalNop(llvm::Instruction *pInstr) : Instr(pInstr) {}
+  operator bool() const {
+    return hlsl::OP::IsDxilOpFuncCallInst(Instr,
+                                          hlsl::OP::OpCode::ExperimentalNop);
   }
   // Validation support
   bool isAllowed() const { return true; }

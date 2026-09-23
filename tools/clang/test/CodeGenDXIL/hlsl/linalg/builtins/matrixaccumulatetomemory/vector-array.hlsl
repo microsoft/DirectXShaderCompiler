@@ -13,7 +13,7 @@ groupshared float2 SharedArr[64];
 void main() {
   // CHECK-LABEL: define void @main()
 
-  // CHECK: call void @dx.op.linAlgMatrixAccumulateToMemory.mC9M5N4U2S2.v2f32(i32 -2147483620,
+  // CHECK: call void @dx.op.linAlgMatrixAccumulateToMemory.mC9M5N4U2S2.v2f32(i32 339,
   // CHECK-SAME: %dx.types.LinAlgMatrixC9M5N4U2S2 %{{.*}}, <2 x float> addrspace(3)* getelementptr inbounds ([64 x <2 x float>],
   // CHECK-SAME: [64 x <2 x float>] addrspace(3)* @"\01?SharedArr@@3PAV?$vector@M$01@@A", i32 0, i32 0),
   // CHECK-SAME: i32 128, i32 16, i32 3)

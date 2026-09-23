@@ -2,16 +2,16 @@
 ; REQUIRES: dxil-1-10
 
 ; CHECK-LABEL: define void @"\01?test_cluster_id
-; CHECK: call i32 @dx.op.clusterID(i32 -2147483645)
+; CHECK: call i32 @dx.op.clusterID(i32 314)
 
 ; CHECK-LABEL: define void @"\01?test_rayquery_candidate_cluster_id
-; CHECK: call i32 @dx.op.rayQuery_StateScalar.i32(i32 -2147483644, i32 %{{.*}})
+; CHECK: call i32 @dx.op.rayQuery_StateScalar.i32(i32 315, i32 %{{.*}})
 
 ; CHECK-LABEL: define void @"\01?test_rayquery_committed_cluster_id
-; CHECK: call i32 @dx.op.rayQuery_StateScalar.i32(i32 -2147483643, i32 %{{.*}})
+; CHECK: call i32 @dx.op.rayQuery_StateScalar.i32(i32 316, i32 %{{.*}})
 
 ; CHECK-LABEL: define void @"\01?test_hitobject_cluster_id
-; CHECK: call i32 @dx.op.hitObject_StateScalar.i32(i32 -2147483642, %dx.types.HitObject
+; CHECK: call i32 @dx.op.hitObject_StateScalar.i32(i32 317, %dx.types.HitObject
 
 ; CHECK-DAG: declare i32 @dx.op.clusterID(i32)
 ; CHECK-DAG: declare i32 @dx.op.rayQuery_StateScalar.i32(i32, i32)

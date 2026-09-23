@@ -10,7 +10,7 @@ void main() {
   float4 rhs1 = {4,3,2,1};
 
   // CHECK: call %dx.types.LinAlgMatrixC9M4N4U2S0 @dx.op.linAlgMatrixOuterProduct.mC9M4N4U2S0.v4f32.v4f32
-  // CHECK-SAME: (i32 -2147483619, i1 true, <4 x float> {{.*}}, <4 x float> {{.*}})  ; LinAlgMatrixOuterProduct(isInputSigned,vectorA,vectorB)
+  // CHECK-SAME: (i32 340, i1 true, <4 x float> {{.*}}, <4 x float> {{.*}})  ; LinAlgMatrixOuterProduct(isInputSigned,vectorA,vectorB)
 
   // CHECK2: call void @"dx.hl.op..void (i32, %dx.types.LinAlgMatrixC9M4N4U2S0*, i1, <4 x float>, <4 x float>)"
   // CHECK2: (i32 417, %dx.types.LinAlgMatrixC9M4N4U2S0* {{.*}}, i1 true, <4 x float> {{.*}}, <4 x float> {{.*}})
@@ -22,7 +22,7 @@ void main() {
   double4 rhs2 = {4,3,2,1};
 
   // CHECK: call %dx.types.LinAlgMatrixC10M4N4U2S0 @dx.op.linAlgMatrixOuterProduct.mC10M4N4U2S0.v4f64.v4f64
-  // CHECK-SAME: (i32 -2147483619, i1 true, <4 x double> {{.*}}, <4 x double> {{.*}})  ; LinAlgMatrixOuterProduct(isInputSigned,vectorA,vectorB)
+  // CHECK-SAME: (i32 340, i1 true, <4 x double> {{.*}}, <4 x double> {{.*}})  ; LinAlgMatrixOuterProduct(isInputSigned,vectorA,vectorB)
 
   // CHECK2: call void @"dx.hl.op..void (i32, %dx.types.LinAlgMatrixC10M4N4U2S0*, i1, <4 x double>, <4 x double>)"
   // CHECK2: (i32 417, %dx.types.LinAlgMatrixC10M4N4U2S0* {{.*}}, i1 true, <4 x double> {{.*}}, <4 x double> {{.*}})
@@ -34,7 +34,7 @@ void main() {
   vector<int64_t, 4> rhs3 = {4,3,2,1};
 
   // CHECK: call %dx.types.LinAlgMatrixC6M4N4U2S0 @dx.op.linAlgMatrixOuterProduct.mC6M4N4U2S0.v4i64.v4i64
-  // CHECK-SAME: (i32 -2147483619, i1 true, <4 x i64> {{.*}}, <4 x i64> {{.*}})  ; LinAlgMatrixOuterProduct(isInputSigned,vectorA,vectorB)
+  // CHECK-SAME: (i32 340, i1 true, <4 x i64> {{.*}}, <4 x i64> {{.*}})  ; LinAlgMatrixOuterProduct(isInputSigned,vectorA,vectorB)
 
   // CHECK2: call void @"dx.hl.op..void (i32, %dx.types.LinAlgMatrixC6M4N4U2S0*, i1, <4 x i64>, <4 x i64>)"
   // CHECK2: (i32 417, %dx.types.LinAlgMatrixC6M4N4U2S0* {{.*}}, i1 true, <4 x i64> {{.*}}, <4 x i64> {{.*}})

@@ -8,7 +8,7 @@ RWByteAddressBuffer outbuf;
 void main() {
   // CHECK-LABEL: define void @main()
 
-  // CHECK: call void @dx.op.linAlgMatrixAccumulateToDescriptor.mC9M4N4U2S1(i32 -2147483621,
+  // CHECK: call void @dx.op.linAlgMatrixAccumulateToDescriptor.mC9M4N4U2S1(i32 338,
   // CHECK-SAME: %dx.types.LinAlgMatrixC9M4N4U2S1 %{{.*}}, %dx.types.Handle %{{.*}}, i32 0, i32 0, i32 0, i32 128)
   // CHECK-SAME: ; LinAlgMatrixAccumulateToDescriptor(matrix,handle,offset,stride,layout,align)
 
