@@ -19,6 +19,6 @@ void main() {
   // CHECK2-SAME: %dx.types.LinAlgMatrixC9M5N4U2S2 %{{.*}}, [64 x float] addrspace(3)* @"\01?SharedArr@@3PAMA",
   // CHECK2-SAME: i32 128, i32 16, i32 3)
   __builtin_LinAlgMatrix [[__LinAlgMatrix_Attributes(9, 5, 4, 2, 2)]] mat;
-  __builtin_LinAlg_FillMatrix(mat, true, 1);
-  __builtin_LinAlg_MatrixAccumulateToMemory(mat, SharedArr, 128, 16, 3);
+  dx::__builtin_LinAlg_FillMatrix(mat, true, 1);
+  dx::__builtin_LinAlg_MatrixAccumulateToMemory(mat, SharedArr, 128, 16, 3);
 }

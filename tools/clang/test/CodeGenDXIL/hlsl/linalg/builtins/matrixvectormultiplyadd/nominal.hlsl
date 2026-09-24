@@ -10,7 +10,7 @@ void main() {
 
   // Matrix<U32, 4, 4, A, Thread>
   __builtin_LinAlgMatrix [[__LinAlgMatrix_Attributes(5, 4, 4, 0, 0)]] mat1;
-  __builtin_LinAlg_MatrixLoadFromDescriptor(mat1, inbuf, 0, 0, 0, 128);
+  dx::__builtin_LinAlg_MatrixLoadFromDescriptor(mat1, inbuf, 0, 0, 0, 128);
   float4 vec = {1,2,3,4};
   float4 result = 0;
 
@@ -23,7 +23,7 @@ void main() {
   // CHECK2-SAME: i32, <4 x float>)"(i32 419, <4 x float>* %result, %dx.types.LinAlgMatrixC5M4N4U0S0 %{{[0-9]+}},
   // CHECK2-SAME: i1 true, <4 x float> %{{[0-9]+}}, i32 9, <4 x float> %{{[0-9]+}})
 
-  __builtin_LinAlg_MatrixVectorMultiplyAdd(result, mat1, true, vec, 9, result);
+  dx::__builtin_LinAlg_MatrixVectorMultiplyAdd(result, mat1, true, vec, 9, result);
 
   double4 vec2 = {1,2,3,4};
   double4 result2 = 0;
@@ -37,7 +37,7 @@ void main() {
   // CHECK2-SAME: i32, <4 x double>)"(i32 419, <4 x double>* %result2, %dx.types.LinAlgMatrixC5M4N4U0S0 %{{[0-9]+}},
   // CHECK2-SAME: i1 true, <4 x double> %{{[0-9]+}}, i32 10, <4 x double> %{{[0-9]+}})
 
-  __builtin_LinAlg_MatrixVectorMultiplyAdd(result2, mat1, true, vec2, 10, result2);
+  dx::__builtin_LinAlg_MatrixVectorMultiplyAdd(result2, mat1, true, vec2, 10, result2);
 
   vector<int64_t, 4> vec3 = {1,2,3,4};
   vector<int64_t, 4> result3 = 0;
@@ -51,11 +51,11 @@ void main() {
   // CHECK2-SAME: i32, <4 x i64>)"(i32 419, <4 x i64>* %result3, %dx.types.LinAlgMatrixC5M4N4U0S0 %{{[0-9]+}},
   // CHECK2-SAME: i1 true, <4 x i64> %{{[0-9]+}}, i32 6, <4 x i64> %{{[0-9]+}})
 
-  __builtin_LinAlg_MatrixVectorMultiplyAdd(result3, mat1, true, vec3, 6, result3);
+  dx::__builtin_LinAlg_MatrixVectorMultiplyAdd(result3, mat1, true, vec3, 6, result3);
 
   // Matrix<I32, 8, 8, A, Thread>
   __builtin_LinAlgMatrix [[__LinAlgMatrix_Attributes(4, 8, 8, 0, 0)]] mat4;
-  __builtin_LinAlg_MatrixLoadFromDescriptor(mat4, inbuf, 0, 0, 0, 128);
+  dx::__builtin_LinAlg_MatrixLoadFromDescriptor(mat4, inbuf, 0, 0, 0, 128);
   vector<int8_t4_packed, 8> vec4 = 0;
   vector<int8_t4_packed, 8> result4 = 0;
 
@@ -68,5 +68,5 @@ void main() {
   // CHECK2-SAME: i32, <8 x i32>)"(i32 419, <8 x i32>* %result4, %dx.types.LinAlgMatrixC4M8N8U0S0 %{{[0-9]+}},
   // CHECK2-SAME: i1 true, <8 x i32> %{{[0-9]+}}, i32 4, <8 x i32> %{{[0-9]+}})
 
-  __builtin_LinAlg_MatrixVectorMultiplyAdd(result4, mat4, true, vec4, 4, result4);
+  dx::__builtin_LinAlg_MatrixVectorMultiplyAdd(result4, mat4, true, vec4, 4, result4);
 }

@@ -10,7 +10,7 @@ void main() {
 
   // Matrix<I32, 4, 4, A, Thread>
   __builtin_LinAlgMatrix [[__LinAlgMatrix_Attributes(4, 4, 4, 0, 0)]] mat;
-  __builtin_LinAlg_MatrixLoadFromDescriptor(mat, inbuf, 0, 0, 0, 128);
+  dx::__builtin_LinAlg_MatrixLoadFromDescriptor(mat, inbuf, 0, 0, 0, 128);
   float4 vec = {1,2,3,4};
   float4 result;
 
@@ -20,5 +20,5 @@ void main() {
 
   // CHECK2: call void @"dx.hl.op..void (i32, <4 x float>*, %dx.types.LinAlgMatrixC4M4N4U0S0, i1, <4 x float>, i32)
   // CHECK2-SAME: "(i32 418, <4 x float>* %result, %dx.types.LinAlgMatrixC4M4N4U0S0 %{{.*}}, i1 true, <4 x float> %{{.*}}, i32 9)
-  __builtin_LinAlg_MatrixVectorMultiply(result, mat, true, vec, 9);
+  dx::__builtin_LinAlg_MatrixVectorMultiply(result, mat, true, vec, 9);
 }

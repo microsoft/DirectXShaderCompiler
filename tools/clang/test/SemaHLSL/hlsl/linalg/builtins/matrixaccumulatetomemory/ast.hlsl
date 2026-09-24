@@ -16,5 +16,5 @@ groupshared float SharedArr[64];
 [numthreads(1,1,1)]
 void main() {
   __builtin_LinAlgMatrix [[__LinAlgMatrix_Attributes(4, 5, 4, 1, 2)]] mat;
-  __builtin_LinAlg_MatrixAccumulateToMemory(mat, SharedArr, 0, 0, 0);
+  dx::__builtin_LinAlg_MatrixAccumulateToMemory(mat, SharedArr, 0, 0, 0);
 }

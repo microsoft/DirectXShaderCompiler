@@ -17,6 +17,6 @@ void main() {
 
   // Matrix<F16, 4, 4, Accumulator, Wave>
   __builtin_LinAlgMatrix [[__LinAlgMatrix_Attributes(9, 4, 4, 2, 1)]] mat;
-  __builtin_LinAlg_FillMatrix(mat, true, 1);
-  __builtin_LinAlg_MatrixAccumulateToDescriptor(mat, outbuf, 0, 0, 0, 128);
+  dx::__builtin_LinAlg_FillMatrix(mat, true, 1);
+  dx::__builtin_LinAlg_MatrixAccumulateToDescriptor(mat, outbuf, 0, 0, 0, 128);
 }
