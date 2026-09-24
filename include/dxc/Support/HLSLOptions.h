@@ -52,6 +52,7 @@ enum HlslFlags {
   CoreOption = (1 << 15),
   ISenseOption = (1 << 16),
   RewriteOption = (1 << 17),
+  ReflectOption = (1 << 18)
 };
 
 enum ID {
@@ -79,6 +80,9 @@ static const unsigned DxcFlags =
 /// Flags for dxr.exe command-line tool.
 static const unsigned DxrFlags =
     HlslFlags::RewriteOption | HlslFlags::DriverOption;
+/// Flags for dxreflector.exe command-line tool.
+static const unsigned DxreflectorFlags =
+    HlslFlags::ReflectOption | HlslFlags::DriverOption;
 /// Flags for IDxcIntelliSense APIs.
 static const unsigned ISenseFlags =
     HlslFlags::CoreOption | HlslFlags::ISenseOption;
@@ -112,6 +116,17 @@ struct RewriterOpts {
   bool RemoveUnusedFunctions = false; // OPT_rw_remove_unused_functions
   bool WithLineDirective = false;     // OPT_rw_line_directive
   bool DeclGlobalCB = false;          // OPT_rw_decl_global_cb
+};
+
+struct ReflectOpts {
+  bool Basics = false;         // OPT_reflect_basics
+  bool Functions = false;      // OPT_reflect_functions
+  bool Namespaces = false;     // OPT_reflect_namespaces
+  bool UserTypes = false;      // OPT_reflect_user_types
+  bool Scopes = false;         // OPT_reflect_scopes
+  bool DisableSymbols = false; // OPT_reflect_disable_symbols
+  bool ShowFileInfo = false;   // OPT_reflect_show_file_info
+  bool ShowRawData = false;    // OPT_reflect_show_raw_data
 };
 
 /// Use this class to capture all options.
@@ -245,6 +260,9 @@ public:
 
   // Rewriter Options
   RewriterOpts RWOpt;
+
+  // Reflector Options
+  ReflectOpts ReflOpt;
 
   std::vector<std::string> Warnings;
 
