@@ -1,17 +1,17 @@
 // Note: Base this on highest the experimental version, or released+1.
-// REQUIRES: dxil-1-10
-// RUN: %dxc %s -Tlib_6_10 -Vd -validator-version 0.0 -Fo %t
+// REQUIRES: dxil-1-11
+// RUN: %dxc %s -Tlib_6_11 -Vd -validator-version 0.0 -Fo %t
 // RUN: %dxa %t -dumprdat | FileCheck %s -check-prefixes=CHECK,EXP
-// RUN: %dxc %s -Tlib_6_10 -Fo %t
+// RUN: %dxc %s -Tlib_6_11 -Fo %t
 // RUN: %dxa %t -dumprdat | FileCheck %s -check-prefixes=CHECK,EXP
-// RUN: %dxc %s -Tlib_6_10 -validator-version 1.10 -Fo %t
+// RUN: %dxc %s -Tlib_6_11 -validator-version 1.11 -Fo %t
 // RUN: %dxa %t -dumprdat | FileCheck %s -check-prefixes=CHECK,EXP
 
 // No experimental RDAT for released shader models even with default or latest
 // validator versions.
-// RUN: %dxc %s -Tlib_6_9 -Fo %t
+// RUN: %dxc %s -Tlib_6_10 -Fo %t
 // RUN: %dxa %t -dumprdat | FileCheck %s -check-prefixes=CHECK,NOEXP
-// RUN: %dxc %s -Tlib_6_9 -validator-version 1.10 -Fo %t
+// RUN: %dxc %s -Tlib_6_10 -validator-version 1.11 -Fo %t
 // RUN: %dxa %t -dumprdat | FileCheck %s -check-prefixes=CHECK,NOEXP
 
 // Make sure experimental RDAT is not emitted for released shader models,

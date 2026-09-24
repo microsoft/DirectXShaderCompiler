@@ -8,7 +8,7 @@ RWByteAddressBuffer outbuf;
 void main() {
   // CHECK-LABEL: define void @main()
 
-  // CHECK: call void @dx.op.linAlgMatrixAccumulateToDescriptor.mC9M4N4U2S1(i32 -2147483621,
+  // CHECK: call void @dx.op.linAlgMatrixAccumulateToDescriptor.mC9M4N4U2S1(i32 338,
   // CHECK-SAME: %dx.types.LinAlgMatrixC9M4N4U2S1 %{{.*}}, %dx.types.Handle %{{.*}}, i32 0, i32 0, i32 0, i32 128)
   // CHECK-SAME: ; LinAlgMatrixAccumulateToDescriptor(matrix,handle,offset,stride,layout,align)
 
@@ -17,6 +17,6 @@ void main() {
 
   // Matrix<F16, 4, 4, Accumulator, Wave>
   __builtin_LinAlgMatrix [[__LinAlgMatrix_Attributes(9, 4, 4, 2, 1)]] mat;
-  __builtin_LinAlg_FillMatrix(mat, 1);
+  __builtin_LinAlg_FillMatrix(mat, true, 1);
   __builtin_LinAlg_MatrixAccumulateToDescriptor(mat, outbuf, 0, 0, 0, 128);
 }

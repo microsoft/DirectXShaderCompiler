@@ -37,7 +37,7 @@ struct [raypayload] Payload {
 
 // Global ClusterID intrinsic
 // CHECK-LABEL: define void @{{.*}}test_cluster_id{{.*}}(
-// CHECK: call i32 @dx.op.clusterID(i32 -2147483645)
+// CHECK: call i32 @dx.op.clusterID(i32 314)
 // CHECK: call void @dx.op.rawBufferStore.i32
 
 // FCGL-LABEL: define void @{{.*}}test_cluster_id{{.*}}(
@@ -50,7 +50,7 @@ void test_cluster_id(inout Payload payload, in BuiltInTriangleIntersectionAttrib
 
 // RayQuery CandidateClusterID
 // CHECK-LABEL: define void @{{.*}}test_rayquery_candidate_cluster_id{{.*}}(
-// CHECK: call i32 @dx.op.rayQuery_StateScalar.i32(i32 -2147483644
+// CHECK: call i32 @dx.op.rayQuery_StateScalar.i32(i32 315
 // CHECK: call void @dx.op.rawBufferStore.i32
 
 // FCGL-LABEL: define void @{{.*}}test_rayquery_candidate_cluster_id{{.*}}(
@@ -73,7 +73,7 @@ void test_rayquery_candidate_cluster_id() {
 
 // RayQuery CommittedClusterID
 // CHECK-LABEL: define void @{{.*}}test_rayquery_committed_cluster_id{{.*}}(
-// CHECK: call i32 @dx.op.rayQuery_StateScalar.i32(i32 -2147483643
+// CHECK: call i32 @dx.op.rayQuery_StateScalar.i32(i32 316
 // CHECK: call void @dx.op.rawBufferStore.i32
 
 // FCGL-LABEL: define void @{{.*}}test_rayquery_committed_cluster_id{{.*}}(
@@ -95,7 +95,7 @@ void test_rayquery_committed_cluster_id() {
 
 // HitObject GetClusterID
 // CHECK-LABEL: define void @{{.*}}test_hitobject_cluster_id{{.*}}(
-// CHECK: call i32 @dx.op.hitObject_StateScalar.i32(i32 -2147483642
+// CHECK: call i32 @dx.op.hitObject_StateScalar.i32(i32 317
 // CHECK: call void @dx.op.rawBufferStore.i32
 
 // FCGL-LABEL: define void @{{.*}}test_hitobject_cluster_id{{.*}}(

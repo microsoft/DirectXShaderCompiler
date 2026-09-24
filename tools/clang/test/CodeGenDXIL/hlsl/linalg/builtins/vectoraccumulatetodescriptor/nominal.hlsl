@@ -8,7 +8,7 @@ RWByteAddressBuffer outbuf;
 void main() {
   // CHECK-LABEL: define void @main()
 
-  // CHECK: call void @dx.op.linAlgVectorAccumulateToDescriptor.v4f32(i32 -2147483617, %dx.types.Handle %{{.*}}, i32 16,
+  // CHECK: call void @dx.op.linAlgVectorAccumulateToDescriptor.v4f32(i32 342, %dx.types.Handle %{{.*}}, i32 16,
   // CHECK-SAME: i32 64, <4 x float> <float 9.000000e+00, float 8.000000e+00, float 7.000000e+00, float 6.000000e+00>)
   // CHECK-SAME: ; LinAlgVectorAccumulateToDescriptor(handle,offset,align,vector)
 

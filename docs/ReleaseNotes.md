@@ -22,8 +22,35 @@ The included licenses apply to the following files:
 Place release notes for the upcoming release below this line and remove this
 line upon naming the release. Refer to previous for appropriate section names.
 
+#### Shader Model 6.10
+
+- Shader Model 6.10 and DXIL 1.10 are now available in retail, introducing
+  LinAlg Matrix, WaveGroup Index and Count, DebugBreak, Clustered Geometry, and
+  Triangle Object Positions, with detailed blog posts to be linked here once
+  available.
+
+#### HLSL Language
+
+- Starting with HLSL 202x, the count in `[unroll(N)]` is a partial-unroll hint
+  and no longer limits the number of loop iterations
+  [#8789](https://github.com/microsoft/DirectXShaderCompiler/issues/8789).
+- Casting a scalar to a struct or array containing a resource is now an error
+  instead of crashing
+  [#6661](https://github.com/microsoft/DirectXShaderCompiler/issues/6661).
+- Added the `-Whlsl-2026-compat` warning group for identifying issues
+  with language changes introduced in HLSL 2026.
+- The legacy effects syntax support is removed in HLSL 202x
+  [#8480](https://github.com/microsoft/DirectXShaderCompiler/issues/8480).
+- The `shared` and `uniform` keywords are removed in HLSL 202x, with
+  compatibility warnings available for earlier language versions
+  [#8482](https://github.com/microsoft/DirectXShaderCompiler/issues/8482).
+- Starting with HLSL 202x, `cbuffer` and `tbuffer` declarations and their
+  members belong to their enclosing namespace.
+
 #### Bug Fixes
 
+- Fixed an optimizer crash when scalarizing an out-of-bounds vector access
+  [#8940](https://github.com/microsoft/DirectXShaderCompiler/issues/8940).
 - Fixed derivative operations being moved into divergent control flow, which
   could produce incorrect results
   [#8001](https://github.com/microsoft/DirectXShaderCompiler/issues/8001).
@@ -48,23 +75,6 @@ line upon naming the release. Refer to previous for appropriate section names.
   or on one of its fields with payload access qualifiers enabled
   [#6464](https://github.com/microsoft/DirectXShaderCompiler/issues/6464).
 
-#### HLSL Language
-
-- Starting with HLSL 202x, the count in `[unroll(N)]` is a partial-unroll hint
-  and no longer limits the number of loop iterations
-  [#8789](https://github.com/microsoft/DirectXShaderCompiler/issues/8789).
-- Casting a scalar to a struct or array containing a resource is now an error
-  instead of crashing
-  [#6661](https://github.com/microsoft/DirectXShaderCompiler/issues/6661).
-- Added the `-Whlsl-2026-compat` warning group for identifying issues
-  with language changes introduced in HLSL 2026.
-- The legacy effects syntax support is removed in HLSL 202x
-  [#8480](https://github.com/microsoft/DirectXShaderCompiler/issues/8480).
-- The `shared` and `uniform` keywords are removed in HLSL 202x, with
-  compatibility warnings available for earlier language versions
-  [#8482](https://github.com/microsoft/DirectXShaderCompiler/issues/8482).
-- Starting with HLSL 202x, `cbuffer` and `tbuffer` declarations and their
-  members belong to their enclosing namespace.
 
 #### SPIR-V
 
@@ -88,22 +98,10 @@ line upon naming the release. Refer to previous for appropriate section names.
 These changes apply to experimental preview shader models only and will not be
 part of the next non-preview release.
 
-#### Experimental Shader Model 6.10
+#### Experimental Shader Model 6.11
 
-These are incremental changes to the experimental Shader Model 6.10 features that
-first shipped in the 1.10.2605 preview.
+- Added experimental Shader Model 6.11 target profiles.
 
-- Fixed the set of numeric types allowed in LinAlg matrix intrinsics
-  [#8271](https://github.com/microsoft/DirectXShaderCompiler/issues/8271).
-- Corrected the parameter order of `InterlockedAccumulate`
-  [#8459](https://github.com/microsoft/DirectXShaderCompiler/pull/8459).
-- Added validation of LinAlg matrix builtin parameters and result K dimension
-  [#8588](https://github.com/microsoft/DirectXShaderCompiler/pull/8588).
-- Restricted the component types allowed in LinAlg matrices
-  [#8608](https://github.com/microsoft/DirectXShaderCompiler/pull/8608).
-- Added `BFloat16` to the ComponentType enum in DxilConstants and the linalg
-  header [#8722](https://github.com/microsoft/DirectXShaderCompiler/issues/8722).
-- Removed work graph support from Shader Model 6.10, and DXIL 1.10 [microsoft/hlsl-specs#915](https://github.com/microsoft/hlsl-specs/issues/915).
 
 ### Version 1.9.2607
 
