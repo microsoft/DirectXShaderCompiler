@@ -15364,8 +15364,9 @@ void Sema::ActOnFinishHLSLBuffer(Decl *Dcl, SourceLocation RBrace) {
   bool HasNonPackOffset = false;
   for (auto *Field : BufDecl->decls()) {
     // HLSL 202x 0005 Cbuffer Contexts proposal restricts the contents of a
-    // cbuffer to classes (records), functions, variables, and empty
-    // declarations (see: https://hlsl-tc57.github.io/tc57/proposal/0005/)
+    // cbuffer to declarations allowed at block scope, plus templates, functions
+    // and empty declarations (see:
+    // https://hlsl-tc57.github.io/tc57/proposal/0005/).
     if (getLangOpts().HLSLVersion >= hlsl::LangStd::v202x &&
         (isa<HLSLBufferDecl>(Field) || isa<NamespaceDecl>(Field))) {
       NamedDecl *ND = cast<NamedDecl>(Field);
