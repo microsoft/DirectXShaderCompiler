@@ -7480,7 +7480,7 @@ Sema::ActOnFunctionDeclarator(Scope *S, Declarator &D, DeclContext *DC,
         NewFD->setVirtualAsWritten(true);
       }
 
-      if ((getLangOpts().CPlusPlus14) &&
+      if (getLangOpts().CPlusPlus14 &&
           NewFD->getReturnType()->isUndeducedType())
         Diag(D.getDeclSpec().getVirtualSpecLoc(), diag::err_auto_fn_virtual);
     }
