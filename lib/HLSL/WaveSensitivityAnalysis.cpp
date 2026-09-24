@@ -75,7 +75,10 @@ void WaveSensitivityAnalyzer::Analyze(Function *F) {
   // If any phis with explored preds remain unknown
   // it has to be in a loop that don't include wave sensitivity
   // Update each as such and redo Analyze to mark the descendents
-  while (!UnknownPhis.empty() || !InstWorkList.empty() || !BBWorkList.empty()) {
+  while (!UnknownPhis.empty()) {
+    assert(InstWorkList.empty() && BBWorkList.empty());
+    std::vector<PHINode *> DeferredPhis;
+    bool ResolvedPhi = false;
     while (!UnknownPhis.empty()) {
       PHINode *Phi = UnknownPhis.back();
       UnknownPhis.pop_back();
@@ -100,9 +103,31 @@ void WaveSensitivityAnalyzer::Analyze(Function *F) {
           }
         }
 #endif
-        if (allPredsVisited)
+        if (allPredsVisited) {
           UpdateInst(Phi, KnownNotSensitive);
+          ResolvedPhi = true;
+        } else {
+          // This phi is still unknown. Try again later.
+          DeferredPhis.push_back(Phi);
+        }
       }
+    }
+    UnknownPhis = std::move(DeferredPhis);
+
+    // If we did not resolve any phis, then we have reached a steady state, and
+    // we can stop.
+    if (!ResolvedPhi)
+      break;
+    Analyze();
+  }
+
+  if (!UnknownPhis.empty()) {
+    // There are cycles of instructions that are still unknown. They must all
+    // contain a phi. Mark those phis as not sensitive, and do one more analysis
+    // to mark the whole cycle as not sensitive.
+    for (PHINode *Phi : UnknownPhis) {
+      if (Unknown == GetInstState(Phi))
+        UpdateInst(Phi, KnownNotSensitive);
     }
     Analyze();
   }
