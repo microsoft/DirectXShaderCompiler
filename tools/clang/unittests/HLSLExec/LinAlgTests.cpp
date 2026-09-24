@@ -7898,21 +7898,21 @@ verifyThreadSemanticsOutput(const void *Data, size_t Size, bool Divergent,
       const int MatrixThread = MatrixSelection && UseVectorB
                                    ? ThreadSemanticsThreads - 1 - Thread
                                    : Thread;
-      const bool VectorB = UseVectorB && !MatrixSelection;
       const float Expected = static_cast<float>(
-          threadSemanticsExpected(MatrixThread, Row, VectorB));
+          threadSemanticsExpected(MatrixThread, Row, UseVectorB));
       // Every expectation is an integer F16 holds exactly.
       if (Actual != Expected) {
         hlsl_test::LogErrorFmt(
             L"Thread %d row %d (matrix %d, vector %s): actual=%f, "
             L"expected=%f",
-            Thread, Row, MatrixThread, VectorB ? L"B" : L"A",
+            Thread, Row, MatrixThread, UseVectorB ? L"B" : L"A",
             static_cast<double>(Actual), static_cast<double>(Expected));
         Success = false;
       } else if (Verbose)
-        hlsl_test::LogCommentFmt(
-            L"Thread %d row %d (matrix %d, vector %s): %f", Thread, Row,
-            MatrixThread, VectorB ? L"B" : L"A", static_cast<double>(Actual));
+        hlsl_test::LogCommentFmt(L"Thread %d row %d (matrix %d, vector %s): %f",
+                                 Thread, Row, MatrixThread,
+                                 UseVectorB ? L"B" : L"A",
+                                 static_cast<double>(Actual));
     }
   }
 
@@ -8069,7 +8069,8 @@ static const char ThreadMatrixSelectionShader[] = R"(
 
     vector<ELEM_TYPE, N_DIM> InVec;
     for (uint I = 0; I < N_DIM; ++I)
-      InVec[I] = VectorInput.Load<ELEM_TYPE>(I * ELEM_SIZE);
+      InVec[I] = VectorInput.Load<ELEM_TYPE>(
+        (UseB ? VEC_B_OFFSET : 0) + I * ELEM_SIZE);
     vector<ELEM_TYPE, M_DIM> OutVec;
     __builtin_LinAlg_MatrixVectorMultiply(
       OutVec, Selected, 1, InVec, IN_INTERP);
