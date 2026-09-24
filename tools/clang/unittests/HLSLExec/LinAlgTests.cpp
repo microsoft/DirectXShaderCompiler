@@ -25,6 +25,7 @@
 #include "HlslTestUtils.h"
 
 #include <climits>
+#include <cmath>
 #include <cstring>
 #include <limits>
 #include <optional>
@@ -2918,6 +2919,62 @@ static void reportMissingConversionApi(LPCWSTR CaseName) {
 #endif // !defined(HLSLEXEC_LINALG_HOST_API)
 
 } // namespace matvec_interpretation
+
+namespace cpu_oracle {
+
+struct FloatToIntCase {
+  float Input;
+  int16_t Lower;
+  int16_t Upper;
+};
+
+static const std::vector<FloatToIntCase> F32ToI16Cases = {
+    {-40000.0f, -32768, -32768},
+    {-32768.5f, -32768, -32768},
+    {-2.5f, -3, -2},
+    {-1.5f, -2, -1},
+    {1.5f, 1, 2},
+    {2.5f, 2, 3},
+    {32767.5f, 32767, 32767},
+    {40000.0f, 32767, 32767},
+    {-2.75f, -3, -3},
+    {-2.25f, -2, -2},
+    {-1.75f, -2, -2},
+    {-1.25f, -1, -1},
+    {1.25f, 1, 1},
+    {1.75f, 2, 2},
+    {2.25f, 2, 2},
+    {2.75f, 3, 3},
+    {-255.5f, -256, -255},
+    {255.5f, 255, 256},
+    {-32767.5f, -32768, -32767},
+    {32766.5f, 32766, 32767},
+    {-0.5f, -1, 0},
+    {0.5f, 0, 1},
+    {-0.0f, 0, 0},
+    {0.0f, 0, 0},
+    {-std::numeric_limits<float>::infinity(), -32768, -32768},
+    {std::numeric_limits<float>::infinity(), 32767, 32767},
+    {-std::numeric_limits<float>::quiet_NaN(), 0, 0},
+    {std::numeric_limits<float>::quiet_NaN(), 0, 0},
+    {-3.25f, -3, -3},
+    {-3.75f, -4, -4},
+    {3.25f, 3, 3},
+    {3.75f, 4, 4},
+};
+
+static bool isNearestSaturatedI16(float Input, int16_t Actual) {
+  if (std::isnan(Input))
+    return Actual == 0;
+  if (Input <= std::numeric_limits<int16_t>::min())
+    return Actual == std::numeric_limits<int16_t>::min();
+  if (Input >= std::numeric_limits<int16_t>::max())
+    return Actual == std::numeric_limits<int16_t>::max();
+  return std::abs(Input - static_cast<float>(Actual)) <= 0.5f;
+}
+
+} // namespace cpu_oracle
+
 // Harness self-check for the CPU oracle. Deliberately carries no Kits metadata
 // so HLK runs never select it; drivers are not certified against this class.
 class LinAlgCPUOracleTests {
@@ -2936,7 +2993,27 @@ public:
   TEST_METHOD(MatVecHostOracle);
   TEST_METHOD(FP8HostOracle);
   TEST_METHOD(FP8MatrixValueEncoding);
+  TEST_METHOD(FloatToIntHostOracle);
 };
+
+void LinAlgCPUOracleTests::FloatToIntHostOracle() {
+  for (const cpu_oracle::FloatToIntCase &Case : cpu_oracle::F32ToI16Cases) {
+    bool Success = true;
+    for (int Candidate = std::numeric_limits<int16_t>::min();
+         Candidate <= std::numeric_limits<int16_t>::max(); ++Candidate) {
+      const bool Expected = Candidate >= Case.Lower && Candidate <= Case.Upper;
+      if (cpu_oracle::isNearestSaturatedI16(
+              Case.Input, static_cast<int16_t>(Candidate)) != Expected) {
+        hlsl_test::LogErrorFmt(
+            L"Float-to-I16 oracle: input=%g, candidate=%d, permitted=[%d,%d]",
+            static_cast<double>(Case.Input), Candidate, Case.Lower, Case.Upper);
+        Success = false;
+        break;
+      }
+    }
+    VERIFY_IS_TRUE(Success);
+  }
+}
 
 void LinAlgCPUOracleTests::ComponentByteSize() {
   struct ComponentSizes {
@@ -3648,6 +3725,7 @@ public:
   TEST_METHOD(ElementAccess_Wave_16x16_F16);
   TEST_METHOD(ElementAccess_Wave_4x8_F32);
   TEST_METHOD(ElementSet_Wave_16x16_F16);
+  TEST_METHOD(MatrixCopy_Wave_16x16_F16);
   TEST_METHOD(ElementGetOOB_Wave_4x8_F32);
   TEST_METHOD(ElementSetOOB_Wave_4x8_F32);
   TEST_METHOD(ElementGetOOB_Wave_16x16_F16);
@@ -3681,6 +3759,9 @@ public:
   TEST_METHOD(MatVecMul_Thread_4x8_F32);
   TEST_METHOD(MatVecMul_Thread_4x8_F16_PerThread);
   TEST_METHOD(MatVecMul_Thread_4x8_F16_Divergent);
+  TEST_METHOD(MatVecMul_Thread_4x8_F16_MatrixArray);
+  TEST_METHOD(MatVecMul_Thread_4x8_F16_MatrixPhi);
+  TEST_METHOD(MatVecMul_Thread_4x8_F16_MatrixSelect);
   TEST_METHOD(MatVecMul_Thread_4x8_F16_NonUniform);
   TEST_METHOD(MatVecMul_Thread_4x8_F16_ColumnMajor);
   TEST_METHOD(MatVecMul_Thread_4x8_I8_Interpreted);
@@ -3711,7 +3792,8 @@ public:
   TEST_METHOD(Convert_I32_ToU16_Saturate);
   TEST_METHOD(Convert_U32_ToI16_Saturate);
   TEST_METHOD(Convert_U32_ToU16_Saturate);
-  TEST_METHOD(Convert_F32_ToI16_RTNE_Saturate);
+  TEST_METHOD(Convert_F32_ToI16_RoundNearest_Saturate);
+  TEST_METHOD(Convert_F32_ToI16_NonFinite);
   TEST_METHOD(Convert_I32_ToF16_RTNE);
   TEST_METHOD(Convert_F16_ToE4M3FN_AndBack);
   TEST_METHOD(Convert_F16_ToE5M2_AndBack);
@@ -5157,14 +5239,16 @@ static const char ElementSetShader[] = R"(
     if (GetGroupWaveIndex() != 0)
       return;
 
-    __builtin_LinAlgMatrix
-      [[__LinAlgMatrix_Attributes(COMP_TYPE, M_DIM, N_DIM, USE, SCOPE)]]
-      Mat;
+    using Matrix = __builtin_LinAlgMatrix
+      [[__LinAlgMatrix_Attributes(COMP_TYPE, M_DIM, N_DIM, USE, SCOPE)]];
+    Matrix Original;
     __builtin_LinAlg_MatrixLoadFromDescriptor(
-      Mat, Input, 0, STRIDE, LAYOUT, 128);
+      Original, Input, 0, STRIDE, LAYOUT, 128);
+    Matrix Mat = Original;
 
     // Increment every element by 5
-    for (uint I = 0; I < __builtin_LinAlg_MatrixLength(Mat); ++I) {
+    const uint Count = WaveActiveMax(__builtin_LinAlg_MatrixLength(Mat));
+    for (uint I = 0; I < Count; ++I) {
       ELEM_TYPE Elem;
       __builtin_LinAlg_MatrixGetElement(Elem, Mat, I);
       Elem = Elem + 5;
@@ -5173,19 +5257,27 @@ static const char ElementSetShader[] = R"(
 
     __builtin_LinAlg_MatrixStoreToDescriptor(
       Mat, Output, 0, STRIDE, LAYOUT, 128);
+#ifdef VERIFY_COPY_ISOLATION
+    __builtin_LinAlg_MatrixStoreToDescriptor(
+      Original, Output, ORIGINAL_OFFSET, STRIDE, LAYOUT, 128);
+#endif
   }
 )";
 
 static void runElementSet(ID3D12Device *Device,
                           dxc::SpecificDllLoader &DxcSupport,
                           const MatrixParams &Params, bool Verbose,
-                          UINT ForcedWaveSize = 0) {
+                          UINT ForcedWaveSize = 0, bool VerifyCopy = false) {
   const size_t NumElements = Params.totalElements();
   const size_t MatrixSize = Params.totalBytes();
+  const size_t OutputBytes =
+      VerifyCopy ? 2 * MatrixSize + MatrixStrideAlignmentBytes : MatrixSize;
 
   std::stringstream ExtraDefs;
   if (ForcedWaveSize != 0)
     ExtraDefs << " -DFORCED_WAVE_SIZE=" << ForcedWaveSize;
+  if (VerifyCopy)
+    ExtraDefs << " -DVERIFY_COPY_ISOLATION -DORIGINAL_OFFSET=" << MatrixSize;
   std::string Args = buildCompilerArgs(Params, ExtraDefs.str().c_str());
 
   compileShader(DxcSupport, ElementSetShader, "cs_6_10", Args, Verbose);
@@ -5196,14 +5288,19 @@ static void runElementSet(ID3D12Device *Device,
   auto Op = createComputeOp(ElementSetShader, "cs_6_10", "UAV(u0), UAV(u1)",
                             Args.c_str());
   addUAVBuffer(Op.get(), "Input", MatrixSize, false, "byname");
-  addUAVBuffer(Op.get(), "Output", MatrixSize, true);
+  addUAVBuffer(Op.get(), "Output", OutputBytes, true,
+               VerifyCopy ? "byname" : "zero");
   addRootView(Op.get(), 0, "Input");
   addRootView(Op.get(), 1, "Output");
 
   auto Result =
       runShaderOp(Device, DxcSupport, std::move(Op),
-                  [NumElements, Params](LPCSTR Name, std::vector<BYTE> &Data,
-                                        st::ShaderOp *) {
+                  [NumElements, Params, VerifyCopy](
+                      LPCSTR Name, std::vector<BYTE> &Data, st::ShaderOp *) {
+                    if (VerifyCopy && _stricmp(Name, "Output") == 0) {
+                      cpu_oracle::fillPoison(Data.data(), Data.size());
+                      return;
+                    }
                     VERIFY_IS_TRUE(fillInputBuffer(Name, Data, Params.CompType,
                                                    NumElements),
                                    "Saw unsupported component type");
@@ -5211,10 +5308,24 @@ static void runElementSet(ID3D12Device *Device,
 
   MappedData OutData;
   Result->Test->GetReadBackData("Output", &OutData);
+  VERIFY_ARE_EQUAL(OutputBytes, OutData.size());
+  if (OutputBytes != OutData.size())
+    return;
 
   // Verify the front of the buffer is a list of elements of the expected type
   VERIFY_IS_TRUE(verifyComponentBuffer(Params.CompType, OutData.data(),
                                        Expected, NumElements, Verbose));
+  if (VerifyCopy) {
+    const VariantCompType OriginalExpected =
+        makeExpectedMat(Params.CompType, Params.M, Params.N, 1);
+    VERIFY_IS_TRUE(verifyComponentBuffer(
+        Params.CompType, static_cast<const BYTE *>(OutData.data()) + MatrixSize,
+        OriginalExpected, NumElements, Verbose));
+    VERIFY_IS_TRUE(cpu_oracle::verifyUntouchedBytes(
+        Params.CompType, Params.M * 2, Params.N,
+        {Params.Layout, 0, Params.strideBytes()}, OutData.data(),
+        OutData.size(), Verbose));
+  }
 }
 
 void DxilConf_SM610_LinAlg::ElementSet_Wave_16x16_F16() {
@@ -5236,6 +5347,28 @@ void DxilConf_SM610_LinAlg::ElementSet_Wave_16x16_F16() {
 
   for (const UINT WaveSize : WaveSizes)
     runElementSet(D3DDevice, DxcSupport, Params, VerboseLogging, WaveSize);
+}
+
+void DxilConf_SM610_LinAlg::MatrixCopy_Wave_16x16_F16() {
+  MatrixParams Params = {};
+  Params.CompType = ComponentType::F16;
+  Params.M = 16;
+  Params.N = 16;
+  Params.Use = MatrixUse::Accumulator;
+  Params.Scope = MatrixScope::Wave;
+  Params.Layout = MatrixLayout::RowMajor;
+  Params.NumThreads = 128;
+  Params.Enable16Bit = true;
+
+  std::vector<UINT> WaveSizes;
+  if (!matrixConstructionApplicableWaveSizes(D3DDevice, Params, {Params.Use},
+                                             L"MatrixCopy_Wave_16x16_F16",
+                                             WaveSizes))
+    return;
+
+  for (const UINT WaveSize : WaveSizes)
+    runElementSet(D3DDevice, DxcSupport, Params, VerboseLogging, WaveSize,
+                  /*VerifyCopy=*/true);
 }
 
 // Length() is thread local, so the first index past a lane's own length is
@@ -7646,10 +7779,9 @@ static std::vector<BYTE> buildThreadSemanticsVectorBuffer() {
 
 enum class ThreadSemanticsOutcome { Verified, Inconclusive, Failed };
 
-static ThreadSemanticsOutcome verifyThreadSemanticsOutput(const void *Data,
-                                                          size_t Size,
-                                                          bool Divergent,
-                                                          bool Verbose) {
+static ThreadSemanticsOutcome
+verifyThreadSemanticsOutput(const void *Data, size_t Size, bool Divergent,
+                            bool Verbose, bool MatrixSelection = false) {
   const size_t RequiredBytes =
       ThreadSemanticsThreads * ThreadSemanticsOutputSlotBytes;
   if (Size < RequiredBytes) {
@@ -7690,7 +7822,7 @@ static ThreadSemanticsOutcome verifyThreadSemanticsOutput(const void *Data,
     const bool UseVectorB = (Witness & ThreadSemanticsWitnessUseB) != 0;
     if (UseVectorB != (Arm == 1)) {
       hlsl_test::LogErrorFmt(
-          L"Thread %d executed arm %s but its predicate selected vector %s",
+          L"Thread %d executed arm %s but its predicate selected input %s",
           Thread, Arm == 1 ? L"B" : L"A", UseVectorB ? L"B" : L"A");
       Success = false;
       continue;
@@ -7705,20 +7837,24 @@ static ThreadSemanticsOutcome verifyThreadSemanticsOutput(const void *Data,
     const HLSLHalf_t *Values = reinterpret_cast<const HLSLHalf_t *>(Slot);
     for (int Row = 0; Row < ThreadSemanticsM; ++Row) {
       const float Actual = static_cast<float>(Values[Row]);
-      const float Expected =
-          static_cast<float>(threadSemanticsExpected(Thread, Row, UseVectorB));
+      const int MatrixThread = MatrixSelection && UseVectorB
+                                   ? ThreadSemanticsThreads - 1 - Thread
+                                   : Thread;
+      const bool VectorB = UseVectorB && !MatrixSelection;
+      const float Expected = static_cast<float>(
+          threadSemanticsExpected(MatrixThread, Row, VectorB));
       // Every expectation is an integer F16 holds exactly.
       if (Actual != Expected) {
-        hlsl_test::LogErrorFmt(L"Thread %d row %d (vector %s): actual=%f, "
-                               L"expected=%f",
-                               Thread, Row, UseVectorB ? L"B" : L"A",
-                               static_cast<double>(Actual),
-                               static_cast<double>(Expected));
+        hlsl_test::LogErrorFmt(
+            L"Thread %d row %d (matrix %d, vector %s): actual=%f, "
+            L"expected=%f",
+            Thread, Row, MatrixThread, VectorB ? L"B" : L"A",
+            static_cast<double>(Actual), static_cast<double>(Expected));
         Success = false;
       } else if (Verbose)
-        hlsl_test::LogCommentFmt(L"Thread %d row %d (vector %s): %f", Thread,
-                                 Row, UseVectorB ? L"B" : L"A",
-                                 static_cast<double>(Actual));
+        hlsl_test::LogCommentFmt(
+            L"Thread %d row %d (matrix %d, vector %s): %f", Thread, Row,
+            MatrixThread, VectorB ? L"B" : L"A", static_cast<double>(Actual));
     }
   }
 
@@ -7730,10 +7866,9 @@ static ThreadSemanticsOutcome verifyThreadSemanticsOutput(const void *Data,
   // rather than violated.
   if (Divergent && MixedWaves == 0) {
     hlsl_test::LogCommentFmt(
-        L"Every thread reported a wave that executed a single arm, so the "
-        L"thread-scope operations never ran under non-uniform control flow "
-        L"and this case establishes nothing about it. The per-thread results "
-        L"were verified before reporting this case as inconclusive");
+        L"No wave reported both input selections, so non-uniform selection "
+        L"was not exercised. The per-thread results were verified before "
+        L"reporting this case as inconclusive");
     return ThreadSemanticsOutcome::Inconclusive;
   }
   if (Divergent && Verbose)
@@ -7827,6 +7962,64 @@ static const char ThreadDivergentMatVecShader[] = R"(
   }
 )";
 
+static const char ThreadMatrixSelectionShader[] = R"(
+  ByteAddressBuffer MatrixInput : register(t0);
+  ByteAddressBuffer VectorInput : register(t1);
+  RWByteAddressBuffer Output : register(u2);
+
+  using Matrix = __builtin_LinAlgMatrix
+    [[__LinAlgMatrix_Attributes(COMP_TYPE, M_DIM, N_DIM, USE, SCOPE)]];
+
+  [numthreads(NUMTHREADS, 1, 1)]
+  void main(uint T : SV_GroupIndex) {
+    Matrix A, B, Selected;
+    __builtin_LinAlg_MatrixLoadFromDescriptor(
+      A, MatrixInput, T * MATRIX_SLOT_BYTES, STRIDE, LAYOUT,
+      MATRIX_SLOT_BYTES);
+    __builtin_LinAlg_MatrixLoadFromDescriptor(
+      B, MatrixInput, (NUMTHREADS - 1 - T) * MATRIX_SLOT_BYTES, STRIDE,
+      LAYOUT, MATRIX_SLOT_BYTES);
+
+    const bool UseB = (WaveGetLaneIndex() & 1) != 0;
+    const bool Mixed = WaveActiveAnyTrue(UseB) && WaveActiveAnyTrue(!UseB);
+    Output.Store<uint>(T * OUTPUT_SLOT_BYTES + WITNESS_OFFSET,
+                       (UseB ? WITNESS_USE_B : 0) | (Mixed ? WITNESS_MIXED : 0));
+
+#if MATRIX_SELECTION_MODE == 0
+    Matrix Choices[2] = {A, B};
+    Selected = Choices[UseB ? 1 : 0];
+    Output.Store<uint>(T * OUTPUT_SLOT_BYTES + ARM_OFFSET, UseB ? 1 : 0);
+#elif MATRIX_SELECTION_MODE == 1
+    [branch]
+    if (UseB) {
+      Selected = B;
+      Output.Store<uint>(T * OUTPUT_SLOT_BYTES + ARM_OFFSET, 1);
+    } else {
+      Selected = A;
+      Output.Store<uint>(T * OUTPUT_SLOT_BYTES + ARM_OFFSET, 0);
+    }
+#elif MATRIX_SELECTION_MODE == 2
+    [flatten]
+    if (UseB)
+      Selected = B;
+    else
+      Selected = A;
+    Output.Store<uint>(T * OUTPUT_SLOT_BYTES + ARM_OFFSET, UseB ? 1 : 0);
+#else
+#error Invalid matrix selection mode
+#endif
+
+    vector<ELEM_TYPE, N_DIM> InVec;
+    for (uint I = 0; I < N_DIM; ++I)
+      InVec[I] = VectorInput.Load<ELEM_TYPE>(I * ELEM_SIZE);
+    vector<ELEM_TYPE, M_DIM> OutVec;
+    __builtin_LinAlg_MatrixVectorMultiply(
+      OutVec, Selected, 1, InVec, IN_INTERP);
+    for (uint I = 0; I < M_DIM; ++I)
+      Output.Store<ELEM_TYPE>(T * OUTPUT_SLOT_BYTES + I * ELEM_SIZE, OutVec[I]);
+  }
+)";
+
 static MatrixParams makeThreadSemanticsParams() {
   MatrixParams Params = {};
   Params.CompType = ComponentType::F16;
@@ -7844,7 +8037,8 @@ static void runThreadSemanticsMatVec(ID3D12Device *Device,
                                      dxc::SpecificDllLoader &DxcSupport,
                                      const MatrixParams &Params,
                                      const char *Shader, bool Divergent,
-                                     bool Verbose) {
+                                     bool Verbose, bool MatrixSelection = false,
+                                     const char *ExtraArgs = "") {
   VERIFY_ARE_EQUAL(Params.strideBytes(), ThreadSemanticsStrideBytes);
 
   std::stringstream ExtraDefs;
@@ -7856,6 +8050,7 @@ static void runThreadSemanticsMatVec(ID3D12Device *Device,
   ExtraDefs << " -DARM_OFFSET=" << ThreadSemanticsArmOffset;
   ExtraDefs << " -DWITNESS_USE_B=" << ThreadSemanticsWitnessUseB;
   ExtraDefs << " -DWITNESS_MIXED=" << ThreadSemanticsWitnessMixed;
+  ExtraDefs << ExtraArgs;
 
   const std::string Args = buildCompilerArgs(Params, ExtraDefs.str().c_str());
   compileShader(DxcSupport, Shader, "cs_6_10", Args, Verbose);
@@ -7898,7 +8093,7 @@ static void runThreadSemanticsMatVec(ID3D12Device *Device,
   MappedData OutData;
   Result->Test->GetReadBackData("Output", &OutData);
   switch (verifyThreadSemanticsOutput(OutData.data(), OutData.size(), Divergent,
-                                      Verbose)) {
+                                      Verbose, MatrixSelection)) {
   case ThreadSemanticsOutcome::Verified:
     return;
   case ThreadSemanticsOutcome::Inconclusive:
@@ -7936,6 +8131,42 @@ void DxilConf_SM610_LinAlg::MatVecMul_Thread_4x8_F16_Divergent() {
 
   runThreadSemanticsMatVec(D3DDevice, DxcSupport, Params,
                            ThreadDivergentMatVecShader, /*Divergent=*/true,
+                           VerboseLogging);
+}
+
+static void runThreadMatrixSelection(ID3D12Device *Device,
+                                     dxc::SpecificDllLoader &DxcSupport,
+                                     UINT Mode, LPCWSTR CaseName,
+                                     bool Verbose) {
+  const MatrixParams Params = makeThreadSemanticsParams();
+  if (!matVecMulApplicable(Device, Params, ComponentType::F16,
+                           /*HasBias=*/false,
+                           linalg_test::CapabilityRequirement::Mandatory,
+                           CaseName))
+    return;
+
+  const std::string ExtraArgs =
+      " -DMATRIX_SELECTION_MODE=" + std::to_string(Mode);
+  runThreadSemanticsMatVec(
+      Device, DxcSupport, Params, ThreadMatrixSelectionShader,
+      /*Divergent=*/true, Verbose, /*MatrixSelection=*/true, ExtraArgs.c_str());
+}
+
+void DxilConf_SM610_LinAlg::MatVecMul_Thread_4x8_F16_MatrixArray() {
+  runThreadMatrixSelection(D3DDevice, DxcSupport, 0,
+                           L"MatVecMul_Thread_4x8_F16_MatrixArray",
+                           VerboseLogging);
+}
+
+void DxilConf_SM610_LinAlg::MatVecMul_Thread_4x8_F16_MatrixPhi() {
+  runThreadMatrixSelection(D3DDevice, DxcSupport, 1,
+                           L"MatVecMul_Thread_4x8_F16_MatrixPhi",
+                           VerboseLogging);
+}
+
+void DxilConf_SM610_LinAlg::MatVecMul_Thread_4x8_F16_MatrixSelect() {
+  runThreadMatrixSelection(D3DDevice, DxcSupport, 2,
+                           L"MatVecMul_Thread_4x8_F16_MatrixSelect",
                            VerboseLogging);
 }
 
@@ -9987,10 +10218,16 @@ static void runConvert(ID3D12Device *Device, dxc::SpecificDllLoader &DxcSupport,
                                        Expected, NumElements, Verbose));
 }
 
+static bool
+convertTypesApplicable(ID3D12Device *Device, ComponentType SourceCompType,
+                       ComponentType DestinationCompType,
+                       linalg_test::CapabilityRequirement Requirement,
+                       LPCWSTR CaseName);
+
 void DxilConf_SM610_LinAlg::Convert() {
-  // Operates on vectors rather than matrices, so tier support is the only
-  // capability it needs.
-  if (!linAlgTierApplicable(D3DDevice, L"Convert"))
+  if (!convertTypesApplicable(
+          D3DDevice, ComponentType::F16, ComponentType::F32,
+          linalg_test::CapabilityRequirement::CapabilityGated, L"Convert"))
     return;
 
   runConvert(D3DDevice, DxcSupport, VerboseLogging);
@@ -10953,17 +11190,17 @@ static const char ConvertU32ToU16CoverageShader[] = R"(
 )";
 
 static const char ConvertF32ToI16CoverageShader[] = R"(
+  ByteAddressBuffer Input : register(t0);
   RWByteAddressBuffer Output : register(u0);
 
   [numthreads(1, 1, 1)]
   void main() {
-    vector<float, 8> InVec = {
-      -40000.0F, -32768.5F, -2.5F, -1.5F,
-      1.5F, 2.5F, 32767.5F, 40000.0F
-    };
-    vector<int16_t, 8> OutVec;
+    vector<float, NUM_ELEMENTS> InVec;
+    for (uint I = 0; I < NUM_ELEMENTS; ++I)
+      InVec[I] = Input.Load<float>(I * 4);
+    vector<int16_t, NUM_ELEMENTS> OutVec;
     __builtin_LinAlg_Convert(OutVec, InVec, SRC_TYPE, DST_TYPE);
-    for (uint I = 0; I < 8; ++I)
+    for (uint I = 0; I < NUM_ELEMENTS; ++I)
       Output.Store<int16_t>(I * 2, OutVec[I]);
   }
 )";
@@ -10988,7 +11225,7 @@ static const char ConvertI32ToF16CoverageShader[] = R"(
 )";
 
 static const char ConvertF16FP8CoverageShader[] = R"(
-  ByteAddressBuffer DecodeInput : register(t0);
+  ByteAddressBuffer Input : register(t0);
   RWByteAddressBuffer Output : register(u0);
 
   [numthreads(1, 1, 1)]
@@ -11000,7 +11237,7 @@ static const char ConvertF16FP8CoverageShader[] = R"(
     __builtin_LinAlg_Convert(Packed, EncodeInput, SRC_TYPE, DST_TYPE);
 
     vector<uint, 2> HostPacked = {
-      DecodeInput.Load<uint>(0), DecodeInput.Load<uint>(4)
+      Input.Load<uint>(0), Input.Load<uint>(4)
     };
     vector<half, 8> Decoded;
     __builtin_LinAlg_Convert(Decoded, HostPacked, DST_TYPE, SRC_TYPE);
@@ -11012,12 +11249,12 @@ static const char ConvertF16FP8CoverageShader[] = R"(
   }
 )";
 
-static void runExactConvert(ID3D12Device *Device,
-                            dxc::SpecificDllLoader &DxcSupport,
-                            const char *Shader, const std::string &Args,
-                            const std::vector<BYTE> &Expected,
-                            LPCWSTR PublicRule, bool Verbose,
-                            const std::vector<BYTE> *Input = nullptr) {
+template <typename Verifier>
+static void
+runConvertCoverage(ID3D12Device *Device, dxc::SpecificDllLoader &DxcSupport,
+                   const char *Shader, const std::string &Args,
+                   size_t OutputBytes, Verifier Verify, bool Verbose,
+                   const std::vector<BYTE> *Input = nullptr) {
   compileShader(DxcSupport, Shader, "cs_6_10", Args, Verbose);
 
   auto Op = createComputeOp(
@@ -11027,24 +11264,41 @@ static void runExactConvert(ID3D12Device *Device,
     VERIFY_IS_TRUE(!Input->empty(), "Convert input must not be empty");
     if (Input->empty())
       return;
-    addSRVBuffer(Op.get(), "DecodeInput", Input->size(), "byname");
-    addRootView(Op.get(), 0, "DecodeInput");
+    addSRVBuffer(Op.get(), "Input", Input->size(), "byname");
+    addRootView(Op.get(), 0, "Input");
     OutputRootIndex = 1;
   }
-  addUAVBuffer(Op.get(), "Output", Expected.size(), true);
+  addUAVBuffer(Op.get(), "Output", OutputBytes, true, "byname");
   addRootView(Op.get(), OutputRootIndex, "Output");
 
   auto Result = runShaderOp(
       Device, DxcSupport, std::move(Op),
       [Input](LPCSTR Name, std::vector<BYTE> &Data, st::ShaderOp *) {
-        if (Input && _stricmp(Name, "DecodeInput") == 0)
+        if (_stricmp(Name, "Output") == 0)
+          cpu_oracle::fillPoison(Data.data(), Data.size());
+        else if (Input && _stricmp(Name, "Input") == 0)
           Data = *Input;
+        else
+          VERIFY_IS_TRUE(false, "Unexpected conversion resource initializer");
       });
 
   MappedData OutputData;
   Result->Test->GetReadBackData("Output", &OutputData);
-  VERIFY_IS_TRUE(verifyConvertBytes(OutputData.data(), OutputData.size(),
-                                    Expected, PublicRule, Verbose));
+  VERIFY_IS_TRUE(Verify(OutputData.data(), OutputData.size()));
+}
+
+static void runExactConvert(ID3D12Device *Device,
+                            dxc::SpecificDllLoader &DxcSupport,
+                            const char *Shader, const std::string &Args,
+                            const std::vector<BYTE> &Expected,
+                            LPCWSTR PublicRule, bool Verbose,
+                            const std::vector<BYTE> *Input = nullptr) {
+  runConvertCoverage(
+      Device, DxcSupport, Shader, Args, Expected.size(),
+      [&](const void *Data, size_t Size) {
+        return verifyConvertBytes(Data, Size, Expected, PublicRule, Verbose);
+      },
+      Verbose, Input);
 }
 
 struct FP8ConvertData {
@@ -11345,26 +11599,73 @@ static void runFP8ConvertCase(ID3D12Device *Device,
                   &Data.DecodeInput);
 }
 
-void DxilConf_SM610_LinAlg::Convert_F32_ToI16_RTNE_Saturate() {
+static void runF32ToI16Convert(ID3D12Device *Device,
+                               dxc::SpecificDllLoader &DxcSupport,
+                               bool NonFinite, LPCWSTR CaseName, bool Verbose) {
   if (!convertTypesApplicable(
-          D3DDevice, ComponentType::F32, ComponentType::I16,
-          linalg_test::CapabilityRequirement::CapabilityGated,
-          L"Convert_F32_ToI16_RTNE_Saturate"))
+          Device, ComponentType::F32, ComponentType::I16,
+          linalg_test::CapabilityRequirement::CapabilityGated, CaseName))
     return;
 
-  runExactConvert(D3DDevice, DxcSupport, ConvertF32ToI16CoverageShader,
-                  buildConvertArgs(ComponentType::F32, ComponentType::I16),
-                  encodeConvertVector<int16_t>(
-                      {-32768, -32768, -2, -2, 2, 2, 32767, 32767}),
-                  L"Float-to-integer conversion is RTNE with signed saturation",
-                  VerboseLogging);
+  std::vector<cpu_oracle::FloatToIntCase> Cases;
+  for (const cpu_oracle::FloatToIntCase &Case : cpu_oracle::F32ToI16Cases) {
+    const bool IsNonFinite = !std::isfinite(Case.Input);
+    if (IsNonFinite == NonFinite)
+      Cases.push_back(Case);
+  }
+  const size_t Count = Cases.size();
+  std::vector<BYTE> Input(Count * sizeof(float));
+  for (size_t I = 0; I < Count; ++I)
+    std::memcpy(Input.data() + I * sizeof(float), &Cases[I].Input,
+                sizeof(float));
+  const size_t OutputBytes = Count * sizeof(int16_t);
+  const std::string Args =
+      buildConvertArgs(ComponentType::F32, ComponentType::I16) +
+      " -DNUM_ELEMENTS=" + std::to_string(Count);
+  runConvertCoverage(
+      Device, DxcSupport, ConvertF32ToI16CoverageShader, Args, OutputBytes,
+      [&Cases, OutputBytes](const void *Data, size_t Size) {
+        if (Size != OutputBytes) {
+          hlsl_test::LogErrorFmt(
+              L"Float-to-I16 output size: actual=%zu, expected=%zu", Size,
+              OutputBytes);
+          return false;
+        }
+        const BYTE *Bytes = static_cast<const BYTE *>(Data);
+        bool Success = true;
+        for (size_t I = 0; I < Cases.size(); ++I) {
+          const cpu_oracle::FloatToIntCase &Case = Cases[I];
+          int16_t Actual;
+          std::memcpy(&Actual, Bytes + I * sizeof(Actual), sizeof(Actual));
+          if (!cpu_oracle::isNearestSaturatedI16(Case.Input, Actual)) {
+            hlsl_test::LogErrorFmt(
+                L"Float-to-I16 element %zu: input=%g, actual=%d, "
+                L"permitted=[%d,%d]",
+                I, static_cast<double>(Case.Input), Actual, Case.Lower,
+                Case.Upper);
+            Success = false;
+          }
+        }
+        return Success;
+      },
+      Verbose, &Input);
+}
+
+void DxilConf_SM610_LinAlg::Convert_F32_ToI16_RoundNearest_Saturate() {
+  runF32ToI16Convert(D3DDevice, DxcSupport, /*NonFinite=*/false,
+                     L"Convert_F32_ToI16_RoundNearest_Saturate",
+                     VerboseLogging);
+}
+
+void DxilConf_SM610_LinAlg::Convert_F32_ToI16_NonFinite() {
+  runF32ToI16Convert(D3DDevice, DxcSupport, /*NonFinite=*/true,
+                     L"Convert_F32_ToI16_NonFinite", VerboseLogging);
 }
 
 void DxilConf_SM610_LinAlg::Convert_I32_ToF16_RTNE() {
-  if (!convertTypesApplicable(
-          D3DDevice, ComponentType::I32, ComponentType::F16,
-          linalg_test::CapabilityRequirement::CapabilityGated,
-          L"Convert_I32_ToF16_RTNE"))
+  if (!convertTypesApplicable(D3DDevice, ComponentType::I32, ComponentType::F16,
+                              linalg_test::CapabilityRequirement::Mandatory,
+                              L"Convert_I32_ToF16_RTNE"))
     return;
 
   // Hand-derived F16 bit patterns: 2048 and 2052 are 0x6800 and 0x6802, 4096
@@ -11392,10 +11693,9 @@ void DxilConf_SM610_LinAlg::Convert_F16_ToE4M3FN_AndBack() {
                               linalg_test::CapabilityRequirement::Mandatory,
                               L"Convert_F16_ToE4M3FN_AndBack"))
     return;
-  if (!convertTypesApplicable(
-          D3DDevice, ComponentType::U32, ComponentType::F16,
-          linalg_test::CapabilityRequirement::CapabilityGated,
-          L"Convert_F16_ToE4M3FN_AndBack"))
+  if (!convertTypesApplicable(D3DDevice, ComponentType::U32, ComponentType::F16,
+                              linalg_test::CapabilityRequirement::Mandatory,
+                              L"Convert_F16_ToE4M3FN_AndBack"))
     return;
   runFP8ConvertCase(D3DDevice, DxcSupport, ComponentType::F8_E4M3FN, *Data,
                     VerboseLogging);
@@ -11416,10 +11716,9 @@ void DxilConf_SM610_LinAlg::Convert_F16_ToE5M2_AndBack() {
                               linalg_test::CapabilityRequirement::Mandatory,
                               L"Convert_F16_ToE5M2_AndBack"))
     return;
-  if (!convertTypesApplicable(
-          D3DDevice, ComponentType::U32, ComponentType::F16,
-          linalg_test::CapabilityRequirement::CapabilityGated,
-          L"Convert_F16_ToE5M2_AndBack"))
+  if (!convertTypesApplicable(D3DDevice, ComponentType::U32, ComponentType::F16,
+                              linalg_test::CapabilityRequirement::Mandatory,
+                              L"Convert_F16_ToE5M2_AndBack"))
     return;
   runFP8ConvertCase(D3DDevice, DxcSupport, ComponentType::F8_E5M2, *Data,
                     VerboseLogging);
