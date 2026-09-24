@@ -22,7 +22,7 @@ TEST(PPOptionsTests, ExpandTokPastingArgDefaultsToFalse) {
       PreprocessorOptions) unsigned char Storage[sizeof(PreprocessorOptions)];
   std::memset(Storage, 0xff, sizeof(Storage));
 
-  auto *Options = new (Storage) PreprocessorOptions();
+  const PreprocessorOptions *Options = new (Storage) PreprocessorOptions();
   EXPECT_FALSE(Options->ExpandTokPastingArg);
   Options->~PreprocessorOptions();
 }
