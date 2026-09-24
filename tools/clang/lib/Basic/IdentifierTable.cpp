@@ -144,13 +144,15 @@ static KeywordStatus getKeywordStatus(const LangOptions &LangOpts,
   if (LangOpts.AltiVec && (Flags & KEYALTIVEC)) return KS_Enabled;
   if (LangOpts.OpenCL && (Flags & KEYOPENCL)) return KS_Enabled;
   if (!LangOpts.CPlusPlus && (Flags & KEYNOCXX)) return KS_Enabled;
+  // HLSL Change Begin - Support for HLSL Keywords.
   if (LangOpts.HLSL && LangOpts.HLSLVersion >= hlsl::LangStd::v202x &&
       (Flags & KEYHLSL2026_REMOVED))
     return KS_Disabled;
   if (LangOpts.HLSL && LangOpts.HLSLVersion >= hlsl::LangStd::v202x &&
       (Flags & KEYHLSL2026))
     return KS_Enabled;
-  if (LangOpts.HLSL && (Flags & KEYHLSL)) return KS_Enabled; // HLSL Change: Support for HLSL Keywords
+  if (LangOpts.HLSL && (Flags & KEYHLSL)) return KS_Enabled;
+  // HLSL Change - End
   if (LangOpts.C11 && (Flags & KEYC11)) return KS_Enabled;
   // We treat bridge casts as objective-C keywords so we can warn on them
   // in non-arc mode.
