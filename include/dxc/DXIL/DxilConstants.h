@@ -29,8 +29,8 @@ namespace DXIL {
 const unsigned kDxilMajor = 1;
 /* <py::lines('VALRULE-TEXT')>hctdb_instrhelp.get_dxil_version_minor()</py>*/
 // VALRULE-TEXT:BEGIN
-const unsigned kDxilMinor = 10;
-const unsigned kDxilReleasedMinor = 9;
+const unsigned kDxilMinor = 11;
+const unsigned kDxilReleasedMinor = 10;
 // VALRULE-TEXT:END
 
 inline unsigned MakeDxilVersion(unsigned DxilMajor, unsigned DxilMinor) {
