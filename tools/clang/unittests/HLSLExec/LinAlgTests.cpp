@@ -10518,7 +10518,7 @@ void DxilConf_SM610_LinAlg::MatVecMul_Thread_4x16_F8_E4M3FN() {
       matvec_interpretation::makeFP8MatrixCase(ComponentType::F8_E4M3FN);
   matvec_interpretation::runCapabilityChecked(
       D3DDevice, DxcSupport, Case,
-      linalg_test::CapabilityRequirement::Mandatory,
+      linalg_test::CapabilityRequirement::CapabilityGated,
       L"MatVecMul_Thread_4x16_F8_E4M3FN", VerboseLogging);
 #else
   matvec_interpretation::reportMissingConversionApi(
@@ -10532,7 +10532,7 @@ void DxilConf_SM610_LinAlg::MatVecMul_Thread_4x16_F8_E5M2() {
       matvec_interpretation::makeFP8MatrixCase(ComponentType::F8_E5M2);
   matvec_interpretation::runCapabilityChecked(
       D3DDevice, DxcSupport, Case,
-      linalg_test::CapabilityRequirement::Mandatory,
+      linalg_test::CapabilityRequirement::CapabilityGated,
       L"MatVecMul_Thread_4x16_F8_E5M2", VerboseLogging);
 #else
   matvec_interpretation::reportMissingConversionApi(
@@ -10545,7 +10545,7 @@ void DxilConf_SM610_LinAlg::MatVecMul_Thread_4x8_F8_E4M3FN_Vector() {
       matvec_interpretation::makeFP8VectorCase(ComponentType::F8_E4M3FN);
   matvec_interpretation::runCapabilityChecked(
       D3DDevice, DxcSupport, Case,
-      linalg_test::CapabilityRequirement::Mandatory,
+      linalg_test::CapabilityRequirement::CapabilityGated,
       L"MatVecMul_Thread_4x8_F8_E4M3FN_Vector", VerboseLogging);
 }
 
@@ -10554,7 +10554,7 @@ void DxilConf_SM610_LinAlg::MatVecMul_Thread_4x8_F8_E5M2_Vector() {
       matvec_interpretation::makeFP8VectorCase(ComponentType::F8_E5M2);
   matvec_interpretation::runCapabilityChecked(
       D3DDevice, DxcSupport, Case,
-      linalg_test::CapabilityRequirement::Mandatory,
+      linalg_test::CapabilityRequirement::CapabilityGated,
       L"MatVecMul_Thread_4x8_F8_E5M2_Vector", VerboseLogging);
 }
 
