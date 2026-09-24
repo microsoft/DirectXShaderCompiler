@@ -19,7 +19,7 @@
 // CHECK: ret float
 
 // CHECK-LABEL: define internal float @"\01??$Sum
-// CHECK ret float
+// CHECK: ret float
 
 // CHECK-LABEL: define internal float @"\01?Clamp01
 // CHECK: ret float
