@@ -2863,6 +2863,22 @@ static CaseData makeFP8MatrixCase(ComponentType MatrixType) {
   return Case;
 }
 
+static CaseData makeMatchedFP8Case(ComponentType Type, bool HasBias) {
+  CaseData Case = makeFP8MatrixCase(Type);
+  Case.VectorInputType = Type;
+  Case.InputInterpretation = Type;
+  if (HasBias) {
+    Case.BiasInputType = ComponentType::F16;
+    Case.BiasValues = {-5, 7, 3, -9};
+  }
+  Case.PublicRule =
+      HasBias
+          ? L"Exact matched FP8 matrix-vector dot products plus independent "
+            L"F16 bias"
+          : L"Exact matched FP8 matrix-vector dot products";
+  return Case;
+}
+
 static CaseData makeFP8VectorCase(ComponentType VectorType) {
   CaseData Case = {};
   Case.MatrixType = ComponentType::F16;
@@ -2934,6 +2950,7 @@ public:
   TEST_METHOD(ViewBoundedElements);
   TEST_METHOD(ViewBoundedStoreBytes);
   TEST_METHOD(MatVecHostOracle);
+  TEST_METHOD(MatchedFP8MatVecHostOracle);
   TEST_METHOD(FP8HostOracle);
   TEST_METHOD(FP8MatrixValueEncoding);
 };
@@ -3397,6 +3414,43 @@ void LinAlgCPUOracleTests::MatVecHostOracle() {
                  "Biased dot product oracle returned the wrong values");
 }
 
+void LinAlgCPUOracleTests::MatchedFP8MatVecHostOracle() {
+  using namespace matvec_interpretation;
+
+  const std::vector<BYTE> PackedE4M3FN = {0x38, 0xb8, 0x40, 0xc0, 0x44, 0xc4,
+                                          0x48, 0xc8, 0x38, 0x40, 0xb8, 0xc0,
+                                          0x4a, 0x38, 0xb8, 0x40};
+  const std::vector<BYTE> PackedE5M2 = {0x3c, 0xbc, 0x40, 0xc0, 0x42, 0xc2,
+                                        0x44, 0xc4, 0x3c, 0x40, 0xbc, 0xc0,
+                                        0x45, 0x3c, 0xbc, 0x40};
+
+  for (const ComponentType Type :
+       {ComponentType::F8_E4M3FN, ComponentType::F8_E5M2}) {
+    for (const bool HasBias : {false, true}) {
+      const CaseData Case = makeMatchedFP8Case(Type, HasBias);
+      VERIFY_IS_TRUE(isCaseValid(Case));
+      VERIFY_IS_TRUE(Case.M == 4 && Case.N == 16);
+      VERIFY_IS_TRUE(Case.MatrixType == Type && Case.VectorInputType == Type &&
+                     Case.InputInterpretation == Type);
+      VERIFY_IS_TRUE(Case.ResultType == ComponentType::F16);
+      VERIFY_IS_TRUE(Case.BiasInputType ==
+                     (HasBias ? ComponentType::F16 : ComponentType::Invalid));
+      VERIFY_IS_TRUE(Case.LoadFromMulOptimal);
+      VERIFY_IS_FALSE(Case.BiasFromMemory);
+
+      const std::vector<BYTE> &Packed =
+          Type == ComponentType::F8_E4M3FN ? PackedE4M3FN : PackedE5M2;
+      VERIFY_IS_TRUE(encodeVectorBuffer(Case) == Packed,
+                     "Packed FP8 vector differs from the hand-derived bytes");
+      const std::vector<int64_t> Expected =
+          HasBias ? std::vector<int64_t>({-24, 18, 33, -15})
+                  : std::vector<int64_t>({-19, 11, 30, -6});
+      VERIFY_IS_TRUE(calculateExpected(Case) == Expected,
+                     "Matched FP8 oracle differs from the hand-derived dots");
+    }
+  }
+}
+
 class LinAlgCapabilityTests {
 public:
   BEGIN_TEST_CLASS(LinAlgCapabilityTests)
@@ -3688,8 +3742,12 @@ public:
   TEST_METHOD(MatVecMul_Thread_4x8_U32_UnsignedOutput);
   TEST_METHOD(MatVecMul_Thread_4x16_F8_E4M3FN);
   TEST_METHOD(MatVecMul_Thread_4x16_F8_E5M2);
+  TEST_METHOD(MatVecMul_Thread_4x16_F8_E4M3FN_MatchedInputs);
+  TEST_METHOD(MatVecMul_Thread_4x16_F8_E5M2_MatchedInputs);
   TEST_METHOD(MatVecMul_Thread_4x8_F8_E4M3FN_Vector);
   TEST_METHOD(MatVecMul_Thread_4x8_F8_E5M2_Vector);
+  TEST_METHOD(MatVecMulAdd_Thread_4x16_F8_E4M3FN_MatchedInputs);
+  TEST_METHOD(MatVecMulAdd_Thread_4x16_F8_E5M2_MatchedInputs);
   TEST_METHOD(MatVecMulAdd_Thread_4x8_F8_E4M3FN_MemoryBias);
   TEST_METHOD(MatVecMulAdd_Thread_4x8_F8_E5M2_MemoryBias);
   TEST_METHOD(MatVecMulAdd_Thread_16x16_F16);
@@ -10540,6 +10598,36 @@ void DxilConf_SM610_LinAlg::MatVecMul_Thread_4x16_F8_E5M2() {
 #endif // defined(HLSLEXEC_LINALG_HOST_API)
 }
 
+void DxilConf_SM610_LinAlg::MatVecMul_Thread_4x16_F8_E4M3FN_MatchedInputs() {
+#if defined(HLSLEXEC_LINALG_HOST_API)
+  const matvec_interpretation::CaseData Case =
+      matvec_interpretation::makeMatchedFP8Case(ComponentType::F8_E4M3FN,
+                                                /*HasBias=*/false);
+  matvec_interpretation::runCapabilityChecked(
+      D3DDevice, DxcSupport, Case,
+      linalg_test::CapabilityRequirement::Mandatory,
+      L"MatVecMul_Thread_4x16_F8_E4M3FN_MatchedInputs", VerboseLogging);
+#else
+  matvec_interpretation::reportMissingConversionApi(
+      L"MatVecMul_Thread_4x16_F8_E4M3FN_MatchedInputs");
+#endif // defined(HLSLEXEC_LINALG_HOST_API)
+}
+
+void DxilConf_SM610_LinAlg::MatVecMul_Thread_4x16_F8_E5M2_MatchedInputs() {
+#if defined(HLSLEXEC_LINALG_HOST_API)
+  const matvec_interpretation::CaseData Case =
+      matvec_interpretation::makeMatchedFP8Case(ComponentType::F8_E5M2,
+                                                /*HasBias=*/false);
+  matvec_interpretation::runCapabilityChecked(
+      D3DDevice, DxcSupport, Case,
+      linalg_test::CapabilityRequirement::Mandatory,
+      L"MatVecMul_Thread_4x16_F8_E5M2_MatchedInputs", VerboseLogging);
+#else
+  matvec_interpretation::reportMissingConversionApi(
+      L"MatVecMul_Thread_4x16_F8_E5M2_MatchedInputs");
+#endif // defined(HLSLEXEC_LINALG_HOST_API)
+}
+
 void DxilConf_SM610_LinAlg::MatVecMul_Thread_4x8_F8_E4M3FN_Vector() {
   const matvec_interpretation::CaseData Case =
       matvec_interpretation::makeFP8VectorCase(ComponentType::F8_E4M3FN);
@@ -10556,6 +10644,36 @@ void DxilConf_SM610_LinAlg::MatVecMul_Thread_4x8_F8_E5M2_Vector() {
       D3DDevice, DxcSupport, Case,
       linalg_test::CapabilityRequirement::CapabilityGated,
       L"MatVecMul_Thread_4x8_F8_E5M2_Vector", VerboseLogging);
+}
+
+void DxilConf_SM610_LinAlg::MatVecMulAdd_Thread_4x16_F8_E4M3FN_MatchedInputs() {
+#if defined(HLSLEXEC_LINALG_HOST_API)
+  const matvec_interpretation::CaseData Case =
+      matvec_interpretation::makeMatchedFP8Case(ComponentType::F8_E4M3FN,
+                                                /*HasBias=*/true);
+  matvec_interpretation::runCapabilityChecked(
+      D3DDevice, DxcSupport, Case,
+      linalg_test::CapabilityRequirement::Mandatory,
+      L"MatVecMulAdd_Thread_4x16_F8_E4M3FN_MatchedInputs", VerboseLogging);
+#else
+  matvec_interpretation::reportMissingConversionApi(
+      L"MatVecMulAdd_Thread_4x16_F8_E4M3FN_MatchedInputs");
+#endif // defined(HLSLEXEC_LINALG_HOST_API)
+}
+
+void DxilConf_SM610_LinAlg::MatVecMulAdd_Thread_4x16_F8_E5M2_MatchedInputs() {
+#if defined(HLSLEXEC_LINALG_HOST_API)
+  const matvec_interpretation::CaseData Case =
+      matvec_interpretation::makeMatchedFP8Case(ComponentType::F8_E5M2,
+                                                /*HasBias=*/true);
+  matvec_interpretation::runCapabilityChecked(
+      D3DDevice, DxcSupport, Case,
+      linalg_test::CapabilityRequirement::Mandatory,
+      L"MatVecMulAdd_Thread_4x16_F8_E5M2_MatchedInputs", VerboseLogging);
+#else
+  matvec_interpretation::reportMissingConversionApi(
+      L"MatVecMulAdd_Thread_4x16_F8_E5M2_MatchedInputs");
+#endif // defined(HLSLEXEC_LINALG_HOST_API)
 }
 
 void DxilConf_SM610_LinAlg::MatVecMulAdd_Thread_4x8_F8_E4M3FN_MemoryBias() {
