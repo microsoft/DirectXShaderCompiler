@@ -587,12 +587,13 @@ bool Parser::ParseTopLevelDecl(DeclGroupPtrTy &Result) {
 
   // HLSL Change Starts - skip legacy effects technique syntax
   case tok::kw_technique:
-    Diag(Tok.getLocation(), diag::warn_hlsl_effect_technique);
-    SkipUntil(tok::l_brace);    // skip through {
-    SkipUntil(tok::r_brace);    // skip through matching }
+    Diag(Tok.getLocation(), diag::warn_hlsl_2026_effects)
+        << /*technique*/ 3 << /*known not possible*/ 1;
+    SkipUntil(tok::l_brace); // skip through {
+    SkipUntil(tok::r_brace); // skip through matching }
     Result = DeclGroupPtrTy();
     return false;
-  // HLSL Change Ends
+    // HLSL Change Ends
 
   default:
     break;
@@ -760,8 +761,9 @@ Parser::ParseExternalDeclaration(ParsedAttributesWithRange &attrs,
     return DeclGroupPtrTy();
   // HLSL Change Starts: Ignore shared keyword for now
   case tok::kw_shared:
-      ConsumeToken();
-      return ParseExternalDeclaration(attrs);
+    Diag(Tok.getLocation(), diag::warn_hlsl_2026_removed_keyword) << "shared";
+    ConsumeToken();
+    return ParseExternalDeclaration(attrs);
   // HLSL Change Ends
   // HLSL Change Starts: Start parsing declaration of cbuffer and tbuffers
   case tok::kw_cbuffer:

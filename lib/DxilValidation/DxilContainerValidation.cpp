@@ -137,7 +137,7 @@ public:
       return false;
     if (Offset > Table.Entries)
       return false;
-    if ((Offset + Size) > Table.Entries)
+    if (Size > Table.Entries - Offset)
       return false;
     for (unsigned i = Offset; i < (Offset + Size); ++i) {
       UseMask[i] = true;
@@ -180,6 +180,7 @@ private:
                               PSVSignatureElement0 *, const PSVStringTable &,
                               const PSVSemanticIndexTable &, std::string, bool);
   void VerifyResources(unsigned PSVVersion);
+  void VerifyLinAlgRuntimeInfo(unsigned PSVVersion);
   template <typename T>
   void VerifyResourceTable(T &ResTab, unsigned &ResourceIndex,
                            unsigned PSVVersion);
@@ -465,6 +466,190 @@ void PSVContentVerifier::VerifyEntryProperties(
   }
 }
 
+void PSVContentVerifier::VerifyLinAlgRuntimeInfo(unsigned PSVVersion) {
+  // Regenerate the expected runtime info to compare the container
+  // contents against
+  unique_ptr<DxilPartWriter> pWriter(NewPSVWriter(DM, PSVVersion));
+  CComPtr<AbstractMemoryStream> pOutputStream;
+  IFT(CreateMemoryStream(DxcGetThreadMallocNoRef(), &pOutputStream));
+  pOutputStream->Reserve(pWriter->size());
+  pWriter->write(pOutputStream);
+
+  DxilPipelineStateValidation ExpectedPSV;
+  if (!ExpectedPSV.InitFromPSV0(pOutputStream->GetPtr(),
+                                pOutputStream->GetPtrSize())) {
+    ValCtx.EmitFormatError(
+        ValidationRule::ContainerPartMatches,
+        {"Pipeline State Validation generated from DxilModule"});
+    return;
+  }
+
+  bool HasLinAlgRuntimeInfo = PSV.GetPSVLinAlgRuntimeInfo0() != nullptr;
+  bool ExpectedHasLinAlgRuntimeInfo =
+      ExpectedPSV.GetPSVLinAlgRuntimeInfo0() != nullptr;
+  if (HasLinAlgRuntimeInfo != ExpectedHasLinAlgRuntimeInfo) {
+    EmitMismatchError("LinAlgRuntimeInfoPresent",
+                      HasLinAlgRuntimeInfo ? "true" : "false",
+                      ExpectedHasLinAlgRuntimeInfo ? "true" : "false");
+    return;
+  }
+
+  if (!HasLinAlgRuntimeInfo)
+    return;
+
+  auto VerifyShapeReference =
+      [&](StringRef Name, const PSVLinAlgMatrixShapeArrayReference &ShapeRef,
+          const PSVLinAlgMatrixShapeArrayReference *ExpectedShapeRef) {
+        if (!IndexTableVerifier.MarkUse(ShapeRef.ShapesIndex, ShapeRef.Count)) {
+          EmitInvalidError("LinAlgOperationShapes");
+          return;
+        }
+        const uint32_t *ShapeIndexes =
+            PSV.GetSemanticIndexTable().Get(ShapeRef.ShapesIndex);
+        for (uint32_t I = 0; I < ShapeRef.Count; ++I) {
+          if (!PSV.GetPSVLinAlgMatrixOperationShape(ShapeIndexes[I])) {
+            EmitInvalidError("LinAlgOperationShapeIndex");
+            return;
+          }
+        }
+
+        if (!ExpectedShapeRef)
+          return;
+        if (ShapeRef.Count != ExpectedShapeRef->Count) {
+          EmitMismatchError((Name + "Count").str(),
+                            std::to_string(ShapeRef.Count),
+                            std::to_string(ExpectedShapeRef->Count));
+          return;
+        }
+        if (ShapeRef.Count == 0)
+          return;
+
+        const PSVSemanticIndexTable &ExpectedIndexTable =
+            ExpectedPSV.GetSemanticIndexTable();
+        if (ExpectedIndexTable.Table == nullptr ||
+            ExpectedShapeRef->ShapesIndex > ExpectedIndexTable.Entries ||
+            ExpectedShapeRef->Count >
+                ExpectedIndexTable.Entries - ExpectedShapeRef->ShapesIndex) {
+          EmitMismatchError(
+              Name, "valid shape index sequence",
+              "invalid shape index sequence generated from DxilModule");
+          return;
+        }
+
+        const uint32_t *ExpectedShapeIndexes =
+            ExpectedIndexTable.Get(ExpectedShapeRef->ShapesIndex);
+        if (!std::equal(ShapeIndexes, ShapeIndexes + ShapeRef.Count,
+                        ExpectedShapeIndexes))
+          EmitMismatchError(Name, "shape index sequence",
+                            "shape index sequence generated from DxilModule");
+      };
+
+  auto GetRecordName = [](StringRef Name, uint32_t I) {
+    return Name.str() + "[" + std::to_string(I) + "]";
+  };
+
+  auto GetRecordBytes = [](const auto &Record) {
+    static constexpr char HexDigits[] = "0123456789abcdef";
+    const uint8_t *Bytes = reinterpret_cast<const uint8_t *>(&Record);
+    std::string Result;
+    Result.reserve(sizeof(Record) * 3 - 1);
+    for (size_t I = 0; I < sizeof(Record); ++I) {
+      if (I != 0)
+        Result.push_back(' ');
+      Result.push_back(HexDigits[Bytes[I] >> 4]);
+      Result.push_back(HexDigits[Bytes[I] & 0xf]);
+    }
+    return Result;
+  };
+
+  auto VerifyRecord = [&](StringRef Name, uint32_t I, const auto &Record,
+                          const auto *ExpectedRecord) {
+    if (ExpectedRecord && memcmp(&Record, ExpectedRecord, sizeof(Record)) != 0)
+      EmitMismatchError(GetRecordName(Name, I), GetRecordBytes(Record),
+                        GetRecordBytes(*ExpectedRecord));
+  };
+
+  auto VerifyRecordWithShapes = [&](StringRef Name, uint32_t I,
+                                    const auto &Record,
+                                    const auto *ExpectedRecord) {
+    if (ExpectedRecord) {
+      auto ComparableRecord = Record;
+      auto ComparableExpectedRecord = *ExpectedRecord;
+      ComparableRecord.OperationShapes = {};
+      ComparableExpectedRecord.OperationShapes = {};
+      if (memcmp(&ComparableRecord, &ComparableExpectedRecord,
+                 sizeof(ComparableRecord)) != 0)
+        EmitMismatchError(GetRecordName(Name, I),
+                          GetRecordBytes(ComparableRecord),
+                          GetRecordBytes(ComparableExpectedRecord));
+    }
+
+    std::string ShapeName = Name.str() + "OperationShapes";
+    VerifyShapeReference(ShapeName, Record.OperationShapes,
+                         ExpectedRecord ? &ExpectedRecord->OperationShapes
+                                        : nullptr);
+  };
+
+  auto VerifyLinAlgTable = [&](StringRef Name, auto CountMethod, auto GetMethod,
+                               auto VerifyTableRecord) {
+    uint32_t Count = (PSV.*CountMethod)();
+    uint32_t ExpectedCount = (ExpectedPSV.*CountMethod)();
+    if (Count != ExpectedCount)
+      EmitMismatchError(Name.str() + "Count", std::to_string(Count),
+                        std::to_string(ExpectedCount));
+
+    for (uint32_t I = 0; I < Count; ++I) {
+      const auto *Record = (PSV.*GetMethod)(I);
+      const auto *ExpectedRecord =
+          I < ExpectedCount ? (ExpectedPSV.*GetMethod)(I) : nullptr;
+      if (!Record) {
+        EmitMismatchError(GetRecordName(Name, I), "missing record",
+                          ExpectedRecord ? GetRecordBytes(*ExpectedRecord)
+                                         : "record generated from DxilModule");
+        continue;
+      }
+      if (I < ExpectedCount && !ExpectedRecord)
+        EmitMismatchError(GetRecordName(Name, I), GetRecordBytes(*Record),
+                          "missing record generated from DxilModule");
+      VerifyTableRecord(Name, I, *Record, ExpectedRecord);
+    }
+  };
+
+  VerifyLinAlgTable(
+      "LinAlgMatrixOperationShape",
+      &DxilPipelineStateValidation::GetPSVLinAlgMatrixOperationShapeCount,
+      &DxilPipelineStateValidation::GetPSVLinAlgMatrixOperationShape,
+      VerifyRecord);
+  VerifyLinAlgTable(
+      "LinAlgMatrixConstruction",
+      &DxilPipelineStateValidation::GetPSVLinAlgMatrixConstructionCount,
+      &DxilPipelineStateValidation::GetPSVLinAlgMatrixConstruction,
+      VerifyRecordWithShapes);
+  VerifyLinAlgTable(
+      "LinAlgThreadMatrixVectorMultiply",
+      &DxilPipelineStateValidation::GetPSVLinAlgThreadMatrixVectorMultiplyCount,
+      &DxilPipelineStateValidation::GetPSVLinAlgThreadMatrixVectorMultiply,
+      VerifyRecord);
+  VerifyLinAlgTable(
+      "LinAlgWaveMatrixMultiply",
+      &DxilPipelineStateValidation::GetPSVLinAlgWaveMatrixMultiplyCount,
+      &DxilPipelineStateValidation::GetPSVLinAlgWaveMatrixMultiply,
+      VerifyRecordWithShapes);
+  VerifyLinAlgTable(
+      "LinAlgThreadGroupMatrixMultiply",
+      &DxilPipelineStateValidation::GetPSVLinAlgThreadGroupMatrixMultiplyCount,
+      &DxilPipelineStateValidation::GetPSVLinAlgThreadGroupMatrixMultiply,
+      VerifyRecordWithShapes);
+  VerifyLinAlgTable("LinAlgOuterProduct",
+                    &DxilPipelineStateValidation::GetPSVLinAlgOuterProductCount,
+                    &DxilPipelineStateValidation::GetPSVLinAlgOuterProduct,
+                    VerifyRecord);
+  VerifyLinAlgTable(
+      "LinAlgAccumulateStore",
+      &DxilPipelineStateValidation::GetPSVLinAlgAccumulateStoreCount,
+      &DxilPipelineStateValidation::GetPSVLinAlgAccumulateStore, VerifyRecord);
+}
+
 void PSVContentVerifier::Verify(unsigned ValMajor, unsigned ValMinor,
                                 unsigned PSVVersion) {
   PSVInitInfo PSVInfo(PSVVersion);
@@ -521,6 +706,8 @@ void PSVContentVerifier::Verify(unsigned ValMajor, unsigned ValMinor,
                           DM.GetEntryFunctionName());
     }
   }
+  if (PSVVersion > 3)
+    VerifyLinAlgRuntimeInfo(PSVVersion);
 
   StrTableVerifier.Verify(ValCtx);
   IndexTableVerifier.Verify(ValCtx);
@@ -607,6 +794,8 @@ bool VerifySignatureMatches(llvm::Module *pModule, DXIL::SignatureKind SigKind,
 }
 
 struct SimplePSV {
+  static bool IsDwordAligned(uint32_t Size) { return (Size & 3) == 0; }
+
   uint32_t PSVRuntimeInfoSize = 0;
   uint32_t PSVNumResources = 0;
   uint32_t PSVResourceBindInfoSize = 0;
@@ -616,6 +805,7 @@ struct SimplePSV {
   const uint32_t *SemanticIndexTable = nullptr;
   uint32_t PSVSignatureElementSize = 0;
   const PSVRuntimeInfo1 *RuntimeInfo1 = nullptr;
+  const PSVRuntimeInfo4 *RuntimeInfo4 = nullptr;
   bool IsValid = true;
   SimplePSV(const void *pPSVData, uint32_t PSVSize) {
 
@@ -632,6 +822,9 @@ struct SimplePSV {
     if (PSVRuntimeInfoSize >= sizeof(PSVRuntimeInfo1))
       RuntimeInfo1 =
           (const PSVRuntimeInfo1 *)(GetPtrAtOffset(pPSVData, Offset));
+    if (PSVRuntimeInfoSize >= sizeof(PSVRuntimeInfo4))
+      RuntimeInfo4 =
+          (const PSVRuntimeInfo4 *)(GetPtrAtOffset(pPSVData, Offset));
     INCREMENT_POS(PSVRuntimeInfoSize);
 
     PSVNumResources = GetUint32AtOffset(pPSVData, Offset);
@@ -647,7 +840,7 @@ struct SimplePSV {
       StringTableSize = GetUint32AtOffset(pPSVData, Offset);
       INCREMENT_POS(4);
       // Make sure StringTableSize is aligned to 4 bytes.
-      if ((StringTableSize & 3) != 0) {
+      if (!IsDwordAligned(StringTableSize)) {
         IsValid = false;
         return;
       }
@@ -721,6 +914,60 @@ struct SimplePSV {
                                    RuntimeInfo1->SigPatchConstOrPrimVectors,
                                    RuntimeInfo1->SigOutputVectors[0]);
         INCREMENT_POS(TableSizeInBytes);
+      }
+    }
+
+    if (RuntimeInfo4 && (RuntimeInfo4->Flags &
+                         static_cast<uint32_t>(
+                             PSVRuntimeInfo4Flag::LinAlgRuntimeInfoPresent))) {
+      auto ReadUint32 = [&](uint32_t &Value) {
+        if (Offset > PSVSize || sizeof(uint32_t) > PSVSize - Offset)
+          return false;
+        memcpy(&Value, GetPtrAtOffset(pPSVData, Offset), sizeof(uint32_t));
+        Offset += sizeof(uint32_t);
+        return true;
+      };
+      auto ConsumeTable = [&](uint32_t Count, uint32_t MinimumRecordSize) {
+        if (!Count)
+          return true;
+        uint32_t RecordSize = 0;
+        if (!ReadUint32(RecordSize) || !IsDwordAligned(RecordSize) ||
+            RecordSize < MinimumRecordSize)
+          return false;
+        if (Offset > PSVSize || Count > (PSVSize - Offset) / RecordSize)
+          return false;
+        Offset += Count * RecordSize;
+        return true;
+      };
+
+      uint32_t LinAlgRuntimeInfoSize = 0;
+      if (!ReadUint32(LinAlgRuntimeInfoSize) ||
+          !IsDwordAligned(LinAlgRuntimeInfoSize) ||
+          LinAlgRuntimeInfoSize < sizeof(PSVLinAlgRuntimeInfo0) ||
+          Offset > PSVSize || LinAlgRuntimeInfoSize > PSVSize - Offset) {
+        IsValid = false;
+        return;
+      }
+      const PSVLinAlgRuntimeInfo0 *LinAlgRuntimeInfo =
+          (const PSVLinAlgRuntimeInfo0 *)GetPtrAtOffset(pPSVData, Offset);
+      Offset += LinAlgRuntimeInfoSize;
+
+      if (!ConsumeTable(LinAlgRuntimeInfo->MatrixOperationShapeCount,
+                        sizeof(PSVLinAlgMatrixOperationShape0)) ||
+          !ConsumeTable(LinAlgRuntimeInfo->MatrixConstructionCount,
+                        sizeof(PSVLinAlgMatrixConstruction0)) ||
+          !ConsumeTable(LinAlgRuntimeInfo->ThreadMatrixVectorMultiplyCount,
+                        sizeof(PSVLinAlgThreadMatrixVectorMultiply0)) ||
+          !ConsumeTable(LinAlgRuntimeInfo->WaveMatrixMultiplyCount,
+                        sizeof(PSVLinAlgWaveMatrixMultiply0)) ||
+          !ConsumeTable(LinAlgRuntimeInfo->ThreadGroupMatrixMultiplyCount,
+                        sizeof(PSVLinAlgThreadGroupMatrixMultiply0)) ||
+          !ConsumeTable(LinAlgRuntimeInfo->OuterProductCount,
+                        sizeof(PSVLinAlgOuterProduct0)) ||
+          !ConsumeTable(LinAlgRuntimeInfo->AccumulateStoreCount,
+                        sizeof(PSVLinAlgAccumulateStore0))) {
+        IsValid = false;
+        return;
       }
     }
     IsValid = PSVSize == Offset;

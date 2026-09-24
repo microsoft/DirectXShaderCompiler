@@ -326,6 +326,7 @@ public:
   TEST_METHOD(PSVContentValidationCS)
   TEST_METHOD(PSVContentValidationMS)
   TEST_METHOD(PSVContentValidationAS)
+  TEST_METHOD(PSVContentValidationLinAlg)
   TEST_METHOD(UnitTestExtValidationSupport)
   TEST_METHOD(WrongPSVSize)
   TEST_METHOD(WrongPSVSizeOnZeros)
@@ -6427,6 +6428,104 @@ TEST_F(ValidationTest, PSVContentValidationAS) {
        "expected for module.",
        "Validation failed."},
       /*maySucceedAnyway*/ false, /*bRegex*/ false);
+}
+
+TEST_F(ValidationTest, PSVContentValidationLinAlg) {
+  if (m_ver.SkipDxilVersion(1, 10))
+    return;
+
+  CComPtr<IDxcBlob> pProgram;
+  CompileFile(L"..\\DXC\\dumpPSV_LinAlgConstructions.hlsl", "cs_6_10",
+              &pProgram);
+
+  CComPtr<IDxcValidator> pValidator;
+  VERIFY_SUCCEEDED(
+      m_dllSupport.CreateInstance(CLSID_DxcValidator, &pValidator));
+
+  auto ValidateFailure = [&](LPCSTR ExpectedError) {
+    CComPtr<IDxcOperationResult> pResult;
+    VERIFY_SUCCEEDED(pValidator->Validate(pProgram, 0, &pResult));
+    VERIFY_IS_NOT_NULL(pResult);
+    HRESULT Status;
+    VERIFY_SUCCEEDED(pResult->GetStatus(&Status));
+    VERIFY_FAILED(Status);
+    CheckOperationResultMsgs(pResult, {ExpectedError},
+                             /*maySucceedAnyway*/ false, /*bRegex*/ false);
+  };
+
+  hlsl::DxilContainerHeader *pHeader =
+      static_cast<hlsl::DxilContainerHeader *>(pProgram->GetBufferPointer());
+  DxilPartHeader *pPSVPart =
+      GetDxilPartByType(pHeader, hlsl::DFCC_PipelineStateValidation);
+  VERIFY_IS_NOT_NULL(pPSVPart);
+
+  DxilPipelineStateValidation PSV;
+  VERIFY_IS_TRUE(
+      PSV.InitFromPSV0(GetDxilPartData(pPSVPart), pPSVPart->PartSize));
+
+  PSVLinAlgRuntimeInfo0 *LinAlgRuntimeInfo = PSV.GetPSVLinAlgRuntimeInfo0();
+  PSVLinAlgMatrixOperationShape0 *Shape =
+      PSV.GetPSVLinAlgMatrixOperationShape(0);
+  PSVLinAlgMatrixConstruction0 *Construction =
+      PSV.GetPSVLinAlgMatrixConstruction(0);
+  VERIFY_IS_NOT_NULL(LinAlgRuntimeInfo);
+  VERIFY_IS_NOT_NULL(Shape);
+  VERIFY_IS_NOT_NULL(Construction);
+  VERIFY_ARE_EQUAL(6u, PSV.GetPSVLinAlgMatrixOperationShapeCount());
+  VERIFY_ARE_EQUAL(3u, PSV.GetPSVLinAlgMatrixConstructionCount());
+  VERIFY_ARE_EQUAL(2u, Construction->OperationShapes.Count);
+
+  uint32_t OriginalConstructionCount =
+      LinAlgRuntimeInfo->MatrixConstructionCount;
+  uint32_t *ConstructionRecordSize =
+      reinterpret_cast<uint32_t *>(Construction) - 1;
+  uint32_t OriginalConstructionRecordSize = *ConstructionRecordSize;
+  LinAlgRuntimeInfo->MatrixConstructionCount = 1;
+  *ConstructionRecordSize =
+      OriginalConstructionRecordSize * OriginalConstructionCount;
+  ValidateFailure(
+      "DXIL container mismatch for 'LinAlgMatrixConstructionCount'");
+  LinAlgRuntimeInfo->MatrixConstructionCount = OriginalConstructionCount;
+  *ConstructionRecordSize = OriginalConstructionRecordSize;
+
+  ++Shape->M;
+  ValidateFailure(
+      "DXIL container mismatch for 'LinAlgMatrixOperationShape[0]'");
+  --Shape->M;
+
+  ++Construction->MatrixType;
+  ValidateFailure("DXIL container mismatch for 'LinAlgMatrixConstruction[0]'");
+  --Construction->MatrixType;
+
+  uint32_t OriginalShapeCount = Construction->OperationShapes.Count;
+  --Construction->OperationShapes.Count;
+  ValidateFailure("DXIL container mismatch for "
+                  "'LinAlgMatrixConstructionOperationShapesCount'");
+  Construction->OperationShapes.Count = OriginalShapeCount;
+
+  uint32_t OriginalShapesIndex = Construction->OperationShapes.ShapesIndex;
+  Construction->OperationShapes.ShapesIndex =
+      PSV.GetSemanticIndexTable().Entries + 1;
+  ValidateFailure("In 'PSV0 part', 'LinAlgOperationShapes' is not well-formed");
+  Construction->OperationShapes.ShapesIndex = OriginalShapesIndex;
+
+  uint32_t *ShapeIndexes = const_cast<uint32_t *>(
+      PSV.GetSemanticIndexTable().Get(OriginalShapesIndex));
+  VERIFY_IS_NOT_NULL(ShapeIndexes);
+  uint32_t OriginalShapeIndex = ShapeIndexes[0];
+  ShapeIndexes[0] = PSV.GetPSVLinAlgMatrixOperationShapeCount();
+  ValidateFailure(
+      "In 'PSV0 part', 'LinAlgOperationShapeIndex' is not well-formed");
+  ShapeIndexes[0] = OriginalShapeIndex;
+
+  std::swap(ShapeIndexes[0], ShapeIndexes[1]);
+  ValidateFailure("DXIL container mismatch for "
+                  "'LinAlgMatrixConstructionOperationShapes'");
+  std::swap(ShapeIndexes[0], ShapeIndexes[1]);
+
+  CComPtr<IDxcOperationResult> pResult;
+  VERIFY_SUCCEEDED(pValidator->Validate(pProgram, 0, &pResult));
+  CheckOperationResultMsgs(pResult, {}, false, false);
 }
 
 struct SimpleContainer {

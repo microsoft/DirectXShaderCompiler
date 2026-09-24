@@ -6783,13 +6783,14 @@ Value *TranslateLinAlgFillMatrix(CallInst *CI, IntrinsicOp IOP,
   Value *MatrixPtr = CI->getArgOperand(1);
   DXASSERT_NOMSG(isa<PointerType>(MatrixPtr->getType()));
   Type *MatrixType = MatrixPtr->getType()->getPointerElementType();
-  Value *Scalar = CI->getArgOperand(2);
+  Value *IsInputSigned = CI->getArgOperand(2);
+  Value *Scalar = CI->getArgOperand(3);
 
   Constant *OpArg = HlslOp->GetU32Const((unsigned)OpCode);
   Function *DxilFunc =
       HlslOp->GetOpFunc(OpCode, {MatrixType, Scalar->getType()});
 
-  Value *Matrix = Builder.CreateCall(DxilFunc, {OpArg, Scalar});
+  Value *Matrix = Builder.CreateCall(DxilFunc, {OpArg, IsInputSigned, Scalar});
   Builder.CreateStore(Matrix, MatrixPtr);
 
   return nullptr;
@@ -6913,14 +6914,16 @@ Value *TranslateLinAlgMatrixOuterProduct(
   Value *MatrixPtr = CI->getArgOperand(1);
   DXASSERT_NOMSG(isa<PointerType>(MatrixPtr->getType()));
   Type *MatrixType = MatrixPtr->getType()->getPointerElementType();
-  Value *VecA = CI->getArgOperand(2);
-  Value *VecB = CI->getArgOperand(3);
+  Value *IsInputSigned = CI->getArgOperand(2);
+  Value *VecA = CI->getArgOperand(3);
+  Value *VecB = CI->getArgOperand(4);
 
   Constant *OpArg = HlslOp->GetU32Const((unsigned)OpCode);
   Function *DxilFunc =
       HlslOp->GetOpFunc(OpCode, {MatrixType, VecA->getType(), VecB->getType()});
 
-  Value *Matrix = Builder.CreateCall(DxilFunc, {OpArg, VecA, VecB});
+  Value *Matrix =
+      Builder.CreateCall(DxilFunc, {OpArg, IsInputSigned, VecA, VecB});
   Builder.CreateStore(Matrix, MatrixPtr);
 
   return nullptr;
@@ -7157,10 +7160,9 @@ Value *TranslateLinAlgMatrixAccumToMemory(
 
   Value *Matrix = CI->getArgOperand(1);
   Value *Arr = CI->getArgOperand(2);
-  Value *TargetType = CI->getArgOperand(3);
-  Value *Offset = CI->getArgOperand(4);
-  Value *Stride = CI->getArgOperand(5);
-  Value *Layout = CI->getArgOperand(6);
+  Value *Offset = CI->getArgOperand(3);
+  Value *Stride = CI->getArgOperand(4);
+  Value *Layout = CI->getArgOperand(5);
 
   Value *Zero = Builder.getInt32(0);
   Value *ArrPtr = Builder.CreateGEP(Arr, {Zero, Zero});
@@ -7169,8 +7171,8 @@ Value *TranslateLinAlgMatrixAccumToMemory(
   Constant *OpArg = HlslOp->GetU32Const((unsigned)OpCode);
   Function *DxilFunc = HlslOp->GetOpFunc(OpCode, {Matrix->getType(), ArrEltTy});
 
-  return Builder.CreateCall(
-      DxilFunc, {OpArg, Matrix, ArrPtr, TargetType, Offset, Stride, Layout});
+  return Builder.CreateCall(DxilFunc,
+                            {OpArg, Matrix, ArrPtr, Offset, Stride, Layout});
 }
 
 Value *TranslateLinAlgConvert(CallInst *CI, IntrinsicOp IOP, OP::OpCode OpCode,

@@ -16,7 +16,7 @@ void main() {
   __builtin_LinAlg_CopyConvertMatrix(mat, mat2, true);
 
   // expected-error@+1{{intrinsic __builtin_LinAlg_FillMatrix potentially used by ''main'' requires shader model 6.10 or greater}}
-  __builtin_LinAlg_FillMatrix(mat, 1);
+  __builtin_LinAlg_FillMatrix(mat, true, 1);
 
   // expected-error@+1{{intrinsic __builtin_LinAlg_MatrixAccumulate potentially used by ''main'' requires shader model 6.10 or greater}}
   __builtin_LinAlg_MatrixAccumulate(mat2, mat, mat);
@@ -43,7 +43,7 @@ void main() {
   __builtin_LinAlg_MatrixMatrixMultiplyAccumulate(mat, mat2, mat2, mat);
 
   // expected-error@+1{{intrinsic __builtin_LinAlg_MatrixOuterProduct potentially used by ''main'' requires shader model 6.10 or greater}}
-  __builtin_LinAlg_MatrixOuterProduct(mat, vec1, vec2);
+  __builtin_LinAlg_MatrixOuterProduct(mat, true, vec1, vec2);
 
   // expected-error@+1{{intrinsic __builtin_LinAlg_MatrixQueryAccumulatorLayout potentially used by ''main'' requires shader model 6.10 or greater}}
   uint layout = __builtin_LinAlg_MatrixQueryAccumulatorLayout();
@@ -61,7 +61,7 @@ void main() {
   __builtin_LinAlg_MatrixVectorMultiplyAdd(result, mat, true, vec1, 1, vec2);
 
   // expected-error@+1{{intrinsic __builtin_LinAlg_MatrixAccumulateToMemory potentially used by ''main'' requires shader model 6.10 or greater}}
-  __builtin_LinAlg_MatrixAccumulateToMemory(mat, SharedArr, 0, 0, 0, 0);
+  __builtin_LinAlg_MatrixAccumulateToMemory(mat, SharedArr, 0, 0, 0);
 
   // expected-error@+1{{intrinsic __builtin_LinAlg_MatrixLoadFromMemory potentially used by ''main'' requires shader model 6.10 or greater}}
   __builtin_LinAlg_MatrixLoadFromMemory(mat, SharedArr, 0, 0, 0);

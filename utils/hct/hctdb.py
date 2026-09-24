@@ -651,6 +651,10 @@ class db_dxil(object):
 
     def populate_categories_and_models(self):
         "Populate the category and shader_stages member of instructions."
+
+        # TODO: Update all loops below to use helper
+        insts = self.get_insts_by_names
+
         for (
             i
         ) in "TempRegLoad,TempRegStore,MinPrecXRegLoad,MinPrecXRegStore,LoadInput,StoreOutput".split(
@@ -1093,35 +1097,18 @@ class db_dxil(object):
                 "library",
                 "raygeneration",
             )
-        # End of core DXIL ops
-        self.populate_categories_and_models_ExperimentalOps()
-
-    def populate_categories_and_models_ExperimentalOps(self):
-        # Note: Experimental ops must be set to a shader model higher than the
-        # most recent release until infrastructure is in place to opt-in to
-        # experimental ops and the validator can force use of the PREVIEW hash.
-
-        # Update experimental_sm to released + 1 minor version when highest
-        # released shader model is updated in latest-release.json.
-        experimental_sm = 6, 10
-
-        insts = self.get_insts_by_names
-
-        for i in insts("ExperimentalNop"):
-            i.category = "No-op"
-            i.shader_model = experimental_sm
 
         # Group Wave Index / Count
         for i in insts("GetGroupWaveIndex,GetGroupWaveCount"):
             i.category = "Group Wave Ops"
-            i.shader_model = experimental_sm
+            i.shader_model = 6, 10
             i.shader_stages = ("compute", "mesh", "amplification")
             i.is_wave = True
 
         # Clustered Geometry
         for i in insts("ClusterID"):
             i.category = "Raytracing uint System Values"
-            i.shader_model = experimental_sm
+            i.shader_model = 6, 10
             i.shader_stages = (
                 "library",
                 "anyhit",
@@ -1129,10 +1116,10 @@ class db_dxil(object):
             )
         for i in insts("RayQuery_CandidateClusterID,RayQuery_CommittedClusterID"):
             i.category = "Inline Ray Query"
-            i.shader_model = experimental_sm
+            i.shader_model = 6, 10
         for i in insts("HitObject_ClusterID"):
             i.category = "Shader Execution Reordering"
-            i.shader_model = experimental_sm
+            i.shader_model = 6, 10
             i.shader_stages = (
                 "library",
                 "raygeneration",
@@ -1143,7 +1130,7 @@ class db_dxil(object):
         # Triangle Object Positions
         for i in insts("TriangleObjectPosition"):
             i.category = "Raytracing System Values"
-            i.shader_model = experimental_sm
+            i.shader_model = 6, 10
             i.shader_stages = (
                 "library",
                 "anyhit",
@@ -1154,10 +1141,10 @@ class db_dxil(object):
             "RayQuery_CommittedTriangleObjectPosition",
         ):
             i.category = "Inline Ray Query"
-            i.shader_model = experimental_sm
+            i.shader_model = 6, 10
         for i in insts("HitObject_TriangleObjectPosition"):
             i.category = "Shader Execution Reordering"
-            i.shader_model = experimental_sm
+            i.shader_model = 6, 10
             i.shader_stages = (
                 "library",
                 "raygeneration",
@@ -1165,7 +1152,7 @@ class db_dxil(object):
                 "miss",
             )
 
-        # Thread/Wave/ThreadGroup scope operations
+        # LinAlg Thread/Wave/ThreadGroup scope operations
         for i in insts(
             "LinAlgMatrixQueryAccumulatorLayout,LinAlgMatrixLoadFromDescriptor,"
             + "LinAlgMatrixAccumulateToDescriptor,LinAlgMatVecMul,"
@@ -1173,9 +1160,9 @@ class db_dxil(object):
             + "LinAlgVectorAccumulateToDescriptor"
         ):
             i.category = "Linear Algebra Operations"
-            i.shader_model = experimental_sm
+            i.shader_model = 6, 10
 
-        # Wave/ThreadGroup scope operations
+        # LinAlg Wave/ThreadGroup scope operations
         for i in insts(
             "LinAlgFillMatrix,LinAlgCopyConvertMatrix,LinAlgMatrixLength,"
             + "LinAlgMatrixGetCoordinate,LinAlgMatrixGetElement,"
@@ -1185,13 +1172,31 @@ class db_dxil(object):
             + "LinAlgMatrixMultiplyAccumulate,LinAlgMatrixAccumulate"
         ):
             i.category = "Linear Algebra Operations"
-            i.shader_model = experimental_sm
+            i.shader_model = 6, 10
             i.shader_stages = (
                 "compute",
             )
 
         for i in insts("DebugBreak", "IsDebuggingEnabled"):
             i.category = "Debugging"
+            i.shader_model = 6, 10
+
+        # End of core DXIL ops
+        self.populate_categories_and_models_ExperimentalOps()
+
+    def populate_categories_and_models_ExperimentalOps(self):
+        # Note: Experimental ops must be set to a shader model higher than the
+        # most recent release until infrastructure is in place to opt-in to
+        # experimental ops and the validator can force use of the PREVIEW hash.
+
+        # Update experimental_sm to released + 1 minor version when highest
+        # released shader model is updated in latest-release.json.
+        experimental_sm = 6, 11
+
+        insts = self.get_insts_by_names
+
+        for i in insts("ExperimentalNop"):
+            i.category = "No-op"
             i.shader_model = experimental_sm
 
     def populate_llvm_instructions(self):
@@ -6131,27 +6136,6 @@ class db_dxil(object):
             % op_count
         )
 
-    def populate_ExperimentalOps(self):
-        "Populate DXIL operations for ExperimentalOps."
-        op_table = self.add_dxil_op_table(
-            0x8000, "ExperimentalOps", "Experimental DXIL operations"
-        )
-        add_dxil_op = op_table.add_dxil_op
-
-        retvoid_param = db_dxil_param(0, "v", "", "no return value")
-
-        # Add Nop to test experimental table infrastructure.
-        add_dxil_op(
-            "ExperimentalNop",
-            "Nop",
-            "nop does nothing",
-            "v",
-            "rn",
-            [
-                db_dxil_param(0, "v", "", "no result"),
-            ],
-        )
-
         # Group Wave Operations
         add_dxil_op(
             "GetGroupWaveIndex",
@@ -6281,7 +6265,10 @@ class db_dxil(object):
             "",
             [
                 db_dxil_param(0, "$x0", "", "resulting matrix"),
-                db_dxil_param(2, "$x1", "value", "value to fill matrix with"),
+                db_dxil_param(
+                    2, "i1", "isInputSigned", "true if input is signed"
+                ),
+                db_dxil_param(3, "$x1", "value", "value to fill matrix with"),
             ],
         )
 
@@ -6552,15 +6539,16 @@ class db_dxil(object):
                 db_dxil_param(
                     3, "$x_gs1", "memory", "groupshared array to accumulate into"
                 ),
-                db_dxil_param(4, "i32", "targetType", "data type of the array"),
-                db_dxil_param(5, "i32", "offset", "starting offset in the array in elements"),
                 db_dxil_param(
-                    6,
+                    4, "i32", "offset", "starting offset in the array in elements"
+                ),
+                db_dxil_param(
+                    5,
                     "i32",
                     "stride",
                     "number of elements between the start of each row or column",
                 ),
-                db_dxil_param(7, "i32", "layout", "memory layout of matrix elements"),
+                db_dxil_param(6, "i32", "layout", "memory layout of matrix elements"),
             ],
         )
 
@@ -6572,8 +6560,11 @@ class db_dxil(object):
             "",
             [
                 db_dxil_param(0, "$x0", "", "resulting matrix"),
-                db_dxil_param(2, "$x1", "vectorA", "M dim vector"),
-                db_dxil_param(3, "$x2", "vectorB", "N dim vector"),
+                db_dxil_param(
+                    2, "i1", "isInputSigned", "true if input is signed"
+                ),
+                db_dxil_param(3, "$x1", "vectorA", "M dim vector"),
+                db_dxil_param(4, "$x2", "vectorB", "N dim vector"),
             ],
         )
 
@@ -6610,8 +6601,6 @@ class db_dxil(object):
             ],
         )
 
-        op_table.reserve_dxil_op_range("ReservedE", 1)
-
         # Debugging intrinsics
         add_dxil_op(
             "DebugBreak",
@@ -6633,6 +6622,38 @@ class db_dxil(object):
                 db_dxil_param(0, "i1", "", "true if debugging is enabled"),
             ],
         )
+
+        # End of DXIL 1.10 opcodes.
+        op_count = set_op_count_for_version(1, 10)
+        assert op_count == 345, (
+            "345 is expected next operation index but encountered %d and thus opcodes are broken"
+            % op_count
+        )
+
+    def populate_ExperimentalOps(self):
+        "Populate DXIL operations for ExperimentalOps."
+        op_table = self.add_dxil_op_table(
+            0x8000, "ExperimentalOps", "Experimental DXIL operations"
+        )
+        add_dxil_op = op_table.add_dxil_op
+
+        retvoid_param = db_dxil_param(0, "v", "", "no return value")
+
+        # Add Nop to test experimental table infrastructure.
+        add_dxil_op(
+            "ExperimentalNop",
+            "Nop",
+            "nop does nothing",
+            "v",
+            "rn",
+            [
+                db_dxil_param(0, "v", "", "no result"),
+            ],
+        )
+
+        # Reserved in 6.10. Free for reuse in 6.12
+        op_table.reserve_dxil_op_range("ReservedE", 34)
+
 
     def finalize_dxil_operations(self):
         "Finalize DXIL operations by setting properties and verifying consistency."

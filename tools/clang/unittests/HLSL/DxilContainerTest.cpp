@@ -109,6 +109,7 @@ public:
   TEST_METHOD(Compile_CheckPSV0_EntryFunctionName)
   TEST_METHOD(CompileCSWaveSize_CheckPSV0)
   TEST_METHOD(CompileCSWaveSizeRange_CheckPSV0)
+  TEST_METHOD(PSVLinAlgRuntimeInfoRoundTripAndPrint)
   TEST_METHOD(CompileWhenOkThenCheckRDAT)
   TEST_METHOD(CompileWhenOkThenCheckRDAT2)
   TEST_METHOD(CompileWhenOkThenCheckRDATSM69)
@@ -1448,6 +1449,178 @@ TEST_F(DxilContainerTest, CompileCSWaveSizeRange_CheckPSV0) {
   // Same range, whether preferred is set or not.
   TestCompile(L"-DPREFERRED=");
   TestCompile(L"-DPREFERRED=,32");
+}
+
+TEST_F(DxilContainerTest, PSVLinAlgRuntimeInfoRoundTripAndPrint) {
+  const PSVLinAlgMatrixOperationShape0 Shapes[] = {
+      {8, 16, 4},
+      {16, 8, 2},
+      {32, 32, 16},
+  };
+  const uint32_t ShapeIndexes[] = {0, 2, 1, 2, 0};
+  const PSVLinAlgMatrixConstruction0 Constructions[] = {
+      {{0, 2}, 4, {0, 0, 0}},
+  };
+  const PSVLinAlgThreadMatrixVectorMultiply0 ThreadMatrixVectorMultiplies[] = {
+      {1, 2, 3, 3},
+  };
+  const PSVLinAlgWaveMatrixMultiply0 WaveMatrixMultiplies[] = {
+      {{2, 2}, 5, 6, 7, 0},
+  };
+  const PSVLinAlgThreadGroupMatrixMultiply0 ThreadGroupMatrixMultiplies[] = {
+      {{4, 1}, 8, 9, 10, 0},
+  };
+  const PSVLinAlgOuterProduct0 OuterProducts[] = {
+      {11, 12, {0, 0}},
+  };
+  const PSVLinAlgAccumulateStore0 AccumulateStores[] = {
+      {13, 3, {0, 0}},
+  };
+  const char StringTable[] = {'\0'};
+
+  PSVInitInfo InitInfo(MAX_PSV_VERSION);
+  InitInfo.ShaderStage = PSVShaderKind::Compute;
+  InitInfo.StringTable = PSVStringTable(StringTable, sizeof(StringTable));
+  InitInfo.SemanticIndexTable =
+      PSVSemanticIndexTable(ShapeIndexes, std::size(ShapeIndexes));
+  InitInfo.LinAlgMatrixOperationShapes = Shapes;
+  InitInfo.LinAlgMatrixOperationShapeCount = std::size(Shapes);
+  InitInfo.LinAlgMatrixConstructions = Constructions;
+  InitInfo.LinAlgMatrixConstructionCount = std::size(Constructions);
+  InitInfo.LinAlgThreadMatrixVectorMultiplies = ThreadMatrixVectorMultiplies;
+  InitInfo.LinAlgThreadMatrixVectorMultiplyCount =
+      std::size(ThreadMatrixVectorMultiplies);
+  InitInfo.LinAlgWaveMatrixMultiplies = WaveMatrixMultiplies;
+  InitInfo.LinAlgWaveMatrixMultiplyCount = std::size(WaveMatrixMultiplies);
+  InitInfo.LinAlgThreadGroupMatrixMultiplies = ThreadGroupMatrixMultiplies;
+  InitInfo.LinAlgThreadGroupMatrixMultiplyCount =
+      std::size(ThreadGroupMatrixMultiplies);
+  InitInfo.LinAlgOuterProducts = OuterProducts;
+  InitInfo.LinAlgOuterProductCount = std::size(OuterProducts);
+  InitInfo.LinAlgAccumulateStores = AccumulateStores;
+  InitInfo.LinAlgAccumulateStoreCount = std::size(AccumulateStores);
+
+  DxilPipelineStateValidation Writer;
+  uint32_t PSVSize = 0;
+  VERIFY_IS_TRUE(Writer.InitNew(InitInfo, nullptr, &PSVSize));
+  std::vector<uint8_t> PSVBuffer(PSVSize);
+  VERIFY_IS_TRUE(Writer.InitNew(InitInfo, PSVBuffer.data(), &PSVSize));
+
+  DxilPipelineStateValidation Reader;
+  VERIFY_IS_TRUE(Reader.InitFromPSV0(PSVBuffer.data(), PSVSize));
+
+  PSVRuntimeInfo4 *RuntimeInfo = Reader.GetPSVRuntimeInfo4();
+  VERIFY_IS_NOT_NULL(RuntimeInfo);
+  VERIFY_ARE_EQUAL(
+      static_cast<uint32_t>(PSVRuntimeInfo4Flag::LinAlgRuntimeInfoPresent),
+      RuntimeInfo->Flags);
+
+  VERIFY_ARE_EQUAL(3u, Reader.GetPSVLinAlgMatrixOperationShapeCount());
+  VERIFY_ARE_EQUAL(1u, Reader.GetPSVLinAlgMatrixConstructionCount());
+  VERIFY_ARE_EQUAL(1u, Reader.GetPSVLinAlgThreadMatrixVectorMultiplyCount());
+  VERIFY_ARE_EQUAL(1u, Reader.GetPSVLinAlgWaveMatrixMultiplyCount());
+  VERIFY_ARE_EQUAL(1u, Reader.GetPSVLinAlgThreadGroupMatrixMultiplyCount());
+  VERIFY_ARE_EQUAL(1u, Reader.GetPSVLinAlgOuterProductCount());
+  VERIFY_ARE_EQUAL(1u, Reader.GetPSVLinAlgAccumulateStoreCount());
+
+  PSVLinAlgMatrixOperationShape0 *Shape =
+      Reader.GetPSVLinAlgMatrixOperationShape(2);
+  VERIFY_IS_NOT_NULL(Shape);
+  VERIFY_ARE_EQUAL(32u, Shape->M);
+  VERIFY_ARE_EQUAL(32u, Shape->N);
+  VERIFY_ARE_EQUAL(16u, Shape->K);
+  VERIFY_IS_NULL(Reader.GetPSVLinAlgMatrixOperationShape(3));
+
+  PSVLinAlgMatrixConstruction0 *Construction =
+      Reader.GetPSVLinAlgMatrixConstruction(0);
+  VERIFY_IS_NOT_NULL(Construction);
+  VERIFY_ARE_EQUAL(0u, Construction->OperationShapes.ShapesIndex);
+  VERIFY_ARE_EQUAL(2u, Construction->OperationShapes.Count);
+  VERIFY_ARE_EQUAL(4u, static_cast<uint32_t>(Construction->MatrixType));
+
+  PSVLinAlgThreadMatrixVectorMultiply0 *ThreadMatrixVectorMultiply =
+      Reader.GetPSVLinAlgThreadMatrixVectorMultiply(0);
+  VERIFY_IS_NOT_NULL(ThreadMatrixVectorMultiply);
+  VERIFY_ARE_EQUAL(
+      1u, static_cast<uint32_t>(ThreadMatrixVectorMultiply->ResultType));
+  VERIFY_ARE_EQUAL(
+      2u, static_cast<uint32_t>(ThreadMatrixVectorMultiply->MatrixType));
+  VERIFY_ARE_EQUAL(
+      3u, static_cast<uint32_t>(ThreadMatrixVectorMultiply->VectorInputType));
+  VERIFY_ARE_EQUAL(3u,
+                   static_cast<uint32_t>(ThreadMatrixVectorMultiply->Flags));
+
+  PSVLinAlgWaveMatrixMultiply0 *WaveMatrixMultiply =
+      Reader.GetPSVLinAlgWaveMatrixMultiply(0);
+  VERIFY_IS_NOT_NULL(WaveMatrixMultiply);
+  VERIFY_ARE_EQUAL(2u, WaveMatrixMultiply->OperationShapes.ShapesIndex);
+  VERIFY_ARE_EQUAL(2u, WaveMatrixMultiply->OperationShapes.Count);
+  VERIFY_ARE_EQUAL(5u,
+                   static_cast<uint32_t>(WaveMatrixMultiply->AccumulatorType));
+  VERIFY_ARE_EQUAL(6u, static_cast<uint32_t>(WaveMatrixMultiply->MatrixAType));
+  VERIFY_ARE_EQUAL(7u, static_cast<uint32_t>(WaveMatrixMultiply->MatrixBType));
+
+  PSVLinAlgThreadGroupMatrixMultiply0 *ThreadGroupMatrixMultiply =
+      Reader.GetPSVLinAlgThreadGroupMatrixMultiply(0);
+  VERIFY_IS_NOT_NULL(ThreadGroupMatrixMultiply);
+  VERIFY_ARE_EQUAL(4u, ThreadGroupMatrixMultiply->OperationShapes.ShapesIndex);
+  VERIFY_ARE_EQUAL(1u, ThreadGroupMatrixMultiply->OperationShapes.Count);
+  VERIFY_ARE_EQUAL(
+      8u, static_cast<uint32_t>(ThreadGroupMatrixMultiply->AccumulatorType));
+  VERIFY_ARE_EQUAL(
+      9u, static_cast<uint32_t>(ThreadGroupMatrixMultiply->MatrixAType));
+  VERIFY_ARE_EQUAL(
+      10u, static_cast<uint32_t>(ThreadGroupMatrixMultiply->MatrixBType));
+
+  PSVLinAlgOuterProduct0 *OuterProduct = Reader.GetPSVLinAlgOuterProduct(0);
+  VERIFY_IS_NOT_NULL(OuterProduct);
+  VERIFY_ARE_EQUAL(11u, static_cast<uint32_t>(OuterProduct->ResultType));
+  VERIFY_ARE_EQUAL(12u, static_cast<uint32_t>(OuterProduct->VectorInputType));
+
+  PSVLinAlgAccumulateStore0 *AccumulateStore =
+      Reader.GetPSVLinAlgAccumulateStore(0);
+  VERIFY_IS_NOT_NULL(AccumulateStore);
+  VERIFY_ARE_EQUAL(13u,
+                   static_cast<uint32_t>(AccumulateStore->AccumulatorType));
+  VERIFY_ARE_EQUAL(3u, static_cast<uint32_t>(AccumulateStore->Flags));
+
+  std::string Dump;
+  llvm::raw_string_ostream OS(Dump);
+  Reader.Print(OS, static_cast<uint8_t>(PSVShaderKind::Compute));
+  OS.flush();
+
+  const char *ExpectedDumpLines[] = {
+      " LinAlgRuntimeInfoPresent: true\n",
+      "PSVLinAlgRuntimeInfo:\n",
+      " MatrixOperationShapeCount: 3\n",
+      " MatrixConstructionCount: 1\n",
+      " ThreadMatrixVectorMultiplyCount: 1\n",
+      " WaveMatrixMultiplyCount: 1\n",
+      " ThreadGroupMatrixMultiplyCount: 1\n",
+      " OuterProductCount: 1\n",
+      " AccumulateStoreCount: 1\n",
+      " MatrixConstruction[0]: MatrixType=4, Shapes=[(8,16,4), "
+      "(32,32,16)]\n",
+      " ThreadMatrixVectorMultiply[0]: ResultType=1, MatrixType=2, "
+      "VectorInputType=3, Flags=3\n",
+      " WaveMatrixMultiply[0]: AccumulatorType=5, MatrixAType=6, "
+      "MatrixBType=7, Shapes=[(16,8,2), (32,32,16)]\n",
+      " ThreadGroupMatrixMultiply[0]: AccumulatorType=8, MatrixAType=9, "
+      "MatrixBType=10, Shapes=[(8,16,4)]\n",
+      " OuterProduct[0]: ResultType=11, VectorInputType=12\n",
+      " AccumulateStore[0]: AccumulatorType=13, Flags=3\n",
+  };
+  for (const char *Expected : ExpectedDumpLines)
+    VERIFY_IS_TRUE(Dump.find(Expected) != std::string::npos);
+
+  Construction->OperationShapes.ShapesIndex =
+      static_cast<uint32_t>(std::size(ShapeIndexes) + 1);
+  Dump.clear();
+  Reader.Print(OS, static_cast<uint8_t>(PSVShaderKind::Compute));
+  OS.flush();
+  VERIFY_IS_TRUE(
+      Dump.find(" MatrixConstruction[0]: MatrixType=4, Shapes=[invalid]\n") !=
+      std::string::npos);
 }
 
 TEST_F(DxilContainerTest, CompileWhenOkThenCheckRDAT) {

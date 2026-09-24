@@ -14,7 +14,7 @@ struct BufferData {
 
 using MyInt = vk::SpirvType<
     /*spv::OpTypeInt*/21,
-    1,1, // size and alignment
+    2,2, // size and alignment (a 16-bit int is 2 bytes)
     vk::Literal<vk::integral_constant<uint,16> >, // bits
     vk::Literal<vk::integral_constant<uint,1> > // signed
 >;
@@ -60,7 +60,7 @@ float4 main() : SV_Target0 {
   d = vk::RawBufferLoad<BufferData>(0);
 
   // CHECK: [[buf:%[0-9]+]] = OpBitcast %_ptr_PhysicalStorageBuffer_spirvIntrinsicType %ulong_0
-  // CHECK-NEXT: [[load:%[0-9]+]] = OpLoad %spirvIntrinsicType [[buf]] Aligned 4
+  // CHECK-NEXT: [[load:%[0-9]+]] = OpLoad %spirvIntrinsicType [[buf]] Aligned 2
   // CHECK-NEXT: OpStore %mi [[load]]
   MyInt mi = vk::RawBufferLoad<MyInt>(0);
 

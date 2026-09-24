@@ -19,12 +19,13 @@ void main() {
 // CHECK-NEXT: AvailabilityAttr {{.*}} Implicit  6.10 0 0 ""
   __builtin_LinAlg_CopyConvertMatrix(mat2, mat1, true);
 
-// CHECK: FunctionDecl {{.*}} implicit used __builtin_LinAlg_FillMatrix 'void (__builtin_LinAlgMatrix & {{.*}}, unsigned int)' extern
+// CHECK: FunctionDecl {{.*}} implicit used __builtin_LinAlg_FillMatrix 'void (__builtin_LinAlgMatrix & {{.*}}, bool, unsigned int)' extern
 // CHECK-NEXT: ParmVarDecl {{.*}} ret '__builtin_LinAlgMatrix &&__restrict {{.*}}'
+// CHECK-NEXT: ParmVarDecl {{.*}} isInputSigned 'bool'
 // CHECK-NEXT: ParmVarDecl {{.*}} value 'unsigned int'
 // CHECK-NEXT: HLSLIntrinsicAttr {{.*}} Implicit "op" "" 402
 // CHECK-NEXT: AvailabilityAttr {{.*}} Implicit  6.10 0 0 ""
-  __builtin_LinAlg_FillMatrix(mat1, 15);
+  __builtin_LinAlg_FillMatrix(mat1, true, 15);
 
 // CHECK: FunctionDecl {{.*}} implicit used __builtin_LinAlg_MatrixAccumulate 'void (__builtin_LinAlgMatrix {{.*}}, __builtin_LinAlgMatrix {{.*}}, __builtin_LinAlgMatrix {{.*}})' extern
 // CHECK-NEXT: ParmVarDecl {{.*}} matrixC '__builtin_LinAlgMatrix {{.*}}'
@@ -45,16 +46,15 @@ void main() {
 // CHECK-NEXT: AvailabilityAttr {{.*}} Implicit  6.10 0 0 ""
   __builtin_LinAlg_MatrixAccumulateToDescriptor(mat1, Buf, 1, 2, 3, 4);
 
-// CHECK: FunctionDecl {{.*}} implicit used __builtin_LinAlg_MatrixAccumulateToMemory 'void (__builtin_LinAlgMatrix {{.*}}, float const __attribute__((address_space(3))) (&)[64], unsigned int, unsigned int, unsigned int, unsigned int)' extern
+// CHECK: FunctionDecl {{.*}} implicit used __builtin_LinAlg_MatrixAccumulateToMemory 'void (__builtin_LinAlgMatrix {{.*}}, float const __attribute__((address_space(3))) (&)[64], unsigned int, unsigned int, unsigned int)' extern
 // CHECK-NEXT: ParmVarDecl {{.*}} matrix '__builtin_LinAlgMatrix {{.*}}'
 // CHECK-NEXT: ParmVarDecl {{.*}} memory 'float const __attribute__((address_space(3))) (&)[64]'
-// CHECK-NEXT: ParmVarDecl {{.*}} targetType 'unsigned int'
 // CHECK-NEXT: ParmVarDecl {{.*}} offset 'unsigned int'
 // CHECK-NEXT: ParmVarDecl {{.*}} stride 'unsigned int'
 // CHECK-NEXT: ParmVarDecl {{.*}} layout 'unsigned int'
 // CHECK-NEXT: HLSLIntrinsicAttr {{.*}} Implicit "op" "" 416
 // CHECK-NEXT: AvailabilityAttr {{.*}} Implicit  6.10 0 0 ""
-  __builtin_LinAlg_MatrixAccumulateToMemory(mat1, SharedArr, 0, 0, 0, 0);
+  __builtin_LinAlg_MatrixAccumulateToMemory(mat1, SharedArr, 0, 0, 0);
 
 // CHECK: FunctionDecl {{.*}} implicit used __builtin_LinAlg_MatrixGetCoordinate 'vector<uint, 2> (__builtin_LinAlgMatrix {{.*}}, unsigned int)' extern
 // CHECK-NEXT: ParmVarDecl {{.*}} matrix '__builtin_LinAlgMatrix {{.*}}'
@@ -125,15 +125,16 @@ void main() {
 // CHECK-NEXT: AvailabilityAttr {{.*}} Implicit  6.10 0 0 ""
   __builtin_LinAlg_MatrixMatrixMultiplyAccumulate(mat1, mat2, mat3, mat1);
 
-// CHECK: FunctionDecl {{.*}} implicit used __builtin_LinAlg_MatrixOuterProduct 'void (__builtin_LinAlgMatrix {{.*}}, vector<int, 4>, vector<int, 4>)' extern
+// CHECK: FunctionDecl {{.*}} implicit used __builtin_LinAlg_MatrixOuterProduct 'void (__builtin_LinAlgMatrix {{.*}}, bool, vector<int, 4>, vector<int, 4>)' extern
 // CHECK-NEXT: ParmVarDecl {{.*}} ret '__builtin_LinAlgMatrix {{.*}}'
+// CHECK-NEXT: ParmVarDecl {{.*}} isInputSigned 'bool'
 // CHECK-NEXT: ParmVarDecl {{.*}} vecA 'vector<int, 4>':'vector<int, 4>'
 // CHECK-NEXT: ParmVarDecl {{.*}} vecB 'vector<int, 4>':'vector<int, 4>'
 // CHECK-NEXT: HLSLIntrinsicAttr {{.*}} Implicit "op" "" 417
 // CHECK-NEXT: AvailabilityAttr {{.*}} Implicit  6.10 0 0 ""
   int4 vecA = {1,2,3,4};
   int4 vecB = {1,2,3,4};
-  __builtin_LinAlg_MatrixOuterProduct(mat1, vecA, vecB);
+  __builtin_LinAlg_MatrixOuterProduct(mat1, true, vecA, vecB);
 
 // CHECK: FunctionDecl {{.*}} implicit used __builtin_LinAlg_MatrixQueryAccumulatorLayout 'unsigned int ()' extern
 // CHECK-NEXT: HLSLIntrinsicAttr {{.*}} Implicit "op" "" 414

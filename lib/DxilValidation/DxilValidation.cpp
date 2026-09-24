@@ -1240,16 +1240,16 @@ static void ValidateLinAlgMatrixStoreToDescriptor(CallInst *CI,
                                 ValidationRule::InstrLinAlgMatrixRequiresRWBAB,
                                 {"LinAlgMatrixStoreToDescriptor"});
 
-  // Align must be an imm constant that is a multiple of 128 greater than 0
+  // Align must be an imm constant that is a multiple of 4 greater than 0
   std::optional<uint64_t> Align = ValidateConstantIntGetValue(
       CI, Op.get_align(), ValCtx, "Align", "LinAlgMatrixStoreToDescriptor");
   if (Align) {
     if (*Align == 0)
       ValCtx.EmitInstrFormatError(CI, ValidationRule::InstrParamMinimumValue,
                                   {"Align", "0", std::to_string(*Align)});
-    if (*Align % 128 != 0)
+    if (*Align % 4 != 0)
       ValCtx.EmitInstrFormatError(CI, ValidationRule::InstrParamMultiple,
-                                  {"Align", "128", std::to_string(*Align)});
+                                  {"Align", "4", std::to_string(*Align)});
   }
 }
 
@@ -1304,27 +1304,40 @@ static void ValidateLinAlgMatrixStoreToMemory(CallInst *CI,
   // gs memory ops have the parameter in element count so it must be scaled
   uint64_t ByteCount = ComponentTypeByteCount(Mat->Type);
 
-  // if it is constant then offset must be 128-byte aligned
+  // if it is constant then offset must be 4-byte aligned
   if (ConstantInt *OffsetV = dyn_cast<ConstantInt>(Op.get_offset())) {
     unsigned Offset = OffsetV->getLimitedValue();
     uint64_t OffsetBytes = Offset * ByteCount;
-    if (OffsetBytes % 128 != 0)
+    if (OffsetBytes % 4 != 0)
       ValCtx.EmitInstrFormatError(
           CI, ValidationRule::InstrLinAlgMatrixBytewiseMustBeMultiple,
-          {"Offset", "128", std::to_string(OffsetBytes), std::to_string(Offset),
+          {"Offset", "4", std::to_string(OffsetBytes), std::to_string(Offset),
            std::to_string(ByteCount)});
   }
 
-  // if it is constant then stride must be 16-byte aligned
+  // if it is constant then stride must be 4-byte aligned
   if (ConstantInt *StrideV = dyn_cast<ConstantInt>(Op.get_stride())) {
     unsigned Stride = StrideV->getLimitedValue();
     uint64_t StrideBytes = Stride * ByteCount;
-    if (StrideBytes % 16 != 0)
+    if (StrideBytes % 4 != 0)
       ValCtx.EmitInstrFormatError(
           CI, ValidationRule::InstrLinAlgMatrixBytewiseMustBeMultiple,
-          {"Stride", "16", std::to_string(StrideBytes), std::to_string(Stride),
+          {"Stride", "4", std::to_string(StrideBytes), std::to_string(Stride),
            std::to_string(ByteCount)});
   }
+}
+
+static void ValidateLinAlgIsInputSigned(CallInst *CI, Value *IsInputSignedValue,
+                                        Type *InputTy,
+                                        ValidationContext &ValCtx,
+                                        const char *OpName) {
+  std::optional<uint64_t> IsInputSigned = ValidateConstantIntGetValue(
+      CI, IsInputSignedValue, ValCtx, "IsInputSigned", OpName);
+  Type *ScalarTy = InputTy->getScalarType();
+  if (IsInputSigned && ScalarTy->isFloatingPointTy() && *IsInputSigned != 1)
+    ValCtx.EmitInstrFormatError(
+        CI, ValidationRule::InstrLinAlgMatrixUnsignedFloatTypeNotAllowed,
+        {TypeToString(ScalarTy)});
 }
 
 static void ValidateLinAlgMatVecMul(CallInst *CI, ValidationContext &ValCtx,
@@ -1481,7 +1494,9 @@ ValidateLinAlgMatrixAccumulateToDescriptor(CallInst *CI,
                                 ValidationRule::InstrLinAlgMatrixRequiresRWBAB,
                                 {"LinAlgMatrixAccumulateToDescriptor"});
 
-  // Align must be an imm constant that is a multiple of 128 greater than 0
+  uint64_t RequiredAlignment =
+      Mat->Scope == DXIL::MatrixScope::Thread ? 128 : 4;
+  // Align must be an imm constant with the scope's required alignment
   std::optional<uint64_t> Align =
       ValidateConstantIntGetValue(CI, Op.get_align(), ValCtx, "Align",
                                   "LinAlgMatrixAccumulateToDescriptor");
@@ -1489,9 +1504,10 @@ ValidateLinAlgMatrixAccumulateToDescriptor(CallInst *CI,
     if (*Align == 0)
       ValCtx.EmitInstrFormatError(CI, ValidationRule::InstrParamMinimumValue,
                                   {"Align", "0", std::to_string(*Align)});
-    if (*Align % 128 != 0)
-      ValCtx.EmitInstrFormatError(CI, ValidationRule::InstrParamMultiple,
-                                  {"Align", "128", std::to_string(*Align)});
+    if (*Align % RequiredAlignment != 0)
+      ValCtx.EmitInstrFormatError(
+          CI, ValidationRule::InstrParamMultiple,
+          {"Align", std::to_string(RequiredAlignment), std::to_string(*Align)});
   }
 }
 
@@ -1549,46 +1565,28 @@ static void ValidateLinAlgMatrixAccumulateToMemory(CallInst *CI,
         CI, ValidationRule::InstrLinAlgMatrixGSMemMustBeLargeEnough,
         {std::to_string(GSScalarCount), std::to_string(ExpectedScalarCount)});
 
-  // Target type must be a immarg of allowed ComponentType
-  DXIL::ComponentType Target = DXIL::ComponentType::Invalid;
-  std::optional<uint64_t> TargetV =
-      ValidateConstantIntGetValue(CI, Op.get_targetType(), ValCtx, "TargetType",
-                                  "LinAlgMatrixAccumulateToMemory");
-  if (TargetV) {
-    Target = static_cast<DXIL::ComponentType>(*TargetV);
-    ValidateLinAlgComponentType(CI, Target, ValCtx, "TargetType");
-
-    // if gs memory inner type != i32 then target elem type must match it
-    if (!GSMemInnerTy->isIntegerTy(32) &&
-        !IsComponentTypeSameNativeType(Target, GSMemInnerTy))
-      ValCtx.EmitInstrFormatError(
-          CI, ValidationRule::InstrLinAlgMatrixGSMemTypeMustMatch,
-          {TypeToString(GSMemInnerTy), "target",
-           ComponentTypeToString(Target)});
-  }
-
   // gs memory ops have the parameter in element count so it must be scaled
   uint64_t ByteCount = ComponentTypeByteCount(Mat->Type);
 
-  // if it is constant then offset must be 128-byte aligned
+  // if it is constant then offset must be 4-byte aligned
   if (ConstantInt *OffsetV = dyn_cast<ConstantInt>(Op.get_offset())) {
     unsigned Offset = OffsetV->getLimitedValue();
     uint64_t OffsetBytes = Offset * ByteCount;
-    if (OffsetBytes % 128 != 0)
+    if (OffsetBytes % 4 != 0)
       ValCtx.EmitInstrFormatError(
           CI, ValidationRule::InstrLinAlgMatrixBytewiseMustBeMultiple,
-          {"Offset", "128", std::to_string(OffsetBytes), std::to_string(Offset),
+          {"Offset", "4", std::to_string(OffsetBytes), std::to_string(Offset),
            std::to_string(ByteCount)});
   }
 
-  // if it is constant then stride must be 16-byte aligned
+  // if it is constant then stride must be 4-byte aligned
   if (ConstantInt *StrideV = dyn_cast<ConstantInt>(Op.get_stride())) {
     unsigned Stride = StrideV->getLimitedValue();
     uint64_t StrideBytes = Stride * ByteCount;
-    if (StrideBytes % 16 != 0)
+    if (StrideBytes % 4 != 0)
       ValCtx.EmitInstrFormatError(
           CI, ValidationRule::InstrLinAlgMatrixBytewiseMustBeMultiple,
-          {"Stride", "16", std::to_string(StrideBytes), std::to_string(Stride),
+          {"Stride", "4", std::to_string(StrideBytes), std::to_string(Stride),
            std::to_string(ByteCount)});
   }
 }
@@ -1710,6 +1708,10 @@ ValidateLinAlgVectorAccumulateToDescriptor(CallInst *CI,
 static void ValidateLinAlgFillMatrix(CallInst *CI, ValidationContext &ValCtx) {
   ValidateLinAlgOpReturnMatrix(CI, ValCtx);
   ValidateLinAlgOpParameters(CI, ValCtx);
+  DxilInst_LinAlgFillMatrix Op(CI);
+  ValidateLinAlgIsInputSigned(CI, Op.get_isInputSigned(),
+                              Op.get_value()->getType(), ValCtx,
+                              "LinAlgFillMatrix");
   std::optional<LinAlgTargetType> RetMat =
       GetCheckedLATT(CI->getType(), ValCtx);
   if (!RetMat)
@@ -1775,25 +1777,25 @@ static void ValidateLinAlgMatrixLoadFromMemory(CallInst *CI,
   // gs memory ops have the parameter in element count so it must be scaled
   uint64_t ByteCount = ComponentTypeByteCount(RetMat->Type);
 
-  // if it is constant then offset must be 128-byte aligned
+  // if it is constant then offset must be 4-byte aligned
   if (ConstantInt *OffsetV = dyn_cast<ConstantInt>(Op.get_offset())) {
     unsigned Offset = OffsetV->getLimitedValue();
     uint64_t OffsetBytes = Offset * ByteCount;
-    if (OffsetBytes % 128 != 0)
+    if (OffsetBytes % 4 != 0)
       ValCtx.EmitInstrFormatError(
           CI, ValidationRule::InstrLinAlgMatrixBytewiseMustBeMultiple,
-          {"Offset", "128", std::to_string(OffsetBytes), std::to_string(Offset),
+          {"Offset", "4", std::to_string(OffsetBytes), std::to_string(Offset),
            std::to_string(ByteCount)});
   }
 
-  // if it is constant then stride must be 16-byte aligned
+  // if it is constant then stride must be 4-byte aligned
   if (ConstantInt *StrideV = dyn_cast<ConstantInt>(Op.get_stride())) {
     unsigned Stride = StrideV->getLimitedValue();
     uint64_t StrideBytes = Stride * ByteCount;
-    if (StrideBytes % 16 != 0)
+    if (StrideBytes % 4 != 0)
       ValCtx.EmitInstrFormatError(
           CI, ValidationRule::InstrLinAlgMatrixBytewiseMustBeMultiple,
-          {"Stride", "16", std::to_string(StrideBytes), std::to_string(Stride),
+          {"Stride", "4", std::to_string(StrideBytes), std::to_string(Stride),
            std::to_string(ByteCount)});
   }
 }
@@ -2030,6 +2032,8 @@ static void ValidateLinAlgMatrixOuterProduct(CallInst *CI,
   DxilInst_LinAlgMatrixOuterProduct Op(CI);
   VectorType *AVecTy = cast<VectorType>(Op.get_vectorA()->getType());
   VectorType *BVecTy = cast<VectorType>(Op.get_vectorB()->getType());
+  ValidateLinAlgIsInputSigned(CI, Op.get_isInputSigned(), AVecTy, ValCtx,
+                              "LinAlgMatrixOuterProduct");
   std::optional<LinAlgTargetType> RetMat =
       GetCheckedLATT(CI->getType(), ValCtx);
   if (!RetMat)
@@ -2079,44 +2083,56 @@ static void ValidateLinAlgMatrixLoadFromDescriptor(CallInst *CI,
   if (!RetMat)
     return;
 
-  std::optional<uint64_t> LayoutV = ValidateConstantIntGetValue(
-      CI, Op.get_layout(), ValCtx, "Layout", "LinAlgMatrixLoadFromDescriptor");
-  if (!LayoutV)
-    return;
-  auto Layout = static_cast<DXIL::MatrixLayout>(*LayoutV);
-  bool LayoutIsRowColMajor = (Layout == DXIL::MatrixLayout::RowMajor ||
-                              Layout == DXIL::MatrixLayout::ColumnMajor);
-
-  // Layout must be Row/Col Major if Scope is Wave/ThreadGroup
-  if ((RetMat->Scope == DXIL::MatrixScope::Wave ||
-       RetMat->Scope == DXIL::MatrixScope::ThreadGroup) &&
-      !LayoutIsRowColMajor)
-    ValCtx.EmitInstrFormatError(
-        CI, ValidationRule::InstrLinAlgMatrixScopeReqLayout2,
-        {"Return", MatrixScopeToString(RetMat->Scope), "RowMajor",
-         "ColumnMajor", "LinAlgMatrixLoadFromDescriptor"});
-
-  // Stride must be an imm 0 if Layout is not Row/Col Major
-  if (!LayoutIsRowColMajor) {
-    std::optional<uint64_t> Stride =
-        ValidateConstantIntGetValue(CI, Op.get_stride(), ValCtx, "Stride",
-                                    "LinAlgMatrixLoadFromDescriptor");
-    if (Stride && *Stride != 0)
-      ValCtx.EmitInstrFormatError(
-          CI, ValidationRule::InstrLinAlgMatrixLayoutReqStride,
-          {"LinAlgMatrixLoadFromDescriptor", MatrixLayoutToString(Layout)});
+  std::optional<uint64_t> LayoutV;
+  // Layout must be an immarg for Thread matrix otherwise it can be non-immarg
+  if (RetMat->Scope == DXIL::MatrixScope::Thread) {
+    LayoutV = ValidateConstantIntGetValue(CI, Op.get_layout(), ValCtx, "Layout",
+                                          "LinAlgMatrixLoadFromDescriptor");
+    if (!LayoutV)
+      return;
+  } else if (ConstantInt *Layout = dyn_cast<ConstantInt>(Op.get_layout())) {
+    LayoutV = Layout->getZExtValue();
   }
 
-  // Align must be an imm constant that is a multiple of 128 greater than 0
+  if (LayoutV) {
+    DXIL::MatrixLayout Layout = static_cast<DXIL::MatrixLayout>(*LayoutV);
+    bool LayoutIsRowColMajor = (Layout == DXIL::MatrixLayout::RowMajor ||
+                                Layout == DXIL::MatrixLayout::ColumnMajor);
+
+    // Layout must be Row/Col Major if Scope is Wave/ThreadGroup
+    if ((RetMat->Scope == DXIL::MatrixScope::Wave ||
+         RetMat->Scope == DXIL::MatrixScope::ThreadGroup) &&
+        !LayoutIsRowColMajor)
+      ValCtx.EmitInstrFormatError(
+          CI, ValidationRule::InstrLinAlgMatrixScopeReqLayout2,
+          {"Return", MatrixScopeToString(RetMat->Scope), "RowMajor",
+           "ColumnMajor", "LinAlgMatrixLoadFromDescriptor"});
+
+    // Stride must be an imm 0 if Layout is not Row/Col Major
+    if (!LayoutIsRowColMajor) {
+      std::optional<uint64_t> Stride =
+          ValidateConstantIntGetValue(CI, Op.get_stride(), ValCtx, "Stride",
+                                      "LinAlgMatrixLoadFromDescriptor");
+      if (Stride && *Stride != 0)
+        ValCtx.EmitInstrFormatError(
+            CI, ValidationRule::InstrLinAlgMatrixLayoutReqStride,
+            {"LinAlgMatrixLoadFromDescriptor", MatrixLayoutToString(Layout)});
+    }
+  }
+
+  uint64_t RequiredAlignment =
+      RetMat->Scope == DXIL::MatrixScope::Thread ? 128 : 4;
+  // Align must be an imm constant with the scope's required alignment
   std::optional<uint64_t> Align = ValidateConstantIntGetValue(
       CI, Op.get_align(), ValCtx, "Align", "LinAlgMatrixLoadFromDescriptor");
   if (Align) {
     if (*Align == 0)
       ValCtx.EmitInstrFormatError(CI, ValidationRule::InstrParamMinimumValue,
                                   {"Align", "0", std::to_string(*Align)});
-    if (*Align % 128 != 0)
-      ValCtx.EmitInstrFormatError(CI, ValidationRule::InstrParamMultiple,
-                                  {"Align", "128", std::to_string(*Align)});
+    if (*Align % RequiredAlignment != 0)
+      ValCtx.EmitInstrFormatError(
+          CI, ValidationRule::InstrParamMultiple,
+          {"Align", std::to_string(RequiredAlignment), std::to_string(*Align)});
   }
 
   // Thread matrix may only load from SRV ByteAddressBuffer

@@ -7848,11 +7848,8 @@ def warn_hlsl_unsupported_statement_for_switch_attribute : Warning<
 def warn_hlsl_unsupported_statement_for_loop_attribute : Warning<
   "attribute %0 can only be applied to 'for', 'while' and 'do' loop statements">,
   InGroup<HLSLAttributeStatement>;
-def err_hlsl_matrix_layout_wrong_type : Error<
-  "%0 can only be used with a matrix type">;
-def warn_hlsl_effect_object : Warning <
-  "effect object ignored - effect syntax is deprecated">,
-  InGroup< HLSLEffectsSyntax >;
+def err_hlsl_matrix_layout_wrong_type
+    : Error<"%0 can only be used with a matrix type">;
 def warn_hlsl_unused_call : Warning<
   "ignoring return value of function that only reads data">,
   InGroup<UnusedValue>;

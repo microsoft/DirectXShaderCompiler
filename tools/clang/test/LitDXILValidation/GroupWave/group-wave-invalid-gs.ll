@@ -8,8 +8,8 @@ target datalayout = "e-m:e-p:32:32-i1:32-i8:32-i16:32-i32:32-i64:64-f16:32-f32:3
 target triple = "dxil-ms-dx"
 
 define void @mainGS() {
-  %1 = call i32 @dx.op.getGroupWaveIndex(i32 -2147483647)  ; GetGroupWaveIndex()
-  %2 = call i32 @dx.op.getGroupWaveCount(i32 -2147483646)  ; GetGroupWaveCount()
+  %1 = call i32 @dx.op.getGroupWaveIndex(i32 312)  ; GetGroupWaveIndex()
+  %2 = call i32 @dx.op.getGroupWaveCount(i32 313)  ; GetGroupWaveCount()
   br label %4
 
 ; <label>:3                                       ; preds = %4

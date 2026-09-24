@@ -193,6 +193,17 @@ struct ScalarCountFromPackedComponents {
       (PackedComponentCount + ElementsPerScalar - 1) / ElementsPerScalar;
 };
 
+template <ComponentEnum ElementType, SIZE_TYPE M, SIZE_TYPE N>
+struct DefaultAlign {
+  enum {
+    MinDim = M < N ? M : N,
+    ScalarCount = ScalarCountFromPackedComponents<ElementType, MinDim>::Value,
+    ByteAlign = ScalarCount * 4,
+    MinByteAlign = ByteAlign < 4 ? 4 : ByteAlign,
+    Value = MinByteAlign < 16 ? MinByteAlign : 16
+  };
+};
+
 } // namespace __detail
 
 template <ComponentEnum ElementType, uint DimA> struct VectorRef {
@@ -266,11 +277,12 @@ class Matrix {
       typename hlsl::enable_if<hlsl::is_arithmetic<T>::value, Matrix>::type
       Splat(T Val) {
     Matrix Result;
-    __builtin_LinAlg_FillMatrix(Result.__handle, Val);
+    __builtin_LinAlg_FillMatrix(Result.__handle, hlsl::is_signed<T>::value,
+                                Val);
     return Result;
   }
 
-  template <uint Align = 128>
+  template <uint Align = __detail::DefaultAlign<ComponentTy, M, N>::Value>
   [[nodiscard]] static Matrix Load(ByteAddressBuffer Res, uint StartOffset,
                                    uint Stride, MatrixLayoutEnum Layout) {
     Matrix Result;
@@ -279,7 +291,7 @@ class Matrix {
     return Result;
   }
 
-  template <uint Align = 128>
+  template <uint Align = __detail::DefaultAlign<ComponentTy, M, N>::Value>
   [[nodiscard]] static Matrix Load(RWByteAddressBuffer Res, uint StartOffset,
                                    uint Stride, MatrixLayoutEnum Layout) {
     Matrix Result;
@@ -333,7 +345,7 @@ class Matrix {
     __builtin_LinAlg_MatrixSetElement(__handle, __handle, Index, Value);
   }
 
-  template <uint Align = 128>
+  template <uint Align = __detail::DefaultAlign<ComponentTy, M, N>::Value>
   void Store(RWByteAddressBuffer Res, uint StartOffset, uint Stride,
              MatrixLayoutEnum Layout) {
     __builtin_LinAlg_MatrixStoreToDescriptor(__handle, Res, StartOffset, Stride,
@@ -354,7 +366,8 @@ class Matrix {
   }
 
   // Accumulate methods
-  template <uint Align = 128, MatrixUseEnum UseLocal = Use>
+  template <uint Align = __detail::DefaultAlign<ComponentTy, M, N>::Value,
+            MatrixUseEnum UseLocal = Use>
   typename hlsl::enable_if<Use == MatrixUse::Accumulator && UseLocal == Use,
                            void>::type
   InterlockedAccumulate(RWByteAddressBuffer Res, uint StartOffset, uint Stride,
@@ -363,31 +376,29 @@ class Matrix {
                                                   Stride, Layout, Align);
   }
 
-  template <typename T, MatrixUseEnum UseLocal = Use,
-            MatrixScopeEnum ScopeLocal = Scope, SIZE_TYPE Size>
+  template <typename T, MatrixUseEnum UseLocal = Use, SIZE_TYPE Size>
   typename hlsl::enable_if<
-      hlsl::is_arithmetic_vector<T>::value && Use == MatrixUse::Accumulator &&
-          UseLocal == Use && Scope == MatrixScope::Wave && ScopeLocal == Scope,
+      hlsl::is_same<typename hlsl::strip_vector_type<T>::type,
+                    ElementType>::value &&
+          hlsl::is_arithmetic_vector<T>::value &&
+          Use == MatrixUse::Accumulator && UseLocal == Use,
       void>::type
   InterlockedAccumulate(groupshared T Arr[Size], uint StartIdx, uint Stride,
                         MatrixLayoutEnum Layout) {
-    __builtin_LinAlg_MatrixAccumulateToMemory(__handle, Arr, ComponentTy,
-                                              StartIdx, Stride, Layout);
+    __builtin_LinAlg_MatrixAccumulateToMemory(__handle, Arr, StartIdx, Stride,
+                                              Layout);
   }
 
-  template <ComponentEnum TargetCompTy = ComponentTy, typename T,
-            MatrixUseEnum UseLocal = Use, MatrixScopeEnum ScopeLocal = Scope,
-            SIZE_TYPE Size>
+  template <typename T, MatrixUseEnum UseLocal = Use, SIZE_TYPE Size>
   typename hlsl::enable_if<
       hlsl::is_same<typename hlsl::strip_vector_type<T>::type,
                     uint8_t4_packed>::value &&
-          Use == MatrixUse::Accumulator && UseLocal == Use &&
-          Scope == MatrixScope::Wave && ScopeLocal == Scope,
+          Use == MatrixUse::Accumulator && UseLocal == Use,
       void>::type
   InterlockedAccumulate(groupshared T Arr[Size], uint StartIdx, uint Stride,
                         MatrixLayoutEnum Layout) {
-    __builtin_LinAlg_MatrixAccumulateToMemory(__handle, Arr, TargetCompTy,
-                                              StartIdx, Stride, Layout);
+    __builtin_LinAlg_MatrixAccumulateToMemory(__handle, Arr, StartIdx, Stride,
+                                              Layout);
   }
 
   template <ComponentEnum CompTy, MatrixUseEnum UseLocal = Use>
@@ -510,9 +521,9 @@ typename hlsl::enable_if<hlsl::is_arithmetic<InputElTy>::value,
 Multiply(Matrix<MatrixDT, M, K, MatrixUse::A, MatrixScope::Thread> MatrixA,
          vector<InputElTy, K> Vec) {
   vector<OutputElTy, M> Result;
-  __builtin_LinAlg_MatrixVectorMultiply(Result, MatrixA.__handle,
-                                        hlsl::is_signed<OutputElTy>::value, Vec,
-                                        MatrixDT);
+  __builtin_LinAlg_MatrixVectorMultiply(
+      Result, MatrixA.__handle, hlsl::is_signed<OutputElTy>::value, Vec,
+      __detail::TypeTraits<InputElTy>::CompType);
   return Result;
 }
 
@@ -664,7 +675,8 @@ template <ComponentEnum OutTy, typename InputElTy, SIZE_TYPE M, SIZE_TYPE N>
     Matrix<OutTy, M, N, MatrixUse::Accumulator, MatrixScope::Thread> >::type
 OuterProduct(vector<InputElTy, M> VecA, vector<InputElTy, N> VecB) {
   Matrix<OutTy, M, N, MatrixUse::Accumulator, MatrixScope::Thread> Result;
-  __builtin_LinAlg_MatrixOuterProduct(Result.__handle, VecA, VecB);
+  __builtin_LinAlg_MatrixOuterProduct(
+      Result.__handle, hlsl::is_signed<InputElTy>::value, VecA, VecB);
   return Result;
 }
 

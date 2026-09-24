@@ -20,7 +20,7 @@ void main() {
   // CHECK-LABEL: define void @main()
 
   // CHECK: call %dx.types.LinAlgMatrixC9M5N4U1S2 @dx.op.linAlgMatrixLoadFromMemory.mC9M5N4U1S2.v4f32
-  // CHECK-SAME: (i32 -2147483633, <4 x float> addrspace(3)* getelementptr inbounds ([64 x <4 x float>],
+  // CHECK-SAME: (i32 326, <4 x float> addrspace(3)* getelementptr inbounds ([64 x <4 x float>],
   // CHECK-SAME: [64 x <4 x float>] addrspace(3)* @"\01?SharedArr@@3PAV?$vector@M$03@@A", i32 0, i32 0),
   // CHECK-SAME: i32 128, i32 16, i32 3)
   // CHECK-SAME: ; LinAlgMatrixLoadFromMemory(memory,offset,stride,layout)
@@ -32,7 +32,7 @@ void main() {
   __builtin_LinAlg_MatrixLoadFromMemory(mat, SharedArr, 128, 16, 3);
 
   // CHECK: call %dx.types.LinAlgMatrixC9M5N4U1S2 @dx.op.linAlgMatrixLoadFromMemory.mC9M5N4U1S2.v4f32
-  // CHECK-SAME: (i32 -2147483633, <4 x float> addrspace(3)* getelementptr inbounds ([64 x <4 x float>],
+  // CHECK-SAME: (i32 326, <4 x float> addrspace(3)* getelementptr inbounds ([64 x <4 x float>],
   // CHECK-SAME: [64 x <4 x float>] addrspace(3)* @"\01?SharedArr@@3PAV?$vector@M$03@@A", i32 0, i32 0),
   // CHECK-SAME: i32 128, i32 16, i32 3)
   // CHECK-SAME: ; LinAlgMatrixLoadFromMemory(memory,offset,stride,layout)
