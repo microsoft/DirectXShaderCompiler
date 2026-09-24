@@ -151,7 +151,8 @@ static KeywordStatus getKeywordStatus(const LangOptions &LangOpts,
   if (LangOpts.HLSL && LangOpts.HLSLVersion >= hlsl::LangStd::v202x &&
       (Flags & KEYHLSL2026))
     return KS_Enabled;
-  if (LangOpts.HLSL && (Flags & KEYHLSL)) return KS_Enabled;
+  if (LangOpts.HLSL && (Flags & KEYHLSL))
+    return KS_Enabled;
   // HLSL Change - End
   if (LangOpts.C11 && (Flags & KEYC11)) return KS_Enabled;
   // We treat bridge casts as objective-C keywords so we can warn on them
