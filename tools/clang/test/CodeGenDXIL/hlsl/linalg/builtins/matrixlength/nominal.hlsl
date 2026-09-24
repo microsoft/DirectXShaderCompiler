@@ -6,12 +6,12 @@
 void main() {
   // CHECK-LABEL: define void @main()
 
-  // CHECK: call i32 @dx.op.linAlgMatrixLength.mC4M5N4U1S2(i32 -2147483632,
+  // CHECK: call i32 @dx.op.linAlgMatrixLength.mC4M5N4U1S2(i32 327,
   // CHECK-SAME: %dx.types.LinAlgMatrixC4M5N4U1S2 %{{.*}})  ; LinAlgMatrixLength(matrix)
 
   // CHECK2: call i32 @"dx.hl.op..i32 (i32, %dx.types.LinAlgMatrixC4M5N4U1S2)"
   // CHECK2-SAME: (i32 405, %dx.types.LinAlgMatrixC4M5N4U1S2 %{{.*}})
   __builtin_LinAlgMatrix [[__LinAlgMatrix_Attributes(4, 5, 4, 1, 2)]] mat;
-  __builtin_LinAlg_FillMatrix(mat, 1);
+  __builtin_LinAlg_FillMatrix(mat, true, 1);
   uint len = __builtin_LinAlg_MatrixLength(mat);
 }
