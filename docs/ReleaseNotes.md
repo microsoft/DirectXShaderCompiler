@@ -22,6 +22,30 @@ The included licenses apply to the following files:
 Place release notes for the upcoming release below this line and remove this
 line upon naming the release. Refer to previous for appropriate section names.
 
+### Upcoming Preview Release
+
+These changes apply to experimental preview shader models only and will not be
+part of the next non-preview release.
+
+#### Experimental Shader Model 6.10
+
+These are incremental changes to the experimental Shader Model 6.10 features that
+first shipped in the 1.10.2605 preview.
+
+- Fixed the set of numeric types allowed in LinAlg matrix intrinsics
+  [#8271](https://github.com/microsoft/DirectXShaderCompiler/issues/8271).
+- Corrected the parameter order of `InterlockedAccumulate`
+  [#8459](https://github.com/microsoft/DirectXShaderCompiler/pull/8459).
+- Added validation of LinAlg matrix builtin parameters and result K dimension
+  [#8588](https://github.com/microsoft/DirectXShaderCompiler/pull/8588).
+- Restricted the component types allowed in LinAlg matrices
+  [#8608](https://github.com/microsoft/DirectXShaderCompiler/pull/8608).
+- Added `BFloat16` to the ComponentType enum in DxilConstants and the linalg
+  header [#8722](https://github.com/microsoft/DirectXShaderCompiler/issues/8722).
+- Removed work graph support from Shader Model 6.10, and DXIL 1.10 [microsoft/hlsl-specs#915](https://github.com/microsoft/hlsl-specs/issues/915).
+
+### Version 1.9.2609
+
 #### Bug Fixes
 
 - Fixed an optimizer crash when scalarizing an out-of-bounds vector access
@@ -82,28 +106,6 @@ line upon naming the release. Refer to previous for appropriate section names.
 - Fixed incorrect alignment of 64-bit elements in `vk::RawBufferLoad` and
   `vk::RawBufferStore` intrinsics
   [#8572](https://github.com/microsoft/DirectXShaderCompiler/issues/8572).
-
-### Upcoming Preview Release
-
-These changes apply to experimental preview shader models only and will not be
-part of the next non-preview release.
-
-#### Experimental Shader Model 6.10
-
-These are incremental changes to the experimental Shader Model 6.10 features that
-first shipped in the 1.10.2605 preview.
-
-- Fixed the set of numeric types allowed in LinAlg matrix intrinsics
-  [#8271](https://github.com/microsoft/DirectXShaderCompiler/issues/8271).
-- Corrected the parameter order of `InterlockedAccumulate`
-  [#8459](https://github.com/microsoft/DirectXShaderCompiler/pull/8459).
-- Added validation of LinAlg matrix builtin parameters and result K dimension
-  [#8588](https://github.com/microsoft/DirectXShaderCompiler/pull/8588).
-- Restricted the component types allowed in LinAlg matrices
-  [#8608](https://github.com/microsoft/DirectXShaderCompiler/pull/8608).
-- Added `BFloat16` to the ComponentType enum in DxilConstants and the linalg
-  header [#8722](https://github.com/microsoft/DirectXShaderCompiler/issues/8722).
-- Removed work graph support from Shader Model 6.10, and DXIL 1.10 [microsoft/hlsl-specs#915](https://github.com/microsoft/hlsl-specs/issues/915).
 
 ### Version 1.9.2607
 
