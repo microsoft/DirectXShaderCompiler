@@ -49,6 +49,12 @@ line upon naming the release. Refer to previous for appropriate section names.
 - Fixed internal compiler errors when a member method is called on a ray payload
   or on one of its fields with payload access qualifiers enabled
   [#6464](https://github.com/microsoft/DirectXShaderCompiler/issues/6464).
+- SPIR-V: Fixed user-defined types whose names match built-in types being
+  incorrectly lowered as the built-in type.
+- SPIR-V: 16-bit sampled types on `vk::SampledTexture` are rejected as required
+  by VUID-StandaloneSpirv-OpTypeImage-04656.
+- SPIR-V: Added support for multisampled UAV types fixing miscompiles in
+  previous releases.
 
 #### HLSL Language
 

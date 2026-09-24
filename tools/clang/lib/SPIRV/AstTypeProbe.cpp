@@ -296,31 +296,21 @@ bool isMxNMatrix(QualType type, QualType *elemType, uint32_t *numRows,
   return false;
 }
 
-bool isInputPatch(QualType type) {
-  if (const auto *rt = type->getAs<RecordType>())
-    return rt->getDecl()->getName() == "InputPatch";
+bool isInputPatch(QualType type) { return hlsl::IsHLSLInputPatchType(type); }
 
-  return false;
-}
-
-bool isOutputPatch(QualType type) {
-  if (const auto *rt = type->getAs<RecordType>())
-    return rt->getDecl()->getName() == "OutputPatch";
-
-  return false;
-}
+bool isOutputPatch(QualType type) { return hlsl::IsHLSLOutputPatchType(type); }
 
 bool isSubpassInput(QualType type) {
-  if (const auto *rt = type->getAs<RecordType>())
-    return rt->getDecl()->getName() == "SubpassInput";
-
+  if (const HLSLVkSubpassInputAttr *Attr =
+          getAttr<HLSLVkSubpassInputAttr>(type))
+    return !Attr->getIsMultiSampled();
   return false;
 }
 
 bool isSubpassInputMS(QualType type) {
-  if (const auto *rt = type->getAs<RecordType>())
-    return rt->getDecl()->getName() == "SubpassInputMS";
-
+  if (const HLSLVkSubpassInputAttr *Attr =
+          getAttr<HLSLVkSubpassInputAttr>(type))
+    return Attr->getIsMultiSampled();
   return false;
 }
 
@@ -339,22 +329,14 @@ bool isConstantBuffer(clang::QualType type) {
   // Strip outer arrayness first
   while (type->isArrayType())
     type = type->getAsArrayTypeUnsafe()->getElementType();
-  if (const RecordType *RT = type->getAs<RecordType>()) {
-    StringRef name = RT->getDecl()->getName();
-    return name == "ConstantBuffer";
-  }
-  return false;
+  return hlsl::GetHLSLResourceKind(type) == hlsl::DXIL::ResourceKind::CBuffer;
 }
 
 bool isTextureBuffer(clang::QualType type) {
   // Strip outer arrayness first
   while (type->isArrayType())
     type = type->getAsArrayTypeUnsafe()->getElementType();
-  if (const RecordType *RT = type->getAs<RecordType>()) {
-    StringRef name = RT->getDecl()->getName();
-    return name == "TextureBuffer";
-  }
-  return false;
+  return hlsl::GetHLSLResourceKind(type) == hlsl::DXIL::ResourceKind::TBuffer;
 }
 
 bool isConstantTextureBuffer(QualType type) {
@@ -882,67 +864,45 @@ bool isStructuredBuffer(QualType type) {
   const auto *recordType = type->getAs<RecordType>();
   if (!recordType)
     return false;
+  if (!hlsl::IsHLSLStructuredBufferType(type))
+    return false;
+  // Exclude AppendStructuredBuffer and ConsumeStructuredBuffer, which share
+  // the same ResourceKind but have distinct access semantics.
   const auto name = recordType->getDecl()->getName();
-  return name == "StructuredBuffer" || name == "RWStructuredBuffer" ||
-         name == "RasterizerOrderedStructuredBuffer";
+  return name != "AppendStructuredBuffer" && name != "ConsumeStructuredBuffer";
 }
 
 bool isNonWritableStructuredBuffer(QualType type) {
-  const auto *recordType = type->getAs<RecordType>();
-  if (!recordType)
-    return false;
-  const auto name = recordType->getDecl()->getName();
-  return name == "StructuredBuffer";
+  return hlsl::IsHLSLStructuredBufferType(type) &&
+         hlsl::GetHLSLResourceClass(type) == hlsl::DXIL::ResourceClass::SRV;
 }
 
 bool isByteAddressBuffer(QualType type) {
-  if (const auto *rt = type->getAs<RecordType>()) {
-    return rt->getDecl()->getName() == "ByteAddressBuffer";
-  }
-  return false;
+  return hlsl::GetHLSLResourceKind(type) ==
+             hlsl::DXIL::ResourceKind::RawBuffer &&
+         hlsl::GetHLSLResourceClass(type) == hlsl::DXIL::ResourceClass::SRV;
 }
 
 bool isRWBuffer(QualType type) {
-  if (const auto *rt = type->getAs<RecordType>()) {
-    const auto name = rt->getDecl()->getName();
-    return name == "RWBuffer" || name == "RasterizerOrderedBuffer";
-  }
-  return false;
+  return hlsl::GetHLSLResourceKind(type) ==
+             hlsl::DXIL::ResourceKind::TypedBuffer &&
+         hlsl::GetHLSLResourceClass(type) == hlsl::DXIL::ResourceClass::UAV;
 }
 
 bool isBuffer(QualType type) {
-  if (const auto *rt = type->getAs<RecordType>()) {
-    return rt->getDecl()->getName() == "Buffer";
-  }
-  return false;
+  return hlsl::GetHLSLResourceKind(type) ==
+             hlsl::DXIL::ResourceKind::TypedBuffer &&
+         hlsl::GetHLSLResourceClass(type) == hlsl::DXIL::ResourceClass::SRV;
 }
 
 bool isRWTexture(QualType type) {
-  if (const auto *rt = type->getAs<RecordType>()) {
-    const auto name = rt->getDecl()->getName();
-    if (name == "RWTexture1D" || name == "RWTexture1DArray" ||
-        name == "RWTexture2D" || name == "RWTexture2DArray" ||
-        name == "RWTexture3D" || name == "RasterizerOrderedTexture1D" ||
-        name == "RasterizerOrderedTexture1DArray" ||
-        name == "RasterizerOrderedTexture2D" ||
-        name == "RasterizerOrderedTexture2DArray" ||
-        name == "RasterizerOrderedTexture3D")
-      return true;
-  }
-  return false;
+  return hlsl::DXIL::IsAnyTexture(hlsl::GetHLSLResourceKind(type)) &&
+         hlsl::GetHLSLResourceClass(type) == hlsl::DXIL::ResourceClass::UAV;
 }
 
 bool isTexture(QualType type) {
-  if (const auto *rt = type->getAs<RecordType>()) {
-    const auto name = rt->getDecl()->getName();
-    if (name == "Texture1D" || name == "Texture1DArray" ||
-        name == "Texture2D" || name == "Texture2DArray" ||
-        name == "Texture2DMS" || name == "Texture2DMSArray" ||
-        name == "TextureCube" || name == "TextureCubeArray" ||
-        name == "Texture3D")
-      return true;
-  }
-  return false;
+  return hlsl::DXIL::IsAnyTexture(hlsl::GetHLSLResourceKind(type)) &&
+         hlsl::GetHLSLResourceClass(type) == hlsl::DXIL::ResourceClass::SRV;
 }
 
 bool isSampledTexture(QualType type) {
@@ -954,12 +914,9 @@ bool isSampledTexture(QualType type) {
 }
 
 bool isTextureMS(QualType type) {
-  if (const auto *rt = type->getAs<RecordType>()) {
-    const auto name = rt->getDecl()->getName();
-    if (name == "Texture2DMS" || name == "Texture2DMSArray")
-      return true;
-  }
-  return false;
+  auto resKind = hlsl::GetHLSLResourceKind(type);
+  return resKind == hlsl::DXIL::ResourceKind::Texture2DMS ||
+         resKind == hlsl::DXIL::ResourceKind::Texture2DMSArray;
 }
 
 bool isSampledTextureMS(QualType type) {
@@ -975,58 +932,51 @@ bool isSampledTextureMS(QualType type) {
 }
 
 bool isSampler(QualType type) {
-  if (const auto *rt = type->getAs<RecordType>()) {
-    const auto name = rt->getDecl()->getName();
-    if (name == "SamplerState" || name == "SamplerComparisonState")
-      return true;
-  }
-  return false;
+  return hlsl::GetHLSLResourceKind(type) == hlsl::DXIL::ResourceKind::Sampler;
 }
 
 bool isRWByteAddressBuffer(QualType type) {
-  if (const auto *rt = type->getAs<RecordType>()) {
-    const auto name = rt->getDecl()->getName();
-    return name == "RWByteAddressBuffer" ||
-           name == "RasterizerOrderedByteAddressBuffer";
-  }
-  return false;
+  return hlsl::GetHLSLResourceKind(type) ==
+             hlsl::DXIL::ResourceKind::RawBuffer &&
+         hlsl::GetHLSLResourceClass(type) == hlsl::DXIL::ResourceClass::UAV;
 }
 
 bool isAppendStructuredBuffer(QualType type) {
   // Strip outer arrayness first
   while (type->isArrayType())
     type = type->getAsArrayTypeUnsafe()->getElementType();
-
-  const auto *recordType = type->getAs<RecordType>();
-  if (!recordType)
+  if (!hlsl::IsHLSLStructuredBufferType(type))
     return false;
-  const auto name = recordType->getDecl()->getName();
-  return name == "AppendStructuredBuffer";
+  const auto *recordType = type->getAs<RecordType>();
+  return recordType &&
+         recordType->getDecl()->getName() == "AppendStructuredBuffer";
 }
 
 bool isConsumeStructuredBuffer(QualType type) {
   // Strip outer arrayness first
   while (type->isArrayType())
     type = type->getAsArrayTypeUnsafe()->getElementType();
-
-  const auto *recordType = type->getAs<RecordType>();
-  if (!recordType)
+  if (!hlsl::IsHLSLStructuredBufferType(type))
     return false;
-  const auto name = recordType->getDecl()->getName();
-  return name == "ConsumeStructuredBuffer";
+  const auto *recordType = type->getAs<RecordType>();
+  return recordType &&
+         recordType->getDecl()->getName() == "ConsumeStructuredBuffer";
 }
 
 bool isRWStructuredBuffer(QualType type) {
   // Strip outer arrayness first
   while (type->isArrayType())
     type = type->getAsArrayTypeUnsafe()->getElementType();
-
-  if (const RecordType *recordType = type->getAs<RecordType>()) {
-    StringRef name = recordType->getDecl()->getName();
-    return name == "RWStructuredBuffer" ||
-           name == "RasterizerOrderedStructuredBuffer";
-  }
-  return false;
+  if (!hlsl::IsHLSLStructuredBufferType(type))
+    return false;
+  if (hlsl::GetHLSLResourceClass(type) != hlsl::DXIL::ResourceClass::UAV)
+    return false;
+  // Exclude AppendStructuredBuffer and ConsumeStructuredBuffer.
+  const auto *recordType = type->getAs<RecordType>();
+  if (!recordType)
+    return false;
+  const auto name = recordType->getDecl()->getName();
+  return name != "AppendStructuredBuffer" && name != "ConsumeStructuredBuffer";
 }
 
 bool isRWAppendConsumeSBuffer(QualType type) {
@@ -1059,33 +1009,27 @@ bool isAKindOfStructuredOrByteBuffer(QualType type) {
   while (type->isArrayType())
     type = type->getAsArrayTypeUnsafe()->getElementType();
 
-  if (const RecordType *recordType = type->getAs<RecordType>()) {
-    StringRef name = recordType->getDecl()->getName();
-    return name == "StructuredBuffer" || name == "RWStructuredBuffer" ||
-           name == "RasterizerOrderedStructuredBuffer" ||
-           name == "ByteAddressBuffer" || name == "RWByteAddressBuffer" ||
-           name == "RasterizerOrderedByteAddressBuffer" ||
-           name == "AppendStructuredBuffer" ||
-           name == "ConsumeStructuredBuffer" || name == ".Resource" ||
-           name == ".Sampler";
-  }
-  return false;
+  // Use attribute-based check to avoid false positives with user-defined types
+  // that share names with HLSL built-in types.
+  auto resKind = hlsl::GetHLSLResourceKind(type);
+  if (resKind == hlsl::DXIL::ResourceKind::StructuredBuffer ||
+      resKind == hlsl::DXIL::ResourceKind::RawBuffer)
+    return true;
+
+  // Dynamic resource placeholder types (.Resource and .Sampler) also behave
+  // like structured buffers for layout purposes.
+  return hlsl::IsHLSLDynamicResourceType(type) ||
+         hlsl::IsHLSLDynamicSamplerType(type);
 }
 
 bool isOrContainsAKindOfStructuredOrByteBuffer(QualType type) {
   while (type->isArrayType())
     type = type->getAsArrayTypeUnsafe()->getElementType();
 
-  if (const RecordType *recordType = type->getAs<RecordType>()) {
-    StringRef name = recordType->getDecl()->getName();
-    if (name == "StructuredBuffer" || name == "RWStructuredBuffer" ||
-        name == "RasterizerOrderedStructuredBuffer" ||
-        name == "ByteAddressBuffer" || name == "RWByteAddressBuffer" ||
-        name == "RasterizerOrderedByteAddressBuffer" ||
-        name == "AppendStructuredBuffer" || name == "ConsumeStructuredBuffer" ||
-        name == ".Resource" || name == ".Sampler")
-      return true;
+  if (isAKindOfStructuredOrByteBuffer(type))
+    return true;
 
+  if (const RecordType *recordType = type->getAs<RecordType>()) {
     for (const auto *field : recordType->getDecl()->fields()) {
       if (isOrContainsAKindOfStructuredOrByteBuffer(field->getType()))
         return true;
@@ -1103,51 +1047,15 @@ bool isOrContainsAKindOfStructuredOrByteBuffer(QualType type) {
 }
 
 bool isOpaqueType(QualType type) {
-  if (const auto *recordType = type->getAs<RecordType>()) {
-    const auto name = recordType->getDecl()->getName();
-
-    if (name == "Texture1D" || name == "RWTexture1D" ||
-        name == "RasterizerOrderedTexture1D")
-      return true;
-    if (name == "Texture2D" || name == "RWTexture2D" ||
-        name == "RasterizerOrderedTexture2D")
-      return true;
-    if (name == "Texture2DMS" || name == "RWTexture2DMS")
-      return true;
-    if (name == "Texture3D" || name == "RWTexture3D" ||
-        name == "RasterizerOrderedTexture3D")
-      return true;
-    if (name == "TextureCube" || name == "RWTextureCube")
-      return true;
-
-    if (name == "Texture1DArray" || name == "RWTexture1DArray" ||
-        name == "RasterizerOrderedTexture1DArray")
-      return true;
-    if (name == "Texture2DArray" || name == "RWTexture2DArray" ||
-        name == "RasterizerOrderedTexture2DArray")
-      return true;
-    if (name == "Texture2DMSArray" || name == "RWTexture2DMSArray")
-      return true;
-    if (name == "TextureCubeArray" || name == "RWTextureCubeArray")
-      return true;
-
-    if (name == "Buffer" || name == "RWBuffer" ||
-        name == "RasterizerOrderedBuffer")
-      return true;
-
-    if (name == "SamplerState" || name == "SamplerComparisonState")
-      return true;
-
-    if (name == "RaytracingAccelerationStructure")
-      return true;
-
-    if (name == "SubpassInput")
-      return true;
-  }
-
-  if (hlsl::IsHLSLRayQueryType(type))
+  const auto resKind = hlsl::GetHLSLResourceKind(type);
+  if (hlsl::DXIL::IsAnyTexture(resKind) ||
+      resKind == hlsl::DXIL::ResourceKind::TypedBuffer ||
+      resKind == hlsl::DXIL::ResourceKind::Sampler ||
+      resKind == hlsl::DXIL::ResourceKind::RTAccelerationStructure ||
+      hlsl::IsHLSLRayQueryType(type))
     return true;
-
+  if (isSubpassInput(type))
+    return true;
   return false;
 }
 
@@ -1159,33 +1067,14 @@ std::string getHlslResourceTypeName(QualType type) {
   while (type->isArrayType())
     type = type->getAsArrayTypeUnsafe()->getElementType();
 
-  if (const RecordType *recordType = type->getAs<RecordType>()) {
-    StringRef name = recordType->getDecl()->getName();
-    if (name == "StructuredBuffer" || name == "RWStructuredBuffer" ||
-        name == "RasterizerOrderedStructuredBuffer" ||
-        name == "ByteAddressBuffer" || name == "RWByteAddressBuffer" ||
-        name == "RasterizerOrderedByteAddressBuffer" ||
-        name == "AppendStructuredBuffer" || name == "ConsumeStructuredBuffer" ||
-        name == "Texture1D" || name == "Texture2D" || name == "Texture3D" ||
-        name == "TextureCube" || name == "Texture1DArray" ||
-        name == "Texture2DArray" || name == "Texture2DMS" ||
-        name == "Texture2DMSArray" || name == "TextureCubeArray" ||
-        name == "RWTexture1D" || name == "RWTexture2D" ||
-        name == "RWTexture3D" || name == "RWTexture1DArray" ||
-        name == "RWTexture2DArray" || name == "RasterizerOrderedTexture1D" ||
-        name == "RasterizerOrderedTexture1DArray" ||
-        name == "RasterizerOrderedTexture2D" ||
-        name == "RasterizerOrderedTexture2DArray" ||
-        name == "RasterizerOrderedTexture3D" || name == "Buffer" ||
-        name == "RWBuffer" || name == "RasterizerOrderedBuffer" ||
-        name == "SubpassInput" || name == "SubpassInputMS" ||
-        name == "InputPatch" || name == "OutputPatch" ||
-        name == "ConstantBuffer" || name == "TextureBuffer" ||
-        name == "RaytracingAccelerationStructure") {
-      // Get resource type name with template params. Operation is safe because
-      // type has already been null checked.
-      return type.getLocalUnqualifiedType().getAsString();
-    }
+  // Use attribute-based checks to identify HLSL resource types.
+  if (hlsl::IsHLSLResourceType(type) || hlsl::IsHLSLRayQueryType(type) ||
+      hlsl::IsHLSLInputPatchType(type) || hlsl::IsHLSLOutputPatchType(type) ||
+      hlsl::IsHLSLStreamOutputType(type) || isSubpassInput(type) ||
+      isSubpassInputMS(type)) {
+    // Get resource type name with template params. Operation is safe because
+    // type has already been null checked.
+    return type.getLocalUnqualifiedType().getAsString();
   }
 
   return "";
@@ -1250,21 +1139,11 @@ bool isRelaxedPrecisionType(QualType type, const SpirvCodeGenOptions &opts) {
   }
 
   // Images with RelaxedPrecision sampled type.
-  if (const auto *recordType = type->getAs<RecordType>()) {
-    const llvm::StringRef name = recordType->getDecl()->getName();
-    if (name == "Texture1D" || name == "Texture2D" || name == "Texture3D" ||
-        name == "TextureCube" || name == "Texture1DArray" ||
-        name == "Texture2DArray" || name == "Texture2DMS" ||
-        name == "Texture2DMSArray" || name == "TextureCubeArray" ||
-        name == "RWTexture1D" || name == "RWTexture2D" ||
-        name == "RWTexture3D" || name == "RWTexture1DArray" ||
-        name == "RWTexture2DArray" || name == "RasterizerOrderedTexture1D" ||
-        name == "RasterizerOrderedTexture1DArray" ||
-        name == "RasterizerOrderedTexture2D" ||
-        name == "RasterizerOrderedTexture2DArray" ||
-        name == "RasterizerOrderedTexture3D" || name == "Buffer" ||
-        name == "RWBuffer" || name == "RasterizerOrderedBuffer" ||
-        name == "SubpassInput" || name == "SubpassInputMS") {
+  {
+    auto resKind = hlsl::GetHLSLResourceKind(type);
+    if (hlsl::DXIL::IsAnyTexture(resKind) ||
+        resKind == hlsl::DXIL::ResourceKind::TypedBuffer ||
+        isSubpassInput(type) || isSubpassInputMS(type)) {
       const auto sampledType = hlsl::GetHLSLResourceResultType(type);
       return isRelaxedPrecisionType(sampledType, opts);
     }
@@ -1286,16 +1165,14 @@ bool isRasterizerOrderedView(QualType type) {
   while (type->isArrayType())
     type = type->getAsArrayTypeUnsafe()->getElementType();
 
+  // ROV types are UAV resources; only built-in HLSL types have HLSLResourceAttr
+  // so this check prevents false positives from user-defined types.
+  if (hlsl::GetHLSLResourceClass(type) != hlsl::DXIL::ResourceClass::UAV)
+    return false;
+
   if (const RecordType *recordType = type->getAs<RecordType>()) {
     StringRef name = recordType->getDecl()->getName();
-    return name == "RasterizerOrderedBuffer" ||
-           name == "RasterizerOrderedByteAddressBuffer" ||
-           name == "RasterizerOrderedStructuredBuffer" ||
-           name == "RasterizerOrderedTexture1D" ||
-           name == "RasterizerOrderedTexture1DArray" ||
-           name == "RasterizerOrderedTexture2D" ||
-           name == "RasterizerOrderedTexture2DArray" ||
-           name == "RasterizerOrderedTexture3D";
+    return name.startswith("RasterizerOrdered");
   }
   return false;
 }
