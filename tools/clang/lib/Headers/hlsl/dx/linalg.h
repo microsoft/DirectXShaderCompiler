@@ -137,6 +137,15 @@ template <typename T> struct TypeTraits {
       (ComponentEnum)dxil::ComponentType::Invalid;
 };
 
+template <ComponentEnum CompTy, typename T> struct IsCompatibleVectorElement {
+  static const bool IsPackedCarrier =
+      hlsl::is_same<T, uint8_t4_packed>::value ||
+      hlsl::is_same<T, int8_t4_packed>::value;
+  static const bool value =
+      hlsl::is_same<T, typename ComponentTypeTraits<CompTy>::Type>::value ||
+      (!ComponentTypeTraits<CompTy>::IsNativeScalar && IsPackedCarrier);
+};
+
 template <> struct ComponentTypeTraits<ComponentType::BFloat16> {
   using Type = uint;
   static const bool IsNativeScalar = false;
@@ -219,14 +228,17 @@ template <typename T, int N, ComponentEnum DT> struct InterpretedVector {
 };
 
 template <ComponentEnum DT, typename T, int N>
-InterpretedVector<T, N, DT> MakeInterpretedVector(vector<T, N> Vec) {
+typename hlsl::enable_if< __detail::IsCompatibleVectorElement<DT, T>::value,
+                          InterpretedVector<T, N, DT> >::type
+MakeInterpretedVector(vector<T, N> Vec) {
   InterpretedVector<T, N, DT> IV = {Vec};
   return IV;
 }
 
 template <ComponentEnum DestTy, ComponentEnum OriginTy, typename T, int N>
 typename hlsl::enable_if<
-    DestTy != OriginTy,
+    DestTy != OriginTy &&
+        __detail::IsCompatibleVectorElement<OriginTy, T>::value,
     InterpretedVector<typename __detail::ComponentTypeTraits<DestTy>::Type,
                       __detail::DstN<DestTy, OriginTy, N>::Value,
                       DestTy> >::type
@@ -239,8 +251,10 @@ Convert(vector<T, N> Vec) {
 }
 
 template <ComponentEnum DestTy, ComponentEnum OriginTy, typename T, int N>
-typename hlsl::enable_if<DestTy == OriginTy,
-                         InterpretedVector<T, N, DestTy> >::type
+typename hlsl::enable_if<
+    DestTy == OriginTy &&
+        __detail::IsCompatibleVectorElement<OriginTy, T>::value,
+    InterpretedVector<T, N, DestTy> >::type
 Convert(vector<T, N> Vec) {
   return MakeInterpretedVector<DestTy>(Vec);
 }
@@ -531,7 +545,8 @@ Multiply(Matrix<MatrixDT, M, K, MatrixUse::A, MatrixScope::Thread> MatrixA,
 template <typename OutputElTy, typename InputElTy, ComponentEnum InputInterp,
           SIZE_TYPE M, SIZE_TYPE K, SIZE_TYPE VecK, ComponentEnum MatrixDT>
 typename hlsl::enable_if<
-    InterpretedVector<InputElTy, VecK, InputInterp>::Size == K,
+    InterpretedVector<InputElTy, VecK, InputInterp>::Size == K &&
+        __detail::IsCompatibleVectorElement<InputInterp, InputElTy>::value,
     vector<OutputElTy, M> >::type
 Multiply(Matrix<MatrixDT, M, K, MatrixUse::A, MatrixScope::Thread> MatrixA,
          InterpretedVector<InputElTy, VecK, InputInterp> InterpVec) {
@@ -566,6 +581,7 @@ template <typename OutputElTy, typename InputElTy, ComponentEnum InputInterp,
           ComponentEnum MatrixDT>
 typename hlsl::enable_if<
     VecK == __detail::ScalarCountFromPackedComponents<InputInterp, K>::Value &&
+        __detail::IsCompatibleVectorElement<InputInterp, InputElTy>::value &&
         hlsl::is_arithmetic<BiasElTy>::value,
     vector<OutputElTy, M> >::type
 MultiplyAdd(Matrix<MatrixDT, M, K, MatrixUse::A, MatrixScope::Thread> MatrixA,
@@ -629,7 +645,8 @@ template <typename OutputElTy, typename InputElTy, ComponentEnum InputInterp,
           ComponentEnum BiasElTy, SIZE_TYPE M, SIZE_TYPE K, SIZE_TYPE VecK,
           ComponentEnum MatrixDT>
 typename hlsl::enable_if<
-    VecK == __detail::ScalarCountFromPackedComponents<InputInterp, K>::Value,
+    VecK == __detail::ScalarCountFromPackedComponents<InputInterp, K>::Value &&
+        __detail::IsCompatibleVectorElement<InputInterp, InputElTy>::value,
     vector<OutputElTy, M> >::type
 MultiplyAdd(Matrix<MatrixDT, M, K, MatrixUse::A, MatrixScope::Thread> MatrixA,
             InterpretedVector<InputElTy, VecK, InputInterp> InterpVec,
