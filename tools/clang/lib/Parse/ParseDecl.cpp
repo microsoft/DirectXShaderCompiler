@@ -6552,14 +6552,28 @@ void Parser::ParseFunctionDeclarator(Declarator &D,
       // with the pure-specifier in the same way.
 
       // Parse cv-qualifier-seq[opt].
+      // HLSL Change Starts
+      // HLSL only supports `const` here (HLSL 202x). Parse it directly because
+      // the HLSL path of ParseTypeQualifierListOpt is shared with other
+      // declarator contexts (e.g. array bounds) that must still reject it.
+      if (getLangOpts().HLSL) {
+        while (Tok.is(tok::kw_const)) {
+          const char *PrevSpec = nullptr;
+          unsigned DiagID = 0;
+          SourceLocation Loc = Tok.getLocation();
+          if (DS.SetTypeQual(DeclSpec::TQ_const, Loc, PrevSpec, DiagID,
+                             getLangOpts()))
+            Diag(Loc, DiagID) << PrevSpec;
+          DS.SetRangeEnd(ConsumeToken());
+        }
+        if (DS.getConstSpecLoc().isValid() &&
+            getLangOpts().HLSLVersion < hlsl::LangStd::v202x)
+          Diag(DS.getConstSpecLoc(), diag::err_hlsl_const_member_function_202x);
+      }
+      // HLSL Change Ends
       ParseTypeQualifierListOpt(DS, AR_NoAttributesParsed,
                                 /*AtomicAllowed*/ false);
       if (!DS.getSourceRange().getEnd().isInvalid()) {
-        // HLSL Change Starts
-        if (getLangOpts().HLSL) {
-          Diag(DS.getSourceRange().getEnd(), diag::err_hlsl_unsupported_construct) << "qualifiers";
-        }
-        // HLSL Change Ends
         EndLoc = DS.getSourceRange().getEnd();
         ConstQualifierLoc = DS.getConstSpecLoc();
         VolatileQualifierLoc = DS.getVolatileSpecLoc();

@@ -83,7 +83,7 @@ void node_1_1(
 // CHECK-NEXT:|   |-FunctionTemplateDecl 0x{{.+}} <<invalid sloc>> <invalid sloc> OutputComplete
 // CHECK-NEXT:|   | |-TemplateTypeParmDecl 0x{{.+}} <<invalid sloc>> <invalid sloc> class TResult
 // CHECK-NEXT:|   | |-CXXMethodDecl 0x{{.+}} <<invalid sloc>> <invalid sloc> OutputComplete 'TResult () const'
-// CHECK-NEXT:|   | `-CXXMethodDecl 0x[[OutComplete:[0-9a-f]+]] <<invalid sloc>> <invalid sloc> used OutputComplete 'void ()' extern
+// CHECK-NEXT:|   | `-CXXMethodDecl 0x[[OutComplete:[0-9a-f]+]] <<invalid sloc>> <invalid sloc> used OutputComplete 'void () const' extern
 // CHECK-NEXT:|   |   |-TemplateArgument type 'void'
 // CHECK-NEXT:|   |   `-HLSLIntrinsicAttr 0x{{.+}} <<invalid sloc>> Implicit "op" "" {{[0-9]+}}
 // CHECK-NEXT:|   `-CXXDestructorDecl 0x{{.+}} <<invalid sloc>> <invalid sloc> implicit referenced ~ThreadNodeOutputRecords 'void () noexcept' inline
@@ -124,7 +124,7 @@ void node_1_1(
 // CHECK-NEXT:|   | |-TemplateTypeParmDecl 0x{{.+}} <<invalid sloc>> <invalid sloc> class TnumRecords
 // CHECK-NEXT:|   | |-CXXMethodDecl 0x{{.+}} <<invalid sloc>> <invalid sloc> GetThreadNodeOutputRecords 'TResult (TnumRecords) const'
 // CHECK-NEXT:|   | | `-ParmVarDecl 0x{{.+}} <<invalid sloc>> <invalid sloc> numRecords 'TnumRecords'
-// CHECK-NEXT:|   | `-CXXMethodDecl 0x[[GetThreadNodeOutputRecords:[0-9a-f]+]] <<invalid sloc>> <invalid sloc> used GetThreadNodeOutputRecords 'ThreadNodeOutputRecords<RECORD1> (unsigned int)' extern
+// CHECK-NEXT:|   | `-CXXMethodDecl 0x[[GetThreadNodeOutputRecords:[0-9a-f]+]] <<invalid sloc>> <invalid sloc> used GetThreadNodeOutputRecords 'ThreadNodeOutputRecords<RECORD1> (unsigned int) const' extern
 // CHECK-NEXT:|   |   |-TemplateArgument type 'ThreadNodeOutputRecords<RECORD1>':'ThreadNodeOutputRecords<RECORD1>'
 // CHECK-NEXT:|   |   |-TemplateArgument type 'unsigned int'
 // CHECK-NEXT:|   |   |-ParmVarDecl 0x{{.+}} <<invalid sloc>> <invalid sloc> GetThreadNodeOutputRecords 'unsigned int'
@@ -165,17 +165,19 @@ void node_1_1(
 // CHECK-NEXT:  | | `-VarDecl 0x[[OutRec:[0-9a-f]+]] <col:3, col:92> col:36 used outRec 'ThreadNodeOutputRecords<RECORD1>':'ThreadNodeOutputRecords<RECORD1>' cinit
 // CHECK-NEXT:  | |   `-CXXMemberCallExpr 0x{{.+}} <col:45, col:92> 'ThreadNodeOutputRecords<RECORD1>':'ThreadNodeOutputRecords<RECORD1>'
 // CHECK-NEXT:  | |     |-MemberExpr 0x{{.+}} <col:45, col:64> '<bound member function type>' .GetThreadNodeOutputRecords 0x[[GetThreadNodeOutputRecords]]
-// CHECK-NEXT:  | |     | `-CXXOperatorCallExpr 0x{{.+}} <col:45, col:62> 'NodeOutput<RECORD1>':'NodeOutput<RECORD1>'
-// CHECK-NEXT:  | |     |   |-ImplicitCastExpr 0x{{.+}} <col:60, col:62> 'NodeOutput<RECORD1> (*)(unsigned int)' <FunctionToPointerDecay>
-// CHECK-NEXT:  | |     |   | `-DeclRefExpr 0x{{.+}} <col:60, col:62> 'NodeOutput<RECORD1> (unsigned int)' lvalue CXXMethod 0x[[SUB]] 'operator[]' 'NodeOutput<RECORD1> (unsigned int)'
-// CHECK-NEXT:  | |     |   |-DeclRefExpr 0x{{.+}} <col:45> 'NodeOutputArray<RECORD1>':'NodeOutputArray<RECORD1>' lvalue ParmVar 0x[[ParmVar]] 'OutputArray_1_1' 'NodeOutputArray<RECORD1>':'NodeOutputArray<RECORD1>'
-// CHECK-NEXT:  | |     |   `-ImplicitCastExpr 0x{{.+}} <col:61> 'unsigned int' <IntegralCast>
-// CHECK-NEXT:  | |     |     `-IntegerLiteral 0x{{.+}} <col:61> 'literal int' 1
+// CHECK-NEXT:  | |     | `-ImplicitCastExpr 0x{{.+}} <col:45, col:62> 'const NodeOutput<RECORD1>' <NoOp>
+// CHECK-NEXT:  | |     |   `-CXXOperatorCallExpr 0x{{.+}} <col:45, col:62> 'NodeOutput<RECORD1>':'NodeOutput<RECORD1>'
+// CHECK-NEXT:  | |     |     |-ImplicitCastExpr 0x{{.+}} <col:60, col:62> 'NodeOutput<RECORD1> (*)(unsigned int)' <FunctionToPointerDecay>
+// CHECK-NEXT:  | |     |     | `-DeclRefExpr 0x{{.+}} <col:60, col:62> 'NodeOutput<RECORD1> (unsigned int)' lvalue CXXMethod 0x[[SUB]] 'operator[]' 'NodeOutput<RECORD1> (unsigned int)'
+// CHECK-NEXT:  | |     |     |-DeclRefExpr 0x{{.+}} <col:45> 'NodeOutputArray<RECORD1>':'NodeOutputArray<RECORD1>' lvalue ParmVar 0x[[ParmVar]] 'OutputArray_1_1' 'NodeOutputArray<RECORD1>':'NodeOutputArray<RECORD1>'
+// CHECK-NEXT:  | |     |     `-ImplicitCastExpr 0x{{.+}} <col:61> 'unsigned int' <IntegralCast>
+// CHECK-NEXT:  | |     |       `-IntegerLiteral 0x{{.+}} <col:61> 'literal int' 1
 // CHECK-NEXT:  | |     `-ImplicitCastExpr 0x{{.+}} <col:91> 'unsigned int' <IntegralCast>
 // CHECK-NEXT:  | |       `-IntegerLiteral 0x{{.+}} <col:91> 'literal int' 2
 // CHECK-NEXT:  | `-CXXMemberCallExpr 0x{{.+}} <line:20:3, col:25> 'void'
 // CHECK-NEXT:  |   `-MemberExpr 0x{{.+}} <col:3, col:10> '<bound member function type>' .OutputComplete 0x[[OutComplete]]
-// CHECK-NEXT:  |     `-DeclRefExpr 0x{{.+}} <col:3> 'ThreadNodeOutputRecords<RECORD1>':'ThreadNodeOutputRecords<RECORD1>' lvalue Var 0x[[OutRec]] 'outRec' 'ThreadNodeOutputRecords<RECORD1>':'ThreadNodeOutputRecords<RECORD1>'
+// CHECK-NEXT:  |     `-ImplicitCastExpr 0x{{.+}} <col:3> 'const ThreadNodeOutputRecords<RECORD1>' lvalue <NoOp>
+// CHECK-NEXT:  |       `-DeclRefExpr 0x{{.+}} <col:3> 'ThreadNodeOutputRecords<RECORD1>':'ThreadNodeOutputRecords<RECORD1>' lvalue Var 0x[[OutRec]] 'outRec' 'ThreadNodeOutputRecords<RECORD1>':'ThreadNodeOutputRecords<RECORD1>'
 // CHECK-NEXT:  |-HLSLNumThreadsAttr 0x{{.+}} <line:15:2, col:20> 1 1 1
 // CHECK-NEXT:  |-HLSLNodeDispatchGridAttr 0x{{.+}} <line:14:2, col:26> 1 1 1
 // CHECK-NEXT:  |-HLSLNodeLaunchAttr 0x{{.+}} <line:13:2, col:27> "broadcasting"

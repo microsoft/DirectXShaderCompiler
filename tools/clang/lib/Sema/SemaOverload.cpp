@@ -4870,13 +4870,26 @@ TryObjectArgumentInitialization(Sema &S, QualType FromType,
   // First check the qualifiers.
   QualType FromTypeCanon = S.Context.getCanonicalType(FromType);
   // HLSL Change Starts
-  // HLSL Note: For calls that aren't compiler-generated C++ overloads, we 
-  // disregard const qualifiers so that member functions can be called on
-  // `const` objects from constant buffer types. This should change in the
-  // future if we support const instance methods.
+  // HLSL Note: Prior to HLSL 202x, for calls that aren't compiler-generated
+  // C++ overloads, we disregard const qualifiers so that member functions can
+  // be called on `const` objects from constant buffer types.
+  //
+  // HLSL 202x supports `const` instance methods. When the method is const-
+  // qualified, or when the object is const-qualified, we enforce
+  // const-correctness so that:
+  //   - a const object cannot call a non-const method
+  //   - a non-const object calling a const method incurs a qualification
+  //     adjustment (which the HLSL overload scorer can use to prefer the
+  //     non-const overload).
   FromTypeCanon.removeLocalRestrict(); // HLSL Change - disregard restrict.
+  bool EnforceHLSLConst = S.getLangOpts().HLSL &&
+                          S.getLangOpts().HLSLVersion >= hlsl::LangStd::v202x &&
+                          !isa<CXXDestructorDecl>(Method) &&
+                          ((Method->getTypeQualifiers() & Qualifiers::Const) ||
+                           FromTypeCanon.isConstQualified());
   if (!S.getLangOpts().HLSL ||
-      (Method != nullptr && Method->hasAttr<HLSLCXXOverloadAttr>())) {
+      (Method != nullptr && Method->hasAttr<HLSLCXXOverloadAttr>()) ||
+      EnforceHLSLConst) {
     // HLSL Change Ends
     if (ImplicitParamType.getCVRQualifiers() !=
             FromTypeCanon.getLocalCVRQualifiers() &&

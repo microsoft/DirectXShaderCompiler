@@ -29,7 +29,7 @@ void node_2_0(
 // CHECK-NEXT:| | |-TemplateTypeParmDecl 0x{{.+}} <<invalid sloc>> <invalid sloc> class Tcount
 // CHECK-NEXT:| | |-CXXMethodDecl 0x{{.+}} <<invalid sloc>> <invalid sloc> implicit GroupIncrementOutputCount 'TResult (Tcount) const'
 // CHECK-NEXT:| | | `-ParmVarDecl 0x{{.+}} <<invalid sloc>> <invalid sloc> count 'Tcount'
-// CHECK-NEXT:| | `-CXXMethodDecl 0x[[GroupIncrementOutputCount:[0-9a-f]+]] <<invalid sloc>> <invalid sloc> used GroupIncrementOutputCount 'void (unsigned int)' extern
+// CHECK-NEXT:| | `-CXXMethodDecl 0x[[GroupIncrementOutputCount:[0-9a-f]+]] <<invalid sloc>> <invalid sloc> used GroupIncrementOutputCount 'void (unsigned int) const' extern
 // CHECK-NEXT:| |   |-TemplateArgument type 'void'
 // CHECK-NEXT:| |   |-TemplateArgument type 'unsigned int'
 // CHECK-NEXT:| |   |-ParmVarDecl 0x{{.+}} <<invalid sloc>> <invalid sloc> GroupIncrementOutputCount 'unsigned int'
@@ -62,12 +62,13 @@ void node_2_0(
 // CHECK-NEXT:   |-CompoundStmt 0x{{.+}}
 // CHECK-NEXT:   | `-CXXMemberCallExpr 0x{{.+}} 'void'
 // CHECK-NEXT:   |   |-MemberExpr 0x{{.+}} <col:3, col:22> '<bound member function type>' .GroupIncrementOutputCount 0x[[GroupIncrementOutputCount]]
-// CHECK-NEXT:   |   | `-CXXOperatorCallExpr 0x{{.+}} <col:3, col:20> 'EmptyNodeOutput'
-// CHECK-NEXT:   |   |   |-ImplicitCastExpr 0x{{.+}} <col:18, col:20> 'EmptyNodeOutput (*)(unsigned int)' <FunctionToPointerDecay>
-// CHECK-NEXT:   |   |   | `-DeclRefExpr 0x{{.+}} <col:18, col:20> 'EmptyNodeOutput (unsigned int)' lvalue CXXMethod 0x[[SUB]] 'operator[]' 'EmptyNodeOutput (unsigned int)'
-// CHECK-NEXT:   |   |   |-DeclRefExpr 0x{{.+}} <col:3> 'EmptyNodeOutputArray' lvalue ParmVar 0x[[Param]] 'OutputArray_2_0' 'EmptyNodeOutputArray'
-// CHECK-NEXT:   |   |   `-ImplicitCastExpr 0x{{.+}} <col:19> 'unsigned int' <IntegralCast>
-// CHECK-NEXT:   |   |     `-IntegerLiteral 0x{{.+}}{{.+}} <col:19> 'literal int' 1
+// CHECK-NEXT:   |   | `-ImplicitCastExpr 0x{{.+}} <col:3, col:20> 'const EmptyNodeOutput' <NoOp>
+// CHECK-NEXT:   |   |   `-CXXOperatorCallExpr 0x{{.+}} <col:3, col:20> 'EmptyNodeOutput'
+// CHECK-NEXT:   |   |     |-ImplicitCastExpr 0x{{.+}} <col:18, col:20> 'EmptyNodeOutput (*)(unsigned int)' <FunctionToPointerDecay>
+// CHECK-NEXT:   |   |     | `-DeclRefExpr 0x{{.+}} <col:18, col:20> 'EmptyNodeOutput (unsigned int)' lvalue CXXMethod 0x[[SUB]] 'operator[]' 'EmptyNodeOutput (unsigned int)'
+// CHECK-NEXT:   |   |     |-DeclRefExpr 0x{{.+}} <col:3> 'EmptyNodeOutputArray' lvalue ParmVar 0x[[Param]] 'OutputArray_2_0' 'EmptyNodeOutputArray'
+// CHECK-NEXT:   |   |     `-ImplicitCastExpr 0x{{.+}} <col:19> 'unsigned int' <IntegralCast>
+// CHECK-NEXT:   |   |       `-IntegerLiteral 0x{{.+}}{{.+}} <col:19> 'literal int' 1
 // CHECK-NEXT:   |   `-ImplicitCastExpr 0x{{.+}} <col:48> 'unsigned int' <IntegralCast>
 // CHECK-NEXT:   |     `-IntegerLiteral 0x{{.+}} <col:48> 'literal int' 10
 // CHECK-NEXT:   |-HLSLNumThreadsAttr 0x{{.+}} 1 1 1
