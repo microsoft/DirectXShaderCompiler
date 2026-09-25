@@ -1084,11 +1084,11 @@ void [[]] WriteSamplerFeedbackLevel(in Texture2DArray t, in sampler s, in float<
 
 namespace RayQueryMethods {
 
-void [[]] TraceRayInline(in acceleration_struct AccelerationStructure, in uint RayFlags, in uint InstanceInclusionMask, in ray_desc Ray);
-bool [[]] Proceed();
-void [[]] Abort();
-void [[]] CommitNonOpaqueTriangleHit();
-void [[]] CommitProceduralPrimitiveHit(in float t);
+void [[mutable]] TraceRayInline(in acceleration_struct AccelerationStructure, in uint RayFlags, in uint InstanceInclusionMask, in ray_desc Ray);
+bool [[mutable]] Proceed();
+void [[mutable]] Abort();
+void [[mutable]] CommitNonOpaqueTriangleHit();
+void [[mutable]] CommitProceduralPrimitiveHit(in float t);
 uint [[ro]] CommittedStatus();
 uint [[ro]] CandidateType();
 float<3,4> [[ro]] CandidateObjectToWorld3x4();
@@ -1160,7 +1160,7 @@ namespace DxHitObjectMethods {
     uint [[rn,class_prefix,min_sm=6.9]] GetHitKind();
     uint [[rn,class_prefix,min_sm=6.9]] GetShaderTableIndex();
     void [[class_prefix,min_sm=6.9]] GetAttributes(out udt Attributes);
-    void [[class_prefix,min_sm=6.9]] SetShaderTableIndex(in uint RecordIndex);
+    void [[mutable,class_prefix,min_sm=6.9]] SetShaderTableIndex(in uint RecordIndex);
     uint [[ro,class_prefix,min_sm=6.9]] LoadLocalRootTableConstant(in uint RootConstantOffsetInBytes);
     uint [[rn,class_prefix,min_sm=6.10]] GetClusterID();
     triangle_positions [[rn,class_prefix,min_sm=6.10]] TriangleObjectPositions();

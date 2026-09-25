@@ -5,19 +5,19 @@
 
 // Test ClusterID intrinsics for SM 6.10
 
-// AST: `-CXXMethodDecl {{.*}} used GetClusterID 'unsigned int ()' extern
+// AST: `-CXXMethodDecl {{.*}} used GetClusterID 'unsigned int () const' extern
 // AST-NEXT: {{.*}}|-TemplateArgument type 'unsigned int'
 // AST-NEXT: {{.*}}|-HLSLIntrinsicAttr {{.*}} Implicit "op" "" 396
 // AST-NEXT: {{.*}}|-ConstAttr {{.*}} Implicit
 // AST-NEXT: {{.*}}`-AvailabilityAttr {{.*}} Implicit  6.10 0 0 ""
 
-// AST: `-CXXMethodDecl {{.*}} used CandidateClusterID 'unsigned int ()' extern
+// AST: `-CXXMethodDecl {{.*}} used CandidateClusterID 'unsigned int () const' extern
 // AST-NEXT: {{.*}}|-TemplateArgument type 'unsigned int'
 // AST-NEXT: {{.*}}|-HLSLIntrinsicAttr {{.*}} Implicit "op" "" 394
 // AST-NEXT: {{.*}}|-PureAttr {{.*}} Implicit
 // AST-NEXT: {{.*}}`-AvailabilityAttr {{.*}} Implicit  6.10 0 0 ""
 
-// AST: `-CXXMethodDecl {{.*}} used CommittedClusterID 'unsigned int ()' extern
+// AST: `-CXXMethodDecl {{.*}} used CommittedClusterID 'unsigned int () const' extern
 // AST-NEXT: {{.*}}|-TemplateArgument type 'unsigned int'
 // AST-NEXT: {{.*}}|-HLSLIntrinsicAttr {{.*}} Implicit "op" "" 395
 // AST-NEXT: {{.*}}|-PureAttr {{.*}} Implicit

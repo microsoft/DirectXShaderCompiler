@@ -18,6 +18,7 @@ float4 main() : SV_Target {
 
 // CHECK:      CXXMemberCallExpr 0x{{[0-9a-fA-F]+}} <col:55, col:70> 'vector<float, 4>'
 // CHECK-NEXT: MemberExpr 0x{{[0-9a-fA-F]+}} <col:55, col:61> '<bound member function type>' .Load
+// CHECK-NEXT: ImplicitCastExpr 0x{{[0-9a-fA-F]+}} <col:55, col:59> 'const Texture2D<vector<float, 4> >' <NoOp>
 // CHECK-NEXT: CXXMemberCallExpr 0x{{[0-9a-fA-F]+}} <col:55, col:59> 'Texture2D<vector<float, 4> >':'Texture2D<vector<float, 4> >'
 // CHECK-NEXT: MemberExpr 0x{{[0-9a-fA-F]+}} <col:55> '<bound member function type>' .Get
 // CHECK-NEXT: CXXThisExpr 0x{{[0-9a-fA-F]+}} <col:55> 'MyTex2D<vector<float, 4>

@@ -4,7 +4,7 @@
 // AST-NEXT: | | | |-TemplateTypeParmDecl {{[^ ]+}} <<invalid sloc>> <invalid sloc> class TResult
 // AST-NEXT: | | | |-TemplateTypeParmDecl {{[^ ]+}} <<invalid sloc>> <invalid sloc> class Tho
 // AST-NEXT: | | | |-TemplateTypeParmDecl {{[^ ]+}} <<invalid sloc>> <invalid sloc> class TPayload
-// AST-NEXT: | | | |-CXXMethodDecl {{[^ ]+}} <<invalid sloc>> <invalid sloc> implicit Invoke 'TResult (Tho, TPayload &) const' static
+// AST-NEXT: | | | |-CXXMethodDecl {{[^ ]+}} <<invalid sloc>> <invalid sloc> implicit Invoke 'TResult (Tho, TPayload &)' static
 // AST-NEXT: | | | | |-ParmVarDecl {{[^ ]+}} <<invalid sloc>> <invalid sloc> ho 'Tho'
 // AST-NEXT: | | | | `-ParmVarDecl {{[^ ]+}} <<invalid sloc>> <invalid sloc> Payload 'TPayload &'
 // AST-NEXT: | | | `-CXXMethodDecl {{[^ ]+}} <<invalid sloc>> <invalid sloc> used Invoke 'void (dx::HitObject, Payload &)' static
@@ -26,7 +26,7 @@
 // AST-NEXT: | | | |-TemplateTypeParmDecl {{[^ ]+}} <<invalid sloc>> <invalid sloc> class TMissShaderIndex
 // AST-NEXT: | | | |-TemplateTypeParmDecl {{[^ ]+}} <<invalid sloc>> <invalid sloc> class TRay
 // AST-NEXT: | | | |-TemplateTypeParmDecl {{[^ ]+}} <<invalid sloc>> <invalid sloc> class TPayload
-// AST-NEXT: | | | |-CXXMethodDecl {{[^ ]+}} <<invalid sloc>> <invalid sloc> implicit TraceRay 'TResult (TAccelerationStructure, TRayFlags, TInstanceInclusionMask, TRayContributionToHitGroupIndex, TMultiplierForGeometryContributionToHitGroupIndex, TMissShaderIndex, TRay, TPayload &) const' static
+// AST-NEXT: | | | |-CXXMethodDecl {{[^ ]+}} <<invalid sloc>> <invalid sloc> implicit TraceRay 'TResult (TAccelerationStructure, TRayFlags, TInstanceInclusionMask, TRayContributionToHitGroupIndex, TMultiplierForGeometryContributionToHitGroupIndex, TMissShaderIndex, TRay, TPayload &)' static
 // AST-NEXT: | | | | |-ParmVarDecl {{[^ ]+}} <<invalid sloc>> <invalid sloc> AccelerationStructure 'TAccelerationStructure'
 // AST-NEXT: | | | | |-ParmVarDecl {{[^ ]+}} <<invalid sloc>> <invalid sloc> RayFlags 'TRayFlags'
 // AST-NEXT: | | | | |-ParmVarDecl {{[^ ]+}} <<invalid sloc>> <invalid sloc> InstanceInclusionMask 'TInstanceInclusionMask'

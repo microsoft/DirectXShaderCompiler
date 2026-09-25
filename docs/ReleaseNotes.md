@@ -46,6 +46,10 @@ line upon naming the release. Refer to previous for appropriate section names.
   [#8482](https://github.com/microsoft/DirectXShaderCompiler/issues/8482).
 - Added support for `auto` return types for normal functions aligning with C++14
   [#8903](https://github.com/microsoft/DirectXShaderCompiler/issues/8903).
+- HLSL 202x now supports `const`-qualified instance methods. Calling a
+  non-`const` method on a `const` object, including objects in constant
+  buffers, is now an error in HLSL 202x
+  [#8964](https://github.com/microsoft/DirectXShaderCompiler/issues/8964).
 
 #### Bug Fixes
 

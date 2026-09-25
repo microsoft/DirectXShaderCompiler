@@ -1018,6 +1018,9 @@ def err_hlsl_expected_hlsl_attribute : Error <
   "Unexpected '(' in semantic annotation. Did you mean 'packoffset()' or 'register()'?">;
 def err_hlsl_enum : Error<
   "enum is unsupported in HLSL before 2017">;
+def err_hlsl_const_member_function_202x
+    : Error<"const-qualified member functions are unsupported in HLSL before "
+            "202x">;
 def warn_hlsl_new_feature : Warning <
   "%0 is a HLSL %1 feature, and is available in older versions as a non-portable extension.">;
 
