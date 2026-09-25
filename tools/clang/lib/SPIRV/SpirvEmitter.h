@@ -33,7 +33,9 @@
 #include "clang/SPIRV/FeatureManager.h"
 #include "clang/SPIRV/SpirvBuilder.h"
 #include "clang/SPIRV/SpirvContext.h"
+#include "llvm/ADT/DenseSet.h"
 #include "llvm/ADT/STLExtras.h"
+#include "llvm/ADT/SmallPtrSet.h"
 
 #include "ConstEvaluator.h"
 #include "DeclResultIdMapper.h"
@@ -283,7 +285,61 @@ private:
                                const Expr **base = nullptr,
                                const Expr **index = nullptr);
 
-  bool isDescriptorHeap(const Expr *expr);
+  bool isDescriptorHeap(const Expr *expr) const;
+
+  /// Returns true if expr is heap-sourced: either a direct descriptor
+  /// heap subscript (ResourceDescriptorHeap[i]) or a DeclRefExpr referencing a
+  /// local variable that was previously assigned from a heap subscript and is
+  /// recorded in the image or buffer alias maps.
+  ///
+  /// Use this in place of bare isDescriptorHeap() at all sites that ask "is
+  /// this value heap-sourced?" so that alias-to-alias flows are recognized.
+  bool isHeapSourcedValue(const Expr *expr) const;
+
+  /// \brief Returns true if expr is a heap image whose heap slot was lost
+  /// crossing a user function call, as a parameter or a return value.
+  ///
+  /// The slot is recorded per variable in the function that indexed the heap
+  /// and isn't propagated across calls, so after a crossing only the image
+  /// handle remains. A value sourced directly from a heap subscript within
+  /// the current function, with no call involved, is NOT a loss: no
+  /// boundary was crossed, so descriptorHeapImageAliasVars (populated by
+  /// that same-function declaration or assignment) already has what's
+  /// needed. expr's type isn't checked, since heap buffer aliases are
+  /// rejected at the crossing itself.
+  bool isDescriptorHeapImageBoundaryLoss(const Expr *expr) const;
+
+  /// \brief Scans var's enclosing function for an assignment `var = rhs;`
+  /// anywhere in the body, calling pred(rhs) for each and returning true on
+  /// the first match. Order/control-flow insensitive: any assignment
+  /// anywhere in the function counts, not only ones that reach a particular
+  /// use.
+  bool anyAssignmentToVarSatisfies(
+      const VarDecl *var, llvm::function_ref<bool(const Expr *)> pred) const;
+
+  /// \brief Returns true if a return statement in fn yields a statically
+  /// heap-sourced value (see isExprStaticallyHeapSourcedImage).
+  ///
+  /// Scans the AST rather than recording state while emitting fn, because
+  /// the work queue can emit fn after the caller that needs the answer.
+  /// Memoized in descriptorHeapImageReturnCache.
+  bool functionReturnsHeapSourcedImage(const FunctionDecl *fn) const;
+
+  /// \brief Returns true if expr is a descriptor heap subscript, a call to a
+  /// function that returns a heap-sourced image (see
+  /// functionReturnsHeapSourcedImage), or refers to a VarDecl that is
+  /// (transitively) initialized or assigned from any of the above, eg:
+  ///   RWTexture2D<uint> a = ResourceDescriptorHeap[i];
+  ///   RWTexture2D<uint> b;
+  ///   b = a;  // b
+  ///
+  /// Reads initializers and assignments from the AST rather than
+  /// descriptorHeapImageAliasVars, so it can answer for a function that
+  /// hasn't been emitted yet. Assignment search is order/control-flow
+  /// insensitive (any assignment to the VarDecl anywhere in its function
+  /// counts). `visiting` guards against revisiting a VarDecl.
+  bool isExprStaticallyHeapSourcedImage(
+      const Expr *expr, llvm::SmallPtrSetImpl<const VarDecl *> &visiting) const;
 
   void getDescriptorHeapOperands(const Expr *expr, const Expr **base,
                                  const Expr **index);
@@ -397,6 +453,21 @@ private:
 
   /// Translates the given varDecl into a spec constant.
   void createSpecConstant(const VarDecl *varDecl);
+
+  /// Returns the OpTypeRuntimeArray for a descriptor heap array of elemType,
+  /// decorated with ArrayStrideIdEXT referencing an OpConstantSizeOfEXT of the
+  /// element (descriptor) type.
+  const SpirvType *getDescriptorHeapRuntimeArrayType(const SpirvType *elemType);
+
+  /// Emits the descriptor-heap buffer access for a buffer-like resource
+  /// (StructuredBuffer/ByteAddressBuffer/ConstantBuffer/TextureBuffer + RW
+  /// variants) loaded from heapVar at index via OpUntypedAccessChainKHR ->
+  /// OpBufferPointerEXT. Records in descriptorHeapBufferAccesses[expr],
+  /// returning the buffer-data pointer or nullptr on lowering failure.
+  // Caller must have checked resource is buffer-like.
+  SpirvInstruction *emitDescriptorHeapBufferAccess(
+      QualType resourceType, SpirvInstruction *heapVar, SpirvInstruction *index,
+      const Expr *expr, const Expr *baseExpr, const Expr *indexExpr);
 
   /// Generates the necessary instructions for conducting the given binary
   /// operation on lhs and rhs.
@@ -1202,6 +1273,95 @@ private:
                              const Expr *srcExpr);
   bool tryToAssignCounterVar(const Expr *dstExpr, const Expr *srcExpr);
 
+  /// \brief Marks an alias resource as heap-loaded with no associated counter.
+  void markDescriptorHeapCounterUnsupported(const DeclaratorDecl *decl);
+
+  /// \brief Returns true if counter operations on the resource expression are
+  /// known to be unsupported because the resource came from
+  /// ResourceDescriptorHeap. Consults the counterUnsupported field of the
+  /// buffer alias entry for the referenced variable.
+  bool isDescriptorHeapCounterUnsupported(const Expr *expr) const;
+
+  /// \brief Records the heap index for a local image alias when the source
+  /// is a descriptor heap subscript. Preserves enough information to
+  /// recreate OpUntypedImageTexelPointerEXT after reassignment.
+  bool tryToAssignDescriptorHeapImageAlias(const DeclaratorDecl *dstDecl,
+                                           const Expr *srcExpr);
+  bool tryToAssignDescriptorHeapImageAlias(const Expr *dstExpr,
+                                           const Expr *srcExpr);
+  bool tryToAssignDescriptorHeapBufferAlias(const DeclaratorDecl *dstDecl,
+                                            const Expr *srcExpr);
+  bool tryToAssignDescriptorHeapBufferAlias(const Expr *dstExpr,
+                                            const Expr *srcExpr);
+
+  /// \brief Diagnoses a local resource variable assigned from both a bound
+  /// resource and ResourceDescriptorHeap.
+  ///
+  /// Once recorded as an alias, every use is re-lowered as a heap access
+  /// chain regardless of control flow, correct only if the variable holds
+  /// a heap descriptor on every reaching path. Mixed sources violate this;
+  /// reject rather than silently miscompile.
+  ///
+  /// Returns true if rejected (new diagnostic emitted or variable already
+  /// diagnosed); callers need not act, alias-recording helpers check
+  /// descriptorHeapVarState and skip rejected variables automatically.
+  bool diagnoseDescriptorHeapAliasMixing(const VarDecl *dstVar,
+                                         const Expr *srcExpr,
+                                         SourceLocation loc);
+
+  /// \brief Creates the "<name>.descriptor.index" function variable used to
+  /// remember the descriptor heap index of a local resource alias dstVar.
+  SpirvVariable *createDescriptorHeapIndexVar(const VarDecl *dstVar);
+
+  /// \brief If decl is a function-local variable initialized directly from a
+  /// descriptor heap subscript (e.g. ResourceDescriptorHeap[i]), creates the
+  /// appropriate alias and returns true. Returns false if decl is not such a
+  /// descriptor-heap alias and should be emitted as a normal variable.
+  bool tryToCreateDescriptorHeapAlias(const VarDecl *decl, const Expr *init);
+
+  /// \brief Handles a buffer = ResourceDescriptorHeap[i] assignment. Returns
+  /// None if assignExpr is not such an assignment (caller should fall back to a
+  /// normal assignment). Otherwise the alias was created and the wrapped value
+  /// is the result of the assignment expression (possibly nullptr).
+  llvm::Optional<SpirvInstruction *>
+  tryToAssignToDescriptorHeapBuffer(const BinaryOperator *assignExpr);
+
+  /// \brief Entry point for the descriptor-heap handling of a simple
+  /// assignment: rejects a destination that mixes bound and heap resources,
+  /// then defers to tryToAssignToDescriptorHeapBuffer. Returns None if the
+  /// assignment needs no heap-specific treatment and the caller should lower it
+  /// as a normal assignment.
+  llvm::Optional<SpirvInstruction *>
+  tryToAssignToDescriptorHeapAlias(const BinaryOperator *assignExpr);
+
+  /// \brief Re-derives the buffer-data pointer for a heap buffer alias decl
+  /// (OpLoad of saved index -> OpUntypedAccessChainKHR + OpBufferPointerEXT).
+  /// Returns nullptr if decl is not a recorded alias.
+  SpirvInstruction *emitDescriptorHeapBufferPointer(const VarDecl *decl,
+                                                    SourceLocation loc);
+
+  /// \brief Emits an OpUntypedImageTexelPointerEXT for a descriptor-heap image
+  /// alias decl (OpLoad of the saved index, then OpUntypedAccessChainKHR
+  /// feeding the texel pointer). Returns nullptr if decl is not a recorded heap
+  /// image alias. Symmetric with emitDescriptorHeapBufferPointer.
+  SpirvInstruction *emitDescriptorHeapImageTexelPointer(
+      const VarDecl *decl, SpirvInstruction *coordinate,
+      SpirvInstruction *sample, QualType resultType, SourceLocation loc);
+
+  /// \brief Emits OpLoad of indexVar then OpUntypedAccessChainKHR into the
+  /// heap, yielding the per-descriptor pointer shared by the buffer/image alias
+  /// re-derivation paths above.
+  SpirvInstruction *emitDescriptorHeapAccessChain(const SpirvType *arrayType,
+                                                  SpirvInstruction *heap,
+                                                  SpirvVariable *indexVar,
+                                                  SourceLocation loc);
+
+  /// \brief Stores index (cast to uint when needed) into the alias indexVar,
+  /// shared by the image/buffer alias-assignment paths.
+  void storeDescriptorHeapIndex(SpirvVariable *indexVar,
+                                SpirvInstruction *index, QualType indexType,
+                                const Expr *srcExpr);
+
   /// Returns an instruction that points to the alias counter variable with the
   /// entity represented by expr.
   ///
@@ -1554,6 +1714,82 @@ private:
   const FunctionDecl *curFunction;
   /// The SPIR-V function parameter for the current this object.
   SpirvInstruction *curThis;
+
+  // TODO: The following ~15 descriptorHeap* members and their methods are good
+  // candidates for refactoring into a dedicated DescriptorHeapAliasEmitter
+  // helper class.
+
+  /// Native descriptor heap image descriptors used to directly form image
+  /// atomics. The emitter is single-use per translation unit, so these
+  /// AST-pointer maps live for the emitter lifetime.
+  struct DescriptorHeapImageAccess {
+    SpirvInstruction *accessChain;
+    const SpirvType *imageType;
+    const SpirvType *arrayType;
+    SpirvInstruction *heap;
+    SpirvInstruction *index;
+    QualType indexType;
+  };
+  struct DescriptorHeapImageAlias {
+    SpirvVariable *indexVar;
+    const SpirvType *imageType;
+    const SpirvType *arrayType;
+    SpirvInstruction *heap;
+  };
+  struct DescriptorHeapBufferAccess {
+    const SpirvPointerType *bufferPointerType;
+    const SpirvType *arrayType;
+    SpirvInstruction *heap;
+    SpirvInstruction *index;
+    QualType indexType;
+    SpirvLayoutRule layoutRule;
+  };
+  struct DescriptorHeapBufferAlias {
+    SpirvVariable *indexVar;
+    const SpirvPointerType *bufferPointerType;
+    const SpirvType *arrayType;
+    SpirvInstruction *heap;
+    SpirvLayoutRule layoutRule;
+    bool counterUnsupported = false;
+  };
+  /// Tracks per-variable assignment history for the mixed-alias diagnostic.
+  /// Bound: the variable has been assigned from a bound resource; a later heap
+  ///        assignment to it would be a diagnosable mix.
+  /// Mixed: mixing was already diagnosed; alias recording stays suppressed for
+  ///        the remainder of the function so the error fires only once.
+  enum class DescriptorHeapVarState : uint8_t { Bound, Mixed };
+  llvm::DenseMap<const VarDecl *, DescriptorHeapVarState>
+      descriptorHeapVarState;
+
+  llvm::DenseMap<const Expr *, DescriptorHeapImageAccess>
+      descriptorHeapImageAccesses;
+  llvm::DenseMap<const VarDecl *, DescriptorHeapImageAlias>
+      descriptorHeapImageAliasVars;
+  llvm::DenseMap<const Expr *, DescriptorHeapBufferAccess>
+      descriptorHeapBufferAccesses;
+  llvm::DenseMap<const VarDecl *, DescriptorHeapBufferAlias>
+      descriptorHeapBufferAliasVars;
+
+  /// Parameters whose argument, at some call site, was a heap-sourced image
+  /// (see isHeapSourcedValue): the slot lives in the caller's
+  /// descriptorHeapImageAliasVars, keyed on the caller's VarDecl, and is
+  /// invisible to the callee's parameter. Plain OpImageRead/OpImageWrite
+  /// remain valid on the parameter (the loaded handle alone is sufficient),
+  /// so this is only consulted lazily, when an atomic needs the heap slot
+  /// for OpImageTexelPointer. See isDescriptorHeapImageBoundaryLoss.
+  ///
+  /// Only parameters are recorded here: a local initialized from a
+  /// heap-returning call is instead detected on demand by
+  /// isDescriptorHeapImageBoundaryLoss re-deriving it from the local's own
+  /// initializer, because whether the call is heap-returning can depend on
+  /// a callee not yet emitted (see functionReturnsHeapSourcedImage) at the
+  /// point the local's declaration is processed.
+  llvm::DenseSet<const VarDecl *> descriptorHeapImageBoundaryLossVars;
+
+  /// Memoization cache for functionReturnsHeapSourcedImage, keyed on each
+  /// FunctionDecl's canonical declaration.
+  mutable llvm::DenseMap<const FunctionDecl *, bool>
+      descriptorHeapImageReturnCache;
 
   /// The source location of a push constant block we have previously seen.
   /// Invalid means no push constant blocks defined thus far.
