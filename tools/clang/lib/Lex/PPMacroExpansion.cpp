@@ -1156,9 +1156,11 @@ static bool HasFeature(const Preprocessor &PP, const IdentifierInfo *II) {
       .Case("cxx_unicode_literals", LangOpts.CPlusPlus11)
       .Case("cxx_unrestricted_unions", LangOpts.CPlusPlus11)
       .Case("cxx_user_literals", LangOpts.CPlusPlus11)
+      // HLSL Change Begin - Enable variadic templates.
       .Case("cxx_variadic_templates",
             LangOpts.CPlusPlus11 ||
                 (LangOpts.HLSL && !LangOpts.HLSLDisallowsVariadicTemplates()))
+      // HLSL Change End.
       // C++1y features
       .Case("cxx_aggregate_nsdmi", LangOpts.CPlusPlus14)
       .Case("cxx_binary_literals", LangOpts.CPlusPlus14)
