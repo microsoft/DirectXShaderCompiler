@@ -349,7 +349,7 @@ CXX11_KEYWORD(constexpr             , 0)
 CXX11_KEYWORD(decltype              , 0)
 CXX11_KEYWORD(noexcept              , 0)
 CXX11_KEYWORD(nullptr               , 0)
-CXX11_KEYWORD(static_assert         , 0)
+CXX11_KEYWORD(static_assert         , KEYHLSL2026) // HLSL Change - 2026 adds static_assert
 CXX11_KEYWORD(thread_local          , 0)
 
 // C++ concepts TS keywords
