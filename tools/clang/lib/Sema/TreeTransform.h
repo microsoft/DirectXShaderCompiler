@@ -4753,8 +4753,17 @@ QualType TreeTransform<Derived>::TransformFunctionProtoType(
       !std::equal(T->param_type_begin(), T->param_type_end(),
                   ParamTypes.begin()) || EPIChanged) {
     // HLSL Change - FIX - We should move param mods to parameter QualTypes
+    SmallVector<hlsl::ParameterModifier, 4> ExpandedParamMods;
+    ArrayRef<hlsl::ParameterModifier> ParamMods = T->getParamMods();
+    if (ParamMods.size() != ParamTypes.size()) {
+      ExpandedParamMods.reserve(ParamDecls.size());
+      for (ParmVarDecl *Param : ParamDecls)
+        ExpandedParamMods.push_back(Param ? Param->getParamModifiers()
+                                          : hlsl::ParameterModifier());
+      ParamMods = ExpandedParamMods;
+    }
     Result = getDerived().RebuildFunctionProtoType(ResultType, ParamTypes,
-                                                   T->getParamMods(), EPI);
+                                                   ParamMods, EPI);
     // HLSL Change - End
     if (Result.isNull())
       return QualType();
@@ -10721,9 +10730,19 @@ TreeTransform<Derived>::TransformBlockExpr(BlockExpr *E) {
   QualType exprResultType =
       getDerived().TransformType(exprFunctionType->getReturnType());
 
-  // HLSL Change - FIX - We should move param mods to parameter QualTypes
+  // HLSL Change - Fix up the parameter modifiers for the block's parameters.
+  SmallVector<hlsl::ParameterModifier, 4> ExpandedParamMods;
+  ArrayRef<hlsl::ParameterModifier> ParamMods =
+      exprFunctionType->getParamMods();
+  if (ParamMods.size() != paramTypes.size()) {
+    ExpandedParamMods.reserve(params.size());
+    for (ParmVarDecl *Param : params)
+      ExpandedParamMods.push_back(Param ? Param->getParamModifiers()
+                                        : hlsl::ParameterModifier());
+    ParamMods = ExpandedParamMods;
+  }
   QualType functionType = getDerived().RebuildFunctionProtoType(
-      exprResultType, paramTypes, exprFunctionType->getParamMods(),
+      exprResultType, paramTypes, ParamMods,
       exprFunctionType->getExtProtoInfo());
   // HLSL Change - End
   blockScope->FunctionType = functionType;
@@ -10965,7 +10984,7 @@ TreeTransform<Derived>::RebuildDependentSizedExtVectorType(QualType ElementType,
   return SemaRef.BuildExtVectorType(ElementType, SizeExpr, AttributeLoc);
 }
 
-// HLSL Change - FIX - We should move param mods to parameter QualTypes
+// HLSL Change - Fix up the parameter modifiers for the function prototype.
 template<typename Derived>
 QualType TreeTransform<Derived>::RebuildFunctionProtoType(
     QualType T,
