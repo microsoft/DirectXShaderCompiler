@@ -300,12 +300,22 @@ private:
   /// crossing a user function call, as a parameter or a return value.
   ///
   /// The slot is recorded per variable in the function that indexed the heap
-  /// and isn't propagated across calls, so after a crossing only the
-  /// image handle remains. Detection is best-effort: it recognizes flagged
-  /// parameters and values returned from calls, not every copy or
-  /// reassignment of them. expr's type isn't checked, since heap buffer
-  /// aliases are rejected at the crossing itself.
+  /// and isn't propagated across calls, so after a crossing only the image
+  /// handle remains. A value sourced directly from a heap subscript within
+  /// the current function, with no call involved, is NOT a loss: no
+  /// boundary was crossed, so descriptorHeapImageAliasVars (populated by
+  /// that same-function declaration or assignment) already has what's
+  /// needed. expr's type isn't checked, since heap buffer aliases are
+  /// rejected at the crossing itself.
   bool isDescriptorHeapImageBoundaryLoss(const Expr *expr) const;
+
+  /// \brief Scans var's enclosing function for an assignment `var = rhs;`
+  /// anywhere in the body, calling pred(rhs) for each and returning true on
+  /// the first match. Order/control-flow insensitive: any assignment
+  /// anywhere in the function counts, not only ones that reach a particular
+  /// use.
+  bool anyAssignmentToVarSatisfies(
+      const VarDecl *var, llvm::function_ref<bool(const Expr *)> pred) const;
 
   /// \brief Returns true if a return statement in fn yields a statically
   /// heap-sourced value (see isExprStaticallyHeapSourcedImage).
@@ -315,15 +325,19 @@ private:
   /// Memoized in descriptorHeapImageReturnCache.
   bool functionReturnsHeapSourcedImage(const FunctionDecl *fn) const;
 
-  /// \brief Returns true if expr is a descriptor heap subscript, or refers to
-  /// a VarDecl initialized from one, eg:
+  /// \brief Returns true if expr is a descriptor heap subscript, a call to a
+  /// function that returns a heap-sourced image (see
+  /// functionReturnsHeapSourcedImage), or refers to a VarDecl that is
+  /// (transitively) initialized or assigned from any of the above, eg:
   ///   RWTexture2D<uint> a = ResourceDescriptorHeap[i];
-  ///   RWTexture2D<uint> b = a;  // b
+  ///   RWTexture2D<uint> b;
+  ///   b = a;  // b
   ///
-  /// Reads initializers rather than descriptorHeapImageAliasVars, so it can
-  /// answer for a function that hasn't been emitted yet. Tradeoff is that
-  /// later assignments aren't seen. `visiting` guards against revisiting a
-  /// VarDecl.
+  /// Reads initializers and assignments from the AST rather than
+  /// descriptorHeapImageAliasVars, so it can answer for a function that
+  /// hasn't been emitted yet. Assignment search is order/control-flow
+  /// insensitive (any assignment to the VarDecl anywhere in its function
+  /// counts). `visiting` guards against revisiting a VarDecl.
   bool isExprStaticallyHeapSourcedImage(
       const Expr *expr, llvm::SmallPtrSetImpl<const VarDecl *> &visiting) const;
 

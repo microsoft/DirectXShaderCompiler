@@ -11,9 +11,10 @@
 // failing SPIR-V validation with
 // [VUID-StandaloneSpirv-OpTypeImage-06924] and no diagnostic.
 //
-// The storage-class of the resolved base instruction is the natural predicate:
-//   - bound global  -> UniformConstant  -> fallback is valid
-//   - returned/local alias -> Function  -> diagnose before emitting
+// functionReturnsHeapSourcedImage scans the callee's AST for a return
+// statement whose value is statically heap-sourced, independent of codegen
+// order (the callee may not have been emitted yet): diagnose before
+// emitting whenever that scan says yes.
 //
 // Plain reads and writes through the returned alias still work because
 // OpImageRead/OpImageWrite only need the handle value; only atomics

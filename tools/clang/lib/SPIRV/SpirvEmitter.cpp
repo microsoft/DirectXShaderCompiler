@@ -8548,12 +8548,52 @@ bool SpirvEmitter::isExprStaticallyHeapSourcedImage(
   expr = expr->IgnoreParenCasts();
   if (isDescriptorHeap(expr))
     return true;
+  // expr may itself be a call to another function that returns a
+  // heap-sourced image, e.g. `return makeHeapImage();`.
+  if (const auto *call = dyn_cast<CallExpr>(expr)) {
+    if (const auto *fn = call->getDirectCallee())
+      return functionReturnsHeapSourcedImage(fn);
+    return false;
+  }
   const auto *declRefExpr = dyn_cast<DeclRefExpr>(expr);
   const auto *var =
       declRefExpr ? dyn_cast<VarDecl>(declRefExpr->getDecl()) : nullptr;
-  if (!var || !var->getInit() || !visiting.insert(var).second)
+  if (!var || !visiting.insert(var).second)
     return false;
-  return isExprStaticallyHeapSourcedImage(var->getInit(), visiting);
+  if (var->getInit() &&
+      isExprStaticallyHeapSourcedImage(var->getInit(), visiting))
+    return true;
+  // var may also become heap-sourced through a later assignment rather than
+  // its initializer, e.g. `RWTexture2D<uint> t; t =
+  // ResourceDescriptorHeap[i];`.
+  return anyAssignmentToVarSatisfies(var, [this, &visiting](const Expr *rhs) {
+    return isExprStaticallyHeapSourcedImage(rhs, visiting);
+  });
+}
+
+bool SpirvEmitter::anyAssignmentToVarSatisfies(
+    const VarDecl *var, llvm::function_ref<bool(const Expr *)> pred) const {
+  const auto *fn =
+      dyn_cast_or_null<FunctionDecl>(var->getParentFunctionOrMethod());
+  if (!fn || !fn->getBody())
+    return false;
+  llvm::SmallVector<const Stmt *, 16> worklist{fn->getBody()};
+  while (!worklist.empty()) {
+    const Stmt *s = worklist.pop_back_val();
+    if (!s)
+      continue;
+    if (const auto *assign = dyn_cast<BinaryOperator>(s)) {
+      if (assign->getOpcode() == BO_Assign) {
+        const auto *lhsRef =
+            dyn_cast<DeclRefExpr>(assign->getLHS()->IgnoreParenCasts());
+        if (lhsRef && lhsRef->getDecl() == var && pred(assign->getRHS()))
+          return true;
+      }
+    }
+    for (const Stmt *child : s->children())
+      worklist.push_back(child);
+  }
+  return false;
 }
 
 bool SpirvEmitter::functionReturnsHeapSourcedImage(
@@ -8563,11 +8603,16 @@ bool SpirvEmitter::functionReturnsHeapSourcedImage(
   if (cached != descriptorHeapImageReturnCache.end())
     return cached->second;
 
-  // Memoize before recursing: a function that calls itself (directly or, in
-  // a future world with recursion, indirectly) must not re-enter this scan.
-  bool &result = descriptorHeapImageReturnCache[fn];
-  result = false;
+  // Seed the cache with false before recursing, so a function that calls
+  // itself directly or indirectly (via the CallExpr case in
+  // isExprStaticallyHeapSourcedImage) does not re-enter this scan. Write via
+  // a local and a second map lookup, rather than holding a reference across
+  // the scan: the recursive calls below insert other FunctionDecls into the
+  // same DenseMap, which can resize and invalidate any reference held into
+  // it.
+  descriptorHeapImageReturnCache[fn] = false;
 
+  bool result = false;
   if (const Stmt *body = fn->getBody()) {
     llvm::SmallVector<const Stmt *, 16> worklist{body};
     while (!worklist.empty()) {
@@ -8587,39 +8632,41 @@ bool SpirvEmitter::functionReturnsHeapSourcedImage(
         worklist.push_back(child);
     }
   }
+  descriptorHeapImageReturnCache[fn] = result;
   return result;
 }
 
 bool SpirvEmitter::isDescriptorHeapImageBoundaryLoss(const Expr *expr) const {
   const Expr *e = expr->IgnoreParenCasts();
 
-  // A call expression evaluated directly (e.g. InterlockedAdd(f(x)[i], ...))
-  // never goes through a receiving VarDecl, so check the callee itself. This
-  // is a pure AST scan (functionReturnsHeapSourcedImage), not a lookup into
-  // state recorded while emitting the callee: SpirvEmitter drains a
-  // work queue seeded by the entry point (see HandleTranslationUnit), so a
-  // callee can be emitted after its caller. Any check keyed on "has the
-  // callee already run" would miss exactly the cases this function exists
-  // to catch.
-  if (const auto *call = dyn_cast<CallExpr>(e)) {
-    if (const auto *fn = call->getDirectCallee())
-      return functionReturnsHeapSourcedImage(fn);
+  // expr may be a call evaluated directly (e.g. InterlockedAdd(f(x)[i],
+  // ...)), or a local (transitively) initialized or reassigned from one; a
+  // call's return crosses the same boundary either way. This is a pure AST
+  // scan (functionReturnsHeapSourcedImage), not a lookup into state recorded
+  // while emitting the callee: SpirvEmitter drains a work queue seeded by
+  // the entry point (see HandleTranslationUnit), so a callee can be emitted
+  // after its caller. A local sourced directly from a heap subscript
+  // instead, with no call involved, is NOT a loss: no boundary was crossed,
+  // so descriptorHeapImageAliasVars, populated by that same-function
+  // declaration or assignment, already has what's needed.
+  auto crossesThroughCall = [this](const Expr *x) {
+    if (const auto *call = dyn_cast<CallExpr>(x->IgnoreParenCasts()))
+      if (const auto *fn = call->getDirectCallee())
+        return functionReturnsHeapSourcedImage(fn);
     return false;
-  }
+  };
+  if (crossesThroughCall(e))
+    return true;
 
   const auto *var = dyn_cast_or_null<VarDecl>(getReferencedDef(e));
   if (!var)
     return false;
+  // Parameters are flagged explicitly at their call sites (see processCall).
   if (descriptorHeapImageBoundaryLossVars.count(var))
     return true;
-  // A local initialized from a call inherits the call's loss, checked here
-  // directly (same reason as above: no side-recorded state to consult).
-  if (const auto *init = var->getInit()) {
-    if (const auto *call = dyn_cast<CallExpr>(init->IgnoreParenCasts()))
-      if (const auto *fn = call->getDirectCallee())
-        return functionReturnsHeapSourcedImage(fn);
-  }
-  return false;
+  if (var->getInit() && crossesThroughCall(var->getInit()))
+    return true;
+  return anyAssignmentToVarSatisfies(var, crossesThroughCall);
 }
 
 void SpirvEmitter::getDescriptorHeapOperands(const Expr *expr,
