@@ -28,6 +28,8 @@ line upon naming the release. Refer to previous for appropriate section names.
   LinAlg Matrix, WaveGroup Index and Count, DebugBreak, Clustered Geometry, and
   Triangle Object Positions, with detailed blog posts to be linked here once
   available.
+- Removed work graph support from Shader Model 6.10, and DXIL 1.10
+  [microsoft/hlsl-specs#915](https://github.com/microsoft/hlsl-specs/issues/915).
 
 #### HLSL Language
 
