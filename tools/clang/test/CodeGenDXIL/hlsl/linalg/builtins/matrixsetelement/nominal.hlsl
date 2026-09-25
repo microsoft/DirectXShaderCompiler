@@ -17,8 +17,8 @@ void main() {
   // CHECK2-SAME: "(i32 408, %dx.types.LinAlgMatrixC4M5N4U1S2* %{{.*}}, %dx.types.LinAlgMatrixC4M5N4U1S2 %{{.*}}, i32 1, i32 5)
 
   __builtin_LinAlgMatrix [[__LinAlgMatrix_Attributes(4, 5, 4, 1, 2)]] mat1;
-  __builtin_LinAlg_FillMatrix(mat1, true, 1);
+  dx::__builtin_LinAlg_FillMatrix(mat1, true, 1);
 
   __builtin_LinAlgMatrix [[__LinAlgMatrix_Attributes(4, 5, 4, 1, 2)]] mat2;
-  __builtin_LinAlg_MatrixSetElement(mat2, mat1, 1, 5);
+  dx::__builtin_LinAlg_MatrixSetElement(mat2, mat1, 1, 5);
 }

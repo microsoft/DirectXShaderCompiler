@@ -21,9 +21,9 @@ void main() {
   // Matrix<I32, 8, 8, Acc, ThreadGroup>
   __builtin_LinAlgMatrix [[__LinAlgMatrix_Attributes(4, 8, 8, 2, 2)]] matR;
 
-  __builtin_LinAlg_FillMatrix(matA, true, 1);
-  __builtin_LinAlg_FillMatrix(matB, true, 2);
-  __builtin_LinAlg_FillMatrix(matC, true, 3);
+  dx::__builtin_LinAlg_FillMatrix(matA, true, 1);
+  dx::__builtin_LinAlg_FillMatrix(matB, true, 2);
+  dx::__builtin_LinAlg_FillMatrix(matC, true, 3);
 
   // CHECK: call %dx.types.LinAlgMatrixC4M8N8U2S2
   // CHECK-SAME: @dx.op.linAlgMatrixMultiplyAccumulate.mC4M8N8U2S2.mC4M8N4U0S2.mC4M4N8U1S2.mC4M8N8U2S2
@@ -35,5 +35,5 @@ void main() {
   // CHECK2-SAME: %dx.types.LinAlgMatrixC4M8N8U2S2* %{{.*}}, %dx.types.LinAlgMatrixC4M8N4U0S2 %{{[0-9]+}},
   // CHECK2-SAME: %dx.types.LinAlgMatrixC4M4N8U1S2 %{{[0-9]+}}, %dx.types.LinAlgMatrixC4M8N8U2S2 %{{[0-9]+}})
 
-  __builtin_LinAlg_MatrixMatrixMultiplyAccumulate(matR, matA, matB, matC);
+  dx::__builtin_LinAlg_MatrixMatrixMultiplyAccumulate(matR, matA, matB, matC);
 }

@@ -26,69 +26,69 @@ void CallFunction()
   float4 vecC = {8.0, 9.0, 0.0, 1.0};
 
 #ifdef MATRIX_COPY_CONVERT
-  #define DO_FUNC __builtin_LinAlg_CopyConvertMatrix(mat2, mat1, true);
+  #define DO_FUNC dx::__builtin_LinAlg_CopyConvertMatrix(mat2, mat1, true);
 #endif
 
 #ifdef MATRIX_FILL
-  #define DO_FUNC __builtin_LinAlg_FillMatrix(mat1, true, 15);
+  #define DO_FUNC dx::__builtin_LinAlg_FillMatrix(mat1, true, 15);
 #endif
 
 #ifdef MATRIX_GET_COORDINATE
-  #define DO_FUNC uint2 coord = __builtin_LinAlg_MatrixGetCoordinate(mat1, 0);
+  #define DO_FUNC uint2 coord = dx::__builtin_LinAlg_MatrixGetCoordinate(mat1, 0);
 #endif
 
 #ifdef MATRIX_GET_ELEMENT
   float elem;
-  #define DO_FUNC __builtin_LinAlg_MatrixGetElement(elem, mat1, 0);
+  #define DO_FUNC dx::__builtin_LinAlg_MatrixGetElement(elem, mat1, 0);
 #endif
 
 #ifdef MATRIX_MULTIPLY
-  #define DO_FUNC __builtin_LinAlg_MatrixMatrixMultiply(mat1, mat2, mat3);
+  #define DO_FUNC dx::__builtin_LinAlg_MatrixMatrixMultiply(mat1, mat2, mat3);
 #endif
 
 #ifdef MATRIX_MULTIPLY_ACCUMULATE
-  #define DO_FUNC __builtin_LinAlg_MatrixMatrixMultiplyAccumulate(mat1, mat2, mat3, mat1);
+  #define DO_FUNC dx::__builtin_LinAlg_MatrixMatrixMultiplyAccumulate(mat1, mat2, mat3, mat1);
 #endif
 
 #ifdef MATRIX_SET_ELEMENT
-  #define DO_FUNC __builtin_LinAlg_MatrixSetElement(mat2, mat1, 1, 1);
+  #define DO_FUNC dx::__builtin_LinAlg_MatrixSetElement(mat2, mat1, 1, 1);
 #endif
 
 #ifdef MATRIX_STORE_TO_DESCRIPTOR
-  #define DO_FUNC __builtin_LinAlg_MatrixStoreToDescriptor(mat1, buf, 1, 2, 3, 4);
+  #define DO_FUNC dx::__builtin_LinAlg_MatrixStoreToDescriptor(mat1, buf, 1, 2, 3, 4);
 #endif
 
 #ifdef MATRIX_LENGTH
-  #define DO_FUNC __builtin_LinAlg_MatrixLength(mat1);
+  #define DO_FUNC uint length = dx::__builtin_LinAlg_MatrixLength(mat1);
 #endif
 
 #ifdef MATRIX_ACCUMULATE
-  #define DO_FUNC __builtin_LinAlg_MatrixAccumulate(mat1, mat2, mat3);
+  #define DO_FUNC dx::__builtin_LinAlg_MatrixAccumulate(mat1, mat2, mat3);
 #endif
 
 #ifdef MATRIX_LOAD_FROM_MEMORY
-  #define DO_FUNC __builtin_LinAlg_MatrixLoadFromMemory(mat1, gs_arr, 0, 0, 0);
+  #define DO_FUNC dx::__builtin_LinAlg_MatrixLoadFromMemory(mat1, gs_arr, 0, 0, 0);
 #endif
 
 #ifdef MATRIX_STORE_TO_MEMORY
-  #define DO_FUNC __builtin_LinAlg_MatrixStoreToMemory(mat1, gs_arr, 0, 0, 0);
+  #define DO_FUNC dx::__builtin_LinAlg_MatrixStoreToMemory(mat1, gs_arr, 0, 0, 0);
 #endif
 
 #ifdef MATRIX_ACCUMULATE_TO_MEMORY
-  #define DO_FUNC __builtin_LinAlg_MatrixAccumulateToMemory(mat1, gs_arr, 0, 0, 0);
+  #define DO_FUNC dx::__builtin_LinAlg_MatrixAccumulateToMemory(mat1, gs_arr, 0, 0, 0);
 #endif
 
   // The builtins below are allowed in all stages, if they raise an error
   // then the test will fail with "saw unexpected diagnostic"
-  uint layout = __builtin_LinAlg_MatrixQueryAccumulatorLayout();
-  __builtin_LinAlg_MatrixLoadFromDescriptor(mat1, buf, 5, 5, 5, 4);
-  __builtin_LinAlg_MatrixOuterProduct(mat1, true, vecA, vecB);
-  __builtin_LinAlg_MatrixAccumulateToDescriptor(mat1, buf, 1, 2, 3, 4);
-  __builtin_LinAlg_MatrixVectorMultiply(vecA, mat1, true, vecB, 1);
-  __builtin_LinAlg_MatrixVectorMultiplyAdd(vecA, mat1, true, vecB, 2, vecC);
+  uint layout = dx::__builtin_LinAlg_MatrixQueryAccumulatorLayout();
+  dx::__builtin_LinAlg_MatrixLoadFromDescriptor(mat1, buf, 5, 5, 5, 4);
+  dx::__builtin_LinAlg_MatrixOuterProduct(mat1, true, vecA, vecB);
+  dx::__builtin_LinAlg_MatrixAccumulateToDescriptor(mat1, buf, 1, 2, 3, 4);
+  dx::__builtin_LinAlg_MatrixVectorMultiply(vecA, mat1, true, vecB, 1);
+  dx::__builtin_LinAlg_MatrixVectorMultiplyAdd(vecA, mat1, true, vecB, 2, vecC);
   int4 outVec;
-  __builtin_LinAlg_Convert(outVec, vecA, 1, 2);
-  __builtin_LinAlg_VectorAccumulateToDescriptor(buf, 0, 64, vecA);
+  dx::__builtin_LinAlg_Convert(outVec, vecA, 1, 2);
+  dx::__builtin_LinAlg_VectorAccumulateToDescriptor(buf, 0, 64, vecA);
 
   // expected-error@+11{{builtin unavailable in shader stage 'pixel' (requires 'compute', 'mesh' or 'amplification')}}
   // expected-error@+10{{builtin unavailable in shader stage 'vertex' (requires 'compute', 'mesh' or 'amplification')}}

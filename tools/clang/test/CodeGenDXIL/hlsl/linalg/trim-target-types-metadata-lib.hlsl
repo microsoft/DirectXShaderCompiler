@@ -24,18 +24,18 @@ uint useMatrix1() {
   // Matrix<ComponentType::I32, 4, 5, MatrixUse::A, MatrixScope::ThreadGroup> m;
   __builtin_LinAlgMatrix [[__LinAlgMatrix_Attributes(4, 4, 5, 0, 2)]] mat1;
   // mat1 = Matrix::Splat(5);
-  __builtin_LinAlg_FillMatrix(mat1, true, 5);
+  dx::__builtin_LinAlg_FillMatrix(mat1, true, 5);
   // return mat1.Length();
-  return __builtin_LinAlg_MatrixLength(mat1);
+  return dx::__builtin_LinAlg_MatrixLength(mat1);
 }
 
 uint useMatrix2() {
   // Matrix<ComponentType::F64, 2, 2, MatrixUse::B, MatrixScope::Wave> m;
   __builtin_LinAlgMatrix [[__LinAlgMatrix_Attributes(10, 4, 4, 1, 1)]] mat2;
   // Matrix::Splat(1)
-  __builtin_LinAlg_FillMatrix(mat2, true, 1);
+  dx::__builtin_LinAlg_FillMatrix(mat2, true, 1);
   // return mat2.Length();
-  return __builtin_LinAlg_MatrixLength(mat2);
+  return dx::__builtin_LinAlg_MatrixLength(mat2);
 }
 
 #endif
@@ -47,7 +47,7 @@ void useMatrix3() {
   //Matrix<ComponentType::U32, 6, 6, MatrixUse::Accumulator, MatrixScope::ThreadGroup> m;
   __builtin_LinAlgMatrix [[__LinAlgMatrix_Attributes(5, 6, 6, 2, 2)]] mat3;
   // mat3 = Matrix::Splat(5);
-  __builtin_LinAlg_FillMatrix(mat3, true, 5);
+  dx::__builtin_LinAlg_FillMatrix(mat3, true, 5);
 }
 
 RWBuffer<uint> Out;

@@ -234,7 +234,7 @@ Convert(vector<T, N> Vec) {
   vector<typename __detail::ComponentTypeTraits<DestTy>::Type,
          __detail::DstN<DestTy, OriginTy, N>::Value>
       Result;
-  __builtin_LinAlg_Convert(Result, Vec, OriginTy, DestTy);
+  dx::__builtin_LinAlg_Convert(Result, Vec, OriginTy, DestTy);
   return MakeInterpretedVector<DestTy>(Result);
 }
 
@@ -268,7 +268,8 @@ class Matrix {
     Matrix<NewCompTy, __detail::DimMN<M, N, Transpose>::M,
            __detail::DimMN<M, N, Transpose>::N, NewUse, Scope>
         Result;
-    __builtin_LinAlg_CopyConvertMatrix(Result.__handle, __handle, Transpose);
+    dx::__builtin_LinAlg_CopyConvertMatrix(Result.__handle, __handle,
+                                           Transpose);
     return Result;
   }
 
@@ -277,8 +278,8 @@ class Matrix {
       typename hlsl::enable_if<hlsl::is_arithmetic<T>::value, Matrix>::type
       Splat(T Val) {
     Matrix Result;
-    __builtin_LinAlg_FillMatrix(Result.__handle, hlsl::is_signed<T>::value,
-                                Val);
+    dx::__builtin_LinAlg_FillMatrix(Result.__handle, hlsl::is_signed<T>::value,
+                                    Val);
     return Result;
   }
 
@@ -286,8 +287,8 @@ class Matrix {
   [[nodiscard]] static Matrix Load(ByteAddressBuffer Res, uint StartOffset,
                                    uint Stride, MatrixLayoutEnum Layout) {
     Matrix Result;
-    __builtin_LinAlg_MatrixLoadFromDescriptor(Result.__handle, Res, StartOffset,
-                                              Stride, Layout, Align);
+    dx::__builtin_LinAlg_MatrixLoadFromDescriptor(
+        Result.__handle, Res, StartOffset, Stride, Layout, Align);
     return Result;
   }
 
@@ -295,8 +296,8 @@ class Matrix {
   [[nodiscard]] static Matrix Load(RWByteAddressBuffer Res, uint StartOffset,
                                    uint Stride, MatrixLayoutEnum Layout) {
     Matrix Result;
-    __builtin_LinAlg_MatrixLoadFromDescriptor(Result.__handle, Res, StartOffset,
-                                              Stride, Layout, Align);
+    dx::__builtin_LinAlg_MatrixLoadFromDescriptor(
+        Result.__handle, Res, StartOffset, Stride, Layout, Align);
     return Result;
   }
 
@@ -310,8 +311,8 @@ class Matrix {
   Load(groupshared T Arr[Size], uint StartIdx, uint Stride,
        MatrixLayoutEnum Layout) {
     Matrix Result;
-    __builtin_LinAlg_MatrixLoadFromMemory(Result.__handle, Arr, StartIdx,
-                                          Stride, Layout);
+    dx::__builtin_LinAlg_MatrixLoadFromMemory(Result.__handle, Arr, StartIdx,
+                                              Stride, Layout);
     return Result;
   }
 
@@ -319,14 +320,14 @@ class Matrix {
   typename hlsl::enable_if<LocalComp == ComponentTy && IsNativeScalar,
                            uint>::type
   Length() {
-    return __builtin_LinAlg_MatrixLength(__handle);
+    return dx::__builtin_LinAlg_MatrixLength(__handle);
   }
 
   template <ComponentEnum LocalComp = ComponentTy>
   typename hlsl::enable_if<LocalComp == ComponentTy && IsNativeScalar,
                            uint2>::type
   GetCoordinate(uint Index) {
-    return __builtin_LinAlg_MatrixGetCoordinate(__handle, Index);
+    return dx::__builtin_LinAlg_MatrixGetCoordinate(__handle, Index);
   }
 
   template <ComponentEnum LocalComp = ComponentTy>
@@ -334,7 +335,7 @@ class Matrix {
                            ElementType>::type
   Get(uint Index) {
     ElementType Result;
-    __builtin_LinAlg_MatrixGetElement(Result, __handle, Index);
+    dx::__builtin_LinAlg_MatrixGetElement(Result, __handle, Index);
     return Result;
   }
 
@@ -342,14 +343,14 @@ class Matrix {
   typename hlsl::enable_if<LocalComp == ComponentTy && IsNativeScalar,
                            void>::type
   Set(uint Index, ElementType Value) {
-    __builtin_LinAlg_MatrixSetElement(__handle, __handle, Index, Value);
+    dx::__builtin_LinAlg_MatrixSetElement(__handle, __handle, Index, Value);
   }
 
   template <uint Align = __detail::DefaultAlign<ComponentTy, M, N>::Value>
   void Store(RWByteAddressBuffer Res, uint StartOffset, uint Stride,
              MatrixLayoutEnum Layout) {
-    __builtin_LinAlg_MatrixStoreToDescriptor(__handle, Res, StartOffset, Stride,
-                                             Layout, Align);
+    dx::__builtin_LinAlg_MatrixStoreToDescriptor(__handle, Res, StartOffset,
+                                                 Stride, Layout, Align);
   }
 
   template <typename T, SIZE_TYPE Size>
@@ -361,8 +362,8 @@ class Matrix {
       void>::type
   Store(groupshared T Arr[Size], uint StartIdx, uint Stride,
         MatrixLayoutEnum Layout) {
-    __builtin_LinAlg_MatrixStoreToMemory(__handle, Arr, StartIdx, Stride,
-                                         Layout);
+    dx::__builtin_LinAlg_MatrixStoreToMemory(__handle, Arr, StartIdx, Stride,
+                                             Layout);
   }
 
   // Accumulate methods
@@ -372,8 +373,8 @@ class Matrix {
                            void>::type
   InterlockedAccumulate(RWByteAddressBuffer Res, uint StartOffset, uint Stride,
                         MatrixLayoutEnum Layout) {
-    __builtin_LinAlg_MatrixAccumulateToDescriptor(__handle, Res, StartOffset,
-                                                  Stride, Layout, Align);
+    dx::__builtin_LinAlg_MatrixAccumulateToDescriptor(
+        __handle, Res, StartOffset, Stride, Layout, Align);
   }
 
   template <typename T, MatrixUseEnum UseLocal = Use, SIZE_TYPE Size>
@@ -385,8 +386,8 @@ class Matrix {
       void>::type
   InterlockedAccumulate(groupshared T Arr[Size], uint StartIdx, uint Stride,
                         MatrixLayoutEnum Layout) {
-    __builtin_LinAlg_MatrixAccumulateToMemory(__handle, Arr, StartIdx, Stride,
-                                              Layout);
+    dx::__builtin_LinAlg_MatrixAccumulateToMemory(__handle, Arr, StartIdx,
+                                                  Stride, Layout);
   }
 
   template <typename T, MatrixUseEnum UseLocal = Use, SIZE_TYPE Size>
@@ -397,22 +398,22 @@ class Matrix {
       void>::type
   InterlockedAccumulate(groupshared T Arr[Size], uint StartIdx, uint Stride,
                         MatrixLayoutEnum Layout) {
-    __builtin_LinAlg_MatrixAccumulateToMemory(__handle, Arr, StartIdx, Stride,
-                                              Layout);
+    dx::__builtin_LinAlg_MatrixAccumulateToMemory(__handle, Arr, StartIdx,
+                                                  Stride, Layout);
   }
 
   template <ComponentEnum CompTy, MatrixUseEnum UseLocal = Use>
   typename hlsl::enable_if<Use == MatrixUse::Accumulator && UseLocal == Use,
                            void>::type
   Accumulate(const Matrix<CompTy, M, N, MatrixUse::A, Scope> MatrixA) {
-    __builtin_LinAlg_MatrixAccumulate(__handle, __handle, MatrixA.__handle);
+    dx::__builtin_LinAlg_MatrixAccumulate(__handle, __handle, MatrixA.__handle);
   }
 
   template <ComponentEnum CompTy, MatrixUseEnum UseLocal = Use>
   typename hlsl::enable_if<Use == MatrixUse::Accumulator && UseLocal == Use,
                            void>::type
   Accumulate(const Matrix<CompTy, M, N, MatrixUse::B, Scope> MatrixB) {
-    __builtin_LinAlg_MatrixAccumulate(__handle, __handle, MatrixB.__handle);
+    dx::__builtin_LinAlg_MatrixAccumulate(__handle, __handle, MatrixB.__handle);
   }
 
   template <ComponentEnum LHSTy, ComponentEnum RHSTy, SIZE_TYPE K,
@@ -421,8 +422,8 @@ class Matrix {
                            void>::type
   MultiplyAccumulate(const Matrix<LHSTy, M, K, MatrixUse::A, Scope> MatrixA,
                      const Matrix<RHSTy, K, N, MatrixUse::B, Scope> MatrixB) {
-    __builtin_LinAlg_MatrixMatrixMultiplyAccumulate(__handle, MatrixA.__handle,
-                                                    MatrixB.__handle, __handle);
+    dx::__builtin_LinAlg_MatrixMatrixMultiplyAccumulate(
+        __handle, MatrixA.__handle, MatrixB.__handle, __handle);
   }
 };
 
@@ -444,8 +445,8 @@ class Matrix<ComponentTy, M, N, Use, MatrixScope::Thread> {
                                Matrix>::type
       Load(ByteAddressBuffer Res, uint StartOffset, uint Stride) {
     Matrix Result;
-    __builtin_LinAlg_MatrixLoadFromDescriptor(Result.__handle, Res, StartOffset,
-                                              Stride, Layout, Align);
+    dx::__builtin_LinAlg_MatrixLoadFromDescriptor(
+        Result.__handle, Res, StartOffset, Stride, Layout, Align);
     return Result;
   }
 
@@ -453,14 +454,14 @@ class Matrix<ComponentTy, M, N, Use, MatrixScope::Thread> {
   typename hlsl::enable_if<Use == MatrixUse::Accumulator && UseLocal == Use,
                            void>::type
   InterlockedAccumulate(RWByteAddressBuffer Res, uint StartOffset) {
-    __builtin_LinAlg_MatrixAccumulateToDescriptor(
+    dx::__builtin_LinAlg_MatrixAccumulateToDescriptor(
         __handle, Res, StartOffset, 0, MatrixLayout::OuterProductOptimal,
         Align);
   }
 };
 
 MatrixUseEnum AccumulatorLayout() {
-  return (MatrixUseEnum)(__builtin_LinAlg_MatrixQueryAccumulatorLayout());
+  return (MatrixUseEnum)(dx::__builtin_LinAlg_MatrixQueryAccumulatorLayout());
 }
 
 template <ComponentEnum OutTy, ComponentEnum ATy, ComponentEnum BTy,
@@ -469,8 +470,8 @@ template <ComponentEnum OutTy, ComponentEnum ATy, ComponentEnum BTy,
 Multiply(const Matrix<ATy, M, K, MatrixUse::A, MatrixScope::Wave> MatrixA,
          const Matrix<BTy, K, N, MatrixUse::B, MatrixScope::Wave> MatrixB) {
   Matrix<OutTy, M, N, MatrixUse::Accumulator, MatrixScope::Wave> Result;
-  __builtin_LinAlg_MatrixMatrixMultiply(Result.__handle, MatrixA.__handle,
-                                        MatrixB.__handle);
+  dx::__builtin_LinAlg_MatrixMatrixMultiply(Result.__handle, MatrixA.__handle,
+                                            MatrixB.__handle);
   return Result;
 }
 
@@ -479,8 +480,8 @@ template <ComponentEnum CompTy, SIZE_TYPE M, SIZE_TYPE N, SIZE_TYPE K>
 Multiply(const Matrix<CompTy, M, K, MatrixUse::A, MatrixScope::Wave> MatrixA,
          const Matrix<CompTy, K, N, MatrixUse::B, MatrixScope::Wave> MatrixB) {
   Matrix<CompTy, M, N, MatrixUse::Accumulator, MatrixScope::Wave> Result;
-  __builtin_LinAlg_MatrixMatrixMultiply(Result.__handle, MatrixA.__handle,
-                                        MatrixB.__handle);
+  dx::__builtin_LinAlg_MatrixMatrixMultiply(Result.__handle, MatrixA.__handle,
+                                            MatrixB.__handle);
   return Result;
 }
 
@@ -492,8 +493,8 @@ Multiply(
     const Matrix<ATy, M, K, MatrixUse::A, MatrixScope::ThreadGroup> MatrixA,
     const Matrix<BTy, K, N, MatrixUse::B, MatrixScope::ThreadGroup> MatrixB) {
   Matrix<OutTy, M, N, MatrixUse::Accumulator, MatrixScope::ThreadGroup> Result;
-  __builtin_LinAlg_MatrixMatrixMultiply(Result.__handle, MatrixA.__handle,
-                                        MatrixB.__handle);
+  dx::__builtin_LinAlg_MatrixMatrixMultiply(Result.__handle, MatrixA.__handle,
+                                            MatrixB.__handle);
   return Result;
 }
 
@@ -505,8 +506,8 @@ Multiply(
     const Matrix<CompTy, K, N, MatrixUse::B, MatrixScope::ThreadGroup>
         MatrixB) {
   Matrix<CompTy, M, N, MatrixUse::Accumulator, MatrixScope::ThreadGroup> Result;
-  __builtin_LinAlg_MatrixMatrixMultiply(Result.__handle, MatrixA.__handle,
-                                        MatrixB.__handle);
+  dx::__builtin_LinAlg_MatrixMatrixMultiply(Result.__handle, MatrixA.__handle,
+                                            MatrixB.__handle);
   return Result;
 }
 
@@ -521,7 +522,7 @@ typename hlsl::enable_if<hlsl::is_arithmetic<InputElTy>::value,
 Multiply(Matrix<MatrixDT, M, K, MatrixUse::A, MatrixScope::Thread> MatrixA,
          vector<InputElTy, K> Vec) {
   vector<OutputElTy, M> Result;
-  __builtin_LinAlg_MatrixVectorMultiply(
+  dx::__builtin_LinAlg_MatrixVectorMultiply(
       Result, MatrixA.__handle, hlsl::is_signed<OutputElTy>::value, Vec,
       __detail::TypeTraits<InputElTy>::CompType);
   return Result;
@@ -535,7 +536,7 @@ typename hlsl::enable_if<
 Multiply(Matrix<MatrixDT, M, K, MatrixUse::A, MatrixScope::Thread> MatrixA,
          InterpretedVector<InputElTy, VecK, InputInterp> InterpVec) {
   vector<OutputElTy, M> Result;
-  __builtin_LinAlg_MatrixVectorMultiply(
+  dx::__builtin_LinAlg_MatrixVectorMultiply(
       Result, MatrixA.__handle, hlsl::is_signed<OutputElTy>::value,
       InterpVec.Data, InterpVec.Interpretation);
   return Result;
@@ -554,7 +555,7 @@ MultiplyAdd(Matrix<MatrixDT, M, K, MatrixUse::A, MatrixScope::Thread> MatrixA,
                                __detail::TypeTraits<BiasElTy>::CompType>(Bias);
 
   vector<OutputElTy, M> Result;
-  __builtin_LinAlg_MatrixVectorMultiplyAdd(
+  dx::__builtin_LinAlg_MatrixVectorMultiplyAdd(
       Result, MatrixA.__handle, hlsl::is_signed<OutputElTy>::value, Vec,
       __detail::TypeTraits<InputElTy>::CompType, BiasConvInterp.Data);
   return Result;
@@ -576,7 +577,7 @@ MultiplyAdd(Matrix<MatrixDT, M, K, MatrixUse::A, MatrixScope::Thread> MatrixA,
                                __detail::TypeTraits<BiasElTy>::CompType>(Bias);
 
   vector<OutputElTy, M> Result;
-  __builtin_LinAlg_MatrixVectorMultiplyAdd(
+  dx::__builtin_LinAlg_MatrixVectorMultiplyAdd(
       Result, MatrixA.__handle, hlsl::is_signed<OutputElTy>::value,
       InterpVec.Data, InterpVec.Interpretation, BiasConvInterp.Data);
   return Result;
@@ -618,7 +619,7 @@ MultiplyAdd(Matrix<MatrixDT, M, K, MatrixUse::A, MatrixScope::Thread> MatrixA,
       (vector<OutputElTy, M>)BiasConvInterpPadded.Data;
 
   vector<OutputElTy, M> Result;
-  __builtin_LinAlg_MatrixVectorMultiplyAdd(
+  dx::__builtin_LinAlg_MatrixVectorMultiplyAdd(
       Result, MatrixA.__handle, hlsl::is_signed<OutputElTy>::value, Vec,
       __detail::TypeTraits<InputElTy>::CompType, BiasConv);
   return Result;
@@ -662,7 +663,7 @@ MultiplyAdd(Matrix<MatrixDT, M, K, MatrixUse::A, MatrixScope::Thread> MatrixA,
       (vector<OutputElTy, M>)BiasConvInterpPadded.Data;
 
   vector<OutputElTy, M> Result;
-  __builtin_LinAlg_MatrixVectorMultiplyAdd(
+  dx::__builtin_LinAlg_MatrixVectorMultiplyAdd(
       Result, MatrixA.__handle, hlsl::is_signed<OutputElTy>::value,
       InterpVec.Data, InterpVec.Interpretation, BiasConv);
   return Result;
@@ -675,7 +676,7 @@ template <ComponentEnum OutTy, typename InputElTy, SIZE_TYPE M, SIZE_TYPE N>
     Matrix<OutTy, M, N, MatrixUse::Accumulator, MatrixScope::Thread> >::type
 OuterProduct(vector<InputElTy, M> VecA, vector<InputElTy, N> VecB) {
   Matrix<OutTy, M, N, MatrixUse::Accumulator, MatrixScope::Thread> Result;
-  __builtin_LinAlg_MatrixOuterProduct(
+  dx::__builtin_LinAlg_MatrixOuterProduct(
       Result.__handle, hlsl::is_signed<InputElTy>::value, VecA, VecB);
   return Result;
 }
@@ -684,7 +685,8 @@ template <uint Align = 64, typename InputElTy, SIZE_TYPE M>
 typename hlsl::enable_if<hlsl::is_arithmetic<InputElTy>::value, void>::type
 InterlockedAccumulate(RWByteAddressBuffer Res, uint StartOffset,
                       vector<InputElTy, M> Vec) {
-  __builtin_LinAlg_VectorAccumulateToDescriptor(Res, StartOffset, Align, Vec);
+  dx::__builtin_LinAlg_VectorAccumulateToDescriptor(Res, StartOffset, Align,
+                                                    Vec);
 }
 
 } // namespace linalg
