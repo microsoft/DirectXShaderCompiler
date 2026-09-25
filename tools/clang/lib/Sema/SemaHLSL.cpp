@@ -9028,21 +9028,21 @@ bool HLSLExternalSource::IsTypeNumeric(QualType type, UINT *count) {
   }
 }
 
-bool HLSLExternalSource::ContainsLinAlgMatrixType(QualType type) {
-  DXASSERT_NOMSG(!type.isNull());
+bool HLSLExternalSource::ContainsLinAlgMatrixType(QualType Type) {
+  DXASSERT_NOMSG(!Type.isNull());
 
-  type = GetStructuralForm(type);
+  Type = GetStructuralForm(Type);
   // Covers both attributed matrices and the unattributed builtin handle.
-  if (type->isAttributedLinAlgMatrixType() || type->isLinAlgMatrixType())
+  if (Type->isAttributedLinAlgMatrixType() || Type->isLinAlgMatrixType())
     return true;
 
-  if (const ArrayType *AT = m_context->getAsArrayType(type))
+  if (const ArrayType *AT = m_context->getAsArrayType(Type))
     return ContainsLinAlgMatrixType(AT->getElementType());
 
-  if (GetTypeObjectKind(type) != AR_TOBJ_COMPOUND)
+  if (GetTypeObjectKind(Type) != AR_TOBJ_COMPOUND)
     return false;
 
-  const CXXRecordDecl *RD = type->getAsCXXRecordDecl();
+  const CXXRecordDecl *RD = Type->getAsCXXRecordDecl();
   if (!RD || !RD->hasDefinition())
     return false;
 
@@ -12802,6 +12802,17 @@ static bool AllowObjectInContext(QualType Ty, TypeDiagContext DiagContext) {
   return true;
 }
 
+// LinAlg matrices (attributed or the raw builtin handle) are opaque, thread
+// local values. They are only valid as static global state, locals, and
+// non-entry function parameters, never in resources, groupshared memory, or
+// shader interfaces.
+static bool AllowLinAlgMatrixInContext(TypeDiagContext DiagContext) {
+  // Non-static globals are rejected separately with a diagnostic that asks for
+  // an explicit 'static'.
+  return DiagContext == TypeDiagContext::GlobalVariables ||
+         DiagContext == TypeDiagContext::CBuffersOrTBuffers;
+}
+
 // Determine if `Ty` is valid in this `DiagContext` and/or an empty type.  If
 // invalid returns false and Sema `S`, location `Loc`, error index
 // `DiagContext`, and FieldDecl `FD` are used to emit diagnostics. If
@@ -12833,13 +12844,11 @@ DiagnoseElementTypes(Sema &S, SourceLocation Loc, QualType Ty, bool &Empty,
 
   HLSLExternalSource *Source = HLSLExternalSource::FromSema(&S);
 
-  // LinAlg matrices (attributed or the raw builtin handle) are opaque, thread
-  // local values that have no representation in groupshared memory.
   const Type *CanonTy = Ty.getCanonicalType().getTypePtr();
   if (CanonTy->isAttributedLinAlgMatrixType() ||
       CanonTy->isLinAlgMatrixType()) {
     Empty = false;
-    if (ObjDiagContext != TypeDiagContext::GroupShared)
+    if (!CheckObjects || AllowLinAlgMatrixInContext(ObjDiagContext))
       return false;
     S.Diag(Loc, diag::err_hlsl_unsupported_object_context)
         << Ty << ObjDiagContextIdx;
