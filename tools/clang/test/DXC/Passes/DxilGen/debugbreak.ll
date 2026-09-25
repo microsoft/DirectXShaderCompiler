@@ -1,7 +1,7 @@
 ; REQUIRES: dxil-1-10
 ; RUN: %dxopt %s -hlsl-passes-resume -dxilgen -S | FileCheck %s
 
-; CHECK: call void @dx.op.debugBreak(i32 -2147483615)
+; CHECK: call void @dx.op.debugBreak(i32 343)
 
 ; Generated from:
 ; dxc -T cs_6_10 -fcgl tools/clang/test/HLSLFileCheckLit/hlsl/intrinsics/basic/debugbreak.hlsl

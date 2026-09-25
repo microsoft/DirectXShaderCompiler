@@ -4180,8 +4180,12 @@ TEST_F(ValidationTest, ValidateWithHash) {
   if (m_ver.SkipDxilVersion(1, ShaderModel::kHighestReleasedMinor))
     return;
   CComPtr<IDxcBlob> pProgram;
+  LPCSTR pShaderModel = ShaderModel::Get(ShaderModel::Kind::Pixel,
+                                         ShaderModel::kHighestReleasedMajor,
+                                         ShaderModel::kHighestReleasedMinor)
+                            ->GetName();
   CompileSource("float4 main(float a:A, float b:B) : SV_Target { return 1; }",
-                "ps_6_0", &pProgram);
+                pShaderModel, &pProgram);
 
   CComPtr<IDxcValidator> pValidator;
   CComPtr<IDxcOperationResult> pResult;

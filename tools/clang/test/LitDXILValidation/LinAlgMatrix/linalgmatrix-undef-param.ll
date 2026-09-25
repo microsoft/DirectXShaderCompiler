@@ -16,11 +16,11 @@ define void @main() {
 
   ; CHECK: Function: main: error: Instructions should not read uninitialized value.
   ; CHECK-NEXT: note: at {{.*}}@dx.op.linAlgMatrixAccumulateToDescriptor
-  call void @dx.op.linAlgMatrixAccumulateToDescriptor.mC4M16N16U0S2(i32 -2147483621, %dx.types.LinAlgMatrixC4M16N16U0S2 undef, %dx.types.Handle %handle, i32 1, i32 2, i32 3, i32 4)  ; LinAlgMatrixAccumulateToDescriptor(matrix,handle,offset,stride,layout,align)
+  call void @dx.op.linAlgMatrixAccumulateToDescriptor.mC4M16N16U0S2(i32 338, %dx.types.LinAlgMatrixC4M16N16U0S2 undef, %dx.types.Handle %handle, i32 1, i32 2, i32 3, i32 4)  ; LinAlgMatrixAccumulateToDescriptor(matrix,handle,offset,stride,layout,align)
 
   ; CHECK: Function: main: error: Instructions should not read uninitialized value.
   ; CHECK-NEXT: note: at {{.*}}@dx.op.linAlgMatrixLength
-  %v2 = call i32 @dx.op.linAlgMatrixLength.mC4M16N16U0S2(i32 -2147483632, %dx.types.LinAlgMatrixC4M16N16U0S2 undef)  ; LinAlgMatrixLength(matrix)
+  %v2 = call i32 @dx.op.linAlgMatrixLength.mC4M16N16U0S2(i32 327, %dx.types.LinAlgMatrixC4M16N16U0S2 undef)  ; LinAlgMatrixLength(matrix)
 
   ; CHECK-NEXT: Validation failed.
 

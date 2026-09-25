@@ -1,7 +1,7 @@
 ; REQUIRES: dxil-1-10
 ; RUN: %dxopt %s -hlsl-passes-resume -dxilgen -S | FileCheck %s
 
-; CHECK: call i1 @dx.op.isDebuggingEnabled(i32 -2147483614)
+; CHECK: call i1 @dx.op.isDebuggingEnabled(i32 344)
 ; CHECK: declare i1 @dx.op.isDebuggingEnabled(i32) #[[QUERY_ATTR:[0-9]+]]
 ; CHECK: attributes #[[QUERY_ATTR]] = { nounwind }
 
