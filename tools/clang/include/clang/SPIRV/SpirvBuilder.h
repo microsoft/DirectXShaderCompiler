@@ -277,7 +277,7 @@ public:
   /// \brief Creates an OpUntypedImageTexelPointerEXT SPIR-V instruction with
   /// the given parameters.
   SpirvUntypedImageTexelPointerEXT *createUntypedImageTexelPointerEXT(
-      QualType resultType, SpirvInstruction *image,
+      QualType resultType, const SpirvType *imageType, SpirvInstruction *image,
       SpirvInstruction *coordinate, SpirvInstruction *sample, SourceLocation);
 
   /// \brief Creates an OpConverPtrToU SPIR-V instruction with the given
@@ -831,6 +831,43 @@ public:
                        bool specConst = false);
   SpirvConstant *getConstantNull(QualType);
   SpirvConstant *getConstantString(llvm::StringRef str, bool specConst = false);
+
+  /// \brief Returns the OpConstantSizeOfEXT (SPV_EXT_descriptor_heap) for
+  /// descriptor operandType: client-API size in bytes as a 32-bit unsigned
+  /// integer. Cached per operand type.
+  SpirvConstant *getConstantSizeOfEXT(const SpirvType *operandType);
+
+  SpirvSpecConstantTernaryOp *
+  createSpecConstantTernaryOp(spv::Op op, QualType resultType,
+                              SpirvInstruction *op1, SpirvInstruction *op2,
+                              SpirvInstruction *op3, SourceLocation loc);
+
+  /// \brief Record that acceleration structures may occupy the resource heap.
+  /// Must be called before getResourceHeapArrayStride() (before the code-gen
+  /// loop in HandleTranslationUnit); the result is cached on the first call.
+  /// Calling it after the first getResourceHeapArrayStride() invocation has
+  /// no effect.
+  void noteResourceHeapHasAccelStruct() { resourceHeapHasAccelStruct = true; }
+
+  /// \brief Returns whether the resource-heap stride includes the acceleration
+  /// structure descriptor size. When false, code-gen must reject AS heap
+  /// access; the stride is frozen after getResourceHeapArrayStride()'s first
+  /// call.
+  bool resourceHeapStrideIncludesAccelStruct() const {
+    return resourceHeapHasAccelStruct;
+  }
+
+  /// \brief Shared ArrayStrideIdEXT for resource-heap runtime arrays.
+  /// Default:  max(sizeof(image), sizeof(buffer))
+  /// With RT:  max(sizeof(image), sizeof(buffer), sizeof(accel_struct))
+  /// Via OpSpecConstantOp; cached per module.
+  /// Precondition: call noteResourceHeapHasAccelStruct() before first call if
+  /// AS present.
+  SpirvInstruction *getResourceHeapArrayStride();
+
+  /// \brief Shared ArrayStrideIdEXT operand for sampler-heap runtime arrays:
+  /// the sampler descriptor size. Cached per module.
+  SpirvInstruction *getSamplerHeapArrayStride();
   SpirvUndef *getUndef(QualType);
 
   SpirvString *createString(llvm::StringRef str);
@@ -946,6 +983,21 @@ private:
   };
   /// Used as caches for all created builtin variables to avoid duplication.
   llvm::SmallVector<BuiltInVarInfo, 16> builtinVars;
+
+  /// Cache of OpConstantSizeOfEXT instructions keyed on the descriptor operand
+  /// type; each distinct descriptor type produces at most one constant.
+  llvm::DenseMap<const SpirvType *, SpirvConstant *> constantSizeOfEXTMap;
+
+  /// Cached shared descriptor-heap array strides, each emitted once per
+  /// module (see get{Resource,Sampler}HeapArrayStride).
+  SpirvInstruction *resourceHeapArrayStride = nullptr;
+  SpirvInstruction *samplerHeapArrayStride = nullptr;
+
+  /// Set by noteResourceHeapHasAccelStruct() when HandleTranslationUnit
+  /// detects shader using ray-tracing features.
+  /// When true, getResourceHeapArrayStride() includes
+  /// sizeof(acceleration_structure). Set by noteResourceHeapHasAccelStruct().
+  bool resourceHeapHasAccelStruct = false;
 
   SpirvDebugInfoNone *debugNone;
 
