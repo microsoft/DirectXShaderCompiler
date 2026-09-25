@@ -1946,7 +1946,8 @@ ExprResult Parser::ParseUnaryExprOrTypeTraitExpression() {
   ConsumeToken();
 
   // [C++11] 'sizeof' '...' '(' identifier ')'
-  if (Tok.is(tok::ellipsis) && OpTok.is(tok::kw_sizeof) && !getLangOpts().HLSL) { // HLSL Change
+  if (Tok.is(tok::ellipsis) && OpTok.is(tok::kw_sizeof) &&
+      !getLangOpts().HLSLDisallowsVariadicTemplates()) { // HLSL Change
     SourceLocation EllipsisLoc = ConsumeToken();
     SourceLocation LParenLoc, RParenLoc;
     IdentifierInfo *Name = nullptr;
@@ -2747,9 +2748,12 @@ ExprResult Parser::ParseFoldExpression(ExprResult LHS,
     }
   }
 
-  Diag(EllipsisLoc, getLangOpts().CPlusPlus1z
-                        ? diag::warn_cxx14_compat_fold_expression
-                        : diag::ext_fold_expression);
+  if (getLangOpts().HLSL && !getLangOpts().HLSLDisallowsVariadicTemplates())
+    Diag(EllipsisLoc, diag::warn_hlsl_fold_expression);
+  else
+    Diag(EllipsisLoc, getLangOpts().CPlusPlus1z
+                          ? diag::warn_cxx14_compat_fold_expression
+                          : diag::ext_fold_expression);
 
   T.consumeClose();
   return Actions.ActOnCXXFoldExpr(T.getOpenLocation(), LHS.get(), Kind,
@@ -2801,7 +2805,7 @@ bool Parser::ParseExpressionList(SmallVectorImpl<Expr *> &Exprs,
 
     if (Tok.is(tok::ellipsis)) {
       // HLSL Change Starts
-      if (getLangOpts().HLSL) {
+      if (getLangOpts().HLSLDisallowsVariadicTemplates()) {
         Diag(Tok, diag::err_hlsl_variadic_templates);
         SkipUntil(tok::r_paren, StopBeforeMatch);
         Actions.CorrectDelayedTyposInExpr(Expr);

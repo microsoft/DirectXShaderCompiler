@@ -1,9 +1,9 @@
 // REQUIRES: dxil-1-10
 // RUN: %dxc -T lib_6_10 -E main %s -ast-dump-implicit | FileCheck %s
 
-// CHECK: FunctionDecl {{.*}} implicit used __builtin_LinAlg_MatrixLoadFromMemory 'void (__builtin_LinAlgMatrix {{.*}}, float const __attribute__((address_space(3))) (&)[64], unsigned int, unsigned int, unsigned int)' extern
+// CHECK: FunctionDecl {{.*}} implicit used __builtin_LinAlg_MatrixLoadFromMemory 'void (__builtin_LinAlgMatrix {{.*}}, float __attribute__((address_space(3))) (&)[64], unsigned int, unsigned int, unsigned int)' extern
 // CHECK-NEXT: ParmVarDecl {{.*}} ret '__builtin_LinAlgMatrix {{.*}}'
-// CHECK-NEXT: ParmVarDecl {{.*}} memory 'float const __attribute__((address_space(3))) (&)[64]'
+// CHECK-NEXT: ParmVarDecl {{.*}} memory 'float __attribute__((address_space(3))) (&)[64]'
 // CHECK-NEXT: ParmVarDecl {{.*}} offset 'unsigned int'
 // CHECK-NEXT: ParmVarDecl {{.*}} stride 'unsigned int'
 // CHECK-NEXT: ParmVarDecl {{.*}} layout 'unsigned int'

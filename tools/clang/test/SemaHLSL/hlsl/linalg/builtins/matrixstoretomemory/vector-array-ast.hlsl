@@ -4,9 +4,9 @@
 // The groupshared array parameter is spelled 'LinAlg<>[]', so the element type
 // of the synthesized parameter follows the element type of the argument.
 
-// CHECK: FunctionDecl {{.*}} implicit used __builtin_LinAlg_MatrixStoreToMemory 'void (__builtin_LinAlgMatrix {{.*}}, vector<float, 4> const __attribute__((address_space(3))) (&)[64], unsigned int, unsigned int, unsigned int)' extern
+// CHECK: FunctionDecl {{.*}} implicit used __builtin_LinAlg_MatrixStoreToMemory 'void (__builtin_LinAlgMatrix {{.*}}, vector<float, 4> __attribute__((address_space(3))) (&)[64], unsigned int, unsigned int, unsigned int)' extern
 // CHECK-NEXT: ParmVarDecl {{.*}} matrix '__builtin_LinAlgMatrix {{.*}}'
-// CHECK-NEXT: ParmVarDecl {{.*}} memory 'vector<float, 4> const __attribute__((address_space(3))) (&)[64]'
+// CHECK-NEXT: ParmVarDecl {{.*}} memory 'vector<float, 4> __attribute__((address_space(3))) (&)[64]'
 // CHECK-NEXT: ParmVarDecl {{.*}} offset 'unsigned int'
 // CHECK-NEXT: ParmVarDecl {{.*}} stride 'unsigned int'
 // CHECK-NEXT: ParmVarDecl {{.*}} layout 'unsigned int'

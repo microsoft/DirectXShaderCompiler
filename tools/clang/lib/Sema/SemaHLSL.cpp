@@ -2021,7 +2021,6 @@ ParamModsFromIntrinsicArg(const HLSL_INTRINSIC_ARGUMENT *pArg) {
   }
   if (pArg->qwUsage == AR_QUAL_REF)
     return hlsl::ParameterModifier(hlsl::ParameterModifier::Kind::Ref);
-  // TODO: https://github.com/microsoft/DirectXShaderCompiler/issues/8270
   if (pArg->qwUsage == AR_QUAL_GROUPSHARED)
     return hlsl::ParameterModifier(hlsl::ParameterModifier::Kind::In);
   DXASSERT(qwUsage & AR_QUAL_IN, "else usage is incorrect");
@@ -6079,7 +6078,7 @@ public:
         if (isMatrix || isVector) {
           Expr *expr = arg.getAsExpr();
           llvm::APSInt constantResult;
-          if (expr != nullptr &&
+          if (expr != nullptr && !expr->isValueDependent() &&
               expr->isIntegerConstantExpr(constantResult, *m_context)) {
             if (CheckRangedTemplateArgument(argSrcLoc, constantResult,
                                             isVector))
@@ -7633,7 +7632,8 @@ bool HLSLExternalSource::MatchArguments(
           pArgument->qwUsage &
           (AR_QUAL_ROWMAJOR | AR_QUAL_COLMAJOR | AR_QUAL_GROUPSHARED);
 
-      if ((0 == i) || !(pArgument->qwUsage & AR_QUAL_OUT))
+      if ((0 == i) ||
+          !(pArgument->qwUsage & (AR_QUAL_OUT | AR_QUAL_GROUPSHARED)))
         qwQual |= AR_QUAL_CONST;
 
       DXASSERT_VALIDBASICKIND(pEltType);
@@ -15363,6 +15363,20 @@ void Sema::ActOnFinishHLSLBuffer(Decl *Dcl, SourceLocation RBrace) {
   bool HasPackOffset = false;
   bool HasNonPackOffset = false;
   for (auto *Field : BufDecl->decls()) {
+    // HLSL 202x 0005 Cbuffer Contexts proposal restricts the contents of a
+    // cbuffer to declarations allowed at block scope, plus templates, functions
+    // and empty declarations (see:
+    // https://hlsl-tc57.github.io/tc57/proposal/0005/).
+    if (getLangOpts().HLSLVersion >= hlsl::LangStd::v202x &&
+        (isa<HLSLBufferDecl>(Field) || isa<NamespaceDecl>(Field))) {
+      NamedDecl *ND = cast<NamedDecl>(Field);
+      Diag(Field->getLocation(),
+           diag::err_hlsl_unsupported_declaration_in_buffer)
+          << ND << BufDecl->isCBuffer();
+      Diag(Dcl->getLocation(), diag::note_declared_at);
+      Dcl->setInvalidDecl();
+    }
+
     VarDecl *Var = dyn_cast<VarDecl>(Field);
     if (!Var)
       continue;
