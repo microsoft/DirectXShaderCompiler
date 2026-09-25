@@ -5668,6 +5668,8 @@ public:
   /// numeric elements exclusively.</summary>
   bool IsTypeNumeric(QualType type, UINT *count);
 
+  bool ContainsLinAlgMatrixType(QualType type);
+
   /// <summary>Checks whether the specified type is a scalar type.</summary>
   bool IsScalarType(const QualType &type) {
     DXASSERT(!type.isNull(), "caller should validate its type is initialized");
@@ -9021,8 +9023,38 @@ bool HLSLExternalSource::IsTypeNumeric(QualType type, UINT *count) {
   case AR_TOBJ_OBJECT:
   case AR_TOBJ_DEPENDENT:
   case AR_TOBJ_STRING:
+  case AR_TOBJ_LINALG_MATRIX:
     return false;
   }
+}
+
+bool HLSLExternalSource::ContainsLinAlgMatrixType(QualType type) {
+  DXASSERT_NOMSG(!type.isNull());
+
+  type = GetStructuralForm(type);
+  // Covers both attributed matrices and the unattributed builtin handle.
+  if (type->isAttributedLinAlgMatrixType() || type->isLinAlgMatrixType())
+    return true;
+
+  if (const ArrayType *AT = m_context->getAsArrayType(type))
+    return ContainsLinAlgMatrixType(AT->getElementType());
+
+  if (GetTypeObjectKind(type) != AR_TOBJ_COMPOUND)
+    return false;
+
+  const CXXRecordDecl *RD = type->getAsCXXRecordDecl();
+  if (!RD || !RD->hasDefinition())
+    return false;
+
+  for (const CXXBaseSpecifier &Base : RD->bases())
+    if (ContainsLinAlgMatrixType(Base.getType()))
+      return true;
+
+  for (const FieldDecl *Field : RD->fields())
+    if (ContainsLinAlgMatrixType(Field->getType()))
+      return true;
+
+  return false;
 }
 
 enum MatrixMemberAccessError {
@@ -12800,6 +12832,23 @@ DiagnoseElementTypes(Sema &S, SourceLocation Loc, QualType Ty, bool &Empty,
            static_cast<int>(TypeDiagContext::LongVecDiagMaxSelectIndex)));
 
   HLSLExternalSource *Source = HLSLExternalSource::FromSema(&S);
+
+  // LinAlg matrices (attributed or the raw builtin handle) are opaque, thread
+  // local values that have no representation in groupshared memory.
+  const Type *CanonTy = Ty.getCanonicalType().getTypePtr();
+  if (CanonTy->isAttributedLinAlgMatrixType() ||
+      CanonTy->isLinAlgMatrixType()) {
+    Empty = false;
+    if (ObjDiagContext != TypeDiagContext::GroupShared)
+      return false;
+    S.Diag(Loc, diag::err_hlsl_unsupported_object_context)
+        << Ty << ObjDiagContextIdx;
+    if (FD)
+      S.Diag(FD->getLocation(), diag::note_field_declared_here)
+          << FD->getType() << FD->getSourceRange();
+    return true;
+  }
+
   ArTypeObjectKind ShapeKind = Source->GetTypeObjectKind(Ty);
   switch (ShapeKind) {
   case AR_TOBJ_VECTOR:
@@ -16082,6 +16131,15 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC, Expr *BitWidth,
     if (DiagnoseTypeElements(*this, D.getLocStart(), qt, ObjDiagContext,
                              LongVecDiagContext))
       result = false;
+
+    // LinAlg matrices are mutable state that cannot live in the implicit
+    // global constant buffer. Groupshared is rejected above.
+    if (!isStatic && !isGroupShared && !D.isInvalidType() &&
+        !qt->isDependentType() && hlslSource->ContainsLinAlgMatrixType(qt)) {
+      Diag(D.getLocStart(), diag::err_hlsl_linalg_matrix_global_not_static)
+          << D.getIdentifier();
+      result = false;
+    }
   }
 
   // SPIRV change starts

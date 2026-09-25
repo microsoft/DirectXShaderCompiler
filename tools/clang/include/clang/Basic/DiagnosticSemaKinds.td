@@ -8079,6 +8079,9 @@ def err_hlsl_linalg_matrix_attribute_on_invalid_type
     : Error<"matrix attributes can only be applied to %0">;
 def err_hlsl_linalg_attributed_matrix_required
     : Error<"argument must be linear algebra matrix type">;
+def err_hlsl_linalg_matrix_global_not_static
+    : Error<"global variable %0 containing a linear algebra matrix must be "
+            "declared 'static'">;
 
 def err_hlsl_linalg_unsupported_stage : Error<
    "builtin unavailable in shader stage '%0' (requires 'compute', 'mesh' or 'amplification')">;
