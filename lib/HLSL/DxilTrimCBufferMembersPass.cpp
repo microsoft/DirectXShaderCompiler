@@ -387,7 +387,8 @@ bool DxilTrimCBufferMembers::collectUsage(
                   dyn_cast<ConstantInt>(cbLoad.get_byteOffset())) {
             unsigned offset = static_cast<unsigned>(Off->getZExtValue());
             unsigned size = loadSizeForReturnType(CI->getType());
-            if (size == 0 || offset + size > Usage->UsedBytes.size()) {
+            if (size == 0 || offset > Usage->UsedBytes.size() ||
+                size > Usage->UsedBytes.size() - offset) {
               Usage->Skip = true; // out-of-range load, be safe
             } else {
               for (unsigned i = 0; i < size; ++i)
