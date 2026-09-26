@@ -2352,6 +2352,17 @@ Parser::DeclGroupPtrTy Parser::ParseDeclGroup(ParsingDeclSpec &DS,
       // check whether or not the given data is the typename or primitive types
       if (DS.isTypeRep()) {
         QualType type = DS.getRepAsType().get();
+        // User template specializations arrive wrapped in a non-canonical
+        // LocInfoType and are instantiated lazily. Check the completed record
+        // type instead, so IsTypeNumeric sees their fields.
+        if (const auto *Spec =
+                dyn_cast_or_null<ClassTemplateSpecializationDecl>(
+                    Sema::GetTypeFromParser(DS.getRepAsType())
+                        ->getAsCXXRecordDecl()))
+          if (!Spec->getSpecializedTemplate()->isImplicit()) {
+            type = Actions.getASTContext().getRecordType(Spec);
+            Actions.RequireCompleteType(D.getIdentifierLoc(), type, 0);
+          }
         // canonical types of HLSL Object types are not canonical for some
         // reason. other HLSL Object types of vector/matrix/array should be
         // treated as const.
