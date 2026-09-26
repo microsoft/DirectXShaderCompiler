@@ -615,6 +615,18 @@ bool IsHLSLStructuredBufferType(clang::QualType type) {
   return false;
 }
 
+DXIL::ResourceKind GetHLSLResourceKind(clang::QualType type) {
+  if (const HLSLResourceAttr *Attr = getAttr<HLSLResourceAttr>(type))
+    return Attr->getResKind();
+  return DXIL::ResourceKind::Invalid;
+}
+
+DXIL::ResourceClass GetHLSLResourceClass(clang::QualType type) {
+  if (const HLSLResourceAttr *Attr = getAttr<HLSLResourceAttr>(type))
+    return Attr->getResClass();
+  return DXIL::ResourceClass::Invalid;
+}
+
 bool IsHLSLSubobjectType(clang::QualType type) {
   DXIL::SubobjectKind kind;
   DXIL::HitGroupType hgType;
