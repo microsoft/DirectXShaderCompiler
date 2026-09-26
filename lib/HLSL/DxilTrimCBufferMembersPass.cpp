@@ -473,20 +473,19 @@ bool DxilTrimCBufferMembers::trimCBuffer(DxilModule &DM,
   // Decide which members survive.
   SmallVector<bool, 8> keep(numFields, false);
   for (unsigned i = 0; i < numFields; ++i) {
-    if (Usage.LegacyRegisterMode) {
+    for (unsigned b = members[i].Offset;
+         b < members[i].Offset + members[i].Size; ++b) {
+      if (b < Usage.UsedBytes.size() && Usage.UsedBytes[b]) {
+        keep[i] = true;
+        break;
+      }
+    }
+    if (Usage.LegacyRegisterMode && !keep[i]) {
       unsigned beginReg = members[i].Offset / 16;
       unsigned endReg =
           (members[i].Offset + members[i].RealSize + 15) / 16;
       for (unsigned r = beginReg; r < endReg; ++r) {
         if (Usage.UsedRegisters.count(r)) {
-          keep[i] = true;
-          break;
-        }
-      }
-    } else {
-      for (unsigned b = members[i].Offset;
-           b < members[i].Offset + members[i].Size; ++b) {
-        if (b < Usage.UsedBytes.size() && Usage.UsedBytes[b]) {
           keep[i] = true;
           break;
         }
