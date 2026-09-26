@@ -173,7 +173,10 @@ unsigned DxilTrimCBufferMembers::realMemberSize(DxilTypeSystem &TS,
       if (StructType *NestedST = dyn_cast<StructType>(Ty)) {
         if (DxilStructAnnotation *NestedSA = TS.GetStructAnnotation(NestedST)) {
           unsigned elt = NestedSA->GetCBufferSize();
-          return elt == 0 ? 0 : 16 * (elements - 1) + elt;
+          if (elt == 0)
+            return 0;
+          unsigned stride = (elt + 15) & ~15u;
+          return stride * (elements - 1) + elt;
         }
       }
       return 0; // unknown, caller falls back to diff size
