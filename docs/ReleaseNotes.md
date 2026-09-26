@@ -57,6 +57,10 @@ line upon naming the release. Refer to previous for appropriate section names.
 
 #### Bug Fixes
 
+- Global variables of class template specialization type are now implicitly
+  `const` like other cbuffer globals, so assigning to them is an error instead
+  of an optimizer crash
+  [#8966](https://github.com/microsoft/DirectXShaderCompiler/issues/8966).
 - Fixed an optimizer crash when scalarizing an out-of-bounds vector access
   [#8940](https://github.com/microsoft/DirectXShaderCompiler/issues/8940).
 - Fixed derivative operations being moved into divergent control flow, which

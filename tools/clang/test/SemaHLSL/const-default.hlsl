@@ -5,10 +5,26 @@ float g_float1;                                             /* expected-note {{v
 int4 g_vec1;                                                /* expected-note {{variable 'g_vec1' declared const here}} expected-note {{variable 'g_vec1' declared const here}} fxc-pass {{}} */
 uint64_t3x4 g_mat1;                                         /* fxc-error {{X3000: unrecognized identifier 'uint64_t3x4'}} */
 
+// Template specializations are instantiated lazily; they must still be const.
+template <typename T>
+struct TStruct {
+    T t;
+};
+template <typename T>
+struct TOuter {
+    TStruct<T> inner;
+};
+typedef TStruct<uint> TStructU;
+
+TStruct<int> g_tstruct;                                     /* expected-note {{variable 'g_tstruct' declared const here}} */
+TStructU g_tstruct_typedef;                                 /* expected-note {{variable 'g_tstruct_typedef' declared const here}} */
+TOuter<float> g_touter;                                     /* expected-note {{variable 'g_touter' declared const here}} */
+
 cbuffer g_cbuffer {
     min12int m_buffer_min12int;                             /* expected-note {{variable 'm_buffer_min12int' declared const here}} expected-warning {{'min12int' is promoted to 'min16int'}} fxc-pass {{}} */
     float4 m_buffer_float4;                                 /* expected-note {{variable 'm_buffer_float4' declared const here}} fxc-pass {{}} */
     int3x4 m_buffer_int3x4;
+    TStruct<float> m_buffer_tstruct;                        /* expected-note {{variable 'm_buffer_tstruct' declared const here}} */
 }
 
 tbuffer g_tbuffer {
@@ -61,6 +77,11 @@ float4 main() : SV_TARGET
     m_tbuffer_float *= 2;                                   /* expected-error {{cannot assign to variable 'm_tbuffer_float' with const-qualified type 'const float'}} fxc-error {{X3025: global variables are implicitly constant, enable compatibility mode to allow modification}} */
     m_tbuffer_int3 = 10;                                    /* expected-error {{cannot assign to variable 'm_tbuffer_int3' with const-qualified type 'const int3'}} fxc-error {{X3025: global variables are implicitly constant, enable compatibility mode to allow modification}} */
     m_tbuffer_double2x1 *= 3;                               /* expected-error {{cannot assign to variable 'm_tbuffer_double2x1' with const-qualified type 'const double2x1'}} fxc-error {{X3025: global variables are implicitly constant, enable compatibility mode to allow modification}} */
+
+    g_tstruct.t = 1;                                        /* expected-error {{cannot assign to variable 'g_tstruct' with const-qualified type 'const TStruct<int>'}} */
+    g_tstruct_typedef.t = 1;                                /* expected-error {{cannot assign to variable 'g_tstruct_typedef' with const-qualified type 'const TStructU'}} */
+    g_touter.inner.t = 1;                                   /* expected-error {{cannot assign to variable 'g_touter' with const-qualified type 'const TOuter<float>'}} */
+    m_buffer_tstruct.t = 1;                                 /* expected-error {{cannot assign to variable 'm_buffer_tstruct' with const-qualified type 'const TStruct<float>'}} */
 
     g_const_buffer.my_float3.x = 1.5;                       /* expected-error {{read-only variable is not assignable}} fxc-error {{X3025: global variables are implicitly constant, enable compatibility mode to allow modification}} */
     g_const_buffer.my_int3x4._21 -= 2;                      /* expected-error {{read-only variable is not assignable}} fxc-error {{X3025: global variables are implicitly constant, enable compatibility mode to allow modification}} */
