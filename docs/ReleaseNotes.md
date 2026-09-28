@@ -28,6 +28,8 @@ line upon naming the release. Refer to previous for appropriate section names.
   LinAlg Matrix, WaveGroup Index and Count, DebugBreak, Clustered Geometry, and
   Triangle Object Positions, with detailed blog posts to be linked here once
   available.
+- Removed work graph support from Shader Model 6.10, and DXIL 1.10
+  [microsoft/hlsl-specs#915](https://github.com/microsoft/hlsl-specs/issues/915).
 
 #### HLSL Language
 
@@ -46,6 +48,14 @@ line upon naming the release. Refer to previous for appropriate section names.
   [#8482](https://github.com/microsoft/DirectXShaderCompiler/issues/8482).
 - Added support for `auto` return types for normal functions aligning with C++14
   [#8903](https://github.com/microsoft/DirectXShaderCompiler/issues/8903).
+- HLSL 202x now supports variadic templates and template function parameter
+  packs, pack expansions, and `sizeof...()`
+  [#8905](https://github.com/microsoft/DirectXShaderCompiler/issues/8905).
+- HLSL 202x disallows putting cbuffer, tbuffer, or namespace declarations inside
+  a cbuffer or tbuffer
+  [#8484](https://github.com/microsoft/DirectXShaderCompiler/issues/8484).
+- Starting with HLSL 202x, `cbuffer` and `tbuffer` declarations and their
+  members belong to their enclosing namespace.
 - HLSL 202x supports `const`-qualified instance methods and rejects calls
   to non-`const` methods on `const` objects, including objects in constant 
   buffers 
