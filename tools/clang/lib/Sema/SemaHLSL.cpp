@@ -8705,7 +8705,9 @@ UINT64 HLSLExternalSource::ScoreFunction(OverloadCandidateSet::iterator &Cand) {
   // in/out considerations have been taken care of by viability.
 
   // 'this' considerations don't matter without inheritance, other
-  // than lookup and viability.
+  // The implicit object argument (`this`) affects lookup and viability.
+  // In HLSL 202x, its const qualification also breaks ties between viable
+  // overloads: a non-const object prefers a non-const method.
 
   UINT64 result = 0;
   for (unsigned convIdx = 0; convIdx < Cand->NumConversions; ++convIdx) {
