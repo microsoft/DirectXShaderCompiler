@@ -6391,14 +6391,14 @@ public:
     MultiLevelTemplateArgumentList mlTemplateArgumentList(templateArgumentList);
     TemplateDeclInstantiator declInstantiator(*this->m_sema, owner,
                                               mlTemplateArgumentList);
-    FunctionProtoType::ExtProtoInfo EmptyEPI;
+    FunctionProtoType::ExtProtoInfo EPI;
     // Preserve the method's const qualification on the resolved specialization.
     if (IsConstMemberIntrinsic(intrinsic))
-      EmptyEPI.TypeQuals = Qualifiers::Const;
+      EPI.TypeQuals = Qualifiers::Const;
     QualType functionType = m_context->getFunctionType(
         parameterTypes[0],
-        ArrayRef<QualType>(parameterTypes + 1, parameterTypeCount - 1),
-        EmptyEPI, paramMods);
+        ArrayRef<QualType>(parameterTypes + 1, parameterTypeCount - 1), EPI,
+        paramMods);
     TypeSourceInfo *TInfo = m_context->CreateTypeSourceInfo(functionType, 0);
     FunctionProtoTypeLoc Proto =
         TInfo->getTypeLoc().getAs<FunctionProtoTypeLoc>();
