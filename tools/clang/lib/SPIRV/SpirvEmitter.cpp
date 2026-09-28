@@ -13128,8 +13128,9 @@ SpirvEmitter::processIntrinsicSignUnsignedInt(const CallExpr *callExpr) {
   if (isVectorType(firstArgType)) {
     return actOnEachVec(0, firstArgType, callExpr->getType(), doExpr(firstArg));
   }
-  return processEachVectorInMatrix(firstArg, doExpr(firstArg), actOnEachVec,
-                                   srcLoc, srcRange);
+  return processEachVectorInMatrix(firstArg, callExpr->getType(),
+                                   doExpr(firstArg), actOnEachVec, srcLoc,
+                                   srcRange);
 }
 
 SpirvInstruction *
