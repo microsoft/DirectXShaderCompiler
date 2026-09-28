@@ -17,12 +17,12 @@ define void @main() {
   %3 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %1, %dx.types.ResourceProperties { i32 4107, i32 0 })  ; AnnotateHandle(res,props)  resource: RWByteAddressBuffer
 
   ; okay
-  call void @dx.op.linAlgVectorAccumulateToDescriptor.v4f32(i32 -2147483617, %dx.types.Handle %3, i32 0, i32 64, <4 x float> <float 9.000000e+00, float 8.000000e+00, float 7.000000e+00, float 6.000000e+00>)  ; LinAlgVectorAccumulateToDescriptor(handle,offset,align,vector)
+  call void @dx.op.linAlgVectorAccumulateToDescriptor.v4f32(i32 342, %dx.types.Handle %3, i32 0, i32 64, <4 x float> <float 9.000000e+00, float 8.000000e+00, float 7.000000e+00, float 6.000000e+00>)  ; LinAlgVectorAccumulateToDescriptor(handle,offset,align,vector)
   %4 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %2, %dx.types.ResourceProperties { i32 11, i32 0 })  ; AnnotateHandle(res,props)  resource: ByteAddressBuffer
 
   ; CHECK: Function: main: error: LinAlgVectorAccumulateToDescriptor requires RWByteAddressBuffer.
   ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgVectorAccumulateToDescriptor.v4f32
-  call void @dx.op.linAlgVectorAccumulateToDescriptor.v4f32(i32 -2147483617, %dx.types.Handle %4, i32 0, i32 192, <4 x float> <float 9.000000e+00, float 8.000000e+00, float 7.000000e+00, float 6.000000e+00>)  ; LinAlgVectorAccumulateToDescriptor(handle,offset,align,vector)
+  call void @dx.op.linAlgVectorAccumulateToDescriptor.v4f32(i32 342, %dx.types.Handle %4, i32 0, i32 192, <4 x float> <float 9.000000e+00, float 8.000000e+00, float 7.000000e+00, float 6.000000e+00>)  ; LinAlgVectorAccumulateToDescriptor(handle,offset,align,vector)
   %5 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %2, %dx.types.ResourceProperties { i32 11, i32 0 })  ; AnnotateHandle(res,props)  resource: ByteAddressBuffer
   %6 = call %dx.types.ResRet.i32 @dx.op.rawBufferLoad.i32(i32 139, %dx.types.Handle %5, i32 0, i32 undef, i8 1, i32 4)  ; RawBufferLoad(srv,index,elementOffset,mask,alignment)
   %7 = extractvalue %dx.types.ResRet.i32 %6, 0
@@ -30,17 +30,17 @@ define void @main() {
 
   ; CHECK-NEXT: Function: main: error: Align of LinAlgVectorAccumulateToDescriptor must be an immediate constant.
   ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgVectorAccumulateToDescriptor.v4f32
-  call void @dx.op.linAlgVectorAccumulateToDescriptor.v4f32(i32 -2147483617, %dx.types.Handle %8, i32 0, i32 %7, <4 x float> <float 9.000000e+00, float 8.000000e+00, float 7.000000e+00, float 6.000000e+00>)  ; LinAlgVectorAccumulateToDescriptor(handle,offset,align,vector)
+  call void @dx.op.linAlgVectorAccumulateToDescriptor.v4f32(i32 342, %dx.types.Handle %8, i32 0, i32 %7, <4 x float> <float 9.000000e+00, float 8.000000e+00, float 7.000000e+00, float 6.000000e+00>)  ; LinAlgVectorAccumulateToDescriptor(handle,offset,align,vector)
   %9 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %1, %dx.types.ResourceProperties { i32 4107, i32 0 })  ; AnnotateHandle(res,props)  resource: RWByteAddressBuffer
 
   ; CHECK-NEXT: Function: main: error: parameter 'Align' must be greater than 0, got 0
   ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgVectorAccumulateToDescriptor.v4f32
-  call void @dx.op.linAlgVectorAccumulateToDescriptor.v4f32(i32 -2147483617, %dx.types.Handle %9, i32 0, i32 0, <4 x float> <float 9.000000e+00, float 8.000000e+00, float 7.000000e+00, float 6.000000e+00>)  ; LinAlgVectorAccumulateToDescriptor(handle,offset,align,vector)
+  call void @dx.op.linAlgVectorAccumulateToDescriptor.v4f32(i32 342, %dx.types.Handle %9, i32 0, i32 0, <4 x float> <float 9.000000e+00, float 8.000000e+00, float 7.000000e+00, float 6.000000e+00>)  ; LinAlgVectorAccumulateToDescriptor(handle,offset,align,vector)
   %10 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %1, %dx.types.ResourceProperties { i32 4107, i32 0 })  ; AnnotateHandle(res,props)  resource: RWByteAddressBuffer
 
   ; CHECK-NEXT: Function: main: error: parameter 'Align' must be a multiple of 64, got 199
   ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgVectorAccumulateToDescriptor.v4f32
-  call void @dx.op.linAlgVectorAccumulateToDescriptor.v4f32(i32 -2147483617, %dx.types.Handle %10, i32 0, i32 199, <4 x float> <float 9.000000e+00, float 8.000000e+00, float 7.000000e+00, float 6.000000e+00>)  ; LinAlgVectorAccumulateToDescriptor(handle,offset,align,vector)
+  call void @dx.op.linAlgVectorAccumulateToDescriptor.v4f32(i32 342, %dx.types.Handle %10, i32 0, i32 199, <4 x float> <float 9.000000e+00, float 8.000000e+00, float 7.000000e+00, float 6.000000e+00>)  ; LinAlgVectorAccumulateToDescriptor(handle,offset,align,vector)
 
   ; CHECK-NEXT: Validation failed.
   ret void

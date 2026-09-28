@@ -23,7 +23,7 @@ void main() {
 // Matrix::Load from an array of vectors
 //
 // CHECK: %[[MATB:.*]] = call %dx.types.LinAlgMatrixC9M4N4U1S1
-// CHECK-SAME: @dx.op.linAlgMatrixLoadFromMemory.mC9M4N4U1S1.v4f32(i32 -2147483633,
+// CHECK-SAME: @dx.op.linAlgMatrixLoadFromMemory.mC9M4N4U1S1.v4f32(i32 326,
 // CHECK-SAME: <4 x float> addrspace(3)* getelementptr inbounds ([64 x <4 x float>],
 // CHECK-SAME: [64 x <4 x float>] addrspace(3)* @"\01?SharedVecArr@@3PAV?$vector@M$03@@A", i32 0, i32 0),
 // CHECK-SAME: i32 0, i32 16, i32 1)  ; LinAlgMatrixLoadFromMemory(memory,offset,stride,layout)
@@ -31,7 +31,7 @@ void main() {
 
 // Matrix::Store to an array of vectors
 //
-// CHECK: call void @dx.op.linAlgMatrixStoreToMemory.mC9M4N4U1S1.v4f32(i32 -2147483627,
+// CHECK: call void @dx.op.linAlgMatrixStoreToMemory.mC9M4N4U1S1.v4f32(i32 332,
 // CHECK-SAME: %dx.types.LinAlgMatrixC9M4N4U1S1 %[[MATB]],
 // CHECK-SAME: <4 x float> addrspace(3)* getelementptr inbounds ([64 x <4 x float>],
 // CHECK-SAME: [64 x <4 x float>] addrspace(3)* @"\01?SharedVecArr@@3PAV?$vector@M$03@@A", i32 0, i32 0),
@@ -41,7 +41,7 @@ void main() {
 // Matrix::Load from an array of packed vectors
 //
 // CHECK: %[[MATP:.*]] = call %dx.types.LinAlgMatrixC9M4N4U1S1
-// CHECK-SAME: @dx.op.linAlgMatrixLoadFromMemory.mC9M4N4U1S1.v2i32(i32 -2147483633,
+// CHECK-SAME: @dx.op.linAlgMatrixLoadFromMemory.mC9M4N4U1S1.v2i32(i32 326,
 // CHECK-SAME: <2 x i32> addrspace(3)* getelementptr inbounds ([64 x <2 x i32>],
 // CHECK-SAME: [64 x <2 x i32>] addrspace(3)* @"\01?PackedVecArr@@3PAV?$vector@$ui8_4pk@$01@@A", i32 0, i32 0),
 // CHECK-SAME: i32 0, i32 16, i32 1)  ; LinAlgMatrixLoadFromMemory(memory,offset,stride,layout)
@@ -49,7 +49,7 @@ void main() {
 
 // Matrix::Store to an array of packed vectors
 //
-// CHECK: call void @dx.op.linAlgMatrixStoreToMemory.mC9M4N4U1S1.v2i32(i32 -2147483627,
+// CHECK: call void @dx.op.linAlgMatrixStoreToMemory.mC9M4N4U1S1.v2i32(i32 332,
 // CHECK-SAME: %dx.types.LinAlgMatrixC9M4N4U1S1 %[[MATP]],
 // CHECK-SAME: <2 x i32> addrspace(3)* getelementptr inbounds ([64 x <2 x i32>],
 // CHECK-SAME: [64 x <2 x i32>] addrspace(3)* @"\01?PackedVecArr@@3PAV?$vector@$ui8_4pk@$01@@A", i32 0, i32 0),
@@ -60,7 +60,7 @@ void main() {
 
 // Matrix::InterlockedAccumulate to an array of vectors
 //
-// CHECK: call void @dx.op.linAlgMatrixAccumulateToMemory.mC9M4N4U2S1.v4f32(i32 -2147483620,
+// CHECK: call void @dx.op.linAlgMatrixAccumulateToMemory.mC9M4N4U2S1.v4f32(i32 339,
 // CHECK-SAME: %dx.types.LinAlgMatrixC9M4N4U2S1 %[[ACC:[0-9]+]],
 // CHECK-SAME: <4 x float> addrspace(3)* getelementptr inbounds ([64 x <4 x float>],
 // CHECK-SAME: [64 x <4 x float>] addrspace(3)* @"\01?SharedVecArr@@3PAV?$vector@M$03@@A", i32 0, i32 0),
@@ -70,7 +70,7 @@ void main() {
 
 // Matrix::InterlockedAccumulate to an array of packed vectors
 //
-// CHECK: call void @dx.op.linAlgMatrixAccumulateToMemory.mC9M4N4U2S1.v2i32(i32 -2147483620,
+// CHECK: call void @dx.op.linAlgMatrixAccumulateToMemory.mC9M4N4U2S1.v2i32(i32 339,
 // CHECK-SAME: %dx.types.LinAlgMatrixC9M4N4U2S1 %[[ACC]],
 // CHECK-SAME: <2 x i32> addrspace(3)* getelementptr inbounds ([64 x <2 x i32>],
 // CHECK-SAME: [64 x <2 x i32>] addrspace(3)* @"\01?PackedVecArr@@3PAV?$vector@$ui8_4pk@$01@@A", i32 0, i32 0),

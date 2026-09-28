@@ -16,7 +16,7 @@ define void @main() {
   ; CHECK: Function: main: error: Component type 'Invalid' from return matrix not allowed in LinAlg Matrix operations.
   ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixLoadFromDescriptor.mC0M16N16U0S0
   ; Matrix<Invalid, 16, 16, A, Thread>
-  %3 = call %dx.types.LinAlgMatrixC0M16N16U0S0 @dx.op.linAlgMatrixLoadFromDescriptor.mC0M16N16U0S0(i32 -2147483634, %dx.types.Handle %2, i32 0, i32 0, i32 0, i32 128)  ; LinAlgMatrixLoadFromDescriptor(handle,offset,stride,layout,align)
+  %3 = call %dx.types.LinAlgMatrixC0M16N16U0S0 @dx.op.linAlgMatrixLoadFromDescriptor.mC0M16N16U0S0(i32 325, %dx.types.Handle %2, i32 0, i32 0, i32 0, i32 128)  ; LinAlgMatrixLoadFromDescriptor(handle,offset,stride,layout,align)
 
   ; CHECK-NEXT: Validation failed.
 
