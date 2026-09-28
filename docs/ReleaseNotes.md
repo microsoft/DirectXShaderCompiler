@@ -84,10 +84,10 @@ line upon naming the release. Refer to previous for appropriate section names.
 - Fixed internal compiler errors when a member method is called on a ray payload
   or on one of its fields with payload access qualifiers enabled
   [#6464](https://github.com/microsoft/DirectXShaderCompiler/issues/6464).
-- Global and constant buffer variables whose type is written as a template-id
-  (for example `W<int>`, `vector<float, 4>`, or `matrix<float, 2, 2>`) are now
-  implicitly `const` like other globals; assigning to them is now a compile
-  error instead of a compiler crash
+- Numeric global and constant buffer variables whose type is written as a
+  template-id (for example `W<int>`, `vector<float, 4>`, or
+  `matrix<float, 2, 2>`) are now implicitly `const` like other numeric globals;
+  assigning to them is now a compile error instead of a compiler crash
   [#8966](https://github.com/microsoft/DirectXShaderCompiler/issues/8966).
 
 
