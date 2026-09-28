@@ -12808,8 +12808,8 @@ static bool AllowObjectInContext(QualType Ty, TypeDiagContext DiagContext) {
 
 // LinAlg matrices (attributed or the raw builtin handle) are opaque, thread
 // local values. They are only valid as static global state, locals, and
-// non-entry function parameters, never in resources, groupshared memory, or
-// shader interfaces.
+// non-entry function parameters and return types, never in resources,
+// groupshared memory, or shader interfaces.
 static bool AllowLinAlgMatrixInContext(TypeDiagContext DiagContext) {
   // Non-static globals are rejected separately with a diagnostic that asks for
   // an explicit 'static'.
