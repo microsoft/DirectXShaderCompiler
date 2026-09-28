@@ -16,8 +16,8 @@ define void @mainPS() {
   %6 = insertelement <4 x float> %4, float %5, i64 2
   %7 = call float @dx.op.loadInput.f32(i32 4, i32 0, i32 0, i8 3, i32 undef)  ; LoadInput(inputSigId,rowIndex,colIndex,gsVertexAxis)
   %8 = insertelement <4 x float> %6, float %7, i64 3
-  %9 = call i32 @dx.op.getGroupWaveIndex(i32 -2147483647)  ; GetGroupWaveIndex()
-  %10 = call i32 @dx.op.getGroupWaveCount(i32 -2147483646)  ; GetGroupWaveCount()
+  %9 = call i32 @dx.op.getGroupWaveIndex(i32 312)  ; GetGroupWaveIndex()
+  %10 = call i32 @dx.op.getGroupWaveCount(i32 313)  ; GetGroupWaveCount()
   %11 = uitofp i32 %9 to float
   %12 = insertelement <4 x float> undef, float %11, i32 0
   %13 = shufflevector <4 x float> %12, <4 x float> undef, <4 x i32> zeroinitializer

@@ -2021,7 +2021,6 @@ ParamModsFromIntrinsicArg(const HLSL_INTRINSIC_ARGUMENT *pArg) {
   }
   if (pArg->qwUsage == AR_QUAL_REF)
     return hlsl::ParameterModifier(hlsl::ParameterModifier::Kind::Ref);
-  // TODO: https://github.com/microsoft/DirectXShaderCompiler/issues/8270
   if (pArg->qwUsage == AR_QUAL_GROUPSHARED)
     return hlsl::ParameterModifier(hlsl::ParameterModifier::Kind::In);
   DXASSERT(qwUsage & AR_QUAL_IN, "else usage is incorrect");
@@ -3883,6 +3882,10 @@ private:
     auto &context = m_sema->getASTContext();
     for (uint32_t i = 0; i < tableSize; ++i) {
       const HLSL_INTRINSIC *intrinsic = &table[i];
+      // Builtins can contain call-site-dependent types and are declared lazily.
+      if (StringRef(intrinsic->pArgs->pName).startswith("__builtin_"))
+        continue;
+
       const IdentifierInfo &fnII = context.Idents.get(
           intrinsic->pArgs->pName, tok::TokenKind::identifier);
       DeclarationName functionName(&fnII);
@@ -6079,7 +6082,7 @@ public:
         if (isMatrix || isVector) {
           Expr *expr = arg.getAsExpr();
           llvm::APSInt constantResult;
-          if (expr != nullptr &&
+          if (expr != nullptr && !expr->isValueDependent() &&
               expr->isIntegerConstantExpr(constantResult, *m_context)) {
             if (CheckRangedTemplateArgument(argSrcLoc, constantResult,
                                             isVector))
@@ -7633,7 +7636,8 @@ bool HLSLExternalSource::MatchArguments(
           pArgument->qwUsage &
           (AR_QUAL_ROWMAJOR | AR_QUAL_COLMAJOR | AR_QUAL_GROUPSHARED);
 
-      if ((0 == i) || !(pArgument->qwUsage & AR_QUAL_OUT))
+      if ((0 == i) ||
+          !(pArgument->qwUsage & (AR_QUAL_OUT | AR_QUAL_GROUPSHARED)))
         qwQual |= AR_QUAL_CONST;
 
       DXASSERT_VALIDBASICKIND(pEltType);
@@ -12733,19 +12737,19 @@ void Sema::DiagnoseReachableHLSLCall(CallExpr *CE, const hlsl::ShaderModel *SM,
   case hlsl::IntrinsicOp::IOP_DxMaybeReorderThread:
     DiagnoseReachableSERCall(*this, CE, EntrySK, EntryDecl, true);
     break;
-  case hlsl::IntrinsicOp::IOP___builtin_LinAlg_FillMatrix:
-  case hlsl::IntrinsicOp::IOP___builtin_LinAlg_CopyConvertMatrix:
-  case hlsl::IntrinsicOp::IOP___builtin_LinAlg_MatrixLength:
-  case hlsl::IntrinsicOp::IOP___builtin_LinAlg_MatrixGetCoordinate:
-  case hlsl::IntrinsicOp::IOP___builtin_LinAlg_MatrixGetElement:
-  case hlsl::IntrinsicOp::IOP___builtin_LinAlg_MatrixSetElement:
-  case hlsl::IntrinsicOp::IOP___builtin_LinAlg_MatrixStoreToDescriptor:
-  case hlsl::IntrinsicOp::IOP___builtin_LinAlg_MatrixLoadFromMemory:
-  case hlsl::IntrinsicOp::IOP___builtin_LinAlg_MatrixStoreToMemory:
-  case hlsl::IntrinsicOp::IOP___builtin_LinAlg_MatrixAccumulateToMemory:
-  case hlsl::IntrinsicOp::IOP___builtin_LinAlg_MatrixMatrixMultiply:
-  case hlsl::IntrinsicOp::IOP___builtin_LinAlg_MatrixMatrixMultiplyAccumulate:
-  case hlsl::IntrinsicOp::IOP___builtin_LinAlg_MatrixAccumulate:
+  case hlsl::IntrinsicOp::IOP_Dx__builtin_LinAlg_FillMatrix:
+  case hlsl::IntrinsicOp::IOP_Dx__builtin_LinAlg_CopyConvertMatrix:
+  case hlsl::IntrinsicOp::IOP_Dx__builtin_LinAlg_MatrixLength:
+  case hlsl::IntrinsicOp::IOP_Dx__builtin_LinAlg_MatrixGetCoordinate:
+  case hlsl::IntrinsicOp::IOP_Dx__builtin_LinAlg_MatrixGetElement:
+  case hlsl::IntrinsicOp::IOP_Dx__builtin_LinAlg_MatrixSetElement:
+  case hlsl::IntrinsicOp::IOP_Dx__builtin_LinAlg_MatrixStoreToDescriptor:
+  case hlsl::IntrinsicOp::IOP_Dx__builtin_LinAlg_MatrixLoadFromMemory:
+  case hlsl::IntrinsicOp::IOP_Dx__builtin_LinAlg_MatrixStoreToMemory:
+  case hlsl::IntrinsicOp::IOP_Dx__builtin_LinAlg_MatrixAccumulateToMemory:
+  case hlsl::IntrinsicOp::IOP_Dx__builtin_LinAlg_MatrixMatrixMultiply:
+  case hlsl::IntrinsicOp::IOP_Dx__builtin_LinAlg_MatrixMatrixMultiplyAccumulate:
+  case hlsl::IntrinsicOp::IOP_Dx__builtin_LinAlg_MatrixAccumulate:
     DiagnoseReachableLimitedLinAlgCall(*this, CE, EntrySK, EntryDecl);
     break;
   default:
@@ -15363,6 +15367,20 @@ void Sema::ActOnFinishHLSLBuffer(Decl *Dcl, SourceLocation RBrace) {
   bool HasPackOffset = false;
   bool HasNonPackOffset = false;
   for (auto *Field : BufDecl->decls()) {
+    // HLSL 202x 0005 Cbuffer Contexts proposal restricts the contents of a
+    // cbuffer to declarations allowed at block scope, plus templates, functions
+    // and empty declarations (see:
+    // https://hlsl-tc57.github.io/tc57/proposal/0005/).
+    if (getLangOpts().HLSLVersion >= hlsl::LangStd::v202x &&
+        (isa<HLSLBufferDecl>(Field) || isa<NamespaceDecl>(Field))) {
+      NamedDecl *ND = cast<NamedDecl>(Field);
+      Diag(Field->getLocation(),
+           diag::err_hlsl_unsupported_declaration_in_buffer)
+          << ND << BufDecl->isCBuffer();
+      Diag(Dcl->getLocation(), diag::note_declared_at);
+      Dcl->setInvalidDecl();
+    }
+
     VarDecl *Var = dyn_cast<VarDecl>(Field);
     if (!Var)
       continue;
@@ -15446,6 +15464,9 @@ HLSLBufferDecl::Create(ASTContext &C, DeclContext *lexicalParent, bool cbuffer,
                        std::vector<hlsl::UnusualAnnotation *> &BufferAttributes,
                        SourceLocation LBrace) {
   DeclContext *DC = C.getTranslationUnitDecl();
+  // In HLSL 202x, buffers and their members belong to the enclosing namespace.
+  if (C.getLangOpts().HLSLVersion >= hlsl::LangStd::v202x)
+    DC = lexicalParent;
   HLSLBufferDecl *result = ::new (C) HLSLBufferDecl(
       DC, cbuffer, constantbuffer, KwLoc, Id, IdLoc, BufferAttributes, LBrace);
   if (DC != lexicalParent) {
@@ -15796,6 +15817,9 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC, Expr *BitWidth,
             << pAttr->getRange();
         result = false;
       }
+      if ((isGlobal || isParameter) && !isStatic)
+        Diag(pAttr->getLoc(), diag::warn_hlsl_2026_removed_keyword)
+            << "uniform";
       pUniform = pAttr;
       break;
 

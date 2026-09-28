@@ -10,6 +10,7 @@ target triple = "dxil-ms-dx"
 %dx.types.LinAlgMatrixC8M4N4U2S0 = type { i8* }
 %dx.types.ResRet.i32 = type { i32, i32, i32, i32, i32 }
 %dx.types.LinAlgMatrixC8M8N8U2S0 = type { i8* }
+%dx.types.LinAlgMatrixC8M8N8U2S1 = type { i8* }
 %dx.types.LinAlgMatrixC8M16N16U2S0 = type { i8* }
 %dx.types.LinAlgMatrixC8M4N8U2S0 = type { i8* }
 %dx.types.LinAlgMatrixC8M16N16U0S0 = type { i8* }
@@ -29,23 +30,23 @@ define void @main() {
 
   ; CHECK: Function: main: error: Return matrix with scope 'ThreadGroup' requires layout RowMajor or ColumnMajor for LinAlgMatrixLoadFromDescriptor.
   ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixLoadFromDescriptor.mC8M4N4U2S2
-  %5 = call %dx.types.LinAlgMatrixC8M4N4U2S2 @dx.op.linAlgMatrixLoadFromDescriptor.mC8M4N4U2S2(i32 -2147483634, %dx.types.Handle %4, i32 0, i32 0, i32 4, i32 128)  ; LinAlgMatrixLoadFromDescriptor(handle,offset,stride,layout,align)
+  %5 = call %dx.types.LinAlgMatrixC8M4N4U2S2 @dx.op.linAlgMatrixLoadFromDescriptor.mC8M4N4U2S2(i32 325, %dx.types.Handle %4, i32 0, i32 0, i32 4, i32 128)  ; LinAlgMatrixLoadFromDescriptor(handle,offset,stride,layout,align)
   %threadgroup_align4_anno = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %3, %dx.types.ResourceProperties { i32 11, i32 0 })  ; AnnotateHandle(res,props)  resource: ByteAddressBuffer
 
 
   ; No error expected for 4-byte alignment on a ThreadGroup matrix.
-  %threadgroup_align4 = call %dx.types.LinAlgMatrixC8M4N4U2S2 @dx.op.linAlgMatrixLoadFromDescriptor.mC8M4N4U2S2(i32 -2147483634, %dx.types.Handle %threadgroup_align4_anno, i32 0, i32 4, i32 0, i32 4)  ; LinAlgMatrixLoadFromDescriptor(handle,offset,stride,layout,align)
+  %threadgroup_align4 = call %dx.types.LinAlgMatrixC8M4N4U2S2 @dx.op.linAlgMatrixLoadFromDescriptor.mC8M4N4U2S2(i32 325, %dx.types.Handle %threadgroup_align4_anno, i32 0, i32 4, i32 0, i32 4)  ; LinAlgMatrixLoadFromDescriptor(handle,offset,stride,layout,align)
   %threadgroup_align6_anno = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %3, %dx.types.ResourceProperties { i32 11, i32 0 })  ; AnnotateHandle(res,props)  resource: ByteAddressBuffer
 
   ; CHECK-NEXT: Function: main: error: parameter 'Align' must be a multiple of 4, got 6
   ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixLoadFromDescriptor.mC8M4N4U2S2
-  %threadgroup_align6 = call %dx.types.LinAlgMatrixC8M4N4U2S2 @dx.op.linAlgMatrixLoadFromDescriptor.mC8M4N4U2S2(i32 -2147483634, %dx.types.Handle %threadgroup_align6_anno, i32 0, i32 4, i32 0, i32 6)  ; LinAlgMatrixLoadFromDescriptor(handle,offset,stride,layout,align)
+  %threadgroup_align6 = call %dx.types.LinAlgMatrixC8M4N4U2S2 @dx.op.linAlgMatrixLoadFromDescriptor.mC8M4N4U2S2(i32 325, %dx.types.Handle %threadgroup_align6_anno, i32 0, i32 4, i32 0, i32 6)  ; LinAlgMatrixLoadFromDescriptor(handle,offset,stride,layout,align)
   %6 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %3, %dx.types.ResourceProperties { i32 11, i32 0 })  ; AnnotateHandle(res,props)  resource: ByteAddressBuffer
 
 
   ; CHECK-NEXT: Function: main: error: LinAlgMatrixLoadFromDescriptor with layout 'OuterProductOptimal' requires stride 0.
   ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixLoadFromDescriptor.mC8M4N4U2S0
-  %7 = call %dx.types.LinAlgMatrixC8M4N4U2S0 @dx.op.linAlgMatrixLoadFromDescriptor.mC8M4N4U2S0(i32 -2147483634, %dx.types.Handle %6, i32 0, i32 4, i32 4, i32 128)  ; LinAlgMatrixLoadFromDescriptor(handle,offset,stride,layout,align)
+  %7 = call %dx.types.LinAlgMatrixC8M4N4U2S0 @dx.op.linAlgMatrixLoadFromDescriptor.mC8M4N4U2S0(i32 325, %dx.types.Handle %6, i32 0, i32 4, i32 4, i32 128)  ; LinAlgMatrixLoadFromDescriptor(handle,offset,stride,layout,align)
   %8 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %2, %dx.types.ResourceProperties { i32 12, i32 4 })  ; AnnotateHandle(res,props)  resource: StructuredBuffer<stride=4>
   %9 = call %dx.types.ResRet.i32 @dx.op.rawBufferLoad.i32(i32 139, %dx.types.Handle %8, i32 0, i32 0, i8 1, i32 4)  ; RawBufferLoad(srv,index,elementOffset,mask,alignment)
   %10 = extractvalue %dx.types.ResRet.i32 %9, 0
@@ -54,47 +55,53 @@ define void @main() {
 
   ; CHECK-NEXT: Function: main: error: Layout of LinAlgMatrixLoadFromDescriptor must be an immediate constant.
   ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixLoadFromDescriptor.mC8M8N8U2S0
-  %12 = call %dx.types.LinAlgMatrixC8M8N8U2S0 @dx.op.linAlgMatrixLoadFromDescriptor.mC8M8N8U2S0(i32 -2147483634, %dx.types.Handle %11, i32 0, i32 0, i32 %10, i32 128)  ; LinAlgMatrixLoadFromDescriptor(handle,offset,stride,layout,align)
+  %12 = call %dx.types.LinAlgMatrixC8M8N8U2S0 @dx.op.linAlgMatrixLoadFromDescriptor.mC8M8N8U2S0(i32 325, %dx.types.Handle %11, i32 0, i32 0, i32 %10, i32 128)  ; LinAlgMatrixLoadFromDescriptor(handle,offset,stride,layout,align)
+
+  ; No error expected for non-imm arg layout on Wave or ThreadGroup matrices.
+  %wave_dynamic_layout_anno = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %3, %dx.types.ResourceProperties { i32 11, i32 0 })  ; AnnotateHandle(res,props)  resource: ByteAddressBuffer
+  %wave_dynamic_layout = call %dx.types.LinAlgMatrixC8M8N8U2S1 @dx.op.linAlgMatrixLoadFromDescriptor.mC8M8N8U2S1(i32 325, %dx.types.Handle %wave_dynamic_layout_anno, i32 0, i32 0, i32 %10, i32 4)  ; LinAlgMatrixLoadFromDescriptor(handle,offset,stride,layout,align)
+  %threadgroup_dynamic_layout_anno = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %3, %dx.types.ResourceProperties { i32 11, i32 0 })  ; AnnotateHandle(res,props)  resource: ByteAddressBuffer
+  %threadgroup_dynamic_layout = call %dx.types.LinAlgMatrixC8M4N4U2S2 @dx.op.linAlgMatrixLoadFromDescriptor.mC8M4N4U2S2(i32 325, %dx.types.Handle %threadgroup_dynamic_layout_anno, i32 0, i32 0, i32 %10, i32 4)  ; LinAlgMatrixLoadFromDescriptor(handle,offset,stride,layout,align)
   %13 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %3, %dx.types.ResourceProperties { i32 11, i32 0 })  ; AnnotateHandle(res,props)  resource: ByteAddressBuffer
 
 
   ; CHECK-NEXT: Function: main: error: Stride of LinAlgMatrixLoadFromDescriptor must be an immediate constant.
   ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixLoadFromDescriptor.mC8M16N16U2S0
-  %14 = call %dx.types.LinAlgMatrixC8M16N16U2S0 @dx.op.linAlgMatrixLoadFromDescriptor.mC8M16N16U2S0(i32 -2147483634, %dx.types.Handle %13, i32 0, i32 %10, i32 4, i32 128)  ; LinAlgMatrixLoadFromDescriptor(handle,offset,stride,layout,align)
+  %14 = call %dx.types.LinAlgMatrixC8M16N16U2S0 @dx.op.linAlgMatrixLoadFromDescriptor.mC8M16N16U2S0(i32 325, %dx.types.Handle %13, i32 0, i32 %10, i32 4, i32 128)  ; LinAlgMatrixLoadFromDescriptor(handle,offset,stride,layout,align)
   %15 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %3, %dx.types.ResourceProperties { i32 11, i32 0 })  ; AnnotateHandle(res,props)  resource: ByteAddressBuffer
 
 
   ; No error expected for non-imm arg stride on row/col layout
-  %16 = call %dx.types.LinAlgMatrixC8M4N8U2S0 @dx.op.linAlgMatrixLoadFromDescriptor.mC8M4N8U2S0(i32 -2147483634, %dx.types.Handle %15, i32 0, i32 %10, i32 0, i32 128)  ; LinAlgMatrixLoadFromDescriptor(handle,offset,stride,layout,align)
+  %16 = call %dx.types.LinAlgMatrixC8M4N8U2S0 @dx.op.linAlgMatrixLoadFromDescriptor.mC8M4N8U2S0(i32 325, %dx.types.Handle %15, i32 0, i32 %10, i32 0, i32 128)  ; LinAlgMatrixLoadFromDescriptor(handle,offset,stride,layout,align)
   %17 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %3, %dx.types.ResourceProperties { i32 11, i32 0 })  ; AnnotateHandle(res,props)  resource: ByteAddressBuffer
 
   ; CHECK-NEXT: Function: main: error: parameter 'Align' must be a multiple of 128, got 215
   ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixLoadFromDescriptor.mC8M4N8U2S0
-  %18 = call %dx.types.LinAlgMatrixC8M4N8U2S0 @dx.op.linAlgMatrixLoadFromDescriptor.mC8M4N8U2S0(i32 -2147483634, %dx.types.Handle %17, i32 0, i32 0, i32 0, i32 215)  ; LinAlgMatrixLoadFromDescriptor(handle,offset,stride,layout,align)
+  %18 = call %dx.types.LinAlgMatrixC8M4N8U2S0 @dx.op.linAlgMatrixLoadFromDescriptor.mC8M4N8U2S0(i32 325, %dx.types.Handle %17, i32 0, i32 0, i32 0, i32 215)  ; LinAlgMatrixLoadFromDescriptor(handle,offset,stride,layout,align)
   %19 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %1, %dx.types.ResourceProperties { i32 4107, i32 0 })  ; AnnotateHandle(res,props)  resource: RWByteAddressBuffer
 
 
   ; CHECK-NEXT: Function: main: error: Loading matrix with Thread scope requires ByteAddressBuffer.
   ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixLoadFromDescriptor.mC8M16N16U0S0
-  %20 = call %dx.types.LinAlgMatrixC8M16N16U0S0 @dx.op.linAlgMatrixLoadFromDescriptor.mC8M16N16U0S0(i32 -2147483634, %dx.types.Handle %19, i32 0, i32 0, i32 0, i32 128)  ; LinAlgMatrixLoadFromDescriptor(handle,offset,stride,layout,align)
+  %20 = call %dx.types.LinAlgMatrixC8M16N16U0S0 @dx.op.linAlgMatrixLoadFromDescriptor.mC8M16N16U0S0(i32 325, %dx.types.Handle %19, i32 0, i32 0, i32 0, i32 128)  ; LinAlgMatrixLoadFromDescriptor(handle,offset,stride,layout,align)
   %21 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %3, %dx.types.ResourceProperties { i32 11, i32 0 })  ; AnnotateHandle(res,props)  resource: ByteAddressBuffer
 
 
   ; CHECK-NEXT: Function: main: error: Align of LinAlgMatrixLoadFromDescriptor must be an immediate constant.
   ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixLoadFromDescriptor.mC8M8N8U0S0
-  %22 = call %dx.types.LinAlgMatrixC8M8N8U0S0 @dx.op.linAlgMatrixLoadFromDescriptor.mC8M8N8U0S0(i32 -2147483634, %dx.types.Handle %21, i32 0, i32 0, i32 0, i32 %10)  ; LinAlgMatrixLoadFromDescriptor(handle,offset,stride,layout,align)
+  %22 = call %dx.types.LinAlgMatrixC8M8N8U0S0 @dx.op.linAlgMatrixLoadFromDescriptor.mC8M8N8U0S0(i32 325, %dx.types.Handle %21, i32 0, i32 0, i32 0, i32 %10)  ; LinAlgMatrixLoadFromDescriptor(handle,offset,stride,layout,align)
   %23 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %2, %dx.types.ResourceProperties { i32 12, i32 4 })  ; AnnotateHandle(res,props)  resource: StructuredBuffer<stride=4>
 
 
   ; CHECK-NEXT: Function: main: error: Loading matrix with Thread scope requires ByteAddressBuffer.
   ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixLoadFromDescriptor.mC8M8N4U0S0
-  %24 = call %dx.types.LinAlgMatrixC8M8N4U0S0 @dx.op.linAlgMatrixLoadFromDescriptor.mC8M8N4U0S0(i32 -2147483634, %dx.types.Handle %23, i32 0, i32 0, i32 0, i32 128)  ; LinAlgMatrixLoadFromDescriptor(handle,offset,stride,layout,align)
+  %24 = call %dx.types.LinAlgMatrixC8M8N4U0S0 @dx.op.linAlgMatrixLoadFromDescriptor.mC8M8N4U0S0(i32 325, %dx.types.Handle %23, i32 0, i32 0, i32 0, i32 128)  ; LinAlgMatrixLoadFromDescriptor(handle,offset,stride,layout,align)
   %25 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %3, %dx.types.ResourceProperties { i32 11, i32 0 })  ; AnnotateHandle(res,props)  resource: ByteAddressBuffer
 
 
   ; CHECK-NEXT: Function: main: error: parameter 'Align' must be greater than 0, got 0
   ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixLoadFromDescriptor.mC8M16N8U0S0
-  %26 = call %dx.types.LinAlgMatrixC8M16N8U0S0 @dx.op.linAlgMatrixLoadFromDescriptor.mC8M16N8U0S0(i32 -2147483634, %dx.types.Handle %25, i32 0, i32 0, i32 0, i32 0)  ; LinAlgMatrixLoadFromDescriptor(handle,offset,stride,layout,align)
+  %26 = call %dx.types.LinAlgMatrixC8M16N8U0S0 @dx.op.linAlgMatrixLoadFromDescriptor.mC8M16N8U0S0(i32 325, %dx.types.Handle %25, i32 0, i32 0, i32 0, i32 0)  ; LinAlgMatrixLoadFromDescriptor(handle,offset,stride,layout,align)
 
   ; CHECK-NEXT: Validation failed.
   ret void
@@ -111,6 +118,9 @@ declare %dx.types.ResRet.i32 @dx.op.rawBufferLoad.i32(i32, %dx.types.Handle, i32
 
 ; Function Attrs: nounwind
 declare %dx.types.LinAlgMatrixC8M8N8U2S0 @dx.op.linAlgMatrixLoadFromDescriptor.mC8M8N8U2S0(i32, %dx.types.Handle, i32, i32, i32, i32) #0
+
+; Function Attrs: nounwind
+declare %dx.types.LinAlgMatrixC8M8N8U2S1 @dx.op.linAlgMatrixLoadFromDescriptor.mC8M8N8U2S1(i32, %dx.types.Handle, i32, i32, i32, i32) #0
 
 ; Function Attrs: nounwind
 declare %dx.types.LinAlgMatrixC8M16N16U2S0 @dx.op.linAlgMatrixLoadFromDescriptor.mC8M16N16U2S0(i32, %dx.types.Handle, i32, i32, i32, i32) #0
@@ -140,7 +150,7 @@ attributes #0 = { nounwind }
 attributes #1 = { nounwind readonly }
 attributes #2 = { nounwind readnone }
 
-!dx.targetTypes = !{!0, !1, !2, !3, !4, !5, !6, !7, !8}
+!dx.targetTypes = !{!0, !1, !2, !3, !4, !5, !6, !7, !8, !22}
 !llvm.ident = !{!9}
 !dx.version = !{!10}
 !dx.valver = !{!10}
@@ -170,3 +180,4 @@ attributes #2 = { nounwind readnone }
 !19 = !{void ()* @main, !"main", null, !12, !20}
 !20 = !{i32 0, i64 2207621578768, i32 4, !21}
 !21 = !{i32 1, i32 1, i32 1}
+!22 = !{%dx.types.LinAlgMatrixC8M8N8U2S1 undef, i32 8, i32 8, i32 8, i32 2, i32 1}
