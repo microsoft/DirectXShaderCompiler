@@ -56,6 +56,8 @@ line upon naming the release. Refer to previous for appropriate section names.
   [#8484](https://github.com/microsoft/DirectXShaderCompiler/issues/8484).
 - Starting with HLSL 202x, `cbuffer` and `tbuffer` declarations and their
   members belong to their enclosing namespace.
+- Add `static_assert` matching C++11 and C++17 under HLSL 202x
+  ([#8910](https://github.com/microsoft/DirectXShaderCompiler/issues/8910)). 
 
 #### Bug Fixes
 
