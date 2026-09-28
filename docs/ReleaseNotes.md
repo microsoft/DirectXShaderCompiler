@@ -82,6 +82,10 @@ line upon naming the release. Refer to previous for appropriate section names.
 - Fixed internal compiler errors when a member method is called on a ray payload
   or on one of its fields with payload access qualifiers enabled
   [#6464](https://github.com/microsoft/DirectXShaderCompiler/issues/6464).
+- Fixed non-deterministic debug information for static globals localized into
+  allocas, which made the embedded debug module differ between compilations of
+  byte-identical input
+  [#8899](https://github.com/microsoft/DirectXShaderCompiler/pull/8899).
 
 
 #### SPIR-V
