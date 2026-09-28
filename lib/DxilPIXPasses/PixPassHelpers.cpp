@@ -186,9 +186,8 @@ static std::vector<uint8_t> SerializeRootSignatureToVector(
   SerializeRootSignature(rootSignature, &serializedRootSignature, &errorBlob,
                          allowReservedRegisterSpace);
   std::vector<uint8_t> ret;
-  if (serializedRootSignature == nullptr) {
+  if (serializedRootSignature == nullptr)
     return ret;
-  }
   auto const *serializedData = reinterpret_cast<const uint8_t *>(
       serializedRootSignature->GetBufferPointer());
   ret.assign(serializedData,
@@ -247,10 +246,9 @@ AddUAVParamterToRootSignature(const void *Data, uint32_t Size,
     break;
   case DxilRootSignatureVersion::Version_1_1:
     if (ExtendRootSig<DxilRootSignatureDesc1, DxilRootParameter1>(
-            rs->Desc_1_1, ToolsUAVRegister)) {
+            rs->Desc_1_1, ToolsUAVRegister))
       rs->Desc_1_1.pParameters[rs->Desc_1_1.NumParameters - 1]
           .Descriptor.Flags = hlsl::DxilRootDescriptorFlags::None;
-    }
     break;
   }
   return SerializeRootSignatureToVector(rs);
@@ -262,9 +260,8 @@ static void AddUAVToShaderAttributeRootSignature(DxilModule &DM,
   if (!rs.empty()) {
     std::vector<uint8_t> asVector = AddUAVParamterToRootSignature(
         rs.data(), static_cast<uint32_t>(rs.size()), ToolsUAVRegister);
-    if (!asVector.empty()) {
+    if (!asVector.empty())
       DM.ResetSerializedRootSignature(asVector);
-    }
   }
 }
 
@@ -325,9 +322,8 @@ hlsl::DxilResource *CreateGlobalUAVResource(hlsl::DxilModule &DM,
 
   for (const std::unique_ptr<DxilResource> &ExistingUAV : DM.GetUAVs()) {
     if (ExistingUAV->GetSpaceID() == toolsRegisterSpace &&
-        ExistingUAV->GetLowerBound() == hlslBindIndex) {
+        ExistingUAV->GetLowerBound() == hlslBindIndex)
       return ExistingUAV.get();
-    }
   }
 
   const char *PIXStructTypeName = ShaderModelHandleTypeName(DM);
