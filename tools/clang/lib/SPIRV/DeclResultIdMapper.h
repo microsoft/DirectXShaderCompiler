@@ -557,6 +557,17 @@ public:
   /// \brief Returns the given decl's HLSL semantic information.
   static SemanticInfo getStageVarSemantic(const NamedDecl *decl);
 
+  /// \brief Returns the semantic that the stage variable for the given decl
+  /// was created with. It differs from the decl's own semantic when the decl
+  /// is a field of a struct that has a semantic attached.
+  SemanticInfo getStageVarCreationSemantic(const DeclaratorDecl *decl) const {
+    if (const auto *var = stageVarInstructions.lookup(decl))
+      for (const auto &stageVar : stageVars)
+        if (stageVar.getSpirvInstr() == var)
+          return stageVar.getSemanticInfo();
+    return getStageVarSemantic(decl);
+  }
+
   /// \brief Returns SPIR-V instruction for given stage var decl.
   SpirvInstruction *getStageVarInstruction(const DeclaratorDecl *decl) {
     auto *value = stageVarInstructions.lookup(decl);

@@ -372,6 +372,13 @@ private:
       const DeclaratorDecl *decl, SpirvInstruction *value,
       const llvm::SmallVector<SpirvInstruction *, 4> &indices);
 
+  /// Emit instructions for assigning a struct value to the mesh out attributes
+  /// of its base classes and fields.
+  void
+  assignToMSOutStruct(QualType type, SpirvInstruction *value,
+                      const llvm::SmallVector<SpirvInstruction *, 4> &indices,
+                      SourceLocation loc);
+
   /// Emit instructions for assigning to the given mesh out indices object.
   void
   assignToMSOutIndices(const DeclaratorDecl *decl, SpirvInstruction *value,
