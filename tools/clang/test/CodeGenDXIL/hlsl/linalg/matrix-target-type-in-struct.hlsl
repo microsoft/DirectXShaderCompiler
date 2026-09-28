@@ -8,7 +8,7 @@ class MyMatrix {
 
   static MyMatrix Splat(float Val) {
     MyMatrix Result;
-    __builtin_LinAlg_FillMatrix(Result.handle, true, Val);
+    dx::__builtin_LinAlg_FillMatrix(Result.handle, true, Val);
     return Result;
   }
 };

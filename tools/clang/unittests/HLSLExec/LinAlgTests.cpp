@@ -2447,7 +2447,7 @@ static const char MatVecMulShader[] = R"(
       [[__LinAlgMatrix_Attributes(
         MATRIX_COMP_TYPE, M_DIM, N_DIM, USE_A, SCOPE_THREAD)]]
       Mat;
-    __builtin_LinAlg_MatrixLoadFromDescriptor(
+    dx::__builtin_LinAlg_MatrixLoadFromDescriptor(
       Mat, MatrixInput, 0, MATRIX_STRIDE, MATRIX_LAYOUT, 128);
 
     vector<INPUT_STORAGE_TYPE, INPUT_STORAGE_COUNT> InVec;
@@ -2457,7 +2457,7 @@ static const char MatVecMulShader[] = R"(
     }
 
     vector<OUTPUT_TYPE, M_DIM> OutVec;
-    __builtin_LinAlg_MatrixVectorMultiply(
+    dx::__builtin_LinAlg_MatrixVectorMultiply(
       OutVec, Mat, OUTPUT_SIGNED, InVec, INPUT_INTERP);
 
     for (uint I = 0; I < M_DIM; ++I) {
@@ -2481,7 +2481,7 @@ static const char MatVecMulAddShader[] = R"(
       [[__LinAlgMatrix_Attributes(
         MATRIX_COMP_TYPE, M_DIM, N_DIM, USE_A, SCOPE_THREAD)]]
       Mat;
-    __builtin_LinAlg_MatrixLoadFromDescriptor(
+    dx::__builtin_LinAlg_MatrixLoadFromDescriptor(
       Mat, MatrixInput, 0, MATRIX_STRIDE, MATRIX_LAYOUT, 128);
 
     vector<INPUT_STORAGE_TYPE, INPUT_STORAGE_COUNT> InVec;
@@ -2496,7 +2496,7 @@ static const char MatVecMulAddShader[] = R"(
     }
 
     vector<OUTPUT_TYPE, M_DIM> OutVec;
-    __builtin_LinAlg_MatrixVectorMultiplyAdd(
+    dx::__builtin_LinAlg_MatrixVectorMultiplyAdd(
       OutVec, Mat, OUTPUT_SIGNED, InVec, INPUT_INTERP, BiasVec);
 
     for (uint I = 0; I < M_DIM; ++I) {
@@ -3938,9 +3938,9 @@ static const char LoadStoreDescriptorShader[] = R"(
     __builtin_LinAlgMatrix
       [[__LinAlgMatrix_Attributes(COMP_TYPE, M_DIM, N_DIM, USE, SCOPE)]]
       Mat;
-    __builtin_LinAlg_MatrixLoadFromDescriptor(
+    dx::__builtin_LinAlg_MatrixLoadFromDescriptor(
       Mat, Input, LOAD_OFFSET, LOAD_STRIDE, LOAD_LAYOUT, DECLARED_ALIGN);
-    __builtin_LinAlg_MatrixStoreToDescriptor(
+    dx::__builtin_LinAlg_MatrixStoreToDescriptor(
       Mat, Output, STORE_OFFSET, STORE_STRIDE, STORE_LAYOUT, DECLARED_ALIGN);
   }
 )";
@@ -4259,9 +4259,9 @@ static const char AccumulateDescriptorOOBShader[] = R"(
     __builtin_LinAlgMatrix
       [[__LinAlgMatrix_Attributes(COMP_TYPE, M_DIM, N_DIM, USE, SCOPE)]]
       Mat;
-    __builtin_LinAlg_MatrixLoadFromDescriptor(
+    dx::__builtin_LinAlg_MatrixLoadFromDescriptor(
       Mat, Input, LOAD_OFFSET, LOAD_STRIDE, LOAD_LAYOUT, DECLARED_ALIGN);
-    __builtin_LinAlg_MatrixAccumulateToDescriptor(
+    dx::__builtin_LinAlg_MatrixAccumulateToDescriptor(
       Mat, Output, STORE_OFFSET, STORE_STRIDE, STORE_LAYOUT, DECLARED_ALIGN);
   }
 )";
@@ -4905,8 +4905,8 @@ static const char SplatStoreShader[] = R"(
     __builtin_LinAlgMatrix
       [[__LinAlgMatrix_Attributes(COMP_TYPE, M_DIM, N_DIM, USE, SCOPE)]]
       Mat;
-    __builtin_LinAlg_FillMatrix(Mat, FILL_INPUT_IS_SIGNED, FILL_VALUE);
-    __builtin_LinAlg_MatrixStoreToDescriptor(
+    dx::__builtin_LinAlg_FillMatrix(Mat, FILL_INPUT_IS_SIGNED, FILL_VALUE);
+    dx::__builtin_LinAlg_MatrixStoreToDescriptor(
       Mat, Output, 0, STRIDE, LAYOUT, 128);
   }
 )";
@@ -4987,23 +4987,23 @@ static const char AccumulateDescriptorShader[] = R"(
     __builtin_LinAlgMatrix
       [[__LinAlgMatrix_Attributes(COMP_TYPE, M_DIM, N_DIM, USE_ACC, SCOPE)]]
       Mat;
-    __builtin_LinAlg_MatrixLoadFromDescriptor(
+    dx::__builtin_LinAlg_MatrixLoadFromDescriptor(
       Mat, Input, 0, STRIDE, LAYOUT, 128);
 
     // The index is distinct across every Wave in every group, so the total
     // pins which Waves landed rather than only how many additions were
     // applied. A Wave index alone would repeat in each group.
     uint Weight = GroupID.x * ACTIVE_WAVE_COUNT + GetGroupWaveIndex() + 1;
-    for (uint I = 0; I < __builtin_LinAlg_MatrixLength(Mat); ++I) {
+    for (uint I = 0; I < dx::__builtin_LinAlg_MatrixLength(Mat); ++I) {
       ELEM_TYPE Elem;
-      __builtin_LinAlg_MatrixGetElement(Elem, Mat, I);
-      __builtin_LinAlg_MatrixSetElement(
+      dx::__builtin_LinAlg_MatrixGetElement(Elem, Mat, I);
+      dx::__builtin_LinAlg_MatrixSetElement(
         Mat, Mat, I, (ELEM_TYPE)(Weight * Elem));
     }
 
-    __builtin_LinAlg_MatrixAccumulateToDescriptor(
+    dx::__builtin_LinAlg_MatrixAccumulateToDescriptor(
       Mat, Output, 0, STRIDE, LAYOUT, 128);
-    __builtin_LinAlg_MatrixAccumulateToDescriptor(
+    dx::__builtin_LinAlg_MatrixAccumulateToDescriptor(
       Mat, Output, 0, STRIDE, LAYOUT, 128);
   }
 )";
@@ -5164,22 +5164,22 @@ static const char ElementAccessShader[] = R"(
     __builtin_LinAlgMatrix
       [[__LinAlgMatrix_Attributes(COMP_TYPE, M_DIM, N_DIM, USE, SCOPE)]]
       Mat;
-    __builtin_LinAlg_MatrixLoadFromDescriptor(
+    dx::__builtin_LinAlg_MatrixLoadFromDescriptor(
       Mat, Input, 0, STRIDE, LAYOUT, 128);
 
     // Copy Matrix values from input to output without assuming order
-    for (uint I = 0; I < __builtin_LinAlg_MatrixLength(Mat); ++I) {
-      uint2 Coord = __builtin_LinAlg_MatrixGetCoordinate(Mat, I);
+    for (uint I = 0; I < dx::__builtin_LinAlg_MatrixLength(Mat); ++I) {
+      uint2 Coord = dx::__builtin_LinAlg_MatrixGetCoordinate(Mat, I);
       uint Offset = coordToByteOffset(Coord);
       ELEM_TYPE Elem;
-      __builtin_LinAlg_MatrixGetElement(Elem, Mat, I);
+      dx::__builtin_LinAlg_MatrixGetElement(Elem, Mat, I);
       Output.Store<ELEM_TYPE>(Offset, Elem);
     }
 
     // Save the matrix length that this thread saw. The length is written
     // to the output right after the matrix, offset by the thread index
     uint LenIdx = (M_DIM * N_DIM * ELEM_SIZE) + (threadID * sizeof(uint));
-    uint Len = __builtin_LinAlg_MatrixLength(Mat);
+    uint Len = dx::__builtin_LinAlg_MatrixLength(Mat);
     Output.Store<uint>(LenIdx, Len);
   }
 )";
@@ -5300,23 +5300,23 @@ static const char ElementSetShader[] = R"(
     using Matrix = __builtin_LinAlgMatrix
       [[__LinAlgMatrix_Attributes(COMP_TYPE, M_DIM, N_DIM, USE, SCOPE)]];
     Matrix Original;
-    __builtin_LinAlg_MatrixLoadFromDescriptor(
+    dx::__builtin_LinAlg_MatrixLoadFromDescriptor(
       Original, Input, 0, STRIDE, LAYOUT, 128);
     Matrix Mat = Original;
 
     // Increment every element by 5
-    const uint Count = WaveActiveMax(__builtin_LinAlg_MatrixLength(Mat));
+    const uint Count = WaveActiveMax(dx::__builtin_LinAlg_MatrixLength(Mat));
     for (uint I = 0; I < Count; ++I) {
       ELEM_TYPE Elem;
-      __builtin_LinAlg_MatrixGetElement(Elem, Mat, I);
+      dx::__builtin_LinAlg_MatrixGetElement(Elem, Mat, I);
       Elem = Elem + 5;
-      __builtin_LinAlg_MatrixSetElement(Mat, Mat, I, Elem);
+      dx::__builtin_LinAlg_MatrixSetElement(Mat, Mat, I, Elem);
     }
 
-    __builtin_LinAlg_MatrixStoreToDescriptor(
+    dx::__builtin_LinAlg_MatrixStoreToDescriptor(
       Mat, Output, 0, STRIDE, LAYOUT, 128);
 #ifdef VERIFY_COPY_ISOLATION
-    __builtin_LinAlg_MatrixStoreToDescriptor(
+    dx::__builtin_LinAlg_MatrixStoreToDescriptor(
       Original, Output, ORIGINAL_OFFSET, STRIDE, LAYOUT, 128);
 #endif
   }
@@ -5468,17 +5468,17 @@ static const char ElementGetOOBShader[] = R"(
     __builtin_LinAlgMatrix
       [[__LinAlgMatrix_Attributes(COMP_TYPE, M_DIM, N_DIM, USE, SCOPE)]]
       Mat;
-    __builtin_LinAlg_MatrixLoadFromDescriptor(
+    dx::__builtin_LinAlg_MatrixLoadFromDescriptor(
       Mat, Input, 0, STRIDE, LAYOUT, 128);
 
-    uint Len = __builtin_LinAlg_MatrixLength(Mat);
+    uint Len = dx::__builtin_LinAlg_MatrixLength(Mat);
 
     // Seeded so that a dropped read leaves a value distinguishable from the
     // zero a correct out-of-bounds read must produce.
     ELEM_TYPE Just = (ELEM_TYPE)POISON_VALUE;
-    __builtin_LinAlg_MatrixGetElement(Just, Mat, Len);
+    dx::__builtin_LinAlg_MatrixGetElement(Just, Mat, Len);
     ELEM_TYPE Far = (ELEM_TYPE)POISON_VALUE;
-    __builtin_LinAlg_MatrixGetElement(Far, Mat, Len + FAR_OOB_OFFSET);
+    dx::__builtin_LinAlg_MatrixGetElement(Far, Mat, Len + FAR_OOB_OFFSET);
 
     // Record unconditionally so the runner can tell that this lane ran.
     uint Base = threadID * OOB_RECORD_SIZE;
@@ -5633,18 +5633,18 @@ static const char ElementSetOOBShader[] = R"(
     __builtin_LinAlgMatrix
       [[__LinAlgMatrix_Attributes(COMP_TYPE, M_DIM, N_DIM, USE, SCOPE)]]
       Mat;
-    __builtin_LinAlg_MatrixLoadFromDescriptor(
+    dx::__builtin_LinAlg_MatrixLoadFromDescriptor(
       Mat, Input, 0, STRIDE, LAYOUT, 128);
 
-    uint Len = __builtin_LinAlg_MatrixLength(Mat);
+    uint Len = dx::__builtin_LinAlg_MatrixLength(Mat);
 
     // Both indices are outside this lane's range, so both writes must be
     // no-ops and the stored matrix must still equal the loaded one.
-    __builtin_LinAlg_MatrixSetElement(Mat, Mat, Len, (ELEM_TYPE)POISON_VALUE);
-    __builtin_LinAlg_MatrixSetElement(Mat, Mat, Len + FAR_OOB_OFFSET,
+    dx::__builtin_LinAlg_MatrixSetElement(Mat, Mat, Len, (ELEM_TYPE)POISON_VALUE);
+    dx::__builtin_LinAlg_MatrixSetElement(Mat, Mat, Len + FAR_OOB_OFFSET,
                                       (ELEM_TYPE)POISON_VALUE);
 
-    __builtin_LinAlg_MatrixStoreToDescriptor(
+    dx::__builtin_LinAlg_MatrixStoreToDescriptor(
       Mat, Output, 0, STRIDE, LAYOUT, 128);
 
     uint Base = MATRIX_BYTES + threadID * OOB_RECORD_SIZE;
@@ -5800,12 +5800,12 @@ static const char CopyConvertShader[] = R"(
       [[__LinAlgMatrix_Attributes(DST_COMP_TYPE, DST_M_DIM, DST_N_DIM, USE, SCOPE)]]
       Dst;
 
-    __builtin_LinAlg_MatrixLoadFromDescriptor(
+    dx::__builtin_LinAlg_MatrixLoadFromDescriptor(
       Src, Input, 0, SRC_STRIDE, LAYOUT, 128);
-    __builtin_LinAlg_CopyConvertMatrix(Dst, Src, TRANSPOSE);
-    __builtin_LinAlg_MatrixStoreToDescriptor(
+    dx::__builtin_LinAlg_CopyConvertMatrix(Dst, Src, TRANSPOSE);
+    dx::__builtin_LinAlg_MatrixStoreToDescriptor(
       Dst, Output, 0, DST_STRIDE, LAYOUT, 128);
-    __builtin_LinAlg_MatrixStoreToDescriptor(
+    dx::__builtin_LinAlg_MatrixStoreToDescriptor(
       Src, SourceAfter, 0, SRC_STRIDE, LAYOUT, 128);
   }
 )";
@@ -6104,19 +6104,19 @@ static const char MatMatMulShader[] = R"(
     __builtin_LinAlgMatrix
       [[__LinAlgMatrix_Attributes(COMP_TYPE, M_DIM, K_DIM, USE_A, SCOPE)]]
       MatA;
-    __builtin_LinAlg_FillMatrix(MatA, FILL_INPUT_IS_SIGNED, A_FILL);
+    dx::__builtin_LinAlg_FillMatrix(MatA, FILL_INPUT_IS_SIGNED, A_FILL);
 
     __builtin_LinAlgMatrix
       [[__LinAlgMatrix_Attributes(COMP_TYPE, K_DIM, N_DIM, USE_B, SCOPE)]]
       MatB;
-    __builtin_LinAlg_FillMatrix(MatB, FILL_INPUT_IS_SIGNED, B_FILL);
+    dx::__builtin_LinAlg_FillMatrix(MatB, FILL_INPUT_IS_SIGNED, B_FILL);
 
     __builtin_LinAlgMatrix
       [[__LinAlgMatrix_Attributes(COMP_TYPE, M_DIM, N_DIM, USE_ACC, SCOPE)]]
       MatC;
-    __builtin_LinAlg_MatrixMatrixMultiply(MatC, MatA, MatB);
+    dx::__builtin_LinAlg_MatrixMatrixMultiply(MatC, MatA, MatB);
 
-    __builtin_LinAlg_MatrixStoreToDescriptor(
+    dx::__builtin_LinAlg_MatrixStoreToDescriptor(
       MatC, Output, 0, STRIDE, LAYOUT, 128);
   }
 )";
@@ -6196,21 +6196,21 @@ static const char MatMatMulAccumShader[] = R"(
     __builtin_LinAlgMatrix
       [[__LinAlgMatrix_Attributes(COMP_TYPE, M_DIM, K_DIM, USE_A, SCOPE)]]
       MatA;
-    __builtin_LinAlg_FillMatrix(MatA, FILL_INPUT_IS_SIGNED, A_FILL);
+    dx::__builtin_LinAlg_FillMatrix(MatA, FILL_INPUT_IS_SIGNED, A_FILL);
 
     __builtin_LinAlgMatrix
       [[__LinAlgMatrix_Attributes(COMP_TYPE, K_DIM, N_DIM, USE_B, SCOPE)]]
       MatB;
-    __builtin_LinAlg_FillMatrix(MatB, FILL_INPUT_IS_SIGNED, B_FILL);
+    dx::__builtin_LinAlg_FillMatrix(MatB, FILL_INPUT_IS_SIGNED, B_FILL);
 
     __builtin_LinAlgMatrix
       [[__LinAlgMatrix_Attributes(COMP_TYPE, M_DIM, N_DIM, USE_ACC, SCOPE)]]
       MatC;
-    __builtin_LinAlg_FillMatrix(MatC, FILL_INPUT_IS_SIGNED, C_FILL);
+    dx::__builtin_LinAlg_FillMatrix(MatC, FILL_INPUT_IS_SIGNED, C_FILL);
 
-    __builtin_LinAlg_MatrixMatrixMultiplyAccumulate(MatC, MatA, MatB, MatC);
+    dx::__builtin_LinAlg_MatrixMatrixMultiplyAccumulate(MatC, MatA, MatB, MatC);
 
-    __builtin_LinAlg_MatrixStoreToDescriptor(
+    dx::__builtin_LinAlg_MatrixStoreToDescriptor(
       MatC, Output, 0, STRIDE, LAYOUT, 128);
   }
 )";
@@ -6294,16 +6294,16 @@ static const char MatAccumShader[] = R"(
     __builtin_LinAlgMatrix
       [[__LinAlgMatrix_Attributes(COMP_TYPE, M_DIM, N_DIM, USE_ACC, SCOPE)]]
       MatLHS;
-    __builtin_LinAlg_FillMatrix(MatLHS, FILL_INPUT_IS_SIGNED, LHS_FILL);
+    dx::__builtin_LinAlg_FillMatrix(MatLHS, FILL_INPUT_IS_SIGNED, LHS_FILL);
 
     __builtin_LinAlgMatrix
       [[__LinAlgMatrix_Attributes(COMP_TYPE, M_DIM, N_DIM, USE_A, SCOPE)]]
       MatRHS;
-    __builtin_LinAlg_FillMatrix(MatRHS, FILL_INPUT_IS_SIGNED, RHS_FILL);
+    dx::__builtin_LinAlg_FillMatrix(MatRHS, FILL_INPUT_IS_SIGNED, RHS_FILL);
 
-    __builtin_LinAlg_MatrixAccumulate(MatLHS, MatLHS, MatRHS);
+    dx::__builtin_LinAlg_MatrixAccumulate(MatLHS, MatLHS, MatRHS);
 
-    __builtin_LinAlg_MatrixStoreToDescriptor(
+    dx::__builtin_LinAlg_MatrixStoreToDescriptor(
       MatLHS, Output, 0, STRIDE, LAYOUT, 128);
   }
 )";
@@ -7013,14 +7013,14 @@ static const char MatrixMultiplyShader[] = R"(
       [[__LinAlgMatrix_Attributes(
         MATRIX_A_COMP_TYPE, M_DIM, K_DIM, USE_A, MATRIX_SCOPE)]]
       MatA;
-    __builtin_LinAlg_MatrixLoadFromDescriptor(
+    dx::__builtin_LinAlg_MatrixLoadFromDescriptor(
       MatA, MatrixAInput, 0, MATRIX_A_STRIDE, LAYOUT_ROW_MAJOR, 128);
 
     __builtin_LinAlgMatrix
       [[__LinAlgMatrix_Attributes(
         MATRIX_B_COMP_TYPE, K_DIM, N_DIM, USE_B, MATRIX_SCOPE)]]
       MatB;
-    __builtin_LinAlg_MatrixLoadFromDescriptor(
+    dx::__builtin_LinAlg_MatrixLoadFromDescriptor(
       MatB, MatrixBInput, 0, MATRIX_B_STRIDE, MATRIX_B_LAYOUT, 128);
 
     __builtin_LinAlgMatrix
@@ -7032,16 +7032,16 @@ static const char MatrixMultiplyShader[] = R"(
       [[__LinAlgMatrix_Attributes(
         ACCUMULATOR_COMP_TYPE, M_DIM, N_DIM, USE_ACC, MATRIX_SCOPE)]]
       Accumulator;
-    __builtin_LinAlg_MatrixLoadFromDescriptor(
+    dx::__builtin_LinAlg_MatrixLoadFromDescriptor(
       Accumulator, AccumulatorInput, 0, ACCUMULATOR_STRIDE,
       LAYOUT_ROW_MAJOR, 128);
-    __builtin_LinAlg_MatrixMatrixMultiplyAccumulate(
+    dx::__builtin_LinAlg_MatrixMatrixMultiplyAccumulate(
       Result, MatA, MatB, Accumulator);
 #else
-    __builtin_LinAlg_MatrixMatrixMultiply(Result, MatA, MatB);
+    dx::__builtin_LinAlg_MatrixMatrixMultiply(Result, MatA, MatB);
 #endif
 
-    __builtin_LinAlg_MatrixStoreToDescriptor(
+    dx::__builtin_LinAlg_MatrixStoreToDescriptor(
       Result, Output, 0, ACCUMULATOR_STRIDE, LAYOUT_ROW_MAJOR, 128);
   }
 )";
@@ -7436,21 +7436,21 @@ static const char WaveAccumulateBUseShader[] = R"(
       [[__LinAlgMatrix_Attributes(
         COMP_TYPE, M_DIM, N_DIM, USE_ACC, SCOPE)]]
       Accumulator;
-    __builtin_LinAlg_MatrixLoadFromDescriptor(
+    dx::__builtin_LinAlg_MatrixLoadFromDescriptor(
       Accumulator, AccumulatorInput, 0, STRIDE, LAYOUT, 128);
 
     __builtin_LinAlgMatrix
       [[__LinAlgMatrix_Attributes(COMP_TYPE, M_DIM, N_DIM, USE, SCOPE)]]
       RHS;
-    __builtin_LinAlg_MatrixLoadFromDescriptor(
+    dx::__builtin_LinAlg_MatrixLoadFromDescriptor(
       RHS, RHSInput, 0, STRIDE, LAYOUT, 128);
 
     __builtin_LinAlgMatrix
       [[__LinAlgMatrix_Attributes(
         COMP_TYPE, M_DIM, N_DIM, USE_ACC, SCOPE)]]
       Result;
-    __builtin_LinAlg_MatrixAccumulate(Result, Accumulator, RHS);
-    __builtin_LinAlg_MatrixStoreToDescriptor(
+    dx::__builtin_LinAlg_MatrixAccumulate(Result, Accumulator, RHS);
+    dx::__builtin_LinAlg_MatrixStoreToDescriptor(
       Result, Output, 0, STRIDE, LAYOUT, 128);
   }
 )";
@@ -7556,7 +7556,7 @@ static const char MatVecMulShader[] = R"(
     __builtin_LinAlgMatrix
       [[__LinAlgMatrix_Attributes(COMP_TYPE, M_DIM, N_DIM, USE_A, SCOPE_THREAD)]]
       Mat;
-    __builtin_LinAlg_MatrixLoadFromDescriptor(
+    dx::__builtin_LinAlg_MatrixLoadFromDescriptor(
       Mat, Input, 0, STRIDE, LAYOUT, 128);
 
     vector<ELEM_TYPE, N_DIM> InVec;
@@ -7565,7 +7565,7 @@ static const char MatVecMulShader[] = R"(
     }
 
     vector<ELEM_TYPE, M_DIM> OutVec;
-    __builtin_LinAlg_MatrixVectorMultiply(
+    dx::__builtin_LinAlg_MatrixVectorMultiply(
       OutVec, Mat, OUTPUT_SIGNED, InVec, IN_INTERP);
 
     for (uint I = 0; I < M_DIM; ++I) {
@@ -7948,7 +7948,7 @@ static const char ThreadPerLaneMatVecShader[] = R"(
 
     __builtin_LinAlgMatrix
       [[__LinAlgMatrix_Attributes(COMP_TYPE, M_DIM, N_DIM, USE, SCOPE)]] Mat;
-    __builtin_LinAlg_MatrixLoadFromDescriptor(
+    dx::__builtin_LinAlg_MatrixLoadFromDescriptor(
       Mat, MatrixInput, T * MATRIX_SLOT_BYTES, STRIDE, LAYOUT,
       MATRIX_SLOT_BYTES);
 
@@ -7958,7 +7958,7 @@ static const char ThreadPerLaneMatVecShader[] = R"(
     }
 
     vector<ELEM_TYPE, M_DIM> OutVec;
-    __builtin_LinAlg_MatrixVectorMultiply(OutVec, Mat, 1, InVec, IN_INTERP);
+    dx::__builtin_LinAlg_MatrixVectorMultiply(OutVec, Mat, 1, InVec, IN_INTERP);
 
     for (uint I = 0; I < M_DIM; ++I) {
       Output.Store<ELEM_TYPE>(T * OUTPUT_SLOT_BYTES + I * ELEM_SIZE, OutVec[I]);
@@ -7989,7 +7989,7 @@ static const char ThreadDivergentMatVecShader[] = R"(
     if (!UseB) {
       __builtin_LinAlgMatrix
         [[__LinAlgMatrix_Attributes(COMP_TYPE, M_DIM, N_DIM, USE, SCOPE)]] Mat;
-      __builtin_LinAlg_MatrixLoadFromDescriptor(
+      dx::__builtin_LinAlg_MatrixLoadFromDescriptor(
         Mat, MatrixInput, T * MATRIX_SLOT_BYTES, STRIDE, LAYOUT,
         MATRIX_SLOT_BYTES);
 
@@ -7997,12 +7997,12 @@ static const char ThreadDivergentMatVecShader[] = R"(
       for (uint I = 0; I < N_DIM; ++I) {
         VecA[I] = VectorInput.Load<ELEM_TYPE>(I * ELEM_SIZE);
       }
-      __builtin_LinAlg_MatrixVectorMultiply(OutVec, Mat, 1, VecA, IN_INTERP);
+      dx::__builtin_LinAlg_MatrixVectorMultiply(OutVec, Mat, 1, VecA, IN_INTERP);
       Output.Store<uint>(T * OUTPUT_SLOT_BYTES + ARM_OFFSET, 0);
     } else {
       __builtin_LinAlgMatrix
         [[__LinAlgMatrix_Attributes(COMP_TYPE, M_DIM, N_DIM, USE, SCOPE)]] Mat;
-      __builtin_LinAlg_MatrixLoadFromDescriptor(
+      dx::__builtin_LinAlg_MatrixLoadFromDescriptor(
         Mat, MatrixInput, T * MATRIX_SLOT_BYTES, STRIDE, LAYOUT,
         MATRIX_SLOT_BYTES);
 
@@ -8010,7 +8010,7 @@ static const char ThreadDivergentMatVecShader[] = R"(
       for (uint I = 0; I < N_DIM; ++I) {
         VecB[I] = VectorInput.Load<ELEM_TYPE>(VEC_B_OFFSET + I * ELEM_SIZE);
       }
-      __builtin_LinAlg_MatrixVectorMultiply(OutVec, Mat, 1, VecB, IN_INTERP);
+      dx::__builtin_LinAlg_MatrixVectorMultiply(OutVec, Mat, 1, VecB, IN_INTERP);
       Output.Store<uint>(T * OUTPUT_SLOT_BYTES + ARM_OFFSET, 1);
     }
 
@@ -8031,10 +8031,10 @@ static const char ThreadMatrixSelectionShader[] = R"(
   [numthreads(NUMTHREADS, 1, 1)]
   void main(uint T : SV_GroupIndex) {
     Matrix A, B, Selected;
-    __builtin_LinAlg_MatrixLoadFromDescriptor(
+    dx::__builtin_LinAlg_MatrixLoadFromDescriptor(
       A, MatrixInput, T * MATRIX_SLOT_BYTES, STRIDE, LAYOUT,
       MATRIX_SLOT_BYTES);
-    __builtin_LinAlg_MatrixLoadFromDescriptor(
+    dx::__builtin_LinAlg_MatrixLoadFromDescriptor(
       B, MatrixInput, (NUMTHREADS - 1 - T) * MATRIX_SLOT_BYTES, STRIDE,
       LAYOUT, MATRIX_SLOT_BYTES);
 
@@ -8072,7 +8072,7 @@ static const char ThreadMatrixSelectionShader[] = R"(
       InVec[I] = VectorInput.Load<ELEM_TYPE>(
         (UseB ? VEC_B_OFFSET : 0) + I * ELEM_SIZE);
     vector<ELEM_TYPE, M_DIM> OutVec;
-    __builtin_LinAlg_MatrixVectorMultiply(
+    dx::__builtin_LinAlg_MatrixVectorMultiply(
       OutVec, Selected, 1, InVec, IN_INTERP);
     for (uint I = 0; I < M_DIM; ++I)
       Output.Store<ELEM_TYPE>(T * OUTPUT_SLOT_BYTES + I * ELEM_SIZE, OutVec[I]);
@@ -8241,7 +8241,7 @@ static const char MatVecMulAddShader[] = R"(
     __builtin_LinAlgMatrix
       [[__LinAlgMatrix_Attributes(COMP_TYPE, M_DIM, N_DIM, USE_A, SCOPE_THREAD)]]
       Mat;
-    __builtin_LinAlg_MatrixLoadFromDescriptor(
+    dx::__builtin_LinAlg_MatrixLoadFromDescriptor(
       Mat, Input, 0, STRIDE, LAYOUT, 128);
 
     vector<ELEM_TYPE, N_DIM> InVec;
@@ -8255,7 +8255,7 @@ static const char MatVecMulAddShader[] = R"(
     }
 
     vector<ELEM_TYPE, M_DIM> OutVec;
-    __builtin_LinAlg_MatrixVectorMultiplyAdd(
+    dx::__builtin_LinAlg_MatrixVectorMultiplyAdd(
       OutVec, Mat, OUTPUT_SIGNED, InVec, IN_INTERP, BiasVec);
 
     for (uint I = 0; I < M_DIM; ++I) {
@@ -8404,14 +8404,14 @@ static const char OuterProductShader[] = R"(
     __builtin_LinAlgMatrix
       [[__LinAlgMatrix_Attributes(COMP_TYPE, M_DIM, N_DIM, USE, SCOPE_THREAD)]]
       Mat;
-    __builtin_LinAlg_MatrixOuterProduct(Mat, ELEM_IS_SIGNED, VecA, VecB);
+    dx::__builtin_LinAlg_MatrixOuterProduct(Mat, ELEM_IS_SIGNED, VecA, VecB);
 
     // Outer product accumulators are stored in the OuterProductOptimal layout
     // Matching the dx::linalg header's thread-scoped
     // InterlockedAccumulate. The alignment argument must be a non-zero
     // multiple of 128; the matrix starts at offset 0 in a buffer D3D12 aligns
     // far more strongly than that.
-    __builtin_LinAlg_MatrixAccumulateToDescriptor(
+    dx::__builtin_LinAlg_MatrixAccumulateToDescriptor(
       Mat, Output, 0, STRIDE, LAYOUT, 128);
   }
 )";
@@ -8538,7 +8538,7 @@ static const char QueryAccumLayoutValueShader[] = R"(
 
   [numthreads(1, 1, 1)]
   void main() {
-    uint Layout = __builtin_LinAlg_MatrixQueryAccumulatorLayout();
+    uint Layout = dx::__builtin_LinAlg_MatrixQueryAccumulatorLayout();
     Output.Store<uint>(0, Layout);
   }
 )";
@@ -8588,34 +8588,34 @@ static const char QueryAccumLayoutShader[] = R"(
   [WaveSize(FORCED_WAVE_SIZE)]
   [numthreads(NUMTHREADS, 1, 1)]
   void main() {
-    uint Layout = __builtin_LinAlg_MatrixQueryAccumulatorLayout();
+    uint Layout = dx::__builtin_LinAlg_MatrixQueryAccumulatorLayout();
 
     __builtin_LinAlgMatrix
       [[__LinAlgMatrix_Attributes(
         COMP_TYPE, M_DIM, N_DIM, USE_ACC, SCOPE)]]
       Accumulator;
-    __builtin_LinAlg_FillMatrix(Accumulator, true, 2.0);
+    dx::__builtin_LinAlg_FillMatrix(Accumulator, true, 2.0);
 
     __builtin_LinAlgMatrix
       [[__LinAlgMatrix_Attributes(COMP_TYPE, M_DIM, N_DIM, USE_A, SCOPE)]]
       MatrixA;
-    __builtin_LinAlg_FillMatrix(MatrixA, true, 3.0);
+    dx::__builtin_LinAlg_FillMatrix(MatrixA, true, 3.0);
 
     __builtin_LinAlgMatrix
       [[__LinAlgMatrix_Attributes(COMP_TYPE, M_DIM, N_DIM, USE_B, SCOPE)]]
       MatrixB;
-    __builtin_LinAlg_FillMatrix(MatrixB, true, 7.0);
+    dx::__builtin_LinAlg_FillMatrix(MatrixB, true, 7.0);
 
     __builtin_LinAlgMatrix
       [[__LinAlgMatrix_Attributes(
         COMP_TYPE, M_DIM, N_DIM, USE_ACC, SCOPE)]]
       Result;
     if (Layout == USE_A)
-      __builtin_LinAlg_MatrixAccumulate(Result, Accumulator, MatrixA);
+      dx::__builtin_LinAlg_MatrixAccumulate(Result, Accumulator, MatrixA);
     else
-      __builtin_LinAlg_MatrixAccumulate(Result, Accumulator, MatrixB);
+      dx::__builtin_LinAlg_MatrixAccumulate(Result, Accumulator, MatrixB);
 
-    __builtin_LinAlg_MatrixStoreToDescriptor(
+    dx::__builtin_LinAlg_MatrixStoreToDescriptor(
       Result, Output, 0, STRIDE, LAYOUT, 128);
 
     // Only lane zero publishes the queried layout, avoiding a UAV write race.
@@ -8732,9 +8732,9 @@ static const char LoadMemoryShader[] = R"(
       __builtin_LinAlgMatrix
         [[__LinAlgMatrix_Attributes(COMP_TYPE, M_DIM, N_DIM, USE, SCOPE)]]
         Mat;
-      __builtin_LinAlg_MatrixLoadFromMemory(
+      dx::__builtin_LinAlg_MatrixLoadFromMemory(
         Mat, GsData, OFFSET / ELEM_SIZE, STRIDE / ELEM_SIZE, LAYOUT);
-      __builtin_LinAlg_MatrixStoreToDescriptor(
+      dx::__builtin_LinAlg_MatrixStoreToDescriptor(
         Mat, Output, OFFSET, STRIDE, LAYOUT, 128);
     }
   }
@@ -8825,9 +8825,9 @@ static const char StoreMemoryShader[] = R"(
       __builtin_LinAlgMatrix
         [[__LinAlgMatrix_Attributes(COMP_TYPE, M_DIM, N_DIM, USE, SCOPE)]]
         Mat;
-      __builtin_LinAlg_FillMatrix(Mat, FILL_INPUT_IS_SIGNED, FILL_VALUE);
+      dx::__builtin_LinAlg_FillMatrix(Mat, FILL_INPUT_IS_SIGNED, FILL_VALUE);
 
-      __builtin_LinAlg_MatrixStoreToMemory(
+      dx::__builtin_LinAlg_MatrixStoreToMemory(
         Mat, GsData, OFFSET / ELEM_SIZE, STRIDE / ELEM_SIZE, LAYOUT);
     }
 
@@ -8918,9 +8918,9 @@ static const char AccumulateMemoryShader[] = R"(
       __builtin_LinAlgMatrix
         [[__LinAlgMatrix_Attributes(COMP_TYPE, M_DIM, N_DIM, USE, SCOPE)]]
         Mat;
-      __builtin_LinAlg_FillMatrix(Mat, FILL_INPUT_IS_SIGNED, FILL_VALUE);
+      dx::__builtin_LinAlg_FillMatrix(Mat, FILL_INPUT_IS_SIGNED, FILL_VALUE);
 
-      __builtin_LinAlg_MatrixAccumulateToMemory(
+      dx::__builtin_LinAlg_MatrixAccumulateToMemory(
         Mat, GsData, OFFSET / ELEM_SIZE, STRIDE / ELEM_SIZE, LAYOUT);
     }
 
@@ -9249,26 +9249,26 @@ static const char GroupSharedI8MultiplyShader[] = R"(
       [[__LinAlgMatrix_Attributes(
         MATRIX_A_COMP_TYPE, M_DIM, K_DIM, USE_A, MATRIX_SCOPE)]]
       MatA;
-    __builtin_LinAlg_MatrixLoadFromMemory(
+    dx::__builtin_LinAlg_MatrixLoadFromMemory(
       MatA, MatrixAStorage, GS_A_OFFSET_ELEMENTS, GS_A_STRIDE_ELEMENTS,
       LAYOUT_ROW_MAJOR);
     __builtin_LinAlgMatrix
       [[__LinAlgMatrix_Attributes(
         MATRIX_B_COMP_TYPE, K_DIM, N_DIM, USE_B, MATRIX_SCOPE)]]
       MatB;
-    __builtin_LinAlg_MatrixLoadFromMemory(
+    dx::__builtin_LinAlg_MatrixLoadFromMemory(
       MatB, MatrixBStorage, GS_B_OFFSET_ELEMENTS, GS_B_STRIDE_ELEMENTS,
       LAYOUT_COLUMN_MAJOR);
     __builtin_LinAlgMatrix
       [[__LinAlgMatrix_Attributes(
         ACCUMULATOR_COMP_TYPE, M_DIM, N_DIM, USE_ACC, MATRIX_SCOPE)]]
       Accumulator, Result;
-    __builtin_LinAlg_MatrixLoadFromDescriptor(
+    dx::__builtin_LinAlg_MatrixLoadFromDescriptor(
       Accumulator, AccumulatorInput, 0, ACCUMULATOR_STRIDE,
       LAYOUT_ROW_MAJOR, 128);
-    __builtin_LinAlg_MatrixMatrixMultiplyAccumulate(
+    dx::__builtin_LinAlg_MatrixMatrixMultiplyAccumulate(
       Result, MatA, MatB, Accumulator);
-    __builtin_LinAlg_MatrixStoreToDescriptor(
+    dx::__builtin_LinAlg_MatrixStoreToDescriptor(
       Result, Output, RESULT_OFFSET_BYTES, RESULT_STRIDE_BYTES,
       LAYOUT_ROW_MAJOR, 128);
 
@@ -9483,9 +9483,9 @@ static const char GroupSharedTransferShader[] = R"(
     __builtin_LinAlgMatrix
       [[__LinAlgMatrix_Attributes(COMP_TYPE, M_DIM, N_DIM, USE, SCOPE)]]
       Mat;
-    __builtin_LinAlg_MatrixLoadFromMemory(
+    dx::__builtin_LinAlg_MatrixLoadFromMemory(
       Mat, SourceData, SRC_OFFSET, SRC_STRIDE, SRC_LAYOUT);
-    __builtin_LinAlg_MatrixStoreToMemory(
+    dx::__builtin_LinAlg_MatrixStoreToMemory(
       Mat, DestinationData, DST_OFFSET, DST_STRIDE, DST_LAYOUT);
   }
 
@@ -9901,15 +9901,15 @@ static const char GroupSharedAccumulateShader[] = R"(
       __builtin_LinAlgMatrix
         [[__LinAlgMatrix_Attributes(COMP_TYPE, M_DIM, N_DIM, USE, SCOPE)]]
         Mat;
-      __builtin_LinAlg_FillMatrix(Mat, FILL_INPUT_IS_SIGNED, 0);
-      for (uint I = 0; I < __builtin_LinAlg_MatrixLength(Mat); ++I) {
-        uint2 Coord = __builtin_LinAlg_MatrixGetCoordinate(Mat, I);
-        __builtin_LinAlg_MatrixSetElement(
+      dx::__builtin_LinAlg_FillMatrix(Mat, FILL_INPUT_IS_SIGNED, 0);
+      for (uint I = 0; I < dx::__builtin_LinAlg_MatrixLength(Mat); ++I) {
+        uint2 Coord = dx::__builtin_LinAlg_MatrixGetCoordinate(Mat, I);
+        dx::__builtin_LinAlg_MatrixSetElement(
           Mat, Mat, I,
           (ELEM_TYPE)((GetGroupWaveIndex() + 1) *
                       (ACCUMULATE_START + Coord.x * N_DIM + Coord.y)));
       }
-      __builtin_LinAlg_MatrixAccumulateToMemory(
+      dx::__builtin_LinAlg_MatrixAccumulateToMemory(
         Mat, GsData, MEM_OFFSET, MEM_STRIDE, MEM_LAYOUT);
     }
 
@@ -10246,7 +10246,7 @@ static const char ConvertShader[] = R"(
   void main() {
     vector<half, 4> InVec = {1.0, 2.0, 3.0, 4.0};
     vector<float, 4> OutVec;
-    __builtin_LinAlg_Convert(OutVec, InVec, CT_F16, CT_F32);
+    dx::__builtin_LinAlg_Convert(OutVec, InVec, CT_F16, CT_F32);
     Output.Store<float>(0, OutVec.x);
     Output.Store<float>(4, OutVec.y);
     Output.Store<float>(8, OutVec.z);
@@ -10310,7 +10310,7 @@ static const char VectorAccumulateDescriptorShader[] = R"(
                  (ELEM_TYPE)(Residual % THREAD_VARIATION);
       Residual /= THREAD_VARIATION;
     }
-    __builtin_LinAlg_VectorAccumulateToDescriptor(
+    dx::__builtin_LinAlg_VectorAccumulateToDescriptor(
       Output, START_OFFSET, 64, InVec);
   }
 )";
@@ -11238,7 +11238,7 @@ static const char ConvertI16ToI32CoverageShader[] = R"(
       -32768, -12345, -1024, -1, 0, 1, 12345, 32767
     };
     vector<int, 8> OutVec;
-    __builtin_LinAlg_Convert(OutVec, InVec, SRC_TYPE, DST_TYPE);
+    dx::__builtin_LinAlg_Convert(OutVec, InVec, SRC_TYPE, DST_TYPE);
     for (uint I = 0; I < 8; ++I)
       Output.Store<int>(I * 4, OutVec[I]);
   }
@@ -11257,7 +11257,7 @@ static const char ConvertI32ToI16CoverageShader[] = R"(
       -2147483647 - 1, -32769, -32768, -1, 0, 32767, 32768, 2147483647
     };
     vector<int16_t, 8> OutVec;
-    __builtin_LinAlg_Convert(OutVec, InVec, SRC_TYPE, DST_TYPE);
+    dx::__builtin_LinAlg_Convert(OutVec, InVec, SRC_TYPE, DST_TYPE);
     for (uint I = 0; I < 8; ++I)
       Output.Store<int16_t>(I * 2, OutVec[I]);
   }
@@ -11272,7 +11272,7 @@ static const char ConvertI32ToU16CoverageShader[] = R"(
       -2147483647 - 1, -1, 0, 1, 65535, 65536, 100000, 2147483647
     };
     vector<uint16_t, 8> OutVec;
-    __builtin_LinAlg_Convert(OutVec, InVec, SRC_TYPE, DST_TYPE);
+    dx::__builtin_LinAlg_Convert(OutVec, InVec, SRC_TYPE, DST_TYPE);
     for (uint I = 0; I < 8; ++I)
       Output.Store<uint16_t>(I * 2, OutVec[I]);
   }
@@ -11287,7 +11287,7 @@ static const char ConvertU32ToI16CoverageShader[] = R"(
       0u, 1u, 16384u, 32766u, 32767u, 32768u, 65536u, 4294967295u
     };
     vector<int16_t, 8> OutVec;
-    __builtin_LinAlg_Convert(OutVec, InVec, SRC_TYPE, DST_TYPE);
+    dx::__builtin_LinAlg_Convert(OutVec, InVec, SRC_TYPE, DST_TYPE);
     for (uint I = 0; I < 8; ++I)
       Output.Store<int16_t>(I * 2, OutVec[I]);
   }
@@ -11302,7 +11302,7 @@ static const char ConvertU32ToU16CoverageShader[] = R"(
       0u, 1u, 32768u, 65534u, 65535u, 65536u, 100000u, 4294967295u
     };
     vector<uint16_t, 8> OutVec;
-    __builtin_LinAlg_Convert(OutVec, InVec, SRC_TYPE, DST_TYPE);
+    dx::__builtin_LinAlg_Convert(OutVec, InVec, SRC_TYPE, DST_TYPE);
     for (uint I = 0; I < 8; ++I)
       Output.Store<uint16_t>(I * 2, OutVec[I]);
   }
@@ -11318,7 +11318,7 @@ static const char ConvertF32ToI16CoverageShader[] = R"(
     for (uint I = 0; I < NUM_ELEMENTS; ++I)
       InVec[I] = Input.Load<float>(I * 4);
     vector<int16_t, NUM_ELEMENTS> OutVec;
-    __builtin_LinAlg_Convert(OutVec, InVec, SRC_TYPE, DST_TYPE);
+    dx::__builtin_LinAlg_Convert(OutVec, InVec, SRC_TYPE, DST_TYPE);
     for (uint I = 0; I < NUM_ELEMENTS; ++I)
       Output.Store<int16_t>(I * 2, OutVec[I]);
   }
@@ -11337,7 +11337,7 @@ static const char ConvertI32ToF16CoverageShader[] = R"(
       0, 2048, 2049, 2051, 4098, 4102, -2049, -2051, -4098, -4102
     };
     vector<half, 10> OutVec;
-    __builtin_LinAlg_Convert(OutVec, InVec, SRC_TYPE, DST_TYPE);
+    dx::__builtin_LinAlg_Convert(OutVec, InVec, SRC_TYPE, DST_TYPE);
     for (uint I = 0; I < 10; ++I)
       Output.Store<half>(I * 2, OutVec[I]);
   }
@@ -11353,13 +11353,13 @@ static const char ConvertF16FP8CoverageShader[] = R"(
       0.0, 1.0, -1.0, 1.15625, -1.21875, 2.3125, 5.625, -13.25
     };
     vector<uint, 2> Packed;
-    __builtin_LinAlg_Convert(Packed, EncodeInput, SRC_TYPE, DST_TYPE);
+    dx::__builtin_LinAlg_Convert(Packed, EncodeInput, SRC_TYPE, DST_TYPE);
 
     vector<uint, 2> HostPacked = {
       Input.Load<uint>(0), Input.Load<uint>(4)
     };
     vector<half, 8> Decoded;
-    __builtin_LinAlg_Convert(Decoded, HostPacked, DST_TYPE, SRC_TYPE);
+    dx::__builtin_LinAlg_Convert(Decoded, HostPacked, DST_TYPE, SRC_TYPE);
 
     Output.Store<uint>(0, Packed.x);
     Output.Store<uint>(4, Packed.y);
