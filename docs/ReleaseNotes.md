@@ -59,8 +59,6 @@ line upon naming the release. Refer to previous for appropriate section names.
 
 #### Bug Fixes
 
-- Restricted LinAlg interpreted vectors to storage types compatible with their
-  component interpretation [#8398](https://github.com/microsoft/DirectXShaderCompiler/issues/8398).
 - Fixed an optimizer crash when scalarizing an out-of-bounds vector access
   [#8940](https://github.com/microsoft/DirectXShaderCompiler/issues/8940).
 - Fixed derivative operations being moved into divergent control flow, which
