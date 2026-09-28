@@ -3232,6 +3232,43 @@ SpirvEmitter::tryToAssignToDescriptorHeapAlias(
   return llvm::None;
 }
 
+/// \brief All descriptor-heap handling for a BO_Assign expression.
+/// Evaluates the RHS itself and returns it via *rhs, since order matters here:
+/// image-alias tracking below needs the RHS already evaluated (reads side
+/// effect of it), while a buffer alias must skip normal evaluation entirely.
+/// Returns true if *result is the assignment's final value, to be returned
+/// as-is; false if the caller should run normal assignment codegen with
+/// *rhs.
+bool SpirvEmitter::tryHandleDescriptorHeapAssignment(const BinaryOperator *expr,
+                                                     SpirvInstruction **result,
+                                                     SpirvInstruction **rhs) {
+  *rhs = nullptr;
+  if (!spirvOptions.useDescriptorHeap)
+    return false;
+
+  // Chained RHS (a = b = ResourceDescriptorHeap[0];) hides the heap source
+  // from the alias tracking below, leaving lhs untracked and regressing to
+  // invalid SPIR-V with no diagnostic: VUID-StandaloneSpirv-OpTypeImage-06924
+  // for an image atomic, or an invalid OpLoad of the whole buffer for a
+  // buffer alias.
+  if (diagnoseChainedDescriptorHeapAssignment(expr)) {
+    *result = spvBuilder.getUndef(expr->getType());
+    return true;
+  }
+
+  if (llvm::Optional<SpirvInstruction *> aliasResult =
+          tryToAssignToDescriptorHeapAlias(expr)) {
+    *result = aliasResult.getValue();
+    return true;
+  }
+
+  *rhs = loadIfGLValue(expr->getRHS());
+  // descriptorHeapImageAccesses (Expr*-keyed) is populated as a side effect
+  // of the loadIfGLValue call just above; this lookup depends on that.
+  tryToAssignDescriptorHeapImageAlias(expr->getLHS(), expr->getRHS());
+  return false;
+}
+
 SpirvInstruction *SpirvEmitter::doBinaryOperator(const BinaryOperator *expr) {
   const auto opcode = expr->getOpcode();
 
@@ -3241,13 +3278,12 @@ SpirvInstruction *SpirvEmitter::doBinaryOperator(const BinaryOperator *expr) {
     // Update counter variable associated with lhs of assignments
     tryToAssignCounterVar(expr->getLHS(), expr->getRHS());
 
-    if (llvm::Optional<SpirvInstruction *> aliasResult =
-            tryToAssignToDescriptorHeapAlias(expr))
-      return aliasResult.getValue();
-
-    SpirvInstruction *rhs = loadIfGLValue(expr->getRHS());
-    tryToAssignDescriptorHeapImageAlias(expr->getLHS(), expr->getRHS());
-
+    SpirvInstruction *heapResult = nullptr;
+    SpirvInstruction *rhs = nullptr;
+    if (tryHandleDescriptorHeapAssignment(expr, &heapResult, &rhs))
+      return heapResult;
+    if (!rhs)
+      rhs = loadIfGLValue(expr->getRHS());
     return processAssignment(expr->getLHS(), rhs,
                              /*isCompoundAssignment=*/false, nullptr,
                              expr->getSourceRange());
@@ -8531,6 +8567,35 @@ bool SpirvEmitter::isDescriptorHeap(const Expr *expr) const {
   const auto objectType = object->getType();
   return isResourceDescriptorHeap(objectType) ||
          isSamplerDescriptorHeap(objectType);
+}
+
+bool SpirvEmitter::diagnoseChainedDescriptorHeapAssignment(
+    const BinaryOperator *expr) {
+  const QualType lhsType = expr->getLHS()->getType();
+  if (!isRWTexture(lhsType) && !isRWBuffer(lhsType) &&
+      !isConstantTextureBuffer(lhsType) &&
+      !isAKindOfStructuredOrByteBuffer(lhsType))
+    return false;
+
+  // Peel through any nesting (a = b = c = X;) to the innermost value; a
+  // chained assignment's value is its RHS, all the way down. Not a chain at
+  // all (the common case) is left untouched: that path is already handled
+  // correctly below.
+  const Expr *value = expr->getRHS()->IgnoreParenCasts();
+  bool sawChain = false;
+  while (const auto *nested = dyn_cast<BinaryOperator>(value)) {
+    if (nested->getOpcode() != BO_Assign)
+      break;
+    sawChain = true;
+    value = nested->getRHS()->IgnoreParenCasts();
+  }
+  if (!sawChain || !isHeapSourcedValue(value))
+    return false;
+
+  emitError("assigning a heap-sourced value through a chained assignment is "
+            "not supported; assign to each variable in a separate statement",
+            expr->getExprLoc());
+  return true;
 }
 
 bool SpirvEmitter::isHeapSourcedValue(const Expr *expr) const {

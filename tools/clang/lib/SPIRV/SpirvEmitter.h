@@ -1334,6 +1334,25 @@ private:
   llvm::Optional<SpirvInstruction *>
   tryToAssignToDescriptorHeapAlias(const BinaryOperator *assignExpr);
 
+  /// \brief Diagnoses `lhs = <chain of assignments>;` where lhs is a heap-
+  /// relevant resource and the chain's innermost value is heap-sourced.
+  /// isHeapSourcedValue and the alias-propagation below don't recognize a
+  /// nested assignment as a source, so lhs would otherwise go silently
+  /// untracked. Returns true if it diagnosed; false otherwise, including for
+  /// an all-bound-resource chain like `a = b = boundTex;`, which already
+  /// works.
+  bool diagnoseChainedDescriptorHeapAssignment(const BinaryOperator *expr);
+
+  /// \brief All descriptor-heap handling for a BO_Assign expression, kept
+  /// out of doBinaryOperator's dispatch. Evaluates the RHS itself and
+  /// returns it via *rhs (order matters: a buffer alias must skip normal
+  /// evaluation; an image alias needs the RHS already evaluated). Returns
+  /// true if *result is the final value to return as-is; false if the
+  /// caller should run normal assignment codegen with *rhs.
+  bool tryHandleDescriptorHeapAssignment(const BinaryOperator *expr,
+                                         SpirvInstruction **result,
+                                         SpirvInstruction **rhs);
+
   /// \brief Re-derives the buffer-data pointer for a heap buffer alias decl
   /// (OpLoad of saved index -> OpUntypedAccessChainKHR + OpBufferPointerEXT).
   /// Returns nullptr if decl is not a recorded alias.

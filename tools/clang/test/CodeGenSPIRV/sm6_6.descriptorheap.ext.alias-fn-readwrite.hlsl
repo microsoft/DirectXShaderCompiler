@@ -8,7 +8,8 @@
 //
 // Plain reads/writes work because the loaded handle is enough for spirv-opt to
 // promote the copies. Atomics fail because the descriptor index does not cross
-// OpFunctionCall — see alias-return.hlsl and image-alias-fn-param.hlsl.
+// OpFunctionCall — see image-alias-fn-return.error.hlsl and
+// image-alias-fn-param.error.hlsl.
 // Keep this passing when fixing the atomic case.
 
 // CHECK-DAG: %[[UntypedUniformConstant:[a-zA-Z0-9_]+]] = OpTypeUntypedPointerKHR UniformConstant
