@@ -3882,6 +3882,10 @@ private:
     auto &context = m_sema->getASTContext();
     for (uint32_t i = 0; i < tableSize; ++i) {
       const HLSL_INTRINSIC *intrinsic = &table[i];
+      // Builtins can contain call-site-dependent types and are declared lazily.
+      if (StringRef(intrinsic->pArgs->pName).startswith("__builtin_"))
+        continue;
+
       const IdentifierInfo &fnII = context.Idents.get(
           intrinsic->pArgs->pName, tok::TokenKind::identifier);
       DeclarationName functionName(&fnII);
@@ -12733,19 +12737,19 @@ void Sema::DiagnoseReachableHLSLCall(CallExpr *CE, const hlsl::ShaderModel *SM,
   case hlsl::IntrinsicOp::IOP_DxMaybeReorderThread:
     DiagnoseReachableSERCall(*this, CE, EntrySK, EntryDecl, true);
     break;
-  case hlsl::IntrinsicOp::IOP___builtin_LinAlg_FillMatrix:
-  case hlsl::IntrinsicOp::IOP___builtin_LinAlg_CopyConvertMatrix:
-  case hlsl::IntrinsicOp::IOP___builtin_LinAlg_MatrixLength:
-  case hlsl::IntrinsicOp::IOP___builtin_LinAlg_MatrixGetCoordinate:
-  case hlsl::IntrinsicOp::IOP___builtin_LinAlg_MatrixGetElement:
-  case hlsl::IntrinsicOp::IOP___builtin_LinAlg_MatrixSetElement:
-  case hlsl::IntrinsicOp::IOP___builtin_LinAlg_MatrixStoreToDescriptor:
-  case hlsl::IntrinsicOp::IOP___builtin_LinAlg_MatrixLoadFromMemory:
-  case hlsl::IntrinsicOp::IOP___builtin_LinAlg_MatrixStoreToMemory:
-  case hlsl::IntrinsicOp::IOP___builtin_LinAlg_MatrixAccumulateToMemory:
-  case hlsl::IntrinsicOp::IOP___builtin_LinAlg_MatrixMatrixMultiply:
-  case hlsl::IntrinsicOp::IOP___builtin_LinAlg_MatrixMatrixMultiplyAccumulate:
-  case hlsl::IntrinsicOp::IOP___builtin_LinAlg_MatrixAccumulate:
+  case hlsl::IntrinsicOp::IOP_Dx__builtin_LinAlg_FillMatrix:
+  case hlsl::IntrinsicOp::IOP_Dx__builtin_LinAlg_CopyConvertMatrix:
+  case hlsl::IntrinsicOp::IOP_Dx__builtin_LinAlg_MatrixLength:
+  case hlsl::IntrinsicOp::IOP_Dx__builtin_LinAlg_MatrixGetCoordinate:
+  case hlsl::IntrinsicOp::IOP_Dx__builtin_LinAlg_MatrixGetElement:
+  case hlsl::IntrinsicOp::IOP_Dx__builtin_LinAlg_MatrixSetElement:
+  case hlsl::IntrinsicOp::IOP_Dx__builtin_LinAlg_MatrixStoreToDescriptor:
+  case hlsl::IntrinsicOp::IOP_Dx__builtin_LinAlg_MatrixLoadFromMemory:
+  case hlsl::IntrinsicOp::IOP_Dx__builtin_LinAlg_MatrixStoreToMemory:
+  case hlsl::IntrinsicOp::IOP_Dx__builtin_LinAlg_MatrixAccumulateToMemory:
+  case hlsl::IntrinsicOp::IOP_Dx__builtin_LinAlg_MatrixMatrixMultiply:
+  case hlsl::IntrinsicOp::IOP_Dx__builtin_LinAlg_MatrixMatrixMultiplyAccumulate:
+  case hlsl::IntrinsicOp::IOP_Dx__builtin_LinAlg_MatrixAccumulate:
     DiagnoseReachableLimitedLinAlgCall(*this, CE, EntrySK, EntryDecl);
     break;
   default:

@@ -16,7 +16,7 @@ void main() {
   // CHECK2: (i32 417, %dx.types.LinAlgMatrixC9M4N4U2S0* {{.*}}, i1 true, <4 x float> {{.*}}, <4 x float> {{.*}})
   // Matrix<F32, 4, 4, Accumulator, Thread>
   __builtin_LinAlgMatrix [[__LinAlgMatrix_Attributes(9, 4, 4, 2, 0)]] mat1;
-  __builtin_LinAlg_MatrixOuterProduct(mat1, true, lhs1, rhs1);
+  dx::__builtin_LinAlg_MatrixOuterProduct(mat1, true, lhs1, rhs1);
 
   double4 lhs2 = {1,2,3,4};
   double4 rhs2 = {4,3,2,1};
@@ -28,7 +28,7 @@ void main() {
   // CHECK2: (i32 417, %dx.types.LinAlgMatrixC10M4N4U2S0* {{.*}}, i1 true, <4 x double> {{.*}}, <4 x double> {{.*}})
   // Matrix<F64, 4, 4, Accumulator, Thread>
   __builtin_LinAlgMatrix [[__LinAlgMatrix_Attributes(10, 4, 4, 2, 0)]] mat2;
-  __builtin_LinAlg_MatrixOuterProduct(mat2, true, lhs2, rhs2);
+  dx::__builtin_LinAlg_MatrixOuterProduct(mat2, true, lhs2, rhs2);
 
   vector<int64_t, 4> lhs3 = {1,2,3,4};
   vector<int64_t, 4> rhs3 = {4,3,2,1};
@@ -40,5 +40,5 @@ void main() {
   // CHECK2: (i32 417, %dx.types.LinAlgMatrixC6M4N4U2S0* {{.*}}, i1 true, <4 x i64> {{.*}}, <4 x i64> {{.*}})
   // Matrix<I64, 4, 4, Accumulator, Thread>
   __builtin_LinAlgMatrix [[__LinAlgMatrix_Attributes(6, 4, 4, 2, 0)]] mat3;
-  __builtin_LinAlg_MatrixOuterProduct(mat3, true, lhs3, rhs3);
+  dx::__builtin_LinAlg_MatrixOuterProduct(mat3, true, lhs3, rhs3);
 }
