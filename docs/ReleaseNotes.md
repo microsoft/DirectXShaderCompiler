@@ -54,6 +54,8 @@ line upon naming the release. Refer to previous for appropriate section names.
 - HLSL 202x disallows putting cbuffer, tbuffer, or namespace declarations inside
   a cbuffer or tbuffer
   [#8484](https://github.com/microsoft/DirectXShaderCompiler/issues/8484).
+- Starting with HLSL 202x, `cbuffer` and `tbuffer` declarations and their
+  members belong to their enclosing namespace.
 
 #### Bug Fixes
 
