@@ -66,6 +66,28 @@ Sema::DeclGroupPtrTy Sema::ConvertDeclToDeclGroup(Decl *Ptr, Decl *OwnedType) {
 
 namespace {
 
+// HLSL Change Begin
+// Returns true if VD is a shader constant: a variable stored in an explicit
+// cbuffer/tbuffer declaration, or in the implicit $Globals constant buffer.
+// On success IsConstantBuffer is false only for tbuffer members.
+bool IsHLSLShaderConstant(const VarDecl *VD, bool &IsConstantBuffer) {
+  if (const auto *Buffer = dyn_cast<HLSLBufferDecl>(VD->getDeclContext())) {
+    IsConstantBuffer = Buffer->isCBuffer();
+    return VD->getStorageClass() != SC_Static;
+  }
+
+  IsConstantBuffer = true;
+  const DeclContext *DC = VD->getDeclContext();
+  return (DC->isTranslationUnit() || DC->isNamespace()) &&
+         VD->hasExternalFormalLinkage() &&
+         !VD->hasAttr<HLSLGroupSharedAttr>() &&
+         !VD->hasAttr<VKConstantIdAttr>() &&
+         !VD->hasAttr<VKPushConstantAttr>() &&
+         !VD->hasAttr<VKStorageClassExtAttr>() &&
+         hlsl::IsHLSLNumericOrAggregateOfNumericType(VD->getType());
+}
+// HLSL Change End
+
 class TypeNameValidatorCCC : public CorrectionCandidateCallback {
  public:
   TypeNameValidatorCCC(bool AllowInvalid, bool WantClass=false,
@@ -9333,6 +9355,19 @@ void Sema::AddInitializerToDecl(Decl *RealDecl, Expr *Init,
 
   // Attach the initializer to the decl.
   VDecl->setInit(Init);
+
+  // HLSL Change Begin
+  // Variables in a cbuffer/tbuffer declaration, or in the implicit $Globals
+  // constant buffer, are initialized by the pipeline, so any initializer is
+  // ignored. This is an error starting with HLSL 202x.
+  bool IsConstantBuffer = false;
+  if (getLangOpts().HLSL && IsHLSLShaderConstant(VDecl, IsConstantBuffer)) {
+    Diag(Init->getExprLoc(), getLangOpts().HLSLVersion >= hlsl::LangStd::v202x
+                                 ? diag::err_hlsl_buffer_initializer
+                                 : diag::warn_hlsl_buffer_initializer)
+        << IsConstantBuffer << Init->getSourceRange();
+  }
+  // HLSL Change End
 
   if (VDecl->isLocalVarDecl()) {
     // C99 6.7.8p4: All the expressions in an initializer for an object that has

@@ -806,6 +806,7 @@ def HLSLParameterUsage : DiagGroup<"parameter-usage">;
 def HLSLAvailability: DiagGroup<"hlsl-availability">;
 def HLSLAvailabilityConstant: DiagGroup<"hlsl-availability-constant">;
 def HLSLBarrier : DiagGroup<"hlsl-barrier">;
+def HLSLBufferInitializer : DiagGroup<"hlsl-buffer-initializer">;
 
 // HLSL 2026 compatibility warnings: these warn on code in older language modes
 // that changes meaning or becomes illegal in HLSL 2026.

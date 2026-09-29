@@ -2109,12 +2109,6 @@ void CodeGenModule::EmitGlobalVarDefinition(const VarDecl *D) {
         NeedsGlobalCtor = true;
         // HLSL Change Begins.
         if (getLangOpts().HLSL && D->isExternallyVisible()) {
-          // For global constant with init, the init will be ignored.
-          // Warning here.
-          unsigned DiagID = Diags.getCustomDiagID(
-              DiagnosticsEngine::Warning,
-              "Initializer of external global will be ignored");
-          Diags.Report(D->getLocation(), DiagID);
           // Don't create global ctor for it.
           NeedsGlobalCtor = false;
         }
@@ -2131,12 +2125,7 @@ void CodeGenModule::EmitGlobalVarDefinition(const VarDecl *D) {
         DelayedCXXInitPosition.erase(D);
       // HLSL Change Begins.
       if (getLangOpts().HLSL && D->isExternallyVisible() && !D->isStaticDataMember()) {
-        // For global constant with init, the init will be ignored.
         Init = EmitNullConstant(D->getType());
-        unsigned DiagID = Diags.getCustomDiagID(
-            DiagnosticsEngine::Warning,
-            "Initializer of external global will be ignored");
-        Diags.Report(D->getLocation(), DiagID);
       }
       // HLSL Change Ends.
     }

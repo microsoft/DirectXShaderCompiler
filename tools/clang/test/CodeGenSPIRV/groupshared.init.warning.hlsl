@@ -15,5 +15,5 @@ void main(uint local_thread_id_flat : SV_GroupIndex) {
     }
 }
 
-// CHECK: warning: Initializer of external global will be ignored
+// CHECK: warning: initializer of 'groupshared' variable will be ignored
 // CHECK-NEXT: groupshared uint testing = 0;
