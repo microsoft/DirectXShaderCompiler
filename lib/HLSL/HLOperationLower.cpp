@@ -6783,13 +6783,14 @@ Value *TranslateLinAlgFillMatrix(CallInst *CI, IntrinsicOp IOP,
   Value *MatrixPtr = CI->getArgOperand(1);
   DXASSERT_NOMSG(isa<PointerType>(MatrixPtr->getType()));
   Type *MatrixType = MatrixPtr->getType()->getPointerElementType();
-  Value *Scalar = CI->getArgOperand(2);
+  Value *IsInputSigned = CI->getArgOperand(2);
+  Value *Scalar = CI->getArgOperand(3);
 
   Constant *OpArg = HlslOp->GetU32Const((unsigned)OpCode);
   Function *DxilFunc =
       HlslOp->GetOpFunc(OpCode, {MatrixType, Scalar->getType()});
 
-  Value *Matrix = Builder.CreateCall(DxilFunc, {OpArg, Scalar});
+  Value *Matrix = Builder.CreateCall(DxilFunc, {OpArg, IsInputSigned, Scalar});
   Builder.CreateStore(Matrix, MatrixPtr);
 
   return nullptr;
@@ -6913,14 +6914,16 @@ Value *TranslateLinAlgMatrixOuterProduct(
   Value *MatrixPtr = CI->getArgOperand(1);
   DXASSERT_NOMSG(isa<PointerType>(MatrixPtr->getType()));
   Type *MatrixType = MatrixPtr->getType()->getPointerElementType();
-  Value *VecA = CI->getArgOperand(2);
-  Value *VecB = CI->getArgOperand(3);
+  Value *IsInputSigned = CI->getArgOperand(2);
+  Value *VecA = CI->getArgOperand(3);
+  Value *VecB = CI->getArgOperand(4);
 
   Constant *OpArg = HlslOp->GetU32Const((unsigned)OpCode);
   Function *DxilFunc =
       HlslOp->GetOpFunc(OpCode, {MatrixType, VecA->getType(), VecB->getType()});
 
-  Value *Matrix = Builder.CreateCall(DxilFunc, {OpArg, VecA, VecB});
+  Value *Matrix =
+      Builder.CreateCall(DxilFunc, {OpArg, IsInputSigned, VecA, VecB});
   Builder.CreateStore(Matrix, MatrixPtr);
 
   return nullptr;
@@ -7157,10 +7160,9 @@ Value *TranslateLinAlgMatrixAccumToMemory(
 
   Value *Matrix = CI->getArgOperand(1);
   Value *Arr = CI->getArgOperand(2);
-  Value *TargetType = CI->getArgOperand(3);
-  Value *Offset = CI->getArgOperand(4);
-  Value *Stride = CI->getArgOperand(5);
-  Value *Layout = CI->getArgOperand(6);
+  Value *Offset = CI->getArgOperand(3);
+  Value *Stride = CI->getArgOperand(4);
+  Value *Layout = CI->getArgOperand(5);
 
   Value *Zero = Builder.getInt32(0);
   Value *ArrPtr = Builder.CreateGEP(Arr, {Zero, Zero});
@@ -7169,8 +7171,8 @@ Value *TranslateLinAlgMatrixAccumToMemory(
   Constant *OpArg = HlslOp->GetU32Const((unsigned)OpCode);
   Function *DxilFunc = HlslOp->GetOpFunc(OpCode, {Matrix->getType(), ArrEltTy});
 
-  return Builder.CreateCall(
-      DxilFunc, {OpArg, Matrix, ArrPtr, TargetType, Offset, Stride, Layout});
+  return Builder.CreateCall(DxilFunc,
+                            {OpArg, Matrix, ArrPtr, Offset, Stride, Layout});
 }
 
 Value *TranslateLinAlgConvert(CallInst *CI, IntrinsicOp IOP, OP::OpCode OpCode,
@@ -7959,51 +7961,51 @@ constexpr IntrinsicLower gLowerTable[] = {
      TranslateHitObjectTriangleObjectPositions,
      DXIL::OpCode::HitObject_TriangleObjectPosition},
 
-    {IntrinsicOp::IOP___builtin_LinAlg_CopyConvertMatrix,
+    {IntrinsicOp::IOP_Dx__builtin_LinAlg_CopyConvertMatrix,
      TranslateLinAlgCopyConvertMatrix, DXIL::OpCode::LinAlgCopyConvertMatrix},
-    {IntrinsicOp::IOP___builtin_LinAlg_FillMatrix, TranslateLinAlgFillMatrix,
+    {IntrinsicOp::IOP_Dx__builtin_LinAlg_FillMatrix, TranslateLinAlgFillMatrix,
      DXIL::OpCode::LinAlgFillMatrix},
-    {IntrinsicOp::IOP___builtin_LinAlg_MatrixGetCoordinate,
+    {IntrinsicOp::IOP_Dx__builtin_LinAlg_MatrixGetCoordinate,
      TranslateLinAlgMatrixGetCoordinate,
      DXIL::OpCode::LinAlgMatrixGetCoordinate},
-    {IntrinsicOp::IOP___builtin_LinAlg_MatrixGetElement,
+    {IntrinsicOp::IOP_Dx__builtin_LinAlg_MatrixGetElement,
      TranslateLinAlgMatrixGetElement, DXIL::OpCode::LinAlgMatrixGetElement},
-    {IntrinsicOp::IOP___builtin_LinAlg_MatrixLength, TrivialUnaryOperation,
+    {IntrinsicOp::IOP_Dx__builtin_LinAlg_MatrixLength, TrivialUnaryOperation,
      DXIL::OpCode::LinAlgMatrixLength},
-    {IntrinsicOp::IOP___builtin_LinAlg_MatrixLoadFromDescriptor,
+    {IntrinsicOp::IOP_Dx__builtin_LinAlg_MatrixLoadFromDescriptor,
      TranslateLinAlgMatrixLoadFromDescriptor,
      DXIL::OpCode::LinAlgMatrixLoadFromDescriptor},
-    {IntrinsicOp::IOP___builtin_LinAlg_MatrixLoadFromMemory,
+    {IntrinsicOp::IOP_Dx__builtin_LinAlg_MatrixLoadFromMemory,
      TranslateLinAlgMatrixLoadFromMemory,
      DXIL::OpCode::LinAlgMatrixLoadFromMemory},
-    {IntrinsicOp::IOP___builtin_LinAlg_MatrixSetElement,
+    {IntrinsicOp::IOP_Dx__builtin_LinAlg_MatrixSetElement,
      TranslateLinAlgMatrixSetElement, DXIL::OpCode::LinAlgMatrixSetElement},
-    {IntrinsicOp::IOP___builtin_LinAlg_MatrixStoreToDescriptor,
+    {IntrinsicOp::IOP_Dx__builtin_LinAlg_MatrixStoreToDescriptor,
      TranslateLinAlgMatrixAccumStoreToDescriptor,
      DXIL::OpCode::LinAlgMatrixStoreToDescriptor},
-    {IntrinsicOp::IOP___builtin_LinAlg_MatrixStoreToMemory,
+    {IntrinsicOp::IOP_Dx__builtin_LinAlg_MatrixStoreToMemory,
      TranslateLinAlgMatrixStoreToMemory,
      DXIL::OpCode::LinAlgMatrixStoreToMemory},
-    {IntrinsicOp::IOP___builtin_LinAlg_MatrixAccumulate,
+    {IntrinsicOp::IOP_Dx__builtin_LinAlg_MatrixAccumulate,
      TranslateLinAlgMatrixAccumulate, DXIL::OpCode::LinAlgMatrixAccumulate},
-    {IntrinsicOp::IOP___builtin_LinAlg_MatrixMatrixMultiply,
+    {IntrinsicOp::IOP_Dx__builtin_LinAlg_MatrixMatrixMultiply,
      TranslateLinAlgMatrixMatrixMultiply, DXIL::OpCode::LinAlgMatrixMultiply},
-    {IntrinsicOp::IOP___builtin_LinAlg_MatrixMatrixMultiplyAccumulate,
+    {IntrinsicOp::IOP_Dx__builtin_LinAlg_MatrixMatrixMultiplyAccumulate,
      TranslateLinAlgMatrixMatrixMultiplyAccumulate,
      DXIL::OpCode::LinAlgMatrixMultiplyAccumulate},
-    {IntrinsicOp::IOP___builtin_LinAlg_MatrixQueryAccumulatorLayout,
+    {IntrinsicOp::IOP_Dx__builtin_LinAlg_MatrixQueryAccumulatorLayout,
      TrivialNoArgOperation, DXIL::OpCode::LinAlgMatrixQueryAccumulatorLayout},
-    {IntrinsicOp::IOP___builtin_LinAlg_MatrixAccumulateToDescriptor,
+    {IntrinsicOp::IOP_Dx__builtin_LinAlg_MatrixAccumulateToDescriptor,
      TranslateLinAlgMatrixAccumStoreToDescriptor,
      DXIL::OpCode::LinAlgMatrixAccumulateToDescriptor},
-    {IntrinsicOp::IOP___builtin_LinAlg_MatrixAccumulateToMemory,
+    {IntrinsicOp::IOP_Dx__builtin_LinAlg_MatrixAccumulateToMemory,
      TranslateLinAlgMatrixAccumToMemory,
      DXIL::OpCode::LinAlgMatrixAccumulateToMemory},
-    {IntrinsicOp::IOP___builtin_LinAlg_MatrixOuterProduct,
+    {IntrinsicOp::IOP_Dx__builtin_LinAlg_MatrixOuterProduct,
      TranslateLinAlgMatrixOuterProduct, DXIL::OpCode::LinAlgMatrixOuterProduct},
-    {IntrinsicOp::IOP___builtin_LinAlg_MatrixVectorMultiply,
+    {IntrinsicOp::IOP_Dx__builtin_LinAlg_MatrixVectorMultiply,
      TranslateLinAlgMatVecMul, DXIL::OpCode::LinAlgMatVecMul},
-    {IntrinsicOp::IOP___builtin_LinAlg_MatrixVectorMultiplyAdd,
+    {IntrinsicOp::IOP_Dx__builtin_LinAlg_MatrixVectorMultiplyAdd,
      TranslateLinAlgMatVecMulAdd, DXIL::OpCode::LinAlgMatVecMulAdd},
 
     {IntrinsicOp::IOP_DebugBreak, TrivialNoArgOperation,
@@ -8011,9 +8013,9 @@ constexpr IntrinsicLower gLowerTable[] = {
     {IntrinsicOp::IOP_DxIsDebuggingEnabled, TranslateWaveToVal,
      DXIL::OpCode::IsDebuggingEnabled},
 
-    {IntrinsicOp::IOP___builtin_LinAlg_Convert, TranslateLinAlgConvert,
+    {IntrinsicOp::IOP_Dx__builtin_LinAlg_Convert, TranslateLinAlgConvert,
      DXIL::OpCode::LinAlgConvert},
-    {IntrinsicOp::IOP___builtin_LinAlg_VectorAccumulateToDescriptor,
+    {IntrinsicOp::IOP_Dx__builtin_LinAlg_VectorAccumulateToDescriptor,
      TranslateLinAlgVectorAccumulateToDescriptor,
      DXIL::OpCode::LinAlgVectorAccumulateToDescriptor},
 };

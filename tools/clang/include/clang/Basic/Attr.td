@@ -1189,8 +1189,7 @@ def HLSLSubObject : InheritableAttr {
 }
 
 // Marks builtin record types that have no deducible value form, so 'auto' must
-// not infer them: the inner indexer objects behind .mips / .sample, and the
-// subobject types used to configure DXR state objects.
+// not infer them.
 def HLSLNonAutoDeducible : InheritableAttr {
   let Spellings = []; // No spellings!
   let Subjects = SubjectList<[CXXRecord]>;

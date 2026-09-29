@@ -808,7 +808,7 @@ bool DxilShaderAccessTracking::runOnModule(Module &M) {
 
     bool FoundDynamicIndexing = false;
 
-    PIXPassHelpers::ForEachDynamicallyIndexedResource(
+    Modified |= PIXPassHelpers::ForEachDynamicallyIndexedResource(
         DM, [&FoundDynamicIndexing](bool, Instruction *, Value *) {
           FoundDynamicIndexing = true;
           return false;

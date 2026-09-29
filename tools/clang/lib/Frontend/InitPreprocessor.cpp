@@ -376,6 +376,8 @@ static void InitializeStandardPredefinedMacros(const TargetInfo &TI,
     // HLSL Version
     Builder.defineMacro("__HLSL_VERSION",
                         Twine((unsigned int)LangOpts.HLSLVersion));
+    if (!LangOpts.HLSLDisallowsVariadicTemplates())
+      Builder.defineMacro("__cpp_variadic_templates", "200704");
     // This define is enabled in Clang and allows conditionally compiling code
     // based on whether or not native 16-bit types are supported.
     if (!LangOpts.UseMinPrecision)
