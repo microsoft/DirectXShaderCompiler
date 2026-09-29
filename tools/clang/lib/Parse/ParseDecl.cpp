@@ -2351,12 +2351,19 @@ Parser::DeclGroupPtrTy Parser::ParseDeclGroup(ParsingDeclSpec &DS,
     if (!isGroupShared) {
       // check whether or not the given data is the typename or primitive types
       if (DS.isTypeRep()) {
-        QualType type = DS.getRepAsType().get();
-        // canonical types of HLSL Object types are not canonical for some
-        // reason. other HLSL Object types of vector/matrix/array should be
-        // treated as const.
-        if (type.getCanonicalType().isCanonical() &&
-            IsTypeNumeric(&Actions, type)) {
+        // Parsed types such as template-ids are wrapped in a LocInfoType, so
+        // unwrap them before inspecting the type.
+        QualType QT = Actions.GetTypeFromParser(DS.getRepAsType());
+        // Instantiate user class template specializations so their fields are
+        // visible to IsTypeNumeric. Built-in HLSL templates are classified
+        // without needing instantiation.
+        if (const auto *Spec =
+                dyn_cast_or_null<ClassTemplateSpecializationDecl>(
+                    QT.isNull() ? nullptr : QT->getAsCXXRecordDecl()))
+          if (!Spec->hasDefinition() &&
+              !Spec->getSpecializedTemplate()->isImplicit())
+            Actions.RequireCompleteType(DS.getTypeSpecTypeLoc(), QT, 0);
+        if (!QT.isNull() && IsTypeNumeric(&Actions, QT)) {
           unsigned int diagID;
           const char *prevSpec;
           DS.SetTypeQual(DeclSpec::TQ_const, D.getDeclSpec().getLocStart(),
