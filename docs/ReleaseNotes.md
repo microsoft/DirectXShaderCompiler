@@ -60,6 +60,8 @@ line upon naming the release. Refer to previous for appropriate section names.
   to non-`const` methods on `const` objects, including objects in constant 
   buffers 
   [#8964](https://github.com/microsoft/DirectXShaderCompiler/issues/8964).
+- Add `static_assert` matching C++11 and C++17 under HLSL 202x
+  ([#8910](https://github.com/microsoft/DirectXShaderCompiler/issues/8910)).
 
 #### Bug Fixes
 
