@@ -63,7 +63,9 @@ bool Sema::CanUseDecl(NamedDecl *D) {
 
     // If the function has a deduced return type, and we can't deduce it,
     // then we can't use it either.
-    if (getLangOpts().CPlusPlus14 && FD->getReturnType()->isUndeducedType() &&
+    // HLSL Change - HLSL supports C++14-style deduced return types.
+    if ((getLangOpts().CPlusPlus14 || getLangOpts().HLSL) &&
+        FD->getReturnType()->isUndeducedType() &&
         DeduceReturnType(FD, SourceLocation(), /*Diagnose*/ false))
       return false;
   }
@@ -366,8 +368,9 @@ bool Sema::DiagnoseUseOfDecl(NamedDecl *D, SourceLocation Loc,
 
     // If the function has a deduced return type, and we can't deduce it,
     // then we can't use it either.
-    if (getLangOpts().CPlusPlus14 && FD->getReturnType()->isUndeducedType() &&
-        DeduceReturnType(FD, Loc))
+    // HLSL Change - HLSL supports C++14-style deduced return types.
+    if ((getLangOpts().CPlusPlus14 || getLangOpts().HLSL) &&
+        FD->getReturnType()->isUndeducedType() && DeduceReturnType(FD, Loc))
       return true;
   }
   DiagnoseAvailabilityOfDecl(*this, D, Loc, UnknownObjCClass,

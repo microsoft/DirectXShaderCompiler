@@ -3078,6 +3078,8 @@ ASTContext::getFunctionType(QualType ResultTy, ArrayRef<QualType> ArgArray,
                             const FunctionProtoType::ExtProtoInfo &EPI,
                             ArrayRef<hlsl::ParameterModifier> ParamMods) const { // HLSL Change - param mods
   size_t NumArgs = ArgArray.size();
+  assert((ParamMods.empty() || ParamMods.size() == NumArgs) &&
+         "parameter modifier count does not match parameter count");
 
   // Unique functions, to guarantee there is only one function of a particular
   // structure.

@@ -25,6 +25,7 @@
 #include "clang/AST/DeclTemplate.h"
 #include "clang/AST/EvaluatedExprVisitor.h"
 #include "clang/AST/ExprCXX.h"
+#include "clang/AST/HlslTypes.h" // HLSL Change
 #include "clang/AST/StmtCXX.h"
 #include "clang/Basic/Builtins.h"
 #include "clang/Basic/PartialDiagnostic.h"
@@ -7484,7 +7485,7 @@ Sema::ActOnFunctionDeclarator(Scope *S, Declarator &D, DeclContext *DC,
         Diag(D.getDeclSpec().getVirtualSpecLoc(), diag::err_auto_fn_virtual);
     }
 
-    if (getLangOpts().CPlusPlus14 &&
+    if ((getLangOpts().CPlusPlus14 || getLangOpts().HLSL) && // HLSL Change
         (NewFD->isDependentContext() ||
          (isFriend && CurContext->isDependentContext())) &&
         NewFD->getReturnType()->isUndeducedType()) {
@@ -9055,7 +9056,7 @@ void Sema::AddInitializerToDecl(Decl *RealDecl, Expr *Init,
       // A dependent deduced type cannot be classified yet; defer the check to
       // instantiation, when 'auto' is re-deduced to a concrete type.
       if (!DeducedType->isDependentType() &&
-          !hlsl::IsTypeDeducibleWithAuto(*this, DeducedType)) {
+          !hlsl::IsTypeDeducibleWithAuto(DeducedType)) {
         Diag(VDecl->getLocation(), diag::err_hlsl_auto_undeducible_type)
             << DeducedType;
         VDecl->setInvalidDecl();
@@ -10907,8 +10908,11 @@ Decl *Sema::ActOnFinishFunctionBody(Decl *dcl, Stmt *Body,
   if (FD) {
     FD->setBody(Body);
 
-    if (getLangOpts().CPlusPlus14 && !FD->isInvalidDecl() && Body &&
-        !FD->isDependentContext() && FD->getReturnType()->isUndeducedType()) {
+    // HLSL Change Begin - HLSL supports C++14-style deduced return types.
+    if ((getLangOpts().CPlusPlus14 || getLangOpts().HLSL) &&
+        !FD->isInvalidDecl() && Body && !FD->isDependentContext() &&
+        FD->getReturnType()->isUndeducedType()) {
+      // HLSL Change End
       // If the function has a deduced result type but contains no 'return'
       // statements, the result type as written must be exactly 'auto', and
       // the deduced result type is 'void'.

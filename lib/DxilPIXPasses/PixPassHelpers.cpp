@@ -26,6 +26,7 @@
 #include "dxc/Support/Global.h"
 #include "dxc/Support/WinIncludes.h"
 #include "dxc/dxcapi.h"
+#include <optional>
 
 #ifdef PIX_DEBUG_DUMP_HELPER
 #include "llvm/IR/DebugInfo.h"
@@ -185,9 +186,8 @@ static std::vector<uint8_t> SerializeRootSignatureToVector(
   SerializeRootSignature(rootSignature, &serializedRootSignature, &errorBlob,
                          allowReservedRegisterSpace);
   std::vector<uint8_t> ret;
-  if (serializedRootSignature == nullptr) {
+  if (serializedRootSignature == nullptr)
     return ret;
-  }
   auto const *serializedData = reinterpret_cast<const uint8_t *>(
       serializedRootSignature->GetBufferPointer());
   ret.assign(serializedData,
@@ -198,80 +198,82 @@ static std::vector<uint8_t> SerializeRootSignatureToVector(
 
 constexpr uint32_t toolsRegisterSpace = static_cast<uint32_t>(-2);
 
+// Returns whether a parameter was appended.
 template <typename RootSigDesc, typename RootParameterDesc>
-void ExtendRootSig(RootSigDesc &rootSigDesc, uint32_t toolsUAVRegister) {
-  auto *existingParams = rootSigDesc.pParameters;
-  for (uint32_t i = 0; i < rootSigDesc.NumParameters; ++i) {
-    if (rootSigDesc.pParameters[i].ParameterType ==
+bool ExtendRootSig(RootSigDesc &RootSignatureDesc, uint32_t ToolsUAVRegister) {
+  auto *existingParams = RootSignatureDesc.pParameters;
+  for (uint32_t i = 0; i < RootSignatureDesc.NumParameters; ++i) {
+    if (RootSignatureDesc.pParameters[i].ParameterType ==
         DxilRootParameterType::UAV) {
-      if (rootSigDesc.pParameters[i].Descriptor.RegisterSpace ==
+      if (RootSignatureDesc.pParameters[i].Descriptor.RegisterSpace ==
               toolsRegisterSpace &&
-          rootSigDesc.pParameters[i].Descriptor.ShaderRegister ==
-              toolsUAVRegister) {
+          RootSignatureDesc.pParameters[i].Descriptor.ShaderRegister ==
+              ToolsUAVRegister) {
         // Already added
-        return;
+        return false;
       }
     }
   }
-  auto *newParams = new RootParameterDesc[rootSigDesc.NumParameters + 1];
+  auto *newParams = new RootParameterDesc[RootSignatureDesc.NumParameters + 1];
   if (existingParams != nullptr) {
     memcpy(newParams, existingParams,
-           rootSigDesc.NumParameters * sizeof(RootParameterDesc));
+           RootSignatureDesc.NumParameters * sizeof(RootParameterDesc));
     delete[] existingParams;
   }
-  rootSigDesc.pParameters = newParams;
-  rootSigDesc.pParameters[rootSigDesc.NumParameters].ParameterType =
+  RootSignatureDesc.pParameters = newParams;
+  RootSignatureDesc.pParameters[RootSignatureDesc.NumParameters].ParameterType =
       DxilRootParameterType::UAV;
-  rootSigDesc.pParameters[rootSigDesc.NumParameters].Descriptor.RegisterSpace =
-      toolsRegisterSpace;
-  rootSigDesc.pParameters[rootSigDesc.NumParameters].Descriptor.ShaderRegister =
-      toolsUAVRegister;
-  rootSigDesc.pParameters[rootSigDesc.NumParameters].ShaderVisibility =
-      DxilShaderVisibility::All;
-  rootSigDesc.NumParameters++;
+  RootSignatureDesc.pParameters[RootSignatureDesc.NumParameters]
+      .Descriptor.RegisterSpace = toolsRegisterSpace;
+  RootSignatureDesc.pParameters[RootSignatureDesc.NumParameters]
+      .Descriptor.ShaderRegister = ToolsUAVRegister;
+  RootSignatureDesc.pParameters[RootSignatureDesc.NumParameters]
+      .ShaderVisibility = DxilShaderVisibility::All;
+  RootSignatureDesc.NumParameters++;
+  return true;
 }
 
 static std::vector<uint8_t>
 AddUAVParamterToRootSignature(const void *Data, uint32_t Size,
-                              uint32_t toolsUAVRegister) {
+                              uint32_t ToolsUAVRegister) {
   DxilVersionedRootSignature rootSignature;
   DeserializeRootSignature(Data, Size, rootSignature.get_address_of());
   auto *rs = rootSignature.get_mutable();
   switch (rootSignature->Version) {
   case DxilRootSignatureVersion::Version_1_0:
     ExtendRootSig<DxilRootSignatureDesc, DxilRootParameter>(rs->Desc_1_0,
-                                                            toolsUAVRegister);
+                                                            ToolsUAVRegister);
     break;
   case DxilRootSignatureVersion::Version_1_1:
-    ExtendRootSig<DxilRootSignatureDesc1, DxilRootParameter1>(rs->Desc_1_1,
-                                                              toolsUAVRegister);
-    rs->Desc_1_1.pParameters[rs->Desc_1_1.NumParameters - 1].Descriptor.Flags =
-        hlsl::DxilRootDescriptorFlags::None;
+    if (ExtendRootSig<DxilRootSignatureDesc1, DxilRootParameter1>(
+            rs->Desc_1_1, ToolsUAVRegister))
+      rs->Desc_1_1.pParameters[rs->Desc_1_1.NumParameters - 1]
+          .Descriptor.Flags = hlsl::DxilRootDescriptorFlags::None;
     break;
   }
   return SerializeRootSignatureToVector(rs);
 }
 
 static void AddUAVToShaderAttributeRootSignature(DxilModule &DM,
-                                                 uint32_t toolsUAVRegister) {
+                                                 uint32_t ToolsUAVRegister) {
   auto rs = DM.GetSerializedRootSignature();
   if (!rs.empty()) {
     std::vector<uint8_t> asVector = AddUAVParamterToRootSignature(
-        rs.data(), static_cast<uint32_t>(rs.size()), toolsUAVRegister);
-    if (!asVector.empty()) {
+        rs.data(), static_cast<uint32_t>(rs.size()), ToolsUAVRegister);
+    if (!asVector.empty())
       DM.ResetSerializedRootSignature(asVector);
-    }
   }
 }
 
 static void AddUAVToDxilDefinedGlobalRootSignatures(DxilModule &DM,
-                                                    uint32_t toolsUAVRegister) {
+                                                    uint32_t ToolsUAVRegister) {
   struct ReplacementRootSignature {
     std::string Name;
     std::vector<uint8_t> Data;
+    std::optional<std::string> Text;
   };
 
-  std::vector<ReplacementRootSignature> replacementRootSignatures;
+  std::vector<ReplacementRootSignature> ReplacementRootSignatures;
   auto *subObjects = DM.GetSubobjects();
   if (subObjects != nullptr) {
     for (auto const &subObject : subObjects->GetSubobjects()) {
@@ -279,26 +281,35 @@ static void AddUAVToDxilDefinedGlobalRootSignatures(DxilModule &DM,
           DXIL::SubobjectKind::GlobalRootSignature) {
         const void *Data = nullptr;
         uint32_t Size = 0;
+        const char *Text = nullptr;
         constexpr bool notALocalRS = false;
         if (subObject.second->GetRootSignature(notALocalRS, Data, Size,
-                                               nullptr)) {
-          std::vector<uint8_t> extended =
-              AddUAVParamterToRootSignature(Data, Size, toolsUAVRegister);
-          if (!extended.empty()) {
-            replacementRootSignatures.push_back(
-                {subObject.first.str(), std::move(extended)});
+                                               &Text)) {
+          std::vector<uint8_t> ExtendedRootSignature =
+              AddUAVParamterToRootSignature(Data, Size, ToolsUAVRegister);
+          if (!ExtendedRootSignature.empty()) {
+            std::optional<std::string> OwnedText;
+            if (Text != nullptr)
+              OwnedText = Text;
+            ReplacementRootSignatures.push_back(
+                {subObject.first.str(), std::move(ExtendedRootSignature),
+                 std::move(OwnedText)});
           }
         }
       }
     }
 
-    constexpr bool notALocalRS = false;
-    for (auto const &replacementRootSignature : replacementRootSignatures) {
-      subObjects->RemoveSubobject(replacementRootSignature.Name);
+    constexpr bool NotALocalRootSignature = false;
+    for (const ReplacementRootSignature &Replacement :
+         ReplacementRootSignatures) {
+      subObjects->RemoveSubobject(Replacement.Name);
+      std::optional<StringRef> TextRef;
+      if (Replacement.Text)
+        TextRef.emplace(*Replacement.Text);
       subObjects->CreateRootSignature(
-          replacementRootSignature.Name, notALocalRS,
-          replacementRootSignature.Data.data(),
-          static_cast<uint32_t>(replacementRootSignature.Data.size()));
+          Replacement.Name, NotALocalRootSignature, Replacement.Data.data(),
+          static_cast<uint32_t>(Replacement.Data.size()),
+          TextRef ? &*TextRef : nullptr);
     }
   }
 }
@@ -309,11 +320,10 @@ hlsl::DxilResource *CreateGlobalUAVResource(hlsl::DxilModule &DM,
                                             const char *name) {
   LLVMContext &Ctx = DM.GetModule()->getContext();
 
-  for (auto const &existingUAV : DM.GetUAVs()) {
-    if (existingUAV->GetSpaceID() == toolsRegisterSpace &&
-        existingUAV->GetLowerBound() == hlslBindIndex) {
-      return existingUAV.get();
-    }
+  for (const std::unique_ptr<DxilResource> &ExistingUAV : DM.GetUAVs()) {
+    if (ExistingUAV->GetSpaceID() == toolsRegisterSpace &&
+        ExistingUAV->GetLowerBound() == hlslBindIndex)
+      return ExistingUAV.get();
   }
 
   const char *PIXStructTypeName = ShaderModelHandleTypeName(DM);
@@ -382,11 +392,13 @@ hlsl::DxilResource *CreateGlobalUAVResource(hlsl::DxilModule &DM,
   return ret;
 }
 
-void EraseIfUnused(hlsl::DxilModule &DM, llvm::Function *OpFunction) {
+bool eraseIfUnused(hlsl::DxilModule &DM, llvm::Function *OpFunction) {
   if (OpFunction != nullptr && OpFunction->user_empty()) {
     DM.GetOP()->RemoveFunction(OpFunction);
     OpFunction->eraseFromParent();
+    return true;
   }
+  return false;
 }
 
 // Set up a UAV with structure of a single int
@@ -536,7 +548,7 @@ unsigned int FindOrAddSV_Position(hlsl::DxilModule &DM,
   }
 }
 
-void ForEachDynamicallyIndexedResource(
+bool ForEachDynamicallyIndexedResource(
     hlsl::DxilModule &DM,
     const std::function<bool(bool, Instruction *, Value *)> &Visitor) {
   OP *HlslOP = DM.GetOP();
@@ -558,7 +570,7 @@ void ForEachDynamicallyIndexedResource(
               if (auto *gep = dyn_cast<GetElementPtrInst>(resOrGep)) {
                 if (!Visitor(DxilMDHelper::IsMarkedNonUniform(gep), load,
                              gep->getOperand(2))) {
-                  return;
+                  return false;
                 }
               }
             }
@@ -570,23 +582,17 @@ void ForEachDynamicallyIndexedResource(
 
   auto CreateHandleFn =
       HlslOP->GetOpFunc(DXIL::OpCode::CreateHandle, Type::getVoidTy(Ctx));
-  auto CreateHandleFromBindingFn = HlslOP->GetOpFunc(
+  llvm::Function *CreateHandleFromBindingFn = HlslOP->GetOpFunc(
       DXIL::OpCode::CreateHandleFromBinding, Type::getVoidTy(Ctx));
-  auto CreateHandleFromHeapFn = HlslOP->GetOpFunc(
+  llvm::Function *CreateHandleFromHeapFn = HlslOP->GetOpFunc(
       DXIL::OpCode::CreateHandleFromHeap, Type::getVoidTy(Ctx));
 
-  struct UnusedDeclarationCleanup {
-    hlsl::DxilModule &DM;
-    llvm::Function *CreateHandleFn;
-    llvm::Function *CreateHandleFromBindingFn;
-    llvm::Function *CreateHandleFromHeapFn;
-    ~UnusedDeclarationCleanup() {
-      EraseIfUnused(DM, CreateHandleFn);
-      EraseIfUnused(DM, CreateHandleFromBindingFn);
-      EraseIfUnused(DM, CreateHandleFromHeapFn);
-    }
-  } cleanup{DM, CreateHandleFn, CreateHandleFromBindingFn,
-            CreateHandleFromHeapFn};
+  auto CleanupUnusedDeclarations = [&]() {
+    bool Modified = eraseIfUnused(DM, CreateHandleFn);
+    Modified |= eraseIfUnused(DM, CreateHandleFromBindingFn);
+    Modified |= eraseIfUnused(DM, CreateHandleFromHeapFn);
+    return Modified;
+  };
 
   for (auto FI = CreateHandleFn->user_begin();
        FI != CreateHandleFn->user_end();) {
@@ -598,7 +604,7 @@ void ForEachDynamicallyIndexedResource(
       const DxilInst_CreateHandle createHandle(instruction);
       if (!Visitor(createHandle.get_nonUniformIndex_val(), instruction,
                    index)) {
-        return;
+        return CleanupUnusedDeclarations();
       }
     }
   }
@@ -613,7 +619,7 @@ void ForEachDynamicallyIndexedResource(
       const DxilInst_CreateHandleFromBinding createHandle(instruction);
       if (!Visitor(createHandle.get_nonUniformIndex_val(), instruction,
                    index)) {
-        return;
+        return CleanupUnusedDeclarations();
       }
     }
   }
@@ -628,10 +634,11 @@ void ForEachDynamicallyIndexedResource(
       const DxilInst_CreateHandleFromHeap createHandle(instruction);
       if (!Visitor(createHandle.get_nonUniformIndex_val(), instruction,
                    index)) {
-        return;
+        return CleanupUnusedDeclarations();
       }
     }
   }
+  return CleanupUnusedDeclarations();
 }
 
 #ifdef PIX_DEBUG_DUMP_HELPER

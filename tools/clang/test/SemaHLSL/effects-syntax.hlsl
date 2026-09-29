@@ -12,7 +12,7 @@ Texture2D tex : register(t1), tex2 : register(t2)
   VarDecl <col:1, line:19:10> col:4 texa 'Texture2D [3]'
 */
 < int foo=1; >                                              /* expected-warning {{possible effect annotation ignored - effect syntax is deprecated}} fxc-pass {{}} */
-{                                                           /* expected-warning {{effect state block ignored - effect syntax is deprecated}} fxc-pass {{}} */
+{                                                           /* expected-warning {{effect state block ignored - effect syntax is deprecated}} expected-note{{To use braces as an initializer use them with equal signs}} fxc-pass {{}} */
     Texture = tex;
     Filter = MIN_MAG_MIP_LINEAR;
     MaxAnisotropy = 0;
@@ -32,7 +32,7 @@ SamplerState samLinear : register(s7)
   `-RegisterAssignment <col:26> register(s7)
 */
 < bool foo=1 > 2; >                                         /* expected-warning {{possible effect annotation ignored - effect syntax is deprecated}} fxc-pass {{}} */
-{                                                           /* expected-warning {{effect state block ignored - effect syntax is deprecated}} fxc-pass {{}} */
+{                                                           /* expected-warning {{effect state block ignored - effect syntax is deprecated}} expected-note{{To use braces as an initializer use them with equal signs}} fxc-pass {{}} */
     Texture = tex;
     Filter = MIN_MAG_MIP_LINEAR;
     MaxAnisotropy = 0;
@@ -59,20 +59,20 @@ float4 main() : SV_Target
 
   // Note this is ok:
   int PixelShadeR = 1;
-  RenderTargetView rtv { state=foo; };                      /* expected-warning {{effect object ignored - effect syntax is deprecated}} expected-warning {{effect state block ignored - effect syntax is deprecated}} fxc-pass {{}} */
+  RenderTargetView rtv { state=foo; };                      /* expected-warning {{effect object ignored - effect syntax is deprecated}} expected-warning {{effect state block ignored - effect syntax is deprecated}} expected-note{{To use braces as an initializer use them with equal signs}} fxc-pass {{}} */
   /*verify-ast
     No matching AST found for line!
   */
-  Texture2D l_tex { state=foo; };                           /* expected-warning {{effect state block ignored - effect syntax is deprecated}} fxc-pass {{}} */
+  Texture2D l_tex { state=foo; };                           /* expected-warning {{effect state block ignored - effect syntax is deprecated}} expected-note{{To use braces as an initializer use them with equal signs}} fxc-pass {{}} */
   /*verify-ast
     DeclStmt <col:3, col:33>
     `-VarDecl <col:3, col:13> col:13 l_tex 'Texture2D':'Texture2D<vector<float, 4> >'
   */
 
   // This is allowed (deprecated effect state block warning):
-  int foobar {blah=foo;};                                   /* expected-warning {{effect state block ignored - effect syntax is deprecated}} fxc-pass {{}} */
+  int foobar {blah=foo;};                                   /* expected-warning {{effect state block ignored - effect syntax is deprecated}} expected-note{{To use braces as an initializer use them with equal signs}} fxc-pass {{}} */
   // This is not:
-  int foobar2 {blah=foo;} = 5;                              /* expected-error {{expected ';' at end of declaration}} expected-warning {{effect state block ignored - effect syntax is deprecated}} fxc-error {{X3000: syntax error: unexpected token '='}} */
+  int foobar2 {blah=foo;} = 5;                              /* expected-error {{expected ';' at end of declaration}} expected-warning {{effect state block ignored - effect syntax is deprecated}} expected-note{{To use braces as an initializer use them with equal signs}} fxc-error {{X3000: syntax error: unexpected token '='}} */
 
   // But this isn't:
   int RenderTargetView = 1;                                 /* fxc-error {{X3000: syntax error: unexpected token 'RenderTargetView'}} */
@@ -103,8 +103,8 @@ float4 main() : SV_Target
 // Effects objects to ignore:
 // These all accept/ignore effect annotations < ... >
 // These all accept/ignore state block syntax
-texture tex1 < int foo=1; > { state=foo; };   // Case insensitive!    /* expected-warning {{effect object ignored - effect syntax is deprecated}} expected-warning {{effect state block ignored - effect syntax is deprecated}} expected-warning {{possible effect annotation ignored - effect syntax is deprecated}} fxc-pass {{}} */
-static const PixelShader ps1 { state=foo; };                /* expected-warning {{effect object ignored - effect syntax is deprecated}} expected-warning {{effect state block ignored - effect syntax is deprecated}} fxc-pass {{}} */
+texture tex1 < int foo=1; > { state=foo; };   // Case insensitive!    /* expected-warning {{effect object ignored - effect syntax is deprecated}} expected-warning {{effect state block ignored - effect syntax is deprecated}} expected-note{{To use braces as an initializer use them with equal signs}} expected-warning {{possible effect annotation ignored - effect syntax is deprecated}} fxc-pass {{}} */
+static const PixelShader ps1 { state=foo; };                /* expected-warning {{effect object ignored - effect syntax is deprecated}} expected-warning {{effect state block ignored - effect syntax is deprecated}} expected-note{{To use braces as an initializer use them with equal signs}} fxc-pass {{}} */
 /*verify-ast
   No matching AST found for line!
 */
@@ -121,10 +121,10 @@ ComputeShader cs;                                           /* expected-warning 
 DomainShader ds;                                            /* expected-warning {{effect object ignored - effect syntax is deprecated}} fxc-pass {{}} */
 GeometryShader gs;                                          /* expected-warning {{effect object ignored - effect syntax is deprecated}} fxc-pass {{}} */
 HullShader hs;                                              /* expected-warning {{effect object ignored - effect syntax is deprecated}} fxc-pass {{}} */
-BlendState BS { state=foo; };                               /* expected-warning {{effect object ignored - effect syntax is deprecated}} expected-warning {{effect state block ignored - effect syntax is deprecated}} fxc-pass {{}} */
-DepthStencilState DSS { state=foo; };                       /* expected-warning {{effect object ignored - effect syntax is deprecated}} expected-warning {{effect state block ignored - effect syntax is deprecated}} fxc-pass {{}} */
+BlendState BS { state=foo; };                               /* expected-warning {{effect object ignored - effect syntax is deprecated}} expected-warning {{effect state block ignored - effect syntax is deprecated}} expected-note{{To use braces as an initializer use them with equal signs}} fxc-pass {{}} */
+DepthStencilState DSS { state=foo; };                       /* expected-warning {{effect object ignored - effect syntax is deprecated}} expected-warning {{effect state block ignored - effect syntax is deprecated}} expected-note{{To use braces as an initializer use them with equal signs}} fxc-pass {{}} */
 DepthStencilView SDV;                                       /* expected-warning {{effect object ignored - effect syntax is deprecated}} fxc-pass {{}} */
-RasterizerState RS { state=foo; };                          /* expected-warning {{effect object ignored - effect syntax is deprecated}} expected-warning {{effect state block ignored - effect syntax is deprecated}} fxc-pass {{}} */
+RasterizerState RS { state=foo; };                          /* expected-warning {{effect object ignored - effect syntax is deprecated}} expected-warning {{effect state block ignored - effect syntax is deprecated}} expected-note{{To use braces as an initializer use them with equal signs}} fxc-pass {{}} */
 RenderTargetView RTV < int foo=1;> ;                        /* expected-warning {{effect object ignored - effect syntax is deprecated}} expected-warning {{possible effect annotation ignored - effect syntax is deprecated}} fxc-pass {{}} */
 
 // Not case-sensitive!  Identifier optional
@@ -164,7 +164,7 @@ TechNiQue                                                   /* expected-error {{
 /*verify-ast
   VarDecl <col:1> col:1 invalid TechNiQue 'const int'
 */
-{                                                           /* expected-warning {{effect state block ignored - effect syntax is deprecated}} fxc-pass {{}} */
+{                                                           /* expected-warning {{effect state block ignored - effect syntax is deprecated}} expected-note{{To use braces as an initializer use them with equal signs}} fxc-pass {{}} */
   pass {}
 }                                                           /* expected-error {{expected ';' after top level declarator}} fxc-pass {{}} */
 int foobar3;
@@ -175,12 +175,12 @@ TechNique T5                                                /* expected-error {{
 /*verify-ast
   VarDecl <col:1, col:11> col:11 invalid T5 'const int'
 */
-{                                                           /* expected-warning {{effect state block ignored - effect syntax is deprecated}} fxc-pass {{}} */
+{                                                           /* expected-warning {{effect state block ignored - effect syntax is deprecated}} expected-note{{To use braces as an initializer use them with equal signs}} fxc-pass {{}} */
   pass {}
 }                                                           /* expected-error {{expected ';' after top level declarator}} fxc-pass {{}} */
 int foobar4;
 /*verify-ast
   VarDecl <col:1, col:5> col:5 foobar4 'const int'
 */
-int foobar5[] {1, 2, 3};                                        /* expected-error {{definition of variable with array type needs an explicit size or an initializer}} expected-warning {{effect state block ignored - effect syntax is deprecated. To use braces as an initializer use them with equal signs.}} fxc-error {{X3000: syntax error: unexpected integer constant}} */
-int foobar6[4] {1, 2, 3, 4};                                    /* expected-warning {{effect state block ignored - effect syntax is deprecated. To use braces as an initializer use them with equal signs.}} fxc-error {{X3000: syntax error: unexpected integer constant}} */
+int foobar5[] {1, 2, 3};                                        /* expected-error {{definition of variable with array type needs an explicit size or an initializer}} expected-warning {{effect state block ignored - effect syntax is deprecated and will be removed in HLSL 2026}} expected-note{{To use braces as an initializer use them with equal signs}} fxc-error {{X3000: syntax error: unexpected integer constant}} */
+int foobar6[4] {1, 2, 3, 4};                                    /* expected-warning {{effect state block ignored - effect syntax is deprecated and will be removed in HLSL 2026}} expected-note{{To use braces as an initializer use them with equal signs}} fxc-error {{X3000: syntax error: unexpected integer constant}} */

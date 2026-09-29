@@ -15,6 +15,7 @@ trigger:
 pr: 
   - main
   - release*
+  - users/*
   
 resources:
 - repo: self
