@@ -3984,11 +3984,11 @@ TEST_F(PixTest, DxilPIXDXRInvocationsLog_ZeroCapacityEmitsNothing) {
 
   auto oneEntryOutput = RunDxilPIXDXRInvocationsLog(compiledLib, 1);
   auto oneEntryLines = Tokenize(Disassemble(oneEntryOutput), "\n");
-  VERIFY_ARE_EQUAL(2, CountToolsUAVRecords(oneEntryLines));
+  VERIFY_ARE_EQUAL(2, countToolsUAVRecords(oneEntryLines));
 
   auto zeroEntryOutput = RunDxilPIXDXRInvocationsLog(compiledLib, 0);
   auto zeroEntryLines = Tokenize(Disassemble(zeroEntryOutput), "\n");
-  VERIFY_ARE_EQUAL(0, CountToolsUAVRecords(zeroEntryLines));
+  VERIFY_ARE_EQUAL(0, countToolsUAVRecords(zeroEntryLines));
 }
 
 TEST_F(PixTest, DxilPIXDXRInvocationsLog_OneEntryUsesEntryCountBound) {
@@ -4016,7 +4016,7 @@ TEST_F(PixTest, DxilPIXDXRInvocationsLog_OverflowGuardValidates) {
   std::string disassembly = Disassemble(output);
 
   VERIFY_IS_TRUE(disassembly.find("@dx.op.binary.i32") == std::string::npos);
-  VerifyInstrumentedModuleIsValid(output, "DXR invocations log overflow guard");
+  verifyInstrumentedModuleIsValid(output, "DXR invocations log overflow guard");
 }
 
 uint32_t NuriGetWaveInstructionCount(const std::vector<std::string> &lines) {
