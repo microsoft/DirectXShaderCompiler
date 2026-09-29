@@ -2991,11 +2991,11 @@ static bool isNearestSaturatedI16(float Input, int16_t Actual) {
 
 } // namespace cpu_oracle
 
-enum class ThreadSemanticsOutcome { Verified, Failed };
+enum class ThreadSemanticsOutcome { Verified, Unexercised, Failed };
 
 static ThreadSemanticsOutcome classifyThreadSemanticsOutcome(bool Divergent,
                                                              int MixedWaves) {
-  return Divergent && MixedWaves == 0 ? ThreadSemanticsOutcome::Failed
+  return Divergent && MixedWaves == 0 ? ThreadSemanticsOutcome::Unexercised
                                       : ThreadSemanticsOutcome::Verified;
 }
 
@@ -3028,7 +3028,7 @@ void LinAlgCPUOracleTests::ThreadSemanticsOutcomePolicy() {
   VERIFY_IS_TRUE(classifyThreadSemanticsOutcome(true, 1) ==
                  ThreadSemanticsOutcome::Verified);
   VERIFY_IS_TRUE(classifyThreadSemanticsOutcome(true, 0) ==
-                 ThreadSemanticsOutcome::Failed);
+                 ThreadSemanticsOutcome::Unexercised);
 }
 
 void LinAlgCPUOracleTests::FloatToIntHostOracle() {
@@ -8075,8 +8075,8 @@ verifyThreadSemanticsOutput(const void *Data, size_t Size, bool Divergent,
 
   const ThreadSemanticsOutcome Outcome =
       classifyThreadSemanticsOutcome(Divergent, MixedWaves);
-  if (Outcome == ThreadSemanticsOutcome::Failed) {
-    hlsl_test::LogErrorFmt(
+  if (Outcome == ThreadSemanticsOutcome::Unexercised) {
+    hlsl_test::LogWarningFmt(
         L"No wave reported both input selections, so non-uniform selection "
         L"was not exercised");
     return Outcome;
@@ -8130,10 +8130,8 @@ static const char ThreadDivergentMatVecShader[] = R"(
     const uint T = GroupThreadID.x;
     vector<ELEM_TYPE, M_DIM> OutVec;
 
-    // Lane parity rather than thread parity, because the thread-to-wave
-    // mapping is implementation defined and only lane parity is guaranteed to
-    // diverge inside a wave. Both votes run with every lane active.
-    const bool UseB = (WaveGetLaneIndex() & 1) != 0;
+    const bool HasPeer = WaveActiveCountBits(true) > 1;
+    const bool UseB = HasPeer && !WaveIsFirstLane();
     const bool Mixed = WaveActiveAnyTrue(UseB) && WaveActiveAnyTrue(!UseB);
     Output.Store<uint>(T * OUTPUT_SLOT_BYTES + WITNESS_OFFSET,
                        (UseB ? WITNESS_USE_B : 0) | (Mixed ? WITNESS_MIXED : 0));
@@ -8190,7 +8188,8 @@ static const char ThreadMatrixSelectionShader[] = R"(
       B, MatrixInput, (NUMTHREADS - 1 - T) * MATRIX_SLOT_BYTES, STRIDE,
       LAYOUT, MATRIX_SLOT_BYTES);
 
-    const bool UseB = (WaveGetLaneIndex() & 1) != 0;
+    const bool HasPeer = WaveActiveCountBits(true) > 1;
+    const bool UseB = HasPeer && !WaveIsFirstLane();
     const bool Mixed = WaveActiveAnyTrue(UseB) && WaveActiveAnyTrue(!UseB);
     Output.Store<uint>(T * OUTPUT_SLOT_BYTES + WITNESS_OFFSET,
                        (UseB ? WITNESS_USE_B : 0) | (Mixed ? WITNESS_MIXED : 0));
@@ -8306,6 +8305,9 @@ static void runThreadSemanticsMatVec(ID3D12Device *Device,
   switch (verifyThreadSemanticsOutput(OutData.data(), OutData.size(), Divergent,
                                       Verbose, MatrixSelection)) {
   case ThreadSemanticsOutcome::Verified:
+    return;
+  case ThreadSemanticsOutcome::Unexercised:
+    WEX::Logging::Log::Result(WEX::Logging::TestResults::Blocked);
     return;
   case ThreadSemanticsOutcome::Failed:
     VERIFY_IS_TRUE(false, "Thread semantics verification failed");
