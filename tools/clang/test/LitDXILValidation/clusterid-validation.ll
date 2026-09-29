@@ -18,7 +18,7 @@ target triple = "dxil-ms-dx"
 define void @test_candidate_clusterid_invalid_handle() #0 {
 entry:
   ; Using undef as rayQueryHandle should fail validation
-  %0 = call i32 @dx.op.rayQuery_StateScalar.i32(i32 -2147483644, i32 undef)
+  %0 = call i32 @dx.op.rayQuery_StateScalar.i32(i32 315, i32 undef)
   ret void
 }
 
@@ -26,7 +26,7 @@ entry:
 define void @test_committed_clusterid_invalid_handle() #0 {
 entry:
   ; Using undef as rayQueryHandle should fail validation
-  %0 = call i32 @dx.op.rayQuery_StateScalar.i32(i32 -2147483643, i32 undef)
+  %0 = call i32 @dx.op.rayQuery_StateScalar.i32(i32 316, i32 undef)
   ret void
 }
 
@@ -34,7 +34,7 @@ entry:
 define void @test_hitobject_clusterid_undef() #0 {
 entry:
   ; Using undef HitObject should fail validation
-  %0 = call i32 @dx.op.hitObject_StateScalar.i32(i32 -2147483642, %dx.types.HitObject undef)
+  %0 = call i32 @dx.op.hitObject_StateScalar.i32(i32 317, %dx.types.HitObject undef)
   ret void
 }
 

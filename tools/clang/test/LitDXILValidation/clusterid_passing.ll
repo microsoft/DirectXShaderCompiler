@@ -14,17 +14,17 @@ target triple = "dxil-ms-dx"
 
 ; Function Attrs: nounwind
 define void @"\01?test_closesthit@@YAXUPayload@@UBuiltInTriangleIntersectionAttributes@@@Z"(%struct.Payload* noalias nocapture %payload, %struct.BuiltInTriangleIntersectionAttributes* nocapture readnone %attr) #0 {
-  %1 = call i32 @dx.op.clusterID(i32 -2147483645)  ; ClusterID()
+  %1 = call i32 @dx.op.clusterID(i32 314)  ; ClusterID()
   ret void
 }
 
 ; Function Attrs: nounwind
 define void @"\01?test_raygeneration@@YAXXZ"() #0 {
   %1 = call %dx.types.HitObject @dx.op.hitObject_MakeNop(i32 266)  ; HitObject_MakeNop()
-  %2 = call i32 @dx.op.hitObject_StateScalar.i32(i32 -2147483642, %dx.types.HitObject %1)  ; HitObject_ClusterID(hitObject)
+  %2 = call i32 @dx.op.hitObject_StateScalar.i32(i32 317, %dx.types.HitObject %1)  ; HitObject_ClusterID(hitObject)
   %3 = call i32 @dx.op.allocateRayQuery(i32 178, i32 0)  ; AllocateRayQuery(constRayFlags)
-  %4 = call i32 @dx.op.rayQuery_StateScalar.i32(i32 -2147483644, i32 %3)  ; RayQuery_CandidateClusterID(rayQueryHandle)
-  %5 = call i32 @dx.op.rayQuery_StateScalar.i32(i32 -2147483643, i32 %3)  ; RayQuery_CommittedClusterID(rayQueryHandle)
+  %4 = call i32 @dx.op.rayQuery_StateScalar.i32(i32 315, i32 %3)  ; RayQuery_CandidateClusterID(rayQueryHandle)
+  %5 = call i32 @dx.op.rayQuery_StateScalar.i32(i32 316, i32 %3)  ; RayQuery_CommittedClusterID(rayQueryHandle)
   ret void
 }
 

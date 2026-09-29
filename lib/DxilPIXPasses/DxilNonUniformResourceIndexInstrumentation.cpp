@@ -68,7 +68,7 @@ bool DxilNonUniformResourceIndexInstrumentation::runOnModule(Module &M) {
   // then insert WaveActiveAllEqual to determine if the index is uniform
   // and finally write to a UAV resource with the result.
 
-  PIXPassHelpers::ForEachDynamicallyIndexedResource(
+  bool modified = PIXPassHelpers::ForEachDynamicallyIndexedResource(
       DM, [&](bool IsNonUniformIndex, Instruction *CreateHandle,
               Value *IndexOperand) {
         if (IsNonUniformIndex) {
@@ -155,19 +155,17 @@ bool DxilNonUniformResourceIndexInstrumentation::runOnModule(Module &M) {
         return true;
       });
 
-  const bool modified = (PixUAVResource != nullptr);
-
-  PIXPassHelpers::EraseIfUnused(DM, WaveActiveAllEqualFunc);
-  PIXPassHelpers::EraseIfUnused(DM, AtomicOpFunc);
+  modified |= (PixUAVResource != nullptr);
+  modified |= PIXPassHelpers::eraseIfUnused(DM, WaveActiveAllEqualFunc);
+  modified |= PIXPassHelpers::eraseIfUnused(DM, AtomicOpFunc);
 
   if (modified) {
     // Recompute shader flags after inserting WaveActiveAllEqual so the
     // declared flags match the module.
     DM.CollectShaderFlagsForModule();
-
     DM.ReEmitDxilResources();
 
-    if (OSOverride != nullptr) {
+    if (OSOverride != nullptr && PixUAVResource != nullptr) {
       formatted_raw_ostream FOS(*OSOverride);
       FOS << "\nFoundDynamicIndexingNoNuri\n";
     }
