@@ -8618,6 +8618,14 @@ bool SpirvEmitter::isExprStaticallyHeapSourcedImage(
       declRefExpr ? dyn_cast<VarDecl>(declRefExpr->getDecl()) : nullptr;
   if (!var || !visiting.insert(var).second)
     return false;
+  // var may itself be a parameter that forwards a heap-sourced argument from
+  // its caller(s), ie: forward(RWTexture2D<uint> t) { atomicHelper(t); }
+  // called with a heap image. A param has no init/ assignment of its own to
+  // find below; only paramReceivesHeapSourcedArg can see the value it was
+  // called with.
+  if (const auto *param = dyn_cast<ParmVarDecl>(var))
+    if (paramReceivesHeapSourcedArg(param))
+      return true;
   if (var->getInit() &&
       isExprStaticallyHeapSourcedImage(var->getInit(), visiting))
     return true;
