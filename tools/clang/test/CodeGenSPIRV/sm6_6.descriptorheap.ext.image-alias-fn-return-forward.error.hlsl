@@ -21,9 +21,9 @@
 //   is NOT a loss (see sm6_6.descriptorheap.ext.rwtexture-atomics.hlsl's
 //   reassignment case).
 
-// FORWARD: interlocked operation on a heap-backed RWTexture passed to or returned from a helper function is not supported
-// REASSIGN: interlocked operation on a heap-backed RWTexture passed to or returned from a helper function is not supported
-// LOCAL: interlocked operation on a heap-backed RWTexture passed to or returned from a helper function is not supported
+// FORWARD: interlocked operation on a heap-backed RWTexture must read the descriptor directly at this call site
+// REASSIGN: interlocked operation on a heap-backed RWTexture must read the descriptor directly at this call site
+// LOCAL: interlocked operation on a heap-backed RWTexture must read the descriptor directly at this call site
 
 RWByteAddressBuffer outputBytes : register(u0);
 

@@ -8603,7 +8603,11 @@ bool SpirvEmitter::isHeapSourcedValue(const Expr *expr) const {
 
 bool SpirvEmitter::isExprStaticallyHeapSourcedImage(
     const Expr *expr, llvm::SmallPtrSetImpl<const VarDecl *> &visiting) const {
-  expr = expr->IgnoreParenCasts();
+  // A static local's initializer is wrapped in an ExprWithCleanups (for its
+  // exactly-once-init semantics) that a plain local's or a true global's is
+  // not; IgnoreImplicit sees through that (and MaterializeTemporaryExpr /
+  // CXXBindTemporaryExpr) before IgnoreParenCasts strips the rest.
+  expr = expr->IgnoreImplicit()->IgnoreParenCasts();
   if (isDescriptorHeap(expr))
     return true;
   // expr may itself be a call to another function that returns a
@@ -8769,6 +8773,14 @@ bool SpirvEmitter::isDescriptorHeapImageBoundaryLoss(const Expr *expr) const {
     return false;
   if (const auto *param = dyn_cast<ParmVarDecl>(var))
     return paramReceivesHeapSourcedArg(param);
+  // A global or static-local var is never tracked: doVarDecl only calls
+  // tryToAssignDescriptorHeapImageAlias for ordinary function-local
+  // variables, so descriptorHeapImageAliasVars never gets an entry for one,
+  // even when it's heap-sourced directly (no call boundary crossed at all).
+  if (!var->hasLocalStorage()) {
+    llvm::SmallPtrSet<const VarDecl *, 4> visiting;
+    return isExprStaticallyHeapSourcedImage(e, visiting);
+  }
   if (var->getInit() && crossesThroughCall(var->getInit()))
     return true;
   return anyAssignmentToVarSatisfies(var, crossesThroughCall);
@@ -11368,21 +11380,24 @@ SpirvEmitter::processIntrinsicInterlockedMethod(const CallExpr *expr,
       auto *coordInstr = doExpr(index);
 
       // An atomic on a heap image needs its heap slot, which doesn't survive
-      // a function call. Without this check, the fallback below emits
-      // OpImageTexelPointer on a Function-class copy, which fails
-      // VUID-StandaloneSpirv-OpTypeImage-06924 with no diagnostic. The loss
-      // is traced to the crossing rather than inferred from Function storage
-      // class, because bound images copied into locals or parameters are
-      // Function-class too and legalize fine. Detection is best-effort.
+      // a function call, and is never recorded at all for a global or
+      // static-local variable. Without this check, the fallback below emits
+      // OpImageTexelPointer on a Private- or Function-class copy, which
+      // fails VUID-StandaloneSpirv-OpTypeImage-06924 with no diagnostic. The
+      // loss is traced to these specific causes rather than inferred from
+      // storage class, because bound images copied into locals or
+      // parameters are Function-class too and legalize fine. Detection is
+      // best-effort.
       // TODO(#8784): implement cross-function heap image propagation; once
-      // the slot itself can cross the boundary, remove this check and it's
+      // the slot itself can cross the boundary, remove this check and its
       // tracker
       if (spirvOptions.useDescriptorHeap &&
           isDescriptorHeapImageBoundaryLoss(base)) {
         emitError(
-            "interlocked operation on a heap-backed RWTexture passed to or "
-            "returned from a helper function is not supported; use the "
-            "image directly at the call site",
+            "interlocked operation on a heap-backed RWTexture must read the "
+            "descriptor directly at this call site; it cannot be passed "
+            "through a function call, returned from one, or declared as a "
+            "global or static-local variable",
             dest->getExprLoc());
         return nullptr;
       }

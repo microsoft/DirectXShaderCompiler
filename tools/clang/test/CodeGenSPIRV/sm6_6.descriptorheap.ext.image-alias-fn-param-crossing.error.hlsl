@@ -20,8 +20,8 @@
 //   and misses this; isExprStaticallyHeapSourcedImage (already used for the
 //   return-crossing case) recognizes it.
 
-// ORDER: interlocked operation on a heap-backed RWTexture passed to or returned from a helper function is not supported
-// FORWARDED: interlocked operation on a heap-backed RWTexture passed to or returned from a helper function is not supported
+// ORDER: interlocked operation on a heap-backed RWTexture must read the descriptor directly at this call site
+// FORWARDED: interlocked operation on a heap-backed RWTexture must read the descriptor directly at this call site
 
 RWByteAddressBuffer outputBytes : register(u0);
 RWTexture2D<uint> bound : register(u1);

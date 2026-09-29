@@ -23,7 +23,7 @@
 // TODO(#8784): accept once the descriptor index is propagated across function
 // boundaries.
 
-// CHECK: interlocked operation on a heap-backed RWTexture passed to or returned from a helper function is not supported
+// CHECK: interlocked operation on a heap-backed RWTexture must read the descriptor directly at this call site
 
 RWByteAddressBuffer outputBytes : register(u0);
 
