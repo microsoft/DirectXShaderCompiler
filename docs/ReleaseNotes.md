@@ -73,11 +73,11 @@ first shipped in the 1.10.2605 preview.
 - Fixed the set of numeric types allowed in LinAlg matrix intrinsics
   [#8271](https://github.com/microsoft/DirectXShaderCompiler/issues/8271).
 - Corrected the parameter order of `InterlockedAccumulate`
-  [#8459](https://github.com/microsoft/DirectXShaderCompiler/pull/8459).
+  [microsoft/hlsl-specs#869](https://github.com/microsoft/hlsl-specs/issues/869).
 - Added validation of LinAlg matrix builtin parameters and result K dimension
-  [#8588](https://github.com/microsoft/DirectXShaderCompiler/pull/8588).
+  [#8491](https://github.com/microsoft/DirectXShaderCompiler/issues/8491).
 - Restricted the component types allowed in LinAlg matrices
-  [#8608](https://github.com/microsoft/DirectXShaderCompiler/pull/8608).
+  [#8494](https://github.com/microsoft/DirectXShaderCompiler/issues/8494).
 - Added `BFloat16` to the ComponentType enum in DxilConstants and the linalg
   header [#8722](https://github.com/microsoft/DirectXShaderCompiler/issues/8722).
 - Removed work graph support from Shader Model 6.10, and DXIL 1.10
