@@ -30,19 +30,19 @@ line upon naming the release. Refer to previous for appropriate section names.
   available.
 - Removed work graph support from Shader Model 6.10, and DXIL 1.10
   [microsoft/hlsl-specs#915](https://github.com/microsoft/hlsl-specs/issues/915).
+- Fixed the set of numeric types allowed in LinAlg matrix intrinsics
+  [#8271](https://github.com/microsoft/DirectXShaderCompiler/issues/8271).
+- Corrected the parameter order of `InterlockedAccumulate`
+  [microsoft/hlsl-specs#869](https://github.com/microsoft/hlsl-specs/issues/869).
+- Added validation of LinAlg matrix builtin parameters and result K dimension
+  [#8491](https://github.com/microsoft/DirectXShaderCompiler/issues/8491).
+- Restricted the component types allowed in LinAlg matrices
+  [#8494](https://github.com/microsoft/DirectXShaderCompiler/issues/8494).
+- Added `BFloat16` to the ComponentType enum in DxilConstants and the linalg
+  header [#8722](https://github.com/microsoft/DirectXShaderCompiler/issues/8722).
 
 #### HLSL Language
 
-- Starting with HLSL 202x, the count in `[unroll(N)]` is a partial-unroll hint
-  and no longer limits the number of loop iterations
-  [#8789](https://github.com/microsoft/DirectXShaderCompiler/issues/8789).
-- Casting a scalar to a struct or array containing a resource is now an error
-  instead of crashing
-  [#6661](https://github.com/microsoft/DirectXShaderCompiler/issues/6661).
-- Added the `-Whlsl-2026-compat` warning group for identifying issues
-  with language changes introduced in HLSL 2026.
-- The legacy effects syntax support is removed in HLSL 202x
-  [#8480](https://github.com/microsoft/DirectXShaderCompiler/issues/8480).
 - The `shared` and `uniform` keywords are removed in HLSL 202x, with
   compatibility warnings available for earlier language versions
   [#8482](https://github.com/microsoft/DirectXShaderCompiler/issues/8482).
@@ -65,6 +65,20 @@ line upon naming the release. Refer to previous for appropriate section names.
 
 - Fixed an optimizer crash when scalarizing an out-of-bounds vector access
   [#8940](https://github.com/microsoft/DirectXShaderCompiler/issues/8940).
+
+### Upcoming Preview Release
+
+These changes apply to experimental preview shader models only and will not be
+part of the next non-preview release.
+
+#### Experimental Shader Model 6.11
+
+- Added experimental Shader Model 6.11 target profiles.
+
+### Version 1.9.2609
+
+#### Bug Fixes
+
 - Fixed derivative operations being moved into divergent control flow, which
   could produce incorrect results
   [#8001](https://github.com/microsoft/DirectXShaderCompiler/issues/8001).
@@ -89,6 +103,18 @@ line upon naming the release. Refer to previous for appropriate section names.
   or on one of its fields with payload access qualifiers enabled
   [#6464](https://github.com/microsoft/DirectXShaderCompiler/issues/6464).
 
+#### HLSL Language
+
+- Starting with HLSL 202x, the count in `[unroll(N)]` is a partial-unroll hint
+  and no longer limits the number of loop iterations
+  [#8789](https://github.com/microsoft/DirectXShaderCompiler/issues/8789).
+- Casting a scalar to a struct or array containing a resource is now an error
+  instead of crashing
+  [#6661](https://github.com/microsoft/DirectXShaderCompiler/issues/6661).
+- Added the `-Whlsl-2026-compat` warning group for identifying issues
+  with language changes introduced in HLSL 2026.
+- The legacy effects syntax support is removed in HLSL 202x
+  [#8480](https://github.com/microsoft/DirectXShaderCompiler/issues/8480).
 
 #### SPIR-V
 
@@ -106,16 +132,6 @@ line upon naming the release. Refer to previous for appropriate section names.
 - Fixed incorrect alignment of 64-bit elements in `vk::RawBufferLoad` and
   `vk::RawBufferStore` intrinsics
   [#8572](https://github.com/microsoft/DirectXShaderCompiler/issues/8572).
-
-### Upcoming Preview Release
-
-These changes apply to experimental preview shader models only and will not be
-part of the next non-preview release.
-
-#### Experimental Shader Model 6.11
-
-- Added experimental Shader Model 6.11 target profiles.
-
 
 ### Version 1.9.2607
 
