@@ -35,8 +35,8 @@ attributes #0 = { nounwind readnone }
 !dx.entryPoints = !{!6}
 
 !0 = !{!"custom IR"}
-!1 = !{i32 1, i32 9}
-!2 = !{!"cs", i32 6, i32 9}
+!1 = !{i32 1, i32 10}
+!2 = !{!"cs", i32 6, i32 10}
 !3 = !{null, null, null, null}
 !6 = !{void ()* @main, !"main", null, !3, !7}
 !7 = !{i32 0, i64 0, i32 4, !8}

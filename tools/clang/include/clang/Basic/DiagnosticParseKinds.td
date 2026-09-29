@@ -279,6 +279,10 @@ def warn_cxx98_compat_generalized_initializer_lists : Warning<
   InGroup<CXX98Compat>, DefaultIgnore;
 def err_hlsl_compat_generalized_initializer_lists : Error<
   "generalized initializer lists are incompatible with HLSL">;
+def warn_hlsl_fold_expression
+    : Warning<"fold expressions are a C++17 extension and are not part of "
+              "standard HLSL">,
+      InGroup<HLSLFoldExpressions>;
 def err_init_list_bin_op : Error<"initializer list cannot be used on the "
   "%select{left|right}0 hand side of operator '%1'">;
 def warn_cxx98_compat_trailing_return_type : Warning<
@@ -1009,18 +1013,8 @@ def err_hlsl_nested_namespace_definition : Error<
   "nested namespace definition must define each namespace separately">;
 def warn_hlsl_minprecision_promotion : Warning <
   "%0 is promoted to %1">;
-def warn_hlsl_effect_annotation : Warning <
-  "possible effect annotation ignored - effect syntax is deprecated">,
-  InGroup< HLSLEffectsSyntax >;
-def warn_hlsl_effect_sampler_state : Warning <
-  "effect sampler_state assignment ignored - effect syntax is deprecated">,
-  InGroup< HLSLEffectsSyntax >;
-def warn_hlsl_effect_state_block : Warning <
-  "effect state block ignored - effect syntax is deprecated. To use braces as an initializer use them with equal signs.">,
-  InGroup< HLSLEffectsSyntax >;
-def warn_hlsl_effect_technique : Warning <
-  "effect technique ignored - effect syntax is deprecated">,
-  InGroup< HLSLEffectsSyntax >;
+def note_hlsl_effects_use_equal
+    : Note<"To use braces as an initializer use them with equal signs">;
 def warn_hlsl_semantic_identifier_collision : Warning <
   "'%0' interpreted as semantic; previous definition(s) ignored">,
   InGroup< HLSLSemanticIdentifierCollision >;

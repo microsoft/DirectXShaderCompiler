@@ -305,6 +305,7 @@ SpirvStore *SpirvBuilder::createStore(SpirvInstruction *address,
   }
 
   SpirvInstruction *source = value;
+  SpirvLoad *bitfieldLoad = nullptr;
   const auto &bitfieldInfo = address->getBitfieldInfo();
   if (bitfieldInfo.hasValue()) {
     // Generate SPIR-V type for value. This is required to know the final
@@ -313,11 +314,12 @@ SpirvStore *SpirvBuilder::createStore(SpirvInstruction *address,
     lowerTypeVisitor.visitInstruction(value);
     context.addToInstructionsWithLoweredType(value);
 
-    auto *base = createLoad(value->getResultType(), address, loc, range);
-    source = createBitFieldInsert(/*QualType*/ {}, base, value,
+    bitfieldLoad = createLoad(value->getResultType(), address, loc, range);
+    source = createBitFieldInsert(/*QualType*/ {}, bitfieldLoad, value,
                                   bitfieldInfo->offsetInBits,
                                   bitfieldInfo->sizeInBits, loc, range);
     source->setResultType(value->getResultType());
+    source->setAstResultType(value->getAstResultType());
   }
 
   auto *instruction =
@@ -337,6 +339,8 @@ SpirvStore *SpirvBuilder::createStore(SpirvInstruction *address,
     std::tie(align, size) = alignmentCalc.getAlignmentAndSize(
         source->getAstResultType(), address->getLayoutRule(), llvm::None,
         &stride);
+    if (bitfieldLoad)
+      bitfieldLoad->setAlignment(align);
     instruction->setAlignment(align);
   }
 
