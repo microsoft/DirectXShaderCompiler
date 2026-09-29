@@ -1,4 +1,4 @@
-// RUN: %dxc -Tlib_6_3 -HV 202x -verify %s
+// RUN: %dxc -Tlib_6_3 -HV 2021 -Wno-hlsl-groupshared-202x -verify %s
 
 // The following is meant to be processed by the CodeTags extension in the "VS For Everything" Visual Studio extension:
 /*<py>

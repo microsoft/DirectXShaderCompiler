@@ -11,38 +11,38 @@ target triple = "dxil-ms-dx"
 %dx.types.LinAlgMatrixC8M8N8U0S2 = type { i8* }
 
 define void @main() {
-  %1 = call %dx.types.LinAlgMatrixC8M4N4U2S2 @dx.op.linAlgFillMatrix.mC8M4N4U2S2.i32(i32 -2147483636, i32 1)  ; LinAlgFillMatrix(value)
-  %2 = call %dx.types.LinAlgMatrixC8M4N4U0S2 @dx.op.linAlgFillMatrix.mC8M4N4U0S2.i32(i32 -2147483636, i32 2)  ; LinAlgFillMatrix(value)
-  %3 = call %dx.types.LinAlgMatrixC8M4N4U2S0 @dx.op.linAlgFillMatrix.mC8M4N4U2S0.i32(i32 -2147483636, i32 4)  ; LinAlgFillMatrix(value)
-  %4 = call %dx.types.LinAlgMatrixC8M4N4U1S0 @dx.op.linAlgFillMatrix.mC8M4N4U1S0.i32(i32 -2147483636, i32 5)  ; LinAlgFillMatrix(value)
-  %5 = call %dx.types.LinAlgMatrixC8M4N4U1S1 @dx.op.linAlgFillMatrix.mC8M4N4U1S1.i32(i32 -2147483636, i32 6)  ; LinAlgFillMatrix(value)
-  %6 = call %dx.types.LinAlgMatrixC8M8N8U0S2 @dx.op.linAlgFillMatrix.mC8M8N8U0S2.i32(i32 -2147483636, i32 7)  ; LinAlgFillMatrix(value)
+  %1 = call %dx.types.LinAlgMatrixC8M4N4U2S2 @dx.op.linAlgFillMatrix.mC8M4N4U2S2.i32(i32 323, i1 true, i32 1)  ; LinAlgFillMatrix(isInputSigned,value)
+  %2 = call %dx.types.LinAlgMatrixC8M4N4U0S2 @dx.op.linAlgFillMatrix.mC8M4N4U0S2.i32(i32 323, i1 true, i32 2)  ; LinAlgFillMatrix(isInputSigned,value)
+  %3 = call %dx.types.LinAlgMatrixC8M4N4U2S0 @dx.op.linAlgFillMatrix.mC8M4N4U2S0.i32(i32 323, i1 true, i32 4)  ; LinAlgFillMatrix(isInputSigned,value)
+  %4 = call %dx.types.LinAlgMatrixC8M4N4U1S0 @dx.op.linAlgFillMatrix.mC8M4N4U1S0.i32(i32 323, i1 true, i32 5)  ; LinAlgFillMatrix(isInputSigned,value)
+  %5 = call %dx.types.LinAlgMatrixC8M4N4U1S1 @dx.op.linAlgFillMatrix.mC8M4N4U1S1.i32(i32 323, i1 true, i32 6)  ; LinAlgFillMatrix(isInputSigned,value)
+  %6 = call %dx.types.LinAlgMatrixC8M8N8U0S2 @dx.op.linAlgFillMatrix.mC8M8N8U0S2.i32(i32 323, i1 true, i32 7)  ; LinAlgFillMatrix(isInputSigned,value)
 
   ; CHECK: Function: main: error: Return matrix 'dx.types.LinAlgMatrixC8M4N4U2S2' must exactly match arg 1 matrix 'dx.types.LinAlgMatrixC8M4N4U0S2'.
   ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixAccumulate.mC8M4N4U2S2.mC8M4N4U0S2.mC8M4N4U0S2
-  %7 = call %dx.types.LinAlgMatrixC8M4N4U2S2 @dx.op.linAlgMatrixAccumulate.mC8M4N4U2S2.mC8M4N4U0S2.mC8M4N4U0S2(i32 -2147483624, %dx.types.LinAlgMatrixC8M4N4U0S2 %2, %dx.types.LinAlgMatrixC8M4N4U0S2 %2)  ; LinAlgMatrixAccumulate(matrixLHS,matrixRHS)
+  %7 = call %dx.types.LinAlgMatrixC8M4N4U2S2 @dx.op.linAlgMatrixAccumulate.mC8M4N4U2S2.mC8M4N4U0S2.mC8M4N4U0S2(i32 335, %dx.types.LinAlgMatrixC8M4N4U0S2 %2, %dx.types.LinAlgMatrixC8M4N4U0S2 %2)  ; LinAlgMatrixAccumulate(matrixLHS,matrixRHS)
 
   ; CHECK-NEXT: Function: main: error: Return matrix use 'A' does not match expected use Accumulator.
   ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixAccumulate.mC8M4N4U0S2.mC8M4N4U0S2.mC8M4N4U0S2
-  %8 = call %dx.types.LinAlgMatrixC8M4N4U0S2 @dx.op.linAlgMatrixAccumulate.mC8M4N4U0S2.mC8M4N4U0S2.mC8M4N4U0S2(i32 -2147483624, %dx.types.LinAlgMatrixC8M4N4U0S2 %2, %dx.types.LinAlgMatrixC8M4N4U0S2 %2)  ; LinAlgMatrixAccumulate(matrixLHS,matrixRHS)
+  %8 = call %dx.types.LinAlgMatrixC8M4N4U0S2 @dx.op.linAlgMatrixAccumulate.mC8M4N4U0S2.mC8M4N4U0S2.mC8M4N4U0S2(i32 335, %dx.types.LinAlgMatrixC8M4N4U0S2 %2, %dx.types.LinAlgMatrixC8M4N4U0S2 %2)  ; LinAlgMatrixAccumulate(matrixLHS,matrixRHS)
 
   ; CHECK-NEXT: Function: main: error: Arg 2 matrix use 'Accumulator' does not match expected use A or B.
   ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixAccumulate.mC8M4N4U2S2.mC8M4N4U2S2.mC8M4N4U2S2
-  %9 = call %dx.types.LinAlgMatrixC8M4N4U2S2 @dx.op.linAlgMatrixAccumulate.mC8M4N4U2S2.mC8M4N4U2S2.mC8M4N4U2S2(i32 -2147483624, %dx.types.LinAlgMatrixC8M4N4U2S2 %1, %dx.types.LinAlgMatrixC8M4N4U2S2 %1)  ; LinAlgMatrixAccumulate(matrixLHS,matrixRHS)
+  %9 = call %dx.types.LinAlgMatrixC8M4N4U2S2 @dx.op.linAlgMatrixAccumulate.mC8M4N4U2S2.mC8M4N4U2S2.mC8M4N4U2S2(i32 335, %dx.types.LinAlgMatrixC8M4N4U2S2 %1, %dx.types.LinAlgMatrixC8M4N4U2S2 %1)  ; LinAlgMatrixAccumulate(matrixLHS,matrixRHS)
 
   ; CHECK-NEXT: Function: main: error: Return matrix scope 'ThreadGroup' must match Arg 2 matrix scope 'Wave'.
   ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixAccumulate.mC8M4N4U2S2.mC8M4N4U2S2.mC8M4N4U1S1
-  %10 = call %dx.types.LinAlgMatrixC8M4N4U2S2 @dx.op.linAlgMatrixAccumulate.mC8M4N4U2S2.mC8M4N4U2S2.mC8M4N4U1S1(i32 -2147483624, %dx.types.LinAlgMatrixC8M4N4U2S2 %1, %dx.types.LinAlgMatrixC8M4N4U1S1 %5)  ; LinAlgMatrixAccumulate(matrixLHS,matrixRHS)
+  %10 = call %dx.types.LinAlgMatrixC8M4N4U2S2 @dx.op.linAlgMatrixAccumulate.mC8M4N4U2S2.mC8M4N4U2S2.mC8M4N4U1S1(i32 335, %dx.types.LinAlgMatrixC8M4N4U2S2 %1, %dx.types.LinAlgMatrixC8M4N4U1S1 %5)  ; LinAlgMatrixAccumulate(matrixLHS,matrixRHS)
 
   ; CHECK-NEXT: Function: main: error: Arg 2 matrix scope 'Thread' does not match expected scope Wave or ThreadGroup.
   ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixAccumulate.mC8M4N4U2S0.mC8M4N4U2S0.mC8M4N4U1S0
   ; CHECK-NEXT: Function: main: error: Return matrix scope 'Thread' does not match expected scope Wave or ThreadGroup.
   ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixAccumulate.mC8M4N4U2S0.mC8M4N4U2S0.mC8M4N4U1S0
-  %11 = call %dx.types.LinAlgMatrixC8M4N4U2S0 @dx.op.linAlgMatrixAccumulate.mC8M4N4U2S0.mC8M4N4U2S0.mC8M4N4U1S0(i32 -2147483624, %dx.types.LinAlgMatrixC8M4N4U2S0 %3, %dx.types.LinAlgMatrixC8M4N4U1S0 %4)  ; LinAlgMatrixAccumulate(matrixLHS,matrixRHS)
+  %11 = call %dx.types.LinAlgMatrixC8M4N4U2S0 @dx.op.linAlgMatrixAccumulate.mC8M4N4U2S0.mC8M4N4U2S0.mC8M4N4U1S0(i32 335, %dx.types.LinAlgMatrixC8M4N4U2S0 %3, %dx.types.LinAlgMatrixC8M4N4U1S0 %4)  ; LinAlgMatrixAccumulate(matrixLHS,matrixRHS)
 
   ; CHECK-NEXT: Function: main: error: Arg 2 matrix dimension '8x8' must match return matrix dimension '4x4'.
   ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixAccumulate.mC8M4N4U2S2.mC8M4N4U2S2.mC8M8N8U0S2
-  %12 = call %dx.types.LinAlgMatrixC8M4N4U2S2 @dx.op.linAlgMatrixAccumulate.mC8M4N4U2S2.mC8M4N4U2S2.mC8M8N8U0S2(i32 -2147483624, %dx.types.LinAlgMatrixC8M4N4U2S2 %1, %dx.types.LinAlgMatrixC8M8N8U0S2 %6)  ; LinAlgMatrixAccumulate(matrixLHS,matrixRHS)
+  %12 = call %dx.types.LinAlgMatrixC8M4N4U2S2 @dx.op.linAlgMatrixAccumulate.mC8M4N4U2S2.mC8M4N4U2S2.mC8M8N8U0S2(i32 335, %dx.types.LinAlgMatrixC8M4N4U2S2 %1, %dx.types.LinAlgMatrixC8M8N8U0S2 %6)  ; LinAlgMatrixAccumulate(matrixLHS,matrixRHS)
 
   ; CHECK-NEXT: Validation failed
 
@@ -50,22 +50,22 @@ define void @main() {
 }
 
 ; Function Attrs: nounwind
-declare %dx.types.LinAlgMatrixC8M4N4U2S2 @dx.op.linAlgFillMatrix.mC8M4N4U2S2.i32(i32, i32) #0
+declare %dx.types.LinAlgMatrixC8M4N4U2S2 @dx.op.linAlgFillMatrix.mC8M4N4U2S2.i32(i32, i1, i32) #0
 
 ; Function Attrs: nounwind
-declare %dx.types.LinAlgMatrixC8M4N4U0S2 @dx.op.linAlgFillMatrix.mC8M4N4U0S2.i32(i32, i32) #0
+declare %dx.types.LinAlgMatrixC8M4N4U0S2 @dx.op.linAlgFillMatrix.mC8M4N4U0S2.i32(i32, i1, i32) #0
 
 ; Function Attrs: nounwind
-declare %dx.types.LinAlgMatrixC8M4N4U2S0 @dx.op.linAlgFillMatrix.mC8M4N4U2S0.i32(i32, i32) #0
+declare %dx.types.LinAlgMatrixC8M4N4U2S0 @dx.op.linAlgFillMatrix.mC8M4N4U2S0.i32(i32, i1, i32) #0
 
 ; Function Attrs: nounwind
-declare %dx.types.LinAlgMatrixC8M4N4U1S0 @dx.op.linAlgFillMatrix.mC8M4N4U1S0.i32(i32, i32) #0
+declare %dx.types.LinAlgMatrixC8M4N4U1S0 @dx.op.linAlgFillMatrix.mC8M4N4U1S0.i32(i32, i1, i32) #0
 
 ; Function Attrs: nounwind
-declare %dx.types.LinAlgMatrixC8M4N4U1S1 @dx.op.linAlgFillMatrix.mC8M4N4U1S1.i32(i32, i32) #0
+declare %dx.types.LinAlgMatrixC8M4N4U1S1 @dx.op.linAlgFillMatrix.mC8M4N4U1S1.i32(i32, i1, i32) #0
 
 ; Function Attrs: nounwind
-declare %dx.types.LinAlgMatrixC8M8N8U0S2 @dx.op.linAlgFillMatrix.mC8M8N8U0S2.i32(i32, i32) #0
+declare %dx.types.LinAlgMatrixC8M8N8U0S2 @dx.op.linAlgFillMatrix.mC8M8N8U0S2.i32(i32, i1, i32) #0
 
 ; Function Attrs: nounwind
 declare %dx.types.LinAlgMatrixC8M4N4U2S2 @dx.op.linAlgMatrixAccumulate.mC8M4N4U2S2.mC8M4N4U0S2.mC8M4N4U0S2(i32, %dx.types.LinAlgMatrixC8M4N4U0S2, %dx.types.LinAlgMatrixC8M4N4U0S2) #0
@@ -104,5 +104,5 @@ attributes #0 = { nounwind }
 !7 = !{i32 1, i32 10}
 !8 = !{!"cs", i32 6, i32 10}
 !9 = !{void ()* @main, !"main", null, null, !10}
-!10 = !{i32 4, !11}
+!10 = !{i32 0, i64 2199023255552, i32 4, !11}
 !11 = !{i32 1, i32 1, i32 1}
