@@ -2370,15 +2370,23 @@ unsigned ParmVarDecl::getParameterIndexLarge() const {
 
 // HLSL Change Begins
 void ParmVarDecl::updateOutParamToRefType(ASTContext &C) {
+  QualType ParamType = getType();
+  const PackExpansionType *Expansion = dyn_cast<PackExpansionType>(ParamType);
+  if (Expansion)
+    ParamType = Expansion->getPattern();
+
   // Aggregate type will be indirect param convert to pointer type.
   // So don't update to ReferenceType.
-  if ((!getType()->isArrayType() && !getType()->isRecordType()) ||
-      hlsl::IsHLSLVecMatType(getType()))
-    setType(C.getLValueReferenceType(getType(), false));
+  if ((!ParamType->isArrayType() && !ParamType->isRecordType()) ||
+      hlsl::IsHLSLVecMatType(ParamType))
+    ParamType = C.getLValueReferenceType(ParamType, false);
   // Add restrict to out param.
-  QualType QT = getType();
-  QT.addRestrict();
-  setType(QT);
+  ParamType.addRestrict();
+
+  if (Expansion)
+    ParamType =
+        C.getPackExpansionType(ParamType, Expansion->getNumExpansions());
+  setType(ParamType);
 }
 // HLSL Change Ends
 

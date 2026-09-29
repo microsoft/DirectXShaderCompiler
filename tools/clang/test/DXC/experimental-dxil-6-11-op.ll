@@ -1,4 +1,4 @@
-; REQUIRES: dxil-1-10
+; REQUIRES: dxil-1-11
 ; RUN: %dxa %s -o %t.dxil | FileCheck %s -check-prefix=DXA
 ; RUN: %dxc -dumpbin %t.dxil | FileCheck %s -check-prefix=DXIL
 ; RUN: %dxv %t.dxil -o %t.hash.dxil 2>&1 | FileCheck %s -check-prefix=VAL
@@ -36,8 +36,8 @@ attributes #0 = { nounwind readnone }
 !dx.entryPoints = !{!4}
 
 !0 = !{!"custom IR"}
-!1 = !{i32 1, i32 10}
-!2 = !{!"cs", i32 6, i32 10}
+!1 = !{i32 1, i32 11}
+!2 = !{!"cs", i32 6, i32 11}
 !3 = !{null, null, null, null}
 !4 = !{void ()* @main, !"main", null, !3, !5}
 !5 = !{i32 0, i64 0, i32 4, !6}

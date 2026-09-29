@@ -5,7 +5,7 @@
 // AST: | | |-FunctionTemplateDecl {{[^ ]+}} <<invalid sloc>> <invalid sloc> GetHitKind
 // AST-NEXT: | | | |-TemplateTypeParmDecl {{[^ ]+}} <<invalid sloc>> <invalid sloc> class TResult
 // AST-NEXT: | | | |-CXXMethodDecl {{[^ ]+}} <<invalid sloc>> <invalid sloc> implicit GetHitKind 'TResult () const'
-// AST-NEXT: | | | `-CXXMethodDecl {{[^ ]+}} <<invalid sloc>> <invalid sloc> used GetHitKind 'unsigned int ()' extern
+// AST-NEXT: | | | `-CXXMethodDecl {{[^ ]+}} <<invalid sloc>> <invalid sloc> used GetHitKind 'unsigned int () const' extern
 // AST-NEXT: | | |   |-TemplateArgument type 'unsigned int'
 // AST-NEXT: | | |   |-HLSLIntrinsicAttr {{[^ ]+}} <<invalid sloc>> Implicit "op" "" 366
 // AST-NEXT: | | |   |-ConstAttr {{[^ ]+}} <<invalid sloc>> Implicit
@@ -13,7 +13,7 @@
 // AST: | | |-FunctionTemplateDecl {{[^ ]+}} <<invalid sloc>> <invalid sloc> GetInstanceID
 // AST-NEXT: | | | |-TemplateTypeParmDecl {{[^ ]+}} <<invalid sloc>> <invalid sloc> class TResult
 // AST-NEXT: | | | |-CXXMethodDecl {{[^ ]+}} <<invalid sloc>> <invalid sloc> implicit GetInstanceID 'TResult () const'
-// AST-NEXT: | | | `-CXXMethodDecl {{[^ ]+}} <<invalid sloc>> <invalid sloc> used GetInstanceID 'unsigned int ()' extern
+// AST-NEXT: | | | `-CXXMethodDecl {{[^ ]+}} <<invalid sloc>> <invalid sloc> used GetInstanceID 'unsigned int () const' extern
 // AST-NEXT: | | |   |-TemplateArgument type 'unsigned int'
 // AST-NEXT: | | |   |-HLSLIntrinsicAttr {{[^ ]+}} <<invalid sloc>> Implicit "op" "" 367
 // AST-NEXT: | | |   |-ConstAttr {{[^ ]+}} <<invalid sloc>> Implicit
@@ -21,7 +21,7 @@
 // AST: | | |-FunctionTemplateDecl {{[^ ]+}} <<invalid sloc>> <invalid sloc> GetInstanceIndex
 // AST-NEXT: | | | |-TemplateTypeParmDecl {{[^ ]+}} <<invalid sloc>> <invalid sloc> class TResult
 // AST-NEXT: | | | |-CXXMethodDecl {{[^ ]+}} <<invalid sloc>> <invalid sloc> implicit GetInstanceIndex 'TResult () const'
-// AST-NEXT: | | | `-CXXMethodDecl {{[^ ]+}} <<invalid sloc>> <invalid sloc> used GetInstanceIndex 'unsigned int ()' extern
+// AST-NEXT: | | | `-CXXMethodDecl {{[^ ]+}} <<invalid sloc>> <invalid sloc> used GetInstanceIndex 'unsigned int () const' extern
 // AST-NEXT: | | |   |-TemplateArgument type 'unsigned int'
 // AST-NEXT: | | |   |-HLSLIntrinsicAttr {{[^ ]+}} <<invalid sloc>> Implicit "op" "" 368
 // AST-NEXT: | | |   |-ConstAttr {{[^ ]+}} <<invalid sloc>> Implicit
@@ -29,7 +29,7 @@
 // AST: | | |-FunctionTemplateDecl {{[^ ]+}} <<invalid sloc>> <invalid sloc> GetObjectRayDirection
 // AST-NEXT: | | | |-TemplateTypeParmDecl {{[^ ]+}} <<invalid sloc>> <invalid sloc> class TResult
 // AST-NEXT: | | | |-CXXMethodDecl {{[^ ]+}} <<invalid sloc>> <invalid sloc> implicit GetObjectRayDirection 'TResult () const'
-// AST-NEXT: | | | `-CXXMethodDecl {{[^ ]+}} <<invalid sloc>> <invalid sloc> used GetObjectRayDirection 'vector<float, 3> ()' extern
+// AST-NEXT: | | | `-CXXMethodDecl {{[^ ]+}} <<invalid sloc>> <invalid sloc> used GetObjectRayDirection 'vector<float, 3> () const' extern
 // AST-NEXT: | | |   |-TemplateArgument type 'vector<float, 3>':'vector<float, 3>'
 // AST-NEXT: | | |   |-HLSLIntrinsicAttr {{[^ ]+}} <<invalid sloc>> Implicit "op" "" 369
 // AST-NEXT: | | |   |-ConstAttr {{[^ ]+}} <<invalid sloc>> Implicit
@@ -37,7 +37,7 @@
 // AST: | | |-FunctionTemplateDecl {{[^ ]+}} <<invalid sloc>> <invalid sloc> GetObjectRayOrigin
 // AST-NEXT: | | | |-TemplateTypeParmDecl {{[^ ]+}} <<invalid sloc>> <invalid sloc> class TResult
 // AST-NEXT: | | | |-CXXMethodDecl {{[^ ]+}} <<invalid sloc>> <invalid sloc> implicit GetObjectRayOrigin 'TResult () const'
-// AST-NEXT: | | | `-CXXMethodDecl {{[^ ]+}} <<invalid sloc>> <invalid sloc> used GetObjectRayOrigin 'vector<float, 3> ()' extern
+// AST-NEXT: | | | `-CXXMethodDecl {{[^ ]+}} <<invalid sloc>> <invalid sloc> used GetObjectRayOrigin 'vector<float, 3> () const' extern
 // AST-NEXT: | | |   |-TemplateArgument type 'vector<float, 3>':'vector<float, 3>'
 // AST-NEXT: | | |   |-HLSLIntrinsicAttr {{[^ ]+}} <<invalid sloc>> Implicit "op" "" 370
 // AST-NEXT: | | |   |-ConstAttr {{[^ ]+}} <<invalid sloc>> Implicit
@@ -45,7 +45,7 @@
 // AST: | | |-FunctionTemplateDecl {{[^ ]+}} <<invalid sloc>> <invalid sloc> GetObjectToWorld3x4
 // AST-NEXT: | | | |-TemplateTypeParmDecl {{[^ ]+}} <<invalid sloc>> <invalid sloc> class TResult
 // AST-NEXT: | | | |-CXXMethodDecl {{[^ ]+}} <<invalid sloc>> <invalid sloc> implicit GetObjectToWorld3x4 'TResult () const'
-// AST-NEXT: | | | `-CXXMethodDecl {{[^ ]+}} <<invalid sloc>> <invalid sloc> used GetObjectToWorld3x4 'matrix<float, 3, 4> ()' extern
+// AST-NEXT: | | | `-CXXMethodDecl {{[^ ]+}} <<invalid sloc>> <invalid sloc> used GetObjectToWorld3x4 'matrix<float, 3, 4> () const' extern
 // AST-NEXT: | | |   |-TemplateArgument type 'matrix<float, 3, 4>':'matrix<float, 3, 4>'
 // AST-NEXT: | | |   |-HLSLIntrinsicAttr {{[^ ]+}} <<invalid sloc>> Implicit "op" "" 371
 // AST-NEXT: | | |   |-ConstAttr {{[^ ]+}} <<invalid sloc>> Implicit
@@ -53,7 +53,7 @@
 // AST: | | |-FunctionTemplateDecl {{[^ ]+}} <<invalid sloc>> <invalid sloc> GetObjectToWorld4x3
 // AST-NEXT: | | | |-TemplateTypeParmDecl {{[^ ]+}} <<invalid sloc>> <invalid sloc> class TResult
 // AST-NEXT: | | | |-CXXMethodDecl {{[^ ]+}} <<invalid sloc>> <invalid sloc> implicit GetObjectToWorld4x3 'TResult () const'
-// AST-NEXT: | | | `-CXXMethodDecl {{[^ ]+}} <<invalid sloc>> <invalid sloc> used GetObjectToWorld4x3 'matrix<float, 4, 3> ()' extern
+// AST-NEXT: | | | `-CXXMethodDecl {{[^ ]+}} <<invalid sloc>> <invalid sloc> used GetObjectToWorld4x3 'matrix<float, 4, 3> () const' extern
 // AST-NEXT: | | |   |-TemplateArgument type 'matrix<float, 4, 3>':'matrix<float, 4, 3>'
 // AST-NEXT: | | |   |-HLSLIntrinsicAttr {{[^ ]+}} <<invalid sloc>> Implicit "op" "" 372
 // AST-NEXT: | | |   |-ConstAttr {{[^ ]+}} <<invalid sloc>> Implicit
@@ -61,7 +61,7 @@
 // AST: | | |-FunctionTemplateDecl {{[^ ]+}} <<invalid sloc>> <invalid sloc> GetPrimitiveIndex
 // AST-NEXT: | | | |-TemplateTypeParmDecl {{[^ ]+}} <<invalid sloc>> <invalid sloc> class TResult
 // AST-NEXT: | | | |-CXXMethodDecl {{[^ ]+}} <<invalid sloc>> <invalid sloc> implicit GetPrimitiveIndex 'TResult () const'
-// AST-NEXT: | | | `-CXXMethodDecl {{[^ ]+}} <<invalid sloc>> <invalid sloc> used GetPrimitiveIndex 'unsigned int ()' extern
+// AST-NEXT: | | | `-CXXMethodDecl {{[^ ]+}} <<invalid sloc>> <invalid sloc> used GetPrimitiveIndex 'unsigned int () const' extern
 // AST-NEXT: | | |   |-TemplateArgument type 'unsigned int'
 // AST-NEXT: | | |   |-HLSLIntrinsicAttr {{[^ ]+}} <<invalid sloc>> Implicit "op" "" 373
 // AST-NEXT: | | |   |-ConstAttr {{[^ ]+}} <<invalid sloc>> Implicit
@@ -69,7 +69,7 @@
 // AST: | | |-FunctionTemplateDecl {{[^ ]+}} <<invalid sloc>> <invalid sloc> GetRayFlags
 // AST-NEXT: | | | |-TemplateTypeParmDecl {{[^ ]+}} <<invalid sloc>> <invalid sloc> class TResult
 // AST-NEXT: | | | |-CXXMethodDecl {{[^ ]+}} <<invalid sloc>> <invalid sloc> implicit GetRayFlags 'TResult () const'
-// AST-NEXT: | | | `-CXXMethodDecl {{[^ ]+}} <<invalid sloc>> <invalid sloc> used GetRayFlags 'unsigned int ()' extern
+// AST-NEXT: | | | `-CXXMethodDecl {{[^ ]+}} <<invalid sloc>> <invalid sloc> used GetRayFlags 'unsigned int () const' extern
 // AST-NEXT: | | |   |-TemplateArgument type 'unsigned int'
 // AST-NEXT: | | |   |-HLSLIntrinsicAttr {{[^ ]+}} <<invalid sloc>> Implicit "op" "" 374
 // AST-NEXT: | | |   |-ConstAttr {{[^ ]+}} <<invalid sloc>> Implicit
@@ -77,7 +77,7 @@
 // AST: | | |-FunctionTemplateDecl {{[^ ]+}} <<invalid sloc>> <invalid sloc> GetRayTCurrent
 // AST-NEXT: | | | |-TemplateTypeParmDecl {{[^ ]+}} <<invalid sloc>> <invalid sloc> class TResult
 // AST-NEXT: | | | |-CXXMethodDecl {{[^ ]+}} <<invalid sloc>> <invalid sloc> implicit GetRayTCurrent 'TResult () const'
-// AST-NEXT: | | | `-CXXMethodDecl {{[^ ]+}} <<invalid sloc>> <invalid sloc> used GetRayTCurrent 'float ()' extern
+// AST-NEXT: | | | `-CXXMethodDecl {{[^ ]+}} <<invalid sloc>> <invalid sloc> used GetRayTCurrent 'float () const' extern
 // AST-NEXT: | | |   |-TemplateArgument type 'float'
 // AST-NEXT: | | |   |-HLSLIntrinsicAttr {{[^ ]+}} <<invalid sloc>> Implicit "op" "" 375
 // AST-NEXT: | | |   |-ConstAttr {{[^ ]+}} <<invalid sloc>> Implicit
@@ -85,7 +85,7 @@
 // AST: | | |-FunctionTemplateDecl {{[^ ]+}} <<invalid sloc>> <invalid sloc> GetRayTMin
 // AST-NEXT: | | | |-TemplateTypeParmDecl {{[^ ]+}} <<invalid sloc>> <invalid sloc> class TResult
 // AST-NEXT: | | | |-CXXMethodDecl {{[^ ]+}} <<invalid sloc>> <invalid sloc> implicit GetRayTMin 'TResult () const'
-// AST-NEXT: | | | `-CXXMethodDecl {{[^ ]+}} <<invalid sloc>> <invalid sloc> used GetRayTMin 'float ()' extern
+// AST-NEXT: | | | `-CXXMethodDecl {{[^ ]+}} <<invalid sloc>> <invalid sloc> used GetRayTMin 'float () const' extern
 // AST-NEXT: | | |   |-TemplateArgument type 'float'
 // AST-NEXT: | | |   |-HLSLIntrinsicAttr {{[^ ]+}} <<invalid sloc>> Implicit "op" "" 376
 // AST-NEXT: | | |   |-ConstAttr {{[^ ]+}} <<invalid sloc>> Implicit
@@ -93,7 +93,7 @@
 // AST: | | |-FunctionTemplateDecl {{[^ ]+}} <<invalid sloc>> <invalid sloc> GetShaderTableIndex
 // AST-NEXT: | | | |-TemplateTypeParmDecl {{[^ ]+}} <<invalid sloc>> <invalid sloc> class TResult
 // AST-NEXT: | | | |-CXXMethodDecl {{[^ ]+}} <<invalid sloc>> <invalid sloc> implicit GetShaderTableIndex 'TResult () const'
-// AST-NEXT: | | | `-CXXMethodDecl {{[^ ]+}} <<invalid sloc>> <invalid sloc> used GetShaderTableIndex 'unsigned int ()' extern
+// AST-NEXT: | | | `-CXXMethodDecl {{[^ ]+}} <<invalid sloc>> <invalid sloc> used GetShaderTableIndex 'unsigned int () const' extern
 // AST-NEXT: | | |   |-TemplateArgument type 'unsigned int'
 // AST-NEXT: | | |   |-HLSLIntrinsicAttr {{[^ ]+}} <<invalid sloc>> Implicit "op" "" 377
 // AST-NEXT: | | |   |-ConstAttr {{[^ ]+}} <<invalid sloc>> Implicit
@@ -101,7 +101,7 @@
 // AST: | | |-FunctionTemplateDecl {{[^ ]+}} <<invalid sloc>> <invalid sloc> GetWorldRayDirection
 // AST-NEXT: | | | |-TemplateTypeParmDecl {{[^ ]+}} <<invalid sloc>> <invalid sloc> class TResult
 // AST-NEXT: | | | |-CXXMethodDecl {{[^ ]+}} <<invalid sloc>> <invalid sloc> implicit GetWorldRayDirection 'TResult () const'
-// AST-NEXT: | | | `-CXXMethodDecl {{[^ ]+}} <<invalid sloc>> <invalid sloc> used GetWorldRayDirection 'vector<float, 3> ()' extern
+// AST-NEXT: | | | `-CXXMethodDecl {{[^ ]+}} <<invalid sloc>> <invalid sloc> used GetWorldRayDirection 'vector<float, 3> () const' extern
 // AST-NEXT: | | |   |-TemplateArgument type 'vector<float, 3>':'vector<float, 3>'
 // AST-NEXT: | | |   |-HLSLIntrinsicAttr {{[^ ]+}} <<invalid sloc>> Implicit "op" "" 378
 // AST-NEXT: | | |   |-ConstAttr {{[^ ]+}} <<invalid sloc>> Implicit
@@ -109,7 +109,7 @@
 // AST: | | |-FunctionTemplateDecl {{[^ ]+}} <<invalid sloc>> <invalid sloc> GetWorldRayOrigin
 // AST-NEXT: | | | |-TemplateTypeParmDecl {{[^ ]+}} <<invalid sloc>> <invalid sloc> class TResult
 // AST-NEXT: | | | |-CXXMethodDecl {{[^ ]+}} <<invalid sloc>> <invalid sloc> implicit GetWorldRayOrigin 'TResult () const'
-// AST-NEXT: | | | `-CXXMethodDecl {{[^ ]+}} <<invalid sloc>> <invalid sloc> used GetWorldRayOrigin 'vector<float, 3> ()' extern
+// AST-NEXT: | | | `-CXXMethodDecl {{[^ ]+}} <<invalid sloc>> <invalid sloc> used GetWorldRayOrigin 'vector<float, 3> () const' extern
 // AST-NEXT: | | |   |-TemplateArgument type 'vector<float, 3>':'vector<float, 3>'
 // AST-NEXT: | | |   |-HLSLIntrinsicAttr {{[^ ]+}} <<invalid sloc>> Implicit "op" "" 379
 // AST-NEXT: | | |   |-ConstAttr {{[^ ]+}} <<invalid sloc>> Implicit
@@ -117,7 +117,7 @@
 // AST: | | |-FunctionTemplateDecl {{[^ ]+}} <<invalid sloc>> <invalid sloc> GetWorldToObject3x4
 // AST-NEXT: | | | |-TemplateTypeParmDecl {{[^ ]+}} <<invalid sloc>> <invalid sloc> class TResult
 // AST-NEXT: | | | |-CXXMethodDecl {{[^ ]+}} <<invalid sloc>> <invalid sloc> implicit GetWorldToObject3x4 'TResult () const'
-// AST-NEXT: | | | `-CXXMethodDecl {{[^ ]+}} <<invalid sloc>> <invalid sloc> used GetWorldToObject3x4 'matrix<float, 3, 4> ()' extern
+// AST-NEXT: | | | `-CXXMethodDecl {{[^ ]+}} <<invalid sloc>> <invalid sloc> used GetWorldToObject3x4 'matrix<float, 3, 4> () const' extern
 // AST-NEXT: | | |   |-TemplateArgument type 'matrix<float, 3, 4>':'matrix<float, 3, 4>'
 // AST-NEXT: | | |   |-HLSLIntrinsicAttr {{[^ ]+}} <<invalid sloc>> Implicit "op" "" 380
 // AST-NEXT: | | |   |-ConstAttr {{[^ ]+}} <<invalid sloc>> Implicit
@@ -125,7 +125,7 @@
 // AST: | | |-FunctionTemplateDecl {{[^ ]+}} <<invalid sloc>> <invalid sloc> GetWorldToObject4x3
 // AST-NEXT: | | | |-TemplateTypeParmDecl {{[^ ]+}} <<invalid sloc>> <invalid sloc> class TResult
 // AST-NEXT: | | | |-CXXMethodDecl {{[^ ]+}} <<invalid sloc>> <invalid sloc> implicit GetWorldToObject4x3 'TResult () const'
-// AST-NEXT: | | | `-CXXMethodDecl {{[^ ]+}} <<invalid sloc>> <invalid sloc> used GetWorldToObject4x3 'matrix<float, 4, 3> ()' extern
+// AST-NEXT: | | | `-CXXMethodDecl {{[^ ]+}} <<invalid sloc>> <invalid sloc> used GetWorldToObject4x3 'matrix<float, 4, 3> () const' extern
 // AST-NEXT: | | |   |-TemplateArgument type 'matrix<float, 4, 3>':'matrix<float, 4, 3>'
 // AST-NEXT: | | |   |-HLSLIntrinsicAttr {{[^ ]+}} <<invalid sloc>> Implicit "op" "" 381
 // AST-NEXT: | | |   |-ConstAttr {{[^ ]+}} <<invalid sloc>> Implicit
@@ -133,7 +133,7 @@
 // AST: | | |-FunctionTemplateDecl {{[^ ]+}} <<invalid sloc>> <invalid sloc> IsHit
 // AST-NEXT: | | | |-TemplateTypeParmDecl {{[^ ]+}} <<invalid sloc>> <invalid sloc> class TResult
 // AST-NEXT: | | | |-CXXMethodDecl {{[^ ]+}} <<invalid sloc>> <invalid sloc> implicit IsHit 'TResult () const'
-// AST-NEXT: | | | `-CXXMethodDecl {{[^ ]+}} <<invalid sloc>> <invalid sloc> used IsHit 'bool ()' extern
+// AST-NEXT: | | | `-CXXMethodDecl {{[^ ]+}} <<invalid sloc>> <invalid sloc> used IsHit 'bool () const' extern
 // AST-NEXT: | | |   |-TemplateArgument type 'bool'
 // AST-NEXT: | | |   |-HLSLIntrinsicAttr {{[^ ]+}} <<invalid sloc>> Implicit "op" "" 383
 // AST-NEXT: | | |   |-ConstAttr {{[^ ]+}} <<invalid sloc>> Implicit
@@ -141,7 +141,7 @@
 // AST: | | |-FunctionTemplateDecl {{[^ ]+}} <<invalid sloc>> <invalid sloc> IsMiss
 // AST-NEXT: | | | |-TemplateTypeParmDecl {{[^ ]+}} <<invalid sloc>> <invalid sloc> class TResult
 // AST-NEXT: | | | |-CXXMethodDecl {{[^ ]+}} <<invalid sloc>> <invalid sloc> implicit IsMiss 'TResult () const'
-// AST-NEXT: | | | `-CXXMethodDecl {{[^ ]+}} <<invalid sloc>> <invalid sloc> used IsMiss 'bool ()' extern
+// AST-NEXT: | | | `-CXXMethodDecl {{[^ ]+}} <<invalid sloc>> <invalid sloc> used IsMiss 'bool () const' extern
 // AST-NEXT: | | |   |-TemplateArgument type 'bool'
 // AST-NEXT: | | |   |-HLSLIntrinsicAttr {{[^ ]+}} <<invalid sloc>> Implicit "op" "" 384
 // AST-NEXT: | | |   |-ConstAttr {{[^ ]+}} <<invalid sloc>> Implicit
@@ -149,7 +149,7 @@
 // AST: | | |-FunctionTemplateDecl {{[^ ]+}} <<invalid sloc>> <invalid sloc> IsNop
 // AST-NEXT: | | | |-TemplateTypeParmDecl {{[^ ]+}} <<invalid sloc>> <invalid sloc> class TResult
 // AST-NEXT: | | | |-CXXMethodDecl {{[^ ]+}} <<invalid sloc>> <invalid sloc> implicit IsNop 'TResult () const'
-// AST-NEXT: | | | `-CXXMethodDecl {{[^ ]+}} <<invalid sloc>> <invalid sloc> used IsNop 'bool ()' extern
+// AST-NEXT: | | | `-CXXMethodDecl {{[^ ]+}} <<invalid sloc>> <invalid sloc> used IsNop 'bool () const' extern
 // AST-NEXT: | | |   |-TemplateArgument type 'bool'
 // AST-NEXT: | | |   |-HLSLIntrinsicAttr {{[^ ]+}} <<invalid sloc>> Implicit "op" "" 385
 // AST-NEXT: | | |   |-ConstAttr {{[^ ]+}} <<invalid sloc>> Implicit
@@ -159,7 +159,7 @@
 // AST-NEXT: | | | |-TemplateTypeParmDecl {{[^ ]+}} <<invalid sloc>> <invalid sloc> class TRootConstantOffsetInBytes
 // AST-NEXT: | | | |-CXXMethodDecl {{[^ ]+}} <<invalid sloc>> <invalid sloc> implicit LoadLocalRootTableConstant 'TResult (TRootConstantOffsetInBytes) const'
 // AST-NEXT: | | | | `-ParmVarDecl {{[^ ]+}} <<invalid sloc>> <invalid sloc> RootConstantOffsetInBytes 'TRootConstantOffsetInBytes'
-// AST-NEXT: | | | `-CXXMethodDecl {{[^ ]+}} <<invalid sloc>> <invalid sloc> used LoadLocalRootTableConstant 'unsigned int (unsigned int)' extern
+// AST-NEXT: | | | `-CXXMethodDecl {{[^ ]+}} <<invalid sloc>> <invalid sloc> used LoadLocalRootTableConstant 'unsigned int (unsigned int) const' extern
 // AST-NEXT: | | |   |-TemplateArgument type 'unsigned int'
 // AST-NEXT: | | |   |-TemplateArgument type 'unsigned int'
 // AST-NEXT: | | |   |-ParmVarDecl {{[^ ]+}} <<invalid sloc>> <invalid sloc> LoadLocalRootTableConstant 'unsigned int'
@@ -169,7 +169,7 @@
 // AST: | | |-FunctionTemplateDecl {{[^ ]+}} <<invalid sloc>> <invalid sloc> SetShaderTableIndex
 // AST-NEXT: | | | |-TemplateTypeParmDecl {{[^ ]+}} <<invalid sloc>> <invalid sloc> class TResult
 // AST-NEXT: | | | |-TemplateTypeParmDecl {{[^ ]+}} <<invalid sloc>> <invalid sloc> class TRecordIndex
-// AST-NEXT: | | | |-CXXMethodDecl {{[^ ]+}} <<invalid sloc>> <invalid sloc> implicit SetShaderTableIndex 'TResult (TRecordIndex) const'
+// AST-NEXT: | | | |-CXXMethodDecl {{[^ ]+}} <<invalid sloc>> <invalid sloc> implicit SetShaderTableIndex 'TResult (TRecordIndex)'
 // AST-NEXT: | | | | `-ParmVarDecl {{[^ ]+}} <<invalid sloc>> <invalid sloc> RecordIndex 'TRecordIndex'
 // AST-NEXT: | | | `-CXXMethodDecl {{[^ ]+}} <<invalid sloc>> <invalid sloc> used SetShaderTableIndex 'void (unsigned int)' extern
 // AST-NEXT: | | |   |-TemplateArgument type 'void'

@@ -14,7 +14,7 @@ define void @main() {
 }
 
 ; Function Attrs: nounwind
-declare %dx.types.LinAlgMatrixC4M5N4U1S2 @dx.op.linAlgFillMatrix.mC4M5N4U1S2.i32(i32, i32) #0
+declare %dx.types.LinAlgMatrixC4M5N4U1S2 @dx.op.linAlgFillMatrix.mC4M5N4U1S2.i32(i32, i1, i32) #0
 
 attributes #0 = { nounwind }
 

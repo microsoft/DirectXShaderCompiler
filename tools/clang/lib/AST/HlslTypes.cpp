@@ -97,9 +97,11 @@ bool IsHLSLNumericOrAggregateOfNumericType(clang::QualType type) {
   }
 
   // Chars can only appear as part of strings, which we don't consider numeric.
+  // LinAlg matrix handles are opaque objects, not numeric data.
   const BuiltinType *BuiltinTy = dyn_cast<BuiltinType>(Ty);
   return BuiltinTy != nullptr &&
-         BuiltinTy->getKind() != BuiltinType::Kind::Char_S;
+         BuiltinTy->getKind() != BuiltinType::Kind::Char_S &&
+         BuiltinTy->getKind() != BuiltinType::Kind::LinAlgMatrix;
 }
 
 // In some cases we need record types that are annotatable and trivially
@@ -979,6 +981,26 @@ HLSLScalarType MakeUnsigned(HLSLScalarType T) {
     break;
   }
   return T;
+}
+
+bool IsTypeDeducibleWithAuto(QualType type) {
+  if (type.isNull())
+    return false;
+
+  if (hlsl::IsStringType(type) || hlsl::IsStringLiteralType(type))
+    return false;
+
+  if (const CXXRecordDecl *recordDecl =
+          GetStructuralForm(type)->getAsCXXRecordDecl()) {
+    if (!recordDecl->hasAttr<HLSLNonAutoDeducibleAttr>())
+      if (const CXXRecordDecl *pattern =
+              recordDecl->getTemplateInstantiationPattern())
+        recordDecl = pattern;
+    if (recordDecl->hasAttr<HLSLNonAutoDeducibleAttr>())
+      return false;
+  }
+
+  return true;
 }
 
 } // namespace hlsl

@@ -22,10 +22,48 @@ The included licenses apply to the following files:
 Place release notes for the upcoming release below this line and remove this
 line upon naming the release. Refer to previous for appropriate section names.
 
+#### Shader Model 6.10
+
+- Shader Model 6.10 and DXIL 1.10 are now available in retail, introducing
+  LinAlg Matrix, WaveGroup Index and Count, DebugBreak, Clustered Geometry, and
+  Triangle Object Positions, with detailed blog posts to be linked here once
+  available.
+- Removed work graph support from Shader Model 6.10, and DXIL 1.10
+  [microsoft/hlsl-specs#915](https://github.com/microsoft/hlsl-specs/issues/915).
+
+#### HLSL Language
+
+- The `shared` and `uniform` keywords are removed in HLSL 202x, with
+  compatibility warnings available for earlier language versions
+  [#8482](https://github.com/microsoft/DirectXShaderCompiler/issues/8482).
+- Added support for `auto` return types for normal functions aligning with C++14
+  [#8903](https://github.com/microsoft/DirectXShaderCompiler/issues/8903).
+- HLSL 202x now supports variadic templates and template function parameter
+  packs, pack expansions, and `sizeof...()`
+  [#8905](https://github.com/microsoft/DirectXShaderCompiler/issues/8905).
+- HLSL 202x disallows putting cbuffer, tbuffer, or namespace declarations inside
+  a cbuffer or tbuffer
+  [#8484](https://github.com/microsoft/DirectXShaderCompiler/issues/8484).
+- Starting with HLSL 202x, `cbuffer` and `tbuffer` declarations and their
+  members belong to their enclosing namespace.
+- HLSL 202x supports `const`-qualified instance methods and rejects calls
+  to non-`const` methods on `const` objects, including objects in constant
+  buffers
+  [#8964](https://github.com/microsoft/DirectXShaderCompiler/issues/8964).
+
+#### Bug Fixes
+
+- Fixed an optimizer crash when scalarizing an out-of-bounds vector access
+  [#8940](https://github.com/microsoft/DirectXShaderCompiler/issues/8940).
+
 ### Upcoming Preview Release
 
 These changes apply to experimental preview shader models only and will not be
 part of the next non-preview release.
+
+#### Experimental Shader Model 6.11
+
+- Added experimental Shader Model 6.11 target profiles.
 
 #### Experimental Shader Model 6.10
 
@@ -42,7 +80,8 @@ first shipped in the 1.10.2605 preview.
   [#8608](https://github.com/microsoft/DirectXShaderCompiler/pull/8608).
 - Added `BFloat16` to the ComponentType enum in DxilConstants and the linalg
   header [#8722](https://github.com/microsoft/DirectXShaderCompiler/issues/8722).
-- Removed work graph support from Shader Model 6.10, and DXIL 1.10 [microsoft/hlsl-specs#915](https://github.com/microsoft/hlsl-specs/issues/915).
+- Removed work graph support from Shader Model 6.10, and DXIL 1.10
+  [microsoft/hlsl-specs#915](https://github.com/microsoft/hlsl-specs/issues/915).
 
 ### Version 1.9.2609
 

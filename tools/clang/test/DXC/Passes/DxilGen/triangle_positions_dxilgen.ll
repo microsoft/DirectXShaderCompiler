@@ -2,17 +2,17 @@
 ; REQUIRES: dxil-1-10
 
 ; CHECK-LABEL: define void {{.*}}ClosestHit
-; CHECK:   %{{.*}} = call <9 x float> @dx.op.triangleObjectPosition.f32(i32 -2147483641)
+; CHECK:   %{{.*}} = call <9 x float> @dx.op.triangleObjectPosition.f32(i32 318)
 
 ; CHECK-LABEL: define void {{.*}}AnyHit
-; CHECK:   %{{.*}} = call <9 x float> @dx.op.triangleObjectPosition.f32(i32 -2147483641)
+; CHECK:   %{{.*}} = call <9 x float> @dx.op.triangleObjectPosition.f32(i32 318)
 
 ; CHECK-LABEL: define void {{.*}}RayQueryTest
-; CHECK: %{{.*}} = call <9 x float> @dx.op.rayQuery_CandidateTriangleObjectPosition.f32(i32 -2147483640, i32 %{{.*}})
-; CHECK: %{{.*}} = call <9 x float> @dx.op.rayQuery_CommittedTriangleObjectPosition.f32(i32 -2147483639, i32 %{{.*}})
+; CHECK: %{{.*}} = call <9 x float> @dx.op.rayQuery_CandidateTriangleObjectPosition.f32(i32 319, i32 %{{.*}})
+; CHECK: %{{.*}} = call <9 x float> @dx.op.rayQuery_CommittedTriangleObjectPosition.f32(i32 320, i32 %{{.*}})
 
 ; CHECK-LABEL: define void {{.*}}HitObjectTest
-; CHECK: %{{.*}} = call <9 x float> @dx.op.hitObject_TriangleObjectPosition.f32(i32 -2147483638, %dx.types.HitObject %{{.*}})
+; CHECK: %{{.*}} = call <9 x float> @dx.op.hitObject_TriangleObjectPosition.f32(i32 321, %dx.types.HitObject %{{.*}})
 
 ; CHECK-DAG: declare <9 x float> @dx.op.triangleObjectPosition.f32(i32)
 ; CHECK-DAG: declare <9 x float> @dx.op.rayQuery_CommittedTriangleObjectPosition.f32(i32, i32)

@@ -1134,6 +1134,8 @@ def get_hlsl_intrinsics():
             flags.append("INTRIN_FLAG_IS_WAVE")
         if i.static_member:
             flags.append("INTRIN_FLAG_STATIC_MEMBER")
+        if i.mutable_method:
+            flags.append("INTRIN_FLAG_MUTABLE_METHOD")
         if flags:
             flags = " | ".join(flags)
         else:
@@ -1736,7 +1738,7 @@ def get_extended_table_opcode_enum_decls():
 # since there can be pre-release versions that are higher
 # than the last released version
 highest_major = 6
-highest_minor = 10
+highest_minor = 11
 highest_shader_models = {4: 1, 5: 1, 6: highest_minor}
 
 # fetch the last released version from latest-released.json

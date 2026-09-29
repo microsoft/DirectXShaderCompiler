@@ -73,6 +73,10 @@ def warn_hlsl_2026_effects
               "assignment|state block|technique|object}0 ignored - "
               "effect syntax is deprecated and will be removed in HLSL 2026">,
       InGroup<HLSLEffectsSyntax>;
+def warn_hlsl_2026_removed_keyword
+    : Warning<"'%0' is ignored and will be removed in HLSL 2026">,
+      InGroup<HLSL2026RemovedKeywords>,
+      DefaultIgnore;
 // HLSL Change Ends
 def ext_variadic_templates : ExtWarn<
   "variadic templates are a C++11 extension">, InGroup<CXX11>;
