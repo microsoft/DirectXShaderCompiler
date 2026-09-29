@@ -4868,8 +4868,8 @@ float4 main(float4 pos : SV_Position) : SV_Target
   VERIFY_SUCCEEDED(pOptimizer->RunOptimizer(
       dxil, Options.data(), Options.size(), &pOptimizedModule, &pText));
 
-  verifyInstrumentedModuleIsValid(
-      pOptimizedModule, "non-uniform resource index instrumentation");
+  verifyInstrumentedModuleIsValid(pOptimizedModule,
+                                  "non-uniform resource index instrumentation");
 
   VERIFY_ARE_NOT_EQUAL(
       std::string::npos,
