@@ -42,8 +42,8 @@ examples will not work with Glslang.
 
 All of the examples are available in the DXC repository, at
 https://github.com/Microsoft/DirectXShaderCompiler/tree/main/tools/clang/test/CodeGenSPIRV/legal-examples
-. To open a link to Tim Jones' Shader Playground for an example, you can
-follow the url in the comments of each example.
+. To open an interactive session on Compiler Explorer for an example, you
+can follow the url in the comments of each example.
 
 Examples for structured buffers
 ===============================
@@ -54,7 +54,7 @@ Desired code
 .. code-block:: hlsl
 
     // 0-copy-sbuf-ok.hlsl
-    // http://shader-playground.timjones.io/e6af2bdce0c61ed07d3a826aa8a95d45
+    // https://godbolt.org/z/PEfooc9Kx
 
     struct S {
       float4 f;
@@ -93,7 +93,7 @@ Initialization of a static
 .. code-block:: hlsl
 
     // 1-copy-global-static-ok.hlsl
-    // http://shader-playground.timjones.io/815543dc91a4e6855a8d0c6a345d4a5a
+    // https://godbolt.org/z/jTGE8Tnzn
 
     struct S {
       float4 f;
@@ -122,7 +122,7 @@ This example can be legalized because the compiler is able to see that
 .. code-block:: hlsl
 
     // 2-write-global-static-ok.hlsl
-    // http://shader-playground.timjones.io/1c65c467e395383945d219a60edbe10c
+    // https://godbolt.org/z/hPbzf1v76
 
     struct S {
       float4 f;
@@ -150,7 +150,7 @@ Copy to function scope
 .. code-block:: hlsl
 
     // 3-copy-local-struct-ok.hlsl
-    // http://shader-playground.timjones.io/77dd20774e4943044c2f1b630c539f07
+    // https://godbolt.org/z/G4neKP8ce
 
     struct S {
       float4 f;
@@ -186,7 +186,7 @@ The following is a move complicated example.
 .. code-block:: hlsl
 
     // 4-copy-local-nested-struct-ok.hlsl
-    // http://shader-playground.timjones.io/14f59ff2a28c0a0180daf6ce4393cf6b
+    // https://godbolt.org/z/z7vvbhzrY
 
     struct S {
       float4 f;
@@ -223,7 +223,7 @@ Function parameters
 .. code-block:: hlsl
 
     // 5-func-param-sbuf-ok.hlsl
-    // http://shader-playground.timjones.io/aeb06f527c5390d82d63bdb4eafc9ae7
+    // https://godbolt.org/z/WGs5b95nr
 
     struct S {
       float4 f;
@@ -256,7 +256,7 @@ same way that arrays work in C/C++.
 .. code-block:: hlsl
 
     // 6-func-param-rwsbuf-ok.hlsl
-    // http://shader-playground.timjones.io/f4e0194ce78118c0a709d85080ccea93
+    // https://godbolt.org/z/f6ae1fKqq
 
     struct S {
       float4 f;
@@ -290,7 +290,7 @@ to the global resource.
 .. code-block:: hlsl
 
     // 7-func-ret-tmp-var-ok.hlsl
-    // http://shader-playground.timjones.io/d6b706423f02dad58fbb01841282c6a1
+    // https://godbolt.org/z/YdozvhqrE
 
     struct S {
       float4 f;
@@ -316,7 +316,7 @@ to the global resource.
 .. code-block:: hlsl
 
     // 8-func-ret-direct-ok.hlsl
-    // http://shader-playground.timjones.io/6edbbc1aa6c6b6533c5a728135f87fb9
+    // https://godbolt.org/z/cn94xccbP
 
     struct S {
       float4 f;
@@ -360,7 +360,7 @@ resource is actually being accessed.
 .. code-block:: hlsl
 
     // 9-if-stmt-select-fail.hlsl
-    // http://shader-playground.timjones.io/2896e95627fd8a6689ca96c81a5c7c68
+    // https://godbolt.org/z/anbjo5WoW
 
     struct S {
       float4 f;
@@ -403,7 +403,7 @@ code into the following:
 .. code-block:: hlsl
 
     // 10-if-stmt-select-ok.hlsl
-    // http://shader-playground.timjones.io/5063d8a0a7ad1f9d0839cd34a6d94dd2
+    // https://godbolt.org/z/WcsP3jfb3
 
     struct S {
       float4 f;
@@ -450,7 +450,7 @@ and knows that is always false.
 .. code-block:: hlsl
 
     // 11-if-stmt-const-ok.hlsl
-    // http://shader-playground.timjones.io/7ef5b89b3ec3d56c22e1bca45b40516a
+    // https://godbolt.org/z/oG69bG87n
 
     struct S {
       float4 f;
@@ -511,7 +511,7 @@ constant, then the compiler will be able to propagate the copies.
 .. code-block:: hlsl
 
     // 12-switch-stmt-select-fail.hlsl
-    // http://shader-playground.timjones.io/b079f878daeba5d77842725b90a476ca
+    // https://godbolt.org/z/Y3KjTdGEa
 
     struct S {
       float4 f;
@@ -551,7 +551,7 @@ does not know the value of ``i`` at compile time.
 .. code-block:: hlsl
 
     // 13-switch-stmt-const-ok.hlsl
-    // http://shader-playground.timjones.io/a46dd1f1a84eba38c047439741ec08ab
+    // https://godbolt.org/z/4GGn6cY4K
 
     struct S {
       float4 f;
@@ -598,7 +598,7 @@ iteration of the loop. Consider this example.
 .. code-block:: hlsl
 
     // 14-loop-var-fail.hlsl
-    // http://shader-playground.timjones.io/8df364770e3f425e6321e71f817bcd1a
+    // https://godbolt.org/z/KexMWYKbY
 
     struct S {
       float4 f;
@@ -641,7 +641,7 @@ attribute. The following example can be legalized by the compiler:
 .. code-block:: hlsl
 
     // 15-loop-var-unroll-ok.hlsl
-    // http://shader-playground.timjones.io/3d0f6f830fc4a5102714e19c748e81c7
+    // https://godbolt.org/z/fMvjWa15T
 
     struct S {
       float4 f;
@@ -691,7 +691,7 @@ because the number of iterations cannot be known at compile time.
 .. code-block:: hlsl
 
     // 16-loop-var-range-fail.hlsl
-    // http://shader-playground.timjones.io/376f5f985c3ceceea004ab58edb336f2
+    // https://godbolt.org/z/vdrqz3qv7
 
     struct S {
       float4 f;
@@ -776,7 +776,7 @@ integral type.
 .. code-block:: hlsl
 
     // 17-loop-var-float-fail.hlsl
-    // http://shader-playground.timjones.io/d5d2598699378688684a4a074553dddf
+    // https://godbolt.org/z/GvdTn98c9
 
     struct S {
       float4 f;
@@ -819,7 +819,7 @@ Multiple calls to a function
 .. code-block:: hlsl
 
     // 18-multi-func-call-ok.hlsl
-    // http://shader-playground.timjones.io/e7b3ac1262a291c92902fd3f1fd3343c
+    // https://godbolt.org/z/hz7hbdG97
 
     struct S {
       float4 f;
@@ -858,7 +858,7 @@ returns.
 .. code-block:: hlsl
 
     // 19-multi-func-ret-fail.hlsl
-    // http://shader-playground.timjones.io/922facb688a5ba09b153d64cf1fc4557
+    // https://godbolt.org/z/qPbEs36Ge
 
     struct S {
       float4 f;
@@ -891,7 +891,7 @@ determine which path will be taken, then it can be legalized.
 .. code-block:: hlsl
 
     // 20-multi-func-ret-const-ok.hlsl
-    // http://shader-playground.timjones.io/84b093c7cf9e3932c5f0d9691533bafe
+    // https://godbolt.org/z/rhGP39brc
 
     struct S {
       float4 f;
@@ -930,7 +930,7 @@ source code.
 .. code-block:: hlsl
 
     // 21-combined-ok.hlsl
-    // http://shader-playground.timjones.io/9f00d2d359da0731cdf8d0b68520e2c4
+    // https://godbolt.org/z/nGT3sYhse
 
     struct S {
       float4 f;

@@ -1,4 +1,4 @@
-// REQUIRES: dxil-1-8
+// REQUIRES: dxil-1-10
 // RUN: %dxc -E main -T ps_6_8 %s -Fo %t
 // RUN: %dxa %t -dumppsv | FileCheck %s
 
@@ -19,6 +19,7 @@
 // CHECK-NEXT:  SigOutputVectors[2]: 0
 // CHECK-NEXT:  SigOutputVectors[3]: 0
 // CHECK-NEXT:  EntryFunctionName: main
+// CHECK-NEXT:  LinAlgRuntimeInfoPresent: false
 // CHECK-NEXT: ResourceCount : 3
 // CHECK-NEXT:  PSVResourceBindInfo:
 // CHECK-NEXT:   Space: 0

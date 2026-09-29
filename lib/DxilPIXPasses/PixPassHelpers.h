@@ -49,7 +49,7 @@ llvm::CallInst *CreateHandleForResource(hlsl::DxilModule &DM,
                                         hlsl::DxilResourceBase *resource,
                                         const char *name);
 llvm::Function *GetEntryFunction(hlsl::DxilModule &DM);
-void EraseIfUnused(hlsl::DxilModule &DM, llvm::Function *OpFunction);
+bool eraseIfUnused(hlsl::DxilModule &DM, llvm::Function *OpFunction);
 // A stale ViewID dependency table describes registers that do not match the
 // module's current signature sizes. Call after appending a signature
 // element.
@@ -107,7 +107,7 @@ enum class SVPositionRowAuthority {
 unsigned int FindOrAddSV_Position(
     hlsl::DxilModule &DM, unsigned UpStreamSVPosRow,
     SVPositionRowAuthority RowAuthority = SVPositionRowAuthority::Hint);
-void ForEachDynamicallyIndexedResource(
+bool ForEachDynamicallyIndexedResource(
     hlsl::DxilModule &DM,
     const std::function<bool(bool, llvm::Instruction *, llvm::Value *)>
         &Visitor);

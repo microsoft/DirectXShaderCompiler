@@ -677,7 +677,7 @@ DxilDebugInstrumentation::addVertexShaderProlog(BuilderContext &BC,
   // GetOpFunc materializes the loadInput declaration before either system
   // value's availability is known. With neither call emitted, the
   // declaration is unused, which the validator rejects.
-  PIXPassHelpers::EraseIfUnused(BC.DM, LoadInputOpFunc);
+  PIXPassHelpers::eraseIfUnused(BC.DM, LoadInputOpFunc);
   return BC.HlslOP->GetI1Const(0);
 }
 
