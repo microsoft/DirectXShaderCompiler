@@ -33,7 +33,6 @@
 #include "clang/SPIRV/FeatureManager.h"
 #include "clang/SPIRV/SpirvBuilder.h"
 #include "clang/SPIRV/SpirvContext.h"
-#include "llvm/ADT/DenseSet.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SmallPtrSet.h"
 
@@ -308,6 +307,17 @@ private:
   /// needed. expr's type isn't checked, since heap buffer aliases are
   /// rejected at the crossing itself.
   bool isDescriptorHeapImageBoundaryLoss(const Expr *expr) const;
+
+  /// \brief Returns true if any call site in the translation unit passes a
+  /// statically heap-sourced argument (see isExprStaticallyHeapSourcedImage)
+  /// for param.
+  ///
+  /// Scans the AST rather than recording state at a call site, since
+  /// work queue can emit param's function before that call site is
+  /// processed, or the arg can be a local (transitively) sourced from a
+  /// heap-returning call rather than a runtime-tracked alias variable.
+  /// Memoized in descriptorHeapImageParamLossCache.
+  bool paramReceivesHeapSourcedArg(const ParmVarDecl *param) const;
 
   /// \brief Scans var's enclosing function for an assignment `var = rhs;`
   /// anywhere in the body, calling pred(rhs) for each and returning true on
@@ -1789,26 +1799,14 @@ private:
   llvm::DenseMap<const VarDecl *, DescriptorHeapBufferAlias>
       descriptorHeapBufferAliasVars;
 
-  /// Parameters whose argument, at some call site, was a heap-sourced image
-  /// (see isHeapSourcedValue): the slot lives in the caller's
-  /// descriptorHeapImageAliasVars, keyed on the caller's VarDecl, and is
-  /// invisible to the callee's parameter. Plain OpImageRead/OpImageWrite
-  /// remain valid on the parameter (the loaded handle alone is sufficient),
-  /// so this is only consulted lazily, when an atomic needs the heap slot
-  /// for OpImageTexelPointer. See isDescriptorHeapImageBoundaryLoss.
-  ///
-  /// Only parameters are recorded here: a local initialized from a
-  /// heap-returning call is instead detected on demand by
-  /// isDescriptorHeapImageBoundaryLoss re-deriving it from the local's own
-  /// initializer, because whether the call is heap-returning can depend on
-  /// a callee not yet emitted (see functionReturnsHeapSourcedImage) at the
-  /// point the local's declaration is processed.
-  llvm::DenseSet<const VarDecl *> descriptorHeapImageBoundaryLossVars;
-
   /// Memoization cache for functionReturnsHeapSourcedImage, keyed on each
   /// FunctionDecl's canonical declaration.
   mutable llvm::DenseMap<const FunctionDecl *, bool>
       descriptorHeapImageReturnCache;
+
+  /// Memoization cache for paramReceivesHeapSourcedArg.
+  mutable llvm::DenseMap<const ParmVarDecl *, bool>
+      descriptorHeapImageParamLossCache;
 
   /// The source location of a push constant block we have previously seen.
   /// Invalid means no push constant blocks defined thus far.

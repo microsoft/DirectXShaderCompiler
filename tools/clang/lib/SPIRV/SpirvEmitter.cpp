@@ -3497,20 +3497,13 @@ SpirvInstruction *SpirvEmitter::processCall(const CallExpr *callExpr) {
       return nullptr;
     }
 
-    // A heap image's slot is tracked in the caller's alias state, which the
-    // callee's parameter doesn't share. Plain reads and writes on the
-    // parameter still work, since they only need the handle, but an atomic
-    // needs the slot, so the parameter is flagged for that atomic to report
-    // the loss. The flag only reaches atomics emitted after this call.
-    // Heap buffer aliases are rejected below instead: every access through
-    // one needs the buffer pointer, and passing that pointer would need
-    // VariablePointersStorageBuffer.
-    if (spirvOptions.useDescriptorHeap &&
-        !isAKindOfStructuredOrByteBuffer(paramType) &&
-        !isConstantTextureBuffer(paramType) &&
-        isHeapSourcedValue(arg->IgnoreParenCasts())) {
-      descriptorHeapImageBoundaryLossVars.insert(param);
-    }
+    // A heap image's slot lives in the caller's alias state, invisible to
+    // the callee's parameter; nothing needs to happen here for it.
+    // isDescriptorHeapImageBoundaryLoss (via paramReceivesHeapSourcedArg)
+    // diagnoses this later, on demand, only if an atomic on the parameter
+    // actually needs the slot. Heap buffer aliases are rejected below
+    // instead: every access through one needs the buffer pointer, so
+    // there's no atomic-only case to defer.
 
     // Any heap-sourced buffer argument (a direct heap subscript, or a
     // reference to a variable recorded in descriptorHeapBufferAliasVars)
@@ -8701,6 +8694,54 @@ bool SpirvEmitter::functionReturnsHeapSourcedImage(
   return result;
 }
 
+bool SpirvEmitter::paramReceivesHeapSourcedArg(const ParmVarDecl *param) const {
+  auto cached = descriptorHeapImageParamLossCache.find(param);
+  if (cached != descriptorHeapImageParamLossCache.end())
+    return cached->second;
+  // Seed with false before scanning; see functionReturnsHeapSourcedImage for
+  // why this is a local/second-lookup write rather than live reference.
+  descriptorHeapImageParamLossCache[param] = false;
+
+  bool result = false;
+  const auto *owner = dyn_cast_or_null<FunctionDecl>(param->getDeclContext());
+  if (owner) {
+    owner = owner->getCanonicalDecl();
+    const unsigned paramIndex = param->getFunctionScopeIndex();
+    // No call graph is available, so finding param's callers means walking
+    // every function body in the TU for a CallExpr targeting owner.
+    // Shallow scan of TU decls, dont visit methods on user-defined types.
+    for (const Decl *d : astContext.getTranslationUnitDecl()->decls()) {
+      const auto *caller = dyn_cast<FunctionDecl>(d);
+      if (!caller || !caller->getBody())
+        continue;
+      llvm::SmallVector<const Stmt *, 16> worklist{caller->getBody()};
+      while (!worklist.empty()) {
+        const Stmt *s = worklist.pop_back_val();
+        if (!s)
+          continue;
+        if (const auto *call = dyn_cast<CallExpr>(s)) {
+          const FunctionDecl *callee = call->getDirectCallee();
+          if (callee && callee->getCanonicalDecl() == owner &&
+              paramIndex < call->getNumArgs()) {
+            llvm::SmallPtrSet<const VarDecl *, 4> visiting;
+            if (isExprStaticallyHeapSourcedImage(call->getArg(paramIndex),
+                                                 visiting)) {
+              result = true;
+              break;
+            }
+          }
+        }
+        for (const Stmt *child : s->children())
+          worklist.push_back(child);
+      }
+      if (result)
+        break;
+    }
+  }
+  descriptorHeapImageParamLossCache[param] = result;
+  return result;
+}
+
 bool SpirvEmitter::isDescriptorHeapImageBoundaryLoss(const Expr *expr) const {
   const Expr *e = expr->IgnoreParenCasts();
 
@@ -8726,9 +8767,8 @@ bool SpirvEmitter::isDescriptorHeapImageBoundaryLoss(const Expr *expr) const {
   const auto *var = dyn_cast_or_null<VarDecl>(getReferencedDef(e));
   if (!var)
     return false;
-  // Parameters are flagged explicitly at their call sites (see processCall).
-  if (descriptorHeapImageBoundaryLossVars.count(var))
-    return true;
+  if (const auto *param = dyn_cast<ParmVarDecl>(var))
+    return paramReceivesHeapSourcedArg(param);
   if (var->getInit() && crossesThroughCall(var->getInit()))
     return true;
   return anyAssignmentToVarSatisfies(var, crossesThroughCall);
