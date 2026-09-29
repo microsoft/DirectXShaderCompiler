@@ -27,6 +27,12 @@ void invalidFactories(float4 FloatVec, uint4 UintVec) {
   MakeInterpretedVector<ComponentType::F32>(UintVec);
   // expected-error@+1{{no matching function for call to 'MakeInterpretedVector'}}
   MakeInterpretedVector<ComponentType::F8_E4M3FN>(FloatVec);
+  // expected-error@+1{{no matching function for call to 'MakeInterpretedVector'}}
+  MakeInterpretedVector<ComponentType::I16>(UintVec);
+  // expected-error@+1{{no matching function for call to 'MakeInterpretedVector'}}
+  MakeInterpretedVector<ComponentType::U16>(UintVec);
+  // expected-error@+1{{no matching function for call to 'MakeInterpretedVector'}}
+  MakeInterpretedVector<ComponentType::F16>(UintVec);
 
   // expected-error@+1{{no matching function for call to 'Convert'}}
   Convert<ComponentType::U32, ComponentType::F32>(UintVec);
@@ -36,6 +42,18 @@ void invalidFactories(float4 FloatVec, uint4 UintVec) {
   Convert<ComponentType::F32, ComponentType::F32>(UintVec);
   // expected-error@+1{{no matching function for call to 'Convert'}}
   Convert<ComponentType::F8_E4M3FN, ComponentType::F8_E4M3FN>(FloatVec);
+  // expected-error@+1{{no matching function for call to 'Convert'}}
+  Convert<ComponentType::F32, ComponentType::I16>(UintVec);
+  // expected-error@+1{{no matching function for call to 'Convert'}}
+  Convert<ComponentType::F32, ComponentType::U16>(UintVec);
+  // expected-error@+1{{no matching function for call to 'Convert'}}
+  Convert<ComponentType::F32, ComponentType::F16>(UintVec);
+  // expected-error@+1{{no matching function for call to 'Convert'}}
+  Convert<ComponentType::I16, ComponentType::F32>(FloatVec);
+  // expected-error@+1{{no matching function for call to 'Convert'}}
+  Convert<ComponentType::U16, ComponentType::F32>(FloatVec);
+  // expected-error@+1{{no matching function for call to 'Convert'}}
+  Convert<ComponentType::F16, ComponentType::F32>(FloatVec);
 }
 
 void invalidConsumers(MatrixTy Mat, ByteAddressBuffer Buf, float4 Bias) {
@@ -51,4 +69,4 @@ void invalidConsumers(MatrixTy Mat, ByteAddressBuffer Buf, float4 Bias) {
   MultiplyAdd<float>(Mat, Invalid, Ref);
 }
 
-// expected-note@dx/linalg.h:* 24{{candidate template ignored}}
+// expected-note@dx/linalg.h:* 39{{candidate template ignored}}

@@ -137,13 +137,30 @@ template <typename T> struct TypeTraits {
       (ComponentEnum)dxil::ComponentType::Invalid;
 };
 
+template <ComponentEnum CompTy> struct IsComponentTypeAvailable {
+  static const bool value = true;
+};
+
+#if !__HLSL_ENABLE_16_BIT
+template <> struct IsComponentTypeAvailable<ComponentType::I16> {
+  static const bool value = false;
+};
+template <> struct IsComponentTypeAvailable<ComponentType::U16> {
+  static const bool value = false;
+};
+template <> struct IsComponentTypeAvailable<ComponentType::F16> {
+  static const bool value = false;
+};
+#endif
+
 template <ComponentEnum CompTy, typename T> struct IsCompatibleVectorElement {
   static const bool IsPackedCarrier =
       hlsl::is_same<T, uint8_t4_packed>::value ||
       hlsl::is_same<T, int8_t4_packed>::value;
   static const bool value =
-      hlsl::is_same<T, typename ComponentTypeTraits<CompTy>::Type>::value ||
-      (!ComponentTypeTraits<CompTy>::IsNativeScalar && IsPackedCarrier);
+      IsComponentTypeAvailable<CompTy>::value &&
+      (hlsl::is_same<T, typename ComponentTypeTraits<CompTy>::Type>::value ||
+       (!ComponentTypeTraits<CompTy>::IsNativeScalar && IsPackedCarrier));
 };
 
 template <> struct ComponentTypeTraits<ComponentType::BFloat16> {
@@ -237,7 +254,7 @@ MakeInterpretedVector(vector<T, N> Vec) {
 
 template <ComponentEnum DestTy, ComponentEnum OriginTy, typename T, int N>
 typename hlsl::enable_if<
-    DestTy != OriginTy &&
+    DestTy != OriginTy && __detail::IsComponentTypeAvailable<DestTy>::value &&
         __detail::IsCompatibleVectorElement<OriginTy, T>::value,
     InterpretedVector<typename __detail::ComponentTypeTraits<DestTy>::Type,
                       __detail::DstN<DestTy, OriginTy, N>::Value,
