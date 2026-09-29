@@ -3233,12 +3233,9 @@ SpirvEmitter::tryToAssignToDescriptorHeapAlias(
 }
 
 /// \brief All descriptor-heap handling for a BO_Assign expression.
-/// Evaluates the RHS itself and returns it via *rhs, since order matters here:
-/// image-alias tracking below needs the RHS already evaluated (reads side
-/// effect of it), while a buffer alias must skip normal evaluation entirely.
-/// Returns true if *result is the assignment's final value, to be returned
-/// as-is; false if the caller should run normal assignment codegen with
-/// *rhs.
+/// Evaluates the RHS itself and returns it via *rhs. Returns true if
+/// *result is the assignment's final value, to be returned as-is; false
+/// if the caller should run normal assignment codegen with *rhs.
 bool SpirvEmitter::tryHandleDescriptorHeapAssignment(const BinaryOperator *expr,
                                                      SpirvInstruction **result,
                                                      SpirvInstruction **rhs) {
@@ -8603,10 +8600,9 @@ bool SpirvEmitter::isHeapSourcedValue(const Expr *expr) const {
 
 bool SpirvEmitter::isExprStaticallyHeapSourcedImage(
     const Expr *expr, llvm::SmallPtrSetImpl<const VarDecl *> &visiting) const {
-  // A static local's initializer is wrapped in an ExprWithCleanups (for its
-  // exactly-once-init semantics) that a plain local's or a true global's is
-  // not; IgnoreImplicit sees through that (and MaterializeTemporaryExpr /
-  // CXXBindTemporaryExpr) before IgnoreParenCasts strips the rest.
+  // IgnoreImplicit strips ExprWithCleanups (added for a static local's
+  // exactly-once-init), MaterializeTemporaryExpr, and CXXBindTemporaryExpr,
+  // which IgnoreParenCasts alone leaves in place.
   expr = expr->IgnoreImplicit()->IgnoreParenCasts();
   if (isDescriptorHeap(expr))
     return true;
@@ -8773,10 +8769,9 @@ bool SpirvEmitter::isDescriptorHeapImageBoundaryLoss(const Expr *expr) const {
     return false;
   if (const auto *param = dyn_cast<ParmVarDecl>(var))
     return paramReceivesHeapSourcedArg(param);
-  // A global or static-local var is never tracked: doVarDecl only calls
-  // tryToAssignDescriptorHeapImageAlias for ordinary function-local
-  // variables, so descriptorHeapImageAliasVars never gets an entry for one,
-  // even when it's heap-sourced directly (no call boundary crossed at all).
+  // doVarDecl only tracks ordinary function-local vars, so a global or
+  // static-local never gets a descriptorHeapImageAliasVars entry, even when
+  // heap-sourced directly (no call boundary crossed).
   if (!var->hasLocalStorage()) {
     llvm::SmallPtrSet<const VarDecl *, 4> visiting;
     return isExprStaticallyHeapSourcedImage(e, visiting);
@@ -11379,18 +11374,15 @@ SpirvEmitter::processIntrinsicInterlockedMethod(const CallExpr *expr,
       }
       auto *coordInstr = doExpr(index);
 
-      // An atomic on a heap image needs its heap slot, which doesn't survive
-      // a function call, and is never recorded at all for a global or
-      // static-local variable. Without this check, the fallback below emits
-      // OpImageTexelPointer on a Private- or Function-class copy, which
-      // fails VUID-StandaloneSpirv-OpTypeImage-06924 with no diagnostic. The
-      // loss is traced to these specific causes rather than inferred from
-      // storage class, because bound images copied into locals or
-      // parameters are Function-class too and legalize fine. Detection is
-      // best-effort.
-      // TODO(#8784): implement cross-function heap image propagation; once
-      // the slot itself can cross the boundary, remove this check and its
-      // tracker
+      // An atomic on a heap image needs its heap slot. That slot doesn't
+      // survive a function call, and is never recorded at all for a global
+      // or static-local var. Without this check, the fallback below emits
+      // OpImageTexelPointer on a Private- or Function-class copy, failing
+      // VUID-StandaloneSpirv-OpTypeImage-06924 with no diagnostic. Traced to
+      // these specific causes, not storage class, since bound images in
+      // locals/params are Function-class too and legalize fine.
+      // TODO(#8784): cross-function heap image propagation; once the slot
+      // can cross the boundary, remove this check and its tracker.
       if (spirvOptions.useDescriptorHeap &&
           isDescriptorHeapImageBoundaryLoss(base)) {
         emitError(

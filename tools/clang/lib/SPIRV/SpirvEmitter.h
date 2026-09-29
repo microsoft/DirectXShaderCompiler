@@ -297,42 +297,21 @@ private:
 
   /// \brief Returns true if expr is a heap image whose heap slot was lost
   /// crossing a user function call, as a parameter or a return value.
-  ///
-  /// The slot is recorded per variable in the function that indexed the heap
-  /// and isn't propagated across calls, so after a crossing only the image
-  /// handle remains. A value sourced directly from a heap subscript within
-  /// the current function, with no call involved, is NOT a loss: no
-  /// boundary was crossed, so descriptorHeapImageAliasVars (populated by
-  /// that same-function declaration or assignment) already has what's
-  /// needed. expr's type isn't checked, since heap buffer aliases are
-  /// rejected at the crossing itself.
   bool isDescriptorHeapImageBoundaryLoss(const Expr *expr) const;
 
   /// \brief Returns true if any call site in the translation unit passes a
   /// statically heap-sourced argument (see isExprStaticallyHeapSourcedImage)
   /// for param.
-  ///
-  /// Scans the AST rather than recording state at a call site, since
-  /// work queue can emit param's function before that call site is
-  /// processed, or the arg can be a local (transitively) sourced from a
-  /// heap-returning call rather than a runtime-tracked alias variable.
-  /// Memoized in descriptorHeapImageParamLossCache.
   bool paramReceivesHeapSourcedArg(const ParmVarDecl *param) const;
 
   /// \brief Scans var's enclosing function for an assignment `var = rhs;`
   /// anywhere in the body, calling pred(rhs) for each and returning true on
-  /// the first match. Order/control-flow insensitive: any assignment
-  /// anywhere in the function counts, not only ones that reach a particular
-  /// use.
+  /// the first match.
   bool anyAssignmentToVarSatisfies(
       const VarDecl *var, llvm::function_ref<bool(const Expr *)> pred) const;
 
   /// \brief Returns true if a return statement in fn yields a statically
   /// heap-sourced value (see isExprStaticallyHeapSourcedImage).
-  ///
-  /// Scans the AST rather than recording state while emitting fn, because
-  /// the work queue can emit fn after the caller that needs the answer.
-  /// Memoized in descriptorHeapImageReturnCache.
   bool functionReturnsHeapSourcedImage(const FunctionDecl *fn) const;
 
   /// \brief Returns true if expr is a descriptor heap subscript, a call to a
@@ -343,11 +322,7 @@ private:
   ///   RWTexture2D<uint> b;
   ///   b = a;  // b
   ///
-  /// Reads initializers and assignments from the AST rather than
-  /// descriptorHeapImageAliasVars, so it can answer for a function that
-  /// hasn't been emitted yet. Assignment search is order/control-flow
-  /// insensitive (any assignment to the VarDecl anywhere in its function
-  /// counts). `visiting` guards against revisiting a VarDecl.
+  /// visiting tracks VarDecls already seen on the current call stack.
   bool isExprStaticallyHeapSourcedImage(
       const Expr *expr, llvm::SmallPtrSetImpl<const VarDecl *> &visiting) const;
 
@@ -1307,14 +1282,7 @@ private:
   /// \brief Diagnoses a local resource variable assigned from both a bound
   /// resource and ResourceDescriptorHeap.
   ///
-  /// Once recorded as an alias, every use is re-lowered as a heap access
-  /// chain regardless of control flow, correct only if the variable holds
-  /// a heap descriptor on every reaching path. Mixed sources violate this;
-  /// reject rather than silently miscompile.
-  ///
-  /// Returns true if rejected (new diagnostic emitted or variable already
-  /// diagnosed); callers need not act, alias-recording helpers check
-  /// descriptorHeapVarState and skip rejected variables automatically.
+  /// Issues a diagnostic and returns true if rejected.
   bool diagnoseDescriptorHeapAliasMixing(const VarDecl *dstVar,
                                          const Expr *srcExpr,
                                          SourceLocation loc);
@@ -1346,19 +1314,15 @@ private:
 
   /// \brief Diagnoses `lhs = <chain of assignments>;` where lhs is a heap-
   /// relevant resource and the chain's innermost value is heap-sourced.
-  /// isHeapSourcedValue and the alias-propagation below don't recognize a
-  /// nested assignment as a source, so lhs would otherwise go silently
-  /// untracked. Returns true if it diagnosed; false otherwise, including for
-  /// an all-bound-resource chain like `a = b = boundTex;`, which already
-  /// works.
+  /// Returns true if it diagnosed; false otherwise, including for an
+  /// all-bound-resource chain like `a = b = boundTex;`, which already works.
   bool diagnoseChainedDescriptorHeapAssignment(const BinaryOperator *expr);
 
   /// \brief All descriptor-heap handling for a BO_Assign expression, kept
   /// out of doBinaryOperator's dispatch. Evaluates the RHS itself and
-  /// returns it via *rhs (order matters: a buffer alias must skip normal
-  /// evaluation; an image alias needs the RHS already evaluated). Returns
-  /// true if *result is the final value to return as-is; false if the
-  /// caller should run normal assignment codegen with *rhs.
+  /// returns it via *rhs. Returns true if *result is the final value to
+  /// return as-is; false if the caller should run normal assignment codegen
+  /// with *rhs.
   bool tryHandleDescriptorHeapAssignment(const BinaryOperator *expr,
                                          SpirvInstruction **result,
                                          SpirvInstruction **rhs);
