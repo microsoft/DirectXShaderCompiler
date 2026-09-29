@@ -1,13 +1,19 @@
 // Note: Add RUN lines for newer released shader models to this test when available.
-// REQUIRES: dxil-1-9
+// REQUIRES: dxil-1-11
 // RUN: %dxc %s -Tlib_6_x -Fo %t
 // RUN: %dxa %t -dumprdat | FileCheck %s -check-prefixes=CHECK,EXP
-// RUN: %dxc %s -Tlib_6_9 -Vd -validator-version 0.0 -Fo %t
+// RUN: %dxc %s -Tlib_6_10 -Vd -validator-version 0.0 -Fo %t
 // RUN: %dxa %t -dumprdat | FileCheck %s -check-prefixes=CHECK,EXP
-// RUN: %dxc %s -Tlib_6_9 -Fo %t
+// RUN: %dxc %s -Tlib_6_10 -Fo %t
 // RUN: %dxa %t -dumprdat | FileCheck %s -check-prefixes=CHECK,NOEXP
-// RUN: %dxc %s -Tlib_6_9 -validator-version 1.9 -Fo %t
+// RUN: %dxc %s -Tlib_6_10 -validator-version 1.10 -Fo %t
 // RUN: %dxa %t -dumprdat | FileCheck %s -check-prefixes=CHECK,NOEXP
+// RUN: %dxc %s -Tlib_6_11 -Vd -validator-version 0.0 -Fo %t
+// RUN: %dxa %t -dumprdat | FileCheck %s -check-prefixes=CHECK,EXP
+// RUN: %dxc %s -Tlib_6_11 -Fo %t
+// RUN: %dxa %t -dumprdat | FileCheck %s -check-prefixes=CHECK,EXP
+// RUN: %dxc %s -Tlib_6_11 -validator-version 1.11 -Fo %t
+// RUN: %dxa %t -dumprdat | FileCheck %s -check-prefixes=CHECK,EXP
 
 // Make sure experimental RDAT is not emitted for released shader models,
 // unless the validator version is 0.0 (no validation supported). Validator

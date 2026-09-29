@@ -147,7 +147,7 @@ bool DxilOutputColorBecomesConstant::runOnModule(Module &M) {
     std::array<Function *, 4> &OutputFunctions;
     ~EraseUnusedOutputFunctionsOnExit() {
       for (Function *OutputFunction : OutputFunctions) {
-        PIXPassHelpers::EraseIfUnused(DM, OutputFunction);
+        PIXPassHelpers::eraseIfUnused(DM, OutputFunction);
       }
     }
   } EraseUnusedOutputFunctions{DM, OutputFunctions};

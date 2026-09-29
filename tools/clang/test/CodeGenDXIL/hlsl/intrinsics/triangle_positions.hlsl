@@ -39,7 +39,7 @@ struct [raypayload] Payload {
 
 // Global TriangleObjectPositions - closesthit
 // CHECK-LABEL: define void {{.*}}ClosestHit
-// CHECK:   %{{.*}} = call <9 x float> @dx.op.triangleObjectPosition.f32(i32 -2147483641) ; TriangleObjectPosition()
+// CHECK:   %{{.*}} = call <9 x float> @dx.op.triangleObjectPosition.f32(i32 318) ; TriangleObjectPosition()
   
 // FCGL-LABEL: define void {{.*}}ClosestHit
 // FCGL: call void @"dx.hl.op..void (i32, %struct.BuiltInTrianglePositions*)"(i32 397, %struct.BuiltInTrianglePositions* %{{.*}})
@@ -51,7 +51,7 @@ void ClosestHit(inout Payload payload, in BuiltInTriangleIntersectionAttributes 
 
 // Global TriangleObjectPositions - anyhit
 // CHECK-LABEL: define void {{.*}}AnyHit
-// CHECK:   %{{.*}} = call <9 x float> @dx.op.triangleObjectPosition.f32(i32 -2147483641) ; TriangleObjectPosition()
+// CHECK:   %{{.*}} = call <9 x float> @dx.op.triangleObjectPosition.f32(i32 318) ; TriangleObjectPosition()
 
 // FCGL-LABEL: define void {{.*}}AnyHit
 // FCGL: call void @"dx.hl.op..void (i32, %struct.BuiltInTrianglePositions*)"(i32 397, %struct.BuiltInTrianglePositions* %{{.*}})
@@ -64,8 +64,8 @@ void AnyHit(inout Payload payload, in BuiltInTriangleIntersectionAttributes attr
 
 // RayQuery CandidateTriangleObjectPositions and CommittedTriangleObjectPositions
 // CHECK-LABEL: define void {{.*}}RayQueryTest
-// CHECK: %{{.*}} = call <9 x float> @dx.op.rayQuery_CandidateTriangleObjectPosition.f32(i32 -2147483640, i32 %{{.*}})  ; RayQuery_CandidateTriangleObjectPosition(rayQueryHandle)
-// CHECK: %{{.*}} = call <9 x float> @dx.op.rayQuery_CommittedTriangleObjectPosition.f32(i32 -2147483639, i32 %{{.*}})  ; RayQuery_CommittedTriangleObjectPosition(rayQueryHandle)
+// CHECK: %{{.*}} = call <9 x float> @dx.op.rayQuery_CandidateTriangleObjectPosition.f32(i32 319, i32 %{{.*}})  ; RayQuery_CandidateTriangleObjectPosition(rayQueryHandle)
+// CHECK: %{{.*}} = call <9 x float> @dx.op.rayQuery_CommittedTriangleObjectPosition.f32(i32 320, i32 %{{.*}})  ; RayQuery_CommittedTriangleObjectPosition(rayQueryHandle)
 
 // FCGL-LABEL: define void {{.*}}RayQueryTest
 // FCGL: %{{.*}} = call %struct.BuiltInTrianglePositions* @"dx.hl.op.ro.%struct.BuiltInTrianglePositions* (i32, %{{.*}}"(i32 398,
@@ -98,7 +98,7 @@ void RayQueryTest() {
 
 // HitObject TriangleObjectPositions
 // CHECK-LABEL: define void {{.*}}HitObjectTest
-// CHECK: %{{.*}} = call <9 x float> @dx.op.hitObject_TriangleObjectPosition.f32(i32 -2147483638, %dx.types.HitObject %{{.*}})  ; HitObject_TriangleObjectPosition(hitObject)
+// CHECK: %{{.*}} = call <9 x float> @dx.op.hitObject_TriangleObjectPosition.f32(i32 321, %dx.types.HitObject %{{.*}})  ; HitObject_TriangleObjectPosition(hitObject)
 
 // FCGL-LABEL: define void {{.*}}HitObjectTest
 // FCGL: %{{.*}} = call %struct.BuiltInTrianglePositions* @"dx.hl.op.rn.%struct.BuiltInTrianglePositions* (i32, %dx.types.HitObject*)"(i32 400, %dx.types.HitObject* %{{.*}})

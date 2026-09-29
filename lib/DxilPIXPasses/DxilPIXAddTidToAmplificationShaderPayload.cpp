@@ -187,7 +187,7 @@ bool DxilPIXAddTidToAmplificationShaderPayload::runOnModule(Module &M) {
           cast<CallInst>(&*I)->getCalledFunction();
       I->removeFromParent();
       delete &*I;
-      PIXPassHelpers::EraseIfUnused(DM, OriginalDispatchMeshFn);
+      PIXPassHelpers::eraseIfUnused(DM, OriginalDispatchMeshFn);
       // Validation requires exactly one DispatchMesh in an AS, so we can exit
       // after the first one:
       DM.ReEmitDxilResources();
