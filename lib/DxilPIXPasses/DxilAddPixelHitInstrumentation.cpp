@@ -24,7 +24,9 @@
 #include "PixPassHelpers.h"
 
 #include "dxc/Support/Global.h"
+#ifdef _WIN32
 #include <winerror.h>
+#endif
 
 using namespace llvm;
 using namespace hlsl;
