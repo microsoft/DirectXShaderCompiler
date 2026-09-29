@@ -2002,6 +2002,15 @@ static bool IsStaticMember(const HLSL_INTRINSIC *fn) {
   return fn->Flags & INTRIN_FLAG_STATIC_MEMBER;
 }
 
+// Returns true if the intrinsic is a non-static method that does not mutate
+// instance state. Writing through a resource handle does not mutate the handle.
+static bool IsConstMemberIntrinsic(const HLSL_INTRINSIC *fn) {
+  if (IsStaticMember(fn))
+    return false;
+  // A method is const unless it explicitly mutates the object.
+  return !(fn->Flags & INTRIN_FLAG_MUTABLE_METHOD);
+}
+
 static bool IsVariadicIntrinsicFunction(const HLSL_INTRINSIC *fn) {
   return fn->pArgs[fn->uNumArgs - 1].uTemplateId == INTRIN_TEMPLATE_VARARGS;
 }
@@ -3449,11 +3458,12 @@ private:
     DeclarationName declarationName = DeclarationName(ii);
 
     StorageClass SC = IsStaticMember(intrinsic) ? SC_Static : SC_None;
+    bool IsConst = IsConstMemberIntrinsic(intrinsic);
 
     CXXMethodDecl *functionDecl = CreateObjectFunctionDeclarationWithParams(
         *m_context, recordDecl, functionResultQT,
         ArrayRef<QualType>(argsQTs, numParams),
-        ArrayRef<StringRef>(argNames, numParams), declarationName, true, SC,
+        ArrayRef<StringRef>(argNames, numParams), declarationName, IsConst, SC,
         templateParamNamedDeclsCount > 0);
     functionDecl->setImplicit(true);
 
@@ -6386,11 +6396,14 @@ public:
     MultiLevelTemplateArgumentList mlTemplateArgumentList(templateArgumentList);
     TemplateDeclInstantiator declInstantiator(*this->m_sema, owner,
                                               mlTemplateArgumentList);
-    FunctionProtoType::ExtProtoInfo EmptyEPI;
+    FunctionProtoType::ExtProtoInfo EPI;
+    // Preserve the method's const qualification on the resolved specialization.
+    if (IsConstMemberIntrinsic(intrinsic))
+      EPI.TypeQuals = Qualifiers::Const;
     QualType functionType = m_context->getFunctionType(
         parameterTypes[0],
-        ArrayRef<QualType>(parameterTypes + 1, parameterTypeCount - 1),
-        EmptyEPI, paramMods);
+        ArrayRef<QualType>(parameterTypes + 1, parameterTypeCount - 1), EPI,
+        paramMods);
     TypeSourceInfo *TInfo = m_context->CreateTypeSourceInfo(functionType, 0);
     FunctionProtoTypeLoc Proto =
         TInfo->getTypeLoc().getAs<FunctionProtoTypeLoc>();
@@ -8697,8 +8710,9 @@ UINT64 HLSLExternalSource::ScoreFunction(OverloadCandidateSet::iterator &Cand) {
 
   // in/out considerations have been taken care of by viability.
 
-  // 'this' considerations don't matter without inheritance, other
-  // than lookup and viability.
+  // The implicit object argument (`this`) affects lookup and viability.
+  // In HLSL 202x, its const qualification also breaks ties between viable
+  // overloads: a non-const object prefers a non-const method.
 
   UINT64 result = 0;
   for (unsigned convIdx = 0; convIdx < Cand->NumConversions; ++convIdx) {
@@ -8715,6 +8729,23 @@ UINT64 HLSLExternalSource::ScoreFunction(OverloadCandidateSet::iterator &Cand) {
       return SCORE_MAX;
     }
     result += score;
+  }
+
+  // HLSL 202x: when both const and non-const overloads of a method are
+  // viable for a non-const object, prefer the non-const overload. Add a
+  // small tie-breaking penalty when the implicit object argument requires
+  // adding `const` to call a const-qualified method. This uses the low score
+  // bits reserved by SCORE_MIN_SHIFT.
+  CXXMethodDecl *Method = dyn_cast_or_null<CXXMethodDecl>(Cand->Function);
+  if (m_sema->getLangOpts().HLSLVersion >= hlsl::LangStd::v202x && Method &&
+      !Cand->IgnoreObjectArgument &&
+      (Method->getTypeQualifiers() & Qualifiers::Const)) {
+    const ImplicitConversionSequence &ICS = Cand->Conversions[0];
+    if (ICS.isStandard()) {
+      QualType FromType = ICS.Standard.getFromType();
+      if (!FromType.isNull() && !FromType.isConstQualified())
+        result += 1;
+    }
   }
   return result;
 }

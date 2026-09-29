@@ -56,6 +56,10 @@ line upon naming the release. Refer to previous for appropriate section names.
   [#8484](https://github.com/microsoft/DirectXShaderCompiler/issues/8484).
 - Starting with HLSL 202x, `cbuffer` and `tbuffer` declarations and their
   members belong to their enclosing namespace.
+- HLSL 202x supports `const`-qualified instance methods and rejects calls
+  to non-`const` methods on `const` objects, including objects in constant 
+  buffers 
+  [#8964](https://github.com/microsoft/DirectXShaderCompiler/issues/8964).
 
 #### Bug Fixes
 
