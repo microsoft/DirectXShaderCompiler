@@ -2991,6 +2991,14 @@ static bool isNearestSaturatedI16(float Input, int16_t Actual) {
 
 } // namespace cpu_oracle
 
+enum class ThreadSemanticsOutcome { Verified, Failed };
+
+static ThreadSemanticsOutcome classifyThreadSemanticsOutcome(bool Divergent,
+                                                             int MixedWaves) {
+  return Divergent && MixedWaves == 0 ? ThreadSemanticsOutcome::Failed
+                                      : ThreadSemanticsOutcome::Verified;
+}
+
 // Harness self-check for the CPU oracle. Deliberately carries no Kits metadata
 // so HLK runs never select it; drivers are not certified against this class.
 class LinAlgCPUOracleTests {
@@ -3011,7 +3019,17 @@ public:
   TEST_METHOD(FP8HostOracle);
   TEST_METHOD(FP8MatrixValueEncoding);
   TEST_METHOD(FloatToIntHostOracle);
+  TEST_METHOD(ThreadSemanticsOutcomePolicy);
 };
+
+void LinAlgCPUOracleTests::ThreadSemanticsOutcomePolicy() {
+  VERIFY_IS_TRUE(classifyThreadSemanticsOutcome(false, 0) ==
+                 ThreadSemanticsOutcome::Verified);
+  VERIFY_IS_TRUE(classifyThreadSemanticsOutcome(true, 1) ==
+                 ThreadSemanticsOutcome::Verified);
+  VERIFY_IS_TRUE(classifyThreadSemanticsOutcome(true, 0) ==
+                 ThreadSemanticsOutcome::Failed);
+}
 
 void LinAlgCPUOracleTests::FloatToIntHostOracle() {
   for (const cpu_oracle::FloatToIntCase &Case : cpu_oracle::F32ToI16Cases) {
@@ -7973,8 +7991,6 @@ static std::vector<BYTE> buildThreadSemanticsVectorBuffer() {
   return Bytes;
 }
 
-enum class ThreadSemanticsOutcome { Verified, Inconclusive, Failed };
-
 static ThreadSemanticsOutcome
 verifyThreadSemanticsOutput(const void *Data, size_t Size, bool Divergent,
                             bool Verbose, bool MatrixSelection = false) {
@@ -8057,22 +8073,20 @@ verifyThreadSemanticsOutput(const void *Data, size_t Size, bool Divergent,
   if (!Success)
     return ThreadSemanticsOutcome::Failed;
 
-  // Thread-to-wave distribution is implementation defined, so a wave holding
-  // only same-parity lanes is legal and leaves the divergent case unproven
-  // rather than violated.
-  if (Divergent && MixedWaves == 0) {
-    hlsl_test::LogCommentFmt(
+  const ThreadSemanticsOutcome Outcome =
+      classifyThreadSemanticsOutcome(Divergent, MixedWaves);
+  if (Outcome == ThreadSemanticsOutcome::Failed) {
+    hlsl_test::LogErrorFmt(
         L"No wave reported both input selections, so non-uniform selection "
-        L"was not exercised. The per-thread results were verified before "
-        L"reporting this case as inconclusive");
-    return ThreadSemanticsOutcome::Inconclusive;
+        L"was not exercised");
+    return Outcome;
   }
   if (Divergent && Verbose)
     hlsl_test::LogCommentFmt(L"%d of %d threads ran in a wave that executed "
                              L"both arms",
                              MixedWaves, ThreadSemanticsThreads);
 
-  return ThreadSemanticsOutcome::Verified;
+  return Outcome;
 }
 
 static const char ThreadPerLaneMatVecShader[] = R"(
@@ -8292,9 +8306,6 @@ static void runThreadSemanticsMatVec(ID3D12Device *Device,
   switch (verifyThreadSemanticsOutput(OutData.data(), OutData.size(), Divergent,
                                       Verbose, MatrixSelection)) {
   case ThreadSemanticsOutcome::Verified:
-    return;
-  case ThreadSemanticsOutcome::Inconclusive:
-    WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
     return;
   case ThreadSemanticsOutcome::Failed:
     VERIFY_IS_TRUE(false, "Thread semantics verification failed");
