@@ -67,6 +67,9 @@ line upon naming the release. Refer to previous for appropriate section names.
 
 - Fixed an optimizer crash when scalarizing an out-of-bounds vector access
   [#8940](https://github.com/microsoft/DirectXShaderCompiler/issues/8940).
+- Fixed constant folding of `frac` returning `abs(x - trunc(x))` instead of
+  `x - floor(x)` for negative values, such as matrix arguments
+  [#8937](https://github.com/microsoft/DirectXShaderCompiler/issues/8937).
 
 ### Upcoming Preview Release
 
