@@ -1488,6 +1488,10 @@ HRESULT DxcTranslationUnit::GetSkippedRanges(IDxcFile *file,
   *pResult = nullptr;
 
   DxcThreadMalloc TM(m_pMalloc);
+  ::llvm::sys::fs::MSFileSystem *msfPtr;
+  IFR(CreateMSFileSystemForDisk(&msfPtr));
+  std::unique_ptr<::llvm::sys::fs::MSFileSystem> msf(msfPtr);
+  ::llvm::sys::fs::AutoPerThreadSystem pts(msf.get());
   DxcFile *fileImpl = reinterpret_cast<DxcFile *>(file);
 
   unsigned len = clang_ms_countSkippedRanges(m_tu, fileImpl->GetFile());
