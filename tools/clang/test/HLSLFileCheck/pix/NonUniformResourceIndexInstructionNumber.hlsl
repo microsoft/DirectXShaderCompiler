@@ -2,8 +2,10 @@
 
 // With the annotation prepass in place, the diagnostic is addressed to
 // the ordinal of the createHandle that performed the unmarked dynamic
-// indexing. The pass encodes that ordinal as a shift. A shift of zero
-// aliases the diagnostic onto bit 0.
+// indexing. The pass encodes the ordinal as a shift within a 32-bit word
+// (InstructionNumber % 32), with InstructionNumber / 32 selecting the
+// word. A zero shift addresses bit 0 in that word; ordinals 32, 64, etc.
+// also have a zero shift in later words.
 //
 // Match any non-zero shift rather than a literal ordinal. A createHandle
 // whose index comes from an interpolated input is never the first
