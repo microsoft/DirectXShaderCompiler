@@ -234,8 +234,8 @@ bool ExtendRootSig(RootSigDesc &RootSignatureDesc, uint32_t ToolsUAVRegister) {
 }
 
 static std::vector<uint8_t>
-AddUAVParamterToRootSignature(const void *Data, uint32_t Size,
-                              uint32_t ToolsUAVRegister) {
+AddUAVParameterToRootSignature(const void *Data, uint32_t Size,
+                               uint32_t ToolsUAVRegister) {
   DxilVersionedRootSignature rootSignature;
   DeserializeRootSignature(Data, Size, rootSignature.get_address_of());
   auto *rs = rootSignature.get_mutable();
@@ -258,7 +258,7 @@ static void AddUAVToShaderAttributeRootSignature(DxilModule &DM,
                                                  uint32_t ToolsUAVRegister) {
   auto rs = DM.GetSerializedRootSignature();
   if (!rs.empty()) {
-    std::vector<uint8_t> asVector = AddUAVParamterToRootSignature(
+    std::vector<uint8_t> asVector = AddUAVParameterToRootSignature(
         rs.data(), static_cast<uint32_t>(rs.size()), ToolsUAVRegister);
     if (!asVector.empty())
       DM.ResetSerializedRootSignature(asVector);
@@ -286,7 +286,7 @@ static void AddUAVToDxilDefinedGlobalRootSignatures(DxilModule &DM,
         if (subObject.second->GetRootSignature(notALocalRS, Data, Size,
                                                &Text)) {
           std::vector<uint8_t> ExtendedRootSignature =
-              AddUAVParamterToRootSignature(Data, Size, ToolsUAVRegister);
+              AddUAVParameterToRootSignature(Data, Size, ToolsUAVRegister);
           if (!ExtendedRootSignature.empty()) {
             std::optional<std::string> OwnedText;
             if (Text != nullptr)
