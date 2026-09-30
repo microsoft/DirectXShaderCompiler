@@ -12,6 +12,7 @@
 // numbered instruction.
 
 // CHECK-NOT: NuriNotInstrumentedMissingInstructionNumber
+// CHECK: FoundDynamicIndexingNoNuri
 // CHECK: @dx.op.waveActiveAllEqual
 // CHECK: shl i32 %{{[0-9]+}}, {{[1-9][0-9]*}}
 // CHECK: @dx.op.atomicBinOp.i32(i32 78
