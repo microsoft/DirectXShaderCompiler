@@ -13,6 +13,10 @@ float useUniformParameter(uniform float value) { // expected-warning {{'uniform'
   return value;
 }
 
+interface Interface { // expected-warning {{'interface' declarations are deprecated and will be removed in HLSL 2026}}
+  void method();
+};
+
 #else
 
 // expected-no-diagnostics
@@ -25,5 +29,9 @@ precise uniform float globalPreciseUniform;
 float useUniformParameter(uniform float value) {
   return value;
 }
+
+interface Interface {
+  void method();
+};
 
 #endif
