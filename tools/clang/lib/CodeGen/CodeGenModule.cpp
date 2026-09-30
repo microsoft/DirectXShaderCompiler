@@ -2124,7 +2124,8 @@ void CodeGenModule::EmitGlobalVarDefinition(const VarDecl *D) {
       if (getLangOpts().CPlusPlus && !NeedsGlobalDtor)
         DelayedCXXInitPosition.erase(D);
       // HLSL Change Begins.
-      if (getLangOpts().HLSL && D->isExternallyVisible() && !D->isStaticDataMember()) {
+      if (getLangOpts().HLSL && D->isExternallyVisible() &&
+          !D->isStaticDataMember()) {
         Init = EmitNullConstant(D->getType());
       }
       // HLSL Change Ends.
