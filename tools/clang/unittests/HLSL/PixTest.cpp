@@ -797,6 +797,8 @@ static int countToolsUAVRecords(std::vector<std::string> const &Lines) {
   return Count;
 }
 
+static constexpr uint32_t ToolsRegisterSpace = static_cast<uint32_t>(-2);
+
 static bool
 HasDxrInvocationLogEntryCountCheck(std::vector<std::string> const &lines,
                                    unsigned expectedEntryCount) {
@@ -813,34 +815,25 @@ HasDxrInvocationLogEntryCountCheck(std::vector<std::string> const &lines,
 static bool
 rootSignatureHasToolsUAV(const DxilVersionedRootSignatureDesc *RootSignature,
                          uint32_t ShaderRegister) {
+  auto HasToolsUAV = [ShaderRegister](const auto &Desc) {
+    for (uint32_t ParameterIndex = 0; ParameterIndex < Desc.NumParameters;
+         ++ParameterIndex) {
+      const auto &Parameter = Desc.pParameters[ParameterIndex];
+      if (Parameter.ParameterType == DxilRootParameterType::UAV &&
+          Parameter.Descriptor.RegisterSpace == ToolsRegisterSpace &&
+          Parameter.Descriptor.ShaderRegister == ShaderRegister)
+        return true;
+    }
+    return false;
+  };
+
   switch (RootSignature->Version) {
-  case DxilRootSignatureVersion::Version_1_0: {
-    const DxilRootSignatureDesc &Desc = RootSignature->Desc_1_0;
-    for (uint32_t ParameterIndex = 0; ParameterIndex < Desc.NumParameters;
-         ++ParameterIndex) {
-      const DxilRootParameter &Parameter = Desc.pParameters[ParameterIndex];
-      if (Parameter.ParameterType == DxilRootParameterType::UAV &&
-          Parameter.Descriptor.RegisterSpace == static_cast<uint32_t>(-2) &&
-          Parameter.Descriptor.ShaderRegister == ShaderRegister) {
-        return true;
-      }
-    }
-    break;
+  case DxilRootSignatureVersion::Version_1_0:
+    return HasToolsUAV(RootSignature->Desc_1_0);
+  case DxilRootSignatureVersion::Version_1_1:
+    return HasToolsUAV(RootSignature->Desc_1_1);
   }
-  case DxilRootSignatureVersion::Version_1_1: {
-    const DxilRootSignatureDesc1 &Desc = RootSignature->Desc_1_1;
-    for (uint32_t ParameterIndex = 0; ParameterIndex < Desc.NumParameters;
-         ++ParameterIndex) {
-      const DxilRootParameter1 &Parameter = Desc.pParameters[ParameterIndex];
-      if (Parameter.ParameterType == DxilRootParameterType::UAV &&
-          Parameter.Descriptor.RegisterSpace == static_cast<uint32_t>(-2) &&
-          Parameter.Descriptor.ShaderRegister == ShaderRegister) {
-        return true;
-      }
-    }
-    break;
-  }
-  }
+
   return false;
 }
 
