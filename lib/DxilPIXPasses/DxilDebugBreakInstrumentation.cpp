@@ -120,20 +120,22 @@ bool DxilDebugBreakInstrumentation::runOnModule(Module &M) {
     CI->eraseFromParent();
   }
 
-  bool modified = (PixUAVResource != nullptr);
-  modified |= PIXPassHelpers::eraseIfUnused(DM, DebugBreakFunc);
-  modified |= PIXPassHelpers::eraseIfUnused(DM, AtomicOpFunc);
+  const bool FoundDebugBreak = !DebugBreakCalls.empty();
 
-  if (modified) {
+  bool Modified = FoundDebugBreak;
+  Modified |= PIXPassHelpers::eraseIfUnused(DM, DebugBreakFunc);
+  Modified |= PIXPassHelpers::eraseIfUnused(DM, AtomicOpFunc);
+
+  if (FoundDebugBreak) {
     DM.ReEmitDxilResources();
 
-    if (OSOverride != nullptr && PixUAVResource != nullptr) {
+    if (OSOverride != nullptr) {
       formatted_raw_ostream FOS(*OSOverride);
       FOS << "\nFoundDebugBreak\n";
     }
   }
 
-  return modified;
+  return Modified;
 }
 
 char DxilDebugBreakInstrumentation::ID = 0;
