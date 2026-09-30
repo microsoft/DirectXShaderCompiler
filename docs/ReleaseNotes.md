@@ -67,6 +67,10 @@ line upon naming the release. Refer to previous for appropriate section names.
 
 - Fixed an optimizer crash when scalarizing an out-of-bounds vector access
   [#8940](https://github.com/microsoft/DirectXShaderCompiler/issues/8940).
+- Fixed a crash when passing a matrix to an `out` or `inout` parameter whose
+  matrix type has a different element type, such as a `half3x3` argument for
+  an `out float3x3` parameter
+  [#8809](https://github.com/microsoft/DirectXShaderCompiler/issues/8809).
 
 ### Upcoming Preview Release
 
