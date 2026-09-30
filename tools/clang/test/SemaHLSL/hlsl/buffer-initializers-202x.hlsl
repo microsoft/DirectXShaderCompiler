@@ -41,9 +41,11 @@ tbuffer TB {
   static float TBStatic = 7;
 }
 
-// These are not shader constants, so initializers remain valid.
+// Static globals are initialized normally. Groupshared initializers are
+// accepted but ignored.
 static float StaticGlobal = 8;
 groupshared float GroupShared = 9;
+// expected-warning@-1 {{initializer of 'groupshared' variable will be ignored}}
 
 float main() : OUT {
   float Local = 10;

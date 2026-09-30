@@ -9357,15 +9357,24 @@ void Sema::AddInitializerToDecl(Decl *RealDecl, Expr *Init,
   VDecl->setInit(Init);
 
   // HLSL Change Begin
-  // Variables in a cbuffer/tbuffer declaration, or in the implicit $Globals
-  // constant buffer, are initialized by the pipeline, so any initializer is
-  // ignored. This is an error starting with HLSL 202x.
-  bool IsConstantBuffer = false;
-  if (getLangOpts().HLSL && IsHLSLShaderConstant(VDecl, IsConstantBuffer)) {
-    Diag(Init->getExprLoc(), getLangOpts().HLSLVersion >= hlsl::LangStd::v202x
-                                 ? diag::err_hlsl_buffer_initializer
-                                 : diag::warn_hlsl_buffer_initializer)
-        << IsConstantBuffer << Init->getSourceRange();
+  if (getLangOpts().HLSL) {
+    if (VDecl->hasAttr<HLSLGroupSharedAttr>() &&
+        (getLangOpts().SPIRV || VDecl->isExternallyVisible())) {
+      Diag(Init->getExprLoc(), diag::warn_hlsl_groupshared_initializer)
+          << Init->getSourceRange();
+    } else {
+      // Variables in a cbuffer/tbuffer declaration, or in the implicit
+      // $Globals constant buffer, are initialized by the pipeline, so any
+      // initializer is ignored. This is an error starting with HLSL 202x.
+      bool IsConstantBuffer = false;
+      if (IsHLSLShaderConstant(VDecl, IsConstantBuffer)) {
+        Diag(Init->getExprLoc(),
+             getLangOpts().HLSLVersion >= hlsl::LangStd::v202x
+                 ? diag::err_hlsl_buffer_initializer
+                 : diag::warn_hlsl_buffer_initializer)
+            << IsConstantBuffer << Init->getSourceRange();
+      }
+    }
   }
   // HLSL Change End
 

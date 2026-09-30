@@ -2189,15 +2189,6 @@ void SpirvEmitter::doVarDecl(const VarDecl *decl) {
   // variables) belongs to the Function storage class.
   if (isExternalVar(decl)) {
     var = declIdMapper.createExternVar(decl);
-    // DXC does not support initializing groupshared memory when targeting
-    // SPIRV, so the initializer will be ignored.
-    if (decl->hasAttr<HLSLGroupSharedAttr>() &&
-        !spirvOptions.noWarnIgnoredFeatures) {
-      if (const auto *init = decl->getInit())
-        emitWarning("initializer of 'groupshared' variable will be ignored",
-                    init->getExprLoc())
-            << init->getSourceRange();
-    }
   } else {
     // We already know the variable is not externally visible here. If it does
     // not have local storage, it should be file scope variable.
