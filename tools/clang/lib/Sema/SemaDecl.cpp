@@ -9549,7 +9549,13 @@ void Sema::ActOnUninitializedDecl(Decl *RealDecl,
     // C++11 [dcl.constexpr]p1: The constexpr specifier shall be applied only to
     // the definition of a variable [...] or the declaration of a static data
     // member.
-    if (Var->isConstexpr() && !Var->isThisDeclarationADefinition()) {
+    // HLSL Change Begin: HLSL 202x requires constexpr variables to have an
+    // initializer.
+    if (Var->isConstexpr() &&
+        (!Var->isThisDeclarationADefinition() ||
+         (getLangOpts().HLSL && !Var->isStaticDataMember() &&
+          !Var->hasInit()))) {
+      // HLSL Change End
       if (Var->isStaticDataMember())
         Diag(Var->getLocation(),
              diag::err_constexpr_static_mem_var_requires_init)

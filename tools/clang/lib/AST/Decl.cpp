@@ -599,10 +599,15 @@ static LinkageInfo getLVForNamespaceScopeDecl(const NamedDecl *D,
     // - a non-volatile object or reference that is explicitly declared const
     //   or constexpr and neither explicitly declared extern nor previously
     //   declared to have external linkage; or (there is no equivalent in C99)
-    if (Context.getLangOpts().CPlusPlus &&
-        Var->getType().isConstQualified() && 
-        !Context.getLangOpts().HLSL && // HLSL Change -Initializer used on a global 'const' variable will be ignored for hlsl.
+    // HLSL Change Begin: HLSL treats const globals as external (cbuffer) by
+    // default, but HLSL 202x 'constexpr' globals follow standard C++ rules and
+    // have internal linkage.
+    if (Context.getLangOpts().CPlusPlus && Var->getType().isConstQualified() &&
+        (!Context.getLangOpts().HLSL ||
+         (Var->isConstexpr() &&
+          Context.getLangOpts().HLSLVersion >= hlsl::LangStd::v202x)) &&
         !Var->getType().isVolatileQualified()) {
+      // HLSL Change End
       const VarDecl *PrevVar = Var->getPreviousDecl();
       if (PrevVar)
         return getLVForDecl(PrevVar, computation);
@@ -2097,7 +2102,11 @@ bool VarDecl::isUsableInConstantExpressions(ASTContext &C) const {
 
   // Additionally, in C++11, non-volatile constexpr variables can be used in
   // constant expressions.
-  return Lang.CPlusPlus11 && isConstexpr();
+  // HLSL Change Begin: HLSL 202x also enables constexpr variables.
+  return (Lang.CPlusPlus11 ||
+          (Lang.HLSL && Lang.HLSLVersion >= hlsl::LangStd::v202x)) &&
+         isConstexpr();
+  // HLSL Change End
 }
 
 /// Convert the initializer for this declaration to the elaborated EvaluatedStmt
@@ -2168,7 +2177,13 @@ APValue *VarDecl::evaluateValue(
 
   // In C++11, we have determined whether the initializer was a constant
   // expression as a side-effect.
-  if (getASTContext().getLangOpts().CPlusPlus11 && !Eval->CheckedICE) {
+  // HLSL Change Begin: HLSL 202x also needs this side-effect computed since
+  // 'constexpr' is supported and Sema relies on Eval->IsICE being set.
+  if ((getASTContext().getLangOpts().CPlusPlus11 ||
+       (getASTContext().getLangOpts().HLSL &&
+        getASTContext().getLangOpts().HLSLVersion >= hlsl::LangStd::v202x)) &&
+      !Eval->CheckedICE) {
+    // HLSL Change End
     Eval->CheckedICE = true;
     Eval->IsICE = Result && Notes.empty();
   }
@@ -2192,7 +2207,11 @@ bool VarDecl::checkInitIsICE() const {
 
   // In C++11, evaluate the initializer to check whether it's a constant
   // expression.
-  if (getASTContext().getLangOpts().CPlusPlus11) {
+  // HLSL Change Begin: HLSL 202x supports 'constexpr' and uses the C++11 path.
+  if (getASTContext().getLangOpts().CPlusPlus11 ||
+      (getASTContext().getLangOpts().HLSL &&
+       getASTContext().getLangOpts().HLSLVersion >= hlsl::LangStd::v202x)) {
+    // HLSL Change End
     SmallVector<PartialDiagnosticAt, 8> Notes;
     evaluateValue(Notes);
     return Eval->IsICE;
