@@ -126,18 +126,18 @@ struct MatrixLayout {
 using MatrixLayoutEnum = MatrixLayout::MatrixLayoutEnum;
 
 namespace __detail {
-template <ComponentEnum CT> struct ComponentTypeTraits {
+template <ComponentEnum> struct ComponentTypeTraits {
   using Type = uint;
   static const bool IsNativeScalar = false;
   static const uint ElementsPerScalar = 4;
 };
 
-template <typename CT> struct TypeTraits {
+template <typename> struct TypeTraits {
   static const ComponentEnum CompType =
       (ComponentEnum)dxil::ComponentType::Invalid;
 };
 
-template <ComponentEnum CT> struct IsComponentTypeAvailable {
+template <ComponentEnum> struct IsComponentTypeAvailable {
   static const bool value = true;
 };
 
@@ -331,14 +331,14 @@ class Matrix {
     return Result;
   }
 
-  template <typename T, SIZE_TYPE Size>
+  template <typename Ty, SIZE_TYPE Size>
   [[nodiscard]] static typename hlsl::enable_if<
-      (hlsl::is_same<typename hlsl::strip_vector_type<T>::type,
+      (hlsl::is_same<typename hlsl::strip_vector_type<Ty>::type,
                      ElementType>::value ||
-       hlsl::is_same<typename hlsl::strip_vector_type<T>::type,
+       hlsl::is_same<typename hlsl::strip_vector_type<Ty>::type,
                      uint8_t4_packed>::value),
       Matrix>::type
-  Load(groupshared T Arr[Size], uint StartIdx, uint Stride,
+  Load(groupshared Ty Arr[Size], uint StartIdx, uint Stride,
        MatrixLayoutEnum Layout) {
     Matrix Result;
     dx::__builtin_LinAlg_MatrixLoadFromMemory(Result.__handle, Arr, StartIdx,
@@ -379,14 +379,14 @@ class Matrix {
                                                  Stride, Layout, Align);
   }
 
-  template <typename T, SIZE_TYPE Size>
+  template <typename Ty, SIZE_TYPE Size>
   typename hlsl::enable_if<
-      (hlsl::is_same<typename hlsl::strip_vector_type<T>::type,
+      (hlsl::is_same<typename hlsl::strip_vector_type<Ty>::type,
                      ElementType>::value ||
-       hlsl::is_same<typename hlsl::strip_vector_type<T>::type,
+       hlsl::is_same<typename hlsl::strip_vector_type<Ty>::type,
                      uint8_t4_packed>::value),
       void>::type
-  Store(groupshared T Arr[Size], uint StartIdx, uint Stride,
+  Store(groupshared Ty Arr[Size], uint StartIdx, uint Stride,
         MatrixLayoutEnum Layout) {
     dx::__builtin_LinAlg_MatrixStoreToMemory(__handle, Arr, StartIdx, Stride,
                                              Layout);
@@ -403,42 +403,42 @@ class Matrix {
         __handle, Res, StartOffset, Stride, Layout, Align);
   }
 
-  template <typename T, MatrixUseEnum UseLocal = Use, SIZE_TYPE Size>
+  template <typename Ty, MatrixUseEnum UseLocal = Use, SIZE_TYPE Size>
   typename hlsl::enable_if<
-      hlsl::is_same<typename hlsl::strip_vector_type<T>::type,
+      hlsl::is_same<typename hlsl::strip_vector_type<Ty>::type,
                     ElementType>::value &&
-          hlsl::is_arithmetic_vector<T>::value &&
+          hlsl::is_arithmetic_vector<Ty>::value &&
           Use == MatrixUse::Accumulator && UseLocal == Use,
       void>::type
-  InterlockedAccumulate(groupshared T Arr[Size], uint StartIdx, uint Stride,
+  InterlockedAccumulate(groupshared Ty Arr[Size], uint StartIdx, uint Stride,
                         MatrixLayoutEnum Layout) {
     dx::__builtin_LinAlg_MatrixAccumulateToMemory(__handle, Arr, StartIdx,
                                                   Stride, Layout);
   }
 
-  template <typename T, MatrixUseEnum UseLocal = Use, SIZE_TYPE Size>
+  template <typename Ty, MatrixUseEnum UseLocal = Use, SIZE_TYPE Size>
   typename hlsl::enable_if<
-      hlsl::is_same<typename hlsl::strip_vector_type<T>::type,
+      hlsl::is_same<typename hlsl::strip_vector_type<Ty>::type,
                     uint8_t4_packed>::value &&
           Use == MatrixUse::Accumulator && UseLocal == Use,
       void>::type
-  InterlockedAccumulate(groupshared T Arr[Size], uint StartIdx, uint Stride,
+  InterlockedAccumulate(groupshared Ty Arr[Size], uint StartIdx, uint Stride,
                         MatrixLayoutEnum Layout) {
     dx::__builtin_LinAlg_MatrixAccumulateToMemory(__handle, Arr, StartIdx,
                                                   Stride, Layout);
   }
 
-  template <ComponentEnum MatCT, MatrixUseEnum UseLocal = Use>
+  template <ComponentEnum MatrixCT, MatrixUseEnum UseLocal = Use>
   typename hlsl::enable_if<Use == MatrixUse::Accumulator && UseLocal == Use,
                            void>::type
-  Accumulate(const Matrix<MatCT, M, N, MatrixUse::A, Scope> MatrixA) {
+  Accumulate(const Matrix<MatrixCT, M, N, MatrixUse::A, Scope> MatrixA) {
     dx::__builtin_LinAlg_MatrixAccumulate(__handle, __handle, MatrixA.__handle);
   }
 
-  template <ComponentEnum MatCT, MatrixUseEnum UseLocal = Use>
+  template <ComponentEnum MatrixCT, MatrixUseEnum UseLocal = Use>
   typename hlsl::enable_if<Use == MatrixUse::Accumulator && UseLocal == Use,
                            void>::type
-  Accumulate(const Matrix<MatCT, M, N, MatrixUse::B, Scope> MatrixB) {
+  Accumulate(const Matrix<MatrixCT, M, N, MatrixUse::B, Scope> MatrixB) {
     dx::__builtin_LinAlg_MatrixAccumulate(__handle, __handle, MatrixB.__handle);
   }
 
@@ -620,6 +620,14 @@ MultiplyAdd(Matrix<MatrixCT, M, K, MatrixUse::A, MatrixScope::Thread> MatrixA,
              __detail::ScalarCountFromPackedComponents<BiasCT, M>::Value>;
   BiasVecTy Bias = BiasRef.Buf.template Load<BiasVecTy>(BiasRef.Offset);
 
+  // Convert currently does not support packed type vector sizes that
+  // are not a multiple of the number of elements per scalar, so we
+  // need to do an extra conversion here to get it into the right shape.
+  // For example, if BiasRef is F8_E4M3FN and M is 7, it gets loaded into
+  // vector<uint, 2>, and if OutputTy is half, Convert will return
+  // vector<half, 8> instead of vector<half, 7>.
+  // https://github.com/microsoft/DirectXShaderCompiler/issues/8418
+  //
   // Convert to OutputTy vector with padding
   using BiasConvInterpPaddedTy = InterpretedVector<
       OutputTy,
@@ -656,6 +664,14 @@ MultiplyAdd(Matrix<MatrixCT, M, K, MatrixUse::A, MatrixScope::Thread> MatrixA,
              __detail::ScalarCountFromPackedComponents<BiasCT, M>::Value>;
   BiasVecTy Bias = BiasRef.Buf.template Load<BiasVecTy>(BiasRef.Offset);
 
+  // Convert currently does not support packed type vector sizes that
+  // are not a multiple of the number of elements per scalar, so we
+  // need to do an extra conversion here to get it into the right shape.
+  // For example, if BiasRef is F8_E4M3FN and M is 7, it gets loaded into
+  // vector<uint, 2>, and if OutputTy is half, Convert will return
+  // vector<half, 8> instead of vector<half, 7>.
+  // https://github.com/microsoft/DirectXShaderCompiler/issues/8418
+  //
   // Convert to OutputTy vector with padding
   using BiasConvInterpPaddedTy = InterpretedVector<
       OutputTy,
