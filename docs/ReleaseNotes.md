@@ -104,6 +104,9 @@ part of the next non-preview release.
 - Fixed internal compiler errors when a member method is called on a ray payload
   or on one of its fields with payload access qualifiers enabled
   [#6464](https://github.com/microsoft/DirectXShaderCompiler/issues/6464).
+- Fixed undefined behavior in DXC IntelliSense caused by the uninitialized
+  `ExpandTokPastingArg` preprocessor option, which made token-pasting
+  behavior indeterminate.
 
 #### HLSL Language
 
