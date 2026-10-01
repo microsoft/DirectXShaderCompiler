@@ -354,51 +354,70 @@ bool DxilAnnotateWithVirtualRegister::IsAllocaRegisterWrite(
     uint32_t precedingMemberCount = 0;
     auto *Alloca = llvm::dyn_cast<llvm::AllocaInst>(pGEP->getPointerOperand());
     if (Alloca == nullptr) {
-      // In the case of vector types (floatN, matrixNxM), the pointer operand
-      // will actually point to another element pointer instruction. But this
-      // isn't a recursive thing- we only need to check these two levels.
-      if (auto *pPointerGEP = llvm::dyn_cast<llvm::GetElementPtrInst>(
-              pGEP->getPointerOperand())) {
-        Alloca =
-            llvm::dyn_cast<llvm::AllocaInst>(pPointerGEP->getPointerOperand());
-        if (Alloca == nullptr) {
+      // The pointer operand can itself be a GEP whenever the value being
+      // written is nested in more than one aggregate: a vector member of a
+      // struct (floatN, matrixNxM), or a struct member of a struct. Walk
+      // the whole chain of ancestor GEPs, outermost first, and require it
+      // to bottom out at an alloca.
+      llvm::SmallVector<llvm::GetElementPtrInst *, 4> AncestorGEPs;
+      llvm::Value *PointerOperand = pGEP->getPointerOperand();
+      while (auto *pAncestorGEP =
+                 llvm::dyn_cast<llvm::GetElementPtrInst>(PointerOperand)) {
+        AncestorGEPs.push_back(pAncestorGEP);
+        PointerOperand = pAncestorGEP->getPointerOperand();
+      }
+
+      Alloca = llvm::dyn_cast<llvm::AllocaInst>(PointerOperand);
+      if (Alloca == nullptr) {
+        return false;
+      }
+
+      // Each level contributes the flattened count of whatever members precede
+      // the one it selects, so the offsets accumulate down the chain.
+      for (auto *pAncestorGEP : AncestorGEPs) {
+        auto *pStructType = llvm::dyn_cast<llvm::StructType>(
+            pAncestorGEP->getPointerOperandType()->getPointerElementType());
+        if (pStructType == nullptr) {
+          continue;
+        }
+        if (pAncestorGEP->getNumOperands() < 3) {
+          continue;
+        }
+        auto *pStructMember =
+            llvm::dyn_cast<llvm::ConstantInt>(pAncestorGEP->getOperand(2));
+        if (pStructMember == nullptr) {
+          // A dynamically selected member has no constant offset; guessing
+          // zero would attribute the write to the wrong register.
           return false;
         }
-        // And of course the member we're after might not be at the beginning of
-        // any containing struct:
-        if (auto *pStructType = llvm::dyn_cast<llvm::StructType>(
-                pPointerGEP->getPointerOperandType()
-                    ->getPointerElementType())) {
-          auto *pStructMember =
-              llvm::dyn_cast<llvm::ConstantInt>(pPointerGEP->getOperand(2));
-          uint64_t memberIndex = pStructMember->getLimitedValue();
-          for (uint64_t i = 0; i < memberIndex; ++i) {
-            precedingMemberCount +=
-                CountStructMembers(pStructType->getStructElementType(i));
-          }
+        uint64_t memberIndex = pStructMember->getLimitedValue();
+        if (memberIndex > pStructType->getStructNumElements()) {
+          return false;
         }
+        for (uint64_t i = 0; i < memberIndex; ++i) {
+          precedingMemberCount +=
+              CountStructMembers(pStructType->getStructElementType(i));
+        }
+      }
 
-        // And the source pointer may be a vector (floatn) type,
-        // and if so, that's another offset to consider.
-        llvm::Type *DestType = pGEP->getPointerOperand()->getType();
-        // We expect this to be a pointer type (it's a GEP after all):
-        if (DestType->isPointerTy()) {
-          llvm::Type *PointedType = DestType->getPointerElementType();
-          // Being careful to check num operands too in order to avoid false
-          // positives:
-          if (PointedType->isVectorTy() && pGEP->getNumOperands() == 3) {
-            // Fetch the second deref (in operand 2).
-            // (the first derefs the pointer to the "floatn",
-            // and the second denotes the index into the floatn.)
-            llvm::Value *vectorIndex = pGEP->getOperand(2);
-            if (auto *constIntIIndex =
-                    llvm::cast<llvm::ConstantInt>(vectorIndex)) {
-              precedingMemberCount += constIntIIndex->getLimitedValue();
-            }
+      // And the source pointer may be a vector (floatn) type,
+      // and if so, that's another offset to consider.
+      llvm::Type *DestType = pGEP->getPointerOperand()->getType();
+      // We expect this to be a pointer type (it's a GEP after all):
+      if (DestType->isPointerTy()) {
+        llvm::Type *PointedType = DestType->getPointerElementType();
+        // Being careful to check num operands too in order to avoid false
+        // positives:
+        if (PointedType->isVectorTy() && pGEP->getNumOperands() == 3) {
+          // Fetch the second deref (in operand 2).
+          // (the first derefs the pointer to the "floatn",
+          // and the second denotes the index into the floatn.)
+          llvm::Value *vectorIndex = pGEP->getOperand(2);
+          if (auto *constIntIIndex =
+                  llvm::dyn_cast<llvm::ConstantInt>(vectorIndex)) {
+            precedingMemberCount += constIntIIndex->getLimitedValue();
           }
         }
-      } else {
-        return false;
       }
     }
 
