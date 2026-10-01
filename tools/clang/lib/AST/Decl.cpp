@@ -1958,8 +1958,11 @@ VarDecl::isThisDeclarationADefinition(ASTContext &C) const {
       getTemplateSpecializationKind() != TSK_ExplicitSpecialization)
     return DeclarationOnly;
 
-  if (hasExternalStorage())
-    return DeclarationOnly;
+  if (!getASTContext()
+           .getLangOpts()
+           .HLSL) // HLSL Change - take extern as define to match fxc.
+    if (hasExternalStorage())
+      return DeclarationOnly;
 
   // [dcl.link] p7:
   //   A declaration directly contained in a linkage-specification is treated

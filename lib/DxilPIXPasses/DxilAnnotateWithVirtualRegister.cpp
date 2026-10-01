@@ -106,6 +106,10 @@ private:
     m_MST.reset(new llvm::ModuleSlotTracker(&M));
     auto functions = m_DM->GetExportedFunctions();
     for (auto &fn : functions) {
+      // A module that names no entry point reports a null one here, e.g. a
+      // library whose only export is a helper function.
+      if (fn == nullptr)
+        continue;
       m_MST->incorporateFunction(*fn);
     }
   }
@@ -128,6 +132,12 @@ PrintableSubsetOfMangledFunctionName(llvm::StringRef mangled) {
 }
 
 bool DxilAnnotateWithVirtualRegister::runOnModule(llvm::Module &M) {
+  // Inline first, so each ordinal this pass hands out belongs to a function
+  // that PIX can attribute to an invocation.
+  llvm::SmallVector<llvm::Function *, 4> UninlinedFunctions;
+  PIXPassHelpers::InlineNonEntryFunctions(M.GetOrCreateDxilModule(),
+                                          &UninlinedFunctions);
+
   Init(M);
   if (m_DM == nullptr) {
     return false;
@@ -218,6 +228,14 @@ bool DxilAnnotateWithVirtualRegister::runOnModule(llvm::Module &M) {
   }
 
   if (OSOverride != nullptr) {
+    // Name each function that survives inlining. Its instruction range is
+    // advertised above, but no trace record arrives for it, so PIX must not
+    // offer it as somewhere to step into.
+    for (llvm::Function *F : UninlinedFunctions) {
+      *OSOverride << "UninlinedFunction:"
+                  << PrintableSubsetOfMangledFunctionName(F->getName()) << "\n";
+    }
+
     // Print a set of strings of the exemplary form "InstructionCount: <n>
     // <fnName>"
     if (m_DM->GetShaderModel()->GetKind() == hlsl::ShaderModel::Kind::Library)
