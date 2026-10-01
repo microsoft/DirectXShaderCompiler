@@ -160,6 +160,8 @@ bool DxilNonUniformResourceIndexInstrumentation::runOnModule(Module &M) {
   modified |= PIXPassHelpers::eraseIfUnused(DM, AtomicOpFunc);
 
   if (modified) {
+    // Recompute shader flags after inserting WaveActiveAllEqual so the
+    // declared flags match the module.
     DM.CollectShaderFlagsForModule();
     DM.ReEmitDxilResources();
 
