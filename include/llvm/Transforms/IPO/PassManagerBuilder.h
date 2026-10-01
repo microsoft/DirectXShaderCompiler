@@ -132,6 +132,7 @@ public:
   bool HLSLUnrollCountIsHint = false;    // HLSL Change
   hlsl::HLSLExtensionsCodegenHelper *HLSLExtensionsCodeGen = nullptr; // HLSL Change
   bool HLSLResMayAlias = false; // HLSL Change
+  bool HLSLTrimCBufferMembers = false; // HLSL Change
   unsigned ScanLimit = 0; // HLSL Change
   bool EnableGVN = true; // HLSL Change
   bool StructurizeLoopExitsForUnroll = false; // HLSL Change
