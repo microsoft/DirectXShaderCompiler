@@ -47,7 +47,7 @@ line upon naming the release. Refer to previous for appropriate section names.
   compatibility warnings available for earlier language versions
   [#8482](https://github.com/microsoft/DirectXShaderCompiler/issues/8482).
 - The `interface` keyword and interface declarations are removed in HLSL 202x,
-  with a compatibility warning available in HLSL 2021.
+  with compatibility warnings available for earlier language versions.
 - Added support for `auto` return types for normal functions aligning with C++14
   [#8903](https://github.com/microsoft/DirectXShaderCompiler/issues/8903).
 - HLSL 202x now supports variadic templates and template function parameter
