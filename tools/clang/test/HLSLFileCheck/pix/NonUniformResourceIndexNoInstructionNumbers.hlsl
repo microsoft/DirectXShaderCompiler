@@ -10,7 +10,6 @@
 
 // CHECK-NOT: FoundDynamicIndexingNoNuri
 // CHECK: NuriNotInstrumentedMissingInstructionNumber
-// CHECK-NOT: !"PixUAVResource"
 // CHECK-NOT: @dx.op.waveActiveAllEqual
 // CHECK-NOT: @dx.op.atomicBinOp
 

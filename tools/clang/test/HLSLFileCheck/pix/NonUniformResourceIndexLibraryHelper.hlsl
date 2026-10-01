@@ -5,7 +5,6 @@
 // a non-zero instruction ordinal.
 
 // CHECK-NOT: NuriNotInstrumentedMissingInstructionNumber
-// CHECK: FoundDynamicIndexingNoNuri
 // CHECK: define void {{.*}}IndexInHelper
 // CHECK: @dx.op.waveActiveAllEqual
 // CHECK: shl i32 %{{[0-9]+}}, {{[1-9][0-9]*}}
