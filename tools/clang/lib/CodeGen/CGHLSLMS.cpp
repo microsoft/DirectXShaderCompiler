@@ -4098,6 +4098,25 @@ EmitHLSLMatrixOperationCallImp(CGBuilderTy &Builder, HLOpcodeGroup group,
   return Builder.CreateCall(opFunc, opcodeParamList);
 }
 
+// Converts a matrix value to another matrix type, the same way as an explicit
+// matrix cast (e.g. float3x3 to half3x3).
+static Value *EmitHLSLMatrixConversion(CGBuilderTy &Builder, Value *Val,
+                                       QualType FromTy, QualType ToTy,
+                                       llvm::Type *RetType, llvm::Module &M) {
+  const bool toUnsigned = hlsl::IsHLSLUnsigned(ToTy);
+  const bool fromUnsigned = hlsl::IsHLSLUnsigned(FromTy);
+  HLCastOpcode opcode = HLCastOpcode::DefaultCast;
+  if (toUnsigned && fromUnsigned)
+    opcode = HLCastOpcode::UnsignedUnsignedCast;
+  else if (toUnsigned)
+    opcode = HLCastOpcode::ToUnsignedCast;
+  else if (fromUnsigned)
+    opcode = HLCastOpcode::FromUnsignedCast;
+  return EmitHLSLMatrixOperationCallImp(Builder, HLOpcodeGroup::HLCast,
+                                        static_cast<unsigned>(opcode), RetType,
+                                        {Val}, M);
+}
+
 static Value *EmitHLSLArrayInit(CGBuilderTy &Builder, HLOpcodeGroup group,
                                 unsigned opcode, llvm::Type *RetType,
                                 ArrayRef<Value *> paramList, llvm::Module &M) {
@@ -6446,7 +6465,10 @@ void CGMSHLSLRuntime::EmitHLSLOutParamConversionInit(
 
         llvm::Type *ToTy = tmpArgAddr->getType()->getPointerElementType();
         if (HLMatrixType::isa(ToTy)) {
-          Value *castVal = CGF.Builder.CreateBitCast(outVal, ToTy);
+          Value *castVal = outVal;
+          if (outVal->getType() != ToTy)
+            castVal = EmitHLSLMatrixConversion(CGF.Builder, outVal, ArgTy,
+                                               ParamTy, ToTy, TheModule);
           EmitHLSLMatrixStore(CGF, castVal, tmpArgAddr, ParamTy);
         } else {
           if (outVal->getType()->isVectorTy()) {
@@ -6518,6 +6540,9 @@ void CGMSHLSLRuntime::EmitHLSLOutParamConversionCopyBack(
             castVal =
                 CGF.Builder.CreateInsertElement(castVal, outVal, (uint64_t)0);
           }
+        } else if (HLMatrixType::isa(ToTy)) {
+          castVal = EmitHLSLMatrixConversion(CGF.Builder, outVal, ParamTy,
+                                             ArgTy, ToTy, TheModule);
         } else {
           castVal = ConvertScalarOrVector(CGF, outVal, tmpLV.getType(),
                                           argLV.getType());
