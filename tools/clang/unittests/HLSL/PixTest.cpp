@@ -190,6 +190,8 @@ public:
   TEST_METHOD(Validation_ControlInvalidModuleFails)
   TEST_METHOD(Validation_ControlNonPixUnusedMetadataIsRejected)
   TEST_METHOD(Validation_ControlInvalidPixMetadataIsRejected)
+  TEST_METHOD(Validation_ControlBoilerplateOnlyFailureIsRejected)
+  TEST_METHOD(Validation_NonUniformResourceIndex_WaveOpsFlag)
 
   dxc::DxCompilerDllLoader m_dllSupport;
   VersionSupportInfo m_ver;
@@ -4625,6 +4627,13 @@ float main() : SV_Target
   SinglePassOutput Output =
       runSinglePass(Compiled, L"-dxil-annotate-with-virtual-regs");
 
+  // Confirm the baseline validates before corrupting it, so the failure
+  // below is caused by the corruption and nothing else.
+  verifyInstrumentedModuleIsValid(
+      Output.Module,
+      "virtual-register annotation of a trivial pixel shader, uncorrupted "
+      "baseline (validation harness control)");
+
   // Mislabel the shader stage, so the container carries both the
   // harness's permitted PIX metadata and a real defect.
   std::string Disassembly = Disassemble(Output.Module);
@@ -4767,4 +4776,64 @@ float main() : SV_Target
       });
   VERIFY_IS_TRUE(AddedMalformedMetadata);
   VERIFY_IS_FALSE(validateInstrumentedModule(WithMalformedMetadata).Valid);
+}
+
+TEST_F(PixTest, Validation_ControlBoilerplateOnlyFailureIsRejected) {
+  const std::string boilerplateOnly =
+      getSignificantValidationDiagnostics("Validation failed.\n");
+  VERIFY_IS_TRUE(boilerplateOnly.empty());
+
+  const std::string realDiagnostic =
+      getSignificantValidationDiagnostics("Validation failed.\n"
+                                          "Some real validator diagnostic.\n");
+  VERIFY_IS_FALSE(realDiagnostic.empty());
+  VERIFY_IS_TRUE(realDiagnostic.find("Some real validator diagnostic.") !=
+                 std::string::npos);
+}
+
+TEST_F(PixTest, Validation_NonUniformResourceIndex_WaveOpsFlag) {
+  if (m_ver.SkipDxilVersion(1, 6))
+    return;
+
+  const char *source = R"x(
+Texture2D textures[]  : register(t0);
+SamplerState samp     : register(s0);
+
+cbuffer Constants : register(b0)
+{
+    uint index;
+};
+
+float4 main(float4 pos : SV_Position) : SV_Target
+{
+    return textures[index].Sample(samp, pos.xy);
+})x";
+
+  // This index is dynamic and unmarked, so the pass instruments it; an
+  // index already marked NonUniformResourceIndex would be skipped.
+  // Instrumentation inserts WaveActiveAllEqual, which requires the WaveOps
+  // shader flag.
+  CComPtr<IDxcBlob> compiled =
+      Compile(m_dllSupport, source, L"ps_6_6", {L"-Od"});
+  CComPtr<IDxcBlob> dxil = FindModule(DFCC_ShaderDebugInfoDXIL, compiled);
+
+  CComPtr<IDxcOptimizer> pOptimizer;
+  VERIFY_SUCCEEDED(
+      m_dllSupport.CreateInstance(CLSID_DxcOptimizer, &pOptimizer));
+  std::array<LPCWSTR, 4> Options = {
+      L"-opt-mod-passes", L"-dxil-dbg-value-to-dbg-declare",
+      L"-dxil-annotate-with-virtual-regs",
+      L"-hlsl-dxil-non-uniform-resource-index-instrumentation"};
+
+  CComPtr<IDxcBlob> pOptimizedModule;
+  CComPtr<IDxcBlobEncoding> pText;
+  VERIFY_SUCCEEDED(pOptimizer->RunOptimizer(
+      dxil, Options.data(), Options.size(), &pOptimizedModule, &pText));
+
+  verifyInstrumentedModuleIsValid(pOptimizedModule,
+                                  "non-uniform resource index instrumentation");
+
+  VERIFY_ARE_NOT_EQUAL(
+      std::string::npos,
+      Disassemble(pOptimizedModule).find("dx.op.waveActiveAllEqual"));
 }
