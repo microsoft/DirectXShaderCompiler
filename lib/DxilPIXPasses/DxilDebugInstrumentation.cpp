@@ -336,7 +336,10 @@ private:
                                     DXIL::ShaderKind shaderKind);
   Value *addPixelShaderProlog(BuilderContext &BC, SystemValueIndices SVIndices);
   Value *addGeometryShaderProlog(BuilderContext &BC);
+  Value *addThreadIdComparisonProlog(BuilderContext &BC,
+                                     DXIL::OpCode threadIdOpCode);
   Value *addDispatchedShaderProlog(BuilderContext &BC);
+  Value *addNodeShaderProlog(BuilderContext &BC);
   Value *addRaygenShaderProlog(BuilderContext &BC);
   Value *addVertexShaderProlog(BuilderContext &BC,
                                SystemValueIndices SVIndices);
@@ -392,6 +395,7 @@ static bool IsInstrumentableShaderKind(DXIL::ShaderKind shaderKind) {
   case DXIL::ShaderKind::AnyHit:
   case DXIL::ShaderKind::ClosestHit:
   case DXIL::ShaderKind::Miss:
+  case DXIL::ShaderKind::Callable:
   case DXIL::ShaderKind::Node:
     return true;
   default:
@@ -512,6 +516,7 @@ DxilDebugInstrumentation::addRequiredSystemValues(BuilderContext &BC,
   case DXIL::ShaderKind::AnyHit:
   case DXIL::ShaderKind::ClosestHit:
   case DXIL::ShaderKind::Miss:
+  case DXIL::ShaderKind::Callable:
   case DXIL::ShaderKind::Node:
     // Dispatch* thread Id is not in the input signature
     break;
@@ -563,14 +568,15 @@ DxilDebugInstrumentation::addRequiredSystemValues(BuilderContext &BC,
   return SVIndices;
 }
 
-Value *DxilDebugInstrumentation::addDispatchedShaderProlog(BuilderContext &BC) {
+Value *DxilDebugInstrumentation::addThreadIdComparisonProlog(
+    BuilderContext &BC, DXIL::OpCode threadIdOpCode) {
   Constant *Zero32Arg = BC.HlslOP->GetU32Const(0);
   Constant *One32Arg = BC.HlslOP->GetU32Const(1);
   Constant *Two32Arg = BC.HlslOP->GetU32Const(2);
 
   auto ThreadIdFunc =
-      BC.HlslOP->GetOpFunc(DXIL::OpCode::ThreadId, Type::getInt32Ty(BC.Ctx));
-  Constant *Opcode = BC.HlslOP->GetU32Const((unsigned)DXIL::OpCode::ThreadId);
+      BC.HlslOP->GetOpFunc(threadIdOpCode, Type::getInt32Ty(BC.Ctx));
+  Constant *Opcode = BC.HlslOP->GetU32Const((unsigned)threadIdOpCode);
   auto ThreadIdX =
       BC.Builder.CreateCall(ThreadIdFunc, {Opcode, Zero32Arg}, "ThreadIdX");
   auto ThreadIdY =
@@ -596,6 +602,62 @@ Value *DxilDebugInstrumentation::addDispatchedShaderProlog(BuilderContext &BC) {
       BC.Builder.CreateAnd(CompareXAndY, CompareToZ, "CompareAll");
 
   return CompareAll;
+}
+
+Value *DxilDebugInstrumentation::addDispatchedShaderProlog(BuilderContext &BC) {
+  return addThreadIdComparisonProlog(BC, DXIL::OpCode::ThreadId);
+}
+
+// The identity of a node shader invocation depends on how the node launches,
+// and the three launch types offer different system values. The validator
+// allows SV_DispatchThreadID and SV_GroupID only to a broadcasting node, and
+// SV_GroupThreadID and SV_GroupIndex only to a broadcasting or a coalescing
+// node. A thread launch node gets none of them.
+//
+//  - A broadcasting node runs over a grid, so SV_DispatchThreadID names an
+//    invocation exactly as it does for a compute shader.
+//  - A coalescing node has only the position of a thread within its group.
+//    That narrows the selection to the group size instead of to a single
+//    invocation.
+//  - A thread launch node has no thread identity at all, so every invocation
+//    stays of interest.
+//
+// The pass report names which of the three applies, so the caller presents the
+// selection as exact or approximate.
+Value *DxilDebugInstrumentation::addNodeShaderProlog(BuilderContext &BC) {
+  llvm::Function *function = BC.Builder.GetInsertBlock()->getParent();
+
+  if (!BC.DM.HasDxilFunctionProps(function)) {
+    *OSOverride << "NodeInvocationSelection:None\n";
+    return BC.HlslOP->GetI1Const(1);
+  }
+
+  hlsl::DxilFunctionProps const &props = BC.DM.GetDxilFunctionProps(function);
+
+  switch (props.Node.LaunchType) {
+  case DXIL::NodeLaunchType::Broadcasting:
+    *OSOverride << "NodeInvocationSelection:DispatchThreadId\n";
+    return addThreadIdComparisonProlog(BC, DXIL::OpCode::ThreadId);
+
+  case DXIL::NodeLaunchType::Coalescing:
+    // The requested coordinates only mean something as a position within the
+    // group. A coordinate outside the declared group size matches no
+    // invocation, and a criterion that nothing satisfies leaves the debugger
+    // with no trace at all. Select every invocation in that case instead.
+    if (m_Parameters.ComputeShader.ThreadIdX < props.numThreads[0] &&
+        m_Parameters.ComputeShader.ThreadIdY < props.numThreads[1] &&
+        m_Parameters.ComputeShader.ThreadIdZ < props.numThreads[2]) {
+      *OSOverride << "NodeInvocationSelection:GroupThreadId\n";
+      return addThreadIdComparisonProlog(BC, DXIL::OpCode::ThreadIdInGroup);
+    }
+    *OSOverride << "NodeInvocationSelection:None\n";
+    return BC.HlslOP->GetI1Const(1);
+
+  case DXIL::NodeLaunchType::Thread:
+  default:
+    *OSOverride << "NodeInvocationSelection:None\n";
+    return BC.HlslOP->GetI1Const(1);
+  }
 }
 
 Value *DxilDebugInstrumentation::addRaygenShaderProlog(BuilderContext &BC) {
@@ -819,10 +881,16 @@ void DxilDebugInstrumentation::addInvocationSelectionProlog(
   case DXIL::ShaderKind::Intersection:
   case DXIL::ShaderKind::AnyHit:
   case DXIL::ShaderKind::Miss:
+  case DXIL::ShaderKind::Callable:
+    // A callable shader has neither a ray nor a thread of its own, but it runs
+    // as part of the dispatch that calls it, so DispatchRaysIndex names the
+    // invocation that leads to it. PIX selects a raygen invocation on that same
+    // value, so a callable that the selected raygen thread invokes is selected
+    // here too.
     ParameterTestResult = addRaygenShaderProlog(BC);
     break;
   case DXIL::ShaderKind::Node:
-    ParameterTestResult = BC.HlslOP->GetI1Const(1);
+    ParameterTestResult = addNodeShaderProlog(BC);
     break;
   case DXIL::ShaderKind::Compute:
   case DXIL::ShaderKind::Amplification:
