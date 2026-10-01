@@ -6,12 +6,14 @@
 
 StructuredBuffer<float4> In : register(t0);
 StructuredBuffer<int4> InInt : register(t1);
+StructuredBuffer<uint4> InUint : register(t2);
 RWStructuredBuffer<float4> Out : register(u0);
 RWStructuredBuffer<uint4> OutUint : register(u1);
 
 void fill(out float2x2 m) { m = float2x2(In[0].xy, In[0].zw); }
 void twice(inout float2x2 m) { m = m * 2; }
 void fillInt(out int2x2 m) { m = int2x2(InInt[0].xy, InInt[0].zw); }
+void half_it(inout float2x2 m) { m = m * 0.5; }
 
 [numthreads(1, 1, 1)]
 void main() {
@@ -39,4 +41,13 @@ void main() {
   uint2x2 u;
   fillInt(u);
   OutUint[0] = uint4(u[0], u[1]);
+
+  // inout uint2x2 -> float2x2: the unsigned conversions are used both ways.
+  // CHECK: rawBufferLoad.i32
+  // CHECK: uitofp i32 %{{.*}} to float
+  // CHECK: fmul fast float %{{.*}}, 5.000000e-01
+  // CHECK: fptoui float %{{.*}} to i32
+  uint2x2 q = uint2x2(InUint[0].xy, InUint[0].zw);
+  half_it(q);
+  OutUint[1] = uint4(q[0], q[1]);
 }
