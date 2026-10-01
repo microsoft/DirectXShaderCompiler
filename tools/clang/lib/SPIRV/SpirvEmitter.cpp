@@ -1937,20 +1937,10 @@ void SpirvEmitter::registerCapabilitiesAndExtensionsForVarDecl(
 
 void SpirvEmitter::doHLSLBufferDecl(const HLSLBufferDecl *bufferDecl) {
   // This is a cbuffer/tbuffer decl.
-  // Check and emit warnings for member intializers which are not
-  // supported in Vulkan
   for (const auto *member : bufferDecl->decls()) {
     if (const auto *varMember = dyn_cast<VarDecl>(member)) {
       if (varMember->getStorageClass() == StorageClass::SC_Static)
         continue;
-
-      if (!spirvOptions.noWarnIgnoredFeatures) {
-        if (const auto *init = varMember->getInit())
-          emitWarning("%select{tbuffer|cbuffer}0 member initializer "
-                      "ignored since no Vulkan equivalent",
-                      init->getExprLoc())
-              << bufferDecl->isCBuffer() << init->getSourceRange();
-      }
 
       // We cannot handle external initialization of column-major matrices now.
       if (isOrContainsNonFpColMajorMatrix(astContext, spirvOptions,
@@ -2199,10 +2189,6 @@ void SpirvEmitter::doVarDecl(const VarDecl *decl) {
   // variables) belongs to the Function storage class.
   if (isExternalVar(decl)) {
     var = declIdMapper.createExternVar(decl);
-    if (decl->hasInit()) {
-      emitWarning("Initializer of external global will be ignored",
-                  decl->getLocation());
-    }
   } else {
     // We already know the variable is not externally visible here. If it does
     // not have local storage, it should be file scope variable.

@@ -52,7 +52,7 @@ SubobjectToExportsAssociation sea2_6 = { 51 };              /* expected-error {{
 SubobjectToExportsAssociation sea2_7 = "foo";               /* expected-error {{cannot initialize a variable of type 'SubobjectToExportsAssociation' with an lvalue of type 'literal string'}} */
 SubobjectToExportsAssociation sea2_8 = 65412;               /* expected-error {{cannot initialize a variable of type 'SubobjectToExportsAssociation' with an rvalue of type 'literal int'}} */
 
-int i1 = 10, i2 = 156;
+int i1 = 10, i2 = 156;    /* expected-warning 2 {{initializer for a variable in a cbuffer will be ignored}} */
 
 RaytracingShaderConfig rsc1_1 = { 128, 64 };
 RaytracingShaderConfig rsc1_2 = { int2(128, 64) };
