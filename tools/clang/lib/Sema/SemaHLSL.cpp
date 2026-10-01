@@ -2002,6 +2002,15 @@ static bool IsStaticMember(const HLSL_INTRINSIC *fn) {
   return fn->Flags & INTRIN_FLAG_STATIC_MEMBER;
 }
 
+// Returns true if the intrinsic is a non-static method that does not mutate
+// instance state. Writing through a resource handle does not mutate the handle.
+static bool IsConstMemberIntrinsic(const HLSL_INTRINSIC *fn) {
+  if (IsStaticMember(fn))
+    return false;
+  // A method is const unless it explicitly mutates the object.
+  return !(fn->Flags & INTRIN_FLAG_MUTABLE_METHOD);
+}
+
 static bool IsVariadicIntrinsicFunction(const HLSL_INTRINSIC *fn) {
   return fn->pArgs[fn->uNumArgs - 1].uTemplateId == INTRIN_TEMPLATE_VARARGS;
 }
@@ -3449,11 +3458,12 @@ private:
     DeclarationName declarationName = DeclarationName(ii);
 
     StorageClass SC = IsStaticMember(intrinsic) ? SC_Static : SC_None;
+    bool IsConst = IsConstMemberIntrinsic(intrinsic);
 
     CXXMethodDecl *functionDecl = CreateObjectFunctionDeclarationWithParams(
         *m_context, recordDecl, functionResultQT,
         ArrayRef<QualType>(argsQTs, numParams),
-        ArrayRef<StringRef>(argNames, numParams), declarationName, true, SC,
+        ArrayRef<StringRef>(argNames, numParams), declarationName, IsConst, SC,
         templateParamNamedDeclsCount > 0);
     functionDecl->setImplicit(true);
 
@@ -5671,6 +5681,8 @@ public:
   /// numeric elements exclusively.</summary>
   bool IsTypeNumeric(QualType type, UINT *count);
 
+  bool ContainsLinAlgMatrixType(QualType type);
+
   /// <summary>Checks whether the specified type is a scalar type.</summary>
   bool IsScalarType(const QualType &type) {
     DXASSERT(!type.isNull(), "caller should validate its type is initialized");
@@ -6384,11 +6396,14 @@ public:
     MultiLevelTemplateArgumentList mlTemplateArgumentList(templateArgumentList);
     TemplateDeclInstantiator declInstantiator(*this->m_sema, owner,
                                               mlTemplateArgumentList);
-    FunctionProtoType::ExtProtoInfo EmptyEPI;
+    FunctionProtoType::ExtProtoInfo EPI;
+    // Preserve the method's const qualification on the resolved specialization.
+    if (IsConstMemberIntrinsic(intrinsic))
+      EPI.TypeQuals = Qualifiers::Const;
     QualType functionType = m_context->getFunctionType(
         parameterTypes[0],
-        ArrayRef<QualType>(parameterTypes + 1, parameterTypeCount - 1),
-        EmptyEPI, paramMods);
+        ArrayRef<QualType>(parameterTypes + 1, parameterTypeCount - 1), EPI,
+        paramMods);
     TypeSourceInfo *TInfo = m_context->CreateTypeSourceInfo(functionType, 0);
     FunctionProtoTypeLoc Proto =
         TInfo->getTypeLoc().getAs<FunctionProtoTypeLoc>();
@@ -8695,8 +8710,9 @@ UINT64 HLSLExternalSource::ScoreFunction(OverloadCandidateSet::iterator &Cand) {
 
   // in/out considerations have been taken care of by viability.
 
-  // 'this' considerations don't matter without inheritance, other
-  // than lookup and viability.
+  // The implicit object argument (`this`) affects lookup and viability.
+  // In HLSL 202x, its const qualification also breaks ties between viable
+  // overloads: a non-const object prefers a non-const method.
 
   UINT64 result = 0;
   for (unsigned convIdx = 0; convIdx < Cand->NumConversions; ++convIdx) {
@@ -8713,6 +8729,23 @@ UINT64 HLSLExternalSource::ScoreFunction(OverloadCandidateSet::iterator &Cand) {
       return SCORE_MAX;
     }
     result += score;
+  }
+
+  // HLSL 202x: when both const and non-const overloads of a method are
+  // viable for a non-const object, prefer the non-const overload. Add a
+  // small tie-breaking penalty when the implicit object argument requires
+  // adding `const` to call a const-qualified method. This uses the low score
+  // bits reserved by SCORE_MIN_SHIFT.
+  CXXMethodDecl *Method = dyn_cast_or_null<CXXMethodDecl>(Cand->Function);
+  if (m_sema->getLangOpts().HLSLVersion >= hlsl::LangStd::v202x && Method &&
+      !Cand->IgnoreObjectArgument &&
+      (Method->getTypeQualifiers() & Qualifiers::Const)) {
+    const ImplicitConversionSequence &ICS = Cand->Conversions[0];
+    if (ICS.isStandard()) {
+      QualType FromType = ICS.Standard.getFromType();
+      if (!FromType.isNull() && !FromType.isConstQualified())
+        result += 1;
+    }
   }
   return result;
 }
@@ -9025,8 +9058,38 @@ bool HLSLExternalSource::IsTypeNumeric(QualType type, UINT *count) {
   case AR_TOBJ_OBJECT:
   case AR_TOBJ_DEPENDENT:
   case AR_TOBJ_STRING:
+  case AR_TOBJ_LINALG_MATRIX:
     return false;
   }
+}
+
+bool HLSLExternalSource::ContainsLinAlgMatrixType(QualType Type) {
+  DXASSERT_NOMSG(!Type.isNull());
+
+  Type = GetStructuralForm(Type);
+  // Covers both attributed matrices and the unattributed builtin handle.
+  if (Type->isAttributedLinAlgMatrixType() || Type->isLinAlgMatrixType())
+    return true;
+
+  if (const ArrayType *AT = m_context->getAsArrayType(Type))
+    return ContainsLinAlgMatrixType(AT->getElementType());
+
+  if (GetTypeObjectKind(Type) != AR_TOBJ_COMPOUND)
+    return false;
+
+  const CXXRecordDecl *RD = Type->getAsCXXRecordDecl();
+  if (!RD || !RD->hasDefinition())
+    return false;
+
+  for (const CXXBaseSpecifier &Base : RD->bases())
+    if (ContainsLinAlgMatrixType(Base.getType()))
+      return true;
+
+  for (const FieldDecl *Field : RD->fields())
+    if (ContainsLinAlgMatrixType(Field->getType()))
+      return true;
+
+  return false;
 }
 
 enum MatrixMemberAccessError {
@@ -12774,6 +12837,17 @@ static bool AllowObjectInContext(QualType Ty, TypeDiagContext DiagContext) {
   return true;
 }
 
+// LinAlg matrices (attributed or the raw builtin handle) are opaque, thread
+// local values. They are only valid as static global state, locals, and
+// non-entry function parameters and return types, never in resources,
+// groupshared memory, or shader interfaces.
+static bool AllowLinAlgMatrixInContext(TypeDiagContext DiagContext) {
+  // Non-static globals are rejected separately with a diagnostic that asks for
+  // an explicit 'static'.
+  return DiagContext == TypeDiagContext::GlobalVariables ||
+         DiagContext == TypeDiagContext::CBuffersOrTBuffers;
+}
+
 // Determine if `Ty` is valid in this `DiagContext` and/or an empty type.  If
 // invalid returns false and Sema `S`, location `Loc`, error index
 // `DiagContext`, and FieldDecl `FD` are used to emit diagnostics. If
@@ -12804,6 +12878,21 @@ DiagnoseElementTypes(Sema &S, SourceLocation Loc, QualType Ty, bool &Empty,
            static_cast<int>(TypeDiagContext::LongVecDiagMaxSelectIndex)));
 
   HLSLExternalSource *Source = HLSLExternalSource::FromSema(&S);
+
+  const Type *CanonTy = Ty.getCanonicalType().getTypePtr();
+  if (CanonTy->isAttributedLinAlgMatrixType() ||
+      CanonTy->isLinAlgMatrixType()) {
+    Empty = false;
+    if (!CheckObjects || AllowLinAlgMatrixInContext(ObjDiagContext))
+      return false;
+    S.Diag(Loc, diag::err_hlsl_unsupported_object_context)
+        << Ty << ObjDiagContextIdx;
+    if (FD)
+      S.Diag(FD->getLocation(), diag::note_field_declared_here)
+          << FD->getType() << FD->getSourceRange();
+    return true;
+  }
+
   ArTypeObjectKind ShapeKind = Source->GetTypeObjectKind(Ty);
   switch (ShapeKind) {
   case AR_TOBJ_VECTOR:
@@ -16103,6 +16192,15 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC, Expr *BitWidth,
     if (DiagnoseTypeElements(*this, D.getLocStart(), qt, ObjDiagContext,
                              LongVecDiagContext))
       result = false;
+
+    // LinAlg matrices are mutable state that cannot live in the implicit
+    // global constant buffer. Groupshared is rejected above.
+    if (!isStatic && !isGroupShared && !D.isInvalidType() &&
+        !qt->isDependentType() && hlslSource->ContainsLinAlgMatrixType(qt)) {
+      Diag(D.getLocStart(), diag::err_hlsl_linalg_matrix_global_not_static)
+          << D.getIdentifier();
+      result = false;
+    }
   }
 
   // SPIRV change starts

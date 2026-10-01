@@ -16,6 +16,7 @@
 #include <algorithm>
 #include <array>
 #include <cassert>
+#include <cctype>
 #include <cfloat>
 #include <map>
 #include <memory>
@@ -183,7 +184,7 @@ public:
 
   TEST_METHOD(DxilPIXDXRInvocationsLog_SanityTest)
   TEST_METHOD(DxilPIXDXRInvocationsLog_EmbeddedRootSigs)
-  TEST_METHOD(DxilPIXDXRInvocationsLog_ZeroCapacityEmitsNothing)
+  TEST_METHOD(DxilPIXDXRInvocationsLog_ZeroCapacityStillCountsInvocations)
   TEST_METHOD(DxilPIXDXRInvocationsLog_OneEntryUsesEntryCountBound)
   TEST_METHOD(DxilPIXDXRInvocationsLog_ExactCapacityUsesEntryCountBound)
   TEST_METHOD(DxilPIXDXRInvocationsLog_OverflowGuardValidates)
@@ -907,11 +908,16 @@ static constexpr uint32_t ToolsRegisterSpace = static_cast<uint32_t>(-2);
 static bool
 HasDxrInvocationLogEntryCountCheck(std::vector<std::string> const &lines,
                                    unsigned expectedEntryCount) {
-  const std::string expectedSuffix = ", " + std::to_string(expectedEntryCount);
-  for (auto const &line : lines) {
-    if (line.find("icmp ult i32 %EntryIndexResult") != std::string::npos &&
-        line.find(expectedSuffix) != std::string::npos) {
-      return true;
+  const std::string comparison =
+      "icmp ult i32 %EntryIndexResult, " + std::to_string(expectedEntryCount);
+  for (const std::string &Line : lines) {
+    const size_t Position = Line.find(comparison);
+    if (Position != std::string::npos) {
+      const size_t End = Position + comparison.size();
+      if (End == Line.size() ||
+          !std::isdigit(static_cast<unsigned char>(Line[End]))) {
+        return true;
+      }
     }
   }
   return false;
@@ -4465,45 +4471,51 @@ void MyMiss(inout MyPayload payload)
   RunDxilPIXDXRInvocationsLog(compiledLib);
 }
 
-TEST_F(PixTest, DxilPIXDXRInvocationsLog_ZeroCapacityEmitsNothing) {
-  auto compiledLib =
+TEST_F(PixTest, DxilPIXDXRInvocationsLog_ZeroCapacityStillCountsInvocations) {
+  CComPtr<IDxcBlob> CompiledLib =
       Compile(m_dllSupport, kSingleMissInvocationLogShader, L"lib_6_6", {});
 
-  auto oneEntryOutput = RunDxilPIXDXRInvocationsLog(compiledLib, 1);
-  auto oneEntryLines = Tokenize(Disassemble(oneEntryOutput), "\n");
-  VERIFY_ARE_EQUAL(2, countToolsUAVRecords(oneEntryLines));
+  CComPtr<IDxcBlob> ZeroEntryOutput =
+      RunDxilPIXDXRInvocationsLog(CompiledLib, 0);
+  const std::string ZeroEntryDisassembly = Disassemble(ZeroEntryOutput);
+  const std::vector<std::string> ZeroEntryLines =
+      Tokenize(ZeroEntryDisassembly, "\n");
 
-  auto zeroEntryOutput = RunDxilPIXDXRInvocationsLog(compiledLib, 0);
-  auto zeroEntryLines = Tokenize(Disassemble(zeroEntryOutput), "\n");
-  VERIFY_ARE_EQUAL(0, countToolsUAVRecords(zeroEntryLines));
+  VERIFY_ARE_EQUAL(1, countToolsUAVRecords(ZeroEntryLines));
+  VERIFY_IS_TRUE(ZeroEntryDisassembly.find("@dx.op.atomicBinOp.i32") !=
+                 std::string::npos);
+  VERIFY_IS_TRUE(ZeroEntryDisassembly.find("call void @dx.op.bufferStore.") ==
+                 std::string::npos);
 }
 
 TEST_F(PixTest, DxilPIXDXRInvocationsLog_OneEntryUsesEntryCountBound) {
-  auto compiledLib =
+  CComPtr<IDxcBlob> CompiledLib =
       Compile(m_dllSupport, kSingleMissInvocationLogShader, L"lib_6_6", {});
-  auto output = RunDxilPIXDXRInvocationsLog(compiledLib, 1);
-  auto lines = Tokenize(Disassemble(output), "\n");
+  CComPtr<IDxcBlob> Output = RunDxilPIXDXRInvocationsLog(CompiledLib, 1);
+  const std::vector<std::string> Lines = Tokenize(Disassemble(Output), "\n");
 
-  VERIFY_IS_TRUE(HasDxrInvocationLogEntryCountCheck(lines, 1));
+  VERIFY_IS_TRUE(HasDxrInvocationLogEntryCountCheck(Lines, 1));
+  VERIFY_IS_FALSE(HasDxrInvocationLogEntryCountCheck(Lines, 10));
 }
 
 TEST_F(PixTest, DxilPIXDXRInvocationsLog_ExactCapacityUsesEntryCountBound) {
-  auto compiledLib =
+  CComPtr<IDxcBlob> CompiledLib =
       Compile(m_dllSupport, kSingleMissInvocationLogShader, L"lib_6_6", {});
-  auto output = RunDxilPIXDXRInvocationsLog(compiledLib, 24);
-  auto lines = Tokenize(Disassemble(output), "\n");
+  CComPtr<IDxcBlob> Output = RunDxilPIXDXRInvocationsLog(CompiledLib, 24);
+  const std::vector<std::string> Lines = Tokenize(Disassemble(Output), "\n");
 
-  VERIFY_IS_TRUE(HasDxrInvocationLogEntryCountCheck(lines, 24));
+  VERIFY_IS_TRUE(HasDxrInvocationLogEntryCountCheck(Lines, 24));
+  VERIFY_IS_FALSE(HasDxrInvocationLogEntryCountCheck(Lines, 240));
 }
 
 TEST_F(PixTest, DxilPIXDXRInvocationsLog_OverflowGuardValidates) {
-  auto compiledLib =
+  CComPtr<IDxcBlob> CompiledLib =
       Compile(m_dllSupport, kSingleMissInvocationLogShader, L"lib_6_6", {});
-  auto output = RunDxilPIXDXRInvocationsLog(compiledLib, 1);
-  std::string disassembly = Disassemble(output);
+  CComPtr<IDxcBlob> Output = RunDxilPIXDXRInvocationsLog(CompiledLib, 1);
+  const std::string Disassembly = Disassemble(Output);
 
-  VERIFY_IS_TRUE(disassembly.find("@dx.op.binary.i32") == std::string::npos);
-  verifyInstrumentedModuleIsValid(output, "DXR invocations log overflow guard");
+  VERIFY_IS_TRUE(Disassembly.find("@dx.op.binary.i32") == std::string::npos);
+  verifyInstrumentedModuleIsValid(Output, "DXR invocations log overflow guard");
 }
 
 uint32_t NuriGetWaveInstructionCount(const std::vector<std::string> &lines) {

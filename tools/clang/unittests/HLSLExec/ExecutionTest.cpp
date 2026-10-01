@@ -10947,13 +10947,6 @@ void ExecutionTest::GroupWaveIndexTest() {
   WEX::TestExecution::SetVerifyOutput VerifySettings(
       WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
 
-  BEGIN_TEST_METHOD_PROPERTIES()
-  TEST_METHOD_PROPERTY(L"Kits.TestId", L"c3f60f00-8e91-4acb-b4be-9f483fbe836b")
-  TEST_METHOD_PROPERTY(
-      L"Kits.Specification",
-      L"Device.Graphics.D3D12.DXILCore.ShaderModel610.CoreRequirement")
-  END_TEST_METHOD_PROPERTIES()
-
   bool FailIfRequirementsNotMet = false;
 #ifdef _HLK_CONF
   FailIfRequirementsNotMet = true;
