@@ -885,28 +885,30 @@ Textures
 `Texture types <https://msdn.microsoft.com/en-us/library/windows/desktop/bb509700(v=vs.85).aspx>`_
 are translated into SPIR-V ``OpTypeImage``, with parameters:
 
-======================= ==================== ===== =================== ========== ===== ======= == ======= ================ =================
-       HLSL                   Vulkan                                        SPIR-V
------------------------ -------------------------- ------------------------------------------------------------------------------------------
-     Texture Type         Descriptor Type    RO/RW    Storage Class        Dim    Depth Arrayed MS Sampled   Image Format      Capability
-======================= ==================== ===== =================== ========== ===== ======= == ======= ================ =================
-``Texture1D``           Sampled Image         RO   ``UniformConstant`` ``1D``      2       0    0    1     ``Unknown``
-``Texture2D``           Sampled Image         RO   ``UniformConstant`` ``2D``      2       0    0    1     ``Unknown``
-``Texture3D``           Sampled Image         RO   ``UniformConstant`` ``3D``      2       0    0    1     ``Unknown``
-``TextureCube``         Sampled Image         RO   ``UniformConstant`` ``Cube``    2       0    0    1     ``Unknown``
-``Texture1DArray``      Sampled Image         RO   ``UniformConstant`` ``1D``      2       1    0    1     ``Unknown``
-``Texture2DArray``      Sampled Image         RO   ``UniformConstant`` ``2D``      2       1    0    1     ``Unknown``
-``Texture2DMS``         Sampled Image         RO   ``UniformConstant`` ``2D``      2       0    1    1     ``Unknown``
-``Texture2DMSArray``    Sampled Image         RO   ``UniformConstant`` ``2D``      2       1    1    1     ``Unknown``
-``TextureCubeArray``    Sampled Image         RO   ``UniformConstant`` ``3D``      2       1    0    1     ``Unknown``
-``Buffer<T>``           Uniform Texel Buffer  RO   ``UniformConstant`` ``Buffer``  2       0    0    1     Depends on ``T`` ``SampledBuffer``
-``RWBuffer<T>``         Storage Texel Buffer  RW   ``UniformConstant`` ``Buffer``  2       0    0    2     Depends on ``T`` ``SampledBuffer``
-``RWTexture1D<T>``      Storage Image         RW   ``UniformConstant`` ``1D``      2       0    0    2     Depends on ``T``
-``RWTexture2D<T>``      Storage Image         RW   ``UniformConstant`` ``2D``      2       0    0    2     Depends on ``T``
-``RWTexture3D<T>``      Storage Image         RW   ``UniformConstant`` ``3D``      2       0    0    2     Depends on ``T``
-``RWTexture1DArray<T>`` Storage Image         RW   ``UniformConstant`` ``1D``      2       1    0    2     Depends on ``T``
-``RWTexture2DArray<T>`` Storage Image         RW   ``UniformConstant`` ``2D``      2       1    0    2     Depends on ``T``
-======================= ==================== ===== =================== ========== ===== ======= == ======= ================ =================
+========================= ==================== ===== =================== ========== ===== ======= == ======= ================ =============================================
+       HLSL                     Vulkan                                        SPIR-V
+------------------------- -------------------------- ----------------------------------------------------------------------------------------------------------------------
+     Texture Type           Descriptor Type    RO/RW    Storage Class        Dim    Depth Arrayed MS Sampled   Image Format      Capability
+========================= ==================== ===== =================== ========== ===== ======= == ======= ================ =============================================
+``Texture1D``             Sampled Image         RO   ``UniformConstant`` ``1D``      2       0    0    1     ``Unknown``
+``Texture2D``             Sampled Image         RO   ``UniformConstant`` ``2D``      2       0    0    1     ``Unknown``
+``Texture3D``             Sampled Image         RO   ``UniformConstant`` ``3D``      2       0    0    1     ``Unknown``
+``TextureCube``           Sampled Image         RO   ``UniformConstant`` ``Cube``    2       0    0    1     ``Unknown``
+``Texture1DArray``        Sampled Image         RO   ``UniformConstant`` ``1D``      2       1    0    1     ``Unknown``
+``Texture2DArray``        Sampled Image         RO   ``UniformConstant`` ``2D``      2       1    0    1     ``Unknown``
+``Texture2DMS``           Sampled Image         RO   ``UniformConstant`` ``2D``      2       0    1    1     ``Unknown``
+``Texture2DMSArray``      Sampled Image         RO   ``UniformConstant`` ``2D``      2       1    1    1     ``Unknown``
+``TextureCubeArray``      Sampled Image         RO   ``UniformConstant`` ``3D``      2       1    0    1     ``Unknown``
+``Buffer<T>``             Uniform Texel Buffer  RO   ``UniformConstant`` ``Buffer``  2       0    0    1     Depends on ``T`` ``SampledBuffer``
+``RWBuffer<T>``           Storage Texel Buffer  RW   ``UniformConstant`` ``Buffer``  2       0    0    2     Depends on ``T`` ``SampledBuffer``
+``RWTexture1D<T>``        Storage Image         RW   ``UniformConstant`` ``1D``      2       0    0    2     Depends on ``T``
+``RWTexture2D<T>``        Storage Image         RW   ``UniformConstant`` ``2D``      2       0    0    2     Depends on ``T``
+``RWTexture3D<T>``        Storage Image         RW   ``UniformConstant`` ``3D``      2       0    0    2     Depends on ``T``
+``RWTexture1DArray<T>``   Storage Image         RW   ``UniformConstant`` ``1D``      2       1    0    2     Depends on ``T``
+``RWTexture2DArray<T>``   Storage Image         RW   ``UniformConstant`` ``2D``      2       1    0    2     Depends on ``T``
+``RWTexture2DMS<T>``      Storage Image         RW   ``UniformConstant`` ``2D``      2       0    1    2     Depends on ``T`` ``StorageImageMultisample``
+``RWTexture2DMSArray<T>`` Storage Image         RW   ``UniformConstant`` ``2D``      2       1    1    2     Depends on ``T`` ``StorageImageMultisample``, ``ImageMSArray``
+========================= ==================== ===== =================== ========== ===== ======= == ======= ================ =============================================
 
 The meanings of the headers in the above table is explained in ``OpTypeImage``
 of the SPIR-V spec.
@@ -1850,6 +1852,8 @@ automatically be applied according to ``-fvk-*shift N M``.
       RWTEXTURE1DARRAY
       RWTEXTURE2D
       RWTEXTURE2DARRAY
+      RWTEXTURE2DMS
+      RWTEXTURE2DMSARRAY
       RWTEXTURE3D
 
   b - for constant buffer views (CBV)
@@ -3259,6 +3263,46 @@ element is the height, and the third is the elements.
 ++++++++++++++++++++++++++++++++++++++++
 The ``OpImageQuerySize`` instruction is used to get a uint3. The first element is the width, the second
 element is the height, and the third element is the depth.
+
+``RWTexture2DMS``
+~~~~~~~~~~~~~~~~~
+
+Requires Shader Model 6.7. The Vulkan device feature
+``shaderStorageImageMultisample`` must be supported at run time, since the
+generated module declares the ``StorageImageMultisample`` capability.
+
+``.Load(position, sample)`` or ``.Load(position, sample, status)``
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+This method is translated into the ``OpImageRead`` instruction, or
+``OpImageSparseRead`` when the ``status`` argument is present. The ``sample``
+parameter is attached to the instruction as the parameter to the ``Sample``
+SPIR-V image operand. Unlike ``Texture2DMS``, there is no ``offset``
+parameter.
+
+``.sample[sample][position]``
++++++++++++++++++++++++++++++
+Reading is translated into ``OpImageRead`` and writing into ``OpImageWrite``,
+both carrying ``sample`` as the ``Sample`` SPIR-V image operand.
+
+``[position]``
+++++++++++++++
+The plain subscript reads and writes sample ``0``, matching the DXIL path.
+
+``.GetDimensions(width, height, numSamples)``
++++++++++++++++++++++++++++++++++++++++++++++
+The ``OpImageQuerySize`` instruction is used to get the width and the height,
+and ``OpImageQuerySamples`` to get the numSamples.
+
+``.GetSamplePosition(index)``
++++++++++++++++++++++++++++++
+Same as Texture2DMS.
+
+``RWTexture2DMSArray``
+~~~~~~~~~~~~~~~~~~~~~~
+
+Same as RWTexture2DMS, with an extra array layer in the coordinate and an
+extra ``elements`` output on ``.GetDimensions(width, height, elements,
+numSamples)``.
 
 HLSL Shader Stages
 ==================

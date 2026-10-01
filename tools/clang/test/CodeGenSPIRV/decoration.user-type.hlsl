@@ -39,6 +39,12 @@ RWTexture3D<float> p;
 RWTexture1DArray<float> q;
 // CHECK: OpDecorateString %r UserTypeGOOGLE "rwtexture2darray:<float>"
 RWTexture2DArray<float> r;
+// CHECK: OpDecorateString %rms UserTypeGOOGLE "rwtexture2dms:<float>"
+RWTexture2DMS<float> rms;
+// CHECK: OpDecorateString %rmsa UserTypeGOOGLE "rwtexture2dmsarray:<float>"
+RWTexture2DMSArray<float> rmsa;
+// CHECK: OpDecorateString %rms2 UserTypeGOOGLE "rwtexture2dms:<uint4,2>"
+RWTexture2DMS<uint4, 2> rms2;
 // CHECK: OpDecorateString %s UserTypeGOOGLE "buffer:<float>"
 Buffer<float> s;
 // CHECK: OpDecorateString %t UserTypeGOOGLE "rwbuffer:<float>"

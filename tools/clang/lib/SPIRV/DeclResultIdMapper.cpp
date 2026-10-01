@@ -4913,7 +4913,7 @@ bool DeclResultIdMapper::getImplicitRegisterType(const ResourceVar &var,
       }
       // u - for unordered access views (UAV)
       else if (isRWByteAddressBuffer(type) || isRWAppendConsumeSBuffer(type) ||
-               isRWBuffer(type) || isRWTexture(type)) {
+               isRWBuffer(type) || isRWTexture(type) || isRWTextureMS(type)) {
         *registerTypeOut = 'u';
         return true;
       }
