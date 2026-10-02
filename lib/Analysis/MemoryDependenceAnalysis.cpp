@@ -863,16 +863,17 @@ MemoryDependenceAnalysis::getNonLocalCallDependency(CallSite QueryCS) {
     if (FoundNonDefDep && Visited.size() > CallBlockNumberLimit) {
       Dep = MemDepResult::getUnknown();
     } else
-    // HLSL Change End
-    if (ScanPos != DirtyBB->begin()) {
-      Dep = getCallSiteDependencyFrom(QueryCS, isReadonlyCall,ScanPos, DirtyBB);
-    } else if (DirtyBB != &DirtyBB->getParent()->getEntryBlock()) {
-      // No dependence found.  If this is the entry block of the function, it is
-      // a clobber, otherwise it is unknown.
-      Dep = MemDepResult::getNonLocal();
-    } else {
-      Dep = MemDepResult::getNonFuncLocal();
-    }
+      // HLSL Change End
+      if (ScanPos != DirtyBB->begin()) {
+        Dep = getCallSiteDependencyFrom(QueryCS, isReadonlyCall, ScanPos,
+                                        DirtyBB);
+      } else if (DirtyBB != &DirtyBB->getParent()->getEntryBlock()) {
+        // No dependence found.  If this is the entry block of the function, it
+        // is a clobber, otherwise it is unknown.
+        Dep = MemDepResult::getNonLocal();
+      } else {
+        Dep = MemDepResult::getNonFuncLocal();
+      }
 
     // If we had a dirty entry for the block, update it.  Otherwise, just add
     // a new entry.
