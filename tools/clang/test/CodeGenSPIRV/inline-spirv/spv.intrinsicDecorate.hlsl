@@ -1,4 +1,8 @@
-// RUN: %dxc -T ps_6_0 -E main -fcgl -Vd -spirv -fcgl  %s -spirv | FileCheck %s
+// RUN: %dxc -T ps_6_0 -E main -fcgl -Vd -spirv -fcgl  %s -spirv | FileCheck %s --implicit-check-not "OpDecorate %src_main"
+
+// The --implicit-check-not above asserts the entry's source function is not
+// decorated by [[vk::ext_decorate]] (e.g. Location 23 below) intended for the
+// interface variable.
 
 [[vk::ext_decorate(1, 0)]]
 bool b0;
