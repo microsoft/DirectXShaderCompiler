@@ -54,6 +54,15 @@ static const unsigned int BlockScanLimit = 500;
 // Limit on the number of memdep results to process.
 static const unsigned int NumResultsLimit = 100;
 
+// HLSL Change Begin - Limit non-local call dependency walks.
+// Without a limit, a query for a read-only call whose clobbers are all on
+// conditional paths walks every block back to the function entry, making GVN
+// quadratic on large shaders with many inlined call sites. The limit is only
+// applied once the walk has found a non-Def dependency (see
+// getNonLocalCallDependency).
+static const unsigned int CallBlockNumberLimit = 100;
+// HLSL Change End
+
 char MemoryDependenceAnalysis::ID = 0;
 
 // Register this pass...
@@ -785,6 +794,18 @@ MemoryDependenceAnalysis::getNonLocalCallDependency(CallSite QueryCS) {
 
   SmallPtrSet<BasicBlock*, 64> Visited;
 
+  // HLSL Change Begin - Track whether a non-Def dependency has been found.
+  auto IsNonDefDep = [](const MemDepResult &R) {
+    return !R.isNonLocal() && !R.isDef() && !R.isDirty();
+  };
+  bool FoundNonDefDep = false;
+  for (const NonLocalDepEntry &E : Cache)
+    if (IsNonDefDep(E.getResult())) {
+      FoundNonDefDep = true;
+      break;
+    }
+  // HLSL Change End
+
   unsigned NumSortedEntries = Cache.size();
   DEBUG(AssertSorted(Cache));
 
@@ -833,6 +854,16 @@ MemoryDependenceAnalysis::getNonLocalCallDependency(CallSite QueryCS) {
     // Find out if this block has a local dependency for QueryInst.
     MemDepResult Dep;
 
+    // HLSL Change Begin - Once the walk has visited too many blocks and has
+    // already found a dependency that is not a Def (a clobber or unknown),
+    // stop scanning and conservatively mark this and any remaining blocks
+    // Unknown. Such a result already cannot prove the query redundant, so
+    // scanning further only costs compile time. Unknown is not NonLocal, so
+    // predecessors are not added to the worklist.
+    if (FoundNonDefDep && Visited.size() > CallBlockNumberLimit) {
+      Dep = MemDepResult::getUnknown();
+    } else
+    // HLSL Change End
     if (ScanPos != DirtyBB->begin()) {
       Dep = getCallSiteDependencyFrom(QueryCS, isReadonlyCall,ScanPos, DirtyBB);
     } else if (DirtyBB != &DirtyBB->getParent()->getEntryBlock()) {
@@ -853,6 +884,7 @@ MemoryDependenceAnalysis::getNonLocalCallDependency(CallSite QueryCS) {
     // If the block has a dependency (i.e. it isn't completely transparent to
     // the value), remember the association!
     if (!Dep.isNonLocal()) {
+      FoundNonDefDep |= IsNonDefDep(Dep); // HLSL Change
       // Keep the ReverseNonLocalDeps map up to date so we can efficiently
       // update this when we remove instructions.
       if (Instruction *Inst = Dep.getInst())
