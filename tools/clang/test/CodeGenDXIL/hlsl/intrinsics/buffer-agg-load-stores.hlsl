@@ -1,50 +1,70 @@
-// RUN: %dxc -T vs_6_6              -DETY=float     -DCOLS=3 %s | FileCheck %s --check-prefixes=CHECK,MULTI
-// RUN: %dxc -T vs_6_6              -DETY=bool      -DCOLS=3 %s | FileCheck %s --check-prefixes=CHECK,MULTI
-// RUN: %dxc -T vs_6_6              -DETY=uint64_t  -DCOLS=3 %s | FileCheck %s --check-prefixes=CHECK,MULTI
-// RUN: %dxc -T vs_6_6              -DETY=double    -DCOLS=3 %s | FileCheck %s --check-prefixes=CHECK,MULTI
+// RUN: %dxc -fcgl -T vs_6_6              -DETY=float     -DCOLS=3 %s | FileCheck %s --check-prefix=FCGL
+// RUN: %dxc -fcgl -T vs_6_6              -DETY=bool      -DCOLS=3 %s | FileCheck %s --check-prefix=FCGL
+// RUN: %dxc -fcgl -T vs_6_6              -DETY=uint64_t  -DCOLS=3 %s | FileCheck %s --check-prefix=FCGL
+// RUN: %dxc -fcgl -T vs_6_6              -DETY=double    -DCOLS=3 %s | FileCheck %s --check-prefix=FCGL
 
-// RUN: %dxc -T vs_6_6              -DETY=float1    -DCOLS=3 %s | FileCheck %s --check-prefixes=CHECK,MULTI
-// RUN: %dxc -T vs_6_6              -DETY=bool1     -DCOLS=3 %s | FileCheck %s --check-prefixes=CHECK,MULTI
-// RUN: %dxc -T vs_6_6              -DETY=uint64_t1 -DCOLS=3 %s | FileCheck %s --check-prefixes=CHECK,MULTI
-// RUN: %dxc -T vs_6_6              -DETY=double1   -DCOLS=3 %s | FileCheck %s --check-prefixes=CHECK,MULTI
+// RUN: %dxc -fcgl -T vs_6_6              -DETY=float1    -DCOLS=3 %s | FileCheck %s --check-prefix=FCGL
+// RUN: %dxc -fcgl -T vs_6_6              -DETY=bool1     -DCOLS=3 %s | FileCheck %s --check-prefix=FCGL
+// RUN: %dxc -fcgl -T vs_6_6              -DETY=uint64_t1 -DCOLS=3 %s | FileCheck %s --check-prefix=FCGL
+// RUN: %dxc -fcgl -T vs_6_6              -DETY=double1   -DCOLS=3 %s | FileCheck %s --check-prefix=FCGL
 
-// RUN: %dxc -T vs_6_6              -DETY=float4    -DCOLS=3 %s | FileCheck %s --check-prefixes=CHECK,MULTI
-// RUN: %dxc -T vs_6_6              -DETY=bool4     -DCOLS=3 %s | FileCheck %s --check-prefixes=CHECK,MULTI
-// RUN: %dxc -T vs_6_6              -DETY=uint64_t4 -DCOLS=3 %s | FileCheck %s --check-prefixes=CHECK,MULTI
-// RUN: %dxc -T vs_6_6              -DETY=double4   -DCOLS=3 %s | FileCheck %s --check-prefixes=CHECK,MULTI
+// RUN: %dxc -fcgl -T vs_6_6              -DETY=float4    -DCOLS=3 %s | FileCheck %s --check-prefix=FCGL
+// RUN: %dxc -fcgl -T vs_6_6              -DETY=bool4     -DCOLS=3 %s | FileCheck %s --check-prefix=FCGL
+// RUN: %dxc -fcgl -T vs_6_6              -DETY=uint64_t4 -DCOLS=3 %s | FileCheck %s --check-prefix=FCGL
+// RUN: %dxc -fcgl -T vs_6_6              -DETY=double4   -DCOLS=3 %s | FileCheck %s --check-prefix=FCGL
 
-// RUN: %dxc -T vs_6_6 -DATY=matrix -DETY=float    -DCOLS=2 -DROWS=2 %s | FileCheck %s
-// RUN: %dxc -T vs_6_6 -DATY=matrix -DETY=bool     -DCOLS=2 -DROWS=2 %s | FileCheck %s
-// RUN: %dxc -T vs_6_6 -DATY=matrix -DETY=uint64_t -DCOLS=2 -DROWS=2 %s | FileCheck %s
-// RUN: %dxc -T vs_6_6 -DATY=matrix -DETY=double   -DCOLS=2 -DROWS=2 %s | FileCheck %s
+// RUN: %dxc -fcgl -T vs_6_6 -DATY=matrix -DETY=float    -DCOLS=2 -DROWS=2 %s | FileCheck %s --check-prefix=FCGL
+// RUN: %dxc -fcgl -T vs_6_6 -DATY=matrix -DETY=bool     -DCOLS=2 -DROWS=2 %s | FileCheck %s --check-prefix=FCGL
+// RUN: %dxc -fcgl -T vs_6_6 -DATY=matrix -DETY=uint64_t -DCOLS=2 -DROWS=2 %s | FileCheck %s --check-prefix=FCGL
+// RUN: %dxc -fcgl -T vs_6_6 -DATY=matrix -DETY=double   -DCOLS=2 -DROWS=2 %s | FileCheck %s --check-prefix=FCGL
 
-// RUN: %dxc -T vs_6_6 -DATY=matrix -DETY=float    -DCOLS=3 -DROWS=3 %s | FileCheck %s --check-prefixes=CHECK,MULTI
-// RUN: %dxc -T vs_6_6 -DATY=matrix -DETY=bool     -DCOLS=3 -DROWS=3 %s | FileCheck %s --check-prefixes=CHECK,MULTI
-// RUN: %dxc -T vs_6_6 -DATY=matrix -DETY=uint64_t -DCOLS=3 -DROWS=3 %s | FileCheck %s --check-prefixes=CHECK,MULTI
-// RUN: %dxc -T vs_6_6 -DATY=matrix -DETY=double   -DCOLS=3 -DROWS=3 %s | FileCheck %s --check-prefixes=CHECK,MULTI
+// RUN: %dxc -fcgl -T vs_6_6 -DATY=matrix -DETY=float    -DCOLS=3 -DROWS=3 %s | FileCheck %s --check-prefix=FCGL
+// RUN: %dxc -fcgl -T vs_6_6 -DATY=matrix -DETY=bool     -DCOLS=3 -DROWS=3 %s | FileCheck %s --check-prefix=FCGL
+// RUN: %dxc -fcgl -T vs_6_6 -DATY=matrix -DETY=uint64_t -DCOLS=3 -DROWS=3 %s | FileCheck %s --check-prefix=FCGL
+// RUN: %dxc -fcgl -T vs_6_6 -DATY=matrix -DETY=double   -DCOLS=3 -DROWS=3 %s | FileCheck %s --check-prefix=FCGL
 
-// RUN: %dxc -T vs_6_6 -DATY=Matrix -DETY=float    -DCOLS=2 -DROWS=2 %s | FileCheck %s
-// RUN: %dxc -T vs_6_6 -DATY=Matrix -DETY=uint64_t -DCOLS=2 -DROWS=2 %s | FileCheck %s
-// RUN: %dxc -T vs_6_6 -DATY=Matrix -DETY=double   -DCOLS=2 -DROWS=2 %s | FileCheck %s
-// RUN: %dxc -T vs_6_6 -DATY=Matrix -DETY=float    -DCOLS=3 -DROWS=3 %s | FileCheck %s --check-prefixes=CHECK,MULTI
-// RUN: %dxc -T vs_6_6 -DATY=Matrix -DETY=bool     -DCOLS=3 -DROWS=3 %s | FileCheck %s --check-prefixes=CHECK,MULTI
-// RUN: %dxc -T vs_6_6 -DATY=Matrix -DETY=uint64_t -DCOLS=3 -DROWS=3 %s | FileCheck %s --check-prefixes=CHECK,MULTI
-// RUN: %dxc -T vs_6_6 -DATY=Matrix -DETY=double   -DCOLS=3 -DROWS=3 %s | FileCheck %s --check-prefixes=CHECK,MULTI
+// RUN: %dxc -fcgl -T vs_6_6 -DATY=Matrix -DETY=float    -DCOLS=2 -DROWS=2 %s | FileCheck %s --check-prefix=FCGL
+// RUN: %dxc -fcgl -T vs_6_6 -DATY=Matrix -DETY=uint64_t -DCOLS=2 -DROWS=2 %s | FileCheck %s --check-prefix=FCGL
+// RUN: %dxc -fcgl -T vs_6_6 -DATY=Matrix -DETY=double   -DCOLS=2 -DROWS=2 %s | FileCheck %s --check-prefix=FCGL
+// RUN: %dxc -fcgl -T vs_6_6 -DATY=Matrix -DETY=float    -DCOLS=3 -DROWS=3 %s | FileCheck %s --check-prefix=FCGL
+// RUN: %dxc -fcgl -T vs_6_6 -DATY=Matrix -DETY=bool     -DCOLS=3 -DROWS=3 %s | FileCheck %s --check-prefix=FCGL
+// RUN: %dxc -fcgl -T vs_6_6 -DATY=Matrix -DETY=uint64_t -DCOLS=3 -DROWS=3 %s | FileCheck %s --check-prefix=FCGL
+// RUN: %dxc -fcgl -T vs_6_6 -DATY=Matrix -DETY=double   -DCOLS=3 -DROWS=3 %s | FileCheck %s --check-prefix=FCGL
 
-// RUN: %dxc -T vs_6_6 -DATY=Vector -DETY=float    -DCOLS=4 %s | FileCheck %s
-// RUN: %dxc -T vs_6_6 -DATY=Vector -DETY=bool     -DCOLS=4 %s | FileCheck %s
-// RUN: %dxc -T vs_6_6 -DATY=Vector -DETY=uint64_t -DCOLS=2 %s | FileCheck %s
-// RUN: %dxc -T vs_6_6 -DATY=Vector -DETY=double   -DCOLS=2 %s | FileCheck %s
+// RUN: %dxc -fcgl -T vs_6_6 -DATY=Vector -DETY=float    -DCOLS=4 %s | FileCheck %s --check-prefix=FCGL
+// RUN: %dxc -fcgl -T vs_6_6 -DATY=Vector -DETY=bool     -DCOLS=4 %s | FileCheck %s --check-prefix=FCGL
+// RUN: %dxc -fcgl -T vs_6_6 -DATY=Vector -DETY=uint64_t -DCOLS=2 %s | FileCheck %s --check-prefix=FCGL
+// RUN: %dxc -fcgl -T vs_6_6 -DATY=Vector -DETY=double   -DCOLS=2 %s | FileCheck %s --check-prefix=FCGL
 
-// RUN: %dxc -T vs_6_6 -DATY=OffVector -DETY=float    -DCOLS=4 %s | FileCheck %s --check-prefixes=CHECK,OFF
-// RUN: %dxc -T vs_6_6 -DATY=OffVector -DETY=bool     -DCOLS=4 %s | FileCheck %s --check-prefixes=CHECK,OFF
-// RUN: %dxc -T vs_6_6 -DATY=OffVector -DETY=uint64_t -DCOLS=2 %s | FileCheck %s --check-prefixes=CHECK,OFF
-// RUN: %dxc -T vs_6_6 -DATY=OffVector -DETY=double   -DCOLS=2 %s | FileCheck %s --check-prefixes=CHECK,OFF
+// RUN: %dxc -fcgl -T vs_6_6 -DATY=OffVector -DETY=float    -DCOLS=4 %s | FileCheck %s --check-prefix=FCGL
+// RUN: %dxc -fcgl -T vs_6_6 -DATY=OffVector -DETY=bool     -DCOLS=4 %s | FileCheck %s --check-prefix=FCGL
+// RUN: %dxc -fcgl -T vs_6_6 -DATY=OffVector -DETY=uint64_t -DCOLS=2 %s | FileCheck %s --check-prefix=FCGL
+// RUN: %dxc -fcgl -T vs_6_6 -DATY=OffVector -DETY=double   -DCOLS=2 %s | FileCheck %s --check-prefix=FCGL
 
 ///////////////////////////////////////////////////////////////////////
 // Test codegen for various load and store operations and conversions
 //  for different aggregate buffer types and indices.
 ///////////////////////////////////////////////////////////////////////
+
+// FCGL-LABEL: define void @main
+
+// ByteAddressBuffer loads and stores.
+// FCGL-COUNT-4: call {{.*}}@"dx.hl.op{{.*}}"(i32 231,
+// FCGL-COUNT-2: call void @"dx.hl.op{{.*}}"(i32 277,
+
+// StructuredBuffer loads, subscripts, and stores.
+// FCGL: call {{.*}}@"dx.hl.op{{.*}}"(i32 231,
+// FCGL: call {{.*}}@"dx.hl.subscript.{{.*}}"(i32 0,
+// FCGL: call {{.*}}@"dx.hl.op{{.*}}"(i32 231,
+// FCGL: call {{.*}}@"dx.hl.op{{.*}}"(i32 231,
+// FCGL: call {{.*}}@"dx.hl.subscript.{{.*}}"(i32 0,
+// FCGL: call {{.*}}@"dx.hl.op{{.*}}"(i32 231,
+// FCGL: call {{.*}}@"dx.hl.subscript.{{.*}}"(i32 0,
+// FCGL: call void @"dx.hl.op{{.*}}"(i32 277,
+
+// ConsumeStructuredBuffer and AppendStructuredBuffer.
+// FCGL: call {{.*}}@"dx.hl.op..consume{{.*}}"(i32 283,
+// FCGL: call void @"dx.hl.op..appendvoid{{.*}}"(i32 226,
 
 // CHECK: %dx.types.ResRet.[[TY:[a-z][0-9][0-9]]] = type { [[TYPE:[a-z0-9]*]],
 

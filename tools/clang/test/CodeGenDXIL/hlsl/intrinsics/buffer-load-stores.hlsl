@@ -1,12 +1,47 @@
-// RUN: %dxc -DTYPE=float4    -T vs_6_6 %s | FileCheck %s
-// RUN: %dxc -DTYPE=bool4     -T vs_6_6 %s | FileCheck %s --check-prefixes=CHECK,I1
-// RUN: %dxc -DTYPE=uint64_t2 -T vs_6_6 %s | FileCheck %s --check-prefixes=CHECK,I64
-// RUN: %dxc -DTYPE=double2   -T vs_6_6 %s | FileCheck %s --check-prefixes=CHECK,F64
+// RUN: %dxc -fcgl -DTYPE=float4    -T vs_6_6 %s | FileCheck %s --check-prefixes=FCGL,FLOAT
+// RUN: %dxc -fcgl -DTYPE=bool4     -T vs_6_6 %s | FileCheck %s --check-prefixes=FCGL,BOOL
+// RUN: %dxc -fcgl -DTYPE=uint64_t2 -T vs_6_6 %s | FileCheck %s --check-prefixes=FCGL,UINT64
+// RUN: %dxc -fcgl -DTYPE=double2   -T vs_6_6 %s | FileCheck %s --check-prefixes=FCGL,DOUBLE
 
 ///////////////////////////////////////////////////////////////////////
 // Test codegen for various load and store operations and conversions
 //  for different scalar/vector buffer types and indices.
 ///////////////////////////////////////////////////////////////////////
+
+// FCGL-LABEL: define void @main
+
+// ByteAddressBuffer loads and stores.
+// FLOAT: call <4 x float> @"dx.hl.op.ro.<4 x float> (i32, %dx.types.Handle, i32)"(i32 231,
+// BOOL: call <4 x i1> @"dx.hl.op.ro.<4 x i1> (i32, %dx.types.Handle, i32)"(i32 231,
+// UINT64: call <2 x i64> @"dx.hl.op.ro.<2 x i64> (i32, %dx.types.Handle, i32)"(i32 231,
+// DOUBLE: call <2 x double> @"dx.hl.op.ro.<2 x double> (i32, %dx.types.Handle, i32)"(i32 231,
+// FCGL-COUNT-3: call {{.*}}@"dx.hl.op{{.*}}"(i32 231,
+// FCGL-COUNT-2: call void @"dx.hl.op{{.*}}"(i32 277,
+
+// StructuredBuffer loads, subscripts, and stores.
+// FCGL: call {{.*}}@"dx.hl.op{{.*}}"(i32 231,
+// FCGL: call {{.*}}@"dx.hl.subscript.{{.*}}"(i32 0,
+// FCGL: call {{.*}}@"dx.hl.op{{.*}}"(i32 231,
+// FCGL: call {{.*}}@"dx.hl.subscript.{{.*}}"(i32 0,
+// FCGL-COUNT-2: call {{.*}}@"dx.hl.op{{.*}}"(i32 231,
+// FCGL: call {{.*}}@"dx.hl.subscript.{{.*}}"(i32 0,
+// FCGL: call void @"dx.hl.op{{.*}}"(i32 277,
+
+// ConsumeStructuredBuffer and AppendStructuredBuffer.
+// FCGL: call {{.*}}@"dx.hl.op..consume{{.*}}"(i32 283,
+// FCGL: call void @"dx.hl.op..appendvoid{{.*}}"(i32 226,
+
+// Typed buffer loads, subscripts, and store.
+// FCGL: call {{.*}}@"dx.hl.op{{.*}}"(i32 231,
+// FCGL: call {{.*}}@"dx.hl.subscript.{{.*}}"(i32 0,
+// FCGL: call {{.*}}@"dx.hl.op{{.*}}"(i32 231,
+// FCGL: call {{.*}}@"dx.hl.subscript.{{.*}}"(i32 0,
+// FCGL-COUNT-2: call {{.*}}@"dx.hl.op{{.*}}"(i32 231,
+// FCGL: call {{.*}}@"dx.hl.subscript.{{.*}}"(i32 0,
+// FCGL: call void @"dx.hl.op{{.*}}"(i32 277,
+
+// Texture loads and store use resource subscripts in frontend IR.
+// FCGL-COUNT-7: call {{.*}}@"dx.hl.subscript.{{.*}}"(i32 0,
 
 
 // These -DAGs must match the same line. That is the only reason for the -DAG.
