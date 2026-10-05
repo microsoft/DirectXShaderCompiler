@@ -446,9 +446,9 @@ private:
 
   /// Emits the descriptor-heap buffer access for a buffer-like resource
   /// (StructuredBuffer/ByteAddressBuffer/ConstantBuffer/TextureBuffer + RW
-  /// variants) loaded from heapVar at index via OpUntypedAccessChainKHR ->
-  /// OpBufferPointerEXT. Records in descriptorHeapBufferAccesses[expr],
-  /// returning the buffer-data pointer or nullptr on lowering failure.
+  /// variants) loaded from heapVar at index. Records the access in
+  /// descriptorHeapBufferAccesses[expr], returning the buffer-data pointer
+  /// or nullptr on lowering failure.
   // Caller must have checked resource is buffer-like.
   SpirvInstruction *emitDescriptorHeapBufferAccess(
       QualType resourceType, SpirvInstruction *heapVar, SpirvInstruction *index,
@@ -1263,8 +1263,7 @@ private:
 
   /// \brief Returns true if counter operations on the resource expression are
   /// known to be unsupported because the resource came from
-  /// ResourceDescriptorHeap. Consults the counterUnsupported field of the
-  /// buffer alias entry for the referenced variable.
+  /// ResourceDescriptorHeap.
   bool isDescriptorHeapCounterUnsupported(const Expr *expr) const;
 
   /// \brief Records the heap index for a local image alias when the source
@@ -1327,8 +1326,7 @@ private:
                                          SpirvInstruction **result,
                                          SpirvInstruction **rhs);
 
-  /// \brief Re-derives the buffer-data pointer for a heap buffer alias decl
-  /// (OpLoad of saved index -> OpUntypedAccessChainKHR + OpBufferPointerEXT).
+  /// \brief Re-derives the buffer-data pointer for a heap buffer alias decl.
   /// Returns nullptr if decl is not a recorded alias.
   SpirvInstruction *emitDescriptorHeapBufferPointer(const VarDecl *decl,
                                                     SourceLocation loc);

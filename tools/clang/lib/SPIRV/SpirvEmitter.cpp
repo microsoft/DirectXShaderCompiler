@@ -5240,6 +5240,8 @@ void SpirvEmitter::markDescriptorHeapCounterUnsupported(
 }
 
 bool SpirvEmitter::isDescriptorHeapCounterUnsupported(const Expr *expr) const {
+  // Consults the counterUnsupported field of the buffer alias entry for the
+  // referenced variable.
   if (const auto *var = dyn_cast_or_null<VarDecl>(getReferencedDef(expr))) {
     auto it = descriptorHeapBufferAliasVars.find(var);
     if (it != descriptorHeapBufferAliasVars.end())
@@ -5449,6 +5451,8 @@ bool SpirvEmitter::tryToAssignDescriptorHeapBufferAlias(const Expr *dstExpr,
 SpirvInstruction *
 SpirvEmitter::emitDescriptorHeapBufferPointer(const VarDecl *decl,
                                               SourceLocation loc) {
+  // Lowering: OpLoad of saved index -> OpUntypedAccessChainKHR +
+  // OpBufferPointerEXT.
   auto found = descriptorHeapBufferAliasVars.find(decl);
   if (found == descriptorHeapBufferAliasVars.end())
     return nullptr;
@@ -5496,6 +5500,7 @@ getDescriptorHeapBufferStorageClass(QualType resourceType) {
 SpirvInstruction *SpirvEmitter::emitDescriptorHeapBufferAccess(
     QualType resourceType, SpirvInstruction *heapVar, SpirvInstruction *index,
     const Expr *expr, const Expr *baseExpr, const Expr *indexExpr) {
+  // Lowering: OpUntypedAccessChainKHR -> OpBufferPointerEXT.
   const UntypedPointerKHRType *untypedUniformConstantType =
       spvContext.getUntypedPointerKHRType(spv::StorageClass::UniformConstant);
   LowerTypeVisitor lowerTypeVisitor(astContext, spvContext, spirvOptions,

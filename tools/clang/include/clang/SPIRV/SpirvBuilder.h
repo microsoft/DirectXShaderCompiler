@@ -834,7 +834,7 @@ public:
 
   /// \brief Returns the OpConstantSizeOfEXT (SPV_EXT_descriptor_heap) for
   /// descriptor operandType: client-API size in bytes as a 32-bit unsigned
-  /// integer. Cached per operand type.
+  /// integer.
   SpirvConstant *getConstantSizeOfEXT(const SpirvType *operandType);
 
   SpirvSpecConstantTernaryOp *
@@ -843,12 +843,11 @@ public:
                               SpirvInstruction *op3, SourceLocation loc);
 
   /// \brief Shared ArrayStrideIdEXT operand for resource-heap runtime arrays:
-  /// max(sizeof(image), sizeof(buffer)) computed via OpSpecConstantOp.
-  /// Cached per module.
+  /// max(sizeof(image), sizeof(buffer)).
   SpirvInstruction *getResourceHeapArrayStride();
 
   /// \brief Shared ArrayStrideIdEXT operand for sampler-heap runtime arrays:
-  /// the sampler descriptor size. Cached per module.
+  /// the sampler descriptor size.
   SpirvInstruction *getSamplerHeapArrayStride();
   SpirvUndef *getUndef(QualType);
 
