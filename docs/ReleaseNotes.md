@@ -65,6 +65,8 @@ line upon naming the release. Refer to previous for appropriate section names.
 
 #### Bug Fixes
 
+- Fixed a Linux crash in the IntelliSense `GetSkippedRanges` API when querying
+  a virtual unsaved file.
 - Fixed an optimizer crash when scalarizing an out-of-bounds vector access
   [#8940](https://github.com/microsoft/DirectXShaderCompiler/issues/8940).
 
