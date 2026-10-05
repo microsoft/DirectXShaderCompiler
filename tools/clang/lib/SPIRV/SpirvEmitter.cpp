@@ -8609,7 +8609,7 @@ bool SpirvEmitter::isExprStaticallyHeapSourcedImage(
   // expr may itself be a call to another function that returns a
   // heap-sourced image, e.g. `return makeHeapImage();`.
   if (const auto *call = dyn_cast<CallExpr>(expr)) {
-    if (const auto *fn = call->getDirectCallee())
+    if (const FunctionDecl *fn = call->getDirectCallee())
       return functionReturnsHeapSourcedImage(fn);
     return false;
   }
@@ -8765,7 +8765,7 @@ bool SpirvEmitter::isDescriptorHeapImageBoundaryLoss(const Expr *expr) const {
   // declaration or assignment, already has what's needed.
   auto crossesThroughCall = [this](const Expr *x) {
     if (const auto *call = dyn_cast<CallExpr>(x->IgnoreParenCasts()))
-      if (const auto *fn = call->getDirectCallee())
+      if (const FunctionDecl *fn = call->getDirectCallee())
         return functionReturnsHeapSourcedImage(fn);
     return false;
   };
