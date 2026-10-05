@@ -1134,6 +1134,8 @@ def get_hlsl_intrinsics():
             flags.append("INTRIN_FLAG_IS_WAVE")
         if i.static_member:
             flags.append("INTRIN_FLAG_STATIC_MEMBER")
+        if i.mutable_method:
+            flags.append("INTRIN_FLAG_MUTABLE_METHOD")
         if flags:
             flags = " | ".join(flags)
         else:

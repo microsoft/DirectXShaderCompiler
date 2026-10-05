@@ -1051,7 +1051,7 @@ void SpirvEmitter::HandleTranslationUnit(ASTContext &context) {
 
 void SpirvEmitter::doDecl(const Decl *decl) {
   if (isa<EmptyDecl>(decl) || isa<TypeAliasTemplateDecl>(decl) ||
-      isa<VarTemplateDecl>(decl))
+      isa<VarTemplateDecl>(decl) || isa<StaticAssertDecl>(decl))
     return;
 
   // Implicit decls are lazily created when needed.

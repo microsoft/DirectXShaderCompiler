@@ -3443,6 +3443,14 @@ void Sema::MergeVarDecl(VarDecl *New, LookupResult &Previous, ShadowMergeState& 
   if (New->isInvalidDecl())
     return;
 
+  // HLSL does not permit multiple declarations of a global variable.
+  if (getLangOpts().HLSL && New->isFileVarDecl() && Old->isFileVarDecl() &&
+      !New->isStaticDataMember() && !Old->isStaticDataMember()) {
+    Diag(New->getLocation(), diag::err_redefinition) << New->getDeclName();
+    Diag(Old->getLocation(), diag::note_previous_definition);
+    return New->setInvalidDecl();
+  }
+
   diag::kind PrevDiag;
   SourceLocation OldLocation;
   std::tie(PrevDiag, OldLocation) =

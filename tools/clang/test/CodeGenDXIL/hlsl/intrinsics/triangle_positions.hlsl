@@ -3,19 +3,19 @@
 // RUN: %dxc -T lib_6_10 %s -ast-dump-implicit | FileCheck %s --check-prefix AST
 // RUN: %dxc -T lib_6_10 %s -fcgl | FileCheck %s --check-prefix FCGL
 
-// AST: `-CXXMethodDecl {{.*}} <<invalid sloc>> <invalid sloc> used TriangleObjectPositions 'BuiltInTrianglePositions &()' extern
+// AST: `-CXXMethodDecl {{.*}} <<invalid sloc>> <invalid sloc> used TriangleObjectPositions 'BuiltInTrianglePositions &() const' extern
 // AST-NEXT:   |-TemplateArgument type 'BuiltInTrianglePositions'
 // AST-NEXT:   |-HLSLIntrinsicAttr {{.*}} <<invalid sloc>> Implicit "op" "" 400
 // AST-NEXT:   |-ConstAttr {{.*}} <<invalid sloc>> Implicit
 // AST-NEXT:   `-AvailabilityAttr {{.*}} <<invalid sloc>> Implicit  6.10 0 0 ""
 
-// AST: `-CXXMethodDecl {{.*}} <<invalid sloc>> <invalid sloc> used CandidateTriangleObjectPositions 'BuiltInTrianglePositions &()' extern
+// AST: `-CXXMethodDecl {{.*}} <<invalid sloc>> <invalid sloc> used CandidateTriangleObjectPositions 'BuiltInTrianglePositions &() const' extern
 // AST:   |-TemplateArgument type 'BuiltInTrianglePositions'
 // AST:   |-HLSLIntrinsicAttr {{.*}} <<invalid sloc>> Implicit "op" "" 398
 // AST:   |-PureAttr {{.*}} <<invalid sloc>> Implicit
 // AST:   `-AvailabilityAttr {{.*}} <<invalid sloc>> Implicit  6.10 0 0 ""
 
-// AST `-CXXMethodDecl {{.*}} <<invalid sloc>> <invalid sloc> used CommittedTriangleObjectPositions 'BuiltInTrianglePositions &()' extern
+// AST `-CXXMethodDecl {{.*}} <<invalid sloc>> <invalid sloc> used CommittedTriangleObjectPositions 'BuiltInTrianglePositions &() const' extern
 // AST   |-TemplateArgument type 'BuiltInTrianglePositions'
 // AST   |-HLSLIntrinsicAttr {{.*}} <<invalid sloc>> Implicit "op" "" 399
 // AST   |-PureAttr {{.*}} <<invalid sloc>> Implicit
