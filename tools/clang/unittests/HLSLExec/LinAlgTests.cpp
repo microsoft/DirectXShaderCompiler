@@ -2680,8 +2680,9 @@ static void runCase(ID3D12Device *Device, dxc::SpecificDllLoader &DxcSupport,
     };
   }
 #else
-  VERIFY_IS_FALSE(Case.LoadFromMulOptimal,
-                  L"MulOptimal cases need the preview D3D12 linear algebra API");
+  VERIFY_IS_FALSE(
+      Case.LoadFromMulOptimal,
+      L"MulOptimal cases need the preview D3D12 linear algebra API");
   if (Case.LoadFromMulOptimal)
     return;
 #endif
@@ -6920,7 +6921,8 @@ void LinAlgCapabilityTests::ThreadGroupShapePolicy() {
                      L"Derived shape must produce a valid case");
       VERIFY_IS_TRUE(Case.M % WaveSize == 0 && Case.N % WaveSize == 0,
                      L"Derived extents must be a multiple of the wave size");
-      VERIFY_IS_TRUE(Case.K % 4 == 0, L"Derived K must stay a multiple of four");
+      VERIFY_IS_TRUE(Case.K % 4 == 0,
+                     L"Derived K must stay a multiple of four");
       VERIFY_IS_TRUE(Case.M >= Plan.MinExtent &&
                          Case.M < Plan.MinExtent + WaveSize,
                      L"Derived extent must be the smallest legal one");
