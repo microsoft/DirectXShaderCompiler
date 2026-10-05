@@ -62,6 +62,9 @@ line upon naming the release. Refer to previous for appropriate section names.
   [#8964](https://github.com/microsoft/DirectXShaderCompiler/issues/8964).
 - Add `static_assert` matching C++11 and C++17 under HLSL 202x
   ([#8910](https://github.com/microsoft/DirectXShaderCompiler/issues/8910)).
+- Fix HLSL 202x conforming literals false-positive warning for hex literal
+  signedness
+  ([#7864](https://github.com/microsoft/DirectXShaderCompiler/issues/7864)).
 
 #### Bug Fixes
 
