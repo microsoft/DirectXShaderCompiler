@@ -12932,11 +12932,9 @@ DiagnoseElementTypes(Sema &S, SourceLocation Loc, QualType Ty, bool &Empty,
     // Check the fields of the RecordDecl
     for (auto *ElemFD : RD->fields()) {
       if (ElemFD->isMutable() &&
-          (ObjDiagContext ==
-               TypeDiagContext::ConstantBuffersOrTextureBuffers ||
+          (ObjDiagContext == TypeDiagContext::ConstantBuffersOrTextureBuffers ||
            ObjDiagContext == TypeDiagContext::CBuffersOrTBuffers)) {
-        S.Diag(Loc, diag::err_hlsl_mutable_field_in_constant_buffer)
-            << ElemFD;
+        S.Diag(Loc, diag::err_hlsl_mutable_field_in_constant_buffer) << ElemFD;
         S.Diag(ElemFD->getLocation(), diag::note_field_declared_here)
             << ElemFD->getType() << ElemFD->getSourceRange();
         ErrorFound = true;
