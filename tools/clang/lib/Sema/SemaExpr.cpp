@@ -2792,17 +2792,23 @@ bool Sema::UseArgumentDependentLookup(const CXXScopeSpec &SS,
   // Never if a scope specifier was provided.
   if (SS.isSet()) {
     // HLSL Change begins
-    // We want to be able to have intrinsics inside the "vk" and "dx"
-    // namespaces.
-    const bool isVkNamespace =
-        SS.getScopeRep() && SS.getScopeRep()->getAsNamespace() &&
-        SS.getScopeRep()->getAsNamespace()->getName() == "vk";
+    // We want to be able to have intrinsics inside the "vk", "dx", and
+    // (under HLSL 202x) "hlsl" namespaces.
+    NestedNameSpecifier *ScopeRep = SS.getScopeRep();
+    NamespaceDecl *Namespace = ScopeRep ? ScopeRep->getAsNamespace() : nullptr;
 
-    const bool isDxNamespace =
-        SS.getScopeRep() && SS.getScopeRep()->getAsNamespace() &&
-        SS.getScopeRep()->getAsNamespace()->getName() == "dx";
+    const bool isRootNamespace =
+        Namespace && Namespace->getDeclContext()->isTranslationUnit();
 
-    if (!isVkNamespace && !isDxNamespace)
+    const bool isVkNamespace = isRootNamespace && Namespace->getName() == "vk";
+
+    const bool isDxNamespace = isRootNamespace && Namespace->getName() == "dx";
+
+    const bool isHlslNamespace =
+        getLangOpts().HLSLVersion >= hlsl::LangStd::v202x && isRootNamespace &&
+        Namespace->getName() == "hlsl";
+
+    if (!isVkNamespace && !isDxNamespace && !isHlslNamespace)
       // HLSL Change ends
       return false;
   }

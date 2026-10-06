@@ -62,6 +62,8 @@ line upon naming the release. Refer to previous for appropriate section names.
   [#8964](https://github.com/microsoft/DirectXShaderCompiler/issues/8964).
 - Add `static_assert` matching C++11 and C++17 under HLSL 202x
   ([#8910](https://github.com/microsoft/DirectXShaderCompiler/issues/8910)).
+- Moved HLSL built-in functions into the `hlsl` namespace under HLSL 202x
+  ([#8918](https://github.com/microsoft/DirectXShaderCompiler/issues/8918)).
 
 #### Bug Fixes
 

@@ -19,7 +19,7 @@ float main(float3 a : A, float3 b : B) : SV_Target {
   float result = 0;
   [unroll]
   for (int i = 0; i < 10; i++) {
-    result += dot(a * i, b);
+    result += hlsl::dot(a * i, b);
   }
   return result;
 }
