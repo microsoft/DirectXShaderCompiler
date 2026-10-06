@@ -8708,8 +8708,20 @@ void SpirvEmitter::assignToMSOutAttribute(
     valueType = astContext.UnsignedIntTy;
   }
   varInstr = spvBuilder.createAccessChain(valueType, varInstr, indices, loc);
-  if (semanticInfo.semantic->GetKind() == hlsl::Semantic::Kind::Position)
-    value = invertYIfRequested(value, semanticInfo.loc);
+  if (semanticInfo.semantic->GetKind() == hlsl::Semantic::Kind::Position) {
+    if (spirvOptions.invertY && vecComponent) {
+      auto *isY = spvBuilder.createBinaryOp(
+          spv::Op::OpIEqual, astContext.BoolTy, vecComponent,
+          spvBuilder.getConstantInt(astContext.UnsignedIntTy,
+                                    llvm::APInt(32, 1)),
+          loc);
+      auto *negated =
+          spvBuilder.createUnaryOp(spv::Op::OpFNegate, valueType, value, loc);
+      value = spvBuilder.createSelect(valueType, isY, negated, value, loc);
+    } else {
+      value = invertYIfRequested(value, semanticInfo.loc);
+    }
+  }
 
   spvBuilder.createStore(varInstr, value, loc);
 }

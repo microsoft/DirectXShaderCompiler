@@ -22,6 +22,7 @@ The included licenses apply to the following files:
 #### SPIR-V
 
 - SPIR-V mesh shaders correctly write outputs passed as `out` arguments, and diagnose mesh outputs passed as `inout` arguments that cannot be read.
+- SPIR-V mesh shaders correctly invert only Y when writing position components with `-fvk-invert-y`.
 
 #### Shader Model 6.10
 
