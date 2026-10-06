@@ -56,6 +56,7 @@
 #include "llvm/Bitcode/ReaderWriter.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DebugInfo.h"
+#include "llvm/IR/Dominators.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Intrinsics.h"
@@ -91,6 +92,61 @@ static std::vector<std::string> Tokenize(const std::string &str,
   }
 
   return tokens;
+}
+
+static size_t CountOccurrences(const std::string &haystack,
+                               const std::string &needle) {
+  size_t count = 0;
+  size_t offset = 0;
+  while ((offset = haystack.find(needle, offset)) != std::string::npos) {
+    ++count;
+    offset += needle.size();
+  }
+  return count;
+}
+
+static size_t FindOrFail(const std::string &haystack,
+                         const std::string &needle) {
+  size_t offset = haystack.find(needle);
+  VERIFY_IS_TRUE(offset != std::string::npos);
+  return offset;
+}
+
+static size_t FindAfterOrFail(const std::string &haystack,
+                              const std::string &needle, size_t searchOffset) {
+  size_t offset = haystack.find(needle, searchOffset);
+  VERIFY_IS_TRUE(offset != std::string::npos);
+  return offset;
+}
+
+static size_t FindBeforeOrFail(const std::string &haystack,
+                               const std::string &needle, size_t searchOffset) {
+  size_t offset = haystack.rfind(needle, searchOffset);
+  VERIFY_IS_TRUE(offset != std::string::npos);
+  return offset;
+}
+
+static std::string ExtractStorePointerOrFail(const std::string &haystack,
+                                             size_t storeOffset) {
+  const std::string pointerPrefix = "i32* ";
+  size_t pointerOffset = haystack.find(pointerPrefix, storeOffset);
+  VERIFY_IS_TRUE(pointerOffset != std::string::npos);
+  pointerOffset += pointerPrefix.size();
+  size_t pointerEnd = haystack.find_first_of(",\r\n", pointerOffset);
+  VERIFY_IS_TRUE(pointerEnd != std::string::npos);
+  return haystack.substr(pointerOffset, pointerEnd - pointerOffset);
+}
+
+static std::string ExtractBetweenOrFail(const std::string &haystack,
+                                        size_t searchOffset,
+                                        const std::string &prefix,
+                                        const std::string &suffix) {
+  size_t valueOffset = haystack.find(prefix, searchOffset);
+  VERIFY_IS_TRUE(valueOffset != std::string::npos);
+  valueOffset += prefix.size();
+  size_t valueEnd = haystack.find(suffix, valueOffset);
+  VERIFY_IS_TRUE(valueEnd != std::string::npos);
+  return haystack.substr(valueOffset, valueEnd - valueOffset);
 }
 
 #ifdef _WIN32
@@ -165,10 +221,49 @@ public:
 
   TEST_METHOD(DxilPIXDXRInvocationsLog_SanityTest)
   TEST_METHOD(DxilPIXDXRInvocationsLog_EmbeddedRootSigs)
+
   TEST_METHOD(DxilPIXDXRInvocationsLog_ZeroCapacityStillCountsInvocations)
   TEST_METHOD(DxilPIXDXRInvocationsLog_OneEntryUsesEntryCountBound)
   TEST_METHOD(DxilPIXDXRInvocationsLog_ExactCapacityUsesEntryCountBound)
   TEST_METHOD(DxilPIXDXRInvocationsLog_OverflowGuardValidates)
+
+  TEST_METHOD(DxilPIXRayQueryLog_SanityTest)
+  TEST_METHOD(DxilPIXRayQueryLog_SideTable)
+  TEST_METHOD(DxilPIXRayQueryLog_SideTableAnnotations)
+  TEST_METHOD(DxilPIXRayQueryLog_CandidatesAndRetrace)
+  TEST_METHOD(DxilPIXRayQueryLog_PhiSelectHandles)
+  TEST_METHOD(DxilPIXRayQueryLog_ContractConstants)
+  TEST_METHOD(DxilPIXRayQueryLog_RasterAndLibraryStages)
+  TEST_METHOD(DxilPIXRayQueryLog_DxrLibraryExportsAndSharedHelpers)
+  TEST_METHOD(DxilPIXRayQueryLog_PatchesMissingRasterIdentityInputs)
+  TEST_METHOD(DxilPIXRayQueryLog_AllocationAndStorageContracts)
+  TEST_METHOD(DxilPIXRayQueryLog_ExitAndIdentityContracts)
+  TEST_METHOD(DxilPIXRayQueryLog_DynamicArraySlots)
+  TEST_METHOD(DxilPIXRayQueryLog_SameBlockAliasLoadAtOd)
+  TEST_METHOD(DxilPIXRayQueryLog_SameBlockDynamicArrayAliasLoadInLoopAtOd)
+  TEST_METHOD(DxilPIXRayQueryLog_DynamicArrayClobberFallsBackToHandleCompare)
+  TEST_METHOD(DxilPIXRayQueryLog_SelectedHandleShadowDominatesAllUses)
+  TEST_METHOD(DxilPIXRayQueryLog_TerminationFlushesLaterDynamicAllocations)
+  TEST_METHOD(DxilPIXRayQueryLog_DiscardFlushesLaterDynamicAllocations)
+  TEST_METHOD(DxilPIXRayQueryLog_TraceSiteBaseOverflowRejected)
+  TEST_METHOD(DxilPIXRayQueryLog_RegisterSpaceCollisionsRejected)
+  TEST_METHOD(DxilPIXRayQueryLog_RootSignaturePatchingRobustness)
+  TEST_METHOD(DxilPIXRayQueryLog_HelperOrdinalContinuity)
+  TEST_METHOD(DxilPIXRayQueryLog_CommittedGettersStatusDominated)
+  TEST_METHOD(DxilPIXRayQueryLog_SyntheticExitUsesStoredTraceRay)
+  TEST_METHOD(DxilPIXRayQueryLog_CompletedLoopGenerationRetiresShadow)
+  TEST_METHOD(DxilPIXRayQueryLog_SharedProceedTracksEachTraceSite)
+  TEST_METHOD(DxilPIXRayQueryLog_DispatchRaysCoexistence)
+  TEST_METHOD(DxilPIXRayQueryLog_CompactCandidatePayload)
+  TEST_METHOD(DxilPIXRayQueryLog_StoresAreGuardedAtCapacity)
+  TEST_METHOD(DxilPIXRayQueryLog_CandidateModeKeepsQueryStride64)
+  TEST_METHOD(DxilPIXRayQueryLog_OmmAllocateRayQuery2Contracts)
+  TEST_METHOD(DxilPIXRayQueryLog_PixPrefixedApplicationUAVIsNotPIXOwned)
+  TEST_METHOD(DxilPIXRayQueryLog_ArrayUAVRangeOverlappingPIXRegistersRejected)
+  TEST_METHOD(DxilPIXRayQueryLog_PatchConstantFunctionFlushesRayQuery)
+  TEST_METHOD(DxilPIXRayQueryLog_TerminationOnlyShaderLeftUnmodified)
+  TEST_METHOD(DxilPIXRayQueryLog_AllocateAnnotationsSeeLaterTraceSites)
+  TEST_METHOD(DxilPIXRayQueryLog_FilteredEventsSkipAtomicsAndStores)
 
   TEST_METHOD(DebugInstrumentation_TextOutput)
   TEST_METHOD(DebugInstrumentation_BlockReport)
@@ -694,6 +789,10 @@ public:
         DxilPartIterator it =
             std::find_if(begin(pContainer), end(pContainer),
                          DxilPartIsType(DFCC_ShaderDebugInfoDXIL));
+        if (it == end(pContainer)) {
+          it = std::find_if(begin(pContainer), end(pContainer),
+                            DxilPartIsType(DFCC_DXIL));
+        }
         VERIFY_IS_FALSE(it == end(pContainer));
 
         pProgramHeader =
@@ -757,6 +856,9 @@ public:
   CComPtr<IDxcBlob> RunDxilPIXMeshShaderOutputPass(IDxcBlob *blob);
   CComPtr<IDxcBlob>
   RunDxilPIXDXRInvocationsLog(IDxcBlob *blob, unsigned maxNumEntriesInLog = 24);
+  PassOutput RunDxilPIXRayQueryLog(IDxcBlob *blob,
+                                   const wchar_t *additionalOptions = L"");
+
   PassOutput
   RunDxilNonUniformResourceIndexInstrumentation(IDxcBlob *blob,
                                                 std::string &outputText);
@@ -818,13 +920,14 @@ HasDxrInvocationLogEntryCountCheck(std::vector<std::string> const &lines,
 
 static bool
 rootSignatureHasToolsUAV(const DxilVersionedRootSignatureDesc *RootSignature,
-                         uint32_t ShaderRegister) {
-  auto HasToolsUAV = [ShaderRegister](const auto &Desc) {
+                         uint32_t ShaderRegister,
+                         uint32_t RegisterSpace = ToolsRegisterSpace) {
+  auto HasToolsUAV = [ShaderRegister, RegisterSpace](const auto &Desc) {
     for (uint32_t ParameterIndex = 0; ParameterIndex < Desc.NumParameters;
          ++ParameterIndex) {
       const auto &Parameter = Desc.pParameters[ParameterIndex];
       if (Parameter.ParameterType == DxilRootParameterType::UAV &&
-          Parameter.Descriptor.RegisterSpace == ToolsRegisterSpace &&
+          Parameter.Descriptor.RegisterSpace == RegisterSpace &&
           Parameter.Descriptor.ShaderRegister == ShaderRegister)
         return true;
     }
@@ -1136,6 +1239,31 @@ void MissOne(inout MyPayload payload)
     payload.primitiveIndex = 1;
 }
 )x";
+
+PassOutput PixTest::RunDxilPIXRayQueryLog(IDxcBlob *blob,
+                                          const wchar_t *additionalOptions) {
+  CComPtr<IDxcOptimizer> pOptimizer;
+  VERIFY_SUCCEEDED(
+      m_dllSupport.CreateInstance(CLSID_DxcOptimizer, &pOptimizer));
+  std::vector<LPCWSTR> Options;
+  std::wstring passOptions =
+      L"-hlsl-dxil-pix-rayquery-log,maxNumEntriesInLog=24,traceSiteBase=11,"
+      L"roiMinX=0,roiMinY=0,roiMinZ=0,roiMaxX=1024,roiMaxY=1024,roiMaxZ=1,"
+      L"sampleRate=1,subCallIndex=3";
+  passOptions += additionalOptions;
+  Options.push_back(passOptions.c_str());
+
+  CComPtr<IDxcBlob> pOptimizedModule;
+  CComPtr<IDxcBlobEncoding> pText;
+  VERIFY_SUCCEEDED(pOptimizer->RunOptimizer(
+      blob, Options.data(), Options.size(), &pOptimizedModule, &pText));
+
+  PassOutput ret;
+  ret.blob = pOptimizedModule;
+  std::string outputText = BlobToUtf8(pText);
+  ret.lines = Tokenize(outputText.c_str(), "\n");
+  return ret;
+}
 
 PassOutput PixTest::RunDxilNonUniformResourceIndexInstrumentation(
     IDxcBlob *blob, std::string &outputText) {
@@ -3606,14 +3734,16 @@ void main()
       static_cast<uint32_t>(OriginalRootSignature.size()));
   DM.ResetSubobjects(Subobjects.release());
 
-  PIXPassHelpers::CreateGlobalUAVResource(DM, 0, "PIX_TestUAV");
+  PIXPassHelpers::CreateGlobalUAVResource(DM, 1, "PIX_TestUAV");
 
   const std::vector<uint8_t> &ActualRootSignature =
       DM.GetSerializedRootSignature();
-  VERIFY_ARE_EQUAL(OriginalRootSignature.size(), ActualRootSignature.size());
-  VERIFY_IS_TRUE(std::equal(OriginalRootSignature.begin(),
-                            OriginalRootSignature.end(),
-                            ActualRootSignature.begin()));
+  DxilVersionedRootSignatureDesc const *ActualDesc = nullptr;
+  DeserializeRootSignature(ActualRootSignature.data(),
+                           static_cast<uint32_t>(ActualRootSignature.size()),
+                           &ActualDesc);
+  VERIFY_IS_TRUE(rootSignatureHasToolsUAV(ActualDesc, 1));
+  DeleteRootSignature(ActualDesc);
 
   bool FoundRootSignature = false;
   for (auto const &Subobject : DM.GetSubobjects()->GetSubobjects()) {
@@ -3625,10 +3755,10 @@ void main()
     uint32_t Size = 0;
     VERIFY_IS_TRUE(Subobject.second->GetRootSignature(NotALocalRootSignature,
                                                       Data, Size, nullptr));
-    VERIFY_ARE_EQUAL(OriginalRootSignature.size(), static_cast<size_t>(Size));
-    VERIFY_IS_TRUE(std::equal(OriginalRootSignature.begin(),
-                              OriginalRootSignature.end(),
-                              static_cast<const uint8_t *>(Data)));
+    DxilVersionedRootSignatureDesc const *SubobjectDesc = nullptr;
+    DeserializeRootSignature(Data, Size, &SubobjectDesc);
+    VERIFY_IS_TRUE(rootSignatureHasToolsUAV(SubobjectDesc, 1));
+    DeleteRootSignature(SubobjectDesc);
     FoundRootSignature = true;
   }
   VERIFY_IS_TRUE(FoundRootSignature);
@@ -3645,7 +3775,7 @@ void main()
   DxilRootParameter1 Parameters[2] = {};
   Parameters[0].ParameterType = DxilRootParameterType::UAV;
   Parameters[0].Descriptor.RegisterSpace = static_cast<uint32_t>(-2);
-  Parameters[0].Descriptor.ShaderRegister = 0;
+  Parameters[0].Descriptor.ShaderRegister = 7;
   Parameters[0].Descriptor.Flags = DxilRootDescriptorFlags::None;
   Parameters[0].ShaderVisibility = DxilShaderVisibility::All;
 
@@ -3685,9 +3815,16 @@ void main()
     DxilVersionedRootSignatureDesc const *AfterNoOp = nullptr;
     DeserializeRootSignature(Bytes.data(), static_cast<uint32_t>(Bytes.size()),
                              &AfterNoOp);
-    VERIFY_ARE_EQUAL(AfterNoOp->Desc_1_1.NumParameters, 2u);
+    VERIFY_ARE_EQUAL(AfterNoOp->Desc_1_1.NumParameters, 3u);
     VERIFY_IS_TRUE(AfterNoOp->Desc_1_1.pParameters[1].Descriptor.Flags ==
                    DxilRootDescriptorFlags::DataVolatile);
+    VERIFY_ARE_EQUAL(
+        AfterNoOp->Desc_1_1.pParameters[2].Descriptor.RegisterSpace,
+        static_cast<uint32_t>(-2));
+    VERIFY_ARE_EQUAL(
+        AfterNoOp->Desc_1_1.pParameters[2].Descriptor.ShaderRegister, 0u);
+    VERIFY_IS_TRUE(AfterNoOp->Desc_1_1.pParameters[2].Descriptor.Flags ==
+                   DxilRootDescriptorFlags::None);
     DeleteRootSignature(AfterNoOp);
   }
 
@@ -3698,14 +3835,14 @@ void main()
     DxilVersionedRootSignatureDesc const *AfterAdd = nullptr;
     DeserializeRootSignature(Bytes.data(), static_cast<uint32_t>(Bytes.size()),
                              &AfterAdd);
-    VERIFY_ARE_EQUAL(AfterAdd->Desc_1_1.NumParameters, 3u);
+    VERIFY_ARE_EQUAL(AfterAdd->Desc_1_1.NumParameters, 4u);
     VERIFY_IS_TRUE(AfterAdd->Desc_1_1.pParameters[1].Descriptor.Flags ==
                    DxilRootDescriptorFlags::DataVolatile);
-    VERIFY_ARE_EQUAL(AfterAdd->Desc_1_1.pParameters[2].Descriptor.RegisterSpace,
+    VERIFY_ARE_EQUAL(AfterAdd->Desc_1_1.pParameters[3].Descriptor.RegisterSpace,
                      static_cast<uint32_t>(-2));
     VERIFY_ARE_EQUAL(
-        AfterAdd->Desc_1_1.pParameters[2].Descriptor.ShaderRegister, 1u);
-    VERIFY_IS_TRUE(AfterAdd->Desc_1_1.pParameters[2].Descriptor.Flags ==
+        AfterAdd->Desc_1_1.pParameters[3].Descriptor.ShaderRegister, 1u);
+    VERIFY_IS_TRUE(AfterAdd->Desc_1_1.pParameters[3].Descriptor.Flags ==
                    DxilRootDescriptorFlags::None);
     DeleteRootSignature(AfterAdd);
   }
@@ -4022,6 +4159,2690 @@ TEST_F(PixTest, DxilPIXDXRInvocationsLog_OverflowGuardValidates) {
 
   VERIFY_IS_TRUE(Disassembly.find("@dx.op.binary.i32") == std::string::npos);
   verifyInstrumentedModuleIsValid(Output, "DXR invocations log overflow guard");
+}
+
+TEST_F(PixTest, DxilPIXRayQueryLog_SanityTest) {
+  const char *source = R"x(
+RaytracingAccelerationStructure RTAS : register(t0);
+RWByteAddressBuffer Sink : register(u0);
+
+[numthreads(1, 1, 1)]
+void main(uint3 threadId : SV_DispatchThreadID)
+{
+    RayQuery<RAY_FLAG_FORCE_OPAQUE> rayQuery;
+    RayDesc rayDescription;
+    rayDescription.Origin = float3(0.0, 0.0, 0.0);
+    rayDescription.Direction = float3(0.0, 0.0, 1.0);
+    rayDescription.TMin = 0.0;
+    rayDescription.TMax = 100.0;
+    rayQuery.TraceRayInline(RTAS, 0, 0xff, rayDescription);
+    while (rayQuery.Proceed())
+    {
+    }
+    Sink.Store(0, rayQuery.CommittedStatus());
+}
+)x";
+
+  CComPtr<IDxcBlob> compiled = Compile(m_dllSupport, source, L"cs_6_5", {});
+  PassOutput output = RunDxilPIXRayQueryLog(compiled);
+  const std::string disassembly = Disassemble(output.blob);
+
+  VERIFY_IS_TRUE(disassembly.find("PIX_RayQuery_CountUAV_Handle") !=
+                 std::string::npos);
+  VERIFY_IS_TRUE(disassembly.find("PIX_RayQuery_LogUAV_Handle") !=
+                 std::string::npos);
+  VERIFY_IS_TRUE(disassembly.find("dx.op.atomicBinOp.i32") !=
+                 std::string::npos);
+  VERIFY_IS_TRUE(disassembly.find("dx.op.rawBufferStore.i32") !=
+                 std::string::npos);
+  VERIFY_IS_TRUE(disassembly.find("dx.op.rawBufferStore.f32") ==
+                 std::string::npos);
+
+  verifyInstrumentedModuleIsValid(output.blob, "PIX RayQuery log sanity");
+}
+
+TEST_F(PixTest, DxilPIXRayQueryLog_SideTable) {
+  const char *source = R"x(
+RaytracingAccelerationStructure RTAS : register(t0);
+
+[numthreads(1, 1, 1)]
+void main(uint3 threadId : SV_DispatchThreadID)
+{
+    RayQuery<RAY_FLAG_FORCE_OPAQUE> rayQuery;
+    RayDesc rayDescription;
+    rayDescription.Origin = float3(0.0, 0.0, 0.0);
+    rayDescription.Direction = float3(0.0, 0.0, 1.0);
+    rayDescription.TMin = 0.0;
+    rayDescription.TMax = 100.0;
+    rayQuery.TraceRayInline(RTAS, 0, 0xff, rayDescription);
+    rayQuery.Abort();
+}
+)x";
+
+  CComPtr<IDxcBlob> compiled = Compile(m_dllSupport, source, L"cs_6_5", {});
+  PassOutput output = RunDxilPIXRayQueryLog(compiled);
+  std::string textOutput;
+  for (const std::string &line : output.lines) {
+    textOutput += line;
+    textOutput += "\n";
+  }
+
+  VERIFY_IS_TRUE(textOutput.find("PIX_RAYQUERY_LOG_V1") != std::string::npos);
+  VERIFY_IS_TRUE(textOutput.find("site id=11 local=0") != std::string::npos);
+  VERIFY_IS_TRUE(textOutput.find("lifecycle=PARTIAL") != std::string::npos);
+  VERIFY_IS_TRUE(textOutput.find("summary sites=1 partial=1") !=
+                 std::string::npos);
+  VERIFY_IS_TRUE(textOutput.find("END_PIX_RAYQUERY_LOG_V1") !=
+                 std::string::npos);
+  verifyInstrumentedModuleIsValid(output.blob, "PIX RayQuery log side table");
+}
+
+TEST_F(PixTest, DxilPIXRayQueryLog_SideTableAnnotations) {
+  const char *source = R"x(
+RaytracingAccelerationStructure RTAS : register(t0);
+RWStructuredBuffer<uint> Output : register(u0);
+
+void TraceToCompletion()
+{
+    RayQuery<RAY_FLAG_NONE> rayQuery;
+    RayDesc rayDescription;
+    rayDescription.Origin = float3(0.0, 0.0, 0.0);
+    rayDescription.Direction = float3(0.0, 0.0, 1.0);
+    rayDescription.TMin = 0.0;
+    rayDescription.TMax = 100.0;
+    rayQuery.TraceRayInline(RTAS, 0, 0xff, rayDescription);
+    while (rayQuery.Proceed())
+    {
+    }
+    Output[0] = rayQuery.CommittedStatus();
+}
+
+void TraceAndAbort()
+{
+    RayQuery<RAY_FLAG_NONE> rayQuery;
+    RayDesc rayDescription;
+    rayDescription.Origin = float3(0.0, 0.0, 0.0);
+    rayDescription.Direction = float3(0.0, 1.0, 0.0);
+    rayDescription.TMin = 0.0;
+    rayDescription.TMax = 100.0;
+    rayQuery.TraceRayInline(RTAS, 0, 0xff, rayDescription);
+    rayQuery.Abort();
+}
+
+[numthreads(1, 1, 1)]
+void main(uint3 threadId : SV_DispatchThreadID)
+{
+    TraceToCompletion();
+    TraceAndAbort();
+}
+)x";
+
+  auto compiled =
+      Compile(m_dllSupport, source, L"cs_6_5", {L"-Zi", L"-Qembed_debug"});
+
+  PassOutput output = RunDxilPIXRayQueryLog(compiled);
+  std::string textOutput;
+  for (const std::string &line : output.lines) {
+    textOutput += line;
+    textOutput += "\n";
+  }
+  VERIFY_IS_TRUE(textOutput.find("annotation site=11 emit=proceedFalse "
+                                 "record=query reason=COMPLETED") !=
+                 std::string::npos);
+  VERIFY_IS_TRUE(textOutput.find("annotation site=12 emit=abort record=query "
+                                 "reason=ABORTED") != std::string::npos);
+  VERIFY_IS_TRUE(textOutput.find("debug=\"\"") == std::string::npos);
+  verifyInstrumentedModuleIsValid(output.blob,
+                                  "PIX RayQuery log side-table annotations");
+
+  PassOutput candidateOutput =
+      RunDxilPIXRayQueryLog(compiled, L",logCandidates=1");
+  std::string candidateTextOutput;
+  for (const std::string &line : candidateOutput.lines) {
+    candidateTextOutput += line;
+    candidateTextOutput += "\n";
+  }
+  VERIFY_IS_TRUE(candidateTextOutput.find("annotation site=11 "
+                                          "emit=proceedTrue record=candidate "
+                                          "reason=COMPLETED") !=
+                 std::string::npos);
+  verifyInstrumentedModuleIsValid(
+      candidateOutput.blob, "PIX RayQuery log candidate side-table annotation");
+}
+
+TEST_F(PixTest, DxilPIXRayQueryLog_CandidatesAndRetrace) {
+  const char *source = R"x(
+RaytracingAccelerationStructure RTAS : register(t0);
+
+[numthreads(1, 1, 1)]
+void main(uint3 threadId : SV_DispatchThreadID)
+{
+    RayQuery<RAY_FLAG_FORCE_OPAQUE> rayQuery;
+    RayDesc rayDescription;
+    rayDescription.Origin = float3(0.0, 0.0, 0.0);
+    rayDescription.Direction = float3(0.0, 0.0, 1.0);
+    rayDescription.TMin = 0.0;
+    rayDescription.TMax = 100.0;
+    rayQuery.TraceRayInline(RTAS, 0, 0xff, rayDescription);
+    if (rayQuery.Proceed())
+    {
+    }
+    rayQuery.TraceRayInline(RTAS, 0, 0xff, rayDescription);
+    rayQuery.Abort();
+}
+)x";
+
+  CComPtr<IDxcBlob> compiled = Compile(m_dllSupport, source, L"cs_6_5", {});
+  PassOutput output = RunDxilPIXRayQueryLog(compiled, L",logCandidates=1");
+  const std::string disassembly = Disassemble(output.blob);
+
+  VERIFY_IS_TRUE(disassembly.find("IrtProceedReturnedTrue") !=
+                 std::string::npos);
+  VERIFY_IS_TRUE(disassembly.find("RayQuery_CandidateType") !=
+                 std::string::npos);
+  VERIFY_IS_TRUE(disassembly.find("RayQuery_CandidateTriangleBarycentrics") !=
+                 std::string::npos);
+  verifyInstrumentedModuleIsValid(output.blob,
+                                  "PIX RayQuery candidates and retrace");
+}
+
+TEST_F(PixTest, DxilPIXRayQueryLog_PhiSelectHandles) {
+  const char *source = R"x(
+RaytracingAccelerationStructure RTAS : register(t0);
+
+[numthreads(1, 1, 1)]
+void main(uint3 threadId : SV_DispatchThreadID)
+{
+    RayQuery<RAY_FLAG_FORCE_OPAQUE> firstRayQuery;
+    RayQuery<RAY_FLAG_FORCE_OPAQUE> secondRayQuery;
+    RayQuery<RAY_FLAG_FORCE_OPAQUE> selectedRayQuery =
+        threadId.x == 0 ? firstRayQuery : secondRayQuery;
+    RayDesc rayDescription;
+    rayDescription.Origin = float3(0.0, 0.0, 0.0);
+    rayDescription.Direction = float3(0.0, 0.0, 1.0);
+    rayDescription.TMin = 0.0;
+    rayDescription.TMax = 100.0;
+    selectedRayQuery.TraceRayInline(RTAS, 0, 0xff, rayDescription);
+    while (selectedRayQuery.Proceed())
+    {
+    }
+}
+)x";
+
+  CComPtr<IDxcBlob> compiled = Compile(m_dllSupport, source, L"cs_6_5", {});
+  PassOutput output = RunDxilPIXRayQueryLog(compiled);
+  const std::string disassembly = Disassemble(output.blob);
+
+  VERIFY_IS_TRUE(disassembly.find("dx.op.rawBufferStore.i32") !=
+                 std::string::npos);
+  VERIFY_IS_TRUE(disassembly.find("PIX_RayQuery_LogUAV_Handle") !=
+                 std::string::npos);
+  VERIFY_IS_TRUE(
+      disassembly.find("IrtStateAlias = phi i32*") != std::string::npos ||
+      disassembly.find("IrtSelectedShadow = select i1") != std::string::npos);
+  verifyInstrumentedModuleIsValid(output.blob,
+                                  "PIX RayQuery phi select handles");
+}
+
+TEST_F(PixTest, DxilPIXRayQueryLog_ContractConstants) {
+  const char *source = R"x(
+RaytracingAccelerationStructure RTAS : register(t0);
+
+[numthreads(1, 1, 1)]
+void main(uint3 threadId : SV_DispatchThreadID)
+{
+    RayQuery<RAY_FLAG_FORCE_OPAQUE> rayQuery;
+    RayDesc rayDescription;
+    rayDescription.Origin = float3(0.0, 0.0, 0.0);
+    rayDescription.Direction = float3(0.0, 0.0, 1.0);
+    rayDescription.TMin = 0.0;
+    rayDescription.TMax = 100.0;
+    rayQuery.TraceRayInline(RTAS, RAY_FLAG_SKIP_PROCEDURAL_PRIMITIVES, 0xff, rayDescription);
+    if (rayQuery.Proceed())
+    {
+    }
+}
+)x";
+
+  CComPtr<IDxcBlob> compiled = Compile(m_dllSupport, source, L"cs_6_5", {});
+  PassOutput output =
+      RunDxilPIXRayQueryLog(compiled, L",logCandidates=1,sampleRate=2");
+  const std::string disassembly = Disassemble(output.blob);
+
+  VERIFY_IS_TRUE(disassembly.find("xor i32 826366246") != std::string::npos);
+  VERIFY_IS_TRUE(disassembly.find("mul i32") != std::string::npos);
+  VERIFY_IS_TRUE(disassembly.find("747796405") != std::string::npos);
+  VERIFY_IS_TRUE(disassembly.find("277803737") != std::string::npos);
+  VERIFY_IS_TRUE(disassembly.find("IrtEncodedCandidateType = add i32 "
+                                  "%IrtCandidateType, 1") != std::string::npos);
+  VERIFY_IS_TRUE(disassembly.find("IrtCandidateIsTriangle = icmp eq i32 "
+                                  "%IrtCandidateType, 0") != std::string::npos);
+  VERIFY_IS_TRUE(disassembly.find("IrtCandidateIsProcedural = icmp eq i32 "
+                                  "%IrtCandidateType, 1") != std::string::npos);
+  VERIFY_IS_TRUE(disassembly.find("or i32 %IrtEncodedCandidateType, 256") !=
+                 std::string::npos);
+  VERIFY_IS_TRUE(disassembly.find("icmp ult i32 %IrtSlot") !=
+                 std::string::npos);
+  VERIFY_IS_TRUE(disassembly.find("IrtShouldStore = icmp ult i32 %IrtSlot") !=
+                 std::string::npos);
+  VERIFY_IS_TRUE(disassembly.find("IrtRecordOffset = mul i32 %IrtSlot") !=
+                 std::string::npos);
+  VERIFY_IS_TRUE(disassembly.find("IrtDemandClamp") != std::string::npos);
+  VERIFY_IS_TRUE(disassembly.find("IrtSlotClamp") != std::string::npos);
+  VERIFY_IS_TRUE(
+      disassembly.find("atomicBinOp.i32(i32 78, %dx.types.Handle ") !=
+      std::string::npos);
+  VERIFY_IS_TRUE(disassembly.find(", i32 0, i32 0") != std::string::npos);
+  VERIFY_IS_TRUE(disassembly.find(", i32 7, i32 0") != std::string::npos);
+  VERIFY_IS_TRUE(
+      disassembly.find("atomicBinOp.i32(i32 78, %dx.types.Handle "
+                       "%PIX_RayQuery_CountUAV_Handle, i32 0, i32 4") !=
+      std::string::npos);
+  VERIFY_IS_TRUE(disassembly.find("atomicBinOp.i32(i32 78, %dx.types.Handle "
+                                  "%PIX_RayQuery_CandidateCountUAV_Handle, "
+                                  "i32 6, i32 4") != std::string::npos);
+  VERIFY_IS_TRUE(disassembly.find("store i32 -1, i32* %IrtAsDynamicIndex") !=
+                 std::string::npos);
+  VERIFY_IS_TRUE(disassembly.find("PIX_RayQuery_CandidateLogUAV_Handle") !=
+                 std::string::npos);
+  VERIFY_IS_TRUE(disassembly.find(", 48") != std::string::npos);
+  VERIFY_IS_TRUE(disassembly.find(", 64") != std::string::npos);
+  VERIFY_IS_TRUE(disassembly.find("1073741824") != std::string::npos);
+  VERIFY_IS_TRUE(disassembly.find("or i32 785,") != std::string::npos);
+  VERIFY_IS_TRUE(disassembly.find("or i32 786,") != std::string::npos);
+
+  verifyInstrumentedModuleIsValid(output.blob,
+                                  "PIX RayQuery contract constants");
+}
+
+TEST_F(PixTest, DxilPIXRayQueryLog_RasterAndLibraryStages) {
+  const char *source = R"x(
+RaytracingAccelerationStructure RTAS : register(t0);
+
+struct MyPayload
+{
+    float4 color;
+};
+
+struct MyIntersectionAttributes
+{
+    float2 barycentrics;
+};
+
+void RunQuery()
+{
+    RayQuery<RAY_FLAG_FORCE_OPAQUE> rayQuery;
+    RayDesc rayDescription;
+    rayDescription.Origin = float3(0.0, 0.0, 0.0);
+    rayDescription.Direction = float3(0.0, 0.0, 1.0);
+    rayDescription.TMin = 0.0;
+    rayDescription.TMax = 100.0;
+    rayQuery.TraceRayInline(RTAS, 0, 0xff, rayDescription);
+    while (rayQuery.Proceed())
+    {
+    }
+}
+
+float4 VSMain(uint vertexId : SV_VertexID) : SV_Position
+{
+    RunQuery();
+    return float4(vertexId, 0.0, 0.0, 1.0);
+}
+
+struct VertexOutput
+{
+    float4 position : SV_Position;
+};
+
+struct PatchConstants
+{
+    float edges[3] : SV_TessFactor;
+    float inside : SV_InsideTessFactor;
+};
+
+VertexOutput VSGeometryMain(uint vertexId : SV_VertexID, uint instanceId : SV_InstanceID)
+{
+    RunQuery();
+    VertexOutput output;
+    output.position = float4(vertexId, instanceId, 0.0, 1.0);
+    return output;
+}
+
+PatchConstants MakePatchConstants()
+{
+    PatchConstants constants;
+    constants.edges[0] = 1.0;
+    constants.edges[1] = 1.0;
+    constants.edges[2] = 1.0;
+    constants.inside = 1.0;
+    return constants;
+}
+
+PatchConstants PatchConstantMain(InputPatch<VertexOutput, 3> patch, uint primitiveId : SV_PrimitiveID)
+{
+    return MakePatchConstants();
+}
+
+[domain("tri")]
+[partitioning("integer")]
+[outputtopology("triangle_cw")]
+[outputcontrolpoints(3)]
+[patchconstantfunc("PatchConstantMain")]
+VertexOutput HSMain(InputPatch<VertexOutput, 3> patch, uint outputControlPointId : SV_OutputControlPointID, uint primitiveId : SV_PrimitiveID)
+{
+    RunQuery();
+    VertexOutput output = patch[outputControlPointId];
+    output.position.x += (float)primitiveId;
+    return output;
+}
+
+[domain("tri")]
+VertexOutput DSMain(PatchConstants constants, float3 domainLocation : SV_DomainLocation, const OutputPatch<VertexOutput, 3> patch, uint primitiveId : SV_PrimitiveID)
+{
+    RunQuery();
+    VertexOutput output;
+    output.position = patch[0].position * domainLocation.x + patch[1].position * domainLocation.y + patch[2].position * domainLocation.z;
+    output.position.x += (float)primitiveId;
+    return output;
+}
+
+[maxvertexcount(3)]
+[instance(2)]
+void GSMain(triangle VertexOutput input[3], uint primitiveId : SV_PrimitiveID, uint geometryShaderInstanceId : SV_GSInstanceID, inout TriangleStream<VertexOutput> stream)
+{
+    RunQuery();
+    VertexOutput first = input[0];
+    first.position.x += (float)geometryShaderInstanceId;
+    stream.Append(first);
+    stream.Append(input[1]);
+    stream.Append(input[2]);
+}
+
+float4 PSMain(float4 position : SV_Position) : SV_Target
+{
+    RunQuery();
+    return position;
+}
+
+struct MeshPayload
+{
+    uint value;
+};
+
+[numthreads(1, 1, 1)]
+void ASMain(uint groupId : SV_GroupID)
+{
+    RunQuery();
+    MeshPayload payload;
+    payload.value = groupId;
+    DispatchMesh(1, 1, 1, payload);
+}
+
+struct MeshVertex
+{
+    float4 position : SV_Position;
+};
+
+[outputtopology("triangle")]
+[numthreads(3, 1, 1)]
+void MSMain(
+    in payload MeshPayload payload,
+    uint threadId : SV_GroupThreadID,
+    out vertices MeshVertex vertices[3],
+    out indices uint3 triangles[1])
+{
+    RunQuery();
+    SetMeshOutputCounts(3, 1);
+    vertices[threadId].position = float4(payload.value + threadId, 0.0, 0.0, 1.0);
+    if (threadId == 0)
+    {
+        triangles[0] = uint3(0, 1, 2);
+    }
+}
+
+[shader("raygeneration")]
+void RayGenerationMain()
+{
+    RayQuery<RAY_FLAG_NONE> rayQuery;
+    RayDesc rayDescription;
+    rayDescription.Origin = float3(0.0, 0.0, 0.0);
+    rayDescription.Direction = float3(0.0, 0.0, 1.0);
+    rayDescription.TMin = 0.0;
+    rayDescription.TMax = 100.0;
+    rayQuery.TraceRayInline(RTAS, 0, 0xff, rayDescription);
+    while (rayQuery.Proceed())
+    {
+    }
+}
+
+[shader("closesthit")]
+void ClosestHitMain(inout MyPayload payload, in BuiltInTriangleIntersectionAttributes attributes)
+{
+    RayQuery<RAY_FLAG_NONE> rayQuery;
+    RayDesc rayDescription;
+    rayDescription.Origin = float3(attributes.barycentrics, 0.0);
+    rayDescription.Direction = float3(0.0, 0.0, 1.0);
+    rayDescription.TMin = 0.0;
+    rayDescription.TMax = 100.0;
+    rayQuery.TraceRayInline(RTAS, 0, 0xff, rayDescription);
+    while (rayQuery.Proceed())
+    {
+    }
+    payload.color = float4(attributes.barycentrics, 0.0, 1.0);
+}
+
+[shader("anyhit")]
+void AnyHitMain(inout MyPayload payload, in BuiltInTriangleIntersectionAttributes attributes)
+{
+    RayQuery<RAY_FLAG_NONE> rayQuery;
+    RayDesc rayDescription;
+    rayDescription.Origin = float3(attributes.barycentrics, 0.0);
+    rayDescription.Direction = float3(0.0, 0.0, 1.0);
+    rayDescription.TMin = 0.0;
+    rayDescription.TMax = 100.0;
+    rayQuery.TraceRayInline(RTAS, 0, 0xff, rayDescription);
+    while (rayQuery.Proceed())
+    {
+    }
+}
+
+[shader("miss")]
+void MissMain(inout MyPayload payload)
+{
+    RayQuery<RAY_FLAG_NONE> rayQuery;
+    RayDesc rayDescription;
+    rayDescription.Origin = float3(0.0, 0.0, 0.0);
+    rayDescription.Direction = float3(0.0, 0.0, 1.0);
+    rayDescription.TMin = 0.0;
+    rayDescription.TMax = 100.0;
+    rayQuery.TraceRayInline(RTAS, 0, 0xff, rayDescription);
+    while (rayQuery.Proceed())
+    {
+    }
+    payload.color = float4(1.0, 0.0, 0.0, 1.0);
+}
+
+[shader("intersection")]
+void IntersectionMain()
+{
+    RayQuery<RAY_FLAG_NONE> rayQuery;
+    RayDesc rayDescription;
+    rayDescription.Origin = float3(0.0, 0.0, 0.0);
+    rayDescription.Direction = float3(0.0, 0.0, 1.0);
+    rayDescription.TMin = 0.0;
+    rayDescription.TMax = 100.0;
+    rayQuery.TraceRayInline(RTAS, 0, 0xff, rayDescription);
+    while (rayQuery.Proceed())
+    {
+    }
+    MyIntersectionAttributes attributes = (MyIntersectionAttributes)0;
+    ReportHit(1.0, 0, attributes);
+}
+
+[shader("callable")]
+void CallableMain(inout MyPayload payload)
+{
+    RayQuery<RAY_FLAG_NONE> rayQuery;
+    RayDesc rayDescription;
+    rayDescription.Origin = float3(0.0, 0.0, 0.0);
+    rayDescription.Direction = float3(0.0, 0.0, 1.0);
+    rayDescription.TMin = 0.0;
+    rayDescription.TMax = 100.0;
+    rayQuery.TraceRayInline(RTAS, 0, 0xff, rayDescription);
+    while (rayQuery.Proceed())
+    {
+    }
+    payload.color = float4(0.0, 1.0, 0.0, 1.0);
+}
+)x";
+
+  struct StageCase {
+    const wchar_t *EntryPoint;
+    const wchar_t *TargetProfile;
+    const char *ValidationName;
+    bool CheckDisassembly;
+    bool CheckValidation;
+    const char *FirstExpectedIdentity;
+    const char *SecondExpectedIdentity;
+    const char *ThirdExpectedIdentity;
+    const char *ForbiddenIdentity;
+    const char *ExpectedSideTableStage;
+    const char *ExpectedSideTableEntry;
+  };
+
+  StageCase stageCases[] = {
+      {L"VSGeometryMain", L"vs_6_5", "PIX RayQuery vertex stage", true, true,
+       "IrtVertexId", "IrtInstanceId", nullptr, nullptr, nullptr, nullptr},
+      {L"PSMain", L"ps_6_5", "PIX RayQuery pixel stage", true, true,
+       "IrtPixelIdentityLo", "shl i32 %", nullptr, nullptr, nullptr, nullptr},
+      {L"GSMain", L"gs_6_5", "PIX RayQuery geometry stage", true, true,
+       "dx.op.primitiveID.i32", "dx.op.gsInstanceID.i32", nullptr,
+       "IrtGeometryShaderInstanceId = call i32 @dx.op.loadInput.i32", nullptr,
+       nullptr},
+      {L"HSMain", L"hs_6_5", "PIX RayQuery hull stage", true, true, nullptr,
+       "dx.op.primitiveID.i32", "dx.op.outputControlPointID.i32",
+       "IrtOutputControlPointId = call i32 @dx.op.loadInput.i32", nullptr,
+       nullptr},
+      {L"DSMain", L"ds_6_5", "PIX RayQuery domain stage", true, true,
+       "dx.op.primitiveID.i32", "dx.op.domainLocation.f32", "65535",
+       "IrtDomainLocationXInput = call float @dx.op.loadInput.f32", nullptr,
+       nullptr},
+      {L"ASMain", L"as_6_6", "PIX RayQuery amplification stage", true, true,
+       "IrtThreadId", "dx.op.threadId.i32", nullptr, nullptr, nullptr, nullptr},
+      {L"MSMain", L"ms_6_6", "PIX RayQuery mesh stage", true, true,
+       "IrtThreadId", "dx.op.threadId.i32", nullptr, nullptr, nullptr, nullptr},
+      {L"RayGenerationMain", L"lib_6_5", "PIX RayQuery library stage", true,
+       true, "IrtDispatchRaysIndex", "dx.op.dispatchRaysIndex.i32", nullptr,
+       nullptr, "stage=raygeneration", "RayGenerationMain"},
+      {L"ClosestHitMain", L"lib_6_5", "PIX RayQuery closest-hit library stage",
+       true, true, "IrtDispatchRaysIndex", "dx.op.dispatchRaysIndex.i32",
+       nullptr, nullptr, "stage=closesthit", "ClosestHitMain"},
+      {L"AnyHitMain", L"lib_6_5", "PIX RayQuery any-hit library stage", true,
+       true, "IrtDispatchRaysIndex", "dx.op.dispatchRaysIndex.i32", nullptr,
+       nullptr, "stage=anyhit", "AnyHitMain"},
+      {L"MissMain", L"lib_6_5", "PIX RayQuery miss library stage", true, true,
+       "IrtDispatchRaysIndex", "dx.op.dispatchRaysIndex.i32", nullptr, nullptr,
+       "stage=miss", "MissMain"},
+      {L"IntersectionMain", L"lib_6_5",
+       "PIX RayQuery intersection library stage", true, true,
+       "IrtDispatchRaysIndex", "dx.op.dispatchRaysIndex.i32", nullptr, nullptr,
+       "stage=intersection", "IntersectionMain"},
+      {L"CallableMain", L"lib_6_5", "PIX RayQuery callable library stage", true,
+       true, "IrtDispatchRaysIndex", "dx.op.dispatchRaysIndex.i32", nullptr,
+       nullptr, "stage=callable", "CallableMain"},
+  };
+
+  for (const StageCase &stageCase : stageCases) {
+    CComPtr<IDxcBlob> compiled =
+        Compile(m_dllSupport, source, stageCase.TargetProfile, {},
+                stageCase.EntryPoint);
+    PassOutput output = RunDxilPIXRayQueryLog(compiled);
+    if (stageCase.CheckDisassembly) {
+      const std::string disassembly = Disassemble(output.blob);
+      VERIFY_IS_TRUE(disassembly.find("PIX_RayQuery_LogUAV_Handle") !=
+                     std::string::npos);
+      VERIFY_IS_TRUE(disassembly.find("dx.op.rawBufferStore.i32") !=
+                     std::string::npos);
+      if (stageCase.FirstExpectedIdentity != nullptr) {
+        VERIFY_IS_TRUE(disassembly.find(stageCase.FirstExpectedIdentity) !=
+                       std::string::npos);
+      }
+      if (stageCase.SecondExpectedIdentity != nullptr) {
+        VERIFY_IS_TRUE(disassembly.find(stageCase.SecondExpectedIdentity) !=
+                       std::string::npos);
+      }
+      if (stageCase.ThirdExpectedIdentity != nullptr) {
+        VERIFY_IS_TRUE(disassembly.find(stageCase.ThirdExpectedIdentity) !=
+                       std::string::npos);
+      }
+      if (stageCase.ForbiddenIdentity != nullptr) {
+        VERIFY_IS_TRUE(disassembly.find(stageCase.ForbiddenIdentity) ==
+                       std::string::npos);
+      }
+      if (stageCase.ExpectedSideTableStage != nullptr) {
+        std::string sideTable;
+        for (const std::string &line : output.lines) {
+          sideTable += line;
+          sideTable += "\n";
+        }
+        VERIFY_IS_TRUE(sideTable.find(stageCase.ExpectedSideTableStage) !=
+                       std::string::npos);
+        VERIFY_IS_TRUE(sideTable.find(stageCase.ExpectedSideTableEntry) !=
+                       std::string::npos);
+      }
+    }
+    if (stageCase.CheckValidation) {
+      verifyInstrumentedModuleIsValid(output.blob, stageCase.ValidationName);
+    } else {
+      VERIFY_IS_FALSE(output.lines.empty());
+    }
+  }
+}
+
+TEST_F(PixTest, DxilPIXRayQueryLog_DxrLibraryExportsAndSharedHelpers) {
+  const char *source = R"x(
+RaytracingAccelerationStructure RTAS : register(t0);
+
+struct MyPayload
+{
+    float4 color;
+};
+
+struct MyIntersectionAttributes
+{
+    float2 value;
+};
+
+[noinline]
+void SharedRayQueryHelper()
+{
+    RayQuery<RAY_FLAG_NONE> rayQuery;
+    RayDesc rayDescription;
+    rayDescription.Origin = float3(0.0, 0.0, 0.0);
+    rayDescription.Direction = float3(0.0, 0.0, 1.0);
+    rayDescription.TMin = 0.0;
+    rayDescription.TMax = 100.0;
+    rayQuery.TraceRayInline(RTAS, 0, 0xff, rayDescription);
+    while (rayQuery.Proceed())
+    {
+    }
+}
+
+#define RUN_DIRECT_QUERY(originExpression) \
+    { \
+        RayQuery<RAY_FLAG_NONE> rayQuery; \
+        RayDesc rayDescription; \
+        rayDescription.Origin = originExpression; \
+        rayDescription.Direction = float3(0.0, 0.0, 1.0); \
+        rayDescription.TMin = 0.0; \
+        rayDescription.TMax = 100.0; \
+        rayQuery.TraceRayInline(RTAS, 0, 0xff, rayDescription); \
+        while (rayQuery.Proceed()) \
+        { \
+        } \
+    }
+
+[shader("raygeneration")]
+void RayGenerationMain()
+{
+    SharedRayQueryHelper();
+    RUN_DIRECT_QUERY(float3(1.0, 0.0, 0.0));
+}
+
+[shader("closesthit")]
+void ClosestHitMain(inout MyPayload payload, in BuiltInTriangleIntersectionAttributes attributes)
+{
+    RUN_DIRECT_QUERY(float3(attributes.barycentrics, 0.0));
+    payload.color = float4(attributes.barycentrics, 0.0, 1.0);
+}
+
+[shader("anyhit")]
+void AnyHitMain(inout MyPayload payload, in BuiltInTriangleIntersectionAttributes attributes)
+{
+    RUN_DIRECT_QUERY(float3(attributes.barycentrics, 0.0));
+    AcceptHitAndEndSearch();
+}
+
+[shader("miss")]
+void MissMain(inout MyPayload payload)
+{
+    RUN_DIRECT_QUERY(float3(0.0, 1.0, 0.0));
+    payload.color = float4(1.0, 0.0, 0.0, 1.0);
+}
+
+[shader("intersection")]
+void IntersectionMain()
+{
+    RUN_DIRECT_QUERY(float3(0.0, 0.0, 1.0));
+    MyIntersectionAttributes attributes = (MyIntersectionAttributes)0;
+    ReportHit(1.0, 0, attributes);
+}
+
+[shader("callable")]
+void CallableMain(inout MyPayload payload)
+{
+    RUN_DIRECT_QUERY(float3(1.0, 1.0, 0.0));
+    payload.color = float4(0.0, 1.0, 0.0, 1.0);
+}
+)x";
+
+  auto compiled =
+      Compile(m_dllSupport, source, L"lib_6_6", {L"-Zi", L"-Qembed_debug"});
+  PassOutput output = RunDxilPIXRayQueryLog(compiled);
+  const std::string disassembly = Disassemble(output.blob);
+
+  VERIFY_IS_TRUE(CountOccurrences(disassembly, "dx.op.dispatchRaysIndex.i32") >=
+                 static_cast<size_t>(6));
+
+  std::string sideTable;
+  for (const std::string &line : output.lines) {
+    sideTable += line;
+    sideTable += "\n";
+  }
+
+  struct ExportCase {
+    const char *EntryName;
+    const char *StageName;
+  };
+
+  const ExportCase exportCases[] = {
+      {"RayGenerationMain", "raygeneration"},
+      {"ClosestHitMain", "closesthit"},
+      {"AnyHitMain", "anyhit"},
+      {"MissMain", "miss"},
+      {"IntersectionMain", "intersection"},
+      {"CallableMain", "callable"},
+  };
+
+  for (const ExportCase &exportCase : exportCases) {
+    const std::string expectedStage =
+        std::string("stage=") + exportCase.StageName;
+    const size_t functionName = sideTable.find(exportCase.EntryName);
+    VERIFY_IS_TRUE(functionName != std::string::npos);
+    VERIFY_IS_TRUE(sideTable.find(expectedStage, functionName) !=
+                   std::string::npos);
+  }
+
+  const size_t sharedHelperName = sideTable.find("SharedRayQueryHelper");
+  VERIFY_IS_TRUE(sharedHelperName != std::string::npos);
+  const size_t sharedHelperEntry =
+      sideTable.rfind("entry=unknown stage=unknown", sharedHelperName);
+  VERIFY_IS_TRUE(sharedHelperEntry != std::string::npos);
+  VERIFY_IS_TRUE(sideTable.find("debug=\"\"") == std::string::npos);
+
+  verifyInstrumentedModuleIsValid(
+      output.blob, "PIX RayQuery DXR library exports and shared helpers");
+}
+
+TEST_F(PixTest, DxilPIXRayQueryLog_PatchesMissingRasterIdentityInputs) {
+  const char *source = R"x(
+RaytracingAccelerationStructure RTAS : register(t0);
+
+void RunQuery()
+{
+    RayQuery<RAY_FLAG_NONE> rayQuery;
+    RayDesc rayDescription;
+    rayDescription.Origin = float3(0.0, 0.0, 0.0);
+    rayDescription.Direction = float3(0.0, 0.0, 1.0);
+    rayDescription.TMin = 0.0;
+    rayDescription.TMax = 100.0;
+    rayQuery.TraceRayInline(RTAS, 0, 0xff, rayDescription);
+    while (rayQuery.Proceed())
+    {
+    }
+}
+
+float4 VSMain() : SV_Position
+{
+    RunQuery();
+    return float4(0.0, 0.0, 0.0, 1.0);
+}
+
+float4 PSMain() : SV_Target
+{
+    RunQuery();
+    return float4(1.0, 0.0, 0.0, 1.0);
+}
+
+struct VertexOutput
+{
+    float4 position : SV_Position;
+};
+
+[maxvertexcount(3)]
+[instance(2)]
+void GSMain(triangle VertexOutput input[3], inout TriangleStream<VertexOutput> stream)
+{
+    RunQuery();
+    stream.Append(input[0]);
+    stream.Append(input[1]);
+    stream.Append(input[2]);
+}
+)x";
+
+  auto compiledVertex = Compile(m_dllSupport, source, L"vs_6_5", {}, L"VSMain");
+  PassOutput vertexOutput = RunDxilPIXRayQueryLog(compiledVertex);
+  const std::string vertexDisassembly = Disassemble(vertexOutput.blob);
+  VERIFY_IS_TRUE(vertexDisassembly.find("SV_VertexID") != std::string::npos);
+  VERIFY_IS_TRUE(vertexDisassembly.find("SV_InstanceID") != std::string::npos);
+  VERIFY_IS_TRUE(vertexDisassembly.find("IrtVertexId") != std::string::npos);
+  VERIFY_IS_TRUE(vertexDisassembly.find("IrtInstanceId") != std::string::npos);
+  verifyInstrumentedModuleIsValid(
+      vertexOutput.blob, "PIX RayQuery missing vertex identity inputs");
+
+  auto compiledPixel = Compile(m_dllSupport, source, L"ps_6_5", {}, L"PSMain");
+  PassOutput pixelOutput = RunDxilPIXRayQueryLog(compiledPixel);
+  const std::string pixelDisassembly = Disassemble(pixelOutput.blob);
+  VERIFY_IS_TRUE(pixelDisassembly.find("IrtPixelPosition") ==
+                 std::string::npos);
+  VERIFY_IS_TRUE(pixelDisassembly.find("1073741824") != std::string::npos);
+  verifyInstrumentedModuleIsValid(
+      pixelOutput.blob, "PIX RayQuery missing pixel identity invalid");
+
+  PassOutput patchedPixelOutput =
+      RunDxilPIXRayQueryLog(compiledPixel, L",upstreamSVPositionRow=0");
+  const std::string patchedPixelDisassembly =
+      Disassemble(patchedPixelOutput.blob);
+  VERIFY_IS_TRUE(patchedPixelDisassembly.find("SV_Position") !=
+                 std::string::npos);
+  VERIFY_IS_TRUE(patchedPixelDisassembly.find("IrtPixelPosition") !=
+                 std::string::npos);
+  VERIFY_IS_TRUE(patchedPixelDisassembly.find("dx.op.loadInput.f32") !=
+                 std::string::npos);
+  verifyInstrumentedModuleIsValid(
+      patchedPixelOutput.blob,
+      "PIX RayQuery explicit upstream pixel identity input");
+
+  auto compiledGeometry =
+      Compile(m_dllSupport, source, L"gs_6_5", {}, L"GSMain");
+  PassOutput geometryOutput = RunDxilPIXRayQueryLog(compiledGeometry);
+  const std::string geometryDisassembly = Disassemble(geometryOutput.blob);
+  VERIFY_IS_TRUE(geometryDisassembly.find("dx.op.primitiveID.i32") !=
+                 std::string::npos);
+  VERIFY_IS_TRUE(geometryDisassembly.find("dx.op.gsInstanceID.i32") !=
+                 std::string::npos);
+  VERIFY_IS_TRUE(geometryDisassembly.find("SV_GSInstanceID") ==
+                 std::string::npos);
+  VERIFY_IS_TRUE(geometryDisassembly.find(
+                     "IrtPrimitiveId = call i32 @dx.op.loadInput.i32") ==
+                 std::string::npos);
+  VERIFY_IS_TRUE(
+      geometryDisassembly.find(
+          "IrtGeometryShaderInstanceId = call i32 @dx.op.loadInput.i32") ==
+      std::string::npos);
+  verifyInstrumentedModuleIsValid(
+      geometryOutput.blob, "PIX RayQuery missing geometry identity input");
+}
+
+TEST_F(PixTest, DxilPIXRayQueryLog_AllocationAndStorageContracts) {
+  const char *source = R"x(
+RaytracingAccelerationStructure RTAS : register(t0);
+RWByteAddressBuffer Sink : register(u0);
+
+[numthreads(1, 1, 1)]
+void main(uint3 threadId : SV_DispatchThreadID)
+{
+    RayDesc rayDescription;
+    rayDescription.Origin = float3(0.0, 0.0, 0.0);
+    rayDescription.Direction = float3(0.0, 0.0, 1.0);
+    rayDescription.TMin = 0.0;
+    rayDescription.TMax = 100.0;
+
+    for (uint loopIndex = 0; loopIndex < 2; ++loopIndex)
+    {
+        RayQuery<RAY_FLAG_FORCE_OPAQUE> loopRayQuery;
+        loopRayQuery.TraceRayInline(RTAS, RAY_FLAG_SKIP_PROCEDURAL_PRIMITIVES, 0xff, rayDescription);
+        if (loopIndex == 0)
+        {
+            continue;
+        }
+        while (loopRayQuery.Proceed())
+        {
+        }
+    }
+
+    RayQuery<RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH> arrayRayQueries[2];
+    uint dynamicIndex = threadId.x & 1;
+    arrayRayQueries[dynamicIndex].TraceRayInline(RTAS, RAY_FLAG_FORCE_NON_OPAQUE, 0xff, rayDescription);
+    while (arrayRayQueries[dynamicIndex].Proceed())
+    {
+    }
+
+    RayQuery<RAY_FLAG_FORCE_OPAQUE> firstRayQuery;
+    RayQuery<RAY_FLAG_FORCE_OPAQUE> secondRayQuery;
+    firstRayQuery.TraceRayInline(RTAS, 0, 0xff, rayDescription);
+    secondRayQuery.TraceRayInline(RTAS, 0, 0xff, rayDescription);
+    firstRayQuery.Abort();
+    secondRayQuery.Abort();
+    Sink.Store(0, threadId.x);
+}
+)x";
+
+  CComPtr<IDxcBlob> compiled = Compile(m_dllSupport, source, L"cs_6_5", {});
+  PassOutput output = RunDxilPIXRayQueryLog(compiled);
+  const std::string disassembly = Disassemble(output.blob);
+
+  VERIFY_IS_TRUE(disassembly.find("IrtSyntheticIsTraced") != std::string::npos);
+  VERIFY_IS_TRUE(disassembly.find("or i32 2, 1") != std::string::npos ||
+                 disassembly.find("or i32 %") != std::string::npos);
+  VERIFY_IS_TRUE(disassembly.find("shl i32 %") != std::string::npos &&
+                 disassembly.find(", 24") != std::string::npos);
+  verifyInstrumentedModuleIsValid(
+      output.blob, "PIX RayQuery allocation and storage contracts");
+}
+
+TEST_F(PixTest, DxilPIXRayQueryLog_ExitAndIdentityContracts) {
+  const char *source = R"x(
+RaytracingAccelerationStructure RTAS : register(t0);
+
+void RunQuery(bool shouldDiscard)
+{
+    RayQuery<RAY_FLAG_NONE> rayQuery;
+    RayDesc rayDescription;
+    rayDescription.Origin = float3(0.0, 0.0, 0.0);
+    rayDescription.Direction = float3(0.0, 0.0, 1.0);
+    rayDescription.TMin = 0.0;
+    rayDescription.TMax = 100.0;
+    rayQuery.TraceRayInline(RTAS, 0, 0xff, rayDescription);
+    if (shouldDiscard)
+    {
+        discard;
+    }
+    while (rayQuery.Proceed())
+    {
+    }
+}
+
+float4 VSMain(uint vertexId : SV_VertexID, uint instanceId : SV_InstanceID) : SV_Position
+{
+    RunQuery(false);
+    return float4(vertexId, instanceId, 0.0, 1.0);
+}
+
+float4 PSMain(float4 position : SV_Position, uint sampleIndex : SV_SampleIndex) : SV_Target
+{
+    RunQuery(position.x < 0.0);
+    return float4(position.xy, sampleIndex, 1.0);
+}
+)x";
+
+  auto compiledVertex = Compile(m_dllSupport, source, L"vs_6_5", {}, L"VSMain");
+  PassOutput vertexOutput = RunDxilPIXRayQueryLog(compiledVertex);
+  const std::string vertexDisassembly = Disassemble(vertexOutput.blob);
+  VERIFY_IS_TRUE(vertexDisassembly.find("IrtVertexId") != std::string::npos);
+  VERIFY_IS_TRUE(vertexDisassembly.find("IrtInstanceId") != std::string::npos);
+  VERIFY_IS_TRUE(vertexDisassembly.find("i1 false, i1 false") !=
+                 std::string::npos);
+  verifyInstrumentedModuleIsValid(vertexOutput.blob,
+                                  "PIX RayQuery vertex identity contracts");
+
+  auto compiledPixel = Compile(m_dllSupport, source, L"ps_6_5", {}, L"PSMain");
+  PassOutput pixelOutput = RunDxilPIXRayQueryLog(compiledPixel);
+  const std::string pixelDisassembly = Disassemble(pixelOutput.blob);
+  VERIFY_IS_TRUE(pixelDisassembly.find("IrtPixelPosition") !=
+                 std::string::npos);
+  VERIFY_IS_TRUE(pixelDisassembly.find("IrtSampleIndex") != std::string::npos);
+  VERIFY_IS_TRUE(pixelDisassembly.find(
+                     "IrtSampleIndex = call i32 @dx.op.sampleIndex.i32") !=
+                 std::string::npos);
+  VERIFY_IS_TRUE(
+      pixelDisassembly.find("IrtSampleIndex = call i32 @dx.op.loadInput.i32") ==
+      std::string::npos);
+  VERIFY_IS_TRUE(pixelDisassembly.find("IrtSuppressHelperLane") ==
+                 std::string::npos);
+  VERIFY_IS_TRUE(pixelDisassembly.find("536870912") != std::string::npos);
+  verifyInstrumentedModuleIsValid(pixelOutput.blob,
+                                  "PIX RayQuery pixel identity contracts");
+}
+
+TEST_F(PixTest, DxilPIXRayQueryLog_DynamicArraySlots) {
+  const char *source = R"x(
+RaytracingAccelerationStructure RTAS : register(t0);
+
+[numthreads(1, 1, 1)]
+void main(uint3 threadId : SV_DispatchThreadID)
+{
+    RayDesc rayDescription;
+    rayDescription.Origin = float3(0.0, 0.0, 0.0);
+    rayDescription.Direction = float3(0.0, 0.0, 1.0);
+    rayDescription.TMin = 0.0;
+    rayDescription.TMax = 100.0;
+    RayQuery<RAY_FLAG_FORCE_OPAQUE> rayQueries[2];
+    uint firstIndex = threadId.x & 1;
+    uint secondIndex = (threadId.x + 1) & 1;
+    rayQueries[0].TraceRayInline(RTAS, 0, 0xff, rayDescription);
+    rayQueries[1].TraceRayInline(RTAS, RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH, 0xff, rayDescription);
+    while (rayQueries[firstIndex].Proceed())
+    {
+    }
+    while (rayQueries[secondIndex].Proceed())
+    {
+    }
+}
+)x";
+
+  CComPtr<IDxcBlob> compiled = Compile(m_dllSupport, source, L"cs_6_5", {});
+  PassOutput output = RunDxilPIXRayQueryLog(compiled);
+  const std::string disassembly = Disassemble(output.blob);
+
+  VERIFY_IS_TRUE(disassembly.find("IrtStateArray") == std::string::npos);
+  VERIFY_IS_TRUE(disassembly.find("IrtHandleMatchesAllocation = icmp eq i32") !=
+                 std::string::npos);
+  VERIFY_IS_TRUE(disassembly.find("IrtSelectedShadow = select i1") !=
+                 std::string::npos);
+  size_t stateAllocationCount = 0;
+  for (const std::string &line : Tokenize(disassembly, "\n")) {
+    if (line.find("%IrtState") != std::string::npos &&
+        line.find(" = alloca i32") != std::string::npos) {
+      ++stateAllocationCount;
+    }
+  }
+  VERIFY_ARE_EQUAL(static_cast<size_t>(3), stateAllocationCount);
+  verifyInstrumentedModuleIsValid(output.blob,
+                                  "PIX RayQuery dynamic array slots");
+}
+
+TEST_F(PixTest, DxilPIXRayQueryLog_SameBlockAliasLoadAtOd) {
+  // queries[0] is stored by the array initializer in an earlier block and then
+  // overwritten in the same block as the reload, so the reload must resolve to
+  // the traced allocation rather than the initializer's stale handle.
+  const char *source = R"x(
+RaytracingAccelerationStructure RTAS : register(t0);
+
+[numthreads(1, 1, 1)]
+void main(uint3 threadId : SV_DispatchThreadID)
+{
+    RayDesc rayDescription;
+    rayDescription.Origin = float3(0.0, 0.0, 0.0);
+    rayDescription.Direction = float3(0.0, 0.0, 1.0);
+    rayDescription.TMin = 0.0;
+    rayDescription.TMax = 100.0;
+    RayQuery<RAY_FLAG_NONE> tracedRayQuery;
+    RayQuery<RAY_FLAG_NONE> queries[2];
+    tracedRayQuery.TraceRayInline(RTAS, 0, 0xff, rayDescription);
+    queries[0] = tracedRayQuery;
+    queries[0].Abort();
+    queries[threadId.x & 1].Abort();
+}
+)x";
+
+  CComPtr<IDxcBlob> compiled =
+      Compile(m_dllSupport, source, L"cs_6_5", {L"-Od"});
+  PassOutput output = RunDxilPIXRayQueryLog(compiled);
+  const std::string disassembly = Disassemble(output.blob);
+
+  auto readNameAt = [&](size_t nameOffset) {
+    size_t nameEnd = disassembly.find_first_of(" ,\r\n", nameOffset);
+    return disassembly.substr(nameOffset, nameEnd - nameOffset);
+  };
+
+  const std::string tracedStatePrefix = "store i32 1, i32* %";
+  size_t traceOffset =
+      FindOrFail(disassembly, "call void @dx.op.rayQuery_TraceRayInline");
+  size_t tracedStateOffset = disassembly.find(tracedStatePrefix, traceOffset);
+  VERIFY_ARE_NOT_EQUAL(std::string::npos, tracedStateOffset);
+  std::string tracedStateName =
+      readNameAt(tracedStateOffset + tracedStatePrefix.size());
+
+  // Abort retires the selected shadow by resetting its state just before the
+  // call, so the reset must target the traced allocation's shadow.
+  const std::string abortStatePrefix = "store i32 0, i32* %";
+  size_t abortOffset =
+      FindOrFail(disassembly, "call void @dx.op.rayQuery_Abort");
+  size_t abortStateOffset =
+      disassembly.rfind(abortStatePrefix + "IrtState", abortOffset);
+  VERIFY_ARE_NOT_EQUAL(std::string::npos, abortStateOffset);
+  VERIFY_IS_TRUE(abortStateOffset > tracedStateOffset);
+  std::string abortStateName =
+      readNameAt(abortStateOffset + abortStatePrefix.size());
+
+  VERIFY_IS_TRUE(tracedStateName.rfind("IrtState", 0) == 0);
+  VERIFY_ARE_EQUAL(tracedStateName, abortStateName);
+  VERIFY_IS_TRUE(disassembly.find("IrtStateAlias") == std::string::npos);
+  VERIFY_IS_TRUE(disassembly.find("icmp eq i32 undef") == std::string::npos);
+  verifyInstrumentedModuleIsValid(output.blob,
+                                  "PIX RayQuery same-block alias load at -Od");
+}
+
+TEST_F(PixTest, DxilPIXRayQueryLog_SameBlockDynamicArrayAliasLoadInLoopAtOd) {
+  const char *source = R"x(
+RaytracingAccelerationStructure RTAS : register(t0);
+
+[numthreads(1, 1, 1)]
+void main(uint3 threadId : SV_DispatchThreadID)
+{
+    RayDesc rayDescription;
+    rayDescription.Origin = float3(0.0, 0.0, 0.0);
+    rayDescription.Direction = float3(0.0, 0.0, 1.0);
+    rayDescription.TMin = 0.0;
+    rayDescription.TMax = 100.0;
+    RayQuery<RAY_FLAG_NONE> queries[2];
+    RayQuery<RAY_FLAG_NONE> tracedRayQuery;
+    tracedRayQuery.TraceRayInline(RTAS, 0, 0xff, rayDescription);
+    for (uint iteration = 0; iteration < 2; ++iteration)
+    {
+        uint index = (threadId.x + iteration) & 1;
+        queries[index] = tracedRayQuery;
+        queries[index].Abort();
+    }
+}
+)x";
+
+  CComPtr<IDxcBlob> compiled =
+      Compile(m_dllSupport, source, L"cs_6_5", {L"-Od"});
+  PassOutput output = RunDxilPIXRayQueryLog(compiled);
+  const std::string disassembly = Disassemble(output.blob);
+
+  FindOrFail(disassembly, "call void @dx.op.rayQuery_Abort");
+  VERIFY_IS_TRUE(disassembly.find("IrtStateAlias") == std::string::npos);
+  VERIFY_IS_TRUE(disassembly.find("IrtHandleMatchesAllocation = icmp eq i32") ==
+                 std::string::npos);
+  VERIFY_IS_TRUE(disassembly.find("IrtSelectedShadow = select i1") ==
+                 std::string::npos);
+  VERIFY_IS_TRUE(disassembly.find("icmp eq i32 undef") == std::string::npos);
+  verifyInstrumentedModuleIsValid(
+      output.blob, "PIX RayQuery same-block dynamic array alias load at -Od");
+}
+
+TEST_F(PixTest,
+       DxilPIXRayQueryLog_DynamicArrayClobberFallsBackToHandleCompare) {
+  const char *source = R"x(
+RaytracingAccelerationStructure RTAS : register(t0);
+
+[numthreads(1, 1, 1)]
+void main(uint3 threadId : SV_DispatchThreadID)
+{
+    RayDesc rayDescription;
+    rayDescription.Origin = float3(0.0, 0.0, 0.0);
+    rayDescription.Direction = float3(0.0, 0.0, 1.0);
+    rayDescription.TMin = 0.0;
+    rayDescription.TMax = 100.0;
+    RayQuery<RAY_FLAG_NONE> queries[2];
+    queries[0].TraceRayInline(RTAS, 0, 0xff, rayDescription);
+    queries[1].TraceRayInline(
+        RTAS, RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH, 0xff,
+        rayDescription);
+
+    for (uint iteration = 0; iteration < 2; ++iteration)
+    {
+        uint index = (threadId.x + iteration) & 1;
+        if ((threadId.y + iteration) != 0)
+        {
+            queries[index] = queries[1];
+        }
+
+        if (!queries[0].Proceed())
+        {
+            queries[1].Abort();
+            break;
+        }
+    }
+}
+)x";
+
+  CComPtr<IDxcBlob> compiled =
+      Compile(m_dllSupport, source, L"cs_6_5", {L"-Od"});
+  PassOutput output = RunDxilPIXRayQueryLog(compiled);
+  const std::string disassembly = Disassemble(output.blob);
+
+  VERIFY_IS_TRUE(disassembly.find("IrtHandleMatchesAllocation = icmp eq i32") !=
+                 std::string::npos);
+  VERIFY_IS_TRUE(disassembly.find("IrtSelectedShadow = select i1") !=
+                 std::string::npos);
+  VERIFY_IS_TRUE(disassembly.find("icmp eq i32 undef") == std::string::npos);
+  verifyInstrumentedModuleIsValid(
+      output.blob, "PIX RayQuery dynamic array clobber handle compare");
+}
+
+TEST_F(PixTest, DxilPIXRayQueryLog_SelectedHandleShadowDominatesAllUses) {
+  const char *source = R"x(
+RaytracingAccelerationStructure RTAS : register(t0);
+
+[numthreads(1, 1, 1)]
+void main(uint3 threadId : SV_DispatchThreadID)
+{
+    RayDesc rayDescription;
+    rayDescription.Origin = float3(0.0, 0.0, 0.0);
+    rayDescription.Direction = float3(0.0, 0.0, 1.0);
+    rayDescription.TMin = 0.0;
+    rayDescription.TMax = 100.0;
+    RayQuery<RAY_FLAG_NONE> queries[2];
+    queries[0].TraceRayInline(RTAS, 0, 0xff, rayDescription);
+    queries[1].TraceRayInline(
+        RTAS, RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH, 0xff,
+        rayDescription);
+    uint index = threadId.x & 1;
+    RayQuery<RAY_FLAG_NONE> selectedRayQuery =
+        queries[index];
+    if ((threadId.y & 1) == 0)
+    {
+        selectedRayQuery.Abort();
+    }
+    else
+    {
+        while (selectedRayQuery.Proceed())
+        {
+        }
+    }
+}
+)x";
+
+  CComPtr<IDxcBlob> compiled =
+      Compile(m_dllSupport, source, L"cs_6_5", {L"-Od"});
+  PassOutput output = RunDxilPIXRayQueryLog(compiled);
+  const std::string disassembly = Disassemble(output.blob);
+
+  size_t handleCompareOffset =
+      FindOrFail(disassembly, "IrtHandleMatchesAllocation = icmp eq i32");
+  size_t selectedShadowOffset =
+      FindOrFail(disassembly, "IrtSelectedShadow = select i1");
+  size_t proceedOffset =
+      FindOrFail(disassembly, "call i1 @dx.op.rayQuery_Proceed");
+  VERIFY_IS_TRUE(handleCompareOffset < proceedOffset);
+  VERIFY_IS_TRUE(selectedShadowOffset < proceedOffset);
+  VERIFY_IS_TRUE(disassembly.find("icmp eq i32 undef") == std::string::npos);
+  verifyInstrumentedModuleIsValid(
+      output.blob, "PIX RayQuery selected handle shadow dominance");
+}
+
+TEST_F(PixTest, DxilPIXRayQueryLog_TerminationFlushesLaterDynamicAllocations) {
+  const char *source = R"x(
+RaytracingAccelerationStructure RTAS : register(t0);
+struct Payload { uint Value; };
+
+[shader("anyhit")]
+void IgnoreHitMain(inout Payload payload,
+                   in BuiltInTriangleIntersectionAttributes attributes)
+{
+    if (attributes.barycentrics.x > 0.0)
+    {
+        IgnoreHit();
+    }
+
+    RayQuery<RAY_FLAG_NONE> rayQueries[2];
+    RayDesc rayDescription;
+    rayDescription.Origin = float3(0.0, 0.0, 0.0);
+    rayDescription.Direction = float3(0.0, 0.0, 1.0);
+    rayDescription.TMin = 0.0;
+    rayDescription.TMax = 100.0;
+    uint queryIndex = payload.Value & 1;
+    rayQueries[queryIndex].TraceRayInline(RTAS, 0, 0xff, rayDescription);
+    if (rayQueries[queryIndex].Proceed())
+    {
+    }
+}
+
+[shader("anyhit")]
+void AcceptHitMain(inout Payload payload,
+                   in BuiltInTriangleIntersectionAttributes attributes)
+{
+    if (attributes.barycentrics.x > 0.0)
+    {
+        AcceptHitAndEndSearch();
+    }
+
+    RayQuery<RAY_FLAG_NONE> rayQueries[2];
+    RayDesc rayDescription;
+    rayDescription.Origin = float3(0.0, 0.0, 0.0);
+    rayDescription.Direction = float3(0.0, 0.0, 1.0);
+    rayDescription.TMin = 0.0;
+    rayDescription.TMax = 100.0;
+    uint queryIndex = payload.Value & 1;
+    rayQueries[queryIndex].TraceRayInline(RTAS, 0, 0xff, rayDescription);
+    if (rayQueries[queryIndex].Proceed())
+    {
+    }
+}
+)x";
+
+  CComPtr<IDxcBlob> compiled = Compile(m_dllSupport, source, L"lib_6_5", {});
+  PassOutput output = RunDxilPIXRayQueryLog(compiled);
+  const std::string disassembly = Disassemble(output.blob);
+
+  auto verifyTerminationBeforeAllocation = [&](const char *terminationCall) {
+    size_t termination = FindOrFail(disassembly, terminationCall);
+    size_t exitFlush =
+        FindBeforeOrFail(disassembly, "IrtLoadedState", termination);
+    size_t firstAllocation = FindAfterOrFail(
+        disassembly, "call i32 @dx.op.allocateRayQuery", termination);
+    VERIFY_IS_TRUE(exitFlush < termination);
+    VERIFY_IS_TRUE(termination < firstAllocation);
+  };
+  verifyTerminationBeforeAllocation("call void @dx.op.ignoreHit");
+  verifyTerminationBeforeAllocation("call void @dx.op.acceptHitAndEndSearch");
+  VERIFY_ARE_EQUAL(
+      static_cast<size_t>(4),
+      CountOccurrences(disassembly, "call i32 @dx.op.allocateRayQuery"));
+  verifyInstrumentedModuleIsValid(
+      output.blob, "PIX RayQuery termination before dynamic allocations");
+}
+
+TEST_F(PixTest, DxilPIXRayQueryLog_DiscardFlushesLaterDynamicAllocations) {
+  const char *source = R"x(
+RaytracingAccelerationStructure RTAS : register(t0);
+
+float4 main(float4 position : SV_Position) : SV_Target
+{
+    if (position.x > 0.0)
+    {
+        discard;
+    }
+
+    RayQuery<RAY_FLAG_NONE> rayQueries[2];
+    RayDesc rayDescription;
+    rayDescription.Origin = float3(0.0, 0.0, 0.0);
+    rayDescription.Direction = float3(0.0, 0.0, 1.0);
+    rayDescription.TMin = 0.0;
+    rayDescription.TMax = 100.0;
+    uint queryIndex = (uint)position.y & 1;
+    rayQueries[queryIndex].TraceRayInline(RTAS, 0, 0xff, rayDescription);
+    if (rayQueries[queryIndex].Proceed())
+    {
+    }
+    return 0.0;
+}
+)x";
+
+  CComPtr<IDxcBlob> compiled = Compile(m_dllSupport, source, L"ps_6_5", {});
+  PassOutput output = RunDxilPIXRayQueryLog(compiled);
+  const std::string disassembly = Disassemble(output.blob);
+
+  size_t discard = FindOrFail(disassembly, "call void @dx.op.discard");
+  size_t exitFlush = FindBeforeOrFail(disassembly, "IrtLoadedState", discard);
+  size_t firstAllocation =
+      FindAfterOrFail(disassembly, "call i32 @dx.op.allocateRayQuery", discard);
+  VERIFY_IS_TRUE(exitFlush < discard);
+  VERIFY_IS_TRUE(discard < firstAllocation);
+  VERIFY_ARE_EQUAL(
+      static_cast<size_t>(2),
+      CountOccurrences(disassembly, "call i32 @dx.op.allocateRayQuery"));
+  verifyInstrumentedModuleIsValid(
+      output.blob, "PIX RayQuery discard before dynamic allocations");
+}
+
+TEST_F(PixTest, DxilPIXRayQueryLog_TraceSiteBaseOverflowRejected) {
+  const char *source = R"x(
+RaytracingAccelerationStructure RTAS : register(t0);
+
+[numthreads(1, 1, 1)]
+void main()
+{
+    RayQuery<RAY_FLAG_NONE> rayQuery;
+    RayDesc rayDescription;
+    rayDescription.Origin = float3(0.0, 0.0, 0.0);
+    rayDescription.Direction = float3(0.0, 0.0, 1.0);
+    rayDescription.TMin = 0.0;
+    rayDescription.TMax = 100.0;
+    rayQuery.TraceRayInline(RTAS, 0, 0xff, rayDescription);
+}
+)x";
+
+  CComPtr<IDxcBlob> compiled = Compile(m_dllSupport, source, L"cs_6_5", {});
+  CComPtr<IDxcOptimizer> optimizer;
+  VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcOptimizer, &optimizer));
+  LPCWSTR options[] = {
+      L"-hlsl-dxil-pix-rayquery-log,maxNumEntriesInLog=24,traceSiteBase=65536"};
+  CComPtr<IDxcBlob> optimizedModule;
+  CComPtr<IDxcBlobEncoding> text;
+  VERIFY_FAILED(optimizer->RunOptimizer(compiled, options, _countof(options),
+                                        &optimizedModule, &text));
+}
+
+TEST_F(PixTest, DxilPIXRayQueryLog_RegisterSpaceCollisionsRejected) {
+  auto verifyCollisionRejected = [&](const char *source,
+                                     bool logCandidates = false) {
+    CComPtr<IDxcBlob> compiled = Compile(m_dllSupport, source, L"cs_6_6", {});
+    CComPtr<IDxcOptimizer> optimizer;
+    VERIFY_SUCCEEDED(
+        m_dllSupport.CreateInstance(CLSID_DxcOptimizer, &optimizer));
+    LPCWSTR options[] = {
+        logCandidates ? L"-hlsl-dxil-pix-rayquery-log,maxNumEntriesInLog=24,"
+                        L"logCandidates=1"
+                      : L"-hlsl-dxil-pix-rayquery-log,maxNumEntriesInLog=24"};
+    CComPtr<IDxcBlob> optimizedModule;
+    CComPtr<IDxcBlobEncoding> text;
+    VERIFY_FAILED(optimizer->RunOptimizer(compiled, options, _countof(options),
+                                          &optimizedModule, &text));
+  };
+
+  const char *counterCollisionSource = R"x(
+RaytracingAccelerationStructure RTAS : register(t0);
+RWByteAddressBuffer AppUav : register(u2, space4294967294);
+
+[numthreads(1, 1, 1)]
+void main()
+{
+    RayQuery<RAY_FLAG_NONE> rayQuery;
+    RayDesc rayDescription;
+    rayDescription.Origin = float3(0.0, 0.0, 0.0);
+    rayDescription.Direction = float3(0.0, 0.0, 1.0);
+    rayDescription.TMin = 0.0;
+    rayDescription.TMax = 100.0;
+    rayQuery.TraceRayInline(RTAS, 0, 0xff, rayDescription);
+    AppUav.Store(0, 1);
+}
+)x";
+
+  const char *logCollisionSource = R"x(
+RaytracingAccelerationStructure RTAS : register(t0);
+RWByteAddressBuffer AppUav : register(u3, space4294967294);
+
+[numthreads(1, 1, 1)]
+void main()
+{
+    RayQuery<RAY_FLAG_NONE> rayQuery;
+    RayDesc rayDescription;
+    rayDescription.Origin = float3(0.0, 0.0, 0.0);
+    rayDescription.Direction = float3(0.0, 0.0, 1.0);
+    rayDescription.TMin = 0.0;
+    rayDescription.TMax = 100.0;
+    rayQuery.TraceRayInline(RTAS, 0, 0xff, rayDescription);
+    AppUav.Store(0, 1);
+}
+)x";
+
+  const char *candidateCounterCollisionSource = R"x(
+RaytracingAccelerationStructure RTAS : register(t0);
+RWByteAddressBuffer AppUav : register(u4, space4294967294);
+
+[numthreads(1, 1, 1)]
+void main()
+{
+    RayQuery<RAY_FLAG_NONE> rayQuery;
+    RayDesc rayDescription;
+    rayDescription.Origin = float3(0.0, 0.0, 0.0);
+    rayDescription.Direction = float3(0.0, 0.0, 1.0);
+    rayDescription.TMin = 0.0;
+    rayDescription.TMax = 100.0;
+    rayQuery.TraceRayInline(RTAS, 0, 0xff, rayDescription);
+    AppUav.Store(0, 1);
+}
+)x";
+
+  const char *candidateLogCollisionSource = R"x(
+RaytracingAccelerationStructure RTAS : register(t0);
+RWByteAddressBuffer AppUav : register(u5, space4294967294);
+
+[numthreads(1, 1, 1)]
+void main()
+{
+    RayQuery<RAY_FLAG_NONE> rayQuery;
+    RayDesc rayDescription;
+    rayDescription.Origin = float3(0.0, 0.0, 0.0);
+    rayDescription.Direction = float3(0.0, 0.0, 1.0);
+    rayDescription.TMin = 0.0;
+    rayDescription.TMax = 100.0;
+    rayQuery.TraceRayInline(RTAS, 0, 0xff, rayDescription);
+    AppUav.Store(0, 1);
+}
+)x";
+
+  verifyCollisionRejected(counterCollisionSource);
+  verifyCollisionRejected(logCollisionSource);
+  verifyCollisionRejected(candidateCounterCollisionSource, true);
+  verifyCollisionRejected(candidateLogCollisionSource, true);
+}
+
+TEST_F(PixTest, DxilPIXRayQueryLog_RootSignaturePatchingRobustness) {
+  auto verifyRootSignatureCoexists = [&](const char *source,
+                                         const char *testDescription) {
+    CComPtr<IDxcBlob> compiled = Compile(m_dllSupport, source, L"cs_6_6", {});
+    CComPtr<IDxcOptimizer> optimizer;
+    VERIFY_SUCCEEDED(
+        m_dllSupport.CreateInstance(CLSID_DxcOptimizer, &optimizer));
+    LPCWSTR options[] = {L"-hlsl-dxil-pix-rayquery-log,maxNumEntriesInLog=24"};
+    CComPtr<IDxcBlob> optimizedModule;
+    CComPtr<IDxcBlobEncoding> text;
+    VERIFY_SUCCEEDED(optimizer->RunOptimizer(
+        compiled, options, _countof(options), &optimizedModule, &text));
+    verifyInstrumentedModuleIsValid(optimizedModule, testDescription);
+  };
+
+  const char *rootDescriptorCollisionSource = R"x(
+RaytracingAccelerationStructure RTAS : register(t0);
+
+[RootSignature("SRV(t0), UAV(u2, space = 1000)")]
+[numthreads(1, 1, 1)]
+void main()
+{
+    RayQuery<RAY_FLAG_NONE> rayQuery;
+    RayDesc rayDescription;
+    rayDescription.Origin = float3(0.0, 0.0, 0.0);
+    rayDescription.Direction = float3(0.0, 0.0, 1.0);
+    rayDescription.TMin = 0.0;
+    rayDescription.TMax = 100.0;
+    rayQuery.TraceRayInline(RTAS, 0, 0xff, rayDescription);
+}
+)x";
+
+  const char *descriptorTableCollisionSource = R"x(
+RaytracingAccelerationStructure RTAS : register(t0);
+
+[RootSignature("SRV(t0), DescriptorTable(UAV(u3, numDescriptors = 1, space = 1000))")]
+[numthreads(1, 1, 1)]
+void main()
+{
+    RayQuery<RAY_FLAG_NONE> rayQuery;
+    RayDesc rayDescription;
+    rayDescription.Origin = float3(0.0, 0.0, 0.0);
+    rayDescription.Direction = float3(0.0, 0.0, 1.0);
+    rayDescription.TMin = 0.0;
+    rayDescription.TMax = 100.0;
+    rayQuery.TraceRayInline(RTAS, 0, 0xff, rayDescription);
+}
+)x";
+
+  verifyRootSignatureCoexists(rootDescriptorCollisionSource,
+                              "PIX RayQuery root-signature coexistence");
+  verifyRootSignatureCoexists(descriptorTableCollisionSource,
+                              "PIX RayQuery descriptor-table coexistence");
+
+  DxilRootParameter1 globalParameter = {};
+  globalParameter.ParameterType = DxilRootParameterType::CBV;
+  globalParameter.Descriptor.RegisterSpace = 0;
+  globalParameter.Descriptor.ShaderRegister = 0;
+  globalParameter.Descriptor.Flags = DxilRootDescriptorFlags::None;
+  globalParameter.ShaderVisibility = DxilShaderVisibility::All;
+
+  DxilVersionedRootSignatureDesc globalRootSignatureDesc = {};
+  globalRootSignatureDesc.Version = DxilRootSignatureVersion::Version_1_1;
+  globalRootSignatureDesc.Desc_1_1.NumParameters = 1;
+  globalRootSignatureDesc.Desc_1_1.pParameters = &globalParameter;
+  globalRootSignatureDesc.Desc_1_1.Flags = DxilRootSignatureFlags::None;
+
+  CComPtr<IDxcBlob> serializedGlobalRootSignature;
+  CComPtr<IDxcBlobEncoding> globalErrorBlob;
+  SerializeRootSignature(&globalRootSignatureDesc,
+                         &serializedGlobalRootSignature, &globalErrorBlob,
+                         true);
+  VERIFY_IS_NOT_NULL(serializedGlobalRootSignature);
+
+  DxilRootParameter1 localParameter = {};
+  localParameter.ParameterType = DxilRootParameterType::UAV;
+  localParameter.Descriptor.RegisterSpace = 1000;
+  localParameter.Descriptor.ShaderRegister = 2;
+  localParameter.Descriptor.Flags = DxilRootDescriptorFlags::None;
+  localParameter.ShaderVisibility = DxilShaderVisibility::All;
+
+  DxilVersionedRootSignatureDesc localRootSignatureDesc = {};
+  localRootSignatureDesc.Version = DxilRootSignatureVersion::Version_1_1;
+  localRootSignatureDesc.Desc_1_1.NumParameters = 1;
+  localRootSignatureDesc.Desc_1_1.pParameters = &localParameter;
+  localRootSignatureDesc.Desc_1_1.Flags =
+      DxilRootSignatureFlags::LocalRootSignature;
+
+  CComPtr<IDxcBlob> serializedLocalRootSignature;
+  CComPtr<IDxcBlobEncoding> localErrorBlob;
+  SerializeRootSignature(&localRootSignatureDesc, &serializedLocalRootSignature,
+                         &localErrorBlob, true);
+  VERIFY_IS_NOT_NULL(serializedLocalRootSignature);
+
+  const char *emptyComputeSource = R"x(
+[numthreads(1, 1, 1)]
+void main()
+{
+}
+)x";
+  CComPtr<IDxcBlob> compiledCompute =
+      Compile(m_dllSupport, emptyComputeSource, L"cs_6_0", {});
+  ModuleAndHangersOn moduleEtc(compiledCompute);
+  DxilModule &module = moduleEtc.GetDxilModule();
+
+  std::unique_ptr<DxilSubobjects> ownedSubobjects(new DxilSubobjects());
+  constexpr bool NotALocalRootSignature = false;
+  ownedSubobjects->CreateRootSignature(
+      "globalRootSignature", NotALocalRootSignature,
+      serializedGlobalRootSignature->GetBufferPointer(),
+      static_cast<uint32_t>(serializedGlobalRootSignature->GetBufferSize()));
+  constexpr bool IsLocalRootSignature = true;
+  ownedSubobjects->CreateRootSignature(
+      "localRootSignature", IsLocalRootSignature,
+      serializedLocalRootSignature->GetBufferPointer(),
+      static_cast<uint32_t>(serializedLocalRootSignature->GetBufferSize()));
+  module.ResetSubobjects(ownedSubobjects.release());
+
+  PIXPassHelpers::CreateGlobalUAVResource(module, 2, "PIX_RayQuery_CounterUAV",
+                                          1000);
+  PIXPassHelpers::CreateGlobalUAVResource(module, 3, "PIX_RayQuery_LogUAV",
+                                          1000);
+  PIXPassHelpers::CreateGlobalUAVResource(
+      module, 4, "PIX_RayQuery_CandidateCounterUAV", 1000);
+  PIXPassHelpers::CreateGlobalUAVResource(module, 5,
+                                          "PIX_RayQuery_CandidateLogUAV", 1000);
+  DxilSubobjects &subobjects = *module.GetSubobjects();
+
+  DxilSubobject *globalRootSignature =
+      subobjects.FindSubobject("globalRootSignature");
+  VERIFY_IS_NOT_NULL(globalRootSignature);
+  const void *globalData = nullptr;
+  uint32_t globalSize = 0;
+  VERIFY_IS_TRUE(globalRootSignature->GetRootSignature(
+      NotALocalRootSignature, globalData, globalSize, nullptr));
+  DxilVersionedRootSignatureDesc const *globalDesc = nullptr;
+  DeserializeRootSignature(globalData, globalSize, &globalDesc);
+  VERIFY_IS_TRUE(rootSignatureHasToolsUAV(globalDesc, 2, 1000));
+  VERIFY_IS_TRUE(rootSignatureHasToolsUAV(globalDesc, 3, 1000));
+  VERIFY_IS_TRUE(rootSignatureHasToolsUAV(globalDesc, 4, 1000));
+  VERIFY_IS_TRUE(rootSignatureHasToolsUAV(globalDesc, 5, 1000));
+  DeleteRootSignature(globalDesc);
+
+  DxilSubobject *localRootSignature =
+      subobjects.FindSubobject("localRootSignature");
+  VERIFY_IS_NOT_NULL(localRootSignature);
+  const void *localData = nullptr;
+  uint32_t localSize = 0;
+  VERIFY_IS_TRUE(localRootSignature->GetRootSignature(
+      IsLocalRootSignature, localData, localSize, nullptr));
+  DxilVersionedRootSignatureDesc const *localDesc = nullptr;
+  DeserializeRootSignature(localData, localSize, &localDesc);
+  VERIFY_IS_FALSE(rootSignatureHasToolsUAV(localDesc, 3, 1000));
+  DeleteRootSignature(localDesc);
+}
+
+TEST_F(PixTest, DxilPIXRayQueryLog_HelperOrdinalContinuity) {
+  const char *source = R"x(
+RaytracingAccelerationStructure RTAS : register(t0);
+
+void RunOneQuery()
+{
+    RayQuery<RAY_FLAG_NONE> rayQuery;
+    RayDesc rayDescription;
+    rayDescription.Origin = float3(0.0, 0.0, 0.0);
+    rayDescription.Direction = float3(0.0, 0.0, 1.0);
+    rayDescription.TMin = 0.0;
+    rayDescription.TMax = 100.0;
+    rayQuery.TraceRayInline(RTAS, 0, 0xff, rayDescription);
+    rayQuery.Abort();
+}
+
+[noinline]
+void RunHelper()
+{
+    RunOneQuery();
+}
+
+[numthreads(1, 1, 1)]
+void main()
+{
+    RunOneQuery();
+    RunHelper();
+    RunOneQuery();
+}
+)x";
+
+  CComPtr<IDxcBlob> compiled = Compile(m_dllSupport, source, L"cs_6_5", {});
+  PassOutput output = RunDxilPIXRayQueryLog(compiled);
+  const std::string disassembly = Disassemble(output.blob);
+
+  VERIFY_IS_TRUE(disassembly.find("PIX_RayQuery_EmitOrdinal = alloca") ==
+                 std::string::npos);
+  VERIFY_IS_TRUE(disassembly.find("@PIX_RayQuery_TraceInvocation.1") ==
+                 std::string::npos);
+  VERIFY_ARE_EQUAL(
+      CountOccurrences(disassembly,
+                       "store i32 0, i32* @PIX_RayQuery_TraceInvocation"),
+      static_cast<size_t>(1));
+  VERIFY_IS_TRUE(
+      CountOccurrences(disassembly,
+                       "load i32, i32* @PIX_RayQuery_TraceInvocation") >= 3);
+  size_t invocationIncrementStores = 0;
+  for (const std::string &line : Tokenize(disassembly, "\n")) {
+    if (line.find("store i32 %") != std::string::npos &&
+        line.find("@PIX_RayQuery_TraceInvocation") != std::string::npos) {
+      ++invocationIncrementStores;
+    }
+  }
+  VERIFY_IS_TRUE(invocationIncrementStores >= 3);
+  verifyInstrumentedModuleIsValid(
+      output.blob, "PIX RayQuery helper trace invocation continuity");
+}
+
+TEST_F(PixTest, DxilPIXRayQueryLog_CommittedGettersStatusDominated) {
+  const char *source = R"x(
+RaytracingAccelerationStructure RTAS : register(t0);
+
+[numthreads(1, 1, 1)]
+void main()
+{
+    RayQuery<RAY_FLAG_NONE> rayQuery;
+    RayDesc rayDescription;
+    rayDescription.Origin = float3(0.0, 0.0, 0.0);
+    rayDescription.Direction = float3(0.0, 0.0, 1.0);
+    rayDescription.TMin = 0.0;
+    rayDescription.TMax = 100.0;
+    rayQuery.TraceRayInline(RTAS, 0, 0xff, rayDescription);
+    while (rayQuery.Proceed())
+    {
+    }
+}
+)x";
+
+  CComPtr<IDxcBlob> compiled = Compile(m_dllSupport, source, L"cs_6_5", {});
+  PassOutput output = RunDxilPIXRayQueryLog(compiled);
+  const std::string disassembly = Disassemble(output.blob);
+
+  size_t committedStatus = disassembly.find("IrtCommittedStatus = call i32");
+  size_t hitGuard =
+      disassembly.find("IrtHasCommittedHit = icmp ne i32 %IrtCommittedStatus");
+  size_t guardedBranch = disassembly.find("br i1 %IrtHasCommittedHit");
+  size_t committedRayT = disassembly.find("IrtCommittedT = call float");
+  size_t committedInstance = disassembly.find("IrtInstanceIndex = call i32");
+
+  VERIFY_IS_TRUE(committedStatus != std::string::npos);
+  VERIFY_IS_TRUE(hitGuard != std::string::npos);
+  VERIFY_IS_TRUE(guardedBranch != std::string::npos);
+  VERIFY_IS_TRUE(committedRayT != std::string::npos);
+  VERIFY_IS_TRUE(committedInstance != std::string::npos);
+  VERIFY_IS_TRUE(committedStatus < hitGuard);
+  VERIFY_IS_TRUE(committedRayT < hitGuard);
+  VERIFY_IS_TRUE(hitGuard < guardedBranch);
+  VERIFY_IS_TRUE(guardedBranch < committedInstance);
+  verifyInstrumentedModuleIsValid(output.blob,
+                                  "PIX RayQuery committed getter dominance");
+}
+
+TEST_F(PixTest, DxilPIXRayQueryLog_SyntheticExitUsesStoredTraceRay) {
+  const char *source = R"x(
+RaytracingAccelerationStructure RTAS : register(t0);
+
+[numthreads(1, 1, 1)]
+void main()
+{
+    RayQuery<RAY_FLAG_NONE> rayQuery;
+    RayDesc rayDescription;
+    rayDescription.Origin = float3(1.0, 2.0, 3.0);
+    rayDescription.Direction = float3(0.0, 0.0, 1.0);
+    rayDescription.TMin = 0.25;
+    rayDescription.TMax = 64.0;
+    rayQuery.TraceRayInline(RTAS, 0, 0xff, rayDescription);
+}
+)x";
+
+  CComPtr<IDxcBlob> compiled = Compile(m_dllSupport, source, L"cs_6_5", {});
+  PassOutput output =
+      RunDxilPIXRayQueryLog(compiled, L",maxNumEntriesInLog=8,sampleRate=2");
+  const std::string disassembly = Disassemble(output.blob);
+
+  VERIFY_IS_TRUE(disassembly.find("store float 1.000000e+00, float* "
+                                  "%IrtOriginX") != std::string::npos);
+  VERIFY_IS_TRUE(disassembly.find("store float 2.000000e+00, float* "
+                                  "%IrtOriginY") != std::string::npos);
+  VERIFY_IS_TRUE(disassembly.find("store float 3.000000e+00, float* "
+                                  "%IrtOriginZ") != std::string::npos);
+  VERIFY_IS_TRUE(disassembly.find("store float 2.500000e-01, float* "
+                                  "%IrtRayTMin") != std::string::npos);
+  VERIFY_IS_TRUE(disassembly.find("store float 6.400000e+01, float* "
+                                  "%IrtRayTMax") != std::string::npos);
+  VERIFY_IS_TRUE(disassembly.find("IrtRecordOriginX = load float, float* "
+                                  "%IrtOriginX") != std::string::npos);
+  VERIFY_IS_TRUE(disassembly.find("IrtRecordRayTMin = load float, float* "
+                                  "%IrtRayTMin") != std::string::npos);
+  VERIFY_IS_TRUE(disassembly.find("IrtSyntheticCommittedT = load float, "
+                                  "float* %IrtRayTMax") != std::string::npos);
+  verifyInstrumentedModuleIsValid(output.blob,
+                                  "PIX RayQuery synthetic trace ray fields");
+}
+
+TEST_F(PixTest, DxilPIXRayQueryLog_CompletedLoopGenerationRetiresShadow) {
+  const char *source = R"x(
+RaytracingAccelerationStructure RTAS : register(t0);
+RWByteAddressBuffer Sink : register(u0);
+
+[numthreads(1, 1, 1)]
+void main(uint3 threadId : SV_DispatchThreadID)
+{
+    RayDesc rayDescription;
+    rayDescription.Origin = float3(0.0, 0.0, 0.0);
+    rayDescription.Direction = float3(0.0, 0.0, 1.0);
+    rayDescription.TMin = 0.0;
+    rayDescription.TMax = 100.0;
+
+    for (uint generation = 0; generation < 2; ++generation)
+    {
+        RayQuery<RAY_FLAG_NONE> query;
+        query.TraceRayInline(RTAS, 0, 0xff, rayDescription);
+        while (query.Proceed())
+        {
+        }
+        Sink.Store(generation * 4, query.CommittedStatus());
+    }
+
+    RayQuery<RAY_FLAG_NONE> abortQuery;
+    abortQuery.TraceRayInline(RTAS, 0, 0xff, rayDescription);
+    abortQuery.Abort();
+    abortQuery.TraceRayInline(RTAS, 0, 0xff, rayDescription);
+}
+)x";
+
+  CComPtr<IDxcBlob> compiled = Compile(m_dllSupport, source, L"cs_6_5", {});
+  PassOutput output = RunDxilPIXRayQueryLog(compiled);
+  const std::string disassembly = Disassemble(output.blob);
+
+  size_t proceedReturnedFalse =
+      FindOrFail(disassembly, "IrtProceedReturnedFalse = icmp eq i1");
+  std::string proceedResultValue = ExtractBetweenOrFail(
+      disassembly, proceedReturnedFalse, "icmp eq i1 ", ", false");
+  size_t branchOnProceedReturnedFalse = FindAfterOrFail(
+      disassembly, "br i1 %IrtProceedReturnedFalse", proceedReturnedFalse);
+  size_t proceedIsTraced =
+      FindAfterOrFail(disassembly, "IrtIsTraced", branchOnProceedReturnedFalse);
+  size_t proceedSelectedFinalize = FindAfterOrFail(
+      disassembly, " = select i1 %IrtIsTraced", proceedIsTraced);
+  size_t proceedFinalizeStore = FindAfterOrFail(
+      disassembly, "store i32 %IrtNextState", proceedSelectedFinalize);
+  std::string proceedStatePointer =
+      ExtractStorePointerOrFail(disassembly, proceedFinalizeStore);
+  size_t proceedMergeIdleStore =
+      FindAfterOrFail(disassembly, "store i32 0, i32* " + proceedStatePointer,
+                      proceedFinalizeStore);
+  size_t loopBackedge = FindAfterOrFail(
+      disassembly, "br i1 " + proceedResultValue, proceedFinalizeStore);
+  VERIFY_IS_TRUE(disassembly.find("br i1 %IrtIsTraced", proceedIsTraced) >
+                 loopBackedge);
+  VERIFY_IS_TRUE(proceedMergeIdleStore < loopBackedge);
+
+  size_t abortCall = FindAfterOrFail(
+      disassembly, "call void @dx.op.rayQuery_Abort", proceedMergeIdleStore);
+  size_t abortIsTraced =
+      FindBeforeOrFail(disassembly, "= icmp eq i32", abortCall);
+  size_t abortSelectedFinalize =
+      FindAfterOrFail(disassembly, " = select i1 %IrtIsTraced", abortIsTraced);
+  VERIFY_IS_TRUE(abortSelectedFinalize < abortCall);
+  size_t abortFinalizeStore = FindAfterOrFail(
+      disassembly, "store i32 %IrtNextState", abortSelectedFinalize);
+  std::string abortStatePointer =
+      ExtractStorePointerOrFail(disassembly, abortFinalizeStore);
+  size_t abortMergeIdleStore =
+      FindAfterOrFail(disassembly, "store i32 0, i32* " + abortStatePointer,
+                      abortFinalizeStore);
+  size_t retraceAfterAbort =
+      FindAfterOrFail(disassembly, "call void @dx.op.rayQuery_TraceRayInline",
+                      abortMergeIdleStore);
+  VERIFY_IS_TRUE(abortFinalizeStore < abortCall);
+  VERIFY_IS_TRUE(abortMergeIdleStore < abortCall);
+  VERIFY_IS_TRUE(abortCall < retraceAfterAbort);
+  verifyInstrumentedModuleIsValid(
+      output.blob, "PIX RayQuery completed loop generation retirement");
+}
+
+TEST_F(PixTest, DxilPIXRayQueryLog_SharedProceedTracksEachTraceSite) {
+  const char *source = R"x(
+RaytracingAccelerationStructure RTAS : register(t0);
+
+[numthreads(1, 1, 1)]
+void main(uint3 threadId : SV_DispatchThreadID)
+{
+    RayDesc rayDescription;
+    rayDescription.Origin = float3(0.0, 0.0, 0.0);
+    rayDescription.Direction = float3(0.0, 0.0, 1.0);
+    rayDescription.TMin = 0.0;
+    rayDescription.TMax = 100.0;
+
+    RayQuery<RAY_FLAG_NONE> rayQuery;
+    if ((threadId.x & 1) == 0)
+    {
+      rayQuery.TraceRayInline(RTAS, 0, 0xff, rayDescription);
+    }
+    else
+    {
+      rayDescription.Origin.x = 1.0;
+      rayQuery.TraceRayInline(RTAS, 0, 0xff, rayDescription);
+    }
+    while (rayQuery.Proceed())
+    {
+    }
+}
+)x";
+
+  CComPtr<IDxcBlob> compiled = Compile(m_dllSupport, source, L"cs_6_5", {});
+  auto verifySharedProceed = [&](IDxcBlob *compiledModule) {
+    PassOutput output = RunDxilPIXRayQueryLog(
+        compiledModule, L",traceSiteBase=10,logCandidates=1");
+    const std::string disassembly = Disassemble(output.blob);
+    std::string sideTable;
+    for (const std::string &line : output.lines) {
+      sideTable += line;
+      sideTable += "\n";
+    }
+
+    VERIFY_IS_TRUE(sideTable.find("site id=10") != std::string::npos);
+    VERIFY_IS_TRUE(sideTable.find("site id=11") != std::string::npos);
+    VERIFY_ARE_EQUAL(
+        CountOccurrences(disassembly, "store i32 10, i32* %IrtTraceSiteId"),
+        static_cast<size_t>(1));
+    VERIFY_ARE_EQUAL(
+        CountOccurrences(disassembly, "store i32 11, i32* %IrtTraceSiteId"),
+        static_cast<size_t>(1));
+    VERIFY_ARE_EQUAL(
+        CountOccurrences(disassembly, "call i1 @dx.op.rayQuery_Proceed"),
+        static_cast<size_t>(1));
+    VERIFY_IS_TRUE(disassembly.find("IrtProceedReturnedFalse = icmp eq i1") !=
+                   std::string::npos);
+    VERIFY_IS_TRUE(disassembly.find("IrtCandidateIsTraced = icmp eq i32") !=
+                   std::string::npos);
+    verifyInstrumentedModuleIsValid(
+        output.blob, "PIX RayQuery shared Proceed trace-site tracking");
+  };
+  verifySharedProceed(compiled);
+
+  auto reordered = cloneModuleAndMutate(compiled, [](llvm::Module &module) {
+    for (llvm::Function &function : module) {
+      if (function.isDeclaration()) {
+        continue;
+      }
+      llvm::BasicBlock *proceedBlock = nullptr;
+      for (llvm::BasicBlock &block : function) {
+        for (llvm::Instruction &instruction : block) {
+          if (hlsl::OP::IsDxilOpFuncCallInst(&instruction,
+                                             DXIL::OpCode::RayQuery_Proceed)) {
+            proceedBlock = &block;
+          }
+        }
+      }
+      if (proceedBlock != nullptr) {
+        proceedBlock->moveAfter(&function.getEntryBlock());
+      }
+    }
+  });
+  const std::string reorderedDisassembly = Disassemble(reordered);
+  VERIFY_IS_TRUE(
+      FindOrFail(reorderedDisassembly, "call i1 @dx.op.rayQuery_Proceed") <
+      FindOrFail(reorderedDisassembly,
+                 "call void @dx.op.rayQuery_TraceRayInline"));
+  verifySharedProceed(reordered);
+}
+
+TEST_F(PixTest, DxilPIXRayQueryLog_DispatchRaysCoexistence) {
+  const char *source = R"x(
+RaytracingAccelerationStructure Scene : register(t0);
+
+struct MyPayload
+{
+    float4 color;
+};
+
+[shader("raygeneration")]
+void MyRayGen()
+{
+    RayDesc rayDescription;
+    rayDescription.Origin = float3(0.0, 0.0, 0.0);
+    rayDescription.Direction = float3(0.0, 0.0, 1.0);
+    rayDescription.TMin = 0.0;
+    rayDescription.TMax = 100.0;
+
+    RayQuery<RAY_FLAG_NONE> rayQuery;
+    rayQuery.TraceRayInline(Scene, 0, 0xff, rayDescription);
+    while (rayQuery.Proceed())
+    {
+    }
+
+    MyPayload payload;
+    payload.color = float4(0.0, 0.0, 0.0, 0.0);
+    TraceRay(Scene, 0, 0xff, 0, 1, 0, rayDescription, payload);
+}
+
+[shader("closesthit")]
+void MyClosestHit(inout MyPayload payload, in BuiltInTriangleIntersectionAttributes attributes)
+{
+    payload.color = float4(attributes.barycentrics, 0.0, 1.0);
+}
+
+[shader("miss")]
+void MyMiss(inout MyPayload payload)
+{
+    payload.color = float4(1.0, 0.0, 0.0, 1.0);
+}
+)x";
+
+  CComPtr<IDxcBlob> compiled = Compile(m_dllSupport, source, L"lib_6_6", {});
+
+  CComPtr<IDxcOptimizer> optimizer;
+  VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcOptimizer, &optimizer));
+  std::vector<LPCWSTR> options;
+  options.push_back(
+      L"-hlsl-dxil-pix-dxr-invocations-log,maxNumEntriesInLog=24");
+  options.push_back(
+      L"-hlsl-dxil-pix-rayquery-log,maxNumEntriesInLog=24,traceSiteBase=11,"
+      L"roiMinX=0,roiMinY=0,roiMinZ=0,roiMaxX=1024,roiMaxY=1024,roiMaxZ=1,"
+      L"sampleRate=1,subCallIndex=3");
+
+  CComPtr<IDxcBlob> optimizedModule;
+  CComPtr<IDxcBlobEncoding> textOutput;
+  VERIFY_SUCCEEDED(optimizer->RunOptimizer(
+      compiled, options.data(), options.size(), &optimizedModule, &textOutput));
+
+  const std::string disassembly = Disassemble(optimizedModule);
+  VERIFY_IS_TRUE(disassembly.find("PIX_CountUAV_Handle") != std::string::npos);
+  VERIFY_IS_TRUE(disassembly.find("PIX_UAV_Handle") != std::string::npos);
+  VERIFY_IS_TRUE(disassembly.find("PIX_RayQuery_CountUAV_Handle") !=
+                 std::string::npos);
+  VERIFY_IS_TRUE(disassembly.find("PIX_RayQuery_LogUAV_Handle") !=
+                 std::string::npos);
+  VERIFY_IS_TRUE(disassembly.find("u0,") != std::string::npos);
+  VERIFY_IS_TRUE(disassembly.find("u1,") != std::string::npos);
+  VERIFY_IS_TRUE(disassembly.find("u2,") != std::string::npos);
+  VERIFY_IS_TRUE(disassembly.find("u3,") != std::string::npos);
+
+  VERIFY_IS_TRUE(textOutput != nullptr);
+  std::string sideTable;
+  if (textOutput->GetBufferSize() != 0) {
+    sideTable.assign(
+        reinterpret_cast<const char *>(textOutput->GetBufferPointer()),
+        textOutput->GetBufferSize());
+  }
+  VERIFY_IS_TRUE(sideTable.find("PIX_RAYQUERY_LOG_V1") != std::string::npos);
+  VERIFY_IS_TRUE(sideTable.find("entry=") != std::string::npos);
+  VERIFY_IS_TRUE(sideTable.find("MyRayGen") != std::string::npos);
+  VERIFY_IS_TRUE(sideTable.find("stage=raygeneration") != std::string::npos);
+
+  verifyInstrumentedModuleIsValid(
+      optimizedModule, "PIX RayQuery and DXR invocation coexistence");
+}
+
+TEST_F(PixTest, DxilPIXRayQueryLog_CompactCandidatePayload) {
+  const char *source = R"x(
+RaytracingAccelerationStructure RTAS : register(t0);
+
+[numthreads(1, 1, 1)]
+void main()
+{
+    RayQuery<RAY_FLAG_NONE> rayQuery;
+    RayDesc rayDescription;
+    rayDescription.Origin = float3(1.0, 2.0, 3.0);
+    rayDescription.Direction = float3(0.0, 0.0, 1.0);
+    rayDescription.TMin = 0.25;
+    rayDescription.TMax = 64.0;
+    rayQuery.TraceRayInline(RTAS, 0, 0xff, rayDescription);
+    if (rayQuery.Proceed())
+    {
+    }
+}
+)x";
+
+  CComPtr<IDxcBlob> compiled = Compile(m_dllSupport, source, L"cs_6_6", {});
+  PassOutput output = RunDxilPIXRayQueryLog(compiled, L",logCandidates=1");
+  const std::string disassembly = Disassemble(output.blob);
+
+  size_t candidateRecord =
+      FindOrFail(disassembly, "IrtCandidateIsTraced = icmp eq i32");
+  size_t candidateTriangleGuard = FindAfterOrFail(
+      disassembly, "IrtCandidateIsTriangle = icmp eq i32", candidateRecord);
+  size_t candidateTriangleRayT = FindAfterOrFail(
+      disassembly, "RayQuery_CandidateTriangleRayT", candidateTriangleGuard);
+  size_t candidateTriangleBarycentrics =
+      FindAfterOrFail(disassembly, "RayQuery_CandidateTriangleBarycentrics",
+                      candidateTriangleRayT);
+  size_t candidateProceduralGuard =
+      FindAfterOrFail(disassembly, "IrtCandidateIsProcedural = icmp eq i32",
+                      candidateTriangleBarycentrics);
+  size_t candidateProceduralNonOpaque = FindAfterOrFail(
+      disassembly, "RayQuery_CandidateProceduralPrimitiveNonOpaque",
+      candidateProceduralGuard);
+  size_t candidatePayloadStore =
+      FindAfterOrFail(disassembly, "call void @dx.op.rawBufferStore.i32",
+                      candidateProceduralNonOpaque);
+
+  VERIFY_IS_TRUE(candidateRecord < candidateTriangleGuard);
+  VERIFY_IS_TRUE(candidateTriangleGuard < candidateTriangleRayT);
+  VERIFY_IS_TRUE(candidateTriangleRayT < candidateTriangleBarycentrics);
+  VERIFY_IS_TRUE(candidateTriangleBarycentrics < candidateProceduralGuard);
+  VERIFY_IS_TRUE(candidateProceduralGuard < candidateProceduralNonOpaque);
+  VERIFY_IS_TRUE(candidateProceduralNonOpaque < candidatePayloadStore);
+  VERIFY_IS_TRUE(
+      disassembly.find("IrtCandidateBaryXBits = phi i32 [ 2143289344") !=
+      std::string::npos);
+  VERIFY_IS_TRUE(
+      disassembly.find("IrtCandidateBaryYBits = phi i32 [ 2143289344") !=
+      std::string::npos);
+  VERIFY_IS_TRUE(disassembly.find("PIX_RayQuery_CandidateCountUAV_Handle") !=
+                 std::string::npos);
+  VERIFY_IS_TRUE(disassembly.find("PIX_RayQuery_CandidateLogUAV_Handle") !=
+                 std::string::npos);
+  VERIFY_IS_TRUE(disassembly.find("RayQuery_WorldRayOrigin") ==
+                 std::string::npos);
+  VERIFY_IS_TRUE(disassembly.find("RayQuery_WorldRayDirection") ==
+                 std::string::npos);
+  VERIFY_IS_TRUE(disassembly.find("RayQuery_CandidateObjectRayOrigin") ==
+                 std::string::npos);
+  VERIFY_IS_TRUE(disassembly.find("RayQuery_CandidateObjectRayDirection") ==
+                 std::string::npos);
+  verifyInstrumentedModuleIsValid(output.blob,
+                                  "PIX RayQuery compact candidate payload");
+}
+
+TEST_F(PixTest, DxilPIXRayQueryLog_StoresAreGuardedAtCapacity) {
+  const char *source = R"x(
+RaytracingAccelerationStructure RTAS : register(t0);
+
+[numthreads(1, 1, 1)]
+void main()
+{
+    RayQuery<RAY_FLAG_NONE> rayQuery;
+    RayDesc rayDescription;
+    rayDescription.Origin = float3(1.0, 2.0, 3.0);
+    rayDescription.Direction = float3(0.0, 0.0, 1.0);
+    rayDescription.TMin = 0.25;
+    rayDescription.TMax = 64.0;
+    rayQuery.TraceRayInline(RTAS, 0, 0xff, rayDescription);
+    if (rayQuery.Proceed())
+    {
+    }
+}
+)x";
+
+  CComPtr<IDxcBlob> compiled = Compile(m_dllSupport, source, L"cs_6_6", {});
+  auto verifyGuardedStores = [&](PassOutput &output,
+                                 const char *testDescription) {
+    const std::string disassembly = Disassemble(output.blob);
+    VERIFY_IS_TRUE(disassembly.find("IrtShouldStore = icmp ult i32 %IrtSlot") !=
+                   std::string::npos);
+    VERIFY_IS_TRUE(disassembly.find(", i32 1024") != std::string::npos);
+
+    size_t storeGuard = FindOrFail(disassembly, "br i1 %IrtShouldStore");
+    std::string storeBlock =
+        ExtractBetweenOrFail(disassembly, storeGuard, "label %", ", label %");
+    size_t storeBlockLabel =
+        FindAfterOrFail(disassembly, "; <label>:" + storeBlock, storeGuard);
+    size_t firstStore = FindAfterOrFail(
+        disassembly, "call void @dx.op.rawBufferStore.i32", storeBlockLabel);
+    size_t storeBlockEnd = disassembly.find("\n\n", storeBlockLabel);
+    VERIFY_IS_TRUE(storeBlockEnd != std::string::npos);
+    VERIFY_IS_TRUE(firstStore < storeBlockEnd);
+
+    CComPtr<IDxcBlob> container = normalizeToContainer(output.blob);
+    ModuleAndHangersOn moduleEtc(container);
+    size_t guardedStoreCount = 0;
+    for (llvm::Function &function : *moduleEtc.GetDxilModule().GetModule()) {
+      for (llvm::BasicBlock &block : function) {
+        for (llvm::Instruction &instruction : block) {
+          if (!hlsl::OP::IsDxilOpFuncCallInst(&instruction,
+                                              DXIL::OpCode::RawBufferStore)) {
+            continue;
+          }
+          llvm::BasicBlock *predecessor = block.getSinglePredecessor();
+          VERIFY_IS_NOT_NULL(predecessor);
+          if (predecessor == nullptr) {
+            continue;
+          }
+          auto *guard =
+              llvm::dyn_cast<llvm::BranchInst>(predecessor->getTerminator());
+          VERIFY_IS_NOT_NULL(guard);
+          if (guard == nullptr) {
+            continue;
+          }
+          VERIFY_IS_TRUE(guard->isConditional());
+          if (!guard->isConditional()) {
+            continue;
+          }
+          VERIFY_IS_TRUE(
+              guard->getCondition()->getName().startswith("IrtShouldStore"));
+          VERIFY_IS_TRUE(guard->getSuccessor(0) == &block);
+          ++guardedStoreCount;
+        }
+      }
+    }
+    VERIFY_IS_TRUE(guardedStoreCount > 0);
+    verifyInstrumentedModuleIsValid(output.blob, testDescription);
+  };
+
+  PassOutput queryOutput =
+      RunDxilPIXRayQueryLog(compiled, L",maxNumEntriesInLog=1024");
+  verifyGuardedStores(queryOutput,
+                      "PIX RayQuery capacity-guarded query stores");
+
+  PassOutput candidateOutput = RunDxilPIXRayQueryLog(
+      compiled, L",maxNumEntriesInLog=1024,logCandidates=1");
+  verifyGuardedStores(candidateOutput,
+                      "PIX RayQuery capacity-guarded candidate stores");
+}
+
+TEST_F(PixTest, DxilPIXRayQueryLog_CandidateModeKeepsQueryStride64) {
+  const char *source = R"x(
+RaytracingAccelerationStructure RTAS : register(t0);
+
+[numthreads(1, 1, 1)]
+void main()
+{
+    RayQuery<RAY_FLAG_NONE> rayQuery;
+    RayDesc rayDescription;
+    rayDescription.Origin = float3(1.0, 2.0, 3.0);
+    rayDescription.Direction = float3(0.0, 0.0, 1.0);
+    rayDescription.TMin = 0.25;
+    rayDescription.TMax = 64.0;
+    rayQuery.TraceRayInline(RTAS, 0, 0xff, rayDescription);
+    while (rayQuery.Proceed())
+    {
+    }
+}
+)x";
+
+  CComPtr<IDxcBlob> compiled = Compile(m_dllSupport, source, L"cs_6_6", {});
+  PassOutput output = RunDxilPIXRayQueryLog(compiled, L",logCandidates=1");
+  const std::string disassembly = Disassemble(output.blob);
+
+  VERIFY_IS_TRUE(disassembly.find("IrtRecordOffset = mul i32 %IrtSlot") !=
+                 std::string::npos);
+  VERIFY_IS_TRUE(disassembly.find(", 48") != std::string::npos);
+  VERIFY_IS_TRUE(disassembly.find(", 64") != std::string::npos);
+  VERIFY_IS_TRUE(disassembly.find("add i32 %IrtRecordOffset, 48") !=
+                 std::string::npos);
+  VERIFY_IS_TRUE(disassembly.find("add i32 %IrtRecordOffset, 64") ==
+                 std::string::npos);
+  verifyInstrumentedModuleIsValid(output.blob,
+                                  "PIX RayQuery candidate mode query stride");
+}
+
+TEST_F(PixTest, DxilPIXRayQueryLog_OmmAllocateRayQuery2Contracts) {
+  if (m_ver.SkipDxilVersion(1, 9)) {
+    return;
+  }
+
+  const char *source = R"x(
+RaytracingAccelerationStructure RTAS : register(t0);
+
+[numthreads(1, 1, 1)]
+void main()
+{
+    RayQuery<RAY_FLAG_FORCE_OMM_2_STATE, RAYQUERY_FLAG_ALLOW_OPACITY_MICROMAPS> rayQuery;
+    RayDesc rayDescription;
+    rayDescription.Origin = float3(0.0, 0.0, 0.0);
+    rayDescription.Direction = float3(0.0, 0.0, 1.0);
+    rayDescription.TMin = 0.0;
+    rayDescription.TMax = 100.0;
+    rayQuery.TraceRayInline(RTAS, 0, 0xff, rayDescription);
+    while (rayQuery.Proceed())
+    {
+    }
+}
+)x";
+
+  CComPtr<IDxcBlob> compiled = Compile(m_dllSupport, source, L"cs_6_9", {});
+  PassOutput output = RunDxilPIXRayQueryLog(compiled);
+  const std::string disassembly = Disassemble(output.blob);
+
+  size_t allocateRayQuery2 = FindOrFail(disassembly, "dx.op.allocateRayQuery2");
+  size_t ommTemplateFlags =
+      FindAfterOrFail(disassembly, "i32 1024, i32 1", allocateRayQuery2);
+  size_t effectiveFlags =
+      FindAfterOrFail(disassembly, "store i32 1024", ommTemplateFlags);
+  VERIFY_IS_TRUE(allocateRayQuery2 < ommTemplateFlags);
+  VERIFY_IS_TRUE(ommTemplateFlags < effectiveFlags);
+
+  std::string sideTable;
+  for (const std::string &line : output.lines) {
+    sideTable += line;
+    sideTable += "\n";
+  }
+  VERIFY_IS_TRUE(sideTable.find("site id=11 local=0") != std::string::npos);
+  VERIFY_IS_TRUE(sideTable.find("stage=cs") != std::string::npos);
+  VERIFY_IS_TRUE(sideTable.find("entry=main") != std::string::npos);
+  verifyInstrumentedModuleIsValid(output.blob,
+                                  "PIX RayQuery OMM AllocateRayQuery2");
+
+  PassOutput candidateOutput =
+      RunDxilPIXRayQueryLog(compiled, L",logCandidates=1");
+  const std::string candidateDisassembly = Disassemble(candidateOutput.blob);
+  VERIFY_IS_TRUE(candidateDisassembly.find("dx.op.allocateRayQuery2") !=
+                 std::string::npos);
+  VERIFY_IS_TRUE(
+      candidateDisassembly.find("PIX_RayQuery_CandidateLogUAV_Handle") !=
+      std::string::npos);
+  VERIFY_IS_TRUE(candidateDisassembly.find("IrtCandidateIsTriangle") !=
+                 std::string::npos);
+  verifyInstrumentedModuleIsValid(candidateOutput.blob,
+                                  "PIX RayQuery OMM candidate mode");
+}
+
+TEST_F(PixTest, DxilPIXRayQueryLog_PixPrefixedApplicationUAVIsNotPIXOwned) {
+  // An application UAV whose name merely starts with "Pix" must not be
+  // mistaken for a PIX-owned tools UAV.
+  const char *collidingSource = R"x(
+RaytracingAccelerationStructure RTAS : register(t0);
+RWByteAddressBuffer PixelBuffer : register(u3, space4294967294);
+
+[numthreads(1, 1, 1)]
+void main()
+{
+    RayQuery<RAY_FLAG_NONE> rayQuery;
+    RayDesc rayDescription;
+    rayDescription.Origin = float3(0.0, 0.0, 0.0);
+    rayDescription.Direction = float3(0.0, 0.0, 1.0);
+    rayDescription.TMin = 0.0;
+    rayDescription.TMax = 100.0;
+    rayQuery.TraceRayInline(RTAS, 0, 0xff, rayDescription);
+    PixelBuffer.Store(0, 1);
+}
+)x";
+
+  CComPtr<IDxcBlob> collidingCompiled =
+      Compile(m_dllSupport, collidingSource, L"cs_6_6", {});
+  CComPtr<IDxcOptimizer> optimizer;
+  VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcOptimizer, &optimizer));
+  LPCWSTR options[] = {L"-hlsl-dxil-pix-rayquery-log,maxNumEntriesInLog=24"};
+  CComPtr<IDxcBlob> optimizedModule;
+  CComPtr<IDxcBlobEncoding> text;
+  VERIFY_FAILED(optimizer->RunOptimizer(
+      collidingCompiled, options, _countof(options), &optimizedModule, &text));
+
+  const char *applicationSpaceSource = R"x(
+RaytracingAccelerationStructure RTAS : register(t0);
+RWByteAddressBuffer PixelBuffer : register(u3);
+
+[numthreads(1, 1, 1)]
+void main()
+{
+    RayQuery<RAY_FLAG_NONE> rayQuery;
+    RayDesc rayDescription;
+    rayDescription.Origin = float3(0.0, 0.0, 0.0);
+    rayDescription.Direction = float3(0.0, 0.0, 1.0);
+    rayDescription.TMin = 0.0;
+    rayDescription.TMax = 100.0;
+    rayQuery.TraceRayInline(RTAS, 0, 0xff, rayDescription);
+    PixelBuffer.Store(0, 1);
+}
+)x";
+
+  CComPtr<IDxcBlob> applicationSpaceCompiled =
+      Compile(m_dllSupport, applicationSpaceSource, L"cs_6_6", {});
+  PassOutput output = RunDxilPIXRayQueryLog(applicationSpaceCompiled);
+  CComPtr<IDxcBlob> container = normalizeToContainer(output.blob);
+  ModuleAndHangersOn moduleEtc(container);
+  hlsl::DxilModule &dxilModule = moduleEtc.GetDxilModule();
+  bool foundPixelBuffer = false;
+  bool foundPIXCounter = false;
+  bool foundPIXLog = false;
+  for (const std::unique_ptr<hlsl::DxilResource> &resource :
+       dxilModule.GetUAVs()) {
+    if (resource->GetGlobalName() == "PixelBuffer") {
+      foundPixelBuffer = true;
+      VERIFY_ARE_EQUAL(0u, resource->GetSpaceID());
+      VERIFY_ARE_EQUAL(3u, resource->GetLowerBound());
+    } else if (resource->GetSpaceID() == 0xFFFFFFFEu &&
+               resource->GetLowerBound() == 2u) {
+      foundPIXCounter = true;
+    } else if (resource->GetSpaceID() == 0xFFFFFFFEu &&
+               resource->GetLowerBound() == 3u) {
+      foundPIXLog = true;
+    }
+  }
+  VERIFY_IS_TRUE(foundPixelBuffer);
+  VERIFY_IS_TRUE(foundPIXCounter);
+  VERIFY_IS_TRUE(foundPIXLog);
+  verifyInstrumentedModuleIsValid(output.blob,
+                                  "PIX RayQuery Pix-prefixed application UAV");
+}
+
+TEST_F(PixTest,
+       DxilPIXRayQueryLog_ArrayUAVRangeOverlappingPIXRegistersRejected) {
+  // The array covers u0..u3 in the PIX space, so its range overlaps both the
+  // counter (u2) and log (u3) registers even though its lower bound does not.
+  const char *source = R"x(
+RaytracingAccelerationStructure RTAS : register(t0);
+RWByteAddressBuffer AppUavs[4] : register(u0, space4294967294);
+
+[numthreads(4, 1, 1)]
+void main(uint groupIndex : SV_GroupIndex)
+{
+    RayQuery<RAY_FLAG_NONE> rayQuery;
+    RayDesc rayDescription;
+    rayDescription.Origin = float3(0.0, 0.0, 0.0);
+    rayDescription.Direction = float3(0.0, 0.0, 1.0);
+    rayDescription.TMin = 0.0;
+    rayDescription.TMax = 100.0;
+    rayQuery.TraceRayInline(RTAS, 0, 0xff, rayDescription);
+    AppUavs[groupIndex].Store(0, 1);
+}
+)x";
+
+  CComPtr<IDxcBlob> compiled = Compile(m_dllSupport, source, L"cs_6_6", {});
+  CComPtr<IDxcOptimizer> optimizer;
+  VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcOptimizer, &optimizer));
+  LPCWSTR options[] = {L"-hlsl-dxil-pix-rayquery-log,maxNumEntriesInLog=24"};
+  CComPtr<IDxcBlob> optimizedModule;
+  CComPtr<IDxcBlobEncoding> text;
+  VERIFY_FAILED(optimizer->RunOptimizer(compiled, options, _countof(options),
+                                        &optimizedModule, &text));
+}
+
+TEST_F(PixTest, DxilPIXRayQueryLog_PatchConstantFunctionFlushesRayQuery) {
+  const char *source = R"x(
+RaytracingAccelerationStructure RTAS : register(t0);
+
+struct ControlPoint
+{
+    float4 position : SV_Position;
+};
+
+struct PatchConstants
+{
+    float edges[3] : SV_TessFactor;
+    float inside : SV_InsideTessFactor;
+};
+
+PatchConstants PatchConstantMain(InputPatch<ControlPoint, 3> patch)
+{
+    RayQuery<RAY_FLAG_NONE> rayQuery;
+    RayDesc rayDescription;
+    rayDescription.Origin = patch[0].position.xyz;
+    rayDescription.Direction = float3(0.0, 0.0, 1.0);
+    rayDescription.TMin = 0.0;
+    rayDescription.TMax = 100.0;
+    rayQuery.TraceRayInline(RTAS, 0, 0xff, rayDescription);
+
+    PatchConstants constants;
+    constants.edges[0] = 1.0;
+    constants.edges[1] = 1.0;
+    constants.edges[2] = 1.0;
+    constants.inside = 1.0;
+    return constants;
+}
+
+[domain("tri")]
+[partitioning("integer")]
+[outputtopology("triangle_cw")]
+[outputcontrolpoints(3)]
+[patchconstantfunc("PatchConstantMain")]
+ControlPoint main(InputPatch<ControlPoint, 3> patch, uint outputControlPointId : SV_OutputControlPointID)
+{
+    return patch[outputControlPointId];
+}
+)x";
+
+  CComPtr<IDxcBlob> compiled = Compile(m_dllSupport, source, L"hs_6_5", {});
+  PassOutput output = RunDxilPIXRayQueryLog(compiled);
+
+  CComPtr<IDxcBlob> container = normalizeToContainer(output.blob);
+  ModuleAndHangersOn moduleEtc(container);
+  llvm::Function *patchConstantFunction =
+      moduleEtc.GetDxilModule().GetPatchConstantFunction();
+  VERIFY_IS_NOT_NULL(patchConstantFunction);
+  size_t patchConstantStoreCount = 0;
+  for (llvm::BasicBlock &block : *patchConstantFunction) {
+    for (llvm::Instruction &instruction : block) {
+      if (hlsl::OP::IsDxilOpFuncCallInst(&instruction,
+                                         DXIL::OpCode::RawBufferStore)) {
+        ++patchConstantStoreCount;
+      }
+    }
+  }
+  VERIFY_IS_TRUE(patchConstantStoreCount > 0);
+
+  std::string sideTable;
+  for (const std::string &line : output.lines) {
+    sideTable += line;
+    sideTable += "\n";
+  }
+  VERIFY_IS_TRUE(sideTable.find("annotation site=11 emit=return "
+                                "record=query reason=EXITED") !=
+                 std::string::npos);
+  verifyInstrumentedModuleIsValid(output.blob,
+                                  "PIX RayQuery patch-constant function");
+}
+
+TEST_F(PixTest, DxilPIXRayQueryLog_TerminationOnlyShaderLeftUnmodified) {
+  const char *source = R"x(
+float4 main(float4 position : SV_Position) : SV_Target
+{
+    if (position.x > 4.0)
+    {
+        discard;
+    }
+    return position;
+}
+)x";
+
+  CComPtr<IDxcBlob> compiled = Compile(m_dllSupport, source, L"ps_6_5", {});
+  PassOutput output = RunDxilPIXRayQueryLog(compiled);
+  const std::string disassembly = Disassemble(output.blob);
+  VERIFY_IS_TRUE(disassembly.find("call void @dx.op.discard") !=
+                 std::string::npos);
+  VERIFY_IS_TRUE(disassembly.find("PIX_RayQuery") == std::string::npos);
+  VERIFY_IS_TRUE(disassembly.find("@dx.op.atomicBinOp") == std::string::npos);
+  VERIFY_IS_TRUE(disassembly.find("@dx.op.rawBufferStore") ==
+                 std::string::npos);
+
+  CComPtr<IDxcBlob> container = normalizeToContainer(output.blob);
+  ModuleAndHangersOn moduleEtc(container);
+  VERIFY_ARE_EQUAL(0u, moduleEtc.GetDxilModule().GetUAVs().size());
+  verifyInstrumentedModuleIsValid(output.blob,
+                                  "PIX RayQuery termination-only shader");
+}
+
+TEST_F(PixTest, DxilPIXRayQueryLog_AllocateAnnotationsSeeLaterTraceSites) {
+  // The allocation is visited before the TraceRayInline sites that use it, so
+  // its re-allocation annotation must still list both later trace sites.
+  const char *source = R"x(
+RaytracingAccelerationStructure RTAS : register(t0);
+RWByteAddressBuffer Output : register(u0);
+
+[numthreads(1, 1, 1)]
+void main(uint3 dispatchThreadId : SV_DispatchThreadID)
+{
+    for (uint iteration = 0; iteration < dispatchThreadId.x; ++iteration)
+    {
+        RayQuery<RAY_FLAG_NONE> rayQuery;
+        RayDesc rayDescription;
+        rayDescription.Origin = float3(0.0, 0.0, (float)iteration);
+        rayDescription.Direction = float3(0.0, 0.0, 1.0);
+        rayDescription.TMin = 0.0;
+        rayDescription.TMax = 100.0;
+        rayQuery.TraceRayInline(RTAS, 0, 0xff, rayDescription);
+        rayQuery.Proceed();
+        rayDescription.Origin.x = 1.0;
+        rayQuery.TraceRayInline(RTAS, 0, 0xff, rayDescription);
+        rayQuery.Proceed();
+        Output.Store(iteration * 4, rayQuery.CommittedStatus());
+    }
+}
+)x";
+
+  CComPtr<IDxcBlob> compiled = Compile(m_dllSupport, source, L"cs_6_5", {});
+  PassOutput output = RunDxilPIXRayQueryLog(compiled);
+  const std::string disassembly = Disassemble(output.blob);
+  size_t allocation =
+      FindOrFail(disassembly, "call i32 @dx.op.allocateRayQuery");
+  FindAfterOrFail(disassembly, "call void @dx.op.rayQuery_TraceRayInline",
+                  allocation);
+
+  std::string sideTable;
+  for (const std::string &line : output.lines) {
+    sideTable += line;
+    sideTable += "\n";
+  }
+  VERIFY_IS_TRUE(sideTable.find("annotation site=11 emit=allocate "
+                                "record=query reason=EXITED") !=
+                 std::string::npos);
+  VERIFY_IS_TRUE(sideTable.find("annotation site=12 emit=allocate "
+                                "record=query reason=EXITED") !=
+                 std::string::npos);
+  verifyInstrumentedModuleIsValid(output.blob,
+                                  "PIX RayQuery loop allocation annotations");
+}
+
+TEST_F(PixTest, DxilPIXRayQueryLog_FilteredEventsSkipAtomicsAndStores) {
+  const char *computeSource = R"x(
+RaytracingAccelerationStructure RTAS : register(t0);
+
+[numthreads(8, 8, 1)]
+void main(uint3 dispatchThreadId : SV_DispatchThreadID)
+{
+    RayQuery<RAY_FLAG_NONE> rayQuery;
+    RayDesc rayDescription;
+    rayDescription.Origin = float3((float)dispatchThreadId.x, 0.0, 0.0);
+    rayDescription.Direction = float3(0.0, 0.0, 1.0);
+    rayDescription.TMin = 0.0;
+    rayDescription.TMax = 100.0;
+    rayQuery.TraceRayInline(RTAS, 0, 0xff, rayDescription);
+    while (rayQuery.Proceed())
+    {
+    }
+}
+)x";
+
+  const char *pixelSource = R"x(
+RaytracingAccelerationStructure RTAS : register(t0);
+
+float4 main(float4 position : SV_Position) : SV_Target
+{
+    RayQuery<RAY_FLAG_NONE> rayQuery;
+    RayDesc rayDescription;
+    rayDescription.Origin = position.xyz;
+    rayDescription.Direction = float3(0.0, 0.0, 1.0);
+    rayDescription.TMin = 0.0;
+    rayDescription.TMax = 100.0;
+    rayQuery.TraceRayInline(RTAS, 0, 0xff, rayDescription);
+    rayQuery.Proceed();
+    return float4(rayQuery.CommittedRayT(), 0.0, 0.0, 1.0);
+}
+)x";
+
+  // Every counter atomic and record store must sit inside the block entered
+  // only when the event passes ROI, sampling, emit-active, and helper-lane
+  // filtering; filtered events must not touch the PIX UAVs at all.
+  auto isWriteFilterCondition = [](llvm::Value *condition) {
+    return condition->getName().startswith("IrtActiveWrite") ||
+           condition->getName().startswith("IrtSuppressHelperLane");
+  };
+  auto isDominatedByWriteFilter = [&](llvm::DominatorTree &dominatorTree,
+                                      llvm::BasicBlock *block) {
+    for (llvm::BasicBlock &candidateBlock : *block->getParent()) {
+      auto *branch =
+          llvm::dyn_cast<llvm::BranchInst>(candidateBlock.getTerminator());
+      if (branch == nullptr || !branch->isConditional() ||
+          !isWriteFilterCondition(branch->getCondition())) {
+        continue;
+      }
+      llvm::BasicBlockEdge writeEdge(&candidateBlock, branch->getSuccessor(0));
+      if (dominatorTree.dominates(writeEdge, block)) {
+        return true;
+      }
+    }
+    return false;
+  };
+  auto verifyFilteredWrites = [&](IDxcBlob *compiled, LPCWSTR passOptions,
+                                  const char *testDescription) {
+    CComPtr<IDxcOptimizer> optimizer;
+    VERIFY_SUCCEEDED(
+        m_dllSupport.CreateInstance(CLSID_DxcOptimizer, &optimizer));
+    LPCWSTR options[] = {passOptions};
+    CComPtr<IDxcBlob> optimizedModule;
+    CComPtr<IDxcBlobEncoding> text;
+    VERIFY_SUCCEEDED(optimizer->RunOptimizer(
+        compiled, options, _countof(options), &optimizedModule, &text));
+    const std::string disassembly = Disassemble(optimizedModule);
+    VERIFY_IS_TRUE(disassembly.find("IrtDemandNext = add i32 %IrtDemand, 1") !=
+                   std::string::npos);
+
+    CComPtr<IDxcBlob> container = normalizeToContainer(optimizedModule);
+    ModuleAndHangersOn moduleEtc(container);
+    size_t guardedAtomicCount = 0;
+    size_t guardedStoreCount = 0;
+    for (llvm::Function &function : *moduleEtc.GetDxilModule().GetModule()) {
+      if (function.isDeclaration()) {
+        continue;
+      }
+      llvm::DominatorTree dominatorTree;
+      dominatorTree.recalculate(function);
+      for (llvm::BasicBlock &block : function) {
+        for (llvm::Instruction &instruction : block) {
+          bool isAtomic = hlsl::OP::IsDxilOpFuncCallInst(
+              &instruction, DXIL::OpCode::AtomicBinOp);
+          bool isStore = hlsl::OP::IsDxilOpFuncCallInst(
+              &instruction, DXIL::OpCode::RawBufferStore);
+          if (!isAtomic && !isStore) {
+            continue;
+          }
+          VERIFY_IS_TRUE(isDominatedByWriteFilter(dominatorTree, &block));
+          if (isAtomic) {
+            ++guardedAtomicCount;
+          } else {
+            ++guardedStoreCount;
+          }
+        }
+      }
+    }
+    VERIFY_IS_TRUE(guardedAtomicCount > 0);
+    VERIFY_IS_TRUE(guardedStoreCount > 0);
+    verifyInstrumentedModuleIsValid(optimizedModule, testDescription);
+  };
+
+  CComPtr<IDxcBlob> computeCompiled =
+      Compile(m_dllSupport, computeSource, L"cs_6_5", {});
+  verifyFilteredWrites(computeCompiled,
+                       L"-hlsl-dxil-pix-rayquery-log,maxNumEntriesInLog=24,"
+                       L"roiMinX=2,roiMaxX=5,roiMinY=0,roiMaxY=3,sampleRate=2",
+                       "PIX RayQuery filtered compute events");
+  verifyFilteredWrites(computeCompiled,
+                       L"-hlsl-dxil-pix-rayquery-log,maxNumEntriesInLog=24,"
+                       L"sampleRate=2,logCandidates=1",
+                       "PIX RayQuery filtered candidate events");
+
+  CComPtr<IDxcBlob> pixelCompiled =
+      Compile(m_dllSupport, pixelSource, L"ps_6_6", {});
+  verifyFilteredWrites(pixelCompiled,
+                       L"-hlsl-dxil-pix-rayquery-log,maxNumEntriesInLog=24,"
+                       L"roiMinX=1,roiMaxX=7",
+                       "PIX RayQuery filtered helper-lane pixel events");
 }
 
 uint32_t NuriGetWaveInstructionCount(const std::vector<std::string> &lines) {
@@ -4515,7 +7336,7 @@ void main() {
     DebugBreak();
 })x";
 
-  CComPtr<IDxcBlob> compiled = Compile(m_dllSupport, source, L"cs_6_10", {});
+  auto compiled = Compile(m_dllSupport, source, L"cs_6_10", {});
   auto output = RunDebugBreakPass(compiled);
   bool foundDebugBreak = false;
   for (auto const &line : output.lines) {

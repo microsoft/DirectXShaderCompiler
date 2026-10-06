@@ -41,6 +41,11 @@ line upon naming the release. Refer to previous for appropriate section names.
 - Added `BFloat16` to the ComponentType enum in DxilConstants and the linalg
   header [#8722](https://github.com/microsoft/DirectXShaderCompiler/issues/8722).
 
+#### PIX
+
+- Added the `-hlsl-dxil-pix-rayquery-log` pass, which instruments inline ray
+  tracing (`RayQuery`) usage so PIX can log and visualize the rays it traces.
+
 #### HLSL Language
 
 - The `shared` and `uniform` keywords are removed in HLSL 202x, with

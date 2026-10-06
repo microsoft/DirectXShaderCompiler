@@ -7151,6 +7151,25 @@ class db_dxil(object):
             [{"n": "maxNumEntriesInLog", "t": "int", "c": 1}],
         )
         add_pass(
+            "hlsl-dxil-pix-rayquery-log",
+            "DxilPIXRayQueryLog",
+            "HLSL DXIL Logs RayQuery invocations into a UAV",
+            [
+                {"n": "maxNumEntriesInLog", "t": "int", "c": 1},
+                {"n": "roiMinX", "t": "int", "c": 0},
+                {"n": "roiMinY", "t": "int", "c": 0},
+                {"n": "roiMinZ", "t": "int", "c": 0},
+                {"n": "roiMaxX", "t": "int", "c": 0xFFFFFFFF},
+                {"n": "roiMaxY", "t": "int", "c": 0xFFFFFFFF},
+                {"n": "roiMaxZ", "t": "int", "c": 0xFFFFFFFF},
+                {"n": "sampleRate", "t": "int", "c": 1},
+                {"n": "logCandidates", "t": "int", "c": 0},
+                {"n": "traceSiteBase", "t": "int", "c": 0},
+                {"n": "subCallIndex", "t": "int", "c": 0},
+                {"n": "upstreamSVPositionRow", "t": "int", "c": -1},
+            ],
+        )
+        add_pass(
             "hlsl-dxil-non-uniform-resource-index-instrumentation",
             "DxilNonUniformResourceIndexInstrumentation",
             "HLSL DXIL NonUniformResourceIndex instrumentation for PIX",
