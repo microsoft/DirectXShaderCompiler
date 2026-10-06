@@ -160,10 +160,10 @@ static bool applyApplicability(linalg_test::Applicability Result,
   case Applicability::Fail:
     hlsl_test::LogErrorFmt(L"Capability evaluation failed for case %s",
                            CaseName);
-    VERIFY_IS_TRUE(false, "LinAlg capability evaluation failed");
+    VERIFY_IS_TRUE(false, L"LinAlg capability evaluation failed");
     return false;
   }
-  VERIFY_IS_TRUE(false, "Unknown LinAlg applicability result");
+  VERIFY_IS_TRUE(false, L"Unknown LinAlg applicability result");
   return false;
 }
 
@@ -386,7 +386,7 @@ static bool matrixConstructionApplicable(ID3D12Device *Device,
     return false;
 
   VERIFY_IS_TRUE(SelectedWaveSize != 0,
-                 "A case cleared to run must have a selected wave size");
+                 L"A case cleared to run must have a selected wave size");
   return true;
 }
 
@@ -406,7 +406,7 @@ static bool matrixConstructionApplicableWaveSizes(
     return false;
 
   VERIFY_IS_TRUE(!WaveSizes.empty(),
-                 "A case cleared to run must have a selected wave size");
+                 L"A case cleared to run must have a selected wave size");
   return true;
 }
 
@@ -580,7 +580,7 @@ static bool waveMatMulApplicable(ID3D12Device *Device,
     return false;
 
   VERIFY_IS_TRUE(SelectedWaveSize != 0,
-                 "A case cleared to run must have a selected wave size");
+                 L"A case cleared to run must have a selected wave size");
   return true;
 }
 
@@ -1621,7 +1621,7 @@ static std::string buildCompilerArgs(const MatrixParams &Params,
     SS << " -DELEM_IS_SIGNED=false";
     break;
   default:
-    VERIFY_IS_TRUE(false, "Unsupported LinAlg component type");
+    VERIFY_IS_TRUE(false, L"Unsupported LinAlg component type");
     break;
   }
   if (Params.Enable16Bit)
@@ -1772,10 +1772,10 @@ static VariantCompType makeExpectedMat(ComponentType CompType, MatrixDim M,
       case ComponentType::I32:
         VERIFY_IS_TRUE(StartingVal < static_cast<float>(
                                          std::numeric_limits<int32_t>::max()),
-                       "Value too large to cast to int32_t");
+                       L"Value too large to cast to int32_t");
         VERIFY_IS_TRUE(StartingVal > static_cast<float>(
                                          std::numeric_limits<int32_t>::min()),
-                       "Value too small to cast to int32_t");
+                       L"Value too small to cast to int32_t");
         Ints[Idx] = static_cast<int32_t>(StartingVal) +
                     static_cast<int32_t>(Increment ? Value : 0);
         break;
@@ -1787,7 +1787,7 @@ static VariantCompType makeExpectedMat(ComponentType CompType, MatrixDim M,
         break;
       }
       default:
-        VERIFY_IS_TRUE(false, "Unable to fill unexpected ComponentType");
+        VERIFY_IS_TRUE(false, L"Unable to fill unexpected ComponentType");
         break;
       }
     }
@@ -1801,7 +1801,7 @@ static VariantCompType makeExpectedMat(ComponentType CompType, MatrixDim M,
   case ComponentType::F16:
     return Halfs;
   default:
-    VERIFY_IS_TRUE(false, "Unable to fill unexpected ComponentType");
+    VERIFY_IS_TRUE(false, L"Unable to fill unexpected ComponentType");
     return Floats;
   }
 }
@@ -2590,7 +2590,7 @@ static HRESULT querySupport(ID3D12Device *Device, const CaseData &Case,
 static void runCase(ID3D12Device *Device, dxc::SpecificDllLoader &DxcSupport,
                     const CaseData &Case, bool Verbose) {
   const bool Valid = isCaseValid(Case);
-  VERIFY_IS_TRUE(Valid, "Invalid MatVec interpretation case");
+  VERIFY_IS_TRUE(Valid, L"Invalid MatVec interpretation case");
   if (!Valid)
     return;
 
@@ -2680,8 +2680,9 @@ static void runCase(ID3D12Device *Device, dxc::SpecificDllLoader &DxcSupport,
     };
   }
 #else
-  VERIFY_IS_FALSE(Case.LoadFromMulOptimal,
-                  "MulOptimal cases need the preview D3D12 linear algebra API");
+  VERIFY_IS_FALSE(
+      Case.LoadFromMulOptimal,
+      L"MulOptimal cases need the preview D3D12 linear algebra API");
   if (Case.LoadFromMulOptimal)
     return;
 #endif
@@ -2724,11 +2725,11 @@ static void runCase(ID3D12Device *Device, dxc::SpecificDllLoader &DxcSupport,
         else if (Case.hasBias() && _stricmp(Name, "BiasInput") == 0)
           Source = &*BiasBuffer;
         VERIFY_IS_TRUE(Source != nullptr,
-                       "Unexpected MatVec resource initializer");
+                       L"Unexpected MatVec resource initializer");
         if (!Source)
           return;
         VERIFY_IS_TRUE(Data.size() == Source->size(),
-                       "MatVec resource initializer size mismatch");
+                       L"MatVec resource initializer size mismatch");
         if (Data.size() == Source->size())
           std::memcpy(Data.data(), Source->data(), Data.size());
       },
@@ -3431,8 +3432,8 @@ void LinAlgCPUOracleTests::ViewBoundedStoreBytes() {
           HoldsPoison = false;
       }
       VERIFY_IS_TRUE(HoldsValue || HoldsPoison,
-                     "A view bounded store element held neither its value nor "
-                     "the poison it was seeded with");
+                     L"A view bounded store element held neither its value nor "
+                     L"the poison it was seeded with");
       if (HoldsValue)
         Mask |= 1u << I;
     }
@@ -3469,15 +3470,15 @@ void LinAlgCPUOracleTests::MatVecHostOracle() {
                                          0x05, 0x00, 0x00, 0x00};
   const std::optional<std::vector<BYTE>> PackedSInt8 =
       encodePackedVector(ComponentType::I8, {-1, 2, -3, 4, 5});
-  VERIFY_IS_TRUE(PackedSInt8.has_value(), "SInt8 packing failed");
+  VERIFY_IS_TRUE(PackedSInt8.has_value(), L"SInt8 packing failed");
   VERIFY_IS_TRUE(PackedSInt8 == PackedBytes,
-                 "SInt8 packing produced unexpected bytes");
+                 L"SInt8 packing produced unexpected bytes");
 
   const std::optional<std::vector<BYTE>> PackedUInt8 =
       encodePackedVector(ComponentType::U8, {255, 2, 253, 4, 5});
-  VERIFY_IS_TRUE(PackedUInt8.has_value(), "UInt8 packing failed");
+  VERIFY_IS_TRUE(PackedUInt8.has_value(), L"UInt8 packing failed");
   VERIFY_IS_TRUE(PackedUInt8 == PackedBytes,
-                 "UInt8 packing produced unexpected bytes");
+                 L"UInt8 packing produced unexpected bytes");
 
   CaseData DotCase = {};
   DotCase.M = 2;
@@ -3488,7 +3489,7 @@ void LinAlgCPUOracleTests::MatVecHostOracle() {
   DotCase.BiasValues = {7, -3};
   const std::vector<int64_t> Dot = calculateExpected(DotCase);
   VERIFY_IS_TRUE(Dot == std::vector<int64_t>({22, -15}),
-                 "Biased dot product oracle returned the wrong values");
+                 L"Biased dot product oracle returned the wrong values");
 }
 
 void LinAlgCPUOracleTests::MatchedFP8MatVecHostOracle() {
@@ -3518,12 +3519,12 @@ void LinAlgCPUOracleTests::MatchedFP8MatVecHostOracle() {
       const std::vector<BYTE> &Packed =
           Type == ComponentType::F8_E4M3FN ? PackedE4M3FN : PackedE5M2;
       VERIFY_IS_TRUE(encodeVectorBuffer(Case) == Packed,
-                     "Packed FP8 vector differs from the hand-derived bytes");
+                     L"Packed FP8 vector differs from the hand-derived bytes");
       const std::vector<int64_t> Expected =
           HasBias ? std::vector<int64_t>({-24, 18, 33, -15})
                   : std::vector<int64_t>({-19, 11, 30, -6});
       VERIFY_IS_TRUE(calculateExpected(Case) == Expected,
-                     "Matched FP8 oracle differs from the hand-derived dots");
+                     L"Matched FP8 oracle differs from the hand-derived dots");
     }
   }
 }
@@ -3740,14 +3741,14 @@ protected:
 class DxilConf_SM610_LinAlg_DescriptorIO : public LinAlgTestClassCommon {
 public:
   BEGIN_TEST_CLASS(DxilConf_SM610_LinAlg_DescriptorIO)
-  TEST_CLASS_PROPERTY("Kits.TestName",
-                      "D3D12 - Shader Model 6.10 - LinAlg Descriptor I/O")
-  TEST_CLASS_PROPERTY("Kits.TestId", "e2f563d7-7fea-42c1-a841-3fb0decb43a7")
-  TEST_CLASS_PROPERTY("Kits.Description",
-                      "Validates SM 6.10 linear algebra descriptor operations")
+  TEST_CLASS_PROPERTY(L"Kits.TestName",
+                      L"D3D12 - Shader Model 6.10 - LinAlg Descriptor I/O")
+  TEST_CLASS_PROPERTY(L"Kits.TestId", L"e2f563d7-7fea-42c1-a841-3fb0decb43a7")
+  TEST_CLASS_PROPERTY(L"Kits.Description",
+                      L"Validates SM 6.10 linear algebra descriptor operations")
   TEST_CLASS_PROPERTY(
-      "Kits.Specification",
-      "Device.Graphics.D3D12.DXILCore.ShaderModel610.CoreRequirement")
+      L"Kits.Specification",
+      L"Device.Graphics.D3D12.DXILCore.ShaderModel610.CoreRequirement")
   TEST_METHOD_PROPERTY(L"Priority", L"0")
   END_TEST_CLASS()
 
@@ -3780,15 +3781,15 @@ public:
 class DxilConf_SM610_LinAlg_GroupSharedIO : public LinAlgTestClassCommon {
 public:
   BEGIN_TEST_CLASS(DxilConf_SM610_LinAlg_GroupSharedIO)
-  TEST_CLASS_PROPERTY("Kits.TestName",
-                      "D3D12 - Shader Model 6.10 - LinAlg Group-Shared I/O")
-  TEST_CLASS_PROPERTY("Kits.TestId", "5b3cdf07-cfe4-43a4-be25-9ea41b854334")
+  TEST_CLASS_PROPERTY(L"Kits.TestName",
+                      L"D3D12 - Shader Model 6.10 - LinAlg Group-Shared I/O")
+  TEST_CLASS_PROPERTY(L"Kits.TestId", L"5b3cdf07-cfe4-43a4-be25-9ea41b854334")
   TEST_CLASS_PROPERTY(
-      "Kits.Description",
-      "Validates SM 6.10 linear algebra group-shared memory operations")
+      L"Kits.Description",
+      L"Validates SM 6.10 linear algebra group-shared memory operations")
   TEST_CLASS_PROPERTY(
-      "Kits.Specification",
-      "Device.Graphics.D3D12.DXILCore.ShaderModel610.CoreRequirement")
+      L"Kits.Specification",
+      L"Device.Graphics.D3D12.DXILCore.ShaderModel610.CoreRequirement")
   TEST_METHOD_PROPERTY(L"Priority", L"0")
   END_TEST_CLASS()
 
@@ -3815,15 +3816,15 @@ public:
 class DxilConf_SM610_LinAlg_ElementAccess : public LinAlgTestClassCommon {
 public:
   BEGIN_TEST_CLASS(DxilConf_SM610_LinAlg_ElementAccess)
-  TEST_CLASS_PROPERTY("Kits.TestName",
-                      "D3D12 - Shader Model 6.10 - LinAlg Element Access")
-  TEST_CLASS_PROPERTY("Kits.TestId", "547bca7a-05e3-4c88-bbc9-8af88567fae3")
+  TEST_CLASS_PROPERTY(L"Kits.TestName",
+                      L"D3D12 - Shader Model 6.10 - LinAlg Element Access")
+  TEST_CLASS_PROPERTY(L"Kits.TestId", L"547bca7a-05e3-4c88-bbc9-8af88567fae3")
   TEST_CLASS_PROPERTY(
-      "Kits.Description",
-      "Validates SM 6.10 linear algebra element access and matrix values")
+      L"Kits.Description",
+      L"Validates SM 6.10 linear algebra element access and matrix values")
   TEST_CLASS_PROPERTY(
-      "Kits.Specification",
-      "Device.Graphics.D3D12.DXILCore.ShaderModel610.CoreRequirement")
+      L"Kits.Specification",
+      L"Device.Graphics.D3D12.DXILCore.ShaderModel610.CoreRequirement")
   TEST_METHOD_PROPERTY(L"Priority", L"0")
   END_TEST_CLASS()
 
@@ -3845,15 +3846,15 @@ public:
 class DxilConf_SM610_LinAlg_Conversion : public LinAlgTestClassCommon {
 public:
   BEGIN_TEST_CLASS(DxilConf_SM610_LinAlg_Conversion)
-  TEST_CLASS_PROPERTY("Kits.TestName",
-                      "D3D12 - Shader Model 6.10 - LinAlg Conversion")
-  TEST_CLASS_PROPERTY("Kits.TestId", "77de35e0-610e-4f23-aee4-b2d7302a0d98")
+  TEST_CLASS_PROPERTY(L"Kits.TestName",
+                      L"D3D12 - Shader Model 6.10 - LinAlg Conversion")
+  TEST_CLASS_PROPERTY(L"Kits.TestId", L"77de35e0-610e-4f23-aee4-b2d7302a0d98")
   TEST_CLASS_PROPERTY(
-      "Kits.Description",
-      "Validates SM 6.10 linear algebra copy and conversion operations")
+      L"Kits.Description",
+      L"Validates SM 6.10 linear algebra copy and conversion operations")
   TEST_CLASS_PROPERTY(
-      "Kits.Specification",
-      "Device.Graphics.D3D12.DXILCore.ShaderModel610.CoreRequirement")
+      L"Kits.Specification",
+      L"Device.Graphics.D3D12.DXILCore.ShaderModel610.CoreRequirement")
   TEST_METHOD_PROPERTY(L"Priority", L"0")
   END_TEST_CLASS()
 
@@ -3884,15 +3885,15 @@ public:
 class DxilConf_SM610_LinAlg_MatrixArithmetic : public LinAlgTestClassCommon {
 public:
   BEGIN_TEST_CLASS(DxilConf_SM610_LinAlg_MatrixArithmetic)
-  TEST_CLASS_PROPERTY("Kits.TestName",
-                      "D3D12 - Shader Model 6.10 - LinAlg Matrix Arithmetic")
-  TEST_CLASS_PROPERTY("Kits.TestId", "fac50b41-fa60-4d37-8172-a8e90f88874b")
+  TEST_CLASS_PROPERTY(L"Kits.TestName",
+                      L"D3D12 - Shader Model 6.10 - LinAlg Matrix Arithmetic")
+  TEST_CLASS_PROPERTY(L"Kits.TestId", L"fac50b41-fa60-4d37-8172-a8e90f88874b")
   TEST_CLASS_PROPERTY(
-      "Kits.Description",
-      "Validates SM 6.10 linear algebra matrix arithmetic operations")
+      L"Kits.Description",
+      L"Validates SM 6.10 linear algebra matrix arithmetic operations")
   TEST_CLASS_PROPERTY(
-      "Kits.Specification",
-      "Device.Graphics.D3D12.DXILCore.ShaderModel610.CoreRequirement")
+      L"Kits.Specification",
+      L"Device.Graphics.D3D12.DXILCore.ShaderModel610.CoreRequirement")
   TEST_METHOD_PROPERTY(L"Priority", L"0")
   END_TEST_CLASS()
 
@@ -3924,15 +3925,15 @@ public:
 class DxilConf_SM610_LinAlg_MatVec : public LinAlgTestClassCommon {
 public:
   BEGIN_TEST_CLASS(DxilConf_SM610_LinAlg_MatVec)
-  TEST_CLASS_PROPERTY("Kits.TestName",
-                      "D3D12 - Shader Model 6.10 - LinAlg Matrix-Vector")
-  TEST_CLASS_PROPERTY("Kits.TestId", "6c8121c0-42e3-4e10-a844-5f601a3f1a33")
+  TEST_CLASS_PROPERTY(L"Kits.TestName",
+                      L"D3D12 - Shader Model 6.10 - LinAlg Matrix-Vector")
+  TEST_CLASS_PROPERTY(L"Kits.TestId", L"6c8121c0-42e3-4e10-a844-5f601a3f1a33")
   TEST_CLASS_PROPERTY(
-      "Kits.Description",
-      "Validates SM 6.10 linear algebra matrix-vector operations")
+      L"Kits.Description",
+      L"Validates SM 6.10 linear algebra matrix-vector operations")
   TEST_CLASS_PROPERTY(
-      "Kits.Specification",
-      "Device.Graphics.D3D12.DXILCore.ShaderModel610.CoreRequirement")
+      L"Kits.Specification",
+      L"Device.Graphics.D3D12.DXILCore.ShaderModel610.CoreRequirement")
   TEST_METHOD_PROPERTY(L"Priority", L"0")
   END_TEST_CLASS()
 
@@ -3973,15 +3974,15 @@ class DxilConf_SM610_LinAlg_OuterVectorAccumulation
 public:
   BEGIN_TEST_CLASS(DxilConf_SM610_LinAlg_OuterVectorAccumulation)
   TEST_CLASS_PROPERTY(
-      "Kits.TestName",
-      "D3D12 - Shader Model 6.10 - LinAlg Outer and Vector Accumulation")
-  TEST_CLASS_PROPERTY("Kits.TestId", "c4d69b38-6eaa-4dde-bd46-e1e578ceae09")
+      L"Kits.TestName",
+      L"D3D12 - Shader Model 6.10 - LinAlg Outer and Vector Accumulation")
+  TEST_CLASS_PROPERTY(L"Kits.TestId", L"c4d69b38-6eaa-4dde-bd46-e1e578ceae09")
   TEST_CLASS_PROPERTY(
-      "Kits.Description",
-      "Validates SM 6.10 linear algebra outer-product and vector accumulation")
+      L"Kits.Description",
+      L"Validates SM 6.10 linear algebra outer-product and vector accumulation")
   TEST_CLASS_PROPERTY(
-      "Kits.Specification",
-      "Device.Graphics.D3D12.DXILCore.ShaderModel610.CoreRequirement")
+      L"Kits.Specification",
+      L"Device.Graphics.D3D12.DXILCore.ShaderModel610.CoreRequirement")
   TEST_METHOD_PROPERTY(L"Priority", L"0")
   END_TEST_CLASS()
 
@@ -4080,8 +4081,8 @@ static void verifyDescriptorBaseAlignment(st::ShaderOpTest *Test, LPCSTR Name,
 
   const UINT64 ElementAddress = Resource->GetGPUVirtualAddress() + OffsetBytes;
   VERIFY_IS_TRUE(ElementAddress % DescriptorDeclaredAlignment == 0,
-                 "Descriptor buffer's first element does not meet the "
-                 "alignment the shader declares");
+                 L"Descriptor buffer's first element does not meet the "
+                 L"alignment the shader declares");
 }
 
 static void
@@ -4093,14 +4094,14 @@ runLoadStoreDescriptor(ID3D12Device *Device, dxc::SpecificDllLoader &DxcSupport,
   std::optional<cpu_oracle::TypedMatrix> Input =
       cpu_oracle::makeSequentialMatrix(Params.CompType, Params.M, Params.N);
   VERIFY_IS_TRUE(Input.has_value(),
-                 "Unable to construct typed LoadStoreDescriptor input");
+                 L"Unable to construct typed LoadStoreDescriptor input");
 
   std::optional<size_t> InputSize =
       cpu_oracle::getMatrixBufferSize(*Input, LoadLayout);
   std::optional<size_t> OutputSize =
       cpu_oracle::getMatrixBufferSize(*Input, StoreLayout);
   VERIFY_IS_TRUE(InputSize.has_value() && OutputSize.has_value(),
-                 "Unable to size the LoadStoreDescriptor buffers");
+                 L"Unable to size the LoadStoreDescriptor buffers");
 
   std::stringstream ExtraDefs;
   ExtraDefs << " -DLOAD_OFFSET=" << LoadLayout.OffsetBytes;
@@ -4149,7 +4150,7 @@ runLoadStoreDescriptor(ID3D12Device *Device, dxc::SpecificDllLoader &DxcSupport,
           return;
         VERIFY_IS_TRUE(
             cpu_oracle::writeMatrixBuffer(InputMatrix, LoadLayout, Data),
-            "Unable to encode typed LoadStoreDescriptor input");
+            L"Unable to encode typed LoadStoreDescriptor input");
       },
       [LoadLayout, StoreLayout](ID3D12GraphicsCommandList *,
                                 st::ShaderOpTest *Test) {
@@ -4184,14 +4185,14 @@ static void runLoadDescriptorOutOfBounds(
   std::optional<cpu_oracle::TypedMatrix> Input =
       cpu_oracle::makeSequentialMatrix(Params.CompType, Params.M, Params.N);
   VERIFY_IS_TRUE(Input.has_value(),
-                 "Unable to construct typed LoadDescriptorOOB input");
+                 L"Unable to construct typed LoadDescriptorOOB input");
 
   std::optional<size_t> BufferSize =
       cpu_oracle::getMatrixBufferSize(*Input, Layout);
   VERIFY_IS_TRUE(BufferSize.has_value(),
-                 "Unable to size the LoadDescriptorOOB buffers");
+                 L"Unable to size the LoadDescriptorOOB buffers");
   VERIFY_IS_TRUE(InputViewBytes < *BufferSize,
-                 "The source view must be shorter than its buffer");
+                 L"The source view must be shorter than its buffer");
 
   std::optional<cpu_oracle::TypedMatrix> PerElement =
       cpu_oracle::zeroElementsOutsideView(*Input, Layout, InputViewBytes);
@@ -4199,7 +4200,7 @@ static void runLoadDescriptorOutOfBounds(
   std::optional<cpu_oracle::TypedMatrix> WholeMatrix =
       cpu_oracle::zeroElementsOutsideView(*Input, Layout, 0);
   VERIFY_IS_TRUE(PerElement.has_value() && WholeMatrix.has_value(),
-                 "Unable to derive the LoadDescriptorOOB candidates");
+                 L"Unable to derive the LoadDescriptorOOB candidates");
 
   // The test requires both in-bounds and out-of-bounds elements. If none are
   // in bounds, the two permitted results are identical. If all are in bounds,
@@ -4208,12 +4209,12 @@ static void runLoadDescriptorOutOfBounds(
   const bool HasInBoundsElement =
       !cpu_oracle::exactMatrixMatch(*PerElement, *WholeMatrix, FirstMismatch);
   VERIFY_IS_TRUE(HasInBoundsElement,
-                 "The source view must include at least one complete element");
+                 L"The source view must include at least one complete element");
 
   const bool HasOutOfBoundsElement =
       !cpu_oracle::exactMatrixMatch(*PerElement, *Input, FirstMismatch);
   VERIFY_IS_TRUE(HasOutOfBoundsElement,
-                 "The source view must exclude at least one element");
+                 L"The source view must exclude at least one element");
 
   std::stringstream ExtraDefs;
   ExtraDefs << " -DLOAD_OFFSET=" << Layout.OffsetBytes;
@@ -4259,7 +4260,7 @@ static void runLoadDescriptorOutOfBounds(
           return;
         // Written in full, including the part the view does not cover.
         VERIFY_IS_TRUE(cpu_oracle::writeMatrixBuffer(InputMatrix, Layout, Data),
-                       "Unable to encode typed LoadDescriptorOOB input");
+                       L"Unable to encode typed LoadDescriptorOOB input");
       },
       [Layout](ID3D12GraphicsCommandList *, st::ShaderOpTest *Test) {
         verifyDescriptorBaseAlignment(Test, "Input", Layout.OffsetBytes);
@@ -4288,14 +4289,14 @@ static void runStoreDescriptorOutOfBounds(
   std::optional<cpu_oracle::TypedMatrix> Input =
       cpu_oracle::makeSequentialMatrix(Params.CompType, Params.M, Params.N);
   VERIFY_IS_TRUE(Input.has_value(),
-                 "Unable to construct typed StoreDescriptorOOB input");
+                 L"Unable to construct typed StoreDescriptorOOB input");
 
   std::optional<size_t> BufferSize =
       cpu_oracle::getMatrixBufferSize(*Input, Layout);
   VERIFY_IS_TRUE(BufferSize.has_value(),
-                 "Unable to size the StoreDescriptorOOB buffers");
+                 L"Unable to size the StoreDescriptorOOB buffers");
   VERIFY_IS_TRUE(OutputViewBytes < *BufferSize,
-                 "The destination view must be shorter than its buffer");
+                 L"The destination view must be shorter than its buffer");
 
   std::optional<std::vector<BYTE>> PerElement =
       cpu_oracle::storeBufferBoundedByView(*Input, Layout, OutputViewBytes);
@@ -4305,12 +4306,12 @@ static void runStoreDescriptorOutOfBounds(
       cpu_oracle::storeBufferBoundedByView(*Input, Layout, *BufferSize);
   VERIFY_IS_TRUE(PerElement.has_value() && WholeStore.has_value() &&
                      Unbounded.has_value(),
-                 "Unable to derive the StoreDescriptorOOB candidates");
+                 L"Unable to derive the StoreDescriptorOOB candidates");
 
   VERIFY_IS_TRUE(*PerElement != *WholeStore,
-                 "The destination view must admit at least one whole element");
+                 L"The destination view must admit at least one whole element");
   VERIFY_IS_TRUE(*PerElement != *Unbounded,
-                 "The destination view must exclude at least one element");
+                 L"The destination view must exclude at least one element");
 
   std::stringstream ExtraDefs;
   ExtraDefs << " -DLOAD_OFFSET=" << Layout.OffsetBytes;
@@ -4349,7 +4350,7 @@ static void runStoreDescriptorOutOfBounds(
         if (_stricmp(Name, "Input") != 0)
           return;
         VERIFY_IS_TRUE(cpu_oracle::writeMatrixBuffer(InputMatrix, Layout, Data),
-                       "Unable to encode typed StoreDescriptorOOB input");
+                       L"Unable to encode typed StoreDescriptorOOB input");
       },
       [Layout](ID3D12GraphicsCommandList *, st::ShaderOpTest *Test) {
         verifyDescriptorBaseAlignment(Test, "Input", Layout.OffsetBytes);
@@ -4409,14 +4410,14 @@ static void runAccumulateDescriptorOutOfBounds(
           AccumulateOOBInitialBase + AccumulateOOBAddendBase, /*Step=*/2);
   VERIFY_IS_TRUE(Addend.has_value() && Initial.has_value() &&
                      Accumulated.has_value(),
-                 "Unable to construct typed AccumulateDescriptorOOB matrices");
+                 L"Unable to construct typed AccumulateDescriptorOOB matrices");
 
   std::optional<size_t> BufferSize =
       cpu_oracle::getMatrixBufferSize(*Initial, Layout);
   VERIFY_IS_TRUE(BufferSize.has_value(),
-                 "Unable to size the AccumulateDescriptorOOB buffers");
+                 L"Unable to size the AccumulateDescriptorOOB buffers");
   VERIFY_IS_TRUE(OutputViewBytes < *BufferSize,
-                 "The destination view must be shorter than its buffer");
+                 L"The destination view must be shorter than its buffer");
 
   std::optional<std::vector<BYTE>> PerElement =
       cpu_oracle::accumulateBufferBoundedByView(*Initial, *Accumulated, Layout,
@@ -4429,12 +4430,12 @@ static void runAccumulateDescriptorOutOfBounds(
                                                 *BufferSize);
   VERIFY_IS_TRUE(PerElement.has_value() && WholeOperation.has_value() &&
                      Unbounded.has_value(),
-                 "Unable to derive the AccumulateDescriptorOOB candidates");
+                 L"Unable to derive the AccumulateDescriptorOOB candidates");
 
   VERIFY_IS_TRUE(*PerElement != *WholeOperation,
-                 "The destination view must admit at least one whole element");
+                 L"The destination view must admit at least one whole element");
   VERIFY_IS_TRUE(*PerElement != *Unbounded,
-                 "The destination view must exclude at least one element");
+                 L"The destination view must exclude at least one element");
 
   std::stringstream ExtraDefs;
   ExtraDefs << " -DLOAD_OFFSET=" << Layout.OffsetBytes;
@@ -4478,7 +4479,7 @@ static void runAccumulateDescriptorOutOfBounds(
         if (!Source)
           return;
         VERIFY_IS_TRUE(cpu_oracle::writeMatrixBuffer(*Source, Layout, Data),
-                       "Unable to encode AccumulateDescriptorOOB buffer");
+                       L"Unable to encode AccumulateDescriptorOOB buffer");
       },
       [Layout](ID3D12GraphicsCommandList *, st::ShaderOpTest *Test) {
         verifyDescriptorBaseAlignment(Test, "Input", Layout.OffsetBytes);
@@ -5180,7 +5181,7 @@ static void runAccumulateDescriptor(ID3D12Device *Device,
         VERIFY_IS_TRUE(fillInputBuffer(Name, Data, Params.CompType, NumElements,
                                        /*StartingVal=*/FillValue,
                                        /*Increment=*/false),
-                       "Saw unsupported component type");
+                       L"Saw unsupported component type");
       });
 
   MappedData OutData;
@@ -5343,7 +5344,7 @@ static void runElementAccess(ID3D12Device *Device,
                                         st::ShaderOp *) {
                     VERIFY_IS_TRUE(fillInputBuffer(Name, Data, Params.CompType,
                                                    NumElements),
-                                   "Saw unsupported component type");
+                                   L"Saw unsupported component type");
                   });
 
   MappedData OutData;
@@ -5362,7 +5363,7 @@ static void runElementAccess(ID3D12Device *Device,
   for (size_t I = 0; I < NumThreads; ++I)
     TotalLength += Lengths[I];
   VERIFY_IS_GREATER_THAN_OR_EQUAL(
-      TotalLength, NumElements, "Sum of all lengths must be gte num elements");
+      TotalLength, NumElements, L"Sum of all lengths must be gte num elements");
 }
 
 void DxilConf_SM610_LinAlg_ElementAccess::ElementAccess_Wave_16x16_F16() {
@@ -5488,7 +5489,7 @@ static void runElementSet(ID3D12Device *Device,
                     }
                     VERIFY_IS_TRUE(fillInputBuffer(Name, Data, Params.CompType,
                                                    NumElements),
-                                   "Saw unsupported component type");
+                                   L"Saw unsupported component type");
                   });
 
   MappedData OutData;
@@ -5644,10 +5645,10 @@ static uint32_t verifyOOBLaneRecords(const BYTE *Records, size_t NumThreads,
   // Only wave 0 runs, so exactly the lanes of the wave the capability query
   // selected must have written a record.
   VERIFY_ARE_EQUAL(ExecutedLanes, SelectedWaveSize,
-                   "Every lane of the selected wave must execute");
+                   L"Every lane of the selected wave must execute");
   VERIFY_IS_GREATER_THAN_OR_EQUAL(
       TotalLength, static_cast<uint32_t>(NumElements),
-      "Sum of all lengths must be gte num elements");
+      L"Sum of all lengths must be gte num elements");
   return TotalLength;
 }
 
@@ -5657,7 +5658,7 @@ static void runElementGetOOB(ID3D12Device *Device,
                              UINT ForcedWaveSize) {
   VERIFY_IS_TRUE(Params.CompType == ComponentType::F32 ||
                      Params.CompType == ComponentType::F16,
-                 "Out-of-bounds Get records widen the element to float");
+                 L"Out-of-bounds Get records widen the element to float");
   const size_t NumElements = Params.totalElements();
   const size_t NumThreads = Params.NumThreads;
   const size_t MatrixSize = Params.totalBytes();
@@ -5690,7 +5691,7 @@ static void runElementGetOOB(ID3D12Device *Device,
                     }
                     VERIFY_IS_TRUE(fillInputBuffer(Name, Data, Params.CompType,
                                                    NumElements),
-                                   "Saw unsupported component type");
+                                   L"Saw unsupported component type");
                   });
 
   MappedData OutData;
@@ -5714,11 +5715,11 @@ static void runElementGetOOB(ID3D12Device *Device,
     memcpy(&Just, Record + 8, sizeof(Just));
     memcpy(&Far, Record + 12, sizeof(Far));
     VERIFY_ARE_EQUAL(Just, 0.0f,
-                     "Get at Length() must return zero cast to the element "
-                     "type");
+                     L"Get at Length() must return zero cast to the element "
+                     L"type");
     VERIFY_ARE_EQUAL(Far, 0.0f,
-                     "Get far past Length() must return zero cast to the "
-                     "element type");
+                     L"Get far past Length() must return zero cast to the "
+                     L"element type");
   }
 }
 
@@ -5823,7 +5824,7 @@ static void runElementSetOOB(ID3D12Device *Device,
                     }
                     VERIFY_IS_TRUE(fillInputBuffer(Name, Data, Params.CompType,
                                                    NumElements),
-                                   "Saw unsupported component type");
+                                   L"Saw unsupported component type");
                   });
 
   MappedData OutData;
@@ -6035,7 +6036,7 @@ static bool copyConvertApplicable(ID3D12Device *Device,
     return false;
 
   VERIFY_IS_TRUE(SelectedWaveSize != 0,
-                 "A case cleared to run must have a selected wave size");
+                 L"A case cleared to run must have a selected wave size");
   return true;
 }
 
@@ -6068,17 +6069,17 @@ static void runCopyConvert(ID3D12Device *Device,
   std::optional<cpu_oracle::TypedMatrix> Input =
       cpu_oracle::makeSequentialMatrix(Params.CompType, Params.M, Params.N);
   VERIFY_IS_TRUE(Input.has_value(),
-                 "Unable to construct typed CopyConvert input");
+                 L"Unable to construct typed CopyConvert input");
   std::optional<cpu_oracle::TypedMatrix> Converted =
       cpu_oracle::makeSequentialMatrix(DstParams.CompType, Params.M, Params.N);
   VERIFY_IS_TRUE(Converted.has_value(),
-                 "Unable to construct typed CopyConvert conversion oracle");
+                 L"Unable to construct typed CopyConvert conversion oracle");
   if (!Input.has_value() || !Converted.has_value())
     return;
   std::optional<cpu_oracle::TypedMatrix> Expected =
       Transpose ? cpu_oracle::transposeMatrix(*Converted) : Converted;
   VERIFY_IS_TRUE(Expected.has_value(),
-                 "Unable to construct independent CopyConvert oracle");
+                 L"Unable to construct independent CopyConvert oracle");
   if (!Expected.has_value())
     return;
 
@@ -6097,9 +6098,9 @@ static void runCopyConvert(ID3D12Device *Device,
   std::optional<size_t> DestinationBufferSize =
       cpu_oracle::getMatrixBufferSize(*Expected, DestinationLayout);
   VERIFY_IS_TRUE(SourceBufferSize.has_value(),
-                 "Unable to size typed CopyConvert input");
+                 L"Unable to size typed CopyConvert input");
   VERIFY_IS_TRUE(DestinationBufferSize.has_value(),
-                 "Unable to size typed CopyConvert output");
+                 L"Unable to size typed CopyConvert output");
   if (!SourceBufferSize.has_value() || !DestinationBufferSize.has_value())
     return;
 
@@ -6127,7 +6128,7 @@ static void runCopyConvert(ID3D12Device *Device,
           return;
         VERIFY_IS_TRUE(
             cpu_oracle::writeMatrixBuffer(InputMatrix, SourceLayout, Data),
-            "Unable to encode typed CopyConvert input");
+            L"Unable to encode typed CopyConvert input");
       });
 
   MappedData OutData;
@@ -6917,24 +6918,25 @@ void LinAlgCapabilityTests::ThreadGroupShapePolicy() {
       const MatrixMultiplyCase Case =
           makeThreadGroupMultiplyCase(Plan, WaveSize);
       VERIFY_IS_TRUE(isMatrixMultiplyCaseValid(Case),
-                     "Derived shape must produce a valid case");
+                     L"Derived shape must produce a valid case");
       VERIFY_IS_TRUE(Case.M % WaveSize == 0 && Case.N % WaveSize == 0,
-                     "Derived extents must be a multiple of the wave size");
-      VERIFY_IS_TRUE(Case.K % 4 == 0, "Derived K must stay a multiple of four");
+                     L"Derived extents must be a multiple of the wave size");
+      VERIFY_IS_TRUE(Case.K % 4 == 0,
+                     L"Derived K must stay a multiple of four");
       VERIFY_IS_TRUE(Case.M >= Plan.MinExtent &&
                          Case.M < Plan.MinExtent + WaveSize,
-                     "Derived extent must be the smallest legal one");
+                     L"Derived extent must be the smallest legal one");
       VERIFY_IS_TRUE(Case.K == Case.M * Plan.KExtentMultiple,
-                     "Derived K must follow the plan multiple");
+                     L"Derived K must follow the plan multiple");
 
       // Losing the operation would drop the accumulator from both the shader
       // and the oracle, so the test would agree with itself and pass vacuously.
       VERIFY_IS_TRUE(Case.Operation == Plan.Operation,
-                     "Derived case must keep the planned operation");
+                     L"Derived case must keep the planned operation");
       VERIFY_IS_TRUE(
           Case.accumulates() ==
               (Probe.Operation == MatrixMultiplyOperation::MultiplyAccumulate),
-          "Accumulation must follow the planned operation");
+          L"Accumulation must follow the planned operation");
 
       // F16 holds integers exactly below 2048 and is the tightest accumulator
       // in the set, so the bound is applied to every probe.
@@ -6949,7 +6951,7 @@ void LinAlgCapabilityTests::ThreadGroupShapePolicy() {
         MaxAccumulator = std::max(MaxAccumulator, Value < 0 ? -Value : Value);
       VERIFY_IS_TRUE(
           MaxA * MaxB * static_cast<int64_t>(Case.K) + MaxAccumulator < 2048,
-          "Derived shape must keep dot products exact");
+          L"Derived shape must keep dot products exact");
     }
   }
 
@@ -6961,19 +6963,19 @@ void LinAlgCapabilityTests::ThreadGroupShapePolicy() {
   Plan.KExtentMultiple = 2;
   Plan.PublicRule = L"ThreadGroup shape policy";
   VERIFY_IS_TRUE(makeThreadGroupMultiplyCase(Plan, 4).M == 8,
-                 "A wave of four must round the minimum extent up to eight");
+                 L"A wave of four must round the minimum extent up to eight");
   VERIFY_IS_TRUE(makeThreadGroupMultiplyCase(Plan, 32).M == 32,
-                 "A wave of thirty-two must widen the extent to match");
+                 L"A wave of thirty-two must widen the extent to match");
   VERIFY_IS_TRUE(
       makeThreadGroupMultiplyCase(Plan, hlsl::DXIL::kMaxWaveSize).M ==
           hlsl::DXIL::kMaxWaveSize,
-      "The largest wave the language allows must widen the extent");
+      L"The largest wave the language allows must widen the extent");
 
   // A minimum extent that is not a multiple of the wave size.
   Plan.MinExtent = 12;
   const MatrixMultiplyCase Rounded = makeThreadGroupMultiplyCase(Plan, 8);
   VERIFY_IS_TRUE(Rounded.M == 16 && Rounded.N == 16 && Rounded.K == 32,
-                 "An unaligned minimum extent must round up to the wave size");
+                 L"An unaligned minimum extent must round up to the wave size");
 }
 
 static HRESULT selectThreadGroupMatMulConfiguration(
@@ -7013,14 +7015,14 @@ static HRESULT selectThreadGroupMatMulConfiguration(
   // capability-gated skip instead of a failure.
   linalg_test::TierSupport Tier;
   HRESULT HR = linalg_test::queryTierSupport(Device, Tier);
-  VERIFY_SUCCEEDED(HR, "Linear algebra tier query must succeed");
+  VERIFY_SUCCEEDED(HR, L"Linear algebra tier query must succeed");
   if (!Tier.supported())
     return S_OK;
 
   UINT MinWaveSize = 0;
   UINT MaxWaveSize = 0;
   HR = queryLaunchableWaveSizes(Device, MinWaveSize, MaxWaveSize);
-  VERIFY_SUCCEEDED(HR, "Launchable wave size query must succeed");
+  VERIFY_SUCCEEDED(HR, L"Launchable wave size query must succeed");
   if (MinWaveSize == 0) {
     hlsl_test::LogCommentFmt(
         L"Wave operations are unsupported; ThreadGroupMatrixMultiply is not "
@@ -7049,7 +7051,7 @@ static HRESULT selectThreadGroupMatMulConfiguration(
     HR = matrixMultiplyRolesConstructible(Device, Candidate, WaveSize,
                                           MatrixAType, MatrixBType,
                                           AccumulatorType, RolesConstructible);
-    VERIFY_SUCCEEDED(HR, "Matrix role construction query must succeed");
+    VERIFY_SUCCEEDED(HR, L"Matrix role construction query must succeed");
     if (!RolesConstructible)
       continue;
 
@@ -7057,7 +7059,7 @@ static HRESULT selectThreadGroupMatMulConfiguration(
     HR = linalg_test::queryThreadGroupMatrixMultiply(
         Device, {{WaveSize, MatrixAType, MatrixBType, AccumulatorType}, Shape},
         Multiply);
-    VERIFY_SUCCEEDED(HR, "ThreadGroup matrix multiply query must succeed");
+    VERIFY_SUCCEEDED(HR, L"ThreadGroup matrix multiply query must succeed");
     if (!Multiply.supported())
       continue;
 
@@ -7110,12 +7112,12 @@ static bool threadGroupMatMulApplicable(ID3D12Device *Device,
     return false;
 
   VERIFY_IS_TRUE(SelectedWaveSize != 0,
-                 "A case cleared to run must have a selected wave size");
+                 L"A case cleared to run must have a selected wave size");
   VERIFY_IS_TRUE(
       SelectedThreadGroupSize != 0,
-      "A ThreadGroup case cleared to run must have a selected group size");
+      L"A ThreadGroup case cleared to run must have a selected group size");
   VERIFY_IS_TRUE(isMatrixMultiplyCaseValid(SelectedCase),
-                 "A case cleared to run must have a resolved shape");
+                 L"A case cleared to run must have a resolved shape");
   return true;
 }
 
@@ -7829,7 +7831,7 @@ static void runMatVecMul(ID3D12Device *Device,
         VERIFY_IS_TRUE(fillInputBuffer(Name, Data, Params.CompType, NumElements,
                                        /*StartingVal=*/FillValue,
                                        /*Increment=*/false),
-                       "Saw unsupported component type");
+                       L"Saw unsupported component type");
       });
 
   MappedData OutData;
@@ -8279,7 +8281,7 @@ static void runThreadSemanticsMatVec(ID3D12Device *Device,
         else if (_stricmp(Name, "VectorInput") == 0)
           Source = &VectorBuffer;
         VERIFY_IS_TRUE(Source != nullptr,
-                       "Unexpected thread semantics resource initializer");
+                       L"Unexpected thread semantics resource initializer");
         if (!Source)
           return;
         VERIFY_ARE_EQUAL(Data.size(), Source->size());
@@ -8297,10 +8299,10 @@ static void runThreadSemanticsMatVec(ID3D12Device *Device,
     WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
     return;
   case ThreadSemanticsOutcome::Failed:
-    VERIFY_IS_TRUE(false, "Thread semantics verification failed");
+    VERIFY_IS_TRUE(false, L"Thread semantics verification failed");
     return;
   }
-  VERIFY_IS_TRUE(false, "Unknown thread semantics outcome");
+  VERIFY_IS_TRUE(false, L"Unknown thread semantics outcome");
 }
 
 void DxilConf_SM610_LinAlg_MatVec::MatVecMul_Thread_4x8_F16_PerThread() {
@@ -8437,7 +8439,7 @@ static void runMatVecMulAdd(ID3D12Device *Device,
         VERIFY_IS_TRUE(fillInputBuffer(Name, Data, Params.CompType, NumElements,
                                        /*StartingVal=*/FillValue,
                                        /*Increment=*/false),
-                       "Saw unsupported component type");
+                       L"Saw unsupported component type");
       });
 
   MappedData OutData;
@@ -8514,7 +8516,7 @@ static D3D12_LINEAR_ALGEBRA_DATATYPE toLinAlgDataType(ComponentType CT) {
   case ComponentType::F8_E5M2:
     return D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT8_E5M2;
   default:
-    VERIFY_IS_TRUE(false, "Unsupported component type for linalg conversion");
+    VERIFY_IS_TRUE(false, L"Unsupported component type for linalg conversion");
     return D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT16;
   }
 }
@@ -8559,9 +8561,9 @@ static void runOuterProduct(ID3D12Device *Device,
                             const MatrixParams &Params, bool Verbose) {
   VERIFY_IS_TRUE(
       Params.Layout == MatrixLayout::OuterProductOptimal,
-      "Outer product must output its matrix in OuterProductOptimal layout");
+      L"Outer product must output its matrix in OuterProductOptimal layout");
   VERIFY_IS_TRUE(Params.Use == MatrixUse::Accumulator,
-                 "Outer product must output an accumulator matrix");
+                 L"Outer product must output an accumulator matrix");
   const size_t NumVecElements = Params.M + Params.N;
   const size_t InBuffSize = NumVecElements * elementSize(Params.CompType);
   const size_t NumMatElements = Params.totalElements();
@@ -8600,7 +8602,7 @@ static void runOuterProduct(ID3D12Device *Device,
         VERIFY_IS_TRUE(fillInputBuffer(Name, Data, Params.CompType,
                                        NumVecElements,
                                        /*StartingVal=*/2, /*Increment=*/false),
-                       "Saw unsupported component type");
+                       L"Saw unsupported component type");
       },
       [OutBufferSize, RowMajorSize, RowMajorStride, DataType,
        Params](ID3D12GraphicsCommandList *List, st::ShaderOpTest *Test) {
@@ -8911,7 +8913,7 @@ static void runLoadMemory(ID3D12Device *Device,
                                         st::ShaderOp *) {
                     VERIFY_IS_TRUE(fillInputBuffer(Name, Data, Params.CompType,
                                                    NumElements),
-                                   "Saw unsupported component type");
+                                   L"Saw unsupported component type");
                   });
 
   MappedData OutData;
@@ -9466,7 +9468,7 @@ static bool runGroupSharedI8MultiplyCase(ID3D12Device *Device,
   if (!ExpectedMatrix ||
       !getGroupSharedBufferDescription(Accumulator, OutputLayout, OutputSize,
                                        OutputElements)) {
-    VERIFY_IS_TRUE(false, "Invalid I32 result matrix or output layout");
+    VERIFY_IS_TRUE(false, L"Invalid I32 result matrix or output layout");
     return false;
   }
 
@@ -9680,7 +9682,7 @@ runGroupSharedTransfer(ID3D12Device *Device, dxc::SpecificDllLoader &DxcSupport,
       (Params.Scope != MatrixScope::Wave &&
        Params.Scope != MatrixScope::ThreadGroup) ||
       Params.Use != MatrixUse::A) {
-    VERIFY_IS_TRUE(false, "Invalid group-shared transfer parameters");
+    VERIFY_IS_TRUE(false, L"Invalid group-shared transfer parameters");
     return;
   }
 
@@ -9693,7 +9695,7 @@ runGroupSharedTransfer(ID3D12Device *Device, dxc::SpecificDllLoader &DxcSupport,
       !getGroupSharedBufferDescription(Params, DestinationLayout,
                                        DestinationBufferSize,
                                        DestinationElements)) {
-    VERIFY_IS_TRUE(false, "Invalid group-shared buffer description");
+    VERIFY_IS_TRUE(false, L"Invalid group-shared buffer description");
     return;
   }
 
@@ -9706,13 +9708,13 @@ runGroupSharedTransfer(ID3D12Device *Device, dxc::SpecificDllLoader &DxcSupport,
   if (!Values.has_value() || !Source.has_value() ||
       !DestinationInitial.has_value() ||
       !cpu_oracle::writeMatrixBuffer(*Values, SourceLayout, *Source)) {
-    VERIFY_IS_TRUE(false, "Failed to build group-shared transfer inputs");
+    VERIFY_IS_TRUE(false, L"Failed to build group-shared transfer inputs");
     return;
   }
 
   std::vector<BYTE> Expected = *DestinationInitial;
   if (!cpu_oracle::writeMatrixBuffer(*Values, DestinationLayout, Expected)) {
-    VERIFY_IS_TRUE(false, "Failed to build group-shared transfer expectation");
+    VERIFY_IS_TRUE(false, L"Failed to build group-shared transfer expectation");
     return;
   }
 
@@ -9981,7 +9983,7 @@ void DxilConf_SM610_LinAlg_GroupSharedIO::
                                          TargetElements) ||
         !getGroupSharedBufferDescription(Params, Canonical, CanonicalBytes,
                                          CanonicalElements)) {
-      VERIFY_IS_TRUE(false, "Invalid ThreadGroup transfer buffer description");
+      VERIFY_IS_TRUE(false, L"Invalid ThreadGroup transfer buffer description");
       return;
     }
     const size_t SharedBytes = TargetBytes + CanonicalBytes;
@@ -10097,7 +10099,7 @@ static void runGroupSharedAccumulate(
   UINT NumElements;
   if (!getGroupSharedBufferDescription(Params, MemoryLayout, BufferSize,
                                        NumElements)) {
-    VERIFY_IS_TRUE(false, "Invalid group-shared accumulate buffer");
+    VERIFY_IS_TRUE(false, L"Invalid group-shared accumulate buffer");
     return;
   }
 
@@ -10238,7 +10240,7 @@ static void runPaddedGroupSharedAccumulateCase(
           linalg_test::CapabilityRequirement::CapabilityGated);
   if (ConstructionApplicability == linalg_test::Applicability::Fail) {
     VERIFY_IS_TRUE(
-        false, "Padded group-shared accumulation construction query failed");
+        false, L"Padded group-shared accumulation construction query failed");
     return;
   }
   if (ConstructionApplicability == linalg_test::Applicability::NotApplicable) {
@@ -10248,12 +10250,12 @@ static void runPaddedGroupSharedAccumulateCase(
     return;
   }
   VERIFY_IS_TRUE(SelectedWaveSize != 0,
-                 "A supported padded accumulation needs a selected wave size");
+                 L"A supported padded accumulation needs a selected wave size");
 
   const std::optional<linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE> DataType =
       toCapabilityDataType(Params.CompType);
   VERIFY_IS_TRUE(DataType.has_value(),
-                 "Padded accumulation component type must be queryable");
+                 L"Padded accumulation component type must be queryable");
   if (!DataType.has_value())
     return;
 
@@ -10268,7 +10270,7 @@ static void runPaddedGroupSharedAccumulateCase(
           linalg_test::CapabilityRequirement::CapabilityGated);
   if (AtomicApplicability == linalg_test::Applicability::Fail) {
     VERIFY_IS_TRUE(false,
-                   "Padded group-shared accumulation support query failed");
+                   L"Padded group-shared accumulation support query failed");
     return;
   }
   if (AtomicApplicability == linalg_test::Applicability::NotApplicable) {
@@ -10466,20 +10468,20 @@ static void runVectorAccumulateDescriptor(
     const cpu_oracle::TypedMatrix &Expected, UINT StartOffsetBytes,
     std::wstring PublicRule, bool Verbose, UINT NumThreads = 1,
     UINT DispatchX = 1, std::optional<size_t> OutputViewBytes = std::nullopt) {
-  VERIFY_ARE_EQUAL(1u, Input.M, "Vector input must have one row");
+  VERIFY_ARE_EQUAL(1u, Input.M, L"Vector input must have one row");
   VERIFY_ARE_EQUAL(Input.compType(), Initial.compType(),
-                   "Input and destination component types must match");
+                   L"Input and destination component types must match");
   VERIFY_ARE_EQUAL(Initial.compType(), Expected.compType(),
-                   "Expected and destination component types must match");
+                   L"Expected and destination component types must match");
   VERIFY_ARE_EQUAL(Initial.M, Expected.M,
-                   "Expected and destination row counts must match");
+                   L"Expected and destination row counts must match");
   VERIFY_ARE_EQUAL(Initial.N, Expected.N,
-                   "Expected and destination column counts must match");
+                   L"Expected and destination column counts must match");
   VERIFY_IS_GREATER_THAN_OR_EQUAL(
       Initial.totalElements(), Input.totalElements(),
-      "Destination must hold the input vector and any guard elements");
+      L"Destination must hold the input vector and any guard elements");
   VERIFY_IS_TRUE(StartOffsetBytes % 64 == 0,
-                 "Vector start offset must preserve 64-byte alignment");
+                 L"Vector start offset must preserve 64-byte alignment");
 
   const cpu_oracle::MatrixBufferLayout InputLayout = {
       MatrixLayout::RowMajor,
@@ -10495,9 +10497,9 @@ static void runVectorAccumulateDescriptor(
       cpu_oracle::getMatrixBufferSize(Input, InputLayout);
   const std::optional<size_t> OutputSize =
       cpu_oracle::getMatrixBufferSize(Initial, OutputLayout);
-  VERIFY_IS_TRUE(InputSize.has_value(), "Unable to size vector input buffer");
+  VERIFY_IS_TRUE(InputSize.has_value(), L"Unable to size vector input buffer");
   VERIFY_IS_TRUE(OutputSize.has_value(),
-                 "Unable to size vector destination buffer");
+                 L"Unable to size vector destination buffer");
   if (!InputSize)
     return;
   if (!OutputSize)
@@ -10505,7 +10507,7 @@ static void runVectorAccumulateDescriptor(
 
   if (OutputViewBytes) {
     VERIFY_IS_TRUE(*OutputViewBytes > 0 && *OutputViewBytes <= *OutputSize,
-                   "The bounded UAV view must fit the destination buffer");
+                   L"The bounded UAV view must fit the destination buffer");
     hlsl_test::LogCommentFmt(
         L"Vector accumulation bounded UAV: view=%zu bytes, vector offset=%u, "
         L"vector size=%zu, destination size=%zu",
@@ -10519,10 +10521,10 @@ static void runVectorAccumulateDescriptor(
   // through to readback rather than a zero the operation could also produce.
   cpu_oracle::fillPoison(InitialBytes.data(), InitialBytes.size());
   VERIFY_IS_TRUE(cpu_oracle::writeMatrixBuffer(Input, InputLayout, InputBytes),
-                 "Unable to encode vector input buffer");
+                 L"Unable to encode vector input buffer");
   VERIFY_IS_TRUE(
       cpu_oracle::writeMatrixBuffer(Initial, OutputLayout, InitialBytes),
-      "Unable to encode vector destination buffer");
+      L"Unable to encode vector destination buffer");
 
   MatrixParams Params = {};
   Params.CompType = Input.compType();
@@ -10563,11 +10565,11 @@ static void runVectorAccumulateDescriptor(
         else if (strcmp(Name, "Output") == 0)
           Source = &InitialBytes;
         VERIFY_IS_TRUE(Source != nullptr,
-                       "Unexpected vector accumulation resource initializer");
+                       L"Unexpected vector accumulation resource initializer");
         if (!Source)
           return;
         VERIFY_ARE_EQUAL(Source->size(), Data.size(),
-                         "Vector accumulation initializer size mismatch");
+                         L"Vector accumulation initializer size mismatch");
         if (Source->size() == Data.size())
           std::memcpy(Data.data(), Source->data(), Data.size());
       },
@@ -10578,7 +10580,7 @@ static void runVectorAccumulateDescriptor(
         VERIFY_IS_NOT_NULL(Output);
         VERIFY_IS_TRUE(
             (Output->GetGPUVirtualAddress() + StartOffsetBytes) % 64 == 0,
-            "Vector destination must meet its declared 64-byte alignment");
+            L"Vector destination must meet its declared 64-byte alignment");
       });
 
   MappedData OutData;
@@ -10739,7 +10741,7 @@ runVectorAccumulateDescriptorOutOfBounds(ID3D12Device *Device,
   VERIFY_IS_TRUE(Input.has_value() && Initial.has_value() &&
                      Accumulated.has_value() &&
                      PartiallyAccumulated.has_value(),
-                 "Unable to construct vector descriptor bounds fixtures");
+                 L"Unable to construct vector descriptor bounds fixtures");
   if (!Input || !Initial || !Accumulated || !PartiallyAccumulated)
     return;
 
@@ -11536,7 +11538,7 @@ runConvertCoverage(ID3D12Device *Device, dxc::SpecificDllLoader &DxcSupport,
       Shader, "cs_6_10", Input ? "SRV(t0), UAV(u0)" : "UAV(u0)", Args.c_str());
   UINT OutputRootIndex = 0;
   if (Input) {
-    VERIFY_IS_TRUE(!Input->empty(), "Convert input must not be empty");
+    VERIFY_IS_TRUE(!Input->empty(), L"Convert input must not be empty");
     if (Input->empty())
       return;
     addSRVBuffer(Op.get(), "Input", Input->size(), "byname");
@@ -11554,7 +11556,7 @@ runConvertCoverage(ID3D12Device *Device, dxc::SpecificDllLoader &DxcSupport,
         else if (Input && _stricmp(Name, "Input") == 0)
           Data = *Input;
         else
-          VERIFY_IS_TRUE(false, "Unexpected conversion resource initializer");
+          VERIFY_IS_TRUE(false, L"Unexpected conversion resource initializer");
       });
 
   MappedData OutputData;
@@ -11629,7 +11631,7 @@ void LinAlgCPUOracleTests::FP8HostOracle() {
   for (ComponentType CompType :
        {ComponentType::F8_E4M3FN, ComponentType::F8_E5M2}) {
     const std::optional<FP8TestVectors> Vectors = getFP8TestVectors(CompType);
-    VERIFY_IS_TRUE(Vectors.has_value(), "Missing FP8 test vectors");
+    VERIFY_IS_TRUE(Vectors.has_value(), L"Missing FP8 test vectors");
     if (!Vectors)
       continue;
 
@@ -11648,12 +11650,12 @@ void LinAlgCPUOracleTests::FP8HostOracle() {
     }
 
     VERIFY_IS_TRUE(Encoded == Vectors->HandEncoded,
-                   "Host FP8 encoder disagrees with the hand-derived table");
+                   L"Host FP8 encoder disagrees with the hand-derived table");
 
     // The decode input must not be the encoder's own output, or a shader that
     // echoed its input would pass the decode half of the execution test.
     VERIFY_IS_TRUE(Vectors->DecodeInput != Vectors->HandEncoded,
-                   "FP8 decode input must be independent of encode output");
+                   L"FP8 decode input must be independent of encode output");
   }
 }
 
@@ -11958,7 +11960,7 @@ void DxilConf_SM610_LinAlg_Conversion::Convert_I32_ToF16_RTNE() {
 void DxilConf_SM610_LinAlg_Conversion::Convert_F16_ToE4M3FN_AndBack() {
   const std::optional<FP8ConvertData> Data =
       makeFP8ConvertData(ComponentType::F8_E4M3FN);
-  VERIFY_IS_TRUE(Data.has_value(), "Unable to construct the host FP8 oracle");
+  VERIFY_IS_TRUE(Data.has_value(), L"Unable to construct the host FP8 oracle");
   if (!Data)
     return;
   compileShader(DxcSupport, ConvertF16FP8CoverageShader, "cs_6_10",
@@ -11981,7 +11983,7 @@ void DxilConf_SM610_LinAlg_Conversion::Convert_F16_ToE4M3FN_AndBack() {
 void DxilConf_SM610_LinAlg_Conversion::Convert_F16_ToE5M2_AndBack() {
   const std::optional<FP8ConvertData> Data =
       makeFP8ConvertData(ComponentType::F8_E5M2);
-  VERIFY_IS_TRUE(Data.has_value(), "Unable to construct the host FP8 oracle");
+  VERIFY_IS_TRUE(Data.has_value(), L"Unable to construct the host FP8 oracle");
   if (!Data)
     return;
   compileShader(DxcSupport, ConvertF16FP8CoverageShader, "cs_6_10",

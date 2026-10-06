@@ -1814,8 +1814,8 @@ using namespace LongVector;
   TEST_METHOD(Op##_##DataType) {                                               \
     BEGIN_TEST_METHOD_PROPERTIES()                                             \
     TEST_METHOD_PROPERTY(                                                      \
-        "Kits.Specification",                                                  \
-        "Device.Graphics.D3D12.DXILCore.ShaderModel69.CoreRequirement")        \
+        L"Kits.Specification",                                                 \
+        L"Device.Graphics.D3D12.DXILCore.ShaderModel69.CoreRequirement")       \
     END_TEST_METHOD_PROPERTIES()                                               \
     runWaveOpTest<DataType, OpType::Op>();                                     \
   }
@@ -1953,14 +1953,15 @@ private:
 class DxilConf_SM69_Vectorized_Core : public TestClassCommon {
 public:
   BEGIN_TEST_CLASS(DxilConf_SM69_Vectorized_Core)
-  TEST_CLASS_PROPERTY("Kits.TestName",
-                      "D3D12 - Shader Model 6.9 - Vectorized DXIL - Core Tests")
-  TEST_CLASS_PROPERTY("Kits.TestId", "81db1ff8-5bc5-48a1-8d7b-600fc600a677")
-  TEST_CLASS_PROPERTY("Kits.Description",
-                      "Validates required SM 6.9 vectorized DXIL operations")
   TEST_CLASS_PROPERTY(
-      "Kits.Specification",
-      "Device.Graphics.D3D12.DXILCore.ShaderModel69.CoreRequirement")
+      L"Kits.TestName",
+      L"D3D12 - Shader Model 6.9 - Vectorized DXIL - Core Tests")
+  TEST_CLASS_PROPERTY(L"Kits.TestId", L"81db1ff8-5bc5-48a1-8d7b-600fc600a677")
+  TEST_CLASS_PROPERTY(L"Kits.Description",
+                      L"Validates required SM 6.9 vectorized DXIL operations")
+  TEST_CLASS_PROPERTY(
+      L"Kits.Specification",
+      L"Device.Graphics.D3D12.DXILCore.ShaderModel69.CoreRequirement")
   TEST_METHOD_PROPERTY(L"Priority", L"0")
   END_TEST_CLASS()
 
@@ -3023,9 +3024,9 @@ public:
 #define HLK_TEST_DOUBLE(Op, DataType)                                          \
   TEST_METHOD(Op##_##DataType) {                                               \
     BEGIN_TEST_METHOD_PROPERTIES()                                             \
-    TEST_METHOD_PROPERTY("Kits.Specification",                                 \
-                         "Device.Graphics.D3D12.DXILCore.ShaderModel69."       \
-                         "DoublePrecision.Optional")                           \
+    TEST_METHOD_PROPERTY(L"Kits.Specification",                                \
+                         L"Device.Graphics.D3D12.DXILCore.ShaderModel69."      \
+                         L"DoublePrecision.Optional")                          \
     END_TEST_METHOD_PROPERTIES()                                               \
     runTest<DataType, OpType::Op>();                                           \
   }
@@ -3033,9 +3034,9 @@ public:
 #define HLK_WAVEOP_TEST_DOUBLE(Op, DataType)                                   \
   TEST_METHOD(Op##_##DataType) {                                               \
     BEGIN_TEST_METHOD_PROPERTIES()                                             \
-    TEST_METHOD_PROPERTY("Kits.Specification",                                 \
-                         "Device.Graphics.D3D12.DXILCore.ShaderModel69."       \
-                         "DoublePrecision.Optional")                           \
+    TEST_METHOD_PROPERTY(L"Kits.Specification",                                \
+                         L"Device.Graphics.D3D12.DXILCore.ShaderModel69."      \
+                         L"DoublePrecision.Optional")                          \
     END_TEST_METHOD_PROPERTIES()                                               \
     runWaveOpTest<DataType, OpType::Op>();                                     \
   }
@@ -3044,15 +3045,15 @@ class DxilConf_SM69_Vectorized_Double : public TestClassCommon {
 public:
   BEGIN_TEST_CLASS(DxilConf_SM69_Vectorized_Double)
   TEST_CLASS_PROPERTY(
-      "Kits.TestName",
-      "D3D12 - Shader Model 6.9 - Vectorized DXIL - Double Precision Tests")
-  TEST_CLASS_PROPERTY("Kits.TestId", "3a7a9687-6d99-469d-9951-795c2fcbe94d")
+      L"Kits.TestName",
+      L"D3D12 - Shader Model 6.9 - Vectorized DXIL - Double Precision Tests")
+  TEST_CLASS_PROPERTY(L"Kits.TestId", L"3a7a9687-6d99-469d-9951-795c2fcbe94d")
   TEST_CLASS_PROPERTY(
-      "Kits.Description",
-      "Validates required double precision SM 6.9 vectorized DXIL operations")
+      L"Kits.Description",
+      L"Validates required double precision SM 6.9 vectorized DXIL operations")
   TEST_METHOD_PROPERTY(
-      "Kits.Specification",
-      "Device.Graphics.D3D12.DXILCore.ShaderModel69.DoublePrecision.Optional")
+      L"Kits.Specification",
+      L"Device.Graphics.D3D12.DXILCore.ShaderModel69.DoublePrecision.Optional")
   TEST_METHOD_PROPERTY(L"Priority", L"0")
   END_TEST_CLASS()
 
