@@ -12,10 +12,15 @@ struct S {
   int outOfLine() const;
 };
 
+struct MutableS {
+  mutable int cache;
+};
+
 // Two distinct overloads: one const-qualified, one not.
 // CHECK: CXXMethodDecl [[NC:0x[0-9a-f]+]] {{.*}} used get 'int ()'
 // CHECK: CXXMethodDecl [[C:0x[0-9a-f]+]] {{.*}} used get 'int () const'
 // CHECK: CXXMethodDecl [[OOLDecl:0x[0-9a-f]+]] {{.*}} outOfLine 'int () const'
+// CHECK: FieldDecl {{.*}} cache 'int' mutable
 
 int S::outOfLine() const { return x; }
 // CHECK: CXXMethodDecl {{0x[0-9a-f]+}} parent {{0x[0-9a-f]+}} prev [[OOLDecl]] {{.*}} used outOfLine 'int () const'

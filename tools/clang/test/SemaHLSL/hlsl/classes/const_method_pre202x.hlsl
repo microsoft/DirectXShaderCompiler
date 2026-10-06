@@ -10,6 +10,8 @@ struct S {
   int getNC() { return x; }
 };
 
+mutable int pre202x; // expected-error {{'mutable' is a reserved keyword in HLSL}}
+
 cbuffer CB {
   S cs;
 };

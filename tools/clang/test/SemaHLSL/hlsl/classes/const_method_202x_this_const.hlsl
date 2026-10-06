@@ -7,6 +7,8 @@
 struct S {
   int x;
   int arr[4];
+  mutable int cache;
+  mutable int mutableArr[4];
 
   void modify(int v) const {     // expected-note 2 {{member function 'S::modify' is declared const here}}
     x = v;                       // expected-error {{cannot assign to non-static data member within const member function 'modify'}}
@@ -24,10 +26,17 @@ struct S {
     // Reading 'this' fields from a const method is fine.
     return x + arr[0];
   }
+
+  int updateCache(int v) const {
+    cache = v;
+    cache += 1;
+    mutableArr[0] = cache;
+    return mutableArr[0];
+  }
 };
 
 float4 main() : SV_Target {
-  S s = {1, {2, 3, 4, 5}};
+  S s = {1, {2, 3, 4, 5}, 0, {0, 0, 0, 0}};
   s.mutate(7);
-  return s.read();
+  return s.read() + s.updateCache(8);
 }
