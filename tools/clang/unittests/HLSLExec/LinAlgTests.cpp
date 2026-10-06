@@ -550,6 +550,8 @@ static HRESULT selectWaveMatMulWaveSize(ID3D12Device *Device,
       continue;
 
     linalg_test::WaveMatrixMultiplySupport Support;
+    const linalg_abi::D3D12_LINEAR_ALGEBRA_MATRIX_SHAPE Shape = {Params.M, K,
+                                                                 Params.N};
     HR = linalg_test::queryWaveMatrixMultiply(
         Device, {{WaveSize, *DataType, *DataType, *DataType}, Shape}, Support);
     if (FAILED(HR))
