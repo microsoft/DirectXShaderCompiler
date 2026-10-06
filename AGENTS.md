@@ -6,12 +6,16 @@
   operation before proposing a fix. Enumerate every limit, cutoff, cache, and
   heuristic on that path.
 - Check this fork before assuming an LLVM design flaw. DXC is based on LLVM
-  3.7, and local divergences are commonly marked `HLSL Change`; compare
-  suspicious behavior and constants with the LLVM 3.7 baseline.
+  3.7, and local divergences are commonly, but not always, marked
+  `HLSL Change`. Reconstruct the local pre-change behavior before reaching
+  outside the repository.
 - Inspect local history before designing a new mechanism. Run `git blame` on
   the hot line and use `git log -p -- <file>` and
   `git log -S<symbol> -- <file>` to find when and why it changed. Treat a
-  surprising tuning constant as a regression candidate first.
+  surprising tuning constant as a regression candidate first. Use
+  `git show <commit>^:<path>` to inspect the pre-change file. If a pristine
+  upstream comparison is still needed, consult the `llvmorg-3.7.1` tag in
+  `llvm/llvm-project`.
 - Check the scope of shared analysis settings. A file-scope limit changed for
   one pass can affect every consumer of that analysis. Enumerate the users and
   state the affected passes in the PR.
