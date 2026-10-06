@@ -8849,14 +8849,14 @@ void HLSLExternalSource::InitializeInitSequenceForHLSL(
            Args.front()->getStmtClass() == Stmt::InitListExprClass),
       "otherwise caller is passing in incorrect initialization configuration");
 
-  bool isCast = Kind.isCStyleCast();
+  bool isCast = Kind.isExplicitCast() && !Kind.isFunctionalCast();
   QualType destType = Entity.getType();
   ArTypeObjectKind destShape = GetTypeObjectKind(destType);
 
   // Direct initialization occurs for explicit constructor arguments.
   // E.g.: http://en.cppreference.com/w/cpp/language/direct_initialization
   if (Kind.getKind() == InitializationKind::IK_Direct &&
-      destShape == AR_TOBJ_COMPOUND && !Kind.isCStyleOrFunctionalCast()) {
+      destShape == AR_TOBJ_COMPOUND && !Kind.isExplicitCast()) {
     m_sema->Diag(Kind.getLocation(),
                  diag::err_hlsl_require_numeric_base_for_ctor);
     SilenceSequenceDiagnostics(initSequence);
@@ -8908,7 +8908,7 @@ void HLSLExternalSource::InitializeInitSequenceForHLSL(
 
     ExprResult expr = ExprResult(firstArg);
     Sema::CheckedConversionKind cck =
-        Kind.isExplicitCast()
+        Kind.isCStyleOrFunctionalCast()
             ? Sema::CheckedConversionKind::CCK_CStyleCast
             : Sema::CheckedConversionKind::CCK_ImplicitConversion;
     unsigned int msg = 0;
@@ -8919,7 +8919,7 @@ void HLSLExternalSource::InitializeInitSequenceForHLSL(
     ics.setStandard();
     bool castWorked = TryStaticCastForHLSL(
         expr, destType, cck, range, msg, castKind, basePath,
-        ListInitializationFalse, SuppressWarningsFalse, SuppressErrorsTrue,
+        ListInitializationFalse, Kind.isExplicitCast(), SuppressErrorsTrue,
         &ics.Standard);
     if (castWorked) {
       if (destType.getCanonicalType() ==
@@ -11569,7 +11569,8 @@ bool HLSLExternalSource::TryStaticCastForHLSL(
            "caller should check for invalid expressions and placeholder types");
   bool explicitConversion =
       (CCK == Sema::CCK_CStyleCast || CCK == Sema::CCK_FunctionalCast);
-  bool suppressWarnings = explicitConversion || SuppressWarnings;
+  bool suppressWarnings =
+      explicitConversion || CCK == Sema::CCK_OtherCast || SuppressWarnings;
   SourceLocation loc = OpRange.getBegin();
   if (ValidateCast(loc, SrcExpr.get(), DestType, explicitConversion,
                    suppressWarnings, SuppressErrors, standard)) {

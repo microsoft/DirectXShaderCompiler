@@ -43,6 +43,8 @@ line upon naming the release. Refer to previous for appropriate section names.
 
 #### HLSL Language
 
+- HLSL 202x now supports `static_cast`
+  ([#8977](https://github.com/microsoft/DirectXShaderCompiler/issues/8977)).
 - The `shared` and `uniform` keywords are removed in HLSL 202x, with
   compatibility warnings available for earlier language versions
   [#8482](https://github.com/microsoft/DirectXShaderCompiler/issues/8482).
