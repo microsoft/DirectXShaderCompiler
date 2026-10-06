@@ -10965,18 +10965,25 @@ bool Sema::buildOverloadedCallSet(Scope *S, Expr *Fn,
     // We do want to allow argument-dependent lookup for intrinsic
     // function names inside the "vk" namespace (which are by definition
     // qualified names).
-    bool isVkNamespace =
-        ULE->getQualifier() &&
-        ULE->getQualifier()->getKind() == NestedNameSpecifier::Namespace &&
-        ULE->getQualifier()->getAsNamespace()->getName() == "vk";
+    NestedNameSpecifier *Qualifier = ULE->getQualifier();
+    NamespaceDecl *Namespace = nullptr;
+    if (Qualifier && Qualifier->getKind() == NestedNameSpecifier::Namespace)
+      Namespace = Qualifier->getAsNamespace();
 
-    bool isDxNamespace =
-        ULE->getQualifier() &&
-        ULE->getQualifier()->getKind() == NestedNameSpecifier::Namespace &&
-        ULE->getQualifier()->getAsNamespace()->getName() == "dx";
+    const bool isRootNamespace =
+        Namespace && Namespace->getDeclContext()->isTranslationUnit();
 
-    assert((!ULE->getQualifier() || isVkNamespace || isDxNamespace) &&
-           "expected vk or dx qualified name with ADL");
+    const bool isVkNamespace = isRootNamespace && Namespace->getName() == "vk";
+
+    const bool isDxNamespace = isRootNamespace && Namespace->getName() == "dx";
+
+    const bool isHLSLNamespace =
+        getLangOpts().HLSLVersion >= hlsl::LangStd::v202x && isRootNamespace &&
+        Namespace->getName() == "hlsl";
+
+    assert((!ULE->getQualifier() || isVkNamespace || isDxNamespace ||
+            isHLSLNamespace) &&
+           "expected vk, dx, or hlsl qualified name with ADL");
     // HLSL Change Ends
 
     // We don't perform ADL for implicit declarations of builtins.

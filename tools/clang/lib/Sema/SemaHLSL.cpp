@@ -4424,6 +4424,8 @@ public:
                                 /*Inline*/ false, SourceLocation(),
                                 SourceLocation(), &context.Idents.get("vk"),
                                 /*PrevDecl*/ nullptr);
+      m_vkNSDecl->setImplicit();
+      m_vkNSDecl->setHasExternalLexicalStorage(true);
       context.getTranslationUnitDecl()->addDecl(m_vkNSDecl);
     }
 #endif // ENABLE_SPIRV_CODEGEN
@@ -4443,6 +4445,13 @@ public:
       AddVkIntrinsicConstants();
     }
 #endif // ENABLE_SPIRV_CODEGEN
+
+    // Note: Under HLSL 202x, HLSL built-in intrinsic functions live in the
+    // implicit `hlsl` namespace created above and *no* implicit
+    // `using namespace hlsl;` directive is injected. Unqualified references
+    // to HLSL intrinsics therefore fail to resolve under 202x; user code is
+    // expected to use the `hlsl::` qualifier. See
+    // https://hlsl-tc57.github.io/tc57/proposal/0009/.
   }
 
   void ForgetSema() override { m_sema = nullptr; }
@@ -5486,27 +5495,37 @@ public:
     const bool isQualified = ULE->getQualifier();
 
     const bool isGlobalNamespace =
-        ULE->getQualifier() &&
+        isQualified &&
         ULE->getQualifier()->getKind() == NestedNameSpecifier::Global;
 
-    const bool isVkNamespace =
-        ULE->getQualifier() &&
-        ULE->getQualifier()->getKind() == NestedNameSpecifier::Namespace &&
-        ULE->getQualifier()->getAsNamespace()->getName() == "vk";
+    NamespaceDecl *QualifiedNamespace = nullptr;
+    if (isQualified &&
+        ULE->getQualifier()->getKind() == NestedNameSpecifier::Namespace)
+      QualifiedNamespace = ULE->getQualifier()->getAsNamespace();
 
-    const bool isDxNamespace =
-        ULE->getQualifier() &&
-        ULE->getQualifier()->getKind() == NestedNameSpecifier::Namespace &&
-        ULE->getQualifier()->getAsNamespace()->getName() == "dx";
+    const bool isVkNamespace = QualifiedNamespace && m_vkNSDecl &&
+                               QualifiedNamespace->getOriginalNamespace() ==
+                                   m_vkNSDecl->getOriginalNamespace();
 
-    // Intrinsics live in the global namespace, so references to their names
-    // should be either unqualified or '::'-prefixed.
+    const bool isDxNamespace = QualifiedNamespace && m_dxNSDecl &&
+                               QualifiedNamespace->getOriginalNamespace() ==
+                                   m_dxNSDecl->getOriginalNamespace();
+
+    const bool isHlslNamespace = QualifiedNamespace && m_hlslNSDecl &&
+                                 QualifiedNamespace->getOriginalNamespace() ==
+                                     m_hlslNSDecl->getOriginalNamespace();
+
+    // HLSL intrinsics live in the global namespace, so references to their
+    // names should be either unqualified or '::'-prefixed.
     // Exceptions:
     // - Vulkan-specific intrinsics live in the 'vk::' namespace.
     // - DirectX-specific intrinsics live in the 'dx::' namespace.
+    // - Under HLSL 202x, HLSL intrinsics live exclusively in the 'hlsl::'
+    //   namespace and unqualified references must not resolve to them.
     // - Global namespaces could just mean we have a `using` declaration... so
     // it can be anywhere!
-    if (isQualified && !isGlobalNamespace && !isVkNamespace && !isDxNamespace)
+    if (isQualified && !isGlobalNamespace && !isVkNamespace && !isDxNamespace &&
+        !isHlslNamespace)
       return false;
 
     const DeclarationNameInfo declName = ULE->getNameInfo();
@@ -5526,20 +5545,39 @@ public:
 
     bool SearchDX = isDxNamespace;
     bool SearchVK = isVkNamespace;
-    if (isGlobalNamespace || !isQualified)
-      SearchTables.push_back(
-          IntrinsicTableEntry{IntrinsicArray(g_Intrinsics), m_hlslNSDecl});
+    bool SearchHlslViaUsing = false;
 
     if (S && !isQualified) {
       SmallVector<const DeclContext *, 4> NSContexts;
       m_sema->CollectNamespaceContexts(S, NSContexts);
-      for (const auto &UD : NSContexts) {
-        if (static_cast<DeclContext *>(m_dxNSDecl) == UD)
+      for (const DeclContext *UD : NSContexts) {
+        const DeclContext *PrimaryContext = UD->getPrimaryContext();
+        if (m_dxNSDecl->getPrimaryContext() == PrimaryContext)
           SearchDX = true;
-        else if (static_cast<DeclContext *>(m_vkNSDecl) == UD)
+        else if (m_vkNSDecl &&
+                 m_vkNSDecl->getPrimaryContext() == PrimaryContext)
           SearchVK = true;
+        else if (m_hlslNSDecl &&
+                 m_hlslNSDecl->getPrimaryContext() == PrimaryContext)
+          SearchHlslViaUsing = true;
       }
     }
+
+    // Under HLSL 202x, HLSL intrinsics live exclusively in the implicit
+    // `hlsl` namespace and unqualified references must not resolve to them
+    // unless the program has nominated `hlsl` via an explicit
+    // `using namespace hlsl;` directive reachable from the current scope.
+    // Pre-202x, intrinsics are treated as residing at translation-unit scope
+    // and unqualified references continue to work without a using-directive.
+    const bool intrinsicsRequireHlslQualifier =
+        m_sema->getLangOpts().HLSLVersion >= hlsl::LangStd::v202x;
+    const bool searchHlslIntrinsics =
+        intrinsicsRequireHlslQualifier
+            ? isHlslNamespace || (!isQualified && SearchHlslViaUsing)
+            : isGlobalNamespace || !isQualified;
+    if (searchHlslIntrinsics)
+      SearchTables.push_back(
+          IntrinsicTableEntry{IntrinsicArray(g_Intrinsics), m_hlslNSDecl});
 
     if (SearchDX)
       SearchTables.push_back(
@@ -5550,7 +5588,8 @@ public:
           IntrinsicTableEntry{IntrinsicArray(g_VkIntrinsics), m_vkNSDecl});
 #endif
 
-    assert(!SearchTables.empty() && "Must have at least one search table!");
+    if (SearchTables.empty())
+      return false;
 
     for (const auto &T : SearchTables) {
 
@@ -5636,15 +5675,18 @@ public:
   bool Initialize(ASTContext &context) {
     m_context = &context;
 
-    // The HLSL namespace is disabled here pending a decision on
-    // https://github.com/microsoft/hlsl-specs/issues/484.
-    if (false && context.getLangOpts().HLSLVersion >= hlsl::LangStd::v202x) {
+    // Under HLSL 202x the built-in HLSL intrinsic functions are placed in the
+    // 'hlsl' namespace, mirroring Clang's HLSL implementation. See
+    // https://hlsl-tc57.github.io/tc57/proposal/0009/.
+    if (context.getLangOpts().HLSLVersion >= hlsl::LangStd::v202x) {
       m_hlslNSDecl =
           NamespaceDecl::Create(context, context.getTranslationUnitDecl(),
                                 /*Inline*/ false, SourceLocation(),
                                 SourceLocation(), &context.Idents.get("hlsl"),
                                 /*PrevDecl*/ nullptr);
       m_hlslNSDecl->setImplicit();
+      m_hlslNSDecl->setHasExternalLexicalStorage(true);
+      context.getTranslationUnitDecl()->addDecl(m_hlslNSDecl);
     }
     AddBaseTypes();
     AddHLSLScalarTypes();
