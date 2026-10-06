@@ -203,10 +203,14 @@ static HRESULT supportsMatrixShape(
     return E_INVALIDARG;
 
   linalg_test::MatrixConstructionSupport Construction;
-  const HRESULT HR = linalg_test::queryMatrixConstruction(
-      Device, {Type, *CapabilityUse, *CapabilityScope, WaveSize,
-               ThreadGroupSize, {Rows, Columns}},
-      Construction);
+  const HRESULT HR = linalg_test::queryMatrixConstruction(Device,
+                                                          {Type,
+                                                           *CapabilityUse,
+                                                           *CapabilityScope,
+                                                           WaveSize,
+                                                           ThreadGroupSize,
+                                                           {Rows, Columns}},
+                                                          Construction);
   if (FAILED(HR))
     return HR;
   Supported = Construction.supported();
@@ -297,8 +301,7 @@ static HRESULT collectMatrixConstructionWaveSizes(
 
     bool AllRolesSupported = true;
     for (const MatrixUse Use : Uses) {
-      const UINT QueryWaveSize =
-          Params.Scope == MatrixScope::Wave ? WaveSize : 0;
+      const UINT QueryWaveSize = WaveSize;
       const UINT QueryThreadGroupSize =
           Params.Scope == MatrixScope::ThreadGroup
               ? static_cast<UINT>(Params.NumThreads)
@@ -3611,7 +3614,10 @@ void LinAlgCapabilityTests::CapabilityPolicyAndPredicates() {
   MatrixConstructionQuery ConstructionQuery = {
       linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT32,
       linalg_abi::D3D12_LINEAR_ALGEBRA_MATRIX_USE_A,
-      linalg_abi::D3D12_LINEAR_ALGEBRA_MATRIX_SCOPE_WAVE, 32, 0, {8, 8}};
+      linalg_abi::D3D12_LINEAR_ALGEBRA_MATRIX_SCOPE_WAVE,
+      32,
+      0,
+      {8, 8}};
   WaveMatrixMultiplyInputs WaveInputs = {
       32,
       linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT16,
@@ -3636,13 +3642,11 @@ void LinAlgCapabilityTests::CapabilityPolicyAndPredicates() {
   AtomicAccumulateStoreQuery AtomicQuery = {
       linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT16};
   VERIFY_ARE_EQUAL(32u, ConstructionQuery.WaveSize);
-      VERIFY_ARE_EQUAL(
-          linalg_abi::D3D12_LINEAR_ALGEBRA_MATRIX_USE_A,
-          ConstructionQuery.Use);
-      VERIFY_ARE_EQUAL(
-          linalg_abi::D3D12_LINEAR_ALGEBRA_MATRIX_SCOPE_WAVE,
-          ConstructionQuery.Scope);
-      VERIFY_ARE_EQUAL(8u, ConstructionQuery.Shape.N);
+  VERIFY_ARE_EQUAL(linalg_abi::D3D12_LINEAR_ALGEBRA_MATRIX_USE_A,
+                   ConstructionQuery.Use);
+  VERIFY_ARE_EQUAL(linalg_abi::D3D12_LINEAR_ALGEBRA_MATRIX_SCOPE_WAVE,
+                   ConstructionQuery.Scope);
+  VERIFY_ARE_EQUAL(8u, ConstructionQuery.Shape.N);
   VERIFY_ARE_EQUAL(32u, WaveQuery.Inputs.WaveSize);
   VERIFY_ARE_EQUAL(16u, WaveQuery.Shape.M);
   VERIFY_ARE_EQUAL(32u, ThreadGroupQuery.WaveInputs.WaveSize);
@@ -5738,25 +5742,22 @@ static HRESULT selectCopyConvertWaveSize(ID3D12Device *Device,
       continue;
 
     bool SourceSupported = false;
-    HR = supportsMatrixShape(
-        Device, *SourceType,
-        Params.Scope == MatrixScope::Wave ? WaveSize : 0,
-        Params.Scope == MatrixScope::ThreadGroup
-            ? static_cast<UINT>(Params.NumThreads)
-            : 0,
-        MatrixUse::A, Params.Scope, Params.M, Params.N, SourceSupported);
+    HR = supportsMatrixShape(Device, *SourceType, WaveSize,
+                             Params.Scope == MatrixScope::ThreadGroup
+                                 ? static_cast<UINT>(Params.NumThreads)
+                                 : 0,
+                             MatrixUse::A, Params.Scope, Params.M, Params.N,
+                             SourceSupported);
     if (FAILED(HR))
       return HR;
 
     bool DestinationSupported = false;
-    HR = supportsMatrixShape(
-        Device, *DestinationType,
-        Params.Scope == MatrixScope::Wave ? WaveSize : 0,
-        Params.Scope == MatrixScope::ThreadGroup
-            ? static_cast<UINT>(Params.NumThreads)
-            : 0,
-        MatrixUse::A, Params.Scope, Destination.M, Destination.N,
-        DestinationSupported);
+    HR = supportsMatrixShape(Device, *DestinationType, WaveSize,
+                             Params.Scope == MatrixScope::ThreadGroup
+                                 ? static_cast<UINT>(Params.NumThreads)
+                                 : 0,
+                             MatrixUse::A, Params.Scope, Destination.M,
+                             Destination.N, DestinationSupported);
     if (FAILED(HR))
       return HR;
 
@@ -6466,6 +6467,7 @@ static bool isMatrixMultiplyCaseValid(const MatrixMultiplyCase &Case) {
 
 static HRESULT matrixMultiplyRolesConstructible(
     ID3D12Device *Device, const MatrixMultiplyCase &Case, UINT WaveSize,
+    MatrixScope Scope, UINT ThreadGroupSize,
     linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE MatrixAType,
     linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE MatrixBType,
     linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE AccumulatorType,
@@ -6486,7 +6488,7 @@ static HRESULT matrixMultiplyRolesConstructible(
   for (const ConstructionRole &Role : Roles) {
     bool RoleConstructible = false;
     const HRESULT HR = supportsMatrixShape(
-        Device, Role.Type, WaveSize, 0, Role.Use, MatrixScope::Wave,
+        Device, Role.Type, WaveSize, ThreadGroupSize, Role.Use, Scope,
         Role.Rows, Role.Columns, RoleConstructible);
     if (FAILED(HR))
       return HR;
@@ -6542,9 +6544,9 @@ static HRESULT collectWaveArithmeticMultiplyWaveSizes(
       continue;
 
     bool RolesConstructible = false;
-    HR = matrixMultiplyRolesConstructible(Device, Case, WaveSize, MatrixAType,
-                                          MatrixBType, AccumulatorType,
-                                          RolesConstructible);
+    HR = matrixMultiplyRolesConstructible(
+        Device, Case, WaveSize, MatrixScope::Wave, 0, MatrixAType, MatrixBType,
+        AccumulatorType, RolesConstructible);
     if (FAILED(HR))
       return HR;
     if (!RolesConstructible)
@@ -6805,14 +6807,6 @@ static HRESULT selectThreadGroupMatMulConfiguration(
         Candidate.N,
     };
 
-    bool RolesConstructible = false;
-    HR = matrixMultiplyRolesConstructible(Device, Candidate, WaveSize,
-                                          MatrixAType, MatrixBType,
-                                          AccumulatorType, RolesConstructible);
-    VERIFY_SUCCEEDED(HR, "Matrix role construction query must succeed");
-    if (!RolesConstructible)
-      continue;
-
     linalg_test::ThreadGroupMatrixMultiplySupport Multiply;
     HR = linalg_test::queryThreadGroupMatrixMultiply(
         Device, {{WaveSize, MatrixAType, MatrixBType, AccumulatorType}, Shape},
@@ -6831,6 +6825,14 @@ static HRESULT selectThreadGroupMatMulConfiguration(
           Multiply.MaxThreadGroupSize, Multiply.PreferredThreadGroupSize);
       continue;
     }
+
+    bool RolesConstructible = false;
+    HR = matrixMultiplyRolesConstructible(
+        Device, Candidate, WaveSize, MatrixScope::ThreadGroup, ThreadGroupSize,
+        MatrixAType, MatrixBType, AccumulatorType, RolesConstructible);
+    VERIFY_SUCCEEDED(HR, "Matrix role construction query must succeed");
+    if (!RolesConstructible)
+      continue;
 
     hlsl_test::LogCommentFmt(
         L"ThreadGroup matrix arithmetic capability matched wave=%u, "
@@ -9600,7 +9602,7 @@ void DxilConf_SM610_LinAlg::LoadStoreMemory_ThreadGroup_WaveScaled_F16() {
 
     bool Supported = false;
     const HRESULT QueryResult = supportsMatrixShape(
-        D3DDevice, linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT16, 0,
+        D3DDevice, linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT16, WaveSize,
         static_cast<UINT>(Params.NumThreads), Params.Use,
         MatrixScope::ThreadGroup, Params.M, Params.N, Supported);
     if (FAILED(QueryResult)) {
