@@ -8700,12 +8700,17 @@ void SpirvEmitter::assignToMSOutAttribute(
   // All other attribute writes are handled below.
   auto *varInstr = declIdMapper.getStageVarInstruction(decl);
   QualType valueType = value->getAstResultType();
-  if (valueType->isBooleanType() &&
+  if (isBoolOrVecOfBoolType(valueType) &&
       semanticInfo.getKind() != hlsl::Semantic::Kind::CullPrimitive) {
     // Externally visible variables are changed to uint, so we need to cast the
     // value to uint.
-    value = castToInt(value, valueType, astContext.UnsignedIntTy, loc);
-    valueType = astContext.UnsignedIntTy;
+    uint32_t size = 1;
+    isVectorType(valueType, nullptr, &size);
+    auto storageType =
+        size == 1 ? astContext.UnsignedIntTy
+                  : astContext.getExtVectorType(astContext.UnsignedIntTy, size);
+    value = castToInt(value, valueType, storageType, loc);
+    valueType = storageType;
   }
   varInstr = spvBuilder.createAccessChain(valueType, varInstr, indices, loc);
   if (semanticInfo.semantic->GetKind() == hlsl::Semantic::Kind::Position) {
