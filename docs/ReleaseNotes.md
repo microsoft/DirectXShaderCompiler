@@ -62,6 +62,9 @@ line upon naming the release. Refer to previous for appropriate section names.
   [#8964](https://github.com/microsoft/DirectXShaderCompiler/issues/8964).
 - Add `static_assert` matching C++11 and C++17 under HLSL 202x
   ([#8910](https://github.com/microsoft/DirectXShaderCompiler/issues/8910)).
+- Added `constexpr` variables and functions, including relaxed function-body
+  rules, in HLSL 202x
+  [#8909](https://github.com/microsoft/DirectXShaderCompiler/issues/8909).
 
 #### Bug Fixes
 
