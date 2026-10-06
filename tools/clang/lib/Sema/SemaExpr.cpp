@@ -3540,7 +3540,7 @@ ExprResult Sema::ActOnNumericConstant(const Token &Tok, Scope *UDLScope) {
       if (Val < std::numeric_limits<uint32_t>::max())
         Width = 32;
       uint64_t MSB = 1ull << (Width - 1);
-      if ((Val & MSB) != 0)
+      if (!Literal.isUnsigned && (Val & MSB) != 0)
         Diag(Tok.getLocation(),
              diag::warn_hlsl_legacy_integer_literal_signedness);
     }
@@ -3702,7 +3702,7 @@ ExprResult Sema::ActOnNumericConstant(const Token &Tok, Scope *UDLScope) {
     // HLSL Change Begin - 202x integer warnings.
     if (Literal.getRadix() != 10) {
       uint64_t Val = ResultVal.getLimitedValue();
-      if ((Val & MSB) != 0)
+      if (!Literal.isUnsigned && (Val & MSB) != 0)
         Diag(Tok.getLocation(),
              diag::warn_hlsl_legacy_integer_literal_signedness);
     }
