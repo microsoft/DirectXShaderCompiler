@@ -1579,11 +1579,11 @@ void addHeapRawUAV(st::ShaderOp *Op, const char *HeapName, const char *ResName,
   // A raw view counts 32-bit words, so a byte size that is not a whole number
   // of words cannot be represented and would silently round down.
   VERIFY_IS_TRUE(ViewBytes % 4 == 0,
-                 L"raw UAV view size must be a multiple of 4 bytes");
+                 "raw UAV view size must be a multiple of 4 bytes");
   // NumElements is 32 bits, so a larger view cannot be described at all and
   // narrowing would silently bind a shorter one.
   VERIFY_IS_TRUE(ViewBytes / 4 <= UINT_MAX,
-                 L"raw UAV view size exceeds what NumElements can describe");
+                 "raw UAV view size exceeds what NumElements can describe");
 
   st::ShaderOpDescriptor D = {};
   D.Name = Op->Strings.insert(ResName);
@@ -1703,9 +1703,8 @@ UINT getLinAlgMatrixByteSize(ID3D12Device *Device, UINT NumRows,
   Info.DestDataType = DataType;
   LinAlgDevice->GetLinearAlgebraMatrixConversionDestinationInfo(&Info);
   VERIFY_IS_TRUE(Info.DestSize != 0,
-                 L"Device reported no destination size for the requested "
-                 L"linear algebra matrix layout");
-
+                 "Device reported no destination size for the requested "
+                 "linear algebra matrix layout");
   return Info.DestSize;
 }
 
