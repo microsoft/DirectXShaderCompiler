@@ -3900,6 +3900,7 @@ SpirvInstruction *SpirvEmitter::doCastExpr(const CastExpr *expr,
     }
   }
   case CastKind::CK_ToVoid:
+    doExpr(subExpr, range);
     return nullptr;
   case CastKind::CK_VK_BufferPointerToIntegral: {
     return spvBuilder.createConvertPtrToU(doExpr(subExpr, range), toType);

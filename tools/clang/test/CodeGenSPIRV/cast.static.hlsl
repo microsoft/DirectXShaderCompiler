@@ -21,6 +21,8 @@ RWStructuredBuffer<float4> float_output : register(u0);
 RWStructuredBuffer<int4> int_output : register(u1);
 RWStructuredBuffer<float2x2> matrix_output : register(u2);
 RWStructuredBuffer<uint> uint_output : register(u3);
+RWStructuredBuffer<Derived> derived_output : register(u4);
+RWStructuredBuffer<Base> base_output : register(u5);
 
 // NUMERIC: [[INPUT:%[0-9]+]] = OpLoad %v4float
 // NUMERIC: [[INTS:%[0-9]+]] = OpConvertFToS %v4int [[INPUT]]
@@ -56,9 +58,10 @@ void matrix_casts(uint3 dispatch_id : SV_DispatchThreadID) {
 }
 
 // SHAPE: [[INPUT:%[0-9]+]] = OpLoad %v4float
-// SHAPE: [[TRUNC:%[0-9]+]] = OpVectorShuffle %v2float [[INPUT]] [[INPUT]] 0 1
 // SHAPE: [[X:%[0-9]+]] = OpCompositeExtract %float [[INPUT]] 0
-// SHAPE: [[SPLAT:%[0-9]+]] = OpCompositeConstruct %v4float [[X]] [[X]] [[X]] [[X]]
+// SHAPE: [[Y:%[0-9]+]] = OpCompositeExtract %float [[INPUT]] 1
+// SHAPE: [[RESULT:%[0-9]+]] = OpCompositeConstruct %v4float [[X]] [[Y]] [[X]] [[X]]
+// SHAPE: OpStore {{%[0-9]+}} [[RESULT]]
 [numthreads(1, 1, 1)]
 void shape_casts(uint3 dispatch_id : SV_DispatchThreadID) {
   float4 input = float_output[dispatch_id.x];
@@ -67,18 +70,18 @@ void shape_casts(uint3 dispatch_id : SV_DispatchThreadID) {
   float_output[dispatch_id.x] = float4(truncated, splat.zw);
 }
 
-// STRUCT: [[DERIVED:%[0-9]+]] = OpCompositeConstruct %Derived
-// STRUCT: [[BASE:%[0-9]+]] = OpCompositeExtract %Base [[DERIVED]] 0
-// STRUCT: [[VALUE:%[0-9]+]] = OpCompositeExtract %float [[BASE]] 0
-// STRUCT: OpStore {{%[0-9]+}} [[VALUE]]
+// STRUCT: [[INDEX:%[0-9]+]] = OpCompositeExtract %uint
+// STRUCT: [[DERIVED_PTR:%[0-9]+]] = OpAccessChain %_ptr_Uniform_Derived %derived_output %int_0 [[INDEX]]
+// STRUCT: [[BASE_PTR:%[0-9]+]] = OpAccessChain %_ptr_Uniform_Base [[DERIVED_PTR]] %uint_0
+// STRUCT: [[VALUE_PTR:%[0-9]+]] = OpAccessChain %_ptr_Uniform_float [[BASE_PTR]] %uint_0
+// STRUCT: [[VALUE:%[0-9]+]] = OpLoad %float [[VALUE_PTR]]
+// STRUCT: [[BASE:%[0-9]+]] = OpCompositeConstruct %Base [[VALUE]]
+// STRUCT: OpStore {{%[0-9]+}} [[BASE]]
 [numthreads(1, 1, 1)]
 void struct_casts(uint3 dispatch_id : SV_DispatchThreadID) {
-  Derived derived;
-  derived.value = float_output[dispatch_id.x].x;
-  derived.extra = float_output[dispatch_id.x].y;
+  Derived derived = derived_output[dispatch_id.x];
   Base base = static_cast<Base>(derived);
-  Base copy = static_cast<Base>(base);
-  float_output[dispatch_id.x].x = copy.value;
+  base_output[dispatch_id.x] = static_cast<Base>(base);
 }
 
 uint increment() {
