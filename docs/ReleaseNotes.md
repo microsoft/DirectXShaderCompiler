@@ -53,6 +53,9 @@ line upon naming the release. Refer to previous for appropriate section names.
 - HLSL 202x now supports variadic templates and template function parameter
   packs, pack expansions, and `sizeof...()`
   [#8905](https://github.com/microsoft/DirectXShaderCompiler/issues/8905).
+- HLSL 202x disallows initializers on variables in explicit and implicit
+  constant buffers and texture buffers
+  [#8483](https://github.com/microsoft/DirectXShaderCompiler/issues/8483).
 - HLSL 202x disallows putting cbuffer, tbuffer, or namespace declarations inside
   a cbuffer or tbuffer
   [#8484](https://github.com/microsoft/DirectXShaderCompiler/issues/8484).
@@ -64,6 +67,9 @@ line upon naming the release. Refer to previous for appropriate section names.
   [#8964](https://github.com/microsoft/DirectXShaderCompiler/issues/8964).
 - Add `static_assert` matching C++11 and C++17 under HLSL 202x
   ([#8910](https://github.com/microsoft/DirectXShaderCompiler/issues/8910)).
+- Fix HLSL 202x conforming literals false-positive warning for hex literal
+  signedness
+  ([#7864](https://github.com/microsoft/DirectXShaderCompiler/issues/7864)).
 
 #### Bug Fixes
 
