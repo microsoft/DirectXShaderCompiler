@@ -113,6 +113,11 @@ part of the next non-preview release.
 - Fixed undefined behavior in DXC IntelliSense caused by the uninitialized
   `ExpandTokPastingArg` preprocessor option, which made token-pasting
   behavior indeterminate.
+- Numeric global and constant buffer variables whose type is written as a
+  template-id (for example `W<int>`, `vector<float, 4>`, or
+  `matrix<float, 2, 2>`) are now implicitly `const` like other numeric globals;
+  assigning to them is now a compile error instead of a compiler crash
+  [#8966](https://github.com/microsoft/DirectXShaderCompiler/issues/8966).
 
 #### HLSL Language
 
