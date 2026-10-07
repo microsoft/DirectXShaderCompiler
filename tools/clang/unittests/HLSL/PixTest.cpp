@@ -1512,7 +1512,7 @@ float main() : SV_Target
   ValidateAccessTrackingMods(hlsl, true);
 }
 
-std::vector<std::string> Split(std::string str, char delimeter);
+std::vector<std::string> Split(std::string str, char delimiter);
 
 static std::string JoinLines(std::vector<std::string> const &lines) {
   std::string joined;
@@ -1523,12 +1523,37 @@ static std::string JoinLines(std::vector<std::string> const &lines) {
   return joined;
 }
 
-static bool HasBufferStoreWithByteOffset(std::vector<std::string> const &lines,
+static bool HasBufferStoreWithByteOffset(const std::vector<std::string> &lines,
                                          unsigned byteOffset) {
-  std::string needle = "i32 " + std::to_string(byteOffset);
-  for (auto const &line : lines) {
-    if (line.find("dx.op.bufferStore") != std::string::npos &&
-        line.find(needle) != std::string::npos) {
+  const std::string handleType = "%dx.types.Handle";
+  const std::string expectedOffset = std::to_string(byteOffset);
+  for (const std::string &line : lines) {
+    const std::size_t storePosition = line.find("dx.op.bufferStore");
+    if (storePosition == std::string::npos) {
+      continue;
+    }
+
+    const std::size_t handlePosition = line.find(handleType, storePosition);
+    if (handlePosition == std::string::npos) {
+      continue;
+    }
+
+    const std::size_t offsetTypePosition =
+        line.find("i32 ", handlePosition + handleType.length());
+    if (offsetTypePosition == std::string::npos) {
+      continue;
+    }
+
+    const std::size_t offsetPosition = offsetTypePosition + 4;
+    const std::size_t offsetEnd =
+        line.find_first_not_of("0123456789", offsetPosition);
+    if (offsetEnd == offsetPosition || offsetEnd == std::string::npos) {
+      continue;
+    }
+
+    if ((line[offsetEnd] == ',' || line[offsetEnd] == ')') &&
+        line.compare(offsetPosition, offsetEnd - offsetPosition,
+                     expectedOffset) == 0) {
       return true;
     }
   }
@@ -1646,10 +1671,11 @@ void RayGen()
 }
 )";
 
-  auto compiled = Compile(m_dllSupport, hlsl, L"lib_6_6", {L"-Od"});
-  auto output = RunShaderAccessTrackingPass(
+  CComPtr<IDxcBlob> compiled =
+      Compile(m_dllSupport, hlsl, L"lib_6_6", {L"-Od"});
+  PassOutput output = RunShaderAccessTrackingPass(
       compiled, L"S0:0:4i0;M0:20:4i0;U0:40:4i0;.0;0;0.");
-  auto lines = Split(Disassemble(output.blob), '\n');
+  std::vector<std::string> lines = Split(Disassemble(output.blob), '\n');
   VERIFY_IS_TRUE(HasBufferStoreWithByteOffset(lines, 264));
   verifyInstrumentedModuleIsValid(
       output.blob, "shader access tracking of a library sampler access");
@@ -4855,13 +4881,13 @@ int ExtractMetaInt32Value(std::string const &token) {
   return -1;
 }
 
-std::vector<std::string> Split(std::string str, char delimeter) {
+std::vector<std::string> Split(std::string str, char delimiter) {
   std::vector<std::string> lines;
 
   auto const *p = str.data();
   auto const *justPastPreviousDelimiter = p;
   while (p < str.data() + str.length()) {
-    if (*p == delimeter) {
+    if (*p == delimiter) {
       lines.emplace_back(std::string(justPastPreviousDelimiter,
                                      p - justPastPreviousDelimiter));
       justPastPreviousDelimiter = p + 1;
@@ -5345,8 +5371,21 @@ float4 main(float4 pos : SV_Position) : SV_Target
     return textures[index].Sample(samp, pos.xy);
 })x";
 
-  auto compiled = Compile(m_dllSupport, source, L"ps_6_0", {L"-Od"});
-  auto output = RunShaderAccessTrackingPass(compiled);
+  CComPtr<IDxcBlob> compiled =
+      Compile(m_dllSupport, source, L"ps_6_0", {L"-Od"});
+  PassOutput output = RunShaderAccessTrackingPass(
+      compiled, L"S0:0:8i0;M0:8:1i0;U0:9:1i0;.0;0;0.");
+  const std::string instrumentedModule = Disassemble(output.blob);
+  bool hasBufferStore = false;
+  const std::vector<std::string> instrumentedLines =
+      Split(instrumentedModule, '\n');
+  for (const std::string &line : instrumentedLines) {
+    if (line.find("dx.op.bufferStore") != std::string::npos) {
+      hasBufferStore = true;
+      break;
+    }
+  }
+  VERIFY_IS_TRUE(hasBufferStore);
   verifyInstrumentedModuleIsValid(
       output.blob, "shader access tracking of a dynamically indexed resource");
 }
