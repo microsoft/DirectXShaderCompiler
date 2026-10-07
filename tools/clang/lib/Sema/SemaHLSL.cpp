@@ -11159,8 +11159,14 @@ HLSLExternalSource::CheckVectorConditional(ExprResult &Cond, ExprResult &LHS,
                        rightObjectKind == AR_TOBJ_MATRIX;
 
   if (!leftIsSimple || !rightIsSimple) {
-    if (leftObjectKind == AR_TOBJ_OBJECT && leftObjectKind == AR_TOBJ_OBJECT) {
+    if (leftObjectKind == AR_TOBJ_OBJECT && rightObjectKind == AR_TOBJ_OBJECT) {
       if (leftType == rightType) {
+        // As for the other types, the result is not an lvalue, so it can't be
+        // assigned to.
+        if (LHS.get()->isLValue())
+          LHS.set(CreateLValueToRValueCast(LHS.get()));
+        if (RHS.get()->isLValue())
+          RHS.set(CreateLValueToRValueCast(RHS.get()));
         return leftType;
       }
     }
