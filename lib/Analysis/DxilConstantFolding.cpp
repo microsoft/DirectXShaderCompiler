@@ -192,10 +192,9 @@ static Constant *ConstantFoldUnaryFPIntrinsic(OP::OpCode opcode, Type *Ty,
   case OP::OpCode::Exp:
     return DxilConstantFoldFP(exp2, Op, Ty);
   case OP::OpCode::Frc: {
-    NativeFPUnaryOp f = [](double x) {
-      double unused;
-      return fabs(modf(x, &unused));
-    };
+    // frac(x) = x - floor(x), so negative inputs also give a result in
+    // [+0, 1), the same as the front end's folding of the frac intrinsic
+    NativeFPUnaryOp f = [](double x) { return x - floor(x); };
     return DxilConstantFoldFP(f, Op, Ty);
   }
   case OP::OpCode::Log:
