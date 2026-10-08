@@ -520,6 +520,14 @@ bool IsHLSLRayQueryType(clang::QualType type);
 bool GetHLSLNodeIORecordType(const clang::ParmVarDecl *parmDecl,
                              NodeFlags &nodeKind);
 
+/// Returns the DXIL ResourceKind for this type, or ResourceKind::Invalid if
+/// not an HLSL resource type.
+DXIL::ResourceKind GetHLSLResourceKind(clang::QualType type);
+
+/// Returns the DXIL ResourceClass for this type, or ResourceClass::Invalid if
+/// not an HLSL resource type.
+DXIL::ResourceClass GetHLSLResourceClass(clang::QualType type);
+
 bool IsArrayConstantStringType(const clang::QualType type);
 bool IsPointerStringType(const clang::QualType type);
 bool IsStringType(const clang::QualType type);

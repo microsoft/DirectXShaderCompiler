@@ -40,6 +40,10 @@
 // CHECK: %SIMS_u1 = OpVariable %_ptr_UniformConstant_type_subpass_image_2 UniformConstant
 [[vk::input_attachment_index(13)]] SubpassInputMS<uint>   SIMS_u1;
 
+struct SubpassInputMSBundle {
+        SubpassInputMS<float3> input;
+};
+
 float4 ReadSourceFromTile(SubpassInput spi) {
   return spi.SubpassLoad() ;
 }
@@ -89,5 +93,9 @@ float4 main() : SV_Target {
 // CHECK-NEXT:                  OpStore %v13 [[val_4]]
     uint   v13 = SIMS_u1.SubpassLoad(4);
 
-    return v0.x + v1.y + v2.x + v3 + v4.x + v10.x + v11.y + v12.x + v13;
+    SubpassInputMSBundle bundle;
+    bundle.input = SIMS_f3;
+    float3 v14 = bundle.input.SubpassLoad(2);
+
+    return v0.x + v1.y + v2.x + v3 + v4.x + v10.x + v11.y + v12.x + v13 + v14.z;
 }

@@ -113,6 +113,12 @@ part of the next non-preview release.
 - Fixed undefined behavior in DXC IntelliSense caused by the uninitialized
   `ExpandTokPastingArg` preprocessor option, which made token-pasting
   behavior indeterminate.
+- SPIR-V: Fixed user-defined types whose names match built-in types being
+  incorrectly lowered as the built-in type.
+- SPIR-V: 16-bit sampled types on `vk::SampledTexture` are rejected as required
+  by VUID-StandaloneSpirv-OpTypeImage-04656.
+- SPIR-V: Added support for multisampled UAV types fixing miscompiles in
+  previous releases.
 
 #### HLSL Language
 

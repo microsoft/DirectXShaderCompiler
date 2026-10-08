@@ -6532,10 +6532,13 @@ SpirvEmitter::processBufferTextureLoad(const CXXMemberCallExpr *expr) {
 
   auto loc = expr->getExprLoc();
   auto range = expr->getSourceRange();
-  if (isBuffer(objectType) || isRWBuffer(objectType) || isRWTexture(objectType))
+  if (isBuffer(objectType) || isRWBuffer(objectType) ||
+      isRWTexture(objectType)) {
+    auto *sample = textureMS ? doExpr(expr->getArg(1)) : nullptr;
     return processBufferTextureLoad(object, doExpr(locationArg),
-                                    /*constOffset*/ nullptr, /*lod*/ nullptr,
+                                    /*constOffset*/ nullptr, /*lod*/ sample,
                                     /*residencyCode*/ status, loc, range);
+  }
 
   // Subtract 1 for status (if it exists), and 1 for sampleIndex (if it exists),
   // and 1 for location.
@@ -6613,7 +6616,8 @@ SpirvEmitter::doCXXOperatorCallExpr(const CXXOperatorCallExpr *expr,
     // For Textures, regular indexing (operator[]) uses slice 0.
     if (isBufferTextureIndexing(expr, &baseExpr, &indexExpr)) {
       auto *lod = (isTexture(baseExpr->getType()) ||
-                   isSampledTexture(baseExpr->getType()))
+                   isSampledTexture(baseExpr->getType()) ||
+                   isTextureMS(baseExpr->getType()))
                       ? spvBuilder.getConstantInt(astContext.UnsignedIntTy,
                                                   llvm::APInt(32, 0))
                       : nullptr;
@@ -7941,7 +7945,8 @@ bool SpirvEmitter::isTextureMipsSampleIndexing(const CXXOperatorCallExpr *expr,
 
   const Expr *object = memberExpr->getBase();
   const auto objectType = object->getType();
-  if (!isTexture(objectType) && !isSampledTexture(objectType))
+  if (!isTexture(objectType) && !isRWTexture(objectType) &&
+      !isSampledTexture(objectType))
     return false;
 
   if (base)
@@ -8434,11 +8439,20 @@ SpirvInstruction *SpirvEmitter::tryToAssignToRWBufferRWTexture(
     const Expr *lhs, SpirvInstruction *rhs, SourceRange range) {
   const Expr *baseExpr = nullptr;
   const Expr *indexExpr = nullptr;
+  const Expr *sampleExpr = nullptr;
   const auto lhsExpr = dyn_cast<CXXOperatorCallExpr>(lhs);
-  if (isBufferTextureIndexing(lhsExpr, &baseExpr, &indexExpr)) {
+  if (isTextureMipsSampleIndexing(lhsExpr, &baseExpr, &indexExpr,
+                                  &sampleExpr) ||
+      isBufferTextureIndexing(lhsExpr, &baseExpr, &indexExpr)) {
     auto *loc = doExpr(indexExpr, range);
     const QualType imageType = baseExpr->getType();
     auto *baseInfo = doExpr(baseExpr, range);
+    auto *sample =
+        sampleExpr ? doExpr(sampleExpr, range)
+                   : (isTextureMS(imageType)
+                          ? spvBuilder.getConstantInt(astContext.UnsignedIntTy,
+                                                      llvm::APInt(32, 0))
+                          : nullptr);
 
     const bool rasterizerOrder = isRasterizerOrderedView(imageType);
     if (rasterizerOrder) {
@@ -8451,8 +8465,8 @@ SpirvInstruction *SpirvEmitter::tryToAssignToRWBufferRWTexture(
     if (baseInfo->isLValue())
       image = spvBuilder.createLoad(imageType, baseInfo, baseExpr->getExprLoc(),
                                     range);
-    spvBuilder.createImageWrite(imageType, image, loc, rhs, lhs->getExprLoc(),
-                                range);
+    spvBuilder.createImageWrite(imageType, image, loc, rhs, sample,
+                                lhs->getExprLoc(), range);
 
     if (rasterizerOrder) {
       spvBuilder.createEndInvocationInterlockEXT(baseExpr->getExprLoc(), range);
