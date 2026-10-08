@@ -1054,7 +1054,7 @@ bool isOpaqueType(QualType type) {
       resKind == hlsl::DXIL::ResourceKind::RTAccelerationStructure ||
       hlsl::IsHLSLRayQueryType(type))
     return true;
-  if (isSubpassInput(type))
+  if (isSubpassInput(type) || isSubpassInputMS(type))
     return true;
   return false;
 }
