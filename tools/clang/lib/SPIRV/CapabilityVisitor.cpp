@@ -130,7 +130,8 @@ void CapabilityVisitor::addCapabilityForType(const SpirvType *type,
   }
   // Image types
   else if (const auto *imageType = dyn_cast<ImageType>(type)) {
-    if (imageType->isArrayedImage() && imageType->isMSImage())
+    if (imageType->isArrayedImage() && imageType->isMSImage() &&
+        imageType->withSampler() == ImageType::WithSampler::No)
       addCapability(spv::Capability::ImageMSArray);
 
     switch (imageType->getDimension()) {
