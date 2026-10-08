@@ -15,7 +15,7 @@ void main() {
   __builtin_LinAlgMatrix [[__LinAlgMatrix_Attributes(2, 5, 4, 1, 2)]] mat1;
   __builtin_LinAlgMatrix [[__LinAlgMatrix_Attributes(4, 5, 4, 1, 2)]] mat2;
 
-  __builtin_LinAlg_FillMatrix(mat1, true, 1);
+  dx::__builtin_LinAlg_FillMatrix(mat1, true, 1);
 
-  __builtin_LinAlg_CopyConvertMatrix(mat2, mat1, false);
+  dx::__builtin_LinAlg_CopyConvertMatrix(mat2, mat1, false);
 }

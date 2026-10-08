@@ -806,6 +806,9 @@ def HLSLParameterUsage : DiagGroup<"parameter-usage">;
 def HLSLAvailability: DiagGroup<"hlsl-availability">;
 def HLSLAvailabilityConstant: DiagGroup<"hlsl-availability-constant">;
 def HLSLBarrier : DiagGroup<"hlsl-barrier">;
+def HLSLBufferInitializer : DiagGroup<"hlsl-buffer-initializer">;
+def HLSLGroupSharedInitializer :
+    DiagGroup<"hlsl-groupshared-initializer">;
 
 // HLSL 2026 compatibility warnings: these warn on code in older language modes
 // that changes meaning or becomes illegal in HLSL 2026.
@@ -816,5 +819,8 @@ def HLSL2026Compat
                                      HLSL2026RemovedKeywords]>;
 
 def HLSLGroupshared202x : DiagGroup<"hlsl-groupshared-202x">;
-def HLSL202xExtensions : DiagGroup<"hlsl-202x-extensions", [HLSLGroupshared202x]>;
+def HLSLFoldExpressions : DiagGroup<"hlsl-fold-expressions">;
+def HLSL202xExtensions
+    : DiagGroup<"hlsl-202x-extensions", [HLSLFoldExpressions,
+                                         HLSLGroupshared202x]>;
 // HLSL Change Ends

@@ -63,7 +63,9 @@ bool Sema::CanUseDecl(NamedDecl *D) {
 
     // If the function has a deduced return type, and we can't deduce it,
     // then we can't use it either.
-    if (getLangOpts().CPlusPlus14 && FD->getReturnType()->isUndeducedType() &&
+    // HLSL Change - HLSL supports C++14-style deduced return types.
+    if ((getLangOpts().CPlusPlus14 || getLangOpts().HLSL) &&
+        FD->getReturnType()->isUndeducedType() &&
         DeduceReturnType(FD, SourceLocation(), /*Diagnose*/ false))
       return false;
   }
@@ -366,8 +368,9 @@ bool Sema::DiagnoseUseOfDecl(NamedDecl *D, SourceLocation Loc,
 
     // If the function has a deduced return type, and we can't deduce it,
     // then we can't use it either.
-    if (getLangOpts().CPlusPlus14 && FD->getReturnType()->isUndeducedType() &&
-        DeduceReturnType(FD, Loc))
+    // HLSL Change - HLSL supports C++14-style deduced return types.
+    if ((getLangOpts().CPlusPlus14 || getLangOpts().HLSL) &&
+        FD->getReturnType()->isUndeducedType() && DeduceReturnType(FD, Loc))
       return true;
   }
   DiagnoseAvailabilityOfDecl(*this, D, Loc, UnknownObjCClass,
@@ -3537,7 +3540,7 @@ ExprResult Sema::ActOnNumericConstant(const Token &Tok, Scope *UDLScope) {
       if (Val < std::numeric_limits<uint32_t>::max())
         Width = 32;
       uint64_t MSB = 1ull << (Width - 1);
-      if ((Val & MSB) != 0)
+      if (!Literal.isUnsigned && (Val & MSB) != 0)
         Diag(Tok.getLocation(),
              diag::warn_hlsl_legacy_integer_literal_signedness);
     }
@@ -3699,7 +3702,7 @@ ExprResult Sema::ActOnNumericConstant(const Token &Tok, Scope *UDLScope) {
     // HLSL Change Begin - 202x integer warnings.
     if (Literal.getRadix() != 10) {
       uint64_t Val = ResultVal.getLimitedValue();
-      if ((Val & MSB) != 0)
+      if (!Literal.isUnsigned && (Val & MSB) != 0)
         Diag(Tok.getLocation(),
              diag::warn_hlsl_legacy_integer_literal_signedness);
     }

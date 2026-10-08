@@ -693,6 +693,18 @@ struct LlvmInst_ExtractValue {
   bool isAllowed() const { return true; }
 };
 
+/// This instruction inserts into aggregate
+struct LlvmInst_InsertValue {
+  llvm::Instruction *Instr;
+  // Construction and identification
+  LlvmInst_InsertValue(llvm::Instruction *pInstr) : Instr(pInstr) {}
+  operator bool() const {
+    return Instr->getOpcode() == llvm::Instruction::InsertValue;
+  }
+  // Validation support
+  bool isAllowed() const { return true; }
+};
+
 /// This instruction represents a landing pad
 struct LlvmInst_LandingPad {
   llvm::Instruction *Instr;

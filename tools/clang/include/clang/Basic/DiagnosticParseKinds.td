@@ -279,6 +279,10 @@ def warn_cxx98_compat_generalized_initializer_lists : Warning<
   InGroup<CXX98Compat>, DefaultIgnore;
 def err_hlsl_compat_generalized_initializer_lists : Error<
   "generalized initializer lists are incompatible with HLSL">;
+def warn_hlsl_fold_expression
+    : Warning<"fold expressions are a C++17 extension and are not part of "
+              "standard HLSL">,
+      InGroup<HLSLFoldExpressions>;
 def err_init_list_bin_op : Error<"initializer list cannot be used on the "
   "%select{left|right}0 hand side of operator '%1'">;
 def warn_cxx98_compat_trailing_return_type : Warning<
@@ -1018,6 +1022,9 @@ def err_hlsl_expected_hlsl_attribute : Error <
   "Unexpected '(' in semantic annotation. Did you mean 'packoffset()' or 'register()'?">;
 def err_hlsl_enum : Error<
   "enum is unsupported in HLSL before 2017">;
+def err_hlsl_const_member_function_202x
+    : Error<"const-qualified member functions are unsupported in HLSL before "
+            "202x">;
 def warn_hlsl_new_feature : Warning <
   "%0 is a HLSL %1 feature, and is available in older versions as a non-portable extension.">;
 

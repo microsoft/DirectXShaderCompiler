@@ -1136,21 +1136,22 @@ HRESULT queryMatrixConstruction(ID3D12Device *Device,
       linalg_abi::D3D12_LINEAR_ALGEBRA_OPERATION_TYPE_MATRIX_CONSTRUCTION);
   RuntimeSupport.MatrixConstruction.ComponentType =
       static_cast<UINT>(Query.ComponentType);
+  RuntimeSupport.MatrixConstruction.Use = Query.Use;
+  RuntimeSupport.MatrixConstruction.Scope = Query.Scope;
   RuntimeSupport.MatrixConstruction.WaveSize = Query.WaveSize;
-  RuntimeSupport.MatrixConstruction.Shape = {
-      Query.Shape.M,
-      Query.Shape.K,
-      Query.Shape.N,
-  };
+  RuntimeSupport.MatrixConstruction.ThreadGroupSize = Query.ThreadGroupSize;
+  RuntimeSupport.MatrixConstruction.Shape = {Query.Shape.M, Query.Shape.N};
 
   const HRESULT HR = Device->CheckFeatureSupport(
       linalg_abi::D3D12_FEATURE_LINEAR_ALGEBRA_MATRIX_OPERATION_SUPPORT,
       &RuntimeSupport, sizeof(RuntimeSupport));
   if (FAILED(HR)) {
-    LogCommentFmt(L"MatrixConstruction query failed: type=%s, wave=%u, "
-                  L"shape=(%u,%u,%u), hr=0x%08x",
-                  dataTypeName(Query.ComponentType), Query.WaveSize,
-                  Query.Shape.M, Query.Shape.K, Query.Shape.N, HR);
+    LogCommentFmt(
+        L"MatrixConstruction query failed: type=%s, use=%u, scope=%u, "
+        L"wave=%u, group=%u, shape=(%u,%u), hr=0x%08x",
+        dataTypeName(Query.ComponentType), static_cast<UINT>(Query.Use),
+        static_cast<UINT>(Query.Scope), Query.WaveSize, Query.ThreadGroupSize,
+        Query.Shape.M, Query.Shape.N, HR);
     return HR;
   }
 
@@ -1163,11 +1164,12 @@ HRESULT queryMatrixConstruction(ID3D12Device *Device,
     return E_UNEXPECTED;
   }
 
-  LogCommentFmt(L"MatrixConstruction query: type=%s, wave=%u, "
-                L"shape=(%u,%u,%u), supported=%u",
-                dataTypeName(Query.ComponentType), Query.WaveSize,
-                Query.Shape.M, Query.Shape.K, Query.Shape.N,
-                Support.supported());
+  LogCommentFmt(
+      L"MatrixConstruction query: type=%s, use=%u, scope=%u, wave=%u, "
+      L"group=%u, shape=(%u,%u), supported=%u",
+      dataTypeName(Query.ComponentType), static_cast<UINT>(Query.Use),
+      static_cast<UINT>(Query.Scope), Query.WaveSize, Query.ThreadGroupSize,
+      Query.Shape.M, Query.Shape.N, Support.supported());
   return S_OK;
 }
 

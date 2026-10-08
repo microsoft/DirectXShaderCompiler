@@ -1,18 +1,18 @@
 // RUN: %clang_cc1 -fsyntax-only -Wno-unused-value -ffreestanding -HV 2018 -verify %s
 
-float f_arr_empty_init[] = { 1, 2, 3 };
+float f_arr_empty_init[] = { 1, 2, 3 };    /* expected-warning {{initializer for a variable in a cbuffer will be ignored}} */
 float f_arr_empty_pack[] = { 1, 2 ... }; // expected-error {{expansion is unsupported in HLSL}}
 
 struct s_arr_i_f { int i; float f; };
-s_arr_i_f arr_struct_none[] = { }; // TODO: this should fail - see comments in HLSLExternalSource::InitializeInitSequenceForHLSL
-s_arr_i_f arr_struct_one[] = { 1, 2 };
+s_arr_i_f arr_struct_none[] = { }; // TODO: this should fail - see comments in HLSLExternalSource::InitializeInitSequenceForHLSL    /* expected-warning {{initializer for a variable in a cbuffer will be ignored}} */
+s_arr_i_f arr_struct_one[] = { 1, 2 };    /* expected-warning {{initializer for a variable in a cbuffer will be ignored}} */
 s_arr_i_f arr_struct_incomplete[] = { 1, 2, 3 }; // expected-error {{too few elements in vector initialization (expected 4 elements, have 3)}}
-s_arr_i_f arr_struct_two[] = { 1, 2, 3, 4 };
+s_arr_i_f arr_struct_two[] = { 1, 2, 3, 4 };    /* expected-warning {{initializer for a variable in a cbuffer will be ignored}} */
 
 int g_int;
 typeof(g_int) g_typeof_int; // expected-error {{HLSL requires a type specifier for all declarations}} expected-error {{expected ';' after top level declarator}} expected-error {{unknown type name 'typeof'; did you mean 'typedef'?}}
 typedef int (*fn_int)(int); // expected-error {{pointers are unsupported in HLSL}}
-auto g_auto = 3; // auto is now supported in HLSL via type deduction; no error expected
+auto g_auto = 3; // auto is now supported in HLSL via type deduction; no error expected    /* expected-warning {{initializer for a variable in a cbuffer will be ignored}} */
 __is_signed g_is_signed; // expected-error {{'__is_signed' is a reserved keyword in HLSL}} expected-error {{HLSL requires a type specifier for all declarations}}
 register int g_register; // expected-error {{'register' is a reserved keyword in HLSL}}
 __thread int g_thread; // expected-error {{'__thread' is a reserved keyword in HLSL}}
@@ -56,7 +56,7 @@ struct s_with_friend {
   friend void some_fn(); // expected-error {{'friend' is a reserved keyword in HLSL}}
 };
 
-typedef int (*fn_int_const)(int) const; // expected-error {{expected ';' after top level declarator}} expected-error {{pointers are unsupported in HLSL}} expected-warning {{declaration does not declare anything}}
+typedef int (*fn_int_const)(int) const; // expected-error {{const-qualified member functions are unsupported in HLSL before 202x}} expected-error {{pointers are unsupported in HLSL}}
 typedef int (*fn_int_volatile)(int) volatile; // expected-error {{'volatile' is a reserved keyword in HLSL}} expected-error {{expected ';' after top level declarator}} expected-error {{pointers are unsupported in HLSL}} expected-warning {{declaration does not declare anything}}
 
 void fn_throw() throw() { } // expected-error {{exception specification is unsupported in HLSL}}
@@ -321,7 +321,7 @@ struct forward_struct; // this fails in fxc, but we allow it now
 struct my_struct_type_decl { int a; } my_struct_var_decl;
 struct my_struct_type_decl_parens { int a; } (my_struct_var_decl_parens); // expected-error {{HLSL requires a type specifier for all declarations}} expected-error {{expected ';' after struct}}
 struct my_struct_type_const { int a; } const my_struct_type_var; // // expected-error {{HLSL requires a type specifier for all declarations}} expected-error {{expected ';' after struct}}
-struct my_struct_type_init { int a; } my_struct_type_init_one = { 1 }, my_struct_type_init_two = { 2 };
+struct my_struct_type_init { int a; } my_struct_type_init_one = { 1 }, my_struct_type_init_two = { 2 };    /* expected-warning 2 {{initializer for a variable in a cbuffer will be ignored}} */
 struct my_struct_type_static { int a; } static my_struct_type_static; // expected-error {{expected ';' after struct}} expected-warning {{declaration does not declare anything}}
 struct { int my_anon_struct_field; } my_anon_struct_type;
 

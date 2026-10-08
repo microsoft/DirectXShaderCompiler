@@ -14,7 +14,7 @@ void main() {
   // CHECK2-SAME: (i32 422, <4 x i32>* %result1, <4 x float> %{{.*}}, i32 9, i32 4)
   float4 vec1 = {9.0, 8.0, 7.0, 6.0};
   int4 result1;
-  __builtin_LinAlg_Convert(result1, vec1, 9, 4);
+  dx::__builtin_LinAlg_Convert(result1, vec1, 9, 4);
 
   // CHECK: %{{.*}} = call <4 x i64> @dx.op.linAlgConvert.v4i64.v4f64
   // CHECK-SAME: (i32 341, <4 x double> <double 9.000000e+00, double 8.000000e+00, double 7.000000e+00, double 6.000000e+00>, i32 10, i32 6)
@@ -24,7 +24,7 @@ void main() {
   // CHECK2-SAME: (i32 422, <4 x i64>* %result2, <4 x double> %{{.*}}, i32 10, i32 6)
   double4 vec2 = {9.0, 8.0, 7.0, 6.0};
   vector<int64_t, 4> result2;
-  __builtin_LinAlg_Convert(result2, vec2, 10, 6);
+  dx::__builtin_LinAlg_Convert(result2, vec2, 10, 6);
 
   // CHECK: %{{.*}} = call <4 x i64> @dx.op.linAlgConvert.v4i64.v4f64
   // CHECK-SAME: (i32 341, <4 x double> <double 9.000000e+00, double 8.000000e+00, double 7.000000e+00, double 6.000000e+00>, i32 10, i32 7)
@@ -34,5 +34,5 @@ void main() {
   // CHECK2-SAME: (i32 422, <4 x i64>* %result3, <4 x double> %{{.*}}, i32 10, i32 7)
   double4 vec3 = {9.0, 8.0, 7.0, 6.0};
   vector<uint64_t, 4> result3;
-  __builtin_LinAlg_Convert(result3, vec3, 10, 7);
+  dx::__builtin_LinAlg_Convert(result3, vec3, 10, 7);
 }
