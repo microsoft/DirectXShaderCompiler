@@ -74,6 +74,12 @@ line upon naming the release. Refer to previous for appropriate section names.
 - Fixed an optimizer crash when scalarizing an out-of-bounds vector access
   [#8940](https://github.com/microsoft/DirectXShaderCompiler/issues/8940).
 
+#### SPIR-V
+
+- SPIR-V debug info now reports source columns from the original source
+  rather than from preprocessed output
+  [#9022](https://github.com/microsoft/DirectXShaderCompiler/issues/9022).
+
 ### Upcoming Preview Release
 
 These changes apply to experimental preview shader models only and will not be
