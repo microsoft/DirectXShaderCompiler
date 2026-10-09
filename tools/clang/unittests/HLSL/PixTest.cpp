@@ -4935,7 +4935,14 @@ float4 main(float4 pos : SV_Position) : SV_Target
   const std::vector<std::string> instrumentedLines =
       Split(instrumentedModule, '\n');
   for (const std::string &line : instrumentedLines) {
-    if (line.find("dx.op.bufferStore") != std::string::npos) {
+    const std::size_t storePosition = line.find("dx.op.bufferStore");
+    const std::size_t handlePosition =
+        line.find("%dx.types.Handle", storePosition);
+    if (storePosition != std::string::npos &&
+        handlePosition != std::string::npos &&
+        line.find("i32 %OffsetByteIndex",
+                  handlePosition + std::string("%dx.types.Handle").length()) !=
+            std::string::npos) {
       hasBufferStore = true;
       break;
     }

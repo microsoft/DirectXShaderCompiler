@@ -16,7 +16,9 @@
 
 // CHECK-NOT: bufferStore.i32(i32 69, %dx.types.Handle {{.*}}, i32 16,
 // CHECK: call void @dx.op.bufferStore.i32(i32 69, %dx.types.Handle {{.*}}, i32 12,
+// CHECK-NOT: bufferStore.i32(i32 69, %dx.types.Handle {{.*}}, i32 16,
 // CHECK: call void @dx.op.bufferStore.i32(i32 69, %dx.types.Handle {{.*}}, i32 292, i32 undef, i32 1962934272,
+// CHECK-NOT: bufferStore.i32(i32 69, %dx.types.Handle {{.*}}, i32 16,
 // CHECK: call void @dx.op.bufferStore.i32(i32 69, %dx.types.Handle {{.*}}, i32 28,
 // CHECK-NOT: bufferStore.i32(i32 69, %dx.types.Handle {{.*}}, i32 16,
 
