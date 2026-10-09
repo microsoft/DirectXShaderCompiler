@@ -1,0 +1,93 @@
+// RUN: %dxc -T cs_6_6 -E main -Od -fspv-use-descriptor-heap -fspv-target-env=vulkan1.3 -spirv %s | FileCheck %s
+// RUN: %dxc -T cs_6_6 -E main -Od -fspv-use-descriptor-heap -fspv-target-env=vulkan1.3 -spirv %s | FileCheck %s --check-prefix=COUNT
+
+// Verifies the default descriptor-heap array stride.
+//
+// The HLSL SM6.6 ResourceDescriptorHeap is a single flat array in which the
+// client may place any resource descriptor at any slot. To match DX12
+// semantics, all resource descriptor arrays must share one stride equal to
+// the largest resource descriptor size: max(sizeof(image), sizeof(buffer)).
+// Images and buffers are the two resource descriptor categories defined by
+// VkPhysicalDeviceDescriptorHeapPropertiesEXT (imageDescriptorSize /
+// bufferDescriptorSize); textures lower to OpTypeImage, so image/buffer
+// covers all relevant HLSL resource kinds.
+//
+// NOTE: This covers the case with no RaytracingAccelerationStructures.
+// When present, the stride formula expands to a three-way max:
+// max(max(sizeof(image), sizeof(buffer)), sizeof(accelerationStructure)).
+//
+// Both sizes are driver defined and known only at pipeline creation time, so
+// the maximum is computed with OpSpecConstantOp over two OpConstantSizeOfEXT
+// placeholders.
+//
+// The sampler heap holds a single descriptor type, so its stride is simply the
+// sampler descriptor size.
+//
+// OpConstantSizeOfEXT result type is %uint.
+
+// CHECK-DAG: %[[UntypedPtrType:[a-zA-Z0-9_]+]] = OpTypeUntypedPointerKHR UniformConstant
+
+// Element (descriptor) types.
+// CHECK-DAG:      %[[SBBufDesc:[a-zA-Z0-9_]+]] = OpTypeBufferEXT StorageBuffer
+// CHECK-DAG:       %[[UBufDesc:[a-zA-Z0-9_]+]] = OpTypeBufferEXT Uniform
+// CHECK-DAG:    %[[SamplerDesc:[a-zA-Z0-9_]+]] = OpTypeSampler
+
+// Two distinct OpTypeImage types appear in the output:
+//
+// 1) ImgPlaceholder: a canonical sampled 2D float image used only as
+//   the operand to OpConstantSizeOfEXT.
+//
+// 2) TexDesc: the actual lowered type for Texture2D<float4>.
+//   This is the element type of the texture heap runtime array.
+//
+// CHECK-DAG: %[[ImgPlaceholder:[a-zA-Z0-9_]+]] = OpTypeImage %float 2D 0 0 0 1 Unknown
+// CHECK-DAG:        %[[TexDesc:[a-zA-Z0-9_]+]] = OpTypeImage %float 2D 2 0 0 1 Unknown
+
+// Heap runtime arrays of the accessed element types.
+// CHECK-DAG:     %[[SBBufArray:[a-zA-Z0-9_]+]] = OpTypeRuntimeArray %[[SBBufDesc]]
+// CHECK-DAG:      %[[UBufArray:[a-zA-Z0-9_]+]] = OpTypeRuntimeArray %[[UBufDesc]]
+// CHECK-DAG:       %[[TexArray:[a-zA-Z0-9_]+]] = OpTypeRuntimeArray %[[TexDesc]]
+// CHECK-DAG:   %[[SamplerArray:[a-zA-Z0-9_]+]] = OpTypeRuntimeArray %[[SamplerDesc]]
+
+// Resource stride = max(image_size, buffer_size); sampler stride = sampler_size.
+// The size query uses ImgPlaceholder (depth=0); the driver returns the same
+// imageDescriptorSize regardless of which image subtype is used as the operand.
+// CHECK-DAG:        %[[ImgSize:[a-zA-Z0-9_]+]] = OpConstantSizeOfEXT %uint %[[ImgPlaceholder]]
+// CHECK-DAG:        %[[BufSize:[a-zA-Z0-9_]+]] = OpConstantSizeOfEXT %uint %[[UBufDesc]]
+// CHECK-DAG:      %[[ImgBigger:[a-zA-Z0-9_]+]] = OpSpecConstantOp %bool UGreaterThan %[[ImgSize]] %[[BufSize]]
+// CHECK-DAG:        %[[ResSize:[a-zA-Z0-9_]+]] = OpSpecConstantOp %uint Select %[[ImgBigger]] %[[ImgSize]] %[[BufSize]]
+// CHECK-DAG:       %[[SampSize:[a-zA-Z0-9_]+]] = OpConstantSizeOfEXT %uint %[[SamplerDesc]]
+
+// Every resource runtime array shares the one resource stride. 
+// The sampler array just uses the sampler size as it's stride.
+// CHECK-DAG:                                     OpDecorateId %[[SBBufArray]] ArrayStrideIdEXT %[[ResSize]]
+// CHECK-DAG:                                     OpDecorateId %[[UBufArray]] ArrayStrideIdEXT %[[ResSize]]
+// CHECK-DAG:                                     OpDecorateId %[[TexArray]] ArrayStrideIdEXT %[[ResSize]]
+// CHECK-DAG:                                     OpDecorateId %[[SamplerArray]] ArrayStrideIdEXT %[[SampSize]]
+
+// Three distinct OpConstantSizeOfEXT calls exist: ImgPlaceholder, Uniform
+// buffer, and sampler, each asserted by a CHECK-DAG above. Regression test: no
+// per-element or per-access behavior; otherwise the StorageBuffer descriptor
+// would be measured too, adding a fourth query.
+// COUNT-DAG: %[[SBBufDesc:[a-zA-Z0-9_]+]] = OpTypeBufferEXT StorageBuffer{{$}}
+// COUNT-NOT: OpConstantSizeOfEXT %uint %[[SBBufDesc]]
+
+struct Constants {
+  uint value;
+};
+
+RWStructuredBuffer<float4> output : register(u0);
+
+[numthreads(1, 1, 1)]
+void main(uint3 tid : SV_DispatchThreadID) {
+  StructuredBuffer<uint> sbuf = ResourceDescriptorHeap[0];
+  ByteAddressBuffer babuf = ResourceDescriptorHeap[1];
+  Texture2D<float4> tex = ResourceDescriptorHeap[2];
+  ConstantBuffer<Constants> cbuf = ResourceDescriptorHeap[3];
+  ConstantBuffer<Constants> cbuf2 = ResourceDescriptorHeap[3];
+  
+  SamplerState samp = SamplerDescriptorHeap[0];
+
+  float4 color = tex.SampleLevel(samp, float2(0, 0), 0);
+  output[tid.x] = color + sbuf.Load(tid.x) + babuf.Load(tid.x * 4) + cbuf.value + cbuf2.value;
+}
