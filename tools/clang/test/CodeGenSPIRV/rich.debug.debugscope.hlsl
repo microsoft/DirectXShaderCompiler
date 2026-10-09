@@ -3,11 +3,12 @@
 // CHECK:  [[set:%[0-9]+]] = OpExtInstImport "OpenCL.DebugInfo.100"
 // CHECK: [[compUnit:%[0-9]+]] = OpExtInst %void [[set]] DebugCompilationUnit
 // CHECK: [[srcMain:%[0-9]+]] = OpExtInst %void [[set]] DebugFunction
-// CHECK: [[srcMainFnLexBlock:%[0-9]+]] = OpExtInst %void [[set]] DebugLexicalBlock {{%[0-9]+}} 17 1 [[srcMain]]
-// CHECK: [[whileLoopLexBlock:%[0-9]+]] = OpExtInst %void [[set]] DebugLexicalBlock {{%[0-9]+}} 37 3 [[srcMainFnLexBlock]]
-// CHECK: [[ifStmtLexBlock:%[0-9]+]] = OpExtInst %void [[set]] DebugLexicalBlock {{%[0-9]+}} 44 20 [[whileLoopLexBlock]]
-// CHECK: [[tempLexBlock:%[0-9]+]] = OpExtInst %void [[set]] DebugLexicalBlock {{%[0-9]+}} 49 7 [[ifStmtLexBlock]]
-// CHECK: [[forLoopLexBlock:%[0-9]+]] = OpExtInst %void [[set]] DebugLexicalBlock {{%[0-9]+}} 22 12 [[srcMainFnLexBlock]]
+// CHECK: [[srcMainFnLexBlock:%[0-9]+]] = OpExtInst %void [[set]] DebugLexicalBlock {{%[0-9]+}} 18 1 [[srcMain]]
+// CHECK: [[whileLoopLexBlock:%[0-9]+]] = OpExtInst %void [[set]] DebugLexicalBlock {{%[0-9]+}} 40 3 [[srcMainFnLexBlock]]
+// CHECK: [[ifStmtLexBlock:%[0-9]+]] = OpExtInst %void [[set]] DebugLexicalBlock {{%[0-9]+}} 47 20 [[whileLoopLexBlock]]
+// CHECK: [[tempLexBlock:%[0-9]+]] = OpExtInst %void [[set]] DebugLexicalBlock {{%[0-9]+}} 52 7 [[ifStmtLexBlock]]
+// CHECK: [[forLoopParensLexBlock:%[0-9]+]] = OpExtInst %void [[set]] DebugLexicalBlock {{%[0-9]+}} 23 3 [[srcMainFnLexBlock]]
+// CHECK: [[forLoopLexBlock:%[0-9]+]] = OpExtInst %void [[set]] DebugLexicalBlock {{%[0-9]+}} 23 12 [[forLoopParensLexBlock]]
 // CHECK: [[main:%[0-9]+]] = OpExtInst %void [[set]] DebugFunction
 
 float4 main(float4 color : COLOR) : SV_TARGET
@@ -20,17 +21,19 @@ float4 main(float4 color : COLOR) : SV_TARGET
 
   float4 c = 0.xxxx;
   for (;;) {
+// CHECK:    %for_check = OpLabel
+// CHECK-NEXT: {{%[0-9]+}} = OpExtInst %void [[set]] DebugScope [[forLoopParensLexBlock]]
 // CHECK:     %for_body = OpLabel
 // CHECK-NEXT: {{%[0-9]+}} = OpExtInst %void [[set]] DebugScope [[forLoopLexBlock]]
     float4 a = 0.xxxx;
     float4 b = 1.xxxx;
     c = c + a + b;
 // CHECK: %for_continue = OpLabel
-// CHECK-NEXT: {{%[0-9]+}} = OpExtInst %void [[set]] DebugScope [[srcMainFnLexBlock]]
+// CHECK-NEXT: {{%[0-9]+}} = OpExtInst %void [[set]] DebugScope [[forLoopParensLexBlock]]
   }
 // CHECK:    %for_merge = OpLabel
+// CHECK-NEXT: {{%[0-9]+}} = OpExtInst %void [[set]] DebugScope [[forLoopParensLexBlock]]
 // CHECK-NEXT: {{%[0-9]+}} = OpExtInst %void [[set]] DebugScope [[srcMainFnLexBlock]]
-
 // CHECK:  %while_check = OpLabel
 // CHECK-NEXT: {{%[0-9]+}} = OpExtInst %void [[set]] DebugScope [[srcMainFnLexBlock]]
   while (c.x)
