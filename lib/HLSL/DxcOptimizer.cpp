@@ -43,6 +43,7 @@
 
 #include <algorithm>
 #include <list> // should change this for string_table
+#include <memory>
 #include <vector>
 
 #include "llvm/PassPrinters/PassPrinters.h"
@@ -518,14 +519,16 @@ HRESULT STDMETHODCALLTYPE DxcOptimizer::RunOptimizer(
 
       DXASSERT(PassInf->getNormalCtor(),
                "else pass with no default .ctor was added");
-      Pass *pass = PassInf->getNormalCtor()();
+      // Own the pass until the pass manager takes it, so it isn't leaked if
+      // applyOptions throws.
+      std::unique_ptr<Pass> pass(PassInf->getNormalCtor()());
       pass->setOSOverride(&outStream);
       pass->applyOptions(options);
       options.clear();
-      pPassManager->add(pass);
+      const PassKind Kind = pass->getPassKind();
+      pPassManager->add(pass.release());
       if (AnalyzeOnly) {
         const bool Quiet = false;
-        PassKind Kind = pass->getPassKind();
         switch (Kind) {
         case PT_BasicBlock:
           pPassManager->add(

@@ -27,7 +27,7 @@
 // See DxilMDHelper::EmitSignatureElement for the meaning of these entries:
 //             ID                 TypeF32 SemKin Sem-Idx-Vec           interp  Rows Cols   Row    Col
 //              |                     |     |       |                    |      |     |      |     |
-// CHECK: !{i32 0, !"SV_Position", i8 9, i8 3, ![[SEMIDXVEC:[0-9]*]], i8 2, i32 1, i8 4, i32 2, i8 0, null}
+// CHECK: !{i32 0, !"SV_Position", i8 9, i8 3, ![[SEMIDXVEC:[0-9]*]], i8 4, i32 1, i8 4, i32 2, i8 0, null}
 // CHECK: ![[SEMIDXVEC]] = !{i32 0}
 
 [RootSignature("")]
