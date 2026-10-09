@@ -31,6 +31,7 @@
 #include "llvm/ADT/APInt.h"
 #include "llvm/ADT/SetVector.h"
 #include "llvm/ADT/StringExtras.h"
+#include "llvm/ADT/StringSet.h"
 #include "llvm/Support/Casting.h"
 
 #ifdef SUPPORT_QUERY_GIT_COMMIT_INFO
@@ -847,18 +848,29 @@ void SpirvEmitter::HandleTranslationUnit(ASTContext &context) {
   // Add source instruction(s)
   if (spirvOptions.debugInfoSource || spirvOptions.debugInfoFile) {
     std::vector<llvm::StringRef> fileNames;
-    fileNames.clear();
+    llvm::StringSet<> seenFiles;
     const auto &sm = context.getSourceManager();
-    // Add each include file from preprocessor output
-    for (unsigned int i = 0; i < sm.getNumLineTableFilenames(); i++) {
-      llvm::StringRef file = sm.getLineTableFilename(i);
-      if (spirvOptions.debugInfoVulkan) {
-        getOrCreateRichDebugInfoImpl(file);
-      } else {
+    auto addFile = [&](llvm::StringRef file) {
+      if (!file.empty() && seenFiles.insert(file).second)
         fileNames.push_back(file);
-      }
+    };
+    // Add every file entered by the preprocessor.
+    for (unsigned i = 0, e = sm.local_sloc_entry_size(); i != e; ++i) {
+      const SrcMgr::SLocEntry &entry = sm.getLocalSLocEntry(i);
+      if (!entry.isFile())
+        continue;
+      const SrcMgr::ContentCache *cache = entry.getFile().getContentCache();
+      if (cache && cache->OrigEntry)
+        addFile(cache->OrigEntry->getName());
     }
-    if (!spirvOptions.debugInfoVulkan) {
+    // Add each file named by a #line directive.
+    if (sm.hasLineTable())
+      for (unsigned int i = 0; i < sm.getNumLineTableFilenames(); i++)
+        addFile(sm.getLineTableFilename(i));
+    if (spirvOptions.debugInfoVulkan) {
+      for (llvm::StringRef file : fileNames)
+        getOrCreateRichDebugInfoImpl(file);
+    } else {
       spvBuilder.setDebugSource(spvContext.getMajorVersion(),
                                 spvContext.getMinorVersion(), fileNames);
     }
