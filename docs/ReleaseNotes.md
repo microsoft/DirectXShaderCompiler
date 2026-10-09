@@ -63,6 +63,9 @@ line upon naming the release. Refer to previous for appropriate section names.
   to non-`const` methods on `const` objects, including objects in constant 
   buffers 
   [#8964](https://github.com/microsoft/DirectXShaderCompiler/issues/8964).
+- HLSL 202x supports `mutable` member variables in structs, allowing them to be
+  modified even in `const`-qualified instance methods
+  ([#8965](https://github.com/microsoft/DirectXShaderCompiler/issues/8965)).
 - Add `static_assert` matching C++11 and C++17 under HLSL 202x
   ([#8910](https://github.com/microsoft/DirectXShaderCompiler/issues/8910)).
 - Fix HLSL 202x conforming literals false-positive warning for hex literal

@@ -7937,6 +7937,10 @@ def err_hlsl_unsupported_object_context
 def err_hlsl_unsupported_declaration_in_buffer
     : Error<"unsupported declaration %0 in %select{tbuffer|cbuffer}1 "
             "declaration">;
+def err_hlsl_mutable_field_in_constant_buffer
+    : Error<"'mutable' field %0 is not allowed in constant or texture buffer data">;
+def err_hlsl_mutable_field_in_readonly_structured_buffer
+    : Error<"'mutable' field %0 is not allowed in read-only structured buffer data">;
 def err_hlsl_logical_binop_scalar : Error<
    "operands for short-circuiting logical binary operator must be scalar, for non-scalar types use '%select{and|or}0'">;
 def err_hlsl_ternary_scalar : Error<
