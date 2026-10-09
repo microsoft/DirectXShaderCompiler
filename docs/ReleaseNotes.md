@@ -73,6 +73,8 @@ line upon naming the release. Refer to previous for appropriate section names.
 
 - Fixed an optimizer crash when scalarizing an out-of-bounds vector access
   [#8940](https://github.com/microsoft/DirectXShaderCompiler/issues/8940).
+- Fixed a C++26 compilation error in `llvm::sys::TimeValue` due to arithmetic on unscoped enumeration `NANOSECONDS_PER_SECOND`
+  [#8992](https://github.com/microsoft/DirectXShaderCompiler/issues/8992).
 
 ### Upcoming Preview Release
 
