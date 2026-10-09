@@ -73,6 +73,8 @@ line upon naming the release. Refer to previous for appropriate section names.
 
 - Fixed an optimizer crash when scalarizing an out-of-bounds vector access
   [#8940](https://github.com/microsoft/DirectXShaderCompiler/issues/8940).
+- SPIR-V: Fixed invalid member extraction when casting between structs with
+  merged bitfields.
 
 ### Upcoming Preview Release
 

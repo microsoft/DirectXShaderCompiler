@@ -150,18 +150,45 @@ bool InitListHandler::tryToSplitStruct() {
   initializers.pop_back();
   const auto &loc = init->getSourceLocation();
 
-  const auto *structDecl = initType->getAsStructureType()->getDecl();
+  const RecordType *recordType = initType->getAs<RecordType>();
 
-  // Create MemberExpr for each field of the struct
+  // Adjacent bitfields share one SPIR-V member, so the SPIR-V type is needed to
+  // map each AST field to its member index and bit range.
+  LowerTypeVisitor lowerTypeVisitor(astContext, theEmitter.getSpirvContext(),
+                                    theEmitter.getSpirvOptions(), spvBuilder);
+  const SpirvType *spirvType =
+      lowerTypeVisitor.lowerType(initType, init->getLayoutRule(), false, loc);
+  const auto *structType = dyn_cast<StructType>(spirvType);
+  assert(structType != nullptr);
+
+  // Create an extract for each AST field of the struct.
   llvm::SmallVector<SpirvInstruction *, 4> fields;
-  uint32_t i = 0;
-  for (auto *field : structDecl->fields()) {
-    auto *extract =
-        spvBuilder.createCompositeExtract(field->getType(), init, {i}, loc);
-    extract->setLayoutRule(init->getLayoutRule());
-    fields.push_back(extract);
-    ++i;
-  }
+  SpirvInstruction *container = nullptr;
+  forEachSpirvField(
+      recordType, structType,
+      [&](size_t spirvFieldIndex, const QualType &fieldType,
+          const StructType::FieldInfo &fieldInfo) {
+        const auto index = static_cast<uint32_t>(spirvFieldIndex);
+        // The container is extracted once and shared by every bitfield merged
+        // into it. The first bitfield of a container is at offset 0.
+        if (!fieldInfo.bitfield.hasValue() ||
+            fieldInfo.bitfield->offsetInBits == 0) {
+          container =
+              spvBuilder.createCompositeExtract(fieldType, init, {index}, loc);
+          container->setLayoutRule(init->getLayoutRule());
+        }
+
+        if (!fieldInfo.bitfield.hasValue()) {
+          fields.push_back(container);
+          return true;
+        }
+
+        fields.push_back(spvBuilder.createBitFieldExtract(
+            fieldType, container, fieldInfo.bitfield->offsetInBits,
+            fieldInfo.bitfield->sizeInBits, loc, init->getSourceRange()));
+        return true;
+      },
+      true);
 
   // Push in the reverse order
   initializers.insert(initializers.end(), fields.rbegin(), fields.rend());
