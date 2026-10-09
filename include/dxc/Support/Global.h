@@ -297,6 +297,8 @@ inline void OutputDebugFormatA(const char *pszFormat, ...) {
 // This prints 'Hello World (i > 10)' and breaks in the debugger if the
 // assertion doesn't hold.
 //
+
+#if !defined(_MSVC_TRADITIONAL) || _MSVC_TRADITIONAL
 #define DXASSERT_ARGS(exp, fmt, ...)                                           \
   do {                                                                         \
     if (!(exp)) {                                                              \
@@ -306,6 +308,19 @@ inline void OutputDebugFormatA(const char *pszFormat, ...) {
       __debugbreak();                                                          \
     }                                                                          \
   } while (0)
+#else
+#define DXASSERT_ARGS(exp, fmt, ...)                                           \
+  do {                                                                         \
+    if (!(exp)) {                                                              \
+      OutputDebugFormatA("Error: \t%s\nFile:\n%s(%d)\nFunc:\t%s.\n\t" fmt      \
+                         "\n",                                                 \
+                         "!(" #exp ")", __FILE__, __LINE__,                    \
+                         __FUNCTION__ __VA_OPT__(, ) __VA_ARGS__);             \
+      __debugbreak();                                                          \
+    }                                                                          \
+  } while (0)
+#endif
+
 #define DXASSERT(exp, msg) DXASSERT_ARGS(exp, msg)
 
 #define DXASSERT_LOCALVAR(local, exp, msg) DXASSERT(exp, msg)
@@ -327,6 +342,7 @@ inline void OutputDebugFormatA(const char *pszFormat, ...) {
 
 #define DXVERIFY_NOMSG assert
 
+#if !defined(_MSVC_TRADITIONAL) || _MSVC_TRADITIONAL
 #define DXASSERT_ARGS(expr, fmt, ...)                                          \
   do {                                                                         \
     if (!(expr)) {                                                             \
@@ -334,6 +350,15 @@ inline void OutputDebugFormatA(const char *pszFormat, ...) {
       assert(false);                                                           \
     }                                                                          \
   } while (0)
+#else
+#define DXASSERT_ARGS(expr, fmt, ...)                                          \
+  do {                                                                         \
+    if (!(expr)) {                                                             \
+      fprintf(stderr, fmt __VA_OPT__(, ) __VA_ARGS__);                        \
+      assert(false);                                                           \
+    }                                                                          \
+  } while (0)
+#endif
 
 #define DXASSERT(expr, msg)                                                    \
   do {                                                                         \
