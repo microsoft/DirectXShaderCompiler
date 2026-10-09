@@ -156,8 +156,8 @@ bool InitListHandler::tryToSplitStruct() {
   // map each AST field to its member index and bit range.
   LowerTypeVisitor lowerTypeVisitor(astContext, theEmitter.getSpirvContext(),
                                     theEmitter.getSpirvOptions(), spvBuilder);
-  const SpirvType *spirvType = lowerTypeVisitor.lowerType(
-      initType, init->getLayoutRule(), false, loc);
+  const SpirvType *spirvType =
+      lowerTypeVisitor.lowerType(initType, init->getLayoutRule(), false, loc);
   const auto *structType = dyn_cast<StructType>(spirvType);
   assert(structType != nullptr);
 
