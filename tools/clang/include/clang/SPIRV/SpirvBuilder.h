@@ -339,9 +339,12 @@ public:
       SourceRange range = {});
 
   /// \brief Creates SPIR-V instructions for writing to the given image.
+  /// \p sample is the sample index for writes to a multisampled storage
+  /// image (e.g. RWTexture2DMS); leave null for single-sampled images.
   void createImageWrite(QualType imageType, SpirvInstruction *image,
                         SpirvInstruction *coord, SpirvInstruction *texel,
-                        SourceLocation loc, SourceRange range = {});
+                        SpirvInstruction *sample, SourceLocation loc,
+                        SourceRange range = {});
 
   /// \brief Creates SPIR-V instructions for gathering the given image.
   ///
