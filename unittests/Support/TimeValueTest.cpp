@@ -37,4 +37,10 @@ TEST(TimeValue, Win32FILETIME) {
   EXPECT_EQ(ft1970, epoch.toWin32Time());
 }
 
+TEST(TimeValue, DoubleConstructor) {
+  sys::TimeValue tv(1234.5);
+  EXPECT_EQ(1234, tv.seconds());
+  EXPECT_EQ(500000000u, static_cast<uint32_t>(tv.nanoseconds()));
+}
+
 }
