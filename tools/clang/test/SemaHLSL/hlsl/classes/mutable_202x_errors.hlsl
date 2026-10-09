@@ -23,7 +23,7 @@ tbuffer DirectTBuffer {
 };
 
 struct MutableData {
-  mutable int value; // expected-note 7 {{'int' field declared here}}
+  mutable int value; // expected-note 8 {{'int' field declared here}}
 };
 
 struct NestedMutableData {
@@ -31,21 +31,23 @@ struct NestedMutableData {
 };
 
 cbuffer CBufferWithMutableType {
-  MutableData data; // expected-error {{'mutable' field 'value' is not allowed in constant buffer data}}
+  MutableData data; // expected-error {{'mutable' field 'value' is not allowed in constant or texture buffer data}}
 };
 
 tbuffer TBufferWithMutableType {
-  MutableData data; // expected-error {{'mutable' field 'value' is not allowed in constant buffer data}}
+  MutableData data; // expected-error {{'mutable' field 'value' is not allowed in constant or texture buffer data}}
 };
 
 cbuffer CBufferWithNestedMutableType {
-  NestedMutableData data; // expected-error {{'mutable' field 'value' is not allowed in constant buffer data}}
+  NestedMutableData data; // expected-error {{'mutable' field 'value' is not allowed in constant or texture buffer data}}
 };
 
-MutableData implicitCBufferData; // expected-error {{'mutable' field 'value' is not allowed in constant buffer data}}
-MutableData implicitCBufferArray[2]; // expected-error {{'mutable' field 'value' is not allowed in constant buffer data}}
-ConstantBuffer<MutableData> constantBuffer; // expected-error {{'mutable' field 'value' is not allowed in constant buffer data}}
-TextureBuffer<MutableData> textureBuffer; // expected-error {{'mutable' field 'value' is not allowed in constant buffer data}}
+MutableData implicitCBufferData; // expected-error {{'mutable' field 'value' is not allowed in constant or texture buffer data}}
+MutableData implicitCBufferArray[2]; // expected-error {{'mutable' field 'value' is not allowed in constant or texture buffer data}}
+ConstantBuffer<MutableData> constantBuffer; // expected-error {{'mutable' field 'value' is not allowed in constant or texture buffer data}}
+TextureBuffer<MutableData> textureBuffer; // expected-error {{'mutable' field 'value' is not allowed in constant or texture buffer data}}
+
+StructuredBuffer<MutableData> readOnlyStructuredBuffer; // expected-error {{'mutable' field 'value' is not allowed in read-only structured buffer data}}
 
 groupshared MutableData sharedData;
 RWStructuredBuffer<MutableData> structuredBuffer;
