@@ -23,6 +23,7 @@
 #include "clang/SPIRV/String.h"
 // clang-format on
 
+#include <algorithm>
 #include <functional>
 
 namespace clang {
@@ -58,6 +59,27 @@ void chopString(llvm::StringRef original,
   } else if (!original.empty()) {
     chopped->push_back(original);
   }
+}
+
+/// Returns the length of each line of |text| as spirv-val measures it for
+/// DebugSource: the number of characters plus one, so the last valid column is
+/// one past the end of the line.
+std::vector<uint32_t> getSourceLineLengths(llvm::StringRef text) {
+  std::vector<uint32_t> lengths;
+  uint32_t length = 1;
+  for (size_t i = 0; i < text.size(); ++i) {
+    if (text[i] != '\n' && text[i] != '\r') {
+      ++length;
+      continue;
+    }
+    if (text[i] == '\r' && i + 1 < text.size() && text[i + 1] == '\n')
+      ++i;
+    lengths.push_back(length);
+    length = 1;
+  }
+  if (length > 1)
+    lengths.push_back(length);
+  return lengths;
 }
 
 /// Returns true if an OpLine instruction can be emitted for the given OpCode.
@@ -250,6 +272,25 @@ uint32_t EmitVisitor::getLiteralEncodedForDebugInfo(uint32_t val) {
   }
 }
 
+uint32_t EmitVisitor::clampDebugColumn(uint32_t fileId, uint32_t line,
+                                       uint32_t column) {
+  auto it = debugSourceLineLengths.find(fileId);
+  if (it == debugSourceLineLengths.end() || line == 0 ||
+      line > it->second.size())
+    return column;
+  return std::min(column, it->second[line - 1]);
+}
+
+uint32_t EmitVisitor::clampDebugColumn(const SpirvDebugSource *source,
+                                       uint32_t line, uint32_t column) {
+  // Creating the file name string here would overwrite the instruction being
+  // built in curInst.
+  auto it = stringIdMap.find(source->getFile());
+  if (it == stringIdMap.end())
+    return column;
+  return clampDebugColumn(it->second, line, column);
+}
+
 void EmitVisitor::emitDebugNameForInstruction(uint32_t resultId,
                                               llvm::StringRef debugName) {
   // Most instructions do not have a debug name associated with them.
@@ -392,6 +433,11 @@ void EmitVisitor::emitDebugLine(spv::Op op, const SourceLocation &loc,
 
   if (columnEnd < columnStart) {
     columnEnd = columnStart = 0;
+  }
+
+  if (spvOptions.debugInfoVulkan) {
+    columnStart = clampDebugColumn(fileId, lineStart, columnStart);
+    columnEnd = clampDebugColumn(fileId, lineEnd, columnEnd);
   }
 
   curInst.clear();
@@ -1589,6 +1635,7 @@ void EmitVisitor::generateChoppedSource(uint32_t fileId,
     if (text.empty())
       text = ReadSourceCode(inst->getFile(), spvOptions);
     if (!text.empty()) {
+      debugSourceLineLengths[fileId] = getSourceLineLengths(text);
       // Maximum characters for DebugSource and DebugSourceContinued
       // OpString literal minus terminating null.
       uint32_t maxChar = spvOptions.debugSourceLen * sizeof(uint32_t) - 1;
@@ -1673,7 +1720,8 @@ bool EmitVisitor::visit(SpirvDebugLexicalBlock *inst) {
   curInst.push_back(inst->getDebugOpcode());
   curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst->getSource()));
   curInst.push_back(getLiteralEncodedForDebugInfo(inst->getLine()));
-  curInst.push_back(getLiteralEncodedForDebugInfo(inst->getColumn()));
+  curInst.push_back(getLiteralEncodedForDebugInfo(
+      clampDebugColumn(inst->getSource(), inst->getLine(), inst->getColumn())));
   curInst.push_back(
       getOrAssignResultId<SpirvInstruction>(inst->getParentScope()));
   finalizeInstruction(&richDebugInfo);
@@ -1706,7 +1754,8 @@ bool EmitVisitor::visit(SpirvDebugFunctionDeclaration *inst) {
       getOrAssignResultId<SpirvInstruction>(inst->getDebugType()));
   curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst->getSource()));
   curInst.push_back(getLiteralEncodedForDebugInfo(inst->getLine()));
-  curInst.push_back(getLiteralEncodedForDebugInfo(inst->getColumn()));
+  curInst.push_back(getLiteralEncodedForDebugInfo(
+      clampDebugColumn(inst->getSource(), inst->getLine(), inst->getColumn())));
   curInst.push_back(
       getOrAssignResultId<SpirvInstruction>(inst->getParentScope()));
   curInst.push_back(linkageNameId);
@@ -1729,7 +1778,8 @@ bool EmitVisitor::visit(SpirvDebugFunction *inst) {
       getOrAssignResultId<SpirvInstruction>(inst->getDebugType()));
   curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst->getSource()));
   curInst.push_back(getLiteralEncodedForDebugInfo(inst->getLine()));
-  curInst.push_back(getLiteralEncodedForDebugInfo(inst->getColumn()));
+  curInst.push_back(getLiteralEncodedForDebugInfo(
+      clampDebugColumn(inst->getSource(), inst->getLine(), inst->getColumn())));
   curInst.push_back(
       getOrAssignResultId<SpirvInstruction>(inst->getParentScope()));
   curInst.push_back(linkageNameId);
@@ -1891,7 +1941,8 @@ bool EmitVisitor::visit(SpirvDebugTypeComposite *inst) {
   curInst.push_back(getLiteralEncodedForDebugInfo(inst->getTag()));
   curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst->getSource()));
   curInst.push_back(getLiteralEncodedForDebugInfo(inst->getLine()));
-  curInst.push_back(getLiteralEncodedForDebugInfo(inst->getColumn()));
+  curInst.push_back(getLiteralEncodedForDebugInfo(
+      clampDebugColumn(inst->getSource(), inst->getLine(), inst->getColumn())));
   curInst.push_back(
       getOrAssignResultId<SpirvInstruction>(inst->getParentScope()));
   curInst.push_back(linkageNameId);
@@ -1928,7 +1979,8 @@ bool EmitVisitor::visit(SpirvDebugTypeMember *inst) {
       getOrAssignResultId<SpirvInstruction>(inst->getDebugType()));
   curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst->getSource()));
   curInst.push_back(getLiteralEncodedForDebugInfo(inst->getLine()));
-  curInst.push_back(getLiteralEncodedForDebugInfo(inst->getColumn()));
+  curInst.push_back(getLiteralEncodedForDebugInfo(
+      clampDebugColumn(inst->getSource(), inst->getLine(), inst->getColumn())));
   /// Only emit the parent reference for OpenCL debug info. Vulkan debug info
   /// breaks reference cycle between DebugTypeComposite and DebugTypeMember,
   /// with only the composite referencing its members and not the reverse.
@@ -1972,7 +2024,8 @@ bool EmitVisitor::visit(SpirvDebugTypeTemplateParameter *inst) {
   curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst->getValue()));
   curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst->getSource()));
   curInst.push_back(getLiteralEncodedForDebugInfo(inst->getLine()));
-  curInst.push_back(getLiteralEncodedForDebugInfo(inst->getColumn()));
+  curInst.push_back(getLiteralEncodedForDebugInfo(
+      clampDebugColumn(inst->getSource(), inst->getLine(), inst->getColumn())));
   finalizeInstruction(&richDebugInfo);
   return true;
 }
@@ -1990,7 +2043,8 @@ bool EmitVisitor::visit(SpirvDebugLocalVariable *inst) {
       getOrAssignResultId<SpirvInstruction>(inst->getDebugType()));
   curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst->getSource()));
   curInst.push_back(getLiteralEncodedForDebugInfo(inst->getLine()));
-  curInst.push_back(getLiteralEncodedForDebugInfo(inst->getColumn()));
+  curInst.push_back(getLiteralEncodedForDebugInfo(
+      clampDebugColumn(inst->getSource(), inst->getLine(), inst->getColumn())));
   curInst.push_back(
       getOrAssignResultId<SpirvInstruction>(inst->getParentScope()));
   curInst.push_back(getLiteralEncodedForDebugInfo(inst->getFlags()));
@@ -2032,7 +2086,8 @@ bool EmitVisitor::visit(SpirvDebugGlobalVariable *inst) {
       getOrAssignResultId<SpirvInstruction>(inst->getDebugType()));
   curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst->getSource()));
   curInst.push_back(getLiteralEncodedForDebugInfo(inst->getLine()));
-  curInst.push_back(getLiteralEncodedForDebugInfo(inst->getColumn()));
+  curInst.push_back(getLiteralEncodedForDebugInfo(
+      clampDebugColumn(inst->getSource(), inst->getLine(), inst->getColumn())));
   curInst.push_back(
       getOrAssignResultId<SpirvInstruction>(inst->getParentScope()));
   curInst.push_back(linkageNameId);
