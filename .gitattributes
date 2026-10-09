@@ -3,3 +3,4 @@
 *.bat text eol=crlf
 *.sh text eol=lf
 *.guess text eol=lf
+tools/clang/test/CodeGenSPIRV/shader.debug.macro.column.crlf.hlsl -text

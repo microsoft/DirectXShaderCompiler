@@ -73,6 +73,10 @@ line upon naming the release. Refer to previous for appropriate section names.
 
 - Fixed an optimizer crash when scalarizing an out-of-bounds vector access
   [#8940](https://github.com/microsoft/DirectXShaderCompiler/issues/8940).
+- SPIR-V: Fixed a "generated SPIR-V is invalid" error with
+  `-fspv-debug=vulkan-with-source` when a macro expansion is longer than the
+  line that invokes it
+  [#8543](https://github.com/microsoft/DirectXShaderCompiler/issues/8543).
 
 ### Upcoming Preview Release
 

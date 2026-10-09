@@ -369,6 +369,14 @@ private:
   /// emitting and either returning the literal directly or a constant.
   uint32_t getLiteralEncodedForDebugInfo(uint32_t val);
 
+  /// Returns |column| limited to the last valid column of |line| in the text
+  /// embedded in the DebugSource of |fileId|, or |column| if no text is
+  /// embedded. Columns come from the preprocessed source and can lie past the
+  /// end of the original line, which spirv-val rejects.
+  uint32_t clampDebugColumn(uint32_t fileId, uint32_t line, uint32_t column);
+  uint32_t clampDebugColumn(const SpirvDebugSource *source, uint32_t line,
+                            uint32_t column);
+
   // Emits an OpLine instruction for the given operation into the given binary
   // section.
   void emitDebugLine(spv::Op op, const SourceLocation &loc,
@@ -497,6 +505,9 @@ private:
   // generating OpSource instruction without a result id, use 1 to remember it
   // was generated.
   llvm::DenseMap<uint32_t, uint32_t> emittedSource;
+  // Map of filename string id to the length of each line of the source text
+  // embedded in its DebugSource.
+  llvm::DenseMap<uint32_t, std::vector<uint32_t>> debugSourceLineLengths;
   uint32_t hlslVersion;
   // Vector to contain SpirvInstruction objects created by this class. The
   // destructor of this class will release them.
