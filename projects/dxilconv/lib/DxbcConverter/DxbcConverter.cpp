@@ -177,9 +177,22 @@ void DxbcConverter::ConvertImpl(LPCVOID pDxbc, UINT32 DxbcSize,
   IFTBOOL(uCodeBlob != DXIL_CONTAINER_BLOB_NOT_FOUND, DXC_E_INCORRECT_DXBC);
 
   const CShaderToken *pByteCode;
-  IFTBOOL(dxbcReader.GetPartContent(uCodeBlob, (const void **)&pByteCode) ==
-              S_OK,
+  UINT32 ByteCodePartSize = 0;
+  IFTBOOL(dxbcReader.GetPartContent(uCodeBlob, (const void **)&pByteCode,
+                                    &ByteCodePartSize) == S_OK,
           DXC_E_INCORRECT_DXBC);
+
+  // The shader declares its own length in tokens at pByteCode[1], and the
+  // parser derives its end pointer from it. The container reader has bounded
+  // the part itself, but not that declared length, so a malformed part could
+  // point the parser past the end of the container. Check that the version and
+  // length tokens are present and that the declared length stays inside the
+  // part before handing the buffer to the parser.
+  IFTBOOL(ByteCodePartSize >= 2 * sizeof(CShaderToken),
+          DXC_E_ERROR_PARSING_DXBC_BYTECODE);
+  IFTBOOL(pByteCode[1] >= 2 &&
+              pByteCode[1] <= ByteCodePartSize / sizeof(CShaderToken),
+          DXC_E_ERROR_PARSING_DXBC_BYTECODE);
 
   // Parse DXBC container.
   D3D10ShaderBinary::CShaderCodeParser Parser;
