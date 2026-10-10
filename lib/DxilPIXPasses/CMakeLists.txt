@@ -20,6 +20,7 @@ add_llvm_library(LLVMDxilPIXPasses
   PixPassHelpers.cpp
   DxilPIXAddTidToAmplificationShaderPayload.cpp
   DxilPIXDXRInvocationsLog.cpp
+  DxilPIXRayQueryLog.cpp
   DxilNonUniformResourceIndexInstrumentation.cpp
   DxilDebugBreakInstrumentation.cpp
 
