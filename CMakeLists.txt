@@ -17,6 +17,19 @@ if(POLICY CMP0022)
   cmake_policy(SET CMP0022 NEW) # automatic when 2.8.12 is required
 endif()
 
+set(_DXC_ENFORCED_POLICIES
+  CMP0051 # Include_DIRECTORIES target scope
+  CMP0056 # Honor per-config link flags
+  CMP0063 # Visibility presets for targets
+  CMP0077 # option() honors normal variables
+  )
+foreach(_policy IN LISTS _DXC_ENFORCED_POLICIES)
+  if(POLICY ${_policy})
+    cmake_policy(SET ${_policy} NEW)
+  endif()
+endforeach()
+unset(_DXC_ENFORCED_POLICIES)
+
 if(CMAKE_VERSION VERSION_LESS 3.1.20141117)
   set(cmake_3_2_USES_TERMINAL)
 else()
