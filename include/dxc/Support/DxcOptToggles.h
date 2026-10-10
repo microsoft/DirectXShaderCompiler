@@ -50,6 +50,8 @@ static constexpr Toggle TOGGLE_STRUCTURIZE_LOOP_EXITS_FOR_UNROLL = {
 static constexpr Toggle TOGGLE_DEBUG_NOPS = {"debug-nops", DEFAULT_ON};
 static constexpr Toggle TOGGLE_STRUCTURIZE_RETURNS = {"structurize-returns",
                                                       DEFAULT_OFF};
+static constexpr Toggle TOGGLE_TRIM_CBUFFER_MEMBERS = {"dxil-trim-cbuffer",
+                                                       DEFAULT_OFF};
 
 struct OptimizationToggles {
   // Optimization pass enables, disables and selects

@@ -355,6 +355,8 @@ void EmitAssemblyHelper::CreatePasses() {
   PMBuilder.HLSLNoSink = !OptToggles.IsEnabled(hlsl::options::TOGGLE_SINK);
   PMBuilder.StructurizeLoopExitsForUnroll = OptToggles.IsEnabled(
       hlsl::options::TOGGLE_STRUCTURIZE_LOOP_EXITS_FOR_UNROLL);
+  PMBuilder.HLSLTrimCBufferMembers = OptToggles.IsEnabled(
+      hlsl::options::TOGGLE_TRIM_CBUFFER_MEMBERS);
   PMBuilder.HLSLEnableDebugNops = OptToggles.IsEnabled(hlsl::options::TOGGLE_DEBUG_NOPS);
   PMBuilder.HLSLEnableLifetimeMarkers =
       CodeGenOpts.HLSLEnableLifetimeMarkers &&
