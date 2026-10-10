@@ -100,6 +100,11 @@ part of the next non-preview release.
 - SPIR-V: Fixed an invalid `OpSelect` being generated when optimizing for
   SPIR-V 1.3 and earlier
   [#8603](https://github.com/microsoft/DirectXShaderCompiler/issues/8603).
+- SPIR-V: Fixed a crash when a mesh shader writes to an output whose
+  attributes are inside a nested struct, and mesh shader outputs with base
+  classes dropping or miscompiling writes to the inherited fields
+  [#7340](https://github.com/microsoft/DirectXShaderCompiler/issues/7340),
+  [#8475](https://github.com/microsoft/DirectXShaderCompiler/issues/8475).
 - Fix a crash generating DXIL from sources containing a dynamic resource heap
   access that was discarded. Identified during development of SPIR-V support for
   [descriptor heaps](https://github.com/microsoft/DirectXShaderCompiler/pull/8517#discussion_r3752113078).
