@@ -308,9 +308,11 @@ static void EmitWarningOrErrorOnFunction(llvm::LLVMContext &Ctx, Function *F,
                                          DiagnosticSeverity severity) {
   DILocation *DLoc = nullptr;
 
-  if (DISubprogram *DISP = getDISubprogram(F)) {
-    DLoc = DILocation::get(F->getContext(), DISP->getLine(), 0, DISP,
-                           nullptr /*InlinedAt*/);
+  if (F) {
+    if (DISubprogram *DISP = getDISubprogram(F)) {
+      DLoc = DILocation::get(F->getContext(), DISP->getLine(), 0, DISP,
+                             nullptr /*InlinedAt*/);
+    }
   }
   Ctx.diagnose(DiagnosticInfoDxil(F, DLoc, Msg, severity));
 }

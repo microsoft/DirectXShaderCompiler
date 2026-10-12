@@ -727,6 +727,7 @@ void DxilMDHelper::LoadDxilResourceBase(const MDOperand &MDO,
   R.SetID(ConstMDToUint32(pTupleMD->getOperand(kDxilResourceBaseID)));
   Constant *GlobalSymbol = dyn_cast<Constant>(
       ValueMDToValue(pTupleMD->getOperand(kDxilResourceBaseVariable)));
+  IFTBOOL(GlobalSymbol != nullptr, DXC_E_INCORRECT_DXIL_METADATA);
   // For sm66+, global symbol will be mutated into handle type.
   // Read hlsl type and global symbol from bitcast.
   if (m_pSM->IsSM66Plus()) {
