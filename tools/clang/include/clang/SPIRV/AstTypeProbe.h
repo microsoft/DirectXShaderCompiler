@@ -267,6 +267,10 @@ bool isSampledTexture(QualType);
 /// \brief Returns true if the given type is an HLSL RWTexture type.
 bool isRWTexture(QualType);
 
+/// \brief Returns true if the given type is an HLSL RWTexture2DMS or
+/// RWTexture2DMSArray type.
+bool isRWTextureMS(QualType);
+
 /// \brief Returns true if the given type is an HLSL sampler type.
 bool isSampler(QualType);
 

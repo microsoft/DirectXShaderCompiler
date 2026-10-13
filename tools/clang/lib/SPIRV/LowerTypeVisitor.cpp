@@ -943,7 +943,11 @@ LowerTypeVisitor::lowerResourceType(QualType type, SpirvLayoutRule rule,
              name == "RasterizerOrderedTexture1DArray") ||
         (dim = spv::Dim::Dim2D, isArray = true,
          name == "RWTexture2DArray" ||
-             name == "RasterizerOrderedTexture2DArray")) {
+             name == "RasterizerOrderedTexture2DArray") ||
+        (dim = spv::Dim::Dim2D, isArray = false, name == "RWTexture2DMS") ||
+        (dim = spv::Dim::Dim2D, isArray = true, name == "RWTexture2DMSArray")) {
+      const bool isMS =
+          (name == "RWTexture2DMS" || name == "RWTexture2DMSArray");
       const auto sampledType = hlsl::GetHLSLResourceResultType(type);
       const auto format =
           translateSampledTypeToImageFormat(sampledType, srcLoc);
@@ -951,7 +955,7 @@ LowerTypeVisitor::lowerResourceType(QualType type, SpirvLayoutRule rule,
           lowerType(getElementType(astContext, sampledType), rule,
                     /*isRowMajor*/ llvm::None, srcLoc),
           dim, ImageType::WithDepth::Unknown, isArray,
-          /*isMultiSampled=*/false, /*sampled=*/ImageType::WithSampler::No,
+          /*isMultiSampled=*/isMS, /*sampled=*/ImageType::WithSampler::No,
           format);
     }
   }

@@ -974,6 +974,15 @@ bool isSampledTextureMS(QualType type) {
   return false;
 }
 
+bool isRWTextureMS(QualType type) {
+  if (const auto *rt = type->getAs<RecordType>()) {
+    const auto name = rt->getDecl()->getName();
+    if (name == "RWTexture2DMS" || name == "RWTexture2DMSArray")
+      return true;
+  }
+  return false;
+}
+
 bool isSampler(QualType type) {
   if (const auto *rt = type->getAs<RecordType>()) {
     const auto name = rt->getDecl()->getName();
@@ -1172,7 +1181,8 @@ std::string getHlslResourceTypeName(QualType type) {
         name == "Texture2DMSArray" || name == "TextureCubeArray" ||
         name == "RWTexture1D" || name == "RWTexture2D" ||
         name == "RWTexture3D" || name == "RWTexture1DArray" ||
-        name == "RWTexture2DArray" || name == "RasterizerOrderedTexture1D" ||
+        name == "RWTexture2DArray" || name == "RWTexture2DMS" ||
+        name == "RWTexture2DMSArray" || name == "RasterizerOrderedTexture1D" ||
         name == "RasterizerOrderedTexture1DArray" ||
         name == "RasterizerOrderedTexture2D" ||
         name == "RasterizerOrderedTexture2DArray" ||
@@ -1258,7 +1268,8 @@ bool isRelaxedPrecisionType(QualType type, const SpirvCodeGenOptions &opts) {
         name == "Texture2DMSArray" || name == "TextureCubeArray" ||
         name == "RWTexture1D" || name == "RWTexture2D" ||
         name == "RWTexture3D" || name == "RWTexture1DArray" ||
-        name == "RWTexture2DArray" || name == "RasterizerOrderedTexture1D" ||
+        name == "RWTexture2DArray" || name == "RWTexture2DMS" ||
+        name == "RWTexture2DMSArray" || name == "RasterizerOrderedTexture1D" ||
         name == "RasterizerOrderedTexture1DArray" ||
         name == "RasterizerOrderedTexture2D" ||
         name == "RasterizerOrderedTexture2DArray" ||

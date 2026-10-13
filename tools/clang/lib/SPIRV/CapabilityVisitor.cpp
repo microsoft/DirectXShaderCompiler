@@ -154,6 +154,18 @@ void CapabilityVisitor::addCapabilityForType(const SpirvType *type,
       break;
     }
 
+    // A multisampled storage image (e.g. RWTexture2DMS) needs an explicit
+    // capability; sampled multisampled images (e.g. Texture2DMS) do not. The
+    // SPIR-V requirement excludes SubpassData, which is always Sampled=2 and
+    // whose multisampled form (SubpassInputMS) predates this check.
+    if (imageType->isMSImage() &&
+        imageType->withSampler() == ImageType::WithSampler::No &&
+        imageType->getDimension() != spv::Dim::SubpassData) {
+      addCapability(spv::Capability::StorageImageMultisample);
+      if (imageType->isArrayedImage())
+        addCapability(spv::Capability::ImageMSArray);
+    }
+
     switch (imageType->getImageFormat()) {
     case spv::ImageFormat::Rg32f:
     case spv::ImageFormat::Rg16f:
