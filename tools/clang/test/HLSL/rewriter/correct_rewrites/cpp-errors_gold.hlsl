@@ -105,7 +105,7 @@ namespace ns_with_struct {
     int i;
   };
 }
-matrix<int, 1, 2> g_matrix_simple;
+const matrix<int, 1, 2> g_matrix_simple;
 int global_fn() {
   return 1;
 }
