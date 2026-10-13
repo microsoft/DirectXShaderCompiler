@@ -437,6 +437,22 @@ public:
     return spvStructTypeToDecl[spvTy];
   }
 
+  /// Memoizes the concrete StructType a given HybridStructType lowers to
+  /// under a given layout rule.
+  void registerLoweredStructType(const HybridStructType *hybridTy,
+                                 SpirvLayoutRule rule,
+                                 const StructType *loweredTy) {
+    assert(hybridTy != nullptr && loweredTy != nullptr);
+    loweredHybridStructTypes[{hybridTy, static_cast<unsigned>(rule)}] =
+        loweredTy;
+  }
+  const StructType *getLoweredStructType(const HybridStructType *hybridTy,
+                                         SpirvLayoutRule rule) {
+    auto it =
+        loweredHybridStructTypes.find({hybridTy, static_cast<unsigned>(rule)});
+    return it == loweredHybridStructTypes.end() ? nullptr : it->second;
+  }
+
   /// Function to add/get the mapping from a FunctionDecl to its DebugFunction.
   void registerDebugFunctionForDecl(const FunctionDecl *decl,
                                     SpirvDebugFunction *fn) {
@@ -577,6 +593,12 @@ private:
 
   // Mapping from SPIR-V type to Decl for a struct type.
   llvm::DenseMap<const SpirvType *, const DeclContext *> spvStructTypeToDecl;
+
+  // Memoized lowering result for each HybridStructType, keyed by object
+  // identity and layout rule
+  llvm::DenseMap<std::pair<const HybridStructType *, unsigned>,
+                 const StructType *>
+      loweredHybridStructTypes;
 
   // Mapping from FunctionDecl to SPIR-V debug function.
   llvm::DenseMap<const FunctionDecl *, SpirvDebugFunction *>
