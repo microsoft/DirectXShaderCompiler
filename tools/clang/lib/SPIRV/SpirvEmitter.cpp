@@ -1326,6 +1326,34 @@ SpirvInstruction *SpirvEmitter::doExprEnsuringRValue(const Expr *E,
   return spvBuilder.createLoad(E->getType(), I, location, range);
 }
 
+static bool isMSOutputAccess(const Expr *expr) {
+  expr = expr->IgnoreParenLValueCasts();
+  if (const auto *castExpr = dyn_cast<CastExpr>(expr))
+    if (castExpr->getCastKind() == CK_NoOp ||
+        castExpr->getCastKind() == CK_UncheckedDerivedToBase ||
+        castExpr->getCastKind() == CK_HLSLDerivedToBase)
+      return isMSOutputAccess(castExpr->getSubExpr());
+  if (const auto *member = dyn_cast<MemberExpr>(expr))
+    return isMSOutputAccess(member->getBase());
+  if (const auto *subscript = dyn_cast<ArraySubscriptExpr>(expr))
+    return isMSOutputAccess(subscript->getBase());
+  if (const auto *swizzle = dyn_cast<HLSLVectorElementExpr>(expr))
+    return isMSOutputAccess(swizzle->getBase());
+  if (const auto *swizzle = dyn_cast<ExtMatrixElementExpr>(expr))
+    return isMSOutputAccess(swizzle->getBase());
+  if (const auto *call = dyn_cast<CXXOperatorCallExpr>(expr))
+    if (call->getOperator() == OO_Subscript)
+      return isMSOutputAccess(call->getArg(0));
+  if (const auto *ref = dyn_cast<DeclRefExpr>(expr)) {
+    const auto *decl = ref->getDecl();
+    return decl->hasAttr<HLSLOutAttr>() &&
+           (decl->hasAttr<HLSLVerticesAttr>() ||
+            decl->hasAttr<HLSLPrimitivesAttr>() ||
+            decl->hasAttr<HLSLIndicesAttr>());
+  }
+  return false;
+}
+
 SpirvInstruction *SpirvEmitter::loadIfGLValue(const Expr *expr,
                                               SourceRange rangeOverride) {
   // We are trying to load the value here, which is what an LValueToRValue
@@ -3343,6 +3371,19 @@ SpirvInstruction *SpirvEmitter::processCall(const CallExpr *callExpr) {
                                              arg->getLocStart());
     }
 
+    // Mesh shader outputs are written through Output variables rather than
+    // through the storage the argument designates, so out/inout arguments
+    // must be copied through a temporary and written back after the call.
+    const bool isMSOutArg = spvContext.isMS() && canActAsOutParmVar(param) &&
+                            isMSOutputAccess(arg);
+    const bool isInMSOutArg = isMSOutArg && (param->hasAttr<HLSLInOutAttr>() ||
+                                             param->hasAttr<HLSLInAttr>());
+    if (isInMSOutArg) {
+      emitError("output arrays of a mesh shader can not be read from",
+                arg->getExprLoc());
+      return nullptr;
+    }
+
     auto *argInst = doExpr(arg);
 
     bool isArgGlobalVarWithResourceType =
@@ -3359,7 +3400,7 @@ SpirvInstruction *SpirvEmitter::processCall(const CallExpr *callExpr) {
     // resolved by legalization.
     if ((argInfo || (argInst && !argInst->isRValue())) &&
         canActAsOutParmVar(param) && !isArgGlobalVarWithResourceType &&
-        paramTypeMatchesArgType(paramType, arg->getType())) {
+        !isMSOutArg && paramTypeMatchesArgType(paramType, arg->getType())) {
       // Based on SPIR-V spec, function parameter must be always Function
       // scope. In addition, we must pass memory object declaration argument
       // to function. If we pass an argument that is not function scope
@@ -3393,6 +3434,10 @@ SpirvInstruction *SpirvEmitter::processCall(const CallExpr *callExpr) {
 
       // Update counter variable associated with function parameters
       tryToAssignCounterVar(param, arg);
+
+      // An 'out' parameter does not read the mesh shader output it writes.
+      if (isMSOutArg)
+        continue;
 
       // Manually load the argument here
       auto *rhsVal = loadIfGLValue(arg, args.back());
@@ -3460,8 +3505,8 @@ SpirvInstruction *SpirvEmitter::processCall(const CallExpr *callExpr) {
       const uint32_t argIndex = i + isOperatorOverloading;
 
       const auto *arg = callExpr->getArg(argIndex);
-      SpirvInstruction *value =
-          spvBuilder.createLoad(paramType, vars[index], arg->getLocStart());
+      SpirvInstruction *value = spvBuilder.createLoad(
+          paramType.getNonReferenceType(), vars[index], arg->getLocStart());
 
       // Now we want to assign 'value' to arg. But first, in rare cases when
       // using 'out' or 'inout' where the parameter and argument have a type
