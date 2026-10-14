@@ -901,76 +901,114 @@ LowerTypeVisitor::lowerResourceType(QualType type, SpirvLayoutRule rule,
     return lowerVkTypeInVkNamespace(type, name, rule, isRowMajor, srcLoc);
   }
 
-  // TODO: avoid string comparison once hlsl::IsHLSLResouceType() does that.
+  const hlsl::DXIL::ResourceKind resKind = hlsl::GetHLSLResourceKind(type);
+  const hlsl::DXIL::ResourceClass resClass = hlsl::GetHLSLResourceClass(type);
 
   { // Texture types
     spv::Dim dim = {};
-    bool isArray = {};
-    if ((dim = spv::Dim::Dim1D, isArray = false, name == "Texture1D") ||
-        (dim = spv::Dim::Dim2D, isArray = false, name == "Texture2D") ||
-        (dim = spv::Dim::Dim3D, isArray = false, name == "Texture3D") ||
-        (dim = spv::Dim::Cube, isArray = false, name == "TextureCube") ||
-        (dim = spv::Dim::Dim1D, isArray = true, name == "Texture1DArray") ||
-        (dim = spv::Dim::Dim2D, isArray = true, name == "Texture2DArray") ||
-        (dim = spv::Dim::Dim2D, isArray = false, name == "Texture2DMS") ||
-        (dim = spv::Dim::Dim2D, isArray = true, name == "Texture2DMSArray") ||
-        // There is no Texture3DArray
-        (dim = spv::Dim::Cube, isArray = true, name == "TextureCubeArray")) {
-      const bool isMS = (name == "Texture2DMS" || name == "Texture2DMSArray");
-      const auto sampledType = hlsl::GetHLSLResourceResultType(type);
-      auto loweredType =
-          lowerType(getElementType(astContext, sampledType), rule,
-                    /*isRowMajor*/ llvm::None, srcLoc);
-      // Bool does not have a defined size in SPIR-V, so it cannot be
-      // used in the external interface.
-      if (loweredType == spvContext.getBoolType()) {
-        loweredType = spvContext.getUIntType(32);
-      }
-      return spvContext.getImageType(
-          loweredType, dim, ImageType::WithDepth::Unknown, isArray, isMS,
-          ImageType::WithSampler::Yes, spv::ImageFormat::Unknown);
+    bool isArray = false;
+    bool isTexture = false;
+    switch (resKind) {
+    case hlsl::DXIL::ResourceKind::Texture1D:
+      dim = spv::Dim::Dim1D;
+      isArray = false;
+      isTexture = true;
+      break;
+    case hlsl::DXIL::ResourceKind::Texture2D:
+      dim = spv::Dim::Dim2D;
+      isArray = false;
+      isTexture = true;
+      break;
+    case hlsl::DXIL::ResourceKind::Texture2DMS:
+      dim = spv::Dim::Dim2D;
+      isArray = false;
+      isTexture = true;
+      break;
+    case hlsl::DXIL::ResourceKind::Texture3D:
+      dim = spv::Dim::Dim3D;
+      isArray = false;
+      isTexture = true;
+      break;
+    case hlsl::DXIL::ResourceKind::TextureCube:
+      dim = spv::Dim::Cube;
+      isArray = false;
+      isTexture = true;
+      break;
+    case hlsl::DXIL::ResourceKind::Texture1DArray:
+      dim = spv::Dim::Dim1D;
+      isArray = true;
+      isTexture = true;
+      break;
+    case hlsl::DXIL::ResourceKind::Texture2DArray:
+      dim = spv::Dim::Dim2D;
+      isArray = true;
+      isTexture = true;
+      break;
+    case hlsl::DXIL::ResourceKind::Texture2DMSArray:
+      dim = spv::Dim::Dim2D;
+      isArray = true;
+      isTexture = true;
+      break;
+    case hlsl::DXIL::ResourceKind::TextureCubeArray:
+      dim = spv::Dim::Cube;
+      isArray = true;
+      isTexture = true;
+      break;
+    default:
+      break;
     }
 
-    // There is no RWTexture3DArray
-    if ((dim = spv::Dim::Dim1D, isArray = false,
-         name == "RWTexture1D" || name == "RasterizerOrderedTexture1D") ||
-        (dim = spv::Dim::Dim2D, isArray = false,
-         name == "RWTexture2D" || name == "RasterizerOrderedTexture2D") ||
-        (dim = spv::Dim::Dim3D, isArray = false,
-         name == "RWTexture3D" || name == "RasterizerOrderedTexture3D") ||
-        (dim = spv::Dim::Dim1D, isArray = true,
-         name == "RWTexture1DArray" ||
-             name == "RasterizerOrderedTexture1DArray") ||
-        (dim = spv::Dim::Dim2D, isArray = true,
-         name == "RWTexture2DArray" ||
-             name == "RasterizerOrderedTexture2DArray")) {
-      const auto sampledType = hlsl::GetHLSLResourceResultType(type);
-      const auto format =
-          translateSampledTypeToImageFormat(sampledType, srcLoc);
-      return spvContext.getImageType(
-          lowerType(getElementType(astContext, sampledType), rule,
-                    /*isRowMajor*/ llvm::None, srcLoc),
-          dim, ImageType::WithDepth::Unknown, isArray,
-          /*isMultiSampled=*/false, /*sampled=*/ImageType::WithSampler::No,
-          format);
+    if (isTexture) {
+      const bool isMS = resKind == hlsl::DXIL::ResourceKind::Texture2DMS ||
+                        resKind == hlsl::DXIL::ResourceKind::Texture2DMSArray;
+
+      if (resClass == hlsl::DXIL::ResourceClass::SRV) {
+        const auto sampledType = hlsl::GetHLSLResourceResultType(type);
+        auto loweredType =
+            lowerType(getElementType(astContext, sampledType), rule,
+                      /*isRowMajor*/ llvm::None, srcLoc);
+        // Bool does not have a defined size in SPIR-V, so it cannot be
+        // used in the external interface.
+        if (loweredType == spvContext.getBoolType()) {
+          loweredType = spvContext.getUIntType(32);
+        }
+        return spvContext.getImageType(
+            loweredType, dim, ImageType::WithDepth::Unknown, isArray, isMS,
+            ImageType::WithSampler::Yes, spv::ImageFormat::Unknown);
+      }
+
+      // UAV textures (RWTexture* and RasterizerOrderedTexture*) - no
+      // Texture3DArray in DXIL/HLSL.
+      if (resClass == hlsl::DXIL::ResourceClass::UAV) {
+        if (isMS)
+          spvBuilder.requireCapability(spv::Capability::StorageImageMultisample,
+                                       srcLoc);
+        const auto sampledType = hlsl::GetHLSLResourceResultType(type);
+        const auto format =
+            translateSampledTypeToImageFormat(sampledType, srcLoc);
+        return spvContext.getImageType(
+            lowerType(getElementType(astContext, sampledType), rule,
+                      /*isRowMajor*/ llvm::None, srcLoc),
+            dim, ImageType::WithDepth::Unknown, isArray,
+            /*isMultiSampled=*/isMS, /*sampled=*/ImageType::WithSampler::No,
+            format);
+      }
     }
   }
 
   // Sampler types
-  if (name == "SamplerState" || name == "SamplerComparisonState") {
+  if (resKind == hlsl::DXIL::ResourceKind::Sampler) {
     return spvContext.getSamplerType();
   }
 
-  if (name == "RaytracingAccelerationStructure") {
+  if (resKind == hlsl::DXIL::ResourceKind::RTAccelerationStructure) {
     return spvContext.getAccelerationStructureTypeNV();
   }
 
   if (hlsl::IsHLSLRayQueryType(type))
     return spvContext.getRayQueryTypeKHR();
 
-  if (name == "StructuredBuffer" || name == "RWStructuredBuffer" ||
-      name == "RasterizerOrderedStructuredBuffer" ||
-      name == "AppendStructuredBuffer" || name == "ConsumeStructuredBuffer") {
+  if (resKind == hlsl::DXIL::ResourceKind::StructuredBuffer) {
     // StructureBuffer<S> will be translated into an OpTypeStruct with one
     // field, which is an OpTypeRuntimeArray of OpTypeStruct (S).
 
@@ -1005,7 +1043,7 @@ LowerTypeVisitor::lowerResourceType(QualType type, SpirvLayoutRule rule,
     // The stride of the runtime array is the size of the struct.
     const auto *raType =
         spvContext.getRuntimeArrayType(structType, arrayStride);
-    const bool isReadOnly = (name == "StructuredBuffer");
+    const bool isReadOnly = resClass == hlsl::DXIL::ResourceClass::SRV;
 
     // Attach matrix stride decorations if this is a *StructuredBuffer<matrix>.
     llvm::Optional<uint32_t> matrixStride = llvm::None;
@@ -1029,10 +1067,11 @@ LowerTypeVisitor::lowerResourceType(QualType type, SpirvLayoutRule rule,
     return valType;
   }
 
-  if (name == "ConstantBuffer" || name == "TextureBuffer") {
+  if (resKind == hlsl::DXIL::ResourceKind::CBuffer ||
+      resKind == hlsl::DXIL::ResourceKind::TBuffer) {
     // ConstantBuffer<T> and TextureBuffer<T> are lowered as T
 
-    const bool forTBuffer = name == "TextureBuffer";
+    const bool forTBuffer = resKind == hlsl::DXIL::ResourceKind::TBuffer;
 
     if (rule == SpirvLayoutRule::Void) {
       rule = forTBuffer ? getCodeGenOptions().tBufferLayoutRule
@@ -1067,10 +1106,9 @@ LowerTypeVisitor::lowerResourceType(QualType type, SpirvLayoutRule rule,
   }
 
   // ByteAddressBuffer and RWByteAddressBuffer types.
-  if (name == "ByteAddressBuffer" || name == "RWByteAddressBuffer" ||
-      name == "RasterizerOrderedByteAddressBuffer") {
+  if (resKind == hlsl::DXIL::ResourceKind::RawBuffer) {
     const auto *bufferType = spvContext.getByteAddressBufferType(
-        /*isRW*/ name != "ByteAddressBuffer");
+        /*isRW*/ resClass != hlsl::DXIL::ResourceClass::SRV);
     if (rule == SpirvLayoutRule::Void) {
       // All byte address buffers are in the Uniform storage class.
       return spvContext.getPointerType(bufferType, spv::StorageClass::Uniform);
@@ -1079,8 +1117,7 @@ LowerTypeVisitor::lowerResourceType(QualType type, SpirvLayoutRule rule,
   }
 
   // Buffer and RWBuffer types
-  if (name == "Buffer" || name == "RWBuffer" ||
-      name == "RasterizerOrderedBuffer") {
+  if (resKind == hlsl::DXIL::ResourceKind::TypedBuffer) {
     const auto sampledType = hlsl::GetHLSLResourceResultType(type);
     const auto format = translateSampledTypeToImageFormat(sampledType, srcLoc);
     return spvContext.getImageType(
@@ -1088,13 +1125,14 @@ LowerTypeVisitor::lowerResourceType(QualType type, SpirvLayoutRule rule,
                   /*isRowMajor*/ llvm::None, srcLoc),
         spv::Dim::Buffer, ImageType::WithDepth::Unknown,
         /*isArrayed=*/false, /*isMultiSampled=*/false,
-        /*sampled*/ name == "Buffer" ? ImageType::WithSampler::Yes
-                                     : ImageType::WithSampler::No,
+        /*sampled*/ resClass == hlsl::DXIL::ResourceClass::SRV
+            ? ImageType::WithSampler::Yes
+            : ImageType::WithSampler::No,
         format);
   }
 
   // InputPatch
-  if (name == "InputPatch") {
+  if (hlsl::IsHLSLInputPatchType(type)) {
     const auto elemType = hlsl::GetHLSLInputPatchElementType(type);
     const auto elemCount = hlsl::GetHLSLInputPatchCount(type);
     return spvContext.getArrayType(
@@ -1102,7 +1140,7 @@ LowerTypeVisitor::lowerResourceType(QualType type, SpirvLayoutRule rule,
         /*ArrayStride*/ llvm::None);
   }
   // OutputPatch
-  if (name == "OutputPatch") {
+  if (hlsl::IsHLSLOutputPatchType(type)) {
     const auto elemType = hlsl::GetHLSLOutputPatchElementType(type);
     const auto elemCount = hlsl::GetHLSLOutputPatchCount(type);
     return spvContext.getArrayType(
@@ -1110,20 +1148,19 @@ LowerTypeVisitor::lowerResourceType(QualType type, SpirvLayoutRule rule,
         /*ArrayStride*/ llvm::None);
   }
   // Output stream objects (TriangleStream, LineStream, and PointStream)
-  if (name == "TriangleStream" || name == "LineStream" ||
-      name == "PointStream") {
+  if (hlsl::IsHLSLStreamOutputType(type)) {
     return lowerType(hlsl::GetHLSLResourceResultType(type), rule,
                      /*isRowMajor*/ llvm::None, srcLoc);
   }
 
-  if (name == "SubpassInput" || name == "SubpassInputMS") {
+  if (isSubpassInput(type) || isSubpassInputMS(type)) {
     const auto sampledType = hlsl::GetHLSLResourceResultType(type);
     return spvContext.getImageType(
         lowerType(getElementType(astContext, sampledType), rule,
                   /*isRowMajor*/ llvm::None, srcLoc),
         spv::Dim::SubpassData, ImageType::WithDepth::Unknown,
         /*isArrayed=*/false,
-        /*isMultipleSampled=*/name == "SubpassInputMS",
+        /*isMultipleSampled=*/isSubpassInputMS(type),
         ImageType::WithSampler::No, spv::ImageFormat::Unknown);
   }
 
