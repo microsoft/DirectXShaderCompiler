@@ -3387,8 +3387,12 @@ SpirvInstruction *SpirvEmitter::processCall(const CallExpr *callExpr) {
     // Mesh shader outputs are written through Output variables rather than
     // through the storage the argument designates, so out/inout arguments
     // must be copied through a temporary and written back after the call.
-    const bool isMSOutArg =
-        spvContext.isMS() && canActAsOutParmVar(param) && isMSOutputAccess(arg);
+    // Mesh-qualified parameters already write directly to Output variables.
+    const bool isMSOutParam = param->hasAttr<HLSLVerticesAttr>() ||
+                              param->hasAttr<HLSLPrimitivesAttr>() ||
+                              param->hasAttr<HLSLIndicesAttr>();
+    const bool isMSOutArg = spvContext.isMS() && !isMSOutParam &&
+                            canActAsOutParmVar(param) && isMSOutputAccess(arg);
     const bool isInMSOutArg = isMSOutArg && (param->hasAttr<HLSLInOutAttr>() ||
                                              param->hasAttr<HLSLInAttr>());
     if (isInMSOutArg) {
@@ -3412,15 +3416,17 @@ SpirvInstruction *SpirvEmitter::processCall(const CallExpr *callExpr) {
         }
       }
       base = base->IgnoreParenLValueCasts();
-      // Matrix-element output writes are not handled by the mesh writer.
-      if (!isa<ExtMatrixElementExpr>(base)) {
-        if (!collectMSOutDest(base, &copyBack.dest, /*allowWholeArray=*/true)) {
-          emitError("unsupported mesh shader output argument",
-                    arg->getExprLoc());
-          return nullptr;
-        }
-        msOutCopyBacks.back() = std::move(copyBack);
+      if (isa<ExtMatrixElementExpr>(base)) {
+        emitError(
+            "matrix element writes to mesh shader outputs are not supported",
+            arg->getExprLoc());
+        return nullptr;
       }
+      if (!collectMSOutDest(base, &copyBack.dest, /*allowWholeArray=*/true)) {
+        emitError("unsupported mesh shader output argument", arg->getExprLoc());
+        return nullptr;
+      }
+      msOutCopyBacks.back() = std::move(copyBack);
     }
     auto *argInst = msOutCopyBacks.back() ? nullptr : doExpr(arg);
 
@@ -7371,8 +7377,8 @@ SpirvEmitter::processAssignment(const Expr *lhs, SpirvInstruction *rhs,
     return result;
 
   // Assigning to matrix swizzling should be handled differently.
-  if (SpirvInstruction *result = tryToAssignToMatrixElements(lhs, rhs, range))
-    return result;
+  if (isa<ExtMatrixElementExpr>(lhs))
+    return tryToAssignToMatrixElements(lhs, rhs, range);
 
   // Assigning to a RWBuffer/RWTexture should be handled differently.
   if (SpirvInstruction *result =
@@ -8597,6 +8603,12 @@ SpirvInstruction *SpirvEmitter::tryToAssignToMatrixElements(
   const auto *lhsExpr = dyn_cast<ExtMatrixElementExpr>(lhs);
   if (!lhsExpr)
     return nullptr;
+
+  if (spvContext.isMS() && isMSOutputAccess(lhs)) {
+    emitError("matrix element writes to mesh shader outputs are not supported",
+              lhs->getExprLoc());
+    return nullptr;
+  }
 
   const Expr *baseMat = lhsExpr->getBase();
   auto *base = doExpr(baseMat, range);

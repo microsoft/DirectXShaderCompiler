@@ -1,4 +1,4 @@
-// RUN: %dxc -T ms_6_5 -E outie -fcgl  %s -spirv | FileCheck %s
+// RUN: %dxc -T ms_6_5 -E outie -fcgl  %s -spirv | FileCheck %s --check-prefixes=CHECK,OUTIE
 // RUN: %dxc -T ms_6_5 -E innie -fcgl  %s -spirv | FileCheck %s
 
 // CHECK-DAG: [[v4_n05_05_0_1:%[0-9]+]] = OpConstantComposite %v4float %float_n0_5 %float_0_5 %float_0 %float_1
@@ -10,6 +10,11 @@
 // CHECK-DAG:  [[u3_0_1_2:%[0-9]+]] = OpConstantComposite %v3uint %uint_0 %uint_1 %uint_2
 
 // CHECK-DAG:  OpDecorate [[indices:%[0-9]+]] BuiltIn PrimitiveIndicesNV
+
+// OUTIE: %src_outie = OpFunction
+// OUTIE: OpFunctionCall %void %innie %triangles %verts
+// OUTIE-NOT: OpStore
+// OUTIE: OpFunctionEnd
 
 struct MeshOutput {
   float4 position : SV_Position;

@@ -21,6 +21,8 @@ The included licenses apply to the following files:
 
 #### SPIR-V
 
+- Matrix-element writes to mesh shader outputs now report an error instead of
+  being silently dropped.
 - SPIR-V mesh shaders correctly write outputs passed as `out` arguments,
   including whole arrays and side-effecting indices, and diagnose mesh outputs
   passed as `inout` arguments that cannot be read.

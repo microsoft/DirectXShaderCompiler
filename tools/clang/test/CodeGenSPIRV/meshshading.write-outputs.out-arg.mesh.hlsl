@@ -8,6 +8,16 @@
 // RUN: %dxc -T ms_6_6 -E main -DARRAY -spirv -fspv-target-env=vulkan1.3 -fspv-extension=SPV_NV_mesh_shader %s | FileCheck %s --check-prefixes=ARRAY,NV
 // RUN: %dxc -T ms_6_6 -E main -DSIDE_EFFECT -spirv -fspv-target-env=vulkan1.3 %s | FileCheck %s --check-prefix=SIDE
 // RUN: %dxc -T ms_6_6 -E main -DSIDE_EFFECT -spirv -fspv-target-env=vulkan1.3 -fspv-extension=SPV_NV_mesh_shader %s | FileCheck %s --check-prefix=SIDE
+// RUN: %dxc -T ms_6_6 -E main -DQUALIFIED -fcgl -spirv -fspv-target-env=vulkan1.3 %s | FileCheck %s --check-prefix=QUAL
+// RUN: %dxc -T ms_6_6 -E main -DQUALIFIED -fcgl -spirv -fspv-target-env=vulkan1.3 -fspv-extension=SPV_NV_mesh_shader %s | FileCheck %s --check-prefix=QUAL
+// RUN: not %dxc -T ms_6_6 -E main -DMAT_ELEM -spirv -fspv-target-env=vulkan1.3 %s 2>&1 | FileCheck %s --check-prefix=MAT
+// RUN: not %dxc -T ms_6_6 -E main -DMAT_ELEM -fcgl -spirv -fspv-target-env=vulkan1.3 %s 2>&1 | FileCheck %s --check-prefix=MAT
+// RUN: not %dxc -T ms_6_6 -E main -DMAT_ELEM -spirv -fspv-target-env=vulkan1.3 -fspv-extension=SPV_NV_mesh_shader %s 2>&1 | FileCheck %s --check-prefix=MAT
+// RUN: not %dxc -T ms_6_6 -E main -DMAT_ELEM -fcgl -spirv -fspv-target-env=vulkan1.3 -fspv-extension=SPV_NV_mesh_shader %s 2>&1 | FileCheck %s --check-prefix=MAT
+// RUN: not %dxc -T ms_6_6 -E main -DMAT_ELEM_DIRECT -spirv -fspv-target-env=vulkan1.3 %s 2>&1 | FileCheck %s --check-prefix=MAT
+// RUN: not %dxc -T ms_6_6 -E main -DMAT_ELEM_DIRECT -fcgl -spirv -fspv-target-env=vulkan1.3 %s 2>&1 | FileCheck %s --check-prefix=MAT
+// RUN: not %dxc -T ms_6_6 -E main -DMAT_ELEM_DIRECT -spirv -fspv-target-env=vulkan1.3 -fspv-extension=SPV_NV_mesh_shader %s 2>&1 | FileCheck %s --check-prefix=MAT
+// RUN: not %dxc -T ms_6_6 -E main -DMAT_ELEM_DIRECT -fcgl -spirv -fspv-target-env=vulkan1.3 -fspv-extension=SPV_NV_mesh_shader %s 2>&1 | FileCheck %s --check-prefix=MAT
 
 // Mesh shader outputs passed as 'out' arguments are written back to the
 // Output variables after the call.
@@ -41,6 +51,17 @@
 // CHECK-NEXT: OpStore [[STATIC_VALUE]] %float_10
 
 // INOUT: error: output arrays of a mesh shader can not be read from
+
+// MAT: error: matrix element writes to mesh shader outputs are not supported
+// MAT-NOT: error:
+
+// QUAL: %src_main = OpFunction
+// QUAL: OpFunctionCall %void %inner %vertices %primitives %triangles
+// QUAL-NOT: OpStore
+// QUAL: OpFunctionEnd
+// QUAL: %inner = OpFunction
+// QUAL: [[INNER_VALUE:%[0-9]+]] = OpAccessChain %_ptr_Output_float %out_var_VALUE %int_1
+// QUAL-NEXT: OpStore [[INNER_VALUE]]
 
 // ARRAY-DAG: OpDecorate [[ARRAY_POSITION:%[0-9A-Za-z_]+]] BuiltIn Position
 // ARRAY-DAG: OpDecorate [[ARRAY_ID:%[0-9A-Za-z_]+]] BuiltIn PrimitiveId
@@ -91,6 +112,9 @@ struct Vertex {
   float value : VALUE;
   float1 extra : EXTRA;
   static float M;
+#if defined(MAT_ELEM) || defined(MAT_ELEM_DIRECT)
+  float2x2 m : MAT;
+#endif
 };
 
 float Vertex::M = 1;
@@ -126,6 +150,12 @@ void setVertices(out Vertex v[3]) {
 void setPrimitives(out Primitive p[1]) { p[0].id = 8; }
 void setTriangles(out uint3 t[1]) { t[0] = uint3(0, 1, 2); }
 void bumpArr(inout Vertex v[3]) { v[0].value += 1; }
+void inner(out vertices Vertex v[3], out primitives Primitive p[1],
+           out indices uint3 t[1]) {
+  setFloat(v[1].value);
+  setUint(p[0].id);
+  setTriangle(t[0]);
+}
 
 [numthreads(1, 1, 1)]
 [outputtopology("triangle")]
@@ -133,7 +163,13 @@ void main(out vertices Vertex vertices[3],
           out primitives Primitive primitives[1],
           out indices uint3 triangles[1]) {
   SetMeshOutputCounts(3, 1);
-#if defined(ARRAY)
+#if defined(MAT_ELEM)
+  setFloat(vertices[0].m._m01);
+#elif defined(MAT_ELEM_DIRECT)
+  vertices[0].m._m01 = 9;
+#elif defined(QUALIFIED)
+  inner(vertices, primitives, triangles);
+#elif defined(ARRAY)
   setVertices(vertices);
   setPrimitives(primitives);
   setTriangles(triangles);
