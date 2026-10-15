@@ -996,27 +996,8 @@ bool ThreadGroupMatrixMultiplySupport::supported() const {
 }
 
 bool ThreadGroupMatrixMultiplySupport::valid() const {
-  if (!isValidMultiplicationFlags(static_cast<UINT>(SupportFlags),
-                                  MatrixMultiplicationFlags))
-    return false;
-  if (!hasFlag(SupportFlags,
-               linalg_abi::
-                   D3D12_LINEAR_ALGEBRA_MULTIPLICATION_SUPPORT_FLAG_SUPPORTED))
-    return true;
-  return MinThreadGroupSize != 0 && MaxThreadGroupSize >= MinThreadGroupSize &&
-         MaxThreadGroupSize % MinThreadGroupSize == 0 &&
-         (PreferredThreadGroupSize == 0 ||
-          (PreferredThreadGroupSize >= MinThreadGroupSize &&
-           PreferredThreadGroupSize <= MaxThreadGroupSize &&
-           PreferredThreadGroupSize % MinThreadGroupSize == 0));
-}
-
-bool ThreadGroupMatrixMultiplySupport::supportsThreadGroupSize(
-    UINT ThreadGroupSize) const {
-  return supported() && MinThreadGroupSize != 0 &&
-         ThreadGroupSize >= MinThreadGroupSize &&
-         ThreadGroupSize <= MaxThreadGroupSize &&
-         ThreadGroupSize % MinThreadGroupSize == 0;
+  return isValidMultiplicationFlags(static_cast<UINT>(SupportFlags),
+                                    MatrixMultiplicationFlags);
 }
 
 bool ThreadVectorMatrixMultiplySupport::supported() const {
@@ -1244,6 +1225,8 @@ queryThreadGroupMatrixMultiply(ID3D12Device *Device,
       Query.Shape.K,
       Query.Shape.N,
   };
+  RuntimeSupport.ThreadGroupMatrixMultiply.ThreadGroupSize =
+      Query.ThreadGroupSize;
 
   const HRESULT HR = Device->CheckFeatureSupport(
       linalg_abi::D3D12_FEATURE_LINEAR_ALGEBRA_MATRIX_OPERATION_SUPPORT,
@@ -1251,12 +1234,12 @@ queryThreadGroupMatrixMultiply(ID3D12Device *Device,
   if (FAILED(HR)) {
     LogCommentFmt(
         L"ThreadGroupMatrixMultiply query failed: wave=%u, A=%s, B=%s, "
-        L"Acc=%s, shape=(%u,%u,%u), hr=0x%08x",
+        L"Acc=%s, shape=(%u,%u,%u), threads=%u, hr=0x%08x",
         Query.WaveInputs.WaveSize,
         dataTypeName(Query.WaveInputs.MatrixAComponentType),
         dataTypeName(Query.WaveInputs.MatrixBComponentType),
         dataTypeName(Query.WaveInputs.AccumulatorComponentType), Query.Shape.M,
-        Query.Shape.K, Query.Shape.N, HR);
+        Query.Shape.K, Query.Shape.N, Query.ThreadGroupSize, HR);
     return HR;
   }
 
@@ -1267,44 +1250,16 @@ queryThreadGroupMatrixMultiply(ID3D12Device *Device,
     return E_UNEXPECTED;
   }
 
-  const bool Supported =
-      (Flags &
-       static_cast<UINT>(
-           linalg_abi::
-               D3D12_LINEAR_ALGEBRA_MULTIPLICATION_SUPPORT_FLAG_SUPPORTED)) !=
-      0;
-  const UINT MinSize =
-      RuntimeSupport.ThreadGroupMatrixMultiply.MinThreadGroupSize;
-  const UINT MaxSize =
-      RuntimeSupport.ThreadGroupMatrixMultiply.MaxThreadGroupSize;
-  const UINT PreferredSize =
-      RuntimeSupport.ThreadGroupMatrixMultiply.PreferredThreadGroupSize;
-  if (Supported &&
-      (MinSize == 0 || MaxSize < MinSize || MaxSize % MinSize != 0 ||
-       (PreferredSize != 0 &&
-        (PreferredSize < MinSize || PreferredSize > MaxSize ||
-         PreferredSize % MinSize != 0)))) {
-    LogCommentFmt(
-        L"ThreadGroupMatrixMultiply query returned malformed group sizes: "
-        L"min=%u, max=%u, preferred=%u",
-        MinSize, MaxSize, PreferredSize);
-    return E_UNEXPECTED;
-  }
-
   Support.SupportFlags = static_cast<
       linalg_abi::D3D12_LINEAR_ALGEBRA_MULTIPLICATION_SUPPORT_FLAGS>(Flags);
-  Support.MinThreadGroupSize = MinSize;
-  Support.MaxThreadGroupSize = MaxSize;
-  Support.PreferredThreadGroupSize = PreferredSize;
   LogCommentFmt(
       L"ThreadGroupMatrixMultiply query: wave=%u, A=%s, B=%s, Acc=%s, "
-      L"shape=(%u,%u,%u), flags=0x%x, minGroup=%u, maxGroup=%u, "
-      L"preferredGroup=%u",
+      L"shape=(%u,%u,%u), threads=%u, flags=0x%x",
       Query.WaveInputs.WaveSize,
       dataTypeName(Query.WaveInputs.MatrixAComponentType),
       dataTypeName(Query.WaveInputs.MatrixBComponentType),
       dataTypeName(Query.WaveInputs.AccumulatorComponentType), Query.Shape.M,
-      Query.Shape.K, Query.Shape.N, Flags, MinSize, MaxSize, PreferredSize);
+      Query.Shape.K, Query.Shape.N, Query.ThreadGroupSize, Flags);
   return S_OK;
 }
 
