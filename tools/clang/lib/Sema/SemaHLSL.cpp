@@ -5928,7 +5928,8 @@ public:
           if (DiagnoseTypeElements(
                   *m_sema, ArgSrcLoc, ArgType,
                   TypeDiagContext::StructuredBuffers /*ObjDiagContext*/,
-                  TypeDiagContext::Valid /*LongVecDiagContext*/))
+                  TypeDiagContext::Valid /*LongVecDiagContext*/, nullptr,
+                  ResAttr->getResClass()))
             return true;
         }
       }
@@ -12865,7 +12866,7 @@ DiagnoseElementTypes(Sema &S, SourceLocation Loc, QualType Ty, bool &Empty,
                      TypeDiagContext ObjDiagContext,
                      TypeDiagContext LongVecDiagContext,
                      llvm::SmallPtrSet<const RecordDecl *, 8> &CheckedDecls,
-                     const clang::FieldDecl *FD) {
+                     const clang::FieldDecl *FD, DXIL::ResourceClass ResClass) {
   if (Ty.isNull() || Ty->isDependentType())
     return false;
 
@@ -12937,9 +12938,28 @@ DiagnoseElementTypes(Sema &S, SourceLocation Loc, QualType Ty, bool &Empty,
 
     // Check the fields of the RecordDecl
     for (auto *ElemFD : RD->fields()) {
-      ErrorFound |=
-          DiagnoseElementTypes(S, Loc, ElemFD->getType(), Empty, ObjDiagContext,
-                               LongVecDiagContext, CheckedDecls, ElemFD);
+      if (ElemFD->isMutable()) {
+        if (ObjDiagContext ==
+                TypeDiagContext::ConstantBuffersOrTextureBuffers ||
+            ObjDiagContext == TypeDiagContext::CBuffersOrTBuffers) {
+          S.Diag(Loc, diag::err_hlsl_mutable_field_in_constant_buffer)
+              << ElemFD;
+          S.Diag(ElemFD->getLocation(), diag::note_field_declared_here)
+              << ElemFD->getType() << ElemFD->getSourceRange();
+          ErrorFound = true;
+        } else if (ResClass == DXIL::ResourceClass::SRV &&
+                   ObjDiagContext == TypeDiagContext::StructuredBuffers) {
+          S.Diag(Loc,
+                 diag::err_hlsl_mutable_field_in_readonly_structured_buffer)
+              << ElemFD;
+          S.Diag(ElemFD->getLocation(), diag::note_field_declared_here)
+              << ElemFD->getType() << ElemFD->getSourceRange();
+          ErrorFound = true;
+        }
+      }
+      ErrorFound |= DiagnoseElementTypes(S, Loc, ElemFD->getType(), Empty,
+                                         ObjDiagContext, LongVecDiagContext,
+                                         CheckedDecls, ElemFD, ResClass);
     }
     if (!RD->isCompleteDefinition())
       return ErrorFound;
@@ -12947,9 +12967,9 @@ DiagnoseElementTypes(Sema &S, SourceLocation Loc, QualType Ty, bool &Empty,
     if (auto *Child = dyn_cast<CXXRecordDecl>(RD))
       // Walk up the inheritance chain and check base class fields
       for (auto &B : Child->bases())
-        ErrorFound |=
-            DiagnoseElementTypes(S, Loc, B.getType(), Empty, ObjDiagContext,
-                                 LongVecDiagContext, CheckedDecls, nullptr);
+        ErrorFound |= DiagnoseElementTypes(S, Loc, B.getType(), Empty,
+                                           ObjDiagContext, LongVecDiagContext,
+                                           CheckedDecls, nullptr, ResClass);
     return ErrorFound;
   }
   default:
@@ -12962,11 +12982,12 @@ DiagnoseElementTypes(Sema &S, SourceLocation Loc, QualType Ty, bool &Empty,
 bool hlsl::DiagnoseTypeElements(Sema &S, SourceLocation Loc, QualType Ty,
                                 TypeDiagContext ObjDiagContext,
                                 TypeDiagContext LongVecDiagContext,
-                                const clang::FieldDecl *FD) {
+                                const clang::FieldDecl *FD,
+                                DXIL::ResourceClass ResClass) {
   bool Empty = false;
   llvm::SmallPtrSet<const RecordDecl *, 8> CheckedDecls;
   return DiagnoseElementTypes(S, Loc, Ty, Empty, ObjDiagContext,
-                              LongVecDiagContext, CheckedDecls, FD);
+                              LongVecDiagContext, CheckedDecls, FD, ResClass);
 }
 
 bool hlsl::DiagnoseNodeStructArgument(Sema *self, TemplateArgumentLoc ArgLoc,
@@ -12975,7 +12996,8 @@ bool hlsl::DiagnoseNodeStructArgument(Sema *self, TemplateArgumentLoc ArgLoc,
   llvm::SmallPtrSet<const RecordDecl *, 8> CheckedDecls;
   return DiagnoseElementTypes(*self, ArgLoc.getLocation(), ArgTy, Empty,
                               TypeDiagContext::NodeRecords,
-                              TypeDiagContext::NodeRecords, CheckedDecls, FD);
+                              TypeDiagContext::NodeRecords, CheckedDecls, FD,
+                              DXIL::ResourceClass::Invalid);
 }
 
 // This function diagnoses whether or not all entry-point attributes
