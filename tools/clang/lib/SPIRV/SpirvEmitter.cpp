@@ -1336,8 +1336,12 @@ static bool isMSOutputAccess(const Expr *expr) {
         (castExpr->getCastKind() == CK_HLSLVectorSplat &&
          hlsl::GetHLSLVecSize(castExpr->getType()) == 1))
       return isMSOutputAccess(castExpr->getSubExpr());
-  if (const auto *member = dyn_cast<MemberExpr>(expr))
+  if (const auto *member = dyn_cast<MemberExpr>(expr)) {
+    if (const auto *decl = dyn_cast<VarDecl>(member->getMemberDecl()))
+      if (decl->isStaticDataMember())
+        return false;
     return isMSOutputAccess(member->getBase());
+  }
   if (const auto *subscript = dyn_cast<ArraySubscriptExpr>(expr))
     return isMSOutputAccess(subscript->getBase());
   if (const auto *swizzle = dyn_cast<HLSLVectorElementExpr>(expr))
@@ -3399,12 +3403,12 @@ SpirvInstruction *SpirvEmitter::processCall(const CallExpr *callExpr) {
       const Expr *base = arg->IgnoreParens();
       if (const auto *swizzle = dyn_cast<HLSLVectorElementExpr>(base)) {
         condenseVectorElementExpr(swizzle, &base, &copyBack.accessor);
-        if (const auto *castExpr = dyn_cast<CastExpr>(base)) {
-          if (castExpr->getCastKind() == CK_HLSLVectorSplat &&
-              hlsl::GetHLSLVecSize(castExpr->getType()) == 1) {
-            base = castExpr->getSubExpr();
-            copyBack.accessor.Count = 0;
-          }
+        if (hlsl::IsHLSLVecType(base->getType()) &&
+            hlsl::GetHLSLVecSize(base->getType()) == 1) {
+          copyBack.accessor.Count = 0;
+          if (const auto *castExpr = dyn_cast<CastExpr>(base))
+            if (castExpr->getCastKind() == CK_HLSLVectorSplat)
+              base = castExpr->getSubExpr();
         }
       }
       base = base->IgnoreParenLValueCasts();
@@ -8472,8 +8476,11 @@ SpirvInstruction *SpirvEmitter::tryToAssignToVectorElements(
       return rhs; // TODO: incorrect for compound assignments
     } else {
       // Assigning to one component of mesh out attribute/indices vector object.
-      SpirvInstruction *vecComponent = spvBuilder.getConstantInt(
-          astContext.UnsignedIntTy, llvm::APInt(32, accessor.Swz0));
+      SpirvInstruction *vecComponent =
+          baseSize == 1
+              ? nullptr
+              : spvBuilder.getConstantInt(astContext.UnsignedIntTy,
+                                          llvm::APInt(32, accessor.Swz0));
       if (tryToAssignToMSOutAttrsOrIndices(base, rhs, vecComponent))
         return rhs;
       // Assigning to one normal vector component. Nothing special, just fall

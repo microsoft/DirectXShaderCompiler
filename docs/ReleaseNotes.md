@@ -26,6 +26,8 @@ The included licenses apply to the following files:
   passed as `inout` arguments that cannot be read.
 - Fixed mesh shader output writes through a multi-component swizzle evaluating
   the index expression more than once.
+- Fixed SPIR-V mesh shader writes to `float1` output components and argument
+  handling for static members accessed through mesh outputs.
 - SPIR-V mesh shaders correctly invert only Y when writing position components
   with `-fvk-invert-y`.
 - SPIR-V mesh shaders correctly convert boolean vector outputs to their unsigned
