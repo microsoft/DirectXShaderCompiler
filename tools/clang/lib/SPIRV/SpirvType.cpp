@@ -169,7 +169,8 @@ bool ArrayType::operator==(const ArrayType &that) const {
 bool RuntimeArrayType::operator==(const RuntimeArrayType &that) const {
   return elementType == that.elementType &&
          stride.hasValue() == that.stride.hasValue() &&
-         (!stride.hasValue() || stride.getValue() == that.stride.getValue());
+         (!stride.hasValue() || stride.getValue() == that.stride.getValue()) &&
+         arrayStrideId == that.arrayStrideId;
 }
 
 bool NodePayloadArrayType::operator==(const NodePayloadArrayType &that) const {
