@@ -21,9 +21,15 @@ The included licenses apply to the following files:
 
 #### SPIR-V
 
-- SPIR-V mesh shaders correctly write outputs passed as `out` arguments, and diagnose mesh outputs passed as `inout` arguments that cannot be read.
-- SPIR-V mesh shaders correctly invert only Y when writing position components with `-fvk-invert-y`.
-- SPIR-V mesh shaders correctly convert boolean vector outputs to their unsigned integer storage.
+- SPIR-V mesh shaders correctly write outputs passed as `out` arguments,
+  including whole arrays and side-effecting indices, and diagnose mesh outputs
+  passed as `inout` arguments that cannot be read.
+- Fixed mesh shader output writes through a multi-component swizzle evaluating
+  the index expression more than once.
+- SPIR-V mesh shaders correctly invert only Y when writing position components
+  with `-fvk-invert-y`.
+- SPIR-V mesh shaders correctly convert boolean vector outputs to their unsigned
+  integer storage.
 
 #### Shader Model 6.10
 

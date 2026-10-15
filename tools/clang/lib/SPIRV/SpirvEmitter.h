@@ -359,13 +359,28 @@ private:
                                                    SpirvInstruction *rhs,
                                                    SourceRange range = {});
 
+  struct MSOutDest {
+    enum class Kind {
+      None,
+      Attribute,
+      AttributeBlock,
+      Indices
+    } kind = Kind::None;
+    const DeclaratorDecl *decl = nullptr;
+    llvm::SmallVector<SpirvInstruction *, 4> indices;
+    bool wholeArray = false;
+  };
+
+  bool collectMSOutDest(const Expr *lhs, MSOutDest *dest, bool allowWholeArray);
+  void assignToMSOutDest(const MSOutDest &dest, SpirvInstruction *rhs,
+                         SpirvInstruction *vecComponent, SourceLocation loc);
+
   /// Tries to emit instructions for assigning to the given mesh out attribute
   /// or indices object. Returns 0 if the trial fails and no instructions are
   /// generated.
   SpirvInstruction *
   tryToAssignToMSOutAttrsOrIndices(const Expr *lhs, SpirvInstruction *rhs,
-                                   SpirvInstruction *vecComponent = nullptr,
-                                   bool noWriteBack = false);
+                                   SpirvInstruction *vecComponent = nullptr);
 
   /// Emit instructions for assigning to the given mesh out attribute.
   void assignToMSOutAttribute(

@@ -29,6 +29,7 @@
 #include "clang/SPIRV/String.h"
 #include "clang/Sema/Sema.h"
 #include "llvm/ADT/APInt.h"
+#include "llvm/ADT/Optional.h"
 #include "llvm/ADT/SetVector.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/Support/Casting.h"
@@ -1331,7 +1332,9 @@ static bool isMSOutputAccess(const Expr *expr) {
   if (const auto *castExpr = dyn_cast<CastExpr>(expr))
     if (castExpr->getCastKind() == CK_NoOp ||
         castExpr->getCastKind() == CK_UncheckedDerivedToBase ||
-        castExpr->getCastKind() == CK_HLSLDerivedToBase)
+        castExpr->getCastKind() == CK_HLSLDerivedToBase ||
+        (castExpr->getCastKind() == CK_HLSLVectorSplat &&
+         hlsl::GetHLSLVecSize(castExpr->getType()) == 1))
       return isMSOutputAccess(castExpr->getSubExpr());
   if (const auto *member = dyn_cast<MemberExpr>(expr))
     return isMSOutputAccess(member->getBase());
@@ -3279,6 +3282,11 @@ SpirvInstruction *SpirvEmitter::processCall(const CallExpr *callExpr) {
   llvm::SmallVector<SpirvInstruction *, 4> vars; // Variables for function call
   llvm::SmallVector<bool, 4> isTempVar;          // Temporary variable or not
   llvm::SmallVector<SpirvInstruction *, 4> args; // Evaluated arguments
+  struct MSOutCopyBack {
+    MSOutDest dest;
+    hlsl::VectorMemberAccessPositions accessor = {};
+  };
+  llvm::SmallVector<llvm::Optional<MSOutCopyBack>, 4> msOutCopyBacks;
 
   if (const auto *memberCall = dyn_cast<CXXMemberCallExpr>(callExpr)) {
     const auto *memberFn = cast<CXXMethodDecl>(memberCall->getCalleeDecl());
@@ -3339,6 +3347,7 @@ SpirvInstruction *SpirvEmitter::processCall(const CallExpr *callExpr) {
     // object. Use the evaluated argument.
     vars.push_back(args.back());
     isTempVar.push_back(false);
+    msOutCopyBacks.push_back(llvm::None);
   }
 
   // Evaluate parameters
@@ -3374,8 +3383,8 @@ SpirvInstruction *SpirvEmitter::processCall(const CallExpr *callExpr) {
     // Mesh shader outputs are written through Output variables rather than
     // through the storage the argument designates, so out/inout arguments
     // must be copied through a temporary and written back after the call.
-    const bool isMSOutArg = spvContext.isMS() && canActAsOutParmVar(param) &&
-                            isMSOutputAccess(arg);
+    const bool isMSOutArg =
+        spvContext.isMS() && canActAsOutParmVar(param) && isMSOutputAccess(arg);
     const bool isInMSOutArg = isMSOutArg && (param->hasAttr<HLSLInOutAttr>() ||
                                              param->hasAttr<HLSLInAttr>());
     if (isInMSOutArg) {
@@ -3384,7 +3393,32 @@ SpirvInstruction *SpirvEmitter::processCall(const CallExpr *callExpr) {
       return nullptr;
     }
 
-    auto *argInst = doExpr(arg);
+    msOutCopyBacks.push_back(llvm::None);
+    if (isMSOutArg) {
+      MSOutCopyBack copyBack;
+      const Expr *base = arg->IgnoreParens();
+      if (const auto *swizzle = dyn_cast<HLSLVectorElementExpr>(base)) {
+        condenseVectorElementExpr(swizzle, &base, &copyBack.accessor);
+        if (const auto *castExpr = dyn_cast<CastExpr>(base)) {
+          if (castExpr->getCastKind() == CK_HLSLVectorSplat &&
+              hlsl::GetHLSLVecSize(castExpr->getType()) == 1) {
+            base = castExpr->getSubExpr();
+            copyBack.accessor.Count = 0;
+          }
+        }
+      }
+      base = base->IgnoreParenLValueCasts();
+      // Matrix-element output writes are not handled by the mesh writer.
+      if (!isa<ExtMatrixElementExpr>(base)) {
+        if (!collectMSOutDest(base, &copyBack.dest, /*allowWholeArray=*/true)) {
+          emitError("unsupported mesh shader output argument",
+                    arg->getExprLoc());
+          return nullptr;
+        }
+        msOutCopyBacks.back() = std::move(copyBack);
+      }
+    }
+    auto *argInst = msOutCopyBacks.back() ? nullptr : doExpr(arg);
 
     bool isArgGlobalVarWithResourceType =
         argInfo && argInfo->getStorageClass() != spv::StorageClass::Function &&
@@ -3473,6 +3507,7 @@ SpirvInstruction *SpirvEmitter::processCall(const CallExpr *callExpr) {
 
   assert(vars.size() == isTempVar.size());
   assert(vars.size() == args.size());
+  assert(vars.size() == msOutCopyBacks.size());
 
   // Push the callee into the work queue if it is not there.
   addFunctionToWorkQueue(spvContext.getCurrentShaderModelKind(), callee,
@@ -3527,7 +3562,30 @@ SpirvInstruction *SpirvEmitter::processCall(const CallExpr *callExpr) {
         }
       }
 
-      processAssignment(arg, value, false, args[index]);
+      if (msOutCopyBacks[index]) {
+        const auto &copyBack = *msOutCopyBacks[index];
+        const auto &accessor = copyBack.accessor;
+        const auto loc = arg->getLocStart();
+        if (accessor.Count == 0) {
+          assignToMSOutDest(copyBack.dest, value, nullptr, loc);
+        } else {
+          for (uint32_t component = 0; component < accessor.Count;
+               ++component) {
+            uint32_t position;
+            accessor.GetPosition(component, &position);
+            auto *element = value;
+            if (accessor.Count > 1)
+              element = spvBuilder.createCompositeExtract(
+                  hlsl::GetHLSLVecElementType(value->getAstResultType()), value,
+                  {component}, loc);
+            auto *vecComponent = spvBuilder.getConstantInt(
+                astContext.UnsignedIntTy, llvm::APInt(32, position));
+            assignToMSOutDest(copyBack.dest, element, vecComponent, loc);
+          }
+        }
+      } else {
+        processAssignment(arg, value, false, args[index]);
+      }
     }
   }
 
@@ -8439,23 +8497,20 @@ SpirvInstruction *SpirvEmitter::tryToAssignToVectorElements(
     return processAssignment(base, rhs, false, nullptr, range);
   }
 
-  if (tryToAssignToMSOutAttrsOrIndices(base, rhs, /*vecComponent=*/nullptr,
-                                       /*noWriteBack=*/true)) {
+  MSOutDest dest;
+  if (collectMSOutDest(base, &dest, /*allowWholeArray=*/false)) {
     // Assigning to 'n' components of mesh out attribute/indices vector object.
     const QualType elemType =
         hlsl::GetHLSLVecElementType(rhs->getAstResultType());
-    uint32_t i = 0;
-    for (; i < accessor.Count; ++i) {
+    for (uint32_t i = 0; i < accessor.Count; ++i) {
       auto *rhsElem = spvBuilder.createCompositeExtract(elemType, rhs, {i},
                                                         lhs->getLocStart());
       uint32_t position;
       accessor.GetPosition(i, &position);
       SpirvInstruction *vecComponent = spvBuilder.getConstantInt(
           astContext.UnsignedIntTy, llvm::APInt(32, position));
-      if (!tryToAssignToMSOutAttrsOrIndices(base, rhsElem, vecComponent))
-        break;
+      assignToMSOutDest(dest, rhsElem, vecComponent, lhs->getLocStart());
     }
-    assert(i == accessor.Count);
     return rhs;
   }
 
@@ -8594,65 +8649,72 @@ SpirvInstruction *SpirvEmitter::tryToAssignToMatrixElements(
   return rhs;
 }
 
-SpirvInstruction *SpirvEmitter::tryToAssignToMSOutAttrsOrIndices(
-    const Expr *lhs, SpirvInstruction *rhs, SpirvInstruction *vecComponent,
-    bool noWriteBack) {
-  // Early exit for non-mesh shaders.
-  if (!spvContext.isMS())
-    return nullptr;
+bool SpirvEmitter::collectMSOutDest(const Expr *lhs, MSOutDest *dest,
+                                    bool allowWholeArray) {
+  if (!spvContext.isMS() || !isMSOutputAccess(lhs))
+    return false;
 
-  llvm::SmallVector<SpirvInstruction *, 4> indices;
   bool isMSOutAttribute = false;
-  bool isMSOutAttributeBlock = false;
-  bool isMSOutIndices = false;
 
-  const Expr *base = collectArrayStructIndices(lhs, /*rawIndex*/ false,
-                                               /*rawIndices*/ nullptr, &indices,
-                                               &isMSOutAttribute);
-  // Expecting at least one array index - early exit.
-  if (!base || indices.empty())
-    return nullptr;
+  const Expr *base = collectArrayStructIndices(
+      lhs->IgnoreParenLValueCasts(), /*rawIndex=*/false,
+      /*rawIndices=*/nullptr, &dest->indices, &isMSOutAttribute);
+  if (!base || (!allowWholeArray && dest->indices.empty()))
+    return false;
 
-  const DeclaratorDecl *varDecl = nullptr;
   if (isMSOutAttribute) {
     const MemberExpr *memberExpr = dyn_cast<MemberExpr>(base);
     assert(memberExpr);
-    varDecl = cast<DeclaratorDecl>(memberExpr->getMemberDecl());
+    dest->decl = cast<DeclaratorDecl>(memberExpr->getMemberDecl());
+    dest->kind = MSOutDest::Kind::Attribute;
   } else {
     if (const auto *arg = dyn_cast<DeclRefExpr>(base)) {
-      if ((varDecl = dyn_cast<DeclaratorDecl>(arg->getDecl()))) {
-        if (varDecl->hasAttr<HLSLIndicesAttr>()) {
-          isMSOutIndices = true;
-        } else if (varDecl->hasAttr<HLSLVerticesAttr>() ||
-                   varDecl->hasAttr<HLSLPrimitivesAttr>()) {
-          isMSOutAttributeBlock = true;
+      if ((dest->decl = dyn_cast<DeclaratorDecl>(arg->getDecl()))) {
+        if (dest->decl->hasAttr<HLSLIndicesAttr>()) {
+          dest->kind = MSOutDest::Kind::Indices;
+        } else if (dest->decl->hasAttr<HLSLVerticesAttr>() ||
+                   dest->decl->hasAttr<HLSLPrimitivesAttr>()) {
+          dest->kind = MSOutDest::Kind::AttributeBlock;
         }
       }
     }
   }
 
-  // Return if no out attribute or indices object found.
-  if (!(isMSOutAttribute || isMSOutAttributeBlock || isMSOutIndices)) {
-    return nullptr;
+  dest->wholeArray = dest->indices.empty();
+  return dest->kind != MSOutDest::Kind::None;
+}
+
+void SpirvEmitter::assignToMSOutDest(const MSOutDest &dest,
+                                     SpirvInstruction *rhs,
+                                     SpirvInstruction *vecComponent,
+                                     SourceLocation loc) {
+  if (dest.wholeArray) {
+    const auto *arrayType =
+        astContext.getAsConstantArrayType(dest.decl->getType());
+    const auto elementType = arrayType->getElementType();
+    MSOutDest elementDest = dest;
+    elementDest.wholeArray = false;
+    for (uint32_t i = 0; i < arrayType->getSize().getZExtValue(); ++i) {
+      elementDest.indices = {spvBuilder.getConstantInt(
+          astContext.IntTy, llvm::APInt(32, i, true))};
+      auto *element =
+          spvBuilder.createCompositeExtract(elementType, rhs, {i}, loc);
+      assignToMSOutDest(elementDest, element, nullptr, loc);
+    }
+    return;
   }
 
-  // For noWriteBack, return without generating write instructions.
-  if (noWriteBack) {
-    return rhs;
-  }
-
-  // Add vecComponent to indices.
-  if (vecComponent) {
+  auto indices = dest.indices;
+  if (vecComponent)
     indices.push_back(vecComponent);
-  }
 
-  if (isMSOutAttribute) {
-    assignToMSOutAttribute(varDecl, rhs, indices);
-  } else if (isMSOutIndices) {
-    assignToMSOutIndices(varDecl, rhs, indices);
+  if (dest.kind == MSOutDest::Kind::Attribute) {
+    assignToMSOutAttribute(dest.decl, rhs, indices);
+  } else if (dest.kind == MSOutDest::Kind::Indices) {
+    assignToMSOutIndices(dest.decl, rhs, indices);
   } else {
-    assert(isMSOutAttributeBlock);
-    QualType type = varDecl->getType();
+    assert(dest.kind == MSOutDest::Kind::AttributeBlock);
+    QualType type = dest.decl->getType();
     assert(isa<ConstantArrayType>(type));
     type = astContext.getAsConstantArrayType(type)->getElementType();
     assert(type->isStructureType());
@@ -8663,10 +8725,19 @@ SpirvInstruction *SpirvEmitter::tryToAssignToMSOutAttrsOrIndices(
       const auto fieldType = field->getType();
       SpirvInstruction *subValue = spvBuilder.createCompositeExtract(
           fieldType, rhs, {getNumBaseClasses(type) + field->getFieldIndex()},
-          lhs->getLocStart());
+          loc);
       assignToMSOutAttribute(field, subValue, indices);
     }
   }
+}
+
+SpirvInstruction *SpirvEmitter::tryToAssignToMSOutAttrsOrIndices(
+    const Expr *lhs, SpirvInstruction *rhs, SpirvInstruction *vecComponent) {
+  MSOutDest dest;
+  if (!collectMSOutDest(lhs, &dest, /*allowWholeArray=*/false))
+    return nullptr;
+
+  assignToMSOutDest(dest, rhs, vecComponent, lhs->getLocStart());
 
   // TODO: OK, this return value is incorrect for compound assignments, for
   // which cases we should return lvalues. Should at least emit errors if
