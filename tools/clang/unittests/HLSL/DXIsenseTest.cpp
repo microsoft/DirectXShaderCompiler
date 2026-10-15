@@ -114,6 +114,9 @@ protected:
   TEST_METHOD(TUWhenRegionInactiveThenEndIsBeforeElseHash)
   TEST_METHOD(TUWhenRegionInactiveThenEndIsBeforeEndifHash)
   TEST_METHOD(TUWhenRegionInactiveThenStartIsAtIfdefEol)
+#if !defined(_WIN32)
+  TEST_METHOD(TUWhenRewrittenIncludeHasUnusedAliasThenSkippedRangesAvailable)
+#endif
   TEST_METHOD(TUWhenUnsaveFileThenOK)
 
   TEST_METHOD(QualifiedNameClass)
@@ -436,6 +439,61 @@ TEST_F(DXIntellisenseTest, TUWhenRegionInactiveThenStartIsAtIfdefEol) {
   }
   CoTaskMemFree(results);
 }
+
+#if !defined(_WIN32)
+TEST_F(DXIntellisenseTest,
+       TUWhenRewrittenIncludeHasUnusedAliasThenSkippedRangesAvailable) {
+  const char rootName[] = "/tmp/main.hlsl";
+  const char logicalIncludeName[] = "/virtual/include.hlsli";
+  const char physicalIncludeName[] = "/tmp/include.hlsli";
+  const char rootText[] =
+      "#include \"/tmp/include.hlsli\"\n"
+      "#if 0\n"
+      "float skippedValue;\n"
+      "#endif\n"
+      "float4 main() : SV_Target { return includedValue.xxxx; }\n";
+  const char includeText[] = "static const float includedValue = 1.0;\n";
+
+  CComPtr<IDxcIntelliSense> isense;
+  CComPtr<IDxcIndex> index;
+  CComPtr<IDxcUnsavedFile> unsaved[3];
+  CComPtr<IDxcTranslationUnit> TU;
+  VERIFY_SUCCEEDED(
+      CompilationResult::DefaultHlslSupport->CreateIntellisense(&isense));
+  VERIFY_SUCCEEDED(isense->CreateIndex(&index));
+  VERIFY_SUCCEEDED(isense->CreateUnsavedFile(
+      rootName, rootText, sizeof(rootText) - 1, &unsaved[0]));
+  VERIFY_SUCCEEDED(isense->CreateUnsavedFile(
+      logicalIncludeName, includeText, sizeof(includeText) - 1, &unsaved[1]));
+  VERIFY_SUCCEEDED(isense->CreateUnsavedFile(
+      physicalIncludeName, includeText, sizeof(includeText) - 1, &unsaved[2]));
+
+  DxcTranslationUnitFlags options =
+      (DxcTranslationUnitFlags)(
+          DxcTranslationUnitFlags_DetailedPreprocessingRecord |
+          DxcTranslationUnitFlags_UseCallerThread);
+  VERIFY_SUCCEEDED(index->ParseTranslationUnit(
+      rootName, nullptr, 0, &unsaved[0].p, _countof(unsaved), options, &TU));
+
+  const char *fileNames[] = {rootName, logicalIncludeName,
+                             physicalIncludeName};
+  for (const char *fileName : fileNames) {
+    CComPtr<IDxcFile> file;
+    unsigned resultCount;
+    IDxcSourceRange **results;
+    VERIFY_SUCCEEDED(TU->GetFile(fileName, &file));
+    VERIFY_SUCCEEDED(TU->GetSkippedRanges(file.p, &resultCount, &results));
+    if (fileName == rootName)
+      VERIFY_ARE_EQUAL(1U, resultCount);
+    else
+      VERIFY_ARE_EQUAL(0U, resultCount);
+
+    for (unsigned i = 0; i < resultCount; ++i)
+      results[i]->Release();
+    CoTaskMemFree(results);
+  }
+}
+#endif
 
 std::ostream &operator<<(std::ostream &os, CComPtr<IDxcSourceLocation> &loc) {
   CComPtr<IDxcFile> locFile;
