@@ -13,6 +13,15 @@ confident that the contribution is high enough quality that asking for a review
 is a good use of scarce maintainer time, and they should be **able to answer
 questions about their work during review.**
 
+Contributors must have a **working development environment that can build DXC
+and run the full test suite**, including the TAEF-based tests (see
+[Building and Testing DXC](docs/BuildingAndTestingDXC.rst)). A change that has
+only been partially tested because tools were unavailable is not ready for
+review. This applies whether the change was written by hand or with an agent.
+
+Coding agents working in this repository should follow the "Before
+contributing" requirements in [AGENTS.md](AGENTS.md).
+
 We expect that new contributors will be less confident in their contributions,
 and our guidance to them is to **start with small contributions** that they can
 fully understand to build confidence. We aspire to be a welcoming community that

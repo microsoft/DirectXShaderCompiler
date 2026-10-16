@@ -36,6 +36,10 @@ You can complete the CLA by going through the steps at the [Contribution License
 
 Make sure you can build the code. Familiarize yourself with the project workflow and our coding conventions. If you don't know what a pull request is read this article: <https://help.github.com/articles/using-pull-requests>.
 
+If you use AI tools or coding agents, follow the [AI Tool Use Policy](AIToolPolicy.md). Agents should also follow the requirements in [AGENTS.md](AGENTS.md).
+
+Before starting work on an issue, check that it is not assigned to someone and that nobody is already working on it. Comment on the issue to say that you plan to work on it.
+
 Before submitting a feature or substantial code contribution please discuss it with the team and ensure it follows the product roadmap. You might also read these two blogs posts on contributing code: [Open Source Contribution Etiquette](http://tirania.org/blog/archive/2010/Dec-31.html) by Miguel de Icaza and [Don't "Push" Your Pull Requests](https://www.igvita.com/2011/12/19/dont-push-your-pull-requests/) by Ilya Grigorik. Note that all code submissions will be rigorously reviewed and tested by the team, and only those that meet an extremely high bar for both quality and design/roadmap appropriateness will be merged into the source.
 
 ### Coding guidelines
@@ -149,6 +153,10 @@ Changes that do not change behavior may still be required to add testing if the 
 For bug fixes, at least one added test should fail in the absence of your non-test code changes.
 Tests should include reasonable permutations of the target fix/change.
 Include baseline changes with your change as needed.
+Test inputs should be human-readable (for example `.hlsl` or textual `.ll`); avoid opaque binary test inputs.
+
+Before requesting review, build DXC and run the full test suite locally, including the TAEF-based tests (`hcttest` or the `check-all` target; see [Building and Testing DXC](docs/BuildingAndTestingDXC.rst)).
+A pull request that has only been partially tested because tools were unavailable is not ready for review.
 
 Submitting a pull request kicks off an automated set of regression tests that verify the change introduces no unwanted changes in behavior.
 For a pull request to be mergeable in GitHub, it will have to pass this regression test suite.

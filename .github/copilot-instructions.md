@@ -1,3 +1,30 @@
+## Contribution requirements
+
+Before making changes or opening a pull request, follow the "Before
+contributing (read first)" section of [AGENTS.md](../AGENTS.md). It covers the
+required development environment (including TAEF), required validation, test
+input rules, AI-use disclosure, and the requirement that a human review every
+change before a pull request is opened.
+
+## Pull request policy review guidance
+
+When reviewing pull requests, check them against [AIToolPolicy.md](../AIToolPolicy.md) and the testing
+requirements in `CONTRIBUTING.md`. Raise these issues as review comments:
+- The description says that tests were skipped or could not be run, for example
+  because TAEF, `te.exe`, a tool, or a platform was unavailable. Also flag
+  descriptions that report only a subset of lit suites for a functional change.
+  Point out that the full suite, including TAEF, must be run locally (see
+  "Required development environment" in `AGENTS.md`).
+- The change contains substantial tool-generated content but has no
+  disclosure, such as an `Assisted-by:` trailer or a note in the description.
+  Only flag this when there are clear signs of tool generation.
+- The change adds opaque binary test inputs, such as fuzzed or bit-flipped
+  bitcode, instead of human-readable `.hlsl` or textual `.ll` inputs.
+- A functional change adds no test that would fail without the fix.
+
+Keep these comments factual and courteous, and link to the relevant policy
+section.
+
 ## Pull request review guidance
 
 When reviewing pull requests in this repository, always check whether `docs/ReleaseNotes.md` should be updated.

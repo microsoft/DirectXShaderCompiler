@@ -1,5 +1,78 @@
 # DXC agent guidance
 
+## Before contributing (read first)
+
+These requirements come from [AIToolPolicy.md](AIToolPolicy.md) and
+[CONTRIBUTING.md](CONTRIBUTING.md). Pull requests that do not meet them are
+closed or sent back. If you cannot meet a requirement, stop and tell the human
+you are working with. Do not work around it, and do not open a pull request.
+
+### Human in the loop
+
+- The human contributor is the author and must be able to explain every line
+  of the change during review. Recommend small, focused changes, especially
+  for new contributors.
+- Do not open a pull request (for example with `gh pr create`) until the human
+  has explicitly confirmed that they have read and reviewed every change, that
+  they understand it, and that the validation below was completed. Open pull
+  requests from a fork, not from a branch in this repository.
+- The human must respond to review feedback personally. Do not post
+  auto-generated replies such as "Fixed." on the human's behalf.
+
+### Before starting work
+
+- Check that the issue is not assigned to someone and that no maintainer is
+  already working on it. Look at recent comments, linked pull requests, and
+  related open pull requests. Maintainers may have unposted fixes for recently
+  filed issues. Older issues are safer choices.
+- Comment on the issue before starting. Discuss new features and substantial
+  changes with the team before writing code.
+
+### Required development environment
+
+Every pull request must be built and tested with a full development
+environment:
+
+- Windows with Visual Studio 2019 or later, the Windows SDK, and the matching
+  Windows Driver Kit, which provides the TAEF test runner `te.exe`.
+- Initialized submodules: `git submodule update --init --recursive`.
+- See [docs/BuildingAndTestingDXC.rst](docs/BuildingAndTestingDXC.rst).
+
+If any part of this environment is missing, stop and tell the human. A
+Linux-only or cloud environment, skipping TAEF, running only some lit suites,
+or stubbing out missing tools does not meet this requirement. A pull request
+description that says tests were skipped because tools were unavailable is a
+policy violation.
+
+### Required validation
+
+- Build DXC and run the full test suite, including the TAEF tests, with
+  `hcttest` or the `check-all` target. Hardware execution tests (`hcttest
+  exec`) are needed only when the change affects them.
+- Every functional change needs new tests. For bug fixes, at least one new
+  test must fail without the fix. Confirm this.
+- Test inputs must be human-readable, such as `.hlsl` or textual `.ll` files.
+  Do not add opaque binary test inputs, such as fuzzed or bit-flipped bitcode.
+- Format the changed lines with `git-clang-format`.
+
+### Quality of the fix
+
+- Fix the root cause rather than the symptom. Before patching the place where
+  a failure shows up, check whether the same problem has been fixed elsewhere,
+  and look for a more general fix. See "Investigating compile-time regressions
+  and miscompiles" below.
+- Follow the release-note rules in `CONTRIBUTING.md`: user-visible changes go
+  under `### Upcoming Release` in `docs/ReleaseNotes.md`. Each entry is a
+  single sentence with no links to pull requests.
+
+### Pull request contents
+
+- Follow the title and description format in `CONTRIBUTING.md`.
+- List the exact build configuration and test commands that were run, and
+  their results.
+- Disclose tool use in the pull request description and in the commit
+  messages, for example with an `Assisted-by: <tool>` trailer.
+
 ## Investigating compile-time regressions and miscompiles
 
 - Start from evidence. Identify the exact pass, hot function, and triggering
