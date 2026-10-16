@@ -21,11 +21,14 @@ The included licenses apply to the following files:
 
 #### SPIR-V
 
-- Matrix-element writes to mesh shader outputs now report an error instead of
-  being silently dropped.
+- Fixed SPIR-V mesh output writes through parenthesized expressions and
+  scalar-splat swizzle assignments.
+- Matrix element swizzle writes (such as `._m01`) to SPIR-V mesh shader outputs
+  now report an error instead of being silently dropped.
 - SPIR-V mesh shaders correctly write outputs passed as `out` arguments,
-  including whole arrays and side-effecting indices, and diagnose mesh outputs
-  passed as `inout` arguments that cannot be read.
+  including whole arrays, size-one vectors and matrices, and side-effecting
+  indices, and diagnose mesh outputs passed to `inout` parameters, including
+  `inout`-qualified `vertices`, `primitives`, and `indices` parameters.
 - Fixed mesh shader output writes through a multi-component swizzle evaluating
   the index expression more than once.
 - Fixed SPIR-V mesh shader writes to `float1` output components and argument

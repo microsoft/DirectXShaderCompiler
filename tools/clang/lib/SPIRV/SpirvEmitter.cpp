@@ -1327,30 +1327,37 @@ SpirvInstruction *SpirvEmitter::doExprEnsuringRValue(const Expr *E,
   return spvBuilder.createLoad(E->getType(), I, location, range);
 }
 
-static bool isMSOutputAccess(const Expr *expr) {
+static bool isMSOutputAccess(const Expr *expr,
+                             bool *viaMatrixElement = nullptr) {
   expr = expr->IgnoreParenLValueCasts();
   if (const auto *castExpr = dyn_cast<CastExpr>(expr))
     if (castExpr->getCastKind() == CK_NoOp ||
         castExpr->getCastKind() == CK_UncheckedDerivedToBase ||
         castExpr->getCastKind() == CK_HLSLDerivedToBase ||
+        castExpr->getCastKind() == CK_HLSLVectorToScalarCast ||
+        castExpr->getCastKind() == CK_HLSLMatrixToScalarCast ||
         (castExpr->getCastKind() == CK_HLSLVectorSplat &&
          hlsl::GetHLSLVecSize(castExpr->getType()) == 1))
-      return isMSOutputAccess(castExpr->getSubExpr());
+      return isMSOutputAccess(castExpr->getSubExpr(), viaMatrixElement);
   if (const auto *member = dyn_cast<MemberExpr>(expr)) {
     if (const auto *decl = dyn_cast<VarDecl>(member->getMemberDecl()))
       if (decl->isStaticDataMember())
         return false;
-    return isMSOutputAccess(member->getBase());
+    return isMSOutputAccess(member->getBase(), viaMatrixElement);
   }
   if (const auto *subscript = dyn_cast<ArraySubscriptExpr>(expr))
-    return isMSOutputAccess(subscript->getBase());
+    return isMSOutputAccess(subscript->getBase(), viaMatrixElement);
   if (const auto *swizzle = dyn_cast<HLSLVectorElementExpr>(expr))
-    return isMSOutputAccess(swizzle->getBase());
-  if (const auto *swizzle = dyn_cast<ExtMatrixElementExpr>(expr))
-    return isMSOutputAccess(swizzle->getBase());
+    return isMSOutputAccess(swizzle->getBase(), viaMatrixElement);
+  if (const auto *swizzle = dyn_cast<ExtMatrixElementExpr>(expr)) {
+    const bool result = isMSOutputAccess(swizzle->getBase(), viaMatrixElement);
+    if (result && viaMatrixElement)
+      *viaMatrixElement = true;
+    return result;
+  }
   if (const auto *call = dyn_cast<CXXOperatorCallExpr>(expr))
     if (call->getOperator() == OO_Subscript)
-      return isMSOutputAccess(call->getArg(0));
+      return isMSOutputAccess(call->getArg(0), viaMatrixElement);
   if (const auto *ref = dyn_cast<DeclRefExpr>(expr)) {
     const auto *decl = ref->getDecl();
     return decl->hasAttr<HLSLOutAttr>() &&
@@ -3291,6 +3298,7 @@ SpirvInstruction *SpirvEmitter::processCall(const CallExpr *callExpr) {
     hlsl::VectorMemberAccessPositions accessor = {};
   };
   llvm::SmallVector<llvm::Optional<MSOutCopyBack>, 4> msOutCopyBacks;
+  llvm::SmallVector<bool, 4> msOutArgDiagnosed;
 
   if (const auto *memberCall = dyn_cast<CXXMemberCallExpr>(callExpr)) {
     const auto *memberFn = cast<CXXMethodDecl>(memberCall->getCalleeDecl());
@@ -3352,6 +3360,7 @@ SpirvInstruction *SpirvEmitter::processCall(const CallExpr *callExpr) {
     vars.push_back(args.back());
     isTempVar.push_back(false);
     msOutCopyBacks.push_back(llvm::None);
+    msOutArgDiagnosed.push_back(false);
   }
 
   // Evaluate parameters
@@ -3387,46 +3396,57 @@ SpirvInstruction *SpirvEmitter::processCall(const CallExpr *callExpr) {
     // Mesh shader outputs are written through Output variables rather than
     // through the storage the argument designates, so out/inout arguments
     // must be copied through a temporary and written back after the call.
-    // Mesh-qualified parameters already write directly to Output variables.
-    const bool isMSOutParam = param->hasAttr<HLSLVerticesAttr>() ||
-                              param->hasAttr<HLSLPrimitivesAttr>() ||
-                              param->hasAttr<HLSLIndicesAttr>();
+    // Mesh-qualified 'out' parameters already write directly to Output
+    // variables; 'inout' ones would read them and are diagnosed below.
+    const bool isMSOutParam = (param->hasAttr<HLSLVerticesAttr>() ||
+                               param->hasAttr<HLSLPrimitivesAttr>() ||
+                               param->hasAttr<HLSLIndicesAttr>()) &&
+                              !param->hasAttr<HLSLInOutAttr>();
+    bool isMSOutMatrixElement = false;
     const bool isMSOutArg = spvContext.isMS() && !isMSOutParam &&
-                            canActAsOutParmVar(param) && isMSOutputAccess(arg);
+                            canActAsOutParmVar(param) &&
+                            isMSOutputAccess(arg, &isMSOutMatrixElement);
     const bool isInMSOutArg = isMSOutArg && (param->hasAttr<HLSLInOutAttr>() ||
                                              param->hasAttr<HLSLInAttr>());
+    // Keep lowering after diagnostics so enclosing expressions retain a value.
+    msOutCopyBacks.push_back(llvm::None);
+    msOutArgDiagnosed.push_back(false);
     if (isInMSOutArg) {
       emitError("output arrays of a mesh shader can not be read from",
                 arg->getExprLoc());
-      return nullptr;
-    }
-
-    msOutCopyBacks.push_back(llvm::None);
-    if (isMSOutArg) {
+      msOutArgDiagnosed.back() = true;
+    } else if (isMSOutArg && isMSOutMatrixElement) {
+      emitError(
+          "matrix element writes to mesh shader outputs are not supported",
+          arg->getExprLoc());
+      msOutArgDiagnosed.back() = true;
+    } else if (isMSOutArg) {
       MSOutCopyBack copyBack;
       const Expr *base = arg->IgnoreParens();
-      if (const auto *swizzle = dyn_cast<HLSLVectorElementExpr>(base)) {
+      if (const auto *castExpr = dyn_cast<CastExpr>(base))
+        if (castExpr->getCastKind() == CK_HLSLVectorToScalarCast ||
+            castExpr->getCastKind() == CK_HLSLMatrixToScalarCast)
+          base = castExpr->getSubExpr()->IgnoreParens();
+      // Scalar swizzle chains can have size-one splats between the swizzles.
+      while (const auto *swizzle = dyn_cast<HLSLVectorElementExpr>(base)) {
         condenseVectorElementExpr(swizzle, &base, &copyBack.accessor);
-        if (hlsl::IsHLSLVecType(base->getType()) &&
-            hlsl::GetHLSLVecSize(base->getType()) == 1) {
-          copyBack.accessor.Count = 0;
-          if (const auto *castExpr = dyn_cast<CastExpr>(base))
-            if (castExpr->getCastKind() == CK_HLSLVectorSplat)
-              base = castExpr->getSubExpr();
-        }
+        if (!hlsl::IsHLSLVecType(base->getType()) ||
+            hlsl::GetHLSLVecSize(base->getType()) != 1)
+          break;
+        copyBack.accessor.Count = 0;
+        const auto *castExpr = dyn_cast<CastExpr>(base);
+        if (!castExpr || castExpr->getCastKind() != CK_HLSLVectorSplat)
+          break;
+        base = castExpr->getSubExpr()->IgnoreParenLValueCasts();
       }
       base = base->IgnoreParenLValueCasts();
-      if (isa<ExtMatrixElementExpr>(base)) {
-        emitError(
-            "matrix element writes to mesh shader outputs are not supported",
-            arg->getExprLoc());
-        return nullptr;
-      }
-      if (!collectMSOutDest(base, &copyBack.dest, /*allowWholeArray=*/true)) {
+      if (!collectMSOutDest(base, &copyBack.dest,
+                            /*allowWholeArray=*/true)) {
         emitError("unsupported mesh shader output argument", arg->getExprLoc());
-        return nullptr;
+        msOutArgDiagnosed.back() = true;
+      } else {
+        msOutCopyBacks.back() = std::move(copyBack);
       }
-      msOutCopyBacks.back() = std::move(copyBack);
     }
     auto *argInst = msOutCopyBacks.back() ? nullptr : doExpr(arg);
 
@@ -3518,6 +3538,7 @@ SpirvInstruction *SpirvEmitter::processCall(const CallExpr *callExpr) {
   assert(vars.size() == isTempVar.size());
   assert(vars.size() == args.size());
   assert(vars.size() == msOutCopyBacks.size());
+  assert(vars.size() == msOutArgDiagnosed.size());
 
   // Push the callee into the work queue if it is not there.
   addFunctionToWorkQueue(spvContext.getCurrentShaderModelKind(), callee,
@@ -3586,14 +3607,14 @@ SpirvInstruction *SpirvEmitter::processCall(const CallExpr *callExpr) {
             auto *element = value;
             if (accessor.Count > 1)
               element = spvBuilder.createCompositeExtract(
-                  hlsl::GetHLSLVecElementType(value->getAstResultType()), value,
+                  hlsl::GetHLSLVecElementType(arg->getType()), value,
                   {component}, loc);
             auto *vecComponent = spvBuilder.getConstantInt(
                 astContext.UnsignedIntTy, llvm::APInt(32, position));
             assignToMSOutDest(copyBack.dest, element, vecComponent, loc);
           }
         }
-      } else {
+      } else if (!msOutArgDiagnosed[index]) {
         processAssignment(arg, value, false, args[index]);
       }
     }
@@ -7370,7 +7391,18 @@ SpirvInstruction *
 SpirvEmitter::processAssignment(const Expr *lhs, SpirvInstruction *rhs,
                                 const bool isCompoundAssignment,
                                 SpirvInstruction *lhsPtr, SourceRange range) {
+  if (!rhs)
+    return nullptr;
+
   lhs = lhs->IgnoreParenNoopCasts(astContext);
+
+  bool isMSOutMatrixElement = false;
+  if (spvContext.isMS() && isMSOutputAccess(lhs, &isMSOutMatrixElement) &&
+      isMSOutMatrixElement) {
+    emitError("matrix element writes to mesh shader outputs are not supported",
+              lhs->getExprLoc());
+    return rhs;
+  }
 
   // Assigning to vector swizzling should be handled differently.
   if (SpirvInstruction *result = tryToAssignToVectorElements(lhs, rhs, range))
@@ -8513,8 +8545,7 @@ SpirvInstruction *SpirvEmitter::tryToAssignToVectorElements(
   MSOutDest dest;
   if (collectMSOutDest(base, &dest, /*allowWholeArray=*/false)) {
     // Assigning to 'n' components of mesh out attribute/indices vector object.
-    const QualType elemType =
-        hlsl::GetHLSLVecElementType(rhs->getAstResultType());
+    const QualType elemType = hlsl::GetHLSLVecElementType(lhs->getType());
     for (uint32_t i = 0; i < accessor.Count; ++i) {
       auto *rhsElem = spvBuilder.createCompositeExtract(elemType, rhs, {i},
                                                         lhs->getLocStart());
@@ -8603,12 +8634,6 @@ SpirvInstruction *SpirvEmitter::tryToAssignToMatrixElements(
   const auto *lhsExpr = dyn_cast<ExtMatrixElementExpr>(lhs);
   if (!lhsExpr)
     return nullptr;
-
-  if (spvContext.isMS() && isMSOutputAccess(lhs)) {
-    emitError("matrix element writes to mesh shader outputs are not supported",
-              lhs->getExprLoc());
-    return nullptr;
-  }
 
   const Expr *baseMat = lhsExpr->getBase();
   auto *base = doExpr(baseMat, range);
@@ -9108,6 +9133,8 @@ const Expr *SpirvEmitter::collectArrayStructIndices(
     llvm::SmallVectorImpl<SpirvInstruction *> *indices, bool *isMSOutAttribute,
     bool *isNointerp) {
   assert((rawIndex && rawIndices) || (!rawIndex && indices));
+
+  expr = expr->IgnoreParens();
 
   if (const auto *indexing = dyn_cast<MemberExpr>(expr)) {
     // First check whether this is referring to a static member. If it is, we
