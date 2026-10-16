@@ -76,6 +76,8 @@ line upon naming the release. Refer to previous for appropriate section names.
 - Fixed members following a merged bitfield reading the wrong value when a
   struct is flat-converted
   [#8526](https://github.com/microsoft/DirectXShaderCompiler/issues/8526).
+- Fixed incorrect shader results caused by stale overflow and exactness flags
+  after bit-tracking dead code elimination.
 
 ### Upcoming Preview Release
 
