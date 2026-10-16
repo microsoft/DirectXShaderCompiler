@@ -1166,6 +1166,13 @@ static Value *GetStoreValueForLoad(Value *SrcVal, unsigned Offset,
 
   IRBuilder<> Builder(InsertPt);
 
+  // HLSL Change Begin - Avoid oversized integer intermediates for native
+  // vectors. Equal-sized values at offset zero do not need the integer
+  // extraction below.
+  if (Offset == 0 && StoreSize == LoadSize)
+    return CoerceAvailableValueToLoadType(SrcVal, LoadTy, Builder, DL);
+  // HLSL Change End
+
   // Compute which bits of the stored value are being used by the load.  Convert
   // to an integer type to start with.
   if (SrcVal->getType()->getScalarType()->isPointerTy())
