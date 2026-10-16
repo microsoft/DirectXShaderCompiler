@@ -76,7 +76,8 @@ static ssize_t LLVM_ATTRIBUTE_UNUSED readCpuInfo(void *Buf, size_t Size) {
 /// specified arguments.  If we can't run cpuid on the host, return true.
 static bool GetX86CpuIDAndInfo(unsigned value, unsigned *rEAX, unsigned *rEBX,
                                unsigned *rECX, unsigned *rEDX) {
-#if defined(__GNUC__) || defined(__clang__)
+// HLSL Change - Clang-cl should use CPUID intrinsic.
+#if (defined(__GNUC__) || defined(__clang__)) && !defined(_MSC_VER)
   #if defined(__x86_64__) || defined(_M_AMD64) || defined (_M_X64)
     // gcc doesn't know cpuid would clobber ebx/rbx. Preseve it manually.
     asm ("movq\t%%rbx, %%rsi\n\t"
