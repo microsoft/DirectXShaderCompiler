@@ -182,10 +182,8 @@ struct D3D12_LINEAR_ALGEBRA_WAVE_MATRIX_MULTIPLY_SUPPORT {
 struct D3D12_LINEAR_ALGEBRA_THREADGROUP_MATRIX_MULTIPLY_SUPPORT {
   D3D12_LINEAR_ALGEBRA_WAVE_MATRIX_MULTIPLY_INPUTS WaveInputs;
   D3D12_LINEAR_ALGEBRA_MATRIX_SHAPE Shape;
+  UINT ThreadGroupSize;
   UINT SupportFlags;
-  UINT MinThreadGroupSize;
-  UINT MaxThreadGroupSize;
-  UINT PreferredThreadGroupSize;
 };
 
 struct D3D12_LINEAR_ALGEBRA_THREAD_VECTOR_MATRIX_MULTIPLY_SUPPORT {
@@ -341,11 +339,7 @@ ASSERT_RUNTIME_OFFSET(D3D12_LINEAR_ALGEBRA_THREADGROUP_MATRIX_MULTIPLY_SUPPORT,
 ASSERT_RUNTIME_OFFSET(D3D12_LINEAR_ALGEBRA_THREADGROUP_MATRIX_MULTIPLY_SUPPORT,
                       SupportFlags);
 ASSERT_RUNTIME_OFFSET(D3D12_LINEAR_ALGEBRA_THREADGROUP_MATRIX_MULTIPLY_SUPPORT,
-                      MinThreadGroupSize);
-ASSERT_RUNTIME_OFFSET(D3D12_LINEAR_ALGEBRA_THREADGROUP_MATRIX_MULTIPLY_SUPPORT,
-                      MaxThreadGroupSize);
-ASSERT_RUNTIME_OFFSET(D3D12_LINEAR_ALGEBRA_THREADGROUP_MATRIX_MULTIPLY_SUPPORT,
-                      PreferredThreadGroupSize);
+                      ThreadGroupSize);
 ASSERT_RUNTIME_OFFSET(
     D3D12_LINEAR_ALGEBRA_THREAD_VECTOR_MATRIX_MULTIPLY_SUPPORT,
     VectorInputType);
@@ -548,18 +542,14 @@ struct WaveMatrixMultiplySupport {
 struct ThreadGroupMatrixMultiplyQuery {
   WaveMatrixMultiplyInputs WaveInputs;
   linalg_abi::D3D12_LINEAR_ALGEBRA_MATRIX_SHAPE Shape;
+  UINT ThreadGroupSize;
 };
 
 struct ThreadGroupMatrixMultiplySupport {
   linalg_abi::D3D12_LINEAR_ALGEBRA_MULTIPLICATION_SUPPORT_FLAGS SupportFlags =
       linalg_abi::D3D12_LINEAR_ALGEBRA_MULTIPLICATION_SUPPORT_FLAG_NONE;
-  UINT MinThreadGroupSize = 0;
-  UINT MaxThreadGroupSize = 0;
-  UINT PreferredThreadGroupSize = 0;
-
   bool valid() const;
   bool supported() const;
-  bool supportsThreadGroupSize(UINT ThreadGroupSize) const;
 };
 
 struct ThreadVectorMatrixMultiplyQuery {

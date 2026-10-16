@@ -3629,15 +3629,13 @@ void LinAlgCapabilityTests::CapabilityPolicyAndPredicates() {
 
   ThreadGroupMatrixMultiplySupport ThreadGroup = {
       linalg_abi::D3D12_LINEAR_ALGEBRA_MULTIPLICATION_SUPPORT_FLAG_SUPPORTED,
-      32,
-      128,
-      64,
   };
   VERIFY_IS_TRUE(ThreadGroup.valid());
-  VERIFY_IS_TRUE(ThreadGroup.supportsThreadGroupSize(64));
-  VERIFY_IS_FALSE(ThreadGroup.supportsThreadGroupSize(48));
-  ThreadGroup.PreferredThreadGroupSize = 48;
-  VERIFY_IS_FALSE(ThreadGroup.valid());
+  VERIFY_IS_TRUE(ThreadGroup.supported());
+  ThreadGroup.SupportFlags =
+      linalg_abi::D3D12_LINEAR_ALGEBRA_MULTIPLICATION_SUPPORT_FLAG_NONE;
+  VERIFY_IS_TRUE(ThreadGroup.valid());
+  VERIFY_IS_FALSE(ThreadGroup.supported());
   ThreadGroup = {
       static_cast<
           linalg_abi::D3D12_LINEAR_ALGEBRA_MULTIPLICATION_SUPPORT_FLAGS>(
@@ -3647,9 +3645,6 @@ void LinAlgCapabilityTests::CapabilityPolicyAndPredicates() {
           static_cast<UINT>(
               linalg_abi::
                   D3D12_LINEAR_ALGEBRA_MULTIPLICATION_SUPPORT_FLAG_TRANSPOSE)),
-      32,
-      128,
-      64,
   };
   VERIFY_IS_FALSE(ThreadGroup.valid());
 
@@ -3707,6 +3702,7 @@ void LinAlgCapabilityTests::CapabilityPolicyAndPredicates() {
   ThreadGroupMatrixMultiplyQuery ThreadGroupQuery = {
       WaveInputs,
       {16, 16, 16},
+      64,
   };
   ThreadVectorMatrixMultiplyQuery ThreadVectorQuery = {
       linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT16,
@@ -6845,34 +6841,34 @@ static HRESULT collectWaveArithmeticMultiplyWaveSizes(
   return S_OK;
 }
 
-static UINT selectThreadGroupMatMulSize(
-    const linalg_test::ThreadGroupMatrixMultiplySupport &Support,
-    UINT WaveSize) {
+static HRESULT
+selectThreadGroupMatMulSize(ID3D12Device *Device,
+                            linalg_test::ThreadGroupMatrixMultiplyQuery Query,
+                            UINT &SelectedSize) {
   constexpr UINT MaxThreadsPerGroup =
       D3D12_CS_THREAD_GROUP_MAX_THREADS_PER_GROUP;
-  if (!Support.supported() || WaveSize == 0)
-    return 0;
+  SelectedSize = 0;
+  const UINT WaveSize = Query.WaveInputs.WaveSize;
+  if (WaveSize == 0 || WaveSize > MaxThreadsPerGroup)
+    return E_INVALIDARG;
 
-  if (Support.PreferredThreadGroupSize > WaveSize &&
-      Support.PreferredThreadGroupSize <= MaxThreadsPerGroup &&
-      Support.supportsThreadGroupSize(Support.PreferredThreadGroupSize))
-    return Support.PreferredThreadGroupSize;
-
-  const UINT MaxThreadGroupSize =
-      std::min(Support.MaxThreadGroupSize, MaxThreadsPerGroup);
-  for (UINT ThreadGroupSize = Support.MinThreadGroupSize;
-       ThreadGroupSize <= MaxThreadGroupSize;
-       ThreadGroupSize += Support.MinThreadGroupSize) {
-    if (ThreadGroupSize > WaveSize)
-      return ThreadGroupSize;
+  // Prefer a cross-wave case, but fall back to one wave if no larger size
+  // works. Query each candidate independently: supported sizes need not be
+  // contiguous.
+  for (UINT Size = WaveSize * 2; Size <= MaxThreadsPerGroup + WaveSize;
+       Size += WaveSize) {
+    Query.ThreadGroupSize = Size > MaxThreadsPerGroup ? WaveSize : Size;
+    linalg_test::ThreadGroupMatrixMultiplySupport Support;
+    const HRESULT HR =
+        linalg_test::queryThreadGroupMatrixMultiply(Device, Query, Support);
+    if (FAILED(HR))
+      return HR;
+    if (Support.supported()) {
+      SelectedSize = Query.ThreadGroupSize;
+      return S_OK;
+    }
   }
-
-  if (Support.PreferredThreadGroupSize <= MaxThreadGroupSize &&
-      Support.supportsThreadGroupSize(Support.PreferredThreadGroupSize))
-    return Support.PreferredThreadGroupSize;
-  if (Support.MinThreadGroupSize <= MaxThreadGroupSize)
-    return Support.MinThreadGroupSize;
-  return 0;
+  return S_OK;
 }
 
 // ThreadGroup matrix extents have to be a multiple of the device's wave size,
@@ -7070,22 +7066,17 @@ static HRESULT selectThreadGroupMatMulConfiguration(
         Candidate.N,
     };
 
-    linalg_test::ThreadGroupMatrixMultiplySupport Multiply;
-    HR = linalg_test::queryThreadGroupMatrixMultiply(
-        Device, {{WaveSize, MatrixAType, MatrixBType, AccumulatorType}, Shape},
-        Multiply);
-    VERIFY_SUCCEEDED(HR, "ThreadGroup matrix multiply query must succeed");
-    if (!Multiply.supported())
-      continue;
-
-    const UINT ThreadGroupSize =
-        selectThreadGroupMatMulSize(Multiply, WaveSize);
+    UINT ThreadGroupSize = 0;
+    HR = selectThreadGroupMatMulSize(
+        Device,
+        {{WaveSize, MatrixAType, MatrixBType, AccumulatorType}, Shape, 0},
+        ThreadGroupSize);
+    VERIFY_SUCCEEDED(HR, "ThreadGroup matrix multiply queries must succeed");
     if (ThreadGroupSize == 0) {
       hlsl_test::LogCommentFmt(
-          L"ThreadGroupMatrixMultiply supports %s at wave=%u, but no legal "
-          L"shader group size is available: min=%u, max=%u, preferred=%u",
-          CaseName, WaveSize, Multiply.MinThreadGroupSize,
-          Multiply.MaxThreadGroupSize, Multiply.PreferredThreadGroupSize);
+          L"No supported ThreadGroupMatrixMultiply shader group size for "
+          L"%s at wave=%u",
+          CaseName, WaveSize);
       continue;
     }
 
