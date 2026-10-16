@@ -2235,17 +2235,18 @@ acceleration structure heap load: a ray-tracing shader that only heap-loads a
 texture still gets the three-way max. The widening happens when either
 
 - any entry point is a ray-tracing stage, or
-- the user explicitly passed ``-fspv-extension=SPV_KHR_ray_tracing``,
-  ``-fspv-extension=SPV_NV_ray_tracing``, or
+- the user explicitly passed ``-fspv-extension=SPV_KHR_ray_tracing`` or
   ``-fspv-extension=SPV_KHR_ray_query``.
 
 The second condition requires an explicit ``-fspv-extension`` flag. In the
 default extension mode DXC allows the ray-tracing and ray-query extensions
-implicitly, but that does not widen the stride. Because the stride cannot be
-widened once it has been built, a shader that is not a ray-tracing stage and
-loads a ``RaytracingAccelerationStructure`` from ``ResourceDescriptorHeap``
-without an explicit ray extension flag is rejected rather than given a stride
-that may be too narrow.
+implicitly, but that does not widen the stride. ``SPV_NV_ray_tracing`` does not
+widen it either: it applies only to ray-tracing stages, which already satisfy
+the first condition. Because the stride cannot be widened once it has been
+built, a shader that is not a ray-tracing stage and loads a
+``RaytracingAccelerationStructure`` from ``ResourceDescriptorHeap`` without an
+explicit ray extension flag is rejected rather than given a stride that may be
+too narrow.
 
 HLSL Expressions
 ================

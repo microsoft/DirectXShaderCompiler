@@ -845,9 +845,14 @@ public:
   /// \brief Record that acceleration structures may occupy the resource heap.
   /// Must be called before getResourceHeapArrayStride() (before the code-gen
   /// loop in HandleTranslationUnit); the result is cached on the first call.
-  /// Calling it after the first getResourceHeapArrayStride() invocation has
-  /// no effect.
-  void noteResourceHeapHasAccelStruct() { resourceHeapHasAccelStruct = true; }
+  /// Has no effect after the first getResourceHeapArrayStride() call: the stride
+  /// is already built without the acceleration structure term, so
+  /// resourceHeapStrideIncludesAccelStruct() stays false and code-gen rejects
+  /// acceleration structure heap loads.
+  void noteResourceHeapHasAccelStruct() {
+    if (!resourceHeapArrayStride)
+      resourceHeapHasAccelStruct = true;
+  }
 
   /// \brief Returns whether the resource-heap stride includes the acceleration
   /// structure descriptor size. When false, code-gen must reject AS heap
@@ -994,9 +999,8 @@ private:
   SpirvInstruction *samplerHeapArrayStride = nullptr;
 
   /// Set by noteResourceHeapHasAccelStruct() when HandleTranslationUnit
-  /// detects shader using ray-tracing features.
-  /// When true, getResourceHeapArrayStride() includes
-  /// sizeof(acceleration_structure). Set by noteResourceHeapHasAccelStruct().
+  /// detects ray-tracing features. When true, getResourceHeapArrayStride()
+  /// includes sizeof(acceleration_structure).
   bool resourceHeapHasAccelStruct = false;
 
   SpirvDebugInfoNone *debugNone;

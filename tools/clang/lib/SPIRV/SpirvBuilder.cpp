@@ -2062,9 +2062,8 @@ SpirvInstruction *SpirvBuilder::getResourceHeapArrayStride() {
   //             2D float image (subtype/storage class do not affect size).
   //   buffer - always included. Representative: Uniform buffer.
   //   accel  - included only when noteResourceHeapHasAccelStruct() was called.
-  //             Placeholder: getAccelerationStructureType(). Requires
-  //             OpCapability RayTracingKHR, guaranteed present when
-  //             noteResourceHeapHasAccelStruct() is called.
+  //             Its type is only valid with a ray-tracing or ray-query
+  //             capability, which every caller of that function guarantees.
   //
   // VkPhysicalDeviceDescriptorHeapPropertiesEXT reports one size per category
   // (imageDescriptorSize / bufferDescriptorSize); all sizes are driver-defined.
@@ -2077,25 +2076,49 @@ SpirvInstruction *SpirvBuilder::getResourceHeapArrayStride() {
   const SpirvType *placeholderBuffer =
       context.getBufferEXTType(spv::StorageClass::Uniform);
 
+  // The stride is cached and shared by every heap access in the module. Its
+  // OpSpecConstantOp instructions must therefore not belong to the block of the
+  // first access: that block can be unreachable (e.g. code after a `return`),
+  // and an unreachable block is never emitted. The entry block always is.
+  // Within the block only their relative order matters (operands before users);
+  // they are emitted into the module-level constant section.
+  llvm::SmallVector<SpirvInstruction *, 4> strideOps;
+  auto makeGreater = [&](SpirvInstruction *lhs, SpirvInstruction *rhs) {
+    auto *op = new (context) SpirvSpecConstantBinaryOp(
+        spv::Op::OpUGreaterThan, astContext.BoolTy, /*loc*/ {}, lhs, rhs);
+    strideOps.push_back(op);
+    return op;
+  };
+  auto makeSelect = [&](SpirvInstruction *cond, SpirvInstruction *ifTrue,
+                        SpirvInstruction *ifFalse) {
+    auto *op = new (context) SpirvSpecConstantTernaryOp(
+        spv::Op::OpSelect, astContext.UnsignedIntTy, /*loc*/ {}, cond, ifTrue,
+        ifFalse);
+    strideOps.push_back(op);
+    return op;
+  };
+
   SpirvInstruction *imageSize = getConstantSizeOfEXT(placeholderImage);
   SpirvInstruction *bufferSize = getConstantSizeOfEXT(placeholderBuffer);
-  SpirvInstruction *imageIsBigger = createSpecConstantBinaryOp(
-      spv::Op::OpUGreaterThan, astContext.BoolTy, imageSize, bufferSize, {});
+  SpirvInstruction *imageIsBigger = makeGreater(imageSize, bufferSize);
   SpirvInstruction *maxImgBuf =
-      createSpecConstantTernaryOp(spv::Op::OpSelect, astContext.UnsignedIntTy,
-                                  imageIsBigger, imageSize, bufferSize, {});
+      makeSelect(imageIsBigger, imageSize, bufferSize);
 
+  SpirvInstruction *stride = maxImgBuf;
   if (resourceHeapHasAccelStruct) {
     // Extend to max(max(img, buf), accel_struct).
     const SpirvType *placeholderAS = context.getAccelerationStructureTypeNV();
     SpirvInstruction *asSize = getConstantSizeOfEXT(placeholderAS);
-    SpirvInstruction *maxImgBufIsBigger = createSpecConstantBinaryOp(
-        spv::Op::OpUGreaterThan, astContext.BoolTy, maxImgBuf, asSize, {});
-    resourceHeapArrayStride =
-        createSpecConstantTernaryOp(spv::Op::OpSelect, astContext.UnsignedIntTy,
-                                    maxImgBufIsBigger, maxImgBuf, asSize, {});
-  } else
-    resourceHeapArrayStride = maxImgBuf;
+    SpirvInstruction *maxImgBufIsBigger = makeGreater(maxImgBuf, asSize);
+    stride = makeSelect(maxImgBufIsBigger, maxImgBuf, asSize);
+  }
+
+  assert(function && "heap stride requested outside a function body");
+  // addFirstInstruction prepends; iterate in reverse to keep operands first.
+  for (auto it = strideOps.rbegin(); it != strideOps.rend(); ++it)
+    function->addFirstInstruction(*it);
+
+  resourceHeapArrayStride = stride;
   return resourceHeapArrayStride;
 }
 

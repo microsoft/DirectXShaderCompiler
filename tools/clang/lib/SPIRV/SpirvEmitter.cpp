@@ -824,20 +824,24 @@ void SpirvEmitter::HandleTranslationUnit(ASTContext &context) {
   // decision must precede any descriptor-heap subscript evaluation.
   //
   // needsAccelStruct is set when any of three conditions holds:
-  //   C1: workQueue has an RT stage. RT stages emit RayTracingKHR, which
-  //       permits OpConstantSizeOfEXT on AccelerationStructureKHR.
-  //   C2: shader explicitly listed KHR_ray_tracing or NV_ray_tracing —
-  //       signals the shader may use acceleration structures via descriptor
-  //       heap.
-  //   C3: shader explicitly listed KHR_ray_query — same rationale.
+  //   C1: workQueue has an RT stage. RT stages declare a ray-tracing
+  //       capability, which makes the acceleration structure type valid.
+  //   C2: shader explicitly listed KHR_ray_tracing, signalling it may use
+  //       acceleration structures via the descriptor heap.
+  //   C3: shader explicitly listed KHR_ray_query, same rationale.
+  //
+  // NV_ray_tracing is not a trigger: it only applies to RT stages (C1), and in
+  // a non-RT stage nothing would declare the capability that the size query's
+  // acceleration structure type requires, so the module would be invalid.
   //
   // isExtensionEnabled() requires the !allowedExtensions.empty() guard: in
   // default mode FeatureManager enables KHR_ray_tracing and KHR_ray_query
   // by default, causing false positives without it.
   //
-  // Note: global-decl pass runs before this block. HLSL forbids heap access
-  // in global initializers (getResourceHeapArrayStride() cannot be called
-  // there). If that restriction lifts, move this block before that pass.
+  // Heap accesses in global initializers are lowered after this block, so they
+  // do not build the stride early. If anything did, the call below would be a
+  // no-op and acceleration structure heap loads would be rejected instead of
+  // using a stride that may be too narrow.
   if (spirvOptions.useDescriptorHeap) {
     bool needsAccelStruct = false;
 
@@ -850,7 +854,6 @@ void SpirvEmitter::HandleTranslationUnit(ASTContext &context) {
     if (!needsAccelStruct && !spirvOptions.allowedExtensions.empty())
       needsAccelStruct =
           featureManager.isExtensionEnabled(Extension::KHR_ray_tracing) ||
-          featureManager.isExtensionEnabled(Extension::NV_ray_tracing) ||
           featureManager.isExtensionEnabled(Extension::KHR_ray_query);
 
     if (needsAccelStruct)
@@ -7309,8 +7312,7 @@ SpirvEmitter::doCXXOperatorCallExpr(const CXXOperatorCallExpr *expr,
           emitError("acceleration structure loaded from ResourceDescriptorHeap "
                     "requires the resource heap stride to account for "
                     "acceleration structure descriptors; compile with "
-                    "-fspv-extension=SPV_KHR_ray_tracing, "
-                    "-fspv-extension=SPV_NV_ray_tracing, or "
+                    "-fspv-extension=SPV_KHR_ray_tracing or "
                     "-fspv-extension=SPV_KHR_ray_query",
                     expr->getExprLoc());
           return nullptr;
