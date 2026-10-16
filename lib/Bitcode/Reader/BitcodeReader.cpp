@@ -1428,15 +1428,23 @@ std::error_code BitcodeReader::parseTypeTableBody() {
         return error("Invalid record");
       SmallVector<Type*, 8> ArgTys;
       for (unsigned i = 3, e = Record.size(); i != e; ++i) {
-        if (Type *T = getTypeByID(Record[i]))
+        // HLSL Change Begin - validate argument types.
+        if (Type *T = getTypeByID(Record[i])) {
+          if (!FunctionType::isValidArgumentType(T))
+            return error("Invalid function argument type");
           ArgTys.push_back(T);
-        else
+        } else
           break;
+        // HLSL Change End
       }
 
       ResultTy = getTypeByID(Record[2]);
       if (!ResultTy || ArgTys.size() < Record.size()-3)
         return error("Invalid type");
+      // HLSL Change Begin - validate return type.
+      if (!FunctionType::isValidReturnType(ResultTy))
+        return error("Invalid return type for function");
+      // HLSL Change End
 
       ResultTy = FunctionType::get(ResultTy, ArgTys, Record[0]);
       break;
@@ -1459,6 +1467,10 @@ std::error_code BitcodeReader::parseTypeTableBody() {
       ResultTy = getTypeByID(Record[1]);
       if (!ResultTy || ArgTys.size() < Record.size()-2)
         return error("Invalid type");
+      // HLSL Change Begin - validate return type.
+      if (!FunctionType::isValidReturnType(ResultTy))
+        return error("Invalid return type for function");
+      // HLSL Change End
 
       ResultTy = FunctionType::get(ResultTy, ArgTys, Record[0]);
       break;
@@ -1861,12 +1873,14 @@ std::error_code BitcodeReader::parseSelectNamedMetadata(ArrayRef<StringRef> Name
         return error("Invalid record");
 
       Type *Ty = getTypeByID(Record[0]);
-      if (Ty->isMetadataTy() || Ty->isVoidTy())
+      if (!Ty || Ty->isMetadataTy() || Ty->isVoidTy())
         return error("Invalid record");
 
-      MDValueList.assignValue(
-          ValueAsMetadata::get(ValueList.getValueFwdRef(Record[1], Ty)),
-          MDNumber);
+      Value *V = ValueList.getValueFwdRef(Record[1], Ty);
+      if (!V)
+        return error("Invalid record");
+
+      MDValueList.assignValue(ValueAsMetadata::get(V), MDNumber);
       break;
     }
     case bitc::METADATA_DISTINCT_NODE:
@@ -2024,14 +2038,22 @@ std::error_code BitcodeReader::parseMetadata() {
       }
 
       Type *Ty = getTypeByID(Record[0]);
+      // HLSL Change Begin - reject an invalid type.
+      if (!Ty)
+        return error("Invalid record");
+      // HLSL Change End
       if (Ty->isMetadataTy() || Ty->isVoidTy()) {
         dropRecord();
         break;
       }
 
-      MDValueList.assignValue(
-          LocalAsMetadata::get(ValueList.getValueFwdRef(Record[1], Ty)),
-          NextMDValueNo++);
+      // HLSL Change Begin - reject a missing or non-function-local value.
+      Value *V = ValueList.getValueFwdRef(Record[1], Ty);
+      if (!V || (!isa<Argument>(V) && !isa<Instruction>(V)))
+        return error("Invalid record");
+
+      MDValueList.assignValue(LocalAsMetadata::get(V), NextMDValueNo++);
+      // HLSL Change End
       break;
     }
     case bitc::METADATA_OLD_NODE: {
@@ -2048,10 +2070,14 @@ std::error_code BitcodeReader::parseMetadata() {
         if (Ty->isMetadataTy())
           Elts.push_back(MDValueList.getValueFwdRef(Record[i+1]));
         else if (!Ty->isVoidTy()) {
-          auto *MD =
-              ValueAsMetadata::get(ValueList.getValueFwdRef(Record[i + 1], Ty));
-          assert(isa<ConstantAsMetadata>(MD) &&
-                 "Expected non-function-local metadata");
+          // HLSL Change Begin - reject a missing or function-local value.
+          Value *V = ValueList.getValueFwdRef(Record[i + 1], Ty);
+          if (!V)
+            return error("Invalid record");
+          auto *MD = ValueAsMetadata::get(V);
+          if (!isa<ConstantAsMetadata>(MD))
+            return error("Expected non-function-local metadata");
+          // HLSL Change End
           Elts.push_back(MD);
         } else
           Elts.push_back(nullptr);
@@ -2064,12 +2090,16 @@ std::error_code BitcodeReader::parseMetadata() {
         return error("Invalid record");
 
       Type *Ty = getTypeByID(Record[0]);
-      if (Ty->isMetadataTy() || Ty->isVoidTy())
+      if (!Ty || Ty->isMetadataTy() || Ty->isVoidTy()) // HLSL Change
         return error("Invalid record");
 
-      MDValueList.assignValue(
-          ValueAsMetadata::get(ValueList.getValueFwdRef(Record[1], Ty)),
-          NextMDValueNo++);
+      // HLSL Change Begin - reject a missing value.
+      Value *V = ValueList.getValueFwdRef(Record[1], Ty);
+      if (!V)
+        return error("Invalid record");
+
+      MDValueList.assignValue(ValueAsMetadata::get(V), NextMDValueNo++);
+      // HLSL Change End
       break;
     }
     case bitc::METADATA_DISTINCT_NODE:
@@ -2728,8 +2758,21 @@ std::error_code BitcodeReader::parseConstants() {
         if (!OpTy)
           return error("Invalid record");
         Constant *Op = ValueList.getConstantFwdRef(Record[2], OpTy);
+        // HLSL Change Begin - reject invalid cast operands.
+        if (!Op || !CurTy)
+          return error("Null arguments to getCast");
+        // HLSL Change End
         V = UpgradeBitCastExpr(Opc, Op, CurTy);
-        if (!V) V = ConstantExpr::getCast(Opc, Op, CurTy);
+        // HLSL Change Begin - reject invalid casts.
+        if (!V) {
+          Instruction::CastOps castOpc = Instruction::CastOps(Opc);
+          if (!Instruction::isCast(castOpc))
+            return error("opcode out of range");
+          if (!CastInst::castIsValid(castOpc, Op, CurTy))
+            return error("Invalid constant expression cast!");
+          V = ConstantExpr::getCast(Opc, Op, CurTy);
+        }
+        // HLSL Change End
       }
       break;
     }
@@ -3896,6 +3939,10 @@ std::error_code BitcodeReader::parseFunctionBody(Function *F) {
           CurBB->getInstList().push_back(Temp);
         }
       } else {
+        // HLSL Change Begin - reject invalid casts.
+        if (!CastInst::castIsValid((Instruction::CastOps)Opc, Op, ResTy))
+          return error("Invalid cast");
+        // HLSL Change End
         I = CastInst::Create((Instruction::CastOps)Opc, Op, ResTy);
       }
       InstructionList.push_back(I);
@@ -4193,6 +4240,10 @@ std::error_code BitcodeReader::parseFunctionBody(Function *F) {
       break;
     }
     case bitc::FUNC_CODE_INST_SWITCH: { // SWITCH: [opty, op0, op1, ...]
+      // HLSL Change Begin - reject an empty record.
+      if (Record.empty())
+        return error("Invalid record");
+      // HLSL Change End
       // Check magic
       if ((Record[0] >> 16) == SWITCH_INST_MAGIC) {
         // "New" SwitchInst format with case ranges. The changes to write this
@@ -4200,12 +4251,21 @@ std::error_code BitcodeReader::parseFunctionBody(Function *F) {
         // Hopefully someday we will have support for case ranges and can use
         // this format again.
 
+        // HLSL Change Begin - [magic, opty, cond, default, numcases, ...]
+        if (Record.size() < 5)
+          return error("Invalid record");
+        // HLSL Change End
+
         Type *OpTy = getTypeByID(Record[1]);
+        // HLSL Change Begin - switch conditions must be integers.
+        if (!OpTy || !OpTy->isIntegerTy())
+          return error("Invalid record");
+        // HLSL Change End
         unsigned ValueBitWidth = cast<IntegerType>(OpTy)->getBitWidth();
 
         Value *Cond = getValue(Record, 2, NextValueNo, OpTy);
         BasicBlock *Default = getBasicBlock(Record[3]);
-        if (!OpTy || !Cond || !Default)
+        if (!Cond || !Default) // HLSL Change
           return error("Invalid record");
 
         unsigned NumCases = Record[4];
@@ -4214,24 +4274,53 @@ std::error_code BitcodeReader::parseFunctionBody(Function *F) {
         InstructionList.push_back(SI);
 
         unsigned CurIdx = 5;
+        // HLSL Change Begin - keep every read within the record.
+        // Return true if the next NumWords fields are not all in the record.
+        auto pastEnd = [&](uint64_t NumWords) {
+          return CurIdx > Record.size() || NumWords > Record.size() - CurIdx;
+        };
+        // Discard the partially built switch, as the original format does.
+        auto invalidRecord = [&]() {
+          delete SI;
+          return error("Invalid record");
+        };
+        // HLSL Change End
         for (unsigned i = 0; i != NumCases; ++i) {
           SmallVector<ConstantInt*, 1> CaseVals;
+          if (pastEnd(1)) // HLSL Change
+            return invalidRecord(); // HLSL Change
           unsigned NumItems = Record[CurIdx++];
           for (unsigned ci = 0; ci != NumItems; ++ci) {
+            if (pastEnd(1)) // HLSL Change
+              return invalidRecord(); // HLSL Change
             bool isSingleNumber = Record[CurIdx++];
 
             APInt Low;
             unsigned ActiveWords = 1;
-            if (ValueBitWidth > 64)
+            // HLSL Change Begin - keep every read within the record.
+            if (ValueBitWidth > 64) {
+              if (pastEnd(1))
+                return invalidRecord();
               ActiveWords = Record[CurIdx++];
+            }
+            if (ActiveWords == 0 || pastEnd(ActiveWords))
+              return invalidRecord();
+            // HLSL Change End
             Low = readWideAPInt(makeArrayRef(&Record[CurIdx], ActiveWords),
                                 ValueBitWidth);
             CurIdx += ActiveWords;
 
             if (!isSingleNumber) {
               ActiveWords = 1;
-              if (ValueBitWidth > 64)
+              // HLSL Change Begin - keep every read within the record.
+              if (ValueBitWidth > 64) {
+                if (pastEnd(1))
+                  return invalidRecord();
                 ActiveWords = Record[CurIdx++];
+              }
+              if (ActiveWords == 0 || pastEnd(ActiveWords))
+                return invalidRecord();
+              // HLSL Change End
               APInt High = readWideAPInt(
                   makeArrayRef(&Record[CurIdx], ActiveWords), ValueBitWidth);
               CurIdx += ActiveWords;
@@ -4245,7 +4334,13 @@ std::error_code BitcodeReader::parseFunctionBody(Function *F) {
             } else
               CaseVals.push_back(ConstantInt::get(Context, Low));
           }
+          if (pastEnd(1)) // HLSL Change
+            return invalidRecord(); // HLSL Change
           BasicBlock *DestBB = getBasicBlock(Record[CurIdx++]);
+          // HLSL Change Begin - reject a missing destination block.
+          if (!DestBB)
+            return invalidRecord();
+          // HLSL Change End
           for (SmallVector<ConstantInt*, 1>::iterator cvi = CaseVals.begin(),
                  cve = CaseVals.end(); cvi != cve; ++cvi)
             SI->addCase(*cvi, DestBB);
@@ -4259,9 +4354,13 @@ std::error_code BitcodeReader::parseFunctionBody(Function *F) {
       if (Record.size() < 3 || (Record.size() & 1) == 0)
         return error("Invalid record");
       Type *OpTy = getTypeByID(Record[0]);
+      // HLSL Change Begin - switch conditions must be integers.
+      if (!OpTy || !OpTy->isIntegerTy())
+        return error("Invalid record");
+      // HLSL Change End
       Value *Cond = getValue(Record, 1, NextValueNo, OpTy);
       BasicBlock *Default = getBasicBlock(Record[2]);
-      if (!OpTy || !Cond || !Default)
+      if (!Cond || !Default) // HLSL Change
         return error("Invalid record");
       unsigned NumCases = (Record.size()-3)/2;
       SwitchInst *SI = SwitchInst::Create(Cond, Default, NumCases);
@@ -5128,9 +5227,11 @@ struct report_fatal_error_data {
 void report_fatal_error_handler(void *user_datam, const std::string &reason,
                                 bool gen_crash_diag) {
   report_fatal_error_data *data = (report_fatal_error_data *)user_datam;
-  BitcodeDiagnosticInfo BDI(std::error_code(EINVAL, std::system_category()),
-                            DiagnosticSeverity::DS_Error, reason);
-  data->DiagnosticHandler(BDI);
+  if (data->DiagnosticHandler) {
+    BitcodeDiagnosticInfo BDI(std::error_code(EINVAL, std::system_category()),
+                              DiagnosticSeverity::DS_Error, reason);
+    data->DiagnosticHandler(BDI);
+  }
   throw std::runtime_error("Invalid bitcode");
 }
 // HLSL Change Ends

@@ -604,7 +604,7 @@ void ValidationContext::EmitFnFormatError(Function *F, ValidationRule rule,
                                           ArrayRef<StringRef> args) {
   std::string ruleText = GetValidationRuleText(rule);
   FormatRuleText(ruleText, args);
-  if (pDebugModule)
+  if (pDebugModule && F)
     if (Function *dbgF = pDebugModule->getFunction(F->getName()))
       F = dbgF;
   dxilutil::EmitErrorOnFunction(M.getContext(), F, ruleText);

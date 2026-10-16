@@ -760,6 +760,24 @@ void llvm::UpgradeInstWithTBAATag(Instruction *I) {
   }
 }
 
+// HLSL Change Begin - match the intermediate to the pointer vector shape.
+/// Return the integer type to go through when upgrading a bitcast between
+/// pointers in different address spaces, or null if the source and destination
+/// shapes differ and the bitcast cannot be upgraded.
+static Type *getBitCastUpgradeIntTy(Type *SrcTy, Type *DestTy) {
+  // We have no information about target data layout, so we assume that
+  // the maximum pointer size is 64bit.
+  Type *MidTy = Type::getInt64Ty(SrcTy->getContext());
+  if (SrcTy->isVectorTy() != DestTy->isVectorTy())
+    return nullptr;
+  if (!SrcTy->isVectorTy())
+    return MidTy;
+  if (SrcTy->getVectorNumElements() != DestTy->getVectorNumElements())
+    return nullptr;
+  return VectorType::get(MidTy, SrcTy->getVectorNumElements());
+}
+// HLSL Change End
+
 Instruction *llvm::UpgradeBitCastInst(unsigned Opc, Value *V, Type *DestTy,
                                       Instruction *&Temp) {
   if (Opc != Instruction::BitCast)
@@ -769,11 +787,9 @@ Instruction *llvm::UpgradeBitCastInst(unsigned Opc, Value *V, Type *DestTy,
   Type *SrcTy = V->getType();
   if (SrcTy->isPtrOrPtrVectorTy() && DestTy->isPtrOrPtrVectorTy() &&
       SrcTy->getPointerAddressSpace() != DestTy->getPointerAddressSpace()) {
-    LLVMContext &Context = V->getContext();
-
-    // We have no information about target data layout, so we assume that
-    // the maximum pointer size is 64bit.
-    Type *MidTy = Type::getInt64Ty(Context);
+    Type *MidTy = getBitCastUpgradeIntTy(SrcTy, DestTy); // HLSL Change
+    if (!MidTy)                                           // HLSL Change
+      return nullptr;                                     // HLSL Change
     Temp = CastInst::Create(Instruction::PtrToInt, V, MidTy);
 
     return CastInst::Create(Instruction::IntToPtr, Temp, DestTy);
@@ -789,11 +805,9 @@ Value *llvm::UpgradeBitCastExpr(unsigned Opc, Constant *C, Type *DestTy) {
   Type *SrcTy = C->getType();
   if (SrcTy->isPtrOrPtrVectorTy() && DestTy->isPtrOrPtrVectorTy() &&
       SrcTy->getPointerAddressSpace() != DestTy->getPointerAddressSpace()) {
-    LLVMContext &Context = C->getContext();
-
-    // We have no information about target data layout, so we assume that
-    // the maximum pointer size is 64bit.
-    Type *MidTy = Type::getInt64Ty(Context);
+    Type *MidTy = getBitCastUpgradeIntTy(SrcTy, DestTy); // HLSL Change
+    if (!MidTy)                                           // HLSL Change
+      return nullptr;                                     // HLSL Change
 
     return ConstantExpr::getIntToPtr(ConstantExpr::getPtrToInt(C, MidTy),
                                      DestTy);
