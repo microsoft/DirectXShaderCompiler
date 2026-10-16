@@ -80,6 +80,7 @@ line upon naming the release. Refer to previous for appropriate section names.
 
 #### Bug Fixes
 
+- Fixed shader reflection dropping leading characters from user-defined struct type names.
 - Fixed an optimizer crash when scalarizing an out-of-bounds vector access
   [#8940](https://github.com/microsoft/DirectXShaderCompiler/issues/8940).
 - Fixed members following a merged bitfield reading the wrong value when a
