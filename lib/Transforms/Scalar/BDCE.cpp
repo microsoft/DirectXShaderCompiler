@@ -269,7 +269,8 @@ void BDCE::determineLiveOperandBits(const Instruction *UserI,
 // following the def-use chain until reaching users that demand all of their
 // bits (nothing below such a user can observe the change).
 static void clearAssumptionsOfUsers(Instruction *I,
-                                    DenseMap<Instruction *, APInt> &AliveBits) {
+                                    DenseMap<Instruction *, APInt> &AliveBits,
+                                    SmallPtrSetImpl<Instruction *> &Visited) {
   auto NotAllBitsDemanded = [&AliveBits](Instruction *J) {
     if (!J->getType()->isIntegerTy())
       return false;
@@ -279,7 +280,6 @@ static void clearAssumptionsOfUsers(Instruction *I,
     return !ABI->second.isAllOnesValue();
   };
 
-  SmallPtrSet<Instruction *, 16> Visited;
   SmallVector<Instruction *, 16> WorkList;
   for (User *JU : I->users()) {
     Instruction *J = dyn_cast<Instruction>(JU);
@@ -410,6 +410,8 @@ bool BDCE::runOnFunction(Function& F) {
   }
 
   bool Changed = false;
+  // HLSL Change - Clear poison generators after BDCE.
+  SmallPtrSet<Instruction *, 16> FlagClearingVisited;
   // The inverse of the live set is the dead set.  These are those instructions
   // which have no side effects and do not influence the control flow or return
   // value of the function, and may therefore be deleted safely.
@@ -431,7 +433,7 @@ bool BDCE::runOnFunction(Function& F) {
         Value *Zero = ConstantInt::get(I.getType(), 0);
         ++NumSimplified;
         // HLSL Change - Clear poison generators after BDCE.
-        clearAssumptionsOfUsers(&I, AliveBits);
+        clearAssumptionsOfUsers(&I, AliveBits, FlagClearingVisited);
         I.replaceAllUsesWith(Zero);
         Changed = true;
       }
