@@ -31,3 +31,31 @@ Comment tone:
 - Use a stronger ask when the PR clearly appears to be a user-visible bug fix or feature.
 - If release-note coverage may come in a related PR (including a future PR), ask the author to point to that planned coverage.
 - If uncertain, prefer the gentle **"Did you consider adding a release note?"** wording.
+
+## Attribution for content posted on a user's behalf
+
+This section applies to any AI agent acting through a user's GitHub account, whatever the vendor or product — for example the Copilot CLI, the Copilot app, or the Copilot cloud agent. It does not apply to bots that post under their own identity, such as `copilot-pull-request-reviewer[bot]`, which are already attributed by their username.
+
+Never publish AI-authored content under a user's name without saying that it was AI-assisted. Readers cannot tell the difference, and leaving them to assume a human wrote it misrepresents authorship.
+
+Add the following as the last line of the body, naming the agent that actually produced the content:
+
+```
+_Assisted by <agent>._
+```
+
+For example, `_Assisted by GitHub Copilot._`. Name the agent you are, not a generic label and not another vendor's product. If you do not have a specific product name to use, write `_Assisted by an AI agent._` rather than guessing or naming something else.
+
+Apply this to:
+- Pull request descriptions
+- Issue bodies
+- Review comments and replies in review threads
+- Pull request and issue comments
+- Discussion posts
+
+Notes:
+- Git commit messages are already covered by the `Co-authored-by` trailer, so no additional line is needed there.
+- Write the content in the user's voice, as them. The trailer records that assistance was used; it does not turn the content into a report about the agent.
+- When editing existing content that does not have the trailer, add it.
+- If the user explicitly asks for no attribution on a specific item, follow that.
+
