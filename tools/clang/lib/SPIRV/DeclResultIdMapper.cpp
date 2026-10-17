@@ -140,6 +140,10 @@ uint32_t getNumBindingsUsedByResourceType(QualType type) {
   if (type.isNull())
     return 1;
 
+  // Strip typedefs so that arrays declared through them (e.g.
+  // `typedef Texture2D Textures[5];`) are still seen as arrays below.
+  type = type.getCanonicalType();
+
   // For every array dimension, the number of bindings needed should be
   // multiplied by the array size. For example: an array of two Textures should
   // use 2 binding slots.
@@ -150,9 +154,20 @@ uint32_t getNumBindingsUsedByResourceType(QualType type) {
     type = constArrayType->getElementType();
   }
 
-  // Once we remove the arrayness, we expect the given type to be either a
-  // resource OR a structure that only contains resources.
-  assert(isResourceType(type) || isResourceOnlyStructure(type));
+  // An unbounded (runtime-sized) array, e.g. Texture2D textures[], consumes
+  // the rest of its register space: HLSL requires it to be the last
+  // resource declared in that space, so no other resource can be placed at
+  // a higher binding number that a precise reservation would need to
+  // protect. Reserve a single slot for it instead of trying to compute a
+  // size that doesn't exist.
+  if (type->isIncompleteArrayType())
+    return arrayFactor;
+
+  // Not every entry in resourceVars is a resource: for example, globals with
+  // [[vk::ext_storage_class]] are also registered there. Those still only use
+  // one binding number.
+  if (!isResourceType(type) && !isResourceOnlyStructure(type))
+    return 1;
 
   // In the case of a resource, each resource takes 1 binding slot, so in total
   // it consumes: 1 * arrayFactor.
@@ -2664,7 +2679,9 @@ bool DeclResultIdMapper::decorateResourceBindings() {
     // resources (e.g. array of textures), DX uses one binding number per array
     // element. We can match this behavior via a command line option.
     uint32_t numBindingsToUse = 1;
-    if (spirvOptions.flattenResourceArrays || needsFlatteningCompositeResources)
+    if (spirvOptions.flattenResourceArrays ||
+        spirvOptions.reserveResourceArrayBindings ||
+        needsFlatteningCompositeResources)
       numBindingsToUse = getNumBindingsUsedByResourceType(
           var.getSpirvInstr()->getAstResultType());
 
@@ -2754,7 +2771,9 @@ bool DeclResultIdMapper::decorateResourceBindings() {
     // resources (e.g. array of textures), DX uses one binding number per array
     // element. We can match this behavior via a command line option.
     uint32_t numBindingsToUse = 1;
-    if (spirvOptions.flattenResourceArrays || needsFlatteningCompositeResources)
+    if (spirvOptions.flattenResourceArrays ||
+        spirvOptions.reserveResourceArrayBindings ||
+        needsFlatteningCompositeResources)
       numBindingsToUse = getNumBindingsUsedByResourceType(
           var.getSpirvInstr()->getAstResultType());
 
