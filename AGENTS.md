@@ -3,9 +3,10 @@
 ## Before contributing (read first)
 
 These requirements come from [AIToolPolicy.md](AIToolPolicy.md) and
-[CONTRIBUTING.md](CONTRIBUTING.md). Pull requests that do not meet them are
-closed or sent back. If you cannot meet a requirement, stop and tell the human
-you are working with. Do not work around it, and do not open a pull request.
+[CONTRIBUTING.md](CONTRIBUTING.md). Reviewers close, or request changes on,
+pull requests that do not meet them. If you cannot meet a requirement, stop
+and tell the human you are working with. Do not work around it, and do not
+open a pull request.
 
 ### Human in the loop
 
