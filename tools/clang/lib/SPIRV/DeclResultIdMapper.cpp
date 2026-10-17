@@ -163,9 +163,11 @@ uint32_t getNumBindingsUsedByResourceType(QualType type) {
   if (type->isIncompleteArrayType())
     return arrayFactor;
 
-  // Once we remove the arrayness, we expect the given type to be either a
-  // resource OR a structure that only contains resources.
-  assert(isResourceType(type) || isResourceOnlyStructure(type));
+  // Not every entry in resourceVars is a resource: for example, globals with
+  // [[vk::ext_storage_class]] are also registered there. Those still only use
+  // one binding number.
+  if (!isResourceType(type) && !isResourceOnlyStructure(type))
+    return 1;
 
   // In the case of a resource, each resource takes 1 binding slot, so in total
   // it consumes: 1 * arrayFactor.
