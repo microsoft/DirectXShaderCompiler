@@ -4,10 +4,12 @@
 // CHECK: OpDecorate %AnotherTexture Binding 5
 // CHECK: OpDecorate %NextTexture Binding 6
 // CHECK: OpDecorate %MySamplers Binding 7
+// CHECK: OpDecorate %LastTexture Binding 9
 Texture2D    MyTextures[5] : register(t0);
 Texture2D    NextTexture;  // This is supposed to be t6.
 Texture2D    AnotherTexture : register(t5);
 SamplerState MySamplers[2];
+Texture2D    LastTexture;  // Right after MySamplers[2], so this is supposed to be t9.
 
 float4 main(float2 TexCoord : TexCoord) : SV_Target0
 {
@@ -18,6 +20,7 @@ float4 main(float2 TexCoord : TexCoord) : SV_Target0
     MyTextures[3].Sample(MySamplers[1], TexCoord) +
     MyTextures[4].Sample(MySamplers[1], TexCoord) +
     AnotherTexture.Sample(MySamplers[1], TexCoord) +
-    NextTexture.Sample(MySamplers[1], TexCoord);
+    NextTexture.Sample(MySamplers[1], TexCoord) +
+    LastTexture.Sample(MySamplers[1], TexCoord);
   return result;
 }

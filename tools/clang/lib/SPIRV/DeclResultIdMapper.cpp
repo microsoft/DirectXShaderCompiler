@@ -140,6 +140,10 @@ uint32_t getNumBindingsUsedByResourceType(QualType type) {
   if (type.isNull())
     return 1;
 
+  // Strip typedefs so that arrays declared through them (e.g.
+  // `typedef Texture2D Textures[5];`) are still seen as arrays below.
+  type = type.getCanonicalType();
+
   // For every array dimension, the number of bindings needed should be
   // multiplied by the array size. For example: an array of two Textures should
   // use 2 binding slots.
