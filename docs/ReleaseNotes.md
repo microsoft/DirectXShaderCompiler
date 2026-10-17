@@ -87,6 +87,12 @@ line upon naming the release. Refer to previous for appropriate section names.
   struct is flat-converted
   [#8526](https://github.com/microsoft/DirectXShaderCompiler/issues/8526).
 
+#### SPIR-V
+
+- SPIR-V debug info for mesh shader output writes now points to the
+  assignment rather than to the output declaration
+  [#8057](https://github.com/microsoft/DirectXShaderCompiler/pull/8057).
+
 ### Upcoming Preview Release
 
 These changes apply to experimental preview shader models only and will not be
