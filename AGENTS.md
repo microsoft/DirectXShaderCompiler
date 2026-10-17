@@ -65,8 +65,6 @@ is not required before opening a pull request.
 ### Pull request contents
 
 - Follow the title and description format in `CONTRIBUTING.md`.
-- List the platform, build configuration, and test commands that were run,
-  and their results.
 - Disclose tool use in the pull request description and in the commit
   messages, for example with an `Assisted-by: <tool>` trailer.
 
