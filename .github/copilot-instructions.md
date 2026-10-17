@@ -2,19 +2,21 @@
 
 Before making changes or opening a pull request, follow the "Before
 contributing (read first)" section of [AGENTS.md](../AGENTS.md). It covers the
-required development environment (including TAEF), required validation, test
-input rules, AI-use disclosure, and the requirement that a human review every
-change before a pull request is opened.
+development environment and testing requirements, test input rules, AI-use
+disclosure, and the requirement that a human review every change before a pull
+request is opened.
 
 ## Pull request policy review guidance
 
 When reviewing pull requests, check them against [AIToolPolicy.md](../AIToolPolicy.md) and the testing
 requirements in `CONTRIBUTING.md`. Raise these issues as review comments:
-- The description says that tests were skipped or could not be run, for example
-  because TAEF, `te.exe`, a tool, or a platform was unavailable. Also flag
-  descriptions that report only a subset of lit suites for a functional change.
-  Point out that the full suite, including TAEF, must be run locally (see
-  "Required development environment" in `AGENTS.md`).
+- The description says that code added or modified by the change was not built
+  or tested, for example because a tool or platform was unavailable. Testing on
+  every platform is not required, but contributors must have tested the code
+  they changed, including platform-specific code such as Windows-only TAEF
+  tests. Also flag descriptions that say the test suite for the contributor's
+  platform could not be run because the development environment was
+  incomplete (see "Development environment and testing" in `AGENTS.md`).
 - The change contains substantial tool-generated content but has no
   disclosure, such as an `Assisted-by:` trailer or a note in the description.
   Only flag this when there are clear signs of tool generation.

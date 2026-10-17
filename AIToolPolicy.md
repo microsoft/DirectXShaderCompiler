@@ -14,10 +14,13 @@ is a good use of scarce maintainer time, and they should be **able to answer
 questions about their work during review.**
 
 Contributors must have a **working development environment that can build DXC
-and run the full test suite**, including the TAEF-based tests (see
-[Building and Testing DXC](docs/BuildingAndTestingDXC.rst)). A change that has
-only been partially tested because tools were unavailable is not ready for
-review. This applies whether the change was written by hand or with an agent.
+and run the test suite on their platform** (see
+[Building and Testing DXC](docs/BuildingAndTestingDXC.rst)). Testing on every
+platform is not required before opening a pull request, but contributors must
+**have built and tested the code they modified**, including platform-specific
+code. A change that includes code the contributor has not tested is not ready
+for review. This applies whether the change was written by hand or with an
+agent.
 
 Coding agents working in this repository should follow the "Before
 contributing" requirements in [AGENTS.md](AGENTS.md).

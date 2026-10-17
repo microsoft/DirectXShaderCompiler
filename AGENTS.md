@@ -14,7 +14,7 @@ you are working with. Do not work around it, and do not open a pull request.
   for new contributors.
 - Do not open a pull request (for example with `gh pr create`) until the human
   has explicitly confirmed that they have read and reviewed every change, that
-  they understand it, and that the validation below was completed. Open pull
+  they understand it, and that the testing below was completed. Open pull
   requests from a fork, not from a branch in this repository.
 - The human must respond to review feedback personally. Do not post
   auto-generated replies such as "Fixed." on the human's behalf.
@@ -28,27 +28,23 @@ you are working with. Do not work around it, and do not open a pull request.
 - Comment on the issue before starting. Discuss new features and substantial
   changes with the team before writing code.
 
-### Required development environment
+### Development environment and testing
 
-Every pull request must be built and tested with a full development
-environment:
+Contributors can work on any platform DXC supports. Testing on every platform
+is not required before opening a pull request.
 
-- Windows with Visual Studio 2019 or later, the Windows SDK, and the matching
-  Windows Driver Kit, which provides the TAEF test runner `te.exe`.
-- Initialized submodules: `git submodule update --init --recursive`.
-- See [docs/BuildingAndTestingDXC.rst](docs/BuildingAndTestingDXC.rst).
-
-If any part of this environment is missing, stop and tell the human. A
-Linux-only or cloud environment, skipping TAEF, running only some lit suites,
-or stubbing out missing tools does not meet this requirement. A pull request
-description that says tests were skipped because tools were unavailable is a
-policy violation.
-
-### Required validation
-
-- Build DXC and run the full test suite, including the TAEF tests, with
-  `hcttest` or the `check-all` target. Hardware execution tests (`hcttest
-  exec`) are needed only when the change affects them.
+- Set up a working development environment for your platform, as described in
+  [docs/BuildingAndTestingDXC.rst](docs/BuildingAndTestingDXC.rst), including
+  initialized submodules (`git submodule update --init --recursive`).
+- Build DXC and run the full test suite available on your platform (for
+  example, the `check-all` target, or `hcttest` on Windows).
+- The contributor must have built and tested every piece of code that the
+  change adds or modifies. If the change touches platform-specific code (for
+  example, Windows-only TAEF tests), it must have been built and run on that
+  platform. If the human cannot test some of the changed code, stop and tell
+  them. Do not open a pull request that says changed code is untested.
+- Do not work around a broken environment, for example by stubbing out missing
+  tools or test substitutions.
 - Every functional change needs new tests. For bug fixes, at least one new
   test must fail without the fix. Confirm this.
 - Test inputs must be human-readable, such as `.hlsl` or textual `.ll` files.
@@ -68,8 +64,8 @@ policy violation.
 ### Pull request contents
 
 - Follow the title and description format in `CONTRIBUTING.md`.
-- List the exact build configuration and test commands that were run, and
-  their results.
+- List the platform, build configuration, and test commands that were run,
+  and their results.
 - Disclose tool use in the pull request description and in the commit
   messages, for example with an `Assisted-by: <tool>` trailer.
 

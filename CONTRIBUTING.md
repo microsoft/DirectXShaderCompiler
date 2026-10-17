@@ -155,8 +155,9 @@ Tests should include reasonable permutations of the target fix/change.
 Include baseline changes with your change as needed.
 Test inputs should be human-readable (for example `.hlsl` or textual `.ll`); avoid opaque binary test inputs.
 
-Before requesting review, build DXC and run the full test suite locally, including the TAEF-based tests (`hcttest` or the `check-all` target; see [Building and Testing DXC](docs/BuildingAndTestingDXC.rst)).
-A pull request that has only been partially tested because tools were unavailable is not ready for review.
+Before requesting review, build DXC and run the full test suite available on your platform (see [Building and Testing DXC](docs/BuildingAndTestingDXC.rst)).
+Testing on every platform is not required, but you must have built and tested all code added or modified by your change, including platform-specific code such as Windows-only TAEF tests.
+A pull request that includes code the contributor has not tested is not ready for review.
 
 Submitting a pull request kicks off an automated set of regression tests that verify the change introduces no unwanted changes in behavior.
 For a pull request to be mergeable in GitHub, it will have to pass this regression test suite.
