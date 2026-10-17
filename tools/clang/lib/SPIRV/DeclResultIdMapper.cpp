@@ -150,6 +150,15 @@ uint32_t getNumBindingsUsedByResourceType(QualType type) {
     type = constArrayType->getElementType();
   }
 
+  // An unbounded (runtime-sized) array, e.g. Texture2D textures[], consumes
+  // the rest of its register space: HLSL requires it to be the last
+  // resource declared in that space, so no other resource can be placed at
+  // a higher binding number that a precise reservation would need to
+  // protect. Reserve a single slot for it instead of trying to compute a
+  // size that doesn't exist.
+  if (type->isIncompleteArrayType())
+    return arrayFactor;
+
   // Once we remove the arrayness, we expect the given type to be either a
   // resource OR a structure that only contains resources.
   assert(isResourceType(type) || isResourceOnlyStructure(type));
@@ -2665,7 +2674,7 @@ bool DeclResultIdMapper::decorateResourceBindings() {
     // element. We can match this behavior via a command line option.
     uint32_t numBindingsToUse = 1;
     if (spirvOptions.flattenResourceArrays ||
-        spirvOptions.flattenResourceArrayBindingsOnly ||
+        spirvOptions.reserveResourceArrayBindings ||
         needsFlatteningCompositeResources)
       numBindingsToUse = getNumBindingsUsedByResourceType(
           var.getSpirvInstr()->getAstResultType());
@@ -2757,7 +2766,7 @@ bool DeclResultIdMapper::decorateResourceBindings() {
     // element. We can match this behavior via a command line option.
     uint32_t numBindingsToUse = 1;
     if (spirvOptions.flattenResourceArrays ||
-        spirvOptions.flattenResourceArrayBindingsOnly ||
+        spirvOptions.reserveResourceArrayBindings ||
         needsFlatteningCompositeResources)
       numBindingsToUse = getNumBindingsUsedByResourceType(
           var.getSpirvInstr()->getAstResultType());

@@ -4423,7 +4423,7 @@ codegen for Vulkan:
   SPIR-V backend. Also note that this requires the optimizer to be able to
   resolve all array accesses with constant indeces. Therefore, all loops using
   the resource arrays must be marked with ``[unroll]``.
-- ``-fspv-flatten-resource-array-bindings-only``: Reserves one binding number
+- ``-fspv-reserve-resource-array-bindings``: Reserves one binding number
   per array element for arrays of resources, matching the binding numbers
   that ``-fspv-flatten-resource-arrays`` would reserve, but keeps each array
   as a single SPIR-V variable/binding (with ``descriptorCount`` equal to the

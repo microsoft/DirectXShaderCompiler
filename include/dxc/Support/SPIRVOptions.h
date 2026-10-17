@@ -64,7 +64,7 @@ struct SpirvCodeGenOptions {
   bool useLegacyBufferMatrixOrder = false;
   bool useScalarLayout = false;
   bool flattenResourceArrays = false;
-  bool flattenResourceArrayBindingsOnly = false;
+  bool reserveResourceArrayBindings = false;
   bool reduceLoadSize = false;
   bool autoShiftBindings = false;
   bool supportNonzeroBaseInstance = false;

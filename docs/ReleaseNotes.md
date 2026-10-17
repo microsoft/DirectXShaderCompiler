@@ -89,7 +89,7 @@ line upon naming the release. Refer to previous for appropriate section names.
 
 #### SPIR-V
 
-- Added `-fspv-flatten-resource-array-bindings-only`, which reserves one
+- Added `-fspv-reserve-resource-array-bindings`, which reserves one
   binding number per array element for arrays of resources without splitting
   the array into separate SPIR-V variables/bindings.
 
