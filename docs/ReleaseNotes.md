@@ -82,7 +82,7 @@ line upon naming the release. Refer to previous for appropriate section names.
 
 - Fixed GVN load forwarding generating unsupported integer types when optimizing
   native vectors
-  [#8940](https://github.com/microsoft/DirectXShaderCompiler/issues/9040).
+  [#9040](https://github.com/microsoft/DirectXShaderCompiler/issues/9040).
 - Fixed shader reflection dropping leading characters from user-defined struct type names.
 - Fixed an optimizer crash when scalarizing an out-of-bounds vector access
   [#8940](https://github.com/microsoft/DirectXShaderCompiler/issues/8940).
