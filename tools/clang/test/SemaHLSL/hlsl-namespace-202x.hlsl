@@ -1,4 +1,4 @@
-// RUN: %dxc -T lib_6_6 -HV 202x -ast-dump-implicit %s | FileCheck %s
+// RUN: %dxc -T lib_6_6 -HV 202x -ast-dump-implicit %s | FileCheck %s --implicit-check-not="UsingDirectiveDecl {{.*}} Namespace {{.*}} 'hlsl'"
 
 // Verify that under HLSL 202x the implicit 'hlsl' namespace exists, that
 // intrinsic functions used by the program are placed inside it, and that
