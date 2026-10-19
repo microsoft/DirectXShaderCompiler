@@ -3291,9 +3291,7 @@ StmtResult Sema::BuildReturnStmt(SourceLocation ReturnLoc, Expr *RetValExp) {
 
     unsigned DiagID;
     // HLSL Change Begin: HLSL 202x supports 'constexpr'.
-    if ((getLangOpts().CPlusPlus11 ||
-         (getLangOpts().HLSL &&
-          getLangOpts().HLSLVersion >= hlsl::LangStd::v202x)) &&
+    if ((getLangOpts().CPlusPlus11 || getLangOpts().HLSLAllowsConstexpr()) &&
         FD && FD->isConstexpr()) {
       // HLSL Change End
       // C++11 [stmt.return]p2

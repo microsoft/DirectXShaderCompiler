@@ -193,6 +193,10 @@ public:
   bool HLSLDisallowsVariadicTemplates() const {
     return HLSL && HLSLVersion < hlsl::LangStd::v202x;
   }
+
+  bool HLSLAllowsConstexpr() const {
+    return HLSL && HLSLVersion >= hlsl::LangStd::v202x;
+  }
   // HLSL Change Ends
 
   /// \brief Reset all of the options that are not considered when building a

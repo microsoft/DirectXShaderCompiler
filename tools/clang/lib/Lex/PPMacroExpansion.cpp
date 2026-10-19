@@ -1128,8 +1128,7 @@ static bool HasFeature(const Preprocessor &PP, const IdentifierInfo *II) {
       .Case("cxx_auto_type", LangOpts.CPlusPlus11)
       // HLSL Change Begin - Enable constexpr.
       .Case("cxx_constexpr",
-            LangOpts.CPlusPlus11 ||
-                (LangOpts.HLSL && LangOpts.HLSLVersion >= hlsl::LangStd::v202x))
+            LangOpts.CPlusPlus11 || LangOpts.HLSLAllowsConstexpr())
       // HLSL Change End.
       .Case("cxx_decltype", LangOpts.CPlusPlus11)
       .Case("cxx_decltype_incomplete_return_types", LangOpts.CPlusPlus11)

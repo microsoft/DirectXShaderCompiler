@@ -604,8 +604,7 @@ static LinkageInfo getLVForNamespaceScopeDecl(const NamedDecl *D,
     // have internal linkage.
     if (Context.getLangOpts().CPlusPlus && Var->getType().isConstQualified() &&
         (!Context.getLangOpts().HLSL ||
-         (Var->isConstexpr() &&
-          Context.getLangOpts().HLSLVersion >= hlsl::LangStd::v202x)) &&
+         (Var->isConstexpr() && Context.getLangOpts().HLSLAllowsConstexpr())) &&
         !Var->getType().isVolatileQualified()) {
       // HLSL Change End
       const VarDecl *PrevVar = Var->getPreviousDecl();
@@ -2103,9 +2102,7 @@ bool VarDecl::isUsableInConstantExpressions(ASTContext &C) const {
   // Additionally, in C++11, non-volatile constexpr variables can be used in
   // constant expressions.
   // HLSL Change Begin: HLSL 202x also enables constexpr variables.
-  return (Lang.CPlusPlus11 ||
-          (Lang.HLSL && Lang.HLSLVersion >= hlsl::LangStd::v202x)) &&
-         isConstexpr();
+  return (Lang.CPlusPlus11 || Lang.HLSLAllowsConstexpr()) && isConstexpr();
   // HLSL Change End
 }
 
@@ -2180,8 +2177,7 @@ APValue *VarDecl::evaluateValue(
   // HLSL Change Begin: HLSL 202x also needs this side-effect computed since
   // 'constexpr' is supported and Sema relies on Eval->IsICE being set.
   if ((getASTContext().getLangOpts().CPlusPlus11 ||
-       (getASTContext().getLangOpts().HLSL &&
-        getASTContext().getLangOpts().HLSLVersion >= hlsl::LangStd::v202x)) &&
+       getASTContext().getLangOpts().HLSLAllowsConstexpr()) &&
       !Eval->CheckedICE) {
     // HLSL Change End
     Eval->CheckedICE = true;
@@ -2209,8 +2205,7 @@ bool VarDecl::checkInitIsICE() const {
   // expression.
   // HLSL Change Begin: HLSL 202x supports 'constexpr' and uses the C++11 path.
   if (getASTContext().getLangOpts().CPlusPlus11 ||
-      (getASTContext().getLangOpts().HLSL &&
-       getASTContext().getLangOpts().HLSLVersion >= hlsl::LangStd::v202x)) {
+      getASTContext().getLangOpts().HLSLAllowsConstexpr()) {
     // HLSL Change End
     SmallVector<PartialDiagnosticAt, 8> Notes;
     evaluateValue(Notes);
