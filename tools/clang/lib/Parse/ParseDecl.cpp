@@ -4177,6 +4177,8 @@ HLSLReservedKeyword:
         if (Tok.is(tok::kw_union) || Tok.is(tok::kw___interface)) {
           goto HLSLReservedKeyword;
         }
+        if (Tok.is(tok::kw_interface))
+          Diag(Tok.getLocation(), diag::warn_hlsl_2026_removed_interface);
       }
       // HLSL Change Ends
       tok::TokenKind Kind = Tok.getKind();

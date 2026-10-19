@@ -867,6 +867,13 @@ ProcessUnhandledObjectType(llvm::StructType *structType,
   return true;
 }
 
+static llvm::StringRef ConsumePrefix(llvm::StringRef Name,
+                                     llvm::StringRef Prefix) {
+  if (Name.startswith(Prefix))
+    Name = Name.drop_front(Prefix.size());
+  return Name;
+}
+
 // Helper routine to try to detect if a type represents an HLSL "object" type
 // (a texture, sampler, buffer, etc.), and to extract the coresponding shader
 // reflection type.
@@ -886,8 +893,8 @@ static bool TryToDetectObjectType(llvm::StructType *structType,
   }
 
   // Strip off some prefixes we are likely to see.
-  name = name.ltrim("class.");
-  name = name.ltrim("struct.");
+  name = ConsumePrefix(name, "class.");
+  name = ConsumePrefix(name, "struct.");
 
   // Slice types occur as intermediates (they aren not objects)
   if (name.endswith("_slice_type")) {
@@ -932,7 +939,7 @@ static bool TryToDetectObjectType(llvm::StructType *structType,
   // than it has to, but it doesn't seem 100% correct to do this.
   // TODO: consider just listing the `RasterizerOrdered` cases explicitly,
   // just as we do for the `RW` cases already.
-  name = name.ltrim("RasterizerOrdered");
+  name = ConsumePrefix(name, "RasterizerOrdered");
 
   if (0) {
   }
@@ -1264,10 +1271,9 @@ HRESULT CShaderReflectionType::Initialize(
 
       // Try to "clean" the type name for use in reflection data
       llvm::StringRef name = structType->getName();
-      name =
-          name.ltrim("dx.alignment.legacy."); // legacy prefix for legacy types
-      name = name.ltrim(kHostLayoutTypePrefix);
-      name = name.ltrim("struct.");
+      name = ConsumePrefix(name, "dx.alignment.legacy.");
+      name = ConsumePrefix(name, kHostLayoutTypePrefix);
+      name = ConsumePrefix(name, "struct.");
       m_Name = name;
 
       // Fields may have annotations, and we need to look at these
