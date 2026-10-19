@@ -19,6 +19,13 @@ The included licenses apply to the following files:
 
 ### Upcoming Release
 
+#### SPIR-V
+
+- Extended `SPV_EXT_descriptor_heap` lowering (`-fspv-use-descriptor-heap`) to
+  buffer-like resources (`StructuredBuffer`, `ByteAddressBuffer`,
+  `ConstantBuffer`, `TextureBuffer`, and RW variants) via
+  `SPV_KHR_untyped_pointers`. Requires `-fspv-target-env=vulkan1.3`.
+
 Place release notes for the upcoming release below this line and remove this
 line upon naming the release. Refer to previous for appropriate section names.
 
@@ -46,6 +53,8 @@ line upon naming the release. Refer to previous for appropriate section names.
 - The `shared` and `uniform` keywords are removed in HLSL 202x, with
   compatibility warnings available for earlier language versions
   [#8482](https://github.com/microsoft/DirectXShaderCompiler/issues/8482).
+- The `interface` keyword and interface declarations are removed in HLSL 202x,
+  with compatibility warnings available for earlier language versions.
 - Added support for `auto` return types for normal functions aligning with C++14
   [#8903](https://github.com/microsoft/DirectXShaderCompiler/issues/8903).
 - HLSL 202x now supports variadic templates and template function parameter
@@ -71,8 +80,12 @@ line upon naming the release. Refer to previous for appropriate section names.
 
 #### Bug Fixes
 
+- Fixed shader reflection dropping leading characters from user-defined struct type names.
 - Fixed an optimizer crash when scalarizing an out-of-bounds vector access
   [#8940](https://github.com/microsoft/DirectXShaderCompiler/issues/8940).
+- Fixed members following a merged bitfield reading the wrong value when a
+  struct is flat-converted
+  [#8526](https://github.com/microsoft/DirectXShaderCompiler/issues/8526).
 - Fixed a C++26 compilation error in `llvm::sys::TimeValue` due to arithmetic on unscoped enumeration `NANOSECONDS_PER_SECOND`
   [#8992](https://github.com/microsoft/DirectXShaderCompiler/issues/8992).
 
@@ -115,6 +128,12 @@ part of the next non-preview release.
 - Fixed undefined behavior in DXC IntelliSense caused by the uninitialized
   `ExpandTokPastingArg` preprocessor option, which made token-pasting
   behavior indeterminate.
+- SPIR-V: Fixed user-defined types whose names match built-in types being
+  incorrectly lowered as the built-in type.
+- SPIR-V: 16-bit sampled types on `vk::SampledTexture` are rejected as required
+  by VUID-StandaloneSpirv-OpTypeImage-04656.
+- SPIR-V: Added support for multisampled UAV types fixing miscompiles in
+  previous releases.
 
 #### HLSL Language
 
