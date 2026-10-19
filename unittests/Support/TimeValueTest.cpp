@@ -42,5 +42,4 @@ TEST(TimeValue, DoubleConstructor) {
   EXPECT_EQ(1234, tv.seconds());
   EXPECT_EQ(500000000u, static_cast<uint32_t>(tv.nanoseconds()));
 }
-
 }
