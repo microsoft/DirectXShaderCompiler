@@ -107,8 +107,9 @@ namespace sys {
       : seconds_( 0 ) , nanos_ ( 0 ) {
       SecondsType integer_part = static_cast<SecondsType>( new_time );
       seconds_ = integer_part;
-      nanos_ = static_cast<NanoSecondsType>( (new_time -
-               static_cast<double>(integer_part)) * NANOSECONDS_PER_SECOND );
+      nanos_ = static_cast<NanoSecondsType>(
+          (new_time - static_cast<double>(integer_part)) *
+          static_cast<double>(NANOSECONDS_PER_SECOND));
       this->normalize();
     }
 

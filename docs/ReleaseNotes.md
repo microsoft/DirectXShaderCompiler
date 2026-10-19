@@ -86,6 +86,8 @@ line upon naming the release. Refer to previous for appropriate section names.
 - Fixed members following a merged bitfield reading the wrong value when a
   struct is flat-converted
   [#8526](https://github.com/microsoft/DirectXShaderCompiler/issues/8526).
+- Fixed a C++26 compilation error in `llvm::sys::TimeValue` due to arithmetic on unscoped enumeration `NANOSECONDS_PER_SECOND`
+  [#8992](https://github.com/microsoft/DirectXShaderCompiler/issues/8992).
 
 ### Upcoming Preview Release
 
