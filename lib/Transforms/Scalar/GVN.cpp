@@ -841,7 +841,6 @@ SpeculationFailure:
   return false;
 }
 
-
 // HLSL Change Begin - DXIL only supports these integer widths.
 static bool IsValidDxilIntegerWidth(uint64_t Width) {
   switch (Width) {
@@ -882,8 +881,7 @@ static bool CanCoerceMustAliasedValueToLoad(Value *StoredVal,
   uint64_t StoredValBits = DL.getTypeSizeInBits(StoredValTy);
   uint64_t LoadBits = DL.getTypeSizeInBits(LoadTy);
   if (StoredValBits != LoadBits) {
-    if (!StoredValTy->isIntegerTy() &&
-        !IsValidDxilIntegerWidth(StoredValBits))
+    if (!StoredValTy->isIntegerTy() && !IsValidDxilIntegerWidth(StoredValBits))
       return false;
     if (!IsValidDxilIntegerWidth(LoadBits))
       return false;
