@@ -1,6 +1,29 @@
-; RUN: opt %s -hlsl-passes-resume -static-global-to-alloca -S | FileCheck %s
+; RUN: opt %s -hlsl-passes-resume -static-global-to-alloca -S -o %t1
+; RUN: opt %s -hlsl-passes-resume -static-global-to-alloca -S -o %t2
+; RUN: opt %s -hlsl-passes-resume -static-global-to-alloca -S -o %t3
+; RUN: diff %t1 %t2
+; RUN: diff %t1 %t3
+; RUN: FileCheck %s < %t1
 
-; Check that the debug info for a global variable is present for every inlined scope
+; Check that the debug info for a global variable is present for every inlined
+; scope, and that it is emitted in a deterministic order.
+;
+; lowerStaticGlobalIntoAlloca() used to collect the instructions using the global
+; into a DenseMap keyed on Instruction*, and iterate that to rewrite each use onto
+; the alloca. DenseMap walks its buckets, so the order was pointer-derived and moved
+; with heap addresses. PatchDebugInfo() then walks AI->users() to decide the order in
+; which it creates a DILocalVariable per inlined DISubprogram, so the debug info came
+; out permuted between compilations of identical input.
+;
+; The pass is run in separate processes and the outputs compared, as in
+; test/DXC/deterministic_output_resource_array.hlsl, rather than with -run-twice:
+; that flag clones the module after the first run has already lowered the global
+; away, so the second run is a no-op and would compare equal either way.
+;
+; Note this relies on the runs laying out the heap differently, so it detects the
+; regression with high probability rather than with certainty; there are three
+; instructions using @g_cond here and three inlined scopes, and a third comparison
+; is added to shrink the chance of a coincidental match.
 
 ; CHECK: @main
 ; CHECK: %[[alloca:.+]] = alloca i32
