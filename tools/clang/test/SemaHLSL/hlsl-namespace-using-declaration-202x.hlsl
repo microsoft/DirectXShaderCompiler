@@ -21,3 +21,17 @@ using math::cos;
 }
 
 float UseTransitiveImport(float value) { return transitive::cos(value); }
+
+namespace overloadBeforeImport {
+float tan() { return 42; }
+using hlsl::tan;
+
+float UseBothOverloads(float value) { return tan() + tan(value); }
+}
+
+namespace overloadAfterImport {
+using hlsl::sqrt;
+float sqrt() { return 42; }
+
+float UseBothOverloads(float value) { return sqrt() + sqrt(value); }
+}

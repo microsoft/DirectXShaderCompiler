@@ -4401,6 +4401,19 @@ public:
         break;
       }
     }
+    if (!isIntrinsicName) {
+      CA2WEX<> functionName(II->getName().str().c_str());
+      for (const CComPtr<IDxcIntrinsicTable> &table : m_intrinsicTables) {
+        const HLSL_INTRINSIC *intrinsic = nullptr;
+        UINT64 lookupCookie = 0;
+        if (SUCCEEDED(table->LookupIntrinsic(L"", functionName, &intrinsic,
+                                             &lookupCookie)) &&
+            intrinsic) {
+          isIntrinsicName = true;
+          break;
+        }
+      }
+    }
     if (!isIntrinsicName)
       return false;
 

@@ -17,6 +17,24 @@ float UsingDeclarationHeaderOverload(int value) {
   return sin(value).value;
 }
 
+float QualifiedZeroArgumentOverloads() {
+  hlsl::cos();
+  return hlsl::sin().value;
+}
+
+float UsingDirectiveZeroArgumentOverloads() {
+  using namespace hlsl;
+  cos();
+  return sin().value;
+}
+
+float UsingDeclarationZeroArgumentOverloads() {
+  using hlsl::cos;
+  using hlsl::sin;
+  cos();
+  return sin().value;
+}
+
 float UnqualifiedADL(hlsl::HeaderArgument value) {
   return headerFunction(value).value;
 }

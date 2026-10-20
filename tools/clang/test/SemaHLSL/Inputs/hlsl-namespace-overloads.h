@@ -3,10 +3,20 @@ struct HeaderResult {
   float value;
 };
 
+HeaderResult sin();
+
+HeaderResult sin() {
+  HeaderResult result = {42};
+  return result;
+}
+
 HeaderResult sin(int value) {
   HeaderResult result = {value};
   return result;
 }
+
+void cos();
+void cos() {}
 
 struct HeaderArgument {
   float value;
