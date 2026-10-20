@@ -6537,11 +6537,14 @@ struct GVDebugInfoPatchCache {
     return Result;
   }
 
-  // Collect DISubprograms from a DILocation's inlined-at chain.
-  void CollectSubprograms(DILocation *Loc, SetVector<DISubprogram *> &Set) {
+  // Collect DISubprograms from a DILocation's inlined-at chain, together with
+  // the location each one is inlined at (null for the function itself).
+  void
+  CollectSubprograms(DILocation *Loc,
+                     SetVector<std::pair<DISubprogram *, DILocation *>> &Set) {
     while (Loc) {
       if (DISubprogram *SP = GetSubprogramForLoc(Loc))
-        Set.insert(SP);
+        Set.insert({SP, Loc->getInlinedAt()});
       Loc = Loc->getInlinedAt();
     }
   }
@@ -6786,22 +6789,30 @@ static void PatchDebugInfo(GVDebugInfoPatchCache &Cache,
 
   // Only collect subprograms relevant to this GV to avoid creating
   // O(subprograms × globals) debug instructions.
-  SetVector<DISubprogram *> Subprograms;
+  SetVector<std::pair<DISubprogram *, DILocation *>> Subprograms;
 
   if (DISubprogram *SP = Cache.GetFuncSubprogram(F, DbgFinder))
-    Subprograms.insert(SP);
+    Subprograms.insert({SP, nullptr});
 
   for (User *U : AI->users()) {
     if (Instruction *I = dyn_cast<Instruction>(U))
       Cache.CollectSubprograms(I->getDebugLoc(), Subprograms);
   }
 
-  for (DISubprogram *Subprogram : Subprograms) {
-    DIScope *Scope = Subprogram;
-    DebugLoc Loc = DebugLoc::get(DGV->getLine(), 0, Scope);
+  // A subprogram inlined at several call sites shares one variable, but each
+  // inlined instance needs its own declare: its location must carry the
+  // inlinedAt chain, or it points at a subprogram other than F.
+  DenseMap<DISubprogram *, DILocalVariable *> LocalVars;
+  for (auto &SubprogramAndInlinedAt : Subprograms) {
+    DIScope *Scope = SubprogramAndInlinedAt.first;
+    DebugLoc Loc =
+        DebugLoc::get(DGV->getLine(), 0, Scope, SubprogramAndInlinedAt.second);
 
-    DILocalVariable *ConvertedLocalVar = DIB.createLocalVariable(
-        Tag, Scope, Name, DGV->getFile(), DGV->getLine(), Ty);
+    DILocalVariable *&ConvertedLocalVar =
+        LocalVars[SubprogramAndInlinedAt.first];
+    if (!ConvertedLocalVar)
+      ConvertedLocalVar = DIB.createLocalVariable(
+          Tag, Scope, Name, DGV->getFile(), DGV->getLine(), Ty);
 
     DIExpression *Expr = nullptr;
     if (IsFragment)
