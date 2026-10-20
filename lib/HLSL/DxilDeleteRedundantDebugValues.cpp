@@ -56,8 +56,11 @@ bool DxilDeleteRedundantDebugValues::runOnModule(Module &M) {
   bool Changed = false;
 
   std::unordered_set<DILocalScope *> SeenScopes;
-  typedef std::pair<DILocalVariable *, DIExpression *> VarPair;
-  SmallDenseMap<VarPair, DbgValueInst *> SeenVar;
+  // A variable is identified by its inlinedAt as well: each inlined instance
+  // of a scope has its own values for the variables in it.
+  typedef std::pair<std::pair<DILocalVariable *, DIExpression *>, DILocation *>
+      VarKey;
+  SmallDenseMap<VarKey, DbgValueInst *> SeenVar;
 
   for (Function &F : M) {
     SeenScopes.clear();
@@ -102,7 +105,7 @@ bool DxilDeleteRedundantDebugValues::runOnModule(Module &M) {
           continue;
         DILocalVariable *Var = DI->getVariable();
         DIExpression *Expr = DI->getExpression();
-        VarPair Pair = VarPair(Var, Expr);
+        VarKey Key = VarKey({Var, Expr}, DI->getDebugLoc().getInlinedAt());
 
         if (!SeenScopes.count(Var->getScope())) {
           Changed = true;
@@ -110,13 +113,13 @@ bool DxilDeleteRedundantDebugValues::runOnModule(Module &M) {
           continue;
         }
 
-        auto findIt = SeenVar.find(Pair);
+        auto findIt = SeenVar.find(Key);
         if (findIt != SeenVar.end()) {
           findIt->second->eraseFromParent();
           findIt->second = DI;
           Changed = true;
         } else {
-          SeenVar[Pair] = DI;
+          SeenVar[Key] = DI;
         }
       }
     }
