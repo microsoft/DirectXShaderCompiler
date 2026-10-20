@@ -2792,8 +2792,8 @@ bool Sema::UseArgumentDependentLookup(const CXXScopeSpec &SS,
   // Never if a scope specifier was provided.
   if (SS.isSet()) {
     // HLSL Change begins
-    // We want to be able to have intrinsics inside the "vk", "dx", and
-    // (under HLSL 202x) "hlsl" namespaces.
+    // We want to be able to have intrinsics inside the "vk" and "dx"
+    // namespaces, but qualified "hlsl" calls must not perform ADL.
     NestedNameSpecifier *ScopeRep = SS.getScopeRep();
     NamespaceDecl *Namespace = ScopeRep ? ScopeRep->getAsNamespace() : nullptr;
 
@@ -2808,7 +2808,10 @@ bool Sema::UseArgumentDependentLookup(const CXXScopeSpec &SS,
         getLangOpts().HLSLVersion >= hlsl::LangStd::v202x && isRootNamespace &&
         Namespace->getName() == "hlsl";
 
-    if (!isVkNamespace && !isDxNamespace && !isHlslNamespace)
+    if (isHlslNamespace)
+      return false;
+
+    if (!isVkNamespace && !isDxNamespace)
       // HLSL Change ends
       return false;
   }
@@ -2884,12 +2887,18 @@ static bool CheckDeclInExpr(Sema &S, SourceLocation Loc, NamedDecl *D) {
 ExprResult Sema::BuildDeclarationNameExpr(const CXXScopeSpec &SS,
                                           LookupResult &R, bool NeedsADL,
                                           bool AcceptInvalidDecl) {
-  // If this is a single, fully-resolved result and we don't need ADL,
-  // just build an ordinary singleton decl ref.
-  if (!NeedsADL && R.isSingleResult() && !R.getAsSingle<FunctionTemplateDecl>())
+  // HLSL Change Begin
+  // Intrinsic lookup markers still need call-time overload synthesis, even
+  // for qualified calls where ADL is disabled.
+  const bool NeedsIntrinsicLookup =
+      getLangOpts().HLSL && R.isSingleResult() &&
+      hlsl::IsIntrinsicLookupMarker(*this, R.getFoundDecl());
+  if (!NeedsADL && !NeedsIntrinsicLookup && R.isSingleResult() &&
+      !R.getAsSingle<FunctionTemplateDecl>())
     return BuildDeclarationNameExpr(SS, R.getLookupNameInfo(), R.getFoundDecl(),
                                     R.getRepresentativeDecl(), nullptr,
                                     AcceptInvalidDecl);
+  // HLSL Change End
 
   // We only need to check the declaration if there's exactly one
   // result, because in the overloaded case the results can only be

@@ -15,6 +15,16 @@ float UseQualifiedDot(float3 a, float3 b) {
   return hlsl::dot(a, b);
 }
 
+namespace N {
+struct S {};
+float foo(S) { return 1.0f; } // expected-note{{'N::foo' declared here}}
+}
+
+float UseQualifiedCallWithoutADL(N::S value) {
+  // Qualified HLSL calls must not find functions in an argument's namespace.
+  return hlsl::foo(value); // expected-error{{no member named 'foo' in namespace 'hlsl'}}
+}
+
 float UseUnqualifiedSin(float x) {
   // Unqualified intrinsic name must not resolve under HLSL 202x.
   return sin(x); // expected-error{{use of undeclared identifier 'sin'}}

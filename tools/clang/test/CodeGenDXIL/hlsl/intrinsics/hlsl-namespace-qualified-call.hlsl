@@ -14,9 +14,12 @@ void main(uint tid : SV_DispatchThreadID) {
   // Both calls go through the implicit 'hlsl' namespace.
   float a = hlsl::sin(x);
   float b = hlsl::sin(y);
-  Out[tid] = a + b;
+  float folded = hlsl::sin(1.0f);
+  Out[tid] = a + b + folded;
 }
 
 // Both calls should lower to dx.op.unary Sin (opcode 13).
 // CHECK: call float @dx.op.unary.f32(i32 13, float
 // CHECK: call float @dx.op.unary.f32(i32 13, float
+// The constant call should be folded instead of generating a third opcode.
+// CHECK-NOT: call float @dx.op.unary.f32(i32 13, float

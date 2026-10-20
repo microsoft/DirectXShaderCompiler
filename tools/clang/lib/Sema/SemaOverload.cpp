@@ -5781,7 +5781,8 @@ Sema::AddOverloadCandidate(FunctionDecl *Function,
     // argument doesn't participate in overload resolution.
   }
 
-  if (!CandidateSet.isNewCandidate(Function) || hlsl::IsIntrinsicOp(Function))
+  if (!CandidateSet.isNewCandidate(Function) || hlsl::IsIntrinsicOp(Function) ||
+      (getLangOpts().HLSL && hlsl::IsIntrinsicLookupMarker(*this, Function)))
     return;
 
   // C++ [over.match.oper]p3:
@@ -9503,6 +9504,14 @@ static void NoteFunctionCandidate(Sema &S, OverloadCandidate *Cand,
   }
 
   switch (Cand->FailureKind) {
+  // HLSL Change Begin - Add failure for intrinsic lookup failure.
+  case ovl_fail_hlsl_intrinsic:
+    S.Diag(
+        SourceLocation::getFromRawEncoding(Cand->HLSLIntrinsicFailure.Location),
+        Cand->HLSLIntrinsicFailure.DiagnosticID);
+    return;
+    // HLSL Change End
+
   case ovl_fail_too_many_arguments:
   case ovl_fail_too_few_arguments:
     return DiagnoseArityMismatch(S, Cand, NumArgs, OpLoc); // HLSL Change - add OpLoc
@@ -10692,11 +10701,54 @@ void Sema::AddOverloadedCallCandidates(UnresolvedLookupExpr *ULE,
   }
 #endif
 
-  // HLSL Change - allow ExternalSource the ability to add the overloads for a call.
+  // HLSL Change Begin
+  // Allow ExternalSource the ability to add the overloads for a call.
   if (ExternalSource && ExternalSource->AddOverloadedCallCandidates(
                             ULE, Args, CandidateSet, S, PartialOverloading)) {
     return;
   }
+
+  // Synthesized intrinsics must have conversion scores when competing with
+  // ordinary functions rather than bypassing overload resolution.
+  if (getLangOpts().HLSL) {
+    for (OverloadCandidate &Candidate : CandidateSet) {
+      FunctionDecl *Function = Candidate.Function;
+      if (!Candidate.Viable || !Function || !hlsl::IsIntrinsicOp(Function))
+        continue;
+      const FunctionProtoType *Proto =
+          Function->getType()->getAs<FunctionProtoType>();
+      for (unsigned I = 0; I < Args.size(); ++I) {
+        if (I < Function->getNumParams()) {
+          if (Proto->getParamMods()[I].GetKind() ==
+              hlsl::ParameterModifier::Kind::Ref) {
+            // MatchArguments already checked intrinsic ref types; ordinary
+            // ref binding would incorrectly reject resource elements.
+            Candidate.Conversions[I].setStandard();
+            Candidate.Conversions[I].Standard.setAsIdentityConversion();
+            Candidate.Conversions[I].Standard.setFromType(Args[I]->getType());
+            Candidate.Conversions[I].Standard.setAllToTypes(
+                Proto->getParamType(I).getNonReferenceType());
+            continue;
+          }
+          InitCallParamConversions(
+              *this, Proto, Function->getParamDecl(I), I, Args[I],
+              /*SuppressUserConversions=*/false, /*InOverloadResolution=*/true,
+              /*AllowExplicit=*/false, Candidate.Conversions[I],
+              Candidate.OutConversions[I]);
+          if ((Candidate.Conversions[I].isInitialized() &&
+               Candidate.Conversions[I].isBad()) ||
+              (Candidate.OutConversions[I].isInitialized() &&
+               Candidate.OutConversions[I].isBad())) {
+            Candidate.Viable = false;
+            Candidate.FailureKind = ovl_fail_bad_conversion;
+            break;
+          }
+        } else
+          Candidate.Conversions[I].setEllipsis();
+      }
+    }
+  }
+  // HLSL Change End
 
   // It would be nice to avoid this copy.
   TemplateArgumentListInfo TABuffer;
