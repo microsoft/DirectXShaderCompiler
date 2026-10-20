@@ -869,6 +869,8 @@ private:
     SmallVector<Value *, 8> Worklist(1, Matrix);
     SmallPtrSet<Value *, 8> Visited;
     uint8_t Flags = 0;
+    const uint8_t UnknownLayoutFlags =
+        MatrixTransposed | MatrixNonMulOptimalLayout;
     while (!Worklist.empty()) {
       Value *V = Worklist.pop_back_val();
       if (!Visited.insert(V).second)
@@ -898,7 +900,7 @@ private:
           DxilInst_LinAlgMatrixLoadFromDescriptor Op(CI);
           ConstantInt *Layout = dyn_cast<ConstantInt>(Op.get_layout());
           if (!Layout)
-            continue;
+            return UnknownLayoutFlags;
 
           DXIL::MatrixLayout LayoutValue =
               static_cast<DXIL::MatrixLayout>(Layout->getZExtValue());
@@ -906,8 +908,11 @@ private:
             Flags |= MatrixTransposed;
           else if (LayoutValue != DXIL::MatrixLayout::MulOptimal)
             Flags |= MatrixNonMulOptimalLayout;
+          continue;
         }
       }
+
+      return UnknownLayoutFlags;
     }
     return Flags;
   }
