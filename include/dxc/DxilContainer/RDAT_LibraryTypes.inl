@@ -169,6 +169,38 @@ RDAT_DXIL_ENUM_START(hlsl::DXIL::ShaderKind, uint32_t)
 #endif
 RDAT_ENUM_END()
 
+RDAT_DXIL_ENUM_START(hlsl::DXIL::ComponentType, uint32_t)
+  RDAT_ENUM_VALUE_NODEF(Invalid)
+  RDAT_ENUM_VALUE_NODEF(I1)
+  RDAT_ENUM_VALUE_NODEF(I16)
+  RDAT_ENUM_VALUE_NODEF(U16)
+  RDAT_ENUM_VALUE_NODEF(I32)
+  RDAT_ENUM_VALUE_NODEF(U32)
+  RDAT_ENUM_VALUE_NODEF(I64)
+  RDAT_ENUM_VALUE_NODEF(U64)
+  RDAT_ENUM_VALUE_NODEF(F16)
+  RDAT_ENUM_VALUE_NODEF(F32)
+  RDAT_ENUM_VALUE_NODEF(F64)
+  RDAT_ENUM_VALUE_NODEF(SNormF16)
+  RDAT_ENUM_VALUE_NODEF(UNormF16)
+  RDAT_ENUM_VALUE_NODEF(SNormF32)
+  RDAT_ENUM_VALUE_NODEF(UNormF32)
+  RDAT_ENUM_VALUE_NODEF(SNormF64)
+  RDAT_ENUM_VALUE_NODEF(UNormF64)
+  RDAT_ENUM_VALUE_NODEF(PackedS8x32)
+  RDAT_ENUM_VALUE_NODEF(PackedU8x32)
+  RDAT_ENUM_VALUE_NODEF(U8)
+  RDAT_ENUM_VALUE_NODEF(I8)
+  RDAT_ENUM_VALUE_NODEF(F8_E4M3FN)
+  RDAT_ENUM_VALUE_NODEF(F8_E5M2)
+  RDAT_ENUM_VALUE_NODEF(BFloat16)
+  RDAT_ENUM_VALUE_NODEF(LastEntry)
+#if DEF_RDAT_ENUMS == DEF_RDAT_DUMP_IMPL
+  static_assert((unsigned)hlsl::DXIL::ComponentType::LastEntry == 24,
+                "otherwise, RDAT_DXIL_ENUM definition needs updating");
+#endif
+RDAT_ENUM_END()
+
 #endif // DEF_DXIL_ENUMS
 
 #ifdef DEF_RDAT_TYPES
@@ -500,6 +532,154 @@ RDAT_STRUCT_END()
 #endif // DEF_RDAT_TYPES
 
 
+//////////////////////////////////////////////////////////////////////
+// The following require validator version 1.10 and above.
+
+// ------------ RuntimeDataFunctionInfo3 dependencies ------------
+
+#ifdef DEF_RDAT_ENUMS
+
+RDAT_ENUM_START(LinAlgThreadMatrixVectorMultiplyFlag, uint8_t)
+  RDAT_ENUM_VALUE(None, 0)
+  RDAT_ENUM_VALUE(MatrixTransposed, 1 << 0)
+  RDAT_ENUM_VALUE(MatrixNonMulOptimalLayout, 1 << 1)
+RDAT_ENUM_END()
+
+RDAT_ENUM_START(LinAlgAccumulateStoreFlag, uint8_t)
+  RDAT_ENUM_VALUE(None, 0)
+  RDAT_ENUM_VALUE(RawBuffer, 1 << 0)
+  RDAT_ENUM_VALUE(GroupShared, 1 << 1)
+RDAT_ENUM_END()
+
+RDAT_ENUM_START(FunctionPropertyType, uint32_t)
+  RDAT_ENUM_VALUE(Flags, 0)
+  RDAT_ENUM_VALUE(LinAlgMatrixConstruction, 1)
+  RDAT_ENUM_VALUE(LinAlgThreadMatrixVectorMultiply, 2)
+  RDAT_ENUM_VALUE(LinAlgWaveMatrixMultiply, 3)
+  RDAT_ENUM_VALUE(LinAlgThreadGroupMatrixMultiply, 4)
+  RDAT_ENUM_VALUE(LinAlgOuterProduct, 5)
+  RDAT_ENUM_VALUE(LinAlgAccumulateStore, 6)
+RDAT_ENUM_END()
+
+#endif // DEF_RDAT_ENUMS
+
+#ifdef DEF_RDAT_TYPES
+
+#define RECORD_TYPE ExtendedFunctionProperties
+RDAT_STRUCT_TABLE(ExtendedFunctionProperties,
+                  ExtendedFunctionPropertiesTable)
+  RDAT_ENUM(uint32_t, FunctionPropertyType, PropertyType)
+  RDAT_UNION()
+    RDAT_UNION_IF(Flags, getPropertyType() == FunctionPropertyType::Flags)
+      RDAT_VALUE(uint32_t, Flags)
+    RDAT_UNION_ELIF(LinAlgMatrixConstruction,
+                    getPropertyType() ==
+                        FunctionPropertyType::LinAlgMatrixConstruction)
+      RDAT_RECORD_ARRAY_REF(LinAlgMatrixConstruction, MatrixConstructionArray)
+    RDAT_UNION_ELIF(
+        LinAlgThreadMatrixVectorMultiply,
+        getPropertyType() ==
+            FunctionPropertyType::LinAlgThreadMatrixVectorMultiply)
+      RDAT_RECORD_ARRAY_REF(LinAlgThreadMatrixVectorMultiply,
+                            LinAlgThreadMatrixVectorMultiplyArray)
+    RDAT_UNION_ELIF(LinAlgWaveMatrixMultiply,
+                    getPropertyType() ==
+                        FunctionPropertyType::LinAlgWaveMatrixMultiply)
+      RDAT_RECORD_ARRAY_REF(LinAlgWaveMatrixMultiply,
+                            LinAlgWaveMatrixMultiplyArray)
+    RDAT_UNION_ELIF(
+        LinAlgThreadGroupMatrixMultiply,
+        getPropertyType() ==
+            FunctionPropertyType::LinAlgThreadGroupMatrixMultiply)
+      RDAT_RECORD_ARRAY_REF(LinAlgThreadGroupMatrixMultiply,
+                            LinAlgThreadGroupMatrixMultiplyArray)
+    RDAT_UNION_ELIF(LinAlgOuterProduct,
+                    getPropertyType() ==
+                        FunctionPropertyType::LinAlgOuterProduct)
+      RDAT_RECORD_ARRAY_REF(LinAlgOuterProduct, LinAlgOuterProductArray)
+    RDAT_UNION_ELIF(LinAlgAccumulateStore,
+                    getPropertyType() ==
+                        FunctionPropertyType::LinAlgAccumulateStore)
+      RDAT_RECORD_ARRAY_REF(LinAlgAccumulateStore, LinAlgAccumulateStoreArray)
+    RDAT_UNION_ENDIF()
+  RDAT_UNION_END()
+RDAT_STRUCT_END()
+#undef RECORD_TYPE
+
+#define RECORD_TYPE LinAlgMatrixOperationShape
+RDAT_STRUCT_TABLE(LinAlgMatrixOperationShape,
+                  LinAlgMatrixOperationShapeTable)
+  RDAT_VALUE(uint32_t, M)
+  RDAT_VALUE(uint32_t, N)
+  RDAT_VALUE(uint32_t, K)
+RDAT_STRUCT_END()
+#undef RECORD_TYPE
+
+#define RECORD_TYPE LinAlgMatrixConstruction
+RDAT_STRUCT_TABLE(LinAlgMatrixConstruction, LinAlgMatrixConstructionTable)
+  RDAT_RECORD_ARRAY_REF(LinAlgMatrixOperationShape, OperationShapes)
+  RDAT_ENUM(uint8_t, hlsl::DXIL::ComponentType, MatrixType)
+  RDAT_ARRAY_VALUE(uint8_t, 3, uint8_t, Reserved)
+RDAT_STRUCT_END()
+#undef RECORD_TYPE
+
+#define RECORD_TYPE LinAlgThreadMatrixVectorMultiply
+RDAT_STRUCT_TABLE(LinAlgThreadMatrixVectorMultiply,
+                  LinAlgThreadMatrixVectorMultiplyTable)
+  RDAT_ENUM(uint8_t, hlsl::DXIL::ComponentType, ResultType)
+  RDAT_ENUM(uint8_t, hlsl::DXIL::ComponentType, MatrixType)
+  RDAT_ENUM(uint8_t, hlsl::DXIL::ComponentType, VectorInputType)
+  RDAT_FLAGS(uint8_t, LinAlgThreadMatrixVectorMultiplyFlag, Flags)
+RDAT_STRUCT_END()
+#undef RECORD_TYPE
+
+#define RECORD_TYPE LinAlgWaveMatrixMultiply
+RDAT_STRUCT_TABLE(LinAlgWaveMatrixMultiply, LinAlgWaveMatrixMultiplyTable)
+  RDAT_RECORD_ARRAY_REF(LinAlgMatrixOperationShape, OperationShapes)
+  RDAT_ENUM(uint8_t, hlsl::DXIL::ComponentType, AccumulatorType)
+  RDAT_ENUM(uint8_t, hlsl::DXIL::ComponentType, MatrixAType)
+  RDAT_ENUM(uint8_t, hlsl::DXIL::ComponentType, MatrixBType)
+  RDAT_VALUE(uint8_t, Reserved)
+RDAT_STRUCT_END()
+#undef RECORD_TYPE
+
+#define RECORD_TYPE LinAlgThreadGroupMatrixMultiply
+RDAT_STRUCT_TABLE(LinAlgThreadGroupMatrixMultiply,
+                  LinAlgThreadGroupMatrixMultiplyTable)
+  RDAT_RECORD_ARRAY_REF(LinAlgMatrixOperationShape, OperationShapes)
+  RDAT_ENUM(uint8_t, hlsl::DXIL::ComponentType, AccumulatorType)
+  RDAT_ENUM(uint8_t, hlsl::DXIL::ComponentType, MatrixAType)
+  RDAT_ENUM(uint8_t, hlsl::DXIL::ComponentType, MatrixBType)
+  RDAT_VALUE(uint8_t, Reserved)
+RDAT_STRUCT_END()
+#undef RECORD_TYPE
+
+#define RECORD_TYPE LinAlgOuterProduct
+RDAT_STRUCT_TABLE(LinAlgOuterProduct, LinAlgOuterProductTable)
+  RDAT_ENUM(uint8_t, hlsl::DXIL::ComponentType, ResultType)
+  RDAT_ENUM(uint8_t, hlsl::DXIL::ComponentType, VectorInputType)
+  RDAT_VALUE(uint16_t, Reserved)
+RDAT_STRUCT_END()
+#undef RECORD_TYPE
+
+#define RECORD_TYPE LinAlgAccumulateStore
+RDAT_STRUCT_TABLE(LinAlgAccumulateStore, LinAlgAccumulateStoreTable)
+  RDAT_ENUM(uint8_t, hlsl::DXIL::ComponentType, AccumulatorType)
+  RDAT_FLAGS(uint8_t, LinAlgAccumulateStoreFlag, Flags)
+  RDAT_VALUE(uint16_t, Reserved)
+RDAT_STRUCT_END()
+#undef RECORD_TYPE
+
+#define RECORD_TYPE RuntimeDataFunctionInfo3
+RDAT_STRUCT_TABLE_DERIVED(RuntimeDataFunctionInfo3, RuntimeDataFunctionInfo2,
+                          FunctionTable, 1, 10)
+  RDAT_RECORD_ARRAY_REF(ExtendedFunctionProperties, ExtendedProperties)
+RDAT_STRUCT_END()
+#undef RECORD_TYPE
+
+#endif // DEF_RDAT_TYPES
+
+
 ///////////////////////////////////////////////////////////////////////////////
 // The following are experimental, and are not currently supported on any
 // validator version.
@@ -544,38 +724,6 @@ RDAT_DXIL_ENUM_START(hlsl::DXIL::SemanticKind, uint32_t)
   RDAT_ENUM_VALUE_NODEF(StartInstanceLocation)
   RDAT_ENUM_VALUE_NODEF(Invalid)
   // SemanticKind-ENUM:END
-RDAT_ENUM_END()
-
-RDAT_DXIL_ENUM_START(hlsl::DXIL::ComponentType, uint32_t)
-  RDAT_ENUM_VALUE_NODEF(Invalid)
-  RDAT_ENUM_VALUE_NODEF(I1)
-  RDAT_ENUM_VALUE_NODEF(I16)
-  RDAT_ENUM_VALUE_NODEF(U16)
-  RDAT_ENUM_VALUE_NODEF(I32)
-  RDAT_ENUM_VALUE_NODEF(U32)
-  RDAT_ENUM_VALUE_NODEF(I64)
-  RDAT_ENUM_VALUE_NODEF(U64)
-  RDAT_ENUM_VALUE_NODEF(F16)
-  RDAT_ENUM_VALUE_NODEF(F32)
-  RDAT_ENUM_VALUE_NODEF(F64)
-  RDAT_ENUM_VALUE_NODEF(SNormF16)
-  RDAT_ENUM_VALUE_NODEF(UNormF16)
-  RDAT_ENUM_VALUE_NODEF(SNormF32)
-  RDAT_ENUM_VALUE_NODEF(UNormF32)
-  RDAT_ENUM_VALUE_NODEF(SNormF64)
-  RDAT_ENUM_VALUE_NODEF(UNormF64)
-  RDAT_ENUM_VALUE_NODEF(PackedS8x32)
-  RDAT_ENUM_VALUE_NODEF(PackedU8x32)
-  RDAT_ENUM_VALUE_NODEF(U8)
-  RDAT_ENUM_VALUE_NODEF(I8)
-  RDAT_ENUM_VALUE_NODEF(F8_E4M3FN)
-  RDAT_ENUM_VALUE_NODEF(F8_E5M2)
-  RDAT_ENUM_VALUE_NODEF(BFloat16)
-  RDAT_ENUM_VALUE_NODEF(LastEntry)
-#if DEF_RDAT_ENUMS == DEF_RDAT_DUMP_IMPL
-  static_assert((unsigned)hlsl::DXIL::ComponentType::LastEntry == 24,
-                "otherwise, RDAT_DXIL_ENUM definition needs updating");
-#endif
 RDAT_ENUM_END()
 
 RDAT_DXIL_ENUM_START(hlsl::DXIL::InterpolationMode, uint32_t)
