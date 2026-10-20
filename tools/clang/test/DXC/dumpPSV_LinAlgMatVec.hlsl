@@ -54,7 +54,7 @@ void main(uint Index : SV_GroupIndex) {
 // CHECK-NEXT: ThreadGroupMatrixMultiplyCount: 0
 // CHECK-NEXT: OuterProductCount: 0
 // CHECK-NEXT: AccumulateStoreCount: 0
-// CHECK-NEXT: ThreadMatrixVectorMultiply[0]: ResultType=8, MatrixType=8, VectorInputType=8, Flags=0
-// CHECK-NEXT: ThreadMatrixVectorMultiply[1]: ResultType=9, MatrixType=9, VectorInputType=9, Flags=1
-// CHECK-NEXT: ThreadMatrixVectorMultiply[2]: ResultType=4, MatrixType=4, VectorInputType=4, Flags=2
-// CHECK-NEXT: ThreadMatrixVectorMultiply[3]: ResultType=5, MatrixType=4, VectorInputType=5, Flags=3
+// CHECK-NEXT: ThreadMatrixVectorMultiply[0]: ResultType=4, MatrixType=4, VectorInputType=4, Flags=2
+// CHECK-NEXT: ThreadMatrixVectorMultiply[1]: ResultType=5, MatrixType=4, VectorInputType=5, Flags=3
+// CHECK-NEXT: ThreadMatrixVectorMultiply[2]: ResultType=8, MatrixType=8, VectorInputType=8, Flags=0
+// CHECK-NEXT: ThreadMatrixVectorMultiply[3]: ResultType=9, MatrixType=9, VectorInputType=9, Flags=1
