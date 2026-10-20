@@ -3896,6 +3896,22 @@ public:
   TEST_METHOD(LoadStoreDescriptor_Wave_16x32_F32_RowMajorToColumnMajor);
   TEST_METHOD(AccumulateDescriptorContention_Wave_16x16_I32);
   TEST_METHOD(AccumulateDescriptorContention_Wave_16x16_F32_OrderInvariant);
+  TEST_METHOD(LoadStoreDescriptor_Wave_16x32_I8);
+  TEST_METHOD(LoadStoreDescriptor_Wave_16x32_U8);
+  TEST_METHOD(LoadStoreDescriptor_Wave_16x32_I8_RowMajorToColumnMajor);
+  TEST_METHOD(LoadStoreDescriptor_Wave_16x32_U8_RowMajorToColumnMajor);
+  TEST_METHOD(LoadStoreDescriptor_Wave_16x32_I8_RowMajorOffsetPadded);
+  TEST_METHOD(LoadStoreDescriptor_Wave_16x32_U8_RowMajorOffsetPadded);
+  TEST_METHOD(
+      LoadStoreDescriptor_Wave_32x16_I8_BUse_ColumnMajorToRowMajorOffsetPadded);
+  TEST_METHOD(
+      LoadStoreDescriptor_Wave_32x16_U8_BUse_ColumnMajorToRowMajorOffsetPadded);
+  TEST_METHOD(LoadStoreDescriptor_ThreadGroup_32x32_I8_128Threads);
+  TEST_METHOD(LoadStoreDescriptor_ThreadGroup_32x32_U8_128Threads);
+  TEST_METHOD(
+      LoadStoreDescriptor_ThreadGroup_64x32_I8_RowMajorToColumnMajor_256Threads);
+  TEST_METHOD(
+      LoadStoreDescriptor_ThreadGroup_64x32_U8_RowMajorToColumnMajor_256Threads);
 };
 
 class DxilConf_SM610_LinAlg_GroupSharedIO : public LinAlgTestClassCommon {
@@ -4082,6 +4098,12 @@ public:
   TEST_METHOD(MatMatMulAccum_ThreadGroup_32x32x32_U8_ToI32_128Threads);
   TEST_METHOD(MatMatMulAccum_ThreadGroup_64x32x64_I8_ToI32_256Threads);
   TEST_METHOD(MatMatMulAccum_ThreadGroup_64x32x64_U8_ToI32_256Threads);
+  TEST_METHOD(MatMatMulAccum_Wave_16x32x8_I8_ToI32_BColumnMajor);
+  TEST_METHOD(MatMatMulAccum_Wave_16x32x8_U8_ToI32_BColumnMajor);
+  TEST_METHOD(
+      MatMatMulAccum_ThreadGroup_32x32x32_I8_ToI32_BColumnMajor_128Threads);
+  TEST_METHOD(
+      MatMatMulAccum_ThreadGroup_32x32x32_U8_ToI32_BColumnMajor_128Threads);
 };
 
 class DxilConf_SM610_LinAlg_MatVec : public LinAlgTestClassCommon {
@@ -5476,6 +5498,301 @@ void DxilConf_SM610_LinAlg_DescriptorIO::
       D3DDevice, DxcSupport, ComponentType::F32, /*FillValue=*/1,
       L"AccumulateDescriptorContention_Wave_16x16_F32_OrderInvariant",
       VerboseLogging, /*M=*/16, /*N=*/16);
+}
+
+static const char ByteLoadStoreDescriptorShader[] = R"(
+  RWByteAddressBuffer Input : register(u0);
+  RWByteAddressBuffer Output : register(u1);
+
+  [WaveSize(FORCED_WAVE_SIZE)]
+  [numthreads(NUMTHREADS, 1, 1)]
+  void main() {
+  #if SCOPE == 1
+    if (GetGroupWaveIndex() != 0)
+      return;
+  #endif
+    __builtin_LinAlgMatrix
+      [[__LinAlgMatrix_Attributes(COMP_TYPE, M_DIM, N_DIM, USE, SCOPE)]]
+      Mat;
+    dx::__builtin_LinAlg_MatrixLoadFromDescriptor(
+      Mat, Input, LOAD_OFFSET, LOAD_STRIDE, LOAD_LAYOUT, DECLARED_ALIGN);
+    dx::__builtin_LinAlg_MatrixStoreToDescriptor(
+      Mat, Output, STORE_OFFSET, STORE_STRIDE, STORE_LAYOUT, DECLARED_ALIGN);
+  }
+)";
+
+static cpu_oracle::MatrixBufferLayout
+byteMatrixLayout(MatrixDim M, MatrixDim N, MatrixLayout Layout, bool Padded) {
+  const size_t Minor = Layout == MatrixLayout::RowMajor ? N : M;
+  return cpu_oracle::MatrixBufferLayout{
+      Layout,
+      /*OffsetBytes=*/Padded ? DescriptorAlignedOffset : 0,
+      /*StrideBytes=*/alignMatrixStride(Minor) +
+          (Padded ? MatrixStrideAlignmentBytes : 0),
+  };
+}
+
+static size_t byteMatrixOffset(const cpu_oracle::MatrixBufferLayout &Layout,
+                               MatrixDim Row, MatrixDim Column) {
+  return Layout.Layout == MatrixLayout::RowMajor
+             ? Layout.OffsetBytes + Row * Layout.StrideBytes + Column
+             : Layout.OffsetBytes + Column * Layout.StrideBytes + Row;
+}
+
+static size_t byteMatrixBufferSize(const cpu_oracle::MatrixBufferLayout &Layout,
+                                   MatrixDim M, MatrixDim N) {
+  const size_t Last = byteMatrixOffset(Layout, M - 1, N - 1) + 1;
+  return (Last + 3) & ~size_t(3);
+}
+
+// 37 is odd, so any 256 consecutive elements hold every byte value once. That
+// includes -128, -1, 0 and 127 as I8, and 0, 127, 128 and 255 as U8.
+static BYTE byteMatrixValue(MatrixDim N, MatrixDim Row, MatrixDim Column) {
+  return static_cast<BYTE>(((Row * N + Column) * 37 + 11) & 0xff);
+}
+
+// Loads an I8 or U8 matrix from one descriptor and stores it to another. The
+// whole destination, including padding and guard bytes, must match exactly.
+static void
+runByteLoadStoreDescriptor(ID3D12Device *Device,
+                           dxc::SpecificDllLoader &DxcSupport,
+                           ComponentType CompType, MatrixDim M, MatrixDim N,
+                           MatrixUse Use, MatrixScope Scope, UINT NumThreads,
+                           const cpu_oracle::MatrixBufferLayout &LoadLayout,
+                           const cpu_oracle::MatrixBufferLayout &StoreLayout,
+                           LPCWSTR CaseName, bool Verbose) {
+  VERIFY_IS_TRUE(static_cast<size_t>(M) * N >= 256,
+                 "Byte round trips need every byte value");
+  MatrixParams Params = {};
+  Params.CompType = CompType;
+  Params.M = M;
+  Params.N = N;
+  Params.Use = Use;
+  Params.Scope = Scope;
+  Params.Layout = LoadLayout.Layout;
+  Params.NumThreads = static_cast<int>(NumThreads);
+
+  std::vector<UINT> WaveSizes;
+  if (!matrixConstructionApplicableWaveSizes(Device, Params, {Use}, CaseName,
+                                             WaveSizes))
+    return;
+
+  const size_t InputSize = byteMatrixBufferSize(LoadLayout, M, N);
+  const size_t OutputSize = byteMatrixBufferSize(StoreLayout, M, N);
+  std::vector<BYTE> Input(InputSize);
+  std::vector<BYTE> Expected(OutputSize);
+  cpu_oracle::fillPoison(Input.data(), Input.size());
+  cpu_oracle::fillPoison(Expected.data(), Expected.size());
+  for (MatrixDim Row = 0; Row < M; ++Row) {
+    for (MatrixDim Column = 0; Column < N; ++Column) {
+      const BYTE Value = byteMatrixValue(N, Row, Column);
+      Input[byteMatrixOffset(LoadLayout, Row, Column)] = Value;
+      Expected[byteMatrixOffset(StoreLayout, Row, Column)] = Value;
+    }
+  }
+
+  for (const UINT WaveSize : WaveSizes) {
+    std::stringstream Args;
+    Args << "-HV 2021";
+    Args << " -DCOMP_TYPE=" << static_cast<int>(CompType);
+    Args << " -DM_DIM=" << M << " -DN_DIM=" << N;
+    Args << " -DUSE=" << static_cast<int>(Use);
+    Args << " -DSCOPE=" << static_cast<int>(Scope);
+    Args << " -DNUMTHREADS=" << NumThreads;
+    Args << " -DFORCED_WAVE_SIZE=" << WaveSize;
+    Args << " -DLOAD_OFFSET=" << LoadLayout.OffsetBytes;
+    Args << " -DLOAD_STRIDE=" << LoadLayout.StrideBytes;
+    Args << " -DLOAD_LAYOUT=" << static_cast<int>(LoadLayout.Layout);
+    Args << " -DSTORE_OFFSET=" << StoreLayout.OffsetBytes;
+    Args << " -DSTORE_STRIDE=" << StoreLayout.StrideBytes;
+    Args << " -DSTORE_LAYOUT=" << static_cast<int>(StoreLayout.Layout);
+    Args << " -DDECLARED_ALIGN=" << DescriptorDeclaredAlignment;
+    const std::string ArgString = Args.str();
+    hlsl_test::LogCommentFmt(L"Byte descriptor round trip: wave=%u, threads=%u",
+                             WaveSize, NumThreads);
+    compileShader(DxcSupport, ByteLoadStoreDescriptorShader, "cs_6_10",
+                  ArgString, Verbose);
+
+    auto Op =
+        createComputeOp(ByteLoadStoreDescriptorShader, "cs_6_10",
+                        "DescriptorTable(UAV(u0), UAV(u1))", ArgString.c_str());
+    addUAVBuffer(Op.get(), "Input", InputSize, false, "byname");
+    addUAVBuffer(Op.get(), "Output", OutputSize, true, "byname");
+    addHeapRawUAV(Op.get(), "ResHeap", "Input", InputSize);
+    addHeapRawUAV(Op.get(), "ResHeap", "Output", OutputSize);
+    addRootTable(Op.get(), 0, "ResHeap");
+
+    auto Result = runShaderOp(
+        Device, DxcSupport, std::move(Op),
+        [&Input](LPCSTR Name, std::vector<BYTE> &Data, st::ShaderOp *) {
+          if (_stricmp(Name, "Input") != 0) {
+            cpu_oracle::fillPoison(Data.data(), Data.size());
+            return;
+          }
+          VERIFY_ARE_EQUAL(Data.size(), Input.size());
+          Data = Input;
+        },
+        [LoadLayout, StoreLayout](ID3D12GraphicsCommandList *,
+                                  st::ShaderOpTest *Test) {
+          verifyDescriptorBaseAlignment(Test, "Input", LoadLayout.OffsetBytes);
+          verifyDescriptorBaseAlignment(Test, "Output",
+                                        StoreLayout.OffsetBytes);
+        });
+
+    MappedData OutData;
+    Result->Test->GetReadBackData("Output", &OutData);
+    VERIFY_ARE_EQUAL(OutData.size(), Expected.size());
+    if (OutData.size() != Expected.size())
+      return;
+    const BYTE *Actual = static_cast<const BYTE *>(OutData.data());
+    size_t Mismatches = 0;
+    for (size_t I = 0; I < Expected.size(); ++I) {
+      if (Actual[I] == Expected[I])
+        continue;
+      if (Mismatches < 100000)
+        hlsl_test::LogErrorFmt(
+            L"Byte round trip mismatch at byte %zu: actual=0x%02x, "
+            L"expected=0x%02x",
+            I, Actual[I], Expected[I]);
+      ++Mismatches;
+    }
+    if (Mismatches != 0)
+      hlsl_test::LogErrorFmt(L"%zu of %zu output bytes differed", Mismatches,
+                             Expected.size());
+    VERIFY_ARE_EQUAL(Mismatches, static_cast<size_t>(0));
+  }
+}
+
+static void runWaveByteRoundTrip(ID3D12Device *Device,
+                                 dxc::SpecificDllLoader &DxcSupport,
+                                 ComponentType CompType, MatrixDim M,
+                                 MatrixDim N, MatrixUse Use,
+                                 MatrixLayout LoadLayout,
+                                 MatrixLayout StoreLayout, bool Padded,
+                                 LPCWSTR CaseName, bool Verbose) {
+  runByteLoadStoreDescriptor(
+      Device, DxcSupport, CompType, M, N, Use, MatrixScope::Wave, 128,
+      byteMatrixLayout(M, N, LoadLayout, Padded),
+      byteMatrixLayout(M, N, StoreLayout, Padded), CaseName, Verbose);
+}
+
+void DxilConf_SM610_LinAlg_DescriptorIO::LoadStoreDescriptor_Wave_16x32_I8() {
+  runWaveByteRoundTrip(D3DDevice, DxcSupport, ComponentType::I8, 16, 32,
+                       MatrixUse::A, MatrixLayout::RowMajor,
+                       MatrixLayout::RowMajor, /*Padded=*/false,
+                       L"LoadStoreDescriptor_Wave_16x32_I8", VerboseLogging);
+}
+
+void DxilConf_SM610_LinAlg_DescriptorIO::LoadStoreDescriptor_Wave_16x32_U8() {
+  runWaveByteRoundTrip(D3DDevice, DxcSupport, ComponentType::U8, 16, 32,
+                       MatrixUse::A, MatrixLayout::RowMajor,
+                       MatrixLayout::RowMajor, /*Padded=*/false,
+                       L"LoadStoreDescriptor_Wave_16x32_U8", VerboseLogging);
+}
+
+void DxilConf_SM610_LinAlg_DescriptorIO::
+    LoadStoreDescriptor_Wave_16x32_I8_RowMajorToColumnMajor() {
+  runWaveByteRoundTrip(
+      D3DDevice, DxcSupport, ComponentType::I8, 16, 32, MatrixUse::A,
+      MatrixLayout::RowMajor, MatrixLayout::ColumnMajor, /*Padded=*/false,
+      L"LoadStoreDescriptor_Wave_16x32_I8_RowMajorToColumnMajor",
+      VerboseLogging);
+}
+
+void DxilConf_SM610_LinAlg_DescriptorIO::
+    LoadStoreDescriptor_Wave_16x32_U8_RowMajorToColumnMajor() {
+  runWaveByteRoundTrip(
+      D3DDevice, DxcSupport, ComponentType::U8, 16, 32, MatrixUse::A,
+      MatrixLayout::RowMajor, MatrixLayout::ColumnMajor, /*Padded=*/false,
+      L"LoadStoreDescriptor_Wave_16x32_U8_RowMajorToColumnMajor",
+      VerboseLogging);
+}
+
+void DxilConf_SM610_LinAlg_DescriptorIO::
+    LoadStoreDescriptor_Wave_16x32_I8_RowMajorOffsetPadded() {
+  runWaveByteRoundTrip(
+      D3DDevice, DxcSupport, ComponentType::I8, 16, 32, MatrixUse::A,
+      MatrixLayout::RowMajor, MatrixLayout::RowMajor, /*Padded=*/true,
+      L"LoadStoreDescriptor_Wave_16x32_I8_RowMajorOffsetPadded",
+      VerboseLogging);
+}
+
+void DxilConf_SM610_LinAlg_DescriptorIO::
+    LoadStoreDescriptor_Wave_16x32_U8_RowMajorOffsetPadded() {
+  runWaveByteRoundTrip(
+      D3DDevice, DxcSupport, ComponentType::U8, 16, 32, MatrixUse::A,
+      MatrixLayout::RowMajor, MatrixLayout::RowMajor, /*Padded=*/true,
+      L"LoadStoreDescriptor_Wave_16x32_U8_RowMajorOffsetPadded",
+      VerboseLogging);
+}
+
+void DxilConf_SM610_LinAlg_DescriptorIO::
+    LoadStoreDescriptor_Wave_32x16_I8_BUse_ColumnMajorToRowMajorOffsetPadded() {
+  runWaveByteRoundTrip(D3DDevice, DxcSupport, ComponentType::I8, 32, 16,
+                       MatrixUse::B, MatrixLayout::ColumnMajor,
+                       MatrixLayout::RowMajor, /*Padded=*/true,
+                       L"LoadStoreDescriptor_Wave_32x16_I8_BUse_"
+                       L"ColumnMajorToRowMajorOffsetPadded",
+                       VerboseLogging);
+}
+
+void DxilConf_SM610_LinAlg_DescriptorIO::
+    LoadStoreDescriptor_Wave_32x16_U8_BUse_ColumnMajorToRowMajorOffsetPadded() {
+  runWaveByteRoundTrip(D3DDevice, DxcSupport, ComponentType::U8, 32, 16,
+                       MatrixUse::B, MatrixLayout::ColumnMajor,
+                       MatrixLayout::RowMajor, /*Padded=*/true,
+                       L"LoadStoreDescriptor_Wave_32x16_U8_BUse_"
+                       L"ColumnMajorToRowMajorOffsetPadded",
+                       VerboseLogging);
+}
+
+static void runThreadGroupByteRoundTrip(ID3D12Device *Device,
+                                        dxc::SpecificDllLoader &DxcSupport,
+                                        ComponentType CompType, MatrixDim M,
+                                        MatrixDim N, UINT NumThreads,
+                                        MatrixLayout StoreLayout,
+                                        LPCWSTR CaseName, bool Verbose) {
+  runByteLoadStoreDescriptor(
+      Device, DxcSupport, CompType, M, N, MatrixUse::A,
+      MatrixScope::ThreadGroup, NumThreads,
+      byteMatrixLayout(M, N, MatrixLayout::RowMajor, /*Padded=*/false),
+      byteMatrixLayout(M, N, StoreLayout, /*Padded=*/false), CaseName, Verbose);
+}
+
+void DxilConf_SM610_LinAlg_DescriptorIO::
+    LoadStoreDescriptor_ThreadGroup_32x32_I8_128Threads() {
+  runThreadGroupByteRoundTrip(
+      D3DDevice, DxcSupport, ComponentType::I8, 32, 32, 128,
+      MatrixLayout::RowMajor,
+      L"LoadStoreDescriptor_ThreadGroup_32x32_I8_128Threads", VerboseLogging);
+}
+
+void DxilConf_SM610_LinAlg_DescriptorIO::
+    LoadStoreDescriptor_ThreadGroup_32x32_U8_128Threads() {
+  runThreadGroupByteRoundTrip(
+      D3DDevice, DxcSupport, ComponentType::U8, 32, 32, 128,
+      MatrixLayout::RowMajor,
+      L"LoadStoreDescriptor_ThreadGroup_32x32_U8_128Threads", VerboseLogging);
+}
+
+void DxilConf_SM610_LinAlg_DescriptorIO::
+    LoadStoreDescriptor_ThreadGroup_64x32_I8_RowMajorToColumnMajor_256Threads() {
+  runThreadGroupByteRoundTrip(
+      D3DDevice, DxcSupport, ComponentType::I8, 64, 32, 256,
+      MatrixLayout::ColumnMajor,
+      L"LoadStoreDescriptor_ThreadGroup_64x32_I8_RowMajorToColumnMajor_"
+      L"256Threads",
+      VerboseLogging);
+}
+
+void DxilConf_SM610_LinAlg_DescriptorIO::
+    LoadStoreDescriptor_ThreadGroup_64x32_U8_RowMajorToColumnMajor_256Threads() {
+  runThreadGroupByteRoundTrip(
+      D3DDevice, DxcSupport, ComponentType::U8, 64, 32, 256,
+      MatrixLayout::ColumnMajor,
+      L"LoadStoreDescriptor_ThreadGroup_64x32_U8_RowMajorToColumnMajor_"
+      L"256Threads",
+      VerboseLogging);
 }
 
 // Element access constructs a wave-scope matrix and then reads or writes its
@@ -7997,6 +8314,49 @@ void DxilConf_SM610_LinAlg_MatrixArithmetic::
       D3DDevice, DxcSupport,
       makeByteMultiplyCase(ComponentType::U8, 64, 32, 64), 256,
       L"MatMatMulAccum_ThreadGroup_64x32x64_U8_ToI32_256Threads",
+      VerboseLogging);
+}
+
+static MatrixMultiplyCase makeByteMultiplyCaseBColumnMajor(ComponentType Type,
+                                                           MatrixDim M,
+                                                           MatrixDim K,
+                                                           MatrixDim N) {
+  MatrixMultiplyCase Case = makeByteMultiplyCase(Type, M, K, N);
+  Case.MatrixBLayout = MatrixLayout::ColumnMajor;
+  return Case;
+}
+
+void DxilConf_SM610_LinAlg_MatrixArithmetic::
+    MatMatMulAccum_Wave_16x32x8_I8_ToI32_BColumnMajor() {
+  runWaveMultiplyCase(
+      D3DDevice, DxcSupport,
+      makeByteMultiplyCaseBColumnMajor(ComponentType::I8, 16, 32, 8),
+      L"MatMatMulAccum_Wave_16x32x8_I8_ToI32_BColumnMajor", VerboseLogging);
+}
+
+void DxilConf_SM610_LinAlg_MatrixArithmetic::
+    MatMatMulAccum_Wave_16x32x8_U8_ToI32_BColumnMajor() {
+  runWaveMultiplyCase(
+      D3DDevice, DxcSupport,
+      makeByteMultiplyCaseBColumnMajor(ComponentType::U8, 16, 32, 8),
+      L"MatMatMulAccum_Wave_16x32x8_U8_ToI32_BColumnMajor", VerboseLogging);
+}
+
+void DxilConf_SM610_LinAlg_MatrixArithmetic::
+    MatMatMulAccum_ThreadGroup_32x32x32_I8_ToI32_BColumnMajor_128Threads() {
+  runThreadGroupMultiplyAtSize(
+      D3DDevice, DxcSupport,
+      makeByteMultiplyCaseBColumnMajor(ComponentType::I8, 32, 32, 32), 128,
+      L"MatMatMulAccum_ThreadGroup_32x32x32_I8_ToI32_BColumnMajor_128Threads",
+      VerboseLogging);
+}
+
+void DxilConf_SM610_LinAlg_MatrixArithmetic::
+    MatMatMulAccum_ThreadGroup_32x32x32_U8_ToI32_BColumnMajor_128Threads() {
+  runThreadGroupMultiplyAtSize(
+      D3DDevice, DxcSupport,
+      makeByteMultiplyCaseBColumnMajor(ComponentType::U8, 32, 32, 32), 128,
+      L"MatMatMulAccum_ThreadGroup_32x32x32_U8_ToI32_BColumnMajor_128Threads",
       VerboseLogging);
 }
 
