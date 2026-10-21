@@ -25,9 +25,9 @@
 // MultiByteToWideChar which is a Windows-specific method.
 // This is a very simplistic implementation for non-Windows platforms. This
 // implementation completely ignores CodePage and dwFlags.
-int MultiByteToWideChar(uint32_t /*CodePage*/, uint32_t /*dwFlags*/,
-                        const char *lpMultiByteStr, int cbMultiByte,
-                        wchar_t *lpWideCharStr, int cchWideChar) {
+int MultiByteToWideChar(UINT /*CodePage*/, DWORD /*dwFlags*/,
+                        LPCCH lpMultiByteStr, int cbMultiByte,
+                        LPWSTR lpWideCharStr, int cchWideChar) {
 
   // Check for invalid sizes or potential overflow.
   if (cbMultiByte == 0 || cbMultiByte < -1 || cbMultiByte == INT32_MAX ||
@@ -92,11 +92,10 @@ int MultiByteToWideChar(uint32_t /*CodePage*/, uint32_t /*dwFlags*/,
 // WideCharToMultiByte is a Windows-specific method.
 // This is a very simplistic implementation for non-Windows platforms. This
 // implementation completely ignores CodePage and dwFlags.
-int WideCharToMultiByte(uint32_t /*CodePage*/, uint32_t /*dwFlags*/,
-                        const wchar_t *lpWideCharStr, int cchWideChar,
-                        char *lpMultiByteStr, int cbMultiByte,
-                        const char * /*lpDefaultChar*/,
-                        bool *lpUsedDefaultChar) {
+int WideCharToMultiByte(UINT /*CodePage*/, DWORD /*dwFlags*/,
+                        LPCWCH lpWideCharStr, int cchWideChar,
+                        LPSTR lpMultiByteStr, int cbMultiByte,
+                        LPCCH /*lpDefaultChar*/, LPBOOL lpUsedDefaultChar) {
   if (lpUsedDefaultChar) {
     *lpUsedDefaultChar = FALSE;
   }
