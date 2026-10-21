@@ -87,6 +87,12 @@ line upon naming the release. Refer to previous for appropriate section names.
   struct is flat-converted
   [#8526](https://github.com/microsoft/DirectXShaderCompiler/issues/8526).
 
+#### SPIR-V
+
+- Rich debug info now emits a `DebugGlobalVariable` for the `$Globals` block
+  and a `DebugTypeMember` for each uniform member, so debuggers can
+  distinguish member storage.
+
 ### Upcoming Preview Release
 
 These changes apply to experimental preview shader models only and will not be
