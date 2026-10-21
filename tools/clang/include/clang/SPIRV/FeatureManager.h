@@ -117,6 +117,15 @@ public:
   /// Returns true if the given extension is set in allowedExtensions
   bool isExtensionEnabled(Extension) const;
 
+  /// \brief Returns the allowed extension that provides the acceleration
+  /// structure type, or Extension::Unknown if there is none.
+  Extension getAccelerationStructureProvider() const;
+
+  /// \brief Returns true if the user listed, with -fspv-extension, an extension
+  /// that provides the acceleration structure type.
+  /// When no list is given, returns false.
+  bool hasExplicitAccelerationStructureProvider() const;
+
   /// Returns true if the target environment is Vulkan 1.1 or above.
   /// Returns false otherwise.
   bool isTargetEnvVulkan1p1OrAbove() const;
@@ -181,6 +190,7 @@ private:
   DiagnosticsEngine &diags;
 
   llvm::SmallBitVector allowedExtensions;
+  bool explicitExtensionList = false;
   spv_target_env targetEnv;
   std::string targetEnvStr;
 };

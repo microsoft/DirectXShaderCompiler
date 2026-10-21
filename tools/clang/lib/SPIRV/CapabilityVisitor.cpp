@@ -208,6 +208,10 @@ void CapabilityVisitor::addCapabilityForType(const SpirvType *type,
   else if (const auto *sampledImageType = dyn_cast<SampledImageType>(type)) {
     addCapabilityForType(sampledImageType->getImageType(), loc, sc);
   }
+  // Acceleration structure type
+  else if (isa<AccelerationStructureTypeNV>(type)) {
+    addCapabilityForAccelerationStructure(loc);
+  }
   // Pointer type
   else if (const auto *ptrType = dyn_cast<SpirvPointerType>(type)) {
     addCapabilityForType(ptrType->getPointeeType(), loc,
@@ -237,6 +241,39 @@ void CapabilityVisitor::addCapabilityForType(const SpirvType *type,
     for (auto field : structType->getFields())
       addCapabilityForType(field.type, loc, sc);
   }
+}
+
+void CapabilityVisitor::addCapabilityForAccelerationStructure(
+    SourceLocation loc) {
+  const Extension provider = featureManager.getAccelerationStructureProvider();
+  switch (provider) {
+  case Extension::KHR_ray_query:
+    addExtension(provider, "acceleration structure type", loc);
+    addCapability(spv::Capability::RayQueryKHR, loc);
+    break;
+  case Extension::KHR_ray_tracing:
+    addExtension(provider, "acceleration structure type", loc);
+    addCapability(spv::Capability::RayTracingKHR, loc);
+    break;
+  case Extension::NV_ray_tracing:
+    addExtension(provider, "acceleration structure type", loc);
+    addCapability(spv::Capability::RayTracingNV, loc);
+    break;
+  default:
+    // No allowed extension provides the type. Report the standard
+    // "extension not permitted" error instead of emitting an invalid module.
+    featureManager.requestExtension(Extension::KHR_ray_tracing,
+                                    "acceleration structure type", loc);
+    break;
+  }
+}
+
+bool CapabilityVisitor::visit(SpirvConstantSizeOfEXT *inst) {
+  // The operand type is not the result type, so the generic handling of
+  // instructions does not see it.
+  addCapabilityForType(inst->getOperandType(), inst->getSourceLocation(),
+                       spv::StorageClass::Max);
+  return visitInstruction(inst);
 }
 
 bool CapabilityVisitor::visit(SpirvDecoration *decor) {

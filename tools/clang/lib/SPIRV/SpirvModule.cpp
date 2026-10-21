@@ -17,8 +17,8 @@ namespace spirv {
 SpirvModule::SpirvModule()
     : capabilities({}), extensions({}), extInstSets({}), memoryModel(nullptr),
       entryPoints({}), executionModes({}), moduleProcesses({}), decorations({}),
-      constants({}), undefs({}), variables({}), functions({}),
-      debugInstructions({}), perVertexInterp(false) {}
+      constants({}), specConstantOps({}), undefs({}), variables({}),
+      functions({}), debugInstructions({}), perVertexInterp(false) {}
 
 SpirvModule::~SpirvModule() {
   for (auto *cap : capabilities)
@@ -43,6 +43,8 @@ SpirvModule::~SpirvModule() {
     decoration->releaseMemory();
   for (auto *constant : constants)
     constant->releaseMemory();
+  for (auto *op : specConstantOps)
+    op->releaseMemory();
   for (auto *undef : undefs)
     undef->releaseMemory();
   for (auto *var : variables)
@@ -84,6 +86,13 @@ bool SpirvModule::invokeVisitor(Visitor *visitor, bool reverseOrder) {
     for (auto iter = variables.rbegin(); iter != variables.rend(); ++iter) {
       auto *var = *iter;
       if (!var->invokeVisitor(visitor))
+        return false;
+    }
+
+    for (auto iter = specConstantOps.rbegin(); iter != specConstantOps.rend();
+         ++iter) {
+      auto *op = *iter;
+      if (!op->invokeVisitor(visitor))
         return false;
     }
 
@@ -209,6 +218,10 @@ bool SpirvModule::invokeVisitor(Visitor *visitor, bool reverseOrder) {
 
     for (auto constant : constants)
       if (!constant->invokeVisitor(visitor))
+        return false;
+
+    for (auto *op : specConstantOps)
+      if (!op->invokeVisitor(visitor))
         return false;
 
     for (auto undef : undefs)
@@ -355,6 +368,13 @@ void SpirvModule::addDecoration(SpirvDecoration *decor) {
 void SpirvModule::addConstant(SpirvConstant *constant) {
   assert(constant);
   constants.push_back(constant);
+}
+
+void SpirvModule::addSpecConstantOp(SpirvInstruction *op) {
+  assert(op && (isa<SpirvSpecConstantUnaryOp>(op) ||
+                isa<SpirvSpecConstantBinaryOp>(op) ||
+                isa<SpirvSpecConstantTernaryOp>(op)));
+  specConstantOps.push_back(op);
 }
 
 void SpirvModule::addUndef(SpirvUndef *undef) {
