@@ -4507,13 +4507,6 @@ public:
       AddVkIntrinsicConstants();
     }
 #endif // ENABLE_SPIRV_CODEGEN
-
-    // Note: Under HLSL 202x, HLSL built-in intrinsic functions live in the
-    // implicit `hlsl` namespace created above and *no* implicit
-    // `using namespace hlsl;` directive is injected. Unqualified references
-    // to HLSL intrinsics therefore fail to resolve under 202x; user code is
-    // expected to use the `hlsl::` qualifier. See
-    // https://hlsl-tc57.github.io/tc57/proposal/0009/.
   }
 
   void ForgetSema() override { m_sema = nullptr; }
@@ -5763,8 +5756,7 @@ public:
     m_context = &context;
 
     // Under HLSL 202x the built-in HLSL intrinsic functions are placed in the
-    // 'hlsl' namespace, mirroring Clang's HLSL implementation. See
-    // https://hlsl-tc57.github.io/tc57/proposal/0009/.
+    // 'hlsl' namespace (see: https://hlsl-tc57.github.io/tc57/proposal/0009/).
     if (context.getLangOpts().HLSLVersion >= hlsl::LangStd::v202x) {
       m_hlslNSDecl =
           NamespaceDecl::Create(context, context.getTranslationUnitDecl(),
