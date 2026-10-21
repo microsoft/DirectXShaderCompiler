@@ -50,10 +50,7 @@ void DxilSignatureElement::Initialize(llvm::StringRef Name,
   if (!IndexVector.empty())
     m_SemanticStartIndex = IndexVector[0];
   // Find semantic in the table.
-  m_pSemantic = Semantic::GetByName(m_SemanticName, m_sigPointKind);
-  // Replace semantic name with canonical name if it's a system value.
-  if (!m_pSemantic->IsInvalid() && !m_pSemantic->IsArbitrary())
-    m_SemanticName = m_pSemantic->GetName();
+  SetKind(Semantic::GetByName(m_SemanticName)->GetKind());
   SetCompType(ElementType);
   m_InterpMode = InterpMode;
   m_SemanticIndex = IndexVector;
@@ -136,6 +133,9 @@ void DxilSignatureElement::SetKind(Semantic::Kind kind) {
   // recover the original SigPointKind if necessary (for Shadow element).
   m_sigPointKind = SigPoint::RecoverKind(kind, m_sigPointKind);
   m_pSemantic = Semantic::Get(kind, m_sigPointKind);
+  // Replace semantic name with canonical name if it's a system value.
+  if (!m_pSemantic->IsInvalid() && !m_pSemantic->IsArbitrary())
+    m_SemanticName = m_pSemantic->GetName();
 }
 
 Semantic::Kind DxilSignatureElement::GetKind() const {
