@@ -87,6 +87,12 @@ line upon naming the release. Refer to previous for appropriate section names.
   struct is flat-converted
   [#8526](https://github.com/microsoft/DirectXShaderCompiler/issues/8526).
 
+#### SPIR-V
+
+- Added `-fspv-reserve-resource-array-bindings`, which reserves one
+  binding number per array element for arrays of resources without splitting
+  the array into separate SPIR-V variables/bindings.
+
 ### Upcoming Preview Release
 
 These changes apply to experimental preview shader models only and will not be
