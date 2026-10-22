@@ -2792,15 +2792,16 @@ bool Sema::UseArgumentDependentLookup(const CXXScopeSpec &SS,
   // Never if a scope specifier was provided.
   if (SS.isSet()) {
     // HLSL Change begins
-    // We want to be able to have intrinsics inside the "vk" and "dx"
-    // namespaces.
-    const bool isVkNamespace =
-        SS.getScopeRep() && SS.getScopeRep()->getAsNamespace() &&
-        SS.getScopeRep()->getAsNamespace()->getName() == "vk";
+    // Allow qualified intrinsic calls in the root "vk" and "dx" namespaces.
+    NestedNameSpecifier *ScopeRep = SS.getScopeRep();
+    NamespaceDecl *Namespace = ScopeRep ? ScopeRep->getAsNamespace() : nullptr;
 
-    const bool isDxNamespace =
-        SS.getScopeRep() && SS.getScopeRep()->getAsNamespace() &&
-        SS.getScopeRep()->getAsNamespace()->getName() == "dx";
+    const bool isRootNamespace =
+        Namespace && Namespace->getDeclContext()->isTranslationUnit();
+
+    const bool isVkNamespace = isRootNamespace && Namespace->getName() == "vk";
+
+    const bool isDxNamespace = isRootNamespace && Namespace->getName() == "dx";
 
     if (!isVkNamespace && !isDxNamespace)
       // HLSL Change ends
