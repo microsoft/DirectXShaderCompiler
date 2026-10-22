@@ -3283,7 +3283,6 @@ private:
   ObjectTypeDeclMapType m_objectTypeDeclsMap;
 
   UsedIntrinsicStore m_usedIntrinsics;
-  llvm::SmallPtrSet<FunctionDecl *, 8> m_hlslIntrinsicLookupMarkers;
   bool m_creatingHlslIntrinsicLookupMarker = false;
 
   /// <summary>Add all base QualTypes for each hlsl scalar types.</summary>
@@ -4379,11 +4378,6 @@ private:
   }
 
 public:
-  bool IsIntrinsicLookupMarker(NamedDecl *D) {
-    FunctionDecl *FD = dyn_cast<FunctionDecl>(D->getUnderlyingDecl());
-    return FD && m_hlslIntrinsicLookupMarkers.count(FD);
-  }
-
   bool FindExternalVisibleDeclsByName(const DeclContext *DC,
                                       DeclarationName Name) override {
     if (m_creatingHlslIntrinsicLookupMarker || !m_hlslNSDecl ||
@@ -4426,10 +4420,10 @@ public:
         SC_Extern, InlineSpecifiedFalse, HasWrittenPrototypeTrue);
     marker->setImplicit(true);
     marker->setDeletedAsWritten();
+    marker->addAttr(HLSLIntrinsicLookupMarkerAttr::CreateImplicit(*m_context));
     m_creatingHlslIntrinsicLookupMarker = true;
     m_hlslNSDecl->addDecl(marker);
     m_creatingHlslIntrinsicLookupMarker = false;
-    m_hlslIntrinsicLookupMarkers.insert(marker);
     return true;
   }
 
@@ -5576,7 +5570,7 @@ public:
       NamedDecl *D = (*I)->getUnderlyingDecl();
       if (FunctionDecl *FD = dyn_cast<FunctionDecl>(D)) {
         const DeclContext *FunctionContext = FD->getDeclContext();
-        if (m_hlslIntrinsicLookupMarkers.count(FD) ||
+        if (FD->hasAttr<HLSLIntrinsicLookupMarkerAttr>() ||
             (m_hlslNSDecl && FunctionContext->isNamespace() &&
              FunctionContext->getPrimaryContext() ==
                  m_hlslNSDecl->getPrimaryContext() &&
@@ -13446,8 +13440,9 @@ hlsl::GetBestViableFunction(clang::Sema &S, clang::SourceLocation Loc,
                                                                  Best);
 }
 
-bool hlsl::IsIntrinsicLookupMarker(clang::Sema &S, clang::NamedDecl *D) {
-  return HLSLExternalSource::FromSema(&S)->IsIntrinsicLookupMarker(D);
+bool hlsl::IsIntrinsicLookupMarker(clang::NamedDecl *D) {
+  FunctionDecl *FD = dyn_cast<FunctionDecl>(D->getUnderlyingDecl());
+  return FD && FD->hasAttr<HLSLIntrinsicLookupMarkerAttr>();
 }
 
 void hlsl::InitializeInitSequenceForHLSL(Sema *self,

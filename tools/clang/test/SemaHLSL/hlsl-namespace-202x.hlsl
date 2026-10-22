@@ -21,9 +21,18 @@ void main() {
 // The intrinsic functions actually used by the shader should be parented to
 // the 'hlsl' namespace.  Match the FunctionDecl entries that appear after the
 // NamespaceDecl line above.
+// CHECK: FunctionDecl {{.*}} implicit sin 'void ()' extern delete
+// CHECK-NEXT: HLSLIntrinsicLookupMarkerAttr {{.*}} Implicit
 // CHECK: FunctionDecl {{.*}} implicit used sin 'float (float)'
+// CHECK-NOT: HLSLIntrinsicLookupMarkerAttr
+// CHECK: FunctionDecl {{.*}} implicit cos 'void ()' extern delete
+// CHECK-NEXT: HLSLIntrinsicLookupMarkerAttr {{.*}} Implicit
 // CHECK: FunctionDecl {{.*}} implicit used cos 'float (float)'
+// CHECK-NOT: HLSLIntrinsicLookupMarkerAttr
+// CHECK: FunctionDecl {{.*}} implicit dot 'void ()' extern delete
+// CHECK-NEXT: HLSLIntrinsicLookupMarkerAttr {{.*}} Implicit
 // CHECK: FunctionDecl {{.*}} implicit used dot
+// CHECK-NOT: HLSLIntrinsicLookupMarkerAttr
 
 // No implicit 'using namespace hlsl;' directive is injected under 202x.
 // CHECK-NOT: UsingDirectiveDecl {{.*}} Namespace {{.*}} 'hlsl'

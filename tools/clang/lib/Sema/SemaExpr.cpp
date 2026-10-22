@@ -2892,7 +2892,7 @@ ExprResult Sema::BuildDeclarationNameExpr(const CXXScopeSpec &SS,
   // for qualified calls where ADL is disabled.
   const bool NeedsIntrinsicLookup =
       getLangOpts().HLSL && R.isSingleResult() &&
-      hlsl::IsIntrinsicLookupMarker(*this, R.getFoundDecl());
+      hlsl::IsIntrinsicLookupMarker(R.getFoundDecl());
   if (!NeedsADL && !NeedsIntrinsicLookup && R.isSingleResult() &&
       !R.getAsSingle<FunctionTemplateDecl>())
     return BuildDeclarationNameExpr(SS, R.getLookupNameInfo(), R.getFoundDecl(),
