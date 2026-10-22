@@ -5536,6 +5536,20 @@ public:
     return 0;
   }
 
+  FunctionDecl *GetHlslIntrinsicLookupDecl(NamedDecl *D) {
+    FunctionDecl *FD = dyn_cast<FunctionDecl>(D->getUnderlyingDecl());
+    if (!FD)
+      return nullptr;
+    const DeclContext *FunctionContext = FD->getDeclContext();
+    if (FD->hasAttr<HLSLIntrinsicLookupMarkerAttr>() ||
+        (m_hlslNSDecl && FunctionContext->isNamespace() &&
+         FunctionContext->getPrimaryContext() ==
+             m_hlslNSDecl->getPrimaryContext() &&
+         FD->hasAttr<HLSLIntrinsicAttr>()))
+      return FD;
+    return nullptr;
+  }
+
   bool AddOverloadedCallCandidates(UnresolvedLookupExpr *ULE,
                                    ArrayRef<Expr *> Args,
                                    OverloadCandidateSet &CandidateSet, Scope *S,
@@ -5561,23 +5575,24 @@ public:
                                QualifiedNamespace->getOriginalNamespace() ==
                                    m_dxNSDecl->getOriginalNamespace();
 
-    // Ordinary lookup determines visibility, hiding, and the declarations
-    // retained by dependent calls at template definition time.
     FunctionDecl *HlslLookupDecl = nullptr;
     for (UnresolvedLookupExpr::decls_iterator I = ULE->decls_begin(),
                                               E = ULE->decls_end();
          I != E; ++I) {
-      NamedDecl *D = (*I)->getUnderlyingDecl();
-      if (FunctionDecl *FD = dyn_cast<FunctionDecl>(D)) {
-        const DeclContext *FunctionContext = FD->getDeclContext();
-        if (FD->hasAttr<HLSLIntrinsicLookupMarkerAttr>() ||
-            (m_hlslNSDecl && FunctionContext->isNamespace() &&
-             FunctionContext->getPrimaryContext() ==
-                 m_hlslNSDecl->getPrimaryContext() &&
-             FD->hasAttr<HLSLIntrinsicAttr>())) {
-          HlslLookupDecl = FD;
+      HlslLookupDecl = GetHlslIntrinsicLookupDecl(*I);
+      if (HlslLookupDecl)
+        break;
+    }
+    if (!HlslLookupDecl && m_hlslNSDecl && !isQualified && ULE->requiresADL()) {
+      // ADL's ordinary candidate insertion skips intrinsic lookup markers.
+      // Find the family here so its signatures can be synthesized first.
+      ADLResult Functions;
+      m_sema->ArgumentDependentLookup(ULE->getName(), ULE->getExprLoc(), Args,
+                                     Functions);
+      for (NamedDecl *D : Functions) {
+        HlslLookupDecl = GetHlslIntrinsicLookupDecl(D);
+        if (HlslLookupDecl)
           break;
-        }
       }
     }
     const bool SearchHlsl = HlslLookupDecl != nullptr;
@@ -5587,8 +5602,8 @@ public:
     // Exceptions:
     // - Vulkan-specific intrinsics live in the 'vk::' namespace.
     // - DirectX-specific intrinsics live in the 'dx::' namespace.
-    // - Under HLSL 202x, ordinary lookup must find the intrinsic family in
-    //   'hlsl', directly or through an explicit import.
+    // - Under HLSL 202x, ordinary lookup or ADL must find the intrinsic family
+    //   in 'hlsl', directly or through an explicit import.
     // - Global namespaces could just mean we have a `using` declaration... so
     // it can be anywhere!
     if (isQualified && !isGlobalNamespace && !isVkNamespace && !isDxNamespace &&

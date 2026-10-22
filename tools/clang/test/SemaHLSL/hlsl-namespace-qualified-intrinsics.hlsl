@@ -18,11 +18,16 @@ float UseQualifiedDot(float3 a, float3 b) {
 namespace N {
 struct S {};
 float foo(S) { return 1.0f; } // expected-note{{'N::foo' declared here}}
+float cos(S) { return 1.0f; }
 }
 
 float UseQualifiedCallWithoutADL(N::S value) {
   // Qualified HLSL calls must not find functions in an argument's namespace.
   return hlsl::foo(value); // expected-error{{no member named 'foo' in namespace 'hlsl'}}
+}
+
+float UseQualifiedIntrinsicWithoutADL(N::S value) {
+  return hlsl::cos(value); // expected-error{{no matching function for call to 'cos'}} expected-note{{candidate function not viable: no known conversion from 'N::S' to 'float' for 1st argument}}
 }
 
 float UseUnqualifiedSin(float x) {
