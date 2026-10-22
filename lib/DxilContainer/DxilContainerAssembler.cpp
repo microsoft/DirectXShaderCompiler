@@ -869,6 +869,8 @@ private:
     SmallVector<Value *, 8> Worklist(1, Matrix);
     SmallPtrSet<Value *, 8> Visited;
     uint8_t Flags = 0;
+    // Default to a conservative flagset when it's not possible to determine 
+    // the true flags
     const uint8_t UnknownLayoutFlags =
         MatrixTransposed | MatrixNonMulOptimalLayout;
     while (!Worklist.empty()) {
