@@ -984,8 +984,8 @@ bool Sema::IsOverload(FunctionDecl *New, FunctionDecl *Old,
                       bool UseUsingDeclRules) {
   // HLSL Change Begin
   // Lookup markers represent intrinsic families, not redeclarable signatures.
-  if (getLangOpts().HLSL &&
-      (hlsl::IsIntrinsicLookupMarker(New) || hlsl::IsIntrinsicLookupMarker(Old)))
+  if (getLangOpts().HLSL && (hlsl::IsIntrinsicLookupMarker(New) ||
+                             hlsl::IsIntrinsicLookupMarker(Old)))
     return true;
   // HLSL Change End
 

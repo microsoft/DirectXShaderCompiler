@@ -5588,7 +5588,7 @@ public:
       // Find the family here so its signatures can be synthesized first.
       ADLResult Functions;
       m_sema->ArgumentDependentLookup(ULE->getName(), ULE->getExprLoc(), Args,
-                                     Functions);
+                                      Functions);
       for (NamedDecl *D : Functions) {
         HlslLookupDecl = GetHlslIntrinsicLookupDecl(D);
         if (HlslLookupDecl)
