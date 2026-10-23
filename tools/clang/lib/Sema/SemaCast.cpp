@@ -1115,9 +1115,11 @@ static TryCastResult TryStaticCast(Sema &Self, ExprResult &SrcExpr,
   }
   // Allow ns-pointer to cf-pointer conversion in either direction
   // with static casts.
+#if 0  // HLSL Change Begin - HLSL does not support Objective-C pointer types.
   if (!CStyle &&
       Self.CheckTollFreeBridgeStaticCast(DestType, SrcExpr.get(), Kind))
     return TC_Success;
+#endif // HLSL Change End
 
   // See if it looks like the user is trying to convert between
   // related record types, and select a better diagnostic if so.
@@ -1135,6 +1137,8 @@ static TryCastResult TryStaticCast(Sema &Self, ExprResult &SrcExpr,
                                    SuppressDiagFalse, nullptr)) {
       return TC_Success;
     }
+    SrcExpr = ExprError();
+    return TC_Failed;
   }
   // HLSL Change Ends
 
