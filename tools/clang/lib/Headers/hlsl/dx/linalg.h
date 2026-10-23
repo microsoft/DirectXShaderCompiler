@@ -9,6 +9,9 @@
 // DirectX Shader Model 6.10 Linear Algebra objects and APIs.
 //===----------------------------------------------------------------------===//
 
+#ifndef _HLSL_DX_LINALG_H_
+#define _HLSL_DX_LINALG_H_
+
 #include <enable_if>
 #include <type_traits>
 
@@ -720,3 +723,5 @@ InterlockedAccumulate(RWByteAddressBuffer Res, uint StartOffset,
 #pragma dxc diagnostic pop
 
 #endif // SM 6.10 check and HV version check
+
+#endif // _HLSL_DX_LINALG_H_
