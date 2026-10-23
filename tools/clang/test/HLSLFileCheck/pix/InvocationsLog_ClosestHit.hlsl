@@ -14,7 +14,7 @@
 // Now check that at least three functions were modified (the hit group shaders):
 
 // -------- one ----------
-// Check for out-of-bounds clamp:
+// Check for the per-entry offset calculation:
 // CHECK: mul i32
 // CHECK: 52
 
@@ -28,7 +28,7 @@
 // CHECK: i32 1
 
 // -------- two ----------
-// Check for out-of-bounds clamp:
+// Check for the per-entry offset calculation:
 // CHECK: mul i32
 // CHECK: 52
 
@@ -43,7 +43,7 @@
 // CHECK: dx.op.atomicBinOp.i32
 // CHECK: i32 1
 
-// Check for out-of-bounds clamp:
+// Check for the per-entry offset calculation:
 // CHECK: mul i32
 // CHECK: 52
 

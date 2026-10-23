@@ -1,4 +1,5 @@
-// RUN: %dxc -T ps_6_0 -E main %s -spirv | FileCheck %s
+// RUN: %dxc -T ps_6_0 -E main -Werror %s -spirv | FileCheck %s
+// RUN: %dxc -T ps_6_0 -E main -HV 202x %s -spirv | FileCheck %s
 
 // This test checks that the specialization constant and push constants are not
 // included in the implicit global ubo.
