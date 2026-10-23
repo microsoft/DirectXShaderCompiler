@@ -6962,7 +6962,7 @@ ConcreteLiteralType(Expr *litExpr, ArBasicKind kind,
   }
 }
 
-static bool IsOrContains16BitType(QualType Ty) {
+static bool IsOrContains16BitType(QualType Ty, bool Enable16BitTypes) {
   if (Ty.isNull() || Ty->isIncompleteType())
     return false;
 
@@ -6974,22 +6974,34 @@ static bool IsOrContains16BitType(QualType Ty) {
     case BuiltinType::UShort:
     case BuiltinType::Half:
       return true;
+    case BuiltinType::Min16Int:
+    case BuiltinType::Min16UInt:
+    case BuiltinType::Min16Float:
+    case BuiltinType::Min10Float:
+    case BuiltinType::Min12Int:
+      return Enable16BitTypes;
     default:
       return false;
     }
   }
 
   if (hlsl::IsHLSLVecType(Ty))
-    return IsOrContains16BitType(hlsl::GetHLSLVecElementType(Ty));
+    return IsOrContains16BitType(hlsl::GetHLSLVecElementType(Ty),
+                                 Enable16BitTypes);
   if (hlsl::IsHLSLMatType(Ty))
-    return IsOrContains16BitType(hlsl::GetHLSLMatElementType(Ty));
+    return IsOrContains16BitType(hlsl::GetHLSLMatElementType(Ty),
+                                 Enable16BitTypes);
 
   if (const ArrayType *AT = Ty->getAsArrayTypeUnsafe())
-    return IsOrContains16BitType(AT->getElementType());
+    return IsOrContains16BitType(AT->getElementType(), Enable16BitTypes);
   if (const RecordType *RT = Ty->getAs<RecordType>()) {
     for (const FieldDecl *FD : RT->getDecl()->fields())
-      if (IsOrContains16BitType(FD->getType()))
+      if (IsOrContains16BitType(FD->getType(), Enable16BitTypes))
         return true;
+    if (const auto *RD = dyn_cast<CXXRecordDecl>(RT->getDecl()))
+      for (const auto &Base : RD->bases())
+        if (IsOrContains16BitType(Base.getType(), Enable16BitTypes))
+          return true;
   }
   return false;
 }
@@ -11573,7 +11585,8 @@ HLSLExternalSource::DeduceTemplateArgumentsForHLSL(
     // representing the buffer as a series of 32 bit values.
     // See https://github.com/microsoft/DirectXShaderCompiler/issues/8172
     if (IsBABStore && getSema()->getLangOpts().SPIRV) {
-      if (IsOrContains16BitType(argTypes[2])) {
+      if (IsOrContains16BitType(argTypes[2],
+                                !getSema()->getLangOpts().UseMinPrecision)) {
         getSema()->Diag(Args[1]->getLocStart(),
                         diag::err_hlsl_vk_rwbyteaddressbuffer_16bit_store);
         return Sema::TemplateDeductionResult::TDK_Invalid;
