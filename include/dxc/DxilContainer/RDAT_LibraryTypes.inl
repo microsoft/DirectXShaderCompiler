@@ -615,11 +615,13 @@ RDAT_STRUCT_TABLE(LinAlgMatrixOperationShape,
 RDAT_STRUCT_END()
 #undef RECORD_TYPE
 
+RDAT_WRAP_ARRAY(uint8_t, 3, LinAlgMatrixConstructionReserved)
+
 #define RECORD_TYPE LinAlgMatrixConstruction
 RDAT_STRUCT_TABLE(LinAlgMatrixConstruction, LinAlgMatrixConstructionTable)
   RDAT_RECORD_ARRAY_REF(LinAlgMatrixOperationShape, OperationShapes)
   RDAT_ENUM(uint8_t, hlsl::DXIL::ComponentType, MatrixType)
-  RDAT_ARRAY_VALUE(uint8_t, 3, uint8_t, Reserved)
+  RDAT_ARRAY_VALUE(uint8_t, 3, LinAlgMatrixConstructionReserved, Reserved)
 RDAT_STRUCT_END()
 #undef RECORD_TYPE
 
