@@ -431,24 +431,25 @@ static bool LegalizeResources(Module &M, DxilValueCache *DVC) {
   SmallVector<Instruction *, 8> DCEWorklist;
 
   // Try to simplify those PHI's with DVC and collect them in DCEWorklist
-  for (unsigned Attempt = 0, MaxAttempt = PHIs.size(); Attempt < MaxAttempt;
-       Attempt++) {
+  while (!PHIs.empty()) {
     bool LocalChanged = false;
-    for (unsigned i = 0; i < PHIs.size();) {
-      PHINode *PN = PHIs[i];
-      if (Value *V = DVC->GetValue(PN)) {
-        PN->replaceAllUsesWith(V);
-        LocalChanged = true;
-        DCEWorklist.push_back(PN);
-        PHIs.erase(PHIs.begin() + i);
-      } else {
-        i++;
+    for (auto It = PHIs.begin(); It != PHIs.end();) {
+      PHINode *PN = *It;
+      Value *V = DVC->GetValue(PN);
+      if (!V) {
+        ++It;
+        continue;
       }
+
+      PN->replaceAllUsesWith(V);
+      DCEWorklist.push_back(PN);
+      It = PHIs.erase(It);
+      LocalChanged = true;
     }
 
-    Changed |= LocalChanged;
     if (!LocalChanged)
       break;
+    Changed = true;
   }
 
   // Collect Resource GV loads
