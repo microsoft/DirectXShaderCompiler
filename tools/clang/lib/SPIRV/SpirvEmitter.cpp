@@ -4133,17 +4133,21 @@ SpirvEmitter::processFlatConversion(const QualType type,
     sourceType = hlsl::GetHLSLResourceResultType(sourceType);
 
   // A same-type conversion emits one scalar per SPIR-V field, but a cast that
-  // changes the shape, keeps one scalar (potentially with merged bitfields) per
-  // AST field. includeMergedBitfields determines which indexing is used.
+  // changes the shape emits one scalar per AST field, extracting each bitfield
+  // from its storage field. includeMergedBitfields determines which indexing is
+  // used.
   const bool includeMergedBitfields =
       !astContext.hasSameUnqualifiedType(type, sourceType);
   std::vector<SpirvInstruction *> flatValues =
       decomposeToScalars(initInstr, includeMergedBitfields);
 
-  if (flatValues.size() == 1) {
+  // A same-type value with one SPIR-V field holds its merged bitfields in one
+  // scalar, which must be copied whole rather than splatted into each one.
+  if (flatValues.size() == 1 && includeMergedBitfields) {
     return splatScalarToGenerate(type, flatValues[0], SpirvLayoutRule::Void);
   }
-  return generateFromScalars(type, flatValues, SpirvLayoutRule::Void);
+  return generateFromScalars(type, flatValues, SpirvLayoutRule::Void,
+                             includeMergedBitfields);
 }
 
 SpirvInstruction *
@@ -17754,6 +17758,17 @@ SpirvEmitter::decomposeToScalars(SpirvInstruction *inst,
               fieldType, inst, {fieldInfo.fieldIndex},
               inst->getSourceLocation());
           field->setLayoutRule(inst->getLayoutRule());
+          if (includeMergedBitfields && fieldInfo.bitfield.hasValue()) {
+            // The layout rule keeps a bool bitfield in external storage in its
+            // integer representation, which the extract result must match.
+            SpirvInstruction *bits = spvBuilder.createBitFieldExtract(
+                fieldType, field, fieldInfo.bitfield->offsetInBits,
+                fieldInfo.bitfield->sizeInBits, inst->getSourceLocation(),
+                inst->getSourceRange());
+            bits->setLayoutRule(inst->getLayoutRule());
+            result.push_back(bits);
+            return true;
+          }
           auto decomposedField =
               decomposeToScalars(field, includeMergedBitfields);
 
@@ -17770,10 +17785,9 @@ SpirvEmitter::decomposeToScalars(SpirvInstruction *inst,
   return {};
 }
 
-SpirvInstruction *
-SpirvEmitter::generateFromScalars(QualType type,
-                                  std::vector<SpirvInstruction *> &scalars,
-                                  SpirvLayoutRule layoutRule) {
+SpirvInstruction *SpirvEmitter::generateFromScalars(
+    QualType type, std::vector<SpirvInstruction *> &scalars,
+    SpirvLayoutRule layoutRule, bool includeMergedBitfields) {
   QualType elementType;
   uint32_t elementCount = 0;
   uint32_t numOfRows = 0;
@@ -17833,7 +17847,8 @@ SpirvEmitter::generateFromScalars(QualType type,
   } else if (isArrayType(type, &elementType, &elementCount)) {
     std::vector<SpirvInstruction *> elements;
     for (uint32_t i = 0; i < elementCount; i++) {
-      elements.push_back(generateFromScalars(elementType, scalars, layoutRule));
+      elements.push_back(generateFromScalars(elementType, scalars, layoutRule,
+                                             includeMergedBitfields));
     }
     SpirvInstruction *result =
         spvBuilder.createCompositeConstruct(type, elements, sourceLocation);
@@ -17846,14 +17861,27 @@ SpirvEmitter::generateFromScalars(QualType type,
     const SpirvType *spirvType =
         lowerTypeVisitor.lowerType(type, layoutRule, false, sourceLocation);
 
-    forEachSpirvField(recordType, dyn_cast<StructType>(spirvType),
-                      [this, &elements, &scalars, layoutRule](
-                          size_t spirvFieldIndex, const QualType &fieldType,
-                          const StructType::FieldInfo &fieldInfo) {
-                        elements.push_back(generateFromScalars(
-                            fieldType, scalars, layoutRule));
-                        return true;
-                      });
+    forEachSpirvField(
+        recordType, dyn_cast<StructType>(spirvType),
+        [this, &elements, &scalars, layoutRule, includeMergedBitfields,
+         sourceLocation](size_t spirvFieldIndex, const QualType &fieldType,
+                         const StructType::FieldInfo &fieldInfo) {
+          SpirvInstruction *value = generateFromScalars(
+              fieldType, scalars, layoutRule, includeMergedBitfields);
+          // Every bitfield after the first in a storage field is inserted into
+          // the value already built for that field.
+          if (!fieldInfo.bitfield.hasValue() ||
+              elements.size() <= fieldInfo.fieldIndex) {
+            elements.push_back(value);
+            return true;
+          }
+          elements.back() = spvBuilder.createBitFieldInsert(
+              fieldType, elements.back(), value,
+              fieldInfo.bitfield->offsetInBits, fieldInfo.bitfield->sizeInBits,
+              sourceLocation, {});
+          return true;
+        },
+        includeMergedBitfields);
     SpirvInstruction *result =
         spvBuilder.createCompositeConstruct(type, elements, sourceLocation);
     result->setLayoutRule(layoutRule);
@@ -17929,14 +17957,27 @@ SpirvEmitter::splatScalarToGenerate(QualType type, SpirvInstruction *scalar,
     const SpirvType *spirvType = lowerTypeVisitor.lowerType(
         type, SpirvLayoutRule::Void, false, sourceLocation);
 
-    forEachSpirvField(recordType, dyn_cast<StructType>(spirvType),
-                      [this, &elements, &scalar, layoutRule](
-                          size_t spirvFieldIndex, const QualType &fieldType,
-                          const StructType::FieldInfo &fieldInfo) {
-                        elements.push_back(splatScalarToGenerate(
-                            fieldType, scalar, layoutRule));
-                        return true;
-                      });
+    forEachSpirvField(
+        recordType, dyn_cast<StructType>(spirvType),
+        [this, &elements, &scalar, layoutRule,
+         sourceLocation](size_t spirvFieldIndex, const QualType &fieldType,
+                         const StructType::FieldInfo &fieldInfo) {
+          SpirvInstruction *value =
+              splatScalarToGenerate(fieldType, scalar, layoutRule);
+          // Every bitfield after the first in a storage field is inserted into
+          // the value already built for that field.
+          if (!fieldInfo.bitfield.hasValue() ||
+              elements.size() <= fieldInfo.fieldIndex) {
+            elements.push_back(value);
+            return true;
+          }
+          elements.back() = spvBuilder.createBitFieldInsert(
+              fieldType, elements.back(), value,
+              fieldInfo.bitfield->offsetInBits, fieldInfo.bitfield->sizeInBits,
+              sourceLocation, {});
+          return true;
+        },
+        true);
     SpirvInstruction *result =
         spvBuilder.createCompositeConstruct(type, elements, sourceLocation);
     result->setLayoutRule(layoutRule);
