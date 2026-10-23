@@ -99,6 +99,7 @@ FeatureManager::FeatureManager(DiagnosticsEngine &de,
   }
   targetEnv = *targetEnvOpt;
 
+  explicitExtensionList = !opts.allowedExtensions.empty();
   if (opts.allowedExtensions.empty()) {
     // If no explicit extension control from command line, use the default mode:
     // allowing all extensions that are enabled by default.
@@ -379,6 +380,19 @@ bool FeatureManager::isExtensionEnabled(Extension ext) const {
       allowedExtensions.test(static_cast<unsigned>(ext)))
     allowed = true;
   return allowed;
+}
+
+Extension FeatureManager::getAccelerationStructureProvider() const {
+  for (Extension ext : {Extension::KHR_ray_query, Extension::KHR_ray_tracing,
+                        Extension::NV_ray_tracing})
+    if (isExtensionEnabled(ext))
+      return ext;
+  return Extension::Unknown;
+}
+
+bool FeatureManager::hasExplicitAccelerationStructureProvider() const {
+  return explicitExtensionList &&
+         getAccelerationStructureProvider() != Extension::Unknown;
 }
 
 bool FeatureManager::enabledByDefault(Extension ext) {

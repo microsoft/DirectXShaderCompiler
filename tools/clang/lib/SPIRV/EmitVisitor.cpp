@@ -1463,7 +1463,7 @@ bool EmitVisitor::visit(SpirvSpecConstantUnaryOp *inst) {
   curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst));
   curInst.push_back(static_cast<uint32_t>(inst->getSpecConstantopcode()));
   curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst->getOperand()));
-  finalizeInstruction(&mainBinary);
+  finalizeInstruction(&typeConstantBinary);
   emitDebugNameForInstruction(getOrAssignResultId<SpirvInstruction>(inst),
                               inst->getDebugName());
   return true;

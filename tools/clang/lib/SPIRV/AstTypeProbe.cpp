@@ -895,6 +895,13 @@ bool isBuffer(QualType type) {
          hlsl::GetHLSLResourceClass(type) == hlsl::DXIL::ResourceClass::SRV;
 }
 
+bool isRaytracingAccelerationStructure(QualType type) {
+  if (const auto *rt = type->getAs<RecordType>()) {
+    return rt->getDecl()->getName() == "RaytracingAccelerationStructure";
+  }
+  return false;
+}
+
 bool isRWTexture(QualType type) {
   return hlsl::DXIL::IsAnyTexture(hlsl::GetHLSLResourceKind(type)) &&
          hlsl::GetHLSLResourceClass(type) == hlsl::DXIL::ResourceClass::UAV;
