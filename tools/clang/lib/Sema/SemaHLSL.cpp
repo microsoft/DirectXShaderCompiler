@@ -2128,8 +2128,8 @@ static void AddHLSLIntrinsicAttr(FunctionDecl *FD, ASTContext &context,
 
 static FunctionDecl *
 AddHLSLIntrinsicFunction(ASTContext &context, NamespaceDecl *NS,
-                         LPCSTR tableName, LPCSTR lowering,
-                         const HLSL_INTRINSIC *pIntrinsic,
+                         bool isHlslNamespace, LPCSTR tableName,
+                         LPCSTR lowering, const HLSL_INTRINSIC *pIntrinsic,
                          std::vector<QualType> *functionArgQualTypesVector) {
   DeclContext *currentDeclContext =
       NS ? static_cast<DeclContext *>(NS) : context.getTranslationUnitDecl();
@@ -2204,7 +2204,7 @@ AddHLSLIntrinsicFunction(ASTContext &context, NamespaceDecl *NS,
   functionDecl->setParams(paramDecls);
   functionDecl->setImplicit(true);
 
-  if (!NS)
+  if (!NS || isHlslNamespace)
     functionDecl->addAttr(HLSLBuiltinCallAttr::CreateImplicit(context));
 
   return functionDecl;
@@ -3283,6 +3283,7 @@ private:
   ObjectTypeDeclMapType m_objectTypeDeclsMap;
 
   UsedIntrinsicStore m_usedIntrinsics;
+  bool m_creatingHlslIntrinsicLookupMarker = false;
 
   /// <summary>Add all base QualTypes for each hlsl scalar types.</summary>
   void AddBaseTypes();
@@ -4377,6 +4378,55 @@ private:
   }
 
 public:
+  bool FindExternalVisibleDeclsByName(const DeclContext *DC,
+                                      DeclarationName Name) override {
+    if (m_creatingHlslIntrinsicLookupMarker || !m_hlslNSDecl ||
+        DC->getPrimaryContext() != m_hlslNSDecl->getPrimaryContext())
+      return false;
+
+    IdentifierInfo *II = Name.getAsIdentifierInfo();
+    if (!II)
+      return false;
+
+    bool isIntrinsicName = false;
+    for (size_t I = 0; I < _countof(g_Intrinsics); ++I) {
+      if (II->getName() == g_Intrinsics[I].pArgs[0].pName) {
+        isIntrinsicName = true;
+        break;
+      }
+    }
+    if (!isIntrinsicName) {
+      CA2WEX<> functionName(II->getName().str().c_str());
+      for (const CComPtr<IDxcIntrinsicTable> &table : m_intrinsicTables) {
+        const HLSL_INTRINSIC *intrinsic = nullptr;
+        UINT64 lookupCookie = 0;
+        if (SUCCEEDED(table->LookupIntrinsic(L"", functionName, &intrinsic,
+                                             &lookupCookie)) &&
+            intrinsic) {
+          isIntrinsicName = true;
+          break;
+        }
+      }
+    }
+    if (!isIntrinsicName)
+      return false;
+
+    const QualType functionType =
+        m_context->getFunctionType(m_context->VoidTy, ArrayRef<QualType>(),
+                                   FunctionProtoType::ExtProtoInfo(), None);
+    FunctionDecl *marker = FunctionDecl::Create(
+        *m_context, m_hlslNSDecl, SourceLocation(),
+        DeclarationNameInfo(Name, SourceLocation()), functionType, nullptr,
+        SC_Extern, InlineSpecifiedFalse, HasWrittenPrototypeTrue);
+    marker->setImplicit(true);
+    marker->setDeletedAsWritten();
+    marker->addAttr(HLSLIntrinsicLookupMarkerAttr::CreateImplicit(*m_context));
+    m_creatingHlslIntrinsicLookupMarker = true;
+    m_hlslNSDecl->addDecl(marker);
+    m_creatingHlslIntrinsicLookupMarker = false;
+    return true;
+  }
+
   HLSLExternalSource()
       : m_matrixTemplateDecl(nullptr), m_vectorTemplateDecl(nullptr),
         m_vkIntegralConstantTemplateDecl(nullptr),
@@ -4430,6 +4480,8 @@ public:
                                 /*Inline*/ false, SourceLocation(),
                                 SourceLocation(), &context.Idents.get("vk"),
                                 /*PrevDecl*/ nullptr);
+      m_vkNSDecl->setImplicit();
+      m_vkNSDecl->setHasExternalLexicalStorage(true);
       context.getTranslationUnitDecl()->addDecl(m_vkNSDecl);
     }
 #endif // ENABLE_SPIRV_CODEGEN
@@ -5421,7 +5473,8 @@ public:
   bool MatchArguments(const IntrinsicDefIter &cursor, QualType objectType,
                       QualType objectElement, QualType functionTemplateTypeArg,
                       unsigned functionTemplateIntArg, ArrayRef<Expr *> Args,
-                      std::vector<QualType> *, size_t &badArgIdx);
+                      std::vector<QualType> *, size_t &badArgIdx,
+                      unsigned *DiagnosticID = nullptr);
 
   /// <summary>Validate object element on intrinsic to catch case like integer
   /// on Sample.</summary> <param name="tableName">Intrinsic function to
@@ -5483,6 +5536,20 @@ public:
     return 0;
   }
 
+  FunctionDecl *GetHlslIntrinsicLookupDecl(NamedDecl *D) {
+    FunctionDecl *FD = dyn_cast<FunctionDecl>(D->getUnderlyingDecl());
+    if (!FD)
+      return nullptr;
+    const DeclContext *FunctionContext = FD->getDeclContext();
+    if (FD->hasAttr<HLSLIntrinsicLookupMarkerAttr>() ||
+        (m_hlslNSDecl && FunctionContext->isNamespace() &&
+         FunctionContext->getPrimaryContext() ==
+             m_hlslNSDecl->getPrimaryContext() &&
+         FD->hasAttr<HLSLIntrinsicAttr>()))
+      return FD;
+    return nullptr;
+  }
+
   bool AddOverloadedCallCandidates(UnresolvedLookupExpr *ULE,
                                    ArrayRef<Expr *> Args,
                                    OverloadCandidateSet &CandidateSet, Scope *S,
@@ -5492,27 +5559,55 @@ public:
     const bool isQualified = ULE->getQualifier();
 
     const bool isGlobalNamespace =
-        ULE->getQualifier() &&
+        isQualified &&
         ULE->getQualifier()->getKind() == NestedNameSpecifier::Global;
 
-    const bool isVkNamespace =
-        ULE->getQualifier() &&
-        ULE->getQualifier()->getKind() == NestedNameSpecifier::Namespace &&
-        ULE->getQualifier()->getAsNamespace()->getName() == "vk";
+    NamespaceDecl *QualifiedNamespace = nullptr;
+    if (isQualified &&
+        ULE->getQualifier()->getKind() == NestedNameSpecifier::Namespace)
+      QualifiedNamespace = ULE->getQualifier()->getAsNamespace();
 
-    const bool isDxNamespace =
-        ULE->getQualifier() &&
-        ULE->getQualifier()->getKind() == NestedNameSpecifier::Namespace &&
-        ULE->getQualifier()->getAsNamespace()->getName() == "dx";
+    const bool isVkNamespace = QualifiedNamespace && m_vkNSDecl &&
+                               QualifiedNamespace->getOriginalNamespace() ==
+                                   m_vkNSDecl->getOriginalNamespace();
 
-    // Intrinsics live in the global namespace, so references to their names
-    // should be either unqualified or '::'-prefixed.
+    const bool isDxNamespace = QualifiedNamespace && m_dxNSDecl &&
+                               QualifiedNamespace->getOriginalNamespace() ==
+                                   m_dxNSDecl->getOriginalNamespace();
+
+    FunctionDecl *HlslLookupDecl = nullptr;
+    for (UnresolvedLookupExpr::decls_iterator I = ULE->decls_begin(),
+                                              E = ULE->decls_end();
+         I != E; ++I) {
+      HlslLookupDecl = GetHlslIntrinsicLookupDecl(*I);
+      if (HlslLookupDecl)
+        break;
+    }
+    if (!HlslLookupDecl && m_hlslNSDecl && !isQualified && ULE->requiresADL()) {
+      // ADL's ordinary candidate insertion skips intrinsic lookup markers.
+      // Find the family here so its signatures can be synthesized first.
+      ADLResult Functions;
+      m_sema->ArgumentDependentLookup(ULE->getName(), ULE->getExprLoc(), Args,
+                                      Functions);
+      for (NamedDecl *D : Functions) {
+        HlslLookupDecl = GetHlslIntrinsicLookupDecl(D);
+        if (HlslLookupDecl)
+          break;
+      }
+    }
+    const bool SearchHlsl = HlslLookupDecl != nullptr;
+
+    // HLSL intrinsics live in the global namespace, so references to their
+    // names should be either unqualified or '::'-prefixed.
     // Exceptions:
     // - Vulkan-specific intrinsics live in the 'vk::' namespace.
     // - DirectX-specific intrinsics live in the 'dx::' namespace.
+    // - Under HLSL 202x, ordinary lookup or ADL must find the intrinsic family
+    //   in 'hlsl', directly or through an explicit import.
     // - Global namespaces could just mean we have a `using` declaration... so
     // it can be anywhere!
-    if (isQualified && !isGlobalNamespace && !isVkNamespace && !isDxNamespace)
+    if (isQualified && !isGlobalNamespace && !isVkNamespace && !isDxNamespace &&
+        !SearchHlsl)
       return false;
 
     const DeclarationNameInfo declName = ULE->getNameInfo();
@@ -5532,20 +5627,28 @@ public:
 
     bool SearchDX = isDxNamespace;
     bool SearchVK = isVkNamespace;
-    if (isGlobalNamespace || !isQualified)
-      SearchTables.push_back(
-          IntrinsicTableEntry{IntrinsicArray(g_Intrinsics), m_hlslNSDecl});
 
     if (S && !isQualified) {
       SmallVector<const DeclContext *, 4> NSContexts;
       m_sema->CollectNamespaceContexts(S, NSContexts);
-      for (const auto &UD : NSContexts) {
-        if (static_cast<DeclContext *>(m_dxNSDecl) == UD)
+      for (const DeclContext *UD : NSContexts) {
+        const DeclContext *PrimaryContext = UD->getPrimaryContext();
+        if (m_dxNSDecl->getPrimaryContext() == PrimaryContext)
           SearchDX = true;
-        else if (static_cast<DeclContext *>(m_vkNSDecl) == UD)
+        else if (m_vkNSDecl &&
+                 m_vkNSDecl->getPrimaryContext() == PrimaryContext)
           SearchVK = true;
       }
     }
+
+    const bool intrinsicsRequireHlslQualifier =
+        m_sema->getLangOpts().HLSLVersion >= hlsl::LangStd::v202x;
+    const bool searchHlslIntrinsics = intrinsicsRequireHlslQualifier
+                                          ? SearchHlsl
+                                          : isGlobalNamespace || !isQualified;
+    if (searchHlslIntrinsics)
+      SearchTables.push_back(
+          IntrinsicTableEntry{IntrinsicArray(g_Intrinsics), m_hlslNSDecl});
 
     if (SearchDX)
       SearchTables.push_back(
@@ -5556,7 +5659,8 @@ public:
           IntrinsicTableEntry{IntrinsicArray(g_VkIntrinsics), m_vkNSDecl});
 #endif
 
-    assert(!SearchTables.empty() && "Must have at least one search table!");
+    if (SearchTables.empty())
+      return false;
 
     for (const auto &T : SearchTables) {
 
@@ -5590,11 +5694,29 @@ public:
                 *m_context, ULE->getTemplateArgs()[1].getArgument());
         }
 
-        bool argsMatch =
-            MatchArguments(cursor, QualType(), QualType(), templateTypeArg,
-                           templateIntArg, Args, &functionArgTypes, badArgIdx);
-        if (!functionArgTypes.size())
+        unsigned DiagnosticID = 0;
+        bool argsMatch = MatchArguments(
+            cursor, QualType(), QualType(), templateTypeArg, templateIntArg,
+            Args, &functionArgTypes, badArgIdx,
+            T.NS && T.NS == m_hlslNSDecl ? &DiagnosticID : nullptr);
+        if (DiagnosticID) {
+          // Keep intrinsic-specific errors with the failed candidate so a
+          // viable ordinary overload can still be selected.
+          OverloadCandidate &candidate = CandidateSet.addCandidate();
+          candidate.Function = HlslLookupDecl;
+          candidate.FoundDecl.setDecl(HlslLookupDecl);
+          candidate.Viable = false;
+          candidate.FailureKind = ovl_fail_hlsl_intrinsic;
+          candidate.HLSLIntrinsicFailure.DiagnosticID = DiagnosticID;
+          candidate.HLSLIntrinsicFailure.Location =
+              Args[badArgIdx - 1]->getExprLoc().getRawEncoding();
+          continue;
+        }
+        if (!functionArgTypes.size()) {
+          if (SearchHlsl)
+            continue;
           return false;
+        }
 
         // Get or create the overload we're interested in.
         FunctionDecl *intrinsicFuncDecl = nullptr;
@@ -5605,9 +5727,9 @@ public:
         if (insertedNewValue) {
           DXASSERT(tableName,
                    "otherwise IDxcIntrinsicTable::GetTableName() failed");
-          intrinsicFuncDecl =
-              AddHLSLIntrinsicFunction(*m_context, T.NS, tableName, lowering,
-                                       pIntrinsic, &functionArgTypes);
+          intrinsicFuncDecl = AddHLSLIntrinsicFunction(
+              *m_context, T.NS, T.NS == m_hlslNSDecl, tableName, lowering,
+              pIntrinsic, &functionArgTypes);
           insertResult.first->setFunctionDecl(intrinsicFuncDecl);
         } else {
           intrinsicFuncDecl = (*insertResult.first).getFunctionDecl();
@@ -5620,7 +5742,7 @@ public:
         CandidateSet.isNewCandidate(
             intrinsicFuncDecl); // used to insert into set
         if (argsMatch)
-          return true;
+          return T.NS != m_hlslNSDecl || !m_hlslNSDecl;
         if (badArgIdx) {
           candidate.FailureKind = ovl_fail_bad_conversion;
           QualType ParamType =
@@ -5642,15 +5764,18 @@ public:
   bool Initialize(ASTContext &context) {
     m_context = &context;
 
-    // The HLSL namespace is disabled here pending a decision on
-    // https://github.com/microsoft/hlsl-specs/issues/484.
-    if (false && context.getLangOpts().HLSLVersion >= hlsl::LangStd::v202x) {
+    // Under HLSL 202x the built-in HLSL intrinsic functions are placed in the
+    // 'hlsl' namespace (see: https://hlsl-tc57.github.io/tc57/proposal/0009/).
+    if (context.getLangOpts().HLSLVersion >= hlsl::LangStd::v202x) {
       m_hlslNSDecl =
           NamespaceDecl::Create(context, context.getTranslationUnitDecl(),
                                 /*Inline*/ false, SourceLocation(),
                                 SourceLocation(), &context.Idents.get("hlsl"),
                                 /*PrevDecl*/ nullptr);
       m_hlslNSDecl->setImplicit();
+      m_hlslNSDecl->setHasExternalLexicalStorage(true);
+      m_hlslNSDecl->setHasExternalVisibleStorage(true);
+      context.getTranslationUnitDecl()->addDecl(m_hlslNSDecl);
     }
     AddBaseTypes();
     AddHLSLScalarTypes();
@@ -7008,7 +7133,7 @@ bool HLSLExternalSource::MatchArguments(
     const IntrinsicDefIter &cursor, QualType objectType, QualType objectElement,
     QualType functionTemplateTypeArg, unsigned functionTemplateIntArg,
     ArrayRef<Expr *> Args, std::vector<QualType> *argTypesVector,
-    size_t &badArgIdx) {
+    size_t &badArgIdx, unsigned *DiagnosticID) {
   const HLSL_INTRINSIC *pIntrinsic = *cursor;
   LPCSTR tableName = cursor.GetTableName();
   IntrinsicOp builtinOp = IntrinsicOp::Num_Intrinsics;
@@ -7091,7 +7216,10 @@ bool HLSLExternalSource::MatchArguments(
           }
         }
       }
-      m_sema->Diag(pCallArg->getExprLoc(), diag::err_hlsl_ray_desc_required);
+      if (DiagnosticID)
+        *DiagnosticID = diag::err_hlsl_ray_desc_required;
+      else
+        m_sema->Diag(pCallArg->getExprLoc(), diag::err_hlsl_ray_desc_required);
       badArgIdx = iArg;
       return false;
     }
@@ -7101,8 +7229,11 @@ bool HLSLExternalSource::MatchArguments(
         ++iArg;
         continue;
       }
-      m_sema->Diag(pCallArg->getExprLoc(),
-                   diag::err_hlsl_linalg_attributed_matrix_required);
+      if (DiagnosticID)
+        *DiagnosticID = diag::err_hlsl_linalg_attributed_matrix_required;
+      else
+        m_sema->Diag(pCallArg->getExprLoc(),
+                     diag::err_hlsl_linalg_attributed_matrix_required);
       badArgIdx = iArg;
       return false;
     }
@@ -7128,8 +7259,11 @@ bool HLSLExternalSource::MatchArguments(
       QualType Ty = pCallArg->getType();
       // Must be user define type for LICOMPTYPE_USER_DEFINED_TYPE arg.
       if (TypeInfoShapeKind != AR_TOBJ_COMPOUND) {
-        m_sema->Diag(pCallArg->getExprLoc(),
-                     diag::err_hlsl_no_struct_user_defined_type);
+        if (DiagnosticID)
+          *DiagnosticID = diag::err_hlsl_no_struct_user_defined_type;
+        else
+          m_sema->Diag(pCallArg->getExprLoc(),
+                       diag::err_hlsl_no_struct_user_defined_type);
         badArgIdx = iArg;
         return false;
       }
@@ -13319,6 +13453,11 @@ hlsl::GetBestViableFunction(clang::Sema &S, clang::SourceLocation Loc,
                             clang::OverloadCandidateSet::iterator &Best) {
   return HLSLExternalSource::FromSema(&S)->GetBestViableFunction(Loc, set,
                                                                  Best);
+}
+
+bool hlsl::IsIntrinsicLookupMarker(clang::NamedDecl *D) {
+  FunctionDecl *FD = dyn_cast<FunctionDecl>(D->getUnderlyingDecl());
+  return FD && FD->hasAttr<HLSLIntrinsicLookupMarkerAttr>();
 }
 
 void hlsl::InitializeInitSequenceForHLSL(Sema *self,

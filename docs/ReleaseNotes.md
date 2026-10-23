@@ -77,6 +77,8 @@ line upon naming the release. Refer to previous for appropriate section names.
 - Fix HLSL 202x conforming literals false-positive warning for hex literal
   signedness
   ([#7864](https://github.com/microsoft/DirectXShaderCompiler/issues/7864)).
+- Moved HLSL built-in functions into the `hlsl` namespace under HLSL 202x
+  ([#8918](https://github.com/microsoft/DirectXShaderCompiler/issues/8918)).
 
 #### Bug Fixes
 
