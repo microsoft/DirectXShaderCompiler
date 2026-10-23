@@ -86,6 +86,9 @@ line upon naming the release. Refer to previous for appropriate section names.
 - Fixed members following a merged bitfield reading the wrong value when a
   struct is flat-converted
   [#8526](https://github.com/microsoft/DirectXShaderCompiler/issues/8526).
+- Fixed `-Zi` debug info for static globals used in inlined functions pointing
+  at the wrong subprogram, which the LLVM verifier rejects
+  [#8592](https://github.com/microsoft/DirectXShaderCompiler/issues/8592).
 
 ### Upcoming Preview Release
 
