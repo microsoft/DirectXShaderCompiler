@@ -183,9 +183,11 @@ bool InitListHandler::tryToSplitStruct() {
           return true;
         }
 
-        fields.push_back(spvBuilder.createBitFieldExtract(
+        SpirvInstruction *bits = spvBuilder.createBitFieldExtract(
             fieldType, container, fieldInfo.bitfield->offsetInBits,
-            fieldInfo.bitfield->sizeInBits, loc, init->getSourceRange()));
+            fieldInfo.bitfield->sizeInBits, loc, init->getSourceRange());
+        bits->setLayoutRule(init->getLayoutRule());
+        fields.push_back(bits);
         return true;
       },
       true);

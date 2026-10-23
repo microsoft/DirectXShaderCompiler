@@ -85,8 +85,10 @@ line upon naming the release. Refer to previous for appropriate section names.
 - Fixed members following a merged bitfield reading the wrong value when a
   struct is flat-converted
   [#8526](https://github.com/microsoft/DirectXShaderCompiler/issues/8526).
-- SPIR-V: Fixed invalid member extraction when casting between structs with
-  merged bitfields.
+- Fixed flat conversions, splats and aggregate initializer lists treating a
+  bitfield as its whole storage unit, which read wrong values and, on SPIR-V,
+  emitted an out-of-bounds member index
+  [#7074](https://github.com/microsoft/DirectXShaderCompiler/issues/7074).
 
 ### Upcoming Preview Release
 

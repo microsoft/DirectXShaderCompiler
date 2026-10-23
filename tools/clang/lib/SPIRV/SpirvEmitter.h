@@ -1562,15 +1562,16 @@ private:
 
   /// Returns a spirv instruction with the value of the given type and layout
   /// rule that is obtained by assigning each scalar in `type` to corresponding
-  /// value in `scalars`. This is the inverse of `decomposeToScalars`.
+  /// value in `scalars`. This is the inverse of `decomposeToScalars` called
+  /// with the same `includeMergedBitfields`.
   SpirvInstruction *
   generateFromScalars(QualType type, std::vector<SpirvInstruction *> &scalars,
-                      SpirvLayoutRule layoutRule);
+                      SpirvLayoutRule layoutRule, bool includeMergedBitfields);
 
   /// Returns a spirv instruction with the value of the given type and layout
   /// rule that is obtained by assigning `scalar` each scalar in `type`. This is
   /// the same as calling `generateFromScalars` with a sufficiently large vector
-  /// where every element is `scalar`.
+  /// where every element is `scalar` and `includeMergedBitfields` set.
   SpirvInstruction *splatScalarToGenerate(QualType type,
                                           SpirvInstruction *scalar,
                                           SpirvLayoutRule rule);
