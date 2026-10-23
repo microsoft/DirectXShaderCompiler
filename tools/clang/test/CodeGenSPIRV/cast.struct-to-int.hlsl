@@ -83,15 +83,17 @@ void main()
 // CHECK: [[COLORS:%[^ ]*]] = OpLoad [[TWOCOLORS]]
 // CHECK: [[COLORS0:%[^ ]*]] = OpCompositeExtract [[COLORRGBA]] [[COLORS]] 0
 // CHECK: [[COLORS00:%[^ ]*]] = OpCompositeExtract [[UINT]] [[COLORS0]] 0
+// CHECK: [[COLORSR:%[^ ]*]] = OpBitFieldUExtract [[UINT]] [[COLORS00]] [[U0]] [[U8]]
 // CHECK: [[BUF00:%[^ ]*]] = OpAccessChain %{{[^ ]*}} [[BUF]] [[I0]] [[U0]]
-// CHECK: OpStore [[BUF00]] [[COLORS00]]
+// CHECK: OpStore [[BUF00]] [[COLORSR]]
 
     buf[0] -= (uint) rgb;
 // CHECK: [[RGB:%[^ ]*]] = OpLoad [[COLORRGB]]
 // CHECK: [[RGB0:%[^ ]*]] = OpCompositeExtract [[UINT]] [[RGB]] 0
+// CHECK: [[RGBR:%[^ ]*]] = OpBitFieldUExtract [[UINT]] [[RGB0]] [[U0]] [[U8]]
 // CHECK: [[BUF00_0:%[^ ]*]] = OpAccessChain %{{[^ ]*}} [[BUF]] [[I0]] [[U0]]
 // CHECK: [[V1:%[^ ]*]] = OpLoad [[UINT]] [[BUF00_0]]
-// CHECK: [[V2:%[^ ]*]] = OpISub [[UINT]] [[V1]] [[RGB0]]
+// CHECK: [[V2:%[^ ]*]] = OpISub [[UINT]] [[V1]] [[RGBR]]
 // CHECK: OpStore [[BUF00_0]] [[V2]]
 
     lbuf[0] = (uint64_t) v;
@@ -114,11 +116,15 @@ void main()
     vbuf[0] = (Vectors) colors;
 // CHECK: [[c0:%[^ ]*]] = OpLoad {{%[^ ]*}} %colors
 // CHECK: [[c0_0:%[^ ]+]] = OpCompositeExtract %ColorRGBA [[c0]] 0
-// The entire bit container extracted for each bitfield.
-// CHECK: [[c0_0_0:%[^ ]*]] = OpCompositeExtract %uint [[c0_0]] 0
-// CHECK: [[c0_0_1:%[^ ]*]] = OpCompositeExtract %uint [[c0_0]] 0
-// CHECK: [[c0_0_2:%[^ ]*]] = OpCompositeExtract %uint [[c0_0]] 0
-// CHECK: [[c0_0_3:%[^ ]*]] = OpCompositeExtract %uint [[c0_0]] 0
+// Each bitfield is extracted from its bit container at its own offset.
+// CHECK: [[w0:%[^ ]*]] = OpCompositeExtract %uint [[c0_0]] 0
+// CHECK: [[c0_0_0:%[^ ]*]] = OpBitFieldUExtract %uint [[w0]] [[U0]] [[U8]]
+// CHECK: [[w1:%[^ ]*]] = OpCompositeExtract %uint [[c0_0]] 0
+// CHECK: [[c0_0_1:%[^ ]*]] = OpBitFieldUExtract %uint [[w1]] [[U8]] [[U8]]
+// CHECK: [[w2:%[^ ]*]] = OpCompositeExtract %uint [[c0_0]] 0
+// CHECK: [[c0_0_2:%[^ ]*]] = OpBitFieldUExtract %uint [[w2]] %uint_16 [[U8]]
+// CHECK: [[w3:%[^ ]*]] = OpCompositeExtract %uint [[c0_0]] 0
+// CHECK: [[c0_0_3:%[^ ]*]] = OpBitFieldUExtract %uint [[w3]] %uint_24 [[U8]]
 // CHECK: [[v0:%[^ ]*]] = OpCompositeConstruct %v2uint [[c0_0_0]] [[c0_0_1]]
 // CHECK: [[v1:%[^ ]*]] = OpCompositeConstruct %v2uint [[c0_0_2]] [[c0_0_3]]
 // CHECK: [[v:%[^ ]*]] = OpCompositeConstruct %Vectors_0 [[v0]] [[v1]]
