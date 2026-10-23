@@ -6962,6 +6962,50 @@ ConcreteLiteralType(Expr *litExpr, ArBasicKind kind,
   }
 }
 
+static bool IsOrContains16BitType(QualType Ty, bool Enable16BitTypes) {
+  if (Ty.isNull() || Ty->isIncompleteType())
+    return false;
+
+  Ty = Ty.getCanonicalType().getUnqualifiedType();
+
+  if (const BuiltinType *BT = Ty->getAs<BuiltinType>()) {
+    switch (BT->getKind()) {
+    case BuiltinType::Short:
+    case BuiltinType::UShort:
+    case BuiltinType::Half:
+      return true;
+    case BuiltinType::Min16Int:
+    case BuiltinType::Min16UInt:
+    case BuiltinType::Min16Float:
+    case BuiltinType::Min10Float:
+    case BuiltinType::Min12Int:
+      return Enable16BitTypes;
+    default:
+      return false;
+    }
+  }
+
+  if (hlsl::IsHLSLVecType(Ty))
+    return IsOrContains16BitType(hlsl::GetHLSLVecElementType(Ty),
+                                 Enable16BitTypes);
+  if (hlsl::IsHLSLMatType(Ty))
+    return IsOrContains16BitType(hlsl::GetHLSLMatElementType(Ty),
+                                 Enable16BitTypes);
+
+  if (const ArrayType *AT = Ty->getAsArrayTypeUnsafe())
+    return IsOrContains16BitType(AT->getElementType(), Enable16BitTypes);
+  if (const RecordType *RT = Ty->getAs<RecordType>()) {
+    for (const FieldDecl *FD : RT->getDecl()->fields())
+      if (IsOrContains16BitType(FD->getType(), Enable16BitTypes))
+        return true;
+    if (const auto *RD = dyn_cast<CXXRecordDecl>(RT->getDecl()))
+      for (const auto &Base : RD->bases())
+        if (IsOrContains16BitType(Base.getType(), Enable16BitTypes))
+          return true;
+  }
+  return false;
+}
+
 bool HLSLExternalSource::IsValidObjectElement(LPCSTR tableName,
                                               const IntrinsicOp op,
                                               QualType objectElement) {
@@ -11536,6 +11580,19 @@ HLSLExternalSource::DeduceTemplateArgumentsForHLSL(
             32, /*signed*/ false);
       }
     }
+#ifdef ENABLE_SPIRV_CODEGEN
+    // We don't support 16 bit stores in SPIRV for RWByteAddressBuffer due to
+    // representing the buffer as a series of 32 bit values.
+    // See https://github.com/microsoft/DirectXShaderCompiler/issues/8172
+    if (IsBABStore && getSema()->getLangOpts().SPIRV) {
+      if (IsOrContains16BitType(argTypes[2],
+                                !getSema()->getLangOpts().UseMinPrecision)) {
+        getSema()->Diag(Args[1]->getLocStart(),
+                        diag::err_hlsl_vk_rwbyteaddressbuffer_16bit_store);
+        return Sema::TemplateDeductionResult::TDK_Invalid;
+      }
+    }
+#endif
     Specialization = AddHLSLIntrinsicMethod(
         tableName, cursor.GetLoweringStrategy(), *cursor, FunctionTemplate,
         Args, argTypes.data(), argTypes.size());
