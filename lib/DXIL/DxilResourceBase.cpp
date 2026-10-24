@@ -44,7 +44,11 @@ llvm::Value *DxilResourceBase::GetHandle() const { return m_pHandle; }
 // In sm6.6, type of m_pSymbol will be mutated to handleTy, m_pHLSLTy will save
 // the original HLSL type.
 llvm::Type *DxilResourceBase::GetHLSLType() const {
-  return m_pHLSLTy == nullptr ? m_pSymbol->getType() : m_pHLSLTy;
+  if (m_pHLSLTy)
+    return m_pHLSLTy;
+  IFTBOOL(m_pSymbol, DXC_E_INCORRECT_DXIL_METADATA);
+  IFTBOOL(m_pSymbol->getType(), DXC_E_INCORRECT_DXIL_METADATA);
+  return m_pSymbol->getType();
 }
 bool DxilResourceBase::IsAllocated() const { return m_LowerBound != UINT_MAX; }
 bool DxilResourceBase::IsUnbounded() const { return m_RangeSize == UINT_MAX; }

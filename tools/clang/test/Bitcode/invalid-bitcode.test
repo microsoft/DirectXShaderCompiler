@@ -1,0 +1,42 @@
+// Malformed bitcode must be rejected with a diagnostic instead of crashing
+// the reader on a null pointer or a failed assertion.
+
+// RUN: not llvm-dis -disable-output %S/Inputs/invalid-bitcode-function-return-type.bc 2>&1 | FileCheck %s --check-prefix=RETTY
+// RUN: not llvm-dis -disable-output %S/Inputs/invalid-bitcode-function-old-return-type.bc 2>&1 | FileCheck %s --check-prefix=RETTY
+// RUN: not llvm-dis -disable-output %S/Inputs/invalid-bitcode-function-old-argument-type.bc 2>&1 | FileCheck %s --check-prefix=ARGTY
+// RUN: not llvm-dis -disable-output %S/Inputs/invalid-bitcode-constexpr-cast.bc 2>&1 | FileCheck %s --check-prefix=CAST
+// RUN: not llvm-dis -disable-output %S/Inputs/invalid-bitcode-null-type.bc 2>&1 | FileCheck %s --check-prefix=RECORD
+// RUN: not llvm-dis -disable-output %S/Inputs/invalid-bitcode-old-fn-node-value.bc 2>&1 | FileCheck %s --check-prefix=RECORD
+
+// Switch conditions must be integers, in both the original and the
+// case-range record formats.
+// RUN: not llvm-dis -disable-output %S/Inputs/invalid-bitcode-switch-cond-type.bc 2>&1 | FileCheck %s --check-prefix=RECORD
+// RUN: not llvm-dis -disable-output %S/Inputs/invalid-bitcode-switch-case-range-cond-type.bc 2>&1 | FileCheck %s --check-prefix=RECORD
+
+// Switch records must contain every field they claim: an empty record, a
+// case-range record without its five fixed fields, one that ends before its
+// cases, one whose case value claims more words than the record has, and one
+// whose case goes to a block that does not exist.
+// RUN: not llvm-dis -disable-output %S/Inputs/invalid-bitcode-switch-empty.bc 2>&1 | FileCheck %s --check-prefix=RECORD
+// RUN: not llvm-dis -disable-output %S/Inputs/invalid-bitcode-switch-case-range-short.bc 2>&1 | FileCheck %s --check-prefix=RECORD
+// RUN: not llvm-dis -disable-output %S/Inputs/invalid-bitcode-switch-case-range-missing-cases.bc 2>&1 | FileCheck %s --check-prefix=RECORD
+// RUN: not llvm-dis -disable-output %S/Inputs/invalid-bitcode-switch-case-range-active-words.bc 2>&1 | FileCheck %s --check-prefix=RECORD
+// RUN: not llvm-dis -disable-output %S/Inputs/invalid-bitcode-switch-case-range-dest.bc 2>&1 | FileCheck %s --check-prefix=RECORD
+
+// IDxcPdbUtils lazily materializes only selected named metadata, which goes
+// through a separate metadata parser.
+// RUN: not %dxa -listfiles %S/Inputs/invalid-bitcode-select-metadata-value-type.bc 2>&1 | FileCheck %s --check-prefix=RECORD
+
+// A bitcast between pointers in different address spaces is only upgraded
+// when both sides have the same shape. Otherwise it must be rejected rather
+// than upgraded through a mismatched integer type.
+// RUN: not llvm-dis -disable-output %S/Inputs/invalid-bitcode-ce-addrspace-bitcast-vec-to-scalar.bc 2>&1 | FileCheck %s --check-prefix=CAST
+// RUN: not llvm-dis -disable-output %S/Inputs/invalid-bitcode-ce-addrspace-bitcast-vec-length.bc 2>&1 | FileCheck %s --check-prefix=CAST
+// RUN: not llvm-dis -disable-output %S/Inputs/invalid-bitcode-inst-addrspace-bitcast-vec-to-scalar.bc 2>&1 | FileCheck %s --check-prefix=INSTCAST
+// RUN: not llvm-dis -disable-output %S/Inputs/invalid-bitcode-inst-addrspace-bitcast-vec-length.bc 2>&1 | FileCheck %s --check-prefix=INSTCAST
+
+// RETTY: error: Invalid return type for function
+// ARGTY: error: Invalid function argument type
+// CAST: error: Invalid constant expression cast!
+// INSTCAST: error: Invalid cast
+// RECORD: error: Invalid record

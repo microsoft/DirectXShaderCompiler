@@ -86,6 +86,8 @@ line upon naming the release. Refer to previous for appropriate section names.
 - Fixed members following a merged bitfield reading the wrong value when a
   struct is flat-converted
   [#8526](https://github.com/microsoft/DirectXShaderCompiler/issues/8526).
+- Malformed bitcode and DXIL are now rejected with an error instead of crashing
+  the bitcode reader.
 
 ### Upcoming Preview Release
 

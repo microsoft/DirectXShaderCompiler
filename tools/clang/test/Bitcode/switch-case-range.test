@@ -1,0 +1,15 @@
+// The reader still accepts switch instructions in the case-range record
+// format, expanding each range into individual cases.
+
+// RUN: llvm-dis %S/Inputs/switch-case-range.bc -o - | FileCheck %s --check-prefix=I32
+// I32: switch i32 %0, label %1 [
+// I32-NEXT: i32 7, label %2
+// I32-NEXT: i32 1, label %2
+// I32-NEXT: i32 2, label %2
+// I32-NEXT: ]
+
+// Values wider than 64 bits carry an explicit word count.
+// RUN: llvm-dis %S/Inputs/switch-case-range-wide.bc -o - | FileCheck %s --check-prefix=I128
+// I128: switch i128 %0, label %1 [
+// I128-NEXT: i128 5, label %2
+// I128-NEXT: ]

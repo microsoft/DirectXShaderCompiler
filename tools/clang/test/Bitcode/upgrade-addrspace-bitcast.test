@@ -1,0 +1,10 @@
+// Old bitcode may contain a bitcast between pointers in different address
+// spaces. The reader upgrades it to ptrtoint + inttoptr, using an integer
+// vector intermediate when the pointers are vectors.
+
+// RUN: llvm-dis %S/Inputs/upgrade-ce-addrspace-bitcast-vec.bc -o - | FileCheck %s --check-prefix=CE
+// CE: constant <2 x i8 addrspace(1)*> zeroinitializer
+
+// RUN: llvm-dis %S/Inputs/upgrade-inst-addrspace-bitcast-vec.bc -o - | FileCheck %s --check-prefix=INST
+// INST: [[INT:%[0-9]+]] = ptrtoint <2 x i8*> %{{[0-9]+}} to <2 x i64>
+// INST-NEXT: inttoptr <2 x i64> [[INT]] to <2 x i8 addrspace(1)*>
