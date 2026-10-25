@@ -4772,6 +4772,13 @@ SpirvVariable *DeclResultIdMapper::createSpirvStageVar(
   // According to Vulkan spec, the CullPrimitiveEXT BuiltIn can only
   // be used as MSOut.
   case hlsl::Semantic::Kind::CullPrimitive: {
+    QualType elemType = type;
+    while (const auto *arrayType = astContext.getAsConstantArrayType(elemType))
+      elemType = arrayType->getElementType();
+    if (!elemType->isBooleanType()) {
+      emitError("semantic CullPrimitive must be bool", srcLoc);
+      return nullptr;
+    }
     switch (sigPointKind) {
     case hlsl::SigPoint::Kind::PSIn:
       stageVar->setIsSpirvBuiltin();

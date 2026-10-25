@@ -25,6 +25,8 @@ The included licenses apply to the following files:
   buffer-like resources (`StructuredBuffer`, `ByteAddressBuffer`,
   `ConstantBuffer`, `TextureBuffer`, and RW variants) via
   `SPV_KHR_untyped_pointers`. Requires `-fspv-target-env=vulkan1.3`.
+- `SV_CullPrimitive` declared with a non-bool type is now an error, matching
+  DXIL, instead of producing invalid SPIR-V.
 
 Place release notes for the upcoming release below this line and remove this
 line upon naming the release. Refer to previous for appropriate section names.
