@@ -2792,15 +2792,16 @@ bool Sema::UseArgumentDependentLookup(const CXXScopeSpec &SS,
   // Never if a scope specifier was provided.
   if (SS.isSet()) {
     // HLSL Change begins
-    // We want to be able to have intrinsics inside the "vk" and "dx"
-    // namespaces.
-    const bool isVkNamespace =
-        SS.getScopeRep() && SS.getScopeRep()->getAsNamespace() &&
-        SS.getScopeRep()->getAsNamespace()->getName() == "vk";
+    // Allow qualified intrinsic calls in the root "vk" and "dx" namespaces.
+    NestedNameSpecifier *ScopeRep = SS.getScopeRep();
+    NamespaceDecl *Namespace = ScopeRep ? ScopeRep->getAsNamespace() : nullptr;
 
-    const bool isDxNamespace =
-        SS.getScopeRep() && SS.getScopeRep()->getAsNamespace() &&
-        SS.getScopeRep()->getAsNamespace()->getName() == "dx";
+    const bool isRootNamespace =
+        Namespace && Namespace->getDeclContext()->isTranslationUnit();
+
+    const bool isVkNamespace = isRootNamespace && Namespace->getName() == "vk";
+
+    const bool isDxNamespace = isRootNamespace && Namespace->getName() == "dx";
 
     if (!isVkNamespace && !isDxNamespace)
       // HLSL Change ends
@@ -2878,12 +2879,18 @@ static bool CheckDeclInExpr(Sema &S, SourceLocation Loc, NamedDecl *D) {
 ExprResult Sema::BuildDeclarationNameExpr(const CXXScopeSpec &SS,
                                           LookupResult &R, bool NeedsADL,
                                           bool AcceptInvalidDecl) {
-  // If this is a single, fully-resolved result and we don't need ADL,
-  // just build an ordinary singleton decl ref.
-  if (!NeedsADL && R.isSingleResult() && !R.getAsSingle<FunctionTemplateDecl>())
+  // HLSL Change Begin
+  // Intrinsic lookup markers still need call-time overload synthesis, even
+  // for qualified calls where ADL is disabled.
+  const bool NeedsIntrinsicLookup =
+      getLangOpts().HLSL && R.isSingleResult() &&
+      hlsl::IsIntrinsicLookupMarker(R.getFoundDecl());
+  if (!NeedsADL && !NeedsIntrinsicLookup && R.isSingleResult() &&
+      !R.getAsSingle<FunctionTemplateDecl>())
     return BuildDeclarationNameExpr(SS, R.getLookupNameInfo(), R.getFoundDecl(),
                                     R.getRepresentativeDecl(), nullptr,
                                     AcceptInvalidDecl);
+  // HLSL Change End
 
   // We only need to check the declaration if there's exactly one
   // result, because in the overloaded case the results can only be

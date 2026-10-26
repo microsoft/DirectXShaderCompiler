@@ -17,6 +17,9 @@
 // CHECK: store i32 1, i32* [[A]]
 // CHECK: store float 2.000000e+00, float* [[B]]
 // CHECK: store i32 1, i32* [[C]]
+#if __HLSL_VERSION > 2021
+using namespace hlsl;
+#endif
 
 RWBuffer<float> output : register(u0);
 
