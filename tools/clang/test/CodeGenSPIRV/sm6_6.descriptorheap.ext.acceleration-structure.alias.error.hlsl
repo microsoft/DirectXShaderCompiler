@@ -1,5 +1,5 @@
-// RUN: not %dxc -T cs_6_6 -E main -fspv-use-descriptor-heap -fspv-target-env=vulkan1.3 -fspv-extension=SPV_EXT_descriptor_heap -fspv-extension=SPV_KHR_untyped_pointers -fspv-extension=SPV_KHR_ray_query -spirv -DCASE=0 %s 2>&1 | FileCheck %s --check-prefix=MIX
-// RUN: not %dxc -T cs_6_6 -E main -fspv-use-descriptor-heap -fspv-target-env=vulkan1.3 -fspv-extension=SPV_EXT_descriptor_heap -fspv-extension=SPV_KHR_untyped_pointers -fspv-extension=SPV_KHR_ray_query -spirv -DCASE=1 %s 2>&1 | FileCheck %s --check-prefix=MIX
+// RUN: not %dxc -T cs_6_6 -E main -fspv-use-descriptor-heap -fspv-target-env=vulkan1.3 -fspv-extension=SPV_EXT_descriptor_heap -fspv-extension=SPV_KHR_untyped_pointers -fspv-extension=SPV_KHR_ray_query -spirv -DCASE=0 %s 2>&1 | FileCheck %s --check-prefix=REASSIGN
+// RUN: not %dxc -T cs_6_6 -E main -fspv-use-descriptor-heap -fspv-target-env=vulkan1.3 -fspv-extension=SPV_EXT_descriptor_heap -fspv-extension=SPV_KHR_untyped_pointers -fspv-extension=SPV_KHR_ray_query -spirv -DCASE=1 %s 2>&1 | FileCheck %s --check-prefix=REASSIGN
 // RUN: not %dxc -T cs_6_6 -E main -fspv-use-descriptor-heap -fspv-target-env=vulkan1.3 -fspv-extension=SPV_EXT_descriptor_heap -fspv-extension=SPV_KHR_untyped_pointers -fspv-extension=SPV_KHR_ray_query -spirv -DCASE=2 %s 2>&1 | FileCheck %s --check-prefix=REASSIGN
 // RUN: not %dxc -T cs_6_6 -E main -fspv-use-descriptor-heap -fspv-target-env=vulkan1.3 -fspv-extension=SPV_EXT_descriptor_heap -fspv-extension=SPV_KHR_untyped_pointers -fspv-extension=SPV_KHR_ray_query -spirv -DCASE=3 %s 2>&1 | FileCheck %s --check-prefix=MIX
 
@@ -9,9 +9,9 @@
 //
 // CASE=0 and CASE=1 assign a bound acceleration structure to a heap-initialized
 // variable, once as a statement and once as a value. CASE=2 reassigns it from
-// another heap access, which is also rejected, with a message that does not
+// another heap access. All three get the reassignment error, which does not
 // mention bound resources. CASE=3 assigns a heap acceleration structure to a
-// variable that was assigned a bound one before.
+// variable that was assigned a bound one before, which is the mixing error.
 
 // MIX: error: mixing bound and descriptor heap resources in the same variable is not supported
 // MIX-NOT: Internal compiler error

@@ -850,7 +850,7 @@ public:
   /// and cannot change afterwards. A call after that point has no effect, so
   /// resourceHeapStrideIncludesAccelStruct() stays false and code generation
   /// must reject acceleration structure heap loads.
-  void noteResourceHeapHasAccelStruct() {
+  void registerResourceHeapAccelStruct() {
     if (!resourceHeapArrayStride)
       resourceHeapHasAccelStruct = true;
   }
@@ -864,7 +864,7 @@ public:
 
   /// \brief Returns the ArrayStrideIdEXT operand shared by every resource-heap
   /// runtime array: the largest descriptor size among images and buffers, and
-  /// among acceleration structures if noteResourceHeapHasAccelStruct() was
+  /// among acceleration structures if registerResourceHeapAccelStruct() was
   /// called first. The value is built from specialization constants because
   /// descriptor sizes are only known at pipeline creation.
   SpirvInstruction *getResourceHeapArrayStride();
@@ -997,7 +997,7 @@ private:
   SpirvInstruction *resourceHeapArrayStride = nullptr;
   SpirvInstruction *samplerHeapArrayStride = nullptr;
 
-  /// Set by noteResourceHeapHasAccelStruct(). When true,
+  /// Set by registerResourceHeapAccelStruct(). When true,
   /// getResourceHeapArrayStride() includes the acceleration structure
   /// descriptor size.
   bool resourceHeapHasAccelStruct = false;

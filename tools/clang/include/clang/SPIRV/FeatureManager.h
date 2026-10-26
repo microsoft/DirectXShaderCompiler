@@ -190,7 +190,7 @@ private:
   DiagnosticsEngine &diags;
 
   llvm::SmallBitVector allowedExtensions;
-  bool explicitExtensionList = false;
+  bool hasExplicitExtensions = false;
   spv_target_env targetEnv;
   std::string targetEnvStr;
 };

@@ -854,7 +854,7 @@ void SpirvEmitter::HandleTranslationUnit(ASTContext &context) {
           featureManager.hasExplicitAccelerationStructureProvider();
 
     if (needsAccelStruct)
-      spvBuilder.noteResourceHeapHasAccelStruct();
+      spvBuilder.registerResourceHeapAccelStruct();
   }
 
   // Translate all functions reachable from the entry function.
@@ -5396,12 +5396,11 @@ bool SpirvEmitter::diagnoseDescriptorHeapAliasMixing(const VarDecl *dstVar,
   // into, so any reassignment is rejected, including from another heap access.
   // Image and buffer aliases can be retargeted heap-to-heap; for them only
   // crossing between bound and heap resources is rejected.
-  const bool isASReassignment = isASType && wasHeap && srcIsHeap;
-  const bool mixingDetected = (isASType && wasHeap) ||
-                              (srcIsHeap && wasBound) ||
-                              (!srcIsHeap && wasHeap);
+  const bool isASReassignment = isASType && wasHeap;
+  const bool mixingDetected =
+      (srcIsHeap && wasBound) || (!srcIsHeap && wasHeap);
 
-  if (mixingDetected) {
+  if (isASReassignment || mixingDetected) {
     if (isASReassignment)
       emitError("reassigning a RaytracingAccelerationStructure initialized "
                 "from ResourceDescriptorHeap is not supported with "

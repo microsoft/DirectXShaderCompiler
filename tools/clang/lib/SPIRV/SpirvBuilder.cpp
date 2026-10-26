@@ -2070,7 +2070,7 @@ SpirvInstruction *SpirvBuilder::getResourceHeapArrayStride() {
   //           covers all texture resources.
   //   buffer: a Uniform buffer.
   //   accel:  the acceleration structure type, included only when
-  //           noteResourceHeapHasAccelStruct() was called. That type needs a
+  //           registerResourceHeapAccelStruct() was called. That type needs a
   //           ray-tracing or ray-query capability, which is always declared
   //           in the cases that make that call.
   const SpirvType *placeholderImage = context.getImageType(

@@ -99,8 +99,8 @@ FeatureManager::FeatureManager(DiagnosticsEngine &de,
   }
   targetEnv = *targetEnvOpt;
 
-  explicitExtensionList = !opts.allowedExtensions.empty();
-  if (opts.allowedExtensions.empty()) {
+  hasExplicitExtensions = !opts.allowedExtensions.empty();
+  if (!hasExplicitExtensions) {
     // If no explicit extension control from command line, use the default mode:
     // allowing all extensions that are enabled by default.
     allowAllKnownExtensions();
@@ -391,7 +391,7 @@ Extension FeatureManager::getAccelerationStructureProvider() const {
 }
 
 bool FeatureManager::hasExplicitAccelerationStructureProvider() const {
-  return explicitExtensionList &&
+  return hasExplicitExtensions &&
          getAccelerationStructureProvider() != Extension::Unknown;
 }
 
