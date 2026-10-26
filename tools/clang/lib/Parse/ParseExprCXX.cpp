@@ -1295,7 +1295,10 @@ ExprResult Parser::ParseLambdaExpressionAfterIntroducer(
 ///         'const_cast' '<' type-name '>' '(' expression ')'
 ///
 ExprResult Parser::ParseCXXCasts() {
-  assert(!getLangOpts().HLSL && "not supported in HLSL - unreachable"); // HLSL Change
+  // HLSL Change Begin - Only allow static_cast
+  assert((!getLangOpts().HLSL || Tok.is(tok::kw_static_cast)) &&
+         "cast not supported in HLSL");
+  // HLSL Change End - Only allow static_cast
   tok::TokenKind Kind = Tok.getKind();
   const char *CastName = nullptr; // For error messages
 
