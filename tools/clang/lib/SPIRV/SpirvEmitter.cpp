@@ -5393,9 +5393,10 @@ bool SpirvEmitter::diagnoseDescriptorHeapAliasMixing(const VarDecl *dstVar,
                         stateIt->second == DescriptorHeapVarState::Bound;
   // A heap-initialized acceleration structure is a compile-time name for the
   // handle loaded by its initializer, with no variable to store a new handle
-  // into, so any reassignment is rejected, including from another heap access.
-  // Image and buffer aliases can be retargeted heap-to-heap; for them only
-  // crossing between bound and heap resources is rejected.
+  // into, so any reassignment is rejected, whether the new value is a bound
+  // resource or another heap access. Image and buffer aliases can be
+  // retargeted heap-to-heap; for them only crossing between bound and heap
+  // resources is rejected.
   const bool isASReassignment = isASType && wasHeap;
   const bool mixingDetected =
       (srcIsHeap && wasBound) || (!srcIsHeap && wasHeap);

@@ -2194,7 +2194,7 @@ resource, or an assignment inside a loop::
   supported with SPV_EXT_descriptor_heap
 
 A heap-initialized ``RaytracingAccelerationStructure`` variable cannot be
-reassigned at all, even from another heap access::
+reassigned at all, whether from a bound resource or from another heap access::
 
   error: reassigning a RaytracingAccelerationStructure initialized from
   ResourceDescriptorHeap is not supported with SPV_EXT_descriptor_heap

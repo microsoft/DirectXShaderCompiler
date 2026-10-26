@@ -59,11 +59,6 @@ private:
   void addCapabilityForType(const SpirvType *, SourceLocation loc,
                             spv::StorageClass sc);
 
-  /// Adds the extension and capability that make the acceleration structure
-  /// type valid, chosen with FeatureManager::getAccelerationStructureProvider.
-  /// Reports an error if no allowed extension provides the type.
-  void addCapabilityForAccelerationStructure(SourceLocation loc);
-
   /// Checks that the given extension is a valid extension for the target
   /// environment (e.g. Vulkan 1.0). And if so, utilizes the SpirvBuilder to add
   /// the given extension to the SPIR-V module in memory.

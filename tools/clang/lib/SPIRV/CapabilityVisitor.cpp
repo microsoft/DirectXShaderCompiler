@@ -210,7 +210,14 @@ void CapabilityVisitor::addCapabilityForType(const SpirvType *type,
   }
   // Acceleration structure type
   else if (isa<AccelerationStructureTypeNV>(type)) {
-    addCapabilityForAccelerationStructure(loc);
+    // SPV_KHR_ray_query and SPV_KHR_ray_tracing are declared for every module
+    // in visit(SpirvModule *). NV is not, because declaring it there would add
+    // it to modules that never use the type. Skip it when a KHR extension
+    // already provides the type, so only one extension is declared.
+    if (!featureManager.isExtensionEnabled(Extension::KHR_ray_query) &&
+        !featureManager.isExtensionEnabled(Extension::KHR_ray_tracing))
+      addExtensionAndCapabilitiesIfEnabled(Extension::NV_ray_tracing,
+                                           {spv::Capability::RayTracingNV});
   }
   // Pointer type
   else if (const auto *ptrType = dyn_cast<SpirvPointerType>(type)) {
@@ -240,31 +247,6 @@ void CapabilityVisitor::addCapabilityForType(const SpirvType *type,
     }
     for (auto field : structType->getFields())
       addCapabilityForType(field.type, loc, sc);
-  }
-}
-
-void CapabilityVisitor::addCapabilityForAccelerationStructure(
-    SourceLocation loc) {
-  const Extension provider = featureManager.getAccelerationStructureProvider();
-  switch (provider) {
-  case Extension::KHR_ray_query:
-    addExtension(provider, "acceleration structure type", loc);
-    addCapability(spv::Capability::RayQueryKHR, loc);
-    break;
-  case Extension::KHR_ray_tracing:
-    addExtension(provider, "acceleration structure type", loc);
-    addCapability(spv::Capability::RayTracingKHR, loc);
-    break;
-  case Extension::NV_ray_tracing:
-    addExtension(provider, "acceleration structure type", loc);
-    addCapability(spv::Capability::RayTracingNV, loc);
-    break;
-  default:
-    // No allowed extension provides the type. Report the standard
-    // "extension not permitted" error instead of emitting an invalid module.
-    featureManager.requestExtension(Extension::KHR_ray_tracing,
-                                    "acceleration structure type", loc);
-    break;
   }
 }
 
