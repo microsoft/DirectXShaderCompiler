@@ -1430,6 +1430,8 @@ bool EmitVisitor::visit(SpirvSelect *inst) {
   return true;
 }
 
+// OpSpecConstantOp is a module-scope instruction. All three forms below are
+// emitted with the types and constants, never into mainBinary (function bodies).
 bool EmitVisitor::visit(SpirvSpecConstantTernaryOp *inst) {
   initInstruction(inst);
   curInst.push_back(inst->getResultTypeId());

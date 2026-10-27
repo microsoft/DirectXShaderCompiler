@@ -149,8 +149,8 @@ public:
   // Adds a constant to the module.
   void addConstant(SpirvConstant *);
 
-  // Adds an OpSpecConstantOp to the module. Operands must be added before
-  // their users.
+  // Adds an OpSpecConstantOp to the module. These are emitted after all
+  // constants, in insertion order.
   void addSpecConstantOp(SpirvInstruction *);
 
   // Adds an Undef to the module.

@@ -231,6 +231,8 @@ public:
                                 SpirvInstruction *lhs, SpirvInstruction *rhs,
                                 SourceLocation loc, SourceRange range = {});
 
+  /// \brief Creates a binary OpSpecConstantOp at module level, not in the
+  /// current basic block.
   SpirvSpecConstantBinaryOp *createSpecConstantBinaryOp(spv::Op op,
                                                         QualType resultType,
                                                         SpirvInstruction *lhs,
@@ -838,6 +840,8 @@ public:
   /// integer.
   SpirvConstant *getConstantSizeOfEXT(const SpirvType *operandType);
 
+  /// \brief Creates a ternary OpSpecConstantOp at module level, not in the
+  /// current basic block.
   SpirvSpecConstantTernaryOp *
   createSpecConstantTernaryOp(spv::Op op, QualType resultType,
                               SpirvInstruction *op1, SpirvInstruction *op2,
