@@ -2188,13 +2188,17 @@ initializer.
 These aliases are compile-time state and do not model control-flow merges, so
 DXC rejects a variable that holds both a bound resource and a heap descriptor,
 whether through a conditional assignment, a reassignment back to a bound
-resource, or an assignment inside a loop::
+resource, or an assignment inside a loop:
+
+.. code:: text
 
   error: mixing bound and descriptor heap resources in the same variable is not
   supported with SPV_EXT_descriptor_heap
 
 A heap-initialized ``RaytracingAccelerationStructure`` variable cannot be
-reassigned at all, whether from a bound resource or from another heap access::
+reassigned at all, whether from a bound resource or from another heap access:
+
+.. code:: text
 
   error: reassigning a RaytracingAccelerationStructure initialized from
   ResourceDescriptorHeap is not supported with SPV_EXT_descriptor_heap
