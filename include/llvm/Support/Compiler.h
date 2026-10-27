@@ -159,6 +159,7 @@
 #define LLVM_READNONE
 #endif
 
+// HLSL Change - Avoid expanding the pure macro from pdb.h in the attribute check.
 #if __has_attribute(__pure__) || defined(__GNUC__)
 // aka 'PURE' but following LLVM Conventions.
 #define LLVM_READONLY __attribute__((__pure__))
