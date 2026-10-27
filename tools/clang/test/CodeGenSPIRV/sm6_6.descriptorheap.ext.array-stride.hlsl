@@ -12,8 +12,9 @@
 // bufferDescriptorSize); textures lower to OpTypeImage, so image/buffer
 // covers all relevant HLSL resource kinds.
 //
-// NOTE: This covers the case with no RaytracingAccelerationStructures.
-// When present, the stride formula expands to a three-way max:
+// NOTE: This covers the default case: no ray-tracing stage and no ray extension
+// listed. Otherwise the stride gains a third term, as covered by
+// sm6_6.descriptorheap.ext.array-stride.accelstruct*.hlsl:
 // max(max(sizeof(image), sizeof(buffer)), sizeof(accelerationStructure)).
 //
 // Both sizes are driver defined and known only at pipeline creation time, so
@@ -69,8 +70,8 @@
 // buffer, and sampler, each asserted by a CHECK-DAG above. Regression test: no
 // per-element or per-access behavior; otherwise the StorageBuffer descriptor
 // would be measured too, adding a fourth query.
-// COUNT-DAG: %[[SBBufDesc:[a-zA-Z0-9_]+]] = OpTypeBufferEXT StorageBuffer{{$}}
-// COUNT-NOT: OpConstantSizeOfEXT %uint %[[SBBufDesc]]
+// COUNT-DAG:      %[[SBBufDesc:[a-zA-Z0-9_]+]] = OpTypeBufferEXT StorageBuffer{{$}}
+// COUNT-NOT:                                     OpConstantSizeOfEXT %uint %[[SBBufDesc]]
 
 struct Constants {
   uint value;

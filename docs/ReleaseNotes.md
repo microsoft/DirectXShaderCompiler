@@ -26,8 +26,10 @@ The included licenses apply to the following files:
   `ConstantBuffer`, `TextureBuffer`, and RW variants) via
   `SPV_KHR_untyped_pointers`. Requires `-fspv-target-env=vulkan1.3`.
 - Extended `-fspv-use-descriptor-heap` to support `RaytracingAccelerationStructure`
-  loaded from `ResourceDescriptorHeap`. Outside ray-tracing stages this requires
-  `-fspv-extension=SPV_KHR_ray_tracing` or `-fspv-extension=SPV_KHR_ray_query`.
+  loaded from `ResourceDescriptorHeap`. Outside ray-tracing stages, list
+  `-fspv-extension=SPV_KHR_ray_query`, `SPV_KHR_ray_tracing` or
+  `SPV_NV_ray_tracing` so the resource heap stride covers acceleration structure
+  descriptors; otherwise compilation fails.
 
 Place release notes for the upcoming release below this line and remove this
 line upon naming the release. Refer to previous for appropriate section names.

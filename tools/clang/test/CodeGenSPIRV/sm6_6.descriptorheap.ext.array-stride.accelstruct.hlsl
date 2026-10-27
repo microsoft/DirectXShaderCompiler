@@ -6,17 +6,17 @@
 // and that every resource runtime array uses it.
 //
 // A ray-tracing stage widens the stride with the default extensions. The stride
-// is a heap layout contract decided before any code is generated, so it does not
-// depend on what the shader loads. Widening from a listed extension, and the
-// rejection of an acceleration structure load when the stride was not widened,
-// are covered by sm6_6.descriptorheap.ext.array-stride.accelstruct-ext.hlsl and
+// is a heap layout contract decided from the stage and the extension list, so
+// it does not depend on what the shader loads. Widening from a listed
+// extension, and the rejection of an acceleration structure load when the
+// stride was not widened, are covered by
+// sm6_6.descriptorheap.ext.array-stride.accelstruct-ext.hlsl and
 // sm6_6.descriptorheap.ext.acceleration-structure.stride.error.hlsl. Without
-// any cause the stride has only the image and buffer terms; that is covered by
-// sm6_6.descriptorheap.ext.array-stride.hlsl.
+// either cause the stride has only the image and buffer terms; that is covered
+// by sm6_6.descriptorheap.ext.array-stride.hlsl.
 //
-// The shader accesses a texture, then an acceleration structure, then a
-// sampler. The stride must already cover the acceleration structure when the
-// texture's runtime array is created, otherwise that array would use a narrower
+// The shader loads a texture, an acceleration structure and a sampler. Every
+// resource runtime array, including the texture array, must use the widened
 // stride.
 
 // Element (descriptor) types.
@@ -56,10 +56,8 @@
 // CHECK-DAG:            %[[IBA:[a-zA-Z0-9_]+]] = OpSpecConstantOp %bool UGreaterThan %[[MaxIB]] %[[ASSz]]
 // CHECK-DAG:         %[[Stride:[a-zA-Z0-9_]+]] = OpSpecConstantOp %uint Select %[[IBA]] %[[MaxIB]] %[[ASSz]]
 
-// All resource arrays share the three-way max stride. The texture array is
-// created first; if the stride had not been widened by then, its decoration
-// would reference the two-way max and the first check below would fail. The
-// sampler heap has its own stride.
+// All resource arrays share the three-way max stride, the texture array
+// included. The sampler heap has its own stride.
 // CHECK-DAG:                                     OpDecorateId %[[ImgArr]]   ArrayStrideIdEXT %[[Stride]]
 // CHECK-DAG:                                     OpDecorateId %[[AccelArr]] ArrayStrideIdEXT %[[Stride]]
 // CHECK-DAG:                                     OpDecorateId %[[SampArr]]  ArrayStrideIdEXT %[[SampSz]]

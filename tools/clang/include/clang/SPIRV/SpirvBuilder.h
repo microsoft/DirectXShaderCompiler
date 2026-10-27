@@ -846,8 +846,8 @@ public:
   /// \brief Records that acceleration structures may be loaded from the
   /// resource heap, so the resource-heap stride must cover their descriptor.
   ///
-  /// The stride is built once, on the first getResourceHeapArrayStride() call,
-  /// and cannot change afterwards. A call after that point has no effect, so
+  /// Must be called before getResourceHeapArrayStride(), which builds and
+  /// caches the stride. A later call is ignored, so
   /// resourceHeapStrideIncludesAccelStruct() stays false and code generation
   /// must reject acceleration structure heap loads.
   void registerResourceHeapAccelStruct() {

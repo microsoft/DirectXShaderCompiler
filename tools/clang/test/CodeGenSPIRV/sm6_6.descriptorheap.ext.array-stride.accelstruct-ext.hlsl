@@ -11,7 +11,7 @@
 // The full stride formula is checked in
 // sm6_6.descriptorheap.ext.array-stride.accelstruct.hlsl; here it is enough that
 // the acceleration structure size is the last term of the stride and that the
-// texture array, which is accessed first, already uses the widened stride.
+// texture runtime array uses the widened stride.
 
 // RQ-DAG:                                OpCapability RayQueryKHR
 // RQ-DAG:                                OpExtension "SPV_KHR_ray_query"
@@ -22,7 +22,8 @@
 
 // CHECK-DAG: %[[TexDesc:[a-zA-Z0-9_]+]] = OpTypeImage %float 2D 2 0 0 1 Unknown
 // CHECK-DAG:  %[[ImgArr:[a-zA-Z0-9_]+]] = OpTypeRuntimeArray %[[TexDesc]]
-// CHECK-DAG:    %[[ASSz:[a-zA-Z0-9_]+]] = OpConstantSizeOfEXT %uint %accelerationStructureNV
+// CHECK-DAG:   %[[Accel:[a-zA-Z0-9_]+]] = OpTypeAccelerationStructureKHR
+// CHECK-DAG:    %[[ASSz:[a-zA-Z0-9_]+]] = OpConstantSizeOfEXT %uint %[[Accel]]
 // CHECK-DAG:  %[[Stride:[a-zA-Z0-9_]+]] = OpSpecConstantOp %uint Select %{{[a-zA-Z0-9_]+}} %{{[a-zA-Z0-9_]+}} %[[ASSz]]
 // CHECK-DAG:                              OpDecorateId %[[ImgArr]] ArrayStrideIdEXT %[[Stride]]
 

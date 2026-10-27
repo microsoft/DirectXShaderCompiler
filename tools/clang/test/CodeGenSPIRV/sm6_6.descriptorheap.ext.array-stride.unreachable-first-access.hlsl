@@ -1,12 +1,12 @@
 // RUN: %dxc -T cs_6_6 -E main -fspv-use-descriptor-heap -fspv-target-env=vulkan1.3 -spirv %s | FileCheck %s
 
-// Verifies: the shared resource-heap stride is defined even when the first
-// heap access is in an unreachable block.
+// Verifies: the resource-heap stride is valid SPIR-V even when the first heap
+// access in the source is in an unreachable block.
 //
-// The stride is built on the first heap access and shared by every resource
-// runtime array, so its instructions must not depend on the block of that
-// access. Here the first access is dead code after `return`; the second access
-// is reachable and reuses the cached stride.
+// The stride is shared by the whole module, so its instructions are emitted at
+// module level rather than in the block of any access. Here the first access
+// is dead code after `return`; the second is reachable and uses the same
+// stride.
 
 // CHECK-DAG: %[[ImgBigger:[a-zA-Z0-9_]+]] = OpSpecConstantOp %bool UGreaterThan
 // CHECK-DAG:   %[[ResSize:[a-zA-Z0-9_]+]] = OpSpecConstantOp %uint Select %[[ImgBigger]]

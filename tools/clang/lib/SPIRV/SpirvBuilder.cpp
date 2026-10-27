@@ -2070,9 +2070,8 @@ SpirvInstruction *SpirvBuilder::getResourceHeapArrayStride() {
   //           covers all texture resources.
   //   buffer: a Uniform buffer.
   //   accel:  the acceleration structure type, included only when
-  //           registerResourceHeapAccelStruct() was called. That type needs a
-  //           ray-tracing or ray-query capability, which is always declared
-  //           in the cases that make that call.
+  //           registerResourceHeapAccelStruct() was called. CapabilityVisitor
+  //           declares its capability from the type.
   const SpirvType *placeholderImage = context.getImageType(
       context.getFloatType(32), spv::Dim::Dim2D, ImageType::WithDepth::No,
       /*arrayed*/ false, /*ms*/ false, ImageType::WithSampler::Yes,
@@ -2080,9 +2079,8 @@ SpirvInstruction *SpirvBuilder::getResourceHeapArrayStride() {
   const SpirvType *placeholderBuffer =
       context.getBufferEXTType(spv::StorageClass::Uniform);
 
-  // The stride is cached and shared by every heap access in the module, so it
-  // is built from module-level instructions. Instructions owned by the block of
-  // the first access would be lost if that block were unreachable.
+  // The stride is shared by the whole module, so it is built from module-level
+  // instructions rather than in the current block, which may be unreachable.
   SpirvInstruction *imageSize = getConstantSizeOfEXT(placeholderImage);
   SpirvInstruction *bufferSize = getConstantSizeOfEXT(placeholderBuffer);
   SpirvInstruction *imageIsBigger = createSpecConstantBinaryOp(

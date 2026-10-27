@@ -210,10 +210,10 @@ void CapabilityVisitor::addCapabilityForType(const SpirvType *type,
   }
   // Acceleration structure type
   else if (isa<AccelerationStructureTypeNV>(type)) {
-    // SPV_KHR_ray_query and SPV_KHR_ray_tracing are declared for every module
-    // in visit(SpirvModule *). NV is not, because declaring it there would add
-    // it to modules that never use the type. Skip it when a KHR extension
-    // already provides the type, so only one extension is declared.
+    // visit(SpirvModule *) declares SPV_KHR_ray_query when enabled, otherwise
+    // SPV_KHR_ray_tracing. NV is not declared there because that would add it
+    // to modules that never use the type, so declare it here, and only when no
+    // KHR extension provides the type.
     if (!featureManager.isExtensionEnabled(Extension::KHR_ray_query) &&
         !featureManager.isExtensionEnabled(Extension::KHR_ray_tracing))
       addExtensionAndCapabilitiesIfEnabled(Extension::NV_ray_tracing,

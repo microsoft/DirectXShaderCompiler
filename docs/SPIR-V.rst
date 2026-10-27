@@ -2229,41 +2229,35 @@ rather than a literal ``ArrayStride``, because descriptor sizes are not known
 until pipeline creation. The shared value is built from ``OpConstantSizeOfEXT``
 and ``OpSpecConstantOp`` and evaluates to
 ``max(sizeof(image_descriptor), sizeof(buffer_descriptor))``. The sampler heap
-carries its own ``ArrayStrideIdEXT`` equal to ``sizeof(sampler_descriptor)``,
-regardless of resource heap contents.
+carries its own ``ArrayStrideIdEXT`` equal to ``sizeof(sampler_descriptor)``.
 
 The ``OpConstantSizeOfEXT`` operands are placeholder types chosen only for their
 descriptor class. All image types report the same descriptor size, so the
 placeholder is a plain sampled 2D float image and bears no relation to the image
 types the shader actually uses; a module will normally contain both the
-placeholder type and the distinct image types its heap accesses lower to. The
-stride value is built once and cached on first use.
+placeholder type and the distinct image types its heap accesses lower to.
 
-When acceleration structure descriptors may appear on the resource heap, the
-formula expands to a three-way max
+The stride is a property of the heap layout, not of the shader's loads. DXC
+decides it before translating any function, from the shader stage and the
+``-fspv-extension`` list. When acceleration structure descriptors may be on the
+resource heap, the formula expands to a three-way max
 ``max(max(sizeof(image_descriptor), sizeof(buffer_descriptor)), sizeof(acceleration_structure))``.
-
-Because the stride is cached on first use, this decision is committed before
-code generation and is **not** based on whether the shader actually performs an
-acceleration structure heap load: a ray-tracing shader that only heap-loads a
-texture still gets the three-way max. The widening happens when either
+A ray-tracing shader that only heap-loads a texture still gets the three-way
+max. DXC adds the acceleration structure term when either
 
 - any entry point is a ray-tracing stage, or
-- the user explicitly passed ``-fspv-extension=SPV_KHR_ray_query``,
+- the user lists ``-fspv-extension=SPV_KHR_ray_query``,
   ``-fspv-extension=SPV_KHR_ray_tracing`` or
   ``-fspv-extension=SPV_NV_ray_tracing``.
 
-The second condition requires an explicit ``-fspv-extension`` flag. In the
-default extension mode DXC allows the ray-tracing and ray-query extensions
-implicitly, but that does not widen the stride. The acceleration structure type
-added by widening is declared with the capability of the listed extension
-(``RayQueryKHR``, ``RayTracingKHR`` or ``RayTracingNV``); if several are listed,
-``SPV_KHR_ray_query`` is preferred, then ``SPV_KHR_ray_tracing``, then
-``SPV_NV_ray_tracing``. Because the stride cannot be widened once it has been
-built, a shader that is not a ray-tracing stage and loads a
-``RaytracingAccelerationStructure`` from ``ResourceDescriptorHeap`` without an
-explicit ray extension flag is rejected rather than given a stride that may be
-too narrow.
+Extensions allowed by default do not satisfy the second condition. The
+acceleration structure type added by widening is declared with the capability
+of the listed extension (``RayQueryKHR``, ``RayTracingKHR`` or
+``RayTracingNV``); if several are listed, ``SPV_KHR_ray_query`` is preferred,
+then ``SPV_KHR_ray_tracing``, then ``SPV_NV_ray_tracing``. A shader that is not
+a ray-tracing stage and heap-loads a ``RaytracingAccelerationStructure``
+without such an extension is rejected, because its stride would not cover the
+acceleration structure descriptor.
 
 HLSL Expressions
 ================

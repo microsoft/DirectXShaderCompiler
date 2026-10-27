@@ -12,19 +12,20 @@
 // rejected when the resource-heap stride was not widened to include the
 // acceleration structure descriptor size.
 //
-// The stride is decided before the code-gen loop (see HandleTranslationUnit)
-// and frozen on its first use, so it cannot be widened once an acceleration
-// structure heap access is reached. Without the widening this shader would
-// silently get max(sizeof(image), sizeof(buffer)), which may be too narrow.
+// The stride is decided in HandleTranslationUnit from the stage and the
+// -fspv-extension list. Without a ray-tracing stage or a listed provider
+// extension it has no acceleration structure term, so the load is rejected:
+// max(sizeof(image), sizeof(buffer)) may be too narrow.
 //
-// A compute shader is not a ray-tracing stage, so the widening only happens
-// when the user lists a ray-tracing/ray-query extension explicitly. The first
-// run does not, and must fail; the second one does, and must compile.
+// A compute shader is not a ray-tracing stage. The first run lists no provider
+// extension and must fail. The second lists SPV_KHR_ray_query, which this
+// shader also needs for RayQuery (SPV_KHR_ray_tracing alone does not provide
+// the RayQueryKHR capability), and must compile.
 
 // CHECK: error: acceleration structure loaded from ResourceDescriptorHeap requires the resource heap stride to account for acceleration structure descriptors; compile with -fspv-extension=SPV_KHR_ray_tracing or -fspv-extension=SPV_KHR_ray_query
 
-// OK-DAG:   %[[Accel:[a-zA-Z0-9_]+]] = OpTypeAccelerationStructureKHR
-// OK-DAG: %[[AccelSz:[a-zA-Z0-9_]+]] = OpConstantSizeOfEXT %uint %[[Accel]]
+// OK-DAG:    %[[Accel:[a-zA-Z0-9_]+]] = OpTypeAccelerationStructureKHR
+// OK-DAG:                               OpConstantSizeOfEXT %uint %[[Accel]]
 
 RWBuffer<float4> output : register(u0);
 

@@ -818,11 +818,11 @@ void SpirvEmitter::HandleTranslationUnit(ASTContext &context) {
       return;
   }
 
-  // Decide whether the resource-heap stride must cover acceleration structures.
-  // The stride is built on the first descriptor heap access and cannot change
-  // afterwards, so this has to be decided before any function is translated.
-  // It is decided up front rather than per access, so a shader that merely
-  // might load an acceleration structure from the heap is covered.
+  // Decide whether the resource-heap stride covers acceleration structure
+  // descriptors. The stride is a heap-layout contract shared by every resource
+  // runtime array, so it is decided here from the stage and the extension list,
+  // not from what the shader loads. SpirvBuilder builds it lazily and then
+  // fixes it, so this must run before any function is translated.
   //
   // The stride covers acceleration structures if any of these holds:
   //   - An entry point is a ray-tracing stage.
@@ -835,11 +835,6 @@ void SpirvEmitter::HandleTranslationUnit(ASTContext &context) {
   // The capability that makes the acceleration structure type valid is
   // declared from the type itself, using the same provider (see
   // CapabilityVisitor), so it is always consistent with this decision.
-  //
-  // Heap accesses in global initializers are translated after this point, so
-  // they cannot build the stride early. If one ever did, the call below would
-  // have no effect and acceleration structure heap loads would be rejected
-  // rather than given a stride that may be too narrow.
   if (spirvOptions.useDescriptorHeap) {
     bool needsAccelStruct = false;
 
@@ -7324,9 +7319,9 @@ SpirvEmitter::doCXXOperatorCallExpr(const CXXOperatorCallExpr *expr,
           return nullptr;
         }
 
-        // The stride is fixed before any function is translated and cannot be
-        // widened here. Reject the load rather than use a stride that may be
-        // too narrow for an acceleration structure descriptor.
+        // The stride was decided without an acceleration structure term (not a
+        // ray-tracing stage, no ray extension listed). Reject the load: the
+        // heap would be indexed with a stride that may be too narrow.
         if (isRaytracingAccelerationStructure(resourceType) &&
             !spvBuilder.resourceHeapStrideIncludesAccelStruct()) {
           emitError("acceleration structure loaded from ResourceDescriptorHeap "
