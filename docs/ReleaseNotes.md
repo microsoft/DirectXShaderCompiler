@@ -88,6 +88,9 @@ line upon naming the release. Refer to previous for appropriate section names.
   [#8526](https://github.com/microsoft/DirectXShaderCompiler/issues/8526).
 - Fixed incorrect shader results caused by stale overflow and exactness flags
   after bit-tracking dead code elimination.
+- Fixed `-Zi` debug info for static globals used in inlined functions pointing
+  at the wrong subprogram, which the LLVM verifier rejects
+  [#8592](https://github.com/microsoft/DirectXShaderCompiler/issues/8592).
 
 ### Upcoming Preview Release
 

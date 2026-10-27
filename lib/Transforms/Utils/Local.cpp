@@ -972,8 +972,8 @@ unsigned llvm::getOrEnforceKnownAlignment(Value *V, unsigned PrefAlign,
 ///  Dbg Intrinsic utilities
 ///
 
-/// See if there is a dbg.value intrinsic for DIVar before I.
-static bool LdStHasDebugValue(const DILocalVariable *DIVar, Instruction *I) {
+/// See if there is a dbg.value intrinsic for DDI's variable before I.
+static bool LdStHasDebugValue(const DbgDeclareInst *DDI, Instruction *I) {
   // Since we can't guarantee that the original dbg.declare instrinsic
   // is removed by LowerDbgDeclare(), we need to make sure that we are
   // not inserting the same dbg.value intrinsic over and over.
@@ -981,9 +981,12 @@ static bool LdStHasDebugValue(const DILocalVariable *DIVar, Instruction *I) {
   if (PrevI != I->getParent()->getInstList().begin()) {
     --PrevI;
     if (DbgValueInst *DVI = dyn_cast<DbgValueInst>(PrevI))
-      if (DVI->getValue() == I->getOperand(0) &&
-          DVI->getOffset() == 0 &&
-          DVI->getVariable() == DIVar)
+      if (DVI->getValue() == I->getOperand(0) && DVI->getOffset() == 0 &&
+          DVI->getVariable() == DDI->getVariable() &&
+          // HLSL Change - Declares of one variable in different inlined
+          // instances only differ in their inlinedAt.
+          DVI->getDebugLoc().getInlinedAt() ==
+              DDI->getDebugLoc().getInlinedAt())
         return true;
   }
   return false;
@@ -997,7 +1000,7 @@ bool llvm::ConvertDebugDeclareToDebugValue(DbgDeclareInst *DDI,
   auto *DIExpr = DDI->getExpression();
   assert(DIVar && "Missing variable");
 
-  if (LdStHasDebugValue(DIVar, SI))
+  if (LdStHasDebugValue(DDI, SI))
     return true;
 
   // If an argument is zero extended then use argument directly. The ZExt
@@ -1024,7 +1027,7 @@ bool llvm::ConvertDebugDeclareToDebugValue(DbgDeclareInst *DDI,
   auto *DIExpr = DDI->getExpression();
   assert(DIVar && "Missing variable");
 
-  if (LdStHasDebugValue(DIVar, LI))
+  if (LdStHasDebugValue(DDI, LI))
     return true;
 
   Builder.insertDbgValueIntrinsic(LI->getOperand(0), 0, DIVar, DIExpr,
