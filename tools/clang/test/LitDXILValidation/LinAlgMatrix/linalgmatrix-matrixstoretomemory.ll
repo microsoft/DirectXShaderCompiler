@@ -56,22 +56,22 @@ define void @main() {
   ; okay
   call void @dx.op.linAlgMatrixStoreToMemory.mC9M8N8U0S1.f32(i32 332, %dx.types.LinAlgMatrixC9M8N8U0S1 %9, float addrspace(3)* getelementptr inbounds ([64 x float], [64 x float] addrspace(3)* @"\01?SharedArr@@3PAMA", i32 0, i32 0), i32 128, i32 16, i32 0)  ; LinAlgMatrixStoreToMemory(matrix,memory,offset,stride,layout)
 
-  ; CHECK-NEXT: Function: main: error: Groupshared memory holds '64' scalars but must hold at least '72' scalars.
+  ; CHECK-NEXT: Function: main: error: Groupshared memory holds '256' bytes but must hold at least '288' bytes.
   ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixStoreToMemory.mC9M9N8U0S1.f32
   call void @dx.op.linAlgMatrixStoreToMemory.mC9M9N8U0S1.f32(i32 332, %dx.types.LinAlgMatrixC9M9N8U0S1 %11, float addrspace(3)* getelementptr inbounds ([64 x float], [64 x float] addrspace(3)* @"\01?SharedArr@@3PAMA", i32 0, i32 0), i32 128, i32 16, i32 0)  ; LinAlgMatrixStoreToMemory(matrix,memory,offset,stride,layout)
 
-  ; CHECK-NEXT: Function: main: error: Groupshared memory holds '64' scalars but must hold at least '72' scalars.
+  ; CHECK-NEXT: Function: main: error: Groupshared memory holds '256' bytes but must hold at least '288' bytes.
   ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixStoreToMemory.mC9M8N9U0S1.f32
   call void @dx.op.linAlgMatrixStoreToMemory.mC9M8N9U0S1.f32(i32 332, %dx.types.LinAlgMatrixC9M8N9U0S1 %13, float addrspace(3)* getelementptr inbounds ([64 x float], [64 x float] addrspace(3)* @"\01?SharedArr@@3PAMA", i32 0, i32 0), i32 128, i32 16, i32 0)  ; LinAlgMatrixStoreToMemory(matrix,memory,offset,stride,layout)
 
   ; okay
   call void @dx.op.linAlgMatrixStoreToMemory.mC9M8N8U0S1.v4f32(i32 332, %dx.types.LinAlgMatrixC9M8N8U0S1 %9, <4 x float> addrspace(3)* getelementptr inbounds ([16 x <4 x float>], [16 x <4 x float>] addrspace(3)* @"\01?SharedVecArr@@3PAV?$vector@M$03@@A", i32 0, i32 0), i32 128, i32 16, i32 0)  ; LinAlgMatrixStoreToMemory(matrix,memory,offset,stride,layout)
 
-  ; CHECK-NEXT: Function: main: error: Groupshared memory holds '64' scalars but must hold at least '72' scalars.
+  ; CHECK-NEXT: Function: main: error: Groupshared memory holds '256' bytes but must hold at least '288' bytes.
   ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixStoreToMemory.mC9M9N8U0S1.v4f32
   call void @dx.op.linAlgMatrixStoreToMemory.mC9M9N8U0S1.v4f32(i32 332, %dx.types.LinAlgMatrixC9M9N8U0S1 %11, <4 x float> addrspace(3)* getelementptr inbounds ([16 x <4 x float>], [16 x <4 x float>] addrspace(3)* @"\01?SharedVecArr@@3PAV?$vector@M$03@@A", i32 0, i32 0), i32 128, i32 16, i32 0)  ; LinAlgMatrixStoreToMemory(matrix,memory,offset,stride,layout)
 
-  ; CHECK-NEXT: Function: main: error: Groupshared memory holds '64' scalars but must hold at least '72' scalars.
+  ; CHECK-NEXT: Function: main: error: Groupshared memory holds '256' bytes but must hold at least '288' bytes.
   ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixStoreToMemory.mC9M8N9U0S1.v4f32
   call void @dx.op.linAlgMatrixStoreToMemory.mC9M8N9U0S1.v4f32(i32 332, %dx.types.LinAlgMatrixC9M8N9U0S1 %13, <4 x float> addrspace(3)* getelementptr inbounds ([16 x <4 x float>], [16 x <4 x float>] addrspace(3)* @"\01?SharedVecArr@@3PAV?$vector@M$03@@A", i32 0, i32 0), i32 128, i32 16, i32 0)  ; LinAlgMatrixStoreToMemory(matrix,memory,offset,stride,layout)
 

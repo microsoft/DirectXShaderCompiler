@@ -49,6 +49,45 @@ __ARITHMETIC_TYPE(double)
 
 #undef __ARITHMETIC_TYPE
 
+template <typename T> struct is_integral {
+  static const bool value = false;
+};
+
+#define __INTEGRAL_TYPE(type)                                                  \
+  template <> struct is_integral<type> {                                       \
+    static const bool value = true;                                            \
+  };
+
+#if __HLSL_ENABLE_16_BIT
+__INTEGRAL_TYPE(uint16_t)
+__INTEGRAL_TYPE(int16_t)
+#endif
+__INTEGRAL_TYPE(uint)
+__INTEGRAL_TYPE(int)
+__INTEGRAL_TYPE(uint64_t)
+__INTEGRAL_TYPE(int64_t)
+
+#undef __INTEGRAL_TYPE
+
+template <typename T> struct is_packed_integral {
+  static const bool value = false;
+};
+
+#if __hlsl_dx_compiler
+template <> struct is_packed_integral<uint8_t4_packed> {
+  static const bool value = true;
+};
+
+template <> struct is_packed_integral<int8_t4_packed> {
+  static const bool value = true;
+};
+#endif
+
+template <typename T> struct is_integral_or_packed_integral {
+  static const bool value =
+      is_integral<T>::value || is_packed_integral<T>::value;
+};
+
 template <typename T> struct is_signed {
   static const bool value = true;
 };
