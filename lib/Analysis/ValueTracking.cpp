@@ -3386,9 +3386,15 @@ static SelectPatternFlavor matchSelectPattern(ICmpInst::Predicate Pred,
       if (C1->getType() == C2->getType() && ~C1->getValue() == C2->getValue() &&
           (match(TrueVal, m_Not(m_Specific(CmpLHS))) ||
            match(CmpLHS, m_Not(m_Specific(TrueVal))))) {
-        LHS = TrueVal;
-        RHS = FalseVal;
-        return SPF_SMIN;
+
+// HLSL Change Begin - Fix matchSelectPattern for bitwise-not of unsigned compares.
+// Backport of https://github.com/llvm/llvm-project/commit/56df0ec61033a5bb49b3620e70cc6a61e26b3e7a (rL264996).
+        if (Pred == ICmpInst::ICMP_SGT || Pred == ICmpInst::ICMP_SLT) {
+          LHS = TrueVal;
+          RHS = FalseVal;
+          return Pred == ICmpInst::ICMP_SGT ? SPF_SMIN : SPF_SMAX;
+        }
+// HLSL Change End - Fix matchSelectPattern for bitwise-not of unsigned compares.
       }
     }
   }
