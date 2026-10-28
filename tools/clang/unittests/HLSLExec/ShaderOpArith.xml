@@ -3466,11 +3466,12 @@
     <Shader Name="PSCounterSelect" Target="ps_6_7" EntryPoint="PSCounterSelect" Text="@PS" Arguments="@PS"/>
     <Shader Name="PS" Target="ps_6_7" EntryPoint="PSPacked" Arguments="-O3">
     <![CDATA[
-// The core cases draw one triangle over an 8x8 viewport, so all 16 quads
-// are complete. Each pixel reads its input value. A pixel whose value has
-// bit 0 clear is discarded, which demotes it to a helper lane; bit 1 is the
-// predicate of the wave and quad votes. The test's inputs keep only two or
-// three lanes of the top-left quad.
+// The core cases draw two triangles that tile an 8x8 viewport, split along
+// the diagonal from (8, 0) to (0, 8). Each pixel reads its input value. A
+// pixel whose value has bit 0 clear is discarded, which demotes it to a
+// helper lane; bit 1 is the predicate of the wave and quad votes. The test's
+// inputs keep only two or three lanes of the top-left quad, which lies inside
+// the first triangle.
 StructuredBuffer<uint> LaneInputs : register(t0);
 
 // What PSPerLane writes for each surviving pixel. It must match LaneRecord in
@@ -3526,14 +3527,15 @@ bool QuadAllValue(bool value) {
 }
 
 // The packed result that PSPacked and PSPerLane write to the render target.
-// The initial lane count can exceed its three bits and spill into the bits
-// above it, so the test reads bits 0-7 together.
+// Each value has its own bits, with the initial lane count in the top byte; a
+// value too large for its field spills into the fields above it, where the
+// test reports it as a mismatch.
 uint PackResults(uint initialLaneCount, uint activeLaneCount, uint quadAny,
                  uint quadAll, uint waveAny, uint waveAll, uint elected,
                  uint first, uint quadBallot, uint sum, uint prefix) {
-  return initialLaneCount | (activeLaneCount << 3) | (quadAny << 6) |
-         (quadAll << 7) | (waveAny << 8) | (waveAll << 9) | (elected << 10) |
-         (first << 11) | (quadBallot << 13) | (sum << 17) | (prefix << 21);
+  return activeLaneCount | (quadAny << 3) | (quadAll << 4) | (waveAny << 5) |
+         (waveAll << 6) | (elected << 7) | (first << 8) | (quadBallot << 10) |
+         (sum << 14) | (prefix << 18) | (initialLaneCount << 24);
 }
 
 // The wave and quad operations run in this order, and each surviving pixel
@@ -3681,12 +3683,13 @@ uint PSCounterSelect(float4 position : SV_Position) : SV_Target {
     <Shader Name="PS" Target="ps_6_7" EntryPoint="PSAllOps" Arguments="-O3">
     <![CDATA[
 // The general cases draw a 64x64 render target, either with one triangle
-// that covers it, so every quad is complete, or with sixteen small disjoint
-// triangles, whose edges leave partially covered quads whose uncovered pixels
-// run as helper lanes. Each pixel reads its input, which the test hashes from
-// the pixel's coordinates; bit 0 of Flags discards the pixel. Both pixel
-// shaders end with quad operations, so the helper lanes keep running through
-// the wave operations, as they do in a shader that samples a texture later.
+// that covers it, which an implementation may clip into several, or with
+// sixteen small disjoint triangles, whose edges leave partially covered quads
+// whose uncovered pixels run as helper lanes. Each pixel reads its input,
+// which the test hashes from the pixel's coordinates; bit 0 of Flags discards
+// the pixel. Both pixel shaders end with quad operations, so the helper lanes
+// keep running through the wave operations, as they do in a shader that
+// samples a texture later.
 
 // One input per pixel, row-major. It must match PixelInput in
 // ExecutionTest.cpp. Flags: bit 0 discards the pixel, bit 1 is the predicate,

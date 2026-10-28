@@ -12506,9 +12506,13 @@ private:
   std::map<std::wstring, Count> Tally;
 };
 
-// The core cases draw one triangle over an 8x8 viewport, so all 16 quads are
-// complete. Their render target is 64 texels wide, so that each of its rows
-// is a whole readback row.
+// The core cases draw two triangles that tile an 8x8 viewport, split along the
+// diagonal from (8, 0) to (0, 8). Every vertex lies on the viewport's
+// boundary, so no implementation needs to clip them, and the top-left quad,
+// where the survivors are, lies inside the first triangle. The quads that the
+// diagonal crosses are partly helper lanes, so a wave need not start with a
+// multiple of 4 lanes. The render target is 64 texels wide, so that each of
+// its rows is a whole readback row.
 constexpr UINT CoreSize = 8;
 constexpr UINT CorePixels = CoreSize * CoreSize;
 constexpr UINT CoreTargetWidth = 64;
@@ -12654,10 +12658,10 @@ static_assert(sizeof(LaneRecord) == 20 * sizeof(UINT32),
 
 // The CPU version of PackResults in the HelperLaneWaveCore shaders.
 static UINT32 packResults(const LaneRecord &R) {
-  return R.InitialLaneCount | (R.ActiveLaneCount << 3) | (R.QuadAny << 6) |
-         (R.QuadAll << 7) | (R.WaveAnyTrue << 8) | (R.WaveAllTrue << 9) |
-         (R.Elected << 10) | (R.FirstId << 11) | (R.QuadBallot << 13) |
-         (R.Sum << 17) | (R.Prefix << 21);
+  return R.ActiveLaneCount | (R.QuadAny << 3) | (R.QuadAll << 4) |
+         (R.WaveAnyTrue << 5) | (R.WaveAllTrue << 6) | (R.Elected << 7) |
+         (R.FirstId << 8) | (R.QuadBallot << 10) | (R.Sum << 14) |
+         (R.Prefix << 18) | (R.InitialLaneCount << 24);
 }
 
 // The CPU version of QuadBallot in the HelperLaneWaveCore shaders. The lane
@@ -12667,12 +12671,13 @@ static UINT32 quadBallotOf(const UINT32 (&Ballot)[4], UINT32 LaneIndex) {
   return (Ballot[QuadFirstLane / 32] >> (QuadFirstLane & 31)) & 0xF;
 }
 
-// The fields of a packed texel. PackResults ORs the initial lane count into
-// the texel without a mask, and a wave of up to 64 lanes reaches bit 6, so
-// bits 0-7 (initial lane count, active lane count, QuadAny and QuadAll) are
-// kept together. Bits 8 and up hold one field each.
+// The fields of a packed texel, as PackResults lays them out. A value too
+// large for its field spills into the fields above it, where the checks report
+// it as a mismatch.
 struct PackedFields {
-  UINT32 LowByte = 0;
+  UINT32 ActiveLaneCount = 0;
+  UINT32 QuadAny = 0;
+  UINT32 QuadAll = 0;
   UINT32 WaveAnyTrue = 0;
   UINT32 WaveAllTrue = 0;
   UINT32 Elected = 0;
@@ -12680,33 +12685,23 @@ struct PackedFields {
   UINT32 QuadBallot = 0;
   UINT32 Sum = 0;
   UINT32 Prefix = 0;
+  UINT32 InitialLaneCount = 0;
 };
 
 static PackedFields decodePacked(UINT32 Packed) {
   PackedFields Fields;
-  Fields.LowByte = Packed & 0xFF;
-  Fields.WaveAnyTrue = (Packed >> 8) & 1;
-  Fields.WaveAllTrue = (Packed >> 9) & 1;
-  Fields.Elected = (Packed >> 10) & 1;
-  Fields.FirstId = (Packed >> 11) & 3;
-  Fields.QuadBallot = (Packed >> 13) & 0xF;
-  Fields.Sum = (Packed >> 17) & 0xF;
-  Fields.Prefix = Packed >> 21;
+  Fields.ActiveLaneCount = Packed & 7;
+  Fields.QuadAny = (Packed >> 3) & 1;
+  Fields.QuadAll = (Packed >> 4) & 1;
+  Fields.WaveAnyTrue = (Packed >> 5) & 1;
+  Fields.WaveAllTrue = (Packed >> 6) & 1;
+  Fields.Elected = (Packed >> 7) & 1;
+  Fields.FirstId = (Packed >> 8) & 3;
+  Fields.QuadBallot = (Packed >> 10) & 0xF;
+  Fields.Sum = (Packed >> 14) & 0xF;
+  Fields.Prefix = (Packed >> 18) & 0x3F;
+  Fields.InitialLaneCount = Packed >> 24;
   return Fields;
-}
-
-// All 16 quads are complete, so a wave starts with a multiple of 4 lanes,
-// from 4 to 64. Returns the smallest such initial lane count for which
-// Count | ActiveLaneCount << 3 | QuadAny << 6 | QuadAll << 7 gives the low
-// byte, or 0 if none does.
-static UINT32 findInitialLaneCount(UINT32 LowByte,
-                                   const CoreExpectations &Expected) {
-  const UINT32 Rest = (Expected.ActiveLaneCount << 3) |
-                      (Expected.QuadAny << 6) | (Expected.QuadAll << 7);
-  for (UINT32 Count = 4; Count <= CorePixels; Count += 4)
-    if (((Count | Rest) & 0xFF) == LowByte)
-      return Count;
-  return 0;
 }
 
 // Lists a value of every survivor, for example "(0, 0)=1, (1, 0)=0".
@@ -12733,6 +12728,26 @@ static void expectCoreValue(CaseChecks &Checks,
         L"%s, input value %u: %s is %u (0x%X), expected %u (0x%X).",
         describeCorePixel(Pixel).c_str(), Expected.Inputs[Pixel], What, Actual,
         Actual, Wanted, Wanted);
+  });
+}
+
+// WaveActiveCountBits(true) before the discard counts the lanes of the
+// survivors' wave that cover a pixel: at least the four lanes of the top-left
+// quad, which is covered and in one wave, and at most MaxInitialLaneCount. How
+// many more lanes the wave holds is up to the implementation.
+static void expectInitialLaneCount(CaseChecks &Checks,
+                                   const CoreExpectations &Expected, UINT Pixel,
+                                   UINT32 InitialLaneCount,
+                                   UINT32 MaxInitialLaneCount) {
+  const bool Valid =
+      InitialLaneCount >= QuadPixels && InitialLaneCount <= MaxInitialLaneCount;
+  Checks.expect(Valid, L"WaveActiveCountBits(before discard)", [&]() {
+    return FormatToWString(
+        L"%s, input value %u: WaveActiveCountBits before the discard is %u, "
+        L"expected %u to %u: the lanes of the survivors' wave that cover a "
+        L"pixel.",
+        describeCorePixel(Pixel).c_str(), Expected.Inputs[Pixel],
+        InitialLaneCount, QuadPixels, MaxInitialLaneCount);
   });
 }
 
@@ -12770,14 +12785,16 @@ static void checkDiscardedCorePixels(const CoreExpectations &Expected,
 }
 
 // PackedRenderTarget: decodes the survivors' texels and compares every field
-// that decodes without ambiguity. Which survivor gets the lowest lane index is
-// up to the implementation, so the first lane is the only survivor whose
-// WavePrefixCountBits is 0 or, failing that, the only elected survivor.
-// Returns whether ElectedLanes, the number of survivors with WaveIsFirstLane
-// set, is known.
+// with the expected values; the quad ballot depends on a lane layout that the
+// specification does not define, so it is only logged. Which survivor gets the
+// lowest lane index is up to the implementation, so the first lane is the only
+// survivor whose WavePrefixCountBits is 0 or, failing that, the only elected
+// survivor. Returns whether ElectedLanes, the number of survivors with
+// WaveIsFirstLane set, is known.
 static bool checkPackedTexels(const CoreExpectations &Expected,
                               const std::vector<UINT32> &Texels,
-                              CaseChecks &Checks, UINT32 &ElectedLanes) {
+                              UINT32 MaxInitialLaneCount, CaseChecks &Checks,
+                              UINT32 &ElectedLanes) {
   const UINT32 SurvivorCount = Expected.ActiveLaneCount;
   std::vector<PackedFields> Fields(SurvivorCount);
   bool AllWritten = true;
@@ -12796,35 +12813,30 @@ static bool checkPackedTexels(const CoreExpectations &Expected,
 
     Fields[I] = decodePacked(Texel);
     const PackedFields &Decoded = Fields[I];
-    const UINT32 InitialLaneCount =
-        findInitialLaneCount(Decoded.LowByte, Expected);
-    LogCommentFmt(L"  %s, input value %u: texel 0x%08X: bits 0-7 0x%02X "
-                  L"(initial lane count %u), WaveActiveAnyTrue %u, "
-                  L"WaveActiveAllTrue %u, WaveIsFirstLane %u, "
-                  L"WaveReadLaneFirst %u, quad ballot 0x%X, WaveActiveSum %u, "
-                  L"WavePrefixCountBits %u.",
-                  describeCorePixel(Pixel).c_str(), Expected.Inputs[Pixel],
-                  Texel, Decoded.LowByte, InitialLaneCount, Decoded.WaveAnyTrue,
-                  Decoded.WaveAllTrue, Decoded.Elected, Decoded.FirstId,
-                  Decoded.QuadBallot, Decoded.Sum, Decoded.Prefix);
-    Checks.expect(InitialLaneCount != 0, L"WaveActiveCountBits", [&]() {
-      return FormatToWString(
-          L"%s, input value %u: bits 0-7 are 0x%02X, but no initial lane "
-          L"count from 4 to 64 in steps of 4 ORed with %u << 3 | %u << 6 | "
-          L"%u << 7 gives that: after the discard, WaveActiveCountBits must "
-          L"count only the %u surviving lanes, and QuadAny and QuadAll must "
-          L"be %u and %u.",
-          describeCorePixel(Pixel).c_str(), Expected.Inputs[Pixel],
-          Decoded.LowByte, Expected.ActiveLaneCount, Expected.QuadAny,
-          Expected.QuadAll, Expected.ActiveLaneCount, Expected.QuadAny,
-          Expected.QuadAll);
-    });
+    LogCommentFmt(
+        L"  %s, input value %u: texel 0x%08X: initial lanes %u, "
+        L"WaveActiveCountBits %u, WaveActiveAnyTrue %u, WaveActiveAllTrue %u, "
+        L"WaveIsFirstLane %u, WaveReadLaneFirst %u, quad ballot 0x%X, "
+        L"WaveActiveSum %u, WavePrefixCountBits %u, QuadAny %u, QuadAll %u.",
+        describeCorePixel(Pixel).c_str(), Expected.Inputs[Pixel], Texel,
+        Decoded.InitialLaneCount, Decoded.ActiveLaneCount, Decoded.WaveAnyTrue,
+        Decoded.WaveAllTrue, Decoded.Elected, Decoded.FirstId,
+        Decoded.QuadBallot, Decoded.Sum, Decoded.Prefix, Decoded.QuadAny,
+        Decoded.QuadAll);
+    expectInitialLaneCount(Checks, Expected, Pixel, Decoded.InitialLaneCount,
+                           MaxInitialLaneCount);
+    expectCoreValue(Checks, Expected, Pixel, L"WaveActiveCountBits",
+                    Decoded.ActiveLaneCount, Expected.ActiveLaneCount);
     expectCoreValue(Checks, Expected, Pixel, L"WaveActiveAnyTrue",
                     Decoded.WaveAnyTrue, Expected.WaveAnyTrue);
     expectCoreValue(Checks, Expected, Pixel, L"WaveActiveAllTrue",
                     Decoded.WaveAllTrue, Expected.WaveAllTrue);
     expectCoreValue(Checks, Expected, Pixel, L"WaveActiveSum", Decoded.Sum,
                     Expected.Sum);
+    expectCoreValue(Checks, Expected, Pixel, L"QuadAny", Decoded.QuadAny,
+                    Expected.QuadAny);
+    expectCoreValue(Checks, Expected, Pixel, L"QuadAll", Decoded.QuadAll,
+                    Expected.QuadAll);
     const bool PrefixValid = Decoded.Prefix < SurvivorCount;
     Checks.expect(PrefixValid, L"WavePrefixCountBits", [&]() {
       return FormatToWString(L"%s, input value %u: WavePrefixCountBits is %u, "
@@ -12839,6 +12851,13 @@ static bool checkPackedTexels(const CoreExpectations &Expected,
                   L"pixel did not write its texel.");
     return false;
   }
+
+  // WaveActiveCountBits before the discard counts the whole wave, which the
+  // survivors share.
+  for (UINT32 I = 1; I < SurvivorCount; ++I)
+    expectCoreValue(Checks, Expected, Expected.Survivors[I],
+                    L"WaveActiveCountBits(before discard)",
+                    Fields[I].InitialLaneCount, Fields[0].InitialLaneCount);
 
   // Exactly one survivor must be elected, and the prefix counts must be 0 to
   // N-1.
@@ -12916,7 +12935,8 @@ static bool checkPackedTexels(const CoreExpectations &Expected,
 static bool checkLaneRecords(const CoreExpectations &Expected,
                              const std::vector<UINT32> &Texels,
                              const std::vector<LaneRecord> &Records,
-                             CaseChecks &Checks, UINT32 &ElectedLanes) {
+                             UINT32 MaxInitialLaneCount, CaseChecks &Checks,
+                             UINT32 &ElectedLanes) {
   const UINT32 SurvivorCount = Expected.ActiveLaneCount;
   bool AllWritten = true;
   for (UINT Pixel : Expected.Survivors) {
@@ -12948,16 +12968,8 @@ static bool checkLaneRecords(const CoreExpectations &Expected,
                     LaneRecordMarker | Pixel);
     expectCoreValue(Checks, Expected, Pixel, L"InputValue", R.LaneValue,
                     Expected.Inputs[Pixel]);
-    const bool WholeQuads = R.InitialLaneCount >= 4 &&
-                            R.InitialLaneCount <= CorePixels &&
-                            R.InitialLaneCount % 4 == 0;
-    Checks.expect(WholeQuads, L"WaveActiveCountBits(before discard)", [&]() {
-      return FormatToWString(L"%s, input value %u: WaveActiveCountBits before "
-                             L"the discard is %u, expected a multiple of 4 "
-                             L"from 4 to 64, because every quad is complete.",
-                             describeCorePixel(Pixel).c_str(),
-                             Expected.Inputs[Pixel], R.InitialLaneCount);
-    });
+    expectInitialLaneCount(Checks, Expected, Pixel, R.InitialLaneCount,
+                           MaxInitialLaneCount);
     expectCoreValue(Checks, Expected, Pixel, L"WaveActiveCountBits",
                     R.ActiveLaneCount, Expected.ActiveLaneCount);
     expectCoreValue(Checks, Expected, Pixel, L"WaveActiveAnyTrue",
@@ -13162,8 +13174,9 @@ struct GeometryInfo {
 };
 
 static const GeometryInfo Geometries[] = {
-    // One triangle covers the render target, so every quad is complete, and
-    // discard demotes about one pixel in five.
+    // One triangle covers the render target, and discard demotes about one
+    // pixel in five. An implementation may clip the triangle into several, so
+    // its quads are not assumed complete.
     {L"Discard", false, true, false},
     // The same triangle, and discard demotes every pixel of about eleven
     // quads in twelve and two pixels in five of the rest.
@@ -13866,7 +13879,8 @@ static void readBack(const st::ShaderOpTestResult &Test, LPCSTR ResName,
 // passed.
 static bool runCoreCase(ID3D12Device *Device, dxc::SpecificDllLoader &Support,
                         std::shared_ptr<st::ShaderOpSet> ShaderOpSet,
-                        const CoreForm &Form, const LanePattern &Pattern) {
+                        const CoreForm &Form, const LanePattern &Pattern,
+                        UINT LaneCountMax) {
   const std::wstring CaseName = std::wstring(Form.Name) + L"." + Pattern.Name;
   const CoreExpectations Expected = buildCoreExpectations(Pattern);
   VERIFY_IS_TRUE(isValidPattern(Expected));
@@ -13877,6 +13891,9 @@ static bool runCoreCase(ID3D12Device *Device, dxc::SpecificDllLoader &Support,
                 CaseName.c_str(), Expected.ActiveLaneCount,
                 Expected.WaveAnyTrue, Expected.WaveAllTrue, Expected.Sum,
                 Expected.QuadAny, Expected.QuadAll);
+  // The survivors' wave has at most WaveLaneCountMax lanes, and only the
+  // viewport's 64 pixels are covered.
+  const UINT32 MaxInitialLaneCount = (std::min)(LaneCountMax, CorePixels);
 
   st::ShaderOp *Op = ShaderOpSet->GetShaderOp("HelperLaneWaveCore");
   Op->PS = Op->GetString(Form.Shader);
@@ -13884,9 +13901,13 @@ static bool runCoreCase(ID3D12Device *Device, dxc::SpecificDllLoader &Support,
       Device, Support, "HelperLaneWaveCore",
       [&](LPCSTR ResName, std::vector<BYTE> &Data, st::ShaderOp *) {
         if (0 == _stricmp(ResName, "VBuffer")) {
-          // One triangle, in clip space, that covers the viewport and is
-          // clockwise on the render target.
-          const float Vertices[] = {-1.0f, -1.0f, -1.0f, 3.0f, 3.0f, -1.0f};
+          // Two triangles, in clip space, that tile the viewport and are
+          // clockwise on the render target: (0, 0), (8, 0), (0, 8) and
+          // (8, 0), (8, 8), (0, 8) in pixels. The fill rule gives each pixel
+          // center on their shared edge to exactly one of them; no check
+          // depends on which.
+          const float Vertices[] = {-1.0f, 1.0f, 1.0f, 1.0f,  -1.0f, -1.0f,
+                                    1.0f,  1.0f, 1.0f, -1.0f, -1.0f, -1.0f};
           Data.resize(sizeof(Vertices));
           memcpy(Data.data(), Vertices, sizeof(Vertices));
         } else if (0 == _stricmp(ResName, "LaneInputs")) {
@@ -13912,14 +13933,15 @@ static bool runCoreCase(ID3D12Device *Device, dxc::SpecificDllLoader &Support,
   switch (Form.Check) {
   case CoreCheck::Packed:
     checkDiscardedCorePixels(Expected, Texels, nullptr, Checks);
-    ElectedKnown = checkPackedTexels(Expected, Texels, Checks, ElectedLanes);
+    ElectedKnown = checkPackedTexels(Expected, Texels, MaxInitialLaneCount,
+                                     Checks, ElectedLanes);
     break;
   case CoreCheck::PerLane: {
     std::vector<LaneRecord> Records(CorePixels);
     readBack(*Test, "LaneRecords", Records);
     checkDiscardedCorePixels(Expected, Texels, &Records, Checks);
-    ElectedKnown =
-        checkLaneRecords(Expected, Texels, Records, Checks, ElectedLanes);
+    ElectedKnown = checkLaneRecords(Expected, Texels, Records,
+                                    MaxInitialLaneCount, Checks, ElectedLanes);
     break;
   }
   case CoreCheck::Counter: {
@@ -14002,7 +14024,8 @@ static UINT runCases(ID3D12Device *Device, dxc::SpecificDllLoader &Support,
   for (const CoreForm &Form : CoreForms) {
     for (const LanePattern &Pattern : LanePatterns) {
       ++Cases;
-      if (!runCoreCase(Device, Support, ShaderOpSet, Form, Pattern))
+      if (!runCoreCase(Device, Support, ShaderOpSet, Form, Pattern,
+                       LaneCountMax))
         ++FailedCases;
     }
   }
@@ -14045,14 +14068,16 @@ static UINT runCases(ID3D12Device *Device, dxc::SpecificDllLoader &Support,
 // and checks the results of the wave operations against values computed on
 // the CPU.
 //
-// The core cases (HelperLaneWaveCore in ShaderOpArith.xml) draw one triangle
-// over an 8x8 viewport, so all 16 quads are complete, and discard demotes all
-// but two or three lanes of the top-left quad. The survivors are then the only
-// active lanes of their wave, so exactly one of them is elected by
-// WaveIsFirstLane, and it is also the lane that WaveReadLaneFirst reads and
-// the only lane whose WavePrefixCountBits is 0. QuadReadLaneAt must still read
-// the helper lanes. Which survivor gets the lowest lane is up to the
-// implementation, so the test takes it from the results.
+// The core cases (HelperLaneWaveCore in ShaderOpArith.xml) draw two triangles
+// that tile an 8x8 viewport without clipping, and discard demotes all but two
+// or three lanes of the top-left quad, which lies inside the first triangle.
+// The survivors are then the only active lanes of their wave, so exactly one
+// of them is elected by WaveIsFirstLane, and it is also the lane that
+// WaveReadLaneFirst reads and the only lane whose WavePrefixCountBits is 0.
+// QuadReadLaneAt must still read the helper lanes. Which survivor gets the
+// lowest lane, and which other quads share its wave, is up to the
+// implementation, so the test takes the first lane from the results and
+// bounds the wave's lane count before the discard.
 //  - PackedRenderTarget: each survivor runs WaveActiveCountBits,
 //    WaveActiveAnyTrue, WaveActiveAllTrue, WaveIsFirstLane, WaveReadLaneFirst,
 //    WaveActiveBallot, WaveActiveSum, WavePrefixCountBits and QuadReadLaneAt,
