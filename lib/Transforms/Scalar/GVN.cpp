@@ -841,6 +841,20 @@ SpeculationFailure:
   return false;
 }
 
+// HLSL Change Begin - DXIL only supports these integer widths.
+static bool IsValidDxilIntegerWidth(uint64_t Width) {
+  switch (Width) {
+  case 1:
+  case 8:
+  case 16:
+  case 32:
+  case 64:
+    return true;
+  default:
+    return false;
+  }
+}
+// HLSL Change End
 
 /// Return true if CoerceAvailableValueToLoadType will succeed.
 static bool CanCoerceMustAliasedValueToLoad(Value *StoredVal,
@@ -863,14 +877,15 @@ static bool CanCoerceMustAliasedValueToLoad(Value *StoredVal,
   if (LoadPrimBits && DL.getTypeSizeInBits(LoadTy) != LoadPrimBits)
     return false;
 
-  // Reject coercions that require bitcasting a non-integer value (e.g. a native
-  // vector) to an integer wider than 64 bits. DXIL does not support integer
-  // types wider than 64 bits, so such coercions would produce invalid DXIL.
+  // Reject coercions that would create an integer type unsupported by DXIL.
   uint64_t StoredValBits = DL.getTypeSizeInBits(StoredValTy);
   uint64_t LoadBits = DL.getTypeSizeInBits(LoadTy);
-  if (StoredValBits > 64 && !StoredValTy->isIntegerTy() &&
-      (StoredValBits != LoadBits || LoadTy->isIntegerTy()))
-    return false;
+  if (StoredValBits != LoadBits) {
+    if (!StoredValTy->isIntegerTy() && !IsValidDxilIntegerWidth(StoredValBits))
+      return false;
+    if (!IsValidDxilIntegerWidth(LoadBits))
+      return false;
+  }
   // HLSL Change End
 
   // The store has to be at least as big as the load.
@@ -1159,12 +1174,24 @@ static int AnalyzeLoadFromClobberingMemInst(Type *LoadTy, Value *LoadPtr,
 static Value *GetStoreValueForLoad(Value *SrcVal, unsigned Offset,
                                    Type *LoadTy,
                                    Instruction *InsertPt, const DataLayout &DL){
+  // HLSL Change Begin - Reject unsupported coercions before extracting bits.
+  if (!CanCoerceMustAliasedValueToLoad(SrcVal, LoadTy, DL))
+    return nullptr;
+  // HLSL Change End.
+
   LLVMContext &Ctx = SrcVal->getType()->getContext();
 
   uint64_t StoreSize = (DL.getTypeSizeInBits(SrcVal->getType()) + 7) / 8;
   uint64_t LoadSize = (DL.getTypeSizeInBits(LoadTy) + 7) / 8;
 
   IRBuilder<> Builder(InsertPt);
+  // HLSL Change Begin - Equal-sized values need no integer extraction. In
+  // particular, directly bitcast native vectors rather than routing them
+  // through an illegal integer type.
+  if (Offset == 0 && StoreSize == LoadSize)
+    return CoerceAvailableValueToLoadType(SrcVal, LoadTy, Builder, DL);
+
+  // HLSL Change End.
 
   // Compute which bits of the stored value are being used by the load.  Convert
   // to an integer type to start with.
