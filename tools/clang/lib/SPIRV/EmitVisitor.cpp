@@ -460,9 +460,16 @@ void EmitVisitor::initInstruction(SpirvInstruction *inst) {
   if (auto *var = dyn_cast<SpirvVariable>(inst))
     isGlobalVar = var->getStorageClass() != spv::StorageClass::Function;
   const auto op = inst->getopcode();
-  emitDebugLine(op, inst->getSourceLocation(), inst->getSourceRange(),
-                isGlobalVar ? &globalVarsBinary : &mainBinary,
-                isa<SpirvDebugScope>(inst));
+
+  // OpSpecConstantOp is module-scope: it is emitted with the types and
+  // constants, before the debug sources and any function.
+  const bool isSpecConstantOp = isa<SpirvSpecConstantUnaryOp>(inst) ||
+                                isa<SpirvSpecConstantBinaryOp>(inst) ||
+                                isa<SpirvSpecConstantTernaryOp>(inst);
+  if (!isSpecConstantOp)
+    emitDebugLine(op, inst->getSourceLocation(), inst->getSourceRange(),
+                  isGlobalVar ? &globalVarsBinary : &mainBinary,
+                  isa<SpirvDebugScope>(inst));
 
   // Initialize the current instruction for emitting.
   curInst.clear();
