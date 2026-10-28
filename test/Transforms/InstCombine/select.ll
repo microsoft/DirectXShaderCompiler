@@ -1561,3 +1561,4 @@ define i32 @PR23757(i32 %x) {
   %add = add nsw i32 %x, 1
   %sel = select i1 %cmp, i32 -2147483648, i32 %add
   ret i32 %sel
+}
