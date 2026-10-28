@@ -32,6 +32,5 @@ RWBuffer<float4> output : register(u0);
 [numthreads(1, 1, 1)]
 void main(uint3 tid : SV_DispatchThreadID) {
   Texture2D<float4> tex = ResourceDescriptorHeap[0];
-  RaytracingAccelerationStructure scene = ResourceDescriptorHeap[1];
   output[tid.x] = tex.Load(int3(tid.x, 0, 0));
 }

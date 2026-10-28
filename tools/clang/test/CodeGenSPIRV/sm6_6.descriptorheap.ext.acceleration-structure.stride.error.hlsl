@@ -24,6 +24,11 @@
 
 // CHECK: error: acceleration structure loaded from ResourceDescriptorHeap requires the resource heap stride to account for acceleration structure descriptors; compile with -fspv-extension=SPV_KHR_ray_tracing or -fspv-extension=SPV_KHR_ray_query
 
+// The variable initialized from the rejected load must not cascade into a
+// fatal error that hides the diagnostic above.
+// CHECK-NOT: unregistered decl
+// CHECK-NOT: fatal error
+
 // OK-DAG:    %[[Accel:[a-zA-Z0-9_]+]] = OpTypeAccelerationStructureKHR
 // OK-DAG:                               OpConstantSizeOfEXT %uint %[[Accel]]
 

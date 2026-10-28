@@ -2090,9 +2090,18 @@ bool SpirvEmitter::tryToCreateDescriptorHeapAlias(const VarDecl *decl,
       declIdMapper.registerFnVarAlias(decl, initVal);
       descriptorHeapVarState[decl] = DescriptorHeapVarState::Heap;
     } else {
+      // The initializer could not be lowered and has been diagnosed (here or
+      // while evaluating it). Register a placeholder so that later uses of the
+      // variable do not hit the "unregistered decl" fatal error, which would
+      // bury the real diagnostic. Mixed keeps later assignments to it from
+      // being diagnosed again. The error fails the compilation, so the
+      // placeholder is never emitted.
       emitError("cannot create descriptor heap acceleration structure alias "
                 "from initializer",
                 init->getExprLoc());
+      declIdMapper.registerFnVarAlias(decl,
+                                      spvBuilder.getUndef(decl->getType()));
+      descriptorHeapVarState[decl] = DescriptorHeapVarState::Mixed;
     }
     return true;
   }
