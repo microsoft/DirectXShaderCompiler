@@ -26,7 +26,6 @@ add_llvm_unittest(SupportTests
   BranchProbabilityTest.cpp
   Casting.cpp
   CommandLineTest.cpp
-  CompilerTest.cpp # HLSL Change
   CompressionTest.cpp
   ConvertUTFTest.cpp
   DataExtractorTest.cpp
