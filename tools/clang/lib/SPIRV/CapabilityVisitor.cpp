@@ -335,11 +335,10 @@ bool CapabilityVisitor::visit(SpirvDecoration *decor) {
       break;
     }
     case spv::BuiltIn::PrimitiveId: {
-      // PrimitiveID can be used as PSIn or MSPOut.
-      if (shaderModel == spv::ExecutionModel::Fragment ||
-          shaderModel == spv::ExecutionModel::MeshNV ||
-          shaderModel == spv::ExecutionModel::MeshEXT)
-        addCapability(spv::Capability::Geometry);
+      // PrimitiveID can be used as PSIn or MSPOut. The mesh stage's own
+      // MeshShadingNV/MeshShadingEXT capability enables it.
+      if (shaderModel == spv::ExecutionModel::Fragment)
+        fragmentBuiltinsNeedingCapability.push_back(builtin);
       break;
     }
     case spv::BuiltIn::Layer: {
@@ -354,11 +353,10 @@ bool CapabilityVisitor::visit(SpirvDecoration *decor) {
                        "SV_RenderTargetArrayIndex", loc);
           addCapability(spv::Capability::ShaderViewportIndexLayerEXT);
         }
-      } else if (shaderModel == spv::ExecutionModel::Fragment ||
-                 shaderModel == spv::ExecutionModel::MeshNV ||
-                 shaderModel == spv::ExecutionModel::MeshEXT) {
-        // SV_RenderTargetArrayIndex can be used as PSIn or MSPOut.
-        addCapability(spv::Capability::Geometry);
+      } else if (shaderModel == spv::ExecutionModel::Fragment) {
+        // SV_RenderTargetArrayIndex can be used as PSIn or MSPOut. The mesh
+        // stage's own MeshShadingNV/MeshShadingEXT capability enables it.
+        fragmentBuiltinsNeedingCapability.push_back(builtin);
       }
       break;
     }
@@ -373,12 +371,12 @@ bool CapabilityVisitor::visit(SpirvDecoration *decor) {
                        "SV_ViewPortArrayIndex", loc);
           addCapability(spv::Capability::ShaderViewportIndexLayerEXT);
         }
-      } else if (shaderModel == spv::ExecutionModel::Fragment ||
-                 shaderModel == spv::ExecutionModel::Geometry ||
-                 shaderModel == spv::ExecutionModel::MeshNV ||
-                 shaderModel == spv::ExecutionModel::MeshEXT) {
-        // SV_ViewportArrayIndex can be used as PSIn or GSOut or MSPOut.
+      } else if (shaderModel == spv::ExecutionModel::Geometry) {
+        // SV_ViewportArrayIndex can be used as PSIn or GSOut or MSPOut. The
+        // mesh stage's own MeshShadingNV/MeshShadingEXT capability enables it.
         addCapability(spv::Capability::MultiViewport);
+      } else if (shaderModel == spv::ExecutionModel::Fragment) {
+        fragmentBuiltinsNeedingCapability.push_back(builtin);
       }
       break;
     }
@@ -899,6 +897,43 @@ bool CapabilityVisitor::visit(SpirvReadClock *inst) {
   return true;
 }
 
+void CapabilityVisitor::addCapabilitiesForFragmentBuiltins() {
+  // Each of these builtins is enabled by more than one capability: all three
+  // by MeshShadingNV or MeshShadingEXT (VUID-PrimitiveId-Fragment-04333 for
+  // PrimitiveId), PrimitiveId by Tessellation, and Layer and ViewportIndex by
+  // ShaderViewportIndexLayerEXT and by ShaderLayer / ShaderViewportIndex. Add
+  // Geometry or MultiViewport only when none of those is declared, so a plain
+  // pixel shader keeps it and one that declares mesh shading does not need
+  // geometry shaders.
+  const bool hasMeshShading =
+      spvBuilder.hasCapability(spv::Capability::MeshShadingNV) ||
+      spvBuilder.hasCapability(spv::Capability::MeshShadingEXT);
+  const bool hasViewportIndexLayer =
+      spvBuilder.hasCapability(spv::Capability::ShaderViewportIndexLayerEXT);
+  for (const auto builtin : fragmentBuiltinsNeedingCapability) {
+    if (hasMeshShading)
+      continue;
+    switch (builtin) {
+    case spv::BuiltIn::PrimitiveId:
+      if (!spvBuilder.hasCapability(spv::Capability::Tessellation))
+        addCapability(spv::Capability::Geometry);
+      break;
+    case spv::BuiltIn::Layer:
+      if (!hasViewportIndexLayer &&
+          !spvBuilder.hasCapability(spv::Capability::ShaderLayer))
+        addCapability(spv::Capability::Geometry);
+      break;
+    case spv::BuiltIn::ViewportIndex:
+      if (!hasViewportIndexLayer &&
+          !spvBuilder.hasCapability(spv::Capability::ShaderViewportIndex))
+        addCapability(spv::Capability::MultiViewport);
+      break;
+    default:
+      llvm_unreachable("unexpected fragment builtin");
+    }
+  }
+}
+
 bool CapabilityVisitor::visit(SpirvModule *, Visitor::Phase phase) {
   // If there are no entry-points in the module add the Shader capability.
   // This allows library shader models with no entry pointer and just exported
@@ -907,6 +942,9 @@ bool CapabilityVisitor::visit(SpirvModule *, Visitor::Phase phase) {
       shaderModel == spv::ExecutionModel::Max) {
     addCapability(spv::Capability::Shader);
   }
+
+  if (phase == Visitor::Phase::Done)
+    addCapabilitiesForFragmentBuiltins();
 
   // SPIRV-Tools now has a pass to trim superfluous capabilities. This means we
   // can remove most capability-selection logic from here, and just add
