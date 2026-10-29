@@ -431,9 +431,6 @@ install(DIRECTORY include/clang-c
   )
 
 add_definitions( -D_GNU_SOURCE )
-if (MINGW)
-  add_definitions( -DMS_SUPPORT_VARIABLE_LANGOPTS )
-endif()
 
 option(CLANG_ENABLE_ARCMT "Build ARCMT." ON)
 if (CLANG_ENABLE_ARCMT)
