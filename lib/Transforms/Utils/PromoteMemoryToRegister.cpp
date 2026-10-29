@@ -157,18 +157,22 @@ struct AllocaInfo {
 class RenamePassData {
 public:
   typedef std::vector<Value *> ValVector;
+  typedef std::vector<const DebugLoc *> LocVector;
 
   RenamePassData() : BB(nullptr), Pred(nullptr), Values() {}
-  RenamePassData(BasicBlock *B, BasicBlock *P, const ValVector &V)
-      : BB(B), Pred(P), Values(V) {}
+  RenamePassData(BasicBlock *B, BasicBlock *P, const ValVector &V,
+                 const LocVector &L)
+      : BB(B), Pred(P), Values(V), DbgLocs(L) {}
   BasicBlock *BB;
   BasicBlock *Pred;
   ValVector Values;
+  LocVector DbgLocs;
 
   void swap(RenamePassData &RHS) {
     std::swap(BB, RHS.BB);
     std::swap(Pred, RHS.Pred);
     Values.swap(RHS.Values);
+    DbgLocs.swap(RHS.DbgLocs);
   }
 };
 
@@ -299,9 +303,7 @@ private:
                            const SmallPtrSetImpl<BasicBlock *> &DefBlocks,
                            SmallPtrSetImpl<BasicBlock *> &LiveInBlocks,
                            BasicBlock *LifetimeStartBB);
-  void RenamePass(BasicBlock *BB, BasicBlock *Pred,
-                  RenamePassData::ValVector &IncVals,
-                  std::vector<RenamePassData> &Worklist);
+  void RenamePass(RenamePassData &RPD, std::vector<RenamePassData> &Worklist);
   bool QueuePhiNode(BasicBlock *BB, unsigned AllocaIdx, unsigned &Version);
 };
 
@@ -679,20 +681,24 @@ void PromoteMem2Reg::run() {
   // been stored yet.  In this case, it will get this null value.
   //
   RenamePassData::ValVector Values(Allocas.size());
-  for (unsigned i = 0, e = Allocas.size(); i != e; ++i)
+  RenamePassData::LocVector Locs(Allocas.size());
+  for (unsigned i = 0, e = Allocas.size(); i != e; ++i) {
     Values[i] = UndefValue::get(Allocas[i]->getAllocatedType());
+    Locs[i] = &Allocas[i]->getDebugLoc();
+  }
 
   // Walks all basic blocks in the function performing the SSA rename algorithm
   // and inserting the phi nodes we marked as necessary
   //
   std::vector<RenamePassData> RenamePassWorkList;
-  RenamePassWorkList.emplace_back(F.begin(), nullptr, std::move(Values));
+  RenamePassWorkList.emplace_back(F.begin(), nullptr, std::move(Values),
+                                  std::move(Locs));
   do {
     RenamePassData RPD;
     RPD.swap(RenamePassWorkList.back());
     RenamePassWorkList.pop_back();
     // RenamePass may add new worklist entries.
-    RenamePass(RPD.BB, RPD.Pred, RPD.Values, RenamePassWorkList);
+    RenamePass(RPD, RenamePassWorkList);
   } while (!RenamePassWorkList.empty());
 
   // The renamer uses the Visited set to avoid infinite loops.  Clear it now.
@@ -967,13 +973,12 @@ bool PromoteMem2Reg::QueuePhiNode(BasicBlock *BB, unsigned AllocaNo,
 ///
 /// IncomingVals indicates what value each Alloca contains on exit from the
 /// predecessor block Pred.
-void PromoteMem2Reg::RenamePass(BasicBlock *BB, BasicBlock *Pred,
-                                RenamePassData::ValVector &IncomingVals,
+void PromoteMem2Reg::RenamePass(RenamePassData &RPD,
                                 std::vector<RenamePassData> &Worklist) {
 NextIteration:
   // If we are inserting any phi nodes into this BB, they will already be in the
   // block.
-  if (PHINode *APN = dyn_cast<PHINode>(BB->begin())) {
+  if (PHINode *APN = dyn_cast<PHINode>(RPD.BB->begin())) {
     // If we have PHI nodes to update, compute the number of edges from Pred to
     // BB.
     if (PhiToAllocaMap.count(APN)) {
@@ -985,20 +990,25 @@ NextIteration:
       // operands so far.  Remember this count.
       unsigned NewPHINumOperands = APN->getNumOperands();
 
-      unsigned NumEdges = std::count(succ_begin(Pred), succ_end(Pred), BB);
+      unsigned NumEdges =
+          std::count(succ_begin(RPD.Pred), succ_end(RPD.Pred), RPD.BB);
       assert(NumEdges && "Must be at least one edge from Pred to BB!");
 
       // Add entries for all the phis.
-      BasicBlock::iterator PNI = BB->begin();
+      BasicBlock::iterator PNI = RPD.BB->begin();
       do {
         unsigned AllocaNo = PhiToAllocaMap[APN];
 
+        // Set the PHI debug location.
+        if (!APN->getDebugLoc())
+          APN->setDebugLoc(*RPD.DbgLocs[AllocaNo]);
+
         // Add N incoming values to the PHI node.
         for (unsigned i = 0; i != NumEdges; ++i)
-          APN->addIncoming(IncomingVals[AllocaNo], Pred);
+          APN->addIncoming(RPD.Values[AllocaNo], RPD.Pred);
 
         // The currently active variable for this block is now the PHI.
-        IncomingVals[AllocaNo] = APN;
+        RPD.Values[AllocaNo] = APN;
 
         // Get the next phi node.
         ++PNI;
@@ -1013,10 +1023,10 @@ NextIteration:
   }
 
   // Don't revisit blocks.
-  if (!Visited.insert(BB).second)
+  if (!Visited.insert(RPD.BB).second)
     return;
 
-  for (BasicBlock::iterator II = BB->begin(); !isa<TerminatorInst>(II);) {
+  for (BasicBlock::iterator II = RPD.BB->begin(); !isa<TerminatorInst>(II);) {
     Instruction *I = II++; // get the instruction, increment iterator
 
     if (LoadInst *LI = dyn_cast<LoadInst>(I)) {
@@ -1028,13 +1038,13 @@ NextIteration:
       if (AI == AllocaLookup.end())
         continue;
 
-      Value *V = IncomingVals[AI->second];
+      Value *V = RPD.Values[AI->second];
 
       // Anything using the load now uses the current value.
       LI->replaceAllUsesWith(V);
       if (AST && LI->getType()->isPointerTy())
         AST->deleteValue(LI);
-      BB->getInstList().erase(LI);
+      RPD.BB->getInstList().erase(LI);
     } else if (StoreInst *SI = dyn_cast<StoreInst>(I)) {
       // Delete this instruction and mark the name as the current holder of the
       // value
@@ -1047,17 +1057,17 @@ NextIteration:
         continue;
 
       // what value were we writing?
-      IncomingVals[ai->second] = SI->getOperand(0);
+      RPD.Values[ai->second] = SI->getOperand(0);
       // Record debuginfo for the store before removing it.
-      // if (DbgDeclareInst *DDI = AllocaDbgDeclares[ai->second]) // HLSL Change
+      RPD.DbgLocs[ai->second] = &SI->getDebugLoc();
       for (DbgDeclareInst *DDI : AllocaDbgDeclares[ai->second]) // HLSL Change
         ConvertDebugDeclareToDebugValue(DDI, SI, DIB);
-      BB->getInstList().erase(SI);
+      RPD.BB->getInstList().erase(SI);
     }
   }
 
   // 'Recurse' to our successors.
-  succ_iterator I = succ_begin(BB), E = succ_end(BB);
+  succ_iterator I = succ_begin(RPD.BB), E = succ_end(RPD.BB);
   if (I == E)
     return;
 
@@ -1066,13 +1076,13 @@ NextIteration:
 
   // Handle the first successor without using the worklist.
   VisitedSuccs.insert(*I);
-  Pred = BB;
-  BB = *I;
+  RPD.Pred = RPD.BB;
+  RPD.BB = *I;
   ++I;
 
   for (; I != E; ++I)
     if (VisitedSuccs.insert(*I).second)
-      Worklist.emplace_back(*I, Pred, IncomingVals);
+      Worklist.emplace_back(*I, RPD.Pred, RPD.Values, RPD.DbgLocs);
 
   goto NextIteration;
 }
