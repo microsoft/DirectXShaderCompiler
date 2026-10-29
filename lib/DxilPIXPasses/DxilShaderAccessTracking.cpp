@@ -174,8 +174,9 @@ struct RSRegisterIdentifier {
   unsigned Index;
 
   bool operator<(const RSRegisterIdentifier &o) const {
-    return static_cast<unsigned>(Type) < static_cast<unsigned>(o.Type) &&
-           Space < o.Space && Index < o.Index;
+    return static_cast<unsigned>(Type) < static_cast<unsigned>(o.Type) ||
+           (Type == o.Type &&
+            (Space < o.Space || (Space == o.Space && Index < o.Index)));
   }
 };
 
@@ -428,7 +429,8 @@ bool DxilShaderAccessTracking::EmitResourceAccess(DxilModule &DM,
 
       if (isa<ConstantInt>(res.index) && res.indexDynamicOffset == nullptr) {
         unsigned index = cast<ConstantInt>(res.index)->getLimitedValue();
-        if (index > slot->second.numSlots) {
+        // Index is 0-based, so numSlots is the first out-of-range value.
+        if (index >= slot->second.numSlots) {
           // out-of-range accesses are written to slot zero:
           slotIndex = HlslOP->GetU32Const(0);
         } else {
@@ -746,7 +748,8 @@ DxilShaderAccessTracking::GetResourceFromHandle(Value *resHandle,
         ret.index = createHandle.get_index();
         ret.registerType = registerType;
         ret.accessStyle = AccessStyle::FromRootSig;
-        ret.RegisterID = resource->GetID();
+        // RegisterID is the binding lower bound, not the resource-list ID.
+        ret.RegisterID = resource->GetLowerBound();
         ret.RegisterSpace = resource->GetSpaceID();
       }
     }
@@ -768,6 +771,7 @@ DxilShaderAccessTracking::GetResourceFromHandle(Value *resHandle,
         ret.index = createHandleFromBinding.get_index();
         ret.registerType = RegisterTypeFromResourceClass(
             static_cast<hlsl::DXIL::ResourceClass>(binding.resourceClass));
+        ret.RegisterID = binding.rangeLowerBound;
         ret.RegisterSpace = binding.spaceID;
       } else if (hlsl::OP::IsDxilOpFuncCallInst(
                      handleCreation, hlsl::OP::OpCode::CreateHandleFromHeap)) {
