@@ -321,6 +321,7 @@ typedef DWORD *LPDWORD;
 
 typedef uint32_t UINT32;
 typedef uint64_t UINT64;
+typedef int64_t INT64;
 
 typedef signed char INT8, *PINT8;
 typedef signed int INT32, *PINT32;
