@@ -46,6 +46,7 @@
 #include <functional>
 #include <limits>
 #include <map>
+#include <set>
 #include <tuple>
 
 using namespace llvm;
@@ -679,11 +680,105 @@ unsigned hlsl::LoadViewIDStateFromPSV(unsigned *pOutputData,
   return pOutputData - pStartOutputData;
 }
 
-//////////////////////////////////////////////////////////
-// DxilPSVWriter - Writes PSV0 part
+namespace {
 
-class DxilPSVWriter : public DxilPartWriter {
-private:
+enum LinAlgMatVecLayoutFlag : uint8_t {
+  MatrixTransposed = 1 << 0,
+  MatrixNonMulOptimalLayout = 1 << 1,
+};
+
+enum LinAlgAccumulateStoreFlag : uint8_t {
+  RawBuffer = 1 << 0,
+  GroupShared = 1 << 1,
+};
+
+static_assert(
+    MatrixTransposed ==
+            static_cast<uint8_t>(
+                PSVLinAlgThreadMatrixVectorMultiplyFlag::MatrixTransposed) &&
+        MatrixTransposed ==
+            static_cast<uint8_t>(
+                RDAT::LinAlgThreadMatrixVectorMultiplyFlag::MatrixTransposed) &&
+        MatrixNonMulOptimalLayout ==
+            static_cast<uint8_t>(PSVLinAlgThreadMatrixVectorMultiplyFlag::
+                                     MatrixNonMulOptimalLayout) &&
+        MatrixNonMulOptimalLayout ==
+            static_cast<uint8_t>(RDAT::LinAlgThreadMatrixVectorMultiplyFlag::
+                                     MatrixNonMulOptimalLayout),
+    "LinAlg matrix layout flags must match both container formats");
+static_assert(
+    RawBuffer ==
+            static_cast<uint8_t>(PSVLinAlgAccumulateStoreFlag::RawBuffer) &&
+        RawBuffer ==
+            static_cast<uint8_t>(RDAT::LinAlgAccumulateStoreFlag::RawBuffer) &&
+        GroupShared ==
+            static_cast<uint8_t>(PSVLinAlgAccumulateStoreFlag::GroupShared) &&
+        GroupShared ==
+            static_cast<uint8_t>(RDAT::LinAlgAccumulateStoreFlag::GroupShared),
+    "LinAlg accumulate store flags must match both container formats");
+
+struct LinAlgShape {
+  uint32_t M;
+  uint32_t N;
+  uint32_t K;
+
+  bool operator<(const LinAlgShape &Other) const {
+    return std::tie(M, N, K) < std::tie(Other.M, Other.N, Other.K);
+  }
+};
+
+using LinAlgConstructionKey = std::pair<uint8_t, uint8_t>;
+using LinAlgThreadMatrixVectorMultiplyKey =
+    std::tuple<uint8_t, uint8_t, uint8_t>;
+using LinAlgMatrixMultiplyKey = std::tuple<uint8_t, uint8_t, uint8_t, uint8_t>;
+using LinAlgOuterProductKey = std::pair<uint8_t, uint8_t>;
+
+struct LinAlgFunctionInfo {
+  // Canonicalize usage independently of instruction and function order.
+  std::map<LinAlgConstructionKey, std::set<LinAlgShape>> Constructions;
+  std::map<LinAlgThreadMatrixVectorMultiplyKey, uint8_t>
+      ThreadMatrixVectorMultiplies;
+  std::map<LinAlgMatrixMultiplyKey, std::set<LinAlgShape>> MatrixMultiplies;
+  std::set<LinAlgOuterProductKey> OuterProducts;
+  std::map<uint8_t, uint8_t> AccumulateStores;
+
+  bool Merge(const LinAlgFunctionInfo &Other) {
+    bool Changed = false;
+    for (const auto &Entry : Other.Constructions) {
+      std::set<LinAlgShape> &Shapes = Constructions[Entry.first];
+      size_t OldSize = Shapes.size();
+      Shapes.insert(Entry.second.begin(), Entry.second.end());
+      Changed |= Shapes.size() != OldSize;
+    }
+    size_t OldMatVecCount = ThreadMatrixVectorMultiplies.size();
+    for (const auto &Entry : Other.ThreadMatrixVectorMultiplies) {
+      uint8_t &Flags = ThreadMatrixVectorMultiplies[Entry.first];
+      uint8_t OldFlags = Flags;
+      Flags |= Entry.second;
+      Changed |= Flags != OldFlags;
+    }
+    Changed |= ThreadMatrixVectorMultiplies.size() != OldMatVecCount;
+    for (const auto &Entry : Other.MatrixMultiplies) {
+      std::set<LinAlgShape> &Shapes = MatrixMultiplies[Entry.first];
+      size_t OldSize = Shapes.size();
+      Shapes.insert(Entry.second.begin(), Entry.second.end());
+      Changed |= Shapes.size() != OldSize;
+    }
+    size_t OldOuterProductCount = OuterProducts.size();
+    OuterProducts.insert(Other.OuterProducts.begin(),
+                         Other.OuterProducts.end());
+    Changed |= OuterProducts.size() != OldOuterProductCount;
+    for (const auto &Entry : Other.AccumulateStores) {
+      uint8_t &Flags = AccumulateStores[Entry.first];
+      uint8_t OldFlags = Flags;
+      Flags |= Entry.second;
+      Changed |= Flags != OldFlags;
+    }
+    return Changed;
+  }
+};
+
+class LinAlgRuntimeInfoCollector {
   struct LinAlgMatrixInfo {
     DXIL::ComponentType Type = DXIL::ComponentType::Invalid;
     uint32_t M = 0;
@@ -692,32 +787,12 @@ private:
     DXIL::MatrixScope Scope = DXIL::MatrixScope::Thread;
   };
 
-  const DxilModule &m_Module;
-  unsigned m_ValMajor = 0, m_ValMinor = 0;
-  PSVInitInfo m_PSVInitInfo;
-  DxilPipelineStateValidation m_PSV;
-  uint32_t m_PSVBufferSize = 0;
-  SmallVector<char, 512> m_PSVBuffer;
-  SmallVector<char, 256> m_StringBuffer;
-  SmallVector<uint32_t, 8> m_SemanticIndexBuffer;
-  std::vector<PSVSignatureElement0> m_SigInputElements;
-  std::vector<PSVSignatureElement0> m_SigOutputElements;
-  std::vector<PSVSignatureElement0> m_SigPatchConstOrPrimElements;
-  std::vector<PSVLinAlgMatrixOperationShape0> m_LinAlgShapes;
-  std::vector<PSVLinAlgMatrixConstruction0> m_LinAlgConstructions;
-  std::vector<PSVLinAlgThreadMatrixVectorMultiply0>
-      m_LinAlgThreadMatrixVectorMultiplies;
-  std::vector<PSVLinAlgWaveMatrixMultiply0> m_LinAlgWaveMatrixMultiplies;
-  std::vector<PSVLinAlgThreadGroupMatrixMultiply0>
-      m_LinAlgThreadGroupMatrixMultiplies;
-  std::vector<PSVLinAlgOuterProduct0> m_LinAlgOuterProducts;
-  std::vector<PSVLinAlgAccumulateStore0> m_LinAlgAccumulateStores;
   std::map<Type *, LinAlgMatrixInfo> m_LinAlgMatrixInfos;
-  unsigned EntryFunctionName = 0;
 
-  void LoadLinAlgMatrixInfos() {
-    NamedMDNode *NMD = m_Module.GetModule()->getNamedMetadata(
-        DxilMDHelper::kDxilTargetTypesMDName);
+public:
+  explicit LinAlgRuntimeInfoCollector(const DxilModule &DM) {
+    NamedMDNode *NMD =
+        DM.GetModule()->getNamedMetadata(DxilMDHelper::kDxilTargetTypesMDName);
     if (!NMD)
       return;
 
@@ -757,10 +832,12 @@ private:
     }
   }
 
+private:
   bool GetLinAlgMatrixInfo(Type *Ty, LinAlgMatrixInfo &Info) const {
     if (!dxilutil::IsHLSLLinAlgMatrixType(Ty))
       return false;
-    auto It = m_LinAlgMatrixInfos.find(Ty);
+    std::map<Type *, LinAlgMatrixInfo>::const_iterator It =
+        m_LinAlgMatrixInfos.find(Ty);
     if (It == m_LinAlgMatrixInfos.end())
       return false;
     Info = It->second;
@@ -798,38 +875,14 @@ private:
     return GetScalarComponentType(Ty, IsSigned);
   }
 
-  uint32_t AddLinAlgShape(uint32_t M, uint32_t N, uint32_t K) {
-    for (uint32_t I = 0; I < m_LinAlgShapes.size(); ++I) {
-      const auto &Shape = m_LinAlgShapes[I];
-      if (Shape.M == M && Shape.N == N && Shape.K == K)
-        return I;
-    }
-    m_LinAlgShapes.push_back({M, N, K});
-    return static_cast<uint32_t>(m_LinAlgShapes.size() - 1);
-  }
-
-  uint32_t AddShapeIndexArray(ArrayRef<uint32_t> ShapeIndexes) {
-    for (uint32_t Offset = 0;
-         Offset + ShapeIndexes.size() <= m_SemanticIndexBuffer.size();
-         ++Offset) {
-      if (std::equal(ShapeIndexes.begin(), ShapeIndexes.end(),
-                     m_SemanticIndexBuffer.begin() + Offset))
-        return Offset;
-    }
-    uint32_t Offset = static_cast<uint32_t>(m_SemanticIndexBuffer.size());
-    m_SemanticIndexBuffer.append(ShapeIndexes.begin(), ShapeIndexes.end());
-    return Offset;
-  }
-
-  static void AddUniqueIndex(std::vector<uint32_t> &Indexes, uint32_t Index) {
-    if (std::find(Indexes.begin(), Indexes.end(), Index) == Indexes.end())
-      Indexes.push_back(Index);
-  }
-
   uint8_t GetMatVecLayoutFlags(Value *Matrix) const {
     SmallVector<Value *, 8> Worklist(1, Matrix);
     SmallPtrSet<Value *, 8> Visited;
     uint8_t Flags = 0;
+    // Default to a conservative flagset when it's not possible to determine
+    // the true flags
+    const uint8_t UnknownLayoutFlags =
+        MatrixTransposed | MatrixNonMulOptimalLayout;
     while (!Worklist.empty()) {
       Value *V = Worklist.pop_back_val();
       if (!Visited.insert(V).second)
@@ -857,31 +910,30 @@ private:
 
         if (OpCode == DXIL::OpCode::LinAlgMatrixLoadFromDescriptor) {
           DxilInst_LinAlgMatrixLoadFromDescriptor Op(CI);
-          auto *Layout = dyn_cast<ConstantInt>(Op.get_layout());
+          ConstantInt *Layout = dyn_cast<ConstantInt>(Op.get_layout());
           if (!Layout)
-            continue;
+            return UnknownLayoutFlags;
 
           DXIL::MatrixLayout LayoutValue =
               static_cast<DXIL::MatrixLayout>(Layout->getZExtValue());
           if (LayoutValue == DXIL::MatrixLayout::MulOptimalTranspose)
-            Flags |= static_cast<uint8_t>(
-                PSVLinAlgThreadMatrixVectorMultiplyFlag::MatrixTransposed);
+            Flags |= MatrixTransposed;
           else if (LayoutValue != DXIL::MatrixLayout::MulOptimal)
-            Flags |=
-                static_cast<uint8_t>(PSVLinAlgThreadMatrixVectorMultiplyFlag::
-                                         MatrixNonMulOptimalLayout);
+            Flags |= MatrixNonMulOptimalLayout;
+          continue;
         }
       }
+
+      return UnknownLayoutFlags;
     }
     return Flags;
   }
 
-  void CollectLinAlgRuntimeInfo() {
-    using ConstructionKey = std::pair<uint8_t, uint8_t>;
-    using MultiplyKey = std::tuple<uint8_t, uint8_t, uint8_t, uint8_t>;
-    std::map<ConstructionKey, std::vector<uint32_t>> ConstructionShapes;
-    std::map<MultiplyKey, std::vector<uint32_t>> MultiplyShapes;
-
+public:
+  LinAlgFunctionInfo CollectDirectUsage(const Function &F) const {
+    // Collect all recognized usage for both PSV and RDAT. Any future Tier 1
+    // filtering belongs here rather than in either serializer.
+    LinAlgFunctionInfo Info;
     auto CollectConstruction = [&](Type *Ty) {
       LinAlgMatrixInfo Matrix;
       if (!GetLinAlgMatrixInfo(Ty, Matrix) ||
@@ -893,175 +945,188 @@ private:
           Matrix.Use == DXIL::MatrixUse::Accumulator
               ? 0
               : (Matrix.Use == DXIL::MatrixUse::A ? Matrix.N : Matrix.M);
-      uint32_t Shape = AddLinAlgShape(M, N, K);
-      AddUniqueIndex(ConstructionShapes[{static_cast<uint8_t>(Matrix.Type),
-                                         static_cast<uint8_t>(Matrix.Use)}],
-                     Shape);
+      Info.Constructions[{static_cast<uint8_t>(Matrix.Type),
+                          static_cast<uint8_t>(Matrix.Use)}]
+          .insert({M, N, K});
     };
 
-    for (const Function &F : m_Module.GetModule()->functions()) {
-      for (const BasicBlock &BB : F) {
-        for (const Instruction &I : BB) {
-          const CallInst *ConstCI = dyn_cast<CallInst>(&I);
-          if (!ConstCI || !OP::IsDxilOpFuncCallInst(ConstCI))
-            continue;
+    for (const BasicBlock &BB : F) {
+      for (const Instruction &I : BB) {
+        const CallInst *ConstCI = dyn_cast<CallInst>(&I);
+        if (!ConstCI || !OP::IsDxilOpFuncCallInst(ConstCI))
+          continue;
 
-          CallInst *CI = const_cast<CallInst *>(ConstCI);
-          DXIL::OpCode OpCode = OP::getOpCode(CI);
-          bool IsSpecializedUse = true;
-          switch (OpCode) {
-          case DXIL::OpCode::LinAlgMatVecMul:
-          case DXIL::OpCode::LinAlgMatVecMulAdd: {
-            DxilInst_LinAlgMatVecMul Op(CI);
-            LinAlgMatrixInfo Matrix;
-            if (!GetLinAlgMatrixInfo(Op.get_matrix()->getType(), Matrix))
-              break;
-            bool IsSigned =
-                cast<ConstantInt>(Op.get_isOutputSigned())->getZExtValue() != 0;
-            DXIL::ComponentType ResultType =
-                GetVectorOrScalarComponentType(CI->getType(), IsSigned);
-            DXIL::ComponentType InputType = static_cast<DXIL::ComponentType>(
-                cast<ConstantInt>(Op.get_interpretation())->getZExtValue());
-            uint8_t Flags = GetMatVecLayoutFlags(Op.get_matrix());
-            auto It = std::find_if(
-                m_LinAlgThreadMatrixVectorMultiplies.begin(),
-                m_LinAlgThreadMatrixVectorMultiplies.end(),
-                [&](const PSVLinAlgThreadMatrixVectorMultiply0 &Record) {
-                  return Record.ResultType ==
-                             static_cast<uint8_t>(ResultType) &&
-                         Record.MatrixType ==
-                             static_cast<uint8_t>(Matrix.Type) &&
-                         Record.VectorInputType ==
-                             static_cast<uint8_t>(InputType);
-                });
-            if (It == m_LinAlgThreadMatrixVectorMultiplies.end())
-              m_LinAlgThreadMatrixVectorMultiplies.push_back(
-                  {static_cast<uint8_t>(ResultType),
-                   static_cast<uint8_t>(Matrix.Type),
-                   static_cast<uint8_t>(InputType), Flags});
-            else
-              It->Flags |= Flags;
+        CallInst *CI = const_cast<CallInst *>(ConstCI);
+        DXIL::OpCode OpCode = OP::getOpCode(CI);
+        bool IsSpecializedUse = true;
+        switch (OpCode) {
+        case DXIL::OpCode::LinAlgMatVecMul:
+        case DXIL::OpCode::LinAlgMatVecMulAdd: {
+          DxilInst_LinAlgMatVecMul Op(CI);
+          LinAlgMatrixInfo Matrix;
+          if (!GetLinAlgMatrixInfo(Op.get_matrix()->getType(), Matrix))
             break;
-          }
-          case DXIL::OpCode::LinAlgMatrixMultiply:
-          case DXIL::OpCode::LinAlgMatrixMultiplyAccumulate: {
-            DxilInst_LinAlgMatrixMultiply Op(CI);
-            LinAlgMatrixInfo Result, A, B;
-            if (!GetLinAlgMatrixInfo(CI->getType(), Result) ||
-                !GetLinAlgMatrixInfo(Op.get_matrixA()->getType(), A) ||
-                !GetLinAlgMatrixInfo(Op.get_matrixB()->getType(), B))
-              break;
-            uint32_t Shape = AddLinAlgShape(A.M, B.N, A.N);
-            AddUniqueIndex(MultiplyShapes[{static_cast<uint8_t>(Result.Scope),
-                                           static_cast<uint8_t>(Result.Type),
-                                           static_cast<uint8_t>(A.Type),
-                                           static_cast<uint8_t>(B.Type)}],
-                           Shape);
+          bool IsSigned =
+              cast<ConstantInt>(Op.get_isOutputSigned())->getZExtValue() != 0;
+          DXIL::ComponentType ResultType =
+              GetVectorOrScalarComponentType(CI->getType(), IsSigned);
+          DXIL::ComponentType InputType = static_cast<DXIL::ComponentType>(
+              cast<ConstantInt>(Op.get_interpretation())->getZExtValue());
+          LinAlgThreadMatrixVectorMultiplyKey Key = {
+              static_cast<uint8_t>(ResultType),
+              static_cast<uint8_t>(Matrix.Type),
+              static_cast<uint8_t>(InputType)};
+          Info.ThreadMatrixVectorMultiplies[Key] |=
+              GetMatVecLayoutFlags(Op.get_matrix());
+          break;
+        }
+        case DXIL::OpCode::LinAlgMatrixMultiply:
+        case DXIL::OpCode::LinAlgMatrixMultiplyAccumulate: {
+          DxilInst_LinAlgMatrixMultiply Op(CI);
+          LinAlgMatrixInfo Result, A, B;
+          if (!GetLinAlgMatrixInfo(CI->getType(), Result) ||
+              !GetLinAlgMatrixInfo(Op.get_matrixA()->getType(), A) ||
+              !GetLinAlgMatrixInfo(Op.get_matrixB()->getType(), B))
             break;
-          }
-          case DXIL::OpCode::LinAlgMatrixOuterProduct: {
-            DxilInst_LinAlgMatrixOuterProduct Op(CI);
-            LinAlgMatrixInfo Result;
-            if (!GetLinAlgMatrixInfo(CI->getType(), Result))
-              break;
-            bool IsInputSigned =
-                cast<ConstantInt>(Op.get_isInputSigned())->getZExtValue() != 0;
-            PSVLinAlgOuterProduct0 Record = {
-                static_cast<uint8_t>(Result.Type),
-                static_cast<uint8_t>(GetVectorOrScalarComponentType(
-                    Op.get_vectorA()->getType(), IsInputSigned)),
-                {0, 0}};
-            if (std::find_if(
-                    m_LinAlgOuterProducts.begin(), m_LinAlgOuterProducts.end(),
-                    [&](const PSVLinAlgOuterProduct0 &Existing) {
-                      return Existing.ResultType == Record.ResultType &&
-                             Existing.VectorInputType == Record.VectorInputType;
-                    }) == m_LinAlgOuterProducts.end())
-              m_LinAlgOuterProducts.push_back(Record);
+          LinAlgMatrixMultiplyKey Key = {static_cast<uint8_t>(Result.Scope),
+                                         static_cast<uint8_t>(Result.Type),
+                                         static_cast<uint8_t>(A.Type),
+                                         static_cast<uint8_t>(B.Type)};
+          Info.MatrixMultiplies[Key].insert({A.M, B.N, A.N});
+          break;
+        }
+        case DXIL::OpCode::LinAlgMatrixOuterProduct: {
+          DxilInst_LinAlgMatrixOuterProduct Op(CI);
+          LinAlgMatrixInfo Result;
+          if (!GetLinAlgMatrixInfo(CI->getType(), Result))
             break;
-          }
-          case DXIL::OpCode::LinAlgMatrixAccumulateToDescriptor:
-          case DXIL::OpCode::LinAlgMatrixAccumulateToMemory: {
-            Value *MatrixValue;
-            uint8_t Flag;
-            if (OpCode == DXIL::OpCode::LinAlgMatrixAccumulateToDescriptor) {
-              DxilInst_LinAlgMatrixAccumulateToDescriptor Op(CI);
-              Flag =
-                  static_cast<uint8_t>(PSVLinAlgAccumulateStoreFlag::RawBuffer);
-              MatrixValue = Op.get_matrix();
-            } else {
-              DxilInst_LinAlgMatrixAccumulateToMemory Op(CI);
-              Flag = static_cast<uint8_t>(
-                  PSVLinAlgAccumulateStoreFlag::GroupShared);
-              MatrixValue = Op.get_matrix();
-            }
-
-            LinAlgMatrixInfo Matrix;
-            if (!GetLinAlgMatrixInfo(MatrixValue->getType(), Matrix))
-              break;
-            DXIL::ComponentType AccumulatorType = Matrix.Type;
-            auto It = std::find_if(
-                m_LinAlgAccumulateStores.begin(),
-                m_LinAlgAccumulateStores.end(),
-                [AccumulatorType](const PSVLinAlgAccumulateStore0 &Record) {
-                  return Record.AccumulatorType ==
-                         static_cast<uint8_t>(AccumulatorType);
-                });
-            if (It == m_LinAlgAccumulateStores.end())
-              m_LinAlgAccumulateStores.push_back(
-                  {static_cast<uint8_t>(AccumulatorType), Flag, {0, 0}});
-            else
-              It->Flags |= Flag;
-            break;
-          }
-          case DXIL::OpCode::LinAlgVectorAccumulateToDescriptor: {
-            DxilInst_LinAlgVectorAccumulateToDescriptor Op(CI);
-            DXIL::ComponentType Type =
-                GetVectorOrScalarComponentType(Op.get_vector()->getType());
-            auto It = std::find_if(
-                m_LinAlgAccumulateStores.begin(),
-                m_LinAlgAccumulateStores.end(),
-                [&](const PSVLinAlgAccumulateStore0 &Record) {
-                  return Record.AccumulatorType == static_cast<uint8_t>(Type);
-                });
-            if (It == m_LinAlgAccumulateStores.end())
-              m_LinAlgAccumulateStores.push_back(
-                  {static_cast<uint8_t>(Type),
-                   static_cast<uint8_t>(
-                       PSVLinAlgAccumulateStoreFlag::RawBuffer),
-                   {0, 0}});
-            else
-              It->Flags |=
-                  static_cast<uint8_t>(PSVLinAlgAccumulateStoreFlag::RawBuffer);
-            break;
-          }
-          default:
-            IsSpecializedUse = false;
-            break;
+          bool IsInputSigned =
+              cast<ConstantInt>(Op.get_isInputSigned())->getZExtValue() != 0;
+          Info.OuterProducts.insert(
+              {static_cast<uint8_t>(Result.Type),
+               static_cast<uint8_t>(GetVectorOrScalarComponentType(
+                   Op.get_vectorA()->getType(), IsInputSigned))});
+          break;
+        }
+        case DXIL::OpCode::LinAlgMatrixAccumulateToDescriptor:
+        case DXIL::OpCode::LinAlgMatrixAccumulateToMemory: {
+          Value *MatrixValue;
+          uint8_t Flag;
+          if (OpCode == DXIL::OpCode::LinAlgMatrixAccumulateToDescriptor) {
+            DxilInst_LinAlgMatrixAccumulateToDescriptor Op(CI);
+            Flag = RawBuffer;
+            MatrixValue = Op.get_matrix();
+          } else {
+            DxilInst_LinAlgMatrixAccumulateToMemory Op(CI);
+            Flag = GroupShared;
+            MatrixValue = Op.get_matrix();
           }
 
-          if (!IsSpecializedUse &&
-              OP::IsDxilOpLinAlgFunc(CI->getCalledFunction())) {
-            CollectConstruction(CI->getType());
-            for (unsigned ArgIndex = 0; ArgIndex < CI->getNumArgOperands();
-                 ++ArgIndex)
-              CollectConstruction(CI->getArgOperand(ArgIndex)->getType());
-          }
+          LinAlgMatrixInfo Matrix;
+          if (!GetLinAlgMatrixInfo(MatrixValue->getType(), Matrix))
+            break;
+          Info.AccumulateStores[static_cast<uint8_t>(Matrix.Type)] |= Flag;
+          break;
+        }
+        case DXIL::OpCode::LinAlgVectorAccumulateToDescriptor: {
+          DxilInst_LinAlgVectorAccumulateToDescriptor Op(CI);
+          DXIL::ComponentType Type =
+              GetVectorOrScalarComponentType(Op.get_vector()->getType());
+          Info.AccumulateStores[static_cast<uint8_t>(Type)] |= RawBuffer;
+          break;
+        }
+        default:
+          IsSpecializedUse = false;
+          break;
+        }
+
+        if (!IsSpecializedUse &&
+            OP::IsDxilOpLinAlgFunc(CI->getCalledFunction())) {
+          CollectConstruction(CI->getType());
+          for (unsigned ArgIndex = 0; ArgIndex < CI->getNumArgOperands();
+               ++ArgIndex)
+            CollectConstruction(CI->getArgOperand(ArgIndex)->getType());
         }
       }
     }
+    return Info;
+  }
+};
 
-    for (const auto &Entry : ConstructionShapes) {
-      const auto &Indexes = Entry.second;
-      m_LinAlgConstructions.push_back(
-          {{AddShapeIndexArray(Indexes), static_cast<uint32_t>(Indexes.size())},
-           Entry.first.first,
-           {0, 0, 0}});
+} // namespace
+
+//////////////////////////////////////////////////////////
+// DxilPSVWriter - Writes PSV0 part
+
+class DxilPSVWriter : public DxilPartWriter {
+private:
+  const DxilModule &m_Module;
+  unsigned m_ValMajor = 0, m_ValMinor = 0;
+  PSVInitInfo m_PSVInitInfo;
+  DxilPipelineStateValidation m_PSV;
+  uint32_t m_PSVBufferSize = 0;
+  SmallVector<char, 512> m_PSVBuffer;
+  SmallVector<char, 256> m_StringBuffer;
+  SmallVector<uint32_t, 8> m_SemanticIndexBuffer;
+  std::vector<PSVSignatureElement0> m_SigInputElements;
+  std::vector<PSVSignatureElement0> m_SigOutputElements;
+  std::vector<PSVSignatureElement0> m_SigPatchConstOrPrimElements;
+  std::vector<PSVLinAlgMatrixOperationShape0> m_LinAlgShapes;
+  std::vector<PSVLinAlgMatrixConstruction0> m_LinAlgConstructions;
+  std::vector<PSVLinAlgThreadMatrixVectorMultiply0>
+      m_LinAlgThreadMatrixVectorMultiplies;
+  std::vector<PSVLinAlgWaveMatrixMultiply0> m_LinAlgWaveMatrixMultiplies;
+  std::vector<PSVLinAlgThreadGroupMatrixMultiply0>
+      m_LinAlgThreadGroupMatrixMultiplies;
+  std::vector<PSVLinAlgOuterProduct0> m_LinAlgOuterProducts;
+  std::vector<PSVLinAlgAccumulateStore0> m_LinAlgAccumulateStores;
+  unsigned EntryFunctionName = 0;
+
+  uint32_t AddLinAlgShape(const LinAlgShape &Shape) {
+    for (uint32_t I = 0; I < m_LinAlgShapes.size(); ++I) {
+      const PSVLinAlgMatrixOperationShape0 &Existing = m_LinAlgShapes[I];
+      if (Existing.M == Shape.M && Existing.N == Shape.N &&
+          Existing.K == Shape.K)
+        return I;
     }
-    for (const auto &Entry : MultiplyShapes) {
-      const auto &Indexes = Entry.second;
-      PSVLinAlgMatrixShapeArrayReference Shapes = {
-          AddShapeIndexArray(Indexes), static_cast<uint32_t>(Indexes.size())};
+    m_LinAlgShapes.push_back({Shape.M, Shape.N, Shape.K});
+    return static_cast<uint32_t>(m_LinAlgShapes.size() - 1);
+  }
+
+  PSVLinAlgMatrixShapeArrayReference
+  AddLinAlgShapes(const std::set<LinAlgShape> &Shapes) {
+    SmallVector<uint32_t, 8> ShapeIndexes;
+    for (const LinAlgShape &Shape : Shapes)
+      ShapeIndexes.push_back(AddLinAlgShape(Shape));
+    for (uint32_t Offset = 0;
+         Offset + ShapeIndexes.size() <= m_SemanticIndexBuffer.size();
+         ++Offset) {
+      if (std::equal(ShapeIndexes.begin(), ShapeIndexes.end(),
+                     m_SemanticIndexBuffer.begin() + Offset))
+        return {Offset, static_cast<uint32_t>(ShapeIndexes.size())};
+    }
+    uint32_t Offset = static_cast<uint32_t>(m_SemanticIndexBuffer.size());
+    m_SemanticIndexBuffer.append(ShapeIndexes.begin(), ShapeIndexes.end());
+    return {Offset, static_cast<uint32_t>(ShapeIndexes.size())};
+  }
+
+  void CollectLinAlgRuntimeInfo() {
+    LinAlgRuntimeInfoCollector Collector(m_Module);
+    LinAlgFunctionInfo Info;
+    for (const Function &F : m_Module.GetModule()->functions())
+      Info.Merge(Collector.CollectDirectUsage(F));
+
+    for (const auto &Entry : Info.Constructions) {
+      m_LinAlgConstructions.push_back(
+          {AddLinAlgShapes(Entry.second), Entry.first.first, {0, 0, 0}});
+    }
+    for (const auto &Entry : Info.ThreadMatrixVectorMultiplies) {
+      m_LinAlgThreadMatrixVectorMultiplies.push_back(
+          {std::get<0>(Entry.first), std::get<1>(Entry.first),
+           std::get<2>(Entry.first), Entry.second});
+    }
+    for (const auto &Entry : Info.MatrixMultiplies) {
+      PSVLinAlgMatrixShapeArrayReference Shapes = AddLinAlgShapes(Entry.second);
       uint8_t Scope = std::get<0>(Entry.first);
       if (Scope == static_cast<uint8_t>(DXIL::MatrixScope::Wave))
         m_LinAlgWaveMatrixMultiplies.push_back(
@@ -1072,6 +1137,10 @@ private:
             {Shapes, std::get<1>(Entry.first), std::get<2>(Entry.first),
              std::get<3>(Entry.first), 0});
     }
+    for (const LinAlgOuterProductKey &Entry : Info.OuterProducts)
+      m_LinAlgOuterProducts.push_back({Entry.first, Entry.second, {0, 0}});
+    for (const auto &Entry : Info.AccumulateStores)
+      m_LinAlgAccumulateStores.push_back({Entry.first, Entry.second, {0, 0}});
 
     m_PSVInitInfo.LinAlgMatrixOperationShapes = m_LinAlgShapes.data();
     m_PSVInitInfo.LinAlgMatrixOperationShapeCount = m_LinAlgShapes.size();
@@ -1175,7 +1244,6 @@ public:
       }
 
       if (m_PSVInitInfo.PSVVersion > 3) {
-        LoadLinAlgMatrixInfos();
         CollectLinAlgRuntimeInfo();
       }
 
@@ -1411,8 +1479,165 @@ private:
   typedef std::unordered_map<const llvm::Function *, Indices> FunctionIndexMap;
   FunctionIndexMap m_FuncToResNameOffset; // list of resources used
   FunctionIndexMap m_FuncToDependencies;  // list of unresolved functions used
+  std::unordered_map<const Function *, LinAlgFunctionInfo> m_FuncToLinAlgInfo;
 
   unsigned m_ValMajor, m_ValMinor;
+
+  void CollectLinAlgRuntimeInfo(const DxilModule &DM) {
+    LinAlgRuntimeInfoCollector Collector(DM);
+    SmallSetVector<Function *, 8> Worklist;
+    for (Function &F : DM.GetModule()->functions()) {
+      if (F.isDeclaration())
+        continue;
+
+      m_FuncToLinAlgInfo[&F] = Collector.CollectDirectUsage(F);
+      if (!F.user_empty())
+        Worklist.insert(&F);
+    }
+
+    while (!Worklist.empty()) {
+      Function *F = Worklist.pop_back_val();
+      const LinAlgFunctionInfo &CalleeInfo = m_FuncToLinAlgInfo[F];
+      SmallVector<const Function *, 8> Callers;
+      for (User *U : F->users())
+        FindUsingFunctions(U, Callers);
+      for (const Function *CallerConst : Callers) {
+        if (CallerConst == F)
+          continue;
+        Function *Caller = const_cast<Function *>(CallerConst);
+        if (m_FuncToLinAlgInfo[Caller].Merge(CalleeInfo) &&
+            !Caller->user_empty())
+          Worklist.insert(Caller);
+      }
+    }
+  }
+
+  uint32_t AddLinAlgShapes(const std::set<LinAlgShape> &Shapes) {
+    SmallVector<uint32_t, 8> ShapeIndexes;
+    for (const LinAlgShape &Shape : Shapes) {
+      RDAT::LinAlgMatrixOperationShape Record = {Shape.M, Shape.N, Shape.K};
+      ShapeIndexes.push_back(Builder.InsertRecord(Record));
+    }
+    return Builder.InsertArray(ShapeIndexes);
+  }
+
+  uint32_t AddLinAlgFunctionProperties(const Function &F) {
+    std::unordered_map<const Function *, LinAlgFunctionInfo>::const_iterator
+        It = m_FuncToLinAlgInfo.find(&F);
+    if (It == m_FuncToLinAlgInfo.end())
+      return RDAT_NULL_REF;
+
+    const LinAlgFunctionInfo &Info = It->second;
+    SmallVector<uint32_t, 8> PropertyIndexes;
+    SmallVector<uint32_t, 8> RecordIndexes;
+    RDAT::ExtendedFunctionProperties Property = {};
+
+    for (const auto &Entry : Info.Constructions) {
+      RDAT::LinAlgMatrixConstruction Record = {};
+      Record.OperationShapes = AddLinAlgShapes(Entry.second);
+      Record.MatrixType = Entry.first.first;
+      RecordIndexes.push_back(Builder.InsertRecord(Record));
+    }
+    if (!RecordIndexes.empty()) {
+      Property.PropertyType = static_cast<uint32_t>(
+          RDAT::FunctionPropertyType::LinAlgMatrixConstruction);
+      Property.MatrixConstructionArray = Builder.InsertArray(RecordIndexes);
+      PropertyIndexes.push_back(Builder.InsertRecord(Property));
+      RecordIndexes.clear();
+    }
+
+    for (const auto &Entry : Info.ThreadMatrixVectorMultiplies) {
+      RDAT::LinAlgThreadMatrixVectorMultiply Record = {};
+      Record.ResultType = std::get<0>(Entry.first);
+      Record.MatrixType = std::get<1>(Entry.first);
+      Record.VectorInputType = std::get<2>(Entry.first);
+      Record.Flags = Entry.second;
+      RecordIndexes.push_back(Builder.InsertRecord(Record));
+    }
+    if (!RecordIndexes.empty()) {
+      Property = {};
+      Property.PropertyType = static_cast<uint32_t>(
+          RDAT::FunctionPropertyType::LinAlgThreadMatrixVectorMultiply);
+      Property.LinAlgThreadMatrixVectorMultiplyArray =
+          Builder.InsertArray(RecordIndexes);
+      PropertyIndexes.push_back(Builder.InsertRecord(Property));
+      RecordIndexes.clear();
+    }
+
+    auto AddMatrixMultiplyProperty =
+        [&](DXIL::MatrixScope Scope, RDAT::FunctionPropertyType PropertyType) {
+          for (const auto &Entry : Info.MatrixMultiplies) {
+            if (std::get<0>(Entry.first) != static_cast<uint8_t>(Scope))
+              continue;
+            uint32_t OperationShapes = AddLinAlgShapes(Entry.second);
+            if (Scope == DXIL::MatrixScope::Wave) {
+              RDAT::LinAlgWaveMatrixMultiply Record = {};
+              Record.OperationShapes = OperationShapes;
+              Record.AccumulatorType = std::get<1>(Entry.first);
+              Record.MatrixAType = std::get<2>(Entry.first);
+              Record.MatrixBType = std::get<3>(Entry.first);
+              RecordIndexes.push_back(Builder.InsertRecord(Record));
+            } else {
+              RDAT::LinAlgThreadGroupMatrixMultiply Record = {};
+              Record.OperationShapes = OperationShapes;
+              Record.AccumulatorType = std::get<1>(Entry.first);
+              Record.MatrixAType = std::get<2>(Entry.first);
+              Record.MatrixBType = std::get<3>(Entry.first);
+              RecordIndexes.push_back(Builder.InsertRecord(Record));
+            }
+          }
+          if (RecordIndexes.empty())
+            return;
+          Property = {};
+          Property.PropertyType = static_cast<uint32_t>(PropertyType);
+          uint32_t Records = Builder.InsertArray(RecordIndexes);
+          if (Scope == DXIL::MatrixScope::Wave)
+            Property.LinAlgWaveMatrixMultiplyArray = Records;
+          else
+            Property.LinAlgThreadGroupMatrixMultiplyArray = Records;
+          PropertyIndexes.push_back(Builder.InsertRecord(Property));
+          RecordIndexes.clear();
+        };
+    AddMatrixMultiplyProperty(
+        DXIL::MatrixScope::Wave,
+        RDAT::FunctionPropertyType::LinAlgWaveMatrixMultiply);
+    AddMatrixMultiplyProperty(
+        DXIL::MatrixScope::ThreadGroup,
+        RDAT::FunctionPropertyType::LinAlgThreadGroupMatrixMultiply);
+
+    for (const LinAlgOuterProductKey &Entry : Info.OuterProducts) {
+      RDAT::LinAlgOuterProduct Record = {};
+      Record.ResultType = Entry.first;
+      Record.VectorInputType = Entry.second;
+      RecordIndexes.push_back(Builder.InsertRecord(Record));
+    }
+    if (!RecordIndexes.empty()) {
+      Property = {};
+      Property.PropertyType =
+          static_cast<uint32_t>(RDAT::FunctionPropertyType::LinAlgOuterProduct);
+      Property.LinAlgOuterProductArray = Builder.InsertArray(RecordIndexes);
+      PropertyIndexes.push_back(Builder.InsertRecord(Property));
+      RecordIndexes.clear();
+    }
+
+    for (const auto &Entry : Info.AccumulateStores) {
+      RDAT::LinAlgAccumulateStore Record = {};
+      Record.AccumulatorType = Entry.first;
+      Record.Flags = Entry.second;
+      RecordIndexes.push_back(Builder.InsertRecord(Record));
+    }
+    if (!RecordIndexes.empty()) {
+      Property = {};
+      Property.PropertyType = static_cast<uint32_t>(
+          RDAT::FunctionPropertyType::LinAlgAccumulateStore);
+      Property.LinAlgAccumulateStoreArray = Builder.InsertArray(RecordIndexes);
+      PropertyIndexes.push_back(Builder.InsertRecord(Property));
+    }
+
+    if (PropertyIndexes.empty())
+      return RDAT_NULL_REF;
+    return Builder.InsertArray(PropertyIndexes);
+  }
 
   void
   FindUsingFunctions(const llvm::Value *User,
@@ -1921,9 +2146,13 @@ private:
           functionDependencies =
               Builder.InsertArray(m_FuncToDependencies[&function].begin(),
                                   m_FuncToDependencies[&function].end());
-        RuntimeDataFunctionInfo2 info_latest = {};
+        RuntimeDataFunctionInfo3 info_latest = {};
         RuntimeDataFunctionInfo &info = info_latest;
         RuntimeDataFunctionInfo2 *pInfo2 = (sizeof(RuntimeDataFunctionInfo2) <=
+                                            m_pFunctionTable->GetRecordStride())
+                                               ? &info_latest
+                                               : nullptr;
+        RuntimeDataFunctionInfo3 *pInfo3 = (sizeof(RuntimeDataFunctionInfo3) <=
                                             m_pFunctionTable->GetRecordStride())
                                                ? &info_latest
                                                : nullptr;
@@ -1976,6 +2205,8 @@ private:
         info.MinShaderTarget =
             EncodeVersion((DXIL::ShaderKind)shaderKind, compatInfo.minMajor,
                           compatInfo.minMinor);
+        if (pInfo3)
+          pInfo3->ExtendedProperties = AddLinAlgFunctionProperties(function);
         m_pFunctionTable->Insert(info_latest);
       }
     }
@@ -2094,6 +2325,11 @@ public:
 
 #define DEF_RDAT_TYPES DEF_RDAT_DEFAULTS
 #include "dxc/DxilContainer/RDAT_Macros.inl"
+
+    if (sizeof(RuntimeDataFunctionInfo3) <=
+        m_pFunctionTable->GetRecordStride()) {
+      CollectLinAlgRuntimeInfo(mod);
+    }
 
     UpdateResourceInfo(mod);
     UpdateFunctionInfo(mod);

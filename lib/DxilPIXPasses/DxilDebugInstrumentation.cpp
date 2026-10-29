@@ -1436,23 +1436,6 @@ bool DxilDebugInstrumentation::RunOnFunction(Module &M, DxilModule &DM,
 
   auto &values = m_FunctionToValues[BC.Builder.GetInsertBlock()->getParent()];
 
-  // PIX binds two UAVs when running this instrumentation: one for raygen
-  // shaders and another for the hitgroups and miss shaders. Since PIX invokes
-  // this pass at the library level, which may contain examples of both types,
-  // PIX can't really specify which UAV index to use per-shader. This pass
-  // therefore just has to know this:
-  constexpr unsigned int RayGenUAVRegister = 0;
-  constexpr unsigned int HitGroupAndMissUAVRegister = 1;
-  unsigned int UAVRegisterId = RayGenUAVRegister;
-  switch (shaderKind) {
-  case DXIL::ShaderKind::ClosestHit:
-  case DXIL::ShaderKind::Intersection:
-  case DXIL::ShaderKind::AnyHit:
-  case DXIL::ShaderKind::Miss:
-    UAVRegisterId = HitGroupAndMissUAVRegister;
-    break;
-  }
-
   values.UAVHandle = PIXPassHelpers::CreateHandleForResource(
       DM, Builder, uav, "PIX_DebugUAV_Handle");
 

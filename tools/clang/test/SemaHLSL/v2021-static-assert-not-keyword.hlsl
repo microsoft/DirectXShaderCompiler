@@ -4,7 +4,7 @@
 // ordinary identifier.
 // expected-no-diagnostics
 
-int static_assert = 1;
+static int static_assert = 1;
 
 int use_static_assert(int static_assert) {
   return static_assert;

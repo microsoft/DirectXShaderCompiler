@@ -310,6 +310,8 @@ bool DxilPIXMeshShaderOutputInstrumentation::runOnModule(Module &M) {
     }
 
     if (getMeshPayloadInstructions != nullptr) {
+      llvm::Function *OriginalGetMeshPayloadFunction =
+          cast<CallInst>(getMeshPayloadInstructions)->getCalledFunction();
 
       Function *DxilFunc = HlslOP->GetOpFunc(
           OP::OpCode::GetMeshPayload, expanded.ExpandedPayloadStructPtrType);
@@ -326,6 +328,7 @@ bool DxilPIXMeshShaderOutputInstrumentation::runOnModule(Module &M) {
       ReplaceAllUsesOfInstructionWithNewValueAndDeleteInstruction(
           getMeshPayloadInstructions, payload,
           expanded.ExpandedPayloadStructType);
+      PIXPassHelpers::eraseIfUnused(DM, OriginalGetMeshPayloadFunction);
     }
   }
 
@@ -352,8 +355,9 @@ bool DxilPIXMeshShaderOutputInstrumentation::runOnModule(Module &M) {
         FirstNewStructGetMeshPayload);
   }
 
-  auto F = HlslOP->GetOpFunc(DXIL::OpCode::EmitIndices, Type::getVoidTy(Ctx));
-  auto FunctionUses = F->uses();
+  Function *EmitIndicesFunction =
+      HlslOP->GetOpFunc(DXIL::OpCode::EmitIndices, Type::getVoidTy(Ctx));
+  auto FunctionUses = EmitIndicesFunction->uses();
   for (auto FI = FunctionUses.begin(); FI != FunctionUses.end();) {
     auto &FunctionUse = *FI++;
     auto FunctionUser = FunctionUse.getUser();
@@ -378,10 +382,13 @@ bool DxilPIXMeshShaderOutputInstrumentation::runOnModule(Module &M) {
       {Type::getInt16Ty(Ctx), int16ValueIndicator},
       {Type::getFloatTy(Ctx), floatValueIndicator},
       {Type::getHalfTy(Ctx), float16ValueIndicator}};
+  SmallVector<Function *, 4> StoreVertexOutputFunctions;
 
   for (auto const &Overload : StoreVertexOutputOverloads) {
-    F = HlslOP->GetOpFunc(DXIL::OpCode::StoreVertexOutput, Overload.type);
-    FunctionUses = F->uses();
+    Function *StoreVertexOutputFunction =
+        HlslOP->GetOpFunc(DXIL::OpCode::StoreVertexOutput, Overload.type);
+    StoreVertexOutputFunctions.push_back(StoreVertexOutputFunction);
+    FunctionUses = StoreVertexOutputFunction->uses();
     for (auto FI = FunctionUses.begin(); FI != FunctionUses.end();) {
       auto &FunctionUse = *FI++;
       auto FunctionUser = FunctionUse.getUser();
@@ -418,6 +425,11 @@ bool DxilPIXMeshShaderOutputInstrumentation::runOnModule(Module &M) {
                  CoercedValue, Call->getOperand(5));
     }
   }
+
+  for (Function *StoreVertexOutputFunction : StoreVertexOutputFunctions) {
+    PIXPassHelpers::eraseIfUnused(DM, StoreVertexOutputFunction);
+  }
+  PIXPassHelpers::eraseIfUnused(DM, EmitIndicesFunction);
 
   DM.ReEmitDxilResources();
 

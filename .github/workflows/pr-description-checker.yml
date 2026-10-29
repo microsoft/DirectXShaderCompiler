@@ -7,11 +7,18 @@ on:
       - reopened
       - labeled
       - unlabeled
+permissions:
+  contents: read
+  pull-requests: write
 jobs:
   check-pr-description:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@0717577d45739eb3c851188b29f50ed6c0b2194e # v2.8.0
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          sparse-checkout: /.github/
+          sparse-checkout-cone-mode: false
+          persist-credentials: false
       - uses: jadrol/pr-description-checker-action@c659fed338a52d657d34462c8bc7fc1f65d25758 # v1.0.0
         id: description-checker
         with:

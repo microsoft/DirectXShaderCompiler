@@ -49,7 +49,7 @@ STATISTIC(NumCacheCompleteNonLocalPtr,
           "Number of block queries that were completely cached");
 
 // Limit for the number of instructions to scan in a block.
-static const unsigned int BlockScanLimit = 500;
+static const unsigned int BlockScanLimit = 100;
 
 // Limit on the number of memdep results to process.
 static const unsigned int NumResultsLimit = 100;

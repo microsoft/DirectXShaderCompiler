@@ -130,6 +130,10 @@ void CapabilityVisitor::addCapabilityForType(const SpirvType *type,
   }
   // Image types
   else if (const auto *imageType = dyn_cast<ImageType>(type)) {
+    if (imageType->isArrayedImage() && imageType->isMSImage() &&
+        imageType->withSampler() == ImageType::WithSampler::No)
+      addCapability(spv::Capability::ImageMSArray);
+
     switch (imageType->getDimension()) {
     case spv::Dim::Buffer: {
       addCapability(spv::Capability::SampledBuffer);
@@ -955,8 +959,11 @@ bool CapabilityVisitor::visit(SpirvModule *, Visitor::Phase phase) {
                                        {spv::Capability::QuadControlKHR});
 
   if (spvOptions.useDescriptorHeap) {
-    addExtension(Extension::EXT_descriptor_heap, "DescriptorHeap", {});
-    addExtension(Extension::KHR_untyped_pointers, "DescriptorHeap", {});
+    const llvm::StringRef feature = "DescriptorHeap";
+    if (!featureManager.requestTargetEnv(SPV_ENV_VULKAN_1_3, feature, {}))
+      return false;
+    addExtension(Extension::EXT_descriptor_heap, feature, {});
+    addExtension(Extension::KHR_untyped_pointers, feature, {});
     addCapability(spv::Capability::DescriptorHeapEXT);
   }
 

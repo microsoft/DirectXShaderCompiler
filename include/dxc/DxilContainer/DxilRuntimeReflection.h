@@ -68,7 +68,18 @@ enum class RuntimeDataPartType : uint32_t {
   NodeShaderInfoTable = 11,
   Last_1_8 = NodeShaderInfoTable,
 
+  // Keep this ID reserved for compatibility with the mesh-node preview.
   Reserved_MeshNodesPreviewInfoTable = 12,
+
+  ExtendedFunctionPropertiesTable = 13,
+  LinAlgMatrixOperationShapeTable = 14,
+  LinAlgMatrixConstructionTable = 15,
+  LinAlgThreadMatrixVectorMultiplyTable = 16,
+  LinAlgWaveMatrixMultiplyTable = 17,
+  LinAlgThreadGroupMatrixMultiplyTable = 18,
+  LinAlgOuterProductTable = 19,
+  LinAlgAccumulateStoreTable = 20,
+  Last_1_10 = LinAlgAccumulateStoreTable,
 
   // Insert experimental here.
   SignatureElementTable,
@@ -83,7 +94,7 @@ enum class RuntimeDataPartType : uint32_t {
 
   LastPlus1,
   LastExperimental = LastPlus1 - 1,
-  LastRelease = Last_1_8,
+  LastRelease = Last_1_10,
 
   DxilPdbInfoTable = RDAT_PART_ID_WITH_GROUP(RuntimeDataGroup::PdbInfo, 1),
   DxilPdbInfoSourceTable =
@@ -101,6 +112,8 @@ MaxPartTypeForValVer(unsigned Major, unsigned Minor,
              ? RuntimeDataPartType::Last_1_3
          : DXIL::CompareVersions(Major, Minor, 1, 8) < 0
              ? RuntimeDataPartType::Last_1_4
+         : DXIL::CompareVersions(Major, Minor, 1, 10) < 0
+             ? RuntimeDataPartType::Last_1_8
          : DXIL::IsVersionExperimental(Major, Minor) &&
                  (IsPrereleaseShaderModel || Major == 0)
              ? RuntimeDataPartType::LastExperimental
@@ -121,6 +134,15 @@ enum class RecordTableIndex : unsigned {
   NodeShaderInfoTable,
 
   Reserved_MeshNodesPreviewInfoTable,
+
+  ExtendedFunctionPropertiesTable,
+  LinAlgMatrixOperationShapeTable,
+  LinAlgMatrixConstructionTable,
+  LinAlgThreadMatrixVectorMultiplyTable,
+  LinAlgWaveMatrixMultiplyTable,
+  LinAlgThreadGroupMatrixMultiplyTable,
+  LinAlgOuterProductTable,
+  LinAlgAccumulateStoreTable,
 
   DxilPdbInfoTable,
   DxilPdbInfoSourceTable,
