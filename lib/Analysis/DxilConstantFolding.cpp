@@ -200,7 +200,13 @@ static Constant *ConstantFoldUnaryFPIntrinsic(OP::OpCode opcode, Type *Ty,
     // frac(x) = x - floor(x), so negative inputs also give a result in
     // [+0, 1), the same as the front end's folding of the frac intrinsic
     NativeFPUnaryOp f = [](double x) { return x - floor(x); };
-    return DxilConstantFoldFP(f, Op, Ty);
+    Constant *Result = DxilConstantFoldFP(f, Op, Ty);
+    // For tiny negative inputs, 1 - |x| rounds to 1.0 in the result type,
+    // which is outside [+0, 1), so leave those unfolded too.
+    if (auto *CFP = dyn_cast_or_null<ConstantFP>(Result))
+      if (CFP->isExactlyValue(1.0))
+        return nullptr;
+    return Result;
   }
   case OP::OpCode::Log:
     return DxilConstantFoldFP(log2, Op, Ty);

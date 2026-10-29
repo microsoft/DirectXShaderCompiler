@@ -71,4 +71,9 @@ void main() {
 	// CHECK-DAG: call float @dx.op.unary.f32(i32 22, float 0x36A0000000000000)
 	float2x2 fmat_denorm = frac(float2x2(asfloat(0x80000001u), asfloat(0x00000001u), -0.25, 0.25));
 	f4buf[5] = float4(fmat_denorm[0][0], fmat_denorm[0][1], fmat_denorm[1][0], fmat_denorm[1][1]);
+
+	// tiny negative inputs are not folded, since x - floor(x) rounds to 1.0
+	// CHECK-DAG: call float @dx.op.unary.f32(i32 22, float 0xBDDB7CDFE0000000)
+	float2x2 fmat_tiny = frac(float2x2(asfloat(0xAEDBE6FFu), -0.25, 0.25, 0.5));
+	f4buf[6] = float4(fmat_tiny[0][0], fmat_tiny[0][1], fmat_tiny[1][0], fmat_tiny[1][1]);
 }
