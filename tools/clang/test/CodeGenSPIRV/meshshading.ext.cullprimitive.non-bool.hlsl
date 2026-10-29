@@ -5,7 +5,7 @@ struct MeshPerVertex {
 };
 
 struct MeshPerPrimitive {
-// CHECK: :[[@LINE+1]]:15: error: semantic CullPrimitive must be bool
+// CHECK: :[[@LINE+1]]:15: error: semantic CullPrimitive must be a bool scalar
   uint cull : SV_CullPrimitive;
 };
 

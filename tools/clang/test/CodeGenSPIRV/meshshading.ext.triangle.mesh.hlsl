@@ -70,7 +70,7 @@ struct MeshPerPrimitive {
     int primId : SV_PrimitiveID;                            // -> Builtin PrimitiveId
     int layer  : SV_RenderTargetArrayIndex;                 // -> Builtin Layer
     int vpIdx  : SV_ViewportArrayIndex;                     // -> Builtin ViewportIndex
-    bool cullPrim : SV_CullPrimitive;                        // -> BUiltin CullPrimitiveEXT
+    bool cullPrim : SV_CullPrimitive;                       // -> Builtin CullPrimitiveEXT
     uint shadingRate : SV_ShadingRate;                      // -> Builtin PrimitiveShadingRateEXT
     float3 userPrimAttr : PRIM_USER;
     float4 userPrimAttrArr[2] : PRIM_USER_ARR;
