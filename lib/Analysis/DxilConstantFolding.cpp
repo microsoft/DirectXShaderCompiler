@@ -192,6 +192,11 @@ static Constant *ConstantFoldUnaryFPIntrinsic(OP::OpCode opcode, Type *Ty,
   case OP::OpCode::Exp:
     return DxilConstantFoldFP(exp2, Op, Ty);
   case OP::OpCode::Frc: {
+    // Denormal inputs are flushed to zero at runtime, so frac gives +0 (see
+    // docs/DXIL.rst). Folding them with x - floor(x) would give 1.0 for
+    // negative ones, so leave them unfolded.
+    if (Op->getValueAPF().isDenormal())
+      return nullptr;
     // frac(x) = x - floor(x), so negative inputs also give a result in
     // [+0, 1), the same as the front end's folding of the frac intrinsic
     NativeFPUnaryOp f = [](double x) { return x - floor(x); };

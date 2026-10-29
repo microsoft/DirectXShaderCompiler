@@ -65,4 +65,10 @@ void main() {
 	// CHECK: float 2.500000e-01, float 7.500000e-01, float 7.500000e-01, float 2.500000e-01
 	float2x2 fmat_neg = frac(float2x2(-1.75, -0.25, 0.75, 1.25));
 	f4buf[4] = float4(fmat_neg[0][0], fmat_neg[0][1], fmat_neg[1][0], fmat_neg[1][1]);
+
+	// denormal inputs are not folded, since they are flushed to zero at runtime
+	// CHECK-DAG: call float @dx.op.unary.f32(i32 22, float 0xB6A0000000000000)
+	// CHECK-DAG: call float @dx.op.unary.f32(i32 22, float 0x36A0000000000000)
+	float2x2 fmat_denorm = frac(float2x2(asfloat(0x80000001u), asfloat(0x00000001u), -0.25, 0.25));
+	f4buf[5] = float4(fmat_denorm[0][0], fmat_denorm[0][1], fmat_denorm[1][0], fmat_denorm[1][1]);
 }
