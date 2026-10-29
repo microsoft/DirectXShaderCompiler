@@ -114,7 +114,7 @@ private:
   spv::ImageFormat translateSampledTypeToImageFormat(QualType sampledType,
                                                      SourceLocation);
 
-private:
+public:
   /// Calculates all layout information needed for the given structure fields.
   /// Returns the lowered field info vector.
   /// In other words: lowers the HybridStructType field information to
@@ -123,6 +123,7 @@ private:
   populateLayoutInformation(llvm::ArrayRef<HybridStructType::FieldInfo> fields,
                             SpirvLayoutRule rule);
 
+private:
   /// Create a clang::StructType::FieldInfo from HybridStructType::FieldInfo.
   /// This function only considers the field as standalone.
   /// Offset and layout constraint from the parent struct are not considered.

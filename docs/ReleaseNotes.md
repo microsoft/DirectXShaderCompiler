@@ -89,6 +89,12 @@ line upon naming the release. Refer to previous for appropriate section names.
 - Fixed incorrect shader results caused by stale overflow and exactness flags
   after bit-tracking dead code elimination.
 
+#### SPIR-V
+
+- Rich debug info now emits a `DebugGlobalVariable` for the `$Globals` block
+  and a `DebugTypeMember` for each uniform member, so debuggers can
+  distinguish member storage.
+
 ### Upcoming Preview Release
 
 These changes apply to experimental preview shader models only and will not be
