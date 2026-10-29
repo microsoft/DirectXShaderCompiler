@@ -171,21 +171,26 @@ HRESULT TryGetValue(const wchar_t *param, Common::String &retStr);
 } // namespace TestExecution
 namespace Logging {
 namespace Log {
-inline void StartGroup(const wchar_t *name) {
-  wprintf(L"BEGIN TEST(S): <%ls>\n", name);
-}
-inline void EndGroup(const wchar_t *name) {
-  wprintf(L"END TEST(S): <%ls>\n", name);
-}
-inline void Comment(const wchar_t *msg) {
-  fputws(msg, stdout);
-  fputwc(L'\n', stdout);
-}
-inline void Error(const wchar_t *msg) {
-  fputws(msg, stderr);
-  fputwc(L'\n', stderr);
-  ADD_FAILURE();
-}
+
+// Implementations live in tools/clang/unittests/HLSLTestLib/WEXAdapterLog.cpp.
+// Comment messages are buffered per test and only printed when the test fails;
+// Error messages are printed immediately and flush any buffered comments.  See
+// FailurePrinter in tools/clang/unittests/HLSL/TestMain.cpp for the listener
+// that wires this up to GoogleTest's lifecycle.
+void StartGroup(const wchar_t *name);
+void EndGroup(const wchar_t *name);
+void Comment(const wchar_t *msg);
+void Error(const wchar_t *msg);
+
+// Accessors used by the gtest event listener.  Not for direct use by tests.
+const char *GetBufferedLog();
+void ClearBufferedLog();
+bool HasBufferedLog();
+// Called by the FailurePrinter listener when GoogleTest records a part
+// failure; attributes that failure to the currently open StartGroup scope,
+// if any.
+void NotifyTestPartFailed();
+
 } // namespace Log
 } // namespace Logging
 } // namespace WEX
