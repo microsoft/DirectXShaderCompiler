@@ -3510,6 +3510,20 @@ bool DeclResultIdMapper::validateShaderStageVarType(
       return false;
     }
     break;
+  case hlsl::Semantic::Kind::CullPrimitive: {
+    // DXIL only checks the type for mesh primitive outputs. PS inputs are
+    // replaced with a constant 0, so any type is accepted there.
+    if (stageVarData.sigPoint->GetKind() != hlsl::SigPoint::Kind::MSPOut)
+      break;
+    QualType scalarType;
+    if (!isScalarType(stageVarData.type, &scalarType) ||
+        !scalarType->isBooleanType()) {
+      emitError("semantic CullPrimitive must be a bool scalar",
+                stageVarData.semantic->loc);
+      return false;
+    }
+    break;
+  }
   default:
     break;
   }
@@ -3609,19 +3623,6 @@ DeclResultIdMapper::getBaseVertexVariable(const hlsl::SigPoint *sigPoint,
 
 SpirvVariable *DeclResultIdMapper::createSpirvInterfaceVariable(
     const StageVarDataBundle &stageVarData) {
-  // DXIL only checks the SV_CullPrimitive type for mesh primitive outputs.
-  // PS inputs are replaced with a constant 0, so any type is accepted there.
-  if (stageVarData.semantic->getKind() == hlsl::Semantic::Kind::CullPrimitive &&
-      stageVarData.sigPoint->GetKind() == hlsl::SigPoint::Kind::MSPOut) {
-    QualType scalarType;
-    if (!isScalarType(stageVarData.type, &scalarType) ||
-        !scalarType->isBooleanType()) {
-      emitError("semantic CullPrimitive must be a bool scalar",
-                stageVarData.semantic->loc);
-      return nullptr;
-    }
-  }
-
   // The evalType will be the type of the interface variable in SPIR-V.
   // The type of the variable used in the body of the function will still be
   // `stageVarData.type`.
