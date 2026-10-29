@@ -13,6 +13,16 @@ if (NOT CLANG_FORMAT_EXE)
   endif ()
 endif ()
 
+# If an upstream folder contains a .clang-format, incorrect formatting may be
+# applied which causes the build to fail. Create a copy in the build dir
+# to ensure the right formatting is applied.
+get_filename_component(HLSL_SRC_ROOT "${CMAKE_CURRENT_LIST_DIR}/../.." ABSOLUTE)
+get_filename_component(HLSL_BIN_ROOT "${CMAKE_CURRENT_BINARY_DIR}/../.." ABSOLUTE)
+if (EXISTS "${HLSL_SRC_ROOT}/.clang-format")
+  file(MAKE_DIRECTORY "${HLSL_BIN_ROOT}")
+  file(CREATE_LINK "${HLSL_SRC_ROOT}/.clang-format" "${HLSL_BIN_ROOT}/.clang-format" COPY_ON_ERROR)
+endif()
+
 if (WIN32 AND NOT DEFINED HLSL_AUTOCRLF)
   find_program(git_executable NAMES git git.exe git.cmd)
   execute_process(COMMAND ${git_executable} config --get core.autocrlf
