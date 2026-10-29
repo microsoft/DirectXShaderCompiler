@@ -25,15 +25,15 @@ cbuffer AnotherCBuffer : register(b2) {
 
 // CHECK: [[S:%[0-9]+]] = OpExtInst %void [[ext]] DebugTypeComposite {{%[0-9]+}} Structure {{%[0-9]+}} 3 8 {{%[0-9]+}} {{%[0-9]+}} %uint_128 FlagIsProtected|FlagIsPrivate [[f1:%[0-9]+]] [[f2:%[0-9]+]]
 // CHECK: [[f2]] = OpExtInst %void [[ext]] DebugTypeMember {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} 5 12 [[S]] %uint_32 %uint_96
-// CHECK: [[f1]] = OpExtInst %void [[ext]] DebugTypeMember {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} 4 11 [[S]] %uint_0 %uint_32
+// CHECK: [[f1]] = OpExtInst %void [[ext]] DebugTypeMember {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} 4 12 [[S]] %uint_0 %uint_32
 
 // CHECK: [[MyCbuffer:%[0-9]+]] = OpExtInst %void [[ext]] DebugTypeComposite {{%[0-9]+}} Structure {{%[0-9]+}} 8 9 {{%[0-9]+}} {{%[0-9]+}} %uint_1280 FlagIsProtected|FlagIsPrivate [[a:%[0-9]+]] [[b:%[0-9]+]] [[c:%[0-9]+]] [[d:%[0-9]+]] [[s:%[0-9]+]] [[t:%[0-9]+]]
-// CHECK: [[t]] = OpExtInst %void [[ext]] DebugTypeMember {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} 14 11 [[MyCbuffer]] %uint_768 %uint_512
-// CHECK: [[s]] = OpExtInst %void [[ext]] DebugTypeMember {{%[0-9]+}} [[S]] {{%[0-9]+}} 13 7 [[MyCbuffer]] %uint_640 %uint_128
+// CHECK: [[t]] = OpExtInst %void [[ext]] DebugTypeMember {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} 14 14 [[MyCbuffer]] %uint_768 %uint_512
+// CHECK: [[s]] = OpExtInst %void [[ext]] DebugTypeMember {{%[0-9]+}} [[S]] {{%[0-9]+}} 13 14 [[MyCbuffer]] %uint_640 %uint_128
 // CHECK: [[d]] = OpExtInst %void [[ext]] DebugTypeMember {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} 12 14 [[MyCbuffer]] %uint_128 %uint_512
-// CHECK: [[c]] = OpExtInst %void [[ext]] DebugTypeMember {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} 11 11 [[MyCbuffer]] %uint_64 %uint_64
-// CHECK: [[b]] = OpExtInst %void [[ext]] DebugTypeMember {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} 10 9 [[MyCbuffer]] %uint_32 %uint_32
-// CHECK: [[a]] = OpExtInst %void [[ext]] DebugTypeMember {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} 9 10 [[MyCbuffer]] %uint_0 %uint_32
+// CHECK: [[c]] = OpExtInst %void [[ext]] DebugTypeMember {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} 11 14 [[MyCbuffer]] %uint_64 %uint_64
+// CHECK: [[b]] = OpExtInst %void [[ext]] DebugTypeMember {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} 10 14 [[MyCbuffer]] %uint_32 %uint_32
+// CHECK: [[a]] = OpExtInst %void [[ext]] DebugTypeMember {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} 9 14 [[MyCbuffer]] %uint_0 %uint_32
 
 // CHECK: {{%[0-9]+}} = OpExtInst %void [[ext]] DebugGlobalVariable {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} 17 9 {{%[0-9]+}} {{%[0-9]+}} %AnotherCBuffer
 // CHECK: {{%[0-9]+}} = OpExtInst %void [[ext]] DebugGlobalVariable {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} 8 9 {{%[0-9]+}} {{%[0-9]+}} %MyCbuffer

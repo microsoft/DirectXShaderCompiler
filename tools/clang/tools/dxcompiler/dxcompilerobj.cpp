@@ -609,10 +609,8 @@ public:
 
 #ifdef ENABLE_SPIRV_CODEGEN
       // We want to embed the original source code in the final SPIR-V if
-      // debug information is enabled. But the compiled source requires
-      // pre-seeding with #line directives. We invoke Preprocess() here
-      // first for such case. Then we invoke the compilation process over the
-      // preprocessed source code.
+      // debug information is enabled. In-memory source cannot be re-read
+      // from the file system, so keep a copy of it.
       if (!isPreprocessing && opts.GenSPIRV && opts.DebugInfo) {
         // Convert source code encoding
         CComPtr<IDxcBlobUtf8> pOrigUtf8Source;
@@ -621,23 +619,6 @@ public:
         opts.SpirvOptions.origSource.assign(
             static_cast<const char *>(pOrigUtf8Source->GetStringPointer()),
             pOrigUtf8Source->GetStringLength());
-
-        CComPtr<IDxcResult> pSrcCodeResult;
-        std::vector<LPCWSTR> PreprocessArgs;
-        PreprocessArgs.reserve(argCount + 1);
-        PreprocessArgs.assign(pArguments, pArguments + argCount);
-        PreprocessArgs.push_back(L"-P");
-        PreprocessArgs.push_back(L"-Fi");
-        PreprocessArgs.push_back(L"preprocessed.hlsl");
-        IFT(Compile(pSource, PreprocessArgs.data(), PreprocessArgs.size(),
-                    pIncludeHandler, IID_PPV_ARGS(&pSrcCodeResult)));
-        HRESULT status;
-        IFT(pSrcCodeResult->GetStatus(&status));
-        if (SUCCEEDED(status)) {
-          pSourceEncoding.Release();
-          IFT(pSrcCodeResult->GetOutput(
-              DXC_OUT_HLSL, IID_PPV_ARGS(&pSourceEncoding), nullptr));
-        }
       }
 #endif // ENABLE_SPIRV_CODEGEN
 

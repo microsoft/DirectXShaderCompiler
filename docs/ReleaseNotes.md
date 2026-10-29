@@ -89,6 +89,12 @@ line upon naming the release. Refer to previous for appropriate section names.
 - Fixed incorrect shader results caused by stale overflow and exactness flags
   after bit-tracking dead code elimination.
 
+#### SPIR-V
+
+- SPIR-V debug info now reports source columns from the original source
+  rather than from preprocessed output
+  [#9022](https://github.com/microsoft/DirectXShaderCompiler/issues/9022).
+
 ### Upcoming Preview Release
 
 These changes apply to experimental preview shader models only and will not be
