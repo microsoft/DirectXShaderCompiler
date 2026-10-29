@@ -7575,6 +7575,14 @@ def err_hlsl_packoffset_requires_cbuffer : Error<
   "packoffset is only allowed in a constant buffer">;
 def warn_hlsl_packoffset_mix : Warning<
   "cannot mix packoffset elements with nonpackoffset elements in a cbuffer">;
+def warn_hlsl_buffer_initializer : Warning<
+  "initializer for a variable in a %select{tbuffer|cbuffer}0 will be ignored">,
+  InGroup<HLSLBufferInitializer>;
+def err_hlsl_buffer_initializer : Error<
+  "variable in a %select{tbuffer|cbuffer}0 cannot have an initializer">;
+def warn_hlsl_groupshared_initializer : Warning<
+  "initializer of 'groupshared' variable will be ignored">,
+  InGroup<HLSLGroupSharedInitializer>;
 def err_hlsl_packoffset_overlap : Error<"packoffset overlap between %0, %1">;
 def err_hlsl_register_semantics_conflicting : Error<
   "conflicting register semantics">;
