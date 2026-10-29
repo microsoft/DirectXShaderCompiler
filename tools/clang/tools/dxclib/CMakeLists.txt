@@ -21,7 +21,6 @@ add_clang_library(dxclib
   )
 
 if (MINGW)
-  target_link_options(dxclib PUBLIC -mconsole -municode)
   target_link_libraries(dxclib PRIVATE version)
 endif()
 

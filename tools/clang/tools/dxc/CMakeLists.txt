@@ -27,6 +27,10 @@ target_link_libraries(dxc
   dxclib
   )
 
+if (MINGW)
+  target_link_options(dxc PRIVATE -mconsole -municode)
+endif()
+
 if(ENABLE_SPIRV_CODEGEN)
   target_link_libraries(dxc SPIRV-Tools)
 endif()

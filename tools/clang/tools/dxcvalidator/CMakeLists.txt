@@ -19,10 +19,5 @@ add_clang_library(dxcvalidator
   dxcvalidator.cpp
   )
 
-if (MINGW)
-  target_link_options(dxcvalidator PUBLIC -mconsole -municode)
-  target_link_libraries(dxcvalidator PRIVATE version)
-endif()
-
 target_compile_definitions(dxcvalidator
     PRIVATE VERSION_STRING_SUFFIX=" for ${CMAKE_SYSTEM_NAME}")

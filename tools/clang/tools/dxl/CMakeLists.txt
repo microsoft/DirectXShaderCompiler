@@ -24,6 +24,10 @@ target_link_libraries(dxl
   dxcompiler
   )
 
+if (MINGW)
+  target_link_options(dxl PRIVATE -mconsole -municode)
+endif()
+
 set_target_properties(dxl PROPERTIES VERSION ${CLANG_EXECUTABLE_VERSION})
 
 if (MSVC)

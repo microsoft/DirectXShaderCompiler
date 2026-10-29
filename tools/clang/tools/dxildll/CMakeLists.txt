@@ -41,7 +41,7 @@ set(sources
   dxcvalidator.cpp
 )
 
-if (WIN32)
+if (MSVC)
 add_clang_library(dxildll SHARED ${sources})
 list(APPEND DXCLibs
   kernel32.lib
@@ -58,7 +58,7 @@ target_link_libraries(dxildll PRIVATE
   dxcvalidator
 )
 
-if (WIN32)
+if (MSVC)
 add_dependencies(dxildll
     ${DXCDependencies}
     DxcEtw
@@ -77,7 +77,7 @@ if (WIN32)
     set_target_properties(${target_name} PROPERTIES SOURCES "${sources}")
 
     set_property(SOURCE dxildll.rc PROPERTY COMPILE_DEFINITIONS "INCLUDE_HLSL_VERSION_FILE=1")
-    set_property(SOURCE dxildll.rc PROPERTY COMPILE_OPTIONS "/I" "${HLSL_VERSION_LOCATION}" "/I" "${LLVM_MAIN_SRC_DIR}")
+    set_property(SOURCE dxildll.rc PROPERTY COMPILE_OPTIONS "-I" "${HLSL_VERSION_LOCATION}" "-I" "${LLVM_MAIN_SRC_DIR}")
 endif()
 
 set_target_properties(dxildll

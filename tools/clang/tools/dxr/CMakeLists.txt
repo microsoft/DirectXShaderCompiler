@@ -19,6 +19,10 @@ target_link_libraries(dxr
   dxcompiler
   )
 
+if (MINGW)
+  target_link_options(dxr PRIVATE -mconsole -municode) 
+endif()
+
 set_target_properties(dxr PROPERTIES VERSION ${CLANG_EXECUTABLE_VERSION})
 # set_target_properties(dxr PROPERTIES ENABLE_EXPORTS 1)
 
