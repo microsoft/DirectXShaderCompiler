@@ -1,0 +1,30 @@
+// RUN: %dxc -T ps_6_0 -E main -fspv-reserve-resource-array-bindings -O3  %s -spirv | FileCheck %s
+
+// The array is NOT split into individual variables (unlike
+// -fspv-flatten-resource-arrays): MyTextures/MySamplers stay as single
+// array variables, each with a single Binding decoration, but the binding
+// numbers reserved for them still account for the full array size.
+// CHECK-NOT: MyTextures_0_
+// CHECK-NOT: MySamplers_0_
+// CHECK: OpDecorate %MyTextures Binding 0
+// CHECK: OpDecorate %AnotherTexture Binding 5
+// CHECK: OpDecorate %NextTexture Binding 6
+// CHECK: OpDecorate %MySamplers Binding 7
+// CHECK: OpDecorate %LastTexture Binding 9
+Texture2D    MyTextures[5] : register(t0);
+Texture2D    NextTexture;  // This is supposed to be t6.
+Texture2D    AnotherTexture : register(t5);
+SamplerState MySamplers[2];
+Texture2D    LastTexture;  // Right after MySamplers[2], so this is supposed to be t9.
+
+float4 main(float2 TexCoord : TexCoord) : SV_Target0
+{
+  float4 result = 0;
+  [unroll]
+  for (uint i = 0; i < 5; ++i)
+    result += MyTextures[i].Sample(MySamplers[i < 3 ? 0 : 1], TexCoord);
+  result += AnotherTexture.Sample(MySamplers[1], TexCoord);
+  result += NextTexture.Sample(MySamplers[1], TexCoord);
+  result += LastTexture.Sample(MySamplers[1], TexCoord);
+  return result;
+}
