@@ -88,6 +88,9 @@ line upon naming the release. Refer to previous for appropriate section names.
   [#8526](https://github.com/microsoft/DirectXShaderCompiler/issues/8526).
 - Fixed incorrect shader results caused by stale overflow and exactness flags
   after bit-tracking dead code elimination.
+- Fixed constant folding of `frac` returning `abs(x - trunc(x))` instead of
+  `x - floor(x)` for negative values, such as matrix arguments
+  [#8937](https://github.com/microsoft/DirectXShaderCompiler/issues/8937).
 
 ### Upcoming Preview Release
 
