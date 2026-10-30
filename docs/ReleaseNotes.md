@@ -83,6 +83,10 @@ line upon naming the release. Refer to previous for appropriate section names.
 - Fixed shader reflection dropping leading characters from user-defined struct type names.
 - Fixed an optimizer crash when scalarizing an out-of-bounds vector access
   [#8940](https://github.com/microsoft/DirectXShaderCompiler/issues/8940).
+- Assigning to a conditional operator on objects, such as `(c ? a : b) = buf`
+  with resources, is now an "expression is not assignable" error like for
+  other types, instead of asserting or being silently dropped
+  [#8579](https://github.com/microsoft/DirectXShaderCompiler/issues/8579).
 - Fixed members following a merged bitfield reading the wrong value when a
   struct is flat-converted
   [#8526](https://github.com/microsoft/DirectXShaderCompiler/issues/8526).
