@@ -1620,7 +1620,7 @@ some system-value (SV) semantic strings will be translated into SPIR-V
 | SV_PrimitiveID            +-------------+----------------------------------------+-----------------------+-----------------------------+
 |                           | GSOut       | ``PrimitiveId``                        | N/A                   | ``Geometry``                |
 |                           +-------------+----------------------------------------+-----------------------+-----------------------------+
-|                           | PSIn        | ``PrimitiveId``                        | N/A                   | ``Geometry``                |
+|                           | PSIn        | ``PrimitiveId``                        | N/A                   | ``Geometry`` [1]_           |
 |                           +-------------+----------------------------------------+-----------------------+-----------------------------+
 |                           |             |                                        |                       | ``MeshShadingNV``           |
 |                           | MSOut       | ``PrimitiveId``                        | N/A                   |                             |
@@ -1642,7 +1642,7 @@ some system-value (SV) semantic strings will be translated into SPIR-V
 +---------------------------+-------------+----------------------------------------+-----------------------+-----------------------------+
 |                           | GSOut       | ``Layer``                              | N/A                   | ``Geometry``                |
 |                           +-------------+----------------------------------------+-----------------------+-----------------------------+
-|                           | PSIn        | ``Layer``                              | N/A                   | ``Geometry``                |
+|                           | PSIn        | ``Layer``                              | N/A                   | ``Geometry`` [1]_           |
 | SV_RenderTargetArrayIndex +-------------+----------------------------------------+-----------------------+-----------------------------+
 |                           |             |                                        |                       | ``MeshShadingNV``           |
 |                           | MSOut       | ``Layer``                              | N/A                   |                             |
@@ -1650,7 +1650,7 @@ some system-value (SV) semantic strings will be translated into SPIR-V
 +---------------------------+-------------+----------------------------------------+-----------------------+-----------------------------+
 |                           | GSOut       | ``ViewportIndex``                      | N/A                   | ``MultiViewport``           |
 |                           +-------------+----------------------------------------+-----------------------+-----------------------------+
-|                           | PSIn        | ``ViewportIndex``                      | N/A                   | ``MultiViewport``           |
+|                           | PSIn        | ``ViewportIndex``                      | N/A                   | ``MultiViewport`` [1]_      |
 | SV_ViewportArrayIndex     +-------------+----------------------------------------+-----------------------+-----------------------------+
 |                           |             |                                        |                       | ``MeshShadingNV``           |
 |                           | MSOut       | ``ViewportIndex``                      | N/A                   |                             |
@@ -1684,6 +1684,16 @@ some system-value (SV) semantic strings will be translated into SPIR-V
 +---------------------------+-------------+----------------------------------------+-----------------------+-----------------------------+
 | SV_CullPrimitive          | MSOut       | ``CullPrimitiveEXT``                   | N/A                   | ``MeshShadingEXT``          |
 +---------------------------+-------------+----------------------------------------+-----------------------+-----------------------------+
+
+.. [1] ``Geometry`` or ``MultiViewport`` is not added if the module declares
+   one of these capabilities, which also enable the builtin:
+
+   * ``SV_PrimitiveID``: ``Tessellation``, ``MeshShadingNV`` or
+     ``MeshShadingEXT``.
+   * ``SV_RenderTargetArrayIndex``: ``ShaderLayer``,
+     ``ShaderViewportIndexLayerEXT``, ``MeshShadingNV`` or ``MeshShadingEXT``.
+   * ``SV_ViewportArrayIndex``: ``ShaderViewportIndex``,
+     ``ShaderViewportIndexLayerEXT``, ``MeshShadingNV`` or ``MeshShadingEXT``.
 
 
 For entities (function parameters, function return values, struct fields) with

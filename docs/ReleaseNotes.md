@@ -25,6 +25,10 @@ The included licenses apply to the following files:
   buffer-like resources (`StructuredBuffer`, `ByteAddressBuffer`,
   `ConstantBuffer`, `TextureBuffer`, and RW variants) via
   `SPV_KHR_untyped_pointers`. Requires `-fspv-target-env=vulkan1.3`.
+- Pixel and mesh shaders using `SV_PrimitiveID`,
+  `SV_RenderTargetArrayIndex` or `SV_ViewportArrayIndex` no longer add
+  `Geometry` or `MultiViewport` for these builtins when another declared
+  capability already enables them.
 
 Place release notes for the upcoming release below this line and remove this
 line upon naming the release. Refer to previous for appropriate section names.
