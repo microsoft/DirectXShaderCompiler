@@ -40,6 +40,7 @@ public:
   bool visit(SpirvDemoteToHelperInvocation *) override;
   bool visit(SpirvIsHelperInvocationEXT *) override;
   bool visit(SpirvReadClock *) override;
+  bool visit(SpirvConstantSizeOfEXT *) override;
 
   using Visitor::visit;
 

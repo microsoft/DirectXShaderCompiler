@@ -1279,9 +1279,18 @@ private:
                                             const Expr *srcExpr);
 
   /// \brief Diagnoses a local resource variable assigned from both a bound
-  /// resource and ResourceDescriptorHeap.
+  /// resource and ResourceDescriptorHeap, and any reassignment of a
+  /// heap-initialized RaytracingAccelerationStructure.
   ///
-  /// Issues a diagnostic and returns true if rejected.
+  /// Heap-initialized variables are recorded at compile time (the alias maps
+  /// for images and buffers, registerFnVarAlias for acceleration structures)
+  /// and every later use is lowered from that record, ignoring control flow.
+  /// That is only correct if the variable holds the same heap descriptor on
+  /// every path, so other assignments are rejected instead of miscompiled.
+  ///
+  /// Returns true if the assignment is rejected, either now or because the
+  /// variable was already diagnosed. Callers need no further handling:
+  /// alias-recording helpers skip rejected variables.
   bool diagnoseDescriptorHeapAliasMixing(const VarDecl *dstVar,
                                          const Expr *srcExpr,
                                          SourceLocation loc);
@@ -1746,11 +1755,14 @@ private:
     bool counterUnsupported = false;
   };
   /// Tracks per-variable assignment history for the mixed-alias diagnostic.
+  /// Heap:  an acceleration structure variable was initialized from
+  ///        ResourceDescriptorHeap. Image and buffer variables are tracked by
+  ///        their alias maps instead.
   /// Bound: the variable has been assigned from a bound resource; a later heap
   ///        assignment to it would be a diagnosable mix.
   /// Mixed: mixing was already diagnosed; alias recording stays suppressed for
   ///        the remainder of the function so the error fires only once.
-  enum class DescriptorHeapVarState : uint8_t { Bound, Mixed };
+  enum class DescriptorHeapVarState : uint8_t { Heap, Bound, Mixed };
   llvm::DenseMap<const VarDecl *, DescriptorHeapVarState>
       descriptorHeapVarState;
 

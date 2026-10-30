@@ -67,6 +67,21 @@ bool isImplicitVarDeclInVkNamespace(const Decl *decl) {
   return false;
 }
 
+// Returns true if the given shader kind is a ray-tracing stage.
+bool shaderModelKindIsRayTracing(hlsl::ShaderModel::Kind kind) {
+  switch (kind) {
+  case hlsl::ShaderModel::Kind::RayGeneration:
+  case hlsl::ShaderModel::Kind::Intersection:
+  case hlsl::ShaderModel::Kind::AnyHit:
+  case hlsl::ShaderModel::Kind::ClosestHit:
+  case hlsl::ShaderModel::Kind::Miss:
+  case hlsl::ShaderModel::Kind::Callable:
+    return true;
+  default:
+    return false;
+  }
+}
+
 // Returns true if the given decl has the given semantic.
 bool hasSemantic(const DeclaratorDecl *decl,
                  hlsl::DXIL::SemanticKind semanticKind) {
@@ -801,6 +816,40 @@ void SpirvEmitter::HandleTranslationUnit(ASTContext &context) {
 
     if (context.getDiagnostics().hasErrorOccurred())
       return;
+  }
+
+  // Decide whether the resource-heap stride covers acceleration structure
+  // descriptors. The stride is a heap-layout contract shared by every resource
+  // runtime array, so it is decided here from the stage and the extension list,
+  // not from what the shader loads. SpirvBuilder builds it lazily and then
+  // fixes it, so this must run before any function is translated.
+  //
+  // The stride covers acceleration structures if any of these holds:
+  //   - An entry point is a ray-tracing stage.
+  //   - The user listed an extension that provides the acceleration structure
+  //     type (SPV_KHR_ray_query, SPV_KHR_ray_tracing or SPV_NV_ray_tracing)
+  //     with -fspv-extension. Without that option the feature manager reports
+  //     the KHR extensions as enabled for every shader, which says nothing
+  //     about this shader, so the default mode is not a trigger.
+  //
+  // The capability that makes the acceleration structure type valid is
+  // declared from the type itself, using the same provider (see
+  // CapabilityVisitor), so it is always consistent with this decision.
+  if (spirvOptions.useDescriptorHeap) {
+    bool needsAccelStruct = false;
+
+    for (const FunctionInfo *fi : workQueue)
+      if (shaderModelKindIsRayTracing(fi->shaderModelKind)) {
+        needsAccelStruct = true;
+        break;
+      }
+
+    if (!needsAccelStruct)
+      needsAccelStruct =
+          featureManager.hasExplicitAccelerationStructureProvider();
+
+    if (needsAccelStruct)
+      spvBuilder.registerResourceHeapAccelStruct();
   }
 
   // Translate all functions reachable from the entry function.
@@ -2033,6 +2082,30 @@ bool SpirvEmitter::tryToCreateDescriptorHeapAlias(const VarDecl *decl,
     return tryToAssignDescriptorHeapBufferAlias(decl, init);
   }
 
+  if (isRaytracingAccelerationStructure(decl->getType())) {
+    if (SpirvInstruction *initVal = loadIfGLValue(init)) {
+      // The variable becomes a name for the loaded handle: acceleration
+      // structure handles are not stored in function variables. Record the
+      // heap state so that any later assignment to it is diagnosed.
+      declIdMapper.registerFnVarAlias(decl, initVal);
+      descriptorHeapVarState[decl] = DescriptorHeapVarState::Heap;
+    } else {
+      // The initializer could not be lowered and has been diagnosed (here or
+      // while evaluating it). Register a placeholder so that later uses of the
+      // variable do not hit the "unregistered decl" fatal error, which would
+      // bury the real diagnostic. Mixed keeps later assignments to it from
+      // being diagnosed again. The error fails the compilation, so the
+      // placeholder is never emitted.
+      emitError("cannot create descriptor heap acceleration structure alias "
+                "from initializer",
+                init->getExprLoc());
+      declIdMapper.registerFnVarAlias(decl,
+                                      spvBuilder.getUndef(decl->getType()));
+      descriptorHeapVarState[decl] = DescriptorHeapVarState::Mixed;
+    }
+    return true;
+  }
+
   return false;
 }
 
@@ -3220,11 +3293,13 @@ SpirvEmitter::tryToAssignToDescriptorHeapAlias(
                                          assignExpr->getExprLoc()))
     return tryToAssignToDescriptorHeapBuffer(assignExpr);
 
-  // The assignment was rejected. A heap buffer alias is represented only by its
-  // index variable, so the normal path has no destination to store into and
-  // would null-deref; consume the assignment instead. Image aliases do have a
+  // The assignment was rejected. Buffer aliases (tracked only by an index
+  // variable) and acceleration structure aliases (a name for a loaded handle)
+  // have no variable for the normal assignment path to store into, so it would
+  // dereference null; consume the assignment instead. Image aliases do have a
   // function variable, so they can fall through to the plain handle store.
-  if (descriptorHeapBufferAliasVars.count(dstVar))
+  if (descriptorHeapBufferAliasVars.count(dstVar) ||
+      declIdMapper.hasFnVarAlias(dstVar))
     return static_cast<SpirvInstruction *>(nullptr);
   return llvm::None;
 }
@@ -3252,7 +3327,11 @@ bool SpirvEmitter::tryHandleDescriptorHeapAssignment(const BinaryOperator *expr,
 
   if (llvm::Optional<SpirvInstruction *> aliasResult =
           tryToAssignToDescriptorHeapAlias(expr)) {
-    *result = aliasResult.getValue();
+    // A consumed assignment has no value of its own, but it can still be used
+    // as one, e.g. `(b = bound).Load(0)`; a null here would crash the code
+    // that consumes it.
+    *result = aliasResult.getValue() ? aliasResult.getValue()
+                                     : spvBuilder.getUndef(expr->getType());
     return true;
   }
 
@@ -5300,24 +5379,42 @@ bool SpirvEmitter::diagnoseDescriptorHeapAliasMixing(const VarDecl *dstVar,
   // Only the resource kinds that use the compile-time alias mechanism can be
   // miscompiled by a mixed assignment. Other resources are stored into a real
   // function variable, which merges correctly across control flow.
+  // RaytracingAccelerationStructure is covered too: a heap-initialized one is
+  // a compile-time alias (see tryToCreateDescriptorHeapAlias).
   const QualType dstType = dstVar->getType();
-  if (!isRWTexture(dstType) && !isRWBuffer(dstType) &&
+  const bool isASType = isRaytracingAccelerationStructure(dstType);
+  if (!isASType && !isRWTexture(dstType) && !isRWBuffer(dstType) &&
       !isConstantTextureBuffer(dstType) &&
       !isAKindOfStructuredOrByteBuffer(dstType))
     return false;
 
   const bool srcIsHeap = isHeapSourcedValue(srcExpr->IgnoreParenCasts());
   const bool wasHeap = descriptorHeapImageAliasVars.count(dstVar) ||
-                       descriptorHeapBufferAliasVars.count(dstVar);
+                       descriptorHeapBufferAliasVars.count(dstVar) ||
+                       (stateIt != descriptorHeapVarState.end() &&
+                        stateIt->second == DescriptorHeapVarState::Heap);
   const bool wasBound = stateIt != descriptorHeapVarState.end() &&
                         stateIt->second == DescriptorHeapVarState::Bound;
+  // A heap-initialized acceleration structure is a compile-time name for the
+  // handle loaded by its initializer, with no variable to store a new handle
+  // into, so any reassignment is rejected, whether the new value is a bound
+  // resource or another heap access. Image and buffer aliases can be
+  // retargeted heap-to-heap; for them only crossing between bound and heap
+  // resources is rejected.
+  const bool isASReassignment = isASType && wasHeap;
   const bool mixingDetected =
       (srcIsHeap && wasBound) || (!srcIsHeap && wasHeap);
 
-  if (mixingDetected) {
-    emitError("mixing bound and descriptor heap resources in the same variable "
-              "is not supported with SPV_EXT_descriptor_heap",
-              loc);
+  if (isASReassignment || mixingDetected) {
+    if (isASReassignment)
+      emitError("reassigning a RaytracingAccelerationStructure initialized "
+                "from ResourceDescriptorHeap is not supported with "
+                "SPV_EXT_descriptor_heap",
+                loc);
+    else
+      emitError("mixing bound and descriptor heap resources in the same "
+                "variable is not supported with SPV_EXT_descriptor_heap",
+                loc);
     // Leave the alias in place: heap-initialized buffer vars have doVarDecl
     // return early (before createFnVar), making the alias their only handle;
     // erasing it crashes downstream. The emitted error fails the compilation.
@@ -7227,6 +7324,20 @@ SpirvEmitter::doCXXOperatorCallExpr(const CXXOperatorCallExpr *expr,
             isConsumeStructuredBuffer(resourceType)) {
           emitError("append/consume structured buffers are not supported with "
                     "SPV_EXT_descriptor_heap",
+                    expr->getExprLoc());
+          return nullptr;
+        }
+
+        // The stride was decided without an acceleration structure term (not a
+        // ray-tracing stage, no ray extension listed). Reject the load: the
+        // heap would be indexed with a stride that may be too narrow.
+        if (isRaytracingAccelerationStructure(resourceType) &&
+            !spvBuilder.resourceHeapStrideIncludesAccelStruct()) {
+          emitError("acceleration structure loaded from ResourceDescriptorHeap "
+                    "requires the resource heap stride to account for "
+                    "acceleration structure descriptors; compile with "
+                    "-fspv-extension=SPV_KHR_ray_tracing or "
+                    "-fspv-extension=SPV_KHR_ray_query",
                     expr->getExprLoc());
           return nullptr;
         }
@@ -9693,13 +9804,12 @@ void SpirvEmitter::createSpecConstant(const VarDecl *varDecl) {
 
 const SpirvType *
 SpirvEmitter::getDescriptorHeapRuntimeArrayType(const SpirvType *elemType) {
-  // SPV_EXT_descriptor_heap: apply a client-API-defined byte stride via an
-  // ArrayStrideIdEXT decoration. The sampler heap holds a single descriptor
-  // type, so its stride is the sampler descriptor size. The resource heap is a
-  // shared flat array in which any resource descriptor may sit at any slot, so
-  // every resource runtime array must use one common stride: max(sizeof(image),
-  // sizeof(buffer)). Using the accessed element size would be wrong for the
-  // resource heap.
+  // Descriptor sizes are defined by the client API, so the stride is an
+  // ArrayStrideIdEXT operand rather than a literal. The sampler heap holds one
+  // descriptor type. The resource heap is a flat array in which any resource
+  // descriptor may sit at any slot, so all its runtime arrays share one stride
+  // (see SpirvBuilder::getResourceHeapArrayStride) instead of the stride of the
+  // accessed type.
   SpirvInstruction *strideId = isa<SamplerType>(elemType)
                                    ? spvBuilder.getSamplerHeapArrayStride()
                                    : spvBuilder.getResourceHeapArrayStride();

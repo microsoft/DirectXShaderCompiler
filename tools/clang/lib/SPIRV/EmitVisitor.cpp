@@ -460,9 +460,16 @@ void EmitVisitor::initInstruction(SpirvInstruction *inst) {
   if (auto *var = dyn_cast<SpirvVariable>(inst))
     isGlobalVar = var->getStorageClass() != spv::StorageClass::Function;
   const auto op = inst->getopcode();
-  emitDebugLine(op, inst->getSourceLocation(), inst->getSourceRange(),
-                isGlobalVar ? &globalVarsBinary : &mainBinary,
-                isa<SpirvDebugScope>(inst));
+
+  // OpSpecConstantOp is module-scope: it is emitted with the types and
+  // constants, before the debug sources and any function.
+  const bool isSpecConstantOp = isa<SpirvSpecConstantUnaryOp>(inst) ||
+                                isa<SpirvSpecConstantBinaryOp>(inst) ||
+                                isa<SpirvSpecConstantTernaryOp>(inst);
+  if (!isSpecConstantOp)
+    emitDebugLine(op, inst->getSourceLocation(), inst->getSourceRange(),
+                  isGlobalVar ? &globalVarsBinary : &mainBinary,
+                  isa<SpirvDebugScope>(inst));
 
   // Initialize the current instruction for emitting.
   curInst.clear();
@@ -1430,6 +1437,8 @@ bool EmitVisitor::visit(SpirvSelect *inst) {
   return true;
 }
 
+// OpSpecConstantOp is a module-scope instruction. All three forms below are
+// emitted with the types and constants.
 bool EmitVisitor::visit(SpirvSpecConstantTernaryOp *inst) {
   initInstruction(inst);
   curInst.push_back(inst->getResultTypeId());
@@ -1463,7 +1472,7 @@ bool EmitVisitor::visit(SpirvSpecConstantUnaryOp *inst) {
   curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst));
   curInst.push_back(static_cast<uint32_t>(inst->getSpecConstantopcode()));
   curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst->getOperand()));
-  finalizeInstruction(&mainBinary);
+  finalizeInstruction(&typeConstantBinary);
   emitDebugNameForInstruction(getOrAssignResultId<SpirvInstruction>(inst),
                               inst->getDebugName());
   return true;
