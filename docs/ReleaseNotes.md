@@ -88,6 +88,10 @@ line upon naming the release. Refer to previous for appropriate section names.
   [#8526](https://github.com/microsoft/DirectXShaderCompiler/issues/8526).
 - Fixed incorrect shader results caused by stale overflow and exactness flags
   after bit-tracking dead code elimination.
+- Fixed a crash when passing a matrix to an `out` or `inout` parameter whose
+  matrix type has a different element type, such as a `half3x3` argument for
+  an `out float3x3` parameter
+  [#8809](https://github.com/microsoft/DirectXShaderCompiler/issues/8809).
 
 ### Upcoming Preview Release
 
