@@ -4,7 +4,10 @@
 // diagnosed without crashing the compiler.
 //
 // The rejected assignment has no SPIR-V value of its own, but the enclosing
-// expression, here a method call on the assignment result, still needs one.
+// expression, here the initializer of another variable, still needs one.
+// The assignment is used as an initializer rather than as the object of a
+// method call: a method call on a parenthesized assignment trips the
+// assertion getValueKind() == VK_LValue in Debug builds.
 
 // CHECK: mixing bound and descriptor heap resources in the same variable is not supported
 // CHECK-NOT: Internal compiler error
@@ -15,5 +18,6 @@ RWBuffer<float> o : register(u0);
 [numthreads(1, 1, 1)]
 void main(uint3 t : SV_DispatchThreadID) {
   StructuredBuffer<float> b = ResourceDescriptorHeap[1];
-  o[t.x] = (b = bound).Load(0);
+  StructuredBuffer<float> c = (b = bound);
+  o[t.x] = c.Load(0);
 }
