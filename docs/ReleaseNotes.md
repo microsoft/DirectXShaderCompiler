@@ -88,6 +88,8 @@ line upon naming the release. Refer to previous for appropriate section names.
   [#8526](https://github.com/microsoft/DirectXShaderCompiler/issues/8526).
 - Fixed incorrect shader results caused by stale overflow and exactness flags
   after bit-tracking dead code elimination.
+- Fixed an optimizer miscompile where selects of bitwise-not values guarded by
+  signed less-than or unsigned compares were treated as a signed minimum.
 
 ### Upcoming Preview Release
 
