@@ -3868,6 +3868,14 @@ bool DeclResultIdMapper::createStageVars(StageVarDataBundle &stageVarData,
       return false;
     }
 
+    // DXIL replaces a pixel shader SV_CullPrimitive input with 0, and
+    // CullPrimitiveEXT can't be used in fragment shaders.
+    if (semanticKind == hlsl::Semantic::Kind::CullPrimitive &&
+        sigPointKind == hlsl::SigPoint::Kind::PSIn) {
+      *value = spvBuilder.getConstantNull(stageVarData.type);
+      return true;
+    }
+
     // Special handling of certain mappings between HLSL semantics and
     // SPIR-V builtins:
     // * SV_CullDistance/SV_ClipDistance are outsourced to GlPerVertex.
@@ -4773,10 +4781,6 @@ SpirvVariable *DeclResultIdMapper::createSpirvStageVar(
   // be used as MSOut.
   case hlsl::Semantic::Kind::CullPrimitive: {
     switch (sigPointKind) {
-    case hlsl::SigPoint::Kind::PSIn:
-      stageVar->setIsSpirvBuiltin();
-      return spvBuilder.addStageBuiltinVar(type, sc, BuiltIn::CullPrimitiveEXT,
-                                           isPrecise, srcLoc);
     case hlsl::SigPoint::Kind::MSPOut:
       stageVar->setIsSpirvBuiltin();
       return spvBuilder.addStageBuiltinVar(type, sc, BuiltIn::CullPrimitiveEXT,
