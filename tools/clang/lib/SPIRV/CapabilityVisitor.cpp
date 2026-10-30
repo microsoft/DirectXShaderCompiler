@@ -335,8 +335,9 @@ bool CapabilityVisitor::visit(SpirvDecoration *decor) {
       break;
     }
     case spv::BuiltIn::PrimitiveId: {
-      // PrimitiveID can be used as PSIn or MSPOut. The mesh stage's own
-      // MeshShadingNV/MeshShadingEXT capability enables it.
+      // Record fragment inputs and choose their capabilities at the end of the
+      // module visit, after instruction capabilities have been added.
+      // MeshShadingNV or MeshShadingEXT already enables mesh outputs.
       if (shaderModel == spv::ExecutionModel::Fragment)
         fragmentBuiltinsNeedingCapability.push_back(builtin);
       break;
@@ -354,8 +355,9 @@ bool CapabilityVisitor::visit(SpirvDecoration *decor) {
           addCapability(spv::Capability::ShaderViewportIndexLayerEXT);
         }
       } else if (shaderModel == spv::ExecutionModel::Fragment) {
-        // SV_RenderTargetArrayIndex can be used as PSIn or MSPOut. The mesh
-        // stage's own MeshShadingNV/MeshShadingEXT capability enables it.
+        // Choose the fragment input capability at the end of the module visit,
+        // after instruction capabilities have been added.
+        // MeshShadingNV or MeshShadingEXT already enables mesh outputs.
         fragmentBuiltinsNeedingCapability.push_back(builtin);
       }
       break;
@@ -372,10 +374,12 @@ bool CapabilityVisitor::visit(SpirvDecoration *decor) {
           addCapability(spv::Capability::ShaderViewportIndexLayerEXT);
         }
       } else if (shaderModel == spv::ExecutionModel::Geometry) {
-        // SV_ViewportArrayIndex can be used as PSIn or GSOut or MSPOut. The
-        // mesh stage's own MeshShadingNV/MeshShadingEXT capability enables it.
+        // A geometry output with ViewportIndex requires MultiViewport.
         addCapability(spv::Capability::MultiViewport);
       } else if (shaderModel == spv::ExecutionModel::Fragment) {
+        // Choose the fragment input capability at the end of the module visit,
+        // after instruction capabilities have been added.
+        // MeshShadingNV or MeshShadingEXT already enables mesh outputs.
         fragmentBuiltinsNeedingCapability.push_back(builtin);
       }
       break;
@@ -898,34 +902,39 @@ bool CapabilityVisitor::visit(SpirvReadClock *inst) {
 }
 
 void CapabilityVisitor::addCapabilitiesForFragmentBuiltins() {
-  // Each of these builtins is enabled by more than one capability: all three
-  // by MeshShadingNV or MeshShadingEXT (VUID-PrimitiveId-Fragment-04333 for
-  // PrimitiveId), PrimitiveId by Tessellation, and Layer and ViewportIndex by
-  // ShaderViewportIndexLayerEXT and by ShaderLayer / ShaderViewportIndex. Add
-  // Geometry or MultiViewport only when none of those is declared, so a plain
-  // pixel shader keeps it and one that declares mesh shading does not need
-  // geometry shaders.
+  // Choose capabilities after visiting the whole module, including function
+  // bodies. MeshShadingNV or MeshShadingEXT enables all three builtins.
+  // Tessellation also enables PrimitiveId (VUID-PrimitiveId-Fragment-04333).
+  // ShaderViewportIndexLayerEXT enables both Layer and ViewportIndex.
+  // ShaderLayer enables Layer; ShaderViewportIndex enables ViewportIndex.
+  // Add Geometry for PrimitiveId or Layer, or MultiViewport for ViewportIndex,
+  // only if no declared alternative enables that builtin.
   const bool hasMeshShading =
       spvBuilder.hasCapability(spv::Capability::MeshShadingNV) ||
       spvBuilder.hasCapability(spv::Capability::MeshShadingEXT);
+  if (hasMeshShading)
+    return;
+
+  const bool hasTessellation =
+      spvBuilder.hasCapability(spv::Capability::Tessellation);
   const bool hasViewportIndexLayer =
       spvBuilder.hasCapability(spv::Capability::ShaderViewportIndexLayerEXT);
+  const bool hasShaderLayer =
+      spvBuilder.hasCapability(spv::Capability::ShaderLayer);
+  const bool hasShaderViewportIndex =
+      spvBuilder.hasCapability(spv::Capability::ShaderViewportIndex);
   for (const auto builtin : fragmentBuiltinsNeedingCapability) {
-    if (hasMeshShading)
-      continue;
     switch (builtin) {
     case spv::BuiltIn::PrimitiveId:
-      if (!spvBuilder.hasCapability(spv::Capability::Tessellation))
+      if (!hasTessellation)
         addCapability(spv::Capability::Geometry);
       break;
     case spv::BuiltIn::Layer:
-      if (!hasViewportIndexLayer &&
-          !spvBuilder.hasCapability(spv::Capability::ShaderLayer))
+      if (!hasViewportIndexLayer && !hasShaderLayer)
         addCapability(spv::Capability::Geometry);
       break;
     case spv::BuiltIn::ViewportIndex:
-      if (!hasViewportIndexLayer &&
-          !spvBuilder.hasCapability(spv::Capability::ShaderViewportIndex))
+      if (!hasViewportIndexLayer && !hasShaderViewportIndex)
         addCapability(spv::Capability::MultiViewport);
       break;
     default:
