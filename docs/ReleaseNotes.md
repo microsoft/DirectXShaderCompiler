@@ -83,6 +83,8 @@ line upon naming the release. Refer to previous for appropriate section names.
 - Fixed shader reflection dropping leading characters from user-defined struct type names.
 - Fixed an optimizer crash when scalarizing an out-of-bounds vector access
   [#8940](https://github.com/microsoft/DirectXShaderCompiler/issues/8940).
+- Fixed an assertion in assertion-enabled builds when a `vk::binding` attribute
+  uses a constant and is followed by an inline method definition.
 - Fixed members following a merged bitfield reading the wrong value when a
   struct is flat-converted
   [#8526](https://github.com/microsoft/DirectXShaderCompiler/issues/8526).
