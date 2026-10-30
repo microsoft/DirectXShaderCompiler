@@ -1499,6 +1499,12 @@ bool EmitVisitor::visit(SpirvUnaryOp *inst) {
   }
 
   initInstruction(inst);
+  // Layout-equivalent aggregates can lower to the same SPIR-V type.
+  if (inst->getopcode() == spv::Op::OpCopyLogical &&
+      typeHandler.emitType(inst->getOperand()->getResultType()) ==
+          inst->getResultTypeId()) {
+    curInst[0] = static_cast<uint32_t>(spv::Op::OpCopyObject);
+  }
   curInst.push_back(inst->getResultTypeId());
   curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst));
   curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst->getOperand()));
