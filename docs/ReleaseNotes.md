@@ -88,6 +88,8 @@ line upon naming the release. Refer to previous for appropriate section names.
   [#8526](https://github.com/microsoft/DirectXShaderCompiler/issues/8526).
 - Fixed incorrect shader results caused by stale overflow and exactness flags
   after bit-tracking dead code elimination.
+- Fixed incorrect shader results caused by stale overflow, exactness, and
+  fast-math flags after merging equivalent code from both sides of a branch.
 
 ### Upcoming Preview Release
 
