@@ -7456,6 +7456,12 @@ class db_dxil(object):
             ],
         )
         add_pass(
+            "dxil-trim-cbuffer",
+            "DxilTrimCBufferMembers",
+            "Trim unused cbuffer members and compact offsets",
+            [],
+        )
+        add_pass(
             "hlsl-dxil-resources-to-handle",
             "DxilMutateResourceToHandle",
             "Mutate resource to handle",
