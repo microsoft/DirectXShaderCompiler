@@ -26,6 +26,7 @@
 #include "dxcetw.h"
 
 #include "DxbcConverter.h"
+#include "DxilConvPasses/InitializePasses.h"
 
 // Defined in DxbcConverter.lib
 // (projects/dxilconv/lib/DxbcConverter/DxbcConverter.cpp)
@@ -87,7 +88,7 @@ DXC_API_IMPORT HRESULT __stdcall DxcCreateInstance2(IMalloc *pMalloc,
 // __declspec(nothrow)
 static HRESULT InitMaybeFail() throw() {
   HRESULT hr;
-  bool memSetup = false;
+  bool fsSetup = false, memSetup = false;
   IFC(DxcInitThreadMalloc());
   DxcSetThreadMallocToDefault();
   memSetup = true;
@@ -95,8 +96,13 @@ static HRESULT InitMaybeFail() throw() {
     hr = E_FAIL;
     goto Cleanup;
   }
+  fsSetup = true;
+  IFC(hlsl::SetupRegistryPassForDxilConvPasses());
 Cleanup:
   if (FAILED(hr)) {
+    if (fsSetup) {
+      ::llvm::sys::fs::CleanupPerThreadFileSystem();
+    }
     if (memSetup) {
       DxcClearThreadMalloc();
       DxcCleanupThreadMalloc();
