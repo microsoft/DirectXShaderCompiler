@@ -89,10 +89,21 @@ private:
   void AddVulkanMemoryModelForVolatile(SpirvDecoration *decor,
                                        SourceLocation loc);
 
+  /// Adds Geometry or MultiViewport for the fragment-stage builtins recorded
+  /// in fragmentBuiltinsNeedingCapability, unless a capability the module
+  /// already declares enables the builtin. Must run after the whole module is
+  /// visited: [[vk::ext_capability]] on a vk::ext_instruction function is only
+  /// added while visiting the function bodies, after the decorations.
+  void addCapabilitiesForFragmentBuiltins();
+
 private:
   SpirvBuilder &spvBuilder;        ///< SPIR-V builder
   spv::ExecutionModel shaderModel; ///< Execution model
   FeatureManager featureManager;   ///< SPIR-V version/extension manager.
+
+  /// Fragment-stage PrimitiveId, Layer and ViewportIndex builtins whose
+  /// capability is chosen once the module is visited.
+  llvm::SmallVector<spv::BuiltIn, 3> fragmentBuiltinsNeedingCapability;
 };
 
 } // end namespace spirv
