@@ -9852,8 +9852,9 @@ SpirvEmitter::getDescriptorHeapRuntimeArrayType(const SpirvType *elemType,
   // descriptor type. The resource heap is a flat array in which any resource
   // descriptor may sit at any slot, so all its runtime arrays share one stride
   // (see SpirvBuilder::getResourceHeapArrayStride) instead of the stride of the
-  // accessed type.
-  SpirvInstruction *strideId = isa<SamplerType>(elemType)
+  // accessed type. As with the literal override above, the stride follows the
+  // heap that is accessed, not the element type.
+  SpirvInstruction *strideId = onSamplerHeap
                                    ? spvBuilder.getSamplerHeapArrayStride()
                                    : spvBuilder.getResourceHeapArrayStride();
   return spvContext.getRuntimeArrayType(elemType, llvm::None, strideId);

@@ -2264,7 +2264,9 @@ The computed stride can be replaced with a fixed literal using
 ``-fvk-resource-heap-stride <N>`` and ``-fvk-sampler-heap-stride <N>``, which
 emit ``OpDecorate <array> ArrayStride N`` on the resource and sampler heap
 arrays respectively. ``N`` must be a power of two in the inclusive range
-[8, 256], and both flags require ``-spirv``. The command-line override has the
+[8, 256], and both flags require ``-spirv`` and ``-fspv-use-descriptor-heap``
+(they are rejected otherwise, since they would have no effect). The
+command-line override has the
 highest precedence: when it is set for a heap, no ``ArrayStrideIdEXT`` is
 emitted for that heap and no ``OpConstantSizeOfEXT`` is built for it. The two
 flags are independent, so overriding one heap leaves the other on its computed

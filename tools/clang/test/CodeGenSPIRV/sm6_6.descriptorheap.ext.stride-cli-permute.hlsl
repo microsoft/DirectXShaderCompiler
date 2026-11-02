@@ -56,6 +56,12 @@
 // RUN: not %dxc -T cs_6_6 -E main -fspv-use-descriptor-heap -fspv-target-env=vulkan1.3 -fvk-resource-heap-stride 128 %s 2>&1 | FileCheck %s --check-prefix=NOSPIRVRS
 // RUN: not %dxc -T cs_6_6 -E main -fspv-use-descriptor-heap -fspv-target-env=vulkan1.3 -fvk-sampler-heap-stride 16 %s 2>&1 | FileCheck %s --check-prefix=NOSPIRVSS
 
+// ---- Flag without the native heap (plain -spirv, or the emulated heap): the override would be ignored, so it is rejected ----
+// RUN: not %dxc -T cs_6_6 -E main -fvk-resource-heap-stride 128 -spirv %s 2>&1 | FileCheck %s --check-prefix=NOHEAPRS
+// RUN: not %dxc -T cs_6_6 -E main -fvk-sampler-heap-stride 16 -spirv %s 2>&1 | FileCheck %s --check-prefix=NOHEAPSS
+// RUN: not %dxc -T cs_6_6 -E main -fspv-use-emulated-heap -fvk-resource-heap-stride 128 -spirv %s 2>&1 | FileCheck %s --check-prefix=NOHEAPRS
+// RUN: not %dxc -T cs_6_6 -E main -fspv-use-emulated-heap -fvk-sampler-heap-stride 16 -spirv %s 2>&1 | FileCheck %s --check-prefix=NOHEAPSS
+
 // Bind each heap's runtime array to its element type so the strides are checked
 // independently. The resource Texture2D image array carries [[RS]]; the sampler
 // array carries [[SS]].
@@ -74,6 +80,8 @@
 // BOTH-NEXT: -fvk-sampler-heap-stride must be a power of 2 between 8 and 256 (inclusive)
 // NOSPIRVRS: -fvk-resource-heap-stride requires -spirv
 // NOSPIRVSS: -fvk-sampler-heap-stride requires -spirv
+// NOHEAPRS: -fvk-resource-heap-stride requires -fspv-use-descriptor-heap
+// NOHEAPSS: -fvk-sampler-heap-stride requires -fspv-use-descriptor-heap
 
 RWByteAddressBuffer outputBytes : register(u0);
 

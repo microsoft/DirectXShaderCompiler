@@ -376,6 +376,14 @@ static bool handleHeapStride(const InputArgList &args, OptSpecifier id,
     return false;
   }
 
+  // The stride is only consumed by the native heap lowering. Without it the
+  // override would be accepted and silently have no effect.
+  if (!args.hasFlag(OPT_fspv_use_descriptor_heap, OPT_fspv_use_emulated_heap,
+                    false)) {
+    errors << name << " requires -fspv-use-descriptor-heap\n";
+    return false;
+  }
+
   llvm::StringRef value = arg->getValue();
   uint32_t number = 0;
   if (value.getAsInteger(10, number)) {
