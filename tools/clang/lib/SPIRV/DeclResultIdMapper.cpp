@@ -3869,9 +3869,11 @@ bool DeclResultIdMapper::createStageVars(StageVarDataBundle &stageVarData,
     }
 
     // DXIL replaces a pixel shader SV_CullPrimitive input with 0, and
-    // CullPrimitiveEXT can't be used in fragment shaders.
+    // CullPrimitiveEXT can't be used in fragment shaders. An explicit
+    // vk::builtin still takes precedence.
     if (semanticKind == hlsl::Semantic::Kind::CullPrimitive &&
-        sigPointKind == hlsl::SigPoint::Kind::PSIn) {
+        sigPointKind == hlsl::SigPoint::Kind::PSIn &&
+        !stageVarData.decl->hasAttr<VKBuiltInAttr>()) {
       *value = spvBuilder.getConstantNull(stageVarData.type);
       return true;
     }

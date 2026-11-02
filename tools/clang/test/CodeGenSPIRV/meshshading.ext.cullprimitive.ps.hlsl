@@ -7,6 +7,7 @@
 // RUN: %dxc -T ps_6_5 -E main %s -spirv -fcgl -DCULL_TYPE=uint | FileCheck %s --check-prefix=UINT
 // RUN: %dxc -T ps_6_5 -E main %s -spirv -fcgl -DCULL_TYPE=bool2 | FileCheck %s --check-prefix=BOOL2
 // RUN: %dxc -T ps_6_5 -E main %s -spirv -fcgl -DCULL_ARRAY | FileCheck %s --check-prefix=ARRAY
+// RUN: %dxc -T ps_6_5 -E main %s -spirv -fcgl -DCULL_BUILTIN | FileCheck %s --check-prefix=BUILTIN
 
 // SV_CullPrimitive as a pixel shader input is replaced with 0, like DXIL.
 // DXIL doesn't check the type here, so aggregates are replaced too.
@@ -27,8 +28,15 @@
 // ARRAY: [[null:%[0-9]+]] = OpConstantNull %_arr_bool_uint_2
 // ARRAY: OpStore %param_var_cull [[null]]
 
+// An explicit vk::builtin is not replaced.
+// BUILTIN-NOT: OpConstantNull
+// BUILTIN: OpLoad %bool %HelperInvocation
+
 #ifdef CULL_ARRAY
 float4 main(bool cull[2] : SV_CullPrimitive) : SV_Target { return cull[1]; }
+#elif defined(CULL_BUILTIN)
+float4 main([[vk::builtin("HelperInvocation")]] bool cull : SV_CullPrimitive)
+    : SV_Target { return cull; }
 #else
 float4 main(CULL_TYPE cull : SV_CullPrimitive) : SV_Target { return cull.x; }
 #endif
