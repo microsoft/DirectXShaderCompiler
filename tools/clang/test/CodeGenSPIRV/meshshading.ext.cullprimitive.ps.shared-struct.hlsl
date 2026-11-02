@@ -1,14 +1,12 @@
 // RUN: %dxc -T ms_6_5 -E ms_main %s -spirv -fspv-target-env=vulkan1.3 -DCULL_FIRST | FileCheck %s --check-prefix=MS
 // RUN: %dxc -T ms_6_5 -E ms_main %s -spirv -fspv-target-env=vulkan1.3 | FileCheck %s --check-prefix=MS
-// RUN: %dxc -T ps_6_5 -E ps_main %s -spirv -fspv-target-env=vulkan1.3 -DCULL_FIRST | FileCheck %s --check-prefix=PS
-// RUN: %dxc -T ps_6_5 -E ps_main %s -spirv -fspv-target-env=vulkan1.3 | FileCheck %s --check-prefix=PS
-// RUN: %dxc -T ps_6_5 -E ps_main %s -spirv -fspv-target-env=vulkan1.3 -fcgl -DCULL_FIRST | FileCheck %s --check-prefix=FIRST
-// RUN: %dxc -T ps_6_5 -E ps_main %s -spirv -fspv-target-env=vulkan1.3 -fcgl | FileCheck %s --check-prefix=LATER
+// RUN: %dxc -T ps_6_5 -E ps_main %s -spirv -DCULL_FIRST | FileCheck %s --check-prefix=PS
+// RUN: %dxc -T ps_6_5 -E ps_main %s -spirv | FileCheck %s --check-prefix=PS
+// RUN: %dxc -T ps_6_5 -E ps_main %s -spirv -fcgl -DCULL_FIRST | FileCheck %s --check-prefix=FIRST
+// RUN: %dxc -T ps_6_5 -E ps_main %s -spirv -fcgl | FileCheck %s --check-prefix=LATER
 
-// One struct used as a mesh shader primitive output and a pixel shader input,
-// with SV_CullPrimitive as the first member and as a later one. The pixel
-// shader replaces it with 0, so the other members must keep the locations the
-// mesh shader gave them, and the 0 must land in the right struct member.
+// The other members keep the mesh shader's locations, and the 0 lands in the
+// right member, whether SV_CullPrimitive is first or not.
 
 // MS: OpDecorate {{%[0-9]+}} BuiltIn CullPrimitiveEXT
 // MS-DAG: OpDecorate %out_var_PRIMID Location 0
