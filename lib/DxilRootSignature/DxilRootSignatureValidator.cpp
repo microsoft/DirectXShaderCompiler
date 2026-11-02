@@ -263,17 +263,17 @@ const char *RangeTypeString(DxilDescriptorRangeType rt) {
                                                    : "unknown";
 }
 
+static bool IsDxilShaderVisibility(DxilShaderVisibility v) {
+  return v >= DxilShaderVisibility::All &&
+         v <= DxilShaderVisibility::MaxValue;
+}
+
 const char *VisTypeString(DxilShaderVisibility vis) {
   static const char *Vis[] = {"ALL",      "VERTEX", "HULL",          "DOMAIN",
                               "GEOMETRY", "PIXEL",  "AMPLIFICATION", "MESH"};
   static_assert(_countof(Vis) == ((unsigned)DxilShaderVisibility::MaxValue + 1),
                 "otherwise, need to update name array");
-  unsigned idx = (unsigned)vis;
-  return vis <= DxilShaderVisibility::MaxValue ? Vis[idx] : "unknown";
-}
-
-static bool IsDxilShaderVisibility(DxilShaderVisibility v) {
-  return v <= DxilShaderVisibility::MaxValue;
+  return IsDxilShaderVisibility(vis) ? Vis[(unsigned)vis] : "unknown";
 }
 
 void RootSignatureVerifier::AddRegisterRange(

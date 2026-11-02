@@ -21,11 +21,13 @@
 #include "dxc/DxilContainer/DxilContainerAssembler.h"
 #include "dxc/DxilContainer/DxilPipelineStateValidation.h"
 #include "dxc/DxilHash/DxilHash.h"
+#include "dxc/DxilRootSignature/DxilRootSignature.h"
 #include "dxc/Support/Unicode.h" // for wstring conversions like WideToUtf8String
 #include "dxc/Support/WinIncludes.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/Regex.h"
+#include "llvm/Support/raw_ostream.h"
 #include <wchar.h>
 
 #ifdef _WIN32
@@ -220,6 +222,7 @@ public:
 
   TEST_METHOD(WhenRootSigMismatchThenFail)
   TEST_METHOD(WhenRootSigCompatThenSucceed)
+  TEST_METHOD(RootSignatureShaderVisibilityValidation)
   TEST_METHOD(WhenRootSigMatchShaderSucceed_RootConstVis)
   TEST_METHOD(WhenRootSigMatchShaderFail_RootConstVis)
   TEST_METHOD(WhenRootSigMatchShaderSucceed_RootCBV)
@@ -2621,6 +2624,34 @@ float4 main(float4 f4 : Input, out float d0 : SV_Depth, out float d1 : SV_Target
        "1, i32 -1, i8 -1, \\2}"},
       "Pixel Shader only allows one type of depth semantic to be declared",
       /*bRegex*/ true);
+}
+
+TEST_F(ValidationTest, RootSignatureShaderVisibilityValidation) {
+  DxilRootParameter1 Parameter = {};
+  Parameter.ParameterType = DxilRootParameterType::Constants32Bit;
+  Parameter.Constants.Num32BitValues = 1;
+
+  DxilVersionedRootSignatureDesc RootSignature = {};
+  RootSignature.Version = DxilRootSignatureVersion::Version_1_1;
+  RootSignature.Desc_1_1.NumParameters = 1;
+  RootSignature.Desc_1_1.pParameters = &Parameter;
+
+  llvm::raw_null_ostream DiagStream;
+  for (int Visibility = static_cast<int>(DxilShaderVisibility::All);
+       Visibility <= static_cast<int>(DxilShaderVisibility::MaxValue);
+       ++Visibility) {
+    Parameter.ShaderVisibility =
+        static_cast<DxilShaderVisibility>(Visibility);
+    VERIFY_IS_TRUE(VerifyRootSignature(&RootSignature, DiagStream, false));
+  }
+
+  for (DxilShaderVisibility Visibility :
+       {static_cast<DxilShaderVisibility>(-1),
+        static_cast<DxilShaderVisibility>(-2),
+        static_cast<DxilShaderVisibility>(8)}) {
+    Parameter.ShaderVisibility = Visibility;
+    VERIFY_IS_FALSE(VerifyRootSignature(&RootSignature, DiagStream, false));
+  }
 }
 
 TEST_F(ValidationTest, WhenRootSigMismatchThenFail) {
