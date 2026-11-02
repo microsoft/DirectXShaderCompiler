@@ -3601,6 +3601,32 @@ SpirvInstruction *SpirvEmitter::processCall(const CallExpr *callExpr) {
       return spvBuilder.getUndef(retTy);
     }
 
+    // A heap-initialized acceleration structure is a compile-time alias for
+    // the loaded handle, with no variable to write to. Resource out/inout
+    // arguments are never copied back, so a callee's assignment would be lost.
+    if (spirvOptions.useDescriptorHeap &&
+        (param->hasAttr<HLSLOutAttr>() || param->hasAttr<HLSLInOutAttr>()) &&
+        isRaytracingAccelerationStructure(paramType.getNonReferenceType())) {
+      const auto *argRef = dyn_cast<DeclRefExpr>(arg->IgnoreParens());
+      const auto *argVar =
+          argRef ? dyn_cast<VarDecl>(argRef->getDecl()) : nullptr;
+      const auto stateIt = argVar ? descriptorHeapVarState.find(argVar)
+                                  : descriptorHeapVarState.end();
+      if (stateIt != descriptorHeapVarState.end() &&
+          stateIt->second == DescriptorHeapVarState::Heap) {
+        emitError("passing a RaytracingAccelerationStructure initialized from "
+                  "ResourceDescriptorHeap to an out/inout parameter is not "
+                  "supported with SPV_EXT_descriptor_heap",
+                  arg->getLocStart());
+
+        // Return a typed undef so downstream consumers remain valid
+        QualType retTy = callExpr->getCallReturnType(astContext);
+        if (retTy->isVoidType())
+          return nullptr;
+        return spvBuilder.getUndef(retTy);
+      }
+    }
+
     // Get the evaluation info if this argument is referencing some variable
     // *as a whole*, in which case we can avoid creating the temporary variable
     // for it if it can act as out parameter.
