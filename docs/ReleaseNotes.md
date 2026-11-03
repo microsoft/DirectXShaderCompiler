@@ -88,6 +88,7 @@ line upon naming the release. Refer to previous for appropriate section names.
 
 #### Bug Fixes
 
+- Reject root signatures with invalid shader visibility values.
 - Fixed GVN load forwarding generating unsupported integer types when optimizing
   native vectors
   [#9040](https://github.com/microsoft/DirectXShaderCompiler/issues/9040).
