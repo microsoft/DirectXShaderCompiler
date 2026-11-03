@@ -8,10 +8,11 @@
 // RUN:   -fspv-extension=SPV_KHR_ray_query                                  \
 // RUN:   -spirv %s | FileCheck %s --check-prefix=OK
 
-// Verify -fvk-resource-heap-stride suppresses the diagnostic: the stride is
-// user-supplied so no ray-extension pre-scan is needed to widen it.
-// The AS runtime array must carry a literal ArrayStride (not ArrayStrideIdEXT)
-// and the compiler must not emit OpConstantSizeOfEXT for the AS placeholder.
+// Verify -fvk-resource-heap-stride suppresses the diagnostic: the stride is a
+// user-supplied literal, so there is no computed stride to widen. The
+// acceleration structure runtime array must carry a literal ArrayStride (not
+// ArrayStrideIdEXT) and no OpConstantSizeOfEXT may be emitted for the
+// acceleration structure type.
 // There is deliberately no -fspv-extension list: SPV_KHR_ray_query would make
 // the pre-scan widen the stride by itself, so compiling would not depend on the
 // override. The extensions this shader needs are enabled by default.
@@ -44,8 +45,8 @@
 // OK-DAG:    %[[Accel:[a-zA-Z0-9_]+]] = OpTypeAccelerationStructureKHR
 // OK-DAG:                               OpConstantSizeOfEXT %uint %[[Accel]]
 
-// AS runtime array carries the user-supplied literal stride (not ArrayStrideIdEXT),
-// and no OpConstantSizeOfEXT is emitted for the AS placeholder.
+// The acceleration structure runtime array carries the literal stride, and no
+// OpConstantSizeOfEXT is emitted for the acceleration structure type.
 // CLI-DAG:     %[[Accel:[a-zA-Z0-9_]+]] = OpTypeAccelerationStructureKHR
 // CLI-DAG:  %[[AccelArr:[a-zA-Z0-9_]+]] = OpTypeRuntimeArray %[[Accel]]
 // CLI-DAG:                                OpDecorate %[[AccelArr]] ArrayStride 256

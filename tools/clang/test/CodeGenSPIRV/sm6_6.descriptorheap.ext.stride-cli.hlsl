@@ -3,9 +3,9 @@
 // RUN: %dxc -T cs_6_6 -E main -Od -fspv-use-descriptor-heap -fspv-target-env=vulkan1.3 -fvk-sampler-heap-stride 16  -spirv %s | FileCheck %s --check-prefix=SS-ONLY
 
 // Verifies: -fvk-resource-heap-stride / -fvk-sampler-heap-stride emit a literal
-// ArrayStride and suppress the default OpConstantSizeOfEXT stride.
-// Single-flag cases (RS-ONLY / SS-ONLY) verify the unflagged heap falls back to
-// ArrayStrideIdEXT rather than picking up the other heap's literal stride.
+// ArrayStride for their heap instead of ArrayStrideIdEXT.
+// The single-flag cases (RS-ONLY / SS-ONLY) verify that the other heap keeps its
+// computed ArrayStrideIdEXT instead of taking the literal stride.
 
 // CHECK-DAG: OpDecorate %{{[a-zA-Z0-9_]+}} ArrayStride 128
 // CHECK-DAG: OpDecorate %{{[a-zA-Z0-9_]+}} ArrayStride 16

@@ -358,9 +358,10 @@ handleFixedBinding(const InputArgList &args, OptSpecifier id,
 }
 
 // Parses the single-integer descriptor-heap stride flag |id| in |args|. If
-// present, validates that the value is a power of 2 in [8, 256] and stores it
-// in |stride|. Returns true on success (including when the flag is absent).
-// Returns false and writes to |errors| when the value is malformed or invalid,
+// present, requires -spirv and -fspv-use-descriptor-heap, validates that the
+// value is a power of 2 in [8, 256] and stores it in |stride|. Returns true on
+// success (including when the flag is absent). Returns false and writes to
+// |errors| if a requirement is not met or the value is malformed or invalid,
 // using |name| as the pretty flag name.
 static bool handleHeapStride(const InputArgList &args, OptSpecifier id,
                              std::optional<uint32_t> *stride,

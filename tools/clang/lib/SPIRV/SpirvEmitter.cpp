@@ -7358,9 +7358,8 @@ SpirvEmitter::doCXXOperatorCallExpr(const CXXOperatorCallExpr *expr,
         // The stride was decided without an acceleration structure term (not a
         // ray-tracing stage, no ray extension listed). Reject the load: the
         // heap would be indexed with a stride that may be too narrow.
-        // Exception: -fvk-resource-heap-stride supplies a literal stride that
-        // bypasses the spec-constant machinery entirely, so the user has
-        // explicitly taken ownership of the stride value.
+        // Exception: with -fvk-resource-heap-stride the stride is a literal
+        // chosen by the user, so there is no computed stride to widen.
         if (isRaytracingAccelerationStructure(resourceType) &&
             !spvBuilder.resourceHeapStrideIncludesAccelStruct() &&
             !spirvOptions.resourceHeapStride.has_value()) {
@@ -7388,7 +7387,7 @@ SpirvEmitter::doCXXOperatorCallExpr(const CXXOperatorCallExpr *expr,
         const SpirvType *handleType =
             lowerTypeVisitor.lowerType(resourceType, SpirvLayoutRule::Void,
                                        llvm::None, baseExpr->getExprLoc());
-        // Images and samplers may come from either heap; pick the right stride.
+        // The stride belongs to the heap being indexed.
         const SpirvType *arrayType = getDescriptorHeapRuntimeArrayType(
             handleType, isSamplerDescriptorHeap(decl));
         SpirvUntypedAccessChainKHR *untypedAccessChainPtr =
@@ -9839,7 +9838,7 @@ void SpirvEmitter::createSpecConstant(const VarDecl *varDecl) {
 const SpirvType *
 SpirvEmitter::getDescriptorHeapRuntimeArrayType(const SpirvType *elemType,
                                                 bool onSamplerHeap) {
-  // -fvk-{resource,sampler}-heap-stride has the highest precedence: the array
+  // -fvk-{resource,sampler}-heap-stride replaces the computed stride: the array
   // carries a literal ArrayStride and no ArrayStrideIdEXT.
   const std::optional<uint32_t> &cliStride =
       onSamplerHeap ? spirvOptions.samplerHeapStride

@@ -29,12 +29,13 @@ The included licenses apply to the following files:
   loaded from `ResourceDescriptorHeap`. Outside ray-tracing stages, list
   `-fspv-extension=SPV_KHR_ray_query`, `SPV_KHR_ray_tracing` or
   `SPV_NV_ray_tracing` so the resource heap stride covers acceleration structure
-  descriptors; otherwise compilation fails.
-- Added `-fvk-resource-heap-stride` and `-fvk-sampler-heap-stride` to override
-  the `ArrayStride` of the descriptor heap runtime arrays emitted by
-  `-fspv-use-descriptor-heap`. The value must be a power of two in `[8, 256]`
-  and takes precedence over the default `OpConstantSizeOfEXT`-based stride.
-  Both flags require `-fspv-use-descriptor-heap` and are rejected otherwise.
+  descriptors; otherwise compilation fails, unless `-fvk-resource-heap-stride`
+  is given.
+- Added `-fvk-resource-heap-stride` and `-fvk-sampler-heap-stride`, which
+  override the computed `ArrayStrideIdEXT` of the resource and sampler
+  descriptor heaps with a literal `ArrayStride`. The value must be a power of
+  two in `[8, 256]`. Both flags require `-spirv` and
+  `-fspv-use-descriptor-heap` and are rejected otherwise.
 
 Place release notes for the upcoming release below this line and remove this
 line upon naming the release. Refer to previous for appropriate section names.

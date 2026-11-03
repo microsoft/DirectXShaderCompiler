@@ -111,8 +111,8 @@ struct SpirvCodeGenOptions {
   std::optional<BindingInfo> counterHeapBinding;
 
   // -fvk-resource-heap-stride / -fvk-sampler-heap-stride
-  // When set, a power of 2 in [8, 256] byte ArrayStride replaces the
-  // ArrayStrideIdEXT decoration that heap would otherwise carry.
+  // When set, every runtime array of that heap gets a literal ArrayStride of
+  // this many bytes (a power of 2 in [8, 256]) instead of ArrayStrideIdEXT.
   std::optional<uint32_t> resourceHeapStride;
   std::optional<uint32_t> samplerHeapStride;
 

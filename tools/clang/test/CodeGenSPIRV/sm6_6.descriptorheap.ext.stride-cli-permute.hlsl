@@ -1,5 +1,7 @@
-// Verifies: every legal CLI stride value flows independently to each heap's literal ArrayStride
-//  (full 6x6 cross product, RS!=SS proves no cross-contamination), and invalid values are rejected at option-parse time.
+// Verifies: every legal CLI stride value reaches the literal ArrayStride of its
+// own heap (full 6x6 cross product; the RS != SS cases show the heaps do not
+// affect each other), and invalid values or missing prerequisite flags are
+// rejected at option-parse time.
 //
 // [[RS]] = resource-heap stride, [[SS]] = sampler-heap stride (per-RUN via -D).
 
@@ -56,15 +58,15 @@
 // RUN: not %dxc -T cs_6_6 -E main -fspv-use-descriptor-heap -fspv-target-env=vulkan1.3 -fvk-resource-heap-stride 128 %s 2>&1 | FileCheck %s --check-prefix=NOSPIRVRS
 // RUN: not %dxc -T cs_6_6 -E main -fspv-use-descriptor-heap -fspv-target-env=vulkan1.3 -fvk-sampler-heap-stride 16 %s 2>&1 | FileCheck %s --check-prefix=NOSPIRVSS
 
-// ---- Flag without the native heap (plain -spirv, or the emulated heap): the override would be ignored, so it is rejected ----
+// ---- Flag without the native heap (plain -spirv or the emulated heap): rejected, since it would have no effect ----
 // RUN: not %dxc -T cs_6_6 -E main -fvk-resource-heap-stride 128 -spirv %s 2>&1 | FileCheck %s --check-prefix=NOHEAPRS
 // RUN: not %dxc -T cs_6_6 -E main -fvk-sampler-heap-stride 16 -spirv %s 2>&1 | FileCheck %s --check-prefix=NOHEAPSS
 // RUN: not %dxc -T cs_6_6 -E main -fspv-use-emulated-heap -fvk-resource-heap-stride 128 -spirv %s 2>&1 | FileCheck %s --check-prefix=NOHEAPRS
 // RUN: not %dxc -T cs_6_6 -E main -fspv-use-emulated-heap -fvk-sampler-heap-stride 16 -spirv %s 2>&1 | FileCheck %s --check-prefix=NOHEAPSS
 
-// Bind each heap's runtime array to its element type so the strides are checked
-// independently. The resource Texture2D image array carries [[RS]]; the sampler
-// array carries [[SS]].
+// Capture each heap's runtime array by its element type so the two strides are
+// checked independently. The Texture2D array (resource heap) must carry [[RS]];
+// the sampler array (sampler heap) must carry [[SS]].
 // CHECK-DAG:   %[[TexType:[a-zA-Z0-9_]+]] = OpTypeImage %float 2D 2 0 0 1 Unknown
 // CHECK-DAG:  %[[SampType:[a-zA-Z0-9_]+]] = OpTypeSampler
 // CHECK-DAG:  %[[TexArray:[a-zA-Z0-9_]+]] = OpTypeRuntimeArray %[[TexType]]{{$}}
