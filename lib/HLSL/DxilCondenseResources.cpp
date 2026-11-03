@@ -310,26 +310,21 @@ static bool GetConstantLegalGepForSplitAlloca(GetElementPtrInst *gep,
   return false;
 }
 
-static bool LegalizeResourceArrays(Module &M, Pass *P) {
+static bool LegalizeResourceArrays(Function &F, DxilValueCache *DVC) {
   SmallVector<AllocaInst *, 16> Allocas;
 
   bool Changed = false;
 
   // Find all allocas
-  for (Function &F : M) {
-    if (F.empty())
-      continue;
-
-    BasicBlock &BB = F.getEntryBlock();
-    for (Instruction &I : BB) {
-      if (AllocaInst *AI = dyn_cast<AllocaInst>(&I)) {
-        Type *ty = AI->getAllocatedType();
-        // Only handle single dimentional array. Since this pass runs after
-        // MultiDimArrayToOneDimArray, it should handle all arrays.
-        if (ty->isArrayTy() &&
-            hlsl::dxilutil::IsHLSLResourceType(ty->getArrayElementType()))
-          Allocas.push_back(AI);
-      }
+  BasicBlock &BB = F.getEntryBlock();
+  for (Instruction &I : BB) {
+    if (AllocaInst *AI = dyn_cast<AllocaInst>(&I)) {
+      Type *ty = AI->getAllocatedType();
+      // Only handle single dimentional array. Since this pass runs after
+      // MultiDimArrayToOneDimArray, it should handle all arrays.
+      if (ty->isArrayTy() &&
+          hlsl::dxilutil::IsHLSLResourceType(ty->getArrayElementType()))
+        Allocas.push_back(AI);
     }
   }
 
@@ -339,8 +334,6 @@ static bool LegalizeResourceArrays(Module &M, Pass *P) {
   for (AllocaInst *AI : Allocas) {
     Type *ty = AI->getAllocatedType();
     Type *resType = ty->getArrayElementType();
-    DxilValueCache *DVC =
-        &P->getAnalysis<DxilValueCache>(*AI->getParent()->getParent());
 
     ScalarAllocas.clear();
     ConstIndices.clear();
@@ -407,30 +400,24 @@ static inline void GatherResources(const std::vector<std::unique_ptr<T>> &List,
   }
 }
 
-static bool LegalizeResources(Module &M, Pass *P) {
-
+static bool LegalizeResourcePHIs(Function &F, DxilValueCache *DVC,
+                                 SmallVectorImpl<Instruction *> &DCEWorklist) {
   bool Changed = false;
-
-  Changed |= LegalizeResourceArrays(M, P);
 
   // Simple pass to collect resource PHI's
   SmallVector<PHINode *, 8> PHIs;
 
-  for (Function &F : M) {
-    for (BasicBlock &BB : F) {
-      for (Instruction &I : BB) {
-        if (PHINode *PN = dyn_cast<PHINode>(&I)) {
-          if (hlsl::dxilutil::IsHLSLResourceType(PN->getType())) {
-            PHIs.push_back(PN);
-          }
-        } else {
-          break;
+  for (BasicBlock &BB : F) {
+    for (Instruction &I : BB) {
+      if (PHINode *PN = dyn_cast<PHINode>(&I)) {
+        if (hlsl::dxilutil::IsHLSLResourceType(PN->getType())) {
+          PHIs.push_back(PN);
         }
+      } else {
+        break;
       }
     }
   }
-
-  SmallVector<Instruction *, 8> DCEWorklist;
 
   // Try to simplify those PHI's with DVC and collect them in DCEWorklist
   for (unsigned Attempt = 0, MaxAttempt = PHIs.size(); Attempt < MaxAttempt;
@@ -438,8 +425,6 @@ static bool LegalizeResources(Module &M, Pass *P) {
     bool LocalChanged = false;
     for (unsigned i = 0; i < PHIs.size(); i++) {
       PHINode *PN = PHIs[i];
-      DxilValueCache *DVC =
-          &P->getAnalysis<DxilValueCache>(*PN->getParent()->getParent());
       if (Value *V = DVC->GetValue(PN)) {
         PN->replaceAllUsesWith(V);
         LocalChanged = true;
@@ -453,6 +438,25 @@ static bool LegalizeResources(Module &M, Pass *P) {
     Changed |= LocalChanged;
     if (!LocalChanged)
       break;
+  }
+
+  return Changed;
+}
+
+static bool LegalizeResources(Module &M, Pass *P) {
+
+  bool Changed = false;
+
+  SmallVector<Instruction *, 8> DCEWorklist;
+
+  // Each getAnalysis(F) reruns the analysis and empties the cache, so query it
+  // once per function.
+  for (Function &F : M) {
+    if (F.empty())
+      continue;
+    DxilValueCache *DVC = &P->getAnalysis<DxilValueCache>(F);
+    Changed |= LegalizeResourceArrays(F, DVC);
+    Changed |= LegalizeResourcePHIs(F, DVC, DCEWorklist);
   }
 
   // Collect Resource GV loads
