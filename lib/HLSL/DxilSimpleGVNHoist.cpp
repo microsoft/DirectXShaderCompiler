@@ -33,6 +33,9 @@ struct Expression {
   uint32_t opcode;
   Type *type;
   bool commutative = false;
+  // nsw, nuw, exact, inbounds and fast-math flags. Only set by a ValueTable
+  // that compares flags.
+  unsigned flags = 0;
   SmallVector<uint32_t, 4> varargs;
 
   Expression(uint32_t o = ~2U) : opcode(o) {}
@@ -44,6 +47,8 @@ struct Expression {
       return true;
     if (type != other.type)
       return false;
+    if (flags != other.flags)
+      return false;
     if (varargs != other.varargs)
       return false;
     return true;
@@ -51,7 +56,7 @@ struct Expression {
 
   friend hash_code hash_value(const Expression &Value) {
     return hash_combine(
-        Value.opcode, Value.type,
+        Value.opcode, Value.type, Value.flags,
         hash_combine_range(Value.varargs.begin(), Value.varargs.end()));
   }
 };
@@ -94,6 +99,10 @@ class ValueTable {
 
   uint32_t nextValueNumber = 1;
 
+  // If true, instructions that differ only in their flags get different value
+  // numbers.
+  bool CompareFlags = false;
+
   Expression createExpr(Instruction *I);
   Expression createCmpExpr(unsigned Opcode, CmpInst::Predicate Predicate,
                            Value *LHS, Value *RHS);
@@ -103,7 +112,7 @@ class ValueTable {
   std::pair<uint32_t, bool> assignExpNewValueNum(Expression &exp);
 
 public:
-  ValueTable();
+  explicit ValueTable(bool CompareFlags = false);
   ValueTable(const ValueTable &Arg);
   ValueTable(ValueTable &&Arg);
   ~ValueTable();
@@ -129,6 +138,8 @@ Expression ValueTable::createExpr(Instruction *I) {
   Expression e;
   e.type = I->getType();
   e.opcode = I->getOpcode();
+  if (CompareFlags)
+    e.flags = I->getRawSubclassOptionalData();
   for (Instruction::op_iterator OI = I->op_begin(), OE = I->op_end(); OI != OE;
        ++OI)
     e.varargs.push_back(lookupOrAdd(*OI));
@@ -237,7 +248,7 @@ Expression ValueTable::createExtractvalueExpr(ExtractValueInst *EI) {
 //                     ValueTable External Functions
 //===----------------------------------------------------------------------===//
 
-ValueTable::ValueTable() = default;
+ValueTable::ValueTable(bool CompareFlags) : CompareFlags(CompareFlags) {}
 ValueTable::ValueTable(const ValueTable &) = default;
 ValueTable::ValueTable(ValueTable &&) = default;
 ValueTable::~ValueTable() = default;
@@ -547,6 +558,10 @@ bool DxilSimpleGVNHoist::tryToHoist(BasicBlock *BB, BasicBlock *Succ0,
     it++;
     for (; it != Insts.end(); it++) {
       Instruction *I = *it;
+      // The value table ignores nsw, nuw, exact, inbounds and fast-math flags,
+      // so I may not have all of FirstI's flags. FirstI replaces I, so keep
+      // only the flags that both have.
+      FirstI->intersectOptionalDataWith(I);
       I->replaceAllUsesWith(FirstI);
       I->eraseFromParent();
     }
@@ -767,7 +782,10 @@ bool DxilSimpleGVNEliminateRegion::runOnFunction(Function &F) {
   DominatorTree *DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
 
   bool bChanged = false;
-  ValueTable VT;
+  // ProcessBB replaces the branch with a branch to S0, so S0's instructions
+  // then also run on the path through S1. Compare flags so that the two sides
+  // only match if their instructions have the same flags.
+  ValueTable VT(/*CompareFlags=*/true);
 
   for (BasicBlock &BB : F) {
     bChanged |= ProcessBB(BB, VT, DT, PDT);
