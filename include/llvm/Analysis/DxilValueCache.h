@@ -21,7 +21,7 @@ class Constant;
 class ConstantInt;
 class PHINode;
 
-struct DxilValueCache : public ImmutablePass {
+struct DxilValueCache : public FunctionPass {
   static char ID;
 
   // Special Weak Value to Weak Value map.
@@ -74,6 +74,8 @@ public:
   StringRef getPassName() const override;
   DxilValueCache();
   void getAnalysisUsage(AnalysisUsage &) const override;
+  bool runOnFunction(Function &F) override;
+  void releaseMemory() override { ResetAll(); }
 
   void dump() const;
   Value *GetValue(Value *V, DominatorTree *DT = nullptr);

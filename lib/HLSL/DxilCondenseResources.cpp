@@ -310,7 +310,7 @@ static bool GetConstantLegalGepForSplitAlloca(GetElementPtrInst *gep,
   return false;
 }
 
-static bool LegalizeResourceArrays(Module &M, DxilValueCache *DVC) {
+static bool LegalizeResourceArrays(Module &M, Pass *P) {
   SmallVector<AllocaInst *, 16> Allocas;
 
   bool Changed = false;
@@ -339,6 +339,8 @@ static bool LegalizeResourceArrays(Module &M, DxilValueCache *DVC) {
   for (AllocaInst *AI : Allocas) {
     Type *ty = AI->getAllocatedType();
     Type *resType = ty->getArrayElementType();
+    DxilValueCache *DVC =
+        &P->getAnalysis<DxilValueCache>(*AI->getParent()->getParent());
 
     ScalarAllocas.clear();
     ConstIndices.clear();
@@ -405,11 +407,11 @@ static inline void GatherResources(const std::vector<std::unique_ptr<T>> &List,
   }
 }
 
-static bool LegalizeResources(Module &M, DxilValueCache *DVC) {
+static bool LegalizeResources(Module &M, Pass *P) {
 
   bool Changed = false;
 
-  Changed |= LegalizeResourceArrays(M, DVC);
+  Changed |= LegalizeResourceArrays(M, P);
 
   // Simple pass to collect resource PHI's
   SmallVector<PHINode *, 8> PHIs;
@@ -436,6 +438,8 @@ static bool LegalizeResources(Module &M, DxilValueCache *DVC) {
     bool LocalChanged = false;
     for (unsigned i = 0; i < PHIs.size(); i++) {
       PHINode *PN = PHIs[i];
+      DxilValueCache *DVC =
+          &P->getAnalysis<DxilValueCache>(*PN->getParent()->getParent());
       if (Value *V = DVC->GetValue(PN)) {
         PN->replaceAllUsesWith(V);
         LocalChanged = true;
@@ -560,8 +564,7 @@ public:
       return bChanged;
 
     {
-      DxilValueCache *DVC = &getAnalysis<DxilValueCache>();
-      bool bLocalChanged = LegalizeResources(M, DVC);
+      bool bLocalChanged = LegalizeResources(M, this);
       if (bLocalChanged) {
         // Remove unused resources.
         DM.RemoveResourcesWithUnusedSymbols();

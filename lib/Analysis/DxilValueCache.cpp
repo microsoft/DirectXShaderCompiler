@@ -469,11 +469,17 @@ Value *DxilValueCache::TryGetCachedValue(Value *V) {
   return V;
 }
 
-DxilValueCache::DxilValueCache() : ImmutablePass(ID) {
+DxilValueCache::DxilValueCache() : FunctionPass(ID) {
   initializeDxilValueCachePass(*PassRegistry::getPassRegistry());
 }
 
 StringRef DxilValueCache::getPassName() const { return "Dxil Value Cache"; }
+
+bool DxilValueCache::runOnFunction(Function &F) {
+  // Values are computed lazily by GetValue, so just drop the previous entries.
+  ResetAll();
+  return false;
+}
 
 Value *DxilValueCache::GetValue(Value *V, DominatorTree *DT) {
   if (dyn_cast<Constant>(V))
@@ -608,4 +614,4 @@ char DxilValueCache::ID;
 
 Pass *llvm::createDxilValueCachePass() { return new DxilValueCache(); }
 
-INITIALIZE_PASS(DxilValueCache, DEBUG_TYPE, "Dxil Value Cache", false, false)
+INITIALIZE_PASS(DxilValueCache, DEBUG_TYPE, "Dxil Value Cache", false, true)
