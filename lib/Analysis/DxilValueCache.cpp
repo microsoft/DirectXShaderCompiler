@@ -20,6 +20,7 @@
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/GlobalVariable.h"
+#include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/ModuleSlotTracker.h"
@@ -475,10 +476,26 @@ DxilValueCache::DxilValueCache() : FunctionPass(ID) {
 
 StringRef DxilValueCache::getPassName() const { return "Dxil Value Cache"; }
 
-bool DxilValueCache::runOnFunction(Function &F) {
+bool DxilValueCache::runOnFunction(Function &Fn) {
+  F = &Fn;
   // Values are computed lazily by GetValue, so just drop the previous entries.
   ResetAll();
   return false;
+}
+
+void DxilValueCache::print(raw_ostream &OS, const Module *) const {
+  // Computing the values fills the cache, which is not observable from outside
+  // the class, so casting away the const is harmless.
+  DxilValueCache &DVC = *const_cast<DxilValueCache *>(this);
+
+  OS << "Constant values for: ";
+  F->printAsOperand(OS, /*PrintType=*/false);
+  OS << "\n";
+  for (inst_iterator I = inst_begin(F), E = inst_end(F); I != E; ++I) {
+    if (Constant *C = DVC.GetConstValue(&*I)) {
+      OS << *I << "\n  -->  " << *C << "\n";
+    }
+  }
 }
 
 Value *DxilValueCache::GetValue(Value *V, DominatorTree *DT) {

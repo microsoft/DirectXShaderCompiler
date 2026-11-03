@@ -57,6 +57,7 @@ struct DxilValueCache : public FunctionPass {
 private:
   WeakValueMap Map;
   bool (*ShouldSkipCallback)(Value *V) = nullptr;
+  Function *F = nullptr;
 
   void MarkUnreachable(BasicBlock *BB);
   bool IsUnreachable_(BasicBlock *BB);
@@ -76,6 +77,7 @@ public:
   void getAnalysisUsage(AnalysisUsage &) const override;
   bool runOnFunction(Function &F) override;
   void releaseMemory() override { ResetAll(); }
+  void print(raw_ostream &OS, const Module *M = nullptr) const override;
 
   void dump() const;
   Value *GetValue(Value *V, DominatorTree *DT = nullptr);
