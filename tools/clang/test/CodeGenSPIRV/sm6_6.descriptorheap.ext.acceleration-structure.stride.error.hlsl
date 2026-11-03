@@ -12,11 +12,11 @@
 // user-supplied so no ray-extension pre-scan is needed to widen it.
 // The AS runtime array must carry a literal ArrayStride (not ArrayStrideIdEXT)
 // and the compiler must not emit OpConstantSizeOfEXT for the AS placeholder.
+// There is deliberately no -fspv-extension list: SPV_KHR_ray_query would make
+// the pre-scan widen the stride by itself, so compiling would not depend on the
+// override. The extensions this shader needs are enabled by default.
 // RUN: %dxc -T cs_6_6 -E main -fspv-use-descriptor-heap                     \
 // RUN:   -fspv-target-env=vulkan1.3                                         \
-// RUN:   -fspv-extension=SPV_EXT_descriptor_heap                            \
-// RUN:   -fspv-extension=SPV_KHR_untyped_pointers                           \
-// RUN:   -fspv-extension=SPV_KHR_ray_query                                  \
 // RUN:   -fvk-resource-heap-stride 256                                      \
 // RUN:   -spirv %s | FileCheck %s --check-prefix=CLI
 
