@@ -2240,9 +2240,10 @@ types the shader actually uses; a module will normally contain both the
 placeholder type and the distinct image types its heap accesses lower to.
 
 The stride is a property of the heap layout, not of the shader's loads. DXC
-decides it before translating any function, from the shader stage and the
-``-fspv-extension`` list. When acceleration structure descriptors may be on the
-resource heap, the formula expands to a three-way max
+decides it before translating any function, either from explicit user input
+(``-fvk-resource-heap-stride`` and ``-fvk-sampler-heap-stride``, see below) or
+by calculating it from the shader stage and the ``-fspv-extension`` list. When
+acceleration structure descriptors may be on the resource heap, the formula expands to a three-way max
 ``max(max(sizeof(image_descriptor), sizeof(buffer_descriptor)), sizeof(acceleration_structure))``.
 A ray-tracing shader that only heap-loads a texture still gets the three-way
 max. DXC adds the acceleration structure term when either
@@ -2258,9 +2259,8 @@ of the listed extension (``RayQueryKHR``, ``RayTracingKHR`` or
 ``RayTracingNV``); if several are listed, ``SPV_KHR_ray_query`` is preferred,
 then ``SPV_KHR_ray_tracing``, then ``SPV_NV_ray_tracing``. A shader that is not
 a ray-tracing stage and heap-loads a ``RaytracingAccelerationStructure``
-without such an extension is rejected, because its stride would not cover the
-acceleration structure descriptor, unless ``-fvk-resource-heap-stride`` is given
-(see below).
+without such an extension or ``-fvk-resource-heap-stride`` is rejected, because
+its stride would not cover the acceleration structure descriptor.
 
 The computed stride can be replaced with a literal using
 ``-fvk-resource-heap-stride <N>`` and ``-fvk-sampler-heap-stride <N>``. They
