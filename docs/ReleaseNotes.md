@@ -22,17 +22,6 @@ The included licenses apply to the following files:
 Place release notes for the upcoming release below this line and remove this
 line upon naming the release. Refer to previous for appropriate section names.
 
-### Upcoming Preview Release
-
-These changes apply to experimental preview shader models only and will not be
-part of the next non-preview release.
-
-#### Experimental Shader Model 6.11
-
-- Added experimental Shader Model 6.11 target profiles.
-
-### Version 1.10.2611
-
 #### Shader Model 6.10
 
 - Shader Model 6.10 and DXIL 1.10 are now available in retail, introducing
@@ -116,6 +105,15 @@ part of the next non-preview release.
   after bit-tracking dead code elimination.
 - Fixed an optimizer miscompile where selects of bitwise-not values guarded by
   signed less-than or unsigned compares were treated as a signed minimum.
+
+### Upcoming Preview Release
+
+These changes apply to experimental preview shader models only and will not be
+part of the next non-preview release.
+
+#### Experimental Shader Model 6.11
+
+- Added experimental Shader Model 6.11 target profiles.
 
 ### Version 1.9.2609
 
