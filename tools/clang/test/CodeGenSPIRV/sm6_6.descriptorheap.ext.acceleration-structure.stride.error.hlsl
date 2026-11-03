@@ -19,7 +19,9 @@
 // RUN: %dxc -T cs_6_6 -E main -fspv-use-descriptor-heap                     \
 // RUN:   -fspv-target-env=vulkan1.3                                         \
 // RUN:   -fvk-resource-heap-stride 256                                      \
-// RUN:   -spirv %s | FileCheck %s --check-prefix=CLI
+// RUN:   -spirv %s > %t
+// RUN: FileCheck %s --check-prefix=CLI < %t
+// RUN: FileCheck %s --check-prefix=ABSENT < %t
 
 // Verifies: an acceleration structure loaded from ResourceDescriptorHeap is
 // rejected when the resource-heap stride was not widened to include the
@@ -45,13 +47,16 @@
 // OK-DAG:    %[[Accel:[a-zA-Z0-9_]+]] = OpTypeAccelerationStructureKHR
 // OK-DAG:                               OpConstantSizeOfEXT %uint %[[Accel]]
 
-// The acceleration structure runtime array carries the literal stride, and no
-// OpConstantSizeOfEXT is emitted for the acceleration structure type.
+// The acceleration structure runtime array carries the literal stride.
 // CLI-DAG:     %[[Accel:[a-zA-Z0-9_]+]] = OpTypeAccelerationStructureKHR
 // CLI-DAG:  %[[AccelArr:[a-zA-Z0-9_]+]] = OpTypeRuntimeArray %[[Accel]]
 // CLI-DAG:                                OpDecorate %[[AccelArr]] ArrayStride 256
-// CLI-NOT:                                OpDecorateId %[[AccelArr]] ArrayStrideIdEXT
-// CLI-NOT: OpConstantSizeOfEXT %uint %[[Accel]]
+
+// No computed stride may appear anywhere in the module. This is a separate
+// check, because a NOT after the last DAG match only covers the rest of the
+// output, and the decorations come before the types.
+// ABSENT-NOT: ArrayStrideIdEXT
+// ABSENT-NOT: OpConstantSizeOfEXT
 
 RWBuffer<float4> output : register(u0);
 
