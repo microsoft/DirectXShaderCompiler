@@ -21,6 +21,9 @@ The included licenses apply to the following files:
 
 #### SPIR-V
 
+- Fixed invalid `OpCopyLogical` instructions when copying constant-buffer structs
+  or arrays to storage buffers with identical lowered types
+  [#9083](https://github.com/microsoft/DirectXShaderCompiler/issues/9083).
 - Extended `SPV_EXT_descriptor_heap` lowering (`-fspv-use-descriptor-heap`) to
   buffer-like resources (`StructuredBuffer`, `ByteAddressBuffer`,
   `ConstantBuffer`, `TextureBuffer`, and RW variants) via
