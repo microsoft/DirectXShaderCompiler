@@ -25,9 +25,6 @@ The included licenses apply to the following files:
   buffer-like resources (`StructuredBuffer`, `ByteAddressBuffer`,
   `ConstantBuffer`, `TextureBuffer`, and RW variants) via
   `SPV_KHR_untyped_pointers`. Requires `-fspv-target-env=vulkan1.3`.
-- `SV_CullPrimitive` on a mesh shader primitive output must now be a scalar
-  bool. This is now a front-end error for both DXIL and SPIR-V, instead of a
-  DXIL validation error or invalid SPIR-V.
 - Extended `-fspv-use-descriptor-heap` to support `RaytracingAccelerationStructure`
   loaded from `ResourceDescriptorHeap`. Outside ray-tracing stages, list
   `-fspv-extension=SPV_KHR_ray_query`, `SPV_KHR_ray_tracing` or
@@ -104,6 +101,9 @@ line upon naming the release. Refer to previous for appropriate section names.
   after bit-tracking dead code elimination.
 - Fixed an optimizer miscompile where selects of bitwise-not values guarded by
   signed less-than or unsigned compares were treated as a signed minimum.
+- Fixed non-bool `SV_CullPrimitive` mesh shader outputs producing invalid
+  SPIR-V. They are now a front-end error for both DXIL and SPIR-V, instead of a
+  DXIL validation error.
 
 ### Upcoming Preview Release
 
