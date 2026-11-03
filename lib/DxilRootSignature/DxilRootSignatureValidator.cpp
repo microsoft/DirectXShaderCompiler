@@ -264,8 +264,7 @@ const char *RangeTypeString(DxilDescriptorRangeType rt) {
 }
 
 static bool IsDxilShaderVisibility(DxilShaderVisibility v) {
-  return v >= DxilShaderVisibility::All &&
-         v <= DxilShaderVisibility::MaxValue;
+  return v >= DxilShaderVisibility::All && v <= DxilShaderVisibility::MaxValue;
 }
 
 const char *VisTypeString(DxilShaderVisibility vis) {

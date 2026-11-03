@@ -2640,8 +2640,7 @@ TEST_F(ValidationTest, RootSignatureShaderVisibilityValidation) {
   for (int Visibility = static_cast<int>(DxilShaderVisibility::All);
        Visibility <= static_cast<int>(DxilShaderVisibility::MaxValue);
        ++Visibility) {
-    Parameter.ShaderVisibility =
-        static_cast<DxilShaderVisibility>(Visibility);
+    Parameter.ShaderVisibility = static_cast<DxilShaderVisibility>(Visibility);
     VERIFY_IS_TRUE(VerifyRootSignature(&RootSignature, DiagStream, false));
   }
 
