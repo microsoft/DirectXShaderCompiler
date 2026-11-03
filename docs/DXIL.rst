@@ -3249,7 +3249,7 @@ INSTR.LINALGMATRIX2PARTSMUSTMATCH                     %0 matrix %1 '%2' must mat
 INSTR.LINALGMATRIXBYTEWISEMUSTBEMULTIPLE              Parameter '%0' in bytes must be a multiple of %1, got %2 (%3 elements * %4 bytes per element).
 INSTR.LINALGMATRIXDIMKVECKMISMATCH                    %0 vector size '%1' must be %2 for input matrix with K '%3' and Type '%4'
 INSTR.LINALGMATRIXDIMVECTORMISMATCH                   %0 vector size '%1' must match input matrix M dimension '%2'
-INSTR.LINALGMATRIXGSMEMMUSTBELARGEENOUGH              Groupshared memory holds '%0' scalars but must hold at least '%1' scalars.
+INSTR.LINALGMATRIXGSMEMMUSTBELARGEENOUGH              Groupshared memory holds '%0' %1 but must hold at least '%2' %3.
 INSTR.LINALGMATRIXGSMEMTYPEMUSTMATCH                  Groupshared memory inner type '%0' must match %1 type '%2'.
 INSTR.LINALGMATRIXLAYOUTREQSTRIDE                     %0 with layout '%1' requires stride 0.
 INSTR.LINALGMATRIXLOADTHREADREQUIRESBAB               Loading matrix with Thread scope requires ByteAddressBuffer.

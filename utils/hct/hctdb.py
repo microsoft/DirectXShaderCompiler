@@ -8747,7 +8747,7 @@ class db_dxil(object):
         )
         self.add_valrule(
             "Instr.LinAlgMatrixGSMemMustBeLargeEnough",
-            "Groupshared memory holds '%0' scalars but must hold at least '%1' scalars.",
+            "Groupshared memory holds '%0' %1 but must hold at least '%2' %3.",
         )
         self.add_valrule(
             "Instr.LinAlgMatrixVectorTypeMustMatch",

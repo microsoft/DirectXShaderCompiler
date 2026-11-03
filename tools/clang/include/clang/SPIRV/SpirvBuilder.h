@@ -231,6 +231,8 @@ public:
                                 SpirvInstruction *lhs, SpirvInstruction *rhs,
                                 SourceLocation loc, SourceRange range = {});
 
+  /// \brief Creates a binary OpSpecConstantOp at module level, not in the
+  /// current basic block.
   SpirvSpecConstantBinaryOp *createSpecConstantBinaryOp(spv::Op op,
                                                         QualType resultType,
                                                         SpirvInstruction *lhs,
@@ -838,13 +840,37 @@ public:
   /// integer.
   SpirvConstant *getConstantSizeOfEXT(const SpirvType *operandType);
 
+  /// \brief Creates a ternary OpSpecConstantOp at module level, not in the
+  /// current basic block.
   SpirvSpecConstantTernaryOp *
   createSpecConstantTernaryOp(spv::Op op, QualType resultType,
                               SpirvInstruction *op1, SpirvInstruction *op2,
                               SpirvInstruction *op3, SourceLocation loc);
 
-  /// \brief Shared ArrayStrideIdEXT operand for resource-heap runtime arrays:
-  /// max(sizeof(image), sizeof(buffer)).
+  /// \brief Records that acceleration structures may be loaded from the
+  /// resource heap, so the resource-heap stride must cover their descriptor.
+  ///
+  /// Must be called before getResourceHeapArrayStride(), which builds and
+  /// caches the stride. A later call is ignored, so
+  /// resourceHeapStrideIncludesAccelStruct() stays false and code generation
+  /// must reject acceleration structure heap loads.
+  void registerResourceHeapAccelStruct() {
+    if (!resourceHeapArrayStride)
+      resourceHeapHasAccelStruct = true;
+  }
+
+  /// \brief Returns true if the resource-heap stride covers the acceleration
+  /// structure descriptor. Acceleration structure heap loads are only valid
+  /// when this is true.
+  bool resourceHeapStrideIncludesAccelStruct() const {
+    return resourceHeapHasAccelStruct;
+  }
+
+  /// \brief Returns the ArrayStrideIdEXT operand shared by every resource-heap
+  /// runtime array: the largest descriptor size among images and buffers, and
+  /// among acceleration structures if registerResourceHeapAccelStruct() was
+  /// called first. The value is built from specialization constants because
+  /// descriptor sizes are only known at pipeline creation.
   SpirvInstruction *getResourceHeapArrayStride();
 
   /// \brief Shared ArrayStrideIdEXT operand for sampler-heap runtime arrays:
@@ -974,6 +1000,11 @@ private:
   /// module (see get{Resource,Sampler}HeapArrayStride).
   SpirvInstruction *resourceHeapArrayStride = nullptr;
   SpirvInstruction *samplerHeapArrayStride = nullptr;
+
+  /// Set by registerResourceHeapAccelStruct(). When true,
+  /// getResourceHeapArrayStride() includes the acceleration structure
+  /// descriptor size.
+  bool resourceHeapHasAccelStruct = false;
 
   SpirvDebugInfoNone *debugNone;
 
