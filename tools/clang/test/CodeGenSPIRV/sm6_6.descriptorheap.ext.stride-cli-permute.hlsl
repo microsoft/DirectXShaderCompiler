@@ -1,4 +1,4 @@
-// Verifies: every legal CLI stride value flows independently to each heap's literal ArrayStride 
+// Verifies: every legal CLI stride value flows independently to each heap's literal ArrayStride
 //  (full 6x6 cross product, RS!=SS proves no cross-contamination), and invalid values are rejected at option-parse time.
 //
 // [[RS]] = resource-heap stride, [[SS]] = sampler-heap stride (per-RUN via -D).

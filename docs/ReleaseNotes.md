@@ -34,7 +34,8 @@ The included licenses apply to the following files:
   the `ArrayStride` of the descriptor heap runtime arrays emitted by
   `-fspv-use-descriptor-heap`. The value must be a power of two in `[8, 256]`
   and takes precedence over the default `OpConstantSizeOfEXT`-based stride.
-  
+  Both flags require `-fspv-use-descriptor-heap` and are rejected otherwise.
+
 Place release notes for the upcoming release below this line and remove this
 line upon naming the release. Refer to previous for appropriate section names.
 
