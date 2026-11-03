@@ -26,7 +26,8 @@ The included licenses apply to the following files:
   `ConstantBuffer`, `TextureBuffer`, and RW variants) via
   `SPV_KHR_untyped_pointers`. Requires `-fspv-target-env=vulkan1.3`.
 - `SV_CullPrimitive` on a mesh shader primitive output must now be a scalar
-  bool, matching DXIL, instead of producing invalid SPIR-V.
+  bool. This is now a front-end error for both DXIL and SPIR-V, instead of a
+  DXIL validation error or invalid SPIR-V.
 
 Place release notes for the upcoming release below this line and remove this
 line upon naming the release. Refer to previous for appropriate section names.

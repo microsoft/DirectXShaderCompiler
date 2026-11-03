@@ -17250,6 +17250,41 @@ void DiagnoseVertexEntry(Sema &S, FunctionDecl *FD, llvm::StringRef StageName) {
   return;
 }
 
+// SV_CullPrimitive on a mesh shader primitive output must be a scalar bool
+// (bool1 and bool1x1 count). Checked here so DXIL and SPIR-V give the same
+// error. Pixel shader inputs are not checked: DXIL replaces them with 0.
+static void DiagnoseCullPrimitiveFields(Sema &S, QualType Ty) {
+  while (const ArrayType *AT = S.Context.getAsArrayType(Ty))
+    Ty = AT->getElementType();
+  const RecordType *RT = Ty->getAs<RecordType>();
+  if (!RT || hlsl::IsHLSLVecMatType(Ty))
+    return;
+  for (const FieldDecl *FD : RT->getDecl()->fields()) {
+    for (const hlsl::UnusualAnnotation *UA : FD->getUnusualAnnotations()) {
+      const auto *SD = dyn_cast<hlsl::SemanticDecl>(UA);
+      if (!SD)
+        continue;
+      llvm::StringRef BaseName;
+      uint32_t Index;
+      hlsl::Semantic::DecomposeNameAndIndex(SD->SemanticName, &BaseName,
+                                            &Index);
+      if (hlsl::Semantic::GetByName(BaseName)->GetKind() !=
+          hlsl::Semantic::Kind::CullPrimitive)
+        continue;
+      QualType FieldTy = FD->getType().getUnqualifiedType();
+      bool IsScalarBool =
+          hlsl::IsHLSLVecMatType(FieldTy)
+              ? hlsl::GetElementCount(FieldTy) == 1 &&
+                    hlsl::GetElementTypeOrType(FieldTy)->isBooleanType()
+              : FieldTy->isBooleanType();
+      if (!IsScalarBool)
+        S.Diags.Report(FD->getLocation(), diag::err_hlsl_incorrect_sv_type)
+            << SD->SemanticName << "scalar bool" << FD << FD->getType();
+    }
+    DiagnoseCullPrimitiveFields(S, FD->getType());
+  }
+}
+
 void DiagnoseMeshEntry(Sema &S, FunctionDecl *FD, llvm::StringRef StageName) {
 
   if (!(FD->getAttr<HLSLNumThreadsAttr>()))
@@ -17258,6 +17293,9 @@ void DiagnoseMeshEntry(Sema &S, FunctionDecl *FD, llvm::StringRef StageName) {
   if (!(FD->getAttr<HLSLOutputTopologyAttr>()))
     S.Diags.Report(FD->getLocation(), diag::err_hlsl_missing_attr)
         << StageName << "outputtopology";
+  for (const ParmVarDecl *Param : FD->params())
+    if (Param->hasAttr<HLSLPrimitivesAttr>())
+      DiagnoseCullPrimitiveFields(S, Param->getType());
   return;
 }
 
