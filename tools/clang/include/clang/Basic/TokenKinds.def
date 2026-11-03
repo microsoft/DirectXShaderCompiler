@@ -307,7 +307,7 @@ KEYWORD(explicit                    , KEYCXX)
 KEYWORD(export                      , KEYCXX)
 KEYWORD(false                       , BOOLSUPPORT)
 KEYWORD(friend                      , KEYCXX)
-KEYWORD(mutable                     , KEYCXX)
+KEYWORD(mutable                     , KEYCXX|KEYHLSL2026) // HLSL Change
 KEYWORD(namespace                   , KEYCXX)
 KEYWORD(new                         , KEYCXX)
 KEYWORD(operator                    , KEYCXX)
