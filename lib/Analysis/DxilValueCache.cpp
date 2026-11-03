@@ -20,7 +20,6 @@
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/GlobalVariable.h"
-#include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/ModuleSlotTracker.h"
@@ -377,6 +376,22 @@ Value *DxilValueCache::WeakValueMap::Get(Value *V) {
   return Result;
 }
 
+Value *DxilValueCache::WeakValueMap::Lookup(const Value *V) const {
+  auto FindIt = Map.find(V);
+  if (FindIt == Map.end())
+    return nullptr;
+
+  const ValueEntry &Entry = FindIt->second;
+  if (Entry.IsStale())
+    return nullptr;
+
+  Value *Result = Entry.Value;
+  if (Sentinel && Result == Sentinel.get())
+    return nullptr;
+
+  return Result;
+}
+
 void DxilValueCache::WeakValueMap::SetSentinel(Value *Key) {
   Map[Key].Set(Key, GetSentinel(Key->getContext()));
 }
@@ -484,16 +499,17 @@ bool DxilValueCache::runOnFunction(Function &Fn) {
 }
 
 void DxilValueCache::print(raw_ostream &OS, const Module *) const {
-  // Computing the values fills the cache, which is not observable from outside
-  // the class, so casting away the const is harmless.
-  DxilValueCache &DVC = *const_cast<DxilValueCache *>(this);
-
-  OS << "Constant values for: ";
-  F->printAsOperand(OS, /*PrintType=*/false);
-  OS << "\n";
-  for (inst_iterator I = inst_begin(F), E = inst_end(F); I != E; ++I) {
-    if (Constant *C = DVC.GetConstValue(&*I)) {
-      OS << *I << "\n  -->  " << *C << "\n";
+  // Print the cached entries in function order without computing new ones.
+  for (const BasicBlock &BB : *F) {
+    if (Map.Lookup(&BB)) {
+      OS << "  ";
+      BB.printAsOperand(OS, /*PrintType=*/false);
+      OS << "\n  -->  unreachable\n";
+    }
+    for (const Instruction &I : BB) {
+      if (Value *V = Map.Lookup(&I)) {
+        OS << I << "\n  -->  " << *V << "\n";
+      }
     }
   }
 }

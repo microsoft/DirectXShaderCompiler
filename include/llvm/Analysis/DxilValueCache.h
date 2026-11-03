@@ -42,6 +42,8 @@ struct DxilValueCache : public FunctionPass {
     };
     ValueMap<const Value *, ValueEntry> Map;
     Value *Get(Value *V);
+    // Returns the cached value for V, or null, without computing anything.
+    Value *Lookup(const Value *V) const;
     void Set(Value *Key, Value *V);
     bool Seen(Value *v);
     void SetSentinel(Value *V);
