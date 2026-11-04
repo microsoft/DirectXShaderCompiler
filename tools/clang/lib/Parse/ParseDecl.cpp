@@ -2357,13 +2357,16 @@ Parser::DeclGroupPtrTy Parser::ParseDeclGroup(ParsingDeclSpec &DS,
         // Instantiate user class template specializations so their fields are
         // visible to IsTypeNumeric. Built-in HLSL templates are classified
         // without needing instantiation.
+        QualType ElementQT =
+            QT.isNull() ? QT : Actions.getASTContext().getBaseElementType(QT);
         if (const auto *Spec =
                 dyn_cast_or_null<ClassTemplateSpecializationDecl>(
-                    QT.isNull() ? nullptr : QT->getAsCXXRecordDecl()))
+                    ElementQT.isNull() ? nullptr : ElementQT->getAsCXXRecordDecl()))
           if (!Spec->hasDefinition() &&
               !Spec->getSpecializedTemplate()->isImplicit())
-            Actions.RequireCompleteType(DS.getTypeSpecTypeLoc(), QT, 0);
-        if (!QT.isNull() && IsTypeNumeric(&Actions, QT)) {
+            Actions.RequireCompleteType(DS.getTypeSpecTypeLoc(), ElementQT, 0);
+        if (!QT.isNull() && !QT->isVoidType() &&
+            IsTypeNumeric(&Actions, QT)) {
           unsigned int diagID;
           const char *prevSpec;
           DS.SetTypeQual(DeclSpec::TQ_const, D.getDeclSpec().getLocStart(),
