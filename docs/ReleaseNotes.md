@@ -102,6 +102,12 @@ line upon naming the release. Refer to previous for appropriate section names.
 - Fixed an optimizer miscompile where selects of bitwise-not values guarded by
   signed less-than or unsigned compares were treated as a signed minimum.
 
+#### SPIR-V
+
+- Added `-fspv-reserve-resource-array-bindings`, which reserves one
+  binding number per array element for arrays of resources without splitting
+  the array into separate SPIR-V variables/bindings.
+
 ### Upcoming Preview Release
 
 These changes apply to experimental preview shader models only and will not be
