@@ -1182,7 +1182,9 @@ HLSLReservedKeyword:
   case tok::kw_reinterpret_cast:
   case tok::kw_static_cast:
     // HLSL Change Starts
-    if (getLangOpts().HLSL) {
+    if (getLangOpts().HLSL &&
+        (Tok.isNot(tok::kw_static_cast) ||
+         getLangOpts().HLSLVersion < hlsl::LangStd::v202x)) {
       Diag(Tok, diag::err_hlsl_unsupported_construct) << "C++-style cast";
       return ExprError();
     }
