@@ -14,7 +14,7 @@ template<typename T>
 struct Inner { T val; };
 
 // Nested template type using >> without space: no error in HLSL 202x.
-// CHECK: VarDecl {{.*}} g_nested 'Outer<Inner<float> >'
+// CHECK: VarDecl {{.*}} g_nested 'const Outer<Inner<float> >'
 Outer<Inner<float>> g_nested;
 
 template<typename T>
@@ -35,5 +35,5 @@ void takeVal(Outer<Inner<int>> v);
 template<typename T, typename U>
 struct Pair { T first; U second; };
 
-// CHECK: VarDecl {{.*}} g_triple 'Outer<Pair<float, Inner<int> > >'
+// CHECK: VarDecl {{.*}} g_triple 'const Outer<Pair<float, Inner<int> > >'
 Outer<Pair<float, Inner<int>>> g_triple;
