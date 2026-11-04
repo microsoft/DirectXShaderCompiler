@@ -1731,8 +1731,9 @@ static bool verifyRoundedValues(const void *Actual, const Variant &Expected) {
           if (cpu_oracle::roundedMatch(ActualValues[I], Values[I]))
             continue;
           hlsl_test::LogErrorFmt(
-              L"Mismatch at index %zu: actual=%g, expected=%g", I,
-              double(ActualValues[I]), double(Values[I]));
+              L"Mismatch at index %zu: actual=%s, expected=%s", I,
+              cpu_oracle::ComponentTraits<T>::format(ActualValues[I]).c_str(),
+              cpu_oracle::ComponentTraits<T>::format(Values[I]).c_str());
           return false;
         }
         return true;
@@ -7271,10 +7272,49 @@ void LinAlgCPUOracleTests::MatrixProductOracle() {
       /*MatrixB=*/{7, 8, 9, 10, 11, 12}, &InitialAccumulator);
   VERIFY_IS_TRUE(Accumulated == std::vector<int64_t>({59, 63, 141, 152}));
 
-  VERIFY_IS_TRUE(roundedMatch(-2.9999993f, -3.0f)); // 0xC03FFFFD, 3 ULPs
-  VERIFY_IS_FALSE(roundedMatch(-2.0f, -3.0f));
-  VERIFY_IS_TRUE(roundedMatch(HLSLHalf_t::FromHALF(0xC1FD), HLSLHalf_t(-3.0f)));
-  VERIFY_IS_FALSE(roundedMatch(HLSLHalf_t(-2.0f), HLSLHalf_t(-3.0f)));
+  // Encoded bits: -3.0 at 3, 4 and 5 ULPs, a dropped term (-2.0), the near-zero
+  // floor (4 ULPs of 1.0) and one ULP past it, and Inf/NaN.
+  struct RoundedCase {
+    bool Half;
+    uint32_t Actual;
+    uint32_t Expected;
+    bool Match;
+  };
+  const RoundedCase Cases[] = {
+      {false, 0xC03FFFFD, 0xC0400000, true},
+      {false, 0xC03FFFFC, 0xC0400000, true},
+      {false, 0xC03FFFFB, 0xC0400000, false},
+      {false, 0xC0000000, 0xC0400000, false},
+      {false, 0x35000000, 0x00000000, true},
+      {false, 0x35000001, 0x00000000, false},
+      {false, 0x7F800000, 0x7F800000, true},
+      {false, 0xFF800000, 0x7F800000, false},
+      {false, 0x7FC00000, 0x3F800000, false},
+      {false, 0x7FC00000, 0x7FC00000, true},
+      {true, 0xC1FD, 0xC200, true},
+      {true, 0xC1FC, 0xC200, true},
+      {true, 0xC1FB, 0xC200, false},
+      {true, 0xC000, 0xC200, false},
+      {true, 0x1C00, 0x0000, true},
+      {true, 0x1C01, 0x0000, false},
+      {true, 0x7C00, 0x7C00, true},
+      {true, 0xFC00, 0x7C00, false},
+      {true, 0x7E00, 0x3C00, false},
+      {true, 0x7E00, 0x7E00, true},
+  };
+  for (const RoundedCase &Case : Cases) {
+    float A, E;
+    std::memcpy(&A, &Case.Actual, sizeof(A));
+    std::memcpy(&E, &Case.Expected, sizeof(E));
+    const bool Match =
+        Case.Half ? roundedMatch(HLSLHalf_t::FromHALF(uint16_t(Case.Actual)),
+                                 HLSLHalf_t::FromHALF(uint16_t(Case.Expected)))
+                  : roundedMatch(A, E);
+    if (Match != Case.Match)
+      hlsl_test::LogErrorFmt(L"roundedMatch(0x%x, 0x%x) returned %d",
+                             Case.Actual, Case.Expected, Match);
+    VERIFY_ARE_EQUAL(Case.Match, Match);
+  }
 }
 
 static bool matrixArithmeticNeeds16BitTypes(ComponentType CompType) {
