@@ -27,6 +27,11 @@ The included licenses apply to the following files:
   `SPV_KHR_untyped_pointers`. Requires `-fspv-target-env=vulkan1.3`.
 - `SV_CullPrimitive` as a pixel shader input is now replaced with 0, matching
   DXIL, instead of producing invalid SPIR-V.
+- Extended `-fspv-use-descriptor-heap` to support `RaytracingAccelerationStructure`
+  loaded from `ResourceDescriptorHeap`. Outside ray-tracing stages, list
+  `-fspv-extension=SPV_KHR_ray_query`, `SPV_KHR_ray_tracing` or
+  `SPV_NV_ray_tracing` so the resource heap stride covers acceleration structure
+  descriptors; otherwise compilation fails.
 
 Place release notes for the upcoming release below this line and remove this
 line upon naming the release. Refer to previous for appropriate section names.
@@ -74,6 +79,9 @@ line upon naming the release. Refer to previous for appropriate section names.
   to non-`const` methods on `const` objects, including objects in constant 
   buffers 
   [#8964](https://github.com/microsoft/DirectXShaderCompiler/issues/8964).
+- HLSL 202x supports `mutable` member variables in structs, allowing them to be
+  modified even in `const`-qualified instance methods
+  ([#8965](https://github.com/microsoft/DirectXShaderCompiler/issues/8965)).
 - Add `static_assert` matching C++11 and C++17 under HLSL 202x
   ([#8910](https://github.com/microsoft/DirectXShaderCompiler/issues/8910)).
 - Fix HLSL 202x conforming literals false-positive warning for hex literal
@@ -82,6 +90,9 @@ line upon naming the release. Refer to previous for appropriate section names.
 
 #### Bug Fixes
 
+- Fixed GVN load forwarding generating unsupported integer types when optimizing
+  native vectors
+  [#9040](https://github.com/microsoft/DirectXShaderCompiler/issues/9040).
 - Fixed shader reflection dropping leading characters from user-defined struct type names.
 - Fixed an optimizer crash when scalarizing an out-of-bounds vector access
   [#8940](https://github.com/microsoft/DirectXShaderCompiler/issues/8940).
@@ -90,6 +101,8 @@ line upon naming the release. Refer to previous for appropriate section names.
   [#8526](https://github.com/microsoft/DirectXShaderCompiler/issues/8526).
 - Fixed incorrect shader results caused by stale overflow and exactness flags
   after bit-tracking dead code elimination.
+- Fixed an optimizer miscompile where selects of bitwise-not values guarded by
+  signed less-than or unsigned compares were treated as a signed minimum.
 
 ### Upcoming Preview Release
 
