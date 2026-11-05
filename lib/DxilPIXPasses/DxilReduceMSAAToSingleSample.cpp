@@ -13,6 +13,7 @@
 
 #include "dxc/DXIL/DxilInstructions.h"
 #include "dxc/DXIL/DxilModule.h"
+#include "dxc/DXIL/DxilResourceProperties.h"
 #include "dxc/DxilPIXPasses/DxilPIXPasses.h"
 #include "dxc/HLSL/DxilGenerationPass.h"
 
@@ -34,50 +35,72 @@ public:
   bool runOnModule(Module &M) override;
 };
 
+static bool IsMultisampledSRVHandle(Value *TextureHandle, DxilModule &DM) {
+  auto *TextureHandleInst = dyn_cast<CallInst>(TextureHandle);
+  if (!TextureHandleInst)
+    return false;
+
+  if (OP::IsDxilOpFuncCallInst(TextureHandleInst, OP::OpCode::CreateHandle)) {
+    DxilInst_CreateHandle CreateHandle(TextureHandleInst);
+    if (!isa<ConstantInt>(CreateHandle.get_rangeId()))
+      return false;
+
+    if (static_cast<DXIL::ResourceClass>(
+            CreateHandle.get_resourceClass_val()) != DXIL::ResourceClass::SRV)
+      return false;
+
+    unsigned RangeId =
+        cast<ConstantInt>(CreateHandle.get_rangeId())->getLimitedValue();
+    auto Resource = DM.GetSRV(RangeId);
+    return Resource.GetKind() == DXIL::ResourceKind::Texture2DMS ||
+           Resource.GetKind() == DXIL::ResourceKind::Texture2DMSArray;
+  }
+
+  // SM 6.6 handles carry the resource kind in the annotateHandle
+  // properties operand.
+  if (OP::IsDxilOpFuncCallInst(TextureHandleInst, OP::OpCode::AnnotateHandle)) {
+    DxilInst_AnnotateHandle AnnotateHandle(TextureHandleInst);
+    DxilResourceProperties ResourceProperties =
+        resource_helper::loadPropsFromAnnotateHandle(AnnotateHandle,
+                                                     *DM.GetShaderModel());
+    return ResourceProperties.getResourceClass() == DXIL::ResourceClass::SRV &&
+           (ResourceProperties.getResourceKind() ==
+                DXIL::ResourceKind::Texture2DMS ||
+            ResourceProperties.getResourceKind() ==
+                DXIL::ResourceKind::Texture2DMSArray);
+  }
+
+  return false;
+}
+
 bool DxilReduceMSAAToSingleSample::runOnModule(Module &M) {
   DxilModule &DM = M.GetOrCreateDxilModule();
 
-  LLVMContext &Ctx = M.getContext();
   OP *HlslOP = DM.GetOP();
-
-  // FP16 type doesn't have its own identity, and is covered by float type...
-
-  auto TextureLoadOverloads = std::vector<Type *>{
-      Type::getFloatTy(Ctx), Type::getInt16Ty(Ctx), Type::getInt32Ty(Ctx)};
-
   bool Modified = false;
 
-  for (const auto &Overload : TextureLoadOverloads) {
+  // Iterate every materialised TextureLoad overload; the 16-bit form
+  // lowers Texture2DMS<half4>.Load.
+  for (const auto &TextureLoadOverload :
+       HlslOP->GetOpFuncList(DXIL::OpCode::TextureLoad)) {
+    Function *TexLoadFunction = TextureLoadOverload.second;
+    if (!TexLoadFunction)
+      continue;
 
-    Function *TexLoadFunction =
-        HlslOP->GetOpFunc(DXIL::OpCode::TextureLoad, Overload);
-    auto TexLoadFunctionUses = TexLoadFunction->uses();
-
-    for (auto FI = TexLoadFunctionUses.begin();
-         FI != TexLoadFunctionUses.end();) {
+    for (auto FI = TexLoadFunction->use_begin();
+         FI != TexLoadFunction->use_end();) {
       auto &FunctionUse = *FI++;
-      auto FunctionUser = FunctionUse.getUser();
-      auto instruction = cast<Instruction>(FunctionUser);
-      DxilInst_TextureLoad LoadInstruction(instruction);
-      auto TextureHandle = LoadInstruction.get_srv();
-      auto TextureHandleInst = cast<CallInst>(TextureHandle);
-      DxilInst_CreateHandle createHandle(TextureHandleInst);
-      // Dynamic rangeId is not supported
-      if (isa<ConstantInt>(createHandle.get_rangeId())) {
-        unsigned rangeId =
-            cast<ConstantInt>(createHandle.get_rangeId())->getLimitedValue();
-        if (static_cast<DXIL::ResourceClass>(
-                createHandle.get_resourceClass_val()) ==
-            DXIL::ResourceClass::SRV) {
-          auto Resource = DM.GetSRV(rangeId);
-          if (Resource.GetKind() == DXIL::ResourceKind::Texture2DMS ||
-              Resource.GetKind() == DXIL::ResourceKind::Texture2DMSArray) {
-            // "2" is the mip-level/sample-index operand index:
-            // https://github.com/Microsoft/DirectXShaderCompiler/blob/master/docs/DXIL.rst#textureload
-            instruction->setOperand(2, HlslOP->GetI32Const(0));
-            Modified = true;
-          }
-        }
+      auto *InstructionUser = dyn_cast<Instruction>(FunctionUse.getUser());
+      if (!InstructionUser)
+        continue;
+
+      DxilInst_TextureLoad LoadInstruction(InstructionUser);
+      if (!LoadInstruction)
+        continue;
+
+      if (IsMultisampledSRVHandle(LoadInstruction.get_srv(), DM)) {
+        LoadInstruction.set_mipLevelOrSampleCount(HlslOP->GetI32Const(0));
+        Modified = true;
       }
     }
   }
