@@ -25,6 +25,8 @@ The included licenses apply to the following files:
   buffer-like resources (`StructuredBuffer`, `ByteAddressBuffer`,
   `ConstantBuffer`, `TextureBuffer`, and RW variants) via
   `SPV_KHR_untyped_pointers`. Requires `-fspv-target-env=vulkan1.3`.
+- `SV_CullPrimitive` as a pixel shader input is now replaced with 0, matching
+  DXIL, instead of producing invalid SPIR-V.
 - Extended `-fspv-use-descriptor-heap` to support `RaytracingAccelerationStructure`
   loaded from `ResourceDescriptorHeap`. Outside ray-tracing stages, list
   `-fspv-extension=SPV_KHR_ray_query`, `SPV_KHR_ray_tracing` or
