@@ -20,8 +20,17 @@
 // version 0.0 is implied for the offline linking target lib_6_x.
 
 // CHECK: DxilRuntimeData
+// EXP: SignatureElementTable
 // EXP: PSInfoTable
+// NOEXP-NOT: SignatureElementTable
+// NOEXP-NOT: VSInfoTable
 // NOEXP-NOT: PSInfoTable
+// NOEXP-NOT: HSInfoTable
+// NOEXP-NOT: DSInfoTable
+// NOEXP-NOT: GSInfoTable
+// NOEXP-NOT: CSInfoTable
+// NOEXP-NOT: MSInfoTable
+// NOEXP-NOT: ASInfoTable
 
 [shader("pixel")]
 float4 main() : SV_Target {
