@@ -32,6 +32,17 @@ struct PrimNested {
   float4 col : COLOR0;
   Inner inner;
 };
+struct Base {
+  uint cull : SV_CullPrimitive; // expected-error {{SV_CullPrimitive must be applied to a scalar bool, but 'cull' has type 'uint'}}
+};
+struct PrimDerived : Base {};
+// The semantic on 'data' overrides the one inside Overridden.
+struct Overridden {
+  uint cull : SV_CullPrimitive;
+};
+struct PrimOverride {
+  Overridden data : TEXCOORD0;
+};
 
 #define MESH(name, Prim)                                                       \
   [shader("mesh")] [numthreads(1, 1, 1)] [outputtopology("triangle")]          \
@@ -47,6 +58,20 @@ MESH(ms_uint, PrimUint)
 MESH(ms_bool2, PrimBool2)
 MESH(ms_array, PrimArray)
 MESH(ms_nested, PrimNested)
+MESH(ms_derived, PrimDerived)
+MESH(ms_override, PrimOverride)
+
+// SV_CullPrimitive directly on the parameter applies to each primitive.
+[shader("mesh")] [numthreads(1, 1, 1)] [outputtopology("triangle")]
+void ms_param_bool(out vertices Vert verts[3], out indices uint3 tris[1],
+                   out primitives bool prims[1] : SV_CullPrimitive) {
+  SetMeshOutputCounts(0, 0);
+}
+[shader("mesh")] [numthreads(1, 1, 1)] [outputtopology("triangle")]
+void ms_param_uint(out vertices Vert verts[3], out indices uint3 tris[1],
+                   out primitives uint prims[1] : SV_CullPrimitive) { // expected-error {{SV_CullPrimitive must be applied to a scalar bool, but 'prims' has type 'uint'}}
+  SetMeshOutputCounts(0, 0);
+}
 
 [shader("pixel")]
 float4 ps_uint(uint cull : SV_CullPrimitive) : SV_Target { return cull; }

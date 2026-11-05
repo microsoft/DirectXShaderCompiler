@@ -17275,36 +17275,47 @@ void DiagnoseVertexEntry(Sema &S, FunctionDecl *FD, llvm::StringRef StageName) {
 // SV_CullPrimitive on a mesh shader primitive output must be a scalar bool
 // (bool1 and bool1x1 count). Checked here so DXIL and SPIR-V give the same
 // error. Pixel shader inputs are not checked: DXIL replaces them with 0.
-static void DiagnoseCullPrimitiveFields(Sema &S, QualType Ty) {
+static void DiagnoseCullPrimitiveRecord(Sema &S, QualType Ty);
+
+// A semantic on a field or parameter overrides any semantics inside its type,
+// so only look inside when D has none.
+static void DiagnoseCullPrimitiveDecl(Sema &S, const NamedDecl *D,
+                                      QualType Ty) {
+  for (const hlsl::UnusualAnnotation *UA : D->getUnusualAnnotations()) {
+    const auto *SD = dyn_cast<hlsl::SemanticDecl>(UA);
+    if (!SD)
+      continue;
+    llvm::StringRef BaseName;
+    uint32_t Index;
+    hlsl::Semantic::DecomposeNameAndIndex(SD->SemanticName, &BaseName, &Index);
+    if (hlsl::Semantic::GetByName(BaseName)->GetKind() !=
+        hlsl::Semantic::Kind::CullPrimitive)
+      return;
+    QualType ElemTy = Ty.getUnqualifiedType();
+    bool IsScalarBool =
+        hlsl::IsHLSLVecMatType(ElemTy)
+            ? hlsl::GetElementCount(ElemTy) == 1 &&
+                  hlsl::GetElementTypeOrType(ElemTy)->isBooleanType()
+            : ElemTy->isBooleanType();
+    if (!IsScalarBool)
+      S.Diags.Report(D->getLocation(), diag::err_hlsl_incorrect_sv_type)
+          << SD->SemanticName << "scalar bool" << D << ElemTy;
+    return;
+  }
+  DiagnoseCullPrimitiveRecord(S, Ty);
+}
+
+static void DiagnoseCullPrimitiveRecord(Sema &S, QualType Ty) {
   while (const ArrayType *AT = S.Context.getAsArrayType(Ty))
     Ty = AT->getElementType();
   const RecordType *RT = Ty->getAs<RecordType>();
   if (!RT || hlsl::IsHLSLVecMatType(Ty))
     return;
-  for (const FieldDecl *FD : RT->getDecl()->fields()) {
-    for (const hlsl::UnusualAnnotation *UA : FD->getUnusualAnnotations()) {
-      const auto *SD = dyn_cast<hlsl::SemanticDecl>(UA);
-      if (!SD)
-        continue;
-      llvm::StringRef BaseName;
-      uint32_t Index;
-      hlsl::Semantic::DecomposeNameAndIndex(SD->SemanticName, &BaseName,
-                                            &Index);
-      if (hlsl::Semantic::GetByName(BaseName)->GetKind() !=
-          hlsl::Semantic::Kind::CullPrimitive)
-        continue;
-      QualType FieldTy = FD->getType().getUnqualifiedType();
-      bool IsScalarBool =
-          hlsl::IsHLSLVecMatType(FieldTy)
-              ? hlsl::GetElementCount(FieldTy) == 1 &&
-                    hlsl::GetElementTypeOrType(FieldTy)->isBooleanType()
-              : FieldTy->isBooleanType();
-      if (!IsScalarBool)
-        S.Diags.Report(FD->getLocation(), diag::err_hlsl_incorrect_sv_type)
-            << SD->SemanticName << "scalar bool" << FD << FD->getType();
-    }
-    DiagnoseCullPrimitiveFields(S, FD->getType());
-  }
+  if (const auto *RD = dyn_cast<CXXRecordDecl>(RT->getDecl()))
+    for (const CXXBaseSpecifier &Base : RD->bases())
+      DiagnoseCullPrimitiveRecord(S, Base.getType());
+  for (const FieldDecl *FD : RT->getDecl()->fields())
+    DiagnoseCullPrimitiveDecl(S, FD, FD->getType());
 }
 
 void DiagnoseMeshEntry(Sema &S, FunctionDecl *FD, llvm::StringRef StageName) {
@@ -17315,9 +17326,15 @@ void DiagnoseMeshEntry(Sema &S, FunctionDecl *FD, llvm::StringRef StageName) {
   if (!(FD->getAttr<HLSLOutputTopologyAttr>()))
     S.Diags.Report(FD->getLocation(), diag::err_hlsl_missing_attr)
         << StageName << "outputtopology";
-  for (const ParmVarDecl *Param : FD->params())
-    if (Param->hasAttr<HLSLPrimitivesAttr>())
-      DiagnoseCullPrimitiveFields(S, Param->getType());
+  // The semantic applies to each primitive, so check the element type.
+  for (const ParmVarDecl *Param : FD->params()) {
+    if (!Param->hasAttr<HLSLPrimitivesAttr>())
+      continue;
+    QualType Ty = Param->getType();
+    if (const ArrayType *AT = S.Context.getAsArrayType(Ty))
+      Ty = AT->getElementType();
+    DiagnoseCullPrimitiveDecl(S, Param, Ty);
+  }
   return;
 }
 
