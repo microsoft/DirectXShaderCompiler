@@ -2297,6 +2297,16 @@ public:
     RDAT::RuntimeDataPartType maxAllowedType = RDAT::MaxPartTypeForValVer(
         m_ValMajor, m_ValMinor,
         mod.GetShaderModel()->IsPreReleaseShaderModel());
+    const bool allowExperimentalParts =
+        DXIL::IsVersionExperimental(m_ValMajor, m_ValMinor) &&
+        (mod.GetShaderModel()->IsPreReleaseShaderModel() || m_ValMajor == 0);
+    auto isPartAllowed = [maxAllowedType, allowExperimentalParts](
+                             RDAT::RuntimeDataPartType partType) {
+      return partType <= maxAllowedType &&
+             (allowExperimentalParts ||
+              partType < RDAT::RuntimeDataPartType::SignatureElementTable ||
+              partType > RDAT::RuntimeDataPartType::ASInfoTable);
+    };
 
     mod.ComputeShaderCompatInfo();
 
@@ -2312,7 +2322,7 @@ public:
 
 // Once per table, if not already added.
 #define RDAT_STRUCT_TABLE(type, table)                                         \
-  if (RDAT::RecordTraits<RDAT::type>::PartType() <= maxAllowedType &&          \
+  if (isPartAllowed(RDAT::RecordTraits<RDAT::type>::PartType()) &&             \
       !Builder.GetTable<RDAT::type>())                                         \
     (void)Builder.AddTable<RDAT::type>();
 // Update the record stride for supported derived types.

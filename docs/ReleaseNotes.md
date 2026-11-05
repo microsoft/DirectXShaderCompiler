@@ -21,15 +21,6 @@ The included licenses apply to the following files:
 
 #### SPIR-V
 
-- Extended `SPV_EXT_descriptor_heap` lowering (`-fspv-use-descriptor-heap`) to
-  buffer-like resources (`StructuredBuffer`, `ByteAddressBuffer`,
-  `ConstantBuffer`, `TextureBuffer`, and RW variants) via
-  `SPV_KHR_untyped_pointers`. Requires `-fspv-target-env=vulkan1.3`.
-- Extended `-fspv-use-descriptor-heap` to support `RaytracingAccelerationStructure`
-  loaded from `ResourceDescriptorHeap`. The stride that covers acceleration
-  structure descriptors is calculated automatically in ray-tracing stages or
-  when a ray-tracing extension is explicitly enabled, or can be provided with
-  `-fvk-resource-heap-stride`; otherwise compilation fails.
 - Added `-fvk-resource-heap-stride` and `-fvk-sampler-heap-stride`, which
   override the computed `ArrayStrideIdEXT` of the resource and sampler
   descriptor heaps with a literal `ArrayStride`. The value must be a power of
@@ -43,8 +34,9 @@ line upon naming the release. Refer to previous for appropriate section names.
 
 - Shader Model 6.10 and DXIL 1.10 are now available in retail, introducing
   LinAlg Matrix, WaveGroup Index and Count, DebugBreak, Clustered Geometry, and
-  Triangle Object Positions, with detailed blog posts to be linked here once
-  available.
+  Triangle Object Positions.
+- Allowed DXIL `insertvalue` instructions starting with Shader Model 6.10,
+  enabling unoptimized DXIL that constructs aggregate values to be valid in cases that previously were not.
 - Removed work graph support from Shader Model 6.10, and DXIL 1.10
   [microsoft/hlsl-specs#915](https://github.com/microsoft/hlsl-specs/issues/915).
 - Fixed the set of numeric types allowed in LinAlg matrix intrinsics
@@ -82,14 +74,31 @@ line upon naming the release. Refer to previous for appropriate section names.
   to non-`const` methods on `const` objects, including objects in constant 
   buffers 
   [#8964](https://github.com/microsoft/DirectXShaderCompiler/issues/8964).
+- HLSL 202x supports `mutable` member variables in structs, allowing them to be
+  modified even in `const`-qualified instance methods
+  ([#8965](https://github.com/microsoft/DirectXShaderCompiler/issues/8965)).
 - Add `static_assert` matching C++11 and C++17 under HLSL 202x
   ([#8910](https://github.com/microsoft/DirectXShaderCompiler/issues/8910)).
 - Fix HLSL 202x conforming literals false-positive warning for hex literal
   signedness
   ([#7864](https://github.com/microsoft/DirectXShaderCompiler/issues/7864)).
 
+#### SPIR-V
+
+- Extended `SPV_EXT_descriptor_heap` lowering (`-fspv-use-descriptor-heap`) to
+  buffer-like resources (`StructuredBuffer`, `ByteAddressBuffer`,
+  `ConstantBuffer`, `TextureBuffer`, and RW variants) via
+  `SPV_KHR_untyped_pointers`. Requires `-fspv-target-env=vulkan1.3`.
+- Extended `-fspv-use-descriptor-heap` to support `RaytracingAccelerationStructure`
+  loaded from `ResourceDescriptorHeap`. Outside ray-tracing stages, list
+  `-fspv-extension=SPV_KHR_ray_query`, `SPV_KHR_ray_tracing` or
+  `SPV_NV_ray_tracing` so the resource heap stride covers acceleration structure
+  descriptors; otherwise compilation fails.
+
 #### Bug Fixes
 
+- Improved compiler performance by reducing excessive memory-dependence scans
+  during GVN and repeated vector-elimination work.
 - Fixed GVN load forwarding generating unsupported integer types when optimizing
   native vectors
   [#9040](https://github.com/microsoft/DirectXShaderCompiler/issues/9040).
@@ -101,6 +110,8 @@ line upon naming the release. Refer to previous for appropriate section names.
   [#8526](https://github.com/microsoft/DirectXShaderCompiler/issues/8526).
 - Fixed incorrect shader results caused by stale overflow and exactness flags
   after bit-tracking dead code elimination.
+- Fixed an optimizer miscompile where selects of bitwise-not values guarded by
+  signed less-than or unsigned compares were treated as a signed minimum.
 
 ### Upcoming Preview Release
 
