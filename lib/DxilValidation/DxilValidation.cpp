@@ -158,11 +158,9 @@ ValidateSignatureAccess(Instruction *I, DxilSignature &Sig, Value *SigId,
 
   unsigned Col = ValidateSignatureRowCol(I, SE, RowVal, ColVal, Status, ValCtx);
 
-  if (IsOutput && SE.GetSemantic()->GetKind() == DXIL::SemanticKind::Position) {
-    unsigned Mask = Status.OutputPositionMask[SE.GetOutputStream()];
-    Mask |= 1 << Col;
-    if (SE.GetOutputStream() < DXIL::kNumOutputStreams)
-      Status.OutputPositionMask[SE.GetOutputStream()] = Mask;
+  if (IsOutput && SE.GetSemantic()->GetKind() == DXIL::SemanticKind::Position &&
+      SE.GetOutputStream() < DXIL::kNumOutputStreams) {
+    Status.OutputPositionMask[SE.GetOutputStream()] |= 1 << Col;
   }
   return &SE;
 }
@@ -6286,7 +6284,7 @@ static void ValidateSignature(ValidationContext &ValCtx, const DxilSignature &S,
     ValidateSignatureOverlap(*E.get(), MaxScalars, Allocator[StreamId], ValCtx);
 
     if (IsOutput && SemanticKind == DXIL::SemanticKind::Position) {
-      Status.hasOutputPosition[E->GetOutputStream()] = true;
+      Status.hasOutputPosition[StreamId] = true;
     }
   }
 
