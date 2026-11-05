@@ -7970,6 +7970,8 @@ def warn_hlsl_numthreads_group_size : Warning<
    InGroup<IgnoredAttributes>;
 def err_hlsl_wg_nodetrackrwinputsharing_missing : Error<
    "Use of FinishedCrossGroupSharing() requires NodeTrackRWInputSharing attribute to be specified on the record struct type">;
+def err_hlsl_incorrect_sv_type
+    : Error<"%0 must be applied to a %1, but %2 has type %3">;
 def err_hlsl_wg_nodetrackrwinputsharing_invalid : Error<
    "NodeTrackRWInputSharing attribute cannot be applied to Input Records that are not RWDispatchNodeInputRecord">;
 def err_hlsl_wg_input_kind : Error<
