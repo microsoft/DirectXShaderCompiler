@@ -72,6 +72,10 @@ private:
                                                     const SourceLocation &loc,
                                                     uint32_t tag);
 
+  /// Gets the rich debug info for the given source location, creating it if
+  /// needed.
+  RichDebugInfo *getOrCreateRichDebugInfo(const SourceLocation &loc);
+
   /// Adds DebugTypeMembers for member variables to DebugTypeComposite.
   void addDebugTypeForMemberVariables(
       SpirvDebugTypeComposite *debugTypeComposite, const StructType *type,
