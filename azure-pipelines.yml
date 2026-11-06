@@ -1,8 +1,4 @@
 parameters:
-  - name: lavapipeVersion
-    displayName: 'lavapipe (Mesa) version'
-    type: string
-    default: '26.1.2'
   - name: warpVersion
     displayName: 'WARP version'
     type: string
@@ -230,18 +226,26 @@ stages:
   - job: Offload
     dependsOn: Windows
     condition: and(succeededOrFailed(), eq(dependencies.Windows.outputs['VS2022_Release.decide.runOffloadTests'], 'true'))
-    timeoutInMinutes: 180
+    timeoutInMinutes: 360
     pool:
       vmImage: windows-2025
     workspace:
       clean: all
+    variables:
+      LAVAPIPE_TRIPLET: x64-windows-release
+      LAVAPIPE_VCPKG_DIR: '$(Agent.TempDirectory)\vcpkg'
+      # Keep results in their own directory so PublishTestResults does not
+      # crawl the rest of the temp directory (e.g. vcpkg buildtrees, which
+      # contain unreadable symlinks).
+      OFFLOAD_RESULTS_DIR: '$(Agent.TempDirectory)\offload-results'
     strategy:
       matrix:
         spirv_release:
           artifact: 'dxc_spirv_release'
           runLavapipe: 'true'
     steps:
-    - checkout: none
+    - checkout: self
+      fetchDepth: 1
 
     - task: DownloadPipelineArtifact@2
       displayName: 'Download DXC binaries'
@@ -284,17 +288,22 @@ stages:
       displayName: 'Install Vulkan SDK'
       condition: and(succeeded(), eq(variables['runLavapipe'], 'true'))
 
+    - script: >
+        "%VCPKG_ROOT%\vcpkg.exe" install
+        --x-manifest-root="$(Build.SourcesDirectory)\azure-pipelines\vcpkg\lavapipe"
+        --x-install-root="$(LAVAPIPE_VCPKG_DIR)\installed"
+        --x-packages-root="$(LAVAPIPE_VCPKG_DIR)\p"
+        --x-buildtrees-root="$(LAVAPIPE_VCPKG_DIR)\b"
+        --triplet=$(LAVAPIPE_TRIPLET)
+        --host-triplet=$(LAVAPIPE_TRIPLET)
+      displayName: 'Build lavapipe (Mesa) with vcpkg'
+      condition: and(succeeded(), eq(variables['runLavapipe'], 'true'))
+
     - pwsh: |
-        $ver = "${{ parameters.lavapipeVersion }}"
-        $url = "https://github.com/pal1000/mesa-dist-win/releases/download/$ver/mesa3d-$ver-release-msvc.7z"
-        Invoke-WebRequest $url -OutFile "$(Agent.TempDirectory)\mesa.7z"
-        7z x "$(Agent.TempDirectory)\mesa.7z" -o"$(Agent.TempDirectory)\mesa" -y | Out-Null
-        $lvp = (Get-ChildItem "$(Agent.TempDirectory)\mesa" -Recurse -Filter "lvp_icd.x86_64.json" | Select-Object -First 1).FullName
-        if (-not $lvp) { throw "lavapipe ICD (lvp_icd.x86_64.json) not found in Mesa package" }
-        reg add "HKLM\SOFTWARE\Khronos\Vulkan\Drivers" /v "$lvp" /t REG_DWORD /d 0 /f /reg:64
-        Write-Host "##vso[task.setvariable variable=MESA_BIN]$(Split-Path $lvp)"
-        Write-Host "Registered lavapipe ICD: $lvp"
-      displayName: 'Install lavapipe (Mesa) and register the ICD'
+        $lavapipe = "$(LAVAPIPE_VCPKG_DIR)\installed\$(LAVAPIPE_TRIPLET)"
+        reg add "HKLM\SOFTWARE\Khronos\Vulkan\Drivers" /v "$lavapipe\share\vulkan\icd.d\lvp_icd.json" /t REG_DWORD /d 0 /f /reg:64
+        Write-Host "##vso[task.setvariable variable=MESA_BIN]$lavapipe\bin"
+      displayName: 'Register lavapipe ICD'
       condition: and(succeeded(), eq(variables['runLavapipe'], 'true'))
 
     - pwsh: |
@@ -338,7 +347,8 @@ stages:
       workingDirectory: '$(Agent.TempDirectory)'
 
     - pwsh: |
-        $out = "$(Agent.TempDirectory)/results-d3d12-warp.xml" -replace '\\','/'
+        New-Item -ItemType Directory -Force -Path "$(OFFLOAD_RESULTS_DIR)" | Out-Null
+        $out = "$(OFFLOAD_RESULTS_DIR)/results-d3d12-warp.xml" -replace '\\','/'
         $env:LIT_OPTS = "--xunit-xml-output=$out"
         cmake --build llvm-project/build --target check-hlsl-warp-d3d12
       displayName: 'DirectX offload tests on WARP'
@@ -348,7 +358,8 @@ stages:
     - pwsh: |
         $env:PATH = "$(MESA_BIN);$env:PATH"
         $env:VK_LOADER_DEBUG = "all"
-        $out = "$(Agent.TempDirectory)/results-vk-lavapipe.xml" -replace '\\','/'
+        New-Item -ItemType Directory -Force -Path "$(OFFLOAD_RESULTS_DIR)" | Out-Null
+        $out = "$(OFFLOAD_RESULTS_DIR)/results-vk-lavapipe.xml" -replace '\\','/'
         $env:LIT_OPTS = "--xunit-xml-output=$out"
         cmake --build llvm-project/build --target check-hlsl-vk
       displayName: 'Vulkan offload tests on lavapipe'
@@ -359,4 +370,5 @@ stages:
       condition: succeededOrFailed()
       inputs:
         testResultsFormat: 'JUnit'
-        testResultsFiles: '$(Agent.TempDirectory)/results-*.xml'
+        searchFolder: '$(OFFLOAD_RESULTS_DIR)'
+        testResultsFiles: 'results-*.xml'

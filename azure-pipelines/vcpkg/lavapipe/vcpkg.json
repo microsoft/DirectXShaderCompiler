@@ -1,0 +1,16 @@
+{
+  "$schema": "https://raw.githubusercontent.com/microsoft/vcpkg-tool/main/docs/vcpkg.schema.json",
+  "dependencies": [
+    {
+      "name": "mesa",
+      "default-features": false,
+      "features": [
+        "lavapipe"
+      ]
+    },
+    {
+      "name": "llvm",
+      "default-features": false
+    }
+  ]
+}
