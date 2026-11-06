@@ -699,6 +699,7 @@ public:
   TEST_METHOD(OptionFromDefineLifetimeMarkers)
   TEST_METHOD(TargetTriple)
   TEST_METHOD(IntrinsicWhenAvailableThenUsed)
+  TEST_METHOD(IntrinsicNamespace202x)
   TEST_METHOD(CustomIntrinsicName)
   TEST_METHOD(NoLowering)
   TEST_METHOD(PackedLowering)
@@ -1209,6 +1210,45 @@ TEST_F(ExtensionTest, IntrinsicWhenAvailableThenUsed) {
                  disassembly.find("declare float "
                                   "@\"test.\\01?test_fn@@YA?AV?$vector@M$"
                                   "01@@V1@@Z.r\"(i32, float) #"));
+}
+
+TEST_F(ExtensionTest, IntrinsicNamespace202x) {
+  const char *sources[] = {
+      "float2 main(float2 v : V) : SV_Target {\n"
+      "  hlsl::test_proc(v);\n"
+      "  return hlsl::test_poly(v) + hlsl::test_poly(v.x);\n"
+      "}\n",
+      "float2 main(float2 v : V) : SV_Target {\n"
+      "  using namespace hlsl;\n"
+      "  test_proc(v);\n"
+      "  return test_poly(v) + test_poly(v.x);\n"
+      "}\n",
+      "using hlsl::test_proc;\n"
+      "using hlsl::test_poly;\n"
+      "template <typename T> T call(T value) { return test_poly(value); }\n"
+      "float2 main(float2 v : V) : SV_Target {\n"
+      "  test_proc(v);\n"
+      "  return call(v) + call(v.x);\n"
+      "}\n"};
+
+  for (const char *source : sources) {
+    Compiler c(m_dllSupport);
+    c.RegisterIntrinsicTable(new TestIntrinsicTable());
+    c.Compile(source, {L"/Vd", L"-HV", L"202x"}, {});
+    std::string disassembly = c.Disassemble();
+    VERIFY_IS_TRUE(
+        disassembly.find("call float @test_poly.float(i32 3, float") !=
+        std::string::npos);
+  }
+
+  Compiler c(m_dllSupport);
+  c.RegisterIntrinsicTable(new TestIntrinsicTable());
+  CheckOperationFailed(
+      c.Compile("float main(float v : V) : SV_Target { return test_poly(v); }",
+                {L"/Vd", L"-HV", L"202x"}, {}));
+  VERIFY_IS_TRUE(GetCompileErrors(c.pCompileResult)
+                     .find("use of undeclared identifier 'test_poly'") !=
+                 std::string::npos);
 }
 
 TEST_F(ExtensionTest, CustomIntrinsicName) {

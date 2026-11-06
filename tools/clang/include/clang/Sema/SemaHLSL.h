@@ -36,6 +36,8 @@ class ImplicitConversionSequence;
 
 namespace hlsl {
 
+bool IsIntrinsicLookupMarker(clang::NamedDecl *D);
+
 void CheckBinOpForHLSL(clang::Sema &self, clang::SourceLocation OpLoc,
                        clang::BinaryOperatorKind Opc, clang::ExprResult &LHS,
                        clang::ExprResult &RHS, clang::QualType &ResultTy,
