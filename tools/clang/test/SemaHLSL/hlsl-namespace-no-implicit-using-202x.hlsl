@@ -40,5 +40,6 @@ namespace hlsl {}
 
 void nested_hlsl_namespace_does_not_gain_intrinsics() {
   float x = hlsl::sin(1.0f); // expected-error{{no member named 'sin'}}
+  float y = ::hlsl::cos(0.0f); // OK
 }
 }
