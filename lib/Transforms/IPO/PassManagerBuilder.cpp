@@ -385,6 +385,8 @@ void PassManagerBuilder::populateModulePassManager(
       MPM.add(createDxilMutateResourceToHandlePass());
       MPM.add(createDxilCleanupDynamicResourceHandlePass());
       MPM.add(createDxilLowerCreateHandleForLibPass());
+      if (HLSLTrimCBufferMembers) // HLSL Change - opt-in via -opt-enable dxil-trim-cbuffer
+        MPM.add(createDxilTrimCBufferMembersPass());
       MPM.add(createDxilTranslateRawBuffer());
       MPM.add(createDxilLegalizeSampleOffsetPass());
       MPM.add(createDxilNoOptLegalizePass());
@@ -703,6 +705,8 @@ void PassManagerBuilder::populateModulePassManager(
     MPM.add(createDxilMutateResourceToHandlePass());
     MPM.add(createDxilCleanupDynamicResourceHandlePass());
     MPM.add(createDxilLowerCreateHandleForLibPass());
+    if (HLSLTrimCBufferMembers) // HLSL Change - opt-in via -opt-enable dxil-trim-cbuffer
+      MPM.add(createDxilTrimCBufferMembersPass());
     MPM.add(createDxilTranslateRawBuffer());
     // Always try to legalize sample offsets as loop unrolling
     // is not guaranteed for higher opt levels.
