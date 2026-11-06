@@ -2798,9 +2798,7 @@ bool Sema::UseArgumentDependentLookup(const CXXScopeSpec &SS,
 
     const bool isRootNamespace =
         Namespace && Namespace->getDeclContext()->isTranslationUnit();
-
     const bool isVkNamespace = isRootNamespace && Namespace->getName() == "vk";
-
     const bool isDxNamespace = isRootNamespace && Namespace->getName() == "dx";
 
     if (!isVkNamespace && !isDxNamespace)
