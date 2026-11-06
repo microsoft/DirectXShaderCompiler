@@ -35,4 +35,4 @@ void main() {
 // CHECK-NOT: HLSLIntrinsicLookupMarkerAttr
 
 // No implicit 'using namespace hlsl;' directive is injected under 202x.
-// CHECK-NOT: UsingDirectiveDecl {{.*}} Namespace {{.*}} 'hlsl'
+// Checked by the --implicit-check-not above.

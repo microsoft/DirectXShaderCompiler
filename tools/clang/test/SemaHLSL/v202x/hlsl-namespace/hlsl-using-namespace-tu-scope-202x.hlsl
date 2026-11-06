@@ -7,7 +7,6 @@
 
 // expected-no-diagnostics
 
-namespace hlsl {}
 using namespace hlsl;
 
 float UseUnqualifiedSin(float x) {
@@ -28,4 +27,8 @@ float UseUnqualifiedSaturate(float x) {
 
 float UseQualifiedAlsoStillWorks(float x) {
   return hlsl::sin(x);
+}
+
+float UseGlobalQualifiedAlsoStillWorks(float x) {
+  return ::hlsl::sin(x);
 }

@@ -4480,8 +4480,6 @@ public:
                                 /*Inline*/ false, SourceLocation(),
                                 SourceLocation(), &context.Idents.get("vk"),
                                 /*PrevDecl*/ nullptr);
-      m_vkNSDecl->setImplicit();
-      m_vkNSDecl->setHasExternalLexicalStorage(true);
       context.getTranslationUnitDecl()->addDecl(m_vkNSDecl);
     }
 #endif // ENABLE_SPIRV_CODEGEN
