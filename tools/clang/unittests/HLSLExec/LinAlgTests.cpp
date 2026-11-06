@@ -622,7 +622,7 @@ enum class ComparisonMode {
   // Every mode compares encoded component bits exactly. Implementation freedom
   // is expressed by enumerating the permitted results rather than by an Epsilon
   // or Ulp tolerance, so a conforming result must match a candidate bit for
-  // bit.
+  // bit. Float matrix multiply results are the exception; see roundedMatch.
   Exact,
   PermittedResults,
   Excluded,
@@ -1166,6 +1166,35 @@ zeroElementsOutsideView(const TypedMatrix &Source,
 }
 
 template <typename T>
+static bool roundedMatch(const T &Actual, const T &Expected, MatrixDim = 0) {
+  return ComponentTraits<T>::exactMatch(Actual, Expected);
+}
+
+// Float matrix multiply results need not be correctly rounded. Accept K + 2
+// ULPs of the expected value for F32, since error grows with the K-term dot
+// product, and 4 ULPs for F16. ULPs are of max(|expected|, 1.0) so results near
+// zero are not held to a tighter bound. Every bound stays below 1, the smallest
+// step between the integer-valued test results. Inf and NaN must match.
+static bool roundedMatch(double Actual, double Expected, int Precision,
+                         double Ulps) {
+  if (!std::isfinite(Actual) || !std::isfinite(Expected))
+    return Actual == Expected || (std::isnan(Actual) && std::isnan(Expected));
+  int Exponent;
+  std::frexp(std::max(std::fabs(Expected), 1.0), &Exponent);
+  return std::fabs(Actual - Expected) <= std::ldexp(Ulps, Exponent - Precision);
+}
+
+static bool roundedMatch(const float &Actual, const float &Expected,
+                         MatrixDim K) {
+  return roundedMatch(Actual, Expected, 24, K + 2.0);
+}
+
+static bool roundedMatch(const HLSLHalf_t &Actual, const HLSLHalf_t &Expected,
+                         MatrixDim = 0) {
+  return roundedMatch(float(Actual), float(Expected), 11, 4.0);
+}
+
+template <typename T>
 static bool exactMatrixMatch(const TypedMatrix &Actual,
                              const TypedMatrix &Expected,
                              size_t &FirstMismatch) {
@@ -1693,6 +1722,28 @@ static bool verifyHalfBuffer(const HLSLHalf_t *Actual,
     }
   }
   return Success;
+}
+
+// Packed results compared with roundedMatch; only float types get a tolerance.
+template <typename Variant>
+static bool verifyRoundedValues(const void *Actual, const Variant &Expected,
+                                MatrixDim K) {
+  return std::visit(
+      [Actual, K](const auto &Values) {
+        using T = typename std::decay<decltype(Values)>::type::value_type;
+        const T *ActualValues = static_cast<const T *>(Actual);
+        for (size_t I = 0; I < Values.size(); ++I) {
+          if (cpu_oracle::roundedMatch(ActualValues[I], Values[I], K))
+            continue;
+          hlsl_test::LogErrorFmt(
+              L"Mismatch at index %zu: actual=%s, expected=%s", I,
+              cpu_oracle::ComponentTraits<T>::format(ActualValues[I]).c_str(),
+              cpu_oracle::ComponentTraits<T>::format(Values[I]).c_str());
+          return false;
+        }
+        return true;
+      },
+      Expected);
 }
 
 static bool verifyComponentBuffer(ComponentType CompType, const void *Actual,
@@ -6845,7 +6896,6 @@ static void runMatMatMul(ID3D12Device *Device,
                          dxc::SpecificDllLoader &DxcSupport,
                          const MatrixParams &Params, bool Verbose, MatrixDim K,
                          float AFill, float BFill, UINT ForcedWaveSize = 0) {
-  const size_t NumElements = Params.totalElements();
   const size_t BufferSize = Params.totalBytes();
 
   std::stringstream ExtraDefs;
@@ -6873,8 +6923,7 @@ static void runMatMatMul(ID3D12Device *Device,
   MappedData OutData;
   Result->Test->GetReadBackData("Output", &OutData);
 
-  VERIFY_IS_TRUE(verifyComponentBuffer(Params.CompType, OutData.data(),
-                                       Expected, NumElements, Verbose));
+  VERIFY_IS_TRUE(verifyRoundedValues(OutData.data(), Expected, K));
 }
 
 void DxilConf_SM610_LinAlg_MatrixArithmetic::MatMatMul_Wave_16x16x16_F16() {
@@ -6940,7 +6989,6 @@ static void runMatMatMulAccum(ID3D12Device *Device,
                               const MatrixParams &Params, bool Verbose,
                               MatrixDim K, float AFill, float BFill,
                               float CFill, UINT ForcedWaveSize = 0) {
-  const size_t NumElements = Params.totalElements();
   const size_t BufferSize = Params.totalBytes();
 
   std::stringstream ExtraDefs;
@@ -6970,8 +7018,7 @@ static void runMatMatMulAccum(ID3D12Device *Device,
   MappedData OutData;
   Result->Test->GetReadBackData("Output", &OutData);
 
-  VERIFY_IS_TRUE(verifyComponentBuffer(Params.CompType, OutData.data(),
-                                       Expected, NumElements, Verbose));
+  VERIFY_IS_TRUE(verifyRoundedValues(OutData.data(), Expected, K));
 }
 
 void DxilConf_SM610_LinAlg_MatrixArithmetic::
@@ -7229,6 +7276,57 @@ void LinAlgCPUOracleTests::MatrixProductOracle() {
       /*MatrixA=*/{1, 2, 3, 4, 5, 6},
       /*MatrixB=*/{7, 8, 9, 10, 11, 12}, &InitialAccumulator);
   VERIFY_IS_TRUE(Accumulated == std::vector<int64_t>({59, 63, 141, 152}));
+
+  // Encoded bits: -3.0 at 3, K + 2 and K + 3 ULPs, a dropped term (-2.0), the
+  // near-zero floor and one ULP past it, Inf/NaN, and a K = 32 F32 result 12
+  // ULPs below -1. F16 stays at 4 ULPs whatever K is.
+  struct RoundedCase {
+    bool Half;
+    MatrixDim K;
+    uint32_t Actual;
+    uint32_t Expected;
+    bool Match;
+  };
+  const RoundedCase Cases[] = {
+      {false, 2, 0xC03FFFFD, 0xC0400000, true},
+      {false, 2, 0xC03FFFFC, 0xC0400000, true},
+      {false, 2, 0xC03FFFFB, 0xC0400000, false},
+      {false, 2, 0xC0000000, 0xC0400000, false},
+      {false, 2, 0x35000000, 0x00000000, true},
+      {false, 2, 0x35000001, 0x00000000, false},
+      {false, 2, 0x7F800000, 0x7F800000, true},
+      {false, 2, 0xFF800000, 0x7F800000, false},
+      {false, 2, 0x7FC00000, 0x3F800000, false},
+      {false, 2, 0x7FC00000, 0x7FC00000, true},
+      {false, 32, 0xBF7FFFE8, 0xBF800000, true},
+      {false, 32, 0xC03FFFDE, 0xC0400000, true},
+      {false, 32, 0xC03FFFDD, 0xC0400000, false},
+      {false, 32, 0xC0000000, 0xC0400000, false},
+      {true, 32, 0xC1FD, 0xC200, true},
+      {true, 32, 0xC1FC, 0xC200, true},
+      {true, 32, 0xC1FB, 0xC200, false},
+      {true, 32, 0xC000, 0xC200, false},
+      {true, 32, 0x1C00, 0x0000, true},
+      {true, 32, 0x1C01, 0x0000, false},
+      {true, 32, 0x7C00, 0x7C00, true},
+      {true, 32, 0xFC00, 0x7C00, false},
+      {true, 32, 0x7E00, 0x3C00, false},
+      {true, 32, 0x7E00, 0x7E00, true},
+  };
+  for (const RoundedCase &Case : Cases) {
+    float A, E;
+    std::memcpy(&A, &Case.Actual, sizeof(A));
+    std::memcpy(&E, &Case.Expected, sizeof(E));
+    const bool Match =
+        Case.Half ? roundedMatch(HLSLHalf_t::FromHALF(uint16_t(Case.Actual)),
+                                 HLSLHalf_t::FromHALF(uint16_t(Case.Expected)),
+                                 Case.K)
+                  : roundedMatch(A, E, Case.K);
+    if (Match != Case.Match)
+      hlsl_test::LogErrorFmt(L"roundedMatch(0x%x, 0x%x) returned %d",
+                             Case.Actual, Case.Expected, Match);
+    VERIFY_ARE_EQUAL(Case.Match, Match);
+  }
 }
 
 static bool matrixArithmeticNeeds16BitTypes(ComponentType CompType) {
@@ -7828,11 +7926,10 @@ buildMatrixMultiplyCompilerArgs(const MatrixMultiplyCase &Case,
   return SS.str();
 }
 
-static bool
-verifyMatrixArithmeticMatrix(const void *Actual, size_t ActualSize,
-                             const MatrixParams &Params,
-                             const std::vector<int64_t> &ExpectedValues,
-                             const std::wstring &PublicRule, bool Verbose) {
+static bool verifyMatrixArithmeticMatrix(
+    const void *Actual, size_t ActualSize, const MatrixParams &Params,
+    const std::vector<int64_t> &ExpectedValues, const std::wstring &PublicRule,
+    bool Verbose, MatrixDim RoundedK = 0) {
   const std::optional<std::vector<BYTE>> ExpectedBuffer =
       cpu_oracle::encodeLogicalMatrixBuffer(Params, ExpectedValues);
   VERIFY_IS_TRUE(ExpectedBuffer.has_value());
@@ -7851,6 +7948,11 @@ verifyMatrixArithmeticMatrix(const void *Actual, size_t ActualSize,
   VERIFY_IS_TRUE(Expected.has_value());
   if (!Expected)
     return false;
+
+  // The multiply results are packed row-major, so they compare in place.
+  if (RoundedK != 0 && ActualSize == Params.totalBytes())
+    return verifyRoundedValues(Actual, Expected->Values, RoundedK);
+  VERIFY_ARE_EQUAL(RoundedK, 0u, "Rounded comparison needs a packed result");
 
   const cpu_oracle::MatrixResultOracle Oracle =
       cpu_oracle::exactResult(*Expected, PublicRule);
@@ -7947,9 +8049,10 @@ static void runMatrixMultiplyCase(ID3D12Device *Device,
 
   MappedData OutData;
   Result->Test->GetReadBackData("Output", &OutData);
-  VERIFY_IS_TRUE(verifyMatrixArithmeticMatrix(OutData.data(), OutData.size(),
-                                              Accumulator, Expected,
-                                              Case.PublicRule, Verbose));
+  VERIFY_IS_TRUE(verifyMatrixArithmeticMatrix(
+      OutData.data(), OutData.size(), Accumulator, Expected, Case.PublicRule,
+      Verbose,
+      /*RoundedK=*/Case.AccumulatorType != ComponentType::I32 ? Case.K : 0));
 }
 
 static void runWaveMultiplyCase(ID3D12Device *Device,
@@ -7993,12 +8096,12 @@ makeRectangularF16WaveMultiplyCase(MatrixDim M, ComponentType AccumulatorType,
     Case.AccumulatorValues =
         makeMatrixArithmeticPattern(Case.M, Case.N, 2, 1, 5, 2);
     Case.PublicRule =
-        L"Exact non-uniform F16 product plus an independent F32 accumulator";
+        L"Non-uniform F16 product plus an independent F32 accumulator";
   } else if (AccumulatorType == ComponentType::F32) {
     Case.PublicRule =
-        L"Exact non-uniform F16 matrix product stored in an F32 accumulator";
+        L"Non-uniform F16 matrix product stored in an F32 accumulator";
   } else {
-    Case.PublicRule = L"Exact non-uniform rectangular F16 matrix product";
+    Case.PublicRule = L"Non-uniform rectangular F16 matrix product";
   }
   return Case;
 }
@@ -8112,7 +8215,7 @@ makeF16MultiplyCase(MatrixDim M, MatrixDim K, MatrixDim N,
   Case.MatrixBValues = makeMatrixArithmeticPattern(K, N, 1, 3, 7, 3);
   if (Case.accumulates())
     Case.AccumulatorValues = makeMatrixArithmeticPattern(M, N, 2, 1, 5, 2);
-  Case.PublicRule = L"Exact non-uniform F16 matrix product";
+  Case.PublicRule = L"Non-uniform F16 matrix product";
   return Case;
 }
 
@@ -8387,15 +8490,15 @@ makeRectangularF16ThreadGroupMultiplyPlan(ComponentType AccumulatorType,
   Plan.KExtentMultiple = 2;
   if (Operation == MatrixMultiplyOperation::MultiplyAccumulate) {
     Plan.PublicRule =
-        L"Exact non-uniform ThreadGroup F16 product plus an independent F32 "
+        L"Non-uniform ThreadGroup F16 product plus an independent F32 "
         L"accumulator";
   } else if (AccumulatorType == ComponentType::F32) {
     Plan.PublicRule =
-        L"Exact non-uniform ThreadGroup F16 matrix product stored in an F32 "
+        L"Non-uniform ThreadGroup F16 matrix product stored in an F32 "
         L"accumulator";
   } else {
     Plan.PublicRule =
-        L"Exact non-uniform ThreadGroup F16 product with rectangular inputs";
+        L"Non-uniform ThreadGroup F16 product with rectangular inputs";
   }
   return Plan;
 }
