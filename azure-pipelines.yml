@@ -234,6 +234,10 @@ stages:
     variables:
       LAVAPIPE_TRIPLET: x64-windows-release
       LAVAPIPE_VCPKG_DIR: '$(Agent.TempDirectory)\vcpkg'
+      # Keep results in their own directory so PublishTestResults does not
+      # crawl the rest of the temp directory (e.g. vcpkg buildtrees, which
+      # contain unreadable symlinks).
+      OFFLOAD_RESULTS_DIR: '$(Agent.TempDirectory)\offload-results'
     strategy:
       matrix:
         spirv_release:
@@ -343,7 +347,8 @@ stages:
       workingDirectory: '$(Agent.TempDirectory)'
 
     - pwsh: |
-        $out = "$(Agent.TempDirectory)/results-d3d12-warp.xml" -replace '\\','/'
+        New-Item -ItemType Directory -Force -Path "$(OFFLOAD_RESULTS_DIR)" | Out-Null
+        $out = "$(OFFLOAD_RESULTS_DIR)/results-d3d12-warp.xml" -replace '\\','/'
         $env:LIT_OPTS = "--xunit-xml-output=$out"
         cmake --build llvm-project/build --target check-hlsl-warp-d3d12
       displayName: 'DirectX offload tests on WARP'
@@ -353,7 +358,8 @@ stages:
     - pwsh: |
         $env:PATH = "$(MESA_BIN);$env:PATH"
         $env:VK_LOADER_DEBUG = "all"
-        $out = "$(Agent.TempDirectory)/results-vk-lavapipe.xml" -replace '\\','/'
+        New-Item -ItemType Directory -Force -Path "$(OFFLOAD_RESULTS_DIR)" | Out-Null
+        $out = "$(OFFLOAD_RESULTS_DIR)/results-vk-lavapipe.xml" -replace '\\','/'
         $env:LIT_OPTS = "--xunit-xml-output=$out"
         cmake --build llvm-project/build --target check-hlsl-vk
       displayName: 'Vulkan offload tests on lavapipe'
@@ -364,4 +370,5 @@ stages:
       condition: succeededOrFailed()
       inputs:
         testResultsFormat: 'JUnit'
-        testResultsFiles: '$(Agent.TempDirectory)/results-*.xml'
+        searchFolder: '$(OFFLOAD_RESULTS_DIR)'
+        testResultsFiles: 'results-*.xml'
