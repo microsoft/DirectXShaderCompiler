@@ -7632,6 +7632,14 @@ Value *DxbcConverter::LoadOperandIndexRelative(
   Value *pValue = nullptr;
 
   switch (OpIndex.m_RelRegType) {
+  case D3D11_SB_OPERAND_TYPE_OUTPUT_CONTROL_POINT_ID: {
+    OP::OpCode OpCode = OP::OpCode::OutputControlPointID;
+    Function *F = m_pOP->GetOpFunc(OpCode, Type::getInt32Ty(m_Ctx));
+    Value *Args[] = {m_pOP->GetU32Const((unsigned)OpCode)};
+    pValue = m_pBuilder->CreateCall(F, Args);
+    break;
+  }
+
   case D3D10_SB_OPERAND_TYPE_TEMP: {
     unsigned Reg = OpIndex.m_RelIndex;
     unsigned Comp = OpIndex.m_ComponentName;
@@ -7667,7 +7675,7 @@ Value *DxbcConverter::LoadOperandIndexRelative(
   }
 
   default:
-    DXASSERT_DXBC(false);
+    IFT(DXC_E_INCORRECT_DXBC);
   }
 
   return pValue;
