@@ -1,10 +1,8 @@
 // RUN: not %dxc -T cs_6_0 -E main -fcgl %s -spirv 2>&1 | FileCheck %s
 
-// vk::ext_decorate_id and vk::ext_decorate_string decorate a value-id target
-// and have no OpFunction-target form, so applying either to a function must be
-// diagnosed rather than silently dropped. Both are placed on one function so a
-// single compilation reports both (translation stops after the first function
-// that errors, so separate functions would only surface one).
+// vk::ext_decorate_id and vk::ext_decorate_string have no OpFunction form and
+// must be diagnosed. Both are on one function because translation stops after
+// the first function with an error.
 
 // CHECK-DAG: error: vk::ext_decorate_id is not supported on functions
 // CHECK-DAG: error: vk::ext_decorate_string is not supported on functions
