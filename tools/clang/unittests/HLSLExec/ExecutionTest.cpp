@@ -47,6 +47,10 @@
 // https://developer.microsoft.com/en-US/windows/downloads/windows-10-sdk
 //
 #include <d3d12.h>
+#ifdef _HLK_CONF
+#include <d3d11sdklayers.h>
+#include <d3ddriververifier.h>
+#endif
 #include <dxgi1_4.h>
 #include <DXGIDebug.h>
 #include "dxc/Support/d3dx12.h"
@@ -187,13 +191,9 @@ static void SavePixelsToFile(LPCVOID pPixels, DXGI_FORMAT format,
   VERIFY_SUCCEEDED(pStream->Commit(STGC_DEFAULT));
 }
 
-MIDL_INTERFACE("0f8258d2-e908-4505-93e4-5c17a11b679c")
-ID3D12DriverVerifier : public IUnknown {
-  virtual void STDMETHODCALLTYPE EnableDriverVerifier() = 0;
-  virtual void STDMETHODCALLTYPE DisableDriverVerifier() = 0;
-};
 
 static void setDriverVerifierEnabled(bool Enabled) {
+  #ifdef _HLK_CONF
   CComPtr<ID3D12DriverVerifier> DriverVerifier;
   HRESULT HR = D3D12GetDebugInterface(IID_PPV_ARGS(&DriverVerifier));
   if (FAILED(HR)) {
@@ -208,6 +208,7 @@ static void setDriverVerifierEnabled(bool Enabled) {
     DriverVerifier->DisableDriverVerifier();
     LogCommentFmt(L"DriverVerifier disabled.");
   }
+  #endif // _HLK_CONF
 }
 
 class ExecutionTest {
@@ -956,11 +957,13 @@ public:
 
       D3D12SDK = D3D12SDKSelector();
 
+#ifdef _HLK_CONF
       // Off by default because it's broken for DXR state objects.
       bool EnableVerifier = false;
       WEX::TestExecution::RuntimeParameters::TryGetValue(L"DriverVerifier",
                                                          EnableVerifier);
       setDriverVerifierEnabled(EnableVerifier);
+#endif
     }
 
     return true;
