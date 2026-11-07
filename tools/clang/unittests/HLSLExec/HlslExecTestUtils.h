@@ -433,6 +433,7 @@ public:
   bool createDevice(ID3D12Device **D3DDevice,
                     D3D_SHADER_MODEL TestModel = D3D_SHADER_MODEL_6_0,
                     bool SkipUnsupported = true);
+  ID3D12DeviceFactory *getDeviceFactory() const { return DeviceFactory; }
 };
 
 bool isWarp(ID3D12Device *D3DDevice);

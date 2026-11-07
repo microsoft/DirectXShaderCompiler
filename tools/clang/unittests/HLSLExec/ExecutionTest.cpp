@@ -29,6 +29,7 @@
 #include <sstream>
 #include <iomanip>
 #include <iostream>
+#include "dxc/Support/WinIncludes.h"
 #include <Shlwapi.h>
 #include <atlcoll.h>
 #include <locale>
@@ -38,7 +39,6 @@
 
 #undef _read
 #include "dxc/Support/Global.h"
-#include "dxc/Support/WinIncludes.h"
 #include "dxc/Test/HlslTestUtils.h"
 
 //
@@ -46,10 +46,16 @@
 // https://msdn.microsoft.com/en-us/library/windows/desktop/dn899120(v=vs.85).aspx
 // https://developer.microsoft.com/en-US/windows/downloads/windows-10-sdk
 //
-#include <d3d12.h>
 #ifdef _HLK_CONF
+// The OS build's private d3d12p.h is a superset of d3d12.h that also declares
+// CLSID_D3D12DriverVerifier. It cannot be combined with d3d12.h, so it is
+// included in its place. d3ddriververifier.h requires d3d11sdklayers.h first.
+#include <initguid.h>
+#include <d3d12p.h>
 #include <d3d11sdklayers.h>
 #include <d3ddriververifier.h>
+#else
+#include <d3d12.h>
 #endif
 #include <dxgi1_4.h>
 #include <DXGIDebug.h>
@@ -191,25 +197,36 @@ static void SavePixelsToFile(LPCVOID pPixels, DXGI_FORMAT format,
   VERIFY_SUCCEEDED(pStream->Commit(STGC_DEFAULT));
 }
 
-
-static void setDriverVerifierEnabled(bool Enabled) {
-  #ifdef _HLK_CONF
+#ifdef _HLK_CONF
+// An ID3D12DeviceFactory hosts its own D3D12Core, so the verifier must be
+// configured through the factory that creates the test devices. The
+// process-global runtime is only used when there is no factory.
+static void setDriverVerifierEnabled(ID3D12DeviceFactory *DeviceFactory,
+                                     bool Enabled) {
   CComPtr<ID3D12DriverVerifier> DriverVerifier;
-  HRESULT HR = D3D12GetDebugInterface(IID_PPV_ARGS(&DriverVerifier));
+  HRESULT HR;
+  if (DeviceFactory)
+    HR = DeviceFactory->GetConfigurationInterface(
+        CLSID_D3D12DriverVerifier, IID_PPV_ARGS(&DriverVerifier));
+  else
+    HR = D3D12GetDebugInterface(IID_PPV_ARGS(&DriverVerifier));
+
+  const wchar_t *Target = DeviceFactory ? L" on device factory" : L"";
   if (FAILED(HR)) {
-    LogCommentFmt(L"Unable to enable/disable DriverVerifier - 0x%08x.", HR);
+    LogCommentFmt(L"Unable to enable/disable DriverVerifier%s - 0x%08x.",
+                  Target, HR);
     return;
   }
 
   if (Enabled) {
     DriverVerifier->EnableDriverVerifier();
-    LogCommentFmt(L"DriverVerifier enabled.");
+    LogCommentFmt(L"DriverVerifier enabled%s.", Target);
   } else {
     DriverVerifier->DisableDriverVerifier();
-    LogCommentFmt(L"DriverVerifier disabled.");
+    LogCommentFmt(L"DriverVerifier disabled%s.", Target);
   }
-  #endif // _HLK_CONF
 }
+#endif // _HLK_CONF
 
 class ExecutionTest {
 public:
@@ -962,7 +979,7 @@ public:
       bool EnableVerifier = false;
       WEX::TestExecution::RuntimeParameters::TryGetValue(L"DriverVerifier",
                                                          EnableVerifier);
-      setDriverVerifierEnabled(EnableVerifier);
+      setDriverVerifierEnabled(D3D12SDK->getDeviceFactory(), EnableVerifier);
 #endif
     }
 
