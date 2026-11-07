@@ -29,7 +29,6 @@
 #include <sstream>
 #include <iomanip>
 #include <iostream>
-#include "dxc/Support/WinIncludes.h"
 #include <Shlwapi.h>
 #include <atlcoll.h>
 #include <locale>
@@ -39,6 +38,7 @@
 
 #undef _read
 #include "dxc/Support/Global.h"
+#include "dxc/Support/WinIncludes.h"
 #include "dxc/Test/HlslTestUtils.h"
 
 //
