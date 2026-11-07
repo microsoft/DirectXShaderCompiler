@@ -11,7 +11,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 // We need to keep & fix these warnings to integrate smoothly with HLK
-#pragma warning(error : 4100 4242 4244 4267 4701 4389 4018)
+#pragma warning(error : 4100 4146 4242 4244 4267 4701 4389 4018)
 
 // *** THIS FILE CANNOT TAKE ANY LLVM DEPENDENCIES  *** //
 
@@ -28,8 +28,8 @@
 #include <unordered_set>
 #include <sstream>
 #include <iomanip>
-#include "dxc/Test/CompilationResult.h"
-#include "dxc/Test/HLSLTestData.h"
+#include <iostream>
+#include "dxc/Support/WinIncludes.h"
 #include <Shlwapi.h>
 #include <atlcoll.h>
 #include <locale>
@@ -38,19 +38,25 @@
 #include <bitset>
 
 #undef _read
-#include "dxc/Test/DxcTestUtils.h"
 #include "dxc/Support/Global.h"
-#include "dxc/Support/WinIncludes.h"
 #include "dxc/Test/HlslTestUtils.h"
-#include "dxc/Support/FileIOHelper.h"
-#include "dxc/Support/Unicode.h"
 
 //
 // d3d12.h and dxgi1_4.h are included in the Windows 10 SDK
 // https://msdn.microsoft.com/en-us/library/windows/desktop/dn899120(v=vs.85).aspx
 // https://developer.microsoft.com/en-US/windows/downloads/windows-10-sdk
 //
+#ifdef _HLK_CONF
+// The OS build's private d3d12p.h is a superset of d3d12.h that also declares
+// CLSID_D3D12DriverVerifier. It cannot be combined with d3d12.h, so it is
+// included in its place. d3ddriververifier.h requires d3d11sdklayers.h first.
+#include <initguid.h>
+#include <d3d12p.h>
+#include <d3d11sdklayers.h>
+#include <d3ddriververifier.h>
+#else
 #include <d3d12.h>
+#endif
 #include <dxgi1_4.h>
 #include <DXGIDebug.h>
 #include "dxc/Support/d3dx12.h"
@@ -69,6 +75,11 @@
 #pragma comment(lib, "windowscodecs.lib")
 #pragma comment(lib, "dxguid.lib")
 #pragma comment(lib, "version.lib")
+
+// HLK waivers match on the DxilConfTest class name.
+#ifdef _HLK_CONF
+#define ExecutionTest DxilConfTest
+#endif
 
 using namespace DirectX;
 using namespace hlsl_test;
@@ -186,6 +197,37 @@ static void SavePixelsToFile(LPCVOID pPixels, DXGI_FORMAT format,
   VERIFY_SUCCEEDED(pStream->Commit(STGC_DEFAULT));
 }
 
+#ifdef _HLK_CONF
+// An ID3D12DeviceFactory hosts its own D3D12Core, so the verifier must be
+// configured through the factory that creates the test devices. The
+// process-global runtime is only used when there is no factory.
+static void setDriverVerifierEnabled(ID3D12DeviceFactory *DeviceFactory,
+                                     bool Enabled) {
+  CComPtr<ID3D12DriverVerifier> DriverVerifier;
+  HRESULT HR;
+  if (DeviceFactory)
+    HR = DeviceFactory->GetConfigurationInterface(
+        CLSID_D3D12DriverVerifier, IID_PPV_ARGS(&DriverVerifier));
+  else
+    HR = D3D12GetDebugInterface(IID_PPV_ARGS(&DriverVerifier));
+
+  const wchar_t *Target = DeviceFactory ? L" on device factory" : L"";
+  if (FAILED(HR)) {
+    LogCommentFmt(L"Unable to enable/disable DriverVerifier%s - 0x%08x.",
+                  Target, HR);
+    return;
+  }
+
+  if (Enabled) {
+    DriverVerifier->EnableDriverVerifier();
+    LogCommentFmt(L"DriverVerifier enabled%s.", Target);
+  } else {
+    DriverVerifier->DisableDriverVerifier();
+    LogCommentFmt(L"DriverVerifier disabled%s.", Target);
+  }
+}
+#endif // _HLK_CONF
+
 class ExecutionTest {
 public:
   BEGIN_TEST_CLASS(ExecutionTest)
@@ -200,50 +242,394 @@ public:
 
   TEST_METHOD(BasicTriangleOpTestHalf);
 
-  TEST_METHOD(OutOfBoundsTest);
-  TEST_METHOD(SaturateTest);
-  TEST_METHOD(SignTest);
-  TEST_METHOD(Int64Test);
-  TEST_METHOD(LifetimeIntrinsicTest)
+  BEGIN_TEST_METHOD(OutOfBoundsTest)
+  TEST_METHOD_PROPERTY(L"Kits.Description", L"Verifies basic OutOfBoundsTest.")
+  TEST_METHOD_PROPERTY(L"Kits.TestId", L"3d8f4e73-d840-4582-8182-8996f717ebac")
+  TEST_METHOD_PROPERTY(L"Kits.TestName",
+                       L"D3D12 - DXIL Core Test - Basic OutOfBoundsTest")
+  TEST_METHOD_PROPERTY(L"Kits.Specification",
+                       L"Device.Graphics.WDDM22.AdapterRender.D3D12.DXILCore."
+                       L"ShaderModel60.CoreRequirement")
+  END_TEST_METHOD()
+  BEGIN_TEST_METHOD(SaturateTest)
+  TEST_METHOD_PROPERTY(L"Kits.Description",
+                       L"Verifies the saturate instruction.")
+  TEST_METHOD_PROPERTY(L"Kits.TestId", L"f1d6cd38-d89c-47d2-bfb4-2e17b94b4d0f")
+  TEST_METHOD_PROPERTY(L"Kits.TestName",
+                       L"D3D12 - DXIL Core Test - Saturate instruction test")
+  TEST_METHOD_PROPERTY(L"Kits.Specification",
+                       L"Device.Graphics.WDDM22.AdapterRender.D3D12.DXILCore."
+                       L"ShaderModel60.CoreRequirement")
+  END_TEST_METHOD()
+  BEGIN_TEST_METHOD(SignTest)
+  TEST_METHOD_PROPERTY(L"Kits.Description", L"Verifies basic sign.")
+  TEST_METHOD_PROPERTY(L"Kits.TestId", L"4827868d-b4c5-408a-841a-6f8336bb1605")
+  TEST_METHOD_PROPERTY(L"Kits.TestName",
+                       L"D3D12 - DXIL Core Test - Sign instruction test")
+  TEST_METHOD_PROPERTY(L"Kits.Specification",
+                       L"Device.Graphics.WDDM22.AdapterRender.D3D12.DXILCore."
+                       L"ShaderModel60.CoreRequirement")
+  END_TEST_METHOD()
+  BEGIN_TEST_METHOD(Int64Test)
+  TEST_METHOD_PROPERTY(L"Kits.Description", L"Verifies basic 64-bit int usage.")
+  TEST_METHOD_PROPERTY(L"Kits.TestId", L"969d000a-d972-43fb-abc5-9ed622bfb392")
+  TEST_METHOD_PROPERTY(L"Kits.TestName",
+                       L"D3D12 - DXIL Core Test - Basic 64-bit int test")
+  TEST_METHOD_PROPERTY(
+      L"Kits.Specification",
+      L"Device.Graphics.WDDM22.AdapterRender.D3D12.DXIL.Int64.CoreRequirement")
+  END_TEST_METHOD()
+  BEGIN_TEST_METHOD(LifetimeIntrinsicTest)
+  TEST_METHOD_PROPERTY(L"Kits.Description", L"Verifies lifetime intrinrics")
+  TEST_METHOD_PROPERTY(L"Kits.TestId", L"382d7ad4-cdf3-49cb-a622-3cb346b489f9")
+  TEST_METHOD_PROPERTY(L"Kits.TestName",
+                       L"D3D12 - DXIL Core Test - Lifetime intrinsics markers")
+  TEST_METHOD_PROPERTY(L"Kits.Specification",
+                       L"Device.Graphics.WDDM22.AdapterRender.D3D12.DXILCore."
+                       L"ShaderModel60.CoreRequirement")
+  END_TEST_METHOD()
   TEST_METHOD(WaveIntrinsicsTest);
   TEST_METHOD(WaveIntrinsicsDDITest);
-  TEST_METHOD(WaveIntrinsicsInPSTest);
-  TEST_METHOD(WaveSizeTest);
-  TEST_METHOD(WaveSizeRangeTest);
+  BEGIN_TEST_METHOD(WaveIntrinsicsInPSTest)
+  TEST_METHOD_PROPERTY(L"Kits.Description",
+                       L"Verifies basic wave intrinsics under pixel shader.")
+  TEST_METHOD_PROPERTY(L"Kits.TestId", L"d4b93ce1-0f21-41bd-9a00-0ad2772aac56")
+  TEST_METHOD_PROPERTY(L"Kits.TestName",
+                       L"D3D12 - DXIL Wave Op Test - WaveIntrinsicsInPSTest")
+  TEST_METHOD_PROPERTY(L"Kits.Specification",
+                       L"Device.Graphics.WDDM22.AdapterRender.D3D12.DXIL."
+                       L"WaveOps.CoreRequirement")
+  END_TEST_METHOD()
+  BEGIN_TEST_METHOD(WaveSizeTest)
+  TEST_METHOD_PROPERTY(L"Kits.Description",
+                       L"Verifies shader model 6.6 WaveSize attribute")
+  TEST_METHOD_PROPERTY(L"Kits.TestId", L"a57f83a9-ddea-4b6d-a625-bac5642944d3")
+  TEST_METHOD_PROPERTY(L"Kits.TestName",
+                       L"D3D12 - DXIL Core Test - Shader Model 6.6 - WaveSize")
+  TEST_METHOD_PROPERTY(L"Kits.Specification",
+                       L"Device.Graphics.WDDM30.AdapterRender.D3D12.DXILCore."
+                       L"ShaderModel66.CoreRequirement")
+  END_TEST_METHOD()
+  BEGIN_TEST_METHOD(WaveSizeRangeTest)
+  TEST_METHOD_PROPERTY(L"Kits.Description",
+                       L"Verifies shader model 6.8 WaveSizeRange attribute")
+  TEST_METHOD_PROPERTY(L"Kits.TestId", L"df933b47-3016-4362-b764-d98ff9eeb486")
+  TEST_METHOD_PROPERTY(
+      L"Kits.TestName",
+      L"D3D12 - DXIL Core Test - Shader Model 6.8 - WaveSizeRange")
+  TEST_METHOD_PROPERTY(L"Kits.Specification",
+                       L"Device.Graphics.WDDM30.AdapterRender.D3D12.DXILCore."
+                       L"ShaderModel68.CoreRequirement")
+  END_TEST_METHOD()
   // TODO(#8661): Remove me when GroupSharedLimit is available in a released
   // Windows SDK.
 #if defined(HLSLEXEC_GROUPSHARED_LIMITS)
-  TEST_METHOD(GroupSharedLimitTest);
-  TEST_METHOD(GroupSharedLimitASTest);
-  TEST_METHOD(GroupSharedLimitMSTest);
+  BEGIN_TEST_METHOD(GroupSharedLimitTest)
+  TEST_METHOD_PROPERTY(
+      L"Kits.Description",
+      L"Verifies the GroupSharedLimit attribute in compute shaders")
+  TEST_METHOD_PROPERTY(L"Kits.TestId", L"d2e96368-77f8-44db-a3dc-301e6ad08758")
+  TEST_METHOD_PROPERTY(L"Kits.TestName",
+                       L"D3D12 - DXIL Core Test - Shader Model 6.10 - "
+                       L"GroupSharedLimit (compute)")
+  TEST_METHOD_PROPERTY(
+      L"Kits.Specification",
+      L"Device.Graphics.D3D12.DXILCore.ShaderModel610.CoreRequirement")
+  END_TEST_METHOD()
+  BEGIN_TEST_METHOD(GroupSharedLimitASTest)
+  TEST_METHOD_PROPERTY(
+      L"Kits.Description",
+      L"Verifies the GroupSharedLimit attribute in amplification shaders")
+  TEST_METHOD_PROPERTY(L"Kits.TestId", L"736c4f87-0656-4cf6-ad6a-bc625053740d")
+  TEST_METHOD_PROPERTY(L"Kits.TestName",
+                       L"D3D12 - DXIL Core Test - Shader Model 6.10 - "
+                       L"GroupSharedLimit (amplification)")
+  TEST_METHOD_PROPERTY(
+      L"Kits.Specification",
+      L"Device.Graphics.D3D12.DXILCore.ShaderModel610.CoreRequirement")
+  END_TEST_METHOD()
+  BEGIN_TEST_METHOD(GroupSharedLimitMSTest)
+  TEST_METHOD_PROPERTY(
+      L"Kits.Description",
+      L"Verifies the GroupSharedLimit attribute in mesh shaders")
+  TEST_METHOD_PROPERTY(L"Kits.TestId", L"84616150-e5bc-4831-812d-96418457a0e6")
+  TEST_METHOD_PROPERTY(
+      L"Kits.TestName",
+      L"D3D12 - DXIL Core Test - Shader Model 6.10 - GroupSharedLimit (mesh)")
+  TEST_METHOD_PROPERTY(
+      L"Kits.Specification",
+      L"Device.Graphics.D3D12.DXILCore.ShaderModel610.CoreRequirement")
+  END_TEST_METHOD()
 #endif // defined(HLSLEXEC_GROUPSHARED_LIMITS)
-  TEST_METHOD(GroupWaveIndexTest);
-  TEST_METHOD(PartialDerivTest);
-  TEST_METHOD(DerivativesTest);
-  TEST_METHOD(ComputeSampleTest);
-  TEST_METHOD(ATOProgOffset);
-  TEST_METHOD(ATOSampleCmpLevelTest);
-  TEST_METHOD(ATOWriteMSAATest);
-  TEST_METHOD(ATORawGather);
-  TEST_METHOD(AtomicsTest);
-  TEST_METHOD(Atomics64Test);
-  TEST_METHOD(AtomicsRawHeap64Test);
-  TEST_METHOD(AtomicsTyped64Test);
-  TEST_METHOD(AtomicsShared64Test);
-  TEST_METHOD(AtomicsFloatTest);
-  TEST_METHOD(HelperLaneTest);
-  TEST_METHOD(HelperLaneTestWave);
-  TEST_METHOD(SignatureResourcesTest)
-  TEST_METHOD(DynamicResourcesTest)
-  TEST_METHOD(DynamicResourcesDynamicIndexingTest)
+  BEGIN_TEST_METHOD(GroupWaveIndexTest)
+  TEST_METHOD_PROPERTY(L"Kits.Description",
+                       L"Verifies the GetGroupWaveIndex and GetGroupWaveCount "
+                       L"intrinsics in compute shaders")
+  TEST_METHOD_PROPERTY(L"Kits.TestId", L"c3f60f00-8e91-4acb-b4be-9f483fbe836b")
+  TEST_METHOD_PROPERTY(
+      L"Kits.TestName",
+      L"D3D12 - DXIL Core Test - Shader Model 6.10 - GroupWaveIndex")
+  TEST_METHOD_PROPERTY(
+      L"Kits.Specification",
+      L"Device.Graphics.D3D12.DXILCore.ShaderModel610.CoreRequirement")
+  END_TEST_METHOD()
+  BEGIN_TEST_METHOD(PartialDerivTest)
+  TEST_METHOD_PROPERTY(
+      L"Kits.Description",
+      L"Verifies partial derivative intrinsics under pixel shader.")
+  TEST_METHOD_PROPERTY(L"Kits.TestId", L"b190893f-ae70-4d34-85b9-a20248e76f40")
+  TEST_METHOD_PROPERTY(
+      L"Kits.TestName",
+      L"D3D12 - DXIL Core Test - Basic partial derivative test")
+  TEST_METHOD_PROPERTY(L"Kits.Specification",
+                       L"Device.Graphics.WDDM22.AdapterRender.D3D12.DXILCore."
+                       L"ShaderModel60.CoreRequirement")
+  END_TEST_METHOD()
+  BEGIN_TEST_METHOD(DerivativesTest)
+  TEST_METHOD_PROPERTY(L"Kits.Description",
+                       L"Verifies shader model 6.6 derivative operations in "
+                       L"compute, mesh and amplification shaders")
+  TEST_METHOD_PROPERTY(L"Kits.TestId", L"c5e7c498-d3bd-4219-907e-e6d030bf59f7")
+  TEST_METHOD_PROPERTY(
+      L"Kits.TestName",
+      L"D3D12 - DXIL Core Test - Shader Model 6.6 - Derivatives")
+  TEST_METHOD_PROPERTY(L"Kits.Specification",
+                       L"Device.Graphics.WDDM30.AdapterRender.D3D12.DXILCore."
+                       L"ShaderModel66.CoreRequirement")
+  END_TEST_METHOD()
+  BEGIN_TEST_METHOD(ComputeSampleTest)
+  TEST_METHOD_PROPERTY(
+      L"Kits.Description",
+      L"Verifies sample operations in compute and mesh shaders")
+  TEST_METHOD_PROPERTY(L"Kits.TestId", L"2b74e0c5-839e-4327-b878-60d6de8341c6")
+  TEST_METHOD_PROPERTY(L"Kits.TestName",
+                       L"D3D12 - DXIL Core Test - Shader Model 6.6 - Sample in "
+                       L"compute and mesh shaders")
+  TEST_METHOD_PROPERTY(L"Kits.Specification",
+                       L"Device.Graphics.WDDM30.AdapterRender.D3D12.DXILCore."
+                       L"ShaderModel66.CoreRequirement")
+  END_TEST_METHOD()
+  BEGIN_TEST_METHOD(ATOProgOffset)
+  TEST_METHOD_PROPERTY(
+      L"Kits.Description",
+      L"Verifies Programmable Sample*/Load Offsets (Advanced Texture Ops)")
+  TEST_METHOD_PROPERTY(L"Kits.TestId", L"2b81a42d-cb1b-42d4-84ea-c2bdd94a760c")
+  TEST_METHOD_PROPERTY(L"Kits.TestName",
+                       L"D3D12 - DXIL Core Test - Shader Model 6.7 - "
+                       L"Programmable Sample Offsets ")
+  TEST_METHOD_PROPERTY(L"Kits.Specification",
+                       L"Device.Graphics.WDDM31.AdapterRender.D3D12.DXILCore."
+                       L"ShaderModel67.CoreRequirement")
+  END_TEST_METHOD()
+  BEGIN_TEST_METHOD(ATOSampleCmpLevelTest)
+  TEST_METHOD_PROPERTY(L"Kits.Description",
+                       L"Verifies SampleCmpLevel (Advanced Texture Ops)")
+  TEST_METHOD_PROPERTY(L"Kits.TestId", L"485026f3-192e-4dd0-8965-1889929c3ebb")
+  TEST_METHOD_PROPERTY(
+      L"Kits.TestName",
+      L"D3D12 - DXIL Core Test - Shader Model 6.7 - SampleCmpLevel")
+  TEST_METHOD_PROPERTY(L"Kits.Specification",
+                       L"Device.Graphics.WDDM31.AdapterRender.D3D12.DXILCore."
+                       L"ShaderModel67.CoreRequirement")
+  END_TEST_METHOD()
+  BEGIN_TEST_METHOD(ATOWriteMSAATest)
+  TEST_METHOD_PROPERTY(L"Kits.Description",
+                       L"Verifies Writable MSAA (Advanced Texture Ops)")
+  TEST_METHOD_PROPERTY(L"Kits.TestId", L"e4841e1f-e969-41d0-bfb6-a53bb714df84")
+  TEST_METHOD_PROPERTY(
+      L"Kits.TestName",
+      L"D3D12 - DXIL Core Test - Shader Model 6.7 - Writable MSAA")
+  TEST_METHOD_PROPERTY(L"Kits.Specification",
+                       L"Device.Graphics.WDDM31.AdapterRender.D3D12.DXILCore."
+                       L"ShaderModel67.CoreRequirement")
+  END_TEST_METHOD()
+  BEGIN_TEST_METHOD(ATORawGather)
+  TEST_METHOD_PROPERTY(L"Kits.Description",
+                       L"Verifies GatherRaw (Advanced Texture Ops)")
+  TEST_METHOD_PROPERTY(L"Kits.TestId", L"45999098-b007-4778-a574-c2d30c54a1aa")
+  TEST_METHOD_PROPERTY(L"Kits.TestName",
+                       L"D3D12 - DXIL Core Test - Shader Model 6.7 - GatherRaw")
+  TEST_METHOD_PROPERTY(L"Kits.Specification",
+                       L"Device.Graphics.WDDM31.AdapterRender.D3D12.DXILCore."
+                       L"ShaderModel67.CoreRequirement")
+  END_TEST_METHOD()
+  BEGIN_TEST_METHOD(AtomicsTest)
+  TEST_METHOD_PROPERTY(L"Kits.Description",
+                       L"Verifies 32-bit integer atomic operations")
+  TEST_METHOD_PROPERTY(L"Kits.TestId", L"84eb9d7e-81d6-45b5-b967-c128862b0c56")
+  TEST_METHOD_PROPERTY(
+      L"Kits.TestName",
+      L"D3D12 - DXIL Core Test - Shader Model 6.6 - Atomics (32-bit integer)")
+  TEST_METHOD_PROPERTY(L"Kits.Specification",
+                       L"Device.Graphics.WDDM22.AdapterRender.D3D12.DXILCore."
+                       L"ShaderModel60.CoreRequirement")
+  END_TEST_METHOD()
+  BEGIN_TEST_METHOD(Atomics64Test)
+  TEST_METHOD_PROPERTY(
+      L"Kits.Description",
+      L"Verifies shader model 6.6 atomic operations on 64-bit integers")
+  TEST_METHOD_PROPERTY(L"Kits.TestId", L"50a5ddb9-25ff-4c7b-b438-6cc6346a1531")
+  TEST_METHOD_PROPERTY(
+      L"Kits.TestName",
+      L"D3D12 - DXIL Core Test - Shader Model 6.6 - Atomics (64-bit integer)")
+  TEST_METHOD_PROPERTY(L"Kits.Specification",
+                       L"Device.Graphics.WDDM30.AdapterRender.D3D12.DXILCore."
+                       L"ShaderModel66.CoreRequirement")
+  END_TEST_METHOD()
+  BEGIN_TEST_METHOD(AtomicsRawHeap64Test)
+  TEST_METHOD_PROPERTY(L"Kits.Description",
+                       L"Verifies shader model 6.6 atomics using raw buffers "
+                       L"from the descriptor heap")
+  TEST_METHOD_PROPERTY(L"Kits.TestId", L"38a50fa1-7611-435b-a199-78fd285db21e")
+  TEST_METHOD_PROPERTY(L"Kits.TestName",
+                       L"D3D12 - DXIL Core Test - Shader Model 6.6 - Atomics "
+                       L"64-bit raw heap test")
+  TEST_METHOD_PROPERTY(L"Kits.Specification",
+                       L"Device.Graphics.WDDM30.AdapterRender.D3D12.DXILCore."
+                       L"ShaderModel66.CoreRequirement")
+  END_TEST_METHOD()
+  BEGIN_TEST_METHOD(AtomicsTyped64Test)
+  TEST_METHOD_PROPERTY(
+      L"Kits.Description",
+      L"Verifies shader model 6.6 atomic operations on typed 64-bit resources")
+  TEST_METHOD_PROPERTY(L"Kits.TestId", L"4b67b299-3c80-4301-b968-64022826782c")
+  TEST_METHOD_PROPERTY(L"Kits.TestName",
+                       L"D3D12 - DXIL Core Test - Shader Model 6.6 - Atomics "
+                       L"(typed 64-bit resources)")
+  TEST_METHOD_PROPERTY(L"Kits.Specification",
+                       L"Device.Graphics.WDDM30.AdapterRender.D3D12.DXILCore."
+                       L"ShaderModel66.CoreRequirement")
+  END_TEST_METHOD()
+  BEGIN_TEST_METHOD(AtomicsShared64Test)
+  TEST_METHOD_PROPERTY(L"Kits.Description",
+                       L"Verifies shader model 6.6 atomic operations on "
+                       L"groupshared 64-bit variables")
+  TEST_METHOD_PROPERTY(L"Kits.TestId", L"444c06ae-7957-496e-ae04-d668454e1d34")
+  TEST_METHOD_PROPERTY(L"Kits.TestName",
+                       L"D3D12 - DXIL Core Test - Shader Model 6.6 - Atomics "
+                       L"(groupshared 64-bit variables)")
+  TEST_METHOD_PROPERTY(L"Kits.Specification",
+                       L"Device.Graphics.WDDM30.AdapterRender.D3D12.DXILCore."
+                       L"ShaderModel66.CoreRequirement")
+  END_TEST_METHOD()
+  BEGIN_TEST_METHOD(AtomicsFloatTest)
+  TEST_METHOD_PROPERTY(
+      L"Kits.Description",
+      L"Verifies shader model 6.6 floating point atomic operations")
+  TEST_METHOD_PROPERTY(L"Kits.TestId", L"23f41361-f8f5-4267-b948-b00e0bdab593")
+  TEST_METHOD_PROPERTY(
+      L"Kits.TestName",
+      L"D3D12 - DXIL Core Test - Shader Model 6.6 - Atomics (float)")
+  TEST_METHOD_PROPERTY(L"Kits.Specification",
+                       L"Device.Graphics.WDDM30.AdapterRender.D3D12.DXILCore."
+                       L"ShaderModel66.CoreRequirement")
+  END_TEST_METHOD()
+  BEGIN_TEST_METHOD(HelperLaneTest)
+  TEST_METHOD_PROPERTY(L"Kits.Description", L"Verifies IsHelperLane intrinsic")
+  TEST_METHOD_PROPERTY(L"Kits.TestId", L"d8b209a0-d976-48ca-bc9e-047d2a0075f2")
+  TEST_METHOD_PROPERTY(
+      L"Kits.TestName",
+      L"D3D12 - DXIL Core Test - Shader Model 6.6 - IsHelperLane")
+  TEST_METHOD_PROPERTY(L"Kits.Specification",
+                       L"Device.Graphics.WDDM30.AdapterRender.D3D12.DXILCore."
+                       L"ShaderModel66.CoreRequirement")
+  END_TEST_METHOD()
+  BEGIN_TEST_METHOD(HelperLaneTestWave)
+  TEST_METHOD_PROPERTY(L"Kits.Description",
+                       L"Verifies helper lanes in wave operations")
+  TEST_METHOD_PROPERTY(L"Kits.TestId", L"b48c35c6-44cd-4f68-9a71-eb500fa585b8")
+  TEST_METHOD_PROPERTY(L"Kits.TestName",
+                       L"D3D12 - DXIL Core Test - Shader Model 6.6 - Helper "
+                       L"Lanes in Wave Operations")
+  TEST_METHOD_PROPERTY(L"Kits.Specification",
+                       L"Device.Graphics.WDDM30.AdapterRender.D3D12.DXILCore."
+                       L"ShaderModel66.CoreRequirement")
+  END_TEST_METHOD()
+  BEGIN_TEST_METHOD(SignatureResourcesTest)
+  TEST_METHOD_PROPERTY(L"Kits.Description",
+                       L"Verifies shader model 6.6 signature resources")
+  TEST_METHOD_PROPERTY(L"Kits.TestId", L"44e432d8-52da-4309-b3e0-cf06048baac6")
+  TEST_METHOD_PROPERTY(
+      L"Kits.TestName",
+      L"D3D12 - DXIL Core Test - Shader Model 6.6 - Signature resources")
+  TEST_METHOD_PROPERTY(L"Kits.Specification",
+                       L"Device.Graphics.WDDM30.AdapterRender.D3D12.DXILCore."
+                       L"ShaderModel66.CoreRequirement")
+  END_TEST_METHOD()
+  BEGIN_TEST_METHOD(DynamicResourcesTest)
+  TEST_METHOD_PROPERTY(L"Kits.Description",
+                       L"Verifies shader model 6.6 dynamic resources")
+  TEST_METHOD_PROPERTY(L"Kits.TestId", L"b9ac94b3-a96e-412b-9101-ff731697823c")
+  TEST_METHOD_PROPERTY(
+      L"Kits.TestName",
+      L"D3D12 - DXIL Core Test - Shader Model 6.6 - Dynamic resources")
+  TEST_METHOD_PROPERTY(L"Kits.Specification",
+                       L"Device.Graphics.WDDM30.AdapterRender.D3D12.DXILCore."
+                       L"ShaderModel66.CoreRequirement")
+  END_TEST_METHOD()
+  BEGIN_TEST_METHOD(DynamicResourcesDynamicIndexingTest)
+  TEST_METHOD_PROPERTY(L"Kits.Description",
+                       L"Verifies dynamic indexing of dynamic resources")
+  TEST_METHOD_PROPERTY(L"Kits.TestId", L"cb131b0c-c2aa-4a7f-be38-dfa94c0556d3")
+  TEST_METHOD_PROPERTY(L"Kits.TestName",
+                       L"D3D12 - DXIL Core Test - Shader Model 6.6 - Dynamic "
+                       L"indexing of dynamic resources")
+  TEST_METHOD_PROPERTY(L"Kits.Specification",
+                       L"Device.Graphics.WDDM30.AdapterRender.D3D12.DXILCore."
+                       L"ShaderModel66.CoreRequirement")
+  END_TEST_METHOD()
 
-  TEST_METHOD(QuadReadTest)
-  TEST_METHOD(QuadAnyAll);
+  BEGIN_TEST_METHOD(QuadReadTest)
+  TEST_METHOD_PROPERTY(L"Kits.Description", L"Verifies QuadRead intrinsics")
+  TEST_METHOD_PROPERTY(L"Kits.TestId", L"a9b504bb-f841-414e-bdda-ba948f18420f")
+  TEST_METHOD_PROPERTY(L"Kits.TestName",
+                       L"D3D12 - DXIL Core Test - QuadRead intrinsics")
+  TEST_METHOD_PROPERTY(L"Kits.Specification",
+                       L"Device.Graphics.WDDM22.AdapterRender.D3D12.DXILCore."
+                       L"ShaderModel60.CoreRequirement")
+  END_TEST_METHOD()
+  BEGIN_TEST_METHOD(QuadAnyAll)
+  TEST_METHOD_PROPERTY(L"Kits.Description",
+                       L"Verifies QuadAny/QuadAll intrinsic")
+  TEST_METHOD_PROPERTY(L"Kits.TestId", L"86a4e6f0-fd73-487b-9d63-ec5a5bb2b803")
+  TEST_METHOD_PROPERTY(
+      L"Kits.TestName",
+      L"D3D12 - DXIL Core Test - Shader Model 6.7 - QuadAny QuadAll")
+  TEST_METHOD_PROPERTY(L"Kits.Specification",
+                       L"Device.Graphics.WDDM31.AdapterRender.D3D12.DXILCore."
+                       L"ShaderModel67.CoreRequirement")
+  END_TEST_METHOD()
 
-  TEST_METHOD(CBufferTestHalf);
+  BEGIN_TEST_METHOD(CBufferTestHalf)
+  TEST_METHOD_PROPERTY(L"Kits.Description", L"Verifies float16 in CBuffer")
+  TEST_METHOD_PROPERTY(L"Kits.Specification",
+                       L"Device.Graphics.WDDM24.AdapterRender.D3D12."
+                       L"Native16Bits.CoreRequirement")
+  TEST_METHOD_PROPERTY(L"Kits.TestId", L"936cd44a-c4b1-4f9b-992f-76fe17d2bf60")
+  TEST_METHOD_PROPERTY(L"Kits.TestName",
+                       L"D3D12 - DXIL 16bit Types Test - CBuffer Test")
+  END_TEST_METHOD()
 
-  TEST_METHOD(BasicShaderModel61);
-  TEST_METHOD(BasicShaderModel63);
+  BEGIN_TEST_METHOD(BasicShaderModel61)
+  TEST_METHOD_PROPERTY(L"Kits.Description",
+                       L"Verifies shader model 6.1 support.")
+  TEST_METHOD_PROPERTY(L"Kits.TestId", L"a53f923a-af31-4d2c-b6d9-b667281c52c0")
+  TEST_METHOD_PROPERTY(L"Kits.TestName",
+                       L"D3D12 - DXIL Core Test - Basic shader model 6.1 test")
+  TEST_METHOD_PROPERTY(L"Kits.Specification",
+                       L"Device.Graphics.WDDM23.AdapterRender.D3D12.DXILCore."
+                       L"ShaderModel61.CoreRequirement")
+  END_TEST_METHOD()
+  BEGIN_TEST_METHOD(BasicShaderModel63)
+  TEST_METHOD_PROPERTY(L"Kits.Description",
+                       L"Verifies shader model 6.3 support.")
+  TEST_METHOD_PROPERTY(L"Kits.TestId", L"d8918d1c-382f-491a-a1b2-3c1fcc994202")
+  TEST_METHOD_PROPERTY(L"Kits.TestName",
+                       L"D3D12 - DXIL Core Test - Basic shader model 6.3 test")
+  TEST_METHOD_PROPERTY(L"Kits.Specification",
+                       L"Device.Graphics.WDDM25.AdapterRender.D3D12.DXILCore."
+                       L"ShaderModel63.CoreRequirement")
+  END_TEST_METHOD()
 
   BEGIN_TEST_METHOD(WaveIntrinsicsActiveIntTest)
   TEST_METHOD_PROPERTY(
@@ -399,29 +785,179 @@ public:
       L"DataSource", L"Table:ShaderOpArithTable.xml#DenormTertiaryFloatOpTable")
   END_TEST_METHOD()
 
-  TEST_METHOD(BarycentricsTest);
+  BEGIN_TEST_METHOD(BarycentricsTest)
+  TEST_METHOD_PROPERTY(L"Kits.Description",
+                       L"Verifies barycentrics functionality")
+  TEST_METHOD_PROPERTY(L"Kits.TestId", L"13ea5ebf-ac10-4723-a9a0-a4fe1b9042a6")
+  TEST_METHOD_PROPERTY(L"Kits.TestName",
+                       L"D3D12 - DXIL Core Test - Barycentrics test")
+  TEST_METHOD_PROPERTY(L"Kits.Specification",
+                       L"Device.Graphics.WDDM23.AdapterRender.D3D12.DXILCore."
+                       L"ShaderModel61.CoreRequirement")
+  END_TEST_METHOD()
 
-  TEST_METHOD(ComputeRawBufferLdStI32);
-  TEST_METHOD(ComputeRawBufferLdStFloat);
+  BEGIN_TEST_METHOD(ComputeRawBufferLdStI32)
+  TEST_METHOD_PROPERTY(
+      L"Kits.Description",
+      L"Verifies compute pipeline raw buffer load/store for int32_t datatype")
+  TEST_METHOD_PROPERTY(L"Kits.TestId", L"54dd1088-42e8-477e-93c5-87494f1231cc")
+  TEST_METHOD_PROPERTY(L"Kits.TestName",
+                       L"D3D12 - DXIL Core Test - Compute pipeline - Raw "
+                       L"Buffer Load Store Test - int32_t")
+  TEST_METHOD_PROPERTY(L"Kits.Specification",
+                       L"Device.Graphics.WDDM24.AdapterRender.D3D12.DXILCore."
+                       L"ShaderModel62.CoreRequirement")
+  END_TEST_METHOD()
+  BEGIN_TEST_METHOD(ComputeRawBufferLdStFloat)
+  TEST_METHOD_PROPERTY(
+      L"Kits.Description",
+      L"Verifies compute pipeline raw buffer load/store for float datatype")
+  TEST_METHOD_PROPERTY(L"Kits.TestId", L"430c019f-ba13-42c7-bce6-3a9bd7905a30")
+  TEST_METHOD_PROPERTY(L"Kits.TestName",
+                       L"D3D12 - DXIL Core Test - Compute pipeline - Raw "
+                       L"Buffer Load Store Test - float")
+  TEST_METHOD_PROPERTY(L"Kits.Specification",
+                       L"Device.Graphics.WDDM24.AdapterRender.D3D12.DXILCore."
+                       L"ShaderModel62.CoreRequirement")
+  END_TEST_METHOD()
 
-  TEST_METHOD(ComputeRawBufferLdStI64);
-  TEST_METHOD(ComputeRawBufferLdStDouble);
+  BEGIN_TEST_METHOD(ComputeRawBufferLdStI64)
+  TEST_METHOD_PROPERTY(
+      L"Kits.Description",
+      L"Verifies compute pipeline raw buffer load/store for int64_t datatype")
+  TEST_METHOD_PROPERTY(L"Kits.TestId", L"981b4460-073f-4255-ab7c-192adfff26fa")
+  TEST_METHOD_PROPERTY(L"Kits.TestName",
+                       L"D3D12 - DXIL Core Test - Compute pipeline - Raw "
+                       L"Buffer Load Store Test - int64_t")
+  TEST_METHOD_PROPERTY(L"Kits.Specification",
+                       L"Device.Graphics.WDDM25.AdapterRender.D3D12.DXILCore."
+                       L"ShaderModel63.CoreRequirement")
+  END_TEST_METHOD()
+  BEGIN_TEST_METHOD(ComputeRawBufferLdStDouble)
+  TEST_METHOD_PROPERTY(
+      L"Kits.Description",
+      L"Verifies compute pipeline raw buffer load/store for double datatype")
+  TEST_METHOD_PROPERTY(L"Kits.TestId", L"798cc50c-9018-4948-9cf7-857274aedf06")
+  TEST_METHOD_PROPERTY(L"Kits.TestName",
+                       L"D3D12 - DXIL Core Test - Compute pipeline - Raw "
+                       L"Buffer Load Store Test - double")
+  TEST_METHOD_PROPERTY(L"Kits.Specification",
+                       L"Device.Graphics.WDDM25.AdapterRender.D3D12.DXILCore."
+                       L"ShaderModel63.CoreRequirement")
+  END_TEST_METHOD()
 
-  TEST_METHOD(ComputeRawBufferLdStI16);
-  TEST_METHOD(ComputeRawBufferLdStHalf);
+  BEGIN_TEST_METHOD(ComputeRawBufferLdStI16)
+  TEST_METHOD_PROPERTY(
+      L"Kits.Description",
+      L"Verifies compute pipeline raw buffer load/store for int16_t datatype")
+  TEST_METHOD_PROPERTY(L"Kits.TestId", L"c6d11027-5ddb-4ff4-9bac-f5f0d74a4560")
+  TEST_METHOD_PROPERTY(L"Kits.TestName",
+                       L"D3D12 - DXIL Core Test - Compute pipeline - Raw "
+                       L"Buffer Load Store Test - int16_t")
+  TEST_METHOD_PROPERTY(L"Kits.Specification",
+                       L"Device.Graphics.WDDM24.AdapterRender.D3D12.DXILCore."
+                       L"ShaderModel62.CoreRequirement")
+  END_TEST_METHOD()
+  BEGIN_TEST_METHOD(ComputeRawBufferLdStHalf)
+  TEST_METHOD_PROPERTY(
+      L"Kits.Description",
+      L"Verifies compute pipeline raw buffer load/store for float16_t datatype")
+  TEST_METHOD_PROPERTY(L"Kits.TestId", L"ec3f83e8-61ed-4f43-9b06-0f6b6ad323eb")
+  TEST_METHOD_PROPERTY(L"Kits.TestName",
+                       L"D3D12 - DXIL Core Test - Compute pipeline - Raw "
+                       L"Buffer Load Store Test - float16_t")
+  TEST_METHOD_PROPERTY(L"Kits.Specification",
+                       L"Device.Graphics.WDDM24.AdapterRender.D3D12.DXILCore."
+                       L"ShaderModel62.CoreRequirement")
+  END_TEST_METHOD()
 
-  TEST_METHOD(GraphicsRawBufferLdStI32);
-  TEST_METHOD(GraphicsRawBufferLdStFloat);
+  BEGIN_TEST_METHOD(GraphicsRawBufferLdStI32)
+  TEST_METHOD_PROPERTY(
+      L"Kits.Description",
+      L"Verifies graphics pipeline raw buffer load/store for int32_t datatype")
+  TEST_METHOD_PROPERTY(L"Kits.TestId", L"969d01e7-db0e-4271-a136-9089f240e2e2")
+  TEST_METHOD_PROPERTY(L"Kits.TestName",
+                       L"D3D12 - DXIL Core Test - Graphics pipeline - Raw "
+                       L"Buffer Load Store Test - int32_t")
+  TEST_METHOD_PROPERTY(L"Kits.Specification",
+                       L"Device.Graphics.WDDM24.AdapterRender.D3D12.DXILCore."
+                       L"ShaderModel62.CoreRequirement")
+  END_TEST_METHOD()
+  BEGIN_TEST_METHOD(GraphicsRawBufferLdStFloat)
+  TEST_METHOD_PROPERTY(
+      L"Kits.Description",
+      L"Verifies graphics pipeline raw buffer load/store for float datatype")
+  TEST_METHOD_PROPERTY(L"Kits.TestId", L"46141a5a-3a42-4906-bc96-a70c691f79da")
+  TEST_METHOD_PROPERTY(L"Kits.TestName",
+                       L"D3D12 - DXIL Core Test - Graphics pipeline - Raw "
+                       L"Buffer Load Store Test - float")
+  TEST_METHOD_PROPERTY(L"Kits.Specification",
+                       L"Device.Graphics.WDDM24.AdapterRender.D3D12.DXILCore."
+                       L"ShaderModel62.CoreRequirement")
+  END_TEST_METHOD()
 
-  TEST_METHOD(GraphicsRawBufferLdStI64);
-  TEST_METHOD(GraphicsRawBufferLdStDouble);
+  BEGIN_TEST_METHOD(GraphicsRawBufferLdStI64)
+  TEST_METHOD_PROPERTY(
+      L"Kits.Description",
+      L"Verifies graphics pipeline raw buffer load/store for int64_t datatype")
+  TEST_METHOD_PROPERTY(L"Kits.TestId", L"59375291-95a5-4889-896b-c21e0ad11be9")
+  TEST_METHOD_PROPERTY(L"Kits.TestName",
+                       L"D3D12 - DXIL Core Test - Graphics pipeline - Raw "
+                       L"Buffer Load Store Test - int64_t")
+  TEST_METHOD_PROPERTY(L"Kits.Specification",
+                       L"Device.Graphics.WDDM25.AdapterRender.D3D12.DXILCore."
+                       L"ShaderModel63.CoreRequirement")
+  END_TEST_METHOD()
+  BEGIN_TEST_METHOD(GraphicsRawBufferLdStDouble)
+  TEST_METHOD_PROPERTY(
+      L"Kits.Description",
+      L"Verifies graphics pipeline raw buffer load/store for double datatype")
+  TEST_METHOD_PROPERTY(L"Kits.TestId", L"ba10ff74-2d0e-41aa-9539-c80106f770f2")
+  TEST_METHOD_PROPERTY(L"Kits.TestName",
+                       L"D3D12 - DXIL Core Test - Graphics pipeline - Raw "
+                       L"Buffer Load Store Test - double")
+  TEST_METHOD_PROPERTY(L"Kits.Specification",
+                       L"Device.Graphics.WDDM25.AdapterRender.D3D12.DXILCore."
+                       L"ShaderModel63.CoreRequirement")
+  END_TEST_METHOD()
 
-  TEST_METHOD(GraphicsRawBufferLdStI16);
-  TEST_METHOD(GraphicsRawBufferLdStHalf);
+  BEGIN_TEST_METHOD(GraphicsRawBufferLdStI16)
+  TEST_METHOD_PROPERTY(
+      L"Kits.Description",
+      L"Verifies graphics pipeline raw buffer load/store for int16_t datatype")
+  TEST_METHOD_PROPERTY(L"Kits.TestId", L"52697183-18a8-4096-8a43-5608b56b49e3")
+  TEST_METHOD_PROPERTY(L"Kits.TestName",
+                       L"D3D12 - DXIL Core Test - Graphics pipeline - Raw "
+                       L"Buffer Load Store Test - int16_t")
+  TEST_METHOD_PROPERTY(L"Kits.Specification",
+                       L"Device.Graphics.WDDM24.AdapterRender.D3D12.DXILCore."
+                       L"ShaderModel62.CoreRequirement")
+  END_TEST_METHOD()
+  BEGIN_TEST_METHOD(GraphicsRawBufferLdStHalf)
+  TEST_METHOD_PROPERTY(L"Kits.Description",
+                       L"Verifies graphics pipeline raw buffer load/store for "
+                       L"float16_t datatype")
+  TEST_METHOD_PROPERTY(L"Kits.TestId", L"a6178326-2175-4a29-a493-170f606755fb")
+  TEST_METHOD_PROPERTY(L"Kits.TestName",
+                       L"D3D12 - DXIL Core Test - Graphics pipeline - Raw "
+                       L"Buffer Load Store Test - float16_t")
+  TEST_METHOD_PROPERTY(L"Kits.Specification",
+                       L"Device.Graphics.WDDM24.AdapterRender.D3D12.DXILCore."
+                       L"ShaderModel62.CoreRequirement")
+  END_TEST_METHOD()
 
   BEGIN_TEST_METHOD(PackUnpackTest)
   TEST_METHOD_PROPERTY(L"DataSource",
                        L"Table:ShaderOpArithTable.xml#PackUnpackOpTable")
+  TEST_METHOD_PROPERTY(L"Kits.Description",
+                       L"Verifies shader model 6.6 pack unpack intrinsics")
+  TEST_METHOD_PROPERTY(L"Kits.TestId", L"d5a302c9-6e1f-4dfc-8b2d-73e41e8f0939")
+  TEST_METHOD_PROPERTY(
+      L"Kits.TestName",
+      L"D3D12 - DXIL Core Test - Shader Model 6.6 - Pack Unpack")
+  TEST_METHOD_PROPERTY(L"Kits.Specification",
+                       L"Device.Graphics.WDDM30.AdapterRender.D3D12.DXILCore."
+                       L"ShaderModel66.CoreRequirement")
   END_TEST_METHOD()
 
   dxc::DxCompilerDllLoader m_support;
@@ -437,6 +973,14 @@ public:
       m_D3DInitCompleted = true;
 
       D3D12SDK = D3D12SDKSelector();
+
+#ifdef _HLK_CONF
+      // Off by default because it's broken for DXR state objects.
+      bool EnableVerifier = false;
+      WEX::TestExecution::RuntimeParameters::TryGetValue(L"DriverVerifier",
+                                                         EnableVerifier);
+      setDriverVerifierEnabled(D3D12SDK->getDeviceFactory(), EnableVerifier);
+#endif
     }
 
     return true;
@@ -492,9 +1036,6 @@ public:
     }
     throw std::runtime_error("Unsupported codepage.");
   }
-
-  // Do not remove the following line - it is used by TranslateExecutionTest.py
-  // MARKER: ExecutionTest/DxilConf Shared Implementation Start
 
   bool SaveImages() { return GetTestParamBool(L"SaveImages"); }
 
