@@ -1437,6 +1437,12 @@ DeclResultIdMapper::createOrUpdateStringVar(const VarDecl *var) {
 
   const StringLiteral *stringLiteral =
       dyn_cast<StringLiteral>(var->getInit()->IgnoreParenCasts());
+  if (!stringLiteral) {
+    emitError(
+        "string variable initializer must be a string literal with -spirv",
+        var->getInit()->getExprLoc());
+    return nullptr;
+  }
   SpirvString *init = spvBuilder.getString(stringLiteral->getString());
   registerVariableForDecl(var, createDeclSpirvInfo(init));
   return init;

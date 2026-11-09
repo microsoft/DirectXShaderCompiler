@@ -1110,7 +1110,9 @@ void ASTContext::InitBuiltinTypes(const TargetInfo &Target) {
     InitBuiltinType(UInt8_4PackedTy, BuiltinType::UInt8_4Packed);
     InitBuiltinType(LinAlgMatrixTy, BuiltinType::LinAlgMatrix);
 
-    HLSLStringTy = this->getPointerType(CharTy);
+    // This shouldn't actually be a canonical type, since it effectively must be
+    // const.
+    HLSLStringTy = this->getPointerType(CharTy.withConst());
 
     hlsl::InitializeASTContextForHLSL(*this); // Previously in constructor, guarded by !DelayInitialization
   }

@@ -11,5 +11,6 @@ const string a = "first string";
 
 [numthreads(1,1,1)]
 void main() {
+  // CHECK: {{%[0-9]+}} = OpString "local string"
+  string local = ("local string");
 }
-

@@ -5925,6 +5925,10 @@ public:
         if (Arg.getKind() == TemplateArgument::ArgKind::Type) {
           QualType ArgType = Arg.getAsType();
           SourceLocation ArgSrcLoc = ArgLoc.getLocation();
+          if (!ArgType->isDependentType() &&
+              m_sema->RequireCompleteType(
+                  ArgSrcLoc, ArgType, diag::err_typecheck_decl_incomplete_type))
+            return true;
           if (DiagnoseTypeElements(
                   *m_sema, ArgSrcLoc, ArgType,
                   TypeDiagContext::StructuredBuffers /*ObjDiagContext*/,
@@ -10704,7 +10708,7 @@ void HLSLExternalSource::CheckBinOpForHLSL(SourceLocation OpLoc,
                       SuppressWarningsFalse, SuppressErrorsFalse, &standard)) {
       return;
     }
-    if (RHS.get()->isLValue()) {
+    if (RHS.get()->isLValue() && standard.First != ICK_Array_To_Pointer) {
       standard.First = ICK_Lvalue_To_Rvalue;
     }
     RHS = m_sema->PerformImplicitConversion(RHS.get(), ResultTy, standard,
@@ -11525,6 +11529,10 @@ HLSLExternalSource::DeduceTemplateArgumentsForHLSL(
         }
       }
     } else if (IsBABStore) {
+      if (Is2018 && DiagnoseTypeElements(
+                        *getSema(), Args[1]->getExprLoc(), argTypes[2],
+                        TypeDiagContext::TypeParameter, TypeDiagContext::Valid))
+        return Sema::TemplateDeductionResult::TDK_Invalid;
       // Prior to HLSL 2018, Store operation only stored scalar uint.
       if (!Is2018) {
         if (GetNumElements(argTypes[2]) != 1) {
@@ -12830,6 +12838,8 @@ void Sema::DiagnoseReachableHLSLCall(CallExpr *CE, const hlsl::ShaderModel *SM,
 /////////////////////////////////////////////////////////////////////////////
 
 static bool AllowObjectInContext(QualType Ty, TypeDiagContext DiagContext) {
+  if (IsStringType(Ty))
+    return DiagContext == TypeDiagContext::GlobalVariables;
   // Disallow all object in template type parameters (former
   // err_hlsl_objectintemplateargument)
   if (DiagContext == TypeDiagContext::TypeParameter)
@@ -12869,6 +12879,8 @@ DiagnoseElementTypes(Sema &S, SourceLocation Loc, QualType Ty, bool &Empty,
                      const clang::FieldDecl *FD, DXIL::ResourceClass ResClass) {
   if (Ty.isNull() || Ty->isDependentType())
     return false;
+
+  Ty = Ty.getNonReferenceType();
 
   const bool CheckLongVec = LongVecDiagContext != TypeDiagContext::Valid;
   const bool CheckObjects = ObjDiagContext != TypeDiagContext::Valid;
@@ -12914,6 +12926,7 @@ DiagnoseElementTypes(Sema &S, SourceLocation Loc, QualType Ty, bool &Empty,
   case AR_TOBJ_MATRIX:
     Empty = false;
     return false;
+  case AR_TOBJ_STRING:
   case AR_TOBJ_OBJECT:
     Empty = false;
     if (!CheckObjects || AllowObjectInContext(Ty, ObjDiagContext))
@@ -15735,11 +15748,11 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC, Expr *BitWidth,
     }
   }
 
-  // String and subobject declarations are supported only as top level global
-  // variables. Const and static modifiers are implied - add them if missing.
-  if ((hlsl::IsStringType(qt) || hlslSource->IsSubobjectType(qt)) &&
+  // Global strings and subobjects have implicit const and static modifiers.
+  // Strings may also be fields or local variables without these modifiers.
+  if (((hlsl::IsStringType(qt) && !isField && !isLocalVar) ||
+       hlslSource->IsSubobjectType(qt)) &&
       !D.isInvalidType()) {
-    // string are supported only as top level global variables
     if (!DC->isTranslationUnit()) {
       Diag(D.getLocStart(), diag::err_hlsl_object_not_global)
           << (int)hlsl::IsStringType(qt);
@@ -15752,7 +15765,7 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC, Expr *BitWidth,
     }
     const char *PrevSpec = nullptr;
     unsigned DiagID = 0;
-    if (!isStatic) {
+    if (!isStatic && !isParameter) {
       D.getMutableDeclSpec().SetStorageClassSpec(
           *this, DeclSpec::SCS_static, D.getLocStart(), PrevSpec, DiagID,
           Context.getPrintingPolicy());
@@ -16195,8 +16208,8 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC, Expr *BitWidth,
     result = false;
   }
 
-  // Disallow intangible HLSL objects in the global scope.
-  if (isGlobal) {
+  // Disallow intangible HLSL objects in externally visible storage.
+  if (isGlobal || (isParameter && isGroupShared)) {
     // Suppress actual emitting of errors for incompletable types here
     // They are redundant to those produced in ActOnUninitializedDecl.
     struct SilentDiagnoser : public TypeDiagnoser {
