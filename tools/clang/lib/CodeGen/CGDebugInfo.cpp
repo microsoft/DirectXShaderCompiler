@@ -346,7 +346,9 @@ void CGDebugInfo::CreateCompileUnit() {
   llvm::dwarf::SourceLanguage LangTag;
   const LangOptions &LO = CGM.getLangOpts();
   if (LO.CPlusPlus) {
-    if (LO.ObjC1)
+    if (LO.HLSL)
+      LangTag = llvm::dwarf::DW_LANG_HLSL;
+    else if (LO.ObjC1)
       LangTag = llvm::dwarf::DW_LANG_ObjC_plus_plus;
     else
       LangTag = llvm::dwarf::DW_LANG_C_plus_plus;
