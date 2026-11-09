@@ -7915,6 +7915,8 @@ def err_hlsl_missing_in_attr: Error<
    "%0 object must be an in parameter">;
 def err_hlsl_load_from_mesh_out_arrays: Error<
    "output arrays of a mesh shader can not be read from">;
+def err_hlsl_incorrect_sv_type : Error<
+   "%0 must be applied to a %1, but %2 has type %3">;
 def err_hlsl_out_indices_array_incorrect_access: Error<
    "a vector in out indices array must be accessed as a whole">;
 def err_hlsl_unsupported_long_vector
@@ -7970,8 +7972,6 @@ def warn_hlsl_numthreads_group_size : Warning<
    InGroup<IgnoredAttributes>;
 def err_hlsl_wg_nodetrackrwinputsharing_missing : Error<
    "Use of FinishedCrossGroupSharing() requires NodeTrackRWInputSharing attribute to be specified on the record struct type">;
-def err_hlsl_incorrect_sv_type
-    : Error<"%0 must be applied to a %1, but %2 has type %3">;
 def err_hlsl_wg_nodetrackrwinputsharing_invalid : Error<
    "NodeTrackRWInputSharing attribute cannot be applied to Input Records that are not RWDispatchNodeInputRecord">;
 def err_hlsl_wg_input_kind : Error<

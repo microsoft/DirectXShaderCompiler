@@ -26,6 +26,12 @@ void ms_never(out vertices Vert verts[3], out indices uint3 tris[1],
 }
 
 [shader("mesh")] [numthreads(1, 1, 1)] [outputtopology("triangle")]
+void ms_param(out vertices Vert verts[3], out indices uint3 tris[1],
+              out primitives NeverDefined prims[1] : SV_CullPrimitive) { // expected-error {{variable has incomplete type 'NeverDefined __restrict[1]'}}
+  SetMeshOutputCounts(0, 0);
+}
+
+[shader("mesh")] [numthreads(1, 1, 1)] [outputtopology("triangle")]
 void ms_field(out vertices Vert verts[3], out indices uint3 tris[1],
               out primitives HasIncompleteField prims[1]) {
   SetMeshOutputCounts(0, 0);
