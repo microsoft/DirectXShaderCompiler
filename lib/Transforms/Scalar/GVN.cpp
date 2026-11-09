@@ -2665,9 +2665,15 @@ bool GVN::performScalarPRE(Instruction *CurInst) {
       PHINode::Create(CurInst->getType(), predMap.size(),
                       CurInst->getName() + ".pre-phi", CurrentBlock->begin());
   for (unsigned i = 0, e = predMap.size(); i != e; ++i) {
-    if (Value *V = predMap[i].first)
+    if (Value *V = predMap[i].first) {
+      // HLSL Change Begin - Backport
+      // https://github.com/llvm/llvm-project/commit/722339e40562 (D39637)
+      // If we use an existing value in this phi, we have to patch the original
+      // value because the phi will be used to replace a later value.
+      patchReplacementInstruction(CurInst, V);
+      // HLSL Change End
       Phi->addIncoming(V, predMap[i].second);
-    else
+    } else
       Phi->addIncoming(PREInstr, PREPred);
   }
 
