@@ -5657,8 +5657,9 @@ SpirvInstruction *SpirvEmitter::emitDescriptorHeapBufferAccess(
 
   const BufferEXTType *bufferDescriptorType =
       spvContext.getBufferEXTType(bufferSC);
-  const SpirvType *arrayType =
-      getDescriptorHeapRuntimeArrayType(bufferDescriptorType);
+  // Buffer descriptors are always on the resource heap.
+  const SpirvType *arrayType = getDescriptorHeapRuntimeArrayType(
+      bufferDescriptorType, /*onSamplerHeap=*/false);
   SpirvUntypedAccessChainKHR *untypedAccessChainPtr =
       spvBuilder.createUntypedAccessChainKHR(untypedUniformConstantType,
                                              arrayType, heapVar, index,
@@ -7357,13 +7358,18 @@ SpirvEmitter::doCXXOperatorCallExpr(const CXXOperatorCallExpr *expr,
         // The stride was decided without an acceleration structure term (not a
         // ray-tracing stage, no ray extension listed). Reject the load: the
         // heap would be indexed with a stride that may be too narrow.
+        // Exception: with -fvk-resource-heap-stride the stride is a literal
+        // chosen by the user, so there is no computed stride to widen.
         if (isRaytracingAccelerationStructure(resourceType) &&
-            !spvBuilder.resourceHeapStrideIncludesAccelStruct()) {
+            !spvBuilder.resourceHeapStrideIncludesAccelStruct() &&
+            !spirvOptions.resourceHeapStride.has_value()) {
           emitError("acceleration structure loaded from ResourceDescriptorHeap "
                     "requires the resource heap stride to account for "
                     "acceleration structure descriptors; compile with "
-                    "-fspv-extension=SPV_KHR_ray_tracing or "
-                    "-fspv-extension=SPV_KHR_ray_query",
+                    "-fspv-extension=SPV_KHR_ray_tracing, "
+                    "-fspv-extension=SPV_NV_ray_tracing, "
+                    "-fspv-extension=SPV_KHR_ray_query, or "
+                    "-fvk-resource-heap-stride",
                     expr->getExprLoc());
           return nullptr;
         }
@@ -7381,8 +7387,9 @@ SpirvEmitter::doCXXOperatorCallExpr(const CXXOperatorCallExpr *expr,
         const SpirvType *handleType =
             lowerTypeVisitor.lowerType(resourceType, SpirvLayoutRule::Void,
                                        llvm::None, baseExpr->getExprLoc());
-        const SpirvType *arrayType =
-            getDescriptorHeapRuntimeArrayType(handleType);
+        // The stride belongs to the heap being indexed.
+        const SpirvType *arrayType = getDescriptorHeapRuntimeArrayType(
+            handleType, isSamplerDescriptorHeap(decl));
         SpirvUntypedAccessChainKHR *untypedAccessChainPtr =
             spvBuilder.createUntypedAccessChainKHR(untypedUniformConstantType,
                                                    arrayType, var, index,
@@ -9829,14 +9836,24 @@ void SpirvEmitter::createSpecConstant(const VarDecl *varDecl) {
 }
 
 const SpirvType *
-SpirvEmitter::getDescriptorHeapRuntimeArrayType(const SpirvType *elemType) {
+SpirvEmitter::getDescriptorHeapRuntimeArrayType(const SpirvType *elemType,
+                                                bool onSamplerHeap) {
+  // -fvk-{resource,sampler}-heap-stride replaces the computed stride: the array
+  // carries a literal ArrayStride and no ArrayStrideIdEXT.
+  const std::optional<uint32_t> &cliStride =
+      onSamplerHeap ? spirvOptions.samplerHeapStride
+                    : spirvOptions.resourceHeapStride;
+  if (cliStride.has_value())
+    return spvContext.getRuntimeArrayType(elemType, *cliStride);
+
   // Descriptor sizes are defined by the client API, so the stride is an
   // ArrayStrideIdEXT operand rather than a literal. The sampler heap holds one
   // descriptor type. The resource heap is a flat array in which any resource
   // descriptor may sit at any slot, so all its runtime arrays share one stride
   // (see SpirvBuilder::getResourceHeapArrayStride) instead of the stride of the
-  // accessed type.
-  SpirvInstruction *strideId = isa<SamplerType>(elemType)
+  // accessed type. As with the literal override above, the stride follows the
+  // heap that is accessed, not the element type.
+  SpirvInstruction *strideId = onSamplerHeap
                                    ? spvBuilder.getSamplerHeapArrayStride()
                                    : spvBuilder.getResourceHeapArrayStride();
   return spvContext.getRuntimeArrayType(elemType, llvm::None, strideId);
