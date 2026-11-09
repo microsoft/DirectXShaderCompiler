@@ -2,7 +2,8 @@
 
 ; Copy pointer-valued leaves, rather than indexing through their pointees.
 ; External globals keep the copies observable without introducing other passes.
-; String-only structs have zero cbuffer-layout size, but are not empty.
+; Synthetic nonzero cbuffer-layout sizes prevent metadata loading from marking
+; the pointer-only fixtures empty, isolating pointer-copy behavior.
 
 target datalayout = "e-m:e-p:32:32-i1:32-i8:32-i16:32-i32:32-i64:64-f16:32-f32:32-f64:64-n8:16:32:64"
 target triple = "dxil-ms-dx"
@@ -59,11 +60,11 @@ declare void @llvm.memcpy.p0i8.p0i8.i64(i8* nocapture, i8* nocapture readonly, i
 !2 = !{i32 1, i32 8}
 !3 = !{!"cs", i32 6, i32 0}
 !4 = !{i32 0, %StringOnly undef, !5, %Mixed undef, !7, %Nested undef, !9}
-!5 = !{i32 0, !6}
+!5 = !{i32 4, !6}
 !6 = !{i32 6, !"Text", i32 3, i32 0}
 !7 = !{i32 4, !6, !8}
 !8 = !{i32 6, !"Value", i32 3, i32 0, i32 7, i32 5}
-!9 = !{i32 0, !18}
+!9 = !{i32 8, !18}
 !10 = !{i32 1, void ()* @main, !11}
 !11 = !{!12}
 !12 = !{i32 1, !13, !13}
