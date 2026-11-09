@@ -17311,10 +17311,14 @@ static void DiagnoseCullPrimitiveRecord(Sema &S, QualType Ty) {
   const RecordType *RT = Ty->getAs<RecordType>();
   if (!RT || hlsl::IsHLSLVecMatType(Ty))
     return;
-  if (const auto *RD = dyn_cast<CXXRecordDecl>(RT->getDecl()))
-    for (const CXXBaseSpecifier &Base : RD->bases())
+  // An incomplete type has already been diagnosed and has nothing to walk.
+  const RecordDecl *RD = RT->getDecl()->getDefinition();
+  if (!RD)
+    return;
+  if (const auto *CRD = dyn_cast<CXXRecordDecl>(RD))
+    for (const CXXBaseSpecifier &Base : CRD->bases())
       DiagnoseCullPrimitiveRecord(S, Base.getType());
-  for (const FieldDecl *FD : RT->getDecl()->fields())
+  for (const FieldDecl *FD : RD->fields())
     DiagnoseCullPrimitiveDecl(S, FD, FD->getType());
 }
 
