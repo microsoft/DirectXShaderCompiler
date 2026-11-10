@@ -11,6 +11,7 @@ add_clang_library(HLSLTestLib
   DxcTestUtils.cpp
   FileCheckerTest.cpp
   FileCheckForTest.cpp
+  WEXAdapterLog.cpp
 )
 
 add_dependencies(HLSLTestLib TablegenHLSLOptions)
