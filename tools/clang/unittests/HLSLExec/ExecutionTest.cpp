@@ -28,8 +28,8 @@
 #include <unordered_set>
 #include <sstream>
 #include <iomanip>
-#include "dxc/Test/CompilationResult.h"
-#include "dxc/Test/HLSLTestData.h"
+#include <iostream>
+#include "dxc/Support/WinIncludes.h"
 #include <Shlwapi.h>
 #include <atlcoll.h>
 #include <locale>
@@ -38,12 +38,8 @@
 #include <bitset>
 
 #undef _read
-#include "dxc/Test/DxcTestUtils.h"
 #include "dxc/Support/Global.h"
-#include "dxc/Support/WinIncludes.h"
 #include "dxc/Test/HlslTestUtils.h"
-#include "dxc/Support/FileIOHelper.h"
-#include "dxc/Support/Unicode.h"
 
 //
 // d3d12.h and dxgi1_4.h are included in the Windows 10 SDK
@@ -186,13 +182,15 @@ static void SavePixelsToFile(LPCVOID pPixels, DXGI_FORMAT format,
   VERIFY_SUCCEEDED(pStream->Commit(STGC_DEFAULT));
 }
 
-class ExecutionTest {
+class DxilConfTest {
 public:
-  BEGIN_TEST_CLASS(ExecutionTest)
+  BEGIN_TEST_CLASS(DxilConfTest)
   TEST_CLASS_PROPERTY(L"Parallel", L"true")
+#ifndef _HLK_CONF
   TEST_METHOD_PROPERTY(L"Priority", L"0")
+#endif
   END_TEST_CLASS()
-  TEST_CLASS_SETUP(ExecutionTestClassSetup)
+  TEST_CLASS_SETUP(DxilConfTestClassSetup)
 
   TEST_METHOD(BasicComputeTest);
   TEST_METHOD(BasicTriangleTest);
@@ -200,50 +198,394 @@ public:
 
   TEST_METHOD(BasicTriangleOpTestHalf);
 
-  TEST_METHOD(OutOfBoundsTest);
-  TEST_METHOD(SaturateTest);
-  TEST_METHOD(SignTest);
-  TEST_METHOD(Int64Test);
-  TEST_METHOD(LifetimeIntrinsicTest)
+  BEGIN_TEST_METHOD(OutOfBoundsTest)
+  TEST_METHOD_PROPERTY(L"Kits.Description", L"Verifies basic OutOfBoundsTest.")
+  TEST_METHOD_PROPERTY(L"Kits.TestId", L"3d8f4e73-d840-4582-8182-8996f717ebac")
+  TEST_METHOD_PROPERTY(L"Kits.TestName",
+                       L"D3D12 - DXIL Core Test - Basic OutOfBoundsTest")
+  TEST_METHOD_PROPERTY(L"Kits.Specification",
+                       L"Device.Graphics.WDDM22.AdapterRender.D3D12.DXILCore."
+                       L"ShaderModel60.CoreRequirement")
+  END_TEST_METHOD()
+  BEGIN_TEST_METHOD(SaturateTest)
+  TEST_METHOD_PROPERTY(L"Kits.Description",
+                       L"Verifies the saturate instruction.")
+  TEST_METHOD_PROPERTY(L"Kits.TestId", L"f1d6cd38-d89c-47d2-bfb4-2e17b94b4d0f")
+  TEST_METHOD_PROPERTY(L"Kits.TestName",
+                       L"D3D12 - DXIL Core Test - Saturate instruction test")
+  TEST_METHOD_PROPERTY(L"Kits.Specification",
+                       L"Device.Graphics.WDDM22.AdapterRender.D3D12.DXILCore."
+                       L"ShaderModel60.CoreRequirement")
+  END_TEST_METHOD()
+  BEGIN_TEST_METHOD(SignTest)
+  TEST_METHOD_PROPERTY(L"Kits.Description", L"Verifies basic sign.")
+  TEST_METHOD_PROPERTY(L"Kits.TestId", L"4827868d-b4c5-408a-841a-6f8336bb1605")
+  TEST_METHOD_PROPERTY(L"Kits.TestName",
+                       L"D3D12 - DXIL Core Test - Sign instruction test")
+  TEST_METHOD_PROPERTY(L"Kits.Specification",
+                       L"Device.Graphics.WDDM22.AdapterRender.D3D12.DXILCore."
+                       L"ShaderModel60.CoreRequirement")
+  END_TEST_METHOD()
+  BEGIN_TEST_METHOD(Int64Test)
+  TEST_METHOD_PROPERTY(L"Kits.Description", L"Verifies basic 64-bit int usage.")
+  TEST_METHOD_PROPERTY(L"Kits.TestId", L"969d000a-d972-43fb-abc5-9ed622bfb392")
+  TEST_METHOD_PROPERTY(L"Kits.TestName",
+                       L"D3D12 - DXIL Core Test - Basic 64-bit int test")
+  TEST_METHOD_PROPERTY(
+      L"Kits.Specification",
+      L"Device.Graphics.WDDM22.AdapterRender.D3D12.DXIL.Int64.CoreRequirement")
+  END_TEST_METHOD()
+  BEGIN_TEST_METHOD(LifetimeIntrinsicTest)
+  TEST_METHOD_PROPERTY(L"Kits.Description", L"Verifies lifetime intrinrics")
+  TEST_METHOD_PROPERTY(L"Kits.TestId", L"382d7ad4-cdf3-49cb-a622-3cb346b489f9")
+  TEST_METHOD_PROPERTY(L"Kits.TestName",
+                       L"D3D12 - DXIL Core Test - Lifetime intrinsics markers")
+  TEST_METHOD_PROPERTY(L"Kits.Specification",
+                       L"Device.Graphics.WDDM22.AdapterRender.D3D12.DXILCore."
+                       L"ShaderModel60.CoreRequirement")
+  END_TEST_METHOD()
   TEST_METHOD(WaveIntrinsicsTest);
   TEST_METHOD(WaveIntrinsicsDDITest);
-  TEST_METHOD(WaveIntrinsicsInPSTest);
-  TEST_METHOD(WaveSizeTest);
-  TEST_METHOD(WaveSizeRangeTest);
+  BEGIN_TEST_METHOD(WaveIntrinsicsInPSTest)
+  TEST_METHOD_PROPERTY(L"Kits.Description",
+                       L"Verifies basic wave intrinsics under pixel shader.")
+  TEST_METHOD_PROPERTY(L"Kits.TestId", L"d4b93ce1-0f21-41bd-9a00-0ad2772aac56")
+  TEST_METHOD_PROPERTY(L"Kits.TestName",
+                       L"D3D12 - DXIL Wave Op Test - WaveIntrinsicsInPSTest")
+  TEST_METHOD_PROPERTY(L"Kits.Specification",
+                       L"Device.Graphics.WDDM22.AdapterRender.D3D12.DXIL."
+                       L"WaveOps.CoreRequirement")
+  END_TEST_METHOD()
+  BEGIN_TEST_METHOD(WaveSizeTest)
+  TEST_METHOD_PROPERTY(L"Kits.Description",
+                       L"Verifies shader model 6.6 WaveSize attribute")
+  TEST_METHOD_PROPERTY(L"Kits.TestId", L"a57f83a9-ddea-4b6d-a625-bac5642944d3")
+  TEST_METHOD_PROPERTY(L"Kits.TestName",
+                       L"D3D12 - DXIL Core Test - Shader Model 6.6 - WaveSize")
+  TEST_METHOD_PROPERTY(L"Kits.Specification",
+                       L"Device.Graphics.WDDM30.AdapterRender.D3D12.DXILCore."
+                       L"ShaderModel66.CoreRequirement")
+  END_TEST_METHOD()
+  BEGIN_TEST_METHOD(WaveSizeRangeTest)
+  TEST_METHOD_PROPERTY(L"Kits.Description",
+                       L"Verifies shader model 6.8 WaveSizeRange attribute")
+  TEST_METHOD_PROPERTY(L"Kits.TestId", L"df933b47-3016-4362-b764-d98ff9eeb486")
+  TEST_METHOD_PROPERTY(
+      L"Kits.TestName",
+      L"D3D12 - DXIL Core Test - Shader Model 6.8 - WaveSizeRange")
+  TEST_METHOD_PROPERTY(L"Kits.Specification",
+                       L"Device.Graphics.WDDM30.AdapterRender.D3D12.DXILCore."
+                       L"ShaderModel68.CoreRequirement")
+  END_TEST_METHOD()
   // TODO(#8661): Remove me when GroupSharedLimit is available in a released
   // Windows SDK.
 #if defined(HLSLEXEC_GROUPSHARED_LIMITS)
-  TEST_METHOD(GroupSharedLimitTest);
-  TEST_METHOD(GroupSharedLimitASTest);
-  TEST_METHOD(GroupSharedLimitMSTest);
+  BEGIN_TEST_METHOD(GroupSharedLimitTest)
+  TEST_METHOD_PROPERTY(
+      L"Kits.Description",
+      L"Verifies the GroupSharedLimit attribute in compute shaders")
+  TEST_METHOD_PROPERTY(L"Kits.TestId", L"d2e96368-77f8-44db-a3dc-301e6ad08758")
+  TEST_METHOD_PROPERTY(L"Kits.TestName",
+                       L"D3D12 - DXIL Core Test - Shader Model 6.10 - "
+                       L"GroupSharedLimit (compute)")
+  TEST_METHOD_PROPERTY(
+      L"Kits.Specification",
+      L"Device.Graphics.D3D12.DXILCore.ShaderModel610.CoreRequirement")
+  END_TEST_METHOD()
+  BEGIN_TEST_METHOD(GroupSharedLimitASTest)
+  TEST_METHOD_PROPERTY(
+      L"Kits.Description",
+      L"Verifies the GroupSharedLimit attribute in amplification shaders")
+  TEST_METHOD_PROPERTY(L"Kits.TestId", L"736c4f87-0656-4cf6-ad6a-bc625053740d")
+  TEST_METHOD_PROPERTY(L"Kits.TestName",
+                       L"D3D12 - DXIL Core Test - Shader Model 6.10 - "
+                       L"GroupSharedLimit (amplification)")
+  TEST_METHOD_PROPERTY(
+      L"Kits.Specification",
+      L"Device.Graphics.D3D12.DXILCore.ShaderModel610.CoreRequirement")
+  END_TEST_METHOD()
+  BEGIN_TEST_METHOD(GroupSharedLimitMSTest)
+  TEST_METHOD_PROPERTY(
+      L"Kits.Description",
+      L"Verifies the GroupSharedLimit attribute in mesh shaders")
+  TEST_METHOD_PROPERTY(L"Kits.TestId", L"84616150-e5bc-4831-812d-96418457a0e6")
+  TEST_METHOD_PROPERTY(
+      L"Kits.TestName",
+      L"D3D12 - DXIL Core Test - Shader Model 6.10 - GroupSharedLimit (mesh)")
+  TEST_METHOD_PROPERTY(
+      L"Kits.Specification",
+      L"Device.Graphics.D3D12.DXILCore.ShaderModel610.CoreRequirement")
+  END_TEST_METHOD()
 #endif // defined(HLSLEXEC_GROUPSHARED_LIMITS)
-  TEST_METHOD(GroupWaveIndexTest);
-  TEST_METHOD(PartialDerivTest);
-  TEST_METHOD(DerivativesTest);
-  TEST_METHOD(ComputeSampleTest);
-  TEST_METHOD(ATOProgOffset);
-  TEST_METHOD(ATOSampleCmpLevelTest);
-  TEST_METHOD(ATOWriteMSAATest);
-  TEST_METHOD(ATORawGather);
-  TEST_METHOD(AtomicsTest);
-  TEST_METHOD(Atomics64Test);
-  TEST_METHOD(AtomicsRawHeap64Test);
-  TEST_METHOD(AtomicsTyped64Test);
-  TEST_METHOD(AtomicsShared64Test);
-  TEST_METHOD(AtomicsFloatTest);
-  TEST_METHOD(HelperLaneTest);
-  TEST_METHOD(HelperLaneTestWave);
-  TEST_METHOD(SignatureResourcesTest)
-  TEST_METHOD(DynamicResourcesTest)
-  TEST_METHOD(DynamicResourcesDynamicIndexingTest)
+  BEGIN_TEST_METHOD(GroupWaveIndexTest)
+  TEST_METHOD_PROPERTY(L"Kits.Description",
+                       L"Verifies the GetGroupWaveIndex and GetGroupWaveCount "
+                       L"intrinsics in compute shaders")
+  TEST_METHOD_PROPERTY(L"Kits.TestId", L"c3f60f00-8e91-4acb-b4be-9f483fbe836b")
+  TEST_METHOD_PROPERTY(
+      L"Kits.TestName",
+      L"D3D12 - DXIL Core Test - Shader Model 6.10 - GroupWaveIndex")
+  TEST_METHOD_PROPERTY(
+      L"Kits.Specification",
+      L"Device.Graphics.D3D12.DXILCore.ShaderModel610.CoreRequirement")
+  END_TEST_METHOD()
+  BEGIN_TEST_METHOD(PartialDerivTest)
+  TEST_METHOD_PROPERTY(
+      L"Kits.Description",
+      L"Verifies partial derivative intrinsics under pixel shader.")
+  TEST_METHOD_PROPERTY(L"Kits.TestId", L"b190893f-ae70-4d34-85b9-a20248e76f40")
+  TEST_METHOD_PROPERTY(
+      L"Kits.TestName",
+      L"D3D12 - DXIL Core Test - Basic partial derivative test")
+  TEST_METHOD_PROPERTY(L"Kits.Specification",
+                       L"Device.Graphics.WDDM22.AdapterRender.D3D12.DXILCore."
+                       L"ShaderModel60.CoreRequirement")
+  END_TEST_METHOD()
+  BEGIN_TEST_METHOD(DerivativesTest)
+  TEST_METHOD_PROPERTY(L"Kits.Description",
+                       L"Verifies shader model 6.6 derivative operations in "
+                       L"compute, mesh and amplification shaders")
+  TEST_METHOD_PROPERTY(L"Kits.TestId", L"c5e7c498-d3bd-4219-907e-e6d030bf59f7")
+  TEST_METHOD_PROPERTY(
+      L"Kits.TestName",
+      L"D3D12 - DXIL Core Test - Shader Model 6.6 - Derivatives")
+  TEST_METHOD_PROPERTY(L"Kits.Specification",
+                       L"Device.Graphics.WDDM30.AdapterRender.D3D12.DXILCore."
+                       L"ShaderModel66.CoreRequirement")
+  END_TEST_METHOD()
+  BEGIN_TEST_METHOD(ComputeSampleTest)
+  TEST_METHOD_PROPERTY(
+      L"Kits.Description",
+      L"Verifies sample operations in compute and mesh shaders")
+  TEST_METHOD_PROPERTY(L"Kits.TestId", L"2b74e0c5-839e-4327-b878-60d6de8341c6")
+  TEST_METHOD_PROPERTY(L"Kits.TestName",
+                       L"D3D12 - DXIL Core Test - Shader Model 6.6 - Sample in "
+                       L"compute and mesh shaders")
+  TEST_METHOD_PROPERTY(L"Kits.Specification",
+                       L"Device.Graphics.WDDM30.AdapterRender.D3D12.DXILCore."
+                       L"ShaderModel66.CoreRequirement")
+  END_TEST_METHOD()
+  BEGIN_TEST_METHOD(ATOProgOffset)
+  TEST_METHOD_PROPERTY(
+      L"Kits.Description",
+      L"Verifies Programmable Sample*/Load Offsets (Advanced Texture Ops)")
+  TEST_METHOD_PROPERTY(L"Kits.TestId", L"2b81a42d-cb1b-42d4-84ea-c2bdd94a760c")
+  TEST_METHOD_PROPERTY(L"Kits.TestName",
+                       L"D3D12 - DXIL Core Test - Shader Model 6.7 - "
+                       L"Programmable Sample Offsets ")
+  TEST_METHOD_PROPERTY(L"Kits.Specification",
+                       L"Device.Graphics.WDDM31.AdapterRender.D3D12.DXILCore."
+                       L"ShaderModel67.CoreRequirement")
+  END_TEST_METHOD()
+  BEGIN_TEST_METHOD(ATOSampleCmpLevelTest)
+  TEST_METHOD_PROPERTY(L"Kits.Description",
+                       L"Verifies SampleCmpLevel (Advanced Texture Ops)")
+  TEST_METHOD_PROPERTY(L"Kits.TestId", L"485026f3-192e-4dd0-8965-1889929c3ebb")
+  TEST_METHOD_PROPERTY(
+      L"Kits.TestName",
+      L"D3D12 - DXIL Core Test - Shader Model 6.7 - SampleCmpLevel")
+  TEST_METHOD_PROPERTY(L"Kits.Specification",
+                       L"Device.Graphics.WDDM31.AdapterRender.D3D12.DXILCore."
+                       L"ShaderModel67.CoreRequirement")
+  END_TEST_METHOD()
+  BEGIN_TEST_METHOD(ATOWriteMSAATest)
+  TEST_METHOD_PROPERTY(L"Kits.Description",
+                       L"Verifies Writable MSAA (Advanced Texture Ops)")
+  TEST_METHOD_PROPERTY(L"Kits.TestId", L"e4841e1f-e969-41d0-bfb6-a53bb714df84")
+  TEST_METHOD_PROPERTY(
+      L"Kits.TestName",
+      L"D3D12 - DXIL Core Test - Shader Model 6.7 - Writable MSAA")
+  TEST_METHOD_PROPERTY(L"Kits.Specification",
+                       L"Device.Graphics.WDDM31.AdapterRender.D3D12.DXILCore."
+                       L"ShaderModel67.CoreRequirement")
+  END_TEST_METHOD()
+  BEGIN_TEST_METHOD(ATORawGather)
+  TEST_METHOD_PROPERTY(L"Kits.Description",
+                       L"Verifies GatherRaw (Advanced Texture Ops)")
+  TEST_METHOD_PROPERTY(L"Kits.TestId", L"45999098-b007-4778-a574-c2d30c54a1aa")
+  TEST_METHOD_PROPERTY(L"Kits.TestName",
+                       L"D3D12 - DXIL Core Test - Shader Model 6.7 - GatherRaw")
+  TEST_METHOD_PROPERTY(L"Kits.Specification",
+                       L"Device.Graphics.WDDM31.AdapterRender.D3D12.DXILCore."
+                       L"ShaderModel67.CoreRequirement")
+  END_TEST_METHOD()
+  BEGIN_TEST_METHOD(AtomicsTest)
+  TEST_METHOD_PROPERTY(L"Kits.Description",
+                       L"Verifies 32-bit integer atomic operations")
+  TEST_METHOD_PROPERTY(L"Kits.TestId", L"84eb9d7e-81d6-45b5-b967-c128862b0c56")
+  TEST_METHOD_PROPERTY(
+      L"Kits.TestName",
+      L"D3D12 - DXIL Core Test - Shader Model 6.6 - Atomics (32-bit integer)")
+  TEST_METHOD_PROPERTY(L"Kits.Specification",
+                       L"Device.Graphics.WDDM22.AdapterRender.D3D12.DXILCore."
+                       L"ShaderModel60.CoreRequirement")
+  END_TEST_METHOD()
+  BEGIN_TEST_METHOD(Atomics64Test)
+  TEST_METHOD_PROPERTY(
+      L"Kits.Description",
+      L"Verifies shader model 6.6 atomic operations on 64-bit integers")
+  TEST_METHOD_PROPERTY(L"Kits.TestId", L"50a5ddb9-25ff-4c7b-b438-6cc6346a1531")
+  TEST_METHOD_PROPERTY(
+      L"Kits.TestName",
+      L"D3D12 - DXIL Core Test - Shader Model 6.6 - Atomics (64-bit integer)")
+  TEST_METHOD_PROPERTY(L"Kits.Specification",
+                       L"Device.Graphics.WDDM30.AdapterRender.D3D12.DXILCore."
+                       L"ShaderModel66.CoreRequirement")
+  END_TEST_METHOD()
+  BEGIN_TEST_METHOD(AtomicsRawHeap64Test)
+  TEST_METHOD_PROPERTY(L"Kits.Description",
+                       L"Verifies shader model 6.6 atomics using raw buffers "
+                       L"from the descriptor heap")
+  TEST_METHOD_PROPERTY(L"Kits.TestId", L"38a50fa1-7611-435b-a199-78fd285db21e")
+  TEST_METHOD_PROPERTY(L"Kits.TestName",
+                       L"D3D12 - DXIL Core Test - Shader Model 6.6 - Atomics "
+                       L"64-bit raw heap test")
+  TEST_METHOD_PROPERTY(L"Kits.Specification",
+                       L"Device.Graphics.WDDM30.AdapterRender.D3D12.DXILCore."
+                       L"ShaderModel66.CoreRequirement")
+  END_TEST_METHOD()
+  BEGIN_TEST_METHOD(AtomicsTyped64Test)
+  TEST_METHOD_PROPERTY(
+      L"Kits.Description",
+      L"Verifies shader model 6.6 atomic operations on typed 64-bit resources")
+  TEST_METHOD_PROPERTY(L"Kits.TestId", L"4b67b299-3c80-4301-b968-64022826782c")
+  TEST_METHOD_PROPERTY(L"Kits.TestName",
+                       L"D3D12 - DXIL Core Test - Shader Model 6.6 - Atomics "
+                       L"(typed 64-bit resources)")
+  TEST_METHOD_PROPERTY(L"Kits.Specification",
+                       L"Device.Graphics.WDDM30.AdapterRender.D3D12.DXILCore."
+                       L"ShaderModel66.CoreRequirement")
+  END_TEST_METHOD()
+  BEGIN_TEST_METHOD(AtomicsShared64Test)
+  TEST_METHOD_PROPERTY(L"Kits.Description",
+                       L"Verifies shader model 6.6 atomic operations on "
+                       L"groupshared 64-bit variables")
+  TEST_METHOD_PROPERTY(L"Kits.TestId", L"444c06ae-7957-496e-ae04-d668454e1d34")
+  TEST_METHOD_PROPERTY(L"Kits.TestName",
+                       L"D3D12 - DXIL Core Test - Shader Model 6.6 - Atomics "
+                       L"(groupshared 64-bit variables)")
+  TEST_METHOD_PROPERTY(L"Kits.Specification",
+                       L"Device.Graphics.WDDM30.AdapterRender.D3D12.DXILCore."
+                       L"ShaderModel66.CoreRequirement")
+  END_TEST_METHOD()
+  BEGIN_TEST_METHOD(AtomicsFloatTest)
+  TEST_METHOD_PROPERTY(
+      L"Kits.Description",
+      L"Verifies shader model 6.6 floating point atomic operations")
+  TEST_METHOD_PROPERTY(L"Kits.TestId", L"23f41361-f8f5-4267-b948-b00e0bdab593")
+  TEST_METHOD_PROPERTY(
+      L"Kits.TestName",
+      L"D3D12 - DXIL Core Test - Shader Model 6.6 - Atomics (float)")
+  TEST_METHOD_PROPERTY(L"Kits.Specification",
+                       L"Device.Graphics.WDDM30.AdapterRender.D3D12.DXILCore."
+                       L"ShaderModel66.CoreRequirement")
+  END_TEST_METHOD()
+  BEGIN_TEST_METHOD(HelperLaneTest)
+  TEST_METHOD_PROPERTY(L"Kits.Description", L"Verifies IsHelperLane intrinsic")
+  TEST_METHOD_PROPERTY(L"Kits.TestId", L"d8b209a0-d976-48ca-bc9e-047d2a0075f2")
+  TEST_METHOD_PROPERTY(
+      L"Kits.TestName",
+      L"D3D12 - DXIL Core Test - Shader Model 6.6 - IsHelperLane")
+  TEST_METHOD_PROPERTY(L"Kits.Specification",
+                       L"Device.Graphics.WDDM30.AdapterRender.D3D12.DXILCore."
+                       L"ShaderModel66.CoreRequirement")
+  END_TEST_METHOD()
+  BEGIN_TEST_METHOD(HelperLaneTestWave)
+  TEST_METHOD_PROPERTY(L"Kits.Description",
+                       L"Verifies helper lanes in wave operations")
+  TEST_METHOD_PROPERTY(L"Kits.TestId", L"b48c35c6-44cd-4f68-9a71-eb500fa585b8")
+  TEST_METHOD_PROPERTY(L"Kits.TestName",
+                       L"D3D12 - DXIL Core Test - Shader Model 6.6 - Helper "
+                       L"Lanes in Wave Operations")
+  TEST_METHOD_PROPERTY(L"Kits.Specification",
+                       L"Device.Graphics.WDDM30.AdapterRender.D3D12.DXILCore."
+                       L"ShaderModel66.CoreRequirement")
+  END_TEST_METHOD()
+  BEGIN_TEST_METHOD(SignatureResourcesTest)
+  TEST_METHOD_PROPERTY(L"Kits.Description",
+                       L"Verifies shader model 6.6 signature resources")
+  TEST_METHOD_PROPERTY(L"Kits.TestId", L"44e432d8-52da-4309-b3e0-cf06048baac6")
+  TEST_METHOD_PROPERTY(
+      L"Kits.TestName",
+      L"D3D12 - DXIL Core Test - Shader Model 6.6 - Signature resources")
+  TEST_METHOD_PROPERTY(L"Kits.Specification",
+                       L"Device.Graphics.WDDM30.AdapterRender.D3D12.DXILCore."
+                       L"ShaderModel66.CoreRequirement")
+  END_TEST_METHOD()
+  BEGIN_TEST_METHOD(DynamicResourcesTest)
+  TEST_METHOD_PROPERTY(L"Kits.Description",
+                       L"Verifies shader model 6.6 dynamic resources")
+  TEST_METHOD_PROPERTY(L"Kits.TestId", L"b9ac94b3-a96e-412b-9101-ff731697823c")
+  TEST_METHOD_PROPERTY(
+      L"Kits.TestName",
+      L"D3D12 - DXIL Core Test - Shader Model 6.6 - Dynamic resources")
+  TEST_METHOD_PROPERTY(L"Kits.Specification",
+                       L"Device.Graphics.WDDM30.AdapterRender.D3D12.DXILCore."
+                       L"ShaderModel66.CoreRequirement")
+  END_TEST_METHOD()
+  BEGIN_TEST_METHOD(DynamicResourcesDynamicIndexingTest)
+  TEST_METHOD_PROPERTY(L"Kits.Description",
+                       L"Verifies dynamic indexing of dynamic resources")
+  TEST_METHOD_PROPERTY(L"Kits.TestId", L"cb131b0c-c2aa-4a7f-be38-dfa94c0556d3")
+  TEST_METHOD_PROPERTY(L"Kits.TestName",
+                       L"D3D12 - DXIL Core Test - Shader Model 6.6 - Dynamic "
+                       L"indexing of dynamic resources")
+  TEST_METHOD_PROPERTY(L"Kits.Specification",
+                       L"Device.Graphics.WDDM30.AdapterRender.D3D12.DXILCore."
+                       L"ShaderModel66.CoreRequirement")
+  END_TEST_METHOD()
 
-  TEST_METHOD(QuadReadTest)
-  TEST_METHOD(QuadAnyAll);
+  BEGIN_TEST_METHOD(QuadReadTest)
+  TEST_METHOD_PROPERTY(L"Kits.Description", L"Verifies QuadRead intrinsics")
+  TEST_METHOD_PROPERTY(L"Kits.TestId", L"a9b504bb-f841-414e-bdda-ba948f18420f")
+  TEST_METHOD_PROPERTY(L"Kits.TestName",
+                       L"D3D12 - DXIL Core Test - QuadRead intrinsics")
+  TEST_METHOD_PROPERTY(L"Kits.Specification",
+                       L"Device.Graphics.WDDM22.AdapterRender.D3D12.DXILCore."
+                       L"ShaderModel60.CoreRequirement")
+  END_TEST_METHOD()
+  BEGIN_TEST_METHOD(QuadAnyAll)
+  TEST_METHOD_PROPERTY(L"Kits.Description",
+                       L"Verifies QuadAny/QuadAll intrinsic")
+  TEST_METHOD_PROPERTY(L"Kits.TestId", L"86a4e6f0-fd73-487b-9d63-ec5a5bb2b803")
+  TEST_METHOD_PROPERTY(
+      L"Kits.TestName",
+      L"D3D12 - DXIL Core Test - Shader Model 6.7 - QuadAny QuadAll")
+  TEST_METHOD_PROPERTY(L"Kits.Specification",
+                       L"Device.Graphics.WDDM31.AdapterRender.D3D12.DXILCore."
+                       L"ShaderModel67.CoreRequirement")
+  END_TEST_METHOD()
 
-  TEST_METHOD(CBufferTestHalf);
+  BEGIN_TEST_METHOD(CBufferTestHalf)
+  TEST_METHOD_PROPERTY(L"Kits.Description", L"Verifies float16 in CBuffer")
+  TEST_METHOD_PROPERTY(L"Kits.Specification",
+                       L"Device.Graphics.WDDM24.AdapterRender.D3D12."
+                       L"Native16Bits.CoreRequirement")
+  TEST_METHOD_PROPERTY(L"Kits.TestId", L"936cd44a-c4b1-4f9b-992f-76fe17d2bf60")
+  TEST_METHOD_PROPERTY(L"Kits.TestName",
+                       L"D3D12 - DXIL 16bit Types Test - CBuffer Test")
+  END_TEST_METHOD()
 
-  TEST_METHOD(BasicShaderModel61);
-  TEST_METHOD(BasicShaderModel63);
+  BEGIN_TEST_METHOD(BasicShaderModel61)
+  TEST_METHOD_PROPERTY(L"Kits.Description",
+                       L"Verifies shader model 6.1 support.")
+  TEST_METHOD_PROPERTY(L"Kits.TestId", L"a53f923a-af31-4d2c-b6d9-b667281c52c0")
+  TEST_METHOD_PROPERTY(L"Kits.TestName",
+                       L"D3D12 - DXIL Core Test - Basic shader model 6.1 test")
+  TEST_METHOD_PROPERTY(L"Kits.Specification",
+                       L"Device.Graphics.WDDM23.AdapterRender.D3D12.DXILCore."
+                       L"ShaderModel61.CoreRequirement")
+  END_TEST_METHOD()
+  BEGIN_TEST_METHOD(BasicShaderModel63)
+  TEST_METHOD_PROPERTY(L"Kits.Description",
+                       L"Verifies shader model 6.3 support.")
+  TEST_METHOD_PROPERTY(L"Kits.TestId", L"d8918d1c-382f-491a-a1b2-3c1fcc994202")
+  TEST_METHOD_PROPERTY(L"Kits.TestName",
+                       L"D3D12 - DXIL Core Test - Basic shader model 6.3 test")
+  TEST_METHOD_PROPERTY(L"Kits.Specification",
+                       L"Device.Graphics.WDDM25.AdapterRender.D3D12.DXILCore."
+                       L"ShaderModel63.CoreRequirement")
+  END_TEST_METHOD()
 
   BEGIN_TEST_METHOD(WaveIntrinsicsActiveIntTest)
   TEST_METHOD_PROPERTY(
@@ -399,29 +741,179 @@ public:
       L"DataSource", L"Table:ShaderOpArithTable.xml#DenormTertiaryFloatOpTable")
   END_TEST_METHOD()
 
-  TEST_METHOD(BarycentricsTest);
+  BEGIN_TEST_METHOD(BarycentricsTest)
+  TEST_METHOD_PROPERTY(L"Kits.Description",
+                       L"Verifies barycentrics functionality")
+  TEST_METHOD_PROPERTY(L"Kits.TestId", L"13ea5ebf-ac10-4723-a9a0-a4fe1b9042a6")
+  TEST_METHOD_PROPERTY(L"Kits.TestName",
+                       L"D3D12 - DXIL Core Test - Barycentrics test")
+  TEST_METHOD_PROPERTY(L"Kits.Specification",
+                       L"Device.Graphics.WDDM23.AdapterRender.D3D12.DXILCore."
+                       L"ShaderModel61.CoreRequirement")
+  END_TEST_METHOD()
 
-  TEST_METHOD(ComputeRawBufferLdStI32);
-  TEST_METHOD(ComputeRawBufferLdStFloat);
+  BEGIN_TEST_METHOD(ComputeRawBufferLdStI32)
+  TEST_METHOD_PROPERTY(
+      L"Kits.Description",
+      L"Verifies compute pipeline raw buffer load/store for int32_t datatype")
+  TEST_METHOD_PROPERTY(L"Kits.TestId", L"54dd1088-42e8-477e-93c5-87494f1231cc")
+  TEST_METHOD_PROPERTY(L"Kits.TestName",
+                       L"D3D12 - DXIL Core Test - Compute pipeline - Raw "
+                       L"Buffer Load Store Test - int32_t")
+  TEST_METHOD_PROPERTY(L"Kits.Specification",
+                       L"Device.Graphics.WDDM24.AdapterRender.D3D12.DXILCore."
+                       L"ShaderModel62.CoreRequirement")
+  END_TEST_METHOD()
+  BEGIN_TEST_METHOD(ComputeRawBufferLdStFloat)
+  TEST_METHOD_PROPERTY(
+      L"Kits.Description",
+      L"Verifies compute pipeline raw buffer load/store for float datatype")
+  TEST_METHOD_PROPERTY(L"Kits.TestId", L"430c019f-ba13-42c7-bce6-3a9bd7905a30")
+  TEST_METHOD_PROPERTY(L"Kits.TestName",
+                       L"D3D12 - DXIL Core Test - Compute pipeline - Raw "
+                       L"Buffer Load Store Test - float")
+  TEST_METHOD_PROPERTY(L"Kits.Specification",
+                       L"Device.Graphics.WDDM24.AdapterRender.D3D12.DXILCore."
+                       L"ShaderModel62.CoreRequirement")
+  END_TEST_METHOD()
 
-  TEST_METHOD(ComputeRawBufferLdStI64);
-  TEST_METHOD(ComputeRawBufferLdStDouble);
+  BEGIN_TEST_METHOD(ComputeRawBufferLdStI64)
+  TEST_METHOD_PROPERTY(
+      L"Kits.Description",
+      L"Verifies compute pipeline raw buffer load/store for int64_t datatype")
+  TEST_METHOD_PROPERTY(L"Kits.TestId", L"981b4460-073f-4255-ab7c-192adfff26fa")
+  TEST_METHOD_PROPERTY(L"Kits.TestName",
+                       L"D3D12 - DXIL Core Test - Compute pipeline - Raw "
+                       L"Buffer Load Store Test - int64_t")
+  TEST_METHOD_PROPERTY(L"Kits.Specification",
+                       L"Device.Graphics.WDDM25.AdapterRender.D3D12.DXILCore."
+                       L"ShaderModel63.CoreRequirement")
+  END_TEST_METHOD()
+  BEGIN_TEST_METHOD(ComputeRawBufferLdStDouble)
+  TEST_METHOD_PROPERTY(
+      L"Kits.Description",
+      L"Verifies compute pipeline raw buffer load/store for double datatype")
+  TEST_METHOD_PROPERTY(L"Kits.TestId", L"798cc50c-9018-4948-9cf7-857274aedf06")
+  TEST_METHOD_PROPERTY(L"Kits.TestName",
+                       L"D3D12 - DXIL Core Test - Compute pipeline - Raw "
+                       L"Buffer Load Store Test - double")
+  TEST_METHOD_PROPERTY(L"Kits.Specification",
+                       L"Device.Graphics.WDDM25.AdapterRender.D3D12.DXILCore."
+                       L"ShaderModel63.CoreRequirement")
+  END_TEST_METHOD()
 
-  TEST_METHOD(ComputeRawBufferLdStI16);
-  TEST_METHOD(ComputeRawBufferLdStHalf);
+  BEGIN_TEST_METHOD(ComputeRawBufferLdStI16)
+  TEST_METHOD_PROPERTY(
+      L"Kits.Description",
+      L"Verifies compute pipeline raw buffer load/store for int16_t datatype")
+  TEST_METHOD_PROPERTY(L"Kits.TestId", L"c6d11027-5ddb-4ff4-9bac-f5f0d74a4560")
+  TEST_METHOD_PROPERTY(L"Kits.TestName",
+                       L"D3D12 - DXIL Core Test - Compute pipeline - Raw "
+                       L"Buffer Load Store Test - int16_t")
+  TEST_METHOD_PROPERTY(L"Kits.Specification",
+                       L"Device.Graphics.WDDM24.AdapterRender.D3D12.DXILCore."
+                       L"ShaderModel62.CoreRequirement")
+  END_TEST_METHOD()
+  BEGIN_TEST_METHOD(ComputeRawBufferLdStHalf)
+  TEST_METHOD_PROPERTY(
+      L"Kits.Description",
+      L"Verifies compute pipeline raw buffer load/store for float16_t datatype")
+  TEST_METHOD_PROPERTY(L"Kits.TestId", L"ec3f83e8-61ed-4f43-9b06-0f6b6ad323eb")
+  TEST_METHOD_PROPERTY(L"Kits.TestName",
+                       L"D3D12 - DXIL Core Test - Compute pipeline - Raw "
+                       L"Buffer Load Store Test - float16_t")
+  TEST_METHOD_PROPERTY(L"Kits.Specification",
+                       L"Device.Graphics.WDDM24.AdapterRender.D3D12.DXILCore."
+                       L"ShaderModel62.CoreRequirement")
+  END_TEST_METHOD()
 
-  TEST_METHOD(GraphicsRawBufferLdStI32);
-  TEST_METHOD(GraphicsRawBufferLdStFloat);
+  BEGIN_TEST_METHOD(GraphicsRawBufferLdStI32)
+  TEST_METHOD_PROPERTY(
+      L"Kits.Description",
+      L"Verifies graphics pipeline raw buffer load/store for int32_t datatype")
+  TEST_METHOD_PROPERTY(L"Kits.TestId", L"969d01e7-db0e-4271-a136-9089f240e2e2")
+  TEST_METHOD_PROPERTY(L"Kits.TestName",
+                       L"D3D12 - DXIL Core Test - Graphics pipeline - Raw "
+                       L"Buffer Load Store Test - int32_t")
+  TEST_METHOD_PROPERTY(L"Kits.Specification",
+                       L"Device.Graphics.WDDM24.AdapterRender.D3D12.DXILCore."
+                       L"ShaderModel62.CoreRequirement")
+  END_TEST_METHOD()
+  BEGIN_TEST_METHOD(GraphicsRawBufferLdStFloat)
+  TEST_METHOD_PROPERTY(
+      L"Kits.Description",
+      L"Verifies graphics pipeline raw buffer load/store for float datatype")
+  TEST_METHOD_PROPERTY(L"Kits.TestId", L"46141a5a-3a42-4906-bc96-a70c691f79da")
+  TEST_METHOD_PROPERTY(L"Kits.TestName",
+                       L"D3D12 - DXIL Core Test - Graphics pipeline - Raw "
+                       L"Buffer Load Store Test - float")
+  TEST_METHOD_PROPERTY(L"Kits.Specification",
+                       L"Device.Graphics.WDDM24.AdapterRender.D3D12.DXILCore."
+                       L"ShaderModel62.CoreRequirement")
+  END_TEST_METHOD()
 
-  TEST_METHOD(GraphicsRawBufferLdStI64);
-  TEST_METHOD(GraphicsRawBufferLdStDouble);
+  BEGIN_TEST_METHOD(GraphicsRawBufferLdStI64)
+  TEST_METHOD_PROPERTY(
+      L"Kits.Description",
+      L"Verifies graphics pipeline raw buffer load/store for int64_t datatype")
+  TEST_METHOD_PROPERTY(L"Kits.TestId", L"59375291-95a5-4889-896b-c21e0ad11be9")
+  TEST_METHOD_PROPERTY(L"Kits.TestName",
+                       L"D3D12 - DXIL Core Test - Graphics pipeline - Raw "
+                       L"Buffer Load Store Test - int64_t")
+  TEST_METHOD_PROPERTY(L"Kits.Specification",
+                       L"Device.Graphics.WDDM25.AdapterRender.D3D12.DXILCore."
+                       L"ShaderModel63.CoreRequirement")
+  END_TEST_METHOD()
+  BEGIN_TEST_METHOD(GraphicsRawBufferLdStDouble)
+  TEST_METHOD_PROPERTY(
+      L"Kits.Description",
+      L"Verifies graphics pipeline raw buffer load/store for double datatype")
+  TEST_METHOD_PROPERTY(L"Kits.TestId", L"ba10ff74-2d0e-41aa-9539-c80106f770f2")
+  TEST_METHOD_PROPERTY(L"Kits.TestName",
+                       L"D3D12 - DXIL Core Test - Graphics pipeline - Raw "
+                       L"Buffer Load Store Test - double")
+  TEST_METHOD_PROPERTY(L"Kits.Specification",
+                       L"Device.Graphics.WDDM25.AdapterRender.D3D12.DXILCore."
+                       L"ShaderModel63.CoreRequirement")
+  END_TEST_METHOD()
 
-  TEST_METHOD(GraphicsRawBufferLdStI16);
-  TEST_METHOD(GraphicsRawBufferLdStHalf);
+  BEGIN_TEST_METHOD(GraphicsRawBufferLdStI16)
+  TEST_METHOD_PROPERTY(
+      L"Kits.Description",
+      L"Verifies graphics pipeline raw buffer load/store for int16_t datatype")
+  TEST_METHOD_PROPERTY(L"Kits.TestId", L"52697183-18a8-4096-8a43-5608b56b49e3")
+  TEST_METHOD_PROPERTY(L"Kits.TestName",
+                       L"D3D12 - DXIL Core Test - Graphics pipeline - Raw "
+                       L"Buffer Load Store Test - int16_t")
+  TEST_METHOD_PROPERTY(L"Kits.Specification",
+                       L"Device.Graphics.WDDM24.AdapterRender.D3D12.DXILCore."
+                       L"ShaderModel62.CoreRequirement")
+  END_TEST_METHOD()
+  BEGIN_TEST_METHOD(GraphicsRawBufferLdStHalf)
+  TEST_METHOD_PROPERTY(L"Kits.Description",
+                       L"Verifies graphics pipeline raw buffer load/store for "
+                       L"float16_t datatype")
+  TEST_METHOD_PROPERTY(L"Kits.TestId", L"a6178326-2175-4a29-a493-170f606755fb")
+  TEST_METHOD_PROPERTY(L"Kits.TestName",
+                       L"D3D12 - DXIL Core Test - Graphics pipeline - Raw "
+                       L"Buffer Load Store Test - float16_t")
+  TEST_METHOD_PROPERTY(L"Kits.Specification",
+                       L"Device.Graphics.WDDM24.AdapterRender.D3D12.DXILCore."
+                       L"ShaderModel62.CoreRequirement")
+  END_TEST_METHOD()
 
   BEGIN_TEST_METHOD(PackUnpackTest)
   TEST_METHOD_PROPERTY(L"DataSource",
                        L"Table:ShaderOpArithTable.xml#PackUnpackOpTable")
+  TEST_METHOD_PROPERTY(L"Kits.Description",
+                       L"Verifies shader model 6.6 pack unpack intrinsics")
+  TEST_METHOD_PROPERTY(L"Kits.TestId", L"d5a302c9-6e1f-4dfc-8b2d-73e41e8f0939")
+  TEST_METHOD_PROPERTY(
+      L"Kits.TestName",
+      L"D3D12 - DXIL Core Test - Shader Model 6.6 - Pack Unpack")
+  TEST_METHOD_PROPERTY(L"Kits.Specification",
+                       L"Device.Graphics.WDDM30.AdapterRender.D3D12.DXILCore."
+                       L"ShaderModel66.CoreRequirement")
   END_TEST_METHOD()
 
   dxc::DxCompilerDllLoader m_support;
@@ -492,9 +984,6 @@ public:
     }
     throw std::runtime_error("Unsupported codepage.");
   }
-
-  // Do not remove the following line - it is used by TranslateExecutionTest.py
-  // MARKER: ExecutionTest/DxilConf Shared Implementation Start
 
   bool SaveImages() { return GetTestParamBool(L"SaveImages"); }
 
@@ -1314,11 +1803,11 @@ static void SetupComputeValuePattern(std::vector<uint32_t> &values,
   }
 }
 
-bool ExecutionTest::ExecutionTestClassSetup() { return DivergentClassSetup(); }
+bool DxilConfTest::DxilConfTestClassSetup() { return DivergentClassSetup(); }
 
-void ExecutionTest::RunRWByteBufferComputeTest(ID3D12Device *pDevice,
-                                               LPCSTR pShader,
-                                               std::vector<uint32_t> &values) {
+void DxilConfTest::RunRWByteBufferComputeTest(ID3D12Device *pDevice,
+                                              LPCSTR pShader,
+                                              std::vector<uint32_t> &values) {
   static const int DispatchGroupX = 1;
   static const int DispatchGroupY = 1;
   static const int DispatchGroupZ = 1;
@@ -1371,7 +1860,7 @@ void ExecutionTest::RunRWByteBufferComputeTest(ID3D12Device *pDevice,
       0, D3D12_COMMAND_LIST_TYPE_COMPUTE, pCommandAllocator, pComputeState,
       IID_PPV_ARGS(&pCommandList)));
   pCommandList->SetName(
-      L"ExecutionTest::RunRWByteButterComputeTest Command List");
+      L"DxilConfTest::RunRWByteButterComputeTest Command List");
 
   // Set up UAV resource.
   CComPtr<ID3D12Resource> pUavResource;
@@ -1428,7 +1917,7 @@ void ExecutionTest::RunRWByteBufferComputeTest(ID3D12Device *pDevice,
   WaitForSignal(pCommandQueue, FO);
 }
 
-void ExecutionTest::RunLifetimeIntrinsicComputeTest(
+void DxilConfTest::RunLifetimeIntrinsicComputeTest(
     ID3D12Device *pDevice, LPCSTR pShader,
     CComPtr<ID3D12DescriptorHeap> &pUavHeap,
     CComPtr<ID3D12RootSignature> &pRootSignature, LPCWSTR pTargetProfile,
@@ -1454,8 +1943,7 @@ void ExecutionTest::RunLifetimeIntrinsicComputeTest(
   VERIFY_SUCCEEDED(pDevice->CreateCommandList(
       0, D3D12_COMMAND_LIST_TYPE_COMPUTE, pCommandAllocator, pComputeState,
       IID_PPV_ARGS(&pCommandList)));
-  pCommandList->SetName(
-      L"ExecutionTest::RunLifetimeIntrinsicTest Command List");
+  pCommandList->SetName(L"DxilConfTest::RunLifetimeIntrinsicTest Command List");
 
   // Set up UAV resource.
   const UINT valueSizeInBytes = (UINT)values.size() * sizeof(uint32_t);
@@ -1517,7 +2005,7 @@ void ExecutionTest::RunLifetimeIntrinsicComputeTest(
   WaitForSignal(pCommandQueue, FO);
 }
 
-void ExecutionTest::RunLifetimeIntrinsicLibTest(
+void DxilConfTest::RunLifetimeIntrinsicLibTest(
     ID3D12Device *pDevice0, LPCSTR pShader,
     CComPtr<ID3D12RootSignature> &pRootSignature, LPCWSTR pTargetProfile,
     LPCWSTR *pOptions, int numOptions) {
@@ -1576,8 +2064,7 @@ void ExecutionTest::RunLifetimeIntrinsicLibTest(
                                               pCommandAllocator, nullptr,
                                               IID_PPV_ARGS(&pCommandList)));
   pCommandList->SetPipelineState1(pStateObject);
-  pCommandList->SetName(
-      L"ExecutionTest::RunLifetimeIntrinsicTest Command List");
+  pCommandList->SetName(L"DxilConfTest::RunLifetimeIntrinsicTest Command List");
 
   // Close the command list and execute it to kick-off compilation in the
   // driver. NOTE: We don't care about anything else, so we're not setting up
@@ -1587,12 +2074,12 @@ void ExecutionTest::RunLifetimeIntrinsicLibTest(
   WaitForSignal(pCommandQueue, FO);
 }
 
-void ExecutionTest::RunLifetimeIntrinsicTest(ID3D12Device *pDevice,
-                                             LPCSTR pShader,
-                                             D3D_SHADER_MODEL shaderModel,
-                                             bool useLibTarget,
-                                             LPCWSTR *pOptions, int numOptions,
-                                             std::vector<uint32_t> &values) {
+void DxilConfTest::RunLifetimeIntrinsicTest(ID3D12Device *pDevice,
+                                            LPCSTR pShader,
+                                            D3D_SHADER_MODEL shaderModel,
+                                            bool useLibTarget,
+                                            LPCWSTR *pOptions, int numOptions,
+                                            std::vector<uint32_t> &values) {
   LPCWSTR pTargetProfile;
   switch (shaderModel) {
   default:
@@ -1653,7 +2140,7 @@ void ExecutionTest::RunLifetimeIntrinsicTest(ID3D12Device *pDevice,
   }
 }
 
-TEST_F(ExecutionTest, LifetimeIntrinsicTest) {
+TEST_F(DxilConfTest, LifetimeIntrinsicTest) {
   // The only thing we test here is that existence of lifetime intrinsics or
   // their fallback replacement (store undef or store zeroinitializer) do not
   // cause any issues in the runtime and driver stack.
@@ -1792,7 +2279,7 @@ TEST_F(ExecutionTest, LifetimeIntrinsicTest) {
   }
 }
 
-TEST_F(ExecutionTest, BasicComputeTest) {
+TEST_F(DxilConfTest, BasicComputeTest) {
 #ifndef _HLK_CONF
   //
   // BasicComputeTest is a simple compute shader that can be used as the basis
@@ -1826,7 +2313,7 @@ TEST_F(ExecutionTest, BasicComputeTest) {
 #endif
 }
 
-TEST_F(ExecutionTest, BasicTriangleTest) {
+TEST_F(DxilConfTest, BasicTriangleTest) {
 #ifndef _HLK_CONF
   static const UINT FrameCount = 2;
   static const UINT m_width = 320;
@@ -2001,7 +2488,7 @@ TEST_F(ExecutionTest, BasicTriangleTest) {
 #endif
 }
 
-TEST_F(ExecutionTest, Int64Test) {
+TEST_F(DxilConfTest, Int64Test) {
   static const char pShader[] = "RWByteAddressBuffer g_bab : register(u0);\r\n"
                                 "[numthreads(8,8,1)]\r\n"
                                 "void main(uint GI : SV_GroupIndex) {"
@@ -2033,7 +2520,7 @@ TEST_F(ExecutionTest, Int64Test) {
   VERIFY_ARE_EQUAL(values[0], (uint32_t)0);
 }
 
-TEST_F(ExecutionTest, SignTest) {
+TEST_F(DxilConfTest, SignTest) {
   static const char pShader[] = "RWByteAddressBuffer g_bab : register(u0);\r\n"
                                 "[numthreads(8,1,1)]\r\n"
                                 "void main(uint GI : SV_GroupIndex) {"
@@ -2061,7 +2548,7 @@ TEST_F(ExecutionTest, SignTest) {
   VERIFY_ARE_EQUAL(values[7], (uint32_t)1);
 }
 
-TEST_F(ExecutionTest, WaveIntrinsicsDDITest) {
+TEST_F(DxilConfTest, WaveIntrinsicsDDITest) {
 #ifndef _HLK_CONF
   CComPtr<ID3D12Device> pDevice;
   if (!createDevice(&pDevice))
@@ -2084,7 +2571,7 @@ TEST_F(ExecutionTest, WaveIntrinsicsDDITest) {
 #endif
 }
 
-TEST_F(ExecutionTest, WaveIntrinsicsTest) {
+TEST_F(DxilConfTest, WaveIntrinsicsTest) {
 #ifndef _HLK_CONF
   WEX::TestExecution::SetVerifyOutput verifySettings(
       WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
@@ -2450,7 +2937,7 @@ TEST_F(ExecutionTest, WaveIntrinsicsTest) {
 }
 
 // This test is assuming that the adapter implements WaveReadLaneFirst correctly
-TEST_F(ExecutionTest, WaveIntrinsicsInPSTest) {
+TEST_F(DxilConfTest, WaveIntrinsicsInPSTest) {
   WEX::TestExecution::SetVerifyOutput verifySettings(
       WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
 
@@ -2848,7 +3335,7 @@ struct SPrimitives {
   float f_float2_o;
 };
 
-TEST_F(ExecutionTest, OutOfBoundsTest) {
+TEST_F(DxilConfTest, OutOfBoundsTest) {
   WEX::TestExecution::SetVerifyOutput verifySettings(
       WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
   CComPtr<IStream> pStream;
@@ -2873,7 +3360,7 @@ TEST_F(ExecutionTest, OutOfBoundsTest) {
   }
 }
 
-TEST_F(ExecutionTest, SaturateTest) {
+TEST_F(DxilConfTest, SaturateTest) {
   WEX::TestExecution::SetVerifyOutput verifySettings(
       WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
   CComPtr<IStream> pStream;
@@ -2901,9 +3388,8 @@ TEST_F(ExecutionTest, SaturateTest) {
   }
 }
 
-void ExecutionTest::BasicTriangleTestSetup(LPCSTR ShaderOpName,
-                                           LPCWSTR FileName,
-                                           D3D_SHADER_MODEL testModel) {
+void DxilConfTest::BasicTriangleTestSetup(LPCSTR ShaderOpName, LPCWSTR FileName,
+                                          D3D_SHADER_MODEL testModel) {
 #ifdef _HLK_CONF
   UNREFERENCED_PARAMETER(ShaderOpName);
   UNREFERENCED_PARAMETER(FileName);
@@ -2953,12 +3439,12 @@ void ExecutionTest::BasicTriangleTestSetup(LPCSTR ShaderOpName,
 #endif
 }
 
-TEST_F(ExecutionTest, BasicTriangleOpTest) {
+TEST_F(DxilConfTest, BasicTriangleOpTest) {
   BasicTriangleTestSetup("Triangle", L"basic-triangle.bmp",
                          D3D_SHADER_MODEL_6_0);
 }
 
-TEST_F(ExecutionTest, BasicTriangleOpTestHalf) {
+TEST_F(DxilConfTest, BasicTriangleOpTestHalf) {
   BasicTriangleTestSetup("TriangleHalf", L"basic-triangle-half.bmp",
                          D3D_SHADER_MODEL_6_2);
 }
@@ -3058,7 +3544,7 @@ void VerifyDerivResults_CS_AS_MS_66(const float *pPixels, UINT offsetCenter) {
 
 // Rendering two right triangles forming a square and assigning a texture value
 // for each pixel to calculate derivates.
-TEST_F(ExecutionTest, PartialDerivTest) {
+TEST_F(DxilConfTest, PartialDerivTest) {
   WEX::TestExecution::SetVerifyOutput verifySettings(
       WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
   CComPtr<IStream> pStream;
@@ -3164,7 +3650,7 @@ void DerivativesTest_DebugOutput(Dispatch &D,
 #endif
 }
 
-TEST_F(ExecutionTest, DerivativesTest) {
+TEST_F(DxilConfTest, DerivativesTest) {
   const UINT pixelSize = 4; // always float4
 
   WEX::TestExecution::SetVerifyOutput verifySettings(
@@ -3249,7 +3735,7 @@ void VerifyQuadReadResults(const UINT *pPixels, UINT quadIndex) {
   }
 }
 
-TEST_F(ExecutionTest, QuadReadTest) {
+TEST_F(DxilConfTest, QuadReadTest) {
   WEX::TestExecution::SetVerifyOutput verifySettings(
       WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
   CComPtr<IStream> pStream;
@@ -3397,7 +3883,7 @@ void VerifySampleResults(const UINT *pPixels, UINT width) {
   VERIFY_ARE_EQUAL(ylod, 6u);
 }
 
-TEST_F(ExecutionTest, ComputeSampleTest) {
+TEST_F(DxilConfTest, ComputeSampleTest) {
   WEX::TestExecution::SetVerifyOutput verifySettings(
       WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
   CComPtr<IStream> pStream;
@@ -3516,7 +4002,7 @@ TEST_F(ExecutionTest, ComputeSampleTest) {
   }
 }
 
-TEST_F(ExecutionTest, ATOWriteMSAATest) {
+TEST_F(DxilConfTest, ATOWriteMSAATest) {
   WEX::TestExecution::SetVerifyOutput verifySettings(
       WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
 
@@ -3790,7 +4276,7 @@ void VerifyProgOffsetResults(unsigned *pPixels, bool bCheckDeriv) {
 // order The shader then uses non-immediate offsets extending from -9 to 8 to
 // access these using Load, Sample, SampleCmp and variants thereof. The test
 // verifies that the locations accessed correspond to where they should.
-TEST_F(ExecutionTest, ATOProgOffset) {
+TEST_F(DxilConfTest, ATOProgOffset) {
   WEX::TestExecution::SetVerifyOutput verifySettings(
       WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
   CComPtr<IStream> pStream;
@@ -3927,7 +4413,7 @@ TEST_F(ExecutionTest, ATOProgOffset) {
 // A mipmapped texture containing the value of LOD at each location in each
 // level is used to sample at each level using SampleCmpLevel and confirm
 // that the correct level is used for the comparison.
-TEST_F(ExecutionTest, ATOSampleCmpLevelTest) {
+TEST_F(DxilConfTest, ATOSampleCmpLevelTest) {
   WEX::TestExecution::SetVerifyOutput verifySettings(
       WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
   CComPtr<IStream> pStream;
@@ -4209,7 +4695,7 @@ struct FloatRGBE {
 };
 
 template <typename RGBAType, unsigned xdim, unsigned ydim>
-struct RawFloatTexture : public ExecutionTest::RawGatherTexture {
+struct RawFloatTexture : public DxilConfTest::RawGatherTexture {
   DXGI_FORMAT m_format;
   RGBAType RGBA[xdim * ydim];
   RawFloatTexture(DXGI_FORMAT format) : m_format(format) {}
@@ -4229,7 +4715,7 @@ struct RawFloatTexture : public ExecutionTest::RawGatherTexture {
 };
 
 template <unsigned xdim, unsigned ydim>
-struct RawFloatR11G11B10ATexture : public ExecutionTest::RawGatherTexture {
+struct RawFloatR11G11B10ATexture : public DxilConfTest::RawGatherTexture {
   FloatR11G11B10 RGBA[xdim * ydim];
   // Set i'th element to floatified x,y and some derived values
   virtual void SetElement(int i, int x, int y) override {
@@ -4245,7 +4731,7 @@ struct RawFloatR11G11B10ATexture : public ExecutionTest::RawGatherTexture {
 };
 
 template <typename RGBAType, unsigned xdim, unsigned ydim>
-struct RawIntTexture : public ExecutionTest::RawGatherTexture {
+struct RawIntTexture : public DxilConfTest::RawGatherTexture {
   bool m_isSigned;
   bool m_isNorm;
   unsigned m_maxVal;
@@ -4293,7 +4779,7 @@ struct RawIntTexture : public ExecutionTest::RawGatherTexture {
 };
 
 template <unsigned xdim, unsigned ydim>
-struct RawR10G10B10XRA2Texture : public ExecutionTest::RawGatherTexture {
+struct RawR10G10B10XRA2Texture : public DxilConfTest::RawGatherTexture {
   unsigned m_maxVal;
   DXGI_FORMAT m_format;
   IntRGBA10XRA2UNORM RGBA[xdim * ydim];
@@ -4335,9 +4821,9 @@ struct RawR10G10B10XRA2Texture : public ExecutionTest::RawGatherTexture {
 // <viewFormat> Then execute a shader that uses raw gather to copy the values
 // into a UAV Verify that the UAV has the same values as passed in.
 template <typename GatherType>
-void ExecutionTest::DoRawGatherTest(ID3D12Device *pDevice,
-                                    RawGatherTexture *rawTex,
-                                    DXGI_FORMAT viewFormat) {
+void DxilConfTest::DoRawGatherTest(ID3D12Device *pDevice,
+                                   RawGatherTexture *rawTex,
+                                   DXGI_FORMAT viewFormat) {
 
   DXGI_FORMAT resFormat = rawTex->GetFormat();
 #ifdef RAWGATHER_FALLBACK
@@ -4565,7 +5051,7 @@ void ExecutionTest::DoRawGatherTest(ID3D12Device *pDevice,
 // available 6.7 + Enh. Barriers - Same formats can be cast as in native, but
 // use new createcommittedresource3() 6.7 + Enh. Barriers + Relaxed Cast - All
 // format casting and raw gathering of all
-TEST_F(ExecutionTest, ATORawGather) {
+TEST_F(DxilConfTest, ATORawGather) {
 
   WEX::TestExecution::SetVerifyOutput verifySettings(
       WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
@@ -4790,17 +5276,17 @@ TEST_F(ExecutionTest, ATORawGather) {
 
 // Executing a simple binop to verify shadel model 6.1 support; runs with
 // ShaderModel61.CoreRequirement
-TEST_F(ExecutionTest, BasicShaderModel61) {
+TEST_F(DxilConfTest, BasicShaderModel61) {
   RunBasicShaderModelTest(D3D_SHADER_MODEL_6_1);
 }
 
 // Executing a simple binop to verify shadel model 6.3 support; runs with
 // ShaderModel63.CoreRequirement
-TEST_F(ExecutionTest, BasicShaderModel63) {
+TEST_F(DxilConfTest, BasicShaderModel63) {
   RunBasicShaderModelTest(D3D_SHADER_MODEL_6_3);
 }
 
-void ExecutionTest::RunBasicShaderModelTest(D3D_SHADER_MODEL shaderModel) {
+void DxilConfTest::RunBasicShaderModelTest(D3D_SHADER_MODEL shaderModel) {
 
   WEX::TestExecution::SetVerifyOutput verifySettings(
       WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
@@ -4871,34 +5357,34 @@ void ExecutionTest::RunBasicShaderModelTest(D3D_SHADER_MODEL shaderModel) {
 }
 
 template <class Ty>
-const wchar_t *ExecutionTest::BasicShaderModelTest_GetFormatString() {
+const wchar_t *DxilConfTest::BasicShaderModelTest_GetFormatString() {
   DXASSERT_NOMSG("Unsupported type");
   return "";
 }
 
 template <>
-const wchar_t *ExecutionTest::BasicShaderModelTest_GetFormatString<float>() {
+const wchar_t *DxilConfTest::BasicShaderModelTest_GetFormatString<float>() {
   return L"element #%u: input1 = %6.8f, input1 = %6.8f, output = %6.8f, "
          L"expected = %6.8f";
 }
 
 template <>
-const wchar_t *ExecutionTest::BasicShaderModelTest_GetFormatString<double>() {
+const wchar_t *DxilConfTest::BasicShaderModelTest_GetFormatString<double>() {
   return BasicShaderModelTest_GetFormatString<float>();
 }
 
 template <>
-const wchar_t *ExecutionTest::BasicShaderModelTest_GetFormatString<int64_t>() {
+const wchar_t *DxilConfTest::BasicShaderModelTest_GetFormatString<int64_t>() {
   return L"element #%u: input1 = %ld, input1 = %ld, output = %ld, expected = "
          L"%ld";
 }
 
 template <class Ty>
-void ExecutionTest::RunBasicShaderModelTest(CComPtr<ID3D12Device> pDevice,
-                                            const char *pShaderModelStr,
-                                            const char *pShader,
-                                            Ty *pInputDataPairs,
-                                            unsigned inputDataCount) {
+void DxilConfTest::RunBasicShaderModelTest(CComPtr<ID3D12Device> pDevice,
+                                           const char *pShaderModelStr,
+                                           const char *pShader,
+                                           Ty *pInputDataPairs,
+                                           unsigned inputDataCount) {
   struct SBinaryOp {
     Ty input1;
     Ty input2;
@@ -5699,7 +6185,7 @@ bool VerifyArrayWithExpectedValue(T *arr, T *expected, size_t num_elements,
   return passed;
 };
 
-TEST_F(ExecutionTest, UnaryFloatOpTest) {
+TEST_F(DxilConfTest, UnaryFloatOpTest) {
   WEX::TestExecution::SetVerifyOutput verifySettings(
       WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
   CComPtr<IStream> pStream;
@@ -5762,7 +6248,7 @@ TEST_F(ExecutionTest, UnaryFloatOpTest) {
   }
 }
 
-TEST_F(ExecutionTest, BinaryFloatOpTest) {
+TEST_F(DxilConfTest, BinaryFloatOpTest) {
   WEX::TestExecution::SetVerifyOutput verifySettings(
       WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
   CComPtr<IStream> pStream;
@@ -5852,7 +6338,7 @@ TEST_F(ExecutionTest, BinaryFloatOpTest) {
   }
 }
 
-TEST_F(ExecutionTest, TertiaryFloatOpTest) {
+TEST_F(DxilConfTest, TertiaryFloatOpTest) {
   WEX::TestExecution::SetVerifyOutput verifySettings(
       WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
   CComPtr<IStream> pStream;
@@ -5925,7 +6411,7 @@ TEST_F(ExecutionTest, TertiaryFloatOpTest) {
   }
 }
 
-TEST_F(ExecutionTest, UnaryHalfOpTest) {
+TEST_F(DxilConfTest, UnaryHalfOpTest) {
   WEX::TestExecution::SetVerifyOutput verifySettings(
       WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
   CComPtr<IStream> pStream;
@@ -6000,7 +6486,7 @@ TEST_F(ExecutionTest, UnaryHalfOpTest) {
   }
 }
 
-TEST_F(ExecutionTest, IsSpecialFloatHalfOpTest) {
+TEST_F(DxilConfTest, IsSpecialFloatHalfOpTest) {
   WEX::TestExecution::SetVerifyOutput verifySettings(
       WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
   CComPtr<IStream> pStream;
@@ -6075,7 +6561,7 @@ TEST_F(ExecutionTest, IsSpecialFloatHalfOpTest) {
   }
 }
 
-TEST_F(ExecutionTest, BinaryHalfOpTest) {
+TEST_F(DxilConfTest, BinaryHalfOpTest) {
   WEX::TestExecution::SetVerifyOutput verifySettings(
       WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
   CComPtr<IStream> pStream;
@@ -6186,7 +6672,7 @@ TEST_F(ExecutionTest, BinaryHalfOpTest) {
   }
 }
 
-TEST_F(ExecutionTest, TertiaryHalfOpTest) {
+TEST_F(DxilConfTest, TertiaryHalfOpTest) {
   WEX::TestExecution::SetVerifyOutput verifySettings(
       WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
   CComPtr<IStream> pStream;
@@ -6272,7 +6758,7 @@ TEST_F(ExecutionTest, TertiaryHalfOpTest) {
   }
 }
 
-TEST_F(ExecutionTest, UnaryIntOpTest) {
+TEST_F(DxilConfTest, UnaryIntOpTest) {
   WEX::TestExecution::SetVerifyOutput verifySettings(
       WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
   CComPtr<IStream> pStream;
@@ -6332,7 +6818,7 @@ TEST_F(ExecutionTest, UnaryIntOpTest) {
   }
 }
 
-TEST_F(ExecutionTest, UnaryUintOpTest) {
+TEST_F(DxilConfTest, UnaryUintOpTest) {
   WEX::TestExecution::SetVerifyOutput verifySettings(
       WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
   CComPtr<IStream> pStream;
@@ -6392,7 +6878,7 @@ TEST_F(ExecutionTest, UnaryUintOpTest) {
   }
 }
 
-TEST_F(ExecutionTest, BinaryIntOpTest) {
+TEST_F(DxilConfTest, BinaryIntOpTest) {
   WEX::TestExecution::SetVerifyOutput verifySettings(
       WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
   CComPtr<IStream> pStream;
@@ -6482,7 +6968,7 @@ TEST_F(ExecutionTest, BinaryIntOpTest) {
   }
 }
 
-TEST_F(ExecutionTest, TertiaryIntOpTest) {
+TEST_F(DxilConfTest, TertiaryIntOpTest) {
   WEX::TestExecution::SetVerifyOutput verifySettings(
       WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
   CComPtr<IStream> pStream;
@@ -6552,7 +7038,7 @@ TEST_F(ExecutionTest, TertiaryIntOpTest) {
   }
 }
 
-TEST_F(ExecutionTest, BinaryUintOpTest) {
+TEST_F(DxilConfTest, BinaryUintOpTest) {
   WEX::TestExecution::SetVerifyOutput verifySettings(
       WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
   CComPtr<IStream> pStream;
@@ -6644,7 +7130,7 @@ TEST_F(ExecutionTest, BinaryUintOpTest) {
   }
 }
 
-TEST_F(ExecutionTest, TertiaryUintOpTest) {
+TEST_F(DxilConfTest, TertiaryUintOpTest) {
   WEX::TestExecution::SetVerifyOutput verifySettings(
       WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
   CComPtr<IStream> pStream;
@@ -6718,7 +7204,7 @@ TEST_F(ExecutionTest, TertiaryUintOpTest) {
 }
 
 // 16 bit integer type tests
-TEST_F(ExecutionTest, UnaryInt16OpTest) {
+TEST_F(DxilConfTest, UnaryInt16OpTest) {
   WEX::TestExecution::SetVerifyOutput verifySettings(
       WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
   CComPtr<IStream> pStream;
@@ -6786,7 +7272,7 @@ TEST_F(ExecutionTest, UnaryInt16OpTest) {
   }
 }
 
-TEST_F(ExecutionTest, UnaryUint16OpTest) {
+TEST_F(DxilConfTest, UnaryUint16OpTest) {
   WEX::TestExecution::SetVerifyOutput verifySettings(
       WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
   CComPtr<IStream> pStream;
@@ -6855,7 +7341,7 @@ TEST_F(ExecutionTest, UnaryUint16OpTest) {
   }
 }
 
-TEST_F(ExecutionTest, BinaryInt16OpTest) {
+TEST_F(DxilConfTest, BinaryInt16OpTest) {
   WEX::TestExecution::SetVerifyOutput verifySettings(
       WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
   CComPtr<IStream> pStream;
@@ -6953,7 +7439,7 @@ TEST_F(ExecutionTest, BinaryInt16OpTest) {
   }
 }
 
-TEST_F(ExecutionTest, TertiaryInt16OpTest) {
+TEST_F(DxilConfTest, TertiaryInt16OpTest) {
   WEX::TestExecution::SetVerifyOutput verifySettings(
       WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
   CComPtr<IStream> pStream;
@@ -7030,7 +7516,7 @@ TEST_F(ExecutionTest, TertiaryInt16OpTest) {
   }
 }
 
-TEST_F(ExecutionTest, BinaryUint16OpTest) {
+TEST_F(DxilConfTest, BinaryUint16OpTest) {
   WEX::TestExecution::SetVerifyOutput verifySettings(
       WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
   CComPtr<IStream> pStream;
@@ -7128,7 +7614,7 @@ TEST_F(ExecutionTest, BinaryUint16OpTest) {
   }
 }
 
-TEST_F(ExecutionTest, TertiaryUint16OpTest) {
+TEST_F(DxilConfTest, TertiaryUint16OpTest) {
   WEX::TestExecution::SetVerifyOutput verifySettings(
       WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
   CComPtr<IStream> pStream;
@@ -7718,7 +8204,7 @@ void LoadStoreMat(int M, int N, bool LEFT, int MEM_TYPE, uint32_t K, uint32_t k,
   }
 }
 
-TEST_F(ExecutionTest, DotTest) {
+TEST_F(DxilConfTest, DotTest) {
   WEX::TestExecution::SetVerifyOutput verifySettings(
       WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
   CComPtr<IStream> pStream;
@@ -7802,7 +8288,7 @@ TEST_F(ExecutionTest, DotTest) {
   }
 }
 
-TEST_F(ExecutionTest, Dot2AddHalfTest) {
+TEST_F(DxilConfTest, Dot2AddHalfTest) {
   WEX::TestExecution::SetVerifyOutput verifySettings(
       WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
   CComPtr<IStream> pStream;
@@ -7890,7 +8376,7 @@ TEST_F(ExecutionTest, Dot2AddHalfTest) {
   }
 }
 
-TEST_F(ExecutionTest, Dot4AddI8PackedTest) {
+TEST_F(DxilConfTest, Dot4AddI8PackedTest) {
   WEX::TestExecution::SetVerifyOutput verifySettings(
       WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
   CComPtr<IStream> pStream;
@@ -7953,7 +8439,7 @@ TEST_F(ExecutionTest, Dot4AddI8PackedTest) {
   }
 }
 
-TEST_F(ExecutionTest, Dot4AddU8PackedTest) {
+TEST_F(DxilConfTest, Dot4AddU8PackedTest) {
   WEX::TestExecution::SetVerifyOutput verifySettings(
       WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
   CComPtr<IStream> pStream;
@@ -8016,7 +8502,7 @@ TEST_F(ExecutionTest, Dot4AddU8PackedTest) {
   }
 }
 
-TEST_F(ExecutionTest, Msad4Test) {
+TEST_F(DxilConfTest, Msad4Test) {
   WEX::TestExecution::SetVerifyOutput verifySettings(
       WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
   CComPtr<IStream> pStream;
@@ -8098,7 +8584,7 @@ TEST_F(ExecutionTest, Msad4Test) {
   }
 }
 
-TEST_F(ExecutionTest, DenormBinaryFloatOpTest) {
+TEST_F(DxilConfTest, DenormBinaryFloatOpTest) {
   WEX::TestExecution::SetVerifyOutput verifySettings(
       WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
   CComPtr<IStream> pStream;
@@ -8209,7 +8695,7 @@ TEST_F(ExecutionTest, DenormBinaryFloatOpTest) {
   }
 }
 
-TEST_F(ExecutionTest, DenormTertiaryFloatOpTest) {
+TEST_F(DxilConfTest, DenormTertiaryFloatOpTest) {
   WEX::TestExecution::SetVerifyOutput verifySettings(
       WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
   CComPtr<IStream> pStream;
@@ -8626,7 +9112,7 @@ static OutType computeExpectedWithShaderOp(const std::vector<InType> &inputs,
 // This test case is assuming that functions 1) WaveIsFirstLane and 2)
 // WaveGetLaneIndex are correct for all lanes.
 template <class T1, class T2>
-void ExecutionTest::WaveIntrinsicsActivePrefixTest(
+void DxilConfTest::WaveIntrinsicsActivePrefixTest(
     TableParameter *pParameterList, size_t numParameter, bool isPrefix) {
   WEX::TestExecution::SetVerifyOutput verifySettings(
       WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
@@ -8808,28 +9294,28 @@ void ExecutionTest::WaveIntrinsicsActivePrefixTest(
   }
 }
 
-TEST_F(ExecutionTest, WaveIntrinsicsActiveIntTest) {
+TEST_F(DxilConfTest, WaveIntrinsicsActiveIntTest) {
   WaveIntrinsicsActivePrefixTest<int, int>(
       WaveIntrinsicsActiveIntParameters,
       sizeof(WaveIntrinsicsActiveIntParameters) / sizeof(TableParameter),
       /*isPrefix*/ false);
 }
 
-TEST_F(ExecutionTest, WaveIntrinsicsActiveUintTest) {
+TEST_F(DxilConfTest, WaveIntrinsicsActiveUintTest) {
   WaveIntrinsicsActivePrefixTest<unsigned int, unsigned int>(
       WaveIntrinsicsActiveUintParameters,
       sizeof(WaveIntrinsicsActiveUintParameters) / sizeof(TableParameter),
       /*isPrefix*/ false);
 }
 
-TEST_F(ExecutionTest, WaveIntrinsicsPrefixIntTest) {
+TEST_F(DxilConfTest, WaveIntrinsicsPrefixIntTest) {
   WaveIntrinsicsActivePrefixTest<int, int>(
       WaveIntrinsicsPrefixIntParameters,
       sizeof(WaveIntrinsicsPrefixIntParameters) / sizeof(TableParameter),
       /*isPrefix*/ true);
 }
 
-TEST_F(ExecutionTest, WaveIntrinsicsPrefixUintTest) {
+TEST_F(DxilConfTest, WaveIntrinsicsPrefixUintTest) {
   WaveIntrinsicsActivePrefixTest<unsigned int, unsigned int>(
       WaveIntrinsicsPrefixUintParameters,
       sizeof(WaveIntrinsicsPrefixUintParameters) / sizeof(TableParameter),
@@ -8891,7 +9377,7 @@ std::function<T(T, T)> GetWaveMultiPrefixReferenceFunction(LPCWSTR testName) {
 }
 
 template <class T>
-void ExecutionTest::WaveIntrinsicsMultiPrefixOpTest(
+void DxilConfTest::WaveIntrinsicsMultiPrefixOpTest(
     TableParameter *pParameterList, size_t numParameters) {
   WEX::TestExecution::SetVerifyOutput verifySettings(
       WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
@@ -9027,19 +9513,19 @@ void ExecutionTest::WaveIntrinsicsMultiPrefixOpTest(
   }
 }
 
-TEST_F(ExecutionTest, WaveIntrinsicsSM65IntTest) {
+TEST_F(DxilConfTest, WaveIntrinsicsSM65IntTest) {
   WaveIntrinsicsMultiPrefixOpTest<int>(
       WaveIntrinsicsMultiPrefixIntParameters,
       _countof(WaveIntrinsicsMultiPrefixIntParameters));
 }
 
-TEST_F(ExecutionTest, WaveIntrinsicsSM65UintTest) {
+TEST_F(DxilConfTest, WaveIntrinsicsSM65UintTest) {
   WaveIntrinsicsMultiPrefixOpTest<unsigned>(
       WaveIntrinsicsMultiPrefixUintParameters,
       _countof(WaveIntrinsicsMultiPrefixUintParameters));
 }
 
-TEST_F(ExecutionTest, CBufferTestHalf) {
+TEST_F(DxilConfTest, CBufferTestHalf) {
   WEX::TestExecution::SetVerifyOutput verifySettings(
       WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
   CComPtr<IStream> pStream;
@@ -9169,7 +9655,7 @@ MakeBarycentricsResourceInitCallbackFn(int &vertexShift) {
   };
 }
 
-TEST_F(ExecutionTest, BarycentricsTest) {
+TEST_F(DxilConfTest, BarycentricsTest) {
   WEX::TestExecution::SetVerifyOutput verifySettings(
       WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
   CComPtr<IStream> pStream;
@@ -9327,7 +9813,7 @@ static const char RawBufferTestGraphicsPixelShaderTemplate[] =
     "  return uint4(1, 2, 3, 4); \r\n"
     "};";
 
-TEST_F(ExecutionTest, ComputeRawBufferLdStI32) {
+TEST_F(DxilConfTest, ComputeRawBufferLdStI32) {
   RawBufferLdStTestData<int32_t> data = {
       1, {2, -1}, {256, -10517, 980}, {465, 13, -89, MAXUINT32 / 2}};
   RunComputeRawBufferLdStTest<int32_t>(D3D_SHADER_MODEL_6_2,
@@ -9335,7 +9821,7 @@ TEST_F(ExecutionTest, ComputeRawBufferLdStI32) {
                                        "ComputeRawBufferLdSt32Bit", data);
 }
 
-TEST_F(ExecutionTest, ComputeRawBufferLdStFloat) {
+TEST_F(DxilConfTest, ComputeRawBufferLdStFloat) {
   RawBufferLdStTestData<float> data = {
       3e-10f,
       {1.5f, -1.99988f},
@@ -9346,7 +9832,7 @@ TEST_F(ExecutionTest, ComputeRawBufferLdStFloat) {
                                      "ComputeRawBufferLdSt32Bit", data);
 }
 
-TEST_F(ExecutionTest, ComputeRawBufferLdStI64) {
+TEST_F(DxilConfTest, ComputeRawBufferLdStI64) {
   RawBufferLdStTestData<int64_t> data = {
       1, {2, -1}, {256, -105171532, 980}, {465, 13, -89, MAXUINT64 / 2}};
   RunComputeRawBufferLdStTest<int64_t>(D3D_SHADER_MODEL_6_3,
@@ -9354,7 +9840,7 @@ TEST_F(ExecutionTest, ComputeRawBufferLdStI64) {
                                        "ComputeRawBufferLdSt64Bit", data);
 }
 
-TEST_F(ExecutionTest, ComputeRawBufferLdStDouble) {
+TEST_F(DxilConfTest, ComputeRawBufferLdStDouble) {
   RawBufferLdStTestData<double> data = {
       3e-10,
       {1.5, -1.99988},
@@ -9365,7 +9851,7 @@ TEST_F(ExecutionTest, ComputeRawBufferLdStDouble) {
                                       "ComputeRawBufferLdSt64Bit", data);
 }
 
-TEST_F(ExecutionTest, ComputeRawBufferLdStI16) {
+TEST_F(DxilConfTest, ComputeRawBufferLdStI16) {
   RawBufferLdStTestData<int16_t> data = {
       1, {2, -1}, {256, -10517, 980}, {465, 13, -89, MAXUINT16 / 2}};
   RunComputeRawBufferLdStTest<int16_t>(D3D_SHADER_MODEL_6_2,
@@ -9373,7 +9859,7 @@ TEST_F(ExecutionTest, ComputeRawBufferLdStI16) {
                                        "ComputeRawBufferLdSt16Bit", data);
 }
 
-TEST_F(ExecutionTest, ComputeRawBufferLdStHalf) {
+TEST_F(DxilConfTest, ComputeRawBufferLdStHalf) {
   RawBufferLdStTestData<float> floatData = {
       3e-10f,
       {1.5f, -1.99988f},
@@ -9389,7 +9875,7 @@ TEST_F(ExecutionTest, ComputeRawBufferLdStHalf) {
                                         "ComputeRawBufferLdSt16Bit", halfData);
 }
 
-TEST_F(ExecutionTest, GraphicsRawBufferLdStI32) {
+TEST_F(DxilConfTest, GraphicsRawBufferLdStI32) {
   RawBufferLdStTestData<int32_t> data = {
       1, {2, -1}, {256, -10517, 980}, {465, 13, -89, MAXUINT32 / 2}};
   RunGraphicsRawBufferLdStTest<int32_t>(D3D_SHADER_MODEL_6_2,
@@ -9397,7 +9883,7 @@ TEST_F(ExecutionTest, GraphicsRawBufferLdStI32) {
                                         "GraphicsRawBufferLdSt32Bit", data);
 }
 
-TEST_F(ExecutionTest, GraphicsRawBufferLdStFloat) {
+TEST_F(DxilConfTest, GraphicsRawBufferLdStFloat) {
   RawBufferLdStTestData<float> data = {
       3e-10f,
       {1.5f, -1.99988f},
@@ -9408,7 +9894,7 @@ TEST_F(ExecutionTest, GraphicsRawBufferLdStFloat) {
                                       "GraphicsRawBufferLdSt32Bit", data);
 }
 
-TEST_F(ExecutionTest, GraphicsRawBufferLdStI64) {
+TEST_F(DxilConfTest, GraphicsRawBufferLdStI64) {
   RawBufferLdStTestData<int64_t> data = {
       1, {2, -1}, {256, -105171532, 980}, {465, 13, -89, MAXUINT64 / 2}};
   RunGraphicsRawBufferLdStTest<int64_t>(D3D_SHADER_MODEL_6_3,
@@ -9416,7 +9902,7 @@ TEST_F(ExecutionTest, GraphicsRawBufferLdStI64) {
                                         "GraphicsRawBufferLdSt64Bit", data);
 }
 
-TEST_F(ExecutionTest, GraphicsRawBufferLdStDouble) {
+TEST_F(DxilConfTest, GraphicsRawBufferLdStDouble) {
   RawBufferLdStTestData<double> data = {
       3e-10,
       {1.5, -1.99988},
@@ -9427,7 +9913,7 @@ TEST_F(ExecutionTest, GraphicsRawBufferLdStDouble) {
                                        "GraphicsRawBufferLdSt64Bit", data);
 }
 
-TEST_F(ExecutionTest, GraphicsRawBufferLdStI16) {
+TEST_F(DxilConfTest, GraphicsRawBufferLdStI16) {
   RawBufferLdStTestData<int16_t> data = {
       1, {2, -1}, {256, -10517, 980}, {465, 13, -89, MAXUINT16 / 2}};
   RunGraphicsRawBufferLdStTest<int16_t>(D3D_SHADER_MODEL_6_2,
@@ -9435,7 +9921,7 @@ TEST_F(ExecutionTest, GraphicsRawBufferLdStI16) {
                                         "GraphicsRawBufferLdSt16Bit", data);
 }
 
-TEST_F(ExecutionTest, GraphicsRawBufferLdStHalf) {
+TEST_F(DxilConfTest, GraphicsRawBufferLdStHalf) {
   RawBufferLdStTestData<float> floatData = {
       3e-10f,
       {1.5f, -1.99988f},
@@ -9451,12 +9937,12 @@ TEST_F(ExecutionTest, GraphicsRawBufferLdStHalf) {
       "GraphicsRawBufferLdSt16Bit", halfData);
 }
 
-bool ExecutionTest::SetupRawBufferLdStTest(D3D_SHADER_MODEL shaderModel,
-                                           RawBufferLdStType dataType,
-                                           CComPtr<ID3D12Device> &pDevice,
-                                           CComPtr<IStream> &pStream,
-                                           const char *&sTy,
-                                           const char *&additionalOptions) {
+bool DxilConfTest::SetupRawBufferLdStTest(D3D_SHADER_MODEL shaderModel,
+                                          RawBufferLdStType dataType,
+                                          CComPtr<ID3D12Device> &pDevice,
+                                          CComPtr<IStream> &pStream,
+                                          const char *&sTy,
+                                          const char *&additionalOptions) {
   if (!createDevice(&pDevice, shaderModel)) {
     return false;
   }
@@ -9508,7 +9994,7 @@ bool ExecutionTest::SetupRawBufferLdStTest(D3D_SHADER_MODEL shaderModel,
 }
 
 template <class Ty>
-void ExecutionTest::VerifyRawBufferLdStTestResults(
+void DxilConfTest::VerifyRawBufferLdStTestResults(
     const std::shared_ptr<st::ShaderOpTest> test,
     const RawBufferLdStTestData<Ty> &testData) {
   // read buffers back & verify expected values
@@ -9561,7 +10047,7 @@ void ExecutionTest::VerifyRawBufferLdStTestResults(
 }
 
 template <class Ty>
-void ExecutionTest::RunComputeRawBufferLdStTest(
+void DxilConfTest::RunComputeRawBufferLdStTest(
     D3D_SHADER_MODEL shaderModel, RawBufferLdStType dataType,
     const char *shaderOpName, const RawBufferLdStTestData<Ty> &testData) {
   WEX::TestExecution::SetVerifyOutput verifySettings(
@@ -9614,7 +10100,7 @@ void ExecutionTest::RunComputeRawBufferLdStTest(
 }
 
 template <class Ty>
-void ExecutionTest::RunGraphicsRawBufferLdStTest(
+void DxilConfTest::RunGraphicsRawBufferLdStTest(
     D3D_SHADER_MODEL shaderModel, RawBufferLdStType dataType,
     const char *shaderOpName, const RawBufferLdStTestData<Ty> &testData) {
 
@@ -9727,7 +10213,7 @@ template <typename T> std::array<T, 4> unpack_s(uint32_t packedVal) {
   return ret;
 }
 
-TEST_F(ExecutionTest, PackUnpackTest) {
+TEST_F(DxilConfTest, PackUnpackTest) {
   WEX::TestExecution::SetVerifyOutput verifySettings(
       WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
   CComPtr<IStream> pStream;
@@ -9910,8 +10396,8 @@ TEST_F(ExecutionTest, PackUnpackTest) {
 // few resources that are initialized here. <isDynamic> determines if it uses
 // the 6.6 Dynamic Resources feature. Values are read back from the result UAV
 // and compared to the expected signals
-void ExecutionTest::RunResourceTest(ID3D12Device *pDevice, const char *pShader,
-                                    const wchar_t *sm, bool isDynamic) {
+void DxilConfTest::RunResourceTest(ID3D12Device *pDevice, const char *pShader,
+                                   const wchar_t *sm, bool isDynamic) {
   WEX::TestExecution::SetVerifyOutput verifySettings(
       WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
 
@@ -10102,7 +10588,7 @@ void ExecutionTest::RunResourceTest(ID3D12Device *pDevice, const char *pShader,
   VERIFY_ARE_EQUAL(pData[7], 1); // samplecmp 1 means it matched 31
 }
 
-TEST_F(ExecutionTest, SignatureResourcesTest) {
+TEST_F(DxilConfTest, SignatureResourcesTest) {
   std::string pShader =
       "ByteAddressBuffer         g_rawBuf      : register(t0);\n"
       "StructuredBuffer<float>   g_structBuf   : register(t1);\n"
@@ -10132,7 +10618,7 @@ TEST_F(ExecutionTest, SignatureResourcesTest) {
   RunResourceTest(pDevice, pShader.c_str(), L"cs_6_6", /*isDynamic*/ false);
 }
 
-TEST_F(ExecutionTest, DynamicResourcesTest) {
+TEST_F(DxilConfTest, DynamicResourcesTest) {
   static const char pShader[] =
       "static ByteAddressBuffer         g_rawBuf      = "
       "ResourceDescriptorHeap[0];\n"
@@ -10184,7 +10670,7 @@ TEST_F(ExecutionTest, DynamicResourcesTest) {
   RunResourceTest(pDevice, pShader, L"cs_6_6", /*isDynamic*/ true);
 }
 
-// void ExecutionTest::TestComputeShaderDynamicResourcesUniformIndexing()
+// void DxilConfTest::TestComputeShaderDynamicResourcesUniformIndexing()
 
 void EnableShaderBasedValidation() {
   CComPtr<ID3D12Debug> spDebugController0;
@@ -10203,7 +10689,7 @@ void VerifyFloatArraysAreEqual(const float *resultFloats,
   }
 }
 
-TEST_F(ExecutionTest, DynamicResourcesDynamicIndexingTest) {
+TEST_F(DxilConfTest, DynamicResourcesDynamicIndexingTest) {
   // EnableShaderBasedValidation();
   WEX::TestExecution::SetVerifyOutput verifySettings(
       WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
@@ -10545,7 +11031,7 @@ void RunWaveSizeRangeTest(UINT minWaveSize, UINT maxWaveSize,
   }
 }
 
-void ExecutionTest::WaveSizeTest() {
+void DxilConfTest::WaveSizeTest() {
   WEX::TestExecution::SetVerifyOutput verifySettings(
       WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
 
@@ -10585,7 +11071,7 @@ void ExecutionTest::WaveSizeTest() {
   RunWaveSizeTest(minWaveSize, maxWaveSize, ShaderOpSet, pDevice, m_support);
 }
 
-void ExecutionTest::WaveSizeRangeTest() {
+void DxilConfTest::WaveSizeRangeTest() {
   WEX::TestExecution::SetVerifyOutput verifySettings(
       WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
 
@@ -10678,7 +11164,7 @@ static void RunGSMLimitShaderAndVerify(
   }
 }
 
-void ExecutionTest::GroupSharedLimitTest() {
+void DxilConfTest::GroupSharedLimitTest() {
   WEX::TestExecution::SetVerifyOutput VerifySettings(
       WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
 
@@ -10799,7 +11285,7 @@ void ExecutionTest::GroupSharedLimitTest() {
   }
 }
 
-void ExecutionTest::GroupSharedLimitASTest() {
+void DxilConfTest::GroupSharedLimitASTest() {
   WEX::TestExecution::SetVerifyOutput VerifySettings(
       WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
 
@@ -10875,7 +11361,7 @@ void ExecutionTest::GroupSharedLimitASTest() {
   }
 }
 
-void ExecutionTest::GroupSharedLimitMSTest() {
+void DxilConfTest::GroupSharedLimitMSTest() {
   WEX::TestExecution::SetVerifyOutput VerifySettings(
       WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
 
@@ -10943,7 +11429,7 @@ void ExecutionTest::GroupSharedLimitMSTest() {
 }
 #endif // defined(HLSLEXEC_GROUPSHARED_LIMITS)
 
-void ExecutionTest::GroupWaveIndexTest() {
+void DxilConfTest::GroupWaveIndexTest() {
   WEX::TestExecution::SetVerifyOutput VerifySettings(
       WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
 
@@ -11487,7 +11973,7 @@ void VerifyAtomicsTest(std::shared_ptr<st::ShaderOpTestResult> test,
   VerifyAtomicsTypedTest(test, maxIdx, bitSize);
 }
 
-TEST_F(ExecutionTest, AtomicsTest) {
+TEST_F(DxilConfTest, AtomicsTest) {
   WEX::TestExecution::SetVerifyOutput verifySettings(
       WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
   CComPtr<IStream> pStream;
@@ -11532,7 +12018,7 @@ TEST_F(ExecutionTest, AtomicsTest) {
   VerifyAtomicsTest(test, 64 * 64 + 6, 32);
 }
 
-TEST_F(ExecutionTest, Atomics64Test) {
+TEST_F(DxilConfTest, Atomics64Test) {
   WEX::TestExecution::SetVerifyOutput verifySettings(
       WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
   CComPtr<IStream> pStream;
@@ -11588,7 +12074,7 @@ TEST_F(ExecutionTest, Atomics64Test) {
   VerifyAtomicsRawTest(test, 64 * 64 + 6, 64);
 }
 
-TEST_F(ExecutionTest, AtomicsRawHeap64Test) {
+TEST_F(DxilConfTest, AtomicsRawHeap64Test) {
   WEX::TestExecution::SetVerifyOutput verifySettings(
       WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
   CComPtr<IStream> pStream;
@@ -11651,7 +12137,7 @@ TEST_F(ExecutionTest, AtomicsRawHeap64Test) {
   VerifyAtomicsRawTest(test, 64 * 64 + 6, 64);
 }
 
-TEST_F(ExecutionTest, AtomicsTyped64Test) {
+TEST_F(DxilConfTest, AtomicsTyped64Test) {
   WEX::TestExecution::SetVerifyOutput verifySettings(
       WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
   CComPtr<IStream> pStream;
@@ -11714,7 +12200,7 @@ TEST_F(ExecutionTest, AtomicsTyped64Test) {
   VerifyAtomicsTypedTest(test, 64 * 64 + 6, 64);
 }
 
-TEST_F(ExecutionTest, AtomicsShared64Test) {
+TEST_F(DxilConfTest, AtomicsShared64Test) {
   WEX::TestExecution::SetVerifyOutput verifySettings(
       WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
   CComPtr<IStream> pStream;
@@ -11846,7 +12332,7 @@ void VerifyAtomicsFloatTest(std::shared_ptr<st::ShaderOpTestResult> test) {
   VerifyAtomicFloatResults(pData);
 }
 
-TEST_F(ExecutionTest, AtomicsFloatTest) {
+TEST_F(DxilConfTest, AtomicsFloatTest) {
   WEX::TestExecution::SetVerifyOutput verifySettings(
       WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
   CComPtr<IStream> pStream;
@@ -11911,7 +12397,7 @@ TEST_F(ExecutionTest, AtomicsFloatTest) {
 // IsHelperLane fallback function (sm <= 6.5) and the IsHelperLane intrisics (sm
 // >= 6.6).
 //
-TEST_F(ExecutionTest, HelperLaneTest) {
+TEST_F(DxilConfTest, HelperLaneTest) {
   WEX::TestExecution::SetVerifyOutput verifySettings(
       WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
   CComPtr<IStream> pStream;
@@ -12312,7 +12798,7 @@ void CleanUAVBuffer0Buffer(LPCSTR BufferName, std::vector<BYTE> &Data,
 // operate correctly with 3 threads in a CS or 3 vertices in a VS where the rest
 // of the lanes in the wave are not active (dead lanes).
 //
-TEST_F(ExecutionTest, HelperLaneTestWave) {
+TEST_F(DxilConfTest, HelperLaneTestWave) {
   WEX::TestExecution::SetVerifyOutput verifySettings(
       WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
   CComPtr<IStream> pStream;
@@ -12455,7 +12941,7 @@ bool VerifyQuadAnyAllResults(int2 *Res) {
   return true;
 }
 
-TEST_F(ExecutionTest, QuadAnyAll) {
+TEST_F(DxilConfTest, QuadAnyAll) {
   WEX::TestExecution::SetVerifyOutput verifySettings(
       WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
   CComPtr<IStream> pStream;
@@ -12879,5 +13365,3 @@ __declspec(dllexport) HRESULT WINAPI
 }
 }
 #endif
-// MARKER: ExecutionTest/DxilConf Shared Implementation End
-// Do not remove the line above - it is used by TranslateExecutionTest.py
