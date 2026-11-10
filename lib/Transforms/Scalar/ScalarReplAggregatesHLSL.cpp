@@ -705,6 +705,10 @@ void SplitCpy(Type *Ty, Value *Dest, Value *Src,
               const DxilFieldAnnotation *fieldAnnotation,
               const bool bEltMemCpy = true) {
   if (PointerType *PT = dyn_cast<PointerType>(Ty)) {
+    if (!idxList.empty()) {
+      SimpleCopy(Dest, Src, idxList, Builder);
+      return;
+    }
     Constant *idx = Constant::getIntegerValue(
         IntegerType::get(Ty->getContext(), 32), APInt(32, 0));
     idxList.emplace_back(idx);
