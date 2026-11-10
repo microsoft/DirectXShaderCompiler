@@ -14721,6 +14721,10 @@ void hlsl::HandleDeclAttributeForHLSL(Sema &S, Decl *D, const AttributeList &A,
     declAttr = ::new (S.Context) HLSLMaybeUnusedAttr(
         A.getRange(), S.Context, A.getAttributeSpellingListIndex());
     break;
+  case AttributeList::AT_HLSLNoDiff:
+    declAttr = ::new (S.Context) HLSLNoDiffAttr(
+        A.getRange(), S.Context, A.getAttributeSpellingListIndex());
+    break;
 
   case AttributeList::AT_HLSLNoInterpolation:
     declAttr = ::new (S.Context) HLSLNoInterpolationAttr(
@@ -15035,6 +15039,71 @@ void hlsl::HandleDeclAttributeForHLSL(Sema &S, Decl *D, const AttributeList &A,
         ValidateAttributeStringArg(S, A, nullptr, 1),
         A.getAttributeSpellingListIndex());
     break;
+  case AttributeList::AT_HLSLAutoDiff: {
+    auto getIdentArg = [&](unsigned Idx) -> IdentifierInfo * {
+      if (Idx >= A.getNumArgs())
+        return nullptr;
+      if (!A.isArgIdent(Idx)) {
+        S.Diag(A.getLoc(), diag::err_attribute_argument_n_type)
+            << A.getName() << (Idx + 1) << /*identifier*/ 3 << A.getRange();
+        return nullptr;
+      }
+      IdentifierInfo *II = A.getArgAsIdent(Idx)->Ident;
+      StringRef N = II->getName();
+      if (N != "fwd" && N != "bwd") {
+        S.Diag(A.getLoc(), diag::err_attribute_argument_n_type)
+            << A.getName() << (Idx + 1) << /*identifier*/ 3 << A.getRange();
+        return nullptr;
+      }
+      return II;
+    };
+    if (A.getNumArgs() < 1 || A.getNumArgs() > 2) {
+      S.Diag(A.getLoc(), diag::err_attribute_wrong_number_arguments)
+          << A.getName() << A.getRange();
+      return;
+    }
+    IdentifierInfo *M1 = getIdentArg(0);
+    IdentifierInfo *M2 = getIdentArg(1);
+    if (!M1)
+      return;
+    declAttr = ::new (S.Context) HLSLAutoDiffAttr(
+        A.getRange(), S.Context, M1, M2, A.getAttributeSpellingListIndex());
+    break;
+  }
+  case AttributeList::AT_HLSLBackwardDerivative: {
+    if (A.getNumArgs() != 1) {
+      S.Diag(A.getLoc(), diag::err_attribute_wrong_number_arguments)
+          << A.getName() << A.getRange();
+      return;
+    }
+    if (!A.isArgIdent(0)) {
+      S.Diag(A.getLoc(), diag::err_hlsl_autodiff_association_requires_function)
+          << A.getName();
+      return;
+    }
+    IdentifierInfo *DerivativeName = A.getArgAsIdent(0)->Ident;
+    declAttr = ::new (S.Context) HLSLBackwardDerivativeAttr(
+        A.getRange(), S.Context, DerivativeName,
+        A.getAttributeSpellingListIndex());
+    break;
+  }
+  case AttributeList::AT_HLSLPrimalSubstituteOf: {
+    if (A.getNumArgs() != 1) {
+      S.Diag(A.getLoc(), diag::err_attribute_wrong_number_arguments)
+          << A.getName() << A.getRange();
+      return;
+    }
+    if (!A.isArgIdent(0)) {
+      S.Diag(A.getLoc(), diag::err_hlsl_autodiff_association_requires_function)
+          << A.getName();
+      return;
+    }
+    IdentifierInfo *PrimalName = A.getArgAsIdent(0)->Ident;
+    declAttr = ::new (S.Context) HLSLPrimalSubstituteOfAttr(
+        A.getRange(), S.Context, PrimalName,
+        A.getAttributeSpellingListIndex());
+    break;
+  }
   case AttributeList::AT_NoInline:
     declAttr = ::new (S.Context) NoInlineAttr(
         A.getRange(), S.Context, A.getAttributeSpellingListIndex());
@@ -15394,6 +15463,13 @@ Attr *hlsl::ProcessStmtAttributeForHLSL(Sema &S, Stmt *St,
     ValidateAttributeOnSwitch(S, St, A);
     result = ::new (S.Context) HLSLCallAttr(A.getRange(), S.Context,
                                             A.getAttributeSpellingListIndex());
+    break;
+  case AttributeList::AT_HLSLNoDiff:
+    // [[dxc::NoDiff]] is a marker for the dxr -generate-differentials rewriter.
+    // No statement-shape validation is required: the attribute is meaningful
+    // on any statement that the rewriter would otherwise transform.
+    result = ::new (S.Context) HLSLNoDiffAttr(
+        A.getRange(), S.Context, A.getAttributeSpellingListIndex());
     break;
   default:
     Handled = false;
@@ -16658,6 +16734,37 @@ void hlsl::CustomPrintHLSLAttr(const clang::Attr *A, llvm::raw_ostream &Out,
     break;
   }
 
+  case clang::attr::HLSLAutoDiff: {
+    Attr *noconst = const_cast<Attr *>(A);
+    HLSLAutoDiffAttr *ACast = static_cast<HLSLAutoDiffAttr *>(noconst);
+    Indent(Indentation, Out);
+    Out << "[[dxc::AutoDiff(";
+    if (ACast->getMode1())
+      Out << ACast->getMode1()->getName();
+    if (ACast->getMode2())
+      Out << ", " << ACast->getMode2()->getName();
+    Out << ")]]\n";
+    break;
+  }
+
+  case clang::attr::HLSLBackwardDerivative: {
+    Attr *noconst = const_cast<Attr *>(A);
+    auto *ACast = static_cast<HLSLBackwardDerivativeAttr *>(noconst);
+    Indent(Indentation, Out);
+    Out << "[[dxc::BackwardDerivative("
+      << ACast->getDerivative()->getName() << ")]]\n";
+    break;
+  }
+
+  case clang::attr::HLSLPrimalSubstituteOf: {
+    Attr *noconst = const_cast<Attr *>(A);
+    auto *ACast = static_cast<HLSLPrimalSubstituteOfAttr *>(noconst);
+    Indent(Indentation, Out);
+    Out << "[[dxc::PrimalSubstituteOf("
+        << ACast->getPrimal()->getName() << ")]]\n";
+    break;
+  }
+
   case clang::attr::HLSLMaxVertexCount: {
     Attr *noconst = const_cast<Attr *>(A);
     HLSLMaxVertexCountAttr *ACast =
@@ -16711,6 +16818,11 @@ void hlsl::CustomPrintHLSLAttr(const clang::Attr *A, llvm::raw_ostream &Out,
   case clang::attr::HLSLLoop:
     Indent(Indentation, Out);
     Out << "[loop]\n";
+    break;
+
+  case clang::attr::HLSLNoDiff:
+    Indent(Indentation, Out);
+    Out << "[[dxc::NoDiff]]\n";
     break;
 
   case clang::attr::HLSLUnroll: {
@@ -16935,6 +17047,9 @@ void hlsl::CustomPrintHLSLAttr(const clang::Attr *A, llvm::raw_ostream &Out,
 bool hlsl::IsHLSLAttr(clang::attr::Kind AttrKind) {
   switch (AttrKind) {
   case clang::attr::HLSLAllowUAVCondition:
+  case clang::attr::HLSLAutoDiff:
+  case clang::attr::HLSLBackwardDerivative:
+  case clang::attr::HLSLPrimalSubstituteOf:
   case clang::attr::HLSLBranch:
   case clang::attr::HLSLCall:
   case clang::attr::HLSLCentroid:
@@ -16954,6 +17069,7 @@ bool hlsl::IsHLSLAttr(clang::attr::Kind AttrKind) {
   case clang::attr::HLSLMaxTessFactor:
   case clang::attr::HLSLNoInterpolation:
   case clang::attr::HLSLNoPerspective:
+  case clang::attr::HLSLNoDiff:
   case clang::attr::HLSLNumThreads:
   case clang::attr::HLSLRootSignature:
   case clang::attr::HLSLOut:

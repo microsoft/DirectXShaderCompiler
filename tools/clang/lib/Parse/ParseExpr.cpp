@@ -710,6 +710,40 @@ ExprResult Parser::ParseCastExpression(bool isUnaryExpression,
   tok::TokenKind SavedKind = Tok.getKind();
   NotCastExpr = false;
 
+  // HLSL Change Start - parse C++11 attributes that appear in expression
+  // position. In HLSL we accept `[[dxc::NoDiff]] <cast-expression>` as an
+  // extension so users can opt a specific sub-expression out of the
+  // dxr -generate-differentials rewrite without having to lift it into its
+  // own statement. Other C++11 attributes in this position are not
+  // recognised; Sema diagnoses them with the standard ignored-attribute
+  // warning.
+  if (getLangOpts().HLSL && Tok.is(tok::l_square) &&
+      NextToken().is(tok::l_square) &&
+      isCXX11AttributeSpecifier(/*Disambiguate=*/false) ==
+          CAK_AttributeSpecifier) {
+    ParsedAttributesWithRange Attrs(AttrFactory);
+    SourceLocation AttrLoc = Tok.getLocation();
+    ParseCXX11Attributes(Attrs);
+    ExprResult Sub = ParseCastExpression(isUnaryExpression, isAddressOfOperand,
+                                         NotCastExpr, isTypeCast);
+    if (NotCastExpr || Sub.isInvalid())
+      return Sub;
+    // Materialize the parsed attribute list into real Attr* nodes so Sema
+    // can inspect them. The list is short (typically a single attribute).
+    SmallVector<const Attr *, 2> AttrVec;
+    for (const AttributeList *AL = Attrs.getList(); AL; AL = AL->getNext()) {
+      if (AL->getKind() == AttributeList::AT_HLSLNoDiff) {
+        AttrVec.push_back(::new (Actions.Context) HLSLNoDiffAttr(
+            AL->getRange(), Actions.Context,
+            AL->getAttributeSpellingListIndex()));
+      } else {
+        Diag(AL->getLoc(), diag::warn_attribute_no_decl) << AL->getName();
+      }
+    }
+    return Actions.ActOnHLSLNoDiffExpr(AttrLoc, AttrVec, Sub.get());
+  }
+  // HLSL Change End
+
   // This handles all of cast-expression, unary-expression, postfix-expression,
   // and primary-expression.  We handle them together like this for efficiency
   // and to simplify handling of an expression starting with a '(' token: which

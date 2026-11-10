@@ -761,6 +761,17 @@ unsigned Parser::ParseAttributeArgsCommon(
 
     // Parse the non-empty comma-separated list of expressions.
     do {
+      // For attributes that take identifier arguments, accept identifier
+      // tokens as IdentifierLoc arguments at every position (not just the
+      // first one).
+      if (Tok.is(tok::identifier) && attributeHasIdentifierArg(*AttrName)) {
+        const Token &Next = NextToken();
+        if (Next.isOneOf(tok::r_paren, tok::comma)) {
+          ArgExprs.push_back(ParseIdentifierLoc());
+          continue;
+        }
+      }
+
       std::unique_ptr<EnterExpressionEvaluationContext> Unevaluated;
       if (attributeParsedArgsUnevaluated(*AttrName))
         Unevaluated.reset(

@@ -616,5 +616,9 @@ def rw_line_directive : Flag<["-", "/"], "line-directive">, Group<hlslrewrite_Gr
   HelpText<"Add line directive">;
 def rw_decl_global_cb : Flag<["-", "/"], "decl-global-cb">, Group<hlslrewrite_Group>, Flags<[RewriteOption]>,
   HelpText<"Collect all global constants outside cbuffer declarations into cbuffer GlobalCB { ... }. Still experimental, not all dependency scenarios handled.">;
+def rw_generate_differentials : Flag<["-", "/"], "generate-differentials">, Group<hlslrewrite_Group>, Flags<[RewriteOption]>,
+  HelpText<"For each function annotated with [[dxc::AutoDiff(...)]], emit a generated forward and/or backward differentiable variant using the hlsl/ad library, placed in the user::ad::fwd / user::ad::bwd namespaces.">;
+def rw_generated_only : Flag<["-", "/"], "generated-only">, Group<hlslrewrite_Group>, Flags<[RewriteOption]>,
+  HelpText<"With -generate-differentials, emit only generated code and its AD library includes; include the authored source before this output when compiling.">;
 // Also removed: compress, decompress, /Gch (child effect), /Gpp (partial precision)
 // /Op - no support for preshaders.

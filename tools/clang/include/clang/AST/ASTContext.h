@@ -2510,6 +2510,31 @@ public:
   };
 
   llvm::StringMap<SectionInfo> SectionInfos;
+
+  // HLSL Change Start - [[dxc::NoDiff]] expression marker
+  //
+  // Side table of `Expr *` nodes that were prefixed with `[[dxc::NoDiff]]`
+  // in source. The attribute exists purely as a marker for the
+  // `dxr -generate-differentials` rewriter, which uses it to copy the
+  // expression verbatim instead of transforming it. Storing the marker on a
+  // side table avoids introducing a dedicated AST node and keeps the rest of
+  // the compiler (codegen, analysis, etc.) entirely unaware of the
+  // attribute.
+private:
+  llvm::SmallPtrSet<const Expr *, 4> HLSLNoDiffExprs;
+
+public:
+  /// Mark \p E as `[[dxc::NoDiff]]`-attributed.
+  void markHLSLNoDiffExpr(const Expr *E) {
+    if (E)
+      HLSLNoDiffExprs.insert(E);
+  }
+
+  /// Return whether \p E was marked with `[[dxc::NoDiff]]`.
+  bool isHLSLNoDiffExpr(const Expr *E) const {
+    return E && HLSLNoDiffExprs.count(E) != 0;
+  }
+  // HLSL Change End
 };
 
 /// \brief Utility function for constructing a nullary selector.

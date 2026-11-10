@@ -1448,6 +1448,20 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
         Args.hasFlag(OPT_rw_line_directive, OPT_INVALID, false);
     opts.RWOpt.DeclGlobalCB =
         Args.hasFlag(OPT_rw_decl_global_cb, OPT_INVALID, false);
+    opts.RWOpt.GenerateDifferentials =
+        Args.hasFlag(OPT_rw_generate_differentials, OPT_INVALID, false);
+    opts.RWOpt.GeneratedOnly =
+        Args.hasFlag(OPT_rw_generated_only, OPT_INVALID, false);
+    if (opts.RWOpt.GeneratedOnly && !opts.RWOpt.GenerateDifferentials) {
+      errors << "-generated-only requires -generate-differentials";
+      return 1;
+    }
+    if (opts.RWOpt.GeneratedOnly &&
+        (opts.RWOpt.WithLineDirective || opts.RWOpt.ExtractEntryUniforms)) {
+      errors << "-generated-only cannot be combined with -line-directive or "
+                "-extract-entry-uniforms";
+      return 1;
+    }
     if (opts.EntryPoint.empty() &&
         (opts.RWOpt.RemoveUnusedGlobals || opts.RWOpt.ExtractEntryUniforms ||
          opts.RWOpt.RemoveUnusedFunctions)) {

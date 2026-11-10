@@ -3313,6 +3313,19 @@ public:
                                  ArrayRef<const Attr*> Attrs,
                                  Stmt *SubStmt);
 
+  // HLSL Change Start - [[dxc::NoDiff]] applied to an expression.
+  //
+  // Applies the `[[dxc::NoDiff]]` C++11 attribute to an in-expression
+  // sub-expression (e.g. `x - [[dxc::NoDiff]] floor(uv)`). The attribute
+  // itself has no effect on normal compilation; it is recorded on
+  // `ASTContext` so the `dxr -generate-differentials` rewriter can emit the
+  // sub-expression verbatim. Returns the (unwrapped) sub-expression so the
+  // caller can use it in place.
+  ExprResult ActOnHLSLNoDiffExpr(SourceLocation AttrLoc,
+                                 ArrayRef<const Attr *> Attrs,
+                                 Expr *SubExpr);
+  // HLSL Change End
+
   StmtResult ActOnIfStmt(SourceLocation IfLoc,
                          FullExprArg CondVal, Decl *CondVar,
                          Stmt *ThenVal,
