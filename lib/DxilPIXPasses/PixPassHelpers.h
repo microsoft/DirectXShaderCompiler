@@ -16,6 +16,7 @@
 #include "llvm/IR/DebugInfoMetadata.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Instructions.h"
+#include "llvm/Support/raw_ostream.h"
 
 // #define PIX_DEBUG_DUMP_HELPER
 #ifdef PIX_DEBUG_DUMP_HELPER
@@ -36,13 +37,16 @@ public:
 void FindRayQueryHandlesForFunction(
     llvm::Function *F, llvm::SmallPtrSetImpl<llvm::Value *> &RayQueryHandles);
 enum class PixUAVHandleMode { NonLib, Lib };
-llvm::CallInst *CreateUAVOnceForModule(hlsl::DxilModule &DM,
-                                       llvm::IRBuilder<> &Builder,
-                                       unsigned int hlslBindIndex,
-                                       const char *name);
-hlsl::DxilResource *CreateGlobalUAVResource(hlsl::DxilModule &DM,
-                                            unsigned int hlslBindIndex,
-                                            const char *name);
+llvm::CallInst *
+CreateUAVOnceForModule(hlsl::DxilModule &DM, llvm::IRBuilder<> &Builder,
+                       unsigned int hlslBindIndex, const char *name,
+                       uint32_t registerSpace = static_cast<uint32_t>(-2),
+                       llvm::raw_ostream *diagnosticStream = nullptr);
+hlsl::DxilResource *
+CreateGlobalUAVResource(hlsl::DxilModule &DM, unsigned int hlslBindIndex,
+                        const char *name,
+                        uint32_t registerSpace = static_cast<uint32_t>(-2),
+                        llvm::raw_ostream *diagnosticStream = nullptr);
 llvm::CallInst *CreateHandleForResource(hlsl::DxilModule &DM,
                                         llvm::IRBuilder<> &Builder,
                                         hlsl::DxilResourceBase *resource,

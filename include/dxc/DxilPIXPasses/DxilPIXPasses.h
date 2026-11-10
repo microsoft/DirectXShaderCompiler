@@ -27,6 +27,7 @@ ModulePass *createDxilDebugInstrumentationPass();
 ModulePass *createDxilShaderAccessTrackingPass();
 ModulePass *createDxilPIXAddTidToAmplificationShaderPayloadPass();
 ModulePass *createDxilPIXDXRInvocationsLogPass();
+ModulePass *createDxilPIXRayQueryLogPass();
 ModulePass *createDxilNonUniformResourceIndexInstrumentationPass();
 ModulePass *createDxilDebugBreakInstrumentationPass();
 
@@ -43,6 +44,7 @@ void initializeDxilShaderAccessTrackingPass(llvm::PassRegistry &);
 void initializeDxilPIXAddTidToAmplificationShaderPayloadPass(
     llvm::PassRegistry &);
 void initializeDxilPIXDXRInvocationsLogPass(llvm::PassRegistry &);
+void initializeDxilPIXRayQueryLogPass(llvm::PassRegistry &);
 void initializeDxilNonUniformResourceIndexInstrumentationPass(
     llvm::PassRegistry &);
 void initializeDxilDebugBreakInstrumentationPass(llvm::PassRegistry &);
