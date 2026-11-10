@@ -15,14 +15,14 @@
 #include "CGDebugInfo.h"
 #include "CGHLSLRuntime.h" // HLSL Change
 #include "CGOpenCLRuntime.h"
-#include "CodeGenFunction.h"
+#include "CodeGenFunction.h" // HLSL Change (clang-format)
 #include "CodeGenModule.h"
 #include "dxc/DXIL/DxilMetadataHelper.h" // HLSL Change
 #include "clang/AST/ASTContext.h"
 #include "clang/AST/CharUnits.h"
 #include "clang/AST/Decl.h"
 #include "clang/AST/DeclObjC.h"
-#include "clang/AST/HlslTypes.h"
+#include "clang/AST/HlslTypes.h" // HLSL Change
 #include "clang/Basic/SourceManager.h"
 #include "clang/Basic/TargetInfo.h"
 #include "clang/CodeGen/CGFunctionInfo.h"
