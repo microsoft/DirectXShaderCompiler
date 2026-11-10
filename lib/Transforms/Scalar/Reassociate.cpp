@@ -205,7 +205,7 @@ namespace {
       AU.setPreservesCFG();
     }
   private:
-    void BuildRankMap(Function &F);
+    bool BuildRankMap(Function &F); // HLSL Change
     unsigned getRank(Value *V);
     void canonicalizeOperands(Instruction *I);
     void ReassociateExpression(BinaryOperator *I);
@@ -315,11 +315,16 @@ static bool isUnmovableInstruction(Instruction *I) {
   }
 }
 
-void Reassociate::BuildRankMap(Function &F) {
+bool Reassociate::BuildRankMap(Function &F) { // HLSL Change
   unsigned i = 2;
 
   // Assign distinct ranks to function arguments.
   for (Function::arg_iterator I = F.arg_begin(), E = F.arg_end(); I != E; ++I) {
+    // HLSL Change Begin - Bail out if the 16-bit argument rank overflows.
+    if (i == 0xFFFF) {
+      return false;
+    }
+    // HLSL Change End
     ValueRankMap[&*I] = ++i;
     DEBUG(dbgs() << "Calculated Rank[" << I->getName() << "] = " << i << "\n");
   }
@@ -327,16 +332,29 @@ void Reassociate::BuildRankMap(Function &F) {
   ReversePostOrderTraversal<Function*> RPOT(&F);
   for (ReversePostOrderTraversal<Function*>::rpo_iterator I = RPOT.begin(),
          E = RPOT.end(); I != E; ++I) {
+    // HLSL Change Begin - Bail out if the 16-bit block rank overflows.
+    if (i == 0xFFFF) {
+      return false;
+    }
+    // HLSL Change End
     BasicBlock *BB = *I;
     unsigned BBRank = RankMap[BB] = ++i << 16;
 
     // Walk the basic block, adding precomputed ranks for any instructions that
     // we cannot move.  This ensures that the ranks for these instructions are
     // all different in the block.
-    for (BasicBlock::iterator I = BB->begin(), E = BB->end(); I != E; ++I)
-      if (isUnmovableInstruction(I))
+    for (BasicBlock::iterator I = BB->begin(), E = BB->end(); I != E; ++I) {
+      if (isUnmovableInstruction(I)) {
+        // HLSL Change Begin - Bail out if the 16-bit per-block rank overflows.
+        if ((BBRank & 0xFFFF) == 0xFFFF) {
+          return false;
+        }
+        // HLSL Change End
         ValueRankMap[&*I] = ++BBRank;
+      }
+    }
   }
+  return true; // HLSL Change
 }
 
 unsigned Reassociate::getRank(Value *V) {
@@ -2393,7 +2411,13 @@ bool Reassociate::runOnFunction(Function &F) {
     return false;
 
   // Calculate the rank map for F
-  BuildRankMap(F);
+  // HLSL Change Begin - Skip reassociation if 16-bit rank fields overflow.
+  if (!BuildRankMap(F)) {
+    RankMap.clear();
+    ValueRankMap.clear();
+    return false;
+  }
+  // HLSL Change End
 
   if (HLSLEnableAggressiveReassociation) { // HLSL Change
     // Build the pair map before running reassociate.
