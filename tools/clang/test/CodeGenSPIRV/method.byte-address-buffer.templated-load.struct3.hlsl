@@ -15,7 +15,6 @@ struct S {
 [numthreads(64, 1, 1)]
 void main(uint3 tid : SV_DispatchThreadId) {
   S sArr[2] = buf.Load<S[2]>(tid.x);
-  buf2.Store<S[2]>(tid.x, sArr);
 }
 
 // Note: the DX layout tightly packs all members of S and its sub-structures.
