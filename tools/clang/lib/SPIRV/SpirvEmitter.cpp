@@ -1690,6 +1690,15 @@ void SpirvEmitter::doFunctionDecl(const FunctionDecl *decl) {
     }
   }
 
+  // Entry points are excluded: their [[vk::ext_decorate]] applies to the
+  // interface variables, and decorations like Location are invalid on an
+  // OpFunction.
+  if (!isEntry)
+    declIdMapper.decorateWithIntrinsicAttrs(decl, func);
+
+  // Ray-tracing entries return before processInlineSpirvAttributes runs.
+  declIdMapper.registerCapabilitiesAndExtensionsForDecl(decl);
+
   if (spirvOptions.debugInfoRich) {
     if (srcDebugFunction) {
       spvContext.pushDebugLexicalScope(info, srcDebugFunction);
