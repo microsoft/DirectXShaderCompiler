@@ -26,6 +26,12 @@
 // FCGL-DAG: @OnlyText = internal constant %struct.StringOnly { i8* getelementptr inbounds ([6 x i8], [6 x i8]* [[HELLO]], i32 0, i32 0) }
 // FCGL-DAG: @GlobalLiteral = internal global %struct.StringState { i8* getelementptr inbounds ([6 x i8], [6 x i8]* [[HELLO]], i32 0, i32 0), i32 3 }
 // FCGL-DAG: [[HELLO]] = linkonce_odr unnamed_addr constant [6 x i8] c"hello\00"
+// FCGL-LABEL: define void @main()
+// FCGL: [[COPY_IN:%[^ ]+]] = load i8*, i8** %AliasedText
+// FCGL-NEXT: store i8* [[COPY_IN]], i8** [[COPY_TMP:%[^, ]+]]
+// FCGL-NEXT: call void {{.*CopyAliasedText.*}}(i8** dereferenceable(4) %AliasedText, i8** dereferenceable(4) [[COPY_TMP]])
+// FCGL-NEXT: [[COPY_OUT:%[^ ]+]] = load i8*, i8** [[COPY_TMP]]
+// FCGL-NEXT: store i8* [[COPY_OUT]], i8** %AliasedText
 // FCGL-LABEL: define internal void {{.*CopyText.*}}(i8* %Text, i8** noalias dereferenceable(4) %Result)
 // FCGL: [[SLOT:%[^ ]+]] = alloca i8*
 // FCGL: store i8* %Text, i8** [[SLOT]]
@@ -99,8 +105,15 @@ StringOnly SplatText(string Text) {
   return (StringOnly)Text;
 }
 
+void CopyAliasedText(inout string First, inout string Second) {
+  First = "changed";
+  Second = First;
+}
+
 [numthreads(1, 1, 1)]
 void main() {
+  string AliasedText = GlobalText;
+  CopyAliasedText(AliasedText, AliasedText);
   StringState Local = Copy(GlobalLiteral);
   Output.Store(0, Local.Value);
   Output.Store(4, GlobalReference.Value);

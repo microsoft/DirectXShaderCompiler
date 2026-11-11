@@ -1432,6 +1432,7 @@ DeclResultIdMapper::createOrUpdateStringVar(const VarDecl *var) {
   // generate an OpString for it.
   if (!var->hasInit()) {
     emitError("Found uninitialized string variable.", var->getLocation());
+    registerVariableForDecl(var, createDeclSpirvInfo(spvBuilder.getString("")));
     return nullptr;
   }
 

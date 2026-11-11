@@ -6026,6 +6026,12 @@ static void SimpleFlatValCopy(CodeGenFunction &CGF, Value *SrcVal,
   DXASSERT(DstTy == CGF.ConvertTypeForMem(DstQualTy),
            "QualType/Type mismatch!");
 
+  if (hlsl::IsStringType(DstQualTy)) {
+    DXASSERT_NOMSG(hlsl::IsStringType(SrcQualTy));
+    CGF.Builder.CreateStore(SrcVal, DstPtr);
+    return;
+  }
+
   llvm::VectorType *DstVecTy = dyn_cast<llvm::VectorType>(DstTy);
   QualType DstScalarQualTy = DstQualTy;
   if (DstVecTy) {
