@@ -6054,7 +6054,11 @@ void CGMSHLSLRuntime::EmitHLSLSplat(CodeGenFunction &CGF, Value *SrcVal,
                                     SmallVector<Value *, 4> &idxList,
                                     QualType Type, QualType SrcType,
                                     llvm::Type *Ty) {
-  if (llvm::PointerType *PT = dyn_cast<llvm::PointerType>(Ty)) {
+  if (hlsl::IsStringType(Type) && Ty == CGF.ConvertType(Type)) {
+    DXASSERT_NOMSG(hlsl::IsStringType(SrcType));
+    Value *DestGEP = CGF.Builder.CreateInBoundsGEP(DestPtr, idxList);
+    CGF.Builder.CreateStore(SrcVal, DestGEP);
+  } else if (llvm::PointerType *PT = dyn_cast<llvm::PointerType>(Ty)) {
     idxList.emplace_back(CGF.Builder.getInt32(0));
 
     EmitHLSLSplat(CGF, SrcVal, DestPtr, idxList, Type, SrcType,

@@ -36,6 +36,10 @@
 // FCGL: [[TEXT:%[^ ]+]] = load i8*, i8** [[TEXT_PTR]]
 // FCGL: store i8* [[TEXT]], i8**
 // FCGL: uitofp i32
+// FCGL-LABEL: define internal void {{.*SplatText.*}}(%struct.StringOnly* noalias sret %agg.result, i8* %Text)
+// FCGL: [[SPLAT_TEXT:%[^ ]+]] = load i8*, i8**
+// FCGL: [[SPLAT_FIELD:%[^ ]+]] = getelementptr inbounds %struct.StringOnly, %struct.StringOnly* {{.*}}, i32 0, i32 0
+// FCGL: store i8* [[SPLAT_TEXT]], i8** [[SPLAT_FIELD]]
 
 struct StringOnly {
   string Text;
@@ -91,6 +95,10 @@ FloatStringState ConvertState(StringState State) {
   return (FloatStringState)State;
 }
 
+StringOnly SplatText(string Text) {
+  return (StringOnly)Text;
+}
+
 [numthreads(1, 1, 1)]
 void main() {
   StringState Local = Copy(GlobalLiteral);
@@ -110,4 +118,5 @@ void main() {
   Output.Store(28, (uint)Converted.Value);
   FloatNestedState ConvertedNested = (FloatNestedState)Nested;
   Output.Store(32, (uint)ConvertedNested.Values[0].Value);
+  Text = SplatText(GlobalText);
 }

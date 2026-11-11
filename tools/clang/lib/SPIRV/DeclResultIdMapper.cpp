@@ -1441,6 +1441,7 @@ DeclResultIdMapper::createOrUpdateStringVar(const VarDecl *var) {
     emitError(
         "string variable initializer must be a string literal with -spirv",
         var->getInit()->getExprLoc());
+    registerVariableForDecl(var, createDeclSpirvInfo(spvBuilder.getString("")));
     return nullptr;
   }
   SpirvString *init = spvBuilder.getString(stringLiteral->getString());
