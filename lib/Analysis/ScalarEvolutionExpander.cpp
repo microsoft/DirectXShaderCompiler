@@ -908,12 +908,36 @@ Instruction *SCEVExpander::getIVIncOperand(Instruction *IncV,
   }
 }
 
+// HLSL Change Begin - Partial backport of PR57187 and PR59777:
+// https://github.com/llvm/llvm-project/commit/86d5586d78d813a6921d786f7ddb1a41c6fb56e0
+// https://github.com/llvm/llvm-project/commit/90c184662925b8f17bc9cf05cd60a9e98201fff6
+// Dropped flags are not re-inferred with ScalarEvolution, which can re-derive
+// them from the very flags being dropped.
+
+/// Drop the poison-generating flags (nuw, nsw, exact and inbounds) of \p I.
+/// LLVM 3.7 lacks Instruction::dropPoisonGeneratingFlags.
+static void dropPoisonGeneratingFlags(Instruction *I) {
+  if (isa<OverflowingBinaryOperator>(I)) {
+    cast<BinaryOperator>(I)->setHasNoUnsignedWrap(false);
+    cast<BinaryOperator>(I)->setHasNoSignedWrap(false);
+  } else if (isa<PossiblyExactOperator>(I)) {
+    cast<BinaryOperator>(I)->setIsExact(false);
+  } else if (auto *GEP = dyn_cast<GetElementPtrInst>(I)) {
+    GEP->setIsInBounds(false);
+  }
+}
+
 /// hoistStep - Attempt to hoist a simple IV increment above InsertPos to make
 /// it available to other uses in this loop. Recursively hoist any operands,
 /// until we reach a value that dominates InsertPos.
-bool SCEVExpander::hoistIVInc(Instruction *IncV, Instruction *InsertPos) {
-  if (SE.DT->dominates(IncV, InsertPos))
-      return true;
+bool SCEVExpander::hoistIVInc(Instruction *IncV, Instruction *InsertPos,
+                              bool DropPoisonFlags) {
+  if (SE.DT->dominates(IncV, InsertPos)) {
+    if (DropPoisonFlags)
+      dropPoisonGeneratingFlags(IncV);
+    return true;
+  }
+  // HLSL Change End - Partial backport of PR57187 and PR59777.
 
   // InsertPos must itself dominate IncV so that IncV's new position satisfies
   // its existing users.
@@ -936,6 +960,11 @@ bool SCEVExpander::hoistIVInc(Instruction *IncV, Instruction *InsertPos) {
   for (SmallVectorImpl<Instruction*>::reverse_iterator I = IVIncs.rbegin(),
          E = IVIncs.rend(); I != E; ++I) {
     (*I)->moveBefore(InsertPos);
+    // HLSL Change Begin - Partial backport of PR57187:
+    // https://github.com/llvm/llvm-project/commit/86d5586d78d813a6921d786f7ddb1a41c6fb56e0
+    if (DropPoisonFlags)
+      dropPoisonGeneratingFlags(*I);
+    // HLSL Change End - Partial backport of PR57187.
   }
   return true;
 }
@@ -1683,6 +1712,27 @@ SCEVExpander::getOrInsertCanonicalInductionVariable(const Loop *L,
   return V;
 }
 
+// HLSL Change Begin - Partial backport of #79512:
+// https://github.com/llvm/llvm-project/commit/da437330beca0411912ca46f2d5ef1e46403acbd
+/// Return true if \p OrigInc and \p IsomorphicInc apply the same overflowing
+/// operation, with the same step operand, to their phis \p OrigPhi and
+/// \p IsomorphicPhi. For congruent phis, the two increments then compute the
+/// same value and overflow in the same iterations.
+static bool isSameIVIncOperation(const PHINode *OrigPhi,
+                                 const Instruction *OrigInc,
+                                 const PHINode *IsomorphicPhi,
+                                 const Instruction *IsomorphicInc) {
+  auto *OrigOBO = dyn_cast<OverflowingBinaryOperator>(OrigInc);
+  auto *IsomorphicOBO = dyn_cast<OverflowingBinaryOperator>(IsomorphicInc);
+  return OrigOBO && IsomorphicOBO &&
+         OrigOBO->getOpcode() == IsomorphicOBO->getOpcode() &&
+         OrigOBO->getType() == IsomorphicOBO->getType() &&
+         OrigOBO->getOperand(0) == OrigPhi &&
+         IsomorphicOBO->getOperand(0) == IsomorphicPhi &&
+         OrigOBO->getOperand(1) == IsomorphicOBO->getOperand(1);
+}
+// HLSL Change End - Partial backport of #79512.
+
 /// replaceCongruentIVs - Check for congruent phis in this loop header and
 /// replace them with their most canonical representative. Return the number of
 /// phis eliminated.
@@ -1772,12 +1822,35 @@ SCEVExpander::replaceCongruentIVs(Loop *L, const DominatorTree *DT,
       // is isomorphic with the original phi. It's worth eagerly cleaning up the
       // common case of a single IV increment so that DeleteDeadPHIs can remove
       // cycles that had postinc uses.
+      // HLSL Change Begin - Partial backport of PR57187 and #79512:
+      // https://github.com/llvm/llvm-project/commit/86d5586d78d813a6921d786f7ddb1a41c6fb56e0
+      // https://github.com/llvm/llvm-project/commit/da437330beca0411912ca46f2d5ef1e46403acbd
+      // Flags are only kept when both increments apply the same operation to
+      // their phis, which upstream does not require.
+      // Replacing IsomorphicInc with OrigInc adds uses of OrigInc where its
+      // flags may not hold, e.g. above a loop exit they depend on, so
+      // hoistIVInc drops them. A nuw/nsw flag that both increments carry still
+      // holds there and is kept.
+      bool KeepNUW = false;
+      bool KeepNSW = false;
+      if (isSameIVIncOperation(OrigPhiRef, OrigInc, Phi, IsomorphicInc)) {
+        auto *OrigOBO = cast<OverflowingBinaryOperator>(OrigInc);
+        auto *IsomorphicOBO = cast<OverflowingBinaryOperator>(IsomorphicInc);
+        KeepNUW =
+            OrigOBO->hasNoUnsignedWrap() && IsomorphicOBO->hasNoUnsignedWrap();
+        KeepNSW =
+            OrigOBO->hasNoSignedWrap() && IsomorphicOBO->hasNoSignedWrap();
+      }
       const SCEV *TruncExpr = SE.getTruncateOrNoop(SE.getSCEV(OrigInc),
                                                    IsomorphicInc->getType());
-      if (OrigInc != IsomorphicInc
-          && TruncExpr == SE.getSCEV(IsomorphicInc)
-          && ((isa<PHINode>(OrigInc) && isa<PHINode>(IsomorphicInc))
-              || hoistIVInc(OrigInc, IsomorphicInc))) {
+      if (OrigInc != IsomorphicInc && TruncExpr == SE.getSCEV(IsomorphicInc) &&
+          ((isa<PHINode>(OrigInc) && isa<PHINode>(IsomorphicInc)) ||
+           hoistIVInc(OrigInc, IsomorphicInc, /*DropPoisonFlags*/ true))) {
+        if (KeepNUW)
+          cast<BinaryOperator>(OrigInc)->setHasNoUnsignedWrap(true);
+        if (KeepNSW)
+          cast<BinaryOperator>(OrigInc)->setHasNoSignedWrap(true);
+        // HLSL Change End - Partial backport of PR57187 and #79512.
         DEBUG_WITH_TYPE(DebugType, dbgs()
                         << "INDVARS: Eliminated congruent iv.inc: "
                         << *IsomorphicInc << '\n');
