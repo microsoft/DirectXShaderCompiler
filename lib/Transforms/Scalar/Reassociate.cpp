@@ -316,12 +316,13 @@ static bool isUnmovableInstruction(Instruction *I) {
 }
 
 bool Reassociate::BuildRankMap(Function &F) { // HLSL Change
+  const unsigned MaxSubRank = 0xFFFF;         // HLSL Change
   unsigned i = 2;
 
   // Assign distinct ranks to function arguments.
   for (Function::arg_iterator I = F.arg_begin(), E = F.arg_end(); I != E; ++I) {
     // HLSL Change Begin - Bail out if the 16-bit argument rank overflows.
-    if (i == 0xFFFF) {
+    if (i == MaxSubRank) {
       return false;
     }
     // HLSL Change End
@@ -333,7 +334,7 @@ bool Reassociate::BuildRankMap(Function &F) { // HLSL Change
   for (ReversePostOrderTraversal<Function*>::rpo_iterator I = RPOT.begin(),
          E = RPOT.end(); I != E; ++I) {
     // HLSL Change Begin - Bail out if the 16-bit block rank overflows.
-    if (i == 0xFFFF) {
+    if (i == MaxSubRank) {
       return false;
     }
     // HLSL Change End
@@ -346,7 +347,7 @@ bool Reassociate::BuildRankMap(Function &F) { // HLSL Change
     for (BasicBlock::iterator I = BB->begin(), E = BB->end(); I != E; ++I) {
       if (isUnmovableInstruction(I)) {
         // HLSL Change Begin - Bail out if the 16-bit per-block rank overflows.
-        if ((BBRank & 0xFFFF) == 0xFFFF) {
+        if ((BBRank & MaxSubRank) == MaxSubRank) {
           return false;
         }
         // HLSL Change End
