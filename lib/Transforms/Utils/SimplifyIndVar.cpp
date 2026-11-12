@@ -168,12 +168,18 @@ void SimplifyIndvar::eliminateIVComparison(ICmpInst *ICmp, Value *IVOperand) {
 
   // If the condition is always true or always false, replace it with
   // a constant value.
-  if (SE->isKnownPredicate(Pred, S, X))
+  // HLSL Change Begin - Forget cached SCEVs of ICmp users before RAUW. Backport
+  // https://github.com/llvm/llvm-project/commit/fd236772f5665ce9e55f85ac992be6c22a918d3e
+  if (SE->isKnownPredicate(Pred, S, X)) {
+    SE->forgetValue(ICmp);
     ICmp->replaceAllUsesWith(ConstantInt::getTrue(ICmp->getContext()));
-  else if (SE->isKnownPredicate(ICmpInst::getInversePredicate(Pred), S, X))
+  } else if (SE->isKnownPredicate(ICmpInst::getInversePredicate(Pred), S, X)) {
+    SE->forgetValue(ICmp);
     ICmp->replaceAllUsesWith(ConstantInt::getFalse(ICmp->getContext()));
-  else
+  } else {
     return;
+  }
+  // HLSL Change End
 
   DEBUG(dbgs() << "INDVARS: Eliminated comparison: " << *ICmp << '\n');
   ++NumElimCmp;
