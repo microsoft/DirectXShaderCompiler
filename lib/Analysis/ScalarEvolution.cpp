@@ -2941,7 +2941,7 @@ ScalarEvolution::getGEPExpr(Type *PointeeType, const SCEV *BaseExpr,
   // getSCEV(Base)->getType() has the same address space as Base->getType()
   // because SCEV::getType() preserves the address space.
   Type *IntPtrTy = getEffectiveSCEVType(BaseExpr->getType());
-  // HLSL Change Begin - Backport PR23527 (D109789):
+  // HLSL Change Begin - Partial backport PR23527 (D109789):
   // https://github.com/llvm/llvm-project/commit/2ca8a3f2132ec7d46151b4553ee166c4e635fd70
   // Don't blindly transfer the inbounds flag from the GEP instruction to its
   // SCEV, because the instruction may be guarded by control flow and the
