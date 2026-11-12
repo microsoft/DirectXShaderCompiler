@@ -953,8 +953,10 @@ private:
         AllocaInst *Allocation = dyn_cast<AllocaInst>(Pointer);
         if (!Allocation)
           return UnknownLayoutFlags;
-        // Union all stores, including other array elements and overwritten
-        // values, rather than trying to identify the reaching store.
+        // Add all stores into the pointer to the matrix tracing worklist
+        // regardless of if they are overwritten or not directly accessed.
+        // Since we can't statically resolve a dynamic index we must assume
+        // all indexes are used.
         if (VisitedAllocations.insert({Allocation, Load->getType()}).second &&
             !CollectMatVecStoredValues(Allocation, Load->getType(), Worklist))
           return UnknownLayoutFlags;
