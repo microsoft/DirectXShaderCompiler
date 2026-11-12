@@ -235,6 +235,7 @@ struct InstructionAndType {
   DebugShaderModifierRecordType Type;
   std::uint32_t RegisterNumber;
   std::uint32_t AllocaBase;
+  std::uint32_t AllocaRegisterSize = 0;
   Value *AllocaWriteIndex = nullptr;
   std::optional<uint64_t> ConstantAllocaStoreValue;
 };
@@ -993,11 +994,10 @@ std::optional<InstructionAndType>
 DxilDebugInstrumentation::addStoreStepDebugEntry(BuilderContext *BC,
                                                  StoreInst *Inst) {
   std::uint32_t ValueOrdinalBase;
-  std::uint32_t UnusedValueOrdinalSize;
+  std::uint32_t ValueOrdinalSize;
   llvm::Value *ValueOrdinalIndex;
-  if (!pix_dxil::PixAllocaRegWrite::FromInst(Inst, &ValueOrdinalBase,
-                                             &UnusedValueOrdinalSize,
-                                             &ValueOrdinalIndex)) {
+  if (!pix_dxil::PixAllocaRegWrite::FromInst(
+          Inst, &ValueOrdinalBase, &ValueOrdinalSize, &ValueOrdinalIndex)) {
     return std::nullopt;
   }
 
@@ -1019,6 +1019,7 @@ DxilDebugInstrumentation::addStoreStepDebugEntry(BuilderContext *BC,
         ret.Type = *Type;
         ret.RegisterNumber = RegNum;
         ret.AllocaBase = ValueOrdinalBase;
+        ret.AllocaRegisterSize = ValueOrdinalSize;
         ret.AllocaWriteIndex = ValueOrdinalIndex;
         return ret;
       }
@@ -1029,6 +1030,7 @@ DxilDebugInstrumentation::addStoreStepDebugEntry(BuilderContext *BC,
       ret.InstructionOrdinal = InstNum;
       ret.Type = *Type;
       ret.AllocaBase = ValueOrdinalBase;
+      ret.AllocaRegisterSize = ValueOrdinalSize;
       ret.AllocaWriteIndex = ValueOrdinalIndex;
 
       switch (ValueAsConst->getType()->getTypeID()) {
@@ -1356,21 +1358,18 @@ DxilDebugInstrumentation::FindInstrumentableInstructionsInBlock(
           IndexingToken = "s"; // static indexing, no debug output required
         } else {
           IndexingToken = "d"; // dynamic indexing
-          int MaxArraySize = 1;
-          if (auto *Store = dyn_cast<StoreInst>(&Inst)) {
-            if (auto *GEP =
-                    dyn_cast<GetElementPtrInst>(Store->getPointerOperand())) {
-              if (auto *Alloca =
-                      dyn_cast<AllocaInst>(GEP->getPointerOperand())) {
-                MaxArraySize =
-                    Alloca->getAllocatedType()->getArrayNumElements();
-              }
-            }
-          }
+          // The register span for a dynamic write comes from the
+          // !pix-alloca-reg-write metadata the annotation pass attached to
+          // this instruction, so it always matches the virtual-register
+          // numbering the annotation pass assigned.
+          uint32_t MaxArraySize = std::max(1u, IandT->AllocaRegisterSize);
           RegisterOrStaticIndex = std::to_string(IandT->AllocaBase) + "-" +
                                   std::to_string(MaxArraySize);
           DebugOutputForThisInstruction.ValueToWriteToDebugMemory =
               IandT->AllocaWriteIndex;
+          // Dynamic alloca records store the i32 index as a four-byte payload.
+          DebugOutputForThisInstruction.ValueType =
+              DebugShaderModifierRecordTypeDXILStepUint32;
         }
       } else {
         IndexingToken = "a"; // meaning an SSA assignment
