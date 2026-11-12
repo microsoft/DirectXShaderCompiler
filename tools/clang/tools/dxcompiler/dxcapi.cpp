@@ -10,6 +10,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #include "dxc/Support/WinIncludes.h"
+#include <dxc/WinAdapter.h>
 
 #ifdef _WIN32
 #define DXC_API_IMPORT __declspec(dllexport)
@@ -27,25 +28,25 @@
 #include "dxc/DxilContainer/DxcContainerBuilder.h"
 #include <memory>
 
-HRESULT CreateDxcCompiler(REFIID riid, _Out_ LPVOID *ppv);
-HRESULT CreateDxcDiaDataSource(REFIID riid, _Out_ LPVOID *ppv);
-HRESULT CreateDxcIntelliSense(REFIID riid, _Out_ LPVOID *ppv);
-HRESULT CreateDxcCompilerArgs(REFIID riid, _Out_ LPVOID *ppv);
-HRESULT CreateDxcUtils(REFIID riid, _Out_ LPVOID *ppv);
-HRESULT CreateDxcRewriter(REFIID riid, _Out_ LPVOID *ppv);
-HRESULT CreateDxcValidator(REFIID riid, _Out_ LPVOID *ppv);
-HRESULT CreateDxcAssembler(REFIID riid, _Out_ LPVOID *ppv);
-HRESULT CreateDxcOptimizer(REFIID riid, _Out_ LPVOID *ppv);
-HRESULT CreateDxcContainerBuilder(REFIID riid, _Out_ LPVOID *ppv);
-HRESULT CreateDxcLinker(REFIID riid, _Out_ LPVOID *ppv);
-HRESULT CreateDxcPdbUtils(REFIID riid, _Out_ LPVOID *ppv);
+HRESULT CreateDxcCompiler(REFIID riid, _COM_Outptr_ LPVOID *ppv);
+HRESULT CreateDxcDiaDataSource(REFIID riid, _COM_Outptr_ LPVOID *ppv);
+HRESULT CreateDxcIntelliSense(REFIID riid, _COM_Outptr_ LPVOID *ppv);
+HRESULT CreateDxcCompilerArgs(REFIID riid, _COM_Outptr_ LPVOID *ppv);
+HRESULT CreateDxcUtils(REFIID riid, _COM_Outptr_ LPVOID *ppv);
+HRESULT CreateDxcRewriter(REFIID riid, _COM_Outptr_ LPVOID *ppv);
+HRESULT CreateDxcValidator(REFIID riid, _COM_Outptr_ LPVOID *ppv);
+HRESULT CreateDxcAssembler(REFIID riid, _COM_Outptr_ LPVOID *ppv);
+HRESULT CreateDxcOptimizer(REFIID riid, _COM_Outptr_ LPVOID *ppv);
+HRESULT CreateDxcContainerBuilder(REFIID riid, _COM_Outptr_ LPVOID *ppv);
+HRESULT CreateDxcLinker(REFIID riid, _COM_Outptr_ LPVOID *ppv);
+HRESULT CreateDxcPdbUtils(REFIID riid, _COM_Outptr_ LPVOID *ppv);
 
 namespace hlsl {
 void CreateDxcContainerReflection(IDxcContainerReflection **ppResult);
 void CreateDxcLinker(IDxcContainerReflection **ppResult);
 } // namespace hlsl
 
-HRESULT CreateDxcContainerReflection(REFIID riid, _Out_ LPVOID *ppv) {
+HRESULT CreateDxcContainerReflection(REFIID riid, _COM_Outptr_ LPVOID *ppv) {
   try {
     CComPtr<IDxcContainerReflection> pReflection;
     hlsl::CreateDxcContainerReflection(&pReflection);
@@ -55,7 +56,7 @@ HRESULT CreateDxcContainerReflection(REFIID riid, _Out_ LPVOID *ppv) {
   }
 }
 
-HRESULT CreateDxcContainerBuilder(REFIID riid, _Out_ LPVOID *ppv) {
+HRESULT CreateDxcContainerBuilder(REFIID riid, _COM_Outptr_ LPVOID *ppv) {
   // Call dxil.dll's containerbuilder
   *ppv = nullptr;
 
@@ -67,7 +68,7 @@ HRESULT CreateDxcContainerBuilder(REFIID riid, _Out_ LPVOID *ppv) {
 }
 
 static HRESULT ThreadMallocDxcCreateInstance(REFCLSID rclsid, REFIID riid,
-                                             _Out_ LPVOID *ppv) {
+                                             _COM_Outptr_ LPVOID *ppv) {
   HRESULT hr = S_OK;
   *ppv = nullptr;
   if (IsEqualCLSID(rclsid, CLSID_DxcCompiler)) {
@@ -108,7 +109,7 @@ static HRESULT ThreadMallocDxcCreateInstance(REFCLSID rclsid, REFIID riid,
 }
 
 DXC_API_IMPORT HRESULT __stdcall DxcCreateInstance(REFCLSID rclsid, REFIID riid,
-                                                   _Out_ LPVOID *ppv) {
+                                                   _COM_Outptr_ LPVOID *ppv) {
   if (ppv == nullptr) {
     return E_POINTER;
   }
@@ -124,7 +125,7 @@ DXC_API_IMPORT HRESULT __stdcall DxcCreateInstance(REFCLSID rclsid, REFIID riid,
 DXC_API_IMPORT HRESULT __stdcall DxcCreateInstance2(IMalloc *pMalloc,
                                                     REFCLSID rclsid,
                                                     REFIID riid,
-                                                    _Out_ LPVOID *ppv) {
+                                                    _COM_Outptr_ LPVOID *ppv) {
   if (ppv == nullptr) {
     return E_POINTER;
   }
