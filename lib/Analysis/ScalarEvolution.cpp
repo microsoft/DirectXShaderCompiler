@@ -2948,7 +2948,7 @@ ScalarEvolution::getGEPExpr(Type *PointeeType, const SCEV *BaseExpr,
   // no-overflow bits may not be valid for the expression in any context.
   // Match createSCEV's handling of Add and Mul by not propagating inbounds.
   SCEV::NoWrapFlags Wrap = SCEV::FlagAnyWrap;
-  // HLSL Change End - Backport PR23527 (D109789)
+  // HLSL Change End - Partial backport PR23527 (D109789)
 
   const SCEV *TotalOffset = getConstant(IntPtrTy, 0);
   // The address space is unimportant. The first thing we do on CurTy is getting
