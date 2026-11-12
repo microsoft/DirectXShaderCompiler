@@ -113,6 +113,12 @@ line upon naming the release. Refer to previous for appropriate section names.
 - Fixed an optimizer miscompile where selects of bitwise-not values guarded by
   signed less-than or unsigned compares were treated as a signed minimum.
 
+#### SPIR-V
+
+- Rich debug info now emits a `DebugGlobalVariable` for the `$Globals` block
+  and a `DebugTypeMember` for each uniform member, so debuggers can
+  distinguish member storage.
+
 ### Upcoming Preview Release
 
 These changes apply to experimental preview shader models only and will not be
