@@ -982,6 +982,13 @@ Sema::CheckOverload(Scope *S, FunctionDecl *New, const LookupResult &Old,
 
 bool Sema::IsOverload(FunctionDecl *New, FunctionDecl *Old,
                       bool UseUsingDeclRules) {
+  // HLSL Change Begin
+  // Lookup markers represent intrinsic families, not redeclarable signatures.
+  if (getLangOpts().HLSL && (hlsl::IsIntrinsicLookupMarker(New) ||
+                             hlsl::IsIntrinsicLookupMarker(Old)))
+    return true;
+  // HLSL Change End
+
   // C++ [basic.start.main]p2: This function shall not be overloaded.
   if (New->isMain())
     return false;
@@ -5781,7 +5788,8 @@ Sema::AddOverloadCandidate(FunctionDecl *Function,
     // argument doesn't participate in overload resolution.
   }
 
-  if (!CandidateSet.isNewCandidate(Function) || hlsl::IsIntrinsicOp(Function))
+  if (!CandidateSet.isNewCandidate(Function) || hlsl::IsIntrinsicOp(Function) ||
+      (getLangOpts().HLSL && hlsl::IsIntrinsicLookupMarker(Function)))
     return;
 
   // C++ [over.match.oper]p3:
@@ -9503,6 +9511,14 @@ static void NoteFunctionCandidate(Sema &S, OverloadCandidate *Cand,
   }
 
   switch (Cand->FailureKind) {
+  // HLSL Change Begin - Add failure for intrinsic lookup failure.
+  case ovl_fail_hlsl_intrinsic:
+    S.Diag(
+        SourceLocation::getFromRawEncoding(Cand->HLSLIntrinsicFailure.Location),
+        Cand->HLSLIntrinsicFailure.DiagnosticID);
+    return;
+    // HLSL Change End
+
   case ovl_fail_too_many_arguments:
   case ovl_fail_too_few_arguments:
     return DiagnoseArityMismatch(S, Cand, NumArgs, OpLoc); // HLSL Change - add OpLoc
@@ -10692,11 +10708,54 @@ void Sema::AddOverloadedCallCandidates(UnresolvedLookupExpr *ULE,
   }
 #endif
 
-  // HLSL Change - allow ExternalSource the ability to add the overloads for a call.
+  // HLSL Change Begin
+  // Allow ExternalSource the ability to add the overloads for a call.
   if (ExternalSource && ExternalSource->AddOverloadedCallCandidates(
                             ULE, Args, CandidateSet, S, PartialOverloading)) {
     return;
   }
+
+  // Synthesized intrinsics must have conversion scores when competing with
+  // ordinary functions rather than bypassing overload resolution.
+  if (getLangOpts().HLSL) {
+    for (OverloadCandidate &Candidate : CandidateSet) {
+      FunctionDecl *Function = Candidate.Function;
+      if (!Candidate.Viable || !Function || !hlsl::IsIntrinsicOp(Function))
+        continue;
+      const FunctionProtoType *Proto =
+          Function->getType()->getAs<FunctionProtoType>();
+      for (unsigned I = 0; I < Args.size(); ++I) {
+        if (I < Function->getNumParams()) {
+          if (Proto->getParamMods()[I].GetKind() ==
+              hlsl::ParameterModifier::Kind::Ref) {
+            // MatchArguments already checked intrinsic ref types; ordinary
+            // ref binding would incorrectly reject resource elements.
+            Candidate.Conversions[I].setStandard();
+            Candidate.Conversions[I].Standard.setAsIdentityConversion();
+            Candidate.Conversions[I].Standard.setFromType(Args[I]->getType());
+            Candidate.Conversions[I].Standard.setAllToTypes(
+                Proto->getParamType(I).getNonReferenceType());
+            continue;
+          }
+          InitCallParamConversions(
+              *this, Proto, Function->getParamDecl(I), I, Args[I],
+              /*SuppressUserConversions=*/false, /*InOverloadResolution=*/true,
+              /*AllowExplicit=*/false, Candidate.Conversions[I],
+              Candidate.OutConversions[I]);
+          if ((Candidate.Conversions[I].isInitialized() &&
+               Candidate.Conversions[I].isBad()) ||
+              (Candidate.OutConversions[I].isInitialized() &&
+               Candidate.OutConversions[I].isBad())) {
+            Candidate.Viable = false;
+            Candidate.FailureKind = ovl_fail_bad_conversion;
+            break;
+          }
+        } else
+          Candidate.Conversions[I].setEllipsis();
+      }
+    }
+  }
+  // HLSL Change End
 
   // It would be nice to avoid this copy.
   TemplateArgumentListInfo TABuffer;
@@ -10962,21 +11021,21 @@ bool Sema::buildOverloadedCallSet(Scope *S, Expr *Fn,
     // To do ADL, we must have found an unqualified name.
     // HLSL Change Begins
     //
-    // We do want to allow argument-dependent lookup for intrinsic
-    // function names inside the "vk" namespace (which are by definition
-    // qualified names).
-    bool isVkNamespace =
-        ULE->getQualifier() &&
-        ULE->getQualifier()->getKind() == NestedNameSpecifier::Namespace &&
-        ULE->getQualifier()->getAsNamespace()->getName() == "vk";
+    // Allow qualified intrinsic calls in the root "vk" and "dx" namespaces.
+    NestedNameSpecifier *Qualifier = ULE->getQualifier();
+    NamespaceDecl *Namespace = nullptr;
+    if (Qualifier && Qualifier->getKind() == NestedNameSpecifier::Namespace)
+      Namespace = Qualifier->getAsNamespace();
 
-    bool isDxNamespace =
-        ULE->getQualifier() &&
-        ULE->getQualifier()->getKind() == NestedNameSpecifier::Namespace &&
-        ULE->getQualifier()->getAsNamespace()->getName() == "dx";
+    const bool isRootNamespace =
+        Namespace && Namespace->getDeclContext()->isTranslationUnit();
+
+    const bool isVkNamespace = isRootNamespace && Namespace->getName() == "vk";
+
+    const bool isDxNamespace = isRootNamespace && Namespace->getName() == "dx";
 
     assert((!ULE->getQualifier() || isVkNamespace || isDxNamespace) &&
-           "expected vk or dx qualified name with ADL");
+           "expected root vk or dx qualified name with ADL");
     // HLSL Change Ends
 
     // We don't perform ADL for implicit declarations of builtins.
