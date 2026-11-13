@@ -379,6 +379,13 @@ namespace llvm {
     /// computeLoopDisposition - Compute a LoopDisposition value.
     LoopDisposition computeLoopDisposition(const SCEV *S, const Loop *L);
 
+    // HLSL Change Begin - Partial backport of PR27315:
+    // https://github.com/llvm/llvm-project/commit/7e4a64167d4d2e7b0b680fae1706182223047af1
+    /// A cache of the predicate "does the given loop contain an instruction
+    /// that can throw?"
+    DenseMap<const Loop *, bool> LoopMayThrow;
+    // HLSL Change End - Partial backport of PR27315.
+
     /// BlockDispositions - Memoized computeBlockDisposition results.
     DenseMap<
         const SCEV *,
@@ -420,6 +427,15 @@ namespace llvm {
     /// createNodeForPHI - Provide the special handling we need to analyze PHI
     /// SCEVs.
     const SCEV *createNodeForPHI(PHINode *PN);
+
+    // HLSL Change Begin - Partial backport of PR27315:
+    // https://github.com/llvm/llvm-project/commit/7e4a64167d4d2e7b0b680fae1706182223047af1
+    /// Return true if \p I, the increment of an add recurrence on the loop
+    /// \p L, will never generate poison, because generating poison would be
+    /// undefined behavior. Only then can the no-wrap flags of \p I be applied
+    /// to the post-increment add recurrence.
+    bool isAddRecNeverPoison(const Instruction *I, const Loop *L);
+    // HLSL Change End - Partial backport of PR27315.
 
     /// createNodeForGEP - Provide the special handling we need to analyze GEP
     /// SCEVs.

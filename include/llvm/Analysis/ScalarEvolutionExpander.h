@@ -132,8 +132,19 @@ namespace llvm {
     Instruction *getIVIncOperand(Instruction *IncV, Instruction *InsertPos,
                                  bool allowScale);
 
-    /// \brief Utility for hoisting an IV increment.
-    bool hoistIVInc(Instruction *IncV, Instruction *InsertPos);
+    // HLSL Change Begin - Partial backport of PR57187:
+    // https://github.com/llvm/llvm-project/commit/86d5586d78d813a6921d786f7ddb1a41c6fb56e0
+    // Dropped flags are not re-inferred with ScalarEvolution, which can
+    // re-derive them from the very flags being dropped.
+    /// \brief Utility for hoisting \p IncV (with all subexpressions required
+    /// for its computation) before \p InsertPos. If \p DropPoisonFlags is set,
+    /// drops all poison-generating flags from \p IncV and from the
+    /// instructions hoisted with it. It should be used when we are going to
+    /// introduce a new use in the new position that didn't exist before, and
+    /// may trigger new UB in case of poison.
+    bool hoistIVInc(Instruction *IncV, Instruction *InsertPos,
+                    bool DropPoisonFlags = false);
+    // HLSL Change End - Partial backport of PR57187.
 
     /// \brief replace congruent phis with their most canonical
     /// representative. Return the number of phis eliminated.

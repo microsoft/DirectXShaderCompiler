@@ -3598,6 +3598,176 @@ ScalarEvolution::ForgetSymbolicName(Instruction *PN, const SCEV *SymName) {
   }
 }
 
+// HLSL Change Begin - Partial backport of PR27315 and a19edc4d15b0:
+// https://github.com/llvm/llvm-project/commit/7e4a64167d4d2e7b0b680fae1706182223047af1
+// https://github.com/llvm/llvm-project/commit/a19edc4d15b0dae0210b90615775edd76f021008
+// isAddRecNeverPoison omits upstream's isSCEVExprNeverPoison check, which DXC
+// lacks, so it is more conservative.
+
+/// Return true if \p I yields a full-poison value whenever any of its operands
+/// is full-poison. This is llvm::propagatesFullPoison from ValueTracking at the
+/// revisions above, which LLVM 3.7 does not have.
+static bool propagatesFullPoison(const Instruction *I) {
+  switch (I->getOpcode()) {
+  case Instruction::Add:
+  case Instruction::Sub:
+  case Instruction::Xor:
+  case Instruction::Trunc:
+  case Instruction::BitCast:
+  case Instruction::AddrSpaceCast:
+    // These operations all propagate poison unconditionally. Note that poison
+    // is not any particular value, so xor or subtraction of poison with
+    // itself still yields poison, not zero.
+    return true;
+
+  case Instruction::AShr:
+  case Instruction::SExt:
+    // For these operations, one bit of the input is replicated across
+    // multiple output bits. A replicated poison bit is still poison.
+    return true;
+
+  case Instruction::Shl: {
+    // Left shift *by* a poison value is poison. The number of
+    // positions to shift is unsigned, so no negative values are
+    // possible there. Left shift by zero places preserves poison. So
+    // it only remains to consider left shift of poison by a positive
+    // number of places.
+    //
+    // A left shift by a positive number of places leaves the lowest order bit
+    // non-poisoned. However, if such a shift has a no-wrap flag, then we can
+    // make the poison operand violate that flag, yielding a fresh full-poison
+    // value.
+    auto *OBO = cast<OverflowingBinaryOperator>(I);
+    return OBO->hasNoUnsignedWrap() || OBO->hasNoSignedWrap();
+  }
+
+  case Instruction::Mul: {
+    // A multiplication by zero yields a non-poison zero result, so we need to
+    // rule out zero as an operand. Conservatively, multiplication by a
+    // non-zero constant is not multiplication by zero.
+    //
+    // Multiplication by a non-zero constant can leave some bits
+    // non-poisoned. For example, a multiplication by 2 leaves the lowest
+    // order bit unpoisoned. So we need to consider that.
+    //
+    // Multiplication by 1 preserves poison. If the multiplication has a
+    // no-wrap flag, then we can make the poison operand violate that flag
+    // when multiplied by any integer other than 0 and 1.
+    auto *OBO = cast<OverflowingBinaryOperator>(I);
+    if (OBO->hasNoUnsignedWrap() || OBO->hasNoSignedWrap()) {
+      for (Value *V : OBO->operands()) {
+        if (auto *CI = dyn_cast<ConstantInt>(V)) {
+          // A ConstantInt cannot yield poison, so we can assume that it is
+          // the other operand that is poison.
+          return !CI->isZero();
+        }
+      }
+    }
+    return false;
+  }
+
+  case Instruction::ICmp:
+    // Comparing poison with any value yields poison.  This is why, for
+    // instance, x s< (x +nsw 1) can be folded to true.
+    return true;
+
+  case Instruction::GetElementPtr:
+    // A GEP implicitly represents a sequence of additions, subtractions,
+    // truncations, sign extensions and multiplications. The multiplications
+    // are by the non-zero sizes of some set of types, so we do not have to be
+    // concerned with multiplication by zero. If the GEP is in-bounds, then
+    // these operations are implicitly no-signed-wrap so poison is propagated
+    // by the arguments above for Add, Sub, Trunc, SExt and Mul.
+    return cast<GEPOperator>(I)->isInBounds();
+
+  default:
+    return false;
+  }
+}
+
+bool ScalarEvolution::isAddRecNeverPoison(const Instruction *I, const Loop *L) {
+  // For an add recurrence specifically, we assume that infinite loops without
+  // side effects are undefined behavior, and then reason as follows:
+  //
+  // If the add recurrence is poison in any iteration, it is poison on all
+  // future iterations (since incrementing poison yields poison). If the result
+  // of the add recurrence is fed into the loop latch condition and the loop
+  // does not contain any throws or exiting blocks other than the latch, we now
+  // have the ability to "choose" whether the backedge is taken or not (by
+  // choosing a sufficiently evil value for the poison feeding into the branch)
+  // for every iteration including and after the one in which \p I first became
+  // poison.  There are two possibilities (let's call the iteration in which \p
+  // I first became poison as K):
+  //
+  //  1. In the set of iterations including and after K, the loop body executes
+  //     no side effects.  In this case executing the backege an infinte number
+  //     of times will yield undefined behavior.
+  //
+  //  2. In the set of iterations including and after K, the loop body executes
+  //     at least one side effect.  In this case, that specific instance of side
+  //     effect is control dependent on poison, which also yields undefined
+  //     behavior.
+
+  auto *ExitingBB = L->getExitingBlock();
+  auto *LatchBB = L->getLoopLatch();
+  if (!ExitingBB || !LatchBB || ExitingBB != LatchBB)
+    return false;
+
+  SmallPtrSet<const Instruction *, 16> Pushed;
+  SmallVector<const Instruction *, 8> PoisonStack;
+
+  // We start by assuming \c I, the post-inc add recurrence, is poison.  Only
+  // things that are known to be fully poison under that assumption go on the
+  // PoisonStack.
+  Pushed.insert(I);
+  PoisonStack.push_back(I);
+
+  bool LatchControlDependentOnPoison = false;
+  while (!PoisonStack.empty()) {
+    const Instruction *Poison = PoisonStack.pop_back_val();
+
+    for (auto *PoisonUser : Poison->users()) {
+      if (propagatesFullPoison(cast<Instruction>(PoisonUser))) {
+        if (Pushed.insert(cast<Instruction>(PoisonUser)).second)
+          PoisonStack.push_back(cast<Instruction>(PoisonUser));
+      } else if (auto *BI = dyn_cast<BranchInst>(PoisonUser)) {
+        assert(BI->isConditional() && "Only possibility!");
+        if (BI->getParent() == LatchBB) {
+          LatchControlDependentOnPoison = true;
+          break;
+        }
+      }
+    }
+  }
+
+  if (!LatchControlDependentOnPoison)
+    return false;
+
+  // Now check if loop is no-throw, and cache the information.  In the future,
+  // we can consider commoning this logic with LICMSafetyInfo into a separate
+  // analysis pass.
+  //
+  // Upstream later replaced this with an abnormal exit check (8598412e24d7)
+  // that, at the time, treated every call, including DXIL intrinsics, as one.
+
+  auto Itr = LoopMayThrow.find(L);
+  if (Itr == LoopMayThrow.end()) {
+    bool MayThrow = false;
+    for (auto *BB : L->getBlocks()) {
+      MayThrow = std::any_of(BB->begin(), BB->end(),
+                             [](Instruction &I) { return I.mayThrow(); });
+      if (MayThrow)
+        break;
+    }
+    auto InsertPair = LoopMayThrow.insert({L, MayThrow});
+    assert(InsertPair.second && "We just checked!");
+    Itr = InsertPair.first;
+  }
+
+  return !Itr->second;
+}
+// HLSL Change End - Partial backport of PR27315 and a19edc4d15b0.
+
 /// createNodeForPHI - PHI nodes have two cases.  Either the PHI node exists in
 /// a loop header, making it a potential recurrence, or it doesn't.
 ///
@@ -3666,8 +3836,11 @@ const SCEV *ScalarEvolution::createNodeForPHI(PHINode *PN) {
                  cast<SCEVAddRecExpr>(Accum)->getLoop() == L)) {
               SCEV::NoWrapFlags Flags = SCEV::FlagAnyWrap;
 
-              // If the increment doesn't overflow, then neither the addrec nor
-              // the post-increment will overflow.
+              // HLSL Change Begin - Partial backport of PR27315:
+              // https://github.com/llvm/llvm-project/commit/7e4a64167d4d2e7b0b680fae1706182223047af1
+              // If the increment doesn't overflow, then the addrec doesn't
+              // either. The post-increment is handled below.
+              // HLSL Change End - Partial backport of PR27315.
               if (const AddOperator *OBO = dyn_cast<AddOperator>(BEValueV)) {
                 if (OBO->getOperand(0) == PN) {
                   if (OBO->hasNoUnsignedWrap())
@@ -3698,17 +3871,25 @@ const SCEV *ScalarEvolution::createNodeForPHI(PHINode *PN) {
               const SCEV *StartVal = getSCEV(StartValueV);
               const SCEV *PHISCEV = getAddRecExpr(StartVal, Accum, L, Flags);
 
-              // Since the no-wrap flags are on the increment, they apply to the
-              // post-incremented value as well.
-              if (isLoopInvariant(Accum, L))
-                (void)getAddRecExpr(getAddExpr(StartVal, Accum),
-                                    Accum, L, Flags);
-
               // Okay, for the entire analysis of this edge we assumed the PHI
               // to be symbolic.  We now need to go back and purge all of the
               // entries for the scalars that use the symbolic expression.
               ForgetSymbolicName(PN, SymbolicName);
               ValueExprMap[SCEVCallbackVH(PN, this)] = PHISCEV;
+
+              // HLSL Change Begin - Partial backport of PR27315:
+              // https://github.com/llvm/llvm-project/commit/7e4a64167d4d2e7b0b680fae1706182223047af1
+              // isAddRecNeverPoison is more conservative than upstream's.
+
+              // We can add Flags to the post-inc expression only if we
+              // know that it us *undefined behavior* for BEValueV to
+              // overflow.
+              if (auto *BEInst = dyn_cast<Instruction>(BEValueV))
+                if (isLoopInvariant(Accum, L) && isAddRecNeverPoison(BEInst, L))
+                  (void)getAddRecExpr(getAddExpr(StartVal, Accum), Accum, L,
+                                      Flags);
+              // HLSL Change End - Partial backport of PR27315.
+
               return PHISCEV;
             }
           }
@@ -4722,6 +4903,8 @@ void ScalarEvolution::forgetLoop(const Loop *L) {
   // ValuesAtScopes map.
   for (Loop::iterator I = L->begin(), E = L->end(); I != E; ++I)
     forgetLoop(*I);
+
+  LoopMayThrow.erase(L); // HLSL Change - Partial backport of PR27315.
 }
 
 /// forgetValue - This method should be called by the client when it has
@@ -8173,6 +8356,7 @@ void ScalarEvolution::releaseMemory() {
   ConstantEvolutionLoopExitValue.clear();
   ValuesAtScopes.clear();
   LoopDispositions.clear();
+  LoopMayThrow.clear(); // HLSL Change - Partial backport of PR27315.
   BlockDispositions.clear();
   UnsignedRanges.clear();
   SignedRanges.clear();
