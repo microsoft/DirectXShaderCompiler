@@ -91,6 +91,9 @@ Value *SimplifyIndvar::foldIVUser(Instruction *UseInst, Instruction *IVOperand) 
   Value *IVSrc = nullptr;
   unsigned OperIdx = 0;
   const SCEV *FoldedExpr = nullptr;
+  // HLSL Change - Backport
+  // https://github.com/llvm/llvm-project/commit/b2e51090a427
+  bool MustDropExactFlag = false;
   switch (UseInst->getOpcode()) {
   default:
     return nullptr;
@@ -123,6 +126,14 @@ Value *SimplifyIndvar::foldIVUser(Instruction *UseInst, Instruction *IVOperand) 
                            APInt::getOneBitSet(BitWidth, D->getZExtValue()));
     }
     FoldedExpr = SE->getUDivExpr(SE->getSCEV(IVSrc), SE->getSCEV(D));
+    // HLSL Change Begin - Backport
+    // https://github.com/llvm/llvm-project/commit/b2e51090a427
+    // We might have 'exact' flag set at this point which will no longer be
+    // correct after we make the replacement.
+    if (cast<BinaryOperator>(UseInst)->isExact() &&
+        SE->getSCEV(IVSrc) != SE->getMulExpr(FoldedExpr, SE->getSCEV(D)))
+      MustDropExactFlag = true;
+    // HLSL Change End
   }
   // We have something that might fold it's operand. Compare SCEVs.
   if (!SE->isSCEVable(UseInst->getType()))
@@ -137,6 +148,12 @@ Value *SimplifyIndvar::foldIVUser(Instruction *UseInst, Instruction *IVOperand) 
 
   UseInst->setOperand(OperIdx, IVSrc);
   assert(SE->getSCEV(UseInst) == FoldedExpr && "bad SCEV with folded oper");
+
+  // HLSL Change Begin - Backport
+  // https://github.com/llvm/llvm-project/commit/b2e51090a427
+  if (MustDropExactFlag)
+    cast<BinaryOperator>(UseInst)->setIsExact(false);
+  // HLSL Change End
 
   ++NumElimOperand;
   Changed = true;
