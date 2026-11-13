@@ -236,7 +236,7 @@ public:
       L"Device.Graphics.WDDM22.AdapterRender.D3D12.DXIL.Int64.CoreRequirement")
   END_TEST_METHOD()
   BEGIN_TEST_METHOD(LifetimeIntrinsicTest)
-  TEST_METHOD_PROPERTY(L"Kits.Description", L"Verifies lifetime intrinrics")
+  TEST_METHOD_PROPERTY(L"Kits.Description", L"Verifies lifetime intrinsics")
   TEST_METHOD_PROPERTY(L"Kits.TestId", L"382d7ad4-cdf3-49cb-a622-3cb346b489f9")
   TEST_METHOD_PROPERTY(L"Kits.TestName",
                        L"D3D12 - DXIL Core Test - Lifetime intrinsics markers")
