@@ -44,6 +44,8 @@
 #include "dxc/dxcapi.internal.h"
 #include "dxc/dxctools.h"
 
+#include "dxcrewriteautodiff.h"
+
 // From dxcutil.h
 namespace dxcutil {
 bool IsAbsoluteOrCurDirRelative(const llvm::Twine &T);
@@ -69,6 +71,21 @@ struct ASTHelper {
   ParsedSemanticDefineList userMacros;
   bool bHasErrors;
 };
+
+// Mark all top-level decls that were written outside the main source file
+// (i.e. those that came from #include'd headers or compiler-provided buffers)
+// as implicit so the DeclPrinter skips them. The rewriter should not dump the
+// contents of included headers into its output.
+static void HideIncludedDecls(TranslationUnitDecl *tu) {
+  SourceManager &SM = tu->getASTContext().getSourceManager();
+  for (Decl *D : tu->decls()) {
+    if (D->isImplicit())
+      continue;
+    SourceLocation Loc = D->getLocation();
+    if (Loc.isInvalid() || !SM.isWrittenInMainFile(Loc))
+      D->setImplicit(true);
+  }
+}
 
 static FunctionDecl *getFunctionWithBody(FunctionDecl *F) {
   if (!F)
@@ -900,6 +917,8 @@ static void PrintTranslationUnitWithTranslatedUniformParams(
   entryFnDecl->print(o, SubPolicy);
 }
 
+
+
 static HRESULT DoRewriteUnused(TranslationUnitDecl *tu, LPCSTR pEntryPoint,
                                bool bRemoveGlobals, bool bRemoveFunctions,
                                raw_ostream &w) {
@@ -996,6 +1015,7 @@ static HRESULT DoRewriteUnused(DxcLangExtensionsHelper *pHelper,
         C.getSourceManager().getMainFileID());
     o << contents;
   } else {
+    HideIncludedDecls(tu);
     PrintingPolicy p = PrintingPolicy(C.getPrintingPolicy());
     p.Indentation = 1;
     tu->print(o, p);
@@ -1083,7 +1103,7 @@ static HRESULT DoSimpleReWrite(DxcLangExtensionsHelper *pHelper,
                                  opts.RWOpt.RemoveUnusedFunctions, w);
     if (FAILED(hr))
       return hr;
-  } else {
+  } else if (!opts.RWOpt.GeneratedOnly) {
     o << "// Rewrite unchanged result:\n";
   }
 
@@ -1106,15 +1126,23 @@ static HRESULT DoSimpleReWrite(DxcLangExtensionsHelper *pHelper,
   p.HLSLOmitDefaultTemplateParams = 1;
   p.Indentation = 1;
 
+  HideIncludedDecls(tu);
+
   if (entryFnDecl) {
     PrintTranslationUnitWithTranslatedUniformParams(tu, entryFnDecl, o, p);
+  } else if (opts.RWOpt.GenerateDifferentials) {
+    if (!hlsl::PrintTranslationUnitWithDifferentials(
+            tu, o, p, opts.RWOpt.GeneratedOnly, w))
+      return E_FAIL;
   } else {
     tu->print(o, p);
   }
 
-  WriteMacroDefines(astHelper.semanticMacros, o);
-  if (opts.RWOpt.KeepUserMacro)
-    WriteMacroDefines(astHelper.userMacros, o);
+  if (!opts.RWOpt.GeneratedOnly) {
+    WriteMacroDefines(astHelper.semanticMacros, o);
+    if (opts.RWOpt.KeepUserMacro)
+      WriteMacroDefines(astHelper.userMacros, o);
+  }
 
   // Flush and return results.
   o.flush();

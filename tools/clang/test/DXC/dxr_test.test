@@ -1,5 +1,9 @@
 // Basic Rewriter Smoke Test
 // RUN: %dxr -remove-unused-globals %S/Inputs/smoke.hlsl -Emain | FileCheck %s --check-prefix=DXR
 
-// DXR:int f2(int g)
+// The rewriter should not dump the contents of included headers, and should
+// drop the unused global.
+// DXR:float4 main()
 // DXR-not:g_unused
+// DXR-not:int f1(
+// DXR-not:int f2(
