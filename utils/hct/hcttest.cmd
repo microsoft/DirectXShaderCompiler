@@ -29,7 +29,7 @@ set TEST_EXTRAS=0
 set TEST_EXEC_REQUIRED=0
 set TEST_USE_LIT=1
 set TEST_CLANG_FILTER=
-set TEST_EXEC_FILTER=ExecutionTest::*
+set TEST_EXEC_FILTER=DxilConfTest::*
 set LOG_FILTER=/logOutput:LowWithConsoleBuffering
 set TEST_COMPAT_SUITE=0
 set MANUAL_FILE_CHECK_PATH=
@@ -145,7 +145,7 @@ if "%1"=="-clean" (
   set TEST_EXEC=1
   set TEST_USE_LIT=0
   echo Fallback to taef when use taef only options.
-  set TEST_EXEC_FILTER=ExecutionTest::%2
+  set TEST_EXEC_FILTER=DxilConfTest::%2
   set TEST_EXEC_REQUIRED=1
   shift /1
 ) else if "%1"=="exec-future" (
@@ -161,7 +161,7 @@ if "%1"=="-clean" (
   set TEST_USE_LIT=0
   echo Fallback to taef when use taef only options.
   set TEST_EXEC_FUTURE=1
-  set TEST_EXEC_FILTER=ExecutionTest::%2
+  set TEST_EXEC_FILTER=DxilConfTest::%2
   set TEST_EXEC_REQUIRED=1
   shift /1
 ) else if "%1"=="extras" (
@@ -457,7 +457,7 @@ if "%TEST_EXEC%"=="1" (
 set EXEC_COMMON_ARGS=/p:"ExperimentalShaders=*" %TEST_ADAPTER% %USE_AGILITY_SDK%
 if "%TEST_EXEC%"=="1" (
   echo Sniffing for D3D12 configuration ...
-  call :runte ExecHLSLTests.dll /select:"@Name='ExecutionTest::BasicTriangleTest' AND @Architecture='%TEST_ARCH%'" %EXEC_COMMON_ARGS%
+  call :runte ExecHLSLTests.dll /select:"@Name='DxilConfTest::BasicTriangleTest' AND @Architecture='%TEST_ARCH%'" %EXEC_COMMON_ARGS%
   set RES_EXEC=!ERRORLEVEL!
   if errorlevel 1 (
     if not "%TEST_EXEC_REQUIRED%"=="1" (

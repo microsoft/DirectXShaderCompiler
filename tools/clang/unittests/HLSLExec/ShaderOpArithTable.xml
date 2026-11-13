@@ -11,7 +11,11 @@
             <ParameterType Array="true" Name="Validation.Expected1">String</ParameterType>
             <ParameterType Name="Warp.Version">unsigned int</ParameterType>
         </ParameterTypes>
-        <Row Name="Htan">
+        <Row Name="Htan"
+             Kits.Description="Verifies the Htan DXIL instruction."
+             Kits.TestId="785bbc28-b70c-47db-b3e9-6fc67e775334"
+             Kits.Specification="Device.Graphics.WDDM22.AdapterRender.D3D12.DXILCore.ShaderModel60.CoreRequirement"
+             Kits.TestName="D3D12 - DXIL Core Test - Htan instruction">
             <Parameter Name="Validation.Type">Epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0.0008</Parameter>
             <Parameter Name="ShaderOp.Text"> struct SUnaryFPOp {
@@ -50,7 +54,11 @@
             </Parameter>
             <Parameter Name="Warp.Version">16202</Parameter>
         </Row>
-        <Row Name="Atan">
+        <Row Name="Atan"
+             Kits.Description="Verifies the Atan DXIL instruction."
+             Kits.TestId="3b066f1d-980f-45fe-bcdf-bffb1da4b82d"
+             Kits.Specification="Device.Graphics.WDDM22.AdapterRender.D3D12.DXILCore.ShaderModel60.CoreRequirement"
+             Kits.TestName="D3D12 - DXIL Core Test - Atan instruction">
             <Parameter Name="Validation.Type">Epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0.0008</Parameter>
             <Parameter Name="ShaderOp.Text"> struct SUnaryFPOp {
@@ -89,7 +97,11 @@
             </Parameter>
             <Parameter Name="Warp.Version">16202</Parameter>
         </Row>
-        <Row Name="Tan">
+        <Row Name="Tan"
+             Kits.Description="Verifies the Tan DXIL instruction."
+             Kits.TestId="9e8bf68c-88c5-4077-930c-7b1355bd4735"
+             Kits.Specification="Device.Graphics.WDDM22.AdapterRender.D3D12.DXILCore.ShaderModel60.CoreRequirement"
+             Kits.TestName="D3D12 - DXIL Core Test - Tan instruction">
             <Parameter Name="Validation.Type">Epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0.0008</Parameter>
             <Parameter Name="ShaderOp.Text"> struct SUnaryFPOp {
@@ -127,7 +139,11 @@
                 <Value>0.000735</Value>
             </Parameter>
         </Row>
-        <Row Name="Round_ni">
+        <Row Name="Round_ni"
+             Kits.Description="Verifies the Round_ni DXIL instruction."
+             Kits.TestId="832fa6a7-4a8c-4c5a-9657-61ba75066d7a"
+             Kits.Specification="Device.Graphics.WDDM22.AdapterRender.D3D12.DXILCore.ShaderModel60.CoreRequirement"
+             Kits.TestName="D3D12 - DXIL Core Test - Round_ni instruction">
             <Parameter Name="Validation.Type">Epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0</Parameter>
             <Parameter Name="ShaderOp.Text"> struct SUnaryFPOp {
@@ -177,7 +193,11 @@
                 <Value>-11.0</Value>
             </Parameter>
         </Row>
-        <Row Name="Round_ne">
+        <Row Name="Round_ne"
+             Kits.Description="Verifies the Round_ne DXIL instruction."
+             Kits.TestId="2a106698-a40c-410a-a4d4-d17851b6498f"
+             Kits.Specification="Device.Graphics.WDDM22.AdapterRender.D3D12.DXILCore.ShaderModel60.CoreRequirement"
+             Kits.TestName="D3D12 - DXIL Core Test - Round_ne instruction">
             <Parameter Name="Validation.Type">Epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0</Parameter>
             <Parameter Name="ShaderOp.Text"> struct SUnaryFPOp {
@@ -229,7 +249,11 @@
                 <Value>-11.0</Value>
             </Parameter>
         </Row>
-        <Row Name="Round_z">
+        <Row Name="Round_z"
+             Kits.Description="Verifies the Round_z DXIL instruction."
+             Kits.TestId="72a0379d-550b-4663-930b-547b5a7d42f7"
+             Kits.Specification="Device.Graphics.WDDM22.AdapterRender.D3D12.DXILCore.ShaderModel60.CoreRequirement"
+             Kits.TestName="D3D12 - DXIL Core Test - Round_z instruction">
             <Parameter Name="Validation.Type">Epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0</Parameter>
             <Parameter Name="ShaderOp.Text"> struct SUnaryFPOp {
@@ -279,7 +303,11 @@
                 <Value>-10.0</Value>
             </Parameter>
         </Row>
-        <Row Name="IsInf">
+        <Row Name="IsInf"
+             Kits.Description="Verifies the IsInf DXIL instruction."
+             Kits.TestId="ba0407d9-9cae-4722-afd9-319eec03e5e4"
+             Kits.Specification="Device.Graphics.WDDM22.AdapterRender.D3D12.DXILCore.ShaderModel60.CoreRequirement"
+             Kits.TestName="D3D12 - DXIL Core Test - IsInf instruction">
             <Parameter Name="Validation.Type">Epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0</Parameter>
             <Parameter Name="ShaderOp.Text"> struct SUnaryFPOp {
@@ -320,7 +348,11 @@
                 <Value>0</Value>
             </Parameter>
         </Row>
-        <Row Name="Exp">
+        <Row Name="Exp"
+             Kits.Description="Verifies the Exp DXIL instruction."
+             Kits.TestId="d3b52562-22a7-42b1-9127-fae4c4f4c133"
+             Kits.Specification="Device.Graphics.WDDM22.AdapterRender.D3D12.DXILCore.ShaderModel60.CoreRequirement"
+             Kits.TestName="D3D12 - DXIL Core Test - Exp instruction">
             <Parameter Name="Validation.Type">Relative</Parameter>
             <Parameter Name="Validation.Tolerance">21</Parameter>
             <Parameter Name="ShaderOp.Text"> struct SUnaryFPOp {
@@ -358,7 +390,11 @@
                 <Value>22026.46579</Value>
             </Parameter>
         </Row>
-        <Row Name="Frc">
+        <Row Name="Frc"
+             Kits.Description="Verifies the Frc DXIL instruction."
+             Kits.TestId="5471d3b4-040b-4786-990e-72bdb048bf43"
+             Kits.Specification="Device.Graphics.WDDM22.AdapterRender.D3D12.DXILCore.ShaderModel60.CoreRequirement"
+             Kits.TestName="D3D12 - DXIL Core Test - Frc instruction">
             <Parameter Name="Validation.Type">Epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0.0008</Parameter>
             <Parameter Name="ShaderOp.Text"> struct SUnaryFPOp {
@@ -400,7 +436,11 @@
                 <Value>0.611</Value>
             </Parameter>
         </Row>
-        <Row Name="Asin">
+        <Row Name="Asin"
+             Kits.Description="Verifies the Asin DXIL instruction."
+             Kits.TestId="99d2e6c9-ee24-4c7d-abda-ca73c1178f0f"
+             Kits.Specification="Device.Graphics.WDDM22.AdapterRender.D3D12.DXILCore.ShaderModel60.CoreRequirement"
+             Kits.TestName="D3D12 - DXIL Core Test - Asin instruction">
             <Parameter Name="Validation.Type">Epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0.0008</Parameter>
             <Parameter Name="ShaderOp.Text"> struct SUnaryFPOp {
@@ -442,7 +482,11 @@
                 <Value>NaN</Value>
             </Parameter>
         </Row>
-        <Row Name="Log">
+        <Row Name="Log"
+             Kits.Description="Verifies the Log DXIL instruction."
+             Kits.TestId="a58d9628-92ea-451f-a81d-ad20618a26b3"
+             Kits.Specification="Device.Graphics.WDDM22.AdapterRender.D3D12.DXILCore.ShaderModel60.CoreRequirement"
+             Kits.TestName="D3D12 - DXIL Core Test - Log instruction">
             <Parameter Name="Validation.Type">Relative</Parameter>
             <Parameter Name="Validation.Tolerance">21</Parameter>
             <Parameter Name="ShaderOp.Text"> struct SUnaryFPOp {
@@ -484,7 +528,11 @@
                 <Value>4.6051701</Value>
             </Parameter>
         </Row>
-        <Row Name="Sqrt">
+        <Row Name="Sqrt"
+             Kits.Description="Verifies the Sqrt DXIL instruction."
+             Kits.TestId="da2aa9e6-22a1-4c04-9f12-406e591b2dd9"
+             Kits.Specification="Device.Graphics.WDDM22.AdapterRender.D3D12.DXILCore.ShaderModel60.CoreRequirement"
+             Kits.TestName="D3D12 - DXIL Core Test - Sqrt instruction">
             <Parameter Name="Validation.Type">ulp</Parameter>
             <Parameter Name="Validation.Tolerance">1</Parameter>
             <Parameter Name="ShaderOp.Text"> struct SUnaryFPOp {
@@ -526,7 +574,11 @@
                 <Value>16.0</Value>
             </Parameter>
         </Row>
-        <Row Name="Hcos">
+        <Row Name="Hcos"
+             Kits.Description="Verifies the Hcos DXIL instruction."
+             Kits.TestId="4142df16-49c8-4810-9ba9-7e03cc04e2f5"
+             Kits.Specification="Device.Graphics.WDDM22.AdapterRender.D3D12.DXILCore.ShaderModel60.CoreRequirement"
+             Kits.TestName="D3D12 - DXIL Core Test - Hcos instruction">
             <Parameter Name="Validation.Type">Epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0.0008</Parameter>
             <Parameter Name="ShaderOp.Text"> struct SUnaryFPOp {
@@ -564,7 +616,11 @@
                 <Value>1.543081</Value>
             </Parameter>
         </Row>
-        <Row Name="Acos">
+        <Row Name="Acos"
+             Kits.Description="Verifies the Acos DXIL instruction."
+             Kits.TestId="0ab74717-e19e-48bf-b56e-a26fc4ed6bb3"
+             Kits.Specification="Device.Graphics.WDDM22.AdapterRender.D3D12.DXILCore.ShaderModel60.CoreRequirement"
+             Kits.TestName="D3D12 - DXIL Core Test - Acos instruction">
             <Parameter Name="Validation.Type">Epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0.0008</Parameter>
             <Parameter Name="ShaderOp.Text"> struct SUnaryFPOp {
@@ -606,7 +662,11 @@
                 <Value>NaN</Value>
             </Parameter>
         </Row>
-        <Row Name="Round_pi">
+        <Row Name="Round_pi"
+             Kits.Description="Verifies the Round_pi DXIL instruction."
+             Kits.TestId="adb1816a-6330-45eb-b7ca-2b8ebcd38c6c"
+             Kits.Specification="Device.Graphics.WDDM22.AdapterRender.D3D12.DXILCore.ShaderModel60.CoreRequirement"
+             Kits.TestName="D3D12 - DXIL Core Test - Round_pi instruction">
             <Parameter Name="Validation.Type">Epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0</Parameter>
             <Parameter Name="ShaderOp.Text"> struct SUnaryFPOp {
@@ -656,7 +716,11 @@
                 <Value>-10.0</Value>
             </Parameter>
         </Row>
-        <Row Name="IsFinite">
+        <Row Name="IsFinite"
+             Kits.Description="Verifies the IsFinite DXIL instruction."
+             Kits.TestId="dc27eedf-9414-42d7-8dad-44273696e3fc"
+             Kits.Specification="Device.Graphics.WDDM22.AdapterRender.D3D12.DXILCore.ShaderModel60.CoreRequirement"
+             Kits.TestName="D3D12 - DXIL Core Test - IsFinite instruction">
             <Parameter Name="Validation.Type">Epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0</Parameter>
             <Parameter Name="ShaderOp.Text"> struct SUnaryFPOp {
@@ -698,7 +762,11 @@
             </Parameter>
             <Parameter Name="Warp.Version">16202</Parameter>
         </Row>
-        <Row Name="IsNaN">
+        <Row Name="IsNaN"
+             Kits.Description="Verifies the IsNaN DXIL instruction."
+             Kits.TestId="83aabda7-b419-4b96-8847-6cd4dbb45938"
+             Kits.Specification="Device.Graphics.WDDM22.AdapterRender.D3D12.DXILCore.ShaderModel60.CoreRequirement"
+             Kits.TestName="D3D12 - DXIL Core Test - IsNaN instruction">
             <Parameter Name="Validation.Type">Epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0</Parameter>
             <Parameter Name="ShaderOp.Text"> struct SUnaryFPOp {
@@ -739,7 +807,11 @@
                 <Value>0</Value>
             </Parameter>
         </Row>
-        <Row Name="Hsin">
+        <Row Name="Hsin"
+             Kits.Description="Verifies the Hsin DXIL instruction."
+             Kits.TestId="9c83f4d3-6a7e-4e70-855c-e75e9b230735"
+             Kits.Specification="Device.Graphics.WDDM22.AdapterRender.D3D12.DXILCore.ShaderModel60.CoreRequirement"
+             Kits.TestName="D3D12 - DXIL Core Test - Hsin instruction">
             <Parameter Name="Validation.Type">Epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0.0008</Parameter>
             <Parameter Name="ShaderOp.Text"> struct SUnaryFPOp {
@@ -777,7 +849,11 @@
                 <Value>-1.175201</Value>
             </Parameter>
         </Row>
-        <Row Name="Sin">
+        <Row Name="Sin"
+             Kits.Description="Verifies the Sin DXIL instruction."
+             Kits.TestId="f300f654-d7d0-4292-b6bb-6259f3d4a07a"
+             Kits.Specification="Device.Graphics.WDDM22.AdapterRender.D3D12.DXILCore.ShaderModel60.CoreRequirement"
+             Kits.TestName="D3D12 - DXIL Core Test - Sin instruction">
             <Parameter Name="Validation.Type">Epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0.0008</Parameter>
             <Parameter Name="ShaderOp.Text"> struct SUnaryFPOp {
@@ -815,7 +891,11 @@
                 <Value>0.0007346401</Value>
             </Parameter>
         </Row>
-        <Row Name="Rsqrt">
+        <Row Name="Rsqrt"
+             Kits.Description="Verifies the Rsqrt DXIL instruction."
+             Kits.TestId="d8931e24-97cd-482b-b027-0c90e16bceb9"
+             Kits.Specification="Device.Graphics.WDDM22.AdapterRender.D3D12.DXILCore.ShaderModel60.CoreRequirement"
+             Kits.TestName="D3D12 - DXIL Core Test - Rsqrt instruction">
             <Parameter Name="Validation.Type">ulp</Parameter>
             <Parameter Name="Validation.Tolerance">1</Parameter>
             <Parameter Name="ShaderOp.Text"> struct SUnaryFPOp {
@@ -857,7 +937,11 @@
                 <Value>0.00390625</Value>
             </Parameter>
         </Row>
-        <Row Name="Cos">
+        <Row Name="Cos"
+             Kits.Description="Verifies the Cos DXIL instruction."
+             Kits.TestId="31d81fd1-8ca3-4150-a6c2-595760539e58"
+             Kits.Specification="Device.Graphics.WDDM22.AdapterRender.D3D12.DXILCore.ShaderModel60.CoreRequirement"
+             Kits.TestName="D3D12 - DXIL Core Test - Cos instruction">
             <Parameter Name="Validation.Type">Epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0.0008</Parameter>
             <Parameter Name="ShaderOp.Text"> struct SUnaryFPOp {
@@ -895,7 +979,11 @@
                 <Value>0.99999973015</Value>
             </Parameter>
         </Row>
-        <Row Name="FAbs">
+        <Row Name="FAbs"
+             Kits.Description="Verifies the FAbs DXIL instruction."
+             Kits.TestId="c4a46930-9662-4fce-a56c-e74a7442d917"
+             Kits.Specification="Device.Graphics.WDDM22.AdapterRender.D3D12.DXILCore.ShaderModel60.CoreRequirement"
+             Kits.TestName="D3D12 - DXIL Core Test - FAbs instruction">
             <Parameter Name="Validation.Type">Epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0</Parameter>
             <Parameter Name="ShaderOp.Text"> struct SUnaryFPOp {
@@ -946,7 +1034,11 @@
             <ParameterType Array="true" Name="Validation.Expected1">String</ParameterType>
             <ParameterType Array="true" Name="Validation.Expected2">String</ParameterType>
         </ParameterTypes>
-        <Row Name="FMul">
+        <Row Name="FMul"
+             Kits.Description="Verifies the FMul DXIL instruction."
+             Kits.TestId="1831ea9c-1b26-4998-9b34-ed7a5a653ef9"
+             Kits.Specification="Device.Graphics.WDDM22.AdapterRender.D3D12.DXILCore.ShaderModel60.CoreRequirement"
+             Kits.TestName="D3D12 - DXIL Core Test - FMul instruction">
             <Parameter Name="Validation.Type">ulp</Parameter>
             <Parameter Name="Validation.Tolerance">1</Parameter>
             <Parameter Name="ShaderOp.Text"> struct SBinaryFPOp {
@@ -979,7 +1071,11 @@
                 <Value>2.0000002</Value>
             </Parameter>
         </Row>
-        <Row Name="FAdd">
+        <Row Name="FAdd"
+             Kits.Description="Verifies the FAdd DXIL instruction."
+             Kits.TestId="d9ec5e60-2f6d-4466-87db-31d9e7a9b550"
+             Kits.Specification="Device.Graphics.WDDM22.AdapterRender.D3D12.DXILCore.ShaderModel60.CoreRequirement"
+             Kits.TestName="D3D12 - DXIL Core Test - FAdd instruction">
             <Parameter Name="Validation.Type">ulp</Parameter>
             <Parameter Name="Validation.Tolerance">1</Parameter>
             <Parameter Name="ShaderOp.Text"> struct SBinaryFPOp {
@@ -1015,7 +1111,11 @@
                 <Value>1.5000002000</Value>
             </Parameter>
         </Row>
-        <Row Name="FDiv">
+        <Row Name="FDiv"
+             Kits.Description="Verifies the FDiv DXIL instruction."
+             Kits.TestId="6820e352-c828-4221-88b8-172b118707eb"
+             Kits.Specification="Device.Graphics.WDDM22.AdapterRender.D3D12.DXILCore.ShaderModel60.CoreRequirement"
+             Kits.TestName="D3D12 - DXIL Core Test - FDiv instruction">
             <Parameter Name="Validation.Type">ulp</Parameter>
             <Parameter Name="Validation.Tolerance">1</Parameter>
             <Parameter Name="ShaderOp.Text"> struct SBinaryFPOp {
@@ -1048,7 +1148,11 @@
                 <Value>0.50000006</Value>
             </Parameter>
         </Row>
-        <Row Name="FMin">
+        <Row Name="FMin"
+             Kits.Description="Verifies the FMin DXIL instruction."
+             Kits.TestId="98a4dcf8-8089-4a4e-a6a5-9281ab9125e9"
+             Kits.Specification="Device.Graphics.WDDM22.AdapterRender.D3D12.DXILCore.ShaderModel60.CoreRequirement"
+             Kits.TestName="D3D12 - DXIL Core Test - FMin instruction">
             <Parameter Name="Validation.Type">epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0</Parameter>
             <Parameter Name="ShaderOp.Text"> struct SBinaryFPOp {
@@ -1143,7 +1247,11 @@
                 <Value>1.0</Value>
             </Parameter>
         </Row>
-        <Row Name="FSub">
+        <Row Name="FSub"
+             Kits.Description="Verifies the FSub DXIL instruction."
+             Kits.TestId="3396b085-6ce1-4163-ab73-09dbb91dcad7"
+             Kits.Specification="Device.Graphics.WDDM22.AdapterRender.D3D12.DXILCore.ShaderModel60.CoreRequirement"
+             Kits.TestName="D3D12 - DXIL Core Test - FSub instruction">
             <Parameter Name="Validation.Type">ulp</Parameter>
             <Parameter Name="Validation.Tolerance">1</Parameter>
             <Parameter Name="ShaderOp.Text"> struct SBinaryFPOp {
@@ -1192,7 +1300,11 @@
             <ParameterType Array="true" Name="Validation.Input3">String</ParameterType>
             <ParameterType Array="true" Name="Validation.Expected1">String</ParameterType>
         </ParameterTypes>
-        <Row Name="FMad">
+        <Row Name="FMad"
+             Kits.Description="Verifies the FMad DXIL instruction."
+             Kits.TestId="5304af4b-b832-416b-aebf-47998f6b9bdb"
+             Kits.Specification="Device.Graphics.WDDM22.AdapterRender.D3D12.DXILCore.ShaderModel60.CoreRequirement"
+             Kits.TestName="D3D12 - DXIL Core Test - FMad instruction">
             <Parameter Name="Validation.Type">ulp</Parameter>
             <Parameter Name="Validation.Tolerance">1</Parameter>
             <Parameter Name="ShaderOp.Text"> struct STertiaryFloatOp {
@@ -1278,7 +1390,11 @@
             <ParameterType Array="true" Name="Validation.Expected1">String</ParameterType>
             <ParameterType Name="Warp.Version">unsigned int</ParameterType>
         </ParameterTypes>
-    <Row Name="IsInfHalf">
+    <Row Name="IsInfHalf"
+         Kits.Description="Verifies the IsInf DXIL instruction."
+         Kits.TestId="3b900a1f-c28e-4452-a29e-f2dafabe0e19"
+         Kits.Specification="Device.Graphics.WDDM24.AdapterRender.D3D12.Native16Bits.CoreRequirement"
+         Kits.TestName="D3D12 - DXIL 16bit Types Test - IsInf instruction">
             <Parameter Name="Validation.Type">Epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0</Parameter>
             <Parameter Name="ShaderOp.Text"> struct SUnaryFPOp {
@@ -1320,7 +1436,11 @@
             </Parameter>
             <Parameter Name="ShaderOp.Arguments">-enable-16bit-types</Parameter>
         </Row>
-        <Row Name="IsFiniteHalf">
+        <Row Name="IsFiniteHalf"
+             Kits.Description="Verifies the IsFinite DXIL instruction."
+             Kits.TestId="a757d483-20c4-47b9-b295-84c86a8c6944"
+             Kits.Specification="Device.Graphics.WDDM24.AdapterRender.D3D12.Native16Bits.CoreRequirement"
+             Kits.TestName="D3D12 - DXIL 16bit Types Test - IsFinite instruction">
             <Parameter Name="Validation.Type">Epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0</Parameter>
             <Parameter Name="ShaderOp.Text"> struct SUnaryFPOp {
@@ -1363,7 +1483,11 @@
             <Parameter Name="Warp.Version">16202</Parameter>
             <Parameter Name="ShaderOp.Arguments">-enable-16bit-types</Parameter>
         </Row>
-        <Row Name="IsNaNHalf">
+        <Row Name="IsNaNHalf"
+             Kits.Description="Verifies the IsNaN DXIL instruction."
+             Kits.TestId="538e17c4-f203-4d6b-9b73-c2ff8f878a18"
+             Kits.Specification="Device.Graphics.WDDM24.AdapterRender.D3D12.Native16Bits.CoreRequirement"
+             Kits.TestName="D3D12 - DXIL 16bit Types Test - IsNaN instruction">
             <Parameter Name="Validation.Type">Epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0</Parameter>
             <Parameter Name="ShaderOp.Text"> struct SUnaryFPOp {
@@ -1417,7 +1541,11 @@
             <ParameterType Array="true" Name="Validation.Expected1">String</ParameterType>
             <ParameterType Name="Warp.Version">unsigned int</ParameterType>
         </ParameterTypes>
-        <Row Name="Round_neHalf">
+        <Row Name="Round_neHalf"
+             Kits.Description="Verifies the Round_ne DXIL instruction."
+             Kits.TestId="411141bf-5228-42d8-8f05-0179b2c5b5bf"
+             Kits.Specification="Device.Graphics.WDDM24.AdapterRender.D3D12.Native16Bits.CoreRequirement"
+             Kits.TestName="D3D12 - DXIL 16bit Types Test - Round_ne instruction">
             <Parameter Name="Validation.Type">Epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0</Parameter>
             <Parameter Name="ShaderOp.Text"> struct SUnaryFPOp {
@@ -1470,7 +1598,11 @@
             </Parameter>
             <Parameter Name="ShaderOp.Arguments">-enable-16bit-types</Parameter>
         </Row>
-        <Row Name="TanHalf">
+        <Row Name="TanHalf"
+             Kits.Description="Verifies the Tan DXIL instruction."
+             Kits.TestId="0fd40b44-9437-496b-9db7-b030cfa96595"
+             Kits.Specification="Device.Graphics.WDDM24.AdapterRender.D3D12.Native16Bits.CoreRequirement"
+             Kits.TestName="D3D12 - DXIL 16bit Types Test - Tan instruction">
             <Parameter Name="Validation.Type">Epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0.016</Parameter>
             <Parameter Name="ShaderOp.Text"> struct SUnaryFPOp {
@@ -1523,7 +1655,11 @@
             </Parameter>
             <Parameter Name="ShaderOp.Arguments">-enable-16bit-types</Parameter>
         </Row>
-        <Row Name="Round_piHalf">
+        <Row Name="Round_piHalf"
+             Kits.Description="Verifies the Round_pi DXIL instruction."
+             Kits.TestId="14906d68-cc01-47da-8cb5-80120914f65a"
+             Kits.Specification="Device.Graphics.WDDM24.AdapterRender.D3D12.Native16Bits.CoreRequirement"
+             Kits.TestName="D3D12 - DXIL 16bit Types Test - Round_pi instruction">
             <Parameter Name="Validation.Type">Epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0</Parameter>
             <Parameter Name="ShaderOp.Text"> struct SUnaryFPOp {
@@ -1574,7 +1710,11 @@
             </Parameter>
             <Parameter Name="ShaderOp.Arguments">-enable-16bit-types</Parameter>
         </Row>
-        <Row Name="AtanHalf">
+        <Row Name="AtanHalf"
+             Kits.Description="Verifies the Atan DXIL instruction."
+             Kits.TestId="24789c37-f0a0-4949-b1fe-5978ad3a055d"
+             Kits.Specification="Device.Graphics.WDDM24.AdapterRender.D3D12.Native16Bits.CoreRequirement"
+             Kits.TestName="D3D12 - DXIL 16bit Types Test - Atan instruction">
             <Parameter Name="Validation.Type">Epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0.0008</Parameter>
             <Parameter Name="ShaderOp.Text"> struct SUnaryFPOp {
@@ -1614,7 +1754,11 @@
             <Parameter Name="Warp.Version">16202</Parameter>
             <Parameter Name="ShaderOp.Arguments">-enable-16bit-types</Parameter>
         </Row>
-        <Row Name="AcosHalf">
+        <Row Name="AcosHalf"
+             Kits.Description="Verifies the Acos DXIL instruction."
+             Kits.TestId="55aebea2-4ec0-4359-93c9-c8b6e0ad9ed4"
+             Kits.Specification="Device.Graphics.WDDM24.AdapterRender.D3D12.Native16Bits.CoreRequirement"
+             Kits.TestName="D3D12 - DXIL 16bit Types Test - Acos instruction">
             <Parameter Name="Validation.Type">Epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0.0010</Parameter>
             <Parameter Name="ShaderOp.Text"> struct SUnaryFPOp {
@@ -1657,7 +1801,11 @@
             </Parameter>
             <Parameter Name="ShaderOp.Arguments">-enable-16bit-types</Parameter>
         </Row>
-        <Row Name="Round_niHalf">
+        <Row Name="Round_niHalf"
+             Kits.Description="Verifies the Round_ni DXIL instruction."
+             Kits.TestId="bd08a855-0274-476d-8be0-4b306b308ddc"
+             Kits.Specification="Device.Graphics.WDDM24.AdapterRender.D3D12.Native16Bits.CoreRequirement"
+             Kits.TestName="D3D12 - DXIL 16bit Types Test - Round_ni instruction">
             <Parameter Name="Validation.Type">Epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0</Parameter>
             <Parameter Name="ShaderOp.Text"> struct SUnaryFPOp {
@@ -1708,7 +1856,11 @@
             </Parameter>
             <Parameter Name="ShaderOp.Arguments">-enable-16bit-types</Parameter>
         </Row>
-        <Row Name="SinHalf">
+        <Row Name="SinHalf"
+             Kits.Description="Verifies the Sin DXIL instruction."
+             Kits.TestId="484c6534-4394-4f34-972c-1ec6dd36e78b"
+             Kits.Specification="Device.Graphics.WDDM24.AdapterRender.D3D12.Native16Bits.CoreRequirement"
+             Kits.TestName="D3D12 - DXIL 16bit Types Test - Sin instruction">
             <Parameter Name="Validation.Type">Epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0.003</Parameter>
             <Parameter Name="ShaderOp.Text"> struct SUnaryFPOp {
@@ -1763,7 +1915,11 @@
             </Parameter>
             <Parameter Name="ShaderOp.Arguments">-enable-16bit-types</Parameter>
         </Row>
-        <Row Name="HsinHalf">
+        <Row Name="HsinHalf"
+             Kits.Description="Verifies the Hsin DXIL instruction."
+             Kits.TestId="605d75ad-a880-420c-bf02-b20699154a50"
+             Kits.Specification="Device.Graphics.WDDM24.AdapterRender.D3D12.Native16Bits.CoreRequirement"
+             Kits.TestName="D3D12 - DXIL 16bit Types Test - Hsin instruction">
             <Parameter Name="Validation.Type">Epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0.0008</Parameter>
             <Parameter Name="ShaderOp.Text"> struct SUnaryFPOp {
@@ -1802,7 +1958,11 @@
             </Parameter>
             <Parameter Name="ShaderOp.Arguments">-enable-16bit-types</Parameter>
         </Row>
-        <Row Name="HcosHalf">
+        <Row Name="HcosHalf"
+             Kits.Description="Verifies the Hcos DXIL instruction."
+             Kits.TestId="73280064-04a1-4205-85aa-40da9e0db8dc"
+             Kits.Specification="Device.Graphics.WDDM24.AdapterRender.D3D12.Native16Bits.CoreRequirement"
+             Kits.TestName="D3D12 - DXIL 16bit Types Test - Hcos instruction">
             <Parameter Name="Validation.Type">ulp</Parameter>
             <Parameter Name="Validation.Tolerance">2</Parameter>
             <Parameter Name="ShaderOp.Text"> struct SUnaryFPOp {
@@ -1841,7 +2001,11 @@
             </Parameter>
             <Parameter Name="ShaderOp.Arguments">-enable-16bit-types</Parameter>
         </Row>
-        <Row Name="Round_zHalf">
+        <Row Name="Round_zHalf"
+             Kits.Description="Verifies the Round_z DXIL instruction."
+             Kits.TestId="c4b525e2-a86b-41bf-9451-3373e3a99c2b"
+             Kits.Specification="Device.Graphics.WDDM24.AdapterRender.D3D12.Native16Bits.CoreRequirement"
+             Kits.TestName="D3D12 - DXIL 16bit Types Test - Round_z instruction">
             <Parameter Name="Validation.Type">Epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0</Parameter>
             <Parameter Name="ShaderOp.Text"> struct SUnaryFPOp {
@@ -1892,7 +2056,11 @@
             </Parameter>
             <Parameter Name="ShaderOp.Arguments">-enable-16bit-types</Parameter>
         </Row>
-        <Row Name="FrcHalf">
+        <Row Name="FrcHalf"
+             Kits.Description="Verifies the Frc DXIL instruction."
+             Kits.TestId="9174eccd-a8dd-4ae1-91cd-0bd698a2f1b1"
+             Kits.Specification="Device.Graphics.WDDM24.AdapterRender.D3D12.Native16Bits.CoreRequirement"
+             Kits.TestName="D3D12 - DXIL 16bit Types Test - Frc instruction">
             <Parameter Name="Validation.Type">Epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0.0008</Parameter>
             <Parameter Name="ShaderOp.Text"> struct SUnaryFPOp {
@@ -1933,7 +2101,11 @@
             </Parameter>
             <Parameter Name="ShaderOp.Arguments">-enable-16bit-types</Parameter>
         </Row>
-        <Row Name="FAbsHalf">
+        <Row Name="FAbsHalf"
+             Kits.Description="Verifies the FAbs DXIL instruction."
+             Kits.TestId="224b71e1-05f0-43a0-8306-a97dddfd2b7a"
+             Kits.Specification="Device.Graphics.WDDM24.AdapterRender.D3D12.Native16Bits.CoreRequirement"
+             Kits.TestName="D3D12 - DXIL 16bit Types Test - FAbs instruction">
             <Parameter Name="Validation.Type">Epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0</Parameter>
             <Parameter Name="ShaderOp.Text"> struct SUnaryFPOp {
@@ -1972,7 +2144,11 @@
             </Parameter>
             <Parameter Name="ShaderOp.Arguments">-enable-16bit-types</Parameter>
         </Row>
-        <Row Name="AsinHalf">
+        <Row Name="AsinHalf"
+             Kits.Description="Verifies the Asin DXIL instruction."
+             Kits.TestId="8c11decc-84cd-4048-85c2-370c1a2c447d"
+             Kits.Specification="Device.Graphics.WDDM24.AdapterRender.D3D12.Native16Bits.CoreRequirement"
+             Kits.TestName="D3D12 - DXIL 16bit Types Test - Asin instruction">
             <Parameter Name="Validation.Type">Epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0.0008</Parameter>
             <Parameter Name="ShaderOp.Text"> struct SUnaryFPOp {
@@ -2015,7 +2191,11 @@
             </Parameter>
             <Parameter Name="ShaderOp.Arguments">-enable-16bit-types</Parameter>
         </Row>
-        <Row Name="CosHalf">
+        <Row Name="CosHalf"
+             Kits.Description="Verifies the Cos DXIL instruction."
+             Kits.TestId="c8d5d6c4-2638-48e4-b842-d679b31a354f"
+             Kits.Specification="Device.Graphics.WDDM24.AdapterRender.D3D12.Native16Bits.CoreRequirement"
+             Kits.TestName="D3D12 - DXIL 16bit Types Test - Cos instruction">
             <Parameter Name="Validation.Type">Epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0.003</Parameter>
             <Parameter Name="ShaderOp.Text"> struct SUnaryFPOp {
@@ -2070,7 +2250,11 @@
             </Parameter>
             <Parameter Name="ShaderOp.Arguments">-enable-16bit-types</Parameter>
         </Row>
-        <Row Name="HtanHalf">
+        <Row Name="HtanHalf"
+             Kits.Description="Verifies the Htan DXIL instruction."
+             Kits.TestId="194d65a4-ffb8-41a5-a733-18cb4d7323e6"
+             Kits.Specification="Device.Graphics.WDDM24.AdapterRender.D3D12.Native16Bits.CoreRequirement"
+             Kits.TestName="D3D12 - DXIL 16bit Types Test - Htan instruction">
             <Parameter Name="Validation.Type">Epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0.0008</Parameter>
             <Parameter Name="ShaderOp.Text"> struct SUnaryFPOp {
@@ -2110,7 +2294,11 @@
             <Parameter Name="Warp.Version">16202</Parameter>
             <Parameter Name="ShaderOp.Arguments">-enable-16bit-types</Parameter>
         </Row>
-        <Row Name="RsqrtHalf">
+        <Row Name="RsqrtHalf"
+             Kits.Description="Verifies the Rsqrt DXIL instruction."
+             Kits.TestId="e541497f-60ca-409b-8003-97631b99573e"
+             Kits.Specification="Device.Graphics.WDDM24.AdapterRender.D3D12.Native16Bits.CoreRequirement"
+             Kits.TestName="D3D12 - DXIL 16bit Types Test - Rsqrt instruction">
             <Parameter Name="Validation.Type">ulp</Parameter>
             <Parameter Name="Validation.Tolerance">1</Parameter>
             <Parameter Name="ShaderOp.Text"> struct SUnaryFPOp {
@@ -2153,7 +2341,11 @@
             </Parameter>
             <Parameter Name="ShaderOp.Arguments">-enable-16bit-types</Parameter>
         </Row>
-        <Row Name="SqrtHalf">
+        <Row Name="SqrtHalf"
+             Kits.Description="Verifies the Sqrt DXIL instruction."
+             Kits.TestId="4b73ddc7-ce42-4c7d-bfcf-2a78a1998f0f"
+             Kits.Specification="Device.Graphics.WDDM24.AdapterRender.D3D12.Native16Bits.CoreRequirement"
+             Kits.TestName="D3D12 - DXIL 16bit Types Test - Sqrt instruction">
             <Parameter Name="Validation.Type">ulp</Parameter>
             <Parameter Name="Validation.Tolerance">1</Parameter>
             <Parameter Name="ShaderOp.Text"> struct SUnaryFPOp {
@@ -2209,7 +2401,11 @@
             <ParameterType Array="true" Name="Validation.Expected1">String</ParameterType>
             <ParameterType Array="true" Name="Validation.Expected2">String</ParameterType>
         </ParameterTypes>
-        <Row Name="FDivHalf">
+        <Row Name="FDivHalf"
+             Kits.Description="Verifies the FDiv DXIL instruction."
+             Kits.TestId="3f258969-fa5d-4c65-bd1f-e77219821cff"
+             Kits.Specification="Device.Graphics.WDDM24.AdapterRender.D3D12.Native16Bits.CoreRequirement"
+             Kits.TestName="D3D12 - DXIL 16bit Types Test - FDiv instruction">
             <Parameter Name="Validation.Type">ulp</Parameter>
             <Parameter Name="Validation.Tolerance">1</Parameter>
             <Parameter Name="ShaderOp.Text"> struct SBinaryFPOp {
@@ -2243,7 +2439,11 @@
             </Parameter>
             <Parameter Name="ShaderOp.Arguments">-enable-16bit-types</Parameter>
         </Row>
-        <Row Name="FMinHalf">
+        <Row Name="FMinHalf"
+             Kits.Description="Verifies the FMin DXIL instruction."
+             Kits.TestId="d4f8ada6-b2a9-453a-b1ab-fc5339a3946d"
+             Kits.Specification="Device.Graphics.WDDM24.AdapterRender.D3D12.Native16Bits.CoreRequirement"
+             Kits.TestName="D3D12 - DXIL 16bit Types Test - FMin instruction">
             <Parameter Name="Validation.Type">epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0</Parameter>
             <Parameter Name="ShaderOp.Text"> struct SBinaryHalfOp {
@@ -2339,7 +2539,11 @@
             </Parameter>
             <Parameter Name="ShaderOp.Arguments">-enable-16bit-types</Parameter>
         </Row>
-        <Row Name="FMulHalf">
+        <Row Name="FMulHalf"
+             Kits.Description="Verifies the FMul DXIL instruction."
+             Kits.TestId="5b3fea80-6fdd-4721-9cc6-7aab47072333"
+             Kits.Specification="Device.Graphics.WDDM24.AdapterRender.D3D12.Native16Bits.CoreRequirement"
+             Kits.TestName="D3D12 - DXIL 16bit Types Test - FMul instruction">
             <Parameter Name="Validation.Type">ulp</Parameter>
             <Parameter Name="Validation.Tolerance">1</Parameter>
             <Parameter Name="ShaderOp.Text"> struct SBinaryFPOp {
@@ -2373,7 +2577,11 @@
             </Parameter>
             <Parameter Name="ShaderOp.Arguments">-enable-16bit-types</Parameter>
         </Row>
-        <Row Name="FAddHalf">
+        <Row Name="FAddHalf"
+             Kits.Description="Verifies the FAdd DXIL instruction."
+             Kits.TestId="6c338e53-1453-4cdf-a7aa-ce144f6d8b32"
+             Kits.Specification="Device.Graphics.WDDM24.AdapterRender.D3D12.Native16Bits.CoreRequirement"
+             Kits.TestName="D3D12 - DXIL 16bit Types Test - FAdd instruction">
             <Parameter Name="Validation.Type">ulp</Parameter>
             <Parameter Name="Validation.Tolerance">1</Parameter>
             <Parameter Name="ShaderOp.Text"> struct SBinaryFPOp {
@@ -2410,7 +2618,11 @@
             </Parameter>
             <Parameter Name="ShaderOp.Arguments">-enable-16bit-types</Parameter>
         </Row>
-        <Row Name="FSubHalf">
+        <Row Name="FSubHalf"
+             Kits.Description="Verifies the FSub DXIL instruction."
+             Kits.TestId="a5319dff-a6aa-4db5-818b-097eb43cf49c"
+             Kits.Specification="Device.Graphics.WDDM24.AdapterRender.D3D12.Native16Bits.CoreRequirement"
+             Kits.TestName="D3D12 - DXIL 16bit Types Test - FSub instruction">
             <Parameter Name="Validation.Type">ulp</Parameter>
             <Parameter Name="Validation.Tolerance">1</Parameter>
             <Parameter Name="ShaderOp.Text"> struct SBinaryFPOp {
@@ -2460,7 +2672,11 @@
             <ParameterType Array="true" Name="Validation.Input3">String</ParameterType>
             <ParameterType Array="true" Name="Validation.Expected1">String</ParameterType>
         </ParameterTypes>
-        <Row Name="FMadHalf">
+        <Row Name="FMadHalf"
+             Kits.Description="Verifies the FMad DXIL instruction."
+             Kits.TestId="22dd4109-5308-4027-a110-2007c83496b6"
+             Kits.Specification="Device.Graphics.WDDM24.AdapterRender.D3D12.Native16Bits.CoreRequirement"
+             Kits.TestName="D3D12 - DXIL 16bit Types Test - FMad instruction">
             <Parameter Name="Validation.Type">ulp</Parameter>
             <Parameter Name="Validation.Tolerance">1</Parameter>
             <Parameter Name="ShaderOp.Text"> struct STertiaryHalfOp {
@@ -2542,7 +2758,11 @@
             <ParameterType Array="true" Name="Validation.Input1">String</ParameterType>
             <ParameterType Array="true" Name="Validation.Expected1">String</ParameterType>
         </ParameterTypes>
-        <Row Name="FirstbitLo">
+        <Row Name="FirstbitLo"
+             Kits.Description="Verifies the FirstbitLo DXIL instruction."
+             Kits.TestId="e4fdbcda-0177-4fd0-9b58-67bece1f5282"
+             Kits.Specification="Device.Graphics.WDDM22.AdapterRender.D3D12.DXILCore.ShaderModel60.CoreRequirement"
+             Kits.TestName="D3D12 - DXIL Core Test - FirstbitLo instruction">
             <Parameter Name="Validation.Type">Epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0</Parameter>
             <Parameter Name="ShaderOp.Text"> struct SUnaryIntOp {
@@ -2580,7 +2800,11 @@
                 <Value>0</Value>
             </Parameter>
         </Row>
-        <Row Name="FirstbitSHi">
+        <Row Name="FirstbitSHi"
+             Kits.Description="Verifies the FirstbitSHi DXIL instruction."
+             Kits.TestId="34fe016a-8bb7-41a5-b6ef-02581244019e"
+             Kits.Specification="Device.Graphics.WDDM22.AdapterRender.D3D12.DXILCore.ShaderModel60.CoreRequirement"
+             Kits.TestName="D3D12 - DXIL Core Test - FirstbitSHi instruction">
             <Parameter Name="Validation.Type">Epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0</Parameter>
             <Parameter Name="ShaderOp.Text"> struct SUnaryIntOp {
@@ -2618,7 +2842,11 @@
                 <Value>30</Value>
             </Parameter>
         </Row>
-        <Row Name="Countbits">
+        <Row Name="Countbits"
+             Kits.Description="Verifies the Countbits DXIL instruction."
+             Kits.TestId="2fbc3458-c101-47ea-8fd3-ab06e3d42fd4"
+             Kits.Specification="Device.Graphics.WDDM22.AdapterRender.D3D12.DXILCore.ShaderModel60.CoreRequirement"
+             Kits.TestName="D3D12 - DXIL Core Test - Countbits instruction">
             <Parameter Name="Validation.Type">Epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0</Parameter>
             <Parameter Name="ShaderOp.Text"> struct SUnaryIntOp {
@@ -2656,7 +2884,11 @@
                 <Value>31</Value>
             </Parameter>
         </Row>
-        <Row Name="Bfrev">
+        <Row Name="Bfrev"
+             Kits.Description="Verifies the Bfrev DXIL instruction."
+             Kits.TestId="dc9cd60e-5c51-4342-814c-dc4fa4f55352"
+             Kits.Specification="Device.Graphics.WDDM22.AdapterRender.D3D12.DXILCore.ShaderModel60.CoreRequirement"
+             Kits.TestName="D3D12 - DXIL Core Test - Bfrev instruction">
             <Parameter Name="Validation.Type">Epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0</Parameter>
             <Parameter Name="ShaderOp.Text"> struct SUnaryIntOp {
@@ -2707,7 +2939,11 @@
             <ParameterType Array="true" Name="Validation.Expected1">String</ParameterType>
             <ParameterType Array="true" Name="Validation.Expected2">String</ParameterType>
         </ParameterTypes>
-        <Row Name="IMul">
+        <Row Name="IMul"
+             Kits.Description="Verifies the IMul DXIL instruction."
+             Kits.TestId="d99c4b20-18c6-496d-96b6-0afeef519d2c"
+             Kits.Specification="Device.Graphics.WDDM22.AdapterRender.D3D12.DXILCore.ShaderModel60.CoreRequirement"
+             Kits.TestName="D3D12 - DXIL Core Test - IMul instruction">
             <Parameter Name="Validation.Type">Epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0</Parameter>
             <Parameter Name="ShaderOp.Text"> struct SBinaryIntOp {
@@ -2758,7 +2994,11 @@
                 <Value>1</Value>
             </Parameter>
         </Row>
-        <Row Name="Shl">
+        <Row Name="Shl"
+             Kits.Description="Verifies the Shl DXIL instruction."
+             Kits.TestId="ab668b1c-3b4a-4353-a00f-ff7758066c93"
+             Kits.Specification="Device.Graphics.WDDM22.AdapterRender.D3D12.DXILCore.ShaderModel60.CoreRequirement"
+             Kits.TestName="D3D12 - DXIL Core Test - Shl instruction">
             <Parameter Name="Validation.Type">Epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0</Parameter>
             <Parameter Name="ShaderOp.Text"> struct SBinaryIntOp {
@@ -2803,7 +3043,11 @@
                 <Value>-8</Value>
             </Parameter>
         </Row>
-        <Row Name="Or">
+        <Row Name="Or"
+             Kits.Description="Verifies the Or DXIL instruction."
+             Kits.TestId="c460f32d-58aa-4eb6-9f96-8d080773c61d"
+             Kits.Specification="Device.Graphics.WDDM22.AdapterRender.D3D12.DXILCore.ShaderModel60.CoreRequirement"
+             Kits.TestName="D3D12 - DXIL Core Test - Or instruction">
             <Parameter Name="Validation.Type">Epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0</Parameter>
             <Parameter Name="ShaderOp.Text"> struct SBinaryIntOp {
@@ -2854,7 +3098,11 @@
                 <Value>-1</Value>
             </Parameter>
         </Row>
-        <Row Name="LShr">
+        <Row Name="LShr"
+             Kits.Description="Verifies the LShr DXIL instruction."
+             Kits.TestId="9583699c-22d4-495e-8ece-5d6ddd4a9d57"
+             Kits.Specification="Device.Graphics.WDDM22.AdapterRender.D3D12.DXILCore.ShaderModel60.CoreRequirement"
+             Kits.TestName="D3D12 - DXIL Core Test - LShr instruction">
             <Parameter Name="Validation.Type">Epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0</Parameter>
             <Parameter Name="ShaderOp.Text"> struct SBinaryIntOp {
@@ -2899,7 +3147,11 @@
                 <Value>0x3fffffff</Value>
             </Parameter>
         </Row>
-        <Row Name="ISub">
+        <Row Name="ISub"
+             Kits.Description="Verifies the ISub DXIL instruction."
+             Kits.TestId="1b7f1ff3-cff9-4381-84bd-70f4eede4fbc"
+             Kits.Specification="Device.Graphics.WDDM22.AdapterRender.D3D12.DXILCore.ShaderModel60.CoreRequirement"
+             Kits.TestName="D3D12 - DXIL Core Test - ISub instruction">
             <Parameter Name="Validation.Type">Epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0</Parameter>
             <Parameter Name="ShaderOp.Text"> struct SBinaryIntOp {
@@ -2944,7 +3196,11 @@
                 <Value>-53752</Value>
             </Parameter>
         </Row>
-        <Row Name="IDiv">
+        <Row Name="IDiv"
+             Kits.Description="Verifies the IDiv DXIL instruction."
+             Kits.TestId="a0391d49-228c-46f2-acab-9f8fae2dbad9"
+             Kits.Specification="Device.Graphics.WDDM22.AdapterRender.D3D12.DXILCore.ShaderModel60.CoreRequirement"
+             Kits.TestName="D3D12 - DXIL Core Test - IDiv instruction">
             <Parameter Name="Validation.Type">Epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0</Parameter>
             <Parameter Name="ShaderOp.Text"> struct SBinaryIntOp {
@@ -2999,7 +3255,11 @@
                 <Value>0</Value>
             </Parameter>
         </Row>
-        <Row Name="IAdd">
+        <Row Name="IAdd"
+             Kits.Description="Verifies the IAdd DXIL instruction."
+             Kits.TestId="a646221a-617a-4286-925c-67b28eeac233"
+             Kits.Specification="Device.Graphics.WDDM22.AdapterRender.D3D12.DXILCore.ShaderModel60.CoreRequirement"
+             Kits.TestName="D3D12 - DXIL Core Test - IAdd instruction">
             <Parameter Name="Validation.Type">Epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0</Parameter>
             <Parameter Name="ShaderOp.Text"> struct SBinaryIntOp {
@@ -3044,7 +3304,11 @@
                 <Value>54724</Value>
             </Parameter>
         </Row>
-        <Row Name="And">
+        <Row Name="And"
+             Kits.Description="Verifies the And DXIL instruction."
+             Kits.TestId="651ea807-5a7d-4b74-93b8-06ec14df634a"
+             Kits.Specification="Device.Graphics.WDDM22.AdapterRender.D3D12.DXILCore.ShaderModel60.CoreRequirement"
+             Kits.TestName="D3D12 - DXIL Core Test - And instruction">
             <Parameter Name="Validation.Type">Epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0</Parameter>
             <Parameter Name="ShaderOp.Text"> struct SBinaryIntOp {
@@ -3092,7 +3356,11 @@
                 <Value>-1</Value>
             </Parameter>
         </Row>
-        <Row Name="IMin">
+        <Row Name="IMin"
+             Kits.Description="Verifies the IMin DXIL instruction."
+             Kits.TestId="137f5007-47bb-4cae-ae4e-9559cbaf52b2"
+             Kits.Specification="Device.Graphics.WDDM22.AdapterRender.D3D12.DXILCore.ShaderModel60.CoreRequirement"
+             Kits.TestName="D3D12 - DXIL Core Test - IMin instruction">
             <Parameter Name="Validation.Type">Epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0</Parameter>
             <Parameter Name="ShaderOp.Text"> struct SBinaryIntOp {
@@ -3134,7 +3402,11 @@
                 <Value>0</Value>
             </Parameter>
         </Row>
-        <Row Name="IMax">
+        <Row Name="IMax"
+             Kits.Description="Verifies the IMax DXIL instruction."
+             Kits.TestId="bee2bcff-a8cd-4a6e-b10e-5ac3f8c7b25e"
+             Kits.Specification="Device.Graphics.WDDM22.AdapterRender.D3D12.DXILCore.ShaderModel60.CoreRequirement"
+             Kits.TestName="D3D12 - DXIL Core Test - IMax instruction">
             <Parameter Name="Validation.Type">Epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0</Parameter>
             <Parameter Name="ShaderOp.Text"> struct SBinaryIntOp {
@@ -3176,7 +3448,11 @@
                 <Value>2147483647</Value>
             </Parameter>
         </Row>
-        <Row Name="Xor">
+        <Row Name="Xor"
+             Kits.Description="Verifies the Xor DXIL instruction."
+             Kits.TestId="ce0dfea7-f465-4e07-ba11-5173973b45ad"
+             Kits.Specification="Device.Graphics.WDDM22.AdapterRender.D3D12.DXILCore.ShaderModel60.CoreRequirement"
+             Kits.TestName="D3D12 - DXIL Core Test - Xor instruction">
             <Parameter Name="Validation.Type">Epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0</Parameter>
             <Parameter Name="ShaderOp.Text"> struct SBinaryIntOp {
@@ -3240,7 +3516,11 @@
             <ParameterType Array="true" Name="Validation.Input3">String</ParameterType>
             <ParameterType Array="true" Name="Validation.Expected1">String</ParameterType>
         </ParameterTypes>
-        <Row Name="IMad">
+        <Row Name="IMad"
+             Kits.Description="Verifies the IMad DXIL instruction."
+             Kits.TestId="d04df7d7-23b9-4e83-895d-bbd01fb6df15"
+             Kits.Specification="Device.Graphics.WDDM22.AdapterRender.D3D12.DXILCore.ShaderModel60.CoreRequirement"
+             Kits.TestName="D3D12 - DXIL Core Test - IMad instruction">
             <Parameter Name="Validation.Type">epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0</Parameter>
             <Parameter Name="ShaderOp.Text"> struct STertiaryIntOp {
@@ -3325,7 +3605,11 @@
             <ParameterType Array="true" Name="Validation.Input1">String</ParameterType>
             <ParameterType Array="true" Name="Validation.Expected1">String</ParameterType>
         </ParameterTypes>
-        <Row Name="BfrevBit16">
+        <Row Name="BfrevBit16"
+             Kits.Description="Verifies the Bfrev DXIL instruction."
+             Kits.TestId="1fbf0c41-ba44-455c-94bf-7ee31fbd1f5c"
+             Kits.Specification="Device.Graphics.WDDM24.AdapterRender.D3D12.Native16Bits.CoreRequirement"
+             Kits.TestName="D3D12 - DXIL 16bit Types Test - Bfrev instruction">
             <Parameter Name="Validation.Type">Epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0</Parameter>
             <Parameter Name="ShaderOp.Text"> struct SUnaryInt16Op {
@@ -3364,7 +3648,11 @@
             </Parameter>
             <Parameter Name="ShaderOp.Arguments">-enable-16bit-types</Parameter>
         </Row>
-        <Row Name="FirstbitSHiBit16">
+        <Row Name="FirstbitSHiBit16"
+             Kits.Description="Verifies the FirstbitSHi DXIL instruction."
+             Kits.TestId="fb0d7720-e8d2-4c8d-892b-6ae5fa0ddf9a"
+             Kits.Specification="Device.Graphics.WDDM24.AdapterRender.D3D12.Native16Bits.CoreRequirement"
+             Kits.TestName="D3D12 - DXIL 16bit Types Test - FirstbitSHi instruction">
             <Parameter Name="Validation.Type">Epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0</Parameter>
             <Parameter Name="ShaderOp.Text"> struct SUnaryInt16Op {
@@ -3403,7 +3691,11 @@
             </Parameter>
             <Parameter Name="ShaderOp.Arguments">-enable-16bit-types</Parameter>
         </Row>
-        <Row Name="FirstbitLoBit16">
+        <Row Name="FirstbitLoBit16"
+             Kits.Description="Verifies the FirstbitLo DXIL instruction."
+             Kits.TestId="e103af1c-00c6-41b6-8310-8666eb1500f8"
+             Kits.Specification="Device.Graphics.WDDM24.AdapterRender.D3D12.Native16Bits.CoreRequirement"
+             Kits.TestName="D3D12 - DXIL 16bit Types Test - FirstbitLo instruction">
             <Parameter Name="Validation.Type">Epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0</Parameter>
             <Parameter Name="ShaderOp.Text"> struct SUnaryInt16Op {
@@ -3455,7 +3747,11 @@
             <ParameterType Array="true" Name="Validation.Expected1">String</ParameterType>
             <ParameterType Array="true" Name="Validation.Expected2">String</ParameterType>
         </ParameterTypes>
-        <Row Name="XorBit16">
+        <Row Name="XorBit16"
+             Kits.Description="Verifies the Xor DXIL instruction."
+             Kits.TestId="8507b10a-8ee6-48f4-bc26-6328511fc50e"
+             Kits.Specification="Device.Graphics.WDDM24.AdapterRender.D3D12.Native16Bits.CoreRequirement"
+             Kits.TestName="D3D12 - DXIL 16bit Types Test - Xor instruction">
             <Parameter Name="Validation.Type">Epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0</Parameter>
             <Parameter Name="ShaderOp.Text"> struct SBinaryInt16Op {
@@ -3507,7 +3803,11 @@
             </Parameter>
             <Parameter Name="ShaderOp.Arguments">-enable-16bit-types</Parameter>
         </Row>
-        <Row Name="AndBit16">
+        <Row Name="AndBit16"
+             Kits.Description="Verifies the And DXIL instruction."
+             Kits.TestId="c323a9ee-7a65-4135-a07c-889cdcda84b2"
+             Kits.Specification="Device.Graphics.WDDM24.AdapterRender.D3D12.Native16Bits.CoreRequirement"
+             Kits.TestName="D3D12 - DXIL 16bit Types Test - And instruction">
             <Parameter Name="Validation.Type">Epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0</Parameter>
             <Parameter Name="ShaderOp.Text"> struct SBinaryInt16Op {
@@ -3556,7 +3856,11 @@
             </Parameter>
             <Parameter Name="ShaderOp.Arguments">-enable-16bit-types</Parameter>
         </Row>
-        <Row Name="UMulBit16">
+        <Row Name="UMulBit16"
+             Kits.Description="Verifies the UMul DXIL instruction."
+             Kits.TestId="b56d8e78-68f7-448a-94b3-0f0523fed496"
+             Kits.Specification="Device.Graphics.WDDM24.AdapterRender.D3D12.Native16Bits.CoreRequirement"
+             Kits.TestName="D3D12 - DXIL 16bit Types Test - UMul instruction">
             <Parameter Name="Validation.Type">Epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0</Parameter>
             <Parameter Name="ShaderOp.Text"> struct SBinaryUint16Op {
@@ -3596,7 +3900,11 @@
             </Parameter>
             <Parameter Name="ShaderOp.Arguments">-enable-16bit-types</Parameter>
         </Row>
-        <Row Name="IMaxBit16">
+        <Row Name="IMaxBit16"
+             Kits.Description="Verifies the IMax DXIL instruction."
+             Kits.TestId="b8213a21-fee7-4139-b0af-50b5d54f71ae"
+             Kits.Specification="Device.Graphics.WDDM24.AdapterRender.D3D12.Native16Bits.CoreRequirement"
+             Kits.TestName="D3D12 - DXIL 16bit Types Test - IMax instruction">
             <Parameter Name="Validation.Type">Epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0</Parameter>
             <Parameter Name="ShaderOp.Text"> struct SBinaryInt16Op {
@@ -3639,7 +3947,11 @@
             </Parameter>
             <Parameter Name="ShaderOp.Arguments">-enable-16bit-types</Parameter>
         </Row>
-        <Row Name="USubBit16">
+        <Row Name="USubBit16"
+             Kits.Description="Verifies the USub DXIL instruction."
+             Kits.TestId="0ba55817-e248-4e78-b8e7-787cbaeadbcd"
+             Kits.Specification="Device.Graphics.WDDM24.AdapterRender.D3D12.Native16Bits.CoreRequirement"
+             Kits.TestName="D3D12 - DXIL 16bit Types Test - USub instruction">
             <Parameter Name="Validation.Type">Epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0</Parameter>
             <Parameter Name="ShaderOp.Text"> struct SBinaryUint16Op {
@@ -3685,7 +3997,11 @@
             </Parameter>
             <Parameter Name="ShaderOp.Arguments">-enable-16bit-types</Parameter>
         </Row>
-        <Row Name="IMinBit16">
+        <Row Name="IMinBit16"
+             Kits.Description="Verifies the IMin DXIL instruction."
+             Kits.TestId="e841a25e-e705-4e4c-9296-f323157efe9d"
+             Kits.Specification="Device.Graphics.WDDM24.AdapterRender.D3D12.Native16Bits.CoreRequirement"
+             Kits.TestName="D3D12 - DXIL 16bit Types Test - IMin instruction">
             <Parameter Name="Validation.Type">Epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0</Parameter>
             <Parameter Name="ShaderOp.Text"> struct SBinaryInt16Op {
@@ -3728,7 +4044,11 @@
             </Parameter>
             <Parameter Name="ShaderOp.Arguments">-enable-16bit-types</Parameter>
         </Row>
-        <Row Name="UAddBit16">
+        <Row Name="UAddBit16"
+             Kits.Description="Verifies the UAdd DXIL instruction."
+             Kits.TestId="d666ebb0-3078-429f-9bc3-a75b531e8e36"
+             Kits.Specification="Device.Graphics.WDDM24.AdapterRender.D3D12.Native16Bits.CoreRequirement"
+             Kits.TestName="D3D12 - DXIL 16bit Types Test - UAdd instruction">
             <Parameter Name="Validation.Type">Epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0</Parameter>
             <Parameter Name="ShaderOp.Text"> struct SBinaryUint16Op {
@@ -3774,7 +4094,11 @@
             </Parameter>
             <Parameter Name="ShaderOp.Arguments">-enable-16bit-types</Parameter>
         </Row>
-        <Row Name="ShlBit16">
+        <Row Name="ShlBit16"
+             Kits.Description="Verifies the Shl DXIL instruction."
+             Kits.TestId="ef2990e7-0fa9-4552-954a-93e4977e016f"
+             Kits.Specification="Device.Graphics.WDDM24.AdapterRender.D3D12.Native16Bits.CoreRequirement"
+             Kits.TestName="D3D12 - DXIL 16bit Types Test - Shl instruction">
             <Parameter Name="Validation.Type">Epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0</Parameter>
             <Parameter Name="ShaderOp.Text"> struct SBinaryInt16Op {
@@ -3820,7 +4144,11 @@
             </Parameter>
             <Parameter Name="ShaderOp.Arguments">-enable-16bit-types</Parameter>
         </Row>
-        <Row Name="LShrBit16">
+        <Row Name="LShrBit16"
+             Kits.Description="Verifies the LShr DXIL instruction."
+             Kits.TestId="f697154e-5bc2-4908-bcf3-bc03517b4cdb"
+             Kits.Specification="Device.Graphics.WDDM24.AdapterRender.D3D12.Native16Bits.CoreRequirement"
+             Kits.TestName="D3D12 - DXIL 16bit Types Test - LShr instruction">
             <Parameter Name="Validation.Type">Epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0</Parameter>
             <Parameter Name="ShaderOp.Text"> struct SBinaryInt16Op {
@@ -3857,7 +4185,11 @@
             </Parameter>
             <Parameter Name="ShaderOp.Arguments">-enable-16bit-types</Parameter>
         </Row>
-        <Row Name="ISubBit16">
+        <Row Name="ISubBit16"
+             Kits.Description="Verifies the ISub DXIL instruction."
+             Kits.TestId="bda34a86-8eee-4071-be29-0c039b733850"
+             Kits.Specification="Device.Graphics.WDDM24.AdapterRender.D3D12.Native16Bits.CoreRequirement"
+             Kits.TestName="D3D12 - DXIL 16bit Types Test - ISub instruction">
             <Parameter Name="Validation.Type">Epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0</Parameter>
             <Parameter Name="ShaderOp.Text"> struct SBinaryInt16Op {
@@ -3900,7 +4232,11 @@
             </Parameter>
             <Parameter Name="ShaderOp.Arguments">-enable-16bit-types</Parameter>
         </Row>
-        <Row Name="IAddBit16">
+        <Row Name="IAddBit16"
+             Kits.Description="Verifies the IAdd DXIL instruction."
+             Kits.TestId="8eeef10e-c9c8-4d13-b276-06382293d41a"
+             Kits.Specification="Device.Graphics.WDDM24.AdapterRender.D3D12.Native16Bits.CoreRequirement"
+             Kits.TestName="D3D12 - DXIL 16bit Types Test - IAdd instruction">
             <Parameter Name="Validation.Type">Epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0</Parameter>
             <Parameter Name="ShaderOp.Text"> struct SBinaryInt16Op {
@@ -3943,7 +4279,11 @@
             </Parameter>
             <Parameter Name="ShaderOp.Arguments">-enable-16bit-types</Parameter>
         </Row>
-        <Row Name="IMulBit16">
+        <Row Name="IMulBit16"
+             Kits.Description="Verifies the IMul DXIL instruction."
+             Kits.TestId="3f8bc584-ffd0-4747-87e0-ce799a0969d2"
+             Kits.Specification="Device.Graphics.WDDM24.AdapterRender.D3D12.Native16Bits.CoreRequirement"
+             Kits.TestName="D3D12 - DXIL 16bit Types Test - IMul instruction">
             <Parameter Name="Validation.Type">Epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0</Parameter>
             <Parameter Name="ShaderOp.Text"> struct SBinaryInt16Op {
@@ -3989,7 +4329,11 @@
             </Parameter>
             <Parameter Name="ShaderOp.Arguments">-enable-16bit-types</Parameter>
         </Row>
-        <Row Name="OrBit16">
+        <Row Name="OrBit16"
+             Kits.Description="Verifies the Or DXIL instruction."
+             Kits.TestId="b18f4b0f-2de2-415f-827b-70743e650308"
+             Kits.Specification="Device.Graphics.WDDM24.AdapterRender.D3D12.Native16Bits.CoreRequirement"
+             Kits.TestName="D3D12 - DXIL 16bit Types Test - Or instruction">
             <Parameter Name="Validation.Type">Epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0</Parameter>
             <Parameter Name="ShaderOp.Text"> struct SBinaryInt16Op {
@@ -4051,7 +4395,11 @@
             <ParameterType Array="true" Name="Validation.Input3">String</ParameterType>
             <ParameterType Array="true" Name="Validation.Expected1">String</ParameterType>
         </ParameterTypes>
-        <Row Name="IMadBit16">
+        <Row Name="IMadBit16"
+             Kits.Description="Verifies the IMad DXIL instruction."
+             Kits.TestId="fae141e5-7717-4143-8c74-1b7e3faf2faf"
+             Kits.Specification="Device.Graphics.WDDM24.AdapterRender.D3D12.Native16Bits.CoreRequirement"
+             Kits.TestName="D3D12 - DXIL 16bit Types Test - IMad instruction">
             <Parameter Name="Validation.Type">epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0</Parameter>
             <Parameter Name="ShaderOp.Text"> struct STertiaryInt16Op {
@@ -4121,7 +4469,11 @@
             <ParameterType Array="true" Name="Validation.Input1">String</ParameterType>
             <ParameterType Array="true" Name="Validation.Expected1">String</ParameterType>
         </ParameterTypes>
-        <Row Name="FirstbitHi">
+        <Row Name="FirstbitHi"
+             Kits.Description="Verifies the FirstbitHi DXIL instruction."
+             Kits.TestId="35d0d21d-dcbb-445e-9961-0dbd7276d478"
+             Kits.Specification="Device.Graphics.WDDM22.AdapterRender.D3D12.DXILCore.ShaderModel60.CoreRequirement"
+             Kits.TestName="D3D12 - DXIL Core Test - FirstbitHi instruction">
             <Parameter Name="Validation.Type">Epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0</Parameter>
             <Parameter Name="ShaderOp.Text"> struct SUnaryUintOp {
@@ -4166,7 +4518,11 @@
             <ParameterType Array="true" Name="Validation.Expected1">String</ParameterType>
             <ParameterType Array="true" Name="Validation.Expected2">String</ParameterType>
         </ParameterTypes>
-        <Row Name="USub">
+        <Row Name="USub"
+             Kits.Description="Verifies the USub DXIL instruction."
+             Kits.TestId="ed8edd45-6e95-4744-b534-1dc05d65dfd5"
+             Kits.Specification="Device.Graphics.WDDM22.AdapterRender.D3D12.DXILCore.ShaderModel60.CoreRequirement"
+             Kits.TestName="D3D12 - DXIL Core Test - USub instruction">
             <Parameter Name="Validation.Type">Epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0</Parameter>
             <Parameter Name="ShaderOp.Text"> struct SBinaryUintOp {
@@ -4211,7 +4567,11 @@
                 <Value>486</Value>
             </Parameter>
         </Row>
-        <Row Name="UMul">
+        <Row Name="UMul"
+             Kits.Description="Verifies the UMul DXIL instruction."
+             Kits.TestId="dc41345a-3159-4eaf-8d89-c8b0ba8866e3"
+             Kits.Specification="Device.Graphics.WDDM22.AdapterRender.D3D12.DXILCore.ShaderModel60.CoreRequirement"
+             Kits.TestName="D3D12 - DXIL Core Test - UMul instruction">
             <Parameter Name="Validation.Type">Epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0</Parameter>
             <Parameter Name="ShaderOp.Text"> struct SBinaryUintOp {
@@ -4250,7 +4610,11 @@
                 <Value>0</Value>
             </Parameter>
         </Row>
-        <Row Name="UAddc">
+        <Row Name="UAddc"
+             Kits.Description="Verifies the UAddc DXIL instruction."
+             Kits.TestId="d2e34088-f5ce-4d46-afad-86f57e302aee"
+             Kits.Specification="Device.Graphics.WDDM22.AdapterRender.D3D12.DXIL.Int64.CoreRequirement"
+             Kits.TestName="D3D12 - DXIL Int64 Test - UAddc instruction">
             <Parameter Name="Validation.Type">Epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0</Parameter>
             <Parameter Name="ShaderOp.Text"> struct SBinaryUintOp {
@@ -4303,7 +4667,11 @@
                 <Value>0xffffffff</Value>
             </Parameter>
         </Row>
-        <Row Name="UMin">
+        <Row Name="UMin"
+             Kits.Description="Verifies the UMin DXIL instruction."
+             Kits.TestId="9b0e370f-0d4f-4cad-adb2-74dc33d62d28"
+             Kits.Specification="Device.Graphics.WDDM22.AdapterRender.D3D12.DXILCore.ShaderModel60.CoreRequirement"
+             Kits.TestName="D3D12 - DXIL Core Test - UMin instruction">
             <Parameter Name="Validation.Type">Epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0</Parameter>
             <Parameter Name="ShaderOp.Text"> struct SBinaryUintOp {
@@ -4345,7 +4713,11 @@
                 <Value>4294967295</Value>
             </Parameter>
         </Row>
-        <Row Name="UMax">
+        <Row Name="UMax"
+             Kits.Description="Verifies the UMax DXIL instruction."
+             Kits.TestId="d536a119-b5a3-4f86-b8cb-109f91deb5f7"
+             Kits.Specification="Device.Graphics.WDDM22.AdapterRender.D3D12.DXILCore.ShaderModel60.CoreRequirement"
+             Kits.TestName="D3D12 - DXIL Core Test - UMax instruction">
             <Parameter Name="Validation.Type">Epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0</Parameter>
             <Parameter Name="ShaderOp.Text"> struct SBinaryUintOp {
@@ -4387,7 +4759,11 @@
                 <Value>4294967295</Value>
             </Parameter>
         </Row>
-        <Row Name="UAdd">
+        <Row Name="UAdd"
+             Kits.Description="Verifies the UAdd DXIL instruction."
+             Kits.TestId="d566a6cb-cd79-4652-a65d-1350f5547f14"
+             Kits.Specification="Device.Graphics.WDDM22.AdapterRender.D3D12.DXILCore.ShaderModel60.CoreRequirement"
+             Kits.TestName="D3D12 - DXIL Core Test - UAdd instruction">
             <Parameter Name="Validation.Type">Epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0</Parameter>
             <Parameter Name="ShaderOp.Text"> struct SBinaryUintOp {
@@ -4432,7 +4808,11 @@
                 <Value>54724</Value>
             </Parameter>
         </Row>
-        <Row Name="UDiv">
+        <Row Name="UDiv"
+             Kits.Description="Verifies the UDiv DXIL instruction."
+             Kits.TestId="3f3bcf64-0ebe-4cc3-8804-87fe3f2b25dd"
+             Kits.Specification="Device.Graphics.WDDM22.AdapterRender.D3D12.DXILCore.ShaderModel60.CoreRequirement"
+             Kits.TestName="D3D12 - DXIL Core Test - UDiv instruction">
             <Parameter Name="Validation.Type">Epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0</Parameter>
             <Parameter Name="ShaderOp.Text"> struct SBinaryUintOp {
@@ -4500,7 +4880,11 @@
             <ParameterType Array="true" Name="Validation.Input3">String</ParameterType>
             <ParameterType Array="true" Name="Validation.Expected1">String</ParameterType>
         </ParameterTypes>
-        <Row Name="UMad">
+        <Row Name="UMad"
+             Kits.Description="Verifies the UMad DXIL instruction."
+             Kits.TestId="9fd4b17d-a8be-416b-bc4a-6aa91f47ef39"
+             Kits.Specification="Device.Graphics.WDDM22.AdapterRender.D3D12.DXILCore.ShaderModel60.CoreRequirement"
+             Kits.TestName="D3D12 - DXIL Core Test - UMad instruction">
             <Parameter Name="Validation.Type">epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0</Parameter>
             <Parameter Name="ShaderOp.Text"> struct STertiaryUintOp {
@@ -4565,7 +4949,11 @@
             <ParameterType Array="true" Name="Validation.Input1">String</ParameterType>
             <ParameterType Array="true" Name="Validation.Expected1">String</ParameterType>
         </ParameterTypes>
-        <Row Name="FirstbitHiBit16">
+        <Row Name="FirstbitHiBit16"
+             Kits.Description="Verifies the FirstbitHi DXIL instruction."
+             Kits.TestId="f5da7c9d-007f-47c6-9edd-db36a1655ad1"
+             Kits.Specification="Device.Graphics.WDDM24.AdapterRender.D3D12.Native16Bits.CoreRequirement"
+             Kits.TestName="D3D12 - DXIL 16bit Types Test - FirstbitHi instruction">
             <Parameter Name="Validation.Type">Epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0</Parameter>
             <Parameter Name="ShaderOp.Text"> struct SUnaryUint16Op {
@@ -4607,7 +4995,11 @@
             <ParameterType Array="true" Name="Validation.Expected1">String</ParameterType>
             <ParameterType Array="true" Name="Validation.Expected2">String</ParameterType>
         </ParameterTypes>
-        <Row Name="UMaxBit16">
+        <Row Name="UMaxBit16"
+             Kits.Description="Verifies the UMax DXIL instruction."
+             Kits.TestId="cc6f79b8-2d18-4ee8-b1ee-be3f537e9a2c"
+             Kits.Specification="Device.Graphics.WDDM24.AdapterRender.D3D12.Native16Bits.CoreRequirement"
+             Kits.TestName="D3D12 - DXIL 16bit Types Test - UMax instruction">
             <Parameter Name="Validation.Type">Epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0</Parameter>
             <Parameter Name="ShaderOp.Text"> struct SBinaryUint16Op {
@@ -4650,7 +5042,11 @@
             </Parameter>
             <Parameter Name="ShaderOp.Arguments">-enable-16bit-types</Parameter>
         </Row>
-        <Row Name="UMinBit16">
+        <Row Name="UMinBit16"
+             Kits.Description="Verifies the UMin DXIL instruction."
+             Kits.TestId="4a32dd09-a03a-4468-aecd-8d94045b3a10"
+             Kits.Specification="Device.Graphics.WDDM24.AdapterRender.D3D12.Native16Bits.CoreRequirement"
+             Kits.TestName="D3D12 - DXIL 16bit Types Test - UMin instruction">
             <Parameter Name="Validation.Type">Epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0</Parameter>
             <Parameter Name="ShaderOp.Text"> struct SBinaryUint16Op {
@@ -4706,7 +5102,11 @@
             <ParameterType Array="true" Name="Validation.Input3">String</ParameterType>
             <ParameterType Array="true" Name="Validation.Expected1">String</ParameterType>
         </ParameterTypes>
-        <Row Name="UMadBit16">
+        <Row Name="UMadBit16"
+             Kits.Description="Verifies the UMad DXIL instruction."
+             Kits.TestId="d66c3633-7838-46b7-9575-6dfa1ad84ed6"
+             Kits.Specification="Device.Graphics.WDDM24.AdapterRender.D3D12.Native16Bits.CoreRequirement"
+             Kits.TestName="D3D12 - DXIL 16bit Types Test - UMad instruction">
             <Parameter Name="Validation.Type">epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0</Parameter>
             <Parameter Name="ShaderOp.Text"> struct STertiaryUint16Op {
@@ -4775,7 +5175,11 @@
             <ParameterType Array="true" Name="Validation.Expected2">String</ParameterType>
             <ParameterType Array="true" Name="Validation.Expected3">String</ParameterType>
         </ParameterTypes>
-        <Row Name="Dot">
+        <Row Name="Dot"
+             Kits.Description="Verifies the Dot DXIL instruction."
+             Kits.TestId="4cc8886a-fec9-4cc5-a8fb-f4f61348ca08"
+             Kits.Specification="Device.Graphics.WDDM22.AdapterRender.D3D12.DXILCore.ShaderModel60.CoreRequirement"
+             Kits.TestName="D3D12 - DXIL Core Test - Dot instruction">
             <Parameter Name="Validation.Type">epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0.008</Parameter>
             <Parameter Name="ShaderOp.Text"> struct SDotOp {
@@ -4869,7 +5273,11 @@
             <ParameterType Array="true" Name="Validation.Input3">String</ParameterType>
             <ParameterType Array="true" Name="Validation.Expected1">String</ParameterType>
         </ParameterTypes>
-        <Row Name="Dot2AddHalf">
+        <Row Name="Dot2AddHalf"
+             Kits.Description="Verifies the Dot2Add DXIL instruction."
+             Kits.TestId="73acc806-c5d6-4894-a8db-95c5ff38f23c"
+             Kits.Specification="Device.Graphics.WDDM26.AdapterRender.D3D12.DXILCore.ShaderModel64.CoreRequirement"
+             Kits.TestName="D3D12 - DXIL Core Test - Dot2Add instruction">
             <Parameter Name="Validation.Type">epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0.008</Parameter>
             <Parameter Name="ShaderOp.Text"> struct SDot2AddHalfOp {
@@ -4973,7 +5381,11 @@
             <ParameterType Array="true" Name="Validation.Input3">String</ParameterType>
             <ParameterType Array="true" Name="Validation.Expected1">String</ParameterType>
         </ParameterTypes>
-        <Row Name="Dot4AddI8Packed">
+        <Row Name="Dot4AddI8Packed"
+             Kits.Description="Verifies the Dot4AddI8Packed DXIL instruction."
+             Kits.TestId="36acb5b8-7844-47db-a1f4-d77dcac43e09"
+             Kits.Specification="Device.Graphics.WDDM26.AdapterRender.D3D12.DXILCore.ShaderModel64.CoreRequirement"
+             Kits.TestName="D3D12 - DXIL Core Test - Dot4AddI8Packed instruction">
             <Parameter Name="Validation.Type">epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0</Parameter>
             <Parameter Name="ShaderOp.Text"> struct SDot4AddI8PackedOp {
@@ -5052,7 +5464,11 @@
             <ParameterType Array="true" Name="Validation.Input3">String</ParameterType>
             <ParameterType Array="true" Name="Validation.Expected1">String</ParameterType>
         </ParameterTypes>
-        <Row Name="Dot4AddU8Packed">
+        <Row Name="Dot4AddU8Packed"
+             Kits.Description="Verifies the Dot4AddU8Packed DXIL instruction."
+             Kits.TestId="e2ac75e2-aec7-461a-9f6d-85fb5387037f"
+             Kits.Specification="Device.Graphics.WDDM26.AdapterRender.D3D12.DXILCore.ShaderModel64.CoreRequirement"
+             Kits.TestName="D3D12 - DXIL Core Test - Dot4AddU8Packed instruction">
             <Parameter Name="Validation.Type">epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0</Parameter>
             <Parameter Name="ShaderOp.Text"> struct SDot4AddU8PackedOp {
@@ -5108,7 +5524,11 @@
             <ParameterType Array="true" Name="Validation.Input3">String</ParameterType>
             <ParameterType Array="true" Name="Validation.Expected1">String</ParameterType>
         </ParameterTypes>
-        <Row Name="Bfi">
+        <Row Name="Bfi"
+             Kits.Description="Verifies the Bfi DXIL instruction."
+             Kits.TestId="ca7a8fe3-b671-4b2a-90d3-0efca2abff87"
+             Kits.Specification="Device.Graphics.WDDM22.AdapterRender.D3D12.DXILCore.ShaderModel60.CoreRequirement"
+             Kits.TestName="D3D12 - DXIL Core Test - Bfi instruction">
             <Parameter Name="Validation.Type">epsilon</Parameter>
             <Parameter Name="Validation.Tolerance">0</Parameter>
             <Parameter Name="ShaderOp.Text"> struct SMsad4 {
@@ -5161,7 +5581,11 @@
             <ParameterType Array="true" Name="Validation.InputSet3">String</ParameterType>
             <ParameterType Array="true" Name="Validation.InputSet4">String</ParameterType>
         </ParameterTypes>
-        <Row Name="WaveActiveSum">
+        <Row Name="WaveActiveSum"
+             Kits.Description="Verifies the WaveActiveSum DXIL instruction."
+             Kits.TestId="15e666a4-c88b-4bac-b855-b5ac811814d4"
+             Kits.Specification="Device.Graphics.WDDM22.AdapterRender.D3D12.DXIL.WaveOps.CoreRequirement"
+             Kits.TestName="D3D12 - DXIL Wave Op Test - WaveActiveSum instruction">
             <Parameter Name="ShaderOp.Name">WaveActiveSum</Parameter>
             <Parameter Name="ShaderOp.Text"> struct PerThreadData {
                         uint firstLaneId;
@@ -5201,7 +5625,11 @@
                 <Value>-64</Value>
             </Parameter>
         </Row>
-        <Row Name="WaveActiveAllEqual">
+        <Row Name="WaveActiveAllEqual"
+             Kits.Description="Verifies the WaveActiveAllEqual DXIL instruction."
+             Kits.TestId="dfb840d8-edfe-4334-a3a5-d421c564784b"
+             Kits.Specification="Device.Graphics.WDDM22.AdapterRender.D3D12.DXIL.WaveOps.CoreRequirement"
+             Kits.TestName="D3D12 - DXIL Wave Op Test - WaveActiveAllEqual instruction">
             <Parameter Name="ShaderOp.Name">WaveActiveAllEqual</Parameter>
             <Parameter Name="ShaderOp.Text"> struct PerThreadData {
                         uint firstLaneId;
@@ -5242,7 +5670,11 @@
                 <Value>-10</Value>
             </Parameter>
         </Row>
-        <Row Name="WaveActiveAnyTrue">
+        <Row Name="WaveActiveAnyTrue"
+             Kits.Description="Verifies the WaveActiveAnyTrue DXIL instruction."
+             Kits.TestId="797f13e2-be79-408d-b06d-f759a336e9fe"
+             Kits.Specification="Device.Graphics.WDDM22.AdapterRender.D3D12.DXIL.WaveOps.CoreRequirement"
+             Kits.TestName="D3D12 - DXIL Wave Op Test - WaveActiveAnyTrue instruction">
             <Parameter Name="ShaderOp.Name">WaveActiveAnyTrue</Parameter>
             <Parameter Name="ShaderOp.Text"> struct PerThreadData {
                         uint firstLaneId;
@@ -5280,7 +5712,11 @@
                 <Value>0</Value>
             </Parameter>
         </Row>
-        <Row Name="WaveActiveMax">
+        <Row Name="WaveActiveMax"
+             Kits.Description="Verifies the WaveActiveMax DXIL instruction."
+             Kits.TestId="dc66cabc-950d-4adb-bf45-3d74b7afac20"
+             Kits.Specification="Device.Graphics.WDDM22.AdapterRender.D3D12.DXIL.WaveOps.CoreRequirement"
+             Kits.TestName="D3D12 - DXIL Wave Op Test - WaveActiveMax instruction">
             <Parameter Name="ShaderOp.Name">WaveActiveMax</Parameter>
             <Parameter Name="ShaderOp.Text"> struct PerThreadData {
                         uint firstLaneId;
@@ -5325,7 +5761,11 @@
                 <Value>300</Value>
             </Parameter>
         </Row>
-        <Row Name="WaveActiveMin">
+        <Row Name="WaveActiveMin"
+             Kits.Description="Verifies the WaveActiveMin DXIL instruction."
+             Kits.TestId="1fd0e83f-8356-4ec1-a99d-ec48a02bdee2"
+             Kits.Specification="Device.Graphics.WDDM22.AdapterRender.D3D12.DXIL.WaveOps.CoreRequirement"
+             Kits.TestName="D3D12 - DXIL Wave Op Test - WaveActiveMin instruction">
             <Parameter Name="ShaderOp.Name">WaveActiveMin</Parameter>
             <Parameter Name="ShaderOp.Text"> struct PerThreadData {
                         uint firstLaneId;
@@ -5376,7 +5816,11 @@
                 <Value>300</Value>
             </Parameter>
         </Row>
-        <Row Name="WaveActiveAllTrue">
+        <Row Name="WaveActiveAllTrue"
+             Kits.Description="Verifies the WaveActiveAllTrue DXIL instruction."
+             Kits.TestId="300aeb6e-0b2a-4037-bfc2-704529ae73da"
+             Kits.Specification="Device.Graphics.WDDM22.AdapterRender.D3D12.DXIL.WaveOps.CoreRequirement"
+             Kits.TestName="D3D12 - DXIL Wave Op Test - WaveActiveAllTrue instruction">
             <Parameter Name="ShaderOp.Name">WaveActiveAllTrue</Parameter>
             <Parameter Name="ShaderOp.Text"> struct PerThreadData {
                         uint firstLaneId;
@@ -5414,7 +5858,11 @@
                 <Value>1</Value>
             </Parameter>
         </Row>
-        <Row Name="WaveActiveCountBits">
+        <Row Name="WaveActiveCountBits"
+             Kits.Description="Verifies the WaveActiveCountBits DXIL instruction."
+             Kits.TestId="eee5f3e5-e1a2-43dd-a494-71cf3a957d3d"
+             Kits.Specification="Device.Graphics.WDDM22.AdapterRender.D3D12.DXIL.WaveOps.CoreRequirement"
+             Kits.TestName="D3D12 - DXIL Wave Op Test - WaveActiveCountBits instruction">
             <Parameter Name="ShaderOp.Name">WaveActiveCountBits</Parameter>
             <Parameter Name="ShaderOp.Text"> struct PerThreadData {
                         uint firstLaneId;
@@ -5459,7 +5907,11 @@
                 <Value>300</Value>
             </Parameter>
         </Row>
-        <Row Name="WaveActiveProduct">
+        <Row Name="WaveActiveProduct"
+             Kits.Description="Verifies the WaveActiveProduct DXIL instruction."
+             Kits.TestId="f022140b-e259-4aa0-94ac-61f920830fe2"
+             Kits.Specification="Device.Graphics.WDDM22.AdapterRender.D3D12.DXIL.WaveOps.CoreRequirement"
+             Kits.TestName="D3D12 - DXIL Wave Op Test - WaveActiveProduct instruction">
             <Parameter Name="ShaderOp.Name">WaveActiveProduct</Parameter>
             <Parameter Name="ShaderOp.Text"> struct PerThreadData {
                         uint firstLaneId;
@@ -5510,7 +5962,11 @@
             <ParameterType Array="true" Name="Validation.InputSet3">String</ParameterType>
             <ParameterType Array="true" Name="Validation.InputSet4">String</ParameterType>
         </ParameterTypes>
-        <Row Name="WaveActiveUMax">
+        <Row Name="WaveActiveUMax"
+             Kits.Description="Verifies the WaveActiveUMax DXIL instruction."
+             Kits.TestId="d5e1e671-ca94-4fb6-b94e-8ad14fa14f1c"
+             Kits.Specification="Device.Graphics.WDDM22.AdapterRender.D3D12.DXIL.WaveOps.CoreRequirement"
+             Kits.TestName="D3D12 - DXIL Wave Op Test - WaveActiveUMax instruction">
             <Parameter Name="ShaderOp.Name">WaveActiveUMax</Parameter>
             <Parameter Name="ShaderOp.Text"> struct PerThreadData {
                         uint firstLaneId;
@@ -5550,7 +6006,11 @@
                 <Value>64</Value>
             </Parameter>
         </Row>
-        <Row Name="WaveActiveBitOr">
+        <Row Name="WaveActiveBitOr"
+             Kits.Description="Verifies the WaveActiveBitOr DXIL instruction."
+             Kits.TestId="fe5caf2a-6b79-4276-a61b-020c80835270"
+             Kits.Specification="Device.Graphics.WDDM22.AdapterRender.D3D12.DXIL.WaveOps.CoreRequirement"
+             Kits.TestName="D3D12 - DXIL Wave Op Test - WaveActiveBitOr instruction">
             <Parameter Name="ShaderOp.Name">WaveActiveBitOr</Parameter>
             <Parameter Name="ShaderOp.Text"> struct PerThreadData {
                         uint firstLaneId;
@@ -5601,7 +6061,11 @@
                 <Value>0xffffffff</Value>
             </Parameter>
         </Row>
-        <Row Name="WaveActiveBitAnd">
+        <Row Name="WaveActiveBitAnd"
+             Kits.Description="Verifies the WaveActiveBitAnd DXIL instruction."
+             Kits.TestId="a2305e19-5259-4a30-aeda-e4cc2445d8cd"
+             Kits.Specification="Device.Graphics.WDDM22.AdapterRender.D3D12.DXIL.WaveOps.CoreRequirement"
+             Kits.TestName="D3D12 - DXIL Wave Op Test - WaveActiveBitAnd instruction">
             <Parameter Name="ShaderOp.Name">WaveActiveBitAnd</Parameter>
             <Parameter Name="ShaderOp.Text"> struct PerThreadData {
                         uint firstLaneId;
@@ -5652,7 +6116,11 @@
                 <Value>0xffffffff</Value>
             </Parameter>
         </Row>
-        <Row Name="WaveActiveUMin">
+        <Row Name="WaveActiveUMin"
+             Kits.Description="Verifies the WaveActiveUMin DXIL instruction."
+             Kits.TestId="88832bf8-522b-4465-ad8f-46a3e2a32aad"
+             Kits.Specification="Device.Graphics.WDDM22.AdapterRender.D3D12.DXIL.WaveOps.CoreRequirement"
+             Kits.TestName="D3D12 - DXIL Wave Op Test - WaveActiveUMin instruction">
             <Parameter Name="ShaderOp.Name">WaveActiveUMin</Parameter>
             <Parameter Name="ShaderOp.Text"> struct PerThreadData {
                         uint firstLaneId;
@@ -5698,7 +6166,11 @@
                 <Value>64</Value>
             </Parameter>
         </Row>
-        <Row Name="WaveActiveUSum">
+        <Row Name="WaveActiveUSum"
+             Kits.Description="Verifies the WaveActiveUSum DXIL instruction."
+             Kits.TestId="c9bb639e-febd-40d4-b79d-233cadc06513"
+             Kits.Specification="Device.Graphics.WDDM22.AdapterRender.D3D12.DXIL.WaveOps.CoreRequirement"
+             Kits.TestName="D3D12 - DXIL Wave Op Test - WaveActiveUSum instruction">
             <Parameter Name="ShaderOp.Name">WaveActiveUSum</Parameter>
             <Parameter Name="ShaderOp.Text"> struct PerThreadData {
                         uint firstLaneId;
@@ -5738,7 +6210,11 @@
                 <Value>64</Value>
             </Parameter>
         </Row>
-        <Row Name="WaveActiveBitXor">
+        <Row Name="WaveActiveBitXor"
+             Kits.Description="Verifies the WaveActiveBitXor DXIL instruction."
+             Kits.TestId="f443cf35-4f7d-4091-a0c2-b628c8232f81"
+             Kits.Specification="Device.Graphics.WDDM22.AdapterRender.D3D12.DXIL.WaveOps.CoreRequirement"
+             Kits.TestName="D3D12 - DXIL Wave Op Test - WaveActiveBitXor instruction">
             <Parameter Name="ShaderOp.Name">WaveActiveBitXor</Parameter>
             <Parameter Name="ShaderOp.Text"> struct PerThreadData {
                         uint firstLaneId;
@@ -5789,7 +6265,11 @@
                 <Value>0xffffffff</Value>
             </Parameter>
         </Row>
-        <Row Name="WaveActiveUProduct">
+        <Row Name="WaveActiveUProduct"
+             Kits.Description="Verifies the WaveActiveUProduct DXIL instruction."
+             Kits.TestId="3366af79-6af7-4196-89c8-e882331ff01d"
+             Kits.Specification="Device.Graphics.WDDM22.AdapterRender.D3D12.DXIL.WaveOps.CoreRequirement"
+             Kits.TestName="D3D12 - DXIL Wave Op Test - WaveActiveUProduct instruction">
             <Parameter Name="ShaderOp.Name">WaveActiveUProduct</Parameter>
             <Parameter Name="ShaderOp.Text"> struct PerThreadData {
                         uint firstLaneId;
@@ -5840,7 +6320,11 @@
             <ParameterType Array="true" Name="Validation.InputSet3">String</ParameterType>
             <ParameterType Array="true" Name="Validation.InputSet4">String</ParameterType>
         </ParameterTypes>
-        <Row Name="WavePrefixProduct">
+        <Row Name="WavePrefixProduct"
+             Kits.Description="Verifies the WavePrefixProduct DXIL instruction."
+             Kits.TestId="3fce5184-528e-41a0-9c25-0ff28e574ce2"
+             Kits.Specification="Device.Graphics.WDDM22.AdapterRender.D3D12.DXIL.WaveOps.CoreRequirement"
+             Kits.TestName="D3D12 - DXIL Wave Op Test - WavePrefixProduct instruction">
             <Parameter Name="ShaderOp.Name">WavePrefixProduct</Parameter>
             <Parameter Name="ShaderOp.Text"> struct PerThreadData {
                         uint firstLaneId;
@@ -5883,7 +6367,11 @@
                 <Value>128</Value>
             </Parameter>
         </Row>
-        <Row Name="WavePrefixSum">
+        <Row Name="WavePrefixSum"
+             Kits.Description="Verifies the WavePrefixSum DXIL instruction."
+             Kits.TestId="8d60f69e-ddcb-425e-9254-b3fd16745333"
+             Kits.Specification="Device.Graphics.WDDM22.AdapterRender.D3D12.DXIL.WaveOps.CoreRequirement"
+             Kits.TestName="D3D12 - DXIL Wave Op Test - WavePrefixSum instruction">
             <Parameter Name="ShaderOp.Name">WavePrefixSum</Parameter>
             <Parameter Name="ShaderOp.Text"> struct PerThreadData {
                         uint firstLaneId;
@@ -5926,7 +6414,11 @@
                 <Value>128</Value>
             </Parameter>
         </Row>
-        <Row Name="WavePrefixCountBits">
+        <Row Name="WavePrefixCountBits"
+             Kits.Description="Verifies the WavePrefixCountBits DXIL instruction."
+             Kits.TestId="a93b2e41-c818-4f30-b17d-7d38af72fb74"
+             Kits.Specification="Device.Graphics.WDDM22.AdapterRender.D3D12.DXIL.WaveOps.CoreRequirement"
+             Kits.TestName="D3D12 - DXIL Wave Op Test - WavePrefixCountBits instruction">
             <Parameter Name="ShaderOp.Name">WavePrefixCountBits</Parameter>
             <Parameter Name="ShaderOp.Text"> struct PerThreadData {
                         uint firstLaneId;
@@ -5983,7 +6475,11 @@
             <ParameterType Array="true" Name="Validation.InputSet3">String</ParameterType>
             <ParameterType Array="true" Name="Validation.InputSet4">String</ParameterType>
         </ParameterTypes>
-        <Row Name="WavePrefixUSum">
+        <Row Name="WavePrefixUSum"
+             Kits.Description="Verifies the WavePrefixUSum DXIL instruction."
+             Kits.TestId="f7ab0c2f-6f1f-43d5-b638-04704fbc1704"
+             Kits.Specification="Device.Graphics.WDDM22.AdapterRender.D3D12.DXIL.WaveOps.CoreRequirement"
+             Kits.TestName="D3D12 - DXIL Wave Op Test - WavePrefixUSum instruction">
             <Parameter Name="ShaderOp.Name">WavePrefixUSum</Parameter>
             <Parameter Name="ShaderOp.Text"> struct PerThreadData {
                         uint firstLaneId;
@@ -6025,7 +6521,11 @@
                 <Value>128</Value>
             </Parameter>
         </Row>
-        <Row Name="WavePrefixUProduct">
+        <Row Name="WavePrefixUProduct"
+             Kits.Description="Verifies the WavePrefixUProduct DXIL instruction."
+             Kits.TestId="a85ac2e3-0e4e-450e-b9a0-f5cb6d473698"
+             Kits.Specification="Device.Graphics.WDDM22.AdapterRender.D3D12.DXIL.WaveOps.CoreRequirement"
+             Kits.TestName="D3D12 - DXIL Wave Op Test - WavePrefixUProduct instruction">
             <Parameter Name="ShaderOp.Name">WavePrefixUProduct</Parameter>
             <Parameter Name="ShaderOp.Text"> struct PerThreadData {
                         uint firstLaneId;
@@ -6075,7 +6575,11 @@
             <ParameterType Array="true" Name="Validation.Keys">String</ParameterType>
             <ParameterType Array="true" Name="Validation.Values">String</ParameterType>
         </ParameterTypes>
-        <Row Name="WaveMultiPrefixBitXor">
+        <Row Name="WaveMultiPrefixBitXor"
+             Kits.Description="Verifies the WaveMultiPrefixBitXor DXIL instruction."
+             Kits.TestId="cd70cde8-1156-4894-b5d9-ef32409c9321"
+             Kits.Specification="Device.Graphics.WDDM27.AdapterRender.D3D12.DXILCore.ShaderModel65.CoreRequirement"
+             Kits.TestName="D3D12 - DXIL Wave Multi Prefix Op Test - WaveMultiPrefixBitXor instruction">
             <Parameter Name="ShaderOp.Name">WaveMultiPrefixBitXor</Parameter>
             <Parameter Name="ShaderOp.Target">cs_6_5</Parameter>
             <Parameter Name="ShaderOp.Text"> struct ThreadData {
@@ -6123,7 +6627,11 @@
                 <Value>34</Value>
             </Parameter>
         </Row>
-        <Row Name="WaveMultiPrefixCountBits">
+        <Row Name="WaveMultiPrefixCountBits"
+             Kits.Description="Verifies the WaveMultiPrefixCountBits DXIL instruction."
+             Kits.TestId="8b1decf6-a451-464e-80fe-d84fb37ab8e6"
+             Kits.Specification="Device.Graphics.WDDM27.AdapterRender.D3D12.DXILCore.ShaderModel65.CoreRequirement"
+             Kits.TestName="D3D12 - DXIL Wave Multi Prefix Op Test - WaveMultiPrefixCountBits instruction">
             <Parameter Name="ShaderOp.Name">WaveMultiPrefixCountBits</Parameter>
             <Parameter Name="ShaderOp.Target">cs_6_5</Parameter>
             <Parameter Name="ShaderOp.Text"> struct ThreadData {
@@ -6171,7 +6679,11 @@
                 <Value>34</Value>
             </Parameter>
         </Row>
-        <Row Name="WaveMultiPrefixSum">
+        <Row Name="WaveMultiPrefixSum"
+             Kits.Description="Verifies the WaveMultiPrefixSum DXIL instruction."
+             Kits.TestId="14cc7855-efd3-4fa0-8f4f-de441b830854"
+             Kits.Specification="Device.Graphics.WDDM27.AdapterRender.D3D12.DXILCore.ShaderModel65.CoreRequirement"
+             Kits.TestName="D3D12 - DXIL Wave Multi Prefix Op Test - WaveMultiPrefixSum instruction">
             <Parameter Name="ShaderOp.Name">WaveMultiPrefixSum</Parameter>
             <Parameter Name="ShaderOp.Target">cs_6_5</Parameter>
             <Parameter Name="ShaderOp.Text"> struct ThreadData {
@@ -6219,7 +6731,11 @@
                 <Value>34</Value>
             </Parameter>
         </Row>
-        <Row Name="WaveMultiPrefixBitAnd">
+        <Row Name="WaveMultiPrefixBitAnd"
+             Kits.Description="Verifies the WaveMultiPrefixBitAnd DXIL instruction."
+             Kits.TestId="da6cce62-a9f2-4b5e-9061-5f0e61b0b1fe"
+             Kits.Specification="Device.Graphics.WDDM27.AdapterRender.D3D12.DXILCore.ShaderModel65.CoreRequirement"
+             Kits.TestName="D3D12 - DXIL Wave Multi Prefix Op Test - WaveMultiPrefixBitAnd instruction">
             <Parameter Name="ShaderOp.Name">WaveMultiPrefixBitAnd</Parameter>
             <Parameter Name="ShaderOp.Target">cs_6_5</Parameter>
             <Parameter Name="ShaderOp.Text"> struct ThreadData {
@@ -6267,7 +6783,11 @@
                 <Value>34</Value>
             </Parameter>
         </Row>
-        <Row Name="WaveMultiPrefixBitOr">
+        <Row Name="WaveMultiPrefixBitOr"
+             Kits.Description="Verifies the WaveMultiPrefixBitOr DXIL instruction."
+             Kits.TestId="efb80a02-4d7b-45d9-9479-a7f4490b241e"
+             Kits.Specification="Device.Graphics.WDDM27.AdapterRender.D3D12.DXILCore.ShaderModel65.CoreRequirement"
+             Kits.TestName="D3D12 - DXIL Wave Multi Prefix Op Test - WaveMultiPrefixBitOr instruction">
             <Parameter Name="ShaderOp.Name">WaveMultiPrefixBitOr</Parameter>
             <Parameter Name="ShaderOp.Target">cs_6_5</Parameter>
             <Parameter Name="ShaderOp.Text"> struct ThreadData {
@@ -6315,7 +6835,11 @@
                 <Value>34</Value>
             </Parameter>
         </Row>
-        <Row Name="WaveMultiPrefixProduct">
+        <Row Name="WaveMultiPrefixProduct"
+             Kits.Description="Verifies the WaveMultiPrefixProduct DXIL instruction."
+             Kits.TestId="f3888e7b-6fb4-4201-8316-279af8ac8906"
+             Kits.Specification="Device.Graphics.WDDM27.AdapterRender.D3D12.DXILCore.ShaderModel65.CoreRequirement"
+             Kits.TestName="D3D12 - DXIL Wave Multi Prefix Op Test - WaveMultiPrefixProduct instruction">
             <Parameter Name="ShaderOp.Name">WaveMultiPrefixProduct</Parameter>
             <Parameter Name="ShaderOp.Target">cs_6_5</Parameter>
             <Parameter Name="ShaderOp.Text"> struct ThreadData {
@@ -6371,7 +6895,11 @@
             <ParameterType Array="true" Name="Validation.Keys">String</ParameterType>
             <ParameterType Array="true" Name="Validation.Values">String</ParameterType>
         </ParameterTypes>
-        <Row Name="WaveMultiPrefixUBitAnd">
+        <Row Name="WaveMultiPrefixUBitAnd"
+             Kits.Description="Verifies the WaveMultiPrefixUBitAnd DXIL instruction."
+             Kits.TestId="1a142429-58a5-46d6-80f9-f344985a8632"
+             Kits.Specification="Device.Graphics.WDDM27.AdapterRender.D3D12.DXILCore.ShaderModel65.CoreRequirement"
+             Kits.TestName="D3D12 - DXIL Wave Multi Prefix Op Test - WaveMultiPrefixUBitAnd instruction">
             <Parameter Name="ShaderOp.Name">WaveMultiPrefixUBitAnd</Parameter>
             <Parameter Name="ShaderOp.Target">cs_6_5</Parameter>
             <Parameter Name="ShaderOp.Text"> struct ThreadData {
@@ -6419,7 +6947,11 @@
                 <Value>34</Value>
             </Parameter>
         </Row>
-        <Row Name="WaveMultiPrefixUBitOr">
+        <Row Name="WaveMultiPrefixUBitOr"
+             Kits.Description="Verifies the WaveMultiPrefixUBitOr DXIL instruction."
+             Kits.TestId="5c21ed48-cc41-40d0-aa03-bcbc503f4bec"
+             Kits.Specification="Device.Graphics.WDDM27.AdapterRender.D3D12.DXILCore.ShaderModel65.CoreRequirement"
+             Kits.TestName="D3D12 - DXIL Wave Multi Prefix Op Test - WaveMultiPrefixUBitOr instruction">
             <Parameter Name="ShaderOp.Name">WaveMultiPrefixUBitOr</Parameter>
             <Parameter Name="ShaderOp.Target">cs_6_5</Parameter>
             <Parameter Name="ShaderOp.Text"> struct ThreadData {
@@ -6467,7 +6999,11 @@
                 <Value>34</Value>
             </Parameter>
         </Row>
-        <Row Name="WaveMultiPrefixUSum">
+        <Row Name="WaveMultiPrefixUSum"
+             Kits.Description="Verifies the WaveMultiPrefixUSum DXIL instruction."
+             Kits.TestId="ce0e92d7-c69e-4966-9fc4-ecf6c5abc561"
+             Kits.Specification="Device.Graphics.WDDM27.AdapterRender.D3D12.DXILCore.ShaderModel65.CoreRequirement"
+             Kits.TestName="D3D12 - DXIL Wave Multi Prefix Op Test - WaveMultiPrefixUSum instruction">
             <Parameter Name="ShaderOp.Name">WaveMultiPrefixUSum</Parameter>
             <Parameter Name="ShaderOp.Target">cs_6_5</Parameter>
             <Parameter Name="ShaderOp.Text"> struct ThreadData {
@@ -6515,7 +7051,11 @@
                 <Value>34</Value>
             </Parameter>
         </Row>
-        <Row Name="WaveMultiPrefixUProduct">
+        <Row Name="WaveMultiPrefixUProduct"
+             Kits.Description="Verifies the WaveMultiPrefixUProduct DXIL instruction."
+             Kits.TestId="ebeb945a-63b6-4b97-bcc7-ad4c2b910a1a"
+             Kits.Specification="Device.Graphics.WDDM27.AdapterRender.D3D12.DXILCore.ShaderModel65.CoreRequirement"
+             Kits.TestName="D3D12 - DXIL Wave Multi Prefix Op Test - WaveMultiPrefixUProduct instruction">
             <Parameter Name="ShaderOp.Name">WaveMultiPrefixUProduct</Parameter>
             <Parameter Name="ShaderOp.Target">cs_6_5</Parameter>
             <Parameter Name="ShaderOp.Text"> struct ThreadData {
@@ -6563,7 +7103,11 @@
                 <Value>34</Value>
             </Parameter>
         </Row>
-        <Row Name="WaveMultiPrefixUBitXor">
+        <Row Name="WaveMultiPrefixUBitXor"
+             Kits.Description="Verifies the WaveMultiPrefixUBitXor DXIL instruction."
+             Kits.TestId="2c6642b6-3cc9-4b73-9179-dce9d56c7551"
+             Kits.Specification="Device.Graphics.WDDM27.AdapterRender.D3D12.DXILCore.ShaderModel65.CoreRequirement"
+             Kits.TestName="D3D12 - DXIL Wave Multi Prefix Op Test - WaveMultiPrefixUBitXor instruction">
             <Parameter Name="ShaderOp.Name">WaveMultiPrefixUBitXor</Parameter>
             <Parameter Name="ShaderOp.Target">cs_6_5</Parameter>
             <Parameter Name="ShaderOp.Text"> struct ThreadData {
@@ -6611,7 +7155,11 @@
                 <Value>34</Value>
             </Parameter>
         </Row>
-        <Row Name="WaveMultiPrefixUCountBits">
+        <Row Name="WaveMultiPrefixUCountBits"
+             Kits.Description="Verifies the WaveMultiPrefixUCountBits DXIL instruction."
+             Kits.TestId="69b07fdc-8d1f-4e61-a8b9-d64f6a2fb6f1"
+             Kits.Specification="Device.Graphics.WDDM27.AdapterRender.D3D12.DXILCore.ShaderModel65.CoreRequirement"
+             Kits.TestName="D3D12 - DXIL Wave Multi Prefix Op Test - WaveMultiPrefixUCountBits instruction">
             <Parameter Name="ShaderOp.Name">WaveMultiPrefixUCountBits</Parameter>
             <Parameter Name="ShaderOp.Target">cs_6_5</Parameter>
             <Parameter Name="ShaderOp.Text"> struct ThreadData {
@@ -6672,7 +7220,11 @@
             <ParameterType Array="true" Name="Validation.Expected1">String</ParameterType>
             <ParameterType Array="true" Name="Validation.Expected2">String</ParameterType>
         </ParameterTypes>
-        <Row Name="FDivDenormFTZ">
+        <Row Name="FDivDenormFTZ"
+             Kits.Description="Verifies the FDivDenormFTZ DXIL instruction."
+             Kits.TestId="600f25bf-4a61-4588-9ac4-eb8174b4d00a"
+             Kits.Specification="Device.Graphics.WDDM24.AdapterRender.D3D12.DXILCore.ShaderModel62.CoreRequirement"
+             Kits.TestName="D3D12 - DXIL SM 6.2 DenormMode Test - FDivDenormFTZ">
             <Parameter Name="Validation.Type">ulp</Parameter>
             <Parameter Name="Validation.Tolerance">1</Parameter>
             <Parameter Name="ShaderOp.Text"> struct SBinaryFPOp {
@@ -6709,7 +7261,11 @@
             </Parameter>
             <Parameter Name="ShaderOp.Arguments">-denorm ftz</Parameter>
         </Row>
-        <Row Name="FAddDenormAny">
+        <Row Name="FAddDenormAny"
+             Kits.Description="Verifies the FAddDenormAny DXIL instruction."
+             Kits.TestId="3f84c8f4-1887-4c2f-8c09-120f57902754"
+             Kits.Specification="Device.Graphics.WDDM24.AdapterRender.D3D12.DXILCore.ShaderModel62.CoreRequirement"
+             Kits.TestName="D3D12 - DXIL SM 6.2 DenormMode Test - FAddDenormAny">
             <Parameter Name="Validation.Type">ulp</Parameter>
             <Parameter Name="Validation.Tolerance">1</Parameter>
             <Parameter Name="ShaderOp.Text"> struct SBinaryFPOp {
@@ -6752,7 +7308,11 @@
             </Parameter>
             <Parameter Name="ShaderOp.Arguments">-denorm any</Parameter>
         </Row>
-        <Row Name="FMulDenormAny">
+        <Row Name="FMulDenormAny"
+             Kits.Description="Verifies the FMulDenormAny DXIL instruction."
+             Kits.TestId="24fc24e4-7fd6-492f-9429-7219d1048c2f"
+             Kits.Specification="Device.Graphics.WDDM24.AdapterRender.D3D12.DXILCore.ShaderModel62.CoreRequirement"
+             Kits.TestName="D3D12 - DXIL SM 6.2 DenormMode Test - FMulDenormAny">
             <Parameter Name="Validation.Type">ulp</Parameter>
             <Parameter Name="Validation.Tolerance">1</Parameter>
             <Parameter Name="ShaderOp.Text"> struct SBinaryFPOp {
@@ -6799,7 +7359,11 @@
             </Parameter>
             <Parameter Name="ShaderOp.Arguments">-denorm any</Parameter>
         </Row>
-        <Row Name="FDivDenormAny">
+        <Row Name="FDivDenormAny"
+             Kits.Description="Verifies the FDivDenormAny DXIL instruction."
+             Kits.TestId="86db7145-d715-4c65-b601-cd54f333bd38"
+             Kits.Specification="Device.Graphics.WDDM24.AdapterRender.D3D12.DXILCore.ShaderModel62.CoreRequirement"
+             Kits.TestName="D3D12 - DXIL SM 6.2 DenormMode Test - FDivDenormAny">
             <Parameter Name="Validation.Type">ulp</Parameter>
             <Parameter Name="Validation.Tolerance">1</Parameter>
             <Parameter Name="ShaderOp.Text"> struct SBinaryFPOp {
@@ -6842,7 +7406,11 @@
             </Parameter>
             <Parameter Name="ShaderOp.Arguments">-denorm any</Parameter>
         </Row>
-        <Row Name="FMulDenormFTZ">
+        <Row Name="FMulDenormFTZ"
+             Kits.Description="Verifies the FMulDenormFTZ DXIL instruction."
+             Kits.TestId="4c27aad8-bff0-4234-ada8-35af86975ddc"
+             Kits.Specification="Device.Graphics.WDDM24.AdapterRender.D3D12.DXILCore.ShaderModel62.CoreRequirement"
+             Kits.TestName="D3D12 - DXIL SM 6.2 DenormMode Test - FMulDenormFTZ">
             <Parameter Name="Validation.Type">ulp</Parameter>
             <Parameter Name="Validation.Tolerance">1</Parameter>
             <Parameter Name="ShaderOp.Text"> struct SBinaryFPOp {
@@ -6882,7 +7450,11 @@
             </Parameter>
             <Parameter Name="ShaderOp.Arguments">-denorm ftz</Parameter>
         </Row>
-        <Row Name="FAddDenormFTZ">
+        <Row Name="FAddDenormFTZ"
+             Kits.Description="Verifies the FAddDenormFTZ DXIL instruction."
+             Kits.TestId="21d9647a-97e9-4c13-b338-b98fd9e5a9d0"
+             Kits.Specification="Device.Graphics.WDDM24.AdapterRender.D3D12.DXILCore.ShaderModel62.CoreRequirement"
+             Kits.TestName="D3D12 - DXIL SM 6.2 DenormMode Test - FAddDenormFTZ">
             <Parameter Name="Validation.Type">ulp</Parameter>
             <Parameter Name="Validation.Tolerance">1</Parameter>
             <Parameter Name="ShaderOp.Text"> struct SBinaryFPOp {
@@ -6919,7 +7491,11 @@
             </Parameter>
             <Parameter Name="ShaderOp.Arguments">-denorm ftz</Parameter>
         </Row>
-        <Row Name="FDivDenormPreserve">
+        <Row Name="FDivDenormPreserve"
+             Kits.Description="Verifies the FDivDenormPreserve DXIL instruction."
+             Kits.TestId="11a07234-d18d-4b84-8ac0-f58bb2257c44"
+             Kits.Specification="Device.Graphics.WDDM24.AdapterRender.D3D12.DXILCore.ShaderModel62.CoreRequirement"
+             Kits.TestName="D3D12 - DXIL SM 6.2 DenormMode Test - FDivDenormPreserve">
             <Parameter Name="Validation.Type">ulp</Parameter>
             <Parameter Name="Validation.Tolerance">1</Parameter>
             <Parameter Name="ShaderOp.Text"> struct SBinaryFPOp {
@@ -6956,7 +7532,11 @@
             </Parameter>
             <Parameter Name="ShaderOp.Arguments">-denorm preserve</Parameter>
         </Row>
-        <Row Name="FSubDenormFTZ">
+        <Row Name="FSubDenormFTZ"
+             Kits.Description="Verifies the FSubDenormFTZ DXIL instruction."
+             Kits.TestId="84047942-701d-4462-8d14-295629fee7c9"
+             Kits.Specification="Device.Graphics.WDDM24.AdapterRender.D3D12.DXILCore.ShaderModel62.CoreRequirement"
+             Kits.TestName="D3D12 - DXIL SM 6.2 DenormMode Test - FSubDenormFTZ">
             <Parameter Name="Validation.Type">ulp</Parameter>
             <Parameter Name="Validation.Tolerance">1</Parameter>
             <Parameter Name="ShaderOp.Text"> struct SBinaryFPOp {
@@ -6993,7 +7573,11 @@
             </Parameter>
             <Parameter Name="ShaderOp.Arguments">-denorm ftz</Parameter>
         </Row>
-        <Row Name="FSubDenormPreserve">
+        <Row Name="FSubDenormPreserve"
+             Kits.Description="Verifies the FSubDenormPreserve DXIL instruction."
+             Kits.TestId="1f477b37-a76d-4826-92ba-fa13644c62e7"
+             Kits.Specification="Device.Graphics.WDDM24.AdapterRender.D3D12.DXILCore.ShaderModel62.CoreRequirement"
+             Kits.TestName="D3D12 - DXIL SM 6.2 DenormMode Test - FSubDenormPreserve">
             <Parameter Name="Validation.Type">ulp</Parameter>
             <Parameter Name="Validation.Tolerance">1</Parameter>
             <Parameter Name="ShaderOp.Text"> struct SBinaryFPOp {
@@ -7030,7 +7614,11 @@
             </Parameter>
             <Parameter Name="ShaderOp.Arguments">-denorm preserve</Parameter>
         </Row>
-        <Row Name="FSubDenormAny">
+        <Row Name="FSubDenormAny"
+             Kits.Description="Verifies the FSubDenormAny DXIL instruction."
+             Kits.TestId="66d8739b-4d09-4c8b-8096-16e256ec1c21"
+             Kits.Specification="Device.Graphics.WDDM24.AdapterRender.D3D12.DXILCore.ShaderModel62.CoreRequirement"
+             Kits.TestName="D3D12 - DXIL SM 6.2 DenormMode Test - FSubDenormAny">
             <Parameter Name="Validation.Type">ulp</Parameter>
             <Parameter Name="Validation.Tolerance">1</Parameter>
             <Parameter Name="ShaderOp.Text"> struct SBinaryFPOp {
@@ -7073,7 +7661,11 @@
             </Parameter>
             <Parameter Name="ShaderOp.Arguments">-denorm any</Parameter>
         </Row>
-        <Row Name="FAddDenormPreserve">
+        <Row Name="FAddDenormPreserve"
+             Kits.Description="Verifies the FAddDenormPreserve DXIL instruction."
+             Kits.TestId="2557db62-2fe8-4864-bdfc-8b66abebcce0"
+             Kits.Specification="Device.Graphics.WDDM24.AdapterRender.D3D12.DXILCore.ShaderModel62.CoreRequirement"
+             Kits.TestName="D3D12 - DXIL SM 6.2 DenormMode Test - FAddDenormPreserve">
             <Parameter Name="Validation.Type">ulp</Parameter>
             <Parameter Name="Validation.Tolerance">1</Parameter>
             <Parameter Name="ShaderOp.Text"> struct SBinaryFPOp {
@@ -7110,7 +7702,11 @@
             </Parameter>
             <Parameter Name="ShaderOp.Arguments">-denorm preserve</Parameter>
         </Row>
-        <Row Name="FMulDenormPreserve">
+        <Row Name="FMulDenormPreserve"
+             Kits.Description="Verifies the FMulDenormPreserve DXIL instruction."
+             Kits.TestId="d1e95159-76a0-4564-859f-ca822aae520c"
+             Kits.Specification="Device.Graphics.WDDM24.AdapterRender.D3D12.DXILCore.ShaderModel62.CoreRequirement"
+             Kits.TestName="D3D12 - DXIL SM 6.2 DenormMode Test - FMulDenormPreserve">
             <Parameter Name="Validation.Type">ulp</Parameter>
             <Parameter Name="Validation.Tolerance">1</Parameter>
             <Parameter Name="ShaderOp.Text"> struct SBinaryFPOp {
@@ -7164,7 +7760,11 @@
             <ParameterType Array="true" Name="Validation.Expected1">String</ParameterType>
             <ParameterType Array="true" Name="Validation.Expected2">String</ParameterType>
         </ParameterTypes>
-        <Row Name="FMadDenormPreserve">
+        <Row Name="FMadDenormPreserve"
+             Kits.Description="Verifies the FMadDenormPreserve DXIL instruction."
+             Kits.TestId="ce818de1-e721-4a4e-a032-be56651ce8c3"
+             Kits.Specification="Device.Graphics.WDDM24.AdapterRender.D3D12.DXILCore.ShaderModel62.CoreRequirement"
+             Kits.TestName="D3D12 - DXIL SM 6.2 DenormMode Test - FMadDenormPreserve">
             <Parameter Name="Validation.Type">ulp</Parameter>
             <Parameter Name="Validation.Tolerance">1</Parameter>
             <Parameter Name="ShaderOp.Text"> struct STertiaryFloatOp {
@@ -7203,7 +7803,11 @@
             </Parameter>
             <Parameter Name="ShaderOp.Arguments">-denorm preserve</Parameter>
         </Row>
-        <Row Name="FMadDenormAny">
+        <Row Name="FMadDenormAny"
+             Kits.Description="Verifies the FMadDenormAny DXIL instruction."
+             Kits.TestId="b9282e9f-124d-42b6-af33-c789d760010b"
+             Kits.Specification="Device.Graphics.WDDM24.AdapterRender.D3D12.DXILCore.ShaderModel62.CoreRequirement"
+             Kits.TestName="D3D12 - DXIL SM 6.2 DenormMode Test - FMadDenormAny">
             <Parameter Name="Validation.Type">ulp</Parameter>
             <Parameter Name="Validation.Tolerance">1</Parameter>
             <Parameter Name="ShaderOp.Text"> struct STertiaryFloatOp {
@@ -7247,7 +7851,11 @@
             </Parameter>
             <Parameter Name="ShaderOp.Arguments">-denorm any</Parameter>
         </Row>
-        <Row Name="FMadDenormFTZ">
+        <Row Name="FMadDenormFTZ"
+             Kits.Description="Verifies the FMadDenormFTZ DXIL instruction."
+             Kits.TestId="38505da3-4721-46c2-b14d-f599babd9d88"
+             Kits.Specification="Device.Graphics.WDDM24.AdapterRender.D3D12.DXILCore.ShaderModel62.CoreRequirement"
+             Kits.TestName="D3D12 - DXIL SM 6.2 DenormMode Test - FMadDenormFTZ">
             <Parameter Name="Validation.Type">ulp</Parameter>
             <Parameter Name="Validation.Tolerance">1</Parameter>
             <Parameter Name="ShaderOp.Text"> struct STertiaryFloatOp {
@@ -7294,7 +7902,11 @@
             <ParameterType Name="Validation.Tolerance">uint</ParameterType>
             <ParameterType Array="true" Name="Validation.Input">String</ParameterType>
         </ParameterTypes>
-        <Row Name="PackUnpack">
+        <Row Name="PackUnpack"
+             Kits.Description="Verifies the PackUnpack DXIL instruction."
+             Kits.TestId="6bed4c99-5a71-4868-9596-42cf4edef0aa"
+             Kits.Specification="Device.Graphics.WDDM30.AdapterRender.D3D12.DXILCore.ShaderModel66.CoreRequirement"
+             Kits.TestName="D3D12 - DXIL Core Test - Pack Unpack">
             <Parameter Name="Validation.Type">ulp</Parameter>
             <Parameter Name="Validation.Tolerance">0</Parameter>
             <Parameter Name="ShaderOp.Text">
