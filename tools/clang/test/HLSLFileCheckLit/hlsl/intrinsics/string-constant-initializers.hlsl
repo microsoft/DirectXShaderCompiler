@@ -32,6 +32,12 @@
 // FCGL-NEXT: call void {{.*CopyAliasedText.*}}(i8** dereferenceable(4) %AliasedText, i8** dereferenceable(4) [[COPY_TMP]])
 // FCGL-NEXT: [[COPY_OUT:%[^ ]+]] = load i8*, i8** [[COPY_TMP]]
 // FCGL-NEXT: store i8* [[COPY_OUT]], i8** %AliasedText
+// FCGL: [[LITERAL_FIELD:%[^ ]+]] = getelementptr inbounds %struct.StringOnly, %struct.StringOnly* %LiteralText, i32 0, i32 0
+// FCGL-NEXT: store i8* getelementptr inbounds ([6 x i8], [6 x i8]* [[HELLO]], i32 0, i32 0), i8** [[LITERAL_FIELD]]
+// FCGL: [[EMPTY_FIELD:%[^ ]+]] = getelementptr inbounds %struct.StringOnly, %struct.StringOnly* %EmptyLiteralText, i32 0, i32 0
+// FCGL-NEXT: store i8* getelementptr inbounds ([1 x i8], [1 x i8]* {{@"[^"]+"}}, i32 0, i32 0), i8** [[EMPTY_FIELD]]
+// FCGL: [[PAREN_FIELD:%[^ ]+]] = getelementptr inbounds %struct.StringOnly, %struct.StringOnly* %ParenLiteralText, i32 0, i32 0
+// FCGL-NEXT: store i8* getelementptr inbounds ([6 x i8], [6 x i8]* [[HELLO]], i32 0, i32 0), i8** [[PAREN_FIELD]]
 // FCGL-LABEL: define internal void {{.*CopyText.*}}(i8* %Text, i8** noalias dereferenceable(4) %Result)
 // FCGL: [[SLOT:%[^ ]+]] = alloca i8*
 // FCGL: store i8* %Text, i8** [[SLOT]]
@@ -132,4 +138,7 @@ void main() {
   FloatNestedState ConvertedNested = (FloatNestedState)Nested;
   Output.Store(32, (uint)ConvertedNested.Values[0].Value);
   Text = SplatText(GlobalText);
+  StringOnly LiteralText = (StringOnly)"hello";
+  StringOnly EmptyLiteralText = (StringOnly)"";
+  StringOnly ParenLiteralText = (StringOnly)("he" "llo");
 }

@@ -10481,7 +10481,10 @@ bool HLSLExternalSource::CanConvert(SourceLocation loc, Expr *sourceExpr,
 lSuccess:
   if (standard) {
     if (sourceExpr->isLValue()) {
-      if (needsLValueToRValue) {
+      if (Second == ICK_Flat_Conversion && hlsl::IsStringLiteralType(source)) {
+        // Aggregate casts must flatten the string pointer, not its characters.
+        standard->First = ICK_Array_To_Pointer;
+      } else if (needsLValueToRValue) {
         // We don't need LValueToRValue cast before casting a derived object
         // to its base.
         if (Second == ICK_HLSL_Derived_To_Base) {
