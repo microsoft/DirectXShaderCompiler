@@ -1,9 +1,9 @@
 #ifndef TABLE_PARAMETER_HANDLER_H
 #define TABLE_PARAMETER_HANDLER_H
 
-#include <windows.h>
 #include "HlslTestUtils.h"
 #include "dxc/Support/Global.h"
+#include <windows.h>
 
 // Parameter representation for taef data-driven tests
 struct TableParameter {
