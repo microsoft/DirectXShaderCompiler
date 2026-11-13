@@ -1432,11 +1432,19 @@ DeclResultIdMapper::createOrUpdateStringVar(const VarDecl *var) {
   // generate an OpString for it.
   if (!var->hasInit()) {
     emitError("Found uninitialized string variable.", var->getLocation());
+    registerVariableForDecl(var, createDeclSpirvInfo(spvBuilder.getString("")));
     return nullptr;
   }
 
   const StringLiteral *stringLiteral =
       dyn_cast<StringLiteral>(var->getInit()->IgnoreParenCasts());
+  if (!stringLiteral) {
+    emitError(
+        "string variable initializer must be a string literal with -spirv",
+        var->getInit()->getExprLoc());
+    registerVariableForDecl(var, createDeclSpirvInfo(spvBuilder.getString("")));
+    return nullptr;
+  }
   SpirvString *init = spvBuilder.getString(stringLiteral->getString());
   registerVariableForDecl(var, createDeclSpirvInfo(init));
   return init;

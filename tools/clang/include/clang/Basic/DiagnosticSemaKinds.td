@@ -7908,7 +7908,7 @@ def err_hlsl_missing_attr: Error<
 def err_hlsl_missing_inout_attr: Error<
    "stream-output object must be an inout parameter">;
 def err_hlsl_unsupported_string_decl: Error<
-   "%select{array|parameter|return value}0 of type string is not supported">;
+   "%select{array|parameter|return value|field}0 of type string is not supported">;
 def err_hlsl_missing_out_attr: Error<
    "%0 object must be an out parameter">;
 def err_hlsl_missing_in_attr: Error<

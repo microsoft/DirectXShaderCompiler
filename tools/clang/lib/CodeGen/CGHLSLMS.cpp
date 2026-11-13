@@ -4157,6 +4157,12 @@ void CGMSHLSLRuntime::FlattenValToInitList(CodeGenFunction &CGF,
   CGBuilderTy &Builder = CGF.Builder;
   llvm::Type *valTy = val->getType();
 
+  if (hlsl::IsStringType(Ty) && valTy == CGF.ConvertType(Ty)) {
+    elts.emplace_back(val);
+    eltTys.emplace_back(Ty);
+    return;
+  }
+
   if (valTy->isPointerTy()) {
     llvm::Type *valEltTy = valTy->getPointerElementType();
     if (valEltTy->isVectorTy() || valEltTy->isSingleValueType()) {
@@ -4347,6 +4353,9 @@ static void AddMissingCastOpsInInitList(SmallVector<Value *, 4> &elts,
       for (FieldDecl *field : RD->fields())
         AddMissingCastOpsInInitList(elts, eltTys, idx, field->getType(), CGF);
     }
+  } else if (IsStringType(Ty)) {
+    DXASSERT_NOMSG(IsStringType(eltTys[idx]));
+    idx++;
   } else {
     // Basic type.
     elts[idx] = ConvertScalarOrVector(CGF, elts[idx], eltTys[idx], Ty);
@@ -4743,8 +4752,8 @@ static void FlatConstToList(CodeGenTypes &Types, bool bDefaultRowMajor,
                       EltVals, EltQualTys);
     }
   } else {
-    // At this point, we should have scalars in their memory representation
-    DXASSERT_NOMSG(QualTy->isBuiltinType());
+    // Scalar leaves, including string pointers, are in memory representation.
+    DXASSERT_NOMSG(QualTy->isBuiltinType() || hlsl::IsStringType(QualTy));
     EltVals.emplace_back(C);
     EltQualTys.emplace_back(QualTy);
   }
@@ -4922,10 +4931,15 @@ static Constant *BuildConstInitializer(CodeGenTypes &Types,
     return BuildConstStruct(Types, bDefaultRowMajor, QualTy, EltVals,
                             EltQualTys, EltIdx);
   } else {
-    DXASSERT_NOMSG(QualTy->isBuiltinType());
+    DXASSERT_NOMSG(QualTy->isBuiltinType() || hlsl::IsStringType(QualTy));
     Constant *EltVal = EltVals[EltIdx];
     QualType EltQualTy = EltQualTys[EltIdx];
     EltIdx++;
+
+    if (hlsl::IsStringType(QualTy)) {
+      DXASSERT_NOMSG(hlsl::IsStringType(EltQualTy));
+      return EltVal;
+    }
 
     // Initializer constants are in their memory representation.
     if (EltQualTy == QualTy && MemRepr)
@@ -5549,7 +5563,10 @@ void CGMSHLSLRuntime::FlattenAggregatePtrToGepList(
     CodeGenFunction &CGF, Value *Ptr, SmallVector<Value *, 4> &idxList,
     clang::QualType Type, llvm::Type *Ty, SmallVector<Value *, 4> &GepList,
     SmallVector<QualType, 4> &EltTyList) {
-  if (llvm::PointerType *PT = dyn_cast<llvm::PointerType>(Ty)) {
+  if (hlsl::IsStringType(Type) && Ty == CGF.ConvertType(Type)) {
+    GepList.push_back(CGF.Builder.CreateInBoundsGEP(Ptr, idxList));
+    EltTyList.push_back(Type);
+  } else if (llvm::PointerType *PT = dyn_cast<llvm::PointerType>(Ty)) {
     Constant *idx = Constant::getIntegerValue(
         IntegerType::get(Ty->getContext(), 32), APInt(32, 0));
     idxList.emplace_back(idx);
@@ -5673,8 +5690,10 @@ void CGMSHLSLRuntime::LoadElements(CodeGenFunction &CGF, ArrayRef<Value *> Ptrs,
   for (size_t i = 0, e = Ptrs.size(); i < e; i++) {
     Value *Ptr = Ptrs[i];
     llvm::Type *Ty = Ptr->getType()->getPointerElementType();
-    DXASSERT_LOCALVAR(Ty, Ty->isIntegerTy() || Ty->isFloatingPointTy(),
-                      "Expected only element types.");
+    DXASSERT_LOCALVAR(Ty,
+                      Ty->isIntegerTy() || Ty->isFloatingPointTy() ||
+                          hlsl::IsStringType(QualTys[i]),
+                      "Expected only element types or strings.");
     Value *Val = CGF.Builder.CreateLoad(Ptr);
     Val = CGF.EmitFromMemory(Val, QualTys[i]);
     Vals.push_back(Val);
@@ -5691,6 +5710,11 @@ void CGMSHLSLRuntime::ConvertAndStoreElements(CodeGenFunction &CGF,
     QualType DstQualTy = DstQualTys[i];
     Value *SrcVal = SrcVals[i];
     QualType SrcQualTy = SrcQualTys[i];
+    if (hlsl::IsStringType(DstQualTy)) {
+      DXASSERT_NOMSG(hlsl::IsStringType(SrcQualTy));
+      CGF.Builder.CreateStore(SrcVal, DstPtr);
+      continue;
+    }
     DXASSERT(SrcVal->getType()->isIntegerTy() ||
                  SrcVal->getType()->isFloatingPointTy(),
              "Expected only element types.");
@@ -6002,6 +6026,12 @@ static void SimpleFlatValCopy(CodeGenFunction &CGF, Value *SrcVal,
   DXASSERT(DstTy == CGF.ConvertTypeForMem(DstQualTy),
            "QualType/Type mismatch!");
 
+  if (hlsl::IsStringType(DstQualTy)) {
+    DXASSERT_NOMSG(hlsl::IsStringType(SrcQualTy));
+    CGF.Builder.CreateStore(SrcVal, DstPtr);
+    return;
+  }
+
   llvm::VectorType *DstVecTy = dyn_cast<llvm::VectorType>(DstTy);
   QualType DstScalarQualTy = DstQualTy;
   if (DstVecTy) {
@@ -6030,7 +6060,11 @@ void CGMSHLSLRuntime::EmitHLSLSplat(CodeGenFunction &CGF, Value *SrcVal,
                                     SmallVector<Value *, 4> &idxList,
                                     QualType Type, QualType SrcType,
                                     llvm::Type *Ty) {
-  if (llvm::PointerType *PT = dyn_cast<llvm::PointerType>(Ty)) {
+  if (hlsl::IsStringType(Type) && Ty == CGF.ConvertType(Type)) {
+    DXASSERT_NOMSG(hlsl::IsStringType(SrcType));
+    Value *DestGEP = CGF.Builder.CreateInBoundsGEP(DestPtr, idxList);
+    CGF.Builder.CreateStore(SrcVal, DestGEP);
+  } else if (llvm::PointerType *PT = dyn_cast<llvm::PointerType>(Ty)) {
     idxList.emplace_back(CGF.Builder.getInt32(0));
 
     EmitHLSLSplat(CGF, SrcVal, DestPtr, idxList, Type, SrcType,

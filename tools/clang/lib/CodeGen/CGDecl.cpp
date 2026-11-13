@@ -11,15 +11,18 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "CodeGenFunction.h"
 #include "CGCleanup.h"
 #include "CGDebugInfo.h"
+#include "CGHLSLRuntime.h" // HLSL Change
 #include "CGOpenCLRuntime.h"
+#include "CodeGenFunction.h" // HLSL Change (clang-format)
 #include "CodeGenModule.h"
+#include "dxc/DXIL/DxilMetadataHelper.h" // HLSL Change
 #include "clang/AST/ASTContext.h"
 #include "clang/AST/CharUnits.h"
 #include "clang/AST/Decl.h"
 #include "clang/AST/DeclObjC.h"
+#include "clang/AST/HlslTypes.h" // HLSL Change
 #include "clang/Basic/SourceManager.h"
 #include "clang/Basic/TargetInfo.h"
 #include "clang/CodeGen/CGFunctionInfo.h"
@@ -28,8 +31,6 @@
 #include "llvm/IR/GlobalVariable.h"
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/Type.h"
-#include "CGHLSLRuntime.h" // HLSL Change
-#include "dxc/DXIL/DxilMetadataHelper.h" // HLSL Change
 using namespace clang;
 using namespace CodeGen;
 
@@ -1773,7 +1774,8 @@ void CodeGenFunction::EmitParmDecl(const VarDecl &D, llvm::Value *Arg,
     }
   } else {
     // HLSL Change Starts
-    if (getLangOpts().HLSL && Arg->getType()->isPointerTy()) {
+    if (getLangOpts().HLSL && Arg->getType()->isPointerTy() &&
+        !hlsl::IsStringType(Ty)) {
       // HLSL doesn't have pointer.
       // Only case pointer type will generated is this pointer for methods.
       // Don't store this pointer, just use the parameter directly.

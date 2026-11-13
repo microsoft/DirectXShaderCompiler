@@ -13,6 +13,7 @@
 #include "dxc/Support/Global.h"
 #include "dxc/Support/WinFunctions.h"
 
+#include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Support/raw_ostream.h"
@@ -393,6 +394,21 @@ DxilTypeSystem::AddStructAnnotation(const StructType *pStructType,
   return pA;
 }
 
+static bool ContainsString(const Type *Ty,
+                           SmallPtrSetImpl<const Type *> &CheckedTypes) {
+  if (!CheckedTypes.insert(Ty).second)
+    return false;
+  if (Ty->isPointerTy())
+    return Ty->getPointerElementType()->isIntegerTy(8);
+  if (auto *AT = dyn_cast<ArrayType>(Ty))
+    return ContainsString(AT->getElementType(), CheckedTypes);
+  if (auto *ST = dyn_cast<StructType>(Ty))
+    for (Type *Element : ST->elements())
+      if (ContainsString(Element, CheckedTypes))
+        return true;
+  return false;
+}
+
 void DxilTypeSystem::FinishStructAnnotation(DxilStructAnnotation &SA) {
   const llvm::StructType *ST = SA.GetStructType();
   DXASSERT(SA.GetNumFields() == ST->getNumElements(),
@@ -411,9 +427,13 @@ void DxilTypeSystem::FinishStructAnnotation(DxilStructAnnotation &SA) {
       SA.SetContainsTargetTypes();
   }
 
-  // Mark if empty
-  if (SA.GetCBufferSize() == 0)
-    SA.MarkEmptyStruct();
+  // Zero cbuffer-layout size does not imply an empty struct:
+  // string-only aggregates still contain values that must be copied.
+  if (SA.GetCBufferSize() == 0) {
+    SmallPtrSet<const Type *, 8> CheckedTypes;
+    if (!ContainsString(ST, CheckedTypes))
+      SA.MarkEmptyStruct();
+  }
 }
 
 DxilStructAnnotation *
