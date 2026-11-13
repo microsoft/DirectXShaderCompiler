@@ -36,6 +36,7 @@
 #include "llvm/Bitcode/ReaderWriter.h"
 #include "llvm/IR/DebugInfo.h"
 #include "llvm/IR/Instructions.h"
+#include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Operator.h"
 #include "llvm/Support/MD5.h"
@@ -875,9 +876,48 @@ private:
     return GetScalarComponentType(Ty, IsSigned);
   }
 
+  static bool CollectMatVecStoredValues(AllocaInst *Allocation,
+                                        Type *MatrixType,
+                                        SmallVectorImpl<Value *> &Matrices) {
+    SmallVector<Value *, 8> Worklist(1, Allocation);
+    SmallPtrSet<Value *, 8> Visited;
+    bool HasStore = false;
+    while (!Worklist.empty()) {
+      Value *Pointer = Worklist.pop_back_val();
+      if (!Visited.insert(Pointer).second)
+        continue;
+
+      for (User *U : Pointer->users()) {
+        if (isa<GetElementPtrInst>(U) || isa<BitCastInst>(U)) {
+          Worklist.push_back(U);
+          continue;
+        }
+        if (isa<LoadInst>(U))
+          continue;
+        if (StoreInst *Store = dyn_cast<StoreInst>(U)) {
+          if (Store->getPointerOperand() != Pointer ||
+              Store->getValueOperand()->getType() != MatrixType)
+            return false;
+          Matrices.push_back(Store->getValueOperand());
+          HasStore = true;
+          continue;
+        }
+        if (IntrinsicInst *Intrinsic = dyn_cast<IntrinsicInst>(U)) {
+          if (Intrinsic->getIntrinsicID() == Intrinsic::lifetime_start ||
+              Intrinsic->getIntrinsicID() == Intrinsic::lifetime_end ||
+              isa<DbgInfoIntrinsic>(Intrinsic))
+            continue;
+        }
+        return false;
+      }
+    }
+    return HasStore;
+  }
+
   uint8_t GetMatVecLayoutFlags(Value *Matrix) const {
     SmallVector<Value *, 8> Worklist(1, Matrix);
     SmallPtrSet<Value *, 8> Visited;
+    std::set<std::pair<AllocaInst *, Type *>> VisitedAllocations;
     uint8_t Flags = 0;
     // Default to a conservative flagset when it's not possible to determine
     // the true flags
@@ -897,6 +937,29 @@ private:
       if (SelectInst *Select = dyn_cast<SelectInst>(V)) {
         Worklist.push_back(Select->getTrueValue());
         Worklist.push_back(Select->getFalseValue());
+        continue;
+      }
+
+      if (LoadInst *Load = dyn_cast<LoadInst>(V)) {
+        Value *Pointer = Load->getPointerOperand();
+        while (true) {
+          if (GEPOperator *GEP = dyn_cast<GEPOperator>(Pointer))
+            Pointer = GEP->getPointerOperand();
+          else if (BitCastOperator *Cast = dyn_cast<BitCastOperator>(Pointer))
+            Pointer = Cast->getOperand(0);
+          else
+            break;
+        }
+        AllocaInst *Allocation = dyn_cast<AllocaInst>(Pointer);
+        if (!Allocation)
+          return UnknownLayoutFlags;
+        // Add all stores into the pointer to the matrix tracing worklist
+        // regardless of if they are overwritten or not directly accessed.
+        // Since we can't statically resolve a dynamic index we must assume
+        // all indexes are used.
+        if (VisitedAllocations.insert({Allocation, Load->getType()}).second &&
+            !CollectMatVecStoredValues(Allocation, Load->getType(), Worklist))
+          return UnknownLayoutFlags;
         continue;
       }
 

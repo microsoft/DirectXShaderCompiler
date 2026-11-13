@@ -29,7 +29,10 @@ define void @main() {
 }
 
 define internal <4 x float> @ConsumeMatrix(%dx.types.LinAlgMatrixC9M4N4U0S0 %matrix) {
-  %result = call <4 x float> @dx.op.linAlgMatVecMul.v4f32.mC9M4N4U0S0.v4f32(i32 336, %dx.types.LinAlgMatrixC9M4N4U0S0 %matrix, i1 true, <4 x float> zeroinitializer, i32 9)
+  %storage = alloca %dx.types.LinAlgMatrixC9M4N4U0S0
+  store %dx.types.LinAlgMatrixC9M4N4U0S0 %matrix, %dx.types.LinAlgMatrixC9M4N4U0S0* %storage
+  %loaded = load %dx.types.LinAlgMatrixC9M4N4U0S0, %dx.types.LinAlgMatrixC9M4N4U0S0* %storage
+  %result = call <4 x float> @dx.op.linAlgMatVecMul.v4f32.mC9M4N4U0S0.v4f32(i32 336, %dx.types.LinAlgMatrixC9M4N4U0S0 %loaded, i1 true, <4 x float> zeroinitializer, i32 9)
   ret <4 x float> %result
 }
 
