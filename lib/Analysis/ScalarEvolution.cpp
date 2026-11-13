@@ -2941,11 +2941,14 @@ ScalarEvolution::getGEPExpr(Type *PointeeType, const SCEV *BaseExpr,
   // getSCEV(Base)->getType() has the same address space as Base->getType()
   // because SCEV::getType() preserves the address space.
   Type *IntPtrTy = getEffectiveSCEVType(BaseExpr->getType());
-  // FIXME(PR23527): Don't blindly transfer the inbounds flag from the GEP
-  // instruction to its SCEV, because the Instruction may be guarded by control
-  // flow and the no-overflow bits may not be valid for the expression in any
-  // context.
-  SCEV::NoWrapFlags Wrap = InBounds ? SCEV::FlagNSW : SCEV::FlagAnyWrap;
+  // HLSL Change Begin - Partial backport PR23527 (D109789):
+  // https://github.com/llvm/llvm-project/commit/2ca8a3f2132ec7d46151b4553ee166c4e635fd70
+  // Don't blindly transfer the inbounds flag from the GEP instruction to its
+  // SCEV, because the instruction may be guarded by control flow and the
+  // no-overflow bits may not be valid for the expression in any context.
+  // Match createSCEV's handling of Add and Mul by not propagating inbounds.
+  SCEV::NoWrapFlags Wrap = SCEV::FlagAnyWrap;
+  // HLSL Change End - Partial backport PR23527 (D109789)
 
   const SCEV *TotalOffset = getConstant(IntPtrTy, 0);
   // The address space is unimportant. The first thing we do on CurTy is getting

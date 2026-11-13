@@ -19,6 +19,14 @@ The included licenses apply to the following files:
 
 ### Upcoming Release
 
+#### SPIR-V
+
+- Added `-fvk-resource-heap-stride` and `-fvk-sampler-heap-stride`, which
+  override the computed `ArrayStrideIdEXT` of the resource and sampler
+  descriptor heaps with a literal `ArrayStride`. The value must be a power of
+  two in `[8, 256]`. Both flags require `-spirv` and
+  `-fspv-use-descriptor-heap` and are rejected otherwise.
+
 Place release notes for the upcoming release below this line and remove this
 line upon naming the release. Refer to previous for appropriate section names.
 
