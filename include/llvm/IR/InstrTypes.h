@@ -695,6 +695,13 @@ public:
   /// Values in the range 0-31 are reserved for FCmpInst, while values in the
   /// range 32-64 are reserved for ICmpInst. This is necessary to ensure the
   /// predicate values are not overlapping between the classes.
+  // HLSL Change Begin - Backport (D21775)
+  // https://github.com/llvm/llvm-project/commit/aec68b263dc195424519a21c9f7570388c55d390
+  ///
+  /// Some passes (e.g. InstCombine) depend on the bit-wise characteristics of
+  /// FCMP_* values. Changing the bit patterns requires a potential change to
+  /// those passes.
+  // HLSL Change End
   enum Predicate {
     // Opcode              U L G E    Intuitive operation
     FCMP_FALSE =  0,  ///< 0 0 0 0    Always false (always folded)
