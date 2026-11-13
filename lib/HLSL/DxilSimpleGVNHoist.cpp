@@ -33,6 +33,10 @@ struct Expression {
   uint32_t opcode;
   Type *type;
   bool commutative = false;
+  // nsw, nuw, exact, inbounds and fast-math flags. Both passes in this file
+  // replace one instruction with another, so they must only treat instructions
+  // as equal if their flags hold on both paths.
+  unsigned flags = 0;
   SmallVector<uint32_t, 4> varargs;
 
   Expression(uint32_t o = ~2U) : opcode(o) {}
@@ -44,6 +48,8 @@ struct Expression {
       return true;
     if (type != other.type)
       return false;
+    if (flags != other.flags)
+      return false;
     if (varargs != other.varargs)
       return false;
     return true;
@@ -51,7 +57,7 @@ struct Expression {
 
   friend hash_code hash_value(const Expression &Value) {
     return hash_combine(
-        Value.opcode, Value.type,
+        Value.opcode, Value.type, Value.flags,
         hash_combine_range(Value.varargs.begin(), Value.varargs.end()));
   }
 };
@@ -129,6 +135,7 @@ Expression ValueTable::createExpr(Instruction *I) {
   Expression e;
   e.type = I->getType();
   e.opcode = I->getOpcode();
+  e.flags = I->getRawSubclassOptionalData();
   for (Instruction::op_iterator OI = I->op_begin(), OE = I->op_end(); OI != OE;
        ++OI)
     e.varargs.push_back(lookupOrAdd(*OI));
