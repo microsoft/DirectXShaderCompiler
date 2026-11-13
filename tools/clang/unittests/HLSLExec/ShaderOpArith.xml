@@ -3433,6 +3433,450 @@
 ]]>
     </Shader>
   </ShaderOp>
+
+  <!-- The core cases of HelperLaneTestWaveDefaultMode. The render target is
+       64 texels wide, so that each of its rows is a whole readback row; the
+       viewport covers its left 8x8 texels. -->
+  <ShaderOp Name="HelperLaneWaveCore" PS="PS" VS="VS">
+    <RootSignature>RootFlags(ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT), SRV(t0), UAV(u0), UAV(u1)</RootSignature>
+    <Resource Name="VBuffer" Dimension="BUFFER" InitialResourceState="COPY_DEST" Init="ByName" Topology="TRIANGLELIST" />
+    <Resource Name="LaneInputs" Dimension="BUFFER" Width="256" InitialResourceState="COPY_DEST" Init="ByName" />
+    <Resource Name="LaneRecords" Dimension="BUFFER" Width="5120" Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST" TransitionTo="UNORDERED_ACCESS" Init="ByName" ReadBack="true" />
+    <Resource Name="Counters" Dimension="BUFFER" Width="12" Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST" TransitionTo="UNORDERED_ACCESS" Init="Zero" ReadBack="true" />
+    <Resource Name="RTarget" Dimension="TEXTURE2D" Width="64" Height="8" Format="R32_UINT" Flags="ALLOW_RENDER_TARGET" InitialResourceState="COPY_DEST" ReadBack="true" />
+    <RootValues>
+      <RootValue Index="0" ResName="LaneInputs" />
+      <RootValue Index="1" ResName="LaneRecords" />
+      <RootValue Index="2" ResName="Counters" />
+    </RootValues>
+    <DescriptorHeap Name="RtvHeap" NumDescriptors="1" Type="RTV">
+      <Descriptor Name="RTarget" Kind="RTV"/>
+    </DescriptorHeap>
+    <InputElements>
+      <InputElement SemanticName="POSITION" Format="R32G32_FLOAT" AlignedByteOffset="0" />
+    </InputElements>
+    <RenderTargets>
+      <RenderTarget Name="RTarget">
+        <Viewport Width="8.0" Height="8.0" MaxDepth="1.0"/>
+      </RenderTarget>
+    </RenderTargets>
+    <Shader Name="VS" Target="vs_6_0" EntryPoint="VSMain" Text="@PS" Arguments="@PS"/>
+    <Shader Name="PSPerLane" Target="ps_6_7" EntryPoint="PSPerLane" Text="@PS" Arguments="@PS"/>
+    <Shader Name="PSCounterBranch" Target="ps_6_7" EntryPoint="PSCounterBranch" Text="@PS" Arguments="@PS"/>
+    <Shader Name="PSCounterSelect" Target="ps_6_7" EntryPoint="PSCounterSelect" Text="@PS" Arguments="@PS"/>
+    <Shader Name="PS" Target="ps_6_7" EntryPoint="PSPacked" Arguments="-O3">
+    <![CDATA[
+// The core cases draw two triangles that tile an 8x8 viewport, split along
+// the diagonal from (8, 0) to (0, 8). Each pixel reads its input value. A
+// pixel whose value has bit 0 clear is discarded, which demotes it to a
+// helper lane; bit 1 is the predicate of the wave and quad votes. The test's
+// inputs keep only two or three lanes of the top-left quad, which lies inside
+// the first triangle.
+StructuredBuffer<uint> LaneInputs : register(t0);
+
+// What PSPerLane writes for each surviving pixel. It must match LaneRecord in
+// ExecutionTest.cpp.
+struct LaneRecord {
+  uint Marker;
+  uint LaneValue;
+  uint InitialLaneCount;
+  uint ActiveLaneCount;
+  uint WaveAnyTrue;
+  uint WaveAllTrue;
+  uint Elected;
+  uint FirstId;
+  uint QuadBallot;
+  uint Sum;
+  uint Prefix;
+  uint QuadAny;
+  uint QuadAll;
+  uint LaneIndex;
+  uint ElectedCount;
+  uint Packed;
+  uint4 Ballot;
+};
+
+// One record per pixel, row-major. Only surviving pixels write theirs.
+RWStructuredBuffer<LaneRecord> LaneRecords : register(u0);
+
+// The wave-aggregated counter: [0] what the elected lanes added, [1] the
+// number of elected lanes, [2] the number of surviving lanes.
+RWStructuredBuffer<uint> Counters : register(u1);
+
+float4 VSMain(float2 pos : POSITION) : SV_Position {
+  return float4(pos, 0.0f, 1.0f);
+}
+
+// The four bits of a wave ballot at this lane's index rounded down to a
+// multiple of 4.
+uint QuadBallot(uint4 ballot) {
+  const uint quadFirstLane = WaveGetLaneIndex() & ~3u;
+  return (ballot[quadFirstLane / 32] >> (quadFirstLane & 31)) & 0xF;
+}
+
+// Every operand is the same for the four lanes of a quad, so the
+// short-circuit evaluation takes the same path in all four lanes.
+bool QuadAnyValue(bool value) {
+  return QuadReadLaneAt(value, 0) || QuadReadLaneAt(value, 1) ||
+         QuadReadLaneAt(value, 2) || QuadReadLaneAt(value, 3);
+}
+
+bool QuadAllValue(bool value) {
+  return QuadReadLaneAt(value, 0) && QuadReadLaneAt(value, 1) &&
+         QuadReadLaneAt(value, 2) && QuadReadLaneAt(value, 3);
+}
+
+// The packed result that PSPacked and PSPerLane write to the render target.
+// Each value has its own bits, with the initial lane count in the top byte; a
+// value too large for its field spills into the fields above it, where the
+// test reports it as a mismatch.
+uint PackResults(uint initialLaneCount, uint activeLaneCount, uint quadAny,
+                 uint quadAll, uint waveAny, uint waveAll, uint elected,
+                 uint first, uint quadBallot, uint sum, uint prefix) {
+  return activeLaneCount | (quadAny << 3) | (quadAll << 4) | (waveAny << 5) |
+         (waveAll << 6) | (elected << 7) | (first << 8) | (quadBallot << 10) |
+         (sum << 14) | (prefix << 18) | (initialLaneCount << 24);
+}
+
+// The wave and quad operations run in this order, and each surviving pixel
+// writes the packed results to its texel.
+uint PSPacked(float4 position : SV_Position) : SV_Target {
+  const uint2 pixel = uint2(position.xy);
+  const uint laneValue = LaneInputs[pixel.y * 8 + pixel.x];
+  const uint initialLaneCount = WaveActiveCountBits(true);
+
+  if ((laneValue & 1) == 0)
+    discard;
+
+  const uint activeLaneCount = WaveActiveCountBits(true);
+  const bool predicate = (laneValue & 2) != 0;
+  const uint waveAny = WaveActiveAnyTrue(predicate);
+  const uint waveAll = WaveActiveAllTrue(predicate);
+  const uint elected = WaveIsFirstLane();
+  const uint first = WaveReadLaneFirst(pixel.y * 2 + pixel.x);
+  const uint quadBallot = QuadBallot(WaveActiveBallot(true));
+  const uint sum = WaveActiveSum(pixel.y * 2 + pixel.x);
+  const uint prefix = WavePrefixCountBits(true);
+  const uint quadAny = QuadAnyValue(predicate);
+  const uint quadAll = QuadAllValue(predicate);
+
+  return PackResults(initialLaneCount, activeLaneCount, quadAny, quadAll,
+                     waveAny, waveAll, elected, first, quadBallot, sum,
+                     prefix);
+}
+
+// The same operations in the same order, followed by the lane index and a
+// wave-wide count of the elected lanes. Each surviving pixel also writes
+// every result to its record.
+uint PSPerLane(float4 position : SV_Position) : SV_Target {
+  const uint2 pixel = uint2(position.xy);
+  const uint pixelIndex = pixel.y * 8 + pixel.x;
+  const uint laneValue = LaneInputs[pixelIndex];
+  const uint initialLaneCount = WaveActiveCountBits(true);
+
+  if ((laneValue & 1) == 0)
+    discard;
+
+  const uint activeLaneCount = WaveActiveCountBits(true);
+  const bool predicate = (laneValue & 2) != 0;
+  const uint waveAny = WaveActiveAnyTrue(predicate);
+  const uint waveAll = WaveActiveAllTrue(predicate);
+  const uint elected = WaveIsFirstLane();
+  const uint first = WaveReadLaneFirst(pixel.y * 2 + pixel.x);
+  const uint4 ballot = WaveActiveBallot(true);
+  const uint quadBallot = QuadBallot(ballot);
+  const uint sum = WaveActiveSum(pixel.y * 2 + pixel.x);
+  const uint prefix = WavePrefixCountBits(true);
+  const uint quadAny = QuadAnyValue(predicate);
+  const uint quadAll = QuadAllValue(predicate);
+  const uint laneIndex = WaveGetLaneIndex();
+  const uint electedCount = WaveActiveCountBits(elected != 0);
+  const uint packed =
+      PackResults(initialLaneCount, activeLaneCount, quadAny, quadAll,
+                  waveAny, waveAll, elected, first, quadBallot, sum, prefix);
+
+  LaneRecord record;
+  record.Marker = 0xA5A50000 | pixelIndex;
+  record.LaneValue = laneValue;
+  record.InitialLaneCount = initialLaneCount;
+  record.ActiveLaneCount = activeLaneCount;
+  record.WaveAnyTrue = waveAny;
+  record.WaveAllTrue = waveAll;
+  record.Elected = elected;
+  record.FirstId = first;
+  record.QuadBallot = quadBallot;
+  record.Sum = sum;
+  record.Prefix = prefix;
+  record.QuadAny = quadAny;
+  record.QuadAll = quadAll;
+  record.LaneIndex = laneIndex;
+  record.ElectedCount = electedCount;
+  record.Packed = packed;
+  record.Ballot = ballot;
+  LaneRecords[pixelIndex] = record;
+
+  return packed;
+}
+
+// The wave-aggregated counter: the lane that WaveIsFirstLane elects adds the
+// wave's count of surviving lanes with one atomic operation.
+uint PSCounterBranch(float4 position : SV_Position) : SV_Target {
+  const uint2 pixel = uint2(position.xy);
+  const uint pixelIndex = pixel.y * 8 + pixel.x;
+  if ((LaneInputs[pixelIndex] & 1) == 0)
+    discard;
+
+  const uint survivors = WaveActiveCountBits(true);
+  if (WaveIsFirstLane()) {
+    InterlockedAdd(Counters[0], survivors);
+    InterlockedAdd(Counters[1], 1);
+  }
+  InterlockedAdd(Counters[2], 1);
+  return 0xC0DE0000 | pixelIndex;
+}
+
+// The same counter without the branch: every surviving lane adds the wave's
+// count if WaveIsFirstLane returned true for it, and 0 otherwise.
+uint PSCounterSelect(float4 position : SV_Position) : SV_Target {
+  const uint2 pixel = uint2(position.xy);
+  const uint pixelIndex = pixel.y * 8 + pixel.x;
+  if ((LaneInputs[pixelIndex] & 1) == 0)
+    discard;
+
+  const uint survivors = WaveActiveCountBits(true);
+  const uint elected = WaveIsFirstLane() ? 1 : 0;
+  InterlockedAdd(Counters[0], survivors * elected);
+  InterlockedAdd(Counters[1], elected);
+  InterlockedAdd(Counters[2], 1);
+  return 0xC0DE0000 | pixelIndex;
+}
+]]>
+    </Shader>
+  </ShaderOp>
+
+  <!-- The general cases of HelperLaneTestWaveDefaultMode. -->
+  <ShaderOp Name="HelperLaneWaveGeneral" PS="PS" VS="VS">
+    <RootSignature>RootFlags(ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT), SRV(t0), UAV(u0), UAV(u1), UAV(u2)</RootSignature>
+    <Resource Name="VBuffer" Dimension="BUFFER" InitialResourceState="COPY_DEST" Init="ByName" Topology="TRIANGLELIST" />
+    <Resource Name="PixelInputs" Dimension="BUFFER" Width="65536" InitialResourceState="COPY_DEST" Init="ByName" />
+    <Resource Name="WaveRecords" Dimension="BUFFER" Width="589824" Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST" TransitionTo="UNORDERED_ACCESS" Init="ByName" ReadBack="true" />
+    <Resource Name="AppendCounters" Dimension="BUFFER" Width="24" Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST" TransitionTo="UNORDERED_ACCESS" Init="Zero" ReadBack="true" />
+    <Resource Name="AppendSlots" Dimension="BUFFER" Width="32768" Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST" TransitionTo="UNORDERED_ACCESS" Init="ByName" ReadBack="true" />
+    <Resource Name="RTarget" Dimension="TEXTURE2D" Width="64" Height="64" Format="R32_UINT" Flags="ALLOW_RENDER_TARGET" InitialResourceState="COPY_DEST" ReadBack="true" />
+    <RootValues>
+      <RootValue Index="0" ResName="PixelInputs" />
+      <RootValue Index="1" ResName="WaveRecords" />
+      <RootValue Index="2" ResName="AppendCounters" />
+      <RootValue Index="3" ResName="AppendSlots" />
+    </RootValues>
+    <DescriptorHeap Name="RtvHeap" NumDescriptors="1" Type="RTV">
+      <Descriptor Name="RTarget" Kind="RTV"/>
+    </DescriptorHeap>
+    <InputElements>
+      <InputElement SemanticName="POSITION" Format="R32G32_FLOAT" AlignedByteOffset="0" />
+    </InputElements>
+    <RenderTargets>
+      <RenderTarget Name="RTarget"/>
+    </RenderTargets>
+    <Shader Name="VS" Target="vs_6_0" EntryPoint="VSMain" Text="@PS" Arguments="@PS"/>
+    <Shader Name="PSAppend" Target="ps_6_7" EntryPoint="PSAppend" Text="@PS" Arguments="@PS"/>
+    <Shader Name="PS" Target="ps_6_7" EntryPoint="PSAllOps" Arguments="-O3">
+    <![CDATA[
+// The general cases draw a 64x64 render target, either with one triangle
+// that covers it, which an implementation may clip into several, or with
+// sixteen small disjoint triangles, whose edges leave partially covered quads
+// whose uncovered pixels run as helper lanes. Each pixel reads its input,
+// which the test hashes from the pixel's coordinates; bit 0 of Flags discards
+// the pixel. Both pixel shaders end with quad operations, so the helper lanes
+// keep running through the wave operations, as they do in a shader that
+// samples a texture later.
+
+// One input per pixel, row-major. It must match PixelInput in
+// ExecutionTest.cpp. Flags: bit 0 discards the pixel, bit 1 is the predicate,
+// bit 2 a rare predicate (for WaveActiveAnyTrue), bit 3 a common one (for
+// WaveActiveAllTrue), and bits 8-15 the key of WaveActiveAllEqual.
+struct PixelInput {
+  uint Value;
+  uint Signed;
+  uint Odd;
+  uint Flags;
+};
+StructuredBuffer<PixelInput> PixelInputs : register(t0);
+
+// What PS writes for each surviving pixel. It must match WaveRecord in
+// ExecutionTest.cpp.
+struct WaveRecord {
+  uint Marker;
+  uint LaneIndex;
+  uint LaneCount;
+  uint IsFirst;
+  uint4 Ballot;
+  uint4 PredicateBallot;
+  uint PredicateCount;
+  uint AnyRare;
+  uint AllCommon;
+  uint AllEqualKey;
+  uint FirstValue;
+  uint FirstPixel;
+  uint LastValue;
+  uint Sum;
+  uint Product;
+  uint MinValue;
+  uint MaxValue;
+  uint MinSigned;
+  uint MaxSigned;
+  uint BitAnd;
+  uint BitOr;
+  uint BitXor;
+  uint PrefixSum;
+  uint PrefixProduct;
+  uint PrefixCount;
+  uint HelperAny;
+  uint HelperCount;
+  uint ElectedCount;
+  uint QuadDiagonalValue;
+  uint InitialLaneCount;
+};
+
+// One record per pixel, row-major. Only surviving pixels write theirs.
+RWStructuredBuffer<WaveRecord> WaveRecords : register(u0);
+
+// The wave-aggregated append: [0] the slot counter, [1] the sum of the wave
+// sums, [2] a per-lane count, [3] the number of elected lanes, [4] the number
+// of slots past the end of AppendSlots that lanes were given, [5] the sum of
+// the waves' lane counts before the discard.
+RWStructuredBuffer<uint> AppendCounters : register(u1);
+RWStructuredBuffer<uint> AppendSlots : register(u2);
+
+static const uint Width = 64;
+static const uint WaveRecordMarker = 0xB5000000;
+static const uint AppendMarker = 0xD7000000;
+static const uint AppendSlotCount = 2 * 64 * 64;
+
+float4 VSMain(float2 pos : POSITION) : SV_Position {
+  return float4(pos, 0.0f, 1.0f);
+}
+
+// The highest set bit of a ballot: the highest active lane of the wave.
+uint GetHighestLane(uint4 ballot) {
+  if (ballot.w != 0)
+    return 96 + firstbithigh(ballot.w);
+  if (ballot.z != 0)
+    return 64 + firstbithigh(ballot.z);
+  if (ballot.y != 0)
+    return 32 + firstbithigh(ballot.y);
+  return firstbithigh(ballot.x);
+}
+
+// Every wave operation that has an active-lane form, run once after the
+// discard on the pixel's inputs. The test rebuilds each wave from the lane
+// indices and ballots that the records report, and computes every expected
+// result from the surviving pixels' inputs.
+uint PSAllOps(float4 position : SV_Position) : SV_Target {
+  const uint2 pixel = uint2(position.xy);
+  const uint pixelIndex = pixel.y * Width + pixel.x;
+  const PixelInput input = PixelInputs[pixelIndex];
+
+  // A wave operation before the discard: the covered lanes of the wave.
+  const uint initialLaneCount = WaveActiveCountBits(true);
+  if ((input.Flags & 1) != 0)
+    discard;
+
+  const bool predicate = (input.Flags & 2) != 0;
+  const bool rare = (input.Flags & 4) != 0;
+  const bool common = (input.Flags & 8) != 0;
+  const uint key = (input.Flags >> 8) & 0xFF;
+  const uint4 ballot = WaveActiveBallot(true);
+
+  WaveRecord record;
+  record.Marker = WaveRecordMarker | pixelIndex;
+  record.LaneIndex = WaveGetLaneIndex();
+  record.LaneCount = WaveGetLaneCount();
+  record.IsFirst = WaveIsFirstLane() ? 1 : 0;
+  record.Ballot = ballot;
+  record.PredicateBallot = WaveActiveBallot(predicate);
+  record.PredicateCount = WaveActiveCountBits(predicate);
+  record.AnyRare = WaveActiveAnyTrue(rare) ? 1 : 0;
+  record.AllCommon = WaveActiveAllTrue(common) ? 1 : 0;
+  record.AllEqualKey = WaveActiveAllEqual(key) ? 1 : 0;
+  record.FirstValue = WaveReadLaneFirst(input.Value);
+  record.FirstPixel = WaveReadLaneFirst(pixelIndex);
+  record.LastValue = WaveReadLaneAt(input.Value, GetHighestLane(ballot));
+  record.Sum = WaveActiveSum(input.Value);
+  record.Product = WaveActiveProduct(input.Odd);
+  record.MinValue = WaveActiveMin(input.Value);
+  record.MaxValue = WaveActiveMax(input.Value);
+  record.MinSigned = asuint(WaveActiveMin(asint(input.Signed)));
+  record.MaxSigned = asuint(WaveActiveMax(asint(input.Signed)));
+  record.BitAnd = WaveActiveBitAnd(input.Value);
+  record.BitOr = WaveActiveBitOr(input.Value);
+  record.BitXor = WaveActiveBitXor(input.Value);
+  record.PrefixSum = WavePrefixSum(input.Value);
+  record.PrefixProduct = WavePrefixProduct(input.Odd);
+  record.PrefixCount = WavePrefixCountBits(predicate);
+  record.HelperAny = WaveActiveAnyTrue(IsHelperLane()) ? 1 : 0;
+  record.HelperCount = WaveActiveCountBits(IsHelperLane());
+  record.ElectedCount = WaveActiveCountBits(WaveIsFirstLane());
+
+  // Quad operations read the helper lanes, so these keep them running through
+  // the wave operations above. The diagonal neighbor's input is defined
+  // whether that lane survives or is a helper lane.
+  record.QuadDiagonalValue = QuadReadAcrossDiagonal(input.Value);
+  record.InitialLaneCount = initialLaneCount;
+  WaveRecords[pixelIndex] = record;
+
+  // The horizontal neighbor's pixel index is pixelIndex ^ 1.
+  return WaveRecordMarker | (QuadReadAcrossX(pixelIndex) ^ 1);
+}
+
+// The wave-aggregated append used for counters, append buffers and stream
+// compaction: one atomic operation per wave reserves the wave's slots, and
+// each lane writes the slot at its prefix count. Its totals don't depend on
+// how pixels are packed into waves.
+uint PSAppend(float4 position : SV_Position) : SV_Target {
+  const uint2 pixel = uint2(position.xy);
+  const uint pixelIndex = pixel.y * Width + pixel.x;
+  const PixelInput input = PixelInputs[pixelIndex];
+
+  // A wave operation before the discard: the covered lanes of the wave.
+  const uint initialLaneCount = WaveActiveCountBits(true);
+  if ((input.Flags & 1) != 0)
+    discard;
+
+  const bool predicate = (input.Flags & 2) != 0;
+  const uint waveCount = WaveActiveCountBits(predicate);
+  const uint waveSum = WaveActiveSum(input.Value);
+  const uint lanePrefix = WavePrefixCountBits(predicate);
+  uint firstSlot = 0;
+  if (WaveIsFirstLane()) {
+    InterlockedAdd(AppendCounters[0], waveCount, firstSlot);
+    InterlockedAdd(AppendCounters[1], waveSum);
+    InterlockedAdd(AppendCounters[3], 1);
+    InterlockedAdd(AppendCounters[5], initialLaneCount);
+  }
+  firstSlot = WaveReadLaneFirst(firstSlot);
+  if (predicate) {
+    // Root UAVs have no bounds checking, so a slot past the end of the buffer
+    // is counted instead of written.
+    const uint slot = firstSlot + lanePrefix;
+    if (slot < AppendSlotCount)
+      AppendSlots[slot] = pixelIndex;
+    else
+      InterlockedAdd(AppendCounters[4], 1);
+  }
+
+  // A count of the surviving lanes that needs no wave operation.
+  InterlockedAdd(AppendCounters[2], 1);
+
+  // A quad operation keeps the helper lanes running through the wave
+  // operations above. The horizontal neighbor's pixel index is
+  // pixelIndex ^ 1.
+  return AppendMarker | (QuadReadAcrossX(pixelIndex) ^ 1);
+}
+]]>
+    </Shader>
+  </ShaderOp>
+
   <ShaderOp Name="QuadAnyAll" CS="CS" PS="PS" DispatchX="8" DispatchY="8">
     <RootSignature>RootFlags(ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT), UAV(u0)</RootSignature>
     <Resource Name="UAVBuffer0" Dimension="BUFFER" Width="2048" Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST" TransitionTo="UNORDERED_ACCESS" Init="ZERO" ReadBack="true"/>
