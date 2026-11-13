@@ -97,6 +97,8 @@ line upon naming the release. Refer to previous for appropriate section names.
 
 #### Bug Fixes
 
+- Fixed a DXBC-to-DXIL conversion crash when hull shaders index control points
+  directly with `SV_OutputControlPointID`.
 - Improved compiler performance by reducing excessive memory-dependence scans
   during GVN and repeated vector-elimination work.
 - Fixed GVN load forwarding generating unsupported integer types when optimizing
