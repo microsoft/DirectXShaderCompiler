@@ -105,8 +105,11 @@ public:
 
   bool runOnModule(Module &M) override {
     bool Changed = false;
-    DxilValueCache *DVC = &getAnalysis<DxilValueCache>();
     for (Function &F : M) {
+      if (F.empty()) {
+        continue;
+      }
+      DxilValueCache *DVC = &getAnalysis<DxilValueCache>(F);
       for (BasicBlock &BB : F) {
         for (auto it = BB.begin(), end = BB.end(); it != end;) {
           Instruction *I = &*(it++);

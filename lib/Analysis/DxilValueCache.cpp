@@ -376,6 +376,22 @@ Value *DxilValueCache::WeakValueMap::Get(Value *V) {
   return Result;
 }
 
+Value *DxilValueCache::WeakValueMap::Lookup(const Value *V) const {
+  auto FindIt = Map.find(V);
+  if (FindIt == Map.end())
+    return nullptr;
+
+  const ValueEntry &Entry = FindIt->second;
+  if (Entry.IsStale())
+    return nullptr;
+
+  Value *Result = Entry.Value;
+  if (Sentinel && Result == Sentinel.get())
+    return nullptr;
+
+  return Result;
+}
+
 void DxilValueCache::WeakValueMap::SetSentinel(Value *Key) {
   Map[Key].Set(Key, GetSentinel(Key->getContext()));
 }
@@ -469,11 +485,34 @@ Value *DxilValueCache::TryGetCachedValue(Value *V) {
   return V;
 }
 
-DxilValueCache::DxilValueCache() : ImmutablePass(ID) {
+DxilValueCache::DxilValueCache() : FunctionPass(ID) {
   initializeDxilValueCachePass(*PassRegistry::getPassRegistry());
 }
 
 StringRef DxilValueCache::getPassName() const { return "Dxil Value Cache"; }
+
+bool DxilValueCache::runOnFunction(Function &Fn) {
+  F = &Fn;
+  // Values are computed lazily by GetValue, so just drop the previous entries.
+  ResetAll();
+  return false;
+}
+
+void DxilValueCache::print(raw_ostream &OS, const Module *) const {
+  // Print the cached entries in function order without computing new ones.
+  for (const BasicBlock &BB : *F) {
+    if (Map.Lookup(&BB)) {
+      OS << "  ";
+      BB.printAsOperand(OS, /*PrintType=*/false);
+      OS << "\n  -->  unreachable\n";
+    }
+    for (const Instruction &I : BB) {
+      if (Value *V = Map.Lookup(&I)) {
+        OS << I << "\n  -->  " << *V << "\n";
+      }
+    }
+  }
+}
 
 Value *DxilValueCache::GetValue(Value *V, DominatorTree *DT) {
   if (dyn_cast<Constant>(V))
@@ -608,4 +647,4 @@ char DxilValueCache::ID;
 
 Pass *llvm::createDxilValueCachePass() { return new DxilValueCache(); }
 
-INITIALIZE_PASS(DxilValueCache, DEBUG_TYPE, "Dxil Value Cache", false, false)
+INITIALIZE_PASS(DxilValueCache, DEBUG_TYPE, "Dxil Value Cache", false, true)
