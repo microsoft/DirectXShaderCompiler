@@ -5925,10 +5925,10 @@ public:
         if (Arg.getKind() == TemplateArgument::ArgKind::Type) {
           QualType ArgType = Arg.getAsType();
           SourceLocation ArgSrcLoc = ArgLoc.getLocation();
-          if (!ArgType->isDependentType() &&
-              m_sema->RequireCompleteType(
-                  ArgSrcLoc, ArgType, diag::err_typecheck_decl_incomplete_type))
-            return true;
+          // Instantiate available definitions without rejecting forward
+          // declarations used in resource type aliases.
+          if (!ArgType->isDependentType())
+            m_sema->RequireCompleteType(ArgSrcLoc, ArgType, 0);
           if (DiagnoseTypeElements(
                   *m_sema, ArgSrcLoc, ArgType,
                   TypeDiagContext::StructuredBuffers /*ObjDiagContext*/,
@@ -16209,6 +16209,19 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC, Expr *BitWidth,
        basicKind == ArBasicKind::AR_OBJECT_TRIANGLESTREAM)) {
     Diag(D.getLocStart(), diag::err_hlsl_missing_inout_attr);
     result = false;
+  }
+
+  // Recheck element types when a resource alias is used after its forward-
+  // declared element type has been defined.
+  if (!isTypedef && hlsl::IsHLSLStructuredBufferType(qt)) {
+    QualType ElementTy = hlsl::GetHLSLResourceResultType(qt);
+    if (!ElementTy->isDependentType() &&
+        !RequireCompleteType(D.getLocStart(), ElementTy, 0) &&
+        DiagnoseTypeElements(*this, D.getLocStart(), ElementTy,
+                             TypeDiagContext::StructuredBuffers,
+                             TypeDiagContext::Valid, nullptr,
+                             hlsl::GetHLSLResourceClass(qt)))
+      result = false;
   }
 
   // Disallow intangible HLSL objects in externally visible storage.

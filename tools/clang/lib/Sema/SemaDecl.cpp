@@ -12920,6 +12920,16 @@ FieldDecl *Sema::CheckFieldDecl(DeclarationName Name, QualType T,
     T = Context.IntTy;
   }
 
+  // HLSL Change Starts
+  if (!InvalidDecl && getLangOpts().HLSL && getLangOpts().SPIRV &&
+      hlsl::IsStringType(T)) {
+    static const unsigned selectFieldIdx = 3;
+    Diag(Loc, diag::err_hlsl_unsupported_string_decl) << selectFieldIdx;
+    Record->setInvalidDecl();
+    InvalidDecl = true;
+  }
+  // HLSL Change Ends
+
   QualType EltTy = Context.getBaseElementType(T);
   if (!EltTy->isDependentType()) {
     if (RequireCompleteType(Loc, EltTy, diag::err_field_incomplete)) {

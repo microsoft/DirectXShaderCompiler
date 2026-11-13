@@ -41,6 +41,19 @@ StructuredBuffer<string> DirectSB;
 // expected-error@+1 {{object 'const string' is not allowed in structured buffers}}
 RWStructuredBuffer<Wrapper<StringState> > Wrapped;
 
+struct ForwardStringState;
+typedef StructuredBuffer<ForwardStringState> ForwardStringBuffer;
+typedef RWStructuredBuffer<ForwardStringState> ForwardRWStringBuffer;
+
+struct ForwardStringState {
+  string Text; // expected-note 2 {{field declared here}}
+};
+
+// expected-error@+1 {{object 'const string' is not allowed in structured buffers}}
+ForwardStringBuffer ForwardSB;
+// expected-error@+1 {{object 'const string' is not allowed in structured buffers}}
+ForwardRWStringBuffer ForwardRWSB;
+
 // expected-error@+1 {{'const string' cannot be used as a type parameter}}
 Buffer<string> DirectBuffer;
 // expected-error@+2 {{'const string' cannot be used as a type parameter}}
