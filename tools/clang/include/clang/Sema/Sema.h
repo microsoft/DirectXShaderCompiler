@@ -46,6 +46,7 @@
 #include "llvm/ADT/Optional.h"
 #include "llvm/ADT/SetVector.h"
 #include "llvm/ADT/SmallPtrSet.h"
+#include "llvm/ADT/SmallSet.h" // HLSL Change
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/TinyPtrVector.h"
 #include <deque>
@@ -4089,6 +4090,10 @@ public:
 
   /// cbuffer/tbuffer
   llvm::SmallVector<Decl*, 1> HLSLBuffers;
+  /// (semantic decl, leaf) pairs already given an SV_CullPrimitive type error,
+  /// so entry points that share a struct report it once.
+  llvm::SmallSet<std::pair<const Decl *, const Decl *>, 4>
+      HLSLDiagnosedCullPrimitives;
   Decl* ActOnStartHLSLBuffer(Scope* bufferScope, bool cbuffer, SourceLocation KwLoc,
     IdentifierInfo *Ident, SourceLocation IdentLoc,
     std::vector<hlsl::UnusualAnnotation *>& BufferAttributes,

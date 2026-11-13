@@ -17272,6 +17272,85 @@ void DiagnoseVertexEntry(Sema &S, FunctionDecl *FD, llvm::StringRef StageName) {
   return;
 }
 
+// SV_CullPrimitive on a mesh shader primitive output must be a scalar bool
+// (bool1 and bool1x1 count). Checked here so DXIL and SPIR-V give the same
+// error. Only primitive outputs are checked. Both backends already reject
+// SV_CullPrimitive on vertex outputs whatever its type, and pixel shader
+// inputs are odd: DXIL accepts any type there and replaces the input with 0.
+
+// Returns the definition of a struct type, or null for anything else. An
+// incomplete struct has already been diagnosed and has nothing to walk.
+static const RecordDecl *GetCullPrimitiveRecord(QualType Ty) {
+  const RecordType *RT = Ty->getAs<RecordType>();
+  if (!RT || hlsl::IsHLSLVecMatType(Ty))
+    return nullptr;
+  return RT->getDecl()->getDefinition();
+}
+
+// The backends apply a semantic on a struct to each of its leaf fields, so
+// check every leaf of Ty. Errors point at SemDecl, which holds the semantic,
+// and name the leaf.
+static void DiagnoseCullPrimitiveLeaves(Sema &S, const NamedDecl *SemDecl,
+                                        llvm::StringRef SemName,
+                                        const NamedDecl *Leaf, QualType Ty) {
+  Ty = Ty.getUnqualifiedType();
+  if (Ty->isIncompleteType())
+    return;
+  if (const RecordDecl *RD = GetCullPrimitiveRecord(Ty)) {
+    if (const auto *CRD = dyn_cast<CXXRecordDecl>(RD))
+      for (const CXXBaseSpecifier &Base : CRD->bases())
+        DiagnoseCullPrimitiveLeaves(S, SemDecl, SemName, Leaf, Base.getType());
+    for (const FieldDecl *FD : RD->fields())
+      DiagnoseCullPrimitiveLeaves(S, SemDecl, SemName, FD, FD->getType());
+    return;
+  }
+  bool IsScalarBool = hlsl::IsHLSLVecMatType(Ty)
+                          ? hlsl::GetElementCount(Ty) == 1 &&
+                                hlsl::GetElementTypeOrType(Ty)->isBooleanType()
+                          : Ty->isBooleanType();
+  if (IsScalarBool)
+    return;
+  // Entry points that share a struct would otherwise report it once each.
+  if (!S.HLSLDiagnosedCullPrimitives.insert({SemDecl, Leaf}).second)
+    return;
+  S.Diags.Report(SemDecl->getLocation(), diag::err_hlsl_incorrect_sv_type)
+      << SemName << "scalar bool" << Leaf << Ty;
+}
+
+static void DiagnoseCullPrimitiveRecord(Sema &S, QualType Ty);
+
+// A semantic on a field or parameter overrides any semantics inside its type,
+// so only look for them inside when D has none.
+static void DiagnoseCullPrimitiveDecl(Sema &S, const NamedDecl *D,
+                                      QualType Ty) {
+  for (const hlsl::UnusualAnnotation *UA : D->getUnusualAnnotations()) {
+    const auto *SD = dyn_cast<hlsl::SemanticDecl>(UA);
+    if (!SD)
+      continue;
+    llvm::StringRef BaseName;
+    uint32_t Index;
+    hlsl::Semantic::DecomposeNameAndIndex(SD->SemanticName, &BaseName, &Index);
+    if (hlsl::Semantic::GetByName(BaseName)->GetKind() ==
+        hlsl::Semantic::Kind::CullPrimitive)
+      DiagnoseCullPrimitiveLeaves(S, D, SD->SemanticName, D, Ty);
+    return;
+  }
+  DiagnoseCullPrimitiveRecord(S, Ty);
+}
+
+static void DiagnoseCullPrimitiveRecord(Sema &S, QualType Ty) {
+  while (const ArrayType *AT = S.Context.getAsArrayType(Ty))
+    Ty = AT->getElementType();
+  const RecordDecl *RD = GetCullPrimitiveRecord(Ty);
+  if (!RD)
+    return;
+  if (const auto *CRD = dyn_cast<CXXRecordDecl>(RD))
+    for (const CXXBaseSpecifier &Base : CRD->bases())
+      DiagnoseCullPrimitiveRecord(S, Base.getType());
+  for (const FieldDecl *FD : RD->fields())
+    DiagnoseCullPrimitiveDecl(S, FD, FD->getType());
+}
+
 void DiagnoseMeshEntry(Sema &S, FunctionDecl *FD, llvm::StringRef StageName) {
 
   if (!(FD->getAttr<HLSLNumThreadsAttr>()))
@@ -17280,6 +17359,15 @@ void DiagnoseMeshEntry(Sema &S, FunctionDecl *FD, llvm::StringRef StageName) {
   if (!(FD->getAttr<HLSLOutputTopologyAttr>()))
     S.Diags.Report(FD->getLocation(), diag::err_hlsl_missing_attr)
         << StageName << "outputtopology";
+  // The semantic applies to each primitive, so check the element type.
+  for (const ParmVarDecl *Param : FD->params()) {
+    if (!Param->hasAttr<HLSLPrimitivesAttr>())
+      continue;
+    QualType Ty = Param->getType();
+    if (const ArrayType *AT = S.Context.getAsArrayType(Ty))
+      Ty = AT->getElementType();
+    DiagnoseCullPrimitiveDecl(S, Param, Ty);
+  }
   return;
 }
 
