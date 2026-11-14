@@ -21,17 +21,13 @@ The included licenses apply to the following files:
 
 #### SPIR-V
 
-- Extended `SPV_EXT_descriptor_heap` lowering (`-fspv-use-descriptor-heap`) to
-  buffer-like resources (`StructuredBuffer`, `ByteAddressBuffer`,
-  `ConstantBuffer`, `TextureBuffer`, and RW variants) via
-  `SPV_KHR_untyped_pointers`. Requires `-fspv-target-env=vulkan1.3`.
+- Added `-fvk-resource-heap-stride` and `-fvk-sampler-heap-stride`, which
+  override the computed `ArrayStrideIdEXT` of the resource and sampler
+  descriptor heaps with a literal `ArrayStride`. The value must be a power of
+  two in `[8, 256]`. Both flags require `-spirv` and
+  `-fspv-use-descriptor-heap` and are rejected otherwise.
 - `SV_CullPrimitive` as a pixel shader input is now replaced with 0, matching
   DXIL, instead of producing invalid SPIR-V.
-- Extended `-fspv-use-descriptor-heap` to support `RaytracingAccelerationStructure`
-  loaded from `ResourceDescriptorHeap`. Outside ray-tracing stages, list
-  `-fspv-extension=SPV_KHR_ray_query`, `SPV_KHR_ray_tracing` or
-  `SPV_NV_ray_tracing` so the resource heap stride covers acceleration structure
-  descriptors; otherwise compilation fails.
 
 Place release notes for the upcoming release below this line and remove this
 line upon naming the release. Refer to previous for appropriate section names.
@@ -40,8 +36,9 @@ line upon naming the release. Refer to previous for appropriate section names.
 
 - Shader Model 6.10 and DXIL 1.10 are now available in retail, introducing
   LinAlg Matrix, WaveGroup Index and Count, DebugBreak, Clustered Geometry, and
-  Triangle Object Positions, with detailed blog posts to be linked here once
-  available.
+  Triangle Object Positions.
+- Allowed DXIL `insertvalue` instructions starting with Shader Model 6.10,
+  enabling unoptimized DXIL that constructs aggregate values to be valid in cases that previously were not.
 - Removed work graph support from Shader Model 6.10, and DXIL 1.10
   [microsoft/hlsl-specs#915](https://github.com/microsoft/hlsl-specs/issues/915).
 - Fixed the set of numeric types allowed in LinAlg matrix intrinsics
@@ -88,8 +85,22 @@ line upon naming the release. Refer to previous for appropriate section names.
   signedness
   ([#7864](https://github.com/microsoft/DirectXShaderCompiler/issues/7864)).
 
+#### SPIR-V
+
+- Extended `SPV_EXT_descriptor_heap` lowering (`-fspv-use-descriptor-heap`) to
+  buffer-like resources (`StructuredBuffer`, `ByteAddressBuffer`,
+  `ConstantBuffer`, `TextureBuffer`, and RW variants) via
+  `SPV_KHR_untyped_pointers`. Requires `-fspv-target-env=vulkan1.3`.
+- Extended `-fspv-use-descriptor-heap` to support `RaytracingAccelerationStructure`
+  loaded from `ResourceDescriptorHeap`. Outside ray-tracing stages, list
+  `-fspv-extension=SPV_KHR_ray_query`, `SPV_KHR_ray_tracing` or
+  `SPV_NV_ray_tracing` so the resource heap stride covers acceleration structure
+  descriptors; otherwise compilation fails.
+
 #### Bug Fixes
 
+- Improved compiler performance by reducing excessive memory-dependence scans
+  during GVN and repeated vector-elimination work.
 - Fixed GVN load forwarding generating unsupported integer types when optimizing
   native vectors
   [#9040](https://github.com/microsoft/DirectXShaderCompiler/issues/9040).
