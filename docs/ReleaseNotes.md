@@ -17,18 +17,7 @@ The included licenses apply to the following files:
 
 ## Changelog
 
-### Upcoming Release
-
-#### SPIR-V
-
-- Added `-fvk-resource-heap-stride` and `-fvk-sampler-heap-stride`, which
-  override the computed `ArrayStrideIdEXT` of the resource and sampler
-  descriptor heaps with a literal `ArrayStride`. The value must be a power of
-  two in `[8, 256]`. Both flags require `-spirv` and
-  `-fspv-use-descriptor-heap` and are rejected otherwise.
-
-Place release notes for the upcoming release below this line and remove this
-line upon naming the release. Refer to previous for appropriate section names.
+### Version 1.10.2611
 
 #### Shader Model 6.10
 
@@ -36,7 +25,8 @@ line upon naming the release. Refer to previous for appropriate section names.
   LinAlg Matrix, WaveGroup Index and Count, DebugBreak, Clustered Geometry, and
   Triangle Object Positions.
 - Allowed DXIL `insertvalue` instructions starting with Shader Model 6.10,
-  enabling unoptimized DXIL that constructs aggregate values to be valid in cases that previously were not.
+  enabling unoptimized DXIL that constructs aggregate values to be valid in cases
+  that previously were not.
 - Removed work graph support from Shader Model 6.10, and DXIL 1.10
   [microsoft/hlsl-specs#915](https://github.com/microsoft/hlsl-specs/issues/915).
 - Fixed the set of numeric types allowed in LinAlg matrix intrinsics
@@ -94,6 +84,12 @@ line upon naming the release. Refer to previous for appropriate section names.
   `-fspv-extension=SPV_KHR_ray_query`, `SPV_KHR_ray_tracing` or
   `SPV_NV_ray_tracing` so the resource heap stride covers acceleration structure
   descriptors; otherwise compilation fails.
+- Added `-fvk-resource-heap-stride` and `-fvk-sampler-heap-stride`, which
+  override the computed `ArrayStrideIdEXT` of the resource and sampler
+  descriptor heaps with a literal `ArrayStride`. The value must be a power of
+  two in `[8, 256]`. Both flags require `-spirv` and
+  `-fspv-use-descriptor-heap` and are rejected otherwise.
+
 
 #### Bug Fixes
 
@@ -112,15 +108,6 @@ line upon naming the release. Refer to previous for appropriate section names.
   after bit-tracking dead code elimination.
 - Fixed an optimizer miscompile where selects of bitwise-not values guarded by
   signed less-than or unsigned compares were treated as a signed minimum.
-
-### Upcoming Preview Release
-
-These changes apply to experimental preview shader models only and will not be
-part of the next non-preview release.
-
-#### Experimental Shader Model 6.11
-
-- Added experimental Shader Model 6.11 target profiles.
 
 ### Version 1.9.2609
 
