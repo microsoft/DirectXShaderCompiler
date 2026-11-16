@@ -169,12 +169,16 @@ bool InitListHandler::tryToSplitStruct() {
       [&](size_t spirvFieldIndex, const QualType &fieldType,
           const StructType::FieldInfo &fieldInfo) {
         const auto index = static_cast<uint32_t>(spirvFieldIndex);
+        const QualType storageType =
+            fieldInfo.bitfield.hasValue() && fieldType->isBooleanType()
+                ? astContext.UnsignedIntTy
+                : fieldType;
         // The container is extracted once and shared by every bitfield merged
         // into it. The first bitfield of a container is at offset 0.
         if (!fieldInfo.bitfield.hasValue() ||
             fieldInfo.bitfield->offsetInBits == 0) {
-          container =
-              spvBuilder.createCompositeExtract(fieldType, init, {index}, loc);
+          container = spvBuilder.createCompositeExtract(storageType, init,
+                                                        {index}, loc);
           container->setLayoutRule(init->getLayoutRule());
         }
 
@@ -184,9 +188,14 @@ bool InitListHandler::tryToSplitStruct() {
         }
 
         SpirvInstruction *bits = spvBuilder.createBitFieldExtract(
-            fieldType, container, fieldInfo.bitfield->offsetInBits,
+            storageType, container, fieldInfo.bitfield->offsetInBits,
             fieldInfo.bitfield->sizeInBits, loc, init->getSourceRange());
         bits->setLayoutRule(init->getLayoutRule());
+        if (fieldType->isBooleanType()) {
+          bits = theEmitter.castToType(bits, storageType, fieldType, loc,
+                                       init->getSourceRange());
+          bits->setRValue();
+        }
         fields.push_back(bits);
         return true;
       },
@@ -471,6 +480,13 @@ InitListHandler::createInitForStructType(QualType type, SourceLocation srcLoc,
           return true;
         }
 
+        QualType storageType = fieldType;
+        if (fieldType->isBooleanType()) {
+          storageType = astContext.UnsignedIntTy;
+          init = theEmitter.castToType(init, fieldType, storageType, srcLoc,
+                                       range);
+        }
+
         // For a bit fields we need to insert it into the container.
         // The first time we see this bit field, init is used as the value.
         // This assumes that 0 is the first offset in the bitfield.
@@ -484,7 +500,7 @@ InitListHandler::createInitForStructType(QualType type, SourceLocation srcLoc,
         // container, which is the last element in `fields`.
         assert(fields.size() == fieldInfo.fieldIndex + 1);
         fields.back() = spvBuilder.createBitFieldInsert(
-            fieldType, fields.back(), init, fieldInfo.bitfield->offsetInBits,
+            storageType, fields.back(), init, fieldInfo.bitfield->offsetInBits,
             fieldInfo.bitfield->sizeInBits, srcLoc, range);
         return true;
       },

@@ -16,9 +16,15 @@ struct SignedBits {
   int b : 28;
 };
 
+struct Pair {
+  uint a : 16;
+  uint b : 16;
+};
+
 RWStructuredBuffer<uint3> Out;
 RWStructuredBuffer<Bits> BitsOut;
 RWStructuredBuffer<int2> SignedOut;
+RWStructuredBuffer<uint4> PairOut;
 
 [numthreads(1, 1, 1)]
 void main(uint3 id : SV_DispatchThreadID) {
@@ -55,4 +61,21 @@ void main(uint3 id : SV_DispatchThreadID) {
 // CHECK: [[sbb:%[0-9]+]] = OpBitFieldSExtract %int [[sw1]] %uint_4 %uint_28
 // CHECK:                   OpCompositeConstruct %v2int [[sa]] [[sbb]]
   SignedOut[0] = (int2)sb;
+
+// Arrays of structs with bitfields convert element by element.
+// CHECK: [[p0:%[0-9]+]] = OpBitFieldInsert %uint {{%[0-9]+}} {{%[0-9]+}} %uint_16 %uint_16
+// CHECK: [[e0:%[0-9]+]] = OpCompositeConstruct %Pair [[p0]]
+// CHECK: [[p1:%[0-9]+]] = OpBitFieldInsert %uint {{%[0-9]+}} {{%[0-9]+}} %uint_16 %uint_16
+// CHECK: [[e1:%[0-9]+]] = OpCompositeConstruct %Pair [[p1]]
+// CHECK:                  OpCompositeConstruct {{%[^ ]+}} [[e0]] [[e1]]
+// CHECK:                  OpStore %arr
+  Pair arr[2] = (Pair[2])uint4(id.x, id.y, id.z, id.x);
+
+// CHECK: [[arr:%[0-9]+]] = OpLoad {{%[^ ]+}} %arr
+// CHECK: OpBitFieldUExtract %uint {{%[0-9]+}} %uint_0 %uint_16
+// CHECK: OpBitFieldUExtract %uint {{%[0-9]+}} %uint_16 %uint_16
+// CHECK: OpBitFieldUExtract %uint {{%[0-9]+}} %uint_0 %uint_16
+// CHECK: OpBitFieldUExtract %uint {{%[0-9]+}} %uint_16 %uint_16
+// CHECK: OpCompositeConstruct %v4uint
+  PairOut[0] = (uint4)arr;
 }

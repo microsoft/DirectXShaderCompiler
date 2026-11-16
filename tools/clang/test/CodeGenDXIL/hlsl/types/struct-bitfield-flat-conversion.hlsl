@@ -39,8 +39,26 @@ struct SignedBits {
   int b : 28;
 };
 
+struct BoolBits {
+  bool a : 1;
+  bool b : 1;
+  uint c;
+};
+
+struct PlainBools {
+  bool a;
+  bool b;
+  uint c;
+};
+
+struct Pair {
+  uint a : 16;
+  uint b : 16;
+};
+
 RWStructuredBuffer<uint4> Out : register(u0);
 RWStructuredBuffer<int2> SignedOut : register(u1);
+RWStructuredBuffer<uint4> BoolOut : register(u2);
 
 [numthreads(1, 1, 1)]
 void main() {
@@ -98,4 +116,37 @@ void main() {
   sb.b = 5;
   // CHECK: call void @dx.op.bufferStore.i32(i32 69, %dx.types.Handle %{{[0-9]+}}, i32 0, i32 0, i32 -3, i32 5, i32 undef, i32 undef, i8 3)
   SignedOut[0] = (int2)sb;
+
+  // Boolean bitfields convert to and from 0 and 1, and each keeps its own bit.
+  BoolBits bb;
+  bb.a = true;
+  bb.b = false;
+  bb.c = 3;
+
+  // CHECK: call void @dx.op.bufferStore.i32(i32 69, %dx.types.Handle %{{[0-9]+}}, i32 0, i32 0, i32 1, i32 0, i32 3, i32 0, i8 15)
+  BoolOut[0] = uint4((uint3)bb, 0);
+
+  // CHECK: call void @dx.op.bufferStore.i32(i32 69, %dx.types.Handle %{{[0-9]+}}, i32 1, i32 0, i32 0, i32 1, i32 6, i32 0, i8 15)
+  BoolBits bb2 = (BoolBits)uint3(0, 5, 6);
+  BoolOut[1] = uint4(bb2.a, bb2.b, bb2.c, 0);
+
+  // CHECK: call void @dx.op.bufferStore.i32(i32 69, %dx.types.Handle %{{[0-9]+}}, i32 2, i32 0, i32 1, i32 1, i32 2, i32 0, i8 15)
+  BoolBits bb3 = (BoolBits)2;
+  BoolOut[2] = uint4(bb3.a, bb3.b, bb3.c, 0);
+
+  // CHECK: call void @dx.op.bufferStore.i32(i32 69, %dx.types.Handle %{{[0-9]+}}, i32 3, i32 0, i32 1, i32 0, i32 3, i32 0, i8 15)
+  PlainBools pb = (PlainBools)bb;
+  BoolOut[3] = uint4(pb.a, pb.b, pb.c, 0);
+
+  // CHECK: call void @dx.op.bufferStore.i32(i32 69, %dx.types.Handle %{{[0-9]+}}, i32 4, i32 0, i32 1, i32 0, i32 3, i32 0, i8 15)
+  BoolBits bb4 = {pb};
+  BoolOut[4] = uint4(bb4.a, bb4.b, bb4.c, 0);
+
+  // Arrays of structs with bitfields convert element by element.
+  // CHECK: call void @dx.op.bufferStore.i32(i32 69, %dx.types.Handle %{{[0-9]+}}, i32 8, i32 0, i32 11, i32 12, i32 13, i32 14, i8 15)
+  Pair arr[2] = (Pair[2])uint4(11, 12, 13, 14);
+  Out[8] = uint4(arr[0].a, arr[0].b, arr[1].a, arr[1].b);
+
+  // CHECK: call void @dx.op.bufferStore.i32(i32 69, %dx.types.Handle %{{[0-9]+}}, i32 9, i32 0, i32 11, i32 12, i32 13, i32 14, i8 15)
+  Out[9] = (uint4)arr;
 }

@@ -1442,7 +1442,7 @@ SpirvInstruction *SpirvEmitter::loadIfGLValue(const Expr *expr,
   // the uint, we should perform a comparison.
   {
     uint32_t vecSize = 1, numRows = 0, numCols = 0;
-    if (info->getLayoutRule() != SpirvLayoutRule::Void &&
+    if (loadedInstr->getLayoutRule() != SpirvLayoutRule::Void &&
         isBoolOrVecMatOfBoolType(exprType)) {
       QualType uintType = astContext.UnsignedIntTy;
       if (isScalarType(exprType) || isVectorType(exprType, nullptr, &vecSize)) {
@@ -8289,12 +8289,16 @@ SpirvInstruction *SpirvEmitter::reconstructValue(SpirvInstruction *srcVal,
         recordType, spirvStructType,
         [&](size_t spirvFieldIndex, const QualType &fieldType,
             const auto &field) {
+          const QualType storageType =
+              field.bitfield.hasValue() && fieldType->isBooleanType()
+                  ? astContext.UnsignedIntTy
+                  : fieldType;
           SpirvInstruction *subSrcVal = spvBuilder.createCompositeExtract(
-              fieldType, srcVal, {static_cast<uint32_t>(spirvFieldIndex)}, loc,
-              range);
+              storageType, srcVal, {static_cast<uint32_t>(spirvFieldIndex)},
+              loc, range);
           subSrcVal->setLayoutRule(srcVal->getLayoutRule());
           elements.push_back(
-              reconstructValue(subSrcVal, fieldType, dstLR, loc, range));
+              reconstructValue(subSrcVal, storageType, dstLR, loc, range));
 
           return true;
         });
@@ -17907,18 +17911,26 @@ SpirvEmitter::decomposeToScalars(SpirvInstruction *inst,
         [this, inst, &result, includeMergedBitfields](
             size_t spirvFieldIndex, const QualType &fieldType,
             const StructType::FieldInfo &fieldInfo) {
+          const QualType storageType =
+              fieldInfo.bitfield.hasValue() && fieldType->isBooleanType()
+                  ? astContext.UnsignedIntTy
+                  : fieldType;
           auto *field = spvBuilder.createCompositeExtract(
-              fieldType, inst, {fieldInfo.fieldIndex},
+              storageType, inst, {fieldInfo.fieldIndex},
               inst->getSourceLocation());
           field->setLayoutRule(inst->getLayoutRule());
           if (includeMergedBitfields && fieldInfo.bitfield.hasValue()) {
-            // The layout rule keeps a bool bitfield in external storage in its
-            // integer representation, which the extract result must match.
             SpirvInstruction *bits = spvBuilder.createBitFieldExtract(
-                fieldType, field, fieldInfo.bitfield->offsetInBits,
+                storageType, field, fieldInfo.bitfield->offsetInBits,
                 fieldInfo.bitfield->sizeInBits, inst->getSourceLocation(),
                 inst->getSourceRange());
             bits->setLayoutRule(inst->getLayoutRule());
+            if (fieldType->isBooleanType()) {
+              bits =
+                  castToBool(bits, storageType, fieldType,
+                             inst->getSourceLocation(), inst->getSourceRange());
+              bits->setRValue();
+            }
             result.push_back(bits);
             return true;
           }
@@ -18019,8 +18031,15 @@ SpirvInstruction *SpirvEmitter::generateFromScalars(
         [this, &elements, &scalars, layoutRule, includeMergedBitfields,
          sourceLocation](size_t spirvFieldIndex, const QualType &fieldType,
                          const StructType::FieldInfo &fieldInfo) {
+          const bool isBooleanBitfield =
+              fieldInfo.bitfield.hasValue() && fieldType->isBooleanType();
+          const QualType storageType =
+              isBooleanBitfield ? astContext.UnsignedIntTy : fieldType;
           SpirvInstruction *value = generateFromScalars(
-              fieldType, scalars, layoutRule, includeMergedBitfields);
+              includeMergedBitfields ? fieldType : storageType, scalars,
+              layoutRule, includeMergedBitfields);
+          if (isBooleanBitfield && includeMergedBitfields)
+            value = castToInt(value, fieldType, storageType, sourceLocation);
           // Every bitfield after the first in a storage field is inserted into
           // the value already built for that field.
           if (!fieldInfo.bitfield.hasValue() ||
@@ -18029,7 +18048,7 @@ SpirvInstruction *SpirvEmitter::generateFromScalars(
             return true;
           }
           elements.back() = spvBuilder.createBitFieldInsert(
-              fieldType, elements.back(), value,
+              storageType, elements.back(), value,
               fieldInfo.bitfield->offsetInBits, fieldInfo.bitfield->sizeInBits,
               sourceLocation, {});
           return true;
@@ -18115,8 +18134,14 @@ SpirvEmitter::splatScalarToGenerate(QualType type, SpirvInstruction *scalar,
         [this, &elements, &scalar, layoutRule,
          sourceLocation](size_t spirvFieldIndex, const QualType &fieldType,
                          const StructType::FieldInfo &fieldInfo) {
+          const bool isBooleanBitfield =
+              fieldInfo.bitfield.hasValue() && fieldType->isBooleanType();
+          const QualType storageType =
+              isBooleanBitfield ? astContext.UnsignedIntTy : fieldType;
           SpirvInstruction *value =
               splatScalarToGenerate(fieldType, scalar, layoutRule);
+          if (isBooleanBitfield)
+            value = castToInt(value, fieldType, storageType, sourceLocation);
           // Every bitfield after the first in a storage field is inserted into
           // the value already built for that field.
           if (!fieldInfo.bitfield.hasValue() ||
@@ -18125,7 +18150,7 @@ SpirvEmitter::splatScalarToGenerate(QualType type, SpirvInstruction *scalar,
             return true;
           }
           elements.back() = spvBuilder.createBitFieldInsert(
-              fieldType, elements.back(), value,
+              storageType, elements.back(), value,
               fieldInfo.bitfield->offsetInBits, fieldInfo.bitfield->sizeInBits,
               sourceLocation, {});
           return true;
