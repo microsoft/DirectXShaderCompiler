@@ -367,17 +367,21 @@ private:
                                    SpirvInstruction *vecComponent = nullptr,
                                    bool noWriteBack = false);
 
-  /// Emit instructions for assigning to the given mesh out attribute.
+  /// Emit instructions for assigning to the mesh out attribute that fieldPath
+  /// leads to, from the per-vertex or the per-primitive output down to the
+  /// attribute.
   void assignToMSOutAttribute(
-      const DeclaratorDecl *decl, SpirvInstruction *value,
+      bool perPrimitive, llvm::SmallVectorImpl<const FieldDecl *> &fieldPath,
+      SpirvInstruction *value,
       const llvm::SmallVector<SpirvInstruction *, 4> &indices);
 
   /// Emit instructions for assigning a struct value to the mesh out attributes
-  /// of its base classes and fields.
+  /// of its base classes and fields. fieldPath leads to the struct.
   void
   assignToMSOutStruct(QualType type, SpirvInstruction *value,
                       const llvm::SmallVector<SpirvInstruction *, 4> &indices,
-                      SourceLocation loc);
+                      SourceLocation loc, bool perPrimitive,
+                      llvm::SmallVectorImpl<const FieldDecl *> &fieldPath);
 
   /// Emit instructions for assigning to the given mesh out indices object.
   void
