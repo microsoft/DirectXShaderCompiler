@@ -144,9 +144,12 @@ static bool IsFinite(ConstantFP *C) {
   return true;
 }
 
-// Check that the op is non-null and finite.
+// Check that the op is non-null and finite. Do not fold 32-bit float denormal
+// operands which depend on device and denorm mode.
 static bool IsValidOp(ConstantFP *C) {
   if (!C || !IsFinite(C))
+    return false;
+  if (C->getType()->isFloatTy() && C->getValueAPF().isDenormal())
     return false;
 
   return true;
