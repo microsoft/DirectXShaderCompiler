@@ -75,14 +75,6 @@ def update_submodule(path, upstream_branch):
     )
 
 
-def configure_git_identity():
-    user = gh_api("user")
-    email = f"{user['id']}+{user['login']}@users.noreply.github.com"
-    run("git", "config", "user.name", user["login"])
-    run("git", "config", "user.email", email)
-    run("gh", "auth", "setup-git")
-
-
 def open_or_refresh_pull_request(repo, base_branch, update_branch, title, body):
     owner = repo.split("/")[0]
     open_prs = gh_api(f"repos/{repo}/pulls?state=open&head={owner}:{update_branch}")
@@ -114,7 +106,6 @@ def parse_args():
 
 def main():
     args = parse_args()
-    configure_git_identity()
     run("git", "fetch", "origin", args.base_branch)
     run("git", "checkout", "-B", args.update_branch, "FETCH_HEAD")
 
