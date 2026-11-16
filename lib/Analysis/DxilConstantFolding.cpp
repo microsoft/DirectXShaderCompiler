@@ -235,9 +235,14 @@ static Constant *ConstantFoldBinaryFPIntrinsic(OP::OpCode opcode, Type *Ty,
   default:
     break;
   case OP::OpCode::FMax:
-    return ConstantFP::get(Ty->getContext(), maxnum(C1, C2));
   case OP::OpCode::FMin:
-    return ConstantFP::get(Ty->getContext(), minnum(C1, C2));
+    // DXIL leaves tie-breaking between equal finite values with distinct bit
+    // patterns (+0.0 vs -0.0) to the device ("a or b").
+    if (C1.compare(C2) == APFloat::cmpEqual && !C1.bitwiseIsEqual(C2))
+      return nullptr;
+    return ConstantFP::get(Ty->getContext(), opcode == OP::OpCode::FMax
+                                                 ? maxnum(C1, C2)
+                                                 : minnum(C1, C2));
   }
 
   return nullptr;
