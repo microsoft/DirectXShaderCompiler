@@ -169,8 +169,10 @@ static Constant *ConstantFoldUnaryFPIntrinsic(OP::OpCode opcode, Type *Ty,
   case OP::OpCode::FAbs:
     return DxilConstantFoldFP(fabs, Op, Ty);
   case OP::OpCode::Saturate: {
+    // DXIL defines Saturate(x) as min(1.0, max(0.0, x)), where FMax returns
+    // its first operand on ties, so Saturate(-0.0) is +0.0.
     NativeFPUnaryOp f = [](double x) {
-      return std::max(std::min(x, 1.0), 0.0);
+      return std::min(1.0, std::max(0.0, x));
     };
     return DxilConstantFoldFP(f, Op, Ty);
   }
