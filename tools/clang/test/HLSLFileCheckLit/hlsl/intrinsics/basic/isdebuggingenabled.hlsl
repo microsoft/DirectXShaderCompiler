@@ -4,8 +4,8 @@
 // RUN: %dxc -T cs_6_10 -fcgl %s | FileCheck %s --check-prefix=FCGL
 // RUN: %dxc -T cs_6_10 -ast-dump %s | FileCheck %s --check-prefix=AST
 
-// CHECK: call i1 @dx.op.isDebuggingEnabled(i32 -2147483614)  ; IsDebuggingEnabled()
-// CHECK: call i1 @dx.op.isDebuggingEnabled(i32 -2147483614)  ; IsDebuggingEnabled()
+// CHECK: call i1 @dx.op.isDebuggingEnabled(i32 344)  ; IsDebuggingEnabled()
+// CHECK: call i1 @dx.op.isDebuggingEnabled(i32 344)  ; IsDebuggingEnabled()
 
 // FCGL: call i1 @"dx.hl.op..i1 (i32)"(i32 421)
 // FCGL: call i1 @"dx.hl.op..i1 (i32)"(i32 421)

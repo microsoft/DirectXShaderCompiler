@@ -7,8 +7,8 @@ struct S {
   __builtin_LinAlgMatrix handle;
 };
 
-// CHECK: VarDecl {{.*}} global_handle '__builtin_LinAlgMatrix':'__builtin_LinAlgMatrix'
-__builtin_LinAlgMatrix global_handle;
+// CHECK: VarDecl {{.*}} global_handle '__builtin_LinAlgMatrix':'__builtin_LinAlgMatrix' static
+static __builtin_LinAlgMatrix global_handle;
 
 // CHECK: FunctionDecl {{.*}} f1 'void (__builtin_LinAlgMatrix)'
 // CHECK: ParmVarDecl {{.*}} m '__builtin_LinAlgMatrix':'__builtin_LinAlgMatrix'

@@ -8,8 +8,8 @@ target datalayout = "e-m:e-p:32:32-i1:32-i8:32-i16:32-i32:32-i64:64-f16:32-f32:3
 target triple = "dxil-ms-dx"
 
 define void @mainVS() {
-  %1 = call i32 @dx.op.getGroupWaveIndex(i32 -2147483647)  ; GetGroupWaveIndex()
-  %2 = call i32 @dx.op.getGroupWaveCount(i32 -2147483646)  ; GetGroupWaveCount()
+  %1 = call i32 @dx.op.getGroupWaveIndex(i32 312)  ; GetGroupWaveIndex()
+  %2 = call i32 @dx.op.getGroupWaveCount(i32 313)  ; GetGroupWaveCount()
   %3 = add i32 %2, %1
   %4 = uitofp i32 %3 to float
   call void @dx.op.storeOutput.f32(i32 5, i32 0, i32 0, i8 0, float %4)  ; StoreOutput(outputSigId,rowIndex,colIndex,value)

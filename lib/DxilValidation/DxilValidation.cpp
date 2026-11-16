@@ -1253,6 +1253,35 @@ static void ValidateLinAlgMatrixStoreToDescriptor(CallInst *CI,
   }
 }
 
+static void ValidateLinAlgMatrixMemory(CallInst *CI, Value *Memory,
+                                       const LinAlgTargetType &Mat,
+                                       const char *MatrixName,
+                                       ValidationContext &ValCtx) {
+  GEPOperator *GSGEP = cast<GEPOperator>(Memory);
+  GlobalVariable *GSMem = cast<GlobalVariable>(GSGEP->getPointerOperand());
+  Type *GSMemTy = GSMem->getType()->getPointerElementType();
+  uint64_t GSByteCount = ValCtx.DL.getTypeAllocSize(GSMemTy);
+  Type *GSMemInnerTy = GSMemTy;
+  if (ArrayType *GSMemArrTy = dyn_cast<ArrayType>(GSMemInnerTy))
+    GSMemInnerTy = GSMemArrTy->getArrayElementType();
+  GSMemInnerTy = GSMemInnerTy->getScalarType();
+
+  if (!GSMemInnerTy->isIntegerTy() &&
+      !IsComponentTypeSameNativeType(Mat.Type, GSMemInnerTy))
+    ValCtx.EmitInstrFormatError(
+        CI, ValidationRule::InstrLinAlgMatrixGSMemTypeMustMatch,
+        {TypeToString(GSMemInnerTy), MatrixName,
+         ComponentTypeToString(Mat.Type)});
+
+  uint64_t MinimumByteCount =
+      uint64_t(Mat.M) * Mat.N * ComponentTypeByteCount(Mat.Type);
+  if (MinimumByteCount > GSByteCount)
+    ValCtx.EmitInstrFormatError(
+        CI, ValidationRule::InstrLinAlgMatrixGSMemMustBeLargeEnough,
+        {std::to_string(GSByteCount), "bytes", std::to_string(MinimumByteCount),
+         "bytes"});
+}
+
 static void ValidateLinAlgMatrixStoreToMemory(CallInst *CI,
                                               ValidationContext &ValCtx) {
   ValidateLinAlgOpParameters(CI, ValCtx);
@@ -1269,37 +1298,7 @@ static void ValidateLinAlgMatrixStoreToMemory(CallInst *CI,
         CI, ValidationRule::InstrLinAlgMatrixScopeMismatch2,
         {"Input", MatrixScopeToString(Mat->Scope), "Wave", "ThreadGroup"});
 
-  GEPOperator *GSGEP = cast<GEPOperator>(Op.get_memory());
-  GlobalVariable *GSMem = cast<GlobalVariable>(GSGEP->getPointerOperand());
-  Type *GSMemInnerTy = GSMem->getType();
-  unsigned GSScalarCount = 1;
-  if (PointerType *GSMemPtrTy = dyn_cast<PointerType>(GSMemInnerTy))
-    GSMemInnerTy = GSMemPtrTy->getPointerElementType();
-  if (ArrayType *GSMemArrTy = dyn_cast<ArrayType>(GSMemInnerTy)) {
-    GSMemInnerTy = GSMemArrTy->getArrayElementType();
-    GSScalarCount *= GSMemArrTy->getNumElements();
-  }
-  if (VectorType *GSMemVecTy = dyn_cast<VectorType>(GSMemInnerTy)) {
-    GSMemInnerTy = GSMemVecTy->getVectorElementType();
-    GSScalarCount *= GSMemVecTy->getNumElements();
-  }
-
-  // if gs memory inner type != i32 then matrix elem type must match it
-  if (!GSMemInnerTy->isIntegerTy(32) &&
-      !IsComponentTypeSameNativeType(Mat->Type, GSMemInnerTy))
-    ValCtx.EmitInstrFormatError(
-        CI, ValidationRule::InstrLinAlgMatrixGSMemTypeMustMatch,
-        {TypeToString(GSMemInnerTy), "input matrix",
-         ComponentTypeToString(Mat->Type)});
-
-  // gs memory must be large enough for the write
-  unsigned ElementsPerScalar = ComponentTypeElementsPerScalar(Mat->Type);
-  unsigned ExpectedScalarCount =
-      (Mat->N + ElementsPerScalar - 1) / ElementsPerScalar * Mat->M;
-  if (ExpectedScalarCount > GSScalarCount)
-    ValCtx.EmitInstrFormatError(
-        CI, ValidationRule::InstrLinAlgMatrixGSMemMustBeLargeEnough,
-        {std::to_string(GSScalarCount), std::to_string(ExpectedScalarCount)});
+  ValidateLinAlgMatrixMemory(CI, Op.get_memory(), *Mat, "input matrix", ValCtx);
 
   // gs memory ops have the parameter in element count so it must be scaled
   uint64_t ByteCount = ComponentTypeByteCount(Mat->Type);
@@ -1325,6 +1324,19 @@ static void ValidateLinAlgMatrixStoreToMemory(CallInst *CI,
           {"Stride", "4", std::to_string(StrideBytes), std::to_string(Stride),
            std::to_string(ByteCount)});
   }
+}
+
+static void ValidateLinAlgIsInputSigned(CallInst *CI, Value *IsInputSignedValue,
+                                        Type *InputTy,
+                                        ValidationContext &ValCtx,
+                                        const char *OpName) {
+  std::optional<uint64_t> IsInputSigned = ValidateConstantIntGetValue(
+      CI, IsInputSignedValue, ValCtx, "IsInputSigned", OpName);
+  Type *ScalarTy = InputTy->getScalarType();
+  if (IsInputSigned && ScalarTy->isFloatingPointTy() && *IsInputSigned != 1)
+    ValCtx.EmitInstrFormatError(
+        CI, ValidationRule::InstrLinAlgMatrixUnsignedFloatTypeNotAllowed,
+        {TypeToString(ScalarTy)});
 }
 
 static void ValidateLinAlgMatVecMul(CallInst *CI, ValidationContext &ValCtx,
@@ -1550,7 +1562,8 @@ static void ValidateLinAlgMatrixAccumulateToMemory(CallInst *CI,
   if (ExpectedScalarCount > GSScalarCount)
     ValCtx.EmitInstrFormatError(
         CI, ValidationRule::InstrLinAlgMatrixGSMemMustBeLargeEnough,
-        {std::to_string(GSScalarCount), std::to_string(ExpectedScalarCount)});
+        {std::to_string(GSScalarCount), "scalars",
+         std::to_string(ExpectedScalarCount), "scalars"});
 
   // gs memory ops have the parameter in element count so it must be scaled
   uint64_t ByteCount = ComponentTypeByteCount(Mat->Type);
@@ -1695,6 +1708,10 @@ ValidateLinAlgVectorAccumulateToDescriptor(CallInst *CI,
 static void ValidateLinAlgFillMatrix(CallInst *CI, ValidationContext &ValCtx) {
   ValidateLinAlgOpReturnMatrix(CI, ValCtx);
   ValidateLinAlgOpParameters(CI, ValCtx);
+  DxilInst_LinAlgFillMatrix Op(CI);
+  ValidateLinAlgIsInputSigned(CI, Op.get_isInputSigned(),
+                              Op.get_value()->getType(), ValCtx,
+                              "LinAlgFillMatrix");
   std::optional<LinAlgTargetType> RetMat =
       GetCheckedLATT(CI->getType(), ValCtx);
   if (!RetMat)
@@ -1725,37 +1742,8 @@ static void ValidateLinAlgMatrixLoadFromMemory(CallInst *CI,
         CI, ValidationRule::InstrLinAlgMatrixScopeMismatch2,
         {"Return", MatrixScopeToString(RetMat->Scope), "Wave", "ThreadGroup"});
 
-  GEPOperator *GSGEP = cast<GEPOperator>(Op.get_memory());
-  GlobalVariable *GSMem = cast<GlobalVariable>(GSGEP->getPointerOperand());
-  Type *GSMemInnerTy = GSMem->getType();
-  unsigned GSScalarCount = 1;
-  if (PointerType *GSMemPtrTy = dyn_cast<PointerType>(GSMemInnerTy))
-    GSMemInnerTy = GSMemPtrTy->getPointerElementType();
-  if (ArrayType *GSMemArrTy = dyn_cast<ArrayType>(GSMemInnerTy)) {
-    GSMemInnerTy = GSMemArrTy->getArrayElementType();
-    GSScalarCount *= GSMemArrTy->getNumElements();
-  }
-  if (VectorType *GSMemVecTy = dyn_cast<VectorType>(GSMemInnerTy)) {
-    GSMemInnerTy = GSMemVecTy->getVectorElementType();
-    GSScalarCount *= GSMemVecTy->getNumElements();
-  }
-
-  // if gs memory inner type != i32 then matrix elem type must match it
-  if (!GSMemInnerTy->isIntegerTy(32) &&
-      !IsComponentTypeSameNativeType(RetMat->Type, GSMemInnerTy))
-    ValCtx.EmitInstrFormatError(
-        CI, ValidationRule::InstrLinAlgMatrixGSMemTypeMustMatch,
-        {TypeToString(GSMemInnerTy), "return matrix",
-         ComponentTypeToString(RetMat->Type)});
-
-  // gs memory must be large enough for the read
-  unsigned ElementsPerScalar = ComponentTypeElementsPerScalar(RetMat->Type);
-  unsigned ExpectedScalarCount =
-      (RetMat->N + ElementsPerScalar - 1) / ElementsPerScalar * RetMat->M;
-  if (ExpectedScalarCount > GSScalarCount)
-    ValCtx.EmitInstrFormatError(
-        CI, ValidationRule::InstrLinAlgMatrixGSMemMustBeLargeEnough,
-        {std::to_string(GSScalarCount), std::to_string(ExpectedScalarCount)});
+  ValidateLinAlgMatrixMemory(CI, Op.get_memory(), *RetMat, "return matrix",
+                             ValCtx);
 
   // gs memory ops have the parameter in element count so it must be scaled
   uint64_t ByteCount = ComponentTypeByteCount(RetMat->Type);
@@ -2015,6 +2003,8 @@ static void ValidateLinAlgMatrixOuterProduct(CallInst *CI,
   DxilInst_LinAlgMatrixOuterProduct Op(CI);
   VectorType *AVecTy = cast<VectorType>(Op.get_vectorA()->getType());
   VectorType *BVecTy = cast<VectorType>(Op.get_vectorB()->getType());
+  ValidateLinAlgIsInputSigned(CI, Op.get_isInputSigned(), AVecTy, ValCtx,
+                              "LinAlgMatrixOuterProduct");
   std::optional<LinAlgTargetType> RetMat =
       GetCheckedLATT(CI->getType(), ValCtx);
   if (!RetMat)
@@ -2064,32 +2054,41 @@ static void ValidateLinAlgMatrixLoadFromDescriptor(CallInst *CI,
   if (!RetMat)
     return;
 
-  std::optional<uint64_t> LayoutV = ValidateConstantIntGetValue(
-      CI, Op.get_layout(), ValCtx, "Layout", "LinAlgMatrixLoadFromDescriptor");
-  if (!LayoutV)
-    return;
-  auto Layout = static_cast<DXIL::MatrixLayout>(*LayoutV);
-  bool LayoutIsRowColMajor = (Layout == DXIL::MatrixLayout::RowMajor ||
-                              Layout == DXIL::MatrixLayout::ColumnMajor);
+  std::optional<uint64_t> LayoutV;
+  // Layout must be an immarg for Thread matrix otherwise it can be non-immarg
+  if (RetMat->Scope == DXIL::MatrixScope::Thread) {
+    LayoutV = ValidateConstantIntGetValue(CI, Op.get_layout(), ValCtx, "Layout",
+                                          "LinAlgMatrixLoadFromDescriptor");
+    if (!LayoutV)
+      return;
+  } else if (ConstantInt *Layout = dyn_cast<ConstantInt>(Op.get_layout())) {
+    LayoutV = Layout->getZExtValue();
+  }
 
-  // Layout must be Row/Col Major if Scope is Wave/ThreadGroup
-  if ((RetMat->Scope == DXIL::MatrixScope::Wave ||
-       RetMat->Scope == DXIL::MatrixScope::ThreadGroup) &&
-      !LayoutIsRowColMajor)
-    ValCtx.EmitInstrFormatError(
-        CI, ValidationRule::InstrLinAlgMatrixScopeReqLayout2,
-        {"Return", MatrixScopeToString(RetMat->Scope), "RowMajor",
-         "ColumnMajor", "LinAlgMatrixLoadFromDescriptor"});
+  if (LayoutV) {
+    DXIL::MatrixLayout Layout = static_cast<DXIL::MatrixLayout>(*LayoutV);
+    bool LayoutIsRowColMajor = (Layout == DXIL::MatrixLayout::RowMajor ||
+                                Layout == DXIL::MatrixLayout::ColumnMajor);
 
-  // Stride must be an imm 0 if Layout is not Row/Col Major
-  if (!LayoutIsRowColMajor) {
-    std::optional<uint64_t> Stride =
-        ValidateConstantIntGetValue(CI, Op.get_stride(), ValCtx, "Stride",
-                                    "LinAlgMatrixLoadFromDescriptor");
-    if (Stride && *Stride != 0)
+    // Layout must be Row/Col Major if Scope is Wave/ThreadGroup
+    if ((RetMat->Scope == DXIL::MatrixScope::Wave ||
+         RetMat->Scope == DXIL::MatrixScope::ThreadGroup) &&
+        !LayoutIsRowColMajor)
       ValCtx.EmitInstrFormatError(
-          CI, ValidationRule::InstrLinAlgMatrixLayoutReqStride,
-          {"LinAlgMatrixLoadFromDescriptor", MatrixLayoutToString(Layout)});
+          CI, ValidationRule::InstrLinAlgMatrixScopeReqLayout2,
+          {"Return", MatrixScopeToString(RetMat->Scope), "RowMajor",
+           "ColumnMajor", "LinAlgMatrixLoadFromDescriptor"});
+
+    // Stride must be an imm 0 if Layout is not Row/Col Major
+    if (!LayoutIsRowColMajor) {
+      std::optional<uint64_t> Stride =
+          ValidateConstantIntGetValue(CI, Op.get_stride(), ValCtx, "Stride",
+                                      "LinAlgMatrixLoadFromDescriptor");
+      if (Stride && *Stride != 0)
+        ValCtx.EmitInstrFormatError(
+            CI, ValidationRule::InstrLinAlgMatrixLayoutReqStride,
+            {"LinAlgMatrixLoadFromDescriptor", MatrixLayoutToString(Layout)});
+    }
   }
 
   uint64_t RequiredAlignment =
@@ -4257,20 +4256,20 @@ static bool IsLLVMInstructionAllowedForLib(Instruction &I,
 }
 
 // Shader model specific checks for valid LLVM instructions.
-// Currently only checks for pre 6.9 usage of vector operations.
-// Returns false if shader model is pre 6.9 and I represents a vector
-// operation. Returns true otherwise.
 static bool IsLLVMInstructionAllowedForShaderModel(Instruction &I,
                                                    ValidationContext &ValCtx) {
-  if (ValCtx.DxilMod.GetShaderModel()->IsSM69Plus())
+  switch (I.getOpcode()) {
+  // Instructions added in SM 6.9.
+  case Instruction::InsertElement:
+  case Instruction::ExtractElement:
+  case Instruction::ShuffleVector:
+    return ValCtx.DxilMod.GetShaderModel()->IsSM69Plus();
+  // Instructions added in SM 6.10.
+  case Instruction::InsertValue:
+    return ValCtx.DxilMod.GetShaderModel()->IsSM610Plus();
+  default:
     return true;
-  unsigned Opcode = I.getOpcode();
-  if (Opcode == Instruction::InsertElement ||
-      Opcode == Instruction::ExtractElement ||
-      Opcode == Instruction::ShuffleVector)
-    return false;
-
-  return true;
+  }
 }
 
 static void ValidateFunctionBody(Function *F, ValidationContext &ValCtx) {
@@ -4412,15 +4411,21 @@ static void ValidateFunctionBody(Function *F, ValidationContext &ValCtx) {
 
       for (Value *op : I.operands()) {
         if (isa<UndefValue>(op)) {
-          bool LegalUndef = isa<PHINode>(&I);
-          if (isa<InsertElementInst>(&I)) {
+          bool LegalUndef = false;
+          switch (I.getOpcode()) {
+          case Instruction::PHI:
+            LegalUndef = true;
+            break;
+          case Instruction::InsertElement:
+          case Instruction::InsertValue:
+          case Instruction::Store:
             LegalUndef = op == I.getOperand(0);
-          }
-          if (isa<ShuffleVectorInst>(&I)) {
+            break;
+          case Instruction::ShuffleVector:
             LegalUndef = op == I.getOperand(1);
-          }
-          if (isa<StoreInst>(&I)) {
-            LegalUndef = op == I.getOperand(0);
+            break;
+          default:
+            break;
           }
 
           if (!LegalUndef)

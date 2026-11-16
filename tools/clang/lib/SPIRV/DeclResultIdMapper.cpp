@@ -1144,6 +1144,19 @@ DeclResultIdMapper::createFnVar(const VarDecl *var,
   return varInstr;
 }
 
+void DeclResultIdMapper::registerFnVarAlias(const VarDecl *var,
+                                            SpirvInstruction *varInstr) {
+  assert(varInstr);
+  registerVariableForDecl(var, createDeclSpirvInfo(varInstr));
+}
+
+bool DeclResultIdMapper::hasFnVarAlias(const VarDecl *var) const {
+  const DeclSpirvInfo *info = getDeclSpirvInfo(var);
+  if (!info || !info->instr)
+    return false;
+  return !isa<SpirvVariable>(info->instr);
+}
+
 SpirvDebugGlobalVariable *DeclResultIdMapper::createDebugGlobalVariable(
     SpirvVariable *var, const QualType &type, const SourceLocation &loc,
     const StringRef &name) {
@@ -1780,13 +1793,6 @@ void DeclResultIdMapper::createGlobalsCBuffer(const VarDecl *var) {
   uint32_t index = 0;
   for (const auto *decl : collectDeclsInDeclContext(context)) {
     if (const auto *varDecl = dyn_cast<VarDecl>(decl)) {
-      if (!spirvOptions.noWarnIgnoredFeatures) {
-        if (const auto *init = varDecl->getInit())
-          emitWarning(
-              "variable '%0' will be placed in $Globals so initializer ignored",
-              init->getExprLoc())
-              << var->getName() << init->getSourceRange();
-      }
       if (const auto *attr = varDecl->getAttr<VKBindingAttr>()) {
         emitError("variable '%0' will be placed in $Globals so cannot have "
                   "vk::binding attribute",

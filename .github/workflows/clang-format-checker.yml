@@ -30,9 +30,9 @@ jobs:
           deepen_length: 500
 
       - name: Install clang-format
-        uses: aminya/setup-cpp@a54a927368e3dcfe421c0e719fbd6be77cdcfa71 # v1.9.1
+        uses: aminya/setup-cpp@8170d66c458f4a045220b7b0966c10940bb2a15d # v1.8.1
         with:
-          clangformat: 17.0.1
+          clangformat: 17.0.6
 
       - name: Check code formatting
         env:

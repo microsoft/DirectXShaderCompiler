@@ -263,14 +263,14 @@ cbuffer CBInit
 {
     // <py::lines('GENERATED_CODE')>modify(lines, gen_code('%(mods)s float2x3 g_%(id)s_init = sc_%(id)s_init_scalar;'))</py>
     // GENERATED_CODE:BEGIN
-    row_major float2x3 g_row_init = sc_row_init_scalar;
-    row_major snorm float2x3 g_row_sno_init = sc_row_sno_init_scalar;
-    row_major unorm float2x3 g_row_uno_init = sc_row_uno_init_scalar;
-    column_major float2x3 g_col_init = sc_col_init_scalar;
-    column_major snorm float2x3 g_col_sno_init = sc_col_sno_init_scalar;
-    column_major unorm float2x3 g_col_uno_init = sc_col_uno_init_scalar;
-    snorm float2x3 g_sno_init = sc_sno_init_scalar;
-    unorm float2x3 g_uno_init = sc_uno_init_scalar;
+    row_major float2x3 g_row_init = sc_row_init_scalar;    /* expected-warning {{initializer for a variable in a cbuffer will be ignored}} */
+    row_major snorm float2x3 g_row_sno_init = sc_row_sno_init_scalar;    /* expected-warning {{initializer for a variable in a cbuffer will be ignored}} */
+    row_major unorm float2x3 g_row_uno_init = sc_row_uno_init_scalar;    /* expected-warning {{initializer for a variable in a cbuffer will be ignored}} */
+    column_major float2x3 g_col_init = sc_col_init_scalar;    /* expected-warning {{initializer for a variable in a cbuffer will be ignored}} */
+    column_major snorm float2x3 g_col_sno_init = sc_col_sno_init_scalar;    /* expected-warning {{initializer for a variable in a cbuffer will be ignored}} */
+    column_major unorm float2x3 g_col_uno_init = sc_col_uno_init_scalar;    /* expected-warning {{initializer for a variable in a cbuffer will be ignored}} */
+    snorm float2x3 g_sno_init = sc_sno_init_scalar;    /* expected-warning {{initializer for a variable in a cbuffer will be ignored}} */
+    unorm float2x3 g_uno_init = sc_uno_init_scalar;    /* expected-warning {{initializer for a variable in a cbuffer will be ignored}} */
     //row_major column_major float2x3 g_row_col_init = sc_row_col_init_scalar;    /* expected-error {{'row_major' and 'column_major' attributes are not compatible}} fxc-error {{X3048: matrix types cannot be both column_major and row_major}} */
     //row_major column_major snorm float2x3 g_row_col_sno_init = sc_row_col_sno_init_scalar;    /* expected-error {{'row_major' and 'column_major' attributes are not compatible}} fxc-error {{X3048: matrix types cannot be both column_major and row_major}} */
     //row_major column_major snorm unorm float2x3 g_row_col_sno_uno_init = sc_row_col_sno_uno_init_scalar;    /* expected-error {{'row_major' and 'column_major' attributes are not compatible}} expected-error {{'unorm' and 'snorm' attributes are not compatible}} fxc-error {{X3000: syntax error: unexpected token 'unorm'}} */
@@ -282,14 +282,14 @@ cbuffer CBInit
 
     // <py::lines('GENERATED_CODE')>modify(lines, gen_code('%(mods)s float2x3 g_%(id)s_init_scalar = 1.0f;'))</py>
     // GENERATED_CODE:BEGIN
-    row_major float2x3 g_row_init_scalar = 1.0f;
-    row_major snorm float2x3 g_row_sno_init_scalar = 1.0f;
-    row_major unorm float2x3 g_row_uno_init_scalar = 1.0f;
-    column_major float2x3 g_col_init_scalar = 1.0f;
-    column_major snorm float2x3 g_col_sno_init_scalar = 1.0f;
-    column_major unorm float2x3 g_col_uno_init_scalar = 1.0f;
-    snorm float2x3 g_sno_init_scalar = 1.0f;
-    unorm float2x3 g_uno_init_scalar = 1.0f;
+    row_major float2x3 g_row_init_scalar = 1.0f;    /* expected-warning {{initializer for a variable in a cbuffer will be ignored}} */
+    row_major snorm float2x3 g_row_sno_init_scalar = 1.0f;    /* expected-warning {{initializer for a variable in a cbuffer will be ignored}} */
+    row_major unorm float2x3 g_row_uno_init_scalar = 1.0f;    /* expected-warning {{initializer for a variable in a cbuffer will be ignored}} */
+    column_major float2x3 g_col_init_scalar = 1.0f;    /* expected-warning {{initializer for a variable in a cbuffer will be ignored}} */
+    column_major snorm float2x3 g_col_sno_init_scalar = 1.0f;    /* expected-warning {{initializer for a variable in a cbuffer will be ignored}} */
+    column_major unorm float2x3 g_col_uno_init_scalar = 1.0f;    /* expected-warning {{initializer for a variable in a cbuffer will be ignored}} */
+    snorm float2x3 g_sno_init_scalar = 1.0f;    /* expected-warning {{initializer for a variable in a cbuffer will be ignored}} */
+    unorm float2x3 g_uno_init_scalar = 1.0f;    /* expected-warning {{initializer for a variable in a cbuffer will be ignored}} */
     //row_major column_major float2x3 g_row_col_init_scalar = 1.0f;    /* expected-error {{'row_major' and 'column_major' attributes are not compatible}} fxc-error {{X3048: matrix types cannot be both column_major and row_major}} */
     //row_major column_major snorm float2x3 g_row_col_sno_init_scalar = 1.0f;    /* expected-error {{'row_major' and 'column_major' attributes are not compatible}} fxc-error {{X3048: matrix types cannot be both column_major and row_major}} */
     //row_major column_major snorm unorm float2x3 g_row_col_sno_uno_init_scalar = 1.0f;    /* expected-error {{'row_major' and 'column_major' attributes are not compatible}} expected-error {{'unorm' and 'snorm' attributes are not compatible}} fxc-error {{X3000: syntax error: unexpected token 'unorm'}} */

@@ -11,8 +11,8 @@ define void @mainDS() {
   %1 = call float @dx.op.domainLocation.f32(i32 105, i8 0)  ; DomainLocation(component)
   %2 = call float @dx.op.domainLocation.f32(i32 105, i8 1)  ; DomainLocation(component)
   %3 = call float @dx.op.domainLocation.f32(i32 105, i8 2)  ; DomainLocation(component)
-  %4 = call i32 @dx.op.getGroupWaveIndex(i32 -2147483647)  ; GetGroupWaveIndex()
-  %5 = call i32 @dx.op.getGroupWaveCount(i32 -2147483646)  ; GetGroupWaveCount()
+  %4 = call i32 @dx.op.getGroupWaveIndex(i32 312)  ; GetGroupWaveIndex()
+  %5 = call i32 @dx.op.getGroupWaveCount(i32 313)  ; GetGroupWaveCount()
   %6 = call float @dx.op.loadInput.f32(i32 4, i32 0, i32 0, i8 0, i32 0)  ; LoadInput(inputSigId,rowIndex,colIndex,gsVertexAxis)
   %7 = insertelement <4 x float> undef, float %6, i64 0
   %8 = call float @dx.op.loadInput.f32(i32 4, i32 0, i32 0, i8 1, i32 0)  ; LoadInput(inputSigId,rowIndex,colIndex,gsVertexAxis)

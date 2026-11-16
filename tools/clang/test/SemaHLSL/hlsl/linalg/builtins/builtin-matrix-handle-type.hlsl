@@ -1,15 +1,22 @@
 // REQUIRES: dxil-1-10
 // RUN: %dxc -T lib_6_10 -verify %s
 
+// expected-error@+1 {{global variable 'global_handle' containing a linear algebra matrix must be declared 'static'}}
 __builtin_LinAlgMatrix global_handle;
 
 static __builtin_LinAlgMatrix static_handle;
 
+// expected-error@+1 {{object '__builtin_LinAlgMatrix' is not allowed in groupshared variables}}
 groupshared __builtin_LinAlgMatrix gs_handle;
 
+// expected-error@+1 {{object '__builtin_LinAlgMatrix' is not allowed in groupshared variables}}
+static groupshared __builtin_LinAlgMatrix static_gs_handle;
+
+// expected-error@+1 {{global variable 'array' containing a linear algebra matrix must be declared 'static'}}
 __builtin_LinAlgMatrix array[2];
 
 cbuffer CB {
+  // expected-error@+1 {{global variable 'cb_handle' containing a linear algebra matrix must be declared 'static'}}
   __builtin_LinAlgMatrix cb_handle;
 };
 
@@ -17,7 +24,7 @@ struct S {
   __builtin_LinAlgMatrix handle;
 };
 
-S s;
+static S s;
 
 void f1(__builtin_LinAlgMatrix m);
 

@@ -3869,6 +3869,8 @@ HLSLReservedKeyword:
       break;
     // HLSL Change Starts
     case tok::kw_shared:
+      Diag(Tok.getLocation(), diag::warn_hlsl_2026_removed_keyword) << "shared";
+      [[fallthrough]];
     case tok::kw_groupshared:
     case tok::kw_uniform:
     case tok::kw_in:
@@ -3949,7 +3951,11 @@ HLSLReservedKeyword:
       isStorageClass = true;
       break;
     case tok::kw_mutable:
-      if (getLangOpts().HLSL) { goto HLSLReservedKeyword; } // HLSL Change - reserved for HLSL
+      // HLSL Change Begin - HLSL 202x supports mutable class data members.
+      if (getLangOpts().HLSL &&
+          getLangOpts().HLSLVersion < hlsl::LangStd::v202x)
+        goto HLSLReservedKeyword;
+      // HLSL Change End
       isInvalid = DS.SetStorageClassSpec(Actions, DeclSpec::SCS_mutable, Loc,
                                          PrevSpec, DiagID, Policy);
       isStorageClass = true;
@@ -4168,6 +4174,8 @@ HLSLReservedKeyword:
         if (Tok.is(tok::kw_union) || Tok.is(tok::kw___interface)) {
           goto HLSLReservedKeyword;
         }
+        if (Tok.is(tok::kw_interface))
+          Diag(Tok.getLocation(), diag::warn_hlsl_2026_removed_interface);
       }
       // HLSL Change Ends
       tok::TokenKind Kind = Tok.getKind();
@@ -6107,12 +6115,11 @@ void Parser::ParseDirectDeclarator(Declarator &D) {
     //   been expanded or contains auto; otherwise, it is parsed as part of the
     //   parameter-declaration-clause.
     if (Tok.is(tok::ellipsis) && D.getCXXScopeSpec().isEmpty() &&
-        !getLangOpts().HLSL && // HLSL Change: do not support ellipsis
+        !getLangOpts().HLSLDisallowsVariadicTemplates() && // HLSL Change
         !((D.getContext() == Declarator::PrototypeContext ||
            D.getContext() == Declarator::LambdaExprParameterContext ||
            D.getContext() == Declarator::BlockLiteralContext) &&
-          NextToken().is(tok::r_paren) &&
-          !D.hasGroupingParens() &&
+          NextToken().is(tok::r_paren) && !D.hasGroupingParens() &&
           !Actions.containsUnexpandedParameterPacks(D) &&
           D.getDeclSpec().getTypeSpecType() != TST_auto)) {
       SourceLocation EllipsisLoc = ConsumeToken();
@@ -6550,14 +6557,28 @@ void Parser::ParseFunctionDeclarator(Declarator &D,
       // with the pure-specifier in the same way.
 
       // Parse cv-qualifier-seq[opt].
+      // HLSL Change Starts
+      // HLSL only supports `const` here (HLSL 202x). Parse it directly because
+      // the HLSL path of ParseTypeQualifierListOpt is shared with other
+      // declarator contexts (e.g. array bounds) that must still reject it.
+      if (getLangOpts().HLSL) {
+        while (Tok.is(tok::kw_const)) {
+          const char *PrevSpec = nullptr;
+          unsigned DiagID = 0;
+          SourceLocation Loc = Tok.getLocation();
+          if (DS.SetTypeQual(DeclSpec::TQ_const, Loc, PrevSpec, DiagID,
+                             getLangOpts()))
+            Diag(Loc, DiagID) << PrevSpec;
+          DS.SetRangeEnd(ConsumeToken());
+        }
+        if (DS.getConstSpecLoc().isValid() &&
+            getLangOpts().HLSLVersion < hlsl::LangStd::v202x)
+          Diag(DS.getConstSpecLoc(), diag::err_hlsl_const_member_function_202x);
+      }
+      // HLSL Change Ends
       ParseTypeQualifierListOpt(DS, AR_NoAttributesParsed,
                                 /*AtomicAllowed*/ false);
       if (!DS.getSourceRange().getEnd().isInvalid()) {
-        // HLSL Change Starts
-        if (getLangOpts().HLSL) {
-          Diag(DS.getSourceRange().getEnd(), diag::err_hlsl_unsupported_construct) << "qualifiers";
-        }
-        // HLSL Change Ends
         EndLoc = DS.getSourceRange().getEnd();
         ConstQualifierLoc = DS.getConstSpecLoc();
         VolatileQualifierLoc = DS.getVolatileSpecLoc();

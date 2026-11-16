@@ -545,10 +545,12 @@ bool Sema::CheckParameterPacksForExpansion(
   std::pair<IdentifierInfo *, SourceLocation> FirstPack;
   bool HaveFirstPack = false;
 
-  if (getLangOpts().HLSL) {
+  // HLSL Change Begin - Disallow variadic templates in HLSL 2021.
+  if (getLangOpts().HLSLDisallowsVariadicTemplates()) {
     Diag(EllipsisLoc, diag::err_hlsl_variadic_templates);
     return true;
   }
+  // HLSL Change End
 
   for (ArrayRef<UnexpandedParameterPack>::iterator i = Unexpanded.begin(),
                                                  end = Unexpanded.end();

@@ -193,6 +193,8 @@ static const UINT INTRIN_FLAG_READ_ONLY = 1U << 0;
 static const UINT INTRIN_FLAG_READ_NONE = 1U << 1;
 static const UINT INTRIN_FLAG_IS_WAVE = 1U << 2;
 static const UINT INTRIN_FLAG_STATIC_MEMBER = 1U << 3;
+// Method mutates the object (cannot be called on a const-qualified instance).
+static const UINT INTRIN_FLAG_MUTABLE_METHOD = 1U << 4;
 
 struct HLSL_INTRINSIC {
   UINT Op;                 // Intrinsic Op ID

@@ -17,7 +17,7 @@ target triple = "dxil-ms-dx"
 define void @test_candidate_trianglepos_invalid_handle() #0 {
 entry:
   ; Using undef as rayQueryHandle should fail validation
-  %0 = call <9 x float> @dx.op.rayQuery_CandidateTriangleObjectPosition.f32(i32 -2147483640, i32 undef)
+  %0 = call <9 x float> @dx.op.rayQuery_CandidateTriangleObjectPosition.f32(i32 319, i32 undef)
   ret void
 }
 
@@ -25,7 +25,7 @@ entry:
 define void @test_committed_trianglepos_invalid_handle() #0 {
 entry:
   ; Using undef as rayQueryHandle should fail validation
-  %0 = call <9 x float> @dx.op.rayQuery_CommittedTriangleObjectPosition.f32(i32 -2147483639, i32 undef)
+  %0 = call <9 x float> @dx.op.rayQuery_CommittedTriangleObjectPosition.f32(i32 320, i32 undef)
   ret void
 }
 
@@ -33,7 +33,7 @@ entry:
 define void @test_hitobject_trianglepos_undef() #0 {
 entry:
   ; Using undef HitObject should fail validation
-  %0 = call <9 x float> @dx.op.hitObject_TriangleObjectPosition.f32(i32 -2147483638, %dx.types.HitObject undef)
+  %0 = call <9 x float> @dx.op.hitObject_TriangleObjectPosition.f32(i32 321, %dx.types.HitObject undef)
   ret void
 }
 

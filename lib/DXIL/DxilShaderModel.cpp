@@ -66,6 +66,7 @@ bool ShaderModel::IsValidForDxil() const {
     case 8:
     case 9:
     case 10:
+    case 11:
       // VALRULE-TEXT:END
       return true;
     case kOfflineMinor:
@@ -95,107 +96,116 @@ const ShaderModel *ShaderModel::Get(Kind Kind, unsigned Major, unsigned Minor) {
       {1544, 12},    // ps_6_8
       {1545, 13},    // ps_6_9
       {1546, 14},    // ps_6_10
-      {66560, 15},   // vs_4_0
-      {66561, 16},   // vs_4_1
-      {66816, 17},   // vs_5_0
-      {66817, 18},   // vs_5_1
-      {67072, 19},   // vs_6_0
-      {67073, 20},   // vs_6_1
-      {67074, 21},   // vs_6_2
-      {67075, 22},   // vs_6_3
-      {67076, 23},   // vs_6_4
-      {67077, 24},   // vs_6_5
-      {67078, 25},   // vs_6_6
-      {67079, 26},   // vs_6_7
-      {67080, 27},   // vs_6_8
-      {67081, 28},   // vs_6_9
-      {67082, 29},   // vs_6_10
-      {132096, 30},  // gs_4_0
-      {132097, 31},  // gs_4_1
-      {132352, 32},  // gs_5_0
-      {132353, 33},  // gs_5_1
-      {132608, 34},  // gs_6_0
-      {132609, 35},  // gs_6_1
-      {132610, 36},  // gs_6_2
-      {132611, 37},  // gs_6_3
-      {132612, 38},  // gs_6_4
-      {132613, 39},  // gs_6_5
-      {132614, 40},  // gs_6_6
-      {132615, 41},  // gs_6_7
-      {132616, 42},  // gs_6_8
-      {132617, 43},  // gs_6_9
-      {132618, 44},  // gs_6_10
-      {197632, 45},  // hs_4_0
-      {197633, 46},  // hs_4_1
-      {197888, 47},  // hs_5_0
-      {197889, 48},  // hs_5_1
-      {198144, 49},  // hs_6_0
-      {198145, 50},  // hs_6_1
-      {198146, 51},  // hs_6_2
-      {198147, 52},  // hs_6_3
-      {198148, 53},  // hs_6_4
-      {198149, 54},  // hs_6_5
-      {198150, 55},  // hs_6_6
-      {198151, 56},  // hs_6_7
-      {198152, 57},  // hs_6_8
-      {198153, 58},  // hs_6_9
-      {198154, 59},  // hs_6_10
-      {263168, 60},  // ds_4_0
-      {263169, 61},  // ds_4_1
-      {263424, 62},  // ds_5_0
-      {263425, 63},  // ds_5_1
-      {263680, 64},  // ds_6_0
-      {263681, 65},  // ds_6_1
-      {263682, 66},  // ds_6_2
-      {263683, 67},  // ds_6_3
-      {263684, 68},  // ds_6_4
-      {263685, 69},  // ds_6_5
-      {263686, 70},  // ds_6_6
-      {263687, 71},  // ds_6_7
-      {263688, 72},  // ds_6_8
-      {263689, 73},  // ds_6_9
-      {263690, 74},  // ds_6_10
-      {328704, 75},  // cs_4_0
-      {328705, 76},  // cs_4_1
-      {328960, 77},  // cs_5_0
-      {328961, 78},  // cs_5_1
-      {329216, 79},  // cs_6_0
-      {329217, 80},  // cs_6_1
-      {329218, 81},  // cs_6_2
-      {329219, 82},  // cs_6_3
-      {329220, 83},  // cs_6_4
-      {329221, 84},  // cs_6_5
-      {329222, 85},  // cs_6_6
-      {329223, 86},  // cs_6_7
-      {329224, 87},  // cs_6_8
-      {329225, 88},  // cs_6_9
-      {329226, 89},  // cs_6_10
-      {394241, 90},  // lib_4_1
-      {394497, 91},  // lib_5_1
-      {394753, 92},  // lib_6_1
-      {394754, 93},  // lib_6_2
-      {394755, 94},  // lib_6_3
-      {394756, 95},  // lib_6_4
-      {394757, 96},  // lib_6_5
-      {394758, 97},  // lib_6_6
-      {394759, 98},  // lib_6_7
-      {394760, 99},  // lib_6_8
-      {394761, 100}, // lib_6_9
-      {394762, 101}, // lib_6_10
+      {1547, 15},    // ps_6_11
+      {66560, 16},   // vs_4_0
+      {66561, 17},   // vs_4_1
+      {66816, 18},   // vs_5_0
+      {66817, 19},   // vs_5_1
+      {67072, 20},   // vs_6_0
+      {67073, 21},   // vs_6_1
+      {67074, 22},   // vs_6_2
+      {67075, 23},   // vs_6_3
+      {67076, 24},   // vs_6_4
+      {67077, 25},   // vs_6_5
+      {67078, 26},   // vs_6_6
+      {67079, 27},   // vs_6_7
+      {67080, 28},   // vs_6_8
+      {67081, 29},   // vs_6_9
+      {67082, 30},   // vs_6_10
+      {67083, 31},   // vs_6_11
+      {132096, 32},  // gs_4_0
+      {132097, 33},  // gs_4_1
+      {132352, 34},  // gs_5_0
+      {132353, 35},  // gs_5_1
+      {132608, 36},  // gs_6_0
+      {132609, 37},  // gs_6_1
+      {132610, 38},  // gs_6_2
+      {132611, 39},  // gs_6_3
+      {132612, 40},  // gs_6_4
+      {132613, 41},  // gs_6_5
+      {132614, 42},  // gs_6_6
+      {132615, 43},  // gs_6_7
+      {132616, 44},  // gs_6_8
+      {132617, 45},  // gs_6_9
+      {132618, 46},  // gs_6_10
+      {132619, 47},  // gs_6_11
+      {197632, 48},  // hs_4_0
+      {197633, 49},  // hs_4_1
+      {197888, 50},  // hs_5_0
+      {197889, 51},  // hs_5_1
+      {198144, 52},  // hs_6_0
+      {198145, 53},  // hs_6_1
+      {198146, 54},  // hs_6_2
+      {198147, 55},  // hs_6_3
+      {198148, 56},  // hs_6_4
+      {198149, 57},  // hs_6_5
+      {198150, 58},  // hs_6_6
+      {198151, 59},  // hs_6_7
+      {198152, 60},  // hs_6_8
+      {198153, 61},  // hs_6_9
+      {198154, 62},  // hs_6_10
+      {198155, 63},  // hs_6_11
+      {263168, 64},  // ds_4_0
+      {263169, 65},  // ds_4_1
+      {263424, 66},  // ds_5_0
+      {263425, 67},  // ds_5_1
+      {263680, 68},  // ds_6_0
+      {263681, 69},  // ds_6_1
+      {263682, 70},  // ds_6_2
+      {263683, 71},  // ds_6_3
+      {263684, 72},  // ds_6_4
+      {263685, 73},  // ds_6_5
+      {263686, 74},  // ds_6_6
+      {263687, 75},  // ds_6_7
+      {263688, 76},  // ds_6_8
+      {263689, 77},  // ds_6_9
+      {263690, 78},  // ds_6_10
+      {263691, 79},  // ds_6_11
+      {328704, 80},  // cs_4_0
+      {328705, 81},  // cs_4_1
+      {328960, 82},  // cs_5_0
+      {328961, 83},  // cs_5_1
+      {329216, 84},  // cs_6_0
+      {329217, 85},  // cs_6_1
+      {329218, 86},  // cs_6_2
+      {329219, 87},  // cs_6_3
+      {329220, 88},  // cs_6_4
+      {329221, 89},  // cs_6_5
+      {329222, 90},  // cs_6_6
+      {329223, 91},  // cs_6_7
+      {329224, 92},  // cs_6_8
+      {329225, 93},  // cs_6_9
+      {329226, 94},  // cs_6_10
+      {329227, 95},  // cs_6_11
+      {394241, 96},  // lib_4_1
+      {394497, 97},  // lib_5_1
+      {394753, 98},  // lib_6_1
+      {394754, 99},  // lib_6_2
+      {394755, 100}, // lib_6_3
+      {394756, 101}, // lib_6_4
+      {394757, 102}, // lib_6_5
+      {394758, 103}, // lib_6_6
+      {394759, 104}, // lib_6_7
+      {394760, 105}, // lib_6_8
+      {394761, 106}, // lib_6_9
+      {394762, 107}, // lib_6_10
+      {394763, 108}, // lib_6_11
       // lib_6_x is for offline linking only, and relaxes restrictions
-      {394767, 102}, // lib_6_x
-      {853509, 103}, // ms_6_5
-      {853510, 104}, // ms_6_6
-      {853511, 105}, // ms_6_7
-      {853512, 106}, // ms_6_8
-      {853513, 107}, // ms_6_9
-      {853514, 108}, // ms_6_10
-      {919045, 109}, // as_6_5
-      {919046, 110}, // as_6_6
-      {919047, 111}, // as_6_7
-      {919048, 112}, // as_6_8
-      {919049, 113}, // as_6_9
-      {919050, 114}, // as_6_10
+      {394767, 109}, // lib_6_x
+      {853509, 110}, // ms_6_5
+      {853510, 111}, // ms_6_6
+      {853511, 112}, // ms_6_7
+      {853512, 113}, // ms_6_8
+      {853513, 114}, // ms_6_9
+      {853514, 115}, // ms_6_10
+      {853515, 116}, // ms_6_11
+      {919045, 117}, // as_6_5
+      {919046, 118}, // as_6_6
+      {919047, 119}, // as_6_7
+      {919048, 120}, // as_6_8
+      {919049, 121}, // as_6_9
+      {919050, 122}, // as_6_10
+      {919051, 123}, // as_6_11
   };
   unsigned hash = (unsigned)Kind << 16 | Major << 8 | Minor;
   auto pred = [](const std::pair<unsigned, unsigned> &elem, unsigned val) {
@@ -341,6 +351,9 @@ void ShaderModel::GetDxilVersion(unsigned &DxilMajor,
   case 10:
     DxilMinor = 10;
     break;
+  case 11:
+    DxilMinor = 11;
+    break;
   case kOfflineMinor: // Always update this to highest dxil version
     DxilMinor = DXIL::kDxilMinor;
     break;
@@ -393,6 +406,9 @@ void ShaderModel::GetMinValidatorVersion(unsigned &ValMajor,
     break;
   case 10:
     ValMinor = 10;
+    break;
+  case 11:
+    ValMinor = 11;
     break;
   // VALRULE-TEXT:END
   case kOfflineMinor:
@@ -536,6 +552,7 @@ const ShaderModel ShaderModel::ms_ShaderModels[kNumShaderModels] = {
     SM(Kind::Pixel, 6, 8, "ps_6_8", 32, 8, true, true, UINT_MAX),
     SM(Kind::Pixel, 6, 9, "ps_6_9", 32, 8, true, true, UINT_MAX),
     SM(Kind::Pixel, 6, 10, "ps_6_10", 32, 8, true, true, UINT_MAX),
+    SM(Kind::Pixel, 6, 11, "ps_6_11", 32, 8, true, true, UINT_MAX),
     SM(Kind::Vertex, 4, 0, "vs_4_0", 16, 16, false, false, 0),
     SM(Kind::Vertex, 4, 1, "vs_4_1", 32, 32, false, false, 0),
     SM(Kind::Vertex, 5, 0, "vs_5_0", 32, 32, true, true, 64),
@@ -551,6 +568,7 @@ const ShaderModel ShaderModel::ms_ShaderModels[kNumShaderModels] = {
     SM(Kind::Vertex, 6, 8, "vs_6_8", 32, 32, true, true, UINT_MAX),
     SM(Kind::Vertex, 6, 9, "vs_6_9", 32, 32, true, true, UINT_MAX),
     SM(Kind::Vertex, 6, 10, "vs_6_10", 32, 32, true, true, UINT_MAX),
+    SM(Kind::Vertex, 6, 11, "vs_6_11", 32, 32, true, true, UINT_MAX),
     SM(Kind::Geometry, 4, 0, "gs_4_0", 16, 32, false, false, 0),
     SM(Kind::Geometry, 4, 1, "gs_4_1", 32, 32, false, false, 0),
     SM(Kind::Geometry, 5, 0, "gs_5_0", 32, 32, true, true, 64),
@@ -566,6 +584,7 @@ const ShaderModel ShaderModel::ms_ShaderModels[kNumShaderModels] = {
     SM(Kind::Geometry, 6, 8, "gs_6_8", 32, 32, true, true, UINT_MAX),
     SM(Kind::Geometry, 6, 9, "gs_6_9", 32, 32, true, true, UINT_MAX),
     SM(Kind::Geometry, 6, 10, "gs_6_10", 32, 32, true, true, UINT_MAX),
+    SM(Kind::Geometry, 6, 11, "gs_6_11", 32, 32, true, true, UINT_MAX),
     SM(Kind::Hull, 4, 0, "hs_4_0", 32, 32, false, false, 0),
     SM(Kind::Hull, 4, 1, "hs_4_1", 32, 32, false, false, 0),
     SM(Kind::Hull, 5, 0, "hs_5_0", 32, 32, true, true, 64),
@@ -581,6 +600,7 @@ const ShaderModel ShaderModel::ms_ShaderModels[kNumShaderModels] = {
     SM(Kind::Hull, 6, 8, "hs_6_8", 32, 32, true, true, UINT_MAX),
     SM(Kind::Hull, 6, 9, "hs_6_9", 32, 32, true, true, UINT_MAX),
     SM(Kind::Hull, 6, 10, "hs_6_10", 32, 32, true, true, UINT_MAX),
+    SM(Kind::Hull, 6, 11, "hs_6_11", 32, 32, true, true, UINT_MAX),
     SM(Kind::Domain, 4, 0, "ds_4_0", 32, 32, false, false, 0),
     SM(Kind::Domain, 4, 1, "ds_4_1", 32, 32, false, false, 0),
     SM(Kind::Domain, 5, 0, "ds_5_0", 32, 32, true, true, 64),
@@ -596,6 +616,7 @@ const ShaderModel ShaderModel::ms_ShaderModels[kNumShaderModels] = {
     SM(Kind::Domain, 6, 8, "ds_6_8", 32, 32, true, true, UINT_MAX),
     SM(Kind::Domain, 6, 9, "ds_6_9", 32, 32, true, true, UINT_MAX),
     SM(Kind::Domain, 6, 10, "ds_6_10", 32, 32, true, true, UINT_MAX),
+    SM(Kind::Domain, 6, 11, "ds_6_11", 32, 32, true, true, UINT_MAX),
     SM(Kind::Compute, 4, 0, "cs_4_0", 0, 0, false, false, 0),
     SM(Kind::Compute, 4, 1, "cs_4_1", 0, 0, false, false, 0),
     SM(Kind::Compute, 5, 0, "cs_5_0", 0, 0, true, true, 64),
@@ -611,6 +632,7 @@ const ShaderModel ShaderModel::ms_ShaderModels[kNumShaderModels] = {
     SM(Kind::Compute, 6, 8, "cs_6_8", 0, 0, true, true, UINT_MAX),
     SM(Kind::Compute, 6, 9, "cs_6_9", 0, 0, true, true, UINT_MAX),
     SM(Kind::Compute, 6, 10, "cs_6_10", 0, 0, true, true, UINT_MAX),
+    SM(Kind::Compute, 6, 11, "cs_6_11", 0, 0, true, true, UINT_MAX),
     SM(Kind::Library, 4, 1, "lib_4_1", 0, 0, false, false, 0),
     SM(Kind::Library, 5, 1, "lib_5_1", 0, 0, true, true, 64),
     SM(Kind::Library, 6, 1, "lib_6_1", 0, 0, true, true, UINT_MAX),
@@ -623,6 +645,7 @@ const ShaderModel ShaderModel::ms_ShaderModels[kNumShaderModels] = {
     SM(Kind::Library, 6, 8, "lib_6_8", 0, 0, true, true, UINT_MAX),
     SM(Kind::Library, 6, 9, "lib_6_9", 0, 0, true, true, UINT_MAX),
     SM(Kind::Library, 6, 10, "lib_6_10", 0, 0, true, true, UINT_MAX),
+    SM(Kind::Library, 6, 11, "lib_6_11", 0, 0, true, true, UINT_MAX),
     // lib_6_x is for offline linking only, and relaxes restrictions
     SM(Kind::Library, 6, kOfflineMinor, "lib_6_x", 32, 32, true, true,
        UINT_MAX),
@@ -632,12 +655,14 @@ const ShaderModel ShaderModel::ms_ShaderModels[kNumShaderModels] = {
     SM(Kind::Mesh, 6, 8, "ms_6_8", 0, 0, true, true, UINT_MAX),
     SM(Kind::Mesh, 6, 9, "ms_6_9", 0, 0, true, true, UINT_MAX),
     SM(Kind::Mesh, 6, 10, "ms_6_10", 0, 0, true, true, UINT_MAX),
+    SM(Kind::Mesh, 6, 11, "ms_6_11", 0, 0, true, true, UINT_MAX),
     SM(Kind::Amplification, 6, 5, "as_6_5", 0, 0, true, true, UINT_MAX),
     SM(Kind::Amplification, 6, 6, "as_6_6", 0, 0, true, true, UINT_MAX),
     SM(Kind::Amplification, 6, 7, "as_6_7", 0, 0, true, true, UINT_MAX),
     SM(Kind::Amplification, 6, 8, "as_6_8", 0, 0, true, true, UINT_MAX),
     SM(Kind::Amplification, 6, 9, "as_6_9", 0, 0, true, true, UINT_MAX),
     SM(Kind::Amplification, 6, 10, "as_6_10", 0, 0, true, true, UINT_MAX),
+    SM(Kind::Amplification, 6, 11, "as_6_11", 0, 0, true, true, UINT_MAX),
     // Values before Invalid must remain sorted by Kind, then Major, then Minor.
     SM(Kind::Invalid, 0, 0, "invalid", 0, 0, false, false, 0),
     // VALRULE-TEXT:END

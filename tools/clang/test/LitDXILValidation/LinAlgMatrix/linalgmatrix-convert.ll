@@ -17,43 +17,43 @@ define void @main() {
   %4 = extractvalue %dx.types.ResRet.i32 %3, 0
 
   ; okay
-  %5 = call <8 x i32> @dx.op.linAlgConvert.v8i32.v8i32(i32 -2147483618, <8 x i32> <i32 9, i32 8, i32 7, i32 6, i32 5, i32 4, i32 3, i32 2>, i32 4, i32 4)  ; LinAlgConvert(inputVector,inputInterpretation,outputInterpretation)
+  %5 = call <8 x i32> @dx.op.linAlgConvert.v8i32.v8i32(i32 341, <8 x i32> <i32 9, i32 8, i32 7, i32 6, i32 5, i32 4, i32 3, i32 2>, i32 4, i32 4)  ; LinAlgConvert(inputVector,inputInterpretation,outputInterpretation)
 
   ; CHECK: Function: main: error: InputInterpretation of LinAlgConvert must be an immediate constant.
   ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgConvert.v8i32.v8i32
-  %6 = call <8 x i32> @dx.op.linAlgConvert.v8i32.v8i32(i32 -2147483618, <8 x i32> <i32 9, i32 8, i32 7, i32 6, i32 5, i32 4, i32 3, i32 2>, i32 %4, i32 4)  ; LinAlgConvert(inputVector,inputInterpretation,outputInterpretation)
+  %6 = call <8 x i32> @dx.op.linAlgConvert.v8i32.v8i32(i32 341, <8 x i32> <i32 9, i32 8, i32 7, i32 6, i32 5, i32 4, i32 3, i32 2>, i32 %4, i32 4)  ; LinAlgConvert(inputVector,inputInterpretation,outputInterpretation)
 
   ; CHECK-NEXT: Function: main: error: OutputInterpretation of LinAlgConvert must be an immediate constant.
   ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgConvert.v8i32.v8i32
-  %7 = call <8 x i32> @dx.op.linAlgConvert.v8i32.v8i32(i32 -2147483618, <8 x i32> <i32 9, i32 8, i32 7, i32 6, i32 5, i32 4, i32 3, i32 2>, i32 4, i32 %4)  ; LinAlgConvert(inputVector,inputInterpretation,outputInterpretation)
+  %7 = call <8 x i32> @dx.op.linAlgConvert.v8i32.v8i32(i32 341, <8 x i32> <i32 9, i32 8, i32 7, i32 6, i32 5, i32 4, i32 3, i32 2>, i32 4, i32 %4)  ; LinAlgConvert(inputVector,inputInterpretation,outputInterpretation)
 
   ; CHECK-NEXT: Function: main: error: Component type 'Invalid' from InputInterpretation not allowed in LinAlg Matrix operations.
   ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgConvert.v8i32.v8i32
-  %8 = call <8 x i32> @dx.op.linAlgConvert.v8i32.v8i32(i32 -2147483618, <8 x i32> <i32 9, i32 8, i32 7, i32 6, i32 5, i32 4, i32 3, i32 2>, i32 0, i32 4)  ; LinAlgConvert(inputVector,inputInterpretation,outputInterpretation)
+  %8 = call <8 x i32> @dx.op.linAlgConvert.v8i32.v8i32(i32 341, <8 x i32> <i32 9, i32 8, i32 7, i32 6, i32 5, i32 4, i32 3, i32 2>, i32 0, i32 4)  ; LinAlgConvert(inputVector,inputInterpretation,outputInterpretation)
 
   ; CHECK-NEXT: Function: main: error: Component type 'Invalid' from OutputInterpretation not allowed in LinAlg Matrix operations.
   ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgConvert.v8i32.v8i32
-  %9 = call <8 x i32> @dx.op.linAlgConvert.v8i32.v8i32(i32 -2147483618, <8 x i32> <i32 9, i32 8, i32 7, i32 6, i32 5, i32 4, i32 3, i32 2>, i32 4, i32 0)  ; LinAlgConvert(inputVector,inputInterpretation,outputInterpretation)
+  %9 = call <8 x i32> @dx.op.linAlgConvert.v8i32.v8i32(i32 341, <8 x i32> <i32 9, i32 8, i32 7, i32 6, i32 5, i32 4, i32 3, i32 2>, i32 4, i32 0)  ; LinAlgConvert(inputVector,inputInterpretation,outputInterpretation)
 
   ; CHECK-NEXT: Function: main: error: Input vector element type 'float' must match InputInterpretation matrix element type 'I32'.
   ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgConvert.v8i32.v8f32
-  %10 = call <8 x i32> @dx.op.linAlgConvert.v8i32.v8f32(i32 -2147483618, <8 x float> <float 9.000000e+00, float 8.000000e+00, float 7.000000e+00, float 6.000000e+00, float 5.000000e+00, float 4.000000e+00, float 3.000000e+00, float 2.000000e+00>, i32 4, i32 4)  ; LinAlgConvert(inputVector,inputInterpretation,outputInterpretation)
+  %10 = call <8 x i32> @dx.op.linAlgConvert.v8i32.v8f32(i32 341, <8 x float> <float 9.000000e+00, float 8.000000e+00, float 7.000000e+00, float 6.000000e+00, float 5.000000e+00, float 4.000000e+00, float 3.000000e+00, float 2.000000e+00>, i32 4, i32 4)  ; LinAlgConvert(inputVector,inputInterpretation,outputInterpretation)
 
   ; CHECK-NEXT: Function: main: error: Output vector element type 'i32' must match OutputInterpretation matrix element type 'F32'.
   ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgConvert.v8i32.v8f32
-  %11 = call <8 x i32> @dx.op.linAlgConvert.v8i32.v8f32(i32 -2147483618, <8 x float> <float 9.000000e+00, float 8.000000e+00, float 7.000000e+00, float 6.000000e+00, float 5.000000e+00, float 4.000000e+00, float 3.000000e+00, float 2.000000e+00>, i32 9, i32 9)  ; LinAlgConvert(inputVector,inputInterpretation,outputInterpretation)
+  %11 = call <8 x i32> @dx.op.linAlgConvert.v8i32.v8f32(i32 341, <8 x float> <float 9.000000e+00, float 8.000000e+00, float 7.000000e+00, float 6.000000e+00, float 5.000000e+00, float 4.000000e+00, float 3.000000e+00, float 2.000000e+00>, i32 9, i32 9)  ; LinAlgConvert(inputVector,inputInterpretation,outputInterpretation)
 
   ; CHECK-NEXT: Function: main: error: Input vector element type 'float' must be i32 for InputInterpretation matrix with non-native element type 'F8_E4M3FN'.
   ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgConvert.v32i32.v8f32
-  %12 = call <32 x i32> @dx.op.linAlgConvert.v32i32.v8f32(i32 -2147483618, <8 x float> <float 9.000000e+00, float 8.000000e+00, float 7.000000e+00, float 6.000000e+00, float 5.000000e+00, float 4.000000e+00, float 3.000000e+00, float 2.000000e+00>, i32 21, i32 4)  ; LinAlgConvert(inputVector,inputInterpretation,outputInterpretation)
+  %12 = call <32 x i32> @dx.op.linAlgConvert.v32i32.v8f32(i32 341, <8 x float> <float 9.000000e+00, float 8.000000e+00, float 7.000000e+00, float 6.000000e+00, float 5.000000e+00, float 4.000000e+00, float 3.000000e+00, float 2.000000e+00>, i32 21, i32 4)  ; LinAlgConvert(inputVector,inputInterpretation,outputInterpretation)
 
   ; CHECK-NEXT: Function: main: error: Return vector size '32' must match size '2' derived from input vector size and type.
   ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgConvert.v32i32.v8f32
-  %13 = call <32 x i32> @dx.op.linAlgConvert.v32i32.v8f32(i32 -2147483618, <8 x float> <float 9.000000e+00, float 8.000000e+00, float 7.000000e+00, float 6.000000e+00, float 5.000000e+00, float 4.000000e+00, float 3.000000e+00, float 2.000000e+00>, i32 9, i32 21)  ; LinAlgConvert(inputVector,inputInterpretation,outputInterpretation)
+  %13 = call <32 x i32> @dx.op.linAlgConvert.v32i32.v8f32(i32 341, <8 x float> <float 9.000000e+00, float 8.000000e+00, float 7.000000e+00, float 6.000000e+00, float 5.000000e+00, float 4.000000e+00, float 3.000000e+00, float 2.000000e+00>, i32 9, i32 21)  ; LinAlgConvert(inputVector,inputInterpretation,outputInterpretation)
 
   ; CHECK-NEXT: Function: main: error: Output vector element type 'float' must be i32 for OutputInterpretation matrix with non-native element type 'F8_E4M3FN'.
   ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgConvert.v2f32.v8f32
-  %14 = call <2 x float> @dx.op.linAlgConvert.v2f32.v8f32(i32 -2147483618, <8 x float> <float 9.000000e+00, float 8.000000e+00, float 7.000000e+00, float 6.000000e+00, float 5.000000e+00, float 4.000000e+00, float 3.000000e+00, float 2.000000e+00>, i32 9, i32 21)  ; LinAlgConvert(inputVector,inputInterpretation,outputInterpretation)
+  %14 = call <2 x float> @dx.op.linAlgConvert.v2f32.v8f32(i32 341, <8 x float> <float 9.000000e+00, float 8.000000e+00, float 7.000000e+00, float 6.000000e+00, float 5.000000e+00, float 4.000000e+00, float 3.000000e+00, float 2.000000e+00>, i32 9, i32 21)  ; LinAlgConvert(inputVector,inputInterpretation,outputInterpretation)
 
   ; CHECK-NEXT: Validation failed.
   ret void

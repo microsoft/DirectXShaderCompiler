@@ -25,6 +25,7 @@
 #include "HlslTestUtils.h"
 
 #include <climits>
+#include <cmath>
 #include <cstring>
 #include <limits>
 #include <optional>
@@ -166,56 +167,54 @@ static bool applyApplicability(linalg_test::Applicability Result,
   return false;
 }
 
-// MatrixConstruction is queried with a full {M,K,N} multiply shape, but a
-// single tile only pins two of those extents and leaves the third free:
-//
-//   Use          Tile   Pinned          Free
-//   A            MxK    M=Rows, K=Cols  N
-//   B            KxN    K=Rows, N=Cols  M
-//   Accumulator  MxN    M=Rows, N=Cols  K
-//
-// The runtime accepts a shape when every extent is a positive multiple of a
-// native tile, so the free extent must be swept until one is accepted. Missing
-// an extent silently skips a test case, which is the dangerous direction, so
-// the sweep is exhaustive rather than a sampled set: native tile extents are
-// not required to be powers of two, and the specification's own example cites
-// an 8x32x16 tile. Wave-Scope Matrix Dimensions guarantees at least one
-// reported shape whose largest component is <= 16 for types of 16 bits or
-// larger (<= 256 bits for smaller types), so a sweep to 128 is certain to
-// reach a native extent whenever the device supports the type at all. Each
-// probe is a CheckFeatureSupport call with no GPU work, so the sweep is cheap.
-static constexpr UINT MaxFreeExtentProbe = 128;
+static std::optional<linalg_abi::D3D12_LINEAR_ALGEBRA_MATRIX_USE>
+toCapabilityMatrixUse(MatrixUse Use) {
+  switch (Use) {
+  case MatrixUse::A:
+    return linalg_abi::D3D12_LINEAR_ALGEBRA_MATRIX_USE_A;
+  case MatrixUse::B:
+    return linalg_abi::D3D12_LINEAR_ALGEBRA_MATRIX_USE_B;
+  case MatrixUse::Accumulator:
+    return linalg_abi::D3D12_LINEAR_ALGEBRA_MATRIX_USE_ACCUMULATOR;
+  }
+  return std::nullopt;
+}
+
+static std::optional<linalg_abi::D3D12_LINEAR_ALGEBRA_MATRIX_SCOPE>
+toCapabilityMatrixScope(MatrixScope Scope) {
+  switch (Scope) {
+  case MatrixScope::Thread:
+    return linalg_abi::D3D12_LINEAR_ALGEBRA_MATRIX_SCOPE_THREAD;
+  case MatrixScope::Wave:
+    return linalg_abi::D3D12_LINEAR_ALGEBRA_MATRIX_SCOPE_WAVE;
+  case MatrixScope::ThreadGroup:
+    return linalg_abi::D3D12_LINEAR_ALGEBRA_MATRIX_SCOPE_THREADGROUP;
+  }
+  return std::nullopt;
+}
 
 static HRESULT supportsMatrixShape(
     ID3D12Device *Device, linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE Type,
-    UINT WaveSize, MatrixUse Use, UINT Rows, UINT Columns, bool &Supported) {
+    UINT WaveSize, UINT ThreadGroupSize, MatrixUse Use, MatrixScope Scope,
+    UINT Rows, UINT Columns, bool &Supported) {
   Supported = false;
-  for (UINT FreeExtent = 1; FreeExtent <= MaxFreeExtentProbe; ++FreeExtent) {
-    linalg_abi::D3D12_LINEAR_ALGEBRA_MATRIX_SHAPE Shape;
-    switch (Use) {
-    case MatrixUse::A:
-      Shape = {Rows, Columns, FreeExtent};
-      break;
-    case MatrixUse::B:
-      Shape = {FreeExtent, Rows, Columns};
-      break;
-    case MatrixUse::Accumulator:
-      Shape = {Rows, FreeExtent, Columns};
-      break;
-    default:
-      return E_INVALIDARG;
-    }
+  const auto CapabilityUse = toCapabilityMatrixUse(Use);
+  const auto CapabilityScope = toCapabilityMatrixScope(Scope);
+  if (!Device || !CapabilityUse.has_value() || !CapabilityScope.has_value())
+    return E_INVALIDARG;
 
-    linalg_test::MatrixConstructionSupport Construction;
-    const HRESULT HR = linalg_test::queryMatrixConstruction(
-        Device, {Type, WaveSize, Shape}, Construction);
-    if (FAILED(HR))
-      return HR;
-    if (Construction.supported()) {
-      Supported = true;
-      return S_OK;
-    }
-  }
+  linalg_test::MatrixConstructionSupport Construction;
+  const HRESULT HR = linalg_test::queryMatrixConstruction(Device,
+                                                          {Type,
+                                                           *CapabilityUse,
+                                                           *CapabilityScope,
+                                                           WaveSize,
+                                                           ThreadGroupSize,
+                                                           {Rows, Columns}},
+                                                          Construction);
+  if (FAILED(HR))
+    return HR;
+  Supported = Construction.supported();
   return S_OK;
 }
 
@@ -303,9 +302,15 @@ static HRESULT collectMatrixConstructionWaveSizes(
 
     bool AllRolesSupported = true;
     for (const MatrixUse Use : Uses) {
+      const UINT QueryWaveSize = WaveSize;
+      const UINT QueryThreadGroupSize =
+          Params.Scope == MatrixScope::ThreadGroup
+              ? static_cast<UINT>(Params.NumThreads)
+              : 0;
       bool ShapeSupported = false;
-      HR = supportsMatrixShape(Device, *DataType, WaveSize, Use, Params.M,
-                               Params.N, ShapeSupported);
+      HR = supportsMatrixShape(Device, *DataType, QueryWaveSize,
+                               QueryThreadGroupSize, Use, Params.Scope,
+                               Params.M, Params.N, ShapeSupported);
       if (FAILED(HR))
         return HR;
       if (!ShapeSupported) {
@@ -526,24 +531,28 @@ static HRESULT selectWaveMatMulWaveSize(ID3D12Device *Device,
         WaveSize > static_cast<UINT>(Params.NumThreads))
       continue;
 
-    linalg_abi::D3D12_LINEAR_ALGEBRA_MATRIX_SHAPE Shape = {};
-    Shape.M = Params.M;
-    Shape.K = K;
-    Shape.N = Params.N;
-
-    // A multiply pins all three extents, so the construction query names the
-    // exact {M,K,N} shape instead of sweeping a free extent per operand. One
-    // answer covers all three operands, because a supported shape means A
-    // (MxK), B (KxN) and the accumulator (MxN) can all be constructed.
-    linalg_test::MatrixConstructionSupport Construction;
-    HR = linalg_test::queryMatrixConstruction(
-        Device, {*DataType, WaveSize, Shape}, Construction);
+    bool ASupported = false;
+    HR = supportsMatrixShape(Device, *DataType, WaveSize, 0, MatrixUse::A,
+                             MatrixScope::Wave, Params.M, K, ASupported);
     if (FAILED(HR))
       return HR;
-    if (!Construction.supported())
+    bool BSupported = false;
+    HR = supportsMatrixShape(Device, *DataType, WaveSize, 0, MatrixUse::B,
+                             MatrixScope::Wave, K, Params.N, BSupported);
+    if (FAILED(HR))
+      return HR;
+    bool AccumulatorSupported = false;
+    HR = supportsMatrixShape(Device, *DataType, WaveSize, 0,
+                             MatrixUse::Accumulator, MatrixScope::Wave,
+                             Params.M, Params.N, AccumulatorSupported);
+    if (FAILED(HR))
+      return HR;
+    if (!ASupported || !BSupported || !AccumulatorSupported)
       continue;
 
     linalg_test::WaveMatrixMultiplySupport Support;
+    const linalg_abi::D3D12_LINEAR_ALGEBRA_MATRIX_SHAPE Shape = {Params.M, K,
+                                                                 Params.N};
     HR = linalg_test::queryWaveMatrixMultiply(
         Device, {{WaveSize, *DataType, *DataType, *DataType}, Shape}, Support);
     if (FAILED(HR))
@@ -613,7 +622,7 @@ enum class ComparisonMode {
   // Every mode compares encoded component bits exactly. Implementation freedom
   // is expressed by enumerating the permitted results rather than by an Epsilon
   // or Ulp tolerance, so a conforming result must match a candidate bit for
-  // bit.
+  // bit. Float matrix multiply results are the exception; see roundedMatch.
   Exact,
   PermittedResults,
   Excluded,
@@ -1157,6 +1166,35 @@ zeroElementsOutsideView(const TypedMatrix &Source,
 }
 
 template <typename T>
+static bool roundedMatch(const T &Actual, const T &Expected, MatrixDim = 0) {
+  return ComponentTraits<T>::exactMatch(Actual, Expected);
+}
+
+// Float matrix multiply results need not be correctly rounded. Accept K + 2
+// ULPs of the expected value for F32, since error grows with the K-term dot
+// product, and 4 ULPs for F16. ULPs are of max(|expected|, 1.0) so results near
+// zero are not held to a tighter bound. Every bound stays below 1, the smallest
+// step between the integer-valued test results. Inf and NaN must match.
+static bool roundedMatch(double Actual, double Expected, int Precision,
+                         double Ulps) {
+  if (!std::isfinite(Actual) || !std::isfinite(Expected))
+    return Actual == Expected || (std::isnan(Actual) && std::isnan(Expected));
+  int Exponent;
+  std::frexp(std::max(std::fabs(Expected), 1.0), &Exponent);
+  return std::fabs(Actual - Expected) <= std::ldexp(Ulps, Exponent - Precision);
+}
+
+static bool roundedMatch(const float &Actual, const float &Expected,
+                         MatrixDim K) {
+  return roundedMatch(Actual, Expected, 24, K + 2.0);
+}
+
+static bool roundedMatch(const HLSLHalf_t &Actual, const HLSLHalf_t &Expected,
+                         MatrixDim = 0) {
+  return roundedMatch(float(Actual), float(Expected), 11, 4.0);
+}
+
+template <typename T>
 static bool exactMatrixMatch(const TypedMatrix &Actual,
                              const TypedMatrix &Expected,
                              size_t &FirstMismatch) {
@@ -1601,18 +1639,23 @@ static std::string buildCompilerArgs(const MatrixParams &Params,
   SS << " -DLAYOUT=" << static_cast<int>(Params.Layout);
   SS << " -DELEM_SIZE=" << static_cast<int>(elementSize(Params.CompType));
   SS << " -DNUMTHREADS=" << Params.NumThreads;
+  SS << " -DFILL_INPUT_IS_SIGNED=true";
   switch (Params.CompType) {
   case ComponentType::F16:
     SS << " -DELEM_TYPE=half";
+    SS << " -DELEM_IS_SIGNED=true";
     break;
   case ComponentType::F32:
     SS << " -DELEM_TYPE=float";
+    SS << " -DELEM_IS_SIGNED=true";
     break;
   case ComponentType::I32:
     SS << " -DELEM_TYPE=int";
+    SS << " -DELEM_IS_SIGNED=true";
     break;
   case ComponentType::U32:
     SS << " -DELEM_TYPE=uint";
+    SS << " -DELEM_IS_SIGNED=false";
     break;
   default:
     VERIFY_IS_TRUE(false, "Unsupported LinAlg component type");
@@ -1679,6 +1722,28 @@ static bool verifyHalfBuffer(const HLSLHalf_t *Actual,
     }
   }
   return Success;
+}
+
+// Packed results compared with roundedMatch; only float types get a tolerance.
+template <typename Variant>
+static bool verifyRoundedValues(const void *Actual, const Variant &Expected,
+                                MatrixDim K) {
+  return std::visit(
+      [Actual, K](const auto &Values) {
+        using T = typename std::decay<decltype(Values)>::type::value_type;
+        const T *ActualValues = static_cast<const T *>(Actual);
+        for (size_t I = 0; I < Values.size(); ++I) {
+          if (cpu_oracle::roundedMatch(ActualValues[I], Values[I], K))
+            continue;
+          hlsl_test::LogErrorFmt(
+              L"Mismatch at index %zu: actual=%s, expected=%s", I,
+              cpu_oracle::ComponentTraits<T>::format(ActualValues[I]).c_str(),
+              cpu_oracle::ComponentTraits<T>::format(Values[I]).c_str());
+          return false;
+        }
+        return true;
+      },
+      Expected);
 }
 
 static bool verifyComponentBuffer(ComponentType CompType, const void *Actual,
@@ -1936,6 +2001,10 @@ struct CaseData {
   bool LoadFromMulOptimal = false;
   // An interpreted bias is only expressible through the public dx::linalg path.
   bool BiasFromMemory = false;
+  // When set, the vector is loaded as F32 and converted to InputInterpretation
+  // on the device. InterpretedVectorValues then holds the converted values.
+  bool ConvertFromF32 = false;
+  std::vector<float> ConvertSourceValues;
   std::vector<int64_t> MatrixValues;
   std::vector<int64_t> InterpretedVectorValues;
   std::vector<int64_t> BiasValues;
@@ -2296,6 +2365,9 @@ static bool isCaseValid(const CaseData &Case) {
   if (isPackedByteVector(Case.VectorInputType) &&
       Case.InputInterpretation != Case.VectorInputType)
     return false;
+  if (Case.ConvertFromF32 &&
+      (Case.ConvertSourceValues.size() != Case.N || Case.hasBias()))
+    return false;
 
   // Bias values are present exactly when a bias type is declared.
   if (Case.hasBias() != !Case.BiasValues.empty())
@@ -2324,6 +2396,8 @@ static bool isCaseValid(const CaseData &Case) {
 
 static std::optional<std::vector<BYTE>>
 encodeVectorBuffer(const CaseData &Case) {
+  if (Case.ConvertFromF32)
+    return encodeNativeVector(Case.ConvertSourceValues);
   if (isPackedByteVector(Case.VectorInputType))
     return encodePackedVector(Case.VectorInputType,
                               Case.InterpretedVectorValues);
@@ -2381,6 +2455,8 @@ static std::optional<std::string> buildCompilerArgs(const CaseData &Case) {
   Args << " -DOUTPUT_TYPE=" << OutputType;
   Args << " -DOUTPUT_SIZE=" << componentByteSize(Case.ResultType).value_or(0);
   Args << " -DOUTPUT_SIGNED=" << (Case.OutputSigned ? 1 : 0);
+  if (Case.ConvertFromF32)
+    Args << " -DCONVERT_SRC_TYPE=" << static_cast<int>(ComponentType::F32);
   if (Case.hasBias()) {
     Args << " -DBIAS_INTERP=" << static_cast<int>(Case.BiasInputType);
     Args << " -DBIAS_STORAGE_TYPE=" << BiasStorageType;
@@ -2441,7 +2517,7 @@ static const char MatVecMulShader[] = R"(
       [[__LinAlgMatrix_Attributes(
         MATRIX_COMP_TYPE, M_DIM, N_DIM, USE_A, SCOPE_THREAD)]]
       Mat;
-    __builtin_LinAlg_MatrixLoadFromDescriptor(
+    dx::__builtin_LinAlg_MatrixLoadFromDescriptor(
       Mat, MatrixInput, 0, MATRIX_STRIDE, MATRIX_LAYOUT, 128);
 
     vector<INPUT_STORAGE_TYPE, INPUT_STORAGE_COUNT> InVec;
@@ -2451,7 +2527,7 @@ static const char MatVecMulShader[] = R"(
     }
 
     vector<OUTPUT_TYPE, M_DIM> OutVec;
-    __builtin_LinAlg_MatrixVectorMultiply(
+    dx::__builtin_LinAlg_MatrixVectorMultiply(
       OutVec, Mat, OUTPUT_SIGNED, InVec, INPUT_INTERP);
 
     for (uint I = 0; I < M_DIM; ++I) {
@@ -2475,7 +2551,7 @@ static const char MatVecMulAddShader[] = R"(
       [[__LinAlgMatrix_Attributes(
         MATRIX_COMP_TYPE, M_DIM, N_DIM, USE_A, SCOPE_THREAD)]]
       Mat;
-    __builtin_LinAlg_MatrixLoadFromDescriptor(
+    dx::__builtin_LinAlg_MatrixLoadFromDescriptor(
       Mat, MatrixInput, 0, MATRIX_STRIDE, MATRIX_LAYOUT, 128);
 
     vector<INPUT_STORAGE_TYPE, INPUT_STORAGE_COUNT> InVec;
@@ -2490,7 +2566,7 @@ static const char MatVecMulAddShader[] = R"(
     }
 
     vector<OUTPUT_TYPE, M_DIM> OutVec;
-    __builtin_LinAlg_MatrixVectorMultiplyAdd(
+    dx::__builtin_LinAlg_MatrixVectorMultiplyAdd(
       OutVec, Mat, OUTPUT_SIGNED, InVec, INPUT_INTERP, BiasVec);
 
     for (uint I = 0; I < M_DIM; ++I) {
@@ -2526,6 +2602,40 @@ static const char MatVecMulAddMemoryBiasShader[] = R"(
 
     vector<OUTPUT_TYPE, M_DIM> OutVec =
       MultiplyAdd<OUTPUT_TYPE>(Mat, InVec, BiasRef);
+
+    for (uint I = 0; I < M_DIM; ++I) {
+      Output.Store<OUTPUT_TYPE>(I * OUTPUT_SIZE, OutVec[I]);
+    }
+  }
+)";
+
+static const char MatVecMulConvertedShader[] = R"(
+  #define USE_A 0
+  #define SCOPE_THREAD 0
+
+  ByteAddressBuffer MatrixInput : register(t0);
+  ByteAddressBuffer VectorInput : register(t1);
+  RWByteAddressBuffer Output : register(u2);
+
+  [numthreads(1, 1, 1)]
+  void main() {
+    __builtin_LinAlgMatrix
+      [[__LinAlgMatrix_Attributes(
+        MATRIX_COMP_TYPE, M_DIM, N_DIM, USE_A, SCOPE_THREAD)]]
+      Mat;
+    dx::__builtin_LinAlg_MatrixLoadFromDescriptor(
+      Mat, MatrixInput, 0, MATRIX_STRIDE, MATRIX_LAYOUT, 128);
+
+    vector<float, N_DIM> Source;
+    for (uint I = 0; I < N_DIM; ++I)
+      Source[I] = VectorInput.Load<float>(I * 4);
+
+    vector<INPUT_STORAGE_TYPE, INPUT_STORAGE_COUNT> InVec;
+    dx::__builtin_LinAlg_Convert(InVec, Source, CONVERT_SRC_TYPE, INPUT_INTERP);
+
+    vector<OUTPUT_TYPE, M_DIM> OutVec;
+    dx::__builtin_LinAlg_MatrixVectorMultiply(
+      OutVec, Mat, OUTPUT_SIGNED, InVec, INPUT_INTERP);
 
     for (uint I = 0; I < M_DIM; ++I) {
       Output.Store<OUTPUT_TYPE>(I * OUTPUT_SIZE, OutVec[I]);
@@ -2607,7 +2717,8 @@ static void runCase(ID3D12Device *Device, dxc::SpecificDllLoader &DxcSupport,
       !ExpectedOutput || !Args)
     return;
 
-  const char *Shader = MatVecMulShader;
+  const char *Shader =
+      Case.ConvertFromF32 ? MatVecMulConvertedShader : MatVecMulShader;
   if (Case.hasBias())
     Shader =
         Case.BiasFromMemory ? MatVecMulAddMemoryBiasShader : MatVecMulAddShader;
@@ -2858,6 +2969,22 @@ static CaseData makeFP8MatrixCase(ComponentType MatrixType) {
   return Case;
 }
 
+static CaseData makeMatchedFP8Case(ComponentType Type, bool HasBias) {
+  CaseData Case = makeFP8MatrixCase(Type);
+  Case.VectorInputType = Type;
+  Case.InputInterpretation = Type;
+  if (HasBias) {
+    Case.BiasInputType = ComponentType::F16;
+    Case.BiasValues = {-5, 7, 3, -9};
+  }
+  Case.PublicRule =
+      HasBias
+          ? L"Exact matched FP8 matrix-vector dot products plus independent "
+            L"F16 bias"
+          : L"Exact matched FP8 matrix-vector dot products";
+  return Case;
+}
+
 static CaseData makeFP8VectorCase(ComponentType VectorType) {
   CaseData Case = {};
   Case.MatrixType = ComponentType::F16;
@@ -2913,6 +3040,91 @@ static void reportMissingConversionApi(LPCWSTR CaseName) {
 #endif // !defined(HLSLEXEC_LINALG_HOST_API)
 
 } // namespace matvec_interpretation
+
+namespace cpu_oracle {
+
+struct FloatToIntCase {
+  float Input;
+  int16_t Lower;
+  int16_t Upper;
+};
+
+static const std::vector<FloatToIntCase> F32ToI16Cases = {
+    {-40000.0f, -32768, -32768},
+    {-32768.5f, -32768, -32768},
+    {-2.5f, -3, -2},
+    {-1.5f, -2, -1},
+    {1.5f, 1, 2},
+    {2.5f, 2, 3},
+    {32767.5f, 32767, 32767},
+    {40000.0f, 32767, 32767},
+    {-2.75f, -3, -3},
+    {-2.25f, -2, -2},
+    {-1.75f, -2, -2},
+    {-1.25f, -1, -1},
+    {1.25f, 1, 1},
+    {1.75f, 2, 2},
+    {2.25f, 2, 2},
+    {2.75f, 3, 3},
+    {-255.5f, -256, -255},
+    {255.5f, 255, 256},
+    {-32767.5f, -32768, -32767},
+    {32766.5f, 32766, 32767},
+    {-0.5f, -1, 0},
+    {0.5f, 0, 1},
+    {-0.0f, 0, 0},
+    {0.0f, 0, 0},
+    {-std::numeric_limits<float>::infinity(), -32768, -32768},
+    {std::numeric_limits<float>::infinity(), 32767, 32767},
+    {-std::numeric_limits<float>::quiet_NaN(), 0, 0},
+    {std::numeric_limits<float>::quiet_NaN(), 0, 0},
+    {-3.25f, -3, -3},
+    {-3.75f, -4, -4},
+    {3.25f, 3, 3},
+    {3.75f, 4, 4},
+};
+
+static bool isNearestSaturatedI16(float Input, int16_t Actual) {
+  if (std::isnan(Input))
+    return Actual == 0;
+  if (Input <= std::numeric_limits<int16_t>::min())
+    return Actual == std::numeric_limits<int16_t>::min();
+  if (Input >= std::numeric_limits<int16_t>::max())
+    return Actual == std::numeric_limits<int16_t>::max();
+  return std::abs(Input - static_cast<float>(Actual)) <= 0.5f;
+}
+
+struct ByteRange {
+  int Lower;
+  int Upper;
+};
+
+// Permitted results of an I8 or U8 conversion under proposal 0035: integers
+// saturate, floats round to nearest with either tie neighbour allowed, then
+// saturate, and NaN becomes zero.
+static ByteRange permittedByteConversion(double Input, bool Signed) {
+  const int Min = Signed ? std::numeric_limits<int8_t>::min() : 0;
+  const int Max = Signed ? std::numeric_limits<int8_t>::max()
+                         : std::numeric_limits<uint8_t>::max();
+  if (std::isnan(Input))
+    return {0, 0};
+  if (Input <= Min)
+    return {Min, Min};
+  if (Input >= Max)
+    return {Max, Max};
+  const double Floor = std::floor(Input);
+  const double Fraction = Input - Floor;
+  int Lower = static_cast<int>(Floor);
+  int Upper = Lower;
+  if (Fraction > 0.5)
+    Lower = Upper = Lower + 1;
+  else if (Fraction == 0.5)
+    Upper = Lower + 1;
+  return {std::max(Lower, Min), std::min(Upper, Max)};
+}
+
+} // namespace cpu_oracle
+
 // Harness self-check for the CPU oracle. Deliberately carries no Kits metadata
 // so HLK runs never select it; drivers are not certified against this class.
 class LinAlgCPUOracleTests {
@@ -2922,15 +3134,67 @@ public:
   END_TEST_CLASS()
 
   TEST_METHOD(ComponentByteSize);
+  TEST_METHOD(GroupSharedI8ByteEncoding);
   TEST_METHOD(TypedMatrixBufferRoundTrip);
   TEST_METHOD(MatrixProductOracle);
   TEST_METHOD(UntouchedByteVerification);
   TEST_METHOD(ViewBoundedElements);
   TEST_METHOD(ViewBoundedStoreBytes);
   TEST_METHOD(MatVecHostOracle);
+  TEST_METHOD(MatchedFP8MatVecHostOracle);
   TEST_METHOD(FP8HostOracle);
   TEST_METHOD(FP8MatrixValueEncoding);
+  TEST_METHOD(FloatToIntHostOracle);
 };
+
+void LinAlgCPUOracleTests::FloatToIntHostOracle() {
+  for (const cpu_oracle::FloatToIntCase &Case : cpu_oracle::F32ToI16Cases) {
+    bool Success = true;
+    for (int Candidate = std::numeric_limits<int16_t>::min();
+         Candidate <= std::numeric_limits<int16_t>::max(); ++Candidate) {
+      const bool Expected = Candidate >= Case.Lower && Candidate <= Case.Upper;
+      if (cpu_oracle::isNearestSaturatedI16(
+              Case.Input, static_cast<int16_t>(Candidate)) != Expected) {
+        hlsl_test::LogErrorFmt(
+            L"Float-to-I16 oracle: input=%g, candidate=%d, permitted=[%d,%d]",
+            static_cast<double>(Case.Input), Candidate, Case.Lower, Case.Upper);
+        Success = false;
+        break;
+      }
+    }
+    VERIFY_IS_TRUE(Success);
+  }
+
+  struct ByteCase {
+    double Input;
+    bool Signed;
+    int Lower;
+    int Upper;
+  };
+  const double Inf = std::numeric_limits<double>::infinity();
+  const ByteCase ByteCases[] = {
+      {-129.0, true, -128, -128}, {-128.5, true, -128, -128},
+      {-127.5, true, -128, -127}, {-2.5, true, -3, -2},
+      {-1.75, true, -2, -2},      {0.25, true, 0, 0},
+      {126.5, true, 126, 127},    {127.5, true, 127, 127},
+      {Inf, true, 127, 127},      {-Inf, true, -128, -128},
+      {std::nan(""), true, 0, 0}, {-0.5, false, 0, 0},
+      {0.5, false, 0, 1},         {254.5, false, 254, 255},
+      {255.5, false, 255, 255},   {4294967295.0, false, 255, 255},
+      {-Inf, false, 0, 0},        {std::nan(""), false, 0, 0},
+  };
+  for (const ByteCase &Case : ByteCases) {
+    const cpu_oracle::ByteRange Range =
+        cpu_oracle::permittedByteConversion(Case.Input, Case.Signed);
+    if (Range.Lower != Case.Lower || Range.Upper != Case.Upper)
+      hlsl_test::LogErrorFmt(
+          L"Byte conversion oracle: input=%g, signed=%u, actual=[%d,%d], "
+          L"expected=[%d,%d]",
+          Case.Input, Case.Signed, Range.Lower, Range.Upper, Case.Lower,
+          Case.Upper);
+    VERIFY_IS_TRUE(Range.Lower == Case.Lower && Range.Upper == Case.Upper);
+  }
+}
 
 void LinAlgCPUOracleTests::ComponentByteSize() {
   struct ComponentSizes {
@@ -3083,10 +3347,16 @@ void LinAlgCPUOracleTests::TypedMatrixBufferRoundTrip() {
   Params.Layout = MatrixLayout::RowMajor;
   Params.NumThreads = 4;
   Params.CompType = ComponentType::I32;
-  VERIFY_IS_TRUE(buildCompilerArgs(Params).find(" -DELEM_TYPE=int") !=
+  std::string I32Args = buildCompilerArgs(Params);
+  VERIFY_IS_TRUE(I32Args.find(" -DELEM_TYPE=int") != std::string::npos);
+  VERIFY_IS_TRUE(I32Args.find(" -DELEM_IS_SIGNED=true") != std::string::npos);
+  VERIFY_IS_TRUE(I32Args.find(" -DFILL_INPUT_IS_SIGNED=true") !=
                  std::string::npos);
   Params.CompType = ComponentType::U32;
-  VERIFY_IS_TRUE(buildCompilerArgs(Params).find(" -DELEM_TYPE=uint") !=
+  std::string U32Args = buildCompilerArgs(Params);
+  VERIFY_IS_TRUE(U32Args.find(" -DELEM_TYPE=uint") != std::string::npos);
+  VERIFY_IS_TRUE(U32Args.find(" -DELEM_IS_SIGNED=false") != std::string::npos);
+  VERIFY_IS_TRUE(U32Args.find(" -DFILL_INPUT_IS_SIGNED=true") !=
                  std::string::npos);
 }
 
@@ -3385,6 +3655,43 @@ void LinAlgCPUOracleTests::MatVecHostOracle() {
                  "Biased dot product oracle returned the wrong values");
 }
 
+void LinAlgCPUOracleTests::MatchedFP8MatVecHostOracle() {
+  using namespace matvec_interpretation;
+
+  const std::vector<BYTE> PackedE4M3FN = {0x38, 0xb8, 0x40, 0xc0, 0x44, 0xc4,
+                                          0x48, 0xc8, 0x38, 0x40, 0xb8, 0xc0,
+                                          0x4a, 0x38, 0xb8, 0x40};
+  const std::vector<BYTE> PackedE5M2 = {0x3c, 0xbc, 0x40, 0xc0, 0x42, 0xc2,
+                                        0x44, 0xc4, 0x3c, 0x40, 0xbc, 0xc0,
+                                        0x45, 0x3c, 0xbc, 0x40};
+
+  for (const ComponentType Type :
+       {ComponentType::F8_E4M3FN, ComponentType::F8_E5M2}) {
+    for (const bool HasBias : {false, true}) {
+      const CaseData Case = makeMatchedFP8Case(Type, HasBias);
+      VERIFY_IS_TRUE(isCaseValid(Case));
+      VERIFY_IS_TRUE(Case.M == 4 && Case.N == 16);
+      VERIFY_IS_TRUE(Case.MatrixType == Type && Case.VectorInputType == Type &&
+                     Case.InputInterpretation == Type);
+      VERIFY_IS_TRUE(Case.ResultType == ComponentType::F16);
+      VERIFY_IS_TRUE(Case.BiasInputType ==
+                     (HasBias ? ComponentType::F16 : ComponentType::Invalid));
+      VERIFY_IS_TRUE(Case.LoadFromMulOptimal);
+      VERIFY_IS_FALSE(Case.BiasFromMemory);
+
+      const std::vector<BYTE> &Packed =
+          Type == ComponentType::F8_E4M3FN ? PackedE4M3FN : PackedE5M2;
+      VERIFY_IS_TRUE(encodeVectorBuffer(Case) == Packed,
+                     "Packed FP8 vector differs from the hand-derived bytes");
+      const std::vector<int64_t> Expected =
+          HasBias ? std::vector<int64_t>({-24, 18, 33, -15})
+                  : std::vector<int64_t>({-19, 11, 30, -6});
+      VERIFY_IS_TRUE(calculateExpected(Case) == Expected,
+                     "Matched FP8 oracle differs from the hand-derived dots");
+    }
+  }
+}
+
 class LinAlgCapabilityTests {
 public:
   BEGIN_TEST_CLASS(LinAlgCapabilityTests)
@@ -3478,15 +3785,13 @@ void LinAlgCapabilityTests::CapabilityPolicyAndPredicates() {
 
   ThreadGroupMatrixMultiplySupport ThreadGroup = {
       linalg_abi::D3D12_LINEAR_ALGEBRA_MULTIPLICATION_SUPPORT_FLAG_SUPPORTED,
-      32,
-      128,
-      64,
   };
   VERIFY_IS_TRUE(ThreadGroup.valid());
-  VERIFY_IS_TRUE(ThreadGroup.supportsThreadGroupSize(64));
-  VERIFY_IS_FALSE(ThreadGroup.supportsThreadGroupSize(48));
-  ThreadGroup.PreferredThreadGroupSize = 48;
-  VERIFY_IS_FALSE(ThreadGroup.valid());
+  VERIFY_IS_TRUE(ThreadGroup.supported());
+  ThreadGroup.SupportFlags =
+      linalg_abi::D3D12_LINEAR_ALGEBRA_MULTIPLICATION_SUPPORT_FLAG_NONE;
+  VERIFY_IS_TRUE(ThreadGroup.valid());
+  VERIFY_IS_FALSE(ThreadGroup.supported());
   ThreadGroup = {
       static_cast<
           linalg_abi::D3D12_LINEAR_ALGEBRA_MULTIPLICATION_SUPPORT_FLAGS>(
@@ -3496,9 +3801,6 @@ void LinAlgCapabilityTests::CapabilityPolicyAndPredicates() {
           static_cast<UINT>(
               linalg_abi::
                   D3D12_LINEAR_ALGEBRA_MULTIPLICATION_SUPPORT_FLAG_TRANSPOSE)),
-      32,
-      128,
-      64,
   };
   VERIFY_IS_FALSE(ThreadGroup.valid());
 
@@ -3540,7 +3842,12 @@ void LinAlgCapabilityTests::CapabilityPolicyAndPredicates() {
   VERIFY_ARE_EQUAL(
       0u, static_cast<UINT>(linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE_NONE));
   MatrixConstructionQuery ConstructionQuery = {
-      linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT32, 32, {8, 8, 8}};
+      linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT32,
+      linalg_abi::D3D12_LINEAR_ALGEBRA_MATRIX_USE_A,
+      linalg_abi::D3D12_LINEAR_ALGEBRA_MATRIX_SCOPE_WAVE,
+      32,
+      0,
+      {8, 8}};
   WaveMatrixMultiplyInputs WaveInputs = {
       32,
       linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT16,
@@ -3551,6 +3858,7 @@ void LinAlgCapabilityTests::CapabilityPolicyAndPredicates() {
   ThreadGroupMatrixMultiplyQuery ThreadGroupQuery = {
       WaveInputs,
       {16, 16, 16},
+      64,
   };
   ThreadVectorMatrixMultiplyQuery ThreadVectorQuery = {
       linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT16,
@@ -3565,7 +3873,11 @@ void LinAlgCapabilityTests::CapabilityPolicyAndPredicates() {
   AtomicAccumulateStoreQuery AtomicQuery = {
       linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT16};
   VERIFY_ARE_EQUAL(32u, ConstructionQuery.WaveSize);
-  VERIFY_ARE_EQUAL(8u, ConstructionQuery.Shape.K);
+  VERIFY_ARE_EQUAL(linalg_abi::D3D12_LINEAR_ALGEBRA_MATRIX_USE_A,
+                   ConstructionQuery.Use);
+  VERIFY_ARE_EQUAL(linalg_abi::D3D12_LINEAR_ALGEBRA_MATRIX_SCOPE_WAVE,
+                   ConstructionQuery.Scope);
+  VERIFY_ARE_EQUAL(8u, ConstructionQuery.Shape.N);
   VERIFY_ARE_EQUAL(32u, WaveQuery.Inputs.WaveSize);
   VERIFY_ARE_EQUAL(16u, WaveQuery.Shape.M);
   VERIFY_ARE_EQUAL(32u, ThreadGroupQuery.WaveInputs.WaveSize);
@@ -3578,125 +3890,12 @@ void LinAlgCapabilityTests::CapabilityPolicyAndPredicates() {
                  linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT16);
 }
 
-class DxilConf_SM610_LinAlg {
+class LinAlgTestClassCommon {
 public:
-  BEGIN_TEST_CLASS(DxilConf_SM610_LinAlg)
-  TEST_CLASS_PROPERTY("Kits.TestName",
-                      "D3D12 - Shader Model 6.10 - LinAlg Matrix Operations")
-  TEST_CLASS_PROPERTY("Kits.TestId", "a1b2c3d4-e5f6-7890-abcd-ef1234567890")
-  TEST_CLASS_PROPERTY(
-      "Kits.Description",
-      "Validates SM 6.10 linear algebra matrix operations execute correctly")
-  TEST_CLASS_PROPERTY(
-      "Kits.Specification",
-      "Device.Graphics.D3D12.DXILCore.ShaderModel610.CoreRequirement")
-  TEST_METHOD_PROPERTY(L"Priority", L"0")
-  END_TEST_CLASS()
+  bool setupClass();
+  bool setupMethod();
 
-  TEST_CLASS_SETUP(setupClass);
-  TEST_METHOD_SETUP(setupMethod);
-
-  // Load/Store/Accumulate Descriptor
-  TEST_METHOD(LoadStoreDescriptor_Wave_16x16_F16);
-  TEST_METHOD(LoadStoreDescriptor_Wave_4x8_F16_RowMajorOffsetPadded);
-  TEST_METHOD(LoadStoreDescriptor_Wave_4x8_F32_RowMajorToColumnMajor);
-  TEST_METHOD(LoadStoreDescriptor_Wave_4x8_F16_RowMajorToColumnMajor);
-  TEST_METHOD(LoadDescriptorOOB_Wave_16x16_F16_PartialView);
-  TEST_METHOD(LoadDescriptorOOB_Wave_4x8_F16_OffsetPaddedPartialView);
-  TEST_METHOD(StoreDescriptorOOB_Wave_16x16_F16_PartialView);
-  TEST_METHOD(StoreDescriptorOOB_Wave_4x8_F16_OffsetPaddedPartialView);
-  TEST_METHOD(AccumulateDescriptorOOB_Wave_16x16_F16_PartialView);
-  TEST_METHOD(AccumulateDescriptorOOB_Wave_4x8_F16_OffsetPaddedPartialView);
-  TEST_METHOD(SplatStore_Wave_16x16_F16);
-  TEST_METHOD(AccumulateDescriptor_Wave_16x16_F16);
-  TEST_METHOD(AccumulateDescriptorContention_Wave_4x8_I32);
-  TEST_METHOD(AccumulateDescriptorContention_Wave_4x8_F32_OrderInvariant);
-
-  // Load/Store/Accumulate Memory
-  TEST_METHOD(LoadMemory_Wave_16x16_F16);
-  TEST_METHOD(StoreMemory_Wave_16x16_F16);
-  TEST_METHOD(AccumulateMemory_Wave_16x16_F16);
-  TEST_METHOD(LoadStoreMemory_Wave_4x8_F16_RowMajorOffsetPadded);
-  TEST_METHOD(LoadStoreMemory_Wave_4x8_F32_ColumnMajorOffsetPadded);
-  TEST_METHOD(LoadStoreMemory_ThreadGroup_4x8_F16);
-  TEST_METHOD(AccumulateMemoryContention_Wave_4x8_F16);
-  TEST_METHOD(AccumulateMemoryContention_Wave_4x8_I32);
-
-  // Element access
-  TEST_METHOD(ElementAccess_Wave_16x16_F16);
-  TEST_METHOD(ElementAccess_Wave_4x8_F32);
-  TEST_METHOD(ElementSet_Wave_16x16_F16);
-  TEST_METHOD(ElementGetOOB_Wave_4x8_F32);
-  TEST_METHOD(ElementSetOOB_Wave_4x8_F32);
-  TEST_METHOD(ElementGetOOB_Wave_16x16_F16);
-  TEST_METHOD(ElementSetOOB_Wave_16x16_F16);
-
-  // Cast/Convert
-  TEST_METHOD(CopyConvert_Wave_16x16_F16);
-  TEST_METHOD(CopyConvert_Wave_16x16_F16_Transpose);
-  TEST_METHOD(CopyConvert_Wave_4x8_F32_Transpose);
-
-  // Matrix Matrix Arithmetic
-  TEST_METHOD(MatMatMul_Wave_16x16x16_F16);
-  TEST_METHOD(MatMatMul_Wave_8x32x16_F16_NonUniform);
-  TEST_METHOD(MatMatMul_Wave_8x32x16_F16_ToF32);
-  TEST_METHOD(MatMatMul_Wave_16x16x16_I32);
-  TEST_METHOD(MatMatMulAccum_Wave_16x16x16_F16);
-  TEST_METHOD(MatMatMulAccum_Wave_8x32x16_F16_ToF32_NonUniform);
-  TEST_METHOD(MatMatMul_ThreadGroup_WaveScaled_F16_NonUniform);
-  TEST_METHOD(MatMatMulAccum_ThreadGroup_WaveScaled_F16_ToF32_NonUniform);
-  TEST_METHOD(MatMatMul_ThreadGroup_WaveScaled_I32);
-  TEST_METHOD(MatAccum_Wave_16x16_F16);
-  TEST_METHOD(MatAccum_Wave_8x32_F16_BUse_NonUniform);
-
-  // Matrix Vector Arithmetic
-  TEST_METHOD(MatVecMul_Thread_16x16_F16);
-  TEST_METHOD(MatVecMul_Thread_4x8_F32);
-  TEST_METHOD(MatVecMul_Thread_4x8_F16_PerThread);
-  TEST_METHOD(MatVecMul_Thread_4x8_F16_Divergent);
-  TEST_METHOD(MatVecMul_Thread_4x8_F16_NonUniform);
-  TEST_METHOD(MatVecMul_Thread_4x8_F16_ColumnMajor);
-  TEST_METHOD(MatVecMul_Thread_4x8_I8_Interpreted);
-  TEST_METHOD(MatVecMul_Thread_4x8_U8_Interpreted);
-  TEST_METHOD(MatVecMul_Thread_4x8_U32_UnsignedOutput);
-  TEST_METHOD(MatVecMul_Thread_4x16_F8_E4M3FN);
-  TEST_METHOD(MatVecMul_Thread_4x16_F8_E5M2);
-  TEST_METHOD(MatVecMul_Thread_4x8_F8_E4M3FN_Vector);
-  TEST_METHOD(MatVecMul_Thread_4x8_F8_E5M2_Vector);
-  TEST_METHOD(MatVecMulAdd_Thread_4x8_F8_E4M3FN_MemoryBias);
-  TEST_METHOD(MatVecMulAdd_Thread_4x8_F8_E5M2_MemoryBias);
-  TEST_METHOD(MatVecMulAdd_Thread_16x16_F16);
-  TEST_METHOD(MatVecMulAdd_Thread_4x8_F32);
-  TEST_METHOD(MatVecMulAdd_Thread_4x8_F16_IndependentBias);
-  TEST_METHOD(OuterProduct_Thread_16x16_F16);
-
-  // Query Accumulator Layout
-  TEST_METHOD(QueryAccumLayout);
-
-  // Convert
-  TEST_METHOD(Convert);
-
-  // CopyConvert / Convert coverage
-  TEST_METHOD(CopyConvert_Wave_4x8_F16_ToF32);
-  TEST_METHOD(CopyConvert_Wave_4x8_F32_ToF16_Transpose);
-  TEST_METHOD(Convert_I16_ToI32_Exact);
-  TEST_METHOD(Convert_I32_ToI16_Saturate);
-  TEST_METHOD(Convert_I32_ToU16_Saturate);
-  TEST_METHOD(Convert_U32_ToI16_Saturate);
-  TEST_METHOD(Convert_U32_ToU16_Saturate);
-  TEST_METHOD(Convert_F32_ToI16_RTNE_Saturate);
-  TEST_METHOD(Convert_I32_ToF16_RTNE);
-  TEST_METHOD(Convert_F16_ToE4M3FN_AndBack);
-  TEST_METHOD(Convert_F16_ToE5M2_AndBack);
-
-  // Vector Accumulate
-  TEST_METHOD(VectorAccumulateDescriptor_Thread_F16);
-  TEST_METHOD(VectorAccumulateDescriptor_Thread_F16_Length8_NonZero);
-  TEST_METHOD(VectorAccumulateDescriptor_Thread_F32_Length8_NonZero);
-  TEST_METHOD(VectorAccumulateDescriptorContention_Thread_F16);
-  TEST_METHOD(VectorAccumulateDescriptorContention_Thread_F32_OrderInvariant);
-
-private:
+protected:
   CComPtr<ID3D12Device> D3DDevice;
   dxc::SpecificDllLoader DxcSupport;
   bool VerboseLogging = false;
@@ -3707,7 +3906,340 @@ private:
       WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures};
 };
 
-bool DxilConf_SM610_LinAlg::setupClass() {
+class DxilConf_SM610_LinAlg_DescriptorIO : public LinAlgTestClassCommon {
+public:
+  BEGIN_TEST_CLASS(DxilConf_SM610_LinAlg_DescriptorIO)
+  TEST_CLASS_PROPERTY("Kits.TestName",
+                      "D3D12 - Shader Model 6.10 - LinAlg Descriptor I/O")
+  TEST_CLASS_PROPERTY("Kits.TestId", "e2f563d7-7fea-42c1-a841-3fb0decb43a7")
+  TEST_CLASS_PROPERTY("Kits.Description",
+                      "Validates SM 6.10 linear algebra descriptor operations")
+  TEST_CLASS_PROPERTY(
+      "Kits.Specification",
+      "Device.Graphics.D3D12.DXILCore.ShaderModel610.CoreRequirement")
+  TEST_METHOD_PROPERTY(L"Priority", L"0")
+  END_TEST_CLASS()
+
+  TEST_CLASS_SETUP(setupClass) { return LinAlgTestClassCommon::setupClass(); }
+  TEST_METHOD_SETUP(setupMethod) {
+    return LinAlgTestClassCommon::setupMethod();
+  }
+
+  TEST_METHOD(LoadStoreDescriptor_Wave_16x16_F16);
+  TEST_METHOD(LoadStoreDescriptor_Wave_4x8_F16_RowMajorOffsetPadded);
+  TEST_METHOD(LoadStoreDescriptor_Wave_16x16_F16_RowMajorOffsetPadded);
+  TEST_METHOD(LoadStoreDescriptor_Wave_4x8_F32_RowMajorToColumnMajor);
+  TEST_METHOD(LoadStoreDescriptor_Wave_4x8_F16_RowMajorToColumnMajor);
+  TEST_METHOD(LoadStoreDescriptor_Wave_16x32_F16_RowMajorToColumnMajor);
+  TEST_METHOD(LoadDescriptorOOB_Wave_16x16_F16_PartialView);
+  TEST_METHOD(LoadDescriptorOOB_Wave_4x8_F16_OffsetPaddedPartialView);
+  TEST_METHOD(LoadDescriptorOOB_Wave_16x16_F16_OffsetPaddedPartialView);
+  TEST_METHOD(StoreDescriptorOOB_Wave_16x16_F16_PartialView);
+  TEST_METHOD(StoreDescriptorOOB_Wave_4x8_F16_OffsetPaddedPartialView);
+  TEST_METHOD(StoreDescriptorOOB_Wave_16x16_F16_OffsetPaddedPartialView);
+  TEST_METHOD(AccumulateDescriptorOOB_Wave_16x16_F16_PartialView);
+  TEST_METHOD(AccumulateDescriptorOOB_Wave_4x8_F16_OffsetPaddedPartialView);
+  TEST_METHOD(AccumulateDescriptorOOB_Wave_16x16_F16_OffsetPaddedPartialView);
+  TEST_METHOD(SplatStore_Wave_16x16_F16);
+  TEST_METHOD(AccumulateDescriptor_Wave_16x16_F16);
+  TEST_METHOD(AccumulateDescriptorContention_Wave_4x8_I32);
+  TEST_METHOD(AccumulateDescriptorContention_Wave_4x8_F32_OrderInvariant);
+  TEST_METHOD(LoadStoreDescriptor_Wave_16x32_F32_RowMajorToColumnMajor);
+  TEST_METHOD(AccumulateDescriptorContention_Wave_16x16_I32);
+  TEST_METHOD(AccumulateDescriptorContention_Wave_16x16_F32_OrderInvariant);
+  TEST_METHOD(LoadStoreDescriptor_Wave_16x32_I8);
+  TEST_METHOD(LoadStoreDescriptor_Wave_16x32_U8);
+  TEST_METHOD(LoadStoreDescriptor_Wave_16x32_I8_RowMajorToColumnMajor);
+  TEST_METHOD(LoadStoreDescriptor_Wave_16x32_U8_RowMajorToColumnMajor);
+  TEST_METHOD(LoadStoreDescriptor_Wave_16x32_I8_RowMajorOffsetPadded);
+  TEST_METHOD(LoadStoreDescriptor_Wave_16x32_U8_RowMajorOffsetPadded);
+  TEST_METHOD(
+      LoadStoreDescriptor_Wave_32x16_I8_BUse_ColumnMajorToRowMajorOffsetPadded);
+  TEST_METHOD(
+      LoadStoreDescriptor_Wave_32x16_U8_BUse_ColumnMajorToRowMajorOffsetPadded);
+  TEST_METHOD(LoadStoreDescriptor_ThreadGroup_32x32_I8_128Threads);
+  TEST_METHOD(LoadStoreDescriptor_ThreadGroup_32x32_U8_128Threads);
+  TEST_METHOD(
+      LoadStoreDescriptor_ThreadGroup_64x32_I8_RowMajorToColumnMajor_256Threads);
+  TEST_METHOD(
+      LoadStoreDescriptor_ThreadGroup_64x32_U8_RowMajorToColumnMajor_256Threads);
+};
+
+class DxilConf_SM610_LinAlg_GroupSharedIO : public LinAlgTestClassCommon {
+public:
+  BEGIN_TEST_CLASS(DxilConf_SM610_LinAlg_GroupSharedIO)
+  TEST_CLASS_PROPERTY("Kits.TestName",
+                      "D3D12 - Shader Model 6.10 - LinAlg Group-Shared I/O")
+  TEST_CLASS_PROPERTY("Kits.TestId", "5b3cdf07-cfe4-43a4-be25-9ea41b854334")
+  TEST_CLASS_PROPERTY(
+      "Kits.Description",
+      "Validates SM 6.10 linear algebra group-shared memory operations")
+  TEST_CLASS_PROPERTY(
+      "Kits.Specification",
+      "Device.Graphics.D3D12.DXILCore.ShaderModel610.CoreRequirement")
+  TEST_METHOD_PROPERTY(L"Priority", L"0")
+  END_TEST_CLASS()
+
+  TEST_CLASS_SETUP(setupClass) { return LinAlgTestClassCommon::setupClass(); }
+  TEST_METHOD_SETUP(setupMethod) {
+    return LinAlgTestClassCommon::setupMethod();
+  }
+
+  TEST_METHOD(LoadMemory_Wave_16x16_F16);
+  TEST_METHOD(StoreMemory_Wave_16x16_F16);
+  TEST_METHOD(AccumulateMemory_Wave_16x16_F16);
+  TEST_METHOD(LoadStoreMemory_Wave_4x8_F16_RowMajorOffsetPadded);
+  TEST_METHOD(LoadStoreMemory_Wave_16x32_F16_RowMajorOffsetPadded);
+  TEST_METHOD(LoadStoreMemory_Wave_4x8_F32_ColumnMajorOffsetPadded);
+  TEST_METHOD(LoadStoreMemory_ThreadGroup_4x8_F16);
+  TEST_METHOD(LoadStoreMemory_ThreadGroup_WaveScaled_F16);
+  TEST_METHOD(MatMatMulAccumMemory_Wave_8x32x16_I8_ToI32_OffsetPadded);
+  TEST_METHOD(MatMatMulAccumMemory_Wave_16x32x16_I8_ToI32_OffsetPadded);
+  TEST_METHOD(AccumulateMemoryContention_Wave_4x8_F16);
+  TEST_METHOD(AccumulateMemoryContention_Wave_16x16_F16);
+  TEST_METHOD(AccumulateMemoryContention_Wave_4x8_I32);
+  TEST_METHOD(LoadStoreMemory_Wave_16x32_F32_ColumnMajorOffsetPadded);
+  TEST_METHOD(AccumulateMemoryContention_Wave_16x16_I32);
+  TEST_METHOD(LoadStoreMemory_ThreadGroup_32x16_F16_128Threads);
+  TEST_METHOD(LoadStoreMemory_ThreadGroup_64x32_F16_256Threads);
+};
+
+class DxilConf_SM610_LinAlg_ElementAccess : public LinAlgTestClassCommon {
+public:
+  BEGIN_TEST_CLASS(DxilConf_SM610_LinAlg_ElementAccess)
+  TEST_CLASS_PROPERTY("Kits.TestName",
+                      "D3D12 - Shader Model 6.10 - LinAlg Element Access")
+  TEST_CLASS_PROPERTY("Kits.TestId", "547bca7a-05e3-4c88-bbc9-8af88567fae3")
+  TEST_CLASS_PROPERTY(
+      "Kits.Description",
+      "Validates SM 6.10 linear algebra element access and matrix values")
+  TEST_CLASS_PROPERTY(
+      "Kits.Specification",
+      "Device.Graphics.D3D12.DXILCore.ShaderModel610.CoreRequirement")
+  TEST_METHOD_PROPERTY(L"Priority", L"0")
+  END_TEST_CLASS()
+
+  TEST_CLASS_SETUP(setupClass) { return LinAlgTestClassCommon::setupClass(); }
+  TEST_METHOD_SETUP(setupMethod) {
+    return LinAlgTestClassCommon::setupMethod();
+  }
+
+  TEST_METHOD(ElementAccess_Wave_16x16_F16);
+  TEST_METHOD(ElementAccess_Wave_4x8_F32);
+  TEST_METHOD(ElementSet_Wave_16x16_F16);
+  TEST_METHOD(MatrixCopy_Wave_16x16_F16);
+  TEST_METHOD(ElementGetOOB_Wave_4x8_F32);
+  TEST_METHOD(ElementSetOOB_Wave_4x8_F32);
+  TEST_METHOD(ElementGetOOB_Wave_16x16_F16);
+  TEST_METHOD(ElementSetOOB_Wave_16x16_F16);
+  TEST_METHOD(ElementAccess_Wave_16x16_F32);
+  TEST_METHOD(ElementGetOOB_Wave_16x16_F32);
+  TEST_METHOD(ElementSetOOB_Wave_16x16_F32);
+};
+
+class DxilConf_SM610_LinAlg_Conversion : public LinAlgTestClassCommon {
+public:
+  BEGIN_TEST_CLASS(DxilConf_SM610_LinAlg_Conversion)
+  TEST_CLASS_PROPERTY("Kits.TestName",
+                      "D3D12 - Shader Model 6.10 - LinAlg Conversion")
+  TEST_CLASS_PROPERTY("Kits.TestId", "77de35e0-610e-4f23-aee4-b2d7302a0d98")
+  TEST_CLASS_PROPERTY(
+      "Kits.Description",
+      "Validates SM 6.10 linear algebra copy and conversion operations")
+  TEST_CLASS_PROPERTY(
+      "Kits.Specification",
+      "Device.Graphics.D3D12.DXILCore.ShaderModel610.CoreRequirement")
+  TEST_METHOD_PROPERTY(L"Priority", L"0")
+  END_TEST_CLASS()
+
+  TEST_CLASS_SETUP(setupClass) { return LinAlgTestClassCommon::setupClass(); }
+  TEST_METHOD_SETUP(setupMethod) {
+    return LinAlgTestClassCommon::setupMethod();
+  }
+
+  TEST_METHOD(CopyConvert_Wave_16x16_F16);
+  TEST_METHOD(CopyConvert_Wave_16x16_F16_Transpose);
+  TEST_METHOD(CopyConvert_Wave_4x8_F32_Transpose);
+
+  TEST_METHOD(Convert);
+  TEST_METHOD(CopyConvert_Wave_4x8_F16_ToF32);
+  TEST_METHOD(CopyConvert_Wave_4x8_F32_ToF16_Transpose);
+  TEST_METHOD(Convert_I16_ToI32_Exact);
+  TEST_METHOD(Convert_I32_ToI16_Saturate);
+  TEST_METHOD(Convert_I32_ToU16_Saturate);
+  TEST_METHOD(Convert_U32_ToI16_Saturate);
+  TEST_METHOD(Convert_U32_ToU16_Saturate);
+  TEST_METHOD(Convert_F32_ToI16_RoundNearest_Saturate);
+  TEST_METHOD(Convert_F32_ToI16_NonFinite);
+  TEST_METHOD(Convert_I32_ToF16_RTNE);
+  TEST_METHOD(Convert_F16_ToE4M3FN_AndBack);
+  TEST_METHOD(Convert_F16_ToE5M2_AndBack);
+  TEST_METHOD(CopyConvert_Wave_16x16_F16_ToF32);
+  TEST_METHOD(CopyConvert_Wave_16x32_F32_ToF16_Transpose);
+  TEST_METHOD(CopyConvert_Wave_16x16_F32_ToF16_AUse);
+  TEST_METHOD(CopyConvert_Wave_16x16_F32_ToF16_BUse_Transpose);
+  TEST_METHOD(Convert_I32_ToI8_Saturate);
+  TEST_METHOD(Convert_I32_ToU8_Saturate);
+  TEST_METHOD(Convert_U32_ToI8_Saturate);
+  TEST_METHOD(Convert_U32_ToU8_Saturate);
+  TEST_METHOD(Convert_I16_ToI8_Saturate);
+  TEST_METHOD(Convert_I16_ToU8_Saturate);
+  TEST_METHOD(Convert_U16_ToI8_Saturate);
+  TEST_METHOD(Convert_U16_ToU8_Saturate);
+  TEST_METHOD(Convert_F32_ToI8_RoundNearest_Saturate);
+  TEST_METHOD(Convert_F32_ToU8_RoundNearest_Saturate);
+  TEST_METHOD(Convert_F32_ToI8_NonFinite);
+  TEST_METHOD(Convert_F32_ToU8_NonFinite);
+  TEST_METHOD(Convert_F16_ToI8_RoundNearest_Saturate);
+  TEST_METHOD(Convert_F16_ToU8_RoundNearest_Saturate);
+  TEST_METHOD(Convert_F16_ToI8_NonFinite);
+  TEST_METHOD(Convert_F16_ToU8_NonFinite);
+  TEST_METHOD(Convert_I32_ToI8_PartialWord);
+  TEST_METHOD(Convert_I32_ToU8_PartialWord);
+};
+
+class DxilConf_SM610_LinAlg_MatrixArithmetic : public LinAlgTestClassCommon {
+public:
+  BEGIN_TEST_CLASS(DxilConf_SM610_LinAlg_MatrixArithmetic)
+  TEST_CLASS_PROPERTY("Kits.TestName",
+                      "D3D12 - Shader Model 6.10 - LinAlg Matrix Arithmetic")
+  TEST_CLASS_PROPERTY("Kits.TestId", "fac50b41-fa60-4d37-8172-a8e90f88874b")
+  TEST_CLASS_PROPERTY(
+      "Kits.Description",
+      "Validates SM 6.10 linear algebra matrix arithmetic operations")
+  TEST_CLASS_PROPERTY(
+      "Kits.Specification",
+      "Device.Graphics.D3D12.DXILCore.ShaderModel610.CoreRequirement")
+  TEST_METHOD_PROPERTY(L"Priority", L"0")
+  END_TEST_CLASS()
+
+  TEST_CLASS_SETUP(setupClass) { return LinAlgTestClassCommon::setupClass(); }
+  TEST_METHOD_SETUP(setupMethod) {
+    return LinAlgTestClassCommon::setupMethod();
+  }
+
+  TEST_METHOD(MatMatMul_Wave_16x16x16_F16);
+  TEST_METHOD(MatMatMul_Wave_8x32x16_F16_NonUniform);
+  TEST_METHOD(MatMatMul_Wave_8x32x16_F16_ToF32);
+  TEST_METHOD(MatMatMul_Wave_16x32x16_F16_NonUniform);
+  TEST_METHOD(MatMatMul_Wave_16x32x16_F16_ToF32);
+  TEST_METHOD(MatMatMul_Wave_16x16x16_I32);
+  TEST_METHOD(MatMatMulAccum_Wave_16x16x16_F16);
+  TEST_METHOD(MatMatMulAccum_Wave_8x32x16_F16_ToF32_NonUniform);
+  TEST_METHOD(MatMatMulAccum_Wave_16x32x16_F16_ToF32_NonUniform);
+  TEST_METHOD(MatMatMulAccum_Wave_16x16x16_F16_ToF32_BLayouts);
+  TEST_METHOD(MatMatMul_ThreadGroup_WaveScaled_F16_NonUniform);
+  TEST_METHOD(MatMatMulAccum_ThreadGroup_WaveScaled_F16_ToF32_NonUniform);
+  TEST_METHOD(MatMatMul_ThreadGroup_WaveScaled_I32);
+  TEST_METHOD(MatAccum_Wave_16x16_F16);
+  TEST_METHOD(MatAccum_Wave_8x32_F16_BUse_NonUniform);
+  TEST_METHOD(MatAccum_Wave_16x32_F16_BUse_NonUniform);
+
+  TEST_METHOD(QueryAccumLayout);
+  TEST_METHOD(MatMatMul_Wave_16x16x8_F16);
+  TEST_METHOD(MatMatMul_Wave_16x16x8_F16_ToF32);
+  TEST_METHOD(MatMatMulAccum_Wave_16x16x8_F16_ToF32);
+  TEST_METHOD(MatMatMulAccum_Wave_16x32x8_I8_ToI32);
+  TEST_METHOD(MatMatMulAccum_Wave_16x32x8_U8_ToI32);
+  TEST_METHOD(MatMatMulAccum_Wave_32x32x32_I8_ToI32);
+  TEST_METHOD(MatMatMulAccum_Wave_32x32x32_U8_ToI32);
+  TEST_METHOD(MatMatMulAccum_ThreadGroup_32x16x32_F16_ToF32_128Threads);
+  TEST_METHOD(MatMatMulAccum_ThreadGroup_64x32x64_F16_ToF32_256Threads);
+  TEST_METHOD(MatMatMulAccum_ThreadGroup_32x32x32_I8_ToI32_128Threads);
+  TEST_METHOD(MatMatMulAccum_ThreadGroup_32x32x32_U8_ToI32_128Threads);
+  TEST_METHOD(MatMatMulAccum_ThreadGroup_64x32x64_I8_ToI32_256Threads);
+  TEST_METHOD(MatMatMulAccum_ThreadGroup_64x32x64_U8_ToI32_256Threads);
+  TEST_METHOD(MatMatMulAccum_Wave_16x32x8_I8_ToI32_BColumnMajor);
+  TEST_METHOD(MatMatMulAccum_Wave_16x32x8_U8_ToI32_BColumnMajor);
+  TEST_METHOD(
+      MatMatMulAccum_ThreadGroup_32x32x32_I8_ToI32_BColumnMajor_128Threads);
+  TEST_METHOD(
+      MatMatMulAccum_ThreadGroup_32x32x32_U8_ToI32_BColumnMajor_128Threads);
+};
+
+class DxilConf_SM610_LinAlg_MatVec : public LinAlgTestClassCommon {
+public:
+  BEGIN_TEST_CLASS(DxilConf_SM610_LinAlg_MatVec)
+  TEST_CLASS_PROPERTY("Kits.TestName",
+                      "D3D12 - Shader Model 6.10 - LinAlg Matrix-Vector")
+  TEST_CLASS_PROPERTY("Kits.TestId", "6c8121c0-42e3-4e10-a844-5f601a3f1a33")
+  TEST_CLASS_PROPERTY(
+      "Kits.Description",
+      "Validates SM 6.10 linear algebra matrix-vector operations")
+  TEST_CLASS_PROPERTY(
+      "Kits.Specification",
+      "Device.Graphics.D3D12.DXILCore.ShaderModel610.CoreRequirement")
+  TEST_METHOD_PROPERTY(L"Priority", L"0")
+  END_TEST_CLASS()
+
+  TEST_CLASS_SETUP(setupClass) { return LinAlgTestClassCommon::setupClass(); }
+  TEST_METHOD_SETUP(setupMethod) {
+    return LinAlgTestClassCommon::setupMethod();
+  }
+
+  TEST_METHOD(MatVecMul_Thread_16x16_F16);
+  TEST_METHOD(MatVecMul_Thread_4x8_F32);
+  TEST_METHOD(MatVecMul_Thread_4x8_F16_PerThread);
+  TEST_METHOD(MatVecMul_Thread_4x8_F16_Divergent);
+  TEST_METHOD(MatVecMul_Thread_4x8_F16_MatrixArray);
+  TEST_METHOD(MatVecMul_Thread_4x8_F16_MatrixPhi);
+  TEST_METHOD(MatVecMul_Thread_4x8_F16_MatrixSelect);
+  TEST_METHOD(MatVecMul_Thread_4x8_F16_NonUniform);
+  TEST_METHOD(MatVecMul_Thread_4x8_F16_ColumnMajor);
+  TEST_METHOD(MatVecMul_Thread_4x8_I8_Interpreted);
+  TEST_METHOD(MatVecMul_Thread_4x8_U8_Interpreted);
+  TEST_METHOD(MatVecMul_Thread_4x8_U32_UnsignedOutput);
+  TEST_METHOD(MatVecMul_Thread_4x16_F8_E4M3FN);
+  TEST_METHOD(MatVecMul_Thread_4x16_F8_E5M2);
+  TEST_METHOD(MatVecMul_Thread_4x16_F8_E4M3FN_MatchedInputs);
+  TEST_METHOD(MatVecMul_Thread_4x16_F8_E5M2_MatchedInputs);
+  TEST_METHOD(MatVecMul_Thread_4x8_F8_E4M3FN_Vector);
+  TEST_METHOD(MatVecMul_Thread_4x8_F8_E5M2_Vector);
+  TEST_METHOD(MatVecMulAdd_Thread_4x16_F8_E4M3FN_MatchedInputs);
+  TEST_METHOD(MatVecMulAdd_Thread_4x16_F8_E5M2_MatchedInputs);
+  TEST_METHOD(MatVecMulAdd_Thread_4x8_F8_E4M3FN_MemoryBias);
+  TEST_METHOD(MatVecMulAdd_Thread_4x8_F8_E5M2_MemoryBias);
+  TEST_METHOD(MatVecMulAdd_Thread_16x16_F16);
+  TEST_METHOD(MatVecMulAdd_Thread_4x8_F32);
+  TEST_METHOD(MatVecMulAdd_Thread_4x8_F16_IndependentBias);
+  TEST_METHOD(MatVecMul_Thread_4x8_I8_Converted);
+  TEST_METHOD(MatVecMul_Thread_4x8_U8_Converted);
+};
+
+class DxilConf_SM610_LinAlg_OuterVectorAccumulation
+    : public LinAlgTestClassCommon {
+public:
+  BEGIN_TEST_CLASS(DxilConf_SM610_LinAlg_OuterVectorAccumulation)
+  TEST_CLASS_PROPERTY(
+      "Kits.TestName",
+      "D3D12 - Shader Model 6.10 - LinAlg Outer and Vector Accumulation")
+  TEST_CLASS_PROPERTY("Kits.TestId", "c4d69b38-6eaa-4dde-bd46-e1e578ceae09")
+  TEST_CLASS_PROPERTY(
+      "Kits.Description",
+      "Validates SM 6.10 linear algebra outer-product and vector accumulation")
+  TEST_CLASS_PROPERTY(
+      "Kits.Specification",
+      "Device.Graphics.D3D12.DXILCore.ShaderModel610.CoreRequirement")
+  TEST_METHOD_PROPERTY(L"Priority", L"0")
+  END_TEST_CLASS()
+
+  TEST_CLASS_SETUP(setupClass) { return LinAlgTestClassCommon::setupClass(); }
+  TEST_METHOD_SETUP(setupMethod) {
+    return LinAlgTestClassCommon::setupMethod();
+  }
+
+  TEST_METHOD(OuterProduct_Thread_16x16_F16);
+  TEST_METHOD(VectorAccumulateDescriptor_Thread_F16);
+  TEST_METHOD(VectorAccumulateDescriptor_Thread_F16_Length8_NonZero);
+  TEST_METHOD(VectorAccumulateDescriptor_Thread_F32_Length8_NonZero);
+  TEST_METHOD(VectorAccumulateDescriptorOOB_Thread_F16);
+  TEST_METHOD(VectorAccumulateDescriptorOOB_Thread_F32);
+  TEST_METHOD(VectorAccumulateDescriptorContention_Thread_F16);
+  TEST_METHOD(VectorAccumulateDescriptorContention_Thread_F32_OrderInvariant);
+  TEST_METHOD(VectorAccumulateDescriptorContention_Thread_I32);
+};
+
+bool LinAlgTestClassCommon::setupClass() {
   if (!Initialized) {
     Initialized = true;
     VERIFY_SUCCEEDED(
@@ -3732,7 +4264,7 @@ bool DxilConf_SM610_LinAlg::setupClass() {
   return true;
 }
 
-bool DxilConf_SM610_LinAlg::setupMethod() {
+bool LinAlgTestClassCommon::setupMethod() {
   // If the device is healthy, exit otherwise it's possible a previous test
   // case caused a device removal. So we need to try and create a new device.
   if (D3DDevice && D3DDevice->GetDeviceRemovedReason() == S_OK)
@@ -3768,9 +4300,9 @@ static const char LoadStoreDescriptorShader[] = R"(
     __builtin_LinAlgMatrix
       [[__LinAlgMatrix_Attributes(COMP_TYPE, M_DIM, N_DIM, USE, SCOPE)]]
       Mat;
-    __builtin_LinAlg_MatrixLoadFromDescriptor(
+    dx::__builtin_LinAlg_MatrixLoadFromDescriptor(
       Mat, Input, LOAD_OFFSET, LOAD_STRIDE, LOAD_LAYOUT, DECLARED_ALIGN);
-    __builtin_LinAlg_MatrixStoreToDescriptor(
+    dx::__builtin_LinAlg_MatrixStoreToDescriptor(
       Mat, Output, STORE_OFFSET, STORE_STRIDE, STORE_LAYOUT, DECLARED_ALIGN);
   }
 )";
@@ -4089,9 +4621,9 @@ static const char AccumulateDescriptorOOBShader[] = R"(
     __builtin_LinAlgMatrix
       [[__LinAlgMatrix_Attributes(COMP_TYPE, M_DIM, N_DIM, USE, SCOPE)]]
       Mat;
-    __builtin_LinAlg_MatrixLoadFromDescriptor(
+    dx::__builtin_LinAlg_MatrixLoadFromDescriptor(
       Mat, Input, LOAD_OFFSET, LOAD_STRIDE, LOAD_LAYOUT, DECLARED_ALIGN);
-    __builtin_LinAlg_MatrixAccumulateToDescriptor(
+    dx::__builtin_LinAlg_MatrixAccumulateToDescriptor(
       Mat, Output, STORE_OFFSET, STORE_STRIDE, STORE_LAYOUT, DECLARED_ALIGN);
   }
 )";
@@ -4217,7 +4749,7 @@ static constexpr size_t DescriptorAlignedOffset = MatrixOffsetAlignmentBytes;
 static_assert(DescriptorAlignedOffset % DescriptorDeclaredAlignment == 0,
               "descriptor offset must keep the first element aligned");
 
-void DxilConf_SM610_LinAlg::LoadStoreDescriptor_Wave_16x16_F16() {
+void DxilConf_SM610_LinAlg_DescriptorIO::LoadStoreDescriptor_Wave_16x16_F16() {
   MatrixParams Params = {};
   Params.CompType = ComponentType::F16;
   Params.M = 16;
@@ -4244,7 +4776,7 @@ void DxilConf_SM610_LinAlg::LoadStoreDescriptor_Wave_16x16_F16() {
 // three 16-byte gaps between its four rows. A store that addresses by element
 // index rather than by the supplied stride writes into that padding, which the
 // untouched-byte check catches and the element comparison cannot.
-void DxilConf_SM610_LinAlg::
+void DxilConf_SM610_LinAlg_DescriptorIO::
     LoadStoreDescriptor_Wave_4x8_F16_RowMajorOffsetPadded() {
   MatrixParams Params = {};
   Params.CompType = ComponentType::F16;
@@ -4275,12 +4807,42 @@ void DxilConf_SM610_LinAlg::
                          VerboseLogging, SelectedWaveSize);
 }
 
+void DxilConf_SM610_LinAlg_DescriptorIO::
+    LoadStoreDescriptor_Wave_16x16_F16_RowMajorOffsetPadded() {
+  MatrixParams Params = {};
+  Params.CompType = ComponentType::F16;
+  Params.M = 16;
+  Params.N = 16;
+  Params.Use = MatrixUse::A;
+  Params.Scope = MatrixScope::Wave;
+  Params.Layout = MatrixLayout::RowMajor;
+  Params.NumThreads = 128;
+  Params.Enable16Bit = true;
+
+  UINT SelectedWaveSize = 0;
+  if (!matrixConstructionApplicable(
+          D3DDevice, Params, {Params.Use},
+          L"LoadStoreDescriptor_Wave_16x16_F16_RowMajorOffsetPadded",
+          SelectedWaveSize))
+    return;
+
+  const size_t ElementBytes = elementSize(Params.CompType);
+  const cpu_oracle::MatrixBufferLayout Layout = {
+      MatrixLayout::RowMajor,
+      /*OffsetBytes=*/DescriptorAlignedOffset,
+      /*StrideBytes=*/alignMatrixStride(Params.N * ElementBytes) +
+          MatrixStrideAlignmentBytes,
+  };
+  runLoadStoreDescriptor(D3DDevice, DxcSupport, Params, Layout, Layout,
+                         VerboseLogging, SelectedWaveSize);
+}
+
 // Loads RowMajor and stores ColumnMajor, which a shared layout cannot express:
 // with the same layout on both sides, an implementation that ignores the
 // layout argument entirely still round trips byte-identically, because the
 // mapping it applies to the load it applies again to the store. Reading one
 // layout and writing the other stops the two from cancelling.
-void DxilConf_SM610_LinAlg::
+void DxilConf_SM610_LinAlg_DescriptorIO::
     LoadStoreDescriptor_Wave_4x8_F32_RowMajorToColumnMajor() {
   MatrixParams Params = {};
   Params.CompType = ComponentType::F32;
@@ -4317,12 +4879,47 @@ void DxilConf_SM610_LinAlg::
                          VerboseLogging, SelectedWaveSize);
 }
 
+// F32 is usually only constructible as an accumulator, at native tile sizes.
+// Kept non-square so the layout swap stays observable.
+void DxilConf_SM610_LinAlg_DescriptorIO::
+    LoadStoreDescriptor_Wave_16x32_F32_RowMajorToColumnMajor() {
+  MatrixParams Params = {};
+  Params.CompType = ComponentType::F32;
+  Params.M = 16;
+  Params.N = 32;
+  Params.Use = MatrixUse::Accumulator;
+  Params.Scope = MatrixScope::Wave;
+  Params.Layout = MatrixLayout::RowMajor;
+  Params.NumThreads = 128;
+
+  UINT SelectedWaveSize = 0;
+  if (!matrixConstructionApplicable(
+          D3DDevice, Params, {Params.Use},
+          L"LoadStoreDescriptor_Wave_16x32_F32_RowMajorToColumnMajor",
+          SelectedWaveSize))
+    return;
+
+  const cpu_oracle::MatrixBufferLayout LoadLayout = {
+      MatrixLayout::RowMajor,
+      /*OffsetBytes=*/DescriptorAlignedOffset,
+      /*StrideBytes=*/32 * 4 + MatrixStrideAlignmentBytes,
+  };
+  const cpu_oracle::MatrixBufferLayout StoreLayout = {
+      MatrixLayout::ColumnMajor,
+      /*OffsetBytes=*/DescriptorAlignedOffset,
+      /*StrideBytes=*/16 * 4,
+  };
+
+  runLoadStoreDescriptor(D3DDevice, DxcSupport, Params, LoadLayout, StoreLayout,
+                         VerboseLogging, SelectedWaveSize);
+}
+
 // The same cross-layout axis on F16, because no tier is required to support
 // Fp32 matrices and the F32 case above can skip in its entirety. The shape
 // must stay non-square: swapping the two layouts transposes on load and back
 // on store, and for a square matrix those cancel byte for byte whatever
 // strides are used.
-void DxilConf_SM610_LinAlg::
+void DxilConf_SM610_LinAlg_DescriptorIO::
     LoadStoreDescriptor_Wave_4x8_F16_RowMajorToColumnMajor() {
   MatrixParams Params = {};
   Params.CompType = ComponentType::F16;
@@ -4360,10 +4957,48 @@ void DxilConf_SM610_LinAlg::
                          VerboseLogging, SelectedWaveSize);
 }
 
+// A rectangular multiple of a 16x16 tile prevents swapped layouts cancelling.
+void DxilConf_SM610_LinAlg_DescriptorIO::
+    LoadStoreDescriptor_Wave_16x32_F16_RowMajorToColumnMajor() {
+  MatrixParams Params = {};
+  Params.CompType = ComponentType::F16;
+  Params.M = 16;
+  Params.N = 32;
+  Params.Use = MatrixUse::A;
+  Params.Scope = MatrixScope::Wave;
+  Params.Layout = MatrixLayout::RowMajor;
+  Params.NumThreads = 128;
+  Params.Enable16Bit = true;
+
+  UINT SelectedWaveSize = 0;
+  if (!matrixConstructionApplicable(
+          D3DDevice, Params, {Params.Use},
+          L"LoadStoreDescriptor_Wave_16x32_F16_RowMajorToColumnMajor",
+          SelectedWaveSize))
+    return;
+
+  const size_t ElementBytes = elementSize(Params.CompType);
+  const cpu_oracle::MatrixBufferLayout LoadLayout = {
+      MatrixLayout::RowMajor,
+      /*OffsetBytes=*/DescriptorAlignedOffset,
+      /*StrideBytes=*/alignMatrixStride(Params.N * ElementBytes) +
+          MatrixStrideAlignmentBytes,
+  };
+  const cpu_oracle::MatrixBufferLayout StoreLayout = {
+      MatrixLayout::ColumnMajor,
+      /*OffsetBytes=*/DescriptorAlignedOffset,
+      /*StrideBytes=*/alignMatrixStride(Params.M * ElementBytes) +
+          2 * MatrixStrideAlignmentBytes,
+  };
+  runLoadStoreDescriptor(D3DDevice, DxcSupport, Params, LoadLayout, StoreLayout,
+                         VerboseLogging, SelectedWaveSize);
+}
+
 // Half the source matrix lies outside the view the descriptor carries. The
 // boundary is deliberately placed mid-row rather than on a row boundary, so an
 // implementation that bounds checks a row at a time cannot pass it.
-void DxilConf_SM610_LinAlg::LoadDescriptorOOB_Wave_16x16_F16_PartialView() {
+void DxilConf_SM610_LinAlg_DescriptorIO::
+    LoadDescriptorOOB_Wave_16x16_F16_PartialView() {
   MatrixParams Params = {};
   Params.CompType = ComponentType::F16;
   Params.M = 16;
@@ -4392,7 +5027,7 @@ void DxilConf_SM610_LinAlg::LoadDescriptorOOB_Wave_16x16_F16_PartialView() {
 // the view boundary falls in a different place for byte offsets than it does
 // for element indices. An implementation that bounds checks by element index
 // keeps elements this view does not reach.
-void DxilConf_SM610_LinAlg::
+void DxilConf_SM610_LinAlg_DescriptorIO::
     LoadDescriptorOOB_Wave_4x8_F16_OffsetPaddedPartialView() {
   MatrixParams Params = {};
   Params.CompType = ComponentType::F16;
@@ -4425,9 +5060,42 @@ void DxilConf_SM610_LinAlg::
                                SelectedWaveSize);
 }
 
+void DxilConf_SM610_LinAlg_DescriptorIO::
+    LoadDescriptorOOB_Wave_16x16_F16_OffsetPaddedPartialView() {
+  MatrixParams Params = {};
+  Params.CompType = ComponentType::F16;
+  Params.M = 16;
+  Params.N = 16;
+  Params.Use = MatrixUse::A;
+  Params.Scope = MatrixScope::Wave;
+  Params.Layout = MatrixLayout::RowMajor;
+  Params.NumThreads = 128;
+  Params.Enable16Bit = true;
+
+  UINT SelectedWaveSize = 0;
+  if (!matrixConstructionApplicable(
+          D3DDevice, Params, {Params.Use},
+          L"LoadDescriptorOOB_Wave_16x16_F16_OffsetPaddedPartialView",
+          SelectedWaveSize))
+    return;
+
+  const size_t ElementBytes = elementSize(Params.CompType);
+  const cpu_oracle::MatrixBufferLayout Layout = {
+      MatrixLayout::RowMajor,
+      /*OffsetBytes=*/DescriptorAlignedOffset,
+      /*StrideBytes=*/alignMatrixStride(Params.N * ElementBytes) +
+          MatrixStrideAlignmentBytes,
+  };
+  // 128 + 8 * 48 + 6 * 2: eight complete rows and six elements of row 8.
+  runLoadDescriptorOutOfBounds(D3DDevice, DxcSupport, Params, Layout,
+                               /*InputViewBytes=*/524, VerboseLogging,
+                               SelectedWaveSize);
+}
+
 // The same two views on the destination instead of the source, so the rule
 // being exercised is bounds checking on the store rather than on the load.
-void DxilConf_SM610_LinAlg::StoreDescriptorOOB_Wave_16x16_F16_PartialView() {
+void DxilConf_SM610_LinAlg_DescriptorIO::
+    StoreDescriptorOOB_Wave_16x16_F16_PartialView() {
   MatrixParams Params = {};
   Params.CompType = ComponentType::F16;
   Params.M = 16;
@@ -4454,7 +5122,7 @@ void DxilConf_SM610_LinAlg::StoreDescriptorOOB_Wave_16x16_F16_PartialView() {
                                 VerboseLogging, SelectedWaveSize);
 }
 
-void DxilConf_SM610_LinAlg::
+void DxilConf_SM610_LinAlg_DescriptorIO::
     StoreDescriptorOOB_Wave_4x8_F16_OffsetPaddedPartialView() {
   MatrixParams Params = {};
   Params.CompType = ComponentType::F16;
@@ -4487,7 +5155,38 @@ void DxilConf_SM610_LinAlg::
                                 SelectedWaveSize);
 }
 
-void DxilConf_SM610_LinAlg::
+void DxilConf_SM610_LinAlg_DescriptorIO::
+    StoreDescriptorOOB_Wave_16x16_F16_OffsetPaddedPartialView() {
+  MatrixParams Params = {};
+  Params.CompType = ComponentType::F16;
+  Params.M = 16;
+  Params.N = 16;
+  Params.Use = MatrixUse::A;
+  Params.Scope = MatrixScope::Wave;
+  Params.Layout = MatrixLayout::RowMajor;
+  Params.NumThreads = 128;
+  Params.Enable16Bit = true;
+
+  UINT SelectedWaveSize = 0;
+  if (!matrixConstructionApplicable(
+          D3DDevice, Params, {Params.Use},
+          L"StoreDescriptorOOB_Wave_16x16_F16_OffsetPaddedPartialView",
+          SelectedWaveSize))
+    return;
+
+  const size_t ElementBytes = elementSize(Params.CompType);
+  const cpu_oracle::MatrixBufferLayout Layout = {
+      MatrixLayout::RowMajor,
+      /*OffsetBytes=*/DescriptorAlignedOffset,
+      /*StrideBytes=*/alignMatrixStride(Params.N * ElementBytes) +
+          MatrixStrideAlignmentBytes,
+  };
+  runStoreDescriptorOutOfBounds(D3DDevice, DxcSupport, Params, Layout,
+                                /*OutputViewBytes=*/524, VerboseLogging,
+                                SelectedWaveSize);
+}
+
+void DxilConf_SM610_LinAlg_DescriptorIO::
     AccumulateDescriptorOOB_Wave_16x16_F16_PartialView() {
   MatrixParams Params = {};
   Params.CompType = ComponentType::F16;
@@ -4517,7 +5216,7 @@ void DxilConf_SM610_LinAlg::
       /*OutputViewBytes=*/260, VerboseLogging, SelectedWaveSize);
 }
 
-void DxilConf_SM610_LinAlg::
+void DxilConf_SM610_LinAlg_DescriptorIO::
     AccumulateDescriptorOOB_Wave_4x8_F16_OffsetPaddedPartialView() {
   MatrixParams Params = {};
   Params.CompType = ComponentType::F16;
@@ -4553,6 +5252,42 @@ void DxilConf_SM610_LinAlg::
                                      SelectedWaveSize);
 }
 
+void DxilConf_SM610_LinAlg_DescriptorIO::
+    AccumulateDescriptorOOB_Wave_16x16_F16_OffsetPaddedPartialView() {
+  MatrixParams Params = {};
+  Params.CompType = ComponentType::F16;
+  Params.M = 16;
+  Params.N = 16;
+  Params.Use = MatrixUse::Accumulator;
+  Params.Scope = MatrixScope::Wave;
+  Params.Layout = MatrixLayout::RowMajor;
+  Params.NumThreads = 128;
+  Params.Enable16Bit = true;
+
+  UINT SelectedWaveSize = 0;
+  if (!matrixConstructionApplicable(
+          D3DDevice, Params, {Params.Use},
+          L"AccumulateDescriptorOOB_Wave_16x16_F16_OffsetPaddedPartialView",
+          SelectedWaveSize))
+    return;
+  if (!accumulateStoreApplicable(
+          D3DDevice, Params.CompType,
+          linalg_test::AtomicDestination::RWByteAddressBuffer,
+          L"AccumulateDescriptorOOB_Wave_16x16_F16_OffsetPaddedPartialView"))
+    return;
+
+  const size_t ElementBytes = elementSize(Params.CompType);
+  const cpu_oracle::MatrixBufferLayout Layout = {
+      MatrixLayout::RowMajor,
+      /*OffsetBytes=*/DescriptorAlignedOffset,
+      /*StrideBytes=*/alignMatrixStride(Params.N * ElementBytes) +
+          MatrixStrideAlignmentBytes,
+  };
+  runAccumulateDescriptorOutOfBounds(D3DDevice, DxcSupport, Params, Layout,
+                                     /*OutputViewBytes=*/524, VerboseLogging,
+                                     SelectedWaveSize);
+}
+
 static const char SplatStoreShader[] = R"(
   RWByteAddressBuffer Output : register(u0);
 
@@ -4569,8 +5304,8 @@ static const char SplatStoreShader[] = R"(
     __builtin_LinAlgMatrix
       [[__LinAlgMatrix_Attributes(COMP_TYPE, M_DIM, N_DIM, USE, SCOPE)]]
       Mat;
-    __builtin_LinAlg_FillMatrix(Mat, FILL_VALUE);
-    __builtin_LinAlg_MatrixStoreToDescriptor(
+    dx::__builtin_LinAlg_FillMatrix(Mat, FILL_INPUT_IS_SIGNED, FILL_VALUE);
+    dx::__builtin_LinAlg_MatrixStoreToDescriptor(
       Mat, Output, 0, STRIDE, LAYOUT, 128);
   }
 )";
@@ -4609,7 +5344,7 @@ static void runSplatStore(ID3D12Device *Device,
                                        Expected, NumElements, Verbose));
 }
 
-void DxilConf_SM610_LinAlg::SplatStore_Wave_16x16_F16() {
+void DxilConf_SM610_LinAlg_DescriptorIO::SplatStore_Wave_16x16_F16() {
   MatrixParams Params = {};
   Params.CompType = ComponentType::F16;
   Params.M = 16;
@@ -4651,23 +5386,23 @@ static const char AccumulateDescriptorShader[] = R"(
     __builtin_LinAlgMatrix
       [[__LinAlgMatrix_Attributes(COMP_TYPE, M_DIM, N_DIM, USE_ACC, SCOPE)]]
       Mat;
-    __builtin_LinAlg_MatrixLoadFromDescriptor(
+    dx::__builtin_LinAlg_MatrixLoadFromDescriptor(
       Mat, Input, 0, STRIDE, LAYOUT, 128);
 
     // The index is distinct across every Wave in every group, so the total
     // pins which Waves landed rather than only how many additions were
     // applied. A Wave index alone would repeat in each group.
     uint Weight = GroupID.x * ACTIVE_WAVE_COUNT + GetGroupWaveIndex() + 1;
-    for (uint I = 0; I < __builtin_LinAlg_MatrixLength(Mat); ++I) {
+    for (uint I = 0; I < dx::__builtin_LinAlg_MatrixLength(Mat); ++I) {
       ELEM_TYPE Elem;
-      __builtin_LinAlg_MatrixGetElement(Elem, Mat, I);
-      __builtin_LinAlg_MatrixSetElement(
+      dx::__builtin_LinAlg_MatrixGetElement(Elem, Mat, I);
+      dx::__builtin_LinAlg_MatrixSetElement(
         Mat, Mat, I, (ELEM_TYPE)(Weight * Elem));
     }
 
-    __builtin_LinAlg_MatrixAccumulateToDescriptor(
+    dx::__builtin_LinAlg_MatrixAccumulateToDescriptor(
       Mat, Output, 0, STRIDE, LAYOUT, 128);
-    __builtin_LinAlg_MatrixAccumulateToDescriptor(
+    dx::__builtin_LinAlg_MatrixAccumulateToDescriptor(
       Mat, Output, 0, STRIDE, LAYOUT, 128);
   }
 )";
@@ -4728,7 +5463,7 @@ static void runAccumulateDescriptor(ID3D12Device *Device,
                                        Expected, NumElements, Verbose));
 }
 
-void DxilConf_SM610_LinAlg::AccumulateDescriptor_Wave_16x16_F16() {
+void DxilConf_SM610_LinAlg_DescriptorIO::AccumulateDescriptor_Wave_16x16_F16() {
   MatrixParams Params = {};
   Params.CompType = ComponentType::F16;
   Params.M = 16;
@@ -4756,11 +5491,12 @@ void DxilConf_SM610_LinAlg::AccumulateDescriptor_Wave_16x16_F16() {
 
 static void runAccumulateDescriptorContention(
     ID3D12Device *Device, dxc::SpecificDllLoader &DxcSupport,
-    ComponentType CompType, int FillValue, LPCWSTR CaseName, bool Verbose) {
+    ComponentType CompType, int FillValue, LPCWSTR CaseName, bool Verbose,
+    MatrixDim M = 4, MatrixDim N = 8) {
   MatrixParams Params = {};
   Params.CompType = CompType;
-  Params.M = 4;
-  Params.N = 8;
+  Params.M = M;
+  Params.N = N;
   Params.Use = MatrixUse::Accumulator;
   Params.Scope = MatrixScope::Wave;
   Params.Layout = MatrixLayout::RowMajor;
@@ -4784,17 +5520,329 @@ static void runAccumulateDescriptorContention(
                           SelectedWaveSize, ActiveWaveCount, DispatchX);
 }
 
-void DxilConf_SM610_LinAlg::AccumulateDescriptorContention_Wave_4x8_I32() {
+void DxilConf_SM610_LinAlg_DescriptorIO::
+    AccumulateDescriptorContention_Wave_4x8_I32() {
   runAccumulateDescriptorContention(
       D3DDevice, DxcSupport, ComponentType::I32, /*FillValue=*/7,
       L"AccumulateDescriptorContention_Wave_4x8_I32", VerboseLogging);
 }
 
-void DxilConf_SM610_LinAlg::
+void DxilConf_SM610_LinAlg_DescriptorIO::
     AccumulateDescriptorContention_Wave_4x8_F32_OrderInvariant() {
   runAccumulateDescriptorContention(
       D3DDevice, DxcSupport, ComponentType::F32, /*FillValue=*/1,
       L"AccumulateDescriptorContention_Wave_4x8_F32_OrderInvariant",
+      VerboseLogging);
+}
+
+void DxilConf_SM610_LinAlg_DescriptorIO::
+    AccumulateDescriptorContention_Wave_16x16_I32() {
+  runAccumulateDescriptorContention(
+      D3DDevice, DxcSupport, ComponentType::I32, /*FillValue=*/7,
+      L"AccumulateDescriptorContention_Wave_16x16_I32", VerboseLogging,
+      /*M=*/16, /*N=*/16);
+}
+
+void DxilConf_SM610_LinAlg_DescriptorIO::
+    AccumulateDescriptorContention_Wave_16x16_F32_OrderInvariant() {
+  runAccumulateDescriptorContention(
+      D3DDevice, DxcSupport, ComponentType::F32, /*FillValue=*/1,
+      L"AccumulateDescriptorContention_Wave_16x16_F32_OrderInvariant",
+      VerboseLogging, /*M=*/16, /*N=*/16);
+}
+
+static const char ByteLoadStoreDescriptorShader[] = R"(
+  RWByteAddressBuffer Input : register(u0);
+  RWByteAddressBuffer Output : register(u1);
+
+  [WaveSize(FORCED_WAVE_SIZE)]
+  [numthreads(NUMTHREADS, 1, 1)]
+  void main() {
+  #if SCOPE == 1
+    if (GetGroupWaveIndex() != 0)
+      return;
+  #endif
+    __builtin_LinAlgMatrix
+      [[__LinAlgMatrix_Attributes(COMP_TYPE, M_DIM, N_DIM, USE, SCOPE)]]
+      Mat;
+    dx::__builtin_LinAlg_MatrixLoadFromDescriptor(
+      Mat, Input, LOAD_OFFSET, LOAD_STRIDE, LOAD_LAYOUT, DECLARED_ALIGN);
+    dx::__builtin_LinAlg_MatrixStoreToDescriptor(
+      Mat, Output, STORE_OFFSET, STORE_STRIDE, STORE_LAYOUT, DECLARED_ALIGN);
+  }
+)";
+
+static cpu_oracle::MatrixBufferLayout
+byteMatrixLayout(MatrixDim M, MatrixDim N, MatrixLayout Layout, bool Padded) {
+  const size_t Minor = Layout == MatrixLayout::RowMajor ? N : M;
+  return cpu_oracle::MatrixBufferLayout{
+      Layout,
+      /*OffsetBytes=*/Padded ? DescriptorAlignedOffset : 0,
+      /*StrideBytes=*/alignMatrixStride(Minor) +
+          (Padded ? MatrixStrideAlignmentBytes : 0),
+  };
+}
+
+static size_t byteMatrixOffset(const cpu_oracle::MatrixBufferLayout &Layout,
+                               MatrixDim Row, MatrixDim Column) {
+  return Layout.Layout == MatrixLayout::RowMajor
+             ? Layout.OffsetBytes + Row * Layout.StrideBytes + Column
+             : Layout.OffsetBytes + Column * Layout.StrideBytes + Row;
+}
+
+static size_t byteMatrixBufferSize(const cpu_oracle::MatrixBufferLayout &Layout,
+                                   MatrixDim M, MatrixDim N) {
+  const size_t Last = byteMatrixOffset(Layout, M - 1, N - 1) + 1;
+  return (Last + 3) & ~size_t(3);
+}
+
+// 37 is odd, so any 256 consecutive elements hold every byte value once. That
+// includes -128, -1, 0 and 127 as I8, and 0, 127, 128 and 255 as U8.
+static BYTE byteMatrixValue(MatrixDim N, MatrixDim Row, MatrixDim Column) {
+  return static_cast<BYTE>(((Row * N + Column) * 37 + 11) & 0xff);
+}
+
+// Loads an I8 or U8 matrix from one descriptor and stores it to another. The
+// whole destination, including padding and guard bytes, must match exactly.
+static void
+runByteLoadStoreDescriptor(ID3D12Device *Device,
+                           dxc::SpecificDllLoader &DxcSupport,
+                           ComponentType CompType, MatrixDim M, MatrixDim N,
+                           MatrixUse Use, MatrixScope Scope, UINT NumThreads,
+                           const cpu_oracle::MatrixBufferLayout &LoadLayout,
+                           const cpu_oracle::MatrixBufferLayout &StoreLayout,
+                           LPCWSTR CaseName, bool Verbose) {
+  VERIFY_IS_TRUE(static_cast<size_t>(M) * N >= 256,
+                 "Byte round trips need every byte value");
+  MatrixParams Params = {};
+  Params.CompType = CompType;
+  Params.M = M;
+  Params.N = N;
+  Params.Use = Use;
+  Params.Scope = Scope;
+  Params.Layout = LoadLayout.Layout;
+  Params.NumThreads = static_cast<int>(NumThreads);
+
+  std::vector<UINT> WaveSizes;
+  if (!matrixConstructionApplicableWaveSizes(Device, Params, {Use}, CaseName,
+                                             WaveSizes))
+    return;
+
+  const size_t InputSize = byteMatrixBufferSize(LoadLayout, M, N);
+  const size_t OutputSize = byteMatrixBufferSize(StoreLayout, M, N);
+  std::vector<BYTE> Input(InputSize);
+  std::vector<BYTE> Expected(OutputSize);
+  cpu_oracle::fillPoison(Input.data(), Input.size());
+  cpu_oracle::fillPoison(Expected.data(), Expected.size());
+  for (MatrixDim Row = 0; Row < M; ++Row) {
+    for (MatrixDim Column = 0; Column < N; ++Column) {
+      const BYTE Value = byteMatrixValue(N, Row, Column);
+      Input[byteMatrixOffset(LoadLayout, Row, Column)] = Value;
+      Expected[byteMatrixOffset(StoreLayout, Row, Column)] = Value;
+    }
+  }
+
+  for (const UINT WaveSize : WaveSizes) {
+    std::stringstream Args;
+    Args << "-HV 2021";
+    Args << " -DCOMP_TYPE=" << static_cast<int>(CompType);
+    Args << " -DM_DIM=" << M << " -DN_DIM=" << N;
+    Args << " -DUSE=" << static_cast<int>(Use);
+    Args << " -DSCOPE=" << static_cast<int>(Scope);
+    Args << " -DNUMTHREADS=" << NumThreads;
+    Args << " -DFORCED_WAVE_SIZE=" << WaveSize;
+    Args << " -DLOAD_OFFSET=" << LoadLayout.OffsetBytes;
+    Args << " -DLOAD_STRIDE=" << LoadLayout.StrideBytes;
+    Args << " -DLOAD_LAYOUT=" << static_cast<int>(LoadLayout.Layout);
+    Args << " -DSTORE_OFFSET=" << StoreLayout.OffsetBytes;
+    Args << " -DSTORE_STRIDE=" << StoreLayout.StrideBytes;
+    Args << " -DSTORE_LAYOUT=" << static_cast<int>(StoreLayout.Layout);
+    Args << " -DDECLARED_ALIGN=" << DescriptorDeclaredAlignment;
+    const std::string ArgString = Args.str();
+    hlsl_test::LogCommentFmt(L"Byte descriptor round trip: wave=%u, threads=%u",
+                             WaveSize, NumThreads);
+    compileShader(DxcSupport, ByteLoadStoreDescriptorShader, "cs_6_10",
+                  ArgString, Verbose);
+
+    auto Op =
+        createComputeOp(ByteLoadStoreDescriptorShader, "cs_6_10",
+                        "DescriptorTable(UAV(u0), UAV(u1))", ArgString.c_str());
+    addUAVBuffer(Op.get(), "Input", InputSize, false, "byname");
+    addUAVBuffer(Op.get(), "Output", OutputSize, true, "byname");
+    addHeapRawUAV(Op.get(), "ResHeap", "Input", InputSize);
+    addHeapRawUAV(Op.get(), "ResHeap", "Output", OutputSize);
+    addRootTable(Op.get(), 0, "ResHeap");
+
+    auto Result = runShaderOp(
+        Device, DxcSupport, std::move(Op),
+        [&Input](LPCSTR Name, std::vector<BYTE> &Data, st::ShaderOp *) {
+          if (_stricmp(Name, "Input") != 0) {
+            cpu_oracle::fillPoison(Data.data(), Data.size());
+            return;
+          }
+          VERIFY_ARE_EQUAL(Data.size(), Input.size());
+          Data = Input;
+        },
+        [LoadLayout, StoreLayout](ID3D12GraphicsCommandList *,
+                                  st::ShaderOpTest *Test) {
+          verifyDescriptorBaseAlignment(Test, "Input", LoadLayout.OffsetBytes);
+          verifyDescriptorBaseAlignment(Test, "Output",
+                                        StoreLayout.OffsetBytes);
+        });
+
+    MappedData OutData;
+    Result->Test->GetReadBackData("Output", &OutData);
+    VERIFY_ARE_EQUAL(OutData.size(), Expected.size());
+    if (OutData.size() != Expected.size())
+      return;
+    const BYTE *Actual = static_cast<const BYTE *>(OutData.data());
+    size_t Mismatches = 0;
+    for (size_t I = 0; I < Expected.size(); ++I) {
+      if (Actual[I] == Expected[I])
+        continue;
+      if (Mismatches < 100000)
+        hlsl_test::LogErrorFmt(
+            L"Byte round trip mismatch at byte %zu: actual=0x%02x, "
+            L"expected=0x%02x",
+            I, Actual[I], Expected[I]);
+      ++Mismatches;
+    }
+    if (Mismatches != 0)
+      hlsl_test::LogErrorFmt(L"%zu of %zu output bytes differed", Mismatches,
+                             Expected.size());
+    VERIFY_ARE_EQUAL(Mismatches, static_cast<size_t>(0));
+  }
+}
+
+static void runWaveByteRoundTrip(ID3D12Device *Device,
+                                 dxc::SpecificDllLoader &DxcSupport,
+                                 ComponentType CompType, MatrixDim M,
+                                 MatrixDim N, MatrixUse Use,
+                                 MatrixLayout LoadLayout,
+                                 MatrixLayout StoreLayout, bool Padded,
+                                 LPCWSTR CaseName, bool Verbose) {
+  runByteLoadStoreDescriptor(
+      Device, DxcSupport, CompType, M, N, Use, MatrixScope::Wave, 128,
+      byteMatrixLayout(M, N, LoadLayout, Padded),
+      byteMatrixLayout(M, N, StoreLayout, Padded), CaseName, Verbose);
+}
+
+void DxilConf_SM610_LinAlg_DescriptorIO::LoadStoreDescriptor_Wave_16x32_I8() {
+  runWaveByteRoundTrip(D3DDevice, DxcSupport, ComponentType::I8, 16, 32,
+                       MatrixUse::A, MatrixLayout::RowMajor,
+                       MatrixLayout::RowMajor, /*Padded=*/false,
+                       L"LoadStoreDescriptor_Wave_16x32_I8", VerboseLogging);
+}
+
+void DxilConf_SM610_LinAlg_DescriptorIO::LoadStoreDescriptor_Wave_16x32_U8() {
+  runWaveByteRoundTrip(D3DDevice, DxcSupport, ComponentType::U8, 16, 32,
+                       MatrixUse::A, MatrixLayout::RowMajor,
+                       MatrixLayout::RowMajor, /*Padded=*/false,
+                       L"LoadStoreDescriptor_Wave_16x32_U8", VerboseLogging);
+}
+
+void DxilConf_SM610_LinAlg_DescriptorIO::
+    LoadStoreDescriptor_Wave_16x32_I8_RowMajorToColumnMajor() {
+  runWaveByteRoundTrip(
+      D3DDevice, DxcSupport, ComponentType::I8, 16, 32, MatrixUse::A,
+      MatrixLayout::RowMajor, MatrixLayout::ColumnMajor, /*Padded=*/false,
+      L"LoadStoreDescriptor_Wave_16x32_I8_RowMajorToColumnMajor",
+      VerboseLogging);
+}
+
+void DxilConf_SM610_LinAlg_DescriptorIO::
+    LoadStoreDescriptor_Wave_16x32_U8_RowMajorToColumnMajor() {
+  runWaveByteRoundTrip(
+      D3DDevice, DxcSupport, ComponentType::U8, 16, 32, MatrixUse::A,
+      MatrixLayout::RowMajor, MatrixLayout::ColumnMajor, /*Padded=*/false,
+      L"LoadStoreDescriptor_Wave_16x32_U8_RowMajorToColumnMajor",
+      VerboseLogging);
+}
+
+void DxilConf_SM610_LinAlg_DescriptorIO::
+    LoadStoreDescriptor_Wave_16x32_I8_RowMajorOffsetPadded() {
+  runWaveByteRoundTrip(
+      D3DDevice, DxcSupport, ComponentType::I8, 16, 32, MatrixUse::A,
+      MatrixLayout::RowMajor, MatrixLayout::RowMajor, /*Padded=*/true,
+      L"LoadStoreDescriptor_Wave_16x32_I8_RowMajorOffsetPadded",
+      VerboseLogging);
+}
+
+void DxilConf_SM610_LinAlg_DescriptorIO::
+    LoadStoreDescriptor_Wave_16x32_U8_RowMajorOffsetPadded() {
+  runWaveByteRoundTrip(
+      D3DDevice, DxcSupport, ComponentType::U8, 16, 32, MatrixUse::A,
+      MatrixLayout::RowMajor, MatrixLayout::RowMajor, /*Padded=*/true,
+      L"LoadStoreDescriptor_Wave_16x32_U8_RowMajorOffsetPadded",
+      VerboseLogging);
+}
+
+void DxilConf_SM610_LinAlg_DescriptorIO::
+    LoadStoreDescriptor_Wave_32x16_I8_BUse_ColumnMajorToRowMajorOffsetPadded() {
+  runWaveByteRoundTrip(D3DDevice, DxcSupport, ComponentType::I8, 32, 16,
+                       MatrixUse::B, MatrixLayout::ColumnMajor,
+                       MatrixLayout::RowMajor, /*Padded=*/true,
+                       L"LoadStoreDescriptor_Wave_32x16_I8_BUse_"
+                       L"ColumnMajorToRowMajorOffsetPadded",
+                       VerboseLogging);
+}
+
+void DxilConf_SM610_LinAlg_DescriptorIO::
+    LoadStoreDescriptor_Wave_32x16_U8_BUse_ColumnMajorToRowMajorOffsetPadded() {
+  runWaveByteRoundTrip(D3DDevice, DxcSupport, ComponentType::U8, 32, 16,
+                       MatrixUse::B, MatrixLayout::ColumnMajor,
+                       MatrixLayout::RowMajor, /*Padded=*/true,
+                       L"LoadStoreDescriptor_Wave_32x16_U8_BUse_"
+                       L"ColumnMajorToRowMajorOffsetPadded",
+                       VerboseLogging);
+}
+
+static void runThreadGroupByteRoundTrip(ID3D12Device *Device,
+                                        dxc::SpecificDllLoader &DxcSupport,
+                                        ComponentType CompType, MatrixDim M,
+                                        MatrixDim N, UINT NumThreads,
+                                        MatrixLayout StoreLayout,
+                                        LPCWSTR CaseName, bool Verbose) {
+  runByteLoadStoreDescriptor(
+      Device, DxcSupport, CompType, M, N, MatrixUse::A,
+      MatrixScope::ThreadGroup, NumThreads,
+      byteMatrixLayout(M, N, MatrixLayout::RowMajor, /*Padded=*/false),
+      byteMatrixLayout(M, N, StoreLayout, /*Padded=*/false), CaseName, Verbose);
+}
+
+void DxilConf_SM610_LinAlg_DescriptorIO::
+    LoadStoreDescriptor_ThreadGroup_32x32_I8_128Threads() {
+  runThreadGroupByteRoundTrip(
+      D3DDevice, DxcSupport, ComponentType::I8, 32, 32, 128,
+      MatrixLayout::RowMajor,
+      L"LoadStoreDescriptor_ThreadGroup_32x32_I8_128Threads", VerboseLogging);
+}
+
+void DxilConf_SM610_LinAlg_DescriptorIO::
+    LoadStoreDescriptor_ThreadGroup_32x32_U8_128Threads() {
+  runThreadGroupByteRoundTrip(
+      D3DDevice, DxcSupport, ComponentType::U8, 32, 32, 128,
+      MatrixLayout::RowMajor,
+      L"LoadStoreDescriptor_ThreadGroup_32x32_U8_128Threads", VerboseLogging);
+}
+
+void DxilConf_SM610_LinAlg_DescriptorIO::
+    LoadStoreDescriptor_ThreadGroup_64x32_I8_RowMajorToColumnMajor_256Threads() {
+  runThreadGroupByteRoundTrip(
+      D3DDevice, DxcSupport, ComponentType::I8, 64, 32, 256,
+      MatrixLayout::ColumnMajor,
+      L"LoadStoreDescriptor_ThreadGroup_64x32_I8_RowMajorToColumnMajor_"
+      L"256Threads",
+      VerboseLogging);
+}
+
+void DxilConf_SM610_LinAlg_DescriptorIO::
+    LoadStoreDescriptor_ThreadGroup_64x32_U8_RowMajorToColumnMajor_256Threads() {
+  runThreadGroupByteRoundTrip(
+      D3DDevice, DxcSupport, ComponentType::U8, 64, 32, 256,
+      MatrixLayout::ColumnMajor,
+      L"LoadStoreDescriptor_ThreadGroup_64x32_U8_RowMajorToColumnMajor_"
+      L"256Threads",
       VerboseLogging);
 }
 
@@ -4828,22 +5876,22 @@ static const char ElementAccessShader[] = R"(
     __builtin_LinAlgMatrix
       [[__LinAlgMatrix_Attributes(COMP_TYPE, M_DIM, N_DIM, USE, SCOPE)]]
       Mat;
-    __builtin_LinAlg_MatrixLoadFromDescriptor(
+    dx::__builtin_LinAlg_MatrixLoadFromDescriptor(
       Mat, Input, 0, STRIDE, LAYOUT, 128);
 
     // Copy Matrix values from input to output without assuming order
-    for (uint I = 0; I < __builtin_LinAlg_MatrixLength(Mat); ++I) {
-      uint2 Coord = __builtin_LinAlg_MatrixGetCoordinate(Mat, I);
+    for (uint I = 0; I < dx::__builtin_LinAlg_MatrixLength(Mat); ++I) {
+      uint2 Coord = dx::__builtin_LinAlg_MatrixGetCoordinate(Mat, I);
       uint Offset = coordToByteOffset(Coord);
       ELEM_TYPE Elem;
-      __builtin_LinAlg_MatrixGetElement(Elem, Mat, I);
+      dx::__builtin_LinAlg_MatrixGetElement(Elem, Mat, I);
       Output.Store<ELEM_TYPE>(Offset, Elem);
     }
 
     // Save the matrix length that this thread saw. The length is written
     // to the output right after the matrix, offset by the thread index
     uint LenIdx = (M_DIM * N_DIM * ELEM_SIZE) + (threadID * sizeof(uint));
-    uint Len = __builtin_LinAlg_MatrixLength(Mat);
+    uint Len = dx::__builtin_LinAlg_MatrixLength(Mat);
     Output.Store<uint>(LenIdx, Len);
   }
 )";
@@ -4902,7 +5950,7 @@ static void runElementAccess(ID3D12Device *Device,
       TotalLength, NumElements, "Sum of all lengths must be gte num elements");
 }
 
-void DxilConf_SM610_LinAlg::ElementAccess_Wave_16x16_F16() {
+void DxilConf_SM610_LinAlg_ElementAccess::ElementAccess_Wave_16x16_F16() {
   MatrixParams Params = {};
   Params.CompType = ComponentType::F16;
   Params.M = 16;
@@ -4923,7 +5971,7 @@ void DxilConf_SM610_LinAlg::ElementAccess_Wave_16x16_F16() {
     runElementAccess(D3DDevice, DxcSupport, Params, VerboseLogging, WaveSize);
 }
 
-void DxilConf_SM610_LinAlg::ElementAccess_Wave_4x8_F32() {
+void DxilConf_SM610_LinAlg_ElementAccess::ElementAccess_Wave_4x8_F32() {
   MatrixParams Params = {};
   Params.CompType = ComponentType::F32;
   Params.M = 4;
@@ -4961,35 +6009,45 @@ static const char ElementSetShader[] = R"(
     if (GetGroupWaveIndex() != 0)
       return;
 
-    __builtin_LinAlgMatrix
-      [[__LinAlgMatrix_Attributes(COMP_TYPE, M_DIM, N_DIM, USE, SCOPE)]]
-      Mat;
-    __builtin_LinAlg_MatrixLoadFromDescriptor(
-      Mat, Input, 0, STRIDE, LAYOUT, 128);
+    using Matrix = __builtin_LinAlgMatrix
+      [[__LinAlgMatrix_Attributes(COMP_TYPE, M_DIM, N_DIM, USE, SCOPE)]];
+    Matrix Original;
+    dx::__builtin_LinAlg_MatrixLoadFromDescriptor(
+      Original, Input, 0, STRIDE, LAYOUT, 128);
+    Matrix Mat = Original;
 
     // Increment every element by 5
-    for (uint I = 0; I < __builtin_LinAlg_MatrixLength(Mat); ++I) {
+    const uint Count = WaveActiveMax(dx::__builtin_LinAlg_MatrixLength(Mat));
+    for (uint I = 0; I < Count; ++I) {
       ELEM_TYPE Elem;
-      __builtin_LinAlg_MatrixGetElement(Elem, Mat, I);
+      dx::__builtin_LinAlg_MatrixGetElement(Elem, Mat, I);
       Elem = Elem + 5;
-      __builtin_LinAlg_MatrixSetElement(Mat, Mat, I, Elem);
+      dx::__builtin_LinAlg_MatrixSetElement(Mat, Mat, I, Elem);
     }
 
-    __builtin_LinAlg_MatrixStoreToDescriptor(
+    dx::__builtin_LinAlg_MatrixStoreToDescriptor(
       Mat, Output, 0, STRIDE, LAYOUT, 128);
+#ifdef VERIFY_COPY_ISOLATION
+    dx::__builtin_LinAlg_MatrixStoreToDescriptor(
+      Original, Output, ORIGINAL_OFFSET, STRIDE, LAYOUT, 128);
+#endif
   }
 )";
 
 static void runElementSet(ID3D12Device *Device,
                           dxc::SpecificDllLoader &DxcSupport,
                           const MatrixParams &Params, bool Verbose,
-                          UINT ForcedWaveSize = 0) {
+                          UINT ForcedWaveSize = 0, bool VerifyCopy = false) {
   const size_t NumElements = Params.totalElements();
   const size_t MatrixSize = Params.totalBytes();
+  const size_t OutputBytes =
+      VerifyCopy ? 2 * MatrixSize + MatrixStrideAlignmentBytes : MatrixSize;
 
   std::stringstream ExtraDefs;
   if (ForcedWaveSize != 0)
     ExtraDefs << " -DFORCED_WAVE_SIZE=" << ForcedWaveSize;
+  if (VerifyCopy)
+    ExtraDefs << " -DVERIFY_COPY_ISOLATION -DORIGINAL_OFFSET=" << MatrixSize;
   std::string Args = buildCompilerArgs(Params, ExtraDefs.str().c_str());
 
   compileShader(DxcSupport, ElementSetShader, "cs_6_10", Args, Verbose);
@@ -5000,14 +6058,19 @@ static void runElementSet(ID3D12Device *Device,
   auto Op = createComputeOp(ElementSetShader, "cs_6_10", "UAV(u0), UAV(u1)",
                             Args.c_str());
   addUAVBuffer(Op.get(), "Input", MatrixSize, false, "byname");
-  addUAVBuffer(Op.get(), "Output", MatrixSize, true);
+  addUAVBuffer(Op.get(), "Output", OutputBytes, true,
+               VerifyCopy ? "byname" : "zero");
   addRootView(Op.get(), 0, "Input");
   addRootView(Op.get(), 1, "Output");
 
   auto Result =
       runShaderOp(Device, DxcSupport, std::move(Op),
-                  [NumElements, Params](LPCSTR Name, std::vector<BYTE> &Data,
-                                        st::ShaderOp *) {
+                  [NumElements, Params, VerifyCopy](
+                      LPCSTR Name, std::vector<BYTE> &Data, st::ShaderOp *) {
+                    if (VerifyCopy && _stricmp(Name, "Output") == 0) {
+                      cpu_oracle::fillPoison(Data.data(), Data.size());
+                      return;
+                    }
                     VERIFY_IS_TRUE(fillInputBuffer(Name, Data, Params.CompType,
                                                    NumElements),
                                    "Saw unsupported component type");
@@ -5015,13 +6078,27 @@ static void runElementSet(ID3D12Device *Device,
 
   MappedData OutData;
   Result->Test->GetReadBackData("Output", &OutData);
+  VERIFY_ARE_EQUAL(OutputBytes, OutData.size());
+  if (OutputBytes != OutData.size())
+    return;
 
   // Verify the front of the buffer is a list of elements of the expected type
   VERIFY_IS_TRUE(verifyComponentBuffer(Params.CompType, OutData.data(),
                                        Expected, NumElements, Verbose));
+  if (VerifyCopy) {
+    const VariantCompType OriginalExpected =
+        makeExpectedMat(Params.CompType, Params.M, Params.N, 1);
+    VERIFY_IS_TRUE(verifyComponentBuffer(
+        Params.CompType, static_cast<const BYTE *>(OutData.data()) + MatrixSize,
+        OriginalExpected, NumElements, Verbose));
+    VERIFY_IS_TRUE(cpu_oracle::verifyUntouchedBytes(
+        Params.CompType, Params.M * 2, Params.N,
+        {Params.Layout, 0, Params.strideBytes()}, OutData.data(),
+        OutData.size(), Verbose));
+  }
 }
 
-void DxilConf_SM610_LinAlg::ElementSet_Wave_16x16_F16() {
+void DxilConf_SM610_LinAlg_ElementAccess::ElementSet_Wave_16x16_F16() {
   MatrixParams Params = {};
   Params.CompType = ComponentType::F16;
   Params.M = 16;
@@ -5040,6 +6117,28 @@ void DxilConf_SM610_LinAlg::ElementSet_Wave_16x16_F16() {
 
   for (const UINT WaveSize : WaveSizes)
     runElementSet(D3DDevice, DxcSupport, Params, VerboseLogging, WaveSize);
+}
+
+void DxilConf_SM610_LinAlg_ElementAccess::MatrixCopy_Wave_16x16_F16() {
+  MatrixParams Params = {};
+  Params.CompType = ComponentType::F16;
+  Params.M = 16;
+  Params.N = 16;
+  Params.Use = MatrixUse::Accumulator;
+  Params.Scope = MatrixScope::Wave;
+  Params.Layout = MatrixLayout::RowMajor;
+  Params.NumThreads = 128;
+  Params.Enable16Bit = true;
+
+  std::vector<UINT> WaveSizes;
+  if (!matrixConstructionApplicableWaveSizes(D3DDevice, Params, {Params.Use},
+                                             L"MatrixCopy_Wave_16x16_F16",
+                                             WaveSizes))
+    return;
+
+  for (const UINT WaveSize : WaveSizes)
+    runElementSet(D3DDevice, DxcSupport, Params, VerboseLogging, WaveSize,
+                  /*VerifyCopy=*/true);
 }
 
 // Length() is thread local, so the first index past a lane's own length is
@@ -5081,17 +6180,17 @@ static const char ElementGetOOBShader[] = R"(
     __builtin_LinAlgMatrix
       [[__LinAlgMatrix_Attributes(COMP_TYPE, M_DIM, N_DIM, USE, SCOPE)]]
       Mat;
-    __builtin_LinAlg_MatrixLoadFromDescriptor(
+    dx::__builtin_LinAlg_MatrixLoadFromDescriptor(
       Mat, Input, 0, STRIDE, LAYOUT, 128);
 
-    uint Len = __builtin_LinAlg_MatrixLength(Mat);
+    uint Len = dx::__builtin_LinAlg_MatrixLength(Mat);
 
     // Seeded so that a dropped read leaves a value distinguishable from the
     // zero a correct out-of-bounds read must produce.
     ELEM_TYPE Just = (ELEM_TYPE)POISON_VALUE;
-    __builtin_LinAlg_MatrixGetElement(Just, Mat, Len);
+    dx::__builtin_LinAlg_MatrixGetElement(Just, Mat, Len);
     ELEM_TYPE Far = (ELEM_TYPE)POISON_VALUE;
-    __builtin_LinAlg_MatrixGetElement(Far, Mat, Len + FAR_OOB_OFFSET);
+    dx::__builtin_LinAlg_MatrixGetElement(Far, Mat, Len + FAR_OOB_OFFSET);
 
     // Record unconditionally so the runner can tell that this lane ran.
     uint Base = threadID * OOB_RECORD_SIZE;
@@ -5208,7 +6307,7 @@ static void runElementGetOOB(ID3D12Device *Device,
   }
 }
 
-void DxilConf_SM610_LinAlg::ElementGetOOB_Wave_4x8_F32() {
+void DxilConf_SM610_LinAlg_ElementAccess::ElementGetOOB_Wave_4x8_F32() {
   MatrixParams Params = {};
   Params.CompType = ComponentType::F32;
   Params.M = 4;
@@ -5246,18 +6345,18 @@ static const char ElementSetOOBShader[] = R"(
     __builtin_LinAlgMatrix
       [[__LinAlgMatrix_Attributes(COMP_TYPE, M_DIM, N_DIM, USE, SCOPE)]]
       Mat;
-    __builtin_LinAlg_MatrixLoadFromDescriptor(
+    dx::__builtin_LinAlg_MatrixLoadFromDescriptor(
       Mat, Input, 0, STRIDE, LAYOUT, 128);
 
-    uint Len = __builtin_LinAlg_MatrixLength(Mat);
+    uint Len = dx::__builtin_LinAlg_MatrixLength(Mat);
 
     // Both indices are outside this lane's range, so both writes must be
     // no-ops and the stored matrix must still equal the loaded one.
-    __builtin_LinAlg_MatrixSetElement(Mat, Mat, Len, (ELEM_TYPE)POISON_VALUE);
-    __builtin_LinAlg_MatrixSetElement(Mat, Mat, Len + FAR_OOB_OFFSET,
+    dx::__builtin_LinAlg_MatrixSetElement(Mat, Mat, Len, (ELEM_TYPE)POISON_VALUE);
+    dx::__builtin_LinAlg_MatrixSetElement(Mat, Mat, Len + FAR_OOB_OFFSET,
                                       (ELEM_TYPE)POISON_VALUE);
 
-    __builtin_LinAlg_MatrixStoreToDescriptor(
+    dx::__builtin_LinAlg_MatrixStoreToDescriptor(
       Mat, Output, 0, STRIDE, LAYOUT, 128);
 
     uint Base = MATRIX_BYTES + threadID * OOB_RECORD_SIZE;
@@ -5325,7 +6424,7 @@ static void runElementSetOOB(ID3D12Device *Device,
                                        Expected, NumElements, Verbose));
 }
 
-void DxilConf_SM610_LinAlg::ElementSetOOB_Wave_4x8_F32() {
+void DxilConf_SM610_LinAlg_ElementAccess::ElementSetOOB_Wave_4x8_F32() {
   MatrixParams Params = {};
   Params.CompType = ComponentType::F32;
   Params.M = 4;
@@ -5349,7 +6448,7 @@ void DxilConf_SM610_LinAlg::ElementSetOOB_Wave_4x8_F32() {
 // Out-of-bounds element access on F16. Both cases above pin the boundary
 // behaviour to F32, which no tier is required to support, so a conforming
 // F16-only device would exercise neither.
-void DxilConf_SM610_LinAlg::ElementGetOOB_Wave_16x16_F16() {
+void DxilConf_SM610_LinAlg_ElementAccess::ElementGetOOB_Wave_16x16_F16() {
   MatrixParams Params = {};
   Params.CompType = ComponentType::F16;
   Params.M = 16;
@@ -5370,7 +6469,7 @@ void DxilConf_SM610_LinAlg::ElementGetOOB_Wave_16x16_F16() {
     runElementGetOOB(D3DDevice, DxcSupport, Params, VerboseLogging, WaveSize);
 }
 
-void DxilConf_SM610_LinAlg::ElementSetOOB_Wave_16x16_F16() {
+void DxilConf_SM610_LinAlg_ElementAccess::ElementSetOOB_Wave_16x16_F16() {
   MatrixParams Params = {};
   Params.CompType = ComponentType::F16;
   Params.M = 16;
@@ -5384,6 +6483,55 @@ void DxilConf_SM610_LinAlg::ElementSetOOB_Wave_16x16_F16() {
   std::vector<UINT> WaveSizes;
   if (!matrixConstructionApplicableWaveSizes(D3DDevice, Params, {Params.Use},
                                              L"ElementSetOOB_Wave_16x16_F16",
+                                             WaveSizes))
+    return;
+
+  for (const UINT WaveSize : WaveSizes)
+    runElementSetOOB(D3DDevice, DxcSupport, Params, VerboseLogging, WaveSize);
+}
+
+static MatrixParams makeF32AccumulatorParams16x16() {
+  MatrixParams Params = {};
+  Params.CompType = ComponentType::F32;
+  Params.M = 16;
+  Params.N = 16;
+  Params.Use = MatrixUse::Accumulator;
+  Params.Scope = MatrixScope::Wave;
+  Params.Layout = MatrixLayout::RowMajor;
+  Params.NumThreads = 128;
+  Params.Enable16Bit = false;
+  return Params;
+}
+
+void DxilConf_SM610_LinAlg_ElementAccess::ElementAccess_Wave_16x16_F32() {
+  const MatrixParams Params = makeF32AccumulatorParams16x16();
+  std::vector<UINT> WaveSizes;
+  if (!matrixConstructionApplicableWaveSizes(D3DDevice, Params, {Params.Use},
+                                             L"ElementAccess_Wave_16x16_F32",
+                                             WaveSizes))
+    return;
+
+  for (const UINT WaveSize : WaveSizes)
+    runElementAccess(D3DDevice, DxcSupport, Params, VerboseLogging, WaveSize);
+}
+
+void DxilConf_SM610_LinAlg_ElementAccess::ElementGetOOB_Wave_16x16_F32() {
+  const MatrixParams Params = makeF32AccumulatorParams16x16();
+  std::vector<UINT> WaveSizes;
+  if (!matrixConstructionApplicableWaveSizes(D3DDevice, Params, {Params.Use},
+                                             L"ElementGetOOB_Wave_16x16_F32",
+                                             WaveSizes))
+    return;
+
+  for (const UINT WaveSize : WaveSizes)
+    runElementGetOOB(D3DDevice, DxcSupport, Params, VerboseLogging, WaveSize);
+}
+
+void DxilConf_SM610_LinAlg_ElementAccess::ElementSetOOB_Wave_16x16_F32() {
+  const MatrixParams Params = makeF32AccumulatorParams16x16();
+  std::vector<UINT> WaveSizes;
+  if (!matrixConstructionApplicableWaveSizes(D3DDevice, Params, {Params.Use},
+                                             L"ElementSetOOB_Wave_16x16_F32",
                                              WaveSizes))
     return;
 
@@ -5410,15 +6558,15 @@ static const char CopyConvertShader[] = R"(
       [[__LinAlgMatrix_Attributes(COMP_TYPE, M_DIM, N_DIM, USE, SCOPE)]]
       Src;
     __builtin_LinAlgMatrix
-      [[__LinAlgMatrix_Attributes(DST_COMP_TYPE, DST_M_DIM, DST_N_DIM, USE, SCOPE)]]
+      [[__LinAlgMatrix_Attributes(DST_COMP_TYPE, DST_M_DIM, DST_N_DIM, DST_USE, SCOPE)]]
       Dst;
 
-    __builtin_LinAlg_MatrixLoadFromDescriptor(
+    dx::__builtin_LinAlg_MatrixLoadFromDescriptor(
       Src, Input, 0, SRC_STRIDE, LAYOUT, 128);
-    __builtin_LinAlg_CopyConvertMatrix(Dst, Src, TRANSPOSE);
-    __builtin_LinAlg_MatrixStoreToDescriptor(
+    dx::__builtin_LinAlg_CopyConvertMatrix(Dst, Src, TRANSPOSE);
+    dx::__builtin_LinAlg_MatrixStoreToDescriptor(
       Dst, Output, 0, DST_STRIDE, LAYOUT, 128);
-    __builtin_LinAlg_MatrixStoreToDescriptor(
+    dx::__builtin_LinAlg_MatrixStoreToDescriptor(
       Src, SourceAfter, 0, SRC_STRIDE, LAYOUT, 128);
   }
 )";
@@ -5426,11 +6574,12 @@ static const char CopyConvertShader[] = R"(
 static HRESULT selectCopyConvertWaveSize(ID3D12Device *Device,
                                          const MatrixParams &Params,
                                          ComponentType DestinationCompType,
+                                         MatrixUse DestinationUse,
                                          bool Transpose, bool &Supported,
                                          UINT &SelectedWaveSize) {
   Supported = false;
   SelectedWaveSize = 0;
-  if (!Device || Params.Use != MatrixUse::A ||
+  if (!Device ||
       !linalg_test::isLegalScope(
           linalg_abi::D3D12_LINEAR_ALGEBRA_OPERATION_TYPE_MATRIX_CONSTRUCTION,
           Params.Scope))
@@ -5473,15 +6622,22 @@ static HRESULT selectCopyConvertWaveSize(ID3D12Device *Device,
       continue;
 
     bool SourceSupported = false;
-    HR = supportsMatrixShape(Device, *SourceType, WaveSize, MatrixUse::A,
-                             Params.M, Params.N, SourceSupported);
+    HR = supportsMatrixShape(Device, *SourceType, WaveSize,
+                             Params.Scope == MatrixScope::ThreadGroup
+                                 ? static_cast<UINT>(Params.NumThreads)
+                                 : 0,
+                             Params.Use, Params.Scope, Params.M, Params.N,
+                             SourceSupported);
     if (FAILED(HR))
       return HR;
 
     bool DestinationSupported = false;
-    HR =
-        supportsMatrixShape(Device, *DestinationType, WaveSize, MatrixUse::A,
-                            Destination.M, Destination.N, DestinationSupported);
+    HR = supportsMatrixShape(Device, *DestinationType, WaveSize,
+                             Params.Scope == MatrixScope::ThreadGroup
+                                 ? static_cast<UINT>(Params.NumThreads)
+                                 : 0,
+                             DestinationUse, Params.Scope, Destination.M,
+                             Destination.N, DestinationSupported);
     if (FAILED(HR))
       return HR;
 
@@ -5504,15 +6660,15 @@ static HRESULT selectCopyConvertWaveSize(ID3D12Device *Device,
   return S_OK;
 }
 
-static bool copyConvertApplicable(ID3D12Device *Device,
-                                  const MatrixParams &Params,
-                                  ComponentType DestinationCompType,
-                                  bool Transpose, LPCWSTR CaseName,
-                                  UINT &SelectedWaveSize) {
+static bool
+copyConvertApplicable(ID3D12Device *Device, const MatrixParams &Params,
+                      ComponentType DestinationCompType, bool Transpose,
+                      LPCWSTR CaseName, UINT &SelectedWaveSize,
+                      std::optional<MatrixUse> DestinationUse = std::nullopt) {
   bool Supported = false;
-  const HRESULT QueryResult =
-      selectCopyConvertWaveSize(Device, Params, DestinationCompType, Transpose,
-                                Supported, SelectedWaveSize);
+  const HRESULT QueryResult = selectCopyConvertWaveSize(
+      Device, Params, DestinationCompType, DestinationUse.value_or(Params.Use),
+      Transpose, Supported, SelectedWaveSize);
   if (!applyApplicability(
           linalg_test::classifyApplicability(
               QueryResult, Supported,
@@ -5525,13 +6681,14 @@ static bool copyConvertApplicable(ID3D12Device *Device,
   return true;
 }
 
-static void runCopyConvert(ID3D12Device *Device,
-                           dxc::SpecificDllLoader &DxcSupport,
-                           const MatrixParams &Params,
-                           ComponentType DestinationCompType, bool Verbose,
-                           bool Transpose, UINT ForcedWaveSize = 0) {
+static void
+runCopyConvert(ID3D12Device *Device, dxc::SpecificDllLoader &DxcSupport,
+               const MatrixParams &Params, ComponentType DestinationCompType,
+               bool Verbose, bool Transpose, UINT ForcedWaveSize = 0,
+               std::optional<MatrixUse> DestinationUse = std::nullopt) {
   MatrixParams DstParams = Params;
   DstParams.CompType = DestinationCompType;
+  DstParams.Use = DestinationUse.value_or(Params.Use);
   if (Transpose) {
     DstParams.M = Params.N;
     DstParams.N = Params.M;
@@ -5540,6 +6697,7 @@ static void runCopyConvert(ID3D12Device *Device,
   std::stringstream ExtraDefs;
   ExtraDefs << " -DTRANSPOSE=" << Transpose;
   ExtraDefs << " -DDST_COMP_TYPE=" << static_cast<UINT>(DestinationCompType);
+  ExtraDefs << " -DDST_USE=" << static_cast<UINT>(DstParams.Use);
   ExtraDefs << " -DDST_M_DIM=" << DstParams.M;
   ExtraDefs << " -DDST_N_DIM=" << DstParams.N;
   ExtraDefs << " -DSRC_STRIDE=" << Params.strideBytes();
@@ -5628,7 +6786,7 @@ static void runCopyConvert(ID3D12Device *Device,
       SourceOracle, Verbose));
 }
 
-void DxilConf_SM610_LinAlg::CopyConvert_Wave_16x16_F16() {
+void DxilConf_SM610_LinAlg_Conversion::CopyConvert_Wave_16x16_F16() {
   MatrixParams Params = {};
   Params.CompType = ComponentType::F16;
   Params.M = 16;
@@ -5650,7 +6808,7 @@ void DxilConf_SM610_LinAlg::CopyConvert_Wave_16x16_F16() {
                  /*Transpose=*/false, SelectedWaveSize);
 }
 
-void DxilConf_SM610_LinAlg::CopyConvert_Wave_16x16_F16_Transpose() {
+void DxilConf_SM610_LinAlg_Conversion::CopyConvert_Wave_16x16_F16_Transpose() {
   MatrixParams Params = {};
   Params.CompType = ComponentType::F16;
   Params.M = 16;
@@ -5673,7 +6831,7 @@ void DxilConf_SM610_LinAlg::CopyConvert_Wave_16x16_F16_Transpose() {
                  /*Transpose=*/true, SelectedWaveSize);
 }
 
-void DxilConf_SM610_LinAlg::CopyConvert_Wave_4x8_F32_Transpose() {
+void DxilConf_SM610_LinAlg_Conversion::CopyConvert_Wave_4x8_F32_Transpose() {
   MatrixParams Params = {};
   Params.CompType = ComponentType::F32;
   Params.M = 4;
@@ -5717,19 +6875,19 @@ static const char MatMatMulShader[] = R"(
     __builtin_LinAlgMatrix
       [[__LinAlgMatrix_Attributes(COMP_TYPE, M_DIM, K_DIM, USE_A, SCOPE)]]
       MatA;
-    __builtin_LinAlg_FillMatrix(MatA, A_FILL);
+    dx::__builtin_LinAlg_FillMatrix(MatA, FILL_INPUT_IS_SIGNED, A_FILL);
 
     __builtin_LinAlgMatrix
       [[__LinAlgMatrix_Attributes(COMP_TYPE, K_DIM, N_DIM, USE_B, SCOPE)]]
       MatB;
-    __builtin_LinAlg_FillMatrix(MatB, B_FILL);
+    dx::__builtin_LinAlg_FillMatrix(MatB, FILL_INPUT_IS_SIGNED, B_FILL);
 
     __builtin_LinAlgMatrix
       [[__LinAlgMatrix_Attributes(COMP_TYPE, M_DIM, N_DIM, USE_ACC, SCOPE)]]
       MatC;
-    __builtin_LinAlg_MatrixMatrixMultiply(MatC, MatA, MatB);
+    dx::__builtin_LinAlg_MatrixMatrixMultiply(MatC, MatA, MatB);
 
-    __builtin_LinAlg_MatrixStoreToDescriptor(
+    dx::__builtin_LinAlg_MatrixStoreToDescriptor(
       MatC, Output, 0, STRIDE, LAYOUT, 128);
   }
 )";
@@ -5738,7 +6896,6 @@ static void runMatMatMul(ID3D12Device *Device,
                          dxc::SpecificDllLoader &DxcSupport,
                          const MatrixParams &Params, bool Verbose, MatrixDim K,
                          float AFill, float BFill, UINT ForcedWaveSize = 0) {
-  const size_t NumElements = Params.totalElements();
   const size_t BufferSize = Params.totalBytes();
 
   std::stringstream ExtraDefs;
@@ -5766,11 +6923,10 @@ static void runMatMatMul(ID3D12Device *Device,
   MappedData OutData;
   Result->Test->GetReadBackData("Output", &OutData);
 
-  VERIFY_IS_TRUE(verifyComponentBuffer(Params.CompType, OutData.data(),
-                                       Expected, NumElements, Verbose));
+  VERIFY_IS_TRUE(verifyRoundedValues(OutData.data(), Expected, K));
 }
 
-void DxilConf_SM610_LinAlg::MatMatMul_Wave_16x16x16_F16() {
+void DxilConf_SM610_LinAlg_MatrixArithmetic::MatMatMul_Wave_16x16x16_F16() {
   MatrixParams Params = {};
   Params.CompType = ComponentType::F16;
   Params.M = 16;
@@ -5809,21 +6965,21 @@ static const char MatMatMulAccumShader[] = R"(
     __builtin_LinAlgMatrix
       [[__LinAlgMatrix_Attributes(COMP_TYPE, M_DIM, K_DIM, USE_A, SCOPE)]]
       MatA;
-    __builtin_LinAlg_FillMatrix(MatA, A_FILL);
+    dx::__builtin_LinAlg_FillMatrix(MatA, FILL_INPUT_IS_SIGNED, A_FILL);
 
     __builtin_LinAlgMatrix
       [[__LinAlgMatrix_Attributes(COMP_TYPE, K_DIM, N_DIM, USE_B, SCOPE)]]
       MatB;
-    __builtin_LinAlg_FillMatrix(MatB, B_FILL);
+    dx::__builtin_LinAlg_FillMatrix(MatB, FILL_INPUT_IS_SIGNED, B_FILL);
 
     __builtin_LinAlgMatrix
       [[__LinAlgMatrix_Attributes(COMP_TYPE, M_DIM, N_DIM, USE_ACC, SCOPE)]]
       MatC;
-    __builtin_LinAlg_FillMatrix(MatC, C_FILL);
+    dx::__builtin_LinAlg_FillMatrix(MatC, FILL_INPUT_IS_SIGNED, C_FILL);
 
-    __builtin_LinAlg_MatrixMatrixMultiplyAccumulate(MatC, MatA, MatB, MatC);
+    dx::__builtin_LinAlg_MatrixMatrixMultiplyAccumulate(MatC, MatA, MatB, MatC);
 
-    __builtin_LinAlg_MatrixStoreToDescriptor(
+    dx::__builtin_LinAlg_MatrixStoreToDescriptor(
       MatC, Output, 0, STRIDE, LAYOUT, 128);
   }
 )";
@@ -5833,7 +6989,6 @@ static void runMatMatMulAccum(ID3D12Device *Device,
                               const MatrixParams &Params, bool Verbose,
                               MatrixDim K, float AFill, float BFill,
                               float CFill, UINT ForcedWaveSize = 0) {
-  const size_t NumElements = Params.totalElements();
   const size_t BufferSize = Params.totalBytes();
 
   std::stringstream ExtraDefs;
@@ -5863,11 +7018,11 @@ static void runMatMatMulAccum(ID3D12Device *Device,
   MappedData OutData;
   Result->Test->GetReadBackData("Output", &OutData);
 
-  VERIFY_IS_TRUE(verifyComponentBuffer(Params.CompType, OutData.data(),
-                                       Expected, NumElements, Verbose));
+  VERIFY_IS_TRUE(verifyRoundedValues(OutData.data(), Expected, K));
 }
 
-void DxilConf_SM610_LinAlg::MatMatMulAccum_Wave_16x16x16_F16() {
+void DxilConf_SM610_LinAlg_MatrixArithmetic::
+    MatMatMulAccum_Wave_16x16x16_F16() {
   MatrixParams Params = {};
   Params.CompType = ComponentType::F16;
   Params.M = 16;
@@ -5907,16 +7062,16 @@ static const char MatAccumShader[] = R"(
     __builtin_LinAlgMatrix
       [[__LinAlgMatrix_Attributes(COMP_TYPE, M_DIM, N_DIM, USE_ACC, SCOPE)]]
       MatLHS;
-    __builtin_LinAlg_FillMatrix(MatLHS, LHS_FILL);
+    dx::__builtin_LinAlg_FillMatrix(MatLHS, FILL_INPUT_IS_SIGNED, LHS_FILL);
 
     __builtin_LinAlgMatrix
       [[__LinAlgMatrix_Attributes(COMP_TYPE, M_DIM, N_DIM, USE_A, SCOPE)]]
       MatRHS;
-    __builtin_LinAlg_FillMatrix(MatRHS, RHS_FILL);
+    dx::__builtin_LinAlg_FillMatrix(MatRHS, FILL_INPUT_IS_SIGNED, RHS_FILL);
 
-    __builtin_LinAlg_MatrixAccumulate(MatLHS, MatLHS, MatRHS);
+    dx::__builtin_LinAlg_MatrixAccumulate(MatLHS, MatLHS, MatRHS);
 
-    __builtin_LinAlg_MatrixStoreToDescriptor(
+    dx::__builtin_LinAlg_MatrixStoreToDescriptor(
       MatLHS, Output, 0, STRIDE, LAYOUT, 128);
   }
 )";
@@ -5955,7 +7110,7 @@ static void runMatAccum(ID3D12Device *Device,
                                        Expected, NumElements, Verbose));
 }
 
-void DxilConf_SM610_LinAlg::MatAccum_Wave_16x16_F16() {
+void DxilConf_SM610_LinAlg_MatrixArithmetic::MatAccum_Wave_16x16_F16() {
   MatrixParams Params = {};
   Params.CompType = ComponentType::F16;
   Params.M = 16;
@@ -6008,6 +7163,30 @@ encodeLogicalMatrixBuffer(const MatrixParams &Matrix,
   if (Matrix.Layout != MatrixLayout::RowMajor &&
       Matrix.Layout != MatrixLayout::ColumnMajor)
     return std::nullopt;
+
+  if (Matrix.CompType == ComponentType::I8 ||
+      Matrix.CompType == ComponentType::U8) {
+    const bool Signed = Matrix.CompType == ComponentType::I8;
+    const int64_t Min = Signed ? -128 : 0;
+    const int64_t Max = Signed ? 127 : 255;
+    const size_t Stride = Matrix.strideBytes();
+    const size_t MajorCount =
+        Matrix.Layout == MatrixLayout::RowMajor ? Matrix.M : Matrix.N;
+    std::vector<BYTE> Buffer(MajorCount * Stride, 0);
+    for (MatrixDim Row = 0; Row < Matrix.M; ++Row) {
+      for (MatrixDim Column = 0; Column < Matrix.N; ++Column) {
+        const int64_t Value =
+            Values[static_cast<size_t>(Row) * Matrix.N + Column];
+        if (Value < Min || Value > Max)
+          return std::nullopt;
+        const size_t Offset = Matrix.Layout == MatrixLayout::RowMajor
+                                  ? static_cast<size_t>(Row) * Stride + Column
+                                  : static_cast<size_t>(Column) * Stride + Row;
+        Buffer[Offset] = static_cast<BYTE>(Value & 0xff);
+      }
+    }
+    return Buffer;
+  }
 
   std::optional<TypedMatrix> LogicalMatrix;
   switch (Matrix.CompType) {
@@ -6097,6 +7276,57 @@ void LinAlgCPUOracleTests::MatrixProductOracle() {
       /*MatrixA=*/{1, 2, 3, 4, 5, 6},
       /*MatrixB=*/{7, 8, 9, 10, 11, 12}, &InitialAccumulator);
   VERIFY_IS_TRUE(Accumulated == std::vector<int64_t>({59, 63, 141, 152}));
+
+  // Encoded bits: -3.0 at 3, K + 2 and K + 3 ULPs, a dropped term (-2.0), the
+  // near-zero floor and one ULP past it, Inf/NaN, and a K = 32 F32 result 12
+  // ULPs below -1. F16 stays at 4 ULPs whatever K is.
+  struct RoundedCase {
+    bool Half;
+    MatrixDim K;
+    uint32_t Actual;
+    uint32_t Expected;
+    bool Match;
+  };
+  const RoundedCase Cases[] = {
+      {false, 2, 0xC03FFFFD, 0xC0400000, true},
+      {false, 2, 0xC03FFFFC, 0xC0400000, true},
+      {false, 2, 0xC03FFFFB, 0xC0400000, false},
+      {false, 2, 0xC0000000, 0xC0400000, false},
+      {false, 2, 0x35000000, 0x00000000, true},
+      {false, 2, 0x35000001, 0x00000000, false},
+      {false, 2, 0x7F800000, 0x7F800000, true},
+      {false, 2, 0xFF800000, 0x7F800000, false},
+      {false, 2, 0x7FC00000, 0x3F800000, false},
+      {false, 2, 0x7FC00000, 0x7FC00000, true},
+      {false, 32, 0xBF7FFFE8, 0xBF800000, true},
+      {false, 32, 0xC03FFFDE, 0xC0400000, true},
+      {false, 32, 0xC03FFFDD, 0xC0400000, false},
+      {false, 32, 0xC0000000, 0xC0400000, false},
+      {true, 32, 0xC1FD, 0xC200, true},
+      {true, 32, 0xC1FC, 0xC200, true},
+      {true, 32, 0xC1FB, 0xC200, false},
+      {true, 32, 0xC000, 0xC200, false},
+      {true, 32, 0x1C00, 0x0000, true},
+      {true, 32, 0x1C01, 0x0000, false},
+      {true, 32, 0x7C00, 0x7C00, true},
+      {true, 32, 0xFC00, 0x7C00, false},
+      {true, 32, 0x7E00, 0x3C00, false},
+      {true, 32, 0x7E00, 0x7E00, true},
+  };
+  for (const RoundedCase &Case : Cases) {
+    float A, E;
+    std::memcpy(&A, &Case.Actual, sizeof(A));
+    std::memcpy(&E, &Case.Expected, sizeof(E));
+    const bool Match =
+        Case.Half ? roundedMatch(HLSLHalf_t::FromHALF(uint16_t(Case.Actual)),
+                                 HLSLHalf_t::FromHALF(uint16_t(Case.Expected)),
+                                 Case.K)
+                  : roundedMatch(A, E, Case.K);
+    if (Match != Case.Match)
+      hlsl_test::LogErrorFmt(L"roundedMatch(0x%x, 0x%x) returned %d",
+                             Case.Actual, Case.Expected, Match);
+    VERIFY_ARE_EQUAL(Case.Match, Match);
+  }
 }
 
 static bool matrixArithmeticNeeds16BitTypes(ComponentType CompType) {
@@ -6150,6 +7380,7 @@ struct MatrixMultiplyCase {
   ComponentType MatrixAType = ComponentType::Invalid;
   ComponentType MatrixBType = ComponentType::Invalid;
   ComponentType AccumulatorType = ComponentType::Invalid;
+  MatrixLayout MatrixBLayout = MatrixLayout::RowMajor;
   MatrixDim M = 0;
   MatrixDim K = 0;
   MatrixDim N = 0;
@@ -6182,11 +7413,15 @@ static bool isMatrixMultiplyCaseValid(const MatrixMultiplyCase &Case) {
     return false;
   if (!toCapabilityDataType(Case.AccumulatorType))
     return false;
+  if (Case.MatrixBLayout != MatrixLayout::RowMajor &&
+      Case.MatrixBLayout != MatrixLayout::ColumnMajor)
+    return false;
   return !Case.PublicRule.empty();
 }
 
 static HRESULT matrixMultiplyRolesConstructible(
     ID3D12Device *Device, const MatrixMultiplyCase &Case, UINT WaveSize,
+    MatrixScope Scope, UINT ThreadGroupSize,
     linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE MatrixAType,
     linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE MatrixBType,
     linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE AccumulatorType,
@@ -6206,9 +7441,9 @@ static HRESULT matrixMultiplyRolesConstructible(
 
   for (const ConstructionRole &Role : Roles) {
     bool RoleConstructible = false;
-    const HRESULT HR =
-        supportsMatrixShape(Device, Role.Type, WaveSize, Role.Use, Role.Rows,
-                            Role.Columns, RoleConstructible);
+    const HRESULT HR = supportsMatrixShape(
+        Device, Role.Type, WaveSize, ThreadGroupSize, Role.Use, Scope,
+        Role.Rows, Role.Columns, RoleConstructible);
     if (FAILED(HR))
       return HR;
     if (!RoleConstructible)
@@ -6263,9 +7498,9 @@ static HRESULT collectWaveArithmeticMultiplyWaveSizes(
       continue;
 
     bool RolesConstructible = false;
-    HR = matrixMultiplyRolesConstructible(Device, Case, WaveSize, MatrixAType,
-                                          MatrixBType, AccumulatorType,
-                                          RolesConstructible);
+    HR = matrixMultiplyRolesConstructible(
+        Device, Case, WaveSize, MatrixScope::Wave, 0, MatrixAType, MatrixBType,
+        AccumulatorType, RolesConstructible);
     if (FAILED(HR))
       return HR;
     if (!RolesConstructible)
@@ -6301,34 +7536,34 @@ static HRESULT collectWaveArithmeticMultiplyWaveSizes(
   return S_OK;
 }
 
-static UINT selectThreadGroupMatMulSize(
-    const linalg_test::ThreadGroupMatrixMultiplySupport &Support,
-    UINT WaveSize) {
+static HRESULT
+selectThreadGroupMatMulSize(ID3D12Device *Device,
+                            linalg_test::ThreadGroupMatrixMultiplyQuery Query,
+                            UINT &SelectedSize) {
   constexpr UINT MaxThreadsPerGroup =
       D3D12_CS_THREAD_GROUP_MAX_THREADS_PER_GROUP;
-  if (!Support.supported() || WaveSize == 0)
-    return 0;
+  SelectedSize = 0;
+  const UINT WaveSize = Query.WaveInputs.WaveSize;
+  if (WaveSize == 0 || WaveSize > MaxThreadsPerGroup)
+    return E_INVALIDARG;
 
-  if (Support.PreferredThreadGroupSize > WaveSize &&
-      Support.PreferredThreadGroupSize <= MaxThreadsPerGroup &&
-      Support.supportsThreadGroupSize(Support.PreferredThreadGroupSize))
-    return Support.PreferredThreadGroupSize;
-
-  const UINT MaxThreadGroupSize =
-      std::min(Support.MaxThreadGroupSize, MaxThreadsPerGroup);
-  for (UINT ThreadGroupSize = Support.MinThreadGroupSize;
-       ThreadGroupSize <= MaxThreadGroupSize;
-       ThreadGroupSize += Support.MinThreadGroupSize) {
-    if (ThreadGroupSize > WaveSize)
-      return ThreadGroupSize;
+  // Prefer a cross-wave case, but fall back to one wave if no larger size
+  // works. Query each candidate independently: supported sizes need not be
+  // contiguous.
+  for (UINT Size = WaveSize * 2; Size <= MaxThreadsPerGroup + WaveSize;
+       Size += WaveSize) {
+    Query.ThreadGroupSize = Size > MaxThreadsPerGroup ? WaveSize : Size;
+    linalg_test::ThreadGroupMatrixMultiplySupport Support;
+    const HRESULT HR =
+        linalg_test::queryThreadGroupMatrixMultiply(Device, Query, Support);
+    if (FAILED(HR))
+      return HR;
+    if (Support.supported()) {
+      SelectedSize = Query.ThreadGroupSize;
+      return S_OK;
+    }
   }
-
-  if (Support.PreferredThreadGroupSize <= MaxThreadGroupSize &&
-      Support.supportsThreadGroupSize(Support.PreferredThreadGroupSize))
-    return Support.PreferredThreadGroupSize;
-  if (Support.MinThreadGroupSize <= MaxThreadGroupSize)
-    return Support.MinThreadGroupSize;
-  return 0;
+  return S_OK;
 }
 
 // ThreadGroup matrix extents have to be a multiple of the device's wave size,
@@ -6526,32 +7761,27 @@ static HRESULT selectThreadGroupMatMulConfiguration(
         Candidate.N,
     };
 
+    UINT ThreadGroupSize = 0;
+    HR = selectThreadGroupMatMulSize(
+        Device,
+        {{WaveSize, MatrixAType, MatrixBType, AccumulatorType}, Shape, 0},
+        ThreadGroupSize);
+    VERIFY_SUCCEEDED(HR, "ThreadGroup matrix multiply queries must succeed");
+    if (ThreadGroupSize == 0) {
+      hlsl_test::LogCommentFmt(
+          L"No supported ThreadGroupMatrixMultiply shader group size for "
+          L"%s at wave=%u",
+          CaseName, WaveSize);
+      continue;
+    }
+
     bool RolesConstructible = false;
-    HR = matrixMultiplyRolesConstructible(Device, Candidate, WaveSize,
-                                          MatrixAType, MatrixBType,
-                                          AccumulatorType, RolesConstructible);
+    HR = matrixMultiplyRolesConstructible(
+        Device, Candidate, WaveSize, MatrixScope::ThreadGroup, ThreadGroupSize,
+        MatrixAType, MatrixBType, AccumulatorType, RolesConstructible);
     VERIFY_SUCCEEDED(HR, "Matrix role construction query must succeed");
     if (!RolesConstructible)
       continue;
-
-    linalg_test::ThreadGroupMatrixMultiplySupport Multiply;
-    HR = linalg_test::queryThreadGroupMatrixMultiply(
-        Device, {{WaveSize, MatrixAType, MatrixBType, AccumulatorType}, Shape},
-        Multiply);
-    VERIFY_SUCCEEDED(HR, "ThreadGroup matrix multiply query must succeed");
-    if (!Multiply.supported())
-      continue;
-
-    const UINT ThreadGroupSize =
-        selectThreadGroupMatMulSize(Multiply, WaveSize);
-    if (ThreadGroupSize == 0) {
-      hlsl_test::LogCommentFmt(
-          L"ThreadGroupMatrixMultiply supports %s at wave=%u, but no legal "
-          L"shader group size is available: min=%u, max=%u, preferred=%u",
-          CaseName, WaveSize, Multiply.MinThreadGroupSize,
-          Multiply.MaxThreadGroupSize, Multiply.PreferredThreadGroupSize);
-      continue;
-    }
 
     hlsl_test::LogCommentFmt(
         L"ThreadGroup matrix arithmetic capability matched wave=%u, "
@@ -6622,15 +7852,15 @@ static const char MatrixMultiplyShader[] = R"(
       [[__LinAlgMatrix_Attributes(
         MATRIX_A_COMP_TYPE, M_DIM, K_DIM, USE_A, MATRIX_SCOPE)]]
       MatA;
-    __builtin_LinAlg_MatrixLoadFromDescriptor(
+    dx::__builtin_LinAlg_MatrixLoadFromDescriptor(
       MatA, MatrixAInput, 0, MATRIX_A_STRIDE, LAYOUT_ROW_MAJOR, 128);
 
     __builtin_LinAlgMatrix
       [[__LinAlgMatrix_Attributes(
         MATRIX_B_COMP_TYPE, K_DIM, N_DIM, USE_B, MATRIX_SCOPE)]]
       MatB;
-    __builtin_LinAlg_MatrixLoadFromDescriptor(
-      MatB, MatrixBInput, 0, MATRIX_B_STRIDE, LAYOUT_ROW_MAJOR, 128);
+    dx::__builtin_LinAlg_MatrixLoadFromDescriptor(
+      MatB, MatrixBInput, 0, MATRIX_B_STRIDE, MATRIX_B_LAYOUT, 128);
 
     __builtin_LinAlgMatrix
       [[__LinAlgMatrix_Attributes(
@@ -6641,16 +7871,16 @@ static const char MatrixMultiplyShader[] = R"(
       [[__LinAlgMatrix_Attributes(
         ACCUMULATOR_COMP_TYPE, M_DIM, N_DIM, USE_ACC, MATRIX_SCOPE)]]
       Accumulator;
-    __builtin_LinAlg_MatrixLoadFromDescriptor(
+    dx::__builtin_LinAlg_MatrixLoadFromDescriptor(
       Accumulator, AccumulatorInput, 0, ACCUMULATOR_STRIDE,
       LAYOUT_ROW_MAJOR, 128);
-    __builtin_LinAlg_MatrixMatrixMultiplyAccumulate(
+    dx::__builtin_LinAlg_MatrixMatrixMultiplyAccumulate(
       Result, MatA, MatB, Accumulator);
 #else
-    __builtin_LinAlg_MatrixMatrixMultiply(Result, MatA, MatB);
+    dx::__builtin_LinAlg_MatrixMatrixMultiply(Result, MatA, MatB);
 #endif
 
-    __builtin_LinAlg_MatrixStoreToDescriptor(
+    dx::__builtin_LinAlg_MatrixStoreToDescriptor(
       Result, Output, 0, ACCUMULATOR_STRIDE, LAYOUT_ROW_MAJOR, 128);
   }
 )";
@@ -6666,8 +7896,9 @@ buildMatrixMultiplyCompilerArgs(const MatrixMultiplyCase &Case,
 
   const MatrixParams MatrixA = makeMatrixArithmeticParams(
       Case.MatrixAType, Case.M, Case.K, MatrixUse::A, Scope, NumThreads);
-  const MatrixParams MatrixB = makeMatrixArithmeticParams(
+  MatrixParams MatrixB = makeMatrixArithmeticParams(
       Case.MatrixBType, Case.K, Case.N, MatrixUse::B, Scope, NumThreads);
+  MatrixB.Layout = Case.MatrixBLayout;
   const MatrixParams Accumulator =
       makeMatrixArithmeticParams(Case.AccumulatorType, Case.M, Case.N,
                                  MatrixUse::Accumulator, Scope, NumThreads);
@@ -6683,6 +7914,7 @@ buildMatrixMultiplyCompilerArgs(const MatrixMultiplyCase &Case,
   SS << " -DN_DIM=" << Case.N;
   SS << " -DMATRIX_A_STRIDE=" << MatrixA.strideBytes();
   SS << " -DMATRIX_B_STRIDE=" << MatrixB.strideBytes();
+  SS << " -DMATRIX_B_LAYOUT=" << static_cast<int>(Case.MatrixBLayout);
   SS << " -DACCUMULATOR_STRIDE=" << Accumulator.strideBytes();
   SS << " -DNUMTHREADS=" << NumThreads;
   SS << " -DFORCED_WAVE_SIZE=" << WaveSize;
@@ -6694,11 +7926,10 @@ buildMatrixMultiplyCompilerArgs(const MatrixMultiplyCase &Case,
   return SS.str();
 }
 
-static bool
-verifyMatrixArithmeticMatrix(const void *Actual, size_t ActualSize,
-                             const MatrixParams &Params,
-                             const std::vector<int64_t> &ExpectedValues,
-                             const std::wstring &PublicRule, bool Verbose) {
+static bool verifyMatrixArithmeticMatrix(
+    const void *Actual, size_t ActualSize, const MatrixParams &Params,
+    const std::vector<int64_t> &ExpectedValues, const std::wstring &PublicRule,
+    bool Verbose, MatrixDim RoundedK = 0) {
   const std::optional<std::vector<BYTE>> ExpectedBuffer =
       cpu_oracle::encodeLogicalMatrixBuffer(Params, ExpectedValues);
   VERIFY_IS_TRUE(ExpectedBuffer.has_value());
@@ -6718,6 +7949,11 @@ verifyMatrixArithmeticMatrix(const void *Actual, size_t ActualSize,
   if (!Expected)
     return false;
 
+  // The multiply results are packed row-major, so they compare in place.
+  if (RoundedK != 0 && ActualSize == Params.totalBytes())
+    return verifyRoundedValues(Actual, Expected->Values, RoundedK);
+  VERIFY_ARE_EQUAL(RoundedK, 0u, "Rounded comparison needs a packed result");
+
   const cpu_oracle::MatrixResultOracle Oracle =
       cpu_oracle::exactResult(*Expected, PublicRule);
   return cpu_oracle::verifyMatrixBuffer(Actual, ActualSize, Layout, Oracle,
@@ -6736,8 +7972,9 @@ static void runMatrixMultiplyCase(ID3D12Device *Device,
 
   const MatrixParams MatrixA = makeMatrixArithmeticParams(
       Case.MatrixAType, Case.M, Case.K, MatrixUse::A, Scope, NumThreads);
-  const MatrixParams MatrixB = makeMatrixArithmeticParams(
+  MatrixParams MatrixB = makeMatrixArithmeticParams(
       Case.MatrixBType, Case.K, Case.N, MatrixUse::B, Scope, NumThreads);
+  MatrixB.Layout = Case.MatrixBLayout;
   const MatrixParams Accumulator =
       makeMatrixArithmeticParams(Case.AccumulatorType, Case.M, Case.N,
                                  MatrixUse::Accumulator, Scope, NumThreads);
@@ -6812,9 +8049,10 @@ static void runMatrixMultiplyCase(ID3D12Device *Device,
 
   MappedData OutData;
   Result->Test->GetReadBackData("Output", &OutData);
-  VERIFY_IS_TRUE(verifyMatrixArithmeticMatrix(OutData.data(), OutData.size(),
-                                              Accumulator, Expected,
-                                              Case.PublicRule, Verbose));
+  VERIFY_IS_TRUE(verifyMatrixArithmeticMatrix(
+      OutData.data(), OutData.size(), Accumulator, Expected, Case.PublicRule,
+      Verbose,
+      /*RoundedK=*/Case.AccumulatorType != ComponentType::I32 ? Case.K : 0));
 }
 
 static void runWaveMultiplyCase(ID3D12Device *Device,
@@ -6842,13 +8080,13 @@ static void runWaveMultiplyCase(ID3D12Device *Device,
 }
 
 static MatrixMultiplyCase
-makeRectangularF16WaveMultiplyCase(ComponentType AccumulatorType,
+makeRectangularF16WaveMultiplyCase(MatrixDim M, ComponentType AccumulatorType,
                                    MatrixMultiplyOperation Operation) {
   MatrixMultiplyCase Case = {};
   Case.MatrixAType = ComponentType::F16;
   Case.MatrixBType = ComponentType::F16;
   Case.AccumulatorType = AccumulatorType;
-  Case.M = 8;
+  Case.M = M;
   Case.K = 32;
   Case.N = 16;
   Case.Operation = Operation;
@@ -6858,39 +8096,95 @@ makeRectangularF16WaveMultiplyCase(ComponentType AccumulatorType,
     Case.AccumulatorValues =
         makeMatrixArithmeticPattern(Case.M, Case.N, 2, 1, 5, 2);
     Case.PublicRule =
-        L"Exact non-uniform F16 product plus an independent F32 accumulator";
+        L"Non-uniform F16 product plus an independent F32 accumulator";
   } else if (AccumulatorType == ComponentType::F32) {
     Case.PublicRule =
-        L"Exact non-uniform F16 matrix product stored in an F32 accumulator";
+        L"Non-uniform F16 matrix product stored in an F32 accumulator";
   } else {
-    Case.PublicRule = L"Exact non-uniform rectangular F16 matrix product";
+    Case.PublicRule = L"Non-uniform rectangular F16 matrix product";
   }
   return Case;
 }
 
-void DxilConf_SM610_LinAlg::MatMatMul_Wave_8x32x16_F16_NonUniform() {
+void DxilConf_SM610_LinAlg_MatrixArithmetic::
+    MatMatMul_Wave_8x32x16_F16_NonUniform() {
   const MatrixMultiplyCase Case = makeRectangularF16WaveMultiplyCase(
-      ComponentType::F16, MatrixMultiplyOperation::Multiply);
+      /*M=*/8, ComponentType::F16, MatrixMultiplyOperation::Multiply);
   runWaveMultiplyCase(D3DDevice, DxcSupport, Case,
                       L"MatMatMul_Wave_8x32x16_F16_NonUniform", VerboseLogging);
 }
 
-void DxilConf_SM610_LinAlg::MatMatMul_Wave_8x32x16_F16_ToF32() {
+void DxilConf_SM610_LinAlg_MatrixArithmetic::
+    MatMatMul_Wave_8x32x16_F16_ToF32() {
   const MatrixMultiplyCase Case = makeRectangularF16WaveMultiplyCase(
-      ComponentType::F32, MatrixMultiplyOperation::Multiply);
+      /*M=*/8, ComponentType::F32, MatrixMultiplyOperation::Multiply);
   runWaveMultiplyCase(D3DDevice, DxcSupport, Case,
                       L"MatMatMul_Wave_8x32x16_F16_ToF32", VerboseLogging);
 }
 
-void DxilConf_SM610_LinAlg::MatMatMulAccum_Wave_8x32x16_F16_ToF32_NonUniform() {
+void DxilConf_SM610_LinAlg_MatrixArithmetic::
+    MatMatMul_Wave_16x32x16_F16_NonUniform() {
   const MatrixMultiplyCase Case = makeRectangularF16WaveMultiplyCase(
-      ComponentType::F32, MatrixMultiplyOperation::MultiplyAccumulate);
+      /*M=*/16, ComponentType::F16, MatrixMultiplyOperation::Multiply);
+  runWaveMultiplyCase(D3DDevice, DxcSupport, Case,
+                      L"MatMatMul_Wave_16x32x16_F16_NonUniform",
+                      VerboseLogging);
+}
+
+void DxilConf_SM610_LinAlg_MatrixArithmetic::
+    MatMatMul_Wave_16x32x16_F16_ToF32() {
+  const MatrixMultiplyCase Case = makeRectangularF16WaveMultiplyCase(
+      /*M=*/16, ComponentType::F32, MatrixMultiplyOperation::Multiply);
+  runWaveMultiplyCase(D3DDevice, DxcSupport, Case,
+                      L"MatMatMul_Wave_16x32x16_F16_ToF32", VerboseLogging);
+}
+
+void DxilConf_SM610_LinAlg_MatrixArithmetic::
+    MatMatMulAccum_Wave_8x32x16_F16_ToF32_NonUniform() {
+  const MatrixMultiplyCase Case = makeRectangularF16WaveMultiplyCase(
+      /*M=*/8, ComponentType::F32, MatrixMultiplyOperation::MultiplyAccumulate);
   runWaveMultiplyCase(D3DDevice, DxcSupport, Case,
                       L"MatMatMulAccum_Wave_8x32x16_F16_ToF32_NonUniform",
                       VerboseLogging);
 }
 
-void DxilConf_SM610_LinAlg::MatMatMul_Wave_16x16x16_I32() {
+void DxilConf_SM610_LinAlg_MatrixArithmetic::
+    MatMatMulAccum_Wave_16x32x16_F16_ToF32_NonUniform() {
+  const MatrixMultiplyCase Case = makeRectangularF16WaveMultiplyCase(
+      /*M=*/16, ComponentType::F32,
+      MatrixMultiplyOperation::MultiplyAccumulate);
+  runWaveMultiplyCase(D3DDevice, DxcSupport, Case,
+                      L"MatMatMulAccum_Wave_16x32x16_F16_ToF32_NonUniform",
+                      VerboseLogging);
+}
+
+void DxilConf_SM610_LinAlg_MatrixArithmetic::
+    MatMatMulAccum_Wave_16x16x16_F16_ToF32_BLayouts() {
+  MatrixMultiplyCase Case = {};
+  Case.MatrixAType = ComponentType::F16;
+  Case.MatrixBType = ComponentType::F16;
+  Case.AccumulatorType = ComponentType::F32;
+  Case.M = Case.K = Case.N = 16;
+  Case.Operation = MatrixMultiplyOperation::MultiplyAccumulate;
+  Case.MatrixAValues.assign(static_cast<size_t>(Case.M) * Case.K, 0);
+  for (MatrixDim Row = 0; Row < Case.M; ++Row)
+    Case.MatrixAValues[static_cast<size_t>(Row) * Case.K + Row] = 1;
+  for (MatrixDim Row = 0; Row < Case.K; ++Row)
+    for (MatrixDim Column = 0; Column < Case.N; ++Column)
+      Case.MatrixBValues.push_back(static_cast<int64_t>(Row) * Case.N + Column +
+                                   1);
+  Case.AccumulatorValues.assign(static_cast<size_t>(Case.M) * Case.N, 0);
+  Case.PublicRule = L"Both B layouts match the independent CPU product";
+  for (MatrixLayout Layout :
+       {MatrixLayout::RowMajor, MatrixLayout::ColumnMajor}) {
+    Case.MatrixBLayout = Layout;
+    runWaveMultiplyCase(D3DDevice, DxcSupport, Case,
+                        L"MatMatMulAccum_Wave_16x16x16_F16_ToF32_BLayouts",
+                        VerboseLogging);
+  }
+}
+
+void DxilConf_SM610_LinAlg_MatrixArithmetic::MatMatMul_Wave_16x16x16_I32() {
   MatrixMultiplyCase Case = {};
   Case.MatrixAType = ComponentType::I32;
   Case.MatrixBType = ComponentType::I32;
@@ -6903,6 +8197,270 @@ void DxilConf_SM610_LinAlg::MatMatMul_Wave_16x16x16_I32() {
   Case.PublicRule = L"Exact non-uniform I32 matrix product";
   runWaveMultiplyCase(D3DDevice, DxcSupport, Case,
                       L"MatMatMul_Wave_16x16x16_I32", VerboseLogging);
+}
+
+static MatrixMultiplyCase
+makeF16MultiplyCase(MatrixDim M, MatrixDim K, MatrixDim N,
+                    ComponentType AccumulatorType,
+                    MatrixMultiplyOperation Operation) {
+  MatrixMultiplyCase Case = {};
+  Case.MatrixAType = ComponentType::F16;
+  Case.MatrixBType = ComponentType::F16;
+  Case.AccumulatorType = AccumulatorType;
+  Case.M = M;
+  Case.K = K;
+  Case.N = N;
+  Case.Operation = Operation;
+  Case.MatrixAValues = makeMatrixArithmeticPattern(M, K, 3, 2, 5, 2);
+  Case.MatrixBValues = makeMatrixArithmeticPattern(K, N, 1, 3, 7, 3);
+  if (Case.accumulates())
+    Case.AccumulatorValues = makeMatrixArithmeticPattern(M, N, 2, 1, 5, 2);
+  Case.PublicRule = L"Non-uniform F16 matrix product";
+  return Case;
+}
+
+// The patterns span the whole 8-bit range so sign and zero extension of every
+// byte position are visible in the I32 result.
+static MatrixMultiplyCase makeByteMultiplyCase(ComponentType Type, MatrixDim M,
+                                               MatrixDim K, MatrixDim N) {
+  const int64_t Center = Type == ComponentType::I8 ? 128 : 0;
+  MatrixMultiplyCase Case = {};
+  Case.MatrixAType = Type;
+  Case.MatrixBType = Type;
+  Case.AccumulatorType = ComponentType::I32;
+  Case.M = M;
+  Case.K = K;
+  Case.N = N;
+  Case.Operation = MatrixMultiplyOperation::MultiplyAccumulate;
+  Case.MatrixAValues = makeMatrixArithmeticPattern(M, K, 37, 11, 256, Center);
+  Case.MatrixBValues = makeMatrixArithmeticPattern(K, N, 13, 29, 256, Center);
+  Case.AccumulatorValues =
+      makeMatrixArithmeticPattern(M, N, 1001, 7, 100003, 50000);
+  Case.PublicRule = Type == ComponentType::I8
+                        ? L"Exact I8 matrix product plus I32 accumulator"
+                        : L"Exact U8 matrix product plus I32 accumulator";
+  return Case;
+}
+
+void DxilConf_SM610_LinAlg_MatrixArithmetic::MatMatMul_Wave_16x16x8_F16() {
+  runWaveMultiplyCase(D3DDevice, DxcSupport,
+                      makeF16MultiplyCase(16, 16, 8, ComponentType::F16,
+                                          MatrixMultiplyOperation::Multiply),
+                      L"MatMatMul_Wave_16x16x8_F16", VerboseLogging);
+}
+
+void DxilConf_SM610_LinAlg_MatrixArithmetic::
+    MatMatMul_Wave_16x16x8_F16_ToF32() {
+  runWaveMultiplyCase(D3DDevice, DxcSupport,
+                      makeF16MultiplyCase(16, 16, 8, ComponentType::F32,
+                                          MatrixMultiplyOperation::Multiply),
+                      L"MatMatMul_Wave_16x16x8_F16_ToF32", VerboseLogging);
+}
+
+void DxilConf_SM610_LinAlg_MatrixArithmetic::
+    MatMatMulAccum_Wave_16x16x8_F16_ToF32() {
+  runWaveMultiplyCase(
+      D3DDevice, DxcSupport,
+      makeF16MultiplyCase(16, 16, 8, ComponentType::F32,
+                          MatrixMultiplyOperation::MultiplyAccumulate),
+      L"MatMatMulAccum_Wave_16x16x8_F16_ToF32", VerboseLogging);
+}
+
+void DxilConf_SM610_LinAlg_MatrixArithmetic::
+    MatMatMulAccum_Wave_16x32x8_I8_ToI32() {
+  runWaveMultiplyCase(D3DDevice, DxcSupport,
+                      makeByteMultiplyCase(ComponentType::I8, 16, 32, 8),
+                      L"MatMatMulAccum_Wave_16x32x8_I8_ToI32", VerboseLogging);
+}
+
+void DxilConf_SM610_LinAlg_MatrixArithmetic::
+    MatMatMulAccum_Wave_16x32x8_U8_ToI32() {
+  runWaveMultiplyCase(D3DDevice, DxcSupport,
+                      makeByteMultiplyCase(ComponentType::U8, 16, 32, 8),
+                      L"MatMatMulAccum_Wave_16x32x8_U8_ToI32", VerboseLogging);
+}
+
+void DxilConf_SM610_LinAlg_MatrixArithmetic::
+    MatMatMulAccum_Wave_32x32x32_I8_ToI32() {
+  runWaveMultiplyCase(D3DDevice, DxcSupport,
+                      makeByteMultiplyCase(ComponentType::I8, 32, 32, 32),
+                      L"MatMatMulAccum_Wave_32x32x32_I8_ToI32", VerboseLogging);
+}
+
+void DxilConf_SM610_LinAlg_MatrixArithmetic::
+    MatMatMulAccum_Wave_32x32x32_U8_ToI32() {
+  runWaveMultiplyCase(D3DDevice, DxcSupport,
+                      makeByteMultiplyCase(ComponentType::U8, 32, 32, 32),
+                      L"MatMatMulAccum_Wave_32x32x32_U8_ToI32", VerboseLogging);
+}
+
+// Runs a fixed shape at a fixed group size on every wave size that divides the
+// group and for which the device reports both the multiply and the roles.
+static void runThreadGroupMultiplyAtSize(ID3D12Device *Device,
+                                         dxc::SpecificDllLoader &DxcSupport,
+                                         const MatrixMultiplyCase &Case,
+                                         UINT ThreadGroupSize, LPCWSTR CaseName,
+                                         bool Verbose) {
+  VERIFY_IS_TRUE(isMatrixMultiplyCaseValid(Case));
+  if (!isMatrixMultiplyCaseValid(Case))
+    return;
+
+  const linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE MatrixAType =
+      *toCapabilityDataType(Case.MatrixAType);
+  const linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE MatrixBType =
+      *toCapabilityDataType(Case.MatrixBType);
+  const linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE AccumulatorType =
+      *toCapabilityDataType(Case.AccumulatorType);
+
+  std::vector<UINT> WaveSizes;
+  linalg_test::TierSupport Tier;
+  HRESULT HR = linalg_test::queryTierSupport(Device, Tier);
+  UINT MinWaveSize = 0;
+  UINT MaxWaveSize = 0;
+  if (SUCCEEDED(HR) && Tier.supported())
+    HR = queryLaunchableWaveSizes(Device, MinWaveSize, MaxWaveSize);
+  for (UINT WaveSize = 4; SUCCEEDED(HR) && MinWaveSize != 0 && WaveSize <= 128;
+       WaveSize *= 2) {
+    if (WaveSize < MinWaveSize || WaveSize > MaxWaveSize ||
+        ThreadGroupSize % WaveSize != 0)
+      continue;
+
+    bool RolesConstructible = false;
+    HR = matrixMultiplyRolesConstructible(
+        Device, Case, WaveSize, MatrixScope::ThreadGroup, ThreadGroupSize,
+        MatrixAType, MatrixBType, AccumulatorType, RolesConstructible);
+    if (FAILED(HR))
+      break;
+    if (!RolesConstructible)
+      continue;
+
+    linalg_test::ThreadGroupMatrixMultiplySupport Support;
+    HR = linalg_test::queryThreadGroupMatrixMultiply(
+        Device,
+        {{WaveSize, MatrixAType, MatrixBType, AccumulatorType},
+         {Case.M, Case.K, Case.N},
+         ThreadGroupSize},
+        Support);
+    if (FAILED(HR))
+      break;
+    if (Support.supported())
+      WaveSizes.push_back(WaveSize);
+  }
+
+  if (!applyApplicability(
+          linalg_test::classifyApplicability(
+              HR, !WaveSizes.empty(),
+              linalg_test::CapabilityRequirement::CapabilityGated),
+          CaseName))
+    return;
+
+  for (const UINT WaveSize : WaveSizes) {
+    hlsl_test::LogCommentFmt(
+        L"ThreadGroup multiply: wave=%u, threads=%u, shape=(%u,%u,%u)",
+        WaveSize, ThreadGroupSize, Case.M, Case.K, Case.N);
+    runMatrixMultiplyCase(Device, DxcSupport, Case, MatrixScope::ThreadGroup,
+                          WaveSize, ThreadGroupSize, Verbose);
+  }
+}
+
+void DxilConf_SM610_LinAlg_MatrixArithmetic::
+    MatMatMulAccum_ThreadGroup_32x16x32_F16_ToF32_128Threads() {
+  runThreadGroupMultiplyAtSize(
+      D3DDevice, DxcSupport,
+      makeF16MultiplyCase(32, 16, 32, ComponentType::F32,
+                          MatrixMultiplyOperation::MultiplyAccumulate),
+      128, L"MatMatMulAccum_ThreadGroup_32x16x32_F16_ToF32_128Threads",
+      VerboseLogging);
+}
+
+void DxilConf_SM610_LinAlg_MatrixArithmetic::
+    MatMatMulAccum_ThreadGroup_64x32x64_F16_ToF32_256Threads() {
+  runThreadGroupMultiplyAtSize(
+      D3DDevice, DxcSupport,
+      makeF16MultiplyCase(64, 32, 64, ComponentType::F32,
+                          MatrixMultiplyOperation::MultiplyAccumulate),
+      256, L"MatMatMulAccum_ThreadGroup_64x32x64_F16_ToF32_256Threads",
+      VerboseLogging);
+}
+
+// 8-bit tiles commonly need K=32, so the 128-thread shape uses 32x32x32.
+void DxilConf_SM610_LinAlg_MatrixArithmetic::
+    MatMatMulAccum_ThreadGroup_32x32x32_I8_ToI32_128Threads() {
+  runThreadGroupMultiplyAtSize(
+      D3DDevice, DxcSupport,
+      makeByteMultiplyCase(ComponentType::I8, 32, 32, 32), 128,
+      L"MatMatMulAccum_ThreadGroup_32x32x32_I8_ToI32_128Threads",
+      VerboseLogging);
+}
+
+void DxilConf_SM610_LinAlg_MatrixArithmetic::
+    MatMatMulAccum_ThreadGroup_32x32x32_U8_ToI32_128Threads() {
+  runThreadGroupMultiplyAtSize(
+      D3DDevice, DxcSupport,
+      makeByteMultiplyCase(ComponentType::U8, 32, 32, 32), 128,
+      L"MatMatMulAccum_ThreadGroup_32x32x32_U8_ToI32_128Threads",
+      VerboseLogging);
+}
+
+void DxilConf_SM610_LinAlg_MatrixArithmetic::
+    MatMatMulAccum_ThreadGroup_64x32x64_I8_ToI32_256Threads() {
+  runThreadGroupMultiplyAtSize(
+      D3DDevice, DxcSupport,
+      makeByteMultiplyCase(ComponentType::I8, 64, 32, 64), 256,
+      L"MatMatMulAccum_ThreadGroup_64x32x64_I8_ToI32_256Threads",
+      VerboseLogging);
+}
+
+void DxilConf_SM610_LinAlg_MatrixArithmetic::
+    MatMatMulAccum_ThreadGroup_64x32x64_U8_ToI32_256Threads() {
+  runThreadGroupMultiplyAtSize(
+      D3DDevice, DxcSupport,
+      makeByteMultiplyCase(ComponentType::U8, 64, 32, 64), 256,
+      L"MatMatMulAccum_ThreadGroup_64x32x64_U8_ToI32_256Threads",
+      VerboseLogging);
+}
+
+static MatrixMultiplyCase makeByteMultiplyCaseBColumnMajor(ComponentType Type,
+                                                           MatrixDim M,
+                                                           MatrixDim K,
+                                                           MatrixDim N) {
+  MatrixMultiplyCase Case = makeByteMultiplyCase(Type, M, K, N);
+  Case.MatrixBLayout = MatrixLayout::ColumnMajor;
+  return Case;
+}
+
+void DxilConf_SM610_LinAlg_MatrixArithmetic::
+    MatMatMulAccum_Wave_16x32x8_I8_ToI32_BColumnMajor() {
+  runWaveMultiplyCase(
+      D3DDevice, DxcSupport,
+      makeByteMultiplyCaseBColumnMajor(ComponentType::I8, 16, 32, 8),
+      L"MatMatMulAccum_Wave_16x32x8_I8_ToI32_BColumnMajor", VerboseLogging);
+}
+
+void DxilConf_SM610_LinAlg_MatrixArithmetic::
+    MatMatMulAccum_Wave_16x32x8_U8_ToI32_BColumnMajor() {
+  runWaveMultiplyCase(
+      D3DDevice, DxcSupport,
+      makeByteMultiplyCaseBColumnMajor(ComponentType::U8, 16, 32, 8),
+      L"MatMatMulAccum_Wave_16x32x8_U8_ToI32_BColumnMajor", VerboseLogging);
+}
+
+void DxilConf_SM610_LinAlg_MatrixArithmetic::
+    MatMatMulAccum_ThreadGroup_32x32x32_I8_ToI32_BColumnMajor_128Threads() {
+  runThreadGroupMultiplyAtSize(
+      D3DDevice, DxcSupport,
+      makeByteMultiplyCaseBColumnMajor(ComponentType::I8, 32, 32, 32), 128,
+      L"MatMatMulAccum_ThreadGroup_32x32x32_I8_ToI32_BColumnMajor_128Threads",
+      VerboseLogging);
+}
+
+void DxilConf_SM610_LinAlg_MatrixArithmetic::
+    MatMatMulAccum_ThreadGroup_32x32x32_U8_ToI32_BColumnMajor_128Threads() {
+  runThreadGroupMultiplyAtSize(
+      D3DDevice, DxcSupport,
+      makeByteMultiplyCaseBColumnMajor(ComponentType::U8, 32, 32, 32), 128,
+      L"MatMatMulAccum_ThreadGroup_32x32x32_U8_ToI32_BColumnMajor_128Threads",
+      VerboseLogging);
 }
 
 static void runThreadGroupMultiplyCase(ID3D12Device *Device,
@@ -6932,20 +8490,21 @@ makeRectangularF16ThreadGroupMultiplyPlan(ComponentType AccumulatorType,
   Plan.KExtentMultiple = 2;
   if (Operation == MatrixMultiplyOperation::MultiplyAccumulate) {
     Plan.PublicRule =
-        L"Exact non-uniform ThreadGroup F16 product plus an independent F32 "
+        L"Non-uniform ThreadGroup F16 product plus an independent F32 "
         L"accumulator";
   } else if (AccumulatorType == ComponentType::F32) {
     Plan.PublicRule =
-        L"Exact non-uniform ThreadGroup F16 matrix product stored in an F32 "
+        L"Non-uniform ThreadGroup F16 matrix product stored in an F32 "
         L"accumulator";
   } else {
     Plan.PublicRule =
-        L"Exact non-uniform ThreadGroup F16 product with rectangular inputs";
+        L"Non-uniform ThreadGroup F16 product with rectangular inputs";
   }
   return Plan;
 }
 
-void DxilConf_SM610_LinAlg::MatMatMul_ThreadGroup_WaveScaled_F16_NonUniform() {
+void DxilConf_SM610_LinAlg_MatrixArithmetic::
+    MatMatMul_ThreadGroup_WaveScaled_F16_NonUniform() {
   const ThreadGroupMultiplyPlan Plan =
       makeRectangularF16ThreadGroupMultiplyPlan(
           ComponentType::F16, MatrixMultiplyOperation::Multiply);
@@ -6954,7 +8513,7 @@ void DxilConf_SM610_LinAlg::MatMatMul_ThreadGroup_WaveScaled_F16_NonUniform() {
                              VerboseLogging);
 }
 
-void DxilConf_SM610_LinAlg::
+void DxilConf_SM610_LinAlg_MatrixArithmetic::
     MatMatMulAccum_ThreadGroup_WaveScaled_F16_ToF32_NonUniform() {
   const ThreadGroupMultiplyPlan Plan =
       makeRectangularF16ThreadGroupMultiplyPlan(
@@ -6965,7 +8524,8 @@ void DxilConf_SM610_LinAlg::
       VerboseLogging);
 }
 
-void DxilConf_SM610_LinAlg::MatMatMul_ThreadGroup_WaveScaled_I32() {
+void DxilConf_SM610_LinAlg_MatrixArithmetic::
+    MatMatMul_ThreadGroup_WaveScaled_I32() {
   ThreadGroupMultiplyPlan Plan = {};
   Plan.MatrixAType = ComponentType::I32;
   Plan.MatrixBType = ComponentType::I32;
@@ -6992,34 +8552,36 @@ static const char WaveAccumulateBUseShader[] = R"(
       [[__LinAlgMatrix_Attributes(
         COMP_TYPE, M_DIM, N_DIM, USE_ACC, SCOPE)]]
       Accumulator;
-    __builtin_LinAlg_MatrixLoadFromDescriptor(
+    dx::__builtin_LinAlg_MatrixLoadFromDescriptor(
       Accumulator, AccumulatorInput, 0, STRIDE, LAYOUT, 128);
 
     __builtin_LinAlgMatrix
       [[__LinAlgMatrix_Attributes(COMP_TYPE, M_DIM, N_DIM, USE, SCOPE)]]
       RHS;
-    __builtin_LinAlg_MatrixLoadFromDescriptor(
+    dx::__builtin_LinAlg_MatrixLoadFromDescriptor(
       RHS, RHSInput, 0, STRIDE, LAYOUT, 128);
 
     __builtin_LinAlgMatrix
       [[__LinAlgMatrix_Attributes(
         COMP_TYPE, M_DIM, N_DIM, USE_ACC, SCOPE)]]
       Result;
-    __builtin_LinAlg_MatrixAccumulate(Result, Accumulator, RHS);
-    __builtin_LinAlg_MatrixStoreToDescriptor(
+    dx::__builtin_LinAlg_MatrixAccumulate(Result, Accumulator, RHS);
+    dx::__builtin_LinAlg_MatrixStoreToDescriptor(
       Result, Output, 0, STRIDE, LAYOUT, 128);
   }
 )";
 
-void DxilConf_SM610_LinAlg::MatAccum_Wave_8x32_F16_BUse_NonUniform() {
+static void runWaveAccumulateBUse(ID3D12Device *Device,
+                                  dxc::SpecificDllLoader &DxcSupport,
+                                  MatrixDim M, LPCWSTR CaseName, bool Verbose) {
   MatrixParams Params = makeMatrixArithmeticParams(
-      ComponentType::F16, /*M=*/8, /*N=*/32, MatrixUse::B, MatrixScope::Wave,
+      ComponentType::F16, M, /*N=*/32, MatrixUse::B, MatrixScope::Wave,
       /*NumThreads=*/128);
 
   UINT SelectedWaveSize = 0;
-  if (!matrixConstructionApplicable(
-          D3DDevice, Params, {MatrixUse::Accumulator, MatrixUse::B},
-          L"MatAccum_Wave_8x32_F16_BUse_NonUniform", SelectedWaveSize))
+  if (!matrixConstructionApplicable(Device, Params,
+                                    {MatrixUse::Accumulator, MatrixUse::B},
+                                    CaseName, SelectedWaveSize))
     return;
   Params.NumThreads = static_cast<int>(SelectedWaveSize);
 
@@ -7050,8 +8612,7 @@ void DxilConf_SM610_LinAlg::MatAccum_Wave_8x32_F16_BUse_NonUniform() {
   std::stringstream ExtraDefs;
   ExtraDefs << " -DFORCED_WAVE_SIZE=" << SelectedWaveSize;
   const std::string Args = buildCompilerArgs(Params, ExtraDefs.str().c_str());
-  compileShader(DxcSupport, WaveAccumulateBUseShader, "cs_6_10", Args,
-                VerboseLogging);
+  compileShader(DxcSupport, WaveAccumulateBUseShader, "cs_6_10", Args, Verbose);
 
   auto Op = createComputeOp(WaveAccumulateBUseShader, "cs_6_10",
                             "SRV(t0), SRV(t1), UAV(u2)", Args.c_str());
@@ -7064,7 +8625,7 @@ void DxilConf_SM610_LinAlg::MatAccum_Wave_8x32_F16_BUse_NonUniform() {
   addRootView(Op.get(), 2, "Output");
 
   auto Result =
-      runShaderOp(D3DDevice, DxcSupport, std::move(Op),
+      runShaderOp(Device, DxcSupport, std::move(Op),
                   [AccumulatorBuffer, RHSBuffer](
                       LPCSTR Name, std::vector<BYTE> &Data, st::ShaderOp *) {
                     const std::vector<BYTE> *Source = nullptr;
@@ -7084,8 +8645,21 @@ void DxilConf_SM610_LinAlg::MatAccum_Wave_8x32_F16_BUse_NonUniform() {
   Result->Test->GetReadBackData("Output", &OutData);
   VERIFY_IS_TRUE(verifyMatrixArithmeticMatrix(
       OutData.data(), OutData.size(), AccumulatorParams, ExpectedValues,
-      L"Exact non-uniform F16 accumulator plus a B-use F16 matrix",
-      VerboseLogging));
+      L"Exact non-uniform F16 accumulator plus a B-use F16 matrix", Verbose));
+}
+
+void DxilConf_SM610_LinAlg_MatrixArithmetic::
+    MatAccum_Wave_8x32_F16_BUse_NonUniform() {
+  runWaveAccumulateBUse(D3DDevice, DxcSupport, /*M=*/8,
+                        L"MatAccum_Wave_8x32_F16_BUse_NonUniform",
+                        VerboseLogging);
+}
+
+void DxilConf_SM610_LinAlg_MatrixArithmetic::
+    MatAccum_Wave_16x32_F16_BUse_NonUniform() {
+  runWaveAccumulateBUse(D3DDevice, DxcSupport, /*M=*/16,
+                        L"MatAccum_Wave_16x32_F16_BUse_NonUniform",
+                        VerboseLogging);
 }
 
 static const char MatVecMulShader[] = R"(
@@ -7100,7 +8674,7 @@ static const char MatVecMulShader[] = R"(
     __builtin_LinAlgMatrix
       [[__LinAlgMatrix_Attributes(COMP_TYPE, M_DIM, N_DIM, USE_A, SCOPE_THREAD)]]
       Mat;
-    __builtin_LinAlg_MatrixLoadFromDescriptor(
+    dx::__builtin_LinAlg_MatrixLoadFromDescriptor(
       Mat, Input, 0, STRIDE, LAYOUT, 128);
 
     vector<ELEM_TYPE, N_DIM> InVec;
@@ -7109,7 +8683,7 @@ static const char MatVecMulShader[] = R"(
     }
 
     vector<ELEM_TYPE, M_DIM> OutVec;
-    __builtin_LinAlg_MatrixVectorMultiply(
+    dx::__builtin_LinAlg_MatrixVectorMultiply(
       OutVec, Mat, OUTPUT_SIGNED, InVec, IN_INTERP);
 
     for (uint I = 0; I < M_DIM; ++I) {
@@ -7245,7 +8819,7 @@ static void runMatVecMul(ID3D12Device *Device,
                                        Expected, Params.M, Verbose));
 }
 
-void DxilConf_SM610_LinAlg::MatVecMul_Thread_16x16_F16() {
+void DxilConf_SM610_LinAlg_MatVec::MatVecMul_Thread_16x16_F16() {
   MatrixParams Params = {};
   Params.CompType = ComponentType::F16;
   Params.M = 16;
@@ -7268,7 +8842,7 @@ void DxilConf_SM610_LinAlg::MatVecMul_Thread_16x16_F16() {
                /*FillValue=*/2, /*OutputSigned=*/true, ComponentType::F16);
 }
 
-void DxilConf_SM610_LinAlg::MatVecMul_Thread_4x8_F32() {
+void DxilConf_SM610_LinAlg_MatVec::MatVecMul_Thread_4x8_F32() {
   MatrixParams Params = {};
   Params.CompType = ComponentType::F32;
   Params.M = 4;
@@ -7381,10 +8955,9 @@ static std::vector<BYTE> buildThreadSemanticsVectorBuffer() {
 
 enum class ThreadSemanticsOutcome { Verified, Inconclusive, Failed };
 
-static ThreadSemanticsOutcome verifyThreadSemanticsOutput(const void *Data,
-                                                          size_t Size,
-                                                          bool Divergent,
-                                                          bool Verbose) {
+static ThreadSemanticsOutcome
+verifyThreadSemanticsOutput(const void *Data, size_t Size, bool Divergent,
+                            bool Verbose, bool MatrixSelection = false) {
   const size_t RequiredBytes =
       ThreadSemanticsThreads * ThreadSemanticsOutputSlotBytes;
   if (Size < RequiredBytes) {
@@ -7425,7 +8998,7 @@ static ThreadSemanticsOutcome verifyThreadSemanticsOutput(const void *Data,
     const bool UseVectorB = (Witness & ThreadSemanticsWitnessUseB) != 0;
     if (UseVectorB != (Arm == 1)) {
       hlsl_test::LogErrorFmt(
-          L"Thread %d executed arm %s but its predicate selected vector %s",
+          L"Thread %d executed arm %s but its predicate selected input %s",
           Thread, Arm == 1 ? L"B" : L"A", UseVectorB ? L"B" : L"A");
       Success = false;
       continue;
@@ -7440,19 +9013,23 @@ static ThreadSemanticsOutcome verifyThreadSemanticsOutput(const void *Data,
     const HLSLHalf_t *Values = reinterpret_cast<const HLSLHalf_t *>(Slot);
     for (int Row = 0; Row < ThreadSemanticsM; ++Row) {
       const float Actual = static_cast<float>(Values[Row]);
-      const float Expected =
-          static_cast<float>(threadSemanticsExpected(Thread, Row, UseVectorB));
+      const int MatrixThread = MatrixSelection && UseVectorB
+                                   ? ThreadSemanticsThreads - 1 - Thread
+                                   : Thread;
+      const float Expected = static_cast<float>(
+          threadSemanticsExpected(MatrixThread, Row, UseVectorB));
       // Every expectation is an integer F16 holds exactly.
       if (Actual != Expected) {
-        hlsl_test::LogErrorFmt(L"Thread %d row %d (vector %s): actual=%f, "
-                               L"expected=%f",
-                               Thread, Row, UseVectorB ? L"B" : L"A",
-                               static_cast<double>(Actual),
-                               static_cast<double>(Expected));
+        hlsl_test::LogErrorFmt(
+            L"Thread %d row %d (matrix %d, vector %s): actual=%f, "
+            L"expected=%f",
+            Thread, Row, MatrixThread, UseVectorB ? L"B" : L"A",
+            static_cast<double>(Actual), static_cast<double>(Expected));
         Success = false;
       } else if (Verbose)
-        hlsl_test::LogCommentFmt(L"Thread %d row %d (vector %s): %f", Thread,
-                                 Row, UseVectorB ? L"B" : L"A",
+        hlsl_test::LogCommentFmt(L"Thread %d row %d (matrix %d, vector %s): %f",
+                                 Thread, Row, MatrixThread,
+                                 UseVectorB ? L"B" : L"A",
                                  static_cast<double>(Actual));
     }
   }
@@ -7465,10 +9042,9 @@ static ThreadSemanticsOutcome verifyThreadSemanticsOutput(const void *Data,
   // rather than violated.
   if (Divergent && MixedWaves == 0) {
     hlsl_test::LogCommentFmt(
-        L"Every thread reported a wave that executed a single arm, so the "
-        L"thread-scope operations never ran under non-uniform control flow "
-        L"and this case establishes nothing about it. The per-thread results "
-        L"were verified before reporting this case as inconclusive");
+        L"No wave reported both input selections, so non-uniform selection "
+        L"was not exercised. The per-thread results were verified before "
+        L"reporting this case as inconclusive");
     return ThreadSemanticsOutcome::Inconclusive;
   }
   if (Divergent && Verbose)
@@ -7490,7 +9066,7 @@ static const char ThreadPerLaneMatVecShader[] = R"(
 
     __builtin_LinAlgMatrix
       [[__LinAlgMatrix_Attributes(COMP_TYPE, M_DIM, N_DIM, USE, SCOPE)]] Mat;
-    __builtin_LinAlg_MatrixLoadFromDescriptor(
+    dx::__builtin_LinAlg_MatrixLoadFromDescriptor(
       Mat, MatrixInput, T * MATRIX_SLOT_BYTES, STRIDE, LAYOUT,
       MATRIX_SLOT_BYTES);
 
@@ -7500,7 +9076,7 @@ static const char ThreadPerLaneMatVecShader[] = R"(
     }
 
     vector<ELEM_TYPE, M_DIM> OutVec;
-    __builtin_LinAlg_MatrixVectorMultiply(OutVec, Mat, 1, InVec, IN_INTERP);
+    dx::__builtin_LinAlg_MatrixVectorMultiply(OutVec, Mat, 1, InVec, IN_INTERP);
 
     for (uint I = 0; I < M_DIM; ++I) {
       Output.Store<ELEM_TYPE>(T * OUTPUT_SLOT_BYTES + I * ELEM_SIZE, OutVec[I]);
@@ -7531,7 +9107,7 @@ static const char ThreadDivergentMatVecShader[] = R"(
     if (!UseB) {
       __builtin_LinAlgMatrix
         [[__LinAlgMatrix_Attributes(COMP_TYPE, M_DIM, N_DIM, USE, SCOPE)]] Mat;
-      __builtin_LinAlg_MatrixLoadFromDescriptor(
+      dx::__builtin_LinAlg_MatrixLoadFromDescriptor(
         Mat, MatrixInput, T * MATRIX_SLOT_BYTES, STRIDE, LAYOUT,
         MATRIX_SLOT_BYTES);
 
@@ -7539,12 +9115,12 @@ static const char ThreadDivergentMatVecShader[] = R"(
       for (uint I = 0; I < N_DIM; ++I) {
         VecA[I] = VectorInput.Load<ELEM_TYPE>(I * ELEM_SIZE);
       }
-      __builtin_LinAlg_MatrixVectorMultiply(OutVec, Mat, 1, VecA, IN_INTERP);
+      dx::__builtin_LinAlg_MatrixVectorMultiply(OutVec, Mat, 1, VecA, IN_INTERP);
       Output.Store<uint>(T * OUTPUT_SLOT_BYTES + ARM_OFFSET, 0);
     } else {
       __builtin_LinAlgMatrix
         [[__LinAlgMatrix_Attributes(COMP_TYPE, M_DIM, N_DIM, USE, SCOPE)]] Mat;
-      __builtin_LinAlg_MatrixLoadFromDescriptor(
+      dx::__builtin_LinAlg_MatrixLoadFromDescriptor(
         Mat, MatrixInput, T * MATRIX_SLOT_BYTES, STRIDE, LAYOUT,
         MATRIX_SLOT_BYTES);
 
@@ -7552,13 +9128,72 @@ static const char ThreadDivergentMatVecShader[] = R"(
       for (uint I = 0; I < N_DIM; ++I) {
         VecB[I] = VectorInput.Load<ELEM_TYPE>(VEC_B_OFFSET + I * ELEM_SIZE);
       }
-      __builtin_LinAlg_MatrixVectorMultiply(OutVec, Mat, 1, VecB, IN_INTERP);
+      dx::__builtin_LinAlg_MatrixVectorMultiply(OutVec, Mat, 1, VecB, IN_INTERP);
       Output.Store<uint>(T * OUTPUT_SLOT_BYTES + ARM_OFFSET, 1);
     }
 
     for (uint I = 0; I < M_DIM; ++I) {
       Output.Store<ELEM_TYPE>(T * OUTPUT_SLOT_BYTES + I * ELEM_SIZE, OutVec[I]);
     }
+  }
+)";
+
+static const char ThreadMatrixSelectionShader[] = R"(
+  ByteAddressBuffer MatrixInput : register(t0);
+  ByteAddressBuffer VectorInput : register(t1);
+  RWByteAddressBuffer Output : register(u2);
+
+  using Matrix = __builtin_LinAlgMatrix
+    [[__LinAlgMatrix_Attributes(COMP_TYPE, M_DIM, N_DIM, USE, SCOPE)]];
+
+  [numthreads(NUMTHREADS, 1, 1)]
+  void main(uint T : SV_GroupIndex) {
+    Matrix A, B, Selected;
+    dx::__builtin_LinAlg_MatrixLoadFromDescriptor(
+      A, MatrixInput, T * MATRIX_SLOT_BYTES, STRIDE, LAYOUT,
+      MATRIX_SLOT_BYTES);
+    dx::__builtin_LinAlg_MatrixLoadFromDescriptor(
+      B, MatrixInput, (NUMTHREADS - 1 - T) * MATRIX_SLOT_BYTES, STRIDE,
+      LAYOUT, MATRIX_SLOT_BYTES);
+
+    const bool UseB = (WaveGetLaneIndex() & 1) != 0;
+    const bool Mixed = WaveActiveAnyTrue(UseB) && WaveActiveAnyTrue(!UseB);
+    Output.Store<uint>(T * OUTPUT_SLOT_BYTES + WITNESS_OFFSET,
+                       (UseB ? WITNESS_USE_B : 0) | (Mixed ? WITNESS_MIXED : 0));
+
+#if MATRIX_SELECTION_MODE == 0
+    Matrix Choices[2] = {A, B};
+    Selected = Choices[UseB ? 1 : 0];
+    Output.Store<uint>(T * OUTPUT_SLOT_BYTES + ARM_OFFSET, UseB ? 1 : 0);
+#elif MATRIX_SELECTION_MODE == 1
+    [branch]
+    if (UseB) {
+      Selected = B;
+      Output.Store<uint>(T * OUTPUT_SLOT_BYTES + ARM_OFFSET, 1);
+    } else {
+      Selected = A;
+      Output.Store<uint>(T * OUTPUT_SLOT_BYTES + ARM_OFFSET, 0);
+    }
+#elif MATRIX_SELECTION_MODE == 2
+    [flatten]
+    if (UseB)
+      Selected = B;
+    else
+      Selected = A;
+    Output.Store<uint>(T * OUTPUT_SLOT_BYTES + ARM_OFFSET, UseB ? 1 : 0);
+#else
+#error Invalid matrix selection mode
+#endif
+
+    vector<ELEM_TYPE, N_DIM> InVec;
+    for (uint I = 0; I < N_DIM; ++I)
+      InVec[I] = VectorInput.Load<ELEM_TYPE>(
+        (UseB ? VEC_B_OFFSET : 0) + I * ELEM_SIZE);
+    vector<ELEM_TYPE, M_DIM> OutVec;
+    dx::__builtin_LinAlg_MatrixVectorMultiply(
+      OutVec, Selected, 1, InVec, IN_INTERP);
+    for (uint I = 0; I < M_DIM; ++I)
+      Output.Store<ELEM_TYPE>(T * OUTPUT_SLOT_BYTES + I * ELEM_SIZE, OutVec[I]);
   }
 )";
 
@@ -7579,7 +9214,8 @@ static void runThreadSemanticsMatVec(ID3D12Device *Device,
                                      dxc::SpecificDllLoader &DxcSupport,
                                      const MatrixParams &Params,
                                      const char *Shader, bool Divergent,
-                                     bool Verbose) {
+                                     bool Verbose, bool MatrixSelection = false,
+                                     const char *ExtraArgs = "") {
   VERIFY_ARE_EQUAL(Params.strideBytes(), ThreadSemanticsStrideBytes);
 
   std::stringstream ExtraDefs;
@@ -7591,6 +9227,7 @@ static void runThreadSemanticsMatVec(ID3D12Device *Device,
   ExtraDefs << " -DARM_OFFSET=" << ThreadSemanticsArmOffset;
   ExtraDefs << " -DWITNESS_USE_B=" << ThreadSemanticsWitnessUseB;
   ExtraDefs << " -DWITNESS_MIXED=" << ThreadSemanticsWitnessMixed;
+  ExtraDefs << ExtraArgs;
 
   const std::string Args = buildCompilerArgs(Params, ExtraDefs.str().c_str());
   compileShader(DxcSupport, Shader, "cs_6_10", Args, Verbose);
@@ -7633,7 +9270,7 @@ static void runThreadSemanticsMatVec(ID3D12Device *Device,
   MappedData OutData;
   Result->Test->GetReadBackData("Output", &OutData);
   switch (verifyThreadSemanticsOutput(OutData.data(), OutData.size(), Divergent,
-                                      Verbose)) {
+                                      Verbose, MatrixSelection)) {
   case ThreadSemanticsOutcome::Verified:
     return;
   case ThreadSemanticsOutcome::Inconclusive:
@@ -7646,7 +9283,7 @@ static void runThreadSemanticsMatVec(ID3D12Device *Device,
   VERIFY_IS_TRUE(false, "Unknown thread semantics outcome");
 }
 
-void DxilConf_SM610_LinAlg::MatVecMul_Thread_4x8_F16_PerThread() {
+void DxilConf_SM610_LinAlg_MatVec::MatVecMul_Thread_4x8_F16_PerThread() {
   const MatrixParams Params = makeThreadSemanticsParams();
 
   if (!matVecMulApplicable(D3DDevice, Params, ComponentType::F16,
@@ -7660,7 +9297,7 @@ void DxilConf_SM610_LinAlg::MatVecMul_Thread_4x8_F16_PerThread() {
                            VerboseLogging);
 }
 
-void DxilConf_SM610_LinAlg::MatVecMul_Thread_4x8_F16_Divergent() {
+void DxilConf_SM610_LinAlg_MatVec::MatVecMul_Thread_4x8_F16_Divergent() {
   const MatrixParams Params = makeThreadSemanticsParams();
 
   if (!matVecMulApplicable(D3DDevice, Params, ComponentType::F16,
@@ -7671,6 +9308,42 @@ void DxilConf_SM610_LinAlg::MatVecMul_Thread_4x8_F16_Divergent() {
 
   runThreadSemanticsMatVec(D3DDevice, DxcSupport, Params,
                            ThreadDivergentMatVecShader, /*Divergent=*/true,
+                           VerboseLogging);
+}
+
+static void runThreadMatrixSelection(ID3D12Device *Device,
+                                     dxc::SpecificDllLoader &DxcSupport,
+                                     UINT Mode, LPCWSTR CaseName,
+                                     bool Verbose) {
+  const MatrixParams Params = makeThreadSemanticsParams();
+  if (!matVecMulApplicable(Device, Params, ComponentType::F16,
+                           /*HasBias=*/false,
+                           linalg_test::CapabilityRequirement::Mandatory,
+                           CaseName))
+    return;
+
+  const std::string ExtraArgs =
+      " -DMATRIX_SELECTION_MODE=" + std::to_string(Mode);
+  runThreadSemanticsMatVec(
+      Device, DxcSupport, Params, ThreadMatrixSelectionShader,
+      /*Divergent=*/true, Verbose, /*MatrixSelection=*/true, ExtraArgs.c_str());
+}
+
+void DxilConf_SM610_LinAlg_MatVec::MatVecMul_Thread_4x8_F16_MatrixArray() {
+  runThreadMatrixSelection(D3DDevice, DxcSupport, 0,
+                           L"MatVecMul_Thread_4x8_F16_MatrixArray",
+                           VerboseLogging);
+}
+
+void DxilConf_SM610_LinAlg_MatVec::MatVecMul_Thread_4x8_F16_MatrixPhi() {
+  runThreadMatrixSelection(D3DDevice, DxcSupport, 1,
+                           L"MatVecMul_Thread_4x8_F16_MatrixPhi",
+                           VerboseLogging);
+}
+
+void DxilConf_SM610_LinAlg_MatVec::MatVecMul_Thread_4x8_F16_MatrixSelect() {
+  runThreadMatrixSelection(D3DDevice, DxcSupport, 2,
+                           L"MatVecMul_Thread_4x8_F16_MatrixSelect",
                            VerboseLogging);
 }
 
@@ -7686,7 +9359,7 @@ static const char MatVecMulAddShader[] = R"(
     __builtin_LinAlgMatrix
       [[__LinAlgMatrix_Attributes(COMP_TYPE, M_DIM, N_DIM, USE_A, SCOPE_THREAD)]]
       Mat;
-    __builtin_LinAlg_MatrixLoadFromDescriptor(
+    dx::__builtin_LinAlg_MatrixLoadFromDescriptor(
       Mat, Input, 0, STRIDE, LAYOUT, 128);
 
     vector<ELEM_TYPE, N_DIM> InVec;
@@ -7700,7 +9373,7 @@ static const char MatVecMulAddShader[] = R"(
     }
 
     vector<ELEM_TYPE, M_DIM> OutVec;
-    __builtin_LinAlg_MatrixVectorMultiplyAdd(
+    dx::__builtin_LinAlg_MatrixVectorMultiplyAdd(
       OutVec, Mat, OUTPUT_SIGNED, InVec, IN_INTERP, BiasVec);
 
     for (uint I = 0; I < M_DIM; ++I) {
@@ -7754,7 +9427,7 @@ static void runMatVecMulAdd(ID3D12Device *Device,
                                        Expected, Params.M, Verbose));
 }
 
-void DxilConf_SM610_LinAlg::MatVecMulAdd_Thread_16x16_F16() {
+void DxilConf_SM610_LinAlg_MatVec::MatVecMulAdd_Thread_16x16_F16() {
   MatrixParams Params = {};
   Params.CompType = ComponentType::F16;
   Params.M = 16;
@@ -7775,7 +9448,7 @@ void DxilConf_SM610_LinAlg::MatVecMulAdd_Thread_16x16_F16() {
                   /*FillValue=*/2, /*OutputSigned=*/true, ComponentType::F16);
 }
 
-void DxilConf_SM610_LinAlg::MatVecMulAdd_Thread_4x8_F32() {
+void DxilConf_SM610_LinAlg_MatVec::MatVecMulAdd_Thread_4x8_F32() {
   MatrixParams Params = {};
   Params.CompType = ComponentType::F32;
   Params.M = 4;
@@ -7849,14 +9522,14 @@ static const char OuterProductShader[] = R"(
     __builtin_LinAlgMatrix
       [[__LinAlgMatrix_Attributes(COMP_TYPE, M_DIM, N_DIM, USE, SCOPE_THREAD)]]
       Mat;
-    __builtin_LinAlg_MatrixOuterProduct(Mat, VecA, VecB);
+    dx::__builtin_LinAlg_MatrixOuterProduct(Mat, ELEM_IS_SIGNED, VecA, VecB);
 
     // Outer product accumulators are stored in the OuterProductOptimal layout
     // Matching the dx::linalg header's thread-scoped
     // InterlockedAccumulate. The alignment argument must be a non-zero
     // multiple of 128; the matrix starts at offset 0 in a buffer D3D12 aligns
     // far more strongly than that.
-    __builtin_LinAlg_MatrixAccumulateToDescriptor(
+    dx::__builtin_LinAlg_MatrixAccumulateToDescriptor(
       Mat, Output, 0, STRIDE, LAYOUT, 128);
   }
 )";
@@ -7931,7 +9604,8 @@ static void runOuterProduct(ID3D12Device *Device,
 }
 #endif // defined(HLSLEXEC_LINALG_HOST_API)
 
-void DxilConf_SM610_LinAlg::OuterProduct_Thread_16x16_F16() {
+void DxilConf_SM610_LinAlg_OuterVectorAccumulation::
+    OuterProduct_Thread_16x16_F16() {
 #if defined(HLSLEXEC_LINALG_HOST_API)
   MatrixParams Params = {};
   Params.CompType = ComponentType::F16;
@@ -7983,7 +9657,7 @@ static const char QueryAccumLayoutValueShader[] = R"(
 
   [numthreads(1, 1, 1)]
   void main() {
-    uint Layout = __builtin_LinAlg_MatrixQueryAccumulatorLayout();
+    uint Layout = dx::__builtin_LinAlg_MatrixQueryAccumulatorLayout();
     Output.Store<uint>(0, Layout);
   }
 )";
@@ -8033,34 +9707,34 @@ static const char QueryAccumLayoutShader[] = R"(
   [WaveSize(FORCED_WAVE_SIZE)]
   [numthreads(NUMTHREADS, 1, 1)]
   void main() {
-    uint Layout = __builtin_LinAlg_MatrixQueryAccumulatorLayout();
+    uint Layout = dx::__builtin_LinAlg_MatrixQueryAccumulatorLayout();
 
     __builtin_LinAlgMatrix
       [[__LinAlgMatrix_Attributes(
         COMP_TYPE, M_DIM, N_DIM, USE_ACC, SCOPE)]]
       Accumulator;
-    __builtin_LinAlg_FillMatrix(Accumulator, 2.0);
+    dx::__builtin_LinAlg_FillMatrix(Accumulator, true, 2.0);
 
     __builtin_LinAlgMatrix
       [[__LinAlgMatrix_Attributes(COMP_TYPE, M_DIM, N_DIM, USE_A, SCOPE)]]
       MatrixA;
-    __builtin_LinAlg_FillMatrix(MatrixA, 3.0);
+    dx::__builtin_LinAlg_FillMatrix(MatrixA, true, 3.0);
 
     __builtin_LinAlgMatrix
       [[__LinAlgMatrix_Attributes(COMP_TYPE, M_DIM, N_DIM, USE_B, SCOPE)]]
       MatrixB;
-    __builtin_LinAlg_FillMatrix(MatrixB, 7.0);
+    dx::__builtin_LinAlg_FillMatrix(MatrixB, true, 7.0);
 
     __builtin_LinAlgMatrix
       [[__LinAlgMatrix_Attributes(
         COMP_TYPE, M_DIM, N_DIM, USE_ACC, SCOPE)]]
       Result;
     if (Layout == USE_A)
-      __builtin_LinAlg_MatrixAccumulate(Result, Accumulator, MatrixA);
+      dx::__builtin_LinAlg_MatrixAccumulate(Result, Accumulator, MatrixA);
     else
-      __builtin_LinAlg_MatrixAccumulate(Result, Accumulator, MatrixB);
+      dx::__builtin_LinAlg_MatrixAccumulate(Result, Accumulator, MatrixB);
 
-    __builtin_LinAlg_MatrixStoreToDescriptor(
+    dx::__builtin_LinAlg_MatrixStoreToDescriptor(
       Result, Output, 0, STRIDE, LAYOUT, 128);
 
     // Only lane zero publishes the queried layout, avoiding a UAV write race.
@@ -8124,7 +9798,7 @@ static void runQueryAccumLayout(ID3D12Device *Device,
     hlsl_test::LogCommentFmt(L"AccumulatorLayout = %u", Layout);
 }
 
-void DxilConf_SM610_LinAlg::QueryAccumLayout() {
+void DxilConf_SM610_LinAlg_MatrixArithmetic::QueryAccumLayout() {
   if (!linAlgTierApplicable(D3DDevice, L"QueryAccumLayout"))
     return;
 
@@ -8177,9 +9851,9 @@ static const char LoadMemoryShader[] = R"(
       __builtin_LinAlgMatrix
         [[__LinAlgMatrix_Attributes(COMP_TYPE, M_DIM, N_DIM, USE, SCOPE)]]
         Mat;
-      __builtin_LinAlg_MatrixLoadFromMemory(
+      dx::__builtin_LinAlg_MatrixLoadFromMemory(
         Mat, GsData, OFFSET / ELEM_SIZE, STRIDE / ELEM_SIZE, LAYOUT);
-      __builtin_LinAlg_MatrixStoreToDescriptor(
+      dx::__builtin_LinAlg_MatrixStoreToDescriptor(
         Mat, Output, OFFSET, STRIDE, LAYOUT, 128);
     }
   }
@@ -8227,7 +9901,7 @@ static void runLoadMemory(ID3D12Device *Device,
                                        Expected, NumElements, Verbose));
 }
 
-void DxilConf_SM610_LinAlg::LoadMemory_Wave_16x16_F16() {
+void DxilConf_SM610_LinAlg_GroupSharedIO::LoadMemory_Wave_16x16_F16() {
   MatrixParams Params = {};
   Params.CompType = ComponentType::F16;
   Params.M = 16;
@@ -8270,9 +9944,9 @@ static const char StoreMemoryShader[] = R"(
       __builtin_LinAlgMatrix
         [[__LinAlgMatrix_Attributes(COMP_TYPE, M_DIM, N_DIM, USE, SCOPE)]]
         Mat;
-      __builtin_LinAlg_FillMatrix(Mat, FILL_VALUE);
+      dx::__builtin_LinAlg_FillMatrix(Mat, FILL_INPUT_IS_SIGNED, FILL_VALUE);
 
-      __builtin_LinAlg_MatrixStoreToMemory(
+      dx::__builtin_LinAlg_MatrixStoreToMemory(
         Mat, GsData, OFFSET / ELEM_SIZE, STRIDE / ELEM_SIZE, LAYOUT);
     }
 
@@ -8320,7 +9994,7 @@ static void runStoreMemory(ID3D12Device *Device,
                                        Expected, NumElements, Verbose));
 }
 
-void DxilConf_SM610_LinAlg::StoreMemory_Wave_16x16_F16() {
+void DxilConf_SM610_LinAlg_GroupSharedIO::StoreMemory_Wave_16x16_F16() {
   MatrixParams Params = {};
   Params.CompType = ComponentType::F16;
   Params.M = 16;
@@ -8363,9 +10037,9 @@ static const char AccumulateMemoryShader[] = R"(
       __builtin_LinAlgMatrix
         [[__LinAlgMatrix_Attributes(COMP_TYPE, M_DIM, N_DIM, USE, SCOPE)]]
         Mat;
-      __builtin_LinAlg_FillMatrix(Mat, FILL_VALUE);
+      dx::__builtin_LinAlg_FillMatrix(Mat, FILL_INPUT_IS_SIGNED, FILL_VALUE);
 
-      __builtin_LinAlg_MatrixAccumulateToMemory(
+      dx::__builtin_LinAlg_MatrixAccumulateToMemory(
         Mat, GsData, OFFSET / ELEM_SIZE, STRIDE / ELEM_SIZE, LAYOUT);
     }
 
@@ -8416,7 +10090,7 @@ static void runAccumulateMemory(ID3D12Device *Device,
 static void runPaddedGroupSharedAccumulateCase(
     ID3D12Device *Device, dxc::SpecificDllLoader &DxcSupport, bool Verbose);
 
-void DxilConf_SM610_LinAlg::AccumulateMemory_Wave_16x16_F16() {
+void DxilConf_SM610_LinAlg_GroupSharedIO::AccumulateMemory_Wave_16x16_F16() {
   MatrixParams Params = {};
   Params.CompType = ComponentType::F16;
   Params.M = 16;
@@ -8570,6 +10244,349 @@ static bool verifyGroupSharedTypedBuffer(ComponentType CompType,
   return true;
 }
 
+static std::optional<std::vector<BYTE>>
+encodeGroupSharedI8Matrix(MatrixDim M, MatrixDim N,
+                          const cpu_oracle::MatrixBufferLayout &Layout,
+                          const std::vector<int64_t> &Values) {
+  const size_t MinorCount = Layout.Layout == MatrixLayout::RowMajor ? N : M;
+  if (M == 0 || N == 0 || Values.size() != static_cast<size_t>(M) * N ||
+      !cpu_oracle::isRowColLayout(Layout.Layout) ||
+      Layout.OffsetBytes % MatrixOffsetAlignmentBytes != 0 ||
+      Layout.StrideBytes % MatrixStrideAlignmentBytes != 0 ||
+      Layout.StrideBytes < MinorCount) {
+    hlsl_test::LogErrorFmt(L"Invalid I8 group-shared matrix layout or values");
+    return std::nullopt;
+  }
+
+  const std::optional<size_t> LastByte = cpu_oracle::getElementByteOffset(
+      ComponentType::I8, M, N, M - 1, N - 1, Layout);
+  size_t StorageWords;
+  size_t BufferSize;
+  // Include the final partially occupied word before appending guard words.
+  if (!LastByte ||
+      !cpu_oracle::checkedAdd(*LastByte / sizeof(int32_t),
+                              1 + GroupSharedTrailingGuardElements,
+                              StorageWords) ||
+      !cpu_oracle::checkedMultiply(StorageWords, sizeof(int32_t), BufferSize)) {
+    hlsl_test::LogErrorFmt(
+        L"I8 group-shared storage size calculation overflowed");
+    return std::nullopt;
+  }
+
+  const std::optional<std::vector<BYTE>> Encoded =
+      matvec_interpretation::encodeComponents(ComponentType::I8, Values);
+  if (!Encoded)
+    return std::nullopt;
+
+  std::vector<BYTE> Buffer(BufferSize);
+  cpu_oracle::fillPoison(Buffer.data(), Buffer.size());
+  for (MatrixDim Row = 0; Row < M; ++Row) {
+    for (MatrixDim Column = 0; Column < N; ++Column) {
+      const std::optional<size_t> Offset = cpu_oracle::getElementByteOffset(
+          ComponentType::I8, M, N, Row, Column, Layout);
+      VERIFY_IS_TRUE(Offset.has_value());
+      if (!Offset)
+        return std::nullopt;
+      Buffer[*Offset] = (*Encoded)[static_cast<size_t>(Row) * N + Column];
+    }
+  }
+  return Buffer;
+}
+
+void LinAlgCPUOracleTests::GroupSharedI8ByteEncoding() {
+  const std::vector<int64_t> Values = {-128, -1, 0, 127, 1, 2, -2, 3};
+  const std::optional<std::vector<BYTE>> RowMajor = encodeGroupSharedI8Matrix(
+      2, 4, {MatrixLayout::RowMajor, 512, 128}, Values);
+  const std::optional<std::vector<BYTE>> ColumnMajor =
+      encodeGroupSharedI8Matrix(4, 2, {MatrixLayout::ColumnMajor, 512, 192},
+                                Values);
+  VERIFY_IS_TRUE(RowMajor.has_value() && ColumnMajor.has_value());
+  if (!RowMajor || !ColumnMajor)
+    return;
+
+  std::vector<BYTE> ExpectedRow(660);
+  std::vector<BYTE> ExpectedColumn(724);
+  cpu_oracle::fillPoison(ExpectedRow.data(), ExpectedRow.size());
+  cpu_oracle::fillPoison(ExpectedColumn.data(), ExpectedColumn.size());
+  const BYTE Rows[][4] = {{0x80, 0xff, 0x00, 0x7f}, {0x01, 0x02, 0xfe, 0x03}};
+  const BYTE Columns[][4] = {{0x80, 0x00, 0x01, 0xfe},
+                             {0xff, 0x7f, 0x02, 0x03}};
+  std::memcpy(ExpectedRow.data() + 512, Rows[0], 4);
+  std::memcpy(ExpectedRow.data() + 640, Rows[1], 4);
+  std::memcpy(ExpectedColumn.data() + 512, Columns[0], 4);
+  std::memcpy(ExpectedColumn.data() + 704, Columns[1], 4);
+  VERIFY_IS_TRUE(*RowMajor == ExpectedRow);
+  VERIFY_IS_TRUE(*ColumnMajor == ExpectedColumn);
+
+  for (MatrixDim MinorCount = 1; MinorCount < 4; ++MinorCount) {
+    const std::vector<int64_t> PartialValues(Values.begin(),
+                                             Values.begin() + MinorCount);
+    const auto PartialRowMajor = encodeGroupSharedI8Matrix(
+        1, MinorCount, {MatrixLayout::RowMajor, 512, 128}, PartialValues);
+    const auto PartialColumnMajor = encodeGroupSharedI8Matrix(
+        MinorCount, 1, {MatrixLayout::ColumnMajor, 512, 192}, PartialValues);
+    VERIFY_IS_TRUE(PartialRowMajor.has_value() &&
+                   PartialColumnMajor.has_value());
+    if (!PartialRowMajor || !PartialColumnMajor)
+      return;
+
+    std::vector<BYTE> ExpectedPartial(532);
+    cpu_oracle::fillPoison(ExpectedPartial.data(), ExpectedPartial.size());
+    std::memcpy(ExpectedPartial.data() + 512, Rows[0], MinorCount);
+    VERIFY_IS_TRUE(*PartialRowMajor == ExpectedPartial);
+    VERIFY_IS_TRUE(*PartialColumnMajor == ExpectedPartial);
+  }
+}
+
+static const char GroupSharedI8MultiplyShader[] = R"(
+  #define USE_A 0
+  #define USE_B 1
+  #define USE_ACC 2
+  #define LAYOUT_ROW_MAJOR 0
+  #define LAYOUT_COLUMN_MAJOR 1
+
+  ByteAddressBuffer MatrixAInput : register(t0);
+  ByteAddressBuffer MatrixBInput : register(t1);
+  ByteAddressBuffer AccumulatorInput : register(t2);
+  RWByteAddressBuffer Output : register(u3);
+  RWByteAddressBuffer MatrixAReadback : register(u4);
+  RWByteAddressBuffer MatrixBReadback : register(u5);
+
+  groupshared int MatrixAStorage[GS_A_WORDS];
+  groupshared int MatrixBStorage[GS_B_WORDS];
+
+  [WaveSize(FORCED_WAVE_SIZE)]
+  [numthreads(NUMTHREADS, 1, 1)]
+  void main(uint threadID : SV_GroupIndex) {
+    for (uint Index = threadID; Index < GS_A_WORDS; Index += NUMTHREADS)
+      MatrixAStorage[Index] = MatrixAInput.Load<int>(Index * 4);
+    for (uint Index = threadID; Index < GS_B_WORDS; Index += NUMTHREADS)
+      MatrixBStorage[Index] = MatrixBInput.Load<int>(Index * 4);
+    GroupMemoryBarrierWithGroupSync();
+
+    __builtin_LinAlgMatrix
+      [[__LinAlgMatrix_Attributes(
+        MATRIX_A_COMP_TYPE, M_DIM, K_DIM, USE_A, MATRIX_SCOPE)]]
+      MatA;
+    dx::__builtin_LinAlg_MatrixLoadFromMemory(
+      MatA, MatrixAStorage, GS_A_OFFSET_ELEMENTS, GS_A_STRIDE_ELEMENTS,
+      LAYOUT_ROW_MAJOR);
+    __builtin_LinAlgMatrix
+      [[__LinAlgMatrix_Attributes(
+        MATRIX_B_COMP_TYPE, K_DIM, N_DIM, USE_B, MATRIX_SCOPE)]]
+      MatB;
+    dx::__builtin_LinAlg_MatrixLoadFromMemory(
+      MatB, MatrixBStorage, GS_B_OFFSET_ELEMENTS, GS_B_STRIDE_ELEMENTS,
+      LAYOUT_COLUMN_MAJOR);
+    __builtin_LinAlgMatrix
+      [[__LinAlgMatrix_Attributes(
+        ACCUMULATOR_COMP_TYPE, M_DIM, N_DIM, USE_ACC, MATRIX_SCOPE)]]
+      Accumulator, Result;
+    dx::__builtin_LinAlg_MatrixLoadFromDescriptor(
+      Accumulator, AccumulatorInput, 0, ACCUMULATOR_STRIDE,
+      LAYOUT_ROW_MAJOR, 128);
+    dx::__builtin_LinAlg_MatrixMatrixMultiplyAccumulate(
+      Result, MatA, MatB, Accumulator);
+    dx::__builtin_LinAlg_MatrixStoreToDescriptor(
+      Result, Output, RESULT_OFFSET_BYTES, RESULT_STRIDE_BYTES,
+      LAYOUT_ROW_MAJOR, 128);
+
+    GroupMemoryBarrierWithGroupSync();
+    for (uint Index = threadID; Index < GS_A_WORDS; Index += NUMTHREADS)
+      MatrixAReadback.Store<int>(Index * 4, MatrixAStorage[Index]);
+    for (uint Index = threadID; Index < GS_B_WORDS; Index += NUMTHREADS)
+      MatrixBReadback.Store<int>(Index * 4, MatrixBStorage[Index]);
+  }
+)";
+
+static bool runGroupSharedI8MultiplyCase(ID3D12Device *Device,
+                                         dxc::SpecificDllLoader &DxcSupport,
+                                         const MatrixMultiplyCase &Case,
+                                         UINT WaveSize, bool Verbose) {
+  const cpu_oracle::MatrixBufferLayout MatrixALayout = {MatrixLayout::RowMajor,
+                                                        512, 128};
+  const cpu_oracle::MatrixBufferLayout MatrixBLayout = {
+      MatrixLayout::ColumnMajor, 512, 192};
+  const cpu_oracle::MatrixBufferLayout OutputLayout = {MatrixLayout::RowMajor,
+                                                       128, 80};
+  const MatrixParams Accumulator = makeMatrixArithmeticParams(
+      Case.AccumulatorType, Case.M, Case.N, MatrixUse::Accumulator,
+      MatrixScope::Wave, WaveSize);
+
+  const std::optional<std::vector<BYTE>> MatrixABuffer =
+      encodeGroupSharedI8Matrix(Case.M, Case.K, MatrixALayout,
+                                Case.MatrixAValues);
+  const std::optional<std::vector<BYTE>> MatrixBBuffer =
+      encodeGroupSharedI8Matrix(Case.K, Case.N, MatrixBLayout,
+                                Case.MatrixBValues);
+  const std::optional<std::vector<BYTE>> AccumulatorBuffer =
+      cpu_oracle::encodeLogicalMatrixBuffer(Accumulator,
+                                            Case.AccumulatorValues);
+  const std::vector<int64_t> ExpectedValues =
+      cpu_oracle::multiplyIntegerMatrices(
+          Case.M, Case.K, Case.N, Case.MatrixAValues, Case.MatrixBValues,
+          &Case.AccumulatorValues);
+  const std::optional<std::vector<BYTE>> ExpectedBuffer =
+      cpu_oracle::encodeLogicalMatrixBuffer(Accumulator, ExpectedValues);
+  const std::optional<std::string> BaseArgs = buildMatrixMultiplyCompilerArgs(
+      Case, MatrixScope::Wave, WaveSize, WaveSize);
+  VERIFY_IS_TRUE(MatrixABuffer && MatrixBBuffer && AccumulatorBuffer &&
+                 ExpectedBuffer && BaseArgs);
+  if (!MatrixABuffer || !MatrixBBuffer || !AccumulatorBuffer ||
+      !ExpectedBuffer || !BaseArgs)
+    return false;
+
+  const std::optional<cpu_oracle::TypedMatrix> ExpectedMatrix =
+      cpu_oracle::decodeMatrixBuffer(
+          Case.AccumulatorType, Case.M, Case.N,
+          {MatrixLayout::RowMajor, 0, Accumulator.strideBytes()},
+          ExpectedBuffer->data(), ExpectedBuffer->size());
+  size_t OutputSize;
+  UINT OutputElements;
+  if (!ExpectedMatrix ||
+      !getGroupSharedBufferDescription(Accumulator, OutputLayout, OutputSize,
+                                       OutputElements)) {
+    VERIFY_IS_TRUE(false, "Invalid I32 result matrix or output layout");
+    return false;
+  }
+
+  // Array lengths count i32 words; matrix offsets and strides count I8
+  // elements.
+  std::stringstream SS;
+  SS << *BaseArgs;
+  SS << " -DGS_A_WORDS=" << MatrixABuffer->size() / sizeof(int32_t);
+  SS << " -DGS_B_WORDS=" << MatrixBBuffer->size() / sizeof(int32_t);
+  SS << " -DGS_A_OFFSET_ELEMENTS=" << MatrixALayout.OffsetBytes;
+  SS << " -DGS_A_STRIDE_ELEMENTS=" << MatrixALayout.StrideBytes;
+  SS << " -DGS_B_OFFSET_ELEMENTS=" << MatrixBLayout.OffsetBytes;
+  SS << " -DGS_B_STRIDE_ELEMENTS=" << MatrixBLayout.StrideBytes;
+  SS << " -DRESULT_OFFSET_BYTES=" << OutputLayout.OffsetBytes;
+  SS << " -DRESULT_STRIDE_BYTES=" << OutputLayout.StrideBytes;
+  const std::string Args = SS.str();
+  compileShader(DxcSupport, GroupSharedI8MultiplyShader, "cs_6_10", Args,
+                Verbose);
+
+  auto Op = createComputeOp(
+      GroupSharedI8MultiplyShader, "cs_6_10",
+      "SRV(t0), SRV(t1), SRV(t2), UAV(u3), UAV(u4), UAV(u5)", Args.c_str());
+  addSRVBuffer(Op.get(), "MatrixAInput", MatrixABuffer->size(), "byname");
+  addSRVBuffer(Op.get(), "MatrixBInput", MatrixBBuffer->size(), "byname");
+  addSRVBuffer(Op.get(), "AccumulatorInput", AccumulatorBuffer->size(),
+               "byname");
+  addUAVBuffer(Op.get(), "Output", OutputSize, true, "byname");
+  addUAVBuffer(Op.get(), "MatrixAReadback", MatrixABuffer->size(), true);
+  addUAVBuffer(Op.get(), "MatrixBReadback", MatrixBBuffer->size(), true);
+  addRootView(Op.get(), 0, "MatrixAInput");
+  addRootView(Op.get(), 1, "MatrixBInput");
+  addRootView(Op.get(), 2, "AccumulatorInput");
+  addRootView(Op.get(), 3, "Output");
+  addRootView(Op.get(), 4, "MatrixAReadback");
+  addRootView(Op.get(), 5, "MatrixBReadback");
+
+  auto Result =
+      runShaderOp(Device, DxcSupport, std::move(Op),
+                  [&](LPCSTR Name, std::vector<BYTE> &Data, st::ShaderOp *) {
+                    if (_stricmp(Name, "MatrixAInput") == 0)
+                      Data = *MatrixABuffer;
+                    else if (_stricmp(Name, "MatrixBInput") == 0)
+                      Data = *MatrixBBuffer;
+                    else if (_stricmp(Name, "AccumulatorInput") == 0)
+                      Data = *AccumulatorBuffer;
+                    else {
+                      VERIFY_IS_TRUE(_stricmp(Name, "Output") == 0);
+                      cpu_oracle::fillPoison(Data.data(), Data.size());
+                    }
+                  });
+
+  MappedData OutData;
+  Result->Test->GetReadBackData("Output", &OutData);
+  const bool MatrixMatches = cpu_oracle::verifyMatrixBuffer(
+      OutData.data(), OutData.size(), OutputLayout,
+      cpu_oracle::exactResult(*ExpectedMatrix, Case.PublicRule), Verbose);
+  const bool GuardsMatch = cpu_oracle::verifyUntouchedBytes(
+      ComponentType::I32, Case.M, Case.N, OutputLayout, OutData.data(),
+      OutData.size(), Verbose);
+
+  MappedData MatrixAData;
+  MappedData MatrixBData;
+  Result->Test->GetReadBackData("MatrixAReadback", &MatrixAData);
+  Result->Test->GetReadBackData("MatrixBReadback", &MatrixBData);
+  const bool MatrixAPreserved = verifyGroupSharedTypedBuffer(
+      ComponentType::I32, MatrixAData.data(), MatrixAData.size(),
+      *MatrixABuffer, L"I8 A load preserves every packed byte and guard",
+      Verbose);
+  const bool MatrixBPreserved = verifyGroupSharedTypedBuffer(
+      ComponentType::I32, MatrixBData.data(), MatrixBData.size(),
+      *MatrixBBuffer, L"I8 B load preserves every packed byte and guard",
+      Verbose);
+  hlsl_test::LogCommentFmt(
+      L"I8 group-shared MMA: wave=%u, matrix=%u, output guards=%u, "
+      L"A preserved=%u, B preserved=%u",
+      WaveSize, static_cast<UINT>(MatrixMatches),
+      static_cast<UINT>(GuardsMatch), static_cast<UINT>(MatrixAPreserved),
+      static_cast<UINT>(MatrixBPreserved));
+  return MatrixMatches && GuardsMatch && MatrixAPreserved && MatrixBPreserved;
+}
+
+static void runGroupSharedI8Multiply(ID3D12Device *Device,
+                                     dxc::SpecificDllLoader &DxcSupport,
+                                     MatrixDim M, LPCWSTR CaseName,
+                                     bool Verbose) {
+  MatrixMultiplyCase Case = {};
+  Case.MatrixAType = ComponentType::I8;
+  Case.MatrixBType = ComponentType::I8;
+  Case.AccumulatorType = ComponentType::I32;
+  Case.M = M;
+  Case.K = 32;
+  Case.N = 16;
+  Case.Operation = MatrixMultiplyOperation::MultiplyAccumulate;
+  Case.MatrixAValues =
+      makeMatrixArithmeticPattern(Case.M, Case.K, 11, 7, 23, 11);
+  Case.MatrixBValues = makeMatrixArithmeticPattern(Case.K, Case.N, 5, 3, 19, 9);
+  Case.AccumulatorValues =
+      makeMatrixArithmeticPattern(Case.M, Case.N, 2, 5, 17, 8);
+  Case.PublicRule =
+      L"HLSL proposal 0035 MatrixLoadFromMemory consumes I8 elements from "
+      L"bitcast i32 storage, followed by the exact I32 product plus "
+      L"accumulator";
+  VERIFY_IS_TRUE(isMatrixMultiplyCaseValid(Case));
+  if (!isMatrixMultiplyCaseValid(Case))
+    return;
+
+  std::vector<UINT> WaveSizes;
+  const HRESULT QueryResult =
+      collectWaveArithmeticMultiplyWaveSizes(Device, Case, CaseName, WaveSizes);
+  if (!applyApplicability(
+          linalg_test::classifyApplicability(
+              QueryResult, !WaveSizes.empty(),
+              linalg_test::CapabilityRequirement::CapabilityGated),
+          CaseName))
+    return;
+
+  bool AllWavesMatch = true;
+  for (const UINT WaveSize : WaveSizes)
+    AllWavesMatch = runGroupSharedI8MultiplyCase(Device, DxcSupport, Case,
+                                                 WaveSize, Verbose) &&
+                    AllWavesMatch;
+  VERIFY_IS_TRUE(AllWavesMatch);
+}
+
+void DxilConf_SM610_LinAlg_GroupSharedIO::
+    MatMatMulAccumMemory_Wave_8x32x16_I8_ToI32_OffsetPadded() {
+  runGroupSharedI8Multiply(
+      D3DDevice, DxcSupport, /*M=*/8,
+      L"MatMatMulAccumMemory_Wave_8x32x16_I8_ToI32_OffsetPadded",
+      VerboseLogging);
+}
+
+void DxilConf_SM610_LinAlg_GroupSharedIO::
+    MatMatMulAccumMemory_Wave_16x32x16_I8_ToI32_OffsetPadded() {
+  runGroupSharedI8Multiply(
+      D3DDevice, DxcSupport, /*M=*/16,
+      L"MatMatMulAccumMemory_Wave_16x32x16_I8_ToI32_OffsetPadded",
+      VerboseLogging);
+}
+
 static const char GroupSharedTransferShader[] = R"(
   #define SCOPE_WAVE 1
   #define SCOPE_THREAD_GROUP 2
@@ -8585,12 +10602,15 @@ static const char GroupSharedTransferShader[] = R"(
     __builtin_LinAlgMatrix
       [[__LinAlgMatrix_Attributes(COMP_TYPE, M_DIM, N_DIM, USE, SCOPE)]]
       Mat;
-    __builtin_LinAlg_MatrixLoadFromMemory(
+    dx::__builtin_LinAlg_MatrixLoadFromMemory(
       Mat, SourceData, SRC_OFFSET, SRC_STRIDE, SRC_LAYOUT);
-    __builtin_LinAlg_MatrixStoreToMemory(
+    dx::__builtin_LinAlg_MatrixStoreToMemory(
       Mat, DestinationData, DST_OFFSET, DST_STRIDE, DST_LAYOUT);
   }
 
+  #ifdef GROUP_SHARED_LIMIT
+  [GroupSharedLimit(GROUP_SHARED_LIMIT)]
+  #endif
   #ifdef FORCED_WAVE_SIZE
   [WaveSize(FORCED_WAVE_SIZE)]
   #else
@@ -8634,11 +10654,12 @@ runGroupSharedTransfer(ID3D12Device *Device, dxc::SpecificDllLoader &DxcSupport,
                        const MatrixParams &Params,
                        const cpu_oracle::MatrixBufferLayout &SourceLayout,
                        const cpu_oracle::MatrixBufferLayout &DestinationLayout,
-                       bool Verbose, UINT ForcedWaveSize = 0) {
+                       bool Verbose, UINT ForcedWaveSize = 0,
+                       UINT GroupSharedLimit = 0) {
   if (!Device ||
       (Params.Scope != MatrixScope::Wave &&
        Params.Scope != MatrixScope::ThreadGroup) ||
-      Params.Use != MatrixUse::A) {
+      Params.Use == MatrixUse::B) {
     VERIFY_IS_TRUE(false, "Invalid group-shared transfer parameters");
     return;
   }
@@ -8685,6 +10706,8 @@ runGroupSharedTransfer(ID3D12Device *Device, dxc::SpecificDllLoader &DxcSupport,
   ExtraDefs << " -DDST_OFFSET=" << DestinationLayout.OffsetBytes / ElementBytes;
   ExtraDefs << " -DDST_STRIDE=" << DestinationLayout.StrideBytes / ElementBytes;
   ExtraDefs << " -DDST_LAYOUT=" << static_cast<UINT>(DestinationLayout.Layout);
+  if (GroupSharedLimit != 0)
+    ExtraDefs << " -DGROUP_SHARED_LIMIT=" << GroupSharedLimit;
   if (ForcedWaveSize != 0)
     ExtraDefs << " -DFORCED_WAVE_SIZE=" << ForcedWaveSize;
 
@@ -8725,16 +10748,18 @@ static void runBidirectionalGroupSharedTransfer(
     const MatrixParams &Params,
     const cpu_oracle::MatrixBufferLayout &TargetLayout,
     const cpu_oracle::MatrixBufferLayout &CanonicalLayout, bool Verbose,
-    UINT ForcedWaveSize = 0) {
+    UINT ForcedWaveSize = 0, UINT GroupSharedLimit = 0) {
   hlsl_test::LogCommentFmt(L"Group-shared transfer: target to canonical");
   runGroupSharedTransfer(Device, DxcSupport, Params, TargetLayout,
-                         CanonicalLayout, Verbose, ForcedWaveSize);
+                         CanonicalLayout, Verbose, ForcedWaveSize,
+                         GroupSharedLimit);
   hlsl_test::LogCommentFmt(L"Group-shared transfer: canonical to target");
   runGroupSharedTransfer(Device, DxcSupport, Params, CanonicalLayout,
-                         TargetLayout, Verbose, ForcedWaveSize);
+                         TargetLayout, Verbose, ForcedWaveSize,
+                         GroupSharedLimit);
 }
 
-void DxilConf_SM610_LinAlg::
+void DxilConf_SM610_LinAlg_GroupSharedIO::
     LoadStoreMemory_Wave_4x8_F16_RowMajorOffsetPadded() {
   MatrixParams Params = {};
   Params.CompType = ComponentType::F16;
@@ -8770,7 +10795,44 @@ void DxilConf_SM610_LinAlg::
                                       SelectedWaveSize);
 }
 
-void DxilConf_SM610_LinAlg::
+// Keep this rectangular too: both transfer directions must expose layout swaps.
+void DxilConf_SM610_LinAlg_GroupSharedIO::
+    LoadStoreMemory_Wave_16x32_F16_RowMajorOffsetPadded() {
+  MatrixParams Params = {};
+  Params.CompType = ComponentType::F16;
+  Params.M = 16;
+  Params.N = 32;
+  Params.Use = MatrixUse::A;
+  Params.Scope = MatrixScope::Wave;
+  Params.Layout = MatrixLayout::RowMajor;
+  Params.NumThreads = 128;
+  Params.Enable16Bit = true;
+
+  UINT SelectedWaveSize = 0;
+  if (!matrixConstructionApplicable(
+          D3DDevice, Params, {Params.Use},
+          L"LoadStoreMemory_Wave_16x32_F16_RowMajorOffsetPadded",
+          SelectedWaveSize))
+    return;
+
+  const size_t ElementBytes = elementSize(Params.CompType);
+  const cpu_oracle::MatrixBufferLayout Target = {
+      MatrixLayout::RowMajor,
+      /*OffsetBytes=*/MatrixOffsetAlignmentBytes,
+      /*StrideBytes=*/alignMatrixStride(Params.N * ElementBytes) +
+          MatrixStrideAlignmentBytes,
+  };
+  const cpu_oracle::MatrixBufferLayout Canonical = {
+      MatrixLayout::ColumnMajor,
+      /*OffsetBytes=*/0,
+      /*StrideBytes=*/alignMatrixStride(Params.M * ElementBytes),
+  };
+  runBidirectionalGroupSharedTransfer(D3DDevice, DxcSupport, Params, Target,
+                                      Canonical, VerboseLogging,
+                                      SelectedWaveSize);
+}
+
+void DxilConf_SM610_LinAlg_GroupSharedIO::
     LoadStoreMemory_Wave_4x8_F32_ColumnMajorOffsetPadded() {
   MatrixParams Params = {};
   Params.CompType = ComponentType::F32;
@@ -8806,7 +10868,103 @@ void DxilConf_SM610_LinAlg::
                                       SelectedWaveSize);
 }
 
-void DxilConf_SM610_LinAlg::LoadStoreMemory_ThreadGroup_4x8_F16() {
+void DxilConf_SM610_LinAlg_GroupSharedIO::
+    LoadStoreMemory_Wave_16x32_F32_ColumnMajorOffsetPadded() {
+  MatrixParams Params = {};
+  Params.CompType = ComponentType::F32;
+  Params.M = 16;
+  Params.N = 32;
+  Params.Use = MatrixUse::Accumulator;
+  Params.Scope = MatrixScope::Wave;
+  Params.Layout = MatrixLayout::ColumnMajor;
+  Params.NumThreads = 128;
+  Params.Enable16Bit = false;
+
+  UINT SelectedWaveSize = 0;
+  if (!matrixConstructionApplicable(
+          D3DDevice, Params, {Params.Use},
+          L"LoadStoreMemory_Wave_16x32_F32_ColumnMajorOffsetPadded",
+          SelectedWaveSize))
+    return;
+
+  const size_t ElementBytes = elementSize(Params.CompType);
+  const cpu_oracle::MatrixBufferLayout Target = {
+      MatrixLayout::ColumnMajor,
+      /*OffsetBytes=*/MatrixOffsetAlignmentBytes,
+      /*StrideBytes=*/alignMatrixStride(Params.M * ElementBytes) +
+          MatrixStrideAlignmentBytes,
+  };
+  const cpu_oracle::MatrixBufferLayout Canonical = {
+      MatrixLayout::RowMajor,
+      /*OffsetBytes=*/0,
+      /*StrideBytes=*/alignMatrixStride(Params.N * ElementBytes),
+  };
+  runBidirectionalGroupSharedTransfer(D3DDevice, DxcSupport, Params, Target,
+                                      Canonical, VerboseLogging,
+                                      SelectedWaveSize);
+}
+
+static void runThreadGroupTransferAtSize(ID3D12Device *Device,
+                                         dxc::SpecificDllLoader &DxcSupport,
+                                         MatrixDim M, MatrixDim N,
+                                         UINT ThreadGroupSize, LPCWSTR CaseName,
+                                         bool Verbose) {
+  MatrixParams Params =
+      makeMatrixArithmeticParams(ComponentType::F16, M, N, MatrixUse::A,
+                                 MatrixScope::ThreadGroup, ThreadGroupSize);
+  Params.Layout = MatrixLayout::ColumnMajor;
+
+  // Every wave size that divides the group is a separate configuration.
+  std::vector<UINT> WaveSizes;
+  const HRESULT QueryResult = collectMatrixConstructionWaveSizes(
+      Device, Params, {Params.Use}, WaveSizes);
+  std::vector<UINT> Dividing;
+  for (const UINT WaveSize : WaveSizes)
+    if (ThreadGroupSize % WaveSize == 0)
+      Dividing.push_back(WaveSize);
+  if (!applyApplicability(
+          linalg_test::classifyApplicability(
+              QueryResult, !Dividing.empty(),
+              linalg_test::CapabilityRequirement::CapabilityGated),
+          CaseName))
+    return;
+
+  const size_t ElementBytes = elementSize(Params.CompType);
+  const cpu_oracle::MatrixBufferLayout Target = {
+      MatrixLayout::ColumnMajor,
+      /*OffsetBytes=*/MatrixOffsetAlignmentBytes,
+      /*StrideBytes=*/alignMatrixStride(Params.M * ElementBytes) +
+          MatrixStrideAlignmentBytes,
+  };
+  const cpu_oracle::MatrixBufferLayout Canonical = {
+      MatrixLayout::RowMajor,
+      /*OffsetBytes=*/0,
+      /*StrideBytes=*/alignMatrixStride(Params.N * ElementBytes),
+  };
+  for (const UINT WaveSize : Dividing) {
+    hlsl_test::LogCommentFmt(L"ThreadGroup transfer: wave=%u, threads=%u",
+                             WaveSize, ThreadGroupSize);
+    runBidirectionalGroupSharedTransfer(Device, DxcSupport, Params, Target,
+                                        Canonical, Verbose, WaveSize);
+  }
+}
+
+void DxilConf_SM610_LinAlg_GroupSharedIO::
+    LoadStoreMemory_ThreadGroup_32x16_F16_128Threads() {
+  runThreadGroupTransferAtSize(
+      D3DDevice, DxcSupport, /*M=*/32, /*N=*/16, /*ThreadGroupSize=*/128,
+      L"LoadStoreMemory_ThreadGroup_32x16_F16_128Threads", VerboseLogging);
+}
+
+void DxilConf_SM610_LinAlg_GroupSharedIO::
+    LoadStoreMemory_ThreadGroup_64x32_F16_256Threads() {
+  runThreadGroupTransferAtSize(
+      D3DDevice, DxcSupport, /*M=*/64, /*N=*/32, /*ThreadGroupSize=*/256,
+      L"LoadStoreMemory_ThreadGroup_64x32_F16_256Threads", VerboseLogging);
+}
+
+void DxilConf_SM610_LinAlg_GroupSharedIO::
+    LoadStoreMemory_ThreadGroup_4x8_F16() {
   MatrixParams Params = {};
   Params.CompType = ComponentType::F16;
   Params.M = 4;
@@ -8840,6 +10998,114 @@ void DxilConf_SM610_LinAlg::LoadStoreMemory_ThreadGroup_4x8_F16() {
                                       SelectedWaveSize);
 }
 
+void DxilConf_SM610_LinAlg_GroupSharedIO::
+    LoadStoreMemory_ThreadGroup_WaveScaled_F16() {
+  const LPCWSTR CaseName = L"LoadStoreMemory_ThreadGroup_WaveScaled_F16";
+  if (!linAlgTierApplicable(D3DDevice, CaseName))
+    return;
+
+  UINT MinWaveSize = 0;
+  UINT MaxWaveSize = 0;
+  const HRESULT WaveResult =
+      queryLaunchableWaveSizes(D3DDevice, MinWaveSize, MaxWaveSize);
+  if (!applyApplicability(
+          linalg_test::classifyApplicability(
+              WaveResult, MinWaveSize != 0,
+              linalg_test::CapabilityRequirement::CapabilityGated),
+          CaseName))
+    return;
+
+  for (UINT WaveSize = 4; WaveSize <= 128; WaveSize *= 2) {
+    if (WaveSize < MinWaveSize || WaveSize > MaxWaveSize)
+      continue;
+
+    const MatrixDim M = roundUpToMultiple(16, WaveSize);
+    MatrixParams Params = makeMatrixArithmeticParams(
+        ComponentType::F16, M, 2 * M, MatrixUse::A, MatrixScope::ThreadGroup,
+        /*NumThreads=*/WaveSize);
+    Params.Layout = MatrixLayout::ColumnMajor;
+
+    // Prefer a cross-wave group, falling back to a single wave, like the
+    // ThreadGroup multiply selector.
+    constexpr UINT MaxThreadsPerGroup =
+        D3D12_CS_THREAD_GROUP_MAX_THREADS_PER_GROUP;
+    bool Supported = false;
+    for (UINT Size = WaveSize * 2; Size <= MaxThreadsPerGroup + WaveSize;
+         Size += WaveSize) {
+      Params.NumThreads =
+          static_cast<int>(Size > MaxThreadsPerGroup ? WaveSize : Size);
+      const HRESULT QueryResult = supportsMatrixShape(
+          D3DDevice, linalg_abi::D3D12_LINEAR_ALGEBRA_DATATYPE_FLOAT16,
+          WaveSize, static_cast<UINT>(Params.NumThreads), Params.Use,
+          MatrixScope::ThreadGroup, Params.M, Params.N, Supported);
+      if (FAILED(QueryResult)) {
+        applyApplicability(linalg_test::Applicability::Fail, CaseName);
+        return;
+      }
+      if (Supported)
+        break;
+    }
+    if (!Supported)
+      continue;
+
+    const size_t ElementBytes = elementSize(Params.CompType);
+    const cpu_oracle::MatrixBufferLayout Target = {
+        MatrixLayout::ColumnMajor,
+        /*OffsetBytes=*/MatrixOffsetAlignmentBytes,
+        /*StrideBytes=*/alignMatrixStride(Params.M * ElementBytes) +
+            MatrixStrideAlignmentBytes,
+    };
+    const cpu_oracle::MatrixBufferLayout Canonical = {
+        MatrixLayout::RowMajor,
+        /*OffsetBytes=*/0,
+        /*StrideBytes=*/alignMatrixStride(Params.N * ElementBytes),
+    };
+    size_t TargetBytes;
+    size_t CanonicalBytes;
+    UINT TargetElements;
+    UINT CanonicalElements;
+    if (!getGroupSharedBufferDescription(Params, Target, TargetBytes,
+                                         TargetElements) ||
+        !getGroupSharedBufferDescription(Params, Canonical, CanonicalBytes,
+                                         CanonicalElements)) {
+      VERIFY_IS_TRUE(false, "Invalid ThreadGroup transfer buffer description");
+      return;
+    }
+    const size_t SharedBytes = TargetBytes + CanonicalBytes;
+    UINT GroupSharedLimit = 0;
+    if (SharedBytes > hlsl::DXIL::kMaxTGSMSize) {
+#if defined(HLSLEXEC_GROUPSHARED_LIMITS)
+      const UINT MaxSharedBytes = getMaxGroupSharedMemoryCS(D3DDevice);
+      if (SharedBytes > MaxSharedBytes) {
+        hlsl_test::LogCommentFmt(
+            L"ThreadGroup transfer at wave=%u requires %zu groupshared bytes; "
+            L"device limit=%u",
+            WaveSize, SharedBytes, MaxSharedBytes);
+        continue;
+      }
+      GroupSharedLimit = static_cast<UINT>(SharedBytes);
+#else
+      hlsl_test::LogCommentFmt(
+          L"ThreadGroup transfer at wave=%u requires %zu groupshared bytes; "
+          L"this build cannot query extended groupshared limits",
+          WaveSize, SharedBytes);
+      continue;
+#endif
+    }
+
+    hlsl_test::LogCommentFmt(
+        L"ThreadGroup transfer: wave=%u, threads=%d, tile=%ux%u, "
+        L"groupshared bytes=%zu",
+        WaveSize, Params.NumThreads, Params.M, Params.N, SharedBytes);
+    runBidirectionalGroupSharedTransfer(D3DDevice, DxcSupport, Params, Target,
+                                        Canonical, VerboseLogging, WaveSize,
+                                        GroupSharedLimit);
+    return;
+  }
+
+  applyApplicability(linalg_test::Applicability::NotApplicable, CaseName);
+}
+
 static const char GroupSharedAccumulateShader[] = R"(
   ByteAddressBuffer Initial : register(t0);
   RWByteAddressBuffer Output : register(u1);
@@ -8863,15 +11129,15 @@ static const char GroupSharedAccumulateShader[] = R"(
       __builtin_LinAlgMatrix
         [[__LinAlgMatrix_Attributes(COMP_TYPE, M_DIM, N_DIM, USE, SCOPE)]]
         Mat;
-      __builtin_LinAlg_FillMatrix(Mat, 0);
-      for (uint I = 0; I < __builtin_LinAlg_MatrixLength(Mat); ++I) {
-        uint2 Coord = __builtin_LinAlg_MatrixGetCoordinate(Mat, I);
-        __builtin_LinAlg_MatrixSetElement(
+      dx::__builtin_LinAlg_FillMatrix(Mat, FILL_INPUT_IS_SIGNED, 0);
+      for (uint I = 0; I < dx::__builtin_LinAlg_MatrixLength(Mat); ++I) {
+        uint2 Coord = dx::__builtin_LinAlg_MatrixGetCoordinate(Mat, I);
+        dx::__builtin_LinAlg_MatrixSetElement(
           Mat, Mat, I,
           (ELEM_TYPE)((GetGroupWaveIndex() + 1) *
                       (ACCUMULATE_START + Coord.x * N_DIM + Coord.y)));
       }
-      __builtin_LinAlg_MatrixAccumulateToMemory(
+      dx::__builtin_LinAlg_MatrixAccumulateToMemory(
         Mat, GsData, MEM_OFFSET, MEM_STRIDE, MEM_LAYOUT);
     }
 
@@ -9114,11 +11380,12 @@ static void runPaddedGroupSharedAccumulateCase(
 
 static void runGroupSharedAccumulateContention(
     ID3D12Device *Device, dxc::SpecificDllLoader &DxcSupport,
-    ComponentType CompType, LPCWSTR CaseName, bool Verbose) {
+    ComponentType CompType, LPCWSTR CaseName, bool Verbose, MatrixDim M = 4,
+    MatrixDim N = 8) {
   MatrixParams Params = {};
   Params.CompType = CompType;
-  Params.M = 4;
-  Params.N = 8;
+  Params.M = M;
+  Params.N = N;
   Params.Use = MatrixUse::Accumulator;
   Params.Scope = MatrixScope::Wave;
   Params.Layout = MatrixLayout::RowMajor;
@@ -9150,16 +11417,63 @@ static void runGroupSharedAccumulateContention(
                            SelectedWaveSize, ActiveWaveCount);
 }
 
-void DxilConf_SM610_LinAlg::AccumulateMemoryContention_Wave_4x8_F16() {
+void DxilConf_SM610_LinAlg_GroupSharedIO::
+    AccumulateMemoryContention_Wave_4x8_F16() {
   runGroupSharedAccumulateContention(D3DDevice, DxcSupport, ComponentType::F16,
                                      L"AccumulateMemoryContention_Wave_4x8_F16",
                                      VerboseLogging);
 }
 
-void DxilConf_SM610_LinAlg::AccumulateMemoryContention_Wave_4x8_I32() {
+void DxilConf_SM610_LinAlg_GroupSharedIO::
+    AccumulateMemoryContention_Wave_16x16_F16() {
+  MatrixParams Params = {};
+  Params.CompType = ComponentType::F16;
+  Params.M = 16;
+  Params.N = 16;
+  Params.Use = MatrixUse::Accumulator;
+  Params.Scope = MatrixScope::Wave;
+  Params.Layout = MatrixLayout::RowMajor;
+  Params.NumThreads = 512;
+  Params.Enable16Bit = true;
+
+  UINT SelectedWaveSize = 0;
+  if (!matrixConstructionApplicable(
+          D3DDevice, Params, {Params.Use},
+          L"AccumulateMemoryContention_Wave_16x16_F16", SelectedWaveSize))
+    return;
+  if (!accumulateStoreApplicable(D3DDevice, Params.CompType,
+                                 linalg_test::AtomicDestination::GroupShared,
+                                 L"AccumulateMemoryContention_Wave_16x16_F16"))
+    return;
+
+  // Three waves bound every sum by 7 + 6 * 256 = 1543, exact in F16.
+  constexpr UINT ActiveWaveCount = 3;
+  Params.NumThreads = static_cast<int>(SelectedWaveSize * ActiveWaveCount);
+  const size_t ElementBytes = elementSize(Params.CompType);
+  const cpu_oracle::MatrixBufferLayout Memory = {
+      MatrixLayout::RowMajor,
+      /*OffsetBytes=*/MatrixOffsetAlignmentBytes,
+      /*StrideBytes=*/alignMatrixStride(Params.N * ElementBytes) +
+          MatrixStrideAlignmentBytes,
+  };
+  runGroupSharedAccumulate(D3DDevice, DxcSupport, Params, Memory,
+                           /*InitialValue=*/7, /*AccumulateStartingValue=*/1,
+                           VerboseLogging, SelectedWaveSize, ActiveWaveCount);
+}
+
+void DxilConf_SM610_LinAlg_GroupSharedIO::
+    AccumulateMemoryContention_Wave_4x8_I32() {
   runGroupSharedAccumulateContention(D3DDevice, DxcSupport, ComponentType::I32,
                                      L"AccumulateMemoryContention_Wave_4x8_I32",
                                      VerboseLogging);
+}
+
+void DxilConf_SM610_LinAlg_GroupSharedIO::
+    AccumulateMemoryContention_Wave_16x16_I32() {
+  runGroupSharedAccumulateContention(
+      D3DDevice, DxcSupport, ComponentType::I32,
+      L"AccumulateMemoryContention_Wave_16x16_I32", VerboseLogging,
+      /*M=*/16, /*N=*/16);
 }
 
 static const char ConvertShader[] = R"(
@@ -9172,7 +11486,7 @@ static const char ConvertShader[] = R"(
   void main() {
     vector<half, 4> InVec = {1.0, 2.0, 3.0, 4.0};
     vector<float, 4> OutVec;
-    __builtin_LinAlg_Convert(OutVec, InVec, CT_F16, CT_F32);
+    dx::__builtin_LinAlg_Convert(OutVec, InVec, CT_F16, CT_F32);
     Output.Store<float>(0, OutVec.x);
     Output.Store<float>(4, OutVec.y);
     Output.Store<float>(8, OutVec.z);
@@ -9203,10 +11517,16 @@ static void runConvert(ID3D12Device *Device, dxc::SpecificDllLoader &DxcSupport,
                                        Expected, NumElements, Verbose));
 }
 
-void DxilConf_SM610_LinAlg::Convert() {
-  // Operates on vectors rather than matrices, so tier support is the only
-  // capability it needs.
-  if (!linAlgTierApplicable(D3DDevice, L"Convert"))
+static bool
+convertTypesApplicable(ID3D12Device *Device, ComponentType SourceCompType,
+                       ComponentType DestinationCompType,
+                       linalg_test::CapabilityRequirement Requirement,
+                       LPCWSTR CaseName);
+
+void DxilConf_SM610_LinAlg_Conversion::Convert() {
+  if (!convertTypesApplicable(
+          D3DDevice, ComponentType::F16, ComponentType::F32,
+          linalg_test::CapabilityRequirement::CapabilityGated, L"Convert"))
     return;
 
   runConvert(D3DDevice, DxcSupport, VerboseLogging);
@@ -9230,7 +11550,7 @@ static const char VectorAccumulateDescriptorShader[] = R"(
                  (ELEM_TYPE)(Residual % THREAD_VARIATION);
       Residual /= THREAD_VARIATION;
     }
-    __builtin_LinAlg_VectorAccumulateToDescriptor(
+    dx::__builtin_LinAlg_VectorAccumulateToDescriptor(
       Output, START_OFFSET, 64, InVec);
   }
 )";
@@ -9241,7 +11561,7 @@ static void runVectorAccumulateDescriptor(
     const cpu_oracle::TypedMatrix &Initial,
     const cpu_oracle::TypedMatrix &Expected, UINT StartOffsetBytes,
     std::wstring PublicRule, bool Verbose, UINT NumThreads = 1,
-    UINT DispatchX = 1) {
+    UINT DispatchX = 1, std::optional<size_t> OutputViewBytes = std::nullopt) {
   VERIFY_ARE_EQUAL(1u, Input.M, "Vector input must have one row");
   VERIFY_ARE_EQUAL(Input.compType(), Initial.compType(),
                    "Input and destination component types must match");
@@ -9254,6 +11574,8 @@ static void runVectorAccumulateDescriptor(
   VERIFY_IS_GREATER_THAN_OR_EQUAL(
       Initial.totalElements(), Input.totalElements(),
       "Destination must hold the input vector and any guard elements");
+  VERIFY_IS_TRUE(StartOffsetBytes % 64 == 0,
+                 "Vector start offset must preserve 64-byte alignment");
 
   const cpu_oracle::MatrixBufferLayout InputLayout = {
       MatrixLayout::RowMajor,
@@ -9276,6 +11598,15 @@ static void runVectorAccumulateDescriptor(
     return;
   if (!OutputSize)
     return;
+
+  if (OutputViewBytes) {
+    VERIFY_IS_TRUE(*OutputViewBytes > 0 && *OutputViewBytes <= *OutputSize,
+                   "The bounded UAV view must fit the destination buffer");
+    hlsl_test::LogCommentFmt(
+        L"Vector accumulation bounded UAV: view=%zu bytes, vector offset=%u, "
+        L"vector size=%zu, destination size=%zu",
+        *OutputViewBytes, StartOffsetBytes, *InputSize, *OutputSize);
+  }
 
   std::vector<BYTE> InputBytes(*InputSize);
   std::vector<BYTE> InitialBytes(*OutputSize);
@@ -9304,12 +11635,20 @@ static void runVectorAccumulateDescriptor(
   compileShader(DxcSupport, VectorAccumulateDescriptorShader, "cs_6_10", Args,
                 Verbose);
 
+  const char *RootSignature = OutputViewBytes
+                                  ? "SRV(t0), DescriptorTable(UAV(u1))"
+                                  : "SRV(t0), UAV(u1)";
   auto Op = createComputeOp(VectorAccumulateDescriptorShader, "cs_6_10",
-                            "SRV(t0), UAV(u1)", Args.c_str(), DispatchX);
+                            RootSignature, Args.c_str(), DispatchX);
   addSRVBuffer(Op.get(), "Input", InputBytes.size(), "byname");
   addUAVBuffer(Op.get(), "Output", InitialBytes.size(), true, "byname");
   addRootView(Op.get(), 0, "Input");
-  addRootView(Op.get(), 1, "Output");
+  if (OutputViewBytes) {
+    addHeapRawUAV(Op.get(), "ResHeap", "Output", *OutputViewBytes);
+    addRootTable(Op.get(), 1, "ResHeap");
+  } else {
+    addRootView(Op.get(), 1, "Output");
+  }
 
   auto Result = runShaderOp(
       Device, DxcSupport, std::move(Op),
@@ -9327,12 +11666,28 @@ static void runVectorAccumulateDescriptor(
                          "Vector accumulation initializer size mismatch");
         if (Source->size() == Data.size())
           std::memcpy(Data.data(), Source->data(), Data.size());
+      },
+      /*PostDispatchCallback=*/nullptr,
+      [StartOffsetBytes](ID3D12GraphicsCommandList *, st::ShaderOpTest *Test) {
+        ID3D12Resource *Output = nullptr;
+        Test->GetResource("Output", &Output);
+        VERIFY_IS_NOT_NULL(Output);
+        VERIFY_IS_TRUE(
+            (Output->GetGPUVirtualAddress() + StartOffsetBytes) % 64 == 0,
+            "Vector destination must meet its declared 64-byte alignment");
       });
 
   MappedData OutData;
   Result->Test->GetReadBackData("Output", &OutData);
+  // Bounds apply to the input vector, not the larger guarded destination.
+  const bool PartiallyInView = OutputViewBytes &&
+                               *OutputViewBytes > StartOffsetBytes &&
+                               *OutputViewBytes - StartOffsetBytes < *InputSize;
   const cpu_oracle::MatrixResultOracle Oracle =
-      cpu_oracle::exactResult(Expected, std::move(PublicRule));
+      PartiallyInView
+          ? cpu_oracle::permittedResults({Expected, Initial},
+                                         std::move(PublicRule))
+          : cpu_oracle::exactResult(Expected, std::move(PublicRule));
   VERIFY_IS_TRUE(cpu_oracle::verifyMatrixBuffer(OutData.data(), OutData.size(),
                                                 OutputLayout, Oracle, Verbose));
   VERIFY_IS_TRUE(cpu_oracle::verifyUntouchedBytes(
@@ -9340,7 +11695,8 @@ static void runVectorAccumulateDescriptor(
       OutData.size(), Verbose));
 }
 
-void DxilConf_SM610_LinAlg::VectorAccumulateDescriptor_Thread_F16() {
+void DxilConf_SM610_LinAlg_OuterVectorAccumulation::
+    VectorAccumulateDescriptor_Thread_F16() {
   // Tier 1 requires no accumulation store formats, so this is gated.
   if (!accumulateStoreApplicable(
           D3DDevice, ComponentType::F16,
@@ -9374,7 +11730,7 @@ void DxilConf_SM610_LinAlg::VectorAccumulateDescriptor_Thread_F16() {
       VerboseLogging);
 }
 
-void DxilConf_SM610_LinAlg::
+void DxilConf_SM610_LinAlg_OuterVectorAccumulation::
     VectorAccumulateDescriptor_Thread_F16_Length8_NonZero() {
   if (!accumulateStoreApplicable(
           D3DDevice, ComponentType::F16,
@@ -9416,7 +11772,7 @@ void DxilConf_SM610_LinAlg::
       VerboseLogging);
 }
 
-void DxilConf_SM610_LinAlg::
+void DxilConf_SM610_LinAlg_OuterVectorAccumulation::
     VectorAccumulateDescriptor_Thread_F32_Length8_NonZero() {
   if (!accumulateStoreApplicable(
           D3DDevice, ComponentType::F32,
@@ -9450,6 +11806,75 @@ void DxilConf_SM610_LinAlg::
       VerboseLogging);
 }
 
+template <typename T>
+static void
+runVectorAccumulateDescriptorOutOfBounds(ID3D12Device *Device,
+                                         dxc::SpecificDllLoader &DxcSupport,
+                                         LPCWSTR CaseName, bool Verbose) {
+  if (!accumulateStoreApplicable(
+          Device, cpu_oracle::ComponentTraits<T>::CompType,
+          linalg_test::AtomicDestination::RWByteAddressBuffer, CaseName))
+    return;
+
+  const auto Input =
+      cpu_oracle::makeTypedMatrix<T>(1, 8,
+                                     {T(-3.0f), T(2.0f), T(5.0f), T(-1.0f),
+                                      T(4.0f), T(1.0f), T(-2.0f), T(6.0f)});
+  const auto Initial = cpu_oracle::makeTypedMatrix<T>(
+      1, 10,
+      {T(10.0f), T(11.0f), T(12.0f), T(13.0f), T(14.0f), T(15.0f), T(16.0f),
+       T(17.0f), T(123.0f), T(-321.0f)});
+  const auto Accumulated = cpu_oracle::makeTypedMatrix<T>(
+      1, 10,
+      {T(7.0f), T(13.0f), T(17.0f), T(12.0f), T(18.0f), T(16.0f), T(14.0f),
+       T(23.0f), T(123.0f), T(-321.0f)});
+  const auto PartiallyAccumulated = cpu_oracle::makeTypedMatrix<T>(
+      1, 10,
+      {T(7.0f), T(13.0f), T(17.0f), T(12.0f), T(14.0f), T(15.0f), T(16.0f),
+       T(17.0f), T(123.0f), T(-321.0f)});
+  VERIFY_IS_TRUE(Input.has_value() && Initial.has_value() &&
+                     Accumulated.has_value() &&
+                     PartiallyAccumulated.has_value(),
+                 "Unable to construct vector descriptor bounds fixtures");
+  if (!Input || !Initial || !Accumulated || !PartiallyAccumulated)
+    return;
+
+  constexpr UINT StartOffsetBytes = 64;
+  const size_t ElementBytes = elementSize(Input->compType());
+  // The full vector fits this view even though its trailing guards do not.
+  runVectorAccumulateDescriptor(
+      Device, DxcSupport, *Input, *Initial, *Accumulated, StartOffsetBytes,
+      L"A fully in-view vector must accumulate onto its non-zero seed", Verbose,
+      /*NumThreads=*/1, /*DispatchX=*/1,
+      /*OutputViewBytes=*/StartOffsetBytes + 8 * ElementBytes);
+  runVectorAccumulateDescriptor(
+      Device, DxcSupport, *Input, *Initial, *PartiallyAccumulated,
+      StartOffsetBytes,
+      L"Proposal 0035 permits either whole-operation or per-element no-op "
+      L"for vector accumulation crossing the descriptor bound",
+      Verbose, /*NumThreads=*/1, /*DispatchX=*/1,
+      /*OutputViewBytes=*/StartOffsetBytes + 4 * ElementBytes);
+  runVectorAccumulateDescriptor(
+      Device, DxcSupport, *Input, *Initial, *Initial, StartOffsetBytes,
+      L"A wholly out-of-view vector must leave the destination unchanged",
+      Verbose, /*NumThreads=*/1, /*DispatchX=*/1,
+      /*OutputViewBytes=*/StartOffsetBytes);
+}
+
+void DxilConf_SM610_LinAlg_OuterVectorAccumulation::
+    VectorAccumulateDescriptorOOB_Thread_F16() {
+  runVectorAccumulateDescriptorOutOfBounds<HLSLHalf_t>(
+      D3DDevice, DxcSupport, L"VectorAccumulateDescriptorOOB_Thread_F16",
+      VerboseLogging);
+}
+
+void DxilConf_SM610_LinAlg_OuterVectorAccumulation::
+    VectorAccumulateDescriptorOOB_Thread_F32() {
+  runVectorAccumulateDescriptorOutOfBounds<float>(
+      D3DDevice, DxcSupport, L"VectorAccumulateDescriptorOOB_Thread_F32",
+      VerboseLogging);
+}
+
 // The single-threaded cases above show that an accumulation lands, not that
 // concurrent accumulations all land. These dispatch many threads across many
 // groups at one destination. Each component carries one base-four digit of the
@@ -9470,7 +11895,8 @@ static_assert(VectorContentionInvocations ==
               "of the invocation index, so the expected sums hold only when "
               "every digit combination occurs exactly once");
 
-void DxilConf_SM610_LinAlg::VectorAccumulateDescriptorContention_Thread_F16() {
+void DxilConf_SM610_LinAlg_OuterVectorAccumulation::
+    VectorAccumulateDescriptorContention_Thread_F16() {
   if (!accumulateStoreApplicable(
           D3DDevice, ComponentType::F16,
           linalg_test::AtomicDestination::RWByteAddressBuffer,
@@ -9514,7 +11940,7 @@ void DxilConf_SM610_LinAlg::VectorAccumulateDescriptorContention_Thread_F16() {
       VerboseLogging, VectorContentionThreads, VectorContentionGroups);
 }
 
-void DxilConf_SM610_LinAlg::
+void DxilConf_SM610_LinAlg_OuterVectorAccumulation::
     VectorAccumulateDescriptorContention_Thread_F32_OrderInvariant() {
   if (!accumulateStoreApplicable(
           D3DDevice, ComponentType::F32,
@@ -9552,7 +11978,37 @@ void DxilConf_SM610_LinAlg::
       VerboseLogging, VectorContentionThreads, VectorContentionGroups);
 }
 
-void DxilConf_SM610_LinAlg::MatVecMul_Thread_4x8_F16_NonUniform() {
+void DxilConf_SM610_LinAlg_OuterVectorAccumulation::
+    VectorAccumulateDescriptorContention_Thread_I32() {
+  if (!accumulateStoreApplicable(
+          D3DDevice, ComponentType::I32,
+          linalg_test::AtomicDestination::RWByteAddressBuffer,
+          L"VectorAccumulateDescriptorContention_Thread_I32"))
+    return;
+
+  const auto Input =
+      cpu_oracle::makeTypedMatrix<int32_t>(1, 4, {3, -7, 11, -13});
+  const auto Initial = cpu_oracle::makeTypedMatrix<int32_t>(
+      1, 6, {101, -203, 307, -409, 123456789, -987654321});
+  // Each base-four digit contributes 64 * (0 + 1 + 2 + 3) = 384.
+  // Every partial sum lies between the initial value and the exact result.
+  const auto Expected = cpu_oracle::makeTypedMatrix<int32_t>(
+      1, 6, {1253, -1611, 3507, -3353, 123456789, -987654321});
+  VERIFY_IS_TRUE(Input.has_value());
+  VERIFY_IS_TRUE(Initial.has_value());
+  VERIFY_IS_TRUE(Expected.has_value());
+  if (!Input || !Initial || !Expected)
+    return;
+
+  runVectorAccumulateDescriptor(
+      D3DDevice, DxcSupport, *Input, *Initial, *Expected,
+      /*StartOffsetBytes=*/64,
+      L"Exact signed I32 vector accumulation from 256 distinct contending "
+      L"invocations, with untouched trailing guards",
+      VerboseLogging, VectorContentionThreads, VectorContentionGroups);
+}
+
+void DxilConf_SM610_LinAlg_MatVec::MatVecMul_Thread_4x8_F16_NonUniform() {
   const matvec_interpretation::CaseData Case =
       matvec_interpretation::makeNonUniformF16Case(MatrixLayout::RowMajor);
   matvec_interpretation::runCapabilityChecked(
@@ -9561,7 +12017,7 @@ void DxilConf_SM610_LinAlg::MatVecMul_Thread_4x8_F16_NonUniform() {
       L"MatVecMul_Thread_4x8_F16_NonUniform", VerboseLogging);
 }
 
-void DxilConf_SM610_LinAlg::MatVecMul_Thread_4x8_F16_ColumnMajor() {
+void DxilConf_SM610_LinAlg_MatVec::MatVecMul_Thread_4x8_F16_ColumnMajor() {
   const matvec_interpretation::CaseData Case =
       matvec_interpretation::makeNonUniformF16Case(MatrixLayout::ColumnMajor);
   matvec_interpretation::runCapabilityChecked(
@@ -9570,7 +12026,7 @@ void DxilConf_SM610_LinAlg::MatVecMul_Thread_4x8_F16_ColumnMajor() {
       L"MatVecMul_Thread_4x8_F16_ColumnMajor", VerboseLogging);
 }
 
-void DxilConf_SM610_LinAlg::MatVecMul_Thread_4x8_I8_Interpreted() {
+void DxilConf_SM610_LinAlg_MatVec::MatVecMul_Thread_4x8_I8_Interpreted() {
   const matvec_interpretation::CaseData Case =
       matvec_interpretation::makeSInt8Case();
   matvec_interpretation::runCapabilityChecked(
@@ -9579,7 +12035,7 @@ void DxilConf_SM610_LinAlg::MatVecMul_Thread_4x8_I8_Interpreted() {
       L"MatVecMul_Thread_4x8_I8_Interpreted", VerboseLogging);
 }
 
-void DxilConf_SM610_LinAlg::MatVecMul_Thread_4x8_U8_Interpreted() {
+void DxilConf_SM610_LinAlg_MatVec::MatVecMul_Thread_4x8_U8_Interpreted() {
   const matvec_interpretation::CaseData Case =
       matvec_interpretation::makeUInt8Case();
   matvec_interpretation::runCapabilityChecked(
@@ -9588,7 +12044,43 @@ void DxilConf_SM610_LinAlg::MatVecMul_Thread_4x8_U8_Interpreted() {
       L"MatVecMul_Thread_4x8_U8_Interpreted", VerboseLogging);
 }
 
-void DxilConf_SM610_LinAlg::MatVecMul_Thread_4x8_U32_UnsignedOutput() {
+// The F32 inputs saturate and round on conversion, so the dot products only
+// match if the converted bytes reach the multiply.
+void DxilConf_SM610_LinAlg_MatVec::MatVecMul_Thread_4x8_I8_Converted() {
+  matvec_interpretation::CaseData Case = matvec_interpretation::makeSInt8Case();
+  Case.ConvertFromF32 = true;
+  Case.ConvertSourceValues = {1.25f, -1.25f, 300.0f, -300.0f,
+                              2.75f, -3.0f,  4.0f,   -4.4f};
+  Case.InterpretedVectorValues = {1, -1, 127, -128, 3, -3, 4, -4};
+  Case.PublicRule = L"F32 vector converted to SInt8 times SInt8 matrix";
+  if (!convertTypesApplicable(D3DDevice, ComponentType::F32, ComponentType::I8,
+                              linalg_test::CapabilityRequirement::Mandatory,
+                              L"MatVecMul_Thread_4x8_I8_Converted"))
+    return;
+  matvec_interpretation::runCapabilityChecked(
+      D3DDevice, DxcSupport, Case,
+      linalg_test::CapabilityRequirement::Mandatory,
+      L"MatVecMul_Thread_4x8_I8_Converted", VerboseLogging);
+}
+
+void DxilConf_SM610_LinAlg_MatVec::MatVecMul_Thread_4x8_U8_Converted() {
+  matvec_interpretation::CaseData Case = matvec_interpretation::makeUInt8Case();
+  Case.ConvertFromF32 = true;
+  Case.ConvertSourceValues = {1.25f, 255.0f,  300.0f, -7.0f,
+                              3.0f,  253.25f, 4.0f,   251.75f};
+  Case.InterpretedVectorValues = {1, 255, 255, 0, 3, 253, 4, 252};
+  Case.PublicRule = L"F32 vector converted to UInt8 times UInt8 matrix";
+  if (!convertTypesApplicable(D3DDevice, ComponentType::F32, ComponentType::U8,
+                              linalg_test::CapabilityRequirement::Mandatory,
+                              L"MatVecMul_Thread_4x8_U8_Converted"))
+    return;
+  matvec_interpretation::runCapabilityChecked(
+      D3DDevice, DxcSupport, Case,
+      linalg_test::CapabilityRequirement::Mandatory,
+      L"MatVecMul_Thread_4x8_U8_Converted", VerboseLogging);
+}
+
+void DxilConf_SM610_LinAlg_MatVec::MatVecMul_Thread_4x8_U32_UnsignedOutput() {
   const matvec_interpretation::CaseData Case =
       matvec_interpretation::makeUInt32OutputCase();
   matvec_interpretation::runCapabilityChecked(
@@ -9597,13 +12089,13 @@ void DxilConf_SM610_LinAlg::MatVecMul_Thread_4x8_U32_UnsignedOutput() {
       L"MatVecMul_Thread_4x8_U32_UnsignedOutput", VerboseLogging);
 }
 
-void DxilConf_SM610_LinAlg::MatVecMul_Thread_4x16_F8_E4M3FN() {
+void DxilConf_SM610_LinAlg_MatVec::MatVecMul_Thread_4x16_F8_E4M3FN() {
 #if defined(HLSLEXEC_LINALG_HOST_API)
   const matvec_interpretation::CaseData Case =
       matvec_interpretation::makeFP8MatrixCase(ComponentType::F8_E4M3FN);
   matvec_interpretation::runCapabilityChecked(
       D3DDevice, DxcSupport, Case,
-      linalg_test::CapabilityRequirement::Mandatory,
+      linalg_test::CapabilityRequirement::CapabilityGated,
       L"MatVecMul_Thread_4x16_F8_E4M3FN", VerboseLogging);
 #else
   matvec_interpretation::reportMissingConversionApi(
@@ -9611,13 +12103,13 @@ void DxilConf_SM610_LinAlg::MatVecMul_Thread_4x16_F8_E4M3FN() {
 #endif // defined(HLSLEXEC_LINALG_HOST_API)
 }
 
-void DxilConf_SM610_LinAlg::MatVecMul_Thread_4x16_F8_E5M2() {
+void DxilConf_SM610_LinAlg_MatVec::MatVecMul_Thread_4x16_F8_E5M2() {
 #if defined(HLSLEXEC_LINALG_HOST_API)
   const matvec_interpretation::CaseData Case =
       matvec_interpretation::makeFP8MatrixCase(ComponentType::F8_E5M2);
   matvec_interpretation::runCapabilityChecked(
       D3DDevice, DxcSupport, Case,
-      linalg_test::CapabilityRequirement::Mandatory,
+      linalg_test::CapabilityRequirement::CapabilityGated,
       L"MatVecMul_Thread_4x16_F8_E5M2", VerboseLogging);
 #else
   matvec_interpretation::reportMissingConversionApi(
@@ -9625,25 +12117,90 @@ void DxilConf_SM610_LinAlg::MatVecMul_Thread_4x16_F8_E5M2() {
 #endif // defined(HLSLEXEC_LINALG_HOST_API)
 }
 
-void DxilConf_SM610_LinAlg::MatVecMul_Thread_4x8_F8_E4M3FN_Vector() {
+void DxilConf_SM610_LinAlg_MatVec::
+    MatVecMul_Thread_4x16_F8_E4M3FN_MatchedInputs() {
+#if defined(HLSLEXEC_LINALG_HOST_API)
+  const matvec_interpretation::CaseData Case =
+      matvec_interpretation::makeMatchedFP8Case(ComponentType::F8_E4M3FN,
+                                                /*HasBias=*/false);
+  matvec_interpretation::runCapabilityChecked(
+      D3DDevice, DxcSupport, Case,
+      linalg_test::CapabilityRequirement::Mandatory,
+      L"MatVecMul_Thread_4x16_F8_E4M3FN_MatchedInputs", VerboseLogging);
+#else
+  matvec_interpretation::reportMissingConversionApi(
+      L"MatVecMul_Thread_4x16_F8_E4M3FN_MatchedInputs");
+#endif // defined(HLSLEXEC_LINALG_HOST_API)
+}
+
+void DxilConf_SM610_LinAlg_MatVec::
+    MatVecMul_Thread_4x16_F8_E5M2_MatchedInputs() {
+#if defined(HLSLEXEC_LINALG_HOST_API)
+  const matvec_interpretation::CaseData Case =
+      matvec_interpretation::makeMatchedFP8Case(ComponentType::F8_E5M2,
+                                                /*HasBias=*/false);
+  matvec_interpretation::runCapabilityChecked(
+      D3DDevice, DxcSupport, Case,
+      linalg_test::CapabilityRequirement::Mandatory,
+      L"MatVecMul_Thread_4x16_F8_E5M2_MatchedInputs", VerboseLogging);
+#else
+  matvec_interpretation::reportMissingConversionApi(
+      L"MatVecMul_Thread_4x16_F8_E5M2_MatchedInputs");
+#endif // defined(HLSLEXEC_LINALG_HOST_API)
+}
+
+void DxilConf_SM610_LinAlg_MatVec::MatVecMul_Thread_4x8_F8_E4M3FN_Vector() {
   const matvec_interpretation::CaseData Case =
       matvec_interpretation::makeFP8VectorCase(ComponentType::F8_E4M3FN);
   matvec_interpretation::runCapabilityChecked(
       D3DDevice, DxcSupport, Case,
-      linalg_test::CapabilityRequirement::Mandatory,
+      linalg_test::CapabilityRequirement::CapabilityGated,
       L"MatVecMul_Thread_4x8_F8_E4M3FN_Vector", VerboseLogging);
 }
 
-void DxilConf_SM610_LinAlg::MatVecMul_Thread_4x8_F8_E5M2_Vector() {
+void DxilConf_SM610_LinAlg_MatVec::MatVecMul_Thread_4x8_F8_E5M2_Vector() {
   const matvec_interpretation::CaseData Case =
       matvec_interpretation::makeFP8VectorCase(ComponentType::F8_E5M2);
   matvec_interpretation::runCapabilityChecked(
       D3DDevice, DxcSupport, Case,
-      linalg_test::CapabilityRequirement::Mandatory,
+      linalg_test::CapabilityRequirement::CapabilityGated,
       L"MatVecMul_Thread_4x8_F8_E5M2_Vector", VerboseLogging);
 }
 
-void DxilConf_SM610_LinAlg::MatVecMulAdd_Thread_4x8_F8_E4M3FN_MemoryBias() {
+void DxilConf_SM610_LinAlg_MatVec::
+    MatVecMulAdd_Thread_4x16_F8_E4M3FN_MatchedInputs() {
+#if defined(HLSLEXEC_LINALG_HOST_API)
+  const matvec_interpretation::CaseData Case =
+      matvec_interpretation::makeMatchedFP8Case(ComponentType::F8_E4M3FN,
+                                                /*HasBias=*/true);
+  matvec_interpretation::runCapabilityChecked(
+      D3DDevice, DxcSupport, Case,
+      linalg_test::CapabilityRequirement::Mandatory,
+      L"MatVecMulAdd_Thread_4x16_F8_E4M3FN_MatchedInputs", VerboseLogging);
+#else
+  matvec_interpretation::reportMissingConversionApi(
+      L"MatVecMulAdd_Thread_4x16_F8_E4M3FN_MatchedInputs");
+#endif // defined(HLSLEXEC_LINALG_HOST_API)
+}
+
+void DxilConf_SM610_LinAlg_MatVec::
+    MatVecMulAdd_Thread_4x16_F8_E5M2_MatchedInputs() {
+#if defined(HLSLEXEC_LINALG_HOST_API)
+  const matvec_interpretation::CaseData Case =
+      matvec_interpretation::makeMatchedFP8Case(ComponentType::F8_E5M2,
+                                                /*HasBias=*/true);
+  matvec_interpretation::runCapabilityChecked(
+      D3DDevice, DxcSupport, Case,
+      linalg_test::CapabilityRequirement::Mandatory,
+      L"MatVecMulAdd_Thread_4x16_F8_E5M2_MatchedInputs", VerboseLogging);
+#else
+  matvec_interpretation::reportMissingConversionApi(
+      L"MatVecMulAdd_Thread_4x16_F8_E5M2_MatchedInputs");
+#endif // defined(HLSLEXEC_LINALG_HOST_API)
+}
+
+void DxilConf_SM610_LinAlg_MatVec::
+    MatVecMulAdd_Thread_4x8_F8_E4M3FN_MemoryBias() {
   const matvec_interpretation::CaseData Case =
       matvec_interpretation::makeFP8MemoryBiasCase(ComponentType::F8_E4M3FN);
   matvec_interpretation::runCapabilityChecked(
@@ -9652,7 +12209,8 @@ void DxilConf_SM610_LinAlg::MatVecMulAdd_Thread_4x8_F8_E4M3FN_MemoryBias() {
       L"MatVecMulAdd_Thread_4x8_F8_E4M3FN_MemoryBias", VerboseLogging);
 }
 
-void DxilConf_SM610_LinAlg::MatVecMulAdd_Thread_4x8_F8_E5M2_MemoryBias() {
+void DxilConf_SM610_LinAlg_MatVec::
+    MatVecMulAdd_Thread_4x8_F8_E5M2_MemoryBias() {
   const matvec_interpretation::CaseData Case =
       matvec_interpretation::makeFP8MemoryBiasCase(ComponentType::F8_E5M2);
   matvec_interpretation::runCapabilityChecked(
@@ -9661,7 +12219,8 @@ void DxilConf_SM610_LinAlg::MatVecMulAdd_Thread_4x8_F8_E5M2_MemoryBias() {
       L"MatVecMulAdd_Thread_4x8_F8_E5M2_MemoryBias", VerboseLogging);
 }
 
-void DxilConf_SM610_LinAlg::MatVecMulAdd_Thread_4x8_F16_IndependentBias() {
+void DxilConf_SM610_LinAlg_MatVec::
+    MatVecMulAdd_Thread_4x8_F16_IndependentBias() {
   matvec_interpretation::CaseData Case =
       matvec_interpretation::makeNonUniformF16Case(MatrixLayout::RowMajor);
   Case.BiasInputType = ComponentType::F16;
@@ -9967,7 +12526,7 @@ static const char ConvertI16ToI32CoverageShader[] = R"(
       -32768, -12345, -1024, -1, 0, 1, 12345, 32767
     };
     vector<int, 8> OutVec;
-    __builtin_LinAlg_Convert(OutVec, InVec, SRC_TYPE, DST_TYPE);
+    dx::__builtin_LinAlg_Convert(OutVec, InVec, SRC_TYPE, DST_TYPE);
     for (uint I = 0; I < 8; ++I)
       Output.Store<int>(I * 4, OutVec[I]);
   }
@@ -9986,7 +12545,7 @@ static const char ConvertI32ToI16CoverageShader[] = R"(
       -2147483647 - 1, -32769, -32768, -1, 0, 32767, 32768, 2147483647
     };
     vector<int16_t, 8> OutVec;
-    __builtin_LinAlg_Convert(OutVec, InVec, SRC_TYPE, DST_TYPE);
+    dx::__builtin_LinAlg_Convert(OutVec, InVec, SRC_TYPE, DST_TYPE);
     for (uint I = 0; I < 8; ++I)
       Output.Store<int16_t>(I * 2, OutVec[I]);
   }
@@ -10001,7 +12560,7 @@ static const char ConvertI32ToU16CoverageShader[] = R"(
       -2147483647 - 1, -1, 0, 1, 65535, 65536, 100000, 2147483647
     };
     vector<uint16_t, 8> OutVec;
-    __builtin_LinAlg_Convert(OutVec, InVec, SRC_TYPE, DST_TYPE);
+    dx::__builtin_LinAlg_Convert(OutVec, InVec, SRC_TYPE, DST_TYPE);
     for (uint I = 0; I < 8; ++I)
       Output.Store<uint16_t>(I * 2, OutVec[I]);
   }
@@ -10016,7 +12575,7 @@ static const char ConvertU32ToI16CoverageShader[] = R"(
       0u, 1u, 16384u, 32766u, 32767u, 32768u, 65536u, 4294967295u
     };
     vector<int16_t, 8> OutVec;
-    __builtin_LinAlg_Convert(OutVec, InVec, SRC_TYPE, DST_TYPE);
+    dx::__builtin_LinAlg_Convert(OutVec, InVec, SRC_TYPE, DST_TYPE);
     for (uint I = 0; I < 8; ++I)
       Output.Store<int16_t>(I * 2, OutVec[I]);
   }
@@ -10031,24 +12590,24 @@ static const char ConvertU32ToU16CoverageShader[] = R"(
       0u, 1u, 32768u, 65534u, 65535u, 65536u, 100000u, 4294967295u
     };
     vector<uint16_t, 8> OutVec;
-    __builtin_LinAlg_Convert(OutVec, InVec, SRC_TYPE, DST_TYPE);
+    dx::__builtin_LinAlg_Convert(OutVec, InVec, SRC_TYPE, DST_TYPE);
     for (uint I = 0; I < 8; ++I)
       Output.Store<uint16_t>(I * 2, OutVec[I]);
   }
 )";
 
 static const char ConvertF32ToI16CoverageShader[] = R"(
+  ByteAddressBuffer Input : register(t0);
   RWByteAddressBuffer Output : register(u0);
 
   [numthreads(1, 1, 1)]
   void main() {
-    vector<float, 8> InVec = {
-      -40000.0F, -32768.5F, -2.5F, -1.5F,
-      1.5F, 2.5F, 32767.5F, 40000.0F
-    };
-    vector<int16_t, 8> OutVec;
-    __builtin_LinAlg_Convert(OutVec, InVec, SRC_TYPE, DST_TYPE);
-    for (uint I = 0; I < 8; ++I)
+    vector<float, NUM_ELEMENTS> InVec;
+    for (uint I = 0; I < NUM_ELEMENTS; ++I)
+      InVec[I] = Input.Load<float>(I * 4);
+    vector<int16_t, NUM_ELEMENTS> OutVec;
+    dx::__builtin_LinAlg_Convert(OutVec, InVec, SRC_TYPE, DST_TYPE);
+    for (uint I = 0; I < NUM_ELEMENTS; ++I)
       Output.Store<int16_t>(I * 2, OutVec[I]);
   }
 )";
@@ -10066,14 +12625,14 @@ static const char ConvertI32ToF16CoverageShader[] = R"(
       0, 2048, 2049, 2051, 4098, 4102, -2049, -2051, -4098, -4102
     };
     vector<half, 10> OutVec;
-    __builtin_LinAlg_Convert(OutVec, InVec, SRC_TYPE, DST_TYPE);
+    dx::__builtin_LinAlg_Convert(OutVec, InVec, SRC_TYPE, DST_TYPE);
     for (uint I = 0; I < 10; ++I)
       Output.Store<half>(I * 2, OutVec[I]);
   }
 )";
 
 static const char ConvertF16FP8CoverageShader[] = R"(
-  ByteAddressBuffer DecodeInput : register(t0);
+  ByteAddressBuffer Input : register(t0);
   RWByteAddressBuffer Output : register(u0);
 
   [numthreads(1, 1, 1)]
@@ -10082,13 +12641,13 @@ static const char ConvertF16FP8CoverageShader[] = R"(
       0.0, 1.0, -1.0, 1.15625, -1.21875, 2.3125, 5.625, -13.25
     };
     vector<uint, 2> Packed;
-    __builtin_LinAlg_Convert(Packed, EncodeInput, SRC_TYPE, DST_TYPE);
+    dx::__builtin_LinAlg_Convert(Packed, EncodeInput, SRC_TYPE, DST_TYPE);
 
     vector<uint, 2> HostPacked = {
-      DecodeInput.Load<uint>(0), DecodeInput.Load<uint>(4)
+      Input.Load<uint>(0), Input.Load<uint>(4)
     };
     vector<half, 8> Decoded;
-    __builtin_LinAlg_Convert(Decoded, HostPacked, DST_TYPE, SRC_TYPE);
+    dx::__builtin_LinAlg_Convert(Decoded, HostPacked, DST_TYPE, SRC_TYPE);
 
     Output.Store<uint>(0, Packed.x);
     Output.Store<uint>(4, Packed.y);
@@ -10097,12 +12656,12 @@ static const char ConvertF16FP8CoverageShader[] = R"(
   }
 )";
 
-static void runExactConvert(ID3D12Device *Device,
-                            dxc::SpecificDllLoader &DxcSupport,
-                            const char *Shader, const std::string &Args,
-                            const std::vector<BYTE> &Expected,
-                            LPCWSTR PublicRule, bool Verbose,
-                            const std::vector<BYTE> *Input = nullptr) {
+template <typename Verifier>
+static void
+runConvertCoverage(ID3D12Device *Device, dxc::SpecificDllLoader &DxcSupport,
+                   const char *Shader, const std::string &Args,
+                   size_t OutputBytes, Verifier Verify, bool Verbose,
+                   const std::vector<BYTE> *Input = nullptr) {
   compileShader(DxcSupport, Shader, "cs_6_10", Args, Verbose);
 
   auto Op = createComputeOp(
@@ -10112,24 +12671,41 @@ static void runExactConvert(ID3D12Device *Device,
     VERIFY_IS_TRUE(!Input->empty(), "Convert input must not be empty");
     if (Input->empty())
       return;
-    addSRVBuffer(Op.get(), "DecodeInput", Input->size(), "byname");
-    addRootView(Op.get(), 0, "DecodeInput");
+    addSRVBuffer(Op.get(), "Input", Input->size(), "byname");
+    addRootView(Op.get(), 0, "Input");
     OutputRootIndex = 1;
   }
-  addUAVBuffer(Op.get(), "Output", Expected.size(), true);
+  addUAVBuffer(Op.get(), "Output", OutputBytes, true, "byname");
   addRootView(Op.get(), OutputRootIndex, "Output");
 
   auto Result = runShaderOp(
       Device, DxcSupport, std::move(Op),
       [Input](LPCSTR Name, std::vector<BYTE> &Data, st::ShaderOp *) {
-        if (Input && _stricmp(Name, "DecodeInput") == 0)
+        if (_stricmp(Name, "Output") == 0)
+          cpu_oracle::fillPoison(Data.data(), Data.size());
+        else if (Input && _stricmp(Name, "Input") == 0)
           Data = *Input;
+        else
+          VERIFY_IS_TRUE(false, "Unexpected conversion resource initializer");
       });
 
   MappedData OutputData;
   Result->Test->GetReadBackData("Output", &OutputData);
-  VERIFY_IS_TRUE(verifyConvertBytes(OutputData.data(), OutputData.size(),
-                                    Expected, PublicRule, Verbose));
+  VERIFY_IS_TRUE(Verify(OutputData.data(), OutputData.size()));
+}
+
+static void runExactConvert(ID3D12Device *Device,
+                            dxc::SpecificDllLoader &DxcSupport,
+                            const char *Shader, const std::string &Args,
+                            const std::vector<BYTE> &Expected,
+                            LPCWSTR PublicRule, bool Verbose,
+                            const std::vector<BYTE> *Input = nullptr) {
+  runConvertCoverage(
+      Device, DxcSupport, Shader, Args, Expected.size(),
+      [&](const void *Data, size_t Size) {
+        return verifyConvertBytes(Data, Size, Expected, PublicRule, Verbose);
+      },
+      Verbose, Input);
 }
 
 struct FP8ConvertData {
@@ -10298,7 +12874,7 @@ static std::string buildConvertArgs(ComponentType SourceCompType,
   return Args.str();
 }
 
-void DxilConf_SM610_LinAlg::CopyConvert_Wave_4x8_F16_ToF32() {
+void DxilConf_SM610_LinAlg_Conversion::CopyConvert_Wave_4x8_F16_ToF32() {
   MatrixParams Params = {};
   Params.CompType = ComponentType::F16;
   Params.M = 4;
@@ -10319,7 +12895,8 @@ void DxilConf_SM610_LinAlg::CopyConvert_Wave_4x8_F16_ToF32() {
                  VerboseLogging, /*Transpose=*/false, SelectedWaveSize);
 }
 
-void DxilConf_SM610_LinAlg::CopyConvert_Wave_4x8_F32_ToF16_Transpose() {
+void DxilConf_SM610_LinAlg_Conversion::
+    CopyConvert_Wave_4x8_F32_ToF16_Transpose() {
   MatrixParams Params = {};
   Params.CompType = ComponentType::F32;
   Params.M = 4;
@@ -10340,7 +12917,61 @@ void DxilConf_SM610_LinAlg::CopyConvert_Wave_4x8_F32_ToF16_Transpose() {
                  VerboseLogging, /*Transpose=*/true, SelectedWaveSize);
 }
 
-void DxilConf_SM610_LinAlg::Convert_I16_ToI32_Exact() {
+static void runAccumulatorCopyConvert(ID3D12Device *Device,
+                                      dxc::SpecificDllLoader &DxcSupport,
+                                      ComponentType SourceCompType,
+                                      ComponentType DestinationCompType,
+                                      MatrixUse DestinationUse, MatrixDim M,
+                                      MatrixDim N, bool Transpose,
+                                      LPCWSTR CaseName, bool Verbose) {
+  MatrixParams Params = makeMatrixArithmeticParams(
+      SourceCompType, M, N, MatrixUse::Accumulator, MatrixScope::Wave, 128);
+  Params.Enable16Bit = true;
+
+  UINT SelectedWaveSize = 0;
+  if (!copyConvertApplicable(Device, Params, DestinationCompType, Transpose,
+                             CaseName, SelectedWaveSize, DestinationUse))
+    return;
+  runCopyConvert(Device, DxcSupport, Params, DestinationCompType, Verbose,
+                 Transpose, SelectedWaveSize, DestinationUse);
+}
+
+void DxilConf_SM610_LinAlg_Conversion::CopyConvert_Wave_16x16_F16_ToF32() {
+  runAccumulatorCopyConvert(
+      D3DDevice, DxcSupport, ComponentType::F16, ComponentType::F32,
+      MatrixUse::Accumulator, 16, 16,
+      /*Transpose=*/false, L"CopyConvert_Wave_16x16_F16_ToF32", VerboseLogging);
+}
+
+// Non-square so the transposed destination shape and stride are observable.
+void DxilConf_SM610_LinAlg_Conversion::
+    CopyConvert_Wave_16x32_F32_ToF16_Transpose() {
+  runAccumulatorCopyConvert(D3DDevice, DxcSupport, ComponentType::F32,
+                            ComponentType::F16, MatrixUse::Accumulator, 16, 32,
+                            /*Transpose=*/true,
+                            L"CopyConvert_Wave_16x32_F32_ToF16_Transpose",
+                            VerboseLogging);
+}
+
+// An F32 accumulator cast to an F16 operand of the next multiply.
+void DxilConf_SM610_LinAlg_Conversion::CopyConvert_Wave_16x16_F32_ToF16_AUse() {
+  runAccumulatorCopyConvert(D3DDevice, DxcSupport, ComponentType::F32,
+                            ComponentType::F16, MatrixUse::A, 16, 16,
+                            /*Transpose=*/false,
+                            L"CopyConvert_Wave_16x16_F32_ToF16_AUse",
+                            VerboseLogging);
+}
+
+void DxilConf_SM610_LinAlg_Conversion::
+    CopyConvert_Wave_16x16_F32_ToF16_BUse_Transpose() {
+  runAccumulatorCopyConvert(D3DDevice, DxcSupport, ComponentType::F32,
+                            ComponentType::F16, MatrixUse::B, 16, 16,
+                            /*Transpose=*/true,
+                            L"CopyConvert_Wave_16x16_F32_ToF16_BUse_Transpose",
+                            VerboseLogging);
+}
+
+void DxilConf_SM610_LinAlg_Conversion::Convert_I16_ToI32_Exact() {
   if (!convertTypesApplicable(
           D3DDevice, ComponentType::I16, ComponentType::I32,
           linalg_test::CapabilityRequirement::CapabilityGated,
@@ -10356,7 +12987,7 @@ void DxilConf_SM610_LinAlg::Convert_I16_ToI32_Exact() {
       VerboseLogging);
 }
 
-void DxilConf_SM610_LinAlg::Convert_I32_ToI16_Saturate() {
+void DxilConf_SM610_LinAlg_Conversion::Convert_I32_ToI16_Saturate() {
   if (!convertTypesApplicable(
           D3DDevice, ComponentType::I32, ComponentType::I16,
           linalg_test::CapabilityRequirement::CapabilityGated,
@@ -10371,7 +13002,7 @@ void DxilConf_SM610_LinAlg::Convert_I32_ToI16_Saturate() {
                   VerboseLogging);
 }
 
-void DxilConf_SM610_LinAlg::Convert_I32_ToU16_Saturate() {
+void DxilConf_SM610_LinAlg_Conversion::Convert_I32_ToU16_Saturate() {
   if (!convertTypesApplicable(
           D3DDevice, ComponentType::I32, ComponentType::U16,
           linalg_test::CapabilityRequirement::CapabilityGated,
@@ -10386,7 +13017,7 @@ void DxilConf_SM610_LinAlg::Convert_I32_ToU16_Saturate() {
       VerboseLogging);
 }
 
-void DxilConf_SM610_LinAlg::Convert_U32_ToI16_Saturate() {
+void DxilConf_SM610_LinAlg_Conversion::Convert_U32_ToI16_Saturate() {
   if (!convertTypesApplicable(
           D3DDevice, ComponentType::U32, ComponentType::I16,
           linalg_test::CapabilityRequirement::CapabilityGated,
@@ -10402,7 +13033,7 @@ void DxilConf_SM610_LinAlg::Convert_U32_ToI16_Saturate() {
       VerboseLogging);
 }
 
-void DxilConf_SM610_LinAlg::Convert_U32_ToU16_Saturate() {
+void DxilConf_SM610_LinAlg_Conversion::Convert_U32_ToU16_Saturate() {
   if (!convertTypesApplicable(
           D3DDevice, ComponentType::U32, ComponentType::U16,
           linalg_test::CapabilityRequirement::CapabilityGated,
@@ -10430,26 +13061,74 @@ static void runFP8ConvertCase(ID3D12Device *Device,
                   &Data.DecodeInput);
 }
 
-void DxilConf_SM610_LinAlg::Convert_F32_ToI16_RTNE_Saturate() {
+static void runF32ToI16Convert(ID3D12Device *Device,
+                               dxc::SpecificDllLoader &DxcSupport,
+                               bool NonFinite, LPCWSTR CaseName, bool Verbose) {
   if (!convertTypesApplicable(
-          D3DDevice, ComponentType::F32, ComponentType::I16,
-          linalg_test::CapabilityRequirement::CapabilityGated,
-          L"Convert_F32_ToI16_RTNE_Saturate"))
+          Device, ComponentType::F32, ComponentType::I16,
+          linalg_test::CapabilityRequirement::CapabilityGated, CaseName))
     return;
 
-  runExactConvert(D3DDevice, DxcSupport, ConvertF32ToI16CoverageShader,
-                  buildConvertArgs(ComponentType::F32, ComponentType::I16),
-                  encodeConvertVector<int16_t>(
-                      {-32768, -32768, -2, -2, 2, 2, 32767, 32767}),
-                  L"Float-to-integer conversion is RTNE with signed saturation",
-                  VerboseLogging);
+  std::vector<cpu_oracle::FloatToIntCase> Cases;
+  for (const cpu_oracle::FloatToIntCase &Case : cpu_oracle::F32ToI16Cases) {
+    const bool IsNonFinite = !std::isfinite(Case.Input);
+    if (IsNonFinite == NonFinite)
+      Cases.push_back(Case);
+  }
+  const size_t Count = Cases.size();
+  std::vector<BYTE> Input(Count * sizeof(float));
+  for (size_t I = 0; I < Count; ++I)
+    std::memcpy(Input.data() + I * sizeof(float), &Cases[I].Input,
+                sizeof(float));
+  const size_t OutputBytes = Count * sizeof(int16_t);
+  const std::string Args =
+      buildConvertArgs(ComponentType::F32, ComponentType::I16) +
+      " -DNUM_ELEMENTS=" + std::to_string(Count);
+  runConvertCoverage(
+      Device, DxcSupport, ConvertF32ToI16CoverageShader, Args, OutputBytes,
+      [&Cases, OutputBytes](const void *Data, size_t Size) {
+        if (Size != OutputBytes) {
+          hlsl_test::LogErrorFmt(
+              L"Float-to-I16 output size: actual=%zu, expected=%zu", Size,
+              OutputBytes);
+          return false;
+        }
+        const BYTE *Bytes = static_cast<const BYTE *>(Data);
+        bool Success = true;
+        for (size_t I = 0; I < Cases.size(); ++I) {
+          const cpu_oracle::FloatToIntCase &Case = Cases[I];
+          int16_t Actual;
+          std::memcpy(&Actual, Bytes + I * sizeof(Actual), sizeof(Actual));
+          if (!cpu_oracle::isNearestSaturatedI16(Case.Input, Actual)) {
+            hlsl_test::LogErrorFmt(
+                L"Float-to-I16 element %zu: input=%g, actual=%d, "
+                L"permitted=[%d,%d]",
+                I, static_cast<double>(Case.Input), Actual, Case.Lower,
+                Case.Upper);
+            Success = false;
+          }
+        }
+        return Success;
+      },
+      Verbose, &Input);
 }
 
-void DxilConf_SM610_LinAlg::Convert_I32_ToF16_RTNE() {
-  if (!convertTypesApplicable(
-          D3DDevice, ComponentType::I32, ComponentType::F16,
-          linalg_test::CapabilityRequirement::CapabilityGated,
-          L"Convert_I32_ToF16_RTNE"))
+void DxilConf_SM610_LinAlg_Conversion::
+    Convert_F32_ToI16_RoundNearest_Saturate() {
+  runF32ToI16Convert(D3DDevice, DxcSupport, /*NonFinite=*/false,
+                     L"Convert_F32_ToI16_RoundNearest_Saturate",
+                     VerboseLogging);
+}
+
+void DxilConf_SM610_LinAlg_Conversion::Convert_F32_ToI16_NonFinite() {
+  runF32ToI16Convert(D3DDevice, DxcSupport, /*NonFinite=*/true,
+                     L"Convert_F32_ToI16_NonFinite", VerboseLogging);
+}
+
+void DxilConf_SM610_LinAlg_Conversion::Convert_I32_ToF16_RTNE() {
+  if (!convertTypesApplicable(D3DDevice, ComponentType::I32, ComponentType::F16,
+                              linalg_test::CapabilityRequirement::Mandatory,
+                              L"Convert_I32_ToF16_RTNE"))
     return;
 
   // Hand-derived F16 bit patterns: 2048 and 2052 are 0x6800 and 0x6802, 4096
@@ -10462,7 +13141,7 @@ void DxilConf_SM610_LinAlg::Convert_I32_ToF16_RTNE() {
       L"Integer-to-float conversion is RTNE", VerboseLogging);
 }
 
-void DxilConf_SM610_LinAlg::Convert_F16_ToE4M3FN_AndBack() {
+void DxilConf_SM610_LinAlg_Conversion::Convert_F16_ToE4M3FN_AndBack() {
   const std::optional<FP8ConvertData> Data =
       makeFP8ConvertData(ComponentType::F8_E4M3FN);
   VERIFY_IS_TRUE(Data.has_value(), "Unable to construct the host FP8 oracle");
@@ -10477,16 +13156,15 @@ void DxilConf_SM610_LinAlg::Convert_F16_ToE4M3FN_AndBack() {
                               linalg_test::CapabilityRequirement::Mandatory,
                               L"Convert_F16_ToE4M3FN_AndBack"))
     return;
-  if (!convertTypesApplicable(
-          D3DDevice, ComponentType::U32, ComponentType::F16,
-          linalg_test::CapabilityRequirement::CapabilityGated,
-          L"Convert_F16_ToE4M3FN_AndBack"))
+  if (!convertTypesApplicable(D3DDevice, ComponentType::U32, ComponentType::F16,
+                              linalg_test::CapabilityRequirement::Mandatory,
+                              L"Convert_F16_ToE4M3FN_AndBack"))
     return;
   runFP8ConvertCase(D3DDevice, DxcSupport, ComponentType::F8_E4M3FN, *Data,
                     VerboseLogging);
 }
 
-void DxilConf_SM610_LinAlg::Convert_F16_ToE5M2_AndBack() {
+void DxilConf_SM610_LinAlg_Conversion::Convert_F16_ToE5M2_AndBack() {
   const std::optional<FP8ConvertData> Data =
       makeFP8ConvertData(ComponentType::F8_E5M2);
   VERIFY_IS_TRUE(Data.has_value(), "Unable to construct the host FP8 oracle");
@@ -10501,13 +13179,304 @@ void DxilConf_SM610_LinAlg::Convert_F16_ToE5M2_AndBack() {
                               linalg_test::CapabilityRequirement::Mandatory,
                               L"Convert_F16_ToE5M2_AndBack"))
     return;
-  if (!convertTypesApplicable(
-          D3DDevice, ComponentType::U32, ComponentType::F16,
-          linalg_test::CapabilityRequirement::CapabilityGated,
-          L"Convert_F16_ToE5M2_AndBack"))
+  if (!convertTypesApplicable(D3DDevice, ComponentType::U32, ComponentType::F16,
+                              linalg_test::CapabilityRequirement::Mandatory,
+                              L"Convert_F16_ToE5M2_AndBack"))
     return;
   runFP8ConvertCase(D3DDevice, DxcSupport, ComponentType::F8_E5M2, *Data,
                     VerboseLogging);
+}
+
+static const char ConvertToPackedByteShader[] = R"(
+  ByteAddressBuffer Input : register(t0);
+  RWByteAddressBuffer Output : register(u0);
+
+  [numthreads(1, 1, 1)]
+  void main() {
+    vector<SRC_ELEM, NUM_ELEMENTS> InVec;
+    for (uint I = 0; I < NUM_ELEMENTS; ++I)
+      InVec[I] = Input.Load<SRC_ELEM>(I * SRC_SIZE);
+    vector<uint, NUM_WORDS> OutVec;
+    dx::__builtin_LinAlg_Convert(OutVec, InVec, SRC_TYPE, DST_TYPE);
+    for (uint I = 0; I < NUM_WORDS; ++I)
+      Output.Store<uint>(I * 4, OutVec[I]);
+  }
+)";
+
+static std::optional<std::vector<BYTE>>
+encodeConvertSource(ComponentType Type, const std::vector<double> &Values) {
+  std::vector<BYTE> Bytes;
+  auto Append = [&Bytes](const auto Value) {
+    const BYTE *Raw = reinterpret_cast<const BYTE *>(&Value);
+    Bytes.insert(Bytes.end(), Raw, Raw + sizeof(Value));
+  };
+  for (const double Value : Values) {
+    switch (Type) {
+    case ComponentType::I32:
+      Append(static_cast<int32_t>(Value));
+      break;
+    case ComponentType::U32:
+      Append(static_cast<uint32_t>(Value));
+      break;
+    case ComponentType::I16:
+      Append(static_cast<int16_t>(Value));
+      break;
+    case ComponentType::U16:
+      Append(static_cast<uint16_t>(Value));
+      break;
+    case ComponentType::F32:
+      Append(static_cast<float>(Value));
+      break;
+    case ComponentType::F16: {
+      if (!std::isfinite(Value)) {
+        const uint16_t Sign = std::signbit(Value) ? 0x8000 : 0;
+        Append(static_cast<uint16_t>(Sign |
+                                     (std::isnan(Value) ? 0x7E00 : 0x7C00)));
+        break;
+      }
+      const HLSLHalf_t Half(static_cast<float>(Value));
+      if (static_cast<double>(static_cast<float>(Half)) != Value)
+        return std::nullopt;
+      Append(Half);
+      break;
+    }
+    default:
+      return std::nullopt;
+    }
+  }
+  return Bytes;
+}
+
+static const char *convertSourceElementName(ComponentType Type) {
+  switch (Type) {
+  case ComponentType::I32:
+    return "int";
+  case ComponentType::U32:
+    return "uint";
+  case ComponentType::I16:
+    return "int16_t";
+  case ComponentType::U16:
+    return "uint16_t";
+  case ComponentType::F32:
+    return "float";
+  case ComponentType::F16:
+    return "half";
+  default:
+    return nullptr;
+  }
+}
+
+// I8 and U8 are Tier 1 vector input types, so conversion to them is mandatory.
+// Only the lanes that carry an element are checked; the rest of the last word
+// is unspecified.
+static void runPackedByteConvert(ID3D12Device *Device,
+                                 dxc::SpecificDllLoader &DxcSupport,
+                                 ComponentType SourceCompType,
+                                 ComponentType DestinationCompType,
+                                 const std::vector<double> &Values,
+                                 LPCWSTR CaseName, bool Verbose) {
+  if (!convertTypesApplicable(Device, SourceCompType, DestinationCompType,
+                              linalg_test::CapabilityRequirement::Mandatory,
+                              CaseName))
+    return;
+
+  const char *SourceElement = convertSourceElementName(SourceCompType);
+  const std::optional<std::vector<BYTE>> Input =
+      encodeConvertSource(SourceCompType, Values);
+  VERIFY_IS_TRUE(SourceElement != nullptr && Input.has_value(),
+                 "Unable to encode the Convert source vector");
+  if (!SourceElement || !Input)
+    return;
+
+  const bool Signed = DestinationCompType == ComponentType::I8;
+  const size_t Count = Values.size();
+  const size_t Words = (Count + 3) / 4;
+  std::stringstream Args;
+  Args << buildConvertArgs(SourceCompType, DestinationCompType);
+  Args << " -DSRC_ELEM=" << SourceElement;
+  Args << " -DSRC_SIZE=" << static_cast<UINT>(elementSize(SourceCompType));
+  Args << " -DNUM_ELEMENTS=" << Count;
+  Args << " -DNUM_WORDS=" << Words;
+
+  runConvertCoverage(
+      Device, DxcSupport, ConvertToPackedByteShader, Args.str(), Words * 4,
+      [&](const void *Data, size_t Size) {
+        if (Size != Words * 4) {
+          hlsl_test::LogErrorFmt(L"Packed Convert output size: actual=%zu, "
+                                 L"expected=%zu",
+                                 Size, Words * 4);
+          return false;
+        }
+        const BYTE *Bytes = static_cast<const BYTE *>(Data);
+        bool Success = true;
+        for (size_t I = 0; I < Count; ++I) {
+          const int Actual =
+              Signed ? static_cast<int>(static_cast<int8_t>(Bytes[I]))
+                     : static_cast<int>(Bytes[I]);
+          const cpu_oracle::ByteRange Range =
+              cpu_oracle::permittedByteConversion(Values[I], Signed);
+          if (Actual < Range.Lower || Actual > Range.Upper) {
+            hlsl_test::LogErrorFmt(
+                L"Packed Convert element %zu: input=%g, actual=%d, "
+                L"permitted=[%d,%d]",
+                I, Values[I], Actual, Range.Lower, Range.Upper);
+            Success = false;
+          } else if (Verbose) {
+            hlsl_test::LogCommentFmt(L"  element[%zu]: input=%g, actual=%d", I,
+                                     Values[I], Actual);
+          }
+        }
+        return Success;
+      },
+      Verbose, &*Input);
+}
+
+static const std::vector<double> ConvertI32ToI8Inputs = {
+    -2147483648.0, -129, -128, -1, 0, 127, 128, 2147483647.0};
+static const std::vector<double> ConvertI32ToU8Inputs = {
+    -2147483648.0, -1, 0, 1, 255, 256, 1000, 2147483647.0};
+static const std::vector<double> ConvertU32ToI8Inputs = {
+    0, 1, 126, 127, 128, 255, 65536, 4294967295.0};
+static const std::vector<double> ConvertU32ToU8Inputs = {
+    0, 1, 254, 255, 256, 1000, 65536, 4294967295.0};
+static const std::vector<double> ConvertI16ToI8Inputs = {
+    -32768, -129, -128, -1, 0, 127, 128, 32767};
+static const std::vector<double> ConvertI16ToU8Inputs = {
+    -32768, -1, 0, 1, 255, 256, 1000, 32767};
+static const std::vector<double> ConvertU16ToI8Inputs = {0,   1,   126, 127,
+                                                         128, 255, 256, 65535};
+static const std::vector<double> ConvertU16ToU8Inputs = {
+    0, 1, 254, 255, 256, 1000, 32768, 65535};
+static const std::vector<double> ConvertFloatToI8Inputs = {
+    -200.0, -128.5, -127.5, -2.5, -1.75, -0.5,  -0.0,
+    0.25,   1.5,    2.5,    3.25, 126.5, 127.5, 300.0};
+static const std::vector<double> ConvertFloatToU8Inputs = {
+    -5.0,  -0.5,   0.0,   0.5,   1.25,  2.5,    3.75,
+    127.5, 128.25, 254.5, 255.5, 256.0, 1000.0, 200.75};
+static const std::vector<double> ConvertNonFiniteInputs = {
+    std::numeric_limits<double>::infinity(),
+    -std::numeric_limits<double>::infinity(),
+    std::numeric_limits<double>::quiet_NaN(),
+    -std::numeric_limits<double>::quiet_NaN(),
+    65504.0,
+    -65504.0,
+    0.0,
+    -0.0};
+
+void DxilConf_SM610_LinAlg_Conversion::Convert_I32_ToI8_Saturate() {
+  runPackedByteConvert(D3DDevice, DxcSupport, ComponentType::I32,
+                       ComponentType::I8, ConvertI32ToI8Inputs,
+                       L"Convert_I32_ToI8_Saturate", VerboseLogging);
+}
+
+void DxilConf_SM610_LinAlg_Conversion::Convert_I32_ToU8_Saturate() {
+  runPackedByteConvert(D3DDevice, DxcSupport, ComponentType::I32,
+                       ComponentType::U8, ConvertI32ToU8Inputs,
+                       L"Convert_I32_ToU8_Saturate", VerboseLogging);
+}
+
+void DxilConf_SM610_LinAlg_Conversion::Convert_U32_ToI8_Saturate() {
+  runPackedByteConvert(D3DDevice, DxcSupport, ComponentType::U32,
+                       ComponentType::I8, ConvertU32ToI8Inputs,
+                       L"Convert_U32_ToI8_Saturate", VerboseLogging);
+}
+
+void DxilConf_SM610_LinAlg_Conversion::Convert_U32_ToU8_Saturate() {
+  runPackedByteConvert(D3DDevice, DxcSupport, ComponentType::U32,
+                       ComponentType::U8, ConvertU32ToU8Inputs,
+                       L"Convert_U32_ToU8_Saturate", VerboseLogging);
+}
+
+void DxilConf_SM610_LinAlg_Conversion::Convert_I16_ToI8_Saturate() {
+  runPackedByteConvert(D3DDevice, DxcSupport, ComponentType::I16,
+                       ComponentType::I8, ConvertI16ToI8Inputs,
+                       L"Convert_I16_ToI8_Saturate", VerboseLogging);
+}
+
+void DxilConf_SM610_LinAlg_Conversion::Convert_I16_ToU8_Saturate() {
+  runPackedByteConvert(D3DDevice, DxcSupport, ComponentType::I16,
+                       ComponentType::U8, ConvertI16ToU8Inputs,
+                       L"Convert_I16_ToU8_Saturate", VerboseLogging);
+}
+
+void DxilConf_SM610_LinAlg_Conversion::Convert_U16_ToI8_Saturate() {
+  runPackedByteConvert(D3DDevice, DxcSupport, ComponentType::U16,
+                       ComponentType::I8, ConvertU16ToI8Inputs,
+                       L"Convert_U16_ToI8_Saturate", VerboseLogging);
+}
+
+void DxilConf_SM610_LinAlg_Conversion::Convert_U16_ToU8_Saturate() {
+  runPackedByteConvert(D3DDevice, DxcSupport, ComponentType::U16,
+                       ComponentType::U8, ConvertU16ToU8Inputs,
+                       L"Convert_U16_ToU8_Saturate", VerboseLogging);
+}
+
+void DxilConf_SM610_LinAlg_Conversion::
+    Convert_F32_ToI8_RoundNearest_Saturate() {
+  runPackedByteConvert(D3DDevice, DxcSupport, ComponentType::F32,
+                       ComponentType::I8, ConvertFloatToI8Inputs,
+                       L"Convert_F32_ToI8_RoundNearest_Saturate",
+                       VerboseLogging);
+}
+
+void DxilConf_SM610_LinAlg_Conversion::
+    Convert_F32_ToU8_RoundNearest_Saturate() {
+  runPackedByteConvert(D3DDevice, DxcSupport, ComponentType::F32,
+                       ComponentType::U8, ConvertFloatToU8Inputs,
+                       L"Convert_F32_ToU8_RoundNearest_Saturate",
+                       VerboseLogging);
+}
+
+void DxilConf_SM610_LinAlg_Conversion::Convert_F32_ToI8_NonFinite() {
+  runPackedByteConvert(D3DDevice, DxcSupport, ComponentType::F32,
+                       ComponentType::I8, ConvertNonFiniteInputs,
+                       L"Convert_F32_ToI8_NonFinite", VerboseLogging);
+}
+
+void DxilConf_SM610_LinAlg_Conversion::Convert_F32_ToU8_NonFinite() {
+  runPackedByteConvert(D3DDevice, DxcSupport, ComponentType::F32,
+                       ComponentType::U8, ConvertNonFiniteInputs,
+                       L"Convert_F32_ToU8_NonFinite", VerboseLogging);
+}
+
+void DxilConf_SM610_LinAlg_Conversion::
+    Convert_F16_ToI8_RoundNearest_Saturate() {
+  runPackedByteConvert(D3DDevice, DxcSupport, ComponentType::F16,
+                       ComponentType::I8, ConvertFloatToI8Inputs,
+                       L"Convert_F16_ToI8_RoundNearest_Saturate",
+                       VerboseLogging);
+}
+
+void DxilConf_SM610_LinAlg_Conversion::
+    Convert_F16_ToU8_RoundNearest_Saturate() {
+  runPackedByteConvert(D3DDevice, DxcSupport, ComponentType::F16,
+                       ComponentType::U8, ConvertFloatToU8Inputs,
+                       L"Convert_F16_ToU8_RoundNearest_Saturate",
+                       VerboseLogging);
+}
+
+void DxilConf_SM610_LinAlg_Conversion::Convert_F16_ToI8_NonFinite() {
+  runPackedByteConvert(D3DDevice, DxcSupport, ComponentType::F16,
+                       ComponentType::I8, ConvertNonFiniteInputs,
+                       L"Convert_F16_ToI8_NonFinite", VerboseLogging);
+}
+
+void DxilConf_SM610_LinAlg_Conversion::Convert_F16_ToU8_NonFinite() {
+  runPackedByteConvert(D3DDevice, DxcSupport, ComponentType::F16,
+                       ComponentType::U8, ConvertNonFiniteInputs,
+                       L"Convert_F16_ToU8_NonFinite", VerboseLogging);
+}
+
+void DxilConf_SM610_LinAlg_Conversion::Convert_I32_ToI8_PartialWord() {
+  runPackedByteConvert(D3DDevice, DxcSupport, ComponentType::I32,
+                       ComponentType::I8, {-300, -128, -1, 0, 127, 300},
+                       L"Convert_I32_ToI8_PartialWord", VerboseLogging);
+}
+
+void DxilConf_SM610_LinAlg_Conversion::Convert_I32_ToU8_PartialWord() {
+  runPackedByteConvert(D3DDevice, DxcSupport, ComponentType::I32,
+                       ComponentType::U8, {-1, 0, 128, 255, 256},
+                       L"Convert_I32_ToU8_PartialWord", VerboseLogging);
 }
 
 } // namespace LinAlg

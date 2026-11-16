@@ -10,7 +10,6 @@
 #ifndef LLVM_CLANG_LIB_SPIRV_DECLRESULTIDMAPPER_H
 #define LLVM_CLANG_LIB_SPIRV_DECLRESULTIDMAPPER_H
 
-#include <tuple>
 #include <vector>
 
 #include "dxc/Support/SPIRVOptions.h"
@@ -285,6 +284,14 @@ public:
   /// returns its instruction.
   SpirvVariable *createFnVar(const VarDecl *var,
                              llvm::Optional<SpirvInstruction *> init);
+
+  /// \brief Maps a function-scope variable to an existing instruction instead
+  /// of creating a function variable for it.
+  void registerFnVarAlias(const VarDecl *var, SpirvInstruction *varInstr);
+
+  /// \brief Returns true if the decl is mapped to an instruction that is not a
+  /// variable, as done by registerFnVarAlias.
+  bool hasFnVarAlias(const VarDecl *var) const;
 
   /// \brief Creates a file-scope variable and returns its instruction.
   SpirvVariable *createFileVar(const VarDecl *var,

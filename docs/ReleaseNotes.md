@@ -19,8 +19,110 @@ The included licenses apply to the following files:
 
 ### Upcoming Release
 
+#### SPIR-V
+
+- Added `-fvk-resource-heap-stride` and `-fvk-sampler-heap-stride`, which
+  override the computed `ArrayStrideIdEXT` of the resource and sampler
+  descriptor heaps with a literal `ArrayStride`. The value must be a power of
+  two in `[8, 256]`. Both flags require `-spirv` and
+  `-fspv-use-descriptor-heap` and are rejected otherwise.
+
 Place release notes for the upcoming release below this line and remove this
 line upon naming the release. Refer to previous for appropriate section names.
+
+#### Shader Model 6.10
+
+- Shader Model 6.10 and DXIL 1.10 are now available in retail, introducing
+  LinAlg Matrix, WaveGroup Index and Count, DebugBreak, Clustered Geometry, and
+  Triangle Object Positions.
+- Allowed DXIL `insertvalue` instructions starting with Shader Model 6.10,
+  enabling unoptimized DXIL that constructs aggregate values to be valid in cases that previously were not.
+- Removed work graph support from Shader Model 6.10, and DXIL 1.10
+  [microsoft/hlsl-specs#915](https://github.com/microsoft/hlsl-specs/issues/915).
+- Fixed the set of numeric types allowed in LinAlg matrix intrinsics
+  [#8271](https://github.com/microsoft/DirectXShaderCompiler/issues/8271).
+- Corrected the parameter order of `InterlockedAccumulate`
+  [microsoft/hlsl-specs#869](https://github.com/microsoft/hlsl-specs/issues/869).
+- Added validation of LinAlg matrix builtin parameters and result K dimension
+  [#8491](https://github.com/microsoft/DirectXShaderCompiler/issues/8491).
+- Restricted the component types allowed in LinAlg matrices
+  [#8494](https://github.com/microsoft/DirectXShaderCompiler/issues/8494).
+- Added `BFloat16` to the ComponentType enum in DxilConstants and the linalg
+  header [#8722](https://github.com/microsoft/DirectXShaderCompiler/issues/8722).
+
+#### HLSL Language
+
+- The `shared` and `uniform` keywords are removed in HLSL 202x, with
+  compatibility warnings available for earlier language versions
+  [#8482](https://github.com/microsoft/DirectXShaderCompiler/issues/8482).
+- The `interface` keyword and interface declarations are removed in HLSL 202x,
+  with compatibility warnings available for earlier language versions.
+- Added support for `auto` return types for normal functions aligning with C++14
+  [#8903](https://github.com/microsoft/DirectXShaderCompiler/issues/8903).
+- HLSL 202x now supports variadic templates and template function parameter
+  packs, pack expansions, and `sizeof...()`
+  [#8905](https://github.com/microsoft/DirectXShaderCompiler/issues/8905).
+- HLSL 202x disallows initializers on variables in explicit and implicit
+  constant buffers and texture buffers
+  [#8483](https://github.com/microsoft/DirectXShaderCompiler/issues/8483).
+- HLSL 202x disallows putting cbuffer, tbuffer, or namespace declarations inside
+  a cbuffer or tbuffer
+  [#8484](https://github.com/microsoft/DirectXShaderCompiler/issues/8484).
+- Starting with HLSL 202x, `cbuffer` and `tbuffer` declarations and their
+  members belong to their enclosing namespace.
+- HLSL 202x supports `const`-qualified instance methods and rejects calls
+  to non-`const` methods on `const` objects, including objects in constant 
+  buffers 
+  [#8964](https://github.com/microsoft/DirectXShaderCompiler/issues/8964).
+- HLSL 202x supports `mutable` member variables in structs, allowing them to be
+  modified even in `const`-qualified instance methods
+  ([#8965](https://github.com/microsoft/DirectXShaderCompiler/issues/8965)).
+- Add `static_assert` matching C++11 and C++17 under HLSL 202x
+  ([#8910](https://github.com/microsoft/DirectXShaderCompiler/issues/8910)).
+- Fix HLSL 202x conforming literals false-positive warning for hex literal
+  signedness
+  ([#7864](https://github.com/microsoft/DirectXShaderCompiler/issues/7864)).
+
+#### SPIR-V
+
+- Extended `SPV_EXT_descriptor_heap` lowering (`-fspv-use-descriptor-heap`) to
+  buffer-like resources (`StructuredBuffer`, `ByteAddressBuffer`,
+  `ConstantBuffer`, `TextureBuffer`, and RW variants) via
+  `SPV_KHR_untyped_pointers`. Requires `-fspv-target-env=vulkan1.3`.
+- Extended `-fspv-use-descriptor-heap` to support `RaytracingAccelerationStructure`
+  loaded from `ResourceDescriptorHeap`. Outside ray-tracing stages, list
+  `-fspv-extension=SPV_KHR_ray_query`, `SPV_KHR_ray_tracing` or
+  `SPV_NV_ray_tracing` so the resource heap stride covers acceleration structure
+  descriptors; otherwise compilation fails.
+
+#### Bug Fixes
+
+- Improved compiler performance by reducing excessive memory-dependence scans
+  during GVN and repeated vector-elimination work.
+- Fixed GVN load forwarding generating unsupported integer types when optimizing
+  native vectors
+  [#9040](https://github.com/microsoft/DirectXShaderCompiler/issues/9040).
+- Fixed shader reflection dropping leading characters from user-defined struct type names.
+- Fixed an optimizer crash when scalarizing an out-of-bounds vector access
+  [#8940](https://github.com/microsoft/DirectXShaderCompiler/issues/8940).
+- Fixed members following a merged bitfield reading the wrong value when a
+  struct is flat-converted
+  [#8526](https://github.com/microsoft/DirectXShaderCompiler/issues/8526).
+- Fixed incorrect shader results caused by stale overflow and exactness flags
+  after bit-tracking dead code elimination.
+- Fixed an optimizer miscompile where selects of bitwise-not values guarded by
+  signed less-than or unsigned compares were treated as a signed minimum.
+
+### Upcoming Preview Release
+
+These changes apply to experimental preview shader models only and will not be
+part of the next non-preview release.
+
+#### Experimental Shader Model 6.11
+
+- Added experimental Shader Model 6.11 target profiles.
+
+### Version 1.9.2609
 
 #### Bug Fixes
 
@@ -47,6 +149,15 @@ line upon naming the release. Refer to previous for appropriate section names.
 - Fixed internal compiler errors when a member method is called on a ray payload
   or on one of its fields with payload access qualifiers enabled
   [#6464](https://github.com/microsoft/DirectXShaderCompiler/issues/6464).
+- Fixed undefined behavior in DXC IntelliSense caused by the uninitialized
+  `ExpandTokPastingArg` preprocessor option, which made token-pasting
+  behavior indeterminate.
+- SPIR-V: Fixed user-defined types whose names match built-in types being
+  incorrectly lowered as the built-in type.
+- SPIR-V: 16-bit sampled types on `vk::SampledTexture` are rejected as required
+  by VUID-StandaloneSpirv-OpTypeImage-04656.
+- SPIR-V: Added support for multisampled UAV types fixing miscompiles in
+  previous releases.
 
 #### HLSL Language
 
@@ -77,28 +188,6 @@ line upon naming the release. Refer to previous for appropriate section names.
 - Fixed incorrect alignment of 64-bit elements in `vk::RawBufferLoad` and
   `vk::RawBufferStore` intrinsics
   [#8572](https://github.com/microsoft/DirectXShaderCompiler/issues/8572).
-
-### Upcoming Preview Release
-
-These changes apply to experimental preview shader models only and will not be
-part of the next non-preview release.
-
-#### Experimental Shader Model 6.10
-
-These are incremental changes to the experimental Shader Model 6.10 features that
-first shipped in the 1.10.2605 preview.
-
-- Fixed the set of numeric types allowed in LinAlg matrix intrinsics
-  [#8271](https://github.com/microsoft/DirectXShaderCompiler/issues/8271).
-- Corrected the parameter order of `InterlockedAccumulate`
-  [#8459](https://github.com/microsoft/DirectXShaderCompiler/pull/8459).
-- Added validation of LinAlg matrix builtin parameters and result K dimension
-  [#8588](https://github.com/microsoft/DirectXShaderCompiler/pull/8588).
-- Restricted the component types allowed in LinAlg matrices
-  [#8608](https://github.com/microsoft/DirectXShaderCompiler/pull/8608).
-- Added `BFloat16` to the ComponentType enum in DxilConstants and the linalg
-  header [#8722](https://github.com/microsoft/DirectXShaderCompiler/issues/8722).
-- Removed work graph support from Shader Model 6.10, and DXIL 1.10 [microsoft/hlsl-specs#915](https://github.com/microsoft/hlsl-specs/issues/915).
 
 ### Version 1.9.2607
 
