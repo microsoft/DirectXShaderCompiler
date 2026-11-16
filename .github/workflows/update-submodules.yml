@@ -1,8 +1,8 @@
 name: Update submodules
 
 on:
-  schedule:
-    - cron: "0 12 * * *"
+  push:
+    branches: [test/update-submodules]
   workflow_dispatch:
 
 permissions:
