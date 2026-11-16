@@ -241,6 +241,13 @@ public:
   /// getDebugLoc - Return the debug location for this node as a DebugLoc.
   const DebugLoc &getDebugLoc() const { return DbgLoc; }
 
+  // HLSL Change Begin - Backport of aa722ae84c25:
+  // https://github.com/llvm/llvm-project/commit/aa722ae84c258b069db2009670e3dfb13f356de6
+  /// Drops flags that may cause this instruction to evaluate to poison despite
+  /// having non-poison inputs.
+  void dropPoisonGeneratingFlags();
+  // HLSL Change End - Backport of aa722ae84c25.
+
   /// Set or clear the unsafe-algebra flag on this instruction, which must be an
   /// operator which supports this flag. See LangRef.html for the meaning of
   /// this flag.
