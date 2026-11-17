@@ -5047,6 +5047,17 @@ ScalarEvolution::ComputeExitLimitFromCond(const Loop *L,
           BECount = EL0.Exact;
       }
 
+      // HLSL Change Begin - Backport PR26207:
+      // https://github.com/llvm/llvm-project/commit/29a4b5dc0d754c9a45f62a8af0cc36e8de4f968d
+      // There are cases (e.g. PR26207) where computeExitLimitFromCond is able
+      // to be more aggressive when computing BECount than when computing
+      // MaxBECount.  In these cases it is possible for EL0.Exact and EL1.Exact
+      // to match, but for EL0.Max and EL1.Max to not.
+      if (isa<SCEVCouldNotCompute>(MaxBECount) &&
+          !isa<SCEVCouldNotCompute>(BECount))
+        MaxBECount = BECount;
+      // HLSL Change End
+
       return ExitLimit(BECount, MaxBECount);
     }
     if (BO->getOpcode() == Instruction::Or) {
