@@ -7258,9 +7258,16 @@ bool ScalarEvolution::isImpliedCondOperandsViaRanges(ICmpInst::Predicate Pred,
     return false;
 
   const SCEVAddExpr *AddLHS = dyn_cast<SCEVAddExpr>(LHS);
-  if (!AddLHS || AddLHS->getOperand(1) != FoundLHS ||
+  // HLSL Change Begin - Require a two-operand add so extra terms in a
+  // multi-operand SCEVAddExpr are not ignored. Upstream fixed this
+  // incidentally in r276505 by switching to a helper that checks for a
+  // binary add:
+  // https://github.com/llvm/llvm-project/commit/a7d9ec8751b1bb045f83934e9be202a191249db8
+  if (!AddLHS || AddLHS->getNumOperands() != 2 ||
+      AddLHS->getOperand(1) != FoundLHS ||
       !isa<SCEVConstant>(AddLHS->getOperand(0)))
     return false;
+  // HLSL Change End
 
   APInt ConstFoundRHS = cast<SCEVConstant>(FoundRHS)->getValue()->getValue();
 
