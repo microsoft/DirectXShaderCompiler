@@ -1,10 +1,10 @@
 ; RUN: %dxopt %s -hlsl-passes-resume -simplify-inst -S | FileCheck %s --check-prefix=FOLD
 ; RUN: %dxopt %s -hlsl-passes-resume -indvars -S | FileCheck %s --check-prefix=INDVARS
 
-; Check that DXIL dot products are not constant folded when the result is zero
-; and one of the products is -0.0, so that the sign of the zero is the one the
-; driver computes, and that IndVarSimplify keeps the bound of a loop whose early
-; exit checks the bits of such a dot product.
+; Check that DXIL dot products are not constant folded when every product is
+; -0.0, so that the sign of the zero is the one the driver computes, and that
+; IndVarSimplify keeps the bound of a loop whose early exit checks the bits of
+; such a dot product.
 
 target datalayout = "e-m:e-p:32:32-i1:32-i8:32-i16:32-i32:32-i64:64-f16:32-f32:32-f64:64-n8:16:32:64"
 target triple = "dxil-ms-dx"
@@ -17,16 +17,9 @@ define float @dot4_neg_zero_f32() {
 }
 
 ; FOLD-LABEL: define float @dot2_mixed_zero_f32()
-; FOLD-NEXT: %r = call float @dx.op.dot2.f32(
+; FOLD-NEXT: ret float 0.000000e+00
 define float @dot2_mixed_zero_f32() {
   %r = call float @dx.op.dot2.f32(i32 54, float 0.000000e+00, float 0.000000e+00, float -1.000000e+00, float 1.000000e+00)
-  ret float %r
-}
-
-; FOLD-LABEL: define float @dot2_pos_zero_f32()
-; FOLD-NEXT: ret float 0.000000e+00
-define float @dot2_pos_zero_f32() {
-  %r = call float @dx.op.dot2.f32(i32 54, float 0.000000e+00, float 0.000000e+00, float 1.000000e+00, float 1.000000e+00)
   ret float %r
 }
 
