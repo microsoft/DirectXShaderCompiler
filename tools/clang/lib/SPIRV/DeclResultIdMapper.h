@@ -22,6 +22,7 @@
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/Optional.h"
+#include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SmallVector.h"
 
 #include "GlPerVertex.h"
@@ -568,7 +569,9 @@ public:
   SpirvVariable *
   getMSOutStageVar(bool perPrimitive,
                    llvm::ArrayRef<const FieldDecl *> fieldPath) const {
-    for (const auto &stageVar : msOutStageVars)
+    // Entry points sharing an output type each create their own variables,
+    // and the newest ones belong to the entry point being emitted.
+    for (const auto &stageVar : llvm::reverse(msOutStageVars))
       if (stageVar.perPrimitive == perPrimitive &&
           llvm::makeArrayRef(stageVar.fieldPath) == fieldPath)
         return stageVar.instr;
