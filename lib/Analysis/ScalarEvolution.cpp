@@ -5093,6 +5093,21 @@ ScalarEvolution::ComputeExitLimitFromCond(const Loop *L,
           BECount = EL0.Exact;
       }
 
+      // HLSL Change Begin - Backport D58853:
+      // https://github.com/llvm/llvm-project/commit/98f11a7d75b54b44b3b136b537644fd3f6d77239
+      // There are cases (e.g. PR26207) where computeExitLimitFromCond is able
+      // to be more aggressive when computing BECount than when computing
+      // MaxBECount.  In these cases it is possible for EL0.Exact and EL1.Exact
+      // to match, but for EL0.Max and EL1.Max to not.
+      // Upstream assigns getConstant(getUnsignedRangeMax(BECount)) because it
+      // requires max counts to be constants by then. This LLVM has no such
+      // requirement (ExitLimit(E) uses E as the max count), so BECount is used
+      // directly, as in the PR26207 backport above.
+      if (isa<SCEVCouldNotCompute>(MaxBECount) &&
+          !isa<SCEVCouldNotCompute>(BECount))
+        MaxBECount = BECount;
+      // HLSL Change End
+
       return ExitLimit(BECount, MaxBECount);
     }
   }

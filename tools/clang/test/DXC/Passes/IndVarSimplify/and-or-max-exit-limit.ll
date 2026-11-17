@@ -2,8 +2,8 @@
 ; RUN: opt < %s -indvars -S | FileCheck %s
 
 ; Check that ScalarEvolution falls back to the exact backedge-taken count when
-; the operands of an `and` exit condition have matching exact counts but
-; different maxima.
+; the operands of an `and` or `or` exit condition have matching exact counts
+; but different maxima.
 
 target datalayout = "e-m:e-p:32:32-i1:32-i8:32-i16:32-i32:32-i64:64-f16:32-f32:32-f64:64-n8:16:32:64"
 target triple = "dxil-ms-dx"
@@ -38,6 +38,42 @@ loop:
   %c1 = icmp eq i16 %iv.next, 2
   %both = and i1 %c0, %c1
   br i1 %both, label %exit, label %loop
+
+exit:
+  %res = phi i16 [ %in, %entry ], [ %iv.next, %loop ]
+  ret i16 %res
+}
+
+define i16 @or_equal_exact(i16 %in) {
+; CHECK-LABEL: define i16 @or_equal_exact(
+; CHECK-SAME: i16 [[IN:%.*]]) {
+; CHECK-NEXT:  [[ENTRY:.*]]:
+; CHECK-NEXT:    [[GUARD:%.*]] = icmp slt i16 [[IN]], 2
+; CHECK-NEXT:    br i1 [[GUARD]], label %[[LOOP_PREHEADER:.*]], label %[[EXIT:.*]]
+; CHECK:       [[LOOP_PREHEADER]]:
+; CHECK-NEXT:    br label %[[LOOP:.*]]
+; CHECK:       [[LOOP]]:
+; CHECK-NEXT:    [[IV:%.*]] = phi i16 [ [[IV_NEXT:%.*]], %[[LOOP]] ], [ [[IN]], %[[LOOP_PREHEADER]] ]
+; CHECK-NEXT:    [[IV_NEXT]] = add nsw i16 [[IV]], 1
+; CHECK-NEXT:    [[EXITCOND:%.*]] = icmp ne i16 [[IV_NEXT]], 2
+; CHECK-NEXT:    br i1 [[EXITCOND]], label %[[LOOP]], label %[[EXIT_LOOPEXIT:.*]]
+; CHECK:       [[EXIT_LOOPEXIT]]:
+; CHECK-NEXT:    br label %[[EXIT]]
+; CHECK:       [[EXIT]]:
+; CHECK-NEXT:    [[RES:%.*]] = phi i16 [ [[IN]], %[[ENTRY]] ], [ 2, %[[EXIT_LOOPEXIT]] ]
+; CHECK-NEXT:    ret i16 [[RES]]
+;
+entry:
+  %guard = icmp slt i16 %in, 2
+  br i1 %guard, label %loop, label %exit
+
+loop:
+  %iv = phi i16 [ %in, %entry ], [ %iv.next, %loop ]
+  %iv.next = add nsw i16 %iv, 1
+  %c0 = icmp slt i16 %iv.next, 2
+  %c1 = icmp ne i16 %iv.next, 2
+  %either = or i1 %c0, %c1
+  br i1 %either, label %loop, label %exit
 
 exit:
   %res = phi i16 [ %in, %entry ], [ %iv.next, %loop ]
