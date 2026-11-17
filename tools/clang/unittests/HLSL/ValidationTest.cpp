@@ -24,8 +24,15 @@
 #include "dxc/Support/Unicode.h" // for wstring conversions like WideToUtf8String
 #include "dxc/Support/WinIncludes.h"
 #include "llvm/ADT/ArrayRef.h"
+#include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringRef.h"
+#include "llvm/Bitcode/ReaderWriter.h"
+#include "llvm/IR/LLVMContext.h"
+#include "llvm/IR/Module.h"
+#include "llvm/IRReader/IRReader.h"
 #include "llvm/Support/Regex.h"
+#include "llvm/Support/SourceMgr.h"
+#include "llvm/Support/raw_ostream.h"
 #include <wchar.h>
 
 #ifdef _WIN32
@@ -77,6 +84,7 @@ public:
   TEST_METHOD(StreamIDOutOfBound)
   TEST_METHOD(SignatureDataWidth)
   TEST_METHOD(SignatureStreamIDForNonGS)
+  TEST_METHOD(OutputPositionStreamIndex)
   TEST_METHOD(TypedUAVStoreFullMask0)
   TEST_METHOD(TypedUAVStoreFullMask1)
   TEST_METHOD(UAVStoreMaskMatch)
@@ -1346,6 +1354,80 @@ TEST_F(ValidationTest, SignatureStreamIDForNonGS) {
       {", i8 0, i32 1, i8 4, i32 0, i8 0, !1019}\n!1019 = !{i32 0, i32 1}",
        "!1012 ="},
       "Stream index \\(1\\) must between 0 and 0", true);
+}
+
+TEST_F(ValidationTest, OutputPositionStreamIndex) {
+  if (!m_ver.m_InternalValidator)
+    return;
+
+  auto ValidatePosition = [&](bool IsGS, unsigned Stream, bool Complete) {
+    std::string Assembly = R"(
+target datalayout = "e-m:e-p:32:32-i1:32-i8:32-i16:32-i32:32-i64:64-f16:32-f32:32-f64:64-n8:16:32:64"
+target triple = "dxil-ms-dx"
+define void @main() {
+  call void @dx.op.storeOutput.f32(i32 5, i32 0, i32 0, i8 0, float 0.0)
+  call void @dx.op.storeOutput.f32(i32 5, i32 0, i32 0, i8 1, float 0.0)
+  call void @dx.op.storeOutput.f32(i32 5, i32 0, i32 0, i8 2, float 0.0)
+)";
+    if (Complete)
+      Assembly += "  call void @dx.op.storeOutput.f32(i32 5, i32 0, i32 0, "
+                  "i8 3, float 1.0)\n";
+    Assembly += R"(
+  ret void
+}
+declare void @dx.op.storeOutput.f32(i32, i32, i32, i8, float) nounwind
+!dx.version = !{!0}
+!dx.valver = !{!0}
+!dx.shaderModel = !{!1}
+!dx.entryPoints = !{!2}
+!0 = !{i32 1, i32 0}
+!1 = !{!")";
+    Assembly += IsGS ? "gs" : "vs";
+    Assembly += R"(", i32 6, i32 0}
+!2 = !{void ()* @main, !"main", !3, null, !8}
+!3 = !{null, !4, null}
+!4 = !{!5}
+!5 = !{i32 0, !"SV_Position", i8 9, i8 3, !6, i8 4, i32 1, i8 4, i32 0, i8 0, !7}
+!6 = !{i32 0}
+!7 = !{i32 0, i32 )";
+    Assembly += std::to_string(Stream) + "}\n";
+    Assembly += IsGS ? "!8 = !{i32 1, !9}\n"
+                       "!9 = !{i32 1, i32 1, i32 15, i32 1, i32 1}\n"
+                     : "!8 = !{}\n";
+
+    llvm::LLVMContext Context;
+    llvm::SMDiagnostic Diagnostic;
+    auto Buffer = llvm::MemoryBuffer::getMemBuffer(Assembly);
+    auto Module = llvm::parseIR(Buffer->getMemBufferRef(), Diagnostic, Context);
+    VERIFY_IS_NOT_NULL(Module.get());
+    llvm::SmallVector<char, 0> Bitcode;
+    {
+      llvm::raw_svector_ostream OS(Bitcode);
+      llvm::WriteBitcodeToFile(Module.get(), OS);
+    }
+
+    // Validate raw bitcode so malformed stream metadata does not reach PSV
+    // construction before the validator.
+    unsigned MaxStream = IsGS ? DXIL::kNumOutputStreams - 1 : 0;
+    if (Stream > MaxStream) {
+      std::string Error = "Stream index (" + std::to_string(Stream) +
+                          ") must between 0 and " + std::to_string(MaxStream);
+      CheckValidationMsgs(Bitcode.data(), Bitcode.size(), {Error.c_str()});
+    } else if (!Complete) {
+      CheckValidationMsgs(Bitcode.data(), Bitcode.size(),
+                          {"Not all elements of SV_Position were written."});
+    } else {
+      CheckValidationMsgs(Bitcode.data(), Bitcode.size(), {});
+    }
+  };
+
+  for (unsigned Stream : {0u, 1u, 2u, 3u, 4u, UINT_MAX}) {
+    ValidatePosition(true, Stream, true);
+    ValidatePosition(false, Stream, true);
+  }
+  ValidatePosition(true, 0, false);
+  ValidatePosition(true, 3, false);
+  ValidatePosition(false, 0, false);
 }
 
 TEST_F(ValidationTest, TypedUAVStoreFullMask0) {
