@@ -56,7 +56,7 @@ void main() {
 	f4buf[2] = float4(fmat_splat[0][0], fmat_splat[0][1], fmat_splat[1][0], fmat_splat[1][1]) ;
 
 	// matrix non-splat
-	// CHECK: float 0x3F2A400000000000, float 0x3F53A92A40000000, float 0x3FCD710000000000, float 0.000000e+00
+	// CHECK: float 0x3FEFFE5C00000000, float 0x3FEFF62B60000000, float 0x3FCD710000000000, float 0.000000e+00
 	float2x2 fmat = { -21.0002, -0.0012, 421.23, 1 };
 	fmat = frac(fmat);
 	f4buf[3] = float4(fmat[0][0], fmat[0][1], fmat[1][0], fmat[1][1]) ;
