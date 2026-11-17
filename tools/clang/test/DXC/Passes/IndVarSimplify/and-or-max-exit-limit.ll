@@ -3,7 +3,9 @@
 
 ; Check that ScalarEvolution falls back to the exact backedge-taken count when
 ; the operands of an `and` or `or` exit condition have matching exact counts
-; but different maxima.
+; but different maxima. Also check that it does not derive the max
+; backedge-taken count from equal operand maxima when both operands must hold
+; simultaneously, so IndVarSimplify preserves loop bounds.
 
 target datalayout = "e-m:e-p:32:32-i1:32-i8:32-i16:32-i32:32-i64:64-f16:32-f32:32-f64:64-n8:16:32:64"
 target triple = "dxil-ms-dx"
@@ -78,4 +80,114 @@ loop:
 exit:
   %res = phi i16 [ %in, %entry ], [ %iv.next, %loop ]
   ret i16 %res
+}
+
+define i32 @and_equal_max(i32 %x, i32 %y) {
+; CHECK-LABEL: define i32 @and_equal_max(
+; CHECK-SAME: i32 [[X:%.*]], i32 [[Y:%.*]]) {
+; CHECK-NEXT:  [[ENTRY:.*]]:
+; CHECK-NEXT:    [[J_INIT:%.*]] = and i32 [[X]], 7
+; CHECK-NEXT:    [[J_START:%.*]] = add nuw nsw i32 [[J_INIT]], 1
+; CHECK-NEXT:    [[K_INIT:%.*]] = and i32 [[Y]], 7
+; CHECK-NEXT:    [[K_START:%.*]] = add nuw nsw i32 [[K_INIT]], 2
+; CHECK-NEXT:    br label %[[LOOP:.*]]
+; CHECK:       [[LOOP]]:
+; CHECK-NEXT:    [[I:%.*]] = phi i32 [ 0, %[[ENTRY]] ], [ [[I_NEXT:%.*]], %[[LATCH:.*]] ]
+; CHECK-NEXT:    [[J:%.*]] = phi i32 [ [[J_START]], %[[ENTRY]] ], [ [[J_NEXT:%.*]], %[[LATCH]] ]
+; CHECK-NEXT:    [[K:%.*]] = phi i32 [ [[K_START]], %[[ENTRY]] ], [ [[K_NEXT:%.*]], %[[LATCH]] ]
+; CHECK-NEXT:    [[IN_BOUNDS:%.*]] = icmp ult i32 [[I]], 256
+; CHECK-NEXT:    br i1 [[IN_BOUNDS]], label %[[LATCH]], label %[[EXIT:.*]]
+; CHECK:       [[LATCH]]:
+; CHECK-NEXT:    [[I_NEXT]] = add nuw nsw i32 [[I]], 1
+; CHECK-NEXT:    [[J_NEXT]] = add i32 [[J]], -1
+; CHECK-NEXT:    [[K_NEXT]] = add i32 [[K]], -1
+; CHECK-NEXT:    [[C0:%.*]] = icmp eq i32 [[J_NEXT]], 0
+; CHECK-NEXT:    [[C1:%.*]] = icmp eq i32 [[K_NEXT]], 1
+; CHECK-NEXT:    [[BOTH:%.*]] = and i1 [[C0]], [[C1]]
+; CHECK-NEXT:    br i1 [[BOTH]], label %[[EXIT]], label %[[LOOP]]
+; CHECK:       [[EXIT]]:
+; CHECK-NEXT:    [[RES:%.*]] = phi i32 [ [[I]], %[[LOOP]] ], [ [[I_NEXT]], %[[LATCH]] ]
+; CHECK-NEXT:    ret i32 [[RES]]
+;
+entry:
+  %j.init = and i32 %x, 7
+  %j.start = add nuw nsw i32 %j.init, 1
+  %k.init = and i32 %y, 7
+  %k.start = add nuw nsw i32 %k.init, 2
+  br label %loop
+
+loop:
+  %i = phi i32 [ 0, %entry ], [ %i.next, %latch ]
+  %j = phi i32 [ %j.start, %entry ], [ %j.next, %latch ]
+  %k = phi i32 [ %k.start, %entry ], [ %k.next, %latch ]
+  %in.bounds = icmp ult i32 %i, 256
+  br i1 %in.bounds, label %latch, label %exit
+
+latch:
+  %i.next = add nuw nsw i32 %i, 1
+  %j.next = add i32 %j, -1
+  %k.next = add i32 %k, -1
+  %c0 = icmp eq i32 %j.next, 0
+  %c1 = icmp eq i32 %k.next, 1
+  %both = and i1 %c0, %c1
+  br i1 %both, label %exit, label %loop
+
+exit:
+  %res = phi i32 [ %i, %loop ], [ %i.next, %latch ]
+  ret i32 %res
+}
+
+define i32 @or_equal_max(i32 %x, i32 %y) {
+; CHECK-LABEL: define i32 @or_equal_max(
+; CHECK-SAME: i32 [[X:%.*]], i32 [[Y:%.*]]) {
+; CHECK-NEXT:  [[ENTRY:.*]]:
+; CHECK-NEXT:    [[J_INIT:%.*]] = and i32 [[X]], 7
+; CHECK-NEXT:    [[J_START:%.*]] = add nuw nsw i32 [[J_INIT]], 1
+; CHECK-NEXT:    [[K_INIT:%.*]] = and i32 [[Y]], 7
+; CHECK-NEXT:    [[K_START:%.*]] = add nuw nsw i32 [[K_INIT]], 2
+; CHECK-NEXT:    br label %[[LOOP:.*]]
+; CHECK:       [[LOOP]]:
+; CHECK-NEXT:    [[I:%.*]] = phi i32 [ 0, %[[ENTRY]] ], [ [[I_NEXT:%.*]], %[[LATCH:.*]] ]
+; CHECK-NEXT:    [[J:%.*]] = phi i32 [ [[J_START]], %[[ENTRY]] ], [ [[J_NEXT:%.*]], %[[LATCH]] ]
+; CHECK-NEXT:    [[K:%.*]] = phi i32 [ [[K_START]], %[[ENTRY]] ], [ [[K_NEXT:%.*]], %[[LATCH]] ]
+; CHECK-NEXT:    [[IN_BOUNDS:%.*]] = icmp ult i32 [[I]], 256
+; CHECK-NEXT:    br i1 [[IN_BOUNDS]], label %[[LATCH]], label %[[EXIT:.*]]
+; CHECK:       [[LATCH]]:
+; CHECK-NEXT:    [[I_NEXT]] = add nuw nsw i32 [[I]], 1
+; CHECK-NEXT:    [[J_NEXT]] = add i32 [[J]], -1
+; CHECK-NEXT:    [[K_NEXT]] = add i32 [[K]], -1
+; CHECK-NEXT:    [[C0:%.*]] = icmp ne i32 [[J_NEXT]], 0
+; CHECK-NEXT:    [[C1:%.*]] = icmp ne i32 [[K_NEXT]], 1
+; CHECK-NEXT:    [[EITHER:%.*]] = or i1 [[C0]], [[C1]]
+; CHECK-NEXT:    br i1 [[EITHER]], label %[[LOOP]], label %[[EXIT]]
+; CHECK:       [[EXIT]]:
+; CHECK-NEXT:    [[RES:%.*]] = phi i32 [ [[I]], %[[LOOP]] ], [ [[I_NEXT]], %[[LATCH]] ]
+; CHECK-NEXT:    ret i32 [[RES]]
+;
+entry:
+  %j.init = and i32 %x, 7
+  %j.start = add nuw nsw i32 %j.init, 1
+  %k.init = and i32 %y, 7
+  %k.start = add nuw nsw i32 %k.init, 2
+  br label %loop
+
+loop:
+  %i = phi i32 [ 0, %entry ], [ %i.next, %latch ]
+  %j = phi i32 [ %j.start, %entry ], [ %j.next, %latch ]
+  %k = phi i32 [ %k.start, %entry ], [ %k.next, %latch ]
+  %in.bounds = icmp ult i32 %i, 256
+  br i1 %in.bounds, label %latch, label %exit
+
+latch:
+  %i.next = add nuw nsw i32 %i, 1
+  %j.next = add i32 %j, -1
+  %k.next = add i32 %k, -1
+  %c0 = icmp ne i32 %j.next, 0
+  %c1 = icmp ne i32 %k.next, 1
+  %either = or i1 %c0, %c1
+  br i1 %either, label %loop, label %exit
+
+exit:
+  %res = phi i32 [ %i, %loop ], [ %i.next, %latch ]
+  ret i32 %res
 }
