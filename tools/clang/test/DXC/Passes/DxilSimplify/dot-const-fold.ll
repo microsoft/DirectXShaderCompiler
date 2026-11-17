@@ -23,6 +23,14 @@ define float @dot2_mixed_zero_f32() {
   ret float %r
 }
 
+; The double overload is invalid DXIL, so it must always fold.
+; FOLD-LABEL: define double @dot2_neg_zero_f64()
+; FOLD-NEXT: ret double 0.000000e+00
+define double @dot2_neg_zero_f64() {
+  %r = call double @dx.op.dot2.f64(i32 54, double 0.000000e+00, double 0.000000e+00, double -1.000000e+00, double -1.000000e+00)
+  ret double %r
+}
+
 ; INDVARS-LABEL: define void @indvars_dot4_neg_zero_loop(
 ; INDVARS: icmp ult i32 %i.next, 128
 define void @indvars_dot4_neg_zero_loop([128 x i32] addrspace(3)* %wg) {
@@ -55,6 +63,7 @@ define void @main() {
 }
 
 declare float @dx.op.dot2.f32(i32, float, float, float, float) #0
+declare double @dx.op.dot2.f64(i32, double, double, double, double) #0
 declare float @dx.op.dot4.f32(i32, float, float, float, float, float, float, float, float) #0
 
 attributes #0 = { nounwind readnone }
