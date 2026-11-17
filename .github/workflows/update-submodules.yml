@@ -7,6 +7,7 @@ on:
 
 permissions:
   contents: read
+  id-token: write
 
 concurrency:
   group: update-submodules
@@ -17,23 +18,33 @@ jobs:
     if: vars.SUBMODULE_UPDATER_CLIENT_ID != ''
     timeout-minutes: 30
     steps:
-      - name: Get submodule updater app token
-        id: app-token
-        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
-        with:
-          client-id: ${{ vars.SUBMODULE_UPDATER_CLIENT_ID }}
-          private-key: ${{ secrets.SUBMODULE_UPDATER_PRIVATE_KEY }}
-
       - name: Fetch DirectXShaderCompiler sources
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
-          token: ${{ steps.app-token.outputs.token }}
+          persist-credentials: false
+
+      - name: Log in to Azure
+        uses: azure/login@a641126d1b8aa4d1fa005f4f92df94a3a4c4c906 # v3.1.0
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          allow-no-subscriptions: true
+
+      - name: Get submodule updater app token
+        id: app-token
+        uses: microsoft/create-github-app-token-via-key-vault@9dee9fa4d9557db659576ba9109d74d762a0e666 # v1
+        with:
+          client-id: ${{ vars.SUBMODULE_UPDATER_CLIENT_ID }}
+          key-id: ${{ vars.SUBMODULE_UPDATER_KEY_ID }}
+          permission-contents: write
+          permission-pull-requests: write
 
       - name: Update submodules and open pull request
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           APP_BOT: ${{ steps.app-token.outputs.app-slug }}[bot]
         run: |
+          gh auth setup-git
           git config user.name "$APP_BOT"
           git config user.email "$(gh api "users/$APP_BOT" --jq .id)+$APP_BOT@users.noreply.github.com"
           python3 .github/scripts/update_submodules.py --repo "$GITHUB_REPOSITORY"
