@@ -284,11 +284,18 @@ static Constant *ComputeDot(Type *Ty, ArrayRef<ConstantFP *> A,
   APFloat::roundingMode roundingMode =
       APFloat::roundingMode::rmNearestTiesToEven;
   APFloat sum = APFloat::getZero(A[0]->getValueAPF().getSemantics());
+  bool hasNegZeroTerm = false;
   for (int i = 0, e = A.size(); i != e; ++i) {
     APFloat val(A[i]->getValueAPF());
     val.multiply(B[i]->getValueAPF(), roundingMode);
+    hasNegZeroTerm |= val.isNegZero();
     sum.add(val, roundingMode);
   }
+
+  // The sign of a zero sum with a -0.0 term is up to the driver, so leave it
+  // unfolded. The double overload is invalid DXIL and never reaches a driver.
+  if (sum.isZero() && hasNegZeroTerm && !Ty->isDoubleTy())
+    return nullptr;
 
   return ConstantFP::get(Ty->getContext(), sum);
 }
