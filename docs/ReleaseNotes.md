@@ -114,6 +114,7 @@ line upon naming the release. Refer to previous for appropriate section names.
   signed less-than or unsigned compares were treated as a signed minimum.
 - Fixed incorrect shader results caused by stale overflow, exactness, and
   fast-math flags after merging equivalent code from both sides of a branch.
+- Reject root signatures with invalid shader visibility values.
 
 ### Upcoming Preview Release
 
