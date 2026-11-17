@@ -110,6 +110,8 @@ public:
   TEST_METHOD(CompileCSWaveSize_CheckPSV0)
   TEST_METHOD(CompileCSWaveSizeRange_CheckPSV0)
   TEST_METHOD(PSVLinAlgRuntimeInfoRoundTripAndPrint)
+  TEST_METHOD(RDATMeshNodePreviewTables)
+  TEST_METHOD(RDATMeshNodePreviewAndLinAlgTables)
   TEST_METHOD(CompileWhenOkThenCheckRDAT)
   TEST_METHOD(CompileWhenOkThenCheckRDAT2)
   TEST_METHOD(CompileWhenOkThenCheckRDATSM69)
@@ -1621,6 +1623,85 @@ TEST_F(DxilContainerTest, PSVLinAlgRuntimeInfoRoundTripAndPrint) {
   VERIFY_IS_TRUE(
       Dump.find(" MatrixConstruction[0]: MatrixType=4, Shapes=[invalid]\n") !=
       std::string::npos);
+}
+
+TEST_F(DxilContainerTest, RDATMeshNodePreviewTables) {
+  using namespace hlsl::RDAT;
+  const struct {
+    uint32_t PartType;
+    RecordTableIndex TableIndex;
+    uint32_t RecordStride;
+  } Cases[] = {
+      {13, RecordTableIndex::SignatureElementTable, sizeof(SignatureElement)},
+      {14, RecordTableIndex::VSInfoTable, sizeof(hlsl::RDAT::VSInfo)},
+      {15, RecordTableIndex::PSInfoTable, sizeof(hlsl::RDAT::PSInfo)},
+      {16, RecordTableIndex::HSInfoTable, sizeof(hlsl::RDAT::HSInfo)},
+      {17, RecordTableIndex::DSInfoTable, sizeof(hlsl::RDAT::DSInfo)},
+      {18, RecordTableIndex::GSInfoTable, sizeof(hlsl::RDAT::GSInfo)},
+      {19, RecordTableIndex::CSInfoTable, sizeof(hlsl::RDAT::CSInfo)},
+      {20, RecordTableIndex::MSInfoTable, sizeof(hlsl::RDAT::MSInfo)},
+      {21, RecordTableIndex::ASInfoTable, sizeof(hlsl::RDAT::ASInfo)},
+  };
+  for (const auto &Case : Cases) {
+    std::vector<uint32_t> Data = {
+        RDAT_Version_10,
+        1,
+        3 * sizeof(uint32_t),
+        Case.PartType,
+        static_cast<uint32_t>(sizeof(RuntimeDataTableHeader)) +
+            Case.RecordStride,
+        1,
+        Case.RecordStride};
+    Data.resize(Data.size() + Case.RecordStride / sizeof(uint32_t), 0);
+    DxilRuntimeData Reader;
+    VERIFY_IS_TRUE(
+        Reader.InitFromRDAT(Data.data(), Data.size() * sizeof(uint32_t)));
+    VERIFY_ARE_EQUAL(Case.RecordStride,
+                     Reader.GetContext().Table(Case.TableIndex).Stride());
+  }
+}
+
+TEST_F(DxilContainerTest, RDATMeshNodePreviewAndLinAlgTables) {
+  using namespace hlsl::RDAT;
+  struct {
+    RuntimeDataHeader Header;
+    uint32_t Offsets[2];
+    RuntimeDataPartHeader MeshPart;
+    RuntimeDataTableHeader MeshTable;
+    hlsl::RDAT::MSInfo Mesh;
+    RuntimeDataPartHeader PropertiesPart;
+    RuntimeDataTableHeader PropertiesTable;
+    ExtendedFunctionProperties Properties;
+  } Data = {};
+  Data.Header.Version = RDAT_Version_10;
+  Data.Header.PartCount = 2;
+  Data.Offsets[0] = offsetof(decltype(Data), MeshPart);
+  Data.Offsets[1] = offsetof(decltype(Data), PropertiesPart);
+  Data.MeshPart.Type = static_cast<RuntimeDataPartType>(20);
+  Data.MeshPart.Size = sizeof(Data.MeshTable) + sizeof(Data.Mesh);
+  Data.MeshTable.RecordCount = 1;
+  Data.MeshTable.RecordStride = sizeof(Data.Mesh);
+  Data.Mesh.SigOutputElements = RDAT_NULL_REF;
+  Data.Mesh.SigPrimOutputElements = RDAT_NULL_REF;
+  Data.Mesh.NumThreads = RDAT_NULL_REF;
+  Data.Mesh.MaxOutputVertices = 17;
+  Data.PropertiesPart.Type = static_cast<RuntimeDataPartType>(22);
+  Data.PropertiesPart.Size =
+      sizeof(Data.PropertiesTable) + sizeof(Data.Properties);
+  Data.PropertiesTable.RecordCount = 1;
+  Data.PropertiesTable.RecordStride = sizeof(Data.Properties);
+  Data.Properties.PropertyType =
+      static_cast<uint32_t>(FunctionPropertyType::Flags);
+  Data.Properties.Flags = 0x1234;
+
+  DxilRuntimeData Reader;
+  VERIFY_IS_TRUE(Reader.InitFromRDAT(&Data, sizeof(Data)));
+  auto Mesh = Reader.GetMSInfoTable()[0];
+  VERIFY_IS_TRUE(Mesh);
+  VERIFY_ARE_EQUAL(17u, static_cast<uint32_t>(Mesh.getMaxOutputVertices()));
+  auto Properties = Reader.GetExtendedFunctionPropertiesTable()[0];
+  VERIFY_IS_TRUE(Properties);
+  VERIFY_ARE_EQUAL(0x1234u, Properties.getFlags());
 }
 
 TEST_F(DxilContainerTest, CompileWhenOkThenCheckRDAT) {

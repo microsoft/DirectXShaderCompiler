@@ -53,9 +53,8 @@ stages:
       clean: true
       submodules: true
     - pwsh: |
-        $run = $true
+        $run = $false
         if ("$(Build.Reason)" -eq "PullRequest") {
-          $run = $false
           try {
             $labels = Invoke-RestMethod "https://api.github.com/repos/$(Build.Repository.Name)/issues/$(System.PullRequest.PullRequestNumber)/labels" -ErrorAction Stop
             if ($labels.name -contains "run-offload-tests") { $run = $true }

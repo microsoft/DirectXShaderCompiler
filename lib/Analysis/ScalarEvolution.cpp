@@ -127,7 +127,6 @@ INITIALIZE_PASS_DEPENDENCY(AssumptionCacheTracker)
 INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(DxilValueCache) // HLSL Change
 INITIALIZE_PASS_END(ScalarEvolution, "scalar-evolution",
                 "Scalar Evolution Analysis", false, true)
 char ScalarEvolution::ID = 0;
@@ -2941,11 +2940,14 @@ ScalarEvolution::getGEPExpr(Type *PointeeType, const SCEV *BaseExpr,
   // getSCEV(Base)->getType() has the same address space as Base->getType()
   // because SCEV::getType() preserves the address space.
   Type *IntPtrTy = getEffectiveSCEVType(BaseExpr->getType());
-  // FIXME(PR23527): Don't blindly transfer the inbounds flag from the GEP
-  // instruction to its SCEV, because the Instruction may be guarded by control
-  // flow and the no-overflow bits may not be valid for the expression in any
-  // context.
-  SCEV::NoWrapFlags Wrap = InBounds ? SCEV::FlagNSW : SCEV::FlagAnyWrap;
+  // HLSL Change Begin - Partial backport PR23527 (D109789):
+  // https://github.com/llvm/llvm-project/commit/2ca8a3f2132ec7d46151b4553ee166c4e635fd70
+  // Don't blindly transfer the inbounds flag from the GEP instruction to its
+  // SCEV, because the instruction may be guarded by control flow and the
+  // no-overflow bits may not be valid for the expression in any context.
+  // Match createSCEV's handling of Add and Mul by not propagating inbounds.
+  SCEV::NoWrapFlags Wrap = SCEV::FlagAnyWrap;
+  // HLSL Change End - Partial backport PR23527 (D109789)
 
   const SCEV *TotalOffset = getConstant(IntPtrTy, 0);
   // The address space is unimportant. The first thing we do on CurTy is getting
@@ -5582,7 +5584,12 @@ const SCEV *ScalarEvolution::ComputeExitCountExhaustively(const Loop *L,
                                                           Value *Cond,
                                                           bool ExitWhen) {
   // PHINode *PN = getConstantEvolvingPHI(Cond, L); // HLSL Change
-  PHINode *PN = getConstantEvolvingPHI(Cond, L, &getAnalysis<DxilValueCache>()); // HLSL Change
+  // HLSL Change begin
+  // Loop passes preserve ScalarEvolution without preserving DxilValueCache, so
+  // use a private cache that only lives for this evaluation.
+  DxilValueCache DVC;
+  PHINode *PN = getConstantEvolvingPHI(Cond, L, &DVC);
+  // HLSL Change end
   if (!PN) return getCouldNotCompute();
 
   // If the loop is canonicalized, the PHI will have exactly two entries.
@@ -5606,7 +5613,8 @@ const SCEV *ScalarEvolution::ComputeExitCountExhaustively(const Loop *L,
     // HLSL Change begin
     // If we don't have a constant, try getting a constant from the value cache.
     if (!StartCST)
-      if (Constant *C = getAnalysis<DxilValueCache>().GetConstValue(PHI->getIncomingValue(!SecondIsBackedge)))
+      if (Constant *C =
+              DVC.GetConstValue(PHI->getIncomingValue(!SecondIsBackedge)))
         StartCST = C;
     // HLSL Change end
 
@@ -5620,19 +5628,16 @@ const SCEV *ScalarEvolution::ComputeExitCountExhaustively(const Loop *L,
   SmallVector<std::pair<Instruction *, Constant *>, 4> KnownInvariantOps;
   if (Instruction *CondI = dyn_cast<Instruction>(Cond)) {
     SmallVector<Instruction *, 4> Worklist;
-    DxilValueCache *DVC = &getAnalysis<DxilValueCache>();
 
     Worklist.push_back(CondI);
     while (Worklist.size()) {
       Instruction *I = Worklist.pop_back_val();
 
-      if (Constant *C = DVC->GetConstValue(I)) {
+      if (Constant *C = DVC.GetConstValue(I)) {
         KnownInvariantOps.push_back({ I, C });
-      }
-      else if (CurrentIterVals.count(I)) {
+      } else if (CurrentIterVals.count(I)) {
         continue;
-      }
-      else if (L->contains(I)) {
+      } else if (L->contains(I)) {
         for (Use &U : I->operands()) {
           if (Instruction *OpI = dyn_cast<Instruction>(U.get())) {
             Worklist.push_back(OpI);
@@ -8183,7 +8188,6 @@ void ScalarEvolution::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequiredTransitive<LoopInfoWrapperPass>();
   AU.addRequiredTransitive<DominatorTreeWrapperPass>();
   AU.addRequired<TargetLibraryInfoWrapperPass>();
-  AU.addRequired<DxilValueCache>(); // HLSL Change
 }
 
 bool ScalarEvolution::hasLoopInvariantBackedgeTakenCount(const Loop *L) {
