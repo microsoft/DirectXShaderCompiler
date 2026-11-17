@@ -99,7 +99,6 @@ line upon naming the release. Refer to previous for appropriate section names.
 
 - Improved compiler performance by reducing excessive memory-dependence scans
   during GVN and repeated vector-elimination work.
-- Reject root signatures with invalid shader visibility values.
 - Fixed GVN load forwarding generating unsupported integer types when optimizing
   native vectors
   [#9040](https://github.com/microsoft/DirectXShaderCompiler/issues/9040).
@@ -115,6 +114,7 @@ line upon naming the release. Refer to previous for appropriate section names.
   signed less-than or unsigned compares were treated as a signed minimum.
 - Fixed incorrect shader results caused by stale overflow, exactness, and
   fast-math flags after merging equivalent code from both sides of a branch.
+- Reject root signatures with invalid shader visibility values.
 
 ### Upcoming Preview Release
 
