@@ -17279,12 +17279,16 @@ void DiagnoseVertexEntry(Sema &S, FunctionDecl *FD, llvm::StringRef StageName) {
 // inputs are odd: DXIL accepts any type there and replaces the input with 0.
 
 // Returns the definition of a struct type, or null for anything else. An
-// incomplete struct has already been diagnosed and has nothing to walk.
+// incomplete or invalid struct has already been diagnosed and has nothing to
+// walk (an invalid one can even contain itself).
 static const RecordDecl *GetCullPrimitiveRecord(QualType Ty) {
   const RecordType *RT = Ty->getAs<RecordType>();
   if (!RT || hlsl::IsHLSLVecMatType(Ty))
     return nullptr;
-  return RT->getDecl()->getDefinition();
+  const RecordDecl *RD = RT->getDecl()->getDefinition();
+  if (!RD || RD->isInvalidDecl())
+    return nullptr;
+  return RD;
 }
 
 // The backends apply a semantic on a struct to each of its leaf fields, so
@@ -17294,8 +17298,11 @@ static void DiagnoseCullPrimitiveLeaves(Sema &S, const NamedDecl *SemDecl,
                                         llvm::StringRef SemName,
                                         const NamedDecl *Leaf, QualType Ty) {
   Ty = Ty.getUnqualifiedType();
-  if (Ty->isIncompleteType())
+  if (Ty->isIncompleteType() || Ty->isDependentType())
     return;
+  if (const RecordType *RT = Ty->getAs<RecordType>())
+    if (RT->getDecl()->isInvalidDecl())
+      return;
   if (const RecordDecl *RD = GetCullPrimitiveRecord(Ty)) {
     if (const auto *CRD = dyn_cast<CXXRecordDecl>(RD))
       for (const CXXBaseSpecifier &Base : CRD->bases())
