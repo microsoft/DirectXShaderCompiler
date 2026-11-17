@@ -112,6 +112,8 @@ line upon naming the release. Refer to previous for appropriate section names.
   after bit-tracking dead code elimination.
 - Fixed an optimizer miscompile where selects of bitwise-not values guarded by
   signed less-than or unsigned compares were treated as a signed minimum.
+- Fixed incorrect shader results caused by stale overflow, exactness, and
+  fast-math flags after merging equivalent code from both sides of a branch.
 
 ### Upcoming Preview Release
 
