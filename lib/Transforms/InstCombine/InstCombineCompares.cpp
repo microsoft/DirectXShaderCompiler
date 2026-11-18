@@ -316,6 +316,12 @@ FoldCmpLoadFromIndexedGlobal(GetElementPtrInst *GEP, GlobalVariable *GV,
     // Find out if the comparison would be true or false for the i'th element.
     Constant *C = ConstantFoldCompareInstOperands(ICI.getPredicate(), Elt,
                                                   CompareRHS, DL, TLI);
+    // HLSL Change Begin - Backports
+    // https://github.com/llvm/llvm-project/commit/cd88bfcb5906049e1387b856fc7256e5fae22e5f
+    // Folding a compare can now fail. Upstream's caller already handles that.
+    if (!C)
+      return nullptr;
+    // HLSL Change End
     // If the result is undef for this element, ignore it.
     if (isa<UndefValue>(C)) {
       // Extend range state machines to cover this element in case there is an

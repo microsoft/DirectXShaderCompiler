@@ -5501,8 +5501,11 @@ static Constant *EvaluateExpression(Value *V, const Loop *L,
   }
 
   if (CmpInst *CI = dyn_cast<CmpInst>(I))
+    // HLSL Change - Backports
+    // https://github.com/llvm/llvm-project/commit/758de0e931f47f5953738c6c8c102df1ce72778b
+    // Upstream passes the instruction through ConstantFoldInstOperands.
     return ConstantFoldCompareInstOperands(CI->getPredicate(), Operands[0],
-                                           Operands[1], DL, TLI);
+                                           Operands[1], DL, TLI, CI);
   if (LoadInst *LI = dyn_cast<LoadInst>(I)) {
     if (!LI->isVolatile())
       return ConstantFoldLoadFromConstPtr(Operands[0], DL);
@@ -5948,8 +5951,11 @@ const SCEV *ScalarEvolution::computeSCEVAtScope(const SCEV *V, const Loop *L) {
           Constant *C = nullptr;
           const DataLayout &DL = F->getParent()->getDataLayout();
           if (const CmpInst *CI = dyn_cast<CmpInst>(I))
+            // HLSL Change - Backports
+            // https://github.com/llvm/llvm-project/commit/758de0e931f47f5953738c6c8c102df1ce72778b
+            // Upstream passes the instruction through ConstantFoldInstOperands.
             C = ConstantFoldCompareInstOperands(CI->getPredicate(), Operands[0],
-                                                Operands[1], DL, TLI);
+                                                Operands[1], DL, TLI, CI);
           else if (const LoadInst *LI = dyn_cast<LoadInst>(I)) {
             if (!LI->isVolatile())
               C = ConstantFoldLoadFromConstPtr(Operands[0], DL);

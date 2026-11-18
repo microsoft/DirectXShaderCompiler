@@ -1186,7 +1186,10 @@ static LazyValueInfo::Tristate getPredicateResult(unsigned Pred, Constant *C,
   if (Result.isConstant()) {
     Res = ConstantFoldCompareInstOperands(Pred, Result.getConstant(), C, DL,
                                           TLI);
-    if (ConstantInt *ResCI = dyn_cast<ConstantInt>(Res))
+    // HLSL Change - Backports
+    // https://github.com/llvm/llvm-project/commit/cd88bfcb5906049e1387b856fc7256e5fae22e5f
+    // Folding a compare can now fail. Upstream's caller already handles that.
+    if (ConstantInt *ResCI = dyn_cast_or_null<ConstantInt>(Res))
       return ResCI->isZero() ? LazyValueInfo::False : LazyValueInfo::True;
     return LazyValueInfo::Unknown;
   }

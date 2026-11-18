@@ -985,9 +985,17 @@ ConstantFoldConstantExpressionImpl(const ConstantExpr *CE, const DataLayout &DL,
     Ops.push_back(NewC);
   }
 
-  if (CE->isCompare())
-    return ConstantFoldCompareInstOperands(CE->getPredicate(), Ops[0], Ops[1],
-                                           DL, TLI);
+  if (CE->isCompare()) {
+    // HLSL Change Begin - Backports
+    // https://github.com/llvm/llvm-project/commit/cd88bfcb5906049e1387b856fc7256e5fae22e5f
+    // Folding a compare can now fail. Upstream's callers already keep the
+    // original expression in that case.
+    if (Constant *Res = ConstantFoldCompareInstOperands(
+            CE->getPredicate(), Ops[0], Ops[1], DL, TLI))
+      return Res;
+    return const_cast<ConstantExpr *>(CE);
+    // HLSL Change End
+  }
   return ConstantFoldInstOperands(CE->getOpcode(), CE->getType(), Ops, DL, TLI);
 }
 
@@ -1187,15 +1195,20 @@ Constant *llvm::ConstantFoldInstOperands(unsigned Opcode, Type *DestTy,
 // https://github.com/llvm/llvm-project/commit/d3919a8cc5031fd3d8c1ce3188abc0d7551306fb
 // and https://github.com/llvm/llvm-project/commit/758de0e931f47f5953738c6c8c102df1ce72778b
 // and https://github.com/llvm/llvm-project/commit/bc37be1855773c1dcf8c6bf577a096a81fd58652
+// and https://github.com/llvm/llvm-project/commit/cd88bfcb5906049e1387b856fc7256e5fae22e5f
 // Upstream reads the mode with Function::getDenormalMode() from the
 // "denormal-fp-math" attributes, which this LLVM does not have. DXIL states the
 // mode for float in "fp32-denorm-mode"; half and double keep their denormals.
 // "any" leaves the choice to the driver, which is upstream's Dynamic mode.
+// Without a function upstream assumes Dynamic for every type. Here that only
+// applies to float, since the mode of half and double is fixed.
 enum class DenormalModeKind { IEEE, PreserveSign, Dynamic };
 
 static DenormalModeKind getDenormalMode(const Function *F, Type *Ty) {
-  if (!Ty->isFloatTy())
+  if (!Ty->getScalarType()->isFloatTy())
     return DenormalModeKind::IEEE;
+  if (!F)
+    return DenormalModeKind::Dynamic;
   StringRef Mode =
       F->getFnAttribute(hlsl::DXIL::kFP32DenormKindString).getValueAsString();
   if (Mode == hlsl::DXIL::kFP32DenormValueFtzString)
@@ -1207,40 +1220,109 @@ static DenormalModeKind getDenormalMode(const Function *F, Type *Ty) {
 
 // DXIL has a single mode for inputs and outputs, so IsOutput is unused. It also
 // has no mode that flushes to positive zero.
-Constant *llvm::FlushFPConstant(Constant *Operand, const Instruction *I,
-                                bool IsOutput) {
-  // Upstream also checks I->getFunction(), which this LLVM does not have. A
-  // basic block always has a parent function here.
-  if (!I || !I->getParent())
-    return Operand;
-
-  ConstantFP *CFP = dyn_cast<ConstantFP>(Operand);
-  if (!CFP)
-    return Operand;
-
-  const APFloat &APF = CFP->getValueAPF();
-  // TODO: Should this canonicalize nans?
-  if (!APF.isDenormal())
-    return Operand;
-
-  Type *Ty = CFP->getType();
-  DenormalModeKind Mode = getDenormalMode(I->getParent()->getParent(), Ty);
+static ConstantFP *flushDenormalConstant(Type *Ty, const APFloat &APF,
+                                         DenormalModeKind Mode) {
   switch (Mode) {
-  default:
-    llvm_unreachable("unknown denormal mode");
   case DenormalModeKind::Dynamic:
     return nullptr;
   case DenormalModeKind::IEEE:
-    return Operand;
+    return ConstantFP::get(Ty->getContext(), APF);
   case DenormalModeKind::PreserveSign:
-    if (APF.isDenormal()) {
-      return ConstantFP::get(
-          Ty->getContext(),
-          APFloat::getZero(Ty->getFltSemantics(), APF.isNegative()));
-    }
-    return Operand;
+    return ConstantFP::get(
+        Ty->getContext(),
+        APFloat::getZero(APF.getSemantics(), APF.isNegative()));
+  default:
+    break;
   }
-  return Operand;
+
+  llvm_unreachable("unknown denormal mode");
+}
+
+/// Return the denormal mode that can be assumed when executing a floating point
+/// operation at \p CtxI.
+static DenormalModeKind getInstrDenormalMode(const Instruction *CtxI,
+                                             Type *Ty) {
+  // Upstream also checks CtxI->getFunction(), which this LLVM does not have. A
+  // basic block always has a parent function here.
+  if (!CtxI || !CtxI->getParent())
+    return getDenormalMode(nullptr, Ty);
+  return getDenormalMode(CtxI->getParent()->getParent(), Ty);
+}
+
+static ConstantFP *flushDenormalConstantFP(ConstantFP *CFP,
+                                           const Instruction *Inst,
+                                           bool IsOutput) {
+  const APFloat &APF = CFP->getValueAPF();
+  if (!APF.isDenormal())
+    return CFP;
+
+  DenormalModeKind Mode = getInstrDenormalMode(Inst, CFP->getType());
+  return flushDenormalConstant(CFP->getType(), APF, Mode);
+}
+
+Constant *llvm::FlushFPConstant(Constant *Operand, const Instruction *Inst,
+                                bool IsOutput) {
+  if (ConstantFP *CFP = dyn_cast<ConstantFP>(Operand))
+    return flushDenormalConstantFP(CFP, Inst, IsOutput);
+
+  if (isa<ConstantAggregateZero>(Operand) || isa<UndefValue>(Operand) ||
+      isa<ConstantExpr>(Operand))
+    return Operand;
+
+  Type *Ty = Operand->getType();
+  VectorType *VecTy = dyn_cast<VectorType>(Ty);
+  if (VecTy) {
+    if (auto *Splat = dyn_cast_or_null<ConstantFP>(Operand->getSplatValue())) {
+      ConstantFP *Folded = flushDenormalConstantFP(Splat, Inst, IsOutput);
+      if (!Folded)
+        return nullptr;
+      return ConstantVector::getSplat(VecTy->getNumElements(), Folded);
+    }
+
+    Ty = VecTy->getElementType();
+  }
+
+  if (const auto *CV = dyn_cast<ConstantVector>(Operand)) {
+    SmallVector<Constant *, 16> NewElts;
+    for (unsigned i = 0, e = CV->getNumOperands(); i != e; ++i) {
+      Constant *Element = CV->getAggregateElement(i);
+      if (isa<UndefValue>(Element)) {
+        NewElts.push_back(Element);
+        continue;
+      }
+
+      ConstantFP *CFP = dyn_cast<ConstantFP>(Element);
+      if (!CFP)
+        return nullptr;
+
+      ConstantFP *Folded = flushDenormalConstantFP(CFP, Inst, IsOutput);
+      if (!Folded)
+        return nullptr;
+      NewElts.push_back(Folded);
+    }
+
+    return ConstantVector::get(NewElts);
+  }
+
+  if (const auto *CDV = dyn_cast<ConstantDataVector>(Operand)) {
+    SmallVector<Constant *, 16> NewElts;
+    for (unsigned I = 0, E = CDV->getNumElements(); I < E; ++I) {
+      const APFloat &Elt = CDV->getElementAsAPFloat(I);
+      if (!Elt.isDenormal()) {
+        NewElts.push_back(ConstantFP::get(Ty->getContext(), Elt));
+      } else {
+        DenormalModeKind Mode = getInstrDenormalMode(Inst, Ty);
+        ConstantFP *Folded = flushDenormalConstant(Ty, Elt, Mode);
+        if (!Folded)
+          return nullptr;
+        NewElts.push_back(Folded);
+      }
+    }
+
+    return ConstantVector::get(NewElts);
+  }
+
+  return nullptr;
 }
 
 Constant *llvm::ConstantFoldFPInstOperands(unsigned Opcode, Constant *LHS,
@@ -1355,14 +1437,17 @@ Constant *llvm::ConstantFoldCompareInstOperands(
 
   // HLSL Change Begin - Backports
   // https://github.com/llvm/llvm-project/commit/758de0e931f47f5953738c6c8c102df1ce72778b
-  // Flush any denormal constant float input according to denormal handling
-  // mode.
-  Ops0 = FlushFPConstant(Ops0, I, /* IsOutput */ false);
-  if (!Ops0)
-    return nullptr;
-  Ops1 = FlushFPConstant(Ops1, I, /* IsOutput */ false);
-  if (!Ops1)
-    return nullptr;
+  // and https://github.com/llvm/llvm-project/commit/cd88bfcb5906049e1387b856fc7256e5fae22e5f
+  if (CmpInst::isFPPredicate((CmpInst::Predicate)Predicate)) {
+    // Flush any denormal constant float input according to denormal handling
+    // mode.
+    Ops0 = FlushFPConstant(Ops0, I, /*IsOutput=*/false);
+    if (!Ops0)
+      return nullptr;
+    Ops1 = FlushFPConstant(Ops1, I, /*IsOutput=*/false);
+    if (!Ops1)
+      return nullptr;
+  }
   // HLSL Change End
 
   return ConstantExpr::getCompare(Predicate, Ops0, Ops1);
