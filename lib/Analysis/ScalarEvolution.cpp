@@ -5477,8 +5477,11 @@ static Constant *EvaluateExpression(Value *V, const Loop *L,
     if (!LI->isVolatile())
       return ConstantFoldLoadFromConstPtr(Operands[0], DL);
   }
+  // HLSL Change Begin - Backports
+  // https://github.com/llvm/llvm-project/commit/b6e102e08cd35543175459494211a3a15f793302
   return ConstantFoldInstOperands(I->getOpcode(), I->getType(), Operands, DL,
-                                  TLI);
+                                  TLI, I, /*AllowNonDeterministic=*/false);
+  // HLSL Change End
 }
 
 /// getConstantEvolutionLoopExitValue - If we know that the specified Phi is
@@ -5900,9 +5903,14 @@ const SCEV *ScalarEvolution::computeSCEVAtScope(const SCEV *V, const Loop *L) {
           else if (const LoadInst *LI = dyn_cast<LoadInst>(I)) {
             if (!LI->isVolatile())
               C = ConstantFoldLoadFromConstPtr(Operands[0], DL);
-          } else
+          } else {
+            // HLSL Change Begin - Backports
+            // https://github.com/llvm/llvm-project/commit/b6e102e08cd35543175459494211a3a15f793302
             C = ConstantFoldInstOperands(I->getOpcode(), I->getType(), Operands,
-                                         DL, TLI);
+                                         DL, TLI, I,
+                                         /*AllowNonDeterministic=*/false);
+            // HLSL Change End
+          }
           if (!C) return V;
           return getSCEV(C);
         }
