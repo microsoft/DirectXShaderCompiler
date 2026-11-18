@@ -384,7 +384,7 @@ if not exist %TEST_DIR% (mkdir %TEST_DIR%)
 echo Copying binaries to test to %TEST_DIR%:
 if not defined CUSTOM_BIN_SET (
   if not "%TEST_USE_LIT%"=="1" (
-    call %HCT_DIR%\hctcopy.cmd %BIN_DIR% %TEST_DIR% ClangHLSLTests.dll ExecHLSLTests.dll
+    call %HCT_DIR%\hctcopy.cmd %BIN_DIR% %TEST_DIR% ClangHLSLTests.dll DxilConf.dll
   )
   call %HCT_DIR%\hctcopy.cmd %BIN_DIR% %TEST_DIR% dxa.exe dxc.exe dxexp.exe dxopt.exe dxr.exe dxv.exe dxcompiler.dll d3dcompiler_dxc_bridge.dll dxl.exe dxc_batch.exe dxlib_sample.dll
   if errorlevel 1 exit /b 1
@@ -457,7 +457,7 @@ if "%TEST_EXEC%"=="1" (
 set EXEC_COMMON_ARGS=/p:"ExperimentalShaders=*" %TEST_ADAPTER% %USE_AGILITY_SDK%
 if "%TEST_EXEC%"=="1" (
   echo Sniffing for D3D12 configuration ...
-  call :runte ExecHLSLTests.dll /select:"@Name='DxilConfTest::BasicTriangleTest' AND @Architecture='%TEST_ARCH%'" %EXEC_COMMON_ARGS%
+  call :runte DxilConf.dll /select:"@Name='DxilConfTest::BasicTriangleTest' AND @Architecture='%TEST_ARCH%'" %EXEC_COMMON_ARGS%
   set RES_EXEC=!ERRORLEVEL!
   if errorlevel 1 (
     if not "%TEST_EXEC_REQUIRED%"=="1" (
@@ -476,7 +476,7 @@ if "%TEST_EXEC%"=="1" (
   ) else (
     set SELECT_FILTER= /select:"@Name='%TEST_EXEC_FILTER%' AND @Priority<2 AND @Architecture='%TEST_ARCH%'"
   )
-  call :runte ExecHLSLTests.dll !SELECT_FILTER! %EXEC_COMMON_ARGS% %ADDITIONAL_OPTS%
+  call :runte DxilConf.dll !SELECT_FILTER! %EXEC_COMMON_ARGS% %ADDITIONAL_OPTS%
   set RES_EXEC=!ERRORLEVEL!
 )
 

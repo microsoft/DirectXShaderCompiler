@@ -1944,7 +1944,7 @@
   </ShaderOp>
 
   <!-- 64-bit raw atomics tests. Used for tests that don't require atomics on heap resources -->
-  <!-- For explanations of the atomics tests, see comments in and around VerifyAtomicResults in Executiontest.cpp -->
+  <!-- For explanations of the atomics tests, see comments in and around VerifyAtomicResults in DxilConf.cpp -->
   <ShaderOp Name="AtomicsRoot" PS="PS" VS="VS" CS="CS" AS="AS" MS="MS" TopologyType="TRIANGLE">
     <RootSignature>
       RootFlags(ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT),
@@ -2279,7 +2279,7 @@
   </ShaderOp>
 
   <!-- Used by 32-bit atomics and typed 64-bit atomics tests, which require heap descriptor support  -->
-  <!-- For explanations of the atomics tests, see comments in and around VerifyAtomicResults in Executiontest.cpp -->
+  <!-- For explanations of the atomics tests, see comments in and around VerifyAtomicResults in DxilConf.cpp -->
   <ShaderOp Name="AtomicsHeap" PS="PS" VS="VS" CS="CS" AS="AS" MS="MS" TopologyType="TRIANGLE">
     <RootSignature>
       RootFlags(ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT),
