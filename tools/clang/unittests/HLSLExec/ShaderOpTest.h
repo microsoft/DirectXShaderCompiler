@@ -291,6 +291,7 @@ public:
   void SetSpecificDllLoader(dxc::SpecificDllLoader *pDxcSupport);
   void SetInitCallback(TInitCallbackFn InitCallbackFn);
   void SetShaderCallback(TShaderCallbackFn ShaderCallbackFn);
+  void SetPreDispatchCallback(TCommandCallbackFn PreDispatchCallbackFn);
   void SetPostDispatchCallback(TCommandCallbackFn PostDispatchCallbackFn);
   void SetupRenderTarget(ShaderOp *pShaderOp, ID3D12Device *pDevice,
                          ID3D12CommandQueue *pCommandQueue,
@@ -332,6 +333,7 @@ private:
   std::shared_ptr<ShaderOp> m_OrigShaderOp;
   TInitCallbackFn m_InitCallbackFn = nullptr;
   TShaderCallbackFn m_ShaderCallbackFn = nullptr;
+  TCommandCallbackFn m_PreDispatchCallbackFn = nullptr;
   TCommandCallbackFn m_PostDispatchCallbackFn = nullptr;
   void CopyBackResources();
   void CreateCommandList();
@@ -364,7 +366,8 @@ std::shared_ptr<ShaderOpTestResult> RunShaderOpTestAfterParse(
     st::ShaderOpTest::TInitCallbackFn pInitCallback,
     st::ShaderOpTest::TShaderCallbackFn pShaderCallback,
     st::ShaderOpTest::TCommandCallbackFn pPostDispatchCallback,
-    std::shared_ptr<st::ShaderOpSet> ShaderOpSet);
+    std::shared_ptr<st::ShaderOpSet> ShaderOpSet,
+    st::ShaderOpTest::TCommandCallbackFn pPreDispatchCallback = nullptr);
 
 std::shared_ptr<ShaderOpTestResult>
 RunShaderOpTestAfterParse(ID3D12Device *pDevice,

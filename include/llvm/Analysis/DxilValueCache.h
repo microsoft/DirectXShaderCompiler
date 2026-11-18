@@ -21,7 +21,7 @@ class Constant;
 class ConstantInt;
 class PHINode;
 
-struct DxilValueCache : public ImmutablePass {
+struct DxilValueCache : public FunctionPass {
   static char ID;
 
   // Special Weak Value to Weak Value map.
@@ -42,6 +42,8 @@ struct DxilValueCache : public ImmutablePass {
     };
     ValueMap<const Value *, ValueEntry> Map;
     Value *Get(Value *V);
+    // Returns the cached value for V, or null, without computing anything.
+    Value *Lookup(const Value *V) const;
     void Set(Value *Key, Value *V);
     bool Seen(Value *v);
     void SetSentinel(Value *V);
@@ -57,6 +59,7 @@ struct DxilValueCache : public ImmutablePass {
 private:
   WeakValueMap Map;
   bool (*ShouldSkipCallback)(Value *V) = nullptr;
+  Function *F = nullptr;
 
   void MarkUnreachable(BasicBlock *BB);
   bool IsUnreachable_(BasicBlock *BB);
@@ -74,6 +77,9 @@ public:
   StringRef getPassName() const override;
   DxilValueCache();
   void getAnalysisUsage(AnalysisUsage &) const override;
+  bool runOnFunction(Function &F) override;
+  void releaseMemory() override { ResetAll(); }
+  void print(raw_ostream &OS, const Module *M = nullptr) const override;
 
   void dump() const;
   Value *GetValue(Value *V, DominatorTree *DT = nullptr);

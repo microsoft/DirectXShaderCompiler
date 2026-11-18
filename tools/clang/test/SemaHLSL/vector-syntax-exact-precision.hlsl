@@ -1,7 +1,7 @@
 // RUN: %dxc -Tlib_6_3 -enable-16bit-types -verify -HV 2018 %s
 
-float3 f3_ones = 1.0.xxx;
-float3 f3_ones_exp = 2.0e+2.rrr;
+float3 f3_ones = 1.0.xxx;    /* expected-warning {{initializer for a variable in a cbuffer will be ignored}} */
+float3 f3_ones_exp = 2.0e+2.rrr;    /* expected-warning {{initializer for a variable in a cbuffer will be ignored}} */
 
 vector v;
 vector<float, 1+1> v1p1;

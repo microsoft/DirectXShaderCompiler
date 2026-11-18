@@ -1156,7 +1156,11 @@ static bool HasFeature(const Preprocessor &PP, const IdentifierInfo *II) {
       .Case("cxx_unicode_literals", LangOpts.CPlusPlus11)
       .Case("cxx_unrestricted_unions", LangOpts.CPlusPlus11)
       .Case("cxx_user_literals", LangOpts.CPlusPlus11)
-      .Case("cxx_variadic_templates", LangOpts.CPlusPlus11)
+      // HLSL Change Begin - Enable variadic templates.
+      .Case("cxx_variadic_templates",
+            LangOpts.CPlusPlus11 ||
+                (LangOpts.HLSL && !LangOpts.HLSLDisallowsVariadicTemplates()))
+      // HLSL Change End.
       // C++1y features
       .Case("cxx_aggregate_nsdmi", LangOpts.CPlusPlus14)
       .Case("cxx_binary_literals", LangOpts.CPlusPlus14)
@@ -1231,30 +1235,31 @@ static bool HasExtension(const Preprocessor &PP, const IdentifierInfo *II) {
   // Because we inherit the feature list from HasFeature, this string switch
   // must be less restrictive than HasFeature's.
   return llvm::StringSwitch<bool>(Extension)
-           // C11 features supported by other languages as extensions.
-           .Case("c_alignas", true)
-           .Case("c_alignof", true)
-           .Case("c_atomic", true)
-           .Case("c_generic_selections", true)
-           .Case("c_static_assert", true)
-           .Case("c_thread_local", PP.getTargetInfo().isTLSSupported())
-           // C++11 features supported by other languages as extensions.
-           .Case("cxx_atomic", LangOpts.CPlusPlus)
-           .Case("cxx_deleted_functions", LangOpts.CPlusPlus)
-           .Case("cxx_explicit_conversions", LangOpts.CPlusPlus)
-           .Case("cxx_inline_namespaces", LangOpts.CPlusPlus)
-           .Case("cxx_local_type_template_args", LangOpts.CPlusPlus)
-           .Case("cxx_nonstatic_member_init", LangOpts.CPlusPlus)
-           .Case("cxx_override_control", LangOpts.CPlusPlus)
-           .Case("cxx_range_for", LangOpts.CPlusPlus)
-           .Case("cxx_reference_qualified_functions", LangOpts.CPlusPlus)
-           .Case("cxx_rvalue_references", LangOpts.CPlusPlus)
-           .Case("cxx_variadic_templates", LangOpts.CPlusPlus)
-           // C++1y features supported by other languages as extensions.
-           .Case("cxx_binary_literals", true)
-           .Case("cxx_init_captures", LangOpts.CPlusPlus11)
-           .Case("cxx_variable_templates", LangOpts.CPlusPlus)
-           .Default(false);
+      // C11 features supported by other languages as extensions.
+      .Case("c_alignas", true)
+      .Case("c_alignof", true)
+      .Case("c_atomic", true)
+      .Case("c_generic_selections", true)
+      .Case("c_static_assert", true)
+      .Case("c_thread_local", PP.getTargetInfo().isTLSSupported())
+      // C++11 features supported by other languages as extensions.
+      .Case("cxx_atomic", LangOpts.CPlusPlus)
+      .Case("cxx_deleted_functions", LangOpts.CPlusPlus)
+      .Case("cxx_explicit_conversions", LangOpts.CPlusPlus)
+      .Case("cxx_inline_namespaces", LangOpts.CPlusPlus)
+      .Case("cxx_local_type_template_args", LangOpts.CPlusPlus)
+      .Case("cxx_nonstatic_member_init", LangOpts.CPlusPlus)
+      .Case("cxx_override_control", LangOpts.CPlusPlus)
+      .Case("cxx_range_for", LangOpts.CPlusPlus)
+      .Case("cxx_reference_qualified_functions", LangOpts.CPlusPlus)
+      .Case("cxx_rvalue_references", LangOpts.CPlusPlus)
+      .Case("cxx_variadic_templates",
+            LangOpts.CPlusPlus && !LangOpts.HLSLDisallowsVariadicTemplates())
+      // C++1y features supported by other languages as extensions.
+      .Case("cxx_binary_literals", true)
+      .Case("cxx_init_captures", LangOpts.CPlusPlus11)
+      .Case("cxx_variable_templates", LangOpts.CPlusPlus)
+      .Default(false);
 }
 
 /// EvaluateHasIncludeCommon - Process a '__has_include("path")'

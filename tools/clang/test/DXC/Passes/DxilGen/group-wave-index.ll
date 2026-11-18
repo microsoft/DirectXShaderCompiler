@@ -1,8 +1,8 @@
 ; REQUIRES: dxil-1-10
 ; RUN: %dxopt %s -hlsl-passes-resume -dxilgen -S | FileCheck %s
 
-; CHECK: call i32 @dx.op.getGroupWaveIndex(i32 -2147483647)
-; CHECK: call i32 @dx.op.getGroupWaveCount(i32 -2147483646)
+; CHECK: call i32 @dx.op.getGroupWaveIndex(i32 312)
+; CHECK: call i32 @dx.op.getGroupWaveCount(i32 313)
 
 ; Generated from:
 ; utils/hct/ExtractIRForPassTest.py -p dxilgen -o tools/clang/test/DXC/Passes/DxilGen/group-wave-index.ll tools/clang/test/HLSLFileCheckLit/hlsl/intrinsics/wave/group-wave-index.hlsl -- -T cs_6_10 -E main

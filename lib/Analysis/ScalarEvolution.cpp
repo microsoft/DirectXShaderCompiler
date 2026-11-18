@@ -127,7 +127,6 @@ INITIALIZE_PASS_DEPENDENCY(AssumptionCacheTracker)
 INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(DxilValueCache) // HLSL Change
 INITIALIZE_PASS_END(ScalarEvolution, "scalar-evolution",
                 "Scalar Evolution Analysis", false, true)
 char ScalarEvolution::ID = 0;
@@ -2941,11 +2940,14 @@ ScalarEvolution::getGEPExpr(Type *PointeeType, const SCEV *BaseExpr,
   // getSCEV(Base)->getType() has the same address space as Base->getType()
   // because SCEV::getType() preserves the address space.
   Type *IntPtrTy = getEffectiveSCEVType(BaseExpr->getType());
-  // FIXME(PR23527): Don't blindly transfer the inbounds flag from the GEP
-  // instruction to its SCEV, because the Instruction may be guarded by control
-  // flow and the no-overflow bits may not be valid for the expression in any
-  // context.
-  SCEV::NoWrapFlags Wrap = InBounds ? SCEV::FlagNSW : SCEV::FlagAnyWrap;
+  // HLSL Change Begin - Partial backport PR23527 (D109789):
+  // https://github.com/llvm/llvm-project/commit/2ca8a3f2132ec7d46151b4553ee166c4e635fd70
+  // Don't blindly transfer the inbounds flag from the GEP instruction to its
+  // SCEV, because the instruction may be guarded by control flow and the
+  // no-overflow bits may not be valid for the expression in any context.
+  // Match createSCEV's handling of Add and Mul by not propagating inbounds.
+  SCEV::NoWrapFlags Wrap = SCEV::FlagAnyWrap;
+  // HLSL Change End - Partial backport PR23527 (D109789)
 
   const SCEV *TotalOffset = getConstant(IntPtrTy, 0);
   // The address space is unimportant. The first thing we do on CurTy is getting
@@ -5039,11 +5041,24 @@ ScalarEvolution::ComputeExitLimitFromCond(const Loop *L,
         // Both conditions must be true at the same time for the loop to exit.
         // For now, be conservative.
         assert(L->contains(FBB) && "Loop block has no successor in loop!");
-        if (EL0.Max == EL1.Max)
-          MaxBECount = EL0.Max;
+        // HLSL Change - Remove equal-Max shortcut (D91942):
+        // https://github.com/llvm/llvm-project/commit/48d7cc6ae23b0e5b1922457462d0f6e4582a1ae7
+        // Upstream removes it once, from a helper shared by `and` and `or`.
+        // This LLVM handles the two separately, so it is removed from both.
         if (EL0.Exact == EL1.Exact)
           BECount = EL0.Exact;
       }
+
+      // HLSL Change Begin - Backport PR26207:
+      // https://github.com/llvm/llvm-project/commit/29a4b5dc0d754c9a45f62a8af0cc36e8de4f968d
+      // There are cases (e.g. PR26207) where computeExitLimitFromCond is able
+      // to be more aggressive when computing BECount than when computing
+      // MaxBECount.  In these cases it is possible for EL0.Exact and EL1.Exact
+      // to match, but for EL0.Max and EL1.Max to not.
+      if (isa<SCEVCouldNotCompute>(MaxBECount) &&
+          !isa<SCEVCouldNotCompute>(BECount))
+        MaxBECount = BECount;
+      // HLSL Change End
 
       return ExitLimit(BECount, MaxBECount);
     }
@@ -5074,11 +5089,28 @@ ScalarEvolution::ComputeExitLimitFromCond(const Loop *L,
         // Both conditions must be false at the same time for the loop to exit.
         // For now, be conservative.
         assert(L->contains(TBB) && "Loop block has no successor in loop!");
-        if (EL0.Max == EL1.Max)
-          MaxBECount = EL0.Max;
+        // HLSL Change - Remove equal-Max shortcut (D91942):
+        // https://github.com/llvm/llvm-project/commit/48d7cc6ae23b0e5b1922457462d0f6e4582a1ae7
+        // Upstream removes it once, from a helper shared by `and` and `or`.
+        // This LLVM handles the two separately, so it is removed from both.
         if (EL0.Exact == EL1.Exact)
           BECount = EL0.Exact;
       }
+
+      // HLSL Change Begin - Backport D58853:
+      // https://github.com/llvm/llvm-project/commit/98f11a7d75b54b44b3b136b537644fd3f6d77239
+      // There are cases (e.g. PR26207) where computeExitLimitFromCond is able
+      // to be more aggressive when computing BECount than when computing
+      // MaxBECount.  In these cases it is possible for EL0.Exact and EL1.Exact
+      // to match, but for EL0.Max and EL1.Max to not.
+      // Upstream assigns getConstant(getUnsignedRangeMax(BECount)) because it
+      // requires max counts to be constants by then. This LLVM has no such
+      // requirement (ExitLimit(E) uses E as the max count), so BECount is used
+      // directly, as in the PR26207 backport above.
+      if (isa<SCEVCouldNotCompute>(MaxBECount) &&
+          !isa<SCEVCouldNotCompute>(BECount))
+        MaxBECount = BECount;
+      // HLSL Change End
 
       return ExitLimit(BECount, MaxBECount);
     }
@@ -5475,8 +5507,11 @@ static Constant *EvaluateExpression(Value *V, const Loop *L,
     if (!LI->isVolatile())
       return ConstantFoldLoadFromConstPtr(Operands[0], DL);
   }
+  // HLSL Change Begin - Backports
+  // https://github.com/llvm/llvm-project/commit/b6e102e08cd35543175459494211a3a15f793302
   return ConstantFoldInstOperands(I->getOpcode(), I->getType(), Operands, DL,
-                                  TLI);
+                                  TLI, I, /*AllowNonDeterministic=*/false);
+  // HLSL Change End
 }
 
 /// getConstantEvolutionLoopExitValue - If we know that the specified Phi is
@@ -5573,6 +5608,25 @@ ScalarEvolution::getConstantEvolutionLoopExitValue(PHINode *PN,
   }
 }
 
+// HLSL Change begin
+// Returns true if DxilValueCache should not fold \p V. DxilValueCache does not
+// restrict itself to deterministic folds, so nothing that computes or reads a
+// floating-point value is taken from it.
+static bool SkipFloatingPointValue(Value *V) {
+  if (V->getType()->isFPOrFPVectorTy()) {
+    return true;
+  }
+  if (CallInst *CI = dyn_cast<CallInst>(V)) {
+    for (Value *Arg : CI->arg_operands()) {
+      if (Arg->getType()->isFPOrFPVectorTy()) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+// HLSL Change end
+
 /// ComputeExitCountExhaustively - If the loop is known to execute a
 /// constant number of times (the condition evolves only from constants),
 /// try to evaluate a few iterations of the loop until we get the exit
@@ -5582,7 +5636,13 @@ const SCEV *ScalarEvolution::ComputeExitCountExhaustively(const Loop *L,
                                                           Value *Cond,
                                                           bool ExitWhen) {
   // PHINode *PN = getConstantEvolvingPHI(Cond, L); // HLSL Change
-  PHINode *PN = getConstantEvolvingPHI(Cond, L, &getAnalysis<DxilValueCache>()); // HLSL Change
+  // HLSL Change begin
+  // Loop passes preserve ScalarEvolution without preserving DxilValueCache, so
+  // use a private cache that only lives for this evaluation.
+  DxilValueCache DVC;
+  DVC.SetShouldSkipCallback(SkipFloatingPointValue);
+  PHINode *PN = getConstantEvolvingPHI(Cond, L, &DVC);
+  // HLSL Change end
   if (!PN) return getCouldNotCompute();
 
   // If the loop is canonicalized, the PHI will have exactly two entries.
@@ -5606,7 +5666,8 @@ const SCEV *ScalarEvolution::ComputeExitCountExhaustively(const Loop *L,
     // HLSL Change begin
     // If we don't have a constant, try getting a constant from the value cache.
     if (!StartCST)
-      if (Constant *C = getAnalysis<DxilValueCache>().GetConstValue(PHI->getIncomingValue(!SecondIsBackedge)))
+      if (Constant *C =
+              DVC.GetConstValue(PHI->getIncomingValue(!SecondIsBackedge)))
         StartCST = C;
     // HLSL Change end
 
@@ -5620,19 +5681,16 @@ const SCEV *ScalarEvolution::ComputeExitCountExhaustively(const Loop *L,
   SmallVector<std::pair<Instruction *, Constant *>, 4> KnownInvariantOps;
   if (Instruction *CondI = dyn_cast<Instruction>(Cond)) {
     SmallVector<Instruction *, 4> Worklist;
-    DxilValueCache *DVC = &getAnalysis<DxilValueCache>();
 
     Worklist.push_back(CondI);
     while (Worklist.size()) {
       Instruction *I = Worklist.pop_back_val();
 
-      if (Constant *C = DVC->GetConstValue(I)) {
+      if (Constant *C = DVC.GetConstValue(I)) {
         KnownInvariantOps.push_back({ I, C });
-      }
-      else if (CurrentIterVals.count(I)) {
+      } else if (CurrentIterVals.count(I)) {
         continue;
-      }
-      else if (L->contains(I)) {
+      } else if (L->contains(I)) {
         for (Use &U : I->operands()) {
           if (Instruction *OpI = dyn_cast<Instruction>(U.get())) {
             Worklist.push_back(OpI);
@@ -5895,9 +5953,14 @@ const SCEV *ScalarEvolution::computeSCEVAtScope(const SCEV *V, const Loop *L) {
           else if (const LoadInst *LI = dyn_cast<LoadInst>(I)) {
             if (!LI->isVolatile())
               C = ConstantFoldLoadFromConstPtr(Operands[0], DL);
-          } else
+          } else {
+            // HLSL Change Begin - Backports
+            // https://github.com/llvm/llvm-project/commit/b6e102e08cd35543175459494211a3a15f793302
             C = ConstantFoldInstOperands(I->getOpcode(), I->getType(), Operands,
-                                         DL, TLI);
+                                         DL, TLI, I,
+                                         /*AllowNonDeterministic=*/false);
+            // HLSL Change End
+          }
           if (!C) return V;
           return getSCEV(C);
         }
@@ -7253,9 +7316,16 @@ bool ScalarEvolution::isImpliedCondOperandsViaRanges(ICmpInst::Predicate Pred,
     return false;
 
   const SCEVAddExpr *AddLHS = dyn_cast<SCEVAddExpr>(LHS);
-  if (!AddLHS || AddLHS->getOperand(1) != FoundLHS ||
+  // HLSL Change Begin - Require a two-operand add so extra terms in a
+  // multi-operand SCEVAddExpr are not ignored. Upstream fixed this
+  // incidentally in r276505 by switching to a helper that checks for a
+  // binary add:
+  // https://github.com/llvm/llvm-project/commit/a7d9ec8751b1bb045f83934e9be202a191249db8
+  if (!AddLHS || AddLHS->getNumOperands() != 2 ||
+      AddLHS->getOperand(1) != FoundLHS ||
       !isa<SCEVConstant>(AddLHS->getOperand(0)))
     return false;
+  // HLSL Change End
 
   APInt ConstFoundRHS = cast<SCEVConstant>(FoundRHS)->getValue()->getValue();
 
@@ -8183,7 +8253,6 @@ void ScalarEvolution::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequiredTransitive<LoopInfoWrapperPass>();
   AU.addRequiredTransitive<DominatorTreeWrapperPass>();
   AU.addRequired<TargetLibraryInfoWrapperPass>();
-  AU.addRequired<DxilValueCache>(); // HLSL Change
 }
 
 bool ScalarEvolution::hasLoopInvariantBackedgeTakenCount(const Loop *L) {

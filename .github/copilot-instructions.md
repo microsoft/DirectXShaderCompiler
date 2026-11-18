@@ -31,3 +31,22 @@ Comment tone:
 - Use a stronger ask when the PR clearly appears to be a user-visible bug fix or feature.
 - If release-note coverage may come in a related PR (including a future PR), ask the author to point to that planned coverage.
 - If uncertain, prefer the gentle **"Did you consider adding a release note?"** wording.
+
+## Missing tests
+
+When reviewing a pull request, check whether it includes any test changes.
+
+If a PR changes functional behavior (for example, compiler, validator, or runtime source code) and does not add or modify **any** tests, include this meme in the review summary:
+
+```markdown
+![Seagulls asking "TEST CASE?"](https://github.com/user-attachments/assets/dbb4ac69-6c21-40d7-9b35-d3fc1d2d33d4)
+```
+
+Follow the meme with a brief request to add tests that cover the change.
+
+Only post the meme when tests are entirely absent. Do not post it when:
+- The PR adds or modifies tests, even if coverage seems incomplete. Leave a normal review comment about the specific gaps instead.
+- The PR is docs-only, infrastructure-only, a dependency bump, or a refactor marked NFC (no functional change).
+- The PR explains why tests are infeasible or points to tests in a related PR.
+
+Post the meme at most once per PR.

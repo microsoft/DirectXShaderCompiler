@@ -3383,7 +3383,10 @@ static SelectPatternFlavor matchSelectPattern(ICmpInst::Predicate Pred,
     
     // Y >s C ? ~Y : ~C == ~Y <s ~C ? ~Y : ~C = SMIN(~Y, ~C)
     if (const auto *C2 = dyn_cast<ConstantInt>(FalseVal)) {
-      if (C1->getType() == C2->getType() && ~C1->getValue() == C2->getValue() &&
+      // HLSL Change - Add missing sgt check. Backport of rL264996 (PR27137):
+      // https://github.com/llvm/llvm-project/commit/56df0ec61033a5bb49b3620e70cc6a61e26b3e7a
+      if (Pred == ICmpInst::ICMP_SGT && C1->getType() == C2->getType() &&
+          ~C1->getValue() == C2->getValue() &&
           (match(TrueVal, m_Not(m_Specific(CmpLHS))) ||
            match(CmpLHS, m_Not(m_Specific(TrueVal))))) {
         LHS = TrueVal;
@@ -3406,21 +3409,32 @@ static Constant *lookThroughCast(ICmpInst *CmpI, Value *V1, Value *V2,
     return nullptr;
   *CastOp = CI->getOpcode();
 
-  if (isa<SExtInst>(CI) && CmpI->isSigned()) {
-    Constant *T = ConstantExpr::getTrunc(C, CI->getSrcTy());
-    // This is only valid if the truncated value can be sign-extended
-    // back to the original value.
-    if (ConstantExpr::getSExt(T, C->getType()) == C)
-      return T;
-    return nullptr;
-  }
+  // HLSL Change Begin - Check round-trip cast in lookThroughCast. Backports:
+  // https://github.com/llvm/llvm-project/commit/d2a074b1f463806a2c0e6a56b950a73635350fe7
+  // https://github.com/llvm/llvm-project/commit/826e9831a7f6f1a414d83373d1207c516c88089d
+  Constant *CastedTo = nullptr;
+
   if (isa<ZExtInst>(CI) && CmpI->isUnsigned())
-    return ConstantExpr::getTrunc(C, CI->getSrcTy());
+    CastedTo = ConstantExpr::getTrunc(C, CI->getSrcTy());
+
+  if (isa<SExtInst>(CI) && CmpI->isSigned())
+    CastedTo = ConstantExpr::getTrunc(C, CI->getSrcTy(), true);
 
   if (isa<TruncInst>(CI))
-    return ConstantExpr::getIntegerCast(C, CI->getSrcTy(), CmpI->isSigned());
+    CastedTo =
+        ConstantExpr::getIntegerCast(C, CI->getSrcTy(), CmpI->isSigned());
 
-  return nullptr;
+  if (!CastedTo)
+    return nullptr;
+
+  Constant *CastedBack =
+      ConstantExpr::getCast(CI->getOpcode(), CastedTo, C->getType(), true);
+  // Make sure the cast doesn't lose any information.
+  if (CastedBack != C)
+    return nullptr;
+
+  return CastedTo;
+  // HLSL Change End
 }
 
 SelectPatternFlavor llvm::matchSelectPattern(Value *V,

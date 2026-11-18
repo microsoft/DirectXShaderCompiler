@@ -21,11 +21,13 @@
 #include "dxc/DxilContainer/DxilContainerAssembler.h"
 #include "dxc/DxilContainer/DxilPipelineStateValidation.h"
 #include "dxc/DxilHash/DxilHash.h"
+#include "dxc/DxilRootSignature/DxilRootSignature.h"
 #include "dxc/Support/Unicode.h" // for wstring conversions like WideToUtf8String
 #include "dxc/Support/WinIncludes.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/Regex.h"
+#include "llvm/Support/raw_ostream.h"
 #include <wchar.h>
 
 #ifdef _WIN32
@@ -220,6 +222,7 @@ public:
 
   TEST_METHOD(WhenRootSigMismatchThenFail)
   TEST_METHOD(WhenRootSigCompatThenSucceed)
+  TEST_METHOD(RootSignatureShaderVisibilityValidation)
   TEST_METHOD(WhenRootSigMatchShaderSucceed_RootConstVis)
   TEST_METHOD(WhenRootSigMatchShaderFail_RootConstVis)
   TEST_METHOD(WhenRootSigMatchShaderSucceed_RootCBV)
@@ -326,6 +329,7 @@ public:
   TEST_METHOD(PSVContentValidationCS)
   TEST_METHOD(PSVContentValidationMS)
   TEST_METHOD(PSVContentValidationAS)
+  TEST_METHOD(PSVContentValidationLinAlg)
   TEST_METHOD(UnitTestExtValidationSupport)
   TEST_METHOD(WrongPSVSize)
   TEST_METHOD(WrongPSVSizeOnZeros)
@@ -2622,6 +2626,33 @@ float4 main(float4 f4 : Input, out float d0 : SV_Depth, out float d1 : SV_Target
       /*bRegex*/ true);
 }
 
+TEST_F(ValidationTest, RootSignatureShaderVisibilityValidation) {
+  DxilRootParameter1 Parameter = {};
+  Parameter.ParameterType = DxilRootParameterType::Constants32Bit;
+  Parameter.Constants.Num32BitValues = 1;
+
+  DxilVersionedRootSignatureDesc RootSignature = {};
+  RootSignature.Version = DxilRootSignatureVersion::Version_1_1;
+  RootSignature.Desc_1_1.NumParameters = 1;
+  RootSignature.Desc_1_1.pParameters = &Parameter;
+
+  llvm::raw_null_ostream DiagStream;
+  for (int Visibility = static_cast<int>(DxilShaderVisibility::All);
+       Visibility <= static_cast<int>(DxilShaderVisibility::MaxValue);
+       ++Visibility) {
+    Parameter.ShaderVisibility = static_cast<DxilShaderVisibility>(Visibility);
+    VERIFY_IS_TRUE(VerifyRootSignature(&RootSignature, DiagStream, false));
+  }
+
+  for (DxilShaderVisibility Visibility :
+       {static_cast<DxilShaderVisibility>(-1),
+        static_cast<DxilShaderVisibility>(-2),
+        static_cast<DxilShaderVisibility>(8)}) {
+    Parameter.ShaderVisibility = Visibility;
+    VERIFY_IS_FALSE(VerifyRootSignature(&RootSignature, DiagStream, false));
+  }
+}
+
 TEST_F(ValidationTest, WhenRootSigMismatchThenFail) {
   ReplaceContainerPartsCheckMsgs(
       "float c; [RootSignature ( \"RootConstants(b0, num32BitConstants = 1)\" "
@@ -4179,8 +4210,12 @@ TEST_F(ValidationTest, ValidateWithHash) {
   if (m_ver.SkipDxilVersion(1, ShaderModel::kHighestReleasedMinor))
     return;
   CComPtr<IDxcBlob> pProgram;
+  LPCSTR pShaderModel = ShaderModel::Get(ShaderModel::Kind::Pixel,
+                                         ShaderModel::kHighestReleasedMajor,
+                                         ShaderModel::kHighestReleasedMinor)
+                            ->GetName();
   CompileSource("float4 main(float a:A, float b:B) : SV_Target { return 1; }",
-                "ps_6_0", &pProgram);
+                pShaderModel, &pProgram);
 
   CComPtr<IDxcValidator> pValidator;
   CComPtr<IDxcOperationResult> pResult;
@@ -6427,6 +6462,104 @@ TEST_F(ValidationTest, PSVContentValidationAS) {
        "expected for module.",
        "Validation failed."},
       /*maySucceedAnyway*/ false, /*bRegex*/ false);
+}
+
+TEST_F(ValidationTest, PSVContentValidationLinAlg) {
+  if (m_ver.SkipDxilVersion(1, 10))
+    return;
+
+  CComPtr<IDxcBlob> pProgram;
+  CompileFile(L"..\\DXC\\dumpPSV_LinAlgConstructions.hlsl", "cs_6_10",
+              &pProgram);
+
+  CComPtr<IDxcValidator> pValidator;
+  VERIFY_SUCCEEDED(
+      m_dllSupport.CreateInstance(CLSID_DxcValidator, &pValidator));
+
+  auto ValidateFailure = [&](LPCSTR ExpectedError) {
+    CComPtr<IDxcOperationResult> pResult;
+    VERIFY_SUCCEEDED(pValidator->Validate(pProgram, 0, &pResult));
+    VERIFY_IS_NOT_NULL(pResult);
+    HRESULT Status;
+    VERIFY_SUCCEEDED(pResult->GetStatus(&Status));
+    VERIFY_FAILED(Status);
+    CheckOperationResultMsgs(pResult, {ExpectedError},
+                             /*maySucceedAnyway*/ false, /*bRegex*/ false);
+  };
+
+  hlsl::DxilContainerHeader *pHeader =
+      static_cast<hlsl::DxilContainerHeader *>(pProgram->GetBufferPointer());
+  DxilPartHeader *pPSVPart =
+      GetDxilPartByType(pHeader, hlsl::DFCC_PipelineStateValidation);
+  VERIFY_IS_NOT_NULL(pPSVPart);
+
+  DxilPipelineStateValidation PSV;
+  VERIFY_IS_TRUE(
+      PSV.InitFromPSV0(GetDxilPartData(pPSVPart), pPSVPart->PartSize));
+
+  PSVLinAlgRuntimeInfo0 *LinAlgRuntimeInfo = PSV.GetPSVLinAlgRuntimeInfo0();
+  PSVLinAlgMatrixOperationShape0 *Shape =
+      PSV.GetPSVLinAlgMatrixOperationShape(0);
+  PSVLinAlgMatrixConstruction0 *Construction =
+      PSV.GetPSVLinAlgMatrixConstruction(0);
+  VERIFY_IS_NOT_NULL(LinAlgRuntimeInfo);
+  VERIFY_IS_NOT_NULL(Shape);
+  VERIFY_IS_NOT_NULL(Construction);
+  VERIFY_ARE_EQUAL(6u, PSV.GetPSVLinAlgMatrixOperationShapeCount());
+  VERIFY_ARE_EQUAL(3u, PSV.GetPSVLinAlgMatrixConstructionCount());
+  VERIFY_ARE_EQUAL(2u, Construction->OperationShapes.Count);
+
+  uint32_t OriginalConstructionCount =
+      LinAlgRuntimeInfo->MatrixConstructionCount;
+  uint32_t *ConstructionRecordSize =
+      reinterpret_cast<uint32_t *>(Construction) - 1;
+  uint32_t OriginalConstructionRecordSize = *ConstructionRecordSize;
+  LinAlgRuntimeInfo->MatrixConstructionCount = 1;
+  *ConstructionRecordSize =
+      OriginalConstructionRecordSize * OriginalConstructionCount;
+  ValidateFailure(
+      "DXIL container mismatch for 'LinAlgMatrixConstructionCount'");
+  LinAlgRuntimeInfo->MatrixConstructionCount = OriginalConstructionCount;
+  *ConstructionRecordSize = OriginalConstructionRecordSize;
+
+  ++Shape->M;
+  ValidateFailure(
+      "DXIL container mismatch for 'LinAlgMatrixOperationShape[0]'");
+  --Shape->M;
+
+  ++Construction->MatrixType;
+  ValidateFailure("DXIL container mismatch for 'LinAlgMatrixConstruction[0]'");
+  --Construction->MatrixType;
+
+  uint32_t OriginalShapeCount = Construction->OperationShapes.Count;
+  --Construction->OperationShapes.Count;
+  ValidateFailure("DXIL container mismatch for "
+                  "'LinAlgMatrixConstructionOperationShapesCount'");
+  Construction->OperationShapes.Count = OriginalShapeCount;
+
+  uint32_t OriginalShapesIndex = Construction->OperationShapes.ShapesIndex;
+  Construction->OperationShapes.ShapesIndex =
+      PSV.GetSemanticIndexTable().Entries + 1;
+  ValidateFailure("In 'PSV0 part', 'LinAlgOperationShapes' is not well-formed");
+  Construction->OperationShapes.ShapesIndex = OriginalShapesIndex;
+
+  uint32_t *ShapeIndexes = const_cast<uint32_t *>(
+      PSV.GetSemanticIndexTable().Get(OriginalShapesIndex));
+  VERIFY_IS_NOT_NULL(ShapeIndexes);
+  uint32_t OriginalShapeIndex = ShapeIndexes[0];
+  ShapeIndexes[0] = PSV.GetPSVLinAlgMatrixOperationShapeCount();
+  ValidateFailure(
+      "In 'PSV0 part', 'LinAlgOperationShapeIndex' is not well-formed");
+  ShapeIndexes[0] = OriginalShapeIndex;
+
+  std::swap(ShapeIndexes[0], ShapeIndexes[1]);
+  ValidateFailure("DXIL container mismatch for "
+                  "'LinAlgMatrixConstructionOperationShapes'");
+  std::swap(ShapeIndexes[0], ShapeIndexes[1]);
+
+  CComPtr<IDxcOperationResult> pResult;
+  VERIFY_SUCCEEDED(pValidator->Validate(pProgram, 0, &pResult));
+  CheckOperationResultMsgs(pResult, {}, false, false);
 }
 
 struct SimpleContainer {

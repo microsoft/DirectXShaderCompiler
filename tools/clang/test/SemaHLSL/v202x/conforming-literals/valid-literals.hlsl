@@ -55,6 +55,12 @@ _Static_assert(is_same<__decltype(0x7000000000000000), int64_t>::value, "0x70000
 // expected-warning@+1{{literal value is treated as signed in HLSL 2021 and earlier, and unsigned in later language versions}}
 _Static_assert(is_same<__decltype(0xF000000000000000), uint64_t>::value, "0xF000000000000000 is uint64_t");
 
+static const uint Suffixed = 0xFFF00000u; // No warning here!
+// expected-warning@+1{{literal value is treated as signed in HLSL 2021 and earlier, and unsigned in later language versions}}
+static const uint CastedUnsigned = (uint)0xFFF00000;
+// expected-warning@+1{{literal value is treated as signed in HLSL 2021 and earlier, and unsigned in later language versions}}
+static const int CastedSigned = (int)0xFFF00000;
+
 #else
 // The `literal float` typename is not spellable so we cannot verify the truth
 // in this way.
@@ -118,6 +124,12 @@ uint OctSignedBitMask32() {
 uint64_t OctSignedBitMask64() {
   return 0400000000000000000000; // No warning
 }
+
+static const uint Suffixed = 0xFFF00000u; // No warning here!
+// expected-warning@+1{{literal value is treated as signed in HLSL 2021 and earlier, and unsigned in later language versions}}
+static const uint CastedUnsigned = (uint)0xFFF00000;
+// expected-warning@+1{{literal value is treated as signed in HLSL 2021 and earlier, and unsigned in later language versions}}
+static const int CastedSigned = (int)0xFFF00000;
 #endif
 
 ////////////////////////////////////////////////////////////////////////////////

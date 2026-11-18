@@ -88,14 +88,11 @@ enum class TypeDiagContext {
   GroupShared = 15,
   DiagMaxSelectIndex = 15,
 };
-bool DiagnoseTypeElements(clang::Sema &S, clang::SourceLocation Loc,
-                          clang::QualType Ty, TypeDiagContext ObjDiagContext,
-                          TypeDiagContext LongVecDiagContext,
-                          const clang::FieldDecl *FD = nullptr);
-
-// Returns true if 'auto' is allowed to deduce the given type. Container types
-// are deducible only when the type they wrap is deducible.
-bool IsTypeDeducibleWithAuto(clang::Sema &S, clang::QualType Ty);
+bool DiagnoseTypeElements(
+    clang::Sema &S, clang::SourceLocation Loc, clang::QualType Ty,
+    TypeDiagContext ObjDiagContext, TypeDiagContext LongVecDiagContext,
+    const clang::FieldDecl *FD = nullptr,
+    DXIL::ResourceClass ResClass = DXIL::ResourceClass::Invalid);
 
 void DiagnoseControlFlowConditionForHLSL(clang::Sema *self,
                                          clang::Expr *condExpr,

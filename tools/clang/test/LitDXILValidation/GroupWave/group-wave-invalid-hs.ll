@@ -17,8 +17,8 @@ define void @"\01?PatchConstantFunc@@YA?AUHSConstantOutput@@V?$InputPatch@UHSInp
 
 define void @mainHS() {
   %1 = call i32 @dx.op.outputControlPointID.i32(i32 107)  ; OutputControlPointID()
-  %2 = call i32 @dx.op.getGroupWaveIndex(i32 -2147483647)  ; GetGroupWaveIndex()
-  %3 = call i32 @dx.op.getGroupWaveCount(i32 -2147483646)  ; GetGroupWaveCount()
+  %2 = call i32 @dx.op.getGroupWaveIndex(i32 312)  ; GetGroupWaveIndex()
+  %3 = call i32 @dx.op.getGroupWaveCount(i32 313)  ; GetGroupWaveCount()
   %4 = call float @dx.op.loadInput.f32(i32 4, i32 0, i32 0, i8 0, i32 %1)  ; LoadInput(inputSigId,rowIndex,colIndex,gsVertexAxis)
   %5 = insertelement <4 x float> undef, float %4, i64 0
   %6 = call float @dx.op.loadInput.f32(i32 4, i32 0, i32 0, i8 1, i32 %1)  ; LoadInput(inputSigId,rowIndex,colIndex,gsVertexAxis)

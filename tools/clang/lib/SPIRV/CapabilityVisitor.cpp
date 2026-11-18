@@ -130,6 +130,10 @@ void CapabilityVisitor::addCapabilityForType(const SpirvType *type,
   }
   // Image types
   else if (const auto *imageType = dyn_cast<ImageType>(type)) {
+    if (imageType->isArrayedImage() && imageType->isMSImage() &&
+        imageType->withSampler() == ImageType::WithSampler::No)
+      addCapability(spv::Capability::ImageMSArray);
+
     switch (imageType->getDimension()) {
     case spv::Dim::Buffer: {
       addCapability(spv::Capability::SampledBuffer);
@@ -204,6 +208,17 @@ void CapabilityVisitor::addCapabilityForType(const SpirvType *type,
   else if (const auto *sampledImageType = dyn_cast<SampledImageType>(type)) {
     addCapabilityForType(sampledImageType->getImageType(), loc, sc);
   }
+  // Acceleration structure type
+  else if (isa<AccelerationStructureTypeNV>(type)) {
+    // visit(SpirvModule *) declares SPV_KHR_ray_query when enabled, otherwise
+    // SPV_KHR_ray_tracing. NV is not declared there because that would add it
+    // to modules that never use the type, so declare it here, and only when no
+    // KHR extension provides the type.
+    if (!featureManager.isExtensionEnabled(Extension::KHR_ray_query) &&
+        !featureManager.isExtensionEnabled(Extension::KHR_ray_tracing))
+      addExtensionAndCapabilitiesIfEnabled(Extension::NV_ray_tracing,
+                                           {spv::Capability::RayTracingNV});
+  }
   // Pointer type
   else if (const auto *ptrType = dyn_cast<SpirvPointerType>(type)) {
     addCapabilityForType(ptrType->getPointeeType(), loc,
@@ -233,6 +248,14 @@ void CapabilityVisitor::addCapabilityForType(const SpirvType *type,
     for (auto field : structType->getFields())
       addCapabilityForType(field.type, loc, sc);
   }
+}
+
+bool CapabilityVisitor::visit(SpirvConstantSizeOfEXT *inst) {
+  // The operand type is not the result type, so the generic handling of
+  // instructions does not see it.
+  addCapabilityForType(inst->getOperandType(), inst->getSourceLocation(),
+                       spv::StorageClass::Max);
+  return visitInstruction(inst);
 }
 
 bool CapabilityVisitor::visit(SpirvDecoration *decor) {
@@ -955,8 +978,11 @@ bool CapabilityVisitor::visit(SpirvModule *, Visitor::Phase phase) {
                                        {spv::Capability::QuadControlKHR});
 
   if (spvOptions.useDescriptorHeap) {
-    addExtension(Extension::EXT_descriptor_heap, "DescriptorHeap", {});
-    addExtension(Extension::KHR_untyped_pointers, "DescriptorHeap", {});
+    const llvm::StringRef feature = "DescriptorHeap";
+    if (!featureManager.requestTargetEnv(SPV_ENV_VULKAN_1_3, feature, {}))
+      return false;
+    addExtension(Extension::EXT_descriptor_heap, feature, {});
+    addExtension(Extension::KHR_untyped_pointers, feature, {});
     addCapability(spv::Capability::DescriptorHeapEXT);
   }
 

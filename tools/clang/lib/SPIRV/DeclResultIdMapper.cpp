@@ -299,6 +299,14 @@ LocationAndComponent getLocationAndComponentCount(const ASTContext &astContext,
   return {0, 0, false};
 }
 
+/// Returns true if the given decl is a static variable declared inside
+/// a cbuffer/tbuffer/struct. These are not actually part of the
+/// cbuffer/tbuffer/struct, and should not consume a member index.
+bool isStaticBufferDecl(const Decl *decl) {
+  const auto *varDecl = dyn_cast<VarDecl>(decl);
+  return varDecl && varDecl->getStorageClass() == StorageClass::SC_Static;
+}
+
 bool shouldSkipInStructLayout(const Decl *decl) {
   // Ignore implicit generated struct declarations/constructors/destructors
   if (decl->isImplicit())
@@ -1136,6 +1144,19 @@ DeclResultIdMapper::createFnVar(const VarDecl *var,
   return varInstr;
 }
 
+void DeclResultIdMapper::registerFnVarAlias(const VarDecl *var,
+                                            SpirvInstruction *varInstr) {
+  assert(varInstr);
+  registerVariableForDecl(var, createDeclSpirvInfo(varInstr));
+}
+
+bool DeclResultIdMapper::hasFnVarAlias(const VarDecl *var) const {
+  const DeclSpirvInfo *info = getDeclSpirvInfo(var);
+  if (!info || !info->instr)
+    return false;
+  return !isa<SpirvVariable>(info->instr);
+}
+
 SpirvDebugGlobalVariable *DeclResultIdMapper::createDebugGlobalVariable(
     SpirvVariable *var, const QualType &type, const SourceLocation &loc,
     const StringRef &name) {
@@ -1455,7 +1476,7 @@ SpirvVariable *DeclResultIdMapper::createStructOrStructArrayVarOfExplicitLayout(
 
       // Static variables are not part of the struct from a layout perspective.
       // Thus, they should not be listed in the struct fields.
-      if (fieldVar->getStorageClass() == StorageClass::SC_Static) {
+      if (isStaticBufferDecl(fieldVar)) {
         continue;
       }
 
@@ -1558,8 +1579,11 @@ void DeclResultIdMapper::createCTBuffer(const HLSLBufferDecl *decl) {
     if (shouldSkipInStructLayout(subDecl))
       continue;
 
-    // If the subDecl is a resource, it is lowered as a standalone variable.
     const auto *varDecl = cast<VarDecl>(subDecl);
+
+    if (isStaticBufferDecl(varDecl))
+      continue;
+
     if (isResourceType(varDecl->getType())) {
       createExternVar(varDecl);
       continue;
@@ -1737,6 +1761,9 @@ DeclResultIdMapper::createShaderRecordBuffer(const HLSLBufferDecl *decl,
     if (isResourceType(varDecl->getType()))
       continue;
 
+    if (isStaticBufferDecl(varDecl))
+      continue;
+
     registerVariableForDecl(varDecl, createDeclSpirvInfo(bufferVar, index++));
   }
   return bufferVar;
@@ -1766,13 +1793,6 @@ void DeclResultIdMapper::createGlobalsCBuffer(const VarDecl *var) {
   uint32_t index = 0;
   for (const auto *decl : collectDeclsInDeclContext(context)) {
     if (const auto *varDecl = dyn_cast<VarDecl>(decl)) {
-      if (!spirvOptions.noWarnIgnoredFeatures) {
-        if (const auto *init = varDecl->getInit())
-          emitWarning(
-              "variable '%0' will be placed in $Globals so initializer ignored",
-              init->getExprLoc())
-              << var->getName() << init->getSourceRange();
-      }
       if (const auto *attr = varDecl->getAttr<VKBindingAttr>()) {
         emitError("variable '%0' will be placed in $Globals so cannot have "
                   "vk::binding attribute",

@@ -171,6 +171,12 @@ public:
     return declToIndex.getHLSLOutParams();
   }
   // HLSL Change End - Treat `out` parameters as uninitialized values.
+
+  // HLSL Change Begin - check the variable is in the declToIndex map
+  bool hasValueIndex(const VarDecl *vd) {
+    return declToIndex.getValueIndex(vd).hasValue();
+  }
+  // HLSL Change End - check the variable is in the declToIndex map
 };  
 } // end anonymous namespace
 
@@ -781,10 +787,23 @@ void TransferFunctions::VisitDeclRefExpr(DeclRefExpr *dr) {
   case ClassifyRefs::Ignore:
     break;
   case ClassifyRefs::Use:
-    reportUse(dr, cast<VarDecl>(dr->getDecl()));
+    // HLSL Change Begin - check the variable is in the declToIndex map
+    // before calling reportUse(). HLSL out parameters or local variables from
+    // template instantiations may not be mapped in the current DeclContext.
+    if (const VarDecl *VD = cast<VarDecl>(dr->getDecl())) {
+      if (vals.hasValueIndex(VD))
+        reportUse(dr, VD);
+    }
+    // HLSL Change End - check the variable is in the declToIndex map
     break;
   case ClassifyRefs::Init:
-    vals[cast<VarDecl>(dr->getDecl())] = Initialized;
+    // HLSL Change Begin - check the variable is in the declToIndex map
+    // before marking it Initialized.
+    if (const VarDecl *VD = cast<VarDecl>(dr->getDecl())) {
+      if (vals.hasValueIndex(VD))
+        vals[VD] = Initialized;
+    }
+    // HLSL Change End - check the variable is in the declToIndex map
     break;
   case ClassifyRefs::SelfInit:
       handler.handleSelfInit(cast<VarDecl>(dr->getDecl()));
@@ -795,8 +814,12 @@ void TransferFunctions::VisitDeclRefExpr(DeclRefExpr *dr) {
 void TransferFunctions::VisitBinaryOperator(BinaryOperator *BO) {
   if (BO->getOpcode() == BO_Assign) {
     FindVarResult Var = findVar(BO->getLHS());
+    // HLSL Change Begin - check the variable is in the declToIndex map
+    // before marking it Initialized.
     if (const VarDecl *VD = Var.getDecl())
-      vals[VD] = Initialized;
+      if (vals.hasValueIndex(VD))
+        vals[VD] = Initialized;
+    // HLSL Change End - check the variable is in the declToIndex map
   }
 }
 

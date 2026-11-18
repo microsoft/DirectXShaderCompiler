@@ -25,6 +25,7 @@
 #include "clang/AST/DeclTemplate.h"
 #include "clang/AST/EvaluatedExprVisitor.h"
 #include "clang/AST/ExprCXX.h"
+#include "clang/AST/HlslTypes.h" // HLSL Change
 #include "clang/AST/StmtCXX.h"
 #include "clang/Basic/Builtins.h"
 #include "clang/Basic/PartialDiagnostic.h"
@@ -64,6 +65,28 @@ Sema::DeclGroupPtrTy Sema::ConvertDeclToDeclGroup(Decl *Ptr, Decl *OwnedType) {
 }
 
 namespace {
+
+// HLSL Change Begin
+// Returns true if VD is a shader constant: a variable stored in an explicit
+// cbuffer/tbuffer declaration, or in the implicit $Globals constant buffer.
+// On success IsConstantBuffer is false only for tbuffer members.
+bool IsHLSLShaderConstant(const VarDecl *VD, bool &IsConstantBuffer) {
+  if (const auto *Buffer = dyn_cast<HLSLBufferDecl>(VD->getDeclContext())) {
+    IsConstantBuffer = Buffer->isCBuffer();
+    return VD->getStorageClass() != SC_Static;
+  }
+
+  IsConstantBuffer = true;
+  const DeclContext *DC = VD->getDeclContext();
+  return (DC->isTranslationUnit() || DC->isNamespace()) &&
+         VD->hasExternalFormalLinkage() &&
+         !VD->hasAttr<HLSLGroupSharedAttr>() &&
+         !VD->hasAttr<VKConstantIdAttr>() &&
+         !VD->hasAttr<VKPushConstantAttr>() &&
+         !VD->hasAttr<VKStorageClassExtAttr>() &&
+         hlsl::IsHLSLNumericOrAggregateOfNumericType(VD->getType());
+}
+// HLSL Change End
 
 class TypeNameValidatorCCC : public CorrectionCandidateCallback {
  public:
@@ -3441,6 +3464,14 @@ void Sema::MergeVarDecl(VarDecl *New, LookupResult &Previous, ShadowMergeState& 
   MergeVarDeclTypes(New, Old, mergeTypeWithPrevious(*this, New, Old, Previous), MergeState); // HLSL Change - add MergeState
   if (New->isInvalidDecl())
     return;
+
+  // HLSL does not permit multiple declarations of a global variable.
+  if (getLangOpts().HLSL && New->isFileVarDecl() && Old->isFileVarDecl() &&
+      !New->isStaticDataMember() && !Old->isStaticDataMember()) {
+    Diag(New->getLocation(), diag::err_redefinition) << New->getDeclName();
+    Diag(Old->getLocation(), diag::note_previous_definition);
+    return New->setInvalidDecl();
+  }
 
   diag::kind PrevDiag;
   SourceLocation OldLocation;
@@ -7484,7 +7515,7 @@ Sema::ActOnFunctionDeclarator(Scope *S, Declarator &D, DeclContext *DC,
         Diag(D.getDeclSpec().getVirtualSpecLoc(), diag::err_auto_fn_virtual);
     }
 
-    if (getLangOpts().CPlusPlus14 &&
+    if ((getLangOpts().CPlusPlus14 || getLangOpts().HLSL) && // HLSL Change
         (NewFD->isDependentContext() ||
          (isFriend && CurContext->isDependentContext())) &&
         NewFD->getReturnType()->isUndeducedType()) {
@@ -9055,7 +9086,7 @@ void Sema::AddInitializerToDecl(Decl *RealDecl, Expr *Init,
       // A dependent deduced type cannot be classified yet; defer the check to
       // instantiation, when 'auto' is re-deduced to a concrete type.
       if (!DeducedType->isDependentType() &&
-          !hlsl::IsTypeDeducibleWithAuto(*this, DeducedType)) {
+          !hlsl::IsTypeDeducibleWithAuto(DeducedType)) {
         Diag(VDecl->getLocation(), diag::err_hlsl_auto_undeducible_type)
             << DeducedType;
         VDecl->setInvalidDecl();
@@ -9324,6 +9355,28 @@ void Sema::AddInitializerToDecl(Decl *RealDecl, Expr *Init,
 
   // Attach the initializer to the decl.
   VDecl->setInit(Init);
+
+  // HLSL Change Begin
+  if (getLangOpts().HLSL) {
+    if (VDecl->hasAttr<HLSLGroupSharedAttr>() &&
+        (getLangOpts().SPIRV || VDecl->isExternallyVisible())) {
+      Diag(Init->getExprLoc(), diag::warn_hlsl_groupshared_initializer)
+          << Init->getSourceRange();
+    } else {
+      // Variables in a cbuffer/tbuffer declaration, or in the implicit
+      // $Globals constant buffer, are initialized by the pipeline, so any
+      // initializer is ignored. This is an error starting with HLSL 202x.
+      bool IsConstantBuffer = false;
+      if (IsHLSLShaderConstant(VDecl, IsConstantBuffer)) {
+        Diag(Init->getExprLoc(),
+             getLangOpts().HLSLVersion >= hlsl::LangStd::v202x
+                 ? diag::err_hlsl_buffer_initializer
+                 : diag::warn_hlsl_buffer_initializer)
+            << IsConstantBuffer << Init->getSourceRange();
+      }
+    }
+  }
+  // HLSL Change End
 
   if (VDecl->isLocalVarDecl()) {
     // C99 6.7.8p4: All the expressions in an initializer for an object that has
@@ -10907,8 +10960,11 @@ Decl *Sema::ActOnFinishFunctionBody(Decl *dcl, Stmt *Body,
   if (FD) {
     FD->setBody(Body);
 
-    if (getLangOpts().CPlusPlus14 && !FD->isInvalidDecl() && Body &&
-        !FD->isDependentContext() && FD->getReturnType()->isUndeducedType()) {
+    // HLSL Change Begin - HLSL supports C++14-style deduced return types.
+    if ((getLangOpts().CPlusPlus14 || getLangOpts().HLSL) &&
+        !FD->isInvalidDecl() && Body && !FD->isDependentContext() &&
+        FD->getReturnType()->isUndeducedType()) {
+      // HLSL Change End
       // If the function has a deduced result type but contains no 'return'
       // statements, the result type as written must be exactly 'auto', and
       // the deduced result type is 'void'.

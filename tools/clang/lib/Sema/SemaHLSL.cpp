@@ -47,11 +47,11 @@
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallSet.h"
+#include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/raw_ostream.h"
 #include <algorithm>
-#include <array>
 #include <bitset>
 #include <float.h>
 
@@ -2002,6 +2002,15 @@ static bool IsStaticMember(const HLSL_INTRINSIC *fn) {
   return fn->Flags & INTRIN_FLAG_STATIC_MEMBER;
 }
 
+// Returns true if the intrinsic is a non-static method that does not mutate
+// instance state. Writing through a resource handle does not mutate the handle.
+static bool IsConstMemberIntrinsic(const HLSL_INTRINSIC *fn) {
+  if (IsStaticMember(fn))
+    return false;
+  // A method is const unless it explicitly mutates the object.
+  return !(fn->Flags & INTRIN_FLAG_MUTABLE_METHOD);
+}
+
 static bool IsVariadicIntrinsicFunction(const HLSL_INTRINSIC *fn) {
   return fn->pArgs[fn->uNumArgs - 1].uTemplateId == INTRIN_TEMPLATE_VARARGS;
 }
@@ -2021,7 +2030,6 @@ ParamModsFromIntrinsicArg(const HLSL_INTRINSIC_ARGUMENT *pArg) {
   }
   if (pArg->qwUsage == AR_QUAL_REF)
     return hlsl::ParameterModifier(hlsl::ParameterModifier::Kind::Ref);
-  // TODO: https://github.com/microsoft/DirectXShaderCompiler/issues/8270
   if (pArg->qwUsage == AR_QUAL_GROUPSHARED)
     return hlsl::ParameterModifier(hlsl::ParameterModifier::Kind::In);
   DXASSERT(qwUsage & AR_QUAL_IN, "else usage is incorrect");
@@ -2090,12 +2098,31 @@ static void AddHLSLIntrinsicAttr(FunctionDecl *FD, ASTContext &context,
     FD->addAttr(PureAttr::CreateImplicit(context));
   if (pIntrinsic->Flags & INTRIN_FLAG_IS_WAVE)
     FD->addAttr(HLSLWaveSensitiveAttr::CreateImplicit(context));
-  if (pIntrinsic->MinShaderModel) {
-    unsigned Major = pIntrinsic->MinShaderModel >> 4;
-    unsigned Minor = pIntrinsic->MinShaderModel & 0xF;
+  if (pIntrinsic->MinShaderModel || pIntrinsic->MaxShaderModel) {
+    clang::VersionTuple Introduced;
+    if (pIntrinsic->MinShaderModel) {
+      unsigned Major = pIntrinsic->MinShaderModel >> 4;
+      unsigned Minor = pIntrinsic->MinShaderModel & 0xF;
+      Introduced = clang::VersionTuple(Major, Minor);
+    }
+    // The maximum shader model is the last one that still supports the
+    // intrinsic: it is deprecated there, and obsoleted in the next minor
+    // shader model version. We could give longer deprecation periods in the
+    // future if there is a need for that.
+    clang::VersionTuple Deprecated;
+    clang::VersionTuple Obsoleted;
+    if (pIntrinsic->MaxShaderModel) {
+      unsigned Major = pIntrinsic->MaxShaderModel >> 4;
+      unsigned Minor = pIntrinsic->MaxShaderModel & 0xF;
+      Deprecated = clang::VersionTuple(Major, Minor);
+      DXASSERT(
+          Minor <= 14,
+          "I don't know how we should handle this, so let's assert for now.");
+      Obsoleted = clang::VersionTuple(Major, Minor + 1);
+    }
     FD->addAttr(AvailabilityAttr::CreateImplicit(
-        context, &context.Idents.get(""), clang::VersionTuple(Major, Minor),
-        clang::VersionTuple(), clang::VersionTuple(), false, ""));
+        context, &context.Idents.get(""), Introduced, Deprecated, Obsoleted,
+        false, ""));
   }
 }
 
@@ -3250,9 +3277,9 @@ private:
   CXXRecordDecl *m_objectTypeDecls[_countof(g_ArBasicKindsAsTypes)];
   // Map from object decl to the object index.
   using ObjectTypeDeclMapType =
-      std::array<std::pair<CXXRecordDecl *, unsigned>,
-                 _countof(g_ArBasicKindsAsTypes) +
-                     _countof(g_DeprecatedEffectObjectNames)>;
+      SmallVector<std::pair<CXXRecordDecl *, unsigned>,
+                  _countof(g_ArBasicKindsAsTypes) +
+                      _countof(g_DeprecatedEffectObjectNames)>;
   ObjectTypeDeclMapType m_objectTypeDeclsMap;
 
   UsedIntrinsicStore m_usedIntrinsics;
@@ -3431,11 +3458,12 @@ private:
     DeclarationName declarationName = DeclarationName(ii);
 
     StorageClass SC = IsStaticMember(intrinsic) ? SC_Static : SC_None;
+    bool IsConst = IsConstMemberIntrinsic(intrinsic);
 
     CXXMethodDecl *functionDecl = CreateObjectFunctionDeclarationWithParams(
         *m_context, recordDecl, functionResultQT,
         ArrayRef<QualType>(argsQTs, numParams),
-        ArrayRef<StringRef>(argNames, numParams), declarationName, true, SC,
+        ArrayRef<StringRef>(argNames, numParams), declarationName, IsConst, SC,
         templateParamNamedDeclsCount > 0);
     functionDecl->setImplicit(true);
 
@@ -3864,6 +3892,10 @@ private:
     auto &context = m_sema->getASTContext();
     for (uint32_t i = 0; i < tableSize; ++i) {
       const HLSL_INTRINSIC *intrinsic = &table[i];
+      // Builtins can contain call-site-dependent types and are declared lazily.
+      if (StringRef(intrinsic->pArgs->pName).startswith("__builtin_"))
+        continue;
+
       const IdentifierInfo &fnII = context.Idents.get(
           intrinsic->pArgs->pName, tok::TokenKind::identifier);
       DeclarationName functionName(&fnII);
@@ -4241,7 +4273,13 @@ private:
             *m_context, typeName, templateArgCount, typeDefault, Attr);
       }
       m_objectTypeDecls[i] = recordDecl;
-      m_objectTypeDeclsMap[i] = std::make_pair(recordDecl, i);
+      m_objectTypeDeclsMap.push_back(std::make_pair(recordDecl, i));
+#ifdef ENABLE_SPIRV_CODEGEN
+      if (kind == AR_OBJECT_VK_SUBPASS_INPUT ||
+          kind == AR_OBJECT_VK_SUBPASS_INPUT_MS)
+        recordDecl->addAttr(HLSLVkSubpassInputAttr::CreateImplicit(
+            *m_context, kind == AR_OBJECT_VK_SUBPASS_INPUT_MS));
+#endif // ENABLE_SPIRV_CODEGEN
     }
 
     // Create an alias for SamplerState. 'sampler' is very commonly used.
@@ -4258,10 +4296,14 @@ private:
       samplerDecl->setImplicit(true);
 
       // Create decls for each deprecated effect object type:
-      unsigned effectObjBase = _countof(g_ArBasicKindsAsTypes);
-      // TypeSourceInfo* effectObjTypeSource =
-      // m_context->getTrivialTypeSourceInfo(GetBasicKindType(AR_OBJECT_LEGACY_EFFECT));
+      // The legacy effects syntax is removed in HLSL 202x, so these type names
+      // are not registered in 202x and later. Using them then produces a
+      // natural "unknown type name" diagnostic.
+      bool RegisterEffectObjects =
+          m_sema->getLangOpts().HLSLVersion < hlsl::LangStd::v202x;
       for (unsigned i = 0; i < _countof(g_DeprecatedEffectObjectNames); i++) {
+        if (!RegisterEffectObjects)
+          continue;
         IdentifierInfo &idInfo =
             m_context->Idents.get(StringRef(g_DeprecatedEffectObjectNames[i]),
                                   tok::TokenKind::identifier);
@@ -4272,8 +4314,8 @@ private:
                                   currentDeclContext, NoLoc, NoLoc, &idInfo);
         currentDeclContext->addDecl(effectObjDecl);
         effectObjDecl->setImplicit(true);
-        m_objectTypeDeclsMap[i + effectObjBase] =
-            std::make_pair(effectObjDecl, effectKindIndex);
+        m_objectTypeDeclsMap.push_back(
+            std::make_pair(effectObjDecl, effectKindIndex));
       }
     }
 
@@ -4779,26 +4821,6 @@ public:
       type = GetTypeElementType(arrayType->getElementType());
     }
     return type;
-  }
-
-  bool IsTypeDeducibleWithAuto(QualType type) {
-    if (type.isNull())
-      return false;
-
-    if (hlsl::IsStringType(type) || hlsl::IsStringLiteralType(type))
-      return false;
-
-    if (const CXXRecordDecl *recordDecl =
-            GetStructuralForm(type)->getAsCXXRecordDecl()) {
-      if (!recordDecl->hasAttr<HLSLNonAutoDeducibleAttr>())
-        if (const CXXRecordDecl *pattern =
-                recordDecl->getTemplateInstantiationPattern())
-          recordDecl = pattern;
-      if (recordDecl->hasAttr<HLSLNonAutoDeducibleAttr>())
-        return false;
-    }
-
-    return true;
   }
 
   /// <summary>Given a Clang type, return the ArBasicKind classification for its
@@ -5665,6 +5687,8 @@ public:
   /// numeric elements exclusively.</summary>
   bool IsTypeNumeric(QualType type, UINT *count);
 
+  bool ContainsLinAlgMatrixType(QualType type);
+
   /// <summary>Checks whether the specified type is a scalar type.</summary>
   bool IsScalarType(const QualType &type) {
     DXASSERT(!type.isNull(), "caller should validate its type is initialized");
@@ -5904,7 +5928,8 @@ public:
           if (DiagnoseTypeElements(
                   *m_sema, ArgSrcLoc, ArgType,
                   TypeDiagContext::StructuredBuffers /*ObjDiagContext*/,
-                  TypeDiagContext::Valid /*LongVecDiagContext*/))
+                  TypeDiagContext::Valid /*LongVecDiagContext*/, nullptr,
+                  ResAttr->getResClass()))
             return true;
         }
       }
@@ -6076,7 +6101,7 @@ public:
         if (isMatrix || isVector) {
           Expr *expr = arg.getAsExpr();
           llvm::APSInt constantResult;
-          if (expr != nullptr &&
+          if (expr != nullptr && !expr->isValueDependent() &&
               expr->isIntegerConstantExpr(constantResult, *m_context)) {
             if (CheckRangedTemplateArgument(argSrcLoc, constantResult,
                                             isVector))
@@ -6378,11 +6403,14 @@ public:
     MultiLevelTemplateArgumentList mlTemplateArgumentList(templateArgumentList);
     TemplateDeclInstantiator declInstantiator(*this->m_sema, owner,
                                               mlTemplateArgumentList);
-    FunctionProtoType::ExtProtoInfo EmptyEPI;
+    FunctionProtoType::ExtProtoInfo EPI;
+    // Preserve the method's const qualification on the resolved specialization.
+    if (IsConstMemberIntrinsic(intrinsic))
+      EPI.TypeQuals = Qualifiers::Const;
     QualType functionType = m_context->getFunctionType(
         parameterTypes[0],
-        ArrayRef<QualType>(parameterTypes + 1, parameterTypeCount - 1),
-        EmptyEPI, paramMods);
+        ArrayRef<QualType>(parameterTypes + 1, parameterTypeCount - 1), EPI,
+        paramMods);
     TypeSourceInfo *TInfo = m_context->CreateTypeSourceInfo(functionType, 0);
     FunctionProtoTypeLoc Proto =
         TInfo->getTypeLoc().getAs<FunctionProtoTypeLoc>();
@@ -7630,7 +7658,8 @@ bool HLSLExternalSource::MatchArguments(
           pArgument->qwUsage &
           (AR_QUAL_ROWMAJOR | AR_QUAL_COLMAJOR | AR_QUAL_GROUPSHARED);
 
-      if ((0 == i) || !(pArgument->qwUsage & AR_QUAL_OUT))
+      if ((0 == i) ||
+          !(pArgument->qwUsage & (AR_QUAL_OUT | AR_QUAL_GROUPSHARED)))
         qwQual |= AR_QUAL_CONST;
 
       DXASSERT_VALIDBASICKIND(pEltType);
@@ -8688,8 +8717,9 @@ UINT64 HLSLExternalSource::ScoreFunction(OverloadCandidateSet::iterator &Cand) {
 
   // in/out considerations have been taken care of by viability.
 
-  // 'this' considerations don't matter without inheritance, other
-  // than lookup and viability.
+  // The implicit object argument (`this`) affects lookup and viability.
+  // In HLSL 202x, its const qualification also breaks ties between viable
+  // overloads: a non-const object prefers a non-const method.
 
   UINT64 result = 0;
   for (unsigned convIdx = 0; convIdx < Cand->NumConversions; ++convIdx) {
@@ -8706,6 +8736,23 @@ UINT64 HLSLExternalSource::ScoreFunction(OverloadCandidateSet::iterator &Cand) {
       return SCORE_MAX;
     }
     result += score;
+  }
+
+  // HLSL 202x: when both const and non-const overloads of a method are
+  // viable for a non-const object, prefer the non-const overload. Add a
+  // small tie-breaking penalty when the implicit object argument requires
+  // adding `const` to call a const-qualified method. This uses the low score
+  // bits reserved by SCORE_MIN_SHIFT.
+  CXXMethodDecl *Method = dyn_cast_or_null<CXXMethodDecl>(Cand->Function);
+  if (m_sema->getLangOpts().HLSLVersion >= hlsl::LangStd::v202x && Method &&
+      !Cand->IgnoreObjectArgument &&
+      (Method->getTypeQualifiers() & Qualifiers::Const)) {
+    const ImplicitConversionSequence &ICS = Cand->Conversions[0];
+    if (ICS.isStandard()) {
+      QualType FromType = ICS.Standard.getFromType();
+      if (!FromType.isNull() && !FromType.isConstQualified())
+        result += 1;
+    }
   }
   return result;
 }
@@ -9018,8 +9065,38 @@ bool HLSLExternalSource::IsTypeNumeric(QualType type, UINT *count) {
   case AR_TOBJ_OBJECT:
   case AR_TOBJ_DEPENDENT:
   case AR_TOBJ_STRING:
+  case AR_TOBJ_LINALG_MATRIX:
     return false;
   }
+}
+
+bool HLSLExternalSource::ContainsLinAlgMatrixType(QualType Type) {
+  DXASSERT_NOMSG(!Type.isNull());
+
+  Type = GetStructuralForm(Type);
+  // Covers both attributed matrices and the unattributed builtin handle.
+  if (Type->isAttributedLinAlgMatrixType() || Type->isLinAlgMatrixType())
+    return true;
+
+  if (const ArrayType *AT = m_context->getAsArrayType(Type))
+    return ContainsLinAlgMatrixType(AT->getElementType());
+
+  if (GetTypeObjectKind(Type) != AR_TOBJ_COMPOUND)
+    return false;
+
+  const CXXRecordDecl *RD = Type->getAsCXXRecordDecl();
+  if (!RD || !RD->hasDefinition())
+    return false;
+
+  for (const CXXBaseSpecifier &Base : RD->bases())
+    if (ContainsLinAlgMatrixType(Base.getType()))
+      return true;
+
+  for (const FieldDecl *Field : RD->fields())
+    if (ContainsLinAlgMatrixType(Field->getType()))
+      return true;
+
+  return false;
 }
 
 enum MatrixMemberAccessError {
@@ -12730,19 +12807,19 @@ void Sema::DiagnoseReachableHLSLCall(CallExpr *CE, const hlsl::ShaderModel *SM,
   case hlsl::IntrinsicOp::IOP_DxMaybeReorderThread:
     DiagnoseReachableSERCall(*this, CE, EntrySK, EntryDecl, true);
     break;
-  case hlsl::IntrinsicOp::IOP___builtin_LinAlg_FillMatrix:
-  case hlsl::IntrinsicOp::IOP___builtin_LinAlg_CopyConvertMatrix:
-  case hlsl::IntrinsicOp::IOP___builtin_LinAlg_MatrixLength:
-  case hlsl::IntrinsicOp::IOP___builtin_LinAlg_MatrixGetCoordinate:
-  case hlsl::IntrinsicOp::IOP___builtin_LinAlg_MatrixGetElement:
-  case hlsl::IntrinsicOp::IOP___builtin_LinAlg_MatrixSetElement:
-  case hlsl::IntrinsicOp::IOP___builtin_LinAlg_MatrixStoreToDescriptor:
-  case hlsl::IntrinsicOp::IOP___builtin_LinAlg_MatrixLoadFromMemory:
-  case hlsl::IntrinsicOp::IOP___builtin_LinAlg_MatrixStoreToMemory:
-  case hlsl::IntrinsicOp::IOP___builtin_LinAlg_MatrixAccumulateToMemory:
-  case hlsl::IntrinsicOp::IOP___builtin_LinAlg_MatrixMatrixMultiply:
-  case hlsl::IntrinsicOp::IOP___builtin_LinAlg_MatrixMatrixMultiplyAccumulate:
-  case hlsl::IntrinsicOp::IOP___builtin_LinAlg_MatrixAccumulate:
+  case hlsl::IntrinsicOp::IOP_Dx__builtin_LinAlg_FillMatrix:
+  case hlsl::IntrinsicOp::IOP_Dx__builtin_LinAlg_CopyConvertMatrix:
+  case hlsl::IntrinsicOp::IOP_Dx__builtin_LinAlg_MatrixLength:
+  case hlsl::IntrinsicOp::IOP_Dx__builtin_LinAlg_MatrixGetCoordinate:
+  case hlsl::IntrinsicOp::IOP_Dx__builtin_LinAlg_MatrixGetElement:
+  case hlsl::IntrinsicOp::IOP_Dx__builtin_LinAlg_MatrixSetElement:
+  case hlsl::IntrinsicOp::IOP_Dx__builtin_LinAlg_MatrixStoreToDescriptor:
+  case hlsl::IntrinsicOp::IOP_Dx__builtin_LinAlg_MatrixLoadFromMemory:
+  case hlsl::IntrinsicOp::IOP_Dx__builtin_LinAlg_MatrixStoreToMemory:
+  case hlsl::IntrinsicOp::IOP_Dx__builtin_LinAlg_MatrixAccumulateToMemory:
+  case hlsl::IntrinsicOp::IOP_Dx__builtin_LinAlg_MatrixMatrixMultiply:
+  case hlsl::IntrinsicOp::IOP_Dx__builtin_LinAlg_MatrixMatrixMultiplyAccumulate:
+  case hlsl::IntrinsicOp::IOP_Dx__builtin_LinAlg_MatrixAccumulate:
     DiagnoseReachableLimitedLinAlgCall(*this, CE, EntrySK, EntryDecl);
     break;
   default:
@@ -12767,6 +12844,17 @@ static bool AllowObjectInContext(QualType Ty, TypeDiagContext DiagContext) {
   return true;
 }
 
+// LinAlg matrices (attributed or the raw builtin handle) are opaque, thread
+// local values. They are only valid as static global state, locals, and
+// non-entry function parameters and return types, never in resources,
+// groupshared memory, or shader interfaces.
+static bool AllowLinAlgMatrixInContext(TypeDiagContext DiagContext) {
+  // Non-static globals are rejected separately with a diagnostic that asks for
+  // an explicit 'static'.
+  return DiagContext == TypeDiagContext::GlobalVariables ||
+         DiagContext == TypeDiagContext::CBuffersOrTBuffers;
+}
+
 // Determine if `Ty` is valid in this `DiagContext` and/or an empty type.  If
 // invalid returns false and Sema `S`, location `Loc`, error index
 // `DiagContext`, and FieldDecl `FD` are used to emit diagnostics. If
@@ -12778,7 +12866,7 @@ DiagnoseElementTypes(Sema &S, SourceLocation Loc, QualType Ty, bool &Empty,
                      TypeDiagContext ObjDiagContext,
                      TypeDiagContext LongVecDiagContext,
                      llvm::SmallPtrSet<const RecordDecl *, 8> &CheckedDecls,
-                     const clang::FieldDecl *FD) {
+                     const clang::FieldDecl *FD, DXIL::ResourceClass ResClass) {
   if (Ty.isNull() || Ty->isDependentType())
     return false;
 
@@ -12797,6 +12885,21 @@ DiagnoseElementTypes(Sema &S, SourceLocation Loc, QualType Ty, bool &Empty,
            static_cast<int>(TypeDiagContext::LongVecDiagMaxSelectIndex)));
 
   HLSLExternalSource *Source = HLSLExternalSource::FromSema(&S);
+
+  const Type *CanonTy = Ty.getCanonicalType().getTypePtr();
+  if (CanonTy->isAttributedLinAlgMatrixType() ||
+      CanonTy->isLinAlgMatrixType()) {
+    Empty = false;
+    if (!CheckObjects || AllowLinAlgMatrixInContext(ObjDiagContext))
+      return false;
+    S.Diag(Loc, diag::err_hlsl_unsupported_object_context)
+        << Ty << ObjDiagContextIdx;
+    if (FD)
+      S.Diag(FD->getLocation(), diag::note_field_declared_here)
+          << FD->getType() << FD->getSourceRange();
+    return true;
+  }
+
   ArTypeObjectKind ShapeKind = Source->GetTypeObjectKind(Ty);
   switch (ShapeKind) {
   case AR_TOBJ_VECTOR:
@@ -12835,9 +12938,28 @@ DiagnoseElementTypes(Sema &S, SourceLocation Loc, QualType Ty, bool &Empty,
 
     // Check the fields of the RecordDecl
     for (auto *ElemFD : RD->fields()) {
-      ErrorFound |=
-          DiagnoseElementTypes(S, Loc, ElemFD->getType(), Empty, ObjDiagContext,
-                               LongVecDiagContext, CheckedDecls, ElemFD);
+      if (ElemFD->isMutable()) {
+        if (ObjDiagContext ==
+                TypeDiagContext::ConstantBuffersOrTextureBuffers ||
+            ObjDiagContext == TypeDiagContext::CBuffersOrTBuffers) {
+          S.Diag(Loc, diag::err_hlsl_mutable_field_in_constant_buffer)
+              << ElemFD;
+          S.Diag(ElemFD->getLocation(), diag::note_field_declared_here)
+              << ElemFD->getType() << ElemFD->getSourceRange();
+          ErrorFound = true;
+        } else if (ResClass == DXIL::ResourceClass::SRV &&
+                   ObjDiagContext == TypeDiagContext::StructuredBuffers) {
+          S.Diag(Loc,
+                 diag::err_hlsl_mutable_field_in_readonly_structured_buffer)
+              << ElemFD;
+          S.Diag(ElemFD->getLocation(), diag::note_field_declared_here)
+              << ElemFD->getType() << ElemFD->getSourceRange();
+          ErrorFound = true;
+        }
+      }
+      ErrorFound |= DiagnoseElementTypes(S, Loc, ElemFD->getType(), Empty,
+                                         ObjDiagContext, LongVecDiagContext,
+                                         CheckedDecls, ElemFD, ResClass);
     }
     if (!RD->isCompleteDefinition())
       return ErrorFound;
@@ -12845,9 +12967,9 @@ DiagnoseElementTypes(Sema &S, SourceLocation Loc, QualType Ty, bool &Empty,
     if (auto *Child = dyn_cast<CXXRecordDecl>(RD))
       // Walk up the inheritance chain and check base class fields
       for (auto &B : Child->bases())
-        ErrorFound |=
-            DiagnoseElementTypes(S, Loc, B.getType(), Empty, ObjDiagContext,
-                                 LongVecDiagContext, CheckedDecls, nullptr);
+        ErrorFound |= DiagnoseElementTypes(S, Loc, B.getType(), Empty,
+                                           ObjDiagContext, LongVecDiagContext,
+                                           CheckedDecls, nullptr, ResClass);
     return ErrorFound;
   }
   default:
@@ -12860,15 +12982,12 @@ DiagnoseElementTypes(Sema &S, SourceLocation Loc, QualType Ty, bool &Empty,
 bool hlsl::DiagnoseTypeElements(Sema &S, SourceLocation Loc, QualType Ty,
                                 TypeDiagContext ObjDiagContext,
                                 TypeDiagContext LongVecDiagContext,
-                                const clang::FieldDecl *FD) {
+                                const clang::FieldDecl *FD,
+                                DXIL::ResourceClass ResClass) {
   bool Empty = false;
   llvm::SmallPtrSet<const RecordDecl *, 8> CheckedDecls;
   return DiagnoseElementTypes(S, Loc, Ty, Empty, ObjDiagContext,
-                              LongVecDiagContext, CheckedDecls, FD);
-}
-
-bool hlsl::IsTypeDeducibleWithAuto(Sema &S, QualType Ty) {
-  return HLSLExternalSource::FromSema(&S)->IsTypeDeducibleWithAuto(Ty);
+                              LongVecDiagContext, CheckedDecls, FD, ResClass);
 }
 
 bool hlsl::DiagnoseNodeStructArgument(Sema *self, TemplateArgumentLoc ArgLoc,
@@ -12877,7 +12996,8 @@ bool hlsl::DiagnoseNodeStructArgument(Sema *self, TemplateArgumentLoc ArgLoc,
   llvm::SmallPtrSet<const RecordDecl *, 8> CheckedDecls;
   return DiagnoseElementTypes(*self, ArgLoc.getLocation(), ArgTy, Empty,
                               TypeDiagContext::NodeRecords,
-                              TypeDiagContext::NodeRecords, CheckedDecls, FD);
+                              TypeDiagContext::NodeRecords, CheckedDecls, FD,
+                              DXIL::ResourceClass::Invalid);
 }
 
 // This function diagnoses whether or not all entry-point attributes
@@ -15364,6 +15484,20 @@ void Sema::ActOnFinishHLSLBuffer(Decl *Dcl, SourceLocation RBrace) {
   bool HasPackOffset = false;
   bool HasNonPackOffset = false;
   for (auto *Field : BufDecl->decls()) {
+    // HLSL 202x 0005 Cbuffer Contexts proposal restricts the contents of a
+    // cbuffer to declarations allowed at block scope, plus templates, functions
+    // and empty declarations (see:
+    // https://hlsl-tc57.github.io/tc57/proposal/0005/).
+    if (getLangOpts().HLSLVersion >= hlsl::LangStd::v202x &&
+        (isa<HLSLBufferDecl>(Field) || isa<NamespaceDecl>(Field))) {
+      NamedDecl *ND = cast<NamedDecl>(Field);
+      Diag(Field->getLocation(),
+           diag::err_hlsl_unsupported_declaration_in_buffer)
+          << ND << BufDecl->isCBuffer();
+      Diag(Dcl->getLocation(), diag::note_declared_at);
+      Dcl->setInvalidDecl();
+    }
+
     VarDecl *Var = dyn_cast<VarDecl>(Field);
     if (!Var)
       continue;
@@ -15447,6 +15581,9 @@ HLSLBufferDecl::Create(ASTContext &C, DeclContext *lexicalParent, bool cbuffer,
                        std::vector<hlsl::UnusualAnnotation *> &BufferAttributes,
                        SourceLocation LBrace) {
   DeclContext *DC = C.getTranslationUnitDecl();
+  // In HLSL 202x, buffers and their members belong to the enclosing namespace.
+  if (C.getLangOpts().HLSLVersion >= hlsl::LangStd::v202x)
+    DC = lexicalParent;
   HLSLBufferDecl *result = ::new (C) HLSLBufferDecl(
       DC, cbuffer, constantbuffer, KwLoc, Id, IdLoc, BufferAttributes, LBrace);
   if (DC != lexicalParent) {
@@ -15660,7 +15797,8 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC, Expr *BitWidth,
   if (hlsl::IsObjectType(this, qt, &bDeprecatedEffectObject)) {
     bIsObject = true;
     if (bDeprecatedEffectObject) {
-      Diag(D.getLocStart(), diag::warn_hlsl_effect_object);
+      Diag(D.getLocStart(), diag::warn_hlsl_2026_effects)
+          << /*object*/ 4 << /*known not possible*/ 1;
       D.setInvalidType();
       return false;
     }
@@ -15796,6 +15934,9 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC, Expr *BitWidth,
             << pAttr->getRange();
         result = false;
       }
+      if ((isGlobal || isParameter) && !isStatic)
+        Diag(pAttr->getLoc(), diag::warn_hlsl_2026_removed_keyword)
+            << "uniform";
       pUniform = pAttr;
       break;
 
@@ -16079,6 +16220,15 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC, Expr *BitWidth,
     if (DiagnoseTypeElements(*this, D.getLocStart(), qt, ObjDiagContext,
                              LongVecDiagContext))
       result = false;
+
+    // LinAlg matrices are mutable state that cannot live in the implicit
+    // global constant buffer. Groupshared is rejected above.
+    if (!isStatic && !isGroupShared && !D.isInvalidType() &&
+        !qt->isDependentType() && hlslSource->ContainsLinAlgMatrixType(qt)) {
+      Diag(D.getLocStart(), diag::err_hlsl_linalg_matrix_global_not_static)
+          << D.getIdentifier();
+      result = false;
+    }
   }
 
   // SPIRV change starts

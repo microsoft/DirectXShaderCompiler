@@ -53,6 +53,7 @@ autoconf/autom4te.cache
 #==============================================================================#
 # Build directories
 /build*/
+/out
 # External projects that are tracked independently.
 external/*
 # Clang, which is tracked independently.

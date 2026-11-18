@@ -16,49 +16,49 @@ target triple = "dxil-ms-dx"
 define void @main() {
   %1 = call %dx.types.Handle @dx.op.createHandleFromBinding(i32 217, %dx.types.ResBind zeroinitializer, i32 0, i1 false)  ; CreateHandleFromBinding(bind,index,nonUniformIndex)
   %2 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %1, %dx.types.ResourceProperties { i32 11, i32 0 })  ; AnnotateHandle(res,props)  resource: ByteAddressBuffer
-  %3 = call %dx.types.LinAlgMatrixC9M4N32U0S0 @dx.op.linAlgMatrixLoadFromDescriptor.mC9M4N32U0S0(i32 -2147483634, %dx.types.Handle %2, i32 0, i32 0, i32 0, i32 128)  ; LinAlgMatrixLoadFromDescriptor(handle,offset,stride,layout,align)
+  %3 = call %dx.types.LinAlgMatrixC9M4N32U0S0 @dx.op.linAlgMatrixLoadFromDescriptor.mC9M4N32U0S0(i32 325, %dx.types.Handle %2, i32 0, i32 0, i32 0, i32 128)  ; LinAlgMatrixLoadFromDescriptor(handle,offset,stride,layout,align)
 
   ; CHECK: Function: main: error: Component type 'I1' from InputInterp not allowed in LinAlg Matrix operations.
   ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatVecMulAdd.v4f32.mC9M4N32U0S0.v8f32.v4f32
-  %4 = call <4 x float> @dx.op.linAlgMatVecMulAdd.v4f32.mC9M4N32U0S0.v8f32.v4f32(i32 -2147483622, %dx.types.LinAlgMatrixC9M4N32U0S0 %3, i1 true, <8 x float> <float 1.000000e+00, float 2.000000e+00, float 3.000000e+00, float 4.000000e+00, float 5.000000e+00, float 6.000000e+00, float 7.000000e+00, float 8.000000e+00>, i32 1, <4 x float> <float 4.000000e+00, float 3.000000e+00, float 2.000000e+00, float 1.000000e+00>)  ; LinAlgMatVecMulAdd(matrix,isOutputSigned,inputVector,inputInterpretation,biasVector)
+  %4 = call <4 x float> @dx.op.linAlgMatVecMulAdd.v4f32.mC9M4N32U0S0.v8f32.v4f32(i32 337, %dx.types.LinAlgMatrixC9M4N32U0S0 %3, i1 true, <8 x float> <float 1.000000e+00, float 2.000000e+00, float 3.000000e+00, float 4.000000e+00, float 5.000000e+00, float 6.000000e+00, float 7.000000e+00, float 8.000000e+00>, i32 1, <4 x float> <float 4.000000e+00, float 3.000000e+00, float 2.000000e+00, float 1.000000e+00>)  ; LinAlgMatVecMulAdd(matrix,isOutputSigned,inputVector,inputInterpretation,biasVector)
   %5 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %1, %dx.types.ResourceProperties { i32 11, i32 0 })  ; AnnotateHandle(res,props)  resource: ByteAddressBuffer
-  %6 = call %dx.types.LinAlgMatrixC9M4N8U0S2 @dx.op.linAlgMatrixLoadFromDescriptor.mC9M4N8U0S2(i32 -2147483634, %dx.types.Handle %5, i32 0, i32 0, i32 0, i32 128)  ; LinAlgMatrixLoadFromDescriptor(handle,offset,stride,layout,align)
+  %6 = call %dx.types.LinAlgMatrixC9M4N8U0S2 @dx.op.linAlgMatrixLoadFromDescriptor.mC9M4N8U0S2(i32 325, %dx.types.Handle %5, i32 0, i32 0, i32 0, i32 128)  ; LinAlgMatrixLoadFromDescriptor(handle,offset,stride,layout,align)
 
   ; CHECK-NEXT: Function: main: error: Input matrix scope 'ThreadGroup' does not match expected scope Thread.
   ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatVecMulAdd.v4f32.mC9M4N8U0S2.v8f32.v4f32
-  %7 = call <4 x float> @dx.op.linAlgMatVecMulAdd.v4f32.mC9M4N8U0S2.v8f32.v4f32(i32 -2147483622, %dx.types.LinAlgMatrixC9M4N8U0S2 %6, i1 true, <8 x float> <float 1.000000e+00, float 2.000000e+00, float 3.000000e+00, float 4.000000e+00, float 5.000000e+00, float 6.000000e+00, float 7.000000e+00, float 8.000000e+00>, i32 9, <4 x float> <float 4.000000e+00, float 3.000000e+00, float 2.000000e+00, float 1.000000e+00>)  ; LinAlgMatVecMulAdd(matrix,isOutputSigned,inputVector,inputInterpretation,biasVector)
+  %7 = call <4 x float> @dx.op.linAlgMatVecMulAdd.v4f32.mC9M4N8U0S2.v8f32.v4f32(i32 337, %dx.types.LinAlgMatrixC9M4N8U0S2 %6, i1 true, <8 x float> <float 1.000000e+00, float 2.000000e+00, float 3.000000e+00, float 4.000000e+00, float 5.000000e+00, float 6.000000e+00, float 7.000000e+00, float 8.000000e+00>, i32 9, <4 x float> <float 4.000000e+00, float 3.000000e+00, float 2.000000e+00, float 1.000000e+00>)  ; LinAlgMatVecMulAdd(matrix,isOutputSigned,inputVector,inputInterpretation,biasVector)
   %8 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %1, %dx.types.ResourceProperties { i32 11, i32 0 })  ; AnnotateHandle(res,props)  resource: ByteAddressBuffer
-  %9 = call %dx.types.LinAlgMatrixC9M4N8U1S0 @dx.op.linAlgMatrixLoadFromDescriptor.mC9M4N8U1S0(i32 -2147483634, %dx.types.Handle %8, i32 0, i32 0, i32 0, i32 128)  ; LinAlgMatrixLoadFromDescriptor(handle,offset,stride,layout,align)
+  %9 = call %dx.types.LinAlgMatrixC9M4N8U1S0 @dx.op.linAlgMatrixLoadFromDescriptor.mC9M4N8U1S0(i32 325, %dx.types.Handle %8, i32 0, i32 0, i32 0, i32 128)  ; LinAlgMatrixLoadFromDescriptor(handle,offset,stride,layout,align)
 
   ; CHECK-NEXT: Function: main: error: Input matrix use 'B' does not match expected use A.
   ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatVecMulAdd.v4f32.mC9M4N8U1S0.v8f32.v4f32
-  %10 = call <4 x float> @dx.op.linAlgMatVecMulAdd.v4f32.mC9M4N8U1S0.v8f32.v4f32(i32 -2147483622, %dx.types.LinAlgMatrixC9M4N8U1S0 %9, i1 true, <8 x float> <float 1.000000e+00, float 2.000000e+00, float 3.000000e+00, float 4.000000e+00, float 5.000000e+00, float 6.000000e+00, float 7.000000e+00, float 8.000000e+00>, i32 9, <4 x float> <float 4.000000e+00, float 3.000000e+00, float 2.000000e+00, float 1.000000e+00>)  ; LinAlgMatVecMulAdd(matrix,isOutputSigned,inputVector,inputInterpretation,biasVector)
+  %10 = call <4 x float> @dx.op.linAlgMatVecMulAdd.v4f32.mC9M4N8U1S0.v8f32.v4f32(i32 337, %dx.types.LinAlgMatrixC9M4N8U1S0 %9, i1 true, <8 x float> <float 1.000000e+00, float 2.000000e+00, float 3.000000e+00, float 4.000000e+00, float 5.000000e+00, float 6.000000e+00, float 7.000000e+00, float 8.000000e+00>, i32 9, <4 x float> <float 4.000000e+00, float 3.000000e+00, float 2.000000e+00, float 1.000000e+00>)  ; LinAlgMatVecMulAdd(matrix,isOutputSigned,inputVector,inputInterpretation,biasVector)
   %11 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %1, %dx.types.ResourceProperties { i32 11, i32 0 })  ; AnnotateHandle(res,props)  resource: ByteAddressBuffer
-  %12 = call %dx.types.LinAlgMatrixC9M4N8U0S0 @dx.op.linAlgMatrixLoadFromDescriptor.mC9M4N8U0S0(i32 -2147483634, %dx.types.Handle %11, i32 0, i32 0, i32 0, i32 128)  ; LinAlgMatrixLoadFromDescriptor(handle,offset,stride,layout,align)
+  %12 = call %dx.types.LinAlgMatrixC9M4N8U0S0 @dx.op.linAlgMatrixLoadFromDescriptor.mC9M4N8U0S0(i32 325, %dx.types.Handle %11, i32 0, i32 0, i32 0, i32 128)  ; LinAlgMatrixLoadFromDescriptor(handle,offset,stride,layout,align)
 
   ; CHECK-NEXT: Function: main: error: Input vector size '4' must be 8 for input matrix with K '8' and Type 'F32'
   ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatVecMulAdd.v4f32.mC9M4N8U0S0.v4f32.v4f32
-  %13 = call <4 x float> @dx.op.linAlgMatVecMulAdd.v4f32.mC9M4N8U0S0.v4f32.v4f32(i32 -2147483622, %dx.types.LinAlgMatrixC9M4N8U0S0 %12, i1 true, <4 x float> <float 1.000000e+00, float 2.000000e+00, float 3.000000e+00, float 4.000000e+00>, i32 9, <4 x float> <float 4.000000e+00, float 3.000000e+00, float 2.000000e+00, float 1.000000e+00>)  ; LinAlgMatVecMulAdd(matrix,isOutputSigned,inputVector,inputInterpretation,biasVector)
+  %13 = call <4 x float> @dx.op.linAlgMatVecMulAdd.v4f32.mC9M4N8U0S0.v4f32.v4f32(i32 337, %dx.types.LinAlgMatrixC9M4N8U0S0 %12, i1 true, <4 x float> <float 1.000000e+00, float 2.000000e+00, float 3.000000e+00, float 4.000000e+00>, i32 9, <4 x float> <float 4.000000e+00, float 3.000000e+00, float 2.000000e+00, float 1.000000e+00>)  ; LinAlgMatVecMulAdd(matrix,isOutputSigned,inputVector,inputInterpretation,biasVector)
   %14 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %1, %dx.types.ResourceProperties { i32 11, i32 0 })  ; AnnotateHandle(res,props)  resource: ByteAddressBuffer
-  %15 = call %dx.types.LinAlgMatrixC21M4N8U0S0 @dx.op.linAlgMatrixLoadFromDescriptor.mC21M4N8U0S0(i32 -2147483634, %dx.types.Handle %14, i32 0, i32 0, i32 0, i32 128)  ; LinAlgMatrixLoadFromDescriptor(handle,offset,stride,layout,align)
+  %15 = call %dx.types.LinAlgMatrixC21M4N8U0S0 @dx.op.linAlgMatrixLoadFromDescriptor.mC21M4N8U0S0(i32 325, %dx.types.Handle %14, i32 0, i32 0, i32 0, i32 128)  ; LinAlgMatrixLoadFromDescriptor(handle,offset,stride,layout,align)
 
   ; CHECK-NEXT: Function: main: error: Input vector size '8' must be 2 for input matrix with K '8' and Type 'F8_E4M3FN'
   ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatVecMulAdd.v4f32.mC21M4N8U0S0.v8f32.v4f32
-  %16 = call <4 x float> @dx.op.linAlgMatVecMulAdd.v4f32.mC21M4N8U0S0.v8f32.v4f32(i32 -2147483622, %dx.types.LinAlgMatrixC21M4N8U0S0 %15, i1 true, <8 x float> <float 1.000000e+00, float 2.000000e+00, float 3.000000e+00, float 4.000000e+00, float 5.000000e+00, float 6.000000e+00, float 7.000000e+00, float 8.000000e+00>, i32 21, <4 x float> <float 4.000000e+00, float 3.000000e+00, float 2.000000e+00, float 1.000000e+00>)  ; LinAlgMatVecMulAdd(matrix,isOutputSigned,inputVector,inputInterpretation,biasVector)
+  %16 = call <4 x float> @dx.op.linAlgMatVecMulAdd.v4f32.mC21M4N8U0S0.v8f32.v4f32(i32 337, %dx.types.LinAlgMatrixC21M4N8U0S0 %15, i1 true, <8 x float> <float 1.000000e+00, float 2.000000e+00, float 3.000000e+00, float 4.000000e+00, float 5.000000e+00, float 6.000000e+00, float 7.000000e+00, float 8.000000e+00>, i32 21, <4 x float> <float 4.000000e+00, float 3.000000e+00, float 2.000000e+00, float 1.000000e+00>)  ; LinAlgMatVecMulAdd(matrix,isOutputSigned,inputVector,inputInterpretation,biasVector)
 
   ; CHECK-NEXT: Function: main: error: Output vector size '2' must match input matrix M dimension '4'
   ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatVecMulAdd.v2f32.mC9M4N8U0S0.v8f32.v2f32
   ; CHECK-NEXT: Function: main: error: Bias vector size '2' must match input matrix M dimension '4'
   ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatVecMulAdd.v2f32.mC9M4N8U0S0.v8f32.v2f32
-  %17 = call <2 x float> @dx.op.linAlgMatVecMulAdd.v2f32.mC9M4N8U0S0.v8f32.v2f32(i32 -2147483622, %dx.types.LinAlgMatrixC9M4N8U0S0 %12, i1 true, <8 x float> <float 1.000000e+00, float 2.000000e+00, float 3.000000e+00, float 4.000000e+00, float 5.000000e+00, float 6.000000e+00, float 7.000000e+00, float 8.000000e+00>, i32 9, <2 x float> <float 3.000000e+00, float 5.000000e+00>)  ; LinAlgMatVecMulAdd(matrix,isOutputSigned,inputVector,inputInterpretation,biasVector)
+  %17 = call <2 x float> @dx.op.linAlgMatVecMulAdd.v2f32.mC9M4N8U0S0.v8f32.v2f32(i32 337, %dx.types.LinAlgMatrixC9M4N8U0S0 %12, i1 true, <8 x float> <float 1.000000e+00, float 2.000000e+00, float 3.000000e+00, float 4.000000e+00, float 5.000000e+00, float 6.000000e+00, float 7.000000e+00, float 8.000000e+00>, i32 9, <2 x float> <float 3.000000e+00, float 5.000000e+00>)  ; LinAlgMatVecMulAdd(matrix,isOutputSigned,inputVector,inputInterpretation,biasVector)
 
   ; CHECK-NEXT: Function: main: error: Float-like type 'float' must be signed
   ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatVecMulAdd.v4f32.mC9M4N8U0S0.v8f32.v4f32
-  %18 = call <4 x float> @dx.op.linAlgMatVecMulAdd.v4f32.mC9M4N8U0S0.v8f32.v4f32(i32 -2147483622, %dx.types.LinAlgMatrixC9M4N8U0S0 %12, i1 false, <8 x float> <float 1.000000e+00, float 2.000000e+00, float 3.000000e+00, float 4.000000e+00, float 5.000000e+00, float 6.000000e+00, float 7.000000e+00, float 8.000000e+00>, i32 9, <4 x float> <float 4.000000e+00, float 3.000000e+00, float 2.000000e+00, float 1.000000e+00>)  ; LinAlgMatVecMulAdd(matrix,isOutputSigned,inputVector,inputInterpretation,biasVector)
+  %18 = call <4 x float> @dx.op.linAlgMatVecMulAdd.v4f32.mC9M4N8U0S0.v8f32.v4f32(i32 337, %dx.types.LinAlgMatrixC9M4N8U0S0 %12, i1 false, <8 x float> <float 1.000000e+00, float 2.000000e+00, float 3.000000e+00, float 4.000000e+00, float 5.000000e+00, float 6.000000e+00, float 7.000000e+00, float 8.000000e+00>, i32 9, <4 x float> <float 4.000000e+00, float 3.000000e+00, float 2.000000e+00, float 1.000000e+00>)  ; LinAlgMatVecMulAdd(matrix,isOutputSigned,inputVector,inputInterpretation,biasVector)
 
   ; CHECK-NEXT: Function: main: error: Output vector element type 'float' must match bias vector element type 'i32'
   ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatVecMulAdd.v4f32.mC9M4N8U0S0.v8f32.v4i32
-  %19 = call <4 x float> @dx.op.linAlgMatVecMulAdd.v4f32.mC9M4N8U0S0.v8f32.v4i32(i32 -2147483622, %dx.types.LinAlgMatrixC9M4N8U0S0 %12, i1 true, <8 x float> <float 1.000000e+00, float 2.000000e+00, float 3.000000e+00, float 4.000000e+00, float 5.000000e+00, float 6.000000e+00, float 7.000000e+00, float 8.000000e+00>, i32 9, <4 x i32> zeroinitializer)  ; LinAlgMatVecMulAdd(matrix,isOutputSigned,inputVector,inputInterpretation,biasVector)
+  %19 = call <4 x float> @dx.op.linAlgMatVecMulAdd.v4f32.mC9M4N8U0S0.v8f32.v4i32(i32 337, %dx.types.LinAlgMatrixC9M4N8U0S0 %12, i1 true, <8 x float> <float 1.000000e+00, float 2.000000e+00, float 3.000000e+00, float 4.000000e+00, float 5.000000e+00, float 6.000000e+00, float 7.000000e+00, float 8.000000e+00>, i32 9, <4 x i32> zeroinitializer)  ; LinAlgMatVecMulAdd(matrix,isOutputSigned,inputVector,inputInterpretation,biasVector)
 
   ; CHECK-NEXT: Validation failed.
   ret void
@@ -132,5 +132,5 @@ attributes #1 = { nounwind readnone }
 !9 = !{!10}
 !10 = !{i32 0, %struct.ByteAddressBuffer* undef, !"", i32 0, i32 0, i32 1, i32 11, i32 0, null}
 !11 = !{void ()* @main, !"main", null, !8, !12}
-!12 = !{i32 0, i64 8388624, i32 4, !13}
+!12 = !{i32 0, i64 2199031644176, i32 4, !13}
 !13 = !{i32 1, i32 1, i32 1}

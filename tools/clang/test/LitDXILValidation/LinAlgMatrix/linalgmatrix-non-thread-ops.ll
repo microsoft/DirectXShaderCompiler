@@ -9,32 +9,41 @@ target triple = "dxil-ms-dx"
 define void @main() {
   ; CHECK: Function: main: error: Return matrix scope 'Thread' does not match expected scope Wave or ThreadGroup.
   ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgFillMatrix.mC8M4N4U2S0.i32
-  %1 = call %dx.types.LinAlgMatrixC8M4N4U2S0 @dx.op.linAlgFillMatrix.mC8M4N4U2S0.i32(i32 -2147483636, i32 1)  ; LinAlgFillMatrix(value)
+  %1 = call %dx.types.LinAlgMatrixC8M4N4U2S0 @dx.op.linAlgFillMatrix.mC8M4N4U2S0.i32(i32 323, i1 true, i32 1)  ; LinAlgFillMatrix(isInputSigned,value)
+
+  ; CHECK-NEXT: Function: main: error: Float-like type 'float' must be signed
+  ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgFillMatrix.mC8M4N4U2S0.f32
+  ; CHECK-NEXT: Function: main: error: Return matrix scope 'Thread' does not match expected scope Wave or ThreadGroup.
+  ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgFillMatrix.mC8M4N4U2S0.f32
+  %badSigned = call %dx.types.LinAlgMatrixC8M4N4U2S0 @dx.op.linAlgFillMatrix.mC8M4N4U2S0.f32(i32 323, i1 false, float 1.0)  ; LinAlgFillMatrix(isInputSigned,value)
 
   ; CHECK-NEXT: Function: main: error: Input matrix scope 'Thread' does not match expected scope Wave or ThreadGroup.
   ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixGetElement.f32.mC8M4N4U2S0
-  %2 = call float @dx.op.linAlgMatrixGetElement.f32.mC8M4N4U2S0(i32 -2147483630, %dx.types.LinAlgMatrixC8M4N4U2S0 %1, i32 1)  ; LinAlgMatrixGetElement(matrix,threadLocalIndex)
+  %2 = call float @dx.op.linAlgMatrixGetElement.f32.mC8M4N4U2S0(i32 329, %dx.types.LinAlgMatrixC8M4N4U2S0 %1, i32 1)  ; LinAlgMatrixGetElement(matrix,threadLocalIndex)
 
   ; CHECK-NEXT: Function: main: error: Input matrix scope 'Thread' does not match expected scope Wave or ThreadGroup.
   ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixSetElement.mC8M4N4U2S0.mC8M4N4U2S0.f32
   ; CHECK-NEXT: Function: main: error: Return matrix scope 'Thread' does not match expected scope Wave or ThreadGroup.
   ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixSetElement.mC8M4N4U2S0.mC8M4N4U2S0.f32
-  %3 = call %dx.types.LinAlgMatrixC8M4N4U2S0 @dx.op.linAlgMatrixSetElement.mC8M4N4U2S0.mC8M4N4U2S0.f32(i32 -2147483629, %dx.types.LinAlgMatrixC8M4N4U2S0 %1, i32 1, float %2)  ; LinAlgMatrixSetElement(matrix,threadLocalIndex,value)
+  %3 = call %dx.types.LinAlgMatrixC8M4N4U2S0 @dx.op.linAlgMatrixSetElement.mC8M4N4U2S0.mC8M4N4U2S0.f32(i32 330, %dx.types.LinAlgMatrixC8M4N4U2S0 %1, i32 1, float %2)  ; LinAlgMatrixSetElement(matrix,threadLocalIndex,value)
 
   ; CHECK-NEXT: Function: main: error: Input matrix scope 'Thread' does not match expected scope Wave or ThreadGroup.
   ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixGetCoordinate.mC8M4N4U2S0
-  %4 = call <2 x i32> @dx.op.linAlgMatrixGetCoordinate.mC8M4N4U2S0(i32 -2147483631, %dx.types.LinAlgMatrixC8M4N4U2S0 %3, i32 0)  ; LinAlgMatrixGetCoordinate(matrix,threadLocalIndex)
+  %4 = call <2 x i32> @dx.op.linAlgMatrixGetCoordinate.mC8M4N4U2S0(i32 328, %dx.types.LinAlgMatrixC8M4N4U2S0 %3, i32 0)  ; LinAlgMatrixGetCoordinate(matrix,threadLocalIndex)
 
   ; CHECK-NEXT: Function: main: error: Input matrix scope 'Thread' does not match expected scope Wave or ThreadGroup.
   ; CHECK-NEXT: note: at {{.*}} @dx.op.linAlgMatrixLength.mC8M4N4U2S0
-  %5 = call i32 @dx.op.linAlgMatrixLength.mC8M4N4U2S0(i32 -2147483632, %dx.types.LinAlgMatrixC8M4N4U2S0 %3)  ; LinAlgMatrixLength(matrix)
+  %5 = call i32 @dx.op.linAlgMatrixLength.mC8M4N4U2S0(i32 327, %dx.types.LinAlgMatrixC8M4N4U2S0 %3)  ; LinAlgMatrixLength(matrix)
 
   ; CHECK-NEXT: Validation failed.
   ret void
 }
 
 ; Function Attrs: nounwind
-declare %dx.types.LinAlgMatrixC8M4N4U2S0 @dx.op.linAlgFillMatrix.mC8M4N4U2S0.i32(i32, i32) #0
+declare %dx.types.LinAlgMatrixC8M4N4U2S0 @dx.op.linAlgFillMatrix.mC8M4N4U2S0.i32(i32, i1, i32) #0
+
+; Function Attrs: nounwind
+declare %dx.types.LinAlgMatrixC8M4N4U2S0 @dx.op.linAlgFillMatrix.mC8M4N4U2S0.f32(i32, i1, float) #0
 
 ; Function Attrs: nounwind
 declare float @dx.op.linAlgMatrixGetElement.f32.mC8M4N4U2S0(i32, %dx.types.LinAlgMatrixC8M4N4U2S0, i32) #0
@@ -62,6 +71,5 @@ attributes #0 = { nounwind }
 !2 = !{i32 1, i32 10}
 !3 = !{!"cs", i32 6, i32 10}
 !4 = !{void ()* @main, !"main", null, null, !5}
-!5 = !{i32 0, i64 8388608, i32 4, !6}
+!5 = !{i32 0, i64 2199031644160, i32 4, !6}
 !6 = !{i32 1, i32 1, i32 1}
-

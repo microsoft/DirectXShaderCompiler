@@ -1189,8 +1189,7 @@ def HLSLSubObject : InheritableAttr {
 }
 
 // Marks builtin record types that have no deducible value form, so 'auto' must
-// not infer them: the inner indexer objects behind .mips / .sample, and the
-// subobject types used to configure DXR state objects.
+// not infer them.
 def HLSLNonAutoDeducible : InheritableAttr {
   let Spellings = []; // No spellings!
   let Subjects = SubjectList<[CXXRecord]>;
@@ -1201,6 +1200,16 @@ def HLSLNonAutoDeducible : InheritableAttr {
 
 def HLSLHitObject : InheritableAttr {
   let Spellings = []; // No spellings!
+  let Subjects = SubjectList<[CXXRecord]>;
+  let Documentation = [Undocumented];
+}
+
+// Vulkan SubpassInput / SubpassInputMS Attribute
+// Marks the built-in SubpassInput<T> and SubpassInputMS<T,S> record types as
+// distinct from any user-defined type with the same unqualified name.
+def HLSLVkSubpassInput : InheritableAttr {
+  let Spellings = []; // No spellings!
+  let Args = [BoolArgument<"IsMultiSampled">];
   let Subjects = SubjectList<[CXXRecord]>;
   let Documentation = [Undocumented];
 }
