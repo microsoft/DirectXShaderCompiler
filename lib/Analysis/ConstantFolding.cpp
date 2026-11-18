@@ -37,8 +37,8 @@
 #include <cerrno>
 #include <cmath>
 
-#include "llvm/Analysis/DxilConstantFolding.h" // HLSL Change
 #include "dxc/DXIL/DxilConstants.h"            // HLSL Change
+#include "llvm/Analysis/DxilConstantFolding.h" // HLSL Change
 
 #ifdef HAVE_FENV_H
 #include <fenv.h>
@@ -1070,7 +1070,8 @@ Constant *llvm::ConstantFoldInstOperands(unsigned Opcode, Type *DestTy,
 
     // HLSL Change Begin - Backports
     // https://github.com/llvm/llvm-project/commit/b6e102e08cd35543175459494211a3a15f793302
-    // and https://github.com/llvm/llvm-project/commit/d3919a8cc5031fd3d8c1ce3188abc0d7551306fb
+    // and
+    // https://github.com/llvm/llvm-project/commit/d3919a8cc5031fd3d8c1ce3188abc0d7551306fb
     Constant *C = nullptr;
     switch (Opcode) {
     default:
@@ -1193,9 +1194,12 @@ Constant *llvm::ConstantFoldInstOperands(unsigned Opcode, Type *DestTy,
 
 // HLSL Change Begin - Backports
 // https://github.com/llvm/llvm-project/commit/d3919a8cc5031fd3d8c1ce3188abc0d7551306fb
-// and https://github.com/llvm/llvm-project/commit/758de0e931f47f5953738c6c8c102df1ce72778b
-// and https://github.com/llvm/llvm-project/commit/bc37be1855773c1dcf8c6bf577a096a81fd58652
-// and https://github.com/llvm/llvm-project/commit/cd88bfcb5906049e1387b856fc7256e5fae22e5f
+// and
+// https://github.com/llvm/llvm-project/commit/758de0e931f47f5953738c6c8c102df1ce72778b
+// and
+// https://github.com/llvm/llvm-project/commit/bc37be1855773c1dcf8c6bf577a096a81fd58652
+// and
+// https://github.com/llvm/llvm-project/commit/cd88bfcb5906049e1387b856fc7256e5fae22e5f
 // Upstream reads the mode with Function::getDenormalMode() from the
 // "denormal-fp-math" attributes, which this LLVM does not have. DXIL states the
 // mode for float in "fp32-denorm-mode"; half and double keep their denormals.
@@ -1357,9 +1361,11 @@ Constant *llvm::ConstantFoldFPInstOperands(unsigned Opcode, Constant *LHS,
 /// returns a constant expression of the specified operands.
 // HLSL Change Begin - Backports
 // https://github.com/llvm/llvm-project/commit/758de0e931f47f5953738c6c8c102df1ce72778b
-Constant *llvm::ConstantFoldCompareInstOperands(
-    unsigned Predicate, Constant *Ops0, Constant *Ops1, const DataLayout &DL,
-    const TargetLibraryInfo *TLI, const Instruction *I) {
+Constant *llvm::ConstantFoldCompareInstOperands(unsigned Predicate,
+                                                Constant *Ops0, Constant *Ops1,
+                                                const DataLayout &DL,
+                                                const TargetLibraryInfo *TLI,
+                                                const Instruction *I) {
   // HLSL Change End
   // fold: icmp (inttoptr x), null         -> icmp x, 0
   // fold: icmp (ptrtoint x), 0            -> icmp x, null
@@ -1437,7 +1443,8 @@ Constant *llvm::ConstantFoldCompareInstOperands(
 
   // HLSL Change Begin - Backports
   // https://github.com/llvm/llvm-project/commit/758de0e931f47f5953738c6c8c102df1ce72778b
-  // and https://github.com/llvm/llvm-project/commit/cd88bfcb5906049e1387b856fc7256e5fae22e5f
+  // and
+  // https://github.com/llvm/llvm-project/commit/cd88bfcb5906049e1387b856fc7256e5fae22e5f
   if (CmpInst::isFPPredicate((CmpInst::Predicate)Predicate)) {
     // Flush any denormal constant float input according to denormal handling
     // mode.
@@ -1452,7 +1459,6 @@ Constant *llvm::ConstantFoldCompareInstOperands(
 
   return ConstantExpr::getCompare(Predicate, Ops0, Ops1);
 }
-
 
 /// Given a constant and a getelementptr constantexpr, return the constant value
 /// being addressed by the constant expression, or null if something is funny
