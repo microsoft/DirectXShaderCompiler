@@ -91,6 +91,8 @@
 #include "llvm/Analysis/DxilValueCache.h" // HLSL Change
 
 #include <algorithm>
+
+#include "dxc/DXIL/DxilConstants.h" // HLSL Change
 using namespace llvm;
 
 #define DEBUG_TYPE "scalar-evolution"
@@ -5461,6 +5463,43 @@ static PHINode *getConstantEvolvingPHI(Value *V, const Loop *L, DxilValueCache *
   return getConstantEvolvingPHIOperands(I, L, DVC, PHIMap); // HLSL Change
 }
 
+// HLSL Change begin
+// Returns true if \p C is a float denormal or a vector with one as an element.
+static bool IsFloatDenormal(const Constant *C) {
+  if (const ConstantFP *CFP = dyn_cast<ConstantFP>(C)) {
+    return CFP->getType()->isFloatTy() && CFP->getValueAPF().isDenormal();
+  }
+  if (!C->getType()->isVectorTy()) {
+    return false;
+  }
+  for (unsigned i = 0, e = C->getType()->getVectorNumElements(); i != e; ++i) {
+    const Constant *Elt = C->getAggregateElement(i);
+    if (Elt && IsFloatDenormal(Elt)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+// Returns true if one of \p Operands is a float denormal that the driver may
+// flush to zero when it executes \p I. It may unless the function's
+// "fp32-denorm-mode" is "preserve". Half and double denormals are always kept.
+static bool HasFlushableDenormal(ArrayRef<Constant *> Operands,
+                                 const Instruction *I) {
+  const Function *F = I->getParent()->getParent();
+  if (F->getFnAttribute(hlsl::DXIL::kFP32DenormKindString).getValueAsString() ==
+      hlsl::DXIL::kFP32DenormValuePreserveString) {
+    return false;
+  }
+  for (const Constant *Op : Operands) {
+    if (IsFloatDenormal(Op)) {
+      return true;
+    }
+  }
+  return false;
+}
+// HLSL Change end
+
 /// EvaluateExpression - Given an expression that passes the
 /// getConstantEvolvingPHI predicate, evaluate its value assuming the PHI node
 /// in the loop has the value PHIVal.  If we can't fold this expression for some
@@ -5499,6 +5538,12 @@ static Constant *EvaluateExpression(Value *V, const Loop *L,
     if (!C) return nullptr;
     Operands[i] = C;
   }
+
+  // HLSL Change begin
+  if (HasFlushableDenormal(Operands, I)) {
+    return nullptr;
+  }
+  // HLSL Change end
 
   if (CmpInst *CI = dyn_cast<CmpInst>(I))
     return ConstantFoldCompareInstOperands(CI->getPredicate(), Operands[0],
@@ -5945,6 +5990,11 @@ const SCEV *ScalarEvolution::computeSCEVAtScope(const SCEV *V, const Loop *L) {
 
         // Check to see if getSCEVAtScope actually made an improvement.
         if (MadeImprovement) {
+          // HLSL Change begin
+          if (HasFlushableDenormal(Operands, I)) {
+            return V;
+          }
+          // HLSL Change end
           Constant *C = nullptr;
           const DataLayout &DL = F->getParent()->getDataLayout();
           if (const CmpInst *CI = dyn_cast<CmpInst>(I))
