@@ -5507,8 +5507,11 @@ static Constant *EvaluateExpression(Value *V, const Loop *L,
     if (!LI->isVolatile())
       return ConstantFoldLoadFromConstPtr(Operands[0], DL);
   }
+  // HLSL Change Begin - Backports
+  // https://github.com/llvm/llvm-project/commit/b6e102e08cd35543175459494211a3a15f793302
   return ConstantFoldInstOperands(I->getOpcode(), I->getType(), Operands, DL,
-                                  TLI);
+                                  TLI, I, /*AllowNonDeterministic=*/false);
+  // HLSL Change End
 }
 
 /// getConstantEvolutionLoopExitValue - If we know that the specified Phi is
@@ -5605,6 +5608,25 @@ ScalarEvolution::getConstantEvolutionLoopExitValue(PHINode *PN,
   }
 }
 
+// HLSL Change begin
+// Returns true if DxilValueCache should not fold \p V. DxilValueCache does not
+// restrict itself to deterministic folds, so nothing that computes or reads a
+// floating-point value is taken from it.
+static bool SkipFloatingPointValue(Value *V) {
+  if (V->getType()->isFPOrFPVectorTy()) {
+    return true;
+  }
+  if (CallInst *CI = dyn_cast<CallInst>(V)) {
+    for (Value *Arg : CI->arg_operands()) {
+      if (Arg->getType()->isFPOrFPVectorTy()) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+// HLSL Change end
+
 /// ComputeExitCountExhaustively - If the loop is known to execute a
 /// constant number of times (the condition evolves only from constants),
 /// try to evaluate a few iterations of the loop until we get the exit
@@ -5618,6 +5640,7 @@ const SCEV *ScalarEvolution::ComputeExitCountExhaustively(const Loop *L,
   // Loop passes preserve ScalarEvolution without preserving DxilValueCache, so
   // use a private cache that only lives for this evaluation.
   DxilValueCache DVC;
+  DVC.SetShouldSkipCallback(SkipFloatingPointValue);
   PHINode *PN = getConstantEvolvingPHI(Cond, L, &DVC);
   // HLSL Change end
   if (!PN) return getCouldNotCompute();
@@ -5930,9 +5953,14 @@ const SCEV *ScalarEvolution::computeSCEVAtScope(const SCEV *V, const Loop *L) {
           else if (const LoadInst *LI = dyn_cast<LoadInst>(I)) {
             if (!LI->isVolatile())
               C = ConstantFoldLoadFromConstPtr(Operands[0], DL);
-          } else
+          } else {
+            // HLSL Change Begin - Backports
+            // https://github.com/llvm/llvm-project/commit/b6e102e08cd35543175459494211a3a15f793302
             C = ConstantFoldInstOperands(I->getOpcode(), I->getType(), Operands,
-                                         DL, TLI);
+                                         DL, TLI, I,
+                                         /*AllowNonDeterministic=*/false);
+            // HLSL Change End
+          }
           if (!C) return V;
           return getSCEV(C);
         }
