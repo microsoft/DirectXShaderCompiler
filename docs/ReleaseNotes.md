@@ -22,11 +22,10 @@ The included licenses apply to the following files:
 
 #### Breaking Changes
 
-- Updated non-Windows API types to match DirectX-Headers (`BOOL` is now 32 bits
-  rather than `bool`, and `LONG`/`ULONG` are now 32 bits rather than native
-  `long`/`unsigned long`), breaking binary compatibility with previous libraries
-  and requiring consumers, including FFI bindings, to update their declarations
-  and rebuild against matching headers and libraries.
+- On non-Windows platforms, DXC's Windows API types (`BOOL`, `LONG`, and
+  `ULONG`) are now 32 bits to match DirectX-Headers, which breaks binary
+  compatibility with older DXC releases and requires applications to rebuild
+  with matching DXC headers and libraries and update any FFI declarations.
 
 #### SPIR-V
 
