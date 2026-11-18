@@ -3,9 +3,9 @@
 
 ; Check that ScalarEvolution does not use non-deterministic floating-point
 ; constant folding to compute exhaustive loop trip counts, so IndVarSimplify
-; keeps the loop bounds. The cases are a floating-point intrinsic, an operation
-; and casts that produce NaN bit patterns, and an operation with fast-math
-; flags.
+; keeps the loop bounds. The cases are a floating-point intrinsic in the loop
+; and as the start value of the loop, operations and casts that produce NaN bit
+; patterns, and an operation with fast-math flags.
 
 target datalayout = "e-m:e-p:32:32-i1:32-i8:32-i16:32-i32:32-i64:64-f16:32-f32:32-f64:64-n8:16:32:64"
 target triple = "dxil-ms-dx"
@@ -243,7 +243,97 @@ exit:
   ret i32 %res
 }
 
+define i32 @dxil_sin_start_value() {
+; CHECK-LABEL: define i32 @dxil_sin_start_value() {
+; CHECK-NEXT:  [[ENTRY:.*]]:
+; CHECK-NEXT:    [[INIT:%.*]] = call float @dx.op.unary.f32(i32 13, float 0x3FB99999A0000000)
+; CHECK-NEXT:    br label %[[LOOP:.*]]
+; CHECK:       [[LOOP]]:
+; CHECK-NEXT:    [[IV:%.*]] = phi i32 [ 0, %[[ENTRY]] ], [ [[IV_NEXT:%.*]], %[[LATCH:.*]] ]
+; CHECK-NEXT:    [[FV:%.*]] = phi float [ [[INIT]], %[[ENTRY]] ], [ [[FV_NEXT:%.*]], %[[LATCH]] ]
+; CHECK-NEXT:    [[BOUND:%.*]] = icmp uge i32 [[IV]], 128
+; CHECK-NEXT:    [[STOP:%.*]] = fcmp ogt float [[FV]], 5.000000e+00
+; CHECK-NEXT:    [[OR_COND:%.*]] = or i1 [[BOUND]], [[STOP]]
+; CHECK-NEXT:    br i1 [[OR_COND]], label %[[EXIT:.*]], label %[[LATCH]]
+; CHECK:       [[LATCH]]:
+; CHECK-NEXT:    [[FV_NEXT]] = fmul float [[FV]], 2.000000e+00
+; CHECK-NEXT:    [[IV_NEXT]] = add nuw nsw i32 [[IV]], 1
+; CHECK-NEXT:    br label %[[LOOP]]
+; CHECK:       [[EXIT]]:
+; CHECK-NEXT:    [[IV_LCSSA:%.*]] = phi i32 [ [[IV]], %[[LOOP]] ]
+; CHECK-NEXT:    ret i32 [[IV_LCSSA]]
+;
+entry:
+  %init = call float @dx.op.unary.f32(i32 13, float 0x3FB99999A0000000)
+  br label %loop
+
+loop:
+  %iv = phi i32 [ 0, %entry ], [ %iv.next, %latch ]
+  %fv = phi float [ %init, %entry ], [ %fv.next, %latch ]
+  %bound = icmp ult i32 %iv, 128
+  br i1 %bound, label %body, label %exit
+
+body:
+  %stop = fcmp ogt float %fv, 5.000000e+00
+  br i1 %stop, label %exit, label %latch
+
+latch:
+  %fv.next = fmul float %fv, 2.000000e+00
+  %iv.next = add nuw nsw i32 %iv, 1
+  br label %loop
+
+exit:
+  %res = phi i32 [ %iv, %loop ], [ %iv, %body ]
+  ret i32 %res
+}
+
+define i32 @nan_convert_to_fp16() {
+; CHECK-LABEL: define i32 @nan_convert_to_fp16() {
+; CHECK-NEXT:  [[ENTRY:.*]]:
+; CHECK-NEXT:    br label %[[LOOP:.*]]
+; CHECK:       [[LOOP]]:
+; CHECK-NEXT:    [[IV:%.*]] = phi i32 [ 0, %[[ENTRY]] ], [ [[IV_NEXT:%.*]], %[[LATCH:.*]] ]
+; CHECK-NEXT:    [[BOUND:%.*]] = icmp ult i32 [[IV]], 128
+; CHECK-NEXT:    br i1 [[BOUND]], label %[[BODY:.*]], label %[[EXIT:.*]]
+; CHECK:       [[BODY]]:
+; CHECK-NEXT:    [[FBITS:%.*]] = add nuw nsw i32 [[IV]], -4186112
+; CHECK-NEXT:    [[F:%.*]] = bitcast i32 [[FBITS]] to float
+; CHECK-NEXT:    [[BITS:%.*]] = call i16 @llvm.convert.to.fp16.f32(float [[F]])
+; CHECK-NEXT:    [[STOP:%.*]] = icmp eq i16 [[BITS]], -511
+; CHECK-NEXT:    br i1 [[STOP]], label %[[EXIT]], label %[[LATCH]]
+; CHECK:       [[LATCH]]:
+; CHECK-NEXT:    [[IV_NEXT]] = add nuw nsw i32 [[IV]], 1
+; CHECK-NEXT:    br label %[[LOOP]]
+; CHECK:       [[EXIT]]:
+; CHECK-NEXT:    [[RES:%.*]] = phi i32 [ [[IV]], %[[LOOP]] ], [ [[IV]], %[[BODY]] ]
+; CHECK-NEXT:    ret i32 [[RES]]
+;
+entry:
+  br label %loop
+
+loop:
+  %iv = phi i32 [ 0, %entry ], [ %iv.next, %latch ]
+  %bound = icmp ult i32 %iv, 128
+  br i1 %bound, label %body, label %exit
+
+body:
+  %fbits = add nsw i32 %iv, -4186112
+  %f = bitcast i32 %fbits to float
+  %bits = call i16 @llvm.convert.to.fp16.f32(float %f)
+  %stop = icmp eq i16 %bits, -511
+  br i1 %stop, label %exit, label %latch
+
+latch:
+  %iv.next = add nuw nsw i32 %iv, 1
+  br label %loop
+
+exit:
+  %res = phi i32 [ %iv, %loop ], [ %iv, %body ]
+  ret i32 %res
+}
+
 declare void @noop()
+declare i16 @llvm.convert.to.fp16.f32(float) #0
 declare float @dx.op.unary.f32(i32, float) #0
 
 attributes #0 = { nounwind readnone }

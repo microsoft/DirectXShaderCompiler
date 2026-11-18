@@ -1857,6 +1857,12 @@ Constant *llvm::ConstantFoldCall(Function *F, ArrayRef<Constant *> Operands,
   // non-deterministic.
   if (!AllowNonDeterministic && Ty->isFPOrFPVectorTy())
     return nullptr;
+  // Not part of the upstream commit: convert.to.fp16 returns the bits of a
+  // half as an integer, so the NaN bit pattern it produces is not caught above.
+  if (!AllowNonDeterministic &&
+      F->getIntrinsicID() == Intrinsic::convert_to_fp16 &&
+      isConstantNaN(Operands[0]))
+    return nullptr;
   // HLSL Change End
 
   if (VectorType *VTy = dyn_cast<VectorType>(Ty))
