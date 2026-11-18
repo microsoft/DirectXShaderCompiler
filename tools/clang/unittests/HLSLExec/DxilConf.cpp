@@ -93,9 +93,10 @@ static void WriteInfoQueueMessages(void *pStrCtx,
   UINT64 count = pInfoQueue->GetNumStoredMessages();
   CAtlArray<BYTE> message;
   for (UINT64 i = 0; i < count; ++i) {
-    // 'GetMessageA' rather than 'GetMessage' is an artifact of user32 headers.
+    // Call 'GetMessage' so the user32 macro (GetMessageA/GetMessageW, or none)
+    // expands consistently with the ID3D12InfoQueue declaration.
     SIZE_T msgLen = 0;
-    if (FAILED(pInfoQueue->GetMessageA(i, nullptr, &msgLen))) {
+    if (FAILED(pInfoQueue->GetMessage(i, nullptr, &msgLen))) {
       allMessagesOK = false;
       continue;
     }
@@ -106,7 +107,7 @@ static void WriteInfoQueueMessages(void *pStrCtx,
       }
     }
     D3D12_MESSAGE *pMessage = (D3D12_MESSAGE *)message.GetData();
-    if (FAILED(pInfoQueue->GetMessageA(i, pMessage, &msgLen))) {
+    if (FAILED(pInfoQueue->GetMessage(i, pMessage, &msgLen))) {
       allMessagesOK = false;
       continue;
     }
@@ -2199,12 +2200,12 @@ TEST_F(DxilConfTest, BasicTriangleTest) {
         CAtlArray<BYTE> m_pBytes;
         for (UINT64 i = 0; i < count; ++i) {
           SIZE_T len = 0;
-          if (FAILED(m_pInfoQueue->GetMessageA(i, nullptr, &len)))
+          if (FAILED(m_pInfoQueue->GetMessage(i, nullptr, &len)))
             continue;
           if (m_pBytes.GetCount() < len && !m_pBytes.SetCount(len))
             continue;
           D3D12_MESSAGE *pMsg = (D3D12_MESSAGE *)m_pBytes.GetData();
-          if (FAILED(m_pInfoQueue->GetMessageA(i, pMsg, &len)))
+          if (FAILED(m_pInfoQueue->GetMessage(i, pMsg, &len)))
             continue;
           if (pMsg->ID ==
                   D3D12_MESSAGE_ID_CREATEVERTEXSHADER_INVALIDSHADERBYTECODE ||
