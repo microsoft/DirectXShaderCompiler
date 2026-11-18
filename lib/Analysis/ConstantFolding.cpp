@@ -38,6 +38,7 @@
 #include <cmath>
 
 #include "llvm/Analysis/DxilConstantFolding.h" // HLSL Change
+#include "dxc/DXIL/DxilConstants.h"            // HLSL Change
 
 #ifdef HAVE_FENV_H
 #include <fenv.h>
@@ -958,7 +959,11 @@ Constant *llvm::ConstantFoldInstruction(Instruction *I, const DataLayout &DL,
                                     EVI->getIndices());
   }
 
-  return ConstantFoldInstOperands(I->getOpcode(), I->getType(), Ops, DL, TLI);
+  // HLSL Change - Backports
+  // https://github.com/llvm/llvm-project/commit/d3919a8cc5031fd3d8c1ce3188abc0d7551306fb
+  // Upstream's ConstantFoldInstruction already passes the instruction.
+  return ConstantFoldInstOperands(I->getOpcode(), I->getType(), Ops, DL, TLI,
+                                  I);
 }
 
 static Constant *
@@ -1055,7 +1060,24 @@ Constant *llvm::ConstantFoldInstOperands(unsigned Opcode, Type *DestTy,
 
     // HLSL Change Begin - Backports
     // https://github.com/llvm/llvm-project/commit/b6e102e08cd35543175459494211a3a15f793302
-    Constant *C = ConstantExpr::get(Opcode, Ops[0], Ops[1]);
+    // and https://github.com/llvm/llvm-project/commit/d3919a8cc5031fd3d8c1ce3188abc0d7551306fb
+    Constant *C = nullptr;
+    switch (Opcode) {
+    default:
+      break;
+    case Instruction::FAdd:
+    case Instruction::FSub:
+    case Instruction::FMul:
+    case Instruction::FDiv:
+    case Instruction::FRem:
+      // Handle floating point instructions separately to account for denormals
+      // TODO: If a constant expression is being folded rather than an
+      // instruction, denormals will not be flushed/treated as zero
+      if (I)
+        C = ConstantFoldFPInstOperands(Opcode, Ops[0], Ops[1], DL, I);
+    }
+    if (!C)
+      C = ConstantExpr::get(Opcode, Ops[0], Ops[1]);
 
     // The precise NaN value is non-deterministic.
     if (!AllowNonDeterministic && isConstantNaN(C))
@@ -1153,6 +1175,78 @@ Constant *llvm::ConstantFoldInstOperands(unsigned Opcode, Type *DestTy,
   }
   }
 }
+
+// HLSL Change Begin - Backports
+// https://github.com/llvm/llvm-project/commit/d3919a8cc5031fd3d8c1ce3188abc0d7551306fb
+// Upstream reads the mode with Function::getDenormalMode() from the
+// "denormal-fp-math" attributes, which this LLVM does not have. DXIL states the
+// mode for float in "fp32-denorm-mode"; half and double keep their denormals.
+enum class DenormalModeKind { IEEE, PreserveSign };
+
+static DenormalModeKind getDenormalMode(const Function *F, Type *Ty) {
+  if (!Ty->isFloatTy())
+    return DenormalModeKind::IEEE;
+  StringRef Mode =
+      F->getFnAttribute(hlsl::DXIL::kFP32DenormKindString).getValueAsString();
+  if (Mode == hlsl::DXIL::kFP32DenormValueFtzString)
+    return DenormalModeKind::PreserveSign;
+  return DenormalModeKind::IEEE;
+}
+
+// Check whether a constant is a floating point denormal that should be flushed
+// to zero according to the denormal handling mode set in the function
+// attributes. If so, return a zero with the correct sign, otherwise return the
+// original constant. Inputs and outputs to floating point instructions can have
+// their mode set separately, so the direction is also needed.
+// DXIL has a single mode for inputs and outputs, so IsOutput is unused. It also
+// has no mode that flushes to positive zero.
+static Constant *FlushFPConstant(Constant *Operand, const llvm::Function *F,
+                                 bool IsOutput) {
+  if (F == nullptr)
+    return Operand;
+  if (auto *CFP = dyn_cast<ConstantFP>(Operand)) {
+    const APFloat &APF = CFP->getValueAPF();
+    Type *Ty = CFP->getType();
+    DenormalModeKind Mode = getDenormalMode(F, Ty);
+    switch (Mode) {
+    default:
+      llvm_unreachable("unknown denormal mode");
+      return Operand;
+    case DenormalModeKind::IEEE:
+      return Operand;
+    case DenormalModeKind::PreserveSign:
+      if (APF.isDenormal()) {
+        return ConstantFP::get(
+            Ty->getContext(),
+            APFloat::getZero(Ty->getFltSemantics(), APF.isNegative()));
+      }
+      return Operand;
+    }
+  }
+  return Operand;
+}
+
+Constant *llvm::ConstantFoldFPInstOperands(unsigned Opcode, Constant *LHS,
+                                           Constant *RHS, const DataLayout &DL,
+                                           const Instruction *I) {
+  if (auto *BB = I->getParent()) {
+    if (auto *F = BB->getParent()) {
+      if (Instruction::isBinaryOp(Opcode)) {
+        Constant *Op0 = FlushFPConstant(LHS, F, false);
+        Constant *Op1 = FlushFPConstant(RHS, F, false);
+        // Upstream calls ConstantFoldBinaryOpOperands, which this LLVM does
+        // not have. ConstantExpr::get is what ConstantFoldInstOperands uses to
+        // fold a binary operator whose operands are not constant expressions.
+        Constant *C = ConstantExpr::get(Opcode, Op0, Op1);
+        return FlushFPConstant(C, F, true);
+      }
+    }
+  }
+  // If instruction lacks a parent/function and the denormal mode cannot be
+  // determined, use the default (IEEE).
+  return ConstantExpr::get(Opcode, LHS, RHS);
+}
+// HLSL Change End
 
 /// Attempt to constant fold a compare
 /// instruction (icmp/fcmp) with the specified operands.  If it fails, it

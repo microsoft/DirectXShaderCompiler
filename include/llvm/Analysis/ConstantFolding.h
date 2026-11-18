@@ -83,6 +83,16 @@ namespace llvm {
                                   Constant *RHS, const DataLayout &DL,
                                   const TargetLibraryInfo *TLI = nullptr);
 
+// HLSL Change Begin - Backports
+// https://github.com/llvm/llvm-project/commit/d3919a8cc5031fd3d8c1ce3188abc0d7551306fb
+/// Attempt to constant fold a floating point binary operation with the
+/// specified operands, applying the denormal handling mod to the operands.  If
+/// it fails, it returns a constant expression of the specified operands.
+Constant *ConstantFoldFPInstOperands(unsigned Opcode, Constant *LHS,
+                                     Constant *RHS, const DataLayout &DL,
+                                     const Instruction *I);
+// HLSL Change End
+
 /// ConstantFoldInsertValueInstruction - Attempt to constant fold an insertvalue
 /// instruction with the specified operands and indices.  The constant result is
 /// returned if successful; if not, null is returned.

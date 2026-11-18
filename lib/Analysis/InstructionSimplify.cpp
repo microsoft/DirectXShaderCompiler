@@ -793,8 +793,10 @@ static Value *SimplifyFAddInst(Value *Op0, Value *Op1, FastMathFlags FMF,
   if (Constant *CLHS = dyn_cast<Constant>(Op0)) {
     if (Constant *CRHS = dyn_cast<Constant>(Op1)) {
       Constant *Ops[] = { CLHS, CRHS };
-      return ConstantFoldInstOperands(Instruction::FAdd, CLHS->getType(),
-                                      Ops, Q.DL, Q.TLI);
+      // HLSL Change - Backports
+      // https://github.com/llvm/llvm-project/commit/d3919a8cc5031fd3d8c1ce3188abc0d7551306fb
+      return ConstantFoldInstOperands(Instruction::FAdd, CLHS->getType(), Ops,
+                                      Q.DL, Q.TLI, Q.CxtI);
     }
     // HLSL Change Begins.
     if (ConstantFP *FP = dyn_cast<ConstantFP>(Op0))
@@ -844,8 +846,10 @@ static Value *SimplifyFSubInst(Value *Op0, Value *Op1, FastMathFlags FMF,
   if (Constant *CLHS = dyn_cast<Constant>(Op0)) {
     if (Constant *CRHS = dyn_cast<Constant>(Op1)) {
       Constant *Ops[] = { CLHS, CRHS };
-      return ConstantFoldInstOperands(Instruction::FSub, CLHS->getType(),
-                                      Ops, Q.DL, Q.TLI);
+      // HLSL Change - Backports
+      // https://github.com/llvm/llvm-project/commit/d3919a8cc5031fd3d8c1ce3188abc0d7551306fb
+      return ConstantFoldInstOperands(Instruction::FSub, CLHS->getType(), Ops,
+                                      Q.DL, Q.TLI, Q.CxtI);
     }
     // HLSL Change Begins.
     if (ConstantFP *FP = dyn_cast<ConstantFP>(Op0))
@@ -892,8 +896,10 @@ static Value *SimplifyFMulInst(Value *Op0, Value *Op1,
   if (Constant *CLHS = dyn_cast<Constant>(Op0)) {
     if (Constant *CRHS = dyn_cast<Constant>(Op1)) {
       Constant *Ops[] = {CLHS, CRHS};
+      // HLSL Change - Backports
+      // https://github.com/llvm/llvm-project/commit/d3919a8cc5031fd3d8c1ce3188abc0d7551306fb
       return ConstantFoldInstOperands(Instruction::FMul, CLHS->getType(), Ops,
-                                      Q.DL, Q.TLI);
+                                      Q.DL, Q.TLI, Q.CxtI);
     }
     // HLSL Change Begins.
     if (ConstantFP *FP = dyn_cast<ConstantFP>(Op0))
@@ -1147,8 +1153,10 @@ static Value *SimplifyFDivInst(Value *Op0, Value *Op1, FastMathFlags FMF,
   if (Constant *C0 = dyn_cast<Constant>(Op0)) {
     if (Constant *C1 = dyn_cast<Constant>(Op1)) {
       Constant *Ops[] = {C0, C1};
+      // HLSL Change - Backports
+      // https://github.com/llvm/llvm-project/commit/d3919a8cc5031fd3d8c1ce3188abc0d7551306fb
       return ConstantFoldInstOperands(Instruction::FDiv, C0->getType(), Ops,
-                                      Q.DL, Q.TLI);
+                                      Q.DL, Q.TLI, Q.CxtI);
     }
     if (ConstantFP *FP = dyn_cast<ConstantFP>(C0))
       if (FP->getValueAPF().isNaN())
@@ -1303,8 +1311,10 @@ static Value *SimplifyFRemInst(Value *Op0, Value *Op1, FastMathFlags FMF,
   if (Constant *C0 = dyn_cast<Constant>(Op0)) {
     if (Constant *C1 = dyn_cast<Constant>(Op1)) {
       Constant *Ops[] = {C0, C1};
+      // HLSL Change - Backports
+      // https://github.com/llvm/llvm-project/commit/d3919a8cc5031fd3d8c1ce3188abc0d7551306fb
       return ConstantFoldInstOperands(Instruction::FRem, C0->getType(), Ops,
-                                      Q.DL, Q.TLI);
+                                      Q.DL, Q.TLI, Q.CxtI);
     }
     if (ConstantFP *FP = dyn_cast<ConstantFP>(C0))
       if (FP->getValueAPF().isNaN())
