@@ -939,9 +939,11 @@ Constant *llvm::ConstantFoldInstruction(Instruction *I, const DataLayout &DL,
     Ops.push_back(Op);
   }
 
+  // HLSL Change - Backports
+  // https://github.com/llvm/llvm-project/commit/758de0e931f47f5953738c6c8c102df1ce72778b
   if (const CmpInst *CI = dyn_cast<CmpInst>(I))
     return ConstantFoldCompareInstOperands(CI->getPredicate(), Ops[0], Ops[1],
-                                           DL, TLI);
+                                           DL, TLI, CI);
 
   if (const LoadInst *LI = dyn_cast<LoadInst>(I))
     return ConstantFoldLoadInst(LI, DL);
@@ -1178,6 +1180,7 @@ Constant *llvm::ConstantFoldInstOperands(unsigned Opcode, Type *DestTy,
 
 // HLSL Change Begin - Backports
 // https://github.com/llvm/llvm-project/commit/d3919a8cc5031fd3d8c1ce3188abc0d7551306fb
+// and https://github.com/llvm/llvm-project/commit/758de0e931f47f5953738c6c8c102df1ce72778b
 // Upstream reads the mode with Function::getDenormalMode() from the
 // "denormal-fp-math" attributes, which this LLVM does not have. DXIL states the
 // mode for float in "fp32-denorm-mode"; half and double keep their denormals.
@@ -1193,35 +1196,35 @@ static DenormalModeKind getDenormalMode(const Function *F, Type *Ty) {
   return DenormalModeKind::IEEE;
 }
 
-// Check whether a constant is a floating point denormal that should be flushed
-// to zero according to the denormal handling mode set in the function
-// attributes. If so, return a zero with the correct sign, otherwise return the
-// original constant. Inputs and outputs to floating point instructions can have
-// their mode set separately, so the direction is also needed.
 // DXIL has a single mode for inputs and outputs, so IsOutput is unused. It also
 // has no mode that flushes to positive zero.
-static Constant *FlushFPConstant(Constant *Operand, const llvm::Function *F,
-                                 bool IsOutput) {
-  if (F == nullptr)
+Constant *llvm::FlushFPConstant(Constant *Operand, const Instruction *I,
+                                bool IsOutput) {
+  // Upstream also checks I->getFunction(), which this LLVM does not have. A
+  // basic block always has a parent function here.
+  if (!I || !I->getParent())
     return Operand;
-  if (auto *CFP = dyn_cast<ConstantFP>(Operand)) {
-    const APFloat &APF = CFP->getValueAPF();
-    Type *Ty = CFP->getType();
-    DenormalModeKind Mode = getDenormalMode(F, Ty);
-    switch (Mode) {
-    default:
-      llvm_unreachable("unknown denormal mode");
-      return Operand;
-    case DenormalModeKind::IEEE:
-      return Operand;
-    case DenormalModeKind::PreserveSign:
-      if (APF.isDenormal()) {
-        return ConstantFP::get(
-            Ty->getContext(),
-            APFloat::getZero(Ty->getFltSemantics(), APF.isNegative()));
-      }
-      return Operand;
+
+  ConstantFP *CFP = dyn_cast<ConstantFP>(Operand);
+  if (!CFP)
+    return Operand;
+
+  const APFloat &APF = CFP->getValueAPF();
+  Type *Ty = CFP->getType();
+  DenormalModeKind Mode = getDenormalMode(I->getParent()->getParent(), Ty);
+  switch (Mode) {
+  default:
+    llvm_unreachable("unknown denormal mode");
+    return Operand;
+  case DenormalModeKind::IEEE:
+    return Operand;
+  case DenormalModeKind::PreserveSign:
+    if (APF.isDenormal()) {
+      return ConstantFP::get(
+          Ty->getContext(),
+          APFloat::getZero(Ty->getFltSemantics(), APF.isNegative()));
     }
+    return Operand;
   }
   return Operand;
 }
@@ -1229,18 +1232,19 @@ static Constant *FlushFPConstant(Constant *Operand, const llvm::Function *F,
 Constant *llvm::ConstantFoldFPInstOperands(unsigned Opcode, Constant *LHS,
                                            Constant *RHS, const DataLayout &DL,
                                            const Instruction *I) {
-  if (auto *BB = I->getParent()) {
-    if (auto *F = BB->getParent()) {
-      if (Instruction::isBinaryOp(Opcode)) {
-        Constant *Op0 = FlushFPConstant(LHS, F, false);
-        Constant *Op1 = FlushFPConstant(RHS, F, false);
-        // Upstream calls ConstantFoldBinaryOpOperands, which this LLVM does
-        // not have. ConstantExpr::get is what ConstantFoldInstOperands uses to
-        // fold a binary operator whose operands are not constant expressions.
-        Constant *C = ConstantExpr::get(Opcode, Op0, Op1);
-        return FlushFPConstant(C, F, true);
-      }
-    }
+  if (Instruction::isBinaryOp(Opcode)) {
+    // Flush denormal inputs if needed.
+    Constant *Op0 = FlushFPConstant(LHS, I, /* IsOutput */ false);
+    Constant *Op1 = FlushFPConstant(RHS, I, /* IsOutput */ false);
+
+    // Calculate constant result.
+    // Upstream calls ConstantFoldBinaryOpOperands, which this LLVM does not
+    // have. ConstantExpr::get is what ConstantFoldInstOperands uses to fold a
+    // binary operator whose operands are not constant expressions.
+    Constant *C = ConstantExpr::get(Opcode, Op0, Op1);
+
+    // Flush denormal output if needed.
+    return FlushFPConstant(C, I, /* IsOutput */ true);
   }
   // If instruction lacks a parent/function and the denormal mode cannot be
   // determined, use the default (IEEE).
@@ -1251,10 +1255,12 @@ Constant *llvm::ConstantFoldFPInstOperands(unsigned Opcode, Constant *LHS,
 /// Attempt to constant fold a compare
 /// instruction (icmp/fcmp) with the specified operands.  If it fails, it
 /// returns a constant expression of the specified operands.
-Constant *llvm::ConstantFoldCompareInstOperands(unsigned Predicate,
-                                                Constant *Ops0, Constant *Ops1,
-                                                const DataLayout &DL,
-                                                const TargetLibraryInfo *TLI) {
+// HLSL Change Begin - Backports
+// https://github.com/llvm/llvm-project/commit/758de0e931f47f5953738c6c8c102df1ce72778b
+Constant *llvm::ConstantFoldCompareInstOperands(
+    unsigned Predicate, Constant *Ops0, Constant *Ops1, const DataLayout &DL,
+    const TargetLibraryInfo *TLI, const Instruction *I) {
+  // HLSL Change End
   // fold: icmp (inttoptr x), null         -> icmp x, 0
   // fold: icmp (ptrtoint x), 0            -> icmp x, null
   // fold: icmp (inttoptr x), (inttoptr y) -> icmp trunc/zext x, trunc/zext y
@@ -1328,6 +1334,14 @@ Constant *llvm::ConstantFoldCompareInstOperands(unsigned Predicate,
       return ConstantFoldInstOperands(OpC, LHS->getType(), Ops, DL, TLI);
     }
   }
+
+  // HLSL Change Begin - Backports
+  // https://github.com/llvm/llvm-project/commit/758de0e931f47f5953738c6c8c102df1ce72778b
+  // Flush any denormal constant float input according to denormal handling
+  // mode.
+  Ops0 = FlushFPConstant(Ops0, I, /* IsOutput */ false);
+  Ops1 = FlushFPConstant(Ops1, I, /* IsOutput */ false);
+  // HLSL Change End
 
   return ConstantExpr::getCompare(Predicate, Ops0, Ops1);
 }

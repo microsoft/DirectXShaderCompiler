@@ -3125,7 +3125,10 @@ static Value *SimplifyFCmpInst(unsigned Predicate, Value *LHS, Value *RHS,
 
   if (Constant *CLHS = dyn_cast<Constant>(LHS)) {
     if (Constant *CRHS = dyn_cast<Constant>(RHS))
-      return ConstantFoldCompareInstOperands(Pred, CLHS, CRHS, Q.DL, Q.TLI);
+      // HLSL Change - Backports
+      // https://github.com/llvm/llvm-project/commit/758de0e931f47f5953738c6c8c102df1ce72778b
+      return ConstantFoldCompareInstOperands(Pred, CLHS, CRHS, Q.DL, Q.TLI,
+                                             Q.CxtI);
 
     // If we have a constant, make sure it is on the RHS.
     std::swap(LHS, RHS);

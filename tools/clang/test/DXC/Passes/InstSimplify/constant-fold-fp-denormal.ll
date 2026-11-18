@@ -52,6 +52,33 @@ define double @fmul_double_denormal_output_ftz() #1 {
   ret double %r
 }
 
+define i1 @fcmp_denormal_input_preserve() #0 {
+; CHECK-LABEL: define i1 @fcmp_denormal_input_preserve(
+; CHECK-SAME: ) #[[ATTR0]] {
+; CHECK-NEXT:    ret i1 true
+;
+  %r = fcmp une float 0x3800000000000000, 0.000000e+00
+  ret i1 %r
+}
+
+define i1 @fcmp_denormal_input_ftz() #1 {
+; CHECK-LABEL: define i1 @fcmp_denormal_input_ftz(
+; CHECK-SAME: ) #[[ATTR1]] {
+; CHECK-NEXT:    ret i1 false
+;
+  %r = fcmp une float 0x3800000000000000, 0.000000e+00
+  ret i1 %r
+}
+
+define i1 @fcmp_denormal_input_any() #2 {
+; CHECK-LABEL: define i1 @fcmp_denormal_input_any(
+; CHECK-SAME: ) #[[ATTR2]] {
+; CHECK-NEXT:    ret i1 true
+;
+  %r = fcmp une float 0x3800000000000000, 0.000000e+00
+  ret i1 %r
+}
+
 attributes #0 = { "fp32-denorm-mode"="preserve" }
 attributes #1 = { "fp32-denorm-mode"="ftz" }
 attributes #2 = { "fp32-denorm-mode"="any" }

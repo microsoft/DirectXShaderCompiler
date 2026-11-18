@@ -77,11 +77,13 @@ namespace llvm {
   /// ConstantFoldCompareInstOperands - Attempt to constant fold a compare
   /// instruction (icmp/fcmp) with the specified operands.  If it fails, it
   /// returns a constant expression of the specified operands.
-  ///
-  Constant *
-  ConstantFoldCompareInstOperands(unsigned Predicate, Constant *LHS,
-                                  Constant *RHS, const DataLayout &DL,
-                                  const TargetLibraryInfo *TLI = nullptr);
+  // HLSL Change Begin - Backports
+  // https://github.com/llvm/llvm-project/commit/758de0e931f47f5953738c6c8c102df1ce72778b
+  /// Denormal inputs may be flushed based on the denormal handling mode.
+  Constant *ConstantFoldCompareInstOperands(
+      unsigned Predicate, Constant *LHS, Constant *RHS, const DataLayout &DL,
+      const TargetLibraryInfo *TLI = nullptr, const Instruction *I = nullptr);
+  // HLSL Change End
 
 // HLSL Change Begin - Backports
 // https://github.com/llvm/llvm-project/commit/d3919a8cc5031fd3d8c1ce3188abc0d7551306fb
@@ -91,6 +93,17 @@ namespace llvm {
 Constant *ConstantFoldFPInstOperands(unsigned Opcode, Constant *LHS,
                                      Constant *RHS, const DataLayout &DL,
                                      const Instruction *I);
+// HLSL Change End
+
+// HLSL Change Begin - Backports
+// https://github.com/llvm/llvm-project/commit/758de0e931f47f5953738c6c8c102df1ce72778b
+/// Attempt to flush float point constant according to denormal mode set in the
+/// instruction's parent function attributes. If so, return a zero with the
+/// correct sign, otherwise return the original constant. Inputs and outputs to
+/// floating point instructions can have their mode set separately, so the
+/// direction is also needed.
+Constant *FlushFPConstant(Constant *Operand, const Instruction *I,
+                          bool IsOutput);
 // HLSL Change End
 
 /// ConstantFoldInsertValueInstruction - Attempt to constant fold an insertvalue
