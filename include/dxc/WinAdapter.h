@@ -35,7 +35,6 @@
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wcast-qual"
-#pragma GCC diagnostic ignored "-Wunused-value"
 #ifdef __clang__
 #pragma clang diagnostic ignored "-Wnewline-eof"
 #endif
@@ -55,8 +54,6 @@ struct __declspec(uuid("00000000-0000-0000-C000-000000000046")) IUnknown;
 #undef HeapFree
 #undef UNREFERENCED_PARAMETER
 
-#define COM_NO_WINDOWS_H // needed to inform d3d headers that this isn't windows
-
 //===----------------------------------------------------------------------===//
 //
 //                             Begin: Macro Definitions
@@ -68,8 +65,6 @@ struct __declspec(uuid("00000000-0000-0000-C000-000000000046")) IUnknown;
 #define CoTaskMemFree free
 
 #define ARRAYSIZE(array) (sizeof(array) / sizeof(array[0]))
-
-#define _countof(a) (sizeof(a) / sizeof(*(a)))
 
 // If it is GCC, there is no UUID support and we must emulate it.
 // Clang support depends on the -fms-extensions compiler flag.
@@ -243,36 +238,16 @@ struct __declspec(uuid("00000000-0000-0000-C000-000000000046")) IUnknown;
 //                         Begin: Disable SAL Annotations
 //
 //===----------------------------------------------------------------------===//
-#define _In_
-#define _In_z_
-#define _In_opt_
-#define _In_opt_z_
-
-#define _Out_
-#define _Out_opt_
-#define _Outptr_
 #define _Outptr_opt_
 #define _Outptr_result_z_
-#define _Outptr_opt_result_z_
-#define _Outptr_result_maybenull_
-#define _Outptr_result_nullonfailure_
 #define _Outptr_result_buffer_maybenull_(ptr)
 #define _Outptr_result_buffer_(ptr)
-
-#define _COM_Outptr_
-#define _COM_Outptr_opt_
-#define _COM_Outptr_result_maybenull_
-#define _COM_Outptr_opt_result_maybenull_
-
-#define _Maybenull_
 
 #define __debugbreak()
 
 // GCC produces erros on calling convention attributes.
 #ifdef __GNUC__
-#define __cdecl
 #define __CRTDECL
-#define __stdcall
 #define __vectorcall
 #define __thiscall
 #define __fastcall
