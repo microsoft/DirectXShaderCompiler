@@ -96,7 +96,7 @@ int WideCharToMultiByte(uint32_t /*CodePage*/, uint32_t /*dwFlags*/,
                         const wchar_t *lpWideCharStr, int cchWideChar,
                         char *lpMultiByteStr, int cbMultiByte,
                         const char * /*lpDefaultChar*/,
-                        bool *lpUsedDefaultChar) {
+                        LPBOOL lpUsedDefaultChar) {
   if (lpUsedDefaultChar) {
     *lpUsedDefaultChar = FALSE;
   }

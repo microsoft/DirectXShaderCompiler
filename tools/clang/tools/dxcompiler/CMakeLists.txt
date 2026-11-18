@@ -161,6 +161,16 @@ install(TARGETS dxcompiler
   ${install_dest}
   COMPONENT dxcompiler)
 
+if (NOT WIN32)
+  target_include_directories(dxcompiler INTERFACE
+    $<BUILD_INTERFACE:${LLVM_MAIN_INCLUDE_DIR}>
+    $<BUILD_INTERFACE:${LLVM_MAIN_INCLUDE_DIR}/dxc>
+    $<BUILD_INTERFACE:${LLVM_INCLUDE_DIR}>
+    $<BUILD_INTERFACE:${LLVM_INCLUDE_DIR}/dxc>
+    $<BUILD_INTERFACE:${DIRECTX_HEADER_INCLUDE_DIR}>
+    $<BUILD_INTERFACE:${DIRECTX_HEADER_INCLUDE_DIR}/wsl/stubs>)
+endif()
+
 add_custom_target(install-dxcompiler
   DEPENDS dxcompiler
   COMMAND "${CMAKE_COMMAND}"

@@ -13,11 +13,20 @@ The included licenses apply to the following files:
 | License file | Applies to |
 |---|---|
 |LICENSE-MIT.txt    |d3d12shader.h|
+|include/dxc/LICENSE-DirectX-Headers.txt|basetsd.h, rpcndr.h, rpc.h, unknwn.h, unknwnbase.h, wsl/winadapter.h (non-Windows)|
 |LICENSE-LLVM.txt   |all other files|
 
 ## Changelog
 
 ### Upcoming Release
+
+#### Breaking Changes
+
+- Updated non-Windows API types to match DirectX-Headers (`BOOL` is now 32 bits
+  rather than `bool`, and `LONG`/`ULONG` are now 32 bits rather than native
+  `long`/`unsigned long`), breaking binary compatibility with previous libraries
+  and requiring consumers, including FFI bindings, to update their declarations
+  and rebuild against matching headers and libraries.
 
 #### SPIR-V
 

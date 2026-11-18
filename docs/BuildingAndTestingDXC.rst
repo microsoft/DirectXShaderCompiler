@@ -72,6 +72,35 @@ repository so you either need to create an alternate directory to run CMake in,
 or you can use the CMake ``-B <path>`` flag to direct CMake to place the
 generated files in a different location.
 
+Consuming the non-Windows API
+----------------------------
+
+The ``dxc-headers`` install component includes the public C++ API, the required
+DirectX-Headers WSL headers, and ``LICENSE-DirectX-Headers.txt`` with their MIT
+license notice. Keep these files
+together when redistributing the headers. Add ``<install prefix>/include/dxc``
+to the consumer's include path, including when using the parent ``include``
+directory to include ``<dxc/dxcapi.h>``: the upstream WSL adapter includes
+``<unknwn.h>`` by name.
+
+For source builds using ``add_subdirectory``, linking the ``dxcompiler`` target
+propagates the API and WSL dependency include paths. The installed distribution
+does not provide a standalone DXC CMake package; installed consumers must
+configure the include path above and link ``dxcompiler`` themselves.
+
+When also using a separate DirectX-Headers installation, put DXC's bundled
+include directory before the external WSL stubs to avoid loading two copies of
+the stub types. Include ``wsl/winadapter.h`` before D3D headers that precede DXC.
+For D3D headers following DXC, restore ``#define interface struct`` around those
+includes, as ``dxc/Support/D3DReflection.h`` does, because DXC undefines this
+macro to avoid conflicts with compiler identifiers.
+
+This changes the non-Windows ABI: ``BOOL``, ``LONG`` and ``ULONG`` now have
+32-bit Windows widths, including in COM method parameters and return values.
+Applications and FFI bindings must use matching headers and libraries and update
+their declarations; mixing older API declarations with the new library is not
+supported.
+
 Generating a Visual Studio Solution
 -----------------------------------
 
