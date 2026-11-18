@@ -4266,6 +4266,7 @@ SpirvEmitter::doCompoundAssignOperator(const CompoundAssignOperator *expr) {
   const auto *rhs = expr->getRHS();
   const auto *lhs = expr->getLHS();
 
+  ElementReuseScope reuseElements(*this);
   SpirvInstruction *lhsPtr = nullptr;
   auto *result = processBinaryOp(
       lhs, rhs, opcode, expr->getComputationLHSType(), expr->getType(),
@@ -5041,7 +5042,8 @@ SpirvEmitter::processTextureGatherCmp(const CXXMemberCallExpr *expr) {
 SpirvInstruction *SpirvEmitter::processBufferTextureLoad(
     const Expr *object, SpirvInstruction *location,
     SpirvInstruction *constOffset, SpirvInstruction *lod,
-    SpirvInstruction *residencyCode, SourceLocation loc, SourceRange range) {
+    SpirvInstruction *residencyCode, SourceLocation loc, SourceRange range,
+    SpirvInstruction *objectInfo) {
   // Loading for Buffer and RWBuffer translates to an OpImageFetch.
   // The result type of an OpImageFetch must be a vec4 of float or int.
   const auto type = object->getType();
@@ -5057,7 +5059,8 @@ SpirvInstruction *SpirvEmitter::processBufferTextureLoad(
     beginInvocationInterlock(loc, range);
   }
 
-  auto *objectInfo = loadIfGLValue(object, range);
+  objectInfo = objectInfo ? loadIfGLValue(object, objectInfo, range)
+                          : loadIfGLValue(object, range);
 
   // For Texture2DMS and Texture2DMSArray, Sample must be used rather than Lod.
   SpirvInstruction *sampleNumber = nullptr;
@@ -7283,33 +7286,10 @@ SpirvEmitter::processGetDimensions(const CXXMemberCallExpr *expr) {
 SpirvInstruction *
 SpirvEmitter::doCXXOperatorCallExpr(const CXXOperatorCallExpr *expr,
                                     SourceRange rangeOverride) {
-  { // Handle Buffer/RWBuffer/Texture/RWTexture indexing
-    const Expr *baseExpr = nullptr;
-    const Expr *indexExpr = nullptr;
-    const Expr *lodExpr = nullptr;
-
-    // For Textures, regular indexing (operator[]) uses slice 0.
-    if (isBufferTextureIndexing(expr, &baseExpr, &indexExpr)) {
-      auto *lod = (isTexture(baseExpr->getType()) ||
-                   isSampledTexture(baseExpr->getType()) ||
-                   isTextureMS(baseExpr->getType()))
-                      ? spvBuilder.getConstantInt(astContext.UnsignedIntTy,
-                                                  llvm::APInt(32, 0))
-                      : nullptr;
-      return processBufferTextureLoad(baseExpr, doExpr(indexExpr),
-                                      /*constOffset*/ nullptr, lod,
-                                      /*residencyCode*/ nullptr,
-                                      expr->getExprLoc());
-    }
-    // .mips[][] or .sample[][] must use the correct slice.
-    if (isTextureMipsSampleIndexing(expr, &baseExpr, &indexExpr, &lodExpr)) {
-      auto *lod = doExpr(lodExpr);
-      return processBufferTextureLoad(baseExpr, doExpr(indexExpr),
-                                      /*constOffset*/ nullptr, lod,
-                                      /*residencyCode*/ nullptr,
-                                      expr->getExprLoc());
-    }
-  }
+  // Handle Buffer/RWBuffer/Texture/RWTexture indexing, including .mips[][] and
+  // .sample[][].
+  if (auto element = evaluateBufferTextureElement(expr, /*range*/ {}))
+    return readBufferTextureElement(*element, expr->getExprLoc());
 
   SourceRange range =
       (rangeOverride != SourceRange()) ? rangeOverride : expr->getSourceRange();
@@ -7726,6 +7706,7 @@ SpirvInstruction *SpirvEmitter::doUnaryOperator(const UnaryOperator *expr) {
   const auto opcode = expr->getOpcode();
   const auto *subExpr = expr->getSubExpr();
   const auto subType = subExpr->getType();
+  ElementReuseScope reuseElements(*this, expr->isIncrementDecrementOp());
   auto *subValue = doExpr(subExpr);
   SourceRange range = expr->getSourceRange();
 
@@ -9301,27 +9282,22 @@ SpirvInstruction *SpirvEmitter::tryToAssignToVectorElements(
 
   // Assigning to one component
   if (accessorSize == 1) {
-    if (isBufferTextureIndexing(dyn_cast_or_null<CXXOperatorCallExpr>(base))) {
-      // Assigning to one component of a RWBuffer/RWTexture element
-      // We need to use OpImageWrite here.
-      // Compose the new vector value first
-      auto *oldVec = doExpr(base, range);
-      auto *newVec = spvBuilder.createCompositeInsert(
-          baseType, oldVec, {accessor.Swz0}, rhs, lhs->getLocStart(), range);
-      auto *result = tryToAssignToRWBufferRWTexture(base, newVec, range);
-      assert(result); // Definitely RWBuffer/RWTexture assignment
-      (void)result;
+    // Assigning to one component of a RWBuffer/RWTexture element writes the
+    // whole element with that component replaced.
+    const auto insertComponent = [&](SpirvInstruction *oldVec) {
+      return spvBuilder.createCompositeInsert(baseType, oldVec, {accessor.Swz0},
+                                              rhs, lhs->getLocStart(), range);
+    };
+    if (tryToUpdateRWBufferRWTextureElement(base, insertComponent, range))
       return rhs; // TODO: incorrect for compound assignments
-    } else {
-      // Assigning to one component of mesh out attribute/indices vector object.
-      SpirvInstruction *vecComponent = spvBuilder.getConstantInt(
-          astContext.UnsignedIntTy, llvm::APInt(32, accessor.Swz0));
-      if (tryToAssignToMSOutAttrsOrIndices(base, rhs, vecComponent))
-        return rhs;
-      // Assigning to one normal vector component. Nothing special, just fall
-      // back to the normal CodeGen path.
-      return nullptr;
-    }
+
+    // Assigning to one component of mesh out attribute/indices vector object.
+    SpirvInstruction *vecComponent = spvBuilder.getConstantInt(
+        astContext.UnsignedIntTy, llvm::APInt(32, accessor.Swz0));
+    if (tryToAssignToMSOutAttrsOrIndices(base, rhs, vecComponent))
+      return rhs;
+    // Nothing special needs to be done for normal vector components.
+    return nullptr;
   }
 
   if (isSelectOrigin) {
@@ -9375,13 +9351,17 @@ SpirvInstruction *SpirvEmitter::tryToAssignToVectorElements(
     selectors[position] = baseSize + i;
   }
 
+  const auto shuffleIn = [&](SpirvInstruction *oldVec) {
+    return spvBuilder.createVectorShuffle(baseType, oldVec, rhs, selectors,
+                                          lhs->getLocStart(), range);
+  };
+  if (tryToUpdateRWBufferRWTextureElement(base, shuffleIn, range))
+    return rhs;
+
   auto *vec1 = doExpr(base, range);
   auto *vec1Val = vec1->isRValue() ? vec1 : loadIfGLValue(base, vec1, range);
-  auto *shuffle = spvBuilder.createVectorShuffle(
-      baseType, vec1Val, rhs, selectors, lhs->getLocStart(), range);
-
-  if (!tryToAssignToRWBufferRWTexture(base, shuffle))
-    storeValue(vec1, shuffle, base->getType(), lhs->getLocStart(), range);
+  storeValue(vec1, shuffleIn(vec1Val), base->getType(), lhs->getLocStart(),
+             range);
 
   // TODO: OK, this return value is incorrect for compound assignments, for
   // which cases we should return lvalues. Should at least emit errors if
@@ -9389,45 +9369,87 @@ SpirvInstruction *SpirvEmitter::tryToAssignToVectorElements(
   return rhs;
 }
 
+llvm::Optional<SpirvEmitter::BufferTextureElement>
+SpirvEmitter::evaluateBufferTextureElement(const Expr *expr,
+                                           SourceRange range) {
+  const auto *indexExpr = dyn_cast_or_null<CXXOperatorCallExpr>(expr);
+  if (elementReuseDepth != 0) {
+    auto reused = reusedElements.find(indexExpr);
+    if (reused != reusedElements.end())
+      return reused->second;
+  }
+
+  const Expr *object = nullptr;
+  const Expr *locationExpr = nullptr;
+  const Expr *lodExpr = nullptr;
+  if (!isTextureMipsSampleIndexing(indexExpr, &object, &locationExpr,
+                                   &lodExpr) &&
+      !isBufferTextureIndexing(indexExpr, &object, &locationExpr))
+    return llvm::None;
+
+  // Plain indexing of a texture reads mip level 0 or sample 0.
+  const QualType type = object->getType();
+  SpirvInstruction *lod = nullptr;
+  if (lodExpr)
+    lod = doExpr(lodExpr, range);
+  else if (isTexture(type) || isSampledTexture(type) || isTextureMS(type))
+    lod =
+        spvBuilder.getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, 0));
+  SpirvInstruction *location = doExpr(locationExpr, range);
+  const BufferTextureElement element{
+      object, doExpr(object->IgnoreParenLValueCasts(), range), location, lod};
+  if (elementReuseDepth != 0)
+    reusedElements[indexExpr] = element;
+  return element;
+}
+
+void SpirvEmitter::writeRWBufferRWTextureElement(
+    const BufferTextureElement &element, SpirvInstruction *value,
+    SourceLocation loc, SourceRange range) {
+  const QualType imageType = element.object->getType();
+  const bool rasterizerOrder = isRasterizerOrderedView(imageType);
+  if (rasterizerOrder)
+    beginInvocationInterlock(element.object->getExprLoc(), range);
+
+  auto *image = loadIfGLValue(element.object, element.objectInfo, range);
+  spvBuilder.createImageWrite(imageType, image, element.location, value,
+                              element.lod, loc, range);
+
+  if (rasterizerOrder)
+    spvBuilder.createEndInvocationInterlockEXT(element.object->getExprLoc(),
+                                               range);
+}
+
+bool SpirvEmitter::tryToUpdateRWBufferRWTextureElement(
+    const Expr *expr,
+    llvm::function_ref<SpirvInstruction *(SpirvInstruction *)> update,
+    SourceRange range) {
+  auto element = evaluateBufferTextureElement(expr, range);
+  if (!element)
+    return false;
+
+  const auto loc = expr->getExprLoc();
+  auto *oldValue = readBufferTextureElement(*element, loc);
+  writeRWBufferRWTextureElement(*element, update(oldValue), loc, range);
+  return true;
+}
+
+SpirvInstruction *
+SpirvEmitter::readBufferTextureElement(const BufferTextureElement &element,
+                                       SourceLocation loc) {
+  return processBufferTextureLoad(element.object, element.location,
+                                  /*constOffset*/ nullptr, element.lod,
+                                  /*residencyCode*/ nullptr, loc,
+                                  /*range*/ {}, element.objectInfo);
+}
+
 SpirvInstruction *SpirvEmitter::tryToAssignToRWBufferRWTexture(
     const Expr *lhs, SpirvInstruction *rhs, SourceRange range) {
-  const Expr *baseExpr = nullptr;
-  const Expr *indexExpr = nullptr;
-  const Expr *sampleExpr = nullptr;
-  const auto lhsExpr = dyn_cast<CXXOperatorCallExpr>(lhs);
-  if (isTextureMipsSampleIndexing(lhsExpr, &baseExpr, &indexExpr,
-                                  &sampleExpr) ||
-      isBufferTextureIndexing(lhsExpr, &baseExpr, &indexExpr)) {
-    auto *loc = doExpr(indexExpr, range);
-    const QualType imageType = baseExpr->getType();
-    auto *baseInfo = doExpr(baseExpr, range);
-    auto *sample =
-        sampleExpr ? doExpr(sampleExpr, range)
-                   : (isTextureMS(imageType)
-                          ? spvBuilder.getConstantInt(astContext.UnsignedIntTy,
-                                                      llvm::APInt(32, 0))
-                          : nullptr);
-
-    const bool rasterizerOrder = isRasterizerOrderedView(imageType);
-    if (rasterizerOrder) {
-      beginInvocationInterlock(baseExpr->getExprLoc(), range);
-    }
-
-    SpirvInstruction *image = baseInfo;
-    // If the base is an L-value (OpVariable, OpAccessChain to OpVariable), we
-    // need a load.
-    if (baseInfo->isLValue())
-      image = spvBuilder.createLoad(imageType, baseInfo, baseExpr->getExprLoc(),
-                                    range);
-    spvBuilder.createImageWrite(imageType, image, loc, rhs, sample,
-                                lhs->getExprLoc(), range);
-
-    if (rasterizerOrder) {
-      spvBuilder.createEndInvocationInterlockEXT(baseExpr->getExprLoc(), range);
-    }
-    return rhs;
-  }
-  return nullptr;
+  auto element = evaluateBufferTextureElement(lhs, range);
+  if (!element)
+    return nullptr;
+  writeRWBufferRWTextureElement(*element, rhs, lhs->getExprLoc(), range);
+  return rhs;
 }
 
 SpirvInstruction *SpirvEmitter::tryToAssignToMatrixElements(

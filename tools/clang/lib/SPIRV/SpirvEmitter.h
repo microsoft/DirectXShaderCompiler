@@ -400,6 +400,59 @@ private:
                                                    SpirvInstruction *rhs,
                                                    SourceRange range = {});
 
+  /// Replaces the RWBuffer/RWTexture element at expr with update(element),
+  /// evaluating the operands of expr once. Returns false if expr does not
+  /// index a RWBuffer/RWTexture.
+  bool tryToUpdateRWBufferRWTextureElement(
+      const Expr *expr,
+      llvm::function_ref<SpirvInstruction *(SpirvInstruction *)> update,
+      SourceRange range);
+
+  /// The evaluated operands of a buffer or texture element access. lod is the
+  /// mip level of a texture, or the sample of a multisampled texture, and null
+  /// for a resource with neither.
+  struct BufferTextureElement {
+    const Expr *object;
+    SpirvInstruction *objectInfo;
+    SpirvInstruction *location;
+    SpirvInstruction *lod;
+  };
+
+  /// Evaluates the lod, coordinate and resource of the buffer or texture
+  /// element at expr, in that order. Inside an ElementReuseScope, a second
+  /// call for the same expr returns the first result. Returns None if expr
+  /// does not index a buffer or texture.
+  llvm::Optional<BufferTextureElement>
+  evaluateBufferTextureElement(const Expr *expr, SourceRange range);
+
+  /// Makes a compound assignment or an increment read and write the buffer or
+  /// texture element it evaluates once, while the scope is alive.
+  class ElementReuseScope {
+  public:
+    ElementReuseScope(SpirvEmitter &owner, bool enable = true)
+        : emitter(enable ? &owner : nullptr) {
+      if (emitter)
+        ++emitter->elementReuseDepth;
+    }
+    ~ElementReuseScope() {
+      if (emitter && --emitter->elementReuseDepth == 0)
+        emitter->reusedElements.clear();
+    }
+
+  private:
+    SpirvEmitter *emitter;
+  };
+
+  /// Reads the given buffer or texture element.
+  SpirvInstruction *
+  readBufferTextureElement(const BufferTextureElement &element,
+                           SourceLocation loc);
+
+  /// Writes value to the given RWBuffer/RWTexture element.
+  void writeRWBufferRWTextureElement(const BufferTextureElement &element,
+                                     SpirvInstruction *value,
+                                     SourceLocation loc, SourceRange range);
+
   /// Tries to emit instructions for assigning to the given mesh out attribute
   /// or indices object. Returns 0 if the trial fails and no instructions are
   /// generated.
@@ -1180,11 +1233,14 @@ private:
   /// declaration for the Buffer/Texture object.
   /// If residencyCodeId is not zero,  the SPIR-V instruction for storing the
   /// resulting residency code will also be emitted.
+  /// If objectInfo is not null, it is the already evaluated object, and object
+  /// is not evaluated again.
   SpirvInstruction *
   processBufferTextureLoad(const Expr *object, SpirvInstruction *location,
                            SpirvInstruction *constOffset, SpirvInstruction *lod,
                            SpirvInstruction *residencyCode, SourceLocation loc,
-                           SourceRange range = {});
+                           SourceRange range = {},
+                           SpirvInstruction *objectInfo = nullptr);
 
   /// \brief Processes .Sample() and .Gather() method calls for texture objects.
   SpirvInstruction *processTextureSampleGather(const CXXMemberCallExpr *expr,
@@ -1708,6 +1764,11 @@ private:
 
   /// A queue of FunctionInfo reachable from all the entry functions.
   std::vector<const FunctionInfo *> workQueue;
+
+  /// The number of live ElementReuseScopes, and the buffer and texture element
+  /// accesses evaluated while one is alive.
+  uint32_t elementReuseDepth = 0;
+  llvm::DenseMap<const Expr *, BufferTextureElement> reusedElements;
 
   /// Get SPIR-V entrypoint name for the given FunctionInfo.
   llvm::StringRef getEntryPointName(const FunctionInfo *entryInfo);
