@@ -37,7 +37,8 @@ define float @fmul_denormal_input_ftz() #1 {
 define float @fmul_denormal_output_any() #2 {
 ; CHECK-LABEL: define float @fmul_denormal_output_any(
 ; CHECK-SAME: ) #[[ATTR2:[0-9]+]] {
-; CHECK-NEXT:    ret float 0x3800000000000000
+; CHECK-NEXT:    [[R:%.*]] = fmul float 0x3810000000000000, 5.000000e-01
+; CHECK-NEXT:    ret float [[R]]
 ;
   %r = fmul float 0x3810000000000000, 5.000000e-01
   ret float %r
@@ -73,7 +74,8 @@ define i1 @fcmp_denormal_input_ftz() #1 {
 define i1 @fcmp_denormal_input_any() #2 {
 ; CHECK-LABEL: define i1 @fcmp_denormal_input_any(
 ; CHECK-SAME: ) #[[ATTR2]] {
-; CHECK-NEXT:    ret i1 true
+; CHECK-NEXT:    [[R:%.*]] = fcmp une float 0x3800000000000000, 0.000000e+00
+; CHECK-NEXT:    ret i1 [[R]]
 ;
   %r = fcmp une float 0x3800000000000000, 0.000000e+00
   ret i1 %r

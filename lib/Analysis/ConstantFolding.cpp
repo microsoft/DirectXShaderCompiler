@@ -1075,8 +1075,13 @@ Constant *llvm::ConstantFoldInstOperands(unsigned Opcode, Type *DestTy,
       // Handle floating point instructions separately to account for denormals
       // TODO: If a constant expression is being folded rather than an
       // instruction, denormals will not be flushed/treated as zero
-      if (I)
+      if (I) {
         C = ConstantFoldFPInstOperands(Opcode, Ops[0], Ops[1], DL, I);
+        // Upstream returns the result directly. Here the NaN check below still
+        // has to run, so only a failed fold returns early.
+        if (!C)
+          return nullptr;
+      }
     }
     if (!C)
       C = ConstantExpr::get(Opcode, Ops[0], Ops[1]);
@@ -1181,10 +1186,12 @@ Constant *llvm::ConstantFoldInstOperands(unsigned Opcode, Type *DestTy,
 // HLSL Change Begin - Backports
 // https://github.com/llvm/llvm-project/commit/d3919a8cc5031fd3d8c1ce3188abc0d7551306fb
 // and https://github.com/llvm/llvm-project/commit/758de0e931f47f5953738c6c8c102df1ce72778b
+// and https://github.com/llvm/llvm-project/commit/bc37be1855773c1dcf8c6bf577a096a81fd58652
 // Upstream reads the mode with Function::getDenormalMode() from the
 // "denormal-fp-math" attributes, which this LLVM does not have. DXIL states the
 // mode for float in "fp32-denorm-mode"; half and double keep their denormals.
-enum class DenormalModeKind { IEEE, PreserveSign };
+// "any" leaves the choice to the driver, which is upstream's Dynamic mode.
+enum class DenormalModeKind { IEEE, PreserveSign, Dynamic };
 
 static DenormalModeKind getDenormalMode(const Function *F, Type *Ty) {
   if (!Ty->isFloatTy())
@@ -1193,7 +1200,9 @@ static DenormalModeKind getDenormalMode(const Function *F, Type *Ty) {
       F->getFnAttribute(hlsl::DXIL::kFP32DenormKindString).getValueAsString();
   if (Mode == hlsl::DXIL::kFP32DenormValueFtzString)
     return DenormalModeKind::PreserveSign;
-  return DenormalModeKind::IEEE;
+  if (Mode == hlsl::DXIL::kFP32DenormValuePreserveString)
+    return DenormalModeKind::IEEE;
+  return DenormalModeKind::Dynamic;
 }
 
 // DXIL has a single mode for inputs and outputs, so IsOutput is unused. It also
@@ -1210,12 +1219,17 @@ Constant *llvm::FlushFPConstant(Constant *Operand, const Instruction *I,
     return Operand;
 
   const APFloat &APF = CFP->getValueAPF();
+  // TODO: Should this canonicalize nans?
+  if (!APF.isDenormal())
+    return Operand;
+
   Type *Ty = CFP->getType();
   DenormalModeKind Mode = getDenormalMode(I->getParent()->getParent(), Ty);
   switch (Mode) {
   default:
     llvm_unreachable("unknown denormal mode");
-    return Operand;
+  case DenormalModeKind::Dynamic:
+    return nullptr;
   case DenormalModeKind::IEEE:
     return Operand;
   case DenormalModeKind::PreserveSign:
@@ -1235,7 +1249,11 @@ Constant *llvm::ConstantFoldFPInstOperands(unsigned Opcode, Constant *LHS,
   if (Instruction::isBinaryOp(Opcode)) {
     // Flush denormal inputs if needed.
     Constant *Op0 = FlushFPConstant(LHS, I, /* IsOutput */ false);
+    if (!Op0)
+      return nullptr;
     Constant *Op1 = FlushFPConstant(RHS, I, /* IsOutput */ false);
+    if (!Op1)
+      return nullptr;
 
     // Calculate constant result.
     // Upstream calls ConstantFoldBinaryOpOperands, which this LLVM does not
@@ -1340,7 +1358,11 @@ Constant *llvm::ConstantFoldCompareInstOperands(
   // Flush any denormal constant float input according to denormal handling
   // mode.
   Ops0 = FlushFPConstant(Ops0, I, /* IsOutput */ false);
+  if (!Ops0)
+    return nullptr;
   Ops1 = FlushFPConstant(Ops1, I, /* IsOutput */ false);
+  if (!Ops1)
+    return nullptr;
   // HLSL Change End
 
   return ConstantExpr::getCompare(Predicate, Ops0, Ops1);
