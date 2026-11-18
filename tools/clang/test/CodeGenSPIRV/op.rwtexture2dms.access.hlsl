@@ -130,6 +130,18 @@ void main() {
 // CHECK:      OpImageWrite {{%[0-9]+}} [[c6]] [[new6]] Sample [[s6]]
   t1.sample[sampleIndex++][coord].x += 1.0;
 
+  // In texel *= scalar, sampleIndex should be incremented once, and the read
+  // and the write should use the same sample.
+// CHECK:      [[s7:%[0-9]+]] = OpLoad %uint %sampleIndex
+// CHECK-NEXT: [[s7n:%[0-9]+]] = OpIAdd %uint [[s7]] %uint_1
+// CHECK-NEXT: OpStore %sampleIndex [[s7n]]
+// CHECK-NOT:  %sampleIndex
+// CHECK:      [[old7:%[0-9]+]] = OpImageRead %v4float {{%[0-9]+}} [[c7:%[0-9]+]] Sample [[s7]]
+// CHECK:      [[new7:%[0-9]+]] = OpVectorTimesScalar %v4float [[old7]] %float_2
+// CHECK-NOT:  %sampleIndex
+// CHECK:      OpImageWrite {{%[0-9]+}} [[c7]] [[new7]] Sample [[s7]]
+  t1.sample[sampleIndex++][coord] *= 2.0;
+
   uint width, height, elements, samples;
 // CHECK: OpImageQuerySize %v2uint {{%[0-9]+}}
 // CHECK: OpImageQuerySamples %uint {{%[0-9]+}}

@@ -419,28 +419,35 @@ private:
   };
 
   /// Evaluates the lod, coordinate and resource of the buffer or texture
-  /// element at expr, in that order. Inside an ElementReuseScope, a second
-  /// call for the same expr returns the first result. Returns None if expr
-  /// does not index a buffer or texture.
+  /// element at expr, in that order. If expr is the target of a live
+  /// ElementReuseScope, a second call returns the first result. Returns None
+  /// if expr does not index a buffer or texture.
   llvm::Optional<BufferTextureElement>
   evaluateBufferTextureElement(const Expr *expr, SourceRange range);
 
-  /// Makes a compound assignment or an increment read and write the buffer or
-  /// texture element it evaluates once, while the scope is alive.
+  /// Returns the element access that a write to expr targets, looking through
+  /// a component selection such as tex[coord].x, or null.
+  const CXXOperatorCallExpr *getWrittenElementAccess(const Expr *expr);
+
+  /// Makes a compound assignment or an increment of a buffer or texture
+  /// element read and write the element it evaluates once, while the scope is
+  /// alive.
   class ElementReuseScope {
   public:
-    ElementReuseScope(SpirvEmitter &owner, bool enable = true)
-        : emitter(enable ? &owner : nullptr) {
-      if (emitter)
-        ++emitter->elementReuseDepth;
+    ElementReuseScope(SpirvEmitter &owner, const Expr *assignee)
+        : emitter(owner),
+          target(assignee ? owner.getWrittenElementAccess(assignee) : nullptr) {
+      if (target)
+        emitter.reusedElements[target] = llvm::None;
     }
     ~ElementReuseScope() {
-      if (emitter && --emitter->elementReuseDepth == 0)
-        emitter->reusedElements.clear();
+      if (target)
+        emitter.reusedElements.erase(target);
     }
 
   private:
-    SpirvEmitter *emitter;
+    SpirvEmitter &emitter;
+    const Expr *target;
   };
 
   /// Reads the given buffer or texture element.
@@ -1765,10 +1772,10 @@ private:
   /// A queue of FunctionInfo reachable from all the entry functions.
   std::vector<const FunctionInfo *> workQueue;
 
-  /// The number of live ElementReuseScopes, and the buffer and texture element
-  /// accesses evaluated while one is alive.
-  uint32_t elementReuseDepth = 0;
-  llvm::DenseMap<const Expr *, BufferTextureElement> reusedElements;
+  /// The targets of the live ElementReuseScopes, with their evaluated operands
+  /// once the first access has evaluated them.
+  llvm::DenseMap<const Expr *, llvm::Optional<BufferTextureElement>>
+      reusedElements;
 
   /// Get SPIR-V entrypoint name for the given FunctionInfo.
   llvm::StringRef getEntryPointName(const FunctionInfo *entryInfo);

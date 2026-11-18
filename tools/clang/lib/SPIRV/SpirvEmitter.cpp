@@ -4254,6 +4254,9 @@ SpirvEmitter::processFlatConversion(const QualType type,
 SpirvInstruction *
 SpirvEmitter::doCompoundAssignOperator(const CompoundAssignOperator *expr) {
   const auto opcode = expr->getOpcode();
+  const auto *rhs = expr->getRHS();
+  const auto *lhs = expr->getLHS();
+  ElementReuseScope reuseElements(*this, lhs);
 
   // Try to optimize floatMxN *= float and floatN *= float case
   if (opcode == BO_MulAssign) {
@@ -4263,10 +4266,6 @@ SpirvEmitter::doCompoundAssignOperator(const CompoundAssignOperator *expr) {
       return result;
   }
 
-  const auto *rhs = expr->getRHS();
-  const auto *lhs = expr->getLHS();
-
-  ElementReuseScope reuseElements(*this);
   SpirvInstruction *lhsPtr = nullptr;
   auto *result = processBinaryOp(
       lhs, rhs, opcode, expr->getComputationLHSType(), expr->getType(),
@@ -7706,7 +7705,8 @@ SpirvInstruction *SpirvEmitter::doUnaryOperator(const UnaryOperator *expr) {
   const auto opcode = expr->getOpcode();
   const auto *subExpr = expr->getSubExpr();
   const auto subType = subExpr->getType();
-  ElementReuseScope reuseElements(*this, expr->isIncrementDecrementOp());
+  ElementReuseScope reuseElements(
+      *this, expr->isIncrementDecrementOp() ? subExpr : nullptr);
   auto *subValue = doExpr(subExpr);
   SourceRange range = expr->getSourceRange();
 
@@ -9373,11 +9373,9 @@ llvm::Optional<SpirvEmitter::BufferTextureElement>
 SpirvEmitter::evaluateBufferTextureElement(const Expr *expr,
                                            SourceRange range) {
   const auto *indexExpr = dyn_cast_or_null<CXXOperatorCallExpr>(expr);
-  if (elementReuseDepth != 0) {
-    auto reused = reusedElements.find(indexExpr);
-    if (reused != reusedElements.end())
-      return reused->second;
-  }
+  auto reused = reusedElements.find(indexExpr);
+  if (reused != reusedElements.end() && reused->second)
+    return reused->second;
 
   const Expr *object = nullptr;
   const Expr *locationExpr = nullptr;
@@ -9398,9 +9396,21 @@ SpirvEmitter::evaluateBufferTextureElement(const Expr *expr,
   SpirvInstruction *location = doExpr(locationExpr, range);
   const BufferTextureElement element{
       object, doExpr(object->IgnoreParenLValueCasts(), range), location, lod};
-  if (elementReuseDepth != 0)
-    reusedElements[indexExpr] = element;
+  // The evaluation above can add other targets and invalidate the iterator.
+  reused = reusedElements.find(indexExpr);
+  if (reused != reusedElements.end())
+    reused->second = element;
   return element;
+}
+
+const CXXOperatorCallExpr *
+SpirvEmitter::getWrittenElementAccess(const Expr *expr) {
+  expr = expr->IgnoreParenNoopCasts(astContext);
+  if (const auto *vecElemExpr = dyn_cast<HLSLVectorElementExpr>(expr)) {
+    hlsl::VectorMemberAccessPositions accessor;
+    condenseVectorElementExpr(vecElemExpr, &expr, &accessor);
+  }
+  return dyn_cast<CXXOperatorCallExpr>(expr);
 }
 
 void SpirvEmitter::writeRWBufferRWTextureElement(
