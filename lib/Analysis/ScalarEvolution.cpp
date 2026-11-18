@@ -5041,11 +5041,24 @@ ScalarEvolution::ComputeExitLimitFromCond(const Loop *L,
         // Both conditions must be true at the same time for the loop to exit.
         // For now, be conservative.
         assert(L->contains(FBB) && "Loop block has no successor in loop!");
-        if (EL0.Max == EL1.Max)
-          MaxBECount = EL0.Max;
+        // HLSL Change - Remove equal-Max shortcut (D91942):
+        // https://github.com/llvm/llvm-project/commit/48d7cc6ae23b0e5b1922457462d0f6e4582a1ae7
+        // Upstream removes it once, from a helper shared by `and` and `or`.
+        // This LLVM handles the two separately, so it is removed from both.
         if (EL0.Exact == EL1.Exact)
           BECount = EL0.Exact;
       }
+
+      // HLSL Change Begin - Backport PR26207:
+      // https://github.com/llvm/llvm-project/commit/29a4b5dc0d754c9a45f62a8af0cc36e8de4f968d
+      // There are cases (e.g. PR26207) where computeExitLimitFromCond is able
+      // to be more aggressive when computing BECount than when computing
+      // MaxBECount.  In these cases it is possible for EL0.Exact and EL1.Exact
+      // to match, but for EL0.Max and EL1.Max to not.
+      if (isa<SCEVCouldNotCompute>(MaxBECount) &&
+          !isa<SCEVCouldNotCompute>(BECount))
+        MaxBECount = BECount;
+      // HLSL Change End
 
       return ExitLimit(BECount, MaxBECount);
     }
@@ -5076,11 +5089,28 @@ ScalarEvolution::ComputeExitLimitFromCond(const Loop *L,
         // Both conditions must be false at the same time for the loop to exit.
         // For now, be conservative.
         assert(L->contains(TBB) && "Loop block has no successor in loop!");
-        if (EL0.Max == EL1.Max)
-          MaxBECount = EL0.Max;
+        // HLSL Change - Remove equal-Max shortcut (D91942):
+        // https://github.com/llvm/llvm-project/commit/48d7cc6ae23b0e5b1922457462d0f6e4582a1ae7
+        // Upstream removes it once, from a helper shared by `and` and `or`.
+        // This LLVM handles the two separately, so it is removed from both.
         if (EL0.Exact == EL1.Exact)
           BECount = EL0.Exact;
       }
+
+      // HLSL Change Begin - Backport D58853:
+      // https://github.com/llvm/llvm-project/commit/98f11a7d75b54b44b3b136b537644fd3f6d77239
+      // There are cases (e.g. PR26207) where computeExitLimitFromCond is able
+      // to be more aggressive when computing BECount than when computing
+      // MaxBECount.  In these cases it is possible for EL0.Exact and EL1.Exact
+      // to match, but for EL0.Max and EL1.Max to not.
+      // Upstream assigns getConstant(getUnsignedRangeMax(BECount)) because it
+      // requires max counts to be constants by then. This LLVM has no such
+      // requirement (ExitLimit(E) uses E as the max count), so BECount is used
+      // directly, as in the PR26207 backport above.
+      if (isa<SCEVCouldNotCompute>(MaxBECount) &&
+          !isa<SCEVCouldNotCompute>(BECount))
+        MaxBECount = BECount;
+      // HLSL Change End
 
       return ExitLimit(BECount, MaxBECount);
     }
