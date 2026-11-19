@@ -2399,9 +2399,11 @@ enum class RaytracingPipelineFlags : uint32_t {
   None = 0x0,
   SkipTriangles = 0x100,
   SkipProceduralPrimitives = 0x200,
-  ValidMask_1_8 = 0x300,         // valid mask up through DXIL 1.8
-  AllowOpacityMicromaps = 0x400, // Allow Opacity Micromaps to be used
-  ValidMask = 0x700,             // current valid mask
+  ValidMask_1_8 = 0x300,          // valid mask up through DXIL 1.8
+  AllowOpacityMicromaps = 0x400,  // Allow Opacity Micromaps to be used
+  ValidMask_1_9 = 0x700,          // valid mask up through DXIL 1.9
+  AllowClusteredGeometry = 0x800, // Allow Clustered Geometry to be used
+  ValidMask = 0xF00,              // current valid mask
 };
 
 enum class CommittedStatus : uint32_t {

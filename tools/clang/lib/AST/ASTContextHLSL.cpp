@@ -679,8 +679,8 @@ void hlsl::AddRaytracingConstants(ASTContext &context) {
   AddConstUInt(context, StringRef("HIT_KIND_TRIANGLE_BACK_FACE"),
                (unsigned)DXIL::HitKind::TriangleBackFace);
 
-  // static const uint CLUSTER_ID_INVALID = 0xffffffff;
-  AddConstUInt(context, StringRef("CLUSTER_ID_INVALID"), 0xffffffff);
+  AddTypedefPseudoEnum(context, "CLUSTER_ID_CONSTANTS",
+                       {{"CLUSTER_ID_INVALID", 0xffffffff}});
 
   AddConstUInt(
       context,
@@ -723,6 +723,10 @@ void hlsl::AddRaytracingConstants(ASTContext &context) {
                StringRef("RAYTRACING_PIPELINE_FLAG_ALLOW_OPACITY_MICROMAPS"),
                (unsigned)DXIL::RaytracingPipelineFlags::AllowOpacityMicromaps,
                ConstructAvailabilityAttribute(context, VT69));
+  AddConstUInt(context, context.getTranslationUnitDecl(),
+               StringRef("RAYTRACING_PIPELINE_FLAG_ALLOW_CLUSTERED_GEOMETRY"),
+               (unsigned)DXIL::RaytracingPipelineFlags::AllowClusteredGeometry,
+               ConstructAvailabilityAttribute(context, VT610));
 }
 
 /// <summary> Adds all constants and enums for sampler feedback </summary>
