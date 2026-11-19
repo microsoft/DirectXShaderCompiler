@@ -1,4 +1,5 @@
 ; RUN: %dxopt %s -indvars -S | FileCheck %s
+; RUN: opt < %s -scalar-evolution -analyze | FileCheck %s --check-prefix=SCEV
 
 ; Regression tests for ScalarEvolution::isKnownPredicate induction reasoning
 ; (partial backport of D42417 and D43997):
@@ -142,37 +143,43 @@ exit:
 
 ; Dominance check in IsAvailableAtLoopEntry: %b is defined in %middle after
 ; %first_loop, so !first_loop->contains(%b) makes isLoopInvariant(%b, %first_loop)
-; true, while properlyDominates(%b, %first_loop) is false. Computing SCEV of %s
-; queries umax(%i, %b) -> isKnownPredicate on %first_loop and must not fold %s
-; or eliminate %rem.
-define void @non_dominating_value_after_loop(i32 %a, [128 x i32] addrspace(3)* %arr) {
+; true, while properlyDominates(%b, %first_loop) is false. Because %b is in
+; [96, 128), entry (0 <u %b) and the %first_loop latch (%i.next <u 50 <= %b)
+; would both succeed under an invariance-only check and fold umax(%i, %b) to %b.
+; With properlyDominates, SCEV must keep %s as an unfolded umax.
+define void @non_dominating_value_after_loop(i32 %step, [256 x i32] addrspace(3)* %arr) {
 ; CHECK-LABEL: @non_dominating_value_after_loop(
 ; CHECK:       middle:
 ; CHECK:         %s = select i1 %cmp, i32 %{{.*}}, i32 %b
 ; CHECK:       second_loop:
-; CHECK:         %rem = urem i32 %j, 100
+; CHECK:         %rem = urem i32 %j, 150
+; SCEV-LABEL: Classifying expressions for: @non_dominating_value_after_loop
+; SCEV:       %s = select i1 %cmp, i32 %i, i32 %b
+; SCEV-NEXT:  -->  ({0,+,%step}<%first_loop> umax %b)
 entry:
   br label %first_loop
 
 first_loop:
-  %i = phi i32 [ 20, %entry ], [ %i.next, %first_loop ]
-  %i.next = add nuw nsw i32 %i, 1
-  %cond1 = icmp ult i32 %i.next, %a
+  %i = phi i32 [ 0, %entry ], [ %i.next, %first_loop ]
+  %i.next = add i32 %i, %step
+  %cond1 = icmp ult i32 %i.next, 50
   br i1 %cond1, label %first_loop, label %middle
 
 middle:
-  %b = call i32 @get_val(i32 0)
+  %raw = call i32 @get_val(i32 0)
+  %masked = and i32 %raw, 31
+  %b = or i32 %masked, 96
   %cmp = icmp ugt i32 %i, %b
   %s = select i1 %cmp, i32 %i, i32 %b
   br label %second_loop
 
 second_loop:
   %j = phi i32 [ %s, %middle ], [ %j.next, %second_loop ]
-  %rem = urem i32 %j, 100
-  %gep = getelementptr inbounds [128 x i32], [128 x i32] addrspace(3)* %arr, i32 0, i32 %rem
+  %rem = urem i32 %j, 150
+  %gep = getelementptr inbounds [256 x i32], [256 x i32] addrspace(3)* %arr, i32 0, i32 %rem
   store i32 1, i32 addrspace(3)* %gep, align 4
-  %j.next = add nuw nsw i32 %j, 1
-  %cond2 = icmp ult i32 %j.next, 100
+  %j.next = add i32 %j, 1
+  %cond2 = icmp ult i32 %j.next, 150
   br i1 %cond2, label %second_loop, label %exit
 
 exit:
