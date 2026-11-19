@@ -339,6 +339,12 @@ public:
                   L"Device.Graphics.WDDM31.AdapterRender.D3D12.DXILCore."
                   L"ShaderModel67.CoreRequirement")
 
+  HLK_TEST_METHOD(IsNormalTest, L"fc854332-83f2-4f67-9f6e-2ad9fe776d93",
+                  L"D3D12 - DXIL Core Test - Shader Model 6.0 IsNormal",
+                  L"Verifies IsNormal dxil intrinsic",
+                  L"Device.Graphics.WDDM22.AdapterRender.D3D12.DXILCore."
+                  L"ShaderModel60.CoreRequirement")
+
   HLK_TEST_METHOD(
       AtomicsTest, L"84eb9d7e-81d6-45b5-b967-c128862b0c56",
       L"D3D12 - DXIL Core Test - Shader Model 6.6 - Atomics (32-bit integer)",
@@ -721,17 +727,11 @@ public:
                   L"ShaderModel62.CoreRequirement")
 
   BEGIN_TEST_METHOD(PackUnpackTest)
-  TEST_METHOD_PROPERTY(L"DataSource",
-                       L"Table:ShaderOpArithTable.xml#PackUnpackOpTable")
-  TEST_METHOD_PROPERTY(L"Kits.Description",
-                       L"Verifies shader model 6.6 pack unpack intrinsics")
-  TEST_METHOD_PROPERTY(L"Kits.TestId", L"d5a302c9-6e1f-4dfc-8b2d-73e41e8f0939")
-  TEST_METHOD_PROPERTY(
-      L"Kits.TestName",
-      L"D3D12 - DXIL Core Test - Shader Model 6.6 - Pack Unpack")
-  TEST_METHOD_PROPERTY(L"Kits.Specification",
-                       L"Device.Graphics.WDDM30.AdapterRender.D3D12.DXILCore."
-                       L"ShaderModel66.CoreRequirement")
+      TEST_METHOD_PROPERTY(L"DataSource", L"Table:ShaderOpArithTable.xml#PackUnpackOpTable")
+      TEST_METHOD_PROPERTY(L"Kits.Description", L"Verifies shader model 6.6 pack unpack intrinsics")
+      TEST_METHOD_PROPERTY(L"Kits.TestId", L"d5a302c9-6e1f-4dfc-8b2d-73e41e8f0939")
+      TEST_METHOD_PROPERTY(L"Kits.TestName", L"D3D12 - DXIL Core Test - Shader Model 6.6 - Pack Unpack")
+      TEST_METHOD_PROPERTY(L"Kits.Specification", L"Device.Graphics.WDDM30.AdapterRender.D3D12.DXILCore.ShaderModel66.CoreRequirement")
   END_TEST_METHOD()
 
   dxc::DxCompilerDllLoader m_support;

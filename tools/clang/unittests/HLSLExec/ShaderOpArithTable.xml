@@ -7902,11 +7902,7 @@
             <ParameterType Name="Validation.Tolerance">uint</ParameterType>
             <ParameterType Array="true" Name="Validation.Input">String</ParameterType>
         </ParameterTypes>
-        <Row Name="PackUnpack"
-             Kits.Description="Verifies the PackUnpack DXIL instruction."
-             Kits.TestId="6bed4c99-5a71-4868-9596-42cf4edef0aa"
-             Kits.Specification="Device.Graphics.WDDM30.AdapterRender.D3D12.DXILCore.ShaderModel66.CoreRequirement"
-             Kits.TestName="D3D12 - DXIL Core Test - Pack Unpack">
+        <Row Name="PackUnpack">
             <Parameter Name="Validation.Type">ulp</Parameter>
             <Parameter Name="Validation.Tolerance">0</Parameter>
             <Parameter Name="ShaderOp.Text">
