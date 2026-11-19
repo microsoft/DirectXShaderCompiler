@@ -5,9 +5,10 @@
 - Revisit applicable checks whenever the scope changes. A dependency-only
   validation plan is no longer sufficient after adding source code or tests.
 - Before reporting C/C++ changes ready, check the full PR diff, not just the
-  latest commit or working-tree edits. Use LLVM 17.0.6's `git-clang-format` and
-  `clang-format`, matching `.github/workflows/clang-format-checker.yml`, rather
-  than the legacy script in this repository. Verify `clang-format --version`.
+  latest commit or working-tree edits. Use LLVM's `git-clang-format` and
+  `clang-format` from the version selected by the `clangformat` input in
+  `.github/workflows/clang-format-checker.yml`, rather than the legacy script
+  in this repository. Verify `clang-format --version` matches that input.
   Compute `<merge-base>` with `git merge-base <pr-base-ref> HEAD`, then run
   `git-clang-format --verbose --diff <merge-base> HEAD` with all changes
   committed. While edits are uncommitted, stage new files and omit the final
