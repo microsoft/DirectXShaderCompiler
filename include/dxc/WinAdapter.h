@@ -402,16 +402,13 @@ constexpr GUID guid_from_string(const char str[37]) {
 // Register both forms so its QueryInterface<T> works in either include order.
 #define CROSS_PLATFORM_UUIDOF(interface, spec)                                 \
   struct __declspec(uuid(spec)) interface;                                     \
-  __CRT_UUID_DECL(interface, guid_from_string(spec).Data1,                       \
-                  guid_from_string(spec).Data2, guid_from_string(spec).Data3,   \
-                  guid_from_string(spec).Data4[0],                             \
-                  guid_from_string(spec).Data4[1],                             \
-                  guid_from_string(spec).Data4[2],                             \
-                  guid_from_string(spec).Data4[3],                             \
-                  guid_from_string(spec).Data4[4],                             \
-                  guid_from_string(spec).Data4[5],                             \
-                  guid_from_string(spec).Data4[6],                             \
-                  guid_from_string(spec).Data4[7])
+  __CRT_UUID_DECL(                                                             \
+      interface, guid_from_string(spec).Data1, guid_from_string(spec).Data2,   \
+      guid_from_string(spec).Data3, guid_from_string(spec).Data4[0],           \
+      guid_from_string(spec).Data4[1], guid_from_string(spec).Data4[2],        \
+      guid_from_string(spec).Data4[3], guid_from_string(spec).Data4[4],        \
+      guid_from_string(spec).Data4[5], guid_from_string(spec).Data4[6],        \
+      guid_from_string(spec).Data4[7])
 
 //===--------------------- COM Interfaces ---------------------------------===//
 

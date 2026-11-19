@@ -9,7 +9,9 @@
 
 #ifndef _WIN32
 
+// Include the upstream adapter first to exercise its UUID emulation.
 #include <wsl/winadapter.h>
+
 #include "dxc/Support/Unicode.h"
 #include "dxc/Support/WinFunctions.h"
 #include "dxc/Support/WinIncludes.h"
@@ -18,7 +20,7 @@
 #include <string.h>
 
 CROSS_PLATFORM_UUIDOF(WinAdapterTestInterface,
-                     "12345678-9abc-def0-1234-56789abcdef0")
+                      "12345678-9abc-def0-1234-56789abcdef0")
 struct WinAdapterTestInterface : public IUnknown {};
 
 namespace {
