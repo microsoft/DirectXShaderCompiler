@@ -1,5 +1,27 @@
 # DXC agent guidance
 
+## Validation before handoff
+
+- Revisit applicable checks whenever the scope changes. A dependency-only
+  validation plan is no longer sufficient after adding source code or tests.
+- Before reporting C/C++ changes ready, check the full PR diff, not just the
+  latest commit or working-tree edits. Use LLVM 17.0.6's `git-clang-format` and
+  `clang-format`, matching `.github/workflows/clang-format-checker.yml`, rather
+  than the legacy script in this repository. Verify `clang-format --version`.
+  Compute `<merge-base>` with `git merge-base <pr-base-ref> HEAD`, then run
+  `git-clang-format --verbose --diff <merge-base> HEAD` with all changes
+  committed. While edits are uncommitted, stage new files and omit the final
+  `HEAD` to include working-tree changes; rerun the committed form afterward.
+- Require no formatting diff and exit status 0 before calling formatting
+  passed: status 1 means formatting changes are needed, and higher statuses
+  mean the tool failed. If the matching tools are unavailable, report the check
+  as not run. Preserve repository formatting configuration and format only
+  changed lines, as required by `CONTRIBUTING.md`.
+- Before creating or replacing a PR description, check `CONTRIBUTING.md` and
+  `AIToolPolicy.md` against the final body, even when using an exact supplied
+  draft or the CLI. Check tool-use disclosure explicitly; do not assume commit
+  co-author trailers supply a requested PR-description attribution.
+
 ## Investigating compile-time regressions and miscompiles
 
 - Start from evidence. Identify the exact pass, hot function, and triggering
