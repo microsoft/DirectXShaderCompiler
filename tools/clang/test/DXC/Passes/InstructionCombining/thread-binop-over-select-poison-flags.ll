@@ -89,8 +89,28 @@ define i32 @mul_nsw_commuted_not_reused(i1 %cond, i32 %x, i32 %y) {
   ret i32 %q
 }
 
+; Direct operand match with exact on ashr: on the true arm, %ashr1 has all sign
+; bits so (%ashr1 >>s 31) simplifies to %ashr1. Reusing %ashr1 for %ashr2 leaks
+; exact onto the false arm and folds %back = (%ashr2 << 31) to %x (returning 1
+; instead of 0 for %cond = false, %x = 1).
+define i32 @ashr_exact_not_reused(i1 %cond, i32 %x) {
+; CHECK-LABEL: define i32 @ashr_exact_not_reused(
+; INSTSIMPLIFY-NEXT: %ashr1 = ashr exact i32 %x, 31
+; INSTSIMPLIFY-NEXT: %sel = select i1 %cond, i32 %ashr1, i32 %x
+; INSTSIMPLIFY-NEXT: %ashr2 = ashr i32 %sel, 31
+; INSTSIMPLIFY-NEXT: %back = shl i32 %ashr2, 31
+; INSTSIMPLIFY-NEXT: ret i32 %back
+; INSTCOMBINE-NEXT:  %ashr2.1 = and i32 %x, -2147483648
+; INSTCOMBINE-NEXT:  ret i32 %ashr2.1
+  %ashr1 = ashr exact i32 %x, 31
+  %sel = select i1 %cond, i32 %ashr1, i32 %x
+  %ashr2 = ashr i32 %sel, 31
+  %back = shl i32 %ashr2, 31
+  ret i32 %back
+}
+
 ; Without poison-generating flags, ThreadBinOpOverSelect still reuses the
-; existing instruction for both direct and commuted operand matches.
+; existing instruction for direct, commuted, and exact-capable opcodes.
 define i32 @shl_without_flags_reused(i1 %cond, i32 %x) {
 ; CHECK-LABEL: define i32 @shl_without_flags_reused(
 ; CHECK-NEXT:    %shl1 = shl i32 %x, 16
@@ -115,4 +135,16 @@ define i32 @mul_commuted_without_flags_reused(i1 %cond, i32 %x, i32 %y) {
   %sel = select i1 %cond, i32 %div, i32 %x
   %mul2 = mul i32 %sel, %y
   ret i32 %mul2
+}
+
+define i32 @ashr_without_flags_reused(i1 %cond, i32 %x) {
+; CHECK-LABEL: define i32 @ashr_without_flags_reused(
+; CHECK-NEXT:    %ashr1 = ashr i32 %x, 31
+; CHECK-NEXT:    call void @use(i32 %ashr1)
+; CHECK-NEXT:    ret i32 %ashr1
+  %ashr1 = ashr i32 %x, 31
+  call void @use(i32 %ashr1)
+  %sel = select i1 %cond, i32 %ashr1, i32 %x
+  %ashr2 = ashr i32 %sel, 31
+  ret i32 %ashr2
 }
