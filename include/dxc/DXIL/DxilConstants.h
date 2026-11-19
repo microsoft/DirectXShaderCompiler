@@ -2207,7 +2207,11 @@ enum class RayFlag : uint32_t {
 };
 
 // Corresponds to RAYQUERY_FLAG_* in HLSL
-enum class RayQueryFlag : uint32_t { None = 0, AllowOpacityMicromaps = 1 };
+enum class RayQueryFlag : uint32_t {
+  None = 0,
+  AllowOpacityMicromaps = 1,
+  AllowClusteredGeometry = 2
+};
 
 // Packing/unpacking intrinsics
 enum class UnpackMode : uint8_t {
