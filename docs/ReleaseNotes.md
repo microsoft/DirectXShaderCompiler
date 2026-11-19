@@ -35,10 +35,6 @@ line upon naming the release. Refer to previous for appropriate section names.
 - Shader Model 6.10 and DXIL 1.10 are now available in retail, introducing
   LinAlg Matrix, WaveGroup Index and Count, DebugBreak, Clustered Geometry, and
   Triangle Object Positions.
-- Added the `RAYQUERY_FLAG_ALLOW_CLUSTERED_GEOMETRY` and
-  `RAYTRACING_PIPELINE_FLAG_ALLOW_CLUSTERED_GEOMETRY` built-in constants for opting
-  ray queries and raytracing pipelines into clustered geometry in Shader Model
-  6.10 and above, and the `CLUSTER_ID_CONSTANTS` type.
 - Allowed DXIL `insertvalue` instructions starting with Shader Model 6.10,
   enabling unoptimized DXIL that constructs aggregate values to be valid in cases that previously were not.
 - Removed work graph support from Shader Model 6.10, and DXIL 1.10
