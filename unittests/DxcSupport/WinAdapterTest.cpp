@@ -10,7 +10,10 @@
 #ifndef _WIN32
 
 // Include the upstream adapter first to exercise its UUID emulation.
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wcast-qual"
 #include <wsl/winadapter.h>
+#pragma GCC diagnostic pop
 
 #include "dxc/Support/Unicode.h"
 #include "dxc/Support/WinFunctions.h"
