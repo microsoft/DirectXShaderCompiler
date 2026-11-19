@@ -93,8 +93,6 @@ static void WriteInfoQueueMessages(void *pStrCtx,
   UINT64 count = pInfoQueue->GetNumStoredMessages();
   CAtlArray<BYTE> message;
   for (UINT64 i = 0; i < count; ++i) {
-    // Call 'GetMessage' so the user32 macro (GetMessageA/GetMessageW, or none)
-    // expands consistently with the ID3D12InfoQueue declaration.
     SIZE_T msgLen = 0;
     if (FAILED(pInfoQueue->GetMessage(i, nullptr, &msgLen))) {
       allMessagesOK = false;
