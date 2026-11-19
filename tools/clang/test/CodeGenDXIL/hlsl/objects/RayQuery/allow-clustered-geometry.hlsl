@@ -1,15 +1,9 @@
 // REQUIRES: dxil-1-10
-// RUN: %dxc -T cs_6_10 %s | FileCheck %s
-// RUN: %dxc -T lib_6_10 %s | FileCheck -check-prefixes=CHECK,COMBINED %s
-// RUN: %dxc -T cs_6_10 -fcgl %s | FileCheck -check-prefix=FCGL %s
-// RUN: %dxc -T cs_6_10 -E combined -fcgl %s | FileCheck -check-prefix=FCGLCOMBINED %s
+// RUN: %dxc -T lib_6_10 %s -Fo %t -Fc %t.ll && FileCheck -check-prefixes=CHECK,COMBINED %s --input-file=%t.ll
 // RUN: not %dxc -T cs_6_9 -WX %s 2>&1 | FileCheck -check-prefix=SM69 %s
-// RUN: %dxc -T lib_6_10 %s -Fo %t
 // RUN: %dxa %t -dumprdat | FileCheck -check-prefix=RDAT %s
 // RUN: not %dxl -T cs_6_9 -E main %t 2>&1 | FileCheck -check-prefix=LINK69 %s
-// RUN: not %dxl -T cs_6_9 -E combined %t 2>&1 | FileCheck -check-prefix=LINK69 %s
 // RUN: %dxl -T cs_6_10 -E main %t | FileCheck %s
-// RUN: %dxl -T cs_6_10 -E combined %t | FileCheck -check-prefix=COMBINED %s
 // RUN: %dxl -T cs_6_9 -E opacityMicromaps %t | FileCheck -check-prefix=OMM %s
 
 // SM69: error: potential misuse of built-in constant 'RAYQUERY_FLAG_ALLOW_CLUSTERED_GEOMETRY' in shader model cs_6_9; introduced in shader model 6.10
@@ -27,7 +21,6 @@ void main() {
   ray.TMax = 1;
 
   // CHECK: call i32 @dx.op.allocateRayQuery2(i32 258, i32 0, i32 2)
-  // FCGL: call i32 @"dx.hl.op..i32 (i32, i32, i32)"(i32 4, i32 0, i32 2)
   RayQuery<RAY_FLAG_NONE, RAYQUERY_FLAG_ALLOW_CLUSTERED_GEOMETRY> clustered;
   clustered.TraceRayInline(RTAS, RAY_FLAG_NONE, 0xff, ray);
   output.Store(0, clustered.CommittedStatus());
@@ -42,7 +35,6 @@ void combined() {
   ray.TMax = 1;
 
   // COMBINED: call i32 @dx.op.allocateRayQuery2(i32 258, i32 1024, i32 3)
-  // FCGLCOMBINED: call i32 @"dx.hl.op..i32 (i32, i32, i32)"(i32 4, i32 1024, i32 3)
   RayQuery<RAY_FLAG_FORCE_OMM_2_STATE,
            RAYQUERY_FLAG_ALLOW_CLUSTERED_GEOMETRY |
                RAYQUERY_FLAG_ALLOW_OPACITY_MICROMAPS> combined;

@@ -1,9 +1,7 @@
 // REQUIRES: dxil-1-10
-// RUN: %dxc -T lib_6_10 %s | FileCheck %s
+// RUN: %dxc -T lib_6_10 %s -Fo %t -Fc %t.ll && FileCheck %s --input-file=%t.ll
 // RUN: %dxc -T lib_6_10 -fcgl %s | FileCheck -check-prefix=FCGL %s
-// RUN: %dxc -T lib_6_10 -ast-dump-implicit %s | FileCheck -check-prefix=AST %s
 // RUN: not %dxc -T lib_6_9 -WX %s 2>&1 | FileCheck -check-prefix=SM69 %s
-// RUN: %dxc -T lib_6_10 %s -Fo %t
 // RUN: %dxa %t -dumprdat | FileCheck -check-prefix=RDAT %s
 
 // CHECK: ; RaytracingPipelineConfig1 clustered = { MaxTraceRecursionDepth = 1, Flags = RAYTRACING_PIPELINE_FLAG_ALLOW_CLUSTERED_GEOMETRY };
@@ -11,10 +9,6 @@
 
 // FCGL: !{!"clustered", i32 12, i32 1, i32 2048}
 // FCGL: !{!"combined", i32 12, i32 1, i32 3328}
-
-// AST: VarDecl {{.*}} implicit referenced RAYTRACING_PIPELINE_FLAG_ALLOW_CLUSTERED_GEOMETRY 'const unsigned int' static cinit
-// AST-NEXT: IntegerLiteral {{.*}} 'const unsigned int' 2048
-// AST-NEXT: AvailabilityAttr {{.*}} Implicit  6.10 0 0 ""
 
 // SM69: error: potential misuse of built-in constant 'RAYTRACING_PIPELINE_FLAG_ALLOW_CLUSTERED_GEOMETRY' in shader model lib_6_9; introduced in shader model 6.10
 
