@@ -6719,13 +6719,23 @@ bool ScalarEvolution::isKnownPredicate(ICmpInst::Predicate Pred,
   // every iteration of the loop.
   // If LHS and RHS are both addrec, both conditions must be true in
   // every iteration of the loop.
+  // HLSL Change Begin - Require the non-AddRec operand to be available at loop
+  // entry when proving predicates by induction. Partial backport of D42417 and
+  // D43997:
+  // https://github.com/llvm/llvm-project/commit/ec7029c286c6a8e49db52c752d87c9ff0a465996
+  // https://github.com/llvm/llvm-project/commit/2371e0a1c853ea8b9c562d34c9aba6b8f4ccc379
+  auto IsAvailableAtLoopEntry = [this](const SCEV *S, const Loop *L) {
+    return isLoopInvariant(S, L) && properlyDominates(S, L->getHeader());
+  };
+  // HLSL Change End
   const SCEVAddRecExpr *LAR = dyn_cast<SCEVAddRecExpr>(LHS);
   const SCEVAddRecExpr *RAR = dyn_cast<SCEVAddRecExpr>(RHS);
   bool LeftGuarded = false;
   bool RightGuarded = false;
   if (LAR) {
     const Loop *L = LAR->getLoop();
-    if (isLoopEntryGuardedByCond(L, Pred, LAR->getStart(), RHS) &&
+    if (IsAvailableAtLoopEntry(RHS, L) && // HLSL Change
+        isLoopEntryGuardedByCond(L, Pred, LAR->getStart(), RHS) &&
         isLoopBackedgeGuardedByCond(L, Pred, LAR->getPostIncExpr(*this), RHS)) {
       if (!RAR) return true;
       LeftGuarded = true;
@@ -6733,7 +6743,8 @@ bool ScalarEvolution::isKnownPredicate(ICmpInst::Predicate Pred,
   }
   if (RAR) {
     const Loop *L = RAR->getLoop();
-    if (isLoopEntryGuardedByCond(L, Pred, LHS, RAR->getStart()) &&
+    if (IsAvailableAtLoopEntry(LHS, L) && // HLSL Change
+        isLoopEntryGuardedByCond(L, Pred, LHS, RAR->getStart()) &&
         isLoopBackedgeGuardedByCond(L, Pred, LHS, RAR->getPostIncExpr(*this))) {
       if (!LAR) return true;
       RightGuarded = true;
