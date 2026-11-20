@@ -116,6 +116,12 @@ line upon naming the release. Refer to previous for appropriate section names.
   fast-math flags after merging equivalent code from both sides of a branch.
 - Reject root signatures with invalid shader visibility values.
 
+#### SPIR-V
+
+- SPIR-V debug info now emits a lexical scope for `for` loops, so variables
+  declared in the loop header are scoped to the loop
+  [#8514](https://github.com/microsoft/DirectXShaderCompiler/issues/8514).
+
 ### Upcoming Preview Release
 
 These changes apply to experimental preview shader models only and will not be
