@@ -2995,6 +2995,7 @@ bool DeclResultIdMapper::createStructOutputVar(
     memberVarData.decl = field;
     memberVarData.type = field->getType();
     memberVarData.asNoInterp |= field->hasAttr<HLSLNoInterpolationAttr>();
+    memberVarData.fieldPath.push_back(field);
     if (!createStageVars(memberVarData, false, &subValue, noWriteBack))
       return false;
   }
@@ -3730,6 +3731,12 @@ SpirvVariable *DeclResultIdMapper::createSpirvInterfaceVariable(
   // We have semantics attached to this decl, which means it must be a
   // function/parameter/variable. All are DeclaratorDecls.
   stageVarInstructions[cast<DeclaratorDecl>(stageVarData.decl)] = varInstr;
+
+  const auto sigPointKind = stageVarData.sigPoint->GetKind();
+  if (sigPointKind == hlsl::SigPoint::Kind::MSOut ||
+      sigPointKind == hlsl::SigPoint::Kind::MSPOut)
+    msOutStageVars.push_back({sigPointKind == hlsl::SigPoint::Kind::MSPOut,
+                              stageVarData.fieldPath, varInstr});
 
   return varInstr;
 }

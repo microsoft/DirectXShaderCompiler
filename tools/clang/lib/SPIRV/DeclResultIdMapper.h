@@ -21,6 +21,7 @@
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/Optional.h"
+#include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SmallVector.h"
 
 #include "GlPerVertex.h"
@@ -463,6 +464,10 @@ private:
     // If arraySize is not zero, invocationId gives the index to used when
     // generating a write to the stage variable.
     llvm::Optional<SpirvInstruction *> invocationId;
+
+    // For outputs, the fields leading from the output down to the current
+    // member. Base classes are not part of it.
+    llvm::SmallVector<const FieldDecl *, 4> fieldPath;
   };
 
   /// \brief Returns the SPIR-V information for the given decl.
@@ -564,11 +569,33 @@ public:
   /// \brief Returns the given decl's HLSL semantic information.
   static SemanticInfo getStageVarSemantic(const NamedDecl *decl);
 
-  /// \brief Returns SPIR-V instruction for given stage var decl.
-  SpirvInstruction *getStageVarInstruction(const DeclaratorDecl *decl) {
-    auto *value = stageVarInstructions.lookup(decl);
-    assert(value);
-    return value;
+  /// \brief Returns the stage variable created for the mesh shader output
+  /// member reached through the given path of fields, in the per-vertex or the
+  /// per-primitive output. The member's decl alone is not enough, since a
+  /// struct type used twice reaches the same field decl twice.
+  SpirvVariable *
+  getMSOutStageVar(bool perPrimitive,
+                   llvm::ArrayRef<const FieldDecl *> fieldPath) const {
+    // Entry points sharing an output type each create their own variables,
+    // and the newest ones belong to the entry point being emitted.
+    for (const auto &stageVar : llvm::reverse(msOutStageVars))
+      if (stageVar.perPrimitive == perPrimitive &&
+          llvm::makeArrayRef(stageVar.fieldPath) == fieldPath)
+        return stageVar.instr;
+    return nullptr;
+  }
+
+  /// \brief Returns the semantic that the stage variable for the given mesh
+  /// shader output member was created with. It differs from the member's own
+  /// semantic when it is a field of a struct that has a semantic attached.
+  SemanticInfo
+  getMSOutStageVarSemantic(bool perPrimitive,
+                           llvm::ArrayRef<const FieldDecl *> fieldPath) const {
+    if (const auto *var = getMSOutStageVar(perPrimitive, fieldPath))
+      for (const auto &stageVar : stageVars)
+        if (stageVar.getSpirvInstr() == var)
+          return stageVar.getSemanticInfo();
+    return getStageVarSemantic(fieldPath.back());
   }
 
   SpirvVariable *getMSOutIndicesBuiltin() {
@@ -1052,6 +1079,15 @@ private:
   /// creating that stage variable, so that we don't need to query them again
   /// for reading and writing.
   llvm::DenseMap<const ValueDecl *, SpirvVariable *> stageVarInstructions;
+
+  /// A stage variable of a mesh shader output, with the path of fields it was
+  /// created for. See getMSOutStageVar().
+  struct MSOutStageVar {
+    bool perPrimitive;
+    llvm::SmallVector<const FieldDecl *, 4> fieldPath;
+    SpirvVariable *instr;
+  };
+  llvm::SmallVector<MSOutStageVar, 8> msOutStageVars;
 
   /// Special case for the Indices builtin:
   /// - this builtin has a different layout in HLSL & SPIR-V, meaning it
