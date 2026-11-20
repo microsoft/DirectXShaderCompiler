@@ -337,12 +337,6 @@ public:
                   L"Device.Graphics.WDDM31.AdapterRender.D3D12.DXILCore."
                   L"ShaderModel67.CoreRequirement")
 
-  HLK_TEST_METHOD(IsNormalTest, L"fc854332-83f2-4f67-9f6e-2ad9fe776d93",
-                  L"D3D12 - DXIL Core Test - Shader Model 6.0 IsNormal",
-                  L"Verifies IsNormal dxil intrinsic",
-                  L"Device.Graphics.WDDM22.AdapterRender.D3D12.DXILCore."
-                  L"ShaderModel60.CoreRequirement")
-
   HLK_TEST_METHOD(
       AtomicsTest, L"84eb9d7e-81d6-45b5-b967-c128862b0c56",
       L"D3D12 - DXIL Core Test - Shader Model 6.6 - Atomics (32-bit integer)",
@@ -6062,11 +6056,6 @@ TEST_F(DxilConfTest, UnaryFloatOpTest) {
     VerifyOutputWithExpectedValueFloat(p->output, val, Validation_Type,
                                        Validation_Tolerance);
   }
-}
-
-TEST_F(DxilConfTest, IsNormalTest) {
-  // This test has been folded into UnaryFloatOpTable
-  WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
 }
 
 TEST_F(DxilConfTest, BinaryFloatOpTest) {
