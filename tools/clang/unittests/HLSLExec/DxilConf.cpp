@@ -6064,6 +6064,11 @@ TEST_F(DxilConfTest, UnaryFloatOpTest) {
   }
 }
 
+TEST_F(DxilConfTest, IsNormalTest) {
+  // This test has been folded into UnaryFloatOpTable
+  WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
+}
+
 TEST_F(DxilConfTest, BinaryFloatOpTest) {
   WEX::TestExecution::SetVerifyOutput verifySettings(
       WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
