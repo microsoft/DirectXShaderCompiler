@@ -44,6 +44,9 @@ set(hlsl_embedded_inputs
     type_traits
     vector_utils
     dx/linalg.h
+    ad/bwd
+    ad/fwd
+    ad/matrix_utils
     )
 
 if (ENABLE_SPIRV_CODEGEN)

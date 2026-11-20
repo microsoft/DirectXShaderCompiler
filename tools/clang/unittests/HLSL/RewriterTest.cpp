@@ -97,6 +97,7 @@ public:
   TEST_METHOD(RunSemanticDefines)
   TEST_METHOD(RunNoFunctionBody)
   TEST_METHOD(RunNoFunctionBodyInclude)
+  TEST_METHOD(RunIncludeNotDumped)
   TEST_METHOD(RunNoStatic)
   TEST_METHOD(RunKeepUserMacro)
   TEST_METHOD(RunExtractUniforms)
@@ -435,6 +436,40 @@ TEST_F(RewriterTest, RunNoFunctionBodyInclude) {
       L"rewriter\\includes.hlsl",
       L"rewriter\\correct_rewrites\\includes_gold_nobody.hlsl",
       RewriterOptionMask::SkipFunctionBody));
+}
+
+// Verify that the rewriter does not emit declarations that come from
+// #included headers into its output (only declarations written in the
+// main source file should appear).
+TEST_F(RewriterTest, RunIncludeNotDumped) {
+  CComPtr<IDxcRewriter> pRewriter;
+  VERIFY_SUCCEEDED(CreateRewriter(&pRewriter));
+  CComPtr<IDxcOperationResult> pRewriteResult;
+
+  std::wstring fileName = GetPathToHlslDataFile(L"rewriter\\includes.hlsl");
+  FileWithBlob source(m_dllSupport, fileName.c_str());
+
+  VERIFY_SUCCEEDED(pRewriter->RewriteUnchangedWithInclude(
+      source.BlobEncoding, fileName.c_str(), nullptr, 0, m_pIncludeHandler,
+      RewriterOptionMask::Default, &pRewriteResult));
+
+  CComPtr<IDxcBlob> result;
+  VERIFY_SUCCEEDED(pRewriteResult->GetResult(&result));
+  std::string rewriteText = BlobToUtf8(result);
+
+  // Declarations from the main file should be present.
+  VERIFY_IS_TRUE(rewriteText.find("int func1(int b)") != std::string::npos);
+  VERIFY_IS_TRUE(rewriteText.find("int func2(int d)") != std::string::npos);
+  VERIFY_IS_TRUE(rewriteText.find("int func3(int f)") != std::string::npos);
+
+  // Definitions from the #include'd headers must not be dumped into the
+  // output of the rewriter.
+  VERIFY_IS_TRUE(rewriteText.find("int includedFunc(int a)") ==
+                 std::string::npos);
+  VERIFY_IS_TRUE(rewriteText.find("int includedFunc2(int c)") ==
+                 std::string::npos);
+  VERIFY_IS_TRUE(rewriteText.find("int includedFunc3(int e)") ==
+                 std::string::npos);
 }
 
 TEST_F(RewriterTest, RunSpirv) {

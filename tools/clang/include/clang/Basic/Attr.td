@@ -918,6 +918,57 @@ def HLSLWaveSensitive : InheritableAttr {
   let Documentation = [Undocumented];
 }
 
+def HLSLAutoDiff : InheritableAttr {
+  // [[dxc::AutoDiff(fwd)]], [[dxc::AutoDiff(bwd)]],
+  // [[dxc::AutoDiff(fwd, bwd)]] or [[dxc::AutoDiff(bwd, fwd)]].
+  // The attribute is ignored during normal compilation; it is consumed by
+  // the dxr rewriter when invoked with --generate-differentials.
+  let Spellings = [CXX11<"dxc", "AutoDiff", 2015>];
+  let Subjects = SubjectList<[Function], ErrorDiag, "ExpectedFunction">;
+  let Args = [IdentifierArgument<"Mode1">, IdentifierArgument<"Mode2", 1>];
+  let LangOpts = [HLSL];
+  let Documentation = [Undocumented];
+
+  let AdditionalMembers = [{
+    public:
+      bool hasForward() const {
+        return (getMode1() && getMode1()->getName() == "fwd") ||
+               (getMode2() && getMode2()->getName() == "fwd");
+      }
+      bool hasBackward() const {
+        return (getMode1() && getMode1()->getName() == "bwd") ||
+               (getMode2() && getMode2()->getName() == "bwd");
+      }
+  }];
+}
+
+// [[dxc::NoDiff]] marks a parameter, statement, or expression that should not
+// contribute derivatives in the dxr auto-differentiation rewriter. The
+// attribute is ignored during normal compilation.
+def HLSLNoDiff : Attr {
+  let Spellings = [CXX11<"dxc", "NoDiff", 2015>];
+  let Subjects = SubjectList<[ParmVar], ErrorDiag, "ExpectedParameter">;
+  let Documentation = [Undocumented];
+}
+
+def HLSLBackwardDerivative : InheritableAttr {
+  // Associates a primal function with a user-written reverse-mode pullback.
+  let Spellings = [CXX11<"dxc", "BackwardDerivative", 2015>];
+  let Subjects = SubjectList<[Function], ErrorDiag, "ExpectedFunction">;
+  let Args = [IdentifierArgument<"Derivative">];
+  let LangOpts = [HLSL];
+  let Documentation = [Undocumented];
+}
+
+def HLSLPrimalSubstituteOf : InheritableAttr {
+  // Associates a differentiable implementation with an original primal.
+  let Spellings = [CXX11<"dxc", "PrimalSubstituteOf", 2015>];
+  let Subjects = SubjectList<[Function], ErrorDiag, "ExpectedFunction">;
+  let Args = [IdentifierArgument<"Primal">];
+  let LangOpts = [HLSL];
+  let Documentation = [Undocumented];
+}
+
 def HLSLWaveSize : InheritableAttr {
   let Spellings = [CXX11<"", "wavesize", 2017>];
   let Args = [IntArgument<"Min">, DefaultIntArgument<"Max", 0>, DefaultIntArgument<"Preferred", 0>];

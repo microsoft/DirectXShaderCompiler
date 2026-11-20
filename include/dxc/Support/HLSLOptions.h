@@ -112,6 +112,8 @@ struct RewriterOpts {
   bool RemoveUnusedFunctions = false; // OPT_rw_remove_unused_functions
   bool WithLineDirective = false;     // OPT_rw_line_directive
   bool DeclGlobalCB = false;          // OPT_rw_decl_global_cb
+  bool GenerateDifferentials = false; // OPT_rw_generate_differentials
+  bool GeneratedOnly = false;         // OPT_rw_generated_only
 };
 
 /// Use this class to capture all options.

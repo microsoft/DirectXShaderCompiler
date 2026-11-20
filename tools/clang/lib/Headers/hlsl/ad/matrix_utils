@@ -1,0 +1,95 @@
+#ifndef HLSL_AD_MATRIX_UTILS_H
+#define HLSL_AD_MATRIX_UTILS_H
+
+// Shared matrix utility functions for automatic differentiation.
+// Provides minor matrix extraction, cofactor matrices, and determinant
+// derivatives for square matrices from 1x1 through 4x4.
+
+#include <enable_if>
+#include <ad/matrix_utils>
+namespace ad {
+namespace __detail {
+
+template <typename T> struct minor_matrix_t {
+  using type = matrix<typename hlsl::matrix_traits<T>::element_type,
+                      hlsl::matrix_traits<T>::num_rows - 1,
+                      hlsl::matrix_traits<T>::num_cols - 1>;
+};
+
+// ============================================================================
+// Minor Matrix Extraction
+// ============================================================================
+// Extract the (N-1)x(N-1) submatrix by removing the given row and column.
+
+template<typename T>
+typename minor_matrix_t<T>::type minor_matrix(T m, int row, int col) {
+  typename minor_matrix_t<T>::type result;
+  int ri = 0;
+  [unroll] for (int r = 0; r < hlsl::matrix_traits<T>::num_rows; r++) {
+    if (r == row) continue;
+    int ci = 0;
+    [unroll] for (int c = 0; c < hlsl::matrix_traits<T>::num_cols; c++) {
+      if (c == col) continue;
+      result[ri][ci] = m[r][c];
+      ci++;
+    }
+    ri++;
+  }
+  return result;
+}
+
+// ============================================================================
+// Cofactor Matrix
+// ============================================================================
+// C[i][j] = (-1)^(i+j) * det(minor(i,j))
+// d(det(M))/dM = cofactor_matrix(M)
+
+template<typename T>
+matrix<T, 1, 1> cofactor_matrix(matrix<T, 1, 1> m) {
+  matrix<T, 1, 1> c;
+  c[0][0] = T(1);
+  return c;
+}
+
+template <typename T>
+typename hlsl::enable_if<
+    hlsl::is_matrix<T>::value && hlsl::matrix_traits<T>::num_rows != 1, T>::type
+cofactor_matrix(T m) {
+  T c;
+  using ElementType = typename hlsl::matrix_traits<T>::element_type;
+  [unroll] for (int i = 0; i < hlsl::matrix_traits<T>::num_rows;
+                i++)[unroll] for (int j = 0;
+                                  j < hlsl::matrix_traits<T>::num_cols; j++)
+      c[i][j] = ((i + j) % 2 == 0 ? ElementType(1) : ElementType(-1)) *
+                determinant(minor_matrix(m, i, j));
+  return c;
+}
+
+// ============================================================================
+// Determinant Derivative (for forward-mode AD)
+// ============================================================================
+// d/dt det(M(t)) = sum_{i,j} cofactor(i,j) * dM[i][j]
+
+template <typename T> T det_deriv(matrix<T, 1, 1> m, matrix<T, 1, 1> dm) {
+  return dm[0][0];
+}
+
+template <typename T>
+typename hlsl::enable_if<hlsl::is_matrix<T>::value &&
+                             hlsl::matrix_traits<T>::num_rows != 1,
+                         typename hlsl::matrix_traits<T>::element_type>::type
+det_deriv(T m, T dm) {
+  using ElementType = typename hlsl::matrix_traits<T>::element_type;
+  ElementType result = ElementType(0);
+  [unroll] for (int i = 0; i < hlsl::matrix_traits<T>::num_rows;
+                i++)[unroll] for (int j = 0;
+                                  j < hlsl::matrix_traits<T>::num_cols; j++)
+      result += ((i + j) % 2 == 0 ? ElementType(1) : ElementType(-1)) *
+                determinant(minor_matrix(m, i, j)) * dm[i][j];
+  return result;
+}
+
+} // namespace __detail
+} // namespace ad
+
+#endif // HLSL_AD_MATRIX_UTILS_H
