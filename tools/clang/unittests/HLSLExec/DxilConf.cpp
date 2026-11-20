@@ -240,7 +240,6 @@ public:
                   L"Device.Graphics.WDDM22.AdapterRender.D3D12.DXILCore."
                   L"ShaderModel60.CoreRequirement")
 
-
   HLK_TEST_METHOD(WaveIntrinsicsInPSTest,
                   L"d4b93ce1-0f21-41bd-9a00-0ad2772aac56",
                   L"D3D12 - DXIL Wave Op Test - WaveIntrinsicsInPSTest",
