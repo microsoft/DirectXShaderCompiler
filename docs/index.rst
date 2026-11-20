@@ -49,7 +49,7 @@ Several introductory papers and presentations.
   .. __: http://llvm.org/pubs/2004-01-30-CGO-LLVM.html
 
 :doc:`HLSLChanges`
-  Describes high-level changes made to LLVM and Clang to accomodate HLSL and DXIL.
+  Describes high-level changes made to LLVM and Clang to accommodate HLSL and DXIL.
 
 `LLVM: An Infrastructure for Multi-Stage Optimization`__
   More details (quite old now).
