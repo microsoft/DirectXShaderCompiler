@@ -17,7 +17,7 @@ struct [raypayload] Payload {
 // CHECK: call void @dx.op.rawBufferStore.i32(i32 140, %dx.types.Handle %{{[0-9]+}}, i32 0, i32 undef, i32 %[[CID]], i32 undef, i32 undef, i32 undef, i8 1, i32 4)
 [shader("closesthit")]
 void test_cluster_id_invalid(inout Payload payload, in BuiltInTriangleIntersectionAttributes attr) {
-  uint cid = ClusterID();
+  CLUSTER_ID_CONSTANTS cid = ClusterID();
   
   // Test the CLUSTER_ID_INVALID constant (0xffffffff = -1 as signed)
   if (cid == CLUSTER_ID_INVALID) {
