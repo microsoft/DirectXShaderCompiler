@@ -26,6 +26,8 @@ The included licenses apply to the following files:
   descriptor heaps with a literal `ArrayStride`. The value must be a power of
   two in `[8, 256]`. Both flags require `-spirv` and
   `-fspv-use-descriptor-heap` and are rejected otherwise.
+- `SV_CullPrimitive` as a pixel shader input is now replaced with 0, matching
+  DXIL, instead of producing invalid SPIR-V.
 
 Place release notes for the upcoming release below this line and remove this
 line upon naming the release. Refer to previous for appropriate section names.
