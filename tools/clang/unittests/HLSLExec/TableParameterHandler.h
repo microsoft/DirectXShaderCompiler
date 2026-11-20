@@ -2,6 +2,7 @@
 #define TABLE_PARAMETER_HANDLER_H
 
 #include <windows.h>
+
 #include "HlslTestUtils.h"
 #include "dxc/Support/Global.h"
 

@@ -719,11 +719,17 @@ public:
                   L"ShaderModel62.CoreRequirement")
 
   BEGIN_TEST_METHOD(PackUnpackTest)
-      TEST_METHOD_PROPERTY(L"DataSource", L"Table:ShaderOpArithTable.xml#PackUnpackOpTable")
-      TEST_METHOD_PROPERTY(L"Kits.Description", L"Verifies shader model 6.6 pack unpack intrinsics")
-      TEST_METHOD_PROPERTY(L"Kits.TestId", L"d5a302c9-6e1f-4dfc-8b2d-73e41e8f0939")
-      TEST_METHOD_PROPERTY(L"Kits.TestName", L"D3D12 - DXIL Core Test - Shader Model 6.6 - Pack Unpack")
-      TEST_METHOD_PROPERTY(L"Kits.Specification", L"Device.Graphics.WDDM30.AdapterRender.D3D12.DXILCore.ShaderModel66.CoreRequirement")
+  TEST_METHOD_PROPERTY(L"DataSource",
+                       L"Table:ShaderOpArithTable.xml#PackUnpackOpTable")
+  TEST_METHOD_PROPERTY(L"Kits.Description",
+                       L"Verifies shader model 6.6 pack unpack intrinsics")
+  TEST_METHOD_PROPERTY(L"Kits.TestId", L"d5a302c9-6e1f-4dfc-8b2d-73e41e8f0939")
+  TEST_METHOD_PROPERTY(
+      L"Kits.TestName",
+      L"D3D12 - DXIL Core Test - Shader Model 6.6 - Pack Unpack")
+  TEST_METHOD_PROPERTY(L"Kits.Specification",
+                       L"Device.Graphics.WDDM30.AdapterRender.D3D12.DXILCore."
+                       L"ShaderModel66.CoreRequirement")
   END_TEST_METHOD()
 
   dxc::DxCompilerDllLoader m_support;
