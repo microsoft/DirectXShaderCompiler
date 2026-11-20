@@ -83,7 +83,7 @@ endif()
 set(CLANG_TEST_DEPS dxc dxa dxopt dxl dxv dxr dxcompiler clang-tblgen llvm-config opt FileCheck count not ClangUnitTests)
 if (WIN32)
 list(APPEND CLANG_TEST_DEPS
-     dxc_batch ExecHLSLTests dxildll
+     dxc_batch DxilConf dxildll
     )
 else()
 list(APPEND CLANG_TEST_DEPS
@@ -245,7 +245,7 @@ if(CMAKE_CONFIGURATION_TYPES)
               ${CMAKE_CURRENT_SOURCE_DIR}/taef_exec
               PARAMS ${CLANG_TEST_PARAMS}
               adapter=${TAEF_EXEC_ADAPTER}
-              DEPENDS ExecHLSLTests dxexp
+              DEPENDS DxilConf dxexp
               ARGS ${CLANG_TEST_EXTRA_ARGS}
             )
   endif()
