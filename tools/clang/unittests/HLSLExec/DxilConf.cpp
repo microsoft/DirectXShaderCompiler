@@ -200,11 +200,14 @@ public:
   END_TEST_CLASS()
   TEST_CLASS_SETUP(DxilConfTestClassSetup)
 
+  // We have some tests that are more like they're testing the tests and so 
+  // shouldn't be part of the HLK.
   TEST_METHOD(BasicComputeTest);
   TEST_METHOD(BasicTriangleTest);
   TEST_METHOD(BasicTriangleOpTest);
-
   TEST_METHOD(BasicTriangleOpTestHalf);
+  TEST_METHOD(WaveIntrinsicsTest);
+  TEST_METHOD(WaveIntrinsicsDDITest);
 
   HLK_TEST_METHOD(OutOfBoundsTest, L"3d8f4e73-d840-4582-8182-8996f717ebac",
                   L"D3D12 - DXIL Core Test - Basic OutOfBoundsTest",
@@ -237,8 +240,6 @@ public:
                   L"Device.Graphics.WDDM22.AdapterRender.D3D12.DXILCore."
                   L"ShaderModel60.CoreRequirement")
 
-  TEST_METHOD(WaveIntrinsicsTest);
-  TEST_METHOD(WaveIntrinsicsDDITest);
 
   HLK_TEST_METHOD(WaveIntrinsicsInPSTest,
                   L"d4b93ce1-0f21-41bd-9a00-0ad2772aac56",
