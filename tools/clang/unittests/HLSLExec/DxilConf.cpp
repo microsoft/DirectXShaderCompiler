@@ -200,7 +200,7 @@ public:
   END_TEST_CLASS()
   TEST_CLASS_SETUP(DxilConfTestClassSetup)
 
-  // We have some tests that are more like they're testing the tests and so 
+  // We have some tests that are more like they're testing the tests and so
   // shouldn't be part of the HLK.
   TEST_METHOD(BasicComputeTest);
   TEST_METHOD(BasicTriangleTest);
