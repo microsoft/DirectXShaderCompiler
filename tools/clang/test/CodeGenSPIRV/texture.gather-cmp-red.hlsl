@@ -10,10 +10,11 @@ TextureCube<int>  tCube : register(t3);
 // CHECK: OpCapability SparseResidency
 
 // CHECK:      [[c12:%[0-9]+]] = OpConstantComposite %v2int %int_1 %int_2
-// CHECK:      [[c34:%[0-9]+]] = OpConstantComposite %v2int %int_3 %int_4
-// CHECK:      [[c56:%[0-9]+]] = OpConstantComposite %v2int %int_5 %int_6
+// CHECK:      [[c13:%[0-9]+]] = OpConstantComposite %v2int %int_1 %int_3
+// CHECK:      [[c45:%[0-9]+]] = OpConstantComposite %v2int %int_4 %int_5
+// CHECK:      [[c66:%[0-9]+]] = OpConstantComposite %v2int %int_6 %int_6
 // CHECK:      [[c78:%[0-9]+]] = OpConstantComposite %v2int %int_7 %int_8
-// CHECK:    [[c1to8:%[0-9]+]] = OpConstantComposite %_arr_v2int_uint_4 [[c12]] [[c34]] [[c56]] [[c78]]
+// CHECK:    [[c1to8:%[0-9]+]] = OpConstantComposite %_arr_v2int_uint_4 [[c13]] [[c45]] [[c66]] [[c78]]
 // CHECK: [[cv3f_1_5:%[0-9]+]] = OpConstantComposite %v3float %float_1_5 %float_1_5 %float_1_5
 
 float4 main(float2 location: A, float comparator: B) : SV_Target {
