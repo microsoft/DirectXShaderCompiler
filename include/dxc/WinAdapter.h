@@ -33,22 +33,38 @@
 #include <vector>
 #endif // __cplusplus
 
-#define COM_NO_WINDOWS_H // needed to inform d3d headers that this isn't windows
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wcast-qual"
+#ifdef __clang__
+#pragma clang diagnostic ignored "-Wnewline-eof"
+#endif
+#include "rpcndr.h"
+#if defined(__clang__) && defined(_MSC_EXTENSIONS) && !defined(__EMULATE_UUID)
+// The WSL stubs emulate __uuidof even when Clang supports native UUIDs.
+#undef __uuidof
+struct __declspec(uuid("00000000-0000-0000-C000-000000000046")) IUnknown;
+#endif
+#include "wsl/winadapter.h"
+#pragma GCC diagnostic pop
+
+#undef OUT
+#undef IN
+#undef interface
+#undef HeapAlloc
+#undef HeapFree
+#undef UNREFERENCED_PARAMETER
 
 //===----------------------------------------------------------------------===//
 //
 //                             Begin: Macro Definitions
 //
 //===----------------------------------------------------------------------===//
-#define C_ASSERT(expr) static_assert((expr), "")
 #define ATLASSERT assert
 
 #define CoTaskMemAlloc malloc
 #define CoTaskMemFree free
 
 #define ARRAYSIZE(array) (sizeof(array) / sizeof(array[0]))
-
-#define _countof(a) (sizeof(a) / sizeof(*(a)))
 
 // If it is GCC, there is no UUID support and we must emulate it.
 // Clang support depends on the -fms-extensions compiler flag.
@@ -60,18 +76,12 @@
 #define __declspec(x)
 #endif // __EMULATE_UUID
 
-#define DECLSPEC_SELECTANY
-
 #ifdef __EMULATE_UUID
 #define uuid(id)
 #endif // __EMULATE_UUID
 
-#define STDMETHODCALLTYPE
 #define STDMETHODIMP_(type) type STDMETHODCALLTYPE
 #define STDMETHODIMP STDMETHODIMP_(HRESULT)
-#define STDMETHOD_(type, name) virtual STDMETHODIMP_(type) name
-#define STDMETHOD(name) STDMETHOD_(HRESULT, name)
-#define EXTERN_C extern "C"
 
 #define UNREFERENCED_PARAMETER(P) (void)(P)
 
@@ -88,9 +98,6 @@
 #define CopyMemory RtlCopyMemory
 #define FillMemory RtlFillMemory
 #define ZeroMemory RtlZeroMemory
-
-#define FALSE 0
-#define TRUE 1
 
 // We ignore the code page completely on Linux.
 #define GetConsoleOutputCP() 0
@@ -217,24 +224,9 @@
 
 //===--------------------- HRESULT Related Macros -------------------------===//
 
-#define S_OK ((HRESULT)0L)
-#define S_FALSE ((HRESULT)1L)
-
-#define E_ABORT (HRESULT)0x80004004
-#define E_ACCESSDENIED (HRESULT)0x80070005
 #define E_BOUNDS (HRESULT)0x8000000B
-#define E_FAIL (HRESULT)0x80004005
-#define E_HANDLE (HRESULT)0x80070006
-#define E_INVALIDARG (HRESULT)0x80070057
-#define E_NOINTERFACE (HRESULT)0x80004002
-#define E_NOTIMPL (HRESULT)0x80004001
 #define E_NOT_VALID_STATE (HRESULT)0x8007139F
-#define E_OUTOFMEMORY (HRESULT)0x8007000E
-#define E_POINTER (HRESULT)0x80004003
-#define E_UNEXPECTED (HRESULT)0x8000FFFF
 
-#define SUCCEEDED(hr) (((HRESULT)(hr)) >= 0)
-#define FAILED(hr) (((HRESULT)(hr)) < 0)
 #define DXC_FAILED(hr) (((HRESULT)(hr)) < 0)
 
 #define HRESULT_FROM_WIN32(x)                                                  \
@@ -246,43 +238,16 @@
 //                         Begin: Disable SAL Annotations
 //
 //===----------------------------------------------------------------------===//
-#define _In_
-#define _In_z_
-#define _In_opt_
-#define _In_opt_count_(size)
-#define _In_opt_z_
-#define _In_count_(size)
-#define _In_bytecount_(size)
-
-#define _Out_
-#define _Out_opt_
-#define _Outptr_
 #define _Outptr_opt_
 #define _Outptr_result_z_
-#define _Outptr_opt_result_z_
-#define _Outptr_result_maybenull_
-#define _Outptr_result_nullonfailure_
 #define _Outptr_result_buffer_maybenull_(ptr)
 #define _Outptr_result_buffer_(ptr)
-
-#define _COM_Outptr_
-#define _COM_Outptr_opt_
-#define _COM_Outptr_result_maybenull_
-#define _COM_Outptr_opt_result_maybenull_
-
-#define THIS_
-#define THIS
-#define PURE = 0
-
-#define _Maybenull_
 
 #define __debugbreak()
 
 // GCC produces erros on calling convention attributes.
 #ifdef __GNUC__
-#define __cdecl
 #define __CRTDECL
-#define __stdcall
 #define __vectorcall
 #define __thiscall
 #define __fastcall
@@ -297,68 +262,23 @@
 
 #ifdef __cplusplus
 
-typedef unsigned char BYTE, UINT8;
 typedef unsigned char *LPBYTE;
-
-typedef BYTE BOOLEAN;
 typedef BOOLEAN *PBOOLEAN;
-
-typedef bool BOOL;
 typedef BOOL *LPBOOL;
-
-typedef int INT;
-typedef long LONG;
-typedef unsigned int UINT;
-typedef unsigned long ULONG;
-typedef long long LONGLONG;
-typedef long long LONG_PTR;
-typedef unsigned long long ULONG_PTR;
-typedef unsigned long long ULONGLONG;
-
-typedef uint16_t WORD;
-typedef uint32_t DWORD;
 typedef DWORD *LPDWORD;
 
-typedef uint32_t UINT32;
-typedef uint64_t UINT64;
-
-typedef signed char INT8, *PINT8;
-typedef signed int INT32, *PINT32;
-
-typedef size_t SIZE_T;
-typedef const char *LPCSTR;
-typedef const char *PCSTR;
+typedef INT8 *PINT8;
+typedef INT32 *PINT32;
 
 typedef int errno_t;
-
-typedef wchar_t WCHAR;
-typedef wchar_t *LPWSTR;
-typedef wchar_t *PWCHAR;
-typedef const wchar_t *LPCWSTR;
-typedef const wchar_t *PCWSTR;
 
 typedef WCHAR OLECHAR;
 typedef OLECHAR *BSTR;
 typedef OLECHAR *LPOLESTR;
-typedef char *LPSTR;
-
-typedef void *LPVOID;
-typedef const void *LPCVOID;
-
 typedef std::nullptr_t nullptr_t;
-
-typedef signed int HRESULT;
 
 //===--------------------- Handle Types -----------------------------------===//
 
-typedef void *HANDLE;
-typedef void *RPC_IF_HANDLE;
-
-#define DECLARE_HANDLE(name)                                                   \
-  struct name##__ {                                                            \
-    int unused;                                                                \
-  };                                                                           \
-  typedef struct name##__ *name
 DECLARE_HANDLE(HINSTANCE);
 
 typedef void *HMODULE;
@@ -369,44 +289,13 @@ typedef void *HMODULE;
 
 //===--------------------- ID Types and Macros for COM --------------------===//
 
-#ifdef __EMULATE_UUID
-struct GUID
-#else  // __EMULATE_UUID
-// These specific definitions are required by clang -fms-extensions.
-typedef struct _GUID
-#endif // __EMULATE_UUID
-{
-  uint32_t Data1;
-  uint16_t Data2;
-  uint16_t Data3;
-  uint8_t Data4[8];
-}
-#ifdef __EMULATE_UUID
-;
-#else  // __EMULATE_UUID
-GUID;
-#endif // __EMULATE_UUID
-typedef GUID CLSID;
-typedef const GUID &REFGUID;
-typedef const GUID &REFCLSID;
-
-typedef GUID IID;
 typedef IID *LPIID;
-typedef const IID &REFIID;
 inline bool IsEqualGUID(REFGUID rguid1, REFGUID rguid2) {
   // Optimization:
   if (&rguid1 == &rguid2)
     return true;
 
   return !memcmp(&rguid1, &rguid2, sizeof(GUID));
-}
-
-inline bool operator==(REFGUID guidOne, REFGUID guidOther) {
-  return !!IsEqualGUID(guidOne, guidOther);
-}
-
-inline bool operator!=(REFGUID guidOne, REFGUID guidOther) {
-  return !(guidOne == guidOther);
 }
 
 inline bool IsEqualIID(REFIID riid1, REFIID riid2) {
@@ -451,27 +340,7 @@ typedef struct _WIN32_FIND_DATAW {
   WCHAR cAlternateFileName[14];
 } WIN32_FIND_DATAW, *PWIN32_FIND_DATAW, *LPWIN32_FIND_DATAW;
 
-typedef union _LARGE_INTEGER {
-  struct {
-    DWORD LowPart;
-    DWORD HighPart;
-  } u;
-  LONGLONG QuadPart;
-} LARGE_INTEGER;
-
-typedef LARGE_INTEGER *PLARGE_INTEGER;
-
-typedef union _ULARGE_INTEGER {
-  struct {
-    DWORD LowPart;
-    DWORD HighPart;
-  } u;
-  ULONGLONG QuadPart;
-} ULARGE_INTEGER;
-
-typedef ULARGE_INTEGER *PULARGE_INTEGER;
-
-typedef struct tagSTATSTG {
+struct STATSTG {
   LPOLESTR pwcsName;
   DWORD type;
   ULARGE_INTEGER cbSize;
@@ -483,7 +352,7 @@ typedef struct tagSTATSTG {
   CLSID clsid;
   DWORD grfStateBits;
   DWORD reserved;
-} STATSTG;
+};
 
 enum tagSTATFLAG {
   STATFLAG_DEFAULT = 0,
@@ -492,8 +361,6 @@ enum tagSTATFLAG {
 };
 
 //===--------------------- UUID Related Macros ----------------------------===//
-
-#ifdef __EMULATE_UUID
 
 // The following macros are defined to facilitate the lack of 'uuid' on Linux.
 
@@ -531,55 +398,19 @@ constexpr GUID guid_from_string(const char str[37]) {
                byte_from_hexstr(str + 32), byte_from_hexstr(str + 34)}};
 }
 
-template <typename interface> inline GUID __emulated_uuidof();
-
+// Upstream IUnknown may have been included while __uuidof was still emulated.
+// Register both forms so its QueryInterface<T> works in either include order.
 #define CROSS_PLATFORM_UUIDOF(interface, spec)                                 \
-  struct interface;                                                            \
-  template <> inline GUID __emulated_uuidof<interface>() {                     \
-    static const IID _IID = guid_from_string(spec);                            \
-    return _IID;                                                               \
-  }
-
-#define __uuidof(T) __emulated_uuidof<typename std::decay<T>::type>()
-
-#define IID_PPV_ARGS(ppType)                                                   \
-  __uuidof(decltype(**(ppType))), reinterpret_cast<void **>(ppType)
-
-#else // __EMULATE_UUID
-
-#ifndef CROSS_PLATFORM_UUIDOF
-// Warning: This macro exists in dxcapi.h as well
-#define CROSS_PLATFORM_UUIDOF(interface, spec)                                 \
-  struct __declspec(uuid(spec)) interface;
-#endif
-
-template <typename T> inline void **IID_PPV_ARGS_Helper(T **pp) {
-  return reinterpret_cast<void **>(pp);
-}
-#define IID_PPV_ARGS(ppType) __uuidof(**(ppType)), IID_PPV_ARGS_Helper(ppType)
-
-#endif // __EMULATE_UUID
-
-// Needed for d3d headers, but fail to create actual interfaces
-#define DEFINE_GUID(name, l, w1, w2, b1, b2, b3, b4, b5, b6, b7, b8)           \
-  const GUID name = {l, w1, w2, {b1, b2, b3, b4, b5, b6, b7, b8}}
-#define DECLSPEC_UUID(x)
-#define MIDL_INTERFACE(x) struct DECLSPEC_UUID(x)
-#define DECLARE_INTERFACE(iface) struct iface
-#define DECLARE_INTERFACE_(iface, parent) DECLARE_INTERFACE(iface) : parent
+  struct __declspec(uuid(spec)) interface;                                     \
+  __CRT_UUID_DECL(                                                             \
+      interface, guid_from_string(spec).Data1, guid_from_string(spec).Data2,   \
+      guid_from_string(spec).Data3, guid_from_string(spec).Data4[0],           \
+      guid_from_string(spec).Data4[1], guid_from_string(spec).Data4[2],        \
+      guid_from_string(spec).Data4[3], guid_from_string(spec).Data4[4],        \
+      guid_from_string(spec).Data4[5], guid_from_string(spec).Data4[6],        \
+      guid_from_string(spec).Data4[7])
 
 //===--------------------- COM Interfaces ---------------------------------===//
-
-CROSS_PLATFORM_UUIDOF(IUnknown, "00000000-0000-0000-C000-000000000046")
-struct IUnknown {
-  IUnknown(){};
-  virtual HRESULT QueryInterface(REFIID riid, void **ppvObject) = 0;
-  virtual ULONG AddRef() = 0;
-  virtual ULONG Release() = 0;
-  template <class Q> HRESULT QueryInterface(Q **pp) {
-    return QueryInterface(__uuidof(Q), (void **)pp);
-  }
-};
 
 CROSS_PLATFORM_UUIDOF(INoMarshal, "ECC8691B-C1DB-4DC0-855E-65F6C551AF49")
 struct INoMarshal : public IUnknown {};

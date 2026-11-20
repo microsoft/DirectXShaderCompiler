@@ -13,11 +13,19 @@ The included licenses apply to the following files:
 | License file | Applies to |
 |---|---|
 |LICENSE-MIT.txt    |d3d12shader.h|
+|include/dxc/LICENSE-DirectX-Headers.txt|basetsd.h, rpcndr.h, rpc.h, unknwn.h, unknwnbase.h, wsl/winadapter.h (non-Windows)|
 |LICENSE-LLVM.txt   |all other files|
 
 ## Changelog
 
 ### Upcoming Release
+
+#### Breaking Changes
+
+- On non-Windows platforms, DXC's Windows API types (`BOOL`, `LONG`, and
+  `ULONG`) are now 32 bits to match DirectX-Headers, which breaks binary
+  compatibility with older DXC releases and requires applications to rebuild
+  with matching DXC headers and libraries and update any FFI declarations.
 
 #### SPIR-V
 
