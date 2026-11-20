@@ -10381,9 +10381,10 @@ Decl *Sema::ActOnParamDeclarator(Scope *S, Declarator &D) {
   // HLSL Change Starts
   if (getLangOpts().HLSL) {
     const bool IsParm = true;
-    if (hlsl::IsStringType(parmDeclType)) {
+    if (getLangOpts().SPIRV && hlsl::IsStringType(parmDeclType)) {
       static const unsigned selectParamIdx = 1;
-      Diag(D.getLocStart(), diag::err_hlsl_unsupported_string_decl) << selectParamIdx;
+      Diag(D.getLocStart(), diag::err_hlsl_unsupported_string_decl)
+          << selectParamIdx;
       D.setInvalidType();
     }
     if (!DiagnoseHLSLDecl(D, Context.getTranslationUnitDecl(), /*BitWidth*/ nullptr, TInfo, IsParm)) {
@@ -12918,6 +12919,16 @@ FieldDecl *Sema::CheckFieldDecl(DeclarationName Name, QualType T,
     InvalidDecl = true;
     T = Context.IntTy;
   }
+
+  // HLSL Change Starts
+  if (!InvalidDecl && getLangOpts().HLSL && getLangOpts().SPIRV &&
+      hlsl::IsStringType(T)) {
+    static const unsigned selectFieldIdx = 3;
+    Diag(Loc, diag::err_hlsl_unsupported_string_decl) << selectFieldIdx;
+    Record->setInvalidDecl();
+    InvalidDecl = true;
+  }
+  // HLSL Change Ends
 
   QualType EltTy = Context.getBaseElementType(T);
   if (!EltTy->isDependentType()) {

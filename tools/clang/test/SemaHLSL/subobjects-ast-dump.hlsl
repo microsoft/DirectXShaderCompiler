@@ -15,18 +15,18 @@
 // ASTIMPL-NEXT: HLSLSubObjectAttr 0x{{.+}} <<invalid sloc>> Implicit 1 2
 // ASTIMPL-NEXT: HLSLNonAutoDeducibleAttr 0x{{.+}} <<invalid sloc>> Implicit
 // ASTIMPL-NEXT: FinalAttr 0x{{.+}} <<invalid sloc>> Implicit final
-// ASTIMPL-NEXT: FieldDecl 0x{{.+}} <<invalid sloc>> <invalid sloc> implicit Data 'string'
+// ASTIMPL-NEXT: FieldDecl 0x{{.+}} <<invalid sloc>> <invalid sloc> implicit Data 'const string'
 // ASTIMPL-NEXT: CXXRecordDecl 0x{{.+}} <<invalid sloc>> <invalid sloc> implicit referenced struct LocalRootSignature definition
 // ASTIMPL-NEXT: HLSLSubObjectAttr 0x{{.+}} <<invalid sloc>> Implicit 2 2
 // ASTIMPL-NEXT: HLSLNonAutoDeducibleAttr 0x{{.+}} <<invalid sloc>> Implicit
 // ASTIMPL-NEXT: FinalAttr 0x{{.+}} <<invalid sloc>> Implicit final
-// ASTIMPL-NEXT: FieldDecl 0x{{.+}} <<invalid sloc>> <invalid sloc> implicit Data 'string'
+// ASTIMPL-NEXT: FieldDecl 0x{{.+}} <<invalid sloc>> <invalid sloc> implicit Data 'const string'
 // ASTIMPL-NEXT: CXXRecordDecl 0x{{.+}} <<invalid sloc>> <invalid sloc> implicit referenced struct SubobjectToExportsAssociation definition
 // ASTIMPL-NEXT: HLSLSubObjectAttr 0x{{.+}} <<invalid sloc>> Implicit 8 2
 // ASTIMPL-NEXT: HLSLNonAutoDeducibleAttr 0x{{.+}} <<invalid sloc>> Implicit
 // ASTIMPL-NEXT: FinalAttr 0x{{.+}} <<invalid sloc>> Implicit final
-// ASTIMPL-NEXT: FieldDecl 0x{{.+}} <<invalid sloc>> <invalid sloc> implicit Subobject 'string'
-// ASTIMPL-NEXT: FieldDecl 0x{{.+}} <<invalid sloc>> <invalid sloc> implicit Exports 'string'
+// ASTIMPL-NEXT: FieldDecl 0x{{.+}} <<invalid sloc>> <invalid sloc> implicit Subobject 'const string'
+// ASTIMPL-NEXT: FieldDecl 0x{{.+}} <<invalid sloc>> <invalid sloc> implicit Exports 'const string'
 // ASTIMPL-NEXT: CXXRecordDecl 0x{{.+}} <<invalid sloc>> <invalid sloc> implicit referenced struct RaytracingShaderConfig definition
 // ASTIMPL-NEXT: HLSLSubObjectAttr 0x{{.+}} <<invalid sloc>> Implicit 9 2
 // ASTIMPL-NEXT: HLSLNonAutoDeducibleAttr 0x{{.+}} <<invalid sloc>> Implicit
@@ -42,15 +42,15 @@
 // ASTIMPL-NEXT: HLSLSubObjectAttr 0x{{.+}} <<invalid sloc>> Implicit 11 0
 // ASTIMPL-NEXT: HLSLNonAutoDeducibleAttr 0x{{.+}} <<invalid sloc>> Implicit
 // ASTIMPL-NEXT: FinalAttr 0x{{.+}} <<invalid sloc>> Implicit final
-// ASTIMPL-NEXT: FieldDecl 0x{{.+}} <<invalid sloc>> <invalid sloc> implicit AnyHit 'string'
-// ASTIMPL-NEXT: FieldDecl 0x{{.+}} <<invalid sloc>> <invalid sloc> implicit ClosestHit 'string'
+// ASTIMPL-NEXT: FieldDecl 0x{{.+}} <<invalid sloc>> <invalid sloc> implicit AnyHit 'const string'
+// ASTIMPL-NEXT: FieldDecl 0x{{.+}} <<invalid sloc>> <invalid sloc> implicit ClosestHit 'const string'
 // ASTIMPL-NEXT: CXXRecordDecl 0x{{.+}} <<invalid sloc>> <invalid sloc> implicit referenced struct ProceduralPrimitiveHitGroup definition
 // ASTIMPL-NEXT: HLSLSubObjectAttr 0x{{.+}} <<invalid sloc>> Implicit 11 1
 // ASTIMPL-NEXT: HLSLNonAutoDeducibleAttr 0x{{.+}} <<invalid sloc>> Implicit
 // ASTIMPL-NEXT: FinalAttr 0x{{.+}} <<invalid sloc>> Implicit final
-// ASTIMPL-NEXT: FieldDecl 0x{{.+}} <<invalid sloc>> <invalid sloc> implicit AnyHit 'string'
-// ASTIMPL-NEXT: FieldDecl 0x{{.+}} <<invalid sloc>> <invalid sloc> implicit ClosestHit 'string'
-// ASTIMPL-NEXT: FieldDecl 0x{{.+}} <<invalid sloc>> <invalid sloc> implicit Intersection 'string'
+// ASTIMPL-NEXT: FieldDecl 0x{{.+}} <<invalid sloc>> <invalid sloc> implicit AnyHit 'const string'
+// ASTIMPL-NEXT: FieldDecl 0x{{.+}} <<invalid sloc>> <invalid sloc> implicit ClosestHit 'const string'
+// ASTIMPL-NEXT: FieldDecl 0x{{.+}} <<invalid sloc>> <invalid sloc> implicit Intersection 'const string'
 // ASTIMPL-NEXT: CXXRecordDecl 0x{{.+}} <<invalid sloc>> <invalid sloc> implicit referenced struct RaytracingPipelineConfig1 definition
 // ASTIMPL-NEXT: HLSLSubObjectAttr 0x{{.+}} <<invalid sloc>> Implicit 12 2
 // ASTIMPL-NEXT: HLSLNonAutoDeducibleAttr 0x{{.+}} <<invalid sloc>> Implicit

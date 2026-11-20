@@ -7,7 +7,7 @@ string localRs = "UAV(u0, visibility = SHADER_VISIBILITY_GEOMETRY)";
 GlobalRootSignature grs1_1 = {"CBV(b0)"};
 GlobalRootSignature grs1_2 = { globalRs };
 
-GlobalRootSignature grs2_2 = globalRs;                      /* expected-error {{cannot initialize a variable of type 'GlobalRootSignature' with an lvalue of type 'string'}} */
+GlobalRootSignature grs2_2 = globalRs;                      /* expected-error {{cannot initialize a variable of type 'GlobalRootSignature' with an lvalue of type 'const string'}} */
 GlobalRootSignature grs2_3 = "CBV(b0)";                     /* expected-error {{cannot initialize a variable of type 'GlobalRootSignature' with an lvalue of type 'literal string'}} */
 GlobalRootSignature grs2_4 = 10;                            /* expected-error {{cannot initialize a variable of type 'GlobalRootSignature' with an rvalue of type 'literal int'}} */
 GlobalRootSignature grs2_5 = {"CBV(b0)", 78};;              /* expected-error {{too many elements in subobject initialization (expected 1 element, have 2)}} */
@@ -29,7 +29,7 @@ StateObjectConfig soc2_7 = 1.5f;                            /* expected-error {{
 LocalRootSignature lrs1_1 = {"UAV(u0, visibility = SHADER_VISIBILITY_GEOMETRY)"};
 LocalRootSignature lrs1_2 = { localRs };
 
-LocalRootSignature lrs2_2 = localRs;                        /* expected-error {{cannot initialize a variable of type 'LocalRootSignature' with an lvalue of type 'string'}} */
+LocalRootSignature lrs2_2 = localRs;                        /* expected-error {{cannot initialize a variable of type 'LocalRootSignature' with an lvalue of type 'const string'}} */
 LocalRootSignature lrs2_3 = "UAV(u0, visibility = SHADER_VISIBILITY_GEOMETRY)";     /* expected-error {{cannot initialize a variable of type 'LocalRootSignature' with an lvalue of type 'literal string'}} */
 LocalRootSignature lrs2_4 = 10;                             /* expected-error {{cannot initialize a variable of type 'LocalRootSignature' with an rvalue of type 'literal int'}} */
 LocalRootSignature lrs2_5 = { 1.7f, "UAV(u0, visibility = SHADER_VISIBILITY_GEOMETRY)" };;     /* expected-error {{too many elements in subobject initialization (expected 1 element, have 2)}} */
@@ -83,7 +83,7 @@ TriangleHitGroup trHitGt2_3 = { "a", 10 };                    /* expected-error 
 TriangleHitGroup trHitGt2_4 = { 1, 2 };                       /* expected-error {{type mismatch}} */
 TriangleHitGroup trHitGt2_5 = "foo";                          /* expected-error {{cannot initialize a variable of type 'TriangleHitGroup' with an lvalue of type 'literal string'}} */
 TriangleHitGroup trHitGt2_6 = 115;                            /* expected-error {{cannot initialize a variable of type 'TriangleHitGroup' with an rvalue of type 'literal int'}} */
-TriangleHitGroup trHitGt2_7 = s2;                             /* expected-error {{cannot initialize a variable of type 'TriangleHitGroup' with an lvalue of type 'string'}} */
+TriangleHitGroup trHitGt2_7 = s2;                             /* expected-error {{cannot initialize a variable of type 'TriangleHitGroup' with an lvalue of type 'const string'}} */
 
 ProceduralPrimitiveHitGroup ppHitGt1_1 = { "a", "b", "c"};
 ProceduralPrimitiveHitGroup ppHitGt1_2 = { s1, s2, s3 };
@@ -94,7 +94,7 @@ ProceduralPrimitiveHitGroup ppHitGt2_3 = { "a", "b", 10 };    /* expected-error 
 ProceduralPrimitiveHitGroup ppHitGt2_4 = { 1, 2, 3 };         /* expected-error {{type mismatch}} */
 ProceduralPrimitiveHitGroup ppHitGt2_5 = "foo";               /* expected-error {{cannot initialize a variable of type 'ProceduralPrimitiveHitGroup' with an lvalue of type 'literal string'}} */
 ProceduralPrimitiveHitGroup ppHitGt2_6 = 115;                 /* expected-error {{cannot initialize a variable of type 'ProceduralPrimitiveHitGroup' with an rvalue of type 'literal int'}} */
-ProceduralPrimitiveHitGroup ppHitGt2_7 = s2;                  /* expected-error {{cannot initialize a variable of type 'ProceduralPrimitiveHitGroup' with an lvalue of type 'string'}} */
+ProceduralPrimitiveHitGroup ppHitGt2_7 = s2;                  /* expected-error {{cannot initialize a variable of type 'ProceduralPrimitiveHitGroup' with an lvalue of type 'const string'}} */
 
 TriangleHitGroup trHitGt2_8 = { s1, s4 };
 ProceduralPrimitiveHitGroup ppHitGt2_8 = { s1, "", s4 };

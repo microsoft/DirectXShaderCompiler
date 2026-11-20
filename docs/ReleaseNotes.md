@@ -52,6 +52,9 @@ line upon naming the release. Refer to previous for appropriate section names.
 
 #### HLSL Language
 
+- Updated implementation of `string` types to conform to restrictions for
+  intangible objects aligning with TC57's direction (see:
+  [hlsl-tc57/tc57#200](https://github.com/hlsl-tc57/tc57/issues/200)).
 - The `shared` and `uniform` keywords are removed in HLSL 202x, with
   compatibility warnings available for earlier language versions
   [#8482](https://github.com/microsoft/DirectXShaderCompiler/issues/8482).
