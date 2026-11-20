@@ -39,6 +39,8 @@
 
 #include "llvm/Analysis/DxilConstantFolding.h" // HLSL Change
 
+#include "dxc/DXIL/DxilConstants.h" // HLSL Change
+
 #ifdef HAVE_FENV_H
 #include <fenv.h>
 #endif
@@ -1022,6 +1024,38 @@ static bool isConstantNaN(const Constant *C) {
   return false;
 }
 
+// HLSL Change End
+
+// HLSL Change Begin
+// Returns true if \p C is a float denormal, or a vector with one as an element,
+// that the driver may flush to zero when it executes \p I. It may unless the
+// function's "fp32-denorm-mode" is "preserve", so folding it is
+// non-deterministic. Half and double denormals are always kept. Upstream LLVM
+// does not fold such denormals when the function's denormal mode is "dynamic".
+static bool mayFlushDenormal(const Constant *C, const Instruction *I) {
+  if (const ConstantFP *CFP = dyn_cast<ConstantFP>(C)) {
+    if (!CFP->getType()->isFloatTy() || !CFP->getValueAPF().isDenormal())
+      return false;
+    if (!I || !I->getParent())
+      return true;
+    const Function *F = I->getParent()->getParent();
+    return F->getFnAttribute(hlsl::DXIL::kFP32DenormKindString)
+               .getValueAsString() !=
+           hlsl::DXIL::kFP32DenormValuePreserveString;
+  }
+  if (!C->getType()->isVectorTy())
+    return false;
+  for (unsigned i = 0, e = C->getType()->getVectorNumElements(); i != e; ++i) {
+    const Constant *Elt = C->getAggregateElement(i);
+    if (Elt && mayFlushDenormal(Elt, I))
+      return true;
+  }
+  return false;
+}
+// HLSL Change End
+
+// HLSL Change Begin - Backports
+// https://github.com/llvm/llvm-project/commit/b6e102e08cd35543175459494211a3a15f793302
 Constant *llvm::ConstantFoldInstOperands(unsigned Opcode, Type *DestTy,
                                          ArrayRef<Constant *> Ops,
                                          const DataLayout &DL,
@@ -1057,9 +1091,11 @@ Constant *llvm::ConstantFoldInstOperands(unsigned Opcode, Type *DestTy,
     // https://github.com/llvm/llvm-project/commit/b6e102e08cd35543175459494211a3a15f793302
     Constant *C = ConstantExpr::get(Opcode, Ops[0], Ops[1]);
 
-    // The precise NaN value is non-deterministic.
-    if (!AllowNonDeterministic && isConstantNaN(C))
-      return nullptr;
+    // NaN bit patterns and flushable denormals are non-deterministic.
+    if (!AllowNonDeterministic)
+      if (isConstantNaN(C) || mayFlushDenormal(Ops[0], I) ||
+          mayFlushDenormal(Ops[1], I) || mayFlushDenormal(C, I))
+        return nullptr;
 
     return C;
     // HLSL Change End
@@ -1118,8 +1154,10 @@ Constant *llvm::ConstantFoldInstOperands(unsigned Opcode, Type *DestTy,
   case Instruction::FPTrunc:
   case Instruction::FPExt: {
     Constant *C = ConstantExpr::getCast(Opcode, Ops[0], DestTy);
-    if (!AllowNonDeterministic && isConstantNaN(C))
-      return nullptr;
+    if (!AllowNonDeterministic)
+      if (isConstantNaN(C) || mayFlushDenormal(Ops[0], I) ||
+          mayFlushDenormal(C, I))
+        return nullptr;
     return C;
   }
   // HLSL Change End
@@ -1153,6 +1191,20 @@ Constant *llvm::ConstantFoldInstOperands(unsigned Opcode, Type *DestTy,
   }
   }
 }
+
+// HLSL Change Begin
+Constant *llvm::ConstantFoldCompareInstOperands(const Instruction *I,
+                                                Constant *Ops0, Constant *Ops1,
+                                                const DataLayout &DL,
+                                                const TargetLibraryInfo *TLI,
+                                                bool AllowNonDeterministic) {
+  if (!AllowNonDeterministic &&
+      (mayFlushDenormal(Ops0, I) || mayFlushDenormal(Ops1, I)))
+    return nullptr;
+  return ConstantFoldCompareInstOperands(cast<CmpInst>(I)->getPredicate(), Ops0,
+                                         Ops1, DL, TLI);
+}
+// HLSL Change End
 
 /// Attempt to constant fold a compare
 /// instruction (icmp/fcmp) with the specified operands.  If it fails, it
