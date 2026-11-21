@@ -592,8 +592,8 @@ namespace clang {
     /// This conversion candidate is not viable because its result
     /// type is not implicitly convertible to the desired type.
     ovl_fail_bad_final_conversion,
-    
-    /// This conversion function template specialization candidate is not 
+
+    /// This conversion function template specialization candidate is not
     /// viable because the final conversion was not an exact match.
     ovl_fail_final_conversion_not_exact,
 
@@ -604,7 +604,12 @@ namespace clang {
 
     /// This candidate function was not viable because an enable_if
     /// attribute disabled it.
-    ovl_fail_enable_if
+    ovl_fail_enable_if,
+
+    // HLSL Change Begin
+    /// An HLSL intrinsic signature could not be synthesized for the arguments.
+    ovl_fail_hlsl_intrinsic
+    // HLSL Change End
   };
 
   /// OverloadCandidate - A single candidate in an overload set (C++ 13.3).
@@ -672,7 +677,14 @@ namespace clang {
 
     union {
       DeductionFailureInfo DeductionFailure;
-      
+
+      // HLSL Change Begin
+      struct {
+        unsigned DiagnosticID;
+        unsigned Location;
+      } HLSLIntrinsicFailure;
+      // HLSL Change End
+
       /// FinalConversion - For a conversion function (where Function is
       /// a CXXConversionDecl), the standard conversion that occurs
       /// after the call to the overload candidate to convert the result
