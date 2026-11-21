@@ -166,17 +166,23 @@ private:
                     SmallVector<Value *, 4> &EltValList,
                     SmallVector<QualType, 4> &EltTyList);
 
-  void FlattenAggregatePtrToGepList(CodeGenFunction &CGF, Value *Ptr,
-                                    SmallVector<Value *, 4> &idxList,
-                                    clang::QualType Type, llvm::Type *Ty,
-                                    SmallVector<Value *, 4> &GepList,
-                                    SmallVector<QualType, 4> &EltTyList);
+  // Flatten the aggregate at Ptr into one pointer per scalar element. A
+  // bitfield's pointer addresses its storage unit, and BitFieldList holds its
+  // FieldDecl. BitFieldList holds null for every other element.
+  void FlattenAggregatePtrToGepList(
+      CodeGenFunction &CGF, Value *Ptr, SmallVector<Value *, 4> &idxList,
+      clang::QualType Type, llvm::Type *Ty, SmallVector<Value *, 4> &GepList,
+      SmallVector<QualType, 4> &EltTyList,
+      SmallVector<const FieldDecl *, 4> &BitFieldList);
   void LoadElements(CodeGenFunction &CGF, ArrayRef<Value *> Ptrs,
-                    ArrayRef<QualType> QualTys, SmallVector<Value *, 4> &Vals);
+                    ArrayRef<QualType> QualTys,
+                    ArrayRef<const FieldDecl *> BitFields,
+                    SmallVector<Value *, 4> &Vals);
   void ConvertAndStoreElements(CodeGenFunction &CGF, ArrayRef<Value *> SrcVals,
                                ArrayRef<QualType> SrcQualTys,
                                ArrayRef<Value *> DstPtrs,
-                               ArrayRef<QualType> DstQualTys);
+                               ArrayRef<QualType> DstQualTys,
+                               ArrayRef<const FieldDecl *> DstBitFields);
 
   void EmitHLSLAggregateCopy(CodeGenFunction &CGF, llvm::Value *SrcPtr,
                              llvm::Value *DestPtr,
@@ -4150,6 +4156,23 @@ static Value *EmitHLSLArrayInit(CGBuilderTy &Builder, HLOpcodeGroup group,
                                         paramList, M);
 }
 
+// Returns the lvalue for the bitfield Field, given a pointer to the storage
+// unit that holds it.
+static LValue MakeBitFieldLValue(CodeGenFunction &CGF, Value *StoragePtr,
+                                 const FieldDecl *Field) {
+  const RecordDecl *RD = Field->getParent();
+  const CGBitFieldInfo &Info =
+      CGF.getTypes().getCGRecordLayout(RD).getBitFieldInfo(Field);
+  llvm::Type *PtrTy =
+      llvm::Type::getIntNPtrTy(CGF.getLLVMContext(), Info.StorageSize,
+                               StoragePtr->getType()->getPointerAddressSpace());
+  if (StoragePtr->getType() != PtrTy)
+    StoragePtr = CGF.Builder.CreateBitCast(StoragePtr, PtrTy);
+  CharUnits RecordAlign =
+      CGF.getContext().getTypeAlignInChars(CGF.getContext().getRecordType(RD));
+  return LValue::MakeBitfield(StoragePtr, Info, Field->getType(), RecordAlign);
+}
+
 void CGMSHLSLRuntime::FlattenValToInitList(CodeGenFunction &CGF,
                                            SmallVector<Value *, 4> &elts,
                                            SmallVector<QualType, 4> &eltTys,
@@ -4208,6 +4231,13 @@ void CGMSHLSLRuntime::FlattenValToInitList(CodeGenFunction &CGF,
             unsigned i = RL.getLLVMFieldNo(*fieldIter);
             Value *gepIdx = ConstantInt::get(i32Ty, i);
             Value *EltPtr = Builder.CreateInBoundsGEP(val, {zero, gepIdx});
+            if (fieldIter->isBitField()) {
+              LValue LV = MakeBitFieldLValue(CGF, EltPtr, *fieldIter);
+              elts.emplace_back(
+                  CGF.EmitLoadOfBitfieldLValue(LV).getScalarVal());
+              eltTys.emplace_back(fieldIter->getType());
+              continue;
+            }
             FlattenValToInitList(CGF, elts, eltTys, fieldIter->getType(),
                                  EltPtr);
           }
@@ -4435,6 +4465,12 @@ static void StoreInitListToDestPtr(Value *DestPtr,
         unsigned i = RL.getLLVMFieldNo(field);
         Constant *gepIdx = Builder.getInt32(i);
         Value *GEP = Builder.CreateInBoundsGEP(DestPtr, {zero, gepIdx});
+        if (field->isBitField()) {
+          LValue LV = MakeBitFieldLValue(CGF, GEP, field);
+          CGF.EmitStoreThroughBitfieldLValue(RValue::get(elts[idx]), LV);
+          idx++;
+          continue;
+        }
         StoreInitListToDestPtr(GEP, elts, idx, field->getType(),
                                bDefaultRowMajor, CGF, M);
       }
@@ -5548,14 +5584,15 @@ static void SimpleCopy(Value *Dest, Value *Src, ArrayRef<Value *> idxList,
 void CGMSHLSLRuntime::FlattenAggregatePtrToGepList(
     CodeGenFunction &CGF, Value *Ptr, SmallVector<Value *, 4> &idxList,
     clang::QualType Type, llvm::Type *Ty, SmallVector<Value *, 4> &GepList,
-    SmallVector<QualType, 4> &EltTyList) {
+    SmallVector<QualType, 4> &EltTyList,
+    SmallVector<const FieldDecl *, 4> &BitFieldList) {
   if (llvm::PointerType *PT = dyn_cast<llvm::PointerType>(Ty)) {
     Constant *idx = Constant::getIntegerValue(
         IntegerType::get(Ty->getContext(), 32), APInt(32, 0));
     idxList.emplace_back(idx);
 
     FlattenAggregatePtrToGepList(CGF, Ptr, idxList, Type, PT->getElementType(),
-                                 GepList, EltTyList);
+                                 GepList, EltTyList, BitFieldList);
 
     idxList.pop_back();
   } else if (HLMatrixType MatTy = HLMatrixType::dyn_cast(Ty)) {
@@ -5576,6 +5613,7 @@ void CGMSHLSLRuntime::FlattenAggregatePtrToGepList(
         GepList.push_back(
             EmitHLSLMatrixElement(CGF, EltPtrTy, {matPtr, CV}, Type));
         EltTyList.push_back(EltQualTy);
+        BitFieldList.push_back(nullptr);
       }
     }
 
@@ -5585,6 +5623,7 @@ void CGMSHLSLRuntime::FlattenAggregatePtrToGepList(
       Value *GEP = CGF.Builder.CreateInBoundsGEP(Ptr, idxList);
       GepList.push_back(GEP);
       EltTyList.push_back(Type);
+      BitFieldList.push_back(nullptr);
       return;
     }
     const clang::RecordType *RT = Type->getAs<RecordType>();
@@ -5611,7 +5650,7 @@ void CGMSHLSLRuntime::FlattenAggregatePtrToGepList(
           idxList.emplace_back(idx);
 
           FlattenAggregatePtrToGepList(CGF, Ptr, idxList, parentTy, parentType,
-                                       GepList, EltTyList);
+                                       GepList, EltTyList, BitFieldList);
           idxList.pop_back();
         }
       }
@@ -5626,8 +5665,14 @@ void CGMSHLSLRuntime::FlattenAggregatePtrToGepList(
           IntegerType::get(Ty->getContext(), 32), APInt(32, i));
       idxList.emplace_back(idx);
 
-      FlattenAggregatePtrToGepList(CGF, Ptr, idxList, fieldIter->getType(), ET,
-                                   GepList, EltTyList);
+      if (fieldIter->isBitField()) {
+        GepList.push_back(CGF.Builder.CreateInBoundsGEP(Ptr, idxList));
+        EltTyList.push_back(fieldIter->getType());
+        BitFieldList.push_back(*fieldIter);
+      } else {
+        FlattenAggregatePtrToGepList(CGF, Ptr, idxList, fieldIter->getType(),
+                                     ET, GepList, EltTyList, BitFieldList);
+      }
 
       idxList.pop_back();
     }
@@ -5643,7 +5688,7 @@ void CGMSHLSLRuntime::FlattenAggregatePtrToGepList(
       idxList.emplace_back(idx);
 
       FlattenAggregatePtrToGepList(CGF, Ptr, idxList, EltType, ET, GepList,
-                                   EltTyList);
+                                   EltTyList, BitFieldList);
 
       idxList.pop_back();
     }
@@ -5657,6 +5702,7 @@ void CGMSHLSLRuntime::FlattenAggregatePtrToGepList(
       Value *GEP = CGF.Builder.CreateInBoundsGEP(Ptr, idxList);
       GepList.push_back(GEP);
       EltTyList.push_back(EltTy);
+      BitFieldList.push_back(nullptr);
 
       idxList.pop_back();
     }
@@ -5664,14 +5710,21 @@ void CGMSHLSLRuntime::FlattenAggregatePtrToGepList(
     Value *GEP = CGF.Builder.CreateInBoundsGEP(Ptr, idxList);
     GepList.push_back(GEP);
     EltTyList.push_back(Type);
+    BitFieldList.push_back(nullptr);
   }
 }
 
 void CGMSHLSLRuntime::LoadElements(CodeGenFunction &CGF, ArrayRef<Value *> Ptrs,
                                    ArrayRef<QualType> QualTys,
+                                   ArrayRef<const FieldDecl *> BitFields,
                                    SmallVector<Value *, 4> &Vals) {
   for (size_t i = 0, e = Ptrs.size(); i < e; i++) {
     Value *Ptr = Ptrs[i];
+    if (BitFields[i]) {
+      LValue LV = MakeBitFieldLValue(CGF, Ptr, BitFields[i]);
+      Vals.push_back(CGF.EmitLoadOfBitfieldLValue(LV).getScalarVal());
+      continue;
+    }
     llvm::Type *Ty = Ptr->getType()->getPointerElementType();
     DXASSERT_LOCALVAR(Ty, Ty->isIntegerTy() || Ty->isFloatingPointTy(),
                       "Expected only element types.");
@@ -5681,11 +5734,10 @@ void CGMSHLSLRuntime::LoadElements(CodeGenFunction &CGF, ArrayRef<Value *> Ptrs,
   }
 }
 
-void CGMSHLSLRuntime::ConvertAndStoreElements(CodeGenFunction &CGF,
-                                              ArrayRef<Value *> SrcVals,
-                                              ArrayRef<QualType> SrcQualTys,
-                                              ArrayRef<Value *> DstPtrs,
-                                              ArrayRef<QualType> DstQualTys) {
+void CGMSHLSLRuntime::ConvertAndStoreElements(
+    CodeGenFunction &CGF, ArrayRef<Value *> SrcVals,
+    ArrayRef<QualType> SrcQualTys, ArrayRef<Value *> DstPtrs,
+    ArrayRef<QualType> DstQualTys, ArrayRef<const FieldDecl *> DstBitFields) {
   for (size_t i = 0, e = DstPtrs.size(); i < e; i++) {
     Value *DstPtr = DstPtrs[i];
     QualType DstQualTy = DstQualTys[i];
@@ -5697,6 +5749,11 @@ void CGMSHLSLRuntime::ConvertAndStoreElements(CodeGenFunction &CGF,
 
     llvm::Value *Result =
         ConvertScalarOrVector(CGF, SrcVal, SrcQualTy, DstQualTy);
+    if (DstBitFields[i]) {
+      LValue LV = MakeBitFieldLValue(CGF, DstPtr, DstBitFields[i]);
+      CGF.EmitStoreThroughBitfieldLValue(RValue::get(Result), LV);
+      continue;
+    }
     Result = CGF.EmitToMemory(Result, DstQualTy);
     CGF.Builder.CreateStore(Result, DstPtr);
   }
@@ -5975,19 +6032,24 @@ void CGMSHLSLRuntime::EmitHLSLFlatConversionAggregateCopy(
   SmallVector<Value *, 4> GEPIdxStack;
   SmallVector<Value *, 4> SrcPtrs;
   SmallVector<QualType, 4> SrcQualTys;
+  SmallVector<const FieldDecl *, 4> SrcBitFields;
   FlattenAggregatePtrToGepList(CGF, SrcPtr, GEPIdxStack, SrcTy,
-                               SrcPtr->getType(), SrcPtrs, SrcQualTys);
+                               SrcPtr->getType(), SrcPtrs, SrcQualTys,
+                               SrcBitFields);
 
   SmallVector<Value *, 4> SrcVals;
-  LoadElements(CGF, SrcPtrs, SrcQualTys, SrcVals);
+  LoadElements(CGF, SrcPtrs, SrcQualTys, SrcBitFields, SrcVals);
 
   GEPIdxStack.clear();
   SmallVector<Value *, 4> DstPtrs;
   SmallVector<QualType, 4> DstQualTys;
+  SmallVector<const FieldDecl *, 4> DstBitFields;
   FlattenAggregatePtrToGepList(CGF, DestPtr, GEPIdxStack, DestTy,
-                               DestPtr->getType(), DstPtrs, DstQualTys);
+                               DestPtr->getType(), DstPtrs, DstQualTys,
+                               DstBitFields);
 
-  ConvertAndStoreElements(CGF, SrcVals, SrcQualTys, DstPtrs, DstQualTys);
+  ConvertAndStoreElements(CGF, SrcVals, SrcQualTys, DstPtrs, DstQualTys,
+                          DstBitFields);
 }
 
 // Either copies a scalar to a scalar, a scalar to a vector, or splats a scalar
@@ -6091,8 +6153,16 @@ void CGMSHLSLRuntime::EmitHLSLSplat(CodeGenFunction &CGF, Value *SrcVal,
           IntegerType::get(Ty->getContext(), 32), APInt(32, i));
       idxList.emplace_back(idx);
 
-      EmitHLSLSplat(CGF, SrcVal, DestPtr, idxList, fieldIter->getType(),
-                    SrcType, ET);
+      if (fieldIter->isBitField()) {
+        Value *GEP = CGF.Builder.CreateInBoundsGEP(DestPtr, idxList);
+        LValue LV = MakeBitFieldLValue(CGF, GEP, *fieldIter);
+        Value *Val =
+            ConvertScalarOrVector(CGF, SrcVal, SrcType, fieldIter->getType());
+        CGF.EmitStoreThroughBitfieldLValue(RValue::get(Val), LV);
+      } else {
+        EmitHLSLSplat(CGF, SrcVal, DestPtr, idxList, fieldIter->getType(),
+                      SrcType, ET);
+      }
 
       idxList.pop_back();
     }
@@ -6135,10 +6205,13 @@ void CGMSHLSLRuntime::EmitHLSLFlatConversion(CodeGenFunction &CGF, Value *Val,
     SmallVector<Value *, 4> GEPIdxStack;
     SmallVector<Value *, 4> DstPtrs;
     SmallVector<QualType, 4> DstQualTys;
+    SmallVector<const FieldDecl *, 4> DstBitFields;
     FlattenAggregatePtrToGepList(CGF, DestPtr, GEPIdxStack, Ty,
-                                 DestPtr->getType(), DstPtrs, DstQualTys);
+                                 DestPtr->getType(), DstPtrs, DstQualTys,
+                                 DstBitFields);
 
-    ConvertAndStoreElements(CGF, SrcVals, SrcQualTys, DstPtrs, DstQualTys);
+    ConvertAndStoreElements(CGF, SrcVals, SrcQualTys, DstPtrs, DstQualTys,
+                            DstBitFields);
   }
 }
 

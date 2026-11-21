@@ -150,18 +150,56 @@ bool InitListHandler::tryToSplitStruct() {
   initializers.pop_back();
   const auto &loc = init->getSourceLocation();
 
-  const auto *structDecl = initType->getAsStructureType()->getDecl();
+  const RecordType *recordType = initType->getAs<RecordType>();
 
-  // Create MemberExpr for each field of the struct
+  // Adjacent bitfields share one SPIR-V member, so the SPIR-V type is needed to
+  // map each AST field to its member index and bit range.
+  LowerTypeVisitor lowerTypeVisitor(astContext, theEmitter.getSpirvContext(),
+                                    theEmitter.getSpirvOptions(), spvBuilder);
+  const SpirvType *spirvType =
+      lowerTypeVisitor.lowerType(initType, init->getLayoutRule(), false, loc);
+  const auto *structType = dyn_cast<StructType>(spirvType);
+  assert(structType != nullptr);
+
+  // Create an extract for each AST field of the struct.
   llvm::SmallVector<SpirvInstruction *, 4> fields;
-  uint32_t i = 0;
-  for (auto *field : structDecl->fields()) {
-    auto *extract =
-        spvBuilder.createCompositeExtract(field->getType(), init, {i}, loc);
-    extract->setLayoutRule(init->getLayoutRule());
-    fields.push_back(extract);
-    ++i;
-  }
+  SpirvInstruction *container = nullptr;
+  forEachSpirvField(
+      recordType, structType,
+      [&](size_t spirvFieldIndex, const QualType &fieldType,
+          const StructType::FieldInfo &fieldInfo) {
+        const auto index = static_cast<uint32_t>(spirvFieldIndex);
+        const QualType storageType =
+            fieldInfo.bitfield.hasValue() && fieldType->isBooleanType()
+                ? astContext.UnsignedIntTy
+                : fieldType;
+        // The container is extracted once and shared by every bitfield merged
+        // into it. The first bitfield of a container is at offset 0.
+        if (!fieldInfo.bitfield.hasValue() ||
+            fieldInfo.bitfield->offsetInBits == 0) {
+          container = spvBuilder.createCompositeExtract(storageType, init,
+                                                        {index}, loc);
+          container->setLayoutRule(init->getLayoutRule());
+        }
+
+        if (!fieldInfo.bitfield.hasValue()) {
+          fields.push_back(container);
+          return true;
+        }
+
+        SpirvInstruction *bits = spvBuilder.createBitFieldExtract(
+            storageType, container, fieldInfo.bitfield->offsetInBits,
+            fieldInfo.bitfield->sizeInBits, loc, init->getSourceRange());
+        bits->setLayoutRule(init->getLayoutRule());
+        if (fieldType->isBooleanType()) {
+          bits = theEmitter.castToType(bits, storageType, fieldType, loc,
+                                       init->getSourceRange());
+          bits->setRValue();
+        }
+        fields.push_back(bits);
+        return true;
+      },
+      true);
 
   // Push in the reverse order
   initializers.insert(initializers.end(), fields.rbegin(), fields.rend());
@@ -442,6 +480,13 @@ InitListHandler::createInitForStructType(QualType type, SourceLocation srcLoc,
           return true;
         }
 
+        QualType storageType = fieldType;
+        if (fieldType->isBooleanType()) {
+          storageType = astContext.UnsignedIntTy;
+          init = theEmitter.castToType(init, fieldType, storageType, srcLoc,
+                                       range);
+        }
+
         // For a bit fields we need to insert it into the container.
         // The first time we see this bit field, init is used as the value.
         // This assumes that 0 is the first offset in the bitfield.
@@ -455,7 +500,7 @@ InitListHandler::createInitForStructType(QualType type, SourceLocation srcLoc,
         // container, which is the last element in `fields`.
         assert(fields.size() == fieldInfo.fieldIndex + 1);
         fields.back() = spvBuilder.createBitFieldInsert(
-            fieldType, fields.back(), init, fieldInfo.bitfield->offsetInBits,
+            storageType, fields.back(), init, fieldInfo.bitfield->offsetInBits,
             fieldInfo.bitfield->sizeInBits, srcLoc, range);
         return true;
       },

@@ -109,9 +109,12 @@ bool LowerTypeVisitor::visitInstruction(SpirvInstruction *instr) {
 
   // Lower QualType to SpirvType
   if (astType != QualType({})) {
+    QualType storageType = astType;
+    if (instr->getBitfieldInfo().hasValue() && astType->isBooleanType())
+      storageType = astContext.UnsignedIntTy;
     const SpirvType *spirvType =
-        lowerType(astType, instr->getLayoutRule(), /*isRowMajor*/ llvm::None,
-                  instr->getSourceLocation());
+        lowerType(storageType, instr->getLayoutRule(),
+                  /*isRowMajor*/ llvm::None, instr->getSourceLocation());
     instr->setResultType(spirvType);
   }
   // Lower Hybrid type to SpirvType
@@ -1298,6 +1301,9 @@ StructType::FieldInfo
 LowerTypeVisitor::lowerField(const HybridStructType::FieldInfo *field,
                              SpirvLayoutRule rule, const uint32_t fieldIndex) {
   auto fieldType = field->astType;
+  // A logical bool cannot hold several merged bitfields.
+  if (field->bitfield.hasValue() && fieldType->isBooleanType())
+    fieldType = astContext.UnsignedIntTy;
   // Lower the field type fist. This call will populate proper matrix
   // majorness information.
   StructType::FieldInfo loweredField(
