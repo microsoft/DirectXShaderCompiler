@@ -11,7 +11,9 @@
 
 #include "dxc/Support/WinIncludes.h"
 
-#ifdef _WIN32
+#if defined(DXC_STATIC_LIB)
+#define DXC_API_IMPORT
+#elif defined(_WIN32)
 #define DXC_API_IMPORT __declspec(dllexport)
 #else
 #define DXC_API_IMPORT __attribute__((visibility("default")))
@@ -39,6 +41,9 @@ HRESULT CreateDxcOptimizer(REFIID riid, _Out_ LPVOID *ppv);
 HRESULT CreateDxcContainerBuilder(REFIID riid, _Out_ LPVOID *ppv);
 HRESULT CreateDxcLinker(REFIID riid, _Out_ LPVOID *ppv);
 HRESULT CreateDxcPdbUtils(REFIID riid, _Out_ LPVOID *ppv);
+#ifdef DXC_STATIC_LIB
+HRESULT DxcStaticLibInitialize(); // DXCompiler.cpp
+#endif
 
 namespace hlsl {
 void CreateDxcContainerReflection(IDxcContainerReflection **ppResult);
@@ -112,6 +117,12 @@ DXC_API_IMPORT HRESULT __stdcall DxcCreateInstance(REFCLSID rclsid, REFIID riid,
   if (ppv == nullptr) {
     return E_POINTER;
   }
+#ifdef DXC_STATIC_LIB
+  *ppv = nullptr;
+  HRESULT InitHR = DxcStaticLibInitialize();
+  if (FAILED(InitHR))
+    return InitHR;
+#endif
 
   HRESULT hr = S_OK;
   DxcEtw_DXCompilerCreateInstance_Start();
@@ -128,6 +139,12 @@ DXC_API_IMPORT HRESULT __stdcall DxcCreateInstance2(IMalloc *pMalloc,
   if (ppv == nullptr) {
     return E_POINTER;
   }
+#ifdef DXC_STATIC_LIB
+  *ppv = nullptr;
+  HRESULT InitHR = DxcStaticLibInitialize();
+  if (FAILED(InitHR))
+    return InitHR;
+#endif
 #ifdef DXC_DISABLE_ALLOCATOR_OVERRIDES
   if (pMalloc != DxcGetThreadMallocNoRef()) {
     return E_INVALIDARG;

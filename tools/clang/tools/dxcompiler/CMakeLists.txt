@@ -145,6 +145,29 @@ endif (ENABLE_METAL_CODEGEN)
 include_directories(AFTER ${LLVM_INCLUDE_DIR}/dxc/Tracing ${DIASDK_INCLUDE_DIRS} ${HLSL_VERSION_LOCATION})
 include_directories(${LLVM_SOURCE_DIR}/tools/clang/tools/dxcvalidator)
 
+# Optional static library. It is built from the same sources, minus the DLL
+# resource and export files. DXC_STATIC_LIB replaces DllMain/the ELF
+# constructor with one-time initialization on the first DxcCreateInstance call,
+# and leaves the global allocator alone.
+if (DXC_BUILD_STATIC_LIB)
+  set(STATIC_SOURCES ${SOURCES})
+  list(REMOVE_ITEM STATIC_SOURCES DXCompiler.rc DXCompiler.def)
+  add_clang_library(dxcompiler_static STATIC ${STATIC_SOURCES})
+  add_dependencies(dxcompiler_static TablegenHLSLOptions)
+  if (MSVC)
+    add_dependencies(dxcompiler_static DxcEtw)
+  endif()
+  target_compile_definitions(dxcompiler_static PRIVATE DXC_STATIC_LIB)
+  target_link_libraries(dxcompiler_static PRIVATE ${LIBRARIES})
+  if (ENABLE_SPIRV_CODEGEN)
+    target_link_libraries(dxcompiler_static PRIVATE clangSPIRV)
+  endif (ENABLE_SPIRV_CODEGEN)
+  if (ENABLE_METAL_CODEGEN)
+    target_link_libraries(dxcompiler_static PRIVATE ${MetalIRConverter_LIB})
+    target_include_directories(dxcompiler_static PRIVATE ${MetalIRConverter_INCLUDE_DIR})
+  endif (ENABLE_METAL_CODEGEN)
+endif (DXC_BUILD_STATIC_LIB)
+
 set_target_properties(dxcompiler
   PROPERTIES
   OUTPUT_NAME "dxcompiler"
