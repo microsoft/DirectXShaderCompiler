@@ -233,6 +233,7 @@ public:
   TEST_METHOD(AtomicsFloatTest);
   TEST_METHOD(HelperLaneTest);
   TEST_METHOD(HelperLaneTestWave);
+  TEST_METHOD(HelperLaneTestWaveDefaultMode);
   TEST_METHOD(SignatureResourcesTest)
   TEST_METHOD(DynamicResourcesTest)
   TEST_METHOD(DynamicResourcesDynamicIndexingTest)
@@ -12425,6 +12426,1735 @@ TEST_F(ExecutionTest, HelperLaneTestWave) {
     testPassed &= smPassed;
   }
   VERIFY_ARE_EQUAL(testPassed, true);
+}
+
+// Helpers for HelperLaneTestWaveDefaultMode, below.
+namespace HelperLaneWave {
+
+constexpr UINT QuadPixels = 4;
+constexpr UINT32 MaxWaveLanes = 128;
+
+// The framework clears render targets to (0, 0.2, 0.4, 1), which is 0 in an
+// R32_UINT render target. No surviving pixel writes 0, so every discarded or
+// uncovered pixel must keep it.
+constexpr UINT32 ClearValue = 0;
+
+// Every 32-bit word of the record and slot buffers holds this value before
+// the draw.
+constexpr UINT32 Sentinel = 0xCCCCCCCC;
+
+// What surviving pixels write to their records and texels, ORed with the
+// pixel index. They must match the shaders in ShaderOpArith.xml.
+constexpr UINT32 LaneRecordMarker = 0xA5A50000;
+constexpr UINT32 CounterMarker = 0xC0DE0000;
+constexpr UINT32 WaveRecordMarker = 0xB5000000;
+constexpr UINT32 AppendMarker = 0xD7000000;
+
+static bool isPowerOfTwo(UINT32 Value) {
+  return Value != 0 && (Value & (Value - 1)) == 0;
+}
+
+static std::wstring describePixel(UINT X, UINT Y) {
+  return L"(" + std::to_wstring(X) + L", " + std::to_wstring(Y) + L")";
+}
+
+// Counts the checks of one case, logs its first few mismatches, and tallies
+// the mismatches of each kind of check for the case's summary.
+class CaseChecks {
+public:
+  CaseChecks(std::wstring Name, UINT MaxLogged)
+      : Name(std::move(Name)), MaxLogged(MaxLogged) {}
+
+  template <typename DescribeFn>
+  bool expect(bool Match, const wchar_t *Kind, DescribeFn Describe) {
+    Count &C = Tally[Kind];
+    ++C.Checked;
+    ++Checked;
+    if (Match)
+      return true;
+    ++C.Mismatches;
+    if (++Mismatches <= MaxLogged)
+      LogErrorFmt(L"%s: %s", Name.c_str(), Describe().c_str());
+    return false;
+  }
+
+  // Logs the case's summary and returns whether every check passed.
+  bool summarize(const std::wstring &Details) const {
+    std::wstring Failed;
+    for (const auto &Entry : Tally) {
+      if (Entry.second.Mismatches == 0)
+        continue;
+      Failed += (Failed.empty() ? L"; mismatches: " : L", ") + Entry.first +
+                L" " + std::to_wstring(Entry.second.Mismatches) + L"/" +
+                std::to_wstring(Entry.second.Checked);
+    }
+    LogCommentFmt(L"%s: %s; %u of %u checks passed%s.", Name.c_str(),
+                  Details.c_str(), Checked - Mismatches, Checked,
+                  Failed.c_str());
+    return Mismatches == 0;
+  }
+
+private:
+  struct Count {
+    UINT Checked = 0;
+    UINT Mismatches = 0;
+  };
+  std::wstring Name;
+  UINT MaxLogged;
+  UINT Checked = 0;
+  UINT Mismatches = 0;
+  std::map<std::wstring, Count> Tally;
+};
+
+// The core cases draw two triangles that tile an 8x8 viewport, split along the
+// diagonal from (8, 0) to (0, 8). Every vertex lies on the viewport's
+// boundary, so no implementation needs to clip them, and the top-left quad,
+// where the survivors are, lies inside the first triangle. The quads that the
+// diagonal crosses are partly helper lanes, so a wave need not start with a
+// multiple of 4 lanes. The render target is 64 texels wide, so that each of
+// its rows is a whole readback row.
+constexpr UINT CoreSize = 8;
+constexpr UINT CorePixels = CoreSize * CoreSize;
+constexpr UINT CoreTargetWidth = 64;
+constexpr UINT MaxLoggedCoreMismatches = 8;
+
+static UINT corePixelX(UINT Pixel) { return Pixel % CoreSize; }
+static UINT corePixelY(UINT Pixel) { return Pixel / CoreSize; }
+
+static std::wstring describeCorePixel(UINT Pixel) {
+  return describePixel(corePixelX(Pixel), corePixelY(Pixel));
+}
+
+// The id that the core shaders pass to WaveReadLaneFirst and WaveActiveSum: 0
+// to 3 in the top-left quad.
+static UINT32 coreLaneId(UINT Pixel) {
+  return corePixelY(Pixel) * 2 + corePixelX(Pixel);
+}
+
+static bool isInTopLeftQuad(UINT Pixel) {
+  return corePixelX(Pixel) < 2 && corePixelY(Pixel) < 2;
+}
+
+// The input values of a core case. Bit 0 set: the pixel survives the discard.
+// Bit 1: its predicate. QuadValues lists the top-left quad in the order
+// (0, 0), (1, 0), (0, 1), (1, 1), which is also the order of the pixels' ids;
+// every other pixel gets OtherValue.
+struct LanePattern {
+  const wchar_t *Name;
+  UINT32 QuadValues[QuadPixels];
+  UINT32 OtherValue;
+};
+
+static const LanePattern LanePatterns[] = {
+    // (0, 0) and (1, 0) survive, and every predicate is false.
+    {L"TopPair", {1, 1, 0, 0}, 0},
+    // (0, 0) and (1, 0) survive with a false predicate, and every discarded
+    // pixel has a true predicate, so WaveActiveAnyTrue must return false
+    // while QuadAny returns true.
+    {L"TopPairHelpersTrue", {1, 1, 2, 2}, 2},
+    // (1, 0), (0, 1) and (1, 1) survive with a true predicate, and every
+    // discarded pixel has a false predicate, so WaveActiveAllTrue must return
+    // true while QuadAll returns false.
+    {L"ThreeLanesTrue", {0, 3, 3, 3}, 0},
+};
+
+// The pixel shader of each core form in HelperLaneWaveCore, and how its
+// results are checked.
+enum class CoreCheck { Packed, PerLane, Counter };
+
+struct CoreForm {
+  const wchar_t *Name;
+  LPCSTR Shader;
+  CoreCheck Check;
+};
+
+static const CoreForm CoreForms[] = {
+    {L"PackedRenderTarget", "PS", CoreCheck::Packed},
+    {L"PerLaneUav", "PSPerLane", CoreCheck::PerLane},
+    {L"WaveAggregatedCounter.Branch", "PSCounterBranch", CoreCheck::Counter},
+    {L"WaveAggregatedCounter.Select", "PSCounterSelect", CoreCheck::Counter},
+};
+
+// What every surviving lane of a core case must report. Wave operations count
+// only the surviving lanes; QuadReadLaneAt also reads the helper lanes of the
+// top-left quad.
+struct CoreExpectations {
+  UINT32 Inputs[CorePixels] = {};
+  std::vector<UINT> Survivors;
+  UINT32 ActiveLaneCount = 0;
+  UINT32 WaveAnyTrue = 0;
+  UINT32 WaveAllTrue = 0;
+  UINT32 Sum = 0;
+  UINT32 QuadAny = 0;
+  UINT32 QuadAll = 0;
+};
+
+static CoreExpectations buildCoreExpectations(const LanePattern &Pattern) {
+  CoreExpectations Expected;
+  bool WaveAny = false;
+  bool WaveAll = true;
+  bool QuadAny = false;
+  bool QuadAll = true;
+  for (UINT Pixel = 0; Pixel < CorePixels; ++Pixel) {
+    const bool InQuad = isInTopLeftQuad(Pixel);
+    const UINT32 Value =
+        InQuad ? Pattern.QuadValues[coreLaneId(Pixel)] : Pattern.OtherValue;
+    const bool Predicate = (Value & 2) != 0;
+    Expected.Inputs[Pixel] = Value;
+    if (InQuad) {
+      QuadAny = QuadAny || Predicate;
+      QuadAll = QuadAll && Predicate;
+    }
+    if ((Value & 1) != 0) {
+      Expected.Survivors.push_back(Pixel);
+      Expected.Sum += coreLaneId(Pixel);
+      WaveAny = WaveAny || Predicate;
+      WaveAll = WaveAll && Predicate;
+    }
+  }
+  Expected.ActiveLaneCount = static_cast<UINT32>(Expected.Survivors.size());
+  Expected.WaveAnyTrue = WaveAny ? 1 : 0;
+  Expected.WaveAllTrue = WaveAll ? 1 : 0;
+  Expected.QuadAny = QuadAny ? 1 : 0;
+  Expected.QuadAll = QuadAll ? 1 : 0;
+  return Expected;
+}
+
+// Every survivor must be in the top-left quad: the survivors then share a
+// quad and therefore a wave, and their ids and their sum fit the fields of
+// the packed result.
+static bool isValidPattern(const CoreExpectations &Expected) {
+  if (Expected.Survivors.empty() || Expected.Survivors.size() > QuadPixels)
+    return false;
+  for (UINT Pixel : Expected.Survivors)
+    if (!isInTopLeftQuad(Pixel))
+      return false;
+  return true;
+}
+
+// What PSPerLane writes for each surviving pixel. It must match LaneRecord in
+// the HelperLaneWaveCore shaders.
+struct LaneRecord {
+  UINT32 Marker;
+  UINT32 LaneValue;
+  UINT32 InitialLaneCount;
+  UINT32 ActiveLaneCount;
+  UINT32 WaveAnyTrue;
+  UINT32 WaveAllTrue;
+  UINT32 Elected;
+  UINT32 FirstId;
+  UINT32 QuadBallot;
+  UINT32 Sum;
+  UINT32 Prefix;
+  UINT32 QuadAny;
+  UINT32 QuadAll;
+  UINT32 LaneIndex;
+  UINT32 ElectedCount;
+  UINT32 Packed;
+  UINT32 Ballot[4];
+};
+static_assert(sizeof(LaneRecord) == 20 * sizeof(UINT32),
+              "LaneRecord must match the shader's structure.");
+
+// The CPU version of PackResults in the HelperLaneWaveCore shaders.
+static UINT32 packResults(const LaneRecord &R) {
+  return R.ActiveLaneCount | (R.QuadAny << 3) | (R.QuadAll << 4) |
+         (R.WaveAnyTrue << 5) | (R.WaveAllTrue << 6) | (R.Elected << 7) |
+         (R.FirstId << 8) | (R.QuadBallot << 10) | (R.Sum << 14) |
+         (R.Prefix << 18) | (R.InitialLaneCount << 24);
+}
+
+// The CPU version of QuadBallot in the HelperLaneWaveCore shaders. The lane
+// index must be below 128.
+static UINT32 quadBallotOf(const UINT32 (&Ballot)[4], UINT32 LaneIndex) {
+  const UINT32 QuadFirstLane = LaneIndex & ~3u;
+  return (Ballot[QuadFirstLane / 32] >> (QuadFirstLane & 31)) & 0xF;
+}
+
+// The fields of a packed texel, as PackResults lays them out. A value too
+// large for its field spills into the fields above it, where the checks report
+// it as a mismatch.
+struct PackedFields {
+  UINT32 ActiveLaneCount = 0;
+  UINT32 QuadAny = 0;
+  UINT32 QuadAll = 0;
+  UINT32 WaveAnyTrue = 0;
+  UINT32 WaveAllTrue = 0;
+  UINT32 Elected = 0;
+  UINT32 FirstId = 0;
+  UINT32 QuadBallot = 0;
+  UINT32 Sum = 0;
+  UINT32 Prefix = 0;
+  UINT32 InitialLaneCount = 0;
+};
+
+static PackedFields decodePacked(UINT32 Packed) {
+  PackedFields Fields;
+  Fields.ActiveLaneCount = Packed & 7;
+  Fields.QuadAny = (Packed >> 3) & 1;
+  Fields.QuadAll = (Packed >> 4) & 1;
+  Fields.WaveAnyTrue = (Packed >> 5) & 1;
+  Fields.WaveAllTrue = (Packed >> 6) & 1;
+  Fields.Elected = (Packed >> 7) & 1;
+  Fields.FirstId = (Packed >> 8) & 3;
+  Fields.QuadBallot = (Packed >> 10) & 0xF;
+  Fields.Sum = (Packed >> 14) & 0xF;
+  Fields.Prefix = (Packed >> 18) & 0x3F;
+  Fields.InitialLaneCount = Packed >> 24;
+  return Fields;
+}
+
+// Lists a value of every survivor, for example "(0, 0)=1, (1, 0)=0".
+template <typename ValueFn>
+static std::wstring listSurvivorValues(const CoreExpectations &Expected,
+                                       ValueFn ValueOf) {
+  std::wstring Text;
+  for (UINT32 I = 0; I < Expected.ActiveLaneCount; ++I) {
+    if (I != 0)
+      Text += L", ";
+    Text += describeCorePixel(Expected.Survivors[I]) + L"=" +
+            std::to_wstring(ValueOf(I));
+  }
+  return Text;
+}
+
+// Compares a value that a survivor of a core case reported with the expected
+// value.
+static void expectCoreValue(CaseChecks &Checks,
+                            const CoreExpectations &Expected, UINT Pixel,
+                            const wchar_t *What, UINT32 Actual, UINT32 Wanted) {
+  Checks.expect(Actual == Wanted, What, [&]() {
+    return FormatToWString(
+        L"%s, input value %u: %s is %u (0x%X), expected %u (0x%X).",
+        describeCorePixel(Pixel).c_str(), Expected.Inputs[Pixel], What, Actual,
+        Actual, Wanted, Wanted);
+  });
+}
+
+// WaveActiveCountBits(true) before the discard counts the lanes of the
+// survivors' wave that cover a pixel: at least the four lanes of the top-left
+// quad, which is covered and in one wave, and at most MaxInitialLaneCount. How
+// many more lanes the wave holds is up to the implementation.
+static void expectInitialLaneCount(CaseChecks &Checks,
+                                   const CoreExpectations &Expected, UINT Pixel,
+                                   UINT32 InitialLaneCount,
+                                   UINT32 MaxInitialLaneCount) {
+  const bool Valid =
+      InitialLaneCount >= QuadPixels && InitialLaneCount <= MaxInitialLaneCount;
+  Checks.expect(Valid, L"WaveActiveCountBits(before discard)", [&]() {
+    return FormatToWString(
+        L"%s, input value %u: WaveActiveCountBits before the discard is %u, "
+        L"expected %u to %u: the lanes of the survivors' wave that cover a "
+        L"pixel.",
+        describeCorePixel(Pixel).c_str(), Expected.Inputs[Pixel],
+        InitialLaneCount, QuadPixels, MaxInitialLaneCount);
+  });
+}
+
+// Every discarded pixel of a core case must keep the clear value in its texel
+// and, when Records is given, the sentinel in every word of its record.
+static void checkDiscardedCorePixels(const CoreExpectations &Expected,
+                                     const std::vector<UINT32> &Texels,
+                                     const std::vector<LaneRecord> *Records,
+                                     CaseChecks &Checks) {
+  for (UINT Pixel = 0; Pixel < CorePixels; ++Pixel) {
+    if ((Expected.Inputs[Pixel] & 1) != 0)
+      continue;
+    Checks.expect(Texels[Pixel] == ClearValue, L"DiscardedTexel", [&]() {
+      return FormatToWString(L"%s, input value %u, was discarded, but its "
+                             L"texel holds 0x%08X instead of the clear value "
+                             L"0x%08X.",
+                             describeCorePixel(Pixel).c_str(),
+                             Expected.Inputs[Pixel], Texels[Pixel], ClearValue);
+    });
+    if (!Records)
+      continue;
+    UINT32 Words[sizeof(LaneRecord) / sizeof(UINT32)];
+    memcpy(Words, &(*Records)[Pixel], sizeof(Words));
+    UINT ChangedWords = 0;
+    for (UINT32 Word : Words)
+      ChangedWords += Word != Sentinel ? 1 : 0;
+    Checks.expect(ChangedWords == 0, L"DiscardedRecord", [&]() {
+      return FormatToWString(L"%s, input value %u, was discarded, but %u "
+                             L"words of its record changed (marker 0x%08X).",
+                             describeCorePixel(Pixel).c_str(),
+                             Expected.Inputs[Pixel], ChangedWords,
+                             (*Records)[Pixel].Marker);
+    });
+  }
+}
+
+// PackedRenderTarget: decodes the survivors' texels and compares every field
+// with the expected values; the quad ballot depends on a lane layout that the
+// specification does not define, so it is only logged. Which survivor gets the
+// lowest lane index is up to the implementation, so the first lane is the only
+// survivor whose WavePrefixCountBits is 0 or, failing that, the only elected
+// survivor. Returns whether ElectedLanes, the number of survivors with
+// WaveIsFirstLane set, is known.
+static bool checkPackedTexels(const CoreExpectations &Expected,
+                              const std::vector<UINT32> &Texels,
+                              UINT32 MaxInitialLaneCount, CaseChecks &Checks,
+                              UINT32 &ElectedLanes) {
+  const UINT32 SurvivorCount = Expected.ActiveLaneCount;
+  std::vector<PackedFields> Fields(SurvivorCount);
+  bool AllWritten = true;
+  for (UINT32 I = 0; I < SurvivorCount; ++I) {
+    const UINT Pixel = Expected.Survivors[I];
+    const UINT32 Texel = Texels[Pixel];
+    if (!Checks.expect(Texel != ClearValue, L"SurvivorTexel", [&]() {
+          return FormatToWString(L"%s, input value %u, survived the discard, "
+                                 L"but its texel holds the clear value.",
+                                 describeCorePixel(Pixel).c_str(),
+                                 Expected.Inputs[Pixel]);
+        })) {
+      AllWritten = false;
+      continue;
+    }
+
+    Fields[I] = decodePacked(Texel);
+    const PackedFields &Decoded = Fields[I];
+    LogCommentFmt(
+        L"  %s, input value %u: texel 0x%08X: initial lanes %u, "
+        L"WaveActiveCountBits %u, WaveActiveAnyTrue %u, WaveActiveAllTrue %u, "
+        L"WaveIsFirstLane %u, WaveReadLaneFirst %u, quad ballot 0x%X, "
+        L"WaveActiveSum %u, WavePrefixCountBits %u, QuadAny %u, QuadAll %u.",
+        describeCorePixel(Pixel).c_str(), Expected.Inputs[Pixel], Texel,
+        Decoded.InitialLaneCount, Decoded.ActiveLaneCount, Decoded.WaveAnyTrue,
+        Decoded.WaveAllTrue, Decoded.Elected, Decoded.FirstId,
+        Decoded.QuadBallot, Decoded.Sum, Decoded.Prefix, Decoded.QuadAny,
+        Decoded.QuadAll);
+    expectInitialLaneCount(Checks, Expected, Pixel, Decoded.InitialLaneCount,
+                           MaxInitialLaneCount);
+    expectCoreValue(Checks, Expected, Pixel, L"WaveActiveCountBits",
+                    Decoded.ActiveLaneCount, Expected.ActiveLaneCount);
+    expectCoreValue(Checks, Expected, Pixel, L"WaveActiveAnyTrue",
+                    Decoded.WaveAnyTrue, Expected.WaveAnyTrue);
+    expectCoreValue(Checks, Expected, Pixel, L"WaveActiveAllTrue",
+                    Decoded.WaveAllTrue, Expected.WaveAllTrue);
+    expectCoreValue(Checks, Expected, Pixel, L"WaveActiveSum", Decoded.Sum,
+                    Expected.Sum);
+    expectCoreValue(Checks, Expected, Pixel, L"QuadAny", Decoded.QuadAny,
+                    Expected.QuadAny);
+    expectCoreValue(Checks, Expected, Pixel, L"QuadAll", Decoded.QuadAll,
+                    Expected.QuadAll);
+    const bool PrefixValid = Decoded.Prefix < SurvivorCount;
+    Checks.expect(PrefixValid, L"WavePrefixCountBits", [&]() {
+      return FormatToWString(L"%s, input value %u: WavePrefixCountBits is %u, "
+                             L"but only %u lanes survived.",
+                             describeCorePixel(Pixel).c_str(),
+                             Expected.Inputs[Pixel], Decoded.Prefix,
+                             SurvivorCount);
+    });
+  }
+  if (!AllWritten) {
+    LogCommentFmt(L"  The cross-lane checks were skipped because a surviving "
+                  L"pixel did not write its texel.");
+    return false;
+  }
+
+  // WaveActiveCountBits before the discard counts the whole wave, which the
+  // survivors share.
+  for (UINT32 I = 1; I < SurvivorCount; ++I)
+    expectCoreValue(Checks, Expected, Expected.Survivors[I],
+                    L"WaveActiveCountBits(before discard)",
+                    Fields[I].InitialLaneCount, Fields[0].InitialLaneCount);
+
+  // Exactly one survivor must be elected, and the prefix counts must be 0 to
+  // N-1.
+  const auto ElectedOf = [&](UINT32 I) { return Fields[I].Elected; };
+  const auto PrefixOf = [&](UINT32 I) { return Fields[I].Prefix; };
+  ElectedLanes = 0;
+  UINT32 ElectedIndex = 0;
+  UINT32 PrefixZeroLanes = 0;
+  UINT32 PrefixZeroIndex = 0;
+  UINT32 PrefixesSeen = 0;
+  bool PrefixesArePermutation = true;
+  for (UINT32 I = 0; I < SurvivorCount; ++I) {
+    if (Fields[I].Elected != 0) {
+      ++ElectedLanes;
+      ElectedIndex = I;
+    }
+    const UINT32 Prefix = Fields[I].Prefix;
+    if (Prefix == 0) {
+      ++PrefixZeroLanes;
+      PrefixZeroIndex = I;
+    }
+    if (Prefix >= SurvivorCount || (PrefixesSeen & (1u << Prefix)) != 0)
+      PrefixesArePermutation = false;
+    else
+      PrefixesSeen |= 1u << Prefix;
+  }
+  Checks.expect(ElectedLanes == 1, L"WaveIsFirstLane", [&]() {
+    return FormatToWString(L"WaveIsFirstLane returned true in %u of the %u "
+                           L"surviving lanes (%s), expected exactly 1.",
+                           ElectedLanes, SurvivorCount,
+                           listSurvivorValues(Expected, ElectedOf).c_str());
+  });
+  Checks.expect(PrefixesArePermutation, L"WavePrefixCountBits", [&]() {
+    return FormatToWString(L"The surviving lanes' WavePrefixCountBits values "
+                           L"are %s, expected each of 0 to %u once.",
+                           listSurvivorValues(Expected, PrefixOf).c_str(),
+                           SurvivorCount - 1);
+  });
+
+  const bool FirstFromPrefix = PrefixZeroLanes == 1;
+  if (!Checks.expect(FirstFromPrefix || ElectedLanes == 1, L"FirstLane", [&]() {
+        return std::wstring(L"No surviving lane is identifiable as the first "
+                            L"lane: no single lane has WavePrefixCountBits 0 "
+                            L"or WaveIsFirstLane set.");
+      }))
+    return true;
+  const UINT32 FirstIndex = FirstFromPrefix ? PrefixZeroIndex : ElectedIndex;
+  const UINT FirstPixel = Expected.Survivors[FirstIndex];
+  LogCommentFmt(L"  The first lane of the wave is %s.",
+                describeCorePixel(FirstPixel).c_str());
+  for (UINT32 I = 0; I < SurvivorCount; ++I) {
+    const UINT Pixel = Expected.Survivors[I];
+    const UINT32 WantedElected = I == FirstIndex ? 1 : 0;
+    const UINT32 Elected = Fields[I].Elected;
+    Checks.expect(Elected == WantedElected, L"WaveIsFirstLane", [&]() {
+      return FormatToWString(L"%s, input value %u: WaveIsFirstLane is %u, "
+                             L"expected %u, because the first active lane of "
+                             L"the wave is %s.",
+                             describeCorePixel(Pixel).c_str(),
+                             Expected.Inputs[Pixel], Elected, WantedElected,
+                             describeCorePixel(FirstPixel).c_str());
+    });
+    expectCoreValue(Checks, Expected, Pixel, L"WaveReadLaneFirst",
+                    Fields[I].FirstId, coreLaneId(FirstPixel));
+  }
+  return true;
+}
+
+// PerLaneUav: compares every field of the survivors' records with the
+// expected values. The survivors share a wave, so the first lane is the
+// survivor in the lowest lane, the ballot holds exactly the survivors' lanes,
+// and a survivor's prefix count is the number of survivors in lower lanes.
+// Returns whether ElectedLanes, the number of survivors with WaveIsFirstLane
+// set, is known.
+static bool checkLaneRecords(const CoreExpectations &Expected,
+                             const std::vector<UINT32> &Texels,
+                             const std::vector<LaneRecord> &Records,
+                             UINT32 MaxInitialLaneCount, CaseChecks &Checks,
+                             UINT32 &ElectedLanes) {
+  const UINT32 SurvivorCount = Expected.ActiveLaneCount;
+  bool AllWritten = true;
+  for (UINT Pixel : Expected.Survivors) {
+    const LaneRecord &R = Records[Pixel];
+    if (!Checks.expect(R.Marker != Sentinel, L"SurvivorRecord", [&]() {
+          return FormatToWString(L"%s, input value %u, survived the discard, "
+                                 L"but its record still holds the sentinel.",
+                                 describeCorePixel(Pixel).c_str(),
+                                 Expected.Inputs[Pixel]);
+        })) {
+      AllWritten = false;
+      continue;
+    }
+
+    LogCommentFmt(
+        L"  %s, input value %u: lane %u, initial lanes %u, "
+        L"WaveActiveCountBits %u, WaveActiveAnyTrue %u, WaveActiveAllTrue "
+        L"%u, WaveIsFirstLane %u, WaveReadLaneFirst %u, WaveActiveBallot "
+        L"0x%08X:%08X:%08X:%08X, quad ballot 0x%X, WaveActiveSum %u, "
+        L"WavePrefixCountBits %u, QuadAny %u, QuadAll %u, elected lanes %u, "
+        L"packed 0x%08X, texel 0x%08X.",
+        describeCorePixel(Pixel).c_str(), Expected.Inputs[Pixel], R.LaneIndex,
+        R.InitialLaneCount, R.ActiveLaneCount, R.WaveAnyTrue, R.WaveAllTrue,
+        R.Elected, R.FirstId, R.Ballot[3], R.Ballot[2], R.Ballot[1],
+        R.Ballot[0], R.QuadBallot, R.Sum, R.Prefix, R.QuadAny, R.QuadAll,
+        R.ElectedCount, R.Packed, Texels[Pixel]);
+
+    expectCoreValue(Checks, Expected, Pixel, L"RecordMarker", R.Marker,
+                    LaneRecordMarker | Pixel);
+    expectCoreValue(Checks, Expected, Pixel, L"InputValue", R.LaneValue,
+                    Expected.Inputs[Pixel]);
+    expectInitialLaneCount(Checks, Expected, Pixel, R.InitialLaneCount,
+                           MaxInitialLaneCount);
+    expectCoreValue(Checks, Expected, Pixel, L"WaveActiveCountBits",
+                    R.ActiveLaneCount, Expected.ActiveLaneCount);
+    expectCoreValue(Checks, Expected, Pixel, L"WaveActiveAnyTrue",
+                    R.WaveAnyTrue, Expected.WaveAnyTrue);
+    expectCoreValue(Checks, Expected, Pixel, L"WaveActiveAllTrue",
+                    R.WaveAllTrue, Expected.WaveAllTrue);
+    expectCoreValue(Checks, Expected, Pixel, L"WaveActiveSum", R.Sum,
+                    Expected.Sum);
+    expectCoreValue(Checks, Expected, Pixel, L"QuadAny", R.QuadAny,
+                    Expected.QuadAny);
+    expectCoreValue(Checks, Expected, Pixel, L"QuadAll", R.QuadAll,
+                    Expected.QuadAll);
+    expectCoreValue(Checks, Expected, Pixel,
+                    L"WaveActiveCountBits(WaveIsFirstLane())", R.ElectedCount,
+                    1);
+    if (Checks.expect(R.LaneIndex < MaxWaveLanes, L"WaveGetLaneIndex", [&]() {
+          return FormatToWString(L"%s, input value %u: WaveGetLaneIndex is "
+                                 L"%u, expected less than 128.",
+                                 describeCorePixel(Pixel).c_str(),
+                                 Expected.Inputs[Pixel], R.LaneIndex);
+        }))
+      expectCoreValue(Checks, Expected, Pixel, L"QuadBallot", R.QuadBallot,
+                      quadBallotOf(R.Ballot, R.LaneIndex));
+    expectCoreValue(Checks, Expected, Pixel, L"PackedResult", R.Packed,
+                    packResults(R));
+    expectCoreValue(Checks, Expected, Pixel, L"RenderTarget", Texels[Pixel],
+                    R.Packed);
+  }
+  if (!AllWritten) {
+    LogCommentFmt(L"  The cross-lane checks were skipped because a surviving "
+                  L"pixel did not write its record.");
+    return false;
+  }
+
+  const auto LaneOf = [&](UINT32 I) {
+    return Records[Expected.Survivors[I]].LaneIndex;
+  };
+  const auto ElectedOf = [&](UINT32 I) {
+    return Records[Expected.Survivors[I]].Elected;
+  };
+  bool LanesValid = true;
+  for (UINT32 I = 0; I < SurvivorCount; ++I) {
+    LanesValid = LanesValid && LaneOf(I) < MaxWaveLanes;
+    for (UINT32 J = I + 1; J < SurvivorCount; ++J)
+      LanesValid = LanesValid && LaneOf(I) != LaneOf(J);
+  }
+  Checks.expect(LanesValid, L"WaveGetLaneIndex", [&]() {
+    return FormatToWString(L"The surviving lanes' WaveGetLaneIndex values are "
+                           L"%s, expected distinct values below 128.",
+                           listSurvivorValues(Expected, LaneOf).c_str());
+  });
+  ElectedLanes = 0;
+  for (UINT32 I = 0; I < SurvivorCount; ++I)
+    ElectedLanes += ElectedOf(I) != 0 ? 1 : 0;
+  Checks.expect(ElectedLanes == 1, L"WaveIsFirstLane", [&]() {
+    return FormatToWString(L"WaveIsFirstLane returned true in %u of the %u "
+                           L"surviving lanes (%s), expected exactly 1.",
+                           ElectedLanes, SurvivorCount,
+                           listSurvivorValues(Expected, ElectedOf).c_str());
+  });
+  if (!LanesValid)
+    return true;
+
+  UINT32 FirstIndex = 0;
+  UINT32 WantedBallot[4] = {};
+  for (UINT32 I = 0; I < SurvivorCount; ++I) {
+    FirstIndex = LaneOf(I) < LaneOf(FirstIndex) ? I : FirstIndex;
+    WantedBallot[LaneOf(I) / 32] |= 1u << (LaneOf(I) % 32);
+  }
+  const UINT FirstPixel = Expected.Survivors[FirstIndex];
+  const UINT32 FirstLane = LaneOf(FirstIndex);
+  LogCommentFmt(L"  The first lane of the wave is %s, lane %u.",
+                describeCorePixel(FirstPixel).c_str(), FirstLane);
+  for (UINT32 I = 0; I < SurvivorCount; ++I) {
+    const UINT Pixel = Expected.Survivors[I];
+    const LaneRecord &R = Records[Pixel];
+    UINT32 LowerLanes = 0;
+    for (UINT32 J = 0; J < SurvivorCount; ++J)
+      LowerLanes += LaneOf(J) < R.LaneIndex ? 1 : 0;
+    const UINT32 WantedElected = I == FirstIndex ? 1 : 0;
+    Checks.expect(R.Elected == WantedElected, L"WaveIsFirstLane", [&]() {
+      return FormatToWString(L"%s, input value %u, lane %u: WaveIsFirstLane "
+                             L"is %u, expected %u, because the first active "
+                             L"lane of the wave is %s, lane %u.",
+                             describeCorePixel(Pixel).c_str(),
+                             Expected.Inputs[Pixel], R.LaneIndex, R.Elected,
+                             WantedElected,
+                             describeCorePixel(FirstPixel).c_str(), FirstLane);
+    });
+    expectCoreValue(Checks, Expected, Pixel, L"WaveReadLaneFirst", R.FirstId,
+                    coreLaneId(FirstPixel));
+    expectCoreValue(Checks, Expected, Pixel, L"WavePrefixCountBits", R.Prefix,
+                    LowerLanes);
+    const bool BallotMatches =
+        memcmp(R.Ballot, WantedBallot, sizeof(WantedBallot)) == 0;
+    Checks.expect(BallotMatches, L"WaveActiveBallot", [&]() {
+      return FormatToWString(
+          L"%s, input value %u: WaveActiveBallot(true) is "
+          L"0x%08X:%08X:%08X:%08X, expected 0x%08X:%08X:%08X:%08X (the "
+          L"survivors' lanes).",
+          describeCorePixel(Pixel).c_str(), Expected.Inputs[Pixel], R.Ballot[3],
+          R.Ballot[2], R.Ballot[1], R.Ballot[0], WantedBallot[3],
+          WantedBallot[2], WantedBallot[1], WantedBallot[0]);
+    });
+    // WaveActiveCountBits before the discard counts the whole wave, which
+    // the survivors share.
+    if (I != FirstIndex)
+      expectCoreValue(Checks, Expected, Pixel,
+                      L"WaveActiveCountBits(before discard)",
+                      R.InitialLaneCount, Records[FirstPixel].InitialLaneCount);
+  }
+  return true;
+}
+
+// WaveAggregatedCounter: the survivors share one wave, so the lane that
+// WaveIsFirstLane elects must add the wave's count of surviving lanes once.
+static void checkCounters(const CoreExpectations &Expected,
+                          const std::vector<UINT32> &Texels,
+                          const std::vector<UINT32> &Counters,
+                          CaseChecks &Checks) {
+  const UINT32 Survivors = Expected.ActiveLaneCount;
+  Checks.expect(Counters[0] == Survivors, L"Counter", [&]() {
+    return FormatToWString(
+        L"The elected lanes added %u to the counter, expected %u: the wave's "
+        L"WaveActiveCountBits(true), added once by the lane that "
+        L"WaveIsFirstLane elects.",
+        Counters[0], Survivors);
+  });
+  Checks.expect(Counters[1] == 1, L"WaveIsFirstLane", [&]() {
+    return FormatToWString(L"WaveIsFirstLane elected %u of the wave's %u "
+                           L"surviving lanes, expected 1.",
+                           Counters[1], Survivors);
+  });
+  Checks.expect(Counters[2] == Survivors, L"LaneCounter", [&]() {
+    return FormatToWString(L"%u lanes added 1 to the lane counter, expected "
+                           L"%u: only surviving pixels may write.",
+                           Counters[2], Survivors);
+  });
+  for (UINT Pixel = 0; Pixel < CorePixels; ++Pixel) {
+    const bool Survives = (Expected.Inputs[Pixel] & 1) != 0;
+    const UINT32 Wanted = Survives ? (CounterMarker | Pixel) : ClearValue;
+    Checks.expect(Texels[Pixel] == Wanted, L"RenderTarget", [&]() {
+      return FormatToWString(L"%s, input value %u: its texel holds 0x%08X, "
+                             L"expected 0x%08X.",
+                             describeCorePixel(Pixel).c_str(),
+                             Expected.Inputs[Pixel], Texels[Pixel], Wanted);
+    });
+  }
+}
+
+// The general cases draw a 64x64 render target, with one triangle that
+// covers it or with one small triangle in each 16x16 cell.
+constexpr UINT GeneralSize = 64;
+constexpr UINT GeneralPixels = GeneralSize * GeneralSize;
+constexpr UINT CellPixels = 16;
+constexpr INT64 Subpixels = 16;
+constexpr UINT MaxLoggedGeneralMismatches = 24;
+
+// WaveAggregatedAppend's counters, and twice as many slots as pixels, so that
+// slots reserved past the expected count are still in range and can be seen
+// to stay unwritten. They must match HelperLaneWaveGeneral.
+constexpr UINT AppendCounterCount = 6;
+constexpr UINT AppendSlotCount = 2 * GeneralPixels;
+
+// The bits of PixelInput::Flags. They must match HelperLaneWaveGeneral.
+constexpr UINT32 FlagDiscard = 1;
+constexpr UINT32 FlagPredicate = 2;
+constexpr UINT32 FlagRare = 4;
+constexpr UINT32 FlagCommon = 8;
+
+// The lowbias32 integer hash, a bijection on 32-bit values. Every per-pixel
+// input and every triangle comes from it, so no pattern repeats across the
+// render target.
+static UINT32 hash32(UINT32 Value) {
+  Value ^= Value >> 16;
+  Value *= 0x7FEB352Du;
+  Value ^= Value >> 15;
+  Value *= 0x846CA68Bu;
+  Value ^= Value >> 16;
+  return Value;
+}
+
+static UINT32 hashOf(UINT Seed, UINT Stream, UINT X, UINT Y) {
+  return hash32(hash32(Seed * 0x9E3779B9u + Stream * 0x85EBCA6Bu) ^
+                ((Y << 16) | X));
+}
+
+static std::wstring describeGeneralPixel(UINT Pixel) {
+  return describePixel(Pixel % GeneralSize, Pixel / GeneralSize);
+}
+
+struct GeometryInfo {
+  const wchar_t *Name;
+  // Sixteen small disjoint triangles; otherwise one triangle that covers the
+  // render target.
+  bool Triangles;
+  // Discard demotes pixels to helper lanes.
+  bool Discards;
+  // Discard demotes every pixel of most quads, so most waves keep only a few
+  // lanes.
+  bool Sparse;
+};
+
+static const GeometryInfo Geometries[] = {
+    // One triangle covers the render target, and discard demotes about one
+    // pixel in five. An implementation may clip the triangle into several, so
+    // its quads are not assumed complete.
+    {L"Discard", false, true, false},
+    // The same triangle, and discard demotes every pixel of about eleven
+    // quads in twelve and two pixels in five of the rest.
+    {L"SparseDiscard", false, true, true},
+    // Sixteen small disjoint triangles, whose edges leave partially covered
+    // quads whose uncovered pixels run as helper lanes; nothing is discarded.
+    {L"TriangleEdges", true, false, false},
+    // The same triangles, and discard also demotes about one covered pixel in
+    // five.
+    {L"TriangleEdgesAndDiscard", true, true, false},
+};
+
+// A vertex position in 1/16 pixels.
+struct SubpixelPoint {
+  INT64 X;
+  INT64 Y;
+};
+
+struct Triangle {
+  SubpixelPoint V[3];
+};
+
+// Twice the signed area of the triangle (A, B, (X, Y)), in square 1/16
+// pixels. It is positive when the vertices are clockwise on the render
+// target.
+static INT64 edgeFunction(const SubpixelPoint &A, const SubpixelPoint &B,
+                          INT64 X, INT64 Y) {
+  return (B.X - A.X) * (Y - A.Y) - (B.Y - A.Y) * (X - A.X);
+}
+
+// Whether the triangle covers the center of pixel (X, Y). OnEdge is set when
+// the center lies exactly on the triangle's boundary, where coverage would
+// depend on the rasterizer's tie-breaking rule; the test only draws triangles
+// without such pixels.
+static bool coversPixelCenter(const Triangle &T, UINT X, UINT Y, bool &OnEdge) {
+  const INT64 CenterX = static_cast<INT64>(X) * Subpixels + Subpixels / 2;
+  const INT64 CenterY = static_cast<INT64>(Y) * Subpixels + Subpixels / 2;
+  const INT64 Edge0 = edgeFunction(T.V[0], T.V[1], CenterX, CenterY);
+  const INT64 Edge1 = edgeFunction(T.V[1], T.V[2], CenterX, CenterY);
+  const INT64 Edge2 = edgeFunction(T.V[2], T.V[0], CenterX, CenterY);
+  const bool NotOutside = (Edge0 >= 0 && Edge1 >= 0 && Edge2 >= 0) ||
+                          (Edge0 <= 0 && Edge1 <= 0 && Edge2 <= 0);
+  OnEdge = NotOutside && (Edge0 == 0 || Edge1 == 0 || Edge2 == 0);
+  return NotOutside && !OnEdge;
+}
+
+// Whether every vertex lies inside the render target, so that no
+// implementation needs to clip the triangle. An implementation may draw a
+// clipped triangle as several triangles, which splits quads along the new
+// edges.
+static bool isInsideRenderTarget(const Triangle &T) {
+  const INT64 Limit = static_cast<INT64>(GeneralSize) * Subpixels;
+  for (const SubpixelPoint &V : T.V)
+    if (V.X < 0 || V.Y < 0 || V.X > Limit || V.Y > Limit)
+      return false;
+  return true;
+}
+
+// One triangle that covers the render target, or one hashed triangle in each
+// 16x16 cell. A cell's triangle keeps at least one pixel from the cell's
+// border, so triangles never touch; it has at least 40 square pixels and 24
+// covered pixels, and no pixel center on an edge. Every triangle is clockwise
+// on the render target, so that the default rasterizer state, which culls
+// back faces, draws it. Returns an empty list if a cell finds no such
+// triangle.
+static std::vector<Triangle> buildTriangles(const GeometryInfo &Geometry,
+                                            UINT Seed) {
+  std::vector<Triangle> Triangles;
+  if (!Geometry.Triangles) {
+    // Twice the render target in each direction, so that its edges stay
+    // clear of every pixel center.
+    const Triangle Covering = {{{0, 64 * Subpixels},
+                                {0, -64 * Subpixels},
+                                {128 * Subpixels, 64 * Subpixels}}};
+    Triangles.push_back(Covering);
+    return Triangles;
+  }
+
+  // 1 to 15 pixels into the cell, in 1/16-pixel steps.
+  const INT64 Span = static_cast<INT64>(CellPixels - 2) * Subpixels + 1;
+  for (UINT CellY = 0; CellY < GeneralSize / CellPixels; ++CellY) {
+    for (UINT CellX = 0; CellX < GeneralSize / CellPixels; ++CellX) {
+      bool Accepted = false;
+      for (UINT Attempt = 0; Attempt < 1000 && !Accepted; ++Attempt) {
+        Triangle T = {};
+        for (UINT Vertex = 0; Vertex < 3; ++Vertex) {
+          const UINT32 Hash =
+              hashOf(Seed, 100 + Attempt * 3 + Vertex, CellX, CellY);
+          T.V[Vertex].X =
+              static_cast<INT64>(CellX * CellPixels + 1) * Subpixels +
+              static_cast<INT64>(Hash & 0xFFFF) % Span;
+          T.V[Vertex].Y =
+              static_cast<INT64>(CellY * CellPixels + 1) * Subpixels +
+              static_cast<INT64>(Hash >> 16) % Span;
+        }
+        const INT64 DoubleArea =
+            edgeFunction(T.V[0], T.V[1], T.V[2].X, T.V[2].Y);
+        if ((DoubleArea < 0 ? -DoubleArea : DoubleArea) <
+            2 * 40 * Subpixels * Subpixels)
+          continue;
+        bool OnEdge = false;
+        UINT Covered = 0;
+        for (UINT Y = CellY * CellPixels;
+             Y < (CellY + 1) * CellPixels && !OnEdge; ++Y) {
+          for (UINT X = CellX * CellPixels;
+               X < (CellX + 1) * CellPixels && !OnEdge; ++X) {
+            bool CenterOnEdge = false;
+            Covered += coversPixelCenter(T, X, Y, CenterOnEdge) ? 1 : 0;
+            OnEdge = CenterOnEdge;
+          }
+        }
+        if (OnEdge || Covered < 24)
+          continue;
+        if (DoubleArea < 0)
+          std::swap(T.V[1], T.V[2]);
+        Triangles.push_back(T);
+        Accepted = true;
+      }
+      if (!Accepted)
+        return std::vector<Triangle>();
+    }
+  }
+  return Triangles;
+}
+
+// What the test hashes for each pixel. It must match PixelInput in
+// HelperLaneWaveGeneral.
+struct PixelInput {
+  UINT32 Value;
+  UINT32 Signed;
+  UINT32 Odd;
+  UINT32 Flags;
+};
+static_assert(sizeof(PixelInput) == 4 * sizeof(UINT32),
+              "PixelInput must match the shader's structure.");
+
+static UINT32 keyOf(const PixelInput &Input) {
+  return (Input.Flags >> 8) & 0xFF;
+}
+
+// A general case's triangles, inputs and expected coverage.
+struct GeneralCase {
+  std::vector<Triangle> Triangles;
+  // x and y in clip space, three vertices per triangle.
+  std::vector<float> VertexPositions;
+  std::vector<PixelInput> Inputs;
+  // The triangle that covers the pixel's center, or -1.
+  std::vector<int> CoveringTriangle;
+  // Per triangle: every vertex is inside the render target.
+  std::vector<bool> TriangleUnclipped;
+  // Covered and not discarded.
+  std::vector<bool> Survives;
+  std::vector<UINT> SurvivorPixels;
+  UINT Covered = 0;
+  UINT Discarded = 0;
+  // Quads of a triangle with one to three covered pixels.
+  UINT PartialQuads = 0;
+  UINT PredicateSurvivors = 0;
+  UINT32 SurvivorValueSum = 0;
+  bool Discards = false;
+  std::wstring TestError;
+};
+
+static std::wstring describeCoverage(const GeneralCase &Case, UINT Pixel) {
+  if (Case.CoveringTriangle[Pixel] < 0)
+    return L"not covered";
+  return Case.Survives[Pixel] ? L"survives" : L"discarded";
+}
+
+static GeneralCase buildGeneralCase(const GeometryInfo &Geometry, UINT Seed) {
+  GeneralCase Case;
+  Case.Discards = Geometry.Discards;
+  Case.Triangles = buildTriangles(Geometry, Seed);
+  if (Case.Triangles.empty()) {
+    Case.TestError = L"no triangle without a pixel center on an edge was "
+                     L"found for a cell";
+    return Case;
+  }
+  // The viewport maps clip space x and y to (x + 1) * 32 and (1 - y) * 32
+  // pixels. Every coordinate is a multiple of 1/16 pixel, so the conversion
+  // and the viewport transform are exact.
+  const float HalfSize = static_cast<float>(Subpixels * GeneralSize / 2);
+  for (const Triangle &T : Case.Triangles) {
+    Case.TriangleUnclipped.push_back(isInsideRenderTarget(T));
+    for (const SubpixelPoint &V : T.V) {
+      Case.VertexPositions.push_back(static_cast<float>(V.X) / HalfSize - 1.0f);
+      Case.VertexPositions.push_back(1.0f - static_cast<float>(V.Y) / HalfSize);
+    }
+  }
+
+  Case.Inputs.resize(GeneralPixels);
+  Case.CoveringTriangle.assign(GeneralPixels, -1);
+  Case.Survives.assign(GeneralPixels, false);
+  const UINT TriangleCount = static_cast<UINT>(Case.Triangles.size());
+  for (UINT Y = 0; Y < GeneralSize; ++Y) {
+    for (UINT X = 0; X < GeneralSize; ++X) {
+      const UINT Pixel = Y * GeneralSize + X;
+      for (UINT Index = 0; Index < TriangleCount; ++Index) {
+        bool OnEdge = false;
+        if (coversPixelCenter(Case.Triangles[Index], X, Y, OnEdge)) {
+          if (Case.CoveringTriangle[Pixel] >= 0)
+            Case.TestError = L"two triangles cover one pixel";
+          Case.CoveringTriangle[Pixel] = static_cast<int>(Index);
+        }
+        if (OnEdge)
+          Case.TestError = L"a pixel center lies on a triangle edge";
+      }
+
+      const UINT32 FlagsHash = hashOf(Seed, 4, X, Y);
+      PixelInput &Input = Case.Inputs[Pixel];
+      Input.Value = hashOf(Seed, 1, X, Y);
+      Input.Signed = hashOf(Seed, 2, X, Y);
+      Input.Odd = hashOf(Seed, 3, X, Y) | 1u;
+      // Discard: about one pixel in five. SparseDiscard: every pixel of about
+      // eleven quads in twelve, and two pixels in five of the rest.
+      bool Discards = false;
+      if (Geometry.Discards)
+        Discards = Geometry.Sparse ? (hashOf(Seed, 5, X / 2, Y / 2) % 12 != 0 ||
+                                      FlagsHash % 5 < 2)
+                                   : FlagsHash % 5 == 0;
+      // The key is the pixel's 16x16 tile, so many waves share one, and
+      // about one pixel in 29 adds 16 to it.
+      const UINT32 Key =
+          (Y / 16) * 4 + X / 16 + ((FlagsHash >> 20) % 29 == 0 ? 16u : 0u);
+      Input.Flags = (Discards ? FlagDiscard : 0u) |
+                    (((FlagsHash >> 3) & 1) != 0 ? FlagPredicate : 0u) |
+                    ((FlagsHash >> 4) % 37 == 0 ? FlagRare : 0u) |
+                    ((FlagsHash >> 10) % 53 != 0 ? FlagCommon : 0u) |
+                    (Key << 8);
+      if (Case.CoveringTriangle[Pixel] < 0)
+        continue;
+      ++Case.Covered;
+      if (Discards) {
+        ++Case.Discarded;
+        continue;
+      }
+      Case.Survives[Pixel] = true;
+      Case.SurvivorPixels.push_back(Pixel);
+      Case.SurvivorValueSum += Input.Value;
+      Case.PredicateSurvivors += (Input.Flags & FlagPredicate) != 0 ? 1 : 0;
+    }
+  }
+
+  for (UINT Index = 0; Index < TriangleCount; ++Index) {
+    for (UINT QuadY = 0; QuadY < GeneralSize; QuadY += 2) {
+      for (UINT QuadX = 0; QuadX < GeneralSize; QuadX += 2) {
+        UINT Covered = 0;
+        for (UINT Corner = 0; Corner < 4; ++Corner) {
+          const UINT Pixel =
+              (QuadY + Corner / 2) * GeneralSize + QuadX + Corner % 2;
+          Covered +=
+              Case.CoveringTriangle[Pixel] == static_cast<int>(Index) ? 1 : 0;
+        }
+        Case.PartialQuads += Covered > 0 && Covered < 4 ? 1 : 0;
+      }
+    }
+  }
+
+  if (Case.TestError.empty() &&
+      (Case.SurvivorPixels.empty() ||
+       (Geometry.Triangles && Case.PartialQuads == 0) ||
+       (Geometry.Discards && Case.Discarded == 0)))
+    Case.TestError = L"the case has no surviving pixel, no partially covered "
+                     L"quad or no discarded pixel";
+  return Case;
+}
+
+// What PSAllOps writes for each surviving pixel. It must match WaveRecord in
+// HelperLaneWaveGeneral.
+struct WaveRecord {
+  UINT32 Marker;
+  UINT32 LaneIndex;
+  UINT32 LaneCount;
+  UINT32 IsFirst;
+  UINT32 Ballot[4];
+  UINT32 PredicateBallot[4];
+  UINT32 PredicateCount;
+  UINT32 AnyRare;
+  UINT32 AllCommon;
+  UINT32 AllEqualKey;
+  UINT32 FirstValue;
+  UINT32 FirstPixel;
+  UINT32 LastValue;
+  UINT32 Sum;
+  UINT32 Product;
+  UINT32 MinValue;
+  UINT32 MaxValue;
+  UINT32 MinSigned;
+  UINT32 MaxSigned;
+  UINT32 BitAnd;
+  UINT32 BitOr;
+  UINT32 BitXor;
+  UINT32 PrefixSum;
+  UINT32 PrefixProduct;
+  UINT32 PrefixCount;
+  UINT32 HelperAny;
+  UINT32 HelperCount;
+  UINT32 ElectedCount;
+  UINT32 QuadDiagonalValue;
+  UINT32 InitialLaneCount;
+};
+static_assert(sizeof(WaveRecord) == 36 * sizeof(UINT32),
+              "WaveRecord must match the shader's structure.");
+
+// Every surviving pixel of a general case writes its marker to its texel;
+// every other pixel keeps the clear value.
+static void checkGeneralTexels(const GeneralCase &Case,
+                               const std::vector<UINT32> &Texels, UINT32 Marker,
+                               CaseChecks &Checks) {
+  for (UINT Pixel = 0; Pixel < GeneralPixels; ++Pixel) {
+    const UINT32 Wanted = Case.Survives[Pixel] ? (Marker | Pixel) : ClearValue;
+    Checks.expect(Texels[Pixel] == Wanted, L"RenderTarget", [&]() {
+      return FormatToWString(L"%s (%s): its texel holds 0x%08X, expected "
+                             L"0x%08X.",
+                             describeGeneralPixel(Pixel).c_str(),
+                             describeCoverage(Case, Pixel).c_str(),
+                             Texels[Pixel], Wanted);
+    });
+  }
+}
+
+// WaveOpsPerLane: rebuilds the waves from the records, checks that the
+// records of each wave agree, and compares every result with the value
+// computed from the inputs of the wave's surviving pixels. Returns the number
+// of waves, and sets LaneCounts and ElectedLanes for the case's summary.
+static UINT checkWaveRecords(const GeneralCase &Case,
+                             const std::vector<WaveRecord> &Records,
+                             UINT LaneCountMin, UINT LaneCountMax,
+                             CaseChecks &Checks, std::wstring &LaneCounts,
+                             UINT &ElectedLanes) {
+  // Only surviving pixels may write their record; every other record keeps
+  // the sentinel in every word.
+  std::vector<bool> Written(GeneralPixels, false);
+  for (UINT Pixel = 0; Pixel < GeneralPixels; ++Pixel) {
+    const WaveRecord &R = Records[Pixel];
+    if (!Case.Survives[Pixel]) {
+      UINT32 Words[sizeof(WaveRecord) / sizeof(UINT32)];
+      memcpy(Words, &R, sizeof(Words));
+      UINT Changed = 0;
+      for (UINT32 Word : Words)
+        Changed += Word != Sentinel ? 1 : 0;
+      Checks.expect(Changed == 0, L"OnlySurvivorsWrite", [&]() {
+        return FormatToWString(L"%s (%s): %u words of its record changed "
+                               L"(marker 0x%08X); only surviving pixels may "
+                               L"write.",
+                               describeGeneralPixel(Pixel).c_str(),
+                               describeCoverage(Case, Pixel).c_str(), Changed,
+                               R.Marker);
+      });
+      continue;
+    }
+    Written[Pixel] = Checks.expect(
+        R.Marker == (WaveRecordMarker | Pixel), L"RecordWritten", [&]() {
+          return FormatToWString(L"%s survives, but its record's marker is "
+                                 L"0x%08X, expected 0x%08X.",
+                                 describeGeneralPixel(Pixel).c_str(), R.Marker,
+                                 WaveRecordMarker | Pixel);
+        });
+  }
+
+  // The waves: the surviving lanes that report the same WaveReadLaneFirst of
+  // the pixel index, in lane order.
+  std::map<UINT32, std::vector<UINT>> Waves;
+  for (UINT Pixel : Case.SurvivorPixels)
+    if (Written[Pixel])
+      Waves[Records[Pixel].FirstPixel].push_back(Pixel);
+  std::set<UINT32> LaneCountSet;
+  ElectedLanes = 0;
+  for (auto &Wave : Waves) {
+    const UINT32 FirstPixel = Wave.first;
+    std::vector<UINT> &Members = Wave.second;
+    std::stable_sort(Members.begin(), Members.end(), [&](UINT L, UINT R) {
+      return Records[L].LaneIndex < Records[R].LaneIndex;
+    });
+    const WaveRecord &Lead = Records[Members.front()];
+    const UINT MemberCount = static_cast<UINT>(Members.size());
+    LaneCountSet.insert(Lead.LaneCount);
+
+    // The records must agree: one lane count and ballot, distinct lanes below
+    // the lane count, a ballot that holds exactly the lanes that wrote
+    // records (a helper lane in the ballot has no record), and the lowest
+    // lane as the first lane.
+    UINT32 MemberBallot[4] = {};
+    bool Agree = true;
+    bool LanesValid = true;
+    for (UINT I = 0; I < MemberCount; ++I) {
+      const WaveRecord &R = Records[Members[I]];
+      Agree = Agree && R.LaneCount == Lead.LaneCount &&
+              memcmp(R.Ballot, Lead.Ballot, sizeof(R.Ballot)) == 0;
+      LanesValid = LanesValid && R.LaneIndex < Lead.LaneCount &&
+                   R.LaneIndex < MaxWaveLanes &&
+                   (I == 0 || R.LaneIndex != Records[Members[I - 1]].LaneIndex);
+      if (R.LaneIndex < MaxWaveLanes)
+        MemberBallot[R.LaneIndex / 32] |= 1u << (R.LaneIndex % 32);
+    }
+    const bool BallotIsMembers =
+        memcmp(MemberBallot, Lead.Ballot, sizeof(MemberBallot)) == 0;
+    const bool FirstIsLowest = Members.front() == FirstPixel;
+    const bool Consistent =
+        Agree && LanesValid && BallotIsMembers && FirstIsLowest;
+    Checks.expect(Consistent, L"WaveRecordsAgree", [&]() {
+      return FormatToWString(
+          L"The %u surviving lanes whose WaveReadLaneFirst of the pixel index "
+          L"is %u disagree: one lane count and ballot: %s; distinct lanes "
+          L"below the lane count %u: %s; WaveActiveBallot(true) "
+          L"0x%08X:%08X:%08X:%08X %s the lanes that wrote records, "
+          L"0x%08X:%08X:%08X:%08X; the lowest of those lanes %s pixel %u.",
+          MemberCount, FirstPixel, Agree ? L"yes" : L"no", Lead.LaneCount,
+          LanesValid ? L"yes" : L"no", Lead.Ballot[3], Lead.Ballot[2],
+          Lead.Ballot[1], Lead.Ballot[0],
+          BallotIsMembers ? L"equals" : L"differs from", MemberBallot[3],
+          MemberBallot[2], MemberBallot[1], MemberBallot[0],
+          FirstIsLowest ? L"is" : L"is not", FirstPixel);
+    });
+    const bool LaneCountValid = isPowerOfTwo(Lead.LaneCount) &&
+                                Lead.LaneCount >= LaneCountMin &&
+                                Lead.LaneCount <= LaneCountMax;
+    Checks.expect(LaneCountValid, L"WaveGetLaneCount", [&]() {
+      return FormatToWString(
+          L"WaveGetLaneCount is %u in the wave whose first lane is %s, "
+          L"expected a power of two from WaveLaneCountMin %u to "
+          L"WaveLaneCountMax %u.",
+          Lead.LaneCount, describeGeneralPixel(Members.front()).c_str(),
+          LaneCountMin, LaneCountMax);
+    });
+
+    // WaveActiveCountBits(true) before the discard counts the wave's covered
+    // lanes: at least its surviving lanes, at most its lane count, and
+    // exactly its surviving lanes when nothing is discarded.
+    bool InitialAgrees = true;
+    for (UINT Member : Members)
+      InitialAgrees = InitialAgrees &&
+                      Records[Member].InitialLaneCount == Lead.InitialLaneCount;
+    const bool InitialValid =
+        InitialAgrees && Lead.InitialLaneCount >= MemberCount &&
+        Lead.InitialLaneCount <= Lead.LaneCount &&
+        (Case.Discards || Lead.InitialLaneCount == MemberCount);
+    Checks.expect(InitialValid, L"WaveActiveCountBits(before discard)", [&]() {
+      const std::wstring Wanted =
+          Case.Discards ? L"from " + std::to_wstring(MemberCount) + L" to " +
+                              std::to_wstring(Lead.LaneCount)
+                        : std::to_wstring(MemberCount);
+      return FormatToWString(
+          L"The wave whose first lane is %s has %u surviving lanes; its lanes "
+          L"%s on WaveActiveCountBits(true) before the discard, and its first "
+          L"lane reports %u, expected %s.",
+          describeGeneralPixel(Members.front()).c_str(), MemberCount,
+          InitialAgrees ? L"agree" : L"disagree", Lead.InitialLaneCount,
+          Wanted.c_str());
+    });
+
+    // The wave-wide results, from the surviving pixels' inputs.
+    UINT32 PredicateBallot[4] = {};
+    UINT32 PredicateCount = 0;
+    UINT32 Sum = 0;
+    UINT32 Product = 1;
+    UINT32 MinValue = 0xFFFFFFFF;
+    UINT32 MaxValue = 0;
+    INT32 MinSigned = INT32_MAX;
+    INT32 MaxSigned = INT32_MIN;
+    UINT32 BitAnd = 0xFFFFFFFF;
+    UINT32 BitOr = 0;
+    UINT32 BitXor = 0;
+    bool AnyRare = false;
+    bool AllCommon = true;
+    bool AllEqual = true;
+    const UINT32 FirstKey = keyOf(Case.Inputs[Members.front()]);
+    for (UINT Member : Members) {
+      const PixelInput &Input = Case.Inputs[Member];
+      const UINT32 Lane = Records[Member].LaneIndex;
+      if ((Input.Flags & FlagPredicate) != 0) {
+        ++PredicateCount;
+        if (Lane < MaxWaveLanes)
+          PredicateBallot[Lane / 32] |= 1u << (Lane % 32);
+      }
+      AnyRare = AnyRare || (Input.Flags & FlagRare) != 0;
+      AllCommon = AllCommon && (Input.Flags & FlagCommon) != 0;
+      AllEqual = AllEqual && keyOf(Input) == FirstKey;
+      Sum += Input.Value;
+      Product *= Input.Odd;
+      MinValue = (std::min)(MinValue, Input.Value);
+      MaxValue = (std::max)(MaxValue, Input.Value);
+      const INT32 SignedValue = static_cast<INT32>(Input.Signed);
+      MinSigned = (std::min)(MinSigned, SignedValue);
+      MaxSigned = (std::max)(MaxSigned, SignedValue);
+      BitAnd &= Input.Value;
+      BitOr |= Input.Value;
+      BitXor ^= Input.Value;
+    }
+
+    // Each lane's results. The prefix operations combine the lanes below it.
+    UINT32 PrefixSum = 0;
+    UINT32 PrefixProduct = 1;
+    UINT32 PrefixCount = 0;
+    for (UINT I = 0; I < MemberCount; ++I) {
+      const UINT Pixel = Members[I];
+      const WaveRecord &R = Records[Pixel];
+      const PixelInput &Input = Case.Inputs[Pixel];
+      const auto Expect = [&](const wchar_t *Operation, UINT32 Actual,
+                              UINT32 Wanted) {
+        Checks.expect(Actual == Wanted, Operation, [&]() {
+          return FormatToWString(
+              L"%s, lane %u of a %u-lane wave whose first lane is %s (%u "
+              L"surviving lanes): %s is %u (0x%08X), expected %u (0x%08X).",
+              describeGeneralPixel(Pixel).c_str(), R.LaneIndex, Lead.LaneCount,
+              describeGeneralPixel(Members.front()).c_str(), MemberCount,
+              Operation, Actual, Actual, Wanted, Wanted);
+        });
+      };
+      Expect(L"WaveIsFirstLane", R.IsFirst, I == 0 ? 1 : 0);
+      Expect(L"WaveActiveCountBits(WaveIsFirstLane())", R.ElectedCount, 1);
+      Expect(L"WaveActiveCountBits", R.PredicateCount, PredicateCount);
+      const bool BallotMatches = memcmp(R.PredicateBallot, PredicateBallot,
+                                        sizeof(PredicateBallot)) == 0;
+      Checks.expect(BallotMatches, L"WaveActiveBallot", [&]() {
+        return FormatToWString(
+            L"%s, lane %u: WaveActiveBallot of the predicate is "
+            L"0x%08X:%08X:%08X:%08X, expected 0x%08X:%08X:%08X:%08X.",
+            describeGeneralPixel(Pixel).c_str(), R.LaneIndex,
+            R.PredicateBallot[3], R.PredicateBallot[2], R.PredicateBallot[1],
+            R.PredicateBallot[0], PredicateBallot[3], PredicateBallot[2],
+            PredicateBallot[1], PredicateBallot[0]);
+      });
+      Expect(L"WaveActiveAnyTrue", R.AnyRare, AnyRare ? 1 : 0);
+      Expect(L"WaveActiveAllTrue", R.AllCommon, AllCommon ? 1 : 0);
+      Expect(L"WaveActiveAllEqual", R.AllEqualKey, AllEqual ? 1 : 0);
+      Expect(L"WaveReadLaneFirst", R.FirstValue,
+             Case.Inputs[Members.front()].Value);
+      Expect(L"WaveReadLaneAt", R.LastValue, Case.Inputs[Members.back()].Value);
+      Expect(L"WaveActiveSum", R.Sum, Sum);
+      Expect(L"WaveActiveProduct", R.Product, Product);
+      Expect(L"WaveActiveMin", R.MinValue, MinValue);
+      Expect(L"WaveActiveMax", R.MaxValue, MaxValue);
+      Expect(L"WaveActiveMin(int)", R.MinSigned,
+             static_cast<UINT32>(MinSigned));
+      Expect(L"WaveActiveMax(int)", R.MaxSigned,
+             static_cast<UINT32>(MaxSigned));
+      Expect(L"WaveActiveBitAnd", R.BitAnd, BitAnd);
+      Expect(L"WaveActiveBitOr", R.BitOr, BitOr);
+      Expect(L"WaveActiveBitXor", R.BitXor, BitXor);
+      Expect(L"WavePrefixSum", R.PrefixSum, PrefixSum);
+      Expect(L"WavePrefixProduct", R.PrefixProduct, PrefixProduct);
+      Expect(L"WavePrefixCountBits", R.PrefixCount, PrefixCount);
+      Expect(L"WaveActiveAnyTrue(IsHelperLane())", R.HelperAny, 0);
+      Expect(L"WaveActiveCountBits(IsHelperLane())", R.HelperCount, 0);
+      Expect(L"QuadReadAcrossDiagonal", R.QuadDiagonalValue,
+             Case.Inputs[Pixel ^ (GeneralSize + 1)].Value);
+      PrefixSum += Input.Value;
+      PrefixProduct *= Input.Odd;
+      PrefixCount += (Input.Flags & FlagPredicate) != 0 ? 1 : 0;
+      ElectedLanes += R.IsFirst != 0 ? 1 : 0;
+    }
+  }
+
+  // The surviving pixels of one quad of an unclipped triangle are always in
+  // one wave. The quads of the clipped covering triangle aren't checked,
+  // because an implementation may draw it as several triangles.
+  for (UINT QuadY = 0; QuadY < GeneralSize; QuadY += 2) {
+    for (UINT QuadX = 0; QuadX < GeneralSize; QuadX += 2) {
+      UINT Corners[4];
+      for (UINT Corner = 0; Corner < 4; ++Corner)
+        Corners[Corner] =
+            (QuadY + Corner / 2) * GeneralSize + QuadX + Corner % 2;
+      for (UINT I = 0; I < 4; ++I) {
+        for (UINT J = I + 1; J < 4; ++J) {
+          const UINT A = Corners[I];
+          const UINT B = Corners[J];
+          if (!Written[A] || !Written[B] ||
+              Case.CoveringTriangle[A] != Case.CoveringTriangle[B] ||
+              !Case.TriangleUnclipped[static_cast<size_t>(
+                  Case.CoveringTriangle[A])])
+            continue;
+          const bool SameWave = Records[A].FirstPixel == Records[B].FirstPixel;
+          Checks.expect(SameWave, L"QuadInOneWave", [&]() {
+            return FormatToWString(
+                L"%s and %s are in one quad of the same triangle, but their "
+                L"WaveReadLaneFirst of the pixel index is %u and %u: a quad "
+                L"must be in one wave.",
+                describeGeneralPixel(A).c_str(),
+                describeGeneralPixel(B).c_str(), Records[A].FirstPixel,
+                Records[B].FirstPixel);
+          });
+        }
+      }
+    }
+  }
+
+  for (UINT32 LaneCount : LaneCountSet)
+    LaneCounts +=
+        (LaneCounts.empty() ? L"" : L",") + std::to_wstring(LaneCount);
+  return static_cast<UINT>(Waves.size());
+}
+
+// WaveAggregatedAppend: the totals and slots, which don't depend on how
+// pixels are packed into waves. Counters: [0] the slot counter, [1] the sum
+// of the wave sums, [2] a per-lane count, [3] the number of elected lanes,
+// [4] the number of slots past the end that lanes were given, [5] the sum of
+// the waves' lane counts before the discard.
+static void checkAppend(const GeneralCase &Case,
+                        const std::vector<UINT32> &Counters,
+                        const std::vector<UINT32> &Slots, CaseChecks &Checks) {
+  const UINT32 Survivors = static_cast<UINT32>(Case.SurvivorPixels.size());
+  const UINT32 ExpectedSlots = Case.PredicateSurvivors;
+  Checks.expect(Counters[0] == ExpectedSlots, L"SlotCounter", [&]() {
+    return FormatToWString(
+        L"The slot counter is %u, expected %u, the number of surviving pixels "
+        L"with the predicate. Each wave must add its WaveActiveCountBits "
+        L"once, from the lane that WaveIsFirstLane elects.",
+        Counters[0], ExpectedSlots);
+  });
+  // The elected lanes add the wave sums and the lane counts from before the
+  // discard, so both totals are exact only if each wave elects exactly one
+  // lane. The number of elected lanes, counter 3, is only logged: an
+  // implementation may split the clipped covering triangle's quads, so the
+  // number of waves isn't known.
+  Checks.expect(Counters[1] == Case.SurvivorValueSum, L"WaveSumTotal", [&]() {
+    return FormatToWString(L"The elected lanes' WaveActiveSum results add up "
+                           L"to 0x%08X, expected 0x%08X, the sum over the "
+                           L"surviving pixels.",
+                           Counters[1], Case.SurvivorValueSum);
+  });
+  Checks.expect(Counters[2] == Survivors, L"LaneCounter", [&]() {
+    return FormatToWString(L"%u lanes added 1 to the lane counter, expected "
+                           L"%u: only surviving pixels may write.",
+                           Counters[2], Survivors);
+  });
+  const bool InitialValid =
+      Case.Discards ? Counters[5] >= Survivors && Counters[5] <= Case.Covered
+                    : Counters[5] == Case.Covered;
+  Checks.expect(InitialValid, L"InitialLaneTotal", [&]() {
+    const std::wstring Wanted =
+        Case.Discards
+            ? L"from " + std::to_wstring(Survivors) +
+                  L", the surviving pixels, to " +
+                  std::to_wstring(Case.Covered) + L", the covered pixels"
+            : std::to_wstring(Case.Covered) + L", the covered pixels";
+    return FormatToWString(L"The elected lanes' WaveActiveCountBits(true) "
+                           L"from before the discard add up to %u, expected "
+                           L"%s.",
+                           Counters[5], Wanted.c_str());
+  });
+
+  // The slots below the expected count hold each surviving pixel with the
+  // predicate once; no other slot is written.
+  std::vector<UINT> Seen(GeneralPixels, 0);
+  UINT EmptySlots = 0;
+  UINT WrongSlots = 0;
+  UINT RepeatedSlots = 0;
+  UINT StrayWrites = 0;
+  for (UINT Slot = 0; Slot < AppendSlotCount; ++Slot) {
+    const UINT32 Value = Slots[Slot];
+    if (Slot >= ExpectedSlots) {
+      StrayWrites += Value != Sentinel ? 1 : 0;
+      continue;
+    }
+    if (Value == Sentinel) {
+      ++EmptySlots;
+      continue;
+    }
+    if (Value >= GeneralPixels || !Case.Survives[Value] ||
+        (Case.Inputs[Value].Flags & FlagPredicate) == 0) {
+      ++WrongSlots;
+      continue;
+    }
+    RepeatedSlots += Seen[Value]++ != 0 ? 1 : 0;
+  }
+  UINT MissingPixels = 0;
+  for (UINT Pixel : Case.SurvivorPixels)
+    if ((Case.Inputs[Pixel].Flags & FlagPredicate) != 0 && Seen[Pixel] == 0)
+      ++MissingPixels;
+  const bool SlotsValid = EmptySlots == 0 && WrongSlots == 0 &&
+                          RepeatedSlots == 0 && MissingPixels == 0 &&
+                          StrayWrites == 0;
+  Checks.expect(SlotsValid, L"AppendSlots", [&]() {
+    return FormatToWString(
+        L"Of the %u slots that the surviving pixels with the predicate need, "
+        L"%u are empty, %u hold another value and %u repeat a pixel; %u of "
+        L"those pixels are missing, and %u slots past them were written.",
+        ExpectedSlots, EmptySlots, WrongSlots, RepeatedSlots, MissingPixels,
+        StrayWrites);
+  });
+  Checks.expect(Counters[4] == 0, L"SlotsPastBuffer", [&]() {
+    return FormatToWString(L"%u lanes were given a slot past the end of the "
+                           L"%u-slot buffer, so the shader did not write it.",
+                           Counters[4], AppendSlotCount);
+  });
+}
+
+// Copies the first Values.size() elements of a read-back resource into Values.
+template <typename T>
+static void readBack(const st::ShaderOpTestResult &Test, LPCSTR ResName,
+                     std::vector<T> &Values) {
+  MappedData Data;
+  Test.Test->GetReadBackData(ResName, &Data);
+  VERIFY_IS_TRUE(Data.size() >= Values.size() * sizeof(T));
+  memcpy(Values.data(), Data.data(), Values.size() * sizeof(T));
+}
+
+// Runs one core case with the form's pixel shader, and returns whether it
+// passed.
+static bool runCoreCase(ID3D12Device *Device, dxc::SpecificDllLoader &Support,
+                        std::shared_ptr<st::ShaderOpSet> ShaderOpSet,
+                        const CoreForm &Form, const LanePattern &Pattern,
+                        UINT LaneCountMax) {
+  const std::wstring CaseName = std::wstring(Form.Name) + L"." + Pattern.Name;
+  const CoreExpectations Expected = buildCoreExpectations(Pattern);
+  VERIFY_IS_TRUE(isValidPattern(Expected));
+  LogCommentFmt(L"%s: expected in every survivor: WaveActiveCountBits %u, "
+                L"WaveActiveAnyTrue %u, WaveActiveAllTrue %u, WaveActiveSum "
+                L"%u, QuadAny %u, QuadAll %u, and WaveIsFirstLane in exactly "
+                L"one survivor.",
+                CaseName.c_str(), Expected.ActiveLaneCount,
+                Expected.WaveAnyTrue, Expected.WaveAllTrue, Expected.Sum,
+                Expected.QuadAny, Expected.QuadAll);
+  // The survivors' wave has at most WaveLaneCountMax lanes, and only the
+  // viewport's 64 pixels are covered.
+  const UINT32 MaxInitialLaneCount = (std::min)(LaneCountMax, CorePixels);
+
+  st::ShaderOp *Op = ShaderOpSet->GetShaderOp("HelperLaneWaveCore");
+  Op->PS = Op->GetString(Form.Shader);
+  std::shared_ptr<st::ShaderOpTestResult> Test = st::RunShaderOpTestAfterParse(
+      Device, Support, "HelperLaneWaveCore",
+      [&](LPCSTR ResName, std::vector<BYTE> &Data, st::ShaderOp *) {
+        if (0 == _stricmp(ResName, "VBuffer")) {
+          // Two triangles, in clip space, that tile the viewport and are
+          // clockwise on the render target: (0, 0), (8, 0), (0, 8) and
+          // (8, 0), (8, 8), (0, 8) in pixels. The fill rule gives each pixel
+          // center on their shared edge to exactly one of them; no check
+          // depends on which.
+          const float Vertices[] = {-1.0f, 1.0f, 1.0f, 1.0f,  -1.0f, -1.0f,
+                                    1.0f,  1.0f, 1.0f, -1.0f, -1.0f, -1.0f};
+          Data.resize(sizeof(Vertices));
+          memcpy(Data.data(), Vertices, sizeof(Vertices));
+        } else if (0 == _stricmp(ResName, "LaneInputs")) {
+          Data.resize(sizeof(Expected.Inputs));
+          memcpy(Data.data(), Expected.Inputs, sizeof(Expected.Inputs));
+        } else {
+          VERIFY_IS_TRUE(0 == _stricmp(ResName, "LaneRecords"));
+          std::fill(Data.begin(), Data.end(), static_cast<BYTE>(0xCC));
+        }
+      },
+      ShaderOpSet);
+
+  std::vector<UINT32> TargetTexels(CoreTargetWidth * CoreSize);
+  readBack(*Test, "RTarget", TargetTexels);
+  std::vector<UINT32> Texels(CorePixels);
+  for (UINT Pixel = 0; Pixel < CorePixels; ++Pixel)
+    Texels[Pixel] =
+        TargetTexels[corePixelY(Pixel) * CoreTargetWidth + corePixelX(Pixel)];
+
+  CaseChecks Checks(CaseName, MaxLoggedCoreMismatches);
+  bool ElectedKnown = false;
+  UINT32 ElectedLanes = 0;
+  switch (Form.Check) {
+  case CoreCheck::Packed:
+    checkDiscardedCorePixels(Expected, Texels, nullptr, Checks);
+    ElectedKnown = checkPackedTexels(Expected, Texels, MaxInitialLaneCount,
+                                     Checks, ElectedLanes);
+    break;
+  case CoreCheck::PerLane: {
+    std::vector<LaneRecord> Records(CorePixels);
+    readBack(*Test, "LaneRecords", Records);
+    checkDiscardedCorePixels(Expected, Texels, &Records, Checks);
+    ElectedKnown = checkLaneRecords(Expected, Texels, Records,
+                                    MaxInitialLaneCount, Checks, ElectedLanes);
+    break;
+  }
+  case CoreCheck::Counter: {
+    std::vector<UINT32> Counters(3);
+    readBack(*Test, "Counters", Counters);
+    checkCounters(Expected, Texels, Counters, Checks);
+    ElectedKnown = true;
+    ElectedLanes = Counters[1];
+    break;
+  }
+  }
+  const std::wstring Elected =
+      ElectedKnown ? std::to_wstring(ElectedLanes) : std::wstring(L"unknown");
+  return Checks.summarize(FormatToWString(L"survivors %u, elected lanes %s",
+                                          Expected.ActiveLaneCount,
+                                          Elected.c_str()));
+}
+
+// Runs one general case with PSAllOps (WaveOpsPerLane) or PSAppend
+// (WaveAggregatedAppend), and returns whether it passed.
+static bool runGeneralCase(ID3D12Device *Device,
+                           dxc::SpecificDllLoader &Support,
+                           std::shared_ptr<st::ShaderOpSet> ShaderOpSet,
+                           const GeneralCase &Case,
+                           const std::wstring &CaseName, bool Append,
+                           UINT LaneCountMin, UINT LaneCountMax) {
+  st::ShaderOp *Op = ShaderOpSet->GetShaderOp("HelperLaneWaveGeneral");
+  Op->PS = Op->GetString(Append ? "PSAppend" : "PS");
+  std::shared_ptr<st::ShaderOpTestResult> Test = st::RunShaderOpTestAfterParse(
+      Device, Support, "HelperLaneWaveGeneral",
+      [&](LPCSTR ResName, std::vector<BYTE> &Data, st::ShaderOp *) {
+        if (0 == _stricmp(ResName, "VBuffer")) {
+          Data.resize(Case.VertexPositions.size() * sizeof(float));
+          memcpy(Data.data(), Case.VertexPositions.data(), Data.size());
+        } else if (0 == _stricmp(ResName, "PixelInputs")) {
+          Data.resize(Case.Inputs.size() * sizeof(PixelInput));
+          memcpy(Data.data(), Case.Inputs.data(), Data.size());
+        } else {
+          VERIFY_IS_TRUE(0 == _stricmp(ResName, "WaveRecords") ||
+                         0 == _stricmp(ResName, "AppendSlots"));
+          std::fill(Data.begin(), Data.end(), static_cast<BYTE>(0xCC));
+        }
+      },
+      ShaderOpSet);
+
+  std::vector<UINT32> Texels(GeneralPixels);
+  readBack(*Test, "RTarget", Texels);
+  CaseChecks Checks(CaseName, MaxLoggedGeneralMismatches);
+  const UINT Survivors = static_cast<UINT>(Case.SurvivorPixels.size());
+  if (Append) {
+    std::vector<UINT32> Counters(AppendCounterCount);
+    std::vector<UINT32> Slots(AppendSlotCount);
+    readBack(*Test, "AppendCounters", Counters);
+    readBack(*Test, "AppendSlots", Slots);
+    checkGeneralTexels(Case, Texels, AppendMarker, Checks);
+    checkAppend(Case, Counters, Slots, Checks);
+    return Checks.summarize(FormatToWString(
+        L"survivors %u, slot counter %u (expected %u), elected lanes %u",
+        Survivors, Counters[0], Case.PredicateSurvivors, Counters[3]));
+  }
+
+  std::vector<WaveRecord> Records(GeneralPixels);
+  readBack(*Test, "WaveRecords", Records);
+  checkGeneralTexels(Case, Texels, WaveRecordMarker, Checks);
+  std::wstring LaneCounts;
+  UINT ElectedLanes = 0;
+  const UINT Waves = checkWaveRecords(Case, Records, LaneCountMin, LaneCountMax,
+                                      Checks, LaneCounts, ElectedLanes);
+  return Checks.summarize(FormatToWString(
+      L"survivors %u, waves %u, lane counts %s, elected lanes %u", Survivors,
+      Waves, LaneCounts.empty() ? L"none" : LaneCounts.c_str(), ElectedLanes));
+}
+
+// Runs every case and returns the number of cases that failed.
+static UINT runCases(ID3D12Device *Device, dxc::SpecificDllLoader &Support,
+                     std::shared_ptr<st::ShaderOpSet> ShaderOpSet,
+                     UINT LaneCountMin, UINT LaneCountMax) {
+  UINT Cases = 0;
+  UINT FailedCases = 0;
+  for (const CoreForm &Form : CoreForms) {
+    for (const LanePattern &Pattern : LanePatterns) {
+      ++Cases;
+      if (!runCoreCase(Device, Support, ShaderOpSet, Form, Pattern,
+                       LaneCountMax))
+        ++FailedCases;
+    }
+  }
+
+  for (const GeometryInfo &Geometry : Geometries) {
+    for (UINT Seed = 1; Seed <= 2; ++Seed) {
+      const GeneralCase Case = buildGeneralCase(Geometry, Seed);
+      const std::wstring Name =
+          std::wstring(Geometry.Name) + L".Seed" + std::to_wstring(Seed);
+      VERIFY_IS_TRUE(Case.TestError.empty(), Case.TestError.c_str());
+      LogCommentFmt(L"%s: %u triangles cover %u pixels and leave %u quads "
+                    L"partially covered; %u covered pixels are discarded, and "
+                    L"%u survive, %u of them with the predicate.",
+                    Name.c_str(), static_cast<UINT>(Case.Triangles.size()),
+                    Case.Covered, Case.PartialQuads, Case.Discarded,
+                    static_cast<UINT>(Case.SurvivorPixels.size()),
+                    Case.PredicateSurvivors);
+      Cases += 2;
+      if (!runGeneralCase(Device, Support, ShaderOpSet, Case,
+                          L"WaveOpsPerLane." + Name, false, LaneCountMin,
+                          LaneCountMax))
+        ++FailedCases;
+      if (!runGeneralCase(Device, Support, ShaderOpSet, Case,
+                          L"WaveAggregatedAppend." + Name, true, LaneCountMin,
+                          LaneCountMax))
+        ++FailedCases;
+    }
+  }
+  LogCommentFmt(L"%u of %u cases passed.", Cases - FailedCases, Cases);
+  return FailedCases;
+}
+
+} // namespace HelperLaneWave
+
+// Shader model 6.7 pixel shaders without [WaveOpsIncludeHelperLanes] run their
+// wave operations in the default mode, which excludes helper lanes: the lanes
+// that discard demotes, and the uncovered lanes of partially covered quads.
+// HelperLaneTestWave covers shader model 6.7 only with the attribute, compiled
+// with /Od, on one 2x2 quad. This test compiles every pixel shader with -O3,
+// and checks the results of the wave operations against values computed on
+// the CPU.
+//
+// The core cases (HelperLaneWaveCore in ShaderOpArith.xml) draw two triangles
+// that tile an 8x8 viewport without clipping, and discard demotes all but two
+// or three lanes of the top-left quad, which lies inside the first triangle.
+// The survivors are then the only active lanes of their wave, so exactly one
+// of them is elected by WaveIsFirstLane, and it is also the lane that
+// WaveReadLaneFirst reads and the only lane whose WavePrefixCountBits is 0.
+// QuadReadLaneAt must still read the helper lanes. Which survivor gets the
+// lowest lane, and which other quads share its wave, is up to the
+// implementation, so the test takes the first lane from the results and
+// bounds the wave's lane count before the discard.
+//  - PackedRenderTarget: each survivor runs WaveActiveCountBits,
+//    WaveActiveAnyTrue, WaveActiveAllTrue, WaveIsFirstLane, WaveReadLaneFirst,
+//    WaveActiveBallot, WaveActiveSum, WavePrefixCountBits and QuadReadLaneAt,
+//    and packs the results into its texel.
+//  - PerLaneUav: the same operations, followed by WaveGetLaneIndex and
+//    WaveActiveCountBits(WaveIsFirstLane()), with every result also written to
+//    a per-pixel record.
+//  - WaveAggregatedCounter: the lane that WaveIsFirstLane elects adds the
+//    wave's WaveActiveCountBits(true) to a counter, either inside
+//    if (WaveIsFirstLane()) (Branch) or with every lane adding
+//    WaveIsFirstLane() ? count : 0 (Select).
+//
+// The general cases (HelperLaneWaveGeneral) draw a 64x64 render target with
+// hashed per-pixel inputs, for two seeds and four geometries: one triangle
+// that covers the render target, with discard demoting about one pixel in
+// five (Discard) or most quads entirely (SparseDiscard), and sixteen small
+// disjoint triangles whose edges leave partially covered quads, without
+// discard (TriangleEdges) or with it (TriangleEdgesAndDiscard). Vertex
+// coordinates are multiples of 1/16 pixel and no pixel center lies on a
+// triangle's edge, so the covered pixels are known exactly. Both pixel shaders
+// end with quad operations, so the helper lanes keep running through the wave
+// operations.
+//  - WaveOpsPerLane: every surviving lane records the results of every wave
+//    operation that has an active-lane form, of WaveActiveAnyTrue and
+//    WaveActiveCountBits of IsHelperLane(), and of QuadReadAcrossDiagonal.
+//    Wave size and packing are up to the implementation ([WaveSize] is not
+//    valid in pixel shaders), so the test rebuilds each wave from the records
+//    (the lanes that report the same WaveReadLaneFirst of the pixel index),
+//    checks that the records of each wave agree, that its lane count is a
+//    power of two from WaveLaneCountMin to WaveLaneCountMax, and that a quad
+//    of a small triangle is never split across waves, and compares every
+//    result with the value computed from the wave's surviving pixels.
+//  - WaveAggregatedAppend: the lane that WaveIsFirstLane elects reserves the
+//    wave's slots with one InterlockedAdd of its WaveActiveCountBits, and each
+//    lane writes its pixel index to the slot at the base (WaveReadLaneFirst)
+//    plus its WavePrefixCountBits. The totals don't depend on how pixels are
+//    packed into waves.
+//
+// Every case also checks that discarded and uncovered pixels write neither
+// their texel nor their record.
+TEST_F(ExecutionTest, HelperLaneTestWaveDefaultMode) {
+  WEX::TestExecution::SetVerifyOutput VerifySettings(
+      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+
+  CComPtr<ID3D12Device> Device;
+  if (!createDevice(&Device, D3D_SHADER_MODEL_6_7))
+    return;
+
+  // A failed query fails the test; only a device that reports no support for
+  // wave operations skips it.
+  D3D12_FEATURE_DATA_D3D12_OPTIONS1 WaveOpts = {};
+  VERIFY_SUCCEEDED(Device->CheckFeatureSupport(D3D12_FEATURE_D3D12_OPTIONS1,
+                                               &WaveOpts, sizeof(WaveOpts)));
+  if (!WaveOpts.WaveOps) {
+    LogCommentFmt(L"Device does not support wave operations.");
+    WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
+    return;
+  }
+  const UINT LaneCountMin = WaveOpts.WaveLaneCountMin;
+  const UINT LaneCountMax = WaveOpts.WaveLaneCountMax;
+  LogCommentFmt(L"WaveLaneCountMin %u, WaveLaneCountMax %u.", LaneCountMin,
+                LaneCountMax);
+  VERIFY_IS_TRUE(HelperLaneWave::isPowerOfTwo(LaneCountMin) &&
+                     HelperLaneWave::isPowerOfTwo(LaneCountMax) &&
+                     LaneCountMin >= 4 && LaneCountMin <= LaneCountMax &&
+                     LaneCountMax <= HelperLaneWave::MaxWaveLanes,
+                 L"WaveLaneCountMin and WaveLaneCountMax must be powers of "
+                 L"two with 4 <= WaveLaneCountMin <= WaveLaneCountMax <= 128.");
+
+  CComPtr<IStream> Stream;
+  readHlslDataIntoNewStream(L"ShaderOpArith.xml", &Stream, m_support);
+  std::shared_ptr<st::ShaderOpSet> ShaderOpSet =
+      std::make_shared<st::ShaderOpSet>();
+  st::ParseShaderOpSetFromStream(Stream, ShaderOpSet.get());
+
+  VERIFY_ARE_EQUAL(0u, HelperLaneWave::runCases(Device, m_support, ShaderOpSet,
+                                                LaneCountMin, LaneCountMax));
 }
 
 struct int2 {
