@@ -174,6 +174,15 @@ four commonly used option prefixes:
   ``generate-coverage-report`` target is added to the build which produces a
   static HTML page with code coverage analysis results.
 
+**DXC_BUILD_STATIC_LIB**:BOOL
+  Also builds dxcompiler as a static library, ``dxcompiler_static``. Link it
+  instead of loading ``dxcompiler`` at runtime and call ``DxcCreateInstance``
+  or ``DxcCreateInstance2`` directly; the first call initializes the library.
+  The library does not replace the global ``operator new``, and on Windows
+  consumers must define ``DXC_API_IMPORT`` as empty before including
+  ``dxcapi.h``. Linking the target through CMake pulls in its static
+  dependencies.
+
 Legacy Windows Build Tooling
 ----------------------------
 
