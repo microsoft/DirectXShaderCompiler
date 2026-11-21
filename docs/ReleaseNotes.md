@@ -115,6 +115,8 @@ line upon naming the release. Refer to previous for appropriate section names.
 - Fixed incorrect shader results caused by stale overflow, exactness, and
   fast-math flags after merging equivalent code from both sides of a branch.
 - Reject root signatures with invalid shader visibility values.
+- SPIR-V: Fixed `sign` constructing an unsigned result for uint matrices with
+  multiple rows and columns, which led to a validation failure.
 
 ### Upcoming Preview Release
 
