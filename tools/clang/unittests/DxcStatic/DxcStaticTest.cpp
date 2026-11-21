@@ -47,13 +47,13 @@ CompileResult Compile(IDxcCompiler3 *Compiler, const char *Source,
     return R;
   Result->GetStatus(&R.Status);
   CComPtr<IDxcBlobUtf8> Errors;
-  if (SUCCEEDED(Result->GetOutput(DXC_OUT_ERRORS, IID_PPV_ARGS(&Errors),
-                                  nullptr)) &&
+  if (SUCCEEDED(
+          Result->GetOutput(DXC_OUT_ERRORS, IID_PPV_ARGS(&Errors), nullptr)) &&
       Errors)
     R.Errors.assign(Errors->GetStringPointer(), Errors->GetStringLength());
   CComPtr<IDxcBlob> Object;
-  if (SUCCEEDED(Result->GetOutput(DXC_OUT_OBJECT, IID_PPV_ARGS(&Object),
-                                  nullptr)) &&
+  if (SUCCEEDED(
+          Result->GetOutput(DXC_OUT_OBJECT, IID_PPV_ARGS(&Object), nullptr)) &&
       Object) {
     const uint8_t *P = (const uint8_t *)Object->GetBufferPointer();
     R.Object.assign(P, P + Object->GetBufferSize());
@@ -103,8 +103,8 @@ TEST(DxcStaticTest, CompileAndDisassembleDxil) {
   CComPtr<IDxcResult> Disasm;
   ASSERT_EQ(S_OK, Compiler->Disassemble(&Buf, IID_PPV_ARGS(&Disasm)));
   CComPtr<IDxcBlobUtf8> Text;
-  ASSERT_EQ(S_OK,
-            Disasm->GetOutput(DXC_OUT_DISASSEMBLY, IID_PPV_ARGS(&Text), nullptr));
+  ASSERT_EQ(S_OK, Disasm->GetOutput(DXC_OUT_DISASSEMBLY, IID_PPV_ARGS(&Text),
+                                    nullptr));
   std::string S(Text->GetStringPointer(), Text->GetStringLength());
   EXPECT_NE(std::string::npos, S.find("define void @main()")) << S;
 }
@@ -116,8 +116,7 @@ TEST(DxcStaticTest, ValidatorIsAvailable) {
   CComPtr<IDxcCompiler3> Compiler;
   ASSERT_EQ(S_OK,
             DxcCreateInstance(CLSID_DxcCompiler, IID_PPV_ARGS(&Compiler)));
-  CompileResult R =
-      Compile(Compiler, PixelShader, {L"-T", L"ps_6_0", L"-Vd"});
+  CompileResult R = Compile(Compiler, PixelShader, {L"-T", L"ps_6_0", L"-Vd"});
   ASSERT_EQ(S_OK, R.Status) << R.Errors;
 
   CComPtr<IDxcUtils> Utils;
@@ -160,9 +159,8 @@ TEST(DxcStaticTest, CompileSpirv) {
 #endif // ENABLE_SPIRV_CODEGEN
 
 TEST(DxcStaticTest, NullOutputPointer) {
-  EXPECT_EQ(E_POINTER,
-            DxcCreateInstance(CLSID_DxcCompiler, __uuidof(IDxcCompiler3),
-                              nullptr));
+  EXPECT_EQ(E_POINTER, DxcCreateInstance(CLSID_DxcCompiler,
+                                         __uuidof(IDxcCompiler3), nullptr));
   EXPECT_EQ(E_POINTER, DxcCreateInstance2(nullptr, CLSID_DxcCompiler,
                                           __uuidof(IDxcCompiler3), nullptr));
 }

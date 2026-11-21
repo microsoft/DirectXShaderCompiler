@@ -29,7 +29,7 @@ HRESULT SetupRegistryPassForPIX();
 // __declspec(nothrow)
 #pragma warning(disable : 4290)
 
-#if defined(LLVM_ON_WIN32) && !defined(DXC_DISABLE_ALLOCATOR_OVERRIDES) &&    \
+#if defined(LLVM_ON_WIN32) && !defined(DXC_DISABLE_ALLOCATOR_OVERRIDES) &&     \
     !defined(DXC_STATIC_LIB)
 // operator new and friends.
 void *__CRTDECL operator new(std::size_t size) noexcept(false) {
