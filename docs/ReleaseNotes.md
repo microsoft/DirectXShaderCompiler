@@ -97,6 +97,8 @@ line upon naming the release. Refer to previous for appropriate section names.
 
 #### Bug Fixes
 
+- Fixed missing ViewID and input dependencies in shader outputs computed through
+  retained helper calls, including helpers that write through output parameters.
 - Improved compiler performance by reducing excessive memory-dependence scans
   during GVN and repeated vector-elimination work.
 - Fixed GVN load forwarding generating unsupported integer types when optimizing
