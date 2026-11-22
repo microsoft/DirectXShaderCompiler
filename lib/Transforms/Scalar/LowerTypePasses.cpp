@@ -433,6 +433,41 @@ void DynamicIndexingVectorToArray::ReplaceVectorWithArray(Value *Vec,
       DXASSERT(onlyUsedByLifetimeMarkers(castInst),
                "expected bitcast to only be used by lifetime intrinsics");
       castInst->setOperand(0, A);
+    } else if (CallInst *CI = dyn_cast<CallInst>(User)) {
+      // A call can still use the vector pointer, such as an unresolved
+      // dx.hl.op intrinsic call taking a vector out parameter. The call
+      // cannot use the array directly, so point it at a temporary vector
+      // alloca and copy the value into the array right after the call.
+      // The call is expanded to memory operations in place by a later
+      // pass, leaving the temporary alloca with only plain loads and
+      // stores that later vector cleanup passes can handle.
+      unsigned VecAlign = 0;
+      if (AllocaInst *VecAlloca = dyn_cast<AllocaInst>(Vec))
+        VecAlign = VecAlloca->getAlignment();
+      IRBuilder<> TmpBuilder(CI->getContext());
+      if (Instruction *InsertBefore = dyn_cast<Instruction>(A))
+        TmpBuilder.SetInsertPoint(InsertBefore);
+      else
+        TmpBuilder.SetInsertPoint(CI);
+      AllocaInst *Tmp = TmpBuilder.CreateAlloca(
+          Vec->getType()->getPointerElementType());
+      Tmp->setAlignment(VecAlign);
+      for (unsigned OpIdx = 0; OpIdx < CI->getNumOperands(); OpIdx++) {
+        if (CI->getOperand(OpIdx) == Vec)
+          CI->setOperand(OpIdx, Tmp);
+      }
+      IRBuilder<> CopyBuilder(CI->getContext());
+      CopyBuilder.SetInsertPoint(CI->getParent(),
+                                 ++(BasicBlock::iterator(CI)));
+      LoadInst *TmpLd = CopyBuilder.CreateLoad(Tmp);
+      TmpLd->setAlignment(VecAlign);
+      Value *zero = CopyBuilder.getInt32(0);
+      for (unsigned i = 0; i < size; i++) {
+        Value *Elt = CopyBuilder.CreateExtractElement(TmpLd, i);
+        Value *idx = CopyBuilder.getInt32(i);
+        Value *EltGEP = CopyBuilder.CreateInBoundsGEP(A, {zero, idx});
+        CopyBuilder.CreateStore(Elt, EltGEP);
+      }
     } else {
       // Vector parameter should be lowered.
       // No function call should use vector.
