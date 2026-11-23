@@ -7,7 +7,7 @@ struct [raypayload] Payload {
 
 // Global TriangleObjectPositions - closesthit
 // CHECK-LABEL: define void {{.*}}ClosestHit
-// CHECK:   %[[TP:[^ ]+]] = call <9 x float> @dx.op.triangleObjectPosition.f32(i32 -2147483641) ; TriangleObjectPosition()
+// CHECK:   %[[TP:[^ ]+]] = call <9 x float> @dx.op.triangleObjectPosition.f32(i32 318) ; TriangleObjectPosition()
 // CHECK: %[[E0:[^ ]+]] = extractelement <9 x float> %[[TP]], i32 0
 // CHECK: %{{[^ ]+}} = fmul fast float %[[E0]], 2.000000e+00
 // CHECK: %[[E1:[^ ]+]] = extractelement <9 x float> %[[TP]], i32 1

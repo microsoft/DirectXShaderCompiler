@@ -21,61 +21,62 @@ target triple = "dxil-ms-dx"
 %struct.RWByteAddressBuffer = type { i32 }
 %struct.SamplerState = type { i32 }
 
-; Unfortunately, the validation errors come in weird orders.
-; Inlining them isn't helpful, so we'll just dump them all here.
-; Inline comments, variable names, and notes should help find the corresponding source.
+; TODO: Now that the validation errors are printed in the correct order
+; it would be useful to inline them.
 
-; CHECK: error: raw/typed buffer offset must be undef.
-; CHECK-NEXT: note: at 'call void @dx.op.rawBufferStore.f32(i32 140, %dx.types.Handle %tmp44, i32 0, i32 0, float %badBabOff, float undef, float undef, float undef, i8 1, i32 4)'
-; CHECK: error: Assignment of undefined values to UAV.
-; CHECK-NEXT: note: at 'call void @dx.op.rawBufferStore.f32(i32 140, %dx.types.Handle %tmp42, i32 4, i32 0, float undef, float undef, float undef, float undef, i8 1, i32 4)
-; CHECK: error: structured buffer requires defined index and offset coordinates.
-; CHECK-NEXT: note: at 'call void @dx.op.rawBufferStore.f32(i32 140, %dx.types.Handle %tmp41, i32 3, i32 undef, float %badStrOff, float undef, float undef, float undef, i8 1, i32 4)
-; CHECK: error: Raw Buffer alignment value must be a constant.
-; CHECK-NEXT: note: at 'call void @dx.op.rawBufferStore.f32(i32 140, %dx.types.Handle %tmp40, i32 2, i32 0, float %badAln, float undef, float undef, float undef, i8 1, i32 %ix)'
-; CHECK: error: buffer load/store only works on Raw/Typed/StructuredBuffer.
-; CHECK-NEXT: note: at 'call void @dx.op.rawBufferStore.f32(i32 140, %dx.types.Handle %rwTex, i32 1, i32 0, float %badRK, float undef, float undef, float undef, i8 1, i32 4)'
 ; CHECK: error: store should be on uav resource.
 ; CHECK-NEXT: note: at 'call void @dx.op.rawBufferStore.f32(i32 140, %dx.types.Handle %scalBuf, i32 0, i32 0, float %badRC, float undef, float undef, float undef, i8 1, i32 4)'
-
-; CHECK: error: raw/typed buffer offset must be undef.
-; CHECK-NEXT: note: at '%badBabOffLd = call %dx.types.ResRet.f32 @dx.op.rawBufferLoad.f32(i32 139, %dx.types.Handle %baBuf, i32 0, i32 0, i8 1, i32 4)'
-; CHECK: error: structured buffer requires defined index and offset coordinates.
-; CHECK-NEXT: note: at '%badStrOffLd = call %dx.types.ResRet.f32 @dx.op.rawBufferLoad.f32(i32 139, %dx.types.Handle %scalBuf, i32 3, i32 undef, i8 1, i32 4)'
+; CHECK: error: buffer load/store only works on Raw/Typed/StructuredBuffer.
+; CHECK-NEXT: note: at 'call void @dx.op.rawBufferStore.f32(i32 140, %dx.types.Handle %rwTex, i32 1, i32 0, float %badRK, float undef, float undef, float undef, i8 1, i32 4)'
 ; CHECK: error: Raw Buffer alignment value must be a constant.
-; CHECK-NEXT: note: at '%badAlnLd = call %dx.types.ResRet.f32 @dx.op.rawBufferLoad.f32(i32 139, %dx.types.Handle %scalBuf, i32 2, i32 0, i8 1, i32 %ix)'
+; CHECK-NEXT: note: at 'call void @dx.op.rawBufferStore.f32(i32 140, %dx.types.Handle %tmp40, i32 2, i32 0, float %badAln, float undef, float undef, float undef, i8 1, i32 %ix)'
+; CHECK: error: structured buffer requires defined index and offset coordinates.
+; CHECK-NEXT: note: at 'call void @dx.op.rawBufferStore.f32(i32 140, %dx.types.Handle %tmp41, i32 3, i32 undef, float %badStrOff, float undef, float undef, float undef, i8 1, i32 4)
+; CHECK: error: Assignment of undefined values to UAV.
+; CHECK-NEXT: note: at 'call void @dx.op.rawBufferStore.f32(i32 140, %dx.types.Handle %tmp42, i32 4, i32 0, float undef, float undef, float undef, float undef, i8 1, i32 4)
+; CHECK: error: raw/typed buffer offset must be undef.
+; CHECK-NEXT: note: at 'call void @dx.op.rawBufferStore.f32(i32 140, %dx.types.Handle %tmp44, i32 0, i32 0, float %badBabOff, float undef, float undef, float undef, i8 1, i32 4)'
+
+; CHECK: error: load can only run on UAV/SRV resource.
+; CHECK-NEXT: note: at '%badRCLd = call %dx.types.ResRet.f32 @dx.op.rawBufferLoad.f32(i32 139, %dx.types.Handle %samp, i32 0, i32 0, i8 1, i32 4)'
+; CHECK-NEXT: error: buffer load/store only works on Raw/Typed/StructuredBuffer.
+; CHECK-NEXT: note: at '%badRCLd = call %dx.types.ResRet.f32 @dx.op.rawBufferLoad.f32(i32 139, %dx.types.Handle %samp, i32 0, i32 0, i8 1, i32 4)'
 ; CHECK: error: buffer load/store only works on Raw/Typed/StructuredBuffer
 ; CHECK-NEXT: note: at '%badRKLd = call %dx.types.ResRet.f32 @dx.op.rawBufferLoad.f32(i32 139, %dx.types.Handle %tex, i32 1, i32 0, i8 1, i32 4)'
-; CHECK: error: load can only run on UAV/SRV resource.
-; CHECK-NEXT: note: at '%badRCLd = call %dx.types.ResRet.f32 @dx.op.rawBufferLoad.f32(i32 139, %dx.types.Handle %samp, i32 0, i32 0, i8 1, i32 4)'
-; CHECK-NEXT: error: buffer load/store only works on Raw/Typed/StructuredBuffer.
-; CHECK-NEXT: note: at '%badRCLd = call %dx.types.ResRet.f32 @dx.op.rawBufferLoad.f32(i32 139, %dx.types.Handle %samp, i32 0, i32 0, i8 1, i32 4)'
-
-; CHECK: error: raw/typed buffer offset must be undef.
-; CHECK-NEXT: note: at 'call void @dx.op.rawBufferVectorStore.v4f32(i32 304, %dx.types.Handle %tmp51, i32 4, i32 0, <4 x float> %badBabOffVc, i32 4)'
-; CHECK: error: Assignment of undefined values to UAV.
-; CHECK-NEXT: note: at 'call void @dx.op.rawBufferVectorStore.v4f32(i32 304, %dx.types.Handle %tmp49, i32 4, i32 0, <4 x float> undef, i32 4)'
-; CHECK: error: structured buffer requires defined index and offset coordinates.
-; CHECK-NEXT: note: at 'call void @dx.op.rawBufferVectorStore.v4f32(i32 304, %dx.types.Handle %tmp48, i32 3, i32 undef, <4 x float> %badStrOffVc, i32 4)'
 ; CHECK: error: Raw Buffer alignment value must be a constant.
-; CHECK-NEXT: note: at 'call void @dx.op.rawBufferVectorStore.v4f32(i32 304, %dx.types.Handle %tmp47, i32 2, i32 0, <4 x float> %badAlnVc, i32 %ix)'
-; CHECK: error: buffer load/store only works on Raw/Typed/StructuredBuffer.
-; CHECK-NEXT: note: at 'call void @dx.op.rawBufferVectorStore.v4f32(i32 304, %dx.types.Handle %rwTex, i32 1, i32 0, <4 x float> %badRKVc, i32 4)'
+; CHECK-NEXT: note: at '%badAlnLd = call %dx.types.ResRet.f32 @dx.op.rawBufferLoad.f32(i32 139, %dx.types.Handle %scalBuf, i32 2, i32 0, i8 1, i32 %ix)'
+; CHECK: error: structured buffer requires defined index and offset coordinates.
+; CHECK-NEXT: note: at '%badStrOffLd = call %dx.types.ResRet.f32 @dx.op.rawBufferLoad.f32(i32 139, %dx.types.Handle %scalBuf, i32 3, i32 undef, i8 1, i32 4)'
+; CHECK: error: raw/typed buffer offset must be undef.
+; CHECK-NEXT: note: at '%badBabOffLd = call %dx.types.ResRet.f32 @dx.op.rawBufferLoad.f32(i32 139, %dx.types.Handle %baBuf, i32 0, i32 0, i8 1, i32 4)'
+
 ; CHECK: error: store should be on uav resource.
 ; CHECK-NEXT: note: at 'call void @dx.op.rawBufferVectorStore.v4f32(i32 304, %dx.types.Handle %vecBuf, i32 0, i32 0, <4 x float> %badRCVc, i32 4)'
-
-; CHECK: error: raw/typed buffer offset must be undef.
-; CHECK-NEXT: note: at '%badBabOffVcLd = call %dx.types.ResRet.v4f32 @dx.op.rawBufferVectorLoad.v4f32(i32 303, %dx.types.Handle %baBuf, i32 4, i32 0, i32 4)'
-; CHECK: error: structured buffer requires defined index and offset coordinates.
-; CHECK-NEXT: note: at '%badStrOffVcLd = call %dx.types.ResRet.v4f32 @dx.op.rawBufferVectorLoad.v4f32(i32 303, %dx.types.Handle %vecBuf, i32 3, i32 undef, i32 4)'
+; CHECK: error: buffer load/store only works on Raw/Typed/StructuredBuffer.
+; CHECK-NEXT: note: at 'call void @dx.op.rawBufferVectorStore.v4f32(i32 304, %dx.types.Handle %rwTex, i32 1, i32 0, <4 x float> %badRKVc, i32 4)'
 ; CHECK: error: Raw Buffer alignment value must be a constant.
-; CHECK-NEXT: note: at '%badAlnVcLd = call %dx.types.ResRet.v4f32 @dx.op.rawBufferVectorLoad.v4f32(i32 303, %dx.types.Handle %vecBuf, i32 2, i32 0, i32 %ix)'
-; CHECK: error: buffer load/store only works on Raw/Typed/StructuredBuffer
-; CHECK-NEXT: note: at '%badRKVcLd = call %dx.types.ResRet.v4f32 @dx.op.rawBufferVectorLoad.v4f32(i32 303, %dx.types.Handle %tex, i32 1, i32 0, i32 4)'
+; CHECK-NEXT: note: at 'call void @dx.op.rawBufferVectorStore.v4f32(i32 304, %dx.types.Handle %tmp47, i32 2, i32 0, <4 x float> %badAlnVc, i32 %ix)'
+; CHECK: error: structured buffer requires defined index and offset coordinates.
+; CHECK-NEXT: note: at 'call void @dx.op.rawBufferVectorStore.v4f32(i32 304, %dx.types.Handle %tmp48, i32 3, i32 undef, <4 x float> %badStrOffVc, i32 4)'
+; CHECK: error: Assignment of undefined values to UAV.
+; CHECK-NEXT: note: at 'call void @dx.op.rawBufferVectorStore.v4f32(i32 304, %dx.types.Handle %tmp49, i32 4, i32 0, <4 x float> undef, i32 4)'
+; CHECK: error: raw/typed buffer offset must be undef.
+; CHECK-NEXT: note: at 'call void @dx.op.rawBufferVectorStore.v4f32(i32 304, %dx.types.Handle %tmp51, i32 4, i32 0, <4 x float> %badBabOffVc, i32 4)'
+
 ; CHECK: error: load can only run on UAV/SRV resource.
 ; CHECK-NEXT: note: at '%badRCVcLd = call %dx.types.ResRet.v4f32 @dx.op.rawBufferVectorLoad.v4f32(i32 303, %dx.types.Handle %samp, i32 0, i32 0, i32 4)'
 ; CHECK-NEXT: error: buffer load/store only works on Raw/Typed/StructuredBuffer.
 ; CHECK-NEXT: note: at '%badRCVcLd = call %dx.types.ResRet.v4f32 @dx.op.rawBufferVectorLoad.v4f32(i32 303, %dx.types.Handle %samp, i32 0, i32 0, i32 4)'
+; CHECK: error: buffer load/store only works on Raw/Typed/StructuredBuffer
+; CHECK-NEXT: note: at '%badRKVcLd = call %dx.types.ResRet.v4f32 @dx.op.rawBufferVectorLoad.v4f32(i32 303, %dx.types.Handle %tex, i32 1, i32 0, i32 4)'
+; CHECK: error: Raw Buffer alignment value must be a constant.
+; CHECK-NEXT: note: at '%badAlnVcLd = call %dx.types.ResRet.v4f32 @dx.op.rawBufferVectorLoad.v4f32(i32 303, %dx.types.Handle %vecBuf, i32 2, i32 0, i32 %ix)'
+; CHECK: error: structured buffer requires defined index and offset coordinates.
+; CHECK-NEXT: note: at '%badStrOffVcLd = call %dx.types.ResRet.v4f32 @dx.op.rawBufferVectorLoad.v4f32(i32 303, %dx.types.Handle %vecBuf, i32 3, i32 undef, i32 4)'
+; CHECK: error: raw/typed buffer offset must be undef.
+; CHECK-NEXT: note: at '%badBabOffVcLd = call %dx.types.ResRet.v4f32 @dx.op.rawBufferVectorLoad.v4f32(i32 303, %dx.types.Handle %baBuf, i32 4, i32 0, i32 4)'
+
+; CHECK-NEXT: Validation failed.
 
 define void @main() {
 bb:

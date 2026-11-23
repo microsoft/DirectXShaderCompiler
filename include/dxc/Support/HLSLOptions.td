@@ -277,7 +277,7 @@ def dump_dependencies : Flag<["-", "/"], "M">, Flags<[CoreOption, DriverOption]>
 def write_dependencies : Flag<["-", "/"], "MD">, Flags<[CoreOption, DriverOption]>,
   HelpText<"Write a file with .d extension that will contain the list of the compilation target dependencies.">;
 def write_dependencies_to : JoinedOrSeparate<["-", "/"], "MF">, MetaVarName<"<file>">, Flags<[CoreOption, DriverOption]>,
-  HelpText<"Write the specfied file that will contain the list of the compilation target dependencies.">;
+  HelpText<"Write the specified file that will contain the list of the compilation target dependencies.">;
 def external_lib : Separate<["-", "/"], "external">, Group<hlslcore_Group>, Flags<[DriverOption, RewriteOption, HelpHidden]>,
   HelpText<"External DLL name to load for compiler support">;
 def external_fn : Separate<["-", "/"], "external-fn">, Group<hlslcore_Group>, Flags<[DriverOption, RewriteOption, HelpHidden]>,
@@ -424,7 +424,7 @@ def fspv_use_unknown_image_format
 def fvk_auto_shift_bindings: Flag<["-"], "fvk-auto-shift-bindings">, Group<spirv_Group>, Flags<[CoreOption, DriverOption]>,
   HelpText<"Apply fvk-*-shift to resources without an explicit register assignment.">;
 def Wno_vk_ignored_features : Joined<["-"], "Wno-vk-ignored-features">, Group<spirv_Group>, Flags<[CoreOption, DriverOption, HelpHidden]>,
-  HelpText<"Do not emit warnings for ingored features resulting from no Vulkan support">;
+  HelpText<"Do not emit warnings for ignored features resulting from no Vulkan support">;
 def Wno_vk_emulated_features : Joined<["-"], "Wno-vk-emulated-features">, Group<spirv_Group>, Flags<[CoreOption, DriverOption, HelpHidden]>,
   HelpText<"Do not emit warnings for emulated features resulting from no direct mapping">;
 def fspv_print_all: Flag<["-"], "fspv-print-all">, Group<spirv_Group>, Flags<[CoreOption, DriverOption]>,
@@ -454,6 +454,10 @@ def fvk_bind_sampler_heap : MultiArg<["-"], "fvk-bind-sampler-heap", 2>, MetaVar
   HelpText<"Specify Vulkan binding number and set number for the sampler heap.">;
 def fvk_bind_counter_heap : MultiArg<["-"], "fvk-bind-counter-heap", 2>, MetaVarName<"<binding> <set>">, Group<spirv_Group>, Flags<[CoreOption, DriverOption]>,
   HelpText<"Specify Vulkan binding number and set number for the counter heap.">;
+def fvk_resource_heap_stride : Separate<["-"], "fvk-resource-heap-stride">, MetaVarName<"<stride>">, Group<spirv_Group>, Flags<[CoreOption, DriverOption]>,
+  HelpText<"Override the resource descriptor heap array stride with a literal ArrayStride of <stride> bytes. Requires -spirv and -fspv-use-descriptor-heap. Must be a power of 2 in [8, 256].">;
+def fvk_sampler_heap_stride : Separate<["-"], "fvk-sampler-heap-stride">, MetaVarName<"<stride>">, Group<spirv_Group>, Flags<[CoreOption, DriverOption]>,
+  HelpText<"Override the sampler descriptor heap array stride with a literal ArrayStride of <stride> bytes. Requires -spirv and -fspv-use-descriptor-heap. Must be a power of 2 in [8, 256].">;
 // SPIRV Change Ends
 
 //////////////////////////////////////////////////////////////////////////////
@@ -462,7 +466,7 @@ def fvk_bind_counter_heap : MultiArg<["-"], "fvk-bind-counter-heap", 2>, MetaVar
 def target_profile : JoinedOrSeparate<["-", "/"], "T">, Flags<[CoreOption]>, Group<hlslcomp_Group>, MetaVarName<"<profile>">,
   /* <py::lines('VALRULE-TEXT')>hctdb_instrhelp.get_target_profiles()</py>*/
   // VALRULE-TEXT:BEGIN
-  HelpText<"Set target profile. \n\t<profile>: ps_6_0, ps_6_1, ps_6_2, ps_6_3, ps_6_4, ps_6_5, ps_6_6, ps_6_7, ps_6_8, ps_6_9, ps_6_10, \n\t\t vs_6_0, vs_6_1, vs_6_2, vs_6_3, vs_6_4, vs_6_5, vs_6_6, vs_6_7, vs_6_8, vs_6_9, vs_6_10, \n\t\t gs_6_0, gs_6_1, gs_6_2, gs_6_3, gs_6_4, gs_6_5, gs_6_6, gs_6_7, gs_6_8, gs_6_9, gs_6_10, \n\t\t hs_6_0, hs_6_1, hs_6_2, hs_6_3, hs_6_4, hs_6_5, hs_6_6, hs_6_7, hs_6_8, hs_6_9, hs_6_10, \n\t\t ds_6_0, ds_6_1, ds_6_2, ds_6_3, ds_6_4, ds_6_5, ds_6_6, ds_6_7, ds_6_8, ds_6_9, ds_6_10, \n\t\t cs_6_0, cs_6_1, cs_6_2, cs_6_3, cs_6_4, cs_6_5, cs_6_6, cs_6_7, cs_6_8, cs_6_9, cs_6_10, \n\t\t lib_6_1, lib_6_2, lib_6_3, lib_6_4, lib_6_5, lib_6_6, lib_6_7, lib_6_8, lib_6_9, lib_6_10, \n\t\t ms_6_5, ms_6_6, ms_6_7, ms_6_8, ms_6_9, ms_6_10, \n\t\t as_6_5, as_6_6, as_6_7, as_6_8, as_6_9, as_6_10, \n\t\t ">;
+  HelpText<"Set target profile. \n\t<profile>: ps_6_0, ps_6_1, ps_6_2, ps_6_3, ps_6_4, ps_6_5, ps_6_6, ps_6_7, ps_6_8, ps_6_9, ps_6_10, ps_6_11, \n\t\t vs_6_0, vs_6_1, vs_6_2, vs_6_3, vs_6_4, vs_6_5, vs_6_6, vs_6_7, vs_6_8, vs_6_9, vs_6_10, vs_6_11, \n\t\t gs_6_0, gs_6_1, gs_6_2, gs_6_3, gs_6_4, gs_6_5, gs_6_6, gs_6_7, gs_6_8, gs_6_9, gs_6_10, gs_6_11, \n\t\t hs_6_0, hs_6_1, hs_6_2, hs_6_3, hs_6_4, hs_6_5, hs_6_6, hs_6_7, hs_6_8, hs_6_9, hs_6_10, hs_6_11, \n\t\t ds_6_0, ds_6_1, ds_6_2, ds_6_3, ds_6_4, ds_6_5, ds_6_6, ds_6_7, ds_6_8, ds_6_9, ds_6_10, ds_6_11, \n\t\t cs_6_0, cs_6_1, cs_6_2, cs_6_3, cs_6_4, cs_6_5, cs_6_6, cs_6_7, cs_6_8, cs_6_9, cs_6_10, cs_6_11, \n\t\t lib_6_1, lib_6_2, lib_6_3, lib_6_4, lib_6_5, lib_6_6, lib_6_7, lib_6_8, lib_6_9, lib_6_10, lib_6_11, \n\t\t ms_6_5, ms_6_6, ms_6_7, ms_6_8, ms_6_9, ms_6_10, ms_6_11, \n\t\t as_6_5, as_6_6, as_6_7, as_6_8, as_6_9, as_6_10, as_6_11, \n\t\t ">;
   // VALRULE-TEXT:END
 def entrypoint :  JoinedOrSeparate<["-", "/"], "E">, Flags<[CoreOption, RewriteOption]>, Group<hlslcomp_Group>,
   HelpText<"Entry point name">;
@@ -577,9 +581,9 @@ def res_may_alias : Flag<["-", "/"], "res-may-alias">, Flags<[CoreOption]>, Grou
 def res_may_alias_ : Flag<["-", "/"], "res_may_alias">, Flags<[CoreOption, HelpHidden]>, Group<hlslcomp_Group>,
   HelpText<"Assume that UAVs/SRVs may alias">;
 def all_resources_bound : Flag<["-", "/"], "all-resources-bound">, Flags<[CoreOption]>, Group<hlslcomp_Group>,
-  HelpText<"Enables agressive flattening">;
+  HelpText<"Enables aggressive flattening">;
 def all_resources_bound_ : Flag<["-", "/"], "all_resources_bound">, Flags<[CoreOption, HelpHidden]>, Group<hlslcomp_Group>,
-  HelpText<"Enables agressive flattening">;
+  HelpText<"Enables aggressive flattening">;
 
 def setprivate : JoinedOrSeparate<["-", "/"], "setprivate">, Flags<[CoreOption, DriverOption]>, MetaVarName<"<file>">, Group<hlslutil_Group>,
   HelpText<"Private data to add to compiled shader blob">;

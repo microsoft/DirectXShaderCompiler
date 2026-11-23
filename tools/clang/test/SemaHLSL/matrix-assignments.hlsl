@@ -56,7 +56,7 @@ float4 main() : SV_Target {
   // fxc error X3000: syntax error: unexpected token '('
   float2x2 f22_direct(0.1f, 0.2f, 0.3f, 0.4f); // expected-error {{expected ')'}} expected-error {{expected parameter declarator}} expected-note {{to match this '('}} fxc-error {{X3000: syntax error: unexpected token '('}}
   // fxc error X3000: syntax error: unexpected float constant
-  float2x2 f22_direct_braces { 0.1f, 0.2f, 0.3f, 0.4f }; // expected-warning {{effect state block ignored - effect syntax is deprecated}} fxc-error {{X3000: syntax error: unexpected float constant}}
+  float2x2 f22_direct_braces { 0.1f, 0.2f, 0.3f, 0.4f }; // expected-warning {{effect state block ignored - effect syntax is deprecated}} expected-note{{To use braces as an initializer use them with equal signs}} fxc-error {{X3000: syntax error: unexpected float constant}}
   float2x2 f22_target = float2x2(0.1f, 0.2f, 0.3f, 0.4f);
   /*verify-ast
     DeclStmt <col:3, col:57>
@@ -108,7 +108,7 @@ float4 main() : SV_Target {
   // List initialization.
   // See http://en.cppreference.com/w/cpp/language/list_initialization
   // fxc error X3000: syntax error: unexpected token '{'
-  float2x2 f22_list_braces{ 1, 2, 3, 4 }; // expected-warning {{effect state block ignored - effect syntax is deprecated}} fxc-error {{X3000: syntax error: unexpected integer constant}}
+  float2x2 f22_list_braces{ 1, 2, 3, 4 }; // expected-warning {{effect state block ignored - effect syntax is deprecated}} expected-note{{To use braces as an initializer use them with equal signs}} fxc-error {{X3000: syntax error: unexpected integer constant}}
   // fxc error error X3000: syntax error: unexpected token '{'
   pick_one(float2x2 { 1, 2, 3, 4 }); // expected-error {{expected '(' for function-style cast or type construction}} fxc-error {{X3000: syntax error: unexpected token '{'}} fxc-error {{X3013: 'pick_one': no matching 0 parameter function}}
   ret_f22_list();

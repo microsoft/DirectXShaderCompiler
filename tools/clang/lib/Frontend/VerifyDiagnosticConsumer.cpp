@@ -407,6 +407,15 @@ static bool ParseDirective(StringRef S, ExpectedData *ED, SourceManager &SM,
         const FileEntry *FE =
             PP->LookupFile(Pos, Filename, false, nullptr, nullptr, CurDir,
                            nullptr, nullptr, nullptr);
+        // HLSL Change Begin - if the quoted lookup did not find the file,
+        // retry as an angled lookup so that bundled HLSL headers (resolved
+        // via clang::hlsl::getEmbeddedHeaders()) are also reachable from
+        // expected-* directives by their relative path.
+        if (!FE) {
+          FE = PP->LookupFile(Pos, Filename, true, nullptr, nullptr, CurDir,
+                              nullptr, nullptr, nullptr);
+        }
+        // HLSL Change End
         if (!FE) {
           Diags.Report(Pos.getLocWithOffset(PH.C-PH.Begin),
                        diag::err_verify_missing_file) << Filename << KindStr;

@@ -254,9 +254,11 @@ static bool isFoldOperator(tok::TokenKind Kind) {
 /// precedence of at least \p MinPrec.
 ExprResult
 Parser::ParseRHSOfBinaryExpression(ExprResult LHS, prec::Level MinPrec) {
-  prec::Level NextTokPrec = getBinOpPrecedence(Tok.getKind(),
-                                               GreaterThanIsOperator,
-                                               getLangOpts().CPlusPlus11);
+  prec::Level NextTokPrec =
+      getBinOpPrecedence(Tok.getKind(), GreaterThanIsOperator,
+                         getLangOpts().CPlusPlus11 ||
+                             (getLangOpts().HLSL && getLangOpts().HLSLVersion >=
+                                                        hlsl::LangStd::v202x));
   SourceLocation ColonLoc;
 
   while (1) {
@@ -390,8 +392,11 @@ Parser::ParseRHSOfBinaryExpression(ExprResult LHS, prec::Level MinPrec) {
     // Remember the precedence of this operator and get the precedence of the
     // operator immediately to the right of the RHS.
     prec::Level ThisPrec = NextTokPrec;
-    NextTokPrec = getBinOpPrecedence(Tok.getKind(), GreaterThanIsOperator,
-                                     getLangOpts().CPlusPlus11);
+    NextTokPrec = getBinOpPrecedence(
+        Tok.getKind(), GreaterThanIsOperator,
+        getLangOpts().CPlusPlus11 ||
+            (getLangOpts().HLSL &&
+             getLangOpts().HLSLVersion >= hlsl::LangStd::v202x));
 
     // Assignment and conditional expressions are right-associative.
     bool isRightAssoc = ThisPrec == prec::Conditional ||
@@ -424,8 +429,11 @@ Parser::ParseRHSOfBinaryExpression(ExprResult LHS, prec::Level MinPrec) {
         LHS = ExprError();
       }
 
-      NextTokPrec = getBinOpPrecedence(Tok.getKind(), GreaterThanIsOperator,
-                                       getLangOpts().CPlusPlus11);
+      NextTokPrec = getBinOpPrecedence(
+          Tok.getKind(), GreaterThanIsOperator,
+          getLangOpts().CPlusPlus11 ||
+              (getLangOpts().HLSL &&
+               getLangOpts().HLSLVersion >= hlsl::LangStd::v202x));
     }
 
     if (!RHS.isInvalid() && RHSIsInitList) {
@@ -1938,7 +1946,8 @@ ExprResult Parser::ParseUnaryExprOrTypeTraitExpression() {
   ConsumeToken();
 
   // [C++11] 'sizeof' '...' '(' identifier ')'
-  if (Tok.is(tok::ellipsis) && OpTok.is(tok::kw_sizeof) && !getLangOpts().HLSL) { // HLSL Change
+  if (Tok.is(tok::ellipsis) && OpTok.is(tok::kw_sizeof) &&
+      !getLangOpts().HLSLDisallowsVariadicTemplates()) { // HLSL Change
     SourceLocation EllipsisLoc = ConsumeToken();
     SourceLocation LParenLoc, RParenLoc;
     IdentifierInfo *Name = nullptr;
@@ -2739,9 +2748,12 @@ ExprResult Parser::ParseFoldExpression(ExprResult LHS,
     }
   }
 
-  Diag(EllipsisLoc, getLangOpts().CPlusPlus1z
-                        ? diag::warn_cxx14_compat_fold_expression
-                        : diag::ext_fold_expression);
+  if (getLangOpts().HLSL && !getLangOpts().HLSLDisallowsVariadicTemplates())
+    Diag(EllipsisLoc, diag::warn_hlsl_fold_expression);
+  else
+    Diag(EllipsisLoc, getLangOpts().CPlusPlus1z
+                          ? diag::warn_cxx14_compat_fold_expression
+                          : diag::ext_fold_expression);
 
   T.consumeClose();
   return Actions.ActOnCXXFoldExpr(T.getOpenLocation(), LHS.get(), Kind,
@@ -2793,7 +2805,7 @@ bool Parser::ParseExpressionList(SmallVectorImpl<Expr *> &Exprs,
 
     if (Tok.is(tok::ellipsis)) {
       // HLSL Change Starts
-      if (getLangOpts().HLSL) {
+      if (getLangOpts().HLSLDisallowsVariadicTemplates()) {
         Diag(Tok, diag::err_hlsl_variadic_templates);
         SkipUntil(tok::r_paren, StopBeforeMatch);
         Actions.CorrectDelayedTyposInExpr(Expr);

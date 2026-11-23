@@ -1849,6 +1849,13 @@ QualType Sema::BuildPointerType(QualType T,
     return QualType();
   }
 
+  // HLSL Change Begin - Disallow pointers.
+  if (getLangOpts().HLSL && Loc.isValid()) {
+    Diag(Loc, diag::err_hlsl_pointers_unsupported) << 0;
+    return QualType();
+  }
+  // HLSL Change End.
+
   if (checkQualifiedFunction(*this, T, Loc, QFK_Pointer))
     return QualType();
 
@@ -1910,6 +1917,13 @@ QualType Sema::BuildReferenceType(QualType T, bool SpelledAsLValue,
     Diag(Loc, diag::err_reference_to_void);
     return QualType();
   }
+
+  // HLSL Change Begin - Disallow references.
+  if (getLangOpts().HLSL && Loc.isValid()) {
+    Diag(Loc, diag::err_hlsl_pointers_unsupported) << 1;
+    return QualType();
+  }
+  // HLSL Change End.
 
   if (checkQualifiedFunction(*this, T, Loc, QFK_Reference))
     return QualType();
@@ -2313,6 +2327,13 @@ QualType Sema::BuildMemberPointerType(QualType T, QualType Class,
     return QualType();
   }
 
+  // HLSL Change Begin - Disallow pointers.
+  if (getLangOpts().HLSL && Loc.isValid()) {
+    Diag(Loc, diag::err_hlsl_pointers_unsupported) << 0;
+    return QualType();
+  }
+  // HLSL Change End.
+
   // Adjust the default free function calling convention to the default method
   // calling convention.
   if (T->isFunctionType())
@@ -2637,8 +2658,12 @@ static QualType GetDeclSpecTypeForDeclarator(TypeProcessingState &state,
   // type (this is checked later) and we can skip this. In other languages
   // using auto, we need to check regardless.
   // C++14 In generic lambdas allow 'auto' in their parameters.
+  // HLSL Change Begin - HLSL supports 'auto' as a function declarator return
+  // type with C++14-style deduction; skip this check for functions.
   if (ContainsPlaceholderType &&
-      (!SemaRef.getLangOpts().CPlusPlus11 || !D.isFunctionDeclarator())) {
+      (!(SemaRef.getLangOpts().CPlusPlus11 || SemaRef.getLangOpts().HLSL) ||
+       !D.isFunctionDeclarator())) {
+    // HLSL Change End
     int Error = -1;
 
     switch (D.getContext()) {
@@ -3727,9 +3752,11 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
       if (!D.isInvalidType()) {
         // trailing-return-type is only required if we're declaring a function,
         // and not, for instance, a pointer to a function.
+        // HLSL Change Begin - HLSL supports C++14-style deduced return types.
         if (D.getDeclSpec().containsPlaceholderType() &&
             !FTI.hasTrailingReturnType() && chunkIndex == 0 &&
-            !S.getLangOpts().CPlusPlus14) {
+            !(S.getLangOpts().CPlusPlus14 || S.getLangOpts().HLSL)) {
+          // HLSL Change End
           S.Diag(D.getDeclSpec().getTypeSpecTypeLoc(),
                  D.getDeclSpec().getTypeSpecType() == DeclSpec::TST_auto
                      ? diag::err_auto_missing_trailing_return
@@ -4259,14 +4286,14 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
       // parameter packs in the type of the non-type template parameter, then
       // it expands those parameter packs.
       // HLSL Change Starts
-      if (LangOpts.HLSL) {
+      if (LangOpts.HLSLDisallowsVariadicTemplates()) {
         S.Diag(D.getEllipsisLoc(), diag::err_hlsl_variadic_templates);
         break;
       }
       // HLSL Change Ends
       if (T->containsUnexpandedParameterPack())
         T = Context.getPackExpansionType(T, None);
-      else
+      else if (!LangOpts.HLSL) // HLSL Change: HLSL has no C++98-compat warnings
         S.Diag(D.getEllipsisLoc(),
                LangOpts.CPlusPlus11
                  ? diag::warn_cxx98_compat_variadic_templates

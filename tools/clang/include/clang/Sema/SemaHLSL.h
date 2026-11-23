@@ -88,10 +88,11 @@ enum class TypeDiagContext {
   GroupShared = 15,
   DiagMaxSelectIndex = 15,
 };
-bool DiagnoseTypeElements(clang::Sema &S, clang::SourceLocation Loc,
-                          clang::QualType Ty, TypeDiagContext ObjDiagContext,
-                          TypeDiagContext LongVecDiagContext,
-                          const clang::FieldDecl *FD = nullptr);
+bool DiagnoseTypeElements(
+    clang::Sema &S, clang::SourceLocation Loc, clang::QualType Ty,
+    TypeDiagContext ObjDiagContext, TypeDiagContext LongVecDiagContext,
+    const clang::FieldDecl *FD = nullptr,
+    DXIL::ResourceClass ResClass = DXIL::ResourceClass::Invalid);
 
 void DiagnoseControlFlowConditionForHLSL(clang::Sema *self,
                                          clang::Expr *condExpr,

@@ -349,6 +349,7 @@ PCSTR g_pFeatureInfoNames[] = {
     "Writeable MSAA Textures",
     "SampleCmp with gradient or bias",
     "Extended command info",
+    "Linear Algebra",
 };
 static_assert(_countof(g_pFeatureInfoNames) == ShaderFeatureInfoCount,
               "g_pFeatureInfoNames needs to be updated");
@@ -673,6 +674,8 @@ static const char *FlagToString(DXIL::RaytracingPipelineFlags Flag) {
     return "RAYTRACING_PIPELINE_FLAG_SKIP_PROCEDURAL_PRIMITIVES";
   case DXIL::RaytracingPipelineFlags::AllowOpacityMicromaps:
     return "RAYTRACING_PIPELINE_FLAG_ALLOW_OPACITY_MICROMAPS";
+  case DXIL::RaytracingPipelineFlags::AllowClusteredGeometry:
+    return "RAYTRACING_PIPELINE_FLAG_ALLOW_CLUSTERED_GEOMETRY";
   }
   return "<invalid RaytracingPipelineFlags>";
 }

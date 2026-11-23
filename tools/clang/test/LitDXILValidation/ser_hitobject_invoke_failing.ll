@@ -7,10 +7,10 @@ target triple = "dxil-ms-dx"
 %struct.Payload = type { <3 x float> }
 %dx.types.HitObject = type { i8* }
 
-; CHECK: Function: ?main@@YAXXZ: error: Instructions should not read uninitialized value.
-; CHECK-NEXT: note: at 'call void @dx.op.hitObject_Invoke.struct.Payload(i32 267, %dx.types.HitObject %nop, %struct.Payload* nonnull undef)' in block '#0' of function '?main@@YAXXZ'.
-; CHECK-NEXT: Function: ?main@@YAXXZ: error: HitObject is undef.
+; CHECK: Function: ?main@@YAXXZ: error: HitObject is undef.
 ; CHECK-NEXT: note: at 'call void @dx.op.hitObject_Invoke.struct.Payload(i32 267, %dx.types.HitObject undef, %struct.Payload* nonnull %pld)' in block '#0' of function '?main@@YAXXZ'.
+; CHECK-NEXT: Function: ?main@@YAXXZ: error: Instructions should not read uninitialized value.
+; CHECK-NEXT: note: at 'call void @dx.op.hitObject_Invoke.struct.Payload(i32 267, %dx.types.HitObject %nop, %struct.Payload* nonnull undef)' in block '#0' of function '?main@@YAXXZ'.
 
 ; CHECK-NEXT: Validation failed.
 

@@ -1188,10 +1188,39 @@ def HLSLSubObject : InheritableAttr {
   let Args = [UnsignedArgument<"SubObjKindUint">, UnsignedArgument<"HitGroupType">];
 }
 
+// Marks builtin record types that have no deducible value form, so 'auto' must
+// not infer them.
+def HLSLNonAutoDeducible : InheritableAttr {
+  let Spellings = []; // No spellings!
+  let Subjects = SubjectList<[CXXRecord]>;
+  let Documentation = [Undocumented];
+}
+
 // HLSL HitObject Attribute
 
 def HLSLHitObject : InheritableAttr {
   let Spellings = []; // No spellings!
+  let Subjects = SubjectList<[CXXRecord]>;
+  let Documentation = [Undocumented];
+}
+
+// Vulkan SubpassInput / SubpassInputMS Attribute
+// Marks the built-in SubpassInput<T> and SubpassInputMS<T,S> record types as
+// distinct from any user-defined type with the same unqualified name.
+def HLSLVkSubpassInput : InheritableAttr {
+  let Spellings = []; // No spellings!
+  let Args = [BoolArgument<"IsMultiSampled">];
+  let Subjects = SubjectList<[CXXRecord]>;
+  let Documentation = [Undocumented];
+}
+
+// HLSL Dynamic Resource Attribute
+// Marks the builtin `.Resource` / `.Sampler` placeholder record types used
+// for descriptor heap indexing (ResourceDescriptorHeap[i] /
+// SamplerDescriptorHeap[i]).
+def HLSLDynamicResource : InheritableAttr {
+  let Spellings = []; // No spellings!
+  let Args = [BoolArgument<"IsSampler">];
   let Subjects = SubjectList<[CXXRecord]>;
   let Documentation = [Undocumented];
 }
@@ -2470,13 +2499,15 @@ def WarnUnused : InheritableAttr {
   let Documentation = [Undocumented];
 }
 
+// HLSL Change Begin - add C++11 spelling.
 def WarnUnusedResult : InheritableAttr {
-  let Spellings = [GCC<"warn_unused_result">,
+  let Spellings = [CXX11<"", "nodiscard", 2017>, GCC<"warn_unused_result">,
                    CXX11<"clang", "warn_unused_result">];
   let Subjects = SubjectList<[ObjCMethod, CXXRecord, FunctionLike], WarnDiag,
                              "ExpectedFunctionMethodOrClass">;
   let Documentation = [Undocumented];
 }
+// HLSL Change End - add C++11 spelling.
 
 def Weak : InheritableAttr {
   let Spellings = [GCC<"weak">];

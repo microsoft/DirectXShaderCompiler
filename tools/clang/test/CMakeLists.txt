@@ -9,8 +9,6 @@ endif ()
 
 string(REPLACE ${CMAKE_CFG_INTDIR} ${LLVM_BUILD_MODE} CLANG_TOOLS_DIR ${LLVM_RUNTIME_OUTPUT_INTDIR})
 
-set(HLSL_HEADERS_DIR ${LLVM_SOURCE_DIR}/tools/clang/lib/Headers/hlsl) # HLSL Change
-
 configure_lit_site_cfg(
   ${CMAKE_CURRENT_SOURCE_DIR}/lit.site.cfg.in
   ${CMAKE_CURRENT_BINARY_DIR}/lit.site.cfg
@@ -139,20 +137,20 @@ function(add_released_dxc name version)
   )
 endfunction()
 
-# Iterate over releases
-list(LENGTH DXC_RELEASES DXC_RELEASES_LENGTH)
-math(EXPR num_pairs "${DXC_RELEASES_LENGTH} / 2")
-math(EXPR loop_end "${num_pairs} - 1")
-foreach(i RANGE 0 ${loop_end})
-  math(EXPR idx_name "${i}*2")
-  math(EXPR idx_version "${i}*2 + 1")  
+if(WIN32)
+  # Iterate over releases
+  list(LENGTH DXC_RELEASES DXC_RELEASES_LENGTH)
+  math(EXPR num_pairs "${DXC_RELEASES_LENGTH} / 2")
+  math(EXPR loop_end "${num_pairs} - 1")
+  foreach(i RANGE 0 ${loop_end})
+    math(EXPR idx_name "${i}*2")
+    math(EXPR idx_version "${i}*2 + 1")
 
-  list(GET DXC_RELEASES ${idx_name} name)
-  list(GET DXC_RELEASES ${idx_version} version)
+    list(GET DXC_RELEASES ${idx_name} name)
+    list(GET DXC_RELEASES ${idx_version} version)
 
-  add_released_dxc(${name} ${version})
+    add_released_dxc(${name} ${version})
 
-  if(WIN32)
   # Determine target architecture for DXC binaries
     if(CMAKE_GENERATOR MATCHES "Visual Studio")
         # Multi-config generators (VS/Xcode)
@@ -199,8 +197,8 @@ foreach(i RANGE 0 ${loop_end})
       DEPENDS ${CLANG_TEST_DEPS} ${name}
       ARGS ${CLANG_TEST_EXTRA_ARGS}
     )
-  endif()
-endforeach()
+  endforeach()
+endif()
 # -------------------------------------------------------------------------
 
 set(CLANG_TEST_PARAMS

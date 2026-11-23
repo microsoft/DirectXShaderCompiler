@@ -141,11 +141,13 @@ public:
   static OpCodeClass GetOpCodeClass(OpCode OpCode);
   static const char *GetOpCodeClassName(OpCode OpCode);
   static llvm::Attribute::AttrKind GetMemAccessAttr(OpCode opCode);
+  static bool IsDxilOpConvergent(OpCode C);
   static bool IsOverloadLegal(OpCode OpCode, llvm::Type *pType);
   static bool CheckOpCodeTable();
   static bool IsDxilOpFuncName(llvm::StringRef name);
   static bool IsDxilOpFunc(const llvm::Function *F);
   static bool IsDxilOpLinAlgFuncName(llvm::StringRef Name);
+  static bool IsDxilOpLinAlgFunc(const llvm::Function *F);
   static bool IsDxilOpFuncCallInst(const llvm::Instruction *I);
   static bool IsDxilOpFuncCallInst(const llvm::Instruction *I, OpCode opcode);
   static bool IsDxilOpWave(OpCode C);

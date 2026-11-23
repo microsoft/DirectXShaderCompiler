@@ -231,6 +231,8 @@ public:
                                 SpirvInstruction *lhs, SpirvInstruction *rhs,
                                 SourceLocation loc, SourceRange range = {});
 
+  /// \brief Creates a binary OpSpecConstantOp at module level, not in the
+  /// current basic block.
   SpirvSpecConstantBinaryOp *createSpecConstantBinaryOp(spv::Op op,
                                                         QualType resultType,
                                                         SpirvInstruction *lhs,
@@ -277,7 +279,7 @@ public:
   /// \brief Creates an OpUntypedImageTexelPointerEXT SPIR-V instruction with
   /// the given parameters.
   SpirvUntypedImageTexelPointerEXT *createUntypedImageTexelPointerEXT(
-      QualType resultType, SpirvInstruction *image,
+      QualType resultType, const SpirvType *imageType, SpirvInstruction *image,
       SpirvInstruction *coordinate, SpirvInstruction *sample, SourceLocation);
 
   /// \brief Creates an OpConverPtrToU SPIR-V instruction with the given
@@ -341,7 +343,8 @@ public:
   /// \brief Creates SPIR-V instructions for writing to the given image.
   void createImageWrite(QualType imageType, SpirvInstruction *image,
                         SpirvInstruction *coord, SpirvInstruction *texel,
-                        SourceLocation loc, SourceRange range = {});
+                        SpirvInstruction *sample, SourceLocation loc,
+                        SourceRange range = {});
 
   /// \brief Creates SPIR-V instructions for gathering the given image.
   ///
@@ -801,6 +804,12 @@ public:
   void decorateWithLiterals(SpirvInstruction *targetInst, unsigned decorate,
                             llvm::ArrayRef<unsigned> literals, SourceLocation);
 
+  /// \brief Decorates the given function with information from VKDecorateExt.
+  /// Used for [[vk::ext_decorate(...)]] placed directly on a function, which
+  /// emits an OpDecorate targeting the OpFunction.
+  void decorateWithLiterals(SpirvFunction *targetFunc, unsigned decorate,
+                            llvm::ArrayRef<unsigned> literals, SourceLocation);
+
   /// \brief Decorates the given target with result ids of SPIR-V
   /// instructions.
   void decorateWithIds(SpirvInstruction *targetInst, unsigned decorate,
@@ -825,6 +834,48 @@ public:
                        bool specConst = false);
   SpirvConstant *getConstantNull(QualType);
   SpirvConstant *getConstantString(llvm::StringRef str, bool specConst = false);
+
+  /// \brief Returns the OpConstantSizeOfEXT (SPV_EXT_descriptor_heap) for
+  /// descriptor operandType: client-API size in bytes as a 32-bit unsigned
+  /// integer.
+  SpirvConstant *getConstantSizeOfEXT(const SpirvType *operandType);
+
+  /// \brief Creates a ternary OpSpecConstantOp at module level, not in the
+  /// current basic block.
+  SpirvSpecConstantTernaryOp *
+  createSpecConstantTernaryOp(spv::Op op, QualType resultType,
+                              SpirvInstruction *op1, SpirvInstruction *op2,
+                              SpirvInstruction *op3, SourceLocation loc);
+
+  /// \brief Records that acceleration structures may be loaded from the
+  /// resource heap, so the resource-heap stride must cover their descriptor.
+  ///
+  /// Must be called before getResourceHeapArrayStride(), which builds and
+  /// caches the stride. A later call is ignored, so
+  /// resourceHeapStrideIncludesAccelStruct() stays false and code generation
+  /// must reject acceleration structure heap loads.
+  void registerResourceHeapAccelStruct() {
+    if (!resourceHeapArrayStride)
+      resourceHeapHasAccelStruct = true;
+  }
+
+  /// \brief Returns true if the resource-heap stride covers the acceleration
+  /// structure descriptor. Acceleration structure heap loads are only valid
+  /// when this is true.
+  bool resourceHeapStrideIncludesAccelStruct() const {
+    return resourceHeapHasAccelStruct;
+  }
+
+  /// \brief Returns the ArrayStrideIdEXT operand shared by every resource-heap
+  /// runtime array: the largest descriptor size among images and buffers, and
+  /// among acceleration structures if registerResourceHeapAccelStruct() was
+  /// called first. The value is built from specialization constants because
+  /// descriptor sizes are only known at pipeline creation.
+  SpirvInstruction *getResourceHeapArrayStride();
+
+  /// \brief Shared ArrayStrideIdEXT operand for sampler-heap runtime arrays:
+  /// the sampler descriptor size.
+  SpirvInstruction *getSamplerHeapArrayStride();
   SpirvUndef *getUndef(QualType);
 
   SpirvString *createString(llvm::StringRef str);
@@ -940,6 +991,20 @@ private:
   };
   /// Used as caches for all created builtin variables to avoid duplication.
   llvm::SmallVector<BuiltInVarInfo, 16> builtinVars;
+
+  /// Cache of OpConstantSizeOfEXT instructions keyed on the descriptor operand
+  /// type; each distinct descriptor type produces at most one constant.
+  llvm::DenseMap<const SpirvType *, SpirvConstant *> constantSizeOfEXTMap;
+
+  /// Cached shared descriptor-heap array strides, each emitted once per
+  /// module (see get{Resource,Sampler}HeapArrayStride).
+  SpirvInstruction *resourceHeapArrayStride = nullptr;
+  SpirvInstruction *samplerHeapArrayStride = nullptr;
+
+  /// Set by registerResourceHeapAccelStruct(). When true,
+  /// getResourceHeapArrayStride() includes the acceleration structure
+  /// descriptor size.
+  bool resourceHeapHasAccelStruct = false;
 
   SpirvDebugInfoNone *debugNone;
 

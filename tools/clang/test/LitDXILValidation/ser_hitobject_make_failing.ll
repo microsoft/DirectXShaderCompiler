@@ -7,9 +7,9 @@ target triple = "dxil-ms-dx"
 %dx.types.HitObject = type { i8* }
 
 ; CHECK: Function: ?main@@YAXXZ: error: Instructions should not read uninitialized value.
-; CHECK: note: at '%r265_udmiss = call %dx.types.HitObject @dx.op.hitObject_MakeMiss(i32 265, i32 4, i32 undef, float 0.000000e+00, float 0.000000e+00, float 0.000000e+00, float 0.000000e+00, float 1.000000e+00, float 0.000000e+00, float 0.000000e+00, float 9.999000e+03)' in block '#0' of function '?main@@YAXXZ'.
-; CHECK: Function: ?main@@YAXXZ: error: Instructions should not read uninitialized value.
 ; CHECK: note: at '%r265_udflags = call %dx.types.HitObject @dx.op.hitObject_MakeMiss(i32 265, i32 undef, i32 0, float 0.000000e+00, float 0.000000e+00, float 0.000000e+00, float 0.000000e+00, float 1.000000e+00, float 0.000000e+00, float 0.000000e+00, float 9.999000e+03)' in block '#0' of function '?main@@YAXXZ'.
+; CHECK: Function: ?main@@YAXXZ: error: Instructions should not read uninitialized value.
+; CHECK: note: at '%r265_udmiss = call %dx.types.HitObject @dx.op.hitObject_MakeMiss(i32 265, i32 4, i32 undef, float 0.000000e+00, float 0.000000e+00, float 0.000000e+00, float 0.000000e+00, float 1.000000e+00, float 0.000000e+00, float 0.000000e+00, float 9.999000e+03)' in block '#0' of function '?main@@YAXXZ'.
 ; CHECK: Validation failed.
 
 ; Function Attrs: nounwind

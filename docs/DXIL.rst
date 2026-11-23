@@ -515,33 +515,52 @@ Additional shader properties are specified via tag-value pair list, which is the
 Shader Flags
 ------------
 
-Shaders have additional flags that covey their capabilities via tag-value pair with tag kDxilShaderFlagsTag (0), followed by an i64 bitmask integer. The bits have the following meaning:
+Shaders have additional flags that convey their capabilities via a tag-value pair with tag kDxilShaderFlagsTag (0), followed by an i64 bitmask integer. The bits have the following meaning, Shader Model requirements, and criteria for being set:
 
-=== =====================================================================
-Bit Description
-=== =====================================================================
-0   Disable shader optimizations
-1   Disable math refactoring
-2   Shader uses doubles
-3   Force early depth stencil
-4   Enable raw and structured buffers
-5   Shader uses min-precision, expressed as half and i16
-6   Shader uses double extension intrinsics
-7   Shader uses MSAD
-8   All resources must be bound for the duration of shader execution
-9   Enable view port and RT array index from any stage feeding rasterizer
-10  Shader uses inner coverage
-11  Shader uses stencil
-12  Shader uses intrinsics that access tiled resources
-13  Shader uses relaxed typed UAV load formats
-14  Shader uses Level9 comparison filtering
-15  Shader uses up to 64 UAVs
-16  Shader uses UAVs
-17  Shader uses CS4 raw and structured buffers
-18  Shader uses Rasterizer Ordered Views
-19  Shader uses wave intrinsics
-20  Shader uses int64 instructions
-=== =====================================================================
+=== ==== ======================================================================================== ==========================================================================================================================================================================================================================================================================================================================================================
+Bit SM   Description                                                                              Criteria to set shader flag
+=== ==== ======================================================================================== ==========================================================================================================================================================================================================================================================================================================================================================
+0        Disable shader optimizations                                                             Command-line flag ``/Od`` is provided to DXC
+1        Disable math refactoring                                                                 Only used in Dxilconv; corresponds to ``~D3D10_SB_GLOBAL_FLAG_REFACTORING_ALLOWED`` in DXBC
+2        Double-precision floating point                                                          Use of the double data type
+3        Force early depth-stencil test                                                           Shader is a pixel shader, and the ``[earlydepthstencil]`` attribute is present in the HLSL source
+4        Raw and Structured buffers                                                               Use of RawBuffer or StructuredBuffer resource types
+5        Low-precision data types present                                                         Use of half or i16 data types
+6        Double-precision extensions for 11.1                                                     Use of FDiv, UIToFP, SIToFP, FPToUI, FPToSI, or Fma instructions with a double type
+7        Shader extensions for 11.1                                                               Use of the Msad instruction
+8        All resources bound for the duration of shader execution                                 Command-line flag ``/all_resources_bound`` provided to DXC
+9        SV_RenderTargetArrayIndex or SV_ViewportArrayIndex from any shader feeding rasterizer    ViewPortArrayIndex or RenderTargetArrayIndex semantics are present in the input signature of a geometry shader, or the output signature of a vertex, domain, or hull shader
+10       PS Inner Coverage                                                                        Use of the InnerCoverage instruction, or the InnerCoverage semantic is present in the output signature of a pixel shader
+11       PS Output Stencil Ref                                                                    The StencilRef semantic is present in the output signature of a pixel shader
+12       Tiled resources                                                                          Use of the CheckAccessFullyMapped instruction, or the use of LodClamp in any of the instructions: SampleGrad, SampleCmpGrad, Sample, SampleBias, SampleCmp, or SampleCmpBias
+13       Typed UAV load additional formats                                                        Use of TextureLoad or BufferLoad on a UAV with a multi-component data type.
+14       Comparison filtering for feature level 9                                                 Not set; unused legacy feature requirement flag
+15       64 UAV slots                                                                             More than 8 UAVs are declared, enabling the extended (64-slot) UAV register space. Each UAV array (range) contributes its range size to the count
+16       UAVs at every shader stage                                                               This is set when a vertex, hull, domain, or geometry shader declares one or more UAVs
+17       CS4 raw and structured buffers                                                           Use of RawBuffer or StructuedBuffer in a Shader Model 4.x compute shader
+18       Raster Ordered UAVs                                                                      Global presence of a rasterizer ordered view (ROV)
+19       Wave level operations                                                                    Use of any wave or quad intrinsic: WaveIsFirstLane, WaveGetLaneIndex, WaveGetLaneCount, WaveAnyTrue, WaveAllTrue, WaveActiveAllEqual, WaveActiveBallot, WaveReadLaneAt, WaveReadLaneFirst, WaveActiveOp, WaveActiveBit, WavePrefixOp, QuadReadLaneAt, QuadOp, WaveAllBitCount, WavePrefixBitCount, WaveMatch, WaveMultiPrefixOp, WaveMultiPrefixBitCount, QuadVote
+20       64-Bit integers                                                                          Use of i64 data types
+21  6.1+ View Instancing                                                                          Use of the ViewID instruction
+22  6.1+ Barycentrics                                                                             Use of the AttributeAtVertex instruction, or the Barcentrics semantic is present in the shader input signature
+23  6.2+ Enable native low-precision data types                                                   Command-line flag ``-enable-16bit-types`` is provided to DXC
+24  6.4+ ShadingRate                                                                              The ShadingRate semantic is present in the shader input or output signature
+25  6.5+ Raytracing tier 1.1 features                                                             Use of the AllocateRayQuery, AllocateRayQuery2, or GeometryIndex instruction
+
+26  6.5+ Sampler feedback                                                                         Use of any sampler feedback instructions: WriteSamplerFeedback, WriteSamplerFeedbackBias, WriteSamplerFeedbackLevel, and WriteSamplerFeedbackGrad
+27  6.6+ 64-bit Atomics on Typed Resources                                                        Use of i64 AtomicBinOp or AtomicCompareExchange instructions on a typed resource
+28  6.6+ 64-bit Atomics on Group Shared                                                           Use of i64 AtomicBinOp or AtomicCompareExchange instructions on group shared memory
+29  6.6+ Derivatives in mesh and amplification shaders                                            Use of instructions DerivFineX, DerivFineY, DerivCoarseX, DerivCoarseY, CalculateLOD, Sample, SampleBias, SampleCmp, or SampleCmpBias in a mesh or amplification shader
+30  6.6+ Resource descriptor heap indexing                                                        Use of the CreateHandleFromHeap instruction on a resource descriptor heap
+31  6.6+ Sampler descriptor heap indexing                                                         Use of the CreateHandleFromHeap instruction on a sampler descriptor heap
+32  6.6+ 64-bit Atomics on Heap Resources                                                         Use of i64 AtomicBinOp or AtomicCompareExchange instructions on a descriptor heap resource
+33  6.7+ Any UAV may not alias any other UAV                                                      Use of a UAV in any function, unless the ``-res-may-alias`` command-line flag is provided to DXC
+34  6.7+ Advanced Texture Ops                                                                     Use of SampleCmpLevel or TextureGatherRaw instructions, or the use of TextureLoad, SampleLevel, SampleCmpLevelZero, Sample Grad, SampleCmpGrad, Sample, SampleBias, SampleCamp, or SampleCmpBias with non-constant offsets
+35  6.7+ Writeable MSAA Textures                                                                  Set by use of the TextureStoreSample instruction or the presence of writeable MSAA texture resources accessed via a CreateHandle, CreateHandleForLib, or AnnotateHandle instruction
+36  6.9+ Reserved                                                                                 Unused
+37  6.8+ SampleCmp with gradient or bias                                                          Use of the instructions SampleCmpGrad or SampleCmpBias
+38  6.8+ Extended command info                                                                    Use of the instructions StartVertexLocation or StartInstanceLocation
+=== ==== ======================================================================================== ==========================================================================================================================================================================================================================================================================================================================================================
 
 Geometry Shader
 ---------------
@@ -2034,6 +2053,7 @@ ExtractElement extracts from vector
 InsertElement  inserts into vector
 ShuffleVector  Shuffle two vectors
 ExtractValue   extracts from aggregate
+InsertValue    inserts into aggregate
 ============== ======================================================================= =================
 
 
@@ -2428,6 +2448,39 @@ ID  Name                                                  Description
 309 VectorReduceAnd                                       Bitwise AND reduction of the vector returning a scalar
 310 VectorReduceOr                                        Bitwise OR reduction of the vector returning a scalar
 311 FDot                                                  computes the n-dimensional vector dot-product
+312 GetGroupWaveIndex                                     returns the index of the wave in the thread group
+313 GetGroupWaveCount                                     returns the number of waves in the thread group
+314 ClusterID                                             returns the user-defined ClusterID of the intersected CLAS
+315 RayQuery_CandidateClusterID                           returns candidate hit cluster ID
+316 RayQuery_CommittedClusterID                           returns committed hit cluster ID
+317 HitObject_ClusterID                                   returns the cluster ID of this committed hit
+318 TriangleObjectPosition                                returns triangle vertices in object space as <9 x float>
+319 RayQuery_CandidateTriangleObjectPosition              returns candidate triangle vertices in object space as <9 x float>
+320 RayQuery_CommittedTriangleObjectPosition              returns committed triangle vertices in object space as <9 x float>
+321 HitObject_TriangleObjectPosition                      returns triangle vertices in object space as <9 x float>
+322 LinAlgMatrixMultiplyAccumulate                        Returns the resulting matrix from multiplying A and B and accumulating into C
+323 LinAlgFillMatrix                                      fills a matrix with a scalar value
+324 LinAlgCopyConvertMatrix                               Converts and copies the element and use type of the source matrix to the destination matrix with optional transpose
+325 LinAlgMatrixLoadFromDescriptor                        fills a matrix with data from a [RW]ByteAddressBuffer
+326 LinAlgMatrixLoadFromMemory                            fills a matrix with data from a groupshared array
+327 LinAlgMatrixLength                                    returns the number of elements stored in thread-local storage on the active thread for the provided matrix
+328 LinAlgMatrixGetCoordinate                             returns a two element vector containing the column and row of the matrix that the thread-local index corresponds to
+329 LinAlgMatrixGetElement                                returns the element of the matrix corresponding to the provided thread-local index
+330 LinAlgMatrixSetElement                                sets the element of the matrix corresponding to the provided thread-local index
+331 LinAlgMatrixStoreToDescriptor                         stores a matrix to a RWByteAddressBuffer
+332 LinAlgMatrixStoreToMemory                             stores a matrix to groupshared memory
+333 LinAlgMatrixQueryAccumulatorLayout                    returns comptime 0 when accumulator matrix are A layout, 1 when B layout
+334 LinAlgMatrixMultiply                                  Returns the resulting matrix from multiplying A and B
+335 LinAlgMatrixAccumulate                                accumulate A or B matrix into Accumulator matrix following LHS += RHS
+336 LinAlgMatVecMul                                       Multiplies a MxK dimension matrix and a K sized input vector
+337 LinAlgMatVecMulAdd                                    Multiplies a MxK dimension matrix and a K sized input vector then adds a M sized bias vector
+338 LinAlgMatrixAccumulateToDescriptor                    accumulates a matrix to a RWByteAddressBuffer
+339 LinAlgMatrixAccumulateToMemory                        accumulates a matrix to groupshared memory
+340 LinAlgMatrixOuterProduct                              Outer products an M sized vector and a N sized vector producing an MxN matrix
+341 LinAlgConvert                                         Convert vector components from one interpretation to another
+342 LinAlgVectorAccumulateToDescriptor                    Accumulates given vector to the buffer at the given offset
+343 DebugBreak                                            triggers a breakpoint if debugging is enabled
+344 IsDebuggingEnabled                                    returns true if debugging is enabled
 === ===================================================== =======================================================================================================================================================================================================================
 
 
@@ -3062,45 +3115,45 @@ Given width, offset:
 
 Opcode Table ExperimentalOps, id=32768: Experimental DXIL operations
 
-========== ======================================== ===================================================================================================================
-ID         Name                                     Description
-========== ======================================== ===================================================================================================================
-2147483648 ExperimentalNop                          nop does nothing
-2147483649 GetGroupWaveIndex                        returns the index of the wave in the thread group
-2147483650 GetGroupWaveCount                        returns the number of waves in the thread group
-2147483651 ClusterID                                returns the user-defined ClusterID of the intersected CLAS
-2147483652 RayQuery_CandidateClusterID              returns candidate hit cluster ID
-2147483653 RayQuery_CommittedClusterID              returns committed hit cluster ID
-2147483654 HitObject_ClusterID                      returns the cluster ID of this committed hit
-2147483655 TriangleObjectPosition                   returns triangle vertices in object space as <9 x float>
-2147483656 RayQuery_CandidateTriangleObjectPosition returns candidate triangle vertices in object space as <9 x float>
-2147483657 RayQuery_CommittedTriangleObjectPosition returns committed triangle vertices in object space as <9 x float>
-2147483658 HitObject_TriangleObjectPosition         returns triangle vertices in object space as <9 x float>
-2147483659 LinAlgMatrixMultiplyAccumulate           Returns the resulting matrix from multiplying A and B and accumulating into C
-2147483660 LinAlgFillMatrix                         fills a matrix with a scalar value
-2147483661 LinAlgCopyConvertMatrix                  Converts and copies the element and use type of the source matrix to the destination matrix with optional transpose
-2147483662 LinAlgMatrixLoadFromDescriptor           fills a matrix with data from a [RW]ByteAddressBuffer
-2147483663 LinAlgMatrixLoadFromMemory               fills a matrix with data from a groupshared array
-2147483664 LinAlgMatrixLength                       returns the number of elements stored in thread-local storage on the active thread for the provided matrix
-2147483665 LinAlgMatrixGetCoordinate                returns a two element vector containing the column and row of the matrix that the thread-local index corresponds to
-2147483666 LinAlgMatrixGetElement                   returns the element of the matrix corresponding to the provided thread-local index
-2147483667 LinAlgMatrixSetElement                   sets the element of the matrix corresponding to the provided thread-local index
-2147483668 LinAlgMatrixStoreToDescriptor            stores a matrix to a RWByteAddressBuffer
-2147483669 LinAlgMatrixStoreToMemory                stores a matrix to groupshared memory
-2147483670 LinAlgMatrixQueryAccumulatorLayout       returns comptime 0 when accumulator matrix are A layout, 1 when B layout
-2147483671 LinAlgMatrixMultiply                     Returns the resulting matrix from multiplying A and B
-2147483672 LinAlgMatrixAccumulate                   accumulate A or B matrix into Accumulator matrix following LHS += RHS
-2147483673 LinAlgMatVecMul                          Multiplies a MxK dimension matrix and a K sized input vector
-2147483674 LinAlgMatVecMulAdd                       Multiplies a MxK dimension matrix and a K sized input vector then adds a M sized bias vector
-2147483675 LinAlgMatrixAccumulateToDescriptor       accumulates a matrix to a RWByteAddressBuffer
-2147483676 LinAlgMatrixAccumulateToMemory           accumulates a matrix to groupshared memory
-2147483677 LinAlgMatrixOuterProduct                 Outer products an M sized vector and a N sized vector producing an MxN matrix
-2147483678 LinAlgConvert                            Convert vector components from one interpretation to another
-2147483679 ReservedE0                               reserved
-2147483680 ReservedE1                               reserved
-2147483681 DebugBreak                               triggers a breakpoint if a debugger is attached
-2147483682 IsDebuggerPresent                        returns true if a debugger is attached
-========== ======================================== ===================================================================================================================
+========== =============== ================
+ID         Name            Description
+========== =============== ================
+2147483648 ExperimentalNop nop does nothing
+2147483649 ReservedE0      reserved
+2147483650 ReservedE1      reserved
+2147483651 ReservedE2      reserved
+2147483652 ReservedE3      reserved
+2147483653 ReservedE4      reserved
+2147483654 ReservedE5      reserved
+2147483655 ReservedE6      reserved
+2147483656 ReservedE7      reserved
+2147483657 ReservedE8      reserved
+2147483658 ReservedE9      reserved
+2147483659 ReservedE10     reserved
+2147483660 ReservedE11     reserved
+2147483661 ReservedE12     reserved
+2147483662 ReservedE13     reserved
+2147483663 ReservedE14     reserved
+2147483664 ReservedE15     reserved
+2147483665 ReservedE16     reserved
+2147483666 ReservedE17     reserved
+2147483667 ReservedE18     reserved
+2147483668 ReservedE19     reserved
+2147483669 ReservedE20     reserved
+2147483670 ReservedE21     reserved
+2147483671 ReservedE22     reserved
+2147483672 ReservedE23     reserved
+2147483673 ReservedE24     reserved
+2147483674 ReservedE25     reserved
+2147483675 ReservedE26     reserved
+2147483676 ReservedE27     reserved
+2147483677 ReservedE28     reserved
+2147483678 ReservedE29     reserved
+2147483679 ReservedE30     reserved
+2147483680 ReservedE31     reserved
+2147483681 ReservedE32     reserved
+2147483682 ReservedE33     reserved
+========== =============== ================
 
 
 .. OPCODES-RST:END
@@ -3190,6 +3243,34 @@ INSTR.ILLEGALDXILOPCODE                               DXILOpCode must be valid o
 INSTR.ILLEGALDXILOPFUNCTION                           '%0' is not a DXILOpFuncition for DXILOpcode '%1'.
 INSTR.IMMBIASFORSAMPLEB                               bias amount for sample_b must be in the range [%0,%1], but %2 was specified as an immediate.
 INSTR.INBOUNDSACCESS                                  Access to out-of-bounds memory is disallowed.
+INSTR.LINALGILLEGALCOMPONENTTYPE                      Component type '%0' from %1 not allowed in LinAlg Matrix operations.
+INSTR.LINALGILLEGALKDIM                               %0 matrix K dimension out of bounds. K=%1 must be >= %2 and <= %3.
+INSTR.LINALGMATRIX2PARTSMUSTMATCH                     %0 matrix %1 '%2' must match %3 matrix %4 '%5'.
+INSTR.LINALGMATRIXBYTEWISEMUSTBEMULTIPLE              Parameter '%0' in bytes must be a multiple of %1, got %2 (%3 elements * %4 bytes per element).
+INSTR.LINALGMATRIXDIMKVECKMISMATCH                    %0 vector size '%1' must be %2 for input matrix with K '%3' and Type '%4'
+INSTR.LINALGMATRIXDIMVECTORMISMATCH                   %0 vector size '%1' must match input matrix M dimension '%2'
+INSTR.LINALGMATRIXGSMEMMUSTBELARGEENOUGH              Groupshared memory holds '%0' %1 but must hold at least '%2' %3.
+INSTR.LINALGMATRIXGSMEMTYPEMUSTMATCH                  Groupshared memory inner type '%0' must match %1 type '%2'.
+INSTR.LINALGMATRIXLAYOUTREQSTRIDE                     %0 with layout '%1' requires stride 0.
+INSTR.LINALGMATRIXLOADTHREADREQUIRESBAB               Loading matrix with Thread scope requires ByteAddressBuffer.
+INSTR.LINALGMATRIXMATRIXKDIMMUSTMATCH                 K dim of A matrix '%0' must match K dim of B matrix '%1'. %2 != %3.
+INSTR.LINALGMATRIXMATRIXRESDIMMUSTMATCH               %0 matrix dimension '%1' must match A.MxB.N '%2'.
+INSTR.LINALGMATRIXNOTEXACTMATCH                       %0 matrix '%1' must exactly match %2 matrix '%3'.
+INSTR.LINALGMATRIXREQUIRESLAYOUT2                     %0 requires layout %1 or %2.
+INSTR.LINALGMATRIXREQUIRESRWBAB                       %0 requires RWByteAddressBuffer.
+INSTR.LINALGMATRIXSCOPEMISMATCH                       %0 matrix scope '%1' does not match expected scope %2.
+INSTR.LINALGMATRIXSCOPEMISMATCH2                      %0 matrix scope '%1' does not match expected scope %2 or %3.
+INSTR.LINALGMATRIXSCOPEMUSTMATCH3                     Matrix scope must be the same for all matrices. %0 '%1', %2 '%3', %4 '%5'.
+INSTR.LINALGMATRIXSCOPEMUSTMATCH4                     Matrix scope must be the same for all matrices. %0 '%1', %2 '%3', %4 '%5', %6 '%7'.
+INSTR.LINALGMATRIXSCOPEREQLAYOUT2                     %0 matrix with scope '%1' requires layout %2 or %3 for %4.
+INSTR.LINALGMATRIXUNSIGNEDFLOATTYPENOTALLOWED         Float-like type '%0' must be signed
+INSTR.LINALGMATRIXUSEMISMATCH                         %0 matrix use '%1' does not match expected use %2.
+INSTR.LINALGMATRIXUSEMISMATCH2                        %0 matrix use '%1' does not match expected use %2 or %3.
+INSTR.LINALGMATRIXVECELEMCOUNTMISMATCH                Return vector size '%0' must match size '%1' derived from input vector size and type.
+INSTR.LINALGMATRIXVECELEMENTTYPEMISMATCH              %0 vector element type '%1' must match %2 vector element type '%3'
+INSTR.LINALGMATRIXVECTORTYPEMUSTMATCH                 %0 vector element type '%1' must match %2 matrix element type '%3'.
+INSTR.LINALGMATRIXVECTORTYPEMUSTMATCHPACKED           %0 vector element type '%1' must be i32 for %2 matrix with non-native element type '%3'.
+INSTR.LINALGMETADATAMISSING                           %0 matrix must have well-formed metadata.
 INSTR.MAYREORDERTHREADUNDEFCOHERENCEHINTPARAM         Use of undef coherence hint or num coherence hint bits in MaybeReorderThread.
 INSTR.MINPRECISIONNOTPRECISE                          Instructions marked precise may not refer to minprecision values.
 INSTR.MINPRECISONBITCAST                              Bitcast on minprecison types is not allowed.
@@ -3217,6 +3298,7 @@ INSTR.OPCODERESERVED                                  Instructions must not refe
 INSTR.OPCONST                                         DXIL intrinsic requires an immediate constant operand
 INSTR.OPCONSTRANGE                                    Constant values must be in-range for operation.
 INSTR.OPERANDRANGE                                    DXIL intrinsic operand must be within defined range
+INSTR.PARAMMINIMUMVALUE                               Parameter must be greater than a minimum value
 INSTR.PARAMMULTIPLE                                   Parameter must be a valid multiple
 INSTR.PTRBITCAST                                      Pointer type bitcast must be have same size.
 INSTR.REORDERCOHERENTREQUIRESSM69                     reordercoherent requires SM 6.9 or later.
@@ -3376,6 +3458,7 @@ SM.RESOURCERANGEOVERLAP                               Resource ranges must not o
 SM.ROVONLYINPS                                        RasterizerOrdered objects are only allowed in 5.0+ pixel shaders.
 SM.SAMPLECOUNTONLYON2DMS                              Only Texture2DMS/2DMSArray could has sample count.
 SM.SEMANTIC                                           Semantic must be defined in target shader model
+SM.SHADERSTAGE                                        Shader stage must be supported by the target shader model
 SM.STREAMINDEXRANGE                                   Stream index (%0) must between 0 and %1.
 SM.TESSFACTORFORDOMAIN                                Required TessFactor for domain not found declared anywhere in Patch Constant data.
 SM.TESSFACTORSIZEMATCHDOMAIN                          TessFactor rows, columns (%0, %1) invalid for domain %2.  Expected %3 rows and 1 column.

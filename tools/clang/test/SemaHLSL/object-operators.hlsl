@@ -516,9 +516,9 @@ float4 plain(float4 param4 /* : FOO */) /*: FOO */{
   (f3_ss = SamplerStates); // expected-error {{cannot convert from 'SamplerState' to 'f3_s'}} fxc-error {{X3017: cannot implicitly convert from 'SamplerState' to 'struct f3_s'}}
   _Static_assert(std::is_same<f3_s, __decltype(f3_ss = f3_ss)>::value, "");
   (f3_ss = mixed_ss); // expected-error {{cannot implicitly convert from 'mixed_s' to 'f3_s'}} fxc-error {{X3017: cannot convert from 'struct mixed_s' to 'struct f3_s'}}
-  (mixed_ss = bools); // expected-error {{cannot implicitly convert from 'bool' to 'mixed_s'}} fxc-error {{X3017: cannot implicitly convert from 'bool' to 'struct mixed_s'}}
-  (mixed_ss = ints); // expected-error {{cannot implicitly convert from 'int' to 'mixed_s'}} fxc-error {{X3017: cannot implicitly convert from 'int' to 'struct mixed_s'}}
-  (mixed_ss = floats); // expected-error {{cannot implicitly convert from 'float' to 'mixed_s'}} fxc-error {{X3017: cannot implicitly convert from 'float' to 'struct mixed_s'}}
+  (mixed_ss = bools); // expected-error {{cannot convert from 'bool' to 'mixed_s'}} fxc-error {{X3017: cannot implicitly convert from 'bool' to 'struct mixed_s'}}
+  (mixed_ss = ints); // expected-error {{cannot convert from 'int' to 'mixed_s'}} fxc-error {{X3017: cannot implicitly convert from 'int' to 'struct mixed_s'}}
+  (mixed_ss = floats); // expected-error {{cannot convert from 'float' to 'mixed_s'}} fxc-error {{X3017: cannot implicitly convert from 'float' to 'struct mixed_s'}}
   (mixed_ss = SamplerStates); // expected-error {{cannot convert from 'SamplerState' to 'mixed_s'}} fxc-error {{X3017: cannot implicitly convert from 'SamplerState' to 'struct mixed_s'}}
   (mixed_ss = f3_ss); // expected-error {{cannot convert from 'f3_s' to 'mixed_s'}} fxc-error {{X3017: cannot implicitly convert from 'struct f3_s' to 'struct mixed_s'}}
   // This confuses the semantic checks on template types, which are assumed to be only for built-in template-like constructs.

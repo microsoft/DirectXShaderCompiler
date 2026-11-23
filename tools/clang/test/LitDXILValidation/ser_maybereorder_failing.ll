@@ -6,14 +6,14 @@ target triple = "dxil-ms-dx"
 
 %dx.types.HitObject = type { i8* }
 
-; CHECK: Function: ?main@@YAXXZ: error: Use of undef coherence hint or num coherence hint bits in MaybeReorderThread.
-; CHECK-NEXT: note: at 'call void @dx.op.maybeReorderThread(i32 268, %dx.types.HitObject %nop, i32 1, i32 undef)'
+; CHECK: Function: ?main@@YAXXZ: error: HitObject is undef.
+; CHECK-NEXT: note: at 'call void @dx.op.maybeReorderThread(i32 268, %dx.types.HitObject undef, i32 11, i32 0)'
 
 ; CHECK: Function: ?main@@YAXXZ: error: Use of undef coherence hint or num coherence hint bits in MaybeReorderThread.
 ; CHECK-NEXT: note: at 'call void @dx.op.maybeReorderThread(i32 268, %dx.types.HitObject %nop, i32 undef, i32 1)'
 
-; CHECK: Function: ?main@@YAXXZ: error: HitObject is undef.
-; CHECK-NEXT: note: at 'call void @dx.op.maybeReorderThread(i32 268, %dx.types.HitObject undef, i32 11, i32 0)'
+; CHECK: Function: ?main@@YAXXZ: error: Use of undef coherence hint or num coherence hint bits in MaybeReorderThread.
+; CHECK-NEXT: note: at 'call void @dx.op.maybeReorderThread(i32 268, %dx.types.HitObject %nop, i32 1, i32 undef)'
 
 ; CHECK: Validation failed.
 

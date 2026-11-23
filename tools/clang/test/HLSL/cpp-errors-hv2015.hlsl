@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -HV 2015 -fsyntax-only -Wno-unused-value -ffreestanding -verify %s
+// RUN: %clang_cc1 -Wno-hlsl-buffer-initializer -HV 2015 -fsyntax-only -Wno-unused-value -ffreestanding -verify %s
 
 float f_arr_empty_init[] = { 1, 2, 3 };
 float f_arr_empty_pack[] = { 1, 2 ... }; // expected-error {{expansion is unsupported in HLSL}}
@@ -59,7 +59,7 @@ struct s_with_friend {
   friend void some_fn(); // expected-error {{'friend' is a reserved keyword in HLSL}}
 };
 
-typedef int (*fn_int_const)(int) const; // expected-error {{expected ';' after top level declarator}} expected-error {{pointers are unsupported in HLSL}} expected-warning {{declaration does not declare anything}}
+typedef int (*fn_int_const)(int) const; // expected-error {{const-qualified member functions are unsupported in HLSL before 202x}} expected-error {{pointers are unsupported in HLSL}}
 typedef int (*fn_int_volatile)(int) volatile; // expected-error {{'volatile' is a reserved keyword in HLSL}} expected-error {{expected ';' after top level declarator}} expected-error {{pointers are unsupported in HLSL}} expected-warning {{declaration does not declare anything}}
 
 void fn_throw() throw() { } // expected-error {{exception specification is unsupported in HLSL}}
@@ -94,10 +94,10 @@ typename typedef float4 TFloat4; // expected-error {{'typename' is a reserved ke
 class C {
   int fn_eq_default() = default; // expected-error {{function deletion and defaulting is unsupported in HLSL}}
 
-  // Errors are a bit misleading here, but ultimate we don't support these.
-  void* operator new(); // expected-error {{'operator' is a reserved keyword in HLSL}} expected-error {{pointers are unsupported in HLSL}}
-  void* operator new(int); // expected-error {{'operator' is a reserved keyword in HLSL}} expected-error {{pointers are unsupported in HLSL}}
-  void* operator new(size_t); // expected-error {{'operator' is a reserved keyword in HLSL}} expected-error {{pointers are unsupported in HLSL}}
+  // Pointer return type is no longer caught at parse time; operator keyword error is still reported.
+  void* operator new(); // expected-error {{'operator' is a reserved keyword in HLSL}}
+  void* operator new(int); // expected-error {{'operator' is a reserved keyword in HLSL}}
+  void* operator new(size_t); // expected-error {{'operator' is a reserved keyword in HLSL}}
 
   C() = delete; // expected-error {{HLSL requires a type specifier for all declarations}} expected-error {{constructor cannot have a return type}}
 };

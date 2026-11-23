@@ -258,6 +258,55 @@ void BDCE::determineLiveOperandBits(const Instruction *UserI,
   }
 }
 
+// HLSL Change Begin - Clear poison generators after BDCE.
+// Backport of upstream LLVM D36592, adapted to this pass's
+// AliveBits map and lack of dropPoisonGeneratingFlags function.
+//
+// If an instruction is trivialized (replaced by zero because all of its bits
+// are dead), then the chain of users of that instruction may carry
+// poison-generating flags (nsw/nuw/exact) that were inferred from the
+// original operand values and can no longer be guaranteed correct. Drop them,
+// following the def-use chain until reaching users that demand all of their
+// bits (nothing below such a user can observe the change).
+static void clearAssumptionsOfUsers(Instruction *I,
+                                    DenseMap<Instruction *, APInt> &AliveBits,
+                                    SmallPtrSetImpl<Instruction *> &Visited) {
+  auto NotAllBitsDemanded = [&AliveBits](Instruction *J) {
+    if (!J->getType()->isIntegerTy())
+      return false;
+    auto ABI = AliveBits.find(J);
+    if (ABI == AliveBits.end())
+      return false;
+    return !ABI->second.isAllOnesValue();
+  };
+
+  SmallVector<Instruction *, 16> WorkList;
+  for (User *JU : I->users()) {
+    Instruction *J = dyn_cast<Instruction>(JU);
+    if (J && NotAllBitsDemanded(J) && Visited.insert(J).second)
+      WorkList.push_back(J);
+  }
+
+  while (!WorkList.empty()) {
+    Instruction *J = WorkList.pop_back_val();
+
+    // NSW, NUW, and exact are based on operands that might have changed.
+    if (isa<OverflowingBinaryOperator>(J)) {
+      cast<BinaryOperator>(J)->setHasNoUnsignedWrap(false);
+      cast<BinaryOperator>(J)->setHasNoSignedWrap(false);
+    } else if (isa<PossiblyExactOperator>(J)) {
+      cast<BinaryOperator>(J)->setIsExact(false);
+    }
+
+    for (User *KU : J->users()) {
+      Instruction *K = dyn_cast<Instruction>(KU);
+      if (K && NotAllBitsDemanded(K) && Visited.insert(K).second)
+        WorkList.push_back(K);
+    }
+  }
+}
+// HLSL Change End - Clear poison generators after BDCE.
+
 bool BDCE::runOnFunction(Function& F) {
   if (skipOptnoneFunction(F))
     return false;
@@ -361,6 +410,8 @@ bool BDCE::runOnFunction(Function& F) {
   }
 
   bool Changed = false;
+  // HLSL Change - Clear poison generators after BDCE.
+  SmallPtrSet<Instruction *, 16> FlagClearingVisited;
   // The inverse of the live set is the dead set.  These are those instructions
   // which have no side effects and do not influence the control flow or return
   // value of the function, and may therefore be deleted safely.
@@ -381,6 +432,8 @@ bool BDCE::runOnFunction(Function& F) {
         // undef, poison, etc.
         Value *Zero = ConstantInt::get(I.getType(), 0);
         ++NumSimplified;
+        // HLSL Change - Clear poison generators after BDCE.
+        clearAssumptionsOfUsers(&I, AliveBits, FlagClearingVisited);
         I.replaceAllUsesWith(Zero);
         Changed = true;
       }

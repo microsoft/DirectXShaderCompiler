@@ -163,3 +163,28 @@ A pull request's commits should be squashed on merging except in very special ci
 
 Ensure that the title and description are fully up to date before merging.
 The title and description feed the final git commit message, and we want to ensure high quality commit messages in the repository history.
+
+## Obtaining Write Access
+
+You do not need write access to contribute. Anyone can submit changes by opening a pull request from a fork, and a maintainer will merge it once it is approved.
+
+Write access is granted to contributors who have built up a track record of high-quality contributions and want to help carry more of the day-to-day work, such as merging approved pull requests. It is a matter of trust and shared responsibility, not a reward or a status.
+
+### Who is eligible
+
+There is no fixed quota, but as a rough guideline we look for contributors who have landed several non-trivial pull requests (on the order of 3-5) that were merged with little rework. We are looking for a demonstrated understanding of the codebase, the coding standards, and the review process described above.
+
+### Requesting access
+
+When you think you meet the bar, open a GitHub issue requesting write access. Include:
+
+- the GitHub username you want access for, and
+- links to a few representative pull requests you have already landed.
+
+An existing maintainer will follow up. They may vouch for the request, ask for more context, or suggest landing a few more changes first.
+
+### What is expected once you have access
+
+Write access does not change how changes are made. All changes still go through pull requests and code review; you should not push directly to protected branches or merge your own changes without the required approvals. You are expected to continue following the coding standards, testing requirements, and the [Code of Conduct](README.md#code-of-conduct).
+
+Access may be removed after prolonged inactivity or for violating project policies. This is not a judgement on you, and you are welcome to request access again later.

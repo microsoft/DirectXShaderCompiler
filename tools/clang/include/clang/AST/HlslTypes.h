@@ -490,7 +490,6 @@ bool IsHLSLObjectWithImplicitROMemberAccess(clang::QualType type);
 bool IsHLSLRWNodeInputRecordType(clang::QualType type);
 bool IsHLSLRONodeInputRecordType(clang::QualType type);
 bool IsHLSLDispatchNodeInputRecordType(clang::QualType type);
-bool IsHLSLNodeRecordArrayType(clang::QualType type);
 bool IsHLSLNodeOutputType(clang::QualType type);
 bool IsHLSLEmptyNodeRecordType(clang::QualType type);
 
@@ -521,6 +520,14 @@ bool IsHLSLRayQueryType(clang::QualType type);
 bool GetHLSLNodeIORecordType(const clang::ParmVarDecl *parmDecl,
                              NodeFlags &nodeKind);
 
+/// Returns the DXIL ResourceKind for this type, or ResourceKind::Invalid if
+/// not an HLSL resource type.
+DXIL::ResourceKind GetHLSLResourceKind(clang::QualType type);
+
+/// Returns the DXIL ResourceClass for this type, or ResourceClass::Invalid if
+/// not an HLSL resource type.
+DXIL::ResourceClass GetHLSLResourceClass(clang::QualType type);
+
 bool IsArrayConstantStringType(const clang::QualType type);
 bool IsPointerStringType(const clang::QualType type);
 bool IsStringType(const clang::QualType type);
@@ -546,6 +553,7 @@ bool DoesTypeDefineOverloadedOperator(clang::QualType typeWithOperator,
                                       clang::OverloadedOperatorKind opc,
                                       clang::QualType paramType);
 bool IsPatchConstantFunctionDecl(const clang::FunctionDecl *FD);
+bool IsTypeDeducibleWithAuto(clang::QualType type);
 
 #ifdef ENABLE_SPIRV_CODEGEN
 bool IsVKBufferPointerType(clang::QualType type);

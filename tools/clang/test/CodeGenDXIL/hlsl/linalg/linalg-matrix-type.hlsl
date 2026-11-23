@@ -1,6 +1,6 @@
 // REQUIRES: dxil-1-10
-// RUN: %dxc -I %hlsl_headers -T lib_6_10 -fcgl %s | FileCheck %s
-// RUN: %dxc -I %hlsl_headers -T lib_6_10 %s | FileCheck %s --check-prefix=CHECKVAL
+// RUN: %dxc -T lib_6_10 -fcgl %s | FileCheck %s
+// RUN: %dxc -T lib_6_10 %s | FileCheck %s --check-prefix=CHECKVAL
 
 #include <dx/linalg.h>
 using namespace dx::linalg;

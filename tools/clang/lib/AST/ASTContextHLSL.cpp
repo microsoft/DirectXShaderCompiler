@@ -472,6 +472,25 @@ static void AddRecordSubscriptAccess(clang::ASTContext &Ctx,
   AddRecordAccessMethod(Ctx, RD, ReturnTy, false, true, true);
 }
 
+static AvailabilityAttr *
+ConstructAvailabilityAttribute(clang::ASTContext &context,
+                               VersionTuple Introduced,
+                               VersionTuple Deprecated = VersionTuple(),
+                               VersionTuple Obsoleted = VersionTuple()) {
+  AvailabilityAttr *AAttr = AvailabilityAttr::CreateImplicit(
+      context, &context.Idents.get(""), Introduced, Deprecated, Obsoleted,
+      false, "");
+  return AAttr;
+}
+
+// Work graph node record objects: available SM6.8, deprecated SM6.9,
+// obsoleted SM6.10.
+static AvailabilityAttr *
+ConstructNodeRecordAvailabilityAttribute(clang::ASTContext &context) {
+  return ConstructAvailabilityAttribute(
+      context, VersionTuple(6, 8), VersionTuple(6, 9), VersionTuple(6, 10));
+}
+
 /// <summary>Adds up-front support for HLSL *NodeOutputRecords template
 /// types.</summary>
 void hlsl::AddHLSLNodeOutputRecordTemplate(
@@ -496,6 +515,8 @@ void hlsl::AddHLSLNodeOutputRecordTemplate(
 
   typeDeclBuilder.getRecordDecl()->addAttr(
       HLSLNodeObjectAttr::CreateImplicit(context, Type));
+  typeDeclBuilder.getRecordDecl()->addAttr(
+      ConstructNodeRecordAvailabilityAttribute(context));
 
   QualType elementType = context.getTemplateTypeParmType(
       0, 0, ParameterPackFalse, outputTemplateParamDecl);
@@ -544,14 +565,6 @@ hlsl::DeclareRecordTypeWithHandle(ASTContext &context, StringRef name,
   if (isCompleteType)
     return typeDeclBuilder.completeDefinition();
   return typeDeclBuilder.getRecordDecl();
-}
-
-AvailabilityAttr *ConstructAvailabilityAttribute(clang::ASTContext &context,
-                                                 VersionTuple Introduced) {
-  AvailabilityAttr *AAttr = AvailabilityAttr::CreateImplicit(
-      context, &context.Idents.get(""), clang::VersionTuple(6, 9),
-      clang::VersionTuple(), clang::VersionTuple(), false, "");
-  return AAttr;
 }
 
 // creates a global static constant unsigned integer with value.
@@ -607,9 +620,10 @@ static void AddTypedefPseudoEnum(ASTContext &context, StringRef name,
 /// <summary> Adds all constants and enums for ray tracing </summary>
 void hlsl::AddRaytracingConstants(ASTContext &context) {
 
-  // Create aversion tuple for availability attributes
+  // Create version tuples for availability attributes
   // for the RAYQUERY_FLAG enum
   VersionTuple VT69 = VersionTuple(6, 9);
+  VersionTuple VT610 = VersionTuple(6, 10);
 
   AddTypedefPseudoEnum(
       context, "RAY_FLAG",
@@ -637,7 +651,10 @@ void hlsl::AddRaytracingConstants(ASTContext &context) {
       {{"RAYQUERY_FLAG_NONE", (unsigned)DXIL::RayQueryFlag::None},
        {"RAYQUERY_FLAG_ALLOW_OPACITY_MICROMAPS",
         (unsigned)DXIL::RayQueryFlag::AllowOpacityMicromaps,
-        ConstructAvailabilityAttribute(context, VT69)}});
+        ConstructAvailabilityAttribute(context, VT69)},
+       {"RAYQUERY_FLAG_ALLOW_CLUSTERED_GEOMETRY",
+        (unsigned)DXIL::RayQueryFlag::AllowClusteredGeometry,
+        ConstructAvailabilityAttribute(context, VT610)}});
 
   AddTypedefPseudoEnum(
       context, "COMMITTED_STATUS",
@@ -662,8 +679,8 @@ void hlsl::AddRaytracingConstants(ASTContext &context) {
   AddConstUInt(context, StringRef("HIT_KIND_TRIANGLE_BACK_FACE"),
                (unsigned)DXIL::HitKind::TriangleBackFace);
 
-  // static const uint CLUSTER_ID_INVALID = 0xffffffff;
-  AddConstUInt(context, StringRef("CLUSTER_ID_INVALID"), 0xffffffff);
+  AddTypedefPseudoEnum(context, "CLUSTER_ID_CONSTANTS",
+                       {{"CLUSTER_ID_INVALID", 0xffffffff}});
 
   AddConstUInt(
       context,
@@ -706,6 +723,10 @@ void hlsl::AddRaytracingConstants(ASTContext &context) {
                StringRef("RAYTRACING_PIPELINE_FLAG_ALLOW_OPACITY_MICROMAPS"),
                (unsigned)DXIL::RaytracingPipelineFlags::AllowOpacityMicromaps,
                ConstructAvailabilityAttribute(context, VT69));
+  AddConstUInt(context, context.getTranslationUnitDecl(),
+               StringRef("RAYTRACING_PIPELINE_FLAG_ALLOW_CLUSTERED_GEOMETRY"),
+               (unsigned)DXIL::RaytracingPipelineFlags::AllowClusteredGeometry,
+               ConstructAvailabilityAttribute(context, VT610));
 }
 
 /// <summary> Adds all constants and enums for sampler feedback </summary>
@@ -1319,6 +1340,9 @@ CXXRecordDecl *hlsl::DeclareResourceType(ASTContext &context, bool bSampler) {
   typeDeclBuilder.addField("h", GetHLSLObjectHandleType(context));
 
   CXXRecordDecl *recordDecl = typeDeclBuilder.getRecordDecl();
+  recordDecl->addAttr(
+      HLSLDynamicResourceAttr::CreateImplicit(context, bSampler));
+  recordDecl->addAttr(HLSLNonAutoDeducibleAttr::CreateImplicit(context));
 
   QualType indexType = context.UnsignedIntTy;
   QualType resultType = context.getRecordType(recordDecl);
@@ -1353,6 +1377,8 @@ CXXRecordDecl *hlsl::DeclareNodeOrRecordType(
 
   Builder.getRecordDecl()->addAttr(
       HLSLNodeObjectAttr::CreateImplicit(Ctx, Type));
+  Builder.getRecordDecl()->addAttr(
+      ConstructNodeRecordAvailabilityAttribute(Ctx));
 
   if (IsRecordTypeTemplate) {
     QualType ParamTy = QualType(TyParamDecl->getTypeForDecl(), 0);
@@ -1486,6 +1512,8 @@ CXXRecordDecl *hlsl::DeclareNodeOutputArray(clang::ASTContext &Ctx,
 
   Builder.getRecordDecl()->addAttr(
       HLSLNodeObjectAttr::CreateImplicit(Ctx, Type));
+  Builder.getRecordDecl()->addAttr(
+      ConstructNodeRecordAvailabilityAttribute(Ctx));
 
   QualType ResultType;
   if (IsRecordTypeTemplate) {

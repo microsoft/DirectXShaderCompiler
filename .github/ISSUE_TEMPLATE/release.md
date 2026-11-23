@@ -7,6 +7,13 @@ assignees: ''
 
 ---
 
+
+<!-- 
+Some of the steps below might not be required; delete them as appropriate.
+Some known scenarios that might require editing include, but are not limited to: 
+point releases; targeting a specific release, such as a Vulkan SDK only; and preview releases.
+-->
+
 # Schedule
 
 - [ ] MM/DD/YYYY - Release branch forks from `main`
@@ -20,6 +27,7 @@ assignees: ''
 
 # Tasks
 
+<!-- This is only required if the release branch doesn't exist -->
 ## Before Fork
 
 This part of the release process is to 'prime the pump' - that is to make sure
@@ -35,6 +43,8 @@ we are confident we can generate builds for the new branch
     - [ ] Zip files for github release
     - [ ] NuGet package
     - [ ] VPack
+- [ ] Update SPIRV-Headers and SPIRV-Tools submodules, in the release branch,
+      to target the commits specified by LunarG.
 - [ ] Final merge of `main` into the release branch
 
 ## After Fork
@@ -45,12 +55,14 @@ we are confident we can generate builds for the new branch
 ## Quality Sign Off
 
 - [ ] Microsoft Testing Sign-off (@damyanp)
-- [ ] Google Testing Sign-off (@s-perron / @Keenuts)
+- [ ] NVIDIA Testing Sign-off (@dnovillo / @pow2clk)
 
 ## Release
 
 - [ ] Tag final release and post binaries
 - [ ] Add the new compiler to Compiler Explorer
+- [ ] Email LunarG the release tag and update the release spreadsheet.
+- [ ] Publish the new compiler NuGet package.
 
 
 [^1]: [Ask Mode](https://devblogs.microsoft.com/oldnewthing/20140722-00/?p=433)

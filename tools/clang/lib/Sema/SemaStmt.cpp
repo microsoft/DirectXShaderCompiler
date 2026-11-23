@@ -245,7 +245,11 @@ void Sema::DiagnoseUnusedExprResult(const Stmt *S) {
       const FunctionDecl *Func = dyn_cast<FunctionDecl>(FD);
       if (Func ? Func->hasUnusedResultAttr()
                : FD->hasAttr<WarnUnusedResultAttr>()) {
-        Diag(Loc, diag::warn_unused_result) << R1 << R2;
+        // HLSL Change Begin - allow attribute spelling to come in.
+        Attr *NoDiscardAttr = Func ? Func->getNoDiscardAttr()
+                                   : FD->getAttr<WarnUnusedResultAttr>();
+        Diag(Loc, diag::warn_unused_result) << NoDiscardAttr << R1 << R2;
+        // HLSL Change End
         return;
       }
       if (ShouldSuppress)
@@ -270,7 +274,10 @@ void Sema::DiagnoseUnusedExprResult(const Stmt *S) {
     const ObjCMethodDecl *MD = ME->getMethodDecl();
     if (MD) {
       if (MD->hasAttr<WarnUnusedResultAttr>()) {
-        Diag(Loc, diag::warn_unused_result) << R1 << R2;
+        // HLSL Change Begin - allow attribute spelling to come in.
+        Diag(Loc, diag::warn_unused_result)
+            << MD->getAttr<WarnUnusedResultAttr>() << R1 << R2;
+        // HLSL Change End
         return;
       }
     }
@@ -3064,6 +3071,17 @@ bool Sema::DeduceFunctionTypeFromReturnExpr(FunctionDecl *FD,
     if (DAR != DAR_Succeeded)
       return true;
 
+    // HLSL Change Begin - Diagnose deduced return types that 'auto' cannot
+    // represent. A dependent deduced type cannot be classified yet; defer the
+    // check to instantiation, when 'auto' is re-deduced to a concrete type.
+    if (getLangOpts().HLSL && !Deduced->isDependentType() &&
+        !hlsl::IsTypeDeducibleWithAuto(Deduced)) {
+      Diag(RetExpr->getExprLoc(), diag::err_hlsl_auto_undeducible_type)
+          << Deduced;
+      return true;
+    }
+    // HLSL Change End
+
     // If a local type is part of the returned type, mark its fields as
     // referenced.
     LocalTypedefNameReferencer Referencer(*this);
@@ -3170,7 +3188,9 @@ StmtResult Sema::BuildReturnStmt(SourceLocation ReturnLoc, Expr *RetValExp) {
 
   // FIXME: Add a flag to the ScopeInfo to indicate whether we're performing
   // deduction.
-  if (getLangOpts().CPlusPlus14) {
+  // HLSL Change Begin - HLSL supports C++14-style deduced return types.
+  if (getLangOpts().CPlusPlus14 || getLangOpts().HLSL) {
+    // HLSL Change End
     if (AutoType *AT = FnRetType->getContainedAutoType()) {
       FunctionDecl *FD = cast<FunctionDecl>(CurContext);
       if (DeduceFunctionTypeFromReturnExpr(FD, ReturnLoc, RetValExp, AT)) {

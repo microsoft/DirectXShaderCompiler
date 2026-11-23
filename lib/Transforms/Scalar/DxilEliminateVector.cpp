@@ -10,6 +10,7 @@
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
+#include "llvm/ADT/SetVector.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/Pass.h"
@@ -154,14 +155,14 @@ bool DxilEliminateVector::runOnFunction(Function &F) {
   auto *DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
   DxilValueCache *DVC = &getAnalysis<DxilValueCache>();
 
-  std::vector<Instruction *> VectorInsts;
+  SmallSetVector<Instruction *, 16> VectorInsts;
   std::vector<AllocaInst *> VectorAllocas;
 
   // Collect the vector insts and allocas.
   for (auto &BB : F) {
     for (auto &I : BB)
       if (isa<InsertElementInst>(&I) || isa<ExtractElementInst>(&I))
-        VectorInsts.push_back(&I);
+        VectorInsts.insert(&I);
       else if (AllocaInst *AI = dyn_cast<AllocaInst>(&I)) {
         if (AI->getAllocatedType()->isVectorTy() &&
             llvm::isAllocaPromotable(AI))
@@ -181,40 +182,36 @@ bool DxilEliminateVector::runOnFunction(Function &F) {
     Changed = true;
   }
 
-  // Iteratively try to remove them, untill all gone or unable to
-  // do it anymore.
-  unsigned Attempts = VectorInsts.size();
-  for (unsigned i = 0; i < Attempts; i++) {
-    bool LocalChange = false;
+  while (!VectorInsts.empty()) {
+    Instruction *I = VectorInsts.pop_back_val();
+    bool Remove = false;
 
-    for (unsigned j = 0; j < VectorInsts.size();) {
-      auto *I = VectorInsts[j];
-      bool Remove = false;
+    if (InsertElementInst *IE = dyn_cast<InsertElementInst>(I))
+      TryRewriteDebugInfoForVector(IE);
 
-      if (InsertElementInst *IE = dyn_cast<InsertElementInst>(I)) {
-        TryRewriteDebugInfoForVector(IE);
-      }
-
-      if (Value *V = DVC->GetValue(I, DT)) {
-        I->replaceAllUsesWith(V);
-        Remove = true;
-      } else if (I->user_empty()) {
-        Remove = true;
-      }
-
-      // Do the remove
-      if (Remove) {
-        LocalChange = true;
-        I->eraseFromParent();
-        VectorInsts.erase(VectorInsts.begin() + j);
-      } else {
-        j++;
-      }
+    if (Value *V = DVC->GetValue(I, DT)) {
+      I->replaceAllUsesWith(V);
+      Remove = true;
+    } else if (I->user_empty()) {
+      Remove = true;
     }
 
-    Changed |= LocalChange;
-    if (!LocalChange)
-      break;
+    if (!Remove)
+      continue;
+
+    SmallVector<Instruction *, 2> VectorOperands;
+    for (Value *Operand : I->operands())
+      if (Instruction *OperandI = dyn_cast<Instruction>(Operand))
+        if (isa<InsertElementInst>(OperandI) ||
+            isa<ExtractElementInst>(OperandI))
+          VectorOperands.push_back(OperandI);
+
+    I->eraseFromParent();
+    Changed = true;
+
+    for (Instruction *OperandI : VectorOperands)
+      if (OperandI->user_empty())
+        VectorInsts.insert(OperandI);
   }
 
   return Changed;

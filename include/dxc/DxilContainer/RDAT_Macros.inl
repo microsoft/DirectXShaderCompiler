@@ -106,7 +106,7 @@
 #define RDAT_FLAGS(sTy, eTy, name) sTy name;
 #define RDAT_BYTES(name) hlsl::RDAT::BytesRef name;
 #define RDAT_ARRAY_VALUE(type, count, type_name, name) type_name name;
-#define RDAT_STRUCT_TABLE_DERIVED(type, base, table)                           \
+#define RDAT_STRUCT_TABLE_DERIVED(type, base, table, MajorVer, MinorVer)       \
   template <> constexpr const char *RecordTraits<type>::TypeName();            \
   template <> constexpr RecordTableIndex RecordTraits<type>::TableIndex();     \
   template <> constexpr RuntimeDataPartType RecordTraits<type>::PartType();    \
@@ -169,7 +169,7 @@
     return BaseRecordReader::asRecord<type>();                                 \
   }
 #define RDAT_STRUCT_TABLE(type, table) RDAT_STRUCT(type)
-#define RDAT_STRUCT_TABLE_DERIVED(type, base, table)                           \
+#define RDAT_STRUCT_TABLE_DERIVED(type, base, table, MajorVer, MinorVer)       \
   RDAT_STRUCT_DERIVED(type, base)
 #define RDAT_UNION_IF(name, expr)                                              \
   bool GLUE(RECORD_TYPE, _Reader)::has##name() const {                         \
@@ -336,7 +336,7 @@
   template <> constexpr RuntimeDataPartType RecordTraits<type>::PartType() {   \
     return RuntimeDataPartType::table;                                         \
   }
-#define RDAT_STRUCT_TABLE_DERIVED(type, base, table)                           \
+#define RDAT_STRUCT_TABLE_DERIVED(type, base, table, MajorVer, MinorVer)       \
   RDAT_STRUCT_DERIVED(type, base)                                              \
   template <> constexpr RecordTableIndex RecordTraits<type>::TableIndex() {    \
     return RecordTableIndex::table;                                            \
@@ -360,7 +360,7 @@
 #define RDAT_STRUCT_TABLE(type, table) RDAT_STRUCT(type)
 #endif
 #ifndef RDAT_STRUCT_TABLE_DERIVED
-#define RDAT_STRUCT_TABLE_DERIVED(type, base, table)                           \
+#define RDAT_STRUCT_TABLE_DERIVED(type, base, table, MajorVer, MinorVer)       \
   RDAT_STRUCT_DERIVED(type, base)
 #endif
 #ifndef RDAT_STRUCT_END

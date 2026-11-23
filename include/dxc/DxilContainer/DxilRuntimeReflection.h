@@ -68,21 +68,34 @@ enum class RuntimeDataPartType : uint32_t {
   NodeShaderInfoTable = 11,
   Last_1_8 = NodeShaderInfoTable,
 
+  // Keep this ID reserved for compatibility with the mesh-node preview.
   Reserved_MeshNodesPreviewInfoTable = 12,
 
-  // Insert experimental here.
-  SignatureElementTable,
-  VSInfoTable,
-  PSInfoTable,
-  HSInfoTable,
-  DSInfoTable,
-  GSInfoTable,
-  CSInfoTable,
-  MSInfoTable,
-  ASInfoTable,
+  // Preserve the experimental shader-info IDs used by the mesh-node preview.
+  SignatureElementTable = 13,
+  VSInfoTable = 14,
+  PSInfoTable = 15,
+  HSInfoTable = 16,
+  DSInfoTable = 17,
+  GSInfoTable = 18,
+  CSInfoTable = 19,
+  MSInfoTable = 20,
+  ASInfoTable = 21,
 
+  ExtendedFunctionPropertiesTable = 22,
+  LinAlgMatrixOperationShapeTable = 23,
+  LinAlgMatrixConstructionTable = 24,
+  LinAlgThreadMatrixVectorMultiplyTable = 25,
+  LinAlgWaveMatrixMultiplyTable = 26,
+  LinAlgThreadGroupMatrixMultiplyTable = 27,
+  LinAlgOuterProductTable = 28,
+  LinAlgAccumulateStoreTable = 29,
+  Last_1_10 = LinAlgAccumulateStoreTable,
+
+  // Insert experimental here.
   LastPlus1,
   LastExperimental = LastPlus1 - 1,
+  LastRelease = Last_1_10,
 
   DxilPdbInfoTable = RDAT_PART_ID_WITH_GROUP(RuntimeDataGroup::PdbInfo, 1),
   DxilPdbInfoSourceTable =
@@ -91,17 +104,23 @@ enum class RuntimeDataPartType : uint32_t {
       RDAT_PART_ID_WITH_GROUP(RuntimeDataGroup::PdbInfo, 3),
 };
 
-inline RuntimeDataPartType MaxPartTypeForValVer(unsigned Major,
-                                                unsigned Minor) {
+inline RuntimeDataPartType
+MaxPartTypeForValVer(unsigned Major, unsigned Minor,
+                     bool IsPrereleaseShaderModel = false) {
   return DXIL::CompareVersions(Major, Minor, 1, 3) < 0
              ? RuntimeDataPartType::Invalid // No RDAT before 1.3
          : DXIL::CompareVersions(Major, Minor, 1, 4) < 0
              ? RuntimeDataPartType::Last_1_3
          : DXIL::CompareVersions(Major, Minor, 1, 8) < 0
              ? RuntimeDataPartType::Last_1_4
-         : DXIL::CompareVersions(Major, Minor, 1, 8) == 0
+         : DXIL::CompareVersions(Major, Minor, 1, 10) < 0
              ? RuntimeDataPartType::Last_1_8
-             : RuntimeDataPartType::LastExperimental;
+         : DXIL::IsVersionExperimental(Major, Minor) &&
+                 (IsPrereleaseShaderModel || Major == 0)
+             ? RuntimeDataPartType::LastExperimental
+             : RuntimeDataPartType::LastRelease;
+  // If validator version > released version, and it's a prerelease shader model
+  // or unbound validator, allow experimental parts.
 }
 
 enum class RecordTableIndex : unsigned {
@@ -116,6 +135,15 @@ enum class RecordTableIndex : unsigned {
   NodeShaderInfoTable,
 
   Reserved_MeshNodesPreviewInfoTable,
+
+  ExtendedFunctionPropertiesTable,
+  LinAlgMatrixOperationShapeTable,
+  LinAlgMatrixConstructionTable,
+  LinAlgThreadMatrixVectorMultiplyTable,
+  LinAlgWaveMatrixMultiplyTable,
+  LinAlgThreadGroupMatrixMultiplyTable,
+  LinAlgOuterProductTable,
+  LinAlgAccumulateStoreTable,
 
   DxilPdbInfoTable,
   DxilPdbInfoSourceTable,

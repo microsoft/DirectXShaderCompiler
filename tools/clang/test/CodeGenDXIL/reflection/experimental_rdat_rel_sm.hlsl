@@ -1,0 +1,38 @@
+// Note: Add RUN lines for newer released shader models to this test when available.
+// REQUIRES: dxil-1-11
+// RUN: %dxc %s -Tlib_6_x -Fo %t
+// RUN: %dxa %t -dumprdat | FileCheck %s -check-prefixes=CHECK,EXP
+// RUN: %dxc %s -Tlib_6_10 -Vd -validator-version 0.0 -Fo %t
+// RUN: %dxa %t -dumprdat | FileCheck %s -check-prefixes=CHECK,EXP
+// RUN: %dxc %s -Tlib_6_10 -Fo %t
+// RUN: %dxa %t -dumprdat | FileCheck %s -check-prefixes=CHECK,NOEXP
+// RUN: %dxc %s -Tlib_6_10 -validator-version 1.10 -Fo %t
+// RUN: %dxa %t -dumprdat | FileCheck %s -check-prefixes=CHECK,NOEXP
+// RUN: %dxc %s -Tlib_6_11 -Vd -validator-version 0.0 -Fo %t
+// RUN: %dxa %t -dumprdat | FileCheck %s -check-prefixes=CHECK,EXP
+// RUN: %dxc %s -Tlib_6_11 -Fo %t
+// RUN: %dxa %t -dumprdat | FileCheck %s -check-prefixes=CHECK,EXP
+// RUN: %dxc %s -Tlib_6_11 -validator-version 1.11 -Fo %t
+// RUN: %dxa %t -dumprdat | FileCheck %s -check-prefixes=CHECK,EXP
+
+// Make sure experimental RDAT is not emitted for released shader models,
+// unless the validator version is 0.0 (no validation supported). Validator
+// version 0.0 is implied for the offline linking target lib_6_x.
+
+// CHECK: DxilRuntimeData
+// EXP: SignatureElementTable
+// EXP: PSInfoTable
+// NOEXP-NOT: SignatureElementTable
+// NOEXP-NOT: VSInfoTable
+// NOEXP-NOT: PSInfoTable
+// NOEXP-NOT: HSInfoTable
+// NOEXP-NOT: DSInfoTable
+// NOEXP-NOT: GSInfoTable
+// NOEXP-NOT: CSInfoTable
+// NOEXP-NOT: MSInfoTable
+// NOEXP-NOT: ASInfoTable
+
+[shader("pixel")]
+float4 main() : SV_Target {
+    return float4(1.0, 0.0, 0.0, 1.0);
+}

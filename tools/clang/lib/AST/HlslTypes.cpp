@@ -97,9 +97,11 @@ bool IsHLSLNumericOrAggregateOfNumericType(clang::QualType type) {
   }
 
   // Chars can only appear as part of strings, which we don't consider numeric.
+  // LinAlg matrix handles are opaque objects, not numeric data.
   const BuiltinType *BuiltinTy = dyn_cast<BuiltinType>(Ty);
   return BuiltinTy != nullptr &&
-         BuiltinTy->getKind() != BuiltinType::Kind::Char_S;
+         BuiltinTy->getKind() != BuiltinType::Kind::Char_S &&
+         BuiltinTy->getKind() != BuiltinType::Kind::LinAlgMatrix;
 }
 
 // In some cases we need record types that are annotatable and trivially
@@ -544,18 +546,16 @@ bool IsHLSLNodeInputType(clang::QualType type) {
 }
 
 bool IsHLSLDynamicResourceType(clang::QualType type) {
-  if (const RecordType *RT = type->getAs<RecordType>()) {
-    StringRef name = RT->getDecl()->getName();
-    return name == ".Resource";
-  }
+  if (const HLSLDynamicResourceAttr *Attr =
+          getAttr<HLSLDynamicResourceAttr>(type))
+    return !Attr->getIsSampler();
   return false;
 }
 
 bool IsHLSLDynamicSamplerType(clang::QualType type) {
-  if (const RecordType *RT = type->getAs<RecordType>()) {
-    StringRef name = RT->getDecl()->getName();
-    return name == ".Sampler";
-  }
+  if (const HLSLDynamicResourceAttr *Attr =
+          getAttr<HLSLDynamicResourceAttr>(type))
+    return Attr->getIsSampler();
   return false;
 }
 
@@ -605,17 +605,6 @@ bool IsHLSLNodeOutputType(clang::QualType type) {
          static_cast<uint32_t>(DXIL::NodeIOFlags::Output);
 }
 
-bool IsHLSLNodeRecordArrayType(clang::QualType type) {
-  if (const RecordType *RT = type->getAs<RecordType>()) {
-    StringRef name = RT->getDecl()->getName();
-    if (name == "ThreadNodeOutputRecords" || name == "GroupNodeOutputRecords" ||
-        name == "GroupNodeInputRecords" || name == "RWGroupNodeInputRecords" ||
-        name == "EmptyNodeInput")
-      return true;
-  }
-  return false;
-}
-
 bool IsHLSLEmptyNodeRecordType(clang::QualType type) {
   return (static_cast<uint32_t>(GetNodeIOType(type)) &
           static_cast<uint32_t>(DXIL::NodeIOFlags::EmptyRecord)) ==
@@ -626,6 +615,18 @@ bool IsHLSLStructuredBufferType(clang::QualType type) {
   if (const HLSLResourceAttr *Attr = getAttr<HLSLResourceAttr>(type))
     return Attr->getResKind() == DXIL::ResourceKind::StructuredBuffer;
   return false;
+}
+
+DXIL::ResourceKind GetHLSLResourceKind(clang::QualType type) {
+  if (const HLSLResourceAttr *Attr = getAttr<HLSLResourceAttr>(type))
+    return Attr->getResKind();
+  return DXIL::ResourceKind::Invalid;
+}
+
+DXIL::ResourceClass GetHLSLResourceClass(clang::QualType type) {
+  if (const HLSLResourceAttr *Attr = getAttr<HLSLResourceAttr>(type))
+    return Attr->getResClass();
+  return DXIL::ResourceClass::Invalid;
 }
 
 bool IsHLSLSubobjectType(clang::QualType type) {
@@ -766,17 +767,7 @@ clang::RecordDecl *GetRecordDeclFromNodeObjectType(clang::QualType ObjectTy) {
 }
 
 bool IsHLSLRayQueryType(clang::QualType type) {
-  type = type.getCanonicalType();
-  if (const RecordType *RT = dyn_cast<RecordType>(type)) {
-    if (const ClassTemplateSpecializationDecl *templateDecl =
-            dyn_cast<ClassTemplateSpecializationDecl>(
-                RT->getAsCXXRecordDecl())) {
-      StringRef name = templateDecl->getName();
-      if (name == "RayQuery")
-        return true;
-    }
-  }
-  return false;
+  return nullptr != getAttr<HLSLRayQueryObjectAttr>(type);
 }
 
 #ifdef ENABLE_SPIRV_CODEGEN
@@ -1002,6 +993,26 @@ HLSLScalarType MakeUnsigned(HLSLScalarType T) {
     break;
   }
   return T;
+}
+
+bool IsTypeDeducibleWithAuto(QualType type) {
+  if (type.isNull())
+    return false;
+
+  if (hlsl::IsStringType(type) || hlsl::IsStringLiteralType(type))
+    return false;
+
+  if (const CXXRecordDecl *recordDecl =
+          GetStructuralForm(type)->getAsCXXRecordDecl()) {
+    if (!recordDecl->hasAttr<HLSLNonAutoDeducibleAttr>())
+      if (const CXXRecordDecl *pattern =
+              recordDecl->getTemplateInstantiationPattern())
+        recordDecl = pattern;
+    if (recordDecl->hasAttr<HLSLNonAutoDeducibleAttr>())
+      return false;
+  }
+
+  return true;
 }
 
 } // namespace hlsl

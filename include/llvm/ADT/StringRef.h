@@ -576,7 +576,8 @@ namespace llvm {
 // allowed), but (b) misclassifies the the construction as nothrow. Newer libc++
 // releases reject user specializations of this trait outright, and also compute
 // the trait correctly without help.
-#if !defined(_LIBCPP_VERSION)
+#if !defined(_LIBCPP_VERSION) &&                                               \
+    !(defined(_MSVC_STL_UPDATE) && _MSVC_STL_UPDATE >= 202604L)
 namespace std {
   template<>
   struct is_nothrow_constructible <std::string, llvm::StringRef>

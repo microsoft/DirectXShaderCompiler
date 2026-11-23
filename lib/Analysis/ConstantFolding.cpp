@@ -39,6 +39,8 @@
 
 #include "llvm/Analysis/DxilConstantFolding.h" // HLSL Change
 
+#include "dxc/DXIL/DxilConstants.h" // HLSL Change
+
 #ifdef HAVE_FENV_H
 #include <fenv.h>
 #endif
@@ -1004,18 +1006,99 @@ Constant *llvm::ConstantFoldConstantExpression(const ConstantExpr *CE,
 /// information, due to only being passed an opcode and operands. Constant
 /// folding using this function strips this information.
 ///
+// HLSL Change Begin - Backports
+// https://github.com/llvm/llvm-project/commit/b6e102e08cd35543175459494211a3a15f793302
+// Upstream calls Constant::isNaN(), which this LLVM does not have. This does
+// the same check for scalars and for vectors with a NaN element.
+static bool isConstantNaN(const Constant *C) {
+  if (const ConstantFP *CFP = dyn_cast<ConstantFP>(C))
+    return CFP->isNaN();
+  if (C->getType()->isVectorTy()) {
+    for (unsigned I = 0, E = C->getType()->getVectorNumElements(); I != E;
+         ++I) {
+      const Constant *Elt = C->getAggregateElement(I);
+      if (Elt && isConstantNaN(Elt))
+        return true;
+    }
+  }
+  return false;
+}
+
+// HLSL Change End
+
+// HLSL Change Begin
+// Returns true if \p C is a float denormal, or a vector with one as an element,
+// that the driver may flush to zero when it executes \p I. It may unless the
+// function's "fp32-denorm-mode" is "preserve", so folding it is
+// non-deterministic. Half and double denormals are always kept. Upstream LLVM
+// does not fold such denormals when the function's denormal mode is "dynamic".
+static bool mayFlushDenormal(const Constant *C, const Instruction *I) {
+  if (const ConstantFP *CFP = dyn_cast<ConstantFP>(C)) {
+    if (!CFP->getType()->isFloatTy() || !CFP->getValueAPF().isDenormal())
+      return false;
+    if (!I || !I->getParent())
+      return true;
+    const Function *F = I->getParent()->getParent();
+    return F->getFnAttribute(hlsl::DXIL::kFP32DenormKindString)
+               .getValueAsString() !=
+           hlsl::DXIL::kFP32DenormValuePreserveString;
+  }
+  if (!C->getType()->isVectorTy())
+    return false;
+  for (unsigned i = 0, e = C->getType()->getVectorNumElements(); i != e; ++i) {
+    const Constant *Elt = C->getAggregateElement(i);
+    if (Elt && mayFlushDenormal(Elt, I))
+      return true;
+  }
+  return false;
+}
+// HLSL Change End
+
+// HLSL Change Begin - Backports
+// https://github.com/llvm/llvm-project/commit/b6e102e08cd35543175459494211a3a15f793302
 Constant *llvm::ConstantFoldInstOperands(unsigned Opcode, Type *DestTy,
                                          ArrayRef<Constant *> Ops,
                                          const DataLayout &DL,
-                                         const TargetLibraryInfo *TLI) {
+                                         const TargetLibraryInfo *TLI,
+                                         const Instruction *I,
+                                         bool AllowNonDeterministic) {
+  // HLSL Change End
   // Handle easy binops first.
   if (Instruction::isBinaryOp(Opcode)) {
+    // HLSL Change Begin - Backports
+    // https://github.com/llvm/llvm-project/commit/b6e102e08cd35543175459494211a3a15f793302
+    // Upstream has these checks in ConstantFoldFPInstOperands, which this LLVM
+    // does not have. They only affect FP operators: integer operators are not
+    // FPMathOperators and never fold to NaN.
+    // If nsz or an algebraic FMF flag is set, the result of the FP operation
+    // may change due to future optimization. Don't constant fold them if
+    // non-deterministic results are not allowed.
+    // Upstream checks hasAllowReassoc() and hasAllowContract(). This LLVM has
+    // neither flag; hasUnsafeAlgebra() (`fast`) is the flag that permits both.
+    if (!AllowNonDeterministic)
+      if (const FPMathOperator *FP = dyn_cast_or_null<FPMathOperator>(I))
+        if (FP->hasNoSignedZeros() || FP->hasUnsafeAlgebra() ||
+            FP->hasAllowReciprocal())
+          return nullptr;
+    // HLSL Change End
+
     if (isa<ConstantExpr>(Ops[0]) || isa<ConstantExpr>(Ops[1])) {
       if (Constant *C = SymbolicallyEvaluateBinop(Opcode, Ops[0], Ops[1], DL))
         return C;
     }
 
-    return ConstantExpr::get(Opcode, Ops[0], Ops[1]);
+    // HLSL Change Begin - Backports
+    // https://github.com/llvm/llvm-project/commit/b6e102e08cd35543175459494211a3a15f793302
+    Constant *C = ConstantExpr::get(Opcode, Ops[0], Ops[1]);
+
+    // NaN bit patterns and flushable denormals are non-deterministic.
+    if (!AllowNonDeterministic)
+      if (isConstantNaN(C) || mayFlushDenormal(Ops[0], I) ||
+          mayFlushDenormal(Ops[1], I) || mayFlushDenormal(C, I))
+        return nullptr;
+
+    return C;
+    // HLSL Change End
   }
 
   switch (Opcode) {
@@ -1025,7 +1108,8 @@ Constant *llvm::ConstantFoldInstOperands(unsigned Opcode, Type *DestTy,
   case Instruction::Call:
     if (Function *F = dyn_cast<Function>(Ops.back()))
       if (canConstantFoldCallTo(F))
-        return ConstantFoldCall(F, Ops.slice(0, Ops.size() - 1), TLI);
+        return ConstantFoldCall(F, Ops.slice(0, Ops.size() - 1), TLI,
+                                AllowNonDeterministic); // HLSL Change
     return nullptr;
   case Instruction::PtrToInt:
     // If the input is a inttoptr, eliminate the pair.  This requires knowing
@@ -1066,11 +1150,20 @@ Constant *llvm::ConstantFoldInstOperands(unsigned Opcode, Type *DestTy,
     }
 
     return ConstantExpr::getCast(Opcode, Ops[0], DestTy);
+  // HLSL Change Begin
+  case Instruction::FPTrunc:
+  case Instruction::FPExt: {
+    Constant *C = ConstantExpr::getCast(Opcode, Ops[0], DestTy);
+    if (!AllowNonDeterministic)
+      if (isConstantNaN(C) || mayFlushDenormal(Ops[0], I) ||
+          mayFlushDenormal(C, I))
+        return nullptr;
+    return C;
+  }
+  // HLSL Change End
   case Instruction::Trunc:
   case Instruction::ZExt:
   case Instruction::SExt:
-  case Instruction::FPTrunc:
-  case Instruction::FPExt:
   case Instruction::UIToFP:
   case Instruction::SIToFP:
   case Instruction::FPToUI:
@@ -1098,6 +1191,20 @@ Constant *llvm::ConstantFoldInstOperands(unsigned Opcode, Type *DestTy,
   }
   }
 }
+
+// HLSL Change Begin
+Constant *llvm::ConstantFoldCompareInstOperands(const Instruction *I,
+                                                Constant *Ops0, Constant *Ops1,
+                                                const DataLayout &DL,
+                                                const TargetLibraryInfo *TLI,
+                                                bool AllowNonDeterministic) {
+  if (!AllowNonDeterministic &&
+      (mayFlushDenormal(Ops0, I) || mayFlushDenormal(Ops1, I)))
+    return nullptr;
+  return ConstantFoldCompareInstOperands(cast<CmpInst>(I)->getPredicate(), Ops0,
+                                         Ops1, DL, TLI);
+}
+// HLSL Change End
 
 /// Attempt to constant fold a compare
 /// instruction (icmp/fcmp) with the specified operands.  If it fails, it
@@ -1785,14 +1892,30 @@ static Constant *ConstantFoldVectorCall(StringRef Name, unsigned IntrinsicID,
 
 /// Attempt to constant fold a call to the specified function
 /// with the specified arguments, returning null if unsuccessful.
-Constant *
-llvm::ConstantFoldCall(Function *F, ArrayRef<Constant *> Operands,
-                       const TargetLibraryInfo *TLI) {
+// HLSL Change Begin - Backports
+// https://github.com/llvm/llvm-project/commit/b6e102e08cd35543175459494211a3a15f793302
+Constant *llvm::ConstantFoldCall(Function *F, ArrayRef<Constant *> Operands,
+                                 const TargetLibraryInfo *TLI,
+                                 bool AllowNonDeterministic) {
+  // HLSL Change End
   if (!F->hasName())
     return nullptr;
   StringRef Name = F->getName();
 
   Type *Ty = F->getReturnType();
+  // HLSL Change Begin - Backports
+  // https://github.com/llvm/llvm-project/commit/b6e102e08cd35543175459494211a3a15f793302
+  // Conservatively assume that floating-point libcalls may be
+  // non-deterministic.
+  if (!AllowNonDeterministic && Ty->isFPOrFPVectorTy())
+    return nullptr;
+  // Not part of the upstream commit: convert.to.fp16 returns the bits of a
+  // half as an integer, so the NaN bit pattern it produces is not caught above.
+  if (!AllowNonDeterministic &&
+      F->getIntrinsicID() == Intrinsic::convert_to_fp16 &&
+      isConstantNaN(Operands[0]))
+    return nullptr;
+  // HLSL Change End
 
   if (VectorType *VTy = dyn_cast<VectorType>(Ty))
     return ConstantFoldVectorCall(Name, F->getIntrinsicID(), VTy, Operands, TLI);

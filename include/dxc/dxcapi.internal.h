@@ -47,8 +47,10 @@ enum LEGAL_INTRINSIC_TEMPLATES {
       4, // Any one of scalar, vector or matrix types (but not object).
   LITEMPLATE_OBJECT = 5, // Object types.
   LITEMPLATE_ARRAY = 6,  // Scalar array.
+  LITEMPLATE_ANY_ARRAY =
+      7, // Array of scalars or of vectors of scalars (eg. float3[4]).
 
-  LITEMPLATE_COUNT = 7
+  LITEMPLATE_COUNT = 8
 };
 
 // INTRIN_COMPTYPE_FROM_TYPE_ELT0 is for object method intrinsics to indicate
@@ -191,6 +193,8 @@ static const UINT INTRIN_FLAG_READ_ONLY = 1U << 0;
 static const UINT INTRIN_FLAG_READ_NONE = 1U << 1;
 static const UINT INTRIN_FLAG_IS_WAVE = 1U << 2;
 static const UINT INTRIN_FLAG_STATIC_MEMBER = 1U << 3;
+// Method mutates the object (cannot be called on a const-qualified instance).
+static const UINT INTRIN_FLAG_MUTABLE_METHOD = 1U << 4;
 
 struct HLSL_INTRINSIC {
   UINT Op;                 // Intrinsic Op ID
@@ -201,6 +205,8 @@ struct HLSL_INTRINSIC {
                            // type
   UINT uNumArgs;           // Count of arguments in pArgs.
   const HLSL_INTRINSIC_ARGUMENT *pArgs; // Pointer to first argument.
+  UINT MaxShaderModel; // Encoded maximum shader model, 0 = no maximum
+                       // (Major << 4) + (Minor & 0xf)
 };
 
 ///////////////////////////////////////////////////////////////////////////////

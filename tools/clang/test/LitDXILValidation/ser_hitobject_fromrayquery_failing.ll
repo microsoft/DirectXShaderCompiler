@@ -2,11 +2,11 @@
 ; RUN: not %dxv %s 2>&1 | FileCheck %s
 
 ; CHECK: Function: ?main@@YAXXZ: error: Instructions should not read uninitialized value.
-; CHECK-NEXT: note: at '%attrsud3 = call %dx.types.HitObject @dx.op.hitObject_FromRayQueryWithAttrs.struct.CustomAttrs(i32 264, i32 %rq, i32 16, %struct.CustomAttrs* nonnull undef)' in block '#0' of function '?main@@YAXXZ'.
+; CHECK-NEXT: note: at '%attrsud1 = call %dx.types.HitObject @dx.op.hitObject_FromRayQueryWithAttrs.struct.CustomAttrs(i32 264, i32 undef, i32 16, %struct.CustomAttrs* nonnull %attra)' in block '#0' of function '?main@@YAXXZ'.
 ; CHECK-NEXT: Function: ?main@@YAXXZ: error: Instructions should not read uninitialized value.
 ; CHECK-NEXT: note: at '%attrsud2 = call %dx.types.HitObject @dx.op.hitObject_FromRayQueryWithAttrs.struct.CustomAttrs(i32 264, i32 %rq, i32 undef, %struct.CustomAttrs* nonnull %attra)' in block '#0' of function '?main@@YAXXZ'.
 ; CHECK-NEXT: Function: ?main@@YAXXZ: error: Instructions should not read uninitialized value.
-; CHECK-NEXT: note: at '%attrsud1 = call %dx.types.HitObject @dx.op.hitObject_FromRayQueryWithAttrs.struct.CustomAttrs(i32 264, i32 undef, i32 16, %struct.CustomAttrs* nonnull %attra)' in block '#0' of function '?main@@YAXXZ'.
+; CHECK-NEXT: note: at '%attrsud3 = call %dx.types.HitObject @dx.op.hitObject_FromRayQueryWithAttrs.struct.CustomAttrs(i32 264, i32 %rq, i32 16, %struct.CustomAttrs* nonnull undef)' in block '#0' of function '?main@@YAXXZ'.
 ; CHECK-NEXT: Function: ?main@@YAXXZ: error: Instructions should not read uninitialized value.
 ; CHECK-NEXT: note: at '%ud1 = call %dx.types.HitObject @dx.op.hitObject_FromRayQuery(i32 263, i32 undef)' in block '#0' of function '?main@@YAXXZ'.
 ; CHECK-NEXT: Validation failed.

@@ -7,16 +7,16 @@
 struct S
 {
     float foo;
-    void * operator new(int size) { // expected-error {{overloading 'operator new' is not allowed}} expected-error {{pointers are unsupported in HLSL}}
-        return (void *)0; // expected-error {{pointers are unsupported in HLSL}} expected-error {{cannot convert from 'literal int' to 'void *'}} expected-warning {{'operator new' should not return a null pointer unless it is declared 'throw()'}}
+    S operator new(int size) { // expected-error {{overloading 'operator new' is not allowed}}
+        return (S)0;
     }
-    void operator delete(void *ptr) { // expected-error {{overloading 'operator delete' is not allowed}} expected-error {{pointers are unsupported in HLSL}}
+    void operator delete(int ptr) { // expected-error {{overloading 'operator delete' is not allowed}}
         (void) ptr;
     }
 };
 
 [shader("vertex")]
 void main() {
-    S *a = new S(); // expected-error {{'new' is a reserved keyword in HLSL}} expected-error {{pointers are unsupported in HLSL}}
+    S a = new S(); // expected-error {{'new' is a reserved keyword in HLSL}}
     delete a; // expected-error {{'delete' is a reserved keyword in HLSL}}
 }

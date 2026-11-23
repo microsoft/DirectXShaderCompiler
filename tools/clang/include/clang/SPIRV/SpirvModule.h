@@ -39,7 +39,7 @@ struct DecorationComparisonInfo {
   static inline SpirvDecoration *getEmptyKey() { return nullptr; }
   static inline SpirvDecoration *getTombstoneKey() { return nullptr; }
   static unsigned getHashValue(const SpirvDecoration *decor) {
-    return llvm::hash_combine(decor->getTarget(),
+    return llvm::hash_combine(decor->getTarget(), decor->getTargetFunc(),
                               static_cast<uint32_t>(decor->getDecoration()));
   }
   static bool isEqual(SpirvDecoration *LHS, SpirvDecoration *RHS) {
@@ -149,6 +149,10 @@ public:
   // Adds a constant to the module.
   void addConstant(SpirvConstant *);
 
+  // Adds an OpSpecConstantOp to the module. These are emitted after all
+  // constants, in insertion order.
+  void addSpecConstantOp(SpirvInstruction *);
+
   // Adds an Undef to the module.
   void addUndef(SpirvUndef *);
 
@@ -216,6 +220,7 @@ private:
       decorations;
 
   std::vector<SpirvConstant *> constants;
+  std::vector<SpirvInstruction *> specConstantOps;
   std::vector<SpirvUndef *> undefs;
   std::vector<SpirvVariableLike *> variables;
   // A vector of functions in the module in the order that they should be

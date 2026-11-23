@@ -516,15 +516,15 @@ Decl *Parser::ParseTypeParameter(unsigned Depth, unsigned Position) {
   SourceLocation EllipsisLoc;
   if (TryConsumeToken(tok::ellipsis, EllipsisLoc)) {
     // HLSL Change Starts
-    if (getLangOpts().HLSL) {
+    if (getLangOpts().HLSLDisallowsVariadicTemplates()) {
       Diag(EllipsisLoc, diag::err_hlsl_variadic_templates);
       return nullptr;
     }
     // HLSL Change Ends
-    Diag(EllipsisLoc,
-         getLangOpts().CPlusPlus11
-           ? diag::warn_cxx98_compat_variadic_templates
-           : diag::ext_variadic_templates);
+    if (!getLangOpts().HLSL) // HLSL Change: HLSL has no C++98-compat warnings
+      Diag(EllipsisLoc, getLangOpts().CPlusPlus11
+                            ? diag::warn_cxx98_compat_variadic_templates
+                            : diag::ext_variadic_templates);
   }
 
   // Grab the template parameter name (if given)
@@ -620,9 +620,9 @@ Parser::ParseTemplateTemplateParameter(unsigned Depth, unsigned Position) {
   SourceLocation EllipsisLoc;
   if (TryConsumeToken(tok::ellipsis, EllipsisLoc)) {
     // HLSL Change Starts
-    if (getLangOpts().HLSL)
+    if (getLangOpts().HLSLDisallowsVariadicTemplates())
       Diag(EllipsisLoc, diag::err_hlsl_variadic_templates);
-    else 
+    else if (!getLangOpts().HLSL) // HLSL has no C++98-compat warnings
       // HLSL Change Ends
       Diag(EllipsisLoc, getLangOpts().CPlusPlus11
                             ? diag::warn_cxx98_compat_variadic_templates
@@ -840,7 +840,9 @@ bool Parser::ParseGreaterThanInTemplateList(SourceLocation &RAngleLoc,
       Hint2 = FixItHint::CreateInsertion(Next.getLocation(), " ");
 
     unsigned DiagId = diag::err_two_right_angle_brackets_need_space;
-    if (getLangOpts().CPlusPlus11 &&
+    if ((getLangOpts().CPlusPlus11 ||
+         (getLangOpts().HLSL &&
+          getLangOpts().HLSLVersion >= hlsl::LangStd::v202x)) &&
         (Tok.is(tok::greatergreater) || Tok.is(tok::greatergreatergreater)))
       DiagId = diag::warn_cxx98_compat_two_right_angle_brackets;
     else if (Tok.is(tok::greaterequal))
@@ -1294,7 +1296,7 @@ Parser::ParseTemplateArgumentList(TemplateArgList &TemplateArgs) {
     SourceLocation EllipsisLoc;
     if (TryConsumeToken(tok::ellipsis, EllipsisLoc))
     { // HLSL Change Starts
-      if (getLangOpts().HLSL) {
+      if (getLangOpts().HLSLDisallowsVariadicTemplates()) {
         Diag(EllipsisLoc, diag::err_hlsl_unsupported_construct) << "ellipsis";
         SkipUntil(tok::comma, tok::greater, StopAtSemi | StopBeforeMatch);
         return true;

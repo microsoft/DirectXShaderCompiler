@@ -54,3 +54,22 @@ bb4:                                              ; preds = %bb2
 }
 
 declare i32 @bar()
+
+define i32 @convergent_call(i1 %cond, i32 %value) {
+; CHECK-LABEL: @convergent_call(
+entry:
+; CHECK: call i32 @convergent(i32 %value)
+; CHECK-NEXT: br i1 %cond
+  %result = call i32 @convergent(i32 %value)
+  br i1 %cond, label %then, label %else
+
+then:
+; CHECK: then:
+; CHECK-NEXT: ret i32 %result
+  ret i32 %result
+
+else:
+  ret i32 0
+}
+
+declare i32 @convergent(i32) convergent readnone

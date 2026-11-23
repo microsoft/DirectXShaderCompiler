@@ -3855,7 +3855,13 @@ SwitchLookupTable::SwitchLookupTable(
   // If the type is integer and the table fits in a register, build a bitmap.
   if (WouldFitInRegister(DL, TableSize, ValueType)) {
     IntegerType *IT = cast<IntegerType>(ValueType);
-    APInt TableInt(TableSize * IT->getBitWidth(), 0);
+    // HLSL Change Begin: Round bitmap width up to size supported by DXIL (i16
+    // or i32)
+    uint64_t RawBitMapWidth = TableSize * IT->getBitWidth();
+    uint64_t BitMapWidth =
+        NextPowerOf2(std::max(UINT64_C(15), RawBitMapWidth - 1));
+    APInt TableInt(BitMapWidth, 0);
+    // HLSL Change End
     for (uint64_t I = TableSize; I > 0; --I) {
       TableInt <<= IT->getBitWidth();
       // Insert values into the bitmap. Undef values are set to zero.
@@ -3950,6 +3956,11 @@ bool SwitchLookupTable::WouldFitInRegister(const DataLayout &DL,
   // Avoid overflow, fitsInLegalInteger uses unsigned int for the width.
   if (TableSize >= UINT_MAX/IT->getBitWidth())
     return false;
+  // HLSL Change Begin: Cap at 32 bits so the bitmap stays in a DXIL-supported
+  // integer width and never promotes to i64 (which would set Int64Ops).
+  if (TableSize * IT->getBitWidth() > 32)
+    return false;
+  // HLSL Change End
   return DL.fitsInLegalInteger(TableSize * IT->getBitWidth());
 }
 

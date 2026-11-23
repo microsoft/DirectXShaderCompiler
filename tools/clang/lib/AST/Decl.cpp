@@ -1958,7 +1958,6 @@ VarDecl::isThisDeclarationADefinition(ASTContext &C) const {
       getTemplateSpecializationKind() != TSK_ExplicitSpecialization)
     return DeclarationOnly;
 
-  if (!getASTContext().getLangOpts().HLSL) // HLSL Change - take extern as define to match fxc.
   if (hasExternalStorage())
     return DeclarationOnly;
 
@@ -2370,15 +2369,23 @@ unsigned ParmVarDecl::getParameterIndexLarge() const {
 
 // HLSL Change Begins
 void ParmVarDecl::updateOutParamToRefType(ASTContext &C) {
+  QualType ParamType = getType();
+  const PackExpansionType *Expansion = dyn_cast<PackExpansionType>(ParamType);
+  if (Expansion)
+    ParamType = Expansion->getPattern();
+
   // Aggregate type will be indirect param convert to pointer type.
   // So don't update to ReferenceType.
-  if ((!getType()->isArrayType() && !getType()->isRecordType()) ||
-      hlsl::IsHLSLVecMatType(getType()))
-    setType(C.getLValueReferenceType(getType(), false));
+  if ((!ParamType->isArrayType() && !ParamType->isRecordType()) ||
+      hlsl::IsHLSLVecMatType(ParamType))
+    ParamType = C.getLValueReferenceType(ParamType, false);
   // Add restrict to out param.
-  QualType QT = getType();
-  QT.addRestrict();
-  setType(QT);
+  ParamType.addRestrict();
+
+  if (Expansion)
+    ParamType =
+        C.getPackExpansionType(ParamType, Expansion->getNumExpansions());
+  setType(ParamType);
 }
 // HLSL Change Ends
 
@@ -2876,13 +2883,29 @@ bool FunctionDecl::hasUnusedResultAttr() const {
   QualType RetType = getReturnType();
   if (RetType->isRecordType()) {
     const CXXRecordDecl *Ret = RetType->getAsCXXRecordDecl();
-    const CXXMethodDecl *MD = dyn_cast<CXXMethodDecl>(this);
-    if (Ret && Ret->hasAttr<WarnUnusedResultAttr>() &&
-        !(MD && MD->getCorrespondingMethodInClass(Ret, true)))
+    // HLSL Change Begin - nodiscard on a type should apply to all methods, even
+    // if they are not marked nodiscard themselves. This is the C++17 behavior.
+    if (Ret && Ret->hasAttr<WarnUnusedResultAttr>())
       return true;
+    // HLSL Change End
   }
   return hasAttr<WarnUnusedResultAttr>();
 }
+
+// HLSL Change Begin - support nodiscard attr.
+Attr *FunctionDecl::getNoDiscardAttr() const {
+  QualType RetType = getReturnType();
+  if (RetType->isRecordType()) {
+    const CXXRecordDecl *Ret = RetType->getAsCXXRecordDecl();
+    const CXXMethodDecl *MD = dyn_cast<CXXMethodDecl>(this);
+    if (Ret && Ret->hasAttr<WarnUnusedResultAttr>() &&
+        (!hasAttr<WarnUnusedResultAttr>() ||
+         !(MD && (MD->getCorrespondingMethodInClass(Ret, true)))))
+      return Ret->getAttr<WarnUnusedResultAttr>();
+  }
+  return getAttr<WarnUnusedResultAttr>();
+}
+// HLSL Change End
 
 /// \brief For an inline function definition in C, or for a gnu_inline function
 /// in C++, determine whether the definition will be externally visible.
