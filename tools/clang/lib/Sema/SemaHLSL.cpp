@@ -5764,17 +5764,20 @@ public:
 
     // Under HLSL 202x the built-in HLSL intrinsic functions are placed in the
     // 'hlsl' namespace (see: https://hlsl-tc57.github.io/tc57/proposal/0009/).
-    if (context.getLangOpts().HLSLVersion >= hlsl::LangStd::v202x) {
-      m_hlslNSDecl =
+    auto HLSLNS =
           NamespaceDecl::Create(context, context.getTranslationUnitDecl(),
                                 /*Inline*/ false, SourceLocation(),
                                 SourceLocation(), &context.Idents.get("hlsl"),
                                 /*PrevDecl*/ nullptr);
-      m_hlslNSDecl->setImplicit();
-      m_hlslNSDecl->setHasExternalLexicalStorage(true);
-      m_hlslNSDecl->setHasExternalVisibleStorage(true);
-      context.getTranslationUnitDecl()->addDecl(m_hlslNSDecl);
-    }
+    HLSLNS->setImplicit();
+    HLSLNS->setHasExternalLexicalStorage(true);
+    HLSLNS->setHasExternalVisibleStorage(true);
+    context.getTranslationUnitDecl()->addDecl(HLSLNS);
+    // In older language modes we create the namespace but don't keep track of
+    // it. This allows old code to write `using namespace hlsl` but doesn't
+    // actually populate any declarations into the namespace.
+    if (context.getLangOpts().HLSLVersion >= hlsl::LangStd::v202x)
+      m_hlslNSDecl = HLSLNS;
     AddBaseTypes();
     AddHLSLScalarTypes();
     AddHLSLStringType();
