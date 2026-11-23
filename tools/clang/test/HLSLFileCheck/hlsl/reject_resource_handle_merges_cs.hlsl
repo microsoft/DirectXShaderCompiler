@@ -1,6 +1,6 @@
 // RUN: %dxc -T cs_6_6 -E main %s | FileCheck %s
-// RUN: not %dxc -T cs_6_6 -E main -reject-resource-handle-merges %s 2>&1 | FileCheck %s --check-prefix=REJECT
-// RUN: not %dxc -T cs_6_6 -E main -Vd -reject-resource-handle-merges %s 2>&1 | FileCheck %s --check-prefix=REJECT
+// RUN: %dxc -T cs_6_6 -E main -reject-resource-handle-merges %s | FileCheck %s -check-prefix=REJECT
+// RUN: %dxc -T cs_6_6 -E main -Vd -reject-resource-handle-merges %s | FileCheck %s -check-prefix=REJECT
 // RUN: %dxc -T lib_6_x -reject-resource-handle-merges %s | FileCheck %s
 
 // After unrolling these loops, the optimizer leaves phis of the same buffer
