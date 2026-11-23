@@ -674,30 +674,19 @@ TEST_F(LinkerTest, RunLinkToLibExportShadersOnly) {
 }
 
 TEST_F(LinkerTest, RunLinkRejectHandleMerge) {
-  CComPtr<IDxcBlob> library;
-  CompileLib(L"..\\HLSLFileCheck\\hlsl\\reject_resource_handle_merges_cs.hlsl",
-             &library);
+  if (m_ver.SkipDxilVersion(1, 6))
+    return;
   CComPtr<IDxcLinker> linker;
   CreateLinker(&linker);
-  LPCWSTR libraryName = L"merge";
-  RegisterDxcModule(libraryName, library, linker);
 
-  // lib_6_x is only an input to offline linking, so it is not checked.
-  Link(L"", L"lib_6_x", linker, {libraryName}, {"phi %dx.types.Handle"}, {},
-       {L"-reject-resource-handle-merges"});
-
-  for (bool disableValidation : {false, true}) {
-    std::vector<LPCWSTR> args;
-    if (disableValidation)
-      args.push_back(L"-Vd");
-    // Verify that linking preserves a handle merge without the policy.
-    Link(L"main", L"cs_6_6", linker, {libraryName}, {"phi %dx.types.Handle"},
-         {}, args);
-
+  // Links with -reject-resource-handle-merges and verifies that the link fails
+  // without an object, and that the note shows the handle merge, e.g. "= phi ".
+  auto verifyRejected = [&](LPCWSTR entry, LPCWSTR target, LPCWSTR libName,
+                            std::vector<LPCWSTR> args, const char *opcode) {
     args.push_back(L"-reject-resource-handle-merges");
     CComPtr<IDxcOperationResult> operation;
-    VERIFY_SUCCEEDED(linker->Link(L"main", L"cs_6_6", &libraryName, 1,
-                                  args.data(), args.size(), &operation));
+    VERIFY_SUCCEEDED(linker->Link(entry, target, &libName, 1, args.data(),
+                                  args.size(), &operation));
     HRESULT status;
     VERIFY_SUCCEEDED(operation->GetStatus(&status));
     VERIFY_FAILED(status);
@@ -713,10 +702,46 @@ TEST_F(LinkerTest, RunLinkRejectHandleMerge) {
     VERIFY_ARE_NOT_EQUAL(std::string::npos,
                          diagnostics.find("merges resource handles with a "
                                           "phi/select, which is rejected"));
-    VERIFY_ARE_NOT_EQUAL(std::string::npos, diagnostics.find("note: at '"));
-    VERIFY_ARE_NOT_EQUAL(std::string::npos,
-                         diagnostics.find("phi %dx.types.Handle"));
+    size_t note = diagnostics.find("note: at '");
+    VERIFY_ARE_NOT_EQUAL(std::string::npos, note);
+    std::string noteLine =
+        diagnostics.substr(note, diagnostics.find('\n', note) - note);
+    VERIFY_ARE_NOT_EQUAL(std::string::npos, noteLine.find(opcode));
+    VERIFY_ARE_NOT_EQUAL(std::string::npos, noteLine.find("%dx.types.Handle"));
+  };
+
+  CComPtr<IDxcBlob> phiLibrary;
+  CompileLib(L"..\\HLSLFileCheck\\hlsl\\reject_resource_handle_merges_cs.hlsl",
+             &phiLibrary);
+  LPCWSTR phiName = L"phi";
+  RegisterDxcModule(phiName, phiLibrary, linker);
+
+  // lib_6_x is only an input to offline linking, so it is not checked.
+  Link(L"", L"lib_6_x", linker, {phiName}, {"phi %dx.types.Handle"}, {},
+       {L"-reject-resource-handle-merges"});
+
+  for (bool disableValidation : {false, true}) {
+    std::vector<LPCWSTR> args;
+    if (disableValidation)
+      args.push_back(L"-Vd");
+    // Verify that linking preserves a handle merge without the policy.
+    Link(L"main", L"cs_6_6", linker, {phiName}, {"phi %dx.types.Handle"}, {},
+         args);
+    verifyRejected(L"main", L"cs_6_6", phiName, args, "= phi ");
   }
+
+  // HLSL lowering turns handle selects into index selects for final targets,
+  // but linking this lib_6_x select to lib_6_3 keeps it. Validation already
+  // fails this link, so use -Vd to exercise only the policy.
+  CComPtr<IDxcBlob> selectLibrary;
+  CompileLib(
+      L"..\\HLSLFileCheck\\shader_targets\\library\\lib_select_res_x2.hlsl",
+      &selectLibrary, {L"-auto-binding-space", L"11"});
+  LPCWSTR selectName = L"select";
+  RegisterDxcModule(selectName, selectLibrary, linker);
+  Link(L"", L"lib_6_3", linker, {selectName}, {"select i1", "%dx.types.Handle"},
+       {}, {L"-Vd"});
+  verifyRejected(L"", L"lib_6_3", selectName, {L"-Vd"}, "= select i1 ");
 
   CComPtr<IDxcBlob> cleanLibrary;
   CompileLib(

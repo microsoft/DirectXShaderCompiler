@@ -3621,6 +3621,8 @@ TEST_F(CompilerTest, CompileWhenVdThenProducesDxilContainer) {
 }
 
 TEST_F(CompilerTest, CompileWhenHandleMergeRejectedThenNoObject) {
+  if (m_ver.SkipDxilVersion(1, 6))
+    return;
   CComPtr<IDxcBlobEncoding> source;
   CreateBlobFromFile(
       L"..\\HLSLFileCheck\\hlsl\\reject_resource_handle_merges_cs.hlsl",

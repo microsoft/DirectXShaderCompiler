@@ -21,13 +21,16 @@
 #include "dxc/Support/dxcapi.impl.h"
 #include "dxc/dxcapi.h"
 #include "clang/Basic/Diagnostic.h"
+#include "llvm/ADT/DenseMap.h"
 #include "llvm/Bitcode/ReaderWriter.h"
+#include "llvm/IR/AssemblyAnnotationWriter.h"
 #include "llvm/IR/DebugInfo.h"
 #include "llvm/IR/DiagnosticInfo.h"
 #include "llvm/IR/DiagnosticPrinter.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
+#include "llvm/Support/FormattedStream.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Utils/Cloning.h"
@@ -47,6 +50,39 @@ HRESULT RunInternalValidator(IDxcValidator *pValidator,
                              llvm::Module *pDebugModule, IDxcBlob *pShader,
                              UINT32 Flags, IDxcOperationResult **ppResult);
 
+namespace {
+// Records where selected instructions start and end while a module is printed.
+// Value::print rescans every type in the module on each call, so printing K
+// instructions from an N-instruction module that way costs O(K*N); printing
+// the module once and slicing out the instructions costs O(N).
+class InstructionTextRecorder : public AssemblyAnnotationWriter {
+public:
+  explicit InstructionTextRecorder(ArrayRef<Instruction *> Insts) {
+    for (Instruction *I : Insts)
+      Spans[I] = {0, 0};
+  }
+  void emitInstructionAnnot(const Instruction *I,
+                            formatted_raw_ostream &OS) override {
+    auto It = Spans.find(I);
+    if (It != Spans.end())
+      It->second.first = OS.tell();
+  }
+  void printInfoComment(const Value &V, formatted_raw_ostream &OS) override {
+    auto It = Spans.find(&V);
+    if (It != Spans.end())
+      It->second.second = OS.tell();
+  }
+  // Returns the text of I within Text, the module printed with this recorder.
+  StringRef getText(const Instruction *I, StringRef Text) const {
+    auto Span = Spans.lookup(I);
+    return Text.slice(Span.first, Span.second).ltrim();
+  }
+
+private:
+  DenseMap<const Value *, std::pair<uint64_t, uint64_t>> Spans;
+};
+} // namespace
+
 namespace dxcutil {
 
 // This is a driver workaround, not a DXIL validity rule: some drivers can't
@@ -61,36 +97,41 @@ bool ReportResourceHandleMerges(llvm::Module &M,
   if (SM->IsLib() && SM->GetMinor() == ShaderModel::kOfflineMinor)
     return false;
 
+  llvm::Type *handleTy = DM.GetOP()->GetHandleType();
+  SmallVector<Instruction *, 8> merges;
+  for (auto &F : M)
+    for (auto &BB : F)
+      for (auto &I : BB)
+        if (I.getType() == handleTy &&
+            (isa<PHINode>(&I) || isa<SelectInst>(&I)))
+          merges.push_back(&I);
+  if (merges.empty())
+    return false;
+
+  InstructionTextRecorder recorder(merges);
+  std::string text;
+  raw_string_ostream textOS(text);
+  M.print(textOS, &recorder);
+  textOS.flush();
+
   unsigned errorID = Diags.getCustomDiagID(
       clang::DiagnosticsEngine::Error,
       "function '%0' merges resource handles with a phi/select, which is "
       "rejected because -reject-resource-handle-merges is set.");
   unsigned noteID =
       Diags.getCustomDiagID(clang::DiagnosticsEngine::Note, "at '%0'.");
-  llvm::Type *handleTy = DM.GetOP()->GetHandleType();
-  bool found = false;
-  for (auto &F : M) {
-    bool foundInFunction = false;
-    for (auto &BB : F) {
-      for (auto &I : BB) {
-        if (I.getType() != handleTy ||
-            !(isa<PHINode>(&I) || isa<SelectInst>(&I)))
-          continue;
-        if (!foundInFunction) {
-          // Library function names are mangled with a leading '\01'; drop it.
-          Diags.Report(errorID) << GlobalValue::getRealLinkageName(F.getName());
-          foundInFunction = true;
-        }
-        std::string inst;
-        raw_string_ostream instOS(inst);
-        I.print(instOS);
-        instOS.flush();
-        Diags.Report(noteID) << StringRef(inst).ltrim();
-      }
+  const Function *lastFunction = nullptr;
+  for (Instruction *I : merges) {
+    // merges is in module order, so each function's merges are contiguous.
+    const Function *F = I->getParent()->getParent();
+    if (F != lastFunction) {
+      // Library function names are mangled with a leading '\01'; drop it.
+      Diags.Report(errorID) << GlobalValue::getRealLinkageName(F->getName());
+      lastFunction = F;
     }
-    found |= foundInFunction;
+    Diags.Report(noteID) << recorder.getText(I, text);
   }
-  return found;
+  return true;
 }
 
 AssembleInputs::AssembleInputs(
