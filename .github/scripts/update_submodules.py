@@ -19,8 +19,7 @@ class SubmoduleUpdate:
     subjects: list[str]
 
     def describe(self):
-        header = f"* [{self.name}]({self.compare_url}) ({self.commit_count} commits):"
-        return "\n".join([header] + [f"  > {subject}" for subject in self.subjects])
+        return f"* [{self.name}]({self.compare_url}) ({self.commit_count} commits)"
 
 
 def run(*args):
