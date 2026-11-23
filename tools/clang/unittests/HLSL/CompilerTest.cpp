@@ -203,6 +203,7 @@ public:
   TEST_METHOD(CompileWhenODumpThenCheckNoSink)
   TEST_METHOD(CompileWhenODumpThenOptimizerMatch)
   TEST_METHOD(CompileWhenVdThenProducesDxilContainer)
+  TEST_METHOD(CompileWhenHandleMergeRejectedThenNoObject)
 
   void TestEncodingImpl(const void *sourceData, size_t sourceSize,
                         UINT32 codePage, const void *includedData,
@@ -3617,6 +3618,62 @@ TEST_F(CompilerTest, CompileWhenVdThenProducesDxilContainer) {
       hlsl::IsValidDxilContainer(reinterpret_cast<hlsl::DxilContainerHeader *>(
                                      pResultBlob->GetBufferPointer()),
                                  pResultBlob->GetBufferSize()));
+}
+
+TEST_F(CompilerTest, CompileWhenHandleMergeRejectedThenNoObject) {
+  CComPtr<IDxcBlobEncoding> source;
+  CreateBlobFromFile(
+      L"..\HLSLFileCheck\hlsl\reject_resource_handle_merges_cs.hlsl", &source);
+  CComPtr<IDxcCompiler3> compiler;
+  VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcCompiler, &compiler));
+  DxcBuffer buffer = {source->GetBufferPointer(), source->GetBufferSize(),
+                      DXC_CP_UTF8};
+
+  for (bool disableValidation : {false, true}) {
+    // Compile the same source without the policy first to ensure the failure
+    // below is caused by rejecting the merge, rather than invalid HLSL.
+    std::vector<LPCWSTR> args = {L"-T", L"cs_6_6", L"-E", L"main"};
+    if (disableValidation)
+      args.push_back(L"-Vd");
+    CComPtr<IDxcResult> accepted;
+    VERIFY_SUCCEEDED(compiler->Compile(&buffer, args.data(), args.size(),
+                                       nullptr, IID_PPV_ARGS(&accepted)));
+    HRESULT status;
+    VERIFY_SUCCEEDED(accepted->GetStatus(&status));
+    VERIFY_SUCCEEDED(status);
+    VERIFY_IS_TRUE(accepted->HasOutput(DXC_OUT_OBJECT));
+
+    args.push_back(L"-reject-resource-handle-merges");
+    CComPtr<IDxcResult> rejected;
+    VERIFY_SUCCEEDED(compiler->Compile(&buffer, args.data(), args.size(),
+                                       nullptr, IID_PPV_ARGS(&rejected)));
+    VERIFY_SUCCEEDED(rejected->GetStatus(&status));
+    VERIFY_FAILED(status);
+    VERIFY_IS_FALSE(rejected->HasOutput(DXC_OUT_OBJECT));
+    CComPtr<IDxcBlob> object;
+    VERIFY_SUCCEEDED(rejected->GetResult(&object));
+    VERIFY_IS_NULL(object.p);
+    CComPtr<IDxcBlobEncoding> errors;
+    VERIFY_SUCCEEDED(rejected->GetErrorBuffer(&errors));
+    std::string diagnostics = BlobToUtf8(errors);
+    VERIFY_ARE_NOT_EQUAL(std::string::npos,
+                         diagnostics.find("merges resource handles with a "
+                                          "phi/select, which is rejected"));
+    VERIFY_ARE_NOT_EQUAL(std::string::npos, diagnostics.find("note: at '"));
+    VERIFY_ARE_NOT_EQUAL(std::string::npos,
+                         diagnostics.find("phi %dx.types.Handle"));
+  }
+
+  // lib_6_x is only an input to offline linking, so it is not checked.
+  std::vector<LPCWSTR> libArgs = {L"-T", L"lib_6_x",
+                                  L"-reject-resource-handle-merges"};
+  CComPtr<IDxcResult> lib;
+  VERIFY_SUCCEEDED(compiler->Compile(&buffer, libArgs.data(), libArgs.size(),
+                                     nullptr, IID_PPV_ARGS(&lib)));
+  HRESULT status;
+  VERIFY_SUCCEEDED(lib->GetStatus(&status));
+  VERIFY_SUCCEEDED(status);
+  VERIFY_IS_TRUE(lib->HasOutput(DXC_OUT_OBJECT));
 }
 
 void CompilerTest::TestEncodingImpl(const void *sourceData, size_t sourceSize,

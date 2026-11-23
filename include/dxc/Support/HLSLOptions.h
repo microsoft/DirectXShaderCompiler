@@ -216,6 +216,7 @@ public:
   unsigned long AutoBindingSpace = UINT_MAX; // OPT_auto_binding_space
   bool ExportShadersOnly = false;            // OPT_export_shaders_only
   bool ResMayAlias = false;                  // OPT_res_may_alias
+  bool RejectResourceHandleMerges = false; // OPT_reject_resource_handle_merges
   unsigned long ValVerMajor = UINT_MAX,
                 ValVerMinor = UINT_MAX; // OPT_validator_version
   unsigned ScanLimit = 0;               // OPT_memdep_block_scan_limit

@@ -42,6 +42,12 @@ class DxcOpts;
 } // namespace hlsl
 
 namespace dxcutil {
+// Reports an error for each function that merges resource handles with a
+// phi/select, with a note per merge, and returns true if any were found.
+// lib_6_x modules are not checked.
+bool ReportResourceHandleMerges(llvm::Module &M,
+                                clang::DiagnosticsEngine &Diags);
+
 struct AssembleInputs {
   AssembleInputs(std::unique_ptr<llvm::Module> &&pM,
                  CComPtr<IDxcBlob> &pOutputContainerBlob, IMalloc *pMalloc,

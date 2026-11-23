@@ -1022,6 +1022,22 @@ public:
           }
         }
 
+        std::unique_ptr<llvm::Module> serializeModule;
+        if (compileOK && !opts.CodeGenHighLevel) {
+          serializeModule = action.takeModule();
+          // Check after all optimizations but before the container is
+          // assembled, validated or signed, even with /Vd, so the DXIL never
+          // reaches the driver.
+          if (opts.RejectResourceHandleMerges &&
+              dxcutil::ReportResourceHandleMerges(*serializeModule,
+                                                  compiler.getDiagnostics())) {
+            compileOK = false;
+            // EmitBCAction already wrote raw bitcode to pOutputStream. Do not
+            // expose that bitcode as DXC_OUT_OBJECT after policy rejection.
+            pOutputBlob.Release();
+          }
+        }
+
         // Don't do work to put in a container if an error has occurred
         // Do not create a container when there is only a a high-level
         // representation in the module.
@@ -1032,8 +1048,6 @@ public:
           IFT(CreateMemoryStream(DxcGetThreadMallocNoRef(),
                                  &pReflectionStream));
           IFT(CreateMemoryStream(DxcGetThreadMallocNoRef(), &pRootSigStream));
-
-          std::unique_ptr<llvm::Module> serializeModule(action.takeModule());
 
           // Clone and save the copy.
           if (opts.GenerateFullDebugInfo()) {
@@ -1303,8 +1317,10 @@ public:
         } // PDB in private
       }   // Write PDB
 
-      IFT(primaryOutput.SetObject(pOutputBlob, opts.DefaultTextCodePage));
-      IFT(pResult->SetOutput(primaryOutput));
+      if (pOutputBlob) {
+        IFT(primaryOutput.SetObject(pOutputBlob, opts.DefaultTextCodePage));
+        IFT(pResult->SetOutput(primaryOutput));
+      }
 
       // It is possible for errors to occur, but the diagnostic or AST consumers
       // can recover from them, or translate them to mean something different.

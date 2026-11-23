@@ -11,6 +11,7 @@
 
 #include "dxcutil.h"
 #include "dxc/DXIL/DxilModule.h"
+#include "dxc/DXIL/DxilOperations.h"
 #include "dxc/DxilContainer/DxilContainerAssembler.h"
 #include "dxc/DxilRootSignature/DxilRootSignature.h"
 #include "dxc/Support/FileIOHelper.h"
@@ -24,6 +25,7 @@
 #include "llvm/IR/DebugInfo.h"
 #include "llvm/IR/DiagnosticInfo.h"
 #include "llvm/IR/DiagnosticPrinter.h"
+#include "llvm/IR/Instructions.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Support/MemoryBuffer.h"
@@ -46,6 +48,50 @@ HRESULT RunInternalValidator(IDxcValidator *pValidator,
                              UINT32 Flags, IDxcOperationResult **ppResult);
 
 namespace dxcutil {
+
+// This is a driver workaround, not a DXIL validity rule: some drivers can't
+// lower such merges. Unused instructions count too, because the driver still
+// sees their operands.
+bool ReportResourceHandleMerges(llvm::Module &M,
+                                clang::DiagnosticsEngine &Diags) {
+  DxilModule &DM = M.GetDxilModule();
+  // lib_6_x is only an input to offline linking, which may still remove the
+  // merges, so only check modules that can reach a driver.
+  const ShaderModel *SM = DM.GetShaderModel();
+  if (SM->IsLib() && SM->GetMinor() == ShaderModel::kOfflineMinor)
+    return false;
+
+  unsigned errorID = Diags.getCustomDiagID(
+      clang::DiagnosticsEngine::Error,
+      "function '%0' merges resource handles with a phi/select, which is "
+      "rejected because -reject-resource-handle-merges is set.");
+  unsigned noteID =
+      Diags.getCustomDiagID(clang::DiagnosticsEngine::Note, "at '%0'.");
+  llvm::Type *handleTy = DM.GetOP()->GetHandleType();
+  bool found = false;
+  for (auto &F : M) {
+    bool foundInFunction = false;
+    for (auto &BB : F) {
+      for (auto &I : BB) {
+        if (I.getType() != handleTy ||
+            !(isa<PHINode>(&I) || isa<SelectInst>(&I)))
+          continue;
+        if (!foundInFunction) {
+          // Library function names are mangled with a leading '\01'; drop it.
+          Diags.Report(errorID) << GlobalValue::getRealLinkageName(F.getName());
+          foundInFunction = true;
+        }
+        std::string inst;
+        raw_string_ostream instOS(inst);
+        I.print(instOS);
+        instOS.flush();
+        Diags.Report(noteID) << StringRef(inst).ltrim();
+      }
+    }
+    found |= foundInFunction;
+  }
+  return found;
+}
 
 AssembleInputs::AssembleInputs(
     std::unique_ptr<llvm::Module> &&pM, CComPtr<IDxcBlob> &pOutputContainerBlob,

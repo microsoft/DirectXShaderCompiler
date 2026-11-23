@@ -580,6 +580,8 @@ def res_may_alias : Flag<["-", "/"], "res-may-alias">, Flags<[CoreOption]>, Grou
   HelpText<"Assume that UAVs/SRVs may alias">;
 def res_may_alias_ : Flag<["-", "/"], "res_may_alias">, Flags<[CoreOption, HelpHidden]>, Group<hlslcomp_Group>,
   HelpText<"Assume that UAVs/SRVs may alias">;
+def reject_resource_handle_merges : Flag<["-", "/"], "reject-resource-handle-merges">, Flags<[CoreOption]>, Group<hlslcomp_Group>,
+  HelpText<"Fail compilation if the DXIL merges resource handles with phi/select (workaround for drivers that cannot compile it); lib_6_x output is not checked">;
 def all_resources_bound : Flag<["-", "/"], "all-resources-bound">, Flags<[CoreOption]>, Group<hlslcomp_Group>,
   HelpText<"Enables aggressive flattening">;
 def all_resources_bound_ : Flag<["-", "/"], "all_resources_bound">, Flags<[CoreOption, HelpHidden]>, Group<hlslcomp_Group>,

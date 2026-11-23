@@ -116,6 +116,14 @@ line upon naming the release. Refer to previous for appropriate section names.
   fast-math flags after merging equivalent code from both sides of a branch.
 - Reject root signatures with invalid shader visibility values.
 
+#### Other Changes
+
+- Added `-reject-resource-handle-merges`, which fails compilation if the final
+  DXIL contains a `phi` or `select` of `%dx.types.Handle`. This is a workaround
+  for drivers that cannot compile such merges. The check also runs when linking
+  libraries and with `-Vd`. `lib_6_x` output is not checked because it is only
+  an input to offline linking; the check applies to the linked result instead.
+
 ### Upcoming Preview Release
 
 These changes apply to experimental preview shader models only and will not be

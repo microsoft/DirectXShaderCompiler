@@ -377,16 +377,21 @@ HRESULT STDMETHODCALLTYPE DxcLinker::Link(
     if (bSuccess) {
       std::unique_ptr<Module> pM =
           m_pLinker->Link(opts.EntryPoint, pUtf8TargetProfile.m_psz, exportMap);
-      if (pM) {
-        const IntrusiveRefCntPtr<clang::DiagnosticIDs> Diags(
-            new clang::DiagnosticIDs);
-        IntrusiveRefCntPtr<clang::DiagnosticOptions> DiagOpts =
-            new clang::DiagnosticOptions();
-        // Construct our diagnostic client.
-        clang::TextDiagnosticPrinter *DiagClient =
-            new clang::TextDiagnosticPrinter(DiagStream, &*DiagOpts);
-        clang::DiagnosticsEngine Diag(Diags, &*DiagOpts, DiagClient);
+      const IntrusiveRefCntPtr<clang::DiagnosticIDs> Diags(
+          new clang::DiagnosticIDs);
+      IntrusiveRefCntPtr<clang::DiagnosticOptions> DiagOpts =
+          new clang::DiagnosticOptions();
+      // Construct our diagnostic client.
+      clang::TextDiagnosticPrinter *DiagClient =
+          new clang::TextDiagnosticPrinter(DiagStream, &*DiagOpts);
+      clang::DiagnosticsEngine Diag(Diags, &*DiagOpts, DiagClient);
 
+      // Enforce the policy on the final linked module, before producing any
+      // bitcode or container, independently of validation settings.
+      if (pM && opts.RejectResourceHandleMerges &&
+          dxcutil::ReportResourceHandleMerges(*pM, Diag)) {
+        hasErrorOccurred = true;
+      } else if (pM) {
         raw_stream_ostream outStream(pOutputStream.p);
         // Create bitcode of M.
         WriteBitcodeToFile(pM.get(), outStream);

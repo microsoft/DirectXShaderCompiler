@@ -1,6 +1,8 @@
 // RUN: %dxc -T lib_6_x -auto-binding-space 11 %s | FileCheck %s
+// RUN: %dxc -T lib_6_x -auto-binding-space 11 -reject-resource-handle-merges %s | FileCheck %s
 
 // lib_6_x allows select on resource, targeting offline linking only.
+// -reject-resource-handle-merges does not apply to lib_6_x.
 // CHECK: select i1 %{{[^, ]+}}, %dx.types.Handle
 
 RWByteAddressBuffer outputBuffer : register(u0);

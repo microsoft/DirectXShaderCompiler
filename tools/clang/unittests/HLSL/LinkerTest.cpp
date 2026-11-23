@@ -62,6 +62,7 @@ public:
   TEST_METHOD(RunLinkFailProfileMismatch)
   TEST_METHOD(RunLinkFailEntryNoProps)
   TEST_METHOD(RunLinkFailSelectRes)
+  TEST_METHOD(RunLinkRejectHandleMerge)
   TEST_METHOD(RunLinkToLibWithUnresolvedFunctions)
   TEST_METHOD(RunLinkToLibWithUnresolvedFunctionsExports)
   TEST_METHOD(RunLinkToLibWithExportNamesSwapped)
@@ -670,6 +671,61 @@ TEST_F(LinkerTest, RunLinkToLibExportShadersOnly) {
   RegisterDxcModule(libName2, pLib, pLinker);
   Link(L"", L"lib_6_3", pLinker, {libName, libName2}, {"@main"},
        {"@\"\\01?mat_test"}, {L"-export-shaders-only"});
+}
+
+TEST_F(LinkerTest, RunLinkRejectHandleMerge) {
+  CComPtr<IDxcBlob> library;
+  CompileLib(L"..\HLSLFileCheck\hlsl\reject_resource_handle_merges_cs.hlsl",
+             &library);
+  CComPtr<IDxcLinker> linker;
+  CreateLinker(&linker);
+  LPCWSTR libraryName = L"merge";
+  RegisterDxcModule(libraryName, library, linker);
+
+  // lib_6_x is only an input to offline linking, so it is not checked.
+  Link(L"", L"lib_6_x", linker, {libraryName}, {"phi %dx.types.Handle"}, {},
+       {L"-reject-resource-handle-merges"});
+
+  for (bool disableValidation : {false, true}) {
+    std::vector<LPCWSTR> args;
+    if (disableValidation)
+      args.push_back(L"-Vd");
+    // Verify that linking preserves a handle merge without the policy.
+    Link(L"main", L"cs_6_6", linker, {libraryName}, {"phi %dx.types.Handle"},
+         {}, args);
+
+    args.push_back(L"-reject-resource-handle-merges");
+    CComPtr<IDxcOperationResult> operation;
+    VERIFY_SUCCEEDED(linker->Link(L"main", L"cs_6_6", &libraryName, 1,
+                                  args.data(), args.size(), &operation));
+    HRESULT status;
+    VERIFY_SUCCEEDED(operation->GetStatus(&status));
+    VERIFY_FAILED(status);
+    CComPtr<IDxcResult> result;
+    VERIFY_SUCCEEDED(operation.QueryInterface(&result));
+    VERIFY_IS_FALSE(result->HasOutput(DXC_OUT_OBJECT));
+    CComPtr<IDxcBlob> object;
+    VERIFY_SUCCEEDED(result->GetResult(&object));
+    VERIFY_IS_NULL(object.p);
+    CComPtr<IDxcBlobEncoding> errors;
+    VERIFY_SUCCEEDED(result->GetErrorBuffer(&errors));
+    std::string diagnostics = BlobToUtf8(errors);
+    VERIFY_ARE_NOT_EQUAL(std::string::npos,
+                         diagnostics.find("merges resource handles with a "
+                                          "phi/select, which is rejected"));
+    VERIFY_ARE_NOT_EQUAL(std::string::npos, diagnostics.find("note: at '"));
+    VERIFY_ARE_NOT_EQUAL(std::string::npos,
+                         diagnostics.find("phi %dx.types.Handle"));
+  }
+
+  CComPtr<IDxcBlob> cleanLibrary;
+  CompileLib(
+      L"..\HLSLFileCheck\hlsl\reject_resource_handle_merges_numeric.hlsl",
+      &cleanLibrary);
+  LPCWSTR cleanName = L"clean";
+  RegisterDxcModule(cleanName, cleanLibrary, linker);
+  Link(L"", L"lib_6_3", linker, {cleanName}, {}, {},
+       {L"-reject-resource-handle-merges"});
 }
 
 TEST_F(LinkerTest, RunLinkFailSelectRes) {
