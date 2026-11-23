@@ -5765,10 +5765,10 @@ public:
     // Under HLSL 202x the built-in HLSL intrinsic functions are placed in the
     // 'hlsl' namespace (see: https://hlsl-tc57.github.io/tc57/proposal/0009/).
     auto HLSLNS =
-          NamespaceDecl::Create(context, context.getTranslationUnitDecl(),
-                                /*Inline*/ false, SourceLocation(),
-                                SourceLocation(), &context.Idents.get("hlsl"),
-                                /*PrevDecl*/ nullptr);
+        NamespaceDecl::Create(context, context.getTranslationUnitDecl(),
+                              /*Inline*/ false, SourceLocation(),
+                              SourceLocation(), &context.Idents.get("hlsl"),
+                              /*PrevDecl*/ nullptr);
     HLSLNS->setImplicit();
     HLSLNS->setHasExternalLexicalStorage(true);
     HLSLNS->setHasExternalVisibleStorage(true);
