@@ -3623,7 +3623,8 @@ TEST_F(CompilerTest, CompileWhenVdThenProducesDxilContainer) {
 TEST_F(CompilerTest, CompileWhenHandleMergeRejectedThenNoObject) {
   CComPtr<IDxcBlobEncoding> source;
   CreateBlobFromFile(
-      L"..\HLSLFileCheck\hlsl\reject_resource_handle_merges_cs.hlsl", &source);
+      L"..\\HLSLFileCheck\\hlsl\\reject_resource_handle_merges_cs.hlsl",
+      &source);
   CComPtr<IDxcCompiler3> compiler;
   VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcCompiler, &compiler));
   DxcBuffer buffer = {source->GetBufferPointer(), source->GetBufferSize(),

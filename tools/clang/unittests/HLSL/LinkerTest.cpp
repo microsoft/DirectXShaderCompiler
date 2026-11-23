@@ -675,7 +675,7 @@ TEST_F(LinkerTest, RunLinkToLibExportShadersOnly) {
 
 TEST_F(LinkerTest, RunLinkRejectHandleMerge) {
   CComPtr<IDxcBlob> library;
-  CompileLib(L"..\HLSLFileCheck\hlsl\reject_resource_handle_merges_cs.hlsl",
+  CompileLib(L"..\\HLSLFileCheck\\hlsl\\reject_resource_handle_merges_cs.hlsl",
              &library);
   CComPtr<IDxcLinker> linker;
   CreateLinker(&linker);
@@ -720,7 +720,7 @@ TEST_F(LinkerTest, RunLinkRejectHandleMerge) {
 
   CComPtr<IDxcBlob> cleanLibrary;
   CompileLib(
-      L"..\HLSLFileCheck\hlsl\reject_resource_handle_merges_numeric.hlsl",
+      L"..\\HLSLFileCheck\\hlsl\\reject_resource_handle_merges_numeric.hlsl",
       &cleanLibrary);
   LPCWSTR cleanName = L"clean";
   RegisterDxcModule(cleanName, cleanLibrary, linker);
