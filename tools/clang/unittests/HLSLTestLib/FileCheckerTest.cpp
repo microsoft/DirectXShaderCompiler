@@ -48,6 +48,8 @@
 #include "dxc/Test/D3DReflectionDumper.h"
 #include "dxc/Test/RDATDumper.h"
 
+#include "dxc/dxcreflect.h"
+
 using namespace hlsl::dump;
 
 using namespace std;
@@ -98,6 +100,8 @@ FileRunCommandPart::Run(dxc::DllLoader &DllSupport,
     return RunDxilVer(DllSupport, Prior);
   } else if (0 == _stricmp(Command.c_str(), "%dxc")) {
     return RunDxc(DllSupport, Prior);
+  } else if (0 == _stricmp(Command.c_str(), "%dxreflector")) {
+    return RunDxReflector(DllSupport, Prior);
   } else if (0 == _stricmp(Command.c_str(), "%dxv")) {
     return RunDxv(DllSupport, Prior);
   } else if (0 == _stricmp(Command.c_str(), "%opt")) {
@@ -591,6 +595,69 @@ FileRunCommandPart::RunDxc(dxc::DllLoader &DllSupport,
   } else {
     IFT(pResult->GetErrorBuffer(&pDisassembly));
     result.StdErr = BlobToUtf8(pDisassembly);
+    result.ExitCode = resultStatus;
+  }
+
+  result.OpResult = pResult;
+  return result;
+}
+
+FileRunCommandResult
+FileRunCommandPart::RunDxReflector(dxc::DllLoader &DllSupport,
+                                   const FileRunCommandResult *Prior) {
+  // Support piping stdin from prior if needed.
+  UNREFERENCED_PARAMETER(Prior);
+  hlsl::options::MainArgs args;
+  hlsl::options::DxcOpts opts;
+  FileRunCommandResult readOptsResult =
+      ReadOptsForDxc(args, opts, hlsl::options::ReflectOption);
+  if (readOptsResult.ExitCode)
+    return readOptsResult;
+
+  std::vector<LPCWSTR> flags;
+
+  std::vector<std::wstring> argWStrings;
+  CopyArgsToWStrings(opts.Args, hlsl::options::ReflectOption, argWStrings);
+  for (const std::wstring &a : argWStrings)
+    flags.push_back(a.data());
+
+  CComPtr<IDxcLibrary> pLibrary;
+  CComPtr<IHLSLReflector> pReflector;
+  CComPtr<IDxcResult> pResult;
+  CComPtr<IDxcBlobEncoding> pSource;
+  CComPtr<IDxcBlobEncoding> pJson;
+  CComPtr<IDxcBlob> pReflectionBlob;
+  CComPtr<IHLSLReflectionData> pReflectionData;
+
+  ReflectorFormatSettings formatSettings{};
+  formatSettings.PrintFileInfo = opts.ReflOpt.ShowFileInfo;
+  formatSettings.IsHumanReadable = !opts.ReflOpt.ShowRawData;
+
+  HRESULT resultStatus;
+
+  IFT(DllSupport.CreateInstance(CLSID_DxcLibrary, &pLibrary));
+  IFT(pLibrary->CreateBlobFromFile(CommandFileName, nullptr, &pSource));
+  CComPtr<IncludeHandlerVFSOverlayForTest> pIncludeHandler =
+      AllocVFSIncludeHandler(pLibrary, pVFS);
+  IFT(DllSupport.CreateInstance(CLSID_DxcReflector, &pReflector));
+  IFT(pReflector->FromSource(pSource, CommandFileName, flags.data(),
+                             flags.size(), nullptr, 0, pIncludeHandler,
+                             &pResult));
+  IFT(pResult->GetStatus(&resultStatus));
+
+  FileRunCommandResult result = {};
+  if (SUCCEEDED(resultStatus)) {
+    IFT(pResult->GetResult(&pReflectionBlob));
+    IFT(pReflector->FromBlob(pReflectionBlob, &pReflectionData));
+    IFT(pReflector->ToString(pReflectionData, formatSettings, &pJson));
+    result.StdOut = BlobToUtf8(pJson);
+    CComPtr<IDxcBlobEncoding> pStdErr;
+    IFT(pResult->GetErrorBuffer(&pStdErr));
+    result.StdErr = BlobToUtf8(pStdErr);
+    result.ExitCode = 0;
+  } else {
+    IFT(pResult->GetErrorBuffer(&pJson));
+    result.StdErr = BlobToUtf8(pJson);
     result.ExitCode = resultStatus;
   }
 

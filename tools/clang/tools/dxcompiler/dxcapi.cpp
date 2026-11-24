@@ -21,6 +21,7 @@
 #include "dxc/config.h"
 #include "dxc/dxcisense.h"
 #include "dxc/dxctools.h"
+#include "dxc/dxcreflect.h"
 #ifdef _WIN32
 #include "dxcetw.h"
 #endif
@@ -33,6 +34,7 @@ HRESULT CreateDxcIntelliSense(REFIID riid, _Out_ LPVOID *ppv);
 HRESULT CreateDxcCompilerArgs(REFIID riid, _Out_ LPVOID *ppv);
 HRESULT CreateDxcUtils(REFIID riid, _Out_ LPVOID *ppv);
 HRESULT CreateDxcRewriter(REFIID riid, _Out_ LPVOID *ppv);
+HRESULT CreateDxcReflector(REFIID riid, _Out_ LPVOID *ppv);
 HRESULT CreateDxcValidator(REFIID riid, _Out_ LPVOID *ppv);
 HRESULT CreateDxcAssembler(REFIID riid, _Out_ LPVOID *ppv);
 HRESULT CreateDxcOptimizer(REFIID riid, _Out_ LPVOID *ppv);
@@ -92,6 +94,8 @@ static HRESULT ThreadMallocDxcCreateInstance(REFCLSID rclsid, REFIID riid,
     hr = CreateDxcPdbUtils(riid, ppv);
   } else if (IsEqualCLSID(rclsid, CLSID_DxcRewriter)) {
     hr = CreateDxcRewriter(riid, ppv);
+  }  else if (IsEqualCLSID(rclsid, CLSID_DxcReflector)) {
+    hr = CreateDxcReflector(riid, ppv);
   } else if (IsEqualCLSID(rclsid, CLSID_DxcLinker)) {
     hr = CreateDxcLinker(riid, ppv);
   }
