@@ -130,17 +130,6 @@ Constant *ConstantFoldCall(Function *F, ArrayRef<Constant *> Operands,
                            bool AllowNonDeterministic = true);
 // HLSL Change End
 
-// HLSL Change Begin
-/// Attempt to constant fold the compare instruction \p I with the specified
-/// operands. If \p AllowNonDeterministic is false, returns null instead of
-/// folding a compare of a float denormal that the driver may flush to zero when
-/// it executes \p I.
-Constant *ConstantFoldCompareInstOperands(const Instruction *I, Constant *LHS,
-                                          Constant *RHS, const DataLayout &DL,
-                                          const TargetLibraryInfo *TLI,
-                                          bool AllowNonDeterministic);
-// HLSL Change End
-
 /// HLSL Change - make these functions external so we can call them from 
 /// DxilConstantFolding.cpp.
 Constant *ConstantFoldFP(double(__cdecl *NativeFP)(double), double V, Type *Ty);
