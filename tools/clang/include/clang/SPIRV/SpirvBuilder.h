@@ -434,6 +434,9 @@ public:
   void createReturnValue(SpirvInstruction *value, SourceLocation,
                          SourceRange range = {});
 
+  /// \brief Creates an unreachable instruction.
+  void createUnreachable(SourceLocation);
+
   /// \brief Creates an OpExtInst instruction for the GLSL extended instruction
   /// set, with the given instruction number, and operands. Returns the
   /// resulting instruction pointer.

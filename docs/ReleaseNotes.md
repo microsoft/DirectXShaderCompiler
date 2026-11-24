@@ -21,6 +21,8 @@ The included licenses apply to the following files:
 
 #### SPIR-V
 
+- Fixed stencil export execution modes and invalid resource values in non-void
+  function fallthrough blocks to satisfy newer SPIR-V validation.
 - Added `-fvk-resource-heap-stride` and `-fvk-sampler-heap-stride`, which
   override the computed `ArrayStrideIdEXT` of the resource and sampler
   descriptor heaps with a literal `ArrayStride`. The value must be a power of
