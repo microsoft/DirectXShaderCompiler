@@ -761,10 +761,9 @@ unsigned Parser::ParseAttributeArgsCommon(
 
     // Parse the non-empty comma-separated list of expressions.
     do {
-      std::unique_ptr<EnterExpressionEvaluationContext> Unevaluated;
-      if (attributeParsedArgsUnevaluated(*AttrName))
-        Unevaluated.reset(
-            new EnterExpressionEvaluationContext(Actions, Sema::Unevaluated));
+      bool Unevaluated = attributeParsedArgsUnevaluated(*AttrName);
+      EnterExpressionEvaluationContext EvalContext(
+          Actions, Unevaluated ? Sema::Unevaluated : Sema::ConstantEvaluated);
 
       ExprResult ArgExpr(
           Actions.CorrectDelayedTyposInExpr(ParseAssignmentExpression()));
