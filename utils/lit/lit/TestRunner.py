@@ -438,10 +438,10 @@ def parseIntegratedTestScript(test, normalize_slashes=False,
             ])
 
     # re for %if
-    re_cond_end = re.compile('%{')
-    re_if = re.compile('(.*?)(?:%if)')
-    re_nested_if = re.compile('(.*?)(?:%if|%})')
-    re_else = re.compile('^\s*%else\s*(%{)?')
+    re_cond_end = re.compile("%{")
+    re_if = re.compile("(.*?)(?:%if)")
+    re_nested_if = re.compile("(.*?)(?:%if|%})")
+    re_else = re.compile(r"^\s*%else\s*(%{)?")
 
 
     # Collect the test lines from the script.
@@ -455,13 +455,15 @@ def parseIntegratedTestScript(test, normalize_slashes=False,
             ln = ln.rstrip()
 
             # Substitute line number expressions
-            ln = re.sub('%\(line\)', str(line_number), ln)
+            ln = re.sub(r"%\(line\)", str(line_number), ln)
+
             def replace_line_number(match):
                 if match.group(1) == '+':
                     return str(line_number + int(match.group(2)))
                 if match.group(1) == '-':
                     return str(line_number - int(match.group(2)))
-            ln = re.sub('%\(line *([\+-]) *(\d+)\)', replace_line_number, ln)
+
+            ln = re.sub(r"%\(line *([\+-]) *(\d+)\)", replace_line_number, ln)
 
             # Collapse lines with trailing '\\'.
             if script and script[-1][-1] == '\\':
