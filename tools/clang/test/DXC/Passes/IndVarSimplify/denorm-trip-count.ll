@@ -63,7 +63,7 @@ define i32 @denormal_fcmp_any(i32 %stop) #0 {
 ; CHECK-NEXT:    br label %[[LOOP:.*]]
 ; CHECK:       [[LOOP]]:
 ; CHECK-NEXT:    [[I:%.*]] = phi i32 [ 0, %[[ENTRY]] ], [ [[I_NEXT:%.*]], %[[LATCH:.*]] ]
-; CHECK-NEXT:    [[I_NEXT]] = add nuw nsw i32 [[I]], 1
+; CHECK-NEXT:    [[I_NEXT]] = add i32 [[I]], 1
 ; CHECK-NEXT:    [[LATE:%.*]] = icmp ugt i32 [[I]], 2
 ; CHECK-NEXT:    [[F:%.*]] = select i1 [[LATE]], float 0x3800000000000000, float 0.000000e+00
 ; CHECK-NEXT:    [[FCMP:%.*]] = fcmp une float [[F]], 0.000000e+00
@@ -159,7 +159,7 @@ define i32 @denormal_fpext_any(i32 %stop) #0 {
 ; CHECK-NEXT:    br label %[[LOOP:.*]]
 ; CHECK:       [[LOOP]]:
 ; CHECK-NEXT:    [[I:%.*]] = phi i32 [ 0, %[[ENTRY]] ], [ [[I_NEXT:%.*]], %[[LATCH:.*]] ]
-; CHECK-NEXT:    [[I_NEXT]] = add nuw nsw i32 [[I]], 1
+; CHECK-NEXT:    [[I_NEXT]] = add i32 [[I]], 1
 ; CHECK-NEXT:    [[LATE:%.*]] = icmp ugt i32 [[I]], 2
 ; CHECK-NEXT:    [[F:%.*]] = select i1 [[LATE]], float 0x3800000000000000, float 0.000000e+00
 ; CHECK-NEXT:    [[D:%.*]] = fpext float [[F]] to double
@@ -208,7 +208,7 @@ define i32 @denormal_fptrunc_any(i32 %stop) #0 {
 ; CHECK-NEXT:    br label %[[LOOP:.*]]
 ; CHECK:       [[LOOP]]:
 ; CHECK-NEXT:    [[I:%.*]] = phi i32 [ 0, %[[ENTRY]] ], [ [[I_NEXT:%.*]], %[[LATCH:.*]] ]
-; CHECK-NEXT:    [[I_NEXT]] = add nuw nsw i32 [[I]], 1
+; CHECK-NEXT:    [[I_NEXT]] = add i32 [[I]], 1
 ; CHECK-NEXT:    [[LATE:%.*]] = icmp ugt i32 [[I]], 2
 ; CHECK-NEXT:    [[D:%.*]] = select i1 [[LATE]], double 0x3730000000000000, double 0.000000e+00
 ; CHECK-NEXT:    [[F:%.*]] = fptrunc double [[D]] to float
