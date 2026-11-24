@@ -20,12 +20,14 @@
 #include "llvm/IR/Module.h"
 #include "llvm/IR/PassManager.h"
 #include "llvm/Pass.h"
+#include "llvm/Support/ErrorHandling.h"
 
 #include "PixPassHelpers.h"
 
 #include "dxc/Support/Global.h"
 #include "dxc/Support/WinIncludes.h"
 #include "dxc/dxcapi.h"
+#include <limits>
 #include <optional>
 
 #ifdef PIX_DEBUG_DUMP_HELPER
@@ -38,6 +40,54 @@ using namespace llvm;
 using namespace hlsl;
 
 namespace PIXPassHelpers {
+
+static bool IsExactPIXUAVResource(const DxilResource &Resource,
+                                  const char *Name) {
+  StringRef GlobalName = Resource.GetGlobalName();
+  // Names the PIX passes assign to their tools UAV; "Pix" alone is not enough
+  // since application resources such as "PixelBuffer" match it.
+  return (GlobalName == Name || GlobalName.startswith("PIX_") ||
+          GlobalName.startswith("PIXUAV") ||
+          GlobalName.startswith("PixUAVResource")) &&
+         Resource.IsRW() && Resource.GetSampleCount() == 0 &&
+         !Resource.IsGloballyCoherent() && !Resource.IsReorderCoherent() &&
+         !Resource.HasCounter() && Resource.GetCompType().IsInvalid() &&
+         Resource.GetRangeSize() == 1 && Resource.GetElementStride() == 1 &&
+         Resource.GetKind() == DXIL::ResourceKind::RawBuffer;
+}
+
+[[noreturn]] static void ReportPIXUAVCollision(Module &ModuleToReport,
+                                               unsigned int HlslBindIndex,
+                                               uint32_t RegisterSpace,
+                                               const char *Name,
+                                               raw_ostream *DiagnosticStream) {
+  std::string ErrorMessage =
+      "PIX instrumentation UAV collision: u" + std::to_string(HlslBindIndex) +
+      " space " + std::to_string(RegisterSpace) +
+      " is already used by a non-PIX resource; expected free binding or " +
+      Name;
+  if (DiagnosticStream != nullptr) {
+    *DiagnosticStream << ErrorMessage << "\n";
+  }
+  report_fatal_error(ErrorMessage);
+}
+
+[[noreturn]] static void ReportPIXRootSignatureUAVCollision(
+    Module &ModuleToReport, unsigned int HlslBindIndex, uint32_t RegisterSpace,
+    const char *Name, raw_ostream *DiagnosticStream) {
+  std::string ErrorMessage =
+      "PIX instrumentation root-signature collision: u" +
+      std::to_string(HlslBindIndex) + " space " +
+      std::to_string(RegisterSpace) +
+      " is already declared in a root signature but no matching PIX resource "
+      "exists; expected free binding or " +
+      Name;
+  if (DiagnosticStream != nullptr) {
+    *DiagnosticStream << ErrorMessage << "\n";
+  }
+  report_fatal_error(ErrorMessage);
+}
+
 static void FindRayQueryHandlesFromUse(Value *U,
                                        SmallPtrSetImpl<Value *> &Handles) {
   if (Handles.insert(U).second) {
@@ -59,7 +109,9 @@ void FindRayQueryHandlesForFunction(llvm::Function *F,
     for (auto &block : blocks) {
       for (auto &instruction : block) {
         if (hlsl::OP::IsDxilOpFuncCallInst(
-                &instruction, hlsl::OP::OpCode::AllocateRayQuery)) {
+                &instruction, hlsl::OP::OpCode::AllocateRayQuery) ||
+            hlsl::OP::IsDxilOpFuncCallInst(
+                &instruction, hlsl::OP::OpCode::AllocateRayQuery2)) {
           FindRayQueryHandlesFromUse(&instruction, RayQueryHandles);
         }
       }
@@ -136,7 +188,7 @@ llvm::CallInst *CreateHandleForResource(hlsl::DxilModule &DM,
     Value *bindingV = resource_helper::getAsConstant(
         binding, HlslOP->GetResourceBindingType(), *DM.GetShaderModel());
 
-    Value *registerIndex = HlslOP->GetU32Const(0);
+    Value *registerIndex = HlslOP->GetU32Const(resource->GetLowerBound());
 
     Value *isUniformRes = HlslOP->GetI1Const(0);
 
@@ -168,7 +220,7 @@ llvm::CallInst *CreateHandleForResource(hlsl::DxilModule &DM,
         static_cast<std::underlying_type<DxilResourceBase::Class>::type>(
             resourceClass));
     Constant *MetaDataArg = HlslOP->GetU32Const(resource->GetID());
-    Constant *IndexArg = HlslOP->GetU32Const(0);
+    Constant *IndexArg = HlslOP->GetU32Const(resource->GetLowerBound());
     Constant *FalseArg =
         HlslOP->GetI1Const(0); // non-uniform resource index: false
     return Builder.CreateCall(
@@ -196,17 +248,16 @@ static std::vector<uint8_t> SerializeRootSignatureToVector(
   return ret;
 }
 
-constexpr uint32_t toolsRegisterSpace = static_cast<uint32_t>(-2);
-
 // Returns whether a parameter was appended.
 template <typename RootSigDesc, typename RootParameterDesc>
-bool ExtendRootSig(RootSigDesc &RootSignatureDesc, uint32_t ToolsUAVRegister) {
+bool ExtendRootSig(RootSigDesc &RootSignatureDesc, uint32_t ToolsUAVRegister,
+                   uint32_t RegisterSpace) {
   auto *existingParams = RootSignatureDesc.pParameters;
   for (uint32_t i = 0; i < RootSignatureDesc.NumParameters; ++i) {
     if (RootSignatureDesc.pParameters[i].ParameterType ==
         DxilRootParameterType::UAV) {
       if (RootSignatureDesc.pParameters[i].Descriptor.RegisterSpace ==
-              toolsRegisterSpace &&
+              RegisterSpace &&
           RootSignatureDesc.pParameters[i].Descriptor.ShaderRegister ==
               ToolsUAVRegister) {
         // Already added
@@ -224,7 +275,7 @@ bool ExtendRootSig(RootSigDesc &RootSignatureDesc, uint32_t ToolsUAVRegister) {
   RootSignatureDesc.pParameters[RootSignatureDesc.NumParameters].ParameterType =
       DxilRootParameterType::UAV;
   RootSignatureDesc.pParameters[RootSignatureDesc.NumParameters]
-      .Descriptor.RegisterSpace = toolsRegisterSpace;
+      .Descriptor.RegisterSpace = RegisterSpace;
   RootSignatureDesc.pParameters[RootSignatureDesc.NumParameters]
       .Descriptor.ShaderRegister = ToolsUAVRegister;
   RootSignatureDesc.pParameters[RootSignatureDesc.NumParameters]
@@ -233,20 +284,84 @@ bool ExtendRootSig(RootSigDesc &RootSignatureDesc, uint32_t ToolsUAVRegister) {
   return true;
 }
 
+template <typename RootParameterDesc>
+bool RootParameterUsesUAVBinding(const RootParameterDesc &RootParameter,
+                                 uint32_t ToolsUAVRegister,
+                                 uint32_t RegisterSpace) {
+  if (RootParameter.ParameterType == DxilRootParameterType::UAV) {
+    return RootParameter.Descriptor.RegisterSpace == RegisterSpace &&
+           RootParameter.Descriptor.ShaderRegister == ToolsUAVRegister;
+  }
+
+  if (RootParameter.ParameterType != DxilRootParameterType::DescriptorTable) {
+    return false;
+  }
+
+  for (uint32_t RangeIndex = 0;
+       RangeIndex < RootParameter.DescriptorTable.NumDescriptorRanges;
+       ++RangeIndex) {
+    const auto &DescriptorRange =
+        RootParameter.DescriptorTable.pDescriptorRanges[RangeIndex];
+    if (DescriptorRange.RangeType != DxilDescriptorRangeType::UAV ||
+        DescriptorRange.RegisterSpace != RegisterSpace ||
+        ToolsUAVRegister < DescriptorRange.BaseShaderRegister) {
+      continue;
+    }
+
+    const uint32_t RegisterOffset =
+        ToolsUAVRegister - DescriptorRange.BaseShaderRegister;
+    if (DescriptorRange.NumDescriptors ==
+            std::numeric_limits<uint32_t>::max() ||
+        RegisterOffset < DescriptorRange.NumDescriptors) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+template <typename RootSigDesc>
+bool RootSignatureUsesUAVBinding(const RootSigDesc &RootSignatureDesc,
+                                 uint32_t ToolsUAVRegister,
+                                 uint32_t RegisterSpace) {
+  for (uint32_t ParameterIndex = 0;
+       ParameterIndex < RootSignatureDesc.NumParameters; ++ParameterIndex) {
+    if (RootParameterUsesUAVBinding(
+            RootSignatureDesc.pParameters[ParameterIndex], ToolsUAVRegister,
+            RegisterSpace)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 static std::vector<uint8_t>
-AddUAVParameterToRootSignature(const void *Data, uint32_t Size,
-                               uint32_t ToolsUAVRegister) {
+AddUAVParameterToRootSignature(Module &ModuleToReport, const void *Data,
+                               uint32_t Size, uint32_t ToolsUAVRegister,
+                               uint32_t RegisterSpace, const char *Name,
+                               raw_ostream *DiagnosticStream) {
   DxilVersionedRootSignature rootSignature;
   DeserializeRootSignature(Data, Size, rootSignature.get_address_of());
   auto *rs = rootSignature.get_mutable();
   switch (rootSignature->Version) {
   case DxilRootSignatureVersion::Version_1_0:
-    ExtendRootSig<DxilRootSignatureDesc, DxilRootParameter>(rs->Desc_1_0,
-                                                            ToolsUAVRegister);
+    if (RootSignatureUsesUAVBinding(rs->Desc_1_0, ToolsUAVRegister,
+                                    RegisterSpace)) {
+      ReportPIXRootSignatureUAVCollision(ModuleToReport, ToolsUAVRegister,
+                                         RegisterSpace, Name, DiagnosticStream);
+    }
+    ExtendRootSig<DxilRootSignatureDesc, DxilRootParameter>(
+        rs->Desc_1_0, ToolsUAVRegister, RegisterSpace);
     break;
   case DxilRootSignatureVersion::Version_1_1:
+    if (RootSignatureUsesUAVBinding(rs->Desc_1_1, ToolsUAVRegister,
+                                    RegisterSpace)) {
+      ReportPIXRootSignatureUAVCollision(ModuleToReport, ToolsUAVRegister,
+                                         RegisterSpace, Name, DiagnosticStream);
+    }
     if (ExtendRootSig<DxilRootSignatureDesc1, DxilRootParameter1>(
-            rs->Desc_1_1, ToolsUAVRegister))
+            rs->Desc_1_1, ToolsUAVRegister, RegisterSpace))
       rs->Desc_1_1.pParameters[rs->Desc_1_1.NumParameters - 1]
           .Descriptor.Flags = hlsl::DxilRootDescriptorFlags::None;
     break;
@@ -254,19 +369,23 @@ AddUAVParameterToRootSignature(const void *Data, uint32_t Size,
   return SerializeRootSignatureToVector(rs);
 }
 
-static void AddUAVToShaderAttributeRootSignature(DxilModule &DM,
-                                                 uint32_t ToolsUAVRegister) {
+static void
+AddUAVToShaderAttributeRootSignature(DxilModule &DM, uint32_t ToolsUAVRegister,
+                                     uint32_t RegisterSpace, const char *Name,
+                                     raw_ostream *DiagnosticStream) {
   auto rs = DM.GetSerializedRootSignature();
   if (!rs.empty()) {
     std::vector<uint8_t> asVector = AddUAVParameterToRootSignature(
-        rs.data(), static_cast<uint32_t>(rs.size()), ToolsUAVRegister);
+        *DM.GetModule(), rs.data(), static_cast<uint32_t>(rs.size()),
+        ToolsUAVRegister, RegisterSpace, Name, DiagnosticStream);
     if (!asVector.empty())
       DM.ResetSerializedRootSignature(asVector);
   }
 }
 
-static void AddUAVToDxilDefinedGlobalRootSignatures(DxilModule &DM,
-                                                    uint32_t ToolsUAVRegister) {
+static void AddUAVToDxilDefinedGlobalRootSignatures(
+    DxilModule &DM, uint32_t ToolsUAVRegister, uint32_t RegisterSpace,
+    const char *Name, raw_ostream *DiagnosticStream) {
   struct ReplacementRootSignature {
     std::string Name;
     std::vector<uint8_t> Data;
@@ -286,7 +405,9 @@ static void AddUAVToDxilDefinedGlobalRootSignatures(DxilModule &DM,
         if (subObject.second->GetRootSignature(notALocalRS, Data, Size,
                                                &Text)) {
           std::vector<uint8_t> ExtendedRootSignature =
-              AddUAVParameterToRootSignature(Data, Size, ToolsUAVRegister);
+              AddUAVParameterToRootSignature(*DM.GetModule(), Data, Size,
+                                             ToolsUAVRegister, RegisterSpace,
+                                             Name, DiagnosticStream);
           if (!ExtendedRootSignature.empty()) {
             std::optional<std::string> OwnedText;
             if (Text != nullptr)
@@ -317,13 +438,30 @@ static void AddUAVToDxilDefinedGlobalRootSignatures(DxilModule &DM,
 // Set up a UAV with structure of a single int
 hlsl::DxilResource *CreateGlobalUAVResource(hlsl::DxilModule &DM,
                                             unsigned int hlslBindIndex,
-                                            const char *name) {
+                                            const char *name,
+                                            uint32_t RegisterSpace,
+                                            raw_ostream *DiagnosticStream) {
   LLVMContext &Ctx = DM.GetModule()->getContext();
 
   for (const std::unique_ptr<DxilResource> &ExistingUAV : DM.GetUAVs()) {
-    if (ExistingUAV->GetSpaceID() == toolsRegisterSpace &&
-        ExistingUAV->GetLowerBound() == hlslBindIndex)
+    if (ExistingUAV->GetSpaceID() != RegisterSpace) {
+      continue;
+    }
+    if (ExistingUAV->GetLowerBound() == hlslBindIndex &&
+        IsExactPIXUAVResource(*ExistingUAV, name)) {
       return ExistingUAV.get();
+    }
+    uint32_t RangeSize = ExistingUAV->GetRangeSize();
+    uint64_t UpperBound =
+        RangeSize == std::numeric_limits<uint32_t>::max()
+            ? std::numeric_limits<uint64_t>::max()
+            : static_cast<uint64_t>(ExistingUAV->GetLowerBound()) + RangeSize -
+                  1;
+    if (ExistingUAV->GetLowerBound() <= hlslBindIndex &&
+        hlslBindIndex <= UpperBound) {
+      ReportPIXUAVCollision(*DM.GetModule(), hlslBindIndex, RegisterSpace, name,
+                            DiagnosticStream);
+    }
   }
 
   const char *PIXStructTypeName = ShaderModelHandleTypeName(DM);
@@ -335,8 +473,10 @@ hlsl::DxilResource *CreateGlobalUAVResource(hlsl::DxilModule &DM,
     UAVStructTy = llvm::StructType::create(Elements, PIXStructTypeName);
   }
 
-  AddUAVToDxilDefinedGlobalRootSignatures(DM, hlslBindIndex);
-  AddUAVToShaderAttributeRootSignature(DM, hlslBindIndex);
+  AddUAVToDxilDefinedGlobalRootSignatures(DM, hlslBindIndex, RegisterSpace,
+                                          name, DiagnosticStream);
+  AddUAVToShaderAttributeRootSignature(DM, hlslBindIndex, RegisterSpace, name,
+                                       DiagnosticStream);
 
   unsigned int Id = static_cast<unsigned int>(DM.GetUAVs().size());
   std::unique_ptr<DxilResource> pUAV = llvm::make_unique<DxilResource>();
@@ -358,7 +498,7 @@ hlsl::DxilResource *CreateGlobalUAVResource(hlsl::DxilModule &DM,
   }
   pUAV->SetGlobalName(name);
   pUAV->SetRW(true); // sets UAV class
-  pUAV->SetSpaceID(toolsRegisterSpace); // reserved-for-tools register space
+  pUAV->SetSpaceID(RegisterSpace);
   pUAV->SetSampleCount(0); // This is what compiler generates for a raw UAV
   pUAV->SetGloballyCoherent(false);
   pUAV->SetReorderCoherent(false);
@@ -405,8 +545,10 @@ bool eraseIfUnused(hlsl::DxilModule &DM, llvm::Function *OpFunction) {
 llvm::CallInst *CreateUAVOnceForModule(hlsl::DxilModule &DM,
                                        llvm::IRBuilder<> &Builder,
                                        unsigned int hlslBindIndex,
-                                       const char *name) {
-  auto uav = CreateGlobalUAVResource(DM, hlslBindIndex, name);
+                                       const char *name, uint32_t RegisterSpace,
+                                       raw_ostream *DiagnosticStream) {
+  auto uav = CreateGlobalUAVResource(DM, hlslBindIndex, name, RegisterSpace,
+                                     DiagnosticStream);
   auto *handle = CreateHandleForResource(DM, Builder, uav, name);
 
   return handle;
