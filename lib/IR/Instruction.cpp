@@ -91,6 +91,33 @@ void Instruction::moveBefore(Instruction *MovePos) {
                                              this);
 }
 
+// HLSL Change Begin - Backport of aa722ae84c25:
+// https://github.com/llvm/llvm-project/commit/aa722ae84c258b069db2009670e3dfb13f356de6
+// LLVM 3.7 only exposes the nuw, nsw and exact setters on BinaryOperator.
+void Instruction::dropPoisonGeneratingFlags() {
+  switch (getOpcode()) {
+  case Instruction::Add:
+  case Instruction::Sub:
+  case Instruction::Mul:
+  case Instruction::Shl:
+    cast<BinaryOperator>(this)->setHasNoUnsignedWrap(false);
+    cast<BinaryOperator>(this)->setHasNoSignedWrap(false);
+    break;
+
+  case Instruction::UDiv:
+  case Instruction::SDiv:
+  case Instruction::AShr:
+  case Instruction::LShr:
+    cast<BinaryOperator>(this)->setIsExact(false);
+    break;
+
+  case Instruction::GetElementPtr:
+    cast<GetElementPtrInst>(this)->setIsInBounds(false);
+    break;
+  }
+}
+// HLSL Change End - Backport of aa722ae84c25.
+
 /// Set or clear the unsafe-algebra flag on this instruction, which must be an
 /// operator which supports this flag. See LangRef.html for the meaning of this
 /// flag.

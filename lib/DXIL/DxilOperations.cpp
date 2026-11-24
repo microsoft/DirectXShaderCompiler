@@ -4348,6 +4348,17 @@ void OP::GetMinShaderModelAndMask(const llvm::CallInst *CI,
     }
   }
 
+  // Clustered geometry requires 6.10 even without a ClusterID query.
+  else if (opcode == DXIL::OpCode::AllocateRayQuery2) {
+    const ConstantInt *Flags = dyn_cast<ConstantInt>(
+        CI->getArgOperand(DxilInst_AllocateRayQuery2::arg_constRayQueryFlags));
+    if (Flags && (Flags->getZExtValue() &
+                  (unsigned)DXIL::RayQueryFlag::AllowClusteredGeometry)) {
+      major = 6;
+      minor = 10;
+    }
+  }
+
   // 64-bit integer atomic ops require 6.6
   else if (opcode == DXIL::OpCode::AtomicBinOp ||
            opcode == DXIL::OpCode::AtomicCompareExchange) {

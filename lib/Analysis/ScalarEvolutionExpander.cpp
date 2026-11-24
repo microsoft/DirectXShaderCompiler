@@ -911,7 +911,13 @@ Instruction *SCEVExpander::getIVIncOperand(Instruction *IncV,
 /// hoistStep - Attempt to hoist a simple IV increment above InsertPos to make
 /// it available to other uses in this loop. Recursively hoist any operands,
 /// until we reach a value that dominates InsertPos.
-bool SCEVExpander::hoistIVInc(Instruction *IncV, Instruction *InsertPos) {
+// HLSL Change Begin - Partial backport of PR57187:
+// https://github.com/llvm/llvm-project/commit/86d5586d78d813a6921d786f7ddb1a41c6fb56e0
+// Dropped flags are not re-inferred with ScalarEvolution, which can re-derive
+// them from the very flags being dropped.
+bool SCEVExpander::hoistIVInc(Instruction *IncV, Instruction *InsertPos,
+                              bool DropPoisonFlags) {
+  // HLSL Change End - Partial backport of PR57187.
   if (SE.DT->dominates(IncV, InsertPos))
       return true;
 
@@ -936,6 +942,11 @@ bool SCEVExpander::hoistIVInc(Instruction *IncV, Instruction *InsertPos) {
   for (SmallVectorImpl<Instruction*>::reverse_iterator I = IVIncs.rbegin(),
          E = IVIncs.rend(); I != E; ++I) {
     (*I)->moveBefore(InsertPos);
+    // HLSL Change Begin - Partial backport of PR57187:
+    // https://github.com/llvm/llvm-project/commit/86d5586d78d813a6921d786f7ddb1a41c6fb56e0
+    if (DropPoisonFlags)
+      (*I)->dropPoisonGeneratingFlags();
+    // HLSL Change End - Partial backport of PR57187.
   }
   return true;
 }
@@ -1772,12 +1783,16 @@ SCEVExpander::replaceCongruentIVs(Loop *L, const DominatorTree *DT,
       // is isomorphic with the original phi. It's worth eagerly cleaning up the
       // common case of a single IV increment so that DeleteDeadPHIs can remove
       // cycles that had postinc uses.
+      // HLSL Change Begin - Partial backport of PR57187:
+      // https://github.com/llvm/llvm-project/commit/86d5586d78d813a6921d786f7ddb1a41c6fb56e0
+      // Because we may potentially introduce a new use of OrigIV that didn't
+      // exist before at this point, its poison flags need readjustment.
       const SCEV *TruncExpr = SE.getTruncateOrNoop(SE.getSCEV(OrigInc),
                                                    IsomorphicInc->getType());
-      if (OrigInc != IsomorphicInc
-          && TruncExpr == SE.getSCEV(IsomorphicInc)
-          && ((isa<PHINode>(OrigInc) && isa<PHINode>(IsomorphicInc))
-              || hoistIVInc(OrigInc, IsomorphicInc))) {
+      if (OrigInc != IsomorphicInc && TruncExpr == SE.getSCEV(IsomorphicInc) &&
+          ((isa<PHINode>(OrigInc) && isa<PHINode>(IsomorphicInc)) ||
+           hoistIVInc(OrigInc, IsomorphicInc, /*DropPoisonFlags*/ true))) {
+        // HLSL Change End - Partial backport of PR57187.
         DEBUG_WITH_TYPE(DebugType, dbgs()
                         << "INDVARS: Eliminated congruent iv.inc: "
                         << *IsomorphicInc << '\n');

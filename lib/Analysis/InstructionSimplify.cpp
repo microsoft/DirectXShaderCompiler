@@ -293,6 +293,35 @@ static Value *SimplifyAssociativeBinOp(unsigned Opc, Value *LHS, Value *RHS,
   return nullptr;
 }
 
+// HLSL Change Begin - Do not reuse instructions with poison-generating flags in
+// ThreadBinOpOverSelect. Backports:
+// https://github.com/llvm/llvm-project/commit/425cbbc602c970e20785e005a7c9d5716a5fac68
+// https://github.com/llvm/llvm-project/commit/423f19680a4fc60c106cef102730939c3c7ab7ac
+// https://github.com/llvm/llvm-project/commit/3197f9d8b0efc3efdc531421bd11c16305d9b1ff
+static bool hasPoisonGeneratingFlags(const Instruction *I) {
+  switch (I->getOpcode()) {
+  case Instruction::Add:
+  case Instruction::Sub:
+  case Instruction::Mul:
+  case Instruction::Shl: {
+    auto *OBO = cast<OverflowingBinaryOperator>(I);
+    return OBO->hasNoUnsignedWrap() || OBO->hasNoSignedWrap();
+  }
+  case Instruction::UDiv:
+  case Instruction::SDiv:
+  case Instruction::AShr:
+  case Instruction::LShr:
+    return cast<PossiblyExactOperator>(I)->isExact();
+  case Instruction::GetElementPtr:
+    return cast<GEPOperator>(I)->isInBounds();
+  default:
+    if (const auto *FP = dyn_cast<FPMathOperator>(I))
+      return FP->hasNoNaNs() || FP->hasNoInfs();
+    return false;
+  }
+}
+// HLSL Change End
+
 /// ThreadBinOpOverSelect - In the case of a binary operation with a select
 /// instruction as an operand, try to simplify the binop by seeing whether
 /// evaluating it on both branches of the select results in the same value.
@@ -345,7 +374,11 @@ static Value *ThreadBinOpOverSelect(unsigned Opcode, Value *LHS, Value *RHS,
     // Check that the simplified value has the form "X op Y" where "op" is the
     // same as the original operation.
     Instruction *Simplified = dyn_cast<Instruction>(FV ? FV : TV);
-    if (Simplified && Simplified->getOpcode() == Opcode) {
+    // HLSL Change Begin - Backport (#87075)
+    // https://github.com/llvm/llvm-project/commit/3197f9d8b0efc3efdc531421bd11c16305d9b1ff
+    if (Simplified && Simplified->getOpcode() == Opcode &&
+        !hasPoisonGeneratingFlags(Simplified)) {
+      // HLSL Change End
       // The value that didn't simplify is "UnsimplifiedLHS op UnsimplifiedRHS".
       // We already know that "op" is the same as for the simplified value.  See
       // if the operands match too.  If so, return the simplified value.

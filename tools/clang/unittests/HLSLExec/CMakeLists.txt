@@ -1,25 +1,25 @@
 # Copyright (C) Microsoft Corporation. All rights reserved.
 # This file is distributed under the University of Illinois Open Source License. See LICENSE.TXT for details.
 find_package(TAEF REQUIRED)
-find_package(D3D12 REQUIRED) # Used for ExecutionTest.cpp.
+find_package(D3D12 REQUIRED) # Used for DxilConf.cpp.
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /bigobj")
 
-add_clang_library(ExecHLSLTests SHARED
-  ExecutionTest.cpp
+add_clang_library(DxilConf SHARED
+  DxilConf.cpp
   ShaderOpTest.cpp
   TableParameterHandler.cpp
   LongVectors.cpp
   LinAlgTests.cpp
   HlslExecTestUtils.cpp
-  ExecHLSLTests.rc
+  DxilConf.rc
   )
 
-add_dependencies(ClangUnitTests ExecHLSLTests)
+add_dependencies(ClangUnitTests DxilConf)
 
-set_target_properties(ExecHLSLTests PROPERTIES FOLDER "Execution tests")
+set_target_properties(DxilConf PROPERTIES FOLDER "Execution tests")
 
-target_link_libraries(ExecHLSLTests PRIVATE
+target_link_libraries(DxilConf PRIVATE
   dxcompiler
   ${TAEF_LIBRARIES}
   ${D3D12_LIBRARIES}
@@ -34,14 +34,14 @@ include_directories(${LLVM_MAIN_INCLUDE_DIR}/dxc/Test)
 # to get use a different (newer) d3dx12.h in when building in Direct3D repo
 include_directories(${LLVM_MAIN_INCLUDE_DIR}/dxc/Support)
 
-add_dependencies(ExecHLSLTests dxcompiler)
+add_dependencies(DxilConf dxcompiler)
 
 if (NOT CLANG_INCLUDE_TESTS)
-  set_output_directory(ExecHLSLTests
+  set_output_directory(DxilConf
     ${LLVM_RUNTIME_OUTPUT_INTDIR} ${LLVM_LIBRARY_OUTPUT_INTDIR})
 endif()
 
 # Add a .user file with settings for te.exe.
 file(TO_NATIVE_PATH "${CMAKE_CURRENT_SOURCE_DIR}" DOS_STYLE_SOURCE_DIR)
 file(TO_NATIVE_PATH "${TAEF_BIN_DIR}" DOS_TAEF_BIN_DIR)
-configure_file(ExecHLSLTests.vcxproj.user.txt ExecHLSLTests.vcxproj.user)
+configure_file(DxilConf.vcxproj.user.txt DxilConf.vcxproj.user)

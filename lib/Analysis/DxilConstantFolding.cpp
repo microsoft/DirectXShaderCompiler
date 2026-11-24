@@ -144,9 +144,12 @@ static bool IsFinite(ConstantFP *C) {
   return true;
 }
 
-// Check that the op is non-null and finite.
+// Check that the op is non-null and finite. Do not fold 32-bit float denormal
+// operands which depend on device and denorm mode.
 static bool IsValidOp(ConstantFP *C) {
   if (!C || !IsFinite(C))
+    return false;
+  if (C->getType()->isFloatTy() && C->getValueAPF().isDenormal())
     return false;
 
   return true;
@@ -192,11 +195,14 @@ static Constant *ConstantFoldUnaryFPIntrinsic(OP::OpCode opcode, Type *Ty,
   case OP::OpCode::Exp:
     return DxilConstantFoldFP(exp2, Op, Ty);
   case OP::OpCode::Frc: {
-    NativeFPUnaryOp f = [](double x) {
-      double unused;
-      return fabs(modf(x, &unused));
-    };
-    return DxilConstantFoldFP(f, Op, Ty);
+    NativeFPUnaryOp f = [](double x) { return x - floor(x); };
+    Constant *Result = DxilConstantFoldFP(f, Op, Ty);
+    // DXIL defines Frc's result to be in [0, 1). Tiny negative inputs round
+    // to 1.0 in the result type, where device results differ, so don't fold.
+    if (auto *CFP = dyn_cast_or_null<ConstantFP>(Result))
+      if (CFP->isExactlyValue(1.0))
+        return nullptr;
+    return Result;
   }
   case OP::OpCode::Log:
     return DxilConstantFoldFP(log2, Op, Ty);

@@ -55,8 +55,8 @@ met:
   to support 32-bit processes on a 64-bit OS.
 
 - The process must call D3D12EnableExperimentalFeatures to enable the
-  D3D12ExperimentalShaderModelsID setting. The ExecutionTest.cpp file under
-  tools\clang\unittests\HLSL\ExecutionTest.cpp has an example of how this can
+  D3D12ExperimentalShaderModelsID setting. The DxilConf.cpp file under
+  tools\clang\unittests\HLSLExec\DxilConf.cpp has an example of how this can
   be done.
 
 - The API used must be D3D12.
