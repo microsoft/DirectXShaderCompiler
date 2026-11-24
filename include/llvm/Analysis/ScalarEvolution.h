@@ -270,7 +270,14 @@ namespace llvm {
 
       /*implicit*/ ExitLimit(const SCEV *E) : Exact(E), Max(E) {}
 
-      ExitLimit(const SCEV *E, const SCEV *M) : Exact(E), Max(M) {}
+      // HLSL Change Begin - Backport PR26207
+      // https://github.com/llvm/llvm-project/commit/29a4b5dc0d754c9a45f62a8af0cc36e8de4f968d
+      ExitLimit(const SCEV *E, const SCEV *M) : Exact(E), Max(M) {
+        assert((isa<SCEVCouldNotCompute>(Exact) ||
+                !isa<SCEVCouldNotCompute>(Max)) &&
+               "Exact is not allowed to be less precise than Max");
+      }
+      // HLSL Change End
 
       /// hasAnyInfo - Test whether this ExitLimit contains any computed
       /// information, or whether it's all SCEVCouldNotCompute values.

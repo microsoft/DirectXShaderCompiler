@@ -2102,9 +2102,11 @@ objects as untyped variables in ``UniformConstant`` storage class:
 The concrete descriptor type is selected at each heap access. For image,
 sampler, and texel buffer resources, DXC forms a runtime array of that
 descriptor type, decorates the array with a byte stride, and uses
-``OpUntypedAccessChainKHR`` followed by ``OpLoad``. The stride is an
-``ArrayStrideIdEXT`` decoration referencing a specialization constant rather
-than a literal ``ArrayStride`` (see `Descriptor heap array stride`_ below):
+``OpUntypedAccessChainKHR`` followed by ``OpLoad``. By default the stride is an
+``ArrayStrideIdEXT`` decoration referencing a constant built from
+``OpConstantSizeOfEXT``; a literal ``ArrayStride`` is emitted only when the
+stride is overridden on the command line (see `Descriptor heap array stride`_
+below):
 
 .. code:: spirv
 
@@ -2143,13 +2145,27 @@ handle into a function-scope image variable:
   %texel_ptr = OpUntypedImageTexelPointerEXT %uptr_image %image_type %descriptor %coord %sample
   %old = OpAtomicIAdd %uint %texel_ptr %scope %semantics %value
 
+``RaytracingAccelerationStructure`` resources loaded from
+``ResourceDescriptorHeap`` follow the same access-chain-then-load shape over a
+runtime array of ``OpTypeAccelerationStructureKHR``:
+
+.. code:: spirv
+
+  %accel_type = OpTypeAccelerationStructureKHR
+  %accel_array = OpTypeRuntimeArray %accel_type
+  OpDecorateId %accel_array ArrayStrideIdEXT %resource_stride
+  %descriptor = OpUntypedAccessChainKHR %uptr_uc %accel_array %resource_heap %index
+  %accel = OpLoad %accel_type %descriptor
+
 This path supports texture, RWTexture, sampler, Buffer/RWBuffer,
 StructuredBuffer/RWStructuredBuffer without associated counter operations,
-ByteAddressBuffer/RWByteAddressBuffer, ConstantBuffer, and TextureBuffer heap
-loads, including direct field and array-element accesses for
-``ConstantBuffer<T>`` and ``TextureBuffer<T>``. ``NonUniformResourceIndex`` is
-accepted, but no ``NonUniform`` decoration is emitted on the
-``OpUntypedAccessChainKHR`` result or on the loaded descriptor;
+ByteAddressBuffer/RWByteAddressBuffer, ConstantBuffer, TextureBuffer, and
+``RaytracingAccelerationStructure`` heap loads, including direct field and
+array-element accesses for ``ConstantBuffer<T>`` and ``TextureBuffer<T>``.
+Acceleration structure loads are additionally subject to the stride requirement
+described in `Descriptor heap array stride`_ below.
+``NonUniformResourceIndex`` is accepted, but no ``NonUniform`` decoration is
+emitted on the ``OpUntypedAccessChainKHR`` result or on the loaded descriptor;
 ``SPV_EXT_descriptor_heap`` deprecates the decoration for heap accesses and
 drivers handle divergent heap indices natively. The index operand itself may
 still carry ``NonUniform`` from the surrounding expression.
@@ -2167,14 +2183,27 @@ Buffer-like local variables initialized from a heap access are tracked by their
 heap index, and later uses are re-lowered as fresh access chains. Image
 variables retain their loaded descriptor handle for ordinary reads and writes;
 the tracked heap index is used when an atomic operation requires
-``OpUntypedImageTexelPointerEXT``. Acceleration-structure aliases retain the
-initially loaded handle. Because index-tracked aliases do not model
-control-flow merges, DXC rejects a variable that holds both a bound resource
-and a heap descriptor, whether through a conditional assignment, a
-reassignment back to a bound resource, or an assignment inside a loop::
+``OpUntypedImageTexelPointerEXT``. A ``RaytracingAccelerationStructure``
+variable initialized from a heap access is a name for the handle loaded by its
+initializer.
+
+These aliases are compile-time state and do not model control-flow merges, so
+DXC rejects a variable that holds both a bound resource and a heap descriptor,
+whether through a conditional assignment, a reassignment back to a bound
+resource, or an assignment inside a loop:
+
+.. code:: text
 
   error: mixing bound and descriptor heap resources in the same variable is not
   supported with SPV_EXT_descriptor_heap
+
+A heap-initialized ``RaytracingAccelerationStructure`` variable cannot be
+reassigned at all, whether from a bound resource or from another heap access:
+
+.. code:: text
+
+  error: reassigning a RaytracingAccelerationStructure initialized from
+  ResourceDescriptorHeap is not supported with SPV_EXT_descriptor_heap
 
 Supporting these forms requires modelling the alias as a value with real
 control-flow merges instead of as compile-time state.
@@ -2183,21 +2212,24 @@ control-flow merges instead of as compile-time state.
 cannot yet be passed to or returned from user functions; access the resource
 directly at each call or return site.
 
-Two further restrictions on the heap access expression itself produce
-diagnostics. The object being subscripted must be a direct reference to the
-builtin ``ResourceDescriptorHeap`` or ``SamplerDescriptorHeap`` variable, and
-the subscript result must be immediately converted to a concrete resource type
-so that DXC can select a descriptor type for the access. A subscript whose
-result is discarded, or used in a context that supplies no target resource
-type, is rejected.
+Three further restrictions on heap accesses produce diagnostics:
+
+- The object being subscripted must be a direct reference to the builtin
+  ``ResourceDescriptorHeap`` or ``SamplerDescriptorHeap`` variable.
+- The subscript result must be immediately converted to a concrete resource
+  type so that DXC can select a descriptor type for the access. A subscript
+  whose result is discarded, or used in a context that supplies no target
+  resource type, is rejected.
+- A local ``RaytracingAccelerationStructure`` must be initialized from a
+  loadable heap access, since the alias has no backing descriptor otherwise.
 
 Descriptor heap array stride
 ++++++++++++++++++++++++++++
 
-All resource heap runtime arrays share a single ``ArrayStrideIdEXT`` decoration
-rather than a literal ``ArrayStride``, because descriptor sizes are not known
-until pipeline creation. The shared value is built from ``OpConstantSizeOfEXT``
-and ``OpSpecConstantOp`` and evaluates to
+By default, all resource heap runtime arrays share a single ``ArrayStrideIdEXT``
+decoration rather than a literal ``ArrayStride``, because descriptor sizes are
+not known until pipeline creation. The shared value is built from
+``OpConstantSizeOfEXT`` and ``OpSpecConstantOp`` and evaluates to
 ``max(sizeof(image_descriptor), sizeof(buffer_descriptor))``. The sampler heap
 carries its own ``ArrayStrideIdEXT`` equal to ``sizeof(sampler_descriptor)``.
 
@@ -2205,8 +2237,51 @@ The ``OpConstantSizeOfEXT`` operands are placeholder types chosen only for their
 descriptor class. All image types report the same descriptor size, so the
 placeholder is a plain sampled 2D float image and bears no relation to the image
 types the shader actually uses; a module will normally contain both the
-placeholder type and the distinct image types its heap accesses lower to. The
-stride value is built once and cached on first use.
+placeholder type and the distinct image types its heap accesses lower to.
+
+The stride is a property of the heap layout, not of the shader's loads. DXC
+decides it before translating any function, either from explicit user input
+(``-fvk-resource-heap-stride`` and ``-fvk-sampler-heap-stride``, see below) or
+by calculating it from the shader stage and the ``-fspv-extension`` list. When
+acceleration structure descriptors may be on the resource heap, the formula expands to a three-way max
+``max(max(sizeof(image_descriptor), sizeof(buffer_descriptor)), sizeof(acceleration_structure))``.
+A ray-tracing shader that only heap-loads a texture still gets the three-way
+max. DXC adds the acceleration structure term when either
+
+- any entry point is a ray-tracing stage, or
+- the user lists ``-fspv-extension=SPV_KHR_ray_query``,
+  ``-fspv-extension=SPV_KHR_ray_tracing`` or
+  ``-fspv-extension=SPV_NV_ray_tracing``.
+
+Extensions allowed by default do not satisfy the second condition. The
+acceleration structure type added by widening is declared with the capability
+of the listed extension (``RayQueryKHR``, ``RayTracingKHR`` or
+``RayTracingNV``); if several are listed, ``SPV_KHR_ray_query`` is preferred,
+then ``SPV_KHR_ray_tracing``, then ``SPV_NV_ray_tracing``. A shader that is not
+a ray-tracing stage and heap-loads a ``RaytracingAccelerationStructure``
+without such an extension or ``-fvk-resource-heap-stride`` is rejected, because
+its stride would not cover the acceleration structure descriptor.
+
+The computed stride can be replaced with a literal using
+``-fvk-resource-heap-stride <N>`` and ``-fvk-sampler-heap-stride <N>``. They
+emit ``OpDecorate <array> ArrayStride N`` on every runtime array of the resource
+heap and of the sampler heap respectively. ``N`` must be a power of two in the
+inclusive range [8, 256]. Both flags require ``-spirv`` and
+``-fspv-use-descriptor-heap``, and are rejected otherwise because they would
+have no effect.
+
+For a heap with an override, no ``ArrayStrideIdEXT`` is emitted and no
+``OpConstantSizeOfEXT`` is built. The flags are independent: the other heap
+keeps its computed stride.
+
+The literal is not validated against the descriptor sizes of the target
+implementation. It must match the stride at which the application lays out
+descriptors in the heap, and be at least the size of the largest descriptor
+that may appear in it; otherwise heap indices select the wrong descriptors or
+read out of bounds.
+``-fvk-resource-heap-stride`` also disables the acceleration structure check
+above, so the stride must cover acceleration structure descriptors when the
+shader loads them from the heap.
 
 HLSL Expressions
 ================

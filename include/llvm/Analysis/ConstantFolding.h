@@ -49,21 +49,35 @@ namespace llvm {
   ConstantFoldConstantExpression(const ConstantExpr *CE, const DataLayout &DL,
                                  const TargetLibraryInfo *TLI = nullptr);
 
-/// ConstantFoldInstOperands - Attempt to constant fold an instruction with the
-/// specified operands.  If successful, the constant result is returned, if not,
-/// null is returned.  Note that this function can fail when attempting to
-/// fold instructions like loads and stores, which have no constant expression
-/// form.
-///
+  /// ConstantFoldInstOperands - Attempt to constant fold an instruction with
+  /// the specified operands.  If successful, the constant result is returned,
+  /// if not, null is returned.  Note that this function can fail when
+  /// attempting to fold instructions like loads and stores, which have no
+  /// constant expression form.
+  ///
+  // HLSL Change Begin - Backports
+  // https://github.com/llvm/llvm-project/commit/b6e102e08cd35543175459494211a3a15f793302
+  /// In some cases, constant folding may return one value chosen from a set of
+  /// multiple legal return values. For example, the exact bit pattern of NaN
+  /// results is not guaranteed. Using such a result is usually only valid if
+  /// all uses of the original operation are replaced by the constant-folded
+  /// result. The \p AllowNonDeterministic parameter controls whether this is
+  /// allowed.
+  // Upstream adds the parameter to an overload that takes the instruction. This
+  // LLVM only has this opcode-based function, so the instruction, which is used
+  // to read fast-math flags, is passed as the optional \p I.
   Constant *ConstantFoldInstOperands(unsigned Opcode, Type *DestTy,
                                      ArrayRef<Constant *> Ops,
                                      const DataLayout &DL,
-                                     const TargetLibraryInfo *TLI = nullptr);
+                                     const TargetLibraryInfo *TLI = nullptr,
+                                     const Instruction *I = nullptr,
+                                     bool AllowNonDeterministic = true);
+  // HLSL Change End
 
-/// ConstantFoldCompareInstOperands - Attempt to constant fold a compare
-/// instruction (icmp/fcmp) with the specified operands.  If it fails, it
-/// returns a constant expression of the specified operands.
-///
+  /// ConstantFoldCompareInstOperands - Attempt to constant fold a compare
+  /// instruction (icmp/fcmp) with the specified operands.  If it fails, it
+  /// returns a constant expression of the specified operands.
+  ///
   Constant *
   ConstantFoldCompareInstOperands(unsigned Predicate, Constant *LHS,
                                   Constant *RHS, const DataLayout &DL,
@@ -109,8 +123,12 @@ bool canConstantFoldCallTo(const Function *F);
 
 /// ConstantFoldCall - Attempt to constant fold a call to the specified function
 /// with the specified arguments, returning null if unsuccessful.
+// HLSL Change Begin - Backports
+// https://github.com/llvm/llvm-project/commit/b6e102e08cd35543175459494211a3a15f793302
 Constant *ConstantFoldCall(Function *F, ArrayRef<Constant *> Operands,
-                           const TargetLibraryInfo *TLI = nullptr);
+                           const TargetLibraryInfo *TLI = nullptr,
+                           bool AllowNonDeterministic = true);
+// HLSL Change End
 
 /// HLSL Change - make these functions external so we can call them from 
 /// DxilConstantFolding.cpp.

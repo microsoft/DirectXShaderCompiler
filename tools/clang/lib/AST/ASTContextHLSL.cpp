@@ -620,9 +620,10 @@ static void AddTypedefPseudoEnum(ASTContext &context, StringRef name,
 /// <summary> Adds all constants and enums for ray tracing </summary>
 void hlsl::AddRaytracingConstants(ASTContext &context) {
 
-  // Create aversion tuple for availability attributes
+  // Create version tuples for availability attributes
   // for the RAYQUERY_FLAG enum
   VersionTuple VT69 = VersionTuple(6, 9);
+  VersionTuple VT610 = VersionTuple(6, 10);
 
   AddTypedefPseudoEnum(
       context, "RAY_FLAG",
@@ -650,7 +651,10 @@ void hlsl::AddRaytracingConstants(ASTContext &context) {
       {{"RAYQUERY_FLAG_NONE", (unsigned)DXIL::RayQueryFlag::None},
        {"RAYQUERY_FLAG_ALLOW_OPACITY_MICROMAPS",
         (unsigned)DXIL::RayQueryFlag::AllowOpacityMicromaps,
-        ConstructAvailabilityAttribute(context, VT69)}});
+        ConstructAvailabilityAttribute(context, VT69)},
+       {"RAYQUERY_FLAG_ALLOW_CLUSTERED_GEOMETRY",
+        (unsigned)DXIL::RayQueryFlag::AllowClusteredGeometry,
+        ConstructAvailabilityAttribute(context, VT610)}});
 
   AddTypedefPseudoEnum(
       context, "COMMITTED_STATUS",
@@ -675,8 +679,8 @@ void hlsl::AddRaytracingConstants(ASTContext &context) {
   AddConstUInt(context, StringRef("HIT_KIND_TRIANGLE_BACK_FACE"),
                (unsigned)DXIL::HitKind::TriangleBackFace);
 
-  // static const uint CLUSTER_ID_INVALID = 0xffffffff;
-  AddConstUInt(context, StringRef("CLUSTER_ID_INVALID"), 0xffffffff);
+  AddTypedefPseudoEnum(context, "CLUSTER_ID_CONSTANTS",
+                       {{"CLUSTER_ID_INVALID", 0xffffffff}});
 
   AddConstUInt(
       context,
@@ -719,6 +723,10 @@ void hlsl::AddRaytracingConstants(ASTContext &context) {
                StringRef("RAYTRACING_PIPELINE_FLAG_ALLOW_OPACITY_MICROMAPS"),
                (unsigned)DXIL::RaytracingPipelineFlags::AllowOpacityMicromaps,
                ConstructAvailabilityAttribute(context, VT69));
+  AddConstUInt(context, context.getTranslationUnitDecl(),
+               StringRef("RAYTRACING_PIPELINE_FLAG_ALLOW_CLUSTERED_GEOMETRY"),
+               (unsigned)DXIL::RaytracingPipelineFlags::AllowClusteredGeometry,
+               ConstructAvailabilityAttribute(context, VT610));
 }
 
 /// <summary> Adds all constants and enums for sampler feedback </summary>

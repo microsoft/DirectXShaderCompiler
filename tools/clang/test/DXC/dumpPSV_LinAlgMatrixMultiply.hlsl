@@ -30,16 +30,17 @@ using GroupAccumulator =
 
 [numthreads(4, 4, 1)]
 void main() {
-  WaveA0 A0 = WaveA0::Splat(1.0h);
-  WaveB0 B0 = WaveB0::Splat(2);
-  WaveAccumulator0 C0 = Multiply<ComponentType::F32>(A0, B0);
-  C0.Store(Output, 0, 16, MatrixLayout::RowMajor);
-
+  // Encounter the larger shape first; reflection still orders shapes by value.
   WaveA1 A1 = WaveA1::Splat(3.0h);
   WaveB1 B1 = WaveB1::Splat(4);
   WaveAccumulator1 C1 = WaveAccumulator1::Splat(5.0f);
   C1.MultiplyAccumulate(A1, B1);
   C1.Store(Output, 128, 24, MatrixLayout::RowMajor);
+
+  WaveA0 A0 = WaveA0::Splat(1.0h);
+  WaveB0 B0 = WaveB0::Splat(2);
+  WaveAccumulator0 C0 = Multiply<ComponentType::F32>(A0, B0);
+  C0.Store(Output, 0, 16, MatrixLayout::RowMajor);
 
   GroupA GA = GroupA::Splat(6);
   GroupB GB = GroupB::Splat(7u);

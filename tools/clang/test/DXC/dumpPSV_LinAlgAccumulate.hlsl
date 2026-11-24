@@ -67,12 +67,12 @@ void main(uint Index : SV_GroupIndex) {
 // CHECK-NEXT: AccumulateStoreCount: 5
 // CHECK-NEXT: MatrixConstruction[0]: MatrixType=8, Shapes=[(2,2,0)]
 // CHECK-NEXT: MatrixConstruction[1]: MatrixType=9, Shapes=[(2,2,0)]
-// CHECK-NEXT: OuterProduct[0]: ResultType=8, VectorInputType=8
-// CHECK-NEXT: OuterProduct[1]: ResultType=9, VectorInputType=8
-// CHECK-NEXT: OuterProduct[2]: ResultType=4, VectorInputType=4
-// CHECK-NEXT: OuterProduct[3]: ResultType=5, VectorInputType=5
-// CHECK-NEXT: AccumulateStore[0]: AccumulatorType=8, Flags=3
-// CHECK-NEXT: AccumulateStore[1]: AccumulatorType=9, Flags=3
-// CHECK-NEXT: AccumulateStore[2]: AccumulatorType=4, Flags=1
-// CHECK-NEXT: AccumulateStore[3]: AccumulatorType=5, Flags=1
-// CHECK-NEXT: AccumulateStore[4]: AccumulatorType=6, Flags=1
+// CHECK-NEXT: OuterProduct[0]: ResultType=4, VectorInputType=4
+// CHECK-NEXT: OuterProduct[1]: ResultType=5, VectorInputType=5
+// CHECK-NEXT: OuterProduct[2]: ResultType=8, VectorInputType=8
+// CHECK-NEXT: OuterProduct[3]: ResultType=9, VectorInputType=8
+// CHECK-NEXT: AccumulateStore[0]: AccumulatorType=4, Flags=1
+// CHECK-NEXT: AccumulateStore[1]: AccumulatorType=5, Flags=1
+// CHECK-NEXT: AccumulateStore[2]: AccumulatorType=6, Flags=1
+// CHECK-NEXT: AccumulateStore[3]: AccumulatorType=8, Flags=3
+// CHECK-NEXT: AccumulateStore[4]: AccumulatorType=9, Flags=3

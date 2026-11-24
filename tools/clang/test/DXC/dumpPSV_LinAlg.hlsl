@@ -54,5 +54,5 @@ void main(uint Index : SV_GroupIndex) {
 // CHECK-NEXT: ThreadMatrixVectorMultiply[0]: ResultType=8, MatrixType=8, VectorInputType=8, Flags=1
 // CHECK-NEXT: WaveMatrixMultiply[0]: AccumulatorType=9, MatrixAType=8, MatrixBType=4, Shapes=[(3,5,4)]
 // CHECK-NEXT: OuterProduct[0]: ResultType=9, VectorInputType=9
-// CHECK-NEXT: AccumulateStore[0]: AccumulatorType=9, Flags=3
-// CHECK-NEXT: AccumulateStore[1]: AccumulatorType=4, Flags=1
+// CHECK-NEXT: AccumulateStore[0]: AccumulatorType=4, Flags=1
+// CHECK-NEXT: AccumulateStore[1]: AccumulatorType=9, Flags=3

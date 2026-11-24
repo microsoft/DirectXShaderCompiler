@@ -3951,7 +3951,11 @@ HLSLReservedKeyword:
       isStorageClass = true;
       break;
     case tok::kw_mutable:
-      if (getLangOpts().HLSL) { goto HLSLReservedKeyword; } // HLSL Change - reserved for HLSL
+      // HLSL Change Begin - HLSL 202x supports mutable class data members.
+      if (getLangOpts().HLSL &&
+          getLangOpts().HLSLVersion < hlsl::LangStd::v202x)
+        goto HLSLReservedKeyword;
+      // HLSL Change End
       isInvalid = DS.SetStorageClassSpec(Actions, DeclSpec::SCS_mutable, Loc,
                                          PrevSpec, DiagID, Policy);
       isStorageClass = true;

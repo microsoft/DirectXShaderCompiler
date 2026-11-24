@@ -3360,11 +3360,21 @@ Instruction *InstCombiner::visitICmpInst(ICmpInst &I) {
             APInt AP2Abs = C2->getValue().abs();
             if (AP1Abs.uge(AP2Abs)) {
               ConstantInt *C3 = Builder->getInt(AP1 - AP2);
-              Value *NewAdd = Builder->CreateNSWAdd(A, C3);
+              // HLSL Change Begin - Backport (D100095)
+              // https://github.com/llvm/llvm-project/commit/29f189f90d44
+              bool HasNUW = BO0->hasNoUnsignedWrap() && C3->getValue().ule(AP1);
+              bool HasNSW = BO0->hasNoSignedWrap();
+              Value *NewAdd = Builder->CreateAdd(A, C3, "", HasNUW, HasNSW);
+              // HLSL Change End
               return new ICmpInst(Pred, NewAdd, C);
             } else {
               ConstantInt *C3 = Builder->getInt(AP2 - AP1);
-              Value *NewAdd = Builder->CreateNSWAdd(C, C3);
+              // HLSL Change Begin - Backport (D100095)
+              // https://github.com/llvm/llvm-project/commit/29f189f90d44
+              bool HasNUW = BO1->hasNoUnsignedWrap() && C3->getValue().ule(AP2);
+              bool HasNSW = BO1->hasNoSignedWrap();
+              Value *NewAdd = Builder->CreateAdd(C, C3, "", HasNUW, HasNSW);
+              // HLSL Change End
               return new ICmpInst(Pred, A, NewAdd);
             }
           }

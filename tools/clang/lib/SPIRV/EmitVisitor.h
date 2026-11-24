@@ -463,7 +463,7 @@ private:
   std::vector<uint32_t> annotationsBinary;
   // All forward pointer type declaration instructions
   std::vector<uint32_t> fwdDeclBinary;
-  // All other type and constant instructions
+  // All other type and constant instructions, including OpSpecConstantOp
   std::vector<uint32_t> typeConstantBinary;
   // All global variable declarations (all OpVariable instructions whose Storage
   // Class is not Function)

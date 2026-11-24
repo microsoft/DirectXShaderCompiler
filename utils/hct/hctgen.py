@@ -245,9 +245,9 @@ def writeHlslIntrinsicOpcodes(args):
 args = parser.parse_args()
 if args.force_lf and args.force_crlf:
     eprint("--force-lf and --force-crlf are mutually exclusive, only pass one")
-    exit(1)
+    sys.exit(1)
 writeFnName = "write%s" % args.mode
 if writeFnName in locals():
-    exit(locals()[writeFnName](args))
+    sys.exit(locals()[writeFnName](args))
 else:
-    exit(writeCodeTag(args))
+    sys.exit(writeCodeTag(args))

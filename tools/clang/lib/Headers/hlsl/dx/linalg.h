@@ -9,6 +9,9 @@
 // DirectX Shader Model 6.10 Linear Algebra objects and APIs.
 //===----------------------------------------------------------------------===//
 
+#ifndef _HLSL_DX_LINALG_H_
+#define _HLSL_DX_LINALG_H_
+
 #include <enable_if>
 #include <type_traits>
 
@@ -335,8 +338,8 @@ class Matrix {
   [[nodiscard]] static typename hlsl::enable_if<
       (hlsl::is_same<typename hlsl::strip_vector_type<Ty>::type,
                      ElementType>::value ||
-       hlsl::is_same<typename hlsl::strip_vector_type<Ty>::type,
-                     uint8_t4_packed>::value),
+       hlsl::is_integral_or_packed_integral<
+           typename hlsl::strip_vector_type<Ty>::type>::value),
       Matrix>::type
   Load(groupshared Ty Arr[Size], uint StartIdx, uint Stride,
        MatrixLayoutEnum Layout) {
@@ -383,8 +386,8 @@ class Matrix {
   typename hlsl::enable_if<
       (hlsl::is_same<typename hlsl::strip_vector_type<Ty>::type,
                      ElementType>::value ||
-       hlsl::is_same<typename hlsl::strip_vector_type<Ty>::type,
-                     uint8_t4_packed>::value),
+       hlsl::is_integral_or_packed_integral<
+           typename hlsl::strip_vector_type<Ty>::type>::value),
       void>::type
   Store(groupshared Ty Arr[Size], uint StartIdx, uint Stride,
         MatrixLayoutEnum Layout) {
@@ -720,3 +723,5 @@ InterlockedAccumulate(RWByteAddressBuffer Res, uint StartOffset,
 #pragma dxc diagnostic pop
 
 #endif // SM 6.10 check and HV version check
+
+#endif // _HLSL_DX_LINALG_H_

@@ -1253,6 +1253,35 @@ static void ValidateLinAlgMatrixStoreToDescriptor(CallInst *CI,
   }
 }
 
+static void ValidateLinAlgMatrixMemory(CallInst *CI, Value *Memory,
+                                       const LinAlgTargetType &Mat,
+                                       const char *MatrixName,
+                                       ValidationContext &ValCtx) {
+  GEPOperator *GSGEP = cast<GEPOperator>(Memory);
+  GlobalVariable *GSMem = cast<GlobalVariable>(GSGEP->getPointerOperand());
+  Type *GSMemTy = GSMem->getType()->getPointerElementType();
+  uint64_t GSByteCount = ValCtx.DL.getTypeAllocSize(GSMemTy);
+  Type *GSMemInnerTy = GSMemTy;
+  if (ArrayType *GSMemArrTy = dyn_cast<ArrayType>(GSMemInnerTy))
+    GSMemInnerTy = GSMemArrTy->getArrayElementType();
+  GSMemInnerTy = GSMemInnerTy->getScalarType();
+
+  if (!GSMemInnerTy->isIntegerTy() &&
+      !IsComponentTypeSameNativeType(Mat.Type, GSMemInnerTy))
+    ValCtx.EmitInstrFormatError(
+        CI, ValidationRule::InstrLinAlgMatrixGSMemTypeMustMatch,
+        {TypeToString(GSMemInnerTy), MatrixName,
+         ComponentTypeToString(Mat.Type)});
+
+  uint64_t MinimumByteCount =
+      uint64_t(Mat.M) * Mat.N * ComponentTypeByteCount(Mat.Type);
+  if (MinimumByteCount > GSByteCount)
+    ValCtx.EmitInstrFormatError(
+        CI, ValidationRule::InstrLinAlgMatrixGSMemMustBeLargeEnough,
+        {std::to_string(GSByteCount), "bytes", std::to_string(MinimumByteCount),
+         "bytes"});
+}
+
 static void ValidateLinAlgMatrixStoreToMemory(CallInst *CI,
                                               ValidationContext &ValCtx) {
   ValidateLinAlgOpParameters(CI, ValCtx);
@@ -1269,37 +1298,7 @@ static void ValidateLinAlgMatrixStoreToMemory(CallInst *CI,
         CI, ValidationRule::InstrLinAlgMatrixScopeMismatch2,
         {"Input", MatrixScopeToString(Mat->Scope), "Wave", "ThreadGroup"});
 
-  GEPOperator *GSGEP = cast<GEPOperator>(Op.get_memory());
-  GlobalVariable *GSMem = cast<GlobalVariable>(GSGEP->getPointerOperand());
-  Type *GSMemInnerTy = GSMem->getType();
-  unsigned GSScalarCount = 1;
-  if (PointerType *GSMemPtrTy = dyn_cast<PointerType>(GSMemInnerTy))
-    GSMemInnerTy = GSMemPtrTy->getPointerElementType();
-  if (ArrayType *GSMemArrTy = dyn_cast<ArrayType>(GSMemInnerTy)) {
-    GSMemInnerTy = GSMemArrTy->getArrayElementType();
-    GSScalarCount *= GSMemArrTy->getNumElements();
-  }
-  if (VectorType *GSMemVecTy = dyn_cast<VectorType>(GSMemInnerTy)) {
-    GSMemInnerTy = GSMemVecTy->getVectorElementType();
-    GSScalarCount *= GSMemVecTy->getNumElements();
-  }
-
-  // if gs memory inner type != i32 then matrix elem type must match it
-  if (!GSMemInnerTy->isIntegerTy(32) &&
-      !IsComponentTypeSameNativeType(Mat->Type, GSMemInnerTy))
-    ValCtx.EmitInstrFormatError(
-        CI, ValidationRule::InstrLinAlgMatrixGSMemTypeMustMatch,
-        {TypeToString(GSMemInnerTy), "input matrix",
-         ComponentTypeToString(Mat->Type)});
-
-  // gs memory must be large enough for the write
-  unsigned ElementsPerScalar = ComponentTypeElementsPerScalar(Mat->Type);
-  unsigned ExpectedScalarCount =
-      (Mat->N + ElementsPerScalar - 1) / ElementsPerScalar * Mat->M;
-  if (ExpectedScalarCount > GSScalarCount)
-    ValCtx.EmitInstrFormatError(
-        CI, ValidationRule::InstrLinAlgMatrixGSMemMustBeLargeEnough,
-        {std::to_string(GSScalarCount), std::to_string(ExpectedScalarCount)});
+  ValidateLinAlgMatrixMemory(CI, Op.get_memory(), *Mat, "input matrix", ValCtx);
 
   // gs memory ops have the parameter in element count so it must be scaled
   uint64_t ByteCount = ComponentTypeByteCount(Mat->Type);
@@ -1563,7 +1562,8 @@ static void ValidateLinAlgMatrixAccumulateToMemory(CallInst *CI,
   if (ExpectedScalarCount > GSScalarCount)
     ValCtx.EmitInstrFormatError(
         CI, ValidationRule::InstrLinAlgMatrixGSMemMustBeLargeEnough,
-        {std::to_string(GSScalarCount), std::to_string(ExpectedScalarCount)});
+        {std::to_string(GSScalarCount), "scalars",
+         std::to_string(ExpectedScalarCount), "scalars"});
 
   // gs memory ops have the parameter in element count so it must be scaled
   uint64_t ByteCount = ComponentTypeByteCount(Mat->Type);
@@ -1742,37 +1742,8 @@ static void ValidateLinAlgMatrixLoadFromMemory(CallInst *CI,
         CI, ValidationRule::InstrLinAlgMatrixScopeMismatch2,
         {"Return", MatrixScopeToString(RetMat->Scope), "Wave", "ThreadGroup"});
 
-  GEPOperator *GSGEP = cast<GEPOperator>(Op.get_memory());
-  GlobalVariable *GSMem = cast<GlobalVariable>(GSGEP->getPointerOperand());
-  Type *GSMemInnerTy = GSMem->getType();
-  unsigned GSScalarCount = 1;
-  if (PointerType *GSMemPtrTy = dyn_cast<PointerType>(GSMemInnerTy))
-    GSMemInnerTy = GSMemPtrTy->getPointerElementType();
-  if (ArrayType *GSMemArrTy = dyn_cast<ArrayType>(GSMemInnerTy)) {
-    GSMemInnerTy = GSMemArrTy->getArrayElementType();
-    GSScalarCount *= GSMemArrTy->getNumElements();
-  }
-  if (VectorType *GSMemVecTy = dyn_cast<VectorType>(GSMemInnerTy)) {
-    GSMemInnerTy = GSMemVecTy->getVectorElementType();
-    GSScalarCount *= GSMemVecTy->getNumElements();
-  }
-
-  // if gs memory inner type != i32 then matrix elem type must match it
-  if (!GSMemInnerTy->isIntegerTy(32) &&
-      !IsComponentTypeSameNativeType(RetMat->Type, GSMemInnerTy))
-    ValCtx.EmitInstrFormatError(
-        CI, ValidationRule::InstrLinAlgMatrixGSMemTypeMustMatch,
-        {TypeToString(GSMemInnerTy), "return matrix",
-         ComponentTypeToString(RetMat->Type)});
-
-  // gs memory must be large enough for the read
-  unsigned ElementsPerScalar = ComponentTypeElementsPerScalar(RetMat->Type);
-  unsigned ExpectedScalarCount =
-      (RetMat->N + ElementsPerScalar - 1) / ElementsPerScalar * RetMat->M;
-  if (ExpectedScalarCount > GSScalarCount)
-    ValCtx.EmitInstrFormatError(
-        CI, ValidationRule::InstrLinAlgMatrixGSMemMustBeLargeEnough,
-        {std::to_string(GSScalarCount), std::to_string(ExpectedScalarCount)});
+  ValidateLinAlgMatrixMemory(CI, Op.get_memory(), *RetMat, "return matrix",
+                             ValCtx);
 
   // gs memory ops have the parameter in element count so it must be scaled
   uint64_t ByteCount = ComponentTypeByteCount(RetMat->Type);
