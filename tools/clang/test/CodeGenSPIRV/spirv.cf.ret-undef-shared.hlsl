@@ -1,26 +1,30 @@
 // RUN: %dxc -T vs_6_0 -E main -fcgl %s -spirv | FileCheck %s
 
-// CHECK:     [[undef:%[0-9]+]] = OpUndef %type_2d_image
-// CHECK-NOT:                     OpUndef %type_2d_image
-
+// CHECK-NOT: OpUndef
 
 Texture2D texA;
 Texture2D texB;
 
+// CHECK: %select1 = OpFunction
 Texture2D select1(bool lhs) {
   if (lhs)
     return texA;
   else
     return texB;
   // no return for dead branch.
+// CHECK: OpUnreachable
+// CHECK-NEXT: OpFunctionEnd
 }
 
+// CHECK: %select2 = OpFunction
 Texture2D select2(bool lhs) {
   if (lhs)
     return texA;
   else
     return texB;
   // no return for dead branch.
+// CHECK: OpUnreachable
+// CHECK-NEXT: OpFunctionEnd
 }
 
 float main(bool a: A) : B {
