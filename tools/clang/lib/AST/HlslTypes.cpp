@@ -22,6 +22,7 @@
 #include "clang/AST/DeclTemplate.h"
 #include "clang/AST/Type.h"
 #include "clang/Sema/AttributeList.h" // conceptually ParsedAttributes
+#include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/StringSwitch.h"
 
 using namespace clang;
@@ -528,6 +529,31 @@ bool IsHLSLResourceType(clang::QualType type) {
   if (getAttr<HLSLResourceAttr>(type))
     return true;
   return false;
+}
+
+static bool IsHLSLResourceCarrierTypeImpl(
+    QualType Type, llvm::SmallPtrSetImpl<const RecordDecl *> &Visited) {
+  Type = Type.getNonReferenceType();
+  while (const auto *Array = dyn_cast<ArrayType>(Type.getTypePtr()))
+    Type = Array->getElementType();
+  if (IsHLSLResourceType(Type))
+    return true;
+  const auto *Record = Type->getAs<RecordType>();
+  if (!Record)
+    return false;
+  const RecordDecl *Declaration =
+      cast<RecordDecl>(Record->getDecl()->getCanonicalDecl());
+  if (!Visited.insert(Declaration).second)
+    return false;
+  for (const FieldDecl *Field : Declaration->fields())
+    if (IsHLSLResourceCarrierTypeImpl(Field->getType(), Visited))
+      return true;
+  return false;
+}
+
+bool IsHLSLResourceCarrierType(QualType Type) {
+  llvm::SmallPtrSet<const RecordDecl *, 8> Visited;
+  return IsHLSLResourceCarrierTypeImpl(Type, Visited);
 }
 
 bool IsHLSLHitObjectType(QualType type) {

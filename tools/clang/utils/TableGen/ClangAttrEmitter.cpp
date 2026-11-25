@@ -1423,8 +1423,10 @@ static void emitClangAttrIdentifierArgList(RecordKeeper &Records, raw_ostream &O
     std::vector<FlattenedSpelling> Spellings = GetFlattenedSpellings(*Attr);
     std::set<std::string> Emitted;
     for (const auto &S : Spellings) {
-      if (Emitted.insert(S.name()).second)
-        OS << ".Case(\"" << S.name() << "\", " << "true" << ")\n";
+      // HLSL Change: match the parser's case-insensitive name normalization.
+      std::string Name = StringRef(S.name()).lower();
+      if (Emitted.insert(Name).second)
+        OS << ".Case(\"" << Name << "\", " << "true" << ")\n";
     }
   }
   OS << "#endif // CLANG_ATTR_IDENTIFIER_ARG_LIST\n\n";

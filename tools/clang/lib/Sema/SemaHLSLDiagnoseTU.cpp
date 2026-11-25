@@ -17,6 +17,7 @@
 #include "clang/AST/ASTContext.h"
 #include "clang/AST/Attr.h"
 #include "clang/AST/Decl.h"
+#include "clang/AST/DeclCXX.h"
 #include "clang/AST/Expr.h"
 #include "clang/AST/HlslTypes.h"
 #include "clang/AST/RecursiveASTVisitor.h"
@@ -585,6 +586,476 @@ getFunctionOutputControlPointsCount(const FunctionDecl *function) {
   return std::nullopt;
 }
 
+enum class BackwardDerivativeMismatchKind {
+  None,
+  Recursive,
+  Method,
+  ReturnType,
+  ParameterCount,
+  ParameterType,
+  InputDirection,
+  OutputDirection,
+};
+
+struct BackwardDerivativeMismatch {
+  BackwardDerivativeMismatchKind Kind = BackwardDerivativeMismatchKind::None;
+  unsigned ParameterIndex = 0;
+  unsigned ExpectedParameterCount = 0;
+  QualType ExpectedType;
+};
+
+bool isAutoDiffInactiveParameter(const ParmVarDecl *Parameter) {
+  return Parameter->hasAttr<HLSLNoDiffAttr>() ||
+         hlsl::IsHLSLResourceCarrierType(Parameter->getType());
+}
+
+BackwardDerivativeMismatch
+getBackwardDerivativeMismatch(ASTContext &Context, const FunctionDecl *Primal,
+                              const FunctionDecl *Derivative) {
+  BackwardDerivativeMismatch Mismatch;
+  if (Primal->getCanonicalDecl() == Derivative->getCanonicalDecl()) {
+    Mismatch.Kind = BackwardDerivativeMismatchKind::Recursive;
+    return Mismatch;
+  }
+
+  const auto *PrimalMethod = dyn_cast<CXXMethodDecl>(Primal);
+  const auto *DerivativeMethod = dyn_cast<CXXMethodDecl>(Derivative);
+  if ((PrimalMethod != nullptr) != (DerivativeMethod != nullptr) ||
+      (PrimalMethod &&
+       (PrimalMethod->getParent()->getCanonicalDecl() !=
+            DerivativeMethod->getParent()->getCanonicalDecl() ||
+        PrimalMethod->isStatic() != DerivativeMethod->isStatic()))) {
+    Mismatch.Kind = BackwardDerivativeMismatchKind::Method;
+    return Mismatch;
+  }
+  if (!Derivative->getReturnType()->isVoidType()) {
+    Mismatch.Kind = BackwardDerivativeMismatchKind::ReturnType;
+    return Mismatch;
+  }
+
+  unsigned ActiveParameters = 0;
+  for (const ParmVarDecl *Parameter : Primal->parameters())
+    ActiveParameters += !isAutoDiffInactiveParameter(Parameter);
+  unsigned ExpectedParameters = Primal->getNumParams() + 1 + ActiveParameters;
+  if (Derivative->getNumParams() != ExpectedParameters) {
+    Mismatch.Kind = BackwardDerivativeMismatchKind::ParameterCount;
+    Mismatch.ExpectedParameterCount = ExpectedParameters;
+    return Mismatch;
+  }
+
+  for (unsigned I = 0; I < Primal->getNumParams(); ++I) {
+    const ParmVarDecl *Input = Derivative->getParamDecl(I);
+    if (!Context.hasSameType(Primal->getParamDecl(I)->getType(),
+                             Input->getType().getNonReferenceType())) {
+      Mismatch.Kind = BackwardDerivativeMismatchKind::ParameterType;
+      Mismatch.ParameterIndex = I;
+      Mismatch.ExpectedType = Primal->getParamDecl(I)->getType();
+      return Mismatch;
+    }
+    if (Input->hasAttr<HLSLOutAttr>()) {
+      Mismatch.Kind = BackwardDerivativeMismatchKind::InputDirection;
+      Mismatch.ParameterIndex = I;
+      return Mismatch;
+    }
+  }
+
+  unsigned SeedIndex = Primal->getNumParams();
+  const ParmVarDecl *Seed = Derivative->getParamDecl(SeedIndex);
+  if (!Context.hasSameType(Primal->getReturnType(),
+                           Seed->getType().getNonReferenceType())) {
+    Mismatch.Kind = BackwardDerivativeMismatchKind::ParameterType;
+    Mismatch.ParameterIndex = SeedIndex;
+    Mismatch.ExpectedType = Primal->getReturnType();
+    return Mismatch;
+  }
+  if (Seed->hasAttr<HLSLOutAttr>()) {
+    Mismatch.Kind = BackwardDerivativeMismatchKind::InputDirection;
+    Mismatch.ParameterIndex = SeedIndex;
+    return Mismatch;
+  }
+
+  unsigned OutputIndex = SeedIndex + 1;
+  for (const ParmVarDecl *Parameter : Primal->parameters()) {
+    if (isAutoDiffInactiveParameter(Parameter))
+      continue;
+    const ParmVarDecl *Output = Derivative->getParamDecl(OutputIndex);
+    if (!Context.hasSameType(Parameter->getType(),
+                             Output->getType().getNonReferenceType())) {
+      Mismatch.Kind = BackwardDerivativeMismatchKind::ParameterType;
+      Mismatch.ParameterIndex = OutputIndex;
+      Mismatch.ExpectedType = Parameter->getType();
+      return Mismatch;
+    }
+    if (!Output->hasAttr<HLSLOutAttr>() || Output->hasAttr<HLSLInAttr>()) {
+      Mismatch.Kind = BackwardDerivativeMismatchKind::OutputDirection;
+      Mismatch.ParameterIndex = OutputIndex;
+      return Mismatch;
+    }
+    ++OutputIndex;
+  }
+  return Mismatch;
+}
+
+void diagnoseBackwardDerivativeMismatch(
+    Sema &S, const FunctionDecl *Primal, const FunctionDecl *Derivative,
+    const HLSLBackwardDerivativeAttr *Attr,
+    const BackwardDerivativeMismatch &Mismatch) {
+  SourceLocation Location = Attr->getLocation();
+  switch (Mismatch.Kind) {
+  case BackwardDerivativeMismatchKind::None:
+    return;
+  case BackwardDerivativeMismatchKind::Recursive:
+    S.Diag(Location, diag::err_hlsl_autodiff_association_recursive)
+        << Primal->getName();
+    return;
+  case BackwardDerivativeMismatchKind::Method:
+    S.Diag(Location, diag::err_hlsl_autodiff_association_method_mismatch)
+        << Primal->getName();
+    return;
+  case BackwardDerivativeMismatchKind::ReturnType:
+    S.Diag(Location, diag::err_hlsl_autodiff_pullback_return_type)
+        << Derivative->getName();
+    return;
+  case BackwardDerivativeMismatchKind::ParameterCount:
+    S.Diag(Location, diag::err_hlsl_autodiff_pullback_parameter_count)
+        << Derivative->getName() << Mismatch.ExpectedParameterCount
+        << Derivative->getNumParams();
+    return;
+  case BackwardDerivativeMismatchKind::ParameterType:
+    S.Diag(Location, diag::err_hlsl_autodiff_pullback_parameter_type)
+        << Derivative->getName() << (Mismatch.ParameterIndex + 1)
+        << Mismatch.ExpectedType;
+    return;
+  case BackwardDerivativeMismatchKind::InputDirection:
+    S.Diag(Location, diag::err_hlsl_autodiff_pullback_input)
+        << Derivative->getName() << (Mismatch.ParameterIndex + 1);
+    return;
+  case BackwardDerivativeMismatchKind::OutputDirection:
+    S.Diag(Location, diag::err_hlsl_autodiff_pullback_output)
+        << Derivative->getName() << (Mismatch.ParameterIndex + 1);
+    return;
+  }
+}
+
+void diagnoseBackwardDerivativeAssociation(Sema &S,
+                                           const FunctionDecl *Canonical) {
+  SmallVector<std::pair<const FunctionDecl *,
+                        const HLSLBackwardDerivativeAttr *>,
+              2>
+      Associations;
+  for (const FunctionDecl *Redecl : Canonical->redecls())
+    for (const auto *Attr :
+         Redecl->specific_attrs<HLSLBackwardDerivativeAttr>())
+      if (!Attr->isInherited())
+        Associations.push_back({Redecl, Attr});
+  if (Associations.empty())
+    return;
+  if (Associations.size() > 1) {
+    S.Diag(Associations[1].second->getLocation(),
+           diag::err_hlsl_autodiff_association_multiple)
+        << Canonical->getName();
+    return;
+  }
+
+  const FunctionDecl *Primal = Associations.front().first;
+  const HLSLBackwardDerivativeAttr *Attr = Associations.front().second;
+  SmallVector<const FunctionDecl *, 4> Candidates;
+  SmallPtrSet<const FunctionDecl *, 4> SeenCandidates;
+  for (const NamedDecl *Candidate : Primal->getDeclContext()->lookup(
+           DeclarationName(Attr->getDerivative())))
+    if (const auto *Function = dyn_cast<FunctionDecl>(Candidate))
+      if (SeenCandidates.insert(Function->getCanonicalDecl()).second)
+        Candidates.push_back(Function);
+
+  if (Candidates.empty()) {
+    S.Diag(Attr->getLocation(),
+           diag::err_hlsl_autodiff_association_requires_function)
+        << Attr->getSpelling();
+    return;
+  }
+
+  SmallVector<const FunctionDecl *, 2> Matches;
+  for (const FunctionDecl *Candidate : Candidates)
+    if (getBackwardDerivativeMismatch(S.Context, Primal, Candidate).Kind ==
+        BackwardDerivativeMismatchKind::None)
+      Matches.push_back(Candidate);
+  if (Matches.size() == 1)
+    return;
+  if (Matches.size() > 1) {
+    S.Diag(Attr->getLocation(),
+           diag::err_hlsl_autodiff_association_ambiguous)
+        << Attr->getDerivative()->getName();
+    return;
+  }
+  if (Candidates.size() == 1) {
+    diagnoseBackwardDerivativeMismatch(
+        S, Primal, Candidates.front(), Attr,
+        getBackwardDerivativeMismatch(S.Context, Primal, Candidates.front()));
+    return;
+  }
+  S.Diag(Attr->getLocation(),
+         diag::err_hlsl_autodiff_association_no_matching_overload)
+      << Attr->getDerivative()->getName() << Primal->getName();
+}
+
+void diagnoseBackwardDerivativeAssociations(Sema &S, DeclContext *Root) {
+  SmallVector<DeclContext *, 16> Worklist(1, Root);
+  SmallPtrSet<const FunctionDecl *, 32> SeenFunctions;
+  while (!Worklist.empty()) {
+    DeclContext *Context = Worklist.pop_back_val();
+    for (Decl *D : Context->decls()) {
+      if (const auto *Function = dyn_cast<FunctionDecl>(D)) {
+        const FunctionDecl *Canonical = Function->getCanonicalDecl();
+        if (SeenFunctions.insert(Canonical).second)
+          diagnoseBackwardDerivativeAssociation(S, Canonical);
+        continue;
+      }
+      if (auto *Child = dyn_cast<DeclContext>(D))
+        Worklist.push_back(Child);
+    }
+  }
+}
+
+enum class PrimalSubstituteMismatchKind {
+  None,
+  Recursive,
+  Method,
+  ReturnType,
+  ParameterCount,
+  ParameterType,
+  ParameterDirection,
+  ParameterActivity,
+};
+
+struct PrimalSubstituteMismatch {
+  PrimalSubstituteMismatchKind Kind = PrimalSubstituteMismatchKind::None;
+  unsigned ParameterIndex = 0;
+  unsigned ExpectedParameterCount = 0;
+  QualType ExpectedType;
+};
+
+unsigned getParameterDirection(const ParmVarDecl *Parameter) {
+  bool IsOut = Parameter->hasAttr<HLSLOutAttr>();
+  bool IsIn = Parameter->hasAttr<HLSLInAttr>();
+  if (IsOut && IsIn)
+    return 2;
+  return IsOut ? 1 : 0;
+}
+
+bool hasBackwardDifferentiationMode(const FunctionDecl *Function) {
+  for (const FunctionDecl *Redecl : Function->redecls()) {
+    if (const auto *Attr = Redecl->getAttr<HLSLAutoDiffAttr>())
+      if (Attr->hasBackward())
+        return true;
+    if (Redecl->hasAttr<HLSLBackwardDerivativeAttr>())
+      return true;
+  }
+  return false;
+}
+
+PrimalSubstituteMismatch
+getPrimalSubstituteMismatch(ASTContext &Context, const FunctionDecl *Primal,
+                            const FunctionDecl *Substitute) {
+  PrimalSubstituteMismatch Mismatch;
+  if (Primal->getCanonicalDecl() == Substitute->getCanonicalDecl()) {
+    Mismatch.Kind = PrimalSubstituteMismatchKind::Recursive;
+    return Mismatch;
+  }
+
+  const auto *PrimalMethod = dyn_cast<CXXMethodDecl>(Primal);
+  const auto *SubstituteMethod = dyn_cast<CXXMethodDecl>(Substitute);
+  if ((PrimalMethod != nullptr) != (SubstituteMethod != nullptr) ||
+      (PrimalMethod &&
+       (PrimalMethod->getParent()->getCanonicalDecl() !=
+            SubstituteMethod->getParent()->getCanonicalDecl() ||
+        PrimalMethod->isStatic() != SubstituteMethod->isStatic()))) {
+    Mismatch.Kind = PrimalSubstituteMismatchKind::Method;
+    return Mismatch;
+  }
+  if (!Context.hasSameType(Primal->getReturnType(),
+                           Substitute->getReturnType())) {
+    Mismatch.Kind = PrimalSubstituteMismatchKind::ReturnType;
+    Mismatch.ExpectedType = Primal->getReturnType();
+    return Mismatch;
+  }
+  if (Primal->getNumParams() != Substitute->getNumParams()) {
+    Mismatch.Kind = PrimalSubstituteMismatchKind::ParameterCount;
+    Mismatch.ExpectedParameterCount = Primal->getNumParams();
+    return Mismatch;
+  }
+
+  for (unsigned I = 0; I < Primal->getNumParams(); ++I) {
+    const ParmVarDecl *PrimalParameter = Primal->getParamDecl(I);
+    const ParmVarDecl *SubstituteParameter = Substitute->getParamDecl(I);
+    if (!Context.hasSameType(
+            PrimalParameter->getType().getNonReferenceType(),
+            SubstituteParameter->getType().getNonReferenceType())) {
+      Mismatch.Kind = PrimalSubstituteMismatchKind::ParameterType;
+      Mismatch.ParameterIndex = I;
+      Mismatch.ExpectedType = PrimalParameter->getType().getNonReferenceType();
+      return Mismatch;
+    }
+    if (getParameterDirection(PrimalParameter) !=
+        getParameterDirection(SubstituteParameter)) {
+      Mismatch.Kind = PrimalSubstituteMismatchKind::ParameterDirection;
+      Mismatch.ParameterIndex = I;
+      return Mismatch;
+    }
+    if (PrimalParameter->hasAttr<HLSLNoDiffAttr>() !=
+        SubstituteParameter->hasAttr<HLSLNoDiffAttr>()) {
+      Mismatch.Kind = PrimalSubstituteMismatchKind::ParameterActivity;
+      Mismatch.ParameterIndex = I;
+      return Mismatch;
+    }
+  }
+  return Mismatch;
+}
+
+void diagnosePrimalSubstituteMismatch(
+    Sema &S, const FunctionDecl *Primal, const FunctionDecl *Substitute,
+    const HLSLPrimalSubstituteOfAttr *Attr,
+    const PrimalSubstituteMismatch &Mismatch) {
+  SourceLocation Location = Attr->getLocation();
+  switch (Mismatch.Kind) {
+  case PrimalSubstituteMismatchKind::None:
+    return;
+  case PrimalSubstituteMismatchKind::Recursive:
+    S.Diag(Location, diag::err_hlsl_autodiff_substitute_recursive)
+        << Primal->getName();
+    return;
+  case PrimalSubstituteMismatchKind::Method:
+    S.Diag(Location, diag::err_hlsl_autodiff_substitute_method_mismatch)
+        << Substitute->getName();
+    return;
+  case PrimalSubstituteMismatchKind::ReturnType:
+    S.Diag(Location, diag::err_hlsl_autodiff_substitute_return_type)
+        << Substitute->getName() << Mismatch.ExpectedType;
+    return;
+  case PrimalSubstituteMismatchKind::ParameterCount:
+    S.Diag(Location, diag::err_hlsl_autodiff_substitute_parameter_count)
+        << Substitute->getName() << Mismatch.ExpectedParameterCount
+        << Substitute->getNumParams();
+    return;
+  case PrimalSubstituteMismatchKind::ParameterType:
+    S.Diag(Location, diag::err_hlsl_autodiff_substitute_parameter_type)
+        << Substitute->getName() << (Mismatch.ParameterIndex + 1)
+        << Mismatch.ExpectedType;
+    return;
+  case PrimalSubstituteMismatchKind::ParameterDirection:
+    S.Diag(Location, diag::err_hlsl_autodiff_substitute_parameter_direction)
+        << Substitute->getName() << (Mismatch.ParameterIndex + 1);
+    return;
+  case PrimalSubstituteMismatchKind::ParameterActivity:
+    S.Diag(Location, diag::err_hlsl_autodiff_substitute_parameter_activity)
+        << Substitute->getName() << (Mismatch.ParameterIndex + 1);
+    return;
+  }
+}
+
+void diagnosePrimalSubstituteAssociations(Sema &S, DeclContext *Root) {
+  struct Association {
+    const FunctionDecl *Substitute;
+    const HLSLPrimalSubstituteOfAttr *Attr;
+  };
+  SmallVector<DeclContext *, 16> Worklist(1, Root);
+  SmallPtrSet<const FunctionDecl *, 32> SeenFunctions;
+  SmallVector<Association, 16> Associations;
+  while (!Worklist.empty()) {
+    DeclContext *Context = Worklist.pop_back_val();
+    for (Decl *D : Context->decls()) {
+      if (const auto *Function = dyn_cast<FunctionDecl>(D)) {
+        const FunctionDecl *Canonical = Function->getCanonicalDecl();
+        if (!SeenFunctions.insert(Canonical).second)
+          continue;
+        for (const FunctionDecl *Redecl : Canonical->redecls())
+          for (const auto *Attr :
+               Redecl->specific_attrs<HLSLPrimalSubstituteOfAttr>())
+            if (!Attr->isInherited())
+              Associations.push_back({Redecl, Attr});
+        continue;
+      }
+      if (auto *Child = dyn_cast<DeclContext>(D))
+        Worklist.push_back(Child);
+    }
+  }
+
+  DenseMap<const FunctionDecl *, const FunctionDecl *> Substitutes;
+  DenseMap<const FunctionDecl *, const HLSLPrimalSubstituteOfAttr *> Attrs;
+  for (const Association &Association : Associations) {
+    const FunctionDecl *Substitute = Association.Substitute;
+    const HLSLPrimalSubstituteOfAttr *Attr = Association.Attr;
+    SmallVector<const FunctionDecl *, 4> Candidates;
+    SmallPtrSet<const FunctionDecl *, 4> SeenCandidates;
+    for (const NamedDecl *Candidate : Substitute->getDeclContext()->lookup(
+             DeclarationName(Attr->getPrimal())))
+      if (const auto *Function = dyn_cast<FunctionDecl>(Candidate))
+        if (SeenCandidates.insert(Function->getCanonicalDecl()).second)
+          Candidates.push_back(Function);
+
+    if (Candidates.empty()) {
+      S.Diag(Attr->getLocation(),
+             diag::err_hlsl_autodiff_association_requires_function)
+          << Attr->getSpelling();
+      continue;
+    }
+    SmallVector<const FunctionDecl *, 2> Matches;
+    for (const FunctionDecl *Candidate : Candidates)
+      if (getPrimalSubstituteMismatch(S.Context, Candidate, Substitute).Kind ==
+          PrimalSubstituteMismatchKind::None)
+        Matches.push_back(Candidate);
+    if (Matches.size() > 1) {
+      S.Diag(Attr->getLocation(), diag::err_hlsl_autodiff_substitute_ambiguous)
+          << Attr->getPrimal()->getName();
+      continue;
+    }
+    if (Matches.empty()) {
+      if (Candidates.size() == 1)
+        diagnosePrimalSubstituteMismatch(
+            S, Candidates.front(), Substitute, Attr,
+            getPrimalSubstituteMismatch(S.Context, Candidates.front(),
+                                        Substitute));
+      else
+        S.Diag(Attr->getLocation(),
+               diag::err_hlsl_autodiff_substitute_no_matching_overload)
+            << Attr->getPrimal()->getName() << Substitute->getName();
+      continue;
+    }
+
+    const FunctionDecl *Primal = Matches.front()->getCanonicalDecl();
+    const FunctionDecl *CanonicalSubstitute = Substitute->getCanonicalDecl();
+    if (!hasBackwardDifferentiationMode(CanonicalSubstitute)) {
+      S.Diag(Attr->getLocation(), diag::err_hlsl_autodiff_substitute_mode)
+          << Substitute->getName();
+      continue;
+    }
+    if (Substitutes.count(Primal)) {
+      S.Diag(Attr->getLocation(), diag::err_hlsl_autodiff_substitute_multiple)
+          << Primal->getName();
+      continue;
+    }
+    Substitutes[Primal] = CanonicalSubstitute;
+    Attrs[Primal] = Attr;
+  }
+
+  SmallPtrSet<const FunctionDecl *, 16> Complete;
+  for (const auto &Entry : Substitutes) {
+    SmallPtrSet<const FunctionDecl *, 8> Active;
+    const FunctionDecl *Current = Entry.first;
+    while (Substitutes.count(Current)) {
+      if (!Active.insert(Current).second) {
+        S.Diag(Attrs[Entry.first]->getLocation(),
+               diag::err_hlsl_autodiff_substitute_cycle)
+            << Entry.first->getName();
+        break;
+      }
+      if (Complete.count(Current))
+        break;
+      Current = Substitutes[Current];
+    }
+    Complete.insert(Active.begin(), Active.end());
+  }
+}
+
 } // namespace
 
 void hlsl::DiagnoseTranslationUnit(clang::Sema *self) {
@@ -594,6 +1065,15 @@ void hlsl::DiagnoseTranslationUnit(clang::Sema *self) {
   if (self->getDiagnostics().hasErrorOccurred()) {
     return;
   }
+
+  diagnoseBackwardDerivativeAssociations(
+      *self, self->getASTContext().getTranslationUnitDecl());
+  if (self->getDiagnostics().hasErrorOccurred())
+    return;
+  diagnosePrimalSubstituteAssociations(
+      *self, self->getASTContext().getTranslationUnitDecl());
+  if (self->getDiagnostics().hasErrorOccurred())
+    return;
 
   // Check RT shader if available for their payload use and match payload access
   // against availiable payload modifiers.

@@ -7512,6 +7512,52 @@ def err_hlsl_profile_conflicts_with_shader_attribute : Error<
   "entry type '%0' from profile '%1' conflicts with shader attribute type '%2' on entry function '%3'.">;
 def err_hlsl_attribute_valid_on_function_only: Error<
   "attribute is valid only on functions">;
+def err_hlsl_autodiff_association_requires_function: Error<
+  "%0 attribute argument must name a function">;
+def err_hlsl_autodiff_association_no_matching_overload: Error<
+  "no overload of backward derivative '%0' matches function '%1'">;
+def err_hlsl_autodiff_association_ambiguous: Error<
+  "backward derivative association '%0' is ambiguous">;
+def err_hlsl_autodiff_association_multiple: Error<
+  "function '%0' has multiple backward derivative associations">;
+def err_hlsl_autodiff_association_recursive: Error<
+  "function '%0' cannot be its own backward derivative">;
+def err_hlsl_autodiff_association_method_mismatch: Error<
+  "backward derivative for method '%0' must be a method of the same type with matching staticness">;
+def err_hlsl_autodiff_pullback_return_type: Error<
+  "backward derivative '%0' must return void">;
+def err_hlsl_autodiff_pullback_parameter_count: Error<
+  "backward derivative '%0' requires %1 parameters but has %2">;
+def err_hlsl_autodiff_pullback_parameter_type: Error<
+  "backward derivative '%0' parameter %1 must have type %2">;
+def err_hlsl_autodiff_pullback_input: Error<
+  "backward derivative '%0' parameter %1 must be an input parameter">;
+def err_hlsl_autodiff_pullback_output: Error<
+  "backward derivative '%0' parameter %1 must be an out parameter">;
+def err_hlsl_autodiff_substitute_no_matching_overload: Error<
+  "no overload of primal '%0' matches substitute '%1'">;
+def err_hlsl_autodiff_substitute_ambiguous: Error<
+  "primal substitute association '%0' is ambiguous">;
+def err_hlsl_autodiff_substitute_multiple: Error<
+  "function '%0' has multiple primal substitutes">;
+def err_hlsl_autodiff_substitute_recursive: Error<
+  "function '%0' cannot substitute for itself">;
+def err_hlsl_autodiff_substitute_cycle: Error<
+  "primal substitute association for '%0' forms a cycle">;
+def err_hlsl_autodiff_substitute_method_mismatch: Error<
+  "primal substitute '%0' must match the primal's method receiver and staticness">;
+def err_hlsl_autodiff_substitute_return_type: Error<
+  "primal substitute '%0' must return %1">;
+def err_hlsl_autodiff_substitute_parameter_count: Error<
+  "primal substitute '%0' requires %1 parameters but has %2">;
+def err_hlsl_autodiff_substitute_parameter_type: Error<
+  "primal substitute '%0' parameter %1 must have type %2">;
+def err_hlsl_autodiff_substitute_parameter_direction: Error<
+  "primal substitute '%0' parameter %1 must have the same direction as the primal">;
+def err_hlsl_autodiff_substitute_parameter_activity: Error<
+  "primal substitute '%0' parameter %1 must have the same NoDiff annotation as the primal">;
+def err_hlsl_autodiff_substitute_mode: Error<
+  "primal substitute '%0' must request backward-mode autodiff or provide a backward derivative">;
 def err_hlsl_wavesize_size: Error<
   "WaveSize arguments must be between 4 and 128 and a power of 2">;
 def err_hlsl_wavesize_min_geq_max: Error<

@@ -3750,6 +3750,14 @@ static bool IsBuiltInOrStandardCXX11Attribute(IdentifierInfo *AttrName,
 // HLSL Change Start
 static bool hasCXXAttributeInHLSL(IdentifierInfo *ScopeName,
                                   IdentifierInfo *AttrName) {
+  if (ScopeName && ScopeName->getName() == "dxc") {
+    return llvm::StringSwitch<bool>(AttrName->getName())
+        .Case("AutoDiff", true)
+        .Case("BackwardDerivative", true)
+        .Case("PrimalSubstituteOf", true)
+        .Case("NoDiff", true)
+        .Default(false);
+  }
   if (ScopeName && ScopeName->getName() != "")
     return false;
 

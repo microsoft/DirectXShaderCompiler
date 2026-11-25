@@ -1,0 +1,6 @@
+// RUN: not %dxr -generated-only %S/no_attributed_functions.hlsl 2>&1 | FileCheck %s --check-prefix=DEPENDENCY
+// RUN: not %dxr -generate-differentials -generated-only -line-directive %S/no_attributed_functions.hlsl 2>&1 | FileCheck %s --check-prefix=INCOMPATIBLE
+// RUN: not %dxr -generate-differentials -generated-only -extract-entry-uniforms -E main %S/no_attributed_functions.hlsl 2>&1 | FileCheck %s --check-prefix=INCOMPATIBLE
+
+// DEPENDENCY: -generated-only requires -generate-differentials
+// INCOMPATIBLE: -generated-only cannot be combined with -line-directive or -extract-entry-uniforms

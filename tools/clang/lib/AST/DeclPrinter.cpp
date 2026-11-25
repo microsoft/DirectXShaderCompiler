@@ -106,6 +106,7 @@ namespace {
     void PrintUnusualAnnotations(NamedDecl *D);
     void VisitHLSLUnusualAnnotation(const hlsl::UnusualAnnotation *UA);
     void PrintHLSLPreAttr(NamedDecl *D);
+    void PrintHLSLAutoDiffPreAttr(NamedDecl *D);
     // HLSL Change End
   };
 }
@@ -457,6 +458,12 @@ void DeclPrinter::VisitEnumConstantDecl(EnumConstantDecl *D) {
 void DeclPrinter::VisitFunctionDecl(FunctionDecl *D) {
   CXXConstructorDecl *CDecl = dyn_cast<CXXConstructorDecl>(D);
   CXXConversionDecl *ConversionDecl = dyn_cast<CXXConversionDecl>(D);
+
+  // HLSL Change Begin
+  if (D->hasAttrs() && Policy.LangOpts.HLSL)
+    PrintHLSLAutoDiffPreAttr(D);
+  // HLSL Change End
+
   if (!Policy.SuppressSpecifiers) {
     switch (D->getStorageClass()) {
     case SC_None: break;
@@ -1538,9 +1545,23 @@ void DeclPrinter::PrintHLSLPreAttr(NamedDecl* D) {
   std::vector<Attr*> tempVec;
   for (AttrVec::const_reverse_iterator i = Attrs.rbegin(), e = Attrs.rend(); i != e; ++i) {
     Attr *A = *i;
+    if (isa<HLSLAutoDiffAttr>(A) || isa<HLSLBackwardDerivativeAttr>(A) ||
+        isa<HLSLPrimalSubstituteOfAttr>(A))
+      continue;
     hlsl::CustomPrintHLSLAttr(A, Out, Policy, Indentation);
   }
   
+}
+
+void DeclPrinter::PrintHLSLAutoDiffPreAttr(NamedDecl *D) {
+  AttrVec &Attrs = D->getAttrs();
+  for (AttrVec::const_reverse_iterator I = Attrs.rbegin(), E = Attrs.rend();
+       I != E; ++I) {
+    Attr *A = *I;
+    if (isa<HLSLAutoDiffAttr>(A) || isa<HLSLBackwardDerivativeAttr>(A) ||
+        isa<HLSLPrimalSubstituteOfAttr>(A))
+      hlsl::CustomPrintHLSLAttr(A, Out, Policy, Indentation);
+  }
 }
 
 // HLSL Change End

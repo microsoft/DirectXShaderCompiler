@@ -479,6 +479,7 @@ bool IsHLSLLineStreamType(clang::QualType type);
 bool IsHLSLTriangleStreamType(clang::QualType type);
 bool IsHLSLStreamOutputType(clang::QualType type);
 bool IsHLSLResourceType(clang::QualType type);
+bool IsHLSLResourceCarrierType(clang::QualType type);
 bool IsHLSLNodeInputType(clang::QualType type);
 bool IsHLSLDynamicResourceType(clang::QualType type);
 bool IsHLSLDynamicSamplerType(clang::QualType type);
