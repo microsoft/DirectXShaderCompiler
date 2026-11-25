@@ -4915,24 +4915,33 @@ SpirvInstruction *SpirvEmitter::processTextureGatherRGBACmpRGBA(
     // The offset arg is not optional.
     handleOffsetInMethodCall(expr, offsetStartIndex, &constOffset, &varOffset);
   } else if (numOffsetArgs == 4) {
-    auto *offset0 = constEvaluator.tryToEvaluateAsConst(
-        expr->getArg(offsetStartIndex), isSpecConstantMode);
-    auto *offset1 = constEvaluator.tryToEvaluateAsConst(
-        expr->getArg(offsetStartIndex + 1), isSpecConstantMode);
-    auto *offset2 = constEvaluator.tryToEvaluateAsConst(
-        expr->getArg(offsetStartIndex + 2), isSpecConstantMode);
-    auto *offset3 = constEvaluator.tryToEvaluateAsConst(
-        expr->getArg(offsetStartIndex + 3), isSpecConstantMode);
+    // ConstOffsets are relative to the texel of lane w, so add each lane's
+    // position in the 2x2 footprint to its HLSL offset.
+    const uint64_t laneOffsets[4][2] = {{0, 1}, {1, 1}, {1, 0}, {0, 0}};
+    SpirvConstant *offsets[4] = {};
+    for (uint32_t i = 0; i < 4; ++i) {
+      const Expr *offsetExpr = expr->getArg(offsetStartIndex + i);
+      Expr::EvalResult evalResult;
+      if (!offsetExpr->EvaluateAsRValue(evalResult, astContext) ||
+          evalResult.HasSideEffects)
+        break;
+      for (uint32_t j = 0; j < 2; ++j) {
+        llvm::APInt &component = evalResult.Val.getVectorElt(j).getInt();
+        component += llvm::APInt(component.getBitWidth(), laneOffsets[i][j]);
+      }
+      offsets[i] = constEvaluator.translateAPValue(
+          evalResult.Val, offsetExpr->getType(), isSpecConstantMode);
+    }
 
     // If any of the offsets is not constant, we then need to emulate the call
     // using 4 OpImageGather instructions. Otherwise, we can leverage the
     // ConstOffsets image operand.
-    if (offset0 && offset1 && offset2 && offset3) {
+    if (offsets[0] && offsets[1] && offsets[2] && offsets[3]) {
       const QualType v2i32 = astContext.getExtVectorType(astContext.IntTy, 2);
       const auto offsetType = astContext.getConstantArrayType(
           v2i32, llvm::APInt(32, 4), clang::ArrayType::Normal, 0);
       constOffsets = spvBuilder.getConstantComposite(
-          offsetType, {offset0, offset1, offset2, offset3});
+          offsetType, {offsets[0], offsets[1], offsets[2], offsets[3]});
     } else {
       needsEmulation = true;
     }
