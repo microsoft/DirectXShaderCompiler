@@ -9512,6 +9512,10 @@ static void NoteFunctionCandidate(Sema &S, OverloadCandidate *Cand,
 
   switch (Cand->FailureKind) {
   // HLSL Change Begin - Add failure for intrinsic lookup failure.
+  case ovl_fail_hlsl_intrinsic_argument_count:
+    S.Diag(OpLoc, diag::note_hlsl_intrinsic_argument_count) << NumArgs;
+    return;
+
   case ovl_fail_hlsl_intrinsic:
     S.Diag(
         SourceLocation::getFromRawEncoding(Cand->HLSLIntrinsicFailure.Location),

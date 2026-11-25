@@ -608,7 +608,9 @@ namespace clang {
 
     // HLSL Change Begin
     /// An HLSL intrinsic signature could not be synthesized for the arguments.
-    ovl_fail_hlsl_intrinsic
+    ovl_fail_hlsl_intrinsic,
+    /// No signature in the HLSL intrinsic family accepts this argument count.
+    ovl_fail_hlsl_intrinsic_argument_count
     // HLSL Change End
   };
 

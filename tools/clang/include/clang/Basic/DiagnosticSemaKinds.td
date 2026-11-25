@@ -7892,6 +7892,8 @@ def warn_hlsl_intrinsic_in_wrong_shader_model : Warning<
 def warn_hlsl_intrinsic_overload_in_wrong_shader_model : Warning<
    "overload of intrinsic %0 requires shader model %1 or greater">,
     DefaultError, InGroup<HLSLAvailability>;
+def note_hlsl_intrinsic_argument_count : Note<
+   "intrinsic function does not accept %0 argument%s0">;
 def err_hlsl_intrinsic_template_arg_unsupported: Error<
    "Explicit template arguments on intrinsic %0 are not supported">;
 def err_hlsl_intrinsic_template_arg_requires_2018: Error<

@@ -4377,38 +4377,34 @@ private:
     return qts;
   }
 
-public:
-  bool FindExternalVisibleDeclsByName(const DeclContext *DC,
-                                      DeclarationName Name) override {
-    if (m_creatingHlslIntrinsicLookupMarker || !m_hlslNSDecl ||
-        DC->getPrimaryContext() != m_hlslNSDecl->getPrimaryContext())
-      return false;
-
+  bool IsHLSLIntrinsicName(DeclarationName Name) {
     IdentifierInfo *II = Name.getAsIdentifierInfo();
     if (!II)
       return false;
 
-    bool isIntrinsicName = false;
-    for (size_t I = 0; I < _countof(g_Intrinsics); ++I) {
-      if (II->getName() == g_Intrinsics[I].pArgs[0].pName) {
-        isIntrinsicName = true;
-        break;
+    for (size_t I = 0; I < _countof(g_Intrinsics); ++I)
+      if (II->getName() == g_Intrinsics[I].pArgs[0].pName)
+        return true;
+
+    CA2WEX<> functionName(II->getName().str().c_str());
+    for (const CComPtr<IDxcIntrinsicTable> &table : m_intrinsicTables) {
+      const HLSL_INTRINSIC *intrinsic = nullptr;
+      UINT64 lookupCookie = 0;
+      if (SUCCEEDED(table->LookupIntrinsic(L"", functionName, &intrinsic,
+                                           &lookupCookie)) &&
+          intrinsic) {
+        return true;
       }
     }
-    if (!isIntrinsicName) {
-      CA2WEX<> functionName(II->getName().str().c_str());
-      for (const CComPtr<IDxcIntrinsicTable> &table : m_intrinsicTables) {
-        const HLSL_INTRINSIC *intrinsic = nullptr;
-        UINT64 lookupCookie = 0;
-        if (SUCCEEDED(table->LookupIntrinsic(L"", functionName, &intrinsic,
-                                             &lookupCookie)) &&
-            intrinsic) {
-          isIntrinsicName = true;
-          break;
-        }
-      }
-    }
-    if (!isIntrinsicName)
+    return false;
+  }
+
+public:
+  bool FindExternalVisibleDeclsByName(const DeclContext *DC,
+                                      DeclarationName Name) override {
+    if (m_creatingHlslIntrinsicLookupMarker || !m_hlslNSDecl ||
+        DC->getPrimaryContext() != m_hlslNSDecl->getPrimaryContext() ||
+        !IsHLSLIntrinsicName(Name))
       return false;
 
     const QualType functionType =
@@ -5581,9 +5577,10 @@ public:
       if (HlslLookupDecl)
         break;
     }
-    if (!HlslLookupDecl && m_hlslNSDecl && !isQualified && ULE->requiresADL()) {
+    if (!HlslLookupDecl && m_hlslNSDecl && !isQualified && ULE->requiresADL() &&
+        IsHLSLIntrinsicName(ULE->getName())) {
       // ADL's ordinary candidate insertion skips intrinsic lookup markers.
-      // Find the family here so its signatures can be synthesized first.
+      // Only intrinsic names need this extra lookup to synthesize signatures.
       ADLResult Functions;
       m_sema->ArgumentDependentLookup(ULE->getName(), ULE->getExprLoc(), Args,
                                       Functions);
@@ -5668,6 +5665,15 @@ public:
       IntrinsicDefIter end = IntrinsicDefIter::CreateEnd(
           T.Table.data(), T.Table.size(),
           IntrinsicTableDefIter::CreateEnd(m_intrinsicTables));
+
+      if (!(cursor != end) && SearchHlsl && T.NS == m_hlslNSDecl) {
+        OverloadCandidate &candidate = CandidateSet.addCandidate();
+        candidate.Function = HlslLookupDecl;
+        candidate.FoundDecl.setDecl(HlslLookupDecl);
+        candidate.Viable = false;
+        candidate.FailureKind = ovl_fail_hlsl_intrinsic_argument_count;
+        continue;
+      }
 
       for (; cursor != end; ++cursor) {
         // If this is the intrinsic we're interested in, build up a

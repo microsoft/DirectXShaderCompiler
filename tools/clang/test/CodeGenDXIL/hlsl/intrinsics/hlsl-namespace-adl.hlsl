@@ -7,6 +7,14 @@ struct Payload {
   float value;
 };
 using hlsl::TraceRay;
+
+float Ordinary(Payload value) {
+  return value.value;
+}
+
+float cos(Payload a, Payload b) {
+  return a.value + b.value;
+}
 }
 
 namespace hlsl {
@@ -32,9 +40,26 @@ void InstantiateTrace(RayDesc ray, inout imported::Payload payload) {
   TraceTemplate(ray, payload);
 }
 
+template <typename T>
+float OrdinaryTemplate(T value) {
+  return Ordinary(value);
+}
+
+float CallOrdinary(imported::Payload value) {
+  return Ordinary(value) + OrdinaryTemplate(value);
+}
+
+float CallIntrinsicNameOverload(imported::Payload value) {
+  return cos(value, value);
+}
+
 // CHECK-LABEL: define void {{.*}}TraceImported
 // CHECK: call void @"dx.op.traceRay.struct.imported::Payload"(i32 157,
 // CHECK-LABEL: define void {{.*}}TraceNative
 // CHECK: call void @"dx.op.traceRay.struct.hlsl::Payload"(i32 157,
 // CHECK-LABEL: define void {{.*}}InstantiateTrace
 // CHECK: call void @"dx.op.traceRay.struct.imported::Payload"(i32 157,
+// CHECK-LABEL: define float {{.*}}CallOrdinary
+// CHECK: ret float
+// CHECK-LABEL: define float {{.*}}CallIntrinsicNameOverload
+// CHECK: ret float
