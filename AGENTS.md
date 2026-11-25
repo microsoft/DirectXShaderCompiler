@@ -1,5 +1,15 @@
 # DXC agent guidance
 
+## Contributing
+
+- Follow [AIToolPolicy.md](AIToolPolicy.md). A human must review all generated
+  code and text before requesting review from others, and cloud agents must
+  work in a fork rather than the main repository.
+- Include an AI attribution trailer, such as `Assisted-by: Copilot`, in the
+  description of every pull request you create or draft. Pull requests are
+  squash-merged with the description as the commit message, so trailers that
+  appear only on branch commits are lost.
+
 ## Investigating compile-time regressions and miscompiles
 
 - Start from evidence. Identify the exact pass, hot function, and triggering
