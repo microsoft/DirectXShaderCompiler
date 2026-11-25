@@ -53,7 +53,7 @@ RayDesc MakeRayDesc()
 }
 void doInitialize(RayQuery<RAY_FLAG_FORCE_OPAQUE|RAY_FLAG_SKIP_TRIANGLES> query, RayDesc ray)
 {
-    query.TraceRayInline(AccelerationStructure,RAY_FLAG_FORCE_NON_OPAQUE,0xFF,ray);
+    query.TraceRayInline(AccelerationStructure,RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH,0xFF,ray);
 }
 
 [outputtopology("triangle_ccw")]
@@ -69,7 +69,7 @@ CONTROL_POINT main(InputPatch<VS_CONTROL_POINT_OUTPUT, MAX_POINTS> ip, uint cpid
 // CHECK:  OpRayQueryInitializeKHR [[rayquery]] [[accel]] %uint_257 %uint_255 {{%[0-9]+}} %float_0 {{%[0-9]+}} %float_9999
 
     q.TraceRayInline(AccelerationStructure,RAY_FLAG_FORCE_OPAQUE, 0xFF, ray);
-// CHECK: OpRayQueryInitializeKHR [[rayquery]] [[accel]] %uint_259 %uint_255 {{%[0-9]+}} %float_0 {{%[0-9]+}} %float_9999
+// CHECK: OpRayQueryInitializeKHR [[rayquery]] [[accel]] %uint_261 %uint_255 {{%[0-9]+}} %float_0 {{%[0-9]+}} %float_9999
     doInitialize(q, ray);
     CONTROL_POINT result;
     return result;

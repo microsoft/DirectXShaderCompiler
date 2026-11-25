@@ -89,6 +89,9 @@ The included licenses apply to the following files:
   descriptor heaps with a literal `ArrayStride`. The value must be a power of
   two in `[8, 256]`. Both flags require `-spirv` and
   `-fspv-use-descriptor-heap` and are rejected otherwise.
+- Fixed stencil export execution modes and invalid resource values in non-void
+  function fallthrough blocks to satisfy newer SPIR-V validation.
+- Updated SPIR-V validation rejects structs containing `RayQuery` members.
 
 
 #### Bug Fixes

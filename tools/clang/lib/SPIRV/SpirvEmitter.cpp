@@ -1807,9 +1807,9 @@ void SpirvEmitter::doFunctionDecl(const FunctionDecl *decl) {
         spvBuilder.createReturn(returnLoc);
       } else {
         // If the source code does not provide a proper return value for some
-        // control flow path, it's undefined behavior. We just return an
-        // undefined value here.
-        spvBuilder.createReturnValue(spvBuilder.getUndef(retType), returnLoc);
+        // control flow path, it's undefined behavior. OpUndef cannot be used
+        // for all return types, such as images and samplers in Vulkan.
+        spvBuilder.createUnreachable(returnLoc);
       }
     }
   }

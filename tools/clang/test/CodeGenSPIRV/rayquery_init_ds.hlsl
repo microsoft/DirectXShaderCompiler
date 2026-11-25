@@ -40,7 +40,7 @@ RayDesc MakeRayDesc()
 }
 void doInitialize(RayQuery<RAY_FLAG_FORCE_OPAQUE> query, RayDesc ray)
 {
-    query.TraceRayInline(AccelerationStructure,RAY_FLAG_FORCE_NON_OPAQUE,0xFF,ray);
+    query.TraceRayInline(AccelerationStructure,RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH,0xFF,ray);
 }
 
 // domain shader that actually outputs the triangle vertices
@@ -58,7 +58,7 @@ void doInitialize(RayQuery<RAY_FLAG_FORCE_OPAQUE> query, RayDesc ray)
 // CHECK:  OpRayQueryInitializeKHR [[rayquery]] [[accel]] %uint_1 %uint_255 {{%[0-9]+}} %float_0 {{%[0-9]+}} %float_9999
 
     q.TraceRayInline(AccelerationStructure,RAY_FLAG_FORCE_OPAQUE, 0xFF, ray);
-// CHECK: OpRayQueryInitializeKHR [[rayquery]] [[accel]] %uint_3 %uint_255 {{%[0-9]+}} %float_0 {{%[0-9]+}} %float_9999
+// CHECK: OpRayQueryInitializeKHR [[rayquery]] [[accel]] %uint_5 %uint_255 {{%[0-9]+}} %float_0 {{%[0-9]+}} %float_9999
     doInitialize(q, ray);
 
   return v;

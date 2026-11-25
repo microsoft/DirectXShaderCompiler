@@ -1,6 +1,6 @@
 // RUN: %dxc -T vs_6_0 -E main -fcgl %s -spirv | FileCheck %s
 
-// CHECK: [[undef:%[0-9]+]] = OpUndef %type_2d_image
+// CHECK-NOT: OpUndef
 
 Texture2D texA;
 Texture2D texB;
@@ -17,7 +17,7 @@ Texture2D select(bool lhs) {
 
   // no return for dead branch.
 // CHECK:      %if_merge = OpLabel
-// CHECK-NEXT: OpReturnValue [[undef]]
+// CHECK-NEXT: OpUnreachable
 }
 // CHECK-NEXT: OpFunctionEnd
 
