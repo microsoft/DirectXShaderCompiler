@@ -118,6 +118,10 @@ line upon naming the release. Refer to previous for appropriate section names.
 - Fixed incorrect shader results caused by stale overflow, exactness, and
   fast-math flags after merging equivalent code from both sides of a branch.
 - Reject root signatures with invalid shader visibility values.
+- Fixed flat conversions, splats and aggregate initializer lists treating a
+  bitfield as its whole storage unit, which read wrong values and, on SPIR-V,
+  emitted an out-of-bounds member index
+  [#7074](https://github.com/microsoft/DirectXShaderCompiler/issues/7074).
 
 ### Upcoming Preview Release
 

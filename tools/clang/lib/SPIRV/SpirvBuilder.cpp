@@ -199,6 +199,10 @@ SpirvInstruction *SpirvBuilder::createLoad(QualType resultType,
                                            SourceLocation loc,
                                            SourceRange range) {
   assert(insertPoint && "null insert point");
+  const bool isBooleanBitfield =
+      pointer->getBitfieldInfo().hasValue() && resultType->isBooleanType();
+  if (isBooleanBitfield)
+    resultType = astContext.UnsignedIntTy;
   auto *instruction = new (context) SpirvLoad(resultType, loc, pointer, range);
   instruction->setStorageClass(pointer->getStorageClass());
   instruction->setLayoutRule(pointer->getLayoutRule());
@@ -250,9 +254,17 @@ SpirvInstruction *SpirvBuilder::createLoad(QualType resultType,
   if (!bitfieldInfo.hasValue())
     return instruction;
 
-  return createBitFieldExtract(resultType, instruction,
-                               bitfieldInfo->offsetInBits,
-                               bitfieldInfo->sizeInBits, loc, range);
+  SpirvInstruction *value =
+      createBitFieldExtract(resultType, instruction, bitfieldInfo->offsetInBits,
+                            bitfieldInfo->sizeInBits, loc, range);
+  if (isBooleanBitfield) {
+    value = createBinaryOp(
+        spv::Op::OpINotEqual, astContext.BoolTy, value,
+        getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, 0)), loc,
+        range);
+    value->setRValue();
+  }
+  return value;
 }
 
 SpirvCopyObject *SpirvBuilder::createCopyObject(QualType resultType,
@@ -308,18 +320,28 @@ SpirvStore *SpirvBuilder::createStore(SpirvInstruction *address,
   SpirvLoad *bitfieldLoad = nullptr;
   const auto &bitfieldInfo = address->getBitfieldInfo();
   if (bitfieldInfo.hasValue()) {
+    if (source->getAstResultType()->isBooleanType() &&
+        source->getLayoutRule() == SpirvLayoutRule::Void) {
+      source = createSelect(
+          astContext.UnsignedIntTy, source,
+          getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, 1)),
+          getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, 0)), loc,
+          range);
+    }
     // Generate SPIR-V type for value. This is required to know the final
     // layout.
     LowerTypeVisitor lowerTypeVisitor(astContext, context, spirvOptions, *this);
-    lowerTypeVisitor.visitInstruction(value);
-    context.addToInstructionsWithLoweredType(value);
+    lowerTypeVisitor.visitInstruction(source);
+    context.addToInstructionsWithLoweredType(source);
 
-    bitfieldLoad = createLoad(value->getResultType(), address, loc, range);
-    source = createBitFieldInsert(/*QualType*/ {}, bitfieldLoad, value,
+    const SpirvType *storageType = source->getResultType();
+    const QualType astStorageType = source->getAstResultType();
+    bitfieldLoad = createLoad(storageType, address, loc, range);
+    source = createBitFieldInsert(/*QualType*/ {}, bitfieldLoad, source,
                                   bitfieldInfo->offsetInBits,
                                   bitfieldInfo->sizeInBits, loc, range);
-    source->setResultType(value->getResultType());
-    source->setAstResultType(value->getAstResultType());
+    source->setResultType(storageType);
+    source->setAstResultType(astStorageType);
   }
 
   auto *instruction =

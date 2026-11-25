@@ -293,8 +293,12 @@ SpirvInstruction *RawBufferHandler::processTemplatedLoadFromBuffer(
                 loc, range);
           }
 
+          const QualType storageType =
+              field.bitfield.hasValue() && fieldType->isBooleanType()
+                  ? astContext.UnsignedIntTy
+                  : fieldType;
           loadedElems.push_back(processTemplatedLoadFromBuffer(
-              buffer, baseOffset, fieldType, range));
+              buffer, baseOffset, storageType, range));
           return true;
         });
 
@@ -608,11 +612,15 @@ void RawBufferHandler::processTemplatedStoreToBuffer(SpirvInstruction *value,
                 loc, range);
           }
 
+          const QualType storageType =
+              field.bitfield.hasValue() && fieldType->isBooleanType()
+                  ? astContext.UnsignedIntTy
+                  : fieldType;
           processTemplatedStoreToBuffer(
               spvBuilder.createCompositeExtract(
-                  fieldType, value, {static_cast<uint32_t>(spirvFieldIndex)},
+                  storageType, value, {static_cast<uint32_t>(spirvFieldIndex)},
                   loc, range),
-              buffer, baseOffset, fieldType, range);
+              buffer, baseOffset, storageType, range);
           return true;
         });
 
