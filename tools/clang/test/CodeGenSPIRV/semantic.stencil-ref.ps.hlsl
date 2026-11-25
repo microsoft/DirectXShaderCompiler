@@ -4,11 +4,10 @@
 
 // CHECK: OpExtension "SPV_EXT_shader_stencil_export"
 
-// TODO: we may need to check the StencilRefReplacingEXT execution mode here.
-
 // CHECK: OpEntryPoint Fragment %main "main" [[StencilRef:%[0-9]+]]
+// CHECK: OpExecutionMode %main StencilRefReplacingEXT
 
-// CEHCK: OpDecorate [[StencilRef]] BuiltIn FragStencilRefEXT
+// CHECK: OpDecorate [[StencilRef]] BuiltIn FragStencilRefEXT
 
 // CHECK: [[StencilRef]] = OpVariable %_ptr_Output_uint Output
 

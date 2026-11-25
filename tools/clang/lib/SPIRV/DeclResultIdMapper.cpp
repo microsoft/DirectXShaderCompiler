@@ -4651,6 +4651,8 @@ SpirvVariable *DeclResultIdMapper::createSpirvStageVar(
   }
   // According to DXIL spec, the StencilRef SV can only be used by PSOut.
   case hlsl::Semantic::Kind::StencilRef: {
+    spvBuilder.addExecutionMode(
+        entryFunction, spv::ExecutionMode::StencilRefReplacingEXT, {}, srcLoc);
     stageVar->setIsSpirvBuiltin();
     return spvBuilder.addStageBuiltinVar(type, sc, BuiltIn::FragStencilRefEXT,
                                          isPrecise, srcLoc);

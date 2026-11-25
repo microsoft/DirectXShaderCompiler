@@ -1,6 +1,7 @@
 // RUN: %dxc -T ps_6_0 -E main -fcgl  %s -spirv | FileCheck %s
 
 // CHECK: OpEntryPoint Fragment %main "main" [[fragStencilVar:%[0-9]+]]
+// CHECK: OpExecutionMode %main StencilRefReplacingEXT
 // CHECK: OpDecorate [[fragStencilVar]] BuiltIn FragStencilRefEXT
 
 // CHECK: [[fragStencilVar]] = OpVariable %_ptr_Output_int Output
@@ -14,6 +15,8 @@ void assign(out int val) {
 }
 
 void main() {
+  vk::ext_execution_mode(/* StencilRefReplacingEXT */ 5027);
+
   // CHECK: OpStore [[fragStencilVar]] %int_10
   gl_FragStencilRefARB = 10;
 

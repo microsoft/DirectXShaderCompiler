@@ -903,6 +903,11 @@ void SpirvBuilder::createReturnValue(SpirvInstruction *value,
   insertPoint->addInstruction(new (context) SpirvReturn(loc, value, range));
 }
 
+void SpirvBuilder::createUnreachable(SourceLocation loc) {
+  assert(insertPoint && "null insert point");
+  insertPoint->addInstruction(new (context) SpirvUnreachable(loc));
+}
+
 SpirvInstruction *
 SpirvBuilder::createGLSLExtInst(QualType resultType, GLSLstd450 inst,
                                 llvm::ArrayRef<SpirvInstruction *> operands,
