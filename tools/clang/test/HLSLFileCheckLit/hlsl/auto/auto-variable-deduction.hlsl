@@ -17,6 +17,7 @@
 // CHECK: store i32 1, i32* [[A]]
 // CHECK: store float 2.000000e+00, float* [[B]]
 // CHECK: store i32 1, i32* [[C]]
+using namespace hlsl;
 
 RWBuffer<float> output : register(u0);
 

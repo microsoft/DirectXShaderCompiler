@@ -963,6 +963,13 @@ def HLSLBuiltinCall : InheritableAttr {
   let Documentation = [Undocumented];
 }
 
+def HLSLIntrinsicLookupMarker : Attr {
+  let Spellings = [];
+  let Subjects = SubjectList<[Function]>;
+  let SemaHandler = 0;
+  let Documentation = [Undocumented];
+}
+
 def HLSLVector : InheritableAttr {
   let Spellings = []; // No spellings!
   let Subjects = SubjectList<[CXXRecord]>;

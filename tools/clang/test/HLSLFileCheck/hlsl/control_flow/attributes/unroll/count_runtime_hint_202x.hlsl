@@ -30,7 +30,7 @@ float main(float3 a : A, float3 b : B,
   float result = 0;
   [unroll(3)]
   for (uint i = 0; i < iterationCount; i++) {
-    result += dot(a * i, b);
+    result += hlsl::dot(a * i, b);
   }
   return result;
 }
@@ -40,7 +40,7 @@ float mainPowerOfTwo(float3 a : A, float3 b : B,
   float result = 0;
   [unroll(4)]
   for (uint i = 0; i < iterationCount; i++) {
-    result += dot(a * i, b);
+    result += hlsl::dot(a * i, b);
   }
   return result;
 }
