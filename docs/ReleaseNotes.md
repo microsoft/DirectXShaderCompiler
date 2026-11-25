@@ -115,6 +115,8 @@ line upon naming the release. Refer to previous for appropriate section names.
   after bit-tracking dead code elimination.
 - Fixed an optimizer miscompile where selects of bitwise-not values guarded by
   signed less-than or unsigned compares were treated as a signed minimum.
+- Non-bool `SV_CullPrimitive` mesh shader outputs are now a front-end error for
+  both DXIL and SPIR-V, instead of a DXIL validation error and invalid SPIR-V.
 - Fixed incorrect shader results caused by stale overflow, exactness, and
   fast-math flags after merging equivalent code from both sides of a branch.
 - Reject root signatures with invalid shader visibility values.
