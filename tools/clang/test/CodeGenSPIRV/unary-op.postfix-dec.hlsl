@@ -41,9 +41,8 @@ void main() {
 // CHECK-NEXT:   [[vec:%[0-9]+]] = OpImageRead %v4float [[img]] [[index]] None
 // CHECK-NEXT:   [[val:%[0-9]+]] = OpCompositeExtract %float [[vec]] 0
 // CHECK-NEXT:   [[dec:%[0-9]+]] = OpFSub %float [[val]] %float_1
-// CHECK:      [[index_0:%[0-9]+]] = OpLoad %v2uint %index
 // CHECK-NEXT:   [[img_0:%[0-9]+]] = OpLoad %type_2d_image %MyTexture
-// CHECK-NEXT:                  OpImageWrite [[img_0]] [[index_0]] [[dec]]
+// CHECK-NEXT:                  OpImageWrite [[img_0]] [[index]] [[dec]]
 // CHECK-NEXT:                  OpStore %s [[val]]
   float s = MyTexture[index]--;
 

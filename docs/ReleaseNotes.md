@@ -29,6 +29,12 @@ The included licenses apply to the following files:
   descriptor heaps with a literal `ArrayStride`. The value must be a power of
   two in `[8, 256]`. Both flags require `-spirv` and
   `-fspv-use-descriptor-heap` and are rejected otherwise.
+- Fixed invalid SPIR-V for single-component writes through
+  `<obj>.sample[idx][coord]` on `RWTexture2DMS` and `RWTexture2DMSArray`
+  [#5244](https://github.com/microsoft/DirectXShaderCompiler/issues/5244).
+- Partial writes, compound assignments and increments of a `RWBuffer` or
+  `RWTexture` element, such as `tex[coord].x += v`, now evaluate the resource,
+  coordinate and sample once, so side effects in them happen once.
 
 Place release notes for the upcoming release below this line and remove this
 line upon naming the release. Refer to previous for appropriate section names.

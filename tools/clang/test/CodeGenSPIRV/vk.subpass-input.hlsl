@@ -1,5 +1,6 @@
-// RUN: %dxc -T ps_6_0 -E main -fcgl  %s -spirv | FileCheck %s
+// RUN: %dxc -T ps_6_0 -E main -fcgl  %s -spirv | FileCheck %s --implicit-check-not="OpCapability StorageImageMultisample"
 
+// SubpassInputMS must not require the StorageImageMultisample capability.
 // CHECK: OpCapability InputAttachment
 
 // CHECK:  [[v2i00:%[0-9]+]] = OpConstantComposite %v2int %int_0 %int_0

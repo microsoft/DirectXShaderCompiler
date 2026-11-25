@@ -4,6 +4,7 @@ RWBuffer<uint>     MyRWBuffer;
 RWTexture2D<int>   MyRWTexture;
 RWBuffer<uint4>    MyRWBuffer4;
 RWTexture3D<uint3> MyRWTexture3;
+RWTexture2D<float4> MyRWTextures[2];
 
 // CHECK:      [[c25:%[0-9]+]] = OpConstantComposite %v3uint %uint_25 %uint_25 %uint_25
 // CHECK:      [[c26:%[0-9]+]] = OpConstantComposite %v4uint %uint_26 %uint_26 %uint_26 %uint_26
@@ -66,4 +67,25 @@ void main() {
 // CHECK-NEXT: [[tex_5:%[0-9]+]] = OpLoad %type_2d_image %MyRWTexture
 // CHECK-NEXT:                OpImageWrite [[tex_5]] {{%[0-9]+}} [[mul]]
     MyRWTexture[uint2(12, 13)] *= 31;
+
+    // A swizzle write evaluates the resource index and the coordinate once,
+    // and reads and writes the same texel.
+    uint resourceIndex = 0;
+    uint coordX = 1;
+// CHECK:      [[cx:%[0-9]+]] = OpLoad %uint %coordX
+// CHECK-NEXT: [[cxn:%[0-9]+]] = OpIAdd %uint [[cx]] %uint_1
+// CHECK-NEXT: OpStore %coordX [[cxn]]
+// CHECK:      [[coord:%[0-9]+]] = OpCompositeConstruct %v2uint [[cx]] %uint_2
+// CHECK:      [[ri:%[0-9]+]] = OpLoad %uint %resourceIndex
+// CHECK-NEXT: [[rin:%[0-9]+]] = OpIAdd %uint [[ri]] %uint_1
+// CHECK-NEXT: OpStore %resourceIndex [[rin]]
+// CHECK-NEXT: [[ptr:%[0-9]+]] = OpAccessChain {{%[_a-zA-Z0-9]+}} %MyRWTextures [[ri]]
+// CHECK-NOT:  %coordX
+// CHECK-NOT:  %resourceIndex
+// CHECK:      [[img1:%[0-9]+]] = OpLoad {{%[_a-zA-Z0-9]+}} [[ptr]]
+// CHECK-NEXT: [[old_4:%[0-9]+]] = OpImageRead %v4float [[img1]] [[coord]] None
+// CHECK-NEXT: [[new_2:%[0-9]+]] = OpVectorShuffle %v4float [[old_4]] {{%[0-9]+}} 5 4 2 3
+// CHECK-NEXT: [[img2:%[0-9]+]] = OpLoad {{%[_a-zA-Z0-9]+}} [[ptr]]
+// CHECK-NEXT:                OpImageWrite [[img2]] [[coord]] [[new_2]]
+    MyRWTextures[resourceIndex++][uint2(coordX++, 2)].yx = float2(4, 5);
 }
