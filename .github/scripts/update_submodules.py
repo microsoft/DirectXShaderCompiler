@@ -19,8 +19,7 @@ class SubmoduleUpdate:
     subjects: list[str]
 
     def describe(self):
-        header = f"* [{self.name}]({self.compare_url}) ({self.commit_count} commits):"
-        return "\n".join([header] + [f"  > {subject}" for subject in self.subjects])
+        return f"* [{self.name}]({self.compare_url}) ({self.commit_count} commits)"
 
 
 def run(*args):
@@ -49,21 +48,35 @@ def is_green(repo, sha):
     return has_ci and checks_passed and statuses_passed
 
 
-def update_submodule(path, upstream_branch):
+def submodule_repo(path):
     url = run("git", "config", "-f", ".gitmodules", "--get", f"submodule.{path}.url")
-    repo = github_repo(url)
+    return github_repo(url)
+
+
+def update_submodule(path, upstream_branch):
+    repo = submodule_repo(path)
     old_sha = run("git", "rev-parse", f"HEAD:{path}")
     new_sha = gh_api(f"repos/{repo}/commits/{upstream_branch}")["sha"]
 
     if old_sha == new_sha:
         print(f"{path} is up to date at {old_sha}.")
-        return None
+        return False
     if not is_green(repo, new_sha):
         print(f"Skipping {path}: CI for {repo}@{new_sha} is not green.")
-        return None
+        return False
 
     run("git", "update-index", "--cacheinfo", f"160000,{new_sha},{path}")
-    comparison = gh_api(f"repos/{repo}/compare/{old_sha}...{new_sha}")
+    return True
+
+
+def describe_update(path, base_sha):
+    """Describes the change to `path` between `base_sha` and the index."""
+    old_sha = run("git", "rev-parse", f"{base_sha}:{path}")
+    new_sha = run("git", "rev-parse", f":{path}")
+    if old_sha == new_sha:
+        return None
+
+    comparison = gh_api(f"repos/{submodule_repo(path)}/compare/{old_sha}...{new_sha}")
     return SubmoduleUpdate(
         name=path.split("/")[-1],
         new_sha=new_sha,
@@ -107,24 +120,28 @@ def parse_args():
 def main():
     args = parse_args()
     run("git", "fetch", "origin", args.base_branch)
+    base_sha = run("git", "rev-parse", "FETCH_HEAD")
+    if run("git", "ls-remote", "origin", f"refs/heads/{args.update_branch}"):
+        run("git", "fetch", "--depth=1", "origin", args.update_branch)
     run("git", "checkout", "-B", args.update_branch, "FETCH_HEAD")
+
+    bumped = [update_submodule(path, args.upstream_branch) for path in args.submodules]
+    if not any(bumped):
+        print("No new submodule updates to propose.")
+        return
 
     updates = [
         update
         for path in args.submodules
-        if (update := update_submodule(path, args.upstream_branch))
+        if (update := describe_update(path, base_sha))
     ]
-    if not updates:
-        print("No submodule updates to propose.")
-        return
-
     title = "Update submodules: " + ", ".join(
         f"{update.name} to {update.new_sha[:8]}" for update in updates
     )
     body = "\n".join(update.describe() for update in updates)
 
     run("git", "commit", "-m", title, "-m", body)
-    run("git", "push", "--force", "origin", f"HEAD:refs/heads/{args.update_branch}")
+    run("git", "push", "origin", f"HEAD:refs/heads/{args.update_branch}")
     open_or_refresh_pull_request(
         args.repo, args.base_branch, args.update_branch, title, body
     )
