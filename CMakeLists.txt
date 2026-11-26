@@ -95,6 +95,8 @@ endif()
 option(DXC_DISABLE_ALLOCATOR_OVERRIDES "Disable usage of allocator overrides" OFF)
 mark_as_advanced(DXC_DISABLE_ALLOCATOR_OVERRIDES)
 
+option(DXC_BUILD_STATIC_LIB "Also build dxcompiler as a static library (dxcompiler_static)." OFF) # HLSL Change
+
 option(DXC_CODEGEN_EXCEPTIONS_TRAP "An exception in code generation generates a trap, ending the compiler process" OFF)
 mark_as_advanced(DXC_CODEGEN_EXCEPTIONS_TRAP)
 

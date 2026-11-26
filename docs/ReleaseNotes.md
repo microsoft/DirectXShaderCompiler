@@ -30,6 +30,12 @@ The included licenses apply to the following files:
   two in `[8, 256]`. Both flags require `-spirv` and
   `-fspv-use-descriptor-heap` and are rejected otherwise.
 
+#### Build
+
+- Added the `DXC_BUILD_STATIC_LIB` CMake option, which also builds dxcompiler
+  as a static library (`dxcompiler_static`)
+  [#4766](https://github.com/microsoft/DirectXShaderCompiler/issues/4766).
+
 Place release notes for the upcoming release below this line and remove this
 line upon naming the release. Refer to previous for appropriate section names.
 

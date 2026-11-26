@@ -29,7 +29,8 @@ HRESULT SetupRegistryPassForPIX();
 // __declspec(nothrow)
 #pragma warning(disable : 4290)
 
-#if defined(LLVM_ON_WIN32) && !defined(DXC_DISABLE_ALLOCATOR_OVERRIDES)
+#if defined(LLVM_ON_WIN32) && !defined(DXC_DISABLE_ALLOCATOR_OVERRIDES) &&     \
+    !defined(DXC_STATIC_LIB)
 // operator new and friends.
 void *__CRTDECL operator new(std::size_t size) noexcept(false) {
   void *ptr = DxcNew(size);
@@ -82,7 +83,20 @@ Cleanup:
   }
   return hr;
 }
-#if defined(LLVM_ON_UNIX)
+#if defined(DXC_STATIC_LIB)
+// A static library has no DllMain, and an ELF constructor in an archive member
+// only runs if something pulls that member in, so initialize on first use.
+// Global state is intentionally not torn down at process exit.
+HRESULT DxcStaticLibInitialize() {
+  static const HRESULT InitResult = []() {
+#ifdef LLVM_ON_WIN32
+    EventRegisterMicrosoft_Windows_DXCompiler_API();
+#endif
+    return InitMaybeFail();
+  }();
+  return InitResult;
+}
+#elif defined(LLVM_ON_UNIX)
 HRESULT __attribute__((constructor)) DllMain() { return InitMaybeFail(); }
 
 void __attribute__((destructor)) DllShutdown() {
@@ -116,4 +130,4 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD Reason, LPVOID reserved) {
 
   return result;
 }
-#endif // LLVM_ON_UNIX
+#endif // DXC_STATIC_LIB / LLVM_ON_UNIX

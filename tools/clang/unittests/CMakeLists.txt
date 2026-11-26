@@ -45,6 +45,9 @@ endif (CLANG_INCLUDE_TESTS) # HLSL Change
 if (HLSL_INCLUDE_TESTS) 
   add_subdirectory(HLSL)
   add_subdirectory(HLSLTestLib)
+  if (DXC_BUILD_STATIC_LIB)
+    add_subdirectory(DxcStatic)
+  endif (DXC_BUILD_STATIC_LIB)
   if (WIN32) # These tests require MS specific TAEF and DIA SDK
     add_subdirectory(HLSLErrors)
     add_subdirectory(HLSLExec)
