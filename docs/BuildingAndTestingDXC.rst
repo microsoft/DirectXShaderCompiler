@@ -72,6 +72,21 @@ repository so you either need to create an alternate directory to run CMake in,
 or you can use the CMake ``-B <path>`` flag to direct CMake to place the
 generated files in a different location.
 
+Using DXC headers on non-Windows platforms
+-------------------------------------------
+
+To use the installed DXC headers, add ``<install prefix>/include/dxc`` to
+your compiler's include path and link against ``dxcompiler``. If you include
+``<dxc/dxcapi.h>``, add ``<install prefix>/include`` as well. If you
+redistribute the DXC headers, keep the bundled DirectX-Headers stubs and
+``LICENSE-DirectX-Headers.txt`` with them.
+
+If you also use a separate DirectX-Headers installation, put DXC's bundled
+stubs first on the include path. Include ``wsl/winadapter.h`` before any D3D
+headers that precede the DXC headers. For D3D headers that follow the DXC
+headers, define ``interface`` as ``struct`` before the D3D includes and undefine
+it after them.
+
 Generating a Visual Studio Solution
 -----------------------------------
 

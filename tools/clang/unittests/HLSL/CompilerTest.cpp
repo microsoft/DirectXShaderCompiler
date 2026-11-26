@@ -150,6 +150,7 @@ public:
   TEST_METHOD(CompileWhenDefinesThenApplied)
   TEST_METHOD(CompileWhenDefinesManyThenApplied)
   TEST_METHOD(CompileWhenEmptyThenFails)
+  TEST_METHOD(BlobEncodingWritesWindowsBool)
   TEST_METHOD(CompileWhenIncorrectThenFails)
   TEST_METHOD(CompileWhenWorksThenDisassembleWorks)
   TEST_METHOD(CompileWhenDebugWorksThenStripDebug)
@@ -1972,6 +1973,25 @@ TEST_F(CompilerTest, CompileThenTestPdbUtilsWarningOpt) {
 
   VERIFY_SUCCEEDED(pPdbUtils->Load(pPdb));
   TestPdb(pPdbUtils);
+}
+
+TEST_F(CompilerTest, BlobEncodingWritesWindowsBool) {
+  CComPtr<IDxcUtils> utils;
+  VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcUtils, &utils));
+  CComPtr<IDxcBlobEncoding> blob;
+  const char source[] = "shader";
+  VERIFY_SUCCEEDED(utils->CreateBlob(source, sizeof(source), CP_UTF8, &blob));
+  struct {
+    uint32_t known;
+    uint32_t guard;
+  } encoding = {0xffffffff, 0x12345678};
+  UINT32 codePage = 0;
+  static_assert(sizeof(BOOL) == sizeof(encoding.known), "Windows BOOL ABI");
+  VERIFY_SUCCEEDED(
+      blob->GetEncoding(reinterpret_cast<BOOL *>(&encoding.known), &codePage));
+  VERIFY_ARE_EQUAL(encoding.known, uint32_t(1));
+  VERIFY_ARE_EQUAL(encoding.guard, uint32_t(0x12345678));
+  VERIFY_ARE_EQUAL(codePage, UINT32(CP_UTF8));
 }
 
 TEST_F(CompilerTest, CompileThenTestPdbInPrivate) {
