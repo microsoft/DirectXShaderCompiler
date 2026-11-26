@@ -119,6 +119,12 @@ line upon naming the release. Refer to previous for appropriate section names.
   fast-math flags after merging equivalent code from both sides of a branch.
 - Reject root signatures with invalid shader visibility values.
 
+#### SPIR-V
+
+- SPIR-V debug info for mesh shader output writes now points to the
+  assignment rather than to the output declaration
+  [#8057](https://github.com/microsoft/DirectXShaderCompiler/pull/8057).
+
 ### Upcoming Preview Release
 
 These changes apply to experimental preview shader models only and will not be
