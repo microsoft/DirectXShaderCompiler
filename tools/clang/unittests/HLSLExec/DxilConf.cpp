@@ -395,7 +395,13 @@ public:
                   L"Device.Graphics.WDDM30.AdapterRender.D3D12.DXILCore."
                   L"ShaderModel66.CoreRequirement")
 
-  TEST_METHOD(HelperLaneTestWaveDefaultMode);
+  HLK_TEST_METHOD(
+      HelperLaneTestWaveDefaultMode, L"59b7f4cb-411f-4f7a-aee0-60e3cd4939eb",
+      L"D3D12 - DXIL Core Test - Shader Model 6.7 - Wave Operations Exclude "
+      L"Helper Lanes",
+      L"Verifies that wave operations exclude helper lanes by default",
+      L"Device.Graphics.WDDM31.AdapterRender.D3D12.DXILCore.ShaderModel67."
+      L"CoreRequirement")
 
   HLK_TEST_METHOD(
       SignatureResourcesTest, L"44e432d8-52da-4309-b3e0-cf06048baac6",
