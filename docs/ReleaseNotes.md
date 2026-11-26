@@ -119,6 +119,12 @@ line upon naming the release. Refer to previous for appropriate section names.
   fast-math flags after merging equivalent code from both sides of a branch.
 - Reject root signatures with invalid shader visibility values.
 
+#### SPIR-V
+
+- Added `-fspv-reserve-resource-array-bindings`, which reserves one
+  binding number per array element for arrays of resources without splitting
+  the array into separate SPIR-V variables/bindings.
+
 ### Upcoming Preview Release
 
 These changes apply to experimental preview shader models only and will not be
