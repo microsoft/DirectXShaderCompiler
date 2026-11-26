@@ -18,6 +18,7 @@
 #include "llvm/Analysis/CallGraph.h"
 #include "llvm/IR/CFG.h"
 #include "llvm/IR/Function.h"
+#include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/IR/Module.h"
@@ -26,6 +27,10 @@
 #include "llvm/Support/Debug.h"
 
 #include <algorithm>
+#include <deque>
+#include <functional>
+#include <map>
+#include <set>
 
 using namespace llvm;
 using namespace llvm::legacy;
@@ -121,6 +126,7 @@ private:
   using FunctionReturnSet = std::unordered_set<llvm::ReturnInst *>;
   struct FuncInfo {
     FunctionReturnSet Returns;
+    BasicBlockSet Reachable;
     ControlDependence CtrlDep;
     std::unique_ptr<llvm::DominatorTreeBase<llvm::BasicBlock>> pDomTree;
     void Clear();
@@ -128,11 +134,35 @@ private:
 
   std::unordered_map<llvm::Function *, std::unique_ptr<FuncInfo>> m_FuncInfo;
 
-  // Cache of decls (global/alloca) reaching a pointer value.
-  using ValueSetType = std::unordered_set<llvm::Value *>;
-  std::unordered_map<llvm::Value *, ValueSetType> m_ReachingDeclsCache;
-  // Cache of stores for each decl.
-  std::unordered_map<llvm::Value *, ValueSetType> m_StoresPerDeclCache;
+  struct Dependency {
+    bool IsMemory;
+    Value *Dep;
+    Value *GuardA;
+    Value *GuardB;
+
+    Dependency(bool IsMemory, Value *Dep, Value *GuardA, Value *GuardB)
+        : IsMemory(IsMemory), Dep(Dep), GuardA(GuardA), GuardB(GuardB) {}
+
+    bool operator<(const Dependency &Other) const {
+      if (IsMemory != Other.IsMemory)
+        return IsMemory < Other.IsMemory;
+      std::less<Value *> Less;
+      if (Dep != Other.Dep)
+        return Less(Dep, Other.Dep);
+      if (GuardA != Other.GuardA)
+        return Less(GuardA, Other.GuardA);
+      return Less(GuardB, Other.GuardB);
+    }
+  };
+  using Deps = std::set<Dependency>;
+  struct Summary {
+    Deps Return;
+    std::map<Value *, Deps> Writes;
+    std::map<Instruction *, Deps> Outputs;
+  };
+  std::map<Function *, std::unique_ptr<Summary>> m_Summaries;
+  FunctionSetType m_ActiveFunctions;
+  Summary &BuildSummary(Function *F);
 
   void Clear();
   void DetermineMaxPackedLocation(DxilSignature &DxilSig, unsigned *pMaxSigLoc,
@@ -143,18 +173,6 @@ private:
   void AnalyzeFunctions(EntryInfo &Entry);
   void CollectValuesContributingToOutputs(EntryInfo &Entry,
                                           bool IsForPatchConstant);
-  void CollectValuesContributingToOutputRec(
-      EntryInfo &Entry, llvm::Value *pContributingValue,
-      InstructionSetType &ContributingInstructions);
-  void CollectPhiCFValuesContributingToOutputRec(
-      llvm::PHINode *pPhi, EntryInfo &Entry,
-      InstructionSetType &ContributingInstructions);
-  const ValueSetType &CollectReachingDecls(llvm::Value *pValue);
-  void CollectReachingDeclsRec(llvm::Value *pValue, ValueSetType &ReachingDecls,
-                               ValueSetType &Visited);
-  const ValueSetType &CollectStores(llvm::Value *pValue);
-  void CollectStoresRec(llvm::Value *pValue, ValueSetType &Stores,
-                        ValueSetType &Visited);
   void UpdateDynamicIndexUsageState() const;
   void
   CreateViewIdSets(const std::unordered_map<unsigned, InstructionSetType>
@@ -259,7 +277,8 @@ void DxilViewIdStateBuilder::Clear() {
   m_Entry.Clear();
   m_PCEntry.Clear();
   m_FuncInfo.clear();
-  m_ReachingDeclsCache.clear();
+  m_Summaries.clear();
+  m_ActiveFunctions.clear();
 }
 
 void DxilViewIdStateBuilder::EntryInfo::Clear() {
@@ -299,18 +318,37 @@ void DxilViewIdStateBuilder::DetermineMaxPackedLocation(DxilSignature &DxilSig,
 void DxilViewIdStateBuilder::ComputeReachableFunctionsRec(
     CallGraph &CG, CallGraphNode *pNode, FunctionSetType &FuncSet) {
   Function *F = pNode->getFunction();
+  IFTBOOL(F && !m_ActiveFunctions.count(F), DXC_E_GENERAL_INTERNAL_ERROR);
   // Accumulate only functions with bodies.
   if (F->empty())
     return;
   if (FuncSet.count(F))
     return;
+  m_ActiveFunctions.insert(F);
   auto itIns = FuncSet.emplace(F);
   DXASSERT_NOMSG(itIns.second);
   (void)itIns;
-  for (auto it = pNode->begin(), itEnd = pNode->end(); it != itEnd; ++it) {
-    CallGraphNode *pSuccNode = it->second;
-    ComputeReachableFunctionsRec(CG, pSuccNode, FuncSet);
+  if (!m_FuncInfo.count(F))
+    m_FuncInfo[F] = make_unique<FuncInfo>();
+  auto &Reachable = m_FuncInfo[F]->Reachable;
+  std::vector<BasicBlock *> Work = {&F->getEntryBlock()};
+  while (!Work.empty()) {
+    BasicBlock *B = Work.back();
+    Work.pop_back();
+    if (!Reachable.insert(B).second)
+      continue;
+    for (auto *S : successors(B))
+      Work.push_back(S);
   }
+  for (auto &BB : *F)
+    if (Reachable.count(&BB))
+      for (auto &I : BB)
+        if (auto *CI = dyn_cast<CallInst>(&I)) {
+          Function *Callee = CI->getCalledFunction();
+          IFTBOOL(Callee, DXC_E_GENERAL_INTERNAL_ERROR);
+          ComputeReachableFunctionsRec(CG, CG[Callee], FuncSet);
+        }
+  m_ActiveFunctions.erase(F);
 }
 
 static bool GetUnsignedVal(Value *V, uint32_t *pValue) {
@@ -339,6 +377,8 @@ void DxilViewIdStateBuilder::AnalyzeFunctions(EntryInfo &Entry) {
 
     for (auto itBB = F->begin(), endBB = F->end(); itBB != endBB; ++itBB) {
       BasicBlock *BB = itBB;
+      if (!pFuncInfo->Reachable.count(BB))
+        continue;
 
       for (auto itInst = BB->begin(), endInst = BB->end(); itInst != endInst;
            ++itInst) {
@@ -459,9 +499,9 @@ void DxilViewIdStateBuilder::AnalyzeFunctions(EntryInfo &Entry) {
 
 void DxilViewIdStateBuilder::CollectValuesContributingToOutputs(
     EntryInfo &Entry, bool IsForPatchConstantOrPrimitive) {
+  auto &Summary = BuildSummary(Entry.pEntryFunc);
   for (auto *CI : Entry.Outputs) { // CI = call instruction
     DxilSignature *pDxilSig = nullptr;
-    Value *pContributingValue = nullptr;
     unsigned id = (unsigned)-1;
     int startRow = Semantic::kUndefinedRow, endRow = Semantic::kUndefinedRow;
     unsigned col = (unsigned)-1;
@@ -469,7 +509,6 @@ void DxilViewIdStateBuilder::CollectValuesContributingToOutputs(
       if (IsForPatchConstantOrPrimitive)
         continue;
       pDxilSig = &m_pModule->GetOutputSignature();
-      pContributingValue = SO.get_value();
       GetUnsignedVal(SO.get_outputSigId(), &id);
       GetUnsignedVal(SO.get_colIndex(), &col);
       GetUnsignedVal(SO.get_rowIndex(), (uint32_t *)&startRow);
@@ -478,7 +517,6 @@ void DxilViewIdStateBuilder::CollectValuesContributingToOutputs(
       if (IsForPatchConstantOrPrimitive)
         continue;
       pDxilSig = &m_pModule->GetOutputSignature();
-      pContributingValue = SVO.get_value();
       GetUnsignedVal(SVO.get_outputSigId(), &id);
       GetUnsignedVal(SVO.get_colIndex(), &col);
       GetUnsignedVal(SVO.get_rowIndex(), (uint32_t *)&startRow);
@@ -487,7 +525,6 @@ void DxilViewIdStateBuilder::CollectValuesContributingToOutputs(
       if (!IsForPatchConstantOrPrimitive)
         continue;
       pDxilSig = &m_pModule->GetPatchConstOrPrimSignature();
-      pContributingValue = SPO.get_value();
       GetUnsignedVal(SPO.get_outputSigId(), &id);
       GetUnsignedVal(SPO.get_colIndex(), &col);
       GetUnsignedVal(SPO.get_rowIndex(), (uint32_t *)&startRow);
@@ -496,7 +533,6 @@ void DxilViewIdStateBuilder::CollectValuesContributingToOutputs(
       if (!IsForPatchConstantOrPrimitive)
         continue;
       pDxilSig = &m_pModule->GetPatchConstOrPrimSignature();
-      pContributingValue = SPC.get_value();
       GetUnsignedVal(SPC.get_outputSigID(), &id);
       GetUnsignedVal(SPC.get_row(), (uint32_t *)&startRow);
       GetUnsignedVal(SPC.get_col(), &col);
@@ -530,18 +566,11 @@ void DxilViewIdStateBuilder::CollectValuesContributingToOutputs(
           &Entry.ContributingInstructions[StreamId][index];
     }
 
-    CollectValuesContributingToOutputRec(Entry, pContributingValue,
-                                         *pContributingInstructions);
-
-    // Handle control dependence of this instruction BB.
-    BasicBlock *pBB = CI->getParent();
-    Function *F = pBB->getParent();
-    FuncInfo *pFuncInfo = m_FuncInfo[F].get();
-    const BasicBlockSet &CtrlDepSet = pFuncInfo->CtrlDep.GetCDBlocks(pBB);
-    for (BasicBlock *B : CtrlDepSet) {
-      CollectValuesContributingToOutputRec(Entry, B->getTerminator(),
-                                           *pContributingInstructions);
-    }
+    IFTBOOL(Summary.Outputs.count(CI), DXC_E_GENERAL_INTERNAL_ERROR);
+    for (auto T : Summary.Outputs.find(CI)->second)
+      if (!T.IsMemory)
+        if (auto *I = dyn_cast<Instruction>(T.Dep))
+          pContributingInstructions->insert(I);
 
     if (pContributingInstructions == &ContributingInstructionsAllRows) {
       // Write dynamically indexed output contributions to all rows.
@@ -555,287 +584,386 @@ void DxilViewIdStateBuilder::CollectValuesContributingToOutputs(
   }
 }
 
-void DxilViewIdStateBuilder::CollectValuesContributingToOutputRec(
-    EntryInfo &Entry, Value *pContributingValue,
-    InstructionSetType &ContributingInstructions) {
-  if (dyn_cast<Argument>(pContributingValue)) {
-    // This must be a leftover signature argument of an entry function.
-    DXASSERT_NOMSG(Entry.pEntryFunc == m_pModule->GetEntryFunction() ||
-                   Entry.pEntryFunc == m_pModule->GetPatchConstantFunction());
-    return;
-  }
-
-  Instruction *pContributingInst = dyn_cast<Instruction>(pContributingValue);
-  if (pContributingInst == nullptr) {
-    // Can be literal constant, global decl, branch target.
-    DXASSERT_NOMSG(isa<Constant>(pContributingValue) ||
-                   isa<BasicBlock>(pContributingValue));
-    return;
-  }
-
-  BasicBlock *pBB = pContributingInst->getParent();
-  Function *F = pBB->getParent();
-  auto FuncInfoIt = m_FuncInfo.find(F);
-  DXASSERT_NOMSG(FuncInfoIt != m_FuncInfo.end());
-  if (FuncInfoIt == m_FuncInfo.end()) {
-    return;
-  }
-
-  auto itInst = ContributingInstructions.emplace(pContributingInst);
-  // Already visited instruction.
-  if (!itInst.second)
-    return;
-
-  // Handle special cases.
-  if (PHINode *phi = dyn_cast<PHINode>(pContributingInst)) {
-    CollectPhiCFValuesContributingToOutputRec(phi, Entry,
-                                              ContributingInstructions);
-  } else if (isa<LoadInst>(pContributingInst) ||
-             isa<AtomicCmpXchgInst>(pContributingInst) ||
-             isa<AtomicRMWInst>(pContributingInst)) {
-    Value *pPtrValue = pContributingInst->getOperand(0);
-    DXASSERT_NOMSG(pPtrValue->getType()->isPointerTy());
-    const ValueSetType &ReachingDecls = CollectReachingDecls(pPtrValue);
-    DXASSERT_NOMSG(ReachingDecls.size() > 0);
-    for (Value *pDeclValue : ReachingDecls) {
-      const ValueSetType &Stores = CollectStores(pDeclValue);
-      for (Value *V : Stores) {
-        CollectValuesContributingToOutputRec(Entry, V,
-                                             ContributingInstructions);
-      }
-    }
-  } else if (CallInst *CI = dyn_cast<CallInst>(pContributingInst)) {
-    if (!hlsl::OP::IsDxilOpFuncCallInst(CI)) {
-      Function *F = CI->getCalledFunction();
-      if (!F->empty()) {
-        // Return value of a user function.
-        if (Entry.Functions.find(F) != Entry.Functions.end()) {
-          const FuncInfo &FI = *m_FuncInfo[F];
-          for (ReturnInst *pRetInst : FI.Returns) {
-            CollectValuesContributingToOutputRec(Entry, pRetInst,
-                                                 ContributingInstructions);
+// Dependencies are symbolic scalar/formal values or incoming memory contents.
+// A selection contribution may be guarded by inequality of two identities.
+// Only formal/constant identities cross a summary boundary. Losing a guard is
+// conservative; losing a dependency is not. No call-path objects are retained.
+DxilViewIdStateBuilder::Summary &
+DxilViewIdStateBuilder::BuildSummary(Function *F) {
+  auto Cached = m_Summaries.find(F);
+  if (Cached != m_Summaries.end())
+    return *Cached->second;
+  auto &FI = *m_FuncInfo[F];
+  for (auto &BB : *F)
+    if (FI.Reachable.count(&BB))
+      for (auto &I : BB)
+        if (auto *CI = dyn_cast<CallInst>(&I)) {
+          auto *Callee = CI->getCalledFunction();
+          IFTBOOL(Callee, DXC_E_GENERAL_INTERNAL_ERROR);
+          if (!Callee->empty())
+            BuildSummary(Callee);
+          else if (!isa<MemIntrinsic>(CI)) {
+            auto *II = dyn_cast<IntrinsicInst>(CI);
+            bool Marker =
+                II && (isa<DbgInfoIntrinsic>(II) ||
+                       II->getIntrinsicID() == Intrinsic::lifetime_start ||
+                       II->getIntrinsicID() == Intrinsic::lifetime_end);
+            IFTBOOLMSG(Marker || OP::IsDxilOpFuncCallInst(CI) ||
+                           CI->doesNotAccessMemory(),
+                       DXC_E_GENERAL_INTERNAL_ERROR,
+                       "ViewID analysis cannot summarize an external call "
+                       "that accesses memory.");
           }
         }
+
+  auto Result = make_unique<Summary>();
+  std::map<Value *, Deps> Values, Memory;
+  std::map<Value *, std::set<Value *>> Bases;
+  std::vector<Instruction *> Instructions;
+  for (auto &A : F->args()) {
+    Values[&A].insert(Dependency(false, &A, nullptr, nullptr));
+    if (A.getType()->isPointerTy())
+      Bases[&A].insert(&A);
+  }
+  for (auto &G : F->getParent()->globals())
+    Bases[&G].insert(&G);
+  for (auto &BB : *F)
+    if (FI.Reachable.count(&BB))
+      for (auto &I : BB) {
+        Instructions.push_back(&I);
+        if (isa<AllocaInst>(I) ||
+            OP::IsDxilOpFuncCallInst(&I, DXIL::OpCode::GetMeshPayload))
+          Bases[&I].insert(&I);
       }
+  // Register readers even when the queried set is still empty. A later join
+  // then wakes precisely the equations that have already observed that set.
+  // Remove an instruction from Pending before evaluating it so alias feedback
+  // and PHI cycles can enqueue the current instruction again.
+  std::deque<Instruction *> Worklist;
+  std::set<Instruction *> Pending;
+  auto Enqueue = [&](Instruction *I) {
+    if (Pending.insert(I).second)
+      Worklist.push_back(I);
+  };
+  auto Wake = [&](const std::set<Instruction *> &Readers) {
+    for (auto *I : Readers)
+      Enqueue(I);
+  };
+
+  // Close pointer identities first, including PHI/cast cycles. Only pointer
+  // equations subscribe here; memory readers see completed base sets below.
+  std::map<Value *, std::set<Instruction *>> BaseReaders;
+  Instruction *BaseReader = nullptr;
+  std::function<std::set<Value *>(Value *)> GetBases = [&](Value *V) {
+    if (auto *CE = dyn_cast<ConstantExpr>(V)) {
+      IFTBOOL(CE->getOpcode() == Instruction::GetElementPtr || CE->isCast(),
+              DXC_E_GENERAL_INTERNAL_ERROR);
+      return GetBases(CE->getOperand(0));
     }
-  }
-
-  // Handle instruction inputs.
-  unsigned NumOps = pContributingInst->getNumOperands();
-  for (unsigned i = 0; i < NumOps; i++) {
-    Value *O = pContributingInst->getOperand(i);
-    CollectValuesContributingToOutputRec(Entry, O, ContributingInstructions);
-  }
-
-  // Handle control dependence of this instruction BB.
-  FuncInfo *pFuncInfo = FuncInfoIt->second.get();
-  const BasicBlockSet &CtrlDepSet = pFuncInfo->CtrlDep.GetCDBlocks(pBB);
-  for (BasicBlock *B : CtrlDepSet) {
-    CollectValuesContributingToOutputRec(Entry, B->getTerminator(),
-                                         ContributingInstructions);
-  }
-}
-
-// Only process control-dependent basic blocks for constant operands of the
-// phi-function. An obvious "definition" point for a constant operand is the
-// predecessor along corresponding edge. However, this may be too conservative
-// and, as such, pick up extra control dependent BBs. A better "definition"
-// point is the highest dominator where it is still legal to "insert" constant
-// assignment. In this context, "legal" means that only one value "leaves" the
-// dominator and reaches Phi.
-void DxilViewIdStateBuilder::CollectPhiCFValuesContributingToOutputRec(
-    PHINode *pPhi, EntryInfo &Entry,
-    InstructionSetType &ContributingInstructions) {
-  Function *F = pPhi->getParent()->getParent();
-  FuncInfo *pFuncInfo = m_FuncInfo[F].get();
-  unordered_map<DomTreeNodeBase<BasicBlock> *, Value *> DomTreeMarkers;
-
-  // Mark predecessors of each value, so that there is a legal "definition"
-  // point.
-  for (unsigned i = 0; i < pPhi->getNumOperands(); i++) {
-    Value *pValue = pPhi->getIncomingValue(i);
-    BasicBlock *pBB = pPhi->getIncomingBlock(i);
-    DomTreeNodeBase<BasicBlock> *pDomNode = pFuncInfo->pDomTree->getNode(pBB);
-    auto it = DomTreeMarkers.emplace(pDomNode, pValue);
-    DXASSERT_NOMSG(it.second || it.first->second == pValue);
-    (void)it;
-  }
-  // Mark the dominator tree with "definition" values, walking up to the parent.
-  for (unsigned i = 0; i < pPhi->getNumOperands(); i++) {
-    Value *pValue = pPhi->getIncomingValue(i);
-    BasicBlock *pDefBB = &F->getEntryBlock();
-    if (Instruction *pDefInst = dyn_cast<Instruction>(pValue)) {
-      pDefBB = pDefInst->getParent();
+    if (BaseReader)
+      BaseReaders[V].insert(BaseReader);
+    return Bases[V];
+  };
+  for (auto *I : Instructions)
+    if (I->getType()->isPointerTy() && !isa<AllocaInst>(I))
+      Enqueue(I);
+  while (!Worklist.empty()) {
+    auto *I = Worklist.front();
+    Worklist.pop_front();
+    Pending.erase(I);
+    BaseReader = I;
+    std::vector<Value *> Inputs;
+    if (auto *P = dyn_cast<PHINode>(I)) {
+      for (unsigned N = 0; N < P->getNumIncomingValues(); ++N)
+        if (FI.Reachable.count(P->getIncomingBlock(N)))
+          Inputs.push_back(P->getIncomingValue(N));
+    } else if (auto *S = dyn_cast<SelectInst>(I)) {
+      Inputs = {S->getTrueValue(), S->getFalseValue()};
+    } else if (isa<GetElementPtrInst>(I) || isa<BitCastInst>(I) ||
+               isa<AddrSpaceCastInst>(I))
+      Inputs.push_back(I->getOperand(0));
+    else
+      IFTBOOL(OP::GetDxilOpFuncCallInst(I) == DXIL::OpCode::GetMeshPayload,
+              DXC_E_GENERAL_INTERNAL_ERROR);
+    auto Before = Bases[I].size();
+    for (auto *V : Inputs) {
+      auto B = GetBases(V);
+      Bases[I].insert(B.begin(), B.end());
     }
+    if (Before != Bases[I].size())
+      Wake(BaseReaders[I]);
+  }
+  BaseReader = nullptr;
+  BaseReaders.clear();
 
-    BasicBlock *pBB = pPhi->getIncomingBlock(i);
-    if (pBB == pDefBB) {
-      continue; // we already handled the predecessor.
+  std::map<Value *, std::set<Instruction *>> ValueReaders, MemoryReaders;
+  Instruction *Reader = nullptr;
+  auto Join = [](Deps &D, const Deps &S) {
+    size_t Before = D.size();
+    D.insert(S.begin(), S.end());
+    return D.size() != Before;
+  };
+  std::function<Deps(Value *)> GetValue = [&](Value *V) {
+    if (auto *CE = dyn_cast<ConstantExpr>(V)) {
+      Deps D;
+      for (auto &O : CE->operands()) {
+        auto S = GetValue(O);
+        D.insert(S.begin(), S.end());
+      }
+      return D;
     }
-    DomTreeNodeBase<BasicBlock> *pDomNode = pFuncInfo->pDomTree->getNode(pBB);
-    pDomNode = pDomNode->getIDom();
-    while (pDomNode) {
-      auto it = DomTreeMarkers.emplace(pDomNode, pValue);
-      if (!it.second) {
-        if (it.first->second != pValue && it.first->second != nullptr) {
-          if (!isa<Constant>(it.first->second) || !isa<Constant>(pValue)) {
-            // Unless both are different constants, mark the "definition" point
-            // as illegal.
-            it.first->second = nullptr;
-            // If both are constants, leave the marker of the first one.
-          }
+    ValueReaders[V].insert(Reader);
+    return Values[V];
+  };
+  auto Read = [&](Value *P) {
+    Deps D;
+    auto B = GetBases(P);
+    IFTBOOL(!B.empty(), DXC_E_GENERAL_INTERNAL_ERROR);
+    for (auto *V : B) {
+      MemoryReaders[V].insert(Reader);
+      D.insert(Memory[V].begin(), Memory[V].end());
+      if (isa<Argument>(V) || isa<GlobalVariable>(V))
+        D.insert(Dependency(true, V, nullptr, nullptr));
+    }
+    return D;
+  };
+  auto Guard = [&](const Deps &D, Value *A, Value *B) {
+    Deps R;
+    if (A == B)
+      return R;
+    bool Portable = (isa<Argument>(A) || isa<Constant>(A)) &&
+                    (isa<Argument>(B) || isa<Constant>(B));
+    for (auto T : D) {
+      // The new condition is conjoined with any existing condition. Keeping
+      // either conjunct is conservative: if its identities become equal, this
+      // contribution is absent regardless of the other condition. Keep the
+      // existing guard to preserve identical-actual precision through nesting.
+      if (Portable && !T.GuardA) {
+        T.GuardA = A;
+        T.GuardB = B;
+      }
+      R.insert(T);
+    }
+    return R;
+  };
+  auto Instantiate = [&](const Deps &D, CallInst *CI) {
+    Deps R;
+    auto Actual = [&](Value *V) -> Value * {
+      if (auto *A = dyn_cast_or_null<Argument>(V))
+        return CI->getArgOperand(A->getArgNo());
+      return V;
+    };
+    for (auto T : D) {
+      Value *V = T.Dep;
+      Value *A = Actual(T.GuardA), *B = Actual(T.GuardB);
+      if (A && A == B)
+        continue;
+      Deps S;
+      if (T.IsMemory)
+        S = Read(Actual(V));
+      else if (isa<Argument>(V))
+        S = GetValue(Actual(V));
+      else
+        S.insert(Dependency(false, V, nullptr, nullptr));
+      if (A)
+        S = Guard(S, A, B);
+      R.insert(S.begin(), S.end());
+    }
+    return R;
+  };
+  auto Control = [&](BasicBlock *BB) {
+    Deps D;
+    for (auto *B : FI.CtrlDep.GetCDBlocks(BB))
+      if (FI.Reachable.count(B)) {
+        auto S = GetValue(B->getTerminator());
+        D.insert(S.begin(), S.end());
+      }
+    return D;
+  };
+  auto Write = [&](Value *P, const Deps &D) {
+    auto B = GetBases(P);
+    IFTBOOL(!B.empty(), DXC_E_GENERAL_INTERNAL_ERROR);
+    for (auto *V : B) {
+      if (Join(Memory[V], D))
+        Wake(MemoryReaders[V]);
+      if (isa<Argument>(V) || isa<GlobalVariable>(V))
+        Join(Result->Writes[V], D);
+    }
+  };
+  // Hoist each incoming identity only through dominators that do not merge
+  // different identities. This retains the existing constant-PHI precision
+  // while also accounting for formal and pre-branch scalar definitions.
+  auto SelectionControl = [&](PHINode *P) {
+    using Node = DomTreeNodeBase<BasicBlock>;
+    std::map<Node *, Value *> Markers;
+    for (unsigned N = 0; N < P->getNumIncomingValues(); ++N) {
+      auto *B = P->getIncomingBlock(N);
+      if (FI.Reachable.count(B))
+        Markers[FI.pDomTree->getNode(B)] = P->getIncomingValue(N);
+    }
+    for (unsigned N = 0; N < P->getNumIncomingValues(); ++N) {
+      auto *B = P->getIncomingBlock(N);
+      if (!FI.Reachable.count(B))
+        continue;
+      auto *V = P->getIncomingValue(N);
+      BasicBlock *Def = &F->getEntryBlock();
+      if (auto *I = dyn_cast<Instruction>(V))
+        Def = I->getParent();
+      if (B == Def)
+        continue;
+      for (auto *D = FI.pDomTree->getNode(B)->getIDom(); D; D = D->getIDom()) {
+        auto Ins = Markers.emplace(D, V);
+        if (!Ins.second) {
+          if (Ins.first->second != V && Ins.first->second &&
+              (!isa<Constant>(Ins.first->second) || !isa<Constant>(V)))
+            Ins.first->second = nullptr;
+          break;
         }
+        if (D->getBlock() == Def)
+          break;
+      }
+    }
+    Deps R;
+    for (unsigned N = 0; N < P->getNumIncomingValues(); ++N) {
+      auto *B = P->getIncomingBlock(N);
+      if (!FI.Reachable.count(B))
+        continue;
+      auto *V = P->getIncomingValue(N);
+      auto *Def = FI.pDomTree->getNode(B);
+      for (auto *D = Def; D; D = D->getIDom()) {
+        auto It = Markers.find(D);
+        if (It == Markers.end() || It->second != V)
+          break;
+        Def = D;
+      }
+      Join(R, Control(Def->getBlock()));
+    }
+    return R;
+  };
+  // All equations are monotone over finite identity sets. GetValue also
+  // subscribes control-predicate and callee-actual consumers, while Read
+  // discovers memory consumers during summary instantiation. A growing write
+  // can therefore wake its own call, closing alias feedback without waking
+  // unrelated instructions. Newly discovered readers see the current state.
+  // Every instruction runs initially, preserving empty Writes/Outputs effects.
+  // These terminal summary sets have no readers until the summary is complete;
+  // unlike Values/Memory, their growth needs no scheduling inside this function.
+  auto JoinOutput = [&](Instruction *I, const Deps &D) {
+    Join(Result->Outputs[I], D);
+  };
+  auto JoinValue = [&](Instruction *I, const Deps &D) {
+    if (Join(Values[I], D))
+      Wake(ValueReaders[I]);
+  };
+  for (auto *I : Instructions)
+    Enqueue(I);
+  while (!Worklist.empty()) {
+    auto *I = Worklist.front();
+    Worklist.pop_front();
+    Pending.erase(I);
+    Reader = I;
+    Deps D = Control(I->getParent());
+    if (auto *CI = dyn_cast<CallInst>(I)) {
+      if (!CI->getCalledFunction()->empty()) {
+        const auto &S = *m_Summaries[CI->getCalledFunction()];
+        Join(D, Instantiate(S.Return, CI));
+        for (auto &W : S.Writes) {
+          Value *P = W.first;
+          if (auto *A = dyn_cast<Argument>(P))
+            P = CI->getArgOperand(A->getArgNo());
+          Deps Effect = Control(I->getParent());
+          Join(Effect, Instantiate(W.second, CI));
+          Write(P, Effect);
+        }
+        for (auto &O : S.Outputs) {
+          Deps Effect = Control(I->getParent());
+          Join(Effect, Instantiate(O.second, CI));
+          JoinOutput(O.first, Effect);
+        }
+        JoinValue(I, D);
+        continue;
+      }
+      if (DxilInst_ViewID(CI) || DxilInst_LoadInput(CI) ||
+          DxilInst_LoadPatchConstant(CI) ||
+          DxilInst_LoadOutputControlPoint(CI))
+        D.insert(Dependency(false, CI, nullptr, nullptr));
+    }
+    if (auto *P = dyn_cast<PHINode>(I)) {
+      std::vector<Value *> Incoming;
+      Deps Selection = SelectionControl(P);
+      for (unsigned N = 0; N < P->getNumIncomingValues(); ++N) {
+        if (!FI.Reachable.count(P->getIncomingBlock(N)))
+          continue;
+        auto *V = P->getIncomingValue(N);
+        Incoming.push_back(V);
+        Join(D, GetValue(V));
+      }
+      for (size_t A = 1; A < Incoming.size(); ++A)
+        Join(D, Guard(Selection, Incoming[0], Incoming[A]));
+    } else if (auto *S = dyn_cast<SelectInst>(I)) {
+      Join(D, GetValue(S->getTrueValue()));
+      Join(D, GetValue(S->getFalseValue()));
+      Join(D, Guard(GetValue(S->getCondition()), S->getTrueValue(),
+                    S->getFalseValue()));
+    } else {
+      for (auto &O : I->operands())
+        Join(D, GetValue(O));
+    }
+    Value *ReadPtr = nullptr, *WritePtr = nullptr;
+    if (auto *L = dyn_cast<LoadInst>(I))
+      ReadPtr = L->getPointerOperand();
+    if (auto *S = dyn_cast<StoreInst>(I))
+      WritePtr = S->getPointerOperand();
+    if (auto *A = dyn_cast<AtomicRMWInst>(I))
+      ReadPtr = WritePtr = A->getPointerOperand();
+    if (auto *A = dyn_cast<AtomicCmpXchgInst>(I))
+      ReadPtr = WritePtr = A->getPointerOperand();
+    if (auto *M = dyn_cast<MemIntrinsic>(I))
+      WritePtr = M->getRawDest();
+    if (auto *M = dyn_cast<MemTransferInst>(I))
+      ReadPtr = M->getRawSource();
+    if (OP::IsDxilOpFuncCallInst(I)) {
+      auto *CI = cast<CallInst>(I);
+      // These recognized DXIL operations access ordinary pointer memory.
+      // DispatchMesh consumes its payload in another stage; it does not
+      // overwrite caller memory. Ray/node pointer effects are library-only,
+      // outside this pass. Do not infer unknown ordinary call effects from
+      // the mere presence of pointer operands.
+      switch (OP::GetDxilOpFuncCallInst(CI)) {
+      case DXIL::OpCode::MinPrecXRegLoad:
+      case DXIL::OpCode::LinAlgMatrixLoadFromMemory:
+        ReadPtr = CI->getArgOperand(1);
+        break;
+      case DXIL::OpCode::MinPrecXRegStore:
+        WritePtr = CI->getArgOperand(1);
+        break;
+      case DXIL::OpCode::LinAlgMatrixStoreToMemory:
+        WritePtr = CI->getArgOperand(2);
+        break;
+      case DXIL::OpCode::LinAlgMatrixAccumulateToMemory:
+        ReadPtr = WritePtr = CI->getArgOperand(2);
+        break;
+      default:
         break;
       }
-
-      // Do not go higher than a legal definition point.
-      pBB = pDomNode->getBlock();
-      if (pBB == pDefBB)
-        break;
-
-      pDomNode = pDomNode->getIDom();
     }
+    IFTBOOL(!I->mayWriteToMemory() || WritePtr || isa<CallInst>(I),
+            DXC_E_GENERAL_INTERNAL_ERROR);
+    if (ReadPtr)
+      Join(D, Read(ReadPtr));
+    if (WritePtr)
+      Write(WritePtr, D);
+    JoinValue(I, D);
+    if (isa<ReturnInst>(I))
+      Join(Result->Return, D);
+    if (DxilInst_StoreOutput(I) || DxilInst_StorePatchConstant(I) ||
+        DxilInst_StoreVertexOutput(I) || DxilInst_StorePrimitiveOutput(I))
+      JoinOutput(I, D);
   }
-
-  // Handle control dependence for Constant arguments of Phi.
-  for (unsigned i = 0; i < pPhi->getNumOperands(); i++) {
-    Value *pValue = pPhi->getIncomingValue(i);
-    if (!isa<Constant>(pValue))
-      continue;
-
-    // Determine the higher legal "definition" point.
-    BasicBlock *pBB = pPhi->getIncomingBlock(i);
-    DomTreeNodeBase<BasicBlock> *pDomNode = pFuncInfo->pDomTree->getNode(pBB);
-    DomTreeNodeBase<BasicBlock> *pDefDomNode = pDomNode;
-    while (pDomNode) {
-      auto it = DomTreeMarkers.find(pDomNode);
-      DXASSERT_NOMSG(it != DomTreeMarkers.end());
-      if (it->second != pValue) {
-        DXASSERT_NOMSG(it->second == nullptr || isa<Constant>(it->second));
-        break;
-      }
-
-      pDefDomNode = pDomNode;
-      pDomNode = pDomNode->getIDom();
-    }
-
-    // Handle control dependence of this constant argument highest legal
-    // "definition" point.
-    pBB = pDefDomNode->getBlock();
-    const BasicBlockSet &CtrlDepSet = pFuncInfo->CtrlDep.GetCDBlocks(pBB);
-    for (BasicBlock *B : CtrlDepSet) {
-      CollectValuesContributingToOutputRec(Entry, B->getTerminator(),
-                                           ContributingInstructions);
-    }
-  }
-}
-
-const DxilViewIdStateBuilder::ValueSetType &
-DxilViewIdStateBuilder::CollectReachingDecls(Value *pValue) {
-  auto it = m_ReachingDeclsCache.emplace(pValue, ValueSetType());
-  if (it.second) {
-    // We have not seen this value before.
-    ValueSetType Visited;
-    CollectReachingDeclsRec(pValue, it.first->second, Visited);
-  }
-  return it.first->second;
-}
-
-void DxilViewIdStateBuilder::CollectReachingDeclsRec(
-    Value *pValue, ValueSetType &ReachingDecls, ValueSetType &Visited) {
-  if (Visited.find(pValue) != Visited.end())
-    return;
-
-  bool bInitialValue = Visited.size() == 0;
-  Visited.emplace(pValue);
-
-  if (!bInitialValue) {
-    auto it = m_ReachingDeclsCache.find(pValue);
-    if (it != m_ReachingDeclsCache.end()) {
-      ReachingDecls.insert(it->second.begin(), it->second.end());
-      return;
-    }
-  }
-
-  if (dyn_cast<GlobalVariable>(pValue)) {
-    ReachingDecls.emplace(pValue);
-    return;
-  }
-
-  if (GetElementPtrInst *pGepInst = dyn_cast<GetElementPtrInst>(pValue)) {
-    Value *pPtrValue = pGepInst->getPointerOperand();
-    CollectReachingDeclsRec(pPtrValue, ReachingDecls, Visited);
-  } else if (GEPOperator *pGepOp = dyn_cast<GEPOperator>(pValue)) {
-    Value *pPtrValue = pGepOp->getPointerOperand();
-    CollectReachingDeclsRec(pPtrValue, ReachingDecls, Visited);
-  } else if (isa<ConstantExpr>(pValue) &&
-             cast<ConstantExpr>(pValue)->getOpcode() ==
-                 Instruction::AddrSpaceCast) {
-    CollectReachingDeclsRec(cast<ConstantExpr>(pValue)->getOperand(0),
-                            ReachingDecls, Visited);
-  } else if (AddrSpaceCastInst *pCI = dyn_cast<AddrSpaceCastInst>(pValue)) {
-    CollectReachingDeclsRec(pCI->getOperand(0), ReachingDecls, Visited);
-  } else if (BitCastInst *pCI = dyn_cast<BitCastInst>(pValue)) {
-    CollectReachingDeclsRec(pCI->getOperand(0), ReachingDecls, Visited);
-  } else if (dyn_cast<AllocaInst>(pValue)) {
-    ReachingDecls.emplace(pValue);
-  } else if (PHINode *phi = dyn_cast<PHINode>(pValue)) {
-    for (Value *pPtrValue : phi->operands()) {
-      CollectReachingDeclsRec(pPtrValue, ReachingDecls, Visited);
-    }
-  } else if (SelectInst *SelI = dyn_cast<SelectInst>(pValue)) {
-    CollectReachingDeclsRec(SelI->getTrueValue(), ReachingDecls, Visited);
-    CollectReachingDeclsRec(SelI->getFalseValue(), ReachingDecls, Visited);
-  } else if (dyn_cast<Argument>(pValue)) {
-    ReachingDecls.emplace(pValue);
-  } else if (CallInst *call = dyn_cast<CallInst>(pValue)) {
-    DXASSERT(OP::GetDxilOpFuncCallInst(call) == DXIL::OpCode::GetMeshPayload,
-             "the function must be @dx.op.getMeshPayload here.");
-    ReachingDecls.emplace(pValue);
-  } else {
-    IFT(DXC_E_GENERAL_INTERNAL_ERROR);
-  }
-}
-
-const DxilViewIdStateBuilder::ValueSetType &
-DxilViewIdStateBuilder::CollectStores(llvm::Value *pValue) {
-  auto it = m_StoresPerDeclCache.emplace(pValue, ValueSetType());
-  if (it.second) {
-    // We have not seen this value before.
-    ValueSetType Visited;
-    CollectStoresRec(pValue, it.first->second, Visited);
-  }
-  return it.first->second;
-}
-
-void DxilViewIdStateBuilder::CollectStoresRec(llvm::Value *pValue,
-                                              ValueSetType &Stores,
-                                              ValueSetType &Visited) {
-  if (Visited.find(pValue) != Visited.end())
-    return;
-
-  bool bInitialValue = Visited.size() == 0;
-  Visited.emplace(pValue);
-
-  if (!bInitialValue) {
-    auto it = m_StoresPerDeclCache.find(pValue);
-    if (it != m_StoresPerDeclCache.end()) {
-      Stores.insert(it->second.begin(), it->second.end());
-      return;
-    }
-  }
-
-  if (isa<LoadInst>(pValue)) {
-    return;
-  } else if (isa<StoreInst>(pValue) || isa<AtomicCmpXchgInst>(pValue) ||
-             isa<AtomicRMWInst>(pValue)) {
-    Stores.emplace(pValue);
-    return;
-  }
-
-  for (auto *U : pValue->users()) {
-    CollectStoresRec(U, Stores, Visited);
-  }
+  // Publish only a completed summary. The call graph was checked for cycles.
+  auto *Complete = Result.get();
+  m_Summaries[F] = std::move(Result);
+  return *Complete;
 }
 
 void DxilViewIdStateBuilder::CreateViewIdSets(
