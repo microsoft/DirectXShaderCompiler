@@ -295,6 +295,15 @@ bool HLLegalizeParameter::runOnModule(Module &M) {
 
 void HLLegalizeParameter::patchWriteOnInParam(Function &F, Argument &Arg,
                                               const DataLayout &DL) {
+  // Skip i8 pointer arguments, these should only occur for strings.
+  // Note: this is an utter disaster if we ever want to support i8 data types in
+  // HLSL. So that will be fun...
+  if (Arg.getType()->isPointerTy()) {
+    Type *EltTy = Arg.getType()->getPointerElementType();
+    if (EltTy->isIntegerTy() && EltTy->getIntegerBitWidth() == 8)
+      return;
+  }
+
   // TODO: Adding lifetime intrinsics isn't easy here, have to analyze uses.
   Type *Ty = Arg.getType()->getPointerElementType();
   AllocaInst *temp = createAllocaForPatch(F, Ty);
