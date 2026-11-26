@@ -9547,7 +9547,26 @@ SpirvInstruction *SpirvEmitter::tryToAssignToMSOutAttrsOrIndices(
   }
 
   if (isMSOutAttribute) {
-    assignToMSOutAttribute(varDecl, rhs, indices);
+    // The same field decl is reached more than once when a struct type is used
+    // twice, so the stage variable is found by the whole path of fields from
+    // the output down to the member.
+    llvm::SmallVector<const FieldDecl *, 4> fieldPath;
+    bool perPrimitive = false;
+    for (const Expr *expr = base; expr;) {
+      expr = expr->IgnoreParenImpCasts();
+      if (const auto *member = dyn_cast<MemberExpr>(expr)) {
+        fieldPath.push_back(cast<FieldDecl>(member->getMemberDecl()));
+        expr = member->getBase();
+      } else if (const auto *subscript = dyn_cast<ArraySubscriptExpr>(expr)) {
+        expr = subscript->getBase();
+      } else {
+        if (const auto *arg = dyn_cast<DeclRefExpr>(expr))
+          perPrimitive = arg->getDecl()->hasAttr<HLSLPrimitivesAttr>();
+        break;
+      }
+    }
+    std::reverse(fieldPath.begin(), fieldPath.end());
+    assignToMSOutAttribute(perPrimitive, fieldPath, rhs, indices);
   } else if (isMSOutIndices) {
     assignToMSOutIndices(varDecl, rhs, indices);
   } else {
@@ -9555,17 +9574,9 @@ SpirvInstruction *SpirvEmitter::tryToAssignToMSOutAttrsOrIndices(
     QualType type = varDecl->getType();
     assert(isa<ConstantArrayType>(type));
     type = astContext.getAsConstantArrayType(type)->getElementType();
-    assert(type->isStructureType());
-
-    // Extract subvalue and assign to its corresponding member attribute.
-    const auto *structDecl = type->getAs<RecordType>()->getDecl();
-    for (const auto *field : structDecl->fields()) {
-      const auto fieldType = field->getType();
-      SpirvInstruction *subValue = spvBuilder.createCompositeExtract(
-          fieldType, rhs, {getNumBaseClasses(type) + field->getFieldIndex()},
-          lhs->getLocStart());
-      assignToMSOutAttribute(field, subValue, indices);
-    }
+    llvm::SmallVector<const FieldDecl *, 4> fieldPath;
+    assignToMSOutStruct(type, rhs, indices, lhs->getLocStart(),
+                        varDecl->hasAttr<HLSLPrimitivesAttr>(), fieldPath);
   }
 
   // TODO: OK, this return value is incorrect for compound assignments, for
@@ -9575,9 +9586,26 @@ SpirvInstruction *SpirvEmitter::tryToAssignToMSOutAttrsOrIndices(
 }
 
 void SpirvEmitter::assignToMSOutAttribute(
-    const DeclaratorDecl *decl, SpirvInstruction *value,
+    bool perPrimitive, llvm::SmallVectorImpl<const FieldDecl *> &fieldPath,
+    SpirvInstruction *value,
     const llvm::SmallVector<SpirvInstruction *, 4> &indices) {
-  assert(spvContext.isMS() && !indices.empty());
+  assert(spvContext.isMS() && !indices.empty() && !fieldPath.empty());
+
+  const FieldDecl *decl = fieldPath.back();
+  const auto loc = decl->getLocation();
+
+  // The stage variables of a nested struct belong to its fields. Assign each
+  // of its members to the attribute it maps to.
+  if (decl->getType()->isStructureType()) {
+    assignToMSOutStruct(decl->getType(), value, indices, loc, perPrimitive,
+                        fieldPath);
+    return;
+  }
+
+  // A field of a struct with a semantic attached inherits that semantic.
+  auto semanticInfo =
+      declIdMapper.getMSOutStageVarSemantic(perPrimitive, fieldPath);
+  assert(semanticInfo.isValid());
 
   // Extract attribute index and vecComponent (if any).
   SpirvInstruction *attrIndex = indices.front();
@@ -9586,9 +9614,6 @@ void SpirvEmitter::assignToMSOutAttribute(
     vecComponent = indices.back();
   }
 
-  auto semanticInfo = declIdMapper.getStageVarSemantic(decl);
-  assert(semanticInfo.isValid());
-  const auto loc = decl->getLocation();
   // Special handle writes to clip/cull distance attributes.
   if (declIdMapper.glPerVertex.tryToAccess(
           hlsl::DXIL::SigPointKind::MSOut, semanticInfo.semantic->GetKind(),
@@ -9598,7 +9623,9 @@ void SpirvEmitter::assignToMSOutAttribute(
   }
 
   // All other attribute writes are handled below.
-  auto *varInstr = declIdMapper.getStageVarInstruction(decl);
+  SpirvInstruction *varInstr =
+      declIdMapper.getMSOutStageVar(perPrimitive, fieldPath);
+  assert(varInstr);
   QualType valueType = value->getAstResultType();
   if (valueType->isBooleanType() &&
       semanticInfo.getKind() != hlsl::Semantic::Kind::CullPrimitive) {
@@ -9612,6 +9639,34 @@ void SpirvEmitter::assignToMSOutAttribute(
     value = invertYIfRequested(value, semanticInfo.loc);
 
   spvBuilder.createStore(varInstr, value, loc);
+}
+
+void SpirvEmitter::assignToMSOutStruct(
+    QualType type, SpirvInstruction *value,
+    const llvm::SmallVector<SpirvInstruction *, 4> &indices, SourceLocation loc,
+    bool perPrimitive, llvm::SmallVectorImpl<const FieldDecl *> &fieldPath) {
+  assert(type->isStructureType());
+
+  // Base classes come first in the struct.
+  if (const auto *cxxDecl = type->getAsCXXRecordDecl()) {
+    uint32_t baseIndex = 0;
+    for (auto base : cxxDecl->bases()) {
+      SpirvInstruction *subValue = spvBuilder.createCompositeExtract(
+          base.getType(), value, {baseIndex++}, loc);
+      assignToMSOutStruct(base.getType(), subValue, indices, loc, perPrimitive,
+                          fieldPath);
+    }
+  }
+
+  const auto *structDecl = type->getAs<RecordType>()->getDecl();
+  for (const auto *field : structDecl->fields()) {
+    SpirvInstruction *subValue = spvBuilder.createCompositeExtract(
+        field->getType(), value,
+        {getNumBaseClasses(type) + field->getFieldIndex()}, loc);
+    fieldPath.push_back(field);
+    assignToMSOutAttribute(perPrimitive, fieldPath, subValue, indices);
+    fieldPath.pop_back();
+  }
 }
 
 void SpirvEmitter::assignToMSOutIndices(
@@ -9943,6 +9998,15 @@ const Expr *SpirvEmitter::collectArrayStructIndices(
         indexing->getBase(), rawIndex, rawIndices, indices, isMSOutAttribute);
 
     if (isMSOutAttribute && base) {
+      // A member of a nested struct in a mesh shader output. The stage
+      // variables belong to the innermost fields, so keep descending until
+      // one is reached.
+      if (*isMSOutAttribute) {
+        if (const auto *baseMember = dyn_cast<MemberExpr>(base)) {
+          if (baseMember->getType()->isStructureType())
+            return expr;
+        }
+      }
       if (const auto *arg = dyn_cast<DeclRefExpr>(base)) {
         if (const auto *varDecl = dyn_cast<VarDecl>(arg->getDecl())) {
           if (varDecl->hasAttr<HLSLVerticesAttr>() ||
@@ -10107,6 +10171,17 @@ const Expr *SpirvEmitter::collectArrayStructIndices(
         const Expr *base =
             collectArrayStructIndices(castExpr->getSubExpr(), rawIndex,
                                       rawIndices, indices, isMSOutAttribute);
+
+        // Mesh shader outputs are split into one stage variable per field, so
+        // a base class has no index of its own there.
+        if (isMSOutAttribute && base) {
+          if (*isMSOutAttribute)
+            return base;
+          if (const auto *arg = dyn_cast<DeclRefExpr>(base))
+            if (arg->getDecl()->hasAttr<HLSLVerticesAttr>() ||
+                arg->getDecl()->hasAttr<HLSLPrimitivesAttr>())
+              return base;
+        }
 
         llvm::SmallVector<uint32_t, 4> BaseIdx;
         getBaseClassIndices(castExpr, &BaseIdx);
