@@ -119,6 +119,12 @@ line upon naming the release. Refer to previous for appropriate section names.
   fast-math flags after merging equivalent code from both sides of a branch.
 - Reject root signatures with invalid shader visibility values.
 
+#### SPIR-V
+
+- SPIR-V debug info now reports source columns from the original source
+  rather than from preprocessed output
+  [#9022](https://github.com/microsoft/DirectXShaderCompiler/issues/9022).
+
 ### Upcoming Preview Release
 
 These changes apply to experimental preview shader models only and will not be
